@@ -8555,6 +8555,7 @@ function ChatThread({
   onOpenMoments,
   onHandPhone,   // 把手机递给TA看（她 2026-10-01：「角色反查手机」）
   onPhoneAsk,    // TA开口要看手机那张卡：给／不给
+  onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
@@ -9171,6 +9172,9 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
+    if (m.kind === "loveletter") return h(LoveLetterCard, { key: i, m: m, character: character,
+      onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
+      onAnswer: yes => onLoveLetter && onLoveLetter(m, yes) });
     if (m.kind === "askphone") return h(PhoneAskCard, { key: i, m: m, character: character,
       onGive: () => { onPhoneAsk && onPhoneAsk(m, true); setPeekOpen(true); },
       onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) });
@@ -9951,31 +9955,37 @@ function CallScreen({
     buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: (msgs || []).length,
     speaking: false, ttsCtx: audioSession && audioSession.ctx, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
-  // TA自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
-  // 时长只有这里数着(secRef)，而且TA最后那句得在屏幕上留一会儿，
-  // 不能话音未落就黑屏。
-  // ⚠️v67.43：原来是「立刻掐掉声音 + 固定 1.8 秒后收线」，于是开着自动播报时，
-  //   TA最后那句【一个字都没念出来】电话就断了。现在改成【等TA把话说完】：
-  //   队列里还有没念的、或者正念着，就一直等；念完再留一拍收线。
-  //   没开自动播报（她是看字的）照旧 1.8 秒——那时候「说完」就是屏幕上显示完了。
-  //   兜底 90 秒：合成卡住/断网时也不能让这通电话永远挂不掉。
+  // TA自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿。
+  // v74.499 起可以【不自己关页面】（v74.502 做成开关，默认仍自动退出）——群里报「char 挂断的话就看不到最后的消息了」：
+  //   原来是等念完（没开播报就固定 1.8 秒）再自动收线，看字的人根本来不及读完最后那几句。
+  //   （病历：v67.43 之前是「立刻掐掉声音 + 固定 1.8 秒收线」，开着播报时最后那句【一个字都没念出来】；
+  //    2026-09-12 改成等念完再收，2026-09-16 又补了嘴被 lvStop 一起拆掉那一刀——可看字的人照样读不完。）
+  //   现在停在通话页：「X挂断了」留在最后，时长在挂断那一刻定格，底下那颗红键变成「退出」，
+  //   她读完了自己点。最后几句照旧念完（嘴留着）。
+  //   只有缩成小窗时照旧自动收线——那时她本来就没在看这一页，小窗一直挂着反而碍事。
   const byeRef = useRef(false);
+  const byeSecRef = useRef(null);
+  const leaveAfterBye = () => { audioRef.current.enabled = false; lvStop(); onHangup(byeSecRef.current != null ? byeSecRef.current : secRef.current, "them"); };
+  const [stayAfterBye] = useCallStayAfterBye();
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
-    lvStop({ keepVoice: true });                // TA要挂了，先别再录她说话——但嘴留着，下面还等着它把最后一句念完
+    byeSecRef.current = secRef.current;
+    lvStop({ keepVoice: true });                // TA挂了，不再录她说话——但嘴留着，把最后一句念完
+  }, [!!bye]);
+  // 自动退出（默认）：等TA把话说完再收线——队列空了、没在念、也没在合成；没开播报就留 1.8 秒。
+  // 兜底 90 秒：合成卡住/断网时也不能让这通电话永远挂不掉。缩成小窗时不管选哪个都自动收。
+  useEffect(() => {
+    if (!bye || (stayAfterBye && !minimized)) return;
     const st = lv.current;
     const quiet = () => !audioRef.current.enabled || (!st.speaking && !st.busy && st.played >= msgsRef.current.length);
-    if (quiet()) {
-      const tm = setTimeout(() => onHangup(secRef.current, "them"), 1800);
-      return () => clearTimeout(tm);
-    }
     let done = false;
-    const finish = () => { if (done) return; done = true; audioRef.current.enabled = false; onHangup(secRef.current, "them"); };
+    const finish = () => { if (done) return; done = true; leaveAfterBye(); };
+    if (quiet()) { const tm = setTimeout(finish, 1800); return () => clearTimeout(tm); }
     const poll = setInterval(() => { if (quiet()) { clearInterval(poll); setTimeout(finish, 900); } }, 250);
     const cap = setTimeout(() => { clearInterval(poll); finish(); }, 90000);
     return () => { clearInterval(poll); clearTimeout(cap); };
-  }, [!!bye]);
+  }, [!!bye, !!minimized, stayAfterBye]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   // 她开口的那一刻，中间那一句就该没了——不是等TA下一句来了才换
   useEffect(() => { if (stream && sending) setSubLine(null); }, [stream, !!sending]);
@@ -10308,7 +10318,7 @@ function CallScreen({
     })();
   }, [autoVoice, audioReady, !!bye, (msgs || []).length, tp.play]);
   useEffect(() => {
-    const i = setInterval(() => setSec(s => { secRef.current = s + 1; return s + 1; }), 1000);
+    const i = setInterval(() => { if (byeRef.current) return; setSec(s => { secRef.current = s + 1; return s + 1; }); }, 1000);
     return () => clearInterval(i);
   }, []);
   const list = msgs || [];
@@ -10553,7 +10563,7 @@ function CallScreen({
     }, litPlate("0", ".78"))
   },
     // 打字框：点「打字」才从按键上面滑出来；发完一句不收，方便连着打
-    typeOpen ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
+    typeOpen && !bye ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
       h("input", {
         value: input,
         autoFocus: true,
@@ -10571,14 +10581,14 @@ function CallScreen({
         style: { width: 42, height: 42, borderRadius: 999, background: "rgba(255,255,255,0.2)" }
       }, h(ISend, { size: 17, color: "#fff" }))) : null,
     h("div", { "data-wk": "callbtns", className: "flex items-start justify-center", style: { gap: 34, padding: "14px 20px 6px" } },
-      canLive ? bigKey(live ? "麦克风开着" : "说话",
+      canLive && !bye ? bigKey(live ? "麦克风开着" : "说话",
         h(Svg, { size: 24, color: "#fff", sw: 2 }, h("path", { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" }), h("path", { d: "M5 11a7 7 0 0 0 14 0" }), h("path", { d: "M12 18v3" })),
         () => live ? lvStop() : lvStart(), live ? "#4a9d6e" : "rgba(255,255,255,0.2)", { "aria-label": live ? "关闭麦克风" : "开启麦克风", "data-wk": "callmic" }) : null,
-      bigKey("挂断",
+      bigKey(bye ? "退出" : "挂断",
         h(Svg, { size: 26, color: "#fff", sw: 2, style: { transform: "rotate(135deg)" } }, h("path", {
           d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z" })),
-        () => { audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": "挂断" }),
-      bigKey(typeOpen ? "收起键盘" : "打字",
+        () => { if (bye) { leaveAfterBye(); return; } audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": bye ? "退出通话" : "挂断" }),
+      bye ? null : bigKey(typeOpen ? "收起键盘" : "打字",
         h(Svg, { size: 24, color: "#fff", sw: 1.8 }, h("rect", { x: 3, y: 6, width: 18, height: 12, rx: 2 }), h("path", { d: "M7 10h.01M11 10h.01M15 10h.01M7 14h10" })),
         () => setTypeOpen(!typeOpen), typeOpen ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)", { "aria-label": typeOpen ? "收起打字框" : "打字", "data-wk": "calltypekey" }))));
 }
@@ -11090,6 +11100,16 @@ function setCallAutoVoice(value) {
 function useCallAutoVoice() {
   return useOnlineDisplayPreference(callAutoVoice, ["x_callAutoVoice"], "archive-call-playback", setCallAutoVoice);
 }
+// TA挂断后停不停在通话页（v74.502）。她喜欢挂了就走（默认）；群里有人要留下来把最后几句读完。
+function callStayAfterBye() { return loadJSON("x_callStayAfterBye", false) === true; }
+function setCallStayAfterBye(value) {
+  if (!saveJSON("x_callStayAfterBye", value === true)) return false;
+  window.dispatchEvent(new Event("archive-call-stay"));
+  return true;
+}
+function useCallStayAfterBye() {
+  return useOnlineDisplayPreference(callStayAfterBye, ["x_callStayAfterBye"], "archive-call-stay", setCallStayAfterBye);
+}
 // iOS 的默认 ambient 会被静音键静音，即使 AudioContext 仍是 running。
 // 单/群语音与视频共用媒体路由；按 context 持有，旧通话卸载不能重置新通话。
 function routeCallAudio(owner, mode) {
@@ -11152,7 +11172,19 @@ function OnlineMediaSettings() {
         error ? "保存失败，点此重试" : auto ? "连续播报：开" : "连续播报：关")),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
       "语音和视频通话共用；拨打或接听后，按顺序播放对方的新消息。需配置音色与语音线路，合成会使用额度。这里是【还没单独设过的角色】用的默认值——每个角色的聊天设置里可以单独开关，还能再开「流式字幕」。"),
+    h(CallStayControl, null),
     h(OnlineTranslationControl, null));
+}
+function CallStayControl() {
+  const t = useTheme(), [stay, setStay] = useCallStayAfterBye(), [error, setError] = useState(false);
+  return h("div", { style: { marginTop: 14 }, "data-call-stay-setting": true },
+    h("div", { className: "flex items-center justify-between gap-3" },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "TA挂断电话之后"),
+      h("button", { type: "button", "aria-pressed": stay, onClick: () => setError(!setStay(!stay)),
+        style: { fontFamily: F_BODY, fontSize: 11, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 9px" } },
+        error ? "保存失败，点此重试" : stay ? "留在通话页" : "自动退出")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 6 } },
+      "自动退出：TA最后那几句念完（没开播报就停一两秒）就收线。留在通话页：屏幕停在「TA挂断了」，最后几句留着慢慢看，点中间的「退出」再走。"));
 }
 function OnlineTranslationControl() {
   const t = useTheme();
@@ -12524,6 +12556,52 @@ function PeekSneakCard({ m, character, onPick }) {
       st !== "pending" ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "ask" ? "你当面问了" : "你装作没看见") : null));
 }
 // TA开口要看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：给，就打开递手机那张单子；不给，TA照自己的性子接
+// TA写给她的申请信（v74.507）：先是一个封着的信封，拆开才读到；读完再选。
+// 形状照 PhoneAskCard（同一种「他递过来一样东西、她选」），信封那一层是这张卡自己的。
+// v74.509 她嫌丑重做：信封是真的信封（底、两侧折、上盖、火漆），拆开是一张信纸（衬线字、淡横线、落款）。
+//   颜色全从角色的 color 和 useTheme 里取，不写死成哪一种「浪漫粉」——冷色调的角色信封也是冷的。
+function LoveLetterCard({ m, character, onOpen, onAnswer }) {
+  const t = useTheme();
+  const c = character || {}, st = m.state || "sealed";
+  const nm = c.remark || c.name || "TA";
+  const ink = c.color || "#a8505f";
+  const paper = "#fbf7ef", paperLine = "rgba(120,96,70,.13)", serif = "'Noto Serif SC','Songti SC','STSong',serif";
+  if (st === "sealed") return h("div", { className: "py-1 flex justify-start" },
+    h("button", { "data-wk": "letter", "data-state": "sealed", onClick: onOpen, "aria-label": "拆开" + nm + "的信", className: "active:opacity-80 text-left",
+      style: { width: 236, padding: 0, background: "transparent", border: "none" } },
+      h("div", { "data-wk": "letterseal", style: { position: "relative", height: 148, borderRadius: 6, overflow: "hidden",
+        background: "linear-gradient(160deg," + paper + " 0%,#f1e8da 100%)", boxShadow: "0 1px 2px rgba(60,40,20,.10), 0 6px 18px rgba(60,40,20,.10)" } },
+        h("svg", { viewBox: "0 0 236 148", width: "100%", height: "100%", preserveAspectRatio: "none", style: { position: "absolute", inset: 0, display: "block" } },
+          // 两侧折和底折（淡淡的阴影分出三片纸）
+          h("path", { d: "M0 148 L118 70 L236 148 Z", fill: "rgba(120,90,60,.06)" }),
+          h("path", { d: "M0 0 L104 82 L0 148 Z", fill: "rgba(120,90,60,.035)" }),
+          h("path", { d: "M236 0 L132 82 L236 148 Z", fill: "rgba(120,90,60,.035)" }),
+          // 上盖
+          h("path", { d: "M0 0 L118 84 L236 0 Z", fill: "#f6efe3", stroke: "rgba(120,90,60,.16)", strokeWidth: 0.8 })),
+        // 火漆
+        h("div", { "data-wk": "letterstamp", style: { position: "absolute", left: "50%", top: 84, transform: "translate(-50%,-50%)", width: 34, height: 34, borderRadius: 999,
+          background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 45%), " + ink,
+          boxShadow: "0 1px 0 rgba(255,255,255,.25) inset, 0 2px 5px rgba(0,0,0,.22)", display: "flex", alignItems: "center", justifyContent: "center",
+          color: "rgba(255,255,255,.92)", fontSize: 14, fontFamily: serif } }, "♥")),
+      h("div", { "data-wk": "lettercover", style: { padding: "8px 2px 0" } },
+        h("div", { style: { fontFamily: serif, fontSize: 13.5, color: t.ink, letterSpacing: ".02em" } }, "致你 · " + nm + " 寄"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "轻点拆开"))));
+  return h("div", { className: "py-1 flex justify-start" },
+    h("div", { "data-wk": "letter", "data-state": st, style: { width: 272, borderRadius: 6, overflow: "hidden",
+      background: paper, boxShadow: "0 1px 2px rgba(60,40,20,.10), 0 8px 22px rgba(60,40,20,.10)" } },
+      h("div", { style: { height: 3, background: ink, opacity: .75 } }),
+      h("div", { style: { padding: "16px 18px 14px" } },
+        h("div", { "data-wk": "letterbody", style: { fontFamily: serif, fontSize: 14.5, color: "#3a2f27", lineHeight: "28px", whiteSpace: "pre-wrap",
+          userSelect: "text", WebkitUserSelect: "text",
+          backgroundImage: "linear-gradient(to bottom, transparent 27px, " + paperLine + " 27px, " + paperLine + " 28px)", backgroundSize: "100% 28px" } }, m.content || ""),
+        h("div", { style: { fontFamily: serif, fontSize: 13, color: "#6b5a4c", textAlign: "right", marginTop: 10 } }, "—— " + nm),
+        st === "open"
+          ? h("div", { "data-wk": "letterbtns", className: "flex gap-2", style: { marginTop: 14 } },
+              h("button", { onClick: () => onAnswer(false), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 999, border: "1px solid rgba(120,90,60,.25)", background: "transparent", fontFamily: F_BODY, fontSize: 14, color: "#5b4a3d" } }, "再想想"),
+              h("button", { onClick: () => onAnswer(true), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, border: "none", background: ink, color: "#fff", fontFamily: F_BODY, fontSize: 14 } }, "答应"))
+          : h("div", { "data-wk": "letterbtns", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(120,90,60,.22)", fontFamily: F_BODY, fontSize: 12, color: st === "accepted" ? ink : "#9a8a7c", textAlign: "center" } },
+              st === "accepted" ? "你答应了 ♥" : "你说再想想"))));
+}
 function PhoneAskCard({ m, character, onGive, onRefuse }) {
   const t = useTheme();
   const c = character || {}, st = m.state || "pending";
@@ -16895,6 +16973,7 @@ function ChatSettings({
   // 否则只存一栏改动、别的栏空着，合并回去会拿全局的值顶上，看着像改了又没改全。
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
+  const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
@@ -17166,6 +17245,7 @@ function ChatSettings({
       apiId,
       engineerEyes,
       webSearch,
+      noLoveLetter: !loveLetter,
       toyEnabled,
       defaultOffline,
       actDesc,
@@ -17281,10 +17361,10 @@ function ChatSettings({
   // 给住进项目的工程师角色（如小克）用；普通角色别开，省 token 也免得 TA 突然聊起报错日志出戏。
   h("div", { className: "pt-4" },
     h("div", { className: "flex items-center justify-between" },
-      h("div", null,
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "驻场工程师的眼睛"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "让 " + cNm + " 看得见这台 app 的体征：版本、存储占用、今日消息量、最近报错。适合住进项目的工程师角色。")),
-      h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) })),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: engineerEyes, onChange: () => setEngineerEyes(v => !v) }))),
     // 书房直通钥匙（她 2026-09-25 拍板「全走 CC」）：贴一次 relay 的 cc_token，这个角色的
     // 私聊/线下默认改走书房窗口。钥匙存本机 localStorage，不进 saves 不上云（见 cc-lane.js）。
     engineerEyes && window.CcLane && h("div", { className: "pt-3" },
@@ -17302,10 +17382,10 @@ function ChatSettings({
   // 默认关，一个一个角色自己开：古代角色开了就会真的去搜引擎，那是出戏；而且搜索另计费。
   h("div", { className: "pt-4" },
     h("div", { className: "flex items-center justify-between" },
-      h("div", null,
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
-      h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))))),
   show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       // ⚠️v62.37 起这一层就是常开的，这里写的词真的会发出去。原来那句「不会进
@@ -17492,7 +17572,14 @@ function ChatSettings({
       onApply: L => { if (L.skin != null) setSkin(L.skin); if (L.bubble != null) setBubble(L.bubble); if (L.font != null) setFont(L.font);
         if (L.chatBg != null) setChatBg(L.chatBg); if (L.layout) setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout)); if (L.customCSS != null) setCustomCSS(L.customCSS); } }),
     h(ChatCssFields, { css: customCSS, setCSS: setCustomCSS, fileBase: (settings.remark || (character && character.name) || "TA"), seedName: skin,
-      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") }, h("div", {
+      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
+  // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还不是恋人时，TA自己想表白就能写一封；关掉就不会
+  h("div", { className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "允许 Ta 主动表白"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
+    h("div", { className: "shrink-0" }, h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) }))),
+  h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
     style: {

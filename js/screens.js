@@ -584,9 +584,11 @@ function CastForm({
     h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 3, placeholder: "每张图都必须保留的服装" }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 9, marginBottom: 4 } }, "随身不摘的东西"),
     h(LineArea, { value: photoAccessories, onChange: e => setPhotoAccessories(e.target.value), rows: 2, placeholder: "眼镜、耳钉、戒指等固定配件" }));
+  // 预置那排只是 MiniMax 的 ID；换了别家就只留手填框，免得点了一个那家不认的
+  const ttsProv = typeof loadTtsApi === "function" ? loadTtsApi().provider : "minimax";
   const voiceFields = h("div", null,
-    h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
-    h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: "或直接填 voice_id（含克隆音色）", className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+    ttsProv === "minimax" && h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
+    h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
   return h("div", { className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
     h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
@@ -8025,13 +8027,14 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     finally { setCloning(false); }
   };
   const runTest = async () => {
-    if (!ttsReady(c)) { toast && toast("先填 GroupId 和密钥"); return; }
+    if (!ttsReady(c)) { toast && toast(c.provider === "minimax" ? "先填 GroupId 和密钥" : "先填密钥"); return; }
+    if (!ttsDefaultVoice(c)) { toast && toast("先填一个默认音色 ID 才能试听"); return; }
     const aud = new Audio();
     testAudRef.current = aud;
     aud.play().catch(() => {});
     setTesting(true); setTestErr(null);
     try {
-      const blob = await ttsSpeak("你好呀，听听我的声音合不合适？", "female-shaonv");
+      const blob = await ttsSpeak("你好呀，听听我的声音合不合适？", ttsDefaultVoice(c));
       const url = URL.createObjectURL(blob);
       aud.src = url; aud.onended = () => URL.revokeObjectURL(url);
       await aud.play();
@@ -8062,9 +8065,31 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax 语音合成。开了之后，选了音色的角色发的语音消息能点 ▶ 真听。⭐按字符计费，但只有你点开那条才合成；合成过的存在本机、重播免费。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "接 MiniMax / ElevenLabs / Fish Audio 语音合成。开了之后，选了音色的角色发的语音消息能点 ▶ 真听。⭐按字符计费，但只有你点开那条才合成；合成过的存在本机、重播免费。")),
       h(Toggle, { on: c.enabled === true, onChange: v => { set({ enabled: v }); toast && toast(v ? "已开启语音合成（点开才收费）" : "已关闭"); } })),
     c.enabled ? h("div", { className: "pt-3" },
+      row("用哪一家（角色档案里的「音色」要填这一家的声音 ID）", h("div", { style: { display: "flex", gap: 6 } },
+        [["minimax", "MiniMax"], ["elevenlabs", "ElevenLabs"], ["fish", "Fish Audio"]].map(pair =>
+          h("button", { key: pair[0], onClick: () => set({ provider: pair[0] }), className: "active:opacity-70",
+            style: { flex: 1, fontFamily: F_BODY, fontSize: 12, padding: "8px 2px", borderRadius: 8, background: c.provider === pair[0] ? t.tint : t.bg2, border: "1px solid " + (c.provider === pair[0] ? t.tint : t.line), color: c.provider === pair[0] ? "#fff" : t.sub } }, pair[1])))),
+      c.provider === "elevenlabs" ? h("div", null,
+        row("密钥 API Key（elevenlabs.io → Developers → API Keys）", h("input", { value: c.elKey || "", onChange: e => set({ elKey: e.target.value }), placeholder: "sk_…", type: "password", style: inSt })),
+        row("模型", h("select", { value: c.elModel || "eleven_multilingual_v2", onChange: e => set({ elModel: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
+          h("option", { value: "eleven_multilingual_v2" }, "eleven_multilingual_v2（中文好·推荐）"),
+          h("option", { value: "eleven_v3" }, "eleven_v3（表现力最强）"),
+          h("option", { value: "eleven_flash_v2_5" }, "eleven_flash_v2_5（快·便宜）"),
+          h("option", { value: "eleven_turbo_v2_5" }, "eleven_turbo_v2_5"))),
+        row("默认音色 Voice ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.elVoice || "", onChange: e => set({ elVoice: e.target.value }), placeholder: "在 Voices 里点声音 → 复制 Voice ID", style: inSt }))) : null,
+      c.provider === "fish" ? h("div", null,
+        row("接口地址（默认官方；网页直连不通时换成你的中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
+        row("密钥 API Key（fish.audio → API Keys）", h("input", { value: c.fishKey || "", onChange: e => set({ fishKey: e.target.value }), placeholder: "…", type: "password", style: inSt })),
+        row("模型", h("select", { value: c.fishModel || "s1", onChange: e => set({ fishModel: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
+          h("option", { value: "s1" }, "s1（推荐）"),
+          h("option", { value: "speech-1.6" }, "speech-1.6"),
+          h("option", { value: "speech-1.5" }, "speech-1.5"))),
+        row("默认音色 ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.fishVoice || "", onChange: e => set({ fishVoice: e.target.value }), placeholder: "声音页网址最后那串 ID", style: inSt }))) : null,
+      c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
+      c.provider === "minimax" ? h("div", null,
       row("接口地址（key 在哪个平台申请的就点哪个，别混）", h("div", null,
         h("div", { style: { display: "flex", gap: 6, marginBottom: 6 } },
           [["国际版 platform.minimax.io", "https://api.minimax.io"], ["国内 minimaxi.com", "https://api.minimaxi.com"], ["老国内站", "https://api.minimax.chat"]].map(pair =>
@@ -8078,10 +8103,10 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("option", { value: "speech-02-turbo" }, "speech-02-turbo（快·便宜）"),
         h("option", { value: "speech-01-hd" }, "speech-01-hd"),
         h("option", { value: "speech-01-turbo" }, "speech-01-turbo"))),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "填好后，去角色档案里给每位选一个「音色」，TA 的语音消息就能听了。")) : null,
       h("button", { onClick: runTest, disabled: testing, className: "w-full mt-4 active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.tint, borderRadius: 10, padding: "11px 0" } }, testing ? "合成中…" : "🔊 试听一句（诊断接口）"),
       // ---- 语气标记验货台 ----
-      h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
+      c.provider === "minimax" && h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "语气标记 · 先听一条"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 9 } },
           "⭐实测过了（她 2026-09-21 在这儿听的）：**停顿 <#0.5#> 认**，圆括号里的英文标记不认——那几个词会被当成单词念出来。"
@@ -8102,7 +8127,7 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("button", { onClick: runMark, disabled: markBusy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 10, padding: "10px 0" } }, markBusy ? "合成中…" : "🔊 按原文合成（带标记）"),
         markErr ? h("div", { style: { marginTop: 8, padding: "9px 11px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: "#c25a4a", userSelect: "text", WebkitUserSelect: "text", wordBreak: "break-all" } }, markErr) : null),
       // ---- 克隆音色：传人声样本 → 得到专属 voice_id → 填进角色档案 ----
-      h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
+      c.provider === "minimax" && h("div", { className: "pt-4 mt-4", style: { borderTop: "1px dashed " + t.line } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "🎤 克隆音色"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "传一段【只有一个人说话、没背景音乐】的干净人声（10 秒~5 分钟，mp3/wav/m4a），起一个专属 voice_id——克隆好后去角色档案把「音色」填成这个 id 就是 TA 的声音了。⚠️ 克隆按次收费（比合成贵），確認样本干净再点；只克隆你有权使用的声音。"),
         // accept 不能只写 audio/*：iOS 会只给录音/媒体库入口、选不了「文件」里的 mp3——列明扩展名才会出现文件 App 选项

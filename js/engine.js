@@ -5219,14 +5219,33 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
 // 配置存 x_ttsApi（可云同步）；每角色音色在角色档案 voiceId 字段
 // ============================================================
 function loadTtsApi() {
-  const def = { baseUrl: "https://api.minimax.io", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false };
+  // provider：minimax（默认，老存档没这个字段＝照旧）／elevenlabs／fish。三家各存各的 key 和默认音色，
+  // 来回切不用重填；角色档案里的 voiceId 填的是【当前这家】的声音 ID。
+  const def = { baseUrl: "https://api.minimax.io", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false,
+    provider: "minimax", elKey: "", elModel: "eleven_multilingual_v2", elVoice: "",
+    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "" };
   let a = def;
   try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
   // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
   a.baseUrl = cleanBaseUrl(a.baseUrl);
   a.groupId = String(a.groupId || "").trim();
   a.apiKey = String(a.apiKey || "").replace(/\s+/g, "");
+  if (TTS_PROVIDERS.indexOf(a.provider) < 0) a.provider = "minimax";
+  a.elKey = String(a.elKey || "").replace(/\s+/g, "");
+  a.fishKey = String(a.fishKey || "").replace(/\s+/g, "");
+  // 中转站给的地址常常自带 /v1 甚至 /v1/tts（群里报的就是 https://fishaudio.org/v1）——下面还要拼 /v1/tts，先剥掉
+  a.fishBase = (cleanBaseUrl(a.fishBase) || "https://api.fish.audio").replace(/\/v1(\/tts)?\/?$/i, "");
+  a.elVoice = String(a.elVoice || "").trim();
+  a.fishVoice = String(a.fishVoice || "").trim();
   return a;
+}
+const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish"];
+// 没给音色时用哪一个：MiniMax 有预置的 female-shaonv；另两家没有通用 ID，只能用设置里填的默认音色
+function ttsDefaultVoice(a) {
+  a = a || loadTtsApi();
+  if (a.provider === "elevenlabs") return a.elVoice || "";
+  if (a.provider === "fish") return a.fishVoice || "";
+  return "female-shaonv";
 }
 function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
 // 真声通话的耳朵：书房 Mac 上的 whisper 识别服务（voice-live），带门锁 token。
@@ -5283,7 +5302,13 @@ async function earsTranscribe(wavBlob) {
 // 克隆音色库：克过的 voice_id 登记在本机（只是清单方便管理/指派，删掉不影响 MiniMax 账号里的音色）
 function loadVoiceLib() { try { const v = JSON.parse(localStorage.getItem("x_voiceLib") || "[]"); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
 function saveVoiceLib(list) { return saveJSON("x_voiceLib", list || []); }
-function ttsReady(a) { a = a || loadTtsApi(); return !!(a.enabled && a.groupId && a.apiKey); }
+function ttsReady(a) {
+  a = a || loadTtsApi();
+  if (!a.enabled) return false;
+  if (a.provider === "elevenlabs") return !!a.elKey;
+  if (a.provider === "fish") return !!a.fishKey;
+  return !!(a.groupId && a.apiKey);
+}
 // MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
 const TTS_VOICES = [
   { id: "male-qn-qingse", name: "青涩青年·男" }, { id: "male-qn-jingying", name: "精英青年·男" },
@@ -6162,7 +6187,9 @@ async function jpKanaReading(text) {
 // 所以只留一份：ttsSpeak 和「查缓存」用的是同一个函数算出来的同一把钥匙。
 function ttsKeyFor(text, voiceId, opts) {
   opts = opts || {};
-  const vid = voiceId || "female-shaonv";
+  const prov = loadTtsApi().provider;
+  const vid = String(voiceId || "").trim() || ttsDefaultVoice();
+  if (!vid) return null;
   // ⚠️送去合成之前先剥掉会被念出来的那些标记（停顿留着）。收在这儿一处：
   //   ttsKeyFor 是所有合成路径的共同上游（语音条、通话播报、庭院、验货台都走它），
   //   所以钥匙和真正送上去的文本永远是同一份——在外面各剥各的，
@@ -6200,8 +6227,9 @@ function ttsKeyFor(text, voiceId, opts) {
   const wantKana = !!ve.jpKana && boost === "Japanese" && /[一-鿿]/.test(txt);
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，
   // hq44 让 v48.31 之前 32k 音质的旧缓存自然失效（同句会用新参数重合成一次，之后照旧缓存免费）
-  const key = ttsCacheKey(vid + ":" + (emo || "raw") + ":hq44:lb:" + boost + (slowed ? ":s" + Math.round(spd * 100) : "") + (wantKana ? ":kana" : ""), txt);
-  return { key: key, txt: txt, vid: vid, ve: ve, emo: emo, spd: spd, slowed: slowed, boost: boost, wantKana: wantKana, pit: pit };
+  // 换了服务商，同一个 ID 是另一把嗓子——钥匙带上服务商（MiniMax 不带，老缓存照旧命中）
+  const key = ttsCacheKey((prov === "minimax" ? "" : prov + ":") + vid + ":" + (emo || "raw") + ":hq44:lb:" + boost + (slowed ? ":s" + Math.round(spd * 100) : "") + (wantKana ? ":kana" : ""), txt);
+  return { key: key, prov: prov, txt: txt, vid: vid, ve: ve, emo: emo, spd: spd, slowed: slowed, boost: boost, wantKana: wantKana, pit: pit };
 }
 // 这一句合成过没有。只读缓存，不打上游，也就不花钱。
 async function ttsCached(text, voiceId, opts) {
@@ -6242,18 +6270,24 @@ async function ttsSynth(text, voiceId, opts) {
   opts = opts || {};
   const a = loadTtsApi();
   if (!ttsReady(a)) throw new Error("没配置语音 API（设置 · 语音 TTS）");
-  const vid = voiceId || "female-shaonv";
   // ⚠️剥标记跟钥匙用同一支（ttsMarkForSynth）：各剥各的就会出现
   //   「钥匙按这一份算、音频按那一份合成」，缓存从此对不上。
   const txt = ttsMarkForSynth(String(text || "")).slice(0, 800);
   if (!txt) throw new Error("这条语音没有文字内容");
   const _k = ttsKeyFor(text, voiceId, opts);
+  if (!_k) throw new Error("没有音色：去角色档案填这家的声音 ID，或在设置里填一个默认音色");
+  const vid = _k.vid;
   const ve = _k.ve, emo = _k.emo, spd = _k.spd, slowed = _k.slowed, pit = _k.pit, boost = _k.boost, wantKana = _k.wantKana, key = _k.key;
   const hit = await idbAudGet(key).catch(() => null);
   if (hit && hit.size > 0) return hit;
   // 缓存没命中才真去转假名（转换也缓存进最终音频，重听免费）
   let synthTxt = txt;
   if (wantKana) { try { synthTxt = await jpKanaReading(txt); } catch (e) {} }
+  if (a.provider !== "minimax") {
+    const blob = await ttsSynthOther(a, synthTxt, vid, spd);
+    idbAudPut(key, blob).catch(() => {});
+    return blob;
+  }
   const base = cleanBaseUrl(a.baseUrl) || "https://api.minimax.io";
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), 60000);
@@ -6286,6 +6320,45 @@ async function ttsSynth(text, voiceId, opts) {
   const blob = new Blob([arr], { type: "audio/mpeg" });
   idbAudPut(key, blob).catch(() => {});
   return blob;
+}
+// ElevenLabs / Fish Audio：两家都直接回 mp3 二进制。停顿标记 <#0.5#> 是 MiniMax 的写法——
+// ElevenLabs 换成它认的 <break time="0.5s" />，Fish 不认标签，换成省略号让它自己停一下。
+// 情绪参数只有 MiniMax 有，这两家不传；语速照音色库里调的那一档。
+async function ttsSynthOther(a, txt, vid, spd) {
+  let r;
+  try {
+  if (a.provider === "elevenlabs") {
+    const body = txt.replace(TTS_MARK_PAUSE, m => ' <break time="' + Math.min(3, parseFloat(m.replace(/[^\d.]/g, "")) || 0.5) + 's" /> ');
+    r = await fetchT("https://api.elevenlabs.io/v1/text-to-speech/" + encodeURIComponent(vid) + "?output_format=mp3_44100_128", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "xi-api-key": a.elKey, Accept: "audio/mpeg" },
+      body: JSON.stringify({ text: body, model_id: a.elModel || "eleven_multilingual_v2", voice_settings: { stability: 0.5, similarity_boost: 0.75, speed: Math.max(0.7, spd || 1) } })
+    }, 60000);
+  } else {
+    const body = txt.replace(TTS_MARK_PAUSE, "…");
+    r = await fetchT((a.fishBase || "https://api.fish.audio") + "/v1/tts", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.fishKey, model: a.fishModel || "s1" },
+      body: JSON.stringify({ text: body, reference_id: vid, format: "mp3", mp3_bitrate: 128, normalize: true, latency: "normal", prosody: { speed: spd || 1, volume: 0 } })
+    }, 60000);
+  }
+  } catch (e) {
+    // 跨域被挡在浏览器里只报「Load failed / Failed to fetch」，fetchT 会把它说成「写太长被掐断」——这里不是那回事
+    if (/超时/.test(String(e && e.message))) throw e;
+    throw new Error("连不上 " + (a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + "：网络不通，或者这家不让网页直接调用（跨域）。"
+      + (a.provider === "fish" ? "可以在「接口地址」换成一个转发到 api.fish.audio 的中转地址。" : "国内网络要能连上 elevenlabs.io。")
+      + "\n请求地址：" + (a.provider === "fish" ? (a.fishBase || "https://api.fish.audio") + "/v1/tts" : "api.elevenlabs.io")
+      + "\n原始报错：" + String((e && e.message) || e).replace(/^连接中断了（Load failed）。[\s\S]*原始报错：/, "").slice(0, 120));
+  }
+  if (!r.ok) {
+    let msg = "";
+    try { msg = (await r.text()).replace(/\s+/g, " ").slice(0, 200); } catch (e) {}
+    throw new Error((a.provider === "fish" ? "Fish Audio" : "ElevenLabs") + " 报错 HTTP " + r.status + (msg ? "：" + msg : "")
+      + (r.status === 401 || r.status === 403 ? "（检查密钥是否完整、账户额度够不够）" : r.status === 404 || r.status === 422 || /VOICE_NOT_FOUND|voice.{0,12}not.{0,6}found/i.test(msg) ? "（声音 ID 不对：要填这一家的声音 ID——Fish 是声音页网址 fish.audio/m/ 后面那串，不是名字；试听用的是设置里的「默认音色 ID」）" : ""));
+  }
+  const blob = await r.blob();
+  if (!blob || blob.size < 200) throw new Error("返回的音频是空的");
+  return blob.type ? blob : new Blob([blob], { type: "audio/mpeg" });
 }
 // 克隆音色：①上传一段干净人声（10s~5min，mp3/wav/m4a）→ file_id ②/v1/voice_clone 绑到自定 voice_id
 // 克隆成功后把 voice_id 填进角色档案「音色」即可用（按 MiniMax 规则克隆按次收费，具体看你账户计费页）

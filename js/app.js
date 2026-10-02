@@ -9693,7 +9693,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       base = [...base, um];
     }
     // 她撤回的那条留在原位、变成一行提示（recallStub，单聊群聊共用，定义在 groupContextRows 上面）
-    const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : m)
+    // 他写过的申请信留在历史原位：信是他说过的话，她怎么回的也一起记着（不然下一轮他不知道她答没答应）
+    const _letterRow = m => ({ ...m, content: "〔你写给她的情侣申请信" + (m.state === "accepted" ? "，她答应了" : m.state === "declined" ? "，她说再想想" : m.state === "open" ? "，她拆开了还没回" : "，她还没拆") + "〕" + String(m.content || "") });
+    const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : (m && m.kind === "loveletter") ? _letterRow(m) : m)
       .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
         // 「TA想看你手机」「你发现TA偷翻过」那两张卡不是TA说的话（她 2026-10-02）；那几件事走下面的查手机记事
         && m.kind !== "askphone" && m.kind !== "peeksneak");
@@ -9925,9 +9927,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const caughtHint = opts.peekCaught ? "\n\n【此刻】你刚才趁 " + uName + " 不注意偷偷翻了她的手机，被她发现了，她当面问你。"
         + (opts.peekCaught.thoughts && opts.peekCaught.thoughts.length ? "你当时心里想过：" + opts.peekCaught.thoughts.slice(0, 4).map(x => "「" + x + "」").join("") + "。" : "")
         + "认不认、怎么解释、反咬一口还是服软，全看你这个人。" : "";
+      const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——你们现在在一起了。怎么接这一下，全看你这个人。"
+        : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const peekMemo = opts.peekPhone ? "" : peekMemoFor(charId);
-      const dongnianHint = peekHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const dongnianHint = peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -10313,6 +10317,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("askPhone");
         capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
       }
+      // 申请信（v74.507）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
+      //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
+      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
+        openCaps.push("loveLetter");
+        capState.push("loveLetter：你们还不是恋人。如果你【自己】已经想跟她在一起、而且这一刻就想说出口，可以给她写一封申请信——填信的全文，用你自己的口吻和长短。"
+          + "她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就别写；这不是每轮都该有的东西。");
+      }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
       // 只挑【最近有动静的那个共同群】，省得TA自己乱选；没有共同群就不开这个能力。
       // 同上：封闭群不收外面的话，别把私聊里的东西投进去
@@ -10506,7 +10517,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -11158,7 +11169,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
-        parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.block = false;
+        parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.block = false; parsed.loveLetter = null;
       }
       // 角色自行撤回一句：先正常显示 ~1s，再变成「已撤回」（点开看内容+撤回想法）
       const recall = parsed.recall && parsed.recall.text && String(parsed.recall.text).toLowerCase() !== "null" ? parsed.recall : null;
@@ -11454,6 +11465,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const ask = { id: "ask_" + Date.now(), role: "assistant", kind: "askphone", content: String(parsed.askPhone === true ? "手机给我看看。" : parsed.askPhone).slice(0, 60), state: "pending", ts: Date.now() + 1 };
         pChat(charId, p => [...p, ask]);
         try { const a = loadJSON("x_peekAsk", {}) || {}; a[charId] = Date.now(); saveJSON("x_peekAsk", a); } catch (e) {}
+        delivered = true;
+      }
+      const _letter = typeof parsed.loveLetter === "string" ? parsed.loveLetter.trim() : "";
+      if (_letter && _letter.toLowerCase() !== "null" && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
+        pChat(charId, p => [...p, { id: "ll_" + Date.now(), role: "assistant", kind: "loveletter", content: _letter.slice(0, 6000), state: "sealed", ts: Date.now() + 2 }]);
+        markLoveLetter(charId, { ts: Date.now() });
         delivered = true;
       }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
@@ -13781,7 +13798,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 这两处一直没跟上——又是「一层写在两处，第二处没跟上」。
   // 规矩：读不出来就重问一次；还是读不出来就【明说读不出来】，让调用方标成「再问一次」，
   //       绝不替TA做决定。accept 缺字段也算读不出来（能解析 ≠ TA表了态）。
-  const _yesVal = v => v === true || v === "true" || v === 1 || v === "1";
+  // 拒到第几次就由代码定下「这次解」（v74.503）：前五次全看他，第六次起只管他怎么解
+  const UNBLOCK_FLOOR_TRIES = 6;
+  const _yesVal = v => v === true || v === 1 || /^\s*(true|1|yes|y|是|同意|接受|好)\s*$/i.test(String(v == null ? "" : v));
   const _hasAccept = d => !!d && d.accept !== undefined && d.accept !== null;
   const askYesNo = async (route, system, messages, opts) => {
     let d = extractJSON(await callAI(route, system, messages, opts));
@@ -13870,23 +13889,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .slice(-3).map((m, k) => (k + 1) + ". 「" + String(m.plea).slice(0, 60) + "」" + (m.status === "declined" ? "（你拒了）" : ""));
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
     pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
+    // 地板（v74.503，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
+    //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
+    //   拒到第 UNBLOCK_FLOOR_TRIES 次，这一次由代码定下【解】；怎么解（嘴硬、别扭、带条件）还是他自己说。
+    const floor = tries >= UNBLOCK_FLOOR_TRIES;
     startLane("c:" + chatKey);
     try {
-      const r = await askYesNo(apiFor(char.id), blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
+      const head = blockBundleFor(char, chatKey) + "\n\n【场景】你之前把用户拉黑了。现在用户发来一条『解除拉黑申请』，诉说内容：「" + (pleaText || "（没说什么）") + "」。"
         + (bk.reason ? "\n【你当初为什么拉黑】" + bk.reason : "")
         + (hoursSince != null ? "\n【拉黑到现在过了】约 " + hoursSince + " 小时" : "")
-        + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "")
-        + "\n\n完全代入「" + char.name + "」，按【你自己的性格】决定接不接受——不是按「该不该原谅」这种公道话，是按你这种人会怎么做。"
-        + "\n【看这几件事，别只看态度好不好】"
-        + "\n· TA 这次说的，有没有真的碰到【你当初生气的那件事】？只是笼统道歉、撒娇、催你、或者反过来讲道理压你——那没碰到。"
-        + "\n· 有没有新东西？和上几次几乎一样地再说一遍，不该管用。"
-        + "\n· 你是什么脾气：嘴硬心软的会找个台阶下；记仇的会晾着；怕失去 TA 的会秒开；被真正踩了底线的，说得再好听也先不松口。"
-        + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。"
-        + "求到第三次以上、时间也过去挺久了，除非当初那事真的很重，否则该松了——一直拒绝只会把这段关系拖死，那不是你想要的。"
-        + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
-        + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
+        + "\n【这是 TA 第 " + tries + " 次来求你】" + (pastPleas.length > 1 ? "\n之前说过：\n" + pastPleas.slice(0, -1).join("\n") : "");
+      const judge = floor
+        ? "\n\n完全代入「" + char.name + "」。TA 已经来求了 " + tries + " 次，你这一次【解除拉黑】——气不一定消了，但你不打算再把 TA 关在外面。"
+          + "\n用你这个人会用的方式解：可以嘴硬、别扭、记着账、提条件，也可以干脆心软；把你真正在意的那件事说出来。"
+          + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC
+        : "\n\n完全代入「" + char.name + "」，按【你自己的性格】决定接不接受——不是按「该不该原谅」这种公道话，是按你这种人会怎么做。"
+          + "\n【看这几件事，别只看态度好不好】"
+          + "\n· TA 这次说的，有没有真的碰到【你当初生气的那件事】？只是笼统道歉、撒娇、催你、或者反过来讲道理压你——那没碰到。"
+          + "\n· 有没有新东西？和上几次几乎一样地再说一遍，不该管用。"
+          + "\n· 你是什么脾气：嘴硬心软的会找个台阶下；记仇的会晾着；怕失去 TA 的会秒开。"
+          + "\n【松紧】这不是闯关，别为难 TA：只要 TA 说到点子上、或者你本来就是心软的人，就接受。求得越多、隔得越久，越该松。"
+          + "\n拒绝时要说清【你到底在意什么、想听到什么】，别只甩一句「还没消气」让 TA 猜。"
+          + "\n用即时通讯口吻回几句。\n【输出】只输出 JSON：{\"accept\":true或false,\"say\":[\"气泡1\",\"气泡2\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC;
+      const r0 = await askYesNo(apiFor(char.id), head + judge, [{ role: "user", content: pleaText || "（申请解除拉黑）" }], { maxTokens: 65535 });
       // 读不出来就把申请留在 pending，别记这一次 tries，也别当成TA拒绝了
-      if (!r.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
+      if (!r0.ok) { toast("没读懂 TA 的回应，可以再试一次"); return; }
+      const r = floor ? { ...r0, accept: true } : r0;
       pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: r.accept ? "accepted" : "declined" } : m));
       const says = r.say;
       if (r.accept) { setBlockFor(chatKey, { theyBlocked: false }); toast("TA 接受了，解除拉黑"); }
@@ -17015,6 +17043,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const seqs = (s && Array.isArray(s.seqs)) ? s.seqs : [];
     return seqs.slice(0, 8).map(x => [x.time, x.title, x.location].filter(Boolean).join(" · ")).filter(Boolean).join("\n  ");
   };
+  // 【TA会去哪儿】那张小表只有这一处解析：开世界和事后补表共用。编出来的地点一律丢掉，只留图上真有的
+  const worldRouteFrom = (x, names, pinned) => {
+    const home = String((x && x.home) || "").trim();
+    const places = ((x && Array.isArray(x.places)) ? x.places : [])
+      .map(q => ({ doing: String((q && q.doing) || "").trim().slice(0, 24), node: String((q && q.node) || "").trim() }))
+      .filter(q => q.doing && names[q.node]).slice(0, 10);
+    return (names[home] || places.length) ? { home: names[home] ? home : (pinned || ""), places } : null;
+  };
   const genWorld = async (id, name, brief, charIds, done) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     if (!brief) { toast("先写一段这个世界是什么样的"); return; }
@@ -17070,12 +17106,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!c) return;
         const nd = String((x && x.node) || "").trim();
         if (names[nd]) { pins[c.id] = nd; if (x.why) why[c.id] = String(x.why).slice(0, 60); }
-        // 【TA会去哪儿】那张小表：编出来的地点一律丢掉，只留图上真有的
-        const home = String((x && x.home) || "").trim();
-        const places = ((x && Array.isArray(x.places)) ? x.places : [])
-          .map(q => ({ doing: String((q && q.doing) || "").trim().slice(0, 24), node: String((q && q.node) || "").trim() }))
-          .filter(q => q.doing && names[q.node]).slice(0, 10);
-        if (names[home] || places.length) route[c.id] = { home: names[home] ? home : (pins[c.id] || ""), places };
+        const r = worldRouteFrom(x, names, pins[c.id]);
+        if (r) route[c.id] = r;
       });
       const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins,
         cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why }, route,
@@ -17140,6 +17172,44 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const saveWorld = (id, name, brief) => saveWorlds((worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt }));
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
+  // 手动钉进来的人补一张「会去哪儿」（她 2026-10-02：开世界最多带 8 个，其余的钉进去就不动了——可以选择要不要补）
+  // 她又说：「一个一次调用好浪费」——所以点谁都一样：这个世界里钉着、还没有小表的人，一次调用一起排完。
+  const routeWorld = async (wid) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const w = (worlds || []).find(x => x.id === wid);
+    if (!w) return;
+    const todo = Object.keys(w.pins || {}).filter(id => id !== "__me" && !(w.route || {})[id])
+      .map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    if (!todo.length) return;
+    setWorldBusy(true);
+    try {
+      const names = {}; (w.regions || []).forEach(r => (r.nodes || []).forEach(n => { names[n.name] = 1; }));
+      const have = (w.regions || []).map(r => r.name + "：" + (r.nodes || []).map(n => n.name + (n.hook ? "〔" + n.hook + "〕" : "")).join(" / ")).join("\n");
+      const per = todo.length > 4 ? 1200 : 2500;
+      const block = todo.map(c => {
+        const day = worldDayOf(c);
+        return "【" + c.name + "】现在落脚在「" + w.pins[c.id] + "」\n" + String(c.persona || c.prompt || "").slice(0, per)
+          + (day ? characterText(c, "\n  他一天大致这么过：\n  ") + day : "");
+      }).join("\n\n");
+      const sys = "这是一个已经存在的架空世界。下面这几个人住在这里，给每个人排一张【TA会去哪儿】的小表。\n"
+        + "【这个世界】" + (w.brief || "") + "\n【TA当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
+        + "【已经有的地方和地点】\n" + have + "\n\n" + block + "\n\n"
+        + "每个人写TA住在哪个地点(home)，以及TA一天里那几段分别落在哪个地点(places)。doing 那一栏照着TA行程里的说法写，别另起一套说辞。地点名必须是上面写过的。\n"
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"cast\":[{\"name\":\"角色名(照抄)\",\"home\":\"地点名\",\"places\":[{\"doing\":\"TA行程里那一段的说法\",\"node\":\"地点名\"}]}]}";
+      const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 16000 });
+      const d = extractJSON(raw) || {};
+      const got = {};
+      ((d && Array.isArray(d.cast)) ? d.cast : []).forEach(x => {
+        const c = todo.find(y => y.name === String((x && x.name) || "").trim());
+        const r = c && worldRouteFrom(x, names, w.pins[c.id]);
+        if (r) got[c.id] = r;
+      });
+      const done = todo.filter(c => got[c.id]);
+      if (!done.length) throw new Error("排出来的地点图上都没有，再试一次");
+      saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, route: { ...(x.route || {}), ...got } }));
+      toast("排好了：" + done.map(c => c.name).join("、") + (done.length < todo.length ? "（还有 " + (todo.length - done.length) + " 个没排上，可以再点一次）" : ""));
+    } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
+  };
   const pinWorld = (wid, charId, node) => saveWorlds((worlds || []).map(w => {
     if (w.id !== wid) return w;
     const pins = { ...(w.pins || {}) };
@@ -20564,16 +20634,52 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setTimeout(() => pChat(charId, p => [...p, { role: "assistant", content: w, ts: Date.now(), read: false }]), 300 + i * 700);
     });
     if (accept) {
-      setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
-      const now = new Date();
-      setCoupleFor(charId, { status: "together", since: now.getTime() });
-      // 在一起纪念日写进日历（该角色视角）
-      saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
+      beginCouple(charId);
       toast((char ? char.name : "TA") + " 接受了 ♥");
     } else {
       setCoupleFor(charId, null);
       toast((char ? char.name : "TA") + " 婉拒了邀请");
     }
+  };
+  // 「在一起」那一刻要做的事只写这一份：她邀请他答应、他写信她答应，两条路都走这里。
+  const beginCouple = charId => {
+    const char = characters.find(c => c.id === charId);
+    setCoupleBreakup(p => { if (!p[charId]) return p; const n = { ...p }; delete n[charId]; saveJSON("x_coupleBreakup", n); return n; });
+    const now = new Date();
+    setCoupleFor(charId, { status: "together", since: now.getTime() });
+    // 在一起纪念日写进日历（该角色视角）
+    saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
+  };
+  // ── TA写给她的申请信（v74.507，群里 2026-10-02：「char 可以反过来向 user 提出情侣申请让 user 拆开看吗」）──
+  // 原来只有她 → 他一个方向。现在他也能先开口：在回复里附一封信，聊天里是一张封着的信封，点开才读得到。
+  // 发不发、什么时候发全是他自己的事；代码只挡【不该发】的：已经在一起／她那边的邀请还挂着、
+  // 这间聊天设置里关了、刚分手不到一周、她上次说「再想想」不到 3 天、一天里已经写过一封、还有一封没拆。
+  const LOVE_LETTER_DECLINE_COOL_MS = 3 * 864e5;
+  const loveLetterReady = charId => {
+    if (settingsFor(charId).noLoveLetter) return false;
+    const cp = (couplesRef.current || {})[charId];
+    if (cp && (cp.status === "together" || cp.status === "pending")) return false;
+    const bk = (loadJSON("x_coupleBreakup", {}) || {})[charId];
+    if (bk && Date.now() - Number(bk.ts || 0) < 7 * 864e5) return false;
+    const rec = (loadJSON("x_loveLetter", {}) || {})[charId] || {};
+    if (Date.now() - Number(rec.declinedTs || 0) < LOVE_LETTER_DECLINE_COOL_MS) return false;
+    if (Date.now() - Number(rec.ts || 0) < 864e5) return false;
+    if ((chatsRef.current[charId] || []).some(m => m && m.kind === "loveletter" && (m.state === "sealed" || m.state === "open"))) return false;
+    return true;
+  };
+  const markLoveLetter = (charId, patch) => {
+    try { const a = loadJSON("x_loveLetter", {}) || {}; a[charId] = { ...(a[charId] || {}), ...patch }; saveJSON("x_loveLetter", a); } catch (e) {}
+  };
+  // 拆信只是改一下卡的样子；答应／再想想才是那一下。
+  const openLoveLetter = (charId, m) => pChat(charId, p => p.map(x => x.id === m.id && x.state === "sealed" ? { ...x, state: "open" } : x));
+  const answerLoveLetter = (charId, m, yes) => {
+    if (!m || (m.state !== "sealed" && m.state !== "open")) return;
+    const char = characters.find(c => c.id === charId);
+    pChat(charId, p => [...p.map(x => x.id === m.id ? { ...x, state: yes ? "accepted" : "declined" } : x),
+      { role: "system", kind: "system", content: yes ? "你答应了" + (char ? char.name : "TA") + " ♥" : "你说再想想", ts: Date.now() }]);
+    if (yes) { beginCouple(charId); toast("你们在一起了 ♥"); }
+    else markLoveLetter(charId, { declinedTs: Date.now() });
+    replyNow(charId, "", null, { proactive: true, loveLetterAnswer: yes ? "yes" : "no" });
   };
   const genWhisper = async char => {
     setGen(g => ({
@@ -24619,6 +24725,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveWorld: saveWorld,
     onDelWorld: delWorld,
     onPinWorld: pinWorld,
+    onRouteWorld: routeWorld,
     onAddNode: addWorldNode,
     onGenNodes: genWorldNodes,
     onBack: goHome
@@ -25033,6 +25140,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
       .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),
     onPhoneAsk: (m, give) => answerPhoneAsk(activeChar.id, m, give),
+    onLoveLetterOpen: m => openLoveLetter(activeChar.id, m),
+    onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
@@ -26852,6 +26961,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 而 js/app.js:7596 那句 `!!_s.webSearch` 一直在读它——
             // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。
             webSearch: !!s.webSearch,
+            // 允许TA主动写申请信（v74.507）：存成「关掉了没有」，没设过＝允许
+            noLoveLetter: !!s.noLoveLetter,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
             // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
             maskId: String(s.maskId || "").trim().slice(0, 40)
