@@ -5,5 +5,5 @@ const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js
 test("打开（从关到开）才落一条，进群聊上下文时说成刚发生的事", () => {
   assert.match(app, /if \(patch && patch\.drama === true && !gsFor\(id\)\.drama\) pGChat\(id,/);
   assert.match(app, /dramaOn: true/);
-  assert.match(app, /const groupHistLine = m => m\.dramaOn\n\s*\? "【就在这个位置，刚发生/);
+  assert.match(app, /m\.dramaOn\n\s*\? "【就在这个位置，刚发生/);
 });
