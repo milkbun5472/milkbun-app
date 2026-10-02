@@ -63,8 +63,9 @@ test("像不像同一件事，判据要经得起两头包含和错字", () => {
 
 test("那张表在造世界时问一次，编出来的地点一律丢掉", () => {
   const gen = grab(app, "  const genWorld = async (id, name, brief, charIds, done) => {", "  const saveWorld = (id, name, brief)");
-  assert.match(gen, /\.filter\(q => q\.doing && names\[q\.node\]\)/, "模型编的地点也收——那张表就会指向图上没有的地方");
-  assert.match(gen, /if \(names\[home\] \|\| places\.length\) route\[c\.id\] = /, "整张表没存下来");
+  // v74.49x 起解析抽成 worldRouteFrom 一处（开世界和事后补表共用）
+  assert.match(app, /\.filter\(q => q\.doing && names\[q\.node\]\)/, "模型编的地点也收——那张表就会指向图上没有的地方");
+  assert.match(gen, /const r = worldRouteFrom\(x, names, pins\[c\.id\]\);\s*if \(r\) route\[c\.id\] = r;/, "整张表没存下来");
   assert.match(gen, /doing 那一栏照着TA行程里的说法写/, "没要求 doing 跟行程对得上——对不上这张表就白问了");
   assert.match(app, /cast: \(charIds \|\| \[\]\)\.slice\(0, 8\), why: [\s\S]{0,60}?, route,/, "route 没跟着世界一起存");
 });

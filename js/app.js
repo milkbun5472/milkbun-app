@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.502";
+const APP_VERSION = "v74.503";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17001,6 +17001,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const seqs = (s && Array.isArray(s.seqs)) ? s.seqs : [];
     return seqs.slice(0, 8).map(x => [x.time, x.title, x.location].filter(Boolean).join(" · ")).filter(Boolean).join("\n  ");
   };
+  // 【TA会去哪儿】那张小表只有这一处解析：开世界和事后补表共用。编出来的地点一律丢掉，只留图上真有的
+  const worldRouteFrom = (x, names, pinned) => {
+    const home = String((x && x.home) || "").trim();
+    const places = ((x && Array.isArray(x.places)) ? x.places : [])
+      .map(q => ({ doing: String((q && q.doing) || "").trim().slice(0, 24), node: String((q && q.node) || "").trim() }))
+      .filter(q => q.doing && names[q.node]).slice(0, 10);
+    return (names[home] || places.length) ? { home: names[home] ? home : (pinned || ""), places } : null;
+  };
   const genWorld = async (id, name, brief, charIds, done) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     if (!brief) { toast("先写一段这个世界是什么样的"); return; }
@@ -17056,12 +17064,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!c) return;
         const nd = String((x && x.node) || "").trim();
         if (names[nd]) { pins[c.id] = nd; if (x.why) why[c.id] = String(x.why).slice(0, 60); }
-        // 【TA会去哪儿】那张小表：编出来的地点一律丢掉，只留图上真有的
-        const home = String((x && x.home) || "").trim();
-        const places = ((x && Array.isArray(x.places)) ? x.places : [])
-          .map(q => ({ doing: String((q && q.doing) || "").trim().slice(0, 24), node: String((q && q.node) || "").trim() }))
-          .filter(q => q.doing && names[q.node]).slice(0, 10);
-        if (names[home] || places.length) route[c.id] = { home: names[home] ? home : (pins[c.id] || ""), places };
+        const r = worldRouteFrom(x, names, pins[c.id]);
+        if (r) route[c.id] = r;
       });
       const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins,
         cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why }, route,
@@ -17126,6 +17130,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const saveWorld = (id, name, brief) => saveWorlds((worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt }));
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
+  // 手动钉进来的人补一张「会去哪儿」（她 2026-10-02：开世界最多带 8 个，其余的钉进去就不动了——可以选择要不要补）
+  const routeWorld = async (wid, charId) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const w = (worlds || []).find(x => x.id === wid), c = (characters || []).find(x => x.id === charId);
+    if (!w || !c) return;
+    setWorldBusy(true);
+    try {
+      const names = {}; (w.regions || []).forEach(r => (r.nodes || []).forEach(n => { names[n.name] = 1; }));
+      const have = (w.regions || []).map(r => r.name + "：" + (r.nodes || []).map(n => n.name + (n.hook ? "〔" + n.hook + "〕" : "")).join(" / ")).join("\n");
+      const day = worldDayOf(c);
+      const sys = "这是一个已经存在的架空世界。「" + c.name + "」住在这里，现在给TA排一张【TA会去哪儿】的小表。\n"
+        + "【这个世界】" + (w.brief || "") + "\n【TA当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
+        + "【已经有的地方和地点】\n" + have + "\n"
+        + "【" + c.name + "】\n" + String(c.persona || c.prompt || "").slice(0, 2500)
+        + (day ? characterText(c, "\n  他一天大致这么过：\n  ") + day : "") + "\n"
+        + "TA现在落脚在「" + ((w.pins || {})[charId] || "") + "」。\n"
+        + "写TA住在哪个地点(home)，以及TA一天里那几段分别落在哪个地点(places)。doing 那一栏照着TA行程里的说法写，别另起一套说辞。地点名必须是上面写过的。\n"
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"home\":\"地点名\",\"places\":[{\"doing\":\"TA行程里那一段的说法\",\"node\":\"地点名\"}]}";
+      const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
+      const r = worldRouteFrom(extractJSON(raw) || {}, names, (w.pins || {})[charId]);
+      if (!r) throw new Error("排出来的地点图上都没有，再试一次");
+      saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, route: { ...(x.route || {}), [charId]: r } }));
+      toast("给 " + c.name + " 排好了，之后跟着行程走动");
+    } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
+  };
   const pinWorld = (wid, charId, node) => saveWorlds((worlds || []).map(w => {
     if (w.id !== wid) return w;
     const pins = { ...(w.pins || {}) };
@@ -24605,6 +24634,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveWorld: saveWorld,
     onDelWorld: delWorld,
     onPinWorld: pinWorld,
+    onRouteWorld: routeWorld,
     onAddNode: addWorldNode,
     onGenNodes: genWorldNodes,
     onBack: goHome

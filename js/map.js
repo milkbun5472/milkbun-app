@@ -385,6 +385,9 @@ function mapSubSkin(t) {
   //     互相稀释：本来对得上的也掉到门槛以下。
   function liveNodeOf(world, char, st) {
     const pinned = (world.pins || {})[char.id] || "";
+    // 没钉在这个世界里＝不住这儿（跟 charRealm 同一条判据）。原来这里不看钉子，
+    //   开图时带进来的人点了「挪走」，行程或小表一对上又被画回图上（她 2026-10-02 群友报「移不走」）。
+    if (!pinned) return { node: "", live: false };
     if (!st) return { node: pinned, live: false };
     const names = worldNodeNames(world);
     const loc = String(st.location || "").trim();
@@ -418,7 +421,7 @@ function mapSubSkin(t) {
 
 
   // 一个世界的舆图：满屏 SVG，可拖可捏；角色钉在节点上，头像贴着那个点
-  function WorldMap({ world, characters, status, me, busy, onPin, onAdd, onGen, onBack, onEdit }) {
+  function WorldMap({ world, characters, status, me, busy, onPin, onRoute, onAdd, onGen, onBack, onEdit }) {
     const t = useTheme();
     const [selNode, setSelNode] = useState(null);
     const [adding, setAdding] = useState(false);
@@ -531,7 +534,16 @@ function mapSubSkin(t) {
                   "行程说TA在「" + w.miss + "」，这张图上还没有——右上角可以加一个") : null),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: here ? "rgba(255,255,255,0.85)" : t.tint, flexShrink: 0 } },
                 (pins[c.id] === sel.name) ? "挪走" : "钉过来"));
-          })))) : null;
+          }).reduce(function (acc, row, i) {
+            // 手动钉进来的人没有「TA会去哪儿」那张小表，就一直站在钉的地方。要不要补由她点
+            const c = roster[i];
+            acc.push(row);
+            if (!c.__me && pins[c.id] === sel.name && !(world.route || {})[c.id] && onRoute) acc.push(h("button", { key: c.id + "_route", disabled: busy,
+              onClick: function () { onRoute(c.id); }, className: "active:opacity-60",
+              style: { alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, padding: "2px 6px 6px", opacity: busy ? 0.5 : 1 } },
+              busy ? "排着…" : "给" + (c.remark || c.name) + "补一张「会去哪儿」——补了就跟着行程走动"));
+            return acc;
+          }, [])))) : null;
     return h("div", { className: "flex-1 flex flex-col", style: { minHeight: 0 } }, nodePage,
       adding ? h(NodeAdd, { world: world, busy: busy, onBack: function () { setAdding(false); },
         onAdd: function (r, nd) { return onAdd(r, nd); }, onGen: function (r, hint) { onGen(r, hint); } }) : null,
@@ -666,7 +678,7 @@ function mapSubSkin(t) {
   }
 
   // 架空那一半的总入口：世界列表 → 某个世界的舆图
-  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onAddNode, onGenNodes }) {
+  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onRoute, onAddNode, onGenNodes }) {
     const t = useTheme();
     const [wid, setWid] = useState(null);
     const [form, setForm] = useState(null);   // "new" | 世界 id
@@ -683,6 +695,7 @@ function mapSubSkin(t) {
       h(WorldMap, { world: cur, characters: characters, status: status, me: me, busy: busy,
         onBack: function () { setWid(null); }, onEdit: function () { setForm(cur.id); },
         onPin: function (charId, node) { onPin(cur.id, charId, node); },
+        onRoute: function (charId) { onRoute(cur.id, charId); },
         onAdd: function (r, nd) { return onAddNode(cur.id, r, nd); },
         onGen: function (r, hint) { onGenNodes(cur.id, r, hint); } }));
     return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 30px" } }, formLayer,
@@ -710,7 +723,7 @@ function mapSubSkin(t) {
   }
 
   // 全屏好友地图
-  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onAddNode, onGenNodes }) {
+  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onRouteWorld, onAddNode, onGenNodes }) {
     const t = useTheme();
     useSchedGeo(characters, status);
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
@@ -893,7 +906,7 @@ function mapSubSkin(t) {
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, m[1]);
           })) }),
       (mode || "real") === "story"
-        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onAddNode: onAddNode, onGenNodes: onGenNodes })
+        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onRoute: onRouteWorld, onAddNode: onAddNode, onGenNodes: onGenNodes })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             // ⚠️人少了要说一声：住在架空世界里的那几位不画在这张图上。
             //   不说的话她只会看见「有人不见了」，以为坏了（诚实的诊断要写在她看得见的地方）。
