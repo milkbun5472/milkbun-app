@@ -16,9 +16,9 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
 
 test("聊天加号里有「给TA看手机」，单子能把几样藏起来再递", () => {
   assert.match(c, /\["peekphone", "给TA看手机", "mobile"\]/);
-  assert.match(c, /onHandPhone\(peekAllow, peekHide\)/);
+  assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
   assert.match(c, /mobile: \[R\(/);
-  assert.match(a, /onHandPhone: \(allow, hideIds\) => handPhoneTo\(activeChar\.id, allow, hideIds\)/);
+  assert.match(a, /onHandPhone: \(allow, hideIds, allMasks\) => handPhoneTo\(activeChar\.id, allow, hideIds, false, allMasks\)/);
 });
 
 test("递过去：只摆她手机上真有的、藏了什么；主动开关和防连发闸都不拦", () => {
@@ -229,9 +229,9 @@ test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA
   const fs = require("fs"), path = require("path");
   const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
   const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
-  assert.match(c, /onHandPhone\(peekAllow, peekHide\)/);
+  assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
   assert.match(c, /window\.__peekHide\.has\(String\(it\.id\)\)/);
-  assert.match(a, /const peekPhoneMaterial = \(viewerId, allow, hideIds\)/);
+  assert.match(a, /const peekPhoneMaterial = \(viewerId, allow, hideIds, maskIds\)/);
   assert.match(a, /try \{ window\.__peekHide = null; \} catch \(e\) \{\}/, "播完要清");
   assert.match(a, /askPhone:"开口那句话"=想看她的手机；/);
   assert.match(a, /kind: "askphone"/);
@@ -332,4 +332,16 @@ test("翻手机：她藏了的，TA心里有数（翻的时候和翻完开口都
   const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
   assert.match(a, /她是当着你的面藏的，你知道/);
   assert.match(a, /翻的时候想到这一茬，心声里就带上/);
+});
+
+test("翻手机：换了面具聊的人默认查不到（连钱包购物痕迹一起）；单子里能打开「别的面具聊的也给看」；不当成「她藏了」", () => {
+  const fs = require("fs"), path = require("path");
+  const a = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  assert.match(a, /const peekMaskOthers = viewerId =>/);
+  assert.match(a, /const maskIds = allMasks \? \[\] : peekMaskOthers\(charId\);/);
+  assert.match(a, /\(walletLog \|\| \[\]\)\.filter\(w => !maskTrace\(w\.label\)\)/);
+  assert.match(a, /const userHide = new Set\(\(hideIds \|\| \[\]\)\.map\(String\)\);/);
+  assert.match(c, /"别的面具聊的也给看"/);
+  assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
 });

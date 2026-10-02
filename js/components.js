@@ -8611,7 +8611,8 @@ function ChatThread({
   // 递手机：勾掉的那几样＝她先藏起来了（TA看不到，但可能察觉少了点什么）
   const [peekOpen, setPeekOpen] = useState(false);
   const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]));
-  const [peekHide, setPeekHide] = useState([]);   // 藏某一个人的聊天（她 2026-10-02：比藏整类更像真的在心虚）
+  const [peekHide, setPeekHide] = useState([]);
+  const [peekAllMasks, setPeekAllMasks] = useState(false);   // 别的面具聊的也给看（默认不给：换了面具就是另一个你）   // 藏某一个人的聊天（她 2026-10-02：比藏整类更像真的在心虚）
   const [searchOpen, setSearchOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -9738,7 +9739,11 @@ function ChatThread({
     }),
     peekAllow.includes("chats") && (peekPeople || []).length ? h("div", { style: { marginTop: 14 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 4, lineHeight: 1.7 } }, "单独藏起几个聊天——列表里就没这一行了，TA翻不到；可别处要是留着痕迹（比如钱包里给这个人的转账），TA也许会对不上。"),
-      (peekPeople || []).map(p => { const hid = peekHide.includes(p.id);
+      (peekPeople || []).some(p => p.otherMask) ? h("button", { onClick: () => setPeekAllMasks(v => !v), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 46, borderBottom: "1px solid " + t.line } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } }, "别的面具聊的也给看",
+          h("span", { style: { display: "block", fontSize: 11, color: t.fog, marginTop: 2 } }, "关着＝换了面具聊的那些人，TA 查不到")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekAllMasks ? t.accent : t.fog } }, peekAllMasks ? "给看" : "查不到")) : null,
+      (peekPeople || []).filter(p => peekAllMasks || !p.otherMask).map(p => { const hid = peekHide.includes(p.id);
         return h("button", { key: p.id, onClick: () => setPeekHide(a => hid ? a.filter(x => x !== p.id) : a.concat(p.id)), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 42, borderBottom: "1px solid " + t.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: hid ? t.fog : t.ink, textDecoration: hid ? "line-through" : "none" } }, (p.group ? "群 · " : "") + p.name),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: hid ? t.fog : t.accent } }, hid ? "藏起来" : "给看")); })) : null,
@@ -9746,7 +9751,7 @@ function ChatThread({
       h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } }, "允许" + (character.remark || character.name) + "偷偷翻",
         h("span", { style: { display: "block", fontSize: 11, color: t.fog, marginTop: 2 } }, "所有角色共用一个冷却，一天最多一回")),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: peekSneakOn ? t.accent : t.fog } }, peekSneakOn ? "允许" : "不允许")) : null,
-    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
+    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide, peekAllMasks); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {

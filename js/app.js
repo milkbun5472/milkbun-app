@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.497";
+const APP_VERSION = "v74.512";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9305,10 +9305,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return await _replyTurn(charId, null, mode, { ...(opts || {}), _emptyRetry: true });
   };
   // ── 递手机：拼出TA这一趟能翻到的东西（都是她手机上真有的，一条不编）──────────
-  const peekPhoneMaterial = (viewerId, allow, hideIds) => {
+  const peekPhoneMaterial = (viewerId, allow, hideIds, maskIds) => {
     const on = k => (allow || []).includes(k);
     // 她单独藏起来的那几个聊天：列表、聊天、群里都没有；钱包购物那些痕迹不替她擦（她 2026-10-02）
-    const hideSet = new Set((hideIds || []).map(String)), shownId = id => !hideSet.has(String(id));
+    // 换了面具聊的那些人（maskIds）：那是另一个「她」、另一台手机，连痕迹一起不在（她 2026-10-02：「用了不同的面具，应该查不到吧」）
+    const maskSet = new Set((maskIds || []).map(String));
+    const hideSet = new Set((hideIds || []).map(String).concat([...maskSet])), shownId = id => !hideSet.has(String(id));
+    const maskNames = (characters || []).filter(x => maskSet.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean);
+    const maskTrace = txt => maskNames.some(n => String(txt || "").includes(n));
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
     const uN = userName(profile);
@@ -9375,7 +9379,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
     }
     if (on("money")) {
-      const log = (walletLog || []).slice(0, 10);
+      const log = (walletLog || []).filter(w => !maskTrace(w.label)).slice(0, 10);
       // 从她这边说清楚：钱是她给出去的还是别人给她的、给的是谁（她 2026-10-01：「看钱包也不知道哪些是我转给别人的」）
       const vName = nameOf(viewerId);
       const who = s => { const n = cut(s, 16); return n && vName && n === vName ? "「" + n + "」（就是你）" : "「" + n + "」"; };
@@ -9391,8 +9395,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (log.length) out.push("【她的钱包流水——是她的钱进进出出】\n" + log.map(w => "· " + md(w.ts) + " " + say(w)).join("\n"));
     }
     if (on("shop")) {
-      const od = (orders || []).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
-      const tk = (takeoutLog || []).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
+      const od = (orders || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId)))).slice(0, 8).map(o => "· " + md(o.ts) + "买了" + cut(o.name, 24) + (o.price ? "（" + o.price + "）" : "") + (o.fromCharId ? "——是「" + nameOf(o.fromCharId) + "」送的" : ""));
+      const tk = (takeoutLog || []).filter(o => !(o.fromCharId && maskSet.has(String(o.fromCharId)))).slice(0, 6).map(o => "· " + md(o.ts) + "外卖" + cut(o.name, 24) + (o.fromCharId ? "——「" + nameOf(o.fromCharId) + "」给点的" : ""));
       // 分两块写：混在一起时TA会在购物里念外卖的单（她 2026-10-01：「有些是外卖他也说是购物里的」）
       if (od.length) out.push("【购物 app 里的订单】\n" + od.join("\n"));
       if (tk.length) out.push("【外卖 app 里的订单】\n" + tk.join("\n"));
@@ -9448,9 +9452,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // sneak：TA趁她不注意偷偷翻的（她 2026-10-02：开关决定谁可以偷偷翻，全部角色共用冷却）——
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
-  const handPhoneTo = async (charId, allow, hideIds, sneak) => {
-    const hideSet = new Set((hideIds || []).map(String));
-    const seen = peekPhoneMaterial(charId, allow, hideIds);
+  // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
+  const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  const peekMaskOthers = viewerId => {
+    const mine = maskKeyOf(viewerId);
+    return (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id)
+      .concat(mine ? (groupsRef.current || []).filter(Boolean).map(g => g.id) : []);
+  };
+  const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
+    const maskIds = allMasks ? [] : peekMaskOthers(charId);
+    const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
+    const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
     if (!sneak) try { window.__peekHide = hideSet; } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
     const c = (characters || []).find(x => x.id === charId);
@@ -9458,8 +9470,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sneak) pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
     const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
     // 单独藏的人也算进「藏起了」，翻完开口那一轮TA照样知道
-    const hidePeople = (characters || []).filter(x => hideSet.has(String(x.id))).map(x => x.remark || x.name)
-      .concat((groupsRef.current || []).filter(g => g && hideSet.has(String(g.id))).map(g => "群「" + (g.name || "群聊") + "」"));
+    // 只算她亲手藏的；面具不同的那些不是「藏」，TA根本不知道有
+    const userHide = new Set((hideIds || []).map(String));
+    const hidePeople = (characters || []).filter(x => userHide.has(String(x.id))).map(x => x.remark || x.name)
+      .concat((groupsRef.current || []).filter(g => g && userHide.has(String(g.id))).map(g => "群「" + (g.name || "群聊") + "」"));
     if (!sneak) setPeekPlay({ charId, allow, seen, hidden: hidden.concat(hidePeople.map(n => "和" + n + "的聊天")), script: null });
     let script = [];
     // 聊天里【近 3 天】翻得出线索的，才顺着去（她 2026-10-02：「30 天太长了，改成 3 天内」；「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
@@ -25014,9 +25028,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(activeChar.id, p => p.map(x => (x.kind === "gift" && x.turnId === key) ? { ...x, opened: true } : x));
     },
     onOpenMoments: () => openMomProfile(activeChar.id, false),
-    onHandPhone: (allow, hideIds) => handPhoneTo(activeChar.id, allow, hideIds),
+    onHandPhone: (allow, hideIds, allMasks) => handPhoneTo(activeChar.id, allow, hideIds, false, allMasks),
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
-      .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true }))),
+      .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
+      .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),
     onPhoneAsk: (m, give) => answerPhoneAsk(activeChar.id, m, give),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
