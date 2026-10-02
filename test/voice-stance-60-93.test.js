@@ -19,7 +19,7 @@ test("runProbe 多一档【本人在打字】的站位，默认那档一个字�
   // 绝大多数推演（行程/钱包/相册/书架）本来就该坐分析师那把椅子
   assert.match(engine, /: "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。";/);
   // 料一个字不少：两档共用同一个 bundle
-  assert.match(engine, /const system = head \+ "\\n\\n" \+ buildBundle\(ctx\)/);
+  assert.match(engine, /const system = \(probe\.voiceScene \? sceneHead : head\) \+ "\\n\\n" \+ buildBundle\(ctx\)/);
   assert.match(engine, /\【" \+ \(probe\.voice \? "这一次要写什么" : "推演任务"\) \+ "\】/);
 });
 

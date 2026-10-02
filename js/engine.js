@@ -3380,6 +3380,7 @@ function buildBundle(ctx, opts) {
   if (ctx.memoNote && ctx.memoNote.trim()) parts.push("【" + uName + " 备忘录里、特意让你能看到的提醒/记事】（可自然关心、临近时提醒一句、或问起弄了没，别生硬报清单、别越界、别每句都念）\n" + ctx.memoNote.trim());
   if (ctx.ownWalletNote && ctx.ownWalletNote.trim()) parts.push("【你自己的钱】" + ctx.ownWalletNote.trim());
   if (ctx.financeNote && ctx.financeNote.trim()) parts.push(ledgerContextBlock(ctx.financeNote, uName));
+  if (!ctx.notRoleplay && ctx.radioLife) parts.push(ctx.radioLife);
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
@@ -5356,7 +5357,7 @@ const DURABLE_TEXT_KEYS = new Set([
   // 搬进来之后墙没了，上限也跟着撤（见 app.js 各处的注释）。
   //   x_capsules 时光胶囊 / x_promises 我们说好的 / x_moments 朋友圈 /
   //   x_walletLog 钱包流水 / x_anonMine 她那箱匿名信 / x_shopWish 心愿 / x_forumPMs 贴吧私信
-  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs"
+  "x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife"
 ]);
 // ⚠️"x_fairyGarden" 同时罩住名册 x_fairyGardenSaves 与每一档 x_fairyGarden[:id]：
 //   一档庭院（日子、背包、碎片、聊过的话）实测就能到零点几 MB，几档下来 localStorage
@@ -5383,7 +5384,7 @@ function durableTextNeedsLocalJournal(k) {
   k = String(k || "");
   // ⚠️v72.19：新搬进来的这批同样会长大，一并免掉 journal——不免的话就是 v72.02 那个坑
   //   原样重演一遍（journal 写不进去→旧的那份赖着→开机拿旧的盖新的）。
-  const BIG = ["x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs"];
+  const BIG = ["x_capsules", "x_promises", "x_moments", "x_walletLog", "x_anonMine", "x_shopWish", "x_forumPMs", "x_radioLife"];
   return k.indexOf("x_chat:") !== 0 && k.indexOf("x_gchat:") !== 0
     && k.indexOf("x_offline:") !== 0 && k.indexOf("x_goffline:") !== 0
     && BIG.indexOf(k) < 0;
@@ -6479,6 +6480,7 @@ function groupBackgroundSegments(c, background, uName, opts) {
     hcSeg: b.home ? "\n〔你自己住在" + b.home + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "",
     cySeg: b.carry ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + b.carry : "",
     caSeg: (b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : "")
+      + (b.radioLife ? "\n〔以下事件属于 " + c.name + " 本人经历；其他成员只知道自己实际在场的部分，现场未通知用户是否在收听。〕\n" + b.radioLife : "")
       + (b.finance ? "\n〔以下账单仅 " + c.name + " 知道；其他成员各自以自己的授权为准。这是私下得知的生活线索，由本人决定是否适合在当前场合提起。〕\n" + ledgerContextBlock(b.finance, uName) : "")
   };
 }
@@ -7411,6 +7413,7 @@ async function generateOfflineGroup(p, ctx, session) {
       home: ctx.memberHome && ctx.memberHome[c.id],
       carry: ctx.memberCarry && ctx.memberCarry[c.id],
       archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id],
+      radioLife: ctx.memberRadioLife && ctx.memberRadioLife[c.id],
       finance: ctx.memberFinance && ctx.memberFinance[c.id]
     }, userName, { narrative: true });
     return c.npc
@@ -8149,7 +8152,9 @@ async function runProbeInner(p, ctx, probe) {
       + "你不是在分析这个人，你【就是】这个人，正拿着手机打字。输出要严格按 JSON，但每一句正文都是你亲口打出来的话——"
       + "该长就长、该只回两个字就两个字，语气跟着你此刻的心情走，别写成一条条冷静的判词。"
     : "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。";
-  const system = head + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
+  const sceneHead = probe.voiceScene
+    ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。按下方现场事实和完整设定，写真实说出口的话；当前说话对象由现场任务确定。输出严格按 JSON。" : head;
+  const system = (probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。

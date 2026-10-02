@@ -5593,6 +5593,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
+    radioLife: window.RadioLife ? window.RadioLife.contextFor(char.id) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
@@ -7988,6 +7989,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       carry: typeof carryContextText === "function"
         ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
       archive: coupleArchiveFor(c.id),
+      radioLife: window.RadioLife ? window.RadioLife.contextFor(c.id) : "",
       finance: typeof window.ledgerNoteFor === "function" ? window.ledgerNoteFor(c.id) : ""
     };
   };
@@ -8010,6 +8012,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
     memberFinance: backgroundMap("finance"),
+    memberRadioLife: backgroundMap("radioLife"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
     // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：此刻心情与好感度，
@@ -11820,6 +11823,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "\n本来就认识的（设定里写了关系的）照那份关系来。"
     : "";
   const saveGroupSettings = (id, patch) => {
+    // 她 2026-10-02：改了十来轮提示词都吵不到点上——规矩写在 system 里只是背景，模型接着演的是记录里刚发生的事。
+    //   所以打开修罗场的那一刻，在群里落一条灰提示：「发现」本身成了记录里的一件事。
+    if (patch && patch.drama === true && !gsFor(id).drama) pGChat(id, p => [...p, { role: "system", kind: "system", dramaOn: true, ts: Date.now(),
+      content: "修罗场开启：从这一刻起，群里每个人都看到了——其他人也是 " + userName(profile) + " 的恋人" }]);
     if (patch && patch.autoChat === true && !autoRefreshOn("groupChat")) setAutoFromPage("groupChat", null, true);
     // 总闸关着时页面上显示的是「关」；存别的设置时那个 false 不是她这一次按的，别把这个群原来的选择冲掉
     else if (patch && patch.autoChat === false && !autoRefreshOn("groupChat")) { patch = { ...patch }; delete patch.autoChat; }
@@ -16175,7 +16182,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
-  const groupHistLine = m => (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
+  const groupHistLine = m => m.dramaOn
+    ? "【就在这个位置，刚发生：群里每个人都看到了——其他人也是 " + userName(profile) + " 的恋人。这是你们第一次知道彼此，在这之前谁也不知道】"
+    : (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
     + (m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
     + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
@@ -26035,9 +26044,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenComments: genDiaryCommentsFor,
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
-  else if (screen === "radio") body = h(window.RadioTimelineScreen, {
+  else if (screen === "radio") body = h(window.RadioLifeScreen, {
+    characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    userName: userName(profile), onBack: goHome,
+    onArchive: () => setScreen("radioArchive"),
+    onSchedule: () => { calReturnRef.current = { screen: "radio" }; setSelSched(null); setScreen("calendar"); },
+    onChat: id => openChatById(id),
+    sceneFor: c => timeAwareFor(c.id)
+      ? window.RadioLife.slot(c, schedulesRef.current[c.id] || {}) : null,
+    onConnect: (c, scene, continuing) => {
+      // 只有现有关系里的人有资格作为另一位主角色出现在现场；不把全通讯录塞进房间。
+      const actors = liveChars.filter(x => x.id === c.id ||
+        (!settingsFor(x.id).engineerEyes && (rels[c.id + "->" + x.id] || rels[x.id + "->" + c.id])));
+      return window.RadioLife.connect(scene, actors, async (anchor, previous) => {
+        const people = actors.filter(x => x.id !== c.id).map(x =>
+          "〔" + x.name + " · id=" + x.id + "〕\n" + characterText(x, x.persona || "（暂无设定）") + "\n" + directedRelationLines(x, rels, characters, profile)).join("\n\n");
+        return runProbe(bgActive, { ...ctxFor(c), worldbook: loreForContext("creative", actors.map(x => x.id), anchor.title) }, {
+          voice: true, voiceScene: true, instruction: window.RadioLife.lifePrompt(anchor, previous)
+            + "\n【可用角色·不等于在场名单】\n" + actors.map(x => x.id + "：" + x.name).join("\n")
+            + (people ? "\n【相关人物设定与实际关系】\n" + people : ""),
+          schemaHint: window.RadioLife.schema, maxTokens: 65535, tag: "电台现场"
+        });
+      }, continuing);
+    },
+    onStudio: (c, show, episode, input) => runProbe(bgActive, ctxFor(c), {
+      voice: true, voiceScene: true, instruction: window.RadioLife.studioPrompt(show, episode, input),
+      schemaHint: '{"lines":[{"text":"搭档实际说出口的一段台词"}]}', maxTokens: 65535, tag: "共同电台"
+    })
+  });
+  else if (screen === "radioArchive") body = h(window.RadioTimelineScreen, {
     characters: liveChars,
-    onBack: goHome,
+    onBack: () => setScreen("radio"),
     onLegacy: () => setScreen("radioLegacy"),
     loreFor: (c, topic) => c ? loreForContext("creative", [c.id], topic) : "",
     // 故事是平行沙盒：全文角色卡/关联世界书，不读取当前心情、关系或主线私聊。
@@ -26073,7 +26110,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       '{"title":"这通电话的标题（可空）","lines":[{"text":"你说出口的一段话（整段照原样放，不要替播放器拆成一句一项）"}],"guess":"你心里那句猜测（可空）"}')
   });
   else if (screen === "radioLegacy") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
-    onBack: () => setScreen("radio"),
+    onBack: () => setScreen("radioArchive"),
     onBuild: genRadioWorld,
     onTune: genRadioDay,
     onDrift: genRadioDrift,
@@ -26444,7 +26481,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggle: togglePlay,
     onNext: () => stepSong(1),
     onClose: stopPlayer
-  }) : null, (window.RadioUI && screen !== "radio" && screen !== "radioLegacy") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radioLegacy") }) : null, (() => {
+  }) : null, (window.RadioUI && screen !== "radio" && screen !== "radioArchive" && screen !== "radioLegacy") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radioLegacy") }) : null, (() => {
     const scc = stateCardChar || activeChar;
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;
