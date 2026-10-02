@@ -8555,6 +8555,7 @@ function ChatThread({
   onOpenMoments,
   onHandPhone,   // 把手机递给TA看（她 2026-10-01：「角色反查手机」）
   onPhoneAsk,    // TA开口要看手机那张卡：给／不给
+  onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
@@ -9170,6 +9171,9 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
+    if (m.kind === "loveletter") return h(LoveLetterCard, { key: i, m: m, character: character,
+      onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
+      onAnswer: yes => onLoveLetter && onLoveLetter(m, yes) });
     if (m.kind === "askphone") return h(PhoneAskCard, { key: i, m: m, character: character,
       onGive: () => { onPhoneAsk && onPhoneAsk(m, true); setPeekOpen(true); },
       onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) });
@@ -12547,6 +12551,32 @@ function PeekSneakCard({ m, character, onPick }) {
       st !== "pending" ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "ask" ? "你当面问了" : "你装作没看见") : null));
 }
 // TA开口要看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：给，就打开递手机那张单子；不给，TA照自己的性子接
+// TA写给她的申请信（v74.507）：先是一个封着的信封，拆开才读到；读完再选。
+// 形状照 PhoneAskCard（同一种「他递过来一样东西、她选」），信封那一层是这张卡自己的。
+function LoveLetterCard({ m, character, onOpen, onAnswer }) {
+  const t = useTheme();
+  const c = character || {}, st = m.state || "sealed";
+  const nm = c.remark || c.name || "TA";
+  if (st === "sealed") return h("div", { className: "py-1 flex justify-start" },
+    h("button", { onClick: onOpen, "aria-label": "拆开" + nm + "的信", className: "active:opacity-80",
+      style: { width: 220, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: 0, overflow: "hidden" } },
+      h("div", { style: { position: "relative", height: 92, background: (c.color || "#c98a8a") + "22", borderBottom: "1px solid " + t.line } },
+        h("svg", { viewBox: "0 0 220 92", width: "100%", height: "100%", style: { display: "block" } },
+          h("path", { d: "M1 1 L110 58 L219 1", fill: "none", stroke: t.line, strokeWidth: 1.2 })),
+        h("div", { style: { position: "absolute", left: "50%", top: 44, transform: "translate(-50%,-50%)", width: 26, height: 26, borderRadius: 999, background: c.color || "#c25a5a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "♥")),
+      h("div", { style: { padding: "9px 12px 11px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, nm + "给你写了一封信"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "轻点拆开"))));
+  return h("div", { className: "py-1 flex justify-start" },
+    h("div", { style: { width: 268, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, nm + "的信"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, m.content || ""),
+      st === "open"
+        ? h("div", { className: "flex gap-2", style: { marginTop: 12 } },
+            h("button", { onClick: () => onAnswer(false), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "再想想"),
+            h("button", { onClick: () => onAnswer(true), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "答应"))
+        : h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "accepted" ? "你答应了 ♥" : "你说再想想")));
+}
 function PhoneAskCard({ m, character, onGive, onRefuse }) {
   const t = useTheme();
   const c = character || {}, st = m.state || "pending";
@@ -16918,6 +16948,7 @@ function ChatSettings({
   // 否则只存一栏改动、别的栏空着，合并回去会拿全局的值顶上，看着像改了又没改全。
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
+  const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
@@ -17189,6 +17220,7 @@ function ChatSettings({
       apiId,
       engineerEyes,
       webSearch,
+      noLoveLetter: !loveLetter,
       toyEnabled,
       defaultOffline,
       actDesc,
@@ -17328,7 +17360,14 @@ function ChatSettings({
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
-      h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) })))),
+      h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))),
+  // 申请信（v74.507）：还不是恋人时，TA自己想表白就能写一封；关掉就不会
+  h("div", { className: "pt-4" },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "允许 Ta 主动表白"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
+      h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) })))),
   show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       // ⚠️v62.37 起这一层就是常开的，这里写的词真的会发出去。原来那句「不会进
