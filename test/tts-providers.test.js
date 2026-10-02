@@ -107,12 +107,7 @@ test("MiniMax 模型：列表之外能自己填（群里问「只有 01 和 02 �
   assert.match(eng, /model: a\.model \|\| "speech-02-hd"/, "填空了就退回默认，不发空模型名");
 });
 
-test("拉取模型：只是试；拿到了只留 speech，拿不到说人话、内置列表照旧", async () => {
-  const src = eng.slice(eng.indexOf("async function ttsListModels("), eng.indexOf("// ElevenLabs / Fish Audio"));
-  const mk = res => new Function("loadTtsApi", "cleanBaseUrl", "fetchT", src + "\nreturn ttsListModels;")(() => ({}), u => u, async () => res);
-  const ok = mk({ ok: true, status: 200, text: async () => JSON.stringify({ data: [{ id: "abab6.5" }, { id: "speech-2.8-hd" }, { id: "speech-02-hd" }] }) });
-  assert.deepEqual(await ok({ apiKey: "k" }), ["speech-2.8-hd", "speech-02-hd"]);
-  const no = mk({ ok: false, status: 404, text: async () => "not found" });
-  await assert.rejects(no({ apiKey: "k" }), /自己填/);
-  assert.match(scr, /const MM_MODELS = Array\.from\(new Set\(\[\.\.\.\(Array\.isArray\(c\.mmModels\) \? c\.mmModels : \[\]\), \.\.\.MM_BUILTIN\]\)\);/);
+test("拉取模型撤了：MiniMax 语音没有模型清单可问", () => {
+  assert.ok(!/ttsListModels/.test(eng + scr), "这家没给清单，按钮每次点都白点");
+  assert.match(scr, /const MM_MODELS = MM_BUILTIN;/);
 });
