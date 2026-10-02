@@ -19,9 +19,9 @@ test("主屏上有这个图标，两个文件也真的被加载", () => {
 });
 
 test("拧得到：整页路由 + 退出之后那一条悬浮", () => {
-  assert.match(app, /screen === "radio"\) body = h\(window\.RadioTimelineScreen/);
+  assert.match(app, /screen === "radioArchive"\) body = h\(window\.RadioTimelineScreen/);
   assert.match(app, /screen === "radioLegacy"\) body = \(window\.RadioUI \? h\(window\.RadioUI\.RadioScreen/);
-  assert.match(app, /window\.RadioUI && screen !== "radio" && screen !== "radioLegacy"\) \? h\(window\.RadioUI\.RadioMini/,
+  assert.match(app, /window\.RadioUI && screen !== "radio" && screen !== "radioArchive" && screen !== "radioLegacy"\) \? h\(window\.RadioUI\.RadioMini/,
     "退出电台就没有那一条了——她要的是「悬浮 title 就写电台名字」");
   assert.match(app, /RadioMini, \{ onOpen: \(\) => setScreen\("radioLegacy"\)/);
   assert.match(ui, /className: "h-full flex flex-col"/, "整页那套外壳（施工规则/no-half-sheet.md）");

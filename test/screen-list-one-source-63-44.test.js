@@ -57,7 +57,7 @@ test("页面 CSS 覆盖到每一页，不再是手写的十页", () => {
 
 test("每一页都指得到手册里真有的一条", () => {
   // 电台不进攻略（她 2026-09-28：「电台不要，不进公共版」）——这两页是故意留空的
-  const OFF_GUIDE = ["radio", "radioLegacy"];
+  const OFF_GUIDE = ["radio", "radioArchive", "radioLegacy"];
   assert.deepEqual(routes.filter(r => !SCREEN_MAN[r] && !OFF_GUIDE.includes(r)).sort(), [], "有页没挂手册词条");
   Object.entries(SCREEN_MAN).forEach(([k, id]) => {
     if (OFF_GUIDE.includes(k)) { assert.equal(id, "", k + " 不进攻略，却又挂回了词条"); return; }
