@@ -54,10 +54,27 @@
     patchMap(JOBS, id, record);
     // 超时/断网时不能猜上游没收到：留下 Submitting，不自动补发一笔收费任务。
     const body = record.protocol === "v2" ? { model: c.model, content: [{ type: "text", text: record.prompt }, { type: "image_url", image_url: { url: input }, role: "first_frame" }], duration: c.duration, resolution: c.resolution } : { model: c.model, first_frame_image: input, prompt: record.prompt, duration: c.duration, resolution: c.resolution, prompt_optimizer: false };
-    const d = await request(c, "/" + record.protocol + "/video_generation", body, signal);
+    let d; try { d = await request(c, "/" + record.protocol + "/video_generation", body, signal); } catch (e) { if (job(id) && job(id).createdAt === record.createdAt) rememberError(id, e); throw e; }
     if ((signal && signal.aborted) || !job(id) || job(id).createdAt !== record.createdAt) throw new DOMException("已停止等待", "AbortError");
     if (!d.task_id) throw Error("接口没有返回任务编号；请先到控制台核对是否已创建");
     record.taskId = String(d.task_id); record.status = "Preparing"; return patchMap(JOBS, id, record);
+  }
+  function taskState(record, busy) {
+    if (!record) return null;
+    const status = String(record.status || "").toLowerCase();
+    if (record.draftRef) return { title: "生成完成，等待你选用", detail: "先预览动作，满意后保存；保存后的循环播放不会重新生成。" };
+    if (!record.taskId) return { title: busy && !record.lastError ? "正在提交，等待任务编号" : "提交未确认，请核对控制台", detail: "还没拿到任务编号，无法确认是否开始生成或是否失败。请到对应站点控制台核对这次任务；确认后再决定是否放弃记录，避免重复付费。" };
+    if (["fail", "failed", "cancelled"].includes(status)) return { title: status === "cancelled" ? "任务已取消" : "生成失败", detail: "这是接口返回的任务状态。任务编号已保留；重新生成是另一笔任务，费用以对应站点为准。" };
+    if (["success", "succeeded"].includes(status)) return { title: busy ? "生成完成，正在保存视频" : "生成完成，视频尚未保存", detail: "动画已经生成，但本机还没有保存到视频。点「查询原任务 / 重试下载」重试，不会重新生成。" };
+    if (record.lastError && !busy) return { title: "查询暂时中断，生成结果未确认", detail: "连接或查询失败不代表生成失败。任务编号已保留，可以查询原任务；不会重新提交。" };
+    const title = ({ preparing: "正在准备画面", queueing: "正在排队", queued: "正在排队", processing: "正在生成动作", running: "正在生成动作" })[status] || "任务已提交，正在查询进度";
+    return { title, detail: "已取得任务编号，正在等待原任务。离开后仍保留记录，回来只查询进度。" };
+  }
+  function rememberError(id, error) {
+    const r = job(id); if (r && error.name !== "AbortError") patchMap(JOBS, id, Object.assign({}, r, { lastError: String(error.message || "连接中断").slice(0, 240) }));
+  }
+  async function createTracked(id, imageRef, prompt, signal) {
+    return create(id, imageRef, prompt, signal);
   }
   function taskConfig(record) { const c = load(); if (!c.apiKey) throw Error("先填写视频 API 密钥"); if (base(c.baseUrl) !== record.baseUrl) throw Error("请切回创建这段视频时的站点，再查询原任务"); return c; }
   async function query(id, signal) {
@@ -68,7 +85,7 @@
     const c = taskConfig(record), d = await request(c, v2 ? "/v2/query/video_generation/" + encodeURIComponent(record.taskId) : "/v1/query/video_generation?task_id=" + encodeURIComponent(record.taskId), null, signal);
     if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) throw new DOMException("已停止等待", "AbortError");
     const task = v2 ? d.task : d; if (!task || !task.status) throw Error("接口缺少任务状态，请稍后查询原任务");
-    record.status = task.status; if (!v2 && task.file_id) record.fileId = String(task.file_id); patchMap(JOBS, id, record);
+    record.status = task.status; delete record.lastError; if (!v2 && task.file_id) record.fileId = String(task.file_id); patchMap(JOBS, id, record);
     const status = String(task.status).toLowerCase();
     if (["fail", "failed", "cancelled"].includes(status)) throw Error("视频任务" + (status === "cancelled" ? "已取消" : "生成失败") + "：" + ((task.error && task.error.message) || (typeof task.error === "string" && task.error) || (task.base_resp && task.base_resp.status_msg) || "请修改图片或动作后再试"));
     if (status !== (v2 ? "succeeded" : "success")) return record;
@@ -88,9 +105,12 @@
       const ref = "pvideo_" + record.taskId; await blobOp(ref, new Blob([b], { type: webm ? "video/webm" : "video/mp4" })); if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) { await blobOp(ref, null, true); throw new DOMException("已停止等待", "AbortError"); } record.draftRef = ref; return patchMap(JOBS, id, record);
     } finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", relay); }
   }
+  async function queryTracked(id, signal) {
+    const previous = job(id); try { return await query(id, signal); } catch (e) { if (previous && job(id) && job(id).taskId === previous.taskId) rememberError(id, e); throw e; }
+  }
   function wait(ms, signal) { return new Promise((resolve, reject) => { const stop = () => { clearTimeout(timer); signal.removeEventListener("abort", stop); reject(new DOMException("已停止等待", "AbortError")); }; const timer = setTimeout(() => { if (signal) signal.removeEventListener("abort", stop); resolve(); }, ms); if (signal) { if (signal.aborted) stop(); else signal.addEventListener("abort", stop, { once: true }); } }); }
   async function poll(id, signal, onUpdate) {
-    for (let i = 0; i < 120; i++) { const r = await query(id, signal); if (onUpdate) onUpdate(r); if (r.draftRef) return r; await wait(10000, signal); }
+    for (let i = 0; i < 120; i++) { const r = await queryTracked(id, signal); if (onUpdate) onUpdate(r); if (r.draftRef) return r; await wait(10000, signal); }
     throw Error("等待较久，任务编号已保留，稍后回来查询即可");
   }
   async function adopt(id) { const r = job(id); if (!r || !r.draftRef || !await blobOp(r.draftRef)) throw Error("还没有可保存的视频"); const previous = media(id); const value = { videoRef: r.draftRef, imageRef: r.imageRef, updatedAt: Date.now() }; patchMap(MEDIA, id, value); patchMap(JOBS, id, null); if (previous && previous.videoRef !== value.videoRef) await blobOp(previous.videoRef, null, true).catch(() => {}); return value; }
@@ -143,8 +163,8 @@
     const update = r => { if (live.current) { setRecord(r); report(r.draftRef ? "生成好了，看看动作喜欢吗？" : ({ Preparing: "正在准备画面…", Queueing: "正在排队…", Processing: "正在生成动作…", queued: "正在排队…", running: "正在生成动作…", succeeded: "正在保存视频…", Success: "正在保存视频…" }[r.status] || "正在查询原任务…")); } };
     const inspect = signal => poll(id, signal, update);
     // 自动恢复只读已有任务，不调用创建接口，也不会重做已经存好的视频。
-    useEffect(() => { const r = job(id); if (r && r.taskId && !r.draftRef && r.status !== "Fail") run(inspect); }, [id]);
-    const createVideo = () => run(async signal => { const r = await create(id, imageRef, motion, signal); update(r); await inspect(signal); });
+    useEffect(() => { const r = job(id); if (r && r.taskId && !r.draftRef && !["fail", "failed", "cancelled"].includes(String(r.status || "").toLowerCase())) run(inspect); }, [id]);
+    const createVideo = () => run(async signal => { const r = await createTracked(id, imageRef, motion, signal); update(r); await inspect(signal); });
     const storeImage = async b => {
       if (!b || !/^image\/(jpeg|png|webp)$/.test(b.type) || b.size >= 20 * 1024 * 1024) throw Error("请选择小于 20 兆的图片（支持 jpg / png / webp）");
       const data = await blobToDataUrl(b), dims = await new Promise((resolve, reject) => { const im = new Image(); im.onload = () => resolve([im.naturalWidth, im.naturalHeight]); im.onerror = () => reject(Error("图片无法读取")); im.src = data; });
@@ -168,6 +188,7 @@
     if (configOpen) return h("div", { className: "h-full flex flex-col", style: paper }, h(Head, { zh: "视频 API", bg: "transparent", onBack: () => setConfigOpen(false) }), h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } }, h(VideoApiConfig)));
     const showRef = record && record.draftRef || existing && existing.imageRef === imageRef && existing.videoRef;
     const exportRef = showRef || existing && existing.videoRef;
+    const state = taskState(record, busy);
     const showPoster = record && record.draftRef ? record.imageRef : imageRef;
     return h("div", { className: "h-full flex flex-col", "data-pomodoro-video-editor": "", "data-wk": "pomvideoeditor", style: paper },
       h(Head, { zh: "动态陪伴图", bg: "transparent", onBack, right: h("button", { onClick: () => { savedScroll.current = scroller.current ? scroller.current.scrollTop : 0; setConfigOpen(true); }, style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
@@ -184,6 +205,11 @@
         heading("让它怎么动"),
         h("textarea", { "aria-label": "视频动作描述", value: motion, onChange: e => setMotion(e.target.value), disabled: busy || !!record, maxLength: 2000, rows: 4, style: input }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, marginTop: 6 } }, "轻动作更适合专注。首尾能否自然衔接，以预览效果为准。当前：" + load().duration + " 秒 · " + load().resolution),
+        state ? h("div", { "data-video-task-status": "", role: "status", style: { marginTop: 14, padding: "12px 0", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink, overflowWrap: "anywhere" } },
+          h("div", { style: { fontSize: 14, fontWeight: 600, marginBottom: 6 } }, state.title),
+          h("div", { style: { fontSize: 12, lineHeight: 1.8, color: t.sub } }, state.detail),
+          record.taskId ? h("div", { style: { fontSize: 11, lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "任务编号：" + record.taskId) : null,
+          record.lastError ? h("div", { style: { fontSize: 11, lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "上次请求提示：" + record.lastError) : null) : null,
         !record ? h("button", { disabled: busy || !imageRef, onClick: createVideo, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, busy ? "正在处理…" : "生成动画（按视频接口计费）") : h("div", { style: { display: "grid", gap: 8, marginTop: 12 } },
           record.taskId && !record.draftRef ? h("button", { disabled: busy, onClick: () => run(inspect), style: btn }, busy ? "正在等待原任务…" : "查询原任务 / 重试下载") : null,
           h("button", { onClick: forgetJob, style: btn }, record.draftRef ? "不满意，放弃这段" : "放弃任务记录")),
@@ -194,6 +220,6 @@
           exportRef ? h("button", { onClick: () => run(() => exportVideo(exportRef)), disabled: busy, style: btn }, "导出视频备份") : null,
           existing ? h("button", { disabled: busy, onClick: () => { patchMap(MEDIA, id, null); onSaved(); onBack(); }, style: btn }, "恢复静态头像") : null)));
   }
-  g.VideoApi = { load, save, normalize, ready, create, query, poll, adopt, media, job, importVideo, exportVideo, blob: blobOp, imageData, patchMap, keys: { CONFIG, MEDIA, JOBS } };
+  g.VideoApi = { load, save, normalize, ready, taskState, create: createTracked, query: queryTracked, poll, adopt, media, job, importVideo, exportVideo, blob: blobOp, imageData, patchMap, keys: { CONFIG, MEDIA, JOBS } };
   g.VideoApiConfig = VideoApiConfig; g.PomodoroVideoEditor = PomodoroVideoEditor; g.PomodoroLoopVideo = LoopVideo;
 })(window);

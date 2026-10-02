@@ -63,3 +63,16 @@ test('H3失败取消及成功缺URL均保留任务、不重复收费',async()=>{
   await assert.rejects(api.query('a'),status==='succeeded'?/下载地址/:/fixture failure/);assert.equal(api.job('a').taskId,'h3');assert.equal(sent.length,1);
  }
 });
+
+test('任务状态区分未确认、排队、失败与生成完成但下载中断',()=>{
+ const {api}=load();assert.match(api.taskState({status:'Submitting'},false).title,/提交未确认/);assert.match(api.taskState({status:'Submitting'},true).title,/正在提交/);
+ assert.match(api.taskState({taskId:'a',status:'queued'},true).title,/排队/);assert.match(api.taskState({taskId:'a',status:'running'},true).title,/生成动作/);
+ assert.equal(api.taskState({taskId:'a',status:'failed'},false).title,'生成失败');assert.equal(api.taskState({taskId:'a',status:'cancelled'},false).title,'任务已取消');
+ assert.match(api.taskState({taskId:'a',status:'succeeded',lastError:'下载失败'},false).title,/视频尚未保存/);
+ assert.match(api.taskState({taskId:'a',status:'running',lastError:'断网'},false).title,/生成结果未确认/);
+ assert.match(api.taskState({taskId:'a',draftRef:'pvideo_a'},false).title,/生成完成/);
+});
+test('提交连接失败的提示持久化，刷新仍是未确认且禁止重复提交',async()=>{
+ const {api}=load(async()=>{throw new TypeError('Failed to fetch')});api.save({enabled:true,apiKey:'fixture'});await assert.rejects(api.create('a','data:image/png;base64,fixture','动作'));
+ assert.match(api.job('a').lastError,/连接失败/);assert.match(api.taskState(api.job('a'),false).title,/提交未确认/);await assert.rejects(api.create('a','data:image/png;base64,fixture','动作'),/已有视频任务/);
+});
