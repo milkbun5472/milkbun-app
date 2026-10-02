@@ -12553,29 +12553,49 @@ function PeekSneakCard({ m, character, onPick }) {
 // TA开口要看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：给，就打开递手机那张单子；不给，TA照自己的性子接
 // TA写给她的申请信（v74.507）：先是一个封着的信封，拆开才读到；读完再选。
 // 形状照 PhoneAskCard（同一种「他递过来一样东西、她选」），信封那一层是这张卡自己的。
+// v74.509 她嫌丑重做：信封是真的信封（底、两侧折、上盖、火漆），拆开是一张信纸（衬线字、淡横线、落款）。
+//   颜色全从角色的 color 和 useTheme 里取，不写死成哪一种「浪漫粉」——冷色调的角色信封也是冷的。
 function LoveLetterCard({ m, character, onOpen, onAnswer }) {
   const t = useTheme();
   const c = character || {}, st = m.state || "sealed";
   const nm = c.remark || c.name || "TA";
+  const ink = c.color || "#a8505f";
+  const paper = "#fbf7ef", paperLine = "rgba(120,96,70,.13)", serif = "'Noto Serif SC','Songti SC','STSong',serif";
   if (st === "sealed") return h("div", { className: "py-1 flex justify-start" },
-    h("button", { "data-wk": "letter", "data-state": "sealed", onClick: onOpen, "aria-label": "拆开" + nm + "的信", className: "active:opacity-80",
-      style: { width: 220, textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: 0, overflow: "hidden" } },
-      h("div", { "data-wk": "letterseal", style: { position: "relative", height: 92, background: (c.color || "#c98a8a") + "22", borderBottom: "1px solid " + t.line } },
-        h("svg", { viewBox: "0 0 220 92", width: "100%", height: "100%", style: { display: "block" } },
-          h("path", { d: "M1 1 L110 58 L219 1", fill: "none", stroke: t.line, strokeWidth: 1.2 })),
-        h("div", { "data-wk": "letterstamp", style: { position: "absolute", left: "50%", top: 44, transform: "translate(-50%,-50%)", width: 26, height: 26, borderRadius: 999, background: c.color || "#c25a5a", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13 } }, "♥")),
-      h("div", { "data-wk": "lettercover", style: { padding: "9px 12px 11px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, nm + "给你写了一封信"),
+    h("button", { "data-wk": "letter", "data-state": "sealed", onClick: onOpen, "aria-label": "拆开" + nm + "的信", className: "active:opacity-80 text-left",
+      style: { width: 236, padding: 0, background: "transparent", border: "none" } },
+      h("div", { "data-wk": "letterseal", style: { position: "relative", height: 148, borderRadius: 6, overflow: "hidden",
+        background: "linear-gradient(160deg," + paper + " 0%,#f1e8da 100%)", boxShadow: "0 1px 2px rgba(60,40,20,.10), 0 6px 18px rgba(60,40,20,.10)" } },
+        h("svg", { viewBox: "0 0 236 148", width: "100%", height: "100%", preserveAspectRatio: "none", style: { position: "absolute", inset: 0, display: "block" } },
+          // 两侧折和底折（淡淡的阴影分出三片纸）
+          h("path", { d: "M0 148 L118 70 L236 148 Z", fill: "rgba(120,90,60,.06)" }),
+          h("path", { d: "M0 0 L104 82 L0 148 Z", fill: "rgba(120,90,60,.035)" }),
+          h("path", { d: "M236 0 L132 82 L236 148 Z", fill: "rgba(120,90,60,.035)" }),
+          // 上盖
+          h("path", { d: "M0 0 L118 84 L236 0 Z", fill: "#f6efe3", stroke: "rgba(120,90,60,.16)", strokeWidth: 0.8 })),
+        // 火漆
+        h("div", { "data-wk": "letterstamp", style: { position: "absolute", left: "50%", top: 84, transform: "translate(-50%,-50%)", width: 34, height: 34, borderRadius: 999,
+          background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,.35), transparent 45%), " + ink,
+          boxShadow: "0 1px 0 rgba(255,255,255,.25) inset, 0 2px 5px rgba(0,0,0,.22)", display: "flex", alignItems: "center", justifyContent: "center",
+          color: "rgba(255,255,255,.92)", fontSize: 14, fontFamily: serif } }, "♥")),
+      h("div", { "data-wk": "lettercover", style: { padding: "8px 2px 0" } },
+        h("div", { style: { fontFamily: serif, fontSize: 13.5, color: t.ink, letterSpacing: ".02em" } }, "致你 · " + nm + " 寄"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "轻点拆开"))));
   return h("div", { className: "py-1 flex justify-start" },
-    h("div", { "data-wk": "letter", "data-state": st, style: { width: 268, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "13px 15px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, nm + "的信"),
-      h("div", { "data-wk": "letterbody", style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, m.content || ""),
-      st === "open"
-        ? h("div", { "data-wk": "letterbtns", className: "flex gap-2", style: { marginTop: 12 } },
-            h("button", { onClick: () => onAnswer(false), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "再想想"),
-            h("button", { onClick: () => onAnswer(true), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "答应"))
-        : h("div", { style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "accepted" ? "你答应了 ♥" : "你说再想想")));
+    h("div", { "data-wk": "letter", "data-state": st, style: { width: 272, borderRadius: 6, overflow: "hidden",
+      background: paper, boxShadow: "0 1px 2px rgba(60,40,20,.10), 0 8px 22px rgba(60,40,20,.10)" } },
+      h("div", { style: { height: 3, background: ink, opacity: .75 } }),
+      h("div", { style: { padding: "16px 18px 14px" } },
+        h("div", { "data-wk": "letterbody", style: { fontFamily: serif, fontSize: 14.5, color: "#3a2f27", lineHeight: "28px", whiteSpace: "pre-wrap",
+          userSelect: "text", WebkitUserSelect: "text",
+          backgroundImage: "linear-gradient(to bottom, transparent 27px, " + paperLine + " 27px, " + paperLine + " 28px)", backgroundSize: "100% 28px" } }, m.content || ""),
+        h("div", { style: { fontFamily: serif, fontSize: 13, color: "#6b5a4c", textAlign: "right", marginTop: 10 } }, "—— " + nm),
+        st === "open"
+          ? h("div", { "data-wk": "letterbtns", className: "flex gap-2", style: { marginTop: 14 } },
+              h("button", { onClick: () => onAnswer(false), className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 999, border: "1px solid rgba(120,90,60,.25)", background: "transparent", fontFamily: F_BODY, fontSize: 14, color: "#5b4a3d" } }, "再想想"),
+              h("button", { onClick: () => onAnswer(true), className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 999, border: "none", background: ink, color: "#fff", fontFamily: F_BODY, fontSize: 14 } }, "答应"))
+          : h("div", { "data-wk": "letterbtns", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(120,90,60,.22)", fontFamily: F_BODY, fontSize: 12, color: st === "accepted" ? ink : "#9a8a7c", textAlign: "center" } },
+              st === "accepted" ? "你答应了 ♥" : "你说再想想"))));
 }
 function PhoneAskCard({ m, character, onGive, onRefuse }) {
   const t = useTheme();
