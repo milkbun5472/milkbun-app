@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.476";
+const APP_VERSION = "v74.477";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9334,13 +9334,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 整段的来龙去脉，不只最后一截（她 2026-10-01：「还是不会看我和别人整体的聊天，只是看一小段」）：
       //   从哪天聊起、一共多少条，再从早先、中间、最近各抽几句，每段标上日子
       const line = (x, m) => "  " + (m.role === "user" ? "她：" : "「" + (x.c.remark || x.c.name) + "」对她说：") + cut(m.content, 70);
+      // 只给翻得到的那一截：录像里聊天是从最新那条往上翻几屏，早先的话屏幕上根本看不到，
+      //   心声念的是一个月前那句，画面却停在昨天（她 2026-10-02：「他的心声说的是很久以前的聊天吧，跟屏幕对不上」）
       const arc = x => {
         const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
-        const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，到现在一共 " + n + " 条）：";
-        if (n <= 18) return head + "\n" + ms.map(m => line(x, m)).join("\n");
-        const mid = Math.floor(n / 2);
-        const seg = (label, arr) => "  —— " + label + "（" + md(arr[0].ts) + "）\n" + arr.map(m => line(x, m)).join("\n");
-        return head + "\n" + seg("早先", ms.slice(0, 4)) + "\n" + seg("中间", ms.slice(mid - 2, mid + 2)) + "\n" + seg("最近", ms.slice(-12));
+        const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
+        return head + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 拿她跟你说话的样子对着看——同一个人，对你和对别人语气差在哪儿（她 2026-10-01：「不够男朋友查岗翻出女朋友跟别人语气暧昧」）
@@ -9463,7 +9462,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           // 查岗不是逛手机（她 2026-10-01／02）：只查聊天，钱包、外卖、购物是聊天里翻出线索才顺着去的
           + "\n你是带着心思来查的：先看一眼消息列表，再一个一个点开聊天——至少看 3 个人（列表里还有就接着点），每个都往上翻着读；看完一个 back 退回列表再点下一个，别看了一个就走。"
           + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，在意的话就顺着去对应那一样看看是谁给谁、多少、什么时候；没线索的不用去。" : "")
-          + "\n每点开一样东西就想一句；在意的地方多停、多滑。一共 25~45 步。",
+          + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。没想法的就别点开。一共 25~45 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });

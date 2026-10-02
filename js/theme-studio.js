@@ -740,7 +740,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.476", changed: "家里版电台新增生活频率、录音间和录音架；整页外壳可选 [data-radio-life]，正文 [data-radio-life-scroll]，已听台词 [data-radio-transcript]，沿用 Head 与底部 0.4 安全区。旧录音页作用域为 radioArchive。", none: "" };
+  const BRIEF_STAMP = { v: "v74.477", changed: "", none: "这一版修翻手机，碰不到样式" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

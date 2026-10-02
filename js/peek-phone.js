@@ -69,7 +69,7 @@
     for (let i = 1; i < out.length; i++) {
       if (out[i].do === "think" && out[i - 1].do === "back") { const b = out[i - 1]; out[i - 1] = out[i]; out[i] = b; }
     }
-    const cap = Math.max(4, opens + THOUGHT_FREE);
+    const cap = Math.max(6, opens * 3 + THOUGHT_FREE);   // 一个聊天能想好几句：边翻边想（她 2026-10-02：「还是太稀疏了」）
     const kept = out.filter(s => s.do !== "think" || (++thoughts <= cap));
     const nextReal = i => { let j = i + 1; while (j < kept.length && (kept[j].do === "think" || kept[j].do === "pause")) j++; return j < kept.length ? kept[j] : null; };
     const fq = (hints.forum || []).slice(), dq = (hints.diary || []).slice();
@@ -107,7 +107,11 @@
       else if (s.do === "tap" && cur === "forum") res.push(...POST_READ());
       else res.push({ do: "scroll", dir: "down", n: 2, auto: true });
     }
-    return res;
+    // 没想法就不点开（她 2026-10-02：「翻到购物看了没心声」「最后一个单聊他也是看了一眼没说话」「重点是他的想法」）：
+    //   一段 open 到下一个 open 之间一句心声都没有的，整段不演（代码自己补的那一眼消息列表除外）
+    const segs = [];
+    res.forEach(s => { if (s.do === "open" || !segs.length) segs.push([]); segs[segs.length - 1].push(s); });
+    return [].concat(...segs.filter(g => g[0].do !== "open" || g[0].auto || g.some(x => x.do === "think")));
   }
 
   // 主屏上每个 app 在哪儿（她 2026-10-01：「能不能做在主屏幕滑动翻找这些 app 的动画」）。
@@ -200,6 +204,13 @@
       try { el.click(); } catch (e) {}
       setDot(d => ({ ...d, down: false }));
     };
+    // 只做按下去的样子、不真点：列表里按名字找到的那一行可能是群（旁观群名字里也带着人名），
+    //   真点进去就翻成了群聊。人对上以后交给外面按 id 直接打开那个单聊（她 2026-10-02：「把旁观群剔除掉」）
+    const pressOnly = async el => {
+      const r = el.getBoundingClientRect();
+      setDot({ x: r.left + r.width / 2, y: r.top + r.height / 2, down: false }); await sleep(650);
+      setDot(d => ({ ...d, down: true })); await sleep(160); setDot(d => ({ ...d, down: false }));
+    };
     const swipe = async dir => {
       const y = window.innerHeight * 0.45, a = window.innerWidth * 0.78, b = window.innerWidth * 0.22;
       setDot({ x: dir > 0 ? a : b, y, down: true }); await sleep(260);
@@ -226,7 +237,7 @@
           if (!n) { if (step.optional) continue; return false; }
           await tapEl(n); await sleep(800);
         }
-        if (app === "chat" && who) { const n = findByText(who); if (!n) return false; await tapEl(n); await sleep(900); }
+        if (app === "chat" && who) { const n = findByText(who); if (n) await pressOnly(n); return false; }
         return true;
       }
       setCaption("回到主屏，找" + (props.labelOf ? props.labelOf(app, "") : app));
@@ -274,7 +285,7 @@
         if (!n) { if (step.optional) continue; return false; }
         await tapEl(n); await sleep(900);
       }
-      if (app === "chat" && who) { const n = findByText(who); if (!n) return false; await tapEl(n); await sleep(900); }
+      if (app === "chat" && who) { const n = findByText(who); if (n) await pressOnly(n); return false; }
       return true;
     };
     const finish = () => { if (doneRef.current) return; doneRef.current = true; stopRef.current = true; props.onDone && props.onDone(logRef.current.slice()); };
