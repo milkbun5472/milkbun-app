@@ -4584,7 +4584,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
       + "**不必让人一眼看出这是自拍**：手臂、手机要不要出现在画面里，由上面那一句机位说了算；它没提手机，画面里就不用有手机，也不要那种广角怼脸的自拍畸变。"
       + "TA 的脸要在画面里、认得出是谁，但不必正对镜头。就算在描述某个场景，也要把 TA 本人拍进去，不是纯风景照。");
   } else if (kind === "other") {
-    parts.push("【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角，TA 手里没拿相机/手机自拍。姿势和构图要自然多变——站姿、坐姿、走动、回眸、侧身、半身或全身、带环境的生活人像都可以，别永远是怼脸的正面近照。TA 的样子清晰可见（除非是刻意的背影/侧影氛围照）。");
+    parts.push("【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角，TA 手里没拿相机/手机自拍。姿势和构图要自然多变——站姿、坐姿、走动、回眸、侧身、半身或全身、带环境的生活人像都可以，别永远是怼脸的正面近照。TA 的样子清晰可见（除非是刻意的背影/侧影氛围照）。"
+      // 她 2026-10-02：她在马上拍他牵马走路，出来的是他骑在马上——描述里拍照的人在做的事被安到了 TA 身上。
+      + "拍照的人不在画面里：描述里拍照那个人自己在做的事（骑在马上、坐在车里、站在楼上……）只决定镜头从哪儿、多高拍过来，不是 TA 的姿势；TA 在做什么，只看描述里写 TA 的那部分。");
   } else {
     // opts.cinematic：小剧场这类「场景剧照」必须是旁观视角。默认合照仍允许自拍构图（日常合影本来就那样拍）。
     parts.push(opts.cinematic
@@ -6866,7 +6868,7 @@ async function generateOffline(p, ctx, session) {
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2
-      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。它是上面输出形状的追加项。" : "")
+      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。other 是别人拿着手机拍你：scene 里分开写清你自己此刻的样子、和拍的人从哪儿拍（比如她在马背上往下拍你牵着缰绳走）。它是上面输出形状的追加项。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
