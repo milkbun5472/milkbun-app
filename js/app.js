@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.546";
+const APP_VERSION = "v74.547";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9267,6 +9267,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 拍一拍：只追加那行灰字、【不自动触发回复】（省 API 钱）。角色下次回复时会在历史里看到"被拍过"，
   // 由模型【按人设决定要不要 cue】——爱闹的会提/回拍，高冷正忙的可以当没看见。她 2026-07-12 拍板要这个行为。
+  // 群里双击成员头像拍一拍（她 2026-10-02）：用的是单聊设置里给TA填的拍一拍后缀，同样不自动触发回复
+  const patGroupMember = (groupId, charId) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char) return;
+    pGChat(groupId, p => [...p, { role: "user", kind: "pat", patTo: charId, content: "你拍了拍 " + (char.remark || char.name) + (char.patSig ? " " + char.patSig : ""), ts: Date.now() }]);
+  };
   const patChar = (charId, chatKey) => {
     const char = characters.find(c => c.id === charId);
     if (!char) return;
@@ -16620,7 +16626,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
-  const groupHistLine = m => m.dramaOn
+  const groupHistLine = m => m.kind === "pat"
+    ? "【" + userName(profile) + " 用「拍一拍」戳了 " + (((characters.find(c => c.id === m.patTo) || {}).name) || "某人") + " 一下：" + String(m.content || "").replace(/^你/, userName(profile)) + "（隔着屏幕的小动作，不是一句话）】"
+    : m.dramaOn
     ? "【就在这个位置，刚发生：群里每个人都看到了——其他人也是 " + userName(profile) + " 的恋人。这是你们第一次知道彼此，在这之前谁也不知道】"
     : (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
     + (m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
@@ -25460,6 +25468,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
     }
   });else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    onPatMember: cid => patGroupMember(activeGroup.id, cid),
     // 群里谁的开关都算数——和请求那一头（gCtx.wantReasoning）同一条判据
     showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
     group: groups.find(g => g.id === activeGroup.id) || activeGroup,

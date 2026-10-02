@@ -8818,6 +8818,15 @@ function ChatThread({
   };
   // 长按出菜单走公共那一份（滑动/滚动一动就取消；弹出后吞掉抬手那一下）
   // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
+  // 双击头像拍一拍（她 2026-10-02）。单击原来的动作（看心声）往后让 260ms，等第二下
+  const avTapRef = useRef({ t: 0, timer: null });
+  const avTap = single => e => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const r = avTapRef.current, now = Date.now();
+    if (now - r.t < 260) { clearTimeout(r.timer); r.t = 0; if (onPat) onPat(); return; }
+    r.t = now; clearTimeout(r.timer);
+    if (single) r.timer = setTimeout(single, 260);
+  };
   const { startPress, endPress } = useLongPressMenu(setMenu, { onSwipeLeft: i => {
     const mm = messages[i];
     if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
@@ -9079,6 +9088,10 @@ function ChatThread({
     }, m.role === "user" ? "你" : character.name, "撤回了一条消息"));
     if (m.kind === "pat") return h("div", {
       key: i,
+      // 长按出菜单（她 2026-10-02：拍一拍也要能撤回，跟别的消息撤回一样）
+      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+      onClick: selMode ? () => toggleSel(i) : undefined,
       className: "text-center py-1.5"
     }, h("span", {
       "data-wk": "note",
@@ -9366,7 +9379,7 @@ function ChatThread({
       className: "flex items-start gap-2 " + (isU ? "justify-end" : "justify-start"),
       "data-wk": "row"
     }, !isU && /*#__PURE__*/React.createElement("button", {
-      onClick: onOpenState,
+      onClick: avTap(onOpenState),
       className: "shrink-0 active:opacity-70",
       title: "查看 " + cName + " 的心声",
       "data-wk": "avatar"
@@ -13493,6 +13506,7 @@ function menuItemsForKind(m, canSpeak) {
   // 居中那一行也是消息，不是系统字（她 2026-09-09）：TA那一格动作能编辑、能重 Roll
   //   （跟同一轮的气泡带同一个 turnId，重 Roll 会退到这一轮的头一泡）；
   //   她自己写的旁白没什么可 roll 的，只给编辑。两边都不给「引用」——引用一行动作没有意义。
+  if (k === "pat") return m && m.role === "user" ? [[], [], ["recall", "del"]] : [[], [], ["del"]];
   if (k === "narration" || (m && m.role === "narration")) {
     return m && m.who === "char"
       ? [["copy", "fav"], ["edit", "reroll"], ["multi", "recall", "del"]]
@@ -15037,6 +15051,7 @@ function GroupThread({
   sameRoom,
   onToggleSameRoom,
   onOpenMemberState,
+  onPatMember,
   canPeekMember,
   onStartPoll,
   onGenVotes,
@@ -15188,10 +15203,19 @@ function GroupThread({
   // 判据在 app 的 memberStatePeekable 那一处（互通群人人可点、闭群只有配角）。
   // ⚠️别在这儿再写一份：线下那头原来就是各判各的，结果闭群里点普通成员没反应。
   const canPeek = onOpenMemberState && (canPeekMember || (c => gsp.memoryInterop || !!(c && c.npc)));
+  // 双击成员头像拍一拍（她 2026-10-02）。单击原来的动作（看心声）往后让 260ms，等第二下
+  const gAvTapRef = useRef({ t: 0, id: null, timer: null });
+  const gAvTap = (cid, single) => e => {
+    if (e && e.stopPropagation) e.stopPropagation();
+    const r = gAvTapRef.current, now = Date.now();
+    if (cid && r.id === cid && now - r.t < 260) { clearTimeout(r.timer); r.t = 0; if (onPatMember) onPatMember(cid); return; }
+    r.t = now; r.id = cid; clearTimeout(r.timer);
+    if (single) r.timer = setTimeout(single, 260);
+  };
   const mAvatar = (character, size) => (canPeek && canPeek(character) && character && character.id)
-    ? h("button", { "data-wk": "avatar", onClick: () => onOpenMemberState(character.id), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
+    ? h("button", { "data-wk": "avatar", onClick: gAvTap(character.id, () => onOpenMemberState(character.id)), className: "active:opacity-60", style: { flexShrink: 0, lineHeight: 0, padding: 0, border: "none", background: "none" }, title: "看 " + (character.name || "") + " 的心声" }, h(Avatar, { character: character, size: size || 34, radius: 8 }))
     // 包一层挂点壳：头像框/挂件叠在壳上（头像自己裁圆角，叠在里面会被裁掉）——跟单聊那颗同一个做法
-    : h("span", { "data-wk": "avatar", className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }));
+    : h("span", { "data-wk": "avatar", onClick: gAvTap(character && character.id, null), className: "shrink-0", style: { display: "inline-flex" } }, h(Avatar, { character: character, size: size || 34, radius: 8 }));
   const openRp = i => {
     const rp = messages[i];
     if (rp.byMe || rp.claims.some(c => c.me) || rp.claims.length >= rp.count) {
@@ -15412,6 +15436,11 @@ function GroupThread({
       isU: m.receipt.side === "me", charId: m.receipt.senderId,
       avatar: mAvatar(memberById(m.receipt.senderId) || { name: m.receipt.senderName, color: t.tint }),
       myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "pat") return h("div", { key: i,
+      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+      onClick: selMode ? () => toggleSel(i) : undefined, className: "text-center py-1.5" },
+      h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, m.content));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },

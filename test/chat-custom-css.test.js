@@ -38,7 +38,7 @@ test("群聊也有这一堆美化：同一块排版/CSS、限到这一个群、�
   assert.match(g, /if \(gPeek\) return h\(ThemePeekBar,/);
   assert.match(app, /'html\[data-lisa-screen="gthread"\]\[data-lisa-group="'/);
   assert.match(app, /window\.__previewGroupLook = draft => paintGroupLook\(draft\)/);
-  assert.match(comp, /: h\("span", \{ "data-wk": "avatar", className: "shrink-0", style: \{ display: "inline-flex" \} \}, h\(Avatar, \{ character: character, size: size \|\| 34, radius: 8 \}\)\);/, "群成员头像没包挂点壳，头像框会被裁");
+  assert.match(comp, /: h\("span", \{ "data-wk": "avatar",(?: onClick: [^,]+, null\),)? className: "shrink-0", style: \{ display: "inline-flex" \} \}, h\(Avatar, \{ character: character, size: size \|\| 34, radius: 8 \}\)\);/, "群成员头像没包挂点壳，头像框会被裁");
 });
 
 test("换一台手机不错位：<html> 上挂着跟手机走的尺寸变量，挂点那块教怎么用", () => {
