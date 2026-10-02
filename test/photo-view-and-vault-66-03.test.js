@@ -166,9 +166,10 @@ test("拍手/背影：有身体没有脸，走它自己那条路", () => {
 });
 
 test("view 走空景那条路，一张参考照都不喂", () => {
+  // 「参考照」指人脸。世界的风景参考不是一张脸（她 2026-10-02：「世界生图应该用风景照吧」），空景照样可以喂，见 world-ref-and-chat-invite
   assert.match(app, /const isView = photoKind === "view", isPart = photoKind === "part";/);
   assert.match(app, /const refs = noFace \? \[\] :/, "不露脸那两种还在喂参考照，它会想办法把脸画进去");
-  assert.match(app, /const prompt = isView \? buildScenePrompt\(char, photoScene, \{ forText: false \}\)/);
+  assert.match(app, /const prompt = isView \? buildScenePrompt\(char, photoScene, \{ forText: false[^}]*\}\)/);
   // ⚠️forText 必须显式关掉：空景那份默认是【要压字的背景板】（中下留空），
   //   聊天里发的图不是背景板
   assert.match(eng, /if \(!body && opts\.forText !== false\) parts\.push\("【这是一张要压字的背景板】/,

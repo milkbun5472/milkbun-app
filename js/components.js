@@ -12686,6 +12686,9 @@ function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
   const [open, setOpen] = useState(false);
   useEffect(() => { dateHandFont(); }, []);
   const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {}, w = m.when || {};
+  // 群里的那张不叫约会（她 2026-10-02：「群里的邀约就不叫约会了吧」）：换一句话、换一行小字，其余同一张
+  const grp = !!(m.invitees || m.inviteMid !== undefined);
+  const rep = m.replies || {};
   const who = character.remark || character.name || "TA";
   const ink = t.sub, line = t.line, paper = t.bg2;
   const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || ""));
@@ -12721,18 +12724,18 @@ function DateInviteCard({ m, character, onGo, onGoMine, avatar, myAvatar }) {
   const inside = card([
     h("div", { key: "top", style: { position: "relative", padding: "20px 16px 14px", borderBottom: "1.5px dashed " + line, textAlign: "center" } },
       h("svg", { width: 24, height: 24, viewBox: "0 0 24 24", style: { position: "absolute", right: 10, top: 8 } }, star(12, 12, 5)),
-      h("div", { style: { fontFamily: F_HAND, fontSize: 16, lineHeight: 1.45, color: ink, whiteSpace: "nowrap" } }, mine ? "想和你一起去约会。" : "好，那就说定了。"),
+      h("div", { style: { fontFamily: F_HAND, fontSize: 16, lineHeight: 1.45, color: ink, whiteSpace: "nowrap" } }, mine ? (grp ? "想约大家一起出去。" : "想和你一起去约会。") : "好，那就说定了。"),
       h("div", { style: { marginTop: 6, display: "flex", justifyContent: "center" } }, heart(15)),
-      h("div", { style: { textAlign: "right", marginTop: 2, fontFamily: F_DISPLAY, fontSize: 8, letterSpacing: ".22em", color: t.fog } }, "DATE WITH YOU")),
+      h("div", { style: { textAlign: "right", marginTop: 2, fontFamily: F_DISPLAY, fontSize: 8, letterSpacing: ".22em", color: t.fog } }, grp ? "SEE YOU" : "DATE WITH YOU")),
     h("div", { key: "bot", style: { padding: "6px 14px 10px" } },
       row(I.pin, pl.name || "某处"),
-      (m.invitees || []).length ? row(I.ppl, "约了 " + m.invitees.map(x => x.name).join("、")) : null,
+      (m.invitees || []).length ? row(I.ppl, m.invitees.map(x => x.name + (rep[x.id] === "yes" ? " 去" : rep[x.id] === "no" ? " 不去" : " 还没回")).join(" · ")) : null,
       w.date ? row(I.cal, dateLabel(w.date)) : null,
       w.time ? row(I.clk, w.time) : null,
       m.say ? row(I.pen, m.say, true) : (pl.note ? row(I.pen, pl.note, true) : null),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, foot),
-        mine && onGoMine && st === "pending" ? h("button", { onClick: onGoMine, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "人齐了，出发 →")
+        mine && onGoMine && st === "pending" && Object.keys(rep).some(k => rep[k] === "yes") ? h("button", { onClick: onGoMine, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "带答应的人出发 →")
         : !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →")
           : h("button", { onClick: () => setOpen(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0 4px 8px", minHeight: 30 } }, "合上")))
   ]);
@@ -14669,7 +14672,8 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     return h("div", { className: "my-3.5", "data-wk": "offnarr", "data-short": nShort ? "1" : "0" }, head,
       nShort
         ? h("div", { className: "flex items-center gap-3" }, rule(),
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, whiteSpace: "nowrap" } }, nText), rule())
+            // 不许 nowrap：三十来个字加字距在手机上一行装不下，原来直接冲出屏幕（群邀约出发那句开场撞出来的）
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, textAlign: "center", minWidth: 0, flex: "0 1 auto" } }, nText), rule())
         : h("div", { style: { borderLeft: "2px solid " + offA(t.tint, offDark(t) ? 0.5 : 0.38), paddingLeft: 13, margin: "0 4px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } },
               offSplit(nText).map((x, i) => x.k === "prose" ? x.s
@@ -15446,6 +15450,10 @@ function GroupThread({
     if (m.kind === "dateinvite") return h(DateInviteCard, { key: i, m: m, character: { name: (m.invitees || []).map(x => x.name).join("、") || "大家" },
       onGoMine: onGroupDateGo ? () => onGroupDateGo(m) : null,
       myAvatar: gsp.showMyAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    // 成员答应了落下的回执：跟单聊同一张，点出发＝带答应的人进群见面
+    if (m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: memberById(m.senderId) || { name: m.senderName || "TA" },
+      onGo: () => onGroupDateGo && onGroupDateGo(m),
+      avatar: mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }) });
     if (m.kind === "poll") return h(PollCard, {
       key: i,
       poll: m,
@@ -15695,37 +15703,7 @@ function GroupThread({
       background: "#fff",
       borderRadius: 14
     }
-  }, h(TypingDots, { color: t.fog })), onStopGen && h(GenStopX, { onStop: onStopGen }))), panel && h("div", {
-    className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
-    style: Object.assign({
-      background: t.bg2,
-      borderTop: "1px solid " + t.line
-    }, CHAT_PANEL_SCROLL)
-  }, PANEL.map(([k, zh, glyph]) => h("button", {
-    key: k,
-    "data-wk": "chattool", "data-chat-tool": k,
-    onClick: () => onPanelTap(k),
-    className: "flex flex-col items-center gap-1.5 active:opacity-60"
-  }, h("div", {
-    className: "flex items-center justify-center",
-    style: {
-      width: 52,
-      height: 52,
-      borderRadius: 14,
-      background: t.bg,
-      border: "1px solid " + t.line
-    }
-  }, h(CGlyph, {
-    k: glyph,
-    size: 24,
-    color: t.sub
-  })), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog
-    }
-  }, zh)))), selMode && h("div", {
+  }, h(TypingDots, { color: t.fog })), onStopGen && h(GenStopX, { onStop: onStopGen }))), selMode && h("div", {
     className: "flex items-center justify-between px-4 py-3 shrink-0",
     style: { background: t.bg2, borderTop: "1px solid " + t.line }
   }, h("button", { onClick: exitSel, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"),
@@ -15800,7 +15778,39 @@ function GroupThread({
     hold: !!gHold,
     title: gHold ? (gs.spectate ? "让他们演一轮（回完仍旧等你）" : "让他们回一轮（回完仍旧等你）") : (gs.spectate ? "让他们继续" : "让他们回复"),
     onClick: onReply
-  })), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
+  })),
+  // ＋面板在输入框【下面】，跟单聊一样（她 2026-10-02：「加号跑到下面、里面的东西跑上来了，做反了」）
+  !selMode && panel && h("div", {
+    className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
+    style: Object.assign({
+      background: t.bg2,
+      borderTop: "1px solid " + t.line
+    }, CHAT_PANEL_SCROLL)
+  }, PANEL.map(([k, zh, glyph]) => h("button", {
+    key: k,
+    "data-wk": "chattool", "data-chat-tool": k,
+    onClick: () => onPanelTap(k),
+    className: "flex flex-col items-center gap-1.5 active:opacity-60"
+  }, h("div", {
+    className: "flex items-center justify-center",
+    style: {
+      width: 52,
+      height: 52,
+      borderRadius: 14,
+      background: t.bg,
+      border: "1px solid " + t.line
+    }
+  }, h(CGlyph, {
+    k: glyph,
+    size: 24,
+    color: t.sub
+  })), h("span", {
+    style: {
+      fontFamily: F_BODY,
+      fontSize: 11,
+      color: t.fog
+    }
+  }, zh)))), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
     h(Eyebrow, { style: { marginBottom: 8 } }, (gRecallView.senderName || "TA") + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, gRecallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),

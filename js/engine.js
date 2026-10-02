@@ -4611,7 +4611,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 人物参考照一个字都没有。又是「这一层只写在一处」。
   const _hasIdRef = !!(char && char.refPhoto) || (kind === "duo" && opts && opts.me && opts.me.refPhoto);
   if (_hasIdRef) parts.push("【参考图只锁人，不锁镜头】人物参考照只用来确定【这是谁】——五官、脸型、发型发色、瞳色、肤色、体型、标志性配饰，照它来。但【机位、头的朝向、视线看哪里、表情、姿势、取景范围】一律按这次的场景和动作【重新决定】，不许沿用参考照里的那一套。参考照里那个角度（微微仰头看镜头、低头平视、固定的歪头或侧脸）是【那一张照片】的信息，不是这个人天生的姿态；每张新照片都该有自己的机位。");
-  if (opts.worldRefIndex) parts.push(worldRefLine(opts.worldRefIndex));
+  if (opts.worldRefIndex) parts.push(worldRefLine(opts.worldRefIndex, opts.worldRefLabel));
   if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
   parts.push(photoShotLine(kind, opts.shotSeed));
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
@@ -4631,9 +4631,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
 // 只保留跟人无关的那两层——画风（跟着这个角色走，不然TA那条线的背景是另一套质感）
 // 和世界观事实（古代角色的背景里不能有路灯）——其余一概不发。
 // 世界的生图参考（她 2026-10-02 转群友：世界设定那页加一张「生图参考」）：
-// 住在某个架空世界里的人，拍照时把这张一起喂进去——只借环境，不借人。人像和空景两条路共用这一句。
-function worldRefLine(i) {
-  return "【第" + i + "张参考图=这个世界的样子】只借它的环境：街道建筑、植物、色调、光线和天气的感觉，让画面一看就是同一座城；"
+// 住在某个架空世界里的人，拍照时把最对得上的那张一起喂进去——只借环境，不借人。人像和空景共用这一句。人像和空景两条路共用这一句。
+function worldRefLine(i, label) {
+  return "【第" + i + "张参考图=这个世界的一张风景照" + (label ? "：" + label : "") + "】只借它的环境：街道建筑、植物、色调、光线和天气的感觉，让画面一看就是同一座城；"
     + "它不是这个人，也不是这一格的构图——画里有人就仍照人物参考照，机位照这一格自己的描述。";
 }
 function buildScenePrompt(char, sceneDesc, opts) {
@@ -4669,6 +4669,7 @@ function buildScenePrompt(char, sceneDesc, opts) {
       + characterText(char, "**场景描述里就算提到了某个人，那也只是在说这地方为什么是这样，不是让你把他画进去。**")
       + "只画【那个地方本身】：建筑、器物、光、天气、留下的痕迹。");
   }
+  if (opts.worldRefIndex) parts.push(worldRefLine(opts.worldRefIndex, opts.worldRefLabel));
   const era = String(char.persona || "").trim().slice(0, 500);
   if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的建筑、器物、材质、光源、"
     + (body ? "衣料" : "street furniture") + "都要跟它同一个年代和地域，"

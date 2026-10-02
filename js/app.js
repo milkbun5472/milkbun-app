@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.547";
+const APP_VERSION = "v74.548";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7411,10 +7411,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
   //   kind    self｜other｜duo｜group
   //   cast    仅 group：镜头里点名的那几位（顺序＝参考图顺序，错位脸就串）
-  // 这个人住的那个架空世界有没有「生图参考」（她 2026-10-02）。住在现实、或世界没传图 → null。
-  const worldRefFor = c => {
-    const r = c && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null;
-    return r && r.kind === "world" && r.world && r.world.refImg ? r.world.refImg : null;
+  // 这个人住的那个架空世界的风景参考（她 2026-10-02）：按这一格画面挑最对得上的那张 {img,label}。
+  //   住在现实、或世界没传图 → null。
+  const worldRefFor = (c, text) => {
+    const K = window.MapKit;
+    const r = c && K && K.charRealm ? K.charRealm(c, worldsRef.current || []) : null;
+    return r && r.kind === "world" && r.world && K.pickWorldRef ? K.pickWorldRef(r.world, String(text || "") + " " + (r.node || "")) : null;
   };
   const runOfflineShot = async (arg) => {
     const char = arg && arg.char;
@@ -7466,10 +7468,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : [char.refPhoto].filter(Boolean);
       const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
       if (contBlobKey) refs.push(contBlobKey);
-      const wRef = worldRefFor(char);
-      if (wRef) refs.push(wRef);
+      const wRef = worldRefFor(char, scene + " " + (freshPlace || ""));
+      if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0 });
+      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(char, { kind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -8384,7 +8386,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       memExtractMarkGOffRef.current[groupId] = all[all.length - 1].ts || Date.now();
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };
-  const genGroupOfflineFrom = async (group, workSess) => {
+  const genGroupOfflineFrom = async (groupIn, workSess) => {
+    // 这一场只认在场的人：成员表直接收窄，后面所有人设、状态、发言名单都只剩他们
+    const group = workSess && Array.isArray(workSess.present) && workSess.present.length
+      ? { ...groupIn, memberIds: (groupIn.memberIds || []).filter(id => workSess.present.includes(id)) } : groupIn;
     if (!offlineActive) {
       toast("请先到设置配置 API");
       return;
@@ -8518,6 +8523,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       taste: opts.taste || osTaste("g_" + groupId),
       customNotes: [],
       onlinePrelude: groupOnlinePrelude(groupId),
+      // 邀约出发的那一场只有答应了的人在场（她 2026-10-02：「能确保没选的人不会出现吧」）
+      ...(Array.isArray(opts.present) && opts.present.length ? { present: opts.present.slice() } : {}),
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pGOffline(groupId, list => [sess, ...list.filter(s => s.endTs)]);
@@ -9673,6 +9680,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 不自动让TA回：她可能还要补几句，等她自己发（她 2026-10-02：「我一发他就触发回复了，等我打完字再让他回」）
     openChatById(char.id);
   };
+  // ── 邀约回执：单聊和群里共用这一套（她 2026-10-02：「和单人做一套公共的不要一边接一边不接」）──
+  //   问法、认「去不去」、回执长什么样，各只有这一份；单聊群聊只差「回执落在谁名下」。
+  const inviteNames = inv => ((inv && inv.invitees) || []).map(x => x.name).join("、");
+  const inviteAskText = (inv, uName) => (inv.invitees ? uName + " 在群里约了" + inviteNames(inv) : uName + " 约你")
+    + (inv.when ? dateWhenText(inv.when) + " " : "") + "在「" + inv.place.name + "」见面" + (inv.place.note ? "（" + inv.place.note + "）" : "")
+    + (inv.say ? "，还说：「" + inv.say + "」" : "") + "，还等着回。去就填 \"yes\"，不去或改天填 \"no\"，照你此刻的处境和心意来；说话照常写。";
+  const rsvpYes = v => v === true || /^(yes|y|true|好|去|答应)/i.test(String(v == null ? "" : v).trim());
+  const rsvpReceipt = (inv, who) => ({ id: "rcpt_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6), role: "assistant", kind: "datereceipt",
+    place: inv.place, when: inv.when || null, say: "", state: "pending", ...(inv.invitees ? { inviteMid: inv.mid || null } : {}),
+    ...(who ? { senderId: who.id, senderName: who.name } : {}),
+    content: (inv.invitees ? "[邀约回执] " : "[约会回执] ") + "好，「" + inv.place.name + "」见", ts: Date.now() + 2 });
   // ＋面板「邀约」能挑的地方：我们的城市钉过的 + TA住的那个架空世界里的地点（好友地图那一半）。同名只留一个。
   const invitePlacesFor = char => {
     const out = [], seen = {};
@@ -10469,7 +10487,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _inv = !(room && !room.main) && pendingInviteOf(charId);
       if (_inv) {
         openCaps.push("dateReply");
-        capState.push("dateReply：她约你" + (_inv.when ? dateWhenText(_inv.when) + " " : "") + "在「" + _inv.place.name + "」见面" + (_inv.place.note ? "（" + _inv.place.note + "）" : "") + (_inv.say ? "，还说：「" + _inv.say + "」" : "") + "，还等着你回。去就填 \"yes\"，不去或改天填 \"no\"，照你此刻的处境和心意来；说话照常写在 word 里。");
+        capState.push("dateReply：" + inviteAskText(_inv, "她"));
       }
       // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
       //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
@@ -11648,10 +11666,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.dateReply && !(room && !room.main)) {
         const inv = pendingInviteOf(charId);
         if (inv) {
-          const yes = /^(yes|y|true|好|去|答应)/i.test(String(parsed.dateReply).trim());
+          const yes = rsvpYes(parsed.dateReply);
           pChat(charId, p => p.map(x => x.id === inv.id ? { ...x, state: yes ? "accepted" : "declined" } : x));
-          if (yes) pChat(charId, p => [...p, { id: "rcpt_" + Date.now(), role: "assistant", kind: "datereceipt", place: inv.place, when: inv.when || null, say: "", state: "pending",
-            content: "[约会回执] 好，「" + inv.place.name + "」见", ts: Date.now() + 2 }]);
+          if (yes) pChat(charId, p => [...p, rsvpReceipt(inv, null)]);
           delivered = true;
         }
       }
@@ -11984,13 +12001,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
       const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
       if (contBlobKey) refs.push(contBlobKey);
-      // 世界参考只借环境，只给画人的那几档：空景/局部一张参考图都不喂（见 isView 那段）。
-      const wRef = noFace ? null : worldRefFor(char);
-      if (wRef) refs.push(wRef);
+      // 世界的风景参考只借环境：画人的、和纯风景都喂（她 2026-10-02：「世界生图应该用风景照吧」）——
+      //   它不是一张脸，空景喂它不会把人画进去；只露一截身体那档用不上街景，不喂。
+      const wRef = isPart ? null : worldRefFor(char, photoScene + " " + (freshPlace || ""));
+      if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0 };
+      const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
       // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
-      const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
+      const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
       // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
       // 解剖锁、服装锁、随身物全塞进去的大家伙，出来一两千字，而上游拒绝的第一条
       // 原因就写着 prompt is too long。这份只有一百来字：只留【这是谁】和【拍张人像】。
@@ -12544,6 +12562,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       })();
       const gEmotes = emotesForGroup(group.memberIds);
       const gPolls = _graw.filter(m => m.kind === "poll");
+      const _gInv = pendingGroupInviteOf(groupId);
+      const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, userName(profile)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:\"yes\" 或 \"no\"；"
+        + ((_gInv.replies && Object.keys(_gInv.replies).length) ? "已经回过的（" + _gInv.invitees.filter(x => _gInv.replies[x.id]).map(x => x.name + (_gInv.replies[x.id] === "yes" ? "去" : "不去")).join("、") + "）不用再填；" : "")
+        + "没被约到的人不填，也别替别人答。" : "";
       const gPollHint = gPolls.length ? "\n【投票操作】上文投票卡列出了编号与选项。成员要投票或改票，在自己的发言对象中增加 pollVote:{\"pollId\":\"对应投票编号\",\"choice\":从0起的选项序号}；-1 为撤回自己的票。只说投了不会改变票数，text 必须与 choice 一致。匿名投票不在 text 里透露自己的选择。" : "";
       const gEmoteHint = gEmotes.length ? "\n【表情包】每个成员各自延续已经形成的聊天习惯：本来爱发的人可以常发或兴头上连发，本来很少发或从不发的人不要因为列表可用、也不要模仿别的成员或历史表情突然开始发；不存在全群统一频率。可用关键词：" + gEmotes.map(e => e.keyword).join(" / ") + "。要发就在该成员那条发言对象里加 emote 字段填一个关键词（与列出的完全一致），否则省略。" : "";
       // 群自拍：只有配了图像API且成员填了外貌/参考照才开放（按需注入，平时零 token）
@@ -12739,7 +12761,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -12984,6 +13006,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 780));
           checkAutoCall();
+          // 邀约的表态：只认被约到、还没回过的那几个；答应了就落一张回执在TA名下（跟单聊同一张）
+          if (spk && _gInv && item.dateReply != null && (_gInv.invitees || []).some(x => x.id === spk.id) && !(_gInv.replies || {})[spk.id]) {
+            const yes = rsvpYes(item.dateReply);
+            _gInv.replies = { ...(_gInv.replies || {}), [spk.id]: yes ? "yes" : "no" };
+            pGChat(groupId, p => p.map(x => x && x.kind === "dateinvite" && x.mid === _gInv.mid ? { ...x, replies: _gInv.replies } : x));
+            if (yes) pushGroupRich(groupId, rsvpReceipt(_gInv, spk));
+          }
           if (item.pollVote && gPolls.some(p => p.pollId === item.pollVote.pollId)) {
             const poll = groupPoll(groupId, item.pollVote.pollId);
             const choice = groupPollChoice(item.pollVote.choice, poll);
@@ -13351,18 +13380,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const inv = (v && Array.isArray(v.invitees)) ? v.invitees : [];
     const names = inv.map(x => x.name).join("、");
     pushGroupRich(groupId, { role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, when, say, invitees: inv, state: "pending",
-      content: "[约会邀请] 约" + (names || "大家") + (when ? dateWhenText(when) + " " : "") + "在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + (say ? "——" + say : "") + "。被约到的人各自表个态：去不去、几点到。" });
+      replies: {},
+      content: "[邀约] 约" + (names || "大家") + (when ? dateWhenText(when) + " " : "") + "在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + (say ? "——" + say : "") });
   };
+  const pendingGroupInviteOf = groupId => [...(groupChatsRef.current[groupId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.invitees && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+  // 出发：邀请卡上点、或者哪张回执上点，都落到同一张邀请——只带【答应了的】那几个人进场，没被约、没答应的一概不在
   const groupDateGo = (groupId, m) => {
     const group = groups.find(g => g.id === groupId);
     if (!group || !m) return;
+    const mid = m.kind === "datereceipt" ? m.inviteMid : m.mid;
+    const inv = (groupChatsRef.current[groupId] || []).find(x => x && x.kind === "dateinvite" && x.mid === mid) || (m.kind === "dateinvite" ? m : null);
+    if (!inv) return;
+    const going = (inv.invitees || []).filter(x => (inv.replies || {})[x.id] === "yes");
+    if (!going.length) { toast("还没人答应，等他们回一声再出发"); return; }
     const list = groupOfflinesRef.current[groupId] || loadJSON("x_goffline:" + groupId, []);
     if ((list || []).some(x => x && !x.endTs)) { toast("这个群还有一场见面没结束——先去结束它，再出发"); openGroupOffline(group); return; }
-    pGChat(groupId, p => p.map(x => x.kind === "dateinvite" && (m.mid ? x.mid === m.mid : x.ts === m.ts) ? { ...x, state: "gone" } : x));
-    const names = (m.invitees || []).map(x => x.name).join("、");
-    const pl = m.place || {};
+    pGChat(groupId, p => p.map(x => (x.kind === "dateinvite" && x.mid === inv.mid) || (x.kind === "datereceipt" && x.inviteMid === inv.mid) ? { ...x, state: "gone" } : x));
+    const pl = inv.place || {};
     openGroupOffline(group);
-    startGroupOffline(groupId, { opening: "约好的" + (m.when ? dateWhenText(m.when) : "那天") + "，在「" + (pl.name || "约好的地方") + "」" + (pl.note ? "（" + pl.note + "）" : "") + "。" + (names ? "被约来的是" + names + "，其他人这次不在场。" : "") });
+    startGroupOffline(groupId, { present: going.map(x => x.id),
+      opening: "约好的" + (inv.when ? dateWhenText(inv.when) : "那天") + "，在「" + (pl.name || "约好的地方") + "」" + (pl.note ? "（" + pl.note + "）" : "") + "。来的是" + going.map(x => x.name).join("、") + "。" });
   };
   // 群里能挑的地方：我们的城市 + 每个成员住的那个架空世界里的地点
   const groupInvitePlacesFor = group => {
@@ -17351,7 +17388,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins,
         cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why }, route,
-        createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now(), refImg: (old && old.refImg) || null };
+        createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now(), refImg: (old && old.refImg) || null, refImgs: (old && old.refImgs) || null };
       saveWorlds(id ? (worlds || []).map(w => w.id === id ? next : w) : [next, ...(worlds || [])]);
       const nNode = regions.reduce((n, r) => n + r.nodes.length, 0);
       const nPin = Object.keys(pins).length;
@@ -17410,9 +17447,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (done) done();
     } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
   };
-  // refImg：世界的生图参考。不传＝不动；null＝清掉。
+  // refImgs：世界的风景参考 [{img,label}]。不传＝不动；存了新版就把旧的单张 refImg 清掉。
   // ⚠️读 worldsRef 不读 worlds：新开的世界刚画完就要存图，那一刻闭包里的 worlds 还是旧的。
-  const saveWorld = (id, name, brief, refImg) => saveWorlds((worldsRef.current || worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt, ...(refImg !== undefined ? { refImg: refImg || null } : {}) }));
+  const saveWorld = (id, name, brief, refImgs) => saveWorlds((worldsRef.current || worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt, ...(refImgs !== undefined ? { refImgs: Array.isArray(refImgs) ? refImgs.slice(0, 6) : [], refImg: null } : {}) }));
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
   // 手动钉进来的人补一张「会去哪儿」（她 2026-10-02：开世界最多带 8 个，其余的钉进去就不动了——可以选择要不要补）
   // 她又说：「一个一次调用好浪费」——所以点谁都一样：这个世界里钉着、还没有小表的人，一次调用一起排完。
