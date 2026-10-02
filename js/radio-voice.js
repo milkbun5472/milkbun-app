@@ -101,7 +101,8 @@
     const fail = e => { if (!done.at) { done.at = true; if (typeof o.fail === "function") o.fail(e); } };
     const t = String(text || "").trim();
     if (!t) { end(); return { cancel() { done.at = true; } }; }
-    let audio = null, stopped = false;
+    let audio = null, stopped = false, objectUrl = "";
+    const dropUrl = () => { if (objectUrl) { try { URL.revokeObjectURL(objectUrl); } catch (e) {} objectUrl = ""; } };
     // 系统音色那一条（也是所有失败的落点）
     const bySystem = () => {
       if (stopped || done.at) return;
@@ -117,12 +118,15 @@
         speechSynthesis.speak(u);
       } catch (e) { fail(e); }
     };
-    if (!mouthOn()) { bySystem(); return { cancel() { stopped = true; try { speechSynthesis.cancel(); } catch (e) {} done.at = true; } }; }
-    mouthSpeak(t, { voice: o.voice }).then(blob => {
+    const useMini = !!(o.voiceId && typeof ttsReady === "function" && ttsReady() && typeof ttsSpeak === "function");
+    if (!useMini) {
+      if (!mouthOn()) { bySystem(); return { cancel() { stopped = true; try { speechSynthesis.cancel(); } catch (e) {} done.at = true; } }; }
+    }
+    (useMini ? ttsSpeak(t, o.voiceId) : mouthSpeak(t, { voice: o.voice })).then(blob => {
       if (stopped || done.at) return;
-      const url = URL.createObjectURL(blob);
+      const url = URL.createObjectURL(blob); objectUrl = url;
       audio = new Audio(url);
-      const drop = () => { try { URL.revokeObjectURL(url); } catch (e) {} };
+      const drop = () => { dropUrl(); };
       audio.onended = () => { drop(); end(); };
       audio.onerror = () => { drop(); audio = null; bySystem(); };
       const p = audio.play();
@@ -130,7 +134,7 @@
     }).catch(() => { bySystem(); });        // 端点不通＝退回系统音色，不是报错
     return {
       cancel() {
-        stopped = true; done.at = true;
+        stopped = true; done.at = true; dropUrl();
         if (audio) { try { audio.pause(); } catch (e) {} audio = null; }
         try { if (typeof speechSynthesis !== "undefined") speechSynthesis.cancel(); } catch (e) {}
       }

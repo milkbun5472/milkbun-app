@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.474";
+const APP_VERSION = "v74.475";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5592,6 +5592,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
+    radioLife: window.RadioLife ? window.RadioLife.contextFor(char.id) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
@@ -7987,6 +7988,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       carry: typeof carryContextText === "function"
         ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
       archive: coupleArchiveFor(c.id),
+      radioLife: window.RadioLife ? window.RadioLife.contextFor(c.id) : "",
       finance: typeof window.ledgerNoteFor === "function" ? window.ledgerNoteFor(c.id) : ""
     };
   };
@@ -8009,6 +8011,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
     memberFinance: backgroundMap("finance"),
+    memberRadioLife: backgroundMap("radioLife"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
     // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：此刻心情与好感度，
@@ -26036,9 +26039,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenComments: genDiaryCommentsFor,
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
-  else if (screen === "radio") body = h(window.RadioTimelineScreen, {
+  else if (screen === "radio") body = h(window.RadioLifeScreen, {
+    characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    userName: userName(profile), onBack: goHome,
+    onArchive: () => setScreen("radioArchive"),
+    onSchedule: () => { calReturnRef.current = { screen: "radio" }; setSelSched(null); setScreen("calendar"); },
+    onChat: id => openChatById(id),
+    sceneFor: c => timeAwareFor(c.id)
+      ? window.RadioLife.slot(c, schedulesRef.current[c.id] || {}) : null,
+    onConnect: (c, scene, continuing) => {
+      // 只有现有关系里的人有资格作为另一位主角色出现在现场；不把全通讯录塞进房间。
+      const actors = liveChars.filter(x => x.id === c.id ||
+        (!settingsFor(x.id).engineerEyes && (rels[c.id + "->" + x.id] || rels[x.id + "->" + c.id])));
+      return window.RadioLife.connect(scene, actors, async (anchor, previous) => {
+        const people = actors.filter(x => x.id !== c.id).map(x =>
+          "〔" + x.name + " · id=" + x.id + "〕\n" + characterText(x, x.persona || "（暂无设定）") + "\n" + directedRelationLines(x, rels, characters, profile)).join("\n\n");
+        return runProbe(bgActive, { ...ctxFor(c), worldbook: loreForContext("creative", actors.map(x => x.id), anchor.title) }, {
+          voice: true, voiceScene: true, instruction: window.RadioLife.lifePrompt(anchor, previous)
+            + "\n【可用角色·不等于在场名单】\n" + actors.map(x => x.id + "：" + x.name).join("\n")
+            + (people ? "\n【相关人物设定与实际关系】\n" + people : ""),
+          schemaHint: window.RadioLife.schema, maxTokens: 65535, tag: "电台现场"
+        });
+      }, continuing);
+    },
+    onStudio: (c, show, episode, input) => runProbe(bgActive, ctxFor(c), {
+      voice: true, voiceScene: true, instruction: window.RadioLife.studioPrompt(show, episode, input),
+      schemaHint: '{"lines":[{"text":"搭档实际说出口的一段台词"}]}', maxTokens: 65535, tag: "共同电台"
+    })
+  });
+  else if (screen === "radioArchive") body = h(window.RadioTimelineScreen, {
     characters: liveChars,
-    onBack: goHome,
+    onBack: () => setScreen("radio"),
     onLegacy: () => setScreen("radioLegacy"),
     loreFor: (c, topic) => c ? loreForContext("creative", [c.id], topic) : "",
     // 故事是平行沙盒：全文角色卡/关联世界书，不读取当前心情、关系或主线私聊。
@@ -26074,7 +26105,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       '{"title":"这通电话的标题（可空）","lines":[{"text":"你说出口的一段话（整段照原样放，不要替播放器拆成一句一项）"}],"guess":"你心里那句猜测（可空）"}')
   });
   else if (screen === "radioLegacy") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
-    onBack: () => setScreen("radio"),
+    onBack: () => setScreen("radioArchive"),
     onBuild: genRadioWorld,
     onTune: genRadioDay,
     onDrift: genRadioDrift,
@@ -26445,7 +26476,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggle: togglePlay,
     onNext: () => stepSong(1),
     onClose: stopPlayer
-  }) : null, (window.RadioUI && screen !== "radio" && screen !== "radioLegacy") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radioLegacy") }) : null, (() => {
+  }) : null, (window.RadioUI && screen !== "radio" && screen !== "radioArchive" && screen !== "radioLegacy") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radioLegacy") }) : null, (() => {
     const scc = stateCardChar || activeChar;
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;
