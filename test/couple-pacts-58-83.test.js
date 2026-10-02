@@ -15,7 +15,8 @@ const grab = (src, a, b, cap) => {
 // 而生日是会主动发的。同一件事一个主动一个被动——照生日那条现成的路补上。
 const anniv = grab(app, "      // —— 纪念日主动（v58.83", "      // —— 备忘录·到期提醒主动");
 test("纪念日走的是生日那条现成的路，防重复的闸一个不少", () => {
-  assert.match(anniv, /window\.DeliveryCommit\.once\("anniv:" \+ cid \+ ":" \+ key,/, "没走 DeliveryCommit——会重复发");
+  // v74.533 起包在 pOnce 里（没送到的晾 30 分钟，不堵后面），里头照旧走 DeliveryCommit.once、key 不变
+  assert.match(anniv, /pOnce\("anniv:" \+ cid, "anniv:" \+ cid \+ ":" \+ key,/, "没走 DeliveryCommit——会重复发");
   assert.match(anniv, /markGreet\(cid, "a", key\)/, "发完没记账,同一天会一直发");
   // 同一年同一个纪念日只发一次；一年里几个纪念日各发各的，所以 key 里要有名字
   assert.match(anniv, /const key = String\(nowD\.getFullYear\(\)\) \+ ":" \+ \(it\.name \|\| "在一起"\);/, "key 没按「年+哪一个纪念日」区分");

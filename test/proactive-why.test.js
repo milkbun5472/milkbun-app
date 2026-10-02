@@ -20,3 +20,9 @@ test("打开页面当场查一遍，不等后台那一轮", () => {
   assert.match(a, /window\.__proactiveWhyNow = proactiveWhyNow;/);
   assert.match(c, /window\.__proactiveWhyNow \? window\.__proactiveWhyNow\(character\.id\)/);
 });
+test("前面几段（生日、纪念日、开花、提醒、报错、天气）试过没送到就晾 30 分钟，不再每轮堵住主动消息", () => {
+  assert.match(a, /const pSkip = k => Date\.now\(\) - \(pFail\[k\] \|\| 0\) < 30 \* 60000;/);
+  ["bday:", "anniv:", "bloom:", "rem:", "eyes:", "wx:"].forEach(k => assert.ok(a.includes('if (pSkip("' + k), k));
+  assert.doesNotMatch(a, /window\.DeliveryCommit\.once\("reminder:"/);
+  assert.match(a, /Promise\.resolve\(window\.DeliveryCommit\.once\(key, send, commit\)\)/, "pOnce 里头照旧走 DeliveryCommit");
+});

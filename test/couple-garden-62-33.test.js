@@ -58,7 +58,8 @@ test("开花他主动来说：照纪念日那条路的闸，一茬只说一次",
   ["laneBusy", "viewRef.current.charId === c.id", "hist(c).length < 2", "currentlyTogetherWithChar", "hr2 < 8 || hr2 > 23"]
     .forEach(gate => assert.ok(bloom.indexOf(gate) > 0, "少了这道闸：" + gate));
   assert.match(bloom, /if \(!g2 \|\| !g2\.bloomTs \|\| g2\.told\) continue;/, "会反复来说同一茬");
-  assert.match(bloom, /DeliveryCommit\.once\("bloom:" \+ c\.id \+ ":" \+ g2\.bloomTs/, "没走 DeliveryCommit，会重发");
+  // v74.533 起包在 pOnce 里（没送到的晾 30 分钟，不堵后面），里头照旧走 DeliveryCommit.once、key 不变
+  assert.match(bloom, /pOnce\("bloom:" \+ c\.id, "bloom:" \+ c\.id \+ ":" \+ g2\.bloomTs/, "没走 DeliveryCommit，会重发");
   assert.match(bloom, /told: true/, "说完没记，一茬会说好几遍");
   assert.match(app, /opts\.bloom \? "garden_bloom" :/, "出口没标，账上分不出这一条");
   assert.match(app, /opts\.bloom \? bloomHint :/, "hint 写了没接进链（v55.95 那个形状）");

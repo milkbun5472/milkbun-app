@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.532";
+const APP_VERSION = "v74.533";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6584,6 +6584,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       try { window.__pTick = { start: Date.now(), loop: (window.__pTick || {}).loop || 0, active: !!active }; } catch (e) {}
       if (!active) return;
       const dayKey = schedDayKey(new Date());
+      // ⚠️下面每一段都是「试一件 → 这一轮收工」。可要是那件【发不出去】（比如那个角色的主动开关关着），
+      //   它没记成「已经做过」，下一轮又去试、又失败、又收工——整条主动消息被它一直堵着
+      //   （她 2026-10-02：条子满了一早上不发，后台显示「每轮都没走到主动那一段」）。
+      //   所以：一件事试过没送到，就晾 30 分钟，这段时间直接跳过它往下走
+      const pFail = window.__pFail = window.__pFail || {};
+      const pSkip = k => Date.now() - (pFail[k] || 0) < 30 * 60000;
+      const pOnce = (k, key, send, commit) => { pFail[k] = Date.now(); Promise.resolve(window.DeliveryCommit.once(key, send, commit)).then(ok => { if (ok) delete pFail[k]; }); };
       // —— 生日主动祝福：今天是用户生日 → 能看到你日历、真在聊的角色主动祝一次（每年每人一次，只白天发）——
       const ubd = parseMonthDay((profileRef.current || {}).birthday);
       const nowD = new Date();
@@ -6599,7 +6606,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if ((greetLogRef.current[cid] || {}).b === year) continue; // 今年已祝过
           const hr = Math.floor(charLocalMin(c) / 60);
           if (hr < 8 || hr > 23) continue;                           // 别半夜发
-          window.DeliveryCommit.once("birthday:" + year,
+          if (pSkip("bday:" + cid)) continue;
+          pOnce("bday:" + cid, "birthday:" + year,
             () => replyNow(cid, "", null, { proactive: true, bday: true }),
             () => markGreet(cid, "b", year)
           );
@@ -6641,7 +6649,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if ((greetLogRef.current[cid] || {}).a === key) continue;
           const hr = Math.floor(charLocalMin(c) / 60);
           if (hr < 8 || hr > 23) continue;                           // 别半夜发
-          window.DeliveryCommit.once("anniv:" + cid + ":" + key,
+          if (pSkip("anniv:" + cid)) continue;
+          pOnce("anniv:" + cid, "anniv:" + cid + ":" + key,
             () => replyNow(cid, "", null, { proactive: true, anniv: { name: it.name, yrs: it.yrs } }),
             () => markGreet(cid, "a", key)
           );
@@ -6661,7 +6670,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (currentlyTogetherWithChar(c.id)) continue;
           const hr2 = Math.floor(charLocalMin(c) / 60);
           if (hr2 < 8 || hr2 > 23) continue;
-          window.DeliveryCommit.once("bloom:" + c.id + ":" + g2.bloomTs,
+          if (pSkip("bloom:" + c.id)) continue;
+          pOnce("bloom:" + c.id, "bloom:" + c.id + ":" + g2.bloomTs,
             () => replyNow(c.id, "", null, { proactive: true, bloom: { species: g2.species, why: g2.why } }),
             () => saveGarden(p => ({ ...p, [c.id]: { ...(p[c.id] || {}), told: true } }))
           );
@@ -6684,7 +6694,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             if (!cand) continue;
             const hr = Math.floor(charLocalMin(cand) / 60); if (hr < 8 || hr > 23) continue;
             const remindLogKey = overdue ? r.id + ":od" : r.id;
-            window.DeliveryCommit.once("reminder:" + dayKey,
+            if (pSkip("rem:" + r.id)) continue;
+            pOnce("rem:" + r.id, "reminder:" + dayKey,
               () => replyNow(cand.id, "", null, { proactive: true, remind: { title: r.title, note: r.note || "", overdue } }),
               () => {
                 const latestLog = loadJSON("x_memoRemindLog", {});
@@ -6712,7 +6723,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const newErrs = errsAll.filter(e2 => e2.ts > (st.errTs || 0));
           const storageHigh = stPct >= 85 && st.stDay !== dayKey;
           if (newErrs.length < 2 && !storageHigh) continue;
-          window.DeliveryCommit.once(
+          if (pSkip("eyes:" + cid)) continue;
+          pOnce("eyes:" + cid,
             "eyes:" + dayKey,
             () => replyNow(cid, "", null, { proactive: true, eyesAlert: { errs: newErrs.slice(-3).map(e2 => e2.msg), pct: storageHigh ? stPct : 0 } }),
             () => {
@@ -6744,7 +6756,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             const w = hm ? weatherCached(hm.lat, hm.lng) : null;
             const sp = wxSpecial(w);
             if (!sp) continue;
-            window.DeliveryCommit.once(
+            if (pSkip("wx:" + c.id)) continue;
+            pOnce("wx:" + c.id,
               "weather:" + dayKey,
               () => replyNow(c.id, "", null, { proactive: true, wx: { kind: sp, line: weatherLine(w) } }),
               () => saveJSON("x_wxReactDay", dayKey)
