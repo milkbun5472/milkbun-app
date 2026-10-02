@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.518";
+const APP_VERSION = "v74.519";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11906,6 +11906,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return next;
       });
       // ⚠️别在这儿调模型（见 recallHintFor 上面那段）：撤回搭下一轮的便车。
+    } else if (act === "edit" && m && m.kind === "selfie" && m.sid) {
+      // 照片被上游审核拦了（她 2026-10-02 转群友：「图片有敏感词可以修改吗」）：改画面描述，存下就照新描述重拍
+      setEditMsg({ content: m.desc || "", onSave: nv => {
+        if (m.pending) return;
+        // 直接拿新描述去画，别回头读状态（setState 还没落，读到的是旧描述）
+        pChat(threadKey, p => p.map(x => x.sid === m.sid ? { ...x, desc: nv, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+        drawChatSelfie({ chatKey: threadKey, charId: activeChar.id, sid: m.sid, photoKind: m.photoKind, photoScene: nv, keySuffix: "_r" + Date.now() });
+      } });
     } else if (act === "edit") {
       const cid = activeChar.id;
       setEditMsg({ content: m.content || "", onSave: nv => pChat(threadKey, p => {
@@ -13121,6 +13129,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
       pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, recalled: true, recalledTs: Date.now(), origText: x.content, reason: x.reason || "" } : x));
+    } else if (act === "edit" && m.kind === "selfie" && m.sid) {
+      setEditMsg({ content: m.desc || "", onSave: nv => {
+        const spk = characters.find(c => c.id === m.senderId);
+        if (!spk || m.pending) return;
+        pGChat(groupId, p => p.map(x => x.sid === m.sid ? { ...x, desc: nv, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+        drawGroupSelfie({ groupId, spk, gsid: m.sid, gPhotoKind: m.photoKind, gPhotoScene: nv, gCast: m.cast || null, keySuffix: "_r" + Date.now() });
+      } });
     } else if (act === "edit") {
       setEditMsg({ content: m.content || "", onSave: nv => pGChat(groupId, p => p.map((x, i) => i === idx ? { ...x, content: nv } : x)) });
     } else if (act === "reroll") {
