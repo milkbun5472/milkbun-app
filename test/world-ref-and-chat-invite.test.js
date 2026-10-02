@@ -177,3 +177,12 @@ test("长名字、长地名、一串人都不冲出框（她 2026-10-02：群邀
   const dlg = comp.slice(comp.indexOf("function DateComposeDialog("), comp.indexOf("function DateComposeDialog(") + 3000);
   assert.match(dlg, /maxHeight: "88vh", overflowY: "auto"/, "小框比屏幕高时要能在框里滚");
 });
+
+test("不互通的群：约过的地方不进各人的城、不记去过、挑地方时也不读各人的城", () => {
+  const g = app.slice(app.indexOf("const groupDateGo"), app.indexOf("const groupInvitePlacesFor"));
+  assert.match(g, /window\.DatePlaces && gsFor\(groupId\)\.memoryInterop\) going\.forEach/);
+  const e = app.slice(app.indexOf("const endGroupOffline = async groupId => {"));
+  assert.match(e.slice(0, 6000), /if \(interopOn\) try \{\n\s*const v = loadJSON\("x_dateVisits"/);
+  const pl = app.slice(app.indexOf("const groupInvitePlacesFor"), app.indexOf("const groupInvitePlacesFor") + 900);
+  assert.match(pl, /if \(!interop && p\.from === "我们的城市"\) return;/);
+});
