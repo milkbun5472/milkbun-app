@@ -537,6 +537,7 @@ function mapSubSkin(t) {
           }).reduce(function (acc, row, i) {
             // 手动钉进来的人没有「TA会去哪儿」那张小表，就一直站在钉的地方。要不要补由她点
             const c = roster[i];
+            const noRoute = Object.keys(pins).filter(function (id) { return id !== "__me" && !(world.route || {})[id]; }).length;
             acc.push(row);
             // 行程去了图上没有的地方（她 2026-10-02：「日程有新的地方他也走不动」）：一键把那个地方加进TA落脚的那块，TA就走得过去
             const wm = where[c.id] || {}, missNm = String(wm.miss || "").replace(/^在/, "").trim().slice(0, 10);
@@ -548,7 +549,7 @@ function mapSubSkin(t) {
             if (!c.__me && pins[c.id] === sel.name && !(world.route || {})[c.id] && onRoute) acc.push(h("button", { key: c.id + "_route", disabled: busy,
               onClick: function () { onRoute(c.id); }, className: "active:opacity-60",
               style: { alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, padding: "2px 6px 6px", opacity: busy ? 0.5 : 1 } },
-              busy ? "排着…" : "给" + (c.remark || c.name) + "补一张「会去哪儿」——补了就跟着行程走动"));
+              busy ? "排着…" : (noRoute > 1 ? "给还没有「会去哪儿」的 " + noRoute + " 个人一起补（一次调用）" : "给" + (c.remark || c.name) + "补一张「会去哪儿」——补了就跟着行程走动")));
             return acc;
           }, [])))) : null;
     return h("div", { className: "flex-1 flex flex-col", style: { minHeight: 0 } }, nodePage,

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.504";
+const APP_VERSION = "v74.505";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17131,28 +17131,41 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const saveWorld = (id, name, brief) => saveWorlds((worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt }));
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
   // 手动钉进来的人补一张「会去哪儿」（她 2026-10-02：开世界最多带 8 个，其余的钉进去就不动了——可以选择要不要补）
-  const routeWorld = async (wid, charId) => {
+  // 她又说：「一个一次调用好浪费」——所以点谁都一样：这个世界里钉着、还没有小表的人，一次调用一起排完。
+  const routeWorld = async (wid) => {
     if (!active) { toast("请先到设置配置 API"); return; }
-    const w = (worlds || []).find(x => x.id === wid), c = (characters || []).find(x => x.id === charId);
-    if (!w || !c) return;
+    const w = (worlds || []).find(x => x.id === wid);
+    if (!w) return;
+    const todo = Object.keys(w.pins || {}).filter(id => id !== "__me" && !(w.route || {})[id])
+      .map(id => (characters || []).find(c => c.id === id)).filter(Boolean);
+    if (!todo.length) return;
     setWorldBusy(true);
     try {
       const names = {}; (w.regions || []).forEach(r => (r.nodes || []).forEach(n => { names[n.name] = 1; }));
       const have = (w.regions || []).map(r => r.name + "：" + (r.nodes || []).map(n => n.name + (n.hook ? "〔" + n.hook + "〕" : "")).join(" / ")).join("\n");
-      const day = worldDayOf(c);
-      const sys = "这是一个已经存在的架空世界。「" + c.name + "」住在这里，现在给TA排一张【TA会去哪儿】的小表。\n"
+      const per = todo.length > 4 ? 1200 : 2500;
+      const block = todo.map(c => {
+        const day = worldDayOf(c);
+        return "【" + c.name + "】现在落脚在「" + w.pins[c.id] + "」\n" + String(c.persona || c.prompt || "").slice(0, per)
+          + (day ? characterText(c, "\n  他一天大致这么过：\n  ") + day : "");
+      }).join("\n\n");
+      const sys = "这是一个已经存在的架空世界。下面这几个人住在这里，给每个人排一张【TA会去哪儿】的小表。\n"
         + "【这个世界】" + (w.brief || "") + "\n【TA当初写的设定】" + String(w.prompt || "").slice(0, 1200) + "\n"
-        + "【已经有的地方和地点】\n" + have + "\n"
-        + "【" + c.name + "】\n" + String(c.persona || c.prompt || "").slice(0, 2500)
-        + (day ? characterText(c, "\n  他一天大致这么过：\n  ") + day : "") + "\n"
-        + "TA现在落脚在「" + ((w.pins || {})[charId] || "") + "」。\n"
-        + "写TA住在哪个地点(home)，以及TA一天里那几段分别落在哪个地点(places)。doing 那一栏照着TA行程里的说法写，别另起一套说辞。地点名必须是上面写过的。\n"
-        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"home\":\"地点名\",\"places\":[{\"doing\":\"TA行程里那一段的说法\",\"node\":\"地点名\"}]}";
-      const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 8000 });
-      const r = worldRouteFrom(extractJSON(raw) || {}, names, (w.pins || {})[charId]);
-      if (!r) throw new Error("排出来的地点图上都没有，再试一次");
-      saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, route: { ...(x.route || {}), [charId]: r } }));
-      toast("给 " + c.name + " 排好了，之后跟着行程走动");
+        + "【已经有的地方和地点】\n" + have + "\n\n" + block + "\n\n"
+        + "每个人写TA住在哪个地点(home)，以及TA一天里那几段分别落在哪个地点(places)。doing 那一栏照着TA行程里的说法写，别另起一套说辞。地点名必须是上面写过的。\n"
+        + "【输出】只输出合法 JSON，无 markdown 无多余文字：{\"cast\":[{\"name\":\"角色名(照抄)\",\"home\":\"地点名\",\"places\":[{\"doing\":\"TA行程里那一段的说法\",\"node\":\"地点名\"}]}]}";
+      const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 16000 });
+      const d = extractJSON(raw) || {};
+      const got = {};
+      ((d && Array.isArray(d.cast)) ? d.cast : []).forEach(x => {
+        const c = todo.find(y => y.name === String((x && x.name) || "").trim());
+        const r = c && worldRouteFrom(x, names, w.pins[c.id]);
+        if (r) got[c.id] = r;
+      });
+      const done = todo.filter(c => got[c.id]);
+      if (!done.length) throw new Error("排出来的地点图上都没有，再试一次");
+      saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, route: { ...(x.route || {}), ...got } }));
+      toast("排好了：" + done.map(c => c.name).join("、") + (done.length < todo.length ? "（还有 " + (todo.length - done.length) + " 个没排上，可以再点一次）" : ""));
     } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
   };
   const pinWorld = (wid, charId, node) => saveWorlds((worlds || []).map(w => {

@@ -24,3 +24,8 @@ test("补表按钮一路接到 app", () => {
 test("行程去了图上没有的地方：一键加进TA落脚那块", () => {
   assert.match(map, /onAdd\(homeRg\.name, \{ name: missNm/);
 });
+
+test("补表一次调用排完所有还没表的人", () => {
+  assert.match(app, /const routeWorld = async \(wid\) => \{/);
+  assert.match(app, /const todo = Object\.keys\(w\.pins \|\| \{\}\)\.filter\(id => id !== "__me" && !\(w\.route \|\| \{\}\)\[id\]\)/);
+});
