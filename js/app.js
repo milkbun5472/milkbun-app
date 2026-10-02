@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.530";
+const APP_VERSION = "v74.531";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9613,6 +9613,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     openChatById(char.id);
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
+  // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
+  //   只认【TA答应了、还没去、定了日子钟点】的回执；弹过一次记上 popped，不反复弹
+  const [dateArrive, setDateArrive] = useState(null);   // { charId, m }
+  useEffect(() => {
+    const tick = () => {
+      if (dateArrive || offlineChar) return;
+      for (const c of (characters || [])) {
+        const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && x.kind === "datereceipt" && x.state === "pending" && !x.popped && x.when && x.when.date);
+        if (!m) continue;
+        const at = new Date(m.when.date + "T" + (m.when.time || "00:00")).getTime();
+        if (!at || at > Date.now() || Date.now() - at > 12 * 3600e3) continue;
+        pChat(c.id, p => p.map(x => x.id === m.id ? { ...x, popped: true } : x));
+        setDateArrive({ charId: c.id, m });
+        return;
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 30000);
+    return () => clearInterval(iv);
+  }, [characters, dateArrive, offlineChar]);
   const dateGo = async (charId, m) => {
     const char = (characters || []).find(x => x.id === charId);
     if (!char || !m || !m.place) return;
@@ -27123,6 +27143,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setScreen("memlib");
     },
     onExtractMem: () => extractMemForChar(activeChar.id)
+  }), dateArrive && h(DateArrivePop, {
+    m: dateArrive.m, character: (characters || []).find(x => x.id === dateArrive.charId) || {},
+    onGo: () => { const d = dateArrive; setDateArrive(null); dateGo(d.charId, d.m); },
+    onLater: () => setDateArrive(null)
   }), peekPlay && window.PeekPhone && h(window.PeekPhone.PeekPlayer, {
     charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",
     avatarChar: (characters || []).find(x => x.id === peekPlay.charId),

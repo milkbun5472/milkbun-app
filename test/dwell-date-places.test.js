@@ -59,3 +59,12 @@ test("约会卡：合上是素封面、点开是一句邀请＋地点日子钟�
   assert.match(a, /onDate: \(char, place, v\) => sendDateInvite\(char, place, v\)/);
   assert.match(a, /const dateWhenText = w =>/);
 });
+
+test("约到点了：盖一层、中间弹出赴约卡，点卡出发；弹过一次不再弹", () => {
+  const c = read("components.js");
+  assert.match(c, /function DateArrivePop\(\{ m, character, onGo, onLater \}\)/);
+  assert.match(a, /const \[dateArrive, setDateArrive\] = useState\(null\);/);
+  assert.match(a, /x\.kind === "datereceipt" && x\.state === "pending" && !x\.popped && x\.when && x\.when\.date/);
+  assert.match(a, /\{ \.\.\.x, popped: true \}/);
+  assert.match(a, /dateArrive && h\(DateArrivePop, \{/);
+});

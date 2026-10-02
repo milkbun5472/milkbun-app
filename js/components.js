@@ -12598,6 +12598,27 @@ function DateComposeDialog({ place, who, onCancel, onSend }) {
         h("button", { onClick: () => onSend({ date, time, say: say.trim() }), className: "flex-1 active:opacity-80", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
     onCancel);
 }
+// 约到点了，盖在整个页面上那一层：赴约卡从中间浮出来，点卡就出发（她 2026-10-02）
+function DateArrivePop({ m, character, onGo, onLater }) {
+  const t = useTheme();
+  useEffect(() => { dateHandFont(); }, []);
+  const pl = m.place || {}, w = m.when || {}, ink = t.sub, who = character.remark || character.name || "TA";
+  const heart = h("svg", { width: 22, height: 22, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.4 }, h("path", { d: "M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" }));
+  return appDialogPortal(
+    h("div", { onClick: e => e.stopPropagation(), style: { display: "flex", flexDirection: "column", alignItems: "center" } },
+      h("div", { onClick: onGo, role: "button", className: "active:opacity-90", "data-wk": "card",
+        style: { position: "relative", width: 236, padding: "34px 22px 24px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, textAlign: "center",
+          boxShadow: "0 18px 40px rgba(0,0,0,.28)", animation: "wkpop .5s cubic-bezier(.2,1.4,.4,1) both", cursor: "pointer" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 9.5, letterSpacing: ".28em", color: t.fog } }, "IT'S TIME"),
+        h("div", { style: { fontFamily: F_HAND, fontSize: 18, color: ink, marginTop: 14, whiteSpace: "nowrap" } }, who + "在等你了。"),
+        h("div", { style: { marginTop: 10, display: "flex", justifyContent: "center" } }, heart),
+        h("div", { style: { width: 28, height: 1, background: t.line, margin: "14px auto" } }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, pl.name || "某处"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4 } }, (typeof dateLabel === "function" ? dateLabel(w.date) : "") + (w.time ? " " + w.time : "")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, marginTop: 16, letterSpacing: ".15em" } }, "点一下 · 出发")),
+      h("button", { onClick: onLater, className: "active:opacity-60", style: { marginTop: 16, minHeight: 40, padding: "0 18px", fontFamily: F_BODY, fontSize: 12.5, color: "#fff", opacity: .85 } }, "晚点再说")),
+    onLater);
+}
 function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
