@@ -10,7 +10,7 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 const nocomment = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-const gen = grab(app, "  const genWorld = async (id, name, brief, charIds, done) => {", "  const saveWorld = (id, name, brief)");
+const gen = grab(app, "  const genWorld = async (id, name, brief, charIds, done) => {", "  const saveWorld = (");
 const wm = grab(map, "  function WorldMap({", "  // 开世界：整页表单");
 
 // ── 地图引擎只有一份 ───────────────────────────────────────────────────────
@@ -48,7 +48,7 @@ test("带进来的人要落在图上，名字编错了就不落", () => {
   assert.match(map, /\(world\.why \|\| \{\}\)\[c\.id\] \|\| "就在这儿"/, "地点页上看不见他为什么在这儿");
   assert.match(map, /const \[picked, setPicked\] = useState/, "开世界那一页没法选人");
   assert.match(map, /p\.length >= 8 \? p : \[\.\.\.p, id\]/, "选人没有上限——人设是按 2500 字一份喂的,选二十个就撑爆了");
-  assert.match(map, /onGen\(name\.trim\(\), brief\.trim\(\), picked\)/, "选了人没递出去");
+  assert.match(map, /onGen\(name\.trim\(\), brief\.trim\(\), picked[,)]/, "选了人没递出去");
 });
 
 // 她 2026-08-31 点名：跑团不要连上来

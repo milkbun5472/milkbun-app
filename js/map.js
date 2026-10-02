@@ -648,9 +648,12 @@ function mapSubSkin(t) {
   }
 
   // 开世界：整页表单。她写一段设定，模型只负责把它铺成区域和地点
-  function WorldForm({ init, characters, busy, onGen, onSave, onDel, onBack }) {
+  function WorldForm({ init, characters, busy, onGen, onSave, onRef, onDel, onBack }) {
     const t = useTheme();
     const [name, setName] = useState((init && init.name) || "");
+    // 生图参考（她 2026-10-02 转群友）：一张这座城的样子。住在这儿的人拍照时一起喂进去，只借环境。
+    const [refImg, setRefImg] = useState((init && init.refImg) || null);
+    const pickRef = v => { setRefImg(v); if (onRef) onRef(v); };
     const [brief, setBrief] = useState((init && init.prompt) || (init && init.brief) || "");
     // 带哪几个人进去（她 2026-08-31 要的）：把他们的人设和一天的行程一起喂给造世界那一枪，
     // 地方就长成他们过得下去的地方，而不是一张谁都能用的通用地图。
@@ -662,6 +665,11 @@ function mapSubSkin(t) {
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 7px" } }, "世界叫什么"),
         h("input", { value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "一个名字", style: inp }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "生图参考"),
+        h("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
+          typeof AvatarPicker === "function" ? h(AvatarPicker, { character: { name: name || "城", avatarImage: refImg, color: t.line }, size: 64, radius: 10, imageMaxDim: 1024, imageQuality: 0.9, onPick: pickRef, onClear: function () { pickRef(null); } }) : null,
+          h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
+            "传一张这座城的样子：街景、建筑、色调都行。住在这个世界里的人拍照时会照着它画背景，人还是照各自的参考照。")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "这个世界是什么样的"),
         h("textarea", { value: brief, onChange: function (e) { setBrief(e.target.value); }, rows: 7, placeholder: "写多少都行：这地方靠什么活着、有哪几块地方、彼此什么关系、路上会遇上什么。写得越具体，画出来的地图越是你的，越含糊模型就越往通用模板上靠。",
           style: Object.assign({}, inp, { lineHeight: 1.8, resize: "vertical" }) }),
@@ -677,7 +685,7 @@ function mapSubSkin(t) {
               c.remark || c.name);
           }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色")),
         init ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginTop: 16 } }, "重画会换掉整张地图，钉在旧地点上的人也会一起掉下来。") : null,
-        h("button", { onClick: function () { onGen(name.trim(), brief.trim(), picked); }, disabled: busy || !brief.trim(), className: "w-full active:opacity-80",
+        h("button", { onClick: function () { onGen(name.trim(), brief.trim(), picked, refImg); }, disabled: busy || !brief.trim(), className: "w-full active:opacity-80",
           style: { marginTop: 20, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: (busy || !brief.trim()) ? 0.5 : 1 } },
           busy ? "正在铺开这片地方…" : init ? "照这段重画" : "画出这个世界"),
         init ? h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
@@ -695,8 +703,11 @@ function mapSubSkin(t) {
     const formInit = (form && form !== "new") ? list.find(function (w) { return w.id === form; }) : null;
     const formLayer = form ? h(WorldForm, {
       init: formInit, characters: characters, busy: busy, onBack: function () { setForm(null); },
-      onGen: function (nm, bf, picked) { onGen(formInit ? formInit.id : null, nm, bf, picked, function (id) { setForm(null); setWid(id); }); },
+      // 新开的世界还没有 id：参考图等画完、拿到 id 再存进去
+      onGen: function (nm, bf, picked, ref) { onGen(formInit ? formInit.id : null, nm, bf, picked, function (id) { if (ref && id) onSave(id, "", "", ref); setForm(null); setWid(id); }); },
       onSave: function (nm, bf) { onSave(formInit.id, nm, bf); setForm(null); },
+      // 已有的世界：选了图就存，不必再点「保存」
+      onRef: function (ref) { if (formInit) onSave(formInit.id, "", "", ref); },
       onDel: function () { onDel(formInit.id); setForm(null); setWid(null); }
     }) : null;
     if (cur) return h(React.Fragment, null, formLayer,

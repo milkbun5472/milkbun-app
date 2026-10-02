@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.544";
+const APP_VERSION = "v74.545";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7411,6 +7411,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   groupId 有值就落进群线下那份会话，没有就落进和 char 的单人线下
   //   kind    self｜other｜duo｜group
   //   cast    仅 group：镜头里点名的那几位（顺序＝参考图顺序，错位脸就串）
+  // 这个人住的那个架空世界有没有「生图参考」（她 2026-10-02）。住在现实、或世界没传图 → null。
+  const worldRefFor = c => {
+    const r = c && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(c, worldsRef.current || []) : null;
+    return r && r.kind === "world" && r.world && r.world.refImg ? r.world.refImg : null;
+  };
   const runOfflineShot = async (arg) => {
     const char = arg && arg.char;
     const groupId = arg && arg.groupId;
@@ -7461,8 +7466,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : [char.refPhoto].filter(Boolean);
       const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
       if (contBlobKey) refs.push(contBlobKey);
+      const wRef = worldRefFor(char);
+      if (wRef) refs.push(wRef);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 });
+      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0 });
       const minimalPrompt = buildMinimalPhotoPrompt(char, { kind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -9659,6 +9666,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       content: "[约会邀请] 约你" + (when ? dateWhenText(when) + " " : "") + "在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + (say ? "——" + say : ""), ts: Date.now(), read: true }]);
     // 不自动让TA回：她可能还要补几句，等她自己发（她 2026-10-02：「我一发他就触发回复了，等我打完字再让他回」）
     openChatById(char.id);
+  };
+  // ＋面板「邀约」能挑的地方：我们的城市钉过的 + TA住的那个架空世界里的地点（好友地图那一半）。同名只留一个。
+  const invitePlacesFor = char => {
+    const out = [], seen = {};
+    const put = (name, note, from) => { const n = String(name || "").trim(); if (n && !seen[n]) { seen[n] = 1; out.push({ name: n.slice(0, 24), note: String(note || "").slice(0, 60), from }); } };
+    try { (window.DatePlaces ? window.DatePlaces.list() : []).forEach(p => put(p.name, p.note, "我们的城市")); } catch (e) {}
+    const r = char && window.MapKit && window.MapKit.charRealm ? window.MapKit.charRealm(char, worldsRef.current || []) : null;
+    if (r && r.kind === "world" && r.world) (r.world.regions || []).forEach(g => (g.nodes || []).forEach(nd => put(nd && nd.name, nd && nd.hook, r.world.name)));
+    return out.slice(0, 40);
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
@@ -11962,8 +11978,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const refs = noFace ? [] : photoKind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean) : [char.refPhoto].filter(Boolean);
       const contBlobKey = !noFace && refs.length === 0 && prevShot ? prevShot.imgKey : null;
       if (contBlobKey) refs.push(contBlobKey);
+      // 世界参考只借环境，只给画人的那几档：空景/局部一张参考图都不喂（见 isView 那段）。
+      const wRef = noFace ? null : worldRefFor(char);
+      if (wRef) refs.push(wRef);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length : 0 };
+      const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0 };
       // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
       const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
       // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
@@ -17221,7 +17240,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 跟匿名箱那一课同一个形状——上下文里摆着的东西，模型一定会用上。
   // 存的只有【设定 + 区域骨架】，坐标一概不存：地图由 TrpgMap 力导向按世界 id
   // 现算，同一个世界每次画出来一模一样，云同步里不多一个字节的图片。
-  const saveWorlds = list => { setWorlds(list); saveJSON("x_worlds", list); };
+  const saveWorlds = list => { worldsRef.current = list; setWorlds(list); saveJSON("x_worlds", list); };
   // 一个角色的一天，压成几行喂给造世界那一枪：TA每天走过哪几段路，
   // 比「TA是个什么人」更能决定这个世界该长出哪些地方。
   const worldDayOf = char => {
@@ -17298,7 +17317,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       const next = { id: wid, name: nm, brief: bf, prompt: brief, regions, pins,
         cast: (charIds || []).slice(0, 8), why: { ...((old && old.why) || {}), ...why }, route,
-        createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now() };
+        createdAt: (old && old.createdAt) || Date.now(), builtAt: Date.now(), refImg: (old && old.refImg) || null };
       saveWorlds(id ? (worlds || []).map(w => w.id === id ? next : w) : [next, ...(worlds || [])]);
       const nNode = regions.reduce((n, r) => n + r.nodes.length, 0);
       const nPin = Object.keys(pins).length;
@@ -17357,7 +17376,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (done) done();
     } catch (e) { toast("失败：" + e.message); } finally { setWorldBusy(false); }
   };
-  const saveWorld = (id, name, brief) => saveWorlds((worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt }));
+  // refImg：世界的生图参考。不传＝不动；null＝清掉。
+  // ⚠️读 worldsRef 不读 worlds：新开的世界刚画完就要存图，那一刻闭包里的 worlds 还是旧的。
+  const saveWorld = (id, name, brief, refImg) => saveWorlds((worldsRef.current || worlds || []).map(w => w.id !== id ? w : { ...w, name: (name || w.name).slice(0, 16), prompt: brief || w.prompt, ...(refImg !== undefined ? { refImg: refImg || null } : {}) }));
   const delWorld = id => saveWorlds((worlds || []).filter(w => w.id !== id));
   // 手动钉进来的人补一张「会去哪儿」（她 2026-10-02：开世界最多带 8 个，其余的钉进去就不动了——可以选择要不要补）
   // 她又说：「一个一次调用好浪费」——所以点谁都一样：这个世界里钉着、还没有小表的人，一次调用一起排完。
@@ -25352,6 +25373,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onOpenMoments: () => openMomProfile(activeChar.id, false),
     onHandPhone: (allow, hideIds, allMasks) => handPhoneTo(activeChar.id, allow, hideIds, false, allMasks),
+    onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
+    invitePlaces: invitePlacesFor(activeChar),
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
       .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
       .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),

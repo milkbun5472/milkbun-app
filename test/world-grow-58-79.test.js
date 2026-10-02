@@ -11,7 +11,7 @@ const grab = (src, a, b, cap) => {
   return src.slice(i, j);
 };
 const add = grab(app, "  const addWorldNode = (wid, regionName, node) => {", "  const genWorldNodes = async");
-const gen = grab(app, "  const genWorldNodes = async (wid, regionName, hint, done) => {", "  const saveWorld = (id, name, brief)");
+const gen = grab(app, "  const genWorldNodes = async (wid, regionName, hint, done) => {", "  const saveWorld = (");
 
 // 她 2026-08-31：「再加一个可以继续往这个地方加地点的功能」。
 // 这一版真正的坑不在界面上：跑团那个画图引擎每块地方【只画前 3 个地点】，

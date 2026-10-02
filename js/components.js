@@ -8558,6 +8558,7 @@ function ChatThread({
   onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   onDateGo,      // 约会回执上的「出发」：点开才进见面
+  onDateInvite, invitePlaces,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
   onOffline,
@@ -8612,6 +8613,7 @@ function ChatThread({
     ? window.ChatRooms.pendingFicInvite(messages, roomFicId) : null;
   // 递手机：勾掉的那几样＝她先藏起来了（TA看不到，但可能察觉少了点什么）
   const [peekOpen, setPeekOpen] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
   const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]));
   const [peekHide, setPeekHide] = useState([]);
   const [peekAllMasks, setPeekAllMasks] = useState(false);
@@ -8669,7 +8671,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"]].filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone"].includes(key) : true).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"]].filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -8711,6 +8713,9 @@ function ChatThread({
     } else if (k === "peekphone") {
       setPanelOpen(false);
       setPeekOpen(true);
+    } else if (k === "dateinvite") {
+      setPanelOpen(false);
+      setInviteOpen(true);
     } else if (k === "moments") {
       setPanelOpen(false);
       onOpenMoments && onOpenMoments();
@@ -9738,7 +9743,9 @@ function ChatThread({
         setStickerOpen(false);
       }
     })
-  ), peekOpen && h(Sheet, { onClose: () => setPeekOpen(false) },
+  ), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
+    onCancel: () => setInviteOpen(false),
+    onSend: v => { setInviteOpen(false); onDateInvite(v.place, v); } }), peekOpen && h(Sheet, { onClose: () => setPeekOpen(false) },
     h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
       "勾着的TA能翻到；不想给看的先关掉——那几样就算你藏起来了，TA看不到，但未必察觉不到。递过去以后，TA会照自己的性子挑着翻，再来跟你说。"),
@@ -12578,8 +12585,13 @@ const F_HAND = "'Long Cang'," + F_DISPLAY;
 const dateWeek = s => { try { const d = new Date(s + "T00:00"); return "周" + "日一二三四五六"[d.getDay()]; } catch (e) { return ""; } };
 const dateLabel = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || "")); return m ? (+m[2]) + "月" + m[3] + "日（" + dateWeek(s) + "）" : ""; };
 // 发约会邀请前那一小框：挑日子、挑钟点、写一句想说的话（她 2026-10-02：「发送前可以选择编辑想要说的话和想要去的时间」）
-function DateComposeDialog({ place, who, onCancel, onSend }) {
+// places：从聊天＋面板进来时还没定地方——列出能挑的（我们的城市钉过的、TA住的那个世界里的），也能自己写一个。
+function DateComposeDialog({ place, places, who, onCancel, onSend }) {
   const t = useTheme();
+  const [picked, setPicked] = useState(null);
+  const [own, setOwn] = useState("");
+  const pickMode = !place;
+  const finalPlace = place || picked || (own.trim() ? { name: own.trim().slice(0, 24), note: "" } : null);
   const today = new Date(); const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
   const [date, setDate] = useState(iso(today));
   const [time, setTime] = useState("19:00");
@@ -12588,7 +12600,17 @@ function DateComposeDialog({ place, who, onCancel, onSend }) {
   return appDialogPortal(
     h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, textAlign: "center" } }, "约" + who),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 4 } }, (place && place.name) || ""),
+      pickMode ? h("div", { style: { marginTop: 14 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "去哪儿"),
+        (places || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, maxHeight: 132, overflowY: "auto" } },
+          (places || []).map((p, i) => {
+            const on = picked && picked.name === p.name;
+            return h("button", { key: i, onClick: () => { setPicked(on ? null : p); setOwn(""); }, className: "active:opacity-70",
+              style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 11px", borderRadius: 999, color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } },
+              p.name, p.from ? h("span", { style: { fontSize: 10, opacity: 0.6, marginLeft: 4 } }, p.from) : null);
+          })) : null,
+        h("input", { value: own, onChange: e => { setOwn(e.target.value); if (e.target.value) setPicked(null); }, placeholder: "或者自己写一个地方", className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8 }) }))
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 4 } }, (place && place.name) || ""),
       h("div", { className: "flex", style: { gap: 8, marginTop: 16 } },
         h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1.4, minWidth: 0 }) }),
         h("input", { type: "time", value: time, onChange: e => setTime(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1, minWidth: 0 }) })),
@@ -12596,7 +12618,7 @@ function DateComposeDialog({ place, who, onCancel, onSend }) {
         className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8, resize: "none", lineHeight: 1.6 }) }),
       h("div", { className: "flex", style: { gap: 10, marginTop: 16 } },
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "算了"),
-        h("button", { onClick: () => onSend({ date, time, say: say.trim() }), className: "flex-1 active:opacity-80", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
+        h("button", { onClick: () => { if (finalPlace) onSend({ date, time, say: say.trim(), place: finalPlace }); }, disabled: !finalPlace, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
     onCancel);
 }
 // 见面散场以后留下的「那天」（她 2026-10-02）：跟约会卡同一张素纸，居中放着，像夹进本子里的一张小票
@@ -13253,6 +13275,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     // 裂开的心：情侣页那个「解除」原来用的是 💔 这个 emoji——仓库铁律说过
     // 不用 Unicode 方块/爱心字符当图标，要走已有的 SVG 体系（mobile-ui-layout 第 2 条）。
     // 左右两半各画一笔，中间那道裂缝是折线，不是把心整个描一遍再劈开。
+    invite: [P("M3.8 6.6h16.4v10.8H3.8z"), P("M3.8 7l8.2 6.2L20.2 7")],
     heartbreak: [P("M12 20.4S4.2 14.6 4.2 9.6A4.2 4.2 0 0112 7.4"),
                  P("M12 7.4a4.2 4.2 0 017.8 2.2c0 5-7.8 10.8-7.8 10.8"),
                  P("M12 4.6l-1.8 3.6 3.4 2.2-2.2 3")]

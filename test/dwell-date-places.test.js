@@ -50,7 +50,7 @@ test("约会卡：两边带头像（跟位置卡、礼物卡一样）；发邀�
 
 test("约会卡：合上是素封面、点开是一句邀请＋地点日子钟点想说的话；发之前能挑日子钟点、写一句话", () => {
   const c = read("components.js"), dw = d;
-  assert.match(c, /function DateComposeDialog\(\{ place, who, onCancel, onSend \}\)/);
+  assert.match(c, /function DateComposeDialog\(\{ place, places, who, onCancel, onSend \}\)/);
   assert.match(c, /h\("input", \{ type: "date"/);
   assert.match(c, /h\("input", \{ type: "time"/);
   assert.match(c, /const \[open, setOpen\] = useState\(false\);/);
