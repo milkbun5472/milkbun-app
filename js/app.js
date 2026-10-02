@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.482";
+const APP_VERSION = "v74.483";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9325,12 +9325,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }).filter(Boolean).sort((a, b) => (b.lm.ts || 0) - (a.lm.ts || 0)).slice(0, 10);
       if (list.length) out.push("【她的消息列表（一打开「信息」就看得到）】\n" + list.map(x => "· " + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」")
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
-      const rows = (characters || []).filter(c => c.id !== viewerId && !settingsFor(c.id).engineerEyes).map(c => {
+      const rowsAll = (characters || []).filter(c => c.id !== viewerId && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
         return { c, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       // 上次翻过的人排到后面（她 2026-10-01：「这几次测试评论的都是同样两件事」「下次可以看其他角色的」）
-      }).filter(x => x.ms.length).sort((a, b) => (seenWho.has(a.c.remark || a.c.name) - seenWho.has(b.c.remark || b.c.name)) || (b.last - a.last)).slice(0, 6);
+      }).filter(x => x.ms.length).sort((a, b) => (seenWho.has(a.c.remark || a.c.name) - seenWho.has(b.c.remark || b.c.name)) || (b.last - a.last));
+      // 留一个位置给「以前聊得多、后来断了」的那个人（她 2026-10-02：「我和 a 断了好几个星期没聊，还会轮到她吗」）——
+      //   查岗的人翻到这种，反而会多想一句「怎么不聊了」。一周没动静、以前聊过 30 条以上的里，挑聊得最多的那个
+      const rows = rowsAll.slice(0, 5);
+      const gone = rowsAll.slice(5).filter(x => Date.now() - x.last > 7 * 86400000 && x.ms.length >= 30).sort((a, b) => b.ms.length - a.ms.length)[0];
+      if (gone) rows.push({ ...gone, cold: Math.floor((Date.now() - gone.last) / 86400000) });
       // ⚠️说清楚这是谁跟谁（她 2026-10-01：截图里TA把别人说的话当成段子看，没看懂这是【她跟别人】的聊天）
       // 整段的来龙去脉，不只最后一截（她 2026-10-01：「还是不会看我和别人整体的聊天，只是看一小段」）：
       //   从哪天聊起、一共多少条，再从早先、中间、最近各抽几句，每段标上日子
@@ -9340,7 +9345,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const arc = x => {
         const ms = x.ms, n = ms.length, nm = x.c.remark || x.c.name;
         const head = "她（" + uN + "）和「" + nm + "」的聊天（" + md(ms[0].ts) + "聊起，一共 " + n + " 条；往上翻得到的是最近这些，从" + md(ms[Math.max(0, n - 16)].ts) + "起）：";
-        return head + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
+        return head + (x.cold ? "（这段已经 " + x.cold + " 天没动静了——以前聊得挺多，后来断了）" : "") + "\n" + ms.slice(-16).map(m => line(x, m)).join("\n");
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看

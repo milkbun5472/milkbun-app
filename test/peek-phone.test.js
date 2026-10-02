@@ -217,3 +217,9 @@ test("翻手机：动作描写不当聊天；她在的群照群开（旁观群�
   assert.match(a, /Date\.now\(\) - \(m\.ts \|\| 0\) < 3 \* 86400000/);
   assert.match(p, /if \(n\) \{ await scrollTo\(n\); await pressOnly\(n\); \}/);
 });
+
+test("翻手机：留一个位置给以前聊得多、后来断了的那个人", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(a, /const gone = rowsAll\.slice\(5\)\.filter\(x => Date\.now\(\) - x\.last > 7 \* 86400000 && x\.ms\.length >= 30\)/);
+  assert.match(a, /以前聊得挺多，后来断了/);
+});
