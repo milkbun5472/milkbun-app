@@ -306,3 +306,10 @@ test("翻手机：查手机记事进之后一周的上下文；两张卡不当TA
   assert.match(c, /"data-chatid": g\.id/);
   assert.match(p, /const findRow = who =>/);
 });
+
+test("翻手机：动手那几样是鼓励、不是「别写」，格式示范里有", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.doesNotMatch(a, /真气到那份上才用，不想就一样都别写/);
+  assert.match(a, /照你的性子挑一两样做（各一趟最多一次）/);
+  assert.match(a, /\{\\"do\\":\\"impersonate\\",\\"who\\":\\"名字\\",\\"text\\":/);
+});
