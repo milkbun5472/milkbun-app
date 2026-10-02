@@ -31,7 +31,7 @@ test("约TA：先发邀请卡到线上，TA回话时决定（dateReply），答�
   assert.match(a, /kind: "datereceipt"/);
   assert.match(a, /const dateGo = async \(charId, m\) => \{/);
   assert.match(c, /function DateInviteCard\(/);
-  assert.match(c, /"出发"/);
+  assert.match(c, /"出 发"/);
 });
 
 test("钉一个地方：先从下面现成的地方里挑（他的地方、常去、地图上的），挑不到再自己写", () => {
@@ -39,4 +39,11 @@ test("钉一个地方：先从下面现成的地方里挑（他的地方、常�
   assert.match(d, /\[\]\.concat\(places\.map\(function \(p\) \{ return p\.name; \}\), todo\.map\(function \(f\) \{ return f\.name; \}\), mapPlaces\.map/);
   assert.match(d, /"从下面现成的里挑一个钉上："/);
   assert.match(d, /"自己写一个"/);
+});
+
+test("约会卡：两边带头像（跟位置卡、礼物卡一样）；发邀请不自动让TA回", () => {
+  const c = read("components.js");
+  assert.match(c, /function DateInviteCard\(\{ m, character, onGo, avatar, myAvatar \}\)/);
+  assert.match(c, /!mine && avatar,/);
+  assert.doesNotMatch(a, /setTimeout\(\(\) => replyNow\(char\.id, "", null, \{\}\), 600\)/);
 });

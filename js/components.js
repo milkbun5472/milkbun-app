@@ -9174,7 +9174,9 @@ function ChatThread({
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
-    if (m.kind === "dateinvite" || m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m) });
+    if (m.kind === "dateinvite" || m.kind === "datereceipt") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
+      avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
+      myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
     if (m.kind === "loveletter") return h(LoveLetterCard, { key: i, m: m, character: character,
       onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
@@ -12558,18 +12560,31 @@ function FoldRow({ title, state, open, onToggle, children }) {
     open ? h("div", { style: { paddingBottom: 14 } }, children) : null);
 }
 // 约会邀请（她发的，右边）和回执（TA答应了，左边）（她 2026-10-02）：回执上点「出发」才进见面
-function DateInviteCard({ m, character, onGo }) {
+function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
+  // 一张约会票根（她 2026-10-02：「这卡没有头像，而且太丑了」）：跟位置卡、礼物卡一样两边带头像；
+  //   上半是去哪儿，中间一道撕线，下半是状态或「出发」
   const t = useTheme();
   const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {};
-  const sub = mine ? ({ pending: "等" + (character.remark || character.name) + "回", accepted: "答应了", declined: "这次没去成" })[st] || ""
-    : st === "gone" ? "已经去了" : "点出发就过去";
-  return h("div", { className: "py-1 flex " + (mine ? "justify-end" : "justify-start") },
-    h("div", { style: { width: 230, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, mine ? "约会邀请" : "约会回执"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 4 } }, pl.name || "某处"),
-      pl.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.6 } }, pl.note) : null,
-      !mine && st === "pending" ? h("button", { onClick: onGo, className: "w-full active:opacity-80", style: { marginTop: 10, minHeight: 38, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, "出发")
-        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, sub)));
+  const who = character.remark || character.name || "TA";
+  const d = new Date(m.ts || Date.now()), when = (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const foot = mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
+  const notch = side => h("span", { style: { position: "absolute", top: -7, [side]: -7, width: 14, height: 14, borderRadius: 999, background: t.bg, border: "1px solid " + t.line } });
+  return h("div", { className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") }, !mine && avatar,
+    h("div", { "data-wk": "card", style: { width: 222, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.08)" } },
+      h("div", { style: { position: "relative", padding: "13px 15px 14px" } },
+        h("div", { style: { position: "absolute", inset: 0, background: t.tint, opacity: .1 } }),
+        h("div", { className: "flex items-center justify-between", style: { position: "relative" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: t.tint } }, mine ? "约 会 邀 请" : "约 会 回 执"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, when)),
+        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.4, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, pl.name || "某处"),
+        pl.note ? h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.sub, marginTop: 3 } }, pl.note) : null,
+        h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, mine ? "我约" + who : who + "：好，那儿见")),
+      h("div", { style: { position: "relative", borderTop: "1.5px dashed " + t.line } }, notch("left"), notch("right")),
+      h("div", { style: { padding: "10px 15px 12px" } },
+        !mine && st === "pending"
+          ? h("button", { onClick: onGo, className: "w-full active:opacity-80", style: { minHeight: 38, borderRadius: 999, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".2em" } }, "出 发")
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "center" } }, foot))),
+    mine && myAvatar);
 }
 // TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
 function PeekSneakCard({ m, character, onPick }) {

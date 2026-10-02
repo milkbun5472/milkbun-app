@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.526";
+const APP_VERSION = "v74.527";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9582,8 +9582,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char || !place) return;
     pChat(char.id, p => [...p, { id: "inv_" + Date.now(), role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, state: "pending",
       content: "[约会邀请] 约你在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : ""), ts: Date.now(), read: true }]);
+    // 不自动让TA回：她可能还要补几句，等她自己发（她 2026-10-02：「我一发他就触发回复了，等我打完字再让他回」）
     openChatById(char.id);
-    setTimeout(() => replyNow(char.id, "", null, {}), 600);
   };
   const pendingInviteOf = charId => [...(chatsRef.current[charId] || [])].reverse().find(m => m && m.kind === "dateinvite" && m.state === "pending" && Date.now() - (m.ts || 0) < 2 * 86400000);
   const dateGo = async (charId, m) => {
