@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.538";
+const APP_VERSION = "v74.541";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10683,7 +10683,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _clockStampHint = roomClockOn
         ? "\n聊天历史每条开头的〔今天14:32〕〔昨天20:11〕是系统加的时间标注，供你感知每句话是什么时候说的——标着「今天」的就是今天说的，别把几小时前的事说成昨天；【你自己的回复里绝对不要带这种〔〕标注】。"
         : "";
-      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。";
+      // 她 2026-10-02：「为啥他的心声都是这样」——十几条全是同一个调侃骨架。
+      //   THOUGHT_MEANING 写着「别把上一条换个说法再写一遍」，可单聊从来没给它看过以前的心声。
+      //   只摆出来、只说别撞同一个角度；往哪边变不指定（她：「这样改又会往另一个极端逼吧」）。
+      const _recentThoughts = sideRoom ? [] : ((stateHistRef.current || {})[charId] || []).slice(0, 5).map(h => String(h && h.thought || "").trim()).filter(Boolean);
+      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。"
+        + (_recentThoughts.length >= 2 ? "\n你最近几条心声：" + _recentThoughts.map(t => "「" + t + "」").join("") + "。这一条换个句子骨架、换个由头，别和它们撞同一个角度；想的还是不是她、什么腔调，照你自己。" : "");
       // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
       // 这一句挂在每轮任务串里——历史缓存模式下它拼在最后一条用户消息末尾，离得最近。
       const _biTurnLine = _bilingualOn && typeof bilingualTurnHint === "function" ? "\n" + bilingualTurnHint("") : "";
