@@ -2529,7 +2529,7 @@ function Forum({
     .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
   const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
   const [newPostSeen, setNewPostSeen] = useState([]);
-  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && p.authorType === "character" && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
+  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && String(p.authorType || "").startsWith("character") && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
     .sort((a, b) => Number(b.visibleAt || b.ts || 0) - Number(a.visibleAt || a.ts || 0));
   const forumNotices = [];
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
@@ -3102,7 +3102,7 @@ function Forum({
         h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖")),
-        forumNewCharPosts.slice(0, 6).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+        forumNewCharPosts.slice(0, 8).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
           h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, p.board)))),
@@ -3115,7 +3115,7 @@ function Forum({
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, x.post.board),
           h("span", { style: { minWidth: 36, textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, "+" + x.count))),
         forumUnreadRows.length > 4 && h("div", { className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, "还有 " + (forumUnreadRows.length - 4) + " 个帖子，读完上面几条后会继续列出")),
-      arrived > 0 && h("div", { className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
+      arrived > 0 && !forumNewCharPosts.length && h("div", { className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),
       tab === "收藏" && shown.length === 0 && h(Empty, { text: "还没有收藏帖子", sub: "看到想留着的，点帖子下面的 ☆" }),
