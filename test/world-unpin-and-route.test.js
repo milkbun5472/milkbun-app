@@ -20,3 +20,7 @@ test("补表按钮一路接到 app", () => {
   assert.match(map, /onRoute: function \(charId\) \{ onRoute\(cur\.id, charId\); \}/);
   assert.match(map, /!\(world\.route \|\| \{\}\)\[c\.id\] && onRoute/);
 });
+
+test("行程去了图上没有的地方：一键加进TA落脚那块", () => {
+  assert.match(map, /onAdd\(homeRg\.name, \{ name: missNm/);
+});

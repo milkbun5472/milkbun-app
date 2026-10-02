@@ -538,6 +538,13 @@ function mapSubSkin(t) {
             // 手动钉进来的人没有「TA会去哪儿」那张小表，就一直站在钉的地方。要不要补由她点
             const c = roster[i];
             acc.push(row);
+            // 行程去了图上没有的地方（她 2026-10-02：「日程有新的地方他也走不动」）：一键把那个地方加进TA落脚的那块，TA就走得过去
+            const wm = where[c.id] || {}, missNm = String(wm.miss || "").replace(/^在/, "").trim().slice(0, 10);
+            const homeRg = (world.regions || []).find(function (r) { return (r.nodes || []).some(function (n) { return n.name === pins[c.id]; }); });
+            if (!c.__me && missNm && pins[c.id] === sel.name && homeRg && onAdd) acc.push(h("button", { key: c.id + "_miss",
+              onClick: function () { onAdd(homeRg.name, { name: missNm, kind: "城镇", hook: "" }); }, className: "active:opacity-60",
+              style: { alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, padding: "2px 6px 6px" } },
+              "把「" + missNm + "」加进「" + homeRg.name + "」，让" + (c.remark || c.name) + "走过去"));
             if (!c.__me && pins[c.id] === sel.name && !(world.route || {})[c.id] && onRoute) acc.push(h("button", { key: c.id + "_route", disabled: busy,
               onClick: function () { onRoute(c.id); }, className: "active:opacity-60",
               style: { alignSelf: "flex-start", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, padding: "2px 6px 6px", opacity: busy ? 0.5 : 1 } },
