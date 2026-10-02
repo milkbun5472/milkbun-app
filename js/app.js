@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.513";
+const APP_VERSION = "v74.514";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11018,6 +11018,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // `word: ... / mood: ...` 这类内部格式从气泡冒出来。普通聊天里单独提到
       // “word” 或 “mood” 不受影响，只有字段赋值形态才拦。
       words = words.filter(w => !protocolFieldRe.test(String(w)));
+      // 拿字假装发了一张申请（群里 2026-10-02：「char 会发来一个虚假字面的情侣申请」）：
+      //   这一轮本来能写信、他却没填 loveLetter，而是在气泡里写了「[情侣申请] ……」——
+      //   那就是他想写信，只是没用对地方。把那几泡收成真的信封卡；本来就不能写信的那几轮不动。
+      if (!(typeof parsed.loveLetter === "string" && parsed.loveLetter.trim()) && !_peekTurn && !(room && !room.main) && loveLetterReady(charId)) {
+        const _fakeRe = /^\s*[\[【〔（(]\s*(?:情侣|恋爱|交往)?\s*(?:申请|邀请|表白)(?:信|书)?\s*[\]】〕）)]\s*/;
+        const _k = words.findIndex(w => typeof w === "string" && _fakeRe.test(w));
+        if (_k >= 0) {
+          const rest = String(words[_k]).replace(_fakeRe, "").trim();
+          const body = rest || words.slice(_k + 1).filter(w => typeof w === "string").join("\n").trim();
+          if (body) { parsed.loveLetter = body; words = rest ? words.filter((_, i) => i !== _k) : words.slice(0, _k); }
+        }
+      }
       // \u8868\u60c5\u88ab\u5199\u8fdb\u6587\u5b57\u6c14\u6ce1\u7684\u515c\u5e95\uff08\u5979\u53cd\u9988\u300c\u8868\u60c5\u5076\u5c14\u8fd8\u662f\u53d1\u51fa\u6587\u5b57\u300d\uff09\uff1aword \u91cc\u82e5\u6709\u4e00\u6761\u3010\u53bb\u62ec\u53f7\u6807\u70b9\u540e\u6b63\u597d\u7b49\u4e8e\u3011\u67d0\u4e2a\u53ef\u7528\u8868\u60c5\u5173\u952e\u8bcd\uff0c
       // \u5c31\u628a\u5b83\u5f53\u8868\u60c5\u53d1\u3001\u522b\u5f53\u6587\u5b57\uff08\u7cbe\u786e\u76f8\u7b49\u3001\u4e0d\u505a\u5b50\u4e32\uff0c\u514d\u5f97\u300c\u6211\u597d\u5f00\u5fc3\u300d\u88ab\u8bef\u5f53\u300c\u5f00\u5fc3\u300d\u8868\u60c5\uff09\uff1b\u7eaf\u300c[\u8868\u60c5]\u300d\u8fd9\u7c7b\u7a7a\u6807\u8bb0\u76f4\u63a5\u4e22\u3002
       const emoteWordKws = [];

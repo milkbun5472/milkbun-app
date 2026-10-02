@@ -58,3 +58,14 @@ test("卡：先封着、拆开才读到；读完再选；设置里有开关，�
   assert.match(app, /noLoveLetter: !!s\.noLoveLetter,/, "保存那头得接住，不然开关点了不算数");
   assert.match(app, /onLoveLetter: \(m, yes\) => answerLoveLetter\(activeChar\.id, m, yes\)/);
 });
+
+test("拿字假装发申请：能写信的那一轮，把「[情侣申请] …」收成真的信封卡", () => {
+  const i = app.indexOf("拿字假装发了一张申请");
+  assert.ok(i > 0);
+  const blk = app.slice(i, i + 1400);
+  assert.match(blk, /!\(typeof parsed\.loveLetter === "string" && parsed\.loveLetter\.trim\(\)\) && !_peekTurn && !\(room && !room\.main\) && loveLetterReady\(charId\)/, "只在本来就能写信的那几轮兜");
+  const re = new RegExp(blk.match(/const _fakeRe = \/(.+)\/;/)[1]);
+  for (const w of ["[情侣申请] 我想和你在一起", "【情侣申请】", "（表白信）你好", "[申请书]"]) assert.ok(re.test(w), w);
+  for (const w of ["我想申请一下", "情侣申请是什么", "[转账] 100"]) assert.ok(!re.test(w), w);
+  assert.match(blk, /parsed\.loveLetter = body;/, "收进去以后走原来那条落地路，不另写一份");
+});
