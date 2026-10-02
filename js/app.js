@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.528";
+const APP_VERSION = "v74.529";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9601,10 +9601,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   那一枪没送到时，她自己问一句「看了怎么样」，TA就只剩自己的日常可说了）
   const peekPendingRef = useRef({});
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
-  const sendDateInvite = (char, place) => {
+  // 日子钟点写成一句人话：「10月3日（周四）20:30」
+  const dateWhenText = w => { if (!w) return ""; const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
+    return (m ? (+m[2]) + "月" + (+m[3]) + "日（周" + "日一二三四五六"[d.getDay()] + "）" : "") + (w.time ? " " + w.time : ""); };
+  const sendDateInvite = (char, place, v) => {
     if (!char || !place) return;
-    pChat(char.id, p => [...p, { id: "inv_" + Date.now(), role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, state: "pending",
-      content: "[约会邀请] 约你在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : ""), ts: Date.now(), read: true }]);
+    const when = v && (v.date || v.time) ? { date: v.date || "", time: v.time || "" } : null, say = (v && v.say) || "";
+    pChat(char.id, p => [...p, { id: "inv_" + Date.now(), role: "user", kind: "dateinvite", place: { name: place.name, note: place.note || "" }, when, say, state: "pending",
+      content: "[约会邀请] 约你" + (when ? dateWhenText(when) + " " : "") + "在「" + place.name + "」见面" + (place.note ? "（" + place.note + "）" : "") + (say ? "——" + say : ""), ts: Date.now(), read: true }]);
     // 不自动让TA回：她可能还要补几句，等她自己发（她 2026-10-02：「我一发他就触发回复了，等我打完字再让他回」）
     openChatById(char.id);
   };
@@ -9613,7 +9617,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const char = (characters || []).find(x => x.id === charId);
     if (!char || !m || !m.place) return;
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: "gone" } : x));
-    await startOffline(charId, { opening: "你约了 " + char.name + " 在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
+    await startOffline(charId, { opening: "你约了 " + char.name + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
     setOfflineChar(char);
   };
   // TA开口要看手机（她 2026-10-02）：一天最多要一回，卡片上她点给／不给
@@ -10366,7 +10370,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _inv = !(room && !room.main) && pendingInviteOf(charId);
       if (_inv) {
         openCaps.push("dateReply");
-        capState.push("dateReply：她约你在「" + _inv.place.name + "」见面" + (_inv.place.note ? "（" + _inv.place.note + "）" : "") + "，还等着你回。去就填 \"yes\"，不去或改天填 \"no\"，照你此刻的处境和心意来；说话照常写在 word 里。");
+        capState.push("dateReply：她约你" + (_inv.when ? dateWhenText(_inv.when) + " " : "") + "在「" + _inv.place.name + "」见面" + (_inv.place.note ? "（" + _inv.place.note + "）" : "") + (_inv.say ? "，还说：「" + _inv.say + "」" : "") + "，还等着你回。去就填 \"yes\"，不去或改天填 \"no\"，照你此刻的处境和心意来；说话照常写在 word 里。");
       }
       // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
       //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
@@ -11535,7 +11539,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (inv) {
           const yes = /^(yes|y|true|好|去|答应)/i.test(String(parsed.dateReply).trim());
           pChat(charId, p => p.map(x => x.id === inv.id ? { ...x, state: yes ? "accepted" : "declined" } : x));
-          if (yes) pChat(charId, p => [...p, { id: "rcpt_" + Date.now(), role: "assistant", kind: "datereceipt", place: inv.place, state: "pending",
+          if (yes) pChat(charId, p => [...p, { id: "rcpt_" + Date.now(), role: "assistant", kind: "datereceipt", place: inv.place, when: inv.when || null, say: "", state: "pending",
             content: "[约会回执] 好，「" + inv.place.name + "」见", ts: Date.now() + 2 }]);
           delivered = true;
         }
@@ -26157,7 +26161,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGen: genDwellPlace,
     // 约TA在钉着的那个地方见（她 2026-10-02）：照旅行出发那条先例开一场见面，开场就在那儿
     // 先在线上发一张邀请，TA答应了回一张回执，她点开回执才进见面（她 2026-10-02）
-    onDate: (char, place) => sendDateInvite(char, place),
+    onDate: (char, place, v) => sendDateInvite(char, place, v),
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {

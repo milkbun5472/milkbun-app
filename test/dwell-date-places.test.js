@@ -14,8 +14,8 @@ test("她自己钉的约会地点一份存着（x_datePlaces），去处顶上�
 
 test("点一个钉：自己去转转（串门）／约TA在这儿见（开见面，开场就在那儿）", () => {
   assert.match(d, /"自己去转转"/);
-  assert.match(d, /props\.onDate && props\.onDate\(char, p\)/);
-  assert.match(a, /onDate: \(char, place\) => sendDateInvite\(char, place\)/);
+  assert.match(d, /props\.onDate && props\.onDate\(char, p, v\)/);
+  assert.match(a, /onDate: \(char, place, v\) => sendDateInvite\(char, place, v\)/);
 });
 
 test("约会券、TA开的线下、旅行挑地方时能从她钉的地方里挑", () => {
@@ -46,4 +46,16 @@ test("约会卡：两边带头像（跟位置卡、礼物卡一样）；发邀�
   assert.match(c, /function DateInviteCard\(\{ m, character, onGo, avatar, myAvatar \}\)/);
   assert.match(c, /!mine && avatar,/);
   assert.doesNotMatch(a, /setTimeout\(\(\) => replyNow\(char\.id, "", null, \{\}\), 600\)/);
+});
+
+test("约会卡：合上是素封面、点开是一句邀请＋地点日子钟点想说的话；发之前能挑日子钟点、写一句话", () => {
+  const c = read("components.js"), dw = d;
+  assert.match(c, /function DateComposeDialog\(\{ place, who, onCancel, onSend \}\)/);
+  assert.match(c, /h\("input", \{ type: "date"/);
+  assert.match(c, /h\("input", \{ type: "time"/);
+  assert.match(c, /const \[open, setOpen\] = useState\(false\);/);
+  assert.match(c, /"一起去约会。"/);
+  assert.match(dw, /h\(DateComposeDialog, \{/);
+  assert.match(a, /onDate: \(char, place, v\) => sendDateInvite\(char, place, v\)/);
+  assert.match(a, /const dateWhenText = w =>/);
 });

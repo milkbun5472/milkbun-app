@@ -12560,29 +12560,95 @@ function FoldRow({ title, state, open, onToggle, children }) {
     open ? h("div", { style: { paddingBottom: 14 } }, children) : null);
 }
 // 约会邀请（她发的，右边）和回执（TA答应了，左边）（她 2026-10-02）：回执上点「出发」才进见面
-function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
-  // 约会邀请／回执（她 2026-10-02：「这卡没有头像，而且太丑了」「还是很丑」）：
-  //   不另起一套样子——照位置卡（GeoCard）那张被图钉按住的纸条来，同一个调子：素纸、一颗图钉、细线分隔、小字落款。
-  //   邀请是她递出去的纸条，回执是TA回过来的那张；「出发」只是一行字链，不做大色块按钮。
+// 约会卡（她 2026-10-02 给了参考图：合上是一张素封面，点开上半一句邀请、下半是约会信息和想说的话）。
+//   ⚠️封面上她参考图里是「FOR YOU」「A SMALL INVITATION」——按 no-english-titles 写成中文，她要英文再改回来。
+//   手写那一句用 Long Cang，只按这几个字取子集（&text=），连不上就退回 F_DISPLAY，不阻塞。
+const DATE_HAND_TEXT = "想和你一起去约会。好那就说定了";
+function dateHandFont() {
+  try {
+    if (document.getElementById("date-hand-font")) return;
+    const l = document.createElement("link"); l.id = "date-hand-font"; l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Long+Cang&display=swap&text=" + encodeURIComponent(DATE_HAND_TEXT);
+    document.head.appendChild(l);
+  } catch (e) {}
+}
+const F_HAND = "'Long Cang'," + F_DISPLAY;
+const dateWeek = s => { try { const d = new Date(s + "T00:00"); return "周" + "日一二三四五六"[d.getDay()]; } catch (e) { return ""; } };
+const dateLabel = s => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || "")); return m ? (+m[2]) + "月" + m[3] + "日（" + dateWeek(s) + "）" : ""; };
+// 发约会邀请前那一小框：挑日子、挑钟点、写一句想说的话（她 2026-10-02：「发送前可以选择编辑想要说的话和想要去的时间」）
+function DateComposeDialog({ place, who, onCancel, onSend }) {
   const t = useTheme();
-  const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {};
+  const today = new Date(); const iso = d => d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+  const [date, setDate] = useState(iso(today));
+  const [time, setTime] = useState("19:00");
+  const [say, setSay] = useState("");
+  const field = { fontFamily: F_BODY, fontSize: 14, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "9px 12px" };
+  return appDialogPortal(
+    h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", maxWidth: 320, background: t.bg2, borderRadius: 20, padding: "22px 20px 18px", animation: "fadeUp .2s ease both" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, textAlign: "center" } }, "约" + who),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", marginTop: 4 } }, (place && place.name) || ""),
+      h("div", { className: "flex", style: { gap: 8, marginTop: 16 } },
+        h("input", { type: "date", value: date, onChange: e => setDate(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1.4, minWidth: 0 }) }),
+        h("input", { type: "time", value: time, onChange: e => setTime(e.target.value), className: "outline-none", style: Object.assign({}, field, { flex: 1, minWidth: 0 }) })),
+      h("textarea", { value: say, onChange: e => setSay(e.target.value.slice(0, 60)), rows: 2, placeholder: "想对" + who + "说的话（可空）",
+        className: "w-full outline-none", style: Object.assign({}, field, { marginTop: 8, resize: "none", lineHeight: 1.6 }) }),
+      h("div", { className: "flex", style: { gap: 10, marginTop: 16 } },
+        h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "算了"),
+        h("button", { onClick: () => onSend({ date, time, say: say.trim() }), className: "flex-1 active:opacity-80", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
+    onCancel);
+}
+function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  useEffect(() => { dateHandFont(); }, []);
+  const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {}, w = m.when || {};
   const who = character.remark || character.name || "TA";
-  const d = new Date(m.ts || Date.now()), clock = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  const foot = mine ? ({ pending: "约" + who + " · 等回", accepted: "约" + who + " · 答应了", declined: "约" + who + " · 这次没去成" })[st] || ""
-    : st === "gone" ? who + " · 已经一起去了" : who + " · 好，那儿见";
-  return h("div", { className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") }, !mine && avatar,
-    h("div", { style: { position: "relative", width: 214, marginTop: 7 } },
-      h("div", { style: { position: "absolute", top: -7, left: 16, width: 15, height: 15, borderRadius: 999, background: t.tint, boxShadow: "0 2px 4px rgba(0,0,0,.28)", zIndex: 2 } }),
-      h("div", { style: { position: "absolute", top: 5, left: 22.5, width: 2, height: 13, background: t.tint, opacity: .5, zIndex: 1 } }),
-      h("div", { "data-wk": "card", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "18px 16px 13px", boxShadow: "0 4px 12px rgba(0,0,0,.09)" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, mine ? "约你去" : "那就去"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, pl.name || "某处"),
-        pl.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, pl.note) : null,
-        h("div", { style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
-        h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, foot + " · " + clock),
-          !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →") : null))),
-    mine && myAvatar);
+  const ink = t.sub, line = t.line, paper = t.bg2;
+  const md = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || ""));
+  const coverDate = md ? md[2] + "." + md[3] : "";
+  const star = (x, y, r) => h("path", { d: "M" + x + " " + (y - r) + " L" + (x + r * .28) + " " + (y - r * .28) + " L" + (x + r) + " " + y + " L" + (x + r * .28) + " " + (y + r * .28) + " L" + x + " " + (y + r) + " L" + (x - r * .28) + " " + (y + r * .28) + " L" + (x - r) + " " + y + " L" + (x - r * .28) + " " + (y - r * .28) + " Z", fill: ink, opacity: .55 });
+  const heart = sz => h("svg", { width: sz, height: sz, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.4 }, h("path", { d: "M12 20s-7-4.4-7-10a4 4 0 017-2.6A4 4 0 0119 10c0 5.6-7 10-7 10z" }));
+  const foot = mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
+  const card = (kids, extra) => h("div", Object.assign({ "data-wk": "card", style: { position: "relative", width: 200, background: paper, border: "1px solid " + line, borderRadius: 12, boxShadow: "0 1px 0 " + line + ", 0 6px 16px rgba(0,0,0,.07)" } }, extra || {}), kids);
+  // 合上：素封面——角上一个蝴蝶结、两颗星，中间一颗心、一道细线、日子
+  const cover = card([
+    h("svg", { key: "deco", width: "100%", height: "100%", viewBox: "0 0 200 250", style: { position: "absolute", inset: 0, pointerEvents: "none" } },
+      h("path", { d: "M150 26 C 135 14, 128 34, 146 34 C 164 34, 160 14, 150 26 Z M150 26 C 160 12, 180 16, 172 30 C 166 40, 152 32, 150 26 Z M150 26 C 140 44, 160 70, 170 92", fill: "none", stroke: ink, strokeWidth: 1, opacity: .55 }),
+      h("path", { d: "M14 168 C 22 210, 46 236, 84 240", fill: "none", stroke: ink, strokeWidth: .8, opacity: .45 }),
+      star(132, 58, 5), star(30, 214, 5)),
+    h("div", { key: "body", style: { position: "relative", height: 250, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, letterSpacing: ".35em", color: ink, paddingLeft: ".35em" } }, mine ? "给你" : "回你"),
+      h("div", { style: { marginTop: 10, display: "flex", justifyContent: "center" } }, heart(20)),
+      h("div", { style: { width: 26, height: 1, background: ink, opacity: .5, margin: "14px 0" } }),
+      coverDate ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, letterSpacing: ".25em", color: ink } }, coverDate) : null,
+      h("div", { style: { position: "absolute", right: 14, bottom: 12, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".2em", color: t.fog, textAlign: "right", lineHeight: 1.6 } }, mine ? "一封小小的" : "一张小小的", h("br"), mine ? "邀请" : "回执"))
+  ], { onClick: () => setOpen(true), className: "active:opacity-90", role: "button" });
+  const row = (icon, text, last) => h("div", { className: "flex items-center", style: { gap: 10, padding: "8px 0", borderBottom: last ? "none" : "1px solid " + line } },
+    h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", fill: "none", stroke: ink, strokeWidth: 1.6, strokeLinecap: "round", strokeLinejoin: "round", style: { flexShrink: 0 } }, icon),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.5, minWidth: 0, wordBreak: "break-word" } }, text));
+  const I = {
+    pin: [h("path", { key: 1, d: "M12 21s-6-5.6-6-11a6 6 0 0112 0c0 5.4-6 11-6 11z" }), h("circle", { key: 2, cx: 12, cy: 10, r: 2.2 })],
+    cal: [h("rect", { key: 1, x: 4, y: 5, width: 16, height: 15, rx: 2 }), h("path", { key: 2, d: "M4 10h16M8 3v4M16 3v4" })],
+    clk: [h("circle", { key: 1, cx: 12, cy: 12, r: 8 }), h("path", { key: 2, d: "M12 8v4l3 2" })],
+    pen: [h("path", { key: 1, d: "M4 20l4-1 10-10-3-3L5 16l-1 4z" })]
+  };
+  // 打开：上半一句手写的话，一道撕线，下半是信息
+  const inside = card([
+    h("div", { key: "top", style: { position: "relative", padding: "20px 16px 14px", borderBottom: "1.5px dashed " + line, textAlign: "center" } },
+      h("svg", { width: 24, height: 24, viewBox: "0 0 24 24", style: { position: "absolute", right: 10, top: 8 } }, star(12, 12, 5)),
+      h("div", { style: { fontFamily: F_HAND, fontSize: 22, lineHeight: 1.35, color: ink } }, mine ? "想和你" : "好，", h("br"), mine ? "一起去约会。" : "那就说定了。"),
+      h("div", { style: { marginTop: 6, display: "flex", justifyContent: "center" } }, heart(15))),
+    h("div", { key: "bot", style: { padding: "6px 14px 10px" } },
+      row(I.pin, pl.name || "某处"),
+      w.date ? row(I.cal, dateLabel(w.date)) : null,
+      w.time ? row(I.clk, w.time) : null,
+      m.say ? row(I.pen, m.say, true) : (pl.note ? row(I.pen, pl.note, true) : null),
+      h("div", { className: "flex items-center justify-between", style: { marginTop: 8 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, foot),
+        !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →")
+          : h("button", { onClick: () => setOpen(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "4px 0 4px 8px", minHeight: 30 } }, "合上")))
+  ]);
+  return h("div", { className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") }, !mine && avatar, open ? inside : cover, mine && myAvatar);
 }
 // TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
 function PeekSneakCard({ m, character, onPick }) {

@@ -233,7 +233,8 @@
     const [cfg, setCfg] = useState(loadCfg);
     const [dates, setDates] = useState(DatePlaces.list);
     const [dateSel, setDateSel] = useState(null);
-    const [pinPick, setPinPick] = useState(false);   // 钉一个地方：先从下面现成的里挑，挑不到再自己写（她 2026-10-02）
+    const [pinPick, setPinPick] = useState(false);
+    const [compose, setCompose] = useState(null);   // 约TA之前那一小框：挑日子钟点、写一句话（她 2026-10-02）   // 钉一个地方：先从下面现成的里挑，挑不到再自己写（她 2026-10-02）
     useEffect(function () { setPlaces(selId ? placesOf(selId) : []); setOpenId(null); setZoneIdx(-1); }, [selId]);
 
     const busy = props.busyId;
@@ -536,6 +537,9 @@
           style: { fontFamily: F_BODY, fontSize: 11, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap",
             color: cfg.withImg ? t.bg2 : t.sub, background: cfg.withImg ? t.ink : "transparent", border: "1px solid " + (cfg.withImg ? t.ink : t.line) } },
           cfg.withImg ? "出图 开" : "出图 关")),
+      compose && typeof DateComposeDialog === "function" ? h(DateComposeDialog, { place: compose, who: char ? (char.remark || char.name) : "TA",
+        onCancel: function () { setCompose(null); },
+        onSend: function (v) { const p = compose; setCompose(null); props.onDate && props.onDate(char, p, v); } }) : null,
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         // 我们的城市：她钉的约会地点。点一个：自己去转转（照旧串门，TA不在）／约TA在这儿见（开一场见面）
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 8px" } }, "我们的城市"),
@@ -546,7 +550,7 @@
           h("div", { className: "grid grid-cols-2", style: { gap: 8, marginTop: 10 } },
             h("button", { onClick: function () { const n = dateSel.name; setDateSel(null); gen(n, null); }, disabled: !!busy, className: "active:opacity-70 disabled:opacity-40",
               style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "自己去转转"),
-            h("button", { onClick: function () { const p = dateSel; setDateSel(null); props.onDate && props.onDate(char, p); }, className: "active:opacity-80",
+            h("button", { onClick: function () { const p = dateSel; setDateSel(null); setCompose(p); }, className: "active:opacity-80",
               style: { minHeight: 42, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "约" + (char ? (char.remark || char.name) : "TA") + "在这儿见")),
           h("button", { onClick: function () { const id = dateSel.id; requestAppConfirm("把「" + dateSel.name + "」从地图上拿掉？", "只是拿掉这个钉，去过的记录不动。", function () { setDates(DatePlaces.remove(id)); setDateSel(null); }); },
             className: "w-full active:opacity-60", style: { paddingTop: 10, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉这个钉")) : null,

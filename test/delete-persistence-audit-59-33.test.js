@@ -20,7 +20,8 @@ test("全 App 删除确认走自绘层，不依赖会被 iOS 吞掉的系统 con
   // v70.67 起第三位用户：转账那个框（她 2026-09-18：「我让你做框你给我做了个什么东西」）。
   // ⚠️这个数【往上长是对的】——它数的是「有几处共用这一层挂载」，不是「有几个弹窗」。
   //   该红的是有人另写一个居中的盒子，那种情况这个数不会动、下面那条审计才会逮到。
-  assert.equal((components.match(/return appDialogPortal\(/g) || []).length, 3);
+  // v74.529 第四位：约会邀请发之前挑日子钟点的那一小框（DateComposeDialog）。
+  assert.equal((components.match(/return appDialogPortal\(/g) || []).length, 4);
 
   const audited = fs.readdirSync(path.join(__dirname, "..", "js"))
     .filter(name => name.endsWith(".js")).map(read).join("\n");
