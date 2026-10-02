@@ -115,7 +115,8 @@ test("写上日子、整段聊天的来龙去脉、至少翻 4 样（上次没�
   assert.match(a, /ms\.slice\(-16\)\.map\(m => line\(x, m\)\)/, "只给屏幕上翻得到的那一截");
   assert.match(a, /md\(e\.ts\) \+ "写的"/);
   assert.doesNotMatch(a, /const COLD = /, "查岗不硬塞冷门 app（她 2026-10-01）");
-  assert.match(a, /至少看 3 个人/);
+  assert.match(a, /单聊至少看 3 个人/);
+  assert.match(a, /群是额外的，看完单聊想看就看/);
   assert.match(a, /apps: \[\.\.\.new Set\(sc\.filter\(s => s\.do === "open"\)\.map\(s => s\.app\)\)\]/);
 });
 
