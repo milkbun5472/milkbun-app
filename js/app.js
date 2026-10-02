@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.484";
+const APP_VERSION = "v74.485";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9451,7 +9451,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!c) return;
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你把手机递给了 " + (c.remark || c.name) + (hidden.length ? "（藏起了：" + hidden.join("、") + "）" : ""), ts: Date.now() }]);
     const apps = [...new Set((allow || []).flatMap(k => PEEK_APPS[k] || []))];
-    setPeekPlay({ charId, allow, seen, hidden, script: null });
+    // 单独藏的人也算进「藏起了」，翻完开口那一轮TA照样知道
+    const hidePeople = (characters || []).filter(x => hideSet.has(String(x.id))).map(x => x.remark || x.name)
+      .concat((groupsRef.current || []).filter(g => g && hideSet.has(String(g.id))).map(g => "群「" + (g.name || "群聊") + "」"));
+    setPeekPlay({ charId, allow, seen, hidden: hidden.concat(hidePeople.map(n => "和" + n + "的聊天")), script: null });
     let script = [];
     // 聊天里【近 3 天】翻得出线索的，才顺着去（她 2026-10-02：「30 天太长了，改成 3 天内」；「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
     const CLUE = { transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" }, clues = {};
@@ -9470,9 +9473,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (() => { const d = new Date(); return "\n今天是" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + d.toTimeString().slice(0, 5) + "——下面写着日子的，都按今天往回算是几天前的事。"; })()
           + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
-          // 单独藏起来的人：TA只会在【上次还看得到】的时候发现列表里少了一个；别处留着的痕迹（转账之类）照常在上面
-          + (() => { const L = peekLastOf(charId), gone = (characters || []).filter(x => hideSet.has(String(x.id))).map(x => x.remark || x.name).filter(n => (L.who || []).includes(n));
-              return gone.length ? "\n\n上次你翻的时候还有她和" + gone.map(n => "「" + n + "」").join("") + "的聊天，这回消息列表里找不到了。" : ""; })()
+          // 单独藏起来的人直接告诉TA（她 2026-10-02：「直接让他知道这个是藏起来的，不需要那么多前置」）
+          + (hidePeople.length ? "\n\n她递过来之前，把和" + hidePeople.map(n => "「" + n + "」").join("") + "的聊天藏起来了——消息列表里没有，你翻不到，但你知道她藏了。" : "")
           + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
@@ -10172,9 +10174,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
       // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
-      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && phoneAskReady(charId)) {
+      //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
+      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && phoneAskReady(charId) && (_moodNeg || _harsh) && Math.random() < 0.5) {
         openCaps.push("askPhone");
-        capState.push("askPhone：你心里起了疑、或者就是想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
+        capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
       }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
       // 只挑【最近有动静的那个共同群】，省得TA自己乱选；没有共同群就不开这个能力。

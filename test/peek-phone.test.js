@@ -238,3 +238,10 @@ test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA
   assert.match(a, /replyNow\(charId, "", null, \{ proactive: true, phoneRefused: true \}\)/);
   assert.match(a, /Date\.now\(\) - \(a\[charId\] \|\| 0\) > 20 \* 3600e3/, "一天最多要一回");
 });
+
+test("翻手机：只在吵架生气时有几率开口要；单独藏的人直接告诉TA", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(a, /phoneAskReady\(charId\) && \(_moodNeg \|\| _harsh\) && Math\.random\(\) < 0\.5/);
+  assert.match(a, /的聊天藏起来了——消息列表里没有，你翻不到，但你知道她藏了/);
+  assert.match(a, /hidden: hidden\.concat\(hidePeople\.map/);
+});
