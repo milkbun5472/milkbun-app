@@ -14,7 +14,7 @@
 // ============================================================
 (function () {
   "use strict";
-  const STEP_CAP = 40;
+  const STEP_CAP = 64;   // 翻透几个人的聊天要更多步（她 2026-10-02：「太短了」）
   const THOUGHT_FREE = 2;
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const S = v => String(v == null ? "" : v);
