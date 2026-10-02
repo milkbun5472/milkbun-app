@@ -114,6 +114,7 @@
         u.lang = (picked && picked.lang) || "zh-CN";
         u.rate = Number(o.rate) > 0 ? Number(o.rate) : 1;
         u.pitch = 1;                       // 音高一律不动（「像闹鬼」那次的教训）
+        u.onstart = () => { if (!stopped && !done.at && typeof o.start === "function") o.start(); };
         u.onend = end; u.onerror = () => fail(new Error("念到一半断了"));
         speechSynthesis.speak(u);
       } catch (e) { fail(e); }
@@ -127,6 +128,7 @@
       const url = URL.createObjectURL(blob); objectUrl = url;
       audio = new Audio(url);
       const drop = () => { dropUrl(); };
+      audio.onplaying = () => { if (!stopped && !done.at && typeof o.start === "function") o.start(); };
       audio.onended = () => { drop(); end(); };
       audio.onerror = () => { drop(); audio = null; bySystem(); };
       const p = audio.play();

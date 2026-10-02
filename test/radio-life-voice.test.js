@@ -16,3 +16,8 @@ test('unconfigured MiniMax does not make a request; errors fall back to shared s
 test('cancel during synthesis never starts a late audio',async()=>{
  const f=setup();let finish;f.env.ttsSpeak=()=>new Promise(r=>finish=r);const h=f.R.speak('尚未返回',{voiceId:'甲音色'});h.cancel();finish({size:2});await flush();assert.equal(f.audios.length,0);
 });
+
+test('speech state follows actual playback start/end for MiniMax and system speech; late start after cancel is ignored',async()=>{
+ const f=setup();let started=0,ended=0;const h=f.R.speak('这一段',{voiceId:'甲音色',start:()=>started++,end:()=>ended++});await flush();assert.equal(started,0);f.audios[0].onplaying();assert.equal(started,1);f.audios[0].onended();assert.equal(ended,1);h.cancel();f.audios[0].onplaying();assert.equal(started,1);
+ const g=setup(false);g.R.speak('系统这一段',{start:()=>started++});assert.equal(started,1);g.utterances[0].onstart();assert.equal(started,2);
+});
