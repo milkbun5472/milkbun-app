@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.473";
+const APP_VERSION = "v74.474";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11815,6 +11815,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "\n本来就认识的（设定里写了关系的）照那份关系来。"
     : "";
   const saveGroupSettings = (id, patch) => {
+    // 她 2026-10-02：改了十来轮提示词都吵不到点上——规矩写在 system 里只是背景，模型接着演的是记录里刚发生的事。
+    //   所以打开修罗场的那一刻，在群里落一条灰提示：「发现」本身成了记录里的一件事。
+    if (patch && patch.drama === true && !gsFor(id).drama) pGChat(id, p => [...p, { role: "system", kind: "system", dramaOn: true, ts: Date.now(),
+      content: "修罗场开启：从这一刻起，群里每个人都看到了——其他人也是 " + userName(profile) + " 的恋人" }]);
     if (patch && patch.autoChat === true && !autoRefreshOn("groupChat")) setAutoFromPage("groupChat", null, true);
     // 总闸关着时页面上显示的是「关」；存别的设置时那个 false 不是她这一次按的，别把这个群原来的选择冲掉
     else if (patch && patch.autoChat === false && !autoRefreshOn("groupChat")) { patch = { ...patch }; delete patch.autoChat; }
@@ -16170,7 +16174,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 原来只长在 replyGroup 里，于是【群通话】那一处压根没有「群里刚聊过什么」这一层——
   // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」。
   // TA五分钟前在群里说过「到家了，抹茶放桌上」，电话里一个字都看不到。
-  const groupHistLine = m => (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
+  const groupHistLine = m => m.dramaOn
+    ? "【就在这个位置，刚发生：群里每个人都看到了——其他人也是 " + userName(profile) + " 的恋人。这是你们第一次知道彼此，在这之前谁也不知道】"
+    : (m.byUser ? bySomeoneElseMark(userName(profile), m.senderName || "TA") : "")
     + (m.kind === "callend" ? "【这个位置大家通了一通" + (m.callMode === "video" ? "视频" : "语音") + "电话，时长 " + (m.dur || "不长") + (m.sum ? "。小结：" + m.sum : "") + "，别当没打过】"
     + ((x => x ? "\n【这通电话里实际逐句说过的话·以原话为准，小结只是提要】\n" + x : "")(callTranscriptForOnline(m, true, ""))) + ((m.log || []).length ? "\n【通话实际记录】\n" + m.log.filter(x => x && x.content && contextAllowsMessage(x)).map(x => (x.role === "user" ? userName(profile) : x.senderName || "通话成员") + (x.act ? "（动作）" : "：") + x.content).join("\n") : "") : m.kind === "offlinelog" ? "【你们刚刚线下见了一面（发生在上面之后、现已回到线上群聊，据此接话）】归档摘要：" + m.content + (m.transcript ? "\n【线下实际逐条记录·以原话为准】\n" + fedTranscript(m.transcript) : "") : (m.role === "narration" && m.who === "char") ? "【" + (m.senderName || "某人") + " 当时正在做的｜不是 Ta 说出口的话】" + m.content
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
