@@ -2,16 +2,18 @@
 (function (g) {
   "use strict";
   const CONFIG = "x_videoApi", MEDIA = "x_pomodoro_media", JOBS = "x_pomodoro_video_jobs";
-  const DEFAULT = { enabled: false, baseUrl: "https://api.minimax.io", apiKey: "", model: "MiniMax-Hailuo-2.3-Fast", resolution: "768P", duration: 6 };
-  const MODELS = ["MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-02", "I2V-01-live", "I2V-01-Director", "I2V-01"];
+  const DEFAULT = { enabled: false, baseUrl: "https://api.minimax.io", apiKey: "", model: "MiniMax-H3", resolution: "768P", duration: 4 };
+  const MODELS = ["MiniMax-H3", "MiniMax-H3-Max", "MiniMax-Hailuo-2.3-Fast", "MiniMax-Hailuo-2.3", "MiniMax-Hailuo-02", "I2V-01-live", "I2V-01-Director", "I2V-01"];
   const MOTION = "[Static shot] 人物保持原来的位置，轻轻呼吸、自然眨眼，头发轻微摆动，动作幅度很小，最后回到初始姿态，适合循环播放。";
   function base(value) { return cleanBaseUrl(value).replace(/\/v[12](?:\/.*)?$/i, ""); }
+  const isV2 = model => model === "MiniMax-H3" || model === "MiniMax-H3-Max";
+  const resolutions = model => model === "MiniMax-H3" ? ["768P", "2K"] : model === "MiniMax-H3-Max" ? ["768P", "480P"] : model.startsWith("I2V-") ? ["720P"] : ["768P", "1080P", ...(model === "MiniMax-Hailuo-02" ? ["512P"] : [])];
+  const durations = (model, resolution) => isV2(model) ? Array.from({ length: model === "MiniMax-H3" ? 12 : 11 }, (_, i) => i + (model === "MiniMax-H3" ? 4 : 5)) : model.startsWith("I2V-") || resolution === "1080P" ? [6] : [6, 10];
   function normalize(raw) {
     const c = Object.assign({}, DEFAULT, raw || {}); c.baseUrl = base(c.baseUrl); c.apiKey = String(c.apiKey || "").trim();
     if (!MODELS.includes(c.model)) c.model = DEFAULT.model;
-    const legacy = c.model.indexOf("I2V-") === 0;
-    if (legacy) { c.duration = 6; c.resolution = "720P"; }
-    else { c.duration = Number(c.duration) === 10 ? 10 : 6; if (!["768P", "1080P", ...(c.model === "MiniMax-Hailuo-02" ? ["512P"] : [])].includes(c.resolution)) c.resolution = "768P"; if (c.resolution === "1080P") c.duration = 6; }
+    if (!resolutions(c.model).includes(c.resolution)) c.resolution = resolutions(c.model)[0];
+    const allowed = durations(c.model, c.resolution); c.duration = allowed.includes(Number(c.duration)) ? Number(c.duration) : allowed[0];
     return c;
   }
   const load = () => normalize(loadJSON(CONFIG, {}));
@@ -32,7 +34,7 @@
     try {
       const r = await fetch(base(c.baseUrl) + path, { method: body ? "POST" : "GET", headers: Object.assign({ Authorization: "Bearer " + c.apiKey }, body ? { "Content-Type": "application/json" } : {}), body: body ? JSON.stringify(body) : undefined, signal: controller.signal });
       let d; try { const raw = await r.text(); d = JSON.parse(raw.replace(/("(?:task_id|file_id)"\s*:\s*)(\d{16,})(?=\s*[,}])/g, '$1"$2"')); } catch (_) { throw Error("视频接口没有返回可读取的结果（HTTP " + r.status + "）"); }
-      if (!r.ok || (d.base_resp && Number(d.base_resp.status_code) !== 0)) throw Error((d.base_resp && d.base_resp.status_msg) || (d.error && d.error.message) || ("视频接口 HTTP " + r.status));
+      if (!r.ok || d.error || (d.base_resp && Number(d.base_resp.status_code) !== 0)) throw Error((d.base_resp && d.base_resp.status_msg) || (d.error && d.error.message) || ("视频接口 HTTP " + r.status));
       return d;
     } catch (e) {
       if (e.name === "AbortError") throw e;
@@ -48,10 +50,11 @@
     const c = load(); if (!ready(c)) throw Error("先开启并填写视频 API"); if (job(id)) throw Error("已有视频任务，请先查询结果或明确放弃");
     const input = await imageData(imageRef); if (!String(prompt || "").trim()) throw Error("写一下想让人物怎么动");
     if (job(id)) throw Error("已有视频任务，请先查询结果或明确放弃");
-    const record = { baseUrl: c.baseUrl, model: c.model, imageRef, prompt: String(prompt).trim().slice(0, 2000), createdAt: Date.now(), status: "Submitting" };
+    const record = { baseUrl: c.baseUrl, model: c.model, protocol: isV2(c.model) ? "v2" : "v1", imageRef, prompt: String(prompt).trim().slice(0, 2000), createdAt: Date.now(), status: "Submitting" };
     patchMap(JOBS, id, record);
     // 超时/断网时不能猜上游没收到：留下 Submitting，不自动补发一笔收费任务。
-    const d = await request(c, "/v1/video_generation", { model: c.model, first_frame_image: input, prompt: record.prompt, duration: c.duration, resolution: c.resolution, prompt_optimizer: false }, signal);
+    const body = record.protocol === "v2" ? { model: c.model, content: [{ type: "text", text: record.prompt }, { type: "image_url", image_url: { url: input }, role: "first_frame" }], duration: c.duration, resolution: c.resolution } : { model: c.model, first_frame_image: input, prompt: record.prompt, duration: c.duration, resolution: c.resolution, prompt_optimizer: false };
+    const d = await request(c, "/" + record.protocol + "/video_generation", body, signal);
     if ((signal && signal.aborted) || !job(id) || job(id).createdAt !== record.createdAt) throw new DOMException("已停止等待", "AbortError");
     if (!d.task_id) throw Error("接口没有返回任务编号；请先到控制台核对是否已创建");
     record.taskId = String(d.task_id); record.status = "Preparing"; return patchMap(JOBS, id, record);
@@ -60,13 +63,21 @@
   async function query(id, signal) {
     const record = job(id); if (!record || !record.taskId) throw Error("没有拿到任务编号，请先在控制台核对，避免重复付费");
     if (record.draftRef) return record;
-    const c = taskConfig(record), d = await request(c, "/v1/query/video_generation?task_id=" + encodeURIComponent(record.taskId), null, signal);
+    // 已提交任务沿用当时协议；之后切换模型不能改变原任务的查询地址。
+    const v2 = record.protocol === "v2" || (!record.protocol && isV2(record.model));
+    const c = taskConfig(record), d = await request(c, v2 ? "/v2/query/video_generation/" + encodeURIComponent(record.taskId) : "/v1/query/video_generation?task_id=" + encodeURIComponent(record.taskId), null, signal);
     if ((signal && signal.aborted) || !job(id) || job(id).taskId !== record.taskId) throw new DOMException("已停止等待", "AbortError");
-    record.status = d.status; if (d.file_id) record.fileId = String(d.file_id); patchMap(JOBS, id, record);
-    if (String(d.status).toLowerCase() === "fail") throw Error("视频生成失败：" + ((d.base_resp && d.base_resp.status_msg) || "请修改图片或动作后再试"));
-    if (String(d.status).toLowerCase() !== "success") return record;
-    if (!record.fileId) throw Error("任务成功但缺少视频文件编号，请稍后查询原任务");
-    const f = await request(c, "/v1/files/retrieve?file_id=" + encodeURIComponent(record.fileId), null, signal), url = f.file && f.file.download_url;
+    const task = v2 ? d.task : d; if (!task || !task.status) throw Error("接口缺少任务状态，请稍后查询原任务");
+    record.status = task.status; if (!v2 && task.file_id) record.fileId = String(task.file_id); patchMap(JOBS, id, record);
+    const status = String(task.status).toLowerCase();
+    if (["fail", "failed", "cancelled"].includes(status)) throw Error("视频任务" + (status === "cancelled" ? "已取消" : "生成失败") + "：" + ((task.error && task.error.message) || (typeof task.error === "string" && task.error) || (task.base_resp && task.base_resp.status_msg) || "请修改图片或动作后再试"));
+    if (status !== (v2 ? "succeeded" : "success")) return record;
+    let url;
+    if (v2) url = task.content && task.content.url;
+    else {
+      if (!record.fileId) throw Error("任务成功但缺少视频文件编号，请稍后查询原任务");
+      const f = await request(c, "/v1/files/retrieve?file_id=" + encodeURIComponent(record.fileId), null, signal); url = f.file && f.file.download_url;
+    }
     if (!url || !/^https?:\/\//i.test(url)) throw Error("接口没有返回可用的视频下载地址");
     const controller = new AbortController(), relay = () => controller.abort(), timer = setTimeout(relay, 90000);
     if (signal && signal.aborted) { clearTimeout(timer); throw new DOMException("已停止等待", "AbortError"); } if (signal) signal.addEventListener("abort", relay, { once: true });
@@ -105,10 +116,10 @@
       row("站点（与密钥申请站点配对）", h("div", { style: { display: "grid", gap: 6 } }, MINIMAX_API_SITES.map(([name, url]) => h("button", { key: url, "aria-label": name, type: "button", onClick: () => set({ baseUrl: url }), "aria-pressed": c.baseUrl === url, style: Object.assign({}, input, { textAlign: "left", borderLeft: (c.baseUrl === url ? "5px" : "1px") + " solid " + (c.baseUrl === url ? t.accent : t.line) }) }, name)))),
       row("接口地址", h("input", { "aria-label": "视频接口地址", value: c.baseUrl, onChange: e => set({ baseUrl: e.target.value }), placeholder: "https://api.minimax.io", style: input })),
       row("视频 API 密钥", h("input", { type: "password", "aria-label": "视频 API 密钥", autoComplete: "off", value: c.apiKey, onChange: e => set({ apiKey: e.target.value }), placeholder: "填写对应站点的 API Key", style: input })),
-      row("视频模型", h("select", { "aria-label": "视频模型", value: c.model, onChange: e => set({ model: e.target.value }), style: input }, MODELS.map(m => h("option", { key: m, value: m }, m)))),
-      row("画质", h("select", { "aria-label": "视频画质", value: c.resolution, onChange: e => set({ resolution: e.target.value }), style: input }, (c.model.startsWith("I2V-") ? ["720P"] : ["768P", "1080P", ...(c.model === "MiniMax-Hailuo-02" ? ["512P"] : [])]).map(r => h("option", { key: r, value: r }, r)))),
-      row("时长", h("select", { "aria-label": "视频时长", value: c.duration, onChange: e => set({ duration: Number(e.target.value) }), style: input }, h("option", { value: 6 }, "6 秒"), !c.model.startsWith("I2V-") && c.resolution !== "1080P" ? h("option", { value: 10 }, "10 秒") : null)),
-      h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "密钥与语音设置分别保存。到番茄钟的「动态陪伴图」制作和预览；模型是否开放、费用以对应站点账户为准。"),
+      row("视频模型", h("select", { "aria-label": "视频模型", value: c.model, onChange: e => set({ model: e.target.value, resolution: resolutions(e.target.value)[0], duration: durations(e.target.value, resolutions(e.target.value)[0])[0] }), style: input }, MODELS.map(m => h("option", { key: m, value: m }, m)))),
+      row("画质", h("select", { "aria-label": "视频画质", value: c.resolution, onChange: e => set({ resolution: e.target.value }), style: input }, resolutions(c.model).map(r => h("option", { key: r, value: r }, r)))),
+      row("时长", h("select", { "aria-label": "视频时长", value: c.duration, onChange: e => set({ duration: Number(e.target.value) }), style: input }, durations(c.model, c.resolution).map(n => h("option", { key: n, value: n }, n + " 秒")))),
+      h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "H3 可选 4～15 秒，H3 Max 可选 5～15 秒；旧型号保留原时长。H3 官方站直连可能被浏览器跨域拦截，此时接口地址需填写支持 MiniMax V2 的中转地址。密钥与语音设置分别保存。到番茄钟的「动态陪伴图」制作和预览；模型是否开放、费用以对应站点账户为准。"),
       err ? h("p", { role: "alert", style: { color: t.accent } }, err) : null);
   }
   function PomodoroVideoEditor({ character, onBack, onSaved, toast }) {
@@ -129,7 +140,7 @@
       catch (e) { if (e.name !== "AbortError") report(e.message || "暂时没有完成，请稍后再试"); }
       finally { working.current = false; if (live.current) { setBusy(false); setRecord(job(id)); } }
     };
-    const update = r => { if (live.current) { setRecord(r); report(r.draftRef ? "生成好了，看看动作喜欢吗？" : ({ Preparing: "正在准备画面…", Queueing: "正在排队…", Processing: "正在生成动作…", Success: "正在保存视频…" }[r.status] || "正在查询原任务…")); } };
+    const update = r => { if (live.current) { setRecord(r); report(r.draftRef ? "生成好了，看看动作喜欢吗？" : ({ Preparing: "正在准备画面…", Queueing: "正在排队…", Processing: "正在生成动作…", queued: "正在排队…", running: "正在生成动作…", succeeded: "正在保存视频…", Success: "正在保存视频…" }[r.status] || "正在查询原任务…")); } };
     const inspect = signal => poll(id, signal, update);
     // 自动恢复只读已有任务，不调用创建接口，也不会重做已经存好的视频。
     useEffect(() => { const r = job(id); if (r && r.taskId && !r.draftRef && r.status !== "Fail") run(inspect); }, [id]);

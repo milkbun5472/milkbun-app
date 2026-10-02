@@ -1,6 +1,7 @@
 // Full App with isolated fictional storage and local API/video fixtures; no paid calls.
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
+const h3=process.env.POM_VIDEO_MODEL==='MiniMax-H3';
 const repo=path.resolve(__dirname,'../..'),out=process.env.POM_VIDEO_SHOTS||'/tmp/pomodoro-video-shots';fs.mkdirSync(out,{recursive:true});
 (async()=>{
  const cp=require('node:child_process');if(!fs.existsSync(process.env.POM_VIDEO_FIXTURE||'/tmp/pomodoro-video-fixture.mp4'))cp.execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-f','lavfi','-i','color=c=0x8d9d87:s=384x512:r=24','-t','1','-vf','drawbox=x=145:y=150:w=94:h=110:color=0xefcfaa:t=fill','-c:v','libx264','-pix_fmt','yuv420p','-movflags','+faststart','/tmp/pomodoro-video-fixture.mp4','-y']);if(!fs.existsSync(process.env.POM_IMAGE_FIXTURE||'/tmp/pomodoro-image-fixture.png'))cp.execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-i',process.env.POM_VIDEO_FIXTURE||'/tmp/pomodoro-video-fixture.mp4','-frames:v','1','/tmp/pomodoro-image-fixture.png','-y']);
@@ -16,8 +17,8 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.POM_VIDEO_SHOTS||'/tm
  page.on('pageerror',e=>errors.push(e.message));page.setDefaultTimeout(15000);
  await page.route('https://**/*',async route=>{
   const url=new URL(route.request().url()),req=route.request();
-  if(url.pathname==='/v1/video_generation'){calls.push({host:url.host,method:req.method(),body:JSON.parse(req.postData())});return route.fulfill({json:{task_id:'1234567890123456789',base_resp:{status_code:0}}});}
-  if(url.pathname==='/v1/query/video_generation'){queryCount++;calls.push({host:url.host,method:req.method(),query:true});return route.fulfill({json:{status:pending?'Processing':'Success',file_id:'1234567890123456788',base_resp:{status_code:0}}});}
+  if(url.pathname===(h3?'/v2/video_generation':'/v1/video_generation')){calls.push({host:url.host,method:req.method(),body:JSON.parse(req.postData())});return route.fulfill({json:{task_id:'1234567890123456789',base_resp:{status_code:0}}});}
+  if(url.pathname==='/v1/query/video_generation'||url.pathname.startsWith('/v2/query/video_generation/')){if(url.pathname.startsWith('/v2/')){queryCount++;calls.push({host:url.host,method:req.method(),query:true});return route.fulfill({json:{task:{status:pending?'running':'succeeded',content:{url:origin+'/fixture.mp4'}}}});}queryCount++;calls.push({host:url.host,method:req.method(),query:true});return route.fulfill({json:{status:pending?'Processing':'Success',file_id:'1234567890123456788',base_resp:{status_code:0}}});}
   if(url.pathname==='/v1/files/retrieve'){return route.fulfill({json:{file:{download_url:origin+'/fixture.mp4'},base_resp:{status_code:0}}});}
   return route.abort();
  });
@@ -42,9 +43,10 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.POM_VIDEO_SHOTS||'/tm
  await editor.getByRole('button',{name:'接口',exact:true}).click();const config=page.locator('[data-video-api-config]');
  await page.screenshot({path:path.join(out,'config-before.png')});
  for(const label of ['国内 minimaxi.com','老国内站','国际版 platform.minimax.io']){await config.getByRole('button',{name:label,exact:true}).click();assert.equal(await config.getByRole('button',{name:label,exact:true}).getAttribute('aria-pressed'),'true');}
+ if(h3){await config.getByLabel('视频模型',{exact:true}).selectOption('MiniMax-H3');assert.equal(await config.getByLabel('视频时长',{exact:true}).inputValue(),'4');assert.deepEqual(await config.getByLabel('视频时长',{exact:true}).locator('option').allTextContents(),Array.from({length:12},(_,i)=>(i+4)+' 秒'));await config.getByLabel('视频时长',{exact:true}).selectOption('15');await config.getByLabel('视频时长',{exact:true}).selectOption('4');await config.getByLabel('视频画质',{exact:true}).selectOption('2K');await config.getByLabel('视频画质',{exact:true}).selectOption('768P');}
  assert.equal(await config.locator('input[type=password]').inputValue(),'fixture');await page.screenshot({path:path.join(out,'config.png')});
  await page.locator('[data-wk="head"] button').first().click();assert.ok(Math.abs(await editor.locator('.overflow-y-auto').evaluate(el=>el.scrollTop)-beforeScroll)<3);
- pending=true;await editor.getByRole('button',{name:/生成动画/}).click();await page.getByText('正在生成动作…',{exact:true}).waitFor();assert.equal(calls.filter(c=>c.body).length,1);assert.equal(calls[0].body.duration,6);assert.equal(calls[0].body.resolution,'768P');assert.match(calls[0].body.first_frame_image,/^data:image\/png;base64,/);
+ pending=true;await editor.getByRole('button',{name:/生成动画/}).click();await page.getByText('正在生成动作…',{exact:true}).waitFor();assert.equal(calls.filter(c=>c.body).length,1);assert.equal(calls[0].body.duration,h3?4:6);assert.equal(calls[0].body.resolution,'768P');assert.match(h3?calls[0].body.content[1].image_url.url:calls[0].body.first_frame_image,/^data:image\/png;base64,/);
  await page.locator('[data-wk="head"] button').first().click();pending=false;await page.locator('[data-pomodoro-video-entry]').click();await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).waitFor();assert.equal(calls.filter(c=>c.body).length,1,'resume only queries original task');
  await editor.locator('video').evaluate(v=>v.play());await page.screenshot({path:path.join(out,'preview.png')});
  await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).click();await page.locator('[data-pomodoro-video-entry]').waitFor();assert.ok(await page.evaluate(()=>VideoApi.media('qa-a').videoRef));assert.equal(await page.evaluate(()=>VideoApi.media('qa-b')),null);
@@ -57,8 +59,8 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.POM_VIDEO_SHOTS||'/tm
  await open(true);await page.getByLabel('听桌边纸条').waitFor();await page.waitForFunction(()=>!!document.querySelector('[data-pomodoro-video] video')?.src);assert.equal(calls.filter(c=>c.body).length,1,'reload restores saved local video without a new task');
  // Download failure keeps task/file identifiers and current selected video; only GET is retried.
  await page.evaluate(()=>{localStorage.removeItem('x_pomodoro_active');window.__openFromNotif(null,'home');});await page.evaluate(()=>window.__openFromNotif(null,'pomodoro'));await page.locator('[data-pomodoro-video-entry]').click();
- failDownload=true;await page.evaluate(()=>VideoApi.patchMap(VideoApi.keys.JOBS,'qa-a',{taskId:'retry',baseUrl:VideoApi.load().baseUrl,imageRef:VideoApi.media('qa-a').imageRef}));
- await page.locator('[data-wk="head"] button').first().click();await page.locator('[data-pomodoro-video-entry]').click();await page.getByText(/下载视频失败/).waitFor();assert.ok(await page.evaluate(()=>VideoApi.job('qa-a').fileId));failDownload=false;await editor.getByRole('button',{name:'查询原任务 / 重试下载',exact:true}).click();await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).waitFor();assert.equal(calls.filter(c=>c.body).length,1);
+ failDownload=true;await page.evaluate(()=>VideoApi.patchMap(VideoApi.keys.JOBS,'qa-a',{taskId:'retry',protocol:VideoApi.load().model==='MiniMax-H3'?'v2':'v1',baseUrl:VideoApi.load().baseUrl,imageRef:VideoApi.media('qa-a').imageRef}));
+ await page.locator('[data-wk="head"] button').first().click();await page.locator('[data-pomodoro-video-entry]').click();await page.getByText(/下载视频失败/).waitFor();assert.ok(await page.evaluate(()=>VideoApi.job('qa-a').fileId||VideoApi.job('qa-a').protocol==='v2'));failDownload=false;await editor.getByRole('button',{name:'查询原任务 / 重试下载',exact:true}).click();await editor.getByRole('button',{name:'满意，就一直用这段',exact:true}).waitFor();assert.equal(calls.filter(c=>c.body).length,1);
  await page.evaluate(()=>window.__openFromNotif(null,'config'));await page.getByText('接哪些模型',{exact:true}).click();await page.getByText('视频 API',{exact:true}).click();await page.locator('[data-video-api-config]').waitFor();await page.screenshot({path:path.join(out,'settings-video-api.png')});
  assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({checks:"image/create/resume/adopt/reload/voice/download retry/settings/mobile layout",errors,createCalls:1,queryCount,calls},null,2));console.log('PASS: Full App video create/resume/adopt/reload/voice/download retry and 320/390/430px layouts.');
  }finally{await browser.close();server.close();}
