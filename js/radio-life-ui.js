@@ -6,15 +6,19 @@
     const [revision, refresh] = useState(0), [eventId, setEvent] = useState(""), [detail, setDetail] = useState("");
     const [showId, setShow] = useState(""), [episodeId, setEpisode] = useState(""), [showName, setName] = useState("");
     const [topic, setTopic] = useState(""), [input, setInput] = useState(""), [title, setTitle] = useState("");
-    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [playing, setPlaying] = useState(false), [position, setPosition] = useState(-1), [sound, setSound] = useState(false);
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [playing, setPlaying] = useState(false), [position, setPosition] = useState(-1), [sound, setSound] = useState(false), [audioState, setAudioState] = useState(""), [pageIndex, setPageIndex] = useState(0);
     const alive = useRef(true), lock = useRef(false), speech = useRef(null), token = useRef(0), scroll = useRef(null), scrolls = useRef({}), viewKey = useRef("live");
     const d = R.read(), chars = p.characters || [], char = chars.find(c => c.id === charId);
     const scene = char ? p.sceneFor(char) : null;
     const event = d.events.find(e => e.id === (detail || eventId));
     const show = d.shows.find(s => s.id === showId), episode = show && show.episodes.find(e => e.id === episodeId);
+    const fullStage = mode === "live" && !detail && !!event;
+    const stageLine = event && event.lines[position >= 0 ? position : Math.max(0,event.heard-1)];
+    const stageChunks = stageLine ? Array.from(stageLine.text).join("").match(/[\s\S]{1,90}/gu) || [""] : [];
+    const stageText = stageChunks[pageIndex] || "";
     const shownLines = event ? R.heardLines(event) : episode ? episode.lines : [];
     const notify = () => refresh(n => n + 1);
-    const stop = () => { token.current++; if (speech.current) speech.current.cancel(); speech.current = null; if (alive.current) setPlaying(false); };
+    const stop = () => { token.current++; if (speech.current) speech.current.cancel(); speech.current = null; if (alive.current) { setPlaying(false); setAudioState(""); } };
     useEffect(() => {
       alive.current = true;
       if (root.RadioUI) root.RadioUI.Engine.setPower(false);
@@ -33,6 +37,7 @@
       if (busy) return;
       remember(); stop(); setError("");
       if (detail) { setDetail(""); return; }
+      if (mode === "live" && event) { setEvent(""); setPageIndex(0); return; }
       if (episodeId) { setEpisode(""); return; }
       if (showId) { setShow(""); return; }
       p.onBack();
@@ -51,17 +56,19 @@
       if (alive.current) {
         const latest = p.sceneFor(char);
         if (latest && latest.key === e.scene.key) {
-          setEvent(e.id); setPosition(Math.max(0, e.heard - 1));
-          if (!e.heard) R.reveal(e.id, 0);
-          if (sound) play([e.lines[Math.max(0, e.heard - 1)]], 0, "", Math.max(0, e.heard - 1));
+          setEvent(e.id); setPageIndex(0); setPosition(Math.max(0, e.heard - 1));
+          if (!e.heard && Array.from(e.lines[0].text).length <= 90) R.reveal(e.id, 0);
+          if (sound) play([{...e.lines[Math.max(0,e.heard-1)],text:Array.from(e.lines[Math.max(0,e.heard-1)].text).slice(0,90).join("")}], 0, "", Math.max(0, e.heard - 1));
         }
       }
     });
     const next = () => {
       stop();
       if (!event || !scene || event.scene.key !== scene.key) return;
-      const at = event.heard;
-      if (at < event.lines.length) { R.reveal(event.id, at); setPosition(at); notify(); if (sound) play([event.lines[at]], 0, "", at); }
+      if (pageIndex + 1 < stageChunks.length) { setPageIndex(pageIndex+1); if (pageIndex+1 === stageChunks.length-1 && position === event.heard) { R.reveal(event.id,position); notify(); } if(sound) play([{...stageLine,text:stageChunks[pageIndex+1]}],0,"",position); return; }
+      setPageIndex(0);
+      const at = Math.max(0,position) + 1;
+      if (at < event.lines.length) { if(Array.from(event.lines[at].text).length <= 90) R.reveal(event.id, at); setPosition(at); notify(); if (sound) play([{...event.lines[at],text:Array.from(event.lines[at].text).slice(0,90).join("")}], 0, "", at); }
       else receive(true);
     };
     const advance = () => {
@@ -69,15 +76,12 @@
       if (!event || !scene || event.scene.key !== scene.key) receive(false);
       else next();
     };
-    React.useLayoutEffect(() => {
-      if (mode === "live" && !detail && event && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
-    }, [eventId, event && event.heard]);
     const play = (lines, start, liveId, baseIndex = 0) => {
       stop(); if (!lines.length) return;
-      const version = token.current; setPlaying(true); setError("");
+      const version = token.current; setPlaying(true); setAudioState("正在准备声音…"); setError("");
       const step = index => {
         if (!alive.current || version !== token.current) return;
-        if (index >= lines.length) { setPlaying(false); speech.current = null; return; }
+        if (index >= lines.length) { setPlaying(false); setAudioState("说完了 · 轻点继续"); speech.current = null; return; }
         if (liveId) {
           const current = char && p.sceneFor(char);
           if (!current || !event || current.key !== event.scene.key) { stop(); return; }
@@ -87,7 +91,8 @@
         const line = lines[index], actor = chars.find(c => c.id === line.speakerId);
         speech.current = root.RadioVoice.speak(line.text, {
           voiceId: actor && actor.voiceId, seed: root.RadioVoice.hash01(line.speakerId || line.speaker),
-          end: () => step(index + 1), fail: e => { if (alive.current && version === token.current) { setPlaying(false); setError(e.message || "语音没播放出来，可以继续看文字。"); } }
+          start: () => { if(alive.current && version===token.current) setAudioState("正在说…"); },
+          end: () => step(index + 1), fail: e => { if (alive.current && version === token.current) { setPlaying(false); setAudioState("声音没接上 · 可轻点继续看文字"); setError(e.message || "语音没播放出来，可以继续看文字。"); } }
         });
       };
       step(Math.max(0, start));
@@ -135,8 +140,8 @@
     } else if (mode === "live") {
       const current = event && scene && event.scene.key === scene.key;
       const freq = char ? (87.5 + Math.floor(root.RadioVoice.hash01(char.id) * 200) / 10).toFixed(1) : "—";
-      body = h("div", null,
-        h("section", { style: { ...panel, background: "linear-gradient(145deg,rgba(147,171,134,.18),rgba(0,0,0,.25))" } },
+      body = h("div", {className:fullStage ? "h-full flex flex-col" : undefined},
+        !event && h("section", { style: { ...panel, background: "linear-gradient(145deg,rgba(147,171,134,.18),rgba(0,0,0,.25))" } },
           h("div", { style: {display:"flex",justifyContent:"space-between",fontSize:11,color:accent} }, h("span", null, "生活频率" + (current ? " · " + freq : "")), h("span", null, current ? "已接入 · 静默收听" : "待接入")),
           !current && h("div", { style:{fontSize:42,fontFamily:"monospace",letterSpacing:3,margin:"12px 0 8px"} }, freq),
           !current && h("div", { "aria-hidden":true, style:{height:26,backgroundImage:"repeating-linear-gradient(90deg,transparent 0 9px,rgba(183,214,189,.6) 9px 10px)",maskImage:"linear-gradient(0deg,#000,transparent)"} }),
@@ -146,15 +151,17 @@
           !current && h("p", {style:{fontSize:12,lineHeight:1.8,opacity:.7,marginTop:10}}, "接入后，TA不知道你正在听。保存也不会通知TA。"),
           !current && h("p", {style:{fontSize:12,color:accent,marginTop:12}}, scene ? "轻点屏幕，接入此刻" : "先到日历排好日程"),
           !scene && btn("去日历排日程", p.onSchedule)),
-        event && h("section", { style: {...panel,background:"transparent",border:0,padding:"4px 0"} },
-          h("h2", {style:{fontSize:16}}, event.title),
-          !current && h("p", {style:{fontSize:12,opacity:.7}}, "这段日程已结束或改变。已听到的片段留在这里，重新接入会调到现在。"),
-          h("div", {style:{display:"flex",alignItems:"center",gap:12,marginTop:10}},
-            h("span", {style:{fontSize:11,opacity:.6,flex:1}}, busy ? "电波正在接续…" : "轻点屏幕，继续听"),
-            btn(sound ? "静音" : "朗读", () => { stop(); setSound(!sound); if (!sound && event.heard) play([event.lines[event.heard-1]],0,"",event.heard-1); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:11}),
-            btn(event.savedAt ? "已收藏" : "收藏", () => run(async () => R.keep(event.id, !event.savedAt)), !event.heard, {background:"transparent",border:0,padding:"6px 8px",fontSize:11}),
-            btn("聊聊", () => { stop(); p.onChat(event.ownerId); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:11})),
-          transcript(R.heardLines(event), false)),
+        event && h("section", {"data-radio-stage":true,className:"flex-1 min-h-0 flex flex-col",style:{textAlign:"center",padding:"12px 8px 0"}},
+          h("div", {"data-radio-scene":true,style:{fontSize:11,opacity:.6,flexShrink:0}}, scene ? scene.title + (scene.location ? " · "+scene.location : "") : "这段日程已经结束 · 轻点调到现在"),
+          h("div", {className:"flex-1 min-h-0 flex flex-col items-center justify-center",style:{gap:14,padding:"12px 0"}},
+            h(Avatar, {character:chars.find(c=>c.id===stageLine?.speakerId) || {name:stageLine?.speaker},size:64,radius:999}),
+            h("div", {style:{fontSize:15,color:accent}}, stageLine && stageLine.speaker),
+            h("div", {"data-radio-transcript":true,"data-radio-line":position,style:{fontSize:18,lineHeight:1.8,whiteSpace:"pre-wrap",overflowWrap:"anywhere",maxWidth:420}}, stageText)),
+          h("div", {role:"status","aria-live":"polite","data-radio-audio-status":true,style:{fontSize:12,color:accent,minHeight:24,flexShrink:0}}, busy ? "电波正在接续…" : sound ? audioState || "轻点屏幕，继续听" : "轻点看下一段"),
+          h("div", {className:"shrink-0",style:{display:"flex",justifyContent:"center",gap:20,padding:"10px 0 2px"}},
+            btn(sound ? "静音" : "朗读", () => { stop(); setSound(!sound); if (!sound && stageLine) play([{...stageLine,text:stageText}],0,"",position); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:12}),
+            btn(event.savedAt ? "已收藏" : "收藏", () => run(async () => R.keep(event.id, !event.savedAt)), !event.heard, {background:"transparent",border:0,padding:"6px 8px",fontSize:12}),
+            btn("聊聊", () => { stop(); p.onChat(event.ownerId); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:12}))),
         !event && h("p", {style:{fontSize:13,lineHeight:1.9,opacity:.7,padding:"0 6px"}}, "拧到TA的频率，听一小段正在发生的生活。接入才会生成现场；离开、换日程都不会自动续播。"));
     } else if (mode === "saved") {
       const saved = d.events.filter(e => e.savedAt).slice().reverse();
@@ -186,7 +193,7 @@
     return h("div", {"data-radio-life":true,className:"h-full flex flex-col",style:{backgroundColor:bg,color:ink,
       backgroundImage:"repeating-linear-gradient(100deg,transparent 0 4px,rgba(198,172,125,.025) 5px 6px),radial-gradient(ellipse at top left,rgba(151,172,133,.15),transparent 75%)"}},
       h(Head, {zh:detail ? "录音回听" : "电台",sub:busy ? "正在接收，请稍候" : "这一端，听见生活",onBack:back,bg:"transparent",ink,right:btn("旧录音",()=>{stop();p.onArchive();},false,{padding:"6px",fontSize:11})}),
-      !detail && !showId && h("div", {className:"shrink-0",style:{display:"flex",gap:3,padding:"10px 16px 0"}},
+      !detail && !showId && !fullStage && h("div", {className:"shrink-0",style:{display:"flex",gap:3,padding:"10px 16px 0"}},
         [["live","生活频率"],["studio","录音间"],["saved","录音架"]].map(([id,name])=>h("button",{key:id,type:"button","aria-pressed":mode===id,onClick:()=>changeMode(id),disabled:busy,
           style:{flex:1,minHeight:44,borderRadius:"5px 5px 0 0",border:"1px solid rgba(230,219,192,.18)",borderBottom:mode===id ? "3px solid "+accent : "3px solid rgba(0,0,0,.3)",
             transform:mode===id ? "translateY(3px)" : "none",boxShadow:mode===id ? "inset 0 2px 4px rgba(0,0,0,.3)" : "0 3px 0 rgba(0,0,0,.4)",background:mode===id ? "rgba(147,171,134,.16)" : "rgba(230,219,192,.06)",color:ink,fontSize:12}},name))),
@@ -194,7 +201,7 @@
         onClick:e=>{ if (!e.target.closest("button,select,input,textarea,a,label") && !String(root.getSelection && root.getSelection() || "")) advance(); },
         onKeyDown:e=>{ if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); advance(); } },
         tabIndex:mode === "live" && !detail ? 0 : undefined,"aria-label":mode === "live" && !detail ? "轻点屏幕继续听现场" : undefined,
-        className:"flex-1 min-h-0 overflow-y-auto",style:{padding:"18px 16px",paddingBottom:"calc(18px + env(safe-area-inset-bottom) * 0.4)"}},
+        className:fullStage ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0 overflow-y-auto",style:{padding:"18px 16px",paddingBottom:"calc(18px + env(safe-area-inset-bottom) * 0.4)"}},
         error && h("div", {role:"alert",style:{...panel,color:ink,fontSize:13,lineHeight:1.7,overflowWrap:"anywhere"}}, error), body));
   }
   root.RadioLifeScreen = RadioLifeScreen;
