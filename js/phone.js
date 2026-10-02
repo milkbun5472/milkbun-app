@@ -847,7 +847,10 @@ function phoneApplyChatUpdates(oldData, updates, nowTs) {
     if (!fresh.length) return c;
     hit++;
     const msgs = old.concat(fresh).slice(-40);
-    const time = String(u.time || "").trim() || c.time;
+    // 模型这一回没写时刻：就当是刚刚说的（她 2026-10-02 问「新的应该会到聊天的上面吧」——
+    //   原来留着上一回的旧时刻，刚说完话的会话还停在原位）。
+    const time = String(u.time || "").trim()
+      || (function (d) { return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); })(new Date(nowTs));
     // ⚠️时刻变了，_ts 必须跟着重算。这一路不走 phoneGrowList，
     // 不重算的话它还留着上一轮那个时刻——会话列表就会把刚说完话的那个排到底下去
     //（v59.41 刚修好的那个病，从这儿又能漏回来）。
