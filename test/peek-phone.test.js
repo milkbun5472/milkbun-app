@@ -182,14 +182,27 @@ test("翻手机：只查聊天；钱包外卖购物要聊天里有线索才去�
   assert.match(a, /toMessages: tab => \{ setMsgTab\(tab \|\| "chats"\)/);
 });
 
-test("翻手机：没心声的那段不演；心声上限放宽；列表里找人只按一下、交给外面按 id 打开单聊", () => {
+test("翻手机：没心声的那段不删；open 自带心声；心声上限放宽；列表里找人只按一下、交给外面按 id 打开单聊", () => {
   const fs = require("fs"), path = require("path");
   const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
   global.window = global.window || {};
   const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
   const out = PP.cleanScript({ steps: [{ do: "open", app: "chat", who: "甲" }, { do: "think", text: "一" }, { do: "think", text: "二" }, { do: "think", text: "三" },
     { do: "open", app: "chat", who: "乙" }, { do: "scroll", dir: "up", n: 2 }] }, ["chat", "messages"], {});
-  assert.ok(!out.some(s => s.who === "乙"), "没心声的聊天整段不演");
+  assert.ok(out.some(s => s.who === "乙"), "没心声的聊天不删");
+  const withT = PP.cleanScript({ steps: [{ do: "open", app: "chat", who: "丙", thoughts: ["甲句", "乙句"] }] }, ["chat"], {});
+  assert.equal(withT.filter(s => s.do === "think").length, 2, "open 自带的心声展开成边翻边想");
   assert.equal(out.filter(s => s.do === "think").length, 3, "一个聊天能想三句");
   assert.match(p, /if \(app === "chat" && who\) \{ const n = findByText\(who\); if \(n\) await pressOnly\(n\); return false; \}/);
+});
+
+test("翻手机：同一个聊天先安静开一回、再带心声开一回——安静的那回删掉", () => {
+  const fs = require("fs"), path = require("path");
+  const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
+  global.window = global.window || {};
+  const PP = (new Function("window", "document", "React", p + ";return window.PeekPhone;"))(global.window, {}, {});
+  const out = PP.cleanScript({ steps: [{ do: "open", app: "chat", who: "甲" }, { do: "scroll", dir: "up", n: 2 }, { do: "back" },
+    { do: "open", app: "chat", who: "甲", thoughts: ["想一", "想二"] }] }, ["chat", "messages"], {});
+  assert.equal(out.filter(s => s.do === "open" && s.who === "甲").length, 1);
+  assert.equal(out.filter(s => s.do === "think").length, 2);
 });
