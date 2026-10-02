@@ -41,8 +41,13 @@ test("真正收线在通话页：留一会儿让最后那句看得完", () => {
   const body = comp.slice(i, comp.indexOf("// 懒 TTS 小播放器", i));
   assert.match(body, /const byeRef = useRef\(false\);/, "没有闸，effect 重跑会挂两次");
   assert.match(body, /if \(!bye \|\| byeRef\.current\) return;/);
-  assert.match(body, /setTimeout\(\(\) => onHangup\(secRef\.current, "them"\), 1800\)/,
-    "话音未落就黑屏，或者根本不收线");
+  // v74.499 起他挂了不自己关页面（群里报：char 挂断就看不到他最后的消息）——红键变「退出」，她读完了自己点
+  assert.ok(!/if \(!bye \|\| byeRef\.current\) return;[\s\S]{0,300}onHangup\(/.test(body), "又变回他一挂就自己关页面了");
+  assert.match(body, /bigKey\(bye \? "退出" : "挂断",/);
+  assert.match(body, /if \(bye\) \{ leaveAfterBye\(\); return; \}/, "退出时记的得是「他挂的」");
+  assert.match(body, /onHangup\(byeSecRef\.current != null \? byeSecRef\.current : secRef\.current, "them"\)/, "时长定格在他挂的那一刻，不算她读字的时间");
+  assert.match(body, /if \(byeRef\.current\) return; setSec/, "挂了之后计时器得停");
+  assert.match(body, /if \(!bye \|\| !minimized\) return;\n\s*const tm = setTimeout\(leaveAfterBye, 1800\);/, "缩成小窗时照旧自己收线");
   assert.match(body, /\}, \[!!bye\]\)/, "依赖写成 bye 这个对象，每次 setCall 都会重跑");
   // 他要挂了就别再显示「正在说」——那两层同时出现是自相矛盾的
   assert.match(body, /!bye && sending && h\("div", \{ key: "typing"/);

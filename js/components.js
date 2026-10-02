@@ -9946,31 +9946,28 @@ function CallScreen({
     buf: [], pre: [], preSamples: 0, talking: false, silent: 0, speech: 0, last: 0, busy: 0, played: (msgs || []).length,
     speaking: false, ttsCtx: audioSession && audioSession.ctx, src: null, session: 0, turn: 0, lastFinal: "", lastFinalAt: 0 });
   const liveRef = useRef(false); liveRef.current = live;
-  // TA自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿——
-  // 时长只有这里数着(secRef)，而且TA最后那句得在屏幕上留一会儿，
-  // 不能话音未落就黑屏。
-  // ⚠️v67.43：原来是「立刻掐掉声音 + 固定 1.8 秒后收线」，于是开着自动播报时，
-  //   TA最后那句【一个字都没念出来】电话就断了。现在改成【等TA把话说完】：
-  //   队列里还有没念的、或者正念着，就一直等；念完再留一拍收线。
-  //   没开自动播报（她是看字的）照旧 1.8 秒——那时候「说完」就是屏幕上显示完了。
-  //   兜底 90 秒：合成卡住/断网时也不能让这通电话永远挂不掉。
+  // TA自己挂电话(v60.24)：App 那边只立了个牌子(bye)，真正收线在这儿。
+  // v74.499 起【不自己关页面】——群里报「char 挂断的话就看不到最后的消息了」：
+  //   原来是等念完（没开播报就固定 1.8 秒）再自动收线，看字的人根本来不及读完最后那几句。
+  //   （病历：v67.43 之前是「立刻掐掉声音 + 固定 1.8 秒收线」，开着播报时最后那句【一个字都没念出来】；
+  //    2026-09-12 改成等念完再收，2026-09-16 又补了嘴被 lvStop 一起拆掉那一刀——可看字的人照样读不完。）
+  //   现在停在通话页：「X挂断了」留在最后，时长在挂断那一刻定格，底下那颗红键变成「退出」，
+  //   她读完了自己点。最后几句照旧念完（嘴留着）。
+  //   只有缩成小窗时照旧自动收线——那时她本来就没在看这一页，小窗一直挂着反而碍事。
   const byeRef = useRef(false);
+  const byeSecRef = useRef(null);
+  const leaveAfterBye = () => { audioRef.current.enabled = false; lvStop(); onHangup(byeSecRef.current != null ? byeSecRef.current : secRef.current, "them"); };
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
-    lvStop({ keepVoice: true });                // TA要挂了，先别再录她说话——但嘴留着，下面还等着它把最后一句念完
-    const st = lv.current;
-    const quiet = () => !audioRef.current.enabled || (!st.speaking && !st.busy && st.played >= msgsRef.current.length);
-    if (quiet()) {
-      const tm = setTimeout(() => onHangup(secRef.current, "them"), 1800);
-      return () => clearTimeout(tm);
-    }
-    let done = false;
-    const finish = () => { if (done) return; done = true; audioRef.current.enabled = false; onHangup(secRef.current, "them"); };
-    const poll = setInterval(() => { if (quiet()) { clearInterval(poll); setTimeout(finish, 900); } }, 250);
-    const cap = setTimeout(() => { clearInterval(poll); finish(); }, 90000);
-    return () => { clearInterval(poll); clearTimeout(cap); };
+    byeSecRef.current = secRef.current;
+    lvStop({ keepVoice: true });                // TA挂了，不再录她说话——但嘴留着，把最后一句念完
   }, [!!bye]);
+  useEffect(() => {
+    if (!bye || !minimized) return;
+    const tm = setTimeout(leaveAfterBye, 1800);
+    return () => clearTimeout(tm);
+  }, [!!bye, !!minimized]);
   const sendingRef = useRef(false); sendingRef.current = !!sending;
   // 她开口的那一刻，中间那一句就该没了——不是等TA下一句来了才换
   useEffect(() => { if (stream && sending) setSubLine(null); }, [stream, !!sending]);
@@ -10303,7 +10300,7 @@ function CallScreen({
     })();
   }, [autoVoice, audioReady, !!bye, (msgs || []).length, tp.play]);
   useEffect(() => {
-    const i = setInterval(() => setSec(s => { secRef.current = s + 1; return s + 1; }), 1000);
+    const i = setInterval(() => { if (byeRef.current) return; setSec(s => { secRef.current = s + 1; return s + 1; }); }, 1000);
     return () => clearInterval(i);
   }, []);
   const list = msgs || [];
@@ -10548,7 +10545,7 @@ function CallScreen({
     }, litPlate("0", ".78"))
   },
     // 打字框：点「打字」才从按键上面滑出来；发完一句不收，方便连着打
-    typeOpen ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
+    typeOpen && !bye ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
       h("input", {
         value: input,
         autoFocus: true,
@@ -10566,14 +10563,14 @@ function CallScreen({
         style: { width: 42, height: 42, borderRadius: 999, background: "rgba(255,255,255,0.2)" }
       }, h(ISend, { size: 17, color: "#fff" }))) : null,
     h("div", { "data-wk": "callbtns", className: "flex items-start justify-center", style: { gap: 34, padding: "14px 20px 6px" } },
-      canLive ? bigKey(live ? "麦克风开着" : "说话",
+      canLive && !bye ? bigKey(live ? "麦克风开着" : "说话",
         h(Svg, { size: 24, color: "#fff", sw: 2 }, h("path", { d: "M12 3a3 3 0 0 1 3 3v6a3 3 0 0 1-6 0V6a3 3 0 0 1 3-3z" }), h("path", { d: "M5 11a7 7 0 0 0 14 0" }), h("path", { d: "M12 18v3" })),
         () => live ? lvStop() : lvStart(), live ? "#4a9d6e" : "rgba(255,255,255,0.2)", { "aria-label": live ? "关闭麦克风" : "开启麦克风", "data-wk": "callmic" }) : null,
-      bigKey("挂断",
+      bigKey(bye ? "退出" : "挂断",
         h(Svg, { size: 26, color: "#fff", sw: 2, style: { transform: "rotate(135deg)" } }, h("path", {
           d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z" })),
-        () => { audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": "挂断" }),
-      bigKey(typeOpen ? "收起键盘" : "打字",
+        () => { if (bye) { leaveAfterBye(); return; } audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": bye ? "退出通话" : "挂断" }),
+      bye ? null : bigKey(typeOpen ? "收起键盘" : "打字",
         h(Svg, { size: 24, color: "#fff", sw: 1.8 }, h("rect", { x: 3, y: 6, width: 18, height: 12, rx: 2 }), h("path", { d: "M7 10h.01M11 10h.01M15 10h.01M7 14h10" })),
         () => setTypeOpen(!typeOpen), typeOpen ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)", { "aria-label": typeOpen ? "收起打字框" : "打字", "data-wk": "calltypekey" }))));
 }

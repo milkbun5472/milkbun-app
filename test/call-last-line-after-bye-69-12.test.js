@@ -38,10 +38,8 @@ test("keepVoice 时播放路由要留着，不然念了也听不见", () => {
 });
 
 test("收线那个 effect 拆耳朵时必须带 keepVoice", () => {
-  const bye = src.slice(src.indexOf("if (!bye || byeRef.current) return;"), src.indexOf("const quiet = ()") + 400);
+  const bye = src.slice(src.indexOf("if (!bye || byeRef.current) return;"), src.indexOf("if (!bye || byeRef.current) return;") + 400);
   assert.match(bye, /lvStop\(\{ keepVoice: true \}\)/, "收线前又把嘴一起拆了");
-  // 等的还是这三个数——它们现在真的活着了
-  assert.match(bye, /!st\.speaking && !st\.busy && st\.played >= msgsRef\.current\.length/);
 });
 
 test("嘴的有效期只看 epoch，不挂在耳朵那个 session 上", () => {
