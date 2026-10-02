@@ -25634,8 +25634,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onSaveSettings: patch => {
       // 群名住在 group 上、别的住在 groupSettings 上，进来时是一份 patch，这里拆开
-      const { name: _gname, ...rest } = patch || {};
+      const { name: _gname, ...rest0 } = patch || {};
+      const { avatarImage: gAvNew, ...rest } = rest0;
       if (_gname != null) renameGroup(activeGroup.id, _gname);
+      // 群头像也住在 group 上（她 2026-10-02）；null＝移除，回到四宫格
+      if (gAvNew !== undefined && gAvNew !== (activeGroup.avatarImage || null)) updateGroup(activeGroup.id, { avatarImage: gAvNew || null });
       if (Object.keys(rest).length) saveGroupSettings(activeGroup.id, rest);
     },
     onOpenMemberState: memberId => { const c = characters.find(x => x.id === memberId); if (c) { setStateCardChar(c); setStateCardGroup(true); setStateCardOpen(true); } },
@@ -27184,7 +27187,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;
     return stateCardOpen && scc && /*#__PURE__*/React.createElement(StateCard, {
-      character: scc,
+      character: chatFace(scc),   // 状态卡也跟着聊天头像走（她 2026-10-02）
       isNpc: !!scc.npc,
       affinity: roomCard ? undefined : Math.round(affOf(scc.id)),
       // 房间的心情是这间房自己的那一份（roomStates），不回退到主线；没有就是空着

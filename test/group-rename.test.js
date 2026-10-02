@@ -81,7 +81,7 @@ test("没有记忆要迁时也照常改名，别静默失败", () => {
 });
 
 test("群名住在 group 上、别的住在 groupSettings 上——保存时要拆开", () => {
-  assert.match(app, /const \{ name: _gname, \.\.\.rest \} = patch \|\| \{\};/);
+  assert.match(app, /const \{ name: _gname, \.\.\.rest0? \} = patch \|\| \{\};/);
   assert.match(app, /if \(_gname != null\) renameGroup\(activeGroup\.id, _gname\);/);
   assert.match(app, /if \(Object\.keys\(rest\)\.length\) saveGroupSettings\(activeGroup\.id, rest\);/);
 });
