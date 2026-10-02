@@ -33,3 +33,10 @@ test("约TA：先发邀请卡到线上，TA回话时决定（dateReply），答�
   assert.match(c, /function DateInviteCard\(/);
   assert.match(c, /"出发"/);
 });
+
+test("钉一个地方：先从下面现成的地方里挑（他的地方、常去、地图上的），挑不到再自己写", () => {
+  assert.match(d, /const \[pinPick, setPinPick\] = useState\(false\);/);
+  assert.match(d, /\[\]\.concat\(places\.map\(function \(p\) \{ return p\.name; \}\), todo\.map\(function \(f\) \{ return f\.name; \}\), mapPlaces\.map/);
+  assert.match(d, /"从下面现成的里挑一个钉上："/);
+  assert.match(d, /"自己写一个"/);
+});

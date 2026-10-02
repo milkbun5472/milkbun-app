@@ -17069,6 +17069,9 @@ function ChatSettings({
   // 以前界面上一个字都没有——看着就像动念只对着她一个人涨。
   // 上一次归零是被什么清的（她 2026-09-14：想我莫名其妙就没了，我猜了两回都不对——
   // 与其继续猜，不如让它自己说）。没归过零就不出现，不占地方。
+  const proactiveWhyLine = () => { const w = (typeof window !== "undefined" && window.__proactiveWhy || {})[character.id]; if (!w) return null;
+    const mins = Math.max(0, Math.round((Date.now() - w.ts) / 60000));
+    return h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 8, lineHeight: 1.7 } }, "现在卡在：" + w.why + "（" + (mins ? mins + " 分钟前" : "刚刚") + "看的）"); };
   const renderDongnianWhy = () => {
     if (!dongnianWhy || !dongnianWhy.ts) return null;
     const d = new Date(dongnianWhy.ts);
@@ -17115,6 +17118,8 @@ function ChatSettings({
       h(Eyebrow, null, "现在想你想到哪儿了"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 8, lineHeight: 1.7 } },
         "还没算出来。开机后十几秒才跑第一轮；和 TA 一条消息都没聊过的话不会算。"),
+      // 这一轮卡在哪一道（app 开着时每轮都会记；关着 app 那段时间不会有）
+      proactiveWhyLine(),
       renderDongnianWhy(),
       renderDongnianElsewhere());
     const c = Math.max(0, Math.min(1, Number(dongnianState.connection) || 0));
@@ -17148,6 +17153,8 @@ function ChatSettings({
       dnNumsOpen ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
         "此刻 " + c.toFixed(3) + "；开口线 0.35，忍不住线 0.50。关着 app 的时间一次最多补 12 小时。"
         + (aPride >= PRIDE_BLOCK ? "　傲娇 " + aPride.toFixed(2) + "（过了 " + PRIDE_BLOCK + " 就先不开口）。" : "")) : null,
+      // 这一轮卡在哪一道（app 开着时每轮都会记；关着 app 那段时间不会有）
+      proactiveWhyLine(),
       renderDongnianWhy(),
       renderDongnianElsewhere());
   })());

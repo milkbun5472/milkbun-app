@@ -233,6 +233,7 @@
     const [cfg, setCfg] = useState(loadCfg);
     const [dates, setDates] = useState(DatePlaces.list);
     const [dateSel, setDateSel] = useState(null);
+    const [pinPick, setPinPick] = useState(false);   // 钉一个地方：先从下面现成的里挑，挑不到再自己写（她 2026-10-02）
     useEffect(function () { setPlaces(selId ? placesOf(selId) : []); setOpenId(null); setZoneIdx(-1); }, [selId]);
 
     const busy = props.busyId;
@@ -549,7 +550,13 @@
               style: { minHeight: 42, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "约" + (char ? (char.remark || char.name) : "TA") + "在这儿见")),
           h("button", { onClick: function () { const id = dateSel.id; requestAppConfirm("把「" + dateSel.name + "」从地图上拿掉？", "只是拿掉这个钉，去过的记录不动。", function () { setDates(DatePlaces.remove(id)); setDateSel(null); }); },
             className: "w-full active:opacity-60", style: { paddingTop: 10, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉这个钉")) : null,
-        h("button", { onClick: function () {
+        h("button", { onClick: function () { setPinPick(function (v) { return !v; }); }, className: "w-full text-left active:opacity-70", style: { marginTop: 10, marginBottom: pinPick ? 8 : 18, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, pinPick ? "收起" : "＋ 钉一个地方"),
+        pinPick ? (function () {
+          const pinned = new Set(dates.map(function (x) { return x.name; }));
+          const seen = new Set();
+          const cands = [].concat(places.map(function (p) { return p.name; }), todo.map(function (f) { return f.name; }), mapPlaces.map(function (m) { return m.name; }))
+            .filter(function (n) { n = String(n || "").trim(); if (!n || pinned.has(n) || seen.has(n)) return false; seen.add(n); return true; });
+          const writeOwn = function () {
             requestAppPrompt("钉一个地方", "店名或地名：咖啡店、书店、常去的那家面馆……", "", function (v) {
               const nm = String(v || "").trim(); if (!nm) return;
               // 先钉上；再问一句备注（取消也不丢这个钉）
@@ -559,7 +566,16 @@
                 setDates(DatePlaces.save(DatePlaces.list().map(function (x) { return x.id === id ? Object.assign({}, x, { note: n.slice(0, 60) }) : x; })));
               }, "好了"); }, 350);
             }, "下一步");
-          }, className: "w-full text-left active:opacity-70", style: { marginTop: 10, marginBottom: 18, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "＋ 钉一个地方"),
+          };
+          return h("div", { style: { marginBottom: 18 } },
+            cands.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "从下面现成的里挑一个钉上：") : null,
+            cands.length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, cands.slice(0, 30).map(function (n) {
+              return h("button", { key: n, onClick: function () { setDates(DatePlaces.add(n, "")); setPinPick(false); }, className: "active:opacity-70",
+                style: { minHeight: 38, padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2 } }, n);
+            })) : null,
+            h("button", { onClick: function () { setPinPick(false); writeOwn(); }, className: "w-full text-left active:opacity-70",
+              style: { marginTop: 10, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "自己写一个"));
+        })() : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "0 0 8px" } }, characterText(char, "他的地方")),
         busy ? h(Spinner, { label: "正在看看 " + (char ? char.name : "") + " 的地方…（这一步会调一次模型" + (cfg.withImg ? "，出图再一次" : "") + "）" }) : null,
         !places.length && !busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.fog, padding: "10px 0 18px" } },

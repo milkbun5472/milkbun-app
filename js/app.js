@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.522";
+const APP_VERSION = "v74.525";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6832,8 +6832,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         for (const c of characters) {
           const cid = c.id;
           const s = settingsFor(cid);
+          if (!autoRefreshOn("proactive", cid)) pWhy(cid, "「允许 Ta 主动发消息」关着");
           if (!autoRefreshOn("proactive", cid)) continue;   // 聊天设置那颗和设置页那栏是同一格
+          if (autoRefreshOn("proactive", cid) && laneBusy("c:" + cid)) pWhy(cid, "TA 这会儿正在回别的（上一条还在写）");
           if (laneBusy("c:" + cid)) continue;
+          if (currentlyTogetherWithChar(cid)) pWhy(cid, "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息");
           if (currentlyTogetherWithChar(cid)) continue;
           // 有没有一场进行中的线下（同居/常在一起）。有【正在演的场景】→ 把「思念攒够→主动」落成【线下一拍】而不是线上消息（她 2026-07-23）。
           const _offL = offlinesRef.current[cid] || [];
@@ -6852,6 +6855,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               const box = document.querySelector('[data-wk="chatinput"]');
               composing = !!box && (document.activeElement === box || String(box.value || "").trim().length > 0);
             } catch (e) {}
+            if (composing) pWhy(cid, "你正在输入框里打字，TA 先让一让");
             if (composing) continue;
           }
           if (activeOff && !activeOffScene) continue; // 线下开着但还没开演：不发线上、也没得演，跳过
@@ -6863,14 +6867,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const floorMin = jw ? 45 : 180;
           const offMsgs = activeOffScene ? (activeOffScene.msgs || []) : [];
           const lastInteract = Math.max(ms.length ? (ms[ms.length - 1].ts || 0) : 0, latestSharedInteractionTs(cid), offMsgs.length ? (offMsgs[offMsgs.length - 1].ts || 0) : 0);
+          if (Date.now() - lastInteract < floorMin * 60000) pWhy(cid, "离你们上次说话还不满 " + floorMin + " 分钟");
           if (Date.now() - lastInteract < floorMin * 60000) continue;
+          if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) pWhy(cid, "还没想到要找你（条子没过线）");
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // dongnian 说「还没想到要联系」→ 不动
+          if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) pWhy(cid, "25 分钟内刚试过一次，等下一轮");
           if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) continue;
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
           // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
           // ⚠️跟聊天那一路同一把尺子（v64.66）：原来这儿单独调 charAwakeState，
           //   于是「TA睡没睡」在 app 里有两个答案——排了作息的角色，聊天按 C 的四相算、
           //   主动开口按这把两相的旧尺子算，能差出一个多小时（drowsy/waking 那两截）。
+          if (sleepPhaseOf(c) === "asleep") pWhy(cid, "TA 在睡觉——睡着时只有很想的时候才偶尔发一句，醒了再来");
           if (sleepPhaseOf(c) === "asleep") {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced || Math.random() > 0.12) continue;
@@ -6881,6 +6889,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   「1.0＝永不」，所以那道闸从上线起一次都没关过。现在改读【A 算出来的傲娇】
           //   （嘴硬/逞强/端着 才推得动它），门槛还是同一个数。
           // ⚠️留一条缝：思念真的很重（forced）照旧开口——那正是「想念太重，维持冷漠太累」。
+          if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) pWhy(cid, "TA 还端着、拉不下脸");
           if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) {
             const forced = jw && jw.triggers && jw.triggers.some(t => t.action === "contact" && t.forced);
             if (!forced) continue;   // 拉不下脸，这一轮先不开口；等它自己落下来
@@ -6919,7 +6928,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   「憋到红条爆了也不发，然后自动退回粉色」）。模型回空、里面哪道闸没放行、接口报错，
           //   都会白白泄掉 0.28、还占着 25 分钟的闸。跟另外两个出口一样：送到了才泄，没送到把闸还回去。
           else replyNow(cid, "", null, { proactive: true, dongnian: jwStyle, backdateTs: _back > 0 && _back < Date.now() ? _back : 0 })
-            .then(r => _settle(r === true), () => _settle(false));
+            .then(r => _settle(r === true), () => _settle(false))
+            .then(() => pWhy(cid, (dongnianFiredRef.current[cid] || 0) ? "刚发出去了" : "刚试着发了一次但没发成（模型回空或接口出错），25 分钟后再试"));
           return; // 一次一个，错峰（本轮不再顺带问候，下一轮 tick 再说）
         }
       } catch (e) {}
@@ -6951,6 +6961,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const dongnianSeenSet = (cid, ts) => { const m = dongnianSeen(); m[cid] = ts; saveJSON("x_jiwenSeen", m); };
   // 归零的黑匣子：一场一条，只留最近那一次。存档键单开一份，别挤进 x_jiwen 那张表。
+  // 主动消息这一轮卡在哪一道（她 2026-10-02：「为啥还是不说话」）：每个角色只留最近一条，「TA 是什么脾气」那页条子下面读
+  const pWhy = (cid, why) => { try { (window.__proactiveWhy = window.__proactiveWhy || {})[cid] = { ts: Date.now(), why }; } catch (e) {} };
   const dongnianWhyRef = useRef(null);
   const dongnianWhy = () => {
     if (!dongnianWhyRef.current) dongnianWhyRef.current = loadJSON("x_jiwenWhy", {}) || {};
