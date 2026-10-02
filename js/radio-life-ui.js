@@ -6,7 +6,7 @@
     const [revision, refresh] = useState(0), [eventId, setEvent] = useState(""), [detail, setDetail] = useState("");
     const [showId, setShow] = useState(""), [episodeId, setEpisode] = useState(""), [showName, setName] = useState("");
     const [topic, setTopic] = useState(""), [input, setInput] = useState(""), [title, setTitle] = useState("");
-    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [playing, setPlaying] = useState(false), [position, setPosition] = useState(-1);
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [playing, setPlaying] = useState(false), [position, setPosition] = useState(-1), [sound, setSound] = useState(false);
     const alive = useRef(true), lock = useRef(false), speech = useRef(null), token = useRef(0), scroll = useRef(null), scrolls = useRef({}), viewKey = useRef("live");
     const d = R.read(), chars = p.characters || [], char = chars.find(c => c.id === charId);
     const scene = char ? p.sceneFor(char) : null;
@@ -53,6 +53,7 @@
         if (latest && latest.key === e.scene.key) {
           setEvent(e.id); setPosition(Math.max(0, e.heard - 1));
           if (!e.heard) R.reveal(e.id, 0);
+          if (sound) play([e.lines[Math.max(0, e.heard - 1)]], 0, "", Math.max(0, e.heard - 1));
         }
       }
     });
@@ -60,8 +61,17 @@
       stop();
       if (!event || !scene || event.scene.key !== scene.key) return;
       const at = event.heard;
-      if (at < event.lines.length) { R.reveal(event.id, at); setPosition(at); notify(); }
+      if (at < event.lines.length) { R.reveal(event.id, at); setPosition(at); notify(); if (sound) play([event.lines[at]], 0, "", at); }
+      else receive(true);
     };
+    const advance = () => {
+      if (lock.current || mode !== "live" || detail) return;
+      if (!event || !scene || event.scene.key !== scene.key) receive(false);
+      else next();
+    };
+    React.useLayoutEffect(() => {
+      if (mode === "live" && !detail && event && scroll.current) scroll.current.scrollTop = scroll.current.scrollHeight;
+    }, [eventId, event && event.heard]);
     const play = (lines, start, liveId, baseIndex = 0) => {
       stop(); if (!lines.length) return;
       const version = token.current; setPlaying(true); setError("");
@@ -134,22 +144,23 @@
           h("div", { "data-radio-scene":true, style:{fontSize:14,lineHeight:1.8} }, scene ? scene.time + "—" + scene.end + " · " + scene.title : "这会儿没有可接入的现场"),
           scene && h("div", {style:{fontSize:12,opacity:.7}}, scene.location || "日程没有注明地点"),
           !current && h("p", {style:{fontSize:12,lineHeight:1.8,opacity:.7,marginTop:10}}, "接入后，TA不知道你正在听。保存也不会通知TA。"),
-          !current && row(btn("接入这个频率", () => receive(false), !scene), !scene && btn("去日历排日程", p.onSchedule))),
-        event && h("section", { style: panel },
-          h("div", {style:{display:"flex",justifyContent:"space-between",gap:8}}, h("h2", {style:{fontSize:16}}, event.title), h("span", {style:{fontSize:11,opacity:.6}}, event.heard + "/" + event.lines.length)),
+          !current && h("p", {style:{fontSize:12,color:accent,marginTop:12}}, scene ? "轻点屏幕，接入此刻" : "先到日历排好日程"),
+          !scene && btn("去日历排日程", p.onSchedule)),
+        event && h("section", { style: {...panel,background:"transparent",border:0,padding:"4px 0"} },
+          h("h2", {style:{fontSize:16}}, event.title),
           !current && h("p", {style:{fontSize:12,opacity:.7}}, "这段日程已结束或改变。已听到的片段留在这里，重新接入会调到现在。"),
-          row(btn(playing ? "停止播放" : "连续收听", () => playing ? stop() : play(current ? event.lines : R.heardLines(event), Math.max(0, event.heard - 1), current ? event.id : ""), !event.heard),
-            current && event.heard < event.lines.length && btn("继续听下一句", next),
-            current && event.heard === event.lines.length && btn("接着听现场后续", () => receive(true)),
-            btn(event.savedAt ? "已保存 · 取消" : "保存这段", () => run(async () => R.keep(event.id, !event.savedAt)), !event.heard),
-            btn("去找TA聊", () => { stop(); p.onChat(event.ownerId); })),
-          transcript(R.heardLines(event), true)),
+          h("div", {style:{display:"flex",alignItems:"center",gap:12,marginTop:10}},
+            h("span", {style:{fontSize:11,opacity:.6,flex:1}}, busy ? "电波正在接续…" : "轻点屏幕，继续听"),
+            btn(sound ? "静音" : "朗读", () => { stop(); setSound(!sound); if (!sound && event.heard) play([event.lines[event.heard-1]],0,"",event.heard-1); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:11}),
+            btn(event.savedAt ? "已收藏" : "收藏", () => run(async () => R.keep(event.id, !event.savedAt)), !event.heard, {background:"transparent",border:0,padding:"6px 8px",fontSize:11}),
+            btn("聊聊", () => { stop(); p.onChat(event.ownerId); }, false, {background:"transparent",border:0,padding:"6px 8px",fontSize:11})),
+          transcript(R.heardLines(event), false)),
         !event && h("p", {style:{fontSize:13,lineHeight:1.9,opacity:.7,padding:"0 6px"}}, "拧到TA的频率，听一小段正在发生的生活。接入才会生成现场；离开、换日程都不会自动续播。"));
     } else if (mode === "saved") {
       const saved = d.events.filter(e => e.savedAt).slice().reverse();
       body = h("section", {style:panel}, h("h2", {style:{fontSize:16,marginBottom:12}}, "留下来的电波"),
         saved.length ? saved.map(e => h("button", {key:e.id,onClick:()=>{remember();stop();setDetail(e.id);},style:{...field,textAlign:"left",marginBottom:10}},
-          h("div", {style:{fontSize:14}}, e.title), h("div", {style:{fontSize:11,opacity:.7,marginTop:5}}, e.scene.name + " · " + e.scene.day + " · 已听" + e.heard + "句"))) : h("p", {style:{fontSize:13,lineHeight:1.8,opacity:.7}}, "听到想留下的片段，点「保存这段」。日程结束后，TA也能记得这段实际发生的对话。"));
+          h("div", {style:{fontSize:14}}, e.title), h("div", {style:{fontSize:11,opacity:.7,marginTop:5}}, e.scene.name + " · " + e.scene.day + " · 已听" + e.heard + "句"))) : h("p", {style:{fontSize:13,lineHeight:1.8,opacity:.7}}, "听到想留下的片段，点「收藏」。日程结束后，TA也能记得这段实际发生的对话。"));
     } else if (show && episode) {
       body = h("section", {style:panel}, h("div", {style:{fontSize:11,color:accent}}, show.name + " · " + (episode.status === "finished" ? "已收麦" : "录制中")),
         h("h2", {style:{fontSize:18,marginTop:10}}, episode.title), transcript(episode.lines, true),
@@ -179,7 +190,11 @@
         [["live","生活频率"],["studio","录音间"],["saved","录音架"]].map(([id,name])=>h("button",{key:id,type:"button","aria-pressed":mode===id,onClick:()=>changeMode(id),disabled:busy,
           style:{flex:1,minHeight:44,borderRadius:"5px 5px 0 0",border:"1px solid rgba(230,219,192,.18)",borderBottom:mode===id ? "3px solid "+accent : "3px solid rgba(0,0,0,.3)",
             transform:mode===id ? "translateY(3px)" : "none",boxShadow:mode===id ? "inset 0 2px 4px rgba(0,0,0,.3)" : "0 3px 0 rgba(0,0,0,.4)",background:mode===id ? "rgba(147,171,134,.16)" : "rgba(230,219,192,.06)",color:ink,fontSize:12}},name))),
-      h("div", {ref:scroll,"data-radio-life-scroll":true,className:"flex-1 min-h-0 overflow-y-auto",style:{padding:"18px 16px",paddingBottom:"calc(18px + env(safe-area-inset-bottom) * 0.4)"}},
+      h("div", {ref:scroll,"data-radio-life-scroll":true,
+        onClick:e=>{ if (!e.target.closest("button,select,input,textarea,a,label") && !String(root.getSelection && root.getSelection() || "")) advance(); },
+        onKeyDown:e=>{ if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); advance(); } },
+        tabIndex:mode === "live" && !detail ? 0 : undefined,"aria-label":mode === "live" && !detail ? "轻点屏幕继续听现场" : undefined,
+        className:"flex-1 min-h-0 overflow-y-auto",style:{padding:"18px 16px",paddingBottom:"calc(18px + env(safe-area-inset-bottom) * 0.4)"}},
         error && h("div", {role:"alert",style:{...panel,color:ink,fontSize:13,lineHeight:1.7,overflowWrap:"anywhere"}}, error), body));
   }
   root.RadioLifeScreen = RadioLifeScreen;

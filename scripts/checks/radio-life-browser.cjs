@@ -46,32 +46,35 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  });
  const root=page.locator('[data-radio-life]');await page.waitForTimeout(500);await root.waitFor();
  assert.equal(await page.evaluate(()=>qaPrompts.filter(x=>x.tag==='电台现场').length),0,'open does not generate');
- await root.getByRole('button',{name:'接入这个频率',exact:true}).click();
+ await root.locator('[data-radio-scene]').click();
  await root.getByText('第二页的标注要改回去。',{exact:true}).waitFor();
  assert.equal(await root.getByText('我把最后一行一起校对。',{exact:true}).count(),0,'unheard lines stay hidden');
  const scenePrompt=await page.evaluate(()=>qaPrompts.find(x=>x.tag==='电台现场'));
  assert.match(scenePrompt.system,/虚构的装订师/);assert.match(scenePrompt.system,/虚构的校对师/);assert.doesNotMatch(scenePrompt.system,/没有参加校对的虚构角色/);
  assert.match(scenePrompt.system,/不知道有人正在收听/);assert.ok(scenePrompt.messages.length===1&&scenePrompt.messages[0].content.length<50);
+ assert.equal(await root.getByRole('button',{name:/继续听下一句|接着听现场后续|连续收听|听第.*句/}).count(),0,'live stream has no boxed advance or per-line buttons');
  assert.equal(await page.evaluate(()=>RadioLife.contextFor('qa-c')),'');assert.equal(await page.evaluate(()=>qaTts.length),0,'receive does not charge TTS until play');
- await root.getByRole('button',{name:'连续收听',exact:true}).click();await page.waitForFunction(()=>qaTts.length===1);
+ await root.getByRole('button',{name:'朗读',exact:true}).click();await page.waitForFunction(()=>qaTts.length===1);
  assert.deepEqual(await page.evaluate(()=>qaTts[0]),{text:'第二页的标注要改回去。',voiceId:'qa-voice-a'});
- await page.evaluate(()=>qaAudios.at(-1).onended());await page.waitForFunction(()=>qaTts.length===2);
+ await page.evaluate(()=>qaAudios.at(-1).onended());
+ assert.equal(await page.evaluate(()=>qaTts.length),1,'speech completion does not advance the stream');
+ await root.locator('[data-radio-transcript]').click();await page.waitForFunction(()=>qaTts.length===2);
  assert.equal(await page.evaluate(()=>qaTts[1].voiceId),'qa-voice-b');
- await root.getByRole('button',{name:'停止播放',exact:true}).click();assert.ok(await page.evaluate(()=>qaAudios.at(-1).paused));
+ await root.getByRole('button',{name:'静音',exact:true}).click();assert.ok(await page.evaluate(()=>qaAudios.at(-1).paused));
  assert.equal(await page.evaluate(()=>qaRevoked.length),2,'finished and canceled object URLs are released');
- await root.getByRole('button',{name:'保存这段',exact:true}).click();await root.getByRole('button',{name:'已保存 · 取消',exact:true}).waitFor();
+ await root.getByRole('button',{name:'收藏',exact:true}).click();await root.getByRole('button',{name:'已收藏',exact:true}).waitFor();
  const own=await page.evaluate(()=>RadioLife.contextFor('qa-a'));assert.match(own,/第二页的标注/);assert.doesNotMatch(own,/等核对完再装订/);
  assert.match(await page.evaluate(()=>RadioLife.contextFor('qa-b')),/最后一行/);assert.equal(await page.evaluate(()=>RadioLife.contextFor('qa-c')),'');
- await root.getByRole('button',{name:'去找TA聊',exact:true}).click();await page.waitForFunction(()=>document.documentElement.getAttribute('data-lisa-screen')==='thread');
+ await root.getByRole('button',{name:'聊聊',exact:true}).click();await page.waitForFunction(()=>document.documentElement.getAttribute('data-lisa-screen')==='thread');
  await page.getByPlaceholder('发一条消息…').fill('你刚才是不是跟角色乙说第二页的标注要改回去？');await page.getByTitle('让 TA 回复',{exact:true}).click();
  await page.waitForFunction(()=>qaPrompts.some(x=>x.tag==='聊天'));
  const chat=await page.evaluate(()=>qaPrompts.find(x=>x.tag==='聊天'));assert.match(chat.system,/第二页的标注要改回去/);assert.match(chat.system,/没有收到任何通知/);assert.doesNotMatch(chat.system,/等核对完再装订/);
  await page.getByText('那份稿子确实刚校对过。你怎么听到的？',{exact:true}).waitFor();
  await page.evaluate(()=>__openFromNotif(null,'radio'));await root.waitFor();
- await root.getByRole('button',{name:'接入这个频率',exact:true}).click();await root.getByText('我把最后一行一起校对。',{exact:true}).waitFor();
+ await root.locator('[data-radio-scene]').click();await root.getByText('我把最后一行一起校对。',{exact:true}).waitFor();
  assert.equal(await page.evaluate(()=>qaPrompts.filter(x=>x.tag==='电台现场').length),1,'re-enter reuses scene without charging');
- await root.getByRole('button',{name:'继续听下一句',exact:true}).click();await root.getByText('等核对完再装订。',{exact:true}).waitFor();
- await root.getByRole('button',{name:'接着听现场后续',exact:true}).click();await page.waitForFunction(()=>qaPrompts.filter(x=>x.tag==='电台现场').length===2);
+ await root.locator('[data-radio-transcript]').click();await root.getByText('等核对完再装订。',{exact:true}).waitFor();
+ await root.locator('[data-radio-transcript]').click();await page.waitForFunction(()=>qaPrompts.filter(x=>x.tag==='电台现场').length===2);
  await root.getByText('第二页的标注要改回去。',{exact:true}).waitFor();
  // Populate collection through the actual radio writer, then verify full-page return restores its scroll.
  await page.evaluate(()=>{
@@ -103,7 +106,7 @@ const repo=path.resolve(__dirname,'../..'),out=process.env.RADIO_SHOTS || '/tmp/
  assert.ok(await page.evaluate(()=>RadioLife.read().events.some(e=>e.savedAt&&e.title==='稿件的最后一页')));
  assert.ok(await page.evaluate(()=>RadioLife.read().shows[0].episodes[0].status==='finished'));
  await page.evaluate(()=>__openFromNotif(null,'radioArchive'));await page.getByLabel('想听谁的时间线').waitFor();
- const result={passed:['real App radio generation/full persona','no auto requests','participant isolation','MiniMax character voice switching','cancel/revoke','same-schedule chat original facts','re-enter single generation','explicit continuation','collection scroll return','320/390/430 layout','joint recording/archive','IDB reload','legacy archive'],errors};
+ const result={passed:['real App radio generation/full persona','no auto requests','participant isolation','MiniMax character voice switching','cancel/revoke','same-schedule chat original facts','re-enter single generation','screen tap progression/continuation','collection scroll return','320/390/430 layout','joint recording/archive','IDB reload','legacy archive'],errors};
  fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(result,null,2));assert.deepEqual(errors,[]);console.log(JSON.stringify(result));
  await ctx.close();
  } finally {await browser.close();server.close();}

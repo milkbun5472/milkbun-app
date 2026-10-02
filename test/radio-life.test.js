@@ -101,3 +101,8 @@ test('saved older scenes are retained beyond a recent-items window; closed rooms
  const rooms=require('../js/chat-rooms.js');assert.ok(rooms.CTX_GATE.formalMemory.includes('radioLife'));
  const gated=rooms.gateCtx({radioLife:f.R.contextFor('a')},{id:'fixture-room',cognition:{formalMemory:false}});assert.ok(!gated.radioLife);
 });
+
+test('solo self-talk is a valid schedule scene and does not make available contacts participants',async()=>{
+ const f=setup();const e=await f.R.connect(f.scene,f.chars,async()=>({title:'独处的片段',lines:[{speakerId:'a',text:'这一页还得重新校对。'},{speakerId:'a',text:'先把纸张理好。'}]}));
+ f.R.reveal(e.id,0);assert.deepEqual(Array.from(e.participantIds),['a']);assert.match(f.R.contextFor('a'),/重新校对/);assert.equal(f.R.contextFor('b'),'');assert.match(f.R.lifePrompt(f.scene,[]),/无需安排别人出场/);
+});
