@@ -327,3 +327,9 @@ test("翻手机：滑到那一行用它自己的滚动容器、滑不动就停�
   assert.ok(out.some(s => s.do === "rename"));
   assert.match(p, /if \(Math\.abs\(sc\.scrollTop - before\) < 2\) return;/);
 });
+
+test("翻手机：她藏了的，TA心里有数（翻的时候和翻完开口都知道）", () => {
+  const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(a, /她是当着你的面藏的，你知道/);
+  assert.match(a, /翻的时候想到这一茬，心声里就带上/);
+});

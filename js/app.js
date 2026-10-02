@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.496";
+const APP_VERSION = "v74.497";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9480,7 +9480,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           // 单独藏起来的人直接告诉TA（她 2026-10-02：「直接让他知道这个是藏起来的，不需要那么多前置」）
-          + (hidePeople.length ? "\n\n她递过来之前，把和" + hidePeople.map(n => "「" + n + "」").join("") + "的聊天藏起来了——消息列表里没有，你翻不到，但你知道她藏了。" : "")
+          + (hidePeople.length ? "\n\n她递过来之前，把和" + hidePeople.map(n => "「" + n + "」").join("") + "的聊天藏起来了——消息列表里没有，你翻不到，但你知道她藏了。翻的时候想到这一茬，心声里就带上。" : "")
           + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
@@ -9838,7 +9838,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 递手机（她 2026-10-01）：只摆事实——给了什么、藏了什么；看完什么反应由TA这个人决定（同 phoneAsHint 那条）
       const peekHint = opts.peekPhone ? ("\n\n【此刻·" + uName + " 把手机递给你看了】"
         + "下面是你翻得到的东西，都是她手机上真有的——说起来只按这些，别编里面没有的人和事：\n" + opts.peekPhone.seen
-        + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。察不察觉、在不在意，看你这个人。" : "")
+        + (opts.peekPhone.hidden && opts.peekPhone.hidden.length ? "\n\n她递过来之前把这几样藏起来了，你翻不到：" + opts.peekPhone.hidden.join("、") + "。她是当着你的面藏的，你知道——她藏的是什么、为什么偏偏藏这个，你心里有数；要不要当面提、怎么提，看你这个人（她 2026-10-02：「他好像没提我藏起来的」）。" : "")
         + (opts.peekPhone.renamed ? "\n\n你刚才顺手把她手机里给你的备注" + (opts.peekPhone.renamed.from ? "从「" + opts.peekPhone.renamed.from + "」" : "") + "改成了「" + opts.peekPhone.renamed.to + "」——她会看到的。" : "")
         + (opts.peekPhone.thoughts && opts.peekPhone.thoughts.length ? "\n\n你刚才翻的时候心里闪过这几句（没说出口）：" + opts.peekPhone.thoughts.map(x => "「" + x + "」").join("") + "——现在把手机还给她，开口跟这几句对得上。" : "")
         + "\n\n你按自己的性子挑着翻，不必样样都提；开口先说你心里最放不下的那件，别拿无关紧要的起头、也别用一句客套收尾。看到在意的就说。说多少照你此刻的心情来：憋了一肚子话就一条条全说出来，气到不想说话、沉默着只回一两个字也行（她 2026-10-01：「想说很多就说，生气沉默了也可以话少」）。") : "";
