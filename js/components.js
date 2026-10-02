@@ -7243,7 +7243,8 @@ function Messages({
     const lastTxt = it.last && (it.last.content || "");
     return String(lastTxt).toLowerCase().indexOf(kw) >= 0;
   };
-  const shownItems = chatItems.filter(hitItem);
+  // 递手机时她单独藏起来的那几个聊天：录像播着的时候列表里不出现（window.__peekHide，播完就清）
+  const shownItems = chatItems.filter(hitItem).filter(it => !(window.__peekHide && window.__peekHide.has(String(it.id))));
   // 长按置顶：按住 ~0.5s 触发 onTogglePin，并拦掉随后的点击（避免误进聊天）
   // ── 通讯录那条 A-Z（v60.73，她 2026-09-03 报「不是固定在侧边的，要下滑才有」）──
   // 病因：那条索引原来 position:absolute 挂在【列表内容】上，而列表内容自己在滚——
@@ -8553,6 +8554,8 @@ function ChatThread({
   onOpenGift,          // 拆开TA寄来的那个盒子（她 2026-09-19）
   onOpenMoments,
   onHandPhone,   // 把手机递给TA看（她 2026-10-01：「角色反查手机」）
+  onPhoneAsk,    // TA开口要看手机那张卡：给／不给
+  peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
   onOffline,
 
   onOOC,
@@ -8606,6 +8609,7 @@ function ChatThread({
   // 递手机：勾掉的那几样＝她先藏起来了（TA看不到，但可能察觉少了点什么）
   const [peekOpen, setPeekOpen] = useState(false);
   const [peekAllow, setPeekAllow] = useState(() => (window.PEEK_PHONE_SECTIONS || []).map(s => s[0]));
+  const [peekHide, setPeekHide] = useState([]);   // 藏某一个人的聊天（她 2026-10-02：比藏整类更像真的在心虚）
   const [searchOpen, setSearchOpen] = useState(false);
   const [modeOpen, setModeOpen] = useState(false);
   const [now, setNow] = useState(Date.now());
@@ -9163,6 +9167,9 @@ function ChatThread({
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "askphone") return h(PhoneAskCard, { key: i, m: m, character: character,
+      onGive: () => { onPhoneAsk && onPhoneAsk(m, true); setPeekOpen(true); },
+      onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) });
     if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
     if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
     if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
@@ -9726,7 +9733,13 @@ function ChatThread({
         h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: on ? t.ink : t.fog, textDecoration: on ? "none" : "line-through" } }, s[1]),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.accent : t.fog } }, on ? "给看" : "藏起来"));
     }),
-    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
+    peekAllow.includes("chats") && (peekPeople || []).length ? h("div", { style: { marginTop: 14 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 4, lineHeight: 1.7 } }, "单独藏起几个聊天——列表里就没这一行了，TA翻不到；可别处要是留着痕迹（比如钱包里给这个人的转账），TA也许会对不上。"),
+      (peekPeople || []).map(p => { const hid = peekHide.includes(p.id);
+        return h("button", { key: p.id, onClick: () => setPeekHide(a => hid ? a.filter(x => x !== p.id) : a.concat(p.id)), className: "w-full flex items-center justify-between active:opacity-70", style: { minHeight: 42, borderBottom: "1px solid " + t.line } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: hid ? t.fog : t.ink, textDecoration: hid ? "line-through" : "none" } }, (p.group ? "群 · " : "") + p.name),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: hid ? t.fog : t.accent } }, hid ? "藏起来" : "给看")); })) : null,
+    h("button", { onClick: () => { setPeekOpen(false); onHandPhone(peekAllow, peekHide); }, disabled: !peekAllow.length, className: "w-full active:opacity-80", style: { marginTop: 16, minHeight: 48, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 15, opacity: peekAllow.length ? 1 : .4 } }, "递过去")
   ), callLogOpen && h(CallLogSheet, { calls: (messages || []).filter(x => x.kind === "callend"), chars: [character], onClose: () => setCallLogOpen(false) }), searchOpen && h(ChatSearchSheet, { messages, chars: [character], archCount: archCount, loadArch: onLoadOlder ? () => onLoadOlder(character.id) : null, onClose: () => setSearchOpen(false), onLocate: i => { setSearchOpen(false); revealMsg(i); setTimeout(() => locateMsgIn(ref.current, i, messages, archCount > 0, { start: winStartRef.current, single: true }), 160); } }), voiceMsgOpen && h(Sheet, { onClose: () => setVoiceMsgOpen(false) },
     h(VoiceEarComposer, { onSend: sendRich, onClose: () => setVoiceMsgOpen(false), ownerKey: profile && (profile.id || profile.name), toast })
   ), modeOpen && h(Sheet, {
@@ -12469,6 +12482,20 @@ function KinshipCardFace({ character, limit, used, note, width }) {
       note
         ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13, lineHeight: 1.45, color: t.ink } }, "「" + note + "」")
         : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "刷这张卡花的是" + (c.name || "TA") + "的钱")));
+}
+// TA开口要看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：给，就打开递手机那张单子；不给，TA照自己的性子接
+function PhoneAskCard({ m, character, onGive, onRefuse }) {
+  const t = useTheme();
+  const c = character || {}, st = m.state || "pending";
+  return h("div", { className: "py-1 flex justify-start" },
+    h("div", { style: { width: 252, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, (c.remark || c.name || "TA") + "想看你的手机"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, color: t.ink, lineHeight: 1.6 } }, m.content || "手机给我看看。"),
+      st === "pending"
+        ? h("div", { className: "flex gap-2", style: { marginTop: 10 } },
+            h("button", { onClick: onRefuse, className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "不给"),
+            h("button", { onClick: onGive, className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "给"))
+        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "given" ? "你把手机给了" : "你没给")));
 }
 function KinshipIssueCard({ m, character }) {
   const t = useTheme();

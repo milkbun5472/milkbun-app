@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.483";
+const APP_VERSION = "v74.484";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9305,8 +9305,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return await _replyTurn(charId, null, mode, { ...(opts || {}), _emptyRetry: true });
   };
   // ── 递手机：拼出TA这一趟能翻到的东西（都是她手机上真有的，一条不编）──────────
-  const peekPhoneMaterial = (viewerId, allow) => {
+  const peekPhoneMaterial = (viewerId, allow, hideIds) => {
     const on = k => (allow || []).includes(k);
+    // 她单独藏起来的那几个聊天：列表、聊天、群里都没有；钱包购物那些痕迹不替她擦（她 2026-10-02）
+    const hideSet = new Set((hideIds || []).map(String)), shownId = id => !hideSet.has(String(id));
     const nameOf = id => { const c = (characters || []).find(x => x.id === id); return c ? (c.remark || c.name) : ""; };
     const cut = (s, n) => String(s || "").replace(/\s+/g, " ").trim().slice(0, n);
     const uN = userName(profile);
@@ -9318,14 +9320,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (on("chats")) {
       // 消息列表那一屏本身（她 2026-10-01：「看到我对别人的备注、几点聊的、最后一句是啥」）
       const hm = ts => { if (!ts) return ""; const d = new Date(ts), now = new Date(); return d.toDateString() === now.toDateString() ? d.toTimeString().slice(0, 5) : (d.getMonth() + 1) + "/" + d.getDate(); };
-      const list = (characters || []).filter(c => c.id !== viewerId).map(c => {
+      const list = (characters || []).filter(c => c.id !== viewerId && shownId(c.id)).map(c => {
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system");
         const lm = ms[ms.length - 1];
         return lm ? { c, lm } : null;
       }).filter(Boolean).sort((a, b) => (b.lm.ts || 0) - (a.lm.ts || 0)).slice(0, 10);
       if (list.length) out.push("【她的消息列表（一打开「信息」就看得到）】\n" + list.map(x => "· " + (x.c.remark && x.c.remark !== x.c.name ? "她给「" + x.c.name + "」的备注是「" + x.c.remark + "」" : "「" + x.c.name + "」")
         + "　" + hm(x.lm.ts) + "　最后一句：" + (x.lm.role === "user" ? "她说" : "对方说") + "「" + cut(x.lm.content, 30) + "」").join("\n"));
-      const rowsAll = (characters || []).filter(c => c.id !== viewerId && !settingsFor(c.id).engineerEyes).map(c => {
+      const rowsAll = (characters || []).filter(c => c.id !== viewerId && shownId(c.id) && !settingsFor(c.id).engineerEyes).map(c => {
         // 动作描写（旁白）不是谁发的消息，是那个世界里发生的事——不给TA当聊天读（她 2026-10-02：「他怎么把动描也当成聊天了」）
         const ms = (chatsRef.current[c.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration" && contextAllowsMessage(m));
         return { c, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
@@ -9349,7 +9351,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       };
       if (rows.length) out.push("【她跟别人的聊天——这些不是跟你聊的，是她和别人之间的】\n" + rows.map(arc).join("\n"));
       // 她在里面的群也照群看（她 2026-10-02：「看群也正常看，不要变成单聊」）；旁观群不是她的聊天，不给看
-      const gRows = (groupsRef.current || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
+      const gRows = (groupsRef.current || []).filter(g => g && shownId(g.id) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => {
         const ms = (groupChatsRef.current[g.id] || []).filter(m => m && m.content && !m.recalled && m.kind !== "ooc" && m.kind !== "system" && m.role !== "narration" && m.kind !== "narration");
         return { g, ms, last: ms.length ? (ms[ms.length - 1].ts || 0) : 0 };
       }).filter(x => x.ms.length).sort((a, b) => b.last - a.last).slice(0, 3);
@@ -9440,8 +9442,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (btn) { try { btn.click(); return; } catch (e) {} }
     setScreen("home");
   };
-  const handPhoneTo = async (charId, allow) => {
-    const seen = peekPhoneMaterial(charId, allow);
+  const handPhoneTo = async (charId, allow, hideIds) => {
+    const hideSet = new Set((hideIds || []).map(String));
+    const seen = peekPhoneMaterial(charId, allow, hideIds);
+    try { window.__peekHide = hideSet; } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
@@ -9451,13 +9455,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let script = [];
     // 聊天里【近 3 天】翻得出线索的，才顺着去（她 2026-10-02：「30 天太长了，改成 3 天内」；「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
     const CLUE = { transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" }, clues = {};
-    (characters || []).forEach(x => { if (x.id === charId) return;
+    (characters || []).forEach(x => { if (x.id === charId || hideSet.has(String(x.id))) return;
       (chatsRef.current[x.id] || []).slice(-80).forEach(m => { const app = m && CLUE[m.kind];
         if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
     try {
-      const others = (characters || []).filter(x => x.id !== charId).map(x => x.remark || x.name).slice(0, 12)
-        .concat((groupsRef.current || []).filter(g => g && g.name && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
+      const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
+        .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
       const d = await runProbe(apiFor(charId), ctxFor(c), {
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
@@ -9466,6 +9470,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (() => { const d = new Date(); return "\n今天是" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + d.toTimeString().slice(0, 5) + "——下面写着日子的，都按今天往回算是几天前的事。"; })()
           + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
+          // 单独藏起来的人：TA只会在【上次还看得到】的时候发现列表里少了一个；别处留着的痕迹（转账之类）照常在上面
+          + (() => { const L = peekLastOf(charId), gone = (characters || []).filter(x => hideSet.has(String(x.id))).map(x => x.remark || x.name).filter(n => (L.who || []).includes(n));
+              return gone.length ? "\n\n上次你翻的时候还有她和" + gone.map(n => "「" + n + "」").join("") + "的聊天，这回消息列表里找不到了。" : ""; })()
           + (() => { const L = peekLastOf(charId); const bits = [].concat(L.who && L.who.length ? ["和" + L.who.join("、") + "的聊天"] : [], L.taps && L.taps.length ? L.taps.slice(0, 6).map(x => "「" + x + "」") : []);
               return bits.length ? "\n\n你上次翻她手机已经看过：" + bits.join("、") + (L.thoughts && L.thoughts.length ? "；当时心里想过：" + L.thoughts.slice(0, 3).map(x => "「" + x + "」").join("") : "") + "——这回多去看看上次没看的。" : ""; })()
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
@@ -9496,9 +9503,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 翻完那一下的料先存着，直到TA真的接上话才算用掉（她 2026-10-01：「看完接不上啊」——
   //   那一枪没送到时，她自己问一句「看了怎么样」，TA就只剩自己的日常可说了）
   const peekPendingRef = useRef({});
+  // TA开口要看手机（她 2026-10-02）：一天最多要一回，卡片上她点给／不给
+  const phoneAskReady = charId => { const a = loadJSON("x_peekAsk", {}) || {}; return Date.now() - (a[charId] || 0) > 20 * 3600e3; };
+  const answerPhoneAsk = (charId, m, give) => {
+    pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: give ? "given" : "refused" } : x));
+    if (give) return;   // 给：ChatThread 那边打开递手机那张单子
+    pChat(charId, p => [...p, { role: "system", kind: "system", content: "你没把手机给他", ts: Date.now() }]);
+    replyNow(charId, "", null, { proactive: true, phoneRefused: true });
+  };
   const peekDone = thoughts => {
     const p = peekPlay;
     setPeekPlay(null);
+    try { window.__peekHide = null; } catch (e) {}
     if (!p) return;
     try {
       const sc = p.script || [];
@@ -9523,7 +9539,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
     const _pk = !opts.room && peekPendingRef.current[charId];
     if (_pk && Date.now() - _pk.ts < 2 * 3600e3 && !opts.peekPhone && !opts.proactive) opts = { ...opts, peekPhone: _pk };
-    const _peekTurn = !!(opts && opts.peekPhone);
+    const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused));
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
@@ -9774,7 +9790,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "");
       // dongnian 阶段二（v48.80）：这条主动消息由内心「思念漂到阈值」驱动的话，把当前五轴的语气/分寸喂进来——别扭/赌气/柔软/脆弱由此刻状态定，别直说出来
       // 递手机那段挂在这一格最前面：这一轮是「看完她手机才开口」，口气由TA自己定（她 2026-10-01）
-      const dongnianHint = peekHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
+      const dongnianHint = peekHint + refuseHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -10154,6 +10171,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
+      // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
+      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && phoneAskReady(charId)) {
+        openCaps.push("askPhone");
+        capState.push("askPhone：你心里起了疑、或者就是想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
+      }
       // 反向打通（v53.96）：私聊里说「我去群里说」「发群里」，那句就该真的出现在群里。
       // 只挑【最近有动静的那个共同群】，省得TA自己乱选；没有共同群就不开这个能力。
       // 同上：封闭群不收外面的话，别把私聊里的东西投进去
@@ -10347,7 +10369,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -11291,6 +11313,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      if (parsed.askPhone && !_peekTurn && !(room && !room.main) && phoneAskReady(charId)) {
+        const ask = { id: "ask_" + Date.now(), role: "assistant", kind: "askphone", content: String(parsed.askPhone === true ? "手机给我看看。" : parsed.askPhone).slice(0, 60), state: "pending", ts: Date.now() + 1 };
+        pChat(charId, p => [...p, ask]);
+        try { const a = loadJSON("x_peekAsk", {}) || {}; a[charId] = Date.now(); saveJSON("x_peekAsk", a); } catch (e) {}
+        delivered = true;
+      }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
@@ -24863,7 +24891,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(activeChar.id, p => p.map(x => (x.kind === "gift" && x.turnId === key) ? { ...x, opened: true } : x));
     },
     onOpenMoments: () => openMomProfile(activeChar.id, false),
-    onHandPhone: allow => handPhoneTo(activeChar.id, allow),
+    onHandPhone: (allow, hideIds) => handPhoneTo(activeChar.id, allow, hideIds),
+    peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
+      .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true }))),
+    onPhoneAsk: (m, give) => answerPhoneAsk(activeChar.id, m, give),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
