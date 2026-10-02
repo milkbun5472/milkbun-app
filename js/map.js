@@ -106,6 +106,25 @@ function mapSubSkin(t) {
   //
   // 谁在乎这件事：① 现实地图不再画住在架空世界里的人（不然一个王爷插在温尼伯街上）；
   //              ② 行程那一枪不再给TA灌现实天气——古代那位不该跟着温尼伯下雨。
+  // 世界的风景参考：新版 refImgs=[{img,label}]，旧版只有一张 refImg
+  function worldRefList(w) {
+    if (!w) return [];
+    if (Array.isArray(w.refImgs)) return w.refImgs.filter(function (x) { return x && x.img; });
+    return w.refImg ? [{ img: w.refImg, label: "" }] : [];
+  }
+  // 按这一格画面挑一张：标注里的词在画面/地点里出现得最多的那张；都对不上就第一张
+  function pickWorldRef(w, text) {
+    const list = worldRefList(w);
+    if (!list.length) return null;
+    const s = String(text || "");
+    let best = list[0], score = 0;
+    list.forEach(function (x) {
+      const words = String(x.label || "").split(/[·・\s,，、/]+/).filter(function (k) { return k.length >= 2; });
+      const n = words.reduce(function (a, k) { return a + (s.indexOf(k) >= 0 ? k.length : 0); }, 0);
+      if (n > score) { score = n; best = x; }
+    });
+    return best;
+  }
   function charRealm(char, worlds) {
     if (!char) return { kind: "real" };
     const list = Array.isArray(worlds) ? worlds : [];
@@ -651,9 +670,10 @@ function mapSubSkin(t) {
   function WorldForm({ init, characters, busy, onGen, onSave, onRef, onDel, onBack }) {
     const t = useTheme();
     const [name, setName] = useState((init && init.name) || "");
-    // 生图参考（她 2026-10-02 转群友）：一张这座城的样子。住在这儿的人拍照时一起喂进去，只借环境。
-    const [refImg, setRefImg] = useState((init && init.refImg) || null);
-    const pickRef = v => { setRefImg(v); if (onRef) onRef(v); };
+    // 生图参考（她 2026-10-02）：这座城的几张风景照，每张标一句是哪儿。
+    //   拍照时按画面挑最对得上的那一张喂进去，只借环境。旧版单张 refImg 当成第一张、没标注。
+    const [refs, setRefs] = useState(() => worldRefList(init));
+    const putRefs = list => { const v = list.filter(x => x && x.img).slice(0, 6); setRefs(v); if (onRef) onRef(v); };
     const [brief, setBrief] = useState((init && init.prompt) || (init && init.brief) || "");
     // 带哪几个人进去（她 2026-08-31 要的）：把他们的人设和一天的行程一起喂给造世界那一枪，
     // 地方就长成他们过得下去的地方，而不是一张谁都能用的通用地图。
@@ -667,9 +687,21 @@ function mapSubSkin(t) {
         h("input", { value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "一个名字", style: inp }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "生图参考"),
         h("div", { style: { display: "flex", alignItems: "center", gap: 12 } },
-          typeof AvatarPicker === "function" ? h(AvatarPicker, { character: { name: name || "城", avatarImage: refImg, color: t.line }, size: 64, radius: 10, imageMaxDim: 1024, imageQuality: 0.9, onPick: pickRef, onClear: function () { pickRef(null); } }) : null,
           h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7 } },
-            "传一张这座城的样子：街景、建筑、色调都行。住在这个世界里的人拍照时会照着它画背景，人还是照各自的参考照。")),
+            "传这座城的风景照，最多六张，每张写一句是哪儿（比如「旧港码头·傍晚」）。拍照时挑跟画面最对得上的那张照着画背景，人还是照各自的参考照。")),
+        refs.map(function (r, i) {
+          return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
+            typeof AvatarPicker === "function" ? h(AvatarPicker, { character: { name: r.label || "景", avatarImage: r.img, color: t.line }, size: 56, radius: 8, imageMaxDim: 1024, imageQuality: 0.9,
+              onPick: function (v) { putRefs(refs.map(function (x, j) { return j === i ? Object.assign({}, x, { img: v }) : x; })); },
+              onClear: function () { putRefs(refs.filter(function (_, j) { return j !== i; })); } }) : null,
+            h("input", { value: r.label || "", placeholder: "这张是哪儿", style: Object.assign({}, inp, { flex: 1 }),
+              onChange: function (e) { const v = e.target.value.slice(0, 24); setRefs(refs.map(function (x, j) { return j === i ? Object.assign({}, x, { label: v }) : x; })); },
+              onBlur: function () { putRefs(refs); } }));
+        }),
+        refs.length < 6 && typeof AvatarPicker === "function" ? h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginTop: 10 } },
+          h(AvatarPicker, { character: { name: "＋", avatarImage: null, color: t.line }, size: 56, radius: 8, imageMaxDim: 1024, imageQuality: 0.9,
+            onPick: function (v) { if (v) putRefs(refs.concat([{ img: v, label: "" }])); } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "添一张")) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 2px 7px" } }, "这个世界是什么样的"),
         h("textarea", { value: brief, onChange: function (e) { setBrief(e.target.value); }, rows: 7, placeholder: "写多少都行：这地方靠什么活着、有哪几块地方、彼此什么关系、路上会遇上什么。写得越具体，画出来的地图越是你的，越含糊模型就越往通用模板上靠。",
           style: Object.assign({}, inp, { lineHeight: 1.8, resize: "vertical" }) }),
@@ -685,7 +717,7 @@ function mapSubSkin(t) {
               c.remark || c.name);
           }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色")),
         init ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8, marginTop: 16 } }, "重画会换掉整张地图，钉在旧地点上的人也会一起掉下来。") : null,
-        h("button", { onClick: function () { onGen(name.trim(), brief.trim(), picked, refImg); }, disabled: busy || !brief.trim(), className: "w-full active:opacity-80",
+        h("button", { onClick: function () { onGen(name.trim(), brief.trim(), picked, refs.length ? refs : null); }, disabled: busy || !brief.trim(), className: "w-full active:opacity-80",
           style: { marginTop: 20, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: (busy || !brief.trim()) ? 0.5 : 1 } },
           busy ? "正在铺开这片地方…" : init ? "照这段重画" : "画出这个世界"),
         init ? h("div", { style: { display: "flex", gap: 8, marginTop: 10 } },
@@ -1007,7 +1039,7 @@ function mapSubSkin(t) {
           }, className: "w-full active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13, color: t.tint, border: "1px dashed " + t.line, borderRadius: 10, padding: "10px 0" } }, "🔍 全网搜「" + q.trim() + "」并设为家乡") : null));
   }
 
-  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, userRealm: userRealm };
+  if (inApp) window.MapKit = { MapWidget: MapWidget, CharMap: CharMap, StoryMap: StoryMap, CITY_DB: CITY_DB, charHome: charHome, liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
   // 纯函数导出给 node --test；浏览器里没有 module，原样跳过（同 trpg.js）
-  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos, userRealm: userRealm };
+  if (typeof module === "object" && module.exports) module.exports = { liveNodeOf: liveNodeOf, zhOverlap: zhOverlap, charRealm: charRealm, charPos: charPos, userRealm: userRealm, worldRefList: worldRefList, pickWorldRef: pickWorldRef };
 })();

@@ -61,7 +61,7 @@ test("出图这件事只有一份实现，单人和群共用", () => {
   };
   const shot = bodyOf(app, "const runOfflineShot = async (arg) => {");
   assert.equal((shot.match(/generateSelfieImage\(/g) || []).length, 1, "共用的那份里应当只出一次图");
-  const gOff = bodyOf(app, "const genGroupOfflineFrom = async (group, workSess) => {");
+  const gOff = bodyOf(app, "const genGroupOfflineFrom = async (");
   assert.equal((gOff.match(/generateSelfieImage\(/g) || []).length, 0, "群线下不许自己再抄一套出图");
   const sOff = bodyOf(app, "const genOfflineFrom = async (scopeKey, workSess) => {");
   assert.equal((sOff.match(/generateSelfieImage\(/g) || []).length, 0, "单人线下也不许自己再抄一套");
