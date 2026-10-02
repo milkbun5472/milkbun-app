@@ -5711,7 +5711,22 @@ const TTS_MARK_TAGS = ["laughs", "laughing", "laugh", "chuckles", "chuckle", "ch
   "crying", "sobs", "sniffles", "breathing", "breathes", "inhale", "inhales", "exhale", "exhales",
   "clears throat", "coughs", "humming", "hums", "yawns", "kisses", "kiss", "pauses", "mumbles"];
 const TTS_MARK_PAUSE = /<#\s*\d+(?:\.\d+)?\s*#>/g;
-const TTS_MARK_TAG_RE = new RegExp("\\(\\s*(?:" + TTS_MARK_TAGS.join("|") + ")\\s*\\)", "gi");
+// MiniMax speech-2.8 认的声音标签（她 2026-10-02 拿来一本语音世界书，问能不能自己内置一份）。
+//   名单出自 2.8 的说明（只有 speech-2.8-hd / speech-2.8-turbo 认）；没把握的（掌声、口哨、打嗝）不放。
+//   ⚠️提示词教的、合成前放行的、气泡里剥掉的，三处都用这一份。
+const MM_SOUND_TAGS = ["laughs", "chuckle", "breath", "inhale", "exhale", "gasps", "pant", "sighs",
+  "sniffs", "snorts", "lip-smacking", "humming", "hissing", "coughs", "clear-throat", "groans", "emm", "sneezes", "crying"];
+const MM_SOUND_TAG_RE_ONE = new RegExp("^\\(\\s*(?:" + MM_SOUND_TAGS.join("|") + ")\\s*\\)$", "i");
+function ttsSoundTagsOn() {
+  try { const a = typeof loadTtsApi === "function" ? loadTtsApi() : null;
+    return !!(a && a.enabled && (a.provider || "minimax") === "minimax" && /^speech-2\.8/i.test(String(a.model || ""))); } catch (e) { return false; }
+}
+// 教模型可以插哪些声音：只在选了 2.8 时才给，平常一个字都不占
+function voiceSoundHint() {
+  if (!ttsSoundTagsOn()) return "";
+  return "也可以插声音，写成英文半角括号：(breath) 换气、(sighs) 叹气、(gasps) 倒吸气、(chuckle) 轻笑、(laughs) 笑出声、(sniffs) 吸鼻子、(snorts) 哼一声、(exhale) 呼气、(pant) 喘、(emm) 嗯、(lip-smacking) 亲一下、(humming) 哼着、(coughs) 咳、(clear-throat) 清嗓子、(groans) 闷哼、(crying) 哭腔。放在这个人此刻真会出声的地方，一条一两个就够；括号里的不会显示成字，只会变成声音。";
+}
+const TTS_MARK_TAG_RE = new RegExp("\\(\\s*(?:" + TTS_MARK_TAGS.concat(["breath", "pant", "sniffs", "snorts", "lip-smacking", "humming", "hissing", "clear-throat", "groans", "emm", "sneezes", "crying"]).join("|") + ")\\s*\\)", "gi");
 // 教模型怎么在语音里插停顿，单聊和群聊共用这一句。
 // ⚠️只给许可，不加禁令：剥标记是代码的活（ttsMarkForSynth），提示词这边不说
 //   （施工规则/bans-make-it-dumber.md）。
@@ -5722,7 +5737,9 @@ const VOICE_PAUSE_MARK = "这条语音的内容里可以插停顿：写成 <#0.5
 function ttsMarkForSynth(text) {
   const s = String(text == null ? "" : text);
   if (!s) return "";
-  return s.replace(TTS_MARK_TAG_RE, " ").replace(/[ \t\u3000]+/g, " ")
+  // speech-2.8 认声音标签：名单里的留着送上去出声，其余照旧剥
+  const keep = ttsSoundTagsOn();
+  return s.replace(TTS_MARK_TAG_RE, m => keep && MM_SOUND_TAG_RE_ONE.test(m) ? m : " ").replace(/[ \t\u3000]+/g, " ")
     .replace(/\s+([，。！？、；：」』）])/g, "$1").trim();
 }
 function ttsMarkStrip(text) {
