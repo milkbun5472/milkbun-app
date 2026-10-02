@@ -5236,35 +5236,28 @@ function loadTtsApi() {
   // 来回切不用重填；角色档案里的 voiceId 填的是【当前这家】的声音 ID。
   const def = { baseUrl: "https://api.minimax.io", groupId: "", apiKey: "", model: "speech-02-hd", enabled: false,
     provider: "minimax", elKey: "", elModel: "eleven_multilingual_v2", elVoice: "",
-    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "",
-    vsBase: "", vsKey: "", vsPin: "", vsModel: "tts-1", vsVoice: "default" };
+    fishBase: "https://api.fish.audio", fishKey: "", fishModel: "s1", fishVoice: "" };
   let a = def;
   try { const c = JSON.parse(localStorage.getItem("x_ttsApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
   // 粘贴时容易带进首尾空格/换行，key 里混一个空白字符接口就报 invalid api key——读的时候统一清干净
   a.baseUrl = cleanBaseUrl(a.baseUrl);
   a.groupId = String(a.groupId || "").trim();
   a.apiKey = String(a.apiKey || "").replace(/\s+/g, "");
-  if (TTS_PROVIDERS.indexOf(a.provider) < 0) a.provider = "minimax";
+  if (TTS_PROVIDERS.indexOf(a.provider) < 0) { a.provider = "minimax"; a.enabled = false; }
   a.elKey = String(a.elKey || "").replace(/\s+/g, "");
   a.fishKey = String(a.fishKey || "").replace(/\s+/g, "");
   // 中转站给的地址常常自带 /v1 甚至 /v1/tts（群里报的就是 https://fishaudio.org/v1）——下面还要拼 /v1/tts，先剥掉
   a.fishBase = (cleanBaseUrl(a.fishBase) || "https://api.fish.audio").replace(/\/v1(\/tts)?\/?$/i, "");
-  a.vsBase = cleanBaseUrl(a.vsBase).replace(/\/v1(?:\/audio\/(?:speech|voices))?\/?$/i, "");
-  a.vsKey = String(a.vsKey || "").trim();
-  a.vsPin = String(a.vsPin || "").trim();
-  a.vsVoice = String(a.vsVoice || "").trim();
-  a.vsModel = String(a.vsModel || "tts-1").trim() || "tts-1";
   a.elVoice = String(a.elVoice || "").trim();
   a.fishVoice = String(a.fishVoice || "").trim();
   return a;
 }
-const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish", "voicestudio"];
+const TTS_PROVIDERS = ["minimax", "elevenlabs", "fish"];
 // 没给音色时用哪一个：MiniMax 有预置的 female-shaonv；另两家没有通用 ID，只能用设置里填的默认音色
 function ttsDefaultVoice(a) {
   a = a || loadTtsApi();
   if (a.provider === "elevenlabs") return a.elVoice || "";
   if (a.provider === "fish") return a.fishVoice || "";
-  if (a.provider === "voicestudio") return a.vsVoice || "default";
   return "female-shaonv";
 }
 function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try { localStorage.setItem("x_ttsApi", JSON.stringify(clean)); } catch (e) {} return clean; }
@@ -5327,7 +5320,6 @@ function ttsReady(a) {
   if (!a.enabled) return false;
   if (a.provider === "elevenlabs") return !!a.elKey;
   if (a.provider === "fish") return !!a.fishKey;
-  if (a.provider === "voicestudio") return !!a.vsBase;
   return !!(a.groupId && a.apiKey);
 }
 // MiniMax 系统预置音色（先用预置，克隆音色以后再接——克隆出的 voice_id 也能直接填）
@@ -6234,8 +6226,7 @@ async function jpKanaReading(text) {
 // 所以只留一份：ttsSpeak 和「查缓存」用的是同一个函数算出来的同一把钥匙。
 function ttsKeyFor(text, voiceId, opts) {
   opts = opts || {};
-  const conf = loadTtsApi();
-  const prov = conf.provider;
+  const prov = loadTtsApi().provider;
   const vid = String(voiceId || "").trim() || ttsDefaultVoice();
   if (!vid) return null;
   // ⚠️送去合成之前先剥掉会被念出来的那些标记（停顿留着）。收在这儿一处：
@@ -6276,8 +6267,7 @@ function ttsKeyFor(text, voiceId, opts) {
   // 缓存键带情绪(null=raw) + 语速档 + 语言矫正 + 注音标记 + hq44 音质版本：不同参数别互相命中，
   // hq44 让 v48.31 之前 32k 音质的旧缓存自然失效（同句会用新参数重合成一次，之后照旧缓存免费）
   // 换了服务商，同一个 ID 是另一把嗓子——钥匙带上服务商（MiniMax 不带，老缓存照旧命中）
-  const source = prov === "voicestudio" ? conf.vsBase + ":" + conf.vsModel + ":" : "";
-  const key = ttsCacheKey((prov === "minimax" ? "" : prov + ":") + source + vid + ":" + (emo || "raw") + ":hq44:lb:" + boost + (slowed ? ":s" + Math.round(spd * 100) : "") + (wantKana ? ":kana" : ""), txt);
+  const key = ttsCacheKey((prov === "minimax" ? "" : prov + ":") + vid + ":" + (emo || "raw") + ":hq44:lb:" + boost + (slowed ? ":s" + Math.round(spd * 100) : "") + (wantKana ? ":kana" : ""), txt);
   return { key: key, prov: prov, txt: txt, vid: vid, ve: ve, emo: emo, spd: spd, slowed: slowed, boost: boost, wantKana: wantKana, pit: pit };
 }
 // 这一句合成过没有。只读缓存，不打上游，也就不花钱。
@@ -6374,12 +6364,6 @@ async function ttsSynth(text, voiceId, opts) {
 // ElevenLabs 换成它认的 <break time="0.5s" />，Fish 不认标签，换成省略号让它自己停一下。
 // 情绪参数只有 MiniMax 有，这两家不传；语速照音色库里调的那一档。
 async function ttsSynthOther(a, txt, vid, spd) {
-  if (a.provider === "voicestudio") {
-    const r = await voiceStudioRequest(a, "/v1/audio/speech", { method: "POST", body: JSON.stringify({ model: a.vsModel || "tts-1", input: txt.replace(TTS_MARK_PAUSE, "…"), voice: vid, response_format: "wav", speed: spd || 1 }) }, 180000);
-    const blob = await r.blob();
-    if (!blob || blob.size < 44 || /json|text\/|html/i.test(blob.type)) throw new Error("电脑没有返回可播放的音频，检查 VoiceStudio 的模型是否就绪");
-    return blob.type && /^audio\//i.test(blob.type) ? blob : new Blob([blob], { type: "audio/wav" });
-  }
   let r;
   try {
   if (a.provider === "elevenlabs") {
@@ -6414,36 +6398,6 @@ async function ttsSynthOther(a, txt, vid, spd) {
   const blob = await r.blob();
   if (!blob || blob.size < 200) throw new Error("返回的音频是空的");
   return blob.type ? blob : new Blob([blob], { type: "audio/mpeg" });
-}
-function voiceStudioHeaders(a) {
-  const headers = { "Content-Type": "application/json" };
-  if (a.vsKey) headers.Authorization = "Bearer " + a.vsKey;
-  if (a.vsPin) headers["X-OmniVoice-Pin"] = a.vsPin;
-  return headers;
-}
-async function voiceStudioRequest(a, path, options, timeout) {
-  const base = cleanBaseUrl(a.vsBase).replace(/\/v1(?:\/audio\/(?:speech|voices))?\/?$/i, "");
-  let url;
-  try { url = new URL(base); } catch (e) { throw new Error("先填电脑的完整连接地址，例如 https://你的电脑地址"); }
-  if (!/^https?:$/.test(url.protocol) || url.username || url.password || url.search || url.hash) throw new Error("连接地址只填 http 或 https 服务地址，密码填下面的单独一格");
-  if (/\/mcp\/?$/i.test(url.pathname)) throw new Error("这里填语音服务地址，请去掉末尾 /mcp");
-  if (typeof location !== "undefined" && location.protocol === "https:" && url.protocol === "http:" && !/^(localhost|127\.0\.0\.1|\[::1\])$/.test(url.hostname)) throw new Error("秋秋机是 HTTPS 网页，手机连电脑请填写 HTTPS 地址；局域网 HTTP 地址可能被浏览器拦住");
-  let r;
-  try { r = await fetchT(base + path, Object.assign({}, options || {}, { headers: voiceStudioHeaders(a) }), timeout || 20000); }
-  catch (e) { throw new Error("连不上你的电脑：确认 VoiceStudio 正在运行、地址能从这台设备访问，并允许秋秋机网页跨域连接。模型首次加载可能较慢。"); }
-  if (!r.ok) {
-    let detail = "";
-    try { const d = await r.json(); detail = String(d.error && d.error.message || d.detail || "").slice(0, 180); } catch (e) {}
-    throw new Error("电脑回复 HTTP " + r.status + (r.status === 401 || r.status === 403 ? "：检查连接 PIN 或密钥，重新开启分享后 PIN 会变化" : r.status === 404 ? "：检查地址和音色 ID，电脑需要支持 VoiceStudio 语音 API" : detail ? "：" + detail : "：检查电脑端模型和服务状态"));
-  }
-  return r;
-}
-async function voiceStudioVoices(a) {
-  const r = await voiceStudioRequest(a || loadTtsApi(), "/v1/audio/voices");
-  let d;
-  try { d = await r.json(); } catch (e) { throw new Error("这个地址没有返回音色列表，请检查是否填成了网页或 MCP 地址"); }
-  if (!d || !Array.isArray(d.voices)) throw new Error("电脑返回的不是 VoiceStudio 音色列表");
-  return d.voices.filter(v => v && typeof v.voice_id === "string" && v.voice_id && v.type !== "openai_alias").map(v => ({ id: v.voice_id, name: String(v.name || v.voice_id) }));
 }
 // 克隆音色：①上传一段干净人声（10s~5min，mp3/wav/m4a）→ file_id ②/v1/voice_clone 绑到自定 voice_id
 // 克隆成功后把 voice_id 填进角色档案「音色」即可用（按 MiniMax 规则克隆按次收费，具体看你账户计费页）
