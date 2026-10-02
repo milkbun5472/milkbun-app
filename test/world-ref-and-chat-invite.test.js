@@ -153,3 +153,18 @@ test("邀约卡只印亲口说的那句；世界地点不把地图描述当备�
   assert.ok(comp.indexOf("pl.note ? row(I.pen, pl.note") < 0, "没写话时又拿地点备注顶上了");
   assert.match(app, /put\(nd && nd\.name, "", r\.world\.name\)/);
 });
+
+test("群里约好的到点也弹赴约卡，点出发＝带答应的人进群见面", () => {
+  assert.match(app, /setDateArrive\(\{ groupId: g\.id, m \}\)/);
+  assert.match(app, /if \(d\.groupId\) groupDateGo\(d\.groupId, d\.m\); else dateGo\(d\.charId, d\.m\);/);
+});
+
+test("「我换」里配一身：参考在场的人此刻穿的，挂进我的衣柜（跟照相馆同一个柜子）再换上；单聊群里都接", () => {
+  const i = app.indexOf("const wearMatch = ");
+  const seg = app.slice(i, app.indexOf("const wardrobeFor = ", i));
+  assert.match(seg, /【一起的人此刻穿着】/);
+  assert.match(seg, /saveMyCloset\(myClosetPut\(myClosetRef\.current,/);
+  assert.match(seg, /wearScene\(scope, "me",/);
+  assert.equal((app.match(/return wearMatch\(sc, kw, wardrobeFor\(sc,/g) || []).length, 2);
+  assert.equal((comp.match(/h\(OfflineWardrobe, \{ t, wardrobe, onMatch, matchBusy,/g) || []).length, 2);
+});

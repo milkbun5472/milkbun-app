@@ -14117,9 +14117,11 @@ function OffPhotoFold({ title, children }) {
 }
 // 线下＋里那一段「穿什么」（单聊和群线下共用这一份）：先挑给谁换，再从那个人的衣柜里挑一身，或者自己写一句
 //   wardrobe = { people: [{ id, name, now, sets }], me: { now, sets } }；onPick(谁的 id 或 "me", 那一身, 以后都固定)
-function OfflineWardrobe({ t, wardrobe, onPick }) {
+// onMatch(关键词)：「我换」里的配一身——参考在场的人此刻穿的，配好挂进我的衣柜、直接换上
+function OfflineWardrobe({ t, wardrobe, onPick, onMatch, matchBusy }) {
   const [who, setWho] = useState(null);
   const [own, setOwn] = useState("");
+  const [kw, setKw] = useState("");
   const [forever, setForever] = useState(false);
   const w = wardrobe || {}, people = w.people || [], me = w.me || {};
   const cur = who === "me" ? me : people.find(p => p.id === who) || null;
@@ -14143,6 +14145,14 @@ function OfflineWardrobe({ t, wardrobe, onPick }) {
           style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 11px", minWidth: 0 } }),
         h("button", { onClick: () => { if (own.trim()) pick(own.trim()); }, disabled: !own.trim(), className: "active:opacity-70 disabled:opacity-30",
           style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 10, padding: "0 14px" } }, "换上")),
+      who === "me" && onMatch ? h("div", { style: { marginTop: 12, padding: "10px 12px", borderRadius: 12, border: "1px dashed " + t.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 6 } },
+          "配一身：" + (people.some(p => p.now) ? "照着" + people.filter(p => p.now).map(p => p.name).join("、") + "现在穿的来配套，" : "") + "配好挂进你的衣柜，直接换上"),
+        h("div", { className: "flex gap-2" },
+          h("input", { value: kw, onChange: e => setKw(e.target.value.slice(0, 80)), placeholder: "关键词（可空）：白色、复古、方便走路…", className: "flex-1 outline-none",
+            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: "#fff", border: "1px solid " + t.line, borderRadius: 10, padding: "8px 11px", minWidth: 0 } }),
+          h("button", { onClick: async () => { const ok = await onMatch(kw.trim()); if (ok) { setKw(""); setWho(null); } }, disabled: !!matchBusy, className: "active:opacity-70 disabled:opacity-40",
+            style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.ink, borderRadius: 10, padding: "0 12px", whiteSpace: "nowrap" } }, matchBusy ? "配着…" : "配一身"))) : null,
       who === "me" ? h("button", { onClick: () => setForever(!forever), className: "flex items-center gap-2 active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
         h("span", { style: { width: 16, height: 16, borderRadius: 4, border: "1px solid " + t.line, background: forever ? t.ink : "transparent", display: "inline-block" } }),
         "以后出图都固定这身（不勾只管这一场）") : null) : null);
@@ -14183,7 +14193,7 @@ function OfflineMode({
   onOpenSched,
   onOpenStyleLab
   , showReason
-  , wardrobe, onWear   // ＋里换衣服（她 2026-10-02）：TA那身进状态卡，我那身管这一场出图
+  , wardrobe, onWear, onMatch, matchBusy   // ＋里换衣服（她 2026-10-02）：TA那身进状态卡，我那身管这一场出图；配一身
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传 onExit 就退回线上（兜底）
@@ -14477,7 +14487,7 @@ function OfflineMode({
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         null) : null,
       h(OffPhotoFold, { title: "给 Ta 看你手机里的一张" }, h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending })),
-      onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
+      onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onMatch, matchBusy, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 8 } }, "跟着下一拍发出去：Ta 会照做，但正文里不会提这句话。「只管这两轮」用两次就停，「整场都算」一直有效到你删掉。"),
@@ -14833,7 +14843,7 @@ function GroupOfflineMode({
   canPeekMember,
   onOpenStyleLab
   , showReason
-  , wardrobe, onWear   // 换衣服：跟单聊同一段 OfflineWardrobe
+  , wardrobe, onWear, onMatch, matchBusy   // 换衣服：跟单聊同一段 OfflineWardrobe
 }) {
   const t = useTheme();
   const exit = onExit || onClose; // 顶栏「离开」直接退回聊天列表；没传就退回线上群（兜底）
@@ -15057,7 +15067,7 @@ function GroupOfflineMode({
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 12px" } }),
         null) : null,
       h(OffPhotoFold, { title: "给大家看你手机里的一张" }, h(OfflinePhotoPicker, { t, photoFileRef, photoImg, setPhotoImg, photoDesc, setPhotoDesc, sendPhoto, sending })),
-      onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
+      onWear && wardrobe ? h(OfflineWardrobe, { t, wardrobe, onMatch, matchBusy, onPick: (who, text, forever) => { onWear(who, text, forever); setPhotoOpen(false); } }) : null)),
     noteOpen && sheet("幕后 · 只有你和模型看得见", h("div", null,
       h(Eyebrow, { style: { marginBottom: 7 } }, "导演便签"),
       h("textarea", { value: note, onChange: e => setNote(e.target.value), rows: 3, placeholder: "如：让气氛缓和下来 / 让某人挑起话题 / 把话题引到那件事上", className: "w-full outline-none p-3 mb-3", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.ink, background: "#fff", border: `1px solid ${t.line}`, borderRadius: 8, resize: "none" } }),

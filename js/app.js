@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.564";
+const APP_VERSION = "v74.566";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7458,6 +7458,37 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (scope.groupId) pushGOffMsg(scope.groupId, line); else pushOffMsg(scope.scopeKey, line);
     toast(char ? "状态卡上的穿着换好了" : (forever ? "以后出图都穿这身" : "这一场出图都穿这身"));
   };
+  // 「我换」里的配一身（她 2026-10-02：「跟照相馆一样的配一身，可以填关键词，还参考他穿的衣服来配套」）：
+  //   一次调用配一身，挂进我的衣柜（跟照相馆配出来的进同一个柜子），再直接换上。
+  //   参考的是在场的人【此刻状态卡上的穿着】——她刚给他换的那身也就在这儿。
+  const wearMatch = async (scope, keywords, people) => {
+    if (!bgActive && !active) { toast("请先到设置配置 API"); return false; }
+    const kw = String(keywords || "").trim().slice(0, 80);
+    const theirs = (people || []).filter(p => p && p.now).map(p => p.name + "：" + p.now).join("\n");
+    const sess = sceneSessOf(scope) || {};
+    const place = sess.datePlace && sess.datePlace.name ? sess.datePlace.name : "";
+    setGen(g => ({ ...g, myMatch: true }));
+    try {
+      const uName = profile.name || "我";
+      const d = extractJSON(await callAI(bgActive || active,
+        ANTI_CLICHE + "\n\n给「" + uName + "」配一身衣服，这会儿就要穿上。\n"
+          + (theirs ? "【一起的人此刻穿着】\n" + theirs + "\n要跟他们站在一起配得上：同一个场合、同一个时代，像是一道出来的，不是撞衫、也不是情侣装硬凑。\n" : "")
+          + (place ? "【要去的地方】" + place + "\n" : "")
+          + (kw ? "【她给的关键词】" + kw + "\n按这几个词来。\n" : "")
+          + (profile.persona ? "【她是这样一个人】\n" + String(profile.persona).slice(0, 400) + "\n" : "")
+          + "写清：occasion（什么场合，四个字以内）、name（这身叫什么，别只写类目名）、note（版型、颜色、料子、鞋，一到两句）。\n"
+          + "别用「知性优雅」「气场全开」这类换谁都贴得上的词，写这件衣服本身长什么样。"
+          + "\n\n【输出】只输出合法 JSON，无 markdown：{\"occasion\":\"场合\",\"name\":\"这身叫什么\",\"note\":\"是什么衣服\"}",
+        [{ role: "user", content: "配吧。" }], { maxTokens: 8000 })) || {};
+      const name = String((d && d.name) || "").trim().slice(0, 24);
+      if (!name) { toast("这次没配出来，再点一次"); return false; }
+      const note = String((d && d.note) || "").trim();
+      saveMyCloset(myClosetPut(myClosetRef.current, d.occasion || (theirs ? "配他" : "平常"), { name, note }));
+      wearScene(scope, "me", name + (note ? "（" + note.slice(0, 48) + "）" : ""), false);
+      return true;
+    } catch (e) { toast("没配出来：" + (e.message || "重试")); return false; }
+    finally { setGen(g => ({ ...g, myMatch: false })); }
+  };
   // 「穿什么」那一段要的料：单聊就他一个，群线下是在场的每一位
   const wardrobeFor = (scope, people) => ({
     people: people.filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name, sets: closetSetsOf((carryRef.current || {})[c.id]),
@@ -9799,10 +9830,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   }, [chats]);
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。
   //   只认【TA答应了、还没去、定了日子钟点】的回执；弹过一次记上 popped，不反复弹
-  const [dateArrive, setDateArrive] = useState(null);   // { charId, m }
+  const [dateArrive, setDateArrive] = useState(null);   // { charId, m } 或群里那张 { groupId, m }
   useEffect(() => {
     const tick = () => {
-      if (dateArrive || offlineChar) return;
+      if (dateArrive || offlineChar || offlineGroup) return;
       for (const c of (characters || [])) {
         const m = [...(chatsRef.current[c.id] || [])].reverse().find(x => x && x.kind === "datereceipt" && x.state === "pending" && !x.popped && x.when && x.when.date);
         if (!m) continue;
@@ -9812,11 +9843,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         setDateArrive({ charId: c.id, m });
         return;
       }
+      // 群里约好的那张（她 2026-10-02）：至少有一个人答应了，到点同样弹；点出发＝带答应的人进群见面
+      for (const g of (groupsRef.current || [])) {
+        const m = [...(groupChatsRef.current[g.id] || [])].reverse().find(x => x && x.kind === "dateinvite" && x.invitees && x.state === "pending" && !x.popped && x.when && x.when.date
+          && Object.keys(x.replies || {}).some(k => x.replies[k] === "yes"));
+        if (!m) continue;
+        const at = new Date(m.when.date + "T" + (m.when.time || "00:00")).getTime();
+        if (!at || at > Date.now() || Date.now() - at > 12 * 3600e3) continue;
+        pGChat(g.id, p => p.map(x => x && x.mid === m.mid ? { ...x, popped: true } : x));
+        setDateArrive({ groupId: g.id, m });
+        return;
+      }
     };
     tick();
     const iv = setInterval(tick, 30000);
     return () => clearInterval(iv);
-  }, [characters, dateArrive, offlineChar]);
+  }, [characters, dateArrive, offlineChar, offlineGroup]);
   const dateGo = async (charId, m) => {
     const char = (characters || []).find(x => x.id === charId);
     if (!char || !m || !m.place) return;
@@ -27451,8 +27493,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onExtractMem: () => extractMemForChar(activeChar.id)
   }), dateArrive && h(DateArrivePop, {
-    m: dateArrive.m, character: (characters || []).find(x => x.id === dateArrive.charId) || {},
-    onGo: () => { const d = dateArrive; setDateArrive(null); dateGo(d.charId, d.m); },
+    m: dateArrive.m, character: dateArrive.groupId
+      ? { name: (dateArrive.m.invitees || []).filter(x => (dateArrive.m.replies || {})[x.id] === "yes").map(x => x.name).join("、") || "大家" }
+      : (characters || []).find(x => x.id === dateArrive.charId) || {},
+    onGo: () => { const d = dateArrive; setDateArrive(null); if (d.groupId) groupDateGo(d.groupId, d.m); else dateGo(d.charId, d.m); },
     onLater: () => setDateArrive(null)
   }), peekPlay && window.PeekPhone && h(window.PeekPhone.PeekPlayer, {
     charName: (((characters || []).find(x => x.id === peekPlay.charId) || {}).remark) || (((characters || []).find(x => x.id === peekPlay.charId) || {}).name) || "TA",
@@ -27607,6 +27651,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onShoot: kind => offlineShotNow(activeOfflineScopeKey, kind),
     wardrobe: wardrobeFor({ scopeKey: activeOfflineScopeKey }, [offlineChar]),
     onWear: (who, text, forever) => wearScene({ scopeKey: activeOfflineScopeKey }, who, text, forever),
+    onMatch: kw => { const sc = { scopeKey: activeOfflineScopeKey }; return wearMatch(sc, kw, wardrobeFor(sc, [offlineChar]).people); },
+    matchBusy: !!gen.myMatch,
     canShoot: offlinePhotoCan(offlineChar),
     canShootDuo: offlinePhotoCanDuo(offlineChar),
     onReply: txt => {
@@ -27657,6 +27703,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return ids.map(id => characters.find(c => c.id === id));
     })()),
     onWear: (who, text, forever) => wearScene({ groupId: offlineGroup.id }, who, text, forever),
+    onMatch: kw => { const sc = { groupId: offlineGroup.id }; const _s = (groupOfflines[offlineGroup.id] || []).find(x => !x.endTs);
+      const ids = (offlineGroup.memberIds || []).filter(id => !(_s && Array.isArray(_s.present) && _s.present.length) || _s.present.includes(id));
+      return wearMatch(sc, kw, wardrobeFor(sc, ids.map(id => characters.find(c => c.id === id))).people); },
+    matchBusy: !!gen.myMatch,
     canShoot: groupOfflineCanShoot(offlineGroup),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
     onAddNote: (n, long) => groupOfflineAddNote(offlineGroup.id, n, long),
