@@ -2529,7 +2529,7 @@ function Forum({
     .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
   const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
   const [newPostSeen, setNewPostSeen] = useState([]);
-  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && p.authorType !== "me" && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
+  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && String(p.authorType || "").startsWith("character") && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
     .sort((a, b) => Number(b.visibleAt || b.ts || 0) - Number(a.visibleAt || a.ts || 0));
   const forumNotices = [];
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
