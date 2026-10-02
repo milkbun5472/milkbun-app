@@ -8,7 +8,7 @@ const d = read("dwell.js"), a = read("app.js"), g = read("gacha.js");
 test("她自己钉的约会地点一份存着（x_datePlaces），去处顶上画成城市小地图", () => {
   assert.match(d, /localStorage\.getItem\("x_datePlaces"/);
   assert.match(d, /window\.DatePlaces = DatePlaces;/);
-  assert.match(d, /h\(CityMap, \{ t: t, places: dates, sel: dateSel, onPick: setDateSel \}\)/);
+  assert.match(d, /h\(CityMap, \{ t: t, places: dates, sel: dateSel, onPick: setDateSel,/);
   assert.match(d, /"＋ 钉一个地方"/);
 });
 
@@ -67,4 +67,18 @@ test("约到点了：盖一层、中间弹出赴约卡，点卡出发；弹过�
   assert.match(a, /x\.kind === "datereceipt" && x\.state === "pending" && !x\.popped && x\.when && x\.when\.date/);
   assert.match(a, /\{ \.\.\.x, popped: true \}/);
   assert.match(a, /dateArrive && h\(DateArrivePop, \{/);
+});
+
+test("城市联动：去过留星＋「那天」卡；TA会自己钉地方；TA此刻在哪亮头像；自己去转转可能撞上", () => {
+  const c = read("components.js");
+  assert.match(a, /datePlace: opts\.datePlace \|\| null,/);
+  assert.match(a, /saveJSON\("x_dateVisits", v\)/);
+  assert.match(a, /kind: "datememory"/);
+  assert.match(c, /function DateMemoryCard\(/);
+  assert.match(c, /if \(m\.kind === "datememory"\) return h\(DateMemoryCard/);
+  assert.match(a, /openCaps\.push\("pinPlace"\)/);
+  assert.match(a, /window\.DatePlaces\.add\(nm, nt, charId\)/);
+  assert.match(d, /herePin = dates\.find\(/);
+  assert.match(d, /if \(herePin && herePin\.id === p\.id && props\.onMeet && Math\.random\(\) < 0\.7\)/);
+  assert.match(a, /onMeet: async \(char, place\) => \{/);
 });

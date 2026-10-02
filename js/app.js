@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.535";
+const APP_VERSION = "v74.536";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7765,6 +7765,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       stylePrompt: picked.stylePrompt,
       taste: opts.taste || osTaste(charId),
       customNotes: [],
+      // 从「我们的城市」那张地图上去的这一场：记着是哪儿，散场时留一颗星、一张「那天」（她 2026-10-02）
+      datePlace: opts.datePlace || null,
       msgs: opening ? [{ id: "n_" + Date.now(), role: "narration", content: opening, ts: Date.now() }] : []
     };
     pOffline(scopeKey, list => [sess, ...list.filter(s => s.endTs)]);
@@ -7949,6 +7951,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!sideRoom && sumP) { const r = await summarizeOffline(sumP, ctxFor(char), sess, offlineRecordedOf(sess.id)); summary = r.summary || ""; details = r.details || []; opens = r.open || []; }
     } catch (e) { sumErr = (e && e.message) || String(e); }
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
+    // 地图上那个地方：记一次去过；聊天里留一张「那天」
+    if (!sideRoom && sess.datePlace && sess.datePlace.name) {
+      try {
+        const v = loadJSON("x_dateVisits", {}) || {}, nm = sess.datePlace.name;
+        v[nm] = [...(v[nm] || []), { charId, ts: sess.startTs || Date.now(), line: String(summary || "").split(/[。！？\n]/)[0].slice(0, 40) }].slice(-30);
+        saveJSON("x_dateVisits", v);
+      } catch (e) {}
+      const lastTa = [...(sess.msgs || [])].reverse().find(m => m && m.role === "assistant" && m.content);
+      pChat(charId, p => [...p, { id: "mem_" + Date.now(), role: "system", kind: "datememory", place: sess.datePlace, startTs: sess.startTs,
+        line: lastTa ? String(lastTa.content).replace(/\s+/g, " ").slice(0, 60) : "", content: "那天在「" + sess.datePlace.name + "」", ts: Date.now() }]);
+    }
     // 旧记忆保留，新条交给共享去重/确认候选机制，不按场次自动隐藏。
     if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
     // 谈话细节逐条入库（她要的：总结之外，具体聊过什么也记得住）；新约定标未了结
@@ -9653,7 +9666,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const char = (characters || []).find(x => x.id === charId);
     if (!char || !m || !m.place) return;
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: "gone" } : x));
-    await startOffline(charId, { opening: "你约了 " + char.name + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
+    await startOffline(charId, { datePlace: { name: m.place.name, note: m.place.note || "", how: "date" }, opening: "你约了 " + char.name + (m.when ? dateWhenText(m.when) + " " : "") + "在「" + m.place.name + "」见面" + (m.place.note ? "（" + m.place.note + "）" : "") + "，" + char.name + " 答应了。此刻你们都到了。" });
     setOfflineChar(char);
   };
   // TA开口要看手机（她 2026-10-02）：一天最多要一回，卡片上她点给／不给
@@ -10406,6 +10419,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
+      // TA也会在「我们的城市」上钉地方（她 2026-10-02）：偶尔才给，免得天天钉
+      if (!(room && !room.main) && !_peekTurn && window.DatePlaces && Math.random() < 0.12 && window.DatePlaces.list().filter(x => x.by === charId).length < 6) {
+        openCaps.push("pinPlace");
+        capState.push("pinPlace：你们俩有一张城市地图，" + uName + " 在上面钉着她想跟你去的地方" + (window.DatePlaces.list().length ? "（" + window.DatePlaces.list().slice(0, 8).map(x => "「" + x.name + "」").join("") + "）" : "") + "。你要是正好想到一个想带她去的地方（你常去的、刚路过的、一直想去的），可以钉上去：pinPlace:{\"name\":\"地名\",\"note\":\"一句为什么\"}。没想到就别填。");
+      }
       // 她发来的约会邀请还没回：TA这一轮决定去不去
       const _inv = !(room && !room.main) && pendingInviteOf(charId);
       if (_inv) {
@@ -10618,7 +10636,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；dateReply:"yes"|"no"=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:"yes"|"no"=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -11574,6 +11592,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      if (parsed.pinPlace && typeof parsed.pinPlace === "object" && window.DatePlaces && !(room && !room.main)) {
+        const nm = String(parsed.pinPlace.name || "").trim().slice(0, 24), nt = String(parsed.pinPlace.note || "").trim().slice(0, 60);
+        if (nm && !window.DatePlaces.list().some(x => x.name === nm)) {
+          window.DatePlaces.add(nm, nt, charId);
+          pChat(charId, p => [...p, { role: "system", kind: "system", content: (char.remark || char.name) + " 在你们的城市地图上钉了「" + nm + "」" + (nt ? "：" + nt : ""), ts: Date.now() + 3 }]);
+        }
+      }
       if (parsed.dateReply && !(room && !room.main)) {
         const inv = pendingInviteOf(charId);
         if (inv) {
@@ -26204,6 +26229,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 约TA在钉着的那个地方见（她 2026-10-02）：照旅行出发那条先例开一场见面，开场就在那儿
     // 先在线上发一张邀请，TA答应了回一张回执，她点开回执才进见面（她 2026-10-02）
     onDate: (char, place, v) => sendDateInvite(char, place, v),
+    // 自己去转转，TA正好在那儿：撞上了（她 2026-10-02）
+    onMeet: async (char, place) => {
+      await startOffline(char.id, { datePlace: { name: place.name, note: place.note || "", how: "meet" },
+        opening: "你一个人去「" + place.name + "」转转，没跟谁说。刚走进去，就看见 " + char.name + " 也在这儿——" + char.name + " 还没看见你。" });
+      setOfflineChar(char);
+    },
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "ledger") body = h(Ledger, {

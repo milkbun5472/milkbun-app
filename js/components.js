@@ -9146,6 +9146,7 @@ function ChatThread({
       isU: m.receipt.side === "me", charId: character && character.id,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
+    if (m.kind === "datememory") return h(DateMemoryCard, { key: i, m: m, character: character });
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
@@ -12597,6 +12598,20 @@ function DateComposeDialog({ place, who, onCancel, onSend }) {
         h("button", { onClick: onCancel, className: "flex-1 active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "算了"),
         h("button", { onClick: () => onSend({ date, time, say: say.trim() }), className: "flex-1 active:opacity-80", style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "递过去"))),
     onCancel);
+}
+// 见面散场以后留下的「那天」（她 2026-10-02）：跟约会卡同一张素纸，居中放着，像夹进本子里的一张小票
+function DateMemoryCard({ m, character }) {
+  const t = useTheme();
+  useEffect(() => { dateHandFont(); }, []);
+  const pl = m.place || {}, d = new Date(m.startTs || m.ts || Date.now()), ink = t.sub;
+  const when = (d.getMonth() + 1) + "." + String(d.getDate()).padStart(2, "0");
+  return h("div", { className: "py-2 flex justify-center" },
+    h("div", { "data-wk": "card", style: { width: 220, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "16px 16px 14px", textAlign: "center", boxShadow: "0 6px 16px rgba(0,0,0,.07)" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog } }, pl.how === "meet" ? "BY CHANCE" : "THAT DAY"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink, marginTop: 8 } }, pl.name || "某处"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: ".2em", color: ink, marginTop: 4 } }, when + " ★"),
+      m.line ? h("div", { style: { fontFamily: F_HAND, fontSize: 14, lineHeight: 1.6, color: ink, marginTop: 10, wordBreak: "break-word" } }, "「" + m.line + "」") : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8 } }, (character.remark || character.name || "TA") + (pl.how === "meet" ? " · 碰巧遇上的那天" : " · 一起去过的那天"))));
 }
 // 约到点了，盖在整个页面上那一层：赴约卡从中间浮出来，点卡就出发（她 2026-10-02）
 function DateArrivePop({ m, character, onGo, onLater }) {
