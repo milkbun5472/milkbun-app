@@ -84,3 +84,5 @@ test('下载连接失败保留原URL和任务，只查询GET，不重复生成',
 test('导入原任务只接受已完成任务和真实视频内容',async()=>{
  const {api}=load();await assert.rejects(api.importTaskVideo('a',new Blob(['fake'])),/还没有确认/);api.patchMap(api.keys.JOBS,'a',{taskId:'original',status:'succeeded'});await assert.rejects(api.importTaskVideo('a',new Blob(['this is not a video'])),/文件内容不是/);assert.equal(api.job('a').draftRef,undefined);
 });
+
+test('复制下载链接留在编辑页，复用公共复制，不再导航原生壳',()=>{assert.match(src,/await copyText\(record.downloadUrl\)/);assert.doesNotMatch(src,/href: record.downloadUrl/);assert.match(src,/aria-label": "原视频下载链接"/);});

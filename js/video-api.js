@@ -65,7 +65,7 @@
     if (record.draftRef) return { title: "生成完成，等待你选用", detail: "先预览动作，满意后保存；保存后的循环播放不会重新生成。" };
     if (!record.taskId) return { title: busy && !record.lastError ? "正在提交，等待任务编号" : "提交未确认，请核对控制台", detail: "还没拿到任务编号，无法确认是否开始生成或是否失败。请到对应站点控制台核对这次任务；确认后再决定是否放弃记录，避免重复付费。" };
     if (["fail", "failed", "cancelled"].includes(status)) return { title: status === "cancelled" ? "任务已取消" : "生成失败", detail: "这是接口返回的任务状态。任务编号已保留；重新生成是另一笔任务，费用以对应站点为准。" };
-    if (["success", "succeeded"].includes(status)) return { title: busy ? "生成完成，正在保存视频" : "生成完成，视频尚未保存", detail: "动画已经生成，但本机还没有保存到视频。点「查询原任务 / 重试下载」重试；如果一直连接失败，可打开原视频手动保存，再导入这次任务，不会重新生成。" };
+    if (["success", "succeeded"].includes(status)) return { title: busy ? "生成完成，正在保存视频" : "生成完成，视频尚未保存", detail: "动画已经生成，但本机还没有保存到视频。点「查询原任务 / 重试下载」重试；如果一直连接失败，可复制原视频链接到 Safari 手动保存，再导入这次任务，不会重新生成。" };
     if (record.lastError && !busy) return { title: "查询暂时中断，生成结果未确认", detail: "连接或查询失败不代表生成失败。任务编号已保留，可以查询原任务；不会重新提交。" };
     const title = ({ preparing: "正在准备画面", queueing: "正在排队", queued: "正在排队", processing: "正在生成动作", running: "正在生成动作" })[status] || "任务已提交，正在查询进度";
     return { title, detail: "已取得任务编号，正在等待原任务。离开后仍保留记录，回来只查询进度。" };
@@ -103,7 +103,7 @@
       const r = await fetch(url, { signal: controller.signal }); if (!r.ok) throw Error("下载视频失败（HTTP " + r.status + "），可以查询原任务重试下载");
       return await saveDraftFile(id, await r.blob(), record.taskId, signal);
     } catch (e) {
-      if (e instanceof TypeError) throw Error("视频下载连接失败，可能是网络或下载站点的跨域限制。可打开原视频手动保存，再导入这次任务；不需要重新生成。");
+      if (e instanceof TypeError) throw Error("视频下载连接失败，可能是网络或下载站点的跨域限制。可复制原视频链接到 Safari 手动保存，再导入这次任务；不需要重新生成。");
       throw e;
     } finally { clearTimeout(timer); if (signal) signal.removeEventListener("abort", relay); }
   }
@@ -225,9 +225,10 @@
           record.lastError ? h("div", { style: { fontSize: 11, lineHeight: 1.8, color: t.sub, marginTop: 6 } }, "上次请求提示：" + record.lastError) : null) : null,
         !record ? h("button", { disabled: busy || !imageRef, onClick: createVideo, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, busy ? "正在处理…" : "生成动画（按视频接口计费）") : h("div", { style: { display: "grid", gap: 8, marginTop: 12 } },
           record.taskId && !record.draftRef ? h("button", { disabled: busy, onClick: () => run(inspect), style: btn }, busy ? "正在等待原任务…" : "查询原任务 / 重试下载") : null,
-          record.downloadUrl && /^https?:\/\//i.test(record.downloadUrl) && !record.draftRef ? h("a", { href: record.downloadUrl, target: "_blank", rel: "noopener noreferrer", referrerPolicy: "no-referrer", style: Object.assign({}, btn, { display: "block", textAlign: "center", textDecoration: "none" }) }, "打开原视频 / 手动下载") : null,
+          record.downloadUrl && /^https?:\/\//i.test(record.downloadUrl) && !record.draftRef ? h("button", { onClick: async () => { const ok = await copyText(record.downloadUrl); toast && toast(ok ? "链接已复制，切到 Safari 粘贴打开" : "请长按下方链接复制"); report(ok ? "链接已复制。请切到 Safari，粘贴到地址栏打开，保存到文件后回来导入。" : "自动复制没有成功，请长按下面的链接复制，再切到 Safari 打开。"); }, style: btn }, "复制原视频链接（去 Safari 打开）") : null,
           record.downloadUrl && !record.draftRef ? h("div", null,
-            h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "在新页面保存视频到「文件」，再导入这次任务，预览满意后选用。链接若过期，查询原任务可更新地址。"),
+            h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, "复制链接后切到 Safari，粘贴到地址栏打开；保存到「文件」后回来导入。请在 Safari 打开，原生壳内打开可能触发重新开屏。链接过期可查询原任务更新。"),
+            h("input", { "aria-label": "原视频下载链接", type: "text", readOnly: true, value: record.downloadUrl, onFocus: e => e.target.select(), style: Object.assign({}, input, { marginBottom: 8 }) }),
             h("input", { ref: taskVideoPicker, type: "file", accept: "video/mp4,video/webm", hidden: true, onChange: importTask }),
             h("button", { disabled: busy, onClick: () => taskVideoPicker.current.click(), style: Object.assign({}, btn, { width: "100%" }) }, "导入这次任务的视频")) : null,
           h("button", { onClick: forgetJob, style: btn }, record.draftRef ? "不满意，放弃这段" : "放弃任务记录")),

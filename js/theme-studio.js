@@ -752,7 +752,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.573", changed: "", none: "视频下载失败新增原视频链接和任务内导入，沿用编辑页现有按钮、正文与挂点" };
+  const BRIEF_STAMP = { v: "v74.574", changed: "", none: "取回视频改为复制链接与只读输入框，沿用既有编辑页挂点和样式" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
