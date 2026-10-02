@@ -14,5 +14,7 @@ test("颜文字不算外语，真日文照旧", () => {
 });
 test("开关关掉就一条都不挂", () => {
   assert.equal(load({ x_noTranslate: "1" })("こんにちは"), "");
-  assert.match(scr, /localStorage\.setItem\("x_noTranslate", off \? "1" : ""\)/);
+  const comp = fs.readFileSync(path.join(__dirname, "..", "js/components.js"), "utf8");
+  assert.match(comp, /localStorage\.setItem\("x_noTranslate", on \? "" : "1"\)/);
+  assert.equal((comp.match(/dispRow\("外语气泡显示「译」键/g) || []).length, 2, "单聊设置和群设置各一颗");
 });

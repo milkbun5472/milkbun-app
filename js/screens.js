@@ -8072,16 +8072,9 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
     } catch (e) { setMarkErr(String((e && e.message) || e)); }
     finally { setMarkBusy(false); }
   };
-  const [transOff, setTransOff] = useState(() => { try { return localStorage.getItem("x_noTranslate") === "1"; } catch (e) { return false; } });
   const inSt = { width: "100%", outline: "none", padding: "9px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
   const row = (label, node) => h("div", { className: "mb-3" }, h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 4 } }, label), node);
   return h("div", { className: "pt-8 mt-6", style: { borderTop: "1px dashed " + t.line } },
-    // 一键关掉「译」（她 2026-10-02：颜文字里的假名会挂出译键，翻出来怪怪的）
-    h("div", { className: "flex items-center justify-between py-2 mb-4" },
-      h("div", { style: { paddingRight: 12 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "外语气泡的「译」键"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.5, color: t.fog, marginTop: 2 } }, "关掉以后，所有气泡都不再挂「译」，也不会自动展开翻译。")),
-      h(Toggle, { on: !transOff, onChange: v => { const off = !v; setTransOff(off); try { localStorage.setItem("x_noTranslate", off ? "1" : ""); } catch (e) {} toast && toast(off ? "已关掉翻译" : "已打开翻译"); } })),
     h("div", { className: "flex items-center justify-between py-2" },
       h("div", { style: { paddingRight: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "语音 TTS · 角色真发声"),
