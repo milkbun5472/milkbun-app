@@ -14583,7 +14583,15 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
         h("span", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           (m.senderName || (spk && spk.name) || "") + (m.photoKind === "part" ? " · " + PHOTO_PART_ZH : m.photoKind === "view" ? " · " + PHOTO_VIEW_ZH : m.photoKind === "group" ? " · 大家的合影" : m.photoKind === "duo" ? " · 我俩" : m.photoKind === "other" ? " · 我替 TA 拍的" : " · 自拍")),
         timeEl,
+        // 她 2026-10-02：「线下的图不能编辑重roll」——重拍＝照原描述再画；改描述＝存下就照新描述重画。话一个字不动。
+        (editable && onReroll && !m.pending) ? h("button", { onClick: () => onReroll(m.id), disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重拍这张" }, h(IRefresh, { size: 15, color: t.fog })) : null,
+        (editable && onEdit && !m.pending) ? h("button", { onClick: () => { setTxt(m.desc || ""); setEditing(true); }, className: "active:opacity-50", title: "改画面描述" }, h(IPencil, { size: 15, color: t.fog })) : null,
         (editable && onDelete) ? h("button", { onClick: () => onDelete(m.id, msgIndex), className: "active:opacity-50", title: "删除" }, h(ITrash, { size: 15, color: t.fog })) : null),
+      editing ? h("div", { className: "mb-2" },
+        h("textarea", { value: txt, onChange: e => setTxt(e.target.value), rows: 4, autoFocus: true, placeholder: "这张拍的是什么：谁在画面里、在做什么、从哪儿拍", className: "w-full outline-none p-2.5 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.ink, background: "#fff", border: `1px solid ${t.line}` } }),
+        h("div", { className: "flex gap-4 mt-2 justify-end" },
+          h("button", { onClick: () => setEditing(false), style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "取消"),
+          h("button", { onClick: () => { const v = txt.trim(); setEditing(false); if (v) onEdit(m.id, v); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, fontWeight: 600 } }, "照这个重拍"))) : null,
       h(SelfieBubble, { m: m })));
   const iconBtn = (Ic, fn, title, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-50 disabled:opacity-30", title: title }, h(Ic, { size: 15, color: t.fog }));
   const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.543";
+const APP_VERSION = "v74.544";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7422,8 +7422,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
-    const sid = "sf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
-    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ts: Date.now() };
+    // reuseSid：重拍 / 改描述重拍（她 2026-10-02：「线下的图不能编辑重roll」）——就地换这一格的像素，不另挂一张。
+    const reuse = arg && arg.reuseSid;
+    const sid = reuse || "sf_" + Date.now() + "_" + Math.random().toString(36).slice(2, 6);
+    const row = { id: "c_" + Date.now(), role: "char", kind: "selfie", sid, imgKey: null, pending: true, desc: scene, photoKind: kind, ...(cast ? { cast } : {}), ts: Date.now() };
     const push = extra => {
       const r = { ...row, ...extra };
       if (groupId) pushGOffMsg(groupId, { ...r, id: "gc_" + Date.now(), senderId: char.id, senderName: char.name });
@@ -7433,7 +7435,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 线下那份是 durable 键，两次写进得太近会撞上 WAL 的读回自检（后一次盖掉前一次
     // 正在核对的那一版），控制台就报一声 read-back mismatch。中间隔一下就没这回事，
     // 而秒失败的那种（配错 key、断网）本来也不需要先转一圈圈。
-    let placed = false;
+    let placed = !!reuse;
     const place = () => { if (!placed) { placed = true; push(); } };
     const holdTimer = setTimeout(place, 300);
     const patch = q => {
@@ -7485,6 +7487,23 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : (em || "重试")), 9000);
       return false;
     }
+  };
+  // 线下照片卡上的「重拍」「改描述」：同一格就地重画。desc 不传＝照原描述重拍。
+  const reshootOffShot = ({ scopeKey, groupId, mid, desc }) => {
+    const list = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[scopeKey] || []);
+    const sess = list.find(x => !x.endTs);
+    const m = sess && (sess.msgs || []).find(x => x && x.id === mid);
+    if (!m || m.kind !== "selfie" || m.pending || !m.sid) return false;
+    const char = groupId ? characters.find(c => String(c.id) === String(m.senderId)) : characters.find(c => String(c.id) === String(offlinePersonId(scopeKey)));
+    if (!char) return false;
+    const scene = String(desc == null ? m.desc || "" : desc).trim();
+    if (!scene) return true;
+    // 先问拍不拍得了：先挂「拍照中」再发现拍不了，这一格就永远转圈了。
+    if (!offlinePhotoCan(char)) { toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍", 6000); return true; }
+    const q = { desc: scene, pending: true, failed: false, imgKey: null, imgUrl: null };
+    if (groupId) patchGOffMsg(groupId, m.sid, q); else patchOffMsg(scopeKey, m.sid, q);
+    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid });
+    return true;
   };
   // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
   const groupOfflineShotNow = async groupId => {
@@ -27374,8 +27393,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
-    onEditMsg: (mid, txt) => offlineEditMsg(activeOfflineScopeKey, mid, txt),
-    onRerollMsg: mid => offlineRerollMsg(activeOfflineScopeKey, mid),
+    onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
+    onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),
     onDelMsg: (mid, idx) => offlineDelMsg(activeOfflineScopeKey, mid, idx),
     onDelSession: (sid, idx) => offlineDelSession(activeOfflineScopeKey, sid, idx),
     onEnd: () => endOffline(activeOfflineScopeKey),
@@ -27405,8 +27424,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
-    onEditMsg: (mid, txt) => groupOfflineEditMsg(offlineGroup.id, mid, txt),
-    onRerollMsg: mid => groupOfflineRerollMsg(offlineGroup.id, mid),
+    onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
+    onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
     onDelSession: (sid, idx) => groupOfflineDelSession(offlineGroup.id, sid, idx),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),
