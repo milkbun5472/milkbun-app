@@ -12,3 +12,8 @@ test("条子下面写出来", () => {
   assert.match(c, /const proactiveWhyLine = \(\) =>/);
   assert.match(c, /"现在卡在："/);
 });
+test("打开页面当场查一遍，不等后台那一轮", () => {
+  assert.match(a, /const proactiveWhyNow = cid =>/);
+  assert.match(a, /window\.__proactiveWhyNow = proactiveWhyNow;/);
+  assert.match(c, /window\.__proactiveWhyNow \? window\.__proactiveWhyNow\(character\.id\)/);
+});

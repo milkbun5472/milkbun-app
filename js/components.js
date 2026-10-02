@@ -12561,29 +12561,27 @@ function FoldRow({ title, state, open, onToggle, children }) {
 }
 // 约会邀请（她发的，右边）和回执（TA答应了，左边）（她 2026-10-02）：回执上点「出发」才进见面
 function DateInviteCard({ m, character, onGo, avatar, myAvatar }) {
-  // 一张约会票根（她 2026-10-02：「这卡没有头像，而且太丑了」）：跟位置卡、礼物卡一样两边带头像；
-  //   上半是去哪儿，中间一道撕线，下半是状态或「出发」
+  // 约会邀请／回执（她 2026-10-02：「这卡没有头像，而且太丑了」「还是很丑」）：
+  //   不另起一套样子——照位置卡（GeoCard）那张被图钉按住的纸条来，同一个调子：素纸、一颗图钉、细线分隔、小字落款。
+  //   邀请是她递出去的纸条，回执是TA回过来的那张；「出发」只是一行字链，不做大色块按钮。
   const t = useTheme();
   const mine = m.kind === "dateinvite", st = m.state || "pending", pl = m.place || {};
   const who = character.remark || character.name || "TA";
-  const d = new Date(m.ts || Date.now()), when = (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
-  const foot = mine ? ({ pending: "等" + who + "回", accepted: who + "答应了", declined: "这次没去成" })[st] || "" : st === "gone" ? "已经一起去了" : "";
-  const notch = side => h("span", { style: { position: "absolute", top: -7, [side]: -7, width: 14, height: 14, borderRadius: 999, background: t.bg, border: "1px solid " + t.line } });
+  const d = new Date(m.ts || Date.now()), clock = String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  const foot = mine ? ({ pending: "约" + who + " · 等回", accepted: "约" + who + " · 答应了", declined: "约" + who + " · 这次没去成" })[st] || ""
+    : st === "gone" ? who + " · 已经一起去了" : who + " · 好，那儿见";
   return h("div", { className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") }, !mine && avatar,
-    h("div", { "data-wk": "card", style: { width: 222, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.08)" } },
-      h("div", { style: { position: "relative", padding: "13px 15px 14px" } },
-        h("div", { style: { position: "absolute", inset: 0, background: t.tint, opacity: .1 } }),
-        h("div", { className: "flex items-center justify-between", style: { position: "relative" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: t.tint } }, mine ? "约 会 邀 请" : "约 会 回 执"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, when)),
-        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.4, color: t.ink, marginTop: 8, wordBreak: "break-word" } }, pl.name || "某处"),
-        pl.note ? h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.sub, marginTop: 3 } }, pl.note) : null,
-        h("div", { style: { position: "relative", fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6 } }, mine ? "我约" + who : who + "：好，那儿见")),
-      h("div", { style: { position: "relative", borderTop: "1.5px dashed " + t.line } }, notch("left"), notch("right")),
-      h("div", { style: { padding: "10px 15px 12px" } },
-        !mine && st === "pending"
-          ? h("button", { onClick: onGo, className: "w-full active:opacity-80", style: { minHeight: 38, borderRadius: 999, background: t.tint, color: "#fff", fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".2em" } }, "出 发")
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, textAlign: "center" } }, foot))),
+    h("div", { style: { position: "relative", width: 214, marginTop: 7 } },
+      h("div", { style: { position: "absolute", top: -7, left: 16, width: 15, height: 15, borderRadius: 999, background: t.tint, boxShadow: "0 2px 4px rgba(0,0,0,.28)", zIndex: 2 } }),
+      h("div", { style: { position: "absolute", top: 5, left: 22.5, width: 2, height: 13, background: t.tint, opacity: .5, zIndex: 1 } }),
+      h("div", { "data-wk": "card", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "18px 16px 13px", boxShadow: "0 4px 12px rgba(0,0,0,.09)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, mine ? "约你去" : "那就去"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, pl.name || "某处"),
+        pl.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, pl.note) : null,
+        h("div", { style: { height: 1, background: t.line, margin: "10px 0 7px" } }),
+        h("div", { className: "flex items-center justify-between", style: { gap: 8 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, foot + " · " + clock),
+          !mine && st === "pending" ? h("button", { onClick: onGo, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, padding: "4px 0 4px 8px", minHeight: 30 } }, "出发 →") : null))),
     mine && myAvatar);
 }
 // TA趁她不注意偷偷翻过（她 2026-10-02）：回放看TA翻了什么、想了什么；当面问；装没看见
@@ -17085,9 +17083,14 @@ function ChatSettings({
   // 以前界面上一个字都没有——看着就像动念只对着她一个人涨。
   // 上一次归零是被什么清的（她 2026-09-14：想我莫名其妙就没了，我猜了两回都不对——
   // 与其继续猜，不如让它自己说）。没归过零就不出现，不占地方。
-  const proactiveWhyLine = () => { const w = (typeof window !== "undefined" && window.__proactiveWhy || {})[character.id]; if (!w) return null;
-    const mins = Math.max(0, Math.round((Date.now() - w.ts) / 60000));
-    return h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 8, lineHeight: 1.7 } }, "现在卡在：" + w.why + "（" + (mins ? mins + " 分钟前" : "刚刚") + "看的）"); };
+  const proactiveWhyLine = () => {
+    // 当场查一遍；查不了再退回后台那一轮记下的
+    let now = ""; try { now = window.__proactiveWhyNow ? window.__proactiveWhyNow(character.id) : ""; } catch (e) {}
+    const w = (typeof window !== "undefined" && window.__proactiveWhy || {})[character.id];
+    const last = w && /发出去|没发成|出错/.test(w.why) ? "（上一次：" + w.why + "，" + Math.max(0, Math.round((Date.now() - w.ts) / 60000)) + " 分钟前）" : "";
+    if (!now && !w) return null;
+    return h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, marginTop: 10, lineHeight: 1.7, padding: "8px 10px", borderRadius: 8, background: t.bg2 } },
+      "现在卡在：" + (now || w.why) + last); };
   const renderDongnianWhy = () => {
     if (!dongnianWhy || !dongnianWhy.ts) return null;
     const d = new Date(dongnianWhy.ts);

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.527";
+const APP_VERSION = "v74.528";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6963,6 +6963,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 归零的黑匣子：一场一条，只留最近那一次。存档键单开一份，别挤进 x_jiwen 那张表。
   // 主动消息这一轮卡在哪一道（她 2026-10-02：「为啥还是不说话」）：每个角色只留最近一条，「TA 是什么脾气」那页条子下面读
   const pWhy = (cid, why) => { try { (window.__proactiveWhy = window.__proactiveWhy || {})[cid] = { ts: Date.now(), why }; } catch (e) {} };
+  // 打开「TA 是什么脾气」那一页时当场查一遍（她 2026-10-02：「看不到卡在哪儿」——等后台那一轮跑到，页面早看完了）：
+  //   跟主动那一路同几道闸、同一个顺序；只读不改
+  const proactiveWhyNow = cid => {
+    const c = (characters || []).find(x => x.id === cid); if (!c) return "";
+    if (!autoRefreshOn("proactive", cid)) return "「允许 Ta 主动发消息」关着";
+    if (currentlyTogetherWithChar(cid)) return "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息";
+    if (laneBusy("c:" + cid)) return "TA 这会儿正在回别的（上一条还在写）";
+    const ms = (chatsRef.current[cid] || []).filter(m => !m.recalled && m.kind !== "ooc" && m.kind !== "system");
+    if (!ms.length) return "你们还没聊过天";
+    const jw = (window.__dongnian && window.__dongnian[cid]) || null;
+    const floorMin = jw ? 45 : 180;
+    const lastInteract = Math.max(ms[ms.length - 1].ts || 0, latestSharedInteractionTs(cid));
+    const left = Math.ceil((floorMin * 60000 - (Date.now() - lastInteract)) / 60000);
+    if (left > 0) return "离你们上次说话还不满 " + floorMin + " 分钟（还差 " + left + " 分钟）";
+    if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) return "还没想到要找你（条子没过线）";
+    const fired = Math.ceil((25 * 60000 - (Date.now() - (dongnianFiredRef.current[cid] || 0))) / 60000);
+    if (fired > 0) return "刚试过一次，" + fired + " 分钟后再试";
+    if (sleepPhaseOf(c) === "asleep") return "TA 在睡觉——睡着时只有很想的时候才偶尔发一句，醒了再来";
+    if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) return "TA 还端着、拉不下脸";
+    if (document.hidden) return "App 在后台，回到前台才发得出去";
+    return "都过了，下一轮检查（一两分钟内）就会来";
+  };
+  if (typeof window !== "undefined") window.__proactiveWhyNow = proactiveWhyNow;
   const dongnianWhyRef = useRef(null);
   const dongnianWhy = () => {
     if (!dongnianWhyRef.current) dongnianWhyRef.current = loadJSON("x_jiwenWhy", {}) || {};
