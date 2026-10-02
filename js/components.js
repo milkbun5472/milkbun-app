@@ -16254,6 +16254,9 @@ function RedPacketOpenSheet({ rp, meName, onClose }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 13.5, color: cl.me ? t.accent : t.ink } }, (cl.name || "某人") + (cl.me ? "（我）" : "")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "¥" + cl.amount)))));
 }
+// 「译」键开关：全 App 一份（存本机），单聊设置和群设置里各放一颗，拨了立刻生效（她 2026-10-02）
+const transKeyOn = () => { try { return localStorage.getItem("x_noTranslate") !== "1"; } catch (e) { return true; } };
+const setTransKeyOn = on => { try { localStorage.setItem("x_noTranslate", on ? "" : "1"); } catch (e) {} };
 function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, directives, onRemoveDirective, onSetDirectiveTurns, onSave, onSummarize, onAddMember, onKickMember, onSetPresence, onDelete, onClearChat, onClose }) {
   const t = useTheme();
   const [interop, setInterop] = useState(!!gs.memoryInterop);
@@ -16290,6 +16293,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [confirmDel, setConfirmDel] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
   const [wipeMemToo, setWipeMemToo] = useState(false);
+  const [transOn, setTransOn] = useState(transKeyOn);
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
@@ -16450,6 +16454,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    dispRow("外语气泡显示「译」键（所有聊天通用）", transOn, v => { setTransOn(v); setTransKeyOn(v); }),
     h("div", { style: { marginTop: 18, paddingTop: 10, borderTop: "1px dashed " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "排版 · 气泡怎么摆"),
     h(ChatLayoutFields, { layout: gLayout, setLayout: setGLayout, taName: "群成员", group: true, meNote: "（上面要打开「显示我的头像」才看得见）", onPeek: gPeekGo }),
     h(ChatLookPack, { group: true, fileBase: (group && group.name) || "群聊",
@@ -17459,6 +17464,7 @@ function ChatSettings({
       renderDongnianWhy(),
       renderDongnianElsewhere());
   })());
+  const [transOn, setTransOn] = useState(transKeyOn);
   const dispRow = (label, val, set, sub) => h("div", { className: "flex items-center justify-between " + (sub ? "pt-3 pl-4" : "pt-4") },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: sub ? 13.5 : 15, color: sub ? t.fog : t.sub } }, label),
     h(Toggle, { on: val, onChange: () => set(v => !v) }));
@@ -17812,6 +17818,9 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "回复上方多一条可展开的「💡 深度思考」，里面是模型自己的推理过程——不是角色的心声，会出现「我该怎么回」这种出戏的话。"
       + "只有支持思考链的模型才有；开着却一直不出现，说明这条线路的模型不返回它。"),
+    dispRow("外语气泡显示「译」键", transOn, v => { setTransOn(v); setTransKeyOn(v); }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+      "所有聊天通用，拨了马上生效。关掉以后气泡上不再挂「译」，也不会自动展开翻译。"),
     dispRow("外语消息自带中译", bilingual, setBilingual),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "TA 说外语时，让模型生成的时候顺手把中文译文一起带出来。"
