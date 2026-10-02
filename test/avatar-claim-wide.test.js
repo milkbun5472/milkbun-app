@@ -10,3 +10,8 @@ test("换成X了／改好了／用上了 都认得；没说换的不认", () => 
   ["换成蓝鲨鱼了", "头像改好了", "用上了", "已经设好", "换好了"].forEach(x => assert.ok(re.test(x), x));
   ["好啊等下换", "我不换", "换头像？"].forEach(x => assert.ok(!re.test(x), x));
 });
+test("情头那两张在给TA看的历史里标上第 1／第 2 张，不让TA猜", () => {
+  assert.match(a, /const _pairNo = m =>/);
+  assert.match(a, /qpfx \+ _pairNo\(m\) \+ "【对方发来的真实照片/);
+  assert.match(a, /已经标着【情头·第 1 张】【情头·第 2 张】/);
+});

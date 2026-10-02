@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.534";
+const APP_VERSION = "v74.535";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10230,6 +10230,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _pairPick = (!opts.proactive && askedRecently(history, PAIR_AVATAR_ASK_RE, 4))
         ? freshPhotoPairIn(chatsRef.current[charId] || [], ASK_PHOTO_LOOKBACK) : null;
       const _avatarMsg = _seenMsg || _askPick || _autoPick;
+      // 情头那两张在历史里直接标上「第 1 张／第 2 张」（她 2026-10-02：TA说「鲨鱼归我」，结果自己换成了猫——
+      //   原来只说「先发的是第 1 张」，可TA看到的历史里那两张图没有编号，只能猜，猜反了）
+      const _pairNo = m => { if (!_pairPick) return ""; const same = (a, b) => a && b && (a === b || (a.id && a.id === b.id) || (a.ts && a.ts === b.ts && a.imageRef === b.imageRef));
+        return same(m, _pairPick[0]) ? "【情头·第 1 张】" : same(m, _pairPick[1]) ? "【情头·第 2 张】" : ""; };
       const _seenAvatarOk = !!(_avatarMsg && (avatarCoolOk(charId) || _askAvatar));
       // note 只跟【刚看见的那张】走；她翻旧账要换头像时不补记老照片的画面
       const seenHint = _seenMsg ? photoSeenHint(_seenAvatarOk, uName)
@@ -10560,7 +10564,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (_pairPick) {
         openCaps.push("pairAvatar");
         capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
-          + " 发过的最近两张真实照片就是这一对：【第 1 张】是先发的那张，【第 2 张】是后发的那张。"
+          + " 发过的最近两张真实照片就是这一对，历史里那两张已经标着【情头·第 1 张】【情头·第 2 张】。"
           + "要换就填 pairAvatar:{\"yours\":1 或 2}——yours 是你自己用哪一张，另一张就换到 " + uName + " 那边。"
           + "看图挑：通常男生那张给男生、女生那张给女生，或者按两张图里谁像谁来。"
           + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
@@ -10763,7 +10767,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const qpfx = m.replyTo ? "（我在回应你说的「" + String(m.replyTo).slice(0, 40) + "」）" : "";
           // 语音消息标出来：让 TA 知道这条是对方「说」的不是打的字（能回应语气、可以说「听到你声音了」）
           const uc = stp + (m.kind === "voice" ? qpfx + "【这条是语音消息，对方亲口说的】" + m.content + voiceToneForPrompt(m)
-            : m.kind === "photo" && m.imageRef ? qpfx + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
+            : m.kind === "photo" && m.imageRef ? qpfx + _pairNo(m) + "【对方发来的真实照片已作为视觉输入附在本条消息上，请直接看图回应；不要假装看不到，也不要只复述配文】" + (m.desc ? "\n对方配文：" + m.desc : "") + (m.seenNote ? "\n（你当时记下的画面：" + m.seenNote + "）" : "")
             // 还有多久到也要说（她 2026-09-03：「礼物TA好像不知道还有多久到」）——
             // 只写「还在路上」，TA就只能干等着，问TA还要多久也答不上来
             : m.kind === "gift" ? "[送给你一份礼物：" + (m.name || (m.item && m.item.name) || "礼物")
