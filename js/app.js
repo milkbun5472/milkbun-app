@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.533";
+const APP_VERSION = "v74.534";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21433,7 +21433,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 一对、两个人一起换——跟单张那句分开认：「换个头像」不等于「把我的也换了」
   const PAIR_AVATAR_ASK_RE = /情头|一对头像|情侣头像|一起换|我俩.{0,6}头像|我们.{0,6}头像|也帮我换|帮我也换|给我也换/;
   // 兜底：TA嘴上说换了、交回来的字段却没换 → 照TA说的换（跟约定那条「嘴上答应了就补上」同一个思路）
-  const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了/;
+  // ⚠️她 2026-10-02：「为啥有时候又不行」——TA说的是「换成蓝鲨鱼了」「头像改好了」「用上了」这种，原来那张单子一个都认不出，
+  //   于是TA以为换了、其实没换。放宽：换/改/设/用 + 好/上/成/过来，或者「头像」后面跟着换/改。只在这一轮真给了换头像能力时才看它
+  const AVATAR_CLAIM_RE = /换好了|换上了|已经换了|头像换了|换成头像了|设成头像了|当头像了|换过来了|(换|改|设|用)(好|上|成|过来)[^，。！？\n]{0,10}(了|啦|咯)|头像[^，。！？\n]{0,8}(换|改|设)(好|成|上)?(了|啦)|已经(换|改|设)/;
   // 没开口、也不是刚发的那张：只问换不换，不补记画面
   const photoSeenAutoHint = uName =>
     "\n【photoSeen 换头像】上面历史里 " + uName + " 发过一张真实照片。要不要把它换成你自己的头像？**默认 false。**"
