@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {createPetCamera} from './pet-camera.mjs?v=pet-camera-1';
 import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js';
 import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js';
 import {createCatMotion,floorHeight} from './cat-motion.mjs?v=pet-house-3';
@@ -14,8 +15,6 @@ view.append(renderer.domElement);
 const scene=new T.Scene();scene.background=new T.Color('#eee8dc');
 const camera=new T.OrthographicCamera(-5,5,5,-5,.1,100);
 const target=toWeb(layout.camera.target),initialPosition=toWeb(layout.camera.position);
-const spherical=new T.Spherical().setFromVector3(initialPosition.clone().sub(target));
-const initial={theta:spherical.theta,phi:spherical.phi,radius:spherical.radius};let zoom=1;
 const hemi=new T.HemisphereLight('#fff1dc','#c2ae8e',2.35);scene.add(hemi);
 const key=new T.DirectionalLight('#fff1da',3.0);key.position.set(-3,7,4);key.castShadow=true;
 key.shadow.mapSize.set(2048,2048);key.shadow.camera.left=-5;key.shadow.camera.right=5;key.shadow.camera.top=5;key.shadow.camera.bottom=-5;key.shadow.normalBias=.03;key.shadow.bias=-.00015;scene.add(key);
@@ -42,14 +41,10 @@ try{
   walkButton.disabled=false;furButton.disabled=false;
   loading.hidden=true;
   window.petHousePreview={scene,camera,room,cat,petRoot,layout,rig,renderer,motion,dye,
-    snapshot:()=>({evening,zoom,zone:activeZone,ready:true,roomMeshes:meshes.length,catStatic:false,walking,speed,look:dye.snapshot(),motion:motion.snapshot()}),select:selectZone,reset,step:advance};
+    snapshot:()=>({evening,...cameraControls.snapshot(),zone:activeZone,ready:true,roomMeshes:meshes.length,catStatic:false,walking,speed,look:dye.snapshot(),motion:motion.snapshot()}),select:selectZone,reset,step:advance};
 }catch(error){loading.textContent='小屋没能打开，请刷新重试。';console.error(error);}
 
-function updateCamera(){
-  const aspect=innerWidth/innerHeight,span=layout.camera.scale/Math.min(1,aspect)/zoom;
-  camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;
-  camera.position.copy(target).add(new T.Vector3().setFromSpherical(spherical));camera.lookAt(target);camera.updateProjectionMatrix();
-}
+function updateCamera(){cameraControls.update();}
 function advance(dt){
   if(!motion)return;
   const full=rig.stride/rig.duty/rig.cycle*cat.scale.x;
@@ -66,6 +61,7 @@ function advance(dt){
   motion.update(dt,speed,dt?turn/dt:0,walking);settling=Math.max(0,settling-dt);
 }
 let pending=false,lastTime=0;
+const cameraControls=createPetCamera(T,{camera,view,position:initialPosition,target,scale:layout.camera.scale,getCat:()=>petRoot,draw,onTap:tapFurniture,controlsHost:document.querySelector('.cat-actions')});
 function draw(){if(pending||document.hidden)return;pending=true;requestAnimationFrame(time=>{
   pending=false;const dt=lastTime?Math.min(.05,(time-lastTime)/1000):0;lastTime=time;
   advance(dt);updateCamera();renderer.render(scene,camera);
@@ -97,31 +93,12 @@ document.getElementById('light').onclick=()=>{
   const button=document.getElementById('light');button.textContent=evening?'白天':'傍晚';button.setAttribute('aria-pressed',String(evening));button.setAttribute('aria-label',evening?'切换到白天':'切换到傍晚');draw();
 };
 function selectZone(key){const zone=layout.zones[key];if(!zone)return;activeZone=key;document.getElementById('zone-title').textContent=zone.title;document.getElementById('zone-text').textContent=zone.text;draw();}
-function reset(){spherical.theta=initial.theta;spherical.phi=initial.phi;zoom=1;activeZone='';document.getElementById('zone-title').textContent='猫猫的小客厅';document.getElementById('zone-text').textContent='点点家具看看 · 双指或滚轮缩放';draw();}
+function reset(){cameraControls.reset();activeZone='';document.getElementById('zone-title').textContent='猫猫的小客厅';document.getElementById('zone-text').textContent='点点家具看看 · 双指或滚轮缩放';draw();}
 document.getElementById('reset').onclick=reset;
-const ray=new T.Raycaster(),pointer=new T.Vector2(),pointers=new Map();let gesture=null;
-function distance(){const a=[...pointers.values()];return a.length>=2?Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y):0;}
-view.onpointerdown=e=>{view.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});gesture={x:e.clientX,y:e.clientY,lastX:e.clientX,lastY:e.clientY,moved:false,pinch:distance(),startZoom:zoom};};
-view.onpointermove=e=>{
-  if(!pointers.has(e.pointerId)||!gesture)return;
-  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pointers.size>=2){gesture.moved=true;const dist=distance();if(gesture.pinch>0)zoom=T.MathUtils.clamp(gesture.startZoom*dist/gesture.pinch,.85,2.3);else{gesture.pinch=dist;gesture.startZoom=zoom;}}
-  else{
-    const dx=e.clientX-gesture.lastX,dy=e.clientY-gesture.lastY;
-    if(Math.hypot(e.clientX-gesture.x,e.clientY-gesture.y)>5)gesture.moved=true;
-    spherical.theta=T.MathUtils.clamp(spherical.theta-dx*.004,.18,1.18);
-    spherical.phi=T.MathUtils.clamp(spherical.phi-dy*.003,.66,1.19);
-  }
-  gesture.lastX=e.clientX;gesture.lastY=e.clientY;draw();
-};
-view.onpointerup=e=>{
-  const tap=gesture&&!gesture.moved&&pointers.size===1;pointers.delete(e.pointerId);
-  if(tap){const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);
-    for(const hit of ray.intersectObjects(meshes,false)){let o=hit.object;while(o&&!o.userData.zone)o=o.parent;if(o&&layout.zones[o.userData.zone]){selectZone(o.userData.zone);break;}}
-  }
-  gesture=null;
-};
-view.onpointercancel=e=>{pointers.delete(e.pointerId);gesture=null;};
-view.addEventListener('wheel',e=>{e.preventDefault();zoom=T.MathUtils.clamp(zoom*Math.exp(-e.deltaY*.001),.85,2.3);draw();},{passive:false});
-document.addEventListener('visibilitychange',()=>{pointers.clear();gesture=null;lastTime=0;if(!document.hidden)draw();});
+const ray=new T.Raycaster(),pointer=new T.Vector2();
+function tapFurniture(e){
+  const rect=renderer.domElement.getBoundingClientRect();pointer.set((e.clientX-rect.left)/rect.width*2-1,-(e.clientY-rect.top)/rect.height*2+1);ray.setFromCamera(pointer,camera);
+  for(const hit of ray.intersectObjects(meshes,false)){let o=hit.object;while(o&&!o.userData.zone)o=o.parent;if(o&&layout.zones[o.userData.zone]){selectZone(o.userData.zone);break;}}
+}
+document.addEventListener('visibilitychange',()=>{cameraControls.clearGesture();lastTime=0;if(!document.hidden)draw();});
 resize();draw();

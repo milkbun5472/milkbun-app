@@ -138,3 +138,45 @@ test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", ()
   assert.equal((app.match(/onPinShike: indices =>/g) || []).length, 2);
   assert.match(app, /onSummarizePin: async \(c, m\) =>/);
 });
+
+test("第一轮：发给 TA、TA 偶尔想起一张旧的、TA 自己存一刻", () => {
+  const K = kit(), s = P("js/shike.js"), app = P("js/app.js");
+  assert.match(s, /props\.onSendMoment \? h\("button", \{ onClick: \(\) => props\.onSendMoment\(cur, m\)/);
+  assert.match(app, /onSendMoment: \(c, m\) => \{/);
+  assert.match(app, /keepMoment:\{"title":"给这一刻起的名字","why":/);
+  assert.match(app, /if \(parsed\.keepMoment && typeof parsed\.keepMoment === "object" && !sideRoom && !char\.npc/);
+  // 想起旧的：五天里大约一天，同一天挑的是同一张
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [{ role: "user", content: "嗨", ts: D(2025, 1, 10) }] };
+  const pins = { c1: [{ id: "p", ts: D(2025, 5, 5), title: "他第一次吃醋", text: "你跟谁聊呢", role: "assistant" }] };
+  let hits = 0, same = true;
+  for (let i = 0; i < 20; i++) {
+    const now = D(2026, 3, 1) + i * 86400000;
+    const ctx = { now, chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins };
+    const x = kitNote(K, c, ctx), y = kitNote(K, c, ctx);
+    if (x) hits++; if (x !== y) same = false;
+  }
+  assert.ok(hits >= 2 && hits <= 6, "大约五天一次，实际 " + hits + " / 20");
+  assert.ok(same, "同一天挑的得是同一张");
+});
+function kitNote(K, c, ctx) {
+  const g = { React: { useState: () => [], useMemo: f => f() } };
+  new Function("window", "globalThis", "React", "h", "Svg", P("js/shike.js"))(g, g, g.React, () => null, () => null);
+  return g.ShikeKit.chatNote(c, ctx);
+}
+
+test("第二轮：时刻的日子走纪念日主动那条路；主屏「去年今天」", () => {
+  const app = P("js/app.js"), K = kit();
+  assert.match(app, /if \(!u \|\| u\.days !== 0 \|\| !\/\^\(认识\|在一起第\)\/\.test\(u\.title\)\) continue;/);
+  assert.match(app, /aToday\.push\(\{ cid: c\.id, name: u\.title, yrs: 0 \}\);/);
+  assert.match(app, /screen === "home" && shikeOTD && window\.ShikeOTD && h\(window\.ShikeOTD, \{/);
+  assert.match(app, /saveJSON\("x_shikeOTD", schedDayKey\(new Date\(\)\)\)/);
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [{ role: "user", content: "嗨", ts: D(2025, 1, 10) }] };
+  const pins = { c1: [{ id: "p", ts: D(2025, 10, 3), title: "他第一次吃醋", text: "哼", role: "assistant" }] };
+  const otd = K.onThisDay([c], { now: D(2026, 10, 3), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins });
+  assert.ok(otd, "去年今天那张没找到");
+  assert.equal(otd.years, 1);
+  assert.equal(otd.m.title, "他第一次吃醋");
+  assert.equal(K.onThisDay([c], { now: D(2026, 10, 4), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins }), null);
+});

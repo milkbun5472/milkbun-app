@@ -20,3 +20,5 @@ test('preview routes through physical doors and shares garden gestures and cat m
  const code=read('preview.mjs').toString(),html=read('preview.html').toString(),css=read('preview.css').toString();
  assert.match(code,/world\.canEnter\(position,id\)/);assert.match(code,/createMapGesture/);assert.match(code,/createCatMotion/);assert.match(code,/position=\{\.\.\.outdoor\.position\}/);assert.match(html,/id="door-labels"/);assert.doesNotMatch(html,/class="places"/);assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);
 });
+
+test('entered rooms retain the shared close-view camera',()=>{const code=read('preview.mjs').toString();assert.match(code,/createPetCamera\(/);assert.match(code,/cameraControls\?\.clearGesture\(/);assert.match(code,/cameraControls\?\.dispose\(/);assert.match(read('preview.html').toString(),/pet-camera.css/);});

@@ -1,13 +1,13 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#eee8dc"><link rel="icon" href="data:,"><title>宠物小街区</title><link rel="stylesheet" href="preview.css?v=pet-career-3"><script type="importmap">{"imports":{"three":"../../apps/fairy-garden/vendor/three.module.js"}}</script>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#eee8dc"><link rel="icon" href="data:,"><title>宠物小街区</title><link rel="stylesheet" href="preview.css?v=pet-career-4"><link rel="stylesheet" href="../pet-house/pet-camera.css?v=pet-camera-1"><script type="importmap">{"imports":{"three":"../../apps/fairy-garden/vendor/three.module.js"}}</script>
 </head>
 <body>
 <main id="view" aria-label="宠物小世界三维场景"></main>
 <header class="scene-head"><button id="back" aria-label="回到猫猫身边">跟着猫</button><div class="heading"><h1>宠物小街区</h1><p id="subtitle">点地面散步 · 拖动画面</p></div><div class="tools"><button id="light" aria-pressed="false" aria-label="切换到傍晚">傍晚</button><button id="reset" aria-label="回到场景全景">全景</button></div></header>
 <div id="door-labels" aria-label="街上的门牌"></div><div id="loading" role="status">正在打开小街区…</div>
-<div class="near-door"><button id="enter" hidden>走进屋里</button></div>
+<section id="scene-camera" class="scene-camera" aria-label="镜头控制" hidden></section><div class="near-door"><button id="enter" hidden>走进屋里</button></div>
 <footer class="scene-foot" aria-live="polite"><strong id="zone-title">宠物小街区</strong><span id="zone-text">点地面散步 · 点房子门牌走进去</span></footer>
-<script type="module" src="preview.mjs?v=pet-career-3"></script>
+<script type="module" src="preview.mjs?v=pet-career-4"></script>
 </body></html>

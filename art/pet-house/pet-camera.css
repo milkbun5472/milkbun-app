@@ -1,0 +1,5 @@
+.camera-tools{display:flex;align-items:center;justify-content:center;gap:6px;pointer-events:auto}
+.camera-tools button{display:flex;align-items:center;justify-content:center;min-width:42px;min-height:42px;padding:8px}
+.camera-tools #look-cat{min-width:60px;font-size:12px;padding:8px 10px}
+.camera-tools svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round}
+.camera-tools button:disabled{cursor:default;opacity:.4}
