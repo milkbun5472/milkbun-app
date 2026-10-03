@@ -20515,7 +20515,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pov: { me: char.remark || char.name, other: userName(profile) }
       }) + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光，"
         + "别跟上一张一模一样。（第 " + Math.floor(Date.now() / 1000 % 100000) + " 次）" : "");
-      const out = await generateSelfieImage(p0, null, {});
+      // 拍的是她（群友 2026-10-03）：有参考照就锁她的脸——说明书在 albumHerShot 那一份
+      const her = albumHerShot(char, scene, again);
+      const pFinal = her ? her.prompt : p0, pRefs = her ? her.refs : null;
+      const out = await generateSelfieImage(pFinal, pRefs, {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
       const all = loadJSON("x_phoneKeep", {});
@@ -22472,6 +22475,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 出图时的「我」只此一份。⚠️原来四处各自手搓 { name, appearance, refPhoto }，
   //   衣柜和固定服装锁一处都没接上——于是传了脸也没东西兜衣服（她 2026-09-16 提的）。
   //   角色那条链是 固定锁 ＞ 此刻穿着 ＞ 衣柜 ＞ 人设；我这边补齐 固定锁 ＞ 衣柜 ＞ 外貌。
+  // TA 相册里拍到她的那几张（群友 2026-10-03：「在 char 相册里发现了关于我的照片，生成后完全不是我给的参考图，是随机的人」）：
+  //   相册那一路一律按空景／局部照画、不带参考照——画到她就是个陌生人。
+  //   她传过参考照、这张又写到了她，就当一张「TA 给她拍的照片」画，锁她的脸；写到两个人一起的，就当合照，两张脸都锁。
+  //   不是拍她的就返回 null，照旧走空景那条路。
+  const albumHerShot = (char, scene, again) => {
+    if (!(profile && profile.refPhoto) || typeof buildPhotoPrompt !== "function") return null;
+    const uN = userName(profile);
+    if (!(scene.indexOf(uN) >= 0 || /她|你/.test(scene))) return null;
+    const meP = photoMe("她");
+    const both = !!char.refPhoto && /合照|我们|一起|两个人|和她|跟她|我和|自拍/.test(scene);
+    const prompt = both
+      ? buildPhotoPrompt(char, scene, statesRef.current[char.id] || null, { kind: "duo", me: meP, closet: closetTextFor(char.id) })
+      : buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + "（这张是" + (char.remark || char.name) + "拍的她）", null, { kind: "other", closet: meP.closet });
+    return { prompt: prompt + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光。" : ""), refs: both ? [char.refPhoto, profile.refPhoto] : [profile.refPhoto] };
+  };
   const photoMe = (fallbackName) => ({
     name: (profile && profile.name) || fallbackName || "我",
     appearance: profile && profile.appearance,
