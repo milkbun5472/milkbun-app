@@ -87,3 +87,13 @@ test("被拉黑那条链有进度：过了多久、已经说过的那几句摆�
   assert.match(fn, /"\\n\\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" \+ progress/);
   assert.match(app, /setBlockFor\(chatKey, \{ iBlocked: true, blockedTs: Date\.now\(\) \}\)/, "她拉黑他也要记开始时间，不然算不出过了多久");
 });
+
+// 她 2026-10-03：「我拉黑他的时候能不能加一个我也可以说话的功能」
+test("她拉黑他时自己也能说：打的字先落进聊天，他读到再接；她的话不挂红感叹号", () => {
+  assert.match(app, /if \(b\.iBlocked\) \{\n\s*const extra = String\(extraText \|\| ""\)\.trim\(\);\n\s*if \(extra\) pushUser\(activeChar\.id, extra, blockChatKey\(activeChar\.id\)\);/);
+  const a = app.indexOf("const blockedReaction = async"), b = app.indexOf("const respondUnblockFromChar", a);
+  const fn = app.slice(a, b);
+  assert.match(fn, /【她拉黑你之后，自己给你发来了】/);
+  assert.match(fn, /\+ progress \+ herLine \+/);
+  assert.match(app, /blocked: !!b\.theyBlocked,/, "她拉黑他时她发的话是送得到的");
+});

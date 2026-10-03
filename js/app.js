@@ -9440,7 +9440,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(chatKey || charId, p => [...p, {
       role: "user",
       content: text,
-      blocked: !!(b.iBlocked || b.theyBlocked),
+      // 只有【他拉黑了她】时她的话才送不到（红感叹号）；她拉黑他时她照样发得出去、他看得到
+      blocked: !!b.theyBlocked,
       ts: Date.now(),
       read: false
     }]);
@@ -14410,6 +14411,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const since = Number(bk0.blockedTs) || 0;
       const saidWhileBlocked = (chatsRef.current[chatKey] || []).filter(m => m && m.role === "assistant" && m.blocked && typeof m.content === "string" && (!since || (m.ts || 0) >= since));
       const gapTxt = since ? (() => { const mins = Math.round((Date.now() - since) / 60000); return mins < 60 ? "约 " + Math.max(1, mins) + " 分钟" : mins < 2880 ? "约 " + Math.round(mins / 60) + " 小时" : "约 " + Math.round(mins / 1440) + " 天"; })() : "";
+      // 她拉黑之后自己发过来的话（他看得到，只是他回过去的她收不到）
+      const herWhileBlocked = (chatsRef.current[chatKey] || []).filter(m => m && m.role === "user" && !m.kind && typeof m.content === "string" && m.content.trim() && (!since || (m.ts || 0) >= since));
+      const lastAi = saidWhileBlocked.length ? (saidWhileBlocked[saidWhileBlocked.length - 1].ts || 0) : since;
+      const herNew = herWhileBlocked.filter(m => (m.ts || 0) > lastAi);
+      const herLine = herNew.length
+        ? "\n\n【她拉黑你之后，自己给你发来了】（你看得到她这几句；你回过去的她照样收不到）\n" + herNew.slice(-6).map(m => "· " + String(m.content).slice(0, 120)).join("\n")
+          + "\n这一轮你是在读到她这几句之后说话的。"
+        : "";
       const progress = saidWhileBlocked.length
         ? "\n\n【拉黑以后到现在】" + (gapTxt ? "已经过了" + gapTxt + "；" : "") + "你在这期间已经发了 " + saidWhileBlocked.length + " 条她收不到的消息，最近几条是：\n"
           + saidWhileBlocked.slice(-6).map(m => "· " + String(m.content).slice(0, 80)).join("\n")
@@ -14419,7 +14428,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           //   把原句摆给他看，又没说不许再用，他就当素材拼回去了。
           + "\n上面这些、以及聊天记录里你拉黑以后发过的每一句，这一轮【一句都不许再发】，换个说法再说一遍也不算新的。"
         : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);
@@ -17767,9 +17776,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const nm = String((patch && patch.name) || "").trim().slice(0, 16);
     if (!nm) { toast("这块地方得有个名字"); return false; }
     if (nm !== oldName && (w.regions || []).some(r => r.name === nm)) { toast("这个世界里已经有叫「" + nm + "」的一块了"); return false; }
+    // 挨着谁（她 2026-10-03：「版块之间的衔接也能编辑吗」）：传了 adj 就照它改，两头一起改——A 挨着 B，B 也挨着 A
+    const want = Array.isArray(patch.adj) ? patch.adj.filter(a => a && a !== oldName && a !== nm) : null;
     const regions = (w.regions || []).map(r => {
       const base = r.name === oldName ? { ...r, name: nm, terrain: patch.terrain || r.terrain } : r;
-      return { ...base, adj: (base.adj || []).map(a => a === oldName ? nm : a) };
+      let adj = (base.adj || []).map(a => a === oldName ? nm : a);
+      if (want) {
+        if (r.name === oldName) adj = want.slice();
+        else adj = want.includes(r.name) ? (adj.includes(nm) ? adj : adj.concat([nm])) : adj.filter(a => a !== nm);
+      }
+      return { ...base, adj: adj };
     });
     saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x, regions }));
     toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
@@ -25637,7 +25653,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onReply: extraText => {
       const b = blocks[blockChatKey(activeChar.id)] || {};
-      if (b.iBlocked) return blockedReaction(activeChar.id, blockChatKey(activeChar.id));
+      // 她拉黑他的时候自己也能说话（她 2026-10-03）：现实里拉黑的那一方照样能发，对方也看得到——
+      //   原来这儿把她打的字整个丢了，只让他自说自话。现在先把她这句落进聊天，再让他接。
+      if (b.iBlocked) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, blockChatKey(activeChar.id));
+        return blockedReaction(activeChar.id, blockChatKey(activeChar.id));
+      }
       if (b.theyBlocked) { toast("TA 拉黑了你，点消息旁的 ! 申请解除"); return; }
       const room = window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
       const chatKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;

@@ -60,3 +60,15 @@ test("改一块地方：名字地形都改，别的块「挨着谁」跟着改�
   assert.match(map, /onEditRegion: o\.onEditRegion \?/);
   assert.match(app, /onEditRegion: editWorldRegion,/);
 });
+
+// 她 2026-10-03：「版块之间的衔接也能编辑吗」
+test("挨着谁能改，两头一起改：加一条连、拆一条连", () => {
+  const W3 = () => [{ id: "w", regions: [{ name: "东区", adj: ["港口"], nodes: [] }, { name: "港口", adj: ["东区"], nodes: [] }, { name: "北山", adj: [], nodes: [] }] }];
+  const a = runR(W3(), "w", "东区", { name: "东区", adj: ["北山"] }).saved[0].regions;
+  assert.deepEqual(a[0].adj, ["北山"]);
+  assert.deepEqual(a[1].adj, [], "拆掉的那头也要拆");
+  assert.deepEqual(a[2].adj, ["东区"], "新连的那头也要连上");
+  const b = runR(W3(), "w", "东区", { name: "灯市", adj: ["港口", "北山"] }).saved[0].regions;
+  assert.deepEqual(b[1].adj, ["灯市"]); assert.deepEqual(b[2].adj, ["灯市"]);
+  assert.match(map, /"挨着哪几块（图上就连着哪几块）"/);
+});

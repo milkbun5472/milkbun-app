@@ -561,7 +561,7 @@ function mapSubSkin(t) {
             kindMark(sel.kind, 15, "#3b3227"), sel.name),
           h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: 11.5, color: "#7a6a54", marginTop: 3 } },
             h("span", null, world.name + " · " + sel.region + "（" + (built.regions.find(function (r) { return r.name === sel.region; }) || {}).terrain + "）"),
-            onEditRegion && !regEdit ? h("button", { onClick: function () { setRegEdit({ name: sel.region, terrain: (built.regions.find(function (r) { return r.name === sel.region; }) || {}).terrain || "平原" }); },
+            onEditRegion && !regEdit ? h("button", { onClick: function () { const rg0 = (world.regions || []).find(function (r) { return r.name === sel.region; }) || {}; setRegEdit({ name: sel.region, terrain: rg0.terrain || "平原", adj: (rg0.adj || []).slice() }); },
               className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", borderBottom: "1px dotted #7a6a54", padding: "4px 0 0", minHeight: 28 } }, "改这一块") : null),
           regEdit ? h("div", { style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed rgba(120,104,80,0.35)" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", marginBottom: 6 } }, "这一块叫什么"),
@@ -573,7 +573,14 @@ function mapSubSkin(t) {
               return h("button", { key: k, onClick: function () { setRegEdit(Object.assign({}, regEdit, { terrain: k })); }, className: "active:opacity-70",
                 style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 10px", borderRadius: 3, color: on2 ? "#fff" : "#3b3227", background: on2 ? "#3b3227" : "transparent", border: (on2 ? 2 : 1) + "px solid rgba(80,66,48," + (on2 ? 1 : 0.4) + ")" } }, k);
             })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7a6a54", marginTop: 6, lineHeight: 1.6 } }, "改的是整块地方：这一块里的地点都跟着它，别的地方「挨着谁」也会一起改过来。"),
+            (world.regions || []).length > 1 ? h("div", null,
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", margin: "10px 0 6px" } }, "挨着哪几块（图上就连着哪几块）"),
+              h("div", { className: "flex flex-wrap", style: { gap: 6 } }, (world.regions || []).filter(function (r) { return r.name !== sel.region; }).map(function (r) {
+                const on2 = (regEdit.adj || []).indexOf(r.name) >= 0;
+                return h("button", { key: r.name, onClick: function () { setRegEdit(Object.assign({}, regEdit, { adj: on2 ? regEdit.adj.filter(function (a) { return a !== r.name; }) : (regEdit.adj || []).concat([r.name]) })); }, className: "active:opacity-70",
+                  style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 10px", borderRadius: 3, color: on2 ? "#fff" : "#3b3227", background: on2 ? "#5e7a5a" : "transparent", border: (on2 ? 2 : 1) + "px " + (on2 ? "solid" : "dashed") + " rgba(80,66,48," + (on2 ? 1 : 0.4) + ")" } }, r.name);
+              }))) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7a6a54", marginTop: 6, lineHeight: 1.6 } }, "改的是整块地方：这一块里的地点都跟着它；挨着谁两头一起改，A 连着 B，B 也就连着 A。"),
             h("div", { className: "flex justify-end", style: { gap: 10, marginTop: 8 } },
               h("button", { onClick: function () { setRegEdit(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: "#7a6a54", minHeight: 36, padding: "0 6px" } }, "取消"),
               h("button", { onClick: function () { if (onEditRegion(sel.region, regEdit)) setRegEdit(null); }, className: "active:opacity-70",
