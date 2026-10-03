@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.580";
+const APP_VERSION = "v74.581";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8051,6 +8051,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       && x.state === "gone" && x.place && x.place.name && (Number(x.ts) || 0) <= st + 60000 && st - (Number(x.ts) || 0) < 2 * 86400000);
     return m ? { name: m.place.name, note: m.place.note || "", how: "date" } : null;
   };
+  // 「那天」收纳册（她 2026-10-03）：只收约过的——单聊里留过「那天」的，加上互通群里约、他去了的那几场。
+  //   每张带着那一场线下本身，翻面看总结、点开看完整经过。不另存一份：卡在聊天里，场子在线下记录里，这里只是把两头对上。
+  const dateAlbumFor = charId => {
+    const c = (characters || []).find(x => x.id === charId);
+    if (!c) return [];
+    const out = [];
+    const mine = offlinesRef.current[charId] || loadJSON("x_offline:" + charId, []) || [];
+    (chatsRef.current[charId] || []).forEach(m => {
+      if (!m || m.kind !== "datememory" || !m.place) return;
+      out.push({ key: m.id || ("m" + m.ts), m, who: c.remark || c.name, session: mine.find(x => x && x.startTs === m.startTs) || null, sessions: mine, char: c });
+    });
+    (groupsRef.current || []).forEach(g => {
+      if (!g || !(g.memberIds || []).includes(charId) || !gsFor(g.id).memoryInterop) return;
+      const list = groupOfflinesRef.current[g.id] || loadJSON("x_goffline:" + g.id, []) || [];
+      (groupChatsRef.current[g.id] || []).forEach(m => {
+        if (!m || m.kind !== "datememory" || !m.place) return;
+        const went = Array.isArray(m.ids) ? m.ids.includes(charId) : String(m.who || "").split("、").includes(c.remark || c.name) || String(m.who || "").split("、").includes(c.name);
+        if (!went) return;
+        out.push({ key: g.id + ":" + (m.id || m.ts), m, who: m.who || g.name, group: g, session: list.find(x => x && x.startTs === m.startTs) || null, sessions: list });
+      });
+    });
+    return out.sort((a, b) => (b.m.startTs || b.m.ts || 0) - (a.m.startTs || a.m.ts || 0));
+  };
   const endOffline = async scopeKey => {
     const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey), sideRoomData = offlineRoomFor(scopeKey);
     const char = offlineCharacterFor(scopeKey);
@@ -8761,7 +8784,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         saveJSON("x_dateVisits", v);
       } catch (e) {}
       const lastTa = [...(sess.msgs || [])].reverse().find(m => m && m.role === "assistant" && m.content);
-      pushGroupRich(groupId, { id: "mem_" + Date.now(), role: "system", kind: "datememory", place: sess.datePlace, startTs: sess.startTs,
+      pushGroupRich(groupId, { id: "mem_" + Date.now(), role: "system", kind: "datememory", place: sess.datePlace, startTs: sess.startTs, ids: (group.memberIds || []).slice(),
         who: (group.memberIds || []).map(id => { const c = characters.find(x => x.id === id); return c ? (c.remark || c.name) : ""; }).filter(Boolean).join("、"),
         line: lastTa ? String(lastTa.content).replace(/\s+/g, " ").slice(0, 60) : "", content: "那天在「" + sess.datePlace.name + "」" });
     }
@@ -26568,6 +26591,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     mapStatus: mapStatusAll(),
     userGeo: realGeo(),
     profile: profile,
+    dateAlbumFor: dateAlbumFor,
     worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes },
     onOpenMap: () => setScreen("map"),
     toast: toast,

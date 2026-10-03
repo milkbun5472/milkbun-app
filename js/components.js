@@ -12654,20 +12654,25 @@ function DateComposeDialog({ place, places, members, who, onCancel, onSend }) {
     onCancel);
 }
 // 见面散场以后留下的「那天」（她 2026-10-02）：跟约会卡同一张素纸，居中放着，像夹进本子里的一张小票
-function DateMemoryCard({ m, character }) {
+// fill：装进「那天」收纳册的格子里（她 2026-10-03）——同一张卡，只是填满格子、长字截几行，不另画一份
+function DateMemoryCard({ m, character, fill }) {
   const t = useTheme();
   useEffect(() => { dateHandFont(); }, []);
   const pl = m.place || {}, d = new Date(m.startTs || m.ts || Date.now()), ink = t.sub;
   const when = (d.getMonth() + 1) + "." + String(d.getDate()).padStart(2, "0");
-  return h("div", { className: "py-2 flex justify-center" },
-    h("div", { "data-wk": "card", style: { width: 220, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "16px 16px 14px", textAlign: "center", boxShadow: "0 6px 16px rgba(0,0,0,.07)" } },
+  const clamp = n => fill ? { overflow: "hidden", display: "-webkit-box", WebkitLineClamp: n, WebkitBoxOrient: "vertical" } : {};
+  const card = h("div", { "data-wk": "card", style: Object.assign({ background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, textAlign: "center" },
+      fill ? { width: "100%", height: "100%", padding: "14px 12px 12px", display: "flex", flexDirection: "column", boxShadow: "0 4px 12px rgba(0,0,0,.06)" }
+        : { width: 220, padding: "16px 16px 14px", boxShadow: "0 6px 16px rgba(0,0,0,.07)" }) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog } }, pl.how === "meet" ? "BY CHANCE" : "THAT DAY"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink, marginTop: 8 } }, pl.name || "某处"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, letterSpacing: ".2em", color: ink, marginTop: 4 } }, when + " ★"),
-      m.line ? h("div", { style: { fontFamily: F_HAND, fontSize: 14, lineHeight: 1.6, color: ink, marginTop: 10, wordBreak: "break-word" } }, "「" + m.line + "」") : null,
+      h("div", { style: Object.assign({ fontFamily: F_DISPLAY, fontSize: fill ? 14.5 : 16.5, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word" }, clamp(2)) }, pl.name || "某处"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: fill ? 10.5 : 11, letterSpacing: ".2em", color: ink, marginTop: 4 } }, when + " ★"),
+      m.line ? h("div", { style: Object.assign({ fontFamily: F_HAND, fontSize: fill ? 12.5 : 14, lineHeight: 1.6, color: ink, marginTop: fill ? 8 : 10, wordBreak: "break-word" }, clamp(3)) }, "「" + m.line + "」") : null,
+      fill ? h("div", { style: { flex: 1 } }) : null,
       // 群里那张署名是一串名字：名字自己占一行，后面那句另起，别被从中间折断
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" } },
-        (character.remark || character.name || "TA"), h("br"), pl.how === "meet" ? "碰巧遇上的那天" : "一起去过的那天")));
+      h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: fill ? 9.5 : 10, color: t.fog, marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" }, clamp(3)) },
+        (character.remark || character.name || "TA"), h("br"), pl.how === "meet" ? "碰巧遇上的那天" : "一起去过的那天"));
+  return fill ? card : h("div", { className: "py-2 flex justify-center" }, card);
 }
 // 约到点了，盖在整个页面上那一层：赴约卡从中间浮出来，点卡就出发（她 2026-10-02）
 function DateArrivePop({ m, character, onGo, onLater }) {

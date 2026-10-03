@@ -195,3 +195,17 @@ test("从邀约出发、场子上却没记地方的那场：散场时从聊天�
   assert.match(fix, /!Array\.isArray\(chatsRef\.current\[c\.id\]\) \|\| !chatsRef\.current\[c\.id\]\.length\) return;/, "聊天没载进来就往上追加会盖掉整段");
   assert.match(fix, /chat\.some\(m => m && m\.kind === "datememory" && m\.startTs === x\.startTs\)/, "补过的不再补");
 });
+
+test("「那天」收纳册：只收约过的（单聊的「那天」＋互通群里他去了的），翻面看总结，点开借线下往期记录页", () => {
+  const al = app.slice(app.indexOf("const dateAlbumFor = "), app.indexOf("const endOffline = async"));
+  assert.match(al, /m\.kind !== "datememory"/, "只收留过「那天」的，没走邀约的线下不收");
+  assert.match(al, /gsFor\(g\.id\)\.memoryInterop/, "不互通的群不收");
+  assert.match(al, /Array\.isArray\(m\.ids\) \? m\.ids\.includes\(charId\)/);
+  assert.match(app, /kind: "datememory", place: sess\.datePlace, startTs: sess\.startTs, ids: /);
+  const dw = R("js/dwell.js");
+  assert.match(dw, /function DateAlbumCard\(/);
+  assert.match(dw, /h\(DateMemoryCard, \{ m: m, character: \{ name: e\.who \}, fill: true \}\)/, "正面就是聊天里那张「那天」，不另画");
+  assert.ok(dw.indexOf("THAT DAY") < 0, "dwell 里又抄了一份卡面");
+  assert.match(dw, /h\(OfflineSessionReader, \{ session: albumRead\.session/, "完整经过用现成那页");
+  assert.match(dw, /pointerEvents: flipped \? "none" : "auto"/);
+});

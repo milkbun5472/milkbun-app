@@ -246,6 +246,26 @@
   const OVER_CARD = "rgba(255,255,255,.075)";
   const OVER_SCRIM = "rgba(9,12,14,.44)";
 
+  // 「那天」收纳册（她 2026-10-03）：一张张「那天」排成两列，点一下翻到背面看那场的总结，再点开看完整经过。
+  //   只收约过的（她定的：没走邀约的线下不收）。正面跟聊天里那张「那天」长一个样。
+  function DateAlbumCard({ t, e, flipped, onFlip, onRead }) {
+    const m = e.m;
+    const face = { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", background: t.bg2, border: "1px solid " + t.line,
+      borderRadius: 12, padding: "14px 12px 12px", display: "flex", flexDirection: "column", boxShadow: "0 4px 12px rgba(0,0,0,.06)" };
+    const sum = String((e.session && e.session.summary) || "").trim();
+    return h("div", { onClick: onFlip, role: "button", "data-wk": "card", className: "active:opacity-90", style: { position: "relative", height: 196, perspective: 900, cursor: "pointer" } },
+      h("div", { style: { position: "absolute", inset: 0, transformStyle: "preserve-3d", transition: "transform .5s cubic-bezier(.3,.7,.3,1)", transform: flipped ? "rotateY(180deg)" : "none" } },
+        // 藏起来的那一面不接点按：不然点到的可能是背面那颗按钮
+        // 正面就是聊天里那张「那天」，原样借来（fill＝填满这一格）
+        h("div", { style: { position: "absolute", inset: 0, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", pointerEvents: flipped ? "none" : "auto" } },
+          typeof DateMemoryCard === "function" ? h(DateMemoryCard, { m: m, character: { name: e.who }, fill: true }) : null),
+        h("div", { style: Object.assign({}, face, { transform: "rotateY(180deg)", pointerEvents: flipped ? "auto" : "none" }) },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 6 } }, "那天的经过"),
+          h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.ink, wordBreak: "break-word" } },
+            sum || (e.session ? "这一场没留下总结。" : "这一场的线下记录已经不在了。")),
+          e.session ? h("button", { onClick: function (ev) { ev.stopPropagation(); onRead(e); }, className: "active:opacity-60",
+            style: { marginTop: 8, alignSelf: "flex-end", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, minHeight: 28 } }, "看完整经过 →") : null)));
+  }
   function DwellApp(props) {
     const t = useTheme();
     const chars = (props.characters || []).filter(function (c) { return c && !c.npc; });
@@ -262,6 +282,8 @@
     const [cfg, setCfg] = useState(loadCfg);
     const [dates, setDates] = useState([]);
     const [dateSel, setDateSel] = useState(null);
+    const [albumFlip, setAlbumFlip] = useState(null);   // 翻到背面的那一张
+    const [albumRead, setAlbumRead] = useState(null);   // 正在看完整经过的那一场
     // 换一个人，就是换一座城：地点表跟着这个人走
     useEffect(function () { setDates(DatePlaces.list(char && char.id)); setDateSel(null); }, [char && char.id]);
     // 「我们的城市」看哪张图（她 2026-10-02 转群友：切换现实/架空）：手绘＝原来那张钉点图；
@@ -581,6 +603,12 @@
           style: { fontFamily: F_BODY, fontSize: 11, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap",
             color: cfg.withImg ? t.bg2 : t.sub, background: cfg.withImg ? t.ink : "transparent", border: "1px solid " + (cfg.withImg ? t.ink : t.line) } },
           cfg.withImg ? "出图 开" : "出图 关")),
+      // 看完整经过：就是线下那个往期记录页，原样借来，盖一层在去处上面
+      albumRead && albumRead.session && typeof OfflineSessionReader === "function" ? h("div", { style: { position: "fixed", inset: 0, zIndex: 160 } },
+        h(OfflineSessionReader, { session: albumRead.session, sessions: albumRead.sessions || [], t: t, profile: props.profile || {},
+          char: albumRead.char || (albumRead.group ? null : char), fmtStamp: typeof fmtStamp === "function" ? fmtStamp : function (x) { return new Date(x).toLocaleString(); },
+          members: albumRead.group ? (props.characters || []).filter(function (c) { return (albumRead.group.memberIds || []).indexOf(c.id) >= 0; }) : undefined,
+          onClose: function () { setAlbumRead(null); } })) : null,
       compose && typeof DateComposeDialog === "function" ? h(DateComposeDialog, { place: compose, who: char ? (char.remark || char.name) : "TA",
         onCancel: function () { setCompose(null); },
         onSend: function (v) { const p = compose; setCompose(null); props.onDate && props.onDate(char, p, v); } }) : null,
@@ -652,6 +680,15 @@
             h("button", { onClick: function () { setPinPick(false); writeOwn(); }, className: "w-full text-left active:opacity-70",
               style: { marginTop: 10, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "自己写一个"));
         })() : null,
+        (function () {
+          const album = char && props.dateAlbumFor ? props.dateAlbumFor(char.id) : [];
+          if (!album.length) return null;
+          return h("div", { style: { marginBottom: 22 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "0 0 8px" } }, "那天 · " + album.length + " 次"),
+            h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
+              album.map(function (e) { return h(DateAlbumCard, { key: e.key, t: t, e: e, flipped: albumFlip === e.key,
+                onFlip: function () { setAlbumFlip(albumFlip === e.key ? null : e.key); }, onRead: setAlbumRead }); })));
+        })(),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "0 0 8px" } }, characterText(char, "他的地方")),
         busy ? h(Spinner, { label: "正在看看 " + (char ? char.name : "") + " 的地方…（这一步会调一次模型" + (cfg.withImg ? "，出图再一次" : "") + "）" }) : null,
         !places.length && !busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.fog, padding: "10px 0 18px" } },
