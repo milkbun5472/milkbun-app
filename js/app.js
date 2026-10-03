@@ -16,7 +16,11 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
+<<<<<<< HEAD
 const APP_VERSION = "v74.678";
+=======
+const APP_VERSION = "v74.677";
+>>>>>>> origin/main
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11071,7 +11075,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
       const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
@@ -14503,7 +14507,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           //   说出来的话硬得像在背词（群里 2026-10-04：「他像个背词机」）。
           //   改成说清【为什么】和【往哪走】：重复的是没往前走的那种，往前走了就不算重复。
           + "\n上面这些是你【已经说过】的——同一件事、同一个意思，换个说法再说一遍，对她那头没有任何变化，也不像一个真的在等的人。"
-            + "这一轮说的得是从上一句往前挪了一步之后才会有的话：时间过去了、你做了点别的、想法变了、或者你决定不说了。"
+            + "这一轮说的得是从上一句往前挪了一步之后才会有的话。"
+            // ⚠️这几个出口原来全是【走开】（做了点别的／想法变了／决定不说了）。
+            //   于是人设核心就是「一直求」的那种角色被整条堵死：求本身就是重复，他只剩下报状态，
+            //   「手机没电了」「车里有充电器」「算了懒得动了」就是照这条规则产出来的
+            //   （她 2026-10-03 贴的那两张）。往前走≠退场：同一件事上更豁出去一层也是往前走。
+            + "往前走不等于走开：同一件事上更深一层，一样是往前走——话越说越直、越说越软、从讲道理变成只剩一句求你、"
+            + "从站着到坐下到不想动了、把原来不肯说的那句说出来。要紧的是【这一轮比上一轮多了点什么】，不是【换了个话题】。"
+            + "时间过去了、你做了点别的、想法变了、你决定不说了，当然也算——由你这个人决定走哪条，别挑一条省事的。"
         : "";
       // ⚠️这一处是【自己拼 system 的第二处】：buildBundle 那一份（人设全文/心情/好感/反八股）
       //   是白得的，可【单聊线上那一整套 ONLINE_CHAT_RULE_V2】是在聊天那个调用点另外 push 的——
@@ -14516,9 +14527,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   改成掷轴（走公共件 js/axes.js），mode 只在最后给这一轮归个档，不再是让他挑一种演法。
       const BLOCK_AXES = [
         { key: "where", zh: "你此刻人在哪、在干什么", opts: ["还在原地没走", "已经走开了，在别的地方", "正在做一件跟她无关的事", "刚回到你们都熟的那个地方"] },
-        { key: "heat", zh: "这会儿的火气", opts: ["还在气头上", "气过了，剩下累", "压着没发作", "已经不气了，只是放不下"] },
+        // ⚠️heat 原来整条写的是「这会儿的火气」，四个选项全是生气的变体——一个带哭腔求她的人
+        //   根本没有「火气」这一项，轴却逼他从四种生气里挑一种（施工规则/bans-make-it-dumber：
+        //   掷约束，不掷答案；这条掷的是答案）。改成只问【心里最满的是什么】，不预设是哪一种。
+        //   对照组是戳人偶那三条轴（companion.js POKE_AXES）：冲着谁说／多长／接不接她的茬，一条都不预设情绪。
+        { key: "heat", zh: "这会儿心里最满的是哪一样", opts: ["气", "急", "怕", "累", "空", "还是放不下"] },
         { key: "want", zh: "你想不想让她知道这一句", opts: ["就是说给她听的，哪怕她收不到", "说给自己听的，被她看见也无所谓", "本来不想说，还是说了"] },
-        { key: "move", zh: "这一轮你做了什么", opts: ["什么也没做，只是又开口了", "做了件具体的事（走了/坐下/发消息给别人/收拾东西）", "决定先放着不管了"] }
+        { key: "move", zh: "这一轮你做了什么", opts: ["什么也没做，只是又开口了", "做了件具体的事（走了/坐下/发消息给别人/收拾东西）", "还在原地等着，什么也不打算做"] }
       ];
       const _blkRolled = window.Axes
         ? window.Axes.roll(BLOCK_AXES, [charId, "blocked", saidWhileBlocked.length, Date.now()], { allFree: 0.08, skip: 0.12, free: 0.20 })
@@ -14527,7 +14542,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         on: "\n\n【这一轮的几条轴（别点破）】它们互相独立；没列出来的方面你自己拿主意。别为了凑这几条而说话。",
         off: "\n\n【这一轮没有给你任何限制】按你这个人此刻真实的样子来，别挑一种「被拉黑的人该有的反应」来演。"
       }) : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);

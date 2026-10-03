@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("fs");
 const eng = fs.readFileSync(__dirname + "/../js/engine.js", "utf8");
-const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync(__dirname + "/../js/app.js", "utf8"));
 test("not same room → apart line in single and group, cohabit escape kept", () => {
   assert.match(eng, /function apartPresence\(uName, group\)[\s\S]{0,400}除非对话里明确说过/);
   assert.match(app, /offlineActiveFor\(char\.id\) \|\| \(sameRoomFor\(char\.id\) \? "" : apartPresence\(userName\(profile\)\)\)/);
