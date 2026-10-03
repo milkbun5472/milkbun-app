@@ -8366,7 +8366,7 @@ function ImageApiConfig({ toast }) {
     const n = store.profiles.length + 1;
     const id = "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7);
     const from = source || c;
-    const base = copy ? Object.assign({}, from) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
+    const base = copy ? Object.assign({}, from) : { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto" };
     const profile = Object.assign({}, base, { id, name: copy ? ((from.name || "图像站") + " · 副本") : ("图像站 " + n) });
     // ⚠️新增和复制【不抢主用】：多半就是来存一个备用的。只有本来一个主用都没有时才顶上。
     const hasActive = store.profiles.some(p => p.id === store.activeId);
@@ -8519,6 +8519,10 @@ function ImageApiConfig({ toast }) {
         h("option", { value: "first" }, "image（多数旧中转）"),
         h("option", { value: "bracket" }, "image[]（官方/部分新中转）"),
         h("option", { value: "repeat" }, "重复 image（多图兼容）"))),
+      row("请求方式（Gemini / Nano Banana / NAI 中转多半要选聊天接口）", h("select", { value: c.apiFormat || "auto", onChange: e => set({ apiFormat: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
+        h("option", { value: "auto" }, "自动（先出图接口，不通再走聊天接口）"),
+        h("option", { value: "images" }, "出图接口 /images（gpt-image 等）"),
+        h("option", { value: "chat" }, "聊天接口 /chat/completions"))),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "经典直通模式（已是默认管线）"),

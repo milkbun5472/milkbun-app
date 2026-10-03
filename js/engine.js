@@ -4033,7 +4033,7 @@ const IMG_REF_FAIL_FALLBACK = false;
 //   true：锁脸那一枪失败就直接报错，不换字段、不软化重发、不退无参考照，上面那个 FALLBACK 也不生效。
 //   想恢复原来的降级阶梯就改回 false，只此一处。
 const IMG_ONE_SHOT = true;
-const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto" };
+const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto" };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
   const out = Object.assign({}, IMG_API_DEFAULTS, p || {});
@@ -4994,8 +4994,18 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const t0 = Date.now();
     const to = setTimeout(() => ctrl.abort(), capMs);
     let r;
+    // 聊天接口出图（v-chatimg）：有些中转把 Gemini / Nano Banana / NAI 挂在 /chat/completions，
+    // 发一句话、回话里夹着图。apiFormat="chat" 直接走这条；"auto" 先走出图接口，
+    // 那边 404/405/连不上时再改走一次聊天接口。回图的解析交给同一个 parseOut。
+    const chatFetch = async () => {
+      const toUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+      const content = [{ type: "text", text: promptText + "\n（直接生成一张图片，画幅 " + size + "。）" }];
+      if (useRef) for (const b of refBlobs) content.push({ type: "image_url", image_url: { url: await toUrl(b) } });
+      return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: false, modalities: ["image", "text"] }), signal: ctrl.signal });
+    };
     try {
-      if (useRef && refBlobs.length) {
+      if (a.apiFormat === "chat") r = await chatFetch();
+      else if (useRef && refBlobs.length) {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
         if (qualityOverride) fd.append("quality", qualityOverride);
@@ -5028,13 +5038,18 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
+      if (a.apiFormat !== "chat" && a.apiFormat !== "images" && (r.status === 404 || r.status === 405)) r = await chatFetch();
     } catch (err) {
+      if (a.apiFormat !== "chat" && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
+        try { r = await chatFetch(); } catch (e2) { throw err; }
+      } else {
       // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」
       if (/abort/i.test(String((err && err.name) || "") + String((err && err.message) || ""))) {
         const sec = Math.round((Date.now() - t0) / 1000), cap = Math.round(capMs / 1000);
         throw new Error("请求在 " + sec + " 秒后中止（本次上限 " + cap + " 秒" + (sec < cap - 3 ? "——远早于上限,多半是 app 切了后台被系统掐断,重试时请保持在前台" : ",是等待到点超时,这家站这单没做完") + "）");
       }
       throw err;
+      }
     } finally { clearTimeout(to); }
     const rawTxt = await r.text();
     // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（GPT Image 2 的 quality 值域
