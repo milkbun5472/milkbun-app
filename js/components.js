@@ -709,6 +709,47 @@ function callBubble(isMe) {
 //   撕下来的一条纸，左边压一道墨线，右上角一个 ✕ 可以把它拿掉。
 //   换个 app 还成立的形状（一颗灰药丸、一行小字）就是没设计（tabs-not-plain-pills.md）。
 // ⚠️颜色一律从 t 兑：深色主题里写死的白纸黑字会翻车。
+// ── 发文件（她 2026-10-03：「聊天加号里再加一个可以发文件的，先 txt」）──────────
+// 只收纯文本那几种：txt / md / csv / json / srt / log。读成字，整段放进 content 让 TA 真的读到；
+// 太长的截在 FILE_MAX 字（再长一轮上下文就被它吃光了），卡上照实标「只给了前 N 字」。
+// GBK 的老 txt 用 UTF-8 读会满屏「�」——乱码多就换 gb18030 再读一遍。
+const FILE_MAX = 12000;
+function pickTextFile(onMsg) {
+  const inp = document.createElement("input");
+  inp.type = "file";
+  inp.accept = ".txt,.md,.markdown,.csv,.json,.srt,.log,text/plain,text/markdown,text/csv,application/json";
+  inp.onchange = async () => {
+    const f = inp.files && inp.files[0];
+    if (!f) return;
+    if (f.size > 5 * 1024 * 1024) { typeof toast === "function" && toast("文件太大了（超过 5MB），挑一份小一点的"); return; }
+    try {
+      const buf = await f.arrayBuffer();
+      let txt = new TextDecoder("utf-8").decode(buf);
+      if ((txt.match(/\uFFFD/g) || []).length > 8) { try { txt = new TextDecoder("gb18030").decode(buf); } catch (e) {} }
+      txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+      if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
+      const cut = txt.length > FILE_MAX;
+      const body = cut ? txt.slice(0, FILE_MAX) : txt;
+      onMsg({ kind: "file", name: f.name, size: f.size, chars: txt.length, cut: cut, text: body,
+        content: "[文件] " + f.name + "（" + txt.length + " 字" + (cut ? "，只给了前 " + FILE_MAX + " 字" : "") + "）\n" + body });
+    } catch (e) { typeof toast === "function" && toast("这份文件读不出来：" + ((e && e.message) || e)); }
+  };
+  inp.click();
+}
+function FileCard({ m }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const ext = (String(m.name || "").match(/\.([a-z0-9]+)$/i) || [, "txt"])[1].toUpperCase();
+  const kb = m.size ? (m.size < 1024 ? m.size + " B" : (m.size / 1024).toFixed(m.size < 10240 ? 1 : 0) + " KB") : "";
+  return h("div", { "data-wk": "filecard", style: { width: 240, maxWidth: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden" } },
+    h("button", { onClick: () => setOpen(v => !v), className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", background: "transparent", border: "none" } },
+      h("div", { style: { minWidth: 0, flex: 1 } },
+        h("div", { "data-wk": "filename", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.35, overflowWrap: "anywhere" } }, m.name || "文件"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, [kb, (m.chars || 0) + " 字", m.cut ? "只给了前 " + FILE_MAX + " 字" : ""].filter(Boolean).join(" · "))),
+      h("div", { style: { flexShrink: 0, width: 38, height: 46, borderRadius: 4, border: "1px solid " + t.line, background: t.bg, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 6, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".04em", color: t.tint } }, ext)),
+    open ? h("div", { "data-wk": "filebody", style: { borderTop: "1px solid " + t.line, maxHeight: 320, overflowY: "auto", padding: "10px 12px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, m.text || "")
+      : h("div", { style: { borderTop: "1px solid " + t.line, padding: "6px 12px", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "点开看内容"));
+}
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
 // 挂点（她 2026-10-03：「拉黑那个系统小纸条也要挂点」）：sysnote 带 data-kind（block＝拉黑/解除那几张，其余 system）
@@ -8805,7 +8846,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"]].filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"]].filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -8815,7 +8856,10 @@ function ChatThread({
     setPanelOpen(false);
   };
   const onPanelTap = k => {
-    if (k === "location") {
+    if (k === "file") {
+      setPanelOpen(false);
+      pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg)));
+    } else if (k === "location") {
       setGeoOpen(true);
       setPanelOpen(false);
     } else if (k === "photo") {
@@ -9425,6 +9469,15 @@ function ChatThread({
     // 照片：有图没图都走公共那一张卡（PhotoCard）。
     // ⚠️原来这儿只接「有图」那一支，没图的会掉进下面的通用气泡里，
     //   变成一个 40px 灰方块 + 「[图片]」——描述看不见、也点不开。
+    if (m.kind === "file") {
+      const fMine = m.role === "user";
+      return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (fMine ? "justify-end" : "justify-start") },
+        !fMine && h(Avatar, { character: character, size: 40, radius: 10 }),
+        h("div", { onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+          onClick: selMode ? () => toggleSel(i) : undefined,
+          style: { maxWidth: "78%", borderRadius: 12, outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } }, h(FileCard, { m: m })),
+        fMine && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    }
     if (m.kind === "photo") {
       const mine = m.role === "user";
       return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (mine ? "justify-end" : "justify-start") },
@@ -13511,6 +13564,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     // 不用 Unicode 方块/爱心字符当图标，要走已有的 SVG 体系（mobile-ui-layout 第 2 条）。
     // 左右两半各画一笔，中间那道裂缝是折线，不是把心整个描一遍再劈开。
     invite: [P("M3.8 6.6h16.4v10.8H3.8z"), P("M3.8 7l8.2 6.2L20.2 7")],
+    file: [P("M6 3.5h8l4.5 4.5v12.5H6z"), P("M14 3.5V8h4.5"), P("M8.8 12.5h6.4M8.8 15.8h6.4")],
     heartbreak: [P("M12 20.4S4.2 14.6 4.2 9.6A4.2 4.2 0 0112 7.4"),
                  P("M12 7.4a4.2 4.2 0 017.8 2.2c0 5-7.8 10.8-7.8 10.8"),
                  P("M12 4.6l-1.8 3.6 3.4 2.2-2.2 3")]
@@ -15504,7 +15558,7 @@ function GroupThread({
     else if (r === "notyours") toast && toast("这是专属红包，只有 " + (rp.toName || "被点名的那位") + " 能领");
   };
   // 群聊 + 面板：跟私聊对齐（匿名箱→投票、拍一拍→红包）
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : [])];
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["poll", "投票", "bars"], ["transfer", "转账", "bill"], ["rp", "红包", "packet"], ...(onGroupDateInvite ? [["dateinvite", "邀约", "invite"]] : []), ["file", "文件", "file"]];
   const sendRich = msg => {
     onSendRich && onSendRich({ ts: Date.now(), ...msg });
     setPanel(false);
@@ -15512,6 +15566,7 @@ function GroupThread({
   const onPanelTap = k => {
     setPanel(false);
     if (k === "dateinvite") { setGInviteOpen(true); return; }
+    if (k === "file") { pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg))); return; }
     if (k === "location") setGeoOpen(true);
     else if (k === "photo") { setPhotoText(""); setGroupPhotoImg(""); setGroupPhotoMode("real"); setPhotoOpen(true); }
     else if (k === "voicemsg") setVoiceMsgOpen(true);
@@ -15860,6 +15915,13 @@ function GroupThread({
     // ⚠️原来这儿写死 justify-end + mine:true——群里只有她会发图那会儿是对的。
     //   v72.23 起没配图像通道时角色也发照片（只有描述的那一张），写死就会贴错边、
     //   而且看不出是谁发的（她 2026-09-20 要的那件事）。照单聊那张卡的做法认 role。
+    if (m.kind === "file") {
+      const fMine = m.role === "user";
+      return h("div", { key: i, className: "flex py-1 " + (fMine ? "justify-end" : "items-start gap-2 justify-start") },
+        h("div", { onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+          onClick: selMode ? () => toggleSel(i) : undefined,
+          style: { maxWidth: "78%", borderRadius: 12, outline: selMode && selIds.includes(i) ? "2px solid " + t.tint : "none", outlineOffset: 2 } }, h(FileCard, { m: m })));
+    }
     if (m.kind === "photo") {
       const pMine = m.role === "user";
       const pCh = m.senderId ? memberById(m.senderId) : null;
