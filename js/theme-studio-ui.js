@@ -76,6 +76,9 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1 } }, hk[1]));
             })));
       }),
+      // 全 App 那一栏最容易让人白写（群友 2026-10-03：「那个全 app 的我弄了没什么效果」）：先说清它管什么、整体风格该去哪改
+      page === "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", marginBottom: 8 } },
+        "想换整个 App 的风格（底色、字色、强调色），先去「基础配色」「字体」「壁纸」——每一页都跟着它们走。这一栏的 CSS 只抓得住下面这几样共用部件：顶栏、头像、半窗、弹出卡、新消息横幅、开关、输入框。每一页自己的卡片和底纹在这里改不到，要去那一页单独写。") : null,
       !grp && page !== "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.6, color: t.fog } },
         "这一页只有上面这几个通用的。正文里的卡片、按钮、列表还没挂钩子——底色、字色、顶栏、半窗、空状态改得动，单独改某一张卡片改不动。") : null);
   }
