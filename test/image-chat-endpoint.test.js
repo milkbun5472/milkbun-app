@@ -24,3 +24,10 @@ test("chat image brief says the prompt is not content to draw", () => {
 test("non gpt-image models don't get the long hand blocks", () => {
   assert.match(eng, /if \(!\/gpt-image\|dall-\?e\/i\.test[\s\S]{0,200}【手脚必须解剖正确】\[\^【\]\*/);
 });
+test("NAI models get danbooru tags translated first", () => {
+  assert.match(eng, /function isNaiImageModel\(model\)/);
+  assert.match(eng, /if \(isNaiImageModel\(a\.model\)[\s\S]{0,120}await naiTagsFor\(prompt\)/);
+  const f = new Function(eng.match(/function isNaiImageModel\(model\) \{[^\n]*\}/)[0] + "; return isNaiImageModel;")();
+  assert.ok(f("nai-diffusion-4-5-full")); assert.ok(f("NovelAI-v4")); assert.ok(f("nai"));
+  assert.ok(!f("gpt-image-2")); assert.ok(!f("gemini-3.1-flash-image")); assert.ok(!f("dall-e-3"));
+});

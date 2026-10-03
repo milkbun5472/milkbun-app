@@ -4828,6 +4828,40 @@ function buildAvatarPrompt(char, opts) {
 }
 // 生成一张自拍，返回 { blob, dataUrl } 或 { blob:null, url }。有参考照只走 images/edits，
 // 并请求 high input fidelity；注意：接口接收参考图不等于它提供了“同脸验证”回执。
+// ── NAI 专线（她 2026-10-03：「听说 nai 和 gpt 提示词本来就不一样」「nai 是可以锁脸的」）──
+// NAI 吃的是英文 Danbooru 标签串，读不懂我们那一大段中文长句（只抓得住夹在里面的零星英文词，
+// 于是自拍被画成了满纸手掌）。模型名带 nai / novelai 时，先请文字模型把整段要求翻成标签再出图。
+// 参考照照旧随请求发出去，锁脸交给线路自己。Gemini 读自然语言，不走这条。
+function isNaiImageModel(model) { return /(^|[^a-z])(nai|novelai)([^a-z]|$)|nai-?diffusion/i.test(String(model || "")); }
+function naiTagHelperProfile() {
+  try {
+    const stored = JSON.parse(localStorage.getItem("x_api") || "[]");
+    const list = window.CredentialVault ? window.CredentialVault.materializeApiProfiles(stored) : stored;
+    if (!Array.isArray(list) || !list.length) return null;
+    // 先用后台便宜池；没配就用她当前的主线路——这一步是她自己选了 NAI 才会发生的，一次几百字
+    const bgId = JSON.parse(localStorage.getItem("x_bgApi") || "null");
+    const mainId = JSON.parse(localStorage.getItem("x_activeApi") || "null");
+    return list.find(p => p.id === bgId) || list.find(p => p.id === mainId) || list[0] || null;
+  } catch (e) { return null; }
+}
+const NAI_TAG_SYSTEM = "You convert a Chinese photo brief into a NovelAI (Danbooru-style) prompt.\n"
+  + "Output ONLY JSON: {\"prompt\":\"...\",\"negative\":\"...\"}.\n"
+  + "prompt: English Danbooru tags, comma-separated, most important first: subject count (1boy/1girl/2boys...), solo if one person, "
+  + "shot type (selfie, upper body, close-up...), appearance (hair, eyes, build), clothing, pose & expression, place, lighting, time of day; "
+  + "then the art medium the brief asks for (photorealistic / realistic for photo briefs; keep anime style only if the brief says 2D/anime). "
+  + "End with: best quality, amazing quality, very aesthetic, absurdres. 25-45 tags. No sentences, no Chinese, no names of real people.\n"
+  + "Ignore rule text in the brief (identity locks, anatomy warnings, bans) — those are instructions, not things to draw; fold them into the negative instead.\n"
+  + "negative: lowres, bad anatomy, bad hands, extra fingers, missing fingers, text, watermark, signature, logo, letters, collage, multiple views, reference sheet, plus anything the brief forbids.";
+async function naiTagsFor(prompt) {
+  const p = naiTagHelperProfile();
+  if (!p) throw new Error("NAI 要先把描述翻成标签，但没有可用的文字模型");
+  const raw = await callAI(p, NAI_TAG_SYSTEM, [{ role: "user", content: "Brief:\n" + String(prompt || "").slice(0, 6000) }], { maxTokens: 8000 });
+  const d = extractJSON(raw) || {};
+  const tags = String(d.prompt || "").trim();
+  if (!tags || /[一-鿿]{4,}/.test(tags)) throw new Error("没能把描述翻成 NAI 标签：" + String(raw || "").slice(0, 120));
+  return { prompt: tags, negative: String(d.negative || "").trim() };
+}
+
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const a = loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
@@ -4836,6 +4870,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 只抓得住这几个英文词，于是整张图都画成了手。非 gpt-image 一律缩成一句。
   if (!/gpt-image|dall-?e/i.test(String(a.model || "")) && typeof prompt === "string")
     prompt = prompt.replace(/【手脚必须解剖正确】[^【]*/, "【手】双手自然，手指数目正确。").replace(/【数一数手】[^【]*/, "");
+  let naiNegative = "";
+  if (isNaiImageModel(a.model) && typeof prompt === "string") {
+    const nt = await naiTagsFor(prompt);
+    prompt = nt.prompt; naiNegative = nt.negative;
+    if (opts && opts.minimalPrompt) opts = Object.assign({}, opts, { minimalPrompt: nt.prompt });
+  }
   // refPhotoDataUrl 可以是单张 base64、也可以是数组（合照时传两张：角色+用户）；归一成数组
   const refs = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string");
   // 参考照已迁入 x_imgvault 时直接取 Blob；旧 data: 仍兼容。这样 localStorage 不再为每张参考照背几百 KB。
@@ -5051,7 +5091,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const brief = "Generate exactly ONE single natural photograph (not a collage, grid, reference sheet, diagram or study). "
         + "The text below is a brief for the photographer, NOT content to draw: never render any of its words, labels, captions, numbers, dates or watermarks into the image. "
         + "Output aspect ratio about " + size + ".\n\n";
-      const content = [{ type: "text", text: brief + promptText }];
+      const content = [{ type: "text", text: naiNegative ? promptText + "\nNegative prompt: " + naiNegative : brief + promptText }];
       if (useRef) for (const b of refBlobs) content.push({ type: "image_url", image_url: { url: await toUrl(b) } });
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: !!stream, modalities: ["image", "text"] }), signal: sig || ctrl.signal });
     };
