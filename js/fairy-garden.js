@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-65fc8bec3fd05b14", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-bc49cee1c502f6b8", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -168,7 +168,7 @@
   }
   function PetSession(props){
     const key=props.storeKey||KEY,seed=useRef(null);if(!seed.current){seed.current=read(key);if(!seed.current.partnerId&&props.lockPartnerId)seed.current={...seed.current,partnerId:String(props.lockPartnerId)};}const owner=useRef(seed.current.id),frame=useRef(null),latest=useRef(props);latest.current=props;
-    const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({name:'猫猫',look:{id:'original'},weight:1,size:1});
+    const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
     const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current)throw Error('存档已切换，请重新进入宠物小世界。');return d;};
     const game=()=>frame.current?.contentWindow.PetGame;
     const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),ready:()=>{if(frame.current===node)setLoaded(true);}});};
@@ -191,12 +191,13 @@
         error&&h('p',{role:'alert',style:{position:'absolute',left:10,right:10,bottom:panel==='pet'?'64%':70,zIndex:12,background:'#fff5e7',padding:10,color:'#994a36'}},error),
         panel==='pet'&&h('div',{'data-pet-settings':true,className:'flex flex-col',style:{position:'absolute',top:'38%',left:0,right:0,bottom:0,background:'#eee8dc'}},
           h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:'0 18px 12px'}},
+            plate('宠物',h('div',{style:{display:'flex',gap:10}},[['cat','猫咪'],['dog','狗狗']].map(([species,label])=>h('button',{key:species,'aria-label':'选择'+label,'aria-pressed':profile.species===species,onClick:()=>change({species,name:profile.name==='猫猫'||profile.name==='狗狗'?(species==='dog'?'狗狗':'猫猫'):profile.name}),style:{...field,borderBottom:'3px solid '+(profile.species===species?G.deep:G.line),transform:profile.species===species?'translateY(-2px)':'none'}},label)))),
             plate('名字',h('input',{'aria-label':'宠物名字',maxLength:24,value:profile.name,onChange:e=>change({name:e.target.value}),style:field})),
             plate('毛色',h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},palette.map(([label,base,patch])=>h('button',{key:label,'aria-label':label+'毛色','aria-pressed':base?profile.look?.patch===patch:profile.look?.id==='original',onClick:()=>change({look:base?{id:'custom',base,patch}:{id:'original'}}),style:{...field,width:'auto',minWidth:48,borderBottom:'3px solid '+(base?patch:G.deep),background:base||'#fffaf1',transform:(base?profile.look?.patch===patch:profile.look?.id==='original')?'translateY(-2px)':'none'}},label)))),
             plate('自选毛色',h('div',{style:{display:'flex',gap:12}},[['底毛','base','#f2eee6'],['花纹','patch','#a98565']].map(([label,k,fallback])=>h('label',{key:k,style:{display:'flex',alignItems:'center',gap:6}},label,h('input',{type:'color','aria-label':label+'颜色',value:profile.look?.[k]||fallback,onChange:e=>change({look:{id:'custom',base:profile.look?.base||'#f2eee6',patch:profile.look?.patch||'#a98565',[k]:e.target.value}}),style:{width:48,height:42}}))))),
             ...[['胖瘦','weight',.8,1.25],['大小','size',.7,1.3]].map(([label,k,min,max])=>plate(label+' · '+Math.round(profile[k]*100)+'%',h('input',{type:'range','aria-label':label,min,max,step:.01,value:profile[k],onChange:e=>change({[k]:Number(e.target.value)}),style:{width:'100%',minHeight:40,accentColor:G.deep}}))),
             h('p',{style:{fontSize:11,color:G.soft}},'实时预览；名字、毛色与体型只属于这一档宠物。')),
-          h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({name:'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),
+          h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),
         panel==='travel'&&h('div',{className:'absolute inset-0 flex flex-col',style:{background:'#eee8dc',zIndex:10}},h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:18}},h('p',{style:{marginBottom:14}},c?'与 '+(c.remark||c.name)+' 共用这一档旅程。':'三个世界共用这一档旅程。'),h('div',{style:{display:'grid',gap:12}},h('button',{style:pickButtonStyle(),onClick:edit},'宠物名字与外貌'),...WORLDS.filter(w=>w.id!=='pets').map(w=>h('button',{key:w.id,style:pickButtonStyle(),onClick:()=>leave(()=>props.onTravel(w.id))},'进入'+w.name)),h('button',{style:pickButtonStyle(),onClick:()=>leave(()=>props.onChooseSave('pets'))},'选择另一档'))))));
   }
 

@@ -4,7 +4,7 @@ import {createHash} from 'node:crypto';
 const root='apps/fairy-garden',host='js/fairy-garden.js';
 const walk=p=>readdirSync(p,{withFileTypes:true}).flatMap(e=>e.isDirectory()?walk(p+'/'+e.name):[p+'/'+e.name]);
 const files=[...walk(root),...walk('apps/train'),...walk('apps/pets'),...walk('art/pet-career').filter(p=>/\.(mjs|html|css|json|glb)$/.test(p)),...walk('art/pet-house').filter(p=>/\.(mjs|css|json|glb|png|webp)$/.test(p)),...walk('apps/companion'),...['view.mjs','scenery.mjs','environment.mjs','destinations.mjs','journey.mjs','carriage.glb','preview.mjs','preview.html'].map(f=>'art/train-carriage/'+f)].filter(p=>!p.endsWith('.test.mjs')&&!p.endsWith('README.md')&&!p.endsWith('build.json')).sort();
-const strip=s=>s.replace(/\?v=(?:fg-[a-f0-9]+|pet-(?:career|house|camera)-[0-9]+|[a-f0-9]{12}|1)(?=["'])/g,'');
+const strip=s=>s.replace(/\?v=(?:fg-[a-f0-9]+|pet-(?:career|house|camera|motion|dog)-[0-9]+|[a-f0-9]{12}|1)(?=["'])/g,'');
 const hash=createHash('sha256');for(const p of files){hash.update(p);hash.update(/\.(mjs|js|html|css)$/.test(p)?strip(readFileSync(p,'utf8')):readFileSync(p));}
 hash.update(readFileSync(host,'utf8').replace(/BUILD = "(?:__GARDEN_BUILD__|fg-[a-f0-9]+)"/,'BUILD = "__GARDEN_BUILD__"'));
 hash.update(readFileSync('js/companion.js','utf8').replace(/BUILD = "(?:cp-[^"]+|fg-[a-f0-9]+)"/,'BUILD = "__GARDEN_BUILD__"'));

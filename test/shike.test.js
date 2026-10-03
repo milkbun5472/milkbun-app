@@ -225,3 +225,16 @@ test("修：生图只回 blob 也能存；认识从在一起那天起算（更�
   assert.match(app, /kind: "shikeshare", content: body/);
   assert.match(comp, /m\.kind === "shikeshare" && window\.ShikeShareCard/);
 });
+
+test("点「认识 N 天」能改认识那天：定了就以它为准，清空回到自动算", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /const MEET_KEY = "x_shikeMeet";/);
+  assert.match(s, /const own = meetOverride\(c\.id\);\n\s*if \(own\) return own;/);
+  assert.equal((s.match(/onClick: e => editMeet\(/g) || []).length, 2, "外层卡和里层顶上两处都能点");
+  // 真跑：有覆盖就用覆盖
+  const g = { React: { useState: () => [], useMemo: f => f() } };
+  const store = { x_shikeMeet: { c1: D(2020, 5, 20) } };
+  new Function("window", "globalThis", "React", "h", "Svg", "loadJSON", P("js/shike.js"))(g, g, g.React, () => null, () => null, (k, d) => store[k] || d);
+  const ms = g.ShikeKit.momentsFor({ id: "c1", name: "江识" }, { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: {}, profile: {}, uName: "Lisa" });
+  assert.ok(ms.some(m => m.title === "认识 5 周年"), "定了 2020-05-20，就该有认识 5 周年");
+});

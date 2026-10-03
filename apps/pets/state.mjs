@@ -1,6 +1,6 @@
-import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-65fc8bec3fd05b14';
+import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-bc49cee1c502f6b8';
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
-export function petProfile(value){return {name:typeof value?.name==='string'?value.name.trim().slice(0,24)||'猫猫':'猫猫',look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
+export function petProfile(value){return {species:value?.species==='dog'?'dog':'cat',name:typeof value?.name==='string'?value.name.trim().slice(0,24)||'猫猫':'猫猫',look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
 export function restorePetState(raw,world){const saved=world.restore(raw);return {version:1,day:Math.floor(bound(raw?.day,1,100000,1)),map:saved.room||'outside',...saved,profile:petProfile(raw?.profile),configured:raw?.configured===true};}
 export function snapshotPetState(state,view){return {...state,position:{...view.position},outdoor:view.outdoor?structuredClone(view.outdoor):null,room:view.room,map:view.room||'outside',evening:view.evening,profile:petProfile(state.profile)};}
 // A body-only rest-mesh deformation. Feet, face, eyes and ears stay unchanged.
