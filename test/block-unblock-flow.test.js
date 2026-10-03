@@ -94,6 +94,6 @@ test("她拉黑他时自己也能说：打的字先落进聊天，他读到再�
   const a = app.indexOf("const blockedReaction = async"), b = app.indexOf("const respondUnblockFromChar", a);
   const fn = app.slice(a, b);
   assert.match(fn, /【她拉黑你之后，自己给你发来了】/);
-  assert.match(fn, /\+ progress \+ herLine/);
+  assert.match(fn, /\+ progress \+ herLine \+/);
   assert.match(app, /blocked: !!b\.theyBlocked,/, "她拉黑他时她发的话是送得到的");
 });

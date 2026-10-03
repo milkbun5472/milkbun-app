@@ -17,7 +17,7 @@ test("online reroll feeds the removed version as avoid, single and group", () =>
 });
 test("reroll while I blocked him goes back to the blocked path with the avoid", () => {
   assert.match(app, /if \(bkNow\.iBlocked\) blockedReaction\(activeChar\.id, blockChatKey\(activeChar\.id\), rerollAvoid\)/);
-  assert.match(app, /progress \+ onlineRerollHint\(rerollAvoid\)/);
+  assert.match(app, /progress \+ (herLine \+ )?onlineRerollHint\(rerollAvoid\)/);
 });
 test("blocked reaction: no recycling earlier lines, 2-4 bubbles", () => {
   assert.match(app, /这一轮【一句都不许再发】/);
