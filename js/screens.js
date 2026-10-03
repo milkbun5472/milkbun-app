@@ -8931,12 +8931,12 @@ const CFG_LINE = t2 => (/^#[0-9a-f]{6}$/i.test(String(t2.ink || "")) ? t2.ink + 
 // 栏号牌：方角、淡底、汉字。首页那一列和子页的格子共用同一枚，别各写一份。
 function ConfigMark({ char, tint, size }) {
   const s2 = size || 34;
-  return h("span", { style: { flexShrink: 0, width: s2, height: s2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", background: tint + "1c", color: tint, border: "1px solid " + tint + "3d", fontFamily: F_DISPLAY, fontSize: Math.round(s2 * 0.47) } }, char);
+  return h("span", { "data-wk": "cfmark", style: { flexShrink: 0, width: s2, height: s2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", background: tint + "1c", color: tint, border: "1px solid " + tint + "3d", fontFamily: F_DISPLAY, fontSize: Math.round(s2 * 0.47) } }, char);
 }
 function ConfigTile({ icon, title, sub, onClick, wide, tint }) {
   const t = useTheme();
   const c = tint || t.tint || t.ink;
-  return h("button", { onClick, className: "active:opacity-70", style: {
+  return h("button", { onClick, "data-wk": "cftile", "data-wide": wide ? "1" : "0", className: "active:opacity-70", style: {
     gridColumn: wide ? "1 / -1" : "auto", minHeight: wide ? 84 : 112, padding: "13px 14px 14px",
     borderRadius: 3, textAlign: "left", background: t.bg2, border: "1px solid " + CFG_LINE(t),
     boxShadow: "none", display: "flex", flexDirection: "column", justifyContent: "space-between"
@@ -8947,12 +8947,12 @@ function ConfigTile({ icon, title, sub, onClick, wide, tint }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginTop: 4 } }, sub)));
 }
 function ConfigTileGrid({ children }) {
-  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, paddingTop: 12 } }, children);
+  return h("div", { "data-wk": "cfgrid", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, paddingTop: 12 } }, children);
 }
 
 function ConfigPanel({ children, flush }) {
   const t = useTheme();
-  return h("div", { style: {
+  return h("div", { "data-wk": "cfpanel", "data-flush": flush ? "1" : "0", style: {
     marginTop: 12, marginBottom: 14, padding: flush ? 0 : "15px 14px", overflow: "hidden",
     borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t),
     boxShadow: "none"
@@ -9163,9 +9163,10 @@ function Config(props) {
   return h("div", { className: "h-full flex flex-col", style: sheet },
     h(Head, { zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" ? toyKnock : undefined }),
     h("div", { key: page || "home", ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
-      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 } },
+      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 }, "data-wk": "cfhome" },
         homeRows.map((row, ri) => h("button", {
           key: row.key,
+          "data-wk": "cfrow", "data-page": row.key,
           onClick: e => { if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); setPage(row.key); },
           className: "w-full flex items-center active:opacity-70",
           style: { gap: 12, minHeight: 44, padding: "11px 12px 11px 11px", borderRadius: 3, background: t.bg2, textAlign: "left",
@@ -9173,9 +9174,9 @@ function Config(props) {
         },
           h(ConfigMark, { char: row.char, tint: row.tint }),
           h("span", { className: "flex-1 min-w-0" },
-            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
-            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
-        h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+            h("span", { "data-wk": "cfrowtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
+            h("span", { "data-wk": "cfrowstate", style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
+        h("div", { "data-wk": "cfnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
           "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在TA自己的聊天里点右上角 ⋯。")),
       // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
       page === "look" && h(ConfigTileGrid, null,

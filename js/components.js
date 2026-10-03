@@ -16794,7 +16794,8 @@ function ContactDetail({
     : { background: t.bg2 };
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
-    style: cardSkin
+    style: cardSkin,
+    "data-wk": "cdpage"
   }, /*#__PURE__*/React.createElement(Head, {
     zh: "资料卡",
     sub: character.name || "",
@@ -16803,18 +16804,21 @@ function ContactDetail({
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto px-6 pb-8"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 pt-2"
+    className: "flex items-center gap-4 pt-2",
+    "data-wk": "cdhead"
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 72,
     radius: 16
   }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    "data-wk": "cdname",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 24,
       color: t.ink
     }
   }, character.name), /*#__PURE__*/React.createElement("div", {
+    "data-wk": "cdtagline",
     style: {
       fontFamily: F_BODY,
       fontSize: 12,
@@ -16826,6 +16830,7 @@ function ContactDetail({
     const bd = String(character.birthday || "").trim();
     if (age == null && !bd) return null;
     return /*#__PURE__*/React.createElement("div", {
+      "data-wk": "cdage",
       style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 }
     }, (age != null ? age + " 岁" : "") + (age != null && bd ? " · " : "")
        + (bd ? ((typeof birthdayBothLabel === "function" && birthdayBothLabel(bd)) || ("生日 " + bd)) : ""));
@@ -16838,7 +16843,8 @@ function ContactDetail({
     onBlur: () => onSaveRemark(character.id, remark),
     placeholder: "给 Ta 起个备注"
   })), typeof affinity === "number" && /*#__PURE__*/React.createElement("div", {
-    className: "pt-6"
+    className: "pt-6",
+    "data-wk": "cdaffinity"
   }, /*#__PURE__*/React.createElement(Eyebrow, {
     style: {
       marginBottom: 4
@@ -16850,17 +16856,21 @@ function ContactDetail({
       color: t.tint
     }
   }, affinity, " / 100")), directives.length > 0 && h("div", {
-    className: "pt-6"
+    className: "pt-6",
+    "data-wk": "cdrules"
   }, h(Eyebrow, { style: { marginBottom: 8 } }, "长期准则 · 你经 OOC 立下"), h("div", { className: "space-y-2" }, directives.map(d => h("div", {
     key: d.id,
+    "data-wk": "cdrule",
     style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
   }, h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, d.text), onRemoveDirective && h("button", {
     onClick: () => onRemoveDirective(d.id),
     style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "0 2px" }
   }, "删除")))), h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } }, "这些会作为高优先要求注入 " + character.name + " 的每轮对话；在聊天里用 OOC 说「以后…」即可新增。")), /*#__PURE__*/React.createElement("div", {
-    className: "mt-8 space-y-2.5"
+    className: "mt-8 space-y-2.5",
+    "data-wk": "cdactions"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: onChat,
+    "data-wk": "cdbtn", "data-kind": "chat",
     className: "w-full flex items-center justify-between py-4",
     style: {
       borderTop: `1px solid ${t.line}`
@@ -16876,6 +16886,7 @@ function ContactDetail({
     color: t.fog
   })), /*#__PURE__*/React.createElement("button", {
     onClick: onOpenState,
+    "data-wk": "cdbtn", "data-kind": "state",
     className: "w-full flex items-center justify-between py-4",
     style: {
       borderTop: `1px solid ${t.line}`
@@ -16891,6 +16902,7 @@ function ContactDetail({
     color: t.fog
   })), onOpenDesires && h("button", {
     onClick: onOpenDesires,
+    "data-wk": "cdbtn", "data-kind": "desires", "data-on": desireCount > 0 ? "1" : "0",
     className: "w-full flex items-center justify-between py-4",
     style: { borderTop: `1px solid ${t.line}` }
   },
