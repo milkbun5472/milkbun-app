@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.647";
+const APP_VERSION = "v74.648";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24225,7 +24225,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   聊天卡跟着那一轮走没关系，可订单和扣钱是落了地的，各来一份就成了两顿饭、扣两次钱。
     //   六小时内同一个人点的一模一样那单＝同一单：卡照发（重 roll 后那张卡得在），订单和钱只记一次。
     const orderName = (shop ? shop + " · " : "") + label;
-    const dup = (ordersRef.current || []).find(o => o && o.kind === "takeout" && o.fromCharId === charId && o.name === orderName && Date.now() - (o.ts || 0) < 6 * 3600000);
+    // ⚠️吃完的那一单已经从订单里拿走、进了「吃过的」（x_takeoutLog）——只查订单的话，
+    //   她先点了「吃完了」，TA下一轮再照抄一遍，就又是一单（她 2026-10-03：「她说没有重roll过」）。两处都查。
+    const dup = (ordersRef.current || []).concat(loadJSON("x_takeoutLog", []) || []).find(o => o && o.fromCharId === charId && o.name === orderName && (o.kind === "takeout" || o.takeout) && Date.now() - (o.ts || 0) < 6 * 3600000);
     const arriveTs = dup ? (dup.arriveTs || Date.now()) : Date.now() + deliverMsForCat("food", label);
     if (!dup) walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
     pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,

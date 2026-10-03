@@ -13,7 +13,7 @@ function makeTakeout() {
   const src = grab(app, "  const GIFT_PRICE_HINT = [", "  // 代付：", "礼物/外卖那几个函数");
   const st = { w: { c1: { init: true, balance: 500, ledger: [] } }, chat: [], orders: [] };
   const ref = { current: st.w };
-  const api = new Function("charWalletRef", "characters", "profile", "setCharWallet", "saveJSON", "numClean", "r2", "pChat", "addOrder", "Date", "userName", "deliverMsForCat", "ordersRef",
+  const api = new Function("charWalletRef", "characters", "profile", "setCharWallet", "saveJSON", "numClean", "r2", "pChat", "addOrder", "Date", "userName", "deliverMsForCat", "ordersRef", "loadJSON",
     src + "\nreturn { postCharGift, postCharTakeout };")(
     ref, [{ id: "c1", name: "江识" }], { name: "Lisa" },
     fn => { const n = fn(ref.current); if (n) { ref.current = n; st.w = n; } },
@@ -24,7 +24,8 @@ function makeTakeout() {
     o => { st.orders.push(o); },
     Date, userName,
     cat => (cat === "food" ? 10 * 60000 : 5 * 3600000),
-    { get current() { return st.orders; } });
+    { get current() { return st.orders; } },
+    (k, d) => (k === "x_takeoutLog" ? st.log || [] : d));
   return { api, st };
 }
 
@@ -54,6 +55,15 @@ test("同一单交两遍：卡照发，订单和钱只记一次", () => {
   assert.equal(st.orders.length, 1, "记成了两单");
   assert.equal(st.w.c1.balance, 468, "扣了两次钱");
   assert.equal(st.chat[1].arriveTs, st.orders[0].arriveTs, "第二张卡的倒计时跟那一单对不上");
+});
+
+// 她 2026-10-03：「她说没有重roll过」——先点了「吃完了」（那单进了吃过的），TA下一轮照抄，也不该再记一单
+test("那一单已经吃完进了「吃过的」，TA再照抄一遍也不记第二单", () => {
+  const { api, st } = makeTakeout();
+  st.log = [{ id: "od_1", name: "巷口粥铺 · 皮蛋瘦肉粥", takeout: { shop: "巷口粥铺" }, fromCharId: "c1", ts: Date.now() - 3600000 }];
+  api.postCharTakeout("c1", { shop: "巷口粥铺", items: ["皮蛋瘦肉粥"], price: 32 });
+  assert.equal(st.orders.length, 0, "吃完的那单又被记了一遍");
+  assert.equal(st.w.c1.balance, 500, "又扣了一次钱");
 });
 
 test("takeout 没有点任何东西就不出卡、不扣钱", () => {

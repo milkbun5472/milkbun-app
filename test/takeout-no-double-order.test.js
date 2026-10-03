@@ -8,7 +8,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
 test("同一个人六小时内一模一样的外卖只记一单、只扣一次钱", () => {
   const i = app.indexOf("const postCharTakeout = (charId, raw) => {");
   const seg = app.slice(i, app.indexOf("\n  };", i));
-  assert.match(seg, /const dup = \(ordersRef\.current \|\| \[\]\)\.find\(o => o && o\.kind === "takeout" && o\.fromCharId === charId && o\.name === orderName/);
+  assert.match(seg, /const dup = \(ordersRef\.current \|\| \[\]\)\.concat\(loadJSON\("x_takeoutLog", \[\]\) \|\| \[\]\)\.find\(/, "吃过的那份也得查");
   assert.match(seg, /if \(!dup\) walletSpend\(/);
   assert.match(seg, /if \(!dup\) addOrder\(/);
 });
