@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const source = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+const source = require("./_online-layer.js").expand(fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"));
 
 test("engineerEyes uses a self-directed transport prompt instead of the RP task", () => {
   assert.match(source, /const _taskFull = \(_s\.engineerEyes \? _digitalTaskFull : _normalTaskV2\) \+ _roomHint/);
@@ -100,7 +100,7 @@ test("engineerEyes chat carries a lean volatile baggage budget", () => {
 // 只剩「不要为了填字段制造内容」这类抑制性框架，全员把能力当摆设。补能力使用总则：
 // 鼓励大方用 + 界碑「克制的是字段不是话」，防止字段克制渗进语气变成安全腔。
 test("能力使用总则：正向许可回来了，且克制不许渗进语气", () => {
-  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8");
+  const src = require("./_online-layer.js").expand(require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js/app.js"), "utf8"));
   assert.match(src, /【能力使用总则】/);
   assert.match(src, /这些功能都可以日常使用/);
   assert.match(src, /没有使用频率或轮数要求/);
