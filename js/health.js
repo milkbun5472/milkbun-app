@@ -262,6 +262,29 @@
       return [SHORTCUT_MARK].concat(Object.keys(j).map(k => (JSON_KEYS[k] || k) + "：" + j[k])).join("\n");
     } catch (e) { return ""; }
   }
+  // 没有网关的人照这个搭一个：Cloudflare Workers 免费档，自带 https，不用买服务器、不用装软件。
+  //   POST（快捷指令发来）→ 存进 KV 那一格；GET（秋秋机来拿）→ 吐出最新那一份。两头都要带同一把密钥。
+  //   ⚠️这段代码是写给她们复制进 Cloudflare 的，改它要连着下面的教程和测试一起看。
+  const GATEWAY_WORKER = [
+    "// 秋秋机 · 健康网关（Cloudflare Workers）",
+    "// 需要：一个名为 HEALTH 的 KV 绑定，一个名为 SECRET 的密钥变量",
+    "export default {",
+    "  async fetch(req, env) {",
+    "    const cors = { \"Access-Control-Allow-Origin\": \"*\", \"Access-Control-Allow-Headers\": \"Authorization, Content-Type\", \"Access-Control-Allow-Methods\": \"GET, POST, OPTIONS\" };",
+    "    if (req.method === \"OPTIONS\") return new Response(null, { headers: cors });",
+    "    if (!env.SECRET || (req.headers.get(\"Authorization\") || \"\") !== \"Bearer \" + env.SECRET)",
+    "      return new Response(\"密钥不对\", { status: 401, headers: cors });",
+    "    if (req.method === \"POST\") {",
+    "      const text = await req.text();",
+    "      if (!text.includes(\"秋秋健康\")) return new Response(\"第一行要是「秋秋健康」\", { status: 400, headers: cors });",
+    "      await env.HEALTH.put(\"latest\", text.slice(0, 4000));",
+    "      return new Response(\"收到\", { headers: cors });",
+    "    }",
+    "    const v = await env.HEALTH.get(\"latest\");",
+    "    return new Response(v || \"\", { headers: Object.assign({ \"Content-Type\": \"text/plain; charset=utf-8\", \"Cache-Control\": \"no-store\" }, cors) });",
+    "  }",
+    "};",
+    ""].join("\n");
   let pulling = false;
   async function pullGateway(force) {
     const d = load(), gw = d.gateway || {};
@@ -504,8 +527,47 @@
           "同一天再导一次，会换掉上次手机导进来的那份；你自己手记的不动。")));
   }
 
+  // ── 怎么搭一个网关（整页）──────────────────────────────────────
+  function GatewayGuide({ S, toast, onBack }) {
+    const step = (n, title, body, extra) => h("div", { className: "flex", style: { gap: 12, padding: "10px 0" } },
+      h("span", { style: { width: 24, height: 24, borderRadius: 99, background: A(S.accent, "1c"), color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, n),
+      h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY } },
+        h("div", { style: { fontSize: 14.5, color: S.ink, fontWeight: 600 } }, title),
+        h("div", { style: { fontSize: 12.5, color: S.sub, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, body),
+        extra || null));
+    const code = (s, label) => h("div", { style: { marginTop: 8 } },
+      h("div", { style: { padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 11, color: S.ink,
+        whiteSpace: "pre", overflowX: "auto", lineHeight: 1.6, maxHeight: 220, overflowY: "auto" } }, s),
+      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(s); toast && toast(ok ? "已复制" : "没复制上，长按那段自己复制"); },
+        style: Object.assign(btnS(S), { marginTop: 8 }) }, label));
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "搭一个自己的网关", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
+        h(Section, { S, title: "先说它是什么", wk: "healthgatewayguide" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.75 } },
+            "网关就是一个一直在线的小信箱：手机定时把那几行字投进去，秋秋机打开时去取。这里用 Cloudflare 的 Workers 搭，免费、自带 https、不用买服务器也不用装软件，手机浏览器就能弄完，大概二十分钟。信箱只有你自己的密钥打得开，数据只在你自己的 Cloudflare 账号里。")),
+        h(Section, { S, title: "在 Cloudflare 上搭" },
+          step(1, "注册 Cloudflare", "打开 dash.cloudflare.com，用邮箱注册一个免费账号（不用绑卡）。"),
+          step(2, "建一个 KV（存数据的地方）", "左边菜单「存储和数据库」→「KV」（英文界面叫 Workers KV）→「创建」。名字随便，比如 qq-health。"),
+          step(3, "建一个 Worker", "左边菜单「Workers 和 Pages」→「创建」→「创建 Worker」→ 名字随便起 → 部署。\n部署完点「编辑代码」，把里面原来的代码全删掉，换成下面这段，再点右上角「部署」。",
+            code(GATEWAY_WORKER, "复制网关代码")),
+          step(4, "把 KV 接上", "回到这个 Worker 的页面 →「设置」→「绑定」→「添加」→ 选「KV 命名空间」。\n变量名一定要填 HEALTH（大写），命名空间选第 2 步建的那个，保存。"),
+          step(5, "设一把密钥", "还是「设置」→「变量和机密」→「添加」，类型选「密钥」，变量名填 SECRET（大写），值自己编一串别人猜不到的，比如二三十位乱码。保存。\n这串记下来，下面两处都要填同一串。"),
+          step(6, "记下网关地址", "Worker 页面上方那个 https://名字.你的账号.workers.dev 就是网关地址。")),
+        h(Section, { S, title: "让快捷指令往里投" },
+          step(7, "快捷指令最后改成「获取 URL 内容」", "照「从手机健康导入」那页先把「文本」动作搭好。然后把最后的「拷贝到剪贴板」换成「获取 URL 内容」：\n· URL 填第 6 步的网关地址\n· 方法选 POST\n· 头部加一行：键 Authorization，值 Bearer 加一个空格再加你的密钥\n· 请求体选「文件」，选上面那个「文本」\n后面临时加一个「显示结果」，手动跑一次，看到「收到」就通了（通了就把「显示结果」删掉，不然每次都弹）。"),
+          step(8, "设成定时自动跑", "快捷指令 →「自动化」→「＋」→「特定时间」，选「立即运行」（不然每次都要你点确认）。\n位置、电量想准一点的话，多建几个时间，比如早上、中午、傍晚、晚上各一次——报上来的位置三小时内才算「此刻」。")),
+        h(Section, { S, title: "回秋秋机填上" },
+          step(9, "填地址和密钥", "回「谁看着」最下面，网关地址填第 6 步那个，密钥填第 5 步那串（只填那串，不用写 Bearer）。点「现在拿一次」，显示拿到了就好了。以后每次打开秋秋机都会自己去拿。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.7, marginTop: 8 } },
+            "没拿到时下面那行会写原因：「密钥不对」是两边那串不一样；「回了 404」多半是地址抄错；什么都没回，多半是快捷指令还没往里投过。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, lineHeight: 1.6, textAlign: "center" } },
+          "Cloudflare 的菜单叫法偶尔会改，对不上就找意思最接近的那一项。免费档一天能投一千次，够用很久。")));
+  }
+
   // ── 谁看着（整页）────────────────────────────────────────────
-  function WatchPage({ S, d, chars, onPatch, onPull, onBack }) {
+  function WatchPage({ S, d, chars, onPatch, onPull, onGuide, onBack }) {
     const w = d.watch, ids = w.ids || [];
     const toggle = (on, label, desc, onClick) => h("button", { onClick, className: "flex items-center",
       style: { width: "100%", minHeight: 56, background: "transparent", border: "none", borderBottom: "1px dashed " + S.line, padding: "8px 0", textAlign: "left", fontFamily: F_BODY } },
@@ -550,7 +612,8 @@
             d.env && d.env.lat != null ? h("button", { onClick: () => onPatch({ home: { lat: d.env.lat, lon: d.env.lon } }), style: btnS(S) }, "把手机最近报的位置设成家") : null,
             h("button", { onClick: () => { try { navigator.geolocation.getCurrentPosition(p => onPatch({ home: { lat: p.coords.latitude, lon: p.coords.longitude } }), () => {}, { timeout: 15000 }); } catch (e) {} }, style: btnS(S) }, "用这台设备现在的位置"),
             d.home ? h("button", { onClick: () => onPatch({ home: null }), style: btnS(S) }, "清掉") : null)),
-        h(Section, { S, title: "我有自己的网关", wk: "healthgateway" },
+        h(Section, { S, title: "我有自己的网关", wk: "healthgateway",
+            right: h("button", { onClick: onGuide, style: { minHeight: 36, background: "transparent", border: "none", color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600 } }, "没有？免费搭一个") },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7, marginBottom: 6 } },
             "没有就不用管，导入照旧用剪贴板。有的话：让快捷指令每天定时用「获取 URL 内容」把那段字发给你的网关，网关存着最新一份；在这儿填它给出那一份的地址，秋秋机每次打开、切回来时去拿一次，就不用再点导入了。网关要用 https，并允许跨域访问。"),
           h("input", { value: d.gateway.url || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { url: e.target.value.trim() }) }), placeholder: "网关地址，https 开头", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
@@ -602,7 +665,8 @@
       if (!importText(text)) { setPage({ kind: "import" }); props.toast && props.toast(text ? "剪贴板里不是快捷指令那段，可以在这页贴进来" : "读不到剪贴板，可以在这页贴进来"); }
     };
     if (page && page.kind === "import") return h(ImportPage, { S, onImport: importText, toast: props.toast, onBack: () => setPage(null) });
-    if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null),
+    if (page && page.kind === "gateway") return h(GatewayGuide, { S, toast: props.toast, onBack: () => setPage({ kind: "watch" }) });
+    if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null), onGuide: () => setPage({ kind: "gateway" }),
       onPull: async () => { const r = await pullGateway(true); props.toast && props.toast(r ? "拿到了" : "没拿到，看下面那行"); } });
 
     const delMeal = id => patch(prev => ({ meals: prev.meals.filter(m => m.id !== id) }));
@@ -777,7 +841,7 @@
         tab === "today" ? todayView : tab === "body" ? bodyView : weekView));
   }
 
-  g.HealthCtx = { envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
+  g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
   g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电
