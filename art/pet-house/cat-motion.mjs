@@ -32,7 +32,7 @@ export function floorHeight(x,z){
   return r<1?.067+.039*Math.sqrt(1-r):.04;
 }
 
-export function createCatMotion(T,cat,rig,root){
+export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=false}={}){
   const modelScale=root.getWorldScale(new T.Vector3()).x*cat.scale.x;
   const controls=new Map();
   cat.updateWorldMatrix(true,true);
@@ -56,7 +56,7 @@ export function createCatMotion(T,cat,rig,root){
   function transformed(p,pivot,q,offset){return new T.Vector3().fromArray(p).sub(pivot).applyQuaternion(q).add(pivot).add(offset).toArray();}
   function groundAnkle(leg,forward=0){
     const p=cat.localToWorld(new T.Vector3().fromArray(leg.data.ankle).add(new T.Vector3(0,0,forward)));
-    p.y=floorHeight(p.x,p.z)+leg.data.ankle[1]*modelScale+.001;return p;
+    p.y=ground(p.x,p.z)+leg.data.ankle[1]*modelScale+.001;return p;
   }
   function update(dt,speed,turn=0,intent=true){
     dt=clamp(dt,0,.05);elapsed+=dt;
@@ -86,9 +86,9 @@ export function createCatMotion(T,cat,rig,root){
       }else if(leg.wasStance||!leg.start){
         leg.start=leg.lock?.clone()||groundAnkle(leg);
         leg.startQ=leg.orientation.clone();
-        const duration=(1-rig.duty)*rig.cycle,forward=new T.Vector3(0,0,1).applyQuaternion(root.quaternion);
+        const duration=(1-rig.duty)*(matchSpeed&&rate>0?1/rate:rig.cycle),forward=new T.Vector3(0,0,1).applyQuaternion(root.quaternion);
         leg.landing=groundAnkle(leg,rig.stride/2).addScaledVector(forward,speed*duration);
-        leg.landing.y=floorHeight(leg.landing.x,leg.landing.z)+leg.data.ankle[1]*modelScale+.001;
+        leg.landing.y=ground(leg.landing.x,leg.landing.z)+leg.data.ankle[1]*modelScale+.001;
       }
       if(!intent&&!f.stance){leg.landing.lerp(groundAnkle(leg),1-Math.exp(-12*dt));}
       let goal;

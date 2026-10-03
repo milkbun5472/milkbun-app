@@ -11,7 +11,7 @@ from mathutils import Vector
 HERE = Path(__file__).resolve().parent
 args = sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
 parser = argparse.ArgumentParser()
-parser.add_argument('--scene', choices=[scene['id'] for scene in json.loads((HERE/'scenes.json').read_text())], required=True)
+parser.add_argument('--scene', choices=['outside']+[scene['id'] for scene in json.loads((HERE/'scenes.json').read_text())], required=True)
 parser.add_argument('--evidence', required=True)
 parser.add_argument('--skip-render', action='store_true')
 opt = parser.parse_args(args)
@@ -126,7 +126,7 @@ def shell():
     box('背墙',(0,2.72,1.65),(6.55,.16,3.3),cream)
     box('左墙',(-3.22,.1,1.65),(.16,5.35,3.3),cream)
     for z in [.15,3.3]:box('背墙木边',(0,2.59,z),(6.5,.1,.13),wood)
-zone('shell',shell)
+if opt.scene!='outside':zone('shell',shell)
 if opt.scene=='bakery':
     def counter():
         box('柜台',(1.25,.72,.6),(3.05,1.08,1.2),sage,.09)
@@ -393,6 +393,95 @@ elif opt.scene=='cafe':
         for i in range(3):box('粉笔小横线',(-1.68,2.492,2.59-i*.18),(.37,.012,.024),ivory,.003)
     zone('shelves',shelves)
 
+
+elif opt.scene=='outside':
+    grass=material('街区柔绿','#b9c7a5');street=material('奶油石路','#e3d5bc')
+    def at(x,z,h):return (x,-z,h)
+    def grounds():
+        cyl('圆形街区地台',at(0,0,-.12),32,.30,edge,96)
+        cyl('圆形草地',at(0,0,.01),31.85,.10,grass,96)
+        box('北边林地地台',at(0,-38,-.12),(30,32,.3),edge,.12)
+        box('北边林间草地',at(0,-38,.017),(29.8,31.8,.1),grass,.08)
+        box('南北街道',at(0,0,.077),(5,58,.046),street,.025)
+        box('林间石路',at(0,-40,.079),(3,26,.046),street,.025)
+        for b in layout['buildings']:
+            x=b['x'];z=b['approach']['z'];box('通向店门的小路',at(x*.5,z,.078 if x<0 else .080),(abs(x)+2,2.4,.046),street,.025)
+        # Low stepping stones at the town's edge are detail, not raised collision surfaces.
+        for i in range(15):ball('公园弯石径',at(-6+math.sin(i*.4)*3,11+i*.9,.086),(.65,.48,.014),street)
+    zone('ground',grounds)
+    for b in layout['buildings']:
+        def house(b=b):
+            x,z=b['x'],b['z'];wall=material(b['title']+'外墙',b['color']);roofmat=material(b['title']+'屋顶',b['roof'])
+            box(b['title']+'房子',at(x,z,2.07),(b['w'],b['d'],4),wall,.14)
+            # Two sloped roof planes meet at a ridge running along X.
+            for side in [-1,1]:
+                roof=box('斜屋顶',at(x,z+side*1.56,4.69),(8.7,3.7,.18),roofmat,.05);roof.rotation_euler.x=side*.4
+            box('屋脊',at(x,z,5.4),(8.8,.18,.16),roofmat,.05)
+            for dx in [-2.55,2.55]:
+                box('外窗',at(x+dx,z+3.035,2.6),(1.4,.06,1.47),sky)
+                for xx in [-.75,.75]:box('窗框',at(x+dx+xx,z+3.09,2.6),(.08,.12,1.59),trim)
+                for zz in [1.83,3.37]:box('窗横框',at(x+dx,z+3.09,zz),(1.58,.12,.08),trim)
+                box('窗台',at(x+dx,z+3.2,1.79),(1.75,.42,.08),wood)
+                box('窗中竖框',at(x+dx,z+3.12,2.6),(.055,.12,1.47),trim)
+            box('店门',at(x,z+3.05,1.34),(1.34,.09,2.54),dark,.04)
+            box('门上玻璃',at(x,z+3.11,1.64),(1.05,.035,1.55),sky)
+            ball('门把手',at(x+.43,z+3.18,1.06),(.055,.045,.055),gold)
+            # Flat threshold stays on the same walking surface as the shared layout.
+            box('门口地垫',at(x,z+3.68,.081),(1.9,1.25,.046),ivory,.025)
+            box('门楣招牌',at(x,z+3.16,3.16),(1.86,.12,.59),trim)
+            for i in range(9):
+                awning=box('条纹门雨棚',at(x+(i-4)*.24,z+3.61,2.73),(.235,1.14,.1),ivory if i%2 else wall);awning.rotation_euler.x=.13
+            if b['id']=='bakery':
+                for i in range(3):ball('门楣面包',at(x+(i-1)*.42,z+3.25,3.15),(.2,.04,.13),book)
+            elif b['id']=='florist':
+                for i in range(5):
+                    a=i*math.tau/5;ball('门楣小花',at(x+.17*math.cos(a),z+3.25,3.16+.17*math.sin(a)),(.1,.04,.1),peach)
+            elif b['id']=='cafe':
+                cyl('门楣咖啡杯',at(x,z+3.26,3.16),.18,.28,rose,16)
+            elif b['id']=='store':
+                for i in range(3):box('门楣小盒',at(x+(i-1)*.38,z+3.25,3.16),(.22,.065,.28),[sage,peach,book][i])
+            elif b['id']=='home':
+                ball('门楣猫脸',at(x,z+3.26,3.15),(.21,.04,.18),peach)
+                for dx in [-.14,.14]:ball('门楣猫耳',at(x+dx,z+3.26,3.34),(.07,.035,.09),peach)
+            else:
+                ring('门楣放大镜',at(x-.05,z+3.25,3.24),.14,.055,.024,gold,n=24)
+                box('放大镜手柄',at(x+.16,z+3.25,3.03),(.07,.07,.28),gold).rotation_euler.y=-.5
+            for dx in [-3.36,3.36]:
+                cyl('门边盆',at(x+dx,z+3.54,.35),.28,.58,rose,16)
+                for j in range(3):ball('门边小叶',at(x+dx+(j-1)*.14,z+3.54,.8+j*.04),(.2,.18,.19),leaf)
+        zone('building_'+b['id'],house)
+    def woods():
+        for i,t in enumerate(layout['trees']):
+            x,z,h=t['x'],t['z'],t['height'];cyl('街区树干',at(x,z,h*.35),t['r'],h*.7,wood,12)
+            for dx,dz,hh,k in [(0,0,.64,1),(-.52,.12,.77,.8),(.48,-.16,.81,.8),(0,0,.95,.7)]:ball('街区软树冠',at(x+dx,z+dz,h*hh),(1.25*k,1.10*k,h*.24*k),leaf if i%3 else leaf_light)
+    zone('woods',woods)
+    def park():
+        for p in layout['props']:
+            x,z=p['x'],p['z']
+            if p['id'] in ['bench','forestbench']:
+                box('公园长凳座',at(x,z,.59),(3,1,.16),wood)
+                box('公园长凳靠背',at(x,z-.4,1.08),(3,.13,.82),wood)
+                for dx in [-1.2,1.2]:box('长凳脚',at(x+dx,z,.32),(.14,.7,.64),sage_dark)
+            elif p['id']=='picnic':
+                box('大野餐布',at(x,z,.08),(3,2,.04),peach)
+                for i in range(10):box('野餐布细条',at(x-1.35+i*.3,z,.11),(.06,1.96,.014),ivory,.003)
+                box('野餐篮',at(x-.7,z,.38),(.65,.55,.54),wood,.07)
+                path('野餐篮把',[(x-1,-z,.6),(x-1,-z,.95),(x-.4,-z,.95),(x-.4,-z,.6)],.03,book)
+            elif p['id']=='play':
+                for dx in [-1,1]:box('低跳栏柱',at(x+dx,z,.56),(.15,.2,1),wood)
+                box('低跳栏横杆',at(x,z,.45),(2.1,.13,.12),sage)
+                ball('草地球',at(x,z+1.5,.27),(.21,.21,.21),peach)
+            else:
+                box('饮水台',at(x,z,.2),(.8,.8,.28),ivory)
+                cyl('公园水碗',at(x,z,.43),.27,.16,rose,20);cyl('水',at(x,z,.518),.24,.012,water,20)
+    zone('park',park)
+    def plaza():
+        cyl('街心花台',at(0,0,.4),1.7,.68,wood,48)
+        cyl('花台泥土',at(0,0,.75),1.5,.03,soil,48)
+        for i in range(12):
+            a=i*math.tau/12;flower(math.cos(a)*1.2,-math.sin(a)*1.2,1.2,peach if i%2 else ivory)
+    zone('plaza',plaza)
+
 # All authored room nodes can be selected independently and retain semantic zone IDs.
 room_objects=list(bpy.context.scene.objects)
 # Export-only batching: retain individual source objects in the .blend, but avoid
@@ -455,8 +544,9 @@ scene=bpy.context.scene;scene.render.engine='CYCLES';scene.cycles.samples=24;sce
 scene.render.resolution_x=1100;scene.render.resolution_y=1100;scene.render.resolution_percentage=100
 scene.world.color=(.42,.42,.42);scene.view_settings.view_transform='AgX'
 bpy.ops.mesh.primitive_plane_add(size=200,location=(0,0,-.33));bpy.context.object.data.materials.append(material('背景','#eee8dc'))
-for loc,power in [((-3,-2,7),850),((4,-5,6),650),((0,5,6),500)]:
-    bpy.ops.object.light_add(type='AREA',location=loc);o=bpy.context.object;o.data.energy=power;o.data.shape='DISK';o.data.size=5;o.rotation_euler=(Vector((0,0,1))-o.location).to_track_quat('-Z','Y').to_euler()
+lighting=[((-25,-20,55),45000),((30,-40,45),35000),((0,40,45),35000)] if opt.scene=='outside' else [((-3,-2,7),850),((4,-5,6),650),((0,5,6),500)]
+for loc,power in lighting:
+    bpy.ops.object.light_add(type='AREA',location=loc);o=bpy.context.object;o.data.energy=power;o.data.shape='DISK';o.data.size=40 if opt.scene=='outside' else 5;o.rotation_euler=(Vector((0,0,1))-o.location).to_track_quat('-Z','Y').to_euler()
 bpy.ops.object.camera_add(location=layout['camera']['position']);cam=bpy.context.object;scene.camera=cam;cam.data.type='ORTHO';cam.data.ortho_scale=layout['camera']['scale'];cam.rotation_euler=(Vector(layout['camera']['target'])-cam.location).to_track_quat('-Z','Y').to_euler()
 bpy.ops.wm.save_as_mainfile(filepath=str(EVIDENCE/(opt.scene+'.blend')))
 if not opt.skip_render:

@@ -1,7 +1,7 @@
 import * as T from 'three';
 import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js';
 import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js';
-import {createCatMotion,floorHeight} from './cat-motion.mjs?v=pet-house-2';
+import {createCatMotion,floorHeight} from './cat-motion.mjs?v=pet-house-3';
 import {createCatDye,CAT_PALETTES,CAT_LOOK_KEY} from './cat-dye.mjs?v=pet-house-2';
 
 const layout=await (await fetch(new URL('./layout.json',import.meta.url))).json();
