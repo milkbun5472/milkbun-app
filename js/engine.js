@@ -5086,9 +5086,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       return JSON.stringify(out);
     };
     let usedChat = false;
-    const chatFetch = async (stream, sig) => {
+    // shape：同一份内容的几种摆法（群友 2026-10-03：Gemini 中转走聊天接口带参考图回「contents is required」——
+    //   中转把 OpenAI 的消息转成 Gemini 的 contents 时，有的认不出带 modalities 的、有的只认图在前、
+    //   有的只认 image_url 直接是一串字符串）。0＝标准；1＝不带 modalities、图放在字前面；2＝image_url 写成字符串
+    const chatFetch = async (stream, sig, shape) => {
       usedChat = true;
-      const toUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
+      // 没标类型的图（data:application/octet-stream）Gemini 那头会整段丢掉，补成 image/png
+      const toUrl = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
       // Gemini 一类聊天出图模型会把提示词【照字面画出来】（她 2026-10-03：一张手部特写拍成了
       // 满纸手和乱码的「手部解剖参考图」——那是把「每只手正好五根手指」那些要求当成了画的内容）。
       // 所以先说清：下面是给摄影师的要求，不是要画进画面的东西。
@@ -5096,14 +5100,25 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         + "The text below is a brief for the photographer, NOT content to draw: never render any of its words, labels, captions, numbers, dates or watermarks into the image. "
         + "Output aspect ratio about " + size + ".\n\n";
       const content = [{ type: "text", text: naiNegative ? promptText + "\nNegative prompt: " + naiNegative : brief + promptText }];
-      if (useRef) for (const b of refBlobs) content.push({ type: "image_url", image_url: { url: await toUrl(b) } });
-      return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: !!stream, modalities: ["image", "text"] }), signal: sig || ctrl.signal });
+      const imgs = [];
+      if (useRef) for (const b of refBlobs) { const u = await toUrl(b); imgs.push(shape === 2 ? { type: "image_url", image_url: u } : { type: "image_url", image_url: { url: u } }); }
+      const parts = shape ? imgs.concat(content) : content.concat(imgs);
+      const body = { model: a.model, messages: [{ role: "user", content: parts }], stream: !!stream };
+      if (!shape) body.modalities = ["image", "text"];
+      return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: sig || ctrl.signal });
     };
     try {
       // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
       //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
       const chatFirst = a.apiFormat === "chat" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
-      if (chatFirst) r = await chatFetch();
+      if (chatFirst) {
+        r = await chatFetch();
+        for (let sh = 1; sh <= 2 && !r.ok; sh++) {
+          const peek = await r.clone().text().catch(() => "");
+          if (!/contents is required|contents.{0,20}empty|invalid.{0,30}(content|part)|messages.{0,20}required/i.test(peek)) break;
+          r = await chatFetch(false, null, sh);
+        }
+      }
       else if (useRef && refBlobs.length) {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
