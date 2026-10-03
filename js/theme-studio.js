@@ -445,6 +445,11 @@
         ["stateaff", "心声卡底下那颗好感的心"],
         // 拉黑时气泡旁那颗红色感叹号（她 2026-10-01：「跟微信一样，然后加一个美化挂点」）
         ["blockdot", "拉黑中气泡旁那颗红色感叹号（data-me=\"1\" 是她那边的）"],
+        // 拉黑提示条和解除申请卡（她 2026-10-03：「拉黑的提示搞点挂点」）
+        ["blockbar", "拉黑时顶上那条提示（data-who＝me 她拉黑了TA／them TA拉黑了她）"], ["blockbaricon", "提示条左边那个禁止圈"],
+        ["blockbartitle", "提示条第一行（谁拉黑了谁）"], ["blockbarhint", "提示条第二行（现在能做什么）"], ["blockbarbtn", "提示条右边的「解除」键"],
+        ["unblockcard", "解除拉黑申请卡（data-from＝char TA发的／me 她发的；data-state＝pending/accepted/declined）"],
+        ["unblocktitle", "申请卡上「解除拉黑申请」那行小字"], ["unblockbody", "申请理由正文"], ["unblockbtns", "「拒绝／接受」那一排"], ["unblockstatus", "已接受／已拒绝那行状态"],
         // TA写的情侣申请信（她 2026-10-02：「开个美化挂点给他」）
         ["letter", "申请信整张（data-state＝sealed 封着／open 拆开没回／accepted／declined）"],
         ["letterseal", "封着时上半截信封那块（背景、那道折痕）"], ["letterstamp", "信封正中那枚封口的心"],

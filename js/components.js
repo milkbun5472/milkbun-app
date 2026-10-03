@@ -8670,6 +8670,7 @@ function ChatThread({
   onOOC,
   block,
   onSendUnblockReq,
+  onUnblock,
   onRespondUnblock,
   profile,
   disp,
@@ -9130,9 +9131,20 @@ function ChatThread({
         onClick: () => { const txt = String(unblockDraft || "").trim(); if (!txt) return; setUnblockDraft(null); onSendUnblockReq(txt); },
         style: { padding: "7px 16px", borderRadius: 999, border: "none", background: t.accent, fontFamily: F_BODY, fontSize: 12.5, color: "#fff", opacity: String(unblockDraft || "").trim() ? 1 : .45 }
       }, "发给 TA"))),
+  // 拉黑提示条（她 2026-10-03：「拉黑的提示搞点挂点，顺便看看样式」）：
+  //   原来是一整行居中的红字，读起来像报错。拆成「谁拉黑了谁」＋「现在能做什么」两层，
+  //   她拉黑 TA 时右边直接给一颗「解除」（原来得钻进设置里找开关）。
   (bk.iBlocked || bk.theyBlocked) && h("div", {
-    style: { flexShrink: 0, background: "rgba(194,90,74,0.1)", borderBottom: "1px solid " + t.line, padding: "7px 16px", fontFamily: F_BODY, fontSize: 11.5, color: t.accent, textAlign: "center", lineHeight: 1.5 }
-  }, bk.theyBlocked ? "TA 拉黑了你 · 你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "你已拉黑 TA · 按「回复」看 TA 的反应；到设置里可解除"), /*#__PURE__*/React.createElement("div", {
+    "data-wk": "blockbar", "data-who": bk.theyBlocked ? "them" : "me",
+    style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 10, background: "rgba(194,90,74,0.08)", borderBottom: "1px solid rgba(194,90,74,0.22)", padding: "8px 14px 8px 16px" }
+  },
+    h("span", { "data-wk": "blockbaricon", "aria-hidden": "true", style: { flexShrink: 0, width: 16, height: 16, borderRadius: 999, border: "1.5px solid " + t.accent, position: "relative", display: "inline-block" } },
+      h("span", { style: { position: "absolute", left: 2, right: 2, top: 6, height: 1.5, background: t.accent, transform: "rotate(-45deg)" } })),
+    h("div", { style: { flex: 1, minWidth: 0, lineHeight: 1.45 } },
+      h("div", { "data-wk": "blockbartitle", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, fontWeight: 600 } }, bk.theyBlocked ? "TA 把你拉黑了" : "你已拉黑 TA"),
+      h("div", { "data-wk": "blockbarhint", style: { fontFamily: F_BODY, fontSize: 11, color: t.sub } }, bk.theyBlocked ? "你的消息 TA 看不到；点消息旁的 ! 写一句话求 TA" : "TA 的消息你照样能看到；按「回复」看 TA 的反应")),
+    bk.iBlocked && onUnblock ? h("button", { "data-wk": "blockbarbtn", onClick: onUnblock, className: "active:opacity-60",
+      style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "4px 12px", background: "transparent" } }, "解除") : null), /*#__PURE__*/React.createElement("div", {
     ref: ref,
     "data-wk": "body",
     // 翻到顶上那一小段就自动补下一批（她手指还在滑的时候就补好，不用等她撞到头）
@@ -13385,15 +13397,17 @@ function UnblockReqCard({ m, character, onRespond }) {
   const body = fromChar ? (m.reason || "想和你和好") : (m.plea || "希望你能解除拉黑");
   const statusLabel = m.status === "accepted" ? "已接受 · 解除拉黑" : m.status === "declined" ? (fromChar ? "你拒绝了" : nm + " 拒绝了 · 可继续尝试") : (fromChar ? "" : "等待 " + nm + " 回应……");
   return h("div", { className: "min-w-0", style: { maxWidth: "calc(100% - 48px)" } },
+    // 挂点（2026-10-03）：unblockcard 带 data-from（char/me）和 data-state（pending/accepted/declined）
     h("div", { "data-wk": "card", style: { width: 250, maxWidth: "100%", overflowWrap: "anywhere", background: "#fff", borderRadius: 16, overflow: "hidden", boxShadow: "0 1px 3px rgba(0,0,0,0.08)", border: "1px solid " + (pending ? t.accent : t.line) } },
+      h("div", { "data-wk": "unblockcard", "data-from": fromChar ? "char" : "me", "data-state": m.status || "pending" },
       h("div", { className: "px-4 pt-3.5 pb-3" },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.12em", color: t.accent, marginBottom: 4 } }, "解除拉黑申请"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: t.ink } }, body)),
+        h("div", { "data-wk": "unblocktitle", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.12em", color: t.accent, marginBottom: 4 } }, "解除拉黑申请"),
+        h("div", { "data-wk": "unblockbody", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.5, color: t.ink } }, body)),
       fromChar && pending
-        ? h("div", { className: "flex", style: { borderTop: "1px solid " + t.line } },
+        ? h("div", { "data-wk": "unblockbtns", className: "flex", style: { borderTop: "1px solid " + t.line } },
             h("button", { onClick: () => onRespond(m.cid, false), className: "flex-1 py-2.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, borderRight: "1px solid " + t.line } }, "拒绝"),
             h("button", { onClick: () => onRespond(m.cid, true), className: "flex-1 py-2.5 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "接受"))
-        : statusLabel && h("div", { className: "px-4 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: m.status === "accepted" ? t.tint : t.fog } }, statusLabel)));
+        : statusLabel && h("div", { "data-wk": "unblockstatus", className: "px-4 py-2", style: { borderTop: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: m.status === "accepted" ? t.tint : t.fog } }, statusLabel))));
 }
 // 聊天 ＋面板单聊群聊共用的高度：两排多露一截，告诉她底下还有，往下滑
 const CHAT_PANEL_SCROLL = { maxHeight: 226, overflowY: "auto", overscrollBehavior: "contain", WebkitOverflowScrolling: "touch" };

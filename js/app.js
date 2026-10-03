@@ -25733,6 +25733,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
     onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id)),
+    onUnblock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
     onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
     profile: profile,
     // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
