@@ -143,3 +143,27 @@ test("出生信息只存在星测里（x_astro_birth），整页、不动档案"
   assert.ok(!/onEditChar[^\n]*birth|saveChar/.test(src), "不许顺手改角色档案");
   assert.ok(A.CITIES.length >= 60 && A.CITIES.every(c => c.length === 4 && isFinite(c[1]) && isFinite(c[2]) && isFinite(c[3])));
 });
+
+test("中国夏令时：1986~1991 年按 PRC 规则自动换算，别的年份、境外都不动", () => {
+  assert.equal(A.chinaDst(1986, 5, 4, 1), false); assert.equal(A.chinaDst(1986, 5, 4, 2), true);
+  assert.equal(A.chinaDst(1988, 4, 16, 12), false); assert.equal(A.chinaDst(1988, 4, 17, 12), true, "1988 年是 4 月 17 日（4 月 11 日之后第一个星期天）");
+  assert.equal(A.chinaDst(1989, 9, 17, 1), true); assert.equal(A.chinaDst(1989, 9, 17, 2), false);
+  assert.equal(A.chinaDst(1992, 7, 1, 12), false); assert.equal(A.chinaDst(1985, 7, 1, 12), false);
+  const bj = { time: "12:00", city: "北京", lat: 39.9, lon: 116.41, tz: 8 };
+  const summer = A.natalChart("1988-07-01", bj), hk = A.natalChart("1988-07-01", Object.assign({}, bj, { city: "香港", lat: 22.32, lon: 114.17 }));
+  assert.equal(summer.dst, true, "老存档没 cc，北京也要认成大陆");
+  assert.equal(hk.dst, false, "香港不跟大陆的夏令时");
+  assert.equal(A.natalChart("1988-07-01", Object.assign({}, bj, { dst: false })).dst, false, "她关掉就不算");
+  // 夏令时一小时 = 太阳挪约 0.04°、上升挪十几度
+  const off = A.natalChart("1988-07-01", Object.assign({}, bj, { dst: false }));
+  const d = Math.abs(summer.lon.asc - off.lon.asc); assert.ok(Math.min(d, 360 - d) > 8);
+});
+
+test("时区：单时区国家直接给；美加俄这种按经度猜、标出来让她确认", () => {
+  assert.deepEqual(A.tzForPlace("cn", 87.6), { tz: 8, guessed: false }, "乌鲁木齐也是东八区，不按经度猜");
+  assert.deepEqual(A.tzForPlace("jp", 139), { tz: 9, guessed: false });
+  assert.deepEqual(A.tzForPlace("us", -118.2), { tz: -8, guessed: true });
+  assert.deepEqual(A.tzForPlace("us", -97.74), { tz: -6, guessed: true }, "奥斯汀是中部时间");
+  assert.match(src, /nominatim\.openstreetmap\.org\/search\?format=jsonv2/);
+  assert.match(src, /只发地名/);
+});
