@@ -5729,6 +5729,16 @@ async function saveImgOriginal(ref, name) {
   return via !== "cancel";
 }
 if (typeof window !== "undefined") window.saveImgOriginal = saveImgOriginal;
+// 生图结果 → 图库门牌（iv_）。⚠️有的中转只回一个图片地址，generateSelfieImage 会替它拉成 blob，
+//   这时 dataUrl 是 null——原来头像、时刻封面、时刻配图三处都只认 dataUrl/url，于是「一直不成功」
+//   （她 2026-10-03）。三处都走这一个，blob 也认。
+async function imgResultToVault(r) {
+  if (!r) return null;
+  let d = r.dataUrl || null;
+  if (!d && r.blob) d = await new Promise(ok => { try { const fr = new FileReader(); fr.onload = () => ok(String(fr.result || "")); fr.onerror = () => ok(null); fr.readAsDataURL(r.blob); } catch (e) { ok(null); } });
+  if (!d) return r.url || null;
+  return typeof imgToVault === "function" ? await imgToVault(d) : d;
+}
 // 存一份文本到本地：iOS 的 PWA 里 <a download> 是不作数的（点了什么都不会发生），
 // 所以顺序是【原生桥 → 分享面板 → 普通下载】，并且把真正走通的那条路回报出去——
 // 她 2026-08-30 报「导不出来，没有文件出来但是显示已导出数据」，就是这条：
