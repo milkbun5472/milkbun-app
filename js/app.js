@@ -20515,7 +20515,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pov: { me: char.remark || char.name, other: userName(profile) }
       }) + (again ? "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光，"
         + "别跟上一张一模一样。（第 " + Math.floor(Date.now() / 1000 % 100000) + " 次）" : "");
-      const out = await generateSelfieImage(p0, null, {});
+      // 拍的是她（群友 2026-10-03：「在 char 相册里发现了关于我的照片，生成后完全不是我给的参考图，是随机的人」）：
+      //   原来这一路一律不带参考照、按空景／局部照画——画到她就是个陌生人。
+      //   她传过参考照、这张又写到了她，就当一张「TA 给她拍的照片」画，锁她的脸；写到两个人一起的，就当合照，两张脸都锁。
+      const uN = userName(profile);
+      const herIn = !!(profile && profile.refPhoto) && (scene.indexOf(uN) >= 0 || /她|你/.test(scene));
+      const bothIn = herIn && !!char.refPhoto && /合照|我们|一起|两个人|和她|跟她|我和|自拍/.test(scene);
+      let pFinal = p0, pRefs = null;
+      if (herIn && typeof buildPhotoPrompt === "function") {
+        const meP = photoMe("她");
+        if (bothIn) { pFinal = buildPhotoPrompt(char, scene, statesRef.current[char.id] || null, { kind: "duo", me: meP }); pRefs = [char.refPhoto, profile.refPhoto]; }
+        else { pFinal = buildPhotoPrompt({ id: "__me", name: meP.name, appearance: meP.appearance || "", refPhoto: profile.refPhoto }, scene + "（这张是" + (char.remark || char.name) + "拍的她）", null, { kind: "other" }); pRefs = [profile.refPhoto]; }
+        if (again) pFinal += "【这是重画的一张】同一件事，换个拍法：换个角度、换个距离、换个时刻的光。";
+      }
+      const out = await generateSelfieImage(pFinal, pRefs, {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
       const all = loadJSON("x_phoneKeep", {});
