@@ -9,7 +9,7 @@ const ui = src.slice(src.indexOf("// UI"));
 
 test("一起学整套界面是一册活页学习夹，不再是通用白卡", () => {
   assert.match(ui, /const STUDY_SKIN = \{/);
-  assert.match(ui, /const STUDY_MODE_SKIN = \{[\s\S]*teach:[\s\S]*costudy:[\s\S]*nv1:/);
+  assert.match(ui, /const STUDY_MODE_BASE = \{[\s\S]*teach:[\s\S]*costudy:[\s\S]*nv1:/);
   // v63.01 no-english-titles 收尾：这几条原来是「英文 · 中文」夹着写的
   // （LAST NOTES · 学到哪了…），中文那半已经把话说完了，英文那半是装饰，删掉。
   // StudyHead 的 en 有中文 zh 时本来就不发，那几个死的 en 也一并撤了。
@@ -32,7 +32,7 @@ test("一起学所有内页共用紧凑安全顶栏与聊天同尺底栏", () =>
   //   这一页只传自己的纸色/墨色/线色，顶栏那几个挂点也跟着白得。
   assert.match(ui, /return h\(Head, \{/, "一起学又自己写了一条顶栏");
   assert.match(ui, /ink: STUDY_SKIN\.ink, subInk: skin\.accent, lineInk: STUDY_SKIN\.line/, "桌面那几档色没传进去");
-  assert.match(ui, /bg: "rgba\(251,248,239,\.92\)"/);
+  assert.match(ui, /bg: studyPaperA\(\.92\)/);
   assert.equal((ui.match(/h\(Head, \{/g) || []).length, 1, "Head 只该在 StudyHead 那一处出现（别处又各写各的）");
   assert.match(ui, /function StudyFooter\(props\)/);
   assert.match(ui, /paddingBottom: COMPOSER_PAD_BOTTOM/);

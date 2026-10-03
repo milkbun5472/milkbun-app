@@ -752,7 +752,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.585", changed: "一起学这一页现在吃「这一页单独换几支色」：bg＝桌面底，bg2＝活页纸，accent＝红批注，tint＝绿，ink/sub/fog/line 同名", none: "" };
+  const BRIEF_STAMP = { v: "v74.586", changed: "一起学：给了点缀色 tint，三种模式（认真教/一起研究/一教一学）都用它，淡底是它的浅色；半透明纸层跟 bg2 走", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

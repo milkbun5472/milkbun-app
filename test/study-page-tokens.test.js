@@ -23,3 +23,19 @@ test("一起学的活页色每次读都现取主题台那几支色，没改的�
   assert.equal(SKIN.red, "#c25a7a");
   assert.equal(SKIN.ink, "#30352f", "没改的那几支不动");
 });
+
+test("三种模式的色、半透明那几层纸也跟主题台走；没改照旧各是各的", () => {
+  const a = src.indexOf("function studyPaperA("), b = src.indexOf("function studyModeSkin(");
+  let tokens = {};
+  const window = { ThemeStudio: { tokensFor: () => tokens } };
+  const paletteAlpha = (c, al) => c + al;
+  const r = new Function("window", "paletteAlpha", src.slice(a, b) + "\nreturn { STUDY_MODE_SKIN, studyPaperA };")(window, paletteAlpha);
+  assert.equal(r.STUDY_MODE_SKIN.costudy.accent, "#78698e");
+  assert.equal(r.studyPaperA(.9), "rgba(251,248,239,0.9)");
+  tokens = { tint: "#c25a7a", bg2: "#ffffff" };
+  assert.equal(r.STUDY_MODE_SKIN.teach.accent, "#c25a7a");
+  assert.equal(r.STUDY_MODE_SKIN.nv1.soft, "#c25a7a24");
+  assert.equal(r.STUDY_MODE_SKIN.nv1.label, "三人课堂");
+  assert.equal(r.studyPaperA(.9), "#ffffffe6");
+  assert.ok(!/"rgba\(251,248,239,\.\d+\)"/.test(src), "写死的半透明纸色又回来了");
+});
