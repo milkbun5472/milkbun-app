@@ -234,6 +234,13 @@
     const [exporting, setExporting] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
     const [actsOpen, setActsOpen] = useState({});
+    // 卡也是旧的在左、新的在右（她 2026-10-03：跟刻度一个方向）；一打开就停在最新那张
+    React.useEffect(() => {
+      if (!openId) return;
+      const n = (all[openId] || []).length; if (!n) return;
+      const go = () => { const el = mRef.current; if (!el) return; el.scrollLeft = el.scrollWidth; setMIdx(n - 1); };
+      const t1 = setTimeout(go, 0); return () => clearTimeout(t1);
+    }, [openId]);
     const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
     const draw = async m => {
       if (drawing || !props.onDrawMoment || !cur) return;
@@ -325,7 +332,7 @@
       const ts = new Date(a[0], a[1] - 1, a[2], 12).getTime();
       editPins(cur.id, list => [{ id: "pin_" + Date.now(), ts, title: String(f.title).trim().slice(0, 30), manual: true, role: "manual",
         lines: String(f.text || "").trim() ? [{ role: "manual", text: String(f.text).trim().slice(0, 2000) }] : [] }].concat(list));
-      setCreating(null); setMIdx(0);
+      setCreating(null);
     };
     // 合成一页长图（她 2026-10-03 点的第 7 条）：封面 + 一张张时刻（日期、名目、那天的几句、有图就配图），画在 canvas 上存下来。
     //   不花钱；图从图库里现取。⚠️canvas 一边不能太长（iOS 约 16384px），超了就只拼最近那些，末尾写一句。
@@ -417,7 +424,7 @@
           h("button", { onClick: saveCreate, className: "w-full active:opacity-70", style: { marginTop: 18, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "放进时刻")));
     }
     if (cur) {
-      const list = all[cur.id] || [];
+      const list = (all[cur.id] || []).slice().reverse();
       const mcard = (m, i) => {
         const d = new Date(m.ts);
         return h("div", { key: m.key, "data-wk": "shikeitem", "data-kind": m.kind, className: "shrink-0",
@@ -427,7 +434,7 @@
           ((arts[cur.id] || {})[m.key] || m.img) ? h(MomentArt, { img: (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img }) : null,
           h("div", { style: { position: "absolute", inset: 10, borderRadius: 16, border: "1px solid rgba(255,255,255,.45)", pointerEvents: "none" } }),
           h("div", { style: { position: "absolute", inset: 0, padding: "34px 28px 30px", display: "flex", flexDirection: "column", color: "#fff", textAlign: "left" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 3, color: "rgba(255,255,255,.72)" } }, KIND_ZH[m.kind] + " · 第 " + (list.length - i) + " 个时刻"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 3, color: "rgba(255,255,255,.72)" } }, KIND_ZH[m.kind] + " · 第 " + (i + 1) + " 个时刻"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1.05, marginTop: 14 } }, (d.getMonth() + 1) + "." + d.getDate()),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "rgba(255,255,255,.75)", marginTop: 4 } }, d.getFullYear() + " 年"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.3, marginTop: 18 } }, m.title),
@@ -488,7 +495,7 @@
             [props.onGenCover ? [busy === cur.id ? "正在画封面…" : (covers[cur.id] ? "重画封面" : "生成封面"), () => gen(cur)] : null,
              covers[cur.id] ? ["用回头像", () => setCover(cur.id, null)] : null,
              ["开一张时刻", () => setCreating({ date: dayKey(Date.now()), title: "", text: "" })],
-             list.length ? [exporting ? "正在拼…" : "存成长图", () => exportLong(cur, list)] : null,
+             list.length ? [exporting ? "正在拼…" : "存成长图", () => exportLong(cur, all[cur.id] || [])] : null,
              ["改认识那天", () => editMeet(cur)]
             ].filter(Boolean).map((a, k) => h("button", { key: k, onClick: () => { setMenuOpen(false); a[1](); }, className: "w-full active:opacity-60",
               style: { display: "block", textAlign: "left", padding: "12px 16px", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: k ? "1px solid " + t.line : "none" } }, a[0])))) : null,
@@ -504,10 +511,10 @@
           h("div", { style: { position: "relative", height: "100%", minWidth: Math.max(list.length * 18, 100) + "px" } },
             h("div", { style: { position: "absolute", left: 0, right: 0, top: 12, height: 1, background: t.line } }),
             list.map((m, k) => {
-              // 旧的在左、新的在右（她 2026-10-03）：list 是新→旧，所以位置倒过来；每个月最旧那张底下写月份
-              const on = k === mIdx, d = new Date(m.ts), nx = list[k + 1] ? new Date(list[k + 1].ts) : null,
-                first = !nx || nx.getMonth() !== d.getMonth() || nx.getFullYear() !== d.getFullYear(),
-                x = (list.length - 1 - k) / (list.length - 1), shift = x < .08 ? "-8px" : x > .92 ? "calc(-100% + 8px)" : "-50%";
+              // 旧的在左、新的在右（她 2026-10-03）：里层 list 已经是旧→新；每个月最早那张底下写月份
+              const on = k === mIdx, d = new Date(m.ts), pv = list[k - 1] ? new Date(list[k - 1].ts) : null,
+                first = !pv || pv.getMonth() !== d.getMonth() || pv.getFullYear() !== d.getFullYear(),
+                x = k / (list.length - 1), shift = x < .08 ? "-8px" : x > .92 ? "calc(-100% + 8px)" : "-50%";
               return h("button", { key: m.key, onClick: () => jump(k), "aria-label": d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(),
                 style: { position: "absolute", left: x * 100 + "%", top: 0, width: 18, height: 40, marginLeft: -9, background: "transparent", border: "none", padding: 0 } },
                 h("span", { style: { position: "absolute", left: 8, top: on ? 4 : 8, width: on ? 2 : 1, height: on ? 16 : 9, background: on ? t.ink : t.fog, borderRadius: 1 } }),
