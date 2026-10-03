@@ -21,7 +21,7 @@ test("认识、在一起、生日都立；节日只有那天说过话才立", ()
   assert.match(titles, /第一次说上话/);
   assert.match(titles, /认识第 100 天/);
   assert.match(titles, /认识 1 周年/);
-  assert.match(titles, /在一起了/);
+  assert.doesNotMatch(titles, /在一起了|在一起第/, "在一起的日子留给情侣空间「第一次们」，这里不再立");
   assert.match(titles, /江识 的生日/);
   assert.match(titles, /你的生日/);
   assert.match(titles, /圣诞节/, "那天说过话的节日要立");
@@ -61,23 +61,6 @@ test("卡面默认用档案馆那张头像；里层时刻也是横着滑的高�
   assert.match(inner, /list\.map\(mcard\)/);
 });
 
-test("「第一次」从聊天和线下里找；那天的照片当卡面", () => {
-  const K = kit();
-  const c = { id: "c1", name: "江识" };
-  const chats = { c1: [
-    { role: "user", content: "嗨", ts: D(2025, 1, 10) },
-    { role: "assistant", kind: "selfie", imgKey: "img_1", content: "", ts: D(2025, 2, 1) },
-    { role: "system", kind: "callend", content: "通话", ts: D(2025, 3, 1) },
-    { role: "assistant", content: "晚安啦", ts: D(2025, 3, 2) }
-  ] };
-  const ms = K.momentsFor(c, { now: D(2026, 1, 1), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", offlines: { c1: [{ startTs: D(2025, 4, 5), msgs: [] }] } });
-  const by = t => ms.find(m => m.title.indexOf(t) >= 0);
-  assert.ok(by("第一张照片"), "第一张照片没立");
-  assert.deepEqual(by("第一张照片").img, { imgKey: "img_1" }, "那天的照片没当卡面");
-  assert.ok(by("第一次打电话"));
-  assert.ok(by("第一次说晚安"));
-  assert.ok(by("第一次见面"), "线下第一场没认出来");
-});
 
 test("「让 TA 说说」走 runProbe voice，点了才调", () => {
   const app = P("js/app.js");
@@ -106,7 +89,8 @@ test("更多「第一次」、收着的时刻、往前看", () => {
   const pins = { c1: [{ id: "p1", ts: D(2025, 5, 5), title: "他第一次吃醋", text: "你跟谁聊呢", role: "assistant" }] };
   const ctx = { now: D(2026, 10, 3), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins };
   const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
-  ["第一次视频", "TA 写来的情书", "第一次说爱你", "他第一次吃醋"].forEach(x => assert.match(titles, new RegExp(x)));
+  assert.match(titles, /他第一次吃醋/, "她收进来的那一刻没出现");
+  ["第一次视频", "TA 写来的情书", "第一次说爱你"].forEach(x => assert.doesNotMatch(titles, new RegExp(x), "「第一次」留给情侣空间，这里不该再立：" + x));
   const u = K.upcoming(c, ctx);
   assert.equal(u.days, 2);
   assert.match(u.title, /江识 的生日/);
@@ -120,4 +104,9 @@ test("聊天长按能「收进时刻」；快到的日子递进提示词", () =>
   assert.match(app, /saveJSON\("x_shikePins", all\);/);
   assert.match(app, /shikeNote: \(!char\.npc && window\.ShikeKit/);
   assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.shikeNote\) parts\.push\("【快到的日子】"/);
+});
+
+test("那天的照片当卡面", () => {
+  const K = kit();
+  assert.deepEqual(K.dayImage(D(2025, 2, 1), [{ role: "assistant", kind: "selfie", imgKey: "img_1", ts: D(2025, 2, 1) }]), { imgKey: "img_1" });
 });

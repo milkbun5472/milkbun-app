@@ -91,13 +91,6 @@
       DAY_MARKS.filter(n => n > 1).forEach(n => add(f + (n - 1) * DAY, "认识第 " + n + " 天", "meet", true));
       for (let y = 1; y < 50; y++) { const d = new Date(f); d.setFullYear(d.getFullYear() + y); if (d.getTime() > today) break; add(d.getTime(), "认识 " + y + " 周年", "meet", true); }
     }
-    const cp = (ctx.couples || {})[c.id];
-    if (cp && cp.status === "together" && cp.since) {
-      const s = startOf(cp.since);
-      add(s, "在一起了", "us", true);
-      DAY_MARKS.filter(n => n > 1).forEach(n => add(s + (n - 1) * DAY, "在一起第 " + n + " 天", "us", true));
-      for (let y = 1; y < 50; y++) { const d = new Date(s); d.setFullYear(d.getFullYear() + y); if (d.getTime() > today) break; add(d.getTime(), "在一起 " + y + " 周年", "us", true); }
-    }
     const fromYear = firstTs ? new Date(firstTs).getFullYear() : new Date(now).getFullYear();
     const thisYear = new Date(now).getFullYear();
     const bdays = [[monthDay(c.birthday), (c.remark || c.name) + " 的生日"], [monthDay(ctx.profile && ctx.profile.birthday), "你的生日"]];
@@ -105,23 +98,9 @@
       bdays.forEach(([md, title]) => { if (md) { const ts = new Date(y, md.mo - 1, md.d).getTime(); if (!firstTs || ts >= startOf(firstTs)) add(ts, title, "bday", true); } });
       HOLIDAYS.forEach(([mo, d, name]) => add(new Date(y, mo - 1, d).getTime(), name, "fest", false));
     }
-    // 「第一次」（她 2026-10-03 点的第 2 条）：都从聊天记录里找得到，不花钱。
-    //   ⚠️手机里只留最近那一截聊天，更早的归档到云上了——找不到就不立，不猜。
-    const firstOf = pred => { const m = chat.find(x => x && !x.recalled && pred(x)); return m ? Number(m.ts) || 0 : 0; };
-    add(firstOf(m => (m.kind === "selfie" || m.kind === "duo") && m.imgKey), "第一张照片", "first", true);
-    add(firstOf(m => m.kind === "callend" && m.callMode !== "video"), "第一次打电话", "first", true);
-    add(firstOf(m => m.kind === "callend" && m.callMode === "video"), "第一次视频", "first", true);
-    add(firstOf(m => m.kind === "datememory"), "第一次约会", "first", true);
-    add(firstOf(m => m.kind === "loveletter"), "TA 写来的情书", "first", true);
-    add(firstOf(m => m.kind === "unblock_req" && m.status === "accepted"), "第一次和好", "first", true);
-    add(firstOf(m => m.role === "assistant" && (!m.kind) && /我爱你|爱你/.test(String(m.content || ""))), "第一次说爱你", "first", true);
-    add(firstOf(m => m.kind === "carved"), "刻进唱片的第一首歌", "first", true);
-    add(firstOf(m => m.kind === "gift"), "第一份礼物", "first", true);
-    add(firstOf(m => m.kind === "transfer" || m.kind === "redpacket"), "第一次转账", "first", true);
-    add(firstOf(m => m.role === "assistant" && /晚安/.test(String(m.content || ""))), "第一次说晚安", "first", true);
-    const offs = ((ctx.offlines || {})[c.id]) || (typeof loadJSON === "function" ? loadJSON("x_offline:" + c.id, []) : []) || [];
-    const firstMeet = offs.map(x => Number(x && (x.startTs || (x.msgs && x.msgs[0] && x.msgs[0].ts))) || 0).filter(x => x > 0).sort((x, y) => x - y)[0];
-    add(firstMeet, "第一次见面", "first", true);
+    // ⚠️「第一次」和「在一起第 N 天」不在这儿立（她 2026-10-03：「第一次就留给情侣空间不然重复了也无聊」）——
+    //   情侣空间那本「第一次们」(js/couple-firsts.js) 已经从同一批记录里推这些，这里再立一份就是两套各认各的。
+    //   卡面和倒计时照旧认得在一起的日子（那是「往前看」，不是再摆一遍）。
     // 她自己收进来的（聊天长按「收进时刻」）：机器认不出的心动瞬间，由她来挑。一条一张，不跟别的并
     const pins = ((ctx.pins || {})[c.id]) || [];
     // 同一天撞了好几个（生日正好是在一起一周年）就并成一张
