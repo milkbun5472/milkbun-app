@@ -15,12 +15,18 @@ const eng = fs.readFileSync(P("js/engine.js"), "utf8");
 const fic = fs.readFileSync(P("js/fanfic.js"), "utf8");
 const BAN = (eng.match(new RegExp("const CANNED_PHRASE_BAN = `([\\s\\S]*?)`;")) || [])[1] || "";
 
-test("两族都点了名", () => {
+test("三族都点了名", () => {
   assert.ok(BAN, "常量没了");
   ["行行行", "好好好", "行了吧", "可以了吧", "满意了吧", "服了你了", "随你"]
     .forEach(q => assert.ok(BAN.includes(q), "敷衍那族少了：" + q));
   ["小祖宗", "小妖精", "小野猫", "小磨人精", "小东西"]
     .forEach(q => assert.ok(BAN.includes(q), "称呼那族少了：" + q));
+  // ⚠️第三族（她 2026-10-05 抓到）：现成的【桥段】——「回去当面找你算账」「别在这儿扰乱军心」。
+  //   它既不是称呼也不是敷衍，是一整句类型自带的台词，听着最合人设所以最不容易发现。
+  ["回去当面找你算账", "等我回去收拾你", "你给我等着", "扰乱军心", "皮痒了"]
+    .forEach(q => assert.ok(BAN.includes(q), "桥段那族少了：" + q));
+  assert.ok(BAN.includes("谁说都成立"), "要说清它坏在哪：换个人说一样成立");
+  assert.ok(BAN.includes("三族"), "开头那句还写着两族");
 });
 
 test("是一条不是两条——同判据的东西不许拆开说两遍", () => {
@@ -73,4 +79,14 @@ test("三个分发点都接上，跟那一族贴着；言秋不发", () => {
   assert.match(fic, /if \(typeof CANNED_PHRASE_BAN !== "undefined"\) parts\.push\(CANNED_PHRASE_BAN\);/);
   const seg = eng.slice(eng.indexOf("    if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
   assert.ok(!seg.slice(0, seg.indexOf("} else {")).includes("CANNED_PHRASE_BAN"), "混进言秋那支了");
+});
+
+// 她 2026-10-05：「不给写小祖宗他就会写祖宗。。。」
+// 列词表治不了这个病——他绕的是字，不是招。所以这一条守的是：
+// 那几个词只能当【样本】，不能当黑名单；规则本身必须说清「换个字不算改掉」。
+test("换个字不算改掉：词只是样本，不是黑名单", () => {
+  assert.ok(BAN.includes("换个字不算改掉"), "没说清换字不算改");
+  assert.ok(BAN.includes("祖宗"), "要把她抓到的那个实例写进去（小祖宗→祖宗）");
+  assert.ok(/样本，不是黑名单|只是样本/.test(BAN), "要说清上面举的词是样本不是穷举");
+  assert.ok(BAN.includes("这一句在做什么"), "要把判据落在【这句话在干什么】上，不是用了哪几个字");
 });
