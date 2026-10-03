@@ -1,12 +1,12 @@
 import * as T from 'three';
-import {createPetCamera} from './pet-camera.mjs?v=fg-a8f95ac09ae9b668';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-a8f95ac09ae9b668';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-a8f95ac09ae9b668';
-import {floorHeight} from './cat-motion.mjs?v=fg-a8f95ac09ae9b668';
-import {loadPetCompanion,mountPetControls} from './pet-companion.mjs?v=fg-a8f95ac09ae9b668';
-import {CAT_PALETTES} from './cat-dye.mjs?v=fg-a8f95ac09ae9b668';
+import {createPetCamera} from './pet-camera.mjs?v=fg-2c0519291cfb0454';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-2c0519291cfb0454';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-2c0519291cfb0454';
+import {floorHeight} from './cat-motion.mjs?v=fg-2c0519291cfb0454';
+import {loadPetCompanion,mountPetControls} from './pet-companion.mjs?v=fg-2c0519291cfb0454';
+import {CAT_PALETTES} from './cat-dye.mjs?v=fg-2c0519291cfb0454';
 
-const layout=await (await fetch(new URL('./layout.json?v=fg-a8f95ac09ae9b668',import.meta.url))).json();
+const layout=await (await fetch(new URL('./layout.json?v=fg-2c0519291cfb0454',import.meta.url))).json();
 const view=document.getElementById('view'),loading=document.getElementById('loading');
 const toWeb=p=>new T.Vector3(p[0],p[2],-p[1]);
 const renderer=new T.WebGLRenderer({antialias:true,alpha:false});
@@ -28,7 +28,7 @@ const meshes=[],pathOrigin=toWeb(layout.cat.position),pathYaw=layout.cat.yaw;
 const walkButton=document.getElementById('walk'),furButton=document.getElementById('fur');
 const baseInput=document.getElementById('fur-base'),patchInput=document.getElementById('fur-patch');
 try{
-  const [roomFile,companion]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-a8f95ac09ae9b668',import.meta.url).href),loadPetCompanion(T,loader,{height:layout.cat.height})]);
+  const [roomFile,companion]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-2c0519291cfb0454',import.meta.url).href),loadPetCompanion(T,loader,{height:layout.cat.height})]);
   room=roomFile.scene;pet=companion;scene.add(room);
   room.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;meshes.push(o);}});
   petRoot=pet.root;petRoot.position.copy(toWeb(layout.cat.position));petRoot.rotation.y=layout.cat.yaw;scene.add(petRoot);
@@ -36,7 +36,7 @@ try{
   walkButton.disabled=false;furButton.disabled=false;
   loading.hidden=true;
   window.petHousePreview={scene,camera,room,petRoot,layout,renderer,pet,get cat(){return cat;},get rig(){return rig;},get motion(){return motion;},get dye(){return dye;},
-    snapshot:()=>({evening,...cameraControls.snapshot(),zone:activeZone,ready:true,roomMeshes:meshes.length,catStatic:false,species:pet.species,tail:pet.tail,walking,speed,look:dye.snapshot(),motion:motion.snapshot()}),select:selectZone,reset,step:advance};
+    snapshot:()=>({evening,...cameraControls.snapshot(),zone:activeZone,ready:true,roomMeshes:meshes.length,catStatic:false,species:pet.species,tail:pet.tail,mood:pet.mood,walking,speed,look:dye.snapshot(),motion:motion.snapshot()}),select:selectZone,reset,step:advance};
 }catch(error){loading.textContent='小屋没能打开，请刷新重试。';console.error(error);}
 
 function syncPet(){cat=pet.model;rig=pet.rig;motion=pet.motion;dye=pet.dye;speed=0;settling=1;setLook(dye.snapshot(),false);document.querySelector('.scene-head p').textContent=(pet.species==='dog'?'狗狗':'猫猫')+'散步 · 拖动看看';}
@@ -61,10 +61,10 @@ const cameraControls=createPetCamera(T,{camera,view,position:initialPosition,tar
 function draw(){if(pending||document.hidden)return;pending=true;requestAnimationFrame(time=>{
   pending=false;const dt=lastTime?Math.min(.05,(time-lastTime)/1000):0;lastTime=time;
   advance(dt);updateCamera();renderer.render(scene,camera);
-  if(walking||speed>0||settling>0||pet?.tail.wag)draw();else lastTime=0;
+  if(walking||speed>0||settling>0||pet?.animating)draw();else lastTime=0;
 });}
 walkButton.onclick=()=>{walking=!walking;settling=1;walkButton.textContent=walking?'停一停':'走走';walkButton.setAttribute('aria-pressed',String(walking));draw();};
-furButton.onclick=()=>{const panel=document.getElementById('fur-panel');panel.hidden=!panel.hidden;furButton.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){document.getElementById('tail-panel').hidden=true;document.getElementById('tail').setAttribute('aria-expanded','false');}};
+furButton.onclick=()=>{const panel=document.getElementById('fur-panel');panel.hidden=!panel.hidden;furButton.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden){document.getElementById('tail-panel').hidden=true;document.getElementById('tail').setAttribute('aria-expanded','false');document.getElementById('mood-panel').hidden=true;document.getElementById('mood').setAttribute('aria-expanded','false');}};
 function setLook(value,persist=true){
   const look=persist?pet.saveLook(value):dye.set(value);
   baseInput.value=look.base||rig.dye.baseReference;patchInput.value=look.patch||rig.dye.patchReference;
