@@ -12,7 +12,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const app = fs.readFileSync("js/app.js", "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync("js/app.js", "utf8"));
 
 const raw = (() => {
   const i = app.indexOf("  const blockedReaction = async");
@@ -59,7 +59,10 @@ test("④ 朋友圈那处也搬到公共件了（上一轮我现写的那份是�
 test("⑤ 防复读给出口，不给判决", () => {
   assert.ok(!/一句都不许再发/.test(seg), "判决式禁令不许回来");
   assert.match(seg, /往前挪了一步之后才会有的话/, "要说清往哪走，不是只说不许");
-  assert.match(seg, /时间过去了、你做了点别的、想法变了、或者你决定不说了/, "要给出口");
+  assert.match(seg, /时间过去了、你做了点别的、想法变了、你决定不说了/, "要给出口");
+  // v74.676（她 2026-10-03 拿戳人偶做的对照）：出口原来【四条全是走开】，
+  //   于是「一直求」那种人设被整条堵死，只剩下报状态。往前走≠退场。
+  assert.match(seg, /往前走不等于走开/, "更深一层那条出口不许再丢");
 });
 
 test("⑥ 真跑：轴每次不一样，而且常有一条还给模型", () => {

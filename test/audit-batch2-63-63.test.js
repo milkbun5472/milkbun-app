@@ -6,7 +6,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
+const R = f => require("./_online-layer.js").expand(fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8"));
 const app = R("app.js"), engine = R("engine.js"), screens = R("screens.js");
 const vm = require("node:vm");
 const bare = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");

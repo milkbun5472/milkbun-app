@@ -6,7 +6,7 @@ const GB = require("./_group-bans.js");
 
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync(path.join(root, "js/app.js"), "utf8"));
 const components = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 
 // 她 2026-08-19 报：群规矩删掉了，露骨语域还是回不去。真凶是【聊天记录本身】——

@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync(path.join(root, "js/app.js"), "utf8"));
 
 // 她 2026-08-22：「有些角色之前还会不在句尾加句号的，然后上下文污染了一下之后又开始加了」。
 // 查下来是回归：旧的 ANTI_CLICHE_LEGACY 里有明确的第⑨条「标点像真人打字…日常发消息大多不打句号」，

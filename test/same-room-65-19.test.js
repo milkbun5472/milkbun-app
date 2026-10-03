@@ -27,7 +27,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const R = f => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8");
+const R = f => require("./_online-layer.js").expand(fs.readFileSync(path.resolve(__dirname, "..", f), "utf8"));
 const app = R("js/app.js"), eng = R("js/engine.js"), comp = R("js/components.js"), studio = R("js/theme-studio.js");
 
 // 从 engine.js 里把那两个纯函数抠出来真跑（不猜它们拼出什么）
