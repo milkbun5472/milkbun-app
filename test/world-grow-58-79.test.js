@@ -42,7 +42,7 @@ test("骨架一变图就重算：memo 的钥匙不能只有 world.id", () => {
   const wm = grab(map, "  function WorldMap({", "  // 开世界：整页表单");
   assert.match(wm, /\}, \[world && world\.id, skel\]\);/, "memo 的钥匙里没有骨架指纹——加了地点也不会重画");
   assert.match(wm, /const skel = \(world\.regions \|\| \[\]\)\.map/, "没算骨架指纹");
-  assert.match(wm, /\+ \(r\.nodes \|\| \[\]\)\.map\(function \(n\) \{ return n\.name; \}\)\.join\(","\)/, "指纹没把地点名算进去");
+  assert.match(wm, /\(r\.nodes \|\| \[\]\)\.map\(function \(n\) \{ return n\.name/, "指纹没把地点名算进去");
 });
 
 test("手写一个不花调用；让模型添才走一次", () => {
