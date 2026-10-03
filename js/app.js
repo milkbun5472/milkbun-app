@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.603";
+const APP_VERSION = "v74.605";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5607,7 +5607,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
       ? samePlacePresence(userName(profile)) + (offlineActiveFor(char.id) ? "\n" + offlineActiveFor(char.id) : "")
-      : offlineActiveFor(char.id)),
+      : (offlineActiveFor(char.id) || (sameRoomFor(char.id) ? "" : apartPresence(userName(profile))))),
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
     coupleStatus: (() => {
@@ -10996,7 +10996,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -12381,11 +12382,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return;
       }
       const turnId = m.turnId;
+      let rerollAvoid = "";
+      const avoidOf = rm => (rm || []).filter(x => x && (x.role === "assistant" || x.who === "char") && x.content && !x.recalled).map(x => String(x.content)).join("\n");
       if (turnId) {
         const branch=window.RerollBranch&&window.RerollBranch.truncateChatBranch
           ?window.RerollBranch.truncateChatBranch(msgs,idx,turnId)
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[turnId]};
         const removed=branch.removed,removedTurns=branch.turnIds;
+        rerollAvoid = avoidOf(removed);
         // 共享账本也只做软删；离线时进入专用 outbox，联网后补盖 deleted_at。
         if (!isSideRoom) try {
           const y = ledgerYanqiu();
@@ -12414,6 +12418,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const branch=window.RerollBranch&&window.RerollBranch.truncateChatBranch
           ?window.RerollBranch.truncateChatBranch(msgs,idx,null)
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[]};
+        rerollAvoid = avoidOf(branch.removed);
         const removedTurns=branch.turnIds||[],journal=loadJSON("x_rerollMemoryJournal",{}),doomed=new Set();
         removedTurns.forEach(id=>(journal[activeChar.id+"|"+id]||[]).forEach(memId=>doomed.add(String(memId))));
         if(!isSideRoom&&doomed.size)saveMemLib(memLibRef.current.filter(e=>!doomed.has(String(e&&e.id))));
@@ -12431,7 +12436,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setTimeout(() => {
         const roomId = window.ChatRooms && window.ChatRooms.isSideKey(threadKey) ? String(threadKey).split("::room::")[1] : "main";
         const rerollRoom = window.ChatRooms ? window.ChatRooms.get(activeChar.id, roomId) : null;
-        replyNow(activeChar.id, null, null, { chatKey: threadKey, room: rerollRoom });
+        replyNow(activeChar.id, null, null, { chatKey: threadKey, room: rerollRoom, rerollAvoid });
       }, 200);
     }
   };
@@ -12948,7 +12953,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   单聊那条「记录里说在一块儿就是在一块儿」到了群里，就成了谁都能宣称她此刻在自己身边。
       //   没开同处一室时把来源说清楚：她此刻在哪，只看这个群里说过的话。
       const gWhereHint = (!gSameRoomFor(groupId) && !gs.spectate && !(offlineGroup && offlineGroup.id === groupId))
-        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——别替自己认领一个「她就在我旁边」。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。" : "";
+        ? "\n\n【她此刻在哪】只看这个群里说过的话。私聊里那些在一块儿的记录是之前的事，不说明她现在在你身边；群里没人说过她在哪，那你就不知道她在哪——别替自己认领一个「她就在我旁边」。你自己日程里写着跟她在一块儿的那一格，也只是你原本的打算——她没在群里说，就不算她此刻在你身边。\n" + apartPresence(userName(profile), true) : "";
       // ── 旁观群里唯一变的一件事：她不是【听众】（她 2026-09-11）──
       // 起因：「大晏趣闻·旁观中」里陆闻把话头扔进群里，说「Lisa你评评理」。
       // ⚠️v66.56 我第一版改过头了，她当场纠正：「我有旁观群就是看他们感情的，你去掉好感和
@@ -12997,7 +13002,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "";
       const gRelRule = gsFor(groupId).drama ? groupDramaRule(groupId) : "\n\n【成员间关系 · ⚠️关系隐私铁律】\n每个成员和用户「" + _uN + "」是什么关系（恋人/暧昧/朋友…）【只有该成员本人知道】——别的成员并不知道 TA 和用户是不是对象、什么关系，除非那成员【在群里自己说了出来】。绝不许一个成员知道、提及、或据此反应（吃醋/打趣/拆穿）另一个成员和用户的私密关系。成员【彼此之间】的关系（朋友/兄弟/同事/对头等）才是双方都知道、可自然体现的。\n";
 
-      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
+      const system = groupBans({ echo: false, drama: !!gsFor(groupId).drama }) + "\n\n" + groupOnlineRuntime + "\n\n" + dir + commonTurn + gSameRoomHint + gBdayHint + gWhereHint + gTimeHint + onlineRerollHint(rgOpts && rgOpts.rerollAvoid) + gDirHint + gEmoteHint + gSelfieHint + gDmHint + thoughtHint + npcStateHint + gBusyHint + gOfflineHint + gBiHint + gTfHint + gInviteHint + gPollHint + gIdRule + "\n\n【成员】\n" + memberDesc + sameNameNote(members) + gGrowthHint + gMeBlock + gWishHint + gOnMeHint + gRelRule + (relLines ? "\n" + relLines : "") + (gWorld ? "\n\n【世界书】\n" + gWorld : "") + interop + preJoin + "\n\n【近期群聊】\n" + hist + rotateSpeakersNote(members, groupChatsRef.current[groupId]) + gQuoteCatalogText + gDramaTail + "\n\n【输出】只输出 JSON 数组，按发言先后顺序。普通发言 {\"name\":\"成员名\",\"text\":\"内容" + gBiTextSpec + "\",\"quoteId\":\"（可选）正式引用旧消息时填写上面目录里的 Q 编号；不引用就省略，禁止只抄原文猜作者\",\"emote\":\"（可选）想发的表情关键词\",\"voice\":\"（可选）填 true 表示这条作为语音消息发（会显示成语音气泡+转文字）——手上腾不出手打字、这段话打字太长、或者情绪上来了想让人听见声音时就这么发，不必等人问；发多发少按这个人自己的习惯来" + VOICE_PAUSE_MARK + voiceSoundHint() + "\",\"voiceEmo\":\"（可选，voice=true 时）这条语音的真实语气：happy/sad/angry/fearful/disgusted/surprised/neutral 之一，按说话人此刻真实情绪选、别看字面\"" + gCallField + "" + gDmField + thoughtField + impressionField + "}；某成员想撤掉刚说的那句，那条加 \"recall\":true 和 \"recallReason\":\"为什么撤\"（会先正常显示一秒再变成已撤回）——真人在群里撤回多半是小事：打错字、发漏了半句、手滑发重了、群里说重了想换个说法、话本来是要私发的发错了地方；「后悔、说漏嘴」只是其中一种。撤完通常紧跟一条改好的。几十条里偶尔一次，别扎堆；发红包 {\"name\":\"成员名\",\"redpacket\":{\"total\":金额数字,\"count\":份数,\"message\":\"祝福语\",\"to\":\"（可选）只给某一个人时填 Ta 的名字——专属红包，别人领不了，金额不拆；谁都能抢就省略这一栏\"}}——有好事想请客、群里谁生日或有喜事、哄人、认输赔罪、节日、或者纯粹想热闹一下的时候就发，**不必等人开口要**；钱是真的从这个人钱包里扣的，所以数目要跟 Ta 的处境对得上，手头紧的人发小的、或者干脆不发。群里要拿主意、要挑一个、要看看大家怎么想时，谁都可以自己发起一张投票：那条加 \"pollNew\":{\"title\":\"投票题目\",\"options\":[\"选项1\",\"选项2\"],\"anon\":true或false}（至少两个选项；anon 为匿名投票）。发起的人照自己的性子决定发不发、发什么，同一条里的 text 照常说话。name 必须逐字等于成员名单中的一个名字；用户名字绝不能出现在 name。";
       // 触发用户内容：自上一条角色发言以来我说的话/旁白
       let tail = [];
       for (let i = gchat.length - 1; i >= 0; i--) {
@@ -13602,7 +13607,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       removed.filter(x => x && x.senderId).forEach(x => { const rec = byChar.get(x.senderId) || { turns: [], legacyThoughts: [] }; if (x.turnId) rec.turns.push(x.turnId); if (!x.turnId && x.thought) rec.legacyThoughts.push(x.thought); byChar.set(x.senderId, rec); });
       byChar.forEach((rec, charId) => rollbackCharTurns(charId, rec.turns, !rec.turns.length && !!(statesRef.current[charId] && rec.legacyThoughts.includes(statesRef.current[charId].thought))));
       pGChat(groupId,p=>{const next=p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
-      setTimeout(() => replyGroup(groupId), 200);
+      const rerollAvoid = removed.filter(x => x && x.senderId && x.content && !x.recalled).map(x => (x.senderName ? x.senderName + "：" : "") + String(x.content)).join("\n");
+      setTimeout(() => replyGroup(groupId, { rerollAvoid }), 200);
     }
   };
   const deleteGroupMsgs = (groupId, indices) => {
