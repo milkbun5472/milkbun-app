@@ -18,3 +18,6 @@ test("empty stitched stream keeps the tail; gemini inline_data parsed", () => {
   assert.match(eng, /out\._streamTail = raw/);
   assert.match(eng, /inline_\?\[dD\]ata/);
 });
+test("chat image brief says the prompt is not content to draw", () => {
+  assert.match(eng, /exactly ONE single natural photograph[\s\S]{0,200}NOT content to draw/);
+});

@@ -5040,7 +5040,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const chatFetch = async (stream, sig) => {
       usedChat = true;
       const toUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
-      const content = [{ type: "text", text: promptText + "\n（直接生成一张图片，画幅 " + size + "。）" }];
+      // Gemini 一类聊天出图模型会把提示词【照字面画出来】（她 2026-10-03：一张手部特写拍成了
+      // 满纸手和乱码的「手部解剖参考图」——那是把「每只手正好五根手指」那些要求当成了画的内容）。
+      // 所以先说清：下面是给摄影师的要求，不是要画进画面的东西。
+      const brief = "Generate exactly ONE single natural photograph (not a collage, grid, reference sheet, diagram or study). "
+        + "The text below is a brief for the photographer, NOT content to draw: never render any of its words, labels, captions, numbers, dates or watermarks into the image. "
+        + "Output aspect ratio about " + size + ".\n\n";
+      const content = [{ type: "text", text: brief + promptText }];
       if (useRef) for (const b of refBlobs) content.push({ type: "image_url", image_url: { url: await toUrl(b) } });
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: !!stream, modalities: ["image", "text"] }), signal: sig || ctrl.signal });
     };
