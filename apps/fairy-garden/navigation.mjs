@@ -27,3 +27,8 @@ export function createNavigator(maps,walkable,segmentClear,gridWalkable=walkable
   }return null;
  };
 }
+
+// Exact planar furniture/house test: short diagonals cannot skip a corner.
+export function segmentIntersectsRect(a,b,o,padding=0){
+ let lo=0,hi=1;for(const [axis,size]of [['x',o.w],['z',o.d]]){const d=b[axis]-a[axis],min=o[axis]-size/2-padding,max=o[axis]+size/2+padding;if(Math.abs(d)<1e-10){if(a[axis]<=min||a[axis]>=max)return false;}else{const t1=(min-a[axis])/d,t2=(max-a[axis])/d;lo=Math.max(lo,Math.min(t1,t2));hi=Math.min(hi,Math.max(t1,t2));}}return lo<hi&&hi>0&&lo<1;
+}
