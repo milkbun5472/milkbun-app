@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.644";
+const APP_VERSION = "v74.648";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14426,9 +14426,36 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "继续找也好、换个办法、累了、气消了、想通了什么、还是干脆不说了，由你这个人决定；说出口的是这一步的新东西。"
           // 她 2026-10-03 群友截图：一轮吐了十几个气泡，「外套还搭门把手上」「湿透了」「我刚才那话说得太硬了」全是前几轮的原句。
           //   把原句摆给他看，又没说不许再用，他就当素材拼回去了。
-          + "\n上面这些、以及聊天记录里你拉黑以后发过的每一句，这一轮【一句都不许再发】，换个说法再说一遍也不算新的。"
+          // ⚠️这条原来写成【一句都不许再发】——那是判决，不是出口（施工规则/bans-make-it-dumber）。
+          //   把他最近 6 句摆在眼前、又只说「不许」，他的注意力就全花在绕开这些上，
+          //   说出来的话硬得像在背词（群里 2026-10-04：「他像个背词机」）。
+          //   改成说清【为什么】和【往哪走】：重复的是没往前走的那种，往前走了就不算重复。
+          + "\n上面这些是你【已经说过】的——同一件事、同一个意思，换个说法再说一遍，对她那头没有任何变化，也不像一个真的在等的人。"
+            + "这一轮说的得是从上一句往前挪了一步之后才会有的话：时间过去了、你做了点别的、想法变了、或者你决定不说了。"
         : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      // ⚠️这一处是【自己拼 system 的第二处】：buildBundle 那一份（人设全文/心情/好感/反八股）
+      //   是白得的，可【单聊线上那一整套 ONLINE_CHAT_RULE_V2】是在聊天那个调用点另外 push 的——
+      //   它管的才是「像真人用手机说话」：一轮说几条、说多长由当下的表达意图和节奏自然决定，
+      //   不写旁白动作神态。拉黑这儿从来没接上，只用一句「短句多气泡」顶替，
+      //   于是说出来的话就是条数对、味道不对（施工规则/four-surfaces-same-context 那个老形状：
+      //   一层规则靠调用点一条条 push，换个入口就一条都没有，还不留能 grep 的痕迹）。
+      // 轴：原来给的是三选一的档（mutter=委屈/不在乎/嘴硬、angry=骂几句、appeal=想和好）——
+      //   三个全是现成的类型化演法，照着演出来就「不像人设也不像 char，像外人」。
+      //   改成掷轴（走公共件 js/axes.js），mode 只在最后给这一轮归个档，不再是让他挑一种演法。
+      const BLOCK_AXES = [
+        { key: "where", zh: "你此刻人在哪、在干什么", opts: ["还在原地没走", "已经走开了，在别的地方", "正在做一件跟她无关的事", "刚回到你们都熟的那个地方"] },
+        { key: "heat", zh: "这会儿的火气", opts: ["还在气头上", "气过了，剩下累", "压着没发作", "已经不气了，只是放不下"] },
+        { key: "want", zh: "你想不想让她知道这一句", opts: ["就是说给她听的，哪怕她收不到", "说给自己听的，被她看见也无所谓", "本来不想说，还是说了"] },
+        { key: "move", zh: "这一轮你做了什么", opts: ["什么也没做，只是又开口了", "做了件具体的事（走了/坐下/发消息给别人/收拾东西）", "决定先放着不管了"] }
+      ];
+      const _blkRolled = window.Axes
+        ? window.Axes.roll(BLOCK_AXES, [charId, "blocked", saidWhileBlocked.length, Date.now()], { allFree: 0.08, skip: 0.12, free: 0.20 })
+        : null;
+      const _blkAxes = window.Axes ? window.Axes.text(_blkRolled, {
+        on: "\n\n【这一轮的几条轴（别点破）】它们互相独立；没列出来的方面你自己拿主意。别为了凑这几条而说话。",
+        off: "\n\n【这一轮没有给你任何限制】按你这个人此刻真实的样子来，别挑一种「被拉黑的人该有的反应」来演。"
+      }) : "";
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);
@@ -18893,13 +18920,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //      掷约束，不掷答案——给几条互相独立的轴，让它自己去想「同时满足这几条的是什么」。
       //      每条轴都留一格「你自己想」，代码不是关门、是关一部分门：
       //      地板归代码，天花板还给模型。
-      const _pick = arr => arr[Math.floor(Math.random() * arr.length)];
-      const _momAxes = "\n\n【这一条的几条轴（别点破它们，写出来的就是一条普通朋友圈）】\n"
-        + "· 说给谁看：" + _pick(["谁都行，就是想说一句", "其实是说给某一个人听的，但不点名", "同类人才看得懂，别人划过去就算了", "这条你自己想"]) + "\n"
-        + "· 这事有没有用：" + _pick(["纯粹没用，但你想记一下", "有点用，顺手分享", "是个抱怨/吐槽", "是件正经事", "这条你自己想"]) + "\n"
-        + "· 什么时候的事：" + _pick(["刚刚发生，还热着", "今天早些时候", "积了好几天了才说", "很久以前的东西突然翻出来", "这条你自己想"]) + "\n"
-        + "· 怎么收尾：" + _pick(["说完就停，不总结", "半句话，剩下的不说了", "带一句自嘲", "一个具体的东西结尾（物件/声音/味道）", "这条你自己想"]) + "\n"
-        + "**别为了凑这几条而写**——它们只是防止你每次都往同一个地方走；真正写出来的要像这个人随手发的。";
+      // ⚠️掷轴这个形状【公共件早就有了】：js/axes.js（电台起的头，同人文第二次用时
+      //   就抽了公共的、并把电台那处搬了过去）。我上一轮给朋友圈现写了一份 _pick，
+      //   那本身就违规（施工规则/one-public-mechanism）——这儿搬回公共那一份。
+      //   轴表是朋友圈自己的，掷法和「你自己想」那一格归公共件。
+      const MOMENT_AXES = [
+        { key: "who", zh: "说给谁看", opts: ["谁都行，就是想说一句", "其实是说给某一个人听的，但不点名", "同类人才看得懂，别人划过去就算了"] },
+        { key: "use", zh: "这事有没有用", opts: ["纯粹没用，但你想记一下", "有点用，顺手分享", "是个抱怨/吐槽", "是件正经事"] },
+        { key: "when", zh: "什么时候的事", opts: ["刚刚发生，还热着", "今天早些时候", "积了好几天了才说", "很久以前的东西突然翻出来"] },
+        { key: "end", zh: "怎么收尾", opts: ["说完就停，不总结", "半句话，剩下的不说了", "带一句自嘲", "一个具体的东西结尾（物件/声音/味道）"] }
+      ];
+      const _momRolled = window.Axes
+        ? window.Axes.roll(MOMENT_AXES, [char.id, "moment", moments.length, Date.now()], { allFree: 0.08, skip: 0.12, free: 0.20 })
+        : null;
+      const _momAxes = window.Axes ? window.Axes.text(_momRolled, {
+        on: "\n\n【这一条的几条轴（别点破它们，写出来的就是一条普通朋友圈）】它们互相独立；没列出来的方面你自己拿主意。"
+          + "\n**别为了凑这几条而写**——它们只是防止你每次都往同一个地方走；真正写出来的要像这个人随手发的。",
+        off: "\n\n【这一条没有给你任何限制】别挑一个最像朋友圈的样子来发，也别沿用你最近那几条的结构。"
+      }) + "\n" : "";
       const _ownMoms = moments.filter(m => m.characterId === char.id).slice(0, 6);
       // ⚠️她 2026-10-02 一句话点破：「配不配图他自己定，这个不就是相当于让他发吗」——
       //   模型拿到一个可填可不填的格子，几乎都会填。所以有没有配图的【机会】由代码掷，
@@ -24187,7 +24225,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   聊天卡跟着那一轮走没关系，可订单和扣钱是落了地的，各来一份就成了两顿饭、扣两次钱。
     //   六小时内同一个人点的一模一样那单＝同一单：卡照发（重 roll 后那张卡得在），订单和钱只记一次。
     const orderName = (shop ? shop + " · " : "") + label;
-    const dup = (ordersRef.current || []).find(o => o && o.kind === "takeout" && o.fromCharId === charId && o.name === orderName && Date.now() - (o.ts || 0) < 6 * 3600000);
+    // ⚠️吃完的那一单已经从订单里拿走、进了「吃过的」（x_takeoutLog）——只查订单的话，
+    //   她先点了「吃完了」，TA下一轮再照抄一遍，就又是一单（她 2026-10-03：「她说没有重roll过」）。两处都查。
+    const dup = (ordersRef.current || []).concat(loadJSON("x_takeoutLog", []) || []).find(o => o && o.fromCharId === charId && o.name === orderName && (o.kind === "takeout" || o.takeout) && Date.now() - (o.ts || 0) < 6 * 3600000);
     const arriveTs = dup ? (dup.arriveTs || Date.now()) : Date.now() + deliverMsForCat("food", label);
     if (!dup) walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
     pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
