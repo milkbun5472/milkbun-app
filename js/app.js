@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.631";
+const APP_VERSION = "v74.634";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17767,9 +17767,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const nm = String((patch && patch.name) || "").trim().slice(0, 16);
     if (!nm) { toast("这块地方得有个名字"); return false; }
     if (nm !== oldName && (w.regions || []).some(r => r.name === nm)) { toast("这个世界里已经有叫「" + nm + "」的一块了"); return false; }
+    // 挨着谁（她 2026-10-03：「版块之间的衔接也能编辑吗」）：传了 adj 就照它改，两头一起改——A 挨着 B，B 也挨着 A
+    const want = Array.isArray(patch.adj) ? patch.adj.filter(a => a && a !== oldName && a !== nm) : null;
     const regions = (w.regions || []).map(r => {
       const base = r.name === oldName ? { ...r, name: nm, terrain: patch.terrain || r.terrain } : r;
-      return { ...base, adj: (base.adj || []).map(a => a === oldName ? nm : a) };
+      let adj = (base.adj || []).map(a => a === oldName ? nm : a);
+      if (want) {
+        if (r.name === oldName) adj = want.slice();
+        else adj = want.includes(r.name) ? (adj.includes(nm) ? adj : adj.concat([nm])) : adj.filter(a => a !== nm);
+      }
+      return { ...base, adj: adj };
     });
     saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x, regions }));
     toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
