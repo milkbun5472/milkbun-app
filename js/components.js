@@ -8691,7 +8691,7 @@ function RoomWorldBanner({ onEnter }) {
   return h("div", { className: "shrink-0 w-full flex items-center",
     style: { padding: "0 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line } },
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, marginRight: "auto" } }, "进入小世界"),
-    [["garden", "庭院"], ["train", "列车"]].map(([world, label]) => h("button", {
+    (window.FairyWorlds || []).map(({id:world,label}) => h("button", {
       key: world, onClick: () => onEnter(world), className: "active:opacity-70",
       "aria-label": "进入" + label,
       style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }

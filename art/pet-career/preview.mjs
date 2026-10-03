@@ -1,12 +1,14 @@
 import * as T from 'three';
-import {createPetCamera} from '../pet-house/pet-camera.mjs?v=pet-camera-1';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js';
-import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs';
-import {createCatMotion} from '../pet-house/cat-motion.mjs?v=pet-house-3';
-import {createPetWorld} from './world-navigation.mjs?v=pet-career-4';
+import {createCatDye,CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-65fc8bec3fd05b14';
+import {restorePetState,snapshotPetState,petProfile,bodyWidth} from '../../apps/pets/state.mjs?v=fg-65fc8bec3fd05b14';
+import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-65fc8bec3fd05b14';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-65fc8bec3fd05b14';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-65fc8bec3fd05b14';
+import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-65fc8bec3fd05b14';
+import {createCatMotion} from '../pet-house/cat-motion.mjs?v=fg-65fc8bec3fd05b14';
+import {createPetWorld} from './world-navigation.mjs?v=fg-65fc8bec3fd05b14';
 const read=async url=>{const r=await fetch(new URL(url,import.meta.url));if(!r.ok)throw Error('场景文件 '+r.status);return r.json();};
-const layout=await read('./outside.json?v=pet-career-4'),world=createPetWorld(layout);
+const layout=await read('./outside.json?v=fg-65fc8bec3fd05b14'),world=createPetWorld(layout);
 const view=document.getElementById('view'),loading=document.getElementById('loading'),labels=document.getElementById('door-labels');
 const title=document.querySelector('h1'),subtitle=document.getElementById('subtitle'),back=document.getElementById('back'),enterButton=document.getElementById('enter');
 const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;view.append(renderer.domElement);
@@ -18,14 +20,20 @@ const fill=new T.DirectionalLight('#fff8eb',1.2);fill.position.set(20,30,20);sce
 const studio=new T.Mesh(new T.PlaneGeometry(500,500),new T.MeshStandardMaterial({color:'#eee8dc',roughness:1}));studio.rotation.x=-Math.PI/2;studio.position.y=-.29;studio.receiveShadow=true;scene.add(studio);
 const loader=new GLTFLoader(),draco=new DRACOLoader();draco.setDecoderPath(new URL('../../apps/fairy-garden/vendor/draco/',import.meta.url).href);loader.setDRACOLoader(draco);
 const toWeb=p=>new T.Vector3(p[0],p[2],-p[1]);
+const host=location.pathname.includes('/apps/pets/')&&window.parent!==window&&window.parent.FairyGardenHostFor?.(window);
+let previewProfile,petState,dye,customizing=false,saveFailed=false,previewScene,previewCamera;const shapeMeshes=[];
 const sessionKey='lisa-pet-street-preview-v1';let raw;try{raw=JSON.parse(sessionStorage.getItem(sessionKey));}catch{}
+if(host){petState=restorePetState(host.load().worlds?.pets,world);raw=petState;}
 let restored=world.restore(raw),position={...restored.position},pan={x:0,z:-8},zoom=.65,follow=false,heading=0,room=null,outdoor=restored.outdoor,roomLayout,activeModel,outsideModel,cat,petRoot,motion,rig,busy=false,ready=false,path=[],destination='',activeZone='',lastTime=0,settling=0;
-const requested=new URLSearchParams(location.search).get('scene');
+const requested=host?null:new URLSearchParams(location.search).get('scene');
 if(world.building(requested)&&restored.room!==requested){position={...world.building(requested).approach};pan={...position};restored.room=null;}
 if(requested==='outside'||requested==='park')restored.room=null;
 let cameraControls;const cameraHost=document.getElementById('scene-camera');
 let evening=restored.evening,indoorOrbit={theta:0,phi:0};
-function save(){try{sessionStorage.setItem(sessionKey,JSON.stringify({position,room,outdoor,evening}));}catch{}}
+function save(force=false){if(host&&customizing&&!force)return true;if(host){try{petState=snapshotPetState(petState,{position,room,outdoor,evening});if(!host.save(petState,'pets'))throw Error('没有保存成功');saveFailed=false;return true;}catch(e){saveFailed=true;note('进度还没有保存成功','请留在这里重试，保存成功后再离开。');return false;}}try{sessionStorage.setItem(sessionKey,JSON.stringify({position,room,outdoor,evening}));}catch{}}
+function applyProfile(value){const next=petProfile(value);petState.profile=next;dye?.set(next.look);for(const {mesh,original,height}of shapeMeshes){const attr=mesh.geometry.attributes.position;for(let i=0;i<attr.count;i++)attr.setX(i,bodyWidth(original[i*3],original[i*3+1],original[i*3+2],height,next.weight));attr.needsUpdate=true;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();}petRoot.scale.setScalar(next.size);if(!customizing){if(room)placeIndoor();else setOutdoorPet();}draw();return next;}
+function customize(on){if(on&&!customizing)previewProfile=structuredClone(petState.profile);customizing=!!on;document.body.classList.toggle('customizing',customizing);path=[];destination='';settling=0;motion?.dispose();motion=null;if(customizing){if(!previewScene){previewScene=new T.Scene();previewScene.background=new T.Color('#eee8dc');previewScene.add(new T.HemisphereLight('#fff4e6','#b9bdad',2.4));const light=new T.DirectionalLight('#fff4e0',3);light.position.set(-2,4,4);previewScene.add(light);previewCamera=new T.OrthographicCamera(-2,2,2,-2,.1,30);}previewScene.add(petRoot);petRoot.position.set(0,0,0);petRoot.rotation.y=0;}else{scene.add(petRoot);if(room)placeIndoor();else setOutdoorPet();}draw();}
+function commitProfile(value){const previous=structuredClone(petState);previous.profile=previewProfile||previous.profile;const profile=applyProfile(value);petState.configured=true;if(!save(true)){petState=previous;applyProfile(previous.profile);return false;}return profile;}
 function note(a,b){document.getElementById('zone-title').textContent=a;document.getElementById('zone-text').textContent=b;}
 function shade(root){root.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});}
 function clearModel(root){root.traverse(o=>{if(o.isMesh){o.geometry.dispose();for(const m of Array.isArray(o.material)?o.material:[o.material]){for(const v of Object.values(m))if(v?.isTexture)v.dispose();m.dispose();}}});}
@@ -41,7 +49,7 @@ function updateCamera(){
  for(const b of layout.buildings){const button=document.getElementById('door-'+b.id),v=new T.Vector3(b.x,5.6,b.z+3).project(camera);button.style.left=((v.x+1)*innerWidth/2)+'px';button.style.top=((1-v.y)*innerHeight/2)+'px';const px=(v.x+1)*innerWidth/2,py=(1-v.y)*innerHeight/2;button.hidden=room!==null||v.z<-1||v.z>1||px<55||px>innerWidth-55||py<120||py>innerHeight-85;button.disabled=busy;}
 }
 async function enter(id){
- if(busy||room||!world.canEnter(position,id))return false;
+ if(customizing||saveFailed||busy||room||!world.canEnter(position,id))return false;
  const b=world.building(id);busy=true;path=[];destination='';settling=0;lastTime=0;refresh();loading.textContent='走进'+b.title+'…';loading.hidden=false;
  try{
   const [file,inside]=await Promise.all([loader.loadAsync(new URL(b.interior,import.meta.url).href),read(b.layout)]);
@@ -51,18 +59,18 @@ async function enter(id){
 }
 function leave(){if(busy||!room)return;cameraControls?.dispose();cameraControls=null;cameraHost.hidden=true;bindOutdoorGestures();scene.remove(activeModel);clearModel(activeModel);activeModel=outsideModel;outsideModel.visible=true;position={...outdoor.position};pan={...outdoor.pan};zoom=outdoor.zoom;follow=outdoor.follow;heading=outdoor.heading;room=null;roomLayout=null;activeZone='';settling=0;setOutdoorPet();gesture.setZoom(zoom);note('回到门口','接着走走，也可以去旁边的店。');history.replaceState(null,'','?scene=outside');save();refresh();draw();}
 function goTo(point,id=''){
- if(busy||room||!ready)return false;const route=world.path(position,point);if(!route){note('这里暂时走不过去','点点道路或草地试试。');return false;}path=route;destination=id;follow=true;pan={...position};gesture.setZoom(1.6);settling=1;note(id?'去'+world.building(id).title:'散散步',id?'沿路走到门口，再走进去。':'点门牌可以去店里。');draw();return true;
+ if(customizing||saveFailed||busy||room||!ready)return false;const route=world.path(position,point);if(!route){note('这里暂时走不过去','点点道路或草地试试。');return false;}path=route;destination=id;follow=true;pan={...position};gesture.setZoom(1.6);settling=1;note(id?'去'+world.building(id).title:'散散步',id?'沿路走到门口，再走进去。':'点门牌可以去店里。');draw();return true;
 }
 function advance(dt){
- if(room||!motion||busy)return;dt=Math.max(0,Math.min(.05,dt));let speed=0;
+ if(customizing||saveFailed||room||!motion||busy)return;dt=Math.max(0,Math.min(.05,dt));let speed=0;
  if(path.length){const q=path[0],dx=q.x-position.x,dz=q.z-position.z,d=Math.hypot(dx,dz);speed=.72;const step=Math.min(d,speed*dt);if(d>.001){position.x+=dx/d*step;position.z+=dz/d*step;heading=Math.atan2(dx,dz);}if(d<=step+.002)path.shift();if(!path.length){speed=0;settling=.65;save();if(destination){const id=destination;destination='';void enter(id);}}}
  petRoot.position.set(position.x,world.ground(position.x,position.z)+.001,position.z);petRoot.rotation.y=heading;motion.update(dt,speed,0,path.length>0);if(follow){pan.x=T.MathUtils.damp(pan.x,position.x,4,dt);pan.z=T.MathUtils.damp(pan.z,position.z,4,dt);}settling=Math.max(0,settling-dt);refresh();
 }
-let pending=false;function draw(){if(pending||document.hidden)return;pending=true;requestAnimationFrame(time=>{pending=false;const dt=lastTime?Math.min(.05,(time-lastTime)/1000):0;lastTime=time;advance(dt);updateCamera();renderer.render(scene,camera);if(path.length||settling>0)draw();else lastTime=0;});}
+let pending=false;function draw(){if(pending||document.hidden)return;pending=true;requestAnimationFrame(time=>{pending=false;const dt=lastTime?Math.min(.05,(time-lastTime)/1000):0;lastTime=time;advance(dt);if(customizing){const h=Math.max(1,innerHeight*.38),aspect=innerWidth/h,span=1.7;previewCamera.left=-span*aspect/2;previewCamera.right=span*aspect/2;previewCamera.top=span/2;previewCamera.bottom=-span/2;previewCamera.position.set(1,1.25,3.4);previewCamera.lookAt(0,.5,0);previewCamera.updateProjectionMatrix();renderer.setViewport(0,innerHeight-h,innerWidth,h);renderer.render(previewScene,previewCamera);}else{renderer.setViewport(0,0,innerWidth,innerHeight);updateCamera();renderer.render(scene,camera);}if(path.length||settling>0)draw();else lastTime=0;});}
 function resize(){renderer.setSize(innerWidth,innerHeight);draw();}window.addEventListener('resize',resize);
 const ray=new T.Raycaster(),pointer=new T.Vector2();
 function screenRay(x,y){pointer.set(x/innerWidth*2-1,1-y/innerHeight*2);ray.setFromCamera(pointer,camera);return ray;}
-function tap(x,y){if(busy||!ready)return;screenRay(x,y);if(room){for(const hit of ray.intersectObject(activeModel,true)){let o=hit.object;while(o&&!o.userData.zone)o=o.parent;const zone=roomLayout.zones[o?.userData.zone];if(zone){activeZone=o.userData.zone;note(zone.title,zone.text);break;}}draw();return;}
+function tap(x,y){if(customizing||saveFailed||busy||!ready)return;screenRay(x,y);if(room){for(const hit of ray.intersectObject(activeModel,true)){let o=hit.object;while(o&&!o.userData.zone)o=o.parent;const zone=roomLayout.zones[o?.userData.zone];if(zone){activeZone=o.userData.zone;note(zone.title,zone.text);break;}}draw();return;}
  for(const hit of ray.intersectObject(outsideModel,true)){let o=hit.object;while(o&&!o.userData.zone)o=o.parent;const id=o?.userData.zone?.replace(/^building_/,'');if(world.building(id)){goTo(world.building(id).approach,id);return;}}
  const p=ray.ray.intersectPlane(new T.Plane(new T.Vector3(0,1,0),-.06),new T.Vector3());if(p)goTo({x:p.x,z:p.z});}
 const gesture=createMapGesture({initial:zoom,onTap:tap,onZoom:v=>{zoom=v;draw();},onPan:(dx,dy)=>{if(room){indoorOrbit.theta=T.MathUtils.clamp(indoorOrbit.theta-dx*.004,-.6,.6);indoorOrbit.phi=T.MathUtils.clamp(indoorOrbit.phi-dy*.003,-.25,.25);draw();return;}follow=false;screenRay(innerWidth/2,innerHeight/2);const origin=ray.ray.origin.clone(),direction=ray.ray.direction.clone();screenRay(innerWidth/2+dx,innerHeight/2+dy);const delta=orthographicPanDelta(origin,ray.ray.origin,direction);if(delta){pan.x=T.MathUtils.clamp(pan.x+delta.x,-35,35);pan.z=T.MathUtils.clamp(pan.z+delta.z,-54,35);}draw();}});
@@ -72,11 +80,14 @@ for(const b of layout.buildings){const button=document.createElement('button');b
 back.onclick=()=>{if(room)leave();else{follow=true;pan={...position};gesture.setZoom(1.6);draw();}};
 document.getElementById('reset').onclick=()=>{if(room){cameraControls.reset();activeZone='';note(title.textContent,'点家具看看 · 点「出门」回街区');}else{follow=false;pan={x:0,z:-10};gesture.setZoom(.55);note('整个小街区','公园、六栋房子和北边林间小路。');}draw();};
 document.getElementById('light').onclick=()=>{evening=!evening;applyLight();save();draw();};enterButton.onclick=()=>{const near=world.nearest(position);if(near)void enter(near.building.id);};
+let persistAt=0;const persist=()=>{if(host&&ready&&!customizing&&performance.now()-persistAt>2500){persistAt=performance.now();save();}};setInterval(persist,3000);
 document.addEventListener('visibilitychange',()=>{gesture.cancel();cameraControls?.clearGesture();lastTime=0;save();if(!document.hidden)draw();});window.addEventListener('pagehide',save);
 try{
- const [outsideFile,catFile,metadata]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=pet-career-4',import.meta.url).href),loader.loadAsync(new URL('../pet-house/cat.glb?v=pet-house-2',import.meta.url).href),read('../pet-house/cat-rig.json?v=pet-house-2')]);
- outsideModel=outsideFile.scene;shade(outsideModel);scene.add(outsideModel);activeModel=outsideModel;cat=catFile.scene;rig=metadata;const bounds=new T.Box3().setFromObject(cat),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3()),scale=.88/size.y;cat.scale.setScalar(scale);cat.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);petRoot=new T.Group();petRoot.add(cat);shade(cat);scene.add(petRoot);setOutdoorPet();applyLight();loading.hidden=true;ready=true;
+ const [outsideFile,catFile,metadata]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-65fc8bec3fd05b14',import.meta.url).href),loader.loadAsync(new URL('../pet-house/cat.glb?v=fg-65fc8bec3fd05b14',import.meta.url).href),read('../pet-house/cat-rig.json?v=fg-65fc8bec3fd05b14')]);
+ outsideModel=outsideFile.scene;shade(outsideModel);scene.add(outsideModel);activeModel=outsideModel;cat=catFile.scene;rig=metadata;const bounds=new T.Box3().setFromObject(cat),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3()),scale=.88/size.y;cat.scale.setScalar(scale);cat.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);petRoot=new T.Group();petRoot.add(cat);shade(cat);scene.add(petRoot);setOutdoorPet();if(host){cat.traverse(mesh=>{if(mesh.isMesh){const original=mesh.geometry.attributes.position.array.slice();mesh.geometry=mesh.geometry.clone();const h=new T.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);shapeMeshes.push({mesh,original,height:h.max.y-h.min.y});}});const mask=await new T.TextureLoader().loadAsync(new URL('../pet-house/cat-mask.webp?v=fg-65fc8bec3fd05b14',import.meta.url).href);dye=createCatDye(T,cat,mask,rig.dye);applyProfile(petState.profile);}applyLight();loading.hidden=true;ready=true;
  window.petCareerPreview={scene,camera,renderer,cat,petRoot,world,layout,enter,leave,goTo,step:advance,reset:()=>document.getElementById('reset').click(),snapshot:()=>({ready,room,position:{...position},outdoor,pan:{...pan},zoom:room?cameraControls?.snapshot().zoom:zoom,camera:cameraControls?.snapshot(),evening,busy,walking:path.length>0,destination,zone:activeZone,motion:motion?.snapshot()}),get model(){return activeModel;},project:(x,z,h=0)=>{const v=new T.Vector3(x,h,z).project(camera);return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};}};
  note(layout.title,'点地面散步 · 点房子门牌走进去');refresh();resize();
+ if(host){window.PetGame={ready:false,palettes:CAT_PALETTES,get previewCamera(){return previewCamera;},get previewScene(){return previewScene;},snapshot:()=>snapshotPetState(petState,{position,room,outdoor,evening}),flush:()=>!busy&&save(),preview:customize,applyProfile,commitProfile,enter,leave,goTo,step:advance};}
  if(restored.room){position={...outdoor.position};heading=outdoor.heading||0;pan={...outdoor.pan};zoom=outdoor.zoom||1;follow=outdoor.follow!==false;setOutdoorPet();await enter(restored.room);}
+ if(host){window.PetGame.ready=true;host.ready?.();}
 }catch(e){loading.textContent='小街区没能打开，请刷新重试。';console.error(e);}

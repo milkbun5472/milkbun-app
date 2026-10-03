@@ -1,11 +1,11 @@
 import * as T from 'three';
-import {createPetCamera} from './pet-camera.mjs?v=pet-camera-1';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js';
-import {createCatMotion,floorHeight} from './cat-motion.mjs?v=pet-house-3';
-import {createCatDye,CAT_PALETTES,CAT_LOOK_KEY} from './cat-dye.mjs?v=pet-house-2';
+import {createPetCamera} from './pet-camera.mjs?v=fg-65fc8bec3fd05b14';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-65fc8bec3fd05b14';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-65fc8bec3fd05b14';
+import {createCatMotion,floorHeight} from './cat-motion.mjs?v=fg-65fc8bec3fd05b14';
+import {createCatDye,CAT_PALETTES,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-65fc8bec3fd05b14';
 
-const layout=await (await fetch(new URL('./layout.json',import.meta.url))).json();
+const layout=await (await fetch(new URL('./layout.json?v=fg-65fc8bec3fd05b14',import.meta.url))).json();
 const view=document.getElementById('view'),loading=document.getElementById('loading');
 const toWeb=p=>new T.Vector3(p[0],p[2],-p[1]);
 const renderer=new T.WebGLRenderer({antialias:true,alpha:false});
@@ -27,7 +27,7 @@ const meshes=[],pathOrigin=toWeb(layout.cat.position),pathYaw=layout.cat.yaw;
 const walkButton=document.getElementById('walk'),furButton=document.getElementById('fur');
 const baseInput=document.getElementById('fur-base'),patchInput=document.getElementById('fur-patch');
 try{
-  const [roomFile,catFile,metadata,mask]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=pet-house-1',import.meta.url).href),loader.loadAsync(new URL('./cat.glb?v=pet-house-2',import.meta.url).href),fetch(new URL('./cat-rig.json?v=pet-house-2',import.meta.url)).then(r=>{if(!r.ok)throw Error('Cat rig '+r.status);return r.json();}),new T.TextureLoader().loadAsync(new URL('./cat-mask.png?v=pet-house-2',import.meta.url).href)]);
+  const [roomFile,catFile,metadata,mask]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-65fc8bec3fd05b14',import.meta.url).href),loader.loadAsync(new URL('./cat.glb?v=fg-65fc8bec3fd05b14',import.meta.url).href),fetch(new URL('./cat-rig.json?v=fg-65fc8bec3fd05b14',import.meta.url)).then(r=>{if(!r.ok)throw Error('Cat rig '+r.status);return r.json();}),new T.TextureLoader().loadAsync(new URL('./cat-mask.png?v=fg-65fc8bec3fd05b14',import.meta.url).href)]);
   room=roomFile.scene;cat=catFile.scene;scene.add(room);
   room.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;meshes.push(o);}});
   const bounds=new T.Box3().setFromObject(cat),size=bounds.getSize(new T.Vector3()),center=bounds.getCenter(new T.Vector3());
