@@ -535,15 +535,18 @@
         chars.length === 0
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "14px 2px" } }, "还没有角色，先去「人格档案馆」建几个")
           : h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
-              chars.map(function (c) {
+              chars.filter(function (c) { return !c.npc; }).concat(chars.filter(function (c) { return c.npc; })).map(function (c, ci, arr) {
                 const on = picked.indexOf(c.id) >= 0;
-                return h("button", { key: c.id, onClick: function () { toggle(c.id); },
+                // 配角排在主角色后面，前面垫一行小字隔开
+                const firstNpc = c.npc && (ci === 0 || !arr[ci - 1].npc);
+                const btn = h("button", { key: c.id, onClick: function () { toggle(c.id); },
                   style: { display: "flex", alignItems: "center", gap: 11, padding: "9px 11px", borderRadius: 12, background: on ? (t.tint + "16") : t.bg2, border: "1px solid " + (on ? t.tint : t.line) } },
                   h(Avatar, { character: c, size: 34, radius: 10 }),
                   h("div", { style: { flex: 1, textAlign: "left", minWidth: 0 } },
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.tagline || "")),
                   h("div", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, border: "2px solid " + (on ? t.tint : t.line), background: on ? t.tint : "transparent", color: "#fff", fontSize: 13, lineHeight: "19px", textAlign: "center" } }, on ? "✓" : ""));
+                return firstNpc ? h(React.Fragment, { key: c.id }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 0" } }, "认识的配角"), btn) : btn;
               })),
 
         // 选项
