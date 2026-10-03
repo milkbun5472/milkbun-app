@@ -3563,6 +3563,10 @@
     const gameRunId=useRef("monopoly-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,9));
     const maxMoves=monoMaxMoves(players.length||cfg.total||2);
     useEffect(function(){ if(sv)return; let dead=false; (async function(){try{const data=await setupMonopoly(api,realPlayerLines(cfg,props),cfg.npcCount||0); if(dead)return; const ps=shuffle(buildRoster(cfg,props,t,data.npcs,data.skills)).map(function(p){return Object.assign({},p,{cash:(cfg.mode==="easy"&&p.isUser)?2450:2200,pos:0,bankrupt:false,jailed:0});}); setPlayers(ps); setLogs([{type:"sys",say:"经典 40 格城市棋盘开局：每人 $2200，绕过起点领 $200；每人约 22 手后按总资产结算。"}]); setPhase("play");}catch(e){if(!dead){setError(e.message||"开局失败");setPhase("error");}}})(); return function(){dead=true;};},[]);
+    // 看门狗（群友 2026-10-03：「就是页面不动了，但是其他按键可以点」）：角色接话那一枪是模型调用，
+    //   上游不回、或者某一步抛错没走到 setBusy(false)，掷骰键就永远停在「…角色们正在接话」。
+    //   账面是本地规则算的，早就落定了——接话没回来只是少几句台词，不该把整局卡死。
+    useEffect(function(){ if(!busy)return; const tm=setTimeout(function(){setBusy(false);addLogs([{type:"sys",say:"角色们这轮没接上话，先接着玩。"}]);},60000); return function(){clearTimeout(tm);}; },[busy]);
     useEffect(function(){ if(phase!=="play"||!players.length)return; saveGameSnap("monopoly",{boardVersion:3,config:cfg,players:monoPlayerSnap(players),owners:owners,levels:levels,turn:turn,moves:moves,logs:logs.slice(-60),winner:winner,label:"第 "+(moves+1)+" / "+maxMoves+" 手 · "+players.filter(function(p){return !p.bankrupt;}).length+" 人在场"}); },[players,owners,levels,turn,moves,logs,phase,winner]);
     useEffect(function(){
       if(phase!=="result"||!players.length)return;
