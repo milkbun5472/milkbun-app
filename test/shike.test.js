@@ -136,6 +136,7 @@ test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", ()
   assert.equal((comp.match(/"补中间"/g) || []).length, 2);
   assert.equal((comp.match(/onPinShike\(selIds\)/g) || []).length, 2);
   assert.equal((app.match(/onPinShike: indices =>/g) || []).length, 2);
+  assert.match(app, /saveJSON\("x_shikeGroupPins", all\.slice\(0, 500\)\)/, "群里收的一段要存成多人卡");
   assert.match(app, /onSummarizePin: async \(c, m\) =>/);
 });
 
@@ -189,4 +190,24 @@ test("第三轮：按月的目录能跳；能存成一页长图，太长就截�
   assert.match(s, /saveImgOriginal\(cv\.toDataURL\("image\/jpeg", 0\.9\)/);
   assert.match(s, /MAXH = 15000/, "iOS canvas 一边不能太长，得有上限");
   assert.match(s, /只拼了最近的/);
+});
+
+test("第四轮：群里收的一段出现在在场每个人名下；群里一起过的节日", () => {
+  const K = kit();
+  const a = { id: "a", name: "江识" }, b = { id: "b", name: "陆衍" };
+  const groupPins = [{ id: "g1", ts: D(2025, 6, 1), title: "群里吵架", cids: ["a", "b"], groupName: "家", lines: [{ role: "user", text: "别吵了" }, { role: "char", name: "江识", text: "他先的" }] }];
+  const groups = [{ id: "G", name: "家", memberIds: ["a", "b"] }];
+  const groupChats = { G: [
+    { role: "user", content: "圣诞快乐呀", ts: D(2025, 12, 25, 10) },
+    { role: "assistant", senderId: "a", senderName: "江识", content: "圣诞快乐", ts: D(2025, 12, 25, 11) },
+    { role: "assistant", senderId: "b", senderName: "陆衍", content: "同乐", ts: D(2025, 12, 25, 12) }
+  ] };
+  const ctx = { now: D(2026, 1, 1), chats: {}, lib: [], couples: {}, profile: {}, uName: "Lisa", groupPins, groups, groupChats, allChars: [a, b] };
+  [a, b].forEach(c => {
+    const ms = K.momentsFor(c, ctx);
+    const gp = ms.find(m => m.title === "群里吵架");
+    assert.ok(gp, c.name + " 名下没有那张群里的卡");
+    assert.equal(gp.with.length, 1, "「一起的还有」该是另一个人");
+    assert.ok(ms.find(m => /和「家」一起过的圣诞节/.test(m.title)), c.name + " 名下没有群里过的圣诞");
+  });
 });

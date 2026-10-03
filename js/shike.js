@@ -128,12 +128,39 @@
       world.push({ key: "world_" + dayKey(ts), ts, title: evs.map(e => e.title).slice(0, 2).join(" · "), kind: "world",
         what: whatHappened(c.id, c.remark || c.name, ctx.uName, ts, lib, chat), img: dayImage(ts, chat) });
     });
-    return dated.concat(pinned, world).sort((x, y) => y.ts - x.ts);
+    // 群里的时刻（她 2026-10-03 点的第 8 条）：两种，都同时出现在在场每个人名下——
+    //   ① 群里圈一段收进来的（x_shikeGroupPins，记着当时说话的那几位 cids）；
+    //   ② 节日那天你和TA都在同一个群里说过话 → 「和『群名』一起过的元旦」。
+    const nm = id => { const x = (ctx.allChars || []).find(y => y && y.id === id); return x ? (x.remark || x.name) : ""; };
+    const others = cids => (cids || []).filter(id => id !== c.id).map(nm).filter(Boolean);
+    const gpins = (ctx.groupPins || []).filter(p => p && p.ts && (p.cids || []).indexOf(c.id) >= 0).map(p => {
+      const raw = (p.lines || []).map(r => (r.role === "user" ? ctx.uName : (r.name || "")) + (r.role === "user" || r.name ? "：" : "") + String(r.text || "").replace(/\s+/g, " ").slice(0, 160));
+      return { key: "gpin_" + p.id, gpinId: p.id, ts: Number(p.ts), title: p.title || "群里的一刻", kind: "group", with: others(p.cids), group: p.groupName || "",
+        what: { kind: p.summary ? "summary" : "pin", lines: p.summary ? [p.summary] : raw.slice(0, 40) }, raw, summary: p.summary || "", img: null };
+    });
+    const gfest = [];
+    (ctx.groups || []).filter(g => g && (g.memberIds || []).indexOf(c.id) >= 0).forEach(g => {
+      const gc = (ctx.groupChats || {})[g.id] || [];
+      if (!gc.length) return;
+      const y0 = new Date(Number(gc[0].ts) || now).getFullYear();
+      for (let y = y0; y <= thisYear; y++) HOLIDAYS.forEach(([mo, dd, name]) => {
+        const a = new Date(y, mo - 1, dd).getTime(), b = a + DAY;
+        if (a > today) return;
+        const day = gc.filter(m => m && !m.recalled && m.content && Number(m.ts) >= a && Number(m.ts) < b);
+        if (!day.some(m => m.role === "user") || !day.some(m => m.senderId === c.id)) return;
+        const said = day.filter(m => m.role === "user" || m.senderId).slice().sort((x, z) => String(z.content).length - String(x.content).length).slice(0, 4)
+          .sort((x, z) => x.ts - z.ts).map(m => (m.role === "user" ? ctx.uName : (m.senderName || nm(m.senderId))) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 70));
+        const ids = Array.from(new Set(day.map(m => m.senderId).filter(Boolean)));
+        gfest.push({ key: "gfest_" + g.id + "_" + dayKey(a), ts: a, title: "和「" + (g.name || "群") + "」一起过的" + name, kind: "group", with: others(ids), group: g.name || "",
+          what: { kind: "chat", lines: said }, img: null });
+      });
+    });
+    return dated.concat(pinned, world, gpins, gfest).sort((x, y) => y.ts - x.ts);
   }
 
   // ── 界面 ───────────────────────────────────────────────────
   const loadCovers = () => { try { return (typeof loadJSON === "function" ? loadJSON(COVER_KEY, {}) : {}) || {}; } catch (e) { return {}; } };
-  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的", kept: "TA 存的", manual: "我开的", world: "那天的世界" };
+  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的", kept: "TA 存的", manual: "我开的", group: "群里", world: "那天的世界" };
   // 时刻卡的底图：那天的照片（自拍在 IDB 图库里，用 useIdbImgUrl 取；她发的照片是 iv_ 门牌）
   function MomentArt({ img }) {
     const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
@@ -217,12 +244,16 @@
     const [summing, setSumming] = useState("");
     const [creating, setCreating] = useState(null);
     const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName, offlines: props.offlines, calendar: props.calendar,
+      groups: props.groups, groupChats: props.groupChats, allChars: props.characters,
+      groupPins: (typeof loadJSON === "function" ? loadJSON("x_shikeGroupPins", []) : []) || [],
       pins: (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {} };
+    // 群里收的那些存在一处（x_shikeGroupPins），在场几个人名下都显示同一张——总结、删也是改这一处
+    const editGroupPins = fn => { const all = (typeof loadJSON === "function" ? loadJSON("x_shikeGroupPins", []) : []) || []; try { saveJSON("x_shikeGroupPins", fn(all)); } catch (e) {} setPinTick(x => x + 1); };
     const editPins = (cid, fn) => { const all = (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {}; all[cid] = fn(all[cid] || []); try { saveJSON("x_shikePins", all); } catch (e) {} setPinTick(x => x + 1); };
     const all = useMemo(() => {
       const m = {}; chars.forEach(c => { m[c.id] = momentsFor(c, ctx); }); return m;
       // eslint-disable-next-line
-    }, [chars.length, props.chats, props.memLib, props.couples, props.calendar, pinTick]);
+    }, [chars.length, props.chats, props.memLib, props.couples, props.calendar, props.groupChats, pinTick]);
     const cur = chars.find(c => c.id === openId);
     // 卡面默认用【人格档案馆那张】（她 2026-10-03：「能不能选人格档案馆的头像而不是聊天头像」）；
     //   TA在聊天里自己换的那张(chatAvatar)只在档案那张空着时兜底。
@@ -246,11 +277,15 @@
     const summarize = async m => {
       if (summing || !props.onSummarizePin || !cur) return;
       setSumming(m.key);
-      try { const txt = await props.onSummarizePin(cur, m); if (txt) editPins(cur.id, list => list.map(p => p.id === m.pinId ? Object.assign({}, p, { summary: txt }) : p)); }
+      try {
+        const txt = await props.onSummarizePin(cur, m);
+        if (txt && m.gpinId) editGroupPins(list => list.map(p => p.id === m.gpinId ? Object.assign({}, p, { summary: txt }) : p));
+        else if (txt) editPins(cur.id, list => list.map(p => p.id === m.pinId ? Object.assign({}, p, { summary: txt }) : p));
+      }
       finally { setSumming(""); }
     };
     const dropPin = m => {
-      const go = () => editPins(cur.id, list => list.filter(p => p.id !== m.pinId));
+      const go = () => m.gpinId ? editGroupPins(list => list.filter(p => p.id !== m.gpinId)) : editPins(cur.id, list => list.filter(p => p.id !== m.pinId));
       if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这张时刻？", "只删这张卡，聊天记录不动。", go, "删掉"); else go();
     };
     const saveCreate = () => {
@@ -365,6 +400,7 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1.05, marginTop: 14 } }, (d.getMonth() + 1) + "." + d.getDate()),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "rgba(255,255,255,.75)", marginTop: 4 } }, d.getFullYear() + " 年"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.3, marginTop: 18 } }, m.title),
+            m.with && m.with.length ? h("div", { "data-wk": "shikewith", style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.8)", marginTop: 6 } }, "一起的还有：" + m.with.join("、")) : null,
             h("div", { className: "flex-1 min-h-0", style: { marginTop: 22, overflowY: "auto", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.22)",
               borderRadius: 14, padding: "14px 16px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 8 } },
@@ -382,11 +418,11 @@
             // 换这张卡的图：画一张（走生图，一次一张额度）／自己贴一张／拿掉换回当天照片或封面
             h("div", { className: "flex", style: { gap: 8, marginTop: 12, flexWrap: "wrap" } },
               // 收进来的那一长段：总结成一段（调一次），总结过的能翻回原话；收进来的和自己开的能删
-              m.pinId && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? h("button", { onClick: () => summarize(m), disabled: !!summing, className: "active:opacity-70", style: chip(summing && summing !== m.key) },
+              (m.pinId || m.gpinId) && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? h("button", { onClick: () => summarize(m), disabled: !!summing, className: "active:opacity-70", style: chip(summing && summing !== m.key) },
                 summing === m.key ? "正在总结…" : "总结成一段") : null,
               m.summary ? h("button", { onClick: () => setRawOpen(o => Object.assign({}, o, { [m.key]: !o[m.key] })), className: "active:opacity-70", style: chip(false) },
                 rawOpen[m.key] ? "看总结" : "看原话") : null,
-              m.pinId ? h("button", { onClick: () => dropPin(m), className: "active:opacity-70", style: chip(false) }, "删掉这张") : null,
+              (m.pinId || m.gpinId) ? h("button", { onClick: () => dropPin(m), className: "active:opacity-70", style: chip(false) }, "删掉这张") : null,
               // 发给 TA（她 2026-10-03 点的第 1 条）：卡片进聊天，TA 接着跟你聊那天
               props.onSendMoment ? h("button", { onClick: () => props.onSendMoment(cur, m), className: "active:opacity-70", style: chip(false) }, "发给 TA") : null,
               props.onDrawMoment ? h("button", { onClick: () => draw(m), disabled: !!drawing, className: "active:opacity-70", style: chip(drawing && drawing !== m.key) },

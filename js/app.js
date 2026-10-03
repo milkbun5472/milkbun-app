@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.672";
+const APP_VERSION = "v74.673";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26093,12 +26093,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
-    // 群里圈一段收进时刻：挂在这一段里说话最多的那个角色名下（她说的话不算）
+    // 群里圈一段收进时刻（她 2026-10-03 点的第 8 条）：收成一张【多人的】卡，这一段里说过话的每个角色名下都有
     onPinShike: indices => {
-      const msgs = (groupChatsRef.current[activeGroup.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
-      const cnt = {}; picked.forEach(m => { if (m.senderId && characters.some(c => c.id === m.senderId && !c.npc)) cnt[m.senderId] = (cnt[m.senderId] || 0) + 1; });
-      const cid = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || null;
-      pinToShike(cid, picked, m => m.role === "user" ? null : (m.senderName || null));
+      const g = activeGroup, msgs = (groupChatsRef.current[g.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(m => m && !m.recalled && m.content);
+      const cids = Array.from(new Set(picked.map(m => m.senderId).filter(id => id && characters.some(c => c.id === id && !c.npc))));
+      if (!picked.length || !cids.length) { toast(picked.length ? "这一段里没有角色说话，挂不到谁名下" : "选中的这几条没有能收的内容"); return; }
+      requestAppPrompt("收进时刻", "收进 " + picked.length + " 条，会出现在 " + cids.length + " 个人的时刻里。给这一刻起个名字。", "", name => {
+        const all = loadJSON("x_shikeGroupPins", []) || [];
+        all.unshift({ id: "gpin_" + Date.now(), ts: Number(picked[0].ts) || Date.now(), title: String(name || "").trim().slice(0, 30), groupId: g.id, groupName: g.name || "", cids,
+          lines: picked.slice(0, 200).map(m => ({ role: m.role === "user" ? "user" : "char", name: m.role === "user" ? null : (m.senderName || null), text: String(m.content).slice(0, 600) })) });
+        saveJSON("x_shikeGroupPins", all.slice(0, 500));
+        toast("收进时刻了");
+      }, "收进去");
     },
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
@@ -27140,6 +27146,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(c.id, p => [...p, { role: "user", content: body, ts: Date.now(), shikeKey: m.key }]);
       openChatById(c.id);
     },
+    groups: groups,          // 群里一起过的节日：那天你和TA都在同一个群里说过话
+    groupChats: groupChats,
     calendar: calendar,      // 日历里的世界事件：过去的、那天你们有来往的，自动成时刻
     // 收进来的一长段 → 总结成一段（调一次，走后台线路；原话照留，卡上能翻回去看）
     onSummarizePin: async (c, m) => {
