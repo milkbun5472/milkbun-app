@@ -7614,7 +7614,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!scene) return true;
     // 先问拍不拍得了：先挂「拍照中」再发现拍不了，这一格就永远转圈了。
     if (!offlinePhotoCan(char)) { toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍", 6000); return true; }
-    const q = { desc: scene, pending: true, failed: false, imgKey: null, imgUrl: null };
+    const q = { desc: scene, pending: true, failed: false, imgKey: null, imgUrl: null, pendingSince: Date.now() };
     if (groupId) patchGOffMsg(groupId, m.sid, q); else patchOffMsg(scopeKey, m.sid, q);
     runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid });
     return true;
@@ -12336,13 +12336,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!m || m.kind !== "selfie" || m.role !== "assistant" || m.pending || !m.sid) return;
     const spk = characters.find(c => c.id === m.senderId);
     if (!spk) return;
-    pGChat(groupId, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+    pGChat(groupId, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null, pendingSince: Date.now() } : x));
     drawGroupSelfie({ groupId, spk, gsid: m.sid, gPhotoKind: m.photoKind, gPhotoScene: m.desc || "", gCast: m.cast || null, keySuffix: "_r" + Date.now() });
   };
   const reshootChatSelfie = (chatKey, idx, charId) => {
     const m = (chatsRef.current[chatKey] || [])[idx];
     if (!m || m.kind !== "selfie" || m.role !== "assistant" || m.pending || !m.sid) return;
-    pChat(chatKey, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null } : x));
+    pChat(chatKey, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null, pendingSince: Date.now() } : x));
     drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", keySuffix: "_r" + Date.now() });
   };
   const handleMsgAction = (act, idx, sourceKey) => {

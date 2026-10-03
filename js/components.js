@@ -14690,7 +14690,9 @@ function SelfieBubble({ m }) {
     m.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, opacity: 0.65, marginTop: 5 } }, "（本来想拍：" + m.desc + "）") : null);
   if (m.pending) {
     // 卡「拍照中」超 6 分钟 = 生成时页面被 iOS 杀了/断线，别永远转下去
-    if (m.ts && Date.now() - m.ts > 360000) return note("图没等回来（可能切了后台断线），让 TA 重拍一张吧");
+    // 重拍的老照片按「这次开始拍」算，不按当初发出来的时间（她 2026-10-03：重拍了却不显示在重新生成）
+    const since = m.pendingSince || m.ts;
+    if (since && Date.now() - since > 360000) return note("图没等回来（可能切了后台断线），让 TA 重拍一张吧");
     return h("div", { style: Object.assign({}, box, { padding: "24px 30px", display: "flex", flexDirection: "column", alignItems: "center", gap: 7 }) },
       h("div", { style: { fontSize: 22 } }, "📷"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
