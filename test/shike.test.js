@@ -85,3 +85,11 @@ test("「让 TA 说说」走 runProbe voice，点了才调", () => {
   assert.match(app, /runProbe\(p, ctxFor\(c\), \{ voice: true, tag: "shike"/);
   assert.match(P("js/shike.js"), /props\.onRecall \? h\("button", \{ onClick: \(\) => recall\(m\)/);
 });
+
+test("每张时刻卡能画一张、贴一张、拿掉；自己的图压过当天照片", () => {
+  const s = P("js/shike.js"), app = P("js/app.js");
+  assert.match(app, /onDrawMoment: async \(c, m\) => \{/);
+  assert.match(s, /\(\(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \|\| m\.img\) \? h\(MomentArt, \{ img: \(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \? \{ ref: arts\[cur\.id\]\[m\.key\] \} : m\.img \}\)/);
+  assert.match(s, /"贴一张"/);
+  assert.match(s, /saveJSON\("x_shikeArt", n\)/);
+});

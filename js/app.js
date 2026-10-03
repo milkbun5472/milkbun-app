@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.658";
+const APP_VERSION = "v74.659";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27082,6 +27082,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!txt) throw new Error("TA 这回没说出话来，再点一次");
         return txt;
       } catch (e) { toast("没说成：" + String((e && e.message) || e).slice(0, 120)); return null; }
+    },
+    // 给一张时刻卡单独画一张（她 2026-10-03 点的第 3 条）：照那天的名目和记录画，有参考照就锁脸
+    onDrawMoment: async (c, m) => {
+      if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
+      try {
+        const scene = (m.what && m.what.lines && m.what.lines.length ? m.what.lines.join(" ") : m.title).slice(0, 300);
+        const prompt = "A cinematic visual-novel CG illustration, a memory scene: " + m.title + ". What happened that day: " + scene + ". "
+          + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
+          + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark.";
+        const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
+        const dataUrl = r && (r.dataUrl || r.url);
+        if (!dataUrl) throw new Error("上游没有返回图片");
+        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+      } catch (e) { toast("没画成：" + ((e && e.message) || e)); return null; }
     },
     onGenCover: async c => {
       if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
