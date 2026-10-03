@@ -1,0 +1,21 @@
+{
+  "catSourceSha256": "404fae1c8f47baf08e7c0f64597295fc8a6f12cfcf8d0324dc65bd40b89f5f7b",
+  "roomBytes": 460392,
+  "catBytes": 209356,
+  "zones": [
+    "shell",
+    "window",
+    "sofa",
+    "picture",
+    "lamp",
+    "bed",
+    "tree",
+    "rug",
+    "feeding",
+    "toys",
+    "shelf"
+  ],
+  "roomObjects": 423,
+  "sceneOnly": true,
+  "catRigged": false
+}
