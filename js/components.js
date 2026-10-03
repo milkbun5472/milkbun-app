@@ -8018,6 +8018,7 @@ function MomentsFeed({
   }, h("div", {
     className: "flex items-center gap-4"
   }, h("button", {
+    "data-wk": "mocompose",
     onClick: onCompose,
     className: "flex items-center gap-1.5",
     style: {
@@ -8057,6 +8058,8 @@ function MomentsFeed({
     const authorName = isMine ? profile.name || "我" : c.remark || c.name;
     return /*#__PURE__*/React.createElement("div", {
       key: m.id,
+      "data-wk": "mopost",
+      "data-me": isMine ? "1" : undefined,
       className: "px-5 py-4 flex items-start gap-3",
       style: {
         borderBottom: `1px solid ${t.line}`
@@ -8073,6 +8076,7 @@ function MomentsFeed({
         fontSize: 15,
         color: t.tint
       }
+      , "data-wk": "moname"
     }, authorName), /*#__PURE__*/React.createElement("div", {
       style: {
         fontFamily: F_BODY,
@@ -8081,13 +8085,16 @@ function MomentsFeed({
         color: t.ink,
         marginTop: 3,
         whiteSpace: "pre-wrap"
-      }
+      },
+      "data-wk": "motext"
     }, m.content), m.image && (isImgRef(m.image) ? h("button", {
       onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
+      "data-wk": "mophoto", "data-kind": "img",
       className: "mt-2.5 block active:opacity-80"
     }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } })) : h("button", {
       onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
       className: "mt-2.5 flex items-center gap-2 px-3 py-2.5 active:opacity-70",
+      "data-wk": "mophoto", "data-kind": "desc",
       style: {
         background: t.bg,
         borderRadius: 10,
@@ -8123,8 +8130,10 @@ function MomentsFeed({
         fontSize: 10.5,
         color: t.fog
       }
+      , "data-wk": "motime"
     }, timeAgo(m.ts)), /*#__PURE__*/React.createElement("button", {
       onClick: () => onLike(m.id),
+      "data-wk": "molike", "data-on": m.liked ? "1" : undefined,
       className: "active:opacity-60 flex items-center gap-1"
     }, /*#__PURE__*/React.createElement(IHeart, {
       size: 13,
@@ -8151,7 +8160,8 @@ function MomentsFeed({
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }
     }, "删除")), m.likers && m.likers.length > 0 && h("div", {
-      className: "flex items-center gap-1.5 mt-2"
+      className: "flex items-center gap-1.5 mt-2",
+      "data-wk": "molikers"
     }, h(IHeart, {
       size: 12,
       color: t.accent,
@@ -8167,8 +8177,10 @@ function MomentsFeed({
       style: {
         background: t.bg
       }
+      , "data-wk": "mocomments"
     }, m.comments.map((cm, i) => /*#__PURE__*/React.createElement("div", {
       key: i,
+      "data-wk": "mocomment",
       className: "active:opacity-60",
       onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } },
       style: {
@@ -8306,7 +8318,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => onSetCover(d)); e.target.value = ""; };
   const sendC = m => { if (cText.trim()) { onCommentMoment(m.id, cText.trim(), cReply || undefined); setCommenting(null); setCReply(null); setCText(""); } };
 
-  const momentRow = m => h("div", { key: m.id, className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
+  const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, m.content),
     m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
@@ -8329,7 +8341,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
   //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
   return h("div", { className: "h-full flex flex-col", style: msgAppBg(t) },
-    h("div", { style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
+    h("div", { "data-wk": "mocover", "data-on": cover ? "1" : undefined, style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
       // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张TA挑的图，
       // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去
       (!cover && coverText) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 18px 44px" } },
@@ -8337,16 +8349,16 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       h("button", { onClick: onBack, className: "active:opacity-60", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 14, width: 34, height: 34, borderRadius: 999, background: "rgba(0,0,0,0.32)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IArrow, { size: 19, color: "#fff" })),
       h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: 11.5, color: "#fff" } }, cover ? "换封面" : "设封面"),
       h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCover }),
-      h("div", { style: { position: "absolute", right: 16, bottom: -30, display: "flex", alignItems: "flex-start", gap: 12 } },
+      h("div", { "data-wk": "moprofilehead", style: { position: "absolute", right: 16, bottom: -30, display: "flex", alignItems: "flex-start", gap: 12 } },
         h("div", { style: { textAlign: "right", maxWidth: 190, paddingTop: 2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1, color: "#fff", textShadow: "0 1px 4px rgba(0,0,0,0.55)" } }, name)),
         h(Avatar, { character: author, size: 64, radius: 14 }))),
     // 签名钉在头像底下、跟着封面走，不进滚动区（她 2026-09-03：
     // 「签名固定在头像下面，现在是会跟着朋友圈一起翻上去」——签名是这个人的
     // 名牌，不是动态流里的第一条，翻上去就等于这一页没有主人了）。
-    sign ? h("div", { className: "shrink-0", style: { textAlign: "right", padding: "46px 18px 6px" } },
+    sign ? h("div", { className: "shrink-0", "data-wk": "mosign", style: { textAlign: "right", padding: "46px 18px 6px" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: t.sub, lineHeight: 1.5 } }, "“" + sign + "”")) : null,
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
+    h("div", { "data-wk": "moprofile", "data-me": isMe ? "1" : undefined, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingTop: sign ? 0 : 44, overscrollBehavior: "contain" } },
       isMe && h("div", { className: "px-5 pb-1 flex justify-end" }, h("button", { onClick: () => setCompose(true), className: "flex items-center gap-1.5 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, h(PGlyph, { k: "album", size: 14, color: t.ink }), " 发一条")),
       gen && h(Spinner, { label: "正在发朋友圈…" }),
       list.length === 0 && !gen && h(Empty, { text: isMe ? "你还没发过朋友圈" : name + " 还没有朋友圈", sub: isMe ? "点右上「发一条」" : "" }),
@@ -16782,7 +16794,8 @@ function ContactDetail({
     : { background: t.bg2 };
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
-    style: cardSkin
+    style: cardSkin,
+    "data-wk": "cdpage"
   }, /*#__PURE__*/React.createElement(Head, {
     zh: "资料卡",
     sub: character.name || "",
@@ -16791,18 +16804,21 @@ function ContactDetail({
   }), /*#__PURE__*/React.createElement("div", {
     className: "flex-1 overflow-y-auto px-6 pb-8"
   }, /*#__PURE__*/React.createElement("div", {
-    className: "flex items-center gap-4 pt-2"
+    className: "flex items-center gap-4 pt-2",
+    "data-wk": "cdhead"
   }, /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 72,
     radius: 16
   }), /*#__PURE__*/React.createElement("div", null, /*#__PURE__*/React.createElement("div", {
+    "data-wk": "cdname",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 24,
       color: t.ink
     }
   }, character.name), /*#__PURE__*/React.createElement("div", {
+    "data-wk": "cdtagline",
     style: {
       fontFamily: F_BODY,
       fontSize: 12,
@@ -16814,6 +16830,7 @@ function ContactDetail({
     const bd = String(character.birthday || "").trim();
     if (age == null && !bd) return null;
     return /*#__PURE__*/React.createElement("div", {
+      "data-wk": "cdage",
       style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 }
     }, (age != null ? age + " 岁" : "") + (age != null && bd ? " · " : "")
        + (bd ? ((typeof birthdayBothLabel === "function" && birthdayBothLabel(bd)) || ("生日 " + bd)) : ""));
@@ -16826,7 +16843,8 @@ function ContactDetail({
     onBlur: () => onSaveRemark(character.id, remark),
     placeholder: "给 Ta 起个备注"
   })), typeof affinity === "number" && /*#__PURE__*/React.createElement("div", {
-    className: "pt-6"
+    className: "pt-6",
+    "data-wk": "cdaffinity"
   }, /*#__PURE__*/React.createElement(Eyebrow, {
     style: {
       marginBottom: 4
@@ -16838,17 +16856,21 @@ function ContactDetail({
       color: t.tint
     }
   }, affinity, " / 100")), directives.length > 0 && h("div", {
-    className: "pt-6"
+    className: "pt-6",
+    "data-wk": "cdrules"
   }, h(Eyebrow, { style: { marginBottom: 8 } }, "长期准则 · 你经 OOC 立下"), h("div", { className: "space-y-2" }, directives.map(d => h("div", {
     key: d.id,
+    "data-wk": "cdrule",
     style: { display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 11px", background: t.bg, border: "1px solid " + t.line, borderRadius: 10 }
   }, h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, color: t.ink } }, d.text), onRemoveDirective && h("button", {
     onClick: () => onRemoveDirective(d.id),
     style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "0 2px" }
   }, "删除")))), h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } }, "这些会作为高优先要求注入 " + character.name + " 的每轮对话；在聊天里用 OOC 说「以后…」即可新增。")), /*#__PURE__*/React.createElement("div", {
-    className: "mt-8 space-y-2.5"
+    className: "mt-8 space-y-2.5",
+    "data-wk": "cdactions"
   }, /*#__PURE__*/React.createElement("button", {
     onClick: onChat,
+    "data-wk": "cdbtn", "data-kind": "chat",
     className: "w-full flex items-center justify-between py-4",
     style: {
       borderTop: `1px solid ${t.line}`
@@ -16864,6 +16886,7 @@ function ContactDetail({
     color: t.fog
   })), /*#__PURE__*/React.createElement("button", {
     onClick: onOpenState,
+    "data-wk": "cdbtn", "data-kind": "state",
     className: "w-full flex items-center justify-between py-4",
     style: {
       borderTop: `1px solid ${t.line}`
@@ -16879,6 +16902,7 @@ function ContactDetail({
     color: t.fog
   })), onOpenDesires && h("button", {
     onClick: onOpenDesires,
+    "data-wk": "cdbtn", "data-kind": "desires", "data-on": desireCount > 0 ? "1" : "0",
     className: "w-full flex items-center justify-between py-4",
     style: { borderTop: `1px solid ${t.line}` }
   },

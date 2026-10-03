@@ -2653,7 +2653,7 @@ function Forum({
   }, [open && open.id, forumNow, comments]);
   const tag = txt => { const bs = forumBoardSkin(txt); return h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".02em", padding: "2px 8px", borderRadius: 999, border: "1px solid " + bs[0] + "33", background: bs[1], color: bs[0] } }, txt); };
   // 版块不是一排通用药丸：照公告栏上剪角、钉住的分类纸签来画。
-  const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { key: b, onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: 12.5, boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
+  const chip = (b, sel, on) => { const toneKey = FORUM_BOARDS.find(x => String(b).indexOf(x) === 0) || b, bs = forumBoardSkin(toneKey); return h("button", { key: b, "data-wk": "fochip", "data-on": sel ? "1" : "0", onClick: on, className: "active:opacity-70 whitespace-nowrap flex items-center", style: { minHeight: 40, padding: "6px 17px 6px 10px", clipPath: "polygon(0 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,0 100%)", borderRadius: 4, background: sel ? bs[0] : "rgba(255,255,255,.58)", color: sel ? FORUM_SKIN.paper : FORUM_SKIN.sub, fontFamily: F_BODY, fontSize: 12.5, boxShadow: sel ? "0 4px 12px " + bs[0] + "2e" : "inset 0 0 0 1px " + FORUM_SKIN.line } }, h("span", { style: { width: 5, height: 5, borderRadius: 99, marginRight: 7, background: sel ? FORUM_SKIN.paper : bs[0], boxShadow: sel ? "0 0 0 2px " + bs[0] : "none" } }), b); };
   const toggleLike = id => setLiked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumLikes", JSON.stringify([...n])); } catch (e) {} return n; });
   const toggleBookmark = id => setBookmarked(s => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); try { localStorage.setItem("x_forumBookmarks", JSON.stringify([...n])); } catch (e) {} return n; });
   const isAlt = a => !!(a && a.authorType === "character_alt" && !a.anon);
@@ -2724,7 +2724,7 @@ function Forum({
     // ⚠️gap-5 是【固定】20px×5＝100px，加上四个数字和两个图标，赞和阅读一上万就顶出去了
     //   （她 2026-09-01 截图：整张卡片超出屏幕、整页跟着往右滑）。
     //   改成 space-between：间距由剩下的空间分，挤不下时先收间距，不会把内容推出去。
-    return h("div", { className: "flex items-center mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 10, justifyContent: "space-between", gap: 6, minWidth: 0 } },
+    return h("div", { "data-wk": "foacts", className: "flex items-center mt-3", style: { color: FORUM_SKIN.fog, borderTop: "1px solid " + FORUM_SKIN.line, paddingTop: 10, justifyContent: "space-between", gap: 6, minWidth: 0 } },
       h("button", { onClick: e => { e.stopPropagation(); openPost(p); }, className: "flex items-center gap-1.5 active:opacity-60", style: bs }, h(GMsg, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.replyCount || 0))),
       h("div", { className: "flex items-center gap-1.5", style: bs }, h(IRepeat, { size: 15, color: FORUM_SKIN.fog }), h("span", null, fmtNum(lc.rtCount || 0))),
       h("button", { onClick: e => { e.stopPropagation(); toggleLike(p.id); }, className: "flex items-center gap-1.5 active:opacity-60", style: { ...bs, color: isL ? "#a6535d" : FORUM_SKIN.fog } }, h(IHeart, { size: 15, color: isL ? "#a6535d" : FORUM_SKIN.fog, filled: isL }), h("span", null, fmtNum((lc.likeCount || 0) + (isL ? 1 : 0)))),
@@ -2758,7 +2758,7 @@ function Forum({
     // ⚠️删帖【只有 actBar 末尾那颗 ✕ 这一条路】（她 2026-09-19 两次定：先说长按也要
     //   二次确认，隔一句又「算了长按删除去掉不要了，就留叉」）。
     //   别再加回长按：看得见的那一颗就够了，而且列表里长按十次有八次被当成滚动。
-    return h("div", { key: p.id, role: "button", onClick: () => openPost(p),
+    return h("div", { key: p.id, "data-wk": "forow", "data-me": p.authorType === "me" ? "1" : "0", "data-anon": p.anon ? "1" : "0", role: "button", onClick: () => openPost(p),
       className: "text-left active:opacity-80 cursor-pointer", style: { margin: "10px 13px 0", padding: "13px 13px 12px", borderRadius: 18, border: "1px solid " + FORUM_SKIN.line, borderLeft: "3px solid " + bs[0], background: FORUM_SKIN.paper, boxShadow: "0 8px 22px rgba(42,55,38,.065)" } },
       h("div", { className: "flex gap-3" },
         avatarBtn(p, 40, p.anon),
@@ -2766,7 +2766,7 @@ function Forum({
           h("div", { className: "grid items-start", style: { gridTemplateColumns: "minmax(0,1fr) auto", columnGap: 8, minWidth: 0 } },
             h("div", { className: "min-w-0" },
               h("div", { className: "flex items-center gap-1.5 min-w-0" },
-                h("span", { className: "min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
+                h("span", { "data-wk": "foname", className: "min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: FORUM_SKIN.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, nameOf(p)),
                 accountBadge(p)),
               h("div", { className: "flex items-center gap-1.5 min-w-0", style: { marginTop: 1 } },
                 !p.anon && h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + (p.authorHandle || p.authorName)),
@@ -2781,7 +2781,7 @@ function Forum({
             className: "active:opacity-60 text-left", style: { display: "block", maxWidth: "100%", fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
             "接着《" + String(p.refTitle).slice(0, 22) + "》") : null,
           p.title && h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.38, color: FORUM_SKIN.ink, marginTop: 5 } }, p.title),
-          p.body && h("div", { className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
+          p.body && h("div", { "data-wk": "fobody", className: "line-clamp-4", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.65, color: FORUM_SKIN.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, p.body),
           forumPhotoOf(p) && h("div", { className: "flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, marginTop: 5 } }, h(PGlyph, { k: "album", size: 12, color: FORUM_SKIN.fog }), "配图"),
           actBar(p))));
   }
@@ -2792,7 +2792,7 @@ function Forum({
     const isL = liked.has(cm.id);
     const nm = cm.authorType === "me" ? meChar.name : (c ? c.name : cm.authorName);
     const fresh = isFreshFloor(cm);
-    return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), style: { margin: "8px 13px 0", padding: "12px 13px", borderRadius: 15, border: "1px solid " + (fresh ? FORUM_SKIN.accent + "55" : FORUM_SKIN.line), borderLeft: (fresh ? "3px solid " + FORUM_SKIN.accent : "1px solid " + FORUM_SKIN.line), background: fresh ? "rgba(255,252,246,.95)" : "rgba(251,252,247,.82)" } },
+    return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), "data-wk": "fofloor", "data-me": cm.authorType === "me" ? "1" : "0", "data-new": fresh ? "1" : "0", style: { margin: "8px 13px 0", padding: "12px 13px", borderRadius: 15, border: "1px solid " + (fresh ? FORUM_SKIN.accent + "55" : FORUM_SKIN.line), borderLeft: (fresh ? "3px solid " + FORUM_SKIN.accent : "1px solid " + FORUM_SKIN.line), background: fresh ? "rgba(255,252,246,.95)" : "rgba(251,252,247,.82)" } },
       h("div", { className: "flex gap-2.5" },
         avatarBtn(cm, 34, cm.anon),
         h("div", { className: "flex-1 min-w-0" },
@@ -2812,7 +2812,7 @@ function Forum({
                 style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1, color: FORUM_SKIN.fog, padding: "0 2px", marginLeft: 2 } }, "✕"))),
           cm.content ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: t.sub, marginTop: 2 } }, atClean(cm.content)) : null,
           forumPhotoCard(cm, 220),
-          ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
+          ((cm.replies || []).length > 0 || (gen && gen.forumReplyMe === cm.id)) && h("div", { "data-wk": "foreplies", className: "mt-2 px-2.5 py-1.5", style: { borderRadius: 8, background: t.bg2 } },
             // ⚠️楼中楼里的每一条都要能回（她 2026-09-01：「我回复了帖子然后有楼中楼我就
             //   没办法回复了，别人的楼中楼也不行」）。原来只有【楼层】那一行有「回复」，
             //   楼里的人回了我之后，我就再也接不上话——一层楼说到一半断了。
@@ -2903,7 +2903,7 @@ function Forum({
         h("div", { className: "flex items-center gap-2", style: { minWidth: 0 } },
           !replyTo && h("button", { onClick: () => { if (rPhotoOn) setRPhoto(null); setRPhotoOn(!rPhotoOn); }, "aria-label": "配图", className: "shrink-0 flex items-center justify-center active:opacity-60", style: { width: 40, height: 40 } }, h(PGlyph, { k: "album", size: 20, color: rPhotoOn ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
           h("input", { ref: replyInputRef, value: rTxt, onChange: e => setRtxt(e.target.value), onKeyDown: e => e.key === "Enter" && sendReply(), placeholder: replyTo ? "回复 " + replyTo.name + "…" : "发布你的回复", className: "flex-1 min-w-0 outline-none px-3.5 py-2 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: FORUM_SKIN.paper, color: FORUM_SKIN.ink, border: "1px solid " + FORUM_SKIN.line } }),
-          h("button", { onClick: sendReply, className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, "发送"))));
+          h("button", { onClick: sendReply, "data-wk": "fosend", className: "shrink-0 px-4 py-2 rounded-full active:opacity-70", style: { background: FORUM_SKIN.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, "发送"))));
   }
 
   // ---- 角色/我 主页 ----
@@ -3249,7 +3249,7 @@ function Forum({
         // 角色发帖带配图时要不要顺手画出来（她 2026-09-28，跟朋友圈那个是同一个开关件）
         h("div", { style: { padding: "0 11px", borderTop: "1px solid " + FORUM_SKIN.line } }, h(AutoImgSwitch, { storeKey: "x_forumAutoImg" })))),
     // 悬浮发帖按钮（主页/搜索）
-    (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
+    (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", "data-wk": "fofab", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
@@ -6419,7 +6419,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
           minHeight: "calc(100% - 150px)" } },
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
-              h("div", { className: "flex items-baseline gap-2" },
+              h("div", { "data-wk": "usdays", className: "flex items-baseline gap-2" },
                 h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "在一起"),
                 h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, color: t.accent, lineHeight: 1 } }, days),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: t.fog } }, "天")),
@@ -6451,7 +6451,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             //    是同一张 CalPage，一处画两处用。
             h("div", { style: { borderRadius: 22, overflow: "hidden", border: "1px solid #eadde3", background: "linear-gradient(135deg,#fff8f7 0%,#f6f0f7 100%)" } },
               h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, padding: 12 } },
-                h("div", { style: { position: "relative", minHeight: 96, background: "#fffdf5", borderRadius: 3, padding: "16px 12px 12px",
+                h("div", { "data-wk": "usnow", style: { position: "relative", minHeight: 96, background: "#fffdf5", borderRadius: 3, padding: "16px 12px 12px",
                   transform: "rotate(-1deg)", boxShadow: "0 3px 9px rgba(92,60,74,.14)" } },
                   h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", top: -7, marginLeft: -21, width: 42, height: 14, background: "rgba(214,196,168,.5)", border: "1px solid rgba(180,158,124,.35)", transform: "rotate(-3deg)" } }),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#927280" } }, partner.name + " 此刻"),
@@ -6571,7 +6571,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             // 形状不再是「一堆方框混一个圆」，而是【跟内容对应的形状】：照片是照片、
             // 票根是票根、册子是书脊。那个孤零零的圆去掉了——它是唯一一个，
             // 读起来就是随机。
-            const wall = (k, o) => h("button", { key: k, onClick: o.onClick || (() => openSub(k)), className: "active:opacity-75",
+            const wall = (k, o) => h("button", { key: k, "data-wk": "uswall", "data-kind": k, onClick: o.onClick || (() => openSub(k)), className: "active:opacity-75",
               style: { position: "relative", textAlign: "left", width: o.w, flexGrow: o.grow || 0, minWidth: 0, overflow: "hidden",
                 borderRadius: o.radius == null ? 5 : o.radius, padding: o.pad || "12px 13px",
                 background: o.bg || PAPER, border: o.border || ("1px solid " + PLINE),
@@ -6581,7 +6581,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               o.dot ? h("span", { style: { position: "absolute", top: 9, right: 10, width: 7, height: 7, borderRadius: 999, background: "#e0524a" } }) : null,
               o.kids);
             // 书脊：左边一条色带 + 一行字 + 右边一句近况。加一本就是多一行，不撑版面。
-            const spine = (k, o) => h("button", { key: k, onClick: o.onClick || (() => openSub(k)), className: "w-full text-left active:opacity-70",
+            const spine = (k, o) => h("button", { key: k, "data-wk": "usspine", "data-kind": k, "data-new": o.dot ? "1" : "0", onClick: o.onClick || (() => openSub(k)), className: "w-full text-left active:opacity-70",
               style: { display: "flex", alignItems: "center", gap: 11, padding: "13px 4px 13px 0", borderBottom: "1px solid " + PLINE, position: "relative" } },
               h("span", { "aria-hidden": "true", style: { width: 3, height: 26, borderRadius: 3, background: o.band, flexShrink: 0 } }),
               h("div", { style: { width: 58, flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: o.band } }, o.zh),
@@ -6591,7 +6591,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             const mkCur = makeupOf ? makeupOf(bCid) : null;
             // 英文眉标 v62.12 清掉（no-english-titles）：ON THE WALL / KEPT 换任何 app 都成立，
             // 「墙上」「收着的」本来就在——那行英文纯属装饰。
-            const eyebrow = (zh, right) => h("div", { className: "flex items-end justify-between", style: { marginTop: 26, marginBottom: 11 } },
+            const eyebrow = (zh, right) => h("div", { "data-wk": "useyebrow", className: "flex items-end justify-between", style: { marginTop: 26, marginBottom: 11 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, zh),
               right ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, right) : null);
             // ── ① 今天：一页挂历 ──────────────────────────────
@@ -6908,7 +6908,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
               const tog = e.st.status === "together";
               const n = tog ? (daysWith(e.st.since) || 0) : 0;
               const tags = tog ? unreadTagsFor(e.char.id) : [];
-              return h("div", { key: e.char.id, className: "flex items-start", style: { gap: 13, padding: "16px 0",
+              return h("div", { key: e.char.id, "data-wk": "uscouple", "data-on": tog ? "1" : "0", "data-new": tags.length ? "1" : "0", className: "flex items-start", style: { gap: 13, padding: "16px 0",
                 borderTop: idx === 0 ? "none" : "1px solid " + t.line, opacity: tog ? 1 : 0.6 } },
                 // 她自己的头像原来每张卡里都摆一遍——她知道自己是谁，删掉
                 h("div", { className: "shrink-0", style: { position: "relative" } },
@@ -6918,13 +6918,13 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                     borderRadius: 999, background: "#e0524a", boxShadow: "0 0 0 2px " + t.bg } }) : null),
                 h("button", { onClick: () => tog && setView(e.char.id), className: "flex-1 min-w-0 text-left active:opacity-75" },
                   h("div", { className: "flex items-baseline", style: { gap: 8 } },
-                    h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, e.char.name),
+                    h("div", { "data-wk": "usname", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, e.char.name),
                     // 项目多了别把名字挤没：最多点两样，剩下的归成「等」
                     tags.length ? h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: "#c02a52" } }, "新的" + tags.slice(0, 2).join("、") + (tags.length > 2 ? "等" : "")) : null),
                   tog
                     ? h(Fragment, null,
                         h("div", { className: "flex items-baseline", style: { gap: 6, marginTop: 3 } },
-                          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: "#d16a86" } }, String(n)),
+                          h("span", { "data-wk": "uscount", style: { fontFamily: F_DISPLAY, fontSize: 26, lineHeight: 1, color: "#d16a86" } }, String(n)),
                           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "天 · 从 " + dayFmt(e.st.since) + " 起")),
                         trail(n))
                     : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, "邀请还没有回应")),
@@ -8940,12 +8940,12 @@ const CFG_LINE = t2 => (/^#[0-9a-f]{6}$/i.test(String(t2.ink || "")) ? t2.ink + 
 // 栏号牌：方角、淡底、汉字。首页那一列和子页的格子共用同一枚，别各写一份。
 function ConfigMark({ char, tint, size }) {
   const s2 = size || 34;
-  return h("span", { style: { flexShrink: 0, width: s2, height: s2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", background: tint + "1c", color: tint, border: "1px solid " + tint + "3d", fontFamily: F_DISPLAY, fontSize: Math.round(s2 * 0.47) } }, char);
+  return h("span", { "data-wk": "cfmark", style: { flexShrink: 0, width: s2, height: s2, borderRadius: 3, display: "flex", alignItems: "center", justifyContent: "center", background: tint + "1c", color: tint, border: "1px solid " + tint + "3d", fontFamily: F_DISPLAY, fontSize: Math.round(s2 * 0.47) } }, char);
 }
 function ConfigTile({ icon, title, sub, onClick, wide, tint }) {
   const t = useTheme();
   const c = tint || t.tint || t.ink;
-  return h("button", { onClick, className: "active:opacity-70", style: {
+  return h("button", { onClick, "data-wk": "cftile", "data-wide": wide ? "1" : "0", className: "active:opacity-70", style: {
     gridColumn: wide ? "1 / -1" : "auto", minHeight: wide ? 84 : 112, padding: "13px 14px 14px",
     borderRadius: 3, textAlign: "left", background: t.bg2, border: "1px solid " + CFG_LINE(t),
     boxShadow: "none", display: "flex", flexDirection: "column", justifyContent: "space-between"
@@ -8956,12 +8956,12 @@ function ConfigTile({ icon, title, sub, onClick, wide, tint }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.55, marginTop: 4 } }, sub)));
 }
 function ConfigTileGrid({ children }) {
-  return h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, paddingTop: 12 } }, children);
+  return h("div", { "data-wk": "cfgrid", style: { display: "grid", gridTemplateColumns: "repeat(2,minmax(0,1fr))", gap: 10, paddingTop: 12 } }, children);
 }
 
 function ConfigPanel({ children, flush }) {
   const t = useTheme();
-  return h("div", { style: {
+  return h("div", { "data-wk": "cfpanel", "data-flush": flush ? "1" : "0", style: {
     marginTop: 12, marginBottom: 14, padding: flush ? 0 : "15px 14px", overflow: "hidden",
     borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t),
     boxShadow: "none"
@@ -9172,9 +9172,10 @@ function Config(props) {
   return h("div", { className: "h-full flex flex-col", style: sheet },
     h(Head, { zh: m, onBack: back, bg: "transparent", onTitleTap: page === "home" ? toyKnock : undefined }),
     h("div", { key: page || "home", ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10", style: { overflowAnchor: "none" } },
-      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 } },
+      page === "home" && h("div", { style: { display: "flex", flexDirection: "column", gap: 0, marginTop: 16 }, "data-wk": "cfhome" },
         homeRows.map((row, ri) => h("button", {
           key: row.key,
+          "data-wk": "cfrow", "data-page": row.key,
           onClick: e => { if (e.currentTarget && e.currentTarget.blur) e.currentTarget.blur(); setPage(row.key); },
           className: "w-full flex items-center active:opacity-70",
           style: { gap: 12, minHeight: 44, padding: "11px 12px 11px 11px", borderRadius: 3, background: t.bg2, textAlign: "left",
@@ -9182,9 +9183,9 @@ function Config(props) {
         },
           h(ConfigMark, { char: row.char, tint: row.tint }),
           h("span", { className: "flex-1 min-w-0" },
-            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
-            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
-        h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+            h("span", { "data-wk": "cfrowtitle", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, row.title),
+            h("span", { "data-wk": "cfrowstate", style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, row.state())))),
+        h("div", { "data-wk": "cfnote", style: { marginTop: 14, padding: "13px 15px", borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t), fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
           "这一页管的是【整个 app】。某一个角色怎么跟你相处——记忆、主动、外观、房间——在TA自己的聊天里点右上角 ⋯。")),
       // 长相那三样原来是首页三张平级的卡：想改个颜色得先猜是哪一张
       page === "look" && h(ConfigTileGrid, null,
@@ -12752,7 +12753,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       if (dx < 0) goTo(newerE, "fwd"); else goTo(olderE, "back");
     };
     const under = flip ? all.find(x => x.id === flip.to) : null;
-    const page = (entry, style) => h("div", { style: Object.assign({ position: "absolute", inset: 0 }, style || {}) },
+    const page = (entry, style) => h("div", { "data-wk": "dipage", style: Object.assign({ position: "absolute", inset: 0 }, style || {}) },
       h(DiaryEntryView, {
         entry: entry, char: curAuthor, isMe, chars: characters,
         commenting: commentingId === entry.id,
@@ -12864,7 +12865,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         zh: curAuthor.name, en: isMe ? "My Journal · 我的日记" : "Journal · 翻阅日记",
         onBack: () => setView("archive"),
         right: isMe
-          ? h("button", { onClick: () => setView("compose"), className: "active:opacity-50" }, h(IPencil, { size: 18, color: t.ink }))
+          ? h("button", { onClick: () => setView("compose"), "data-wk": "dipen", className: "active:opacity-50" }, h(IPencil, { size: 18, color: t.ink }))
           : h("div", { className: "flex items-center gap-3" },
               // 补齐漏记的那几天：逐天写，写一天存一天
               h("button", {
@@ -12893,17 +12894,17 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
           if (ps.some(p => p.secret)) marks.push(h("span", { key: "s", title: "有不肯说的话", style: { display: "inline-block", width: 7, height: 7, borderRadius: 999, background: "rgba(" + iRGB + ",.55)" } }));
           if (ps.some(p => p.pasted)) marks.push(h("span", { key: "p", title: "贴了东西进来", style: { display: "inline-block", width: 12, height: 8, background: "rgba(" + iRGB + ",.13)", border: "1px solid rgba(" + iRGB + ",.22)", transform: "rotate(-4deg)" } }));
           return h("div", {
-            key: e.id, onClick: () => { setCurEntry(e.id); setView("entry"); },
+            key: e.id, "data-wk": "dirow", "data-me": isMe ? "1" : "0", onClick: () => { setCurEntry(e.id); setView("entry"); },
             className: "flex gap-4 py-6 active:opacity-70",
             style: { borderTop: i === 0 ? "none" : "1px solid rgba(" + iRGB + ",.12)" }
           },
-            h("div", { style: { width: 52, flexShrink: 0, paddingTop: 2 } },
+            h("div", { "data-wk": "didate", style: { width: 52, flexShrink: 0, paddingTop: 2 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.05, color: t.ink } }, d.getDate()),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, (d.getMonth() + 1) + "月 · 周" + wd)),
             h("div", { className: "flex-1 min-w-0" },
-              titleMain ? h("div", { className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
-              h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
-              (marks.length || (isMe && (e.comments || []).length)) ? h("div", { className: "flex items-center", style: { gap: 7, marginTop: 10 } },
+              titleMain ? h("div", { "data-wk": "dititle", className: "line-clamp-2", style: { fontFamily: F_DISPLAY, fontSize: 18, lineHeight: 1.35, color: t.ink, marginBottom: 5 } }, titleMain) : null,
+              h("div", { "data-wk": "dibody", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.sub } }, diaryPreview(e)),
+              (marks.length || (isMe && (e.comments || []).length)) ? h("div", { "data-wk": "dimarks", className: "flex items-center", style: { gap: 7, marginTop: 10 } },
                 marks,
                 (isMe && (e.comments || []).length) ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: marks.length ? 4 : 0 } }, (e.comments || []).length + " 人看过") : null) : null));
         })));
@@ -12921,14 +12922,14 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
       authors.map(c => {
         const list = entriesOf(c.id); const last = list[0]; const gb = busy[c.id]; const cur = c.id === curId;
         return h("div", {
-          key: c.id, onClick: () => openArchive(c.id),
+          key: c.id, "data-wk": "diauthor", "data-on": cur ? "1" : "0", "data-me": c.isMe ? "1" : "0", onClick: () => openArchive(c.id),
           className: "flex items-center gap-4 py-4 active:opacity-70",
           style: { borderBottom: `1px solid ${t.line}` }
         },
           h(Avatar, { character: c, size: 52, radius: 15 }),
           h("div", { className: "flex-1 min-w-0" },
             h("div", { className: "flex items-center gap-2" },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
+              h("div", { "data-wk": "diname", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, c.isMe ? c.name + "（我）" : c.name),
               cur && h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: ".05em", padding: "2px 6px", borderRadius: 999, border: `1px solid ${t.line}`, color: t.fog } }, "当前")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 2 } },
               gb ? "正在记录今天…" : list.length ? "共 " + list.length + " 篇 · 最后 " + new Date(last.ts).toLocaleDateString("zh-CN", { month: "long", day: "numeric" }) : (c.isMe ? "还没写过，点铅笔写一篇" : "尚未记录"))),
