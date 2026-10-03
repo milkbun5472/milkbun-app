@@ -5192,21 +5192,24 @@ const DEFAULT_FOLDERS = {
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
   //   撞色那道闸（home-tone-58-45）当场就红。换个 id ＝换个色。
   f_def_naodong:  { name: "脑洞", keys: ["dream", "fanfic", "debate"] },
-  f_def_back:  { name: "回头看", keys: ["weekly", "impression"] },
+  f_def_back:  { name: "回头看", keys: ["weekly", "impression", "shike"] },
   f_def_ops:   { name: "后台", keys: ["rescue", "vpscodex", "loungeapp"] }
 };
 // 新 app 进老用户的文件夹（v74.590 星测）：她画的位置就在「每日看」塔罗旁边。
 //   哪个文件夹里有塔罗就放进哪个；已经摆在哪儿了（页上或别的文件夹）就不动，而且只搬一次。
-function placeAstroOnce(st) {
+function placeAstroOnce(st) { return placeNewAppOnce(st, "astro", "tarot", "x_astroPlaced"); }
+// 同一个形状的第二处（时刻，v74.649）：抽成公共的，星测那一处也搬过来（one-public-mechanism）。
+//   key＝新 app；beside＝跟谁放一个文件夹；flag＝只搬一次的记号。
+function placeNewAppOnce(st, key, beside, flag) {
   try {
-    if (loadJSON("x_astroPlaced", false)) return st;
-    var seenA = Object.keys(st).some(function (fid) { return (st[fid].keys || []).indexOf("astro") >= 0; });
+    if (loadJSON(flag, false)) return st;
+    var seenA = Object.keys(st).some(function (fid) { return (st[fid].keys || []).indexOf(key) >= 0; });
     var L0 = loadJSON("x_homeLayout", {});
-    var onPage = Object.keys(L0 || {}).some(function (k) { return Array.isArray(L0[k]) && L0[k].indexOf("astro") >= 0; });
-    var home = Object.keys(st).filter(function (fid) { return (st[fid].keys || []).indexOf("tarot") >= 0; })[0];
+    var onPage = Object.keys(L0 || {}).some(function (k) { return Array.isArray(L0[k]) && L0[k].indexOf(key) >= 0; });
+    var home = Object.keys(st).filter(function (fid) { return (st[fid].keys || []).indexOf(beside) >= 0; })[0];
     if (seenA || onPage || !home) return st;
-    var n = Object.assign({}, st); n[home] = Object.assign({}, st[home], { keys: (st[home].keys || []).concat(["astro"]) });
-    saveJSON("x_homeFolders", n); saveJSON("x_astroPlaced", true);
+    var n = Object.assign({}, st); n[home] = Object.assign({}, st[home], { keys: (st[home].keys || []).concat([key]) });
+    saveJSON("x_homeFolders", n); saveJSON(flag, true);
     return n;
   } catch (e) { return st; }
 }
@@ -5351,6 +5354,7 @@ function Home({
   const [folders, setFolders] = useState(function () {
     var st = loadJSON("x_homeFolders", {});
     if (st && Object.keys(st).length) st = placeAstroOnce(st);
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shike", "impression", "x_shikePlaced");
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -5436,6 +5440,7 @@ function Home({
     theater: { kind: "app", zh: "小剧场", G: window.GTheater || GDream },
     trpg: { kind: "app", zh: "跑团", G: window.GTrpg || GGame },
     impression: { kind: "app", zh: "月度印象", G: window.GImpression || GDream },
+    shike: { kind: "app", zh: "时刻", G: window.GShike || GDream },
     assistant: { kind: "app", zh: "秋秋", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty },
     radio: { kind: "app", zh: "电台", G: window.GRadio || GDuty }

@@ -814,7 +814,7 @@
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon", anonme: "anon",
     study: "study", fanfic: "fanfic", read: "read", watch: "watch", weekly: "weekly", debate: "debate",
     dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", astro: "astro", pomodoro: "pomodoro", companion: "companion",
-    games: "games", fairyGarden: "fairyGarden", trpg: "trpg", theater: "theater", impression: "impression",
+    games: "games", fairyGarden: "fairyGarden", trpg: "trpg", theater: "theater", impression: "impression", shike: "shike",
     yanqiu: "yanqiu", loungeapp: "lounge", rescue: "rescue", vpscodex: "vpscodex",
     forum: "forum", momprofile: "moments", us: "couple",
     favorites: "favorites", emotes: "emotes", stylelab: "stylelab",

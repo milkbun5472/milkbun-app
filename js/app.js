@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.649";
+const APP_VERSION = "v74.650";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27033,6 +27033,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     groups: groups,
     onPatchGroupSetting: (gid, patch) => saveGroupSettings(gid, patch),
     toast: toast,
+    onBack: () => setScreen("home")
+  });else if (screen === "shike") body = h(window.ShikeApp, {
+    // 时刻（她 2026-10-03）：纪念日和节日，全是算出来的；只有「生成封面」那一下走生图
+    characters: liveChars,
+    profile: profile,
+    couples: couples,
+    chats: chats,
+    memLib: memLibRef.current,
+    toast: toast,
+    onGenCover: async c => {
+      if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
+      try {
+        const prompt = "A cinematic visual-novel CG illustration of " + (c.name || "the character") + ". "
+          + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark.";
+        const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
+        const dataUrl = r && (r.dataUrl || r.url);
+        if (!dataUrl) throw new Error("上游没有返回图片");
+        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+      } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
+    },
     onBack: () => setScreen("home")
   });else if (screen === "impression") body = h(ImpressionApp, {
     // 月度印象：写字走线下创作线路（要文学性），素材自己从存储层取
