@@ -17739,6 +17739,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("删掉了「" + nodeName + "」" + (emptied ? "，「" + emptied + "」也空了，一起去掉了" : ""));
     return true;
   };
+  // 改地点（她 2026-10-03 群友：「地图搞了删除，能不能再搞编辑」）：名字、类型、眼下的事都能改。
+  //   改名要连着改所有拿名字认它的地方——钉在那儿的人（含她自己 __me）、各人的行程（落脚点 + 会去的地方），
+  //   不然人就从图上掉下来了。名字不能跟这个世界里别的地点重名。
+  const editWorldNode = (wid, oldName, patch) => {
+    const w = (worldsRef.current || worlds || []).find(x => x.id === wid);
+    if (!w) return false;
+    const nm = String((patch && patch.name) || "").trim().slice(0, 24);
+    if (!nm) { toast("地点得有个名字"); return false; }
+    const clash = nm !== oldName && (w.regions || []).some(r => (r.nodes || []).some(n => n.name === nm));
+    if (clash) { toast("这个世界里已经有叫「" + nm + "」的地方了"); return false; }
+    const regions = (w.regions || []).map(r => ({ ...r, nodes: (r.nodes || []).map(n => n.name !== oldName ? n
+      : { ...n, name: nm, kind: patch.kind || n.kind, hook: patch.hook != null ? String(patch.hook).trim().slice(0, 120) : n.hook }) }));
+    const ren = v => v === oldName ? nm : v;
+    const pins = {}; Object.keys(w.pins || {}).forEach(k => { pins[k] = ren(w.pins[k]); });
+    const route = {}; Object.keys(w.route || {}).forEach(k => { const r = w.route[k] || {};
+      route[k] = { ...r, home: ren(r.home), places: (r.places || []).map(q => ({ ...q, node: ren(q.node) })) }; });
+    saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x, regions, pins, route }));
+    toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
+    return nm;
+  };
   const genWorldNodes = async (wid, regionName, hint, done) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     const w = (worlds || []).find(x => x.id === wid);
@@ -25383,6 +25403,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onAddNode: addWorldNode,
     onGenNodes: genWorldNodes,
     onDelNode: delWorldNode,
+    onEditNode: editWorldNode,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
@@ -26754,7 +26775,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     userGeo: realGeo(),
     profile: profile,
     dateAlbumFor: dateAlbumFor,
-    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode },
+    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode, onEditNode: editWorldNode },
     onOpenMap: () => setScreen("map"),
     toast: toast,
     onBack: () => setScreen("home")
