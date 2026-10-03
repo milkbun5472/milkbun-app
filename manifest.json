@@ -1,11 +1,7 @@
 {
   "name": "ARCHIVE",
   "short_name": "ARCHIVE",
-<<<<<<< HEAD
   "start_url": "./index.html?launch=74.678",
-=======
-  "start_url": "./index.html?launch=74.677",
->>>>>>> origin/main
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
