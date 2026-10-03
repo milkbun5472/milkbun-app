@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.648";
+const APP_VERSION = "v74.649";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9174,11 +9174,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她自己身边的人：她自己写，零调用（她 2026-09-20：「给我自己的 npc 就让我自己写就行了，
   // 不用生成」）。⚠️不是把 createNpc 加个开关——那一枪整条都是「拿主人的人设去编一个人」，
   // 她这一支压根不需要编；共用的是【落成什么】，不是【怎么来的】，所以只共用下面这三行。
-  const addMyNpc = (name, brief, relLabel) => {
+  // hostId 不是 "me" 时＝给某个角色手写一位身边的人（她 2026-10-03：生成老掉格式，加个自己写的）——
+  //   跟 createNpc 生成出来的是同一种配角：挂在 TA 名下、不认识她，关系写成 TA 和这个人之间的
+  const addMyNpc = (name, brief, relLabel, hostId) => {
     const nm = String(name || "").trim().slice(0, 24);
     if (!nm) { toast("先写个名字"); return false; }
     const id = "c_" + Date.now() + "_npc";
     const note = String(relLabel || "").trim().slice(0, 60);
+    if (hostId && hostId !== "me") {
+      if (!characters.some(c => c.id === hostId)) return false;
+      pC(prev => [...prev, CharacterPronoun.newCharacter({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: hostId })]);
+      if (note) saveRel(hostId + "->" + id, note, "");
+      toast("已加入「" + nm + "」，去群里拉上TA");
+      return true;
+    }
     pC(prev => [...prev, CharacterPronoun.newCharacter({
       id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000),
       npc: true, ownerId: "me", knowsUser: true, knowsUserNote: note

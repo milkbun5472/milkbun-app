@@ -1590,7 +1590,12 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
       //   所以这一栏按主人分成两支：角色身边的人照旧【一枪生成】（她不认识那个世界里的人，
       //   让模型照人设编才省事）；她自己身边的人【她自己写】——闺蜜是什么样她比谁都清楚，
       //   让模型编一份反而是替她瞎想，还白花一枪。
-      c.meChar === "me" ? h(Fragment, null,
+      // 角色身边的人也能自己写（她 2026-10-03 群友：生成老掉格式，「能不能加一个可以自己手写 npc 的」）
+      c.meChar !== "me" ? h("div", { style: { display: "flex", gap: 8, marginBottom: 14 } },
+        [["gen", "按人设生成"], ["hand", "自己写"]].map(x => { const on = (c.npcHand ? "hand" : "gen") === x[0];
+          return h("button", { key: x[0], onClick: () => set({ npcHand: x[0] === "hand" }), className: "active:opacity-70",
+            style: { flex: 1, fontFamily: F_BODY, fontSize: 13, padding: "8px 0", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, x[1]); })) : null,
+      (c.meChar === "me" || c.npcHand) ? h(Fragment, null,
         h(Eyebrow, { style: { marginBottom: 8 } }, "TA 叫什么"),
         h("input", {
           value: c.npcName || "", onChange: e => set({ npcName: e.target.value.slice(0, 24) }),
@@ -1598,25 +1603,25 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
           className: "w-full bg-transparent outline-none pb-2",
           style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, borderBottom: "1px solid " + t.line }
         }),
-        h(Eyebrow, { style: { margin: "16px 0 8px" } }, "你俩什么关系"),
+        h(Eyebrow, { style: { margin: "16px 0 8px" } }, c.meChar === "me" ? "你俩什么关系" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 的谁"),
         h("input", {
           value: c.npcRel || "", onChange: e => set({ npcRel: e.target.value.slice(0, 60) }),
-          placeholder: "我闺蜜 / 我表妹 / 一个办公室的同事（可以不填）",
+          placeholder: c.meChar === "me" ? "我闺蜜 / 我表妹 / 一个办公室的同事（可以不填）" : "TA 的副将 / 她师姐 / 户部侍郎（可以不填）",
           className: "w-full bg-transparent outline-none pb-2",
           style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, borderBottom: "1px solid " + t.line }
         }),
         h(Eyebrow, { style: { margin: "16px 0 8px" } }, "TA 是个什么人"),
         h("textarea", {
           value: c.npcBrief || "", onChange: e => set({ npcBrief: e.target.value.slice(0, 4000) }), rows: 6,
-          placeholder: "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、你俩怎么认识的。",
+          placeholder: c.meChar === "me" ? "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、你俩怎么认识的。" : "第二人称写给 TA 自己看（「你是…」）：做什么的、性格、说话什么调子、和 " + (nameOf(c.meChar) || "这个角色") + " 怎么认识的。",
           className: "w-full bg-transparent outline-none resize-none",
           style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px" }
         }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, margin: "10px 0 14px" } },
-          "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。"),
+          c.meChar === "me" ? "TA 天然认识你（不用再点「也认识我」那颗），但【不知道你跟那些角色各自是什么关系】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成。" : "TA 是 " + (nameOf(c.meChar) || "这个角色") + " 身边的人，【不认识你】。\nTA 只在群聊里出场：没有单聊、没有心情好感、不发朋友圈、不占后台生成；删掉 " + (nameOf(c.meChar) || "本人") + " 时会一起走。"),
         h("button", {
           onClick: () => { if (!String(c.npcName || "").trim() || !onAddMyNpc) return;
-            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
+            if (onAddMyNpc(c.npcName, c.npcBrief, c.npcRel, c.meChar) !== false) set({ npcName: "", npcBrief: "", npcRel: "" }); },
           className: "w-full active:opacity-70",
           style: { background: t.ink, color: t.bg2, border: "none", borderRadius: 12, padding: "12px 0", fontFamily: F_DISPLAY, fontSize: 16,
             opacity: String(c.npcName || "").trim() ? 1 : 0.4 }
