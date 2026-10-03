@@ -8428,7 +8428,9 @@ function ImageApiConfig({ toast }) {
       const prompt = testRef
         ? "Edit the attached portrait into a simple studio photo with a plain warm-gray background. Keep the person in the photo looking the same: face, features, hairstyle and overall appearance. Normal clothing, neutral expression, no text."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 180000, budgetMs: 190000, size: "1024x1024", preferLegacy: true, singleShot: true });
+      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 180000, budgetMs: 190000, size: "1024x1024", preferLegacy: true, singleShot: true,
+        // 测的是【正在编辑的这一站】（含还没保存的改动），不是主用那一站
+        api: Object.assign({}, c, { enabled: true }, typeof fieldOverride === "string" ? { refFieldMode: fieldOverride } : {}) });   // 测试不看「启用」开关：没开也能先试
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
       setTestRes(src ? { ok: true, src: src, refs: out.referenceCount || 0, bytes: out.referenceBytes || 0, field: out.refField || null, mode: out.refMode || "generation", fidelity: out.inputFidelity || null, identityVerification: out.identityVerification || null } : { ok: false, err: "接口通了但没从返回里解析出图片。" });
     } catch (e) {
