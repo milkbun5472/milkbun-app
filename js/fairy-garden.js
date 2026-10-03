@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-06f3cbed64ed9d89", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-f9b5eaf0e166eac2", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -169,10 +169,10 @@
   // Train and pet chat share room ownership, permitted history and turn storage.
   const worldRecord=(p,key)=>p.record||(p.recordFor?p.recordFor(key):null);
   const worldHistory=(p,key,d)=>worldRecord(p,key)?.history||((d.dialogs||{})[d.partnerId]||[]).filter(m=>m.status==='done');
-  function storeWorldTurn(key,current,record,cid,text,out){
+  function storeWorldTurn(key,current,record,cid,text,out,limit=Infinity){
     const parts=out.parts||[out.reply];
     if(record?.onTurn)record.onTurn({text,reply:out.reply,parts});
-    else{const d=current();write(key,{...d,dialogs:{...(d.dialogs||{}),[cid]:[...((d.dialogs||{})[cid]||[]),...(text?[{role:'user',content:text,status:'done'}]:[]),...parts.map(content=>({role:'assistant',content,status:'done'}))].slice(-200)}});}
+    else{const d=current();write(key,{...d,dialogs:{...(d.dialogs||{}),[cid]:[...((d.dialogs||{})[cid]||[]),...(text?[{role:'user',content:text,status:'done'}]:[]),...parts.map(content=>({role:'assistant',content,status:'done'}))].slice(-limit)}});}
   }
   function PetSession(props){
     const key=props.storeKey||KEY,seed=useRef(null);if(!seed.current){seed.current=read(key);if(!seed.current.partnerId&&props.lockPartnerId)seed.current={...seed.current,partnerId:String(props.lockPartnerId)};}const owner=useRef(seed.current.id),ownerPartner=useRef(String(seed.current.partnerId||'')),frame=useRef(null),latest=useRef(props);latest.current=props;
@@ -201,7 +201,7 @@
       const out=await ask({active:p.apiFor?p.apiFor(cid):p.active,character:c,profile:p.profile,world:game().chatContext(),history:history().slice(-100),text,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(cid):''),engineer:!!p.isEngineer?.(cid)});
       const accountNow=root.Cloud?.getSessionUser?await root.Cloud.getSessionUser().catch(()=>null):null;
       if(!alive.current||frame.current!==node||String(current().partnerId)!==String(cid)||String(account?.id||'')!==String(accountNow?.id||''))throw Error('角色或存档已经变更，这句回复没有写入其他房间。');
-      const parts=out.parts||[out.reply];storeWorldTurn(key,current,record(),cid,text,out);
+      const parts=out.parts||[out.reply];storeWorldTurn(key,current,record(),cid,text,out,200);
       setChatRows(rows=>[...rows,{role:'user',content:text},...parts.map(content=>({role:'assistant',content}))].slice(-100));setDraft('');
       if(out.petAction){const result=game().companionAction(out.petAction);setChatNotice(result.text+' 回到场景就能看它们互动。');}
     }catch(e){if(alive.current)setError(e.message||'这次没能连上，可以重试。');}finally{talking.current=false;if(alive.current)setChatBusy(false);}}

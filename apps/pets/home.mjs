@@ -1,5 +1,5 @@
-import {turnPet} from './movement.mjs?v=fg-06f3cbed64ed9d89';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-06f3cbed64ed9d89';
+import {turnPet} from './movement.mjs?v=fg-f9b5eaf0e166eac2';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-f9b5eaf0e166eac2';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw}){
  let nav,route=[],pendingTask=null,homeTime=0,poseBase=null,food=[];
  const toy=new T.Group(),ball=new T.Mesh(new T.SphereGeometry(.095,16,12),new T.MeshStandardMaterial({color:'#d6a08d',roughness:.85}));
