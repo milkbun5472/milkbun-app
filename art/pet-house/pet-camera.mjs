@@ -3,7 +3,7 @@
 export const PET_ZOOM={min:.72,max:8,cat:5};
 export function defaultPetZoom(width,height){return width<height?1.30:1.12;}
 
-export function createPetCamera(T,{camera,view,position,target,scale,getCat,draw,onTap,controlsHost}){
+export function createPetCamera(T,{camera,view,position,target,scale,getCat,getName=()=> '猫咪',draw,onTap,controlsHost}){
   const home=target.clone(),pan=new T.Vector3();
   const orbit=new T.Spherical().setFromVector3(position.clone().sub(home));
   const initial={theta:orbit.theta,phi:orbit.phi};
@@ -23,10 +23,11 @@ export function createPetCamera(T,{camera,view,position,target,scale,getCat,draw
   controlsHost.append(controls);
   function updateButtons(){
     minus.disabled=zoom<=PET_ZOOM.min;plus.disabled=zoom>=PET_ZOOM.max;focus.disabled=!getCat();
-    focus.textContent=following?'看场景':'看猫';focus.setAttribute('aria-pressed',String(following));focus.setAttribute('aria-label',following?'回到场景视角':'近距离看猫咪');
+    focus.textContent=following?'看场景':('看'+getName()[0]);focus.setAttribute('aria-pressed',String(following));focus.setAttribute('aria-label',following?'回到场景视角':('近距离看'+getName()));
   }
   function zoomBy(factor){zoom=T.MathUtils.clamp(zoom*factor,PET_ZOOM.min,PET_ZOOM.max);updateButtons();draw();}
   function update(){
+    updateButtons();
     const {width,height}=rect();if(width<=0||height<=0)return;
     const aspect=width/height,span=scale/Math.min(1,aspect)/zoom;
     const at=following&&getCat()?getCat().getWorldPosition(new T.Vector3()).add(new T.Vector3(0,.44,0)):home.clone();at.add(pan);
