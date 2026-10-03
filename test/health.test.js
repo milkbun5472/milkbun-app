@@ -129,3 +129,20 @@ test("界面：整页、紧凑顶栏透明、底纹铺外壳、tab 不是药丸�
   assert.match(src, /function PulseTabs\(/);
   assert.doesNotMatch(src, /#fff\b/, "深色主题里不许写死白");
 });
+
+test("运动和睡眠：消耗按体重估、跨午夜算睡眠、合进一天的账", () => {
+  const { H } = load();
+  assert.equal(H.burnOf(8, 30, 60), 240);
+  assert.equal(H.sleepMin({ bed: "23:50", wake: "07:30" }), 460);
+  assert.equal(H.sleepMin({ bed: "01:10" }), 0, "只填一头不算");
+  const d = H.load();
+  d.sport = [{ id: "s", day: "2026-10-03", kind: "快走", min: 40, kcal: 165 }];
+  d.sleep = { "2026-10-03": { bed: "23:00", wake: "07:00" } };
+  const t = H.dayTotals(d, "2026-10-03");
+  assert.equal(t.sportMin, 40); assert.equal(t.burn, 165); assert.equal(t.sleep, 480);
+});
+
+test("框撤掉了：按钮和输入框不画边", () => {
+  assert.doesNotMatch(src, /1px solid/);
+  assert.match(src, /const inputS = S => \(\{[^}]*border: "none", borderBottom:/);
+});
