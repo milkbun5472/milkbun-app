@@ -211,3 +211,30 @@ test("第四轮：群里收的一段出现在在场每个人名下；群里一�
     assert.ok(ms.find(m => /和「家」一起过的圣诞节/.test(m.title)), c.name + " 名下没有群里过的圣诞");
   });
 });
+
+test("修：生图只回 blob 也能存；认识从在一起那天起算（更早的话）；发给 TA 是小卡", () => {
+  const app = P("js/app.js"), eng = P("js/engine.js"), comp = P("js/components.js"), K = kit();
+  assert.match(eng, /async function imgResultToVault\(r\)/);
+  assert.match(eng, /if \(!d && r\.blob\) d = await new Promise/);
+  assert.equal((app.match(/await imgResultToVault\(r\)/g) || []).length, 3, "头像、封面、配图三处都得走它");
+  assert.ok(!/const dataUrl = r && \(r\.dataUrl \|\| r\.url\);/.test(app), "还有地方只认 dataUrl");
+  const c = { id: "c1", name: "江识" };
+  const ctx = { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: { c1: { status: "together", since: D(2025, 9, 1) } }, profile: {}, uName: "Lisa" };
+  const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
+  assert.match(titles, /认识第 100 天/, "在一起比来到这里早，认识得从在一起那天算");
+  assert.match(app, /kind: "shikeshare", content: body/);
+  assert.match(comp, /m\.kind === "shikeshare" && window\.ShikeShareCard/);
+});
+
+test("点「认识 N 天」能改认识那天：定了就以它为准，清空回到自动算", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /const MEET_KEY = "x_shikeMeet";/);
+  assert.match(s, /const own = meetOverride\(c\.id\);\n\s*if \(own\) return own;/);
+  assert.equal((s.match(/onClick: e => editMeet\(/g) || []).length, 2, "外层卡和里层顶上两处都能点");
+  // 真跑：有覆盖就用覆盖
+  const g = { React: { useState: () => [], useMemo: f => f() } };
+  const store = { x_shikeMeet: { c1: D(2020, 5, 20) } };
+  new Function("window", "globalThis", "React", "h", "Svg", "loadJSON", P("js/shike.js"))(g, g, g.React, () => null, () => null, (k, d) => store[k] || d);
+  const ms = g.ShikeKit.momentsFor({ id: "c1", name: "江识" }, { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: {}, profile: {}, uName: "Lisa" });
+  assert.ok(ms.some(m => m.title === "认识 5 周年"), "定了 2020-05-20，就该有认识 5 周年");
+});

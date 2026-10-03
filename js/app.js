@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.673";
+const APP_VERSION = "v74.676";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25602,9 +25602,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const c = { name: draft.name, appearance: draft.appearance, photoOutfit: draft.photoOutfit, photoStyle: draft.photoStyle };
         const prompt = buildAvatarPrompt(c, { hasRef: !!draft.refPhoto });
         const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024" });
-        const dataUrl = r && (r.dataUrl || r.url);
-        if (!dataUrl) throw new Error("上游没有返回图片");
-        const key = typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        const key = await imgResultToVault(r);
+        if (!key) throw new Error("上游没有返回图片");
         toast("头像生成好了，记得点右上角保存");
         return key;
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
@@ -27143,7 +27142,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d0 = new Date(m.ts);
       const body = "〔翻到一张时刻〕「" + m.title + "」 · " + d0.getFullYear() + "." + (d0.getMonth() + 1) + "." + d0.getDate()
         + ((m.what && m.what.lines && m.what.lines.length) ? "\n" + m.what.lines.slice(0, 3).join("\n").slice(0, 300) : "");
-      pChat(c.id, p => [...p, { role: "user", content: body, ts: Date.now(), shikeKey: m.key }]);
+      // kind=shikeshare 画成一张小卡；content 照样留着整段字——模型读历史时读的是它
+      pChat(c.id, p => [...p, { role: "user", kind: "shikeshare", content: body, ts: Date.now(), shikeKey: m.key,
+        shike: { title: m.title, ts: m.ts, kind: m.kind, lines: ((m.what && m.what.lines) || []).slice(0, 3), img: m.img || null } }]);
       openChatById(c.id);
     },
     groups: groups,          // 群里一起过的节日：那天你和TA都在同一个群里说过话
@@ -27187,9 +27188,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
           + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark.";
         const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
-        const dataUrl = r && (r.dataUrl || r.url);
-        if (!dataUrl) throw new Error("上游没有返回图片");
-        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        const key = await imgResultToVault(r);
+        if (!key) throw new Error("上游没有返回图片");
+        return key;
       } catch (e) { toast("没画成：" + ((e && e.message) || e)); return null; }
     },
     onGenCover: async c => {
@@ -27198,9 +27199,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const prompt = "A cinematic visual-novel CG illustration of " + (c.name || "the character") + ". "
           + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark.";
         const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
-        const dataUrl = r && (r.dataUrl || r.url);
-        if (!dataUrl) throw new Error("上游没有返回图片");
-        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        const key = await imgResultToVault(r);
+        if (!key) throw new Error("上游没有返回图片");
+        return key;
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
     },
     onBack: () => setScreen("home")
