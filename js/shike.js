@@ -44,10 +44,20 @@
       && (((e.charIds || []).indexOf(charId) >= 0) || (Array.isArray(e.knownBy) && e.knownBy.indexOf(charId) >= 0)))
       .slice(0, 3).map(e => String(e.text).replace(/\s+/g, " ").slice(0, 90));
     if (mems.length) return { kind: "mem", lines: mems };
-    const said = (chat || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant")
-      && m.kind !== "system" && Number(m.ts) >= a && Number(m.ts) < b)
-      .slice(0, 3).map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 60));
-    return said.length ? { kind: "chat", lines: said } : { kind: "none", lines: [] };
+    const day = (chat || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant")
+      && (!m.kind || m.kind === "voice") && Number(m.ts) >= a && Number(m.ts) < b);
+    // 你一句、TA一句，各挑那天最有分量的两句（另一个窗口 2026-10-03 的建议）：
+    //   「分量」先粗认成【长度】——寒暄短、真说事的长。挑完按时间排回去，读起来还是那天的顺序。
+    const top = role => day.filter(m => m.role === role).slice().sort((x, y) => String(y.content).length - String(x.content).length).slice(0, 2);
+    const said = top("user").concat(top("assistant")).sort((x, y) => x.ts - y.ts)
+      .map(m => (m.role === "user" ? uName : charName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 70));
+    // 那天还发生了什么（不是话，是事）：约会那张卡、刻进唱片的歌、写的情书
+    const extra = (chat || []).filter(m => m && Number(m.ts) >= a && Number(m.ts) < b).map(m =>
+      m.kind === "datememory" ? "那天你们见了面" + (m.place ? "，在" + (m.place.name || m.place) : "") + "。"
+      : m.kind === "carved" ? "那天刻进唱片：" + ((m.song && (m.song.title || m.song)) || m.content || "一首歌") + "。"
+      : m.kind === "loveletter" ? "那天 " + charName + " 写了一封情书。" : null).filter(Boolean).slice(0, 2);
+    const lines = extra.concat(said);
+    return lines.length ? { kind: said.length ? "chat" : "event", lines } : { kind: "none", lines: [] };
   }
   const hasTrace = (charId, ts, lib, chat) => whatHappened(charId, "", "", ts, lib, chat).kind !== "none";
   // 那天聊天里的照片（她 2026-10-03 点的第 1 条）：TA的自拍/合照优先，其次她发的照片。拿来当这张时刻卡的底图。
@@ -99,23 +109,34 @@
     //   ⚠️手机里只留最近那一截聊天，更早的归档到云上了——找不到就不立，不猜。
     const firstOf = pred => { const m = chat.find(x => x && !x.recalled && pred(x)); return m ? Number(m.ts) || 0 : 0; };
     add(firstOf(m => (m.kind === "selfie" || m.kind === "duo") && m.imgKey), "第一张照片", "first", true);
-    add(firstOf(m => m.kind === "callend"), "第一次打电话", "first", true);
+    add(firstOf(m => m.kind === "callend" && m.callMode !== "video"), "第一次打电话", "first", true);
+    add(firstOf(m => m.kind === "callend" && m.callMode === "video"), "第一次视频", "first", true);
+    add(firstOf(m => m.kind === "datememory"), "第一次约会", "first", true);
+    add(firstOf(m => m.kind === "loveletter"), "TA 写来的情书", "first", true);
+    add(firstOf(m => m.kind === "unblock_req" && m.status === "accepted"), "第一次和好", "first", true);
+    add(firstOf(m => m.role === "assistant" && (!m.kind) && /我爱你|爱你/.test(String(m.content || ""))), "第一次说爱你", "first", true);
+    add(firstOf(m => m.kind === "carved"), "刻进唱片的第一首歌", "first", true);
     add(firstOf(m => m.kind === "gift"), "第一份礼物", "first", true);
     add(firstOf(m => m.kind === "transfer" || m.kind === "redpacket"), "第一次转账", "first", true);
     add(firstOf(m => m.role === "assistant" && /晚安/.test(String(m.content || ""))), "第一次说晚安", "first", true);
     const offs = ((ctx.offlines || {})[c.id]) || (typeof loadJSON === "function" ? loadJSON("x_offline:" + c.id, []) : []) || [];
     const firstMeet = offs.map(x => Number(x && (x.startTs || (x.msgs && x.msgs[0] && x.msgs[0].ts))) || 0).filter(x => x > 0).sort((x, y) => x - y)[0];
     add(firstMeet, "第一次见面", "first", true);
+    // 她自己收进来的（聊天长按「收进时刻」）：机器认不出的心动瞬间，由她来挑。一条一张，不跟别的并
+    const pins = ((ctx.pins || {})[c.id]) || [];
     // 同一天撞了好几个（生日正好是在一起一周年）就并成一张
     const byDay = {};
     out.forEach(m => { const k = dayKey(m.ts); if (byDay[k]) { if (byDay[k].title.indexOf(m.title) < 0) byDay[k].title += " · " + m.title; } else byDay[k] = Object.assign({}, m); });
-    return Object.values(byDay).sort((x, y) => y.ts - x.ts)
-      .map(m => Object.assign(m, { what: whatHappened(c.id, c.remark || c.name, ctx.uName, m.ts, lib, chat), img: dayImage(m.ts, chat) }));
+    const dated = Object.values(byDay).map(m => Object.assign(m, { what: whatHappened(c.id, c.remark || c.name, ctx.uName, m.ts, lib, chat), img: dayImage(m.ts, chat) }));
+    const pinned = pins.filter(p => p && p.ts).map(p => ({ key: "pin_" + p.id, ts: Number(p.ts), title: p.title || "收着的一刻", kind: "pin",
+      what: { kind: "pin", lines: [(p.role === "user" ? ctx.uName : (c.remark || c.name)) + "：" + String(p.text || "").replace(/\s+/g, " ").slice(0, 160)] },
+      img: p.imgKey ? { imgKey: p.imgKey } : p.imageRef ? { ref: p.imageRef } : dayImage(p.ts, chat) }));
+    return dated.concat(pinned).sort((x, y) => y.ts - x.ts);
   }
 
   // ── 界面 ───────────────────────────────────────────────────
   const loadCovers = () => { try { return (typeof loadJSON === "function" ? loadJSON(COVER_KEY, {}) : {}) || {}; } catch (e) { return {}; } };
-  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次" };
+  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的" };
   // 时刻卡的底图：那天的照片（自拍在 IDB 图库里，用 useIdbImgUrl 取；她发的照片是 iv_ 门牌）
   function MomentArt({ img }) {
     const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
@@ -124,6 +145,29 @@
   }
   // 外壳铺纸：它是一本按日子贴卡的相册（last-flat-shells：不许拿 t.bg 当外壳）
   const shell = t => (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 });
+
+  // 往前看：接下来 60 天里最近的一个日子（认识/在一起的整数天和周年、两个人的生日）。
+  //   卡面上挂倒计时；也递给聊天那头，让TA自己决定记不记得、怎么表示。
+  function upcoming(c, ctx, horizon) {
+    const now = startOf(ctx.now || Date.now()), H = (horizon || 60) * DAY, chat = (ctx.chats || {})[c.id] || [];
+    const first = [...chat.map(m => Number(m && m.ts) || 0), ...(ctx.lib || []).filter(e => e && (e.charIds || []).indexOf(c.id) >= 0).map(e => Number(e.ts) || 0)].filter(x => x > 0).sort((x, y) => x - y)[0];
+    const cands = [];
+    const marks = (base, label) => {
+      if (!base) return; const b = startOf(base);
+      DAY_MARKS.filter(n => n > 1).forEach(n => cands.push({ ts: b + (n - 1) * DAY, title: label + "第 " + n + " 天" }));
+      for (let y = 1; y < 50; y++) { const d = new Date(b); d.setFullYear(d.getFullYear() + y); cands.push({ ts: d.getTime(), title: label + " " + y + " 周年" }); if (d.getTime() > now + H) break; }
+    };
+    marks(first, "认识");
+    const cp = (ctx.couples || {})[c.id];
+    if (cp && cp.status === "together" && cp.since) marks(cp.since, "在一起");
+    const y0 = new Date(now).getFullYear();
+    [[monthDay(c.birthday), (c.remark || c.name) + " 的生日"], [monthDay(ctx.profile && ctx.profile.birthday), "你的生日"]].forEach(([md, t]) => {
+      if (md) [y0, y0 + 1].forEach(y => cands.push({ ts: new Date(y, md.mo - 1, md.d).getTime(), title: t }));
+    });
+    const next = cands.filter(x => x.ts >= now && x.ts <= now + H).sort((x, y) => x.ts - y.ts)[0];
+    return next ? Object.assign(next, { days: Math.round((next.ts - now) / DAY) }) : null;
+  }
+  const upLine = u => u ? (u.days === 0 ? "今天 · " + u.title : "还有 " + u.days + " 天 · " + u.title) : "";
 
   // 卡面底下那一行：认识几天、在一起几天（跟时刻同一份算法，不另算一套）
   function daysLine(c, ctx) {
@@ -169,7 +213,8 @@
       } catch (err) { props.toast && props.toast("没贴上：" + String((err && err.message) || err).slice(0, 80)); }
     };
     const [idx, setIdx] = useState(0);
-    const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName };
+    const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName, offlines: props.offlines,
+      pins: (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {} };
     const all = useMemo(() => {
       const m = {}; chars.forEach(c => { m[c.id] = momentsFor(c, ctx); }); return m;
       // eslint-disable-next-line
@@ -253,7 +298,7 @@
         h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
         h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); }, bg: "transparent" }),
         h("div", { className: "shrink-0 flex items-center justify-center", style: { gap: 10, padding: "4px 16px 2px" } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, daysLine(cur, ctx)),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, [daysLine(cur, ctx), upLine(upcoming(cur, ctx))].filter(Boolean).join(" · ")),
           props.onGenCover ? h("button", { onClick: () => gen(cur), disabled: !!busy, className: "active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 11.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "6px 12px", opacity: busy ? .5 : 1 } },
             busy === cur.id ? "正在画…" : (covers[cur.id] ? "重画封面" : "生成封面")) : null,
@@ -293,6 +338,9 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 3, color: "rgba(255,255,255,.7)" } }, "第 " + (i + 1) + " 张"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 34, lineHeight: 1.15, color: "#fff", marginTop: 4, textShadow: "0 2px 12px rgba(0,0,0,.35)" } }, c.remark || c.name),
           line ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.88)", marginTop: 8 } }, line) : null,
+          (function () { const u = upcoming(c, ctx); return u ? h("div", { "data-wk": "shikesoon", "data-today": u.days === 0 ? "1" : "0",
+            style: { display: "inline-block", fontFamily: F_BODY, fontSize: 12, color: u.days === 0 ? "#3a2a1a" : "#fff", background: u.days === 0 ? "#f6d58a" : "rgba(255,255,255,.18)",
+              border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "4px 11px", marginTop: 10 } }, upLine(u)) : null; })(),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.75)", marginTop: 14 } }, "点开看我们的时刻 ›")));
     };
     return h("div", { className: "h-full flex flex-col", "data-wk": "shikepage", style: shell(t) },
@@ -306,5 +354,7 @@
   }
 
   g.ShikeApp = ShikeApp;
-  g.ShikeKit = { momentsFor, monthDay, whatHappened, dayImage, HOLIDAYS };
+  g.ShikeKit = { momentsFor, monthDay, whatHappened, dayImage, upcoming, HOLIDAYS,
+    // 聊天那头用：三天内（含今天）有日子就给一句，没有就空——零调用，只是让TA知道
+    chatNote: (c, ctx) => { const u = upcoming(c, ctx, 3); return u ? (u.days === 0 ? "今天是你们的「" + u.title + "」。" : "再过 " + u.days + " 天是你们的「" + u.title + "」。") + "记不记得、要不要表示、怎么表示，全看你这个人；她没提的话，你也可以不提。" : ""; } };
 })();

@@ -3322,6 +3322,8 @@ function buildBundle(ctx, opts) {
       + "\n⚠️别把这一条挂在嘴上报地名，它只是让你写出来的东西落在真地方，而不是一个谁都能套的通用城市。");
   }
   if (!ctx.notRoleplay && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
+  // 快到的日子（时刻 · 往前看）：三天内有纪念日/生日才有这一句，没有就一个字不发
+  if (!ctx.notRoleplay && ctx.shikeNote) parts.push("【快到的日子】" + ctx.shikeNote);
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、
   // 该不该接着演。彻底平复之后 moodLabel 为空、只留 note，别再报一个假的当下心情。
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + (ctx.moodNote || "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）"));

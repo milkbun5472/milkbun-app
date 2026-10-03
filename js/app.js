@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.660";
+const APP_VERSION = "v74.661";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5638,6 +5638,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     profile: profileFor(char.id),
     // 配角没有好感度：null 时引擎那一行整句不发（typeof affinity === "number"）
     affinity: char.npc ? null : Math.round(affOf(char.id)),
+    // 时刻 · 往前看（她 2026-10-03）：三天内有认识/在一起的整数天、周年或生日，就让TA知道；怎么表示全看TA
+    shikeNote: (!char.npc && window.ShikeKit && window.ShikeKit.chatNote)
+      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile }) : "",
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
     // 提示词照原样塞进去，等于要求TA把三天前那阵气重演一遍（她 2026-08-24 问到的）。
@@ -12364,12 +12367,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pChat(chatKey, p => p.map(x => x.sid === m.sid ? { ...x, pending: true, failed: false, imgKey: null, imgUrl: null, pendingSince: Date.now() } : x));
     drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", keySuffix: "_r" + Date.now() });
   };
+  // 收进时刻：起个名，存进 x_shikePins[角色]——时刻那头每人一张「收着的」卡。单聊、群聊共用这一处。
+  const pinToShike = (cid, m) => {
+    if (!m || !cid) { toast("这条记不到哪个角色名下"); return; }
+    requestAppPrompt("收进时刻", "给这一刻起个名字，比如「他第一次吃醋」。不填就叫「收着的一刻」。", "", name => {
+      const all = loadJSON("x_shikePins", {}) || {};
+      const row = { id: "pin_" + Date.now(), ts: Number(m.ts) || Date.now(), title: String(name || "").trim().slice(0, 30), text: String(m.content || m.desc || "").slice(0, 400), role: m.role,
+        ...(m.imgKey ? { imgKey: m.imgKey } : {}), ...(m.imageRef ? { imageRef: m.imageRef } : {}) };
+      all[cid] = [row].concat(all[cid] || []).slice(0, 300);
+      saveJSON("x_shikePins", all);
+      toast("收进时刻了");
+    }, "收进去");
+  };
   const handleMsgAction = (act, idx, sourceKey) => {
     const threadKey = sourceKey || activeChar.id;
     const isSideRoom = !!(window.ChatRooms && window.ChatRooms.isSideKey(threadKey));
     const msgs = chats[threadKey] || [];
     const m = msgs[idx];
     if (act === "fav") { addFavorite(activeChar.id, m); return; }
+    if (act === "shike") { pinToShike(activeChar.id, m); return; }
     if (act === "reshoot") { reshootChatSelfie(threadKey, idx, activeChar.id); return; }
     if (act === "copy") {
       copyText(m.content).then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
@@ -13618,6 +13634,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const m = msgs[idx];
     if (!m) return;
     if (act === "fav") { addFavorite(m.senderId || null, m); return; }
+    // 群里的一句收进【说这句的那个角色】名下；她自己说的那句，没有角色可挂，就提示一下
+    if (act === "shike") { pinToShike(m.senderId && characters.some(c => c.id === m.senderId && !c.npc) ? m.senderId : null, m); return; }
     if (act === "reshoot") { reshootGroupSelfie(groupId, idx); return; }
     if (act === "copy") {
       copyText(m.content || "").then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));

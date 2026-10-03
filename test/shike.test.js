@@ -93,3 +93,31 @@ test("每张时刻卡能画一张、贴一张、拿掉；自己的图压过当�
   assert.match(s, /"贴一张"/);
   assert.match(s, /saveJSON\("x_shikeArt", n\)/);
 });
+
+test("更多「第一次」、收着的时刻、往前看", () => {
+  const K = kit();
+  const c = { id: "c1", name: "江识", birthday: "10-05" };
+  const chats = { c1: [
+    { role: "user", content: "嗨", ts: D(2025, 1, 10) },
+    { role: "system", kind: "callend", callMode: "video", content: "", ts: D(2025, 2, 1) },
+    { role: "assistant", kind: "loveletter", content: "信", ts: D(2025, 3, 1) },
+    { role: "assistant", content: "我爱你", ts: D(2025, 3, 2) }
+  ] };
+  const pins = { c1: [{ id: "p1", ts: D(2025, 5, 5), title: "他第一次吃醋", text: "你跟谁聊呢", role: "assistant" }] };
+  const ctx = { now: D(2026, 10, 3), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins };
+  const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
+  ["第一次视频", "TA 写来的情书", "第一次说爱你", "他第一次吃醋"].forEach(x => assert.match(titles, new RegExp(x)));
+  const u = K.upcoming(c, ctx);
+  assert.equal(u.days, 2);
+  assert.match(u.title, /江识 的生日/);
+});
+
+test("聊天长按能「收进时刻」；快到的日子递进提示词", () => {
+  const comp = P("js/components.js"), app = P("js/app.js"), eng = P("js/engine.js");
+  assert.match(comp, /shike: \["收进时刻", "shikeStar"\]/);
+  assert.match(comp, /\[\["copy", "fav", "shike", "quote"\]/);
+  assert.match(app, /if \(act === "shike"\) \{ pinToShike\(activeChar\.id, m\); return; \}/);
+  assert.match(app, /saveJSON\("x_shikePins", all\);/);
+  assert.match(app, /shikeNote: \(!char\.npc && window\.ShikeKit/);
+  assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.shikeNote\) parts\.push\("【快到的日子】"/);
+});
