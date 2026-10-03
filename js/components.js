@@ -10058,12 +10058,31 @@ function CallScreen({
   bg,
   bgBusy,
   onShot,
-  onSend,
+  onSend: sendCall,
   onHangup,
   minimized,
   onMinimize,
   onRestore
 }) {
+  const [camera, setCamera] = useState({ phase: "off", facing: "user", message: "" });
+  const cameraRef = useRef(null);
+  if (!cameraRef.current) cameraRef.current = window.CallCamera.create(setCamera);
+  const cameraAttach = useCallback(el => cameraRef.current.attach(el), []);
+  useEffect(() => {
+    const hidden = () => { if (document.hidden) cameraRef.current.close("镜头已关闭，回来后可以重新开启。"); };
+    document.addEventListener("visibilitychange", hidden);
+    return () => { document.removeEventListener("visibilitychange", hidden); cameraRef.current.dispose(); };
+  }, []);
+  useEffect(() => { if (bye || minimized || mode !== "video") cameraRef.current.close(); }, [!!bye, !!minimized, mode]);
+  const onSend = text => {
+    if (bye || minimized) return false;
+    try {
+      const frame = mode === "video" ? cameraRef.current.snapshot() : null;
+      if (camera.message) setCamera(old => ({ ...old, message: "" }));
+      return sendCall(text, { cameraFrame: frame });
+    }
+    catch (e) { setCamera(old => ({ ...old, message: String(e.message || e) })); return false; }
+  };
   const [sec, setSec] = useState(0);
   const [input, setInput] = useState("");
   const ref = useRef(null);
@@ -10105,12 +10124,13 @@ function CallScreen({
   //   只有缩成小窗时照旧自动收线——那时她本来就没在看这一页，小窗一直挂着反而碍事。
   const byeRef = useRef(false);
   const byeSecRef = useRef(null);
-  const leaveAfterBye = () => { audioRef.current.enabled = false; lvStop(); onHangup(byeSecRef.current != null ? byeSecRef.current : secRef.current, "them"); };
+  const leaveAfterBye = () => { cameraRef.current.close(); audioRef.current.enabled = false; lvStop(); onHangup(byeSecRef.current != null ? byeSecRef.current : secRef.current, "them"); };
   const [stayAfterBye] = useCallStayAfterBye();
   useEffect(() => {
     if (!bye || byeRef.current) return;
     byeRef.current = true;
     byeSecRef.current = secRef.current;
+    cameraRef.current.close();
     lvStop({ keepVoice: true });                // TA挂了，不再录她说话——但嘴留着，把最后一句念完
   }, [!!bye]);
   // 自动退出（默认）：等TA把话说完再收线——队列空了、没在念、也没在合成；没开播报就留 1.8 秒。
@@ -10140,7 +10160,10 @@ function CallScreen({
     if (sendingRef.current || st.speaking) {
       setInput(old => old ? old + " " + text : text);
       setLiveSt("听到了，已留在输入框，等TA讲完再发送");
-    } else onSend(text);
+    } else if (onSend(text) === false) {
+      setInput(old => old ? old + " " + text : text);
+      setLiveSt("这句话先留在输入框，等镜头准备好再发");
+    }
     return true;
   };
   const lvEncode = chunks => { // Float32(16k) → 16k mono WAV（whisper 兜底路径用）
@@ -10480,8 +10503,7 @@ function CallScreen({
     if (!input.trim() || sending) return;
     stopCallAudio(); recResume();
     followCallTail.current = true;
-    onSend(input.trim());
-    setInput("");
+    if (onSend(input.trim()) !== false) setInput("");
   };
   const avatarNode = (c, size) => { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return av ? h("img", { src: av, style: { width: size, height: size, borderRadius: 999, objectFit: "cover" } }) : h("div", { style: { width: size, height: size, borderRadius: 999, background: c.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42, color: "#fff" } }, (c.name || "?")[0]); };
   // —— PiP 小屏：悬浮在其它界面上，点一下回全屏，可拖动；计时/消息不中断 ——
@@ -10550,7 +10572,7 @@ function CallScreen({
   }, bgUrl ? h("div", { style: { position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none" } },
       h("img", { src: bgUrl, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(10,10,12,.58) 0,rgba(10,10,12,.42) 30%,rgba(10,10,12,.74) 100%)" } })) : null, onMinimize && h("button", {
-    onClick: onMinimize,
+    onClick: () => { cameraRef.current.close(); onMinimize(); },
     className: "absolute active:opacity-60 flex items-center justify-center",
     style: { top: "calc(env(safe-area-inset-top) + 14px)", left: 16, zIndex: 5, width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.14)" }
   }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M6 9l6 6 6-6" }))),
@@ -10625,7 +10647,14 @@ function CallScreen({
       fontSize: isGroup ? 26 : 44,
       color: "#fff"
     }
-  }, (c.name || "?")[0])))), stream ? h(CallSubtitle, { line: subLine, onPhoto: onPhoto, actions: isVideo ? callActionsFor(list, subLine && subLine.index) : [] }) : h("div", {
+  }, (c.name || "?")[0]))), isVideo && !bye ? h("div", { "data-wk": "callcamera", style: { width: 104, flexShrink: 0, alignSelf: "center" } },
+    camera.phase === "on" ? h("div", null,
+      h("video", { ref: cameraAttach, "data-call-camera-preview": true, autoPlay: true, muted: true, playsInline: true, "aria-label": "你的摄像头预览", style: { display: "block", width: "100%", height: 126, borderRadius: 14, objectFit: "cover", background: "#1a2025", transform: camera.facing === "user" ? "scaleX(-1)" : "none" } }),
+      h("div", { style: { display: "flex", justifyContent: "space-between", gap: 4 } },
+        h("button", { onClick: () => cameraRef.current.close(), "aria-label": "关闭摄像头", style: { minHeight: 40, minWidth: 48, border: "none", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 10 } }, "关闭镜头"),
+        h("button", { onClick: () => cameraRef.current.switch(), "aria-label": "切换前后摄像头", style: { minHeight: 40, minWidth: 48, border: "none", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 10 } }, "切换镜头")))
+    : h("button", { onClick: () => camera.phase === "opening" ? cameraRef.current.close() : cameraRef.current.open(camera.facing), "aria-label": camera.phase === "opening" ? "取消开启摄像头" : "开启摄像头", style: { width: "100%", height: 140, borderRadius: 14, border: "1px solid rgba(255,255,255,.22)", background: "rgba(255,255,255,.07)", color: "#fff", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, fontFamily: F_BODY, fontSize: 11 } },
+      h(Svg, { size: 26, color: "#fff", sw: 1.5 }, h("rect", { x: 3, y: 6, width: 13, height: 12, rx: 3 }), h("path", { d: "m16 10 5-3v10l-5-3" })), camera.phase === "opening" ? "正在开启 · 取消" : "开镜头给他看")) : null), stream ? h(CallSubtitle, { line: subLine, onPhoto: onPhoto, actions: isVideo ? callActionsFor(list, subLine && subLine.index) : [] }) : h("div", {
     ref: ref,
     "data-call-history": true,
     onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
@@ -10702,6 +10731,7 @@ function CallScreen({
       paddingBottom: COMPOSER_PAD_BOTTOM
     }, litPlate("0", ".78"))
   },
+    isVideo && !bye ? h("div", { "data-call-camera-status": true, role: "status", style: { padding: "4px 16px", fontFamily: F_BODY, fontSize: 10.5, color: camera.phase === "error" ? "#f0b06a" : "rgba(255,255,255,.68)", maxHeight: 54, overflowY: "auto", lineHeight: 1.6, textAlign: "center" } }, camera.message || (camera.phase === "on" ? "镜头开着 · 每次发话时给对方看当前画面" : "镜头关着 · 开启后发话就能给对方看")) : null,
     // 打字框：点「打字」才从按键上面滑出来；发完一句不收，方便连着打
     typeOpen && !bye ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
       h("input", {
@@ -10727,7 +10757,7 @@ function CallScreen({
       bigKey(bye ? "退出" : "挂断",
         h(Svg, { size: 26, color: "#fff", sw: 2, style: { transform: "rotate(135deg)" } }, h("path", {
           d: "M22 16.9v3a2 2 0 01-2.2 2A19.8 19.8 0 013.1 4.2 2 2 0 015 2h3a2 2 0 012 1.7c.1 1 .4 1.9.7 2.8a2 2 0 01-.5 2.1L9 11.9a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.5c.9.3 1.8.6 2.8.7a2 2 0 011.7 2z" })),
-        () => { if (bye) { leaveAfterBye(); return; } audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": bye ? "退出通话" : "挂断" }),
+        () => { cameraRef.current.close(); if (bye) { leaveAfterBye(); return; } audioRef.current.enabled = false; lvStop(); onHangup(secRef.current, "me"); }, "#e0524a", { "data-wk": "hangup", "aria-label": bye ? "退出通话" : "挂断" }),
       bye ? null : bigKey(typeOpen ? "收起键盘" : "打字",
         h(Svg, { size: 24, color: "#fff", sw: 1.8 }, h("rect", { x: 3, y: 6, width: 18, height: 12, rx: 2 }), h("path", { d: "M7 10h.01M11 10h.01M15 10h.01M7 14h10" })),
         () => setTypeOpen(!typeOpen), typeOpen ? "rgba(255,255,255,0.34)" : "rgba(255,255,255,0.2)", { "aria-label": typeOpen ? "收起打字框" : "打字", "data-wk": "calltypekey" }))));

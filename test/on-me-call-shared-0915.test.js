@@ -29,7 +29,8 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
     primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
     memories:{},settingsFor:()=>({}),memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',crossRecentFor:id=>'线下_'+id,groupContextRows:()=>[],
     PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',callerIsChar:false,callerName:'',
-    PRIVATE_IS_BACKGROUND_NOT_AMMO:'',active:{},callBiHint:'',callAI:async(_api,sys)=>{sent=sys;return '[]';}});
+    PRIVATE_IS_BACKGROUND_NOT_AMMO:'',active:{},callBiHint:'',cameraHint:'',cameraFrame:null,callAI:async(_api,sys)=>{sent=sys;return '[]';}});
+  evaluate(require('node:fs').readFileSync('js/call-camera.js','utf8'),env,'window.CallCamera');
   env.window.Gaze={text:id=>'印象卡_'+id+'_完整末尾'};
   env.onMeLine=evaluate(format,env,'onMeLine');
   const code=cut(app,'        const gCallCap =','        const arr = extractJSON(raw);');
