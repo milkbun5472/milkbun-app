@@ -8691,7 +8691,7 @@ function RoomWorldBanner({ onEnter }) {
   return h("div", { className: "shrink-0 w-full flex items-center",
     style: { padding: "0 16px", gap: 8, background: "rgba(107,135,83,.12)", borderBottom: "1px solid " + t.line } },
     h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, marginRight: "auto" } }, "进入小世界"),
-    [["garden", "庭院"], ["train", "列车"]].map(([world, label]) => h("button", {
+    (window.FairyWorlds || []).map(({id:world,label}) => h("button", {
       key: world, onClick: () => onEnter(world), className: "active:opacity-70",
       "aria-label": "进入" + label,
       style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, padding: "10px 8px", minHeight: 44, flexShrink: 0, background: "transparent", border: "none" }
@@ -9475,6 +9475,11 @@ function ChatThread({
     if (m.kind === "tarotshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
       h(TarotShareCard, { m: m, isU: m.role === "user" }),
+      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    // 时刻卡（她 2026-10-03：「转发回去的是聊天气泡而不是小卡」）：跟同人文、塔罗那几张卡同一个形状
+    if (m.kind === "shikeshare" && window.ShikeShareCard) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(window.ShikeShareCard, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     // 逛购物 app 时拿给TA看的那件东西（v57.98）
     if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },

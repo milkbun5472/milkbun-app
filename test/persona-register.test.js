@@ -6,12 +6,15 @@ const GB = require("./_group-bans.js");
 
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync(path.join(root, "js/app.js"), "utf8"));
 
 // 她 2026-08-21：沈屿白设定是阳光年下，日记里一直叫她「这女人」刷都刷不掉，
 // 线上也越聊越成熟。两件事同源——真正在驱动语气的不是人设卡，是已经跑偏的历史。
 test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   assert.match(engine, /const PERSONA_REGISTER_ANCHOR = /);
+  // v74.676 起线上那三层合成 engine.js 的 onlineRegisterLayer()（拉黑那条链只抄了第一条，
+  //   漏了另外两条整整一版）。这儿扫的是展开过的 app.js，所以「线上单聊挂没挂」照旧测得到，
+  //   而且拉黑那条链现在一起算进来——展开见 test/_online-layer.js。
   assert.match(app, /ONLINE_CHAT_RULE_V2 \+ "\\n\\n" \+ REGISTER_FOLLOWS_SCENE \+ "\\n\\n" \+ PERSONA_REGISTER_ANCHOR/, "线上单聊");
   // v60.39 起三处群共用 groupBans：别再 grep「这个常量拼在那一行的哪个位置」，
   // 对着【它到底吐出哪几层】问（改拼法不该红，掉一层才该红）。
@@ -29,8 +32,9 @@ test("人设声纹锚要挂在【所有】会跑偏的通道上", () => {
   //   不是「谁提过它」。剥掉整行注释再数。
   const live = x => x.split("\n").filter(l => !/^\s*(\/\/|\*)/.test(l)).join("\n");
   assert.equal((live(engine).match(/PERSONA_REGISTER_ANCHOR/g) || []).length +
-               (live(app).match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 5,
-    "1 处定义 + groupBans（三处群共用）+ 单聊线上 + 单人线下 + 叙事底座");
+               (live(app).match(/PERSONA_REGISTER_ANCHOR/g) || []).length, 7,
+    "1 处定义 + onlineRegisterLayer 一处 + groupBans（三处群共用）+ 单人线下 + 叙事底座"
+    + "，加上展开后的两个线上调用点（单聊线上 + 拉黑）＝7");
 });
 
 // v72.55 她逐条圈掉了这条锚里的展开说明（「3 4 7 8 10-17都可以删了」）：

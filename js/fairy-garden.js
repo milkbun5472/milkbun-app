@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-e522caba130be3e1", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-898378e12153192c", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -39,7 +39,7 @@
   const TRAIN_BUILD = BUILD;
   function saveWorld(key, current, world, worldId, journey) {
     const w=String(worldId||"garden");
-    if(!["garden","train"].includes(w)||!world||!Number.isFinite(world.version)||!Number.isFinite(world.day)||typeof world.map!=="string")throw Error("世界进度异常，暂未覆盖旧存档。");
+    if(!WORLDS.some(x=>x.id===w)||!world||!Number.isFinite(world.version)||!Number.isFinite(world.day)||typeof world.map!=="string")throw Error("世界进度异常，暂未覆盖旧存档。");
     const d=current();return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
   }
   function WorldSession(props) {
@@ -58,18 +58,18 @@
     const travel=async(to)=>{
       if(switching.current)return false;switching.current=true;
       try{
-        if(to==="train"){if(!await initialize("garden"))return false;}
+        if(to==="train"){if(!await initialize(place==="garden"?"garden":"direct"))return false;}
         else if(to==="garden"){
           const before=read(key);const m=await import("../apps/fairy-garden/world.mjs?v="+BUILD);if(!alive.current)return false;
           const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");const old=m.restoreState(m.putJourney(m.restoreState(worldOf(d,"garden")),d.journey)),at=m.MAPS.garden.station.target;
           const garden={...old,map:"garden",depth:0,seat:null,sleep:{player:null,companion:null},position:{...at},companion:{...old.companion,map:"garden",mode:"follow",seat:null,position:{x:at.x+.75,z:at.z}}};
           write(key,{...d,activeWorld:"garden",world:garden,worlds:{...(d.worlds||{}),garden}});
-        }else return false;
+        }else if(to==="pets"){const d=read(key);write(key,{...d,activeWorld:"pets"});}else return false;
         setReady(true);setPlace(to);return true;
       }catch(e){setError(e.message);props.toast(e.message);return false;}finally{switching.current=false;}
     };
     if(!ready)return h("div",{className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
-    return h(place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
+    return h(place==="pets"?PetSession:place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
   }
   // 旅行相框：点图看原样大图；「翻看背面」看日期、拼图纪念和两个人各留的那句话（2026-09-25）
   // 念出来（庭院和列车共用）：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
@@ -166,6 +166,41 @@
           kit.promiseSummaries(archive.worlds?.train||{}).slice().reverse().map(p=>h('section',{key:p.id,style:{borderBottom:'1px solid '+G.line,padding:'8px 0',marginBottom:12}},h('h3',{style:{fontSize:14,fontWeight:500}},'第 '+p.trip+' 趟 · 拍照约定'),h('p',{style:{fontSize:12}},'你：'+p.you.theme+' · '+p.you.status),p.companion&&h('p',{style:{fontSize:12}},p.companion.name+'：'+p.companion.theme+' · '+p.companion.status))),rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label),x.kind==='photo'&&h('span',{style:{fontSize:11,color:G.soft,padding:5}},kit.photographerLabel(x)))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
         message&&h('p',{role:'status',style:{fontSize:12,lineHeight:1.8,color:G.deep,marginTop:14}},message)));
   }
+  function PetSession(props){
+    const key=props.storeKey||KEY,seed=useRef(null);if(!seed.current){seed.current=read(key);if(!seed.current.partnerId&&props.lockPartnerId)seed.current={...seed.current,partnerId:String(props.lockPartnerId)};}const owner=useRef(seed.current.id),frame=useRef(null),latest=useRef(props);latest.current=props;
+    const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
+    const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current)throw Error('存档已切换，请重新进入绒绒小镇。');return d;};
+    const game=()=>frame.current?.contentWindow.PetGame;
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),ready:()=>{if(frame.current===node)setLoaded(true);}});};
+    useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
+    const edit=()=>{const g=game();if(!g)return;setProfile(g.snapshot().profile);g.preview(true);setPanel('pet');setError('');};
+    useEffect(()=>{if(loaded&&!game()?.snapshot().configured)edit();},[loaded]);
+    const change=patch=>{const next={...profile,...patch};setProfile(next);game()?.applyProfile(next);};
+    const cancel=()=>{const saved=current().worlds?.pets?.profile||{name:'猫猫',look:{id:'original'},weight:1,size:1};game()?.applyProfile(saved);game()?.preview(false);setPanel('');};
+    const savePet=()=>{try{if(!game()?.commitProfile(profile))throw Error('宠物设置没有保存成功，请留在这里重试。');game().preview(false);setPanel('');setError('');}catch(e){setError(e.message);}};
+    const leave=async action=>{try{if(!loaded||!game()?.flush())throw Error('进度还没有保存成功，请留在这里重试。');await action();}catch(e){setError(e.message);props.toast(e.message);}};
+    const field={width:'100%',minHeight:42,border:'1px solid '+G.line,borderRadius:8,padding:'8px 10px',background:'#fffaf1',color:G.ink,fontFamily:F_BODY,fontSize:16};
+    const plate=(title,body)=>h('section',{style:{padding:'10px 0',borderBottom:'1px solid '+G.line}},h('label',{style:{display:'block',fontSize:12,marginBottom:6}},title),body);
+    const palette=(game()?.palettes||[]).map(p=>[p.label,p.base,p.patch]);
+    const d=current(),c=(props.characters||[]).find(x=>String(x.id)===String(d.partnerId));
+    return h('div',{className:'h-full flex flex-col','data-pet-world':true,style:{background:'#eee8dc',color:G.ink}},
+      h(Head,{zh:panel==='pet'?'宠物预览':panel==='travel'?'去哪里':'绒绒小镇',sub:loaded&&!panel?game()?.snapshot().profile.name:undefined,bg:'transparent',ink:G.ink,onBack:panel==='travel'?()=>setPanel(''):panel==='pet'?()=>{cancel();if(!current().worlds?.pets?.configured)leave(props.onBack);}:()=>loaded?leave(props.onBack):props.onBack(),right:loaded&&!panel?h('button',{onClick:()=>setPanel('travel'),style:{minHeight:40,padding:'8px 12px'}},'去别处'):null}),
+      h('div',{className:'flex-1 min-h-0',style:{position:'relative'}},
+        h('iframe',{ref:bind,title:'绒绒小镇游戏',src:'apps/pets/index.html?v='+BUILD,style:{position:'absolute',inset:0,width:'100%',height:'100%',border:0,display:'block'},onLoad:()=>{if(game()?.ready)setLoaded(true);}}),
+        !loaded&&h('p',{role:'status',style:{position:'absolute',top:10,left:20,right:20}},'正在打开宠物街区…'),
+        error&&h('p',{role:'alert',style:{position:'absolute',left:10,right:10,bottom:panel==='pet'?'64%':70,zIndex:12,background:'#fff5e7',padding:10,color:'#994a36'}},error),
+        panel==='pet'&&h('div',{'data-pet-settings':true,className:'flex flex-col',style:{position:'absolute',top:'38%',left:0,right:0,bottom:0,background:'#eee8dc'}},
+          h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:'0 18px 12px'}},
+            plate('宠物',h('div',{style:{display:'flex',gap:10}},[['cat','猫咪'],['dog','狗狗']].map(([species,label])=>h('button',{key:species,'aria-label':'选择'+label,'aria-pressed':profile.species===species,onClick:()=>change({species,name:profile.name==='猫猫'||profile.name==='狗狗'?(species==='dog'?'狗狗':'猫猫'):profile.name}),style:{...field,borderBottom:'3px solid '+(profile.species===species?G.deep:G.line),transform:profile.species===species?'translateY(-2px)':'none'}},label)))),
+            plate('名字',h('input',{'aria-label':'宠物名字',maxLength:24,value:profile.name,onChange:e=>change({name:e.target.value}),style:field})),
+            plate('毛色',h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},palette.map(([label,base,patch])=>h('button',{key:label,'aria-label':label+'毛色','aria-pressed':base?profile.look?.patch===patch:profile.look?.id==='original',onClick:()=>change({look:base?{id:'custom',base,patch}:{id:'original'}}),style:{...field,width:'auto',minWidth:48,borderBottom:'3px solid '+(base?patch:G.deep),background:base||'#fffaf1',transform:(base?profile.look?.patch===patch:profile.look?.id==='original')?'translateY(-2px)':'none'}},label)))),
+            plate('自选毛色',h('div',{style:{display:'flex',gap:12}},[['底毛','base','#f2eee6'],['花纹','patch','#a98565']].map(([label,k,fallback])=>h('label',{key:k,style:{display:'flex',alignItems:'center',gap:6}},label,h('input',{type:'color','aria-label':label+'颜色',value:profile.look?.[k]||fallback,onChange:e=>change({look:{id:'custom',base:profile.look?.base||'#f2eee6',patch:profile.look?.patch||'#a98565',[k]:e.target.value}}),style:{width:48,height:42}}))))),
+            ...[['胖瘦','weight',.8,1.25],['大小','size',.7,1.3]].map(([label,k,min,max])=>plate(label+' · '+Math.round(profile[k]*100)+'%',h('input',{type:'range','aria-label':label,min,max,step:.01,value:profile[k],onChange:e=>change({[k]:Number(e.target.value)}),style:{width:'100%',minHeight:40,accentColor:G.deep}}))),
+            h('p',{style:{fontSize:11,color:G.soft}},'实时预览；名字、毛色与体型只属于这一档宠物。')),
+          h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),
+        panel==='travel'&&h('div',{className:'absolute inset-0 flex flex-col',style:{background:'#eee8dc',zIndex:10}},h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:18}},h('p',{style:{marginBottom:14}},c?'与 '+(c.remark||c.name)+' 共用这一档旅程。':'三个世界共用这一档旅程。'),h('div',{style:{display:'grid',gap:12}},h('button',{style:pickButtonStyle(),onClick:edit},'宠物名字与外貌'),...WORLDS.filter(w=>w.id!=='pets').map(w=>h('button',{key:w.id,style:pickButtonStyle(),onClick:()=>leave(()=>props.onTravel(w.id))},'进入'+w.name)),h('button',{style:pickButtonStyle(),onClick:()=>leave(()=>props.onChooseSave('pets'))},'选择另一档'))))));
+  }
+
   function TrainSession(props){
     const frame=useRef(null),owner=useRef(read(props.storeKey||KEY).id),talking=useRef(false),latest=useRef(props);latest.current=props;
     const [toolbar,setToolbar]=useState(null);
@@ -228,7 +263,7 @@
           h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:G.soft,lineHeight:1.8,marginBottom:14}},"只换这一档列车里的样子；没换过的沿用庭院那一身。"),
           h(DressControls,{who,look,styles,game:trainGame,pushLook:pushTrainLook})))),
       panel==="album"&&h(TravelAlbum,{getArchive:current,onNote:noteBack,onAskNote:c?askBack:null,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
-      panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"))),
+      panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"),h("button",{style:{...pickButtonStyle(),marginTop:12},onClick:()=>leave("pets")},"进入绒绒小镇"))),
       panel==="settings"&&page("旅程设置",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},
         h("p",{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.9,marginBottom:20}},c?"这段旅程与 "+(c.remark||c.name)+" 同行，和庭院共用这一档。":"庭院和列车共用这一档旅程。"),
         h("div",{style:{display:"grid",gap:12}},
@@ -1425,6 +1460,7 @@
           onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
         travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+          h("button",{style:{...pickButtonStyle(),margin:"12px 16px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("pets");}catch(e){props.toast(e.message);}}},"进入绒绒小镇"),
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
           //   没选的往边上缩进去、暗着，像压在后面几页。七张竖着排也放得下，不会像横排那样把最后一张挤出屏幕。
@@ -1840,8 +1876,9 @@
   //   可它们许的是三件谁都没在做的事——别人打开秋秋机，看见的就是三张空头支票。
   //   撤掉一件东西就把它删掉，不许留在原地当死代码（那三行连着灰卡片那一档渲染一起走）。
   const WORLDS = [
-    { id: "garden", name: "微光庭院", note: "种花、下井、和同行者一起把日子过下去" },
-    { id: "train", name: "远行列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" }
+    { id: "garden", name: "微光庭院", label: "庭院", note: "种花、下井、和同行者一起把日子过下去" },
+    { id: "train", name: "远行列车", label: "列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" },
+    { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子" }
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
@@ -1890,13 +1927,13 @@
     } catch (e) {/* 隐私模式下读不到就算了，不连累这一页 */}
     return rows;
   }
-  function saveMeta(row) {
+  function saveMeta(row,worldId="garden") {
     const d = loadJSON(saveKeyOf(row), null) || {};
-    const w = worldOf(d, "garden") || {};
+    const w = worldOf(d, worldId) || {};
     return {
       day: Number(w.day) || 0,
       partnerId: String(d.partnerId || ""),
-      fresh: !worldOf(d, "garden")
+      fresh: !worldOf(d, worldId)
     };
   }
   // ── 小世界入口那条路（她 2026-09-19：「第一个世界是一个 svg 填色房子在左边，
@@ -1940,6 +1977,7 @@
       }));
   };
 
+  function worldPet(){return h('svg',{width:96,height:86,viewBox:'0 0 96 86','aria-hidden':true},h('path',{d:'M24 42L21 17L40 29M56 29L76 17L72 42',fill:'#a79a8e',stroke:'#796e62',strokeWidth:2}),h('ellipse',{cx:48,cy:48,rx:31,ry:27,fill:'#eee2cf',stroke:'#796e62',strokeWidth:2}),...[36,60].map(x=>h('ellipse',{key:x,cx:x,cy:45,rx:5,ry:7,fill:'#544b43'})),h('path',{d:'M44 57L48 61L52 57M48 61V66',fill:'#d7a59b',stroke:'#796e62',strokeWidth:1.5}));}
   function worldTrain(){return h("svg",{width:96,height:86,viewBox:"0 0 96 86","aria-hidden":true},h("path",{d:"M8 70H89M12 75H86",stroke:"#72866e",strokeWidth:3}),h("rect",{x:12,y:20,width:72,height:45,rx:9,fill:"#8aa48b",stroke:"#4f6953",strokeWidth:2}),...[23,43,63].map(x=>h("rect",{key:x,x,y:30,width:13,height:16,rx:3,fill:"#eee4c5"})),...[28,68].map(x=>h("circle",{key:x,cx:x,cy:65,r:7,fill:"#4f6953"})));}
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme();
@@ -1989,7 +2027,7 @@
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
             fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
-          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():worldHouse()) : worldSoon()), label);
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():worldHouse()) : worldSoon()), label);
         return w
           ? h("button", { key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
@@ -2002,11 +2040,11 @@
       });
       return shell("挑一个世界", props.onBack, h(React.Fragment, null,
         h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
-          "庭院与列车共用同一档旅程。选一个世界，和同行者接着走。"),
+          "庭院、列车与绒绒小镇共用同一档旅程。选一个世界，和同行者接着走。"),
         h("div", null, path)));
     }
 
-    const rows = saves.filter(x => ["garden","train"].includes(x.world));
+    const rows = saves.filter(x => WORLDS.some(w=>w.id===x.world));
     // ⚠️不再有「开一段不挑人的」：新的一段一律要挑一位（她 2026-09-18 定的）。
     //   以前开的那些示例档照样列在上面、照样进得去，只是不能再新建——
     //   撤掉一件东西就把它删掉，不许留在原地当死代码。
@@ -2041,7 +2079,7 @@
         world.id === "train" ? "选一个已有庭院存档，和这一档的同行者上车；也可以先选同行者、设置新房间，再开始一段旅程。" : "选一档接着过，或者从头开一段新的。"),
       h("div", { style: { display: "grid", gap: 11 } },
         rows.map((row, i) => {
-          const meta = saveMeta(row);
+          const meta = saveMeta(row,world.id);
           const partner = (props.characters || []).find(c => String(c.id) === meta.partnerId);
           return h("div", { key: row.id, style: { position: "relative" } },
             // ⚠️以前开的示例档没有同行者：直接进去接着玩，别摆一张【它逃不掉的】选人页
@@ -2057,4 +2095,5 @@
           style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
           world.id === "train" ? "＋ 选同行者，开新房间" : "＋ 新开一段"))));
   };
+  root.FairyWorlds=WORLDS;
 })(window);

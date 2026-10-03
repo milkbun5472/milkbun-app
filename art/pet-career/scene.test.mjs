@@ -11,11 +11,14 @@ for(const {id} of places)test(id+' exported scene retains interactive zones and 
  assert.ok(triangles<180000,'Scene triangle count must remain below 180k');assert.ok(bytes.length<900000,'Scene GLB must remain below 900k');assert.ok(doc.meshes.length<100);
  assert.ok(layout.camera.position.every(Number.isFinite));assert.ok(layout.cat.position.every(Number.isFinite));assert.equal(layout.cat.height,.88);
 });
-test('scene preview loads only named scenes and uses shared cat',()=>{
- const code=read('preview.mjs').toString(),html=read('preview.html').toString(),css=read('preview.css').toString();
- assert.match(code,/places\.find\(p=>p\.id===requested\)\|\|places\[0\]/);assert.match(code,/\.\.\/pet-house\/cat.glb/);
- assert.match(code,/link\.dataset\.scene=p\.id/);assert.match(html,/aria-label="去哪里"/);assert.equal(new Set(places.map(p=>p.id)).size,places.length);assert.ok(places.length>=6);
- assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);assert.match(code,/createPetCamera\(/);assert.match(code,/cameraControls\.clearGesture\(/);
- const camera=readFileSync(new URL('../pet-house/pet-camera.mjs',import.meta.url),'utf8');
- assert.match(camera,/onpointercancel=clearGesture/);
+test('outdoor export preserves all house entrances and stays within the mobile budget',()=>{
+ const b=read('outside.glb'),d=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString()),layout=JSON.parse(read('outside.json'));assert.equal(b.readUInt32LE(8),b.length);
+ for(const house of layout.buildings)assert.ok(d.nodes.some(n=>n.extras?.zone==='building_'+house.id));
+ assert.ok(b.length<1100000);assert.ok(d.meshes.length<110);const tri=d.meshes.reduce((n,m)=>n+m.primitives.reduce((k,p)=>k+d.accessors[p.indices].count/3,0),0);assert.ok(tri<220000);
 });
+test('preview routes through physical doors and shares garden gestures and cat movement',()=>{
+ const code=read('preview.mjs').toString(),html=read('preview.html').toString(),css=read('preview.css').toString();
+ assert.match(code,/world\.canEnter\(position,id\)/);assert.match(code,/createMapGesture/);assert.match(code,/loadPetCompanion/);assert.match(read("../pet-house/pet-companion.mjs").toString(),/createCatMotion/);assert.match(code,/position=\{\.\.\.outdoor\.position\}/);assert.match(html,/id="door-labels"/);assert.doesNotMatch(html,/class="places"/);assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);
+});
+
+test('entered rooms retain the shared close-view camera',()=>{const code=read('preview.mjs').toString();assert.match(code,/createPetCamera\(/);assert.match(code,/cameraControls\?\.clearGesture\(/);assert.match(code,/cameraControls\?\.dispose\(/);assert.match(read('preview.html').toString(),/pet-camera.css/);});

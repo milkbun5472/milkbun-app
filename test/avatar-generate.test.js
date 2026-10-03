@@ -46,6 +46,7 @@ test("按钮接上了，而且方图、两样都没有时不让她白花钱", ()
   assert.match(screens, /先填【外貌】那一栏，或者传一张参考照，不然它不知道该画谁/);
   assert.match(app, /buildAvatarPrompt\(c, \{ hasRef: !!draft\.refPhoto \}\)/);
   assert.match(app, /\{ size: "1024x1024" \}/, "头像要方图，不是 1024x1536");
-  assert.match(app, /imgToVault\(dataUrl\)/, "存图库只留一个 iv_ 键，别把 base64 塞进 localStorage");
+  // v74.674 起走 imgResultToVault（只回 blob 的中转也认），里面照旧存成一个 iv_ 键
+  assert.match(app, /await imgResultToVault\(r\)/, "存图库只留一个 iv_ 键，别把 base64 塞进 localStorage");
   assert.match(app, /记得点右上角保存/, "生成完还没保存，得说清楚");
 });

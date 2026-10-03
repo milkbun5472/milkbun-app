@@ -4,7 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync(path.join(root, "js/app.js"), "utf8"));
 
 // 她 2026-08-22：「我说看看自拍，有时候会回答：自拍？行，别后悔。明明直接说后部分就行」。
 // 回声式开场——把对方刚说的词原样反问一遍再回答。它不添任何东西，只是给真正的回答垫场。

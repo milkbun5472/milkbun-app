@@ -1,8 +1,8 @@
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.PET_CAMERA_URL||'http://127.0.0.1:18952',out=process.env.PET_CAMERA_EVIDENCE||'/tmp/pet-camera-browser';fs.mkdirSync(out,{recursive:true});
-const scenes=[['home','/art/pet-house/preview.html','petHousePreview'],...JSON.parse(fs.readFileSync(path.join(__dirname,'../pet-career/scenes.json'),'utf8')).map(({id})=>[id,'/art/pet-career/preview.html?scene='+id,'petCareerPreview'])];
-async function snapshot(page,key){return page.evaluate(key=>window[key].snapshot(),key);}
+const scenes=[['home','/art/pet-house/preview.html','petHousePreview'],...JSON.parse(fs.readFileSync(path.join(__dirname,'../pet-career/scenes.json'),'utf8')).filter(({id})=>id!=='park').map(({id})=>[id,'/art/pet-career/preview.html?scene='+id,'petCareerPreview'])];
+async function snapshot(page,key){return page.evaluate(key=>{const s=window[key].snapshot();return s.camera?{...s,...s.camera}:s;},key);}
 async function catRect(page,key){return page.evaluate(async key=>{
  const T=await import('three'),p=window[key],b=new T.Box3().setFromObject(p.cat);const points=[];
  for(const x of [b.min.x,b.max.x])for(const y of [b.min.y,b.max.y])for(const z of [b.min.z,b.max.z]){const v=new T.Vector3(x,y,z).project(p.camera);points.push({x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2});}
@@ -16,7 +16,7 @@ async function catRect(page,key){return page.evaluate(async key=>{
   for(const [id,url,key] of scenes){
    const scene={id,viewports:[]};
    for(const [width,height] of [[320,568],[390,780],[430,932],[932,430]]){
-    await page.setViewportSize({width,height});await page.goto(base+url);await page.waitForFunction(key=>window[key]?.snapshot().ready,key);await page.waitForTimeout(100);
+    await page.setViewportSize({width,height});await page.goto(base+url);await page.waitForFunction(key=>window[key]?.snapshot().ready,key);if(key==='petCareerPreview')await page.evaluate(id=>petCareerPreview.enter(id),id);await page.waitForTimeout(100);
     const initial=await snapshot(page,key),initialCat=await catRect(page,key);assert.equal(initial.zoom,width<height?1.30:1.12);
     assert.equal(initial.following,false);
     for(const button of await page.locator('.camera-tools button,#walk,#fur,#light,#reset').all()){

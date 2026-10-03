@@ -8,7 +8,8 @@
   <title>宠物小屋 · 场景预览</title>
   <link rel="stylesheet" href="preview.css?v=pet-house-3">
   <link rel="stylesheet" href="./pet-camera.css?v=pet-camera-1">
-  <script type="importmap">{"imports":{"three":"../../apps/fairy-garden/vendor/three.module.js"}}</script>
+  <link rel="stylesheet" href="pet-companion.css?v=pet-dog-1">
+<script type="importmap">{"imports":{"three":"../../apps/fairy-garden/vendor/three.module.js"}}</script>
 </head>
 <body>
   <main id="view" aria-label="宠物小屋三维场景"></main>
@@ -20,15 +21,15 @@
     </div>
   </header>
   <div id="loading" role="status">正在打开小屋…</div>
-    <section id="fur-panel" aria-label="猫猫毛色" hidden>
+    <section id="fur-panel" aria-label="宠物毛色" hidden>
       <div class="palettes" aria-label="预设毛色"></div>
       <div class="custom-fur"><label>底毛 <input id="fur-base" type="color" value="#eee8df" aria-label="底毛颜色"></label><label>花纹 <input id="fur-patch" type="color" value="#a3a09a" aria-label="花纹颜色"></label></div>
       <p>保留毛发层次 · 毛色会记在这台设备</p>
     </section>
-  <section class="cat-controls" aria-label="猫猫互动">
+  <section class="cat-controls" aria-label="宠物互动">
     <div class="cat-actions"><button id="walk" aria-pressed="false" disabled>走走</button><button id="fur" aria-expanded="false" aria-controls="fur-panel" disabled>毛色</button></div>
   </section>
-  <footer class="scene-foot" aria-live="polite"><strong id="zone-title">猫猫的小客厅</strong><span id="zone-text">点点家具看看 · 双指或滚轮缩放</span></footer>
-  <script type="module" src="preview.mjs?v=pet-house-3"></script>
+  <footer class="scene-foot" aria-live="polite"><strong id="zone-title">宠物的小客厅</strong><span id="zone-text">点点家具看看 · 双指或滚轮缩放</span></footer>
+  <script type="module" src="preview.mjs?v=pet-dog-1"></script>
 </body>
 </html>

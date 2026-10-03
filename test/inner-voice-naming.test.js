@@ -5,7 +5,7 @@ const path = require("node:path");
 const GB = require("./_group-bans.js");
 const root = path.join(__dirname, "..");
 const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
-const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
+const app = require("./_online-layer.js").expand(fs.readFileSync(path.join(root, "js/app.js"), "utf8"));
 
 // 她 2026-08-22：「心声又在『这女人』了」。和 2026-08-21 日记那次是同一个机制——
 // 疏离的第三人称点评腔是【体裁自带的默认】（内心独白 / 男主角旁白），不是从人设卡来的。

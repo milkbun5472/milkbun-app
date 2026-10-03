@@ -66,14 +66,14 @@ test("「让 TA 说说」走 runProbe voice，点了才调", () => {
   const app = P("js/app.js");
   assert.match(app, /onRecall: async \(c, m\) => \{/);
   assert.match(app, /runProbe\(p, ctxFor\(c\), \{ voice: true, tag: "shike"/);
-  assert.match(P("js/shike.js"), /props\.onRecall \? h\("button", \{ onClick: \(\) => recall\(m\)/);
+  assert.match(P("js/shike.js"), /props\.onRecall \? \[saying === m\.key \? "TA 在想…"[^\n]*\(\) => recall\(m\)/);
 });
 
 test("每张时刻卡能画一张、贴一张、拿掉；自己的图压过当天照片", () => {
   const s = P("js/shike.js"), app = P("js/app.js");
   assert.match(app, /onDrawMoment: async \(c, m\) => \{/);
   assert.match(s, /\(\(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \|\| m\.img\) \? h\(MomentArt, \{ img: \(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \? \{ ref: arts\[cur\.id\]\[m\.key\] \} : m\.img \}\)/);
-  assert.match(s, /"贴一张"/);
+  assert.match(s, /\["贴图", \(\) => \{ pickFor\.current = m;/);
   assert.match(s, /saveJSON\("x_shikeArt", n\)/);
 });
 
@@ -136,12 +136,13 @@ test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", ()
   assert.equal((comp.match(/"补中间"/g) || []).length, 2);
   assert.equal((comp.match(/onPinShike\(selIds\)/g) || []).length, 2);
   assert.equal((app.match(/onPinShike: indices =>/g) || []).length, 2);
+  assert.match(app, /saveJSON\("x_shikeGroupPins", all\.slice\(0, 500\)\)/, "群里收的一段要存成多人卡");
   assert.match(app, /onSummarizePin: async \(c, m\) =>/);
 });
 
 test("第一轮：发给 TA、TA 偶尔想起一张旧的、TA 自己存一刻", () => {
   const K = kit(), s = P("js/shike.js"), app = P("js/app.js");
-  assert.match(s, /props\.onSendMoment \? h\("button", \{ onClick: \(\) => props\.onSendMoment\(cur, m\)/);
+  assert.match(s, /props\.onSendMoment \? \["发给 TA", \(\) => props\.onSendMoment\(cur, m\)\]/);
   assert.match(app, /onSendMoment: \(c, m\) => \{/);
   assert.match(app, /keepMoment:\{"title":"给这一刻起的名字","why":/);
   assert.match(app, /if \(parsed\.keepMoment && typeof parsed\.keepMoment === "object" && !sideRoom && !char\.npc/);
@@ -179,4 +180,73 @@ test("第二轮：时刻的日子走纪念日主动那条路；主屏「去年�
   assert.equal(otd.years, 1);
   assert.equal(otd.m.title, "他第一次吃醋");
   assert.equal(K.onThisDay([c], { now: D(2026, 10, 4), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins }), null);
+});
+
+test("第三轮：按月的目录能跳；能存成一页长图，太长就截断并写明", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /"data-wk": "shikemonths"/);
+  assert.match(s, /onClick: \(\) => jump\(k\)/, "时间轴上的刻度点了不跳");
+  assert.match(s, /const exportLong = async \(c, items\) =>/);
+  assert.match(s, /saveImgOriginal\(cv\.toDataURL\("image\/jpeg", 0\.9\)/);
+  assert.match(s, /MAXH = 15000/, "iOS canvas 一边不能太长，得有上限");
+  assert.match(s, /只拼了最近的/);
+});
+
+test("第四轮：群里收的一段出现在在场每个人名下；群里一起过的节日", () => {
+  const K = kit();
+  const a = { id: "a", name: "江识" }, b = { id: "b", name: "陆衍" };
+  const groupPins = [{ id: "g1", ts: D(2025, 6, 1), title: "群里吵架", cids: ["a", "b"], groupName: "家", lines: [{ role: "user", text: "别吵了" }, { role: "char", name: "江识", text: "他先的" }] }];
+  const groups = [{ id: "G", name: "家", memberIds: ["a", "b"] }];
+  const groupChats = { G: [
+    { role: "user", content: "圣诞快乐呀", ts: D(2025, 12, 25, 10) },
+    { role: "assistant", senderId: "a", senderName: "江识", content: "圣诞快乐", ts: D(2025, 12, 25, 11) },
+    { role: "assistant", senderId: "b", senderName: "陆衍", content: "同乐", ts: D(2025, 12, 25, 12) }
+  ] };
+  const ctx = { now: D(2026, 1, 1), chats: {}, lib: [], couples: {}, profile: {}, uName: "Lisa", groupPins, groups, groupChats, allChars: [a, b] };
+  [a, b].forEach(c => {
+    const ms = K.momentsFor(c, ctx);
+    const gp = ms.find(m => m.title === "群里吵架");
+    assert.ok(gp, c.name + " 名下没有那张群里的卡");
+    assert.equal(gp.with.length, 1, "「一起的还有」该是另一个人");
+    assert.ok(ms.find(m => /和「家」一起过的圣诞节/.test(m.title)), c.name + " 名下没有群里过的圣诞");
+  });
+});
+
+test("修：生图只回 blob 也能存；认识从在一起那天起算（更早的话）；发给 TA 是小卡", () => {
+  const app = P("js/app.js"), eng = P("js/engine.js"), comp = P("js/components.js"), K = kit();
+  assert.match(eng, /async function imgResultToVault\(r\)/);
+  assert.match(eng, /if \(!d && r\.blob\) d = await new Promise/);
+  assert.equal((app.match(/await imgResultToVault\(r\)/g) || []).length, 3, "头像、封面、配图三处都得走它");
+  assert.ok(!/const dataUrl = r && \(r\.dataUrl \|\| r\.url\);/.test(app), "还有地方只认 dataUrl");
+  const c = { id: "c1", name: "江识" };
+  const ctx = { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: { c1: { status: "together", since: D(2025, 9, 1) } }, profile: {}, uName: "Lisa" };
+  const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
+  assert.match(titles, /认识第 100 天/, "在一起比来到这里早，认识得从在一起那天算");
+  assert.match(app, /kind: "shikeshare", content: body/);
+  assert.match(comp, /m\.kind === "shikeshare" && window\.ShikeShareCard/);
+});
+
+test("点「认识 N 天」能改认识那天：定了就以它为准，清空回到自动算", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /const MEET_KEY = "x_shikeMeet";/);
+  assert.match(s, /const own = meetOverride\(c\.id\);\n\s*if \(own\) return own;/);
+  assert.equal((s.match(/onClick: e => editMeet\(/g) || []).length, 2, "外层卡和里层顶上两处都能点");
+  // 真跑：有覆盖就用覆盖
+  const g = { React: { useState: () => [], useMemo: f => f() } };
+  const store = { x_shikeMeet: { c1: D(2020, 5, 20) } };
+  new Function("window", "globalThis", "React", "h", "Svg", "loadJSON", P("js/shike.js"))(g, g, g.React, () => null, () => null, (k, d) => store[k] || d);
+  const ms = g.ShikeKit.momentsFor({ id: "c1", name: "江识" }, { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: {}, profile: {}, uName: "Lisa" });
+  assert.ok(ms.some(m => m.title === "认识 5 周年"), "定了 2020-05-20，就该有认识 5 周年");
+});
+
+test("里层：动作收进右上角「⋯」，卡底是一行小字，底框压矮，底下一条时间轴（不是药丸）", () => {
+  const s = P("js/shike.js"), app = P("js/app.js");
+  const inner = s.slice(s.indexOf("// ── 里层"), s.indexOf("// ── 外层"));
+  assert.match(inner, /"data-wk": "shikemenu"/);
+  assert.match(inner, /"data-wk": "shikeacts"/);
+  assert.match(inner, /maxHeight: "20%"/, "底框没压矮");
+  assert.match(inner, /actsOpen/, "卡底动作没收起来");
+  assert.match(inner, /slice\(\)\.reverse\(\)/, "不是旧的在左");
+  assert.ok(!/borderRadius: 999, padding: "6px 1[12]px"/.test(inner), "顶上那排药丸还在");
+  assert.match(app, /exactly two arms and two hands/, "画图没交代手脚");
 });

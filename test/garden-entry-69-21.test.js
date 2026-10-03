@@ -24,8 +24,8 @@ const build = store => {
 // ⚠️许了三件谁都没在做的事，别人打开看见的就是三张空头支票。
 test('世界页：只列真进得去的，占位的一个都不许留', () => {
   const { WORLDS } = build({});
-  assert.equal(WORLDS.length, 2, '这里只开放庭院和列车');
-  assert.equal(WORLDS[0].id, 'garden');
+  assert.equal(WORLDS.length, 3, '庭院、列车和宠物都有真实游戏入口');
+  assert.deepEqual(WORLDS.map(w=>w.id), ['garden','train','pets']);
   assert.ok(WORLDS[0].note, '连一句说明都没有');
   assert.doesNotMatch(host, /敬请期待/, '「敬请期待」那一档渲染要跟着那三行一起走');
   assert.doesNotMatch(host, /晨雾学院|潮汐集市|云上列车/);

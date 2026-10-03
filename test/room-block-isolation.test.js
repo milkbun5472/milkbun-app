@@ -23,6 +23,10 @@ function fixture(reply) {
     //   而它被 blockedReaction 自己的 try/catch 吞掉——表现成「什么都没写进去」，
     //   红得像隔离坏了，其实是桩没跟上（施工规则/stub-from-the-writer 的同一族）。
     ONLINE_CHAT_RULE_V2:'【线上即时通讯】（测试桩）',
+    // v74.676 起拉黑拼的是公共件 onlineRegisterLayer()（engine.js），不再手抄三条；
+    //   少了它 blockedReaction 第一行就 ReferenceError，又会被它自己的 try/catch 吞成「什么都没写」。
+    REGISTER_FOLLOWS_SCENE:'（测试桩·语域）', PERSONA_REGISTER_ANCHOR:'（测试桩·声纹锚）',
+    onlineRegisterLayer:()=>'【线上即时通讯】（测试桩）',
     Axes:require('../js/axes.js'),
     callAI:async (api,sys)=>{systems.push(sys);return JSON.stringify(reply)},
     setTimeout:fn=>timers.push(fn), Date};

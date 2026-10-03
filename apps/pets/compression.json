@@ -1,0 +1,81 @@
+{
+  "mask": {
+    "sourceBytes": 899691,
+    "bytes": 366706,
+    "pixelExact": true,
+    "size": [
+      1024,
+      1024
+    ],
+    "sha256": "b8ba738bb02549aa62f64d89b2bd630a3553dcfa975eb841e73504508297e5ad"
+  },
+  "masks": {
+    "cat": {
+      "sourceBytes": 899691,
+      "bytes": 366706,
+      "pixelExact": true,
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "b8ba738bb02549aa62f64d89b2bd630a3553dcfa975eb841e73504508297e5ad"
+    },
+    "dog": {
+      "sourceBytes": 681866,
+      "bytes": 348714,
+      "pixelExact": true,
+      "size": [
+        1024,
+        1024
+      ],
+      "sha256": "2d0f25ef7a3c037e98aced55774946298747c2179180bfdadba36cbf36f379aa"
+    }
+  },
+  "models": [
+    {
+      "path": "art/pet-house/cat.glb",
+      "bytes": 282872,
+      "sha256": "e0e987fdaf696db35f136943c3f6ae224ad77e48f074453703738b213071e1ff"
+    },
+    {
+      "path": "art/pet-house/dog.glb",
+      "bytes": 344832,
+      "sha256": "4db0605c7a791d1d320561b6e0714ad47c46489566a96218ef2c3adca4cd2b27"
+    },
+    {
+      "path": "art/pet-house/room.glb",
+      "bytes": 460392,
+      "sha256": "5b2e98c2862dd6608959ebd7ba68e852471ad2bccb929737a77e713be8e0df0e"
+    },
+    {
+      "path": "art/pet-career/outside.glb",
+      "bytes": 625444,
+      "sha256": "a7fd1ef6e45dc4b6a28b39b4978f19e5d7d1227e5fe6ceb2782cbcf5ac6aca56"
+    },
+    {
+      "path": "art/pet-career/bakery.glb",
+      "bytes": 164844,
+      "sha256": "2e6f56f023ce2b46815059e9015b1311771c106f010546394e4ad03a8c537c2d"
+    },
+    {
+      "path": "art/pet-career/florist.glb",
+      "bytes": 649688,
+      "sha256": "6900aec08b93e12a647cfb88369f6022cb07966c1aafb0d8494d7ed9ef6c5347"
+    },
+    {
+      "path": "art/pet-career/store.glb",
+      "bytes": 170660,
+      "sha256": "52329d889ec370a2abd0a37208d51ce755232a810856ccfd8030228a84ae8ce0"
+    },
+    {
+      "path": "art/pet-career/cafe.glb",
+      "bytes": 172400,
+      "sha256": "ff5af3b67ef11a099c9059b1ab1d6e4b3f404d25ab52e1656823174700ef70b1"
+    },
+    {
+      "path": "art/pet-career/alley.glb",
+      "bytes": 135608,
+      "sha256": "3fe241ec73e87bd5ff0cb5b55e89a0498dab9b62bc6096ee72f83aa7b8751c75"
+    }
+  ]
+}

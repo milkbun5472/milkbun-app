@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.671";
+const APP_VERSION = "v74.682";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2821,7 +2821,7 @@ function App() {
         ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
           .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))]) };
   };
-  const openGardenRoomFor = (charId, world="garden") => openPresetRoomFor(charId, "garden", "先给这间房定好设定，建好就进去", world === "train" ? "train" : "");
+  const openGardenRoomFor = (charId, world="garden") => openPresetRoomFor(charId, "garden", "先给这间房定好设定，建好就进去", ["train","pets"].includes(world) ? world : "");
   // 从别的 app 直接开一间带预设的房（她 2026-09-23：「从一起学也能选择开房间，就跟微光庭院一样」）。
   // ⚠️庭院和一起学走的是同一条：带着预设落到新建那一页，建好就进那间房的聊天。
   const openPresetRoomFor = async (charId, preset, hint, from) => {
@@ -11071,7 +11071,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n" + REGISTER_FOLLOWS_SCENE + "\n\n" + PERSONA_REGISTER_ANCHOR + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
       const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
@@ -14503,7 +14503,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           //   说出来的话硬得像在背词（群里 2026-10-04：「他像个背词机」）。
           //   改成说清【为什么】和【往哪走】：重复的是没往前走的那种，往前走了就不算重复。
           + "\n上面这些是你【已经说过】的——同一件事、同一个意思，换个说法再说一遍，对她那头没有任何变化，也不像一个真的在等的人。"
-            + "这一轮说的得是从上一句往前挪了一步之后才会有的话：时间过去了、你做了点别的、想法变了、或者你决定不说了。"
+            + "这一轮说的得是从上一句往前挪了一步之后才会有的话。"
+            // ⚠️这几个出口原来全是【走开】（做了点别的／想法变了／决定不说了）。
+            //   于是人设核心就是「一直求」的那种角色被整条堵死：求本身就是重复，他只剩下报状态，
+            //   「手机没电了」「车里有充电器」「算了懒得动了」就是照这条规则产出来的
+            //   （她 2026-10-03 贴的那两张）。往前走≠退场：同一件事上更豁出去一层也是往前走。
+            + "往前走不等于走开：同一件事上更深一层，一样是往前走——话越说越直、越说越软、从讲道理变成只剩一句求你、"
+            + "从站着到坐下到不想动了、把原来不肯说的那句说出来。要紧的是【这一轮比上一轮多了点什么】，不是【换了个话题】。"
+            + "时间过去了、你做了点别的、想法变了、你决定不说了，当然也算——由你这个人决定走哪条，别挑一条省事的。"
         : "";
       // ⚠️这一处是【自己拼 system 的第二处】：buildBundle 那一份（人设全文/心情/好感/反八股）
       //   是白得的，可【单聊线上那一整套 ONLINE_CHAT_RULE_V2】是在聊天那个调用点另外 push 的——
@@ -14516,9 +14523,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   改成掷轴（走公共件 js/axes.js），mode 只在最后给这一轮归个档，不再是让他挑一种演法。
       const BLOCK_AXES = [
         { key: "where", zh: "你此刻人在哪、在干什么", opts: ["还在原地没走", "已经走开了，在别的地方", "正在做一件跟她无关的事", "刚回到你们都熟的那个地方"] },
-        { key: "heat", zh: "这会儿的火气", opts: ["还在气头上", "气过了，剩下累", "压着没发作", "已经不气了，只是放不下"] },
+        // ⚠️heat 原来整条写的是「这会儿的火气」，四个选项全是生气的变体——一个带哭腔求她的人
+        //   根本没有「火气」这一项，轴却逼他从四种生气里挑一种（施工规则/bans-make-it-dumber：
+        //   掷约束，不掷答案；这条掷的是答案）。改成只问【心里最满的是什么】，不预设是哪一种。
+        //   对照组是戳人偶那三条轴（companion.js POKE_AXES）：冲着谁说／多长／接不接她的茬，一条都不预设情绪。
+        { key: "heat", zh: "这会儿心里最满的是哪一样", opts: ["气", "急", "怕", "累", "空", "还是放不下"] },
         { key: "want", zh: "你想不想让她知道这一句", opts: ["就是说给她听的，哪怕她收不到", "说给自己听的，被她看见也无所谓", "本来不想说，还是说了"] },
-        { key: "move", zh: "这一轮你做了什么", opts: ["什么也没做，只是又开口了", "做了件具体的事（走了/坐下/发消息给别人/收拾东西）", "决定先放着不管了"] }
+        { key: "move", zh: "这一轮你做了什么", opts: ["什么也没做，只是又开口了", "做了件具体的事（走了/坐下/发消息给别人/收拾东西）", "还在原地等着，什么也不打算做"] }
       ];
       const _blkRolled = window.Axes
         ? window.Axes.roll(BLOCK_AXES, [charId, "blocked", saidWhileBlocked.length, Date.now()], { allFree: 0.08, skip: 0.12, free: 0.20 })
@@ -14527,7 +14538,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         on: "\n\n【这一轮的几条轴（别点破）】它们互相独立；没列出来的方面你自己拿主意。别为了凑这几条而说话。",
         off: "\n\n【这一轮没有给你任何限制】按你这个人此刻真实的样子来，别挑一种「被拉黑的人该有的反应」来演。"
       }) : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + ONLINE_CHAT_RULE_V2 + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);
@@ -25602,9 +25613,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const c = { name: draft.name, appearance: draft.appearance, photoOutfit: draft.photoOutfit, photoStyle: draft.photoStyle };
         const prompt = buildAvatarPrompt(c, { hasRef: !!draft.refPhoto });
         const r = await generateSelfieImage(prompt, draft.refPhoto ? [draft.refPhoto] : null, { size: "1024x1024" });
-        const dataUrl = r && (r.dataUrl || r.url);
-        if (!dataUrl) throw new Error("上游没有返回图片");
-        const key = typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        const key = await imgResultToVault(r);
+        if (!key) throw new Error("上游没有返回图片");
         toast("头像生成好了，记得点右上角保存");
         return key;
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
@@ -25711,7 +25721,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return {
       key: "garden::" + key,
       storeKey: "x_fairyGarden::" + key,
-      entryWorld: gardenRoomWorld || (room.from === "train" && !loadJSON("x_fairyGarden::" + key,null)?.activeWorld ? "train" : undefined),
+      entryWorld: gardenRoomWorld || (["train","pets"].includes(room.from) && !loadJSON("x_fairyGarden::" + key,null)?.activeWorld ? room.from : undefined),
       lockPartnerId: activeChar.id,
       apiFor: offlineApiFor,
       active: offlineActive,
@@ -25817,7 +25827,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
-    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(world === "train" ? "train" : "garden"); setGardenOpen(activeRoomId); } : null,
+    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(["train","pets"].includes(world) ? world : "garden"); setGardenOpen(activeRoomId); } : null,
     // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
     // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
     roomStudy: (function (_tick) {
@@ -26093,12 +26103,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
-    // 群里圈一段收进时刻：挂在这一段里说话最多的那个角色名下（她说的话不算）
+    // 群里圈一段收进时刻（她 2026-10-03 点的第 8 条）：收成一张【多人的】卡，这一段里说过话的每个角色名下都有
     onPinShike: indices => {
-      const msgs = (groupChatsRef.current[activeGroup.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
-      const cnt = {}; picked.forEach(m => { if (m.senderId && characters.some(c => c.id === m.senderId && !c.npc)) cnt[m.senderId] = (cnt[m.senderId] || 0) + 1; });
-      const cid = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || null;
-      pinToShike(cid, picked, m => m.role === "user" ? null : (m.senderName || null));
+      const g = activeGroup, msgs = (groupChatsRef.current[g.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(m => m && !m.recalled && m.content);
+      const cids = Array.from(new Set(picked.map(m => m.senderId).filter(id => id && characters.some(c => c.id === id && !c.npc))));
+      if (!picked.length || !cids.length) { toast(picked.length ? "这一段里没有角色说话，挂不到谁名下" : "选中的这几条没有能收的内容"); return; }
+      requestAppPrompt("收进时刻", "收进 " + picked.length + " 条，会出现在 " + cids.length + " 个人的时刻里。给这一刻起个名字。", "", name => {
+        const all = loadJSON("x_shikeGroupPins", []) || [];
+        all.unshift({ id: "gpin_" + Date.now(), ts: Number(picked[0].ts) || Date.now(), title: String(name || "").trim().slice(0, 30), groupId: g.id, groupName: g.name || "", cids,
+          lines: picked.slice(0, 200).map(m => ({ role: m.role === "user" ? "user" : "char", name: m.role === "user" ? null : (m.senderName || null), text: String(m.content).slice(0, 600) })) });
+        saveJSON("x_shikeGroupPins", all.slice(0, 500));
+        toast("收进时刻了");
+      }, "收进去");
     },
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
@@ -27137,9 +27153,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d0 = new Date(m.ts);
       const body = "〔翻到一张时刻〕「" + m.title + "」 · " + d0.getFullYear() + "." + (d0.getMonth() + 1) + "." + d0.getDate()
         + ((m.what && m.what.lines && m.what.lines.length) ? "\n" + m.what.lines.slice(0, 3).join("\n").slice(0, 300) : "");
-      pChat(c.id, p => [...p, { role: "user", content: body, ts: Date.now(), shikeKey: m.key }]);
+      // kind=shikeshare 画成一张小卡；content 照样留着整段字——模型读历史时读的是它
+      pChat(c.id, p => [...p, { role: "user", kind: "shikeshare", content: body, ts: Date.now(), shikeKey: m.key,
+        shike: { title: m.title, ts: m.ts, kind: m.kind, lines: ((m.what && m.what.lines) || []).slice(0, 3), img: m.img || null } }]);
       openChatById(c.id);
     },
+    groups: groups,          // 群里一起过的节日：那天你和TA都在同一个群里说过话
+    groupChats: groupChats,
     calendar: calendar,      // 日历里的世界事件：过去的、那天你们有来往的，自动成时刻
     // 收进来的一长段 → 总结成一段（调一次，走后台线路；原话照留，卡上能翻回去看）
     onSummarizePin: async (c, m) => {
@@ -27177,22 +27197,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const scene = (m.what && m.what.lines && m.what.lines.length ? m.what.lines.join(" ") : m.title).slice(0, 300);
         const prompt = "A cinematic visual-novel CG illustration, a memory scene: " + m.title + ". What happened that day: " + scene + ". "
           + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
-          + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark.";
+          + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark."
+          // 多手多脚是这类图最常见的翻车（她 2026-10-03：「他这是生成了两条手吗」）——说清楚，并且少画手
+          + " Correct human anatomy: exactly two arms and two hands, natural hand poses, no extra or duplicated limbs; prefer a composition where hands are relaxed or out of frame.";
         const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
-        const dataUrl = r && (r.dataUrl || r.url);
-        if (!dataUrl) throw new Error("上游没有返回图片");
-        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        const key = await imgResultToVault(r);
+        if (!key) throw new Error("上游没有返回图片");
+        return key;
       } catch (e) { toast("没画成：" + ((e && e.message) || e)); return null; }
     },
     onGenCover: async c => {
       if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
       try {
         const prompt = "A cinematic visual-novel CG illustration of " + (c.name || "the character") + ". "
-          + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark.";
+          + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark."
+          + " Correct human anatomy: exactly two arms and two hands, natural hand poses, no extra or duplicated limbs.";
         const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
-        const dataUrl = r && (r.dataUrl || r.url);
-        if (!dataUrl) throw new Error("上游没有返回图片");
-        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+        const key = await imgResultToVault(r);
+        if (!key) throw new Error("上游没有返回图片");
+        return key;
       } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
     },
     onBack: () => setScreen("home")

@@ -15,7 +15,7 @@ test('feet lift only in swing and touch down with continuous position and veloci
   assert.ok(Math.abs((b.forward-a.forward)/e-(c.forward-b.forward)/e)<1e-4);
   assert.ok(a.height<1e-9&&c.height<1e-9);
  }
- assert.ok(sampleFoot((1+rig.duty)/2,rig).height>.04);
+ assert.ok(sampleFoot((1+rig.duty)/2,rig).height>rig.lift*.99);
 });
 test('IK preserves actual leg lengths and the rest pose; impossible goals stay finite',()=>{
  for(const l of Object.values(rig.legs)){
@@ -50,4 +50,25 @@ test('the exported cat contains a skin and all runtime bones; original source re
  const report=JSON.parse(readFileSync(new URL('./asset-report.json',import.meta.url)));
  assert.equal(report.catBytes,buffer.length);assert.equal(report.roomBytes,readFileSync(new URL('./room.glb',import.meta.url)).length);
  assert.equal(report.catSourceSha256,'404fae1c8f47baf08e7c0f64597295fc8a6f12cfcf8d0324dc65bd40b89f5f7b');
+});
+
+test('one walk cycle yields a rear/front four-beat order and three planted paws',async()=>{
+ const {walkPhase}=await import('./cat-motion.mjs');
+ const names=['backL','frontL','backR','frontR'],landings=[];
+ for(let i=0;i<1000;i++){
+  const p=i/1000;
+  assert.ok(names.filter(n=>sampleFoot(walkPhase(p,n),rig).stance).length>=3);
+  for(const n of names)if(walkPhase(p,n)<.0005)landings.push(n);
+ }
+ assert.deepEqual(landings,['backL','frontL','backR','frontR']);
+});
+test('dog export has the same complete motion contract and records the untouched source',async()=>{
+ const {normalizeTail}=await import('./cat-motion.mjs');
+ assert.deepEqual(normalizeTail({pitch:999,yaw:-999,wag:false}),{pitch:25,yaw:-35,wag:false});
+ const dog=JSON.parse(readFileSync(new URL('./dog-rig.json',import.meta.url))),b=readFileSync(new URL('./dog.glb',import.meta.url));
+ const gltf=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString());
+ assert.equal(dog.species,'dog');assert.equal(gltf.skins[0].joints.length,18);
+ for(const name of Object.keys(rig.bones))assert.ok(gltf.nodes.some(n=>n.name===name));
+ const report=JSON.parse(readFileSync(new URL('./dog-report.json',import.meta.url)));
+ assert.equal(report.dogBytes,b.length);assert.ok(b.length<500000);assert.equal(report.sourceSha256,'850144996492084e0de67d7cc8a340480845f8498d33ff48d05dfbb741e576ce');
 });

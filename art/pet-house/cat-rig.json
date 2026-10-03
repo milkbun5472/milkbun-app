@@ -313,10 +313,11 @@
       "bend": 1
     }
   },
-  "duty": 0.68,
-  "stride": 0.1,
+  "species": "cat",
+  "duty": 0.76,
+  "stride": 0.13,
   "cycle": 1.1,
-  "lift": 0.043,
+  "lift": 0.032,
   "bounds": [
     [
       -0.273418,
