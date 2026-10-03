@@ -6,9 +6,9 @@ const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
 test("image api can post to chat/completions", () => {
   assert.match(eng, /apiFormat: "auto"/);
   assert.match(eng, /body\.modalities = \["image", "text"\][\s\S]{0,300}root \+ "\/chat\/completions"/);
-  assert.match(eng, /if \(chatFirst\) \{\s*r = await chatFetch\(\);/);
+  assert.match(eng, /else if \(chatFirst\) \{\s*r = await chatFetch\(\);/);
   assert.match(eng, /contents is required[^\n]*\) r = await chatFetch\(\)/);
-  assert.match(eng, /const chatFirst = a\.apiFormat === "chat" \|\| \(a\.apiFormat !== "images" && \/gemini\|banana/);
+  assert.match(eng, /const chatFirst = a\.apiFormat === "chat" \|\| a\.apiFormat === "gemini" \|\| \(a\.apiFormat !== "images" && \/gemini\|banana/);
   assert.match(scr, /value: "chat" \}, "聊天接口 \/chat\/completions"/);
 });
 test("empty chat reply retries as stream and stitches SSE", () => {
@@ -36,4 +36,10 @@ test("NAI never asked for fake photos", () => { assert.match(eng, /do NOT write 
 test("chat image: retries other content shapes on 'contents is required'; untyped blobs become image/png", () => {
   assert.match(eng, /for \(let sh = 1; sh <= 2 && !r\.ok; sh\+\+\)[\s\S]{0,200}contents is required[\s\S]{0,200}chatFetch\(false, null, sh\)/);
   assert.match(eng, /new Blob\(\[b0\], \{ type: "image\/png" \}\)/);
+});
+test("gemini native fallback: generateContent with contents/parts/inline_data", () => {
+  assert.match(eng, /"\/v1beta\/models\/" \+ encodeURIComponent\(a\.model\) \+ ":generateContent"/);
+  assert.match(eng, /contents: \[\{ role: "user", parts \}\], generationConfig: \{ responseModalities: \["image", "text"\]\.map/);
+  assert.match(eng, /contents is required\/i\.test\(await r\.clone\(\)\.text\(\)[^\n]*\) r = await geminiFetch\(\)/);
+  assert.match(scr, /value: "gemini" \}, "Gemini 原生/);
 });

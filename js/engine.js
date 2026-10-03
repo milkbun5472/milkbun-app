@@ -5107,17 +5107,32 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (!shape) body.modalities = ["image", "text"];
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: sig || ctrl.signal });
     };
+    // Gemini 原生格式（群友 2026-10-03：聊天接口连纯文字都回「contents is required」——那是 Gemini 原生接口的报错，
+    //   说明这家中转把请求原样转给了 Gemini，只认 {contents:[{parts}]}）。走 /v1beta/models/模型:generateContent。
+    const geminiFetch = async () => {
+      usedChat = true;
+      const toB64 = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res({ mime: b.type, data: String(fr.result).split(",")[1] }); fr.onerror = rej; fr.readAsDataURL(b); });
+      const parts = [{ text: "Generate exactly ONE single natural photograph. The text below is a brief, NOT content to draw; never render its words into the image. Aspect ratio about " + size + ".\n\n" + promptText }];
+      if (useRef) for (const b of refBlobs) { const x = await toB64(b); parts.push({ inline_data: { mime_type: x.mime, data: x.data } }); }
+      const gRoot = String(root).replace(/\/v1\/?$/, "");
+      return fetch(gRoot + "/v1beta/models/" + encodeURIComponent(a.model) + ":generateContent", { method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey, "x-goog-api-key": a.apiKey },
+        body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseModalities: ["image", "text"].map(x => x.toUpperCase()) } }), signal: ctrl.signal });
+    };
     try {
       // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
       //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
-      const chatFirst = a.apiFormat === "chat" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
-      if (chatFirst) {
+      const chatFirst = a.apiFormat === "chat" || a.apiFormat === "gemini" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
+      if (a.apiFormat === "gemini") r = await geminiFetch();
+      else if (chatFirst) {
         r = await chatFetch();
         for (let sh = 1; sh <= 2 && !r.ok; sh++) {
           const peek = await r.clone().text().catch(() => "");
           if (!/contents is required|contents.{0,20}empty|invalid.{0,30}(content|part)|messages.{0,20}required/i.test(peek)) break;
           r = await chatFetch(false, null, sh);
         }
+        // 几种摆法都回「contents is required」→ 这家是把请求原样转给 Gemini 的，改发原生格式
+        if (!r.ok && /contents is required/i.test(await r.clone().text().catch(() => ""))) r = await geminiFetch();
       }
       else if (useRef && refBlobs.length) {
         const fd = new FormData();
@@ -5171,7 +5186,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     } finally { clearTimeout(to); }
     let rawTxt = await r.text();
     // 聊天接口回了空 content（有的「假流式」中转只在流式回包里放图）→ 改要流式再取一次
-    if (usedChat && r.ok && !/data:image|https?:\/\/\S+\.(?:png|jpe?g|webp)|"images"\s*:\s*\[\s*\{|"b64_json"/i.test(rawTxt)) {
+    if (usedChat && r.ok && !/data:image|https?:\/\/\S+\.(?:png|jpe?g|webp)|"images"\s*:\s*\[\s*\{|"b64_json"|"inline_?[dD]ata"|"candidates"/i.test(rawTxt)) {
       const c2 = new AbortController(), t2 = setTimeout(() => c2.abort(), capMs);
       try { const r2 = await chatFetch(true, c2.signal); const raw2 = await r2.text(); if (r2.ok) { r = r2; rawTxt = sseToJson(raw2); } } catch (e) {} finally { clearTimeout(t2); }
     }
