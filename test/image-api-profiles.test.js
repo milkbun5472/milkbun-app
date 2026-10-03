@@ -25,6 +25,6 @@ test("image API settings can add, copy, rename, switch, and delete sites", () =>
 });
 
 test("all image calls continue to resolve the active profile through loadImgApi", () => {
-  assert.match(engine, /function generateSelfieImage[\s\S]*?const a = loadImgApi\(\)/);
+  assert.match(engine, /function generateSelfieImage[\s\S]*?const a = [^\n]*loadImgApi\(\)/);
   assert.match(engine, /function loadImgApi\(\)[\s\S]*?store\.profiles\.find\(p => p\.id === store\.activeId\)/);
 });
