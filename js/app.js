@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.623";
+const APP_VERSION = "v74.626";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17718,6 +17718,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("「" + nm + "」加进「" + regionName + "」了");
     return true;
   };
+  // 删一个地点：钉在这儿的人一起拔掉；那块地方删空了就整块去掉（接壤的也回头擦掉），最后一个地点不让删
+  const delWorldNode = (wid, nodeName) => {
+    const w = (worldsRef.current || worlds || []).find(x => x.id === wid);
+    if (!w) return false;
+    const total = (w.regions || []).reduce((n, r) => n + (r.nodes || []).length, 0);
+    if (total <= 1) { toast("这是这个世界最后一个地点了，删了就没有图了"); return false; }
+    const host = (w.regions || []).find(r => (r.nodes || []).some(n => n.name === nodeName));
+    if (!host) return false;
+    const emptied = (host.nodes || []).length <= 1 ? host.name : null;
+    const regions = (w.regions || []).filter(r => r.name !== emptied)
+      .map(r => r.name === host.name ? { ...r, nodes: (r.nodes || []).filter(n => n.name !== nodeName) } : r)
+      .map(r => emptied && (r.adj || []).includes(emptied) ? { ...r, adj: r.adj.filter(a => a !== emptied) } : r);
+    const pins = { ...(w.pins || {}) };
+    Object.keys(pins).forEach(k => { const v = pins[k]; if (v === nodeName || (v && v.name === nodeName) || (v && v.node === nodeName)) delete pins[k]; });
+    saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x, regions, pins }));
+    toast("删掉了「" + nodeName + "」" + (emptied ? "，「" + emptied + "」也空了，一起去掉了" : ""));
+    return true;
+  };
   const genWorldNodes = async (wid, regionName, hint, done) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     const w = (worlds || []).find(x => x.id === wid);
@@ -25361,6 +25379,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onRouteWorld: routeWorld,
     onAddNode: addWorldNode,
     onGenNodes: genWorldNodes,
+    onDelNode: delWorldNode,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
@@ -26732,7 +26751,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     userGeo: realGeo(),
     profile: profile,
     dateAlbumFor: dateAlbumFor,
-    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes },
+    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode },
     onOpenMap: () => setScreen("map"),
     toast: toast,
     onBack: () => setScreen("home")
