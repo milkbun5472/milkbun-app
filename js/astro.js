@@ -581,7 +581,10 @@
       if (!p || !ctx || typeof runProbe !== "function") { props.toast && props.toast("先到设置配置 API"); return; }
       setBusy(key);
       try {
-        const d = await runProbe(p, ctx, { voice: true, instruction: instruction + voiceTail(), schemaHint: "{\"text\":\"你想对她说的话\"}", maxTokens: 65535, tag: "astro" });
+        // 「再看看」＝重 Roll：把上一回的话给 TA，别换个说法再说一遍（她 2026-10-03 问配对能不能重 roll）
+        const prev = notes[key] && notes[key].text;
+        const reroll = prev ? "\n〔重看〕你上一回看完说的是：『" + String(prev).slice(0, 300) + "』。这回重新看一遍，别把同一番话换个说法再说，换个你在意的点，或者干脆改主意。" : "";
+        const d = await runProbe(p, ctx, { voice: true, instruction: instruction + reroll + voiceTail(), schemaHint: "{\"text\":\"你想对她说的话\"}", maxTokens: 65535, tag: "astro" });
         const txt = String((d && d.text) || "").trim();
         if (!txt) throw new Error("TA 这回没说出话来，再点一次");
         setNotes(saveNote(key, txt));
