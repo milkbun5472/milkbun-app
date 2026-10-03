@@ -11,5 +11,7 @@ r = sb.f({ cycleLen: 28, periods: [{ start: "2026-01-01" }, { start: "2026-06-01
 assert.strictEqual(r.cycAuto, 0, "隔了五个月多半漏记，不算");
 assert.ok(/const _pc = periodCycleOf\(period\), cyc = _pc\.cyc/.test(src), "月历预测用自动周期");
 assert.ok(/periodCycleOf\(per\)\.cyc/.test(src), "距下次用自动周期");
-assert.ok(/periodCycleOf\(period\) : \{/.test(fs.readFileSync(__dirname + "/../js/app.js", "utf8")), "角色看到的阶段也用它");
+// v74.640 角色看到的那一句收进了 periodPhaseNow（健康页也用它），那一处只算这一次
+assert.ok(/const _pc = periodCycleOf\(period\), cyc = _pc\.cyc, pLen = periodSpanLen\(lastP, _pc\.len\);/.test(src), "角色看到的阶段也用它");
+assert.ok(/const ph = periodPhaseNow\(period\);/.test(fs.readFileSync(__dirname + "/../js/app.js", "utf8")), "聊天那条走 periodPhaseNow");
 console.log("period-auto-cycle ok");
