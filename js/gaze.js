@@ -453,6 +453,7 @@
     const [allOpen, setAllOpen] = useState(false); // 「历次改写」总表
     const [seenTick, setSeenTick] = useState(0);   // 标记已读后要重画红点
     const [whyOpen, setWhyOpen] = useState(false); // 复看败因的原文，点开才看
+    const [redoArm, setRedoArm] = useState(false); // 整份重写要点两下（PWA 会吞掉 confirm）
     const box = boxOf(load(), charId);
     const say = s => characterText({ gender: ta }, s);
     const unseen = new Set(unseenKeys(charId));
@@ -615,6 +616,12 @@
       hasAny(charId) && onReview ? h("button", { onClick: onReview, disabled: reviewBusy,
         style: { display: "block", width: "100%", marginTop: 20, padding: "10px 0", borderRadius: 999, border: "none", background: GOLD, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, boxShadow: "0 4px 14px rgba(172,138,91,.35)" } },
         reviewBusy ? say("他在重看这十块…") : say("让他再看一遍这十块")) : null,
+      // 「再看一遍」问的是哪几块变了、只许小幅演进，所以一次只动一两块（她 2026-10-03：「每次只改一条」）。
+      //   卡要是一开始就建歪了（导入的老夫老妻卡，建成了「像刚认识」），得能整份推倒重来。
+      //   走的就是建卡那一枪；旧的每一版都进了 hist，「他从前都怎么写的」里翻得回来。
+      hasAny(charId) && onSeed ? h("button", { onClick: () => { if (redoArm) { setRedoArm(false); onSeed(); } else setRedoArm(true); }, disabled: seedBusy,
+        style: { display: "block", width: "100%", marginTop: 12, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
+        seedBusy ? say("他在重写…") : redoArm ? "再点一下确认 · 旧的会留在从前那几版里" : say("整份重写")) : null,
       revs.length ? h("button", { onClick: () => setAllOpen(true), style: { display: "block", width: "100%", marginTop: 22, padding: "10px 0", borderRadius: 999, border: "1px dashed rgba(172,138,91,.5)", background: "rgba(255,255,255,.45)", fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: GOLD } },
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
