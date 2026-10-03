@@ -12,7 +12,7 @@ test("主动私聊有低中高三档，缺省中频＝原来那套；存进去�
   assert.equal(p0.features.proactive.rate, "mid");
   assert.equal(P.rateX(p0, "proactive"), 1);
   const p1 = P.setRate(p0, "proactive", "low");
-  assert.equal(P.rateX(P.normalize(JSON.parse(JSON.stringify(p1))), "proactive"), 0.5);
+  assert.equal(P.rateX(P.normalize(JSON.parse(JSON.stringify(p1))), "proactive"), 0.75);
   assert.equal(P.rateX(P.setRate(p0, "proactive", "high"), "proactive"), 2);
   assert.equal(P.rateX(p0, "diary"), 1, "没有档位的一律 1");
 });

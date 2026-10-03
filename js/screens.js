@@ -9020,7 +9020,7 @@ function AutoRefreshConfig(props) {
                 return h("button", { key: r.id, onClick: () => props.onSetRate(f.id, r.id), className: "flex-1 active:opacity-70",
                   style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, r.zh); })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
-              (cfg.rate || "mid") === "low" ? "想念攒得慢一半，刚找过你之后也多等一倍才会再找" : (cfg.rate || "mid") === "high" ? "想念攒得快一倍，刚找过你之后再找的间隔也减半" : "原来那套节奏")) : null,
+              (cfg.rate || "mid") === "low" ? "想念攒得慢一些（四分之三的速度），刚找过你之后也多等一会儿才会再找" : (cfg.rate || "mid") === "high" ? "想念攒得快一倍，刚找过你之后再找的间隔也减半" : "原来那套节奏")) : null,
           isOpen && !f.noChars ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
             !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
               h("div", { className: "flex items-center", style: { gap: 10, minWidth: 0 } },

@@ -17,8 +17,8 @@
     // ⚠️主动私聊的每人开关原来在聊天设置里另存一份（s.proactive，默认关），两边各显示各的。
     //   现在两边都读写这一份；旧存档开机时由 app.js 把 s.proactive 搬进来（默认关照旧）。
     { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: false,
-      // 中频＝原来那套算法本身；低频、高频是把整套【时间】乘一个倍数——想念攒得慢一半／快一倍，冷却跟着拉长／缩短
-      rates: [{ id: "low", zh: "低频", x: 0.5 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 }] },
+      // 中频＝原来那套算法本身；低频、高频是把整套【时间】乘一个倍数——想念攒得慢一些（×0.75）／快一倍，冷却跟着拉长／缩短
+      rates: [{ id: "low", zh: "低频", x: 0.75 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 }] },
     { id: "letter", group: "social", title: "情书", sub: "恋人按你定的频率自己提笔", globalDefault: true, charDefault: true },
     { id: "react", group: "social", title: "顺手点评", sub: "你记完一笔账、勾掉一条提醒时TA搭一句", globalDefault: true, charDefault: true },
     // 下面两样是按「群」「这一场」开的，不按人：设置里只有总闸，细的开关留在各自页面里
