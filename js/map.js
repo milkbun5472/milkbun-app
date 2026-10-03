@@ -336,7 +336,8 @@ function mapSubSkin(t) {
   // ── 架空世界地图 ────────────────────────────────────────────────────────
   // 地图引擎直接借跑团那一份(window.TrpgMap):模型只宣告【区域·接壤·节点】,
   // 坐标全由力导向现算——同一个世界每次画出来一模一样,不存图片、不占云同步。
-  const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 8;   // 一块地方最多画几个地点 / 一个世界最多几块地方
+  // 区域上限 8 → 12（她 2026-10-03 转群友：「架空地图是最多六块地方吗？可以自设多的地方吗」）
+  const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 12;   // 一块地方最多画几个地点 / 一个世界最多几块地方
   const TERR_TINT = { 山地: "#d9d0c2", 平原: "#dde2cd", 森林: "#cfdac8", 水泽: "#cdd8dc", 荒漠: "#e4d9c2", 城郭: "#ddd3d6" };
   // ── 地点记号（v62.68）─────────────────────────────────────────────
   // 原来是四个 Unicode 符号 ⌂ ▲ • ★ 当图标。规矩里写着：Unicode 当图标一律换成
@@ -622,6 +623,11 @@ function mapSubSkin(t) {
     const t = useTheme();
     const regions = (world.regions || []);
     const [reg, setReg] = useState(regions[0] ? regions[0].name : "");
+    // 新开一块地方（她 2026-10-03）：起个名、选地形、挑挨着谁，再往里放第一个地点
+    const NEW = "__new";
+    const [rName, setRName] = useState("");
+    const [rTerr, setRTerr] = useState("平原");
+    const [rAdj, setRAdj] = useState([]);
     const [nm, setNm] = useState("");
     const [kind, setKind] = useState("野外");
     const [hook, setHook] = useState("");
@@ -637,7 +643,18 @@ function mapSubSkin(t) {
           regions.map(function (r) {
             return h("button", { key: r.name, onClick: function () { setReg(r.name); }, className: "active:opacity-70", style: chip(reg === r.name) },
               r.name + "（" + (r.nodes || []).length + "）");
-          })),
+          }),
+          regions.length < WORLD_MAX_REGIONS ? h("button", { onClick: function () { setReg(NEW); }, className: "active:opacity-70", style: chip(reg === NEW) }, "＋ 新开一块") : null),
+        reg === NEW ? h("div", { style: { marginTop: 12, padding: "12px", border: "1px dashed " + t.line, borderRadius: 12 } },
+          h("input", { value: rName, onChange: function (e) { setRName(e.target.value.slice(0, 8)); }, placeholder: "这块地方叫什么（≤8字）", style: inp }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "10px 2px 6px" } }, "地形"),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+            ["山地", "平原", "森林", "水泽", "荒漠", "城郭"].map(function (k) { return h("button", { key: k, onClick: function () { setRTerr(k); }, className: "active:opacity-70", style: chip(rTerr === k) }, k); })),
+          regions.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "10px 2px 6px" } }, "挨着哪几块（图上会画成接壤）") : null,
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+            regions.map(function (r) { const on = rAdj.indexOf(r.name) >= 0;
+              return h("button", { key: r.name, onClick: function () { setRAdj(on ? rAdj.filter(function (x) { return x !== r.name; }) : rAdj.concat([r.name])); }, className: "active:opacity-70", style: chip(on) }, r.name); })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.7, marginTop: 10 } }, "下面写的地点，就是这块地方的第一个地点。")) : null,
         h("div", { style: lbl }, "自己写一个"),
         h("input", { value: nm, onChange: function (e) { setNm(e.target.value); }, placeholder: "地点叫什么", style: inp }),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 9 } },
@@ -655,13 +672,17 @@ function mapSubSkin(t) {
           })),
         h("textarea", { value: hook, onChange: function (e) { setHook(e.target.value); }, rows: 3, placeholder: "这儿眼下正有什么事（一句，可空）",
           style: Object.assign({}, inp, { marginTop: 9, lineHeight: 1.8, resize: "vertical" }) }),
-        h("button", { onClick: function () { if (onAdd(reg, { name: nm.trim(), kind: kind, hook: hook.trim() })) { setNm(""); setHook(""); } }, disabled: !nm.trim(), className: "w-full active:opacity-80",
-          style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: nm.trim() ? 1 : 0.5 } }, "加进「" + reg + "」（不花调用）"),
+        h("button", { onClick: function () {
+            const nd = { name: nm.trim(), kind: kind, hook: hook.trim() };
+            if (reg === NEW) nd.newRegion = { name: rName.trim(), terrain: rTerr, adj: rAdj.slice() };
+            if (onAdd(reg === NEW ? rName.trim() : reg, nd)) { setNm(""); setHook(""); if (reg === NEW) { setReg(rName.trim()); setRName(""); setRAdj([]); } } },
+          disabled: !nm.trim() || (reg === NEW && !rName.trim()), className: "w-full active:opacity-80",
+          style: { marginTop: 12, fontFamily: F_BODY, fontSize: 14, color: "#fff", background: t.ink, borderRadius: 14, padding: "13px 0", opacity: nm.trim() ? 1 : 0.5 } }, "加进「" + (reg === NEW ? (rName.trim() || "新的一块") : reg) + "」（不花调用）"),
         h("div", { style: lbl }, "或者让模型添几个"),
         h("input", { value: hint, onChange: function (e) { setHint(e.target.value); }, placeholder: "想要什么样的？（可空）", style: inp }),
-        h("button", { onClick: function () { onGen(reg, hint.trim()); }, disabled: busy, className: "w-full active:opacity-80",
+        h("button", { onClick: function () { onGen(reg, hint.trim()); }, disabled: busy || reg === NEW, className: "w-full active:opacity-80",
           style: { marginTop: 10, fontFamily: F_BODY, fontSize: 13.5, color: t.tint, border: "1px dashed " + t.line, borderRadius: 14, padding: "12px 0", opacity: busy ? 0.5 : 1 } },
-          busy ? "添着…" : "让模型往「" + reg + "」添 2-4 个（一次调用）"),
+          busy ? "添着…" : (reg === NEW ? "新开的这块先自己写第一个地点" : "让模型往「" + reg + "」添 2-4 个（一次调用）")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.8, marginTop: 16 } },
           "加完之后，同一块地方里其它地点的位置会挪一挪——地图是按骨架现算的，不存坐标。区域的形状和它们之间的路不会变，人也还站在原来那个地点上。")));
   }

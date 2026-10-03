@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.583";
+const APP_VERSION = "v74.584";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17579,7 +17579,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "还要给每个人一张【TA会去哪儿】的小表:TA住在哪个地点(home),以及TA一天里那几段"
           + "分别落在哪个地点(places)。doing 那一栏照着TA行程里的说法写,别另起一套说辞——"
           + "以后TA的行程一变,我们靠这一栏对回来,对不上就只能把TA丢在原地。\n" : "")
-        + "【怎么铺】分 4-6 块地方。每块要有自己的性格：靠什么活着、谁说了算、外人进去先撞见什么。"
+        + "【怎么铺】分 4-8 块地方；设定里点名了几块就照写几块，最多 12 块。每块要有自己的性格：靠什么活着、谁说了算、外人进去先撞见什么。"
         + "彼此之间用 adj 写清谁挨着谁——挨着的两块在图上就真的挨着，所以别把互不相干的地方硬凑在一起，也别所有地方都互相接壤。\n"
         + "每块地方下面挂 2-3 个具体地点。地点名要一眼看得出是【这个】世界的地方，"
         + "换到别的世界还照样成立的名字就是没写好。\n"
@@ -17590,7 +17590,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const K = window.TrpgMap;
-      const regions = K ? K.normRegions(d.regions) : null;
+      const regions = K ? K.normRegions(d.regions, 8, 12) : null;   // 跟画图那边同一个上限（WORLD_MAX_REGIONS）
       if (!regions) throw new Error("没铺出一张画得出来的地图——把设定再写具体一点");
       const nm = (name || String(d.name || "").trim() || "无名之地").slice(0, 16);
       const bf = String(d.brief || "").trim().slice(0, 80);
@@ -17635,6 +17635,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (dup) { toast("「" + nm + "」已经在图上了"); return false; }
     // 画图那边一块地方最多画 8 个（WORLD_MAX_NODES）。加得进去却画不出来最难查，
     // 所以这一道挡在存盘之前。
+    // 新开一块地方（她 2026-10-03）：名字不撞、总数不过 12，挨着的那几块也回头记上它（接壤是双向的）
+    const nr = node && node.newRegion;
+    if (nr) {
+      const rn = String(nr.name || "").trim().slice(0, 8);
+      if (!rn) { toast("先给这块地方起个名"); return false; }
+      if ((w.regions || []).some(r => r.name === rn)) { toast("已经有一块叫「" + rn + "」了"); return false; }
+      if ((w.regions || []).length >= 12) { toast("这个世界已经有 12 块地方了，图上放不下更多"); return false; }
+      const adj = (nr.adj || []).filter(a => (w.regions || []).some(r => r.name === a));
+      const fresh = { name: rn, terrain: nr.terrain || "平原", adj, nodes: [{ name: nm, kind: node.kind || "野外", hook: String(node.hook || "").trim().slice(0, 60) }] };
+      saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x,
+        regions: [...(x.regions || []).map(r => adj.includes(r.name) ? { ...r, adj: [...(r.adj || []), rn] } : r), fresh] }));
+      toast("新开了「" + rn + "」，第一个地点是「" + nm + "」");
+      return true;
+    }
     const rg = (w.regions || []).find(r => r.name === regionName);
     if (rg && (rg.nodes || []).length >= 8) { toast("「" + regionName + "」已经满了（最多 8 个地点）——加到别的地方去，或者开一块新的"); return false; }
     saveWorlds((worlds || []).map(x => x.id !== wid ? x : { ...x, regions: (x.regions || []).map(r => r.name !== regionName ? r : {

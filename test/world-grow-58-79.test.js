@@ -29,7 +29,7 @@ test("上限做成可调，但跑团那边的默认值一个字都不许变", ()
 });
 
 test("架空地图显式放开上限，加了却画不出来的那道坎要挡在存盘之前", () => {
-  assert.match(map, /const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = 8;/, "架空地图没放开上限");
+  assert.match(map, /const WORLD_MAX_NODES = 8, WORLD_MAX_REGIONS = \d+;/, "架空地图没放开上限");
   assert.match(map, /K\.mapBuild\(world\.id, world\.regions, 360, 620, WORLD_MAX_NODES, WORLD_MAX_REGIONS\)/, "放开了没传下去");
   // 「加得进去却画不出来」是最难查的一种；所以加之前就挡
   assert.match(add, /if \(rg && \(rg\.nodes \|\| \[\]\)\.length >= 8\)/, "一块地方加满了还让加");
@@ -51,7 +51,7 @@ test("手写一个不花调用；让模型添才走一次", () => {
   assert.match(gen, /await callAI\(active, sys/, "让模型添那条没走裸调用");
   assert.match(gen, /【已经有的地方和地点】/, "没把这个世界已经有的递过去,它会编出重样的、或者跟这个世界不搭的");
   assert.match(gen, /!seen\[x\.name\] && \(seen\[x\.name\] = 1\)/, "模型编了个重名的也照收");
-  assert.match(map, /"加进「" \+ reg \+ "」（不花调用）"/, "界面上没说清哪条花钱哪条不花");
+  assert.match(map, /"加进「" \+ \(reg === NEW \? \(rName\.trim\(\) \|\| "新的一块"\) : reg\) \+ "」（不花调用）"/, "界面上没说清哪条花钱哪条不花");
   assert.match(map, /"让模型往「" \+ reg \+ "」添 2-4 个（一次调用）"/);
   // 位置会挪这件事得先说，不然她会以为图坏了
   assert.match(map, /加完之后，同一块地方里其它地点的位置会挪一挪/, "没提前说位置会变");

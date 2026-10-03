@@ -60,7 +60,7 @@ test("只借跑团画图那套纯函数，不碰它的玩法", () => {
 });
 
 test("模型只宣告骨架，坐标一概不存——地图每次现算", () => {
-  assert.match(gen, /const regions = K \? K\.normRegions\(d\.regions\) : null;/, "骨架没过 normRegions 这道校验");
+  assert.match(gen, /const regions = K \? K\.normRegions\(d\.regions[,)]/, "骨架没过 normRegions 这道校验");
   assert.match(gen, /if \(!regions\) throw/, "骨架不合格还照写进去");
   const saved = grab(gen, "const next = {", "saveWorlds(", 400);
   // ⚠️别用裸子串查坐标：why: 里就含有 "y:"，会假红
