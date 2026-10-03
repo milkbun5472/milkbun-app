@@ -21,3 +21,6 @@ test("empty stitched stream keeps the tail; gemini inline_data parsed", () => {
 test("chat image brief says the prompt is not content to draw", () => {
   assert.match(eng, /exactly ONE single natural photograph[\s\S]{0,200}NOT content to draw/);
 });
+test("non gpt-image models don't get the long hand blocks", () => {
+  assert.match(eng, /if \(!\/gpt-image\|dall-\?e\/i\.test[\s\S]{0,200}【手脚必须解剖正确】\[\^【\]\*/);
+});

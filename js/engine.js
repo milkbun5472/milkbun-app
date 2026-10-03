@@ -4831,6 +4831,11 @@ function buildAvatarPrompt(char, opts) {
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   const a = loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
+  // 手部那两大段只给 gpt-image 用（她 2026-10-03：别家模型发自拍，连出两张满纸手掌+乱码的「手部参考图」）。
+  // 那段里夹着整句英文 correct hands / five fingers——读不太懂中文的模型（NAI、部分 Gemini 线路）
+  // 只抓得住这几个英文词，于是整张图都画成了手。非 gpt-image 一律缩成一句。
+  if (!/gpt-image|dall-?e/i.test(String(a.model || "")) && typeof prompt === "string")
+    prompt = prompt.replace(/【手脚必须解剖正确】[^【]*/, "【手】双手自然，手指数目正确。").replace(/【数一数手】[^【]*/, "");
   // refPhotoDataUrl 可以是单张 base64、也可以是数组（合照时传两张：角色+用户）；归一成数组
   const refs = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).filter(x => x && typeof x === "string");
   // 参考照已迁入 x_imgvault 时直接取 Blob；旧 data: 仍兼容。这样 localStorage 不再为每张参考照背几百 KB。
