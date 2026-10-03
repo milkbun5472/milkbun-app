@@ -8743,6 +8743,7 @@ function ChatThread({
   onReply,
   onForward,
   onDeleteMessages,
+  onPinShike,
   onResummarizeOffline,
   onSendRich,
   onPat,
@@ -9766,7 +9767,11 @@ function ChatThread({
     }
   }, "已选 " + selIds.length), h("div", {
     className: "flex gap-3 items-center"
-  }, h("button", {
+  },
+  // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
+  selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
+  onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
+  h("button", {
     onClick: doDelete,
     disabled: !selIds.length,
     className: "disabled:opacity-40",
@@ -15412,6 +15417,7 @@ function GroupThread({
   onOOC,
   onMsgAction,
   onDeleteMessages,
+  onPinShike,
   onResummarizeOffline,
   onForward,
   onSaveSettings,
@@ -16085,6 +16091,8 @@ function GroupThread({
   }, h("button", { onClick: exitSel, style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"),
     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "已选 " + selIds.length),
     h("div", { className: "flex gap-3 items-center" },
+      selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
+      onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
       h("button", { onClick: doDelete, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "删除"),
       h("button", { onClick: () => selIds.length && setFwdPick(true), disabled: !selIds.length, className: "disabled:opacity-40 px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, borderRadius: 6 } }, "转发"))),
   gPhotoView && h(PhotoSheet, { m: gPhotoView, toast: toast, onClose: () => setGPhotoView(null) }),

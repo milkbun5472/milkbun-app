@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.666";
+const APP_VERSION = "v74.667";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12369,12 +12369,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", keySuffix: "_r" + Date.now() });
   };
   // 收进时刻：起个名，存进 x_shikePins[角色]——时刻那头每人一张「收着的」卡。单聊、群聊共用这一处。
-  const pinToShike = (cid, m) => {
-    if (!m || !cid) { toast("这条记不到哪个角色名下"); return; }
-    requestAppPrompt("收进时刻", "给这一刻起个名字，比如「他第一次吃醋」。不填就叫「收着的一刻」。", "", name => {
+  // ⚠️一句、多选的几句、首尾圈出来的一长段，都走这一处：ms 可以是一条也可以是一串（按时间排好）
+  const pinToShike = (cid, ms, nameOf) => {
+    const list = (Array.isArray(ms) ? ms : [ms]).filter(m => m && !m.recalled && (m.content || m.desc || m.imgKey || m.imageRef));
+    if (!list.length || !cid) { toast(cid ? "选中的这几条没有能收的内容" : "这条记不到哪个角色名下"); return; }
+    const m = list[0], pic = list.find(x => x.imgKey || x.imageRef) || {};
+    requestAppPrompt("收进时刻", (list.length > 1 ? "收进 " + list.length + " 条。" : "") + "给这一刻起个名字，比如「他第一次吃醋」。不填就叫「收着的一刻」。", "", name => {
       const all = loadJSON("x_shikePins", {}) || {};
-      const row = { id: "pin_" + Date.now(), ts: Number(m.ts) || Date.now(), title: String(name || "").trim().slice(0, 30), text: String(m.content || m.desc || "").slice(0, 400), role: m.role,
-        ...(m.imgKey ? { imgKey: m.imgKey } : {}), ...(m.imageRef ? { imageRef: m.imageRef } : {}) };
+      const row = { id: "pin_" + Date.now(), ts: Number(m.ts) || Date.now(), endTs: Number(list[list.length - 1].ts) || undefined, title: String(name || "").trim().slice(0, 30),
+        text: String(m.content || m.desc || "").slice(0, 400), role: m.role,
+        ...(list.length > 1 ? { lines: list.slice(0, 200).map(x => ({ role: x.role === "user" ? "user" : "char", name: nameOf ? nameOf(x) : undefined, text: String(x.content || x.desc || (x.imgKey || x.imageRef ? "[照片]" : "")).slice(0, 600) })) } : {}),
+        ...(pic.imgKey ? { imgKey: pic.imgKey } : {}), ...(pic.imageRef ? { imageRef: pic.imageRef } : {}) };
       all[cid] = [row].concat(all[cid] || []).slice(0, 300);
       saveJSON("x_shikePins", all);
       toast("收进时刻了");
@@ -25970,6 +25975,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
+    // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
+    onPinShike: indices => {
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const msgs = chatsRef.current[threadKey] || [];
+      pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
+    },
     onDeleteMessages: indices => {
       const set = new Set(indices);
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
@@ -26053,6 +26064,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
+    // 群里圈一段收进时刻：挂在这一段里说话最多的那个角色名下（她说的话不算）
+    onPinShike: indices => {
+      const msgs = (groupChatsRef.current[activeGroup.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
+      const cnt = {}; picked.forEach(m => { if (m.senderId && characters.some(c => c.id === m.senderId && !c.npc)) cnt[m.senderId] = (cnt[m.senderId] || 0) + 1; });
+      const cid = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || null;
+      pinToShike(cid, picked, m => m.role === "user" ? null : (m.senderName || null));
+    },
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
       const items = msgs.map(m => ({
@@ -27085,6 +27103,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     couples: couples,
     chats: chats,
     memLib: memLibRef.current,
+    calendar: calendar,      // 日历里的世界事件：过去的、那天你们有来往的，自动成时刻
+    // 收进来的一长段 → 总结成一段（调一次，走后台线路；原话照留，卡上能翻回去看）
+    onSummarizePin: async (c, m) => {
+      const p = sumRoute(apiFor(c.id));
+      if (!p) { toast("先到设置配置 API"); return null; }
+      try {
+        const raw = await callAI(p, "你在替她整理一张回忆卡。只根据下面这段原话，写一段第三人称的小结（三到六句）：那天发生了什么、两个人说了什么要紧的、情绪怎么走的。不编原话里没有的事，不加评价，不写标题。",
+          [{ role: "user", content: "卡片名：" + m.title + "\n原话：\n" + (m.raw || []).join("\n").slice(0, 12000) }], { maxTokens: 8000, timeout: 120000 });
+        const txt = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
+        if (!txt) throw new Error("模型没有返回内容");
+        return txt.slice(0, 1200);
+      } catch (e) { toast("没总结成：" + String((e && e.message) || e).slice(0, 120)); return null; }
+    },
     offlines: offlines,      // 「第一次见面」从线下场次里找（懒加载没灌到的，时刻那头自己 loadJSON 兜）
     toast: toast,
     // 「让 TA 说说」：走 runProbe voice，跟星测、解梦馆同一条路——人设/心情/反八股整份白得
