@@ -14,5 +14,7 @@ test('scene preview loads only named scenes and uses shared cat',()=>{
  const code=read('preview.mjs').toString(),html=read('preview.html').toString(),css=read('preview.css').toString();
  assert.match(code,/\['bakery','florist','alley'\]\.includes\(requested\)/);assert.match(code,/\.\.\/pet-house\/cat.glb/);
  for(const id of ['bakery','florist','alley'])assert.ok(html.includes('data-scene="'+id+'"'));
- assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);assert.match(code,/pointercancel/);
+ assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);assert.match(code,/createPetCamera\(/);assert.match(code,/cameraControls\.clearGesture\(/);
+ const camera=readFileSync(new URL('../pet-house/pet-camera.mjs',import.meta.url),'utf8');
+ assert.match(camera,/onpointercancel=clearGesture/);
 });
