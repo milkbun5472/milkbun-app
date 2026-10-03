@@ -31,3 +31,4 @@ test("NAI models get danbooru tags translated first", () => {
   assert.ok(f("nai-diffusion-4-5-full")); assert.ok(f("NovelAI-v4")); assert.ok(f("nai"));
   assert.ok(!f("gpt-image-2")); assert.ok(!f("gemini-3.1-flash-image")); assert.ok(!f("dall-e-3"));
 });
+test("NAI never asked for fake photos", () => { assert.match(eng, /do NOT write photorealistic\/photo[\s\S]{0,200}semi-realistic, realistic shading, painterly/); });
