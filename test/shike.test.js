@@ -66,14 +66,14 @@ test("「让 TA 说说」走 runProbe voice，点了才调", () => {
   const app = P("js/app.js");
   assert.match(app, /onRecall: async \(c, m\) => \{/);
   assert.match(app, /runProbe\(p, ctxFor\(c\), \{ voice: true, tag: "shike"/);
-  assert.match(P("js/shike.js"), /props\.onRecall \? h\("button", \{ onClick: \(\) => recall\(m\)/);
+  assert.match(P("js/shike.js"), /props\.onRecall \? \[saying === m\.key \? "TA 在想…"[^\n]*\(\) => recall\(m\)/);
 });
 
 test("每张时刻卡能画一张、贴一张、拿掉；自己的图压过当天照片", () => {
   const s = P("js/shike.js"), app = P("js/app.js");
   assert.match(app, /onDrawMoment: async \(c, m\) => \{/);
   assert.match(s, /\(\(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \|\| m\.img\) \? h\(MomentArt, \{ img: \(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \? \{ ref: arts\[cur\.id\]\[m\.key\] \} : m\.img \}\)/);
-  assert.match(s, /"贴一张"/);
+  assert.match(s, /\["贴图", \(\) => \{ pickFor\.current = m;/);
   assert.match(s, /saveJSON\("x_shikeArt", n\)/);
 });
 
@@ -142,7 +142,7 @@ test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", ()
 
 test("第一轮：发给 TA、TA 偶尔想起一张旧的、TA 自己存一刻", () => {
   const K = kit(), s = P("js/shike.js"), app = P("js/app.js");
-  assert.match(s, /props\.onSendMoment \? h\("button", \{ onClick: \(\) => props\.onSendMoment\(cur, m\)/);
+  assert.match(s, /props\.onSendMoment \? \["发给 TA", \(\) => props\.onSendMoment\(cur, m\)\]/);
   assert.match(app, /onSendMoment: \(c, m\) => \{/);
   assert.match(app, /keepMoment:\{"title":"给这一刻起的名字","why":/);
   assert.match(app, /if \(parsed\.keepMoment && typeof parsed\.keepMoment === "object" && !sideRoom && !char\.npc/);
@@ -185,7 +185,7 @@ test("第二轮：时刻的日子走纪念日主动那条路；主屏「去年�
 test("第三轮：按月的目录能跳；能存成一页长图，太长就截断并写明", () => {
   const s = P("js/shike.js");
   assert.match(s, /"data-wk": "shikemonths"/);
-  assert.match(s, /onClick: \(\) => jump\(x\.k\)/);
+  assert.match(s, /onClick: \(\) => jump\(k\)/, "时间轴上的刻度点了不跳");
   assert.match(s, /const exportLong = async \(c, items\) =>/);
   assert.match(s, /saveImgOriginal\(cv\.toDataURL\("image\/jpeg", 0\.9\)/);
   assert.match(s, /MAXH = 15000/, "iOS canvas 一边不能太长，得有上限");
@@ -237,4 +237,14 @@ test("点「认识 N 天」能改认识那天：定了就以它为准，清空�
   new Function("window", "globalThis", "React", "h", "Svg", "loadJSON", P("js/shike.js"))(g, g, g.React, () => null, () => null, (k, d) => store[k] || d);
   const ms = g.ShikeKit.momentsFor({ id: "c1", name: "江识" }, { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: {}, profile: {}, uName: "Lisa" });
   assert.ok(ms.some(m => m.title === "认识 5 周年"), "定了 2020-05-20，就该有认识 5 周年");
+});
+
+test("里层：动作收进右上角「⋯」，卡底是一行小字，底框压矮，底下一条时间轴（不是药丸）", () => {
+  const s = P("js/shike.js"), app = P("js/app.js");
+  const inner = s.slice(s.indexOf("// ── 里层"), s.indexOf("// ── 外层"));
+  assert.match(inner, /"data-wk": "shikemenu"/);
+  assert.match(inner, /"data-wk": "shikeacts"/);
+  assert.match(inner, /maxHeight: "30%"/, "底框没压矮");
+  assert.ok(!/borderRadius: 999, padding: "6px 1[12]px"/.test(inner), "顶上那排药丸还在");
+  assert.match(app, /exactly two arms and two hands/, "画图没交代手脚");
 });

@@ -232,6 +232,7 @@
     const [drawing, setDrawing] = useState("");
     const fileRef = React.useRef(null), pickFor = React.useRef(null), mRef = React.useRef(null);
     const [exporting, setExporting] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
     const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
     const draw = async m => {
       if (drawing || !props.onDrawMoment || !cur) return;
@@ -430,8 +431,10 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "rgba(255,255,255,.75)", marginTop: 4 } }, d.getFullYear() + " 年"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.3, marginTop: 18 } }, m.title),
             m.with && m.with.length ? h("div", { "data-wk": "shikewith", style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.8)", marginTop: 6 } }, "一起的还有：" + m.with.join("、")) : null,
-            h("div", { className: "flex-1 min-h-0", style: { marginTop: 22, overflowY: "auto", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.22)",
-              borderRadius: 14, padding: "14px 16px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
+            // 底框压矮、沉到卡底（她 2026-10-03：「底框可以再矮一点」）：上面留给画，字只占一小截，多了就在框里滚
+            h("div", { style: { flex: 1, minHeight: 12 } }),
+            h("div", { "data-wk": "shikenote", className: "min-h-0", style: { maxHeight: "30%", flexShrink: 1, overflowY: "auto", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.18)",
+              borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 8 } },
                 rawOpen[m.key] ? "原话" : m.what.kind === "mem" ? "那天记下的事" : m.what.kind === "chat" ? "那天你们说的话" : m.what.kind === "summary" ? "那一段" : m.what.kind === "pin" ? "收着的原话" : "那一天"),
               ((rawOpen[m.key] && m.raw) ? m.raw : m.what.lines).length
@@ -441,23 +444,21 @@
               (notes[cur.id] || {})[m.key] ? h("div", { "data-wk": "shikesay", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(255,255,255,.3)" } },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 6 } }, (cur.remark || cur.name) + " 说"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "#fff", whiteSpace: "pre-wrap" } }, (notes[cur.id] || {})[m.key])) : null,
-              props.onRecall ? h("button", { onClick: () => recall(m), disabled: !!saying, className: "active:opacity-70",
-                style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "7px 14px", opacity: saying && saying !== m.key ? .5 : 1 } },
-                saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再让 TA 说说" : "让 TA 说说")) : null),
-            // 换这张卡的图：画一张（走生图，一次一张额度）／自己贴一张／拿掉换回当天照片或封面
-            h("div", { className: "flex", style: { gap: 8, marginTop: 12, flexWrap: "wrap" } },
-              // 收进来的那一长段：总结成一段（调一次），总结过的能翻回原话；收进来的和自己开的能删
-              (m.pinId || m.gpinId) && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? h("button", { onClick: () => summarize(m), disabled: !!summing, className: "active:opacity-70", style: chip(summing && summing !== m.key) },
-                summing === m.key ? "正在总结…" : "总结成一段") : null,
-              m.summary ? h("button", { onClick: () => setRawOpen(o => Object.assign({}, o, { [m.key]: !o[m.key] })), className: "active:opacity-70", style: chip(false) },
-                rawOpen[m.key] ? "看总结" : "看原话") : null,
-              (m.pinId || m.gpinId) ? h("button", { onClick: () => dropPin(m), className: "active:opacity-70", style: chip(false) }, "删掉这张") : null,
-              // 发给 TA（她 2026-10-03 点的第 1 条）：卡片进聊天，TA 接着跟你聊那天
-              props.onSendMoment ? h("button", { onClick: () => props.onSendMoment(cur, m), className: "active:opacity-70", style: chip(false) }, "发给 TA") : null,
-              props.onDrawMoment ? h("button", { onClick: () => draw(m), disabled: !!drawing, className: "active:opacity-70", style: chip(drawing && drawing !== m.key) },
-                drawing === m.key ? "正在画…" : "画一张") : null,
-              h("button", { onClick: () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }, className: "active:opacity-70", style: chip(false) }, "贴一张"),
-              (arts[cur.id] || {})[m.key] ? h("button", { onClick: () => setArt(cur.id, m.key, null), className: "active:opacity-70", style: chip(false) }, "拿掉") : null)));
+              null),
+            // 卡底一行小字动作（不再是一排药丸——她 2026-10-03：「很占位置而且丑」）：像展签底下那行小注，点哪个字就是哪个
+            h("div", { "data-wk": "shikeacts", className: "flex items-center", style: { flexWrap: "wrap", marginTop: 10, rowGap: 4 } },
+              [props.onRecall ? [saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再说说" : "让 TA 说说"), () => recall(m), !!saying] : null,
+               props.onSendMoment ? ["发给 TA", () => props.onSendMoment(cur, m)] : null,
+               (m.pinId || m.gpinId) && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? [summing === m.key ? "总结中…" : "总结", () => summarize(m), !!summing] : null,
+               m.summary ? [rawOpen[m.key] ? "看总结" : "看原话", () => setRawOpen(o => Object.assign({}, o, { [m.key]: !o[m.key] }))] : null,
+               props.onDrawMoment ? [drawing === m.key ? "正在画…" : "画一张", () => draw(m), !!drawing] : null,
+               ["贴图", () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }],
+               (arts[cur.id] || {})[m.key] ? ["拿掉图", () => setArt(cur.id, m.key, null)] : null,
+               (m.pinId || m.gpinId) ? ["删掉", () => dropPin(m)] : null
+              ].filter(Boolean).map((a, k) => h(React.Fragment, { key: k },
+                k ? h("span", { style: { color: "rgba(255,255,255,.35)", margin: "0 8px", fontSize: 11 } }, "·") : null,
+                h("button", { onClick: a[1], disabled: !!a[2], className: "active:opacity-60",
+                  style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.88)", background: "transparent", border: "none", padding: "4px 0", opacity: a[2] ? .5 : 1 } }, a[0]))))));
       };
       // 目录（她 2026-10-03 点的第 6 条）：按「几年几月」分组，点一下滑到那个月的第一张
       const months = [];
@@ -469,33 +470,42 @@
         const k = Math.round(el.scrollLeft / Math.max(1, w));
         if (k !== mIdx) setMIdx(Math.max(0, Math.min(list.length - 1, k)));
       };
-      return h("div", { className: "h-full flex flex-col", "data-wk": "shikedetail", style: shell(t) },
+      return h("div", { className: "h-full flex flex-col", "data-wk": "shikedetail", style: Object.assign({ position: "relative" }, shell(t)) },
         h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
-        h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); }, bg: "transparent" }),
-        h("div", { className: "shrink-0 flex items-center justify-center", style: { gap: 8, padding: "4px 16px 2px", flexWrap: "wrap" } },
-          h("span", { onClick: e => editMeet(cur, e), style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, cursor: "pointer" } }, [daysLine(cur, ctx), upLine(upcoming(cur, ctx))].filter(Boolean).join(" · ")),
-          props.onGenCover ? h("button", { onClick: () => gen(cur), disabled: !!busy, className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "6px 12px", opacity: busy ? .5 : 1 } },
-            busy === cur.id ? "正在画…" : (covers[cur.id] ? "重画封面" : "生成封面")) : null,
-          covers[cur.id] ? h("button", { onClick: () => setCover(cur.id, null), className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "用回头像") : null,
-          h("button", { onClick: () => setCreating({ date: dayKey(Date.now()), title: "", text: "" }), className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "＋ 开一张"),
-          list.length ? h("button", { onClick: () => exportLong(cur, list), disabled: exporting, className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent", opacity: exporting ? .5 : 1 } },
-            exporting ? "正在拼…" : "存成长图") : null),
-        months.length > 1 ? h("div", { "data-wk": "shikemonths", className: "shrink-0 flex", style: { gap: 6, overflowX: "auto", padding: "8px 16px 0", WebkitOverflowScrolling: "touch" } },
-          months.map(x => h("button", { key: x.lab, onClick: () => jump(x.k), className: "active:opacity-70 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, border: "1px solid " + (x.lab === curLab ? t.ink : t.line),
-              background: x.lab === curLab ? t.ink : "transparent", color: x.lab === curLab ? t.bg2 : t.sub } }, x.lab))) : null,
+        h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); setMenuOpen(false); }, bg: "transparent",
+          right: h("button", { onClick: () => setMenuOpen(v => !v), className: "active:opacity-50", "aria-label": "更多", style: { width: 44, height: 38, fontSize: 22, color: t.ink, background: "transparent", border: "none" } }, "⋯") }),
+        h("div", { className: "shrink-0", style: { textAlign: "center", padding: "2px 16px 0" } },
+          h("span", { onClick: e => editMeet(cur, e), style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, cursor: "pointer" } }, [daysLine(cur, ctx), upLine(upcoming(cur, ctx))].filter(Boolean).join(" · "))),
+        // 右上角「⋯」收着那几样（她 2026-10-03：上面那几个药丸很占位置而且丑）
+        menuOpen ? h("div", { onClick: () => setMenuOpen(false), style: { position: "absolute", inset: 0, zIndex: 30 } },
+          h("div", { "data-wk": "shikemenu", onClick: e => e.stopPropagation(), style: { position: "absolute", right: 14, top: "calc(env(safe-area-inset-top) + 56px)", minWidth: 150, background: t.bg2, border: "1px solid " + t.line,
+            borderRadius: 12, boxShadow: "0 10px 28px rgba(40,30,20,.18)", overflow: "hidden" } },
+            [props.onGenCover ? [busy === cur.id ? "正在画封面…" : (covers[cur.id] ? "重画封面" : "生成封面"), () => gen(cur)] : null,
+             covers[cur.id] ? ["用回头像", () => setCover(cur.id, null)] : null,
+             ["开一张时刻", () => setCreating({ date: dayKey(Date.now()), title: "", text: "" })],
+             list.length ? [exporting ? "正在拼…" : "存成长图", () => exportLong(cur, list)] : null,
+             ["改认识那天", () => editMeet(cur)]
+            ].filter(Boolean).map((a, k) => h("button", { key: k, onClick: () => { setMenuOpen(false); a[1](); }, className: "w-full active:opacity-60",
+              style: { display: "block", textAlign: "left", padding: "12px 16px", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "transparent", border: "none", borderTop: k ? "1px solid " + t.line : "none" } }, a[0])))) : null,
         list.length
           ? h("div", { ref: mRef, onScroll: onMScroll, className: "flex-1 min-h-0 flex",
               style: { gap: 14, overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch",
                 padding: "12px calc((100vw - min(80vw, 400px)) / 2) 10px" } }, list.map(mcard))
           : h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.fog, textAlign: "center", padding: "60px 30px" } },
               "还没有时刻。认识满 100 天、在一起的日子、生日，还有节日那天你们说过话，都会自己出现在这里。"),
-        h("div", { className: "shrink-0 flex justify-center", style: { gap: 6, padding: "4px 0 calc(16px + env(safe-area-inset-bottom))" } },
-          list.slice(0, 30).map((m, k) => h("span", { key: m.key, style: { width: k === mIdx ? 16 : 6, height: 6, borderRadius: 999, background: k === mIdx ? t.ink : t.line, transition: "width .2s" } }))));
+        // 底下一条展廊的时间轴（替掉原来那排月份药丸和小点）：一张时刻一道刻度，每个月第一张底下写月份，
+        //   停着的那张刻度拉长上墨。点刻度直接跳过去。它就是这间展厅的墙脚线，换个 app 不成立。
+        list.length > 1 ? h("div", { "data-wk": "shikemonths", className: "shrink-0", style: { position: "relative", height: 40, margin: "2px 18px calc(10px + env(safe-area-inset-bottom))", overflowX: "auto" } },
+          h("div", { style: { position: "relative", height: "100%", minWidth: Math.max(list.length * 18, 100) + "px" } },
+            h("div", { style: { position: "absolute", left: 0, right: 0, top: 12, height: 1, background: t.line } }),
+            list.map((m, k) => {
+              const on = k === mIdx, d = new Date(m.ts), first = months.some(x => x.k === k);
+              return h("button", { key: m.key, onClick: () => jump(k), "aria-label": d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(),
+                style: { position: "absolute", left: (list.length === 1 ? 50 : (k / (list.length - 1)) * 100) + "%", top: 0, width: 18, height: 40, marginLeft: -9, background: "transparent", border: "none", padding: 0 } },
+                h("span", { style: { position: "absolute", left: 8, top: on ? 4 : 8, width: on ? 2 : 1, height: on ? 16 : 9, background: on ? t.ink : t.fog, borderRadius: 1 } }),
+                first || on ? h("span", { style: { position: "absolute", left: "50%", top: 24, transform: "translateX(-50%)", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 10, color: on ? t.ink : t.fog, fontWeight: on ? 600 : 400 } },
+                  on ? (d.getMonth() + 1) + "." + d.getDate() : (d.getMonth() + 1) + "月") : null);
+            }))) : h("div", { style: { height: "calc(14px + env(safe-area-inset-bottom))" } }));
     }
 
     // ── 外层：几乎整屏高的 CG 卡，横着滑 ──

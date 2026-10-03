@@ -27197,7 +27197,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const scene = (m.what && m.what.lines && m.what.lines.length ? m.what.lines.join(" ") : m.title).slice(0, 300);
         const prompt = "A cinematic visual-novel CG illustration, a memory scene: " + m.title + ". What happened that day: " + scene + ". "
           + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
-          + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark.";
+          + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark."
+          // 多手多脚是这类图最常见的翻车（她 2026-10-03：「他这是生成了两条手吗」）——说清楚，并且少画手
+          + " Correct human anatomy: exactly two arms and two hands, natural hand poses, no extra or duplicated limbs; prefer a composition where hands are relaxed or out of frame.";
         const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
         const key = await imgResultToVault(r);
         if (!key) throw new Error("上游没有返回图片");
@@ -27208,7 +27210,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
       try {
         const prompt = "A cinematic visual-novel CG illustration of " + (c.name || "the character") + ". "
-          + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark.";
+          + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark."
+          + " Correct human anatomy: exactly two arms and two hands, natural hand poses, no extra or duplicated limbs.";
         const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
         const key = await imgResultToVault(r);
         if (!key) throw new Error("上游没有返回图片");
