@@ -485,7 +485,7 @@
       zh: "健康", pages: Object.freeze(["health"]),
       hooks: Object.freeze([
         ["healthtabs", "顶上那条心电图（今天／身体／这周）"], ["healthcard", "每一段"], ["healthsum", "热量环和三大营养素那一块"],
-        ["healthmeals", "吃了什么那一段"], ["healthwater", "喝水那一排杯子"], ["healthsport", "动了动那一段（运动和步数）"], ["healthsync", "今天最上面「手机健康 · 导入」那一行"], ["healthimport", "从手机健康导入那一页"], ["healthsleep", "睡觉那一段"], ["healthmood", "心情那五张脸"],
+        ["healthmeals", "吃了什么那一段"], ["healthwater", "喝水那一排杯子"], ["healthsport", "动了动那一段（运动和步数）"], ["healthsync", "今天最上面「手机健康 · 导入」那一行"], ["healthimport", "从手机健康导入那一页"], ["healthhome", "谁看着里「家在哪」那一段"], ["healthgateway", "谁看着里「我有自己的网关」那一段"], ["healthsleep", "睡觉那一段"], ["healthmood", "心情那五张脸"],
         ["healthweight", "体重那一段"], ["healthperiod", "经期那一段"], ["healthweek", "七天的热量柱"], ["healthnote", "TA看完这周说的话"]
       ])
     }),

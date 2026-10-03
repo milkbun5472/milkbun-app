@@ -10206,8 +10206,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
-      // 健康·饭点来问（v74.640）：只给事实那一行，管不管、怎么开口是TA自己的事
-      const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "的点】" + uName + " 在健康 app 里开了让你帮着盯吃饭。"
+      // 健康·饭点来问（v74.640）／手机电量低、下雨还在外面（v74.661）：只给事实那一行，管不管、怎么开口是TA自己的事
+      const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"
         + opts.health.line + "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。" : "";
       // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
       // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
