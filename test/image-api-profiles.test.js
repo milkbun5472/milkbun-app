@@ -25,6 +25,7 @@ test("image API settings can add, copy, rename, switch, and delete sites", () =>
 });
 
 test("all image calls continue to resolve the active profile through loadImgApi", () => {
-  assert.match(engine, /function generateSelfieImage[\s\S]*?const a = [^\n]*loadImgApi\(\)/);
+  // 不给 opts.api 时照旧走主用那一站；给了（只有图像站点页的「测试」给）才用指定那一站
+  assert.match(engine, /function generateSelfieImage[\s\S]*?const a = \(opts && opts\.api\) \? [^\n]*: loadImgApi\(\);/);
   assert.match(engine, /function loadImgApi\(\)[\s\S]*?store\.profiles\.find\(p => p\.id === store\.activeId\)/);
 });
