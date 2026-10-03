@@ -21,5 +21,7 @@ test("reroll while I blocked him goes back to the blocked path with the avoid", 
 });
 test("blocked reaction: no recycling earlier lines, 2-4 bubbles", () => {
   assert.match(app, /这一轮【一句都不许再发】/);
-  assert.match(app, /这一轮两到四个气泡就够/);
+  assert.doesNotMatch(app, /两到四个气泡/);
+  assert.match(app, /applySchedChange\(charId, d\.schedNow\)/);
+  assert.match(app, /SCHED_NOW_SPEC : ""\) \+ "（被拉黑以后/);
 });

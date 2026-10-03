@@ -18,7 +18,7 @@ function fixture(reply) {
     toast:()=>{}, laneBusy:()=>false, startLane:k=>lanes.push(k), endLane:k=>lanes.push(k),
     apiFor:()=>({}), ctxFor:()=>({char:{id:'c1',name:'虚构甲'},recentChat:'主房私事',mem:'主房记忆'}),
     roomTimeAwareFor:()=>false, contextAllowsMessage:()=>true, isOocMsg:m=>m.kind==='ooc'||String(m.turnId||'').startsWith('ooc_'), roomStatesRef:{current:{}}, loreForContext:()=>'', directives:{},
-    buildBundle:ctx=>JSON.stringify(ctx), extractJSON:JSON.parse, onlineRerollHint:()=>'',
+    buildBundle:ctx=>JSON.stringify(ctx), extractJSON:JSON.parse, onlineRerollHint:()=>'', applySchedChange:()=>{},
     callAI:async (api,sys)=>{systems.push(sys);return JSON.stringify(reply)},
     setTimeout:fn=>timers.push(fn), Date};
   vm.createContext(box);
