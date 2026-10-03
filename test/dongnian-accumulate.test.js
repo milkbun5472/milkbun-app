@@ -86,7 +86,7 @@ test("按 TA 今天的作息判醒没醒；没排作息就不猜", () => {
 // 她 2026-08-26：「早上8点打开，下一次晚上十点，能看到他们这个时间段发过的消息，
 // 显示是我没打开的时间，而不只是10点」
 test("补记时算出「思念是哪一刻越过阈值的」，消息时间戳落在那个空档里", () => {
-  assert.match(app, /if \(crossed == null && triggers && triggers\.some\(t => t\.action === "contact"\)\) crossed = baseTs \+ done \* 60000/);
+  assert.match(app, /if \(crossed == null && triggers && triggers\.some\(t => t\.action === "contact"\)\) crossed = baseTs \+ done(?: \/ _px)? \* 60000/);
   assert.match(app, /dongnianCrossedRef\.current\[dnKey\] = crossed/);
   // 夹在「上次互动之后」和「一分钟前」之间：别排进历史里，也别写成未来
   assert.match(app, /Math\.max\(lastInteract \+ 60000, Math\.min\(_cross, Date\.now\(\) - 60000\)\)/);

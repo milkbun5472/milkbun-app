@@ -6,7 +6,7 @@ const a = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const c = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
 test("每道闸都记下原因", () => {
   assert.match(a, /const pWhy = \(cid, why\) =>/);
-  ["「允许 Ta 主动发消息」关着", "你们此刻在一起", "你正在输入框里打字", "离你们上次说话还不满", "TA 在睡觉", "TA 还端着", "25 分钟内刚试过一次", "刚试着发了一次但没发成"].forEach(k => assert.ok(a.includes(k), k));
+  ["「允许 Ta 主动发消息」关着", "你们此刻在一起", "你正在输入框里打字", "离你们上次说话还不满", "TA 在睡觉", "TA 还端着", "分钟内刚试过一次，等下一轮", "刚试着发了一次但没发成"].forEach(k => assert.ok(a.includes(k), k));
 });
 test("条子下面写出来", () => {
   assert.match(c, /const proactiveWhyLine = \(\) =>/);

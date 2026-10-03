@@ -21,5 +21,5 @@ test("群聊可认领动念 contact，点名动念角色并阻止旧快照再触
   assert.match(app, /setTimeout\(tick, 14000\)/);
   assert.match(app, /这轮自然动念/);
   assert.match(app, /由 TA 自然先开口/);
-  assert.match(app, /Date\.now\(\) - \(dongnianFiredRef\.current\[cid\] \|\| 0\) < 25 \* 60000/);
+  assert.match(app, /Date\.now\(\) - \(dongnianFiredRef\.current\[cid\] \|\| 0\) < _cool/);
 });

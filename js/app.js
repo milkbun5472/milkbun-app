@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.584";
+const APP_VERSION = "v74.591";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1397,6 +1397,9 @@ function App() {
   // 不逛论坛＝设置里「论坛」那一栏这个人关着——同一格，论坛页和设置页谁改都是改它
   const forumOff = Object.keys(autoRefreshPolicy.features.forum.chars).filter(id => autoRefreshPolicy.features.forum.chars[id] === false);
   forumOffRef.current = forumOff;
+  const setAutoRefreshRate = (feature, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setRate(autoRefreshRef.current, feature, rate));
+  // 主动私聊的倍速（低 ×0.5／中 ×1／高 ×2）：想念的钟走多快、刚试过一次后等多久，都按它缩放
+  const proactiveX = () => (window.AutoRefreshPolicy.rateX ? window.AutoRefreshPolicy.rateX(autoRefreshRef.current, "proactive") : 1) || 1;
   const setAutoRefreshGlobal = (feature, on) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, on));
   const setAutoRefreshChar = (feature, charId, on) => {
     saveAutoRefreshPolicy(window.AutoRefreshPolicy.setChar(autoRefreshRef.current, feature, charId, on));
@@ -6895,8 +6898,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (Date.now() - lastInteract < floorMin * 60000) continue;
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) pWhy(cid, "还没想到要找你（条子没过线）");
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // dongnian 说「还没想到要联系」→ 不动
-          if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) pWhy(cid, "25 分钟内刚试过一次，等下一轮");
-          if (Date.now() - (dongnianFiredRef.current[cid] || 0) < 25 * 60000) continue;
+          const _cool = 25 * 60000 / proactiveX();   // 刚试过一次的冷却也跟着倍速走
+          if (Date.now() - (dongnianFiredRef.current[cid] || 0) < _cool) pWhy(cid, Math.round(_cool / 60000) + " 分钟内刚试过一次，等下一轮");
+          if (Date.now() - (dongnianFiredRef.current[cid] || 0) < _cool) continue;
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
           // 她要的就是这个——「偶尔要是半夜突然想念了也能发一句」，但别变成半夜刷屏。
           // ⚠️跟聊天那一路同一把尺子（v64.66）：原来这儿单独调 charAwakeState，
@@ -7002,7 +7006,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const left = Math.ceil((floorMin * 60000 - (Date.now() - lastInteract)) / 60000);
     if (left > 0) return "离你们上次说话还不满 " + floorMin + " 分钟（还差 " + left + " 分钟）";
     if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) return "还没想到要找你（条子没过线）";
-    const fired = Math.ceil((25 * 60000 - (Date.now() - (dongnianFiredRef.current[cid] || 0))) / 60000);
+    const fired = Math.ceil((25 * 60000 / proactiveX() - (Date.now() - (dongnianFiredRef.current[cid] || 0))) / 60000);
     if (fired > 0) return "刚试过一次，" + fired + " 分钟后再试";
     if (sleepPhaseOf(c) === "asleep") return "TA 在睡觉——睡着时只有很想的时候才偶尔发一句，醒了再来";
     if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) return "TA 还端着、拉不下脸";
@@ -7135,7 +7139,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 推进：首跑从持久化的 lastTick 起算（credit 关 app 期间的时间，dongnian 内部封顶 60 分钟）
     let baseTs = dongnianTickRef.current[dnKey];
     if (baseTs == null) { try { const s0 = await eng.getState(); baseTs = s0.lastTick ? new Date(s0.lastTick).getTime() : now; } catch (e) { baseTs = now; } }
-    const mins = (now - baseTs) / 60000;
+    // ×倍速：高频＝同样过一小时，想念按两小时攒；低频按半小时攒。阈值、算法一个字不动
+    const _px = proactiveX();
+    const mins = (now - baseTs) / 60000 * _px;
     dongnianTickRef.current[dnKey] = now;
     try {
       let triggers;
@@ -7150,7 +7156,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         do {
           const chunk = Math.min(credit, 60);
           triggers = await eng.tick(chunk); credit -= chunk; done += chunk;
-          if (crossed == null && triggers && triggers.some(t => t.action === "contact")) crossed = baseTs + done * 60000;
+          if (crossed == null && triggers && triggers.some(t => t.action === "contact")) crossed = baseTs + done / _px * 60000;   // 换回真实时间
         } while (credit > 0.2);
         if (crossed != null) dongnianCrossedRef.current[dnKey] = crossed;
       } else triggers = eng.checkThresholds();
@@ -27101,6 +27107,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     autoCharacters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
     autoRefreshPolicy: autoRefreshPolicy,
     onSetAutoRefreshGlobal: setAutoRefreshGlobal,
+    onSetAutoRefreshRate: setAutoRefreshRate,
     onSetAutoRefreshChar: setAutoRefreshChar,
     // ⚠️设置页那两个 prop v70.89 删了：情侣问答搬去问答小本右上角之后，
     //   Config 里没有任何一处再读它们（搬走就要删干净，别留一份没人接的线）。

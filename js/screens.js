@@ -9013,6 +9013,14 @@ function AutoRefreshConfig(props) {
                 f.noChars ? (cfg.global ? "已开启 · 每个群／每一场在各自页面里还能单独关" : "已关闭")
                 : cfg.global ? (enabledCount + "/" + chars.length + " 人开启 · 角色范围 " + (isOpen ? "▴" : "▾")) : "总闸已暂停 · 原角色选择保留 " + (isOpen ? "▴" : "▾"))),
             h(Toggle, { on: cfg.global, onChange: on => props.onSetGlobal(f.id, on) })),
+          // 频率档（她 2026-10-03）：中频＝原来那套，低频、高频是整套时间乘倍数
+          f.rates && cfg.global && props.onSetRate ? h("div", { style: { padding: "0 15px 13px" } },
+            h("div", { className: "flex", style: { border: "1px solid " + t.line, borderRadius: 3, overflow: "hidden" } },
+              f.rates.map(r => { const on = (cfg.rate || "mid") === r.id;
+                return h("button", { key: r.id, onClick: () => props.onSetRate(f.id, r.id), className: "flex-1 active:opacity-70",
+                  style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, r.zh); })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
+              (cfg.rate || "mid") === "low" ? "想念攒得慢一半，刚找过你之后也多等一倍才会再找" : (cfg.rate || "mid") === "high" ? "想念攒得快一倍，刚找过你之后再找的间隔也减半" : "原来那套节奏")) : null,
           isOpen && !f.noChars ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
             !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
               h("div", { className: "flex items-center", style: { gap: 10, minWidth: 0 } },
@@ -9184,7 +9192,7 @@ function Config(props) {
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
       page === "bubble" && section(h(BubbleSkinConfig, { toast: props.toast })),
-      page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
+      page === "auto" && h(AutoRefreshConfig, { characters: props.autoCharacters || props.characters, policy: props.autoRefreshPolicy, onSetGlobal: props.onSetAutoRefreshGlobal, onSetRate: props.onSetAutoRefreshRate, onSetChar: props.onSetAutoRefreshChar, toast: props.toast }),
       page === "data" && section(h(DataConfig, { characters: props.characters, onExport: props.onExport, onCopyExport: props.onCopyExport, copyParts: props.copyParts, onImportText: props.onImportText, inAppBrowser: props.inAppBrowser, onImport: props.onImport, onOffloadChats: props.onOffloadChats, onPruneOld: props.onPruneOld, onClearAll: props.onClearAll, onRescueChar: props.onRescueChar, toast: props.toast })),
       page === "debug" && section(h(CtxDebug, { characters: props.characters, getBundle: props.debugBundleFor })),
       page === "toy" && toyUnlocked && typeof ToyConfig === "function" && section(h(ToyConfig, { toast: props.toast }))));

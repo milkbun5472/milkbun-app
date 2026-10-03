@@ -16,7 +16,9 @@
     { id: "gaze", group: "content", title: "Ta 眼里", sub: "聊够了自动建卡、隔一阵自动复看", globalDefault: true, charDefault: true },
     // ⚠️主动私聊的每人开关原来在聊天设置里另存一份（s.proactive，默认关），两边各显示各的。
     //   现在两边都读写这一份；旧存档开机时由 app.js 把 s.proactive 搬进来（默认关照旧）。
-    { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: false },
+    { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: false,
+      // 中频＝原来那套算法本身；低频、高频是把整套【时间】乘一个倍数——想念攒得慢一半／快一倍，冷却跟着拉长／缩短
+      rates: [{ id: "low", zh: "低频", x: 0.5 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 }] },
     { id: "letter", group: "social", title: "情书", sub: "恋人按你定的频率自己提笔", globalDefault: true, charDefault: true },
     { id: "react", group: "social", title: "顺手点评", sub: "你记完一笔账、勾掉一条提醒时TA搭一句", globalDefault: true, charDefault: true },
     // 下面两样是按「群」「这一场」开的，不按人：设置里只有总闸，细的开关留在各自页面里
@@ -34,7 +36,9 @@
       let chars = v.chars && typeof v.chars === "object" ? { ...v.chars } : {};
       if (f.id === "phone" && !Object.keys(chars).length && legacyPhoneOn) chars = { ...legacyPhoneOn };
       const migrateWeeklyOn = f.id === "weekly" && src.version === 1;
-      features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars };
+      features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars,
+        // 频率档（她 2026-10-03：「整套乘以几倍速」）：只有带 rates 的那几样有，缺省就是中频＝原来那套
+        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : "mid" } : {}) };
     });
     return { version: 2, features, legacyMerged: !!src.legacyMerged };
   }
@@ -80,10 +84,21 @@
   function setGlobal(policy, id, on) {
     const n = normalize(policy); n.features[id] = { ...n.features[id], global: !!on }; return n;
   }
+  function setRate(policy, id, rate) {
+    const n = normalize(policy), f = byId[id];
+    if (!f || !f.rates || !f.rates.some(r => r.id === rate)) return n;
+    n.features[id] = { ...n.features[id], rate }; return n;
+  }
+  // 这一样此刻的倍数（没有档位的一律 1）
+  function rateX(policy, id) {
+    const f = byId[id]; if (!f || !f.rates) return 1;
+    const cur = normalize(policy).features[id].rate;
+    return (f.rates.find(r => r.id === cur) || { x: 1 }).x;
+  }
   function setChar(policy, id, charId, on) {
     const n = normalize(policy), cur = n.features[id];
     n.features[id] = { ...cur, chars: { ...cur.chars, [charId]: !!on } }; return n;
   }
-  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setChar, absorbLegacy, turnOnFor, charOn };
+  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setRate, rateX, setChar, absorbLegacy, turnOnFor, charOn };
   if (typeof module !== "undefined" && module.exports) module.exports = root.AutoRefreshPolicy;
 })(typeof window !== "undefined" ? window : globalThis);
