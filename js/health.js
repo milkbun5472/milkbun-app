@@ -193,6 +193,8 @@
   const SHORTCUT_MARK = "秋秋健康";
   const SHORTCUT_TEMPLATE = [SHORTCUT_MARK, "日期：", "步数：", "睡眠：", "活动能量：", "运动分钟：", "体重：", "喝水：",
     "纬度：", "经度：", "天气：", "气温：", "电量：", ""].join("\n");
+  // 先跑通用的精简版：只有步数、位置、电量三样（教程第 2 步就是先搭这三样）
+  const SHORTCUT_TEMPLATE_MINI = [SHORTCUT_MARK, "步数：", "纬度：", "经度：", "电量：", ""].join("\n");
   const SC_KEYS = [["steps", /^(步数|步|steps?)$/i], ["sleep", /^(睡眠|睡眠小时|睡眠时长|睡觉|sleep)$/i], ["kcal", /^(活动能量|动态能量|运动消耗|消耗|active ?energy)$/i],
     ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i],
     ["lat", /^(纬度|lat|latitude)$/i], ["lon", /^(经度|lon|lng|longitude)$/i], ["place", /^(地点|位置|地址|place|location)$/i],
@@ -513,10 +515,11 @@
         h(Section, { S, title: "搭一次快捷指令（iPhone）" },
           step(1, "新建快捷指令", "打开「快捷指令」App →「＋」。名字随便起，比如「秋秋健康」。"),
           step(2, "加动作：先只放步数、电量、位置三样", "先跑通三样，再往里加别的，出错好找。点底下「搜索操作」，依次加：\n① 查找健康样本：「类型」选 步数，「添加过滤条件」设成 开始日期 是 今天\n② 计算统计数据（搜「统计」）：选 总和——算出来的就是今天总步数\n③ 获取电池电量\n④ 获取当前位置\n以后想加：睡眠是「查找健康样本」类型选 睡眠分析、开始日期选 过去 1 天，再「计算统计数据」统计时长的总和；天气是「获取当前天气」；活动能量、锻炼分钟、体重、水都跟步数一个做法。"),
-          step(3, "加一个「文本」动作，贴进模板、填变量", "点下面的「复制模板」，粘进「文本」里。用不上的行可以删掉，也可以空着。\n填变量：把光标点到冒号后面，键盘上方会出现变量栏——\n· 步数：后面选「统计数据」\n· 电量：后面选「电池电量」\n· 纬度：后面选「当前位置」，再点一下这个变量，属性选「纬度」；经度同理选「经度」\n日期那行空着就算今天。"),
-          h("div", { style: { margin: "4px 0 6px 36px", padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre-wrap", lineHeight: 1.7 } }, SHORTCUT_TEMPLATE.trim()),
-          h("div", { style: { marginLeft: 36 } },
-            h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(SHORTCUT_TEMPLATE); toast && toast(ok ? "模板已复制" : "没复制上，长按上面那段自己复制"); }, style: btnS(S) }, "复制模板")),
+          step(3, "加一个「文本」动作，贴进模板、填变量", "先点下面的「复制精简版」，粘进「文本」里；以后加了睡眠、天气这些，再换成「复制完整版」。用不上的行可以删掉，也可以空着。\n填变量：把光标点到冒号后面，键盘上方会出现变量栏——\n· 步数：后面选「统计数据」\n· 电量：后面选「电池电量」\n· 纬度：后面选「当前位置」，再点一下这个变量，属性选「纬度」；经度同理选「经度」\n日期那行空着就算今天。"),
+          [["先跑通用的精简版（三样）", SHORTCUT_TEMPLATE_MINI, "复制精简版"], ["想要的都加上以后换成完整版", SHORTCUT_TEMPLATE, "复制完整版"]].map(m => h("div", { key: m[2], style: { margin: "6px 0 12px 36px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginBottom: 4 } }, m[0]),
+            h("div", { style: { padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre-wrap", lineHeight: 1.7 } }, m[1].trim()),
+            h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(m[1]); toast && toast(ok ? "已复制" : "没复制上，长按上面那段自己复制"); }, style: Object.assign(btnS(S), { marginTop: 8 }) }, m[2]))),
           step(4, "最后加「拷贝到剪贴板」，再加「打开 App」", "「拷贝到剪贴板」拷的是上面那个文本；「打开 App」选秋秋机（用浏览器的就选 Safari）。\n点右下角 ▶ 试跑。第一次会问能不能读健康数据和位置，都点「允许」。"),
           step(5, "回到这里点「导入」", "健康页「今天」最上面那行的「导入」。第一次 iPhone 会问能不能粘贴，点允许。\n想每天自动跑：快捷指令 →「自动化」→「特定时间」，比如每晚十点跑它，第二天打开点一下就进来了。")),
         h(Section, { S, title: "剪贴板读不到的话，贴在这儿" },
@@ -847,7 +850,7 @@
   }
 
   g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
-  g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
+  g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, SHORTCUT_TEMPLATE_MINI, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电
   g.GHealth = function (p) {
