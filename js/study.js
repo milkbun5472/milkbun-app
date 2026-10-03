@@ -1666,8 +1666,30 @@
     return tk.bg2 && typeof paletteAlpha === "function"
       ? paletteAlpha(tk.bg2, Math.round(a * 255).toString(16).padStart(2, "0")) : "rgba(251,248,239," + a + ")";
   }
-  // 三种模式各一支色（她 2026-10-03：「都要改」）：主题台给了点缀色，三种模式都用它
-  //   （soft 是它的淡底）；没给照旧各是各的绿／紫／蓝。名字、编号不动。
+  // 三种模式各一支色（她 2026-10-03：「都要改」「为啥不能三种分开算颜色」）：
+  //   主题台只有一支点缀色，所以从它【算】出三支——认真教就是它本身，一起研究、一教一学
+  //   在色环上往两边各转 70°，明暗和浓淡跟它一样，看着是同一套又分得开（soft 是各自的淡底）。
+  //   没给点缀色照旧各是各的绿／紫／蓝；给的不是 #hex／rgb() 这种算不动的写法，就三种共用它。
+  const STUDY_MODE_TURN = { teach: 0, costudy: 70, nv1: -70 };
+  function studyTurnHue(color, deg) {
+    const c = String(color || "").trim();
+    let r, g, b;
+    let m = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (m) { const x = m[1].length === 3 ? m[1].split("").map(function (d) { return d + d; }).join("") : m[1]; r = parseInt(x.slice(0, 2), 16); g = parseInt(x.slice(2, 4), 16); b = parseInt(x.slice(4, 6), 16); }
+    else if ((m = c.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i))) { r = +m[1]; g = +m[2]; b = +m[3]; }
+    else return c;
+    if (!deg) return c;
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    let hh = 0, ss = 0;
+    if (d) {
+      ss = d / (1 - Math.abs(2 * l - 1));
+      hh = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      hh *= 60;
+    }
+    hh = ((hh + deg) % 360 + 360) % 360;
+    return "hsl(" + Math.round(hh) + "," + Math.round(ss * 100) + "%," + Math.round(l * 100) + "%)";
+  }
   const STUDY_MODE_BASE = {
     teach: { accent: "#657c60", soft: "#e5ebdf", label: "老师批注", code: "01" },
     costudy: { accent: "#78698e", soft: "#ebe5f0", label: "共同研究", code: "02" },
@@ -1677,8 +1699,9 @@
   Object.keys(STUDY_MODE_BASE).forEach(function (mode) {
     const base = STUDY_MODE_BASE[mode], o = { label: base.label, code: base.code };
     const tint = function () { return ((window.ThemeStudio && window.ThemeStudio.tokensFor) ? window.ThemeStudio.tokensFor("study") : {}).tint; };
-    Object.defineProperty(o, "accent", { enumerable: true, get: function () { return tint() || base.accent; } });
-    Object.defineProperty(o, "soft", { enumerable: true, get: function () { const c = tint(); return c && typeof paletteAlpha === "function" ? paletteAlpha(c, "24") : base.soft; } });
+    const mine = function () { const c = tint(); return c ? studyTurnHue(c, STUDY_MODE_TURN[mode] || 0) : ""; };
+    Object.defineProperty(o, "accent", { enumerable: true, get: function () { return mine() || base.accent; } });
+    Object.defineProperty(o, "soft", { enumerable: true, get: function () { const c = mine(); return c && typeof paletteAlpha === "function" ? paletteAlpha(c, "24") : base.soft; } });
     STUDY_MODE_SKIN[mode] = o;
   });
   function studyModeSkin(mode) { return STUDY_MODE_SKIN[mode] || STUDY_MODE_SKIN.teach; }

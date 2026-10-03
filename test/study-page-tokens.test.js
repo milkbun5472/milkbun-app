@@ -33,8 +33,15 @@ test("三种模式的色、半透明那几层纸也跟主题台走；没改照�
   assert.equal(r.STUDY_MODE_SKIN.costudy.accent, "#78698e");
   assert.equal(r.studyPaperA(.9), "rgba(251,248,239,0.9)");
   tokens = { tint: "#c25a7a", bg2: "#ffffff" };
-  assert.equal(r.STUDY_MODE_SKIN.teach.accent, "#c25a7a");
-  assert.equal(r.STUDY_MODE_SKIN.nv1.soft, "#c25a7a24");
+  assert.equal(r.STUDY_MODE_SKIN.teach.accent, "#c25a7a", "认真教就是她给的那支");
+  const co = r.STUDY_MODE_SKIN.costudy.accent, nv = r.STUDY_MODE_SKIN.nv1.accent;
+  assert.match(co, /^hsl\(/); assert.match(nv, /^hsl\(/);
+  assert.notEqual(co, nv, "三种要分得开");
+  assert.equal(co.split(",").slice(1).join(","), nv.split(",").slice(1).join(","), "只转色相，明暗浓淡一样");
+  assert.equal(r.STUDY_MODE_SKIN.nv1.soft, nv + "24");
+  tokens = { tint: "teal", bg2: "#ffffff" };
+  assert.equal(r.STUDY_MODE_SKIN.costudy.accent, "teal", "算不动的写法就三种共用");
+  tokens = { tint: "#c25a7a", bg2: "#ffffff" };
   assert.equal(r.STUDY_MODE_SKIN.nv1.label, "三人课堂");
   assert.equal(r.studyPaperA(.9), "#ffffffe6");
   assert.ok(!/"rgba\(251,248,239,\.\d+\)"/.test(src), "写死的半透明纸色又回来了");
