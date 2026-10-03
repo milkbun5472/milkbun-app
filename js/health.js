@@ -553,7 +553,7 @@
         h(Section, { S, title: "我有自己的网关", wk: "healthgateway" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7, marginBottom: 6 } },
             "没有就不用管，导入照旧用剪贴板。有的话：让快捷指令每天定时用「获取 URL 内容」把那段字发给你的网关，网关存着最新一份；在这儿填它给出那一份的地址，秋秋机每次打开、切回来时去拿一次，就不用再点导入了。网关要用 https，并允许跨域访问。"),
-          h("input", { value: d.gateway.url || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { url: e.target.value.trim() }) }), placeholder: "https://…（GET 这个地址拿最新一份）", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
+          h("input", { value: d.gateway.url || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { url: e.target.value.trim() }) }), placeholder: "网关地址，https 开头", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
           h("input", { value: d.gateway.key || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { key: e.target.value.trim() }) }), placeholder: "密钥（可空，会放在 Authorization: Bearer 里）", style: inputS(S) }),
           h("div", { className: "flex items-center", style: { gap: 10, marginTop: 12 } },
             h("button", { disabled: !d.gateway.url, onClick: onPull, style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: d.gateway.url ? 1 : 0.5 }) }, "现在拿一次"),
