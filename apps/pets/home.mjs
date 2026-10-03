@@ -1,4 +1,4 @@
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-a9ae1eeede4db867';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-a5c824e01c0556ff';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw}){
  let nav,route=[],pendingTask=null,homeTime=0,poseBase=null,food=[];
  const toy=new T.Group(),ball=new T.Mesh(new T.SphereGeometry(.095,16,12),new T.MeshStandardMaterial({color:'#d6a08d',roughness:.85}));

@@ -34,13 +34,13 @@
   "models": [
     {
       "path": "art/pet-house/cat.glb",
-      "bytes": 282872,
-      "sha256": "e0e987fdaf696db35f136943c3f6ae224ad77e48f074453703738b213071e1ff"
+      "bytes": 276728,
+      "sha256": "1304b1c0b896061e860165b8fe681c5a6785055ee97d0f51bb98ee644a3520da"
     },
     {
       "path": "art/pet-house/dog.glb",
-      "bytes": 344832,
-      "sha256": "4db0605c7a791d1d320561b6e0714ad47c46489566a96218ef2c3adca4cd2b27"
+      "bytes": 331360,
+      "sha256": "f9dc301fa8169e6f5d081a418a998c92b6e24e33d79f96b8aa7a6c2140f8119e"
     },
     {
       "path": "art/pet-house/room.glb",

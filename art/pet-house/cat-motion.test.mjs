@@ -52,15 +52,15 @@ test('the exported cat contains a skin and all runtime bones; original source re
  assert.equal(report.catSourceSha256,'404fae1c8f47baf08e7c0f64597295fc8a6f12cfcf8d0324dc65bd40b89f5f7b');
 });
 
-test('one walk cycle yields a rear/front four-beat order and three planted paws',async()=>{
+test('one walk cycle yields a rear/front four-beat order and overlapping two/three paw support',async()=>{
  const {walkPhase}=await import('./cat-motion.mjs');
- const names=['backL','frontL','backR','frontR'],landings=[];
+ const names=['backL','frontL','backR','frontR'],landings=[],supports=new Set();
  for(let i=0;i<1000;i++){
   const p=i/1000;
-  assert.ok(names.filter(n=>sampleFoot(walkPhase(p,n),rig).stance).length>=3);
+  const support=names.filter(n=>sampleFoot(walkPhase(p,n),rig).stance).length;supports.add(support);assert.ok(support>=2);
   for(const n of names)if(walkPhase(p,n)<.0005)landings.push(n);
  }
- assert.deepEqual(landings,['backL','frontL','backR','frontR']);
+ assert.deepEqual(landings,['backL','frontL','backR','frontR']);assert.ok(supports.has(2)&&supports.has(3));
 });
 test('dog export has the same complete motion contract and records the untouched source',async()=>{
  const {normalizeTail}=await import('./cat-motion.mjs');
@@ -71,4 +71,9 @@ test('dog export has the same complete motion contract and records the untouched
  for(const name of Object.keys(rig.bones))assert.ok(gltf.nodes.some(n=>n.name===name));
  const report=JSON.parse(readFileSync(new URL('./dog-report.json',import.meta.url)));
  assert.equal(report.dogBytes,b.length);assert.ok(b.length<500000);assert.equal(report.sourceSha256,'850144996492084e0de67d7cc8a340480845f8498d33ff48d05dfbb741e576ce');
+});
+
+test('outdoor trot alternates diagonal pairs rather than accelerating the four-beat walk',async()=>{
+ const {TROT_PHASE}=await import('./cat-motion.mjs');assert.equal(TROT_PHASE.frontL,TROT_PHASE.backR);assert.equal(TROT_PHASE.frontR,TROT_PHASE.backL);assert.equal(Math.abs(TROT_PHASE.frontL-TROT_PHASE.frontR),.5);
+ for(const name of ['cat','dog']){const meta=JSON.parse(readFileSync(new URL('./'+name+'-rig.json',import.meta.url)));assert.deepEqual(meta.headRigid,{minHeight:.41,maxForwardY:.18});}
 });

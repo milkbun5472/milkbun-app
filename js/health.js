@@ -550,7 +550,7 @@
         h(Section, { S, title: "在 Cloudflare 上搭" },
           step(1, "注册 Cloudflare", "打开 dash.cloudflare.com，用邮箱注册一个免费账号（不用绑卡）。"),
           step(2, "建一个 KV（存数据的地方）", "左边菜单「存储和数据库」→「KV」（英文界面：Storage & Databases → Workers KV）→「创建」（Create）。名字随便，比如 qq-health。\n⚠️建好就行，里面什么都不用加——别点「Add entry」往里填东西。代码和密钥都不放这儿，放在下一步的 Worker 里。"),
-          step(3, "建一个 Worker", "左边菜单「Workers 和 Pages」（Workers & Pages）→「创建」（Create）→「创建 Worker」（Create Worker / Start with Hello World）→ 名字随便起 → 部署（Deploy）。\n部署完点「编辑代码」（Edit code），把里面原来的代码全删掉，换成下面这段，再点右上角「部署」（Deploy）。",
+          step(3, "建一个 Worker", "左边菜单「计算」（Compute，点开它）→「Workers 和 Pages」（Workers & Pages）→「创建」（Create）→「创建 Worker」（Create Worker / Start with Hello World）→ 名字随便起 → 部署（Deploy）。\n部署完点「编辑代码」（Edit code），把里面原来的代码全删掉，换成下面这段，再点右上角「部署」（Deploy）。",
             code(GATEWAY_WORKER, "复制网关代码")),
           step(4, "把 KV 接上", "回到这个 Worker 的页面 →「设置」（Settings）→「绑定」（Bindings）→「添加」（Add）→ 选「KV 命名空间」（KV namespace）。\n变量名（Variable name）一定要填 HEALTH（大写），命名空间选第 2 步建的那个，保存。"),
           step(5, "设一把密钥", "还是 Worker 的「设置」（Settings）→「变量和机密」（Variables and Secrets）→「添加」（Add），类型选「密钥」（Secret），变量名填 SECRET（大写），值自己编一串别人猜不到的，比如二三十位乱码。保存（Deploy）。\n这串记下来，下面两处都要填同一串。"),

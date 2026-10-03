@@ -57,7 +57,12 @@ def rig_pet(objects,out,species):
     def setcol(name,v):weights[:,names.index(name)]=v
     ax=np.abs(x)
     # Head and tail masks are disjoint; fur clumps blend through the neck/root.
-    head=smooth((-.13-y)/.10)*smooth((z-.275)/.08)
+    # The whole skull (including the rear dome and ears) is one rigid
+    # region. Only the lower neck blends with the chest; a front/back Y
+    # threshold alone would assign the back of the skull to the torso.
+    face=smooth((-.13-y)/.10)*smooth((z-.275)/.08)
+    skull=smooth((z-.34)/.07)*(1-smooth((y-.18)/.08))
+    head=np.maximum(face,skull)
     tail=smooth((y-(.335 if species=='cat' else .32))/.095)*smooth((z-(.335 if species=='cat' else .415))/.075)
     limb=smooth((.335-z)/.105)*(1-head)*(1-tail)
     # Belly belongs to the torso above the crotch; paw soles are entirely rigid.
@@ -87,8 +92,8 @@ def rig_pet(objects,out,species):
     bounds=[web(points.min(0)),web(points.max(0))]
     meta={'version':2,'height':float(points[:,2].max()-points[:,2].min()),
           'bones':{n:{'head':web(a),'tail':web(b)} for n,(a,b) in bones.items()},'legs':legs,
-          'species':species,'duty':.76,'stride':.13,'cycle':1.10 if species=='cat' else .95,'lift':.032 if species=='cat' else .035,
-          'bounds':bounds}
+          'species':species,'duty':.68,'stride':.13,'cycle':1.00 if species=='cat' else .95,'lift':.025 if species=='cat' else .027,
+          'bounds':bounds,'headRigid':{'minHeight':.41,'maxForwardY':.18}}
     rig['catRig']=meta
     mask_report=make_dye_mask(mesh,out,species)
     meta['dye']=mask_report
