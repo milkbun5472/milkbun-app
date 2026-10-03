@@ -709,18 +709,24 @@ function callBubble(isMe) {
 //   撕下来的一条纸，左边压一道墨线，右上角一个 ✕ 可以把它拿掉。
 //   换个 app 还成立的形状（一颗灰药丸、一行小字）就是没设计（tabs-not-plain-pills.md）。
 // ⚠️颜色一律从 t 兑：深色主题里写死的白纸黑字会翻车。
-function SysNote({ label, text, tone, onClose, title }) {
+// 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
+const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
+// 挂点（她 2026-10-03：「拉黑那个系统小纸条也要挂点」）：sysnote 带 data-kind（block＝拉黑/解除那几张，其余 system）
+function SysNote({ label, text, tone, onClose, title, kind }) {
   const t = useTheme();
   const col = tone === "warn" ? t.accent : t.fog;
+  // 调用处一处不动：拉黑那几张按字认出来，抬头那行「系统」换成「拉黑」
+  kind = kind || sysNoteKind({ content: text });
+  if (kind === "block" && label === "系统") label = "拉黑";
   return h("div", { className: "flex justify-center my-3 px-5" },
-    h("div", { style: { position: "relative", maxWidth: "88%", minWidth: 0, display: "flex", gap: 9,
+    h("div", { "data-wk": "sysnote", "data-kind": kind, style: { position: "relative", maxWidth: "88%", minWidth: 0, display: "flex", gap: 9,
         padding: "8px 30px 9px 10px", background: skinAlpha(t.bg2, "e6"),
         border: "1px dashed " + hexA(t.ink, .22), borderLeft: "2px solid " + hexA(col, .55),
         borderRadius: "2px 8px 8px 2px" } },
       h("div", { style: { minWidth: 0, flex: 1 } },
-        label ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: col, opacity: .85, marginBottom: 3 } }, label) : null,
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.7, color: tone === "warn" ? t.sub : t.fog, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text)),
-      onClose ? h("button", { onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClose(); },
+        label ? h("div", { "data-wk": "sysnotelabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".16em", color: col, opacity: .85, marginBottom: 3 } }, label) : null,
+        h("div", { "data-wk": "sysnotetext", style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.7, color: tone === "warn" ? t.sub : t.fog, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text)),
+      onClose ? h("button", { "data-wk": "sysnoteclose", onClick: function (e) { e.preventDefault(); e.stopPropagation(); onClose(); },
         className: "active:opacity-50", title: title || "从屏幕上拿掉",
         style: { position: "absolute", right: 2, top: 2, width: 26, height: 26, display: "flex", alignItems: "center", justifyContent: "center",
           fontFamily: F_BODY, fontSize: 12, lineHeight: 1, color: t.fog, background: "transparent", border: "none" } }, "✕") : null));

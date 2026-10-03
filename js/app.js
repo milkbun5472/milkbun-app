@@ -11868,7 +11868,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 拉黑的【原因和时刻】必须留下来：解除判定要拿它当尺子，
         // 以前只存了个 true，判词只能空对空地"看你诚不诚恳"（她 2026-08-20 说太容易解除）
         setBlockFor(chatKey, { theyBlocked: true, reason: String(parsed.blockreason || "").trim(), blockedTs: Date.now(), tries: 0 });
-        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), ts: Date.now() }]);
+        pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "TA 把你拉黑了" + (parsed.blockreason ? "：" + parsed.blockreason : ""), sub: "block", ts: Date.now() }]);
         delivered = true;
       }
       // TA 说要去补朋友圈评论 → 真的发到我最新那条朋友圈下
@@ -14332,10 +14332,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const toggleBlock = (charId, chatKey = charId) => {
     const cur = blocksRef.current[chatKey] || {};
-    if (cur.iBlocked) { setBlockFor(chatKey, { iBlocked: false }); toast("已解除拉黑"); }
+    if (cur.iBlocked) { setBlockFor(chatKey, { iBlocked: false }); toast("已解除拉黑"); pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "你解除了拉黑", sub: "block", ts: Date.now() }]); }
     else {
       setBlockFor(chatKey, { iBlocked: true, blockedTs: Date.now() });
-      pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "你拉黑了 TA", ts: Date.now() }]);
+      pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "你拉黑了 TA", sub: "block", ts: Date.now() }]);
       toast("已拉黑");
     }
   };
