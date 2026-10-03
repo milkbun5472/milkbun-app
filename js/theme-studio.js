@@ -405,7 +405,7 @@
     Object.freeze({zh:"论坛",pages:Object.freeze(["forum"]),hooks:Object.freeze([["fochip", "版块切换的小标签（data-on=\"1\" 是当前那个）"], ["forow", "帖子流里的一张帖子卡（data-me=\"1\" 我发的，data-anon=\"1\" 匿名）"], ["foname", "帖子卡上的作者名"], ["fobody", "帖子卡正文预览"], ["foacts", "帖子卡底部操作栏"], ["fofloor", "帖子详情里的一层楼（data-me=\"1\" 我的，data-new=\"1\" 新楼）"], ["foreplies", "楼中楼回复框"], ["fosend", "详情页底部回复栏的发送键"], ["fofab", "右下角悬浮的发帖键"]])}),
     Object.freeze({zh:"日记",pages:Object.freeze(["diary"]),hooks:Object.freeze([["diauthor", "日记本列表里每个人的一行（data-on=\"1\" 当前那本，data-me=\"1\" 我自己）"], ["diname", "那一行里的名字"], ["dirow", "一篇日记（data-me=\"1\" 我写的）"], ["didate", "日记左侧的日期块"], ["dititle", "日记标题"], ["dibody", "日记正文预览"], ["dimarks", "条目下方的小标记行（划掉/秘密/贴纸、几人看过）"], ["dipen", "右上角写日记的铅笔键"], ["dipage", "翻页阅读时的单页日记"]])}),
     Object.freeze({zh:"情侣空间",pages:Object.freeze(["us"]),hooks:Object.freeze([["uscouple", "情侣列表的一行（data-on=\"1\" 在一起，否则邀请中；data-new=\"1\" 有新东西）"], ["usname", "列表行里的角色名"], ["uscount", "列表行里「在一起 N 天」的天数大字"], ["usdays", "空间内页「在一起 N 天」那一组"], ["usnow", "「TA 此刻」那张便签"], ["uswall", "墙上的功能卡片（data-kind＝模块）"], ["usspine", "「收着的」那一列书脊入口（data-kind＝letters/exdiary/qa/capsule…；data-new=\"1\" 有新内容）"], ["useyebrow", "各区块的小眉标标题"]])}),
-    Object.freeze({zh:"时刻",pages:Object.freeze(["shike"]),hooks:Object.freeze([["shikepage","时刻整页"],["shikecard","横着滑的那张角色卡（data-on=\"1\" 是选中的）"],["shikeitem","一个时刻（data-kind=meet/us/bday/fest）"]])}),
+    Object.freeze({zh:"时刻",pages:Object.freeze(["shike"]),hooks:Object.freeze([["shikepage","时刻外层整页（横着滑那一层）"],["shikecard","横着滑的那张整屏 CG 卡（data-on=\"1\" 是当前停着的）"],["shikedetail","点进一个人以后的那一页"],["shikehero","里层顶上那张大图"],["shikeitem","一个时刻（data-kind=meet/us/bday/fest）"]])}),
     Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pommore","手动补充陪伴话与回看入口"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
     Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
       ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
@@ -477,6 +477,15 @@
         ["astrotabs", "顶上那条星座连线（今日运势／配对）"], ["astrocard", "每一块卡片"],
         ["astrolucky", "幸运色那一格"], ["astrosyn", "配对里「合盘」那一段"], ["astrosign", "配对里「星座配对」那一段"], ["astroshuku", "配对里「星宿关系」那一段"],
         ["astronote", "TA看完说的那段话"]
+      ])
+    }),
+    // 健康（v74.640）：坐标纸底、心电图 tab
+    Object.freeze({
+      zh: "健康", pages: Object.freeze(["health"]),
+      hooks: Object.freeze([
+        ["healthtabs", "顶上那条心电图（今天／身体／这周）"], ["healthcard", "每一段"], ["healthsum", "热量环和三大营养素那一块"],
+        ["healthmeals", "吃了什么那一段"], ["healthwater", "喝水那一排杯子"], ["healthmood", "心情那五张脸"],
+        ["healthweight", "体重那一段"], ["healthperiod", "经期那一段"], ["healthweek", "七天的热量柱"], ["healthnote", "TA看完这周说的话"]
       ])
     }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。
@@ -841,7 +850,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.652", changed: "拉黑提示条 blockbar（含 icon、title、hint、btn）与解除申请卡 unblockcard（含 title、body、btns、status）", none: "" };
+  const BRIEF_STAMP = { v: "v74.654", changed: "新页面健康：挂点 healthtabs、healthcard、healthsum、healthmeals、healthwater、healthmood、healthweight、healthperiod、healthweek、healthnote", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

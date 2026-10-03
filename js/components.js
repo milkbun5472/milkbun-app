@@ -3072,6 +3072,22 @@ function periodCycleOf(period) {
   };
 }
 function periodSpanLen(p, defLen) { return p.end ? (Math.round((pKeyDate(p.end) - pKeyDate(p.start)) / 86400000) + 1) : defLen; }
+// 此刻在周期的哪一段（v74.640 从聊天上下文那条 periodNote 里提出来：健康 app 也要同一份判断，不许各算各的）。
+// phase 是给模型读的那句，label 是给她看的短标签；next＝离下次大约几天。没记过 → null。
+function periodPhaseNow(period, now) {
+  const list = periodList(period);
+  if (!list.length) return null;
+  const lastP = list[list.length - 1];
+  const today = new Date(now || Date.now()); today.setHours(0, 0, 0, 0);
+  const _pc = periodCycleOf(period), cyc = _pc.cyc, pLen = periodSpanLen(lastP, _pc.len);
+  const dic = Math.floor((today - pKeyDate(lastP.start)) / 86400000) % cyc;
+  if (dic < 0) return null;
+  const next = cyc - dic;
+  if (dic < pLen) return { kind: "period", day: dic + 1, next, phase: "正处于经期（第 " + (dic + 1) + " 天）", label: "经期第 " + (dic + 1) + " 天" };
+  if (Math.abs(dic - (cyc - 14)) <= 2) return { kind: "ov", next, phase: "接近排卵日", label: "接近排卵日" };
+  if (dic >= cyc - 4) return { kind: "pre", next, phase: "经前期，接近下次经期", label: "经前期" };
+  return { kind: "safe", next, phase: "处于相对安全期", label: "相对安全期" };
+}
 function periodMap(period) {
   const map = {};
   if (!period) return map;
@@ -5190,7 +5206,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 //   名字按她自己的口气起（查一查／每日看／一起做／一起玩 都是她起的）。
 const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
-  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro"] },
+  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
@@ -5361,6 +5377,7 @@ function Home({
     var st = loadJSON("x_homeFolders", {});
     if (st && Object.keys(st).length) st = placeAstroOnce(st);
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shike", "impression", "x_shikePlaced");
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "health", "astro", "x_healthPlaced");
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -5434,6 +5451,7 @@ function Home({
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },
+    health: { kind: "app", zh: "健康", G: window.GHealth || GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
     companion: { kind: "app", zh: "陪伴", G: window.GCompanion || GFocus },
     games: { kind: "app", zh: "小游戏", G: GGame },

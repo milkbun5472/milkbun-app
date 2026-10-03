@@ -384,11 +384,7 @@
   }
 
   // ── 提示词（只给【她看到的那份算出来的结果】，怎么说由他自己）──
-  function voiceTail() {
-    return (typeof ECHO_QUESTION_BAN !== "undefined" ? "\n\n" + ECHO_QUESTION_BAN : "")
-      + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : "")
-      + (g.ReplyPacing ? "\n\n" + g.ReplyPacing.reading() : "");
-  }
+  const voiceTail = () => (typeof probeVoiceTail === "function" ? probeVoiceTail() : "");
   function signName(i) { return i >= 0 ? SIGNS[i][0] + "座" : "不知道什么星座"; }
 
   // ── 画 ────────────────────────────────────────────────────

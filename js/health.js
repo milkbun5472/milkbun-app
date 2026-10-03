@@ -1,0 +1,506 @@
+// ============================================================
+// 健康（v74.640，她 2026-10-03：「按你说的先做健康app吧，页面简洁点方便操作但是不要没有设计感光秃秃」）
+//
+// 第一批：饮食（热量）、喝水、体重、经期（跟日历月事本【同一份】x_period）、心情、这一周。
+// 运动/步数、睡眠先不做；接手机健康数据要走快捷指令 → 云端收件箱，另起一版。
+//
+// 角色监督是【她自己开的开关】：开不开、谁来管、饭点会不会主动来问，都在「谁看着」那一页。
+//   · 上下文只给她点名的那几位，而且只在用得上的时候给一行事实（饭点前后、她刚记过一餐）——
+//     不是每轮都塞，也不附带「该怎么管」的规矩：怎么管、管不管，是那个人自己的事。
+//   · 主动来问一天最多两次（午饭、晚饭），她那一顿已经记了就不问。
+//
+// 外卖 app 里点的是角色那边的假单子，不进这里（她 2026-10-03：「外卖是假的app角色的外卖啦」）。
+// ============================================================
+(function () {
+  "use strict";
+  const g = typeof window !== "undefined" ? window : globalThis;
+  const KEY = "x_health", NUDGE_KEY = "x_healthNudge";
+
+  // ── 日子 ────────────────────────────────────────────────────
+  // 日期键走 ScheduleClock 那一处（补零的那种），不另写一份格式
+  const dayOf = d => g.ScheduleClock.deviceDayKey(d || new Date());
+  const shift = (k, n) => g.ScheduleClock.shiftDayKey(k, n);
+
+  // ── 存档 ────────────────────────────────────────────────────
+  const BLANK = () => ({
+    meals: [],          // [{ id, day, meal, name, kcal, p, c, f, qty, src, ts }]
+    water: {},          // { day: 杯数 }
+    weight: [],         // [{ day, kg }]，一天一条，新记的盖旧的
+    mood: {},           // { day: { v: 0-4, note } }
+    symptoms: {},       // { day: ["痛经", …] }
+    goal: { kcal: 1800, water: 8, kg: null },
+    watch: { on: false, ids: [], nudge: false }
+  });
+  function load() {
+    const d = typeof loadJSON === "function" ? loadJSON(KEY, null) : null;
+    const b = BLANK();
+    if (!d || typeof d !== "object") return b;
+    return Object.assign(b, d, {
+      goal: Object.assign(b.goal, d.goal || {}),
+      watch: Object.assign(b.watch, d.watch || {})
+    });
+  }
+  const save = d => { if (typeof saveJSON === "function") saveJSON(KEY, d); return d; };
+
+  const MEALS = [["breakfast", "早餐"], ["lunch", "午餐"], ["dinner", "晚餐"], ["snack", "加餐"]];
+  const mealName = k => (MEALS.find(m => m[0] === k) || [k, k])[1];
+
+  // 常见的那些，一份的量（热量千卡；蛋白/碳水/脂肪克）。查不到就让模型估、或者自己填。
+  const FOODS = [
+    ["米饭", "一碗", 230, 4, 51, 0.5], ["杂粮饭", "一碗", 210, 5, 44, 1.5], ["白粥", "一碗", 110, 2, 24, 0.3],
+    ["馒头", "一个", 220, 7, 45, 1], ["包子（肉）", "一个", 230, 8, 30, 8], ["饺子（猪肉）", "十个", 450, 18, 50, 19],
+    ["面条（汤面）", "一碗", 400, 14, 70, 6], ["牛肉面", "一碗", 550, 25, 75, 15], ["炒面", "一盘", 650, 15, 80, 28],
+    ["煎饼果子", "一套", 500, 14, 60, 22], ["油条", "一根", 270, 4, 30, 15], ["豆浆", "一杯", 90, 7, 6, 4],
+    ["全麦面包", "两片", 160, 7, 28, 2], ["吐司（白）", "两片", 170, 5, 32, 2], ["燕麦片", "一碗", 150, 5, 27, 3],
+    ["鸡蛋（水煮）", "一个", 75, 6, 0.5, 5], ["煎蛋", "一个", 110, 6, 0.5, 9], ["牛奶", "一杯", 150, 8, 12, 8],
+    ["酸奶", "一杯", 140, 6, 20, 4], ["鸡胸肉", "一块", 165, 31, 0, 4], ["牛排", "一块", 400, 40, 0, 26],
+    ["三文鱼", "一块", 280, 30, 0, 17], ["番茄炒蛋", "一份", 220, 12, 9, 15], ["青椒肉丝", "一份", 300, 16, 10, 22],
+    ["宫保鸡丁", "一份", 450, 28, 20, 28], ["红烧肉", "一份", 600, 18, 12, 52], ["麻婆豆腐", "一份", 320, 16, 10, 24],
+    ["清炒时蔬", "一份", 120, 3, 10, 8], ["凉拌黄瓜", "一份", 60, 1, 6, 4], ["沙拉（油醋）", "一碗", 180, 4, 12, 13],
+    ["麻辣烫", "一碗", 600, 25, 60, 28], ["火锅", "一顿", 1000, 50, 60, 60], ["黄焖鸡米饭", "一份", 850, 40, 90, 34],
+    ["汉堡", "一个", 520, 25, 45, 26], ["薯条", "中份", 340, 4, 44, 16], ["炸鸡", "两块", 500, 30, 18, 33],
+    ["披萨", "两块", 560, 24, 66, 22], ["寿司", "八个", 400, 16, 70, 6], ["便利店饭团", "一个", 190, 5, 38, 2],
+    ["苹果", "一个", 95, 0.5, 25, 0.3], ["香蕉", "一根", 105, 1.3, 27, 0.4], ["橙子", "一个", 70, 1.2, 17, 0.2],
+    ["葡萄", "一小串", 100, 1, 26, 0.3], ["坚果", "一小把", 170, 6, 6, 15], ["薯片", "一小包", 270, 3, 26, 17],
+    ["巧克力", "一小块", 150, 2, 16, 9], ["蛋糕", "一块", 350, 5, 45, 17], ["冰淇淋", "一球", 140, 2, 16, 7],
+    ["奶茶（全糖）", "一杯", 450, 4, 75, 14], ["奶茶（三分糖）", "一杯", 300, 4, 45, 12], ["美式咖啡", "一杯", 10, 0.5, 1.5, 0],
+    ["拿铁", "一杯", 190, 10, 15, 10], ["可乐", "一罐", 140, 0, 35, 0], ["啤酒", "一罐", 150, 1.5, 13, 0]
+  ].map(r => ({ name: r[0], unit: r[1], kcal: r[2], p: r[3], c: r[4], f: r[5] }));
+
+  // ── 算 ────────────────────────────────────────────────────
+  const mealsOn = (d, day) => (d.meals || []).filter(m => m.day === day);
+  const sum = (rows, k) => Math.round(rows.reduce((a, m) => a + (Number(m[k]) || 0) * (Number(m.qty) || 1), 0));
+  function dayTotals(d, day) {
+    const rows = mealsOn(d, day);
+    return { kcal: sum(rows, "kcal"), p: sum(rows, "p"), c: sum(rows, "c"), f: sum(rows, "f"), n: rows.length,
+      water: Number((d.water || {})[day]) || 0, mood: (d.mood || {})[day] || null, sym: (d.symptoms || {})[day] || [] };
+  }
+  function weekOf(d, endDay) {
+    const days = [];
+    for (let i = 6; i >= 0; i--) days.push(shift(endDay, -i));
+    return days.map(day => Object.assign({ day }, dayTotals(d, day)));
+  }
+  function weightTrend(d) {
+    const w = (d.weight || []).slice().sort((a, b) => (a.day < b.day ? -1 : 1));
+    return w.slice(-30);
+  }
+
+  // ── 角色那一头：一行事实，按需给 ─────────────────────────────
+  // 饭点窗口用她这边的钟（吃饭的是她）：早 6:30–9:30、午 11–13:30、晚 17–20
+  const WINDOWS = [["breakfast", 390, 570], ["lunch", 660, 810], ["dinner", 1020, 1200]];
+  const minuteNow = now => { const t = new Date(now || Date.now()); return t.getHours() * 60 + t.getMinutes(); };
+  const windowAt = now => { const m = minuteNow(now); return (WINDOWS.find(w => m >= w[1] && m <= w[2]) || [null])[0]; };
+  // noteFor：只给她点了名的人；只在饭点前后、或她两小时内刚记过一餐时出一行，其余时候空字符串＝零 token
+  function noteFor(charId, now) {
+    const d = load();
+    if (!d.watch.on || !(d.watch.ids || []).includes(charId)) return "";
+    const t = now || Date.now(), day = dayOf(new Date(t));
+    const rows = mealsOn(d, day);
+    const fresh = rows.some(m => t - (m.ts || 0) < 2 * 3600000);
+    if (!windowAt(t) && !fresh) return "";
+    const tot = dayTotals(d, day);
+    const got = MEALS.slice(0, 3).map(m => mealName(m[0]) + (rows.some(r => r.meal === m[0]) ? "记了" : "没记")).join("、");
+    const ate = rows.slice(-4).map(m => m.name).join("、");
+    return "今天到现在记了约 " + tot.kcal + " 千卡（她给自己定的是 " + d.goal.kcal + "），" + got
+      + (ate ? "；最近记的是" + ate : "") + "；水喝了 " + tot.water + "/" + d.goal.water + " 杯。"
+      + "这是她自己开的，让你帮着看着她吃饭喝水——管不管、怎么管，照你自己的性子和你们现在的关系来。";
+  }
+  // 主动来问：开了「饭点会来问」、在午饭/晚饭窗口里、那一顿还没记、今天这一顿还没问过、一天最多两次
+  function nudgeDue(now) {
+    const d = load();
+    if (!d.watch.on || !d.watch.nudge || !(d.watch.ids || []).length) return null;
+    const t = now || Date.now(), meal = windowAt(t);
+    if (meal !== "lunch" && meal !== "dinner") return null;
+    const day = dayOf(new Date(t));
+    if (mealsOn(d, day).some(m => m.meal === meal)) return null;
+    const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
+    const today = log[day] || [];
+    if (today.length >= 2 || today.includes(meal)) return null;
+    const tot = dayTotals(d, day);
+    return { meal, label: mealName(meal), ids: d.watch.ids.slice(), day,
+      line: "她今天记到现在约 " + tot.kcal + " 千卡、水 " + tot.water + "/" + d.goal.water + " 杯，" + mealName(meal) + "还没记。" };
+  }
+  function markNudged(day, meal) {
+    const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
+    const keep = {}; keep[day] = (log[day] || []).concat([meal]);
+    if (typeof saveJSON === "function") saveJSON(NUDGE_KEY, keep);   // 只留今天那一格，旧的自然丢掉
+  }
+
+  // ── 让模型估 ────────────────────────────────────────────────
+  // 一次性生成：料全放 system，user 只留一句触发（prompt-send-shape.md）
+  async function estimate(api, text) {
+    if (!api || typeof callAI !== "function") throw new Error("先到设置配置 API");
+    const sys = "她吃了下面这些，帮她估一下热量和三大营养素。按中国家常/外卖常见的一份量来估，说的是几份就算几份。\n"
+      + "拆成一样一样的吃食，每样给：name（她说的那样东西）、kcal（千卡，整数）、p / c / f（蛋白质、碳水、脂肪，克，整数）。\n"
+      + "只回 JSON：{\"items\":[{\"name\":\"吃食\",\"kcal\":0,\"p\":0,\"c\":0,\"f\":0}]}\n\n她写的：" + String(text || "").slice(0, 400);
+    const raw = await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535, tag: "health" });
+    const j = typeof extractJSON === "function" ? extractJSON(raw) : null;
+    const items = (j && Array.isArray(j.items) ? j.items : [])
+      .map(x => ({ name: String(x && x.name || "").slice(0, 30), kcal: Math.max(0, Math.round(Number(x && x.kcal) || 0)),
+        p: Math.round(Number(x && x.p) || 0), c: Math.round(Number(x && x.c) || 0), f: Math.round(Number(x && x.f) || 0) }))
+      .filter(x => x.name && x.kcal > 0);
+    if (!items.length) throw new Error("没估出来。模型回的是：\n" + String(raw || "").slice(0, 320));
+    return items;
+  }
+
+  // ── 画 ────────────────────────────────────────────────────
+  const { useState, useMemo } = React;
+  // 一张干净的化验单底：米白纸、墨绿字；热量暖橘、水是浅蓝、经期砖红
+  const BASE = { bg: "#f3f1ea", bg2: "#e8e5db", ink: "#27332c", sub: "#6f7a72", fog: "#a3aba4", line: "rgba(39,51,44,.12)",
+    accent: "#4f8a6c", tint: "#d9824f", water: "#4f8db5", blood: "#c25a4a" };
+  const pal = () => (typeof pagePalette === "function" ? pagePalette("health", BASE) : BASE);
+  const A = (c, a) => (typeof paletteAlpha === "function" ? paletteAlpha(c, a) : c);
+  // 底纹：一层极淡的方格（化验单那种坐标纸），铺在外壳上、不跟着滚
+  const GRID = c => "linear-gradient(" + A(c, "09") + " 1px, transparent 1px), linear-gradient(90deg, " + A(c, "09") + " 1px, transparent 1px)";
+
+  // tab 长成一段心电图（tabs-not-plain-pills）：一根基线横贯三格，选中那一格正上方跳出一个波峰；
+  //   走过的那段实线、后面淡下去。换个 app 这条线就不成立了。
+  function PulseTabs({ tabs, cur, onPick, S }) {
+    const n = tabs.length, idx = Math.max(0, tabs.findIndex(t => t[0] === cur));
+    const W = 300, H = 34, base = 24, cx = (idx + 0.5) * W / n;
+    const d = "M0 " + base + " L" + (cx - 22) + " " + base + " L" + (cx - 14) + " " + (base - 4) + " L" + (cx - 8) + " " + base
+      + " L" + (cx - 4) + " " + (base + 5) + " L" + cx + " " + (base - 20) + " L" + (cx + 5) + " " + (base + 7) + " L" + (cx + 10) + " " + base
+      + " L" + (cx + 18) + " " + (base - 5) + " L" + (cx + 26) + " " + base + " L" + W + " " + base;
+    return h("div", { "data-wk": "healthtabs", style: { position: "relative", padding: "2px 0 0" } },
+      h("svg", { viewBox: "0 0 " + W + " " + H, preserveAspectRatio: "none", style: { position: "absolute", left: 0, right: 0, top: 0, width: "100%", height: H, pointerEvents: "none" } },
+        h("defs", null, h("linearGradient", { id: "hpulse", x1: 0, x2: 1 },
+          h("stop", { offset: 0, stopColor: S.accent, stopOpacity: 0.9 }),
+          h("stop", { offset: Math.min(1, (cx + 30) / W), stopColor: S.accent, stopOpacity: 0.9 }),
+          h("stop", { offset: Math.min(1, (cx + 31) / W), stopColor: S.accent, stopOpacity: 0.22 }),
+          h("stop", { offset: 1, stopColor: S.accent, stopOpacity: 0.22 }))),
+        h("path", { d: d, fill: "none", stroke: "url(#hpulse)", strokeWidth: 1.6, strokeLinejoin: "round", vectorEffect: "non-scaling-stroke", style: { transition: "d .3s" } })),
+      h("div", { style: { display: "flex", position: "relative" } },
+        tabs.map((t, i) => {
+          const on = i === idx;
+          return h("button", { key: t[0], onClick: () => onPick(t[0]), "aria-pressed": on, className: "active:opacity-70",
+            style: { flex: 1, minHeight: 56, paddingTop: 30, background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center" } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: on ? 14 : 12.5, fontWeight: on ? 700 : 400, color: on ? S.ink : S.fog, letterSpacing: ".06em" } }, t[1]));
+        })));
+  }
+
+  // 段落：不加框，一枚小十字（化验单上的那种）领一行小标题
+  function Section({ S, title, right, children, wk }) {
+    return h("div", { "data-wk": wk || "healthcard", style: { padding: "6px 0 18px" } },
+      h("div", { className: "flex items-center", style: { gap: 7, margin: "8px 0 10px" } },
+        h("svg", { width: 9, height: 9, viewBox: "0 0 10 10" }, h("path", { d: "M5 0v10M0 5h10", stroke: S.accent, strokeWidth: 2.2 })),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, letterSpacing: ".16em", flex: 1 } }, title),
+        right || null),
+      children);
+  }
+  const btnS = (S, strong) => ({ minHeight: 40, padding: "0 16px", borderRadius: 12, border: "1px solid " + (strong ? S.accent : S.line),
+    background: strong ? S.accent : "transparent", color: strong ? S.bg : S.ink, fontFamily: F_BODY, fontSize: 13.5, fontWeight: strong ? 600 : 400 });
+  const inputS = S => ({ minHeight: 42, padding: "0 12px", borderRadius: 12, border: "1px solid " + S.line, background: A(S.bg2, "99"),
+    color: S.ink, fontFamily: F_BODY, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" });
+
+  // 热量环：吃了多少 / 定的多少；超了那一截换暖橘、转第二圈
+  function Ring({ S, val, goal }) {
+    const R = 46, C = 2 * Math.PI * R, r = goal > 0 ? val / goal : 0;
+    const left = Math.max(0, goal - val);
+    return h("div", { style: { position: "relative", width: 112, height: 112, flexShrink: 0 } },
+      h("svg", { width: 112, height: 112, viewBox: "0 0 112 112" },
+        h("circle", { cx: 56, cy: 56, r: R, fill: "none", stroke: A(S.accent, "22"), strokeWidth: 9 }),
+        h("circle", { cx: 56, cy: 56, r: R, fill: "none", stroke: S.accent, strokeWidth: 9, strokeLinecap: "round",
+          strokeDasharray: C, strokeDashoffset: C * (1 - Math.min(1, r)), transform: "rotate(-90 56 56)", style: { transition: "stroke-dashoffset .4s" } }),
+        r > 1 ? h("circle", { cx: 56, cy: 56, r: R, fill: "none", stroke: S.tint, strokeWidth: 9, strokeLinecap: "round",
+          strokeDasharray: C, strokeDashoffset: C * (1 - Math.min(1, r - 1)), transform: "rotate(-90 56 56)" }) : null),
+      h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: S.ink, lineHeight: 1 } }, val),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.sub, marginTop: 4 } }, r > 1 ? "多了 " + (val - goal) : "还剩 " + left)));
+  }
+  function MacroBar({ S, label, v, color, of }) {
+    return h("div", { style: { marginBottom: 8 } },
+      h("div", { className: "flex", style: { fontFamily: F_BODY, fontSize: 11.5, color: S.sub, marginBottom: 4 } },
+        h("span", { style: { flex: 1 } }, label), h("span", { style: { color: S.ink } }, v + " 克")),
+      h("div", { style: { height: 5, borderRadius: 9, background: A(color, "22") } },
+        h("div", { style: { width: Math.min(100, of > 0 ? v / of * 100 : 0) + "%", height: "100%", borderRadius: 9, background: color, transition: "width .3s" } })));
+  }
+  // 一杯水：点第几杯就记到第几杯，再点同一杯退回一杯
+  function Cup({ S, full, onClick }) {
+    return h("button", { onClick, className: "active:scale-90", style: { width: 34, height: 44, background: "transparent", border: "none", padding: 0, transition: "transform .1s" } },
+      h("svg", { width: 26, height: 34, viewBox: "0 0 26 34" },
+        h("path", { d: "M3 3h20l-2.4 27a2 2 0 0 1-2 1.8H7.4a2 2 0 0 1-2-1.8z", fill: full ? A(S.water, "cc") : "none", stroke: full ? S.water : S.fog, strokeWidth: 1.4, strokeLinejoin: "round" }),
+        full ? h("path", { d: "M6 9q3.5 2 7 0t7 0", fill: "none", stroke: "rgba(255,255,255,.55)", strokeWidth: 1.2 }) : null));
+  }
+  // 心情五档：只是一张脸的嘴角，从往下撇到往上翘
+  const MOODS = ["很差", "不太好", "一般", "还不错", "很好"];
+  function Face({ S, v, on, onClick, mini }) {
+    const mouth = ["M8 19q5-5 10 0", "M8 18q5-2.5 10 0", "M8 17.5h10", "M8 16.5q5 3 10 0", "M7.5 15.5q5.5 5.5 11 0"][v];
+    const col = on ? S.accent : S.fog;
+    return h("button", { onClick, "aria-pressed": on, style: { flex: 1, minHeight: 56, background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 3 } },
+      h("svg", { width: on ? 32 : 26, height: on ? 32 : 26, viewBox: "0 0 26 26", style: { transition: "all .2s" } },
+        h("circle", { cx: 13, cy: 13, r: 11.5, fill: on ? A(S.accent, "1f") : "none", stroke: col, strokeWidth: 1.4 }),
+        h("circle", { cx: 9.3, cy: 10.5, r: 1.2, fill: col }), h("circle", { cx: 16.7, cy: 10.5, r: 1.2, fill: col }),
+        h("path", { d: mouth, fill: "none", stroke: col, strokeWidth: 1.5, strokeLinecap: "round" })),
+      mini ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? S.ink : S.fog } }, MOODS[v]));
+  }
+  // 体重那条线：最近三十次，一条细线，最后一个点钉住
+  function Spark({ S, rows }) {
+    if (rows.length < 2) return null;
+    const W = 300, H = 70, ks = rows.map(r => Number(r.kg)), lo = Math.min.apply(null, ks), hi = Math.max.apply(null, ks), span = Math.max(0.5, hi - lo);
+    const pt = (r, i) => [i / (rows.length - 1) * (W - 12) + 6, H - 8 - (Number(r.kg) - lo) / span * (H - 20)];
+    const pts = rows.map(pt), last = pts[pts.length - 1];
+    return h("svg", { viewBox: "0 0 " + W + " " + H, style: { width: "100%", height: H, display: "block" } },
+      h("path", { d: "M" + pts.map(p => p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" L"), fill: "none", stroke: S.accent, strokeWidth: 1.6, strokeLinejoin: "round", vectorEffect: "non-scaling-stroke" }),
+      h("circle", { cx: last[0], cy: last[1], r: 3.5, fill: S.bg, stroke: S.accent, strokeWidth: 2 }));
+  }
+
+  // ── 记一餐（整页，no-half-sheet）──────────────────────────────
+  function AddMeal({ S, meal0, api, toast, onAdd, onBack }) {
+    const [meal, setMeal] = useState(meal0 || "lunch");
+    const [q, setQ] = useState("");
+    const [pick, setPick] = useState(null), [qty, setQty] = useState(1);
+    const [ai, setAi] = useState(""), [busy, setBusy] = useState(false), [guess, setGuess] = useState(null);
+    const [man, setMan] = useState({ name: "", kcal: "" });
+    const list = useMemo(() => (q.trim() ? FOODS.filter(f => f.name.includes(q.trim())) : FOODS), [q]);
+    const add = rows => { onAdd(rows.map(r => Object.assign({ meal }, r))); onBack(); };
+    const runAi = async () => {
+      if (!ai.trim() || busy) return;
+      setBusy(true);
+      try { setGuess(await estimate(api, ai)); }
+      catch (e) { toast && toast(String(e && e.message || e).split("\n")[0]); }
+      finally { setBusy(false); }
+    };
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "记一餐", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "shrink-0 flex", style: { padding: "0 16px 6px", gap: 6 } },
+        MEALS.map(m => h("button", { key: m[0], onClick: () => setMeal(m[0]), "aria-pressed": meal === m[0],
+          style: { flex: 1, minHeight: 40, borderRadius: 10, border: "1px solid " + (meal === m[0] ? S.accent : S.line),
+            background: meal === m[0] ? A(S.accent, "1a") : "transparent", color: meal === m[0] ? S.ink : S.sub,
+            fontFamily: F_BODY, fontSize: 13, fontWeight: meal === m[0] ? 600 : 400 } }, m[1]))),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
+        h(Section, { S, title: "说一句，让模型估" },
+          h("div", { className: "flex", style: { gap: 8 } },
+            h("input", { value: ai, onChange: e => setAi(e.target.value), placeholder: "吃了什么、大概多少", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") runAi(); } }),
+            h("button", { onClick: runAi, disabled: busy || !ai.trim(), style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: busy || !ai.trim() ? 0.5 : 1 }) }, busy ? "估着…" : "估一下")),
+          guess ? h("div", { style: { marginTop: 10 } },
+            guess.map((x, i) => h("div", { key: i, className: "flex items-center", style: { padding: "8px 0", borderBottom: "1px dashed " + S.line, fontFamily: F_BODY, fontSize: 13.5, color: S.ink } },
+              h("span", { style: { flex: 1 } }, x.name),
+              h("span", { style: { color: S.sub, fontSize: 11.5, marginRight: 10 } }, "蛋白 " + x.p + " · 碳水 " + x.c + " · 脂肪 " + x.f),
+              h("span", { style: { color: S.tint, fontWeight: 600 } }, x.kcal))),
+            h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+              h("button", { onClick: () => setGuess(null), style: btnS(S) }, "不对，重说"),
+              h("button", { onClick: () => add(guess.map(x => Object.assign({ src: "ai", qty: 1 }, x))), style: Object.assign(btnS(S, true), { flex: 1 }) }, "就记这些"))) : null),
+        h(Section, { S, title: "常吃的" },
+          h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: "搜一下", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
+          list.map(f => {
+            const on = pick === f;
+            return h("div", { key: f.name, style: { borderBottom: "1px dashed " + S.line } },
+              h("button", { onClick: () => { setPick(on ? null : f); setQty(1); }, className: "flex items-center",
+                style: { width: "100%", minHeight: 44, background: "transparent", border: "none", padding: 0, fontFamily: F_BODY, textAlign: "left" } },
+                h("span", { style: { flex: 1, fontSize: 14, color: S.ink, fontWeight: on ? 600 : 400 } }, f.name),
+                h("span", { style: { fontSize: 11.5, color: S.fog, marginRight: 10 } }, f.unit),
+                h("span", { style: { fontSize: 13, color: S.tint } }, f.kcal)),
+              on ? h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 10 } },
+                h("button", { onClick: () => setQty(Math.max(0.5, qty - 0.5)), style: Object.assign(btnS(S), { padding: 0, width: 40 }) }, "−"),
+                h("span", { style: { minWidth: 54, textAlign: "center", fontFamily: F_BODY, fontSize: 14, color: S.ink } }, qty + " 份"),
+                h("button", { onClick: () => setQty(qty + 0.5), style: Object.assign(btnS(S), { padding: 0, width: 40 }) }, "＋"),
+                h("button", { onClick: () => add([Object.assign({ src: "table", qty }, f)]), style: Object.assign(btnS(S, true), { flex: 1 }) }, "记下 · " + Math.round(f.kcal * qty))) : null);
+          }),
+          !list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.fog, padding: "10px 0" } }, "这里没有，用上面那行让模型估，或者下面自己填。") : null),
+        h(Section, { S, title: "自己填" },
+          h("div", { className: "flex", style: { gap: 8 } },
+            h("input", { value: man.name, onChange: e => setMan(Object.assign({}, man, { name: e.target.value })), placeholder: "吃了什么", style: inputS(S) }),
+            h("input", { value: man.kcal, onChange: e => setMan(Object.assign({}, man, { kcal: e.target.value.replace(/[^\d]/g, "") })), placeholder: "千卡", inputMode: "numeric", style: Object.assign(inputS(S), { width: 84, flexShrink: 0 }) }),
+            h("button", { disabled: !man.name.trim() || !Number(man.kcal), onClick: () => add([{ name: man.name.trim().slice(0, 30), kcal: Number(man.kcal), p: 0, c: 0, f: 0, qty: 1, src: "manual" }]),
+              style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: !man.name.trim() || !Number(man.kcal) ? 0.5 : 1 }) }, "记下")))));
+  }
+
+  // ── 谁看着（整页）────────────────────────────────────────────
+  function WatchPage({ S, d, chars, onPatch, onBack }) {
+    const w = d.watch, ids = w.ids || [];
+    const toggle = (on, label, desc, onClick) => h("button", { onClick, className: "flex items-center",
+      style: { width: "100%", minHeight: 56, background: "transparent", border: "none", borderBottom: "1px dashed " + S.line, padding: "8px 0", textAlign: "left", fontFamily: F_BODY } },
+      h("div", { style: { flex: 1 } },
+        h("div", { style: { fontSize: 14.5, color: S.ink } }, label),
+        desc ? h("div", { style: { fontSize: 11.5, color: S.sub, marginTop: 3, lineHeight: 1.5 } }, desc) : null),
+      h("span", { style: { width: 42, height: 24, borderRadius: 99, background: on ? S.accent : S.bg2, position: "relative", transition: "background .2s", flexShrink: 0 } },
+        h("span", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 18, height: 18, borderRadius: 99, background: S.bg, transition: "left .2s" } })));
+    const num = (label, k, unit, step) => h("div", { className: "flex items-center", style: { minHeight: 52, borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
+      h("span", { style: { flex: 1, fontSize: 14, color: S.ink } }, label),
+      h("input", { value: d.goal[k] == null ? "" : d.goal[k], inputMode: "decimal", placeholder: "不定",
+        onChange: e => { const v = e.target.value.replace(/[^\d.]/g, ""); onPatch({ goal: Object.assign({}, d.goal, { [k]: v === "" ? null : Number(v) }) }); },
+        style: Object.assign(inputS(S), { width: 90, textAlign: "right" }) }),
+      h("span", { style: { width: 34, textAlign: "right", fontSize: 12, color: S.sub } }, unit));
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "谁看着", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
+        h(Section, { S, title: "让角色帮你盯着" },
+          toggle(w.on, "开启监督", "开了以后，下面点了名的人会在饭点前后、或者你刚记过一餐的时候知道你今天吃了多少、喝了几杯水。别的时候不告诉他们。",
+            () => onPatch({ watch: Object.assign({}, w, { on: !w.on }) })),
+          w.on ? h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, margin: "14px 0 8px" } }, "谁来管（可以几个人）"),
+            h("div", { className: "flex flex-wrap", style: { gap: 10 } },
+              chars.map(c => {
+                const on = ids.includes(c.id);
+                return h("button", { key: c.id, "aria-pressed": on,
+                  onClick: () => onPatch({ watch: Object.assign({}, w, { ids: on ? ids.filter(x => x !== c.id) : ids.concat([c.id]) }) }),
+                  style: { width: 64, minHeight: 78, background: "transparent", border: "none", display: "flex", flexDirection: "column", alignItems: "center", gap: 5, padding: 0 } },
+                  h("span", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (on ? S.accent : "transparent"), opacity: on ? 1 : 0.55, transition: "all .2s" } },
+                    typeof Avatar === "function" ? h(Avatar, { character: c, size: 44 }) : null),
+                  h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? S.ink : S.sub, maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name));
+              })),
+            h("div", { style: { height: 10 } }),
+            toggle(w.nudge, "饭点会来问", "午饭、晚饭那会儿你还没记，点了名的人里有一位会主动来找你。一天最多两次，记了那一顿就不问。",
+              () => onPatch({ watch: Object.assign({}, w, { nudge: !w.nudge }) }))) : null),
+        h(Section, { S, title: "给自己定的数" },
+          num("一天吃多少", "kcal", "千卡"), num("一天喝几杯水", "water", "杯"), num("目标体重", "kg", "公斤"))));
+  }
+
+  // ── 主页 ────────────────────────────────────────────────────
+  const SYMS = ["痛经", "腰酸", "头疼", "胀气", "冒痘", "乏力", "失眠", "想吃甜", "情绪低"];
+
+  function HealthApp(props) {
+    const S = pal();
+    const [d, setD] = useState(load);
+    const [tab, setTab] = useState("today");
+    const [page, setPage] = useState(null);          // { kind: "add", meal } | { kind: "watch" }
+    const [kg, setKg] = useState("");
+    const [week, setWeekNote] = useState(null), [weekBusy, setWeekBusy] = useState(false);
+    const today = dayOf();
+    const patch = p => setD(prev => save(Object.assign({}, prev, typeof p === "function" ? p(prev) : p)));
+    const tot = dayTotals(d, today);
+    const chars = props.characters || [];
+    const api = props.bgApi || (props.apiFor && chars[0] ? props.apiFor(chars[0]) : null);
+
+    if (page && page.kind === "add") return h(AddMeal, { S, meal0: page.meal, api, toast: props.toast, onBack: () => setPage(null),
+      onAdd: rows => patch(prev => ({ meals: (prev.meals || []).concat(rows.map((r, i) => ({ id: "m" + Date.now().toString(36) + i, day: today, ts: Date.now(),
+        meal: r.meal, name: r.name, kcal: r.kcal, p: r.p || 0, c: r.c || 0, f: r.f || 0, qty: r.qty || 1, src: r.src }))) })) });
+    if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null) });
+
+    const delMeal = id => patch(prev => ({ meals: prev.meals.filter(m => m.id !== id) }));
+    const setWater = n => patch(prev => ({ water: Object.assign({}, prev.water, { [today]: n }) }));
+    const setMood = v => patch(prev => ({ mood: Object.assign({}, prev.mood, { [today]: Object.assign({}, prev.mood[today] || {}, { v }) }) }));
+    const toggleSym = s => patch(prev => { const cur = prev.symptoms[today] || []; return { symptoms: Object.assign({}, prev.symptoms, { [today]: cur.includes(s) ? cur.filter(x => x !== s) : cur.concat([s]) }) }; });
+    const saveKg = () => { const v = Number(kg); if (!(v > 20 && v < 300)) return; patch(prev => ({ weight: (prev.weight || []).filter(w => w.day !== today).concat([{ day: today, kg: Math.round(v * 10) / 10 }]) })); setKg(""); };
+
+    // ── 今天 ──
+    const rowsToday = mealsOn(d, today);
+    const todayView = h("div", null,
+      h("div", { "data-wk": "healthsum", className: "flex items-center", style: { gap: 18, padding: "10px 0 6px" } },
+        h(Ring, { S, val: tot.kcal, goal: d.goal.kcal || 1800 }),
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h(MacroBar, { S, label: "蛋白质", v: tot.p, color: S.accent, of: Math.round((d.goal.kcal || 1800) * 0.2 / 4) }),
+          h(MacroBar, { S, label: "碳水", v: tot.c, color: S.tint, of: Math.round((d.goal.kcal || 1800) * 0.5 / 4) }),
+          h(MacroBar, { S, label: "脂肪", v: tot.f, color: S.water, of: Math.round((d.goal.kcal || 1800) * 0.3 / 9) }))),
+      h(Section, { S, title: "吃了什么", wk: "healthmeals" },
+        MEALS.map(m => {
+          const rows = rowsToday.filter(r => r.meal === m[0]);
+          return h("div", { key: m[0], style: { borderBottom: "1px dashed " + S.line, padding: "4px 0" } },
+            h("div", { className: "flex items-center", style: { minHeight: 42 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: S.ink, fontWeight: 600, width: 48 } }, m[1]),
+              h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12, color: S.fog } }, rows.length ? sum(rows, "kcal") + " 千卡" : "还没记"),
+              h("button", { onClick: () => setPage({ kind: "add", meal: m[0] }), "aria-label": "记" + m[1],
+                style: { width: 40, height: 40, borderRadius: 99, border: "1px solid " + S.line, background: "transparent", color: S.accent, fontSize: 20, lineHeight: 1 } }, "＋")),
+            rows.map(r => h("div", { key: r.id, className: "flex items-center", style: { padding: "2px 0 6px 48px", fontFamily: F_BODY, fontSize: 13, color: S.sub } },
+              h("span", { style: { flex: 1 } }, r.name + (r.qty && r.qty !== 1 ? " ×" + r.qty : "")),
+              h("span", { style: { color: S.tint, marginRight: 4 } }, Math.round(r.kcal * (r.qty || 1))),
+              h("button", { onClick: () => delMeal(r.id), "aria-label": "删掉这一条", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×"))));
+        })),
+      h(Section, { S, title: "喝水", wk: "healthwater", right: h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.water } }, tot.water + " / " + (d.goal.water || 8) + " 杯") },
+        h("div", { className: "flex flex-wrap", style: { gap: 2 } },
+          Array.from({ length: Math.max(d.goal.water || 8, tot.water + 1) }, (_, i) =>
+            h(Cup, { key: i, S, full: i < tot.water, onClick: () => setWater(i + 1 === tot.water ? i : i + 1) })))),
+      h(Section, { S, title: "心情", wk: "healthmood" },
+        h("div", { className: "flex" }, [0, 1, 2, 3, 4].map(v => h(Face, { key: v, S, v, on: tot.mood && tot.mood.v === v, onClick: () => setMood(v) })))));
+
+    // ── 身体 ──
+    const per = typeof periodPhaseNow === "function" ? periodPhaseNow(props.period) : null;
+    const legacyToday = typeof pDK === "function" ? pDK(new Date()) : today;
+    const plist = typeof periodList === "function" ? periodList(props.period) : [];
+    const open = plist.filter(p => !p.end).slice(-1)[0];
+    const startedToday = plist.some(p => p.start === legacyToday);
+    const pBtn = startedToday ? "今天不算，撤掉" : open ? "今天走了" : "今天来了";
+    const wrows = weightTrend(d), lastW = wrows[wrows.length - 1];
+    const bodyView = h("div", null,
+      h(Section, { S, title: "体重", wk: "healthweight", right: lastW ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub } },
+          "最近 " + lastW.kg + " 公斤" + (d.goal.kg ? " · 离目标 " + Math.round((lastW.kg - d.goal.kg) * 10) / 10 + " 公斤" : "")) : null },
+        h(Spark, { S, rows: wrows }),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+          h("input", { value: kg, onChange: e => setKg(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "今天多少公斤", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveKg(); } }),
+          h("button", { onClick: saveKg, style: Object.assign(btnS(S, true), { flexShrink: 0 }) }, "记下"))),
+      h(Section, { S, title: "经期", wk: "healthperiod" },
+        h("div", { className: "flex items-center", style: { gap: 14, padding: "4px 0 10px" } },
+          h("svg", { width: 40, height: 40, viewBox: "0 0 40 40", style: { flexShrink: 0 } },
+            h("path", { d: "M20 5c6 9 11 15 11 21a11 11 0 0 1-22 0c0-6 5-12 11-21z", fill: per && per.kind === "period" ? A(S.blood, "d9") : "none", stroke: S.blood, strokeWidth: 1.6 })),
+          h("div", { style: { flex: 1, fontFamily: F_BODY } },
+            h("div", { style: { fontSize: 15, color: S.ink, fontWeight: 600 } }, per ? per.label : "还没记过"),
+            h("div", { style: { fontSize: 11.5, color: S.sub, marginTop: 3 } }, per && per.next != null ? (per.next <= 0 ? "按周期算该来了" : "离下次大约 " + per.next + " 天") : "记一次之后就能往后推算"))),
+        props.onRecordPeriod ? h("button", { onClick: () => props.onRecordPeriod(legacyToday), style: Object.assign(btnS(S), { width: "100%", borderColor: A(S.blood, "66"), color: S.blood }) }, pBtn) : null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, margin: "16px 0 8px" } }, "今天身上哪儿不舒服"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+          SYMS.map(s => { const on = tot.sym.includes(s);
+            return h("button", { key: s, onClick: () => toggleSym(s), "aria-pressed": on,
+              style: { minHeight: 36, padding: "0 12px", borderRadius: 10, border: "1px " + (on ? "solid " + S.blood : "dashed " + S.line),
+                background: on ? A(S.blood, "14") : "transparent", color: on ? S.blood : S.sub, fontFamily: F_BODY, fontSize: 12.5 } }, s); })),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 12, lineHeight: 1.6 } }, "跟日历里的月事本是同一份，哪边记都一样；谁能看到也在月事本里设。")));
+
+    // ── 这周 ──
+    const wk = weekOf(d, today);
+    const maxK = Math.max(d.goal.kcal || 1800, ...wk.map(x => x.kcal)) || 1;
+    const logged = wk.filter(x => x.n);
+    const avgK = logged.length ? Math.round(logged.reduce((a, x) => a + x.kcal, 0) / logged.length) : 0;
+    const avgW = Math.round(wk.reduce((a, x) => a + x.water, 0) / 7 * 10) / 10;
+    const wIn = (d.weight || []).filter(w => w.day >= wk[0].day && w.day <= today).sort((a, b) => (a.day < b.day ? -1 : 1));
+    const dW = wIn.length >= 2 ? Math.round((wIn[wIn.length - 1].kg - wIn[0].kg) * 10) / 10 : null;
+    const watchers = chars.filter(c => d.watch.on && (d.watch.ids || []).includes(c.id));
+    const weekFacts = "这一周（" + wk[0].day + " 到 " + today + "）：记了饮食的有 " + logged.length + " 天，那几天平均约 " + avgK + " 千卡（她定的 " + (d.goal.kcal || 1800) + "）；"
+      + "平均每天喝水 " + avgW + " 杯（定的 " + (d.goal.water || 8) + "）；" + (dW != null ? "体重变了 " + (dW > 0 ? "+" : "") + dW + " 公斤；" : "")
+      + "心情：" + wk.map(x => x.mood ? MOODS[x.mood.v] : "没记").join("、") + "。";
+    const askWeek = async c => {
+      const p = props.apiFor && props.apiFor(c), ctx = props.ctxFor && props.ctxFor(c);
+      if (!p || !ctx || typeof runProbe !== "function") { props.toast && props.toast("先到设置配置 API"); return; }
+      setWeekBusy(true);
+      try {
+        // 靠调用点补的那三层走公共那一份（跟星测、塔罗同一个）
+        const tail = typeof probeVoiceTail === "function" ? probeVoiceTail() : "";
+        const r = await runProbe(p, ctx, { voice: true, maxTokens: 65535, tag: "health",
+          instruction: "她把这一周的健康记录拿给你看。下面是记下来的数：\n" + weekFacts + "\n用你自己的口吻跟她说几句。" + tail,
+          schemaHint: "{\"text\":\"你想对她说的话\"}" });
+        const text = String(r && r.text || "").trim();
+        if (!text) throw new Error("没说出话来");
+        setWeekNote({ name: c.name, text });
+      } catch (e) { props.toast && props.toast("没看成：" + String(e && e.message || e).slice(0, 60)); }
+      finally { setWeekBusy(false); }
+    };
+    const weekView = h("div", null,
+      h(Section, { S, title: "七天的热量", wk: "healthweek" },
+        h("div", { className: "flex items-end", style: { gap: 8, height: 120, position: "relative", paddingTop: 6 } },
+          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 20 + (d.goal.kcal || 1800) / maxK * 94, borderTop: "1px dashed " + A(S.accent, "88") } }),
+          wk.map(x => h("div", { key: x.day, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" } },
+            h("div", { style: { width: "62%", height: Math.max(2, x.kcal / maxK * 94), borderRadius: "6px 6px 2px 2px",
+              background: x.kcal > (d.goal.kcal || 1800) ? S.tint : x.day === today ? S.accent : A(S.accent, "66") } }),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: x.day === today ? S.ink : S.fog, marginTop: 6, height: 14 } }, "日一二三四五六"[g.ScheduleClock.parseDayKey(x.day).getDay()]))))),
+      h(Section, { S, title: "这周的数" },
+        [["记了饮食", logged.length + " / 7 天"], ["平均热量", logged.length ? avgK + " 千卡" : "—"], ["平均喝水", avgW + " 杯"],
+          ["体重", dW == null ? "这周记得不够两次" : (dW > 0 ? "+" : "") + dW + " 公斤"],
+          ["不舒服的日子", wk.filter(x => x.sym.length).length + " 天"]].map(r =>
+          h("div", { key: r[0], className: "flex", style: { minHeight: 40, alignItems: "center", borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
+            h("span", { style: { flex: 1, fontSize: 13.5, color: S.sub } }, r[0]), h("span", { style: { fontSize: 14, color: S.ink } }, r[1]))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, margin: "14px 0 2px" } }, "每天的心情"),
+        h("div", { className: "flex items-center" },
+          wk.map(x => h("div", { key: x.day, style: { flex: 1, height: 44, display: "flex", alignItems: "center", justifyContent: "center", color: S.fog } },
+            x.mood ? h(Face, { S, v: x.mood.v, on: x.day === today, mini: true, onClick: () => {} }) : "·")))),
+      watchers.length ? h(Section, { S, title: "让 TA 看看这周", wk: "healthnote" },
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+          watchers.map(c => h("button", { key: c.id, disabled: weekBusy, onClick: () => askWeek(c), style: Object.assign(btnS(S), { opacity: weekBusy ? 0.5 : 1 }) }, weekBusy ? "在看…" : "给" + c.name + "看"))),
+        week ? h("div", { style: { marginTop: 12, paddingLeft: 12, borderLeft: "2px solid " + S.accent, fontFamily: F_BODY, fontSize: 14, color: S.ink, lineHeight: 1.75, whiteSpace: "pre-wrap" } },
+          h("div", { style: { fontSize: 11.5, color: S.sub, marginBottom: 4 } }, week.name), week.text) : null) : null);
+
+    const tabs = [["today", "今天"], ["body", "身体"], ["week", "这周"]];
+    return h("div", { "data-wk": "app", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "健康", onBack: props.onBack, ink: S.ink, bg: "transparent", noLine: true,
+        right: h("button", { onClick: () => setPage({ kind: "watch" }), style: { minHeight: 40, padding: "0 4px", background: "transparent", border: "none", color: d.watch.on ? S.accent : S.sub, fontFamily: F_BODY, fontSize: 13 } }, "谁看着") }),
+      h("div", { className: "shrink-0", style: { padding: "0 16px" } }, h(PulseTabs, { tabs, cur: tab, onPick: setTab, S })),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 16px 28px" } },
+        tab === "today" ? todayView : tab === "body" ? bodyView : weekView));
+  }
+
+  g.HealthCtx = { noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
+  g.Health = { estimate, FOODS, MEALS, windowAt, dayTotals, weekOf, load, save };
+  g.HealthApp = HealthApp;
+  // 图标：一颗心上走过一段心电
+  g.GHealth = function (p) {
+    return h(Svg, p, h("path", { d: "M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z" }),
+      h("path", { d: "M6 12.5h3l1.3-2.2 2 4 1.3-1.8H18" }));
+  };
+})();
