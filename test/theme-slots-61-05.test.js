@@ -69,7 +69,7 @@ test("想存几套存几套，另有只读的内置预设", () => {
     assert.match(st, new RegExp("[,{]\\s*" + f + "\\s*[,}:]"), f + " 没导出"));
   // v61.13：五套聊天皮肤都在这一栏里（她要的是「点一下灌进编辑框还能自己改」，
   // 不是另开一页开关）。两页共用同一份 CHAT_SKINS。
-  assert.match(st, /const CSS_BUILTINS = \{ thread: CHAT_SKINS, gthread: CHAT_SKINS \};/);
+  assert.match(st, /const CSS_BUILTINS = \{ thread: CHAT_SKINS, gthread: CHAT_SKINS, messages: LIST_SKINS \};/);
   ["仿微信", "仿 LINE", "仿 Telegram", "仿 WhatsApp", "仿 Insta DM"].forEach(nm =>
     assert.ok(st.indexOf('["' + nm + '"') >= 0, "内置里少了「" + nm + "」"));
   // 一处画、五处用：骨架只能有一份，不许各写一套 CSS

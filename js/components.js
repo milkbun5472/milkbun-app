@@ -7334,6 +7334,7 @@ function Messages({
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "mlpage",
     className: "h-full flex flex-col",
     style: msgAppBg(t)
   }, h(Head, {
@@ -7391,7 +7392,8 @@ function Messages({
     // 她 2026-09-03：「这是手机上的通讯录，倒也不用做跟纸一样」——对的：
     // 这一页在现实里的对应物就是【手机通讯录】本身，给它糊一层纸反而是往回退。
     // 「材质要从这个东西本身长出来」那条判据没错，错在我把它读成了「一定要像实物」。
-    return h("div", { className: "py-1", style: { position: "relative", background: t.bg } },
+    // 底色交给外壳那一层（mlpage）：这里再刷一遍平色，主题工作台改外壳的底就只改得到聊天那一栏
+    return h("div", { className: "py-1", style: { position: "relative" } },
       entry("群聊", (groups || []).length ? (groups || []).length + " 个" : "", "#4cae4c",
         [h("circle", { key: "a", cx: 9, cy: 7, r: 3 }), h("path", { key: "b", d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1" }), h("path", { key: "c", d: "M16 3.5a3 3 0 010 6" }), h("path", { key: "d", d: "M22 21v-1a4 4 0 00-3-3.8" })],
         () => setGroupList(true)),
@@ -13982,20 +13984,31 @@ function OfflineStylePresetSection({ t, presetOn, setPresetOn, presetId, setPres
 // 原来只有群线下画了这一块，单人线下看不见自己加过什么、也删不掉——
 // 而她 2026-09-21 报的正是「发完好像不会立刻听」：看不见就更说不清它到底生没生效。
 // ⚠️「还剩几轮」的算法跟着存档走：旧版存的是裸字符串，按【只再生效这一轮】显示。
-function DirectorNotesPanel({ t, notes, onDeleteNote }) {
+function DirectorNotesPanel({ t, notes, onDeleteNote, onEditNote }) {
+  // 点那句话就地改（她 2026-10-03）：改完存下，短期的重新算满轮数；清空再存＝删掉
+  const [editing, setEditing] = useState(null);
+  const [draft, setDraft] = useState("");
   const list = notes || [];
   if (!list.length) return null;
-  return h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: 150, overflowY: "auto" } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 7 } }, "导演便签 · 固定显示"),
+  return h("div", { className: "shrink-0 mx-3 mt-2 p-3", style: { background: "rgba(255,255,255,.86)", border: "1px solid " + t.line, borderRadius: 10, backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", maxHeight: editing != null ? 260 : 150, overflowY: "auto" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, color: t.fog, marginBottom: 7 } }, "导演便签 · 固定显示" + (onEditNote ? " · 点一句可以改" : "")),
     list.map((n, i) => {
       const item = typeof n === "string" ? { text: n, remaining: 1 } : n;
+      const key = (item && item.id) || i;
       const isLong = !!(item && item.long);
       const left = isLong ? 1 : Math.max(0, Number(item && item.remaining) || 0);
-      return h("div", { key: (item && item.id) || i, className: "flex items-start gap-2", style: { padding: "6px 0", borderTop: i ? "1px solid " + t.line : "none", opacity: left ? 1 : 0.46 } },
+      const mine = editing === key;
+      return h("div", { key: key, className: "flex items-start gap-2", style: { padding: "6px 0", borderTop: i ? "1px solid " + t.line : "none", opacity: left || mine ? 1 : 0.46 } },
         h("div", { className: "flex-1" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap" } }, item.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, isLong ? "长期 · 整场有效，删掉才停" : left ? "还会影响接下来 " + left + " 轮" : "已结束 · 下轮不再注入")),
-        onDeleteNote && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
+          mine ? h("div", null,
+            h("textarea", { value: draft, autoFocus: true, rows: 3, onChange: e => setDraft(e.target.value),
+              style: { width: "100%", outline: "none", resize: "vertical", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "6px 8px" } }),
+            h("div", { className: "flex justify-end gap-3", style: { marginTop: 4 } },
+              h("button", { onClick: () => setEditing(null), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minHeight: 32 } }, "取消"),
+              h("button", { onClick: () => { onEditNote(key, draft); setEditing(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, minHeight: 32 } }, draft.trim() ? "存" + (isLong ? "" : " · 重新算 2 轮") : "存（清空＝删掉）")))
+            : h("div", { onClick: onEditNote ? () => { setEditing(key); setDraft(item.text || ""); } : undefined, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, whiteSpace: "pre-wrap", cursor: onEditNote ? "text" : "default" } }, item.text),
+          mine ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: left ? t.tint : t.fog, marginTop: 2 } }, isLong ? "长期 · 整场有效，删掉才停" : left ? "还会影响接下来 " + left + " 轮" : "已结束 · 改一下就会重新生效")),
+        onDeleteNote && !mine && h("button", { onClick: () => onDeleteNote(item.id || i), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, padding: "0 2px" }, title: "删除这条便签" }, "×"));
     }));
 }
 function OfflineTastePanel({ t, pace, setPace, focus, setFocus, density, setDensity, compact }) {
@@ -14279,6 +14292,7 @@ function OfflineMode({
   onOOC,
   onAddNote,
   onDeleteNote,
+  onEditNote,
   onChangeStyle,
   onSaveExample,
   onDeleteExample,
@@ -14503,7 +14517,7 @@ function OfflineMode({
       onSaveSettings && h("button", { onClick: () => setSetOpen(true), className: "active:opacity-50", title: "线下设置（人称/输出长度）", style: { fontFamily: F_BODY, fontSize: 17, color: t.fog } }, "⚙"),
       h("button", { onClick: () => setEndConfirm(true), className: "active:opacity-60 px-2 py-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "结束")),
     // 短期导演便签跟群线下共用同一块（v72.37）：看得见还剩几轮、也删得掉
-    h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote }),
+    h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote, onEditNote: onEditNote }),
     (!room || room.main || !!(room.cognition && room.cognition.schedule)) && schedNow && h("button", { onClick: onOpenSched, className: "shrink-0 w-full flex items-center gap-2 active:opacity-70", style: { background: schedNow.dev ? "rgba(194,90,74,0.08)" : (os.bg ? "rgba(255,255,255,0.45)" : "transparent"), borderBottom: "1px solid " + t.line, padding: "6px 16px" } },
       h("span", { style: { width: 6, height: 6, borderRadius: 999, background: schedNow.dev ? t.accent : t.tint, flexShrink: 0 } }),
       h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.12em", color: t.fog, flexShrink: 0 } }, "NOW"),
@@ -14928,6 +14942,7 @@ function GroupOfflineMode({
   onReply,
   onAddNote,
   onDeleteNote,
+  onEditNote,
   onChangeStyle,
   onSaveExample,
   onEditMsg,
@@ -15092,7 +15107,7 @@ function GroupOfflineMode({
     h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
     styleSection,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
-  const directorNotes = h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote });
+  const directorNotes = h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote, onEditNote: onEditNote });
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
       h("button", { onClick: exit, className: "active:opacity-50 flex items-center gap-1" }, h(IArrow, { size: 20, color: t.ink }), h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "离开")),

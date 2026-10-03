@@ -306,7 +306,40 @@
     if (!m) return null;                       // 不是从内置灌来的（或者她自己删了那行），不管
     return Number(m[2]) < SKIN_VER ? { name: m[1], from: Number(m[2]), to: SKIN_VER } : null;
   };
-  const CSS_BUILTINS = { thread: CHAT_SKINS, gthread: CHAT_SKINS };
+  // 消息列表的两套起手式（群友 2026-10-03：「这个界面的这种是没办法美化吗」）。
+  //   只用 v74.615 补的那 12 个挂点 + 通用的 app/head，换的是颜色、圆角、间距，不碰排版。
+  const listSkinCSS = o => [
+    '[data-wk="app"], [data-wk="mlpage"] { background: ' + o.bg + ' !important; }',
+    '[data-wk="mlsearch"] { background: ' + o.card + ' !important; border-color: ' + o.line + ' !important; border-radius: ' + o.searchRadius + ' !important; }',
+    '[data-wk="mlrow"], [data-wk="ctrow"], [data-wk="ctentry"] {',
+    '  background: ' + o.card + ' !important; border-bottom: ' + o.rowLine + ' !important;',
+    '  margin: ' + o.rowMargin + ' !important; width: ' + o.rowWidth + ' !important; border-radius: ' + o.rowRadius + ' !important;',
+    '  box-shadow: ' + o.shadow + ' !important;',
+    '}',
+    '[data-wk="mlrow"][data-pinned="1"] { background: ' + o.pinned + ' !important; }',
+    '[data-wk="mlavatar"] > *, [data-wk="mlavatar"] img { border-radius: ' + o.avatar + ' !important; }',
+    '[data-wk="mlname"] { color: ' + o.ink + ' !important; }',
+    '[data-wk="mllast"], [data-wk="mltime"] { color: ' + o.dim + ' !important; }',
+    '[data-wk="mlrow"][data-unread="1"] [data-wk="mllast"] { color: ' + o.accent + ' !important; }',
+    '[data-wk="mlbadge"] { background: ' + o.accent + ' !important; color: ' + o.badgeInk + ' !important; }',
+    '[data-wk="ctletter"] { background: transparent !important; color: ' + o.dim + ' !important; }',
+    '[data-wk="mltabbar"] { background: ' + o.bar + ' !important; border-top-color: ' + o.line + ' !important; }',
+    '[data-wk="mltab"] span { color: ' + o.dim + ' !important; }',
+    '[data-wk="mltab"] svg { stroke: ' + o.dim + ' !important; }',
+    '[data-wk="mltab"][data-on="1"] span { color: ' + o.accent + ' !important; }',
+    '[data-wk="mltab"][data-on="1"] svg { stroke: ' + o.accent + ' !important; }'
+  ].join("\n");
+  // 奶油卡片：一行一张圆角小卡，中间留缝，像便签一张张贴着
+  const LIST_CREAM_CSS = listSkinCSS({ bg:"#f6f1ea", card:"#fffdf9", line:"#ece3d6", searchRadius:"999px",
+    rowLine:"none", rowMargin:"0 12px 8px", rowWidth:"calc(100% - 24px)", rowRadius:"16px", shadow:"0 2px 8px rgba(120,96,60,.08)",
+    pinned:"#fff4ea", avatar:"14px", ink:"#4a3f35", dim:"#a89a8a", accent:"#d9826b", badgeInk:"#ffffff", bar:"#fffdf9" });
+  // 夜色：深底浅字，整列不分卡，只留细线
+  const LIST_NIGHT_CSS = listSkinCSS({ bg:"#16181d", card:"#1f2229", line:"#2c3038", searchRadius:"10px",
+    rowLine:"1px solid #2c3038", rowMargin:"0", rowWidth:"100%", rowRadius:"0", shadow:"none",
+    pinned:"#262a33", avatar:"999px", ink:"#e8e6e3", dim:"#8b8f98", accent:"#8fb4ff", badgeInk:"#16181d", bar:"#1b1d23" })
+    + '\n[data-wk="head"], [data-wk="head"] * { color: #e8e6e3 !important; }\n[data-wk="head"] svg { stroke: #e8e6e3 !important; }';
+  const LIST_SKINS = [["奶油卡片", LIST_CREAM_CSS], ["夜色", LIST_NIGHT_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);
+  const CSS_BUILTINS = { thread: CHAT_SKINS, gthread: CHAT_SKINS, messages: LIST_SKINS };
   // ── 页面 CSS 真正抓得住的那几个点（v64.82）────────────────────────────
   // ⚠️这个 App 的样式【几乎全是内联 style】（每个组件从 useTheme() 拿 t.bg / t.ink
   //   自己写在 style 里）。行内样式赢过普通 CSS 规则——所以一条不带 !important 的
@@ -335,6 +368,7 @@
   const WK_SCOPED = Object.freeze([
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
+      ["mlpage","消息这一页的底（聊天／通讯录／朋友圈／我 四栏共用）"],
       ["mlsearch","聊天列表顶上的搜索框"],
       ["mlrow","聊天列表的一行（data-kind=\"char\"/\"group\"；data-pinned=\"1\" 是置顶；data-unread=\"1\" 有未读）"],
       ["mlavatar","那一行的头像（群是四宫格或群头像）"],["mlname","名字／群名"],["mllast","最后一条消息那行小字"],

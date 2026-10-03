@@ -5,7 +5,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const comp = P("js/components.js"), studio = P("js/theme-studio.js");
-const HOOKS = ["mlsearch", "mlrow", "mlavatar", "mlname", "mllast", "mltime", "mlbadge", "ctentry", "ctletter", "ctrow", "mltabbar", "mltab"];
+const HOOKS = ["mlpage", "mlsearch", "mlrow", "mlavatar", "mlname", "mllast", "mltime", "mlbadge", "ctentry", "ctletter", "ctrow", "mltabbar", "mltab"];
 
 test("消息列表每个挂点都真挂在界面上，也都写进了工作台那份名单", () => {
   HOOKS.forEach(k => {
@@ -13,4 +13,9 @@ test("消息列表每个挂点都真挂在界面上，也都写进了工作台�
     assert.ok(studio.includes('["' + k + '",'), "工作台名单里没有 " + k);
   });
   assert.match(studio, /zh:"消息列表",pages:Object\.freeze\(\["messages"\]\)/);
+});
+
+test("消息页有两套内置起手式，只用自己的挂点", () => {
+  assert.match(studio, /messages: LIST_SKINS/);
+  assert.match(studio, /\[\["奶油卡片", LIST_CREAM_CSS\], \["夜色", LIST_NIGHT_CSS\]\]/);
 });

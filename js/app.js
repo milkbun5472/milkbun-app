@@ -8048,6 +8048,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
     directorNoteAddedToast(long);
   };
+  // 改便签（她 2026-10-03：「线下导演便签能不能搞成可编辑」）：单人线下 / 群线下同一支。
+  //   改过的短期便签重新算满轮数——她刚改的那句理应从下一轮起完整地生效；长期便签照旧整场有效。改成空的＝删掉。
+  const directorNoteEdit = (list, noteId, text) => (list || []).map((n, i) => {
+    const hit = (n && n.id) ? n.id === noteId : i === noteId;
+    if (!hit) return n;
+    const tx = String(text || "").trim();
+    if (!tx) return null;
+    const obj = typeof n === "string" ? { id: "legacy_note_" + memVecHash(n), createdAt: Date.now() } : n;
+    return { ...obj, text: tx, remaining: obj.long ? obj.remaining : DIRECTOR_NOTE_TURNS, editedAt: Date.now() };
+  }).filter(Boolean);
+  const offlineEditNote = (scopeKey, noteId, text) => pOffline(scopeKey, list => list.map(s => !s.endTs ? { ...s, customNotes: directorNoteEdit(s.customNotes, noteId, text) } : s));
   const offlineDeleteNote = (scopeKey, noteId) => pOffline(scopeKey, list => list.map(s => !s.endTs
     ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 线下进行中随时切换文风（不同剧情段落用不同笔调）
@@ -8740,6 +8751,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: [...(s.customNotes || []), item] } : s));
     directorNoteAddedToast(long);
   };
+  const groupOfflineEditNote = (groupId, noteId, text) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: directorNoteEdit(s.customNotes, noteId, text) } : s));
   const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
   const groupOfflineOOC = async (groupId, text) => {
@@ -27855,6 +27867,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOOC: txt => offlineOOC(activeOfflineScopeKey, txt),
     onAddNote: (n, long) => offlineAddNote(activeOfflineScopeKey, n, long),
     onDeleteNote: id => offlineDeleteNote(activeOfflineScopeKey, id),
+    onEditNote: (id, text) => offlineEditNote(activeOfflineScopeKey, id, text),
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
@@ -27898,6 +27911,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
     onAddNote: (n, long) => groupOfflineAddNote(offlineGroup.id, n, long),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
+    onEditNote: (id, text) => groupOfflineEditNote(offlineGroup.id, id, text),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),

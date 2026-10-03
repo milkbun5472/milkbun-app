@@ -44,6 +44,27 @@ test("界面固定显示剩余轮数、结束状态并支持删除", () => {
   assert.equal((components.match(/h\(DirectorNotesPanel, \{/g) || []).length, 2, "少了一处线下没挂这块清单");
   assert.match(components, /导演便签 · 固定显示/);
   assert.match(components, /还会影响接下来/);
-  assert.match(components, /已结束 · 下轮不再注入/);
+  assert.match(components, /已结束 · 改一下就会重新生效/, "结束了的便签要说清：改一句就能再生效");
   assert.match(components, /onDeleteNote/);
+});
+
+// 她 2026-10-03：「线下导演便签能不能搞成可编辑」——单人线下 / 群线下同一块、同一支
+test("导演便签能就地改：改了短期的重新算满轮，清空＝删掉；两处线下都接上", () => {
+  const fs2 = require("fs"), path2 = require("path");
+  const A2 = fs2.readFileSync(path2.join(__dirname, "..", "js", "app.js"), "utf8");
+  const C2 = fs2.readFileSync(path2.join(__dirname, "..", "js", "components.js"), "utf8");
+  const src = A2.slice(A2.indexOf("const directorNoteEdit = "), A2.indexOf("const offlineEditNote"));
+  const DIRECTOR_NOTE_TURNS = 2, memVecHash = s => "h" + s.length;
+  const edit = new Function("DIRECTOR_NOTE_TURNS", "memVecHash", src + "\nreturn directorNoteEdit;")(DIRECTOR_NOTE_TURNS, memVecHash);
+  const list = [{ id: "a", text: "软一点", remaining: 0 }, { id: "b", text: "整场都别凶", remaining: 2, long: true }, "旧的裸字符串"];
+  const r = edit(list, "a", "再软一点");
+  if (r[0].text !== "再软一点" || r[0].remaining !== 2) throw new Error("改过的短期便签要重新算满两轮");
+  const r2 = edit(list, "b", "整场都温柔");
+  if (r2[1].remaining !== 2 || !r2[1].long) throw new Error("长期便签照旧是长期的");
+  if (edit(list, "a", "  ").length !== 2) throw new Error("清空再存＝删掉");
+  const r3 = edit(list, 2, "旧的改一下");
+  if (typeof r3[2] !== "object" || r3[2].text !== "旧的改一下") throw new Error("旧版裸字符串也改得了，改完转成对象");
+  if (!/onEditNote: \(id, text\) => offlineEditNote\(activeOfflineScopeKey, id, text\)/.test(A2)) throw new Error("单人线下没接上");
+  if (!/onEditNote: \(id, text\) => groupOfflineEditNote\(offlineGroup\.id, id, text\)/.test(A2)) throw new Error("群线下没接上");
+  if ((C2.match(/h\(DirectorNotesPanel, \{[^}]*onEditNote: onEditNote \}\)/g) || []).length !== 2) throw new Error("两处面板都要把 onEditNote 传进去");
 });
