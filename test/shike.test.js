@@ -180,3 +180,13 @@ test("第二轮：时刻的日子走纪念日主动那条路；主屏「去年�
   assert.equal(otd.m.title, "他第一次吃醋");
   assert.equal(K.onThisDay([c], { now: D(2026, 10, 4), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins }), null);
 });
+
+test("第三轮：按月的目录能跳；能存成一页长图，太长就截断并写明", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /"data-wk": "shikemonths"/);
+  assert.match(s, /onClick: \(\) => jump\(x\.k\)/);
+  assert.match(s, /const exportLong = async \(c, items\) =>/);
+  assert.match(s, /saveImgOriginal\(cv\.toDataURL\("image\/jpeg", 0\.9\)/);
+  assert.match(s, /MAXH = 15000/, "iOS canvas 一边不能太长，得有上限");
+  assert.match(s, /只拼了最近的/);
+});
