@@ -1909,8 +1909,9 @@ const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: 
 const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "其他"];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
 const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
-function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
+function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore }) {
   const t = useTheme();
+  const [trashOpen, setTrashOpen] = useState(false);
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
   const [query, setQuery] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
@@ -2003,7 +2004,15 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete }) {
       h("div", { style: { paddingBottom: 12 } },
         shown.length ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
-          h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条")))),
+          h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条"))),
+      (trash && trash.length) ? h("section", { style: { borderTop: "1px solid " + t.line, padding: "14px 0 6px" } },
+        h("button", { onClick: () => setTrashOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
+          (trashOpen ? "▾ " : "▸ ") + "最近删除 · " + trash.length + " 条（留 30 天）"),
+        trashOpen ? trash.map(x => h("div", { key: x.entry.id, style: { display: "flex", alignItems: "center", gap: 10, padding: "10px 0", borderBottom: "1px dashed " + t.line } },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.entry.title || "未命名设定"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, "删于 " + new Date(x.deletedTs).toLocaleString())),
+          h("button", { onClick: () => onRestore && onRestore(x.entry.id), className: "active:opacity-65 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, background: "transparent", border: "1px solid " + t.ink, borderRadius: 999, padding: "4px 12px" } }, "放回去"))) : null) : null),
     editing && h(WorldBookEntryPage, {
       entry: editing.__new ? { charIds: editing.charIds } : editing, characters: characters, onClose: () => setEditing(null),
       onSave: data => { onSave(data); setEditing(null); },

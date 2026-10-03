@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.616";
+const APP_VERSION = "v74.619";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -878,6 +878,7 @@ function App() {
   const [loreEntries, setLoreEntries] = useState([]);
   const loreRef = useRef(loreEntries); loreRef.current = loreEntries;
   const loreVecTimer = useRef(null);
+  const loreTrashLive = () => (loadJSON("x_loreTrash", []) || []).filter(x => x && x.entry && x.entry.id && Date.now() - (x.deletedTs || 0) < 30 * 86400000);
   const saveLore = list => {
     setLoreEntries(list); loreRef.current = list; saveJSON("x_loreEntries", list);
     // 世界书向量增量维护（v48.29）：词条增删改后台补嵌+清孤儿，防抖 4s；没配 embedding 内部直接返回
@@ -26490,7 +26491,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     onBack: goHome,
     onSave: e => saveLore([e].concat(loreRef.current.filter(x => x.id !== e.id))),
-    onDelete: id => saveLore(loreRef.current.filter(x => x.id !== id))
+    // 最近删除（她 2026-10-03 群友：「修改世界书的时候一不小心给删掉了，这个有回收站吗」）：
+    //   删的那条先进 x_loreTrash，留 30 天、最多 60 条，能原样放回去
+    trash: loreTrashLive(),
+    onDelete: id => {
+      const gone = loreRef.current.find(x => x.id === id);
+      if (gone) saveJSON("x_loreTrash", [{ entry: gone, deletedTs: Date.now() }].concat(loreTrashLive().filter(x => x.entry.id !== id)).slice(0, 60));
+      saveLore(loreRef.current.filter(x => x.id !== id));
+    },
+    onRestore: id => {
+      const tr = loreTrashLive(), hit = tr.find(x => x.entry.id === id);
+      if (!hit) return;
+      saveJSON("x_loreTrash", tr.filter(x => x.entry.id !== id));
+      saveLore([hit.entry].concat(loreRef.current.filter(x => x.id !== id)));
+      toast("已放回世界书：" + (hit.entry.title || "未命名设定"));
+    }
   });else if (screen === "study") body = h(StudyApp, {
     active: active,
     bgActive: bgActive, // 判卷/课后小纸条等结构化小活走便宜后台池；教学对话仍用主 active
