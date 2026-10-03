@@ -5062,7 +5062,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     const ctrl = new AbortController();
     // 单次上限 95→180 秒（v55.02 回归修复）：这家中转正常出图就要一百多秒，
     // v54.90 的 95 秒硬闸把好好的请求掐成「Fetch is aborted」。总预算闸仍在，不会回到卡十几分钟。
-    const capMs = Math.min(Number(msOverride || 130000), 300000);
+    // Gemini 出图预览模型常常要两三分钟（群友 2026-10-03：纯文字测试 130 秒到点还没回），这类模型默认放宽到 240 秒
+    const capMs = Math.min(Number(msOverride || (opts && opts.attemptMs) || (/gemini|banana|imagen/i.test(String(a.model || "")) || a.apiFormat === "gemini" ? 240000 : 130000)), 300000);
     const t0 = Date.now();
     const to = setTimeout(() => ctrl.abort(), capMs);
     let r;
@@ -5241,7 +5242,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 现在给全程一个总闸：超了就不再往下试，宁可早点告诉她失败。
   // 重试级别的单次超时也压到 70 秒——真能出的图不会拖那么久，拖住的多半是死路。
   const RETRY_MS = 70000;
-  const deadline = Date.now() + Number((opts && opts.budgetMs) || 180000);
+  const deadline = Date.now() + Number((opts && opts.budgetMs) || (/gemini|banana|imagen/i.test(String(a.model || "")) || a.apiFormat === "gemini" ? 300000 : 180000));
   const timeLeft = () => deadline - Date.now();
   const canRetry = () => timeLeft() > 20000;   // 剩不到 20 秒就别开新的一轮了
   let lastRefErr = "";
