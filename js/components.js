@@ -710,23 +710,59 @@ function callBubble(isMe) {
 //   换个 app 还成立的形状（一颗灰药丸、一行小字）就是没设计（tabs-not-plain-pills.md）。
 // ⚠️颜色一律从 t 兑：深色主题里写死的白纸黑字会翻车。
 // ── 发文件（她 2026-10-03：「聊天加号里再加一个可以发文件的，先 txt」）──────────
-// 只收纯文本那几种：txt / md / csv / json / srt / log。读成字，整段放进 content 让 TA 真的读到；
+// 纯文本那几种：txt / md / csv / json / srt / log；另认 PDF 和 .docx（抽出文字再发）。读成字，整段放进 content 让 TA 真的读到；
 // 太长的截在 FILE_MAX 字（再长一轮上下文就被它吃光了），卡上照实标「只给了前 N 字」。
 // GBK 的老 txt 用 UTF-8 读会满屏「�」——乱码多就换 gb18030 再读一遍。
 const FILE_MAX = 12000;
+// PDF / Word（2026-10-03）：解析库放在 vendor/，【用到才加载】——不进开机那一串，平时一个字节都不多下。
+//   PDF 只抽文字层：扫描件（整页是图）抽不出来，照实说；Word 只认 .docx（老 .doc 是二进制，认不了）。
+const _lazyP = {};
+const lazyScript = src => _lazyP[src] || (_lazyP[src] = new Promise((res, rej) => {
+  const sc = document.createElement("script"); sc.src = src; sc.async = true;
+  sc.onload = () => res(); sc.onerror = () => { delete _lazyP[src]; rej(new Error("解析组件没加载下来，检查网络后再试")); }; document.head.appendChild(sc);
+}));
+async function pdfToText(buf) {
+  if (!window.pdfjsLib) await lazyScript("vendor/pdf.min.js");
+  const lib = window.pdfjsLib;
+  if (!lib) throw new Error("PDF 组件没加载下来");
+  lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
+  const doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
+  const pages = [];
+  for (let i = 1; i <= Math.min(doc.numPages, 300); i++) {
+    const tc = await (await doc.getPage(i)).getTextContent();
+    pages.push(tc.items.map(it => it.str + (it.hasEOL ? "\n" : "")).join(""));
+    if (pages.join("\n").length > FILE_MAX * 2) break;   // 够了就停，后面的反正也给不进去
+  }
+  return pages.join("\n\n");
+}
+async function docxToText(buf) {
+  if (!window.mammoth) await lazyScript("vendor/mammoth.browser.min.js");
+  if (!window.mammoth) throw new Error("Word 组件没加载下来");
+  return (await window.mammoth.extractRawText({ arrayBuffer: buf })).value || "";
+}
 function pickTextFile(onMsg) {
   const inp = document.createElement("input");
   inp.type = "file";
-  inp.accept = ".txt,.md,.markdown,.csv,.json,.srt,.log,text/plain,text/markdown,text/csv,application/json";
+  inp.accept = ".txt,.md,.markdown,.csv,.json,.srt,.log,.pdf,.docx,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   inp.onchange = async () => {
     const f = inp.files && inp.files[0];
     if (!f) return;
-    if (f.size > 5 * 1024 * 1024) { typeof toast === "function" && toast("文件太大了（超过 5MB），挑一份小一点的"); return; }
+    const isPdf = /\.pdf$/i.test(f.name) || f.type === "application/pdf";
+    const isDocx = /\.docx$/i.test(f.name);
+    if (/\.doc$/i.test(f.name)) { typeof toast === "function" && toast("老的 .doc 读不了，在 Word 里另存为 .docx 再发"); return; }
+    if (f.size > (isPdf || isDocx ? 20 : 5) * 1024 * 1024) { typeof toast === "function" && toast("文件太大了，挑一份小一点的"); return; }
     try {
       const buf = await f.arrayBuffer();
-      let txt = new TextDecoder("utf-8").decode(buf);
-      if ((txt.match(/\uFFFD/g) || []).length > 8) { try { txt = new TextDecoder("gb18030").decode(buf); } catch (e) {} }
-      txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+      let txt;
+      if (isPdf || isDocx) {
+        typeof toast === "function" && toast("正在读「" + f.name + "」…");
+        txt = isPdf ? await pdfToText(buf) : await docxToText(buf);
+        if (isPdf && !txt.replace(/\s+/g, "").length) { typeof toast === "function" && toast("这份 PDF 是扫描件（整页是图），抽不出字——截图用「照片」发给 TA 看吧", 6000); return; }
+      } else {
+        txt = new TextDecoder("utf-8").decode(buf);
+        if ((txt.match(/\uFFFD/g) || []).length > 8) { try { txt = new TextDecoder("gb18030").decode(buf); } catch (e) {} }
+      }
+      txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
       if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
       const cut = txt.length > FILE_MAX;
       const body = cut ? txt.slice(0, FILE_MAX) : txt;
