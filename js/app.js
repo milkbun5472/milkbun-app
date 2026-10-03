@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.597";
+const APP_VERSION = "v74.598";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25297,6 +25297,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
+    // 调顺序：直接改 characters 本身的先后（聊天之外凡是按这份排的都跟着走）。
+    //   配角夹在中间也不影响：上移/下移只跟【相邻的正式角色】换位置。
+    onMove: (id, dir) => pC(p => {
+      const arr = p.slice(); const i = arr.findIndex(c => c && c.id === id); if (i < 0) return p;
+      if (dir === "top") { const [x] = arr.splice(i, 1); arr.unshift(x); return arr; }
+      let j = i + dir; while (j >= 0 && j < arr.length && arr[j] && arr[j].npc) j += dir;
+      if (j < 0 || j >= arr.length) return p;
+      const tmp = arr[i]; arr[i] = arr[j]; arr[j] = tmp; return arr;
+    }),
     onBack: goHome,
     onAdd: () => {
       setEditingChar(null);

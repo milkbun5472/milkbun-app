@@ -310,9 +310,12 @@ function Cast({
   // 长按一张卷宗＝克隆一份（她 2026-09-14：说明书上写着能克隆，可一直没做）
   onClone,
   // 档案的另一半：TA自己长出来的那份（v61.63 从聊天资料卡里那个半窗挪过来）
-  heartCountOf, onOpenHeart
+  heartCountOf, onOpenHeart,
+  // 调顺序（群友 2026-10-03：「想把最重要的几个放在上面方便修改」）。dir：-1 上移、1 下移、"top" 置顶
+  onMove
 }) {
   const t = useTheme();
+  const [sorting, setSorting] = useState(false);
   // ⚠️长按松手之后那一下 click 要拦掉，不然会顺带跳进编辑页（克隆完屏幕就换了，
   //   她会以为自己点错了）。holdFired 记住「这一下是长按」，click 那头据此让路。
   const holdTimer = useRef(null), holdFired = useRef(false);
@@ -419,7 +422,8 @@ function Cast({
     //（施工规则/mobile-ui-layout.md §3.5）。
     h(Head, { zh: "人格档案馆", bg: "transparent", onBack,
       right: h("div", { className: "flex items-center", style: { gap: 4 } },
-        onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
+        onMove && characters.length > 1 ? h("button", { onClick: () => setSorting(v => !v), className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: sorting ? t.ink : t.sub, fontWeight: sorting ? 600 : 400, padding: "8px 4px" } }, sorting ? "完成" : "排序") : null,
+        !sorting && onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
         h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
       characters.length === 0
@@ -432,7 +436,18 @@ function Cast({
               // ⚠️长按这种手势【看不见】，不写一句就等于没有（说明书上写着能克隆，
               //   可她今天才发现从来点不出来——两头都得补上）
               onClone ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: "auto" } }, "长按一张卡＝克隆一份") : null),
-            h("div", { key: "list" }, cards)
+            sorting
+              // 排序模式：卡收成一行一个，只留名字和三颗按钮——大卡一屏两张半，挪起来要滑很久
+              ? h("div", { key: "sort", style: { background: "rgba(255,255,255,.55)", borderRadius: 12, border: "1px solid " + t.line, overflow: "hidden" } },
+                  characters.map((c, i) => {
+                    const btn = (label, dir, off) => h("button", { onClick: () => onMove(c.id, dir), disabled: off, className: "active:opacity-50",
+                      style: { minWidth: 40, height: 34, borderRadius: 8, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: off ? t.line : t.ink } }, label);
+                    return h("div", { key: c.id, className: "flex items-center gap-3", style: { padding: "9px 10px", borderTop: i ? "1px solid " + t.line : "none" } },
+                      h(Avatar, { character: c, size: 36, radius: 6 }),
+                      h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+                      h("div", { className: "flex", style: { gap: 6 } }, btn("置顶", "top", i === 0), btn("↑", -1, i === 0), btn("↓", 1, i === characters.length - 1)));
+                  }))
+              : h("div", { key: "list" }, cards)
           ]));
 }
 function CastForm({
