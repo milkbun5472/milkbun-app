@@ -211,3 +211,17 @@ test("第四轮：群里收的一段出现在在场每个人名下；群里一�
     assert.ok(ms.find(m => /和「家」一起过的圣诞节/.test(m.title)), c.name + " 名下没有群里过的圣诞");
   });
 });
+
+test("修：生图只回 blob 也能存；认识从在一起那天起算（更早的话）；发给 TA 是小卡", () => {
+  const app = P("js/app.js"), eng = P("js/engine.js"), comp = P("js/components.js"), K = kit();
+  assert.match(eng, /async function imgResultToVault\(r\)/);
+  assert.match(eng, /if \(!d && r\.blob\) d = await new Promise/);
+  assert.equal((app.match(/await imgResultToVault\(r\)/g) || []).length, 3, "头像、封面、配图三处都得走它");
+  assert.ok(!/const dataUrl = r && \(r\.dataUrl \|\| r\.url\);/.test(app), "还有地方只认 dataUrl");
+  const c = { id: "c1", name: "江识" };
+  const ctx = { now: D(2026, 1, 1), chats: { c1: [{ role: "user", content: "嗨", ts: D(2025, 12, 1) }] }, lib: [], couples: { c1: { status: "together", since: D(2025, 9, 1) } }, profile: {}, uName: "Lisa" };
+  const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
+  assert.match(titles, /认识第 100 天/, "在一起比来到这里早，认识得从在一起那天算");
+  assert.match(app, /kind: "shikeshare", content: body/);
+  assert.match(comp, /m\.kind === "shikeshare" && window\.ShikeShareCard/);
+});

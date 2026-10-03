@@ -33,7 +33,7 @@ test("钩子清单只有一份，秋秋引用它、不另抄一份", () => {
 //   都必须真的作为 data-wk 属性出现在源码里。谁哪天改了属性名或删了一个点，
 //   这条当场红——不然秋秋会照着一张过期的地图写 CSS，而且照样不报错。
 test("清单上的每个钩子，源码里都真的挂着", () => {
-  const src = ["js/components.js", "js/screens.js", "js/phone.js", "js/dwell.js", "js/fanfic.js", "js/app.js", "js/astro.js", "js/health.js"]
+  const src = ["js/components.js", "js/screens.js", "js/phone.js", "js/dwell.js", "js/fanfic.js", "js/app.js", "js/astro.js", "js/health.js", "js/shike.js"]
     .map(f => { try { return R(f); } catch (e) { return ""; } }).join("\n");
   // ⚠️只认【后面跟着一句中文说明】的那种行，别把 pages 里的 ["thread","gthread"] 也捞进来
   // ⚠️收在 TOKENS 之前：那张表长得一模一样（["bg","这一页的底色"]），但它是【八支色】不是挂点

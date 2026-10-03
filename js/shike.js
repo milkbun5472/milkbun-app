@@ -70,15 +70,21 @@
     return pic ? { ref: pic.imageRef } : null;
   }
 
+  // 「认识」从哪天起算（她 2026-10-03：「认识是按来到秋秋机开始算的，但在一起更早就会出现在一起 105 天、还有 11 天认识 100 天」）：
+  //   App 里最早一条聊天/记忆只是「来到这里」那天；在一起的日子早于它，认识至少得从在一起那天算。取两者更早的那个。
+  function meetStart(c, ctx) {
+    const chat = (ctx.chats || {})[c.id] || [];
+    const seen = [...chat.map(m => Number(m && m.ts) || 0), ...(ctx.lib || []).filter(e => e && (e.charIds || []).indexOf(c.id) >= 0).map(e => Number(e.ts) || 0)].filter(x => x > 0);
+    const cp = (ctx.couples || {})[c.id];
+    if (cp && cp.status === "together" && Number(cp.since) > 0) seen.push(Number(cp.since));
+    return seen.length ? Math.min.apply(null, seen) : 0;
+  }
   // ── 一个人的全部时刻（只算到今天为止） ─────────────────────
   function momentsFor(c, ctx) {
     const now = ctx.now || Date.now(), today = startOf(now);
     const chat = (ctx.chats || {})[c.id] || [];
     const lib = ctx.lib || [];
-    const firstTs = [
-      ...chat.map(m => Number(m && m.ts) || 0),
-      ...lib.filter(e => e && ((e.charIds || []).indexOf(c.id) >= 0)).map(e => Number(e.ts) || 0)
-    ].filter(x => x > 0).sort((x, y) => x - y)[0];
+    const firstTs = meetStart(c, ctx);
     const out = [];
     const add = (ts, title, kind, always) => {
       if (!ts || startOf(ts) > today) return;
@@ -174,7 +180,7 @@
   //   卡面上挂倒计时；也递给聊天那头，让TA自己决定记不记得、怎么表示。
   function upcoming(c, ctx, horizon) {
     const now = startOf(ctx.now || Date.now()), H = (horizon || 60) * DAY, chat = (ctx.chats || {})[c.id] || [];
-    const first = [...chat.map(m => Number(m && m.ts) || 0), ...(ctx.lib || []).filter(e => e && (e.charIds || []).indexOf(c.id) >= 0).map(e => Number(e.ts) || 0)].filter(x => x > 0).sort((x, y) => x - y)[0];
+    const first = meetStart(c, ctx);
     const cands = [];
     const marks = (base, label) => {
       if (!base) return; const b = startOf(base);
@@ -196,8 +202,7 @@
   // 卡面底下那一行：认识几天、在一起几天（跟时刻同一份算法，不另算一套）
   function daysLine(c, ctx) {
     const now = startOf(ctx.now || Date.now()), chat = (ctx.chats || {})[c.id] || [];
-    const first = [...chat.map(m => Number(m && m.ts) || 0), ...(ctx.lib || []).filter(e => e && (e.charIds || []).indexOf(c.id) >= 0).map(e => Number(e.ts) || 0)]
-      .filter(x => x > 0).sort((x, y) => x - y)[0];
+    const first = meetStart(c, ctx);
     const cp = (ctx.couples || {})[c.id];
     const bits = [];
     if (first) bits.push("认识 " + (Math.round((now - startOf(first)) / DAY) + 1) + " 天");
@@ -551,6 +556,17 @@
       h("button", { onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { fontFamily: F_BODY, fontSize: 18, color: t.fog, background: "transparent", border: "none", padding: "4px 6px" } }, "×"));
   }
   g.ShikeOTD = ShikeOTD;
+  // 聊天里那张时刻卡：小相片（有就放那天的照片）+ 日期 + 名目 + 两句
+  function ShikeShareCard({ m, isU }) {
+    const t = useTheme(), sk = (m && m.shike) || {}, d = new Date(sk.ts || m.ts);
+    return h("div", { "data-wk": "shikeshare", style: { width: 230, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(40,30,20,.08)" } },
+      sk.img ? h("div", { style: { position: "relative", height: 120, background: t.bg } }, h(MomentArt, { img: sk.img })) : null,
+      h("div", { style: { padding: "10px 12px 11px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.fog } }, "时刻 · " + d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate()),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 3 } }, "「" + (sk.title || "") + "」"),
+        (sk.lines || []).slice(0, 2).map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.sub, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x))));
+  }
+  g.ShikeShareCard = ShikeShareCard;
 
   g.ShikeApp = ShikeApp;
   g.ShikeKit = { onThisDay, momentsFor, monthDay, whatHappened, dayImage, upcoming, HOLIDAYS,
