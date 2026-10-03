@@ -18,3 +18,11 @@ test("通讯录有配角入口，打开的是整页册子", () => {
 test("换头像只落在配角身上", () => {
   assert.ok(/onSaveNpcAvatar: \(id, img\) => \{ pC\(p => p\.map\(c => c\.id === id && c\.npc \?/.test(app), "保存头像没限定配角");
 });
+
+test("配角那一行点得进详情，简介走 NpcBrief 那一个", () => {
+  const i = comp.indexOf("function NpcBook(");
+  const seg = comp.slice(i, comp.indexOf("\nfunction ", i + 10));
+  assert.ok(/onClick: \(\) => setOpenId\(n\.id\)/.test(seg), "那一行还是死的");
+  assert.ok(/h\(NpcBrief, \{/.test(seg), "详情没复用 NpcBrief");
+  assert.ok(/onSaveNpcBrief: \(id, text\) => \{ pC\(p => p\.map\(c => c\.id === id && c\.npc \?/.test(app), "改简介没接上");
+});

@@ -7161,6 +7161,7 @@ function Messages({
   characters,
   allChars,
   onSaveNpcAvatar,
+  onSaveNpcBrief,
   groups,
   chats,
   groupChats,
@@ -7555,7 +7556,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onClose: () => setNpcBook(false) })
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
@@ -7756,12 +7757,26 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, onSaveAvatar, onClose }) {
+function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onClose }) {
   const t = useTheme();
+  // 点一行进这位配角的详情（她 2026-10-03：「能不能点击看详情啊，现在都是死的」）。
+  //   简介读和改走关系页那一个 NpcBrief，不另写一份。
+  const [openId, setOpenId] = useState(null);
+  const cur = openId && (npcs || []).find(n => n.id === openId);
   const ownerName = id => id === "me" ? "我身边的人" : (((owners || []).find(c => c && c.id === id) || {}).name || "（主人已不在）") + " 身边的人";
   const byOwner = [];
   (npcs || []).forEach(n => { const k = String(n.ownerId || ""); let g = byOwner.find(x => x.k === k); if (!g) { g = { k, list: [] }; byOwner.push(g); } g.list.push(n); });
   byOwner.sort((a, b) => (a.k === "me" ? -1 : b.k === "me" ? 1 : 0));
+  if (cur) return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
+    h(Head, { zh: cur.name || "配角", onBack: () => setOpenId(null), bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
+      h("div", { className: "flex flex-col items-center", style: { paddingTop: 18, paddingBottom: 14 } },
+        h(AvatarPicker, { character: cur, size: 84, radius: 16, onPick: img => onSaveAvatar(cur.id, img), onClear: cur.avatarImage ? () => onSaveAvatar(cur.id, null) : undefined }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink, marginTop: 10 } }, cur.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } }, ownerName(String(cur.ownerId || "")))),
+      h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub } }, "简介"),
+        h(NpcBrief, { key: cur.id, npc: cur, onSave: onSaveBrief, defaultOpen: true }))));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
     h(Head, { zh: "配角", onBack: onClose, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
@@ -7769,11 +7784,12 @@ function NpcBook({ npcs, owners, onSaveAvatar, onClose }) {
         ? h(Empty, { text: "还没有配角", sub: "去关系页的 NPC 那一栏加" })
         : byOwner.map(g => h("div", { key: g.k },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, ownerName(g.k)),
-            g.list.map(n => h("div", { key: n.id, className: "flex items-center gap-3 px-5 py-3", style: { borderBottom: "1px solid " + t.line, background: t.bg } },
-              h(AvatarPicker, { character: n, size: 46, radius: 9, onPick: img => onSaveAvatar(n.id, img), onClear: n.avatarImage ? () => onSaveAvatar(n.id, null) : undefined }),
+            g.list.map(n => h("div", { key: n.id, onClick: () => setOpenId(n.id), className: "flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: t.bg, cursor: "pointer" } },
+              h("div", { onClick: e => e.stopPropagation() }, h(AvatarPicker, { character: n, size: 46, radius: 9, onPick: img => onSaveAvatar(n.id, img), onClear: n.avatarImage ? () => onSaveAvatar(n.id, null) : undefined })),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, n.name),
-                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, String(n.persona || "").replace(/\s+/g, " ").slice(0, 60) || "（还没写介绍）"))))))));
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, String(n.persona || "").replace(/\s+/g, " ").slice(0, 60) || "（还没写介绍）")),
+              h(IChevR, { size: 15, color: t.line })))))));
 }
 function GroupManager({
   friendGroups,

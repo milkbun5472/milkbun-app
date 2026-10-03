@@ -646,9 +646,9 @@ function CastForm({
 const REL_PRESETS = ["恋人", "暧昧", "朋友", "挚友", "家人", "兄妹", "同事", "上下级", "师生", "对手", "陌生人", "前任", "单向暗恋", "青梅竹马"];
 // 配角的简介：默认收两行，点一下展开【全文】，还能就地改（她 2026-08-25：
 // 「简介打不开看全部」）。配角没有自己的资料页，所以读和改都得落在这儿。
-function NpcBrief({ npc, onSave, compact }) {
+function NpcBrief({ npc, onSave, compact, defaultOpen }) {
   const t = useTheme();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(!!defaultOpen);   // 通讯录配角详情页一进来就摊开全文
   const [draft, setDraft] = useState(null);
   const text = String(npc.persona || "").trim();
   return h("div", { style: { marginTop: compact ? 2 : 8 } },
