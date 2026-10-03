@@ -113,7 +113,7 @@
     const lineOf = r => { const who = speaker(r); return (who ? who + "：" : "") + String(r.text || "").replace(/\s+/g, " ").slice(0, 160); };
     const pinned = pins.filter(p => p && p.ts).map(p => {
       const raw = Array.isArray(p.lines) && p.lines.length ? p.lines.map(lineOf) : [lineOf(p)];
-      return { key: "pin_" + p.id, pinId: p.id, ts: Number(p.ts), title: p.title || "收着的一刻", kind: p.manual ? "manual" : "pin",
+      return { key: "pin_" + p.id, pinId: p.id, ts: Number(p.ts), title: p.title || "收着的一刻", kind: p.manual ? "manual" : p.byChar ? "kept" : "pin",
         what: { kind: p.summary ? "summary" : "pin", lines: p.summary ? [p.summary] : raw.slice(0, 40) }, raw, summary: p.summary || "",
         img: p.imgKey ? { imgKey: p.imgKey } : p.imageRef ? { ref: p.imageRef } : dayImage(p.ts, chat) };
     });
@@ -133,7 +133,7 @@
 
   // ── 界面 ───────────────────────────────────────────────────
   const loadCovers = () => { try { return (typeof loadJSON === "function" ? loadJSON(COVER_KEY, {}) : {}) || {}; } catch (e) { return {}; } };
-  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的", manual: "我开的", world: "那天的世界" };
+  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的", kept: "TA 存的", manual: "我开的", world: "那天的世界" };
   // 时刻卡的底图：那天的照片（自拍在 IDB 图库里，用 useIdbImgUrl 取；她发的照片是 iv_ 门牌）
   function MomentArt({ img }) {
     const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
@@ -326,6 +326,8 @@
               m.summary ? h("button", { onClick: () => setRawOpen(o => Object.assign({}, o, { [m.key]: !o[m.key] })), className: "active:opacity-70", style: chip(false) },
                 rawOpen[m.key] ? "看总结" : "看原话") : null,
               m.pinId ? h("button", { onClick: () => dropPin(m), className: "active:opacity-70", style: chip(false) }, "删掉这张") : null,
+              // 发给 TA（她 2026-10-03 点的第 1 条）：卡片进聊天，TA 接着跟你聊那天
+              props.onSendMoment ? h("button", { onClick: () => props.onSendMoment(cur, m), className: "active:opacity-70", style: chip(false) }, "发给 TA") : null,
               props.onDrawMoment ? h("button", { onClick: () => draw(m), disabled: !!drawing, className: "active:opacity-70", style: chip(drawing && drawing !== m.key) },
                 drawing === m.key ? "正在画…" : "画一张") : null,
               h("button", { onClick: () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }, className: "active:opacity-70", style: chip(false) }, "贴一张"),
@@ -397,8 +399,27 @@
         chars.map((c, i) => h("span", { key: c.id, style: { width: i === idx ? 16 : 6, height: 6, borderRadius: 999, background: i === idx ? t.ink : t.line, transition: "width .2s" } }))));
   }
 
+  // TA 偶尔自己想起一张旧的（她 2026-10-03 点的第 2 条）：大约五天一次、每人错开，挑两周以前的一张。
+  //   同一天里挑的永远是同一张（按日子算，不随机），所以这一天聊几轮都是同一件事，不会一轮一个回忆。
+  //   只是递一句「你们有过这么一天」——聊着自然想起就提，不想提就不提，零调用。
+  const hashOf = str => { let x = 0; for (const ch of String(str)) x = (x * 31 + ch.charCodeAt(0)) >>> 0; return x; };
+  function oldMomentNote(c, ctx) {
+    const now = ctx.now || Date.now(), d = Math.floor(startOf(now) / DAY);
+    if ((d + hashOf(c.id)) % 5 !== 0) return "";
+    const pins = ctx.pins || (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {};
+    const pool = momentsFor(c, Object.assign({}, ctx, { pins, uName: ctx.uName || "她" })).filter(m => m.ts < startOf(now) - 14 * DAY && (m.what.lines || []).length);
+    if (!pool.length) return "";
+    const m = pool[hashOf(c.id + ":" + d) % pool.length], dd = new Date(m.ts);
+    return "你们的相册里有一张「" + m.title + "」（" + dd.getFullYear() + " 年 " + (dd.getMonth() + 1) + " 月 " + dd.getDate() + " 日）：" + m.what.lines.slice(0, 2).join(" / ").slice(0, 160)
+      + "。今天你偶尔会想起它——聊着自然想起就提一句，不合时宜就不提，别硬拐过去。";
+  }
+
   g.ShikeApp = ShikeApp;
   g.ShikeKit = { momentsFor, monthDay, whatHappened, dayImage, upcoming, HOLIDAYS,
     // 聊天那头用：三天内（含今天）有日子就给一句，没有就空——零调用，只是让TA知道
-    chatNote: (c, ctx) => { const u = upcoming(c, ctx, 3); return u ? (u.days === 0 ? "今天是你们的「" + u.title + "」。" : "再过 " + u.days + " 天是你们的「" + u.title + "」。") + "记不记得、要不要表示、怎么表示，全看你这个人；她没提的话，你也可以不提。" : ""; } };
+    chatNote: (c, ctx) => {
+      const u = upcoming(c, ctx, 3);
+      if (u) return (u.days === 0 ? "今天是你们的「" + u.title + "」。" : "再过 " + u.days + " 天是你们的「" + u.title + "」。") + "记不记得、要不要表示、怎么表示，全看你这个人；她没提的话，你也可以不提。";
+      return oldMomentNote(c, ctx);
+    } };
 })();
