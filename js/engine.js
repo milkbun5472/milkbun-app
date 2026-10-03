@@ -5106,7 +5106,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const parts = shape ? imgs.concat(content) : content.concat(imgs);
       // shape 3：content 写成一整串字（raivip 文档的例子就是这样，2026-10-03）——有的中转只认字符串，
       //   见到数组就转成空的 contents；参考图用 Markdown 图片挂在字后面，认得的中转会把它当图
-      const strContent = content[0].text + imgs.map(x => "\n![ref](" + (typeof x.image_url === "string" ? x.image_url : x.image_url.url) + ")").join("");
+      // ⚠️带参考照时不走这一种：试过了，Markdown 里的图中转根本不读（她 2026-10-03 测：锁的是黑发少年，出来一位白发老太太），
+      //   还把几百 KB 的 base64 塞进了正文，聊天里那张直接等到超时。生成陌生人是这套出图的红线，宁可明说锁不了脸。
+      const strContent = content[0].text;
       const body = { model: a.model, messages: [{ role: "user", content: shape === 3 ? strContent : parts }], stream: !!stream };
       if (!shape) body.modalities = ["image", "text"];
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: sig || ctrl.signal });
@@ -5133,10 +5135,15 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         for (let sh = 3; sh >= 1 && !r.ok; sh--) {
           const peek = await r.clone().text().catch(() => "");
           if (!/contents is required|contents.{0,20}empty|invalid.{0,30}(content|part)|messages.{0,20}required/i.test(peek)) break;
+          if (sh === 3 && useRef && refBlobs.length) continue;   // 纯字符串那种带不了图，有参考照时不试
           r = await chatFetch(false, null, sh);
         }
         // 几种摆法都回「contents is required」→ 这家是把请求原样转给 Gemini 的，改发原生格式
-        if (!r.ok && /contents is required/i.test(await r.clone().text().catch(() => ""))) r = await geminiFetch();
+        if (!r.ok && /contents is required/i.test(await r.clone().text().catch(() => ""))) {
+          // 带图的几种摆法全被打回、而这家纯文字（字符串）能出图（群友 raivip 2026-10-03 实测）：它的聊天接口不收图片
+          if (useRef && refBlobs.length) throw new Error("这条线路的聊天接口只收纯文字、不收图片，参考照送不过去，锁不了脸（为了不画出陌生人，这次停下了）。不带参考照的出图可以用；要锁脸得换一条能传图的线路或模型，或者请求方式试试「Gemini 原生」");
+          r = await geminiFetch();
+        }
       }
       else if (useRef && refBlobs.length) {
         const fd = new FormData();

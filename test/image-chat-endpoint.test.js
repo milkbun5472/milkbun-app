@@ -34,13 +34,13 @@ test("NAI models get danbooru tags translated first", () => {
 });
 test("NAI never asked for fake photos", () => { assert.match(eng, /do NOT write photorealistic\/photo[\s\S]{0,200}semi-realistic, realistic shading, painterly/); });
 test("chat image: retries other content shapes on 'contents is required'; untyped blobs become image/png", () => {
-  assert.match(eng, /for \(let sh = 3; sh >= 1 && !r\.ok; sh--\)[\s\S]{0,200}contents is required[\s\S]{0,200}chatFetch\(false, null, sh\)/);
+  assert.match(eng, /for \(let sh = 3; sh >= 1 && !r\.ok; sh--\)[\s\S]{0,300}contents is required[\s\S]{0,300}chatFetch\(false, null, sh\)/);
   assert.match(eng, /new Blob\(\[b0\], \{ type: "image\/png" \}\)/);
 });
 test("gemini native fallback: generateContent with contents/parts/inline_data", () => {
   assert.match(eng, /"\/v1beta\/models\/" \+ encodeURIComponent\(a\.model\) \+ ":generateContent"/);
   assert.match(eng, /contents: \[\{ role: "user", parts \}\], generationConfig: \{ responseModalities: \["image", "text"\]\.map/);
-  assert.match(eng, /contents is required\/i\.test\(await r\.clone\(\)\.text\(\)[^\n]*\) r = await geminiFetch\(\)/);
+  assert.match(eng, /contents is required\/i\.test\(await r\.clone\(\)\.text\(\)[\s\S]{0,600}r = await geminiFetch\(\)/);
   assert.match(scr, /value: "gemini" \}, "Gemini 原生/);
 });
 test("gemini-ish image models get a longer per-try cap; test button's attemptMs is honored", () => {
@@ -48,4 +48,9 @@ test("gemini-ish image models get a longer per-try cap; test button's attemptMs 
 });
 test("shape 3 sends content as a plain string (relay doc style)", () => {
   assert.match(eng, /content: shape === 3 \? strContent : parts/);
+});
+test("string-content shape never carries refs; ref + text-only relay → clear stop, no stranger", () => {
+  assert.match(eng, /const strContent = content\[0\]\.text;/);
+  assert.match(eng, /if \(sh === 3 && useRef && refBlobs\.length\) continue;/);
+  assert.match(eng, /只收纯文字、不收图片，参考照送不过去，锁不了脸/);
 });
