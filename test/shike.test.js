@@ -52,3 +52,11 @@ test("两层：外层只有整屏高的卡横着滑，点进去才有时刻列�
   const outer = s.slice(s.indexOf("// ── 外层"));
   assert.ok(!/list\.map\(row\)/.test(outer), "外层又摆出了时刻列表");
 });
+
+test("卡面默认用档案馆那张头像；里层时刻也是横着滑的高卡", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /const coverOf = c => covers\[c\.id\] \|\| c\.avatarImage \|\| c\.chatAvatar \|\| "";/);
+  const inner = s.slice(s.indexOf("// ── 里层"), s.indexOf("// ── 外层"));
+  assert.match(inner, /scrollSnapType: "x mandatory"/, "里层不是横滑");
+  assert.match(inner, /list\.map\(mcard\)/);
+});
