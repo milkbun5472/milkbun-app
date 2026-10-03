@@ -46,7 +46,7 @@ test("专注页的进度也是发条在往回松，不是一条 2px 横线", () 
 });
 
 test("原来的逻辑一条没动（计时以墙上时间为准、切后台能接回来）", () => {
-  assert.match(code, /window\.PomodoroLogic = \{ remainingSec, focusedSec, resumeSession, noteIndex \};/);
+  assert.match(code, /window\.PomodoroLogic = \{ remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore \};/);
   assert.match(code, /x_pomodoro_active/);
   assert.match(code, /if \(remain <= 0 && !current\.pausedAt\) finishRef\.current\("done"\);/);
 });
@@ -76,10 +76,12 @@ test("结算是整页的一张单子，不再是半窗", () => {
   assert.match(code, /if \(view === "archive" && detail\) return ResultCard\(/);
 });
 
-test("专注页也摆着同一只钟，纸条也是贴着胶带的", () => {
-  assert.match(code, /const leftMin = Math\.max\(0, Math\.ceil\(left \/ 60\)\);/);
-  assert.match(code, /h\(Dial, \{ t: \{ bg2: "transparent"[\s\S]{0,140}min: leftMin, size: 288 \}\)/);
-  assert.match(code, /transform: "rotate\(-\.8deg\)", animation: "fadeUp \.35s ease both"/);
+test("专注画面不盖人物，字幕和倒计时各有独立区域", () => {
+  assert.match(code, /"data-wk": "pomfocus"/);
+  assert.match(code, /"data-wk": "pomsubtitle"/);
+  assert.match(code, /"data-wk": "pomtimer"/);
+  assert.doesNotMatch(code, /size: 288/);
+  assert.match(code, /h\(Head, \{ zh: c\.name/);
 });
 
 test("标题里不留英文（她 2026-09-03 立的那条）", () => {

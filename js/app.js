@@ -26609,6 +26609,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("home")
   });else if (screen === "pomodoro") body = h(Pomodoro, {
     active: bgActive,
+    ctxFor: ctxFor,
     characters: liveChars,
     profile: profile,
     worldbook: loreForContext("lifestyle", [], ""),

@@ -78,7 +78,7 @@ assert.match(app, /forumWorldCtx = \(text, world\) =>[^\n]+loreForContext\("soci
 assert.match(study, /props\.worldbookFor\(chars\[i\]\.id, subject\.trim\(\)\)/, "能力判定应按候选角色取设定");
 assert.match(study, /props\.worldbookFor\(char\.id, \[sessRef\.current\.subject, recent\]/, "学习对话应按说话角色和近期课堂触发设定");
 assert.match(read, /props\.worldbookFor\(partner\.id, String\(text \|\| ""\)\)/, "共读应按搭档与当前页触发设定");
-assert.match(pomodoro, /props\.worldbookFor\(c\.id, \(task\.trim\(\) \|\| "专注"\)/, "番茄钟应按陪伴角色与任务触发设定");
+assert.match(pomodoro, /props\.worldbookFor\(c\.id, state\.task/, "番茄钟应按陪伴角色与任务触发设定");
 assert.match(debate, /props\.worldbookFor\(ids, \[s\.topic, prevTranscript\(s\)/, "擂台每轮应按台上角色与完整争论触发设定");
 assert.match(dream, /props\.worldbookFor\(ids, text\)/, "梦境应按做梦人与客串角色触发设定");
 assert.match(tarot, /props\.worldbookFor\(c\.id, \[deal\.finalQuestion/, "塔罗应按解牌角色与问题触发设定");

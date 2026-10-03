@@ -75,7 +75,7 @@ test("报错说人话：跨域被挡不许说成「写太长被掐断」", async
 });
 
 test("缓存钥匙带上服务商（MiniMax 不带，老缓存照旧命中）；合成只有一个入口", () => {
-  assert.match(eng, /ttsCacheKey\(\(prov === "minimax" \? "" : prov \+ ":"\) \+ source \+ vid/);
+  assert.match(eng, /ttsCacheKey\(\(prov === "minimax" \? "" : prov \+ ":"\) \+ vid/);
   const syn = eng.slice(eng.indexOf("async function ttsSynth("), eng.indexOf("async function ttsSynthOther("));
   assert.match(syn, /ttsSynthOther\(a, synthTxt, vid, spd\)/);
   assert.match(syn, /idbAudPut\(key, blob\)/);
@@ -111,3 +111,5 @@ test("拉取模型撤了：MiniMax 语音没有模型清单可问", () => {
   assert.ok(!/ttsListModels/.test(eng + scr), "这家没给清单，按钮每次点都白点");
   assert.match(scr, /const MM_MODELS = MM_BUILTIN;/);
 });
+
+ test("已撤下的语音服务不会自动切换到收费服务",()=>{const e=load({x_ttsApi:JSON.stringify({enabled:true,provider:"voicestudio",groupId:"g",apiKey:"fixture"})});assert.equal(e.loadTtsApi().provider,"minimax");assert.equal(e.ttsReady(),false);});
