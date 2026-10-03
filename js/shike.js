@@ -193,7 +193,8 @@
     // 每张时刻卡自己的图（她 2026-10-03 点的第 3、4 条）：画一张 / 自己贴一张。{ charId: { momentKey: iv_ } }
     const [arts, setArts] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeArt", {}) : {}) || {}; } catch (e) { return {}; } });
     const [drawing, setDrawing] = useState("");
-    const fileRef = React.useRef(null), pickFor = React.useRef(null);
+    const fileRef = React.useRef(null), pickFor = React.useRef(null), mRef = React.useRef(null);
+    const [exporting, setExporting] = useState(false);
     const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
     const draw = async m => {
       if (drawing || !props.onDrawMoment || !cur) return;
@@ -259,6 +260,66 @@
       editPins(cur.id, list => [{ id: "pin_" + Date.now(), ts, title: String(f.title).trim().slice(0, 30), manual: true, role: "manual",
         lines: String(f.text || "").trim() ? [{ role: "manual", text: String(f.text).trim().slice(0, 2000) }] : [] }].concat(list));
       setCreating(null); setMIdx(0);
+    };
+    // 合成一页长图（她 2026-10-03 点的第 7 条）：封面 + 一张张时刻（日期、名目、那天的几句、有图就配图），画在 canvas 上存下来。
+    //   不花钱；图从图库里现取。⚠️canvas 一边不能太长（iOS 约 16384px），超了就只拼最近那些，末尾写一句。
+    const loadImg = async ref => {
+      try {
+        let url = null;
+        if (ref && ref.imgKey && typeof idbImgGet === "function") { const b = await idbImgGet(ref.imgKey); if (b) url = URL.createObjectURL(b); }
+        else if (ref && ref.ref) url = typeof resolveImg === "function" ? resolveImg(ref.ref) : ref.ref;
+        else if (typeof ref === "string") url = typeof resolveImg === "function" ? resolveImg(ref) : ref;
+        if (!url) return null;
+        return await new Promise(ok => { const im = new Image(); im.onload = () => ok(im); im.onerror = () => ok(null); im.src = url; });
+      } catch (e) { return null; }
+    };
+    const wrap = (ctx2, text, maxW) => { const out = []; let line = ""; for (const ch of String(text)) { if (ch === "\n" || ctx2.measureText(line + ch).width > maxW) { out.push(line); line = ch === "\n" ? "" : ch; } else line += ch; } if (line) out.push(line); return out; };
+    const exportLong = async (c, items) => {
+      if (exporting) return;
+      setExporting(true);
+      try {
+        const W = 1080, PAD = 72, MAXH = 15000;
+        const cv = document.createElement("canvas"), g2 = cv.getContext("2d");
+        const font = (px, disp) => (disp ? "600 " : "") + px + "px " + (disp ? "serif" : "sans-serif");
+        // 先量高度
+        g2.font = font(30);
+        const blocks = [];
+        let H = 760, cut = 0;
+        for (const m of items) {
+          const lines = [].concat(...(m.what.lines || []).slice(0, 4).map(x => wrap(g2, x, W - PAD * 2 - 40)));
+          const img = (arts[c.id] || {})[m.key] ? { ref: arts[c.id][m.key] } : m.img;
+          const bh = 220 + lines.length * 46 + (img ? 420 : 0) + 60;
+          if (H + bh > MAXH) { cut = items.length - blocks.length; break; }
+          blocks.push({ m, lines, img, h: bh }); H += bh;
+        }
+        H += cut ? 120 : 80;
+        cv.width = W; cv.height = H;
+        g2.fillStyle = "#f7f2ea"; g2.fillRect(0, 0, W, H);
+        const cover = await loadImg(coverOf(c));
+        if (cover) { const r = Math.max(W / cover.width, 640 / cover.height); g2.drawImage(cover, (W - cover.width * r) / 2, (640 - cover.height * r) / 2, cover.width * r, cover.height * r); }
+        else { g2.fillStyle = c.color || "#6b5b4b"; g2.fillRect(0, 0, W, 640); }
+        const grd = g2.createLinearGradient(0, 300, 0, 640); grd.addColorStop(0, "rgba(0,0,0,0)"); grd.addColorStop(1, "rgba(0,0,0,.6)"); g2.fillStyle = grd; g2.fillRect(0, 300, W, 340);
+        g2.fillStyle = "#fff"; g2.font = font(76, true); g2.fillText(c.remark || c.name, PAD, 560);
+        g2.font = font(30); g2.fillText(daysLine(c, ctx) + "  ·  " + items.length + " 个时刻", PAD, 610);
+        let y = 720;
+        for (const b of blocks) {
+          const d = new Date(b.m.ts);
+          g2.fillStyle = "#9a8a78"; g2.font = font(28); g2.fillText(d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate() + "  ·  " + (KIND_ZH[b.m.kind] || ""), PAD, y + 40);
+          g2.fillStyle = "#2e261d"; g2.font = font(48, true); g2.fillText(b.m.title.slice(0, 20), PAD, y + 110);
+          let yy = y + 170;
+          if (b.img) { const im = await loadImg(b.img); if (im) { const bw = W - PAD * 2, bh2 = 400, r = Math.max(bw / im.width, bh2 / im.height);
+            g2.save(); g2.beginPath(); g2.rect(PAD, yy, bw, bh2); g2.clip(); g2.drawImage(im, PAD + (bw - im.width * r) / 2, yy + (bh2 - im.height * r) / 2, im.width * r, im.height * r); g2.restore(); yy += 420; } }
+          g2.fillStyle = "#5a4e42"; g2.font = font(30);
+          b.lines.forEach(l => { g2.fillText(l, PAD + 20, yy + 30); yy += 46; });
+          g2.strokeStyle = "#e3d8c8"; g2.beginPath(); g2.moveTo(PAD, y + b.h - 20); g2.lineTo(W - PAD, y + b.h - 20); g2.stroke();
+          y += b.h;
+        }
+        g2.fillStyle = "#9a8a78"; g2.font = font(26);
+        g2.fillText(cut ? "（太长了，只拼了最近的 " + blocks.length + " 张，还有 " + cut + " 张在 App 里）" : "—— 时刻", PAD, y + 50);
+        const ok = typeof saveImgOriginal === "function" ? await saveImgOriginal(cv.toDataURL("image/jpeg", 0.9), (c.remark || c.name) + "的时刻") : false;
+        if (!ok && props.toast) props.toast("没存成，再试一次");
+      } catch (e) { props.toast && props.toast("没拼成：" + String((e && e.message) || e).slice(0, 80)); }
+      finally { setExporting(false); }
     };
     const chip = dim => ({ fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.3)", borderRadius: 999, padding: "6px 12px", opacity: dim ? .5 : 1 });
     const art = (c, extra) => {
@@ -333,6 +394,11 @@
               h("button", { onClick: () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }, className: "active:opacity-70", style: chip(false) }, "贴一张"),
               (arts[cur.id] || {})[m.key] ? h("button", { onClick: () => setArt(cur.id, m.key, null), className: "active:opacity-70", style: chip(false) }, "拿掉") : null)));
       };
+      // 目录（她 2026-10-03 点的第 6 条）：按「几年几月」分组，点一下滑到那个月的第一张
+      const months = [];
+      list.forEach((m, k) => { const d = new Date(m.ts), lab = d.getFullYear() + "." + (d.getMonth() + 1); if (!months.some(x => x.lab === lab)) months.push({ lab, k }); });
+      const curLab = list[mIdx] ? (new Date(list[mIdx].ts).getFullYear() + "." + (new Date(list[mIdx].ts).getMonth() + 1)) : "";
+      const jump = k => { const el = mRef.current; if (!el) return; const w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth; try { el.scrollTo({ left: k * w, behavior: "smooth" }); } catch (e) { el.scrollLeft = k * w; } setMIdx(k); };
       const onMScroll = e => {
         const el = e.currentTarget, w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth;
         const k = Math.round(el.scrollLeft / Math.max(1, w));
@@ -341,7 +407,7 @@
       return h("div", { className: "h-full flex flex-col", "data-wk": "shikedetail", style: shell(t) },
         h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
         h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); }, bg: "transparent" }),
-        h("div", { className: "shrink-0 flex items-center justify-center", style: { gap: 10, padding: "4px 16px 2px" } },
+        h("div", { className: "shrink-0 flex items-center justify-center", style: { gap: 8, padding: "4px 16px 2px", flexWrap: "wrap" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, [daysLine(cur, ctx), upLine(upcoming(cur, ctx))].filter(Boolean).join(" · ")),
           props.onGenCover ? h("button", { onClick: () => gen(cur), disabled: !!busy, className: "active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 11.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "6px 12px", opacity: busy ? .5 : 1 } },
@@ -349,9 +415,16 @@
           covers[cur.id] ? h("button", { onClick: () => setCover(cur.id, null), className: "active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "用回头像") : null,
           h("button", { onClick: () => setCreating({ date: dayKey(Date.now()), title: "", text: "" }), className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "＋ 开一张")),
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "＋ 开一张"),
+          list.length ? h("button", { onClick: () => exportLong(cur, list), disabled: exporting, className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent", opacity: exporting ? .5 : 1 } },
+            exporting ? "正在拼…" : "存成长图") : null),
+        months.length > 1 ? h("div", { "data-wk": "shikemonths", className: "shrink-0 flex", style: { gap: 6, overflowX: "auto", padding: "8px 16px 0", WebkitOverflowScrolling: "touch" } },
+          months.map(x => h("button", { key: x.lab, onClick: () => jump(x.k), className: "active:opacity-70 shrink-0",
+            style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, border: "1px solid " + (x.lab === curLab ? t.ink : t.line),
+              background: x.lab === curLab ? t.ink : "transparent", color: x.lab === curLab ? t.bg2 : t.sub } }, x.lab))) : null,
         list.length
-          ? h("div", { onScroll: onMScroll, className: "flex-1 min-h-0 flex",
+          ? h("div", { ref: mRef, onScroll: onMScroll, className: "flex-1 min-h-0 flex",
               style: { gap: 14, overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch",
                 padding: "12px calc((100vw - min(80vw, 400px)) / 2) 10px" } }, list.map(mcard))
           : h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.fog, textAlign: "center", padding: "60px 30px" } },
