@@ -245,11 +245,7 @@
   // 居高临下/三件套/内容边界），线路也跟着这个角色自己的那条走（apiFor）。
   // 靠调用点一条条 push 的那三层（回声禁令/语域跟场面走/读懂这句话在做什么）在 voiceTail 里补上，跟解梦馆、星测同一个做法。
   // 塔罗自己的那两条（忠于牌面 HONEST、你对占卜的态度 STANCE）照旧跟在任务里。
-  function voiceTail() {
-    return (typeof ECHO_QUESTION_BAN !== "undefined" ? "\n\n" + ECHO_QUESTION_BAN : "")
-      + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : "")
-      + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
-  }
+  const voiceTail = () => (typeof probeVoiceTail === "function" ? probeVoiceTail() : "");
   // voice＝TA本人在说话（替你解牌、入座前那一句、补牌、桌边接着聊）；
   // 不是 voice 的是旁白占者（关系占卜、给TA算一卦）——料一样是TA那一整份，站位换成冷静的推演。
   async function tarotProbe(env, char, instruction, schemaHint, voice) {

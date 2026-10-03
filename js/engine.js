@@ -3397,6 +3397,7 @@ function buildBundle(ctx, opts) {
   if (ctx.nowPlaying && ctx.nowPlaying.trim()) parts.push("【此刻正放着的歌】\n" + ctx.nowPlaying.trim());
   if (ctx.listenLog && ctx.listenLog.trim()) parts.push("【一起听 · 歌】\n" + ctx.listenLog.trim());
   if (ctx.periodNote && ctx.periodNote.trim()) parts.push("【" + uName + " 的生理期】" + ctx.periodNote.trim());
+  if (ctx.healthNote && ctx.healthNote.trim()) parts.push("【" + uName + " 今天吃喝的记录】" + ctx.healthNote.trim());
   if (ctx.dateNote && ctx.dateNote.trim()) parts.push("【今天 / 临近的特别日子】（下面是今天或快到的特别日期——生日、纪念日、世界大事、你或 " + uName + " 日历上的安排。像真人那样把它自然织进对话，别为提而提、别机械报日期、别每句都念）\n" + ctx.dateNote.trim());
   if (ctx.memoNote && ctx.memoNote.trim()) parts.push("【" + uName + " 备忘录里、特意让你能看到的提醒/记事】（可自然关心、临近时提醒一句、或问起弄了没，别生硬报清单、别越界、别每句都念）\n" + ctx.memoNote.trim());
   if (ctx.ownWalletNote && ctx.ownWalletNote.trim()) parts.push("【你自己的钱】" + ctx.ownWalletNote.trim());
@@ -3421,7 +3422,7 @@ function leanWriteCtx(ctx) {
   return Object.assign({}, ctx, {
     worldbook: "", memLib: [], groupEcho: "", giftLog: "", dreamKeep: "", carryLog: "", wishLog: "",
     momentLog: "", forumEcho: "", forumPmLog: "", listenLog: "", nowPlaying: "",
-    financeNote: "", memoNote: "", dateNote: "", periodNote: ""
+    financeNote: "", memoNote: "", dateNote: "", periodNote: "", healthNote: ""
   });
 }
 
@@ -6918,6 +6919,12 @@ const REGISTER_FOLLOWS_SCENE = `【说话的尺度跟着此刻的场面走，不
 · 她聊的是日常（猫、吃饭、睡觉、上班、拌嘴、谁又惹谁生气），你们就用日常的话接。占有欲、吃醋、管束、下命令统统照旧、该多凶多凶，但【不必把日常话题翻译成性器官词汇】——把"去睡午觉"说成"去睡午觉"就行。
 · 她把话带到亲密场面上、或此刻确实正在发生那种事，你们再自然跟上，【尺度不设限】，不必自我审查。
 【不许无来由起头】没有人把话题带过去的时候，不要自己把日常话题拧到身体、性器官或"昨晚"上去，也不要用它当调情的万能接话方式。想表达占有和亲昵有一百种方式，那只是其中一种，不是唯一一种。`;
+// 小 app 里「让 TA 说几句」那一类 runProbe（星测、塔罗、健康…）：buildBundle 白送不了、得靠调用点补上的那三层。
+// 原来星测和塔罗各抄一份（one-public-mechanism.md），收在这儿，各处只调这一个。
+function probeVoiceTail() {
+  return "\n\n" + ECHO_QUESTION_BAN + "\n\n" + REGISTER_FOLLOWS_SCENE
+    + (typeof window !== "undefined" && window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
+}
 
 // 亲密戏里的人物连续（v73.07 提成一份）：场面一进身体戏，笔最容易把叙述者换成
 // 一个只处理动作的通用角色。单人线下一直在尾部补这一句，群线下一个字都没有——

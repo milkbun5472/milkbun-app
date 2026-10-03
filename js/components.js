@@ -3066,6 +3066,22 @@ function periodCycleOf(period) {
   };
 }
 function periodSpanLen(p, defLen) { return p.end ? (Math.round((pKeyDate(p.end) - pKeyDate(p.start)) / 86400000) + 1) : defLen; }
+// 此刻在周期的哪一段（v74.640 从聊天上下文那条 periodNote 里提出来：健康 app 也要同一份判断，不许各算各的）。
+// phase 是给模型读的那句，label 是给她看的短标签；next＝离下次大约几天。没记过 → null。
+function periodPhaseNow(period, now) {
+  const list = periodList(period);
+  if (!list.length) return null;
+  const lastP = list[list.length - 1];
+  const today = new Date(now || Date.now()); today.setHours(0, 0, 0, 0);
+  const _pc = periodCycleOf(period), cyc = _pc.cyc, pLen = periodSpanLen(lastP, _pc.len);
+  const dic = Math.floor((today - pKeyDate(lastP.start)) / 86400000) % cyc;
+  if (dic < 0) return null;
+  const next = cyc - dic;
+  if (dic < pLen) return { kind: "period", day: dic + 1, next, phase: "正处于经期（第 " + (dic + 1) + " 天）", label: "经期第 " + (dic + 1) + " 天" };
+  if (Math.abs(dic - (cyc - 14)) <= 2) return { kind: "ov", next, phase: "接近排卵日", label: "接近排卵日" };
+  if (dic >= cyc - 4) return { kind: "pre", next, phase: "经前期，接近下次经期", label: "经前期" };
+  return { kind: "safe", next, phase: "处于相对安全期", label: "相对安全期" };
+}
 function periodMap(period) {
   const map = {};
   if (!period) return map;
@@ -5184,7 +5200,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 //   名字按她自己的口气起（查一查／每日看／一起做／一起玩 都是她起的）。
 const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
-  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro"] },
+  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
@@ -5195,20 +5211,25 @@ const DEFAULT_FOLDERS = {
   f_def_back:  { name: "回头看", keys: ["weekly", "impression"] },
   f_def_ops:   { name: "后台", keys: ["rescue", "vpscodex", "loungeapp"] }
 };
-// 新 app 进老用户的文件夹（v74.590 星测）：她画的位置就在「每日看」塔罗旁边。
-//   哪个文件夹里有塔罗就放进哪个；已经摆在哪儿了（页上或别的文件夹）就不动，而且只搬一次。
-function placeAstroOnce(st) {
+// 新 app 进老用户的文件夹（v74.590 星测起；v74.640 健康也要，于是收成一份）：
+//   放进「有 beside 那个 app 的文件夹」里；已经摆在哪儿了（页上或别的文件夹）就不动，而且每个 app 只搬一次。
+//   flag 是那个 app 自己的「搬过了」记号——星测那个键名不改，改了老用户会被再塞一次。
+const PLACE_ONCE = [["astro", "tarot", "x_astroPlaced"], ["health", "astro", "x_healthPlaced"]];
+function placeAppOnce(st, key, beside, flag) {
   try {
-    if (loadJSON("x_astroPlaced", false)) return st;
-    var seenA = Object.keys(st).some(function (fid) { return (st[fid].keys || []).indexOf("astro") >= 0; });
+    if (loadJSON(flag, false)) return st;
+    var seen = Object.keys(st).some(function (fid) { return (st[fid].keys || []).indexOf(key) >= 0; });
     var L0 = loadJSON("x_homeLayout", {});
-    var onPage = Object.keys(L0 || {}).some(function (k) { return Array.isArray(L0[k]) && L0[k].indexOf("astro") >= 0; });
-    var home = Object.keys(st).filter(function (fid) { return (st[fid].keys || []).indexOf("tarot") >= 0; })[0];
-    if (seenA || onPage || !home) return st;
-    var n = Object.assign({}, st); n[home] = Object.assign({}, st[home], { keys: (st[home].keys || []).concat(["astro"]) });
-    saveJSON("x_homeFolders", n); saveJSON("x_astroPlaced", true);
+    var onPage = Object.keys(L0 || {}).some(function (k) { return Array.isArray(L0[k]) && L0[k].indexOf(key) >= 0; });
+    var home = Object.keys(st).filter(function (fid) { return (st[fid].keys || []).indexOf(beside) >= 0; })[0];
+    if (seen || onPage || !home) return st;
+    var n = Object.assign({}, st); n[home] = Object.assign({}, st[home], { keys: (st[home].keys || []).concat([key]) });
+    saveJSON("x_homeFolders", n); saveJSON(flag, true);
     return n;
   } catch (e) { return st; }
+}
+function placeNewAppsOnce(st) {
+  return PLACE_ONCE.reduce(function (acc, r) { return placeAppOnce(acc, r[0], r[1], r[2]); }, st);
 }
 function Home({
   now,
@@ -5350,7 +5371,7 @@ function Home({
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
   const [folders, setFolders] = useState(function () {
     var st = loadJSON("x_homeFolders", {});
-    if (st && Object.keys(st).length) st = placeAstroOnce(st);
+    if (st && Object.keys(st).length) st = placeNewAppsOnce(st);
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -5424,6 +5445,7 @@ function Home({
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },
+    health: { kind: "app", zh: "健康", G: window.GHealth || GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
     companion: { kind: "app", zh: "陪伴", G: window.GCompanion || GFocus },
     games: { kind: "app", zh: "小游戏", G: GGame },

@@ -471,6 +471,15 @@
         ["astronote", "TA看完说的那段话"]
       ])
     }),
+    // 健康（v74.640）：坐标纸底、心电图 tab
+    Object.freeze({
+      zh: "健康", pages: Object.freeze(["health"]),
+      hooks: Object.freeze([
+        ["healthtabs", "顶上那条心电图（今天／身体／这周）"], ["healthcard", "每一段"], ["healthsum", "热量环和三大营养素那一块"],
+        ["healthmeals", "吃了什么那一段"], ["healthwater", "喝水那一排杯子"], ["healthmood", "心情那五张脸"],
+        ["healthweight", "体重那一段"], ["healthperiod", "经期那一段"], ["healthweek", "七天的热量柱"], ["healthnote", "TA看完这周说的话"]
+      ])
+    }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。
     // ⚠️病根不是主题台坏了——是主屏上【一个挂点都没有】，只有最外那层 app。
     //   给主屏写的 CSS 因此抓不到任何东西，写得再对也一条不生效。

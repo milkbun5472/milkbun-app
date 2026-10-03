@@ -84,10 +84,11 @@ test("每日：同一天同一星座永远同一份，换天会变", () => {
 test("挂上了：主屏、每日看、路由、页名、手册；点评走 runProbe voice", () => {
   const comp = read("js/components.js"), app = read("js/app.js"), core = read("js/core.js"), man = read("js/assistant-manual.js"), html = read("index.html");
   assert.match(comp, /astro: \{ kind: "app", zh: "星测", G: window\.GAstro \|\| GTarot \}/);
-  assert.match(comp, /f_def_daily: \{ name: "每日看", keys: \["cwallet", "tarot", "shop", "takeout", "astro"\] \}/);
-  assert.match(comp, /indexOf\("tarot"\) >= 0; \}\)\[0\];/, "老用户：放进有塔罗的那个文件夹");
-  assert.match(comp, /if \(st && Object\.keys\(st\)\.length\) st = placeAstroOnce\(st\);/);
-  assert.match(comp, /if \(loadJSON\("x_astroPlaced", false\)\) return st;/, "只搬一次：她挪走了别再塞回去");
+  assert.match(comp, /f_def_daily: \{ name: "每日看", keys: \["cwallet", "tarot", "shop", "takeout", "astro"[^\]]*\] \}/);
+  assert.match(comp, /indexOf\(beside\) >= 0; \}\)\[0\];/, "老用户：放进有塔罗的那个文件夹");
+  assert.match(comp, /if \(st && Object\.keys\(st\)\.length\) st = placeNewAppsOnce\(st\);/);
+  assert.match(comp, /\["astro", "tarot", "x_astroPlaced"\]/, "星测那个搬过了的键名不许改");
+  assert.match(comp, /if \(loadJSON\(flag, false\)\) return st;/, "只搬一次：她挪走了别再塞回去");
   assert.match(app, /screen === "astro"\) body = h\(window\.AstroApp, \{/);
   assert.match(core, /astro: "星测"/);
   assert.match(man, /\{ id: "astro", app: "astro", zh: "星测"/);

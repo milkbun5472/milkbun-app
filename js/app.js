@@ -5919,22 +5919,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 那些是「查手机」推演出来给你偷看的，不该占聊天上下文。查手机 App 里照常显示，数据(phones)一点没动。
     periodNote: (() => {
       if (!period || !period.visibleTo || !period.visibleTo.includes(char.id)) return "";
-      const list = periodList(period);
-      if (!list.length) return "";
-      const lastP = list[list.length - 1];
-      const last = pKeyDate(lastP.start);
-      const today = new Date(); today.setHours(0, 0, 0, 0);
-      const _pc = typeof periodCycleOf === "function" ? periodCycleOf(period) : { cyc: period.cycleLen || 28, len: period.periodLen || 5 };
-      const cyc = _pc.cyc, pLen = periodSpanLen(lastP, _pc.len);
-      let dic = Math.floor((today - last) / 86400000) % cyc;
-      if (dic < 0) return "";
-      let phase;
-      if (dic < pLen) phase = "正处于经期（第 " + (dic + 1) + " 天）";
-      else if (Math.abs(dic - (cyc - 14)) <= 2) phase = "接近排卵日";
-      else if (dic >= cyc - 4) phase = "经前期，接近下次经期";
-      else phase = "处于相对安全期";
-      return "用户此刻的生理期状态：" + phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心、提醒注意事项，或选择不提；别生硬报数据、别越界。）";
+      const ph = periodPhaseNow(period);
+      if (!ph) return "";
+      return "用户此刻的生理期状态：" + ph.phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心、提醒注意事项，或选择不提；别生硬报数据、别越界。）";
     })(),
+    // 健康 app 的监督（v74.640）：只给她在「谁看着」里点了名的人，只在饭点前后/她刚记过一餐时出一行，别的时候空＝零 token。
+    //   跟生理期那一栏同一档、走同几处（单聊线上/线下/通话都经 ctxFor）；群里不发——那是她跟某一个人之间的约定，不是端上台面的事。
+    healthNote: window.HealthCtx ? window.HealthCtx.noteFor(char.id) : "",
     // 日期感知：只有【今天/临近】真有事时才出内容，平时空字符串 → 不进 prompt、零 token（守聊天预算铁律）。
     // 生日（用户/角色自己）+ 日历三视角（世界事件人人知、我的日历按可见名单、角色自己视角）。dateKey 与 calKey 同格式：年-月-日，月 1-based 不补零。
     dateNote: (() => {
@@ -6725,6 +6716,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
                 latestLog[remindLogKey] = dayKey;
                 saveJSON("x_memoRemindLog", latestLog);
               }
+            );
+            return;                                               // 一次一个，错峰
+          }
+        }
+      } catch (e) {}
+      // —— 健康·饭点来问（v74.640）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
+      //    她点了名的人里挑一位主动问一句。一天最多两次，那一顿记了就不问（条件全在 HealthCtx.nudgeDue 那一处）——
+      try {
+        const hn = window.HealthCtx && window.HealthCtx.nudgeDue();
+        if (hn) {
+          const cand = characters.find(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
+            && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
+          if (cand && !pSkip("health:" + hn.meal)) {
+            pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
+              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line } }),
+              () => window.HealthCtx.markNudged(hn.day, hn.meal)
             );
             return;                                               // 一次一个，错峰
           }
@@ -10071,7 +10078,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
     if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
     if (opts.proactive) {
-      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
+      const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
       // C 第4步：全局发声闸 shadow——asleep 时记 would_hold，但绝不拦截（合同 §5.1；eyes_alert 天然豁免）
       try { if (window.SleepShadow) { const chG = characters.find(c => c.id === charId); if (chG) window.SleepShadow.gateCheck(chG, outlet, settingsFor(charId).engineerEyes === true); } } catch (e) {}
@@ -10187,6 +10194,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
+      // 健康·饭点来问（v74.640）：只给事实那一行，管不管、怎么开口是TA自己的事
+      const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "的点】" + uName + " 在健康 app 里开了让你帮着盯吃饭。"
+        + opts.health.line + "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。" : "";
       // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
       // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
       const annivHint = opts.anniv ? "\n\n【此刻·今天是你和 " + uName + " 的"
@@ -10294,7 +10304,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "也可以完全无关，那是你的事；但**别当那段没发生过**，更别开口就报备行程。";
         } catch (e) { return ""; }
       })();
-      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
           // ⚠️这一段原来写的是「**不要默认续接聊天记录最后一句**」——一刀切。
@@ -26772,6 +26782,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onEditChar: c => { setEditingChar(c); setScreen("castForm"); },
     onEditProfile: () => setProfileOpen(true),
+    onBack: () => setScreen("home")
+  });else if (screen === "health") body = h(window.HealthApp, {
+    characters: liveChars,
+    profile: profile,
+    // 经期跟日历月事本是同一份：读 App 这边的 period、点「今天来了/走了」走同一个 recordPeriodStart
+    period: period,
+    onRecordPeriod: recordPeriodStart,
+    apiFor: apiFor,
+    ctxFor: ctxFor,
+    bgApi: bgActive,
+    toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "dreamjournal") body = h(window.DreamJournalApp, {
     onEnterDream: row => { setDreamEnterKey(row && row.key || null); setScreen("dream"); },
