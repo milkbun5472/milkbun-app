@@ -4869,7 +4869,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       try { const resp = await fetch(url); if (resp.ok) { const blob = await resp.blob(); if (blob && blob.size > 0) return { blob, dataUrl: null }; } } catch (e) {}
       return { blob: null, url: url };
     }
-    throw new Error("返回里没找到图。原始返回：" + rawTxt.replace(/\s+/g, " ").slice(0, 200));
+    { const flat = rawTxt.replace(/\s+/g, " "); throw new Error("返回里没找到图。原始返回：" + (flat.length > 600 ? flat.slice(0, 300) + " …… " + flat.slice(-300) : flat)); }
   };
   // CatsAPI 的 /api/v1/chat/completions 只允许 stream=true，不能拿来做同步生图。
   // 它真正的图片协议是异步任务：POST /api/tasks 创建，随后 GET /api/tasks/{id}
@@ -4997,11 +4997,26 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     // 聊天接口出图（v-chatimg）：有些中转把 Gemini / Nano Banana / NAI 挂在 /chat/completions，
     // 发一句话、回话里夹着图。apiFormat="chat" 直接走这条；"auto" 先走出图接口，
     // 那边 404/405/连不上时再改走一次聊天接口。回图的解析交给同一个 parseOut。
-    const chatFetch = async () => {
+    // 流式回包（data: {...} 一行一块）拼回一份普通 JSON，交给 parseOut
+    const sseToJson = raw => {
+      if (!/^\s*data:/m.test(raw)) return raw;
+      let text = "", imgs = [], parts = [];
+      raw.split(/\r?\n/).forEach(line => {
+        const m = line.match(/^\s*data:\s*(.*)$/); if (!m || m[1] === "[DONE]") return;
+        let j; try { j = JSON.parse(m[1]); } catch (e) { return; }
+        const dl = j && j.choices && j.choices[0] && (j.choices[0].delta || j.choices[0].message) || {};
+        if (typeof dl.content === "string") text += dl.content; else if (Array.isArray(dl.content)) parts = parts.concat(dl.content);
+        if (Array.isArray(dl.images)) imgs = imgs.concat(dl.images);
+      });
+      return JSON.stringify({ choices: [{ message: { role: "assistant", content: parts.length ? parts.concat(text ? [{ type: "text", text }] : []) : text, images: imgs } }] });
+    };
+    let usedChat = false;
+    const chatFetch = async (stream, sig) => {
+      usedChat = true;
       const toUrl = b => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(fr.result); fr.onerror = rej; fr.readAsDataURL(b); });
       const content = [{ type: "text", text: promptText + "\n（直接生成一张图片，画幅 " + size + "。）" }];
       if (useRef) for (const b of refBlobs) content.push({ type: "image_url", image_url: { url: await toUrl(b) } });
-      return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: false, modalities: ["image", "text"] }), signal: ctrl.signal });
+      return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: !!stream, modalities: ["image", "text"] }), signal: sig || ctrl.signal });
     };
     try {
       if (a.apiFormat === "chat") r = await chatFetch();
@@ -5051,7 +5066,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       throw err;
       }
     } finally { clearTimeout(to); }
-    const rawTxt = await r.text();
+    let rawTxt = await r.text();
+    // 聊天接口回了空 content（有的「假流式」中转只在流式回包里放图）→ 改要流式再取一次
+    if (usedChat && r.ok && !/data:image|https?:\/\/\S+\.(?:png|jpe?g|webp)|"images"\s*:\s*\[\s*\{|"b64_json"/i.test(rawTxt)) {
+      const c2 = new AbortController(), t2 = setTimeout(() => c2.abort(), capMs);
+      try { const r2 = await chatFetch(true, c2.signal); const raw2 = await r2.text(); if (r2.ok) { r = r2; rawTxt = sseToJson(raw2); } } catch (e) {} finally { clearTimeout(t2); }
+    }
     // 4xx 且报错像是在挑剔某个可选参数 → 裸参数自动再试一次（GPT Image 2 的 quality 值域
     // 是 low/medium/high，别家可能只认 standard/hd；response_format 也有接口不认）
     if (!IMG_ONE_SHOT && !useRef && !slim && r.status >= 400 && r.status < 500 && ![401, 402, 403, 429].includes(r.status) && /param|quality|response_format|invalid\s+value|不支持|参数/i.test(rawTxt)) {
