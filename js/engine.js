@@ -4865,7 +4865,9 @@ async function naiTagsFor(prompt) {
 }
 
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
-  const a = loadImgApi();
+  // opts.api：指定用哪一站（图像站点那页的「测试」用它——群友 2026-10-03：「在第二个站点那里点测试生图，
+  //   它好像是用第一个站点设置的模型来测试的」）。不给就照旧走主用那一站。
+  const a = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
   if (!imgApiReady(a)) throw new Error("没配置图像 API");
   // 手部那两大段只给 gpt-image 用（她 2026-10-03：别家模型发自拍，连出两张满纸手掌+乱码的「手部参考图」）。
   // 那段里夹着整句英文 correct hands / five fingers——读不太懂中文的模型（NAI、部分 Gemini 线路）
