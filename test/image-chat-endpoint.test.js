@@ -14,3 +14,7 @@ test("empty chat reply retries as stream and stitches SSE", () => {
   assert.match(eng, /usedChat && r\.ok[\s\S]{0,300}chatFetch\(true, c2\.signal\)[\s\S]{0,120}sseToJson\(raw2\)/);
   assert.match(eng, /const sseToJson = raw =>/);
 });
+test("empty stitched stream keeps the tail; gemini inline_data parsed", () => {
+  assert.match(eng, /out\._streamTail = raw/);
+  assert.match(eng, /inline_\?\[dD\]ata/);
+});

@@ -4869,6 +4869,8 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
     }
     if (!b64 && url && /^data:image/i.test(url)) { b64 = url.replace(/^data:image\/\w+;base64,/i, ""); url = null; }
     if (!b64 && !url) { const mk = String(rawTxt).match(/data:image\/\w+;base64,[A-Za-z0-9+/=]+/i); if (mk) b64 = mk[0].replace(/^data:image\/\w+;base64,/i, ""); }
+    // Gemini 原生形状 inline_data / inlineData：{ mime_type, data:"纯 base64" }，没有 data: 前缀
+    if (!b64 && !url) { const mk = String(rawTxt).match(/"inline_?[dD]ata"\s*:\s*\{[^{}]*?"data"\s*:\s*"([A-Za-z0-9+/=\\n]{200,})"/); if (mk) b64 = mk[1].replace(/\\n/g, ""); }
     if (!b64 && !url) { const mk = String(rawTxt).match(/https?:\/\/[^\s"')\]]+\.(?:png|jpe?g|webp)/i); if (mk) url = mk[0]; }
     if (b64) {
       // 验真：base64 得解得开、且开头是真图片的魔数（PNG/JPEG/WebP/GIF）——
@@ -5029,7 +5031,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (typeof dl.content === "string") text += dl.content; else if (Array.isArray(dl.content)) parts = parts.concat(dl.content);
         if (Array.isArray(dl.images)) imgs = imgs.concat(dl.images);
       });
-      return JSON.stringify({ choices: [{ message: { role: "assistant", content: parts.length ? parts.concat(text ? [{ type: "text", text }] : []) : text, images: imgs } }] });
+      // 拼完还是空的：把流的末尾原样带上，报错里才看得见中转到底回了什么（她 2026-10-03 群友：拼出来只剩 images:[]）
+      const out = { choices: [{ message: { role: "assistant", content: parts.length ? parts.concat(text ? [{ type: "text", text }] : []) : text, images: imgs } }] };
+      if (!text && !parts.length && !imgs.length) out._streamTail = raw.replace(/\s+/g, " ").slice(-500);
+      return JSON.stringify(out);
     };
     let usedChat = false;
     const chatFetch = async (stream, sig) => {
