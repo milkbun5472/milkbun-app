@@ -27083,6 +27083,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return txt;
       } catch (e) { toast("没说成：" + String((e && e.message) || e).slice(0, 120)); return null; }
     },
+    // 给一张时刻卡单独画一张（她 2026-10-03 点的第 3 条）：照那天的名目和记录画，有参考照就锁脸
+    onDrawMoment: async (c, m) => {
+      if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
+      try {
+        const scene = (m.what && m.what.lines && m.what.lines.length ? m.what.lines.join(" ") : m.title).slice(0, 300);
+        const prompt = "A cinematic visual-novel CG illustration, a memory scene: " + m.title + ". What happened that day: " + scene + ". "
+          + "Main character: " + (c.name || "") + ". " + String(c.appearance || "").slice(0, 300)
+          + " Warm nostalgic light, soft focus, emotional atmosphere, no text, no watermark.";
+        const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
+        const dataUrl = r && (r.dataUrl || r.url);
+        if (!dataUrl) throw new Error("上游没有返回图片");
+        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+      } catch (e) { toast("没画成：" + ((e && e.message) || e)); return null; }
+    },
     onGenCover: async c => {
       if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
       try {

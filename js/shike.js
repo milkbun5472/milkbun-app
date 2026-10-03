@@ -149,6 +149,25 @@
     const [mIdx, setMIdx] = useState(0);
     const [notes, setNotes] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeNotes", {}) : {}) || {}; } catch (e) { return {}; } });
     const [saying, setSaying] = useState("");
+    // 每张时刻卡自己的图（她 2026-10-03 点的第 3、4 条）：画一张 / 自己贴一张。{ charId: { momentKey: iv_ } }
+    const [arts, setArts] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeArt", {}) : {}) || {}; } catch (e) { return {}; } });
+    const [drawing, setDrawing] = useState("");
+    const fileRef = React.useRef(null), pickFor = React.useRef(null);
+    const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
+    const draw = async m => {
+      if (drawing || !props.onDrawMoment || !cur) return;
+      setDrawing(m.key);
+      try { const k = await props.onDrawMoment(cur, m); if (k) setArt(cur.id, m.key, k); } finally { setDrawing(""); }
+    };
+    const onFile = async e => {
+      const f = e.target.files && e.target.files[0], m = pickFor.current; e.target.value = "";
+      if (!f || !m || !cur) return;
+      try {
+        const data = typeof resizeImageFile === "function" ? await resizeImageFile(f, 1400, 0.9) : null;
+        const k = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
+        if (k) setArt(cur.id, m.key, k);
+      } catch (err) { props.toast && props.toast("没贴上：" + String((err && err.message) || err).slice(0, 80)); }
+    };
     const [idx, setIdx] = useState(0);
     const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName };
     const all = useMemo(() => {
@@ -175,6 +194,7 @@
         if (txt) { const n = Object.assign({}, notes); n[cur.id] = Object.assign({}, n[cur.id] || {}, { [m.key]: txt }); setNotes(n); try { saveJSON("x_shikeNotes", n); } catch (e) {} }
       } finally { setSaying(""); }
     };
+    const chip = dim => ({ fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.3)", borderRadius: 999, padding: "6px 12px", opacity: dim ? .5 : 1 });
     const art = (c, extra) => {
       const src = srcOf(c);
       return src ? h("img", { src, alt: "", style: Object.assign({ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }, extra || {}) })
@@ -196,7 +216,7 @@
           style: { position: "relative", height: "100%", width: "min(80vw, 400px)", borderRadius: 24, overflow: "hidden", scrollSnapAlign: "center",
             background: cur.color || t.ink, boxShadow: "0 16px 36px rgba(30,22,14,.26)", transform: i === mIdx ? "none" : "scale(.95)", transition: "transform .25s" } },
           art(cur, { filter: "blur(2px) brightness(.55)", transform: "scale(1.06)" }),
-          m.img ? h(MomentArt, { img: m.img }) : null,
+          ((arts[cur.id] || {})[m.key] || m.img) ? h(MomentArt, { img: (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img }) : null,
           h("div", { style: { position: "absolute", inset: 10, borderRadius: 16, border: "1px solid rgba(255,255,255,.45)", pointerEvents: "none" } }),
           h("div", { style: { position: "absolute", inset: 0, padding: "34px 28px 30px", display: "flex", flexDirection: "column", color: "#fff", textAlign: "left" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 3, color: "rgba(255,255,255,.72)" } }, KIND_ZH[m.kind] + " · 第 " + (list.length - i) + " 个时刻"),
@@ -216,7 +236,13 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "#fff", whiteSpace: "pre-wrap" } }, (notes[cur.id] || {})[m.key])) : null,
               props.onRecall ? h("button", { onClick: () => recall(m), disabled: !!saying, className: "active:opacity-70",
                 style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "7px 14px", opacity: saying && saying !== m.key ? .5 : 1 } },
-                saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再让 TA 说说" : "让 TA 说说")) : null)));
+                saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再让 TA 说说" : "让 TA 说说")) : null),
+            // 换这张卡的图：画一张（走生图，一次一张额度）／自己贴一张／拿掉换回当天照片或封面
+            h("div", { className: "flex", style: { gap: 8, marginTop: 12, flexWrap: "wrap" } },
+              props.onDrawMoment ? h("button", { onClick: () => draw(m), disabled: !!drawing, className: "active:opacity-70", style: chip(drawing && drawing !== m.key) },
+                drawing === m.key ? "正在画…" : "画一张") : null,
+              h("button", { onClick: () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }, className: "active:opacity-70", style: chip(false) }, "贴一张"),
+              (arts[cur.id] || {})[m.key] ? h("button", { onClick: () => setArt(cur.id, m.key, null), className: "active:opacity-70", style: chip(false) }, "拿掉") : null)));
       };
       const onMScroll = e => {
         const el = e.currentTarget, w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth;
@@ -224,6 +250,7 @@
         if (k !== mIdx) setMIdx(Math.max(0, Math.min(list.length - 1, k)));
       };
       return h("div", { className: "h-full flex flex-col", "data-wk": "shikedetail", style: shell(t) },
+        h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
         h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); }, bg: "transparent" }),
         h("div", { className: "shrink-0 flex items-center justify-center", style: { gap: 10, padding: "4px 16px 2px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, daysLine(cur, ctx)),
