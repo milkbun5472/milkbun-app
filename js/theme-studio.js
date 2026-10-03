@@ -333,6 +333,15 @@
   //   不许在旁边再并排开一对 WK_XXX / WK_XXX_PAGES —— 那就是同一层写在两处，
   //   秋秋那边迟早只念到其中一份（one-public-mechanism.md）。
   const WK_SCOPED = Object.freeze([
+    // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
+    Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
+      ["mlsearch","聊天列表顶上的搜索框"],
+      ["mlrow","聊天列表的一行（data-kind=\"char\"/\"group\"；data-pinned=\"1\" 是置顶；data-unread=\"1\" 有未读）"],
+      ["mlavatar","那一行的头像（群是四宫格或群头像）"],["mlname","名字／群名"],["mllast","最后一条消息那行小字"],
+      ["mltime","右边的时间"],["mlbadge","未读红点"],
+      ["ctentry","通讯录顶上「群聊／标签／配角」那几个入口"],["ctletter","通讯录的字母分组条"],["ctrow","通讯录的一行联系人"],
+      ["mltabbar","底下那条四个标签的栏"],["mltab","每一个标签（data-tab=chats/contacts/moments/me；data-on=\"1\" 是当前那个）"]
+    ])}),
     Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pommore","手动补充陪伴话与回看入口"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
     Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
       ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
@@ -761,7 +770,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.614", changed: "", none: "改 NAI 标签翻译说明和朋友圈那一枪的提示词，都碰不到挂点和样式" };
+  const BRIEF_STAMP = { v: "v74.615", changed: "消息列表（聊天列表/通讯录/底栏）新增 12 个 data-wk 挂点：mlsearch mlrow mlavatar mlname mllast mltime mlbadge ctentry ctletter ctrow mltabbar mltab", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
