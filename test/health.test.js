@@ -238,3 +238,11 @@ test("给她们复制的那段网关代码真能跑：密钥不对拦、投进�
   assert.match(pre.headers.get("Access-Control-Allow-Headers"), /Authorization/, "预检放行，不然浏览器带不了密钥");
   assert.match(src, /if \(page && page\.kind === "gateway"\) return h\(GatewayGuide,/);
 });
+
+test("精简版模板（步数、位置、电量）在页面里，而且导得进来", () => {
+  const { H } = load();
+  assert.equal(H.SHORTCUT_TEMPLATE_MINI, "秋秋健康\n步数：\n纬度：\n经度：\n电量：\n");
+  const r = H.parseShortcut(H.SHORTCUT_TEMPLATE_MINI.replace("步数：", "步数：5000").replace("电量：", "电量：80"), "2026-10-03");
+  assert.equal(r.steps, 5000); assert.equal(r.battery, 80);
+  assert.match(src, /"复制精简版"/);
+});
