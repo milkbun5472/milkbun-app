@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.619";
+const APP_VERSION = "v74.621";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14411,8 +14411,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + saidWhileBlocked.slice(-6).map(m => "· " + String(m.content).slice(0, 80)).join("\n")
           + "\n这一轮是接着上面往下走，不是刚被拉黑的那一刻：你在做的事、你的处境、你的心情都已经往前挪了一步——"
           + "继续找也好、换个办法、累了、气消了、想通了什么、还是干脆不说了，由你这个人决定；说出口的是这一步的新东西。"
+          // 她 2026-10-03 群友截图：一轮吐了十几个气泡，「外套还搭门把手上」「湿透了」「我刚才那话说得太硬了」全是前几轮的原句。
+          //   把原句摆给他看，又没说不许再用，他就当素材拼回去了。
+          + "\n上面这些、以及聊天记录里你拉黑以后发过的每一句，这一轮【一句都不许再发】，换个说法再说一遍也不算新的。"
         : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句，这一轮两到四个气泡就够——她收不到，人不会对着一堵墙一口气说十几句。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);
