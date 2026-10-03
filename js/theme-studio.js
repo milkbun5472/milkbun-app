@@ -339,7 +339,30 @@
     pinned:"#262a33", avatar:"999px", ink:"#e8e6e3", dim:"#8b8f98", accent:"#8fb4ff", badgeInk:"#16181d", bar:"#1b1d23" })
     + '\n[data-wk="head"], [data-wk="head"] * { color: #e8e6e3 !important; }\n[data-wk="head"] svg { stroke: #e8e6e3 !important; }';
   const LIST_SKINS = [["奶油卡片", LIST_CREAM_CSS], ["夜色", LIST_NIGHT_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);
-  const CSS_BUILTINS = { thread: CHAT_SKINS, gthread: CHAT_SKINS, messages: LIST_SKINS };
+  // 「全 App」那一栏的起手式（群友 2026-10-03：「那个全 app 的我弄了没什么效果」）。
+  //   它只抓得住【共用部件】（顶栏、头像、半窗、弹卡、横幅、开关、输入框）——每页自己的卡片和底纹它碰不到，
+  //   所以这一套故意只写这几样：套上就看得见，也正好当「全 App 能改什么」的范例。
+  const ALL_SOFT_CSS = [
+    '/* 顶栏：半透明毛玻璃，底下那道线换成淡影 */',
+    '[data-wk="head"] {',
+    '  background: rgba(255,255,255,.55) !important;',
+    '  -webkit-backdrop-filter: blur(14px) saturate(1.2) !important;',
+    '  backdrop-filter: blur(14px) saturate(1.2) !important;',
+    '  border-bottom: none !important;',
+    '  box-shadow: 0 1px 10px rgba(60,50,40,.06) !important;',
+    '}',
+    '/* 头像：全 App 每一颗都换成圆角方 */',
+    '[data-wk="avatar"], [data-wk="avatar"] img { border-radius: 30% !important; }',
+    '/* 半窗、屏幕正中的小卡：更大的圆角和柔影 */',
+    '[data-wk="sheet"] { border-radius: 30px 30px 0 0 !important; box-shadow: 0 -8px 30px rgba(60,50,40,.12) !important; }',
+    '[data-wk="centercard"] { border-radius: 24px !important; box-shadow: 0 12px 36px rgba(60,50,40,.18) !important; }',
+    '/* 新消息横幅：胶囊形 */',
+    '[data-wk="msgbanner"] { border-radius: 999px !important; }',
+    '/* 输入框：圆一点 */',
+    '[data-wk="input"], [data-wk="textarea"] { border-radius: 14px !important; }'
+  ].join("\n");
+  const ALL_SKINS = [["柔和毛玻璃", ALL_SOFT_CSS]].map(([nm, css]) => [nm, stamp(nm, css)]);
+  const CSS_BUILTINS = { all: ALL_SKINS, thread: CHAT_SKINS, gthread: CHAT_SKINS, messages: LIST_SKINS };
   // ── 页面 CSS 真正抓得住的那几个点（v64.82）────────────────────────────
   // ⚠️这个 App 的样式【几乎全是内联 style】（每个组件从 useTheme() 拿 t.bg / t.ink
   //   自己写在 style 里）。行内样式赢过普通 CSS 规则——所以一条不带 !important 的
@@ -810,7 +833,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.629", changed: "", none: "地点页多了编辑，样式规矩没变" };
+  const BRIEF_STAMP = { v: "v74.630", changed: "全 App 页面 CSS 加一套内置起手式「柔和毛玻璃」（只用 head/avatar/sheet/centercard/msgbanner/input/textarea）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
