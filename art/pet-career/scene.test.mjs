@@ -15,5 +15,7 @@ test('scene preview loads only named scenes and uses shared cat',()=>{
  const code=read('preview.mjs').toString(),html=read('preview.html').toString(),css=read('preview.css').toString();
  assert.match(code,/places\.find\(p=>p\.id===requested\)\|\|places\[0\]/);assert.match(code,/\.\.\/pet-house\/cat.glb/);
  assert.match(code,/link\.dataset\.scene=p\.id/);assert.match(html,/aria-label="去哪里"/);assert.equal(new Set(places.map(p=>p.id)).size,places.length);assert.ok(places.length>=6);
- assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);assert.match(code,/pointercancel/);
+ assert.match(css,/env\(safe-area-inset-bottom\)\*\.4/);assert.match(code,/createPetCamera\(/);assert.match(code,/cameraControls\.clearGesture\(/);
+ const camera=readFileSync(new URL('../pet-house/pet-camera.mjs',import.meta.url),'utf8');
+ assert.match(camera,/onpointercancel=clearGesture/);
 });

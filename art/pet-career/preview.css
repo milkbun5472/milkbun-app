@@ -10,3 +10,4 @@ h1{font-size:18px;font-weight:500;letter-spacing:.06em;margin:0}p{font-size:12px
 @media(max-width:480px){.scene-head{padding-left:15px;padding-right:15px}h1{font-size:16px}.scene-foot{padding-left:16px;padding-right:16px}}
 
 .places{position:fixed;top:calc(env(safe-area-inset-top) + 85px);left:50%;transform:translateX(-50%);display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;background:#fff8ebe8;border:1px solid #d8c8ae;border-radius:14px;padding:5px;width:min(450px,calc(100vw - 24px))}.places a{color:var(--ink);text-decoration:none;font-size:12px;padding:10px 4px;border-radius:10px;min-height:40px;text-align:center;white-space:nowrap}.places a[aria-current=page]{background:#d9c5a2}.places a:focus-visible{outline:2px solid var(--ink)}
+.scene-camera{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom)*.4);transform:translateX(-50%);width:min(330px,calc(100vw - 30px));pointer-events:none}
