@@ -11,3 +11,10 @@ test("放弃原价后拍卖不排除她，交回的竞价单接上", () => {
 test("她能不能举牌只看现金够不够起拍价，不用角色那套风险估算", () => {
   assert.match(g, /cap:p\.isUser\?Math\.floor\(\(p\.cash\|\|0\)\/10\)\*10:monoAuctionCap\(/);
 });
+
+test("竞拍两颗键不再看全局 busy，出错当场放开并写进记录", () => {
+  assert.match(g, /bidLocked=!me\|\|me\.cash<pending\.ask;/);
+  assert.match(g, /h\("button",\{onClick:function\(\)\{decideAuction\(false\);\}/);
+  assert.match(g, /const decideProperty=monoGuard\(decidePropertyRaw\), decideAuction=monoGuard\(decideAuctionRaw\);/);
+  assert.match(g, /catch\(e\)\{console\.error\(e\);setBusy\(false\);addLogs\(\[\{type:"bad",say:"这一步出了点问题："/);
+});

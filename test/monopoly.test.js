@@ -98,5 +98,6 @@ test("mobile monopoly layout reserves space for roster and dialogue", () => {
 test("auction controls read the live pending snapshot, not stale roster cash", () => {
   const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/games.js"), "utf8");
   assert.match(src, /snapshot=Array\.isArray\(pending\.ps\)\?pending\.ps:players/);
-  assert.match(src, /bidLocked=!!busy\|\|!me\|\|me\.cash<pending\.ask/);
+  // v74.638：不再看全局 busy（那是「角色在接话」的锁），连点由 monoGuard 的 inflight 拦
+  assert.match(src, /bidLocked=!me\|\|me\.cash<pending\.ask/);
 });
