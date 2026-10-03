@@ -314,10 +314,10 @@
     }
   },
   "species": "dog",
-  "duty": 0.76,
+  "duty": 0.68,
   "stride": 0.13,
   "cycle": 0.95,
-  "lift": 0.035,
+  "lift": 0.027,
   "bounds": [
     [
       -0.318524,
@@ -330,6 +330,10 @@
       -0.520602
     ]
   ],
+  "headRigid": {
+    "minHeight": 0.41,
+    "maxForwardY": 0.18
+  },
   "dye": {
     "patchReference": "#d2b6a5",
     "baseReference": "#efe0d6",

@@ -314,10 +314,10 @@
     }
   },
   "species": "cat",
-  "duty": 0.76,
+  "duty": 0.68,
   "stride": 0.13,
-  "cycle": 1.1,
-  "lift": 0.032,
+  "cycle": 1.0,
+  "lift": 0.025,
   "bounds": [
     [
       -0.273418,
@@ -330,6 +330,10 @@
       -0.573957
     ]
   ],
+  "headRigid": {
+    "minHeight": 0.41,
+    "maxForwardY": 0.18
+  },
   "dye": {
     "patchReference": "#b1a4a0",
     "baseReference": "#f2e7e0",
