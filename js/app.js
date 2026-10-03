@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.603";
+const APP_VERSION = "v74.604";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -14299,7 +14299,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cur = blocksRef.current[chatKey] || {};
     if (cur.iBlocked) { setBlockFor(chatKey, { iBlocked: false }); toast("已解除拉黑"); }
     else {
-      setBlockFor(chatKey, { iBlocked: true });
+      setBlockFor(chatKey, { iBlocked: true, blockedTs: Date.now() });
       pChat(chatKey, p => [...p, { role: "system", kind: "system", content: "你拉黑了 TA", ts: Date.now() }]);
       toast("已拉黑");
     }
@@ -14377,7 +14377,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const char = characters.find(c => c.id === charId); if (!char) return;
     startLane("c:" + chatKey);
     try {
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      // 进度（她 2026-10-03 转群里那张：拉黑期间按回复，他一轮轮原地打转「你到底跑哪去了」，OOC 立了准则也没用）：
+      //   原来每一轮都是同一句「用户把你拉黑了」——他读到的永远是【刚被拉黑】那一刻，于是每轮从头演一遍第一反应，
+      //   准则说「每条要有新进展」，场景却一直把他拉回起点。现在把「过了多久、你已经说过什么」摆给他，场景从上一轮接着走。
+      const bk0 = blocksRef.current[chatKey] || {};
+      const since = Number(bk0.blockedTs) || 0;
+      const saidWhileBlocked = (chatsRef.current[chatKey] || []).filter(m => m && m.role === "assistant" && m.blocked && typeof m.content === "string" && (!since || (m.ts || 0) >= since));
+      const gapTxt = since ? (() => { const mins = Math.round((Date.now() - since) / 60000); return mins < 60 ? "约 " + Math.max(1, mins) + " 分钟" : mins < 2880 ? "约 " + Math.round(mins / 60) + " 小时" : "约 " + Math.round(mins / 1440) + " 天"; })() : "";
+      const progress = saidWhileBlocked.length
+        ? "\n\n【拉黑以后到现在】" + (gapTxt ? "已经过了" + gapTxt + "；" : "") + "你在这期间已经发了 " + saidWhileBlocked.length + " 条她收不到的消息，最近几条是：\n"
+          + saidWhileBlocked.slice(-6).map(m => "· " + String(m.content).slice(0, 80)).join("\n")
+          + "\n这一轮是接着上面往下走，不是刚被拉黑的那一刻：你在做的事、你的处境、你的心情都已经往前挪了一步——"
+          + "继续找也好、换个办法、累了、气消了、想通了什么、还是干脆不说了，由你这个人决定；说出口的是这一步的新东西。"
+        : "";
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);
