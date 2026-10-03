@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.587";
+const APP_VERSION = "v74.588";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27603,6 +27603,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
+    allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
     onCreate: createGroup,
     onClose: () => setNewGroupOpen(false)
   }), profileOpen && /*#__PURE__*/React.createElement(ProfileSheet, {

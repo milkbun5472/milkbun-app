@@ -16350,17 +16350,17 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   配角本来就可以同时认识好几个人（她 2026-09-15：「万一 npc 跟 ab 都认识呢」），
   //   只认户口的话，「A 和 B 共同的那位朋友」永远进不了 B 的群。
   //   闸没有松：仍然要求【在场有人认得 TA】，不是谁的群都能进。
-  const npcOutsiders = (allChars || []).filter(c =>
-    c && c.npc && !memberIds.includes(c.id)
-    && (memberIds.includes(c.ownerId)
-      || (memberIds || []).some(mid => (rels || {})[mid + "->" + c.id] || (rels || {})[c.id + "->" + mid])));
+  // ⚠️v74.588 再放宽：所有配角都能拉（她 2026-10-03：「现在是得把角色拉进去才能加，搞个简单点的办法」）。
+  //   原来要求【在场有人认得 TA】——想拉闺蜜，得先把她认识的那个角色拉进来，绕一大圈。
+  //   在场有人认得的排前面（nearby），谁都不认得的排在后面（rest），进来就是个生人。
+  const npcOutsiders = (allChars || []).filter(c => c && c.npc && !memberIds.includes(c.id));
   // 「进去再拉人，可以从TA已有关系里面拉」（她 2026-08-25）：
   // 和群里某位成员有关系的人排在前面单独一组——这才是她真正会拉的那些人；
   // 其余角色照旧列在下面，不砍掉。
   const relatedTo = id => (memberIds || []).some(mid =>
     (rels || {})[mid + "->" + id] || (rels || {})[id + "->" + mid]);
   const pool = outsiders.concat(npcOutsiders);
-  const nearby = pool.filter(c => c.npc || relatedTo(c.id));
+  const nearby = pool.filter(c => (c.npc && memberIds.includes(c.ownerId)) || relatedTo(c.id));
   const nearbyIds = new Set(nearby.map(c => c.id));
   const rest = pool.filter(c => !nearbyIds.has(c.id));
   const addable = nearby.concat(rest);
@@ -16567,6 +16567,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
 }
 function NewGroupSheet({
   characters,
+  allChars,
   onCreate,
   onClose
 }) {
@@ -16655,7 +16656,7 @@ function NewGroupSheet({
     }
   }, "选择成员（至少 2 位）"), /*#__PURE__*/React.createElement("div", {
     className: "space-y-1 max-h-72 overflow-y-auto"
-  }, characters.map(c => /*#__PURE__*/React.createElement("button", {
+  }, characters.concat((allChars || []).filter(c => c && c.npc)).map(c => /*#__PURE__*/React.createElement("button", {
     key: c.id,
     onClick: () => toggle(c.id),
     className: "w-full flex items-center gap-3 py-2.5"
