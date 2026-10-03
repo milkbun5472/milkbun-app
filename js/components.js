@@ -7334,6 +7334,7 @@ function Messages({
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
+    "data-wk": "mlpage",
     className: "h-full flex flex-col",
     style: msgAppBg(t)
   }, h(Head, {
@@ -7391,7 +7392,8 @@ function Messages({
     // 她 2026-09-03：「这是手机上的通讯录，倒也不用做跟纸一样」——对的：
     // 这一页在现实里的对应物就是【手机通讯录】本身，给它糊一层纸反而是往回退。
     // 「材质要从这个东西本身长出来」那条判据没错，错在我把它读成了「一定要像实物」。
-    return h("div", { className: "py-1", style: { position: "relative", background: t.bg } },
+    // 底色交给外壳那一层（mlpage）：这里再刷一遍平色，主题工作台改外壳的底就只改得到聊天那一栏
+    return h("div", { className: "py-1", style: { position: "relative" } },
       entry("群聊", (groups || []).length ? (groups || []).length + " 个" : "", "#4cae4c",
         [h("circle", { key: "a", cx: 9, cy: 7, r: 3 }), h("path", { key: "b", d: "M15 21v-1a4 4 0 00-4-4H6a4 4 0 00-4 4v1" }), h("path", { key: "c", d: "M16 3.5a3 3 0 010 6" }), h("path", { key: "d", d: "M22 21v-1a4 4 0 00-3-3.8" })],
         () => setGroupList(true)),

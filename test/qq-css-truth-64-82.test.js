@@ -73,7 +73,8 @@ test("每一页都有的那几个挂点，挂在【共用组件】上而不是�
 
 test("聊天页专有的那几个还在，内置皮肤也只给那两页", () => {
   assert.match(studio, /zh: "聊天页", pages: Object\.freeze\(\["thread", "gthread"\]\)/);
-  assert.match(studio, /const CSS_BUILTINS = \{ thread: CHAT_SKINS, gthread: CHAT_SKINS \}/);
+  // v74.617：消息页也有了自己的两套（LIST_SKINS），聊天那两页仍旧只给 CHAT_SKINS
+  assert.match(studio, /const CSS_BUILTINS = \{ thread: CHAT_SKINS, gthread: CHAT_SKINS, messages: LIST_SKINS \}/);
 });
 
 test("秋秋被告知了那三件事，而且被要求【说实话】而不是硬出一份改不动的 CSS", () => {
