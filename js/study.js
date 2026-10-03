@@ -1645,16 +1645,65 @@
 
   // v59.68：一起学是一册真的活页学习夹，不再是通用白卡列表。
   // 三种模式分别长成老师批注、共同研究纸和三人课堂页；所有内页共用纸色、孔位和格线。
-  const STUDY_SKIN = {
+  // v74.555 接上主题台的「这一页单独换几支色」（群里 2026-10-03：「换了一起学页面的底色进去还是一片绿油油的」）：
+  //   原来这份是模块加载时写死的，主题台改 bg 一个字都到不了这页。改成【每次读都现取】，
+  //   走 core.js 那一处 pagePalette（梦境、解梦本同一个入口），没改过的那几支原样是活页夹的底稿。
+  const STUDY_SKIN_BASE = {
     desk: "linear-gradient(155deg,#e5e9e1 0%,#dce2d8 100%)",
     paper: "#fbf8ef", paper2: "#f2eee1", ink: "#30352f", sub: "#646b62", fog: "#92978e",
     line: "rgba(64,74,62,.16)", red: "#ad6254", green: "#657c60", shadow: "rgba(43,52,41,.09)"
   };
-  const STUDY_MODE_SKIN = {
+  const STUDY_SKIN_ALIAS = { desk: "bg", paper: "bg2", red: "accent", green: "tint" };
+  const STUDY_SKIN = {};
+  Object.keys(STUDY_SKIN_BASE).forEach(function (k) {
+    Object.defineProperty(STUDY_SKIN, k, { enumerable: true, get: function () {
+      return typeof pagePalette === "function" ? pagePalette("study", STUDY_SKIN_BASE, STUDY_SKIN_ALIAS)[k] : STUDY_SKIN_BASE[k];
+    } });
+  });
+  // 半透明的那几层纸（顶栏、输入栏、格线底）：主题台改了纸色就跟着纸色，没改照旧
+  function studyPaperA(a) {
+    const tk = (window.ThemeStudio && window.ThemeStudio.tokensFor) ? window.ThemeStudio.tokensFor("study") : {};
+    return tk.bg2 && typeof paletteAlpha === "function"
+      ? paletteAlpha(tk.bg2, Math.round(a * 255).toString(16).padStart(2, "0")) : "rgba(251,248,239," + a + ")";
+  }
+  // 三种模式各一支色（她 2026-10-03：「都要改」「为啥不能三种分开算颜色」）：
+  //   主题台只有一支点缀色，所以从它【算】出三支——认真教就是它本身，一起研究、一教一学
+  //   在色环上往两边各转 70°，明暗和浓淡跟它一样，看着是同一套又分得开（soft 是各自的淡底）。
+  //   没给点缀色照旧各是各的绿／紫／蓝；给的不是 #hex／rgb() 这种算不动的写法，就三种共用它。
+  const STUDY_MODE_TURN = { teach: 0, costudy: 70, nv1: -70 };
+  function studyTurnHue(color, deg) {
+    const c = String(color || "").trim();
+    let r, g, b;
+    let m = c.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
+    if (m) { const x = m[1].length === 3 ? m[1].split("").map(function (d) { return d + d; }).join("") : m[1]; r = parseInt(x.slice(0, 2), 16); g = parseInt(x.slice(2, 4), 16); b = parseInt(x.slice(4, 6), 16); }
+    else if ((m = c.match(/^rgba?\(\s*(\d+)[\s,]+(\d+)[\s,]+(\d+)/i))) { r = +m[1]; g = +m[2]; b = +m[3]; }
+    else return c;
+    if (!deg) return c;
+    r /= 255; g /= 255; b /= 255;
+    const mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+    let hh = 0, ss = 0;
+    if (d) {
+      ss = d / (1 - Math.abs(2 * l - 1));
+      hh = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      hh *= 60;
+    }
+    hh = ((hh + deg) % 360 + 360) % 360;
+    return "hsl(" + Math.round(hh) + "," + Math.round(ss * 100) + "%," + Math.round(l * 100) + "%)";
+  }
+  const STUDY_MODE_BASE = {
     teach: { accent: "#657c60", soft: "#e5ebdf", label: "老师批注", code: "01" },
     costudy: { accent: "#78698e", soft: "#ebe5f0", label: "共同研究", code: "02" },
     nv1: { accent: "#5d7685", soft: "#e2eaed", label: "三人课堂", code: "03" }
   };
+  const STUDY_MODE_SKIN = {};
+  Object.keys(STUDY_MODE_BASE).forEach(function (mode) {
+    const base = STUDY_MODE_BASE[mode], o = { label: base.label, code: base.code };
+    const tint = function () { return ((window.ThemeStudio && window.ThemeStudio.tokensFor) ? window.ThemeStudio.tokensFor("study") : {}).tint; };
+    const mine = function () { const c = tint(); return c ? studyTurnHue(c, STUDY_MODE_TURN[mode] || 0) : ""; };
+    Object.defineProperty(o, "accent", { enumerable: true, get: function () { return mine() || base.accent; } });
+    Object.defineProperty(o, "soft", { enumerable: true, get: function () { const c = mine(); return c && typeof paletteAlpha === "function" ? paletteAlpha(c, "24") : base.soft; } });
+    STUDY_MODE_SKIN[mode] = o;
+  });
   function studyModeSkin(mode) { return STUDY_MODE_SKIN[mode] || STUDY_MODE_SKIN.teach; }
   // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 才换过来：
   // 手写那条身上一个 data-wk 挂点都没有，「一起学」这一页的主题 CSS 因此抓不到顶栏。
@@ -1668,7 +1717,7 @@
       onBack: props.onBack,
       right: props.right || h(GStudy, { size: 18, color: skin.accent }),
       ink: STUDY_SKIN.ink, subInk: skin.accent, lineInk: STUDY_SKIN.line,
-      bg: "rgba(251,248,239,.92)",
+      bg: studyPaperA(.92),
       barStyle: { backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)" }
     });
   }
@@ -1677,7 +1726,7 @@
       [0, 1, 2].map(function (x) { return h("i", { key: x, style: { width: 5, height: 5, borderRadius: 99, background: "#dfe4dc", boxShadow: "inset 0 1px 2px rgba(38,46,36,.2)" } }); }));
   }
   function StudyFooter(props) {
-    return h("div", { className: "shrink-0 px-5", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: "rgba(251,248,239,.96)", paddingTop: 12, paddingBottom: COMPOSER_PAD_BOTTOM } }, props.children);
+    return h("div", { className: "shrink-0 px-5", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.96), paddingTop: 12, paddingBottom: COMPOSER_PAD_BOTTOM } }, props.children);
   }
 
   function timeShort(ts) {
@@ -3493,7 +3542,7 @@
             return h("span", { key: g.id, style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.paper, background: col, borderRadius: 3, padding: "2px 7px" } }, g.label);
           })) : null);
 
-    const lessonTools = sess.mode === "costudy" ? null : h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { background: "rgba(251,248,239,.9)", borderBottom: "1px solid " + STUDY_SKIN.line } },
+    const lessonTools = sess.mode === "costudy" ? null : h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { background: studyPaperA(.9), borderBottom: "1px solid " + STUDY_SKIN.line } },
       h("button", { onClick: prevUnit, disabled: busy || !units.length || (units.findIndex(function (u) { return u.id === prog.current_unit; }) <= 0), className: "active:opacity-60 disabled:opacity-30", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.sub, background: STUDY_SKIN.paper2, border: "1px solid " + STUDY_SKIN.line, borderRadius: "4px 10px 4px 4px" } }, "← 上一小节"),
       h("button", { onClick: quizMe, disabled: busy, className: "active:opacity-60 disabled:opacity-30", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderTop: "3px solid " + accent, borderRadius: "4px 10px 4px 4px" } }, "抽一张题卡"),
       h("button", { onClick: checkpoint, disabled: busy, className: "active:opacity-60", style: { minHeight: 42, fontFamily: F_BODY, fontSize: 11.5, color: accent, background: studyModeSkin(sess.mode).soft, border: "1px solid " + accent + "66", borderRadius: "4px 10px 4px 4px" } },
@@ -3629,7 +3678,7 @@
       h(StudyHead, { zh: sess.subject, en: modeTag(sess.mode), mode: sess.mode, onBack: props.onBack }),
       topBar,
       lessonTools,
-      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4 py-3", style: { background: "repeating-linear-gradient(to bottom,rgba(251,248,239,.72) 0,rgba(251,248,239,.72) 31px,rgba(92,112,126,.10) 32px)" } },
+      h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4 py-3", style: { background: "repeating-linear-gradient(to bottom," + studyPaperA(.72) + " 0," + studyPaperA(.72) + " 31px,rgba(92,112,126,.10) 32px)" } },
         bubbles.length === 0
           ? h("div", { className: "flex flex-col items-center gap-3", style: { marginTop: 30 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog, textAlign: "center", lineHeight: 1.8 } },
@@ -3642,7 +3691,7 @@
                 : h("button", { onClick: replyNow, disabled: busy, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: accent, color: STUDY_SKIN.paper, borderRadius: "4px 10px 4px 4px" } }, busy ? "…" : "请 " + (teacher ? teacher.name : "对方") + " 写下开场"))
           : bubbles,
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, padding: "4px 2px" } }, "正在翻课页…") : null),
-      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: "rgba(251,248,239,.97)" } },
+      h("div", { className: "shrink-0", style: { borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.97) } },
         bubbles.length ? h("div", { className: "px-4 pt-2 flex gap-2" },
           sess.mode !== "costudy" ? h("button", { onClick: reteach, disabled: busy, className: "active:opacity-70 disabled:opacity-40",
             style: { flex: "0 0 auto", fontFamily: F_BODY, fontSize: 12.5, color: accent, border: "1px solid " + accent, borderRadius: "4px 10px 4px 4px", padding: "8px 11px" } }, "换种讲法") : null,

@@ -53,8 +53,8 @@ test("递给 UI 的角色列表默认不含 NPC", () => {
   assert.ok((app.match(/characters: liveChars,/g) || []).length > 30);
   // 能看见配角的地方【一处一处点名】，加一处就得来这里记一笔——
   // 这条断言守的不是数字，是「这份名单是显式的、grep 得出来的」。
-  assert.equal((app.match(/allChars: characters,/g) || []).length, 4,
-    "聊天列表的群头像 + 群聊页 + 关系页 + 同人文（配角要能被写进 CP）");
+  assert.equal((app.match(/allChars: characters,/g) || []).length, 5,
+    "聊天列表的群头像 + 群聊页 + 关系页 + 同人文（配角要能被写进 CP）+ 新建群聊（配角直接选）");
   assert.match(comp, /const memberById = id => \{ const c = \(allChars \|\| characters\)\.find/);
 });
 
@@ -102,7 +102,7 @@ test("建群只要一个角色就能建", () => {
 // 「进去再拉人，可以从他已有关系里面拉」
 test("加人选单把有关系的排在前面单独一组", () => {
   assert.match(comp, /const relatedTo = id => \(memberIds \|\| \[\]\)\.some/);
-  assert.match(comp, /const nearby = pool\.filter\(c => c\.npc \|\| relatedTo\(c\.id\)\)/);
+  assert.match(comp, /const nearby = pool\.filter\(c => \(c\.npc && memberIds\.includes\(c\.ownerId\)\) \|\| relatedTo\(c\.id\)\)/);
   assert.match(comp, /"和群里的人有关系的"/);
   assert.match(comp, /"其他角色"/, "其余角色仍要列出来，不砍掉");
   assert.match(app, /rels: rels,/, "群设置要拿得到关系表");
@@ -126,7 +126,7 @@ test("配角那段关系要在角色的关系页里显示出来", () => {
 // 她 2026-08-25：「简介打不开看全部」。配角没有自己的资料页，
 // 读全文和改都只能落在关系页里。
 test("简介能展开看全文，也能就地改", () => {
-  assert.match(screens, /function NpcBrief\(\{ npc, onSave, compact \}\)/);
+  assert.match(screens, /function NpcBrief\(\{ npc, onSave, compact, defaultOpen \}\)/);
   assert.match(screens, /open \? "收起" : "展开简介"/);
   assert.match(screens, /WebkitLineClamp: 2/, "收起时只显示两行");
   assert.match(screens, /✏️ 改简介/);
@@ -161,23 +161,17 @@ test("配角长不出印象卡", () => {
   assert.match(app, /gazeOn: .*&& !scc\.npc,/);
 });
 
-test("② 只进【在场有人认得 TA】的群", () => {
-  // ⚠️v68.84 从「只进主人的群」放宽成「主人在场，或者在场的谁跟 TA 有关系」。
-  //   配角本来就能同时认识好几个人（她 2026-09-15：「万一 npc 跟 ab 都认识呢」），
-  //   只认户口的话，「A 和 B 共同的那位朋友」永远进不了 B 的群。
-  //   ⚠️闸【没有松】：仍然要求在场有人认得 TA，不是谁的群都能进——这才是这一条守的东西。
-  const pick = comp.match(/const npcOutsiders = \(allChars \|\| \[\]\)\.filter\(c =>[\s\S]*?\)\);/)[0];
-  const fn = new Function("allChars", "memberIds", "rels", pick + " return npcOutsiders;");
+test("② 配角谁的群都能拉，认得的排前面", () => {
+  // v74.588（她 2026-10-03）：原来要求在场有人认得 TA，拉个闺蜜得先拉一圈人——放开了。
+  const pick = comp.match(/const npcOutsiders = \(allChars \|\| \[\]\)\.filter\(c =>[^\n]*\);/)[0];
+  const fn = new Function("allChars", "memberIds", pick + " return npcOutsiders;");
   const npc = { id: "n", npc: true, ownerId: "a" };
   const all = [npc, { id: "a" }, { id: "b" }];
-  assert.deepEqual(fn(all, ["a"], {}).map(c => c.id), ["n"], "主人在场照旧算数");
-  assert.deepEqual(fn(all, ["b"], {}).map(c => c.id), [], "在场没人认得 TA，就不该出现在选单里");
-  assert.deepEqual(fn(all, ["b"], { "b->n": { label: "旧同学" } }).map(c => c.id), ["n"], "乙认得 TA，就该能拉");
-  assert.deepEqual(fn(all, ["b"], { "n->b": { label: "旧同学" } }).map(c => c.id), ["n"], "反方向那条边也算");
-  assert.deepEqual(fn(all, ["a", "n"], {}).map(c => c.id), [], "已经在群里的不再出现");
-  // 建群时也进不来：NewGroupSheet 拿的是 liveChars（不含配角）
+  assert.deepEqual(fn(all, ["b"]).map(c => c.id), ["n"], "在场没人认得也该能拉");
+  assert.deepEqual(fn(all, ["a", "n"]).map(c => c.id), [], "已经在群里的不再出现");
   assert.match(comp, /const pool = outsiders\.concat\(npcOutsiders\);/);
   assert.match(comp, /const addable = nearby\.concat\(rest\);/);
+  assert.match(comp, /characters\.concat\(\(allChars \|\| \[\]\)\.filter\(c => c && c\.npc\)\)/, "建群时选不到配角");
 });
 
 test("③ 跟着主人一起删，并从所有群里摘干净", () => {

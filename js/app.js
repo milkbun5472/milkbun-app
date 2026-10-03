@@ -25323,6 +25323,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "messages") body = /*#__PURE__*/React.createElement(Messages, {
     characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
+    onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
+    onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
     chats: chats,
     groupChats: groupChats,
@@ -27609,6 +27611,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
+    allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
     onCreate: createGroup,
     onClose: () => setNewGroupOpen(false)
   }), profileOpen && /*#__PURE__*/React.createElement(ProfileSheet, {
