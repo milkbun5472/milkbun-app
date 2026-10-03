@@ -36,3 +36,10 @@ test("记忆：群里的事配角召得回（knownBy），私聊的事主人召�
   assert.match(engine, /function memoryVisibleTo\(e, charId\) \{ return Array\.isArray\(e\.knownBy\)/);
   assert.match(app, /knownBy: memberIds\.slice\(\)/);
 });
+
+test("配角能单独调私聊记忆抽取：照常 / 少抽点 / 不抽", () => {
+  assert.match(app, /if \(_npcMem\.npc && _npcMem\.memExtract === "off"\) return;/);
+  assert.match(app, /\* \(_npcMem\.npc && _npcMem\.memExtract === "less" \? 3 : 1\)/);
+  assert.match(app, /onSetNpcMem: \(id, v\) => pC\(p => p\.map\(c => c\.id === id && c\.npc \?/);
+  assert.match(comp, /\[\["", "照常"\], \["less", "少抽点"\], \["off", "不抽"\]\]/);
+});

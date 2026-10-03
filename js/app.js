@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.595";
+const APP_VERSION = "v74.596";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4211,7 +4211,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const maybeAutoExtract = async charId => {
     const cfg = memCfgRef.current;
     if (!cfg.autoExtract || !bgActive) return;
-    const interval = Math.max(1, cfg.extractInterval || 1);
+    // 配角可以单独调（她 2026-10-03：「我想要他抽少点记忆省钱」）：
+    //   less＝间隔×3，off＝私聊不抽。全局那个间隔照旧是底数，只在它上面乘。
+    const _npcMem = ((charactersRef.current || []).find(c => c && c.id === charId) || {});
+    if (_npcMem.npc && _npcMem.memExtract === "off") return;
+    const interval = Math.max(1, cfg.extractInterval || 1) * (_npcMem.npc && _npcMem.memExtract === "less" ? 3 : 1);
     const cnt = (memExtractCtrRef.current[charId] || 0) + 1;
     memExtractCtrRef.current[charId] = cnt;
     if (cnt % interval !== 0) return;
@@ -25333,7 +25337,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
-    onChatNpc: id => openChatById(id),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
+    onChatNpc: id => openChatById(id),
+    onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
     chats: chats,

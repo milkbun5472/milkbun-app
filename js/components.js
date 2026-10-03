@@ -7180,6 +7180,7 @@ function Messages({
   onSaveNpcAvatar,
   onSaveNpcBrief,
   onChatNpc,
+  onSetNpcMem,
   groups,
   chats,
   groupChats,
@@ -7575,7 +7576,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
@@ -7776,7 +7777,7 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onClose }) {
+function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onSetMem, onClose }) {
   const t = useTheme();
   // 点一行进这位配角的详情（她 2026-10-03：「能不能点击看详情啊，现在都是死的」）。
   //   简介读和改走关系页那一个 NpcBrief，不另写一份。
@@ -7798,6 +7799,15 @@ function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onClose }) {
         h(NpcBrief, { key: cur.id, npc: cur, onSave: onSaveBrief, defaultOpen: true })),
       // 私聊：配角没有好感、印象卡、日程，也从不主动找她——只在她点进来时说话。
       //   TA记得的是TA自己那份（私聊攒下的＋在场的群里那些），主人看不见你们聊了什么。
+      onSetMem ? h("div", { style: { marginTop: 12, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub } }, "私聊记忆抽取"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55, marginTop: 3 } }, "抽一次就是一次后台调用。少抽点＝隔得更久才抽；不抽＝私聊不进记忆库（聊天记录照留）。"),
+        h("div", { className: "flex gap-2", style: { marginTop: 9 } },
+          [["", "照常"], ["less", "少抽点"], ["off", "不抽"]].map(([v, zh]) => {
+            const on = (cur.memExtract || "") === v;
+            return h("button", { key: v, onClick: () => onSetMem(cur.id, v), className: "flex-1 active:opacity-70",
+              style: { padding: "7px 0", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
+          }))) : null,
       onChat ? h("button", { onClick: () => onChat(cur.id), className: "w-full active:opacity-70",
         style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "发消息") : null));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
