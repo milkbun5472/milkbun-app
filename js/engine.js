@@ -6070,7 +6070,21 @@ async function generateNpc(p, hostChar, ask, takenNames) {
     + "\n【输出】只输出 JSON，不要代码块：\n"
     + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话（如：我的副将，跟了我八年）","relToHost":"这个人眼里主角色是谁，一句话（如：我的主子，也是把我从死人堆里拖出来的人）"}';
   const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 10000, timeout: 90000 });
-  const d = parseJSONLoose(raw);
+  let d = parseJSONLoose(raw);
+  // 兜底（群友 2026-10-03 一直掉格式：回的是 {"name":"裴鸣玉","brief":"你是……——正文里夹了没转义的英文引号，或者被截断）：
+  //   按字段名把几段字硬抠出来；brief 取到下一个字段名或结尾为止
+  if (!d || !d.name || !d.brief) {
+    const t = String(raw || "");
+    const grab = (k, next) => {
+      const m = t.match(new RegExp('"' + k + '"\\s*:\\s*"')); if (!m) return "";
+      let rest = t.slice(m.index + m[0].length);
+      const stop = next.map(n => rest.search(new RegExp('"\\s*,\\s*"' + n + '"'))).filter(i => i >= 0);
+      rest = stop.length ? rest.slice(0, Math.min.apply(null, stop)) : rest.replace(/"\s*}\s*$/, "");
+      return rest.replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
+    };
+    const fb = { name: grab("name", ["brief"]), brief: grab("brief", ["relFromHost", "relToHost"]), relFromHost: grab("relFromHost", ["relToHost"]), relToHost: grab("relToHost", []) };
+    if (fb.name && fb.brief.length > 20) d = fb;
+  }
   if (!d || !d.name || !d.brief) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
   return {
     name: String(d.name).trim().slice(0, 24),
