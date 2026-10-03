@@ -1,0 +1,12 @@
+:root{color-scheme:light;--ink:#544a39;--paper:#eee8dc;--muted:#80745f;--control:rgba(255,248,231,.90)}
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;background:var(--paper);color:var(--ink);font:14px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;overflow:hidden}
+#view{position:fixed;inset:0;touch-action:none}canvas{display:block;width:100%;height:100%;-webkit-tap-highlight-color:transparent}
+.scene-head{position:fixed;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:calc(env(safe-area-inset-top) + 16px) 22px 12px;pointer-events:none;background:linear-gradient(var(--paper),transparent)}
+h1{font-size:18px;font-weight:500;letter-spacing:.06em;margin:0}p{font-size:12px;margin:2px 0 0;color:var(--muted)}
+.tools{display:flex;gap:7px;pointer-events:auto}button{font:inherit;color:var(--ink);background:var(--control);border:0;border-radius:12px;min-width:48px;min-height:42px;padding:8px 12px;cursor:pointer;box-shadow:0 2px 14px #6d59370c}button[aria-pressed=true]{background:#d9c5a2}button:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.scene-foot{position:fixed;left:0;right:0;bottom:0;min-height:64px;padding:10px 22px calc(12px + env(safe-area-inset-bottom)*.4);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;pointer-events:none;background:linear-gradient(transparent,var(--paper) 60%)}
+.scene-foot strong{font-weight:500;font-size:14px}.scene-foot span{font-size:12px;color:var(--muted);max-width:430px}
+#loading{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);font-size:14px;color:var(--muted);padding:14px 20px;background:var(--control);border-radius:14px;max-width:calc(100vw - 40px);text-align:center}#loading[hidden]{display:none}
+@media(max-width:480px){.scene-head{padding-left:15px;padding-right:15px}h1{font-size:16px}.scene-foot{padding-left:16px;padding-right:16px}}
+
+.places{position:fixed;top:calc(env(safe-area-inset-top) + 85px);left:50%;transform:translateX(-50%);display:flex;gap:0;background:#fff8ebe8;border:1px solid #d8c8ae;border-radius:14px;padding:4px;width:max-content;max-width:calc(100vw - 24px)}.places a{color:var(--ink);text-decoration:none;font-size:12px;padding:10px 12px;border-radius:10px;min-height:40px;white-space:nowrap}.places a[aria-current=page]{background:#d9c5a2}.places a:focus-visible{outline:2px solid var(--ink)}
