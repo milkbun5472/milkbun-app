@@ -67,7 +67,7 @@ test("撤回留在历史原位：他知道撤过一条（她 2026-10-01：「撤
   // 原文只挂在 seen 那一支上；没看清那一支是一句写死的话
   assert.match(seg, /content: seen && m\.content\s*\n?\s*\? "【[^"]*" \+ who \+ "[^"]*" \+ String\(m\.content\)[^\n]*\n\s*: "【[^"]*" \+ who \+ "[^"]*" \};/,
     "两支的形状不对：要么原文没挂在 seen 上，要么「没看清」那一支拼了东西进去");
-  assert.match(app, /const history = base\.map\(m => \(m && m\.recalled && m\.role === "user"\) \? recallStub\(m\) : \(m && m\.kind === "loveletter"\) \? _letterRow\(m\) : m\)/);
+  assert.match(app, /const history = base\.map\(m => \(m && m\.recalled && m\.role === "user"\) \? recallStub\(m\) : \(m && m\.kind === "loveletter"\) \? _letterRow\(m\) : (?:_letterAns\(m\) \? _ansRow\(m\) : )?m\)/);
   // 群聊也接上，而且群里撤回记下 recalledTs（她 2026-10-01）
   assert.ok(app.includes("? recallStub(m, true) : m)"));
   assert.ok(app.includes("recalled: true, recalledTs: Date.now(), origText: x.content"));
