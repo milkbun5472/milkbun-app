@@ -32,7 +32,10 @@
     steps: {},          // { day: 步数 }
     sleep: {},          // { 醒来那天: { bed: "23:40", wake: "07:20", q: 0-2 } }
     goal: { kcal: 1800, water: 8, kg: null },
-    watch: { on: false, ids: [], nudge: false }
+    watch: { on: false, ids: [], nudge: false, env: false },
+    env: null,          // 手机最近一次报上来的：{ ts, lat, lon, place, weather, temp, battery }
+    home: null,         // { lat, lon }：她自己设的「家」
+    gateway: { url: "", key: "", at: 0, err: "" }   // 她自己的网关（有才填），秋秋机只去那儿拉、不往别处发
   });
   function load() {
     const d = typeof loadJSON === "function" ? loadJSON(KEY, null) : null;
@@ -40,7 +43,8 @@
     if (!d || typeof d !== "object") return b;
     return Object.assign(b, d, {
       goal: Object.assign(b.goal, d.goal || {}),
-      watch: Object.assign(b.watch, d.watch || {})
+      watch: Object.assign(b.watch, d.watch || {}),
+      gateway: Object.assign(b.gateway, d.gateway || {})
     });
   }
   const save = d => { if (typeof saveJSON === "function") saveJSON(KEY, d); return d; };
@@ -110,6 +114,29 @@
   const WINDOWS = [["breakfast", 390, 570], ["lunch", 660, 810], ["dinner", 1020, 1200]];
   const minuteNow = now => { const t = new Date(now || Date.now()); return t.getHours() * 60 + t.getMinutes(); };
   const windowAt = now => { const m = minuteNow(now); return (WINDOWS.find(w => m >= w[1] && m <= w[2]) || [null])[0]; };
+  // ── 位置 / 天气 / 电量 ──
+  // 只给粗的说法：在家、在家附近、离家多远——经纬度原数不进提示词
+  const distKm = (a, b) => { const R = 6371, r = x => x * Math.PI / 180, dLa = r(b.lat - a.lat), dLo = r(b.lon - a.lon);
+    const s = Math.sin(dLa / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLo / 2) ** 2; return 2 * R * Math.asin(Math.sqrt(s)); };
+  function whereText(d) {
+    const e = d.env; if (!e) return "";
+    if (e.lat != null && e.lon != null && d.home && d.home.lat != null) {
+      const k = distKm(d.home, e);
+      return k < 0.3 ? "在家" : k < 2 ? "在家附近" : "不在家（离家约 " + (k < 10 ? k.toFixed(1) : Math.round(k)) + " 公里）";
+    }
+    return e.place ? "在" + e.place : "";
+  }
+  const isAway = d => /^不在家/.test(whereText(d));
+  const isRain = e => /雨|雪|雷|rain|snow|storm|shower|drizzle/i.test(String(e && e.weather || ""));
+  const ENV_FRESH = 3 * 3600000;   // 三小时前报的就不算「此刻」了
+  function envLine(d, now) {
+    const e = d.env; if (!e || (now || Date.now()) - (e.ts || 0) > ENV_FRESH) return "";
+    const mins = Math.max(1, Math.round(((now || Date.now()) - e.ts) / 60000));
+    const bits = [whereText(d), e.weather ? "那边" + e.weather + (e.temp != null ? " " + Math.round(e.temp) + "°" : "") : "",
+      e.battery != null ? "手机电量 " + Math.round(e.battery) + "%" : ""].filter(Boolean);
+    return bits.length ? "（" + (mins < 60 ? mins + " 分钟" : Math.round(mins / 60) + " 小时") + "前手机报的）她" + bits.join("，") + "。" : "";
+  }
+
   // noteFor：只给她点了名的人；只在饭点前后、或她两小时内刚记过一餐时出一行，其余时候空字符串＝零 token
   function noteFor(charId, now) {
     const d = load();
@@ -117,29 +144,41 @@
     const t = now || Date.now(), day = dayOf(new Date(t));
     const rows = mealsOn(d, day);
     const fresh = rows.some(m => t - (m.ts || 0) < 2 * 3600000);
-    if (!windowAt(t) && !fresh) return "";
+    // 位置天气电量另开一个开关；手机刚报上来的那三小时里一直给（它说的就是「此刻」）
+    const env = d.watch.env ? envLine(d, t) : "";
+    if (!windowAt(t) && !fresh) return env ? env + "这是她自己开的，让你知道她此刻在哪、那边天气、手机还剩多少电——提不提、怎么提，照你自己的性子来。" : "";
     const tot = dayTotals(d, day);
     const got = MEALS.slice(0, 3).map(m => mealName(m[0]) + (rows.some(r => r.meal === m[0]) ? "记了" : "没记")).join("、");
     const ate = rows.slice(-4).map(m => m.name).join("、");
     return "今天到现在记了约 " + tot.kcal + " 千卡（她给自己定的是 " + d.goal.kcal + "），" + got
       + (ate ? "；最近记的是" + ate : "") + "；水喝了 " + tot.water + "/" + d.goal.water + " 杯"
       + (tot.sportMin ? "；今天动了 " + tot.sportMin + " 分钟" : "") + (tot.sleep ? "；昨晚睡了 " + hrs(tot.sleep) : "") + "。"
-      + "这是她自己开的，让你帮着看着她吃饭喝水——管不管、怎么管，照你自己的性子和你们现在的关系来。";
+      + env + "这是她自己开的，让你帮着看着她" + (env ? "吃饭喝水、也知道她此刻在哪" : "吃饭喝水") + "——管不管、怎么管，照你自己的性子和你们现在的关系来。";
   }
   // 主动来问：开了「饭点会来问」、在午饭/晚饭窗口里、那一顿还没记、今天这一顿还没问过、一天最多两次
+  // 饭点那两次和手机报上来的那两种（电量低、下雨还在外面）各算各的：饭点一天最多两次，后两种各一天一次
   function nudgeDue(now) {
     const d = load();
     if (!d.watch.on || !d.watch.nudge || !(d.watch.ids || []).length) return null;
-    const t = now || Date.now(), meal = windowAt(t);
-    if (meal !== "lunch" && meal !== "dinner") return null;
-    const day = dayOf(new Date(t));
-    if (mealsOn(d, day).some(m => m.meal === meal)) return null;
+    const t = now || Date.now(), day = dayOf(new Date(t));
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const today = log[day] || [];
-    if (today.length >= 2 || today.includes(meal)) return null;
+    const ids = d.watch.ids.slice();
+    if (d.watch.env && d.env && t - (d.env.ts || 0) < ENV_FRESH) {
+      const hr = new Date(t).getHours(), env = envLine(d, t);
+      if (d.env.battery != null && d.env.battery < 20 && !today.includes("battery") && hr >= 8 && hr < 24)
+        return { meal: "battery", label: "她手机快没电了", ids, day, line: env + "她开了让你知道她在哪、那边天气和手机电量。" };
+      if (isRain(d.env) && isAway(d) && !today.includes("rain") && hr >= 7 && hr < 23)
+        return { meal: "rain", label: "她在外面，那边下雨", ids, day, line: env + "她开了让你知道她在哪、那边天气和手机电量。" };
+    }
+    const meal = windowAt(t);
+    if (meal !== "lunch" && meal !== "dinner") return null;
+    if (mealsOn(d, day).some(m => m.meal === meal)) return null;
+    if (today.filter(k => k === "lunch" || k === "dinner").length >= 2 || today.includes(meal)) return null;
     const tot = dayTotals(d, day);
-    return { meal, label: mealName(meal), ids: d.watch.ids.slice(), day,
-      line: "她今天记到现在约 " + tot.kcal + " 千卡、水 " + tot.water + "/" + d.goal.water + " 杯，" + mealName(meal) + "还没记。" };
+    return { meal, label: mealName(meal) + "的点", ids, day,
+      line: "她在健康 app 里开了让你帮着盯吃饭。她今天记到现在约 " + tot.kcal + " 千卡、水 " + tot.water + "/" + d.goal.water + " 杯，" + mealName(meal) + "还没记。"
+        + (d.watch.env ? envLine(d, t) : "") };
   }
   function markNudged(day, meal) {
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
@@ -152,9 +191,12 @@
   //   每个人在自己 iPhone 的「快捷指令」里读健康数据，拼成下面这几行字拷到剪贴板，回来点「导入」。
   //   网页读不到健康 App，也不能从快捷指令直接往 App 里塞（主屏上的网页和 Safari 是两份存档），剪贴板是两边都够得着的那一处。
   const SHORTCUT_MARK = "秋秋健康";
-  const SHORTCUT_TEMPLATE = [SHORTCUT_MARK, "日期：", "步数：", "睡眠：", "活动能量：", "运动分钟：", "体重：", "喝水：", ""].join("\n");
+  const SHORTCUT_TEMPLATE = [SHORTCUT_MARK, "日期：", "步数：", "睡眠：", "活动能量：", "运动分钟：", "体重：", "喝水：",
+    "纬度：", "经度：", "天气：", "气温：", "电量：", ""].join("\n");
   const SC_KEYS = [["steps", /^(步数|步|steps?)$/i], ["sleep", /^(睡眠|睡眠小时|睡眠时长|睡觉|sleep)$/i], ["kcal", /^(活动能量|动态能量|运动消耗|消耗|active ?energy)$/i],
-    ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i]];
+    ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i],
+    ["lat", /^(纬度|lat|latitude)$/i], ["lon", /^(经度|lon|lng|longitude)$/i], ["place", /^(地点|位置|地址|place|location)$/i],
+    ["weather", /^(天气|weather)$/i], ["temp", /^(气温|温度|temp|temperature)$/i], ["battery", /^(电量|电池|battery)$/i]];
   const num = s => { const m = String(s || "").replace(/[,，\s]/g, "").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
   function scDay(v, today) {
     const s = String(v || "").trim();
@@ -175,6 +217,9 @@
       const k = (SC_KEYS.find(x => x[1].test(m[1].trim())) || [])[0], v = m[2].trim();
       if (!k || !v) return;
       if (k === "date") { r.day = scDay(v, today); return; }
+      if (k === "place" || k === "weather") { r[k] = v.slice(0, 40); return; }
+      if (k === "battery") { const b = num(v); if (b != null) r.battery = b <= 1 && !/%/.test(v) && /\./.test(v) ? b * 100 : b; return; }
+      if (k === "temp" || k === "lat" || k === "lon") { const x = num(v); if (x != null) r[k] = x; return; }
       const n = num(v); if (n == null || n < 0) return;
       if (k === "sleep") {
         // 快捷指令给的时长可能是小时、分钟或秒：按大小认，单位写了就照单位
@@ -182,7 +227,7 @@
       } else if (k === "water") r.waterMl = /升|\bl\b/i.test(v) && !/毫升|ml/i.test(v) ? n * 1000 : n;
       else r[k] = n;
     });
-    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl"].some(k => r[k] != null) ? r : null;
+    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl", "lat", "place", "weather", "battery"].some(k => r[k] != null) ? r : null;
   }
   // 合进存档：同一天再导一次就覆盖手机那一份，她自己记的不动
   function applyShortcut(d, r) {
@@ -193,8 +238,78 @@
       .concat([{ id: "hk-" + day, day, kind: "手机记的活动", min: Math.round(r.min || 0), kcal: Math.round(r.kcal || 0), src: "shortcut", ts: Date.now() }]);
     if (r.kg > 20 && r.kg < 300) n.weight = (d.weight || []).filter(w => w.day !== day).concat([{ day, kg: Math.round(r.kg * 10) / 10 }]);
     if (r.waterMl) n.water = Object.assign({}, d.water, { [day]: Math.max(Number((d.water || {})[day]) || 0, Math.round(r.waterMl / 250)) });
+    if (r.lat != null || r.place || r.weather || r.battery != null) {
+      const ok = r.lat != null && r.lon != null && Math.abs(r.lat) <= 90 && Math.abs(r.lon) <= 180;
+      n.env = { ts: Date.now(), lat: ok ? r.lat : null, lon: ok ? r.lon : null, place: r.place || "", weather: r.weather || "",
+        temp: r.temp != null ? r.temp : null, battery: r.battery != null ? Math.max(0, Math.min(100, r.battery)) : null };
+    }
     n.hkAt = Date.now();
     return n;
+  }
+
+  // ── 她自己的网关（有才用）────────────────────────────────────
+  // 有人自己架了网关：快捷指令每天定时把那段字（或同样字段的 JSON）发给网关，网关存着最新一份；
+  //   秋秋机打开、切回前台时去 GET 一次。只往她填的那个地址发，别的地方一个字都不发。十分钟内不重复拉。
+  const JSON_KEYS = { steps: "步数", sleep: "睡眠", activeEnergy: "活动能量", kcal: "活动能量", exercise: "运动分钟", weight: "体重", water: "喝水",
+    lat: "纬度", latitude: "纬度", lon: "经度", lng: "经度", longitude: "经度", weather: "天气", temp: "气温", temperature: "气温", battery: "电量", date: "日期", place: "地点" };
+  function gatewayText(raw) {
+    const s = String(raw || "").trim();
+    if (s.includes(SHORTCUT_MARK)) return s;
+    try {
+      let j = JSON.parse(s); if (j && j.data && typeof j.data === "object") j = j.data;
+      if (!j || typeof j !== "object") return "";
+      if (typeof j.text === "string") return j.text.includes(SHORTCUT_MARK) ? j.text : SHORTCUT_MARK + "\n" + j.text;
+      return [SHORTCUT_MARK].concat(Object.keys(j).map(k => (JSON_KEYS[k] || k) + "：" + j[k])).join("\n");
+    } catch (e) { return ""; }
+  }
+  // 没有网关的人照这个搭一个：Cloudflare Workers 免费档，自带 https，不用买服务器、不用装软件。
+  //   POST（快捷指令发来）→ 存进 KV 那一格；GET（秋秋机来拿）→ 吐出最新那一份。两头都要带同一把密钥。
+  //   ⚠️这段代码是写给她们复制进 Cloudflare 的，改它要连着下面的教程和测试一起看。
+  const GATEWAY_WORKER = [
+    "// 秋秋机 · 健康网关（Cloudflare Workers）",
+    "// 需要：一个名为 HEALTH 的 KV 绑定，一个名为 SECRET 的密钥变量",
+    "export default {",
+    "  async fetch(req, env) {",
+    "    const cors = { \"Access-Control-Allow-Origin\": \"*\", \"Access-Control-Allow-Headers\": \"Authorization, Content-Type\", \"Access-Control-Allow-Methods\": \"GET, POST, OPTIONS\" };",
+    "    if (req.method === \"OPTIONS\") return new Response(null, { headers: cors });",
+    "    if (!env.SECRET || (req.headers.get(\"Authorization\") || \"\") !== \"Bearer \" + env.SECRET)",
+    "      return new Response(\"密钥不对\", { status: 401, headers: cors });",
+    "    if (req.method === \"POST\") {",
+    "      const text = await req.text();",
+    "      if (!text.includes(\"秋秋健康\")) return new Response(\"第一行要是「秋秋健康」\", { status: 400, headers: cors });",
+    "      await env.HEALTH.put(\"latest\", text.slice(0, 4000));",
+    "      return new Response(\"收到\", { headers: cors });",
+    "    }",
+    "    const v = await env.HEALTH.get(\"latest\");",
+    "    return new Response(v || \"\", { headers: Object.assign({ \"Content-Type\": \"text/plain; charset=utf-8\", \"Cache-Control\": \"no-store\" }, cors) });",
+    "  }",
+    "};",
+    ""].join("\n");
+  let pulling = false;
+  async function pullGateway(force) {
+    const d = load(), gw = d.gateway || {};
+    if (!gw.url || pulling || typeof fetch !== "function") return null;
+    if (!force && Date.now() - (gw.at || 0) < 10 * 60000) return null;
+    pulling = true;
+    let next = Object.assign({}, d.gateway, { at: Date.now() }), r = null;
+    try {
+      const res = await fetch(gw.url, { headers: gw.key ? { Authorization: "Bearer " + gw.key } : {}, cache: "no-store" });
+      if (!res.ok) throw new Error("网关回了 " + res.status);
+      const raw = await res.text();
+      r = parseShortcut(gatewayText(raw), dayOf());
+      if (!r) throw new Error("网关回的不是那几行字。它回的是：" + raw.slice(0, 120));
+      next.err = "";
+    } catch (e) {
+      next.err = String(e && e.message || e).slice(0, 200);
+    } finally { pulling = false; }
+    const cur = load();
+    save(Object.assign(r ? applyShortcut(cur, r) : cur, { gateway: next }));
+    try { g.dispatchEvent && g.dispatchEvent(new Event("qq-health-updated")); } catch (e) {}
+    return r;
+  }
+  if (typeof document !== "undefined" && document.addEventListener) {
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) pullGateway(false); });
+    setTimeout(() => pullGateway(false), 4000);
   }
 
   // ── 让模型估 ────────────────────────────────────────────────
@@ -397,7 +512,7 @@
             "网页读不到 iPhone 的健康 App，所以借你手机里的「快捷指令」：它把今天的步数、睡眠、活动能量、体重、喝水抄成几行字放进剪贴板，你回到这里点「导入」。整个过程不经过任何服务器，每个人在自己手机上搭一次就行，以后一点就跑。")),
         h(Section, { S, title: "搭一次快捷指令（iPhone）" },
           step(1, "新建快捷指令", "打开「快捷指令」App →「＋」。名字随便起，比如「秋秋健康」。"),
-          step(2, "每样数据加一组「查找健康样本」", "搜索动作「查找健康样本」，类型选「步数」，条件设「开始日期 是 今天」。\n再加一个「计算统计数据」（或「获取…的总和」），统计「总和」。\n睡眠同理：类型选「睡眠分析」，开始日期选「过去 1 天」，统计时长的总和。活动能量、锻炼分钟、体重、水也照这样；不想要的就不加。"),
+          step(2, "每样数据加一组「查找健康样本」", "搜索动作「查找健康样本」，类型选「步数」，条件设「开始日期 是 今天」。\n再加一个「计算统计数据」（或「获取…的总和」），统计「总和」。\n睡眠同理：类型选「睡眠分析」，开始日期选「过去 1 天」，统计时长的总和。活动能量、锻炼分钟、体重、水也照这样；不想要的就不加。\n想让他们知道你在哪、天气和电量：再加「获取当前位置」（取纬度、经度）、「获取当前天气」（取状况和温度）、「获取电池电量」。"),
           step(3, "加一个「文本」动作，贴进下面这个模板", "点下面的「复制模板」，粘进「文本」动作里，再把每行冒号后面换成上一步算出来的那个变量（长按冒号后面 → 选变量）。\n日期那行可以空着，空着就算今天；没加的那几行也空着就行。"),
           h("div", { style: { margin: "4px 0 6px 36px", padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre-wrap", lineHeight: 1.7 } }, SHORTCUT_TEMPLATE.trim()),
           h("div", { style: { marginLeft: 36 } },
@@ -412,8 +527,47 @@
           "同一天再导一次，会换掉上次手机导进来的那份；你自己手记的不动。")));
   }
 
+  // ── 怎么搭一个网关（整页）──────────────────────────────────────
+  function GatewayGuide({ S, toast, onBack }) {
+    const step = (n, title, body, extra) => h("div", { className: "flex", style: { gap: 12, padding: "10px 0" } },
+      h("span", { style: { width: 24, height: 24, borderRadius: 99, background: A(S.accent, "1c"), color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, n),
+      h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY } },
+        h("div", { style: { fontSize: 14.5, color: S.ink, fontWeight: 600 } }, title),
+        h("div", { style: { fontSize: 12.5, color: S.sub, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, body),
+        extra || null));
+    const code = (s, label) => h("div", { style: { marginTop: 8 } },
+      h("div", { style: { padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 11, color: S.ink,
+        whiteSpace: "pre", overflowX: "auto", lineHeight: 1.6, maxHeight: 220, overflowY: "auto" } }, s),
+      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(s); toast && toast(ok ? "已复制" : "没复制上，长按那段自己复制"); },
+        style: Object.assign(btnS(S), { marginTop: 8 }) }, label));
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "搭一个自己的网关", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
+        h(Section, { S, title: "先说它是什么", wk: "healthgatewayguide" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.75 } },
+            "网关就是一个一直在线的小信箱：手机定时把那几行字投进去，秋秋机打开时去取。这里用 Cloudflare 的 Workers 搭，免费、自带 https、不用买服务器也不用装软件，手机浏览器就能弄完，大概二十分钟。信箱只有你自己的密钥打得开，数据只在你自己的 Cloudflare 账号里。")),
+        h(Section, { S, title: "在 Cloudflare 上搭" },
+          step(1, "注册 Cloudflare", "打开 dash.cloudflare.com，用邮箱注册一个免费账号（不用绑卡）。"),
+          step(2, "建一个 KV（存数据的地方）", "左边菜单「存储和数据库」→「KV」（英文界面叫 Workers KV）→「创建」。名字随便，比如 qq-health。"),
+          step(3, "建一个 Worker", "左边菜单「Workers 和 Pages」→「创建」→「创建 Worker」→ 名字随便起 → 部署。\n部署完点「编辑代码」，把里面原来的代码全删掉，换成下面这段，再点右上角「部署」。",
+            code(GATEWAY_WORKER, "复制网关代码")),
+          step(4, "把 KV 接上", "回到这个 Worker 的页面 →「设置」→「绑定」→「添加」→ 选「KV 命名空间」。\n变量名一定要填 HEALTH（大写），命名空间选第 2 步建的那个，保存。"),
+          step(5, "设一把密钥", "还是「设置」→「变量和机密」→「添加」，类型选「密钥」，变量名填 SECRET（大写），值自己编一串别人猜不到的，比如二三十位乱码。保存。\n这串记下来，下面两处都要填同一串。"),
+          step(6, "记下网关地址", "Worker 页面上方那个 https://名字.你的账号.workers.dev 就是网关地址。")),
+        h(Section, { S, title: "让快捷指令往里投" },
+          step(7, "快捷指令最后改成「获取 URL 内容」", "照「从手机健康导入」那页先把「文本」动作搭好。然后把最后的「拷贝到剪贴板」换成「获取 URL 内容」：\n· URL 填第 6 步的网关地址\n· 方法选 POST\n· 头部加一行：键 Authorization，值 Bearer 加一个空格再加你的密钥\n· 请求体选「文件」，选上面那个「文本」\n后面临时加一个「显示结果」，手动跑一次，看到「收到」就通了（通了就把「显示结果」删掉，不然每次都弹）。"),
+          step(8, "设成定时自动跑", "快捷指令 →「自动化」→「＋」→「特定时间」，选「立即运行」（不然每次都要你点确认）。\n位置、电量想准一点的话，多建几个时间，比如早上、中午、傍晚、晚上各一次——报上来的位置三小时内才算「此刻」。")),
+        h(Section, { S, title: "回秋秋机填上" },
+          step(9, "填地址和密钥", "回「谁看着」最下面，网关地址填第 6 步那个，密钥填第 5 步那串（只填那串，不用写 Bearer）。点「现在拿一次」，显示拿到了就好了。以后每次打开秋秋机都会自己去拿。"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.7, marginTop: 8 } },
+            "没拿到时下面那行会写原因：「密钥不对」是两边那串不一样；「回了 404」多半是地址抄错；什么都没回，多半是快捷指令还没往里投过。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, lineHeight: 1.6, textAlign: "center" } },
+          "Cloudflare 的菜单叫法偶尔会改，对不上就找意思最接近的那一项。免费档一天能投一千次，够用很久。")));
+  }
+
   // ── 谁看着（整页）────────────────────────────────────────────
-  function WatchPage({ S, d, chars, onPatch, onBack }) {
+  function WatchPage({ S, d, chars, onPatch, onPull, onGuide, onBack }) {
     const w = d.watch, ids = w.ids || [];
     const toggle = (on, label, desc, onClick) => h("button", { onClick, className: "flex items-center",
       style: { width: "100%", minHeight: 56, background: "transparent", border: "none", borderBottom: "1px dashed " + S.line, padding: "8px 0", textAlign: "left", fontFamily: F_BODY } },
@@ -448,7 +602,26 @@
               })),
             h("div", { style: { height: 10 } }),
             toggle(w.nudge, "饭点会来问", "午饭、晚饭那会儿你还没记，点了名的人里有一位会主动来找你。一天最多两次，记了那一顿就不问。",
-              () => onPatch({ watch: Object.assign({}, w, { nudge: !w.nudge }) }))) : null),
+              () => onPatch({ watch: Object.assign({}, w, { nudge: !w.nudge }) })),
+            toggle(w.env, "让他们知道我在哪、天气、电量", "要快捷指令或网关报上来过才有。只说在不在家、离家多远，不给具体坐标；开了「会来问」的话，手机快没电、或者在外面碰上下雨，也会有人来找你（各一天一次）。",
+              () => onPatch({ watch: Object.assign({}, w, { env: !w.env }) }))) : null),
+        h(Section, { S, title: "家在哪", wk: "healthhome" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7, marginBottom: 10 } },
+            d.home ? "设好了。之后报上来的位置会跟它比，算你在不在家。" : "在家的时候让快捷指令跑一次（或者点下面那个按钮让浏览器读一次位置），再设成家。"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+            d.env && d.env.lat != null ? h("button", { onClick: () => onPatch({ home: { lat: d.env.lat, lon: d.env.lon } }), style: btnS(S) }, "把手机最近报的位置设成家") : null,
+            h("button", { onClick: () => { try { navigator.geolocation.getCurrentPosition(p => onPatch({ home: { lat: p.coords.latitude, lon: p.coords.longitude } }), () => {}, { timeout: 15000 }); } catch (e) {} }, style: btnS(S) }, "用这台设备现在的位置"),
+            d.home ? h("button", { onClick: () => onPatch({ home: null }), style: btnS(S) }, "清掉") : null)),
+        h(Section, { S, title: "我有自己的网关", wk: "healthgateway",
+            right: h("button", { onClick: onGuide, style: { minHeight: 36, background: "transparent", border: "none", color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600 } }, "没有？免费搭一个") },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7, marginBottom: 6 } },
+            "没有就不用管，导入照旧用剪贴板。有的话：让快捷指令每天定时用「获取 URL 内容」把那段字发给你的网关，网关存着最新一份；在这儿填它给出那一份的地址，秋秋机每次打开、切回来时去拿一次，就不用再点导入了。网关要用 https，并允许跨域访问。"),
+          h("input", { value: d.gateway.url || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { url: e.target.value.trim() }) }), placeholder: "网关地址，https 开头", style: Object.assign(inputS(S), { marginBottom: 6 }) }),
+          h("input", { value: d.gateway.key || "", onChange: e => onPatch({ gateway: Object.assign({}, d.gateway, { key: e.target.value.trim() }) }), placeholder: "密钥（可空，会放在 Authorization: Bearer 里）", style: inputS(S) }),
+          h("div", { className: "flex items-center", style: { gap: 10, marginTop: 12 } },
+            h("button", { disabled: !d.gateway.url, onClick: onPull, style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: d.gateway.url ? 1 : 0.5 }) }, "现在拿一次"),
+            h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: d.gateway.err ? S.blood : S.fog, lineHeight: 1.5, wordBreak: "break-all" } },
+              d.gateway.err ? "上次没拿到：" + d.gateway.err : d.gateway.at ? "上次拿的时间 " + new Date(d.gateway.at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""))),
         h(Section, { S, title: "给自己定的数" },
           num("一天吃多少", "kcal", "千卡"), num("一天喝几杯水", "water", "杯"), num("目标体重", "kg", "公斤"))));
   }
@@ -459,6 +632,9 @@
   function HealthApp(props) {
     const S = pal();
     const [d, setD] = useState(load);
+    // 网关在后台拉到了新的一份：页面跟着刷新
+    React.useEffect(() => { const f = () => setD(load()); g.addEventListener && g.addEventListener("qq-health-updated", f); pullGateway(false);
+      return () => g.removeEventListener && g.removeEventListener("qq-health-updated", f); }, []);
     const [tab, setTab] = useState("today");
     const [page, setPage] = useState(null);          // { kind: "add", meal } | { kind: "watch" }
     const [kg, setKg] = useState("");
@@ -489,7 +665,9 @@
       if (!importText(text)) { setPage({ kind: "import" }); props.toast && props.toast(text ? "剪贴板里不是快捷指令那段，可以在这页贴进来" : "读不到剪贴板，可以在这页贴进来"); }
     };
     if (page && page.kind === "import") return h(ImportPage, { S, onImport: importText, toast: props.toast, onBack: () => setPage(null) });
-    if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null) });
+    if (page && page.kind === "gateway") return h(GatewayGuide, { S, toast: props.toast, onBack: () => setPage({ kind: "watch" }) });
+    if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null), onGuide: () => setPage({ kind: "gateway" }),
+      onPull: async () => { const r = await pullGateway(true); props.toast && props.toast(r ? "拿到了" : "没拿到，看下面那行"); } });
 
     const delMeal = id => patch(prev => ({ meals: prev.meals.filter(m => m.id !== id) }));
     const setWater = n => patch(prev => ({ water: Object.assign({}, prev.water, { [today]: n }) }));
@@ -663,7 +841,7 @@
         tab === "today" ? todayView : tab === "body" ? bodyView : weekView));
   }
 
-  g.HealthCtx = { noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
+  g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
   g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电

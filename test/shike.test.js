@@ -110,3 +110,31 @@ test("那天的照片当卡面", () => {
   const K = kit();
   assert.deepEqual(K.dayImage(D(2025, 2, 1), [{ role: "assistant", kind: "selfie", imgKey: "img_1", ts: D(2025, 2, 1) }]), { imgKey: "img_1" });
 });
+
+test("收进来的一段、自己开的卡、日历世界事件都成时刻，按日子排", () => {
+  const K = kit();
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [{ role: "user", content: "嗨", ts: D(2025, 1, 10) }, { role: "assistant", content: "下雪了", ts: D(2025, 12, 1) }] };
+  const pins = { c1: [
+    { id: "a", ts: D(2025, 6, 1), title: "一长段", lines: [{ role: "user", text: "1" }, { role: "char", text: "2" }, { role: "user", text: "3" }, { role: "char", text: "4" }], summary: "那天他们聊了很久。" },
+    { id: "b", ts: D(2025, 3, 1), title: "我开的", manual: true, role: "manual", lines: [{ role: "manual", text: "自己写的" }] }
+  ] };
+  const calendar = { world: { "2025-12-1": [{ title: "初雪" }], "2025-11-11": [{ title: "没来往的那天" }] } };
+  const ms = K.momentsFor(c, { now: D(2026, 1, 1), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins, calendar });
+  const by = t => ms.find(m => m.title.indexOf(t) >= 0);
+  assert.equal(by("一长段").what.lines[0], "那天他们聊了很久。", "有总结先给总结");
+  assert.equal(by("一长段").raw.length, 4, "原话得留着");
+  assert.equal(by("我开的").kind, "manual");
+  assert.match(by("我开的").what.lines[0], /^自己写的$/);
+  assert.ok(by("初雪"), "那天有来往的世界事件没进来");
+  assert.ok(!by("没来往的那天"), "没来往那天的世界事件不该进来");
+  for (let i = 1; i < ms.length; i++) assert.ok(ms[i - 1].ts >= ms[i].ts, "没按日子排");
+});
+
+test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", () => {
+  const comp = P("js/components.js"), app = P("js/app.js");
+  assert.equal((comp.match(/"补中间"/g) || []).length, 2);
+  assert.equal((comp.match(/onPinShike\(selIds\)/g) || []).length, 2);
+  assert.equal((app.match(/onPinShike: indices =>/g) || []).length, 2);
+  assert.match(app, /onSummarizePin: async \(c, m\) =>/);
+});
