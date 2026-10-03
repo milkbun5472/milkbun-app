@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.692";
+const APP_VERSION = "v74.693";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10106,10 +10106,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
     if (laneBusy("c:" + chatKey)) return null;
-    // 她刚回了TA的申请信：这一下是在接她的话，不是TA自己找话说——不受「主动私聊」开关和在一起时的静默拦
-    //   （她 2026-10-03 截图：答应了以后TA一声没吭，她打了个「^^」，TA还问「泥系答应惹吗」）
-    if (opts.proactive && !opts.loveLetterAnswer && !autoRefreshOn("proactive", charId)) return null;
-    if (opts.proactive && !opts.loveLetterAnswer && currentlyTogetherWithChar(charId)) return null;
+    if (opts.proactive && !autoRefreshOn("proactive", charId)) return null;
+    if (opts.proactive && currentlyTogetherWithChar(charId)) return null;
     if (opts.proactive) {
       const outlet = opts.phoneAs ? "phone_as" : opts.dongnian ? "dongnian" : opts.bday ? "birthday" : opts.anniv ? "anniversary" : opts.bloom ? "garden_bloom" : opts.remind ? "reminder" : opts.health ? "health_meal" : opts.eyesAlert ? "eyes_alert" : opts.wx ? "weather" : "foreground_proactive";
       try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.noteWouldHold(outlet, Date.now()); } catch (e) {}
@@ -10132,10 +10130,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 他写过的申请信留在历史原位：信是他说过的话，她怎么回的也一起记着（不然下一轮他不知道她答没答应）
     const _letterRow = m => ({ ...m, content: "〔你写给她的情侣申请信" + (m.state === "accepted" ? "，她答应了" : m.state === "declined" ? "，她说再想想" : m.state === "open" ? "，她拆开了还没回" : "，她还没拆") + "〕" + String(m.content || "") });
     // 她回信那一下（系统小纸条「你答应了X ♥」／「你说再想想」）原来跟别的系统纸条一起被滤掉——
-    //   TA 只在很早那封信上看到「她答应了」，后面接着聊就又不知道了。按发生的位置交给 TA 一句。
+    //   TA 只在很早那封信上看到「她答应了」，后面接着聊就又不知道了（她 2026-10-03 截图：「泥系答应惹吗」）。按发生的位置交给 TA 一句。
     const _letterAns = m => m && m.kind === "system" && (m.sub === "letter" || /^你答应了.*♥$|^你说再想想$/.test(String(m.content || "")));
-    const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : (m && m.kind === "loveletter") ? _letterRow(m)
-        : _letterAns(m) ? { ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "答应了——你们从这一刻起在一起了") + "〕" } : m)
+    const _ansRow = m => ({ ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "答应了——你们从这一刻起在一起了") + "〕" });
+    const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : (m && m.kind === "loveletter") ? _letterRow(m) : _letterAns(m) ? _ansRow(m) : m)
       .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
         // 「TA想看你手机」「你发现TA偷翻过」那两张卡不是TA说的话（她 2026-10-02）；那几件事走下面的查手机记事
         && m.kind !== "askphone" && m.kind !== "peeksneak");
@@ -10166,8 +10164,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     //   杀掉「连发两轮/你还在打字TA就冒泡」。豁免转账即时反应(tf，是对你动作的直接回应)。正经主动本就 45min+，闸不误伤。
     // ⚠️phoneAs 跟 promise 同理：它是对【她刚做过的一件事】的回应，不是随机冒泡。
     //   卡在这儿的话，她刚跟TA聊过天再去用TA手机，这一条就永远发不出来。
-    //   回信同理（loveLetterAnswer）：她刚拆开回了TA的信，信本身就是几分钟前发的，卡在这儿TA就永远接不上。
-    if (opts.proactive && !opts.promise && !opts.phoneAs && !opts.loveLetterAnswer && history.length) {
+    if (opts.proactive && !opts.promise && !opts.phoneAs && history.length) {
       const _lastTs = history[history.length - 1].ts || 0;
       if (Date.now() - _lastTs < 12 * 60000) return null;
     }
@@ -21499,7 +21496,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       { role: "system", kind: "system", sub: "letter", content: yes ? "你答应了" + (char ? char.name : "TA") + " ♥" : "你说再想想", ts: Date.now() }]);
     if (yes) { beginCouple(charId); toast("你们在一起了 ♥"); }
     else markLoveLetter(charId, { declinedTs: Date.now() });
-    replyNow(charId, "", null, { proactive: true, loveLetterAnswer: yes ? "yes" : "no" });
+    // ⚠️不走 proactive：这一下是在接她的回信，不是TA自己找话说——当成主动消息的话，
+    //   「主动私聊」关着、或者信刚发出不到 12 分钟（防连发闸），这一轮就被悄悄吞了，TA一声不吭（她 2026-10-03）
+    replyNow(charId, "", null, { loveLetterAnswer: yes ? "yes" : "no" });
   };
   const genWhisper = async char => {
     setGen(g => ({
