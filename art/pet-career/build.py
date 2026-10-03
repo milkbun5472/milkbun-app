@@ -1,6 +1,6 @@
-"""Build the pet room as a reusable GLB and editable Blender scene.
+"""Build pet career scenes as reusable GLBs and editable Blender sources.
 
-Blender -b --python art/pet-house/build.py -- --cat /path/to/source.glb --evidence /path
+Blender -b --python art/pet-career/build.py -- --scene store --evidence /path
 No gameplay, rigging or user data is authored here. Preview camera and cat placement
 are read from layout.json; room geometry is authored in this build script.
 """
@@ -11,7 +11,7 @@ from mathutils import Vector
 HERE = Path(__file__).resolve().parent
 args = sys.argv[sys.argv.index('--')+1:] if '--' in sys.argv else []
 parser = argparse.ArgumentParser()
-parser.add_argument('--scene', choices=['bakery','florist','alley'], required=True)
+parser.add_argument('--scene', choices=[scene['id'] for scene in json.loads((HERE/'scenes.json').read_text())], required=True)
 parser.add_argument('--evidence', required=True)
 parser.add_argument('--skip-render', action='store_true')
 opt = parser.parse_args(args)
@@ -202,7 +202,7 @@ elif opt.scene=='florist':
         for x in [.97,2.53]:box('凳脚',(x,-1.65,.23),(.13,.5,.46),wood)
         pot(2.72,-.5,0,.25)
     zone('bench',bench)
-else:
+elif opt.scene=='alley':
     # A little street, rather than a third shop interior.
     for o in list(bpy.data.objects):
         if o.name.startswith(('背墙','左墙')):bpy.data.objects.remove(o,do_unlink=True)
@@ -242,6 +242,157 @@ else:
         box('灯帽',(-2.75,1.07,2.94),(.43,.43,.08),dark)
         ring('空篮子',(.05,-1.7,.23),.3,.25,.06,wood)
     zone('rest',rest)
+
+elif opt.scene=='store':
+    def groceries():
+        for z in [.45,1.2,1.95]:
+            box('货架板',(.4,2.26,z),(4.8,.74,.1),wood)
+            for i in range(9):
+                x=-1.6+i*.5
+                if z<1:
+                    box('食品纸盒',(x,2.21,z+.25),(.3,.31,.4),[peach,sage,book][i%3])
+                    box('纸盒标签',(x,2.044,z+.27),(.17,.012,.15),paper)
+                else:
+                    cyl('饮品瓶',(x,2.2,z+.24),.105,.4,[peach,sage,ivory][i%3],16)
+                    cyl('瓶盖',(x,2.2,z+.47),.067,.06,gold,16)
+                    box('瓶身纸签',(x,2.095,z+.24),(.13,.02,.12),paper)
+        for x in [-2.02,2.82]:box('货架支撑',(x,2.54,1.23),(.1,.12,2.46),sage)
+    zone('groceries',groceries)
+    def checkout():
+        box('矮收银柜',(1.68,.1,.56),(2.12,1,.98),sage,.09)
+        box('柜台面',(1.68,.1,1.12),(2.26,1.13,.12),wood)
+        box('收银底座',(2.2,.35,1.26),(.42,.34,.16),trim)
+        box('收银屏',(2.2,.48,1.48),(.38,.09,.3),dark)
+        cyl('小票卷',(1.73,.32,1.32),.105,.25,paper,20).rotation_euler.y=math.pi/2
+        box('垂下的小票',(1.7,-.475,1.03),(.16,.02,.3),paper)
+        for i in range(4):box('小票灰线',(1.7,-.49,1.1-i*.045),(.11,.008,.009),wood,.002)
+        box('贴纸小盘',(1.15,.04,1.21),(.45,.4,.045),peach)
+        for i in range(4):ball('圆贴纸',(1.03+(i%2)*.19,-.06+(i//2)*.19,1.245),(.055,.055,.006),[sage,ivory][i%2])
+        box('柜台边猫踏台',(.25,.02,.3),(.65,.7,.6),wood)
+    zone('checkout',checkout)
+    def fridge():
+        box('奶油冷柜',(-2.32,1.63,1.15),(1.3,1.03,2.3),trim,.09)
+        box('冷柜蓝玻璃',(-2.32,1.085,1.2),(1.09,.07,1.83),sky)
+        for z in [.5,1.05,1.6]:
+            box('冷柜层板',(-2.32,1.015,z),(.95,.13,.04),ivory)
+            for x in [-2.64,-2.31,-1.99]:box('冷藏小盒',(x,1.00,z+.17),(.21,.1,.28),[peach,sage,book][round((x+3)*10)%3])
+        box('冰柜把手',(-1.83,.96,1.19),(.06,.06,.55),gold)
+    zone('fridge',fridge)
+    def delivery():
+        for x,y,z in [(-2.41,-.15,.27),(-1.62,.1,.24),(-2.34,-.11,.75)]:
+            box('收货纸箱',(x,y,z),(.65,.62,.48),book)
+            box('纸箱封带',(x,y-.32,z),(.12,.016,.46),paper)
+        box('打开的纸箱',(-1.7,-.85,.16),(.72,.65,.1),wood)
+        for x in [-2.04,-1.36]:box('空箱侧边',(x,-.85,.31),(.05,.65,.34),book)
+        for y in [-1.15,-.55]:box('空箱前后边',(-1.7,y,.31),(.72,.05,.34),book)
+        box('抬起的箱盖',(-1.7,-.47,.59),(.72,.36,.025),book).rotation_euler.x=.65
+    zone('delivery',delivery)
+    def entrance():
+        box('店门玻璃',(-3.1,-1.83,1.39),(.055,1.22,2.32),sky)
+        for y in [-2.45,-1.21]:box('店门框',(-3.025,y,1.4),(.13,.07,2.48),trim)
+        box('门口地垫',(-2.4,-1.81,.09),(.96,1.04,.055),sage)
+        box('狗狗等候垫',(1.88,-1.58,.11),(1.14,.75,.09),peach,.08)
+        cyl('门边水碗',(2.77,-1.51,.14),.19,.15,ivory)
+        cyl('碗里水',(2.77,-1.51,.224),.16,.014,water)
+        box('小篮子',(.85,-1.67,.25),(.53,.37,.39),sage)
+        path('篮提手',[(.62,-1.67,.41),(.62,-1.67,.72),(1.08,-1.67,.72),(1.08,-1.67,.41)],.025,wood)
+    zone('entrance',entrance)
+elif opt.scene=='park':
+    # Replace the interior shell with grass and a curving stone path.
+    for o in list(bpy.data.objects):
+        if o.type=='MESH' and o.parent and o.parent.name=='shell' and not o.name.startswith('圆角地台'):bpy.data.objects.remove(o,do_unlink=True)
+    grass=material('柔绿草地','#b7c49a');stone=material('奶油石径','#e3d7be')
+    def meadow():
+        box('草坪',(0,0,.035),(6.4,5.5,.09),grass,.09)
+        for i in range(13):
+            y=-2.35+i*.39;x=.25+math.sin(i*.4)*.42
+            ball('圆石小路',(x,y,.105),(.66,.28,.06),stone)
+        for x,y in [(-2.8,-2.1),(-2.4,.1),(2.7,-1.9),(2.4,1.6)]:
+            for j in range(3):flower(x+.15*j,y,.31+(j%2)*.06,peach if j%2 else ivory)
+    zone('meadow',meadow)
+    def trees():
+        for x,y,r in [(-2.25,1.72,.8),(2.31,1.98,.74)]:
+            cyl('圆树干',(x,y,.92),.13,1.8,wood,16)
+            for dx,dy,z,k in [(0,0,2.1,1),(-.32,.04,2.28,.8),(.3,.1,2.39,.8),(0,.05,2.73,.75)]:ball('软树冠',(x+dx,y+dy,z),(r*k,r*k*.82,r*k*.8),leaf_light if k<1 else leaf)
+        for x,y in [(-2.85,1.1),(-1.49,2.34),(2.74,1.02)]:ball('圆灌木',(x,y,.37),(.45,.36,.38),leaf_light)
+    zone('trees',trees)
+    def bench():
+        for z,y in [(.53,.91),(1.02,1.19)]:box('公园长凳',(-1.59,y,z),(1.74,.54 if z<1 else .13,.13 if z<1 else .55),wood)
+        for x in [-2.22,-.96]:box('长凳脚',(x,.91,.27),(.12,.44,.54),sage_dark)
+        box('同行坐垫',(-1.11,.87,.635),(.56,.43,.065),peach)
+    zone('bench',bench)
+    def play():
+        for x in [1.15,2.1]:box('小跳栏柱',(x,-.28,.41),(.11,.15,.74),wood)
+        box('低跳栏',(1.63,-.28,.39),(1.04,.095,.1),sage)
+        ball('草地小球',(1.89,-1.12,.23),(.17,.17,.17),peach)
+        path('玩具绳',[(1.08,-1.43,.16),(1.23,-1.38,.17),(1.35,-1.49,.17),(1.5,-1.45,.16)],.035,ivory)
+        box('宠物饮水台',(2.62,.25,.18),(.58,.64,.2),stone)
+        cyl('公共水碗',(2.62,.25,.33),.21,.12,ivory)
+        cyl('公共碗水',(2.62,.25,.399),.18,.012,water)
+    zone('play',play)
+    def picnic():
+        box('野餐布',(-1.64,-1.43,.115),(1.66,1.15,.045),peach,.025)
+        for i in range(8):box('野餐布细条',(-2.33+i*.2,-1.43,.143),(.035,1.13,.008),ivory,.002)
+        box('野餐篮',(-2.04,-1.48,.34),(.48,.4,.4),wood,.08)
+        path('篮子弯提手',[(-2.27,-1.48,.47),(-2.22,-1.48,.73),(-1.86,-1.48,.73),(-1.81,-1.48,.47)],.022,book)
+        cyl('野餐盘',(-1.26,-1.44,.16),.18,.025,ivory)
+        ball('盘里的面包',(-1.26,-1.44,.24),(.12,.09,.08),book)
+    zone('picnic',picnic)
+elif opt.scene=='cafe':
+    def bar():
+        box('咖啡吧台',(1.03,1.24,.57),(3.45,1.1,1.14),sage,.08)
+        box('吧台木面',(1.03,1.24,1.2),(3.61,1.2,.12),wood)
+        box('咖啡机',(.19,1.42,1.56),(.82,.47,.63),trim,.055)
+        box('咖啡机面板',(.19,1.16,1.65),(.64,.035,.26),dark)
+        for x in [-.01,.37]:
+            cyl('咖啡旋钮',(x,1.12,1.72),.038,.06,gold,16).rotation_euler.x=math.pi/2
+            path('咖啡嘴',[(x,1.10,1.48),(x,1.02,1.42)],.018,gold)
+            cyl('咖啡杯',(x,1.02,1.33),.068,.12,peach,16)
+        cyl('咖啡豆罐',(.85,1.47,1.46),.13,.34,dark,20)
+        cyl('豆罐盖',(.85,1.47,1.65),.145,.035,gold,20)
+        box('收银机',(2.32,1.49,1.37),(.41,.36,.22),trim)
+        box('收银屏',(2.32,1.56,1.6),(.34,.065,.23),dark)
+        box('猫店长专座',(1.54,1.23,1.3),(.65,.54,.07),peach)
+    zone('bar',bar)
+    def window():
+        box('窗外浅蓝',(-3.12,-.61,2.15),(.04,2.13,1.64),sky)
+        for y in [-1.71,.49]:box('窗侧框',(-3.015,y,2.15),(.16,.09,1.78),trim)
+        for z in [1.31,2.99]:box('窗横框',(-3.015,-.61,z),(.16,2.24,.09),trim)
+        box('窗中框',(-3.0,-.61,2.15),(.16,.05,1.66),trim)
+        box('宽窗台',(-2.86,-.61,1.28),(.54,2.35,.11),wood)
+        box('窗边长座',(-2.62,-.48,.54),(.82,2.08,.2),wood)
+        box('窗边软垫',(-2.62,-.48,.69),(.72,1.95,.13),sofa_mat)
+        for y in [-1.13,.2]:box('窗边靠枕',(-2.88,y,.96),(.17,.52,.48),peach,.07)
+    zone('window',window)
+    def tables():
+        for x,y in [(-.73,-1.29),(1.67,-1.35)]:
+            cyl('咖啡桌',(x,y,.71),.47,.1,wood)
+            cyl('桌脚',(x,y,.34),.07,.68,gold,16)
+            cyl('桌脚底座',(x,y,.06),.25,.07,sage,20)
+            for dx in [-.62,.62]:
+                cyl('圆座',(x+dx,y,.4),.22,.1,peach,20)
+                for yy in [-.12,.12]:box('椅腿',(x+dx,y+yy,.19),(.06,.06,.38),wood)
+            cyl('桌上杯',(x-.12,y,.845),.067,.15,ivory,16)
+            ring('杯柄',(x-.02,y,.85),.06,.06,.013,ivory,n=24)
+            box('菜单',(x+.12,y+.05,.78),(.22,.28,.025),paper)
+    zone('tables',tables)
+    def welcome():
+        box('狗狗迎宾软垫',(2.51,-.2,.12),(.78,.95,.12),peach,.09)
+        cyl('饮水碗',(2.88,-.92,.13),.18,.13,ivory,24)
+        cyl('饮水',(2.88,-.92,.201),.155,.012,water,24)
+        box('牵引绳小架',(2.78,2.52,.64),(.25,.13,.7),wood)
+        path('挂着的小绳',[(2.77,2.42,.9),(2.65,2.42,.72),(2.78,2.42,.35),(2.9,2.42,.72),(2.77,2.42,.9)],.018,peach)
+    zone('welcome',welcome)
+    def shelves():
+        for z in [1.98,2.61]:
+            box('杯子木架',(.59,2.38,z),(3.6,.43,.08),wood)
+            for i in range(7):cyl('架上杯',(-.87+i*.46,2.29,z+.12),.09,.17,peach if i%2 else ivory,16)
+        pot(-2.4,1.98,0,.22)
+        box('店里小黑板',(-1.68,2.57,2.35),(.76,.08,.95),wood)
+        box('小黑板面',(-1.68,2.515,2.35),(.64,.03,.82),sage_dark)
+        for i in range(3):box('粉笔小横线',(-1.68,2.492,2.59-i*.18),(.37,.012,.024),ivory,.003)
+    zone('shelves',shelves)
+
 # All authored room nodes can be selected independently and retain semantic zone IDs.
 room_objects=list(bpy.context.scene.objects)
 # Export-only batching: retain individual source objects in the .blend, but avoid
@@ -282,11 +433,21 @@ for o in export_objects:bpy.data.objects.remove(o,do_unlink=True)
 
 
 before=start();bpy.ops.import_scene.gltf(filepath=str(HERE.parent/'pet-house'/'cat.glb'));cat_objs=list(set(bpy.data.objects)-before)
+# Freeze the imported rest pose for Blender's static art preview. Keeping a
+# nested armature and its editor-only bone shapes must not affect cat bounds.
+depsgraph=bpy.context.evaluated_depsgraph_get();static=[]
+helpers={bone.custom_shape for rig in cat_objs if rig.type=='ARMATURE' for bone in rig.pose.bones if bone.custom_shape}
+for original in cat_objs:
+    if original.type!='MESH' or original in helpers:continue
+    evaluated=original.evaluated_get(depsgraph);mesh=bpy.data.meshes.new_from_object(evaluated,depsgraph=depsgraph)
+    mesh.transform(evaluated.matrix_world)
+    o=bpy.data.objects.new('猫猫静态造型',mesh);bpy.context.collection.objects.link(o);static.append(o)
+for original in cat_objs:bpy.data.objects.remove(original,do_unlink=True)
+cat_objs=static
 cat_root=bpy.data.objects.new('猫猫比例示意',None);bpy.context.collection.objects.link(cat_root)
-for o in cat_objs:
-    if o.parent not in cat_objs:o.parent=cat_root
+for o in cat_objs:o.parent=cat_root
 bpy.context.view_layer.update()
-pts=[o.matrix_world@v.co for o in cat_objs if o.type=='MESH' for v in o.data.vertices]
+pts=[o.matrix_world@v.co for o in cat_objs for v in o.data.vertices]
 low=Vector([min(p[i] for p in pts) for i in range(3)]);high=Vector([max(p[i] for p in pts) for i in range(3)])
 s=layout['cat']['height']/(high.z-low.z);cat_root.scale=(s,)*3
 cat_root.location=Vector(layout['cat']['position'])-Vector(((low.x+high.x)*.5*s,(low.y+high.y)*.5*s,low.z*s));cat_root.rotation_euler.z=layout['cat']['yaw']
