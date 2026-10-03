@@ -489,7 +489,7 @@
       zh: "健康", pages: Object.freeze(["health"]),
       hooks: Object.freeze([
         ["healthtabs", "顶上那条心电图（今天／身体／这周）"], ["healthcard", "每一段"], ["healthsum", "热量环和三大营养素那一块"],
-        ["healthmeals", "吃了什么那一段"], ["healthwater", "喝水那一排杯子"], ["healthsport", "动了动那一段（运动和步数）"], ["healthsync", "今天最上面「手机健康 · 导入」那一行"], ["healthimport", "从手机健康导入那一页"], ["healthhome", "谁看着里「家在哪」那一段"], ["healthgateway", "谁看着里「我有自己的网关」那一段"], ["healthgatewayguide", "搭一个自己的网关那一页"], ["healthsleep", "睡觉那一段"], ["healthmood", "心情那五张脸"],
+        ["healthmeals", "吃了什么那一段"], ["healthwater", "喝水那一排杯子"], ["healthsport", "动了动那一段（运动和步数）"], ["healthsync", "今天最上面「手机健康 · 导入」那一行"], ["healthimport", "从手机健康导入那一页"], ["healthhome", "谁看着里「家在哪」那一段"], ["healthgateway", "谁看着里「我有自己的网关」那一段"], ["healthgatewayguide", "搭一个自己的网关那一页"], ["healthevents", "网关教程里「到家、出门、起床、睡觉」那一段"], ["healthsleep", "睡觉那一段"], ["healthmood", "心情那五张脸"],
         ["healthweight", "体重那一段"], ["healthperiod", "经期那一段"], ["healthweek", "七天的热量柱"], ["healthnote", "TA看完这周说的话"]
       ])
     }),
@@ -856,7 +856,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.695", changed: "", none: "这版只改了教程文字，没有新挂点" };
+  const BRIEF_STAMP = { v: "v74.696", changed: "健康新增挂点 healthevents（网关教程里到家、出门、起床、睡觉那一段）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
