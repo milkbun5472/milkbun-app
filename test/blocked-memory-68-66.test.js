@@ -28,7 +28,7 @@ test("排在最后一条消息之后：求和申请那条也得先落地", () =>
   // blockedReaction 里那条「解除拉黑申请」挂在 250 + says.length*650 上，
   // 抽取得排在它后面，否则抽的时候它还没进聊天记录。
   const i = app.indexOf("const blockedReaction = async");
-  const seg = app.slice(i, i + 1600);
+  const seg = app.slice(i, app.indexOf("const respondUnblockFromChar", i));
   assert.match(seg, /setTimeout\(\(\) => pChat\(chatKey[\s\S]{0,400}?\), 250 \+ says\.length \* 650\);/);
   assert.match(app, /delay \+ says\.length \* 650 \+ 1200/, "抽取的延时必须比那条申请更晚");
 });
