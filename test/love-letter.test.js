@@ -18,7 +18,7 @@ test("在一起那一刻只写一份：她邀请他答应、他写信她答应�
   const ans = app.slice(app.indexOf("const answerLoveLetter"), app.indexOf("const genWhisper"));
   assert.match(ans, /if \(yes\) \{ beginCouple\(charId\);/);
   assert.match(ans, /markLoveLetter\(charId, \{ declinedTs: Date\.now\(\) \}\)/, "再想想要记下来，冷却才算得出来");
-  assert.match(ans, /replyNow\(charId, "", null, \{ proactive: true, loveLetterAnswer: yes \? "yes" : "no" \}\)/, "她回了之后他得接一句");
+  assert.match(ans, /replyNow\(charId, "", null, \{ loveLetterAnswer: yes \? "yes" : "no" \}\)/, "她回了之后他得接一句（不走 proactive：主动开关和防连发闸会把这一轮吞掉，2026-10-03）");
 });
 
 test("闸：已在一起／邀请挂着／关了／刚分手／再想想不到 3 天／一天一封／还有一封没拆", () => {
