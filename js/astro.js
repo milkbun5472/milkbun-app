@@ -183,8 +183,46 @@
       }));
   }
 
-  function Panel({ S, children, style }) {
-    return h("div", { "data-wk": "astrocard", style: Object.assign({ background: S.bg2, border: "1px solid " + S.line, borderRadius: 16, padding: "14px 16px" }, style || {}) }, children);
+  // 不再一块一个框（她 2026-10-03：「不喜欢这种边框，你看塔罗做的 UI 就很好看」）：
+  //   照塔罗那片天来——字直接写在天上，段与段之间一颗小星芒领着一道渐隐的发丝线。
+  const sparkle = (cx, cy, R) => {
+    const w = R * 0.16;
+    return "M" + cx + " " + (cy - R) + "Q" + (cx + w) + " " + (cy - w) + " " + (cx + R) + " " + cy
+      + "Q" + (cx + w) + " " + (cy + w) + " " + cx + " " + (cy + R)
+      + "Q" + (cx - w) + " " + (cy + w) + " " + (cx - R) + " " + cy
+      + "Q" + (cx - w) + " " + (cy - w) + " " + cx + " " + (cy - R) + "z";
+  };
+  function Spark({ size, color, op }) {
+    return h("svg", { width: size || 10, height: size || 10, viewBox: "0 0 12 12", style: { flexShrink: 0, display: "inline-block", verticalAlign: "middle" } },
+      h("path", { d: sparkle(6, 6, 5.4), fill: color, opacity: op == null ? 0.85 : op }));
+  }
+  function Panel({ S, children, style, title }) {
+    return h("div", { "data-wk": "astrocard", style: Object.assign({ padding: "4px 2px 14px" }, style || {}) },
+      title ? h("div", { className: "flex items-center", style: { gap: 7, margin: "10px 0 10px" } },
+        h(Spark, { size: 9, color: S.tint }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, letterSpacing: ".18em" } }, title),
+        h("span", { style: { flex: 1, height: 1, background: "linear-gradient(to right," + S.line + ",transparent)" } })) : null,
+      children);
+  }
+  // 今日那一栏的头：十二宫一圈，你那一宫亮着。字和刻度都画在天上，没有底板。
+  function ZodiacWheel({ S, sign }) {
+    const W = 300, C = 150, R = 118;
+    return h("svg", { viewBox: "0 0 " + W + " " + W, style: { width: "min(78%, 290px)", display: "block", margin: "2px auto 0" } },
+      h("defs", null, h("radialGradient", { id: "astroHalo" },
+        h("stop", { offset: "0%", stopColor: S.tint, stopOpacity: 0.55 }), h("stop", { offset: "100%", stopColor: S.tint, stopOpacity: 0 }))),
+      h("circle", { cx: C, cy: C, r: R + 16, fill: "none", stroke: S.line, strokeWidth: 0.8 }),
+      h("circle", { cx: C, cy: C, r: R - 16, fill: "none", stroke: S.line, strokeWidth: 0.6, strokeDasharray: "1.5 4" }),
+      SIGNS.map((sg, i) => {
+        const a = (i * 30 - 90 - 15) * Math.PI / 180, b = (i * 30 - 90) * Math.PI / 180;
+        const on = i === sign;
+        const x = C + Math.cos(b) * R, y = C + Math.sin(b) * R;
+        return h("g", { key: i },
+          h("line", { x1: C + Math.cos(a) * (R + 16), y1: C + Math.sin(a) * (R + 16), x2: C + Math.cos(a) * (R - 16), y2: C + Math.sin(a) * (R - 16), stroke: S.line, strokeWidth: 0.6 }),
+          on ? h("circle", { cx: x, cy: y, r: 26, fill: "url(#astroHalo)" }) : null,
+          h("text", { x: x, y: y + 4, textAnchor: "middle", fontSize: on ? 14 : 11, fill: on ? S.ink : S.fog, fontFamily: F_BODY, fontWeight: on ? 600 : 400 }, sg[0]));
+      }),
+      sign >= 0 ? h("path", { d: sparkle(C, C, 30), fill: S.tint, opacity: 0.9 }) : null,
+      sign >= 0 ? h("path", { d: sparkle(C, C, 46), fill: S.tint, opacity: 0.12 }) : null);
   }
 
   function AstroApp(props) {
@@ -206,7 +244,7 @@
     const [commenter, setCommenter] = useState(chars[0] ? chars[0].id : "");
 
     const missing = (p) => h("button", { onClick: () => p.char ? props.onEditChar && props.onEditChar(p.char) : props.onEditProfile && props.onEditProfile(),
-      className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "1px dashed " + S.tint, borderRadius: 999, padding: "5px 12px", marginTop: 6 } },
+      className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "none", borderBottom: "1px dashed " + S.tint, padding: "6px 0 2px", marginTop: 4, minHeight: 32 } },
       (p.id === "me" ? "还不知道你的生日" : "还不知道 " + p.name + " 的生日") + " · 去填");
 
     const ask = async (key, char, instruction) => {
@@ -233,23 +271,28 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: S.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", userSelect: "text", WebkitUserSelect: "text" } }, n.text)) : null;
     };
     const askBtn = (key, char, instruction, label) => char ? h("button", { onClick: () => ask(key, char, instruction), disabled: !!busy, className: "active:opacity-80 disabled:opacity-50",
-      style: { marginTop: 12, width: "100%", minHeight: 42, borderRadius: 12, border: "1px solid " + S.tint, background: "transparent", color: S.tint, fontFamily: F_BODY, fontSize: 13.5 } },
-      busy === key ? (char.remark || char.name) + " 在看…" : (notes[key] ? "让 " + (char.remark || char.name) + " 再看看" : (label || "让 " + (char.remark || char.name) + " 看看"))) : null;
+      style: { marginTop: 10, width: "100%", minHeight: 44, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, background: "transparent", border: "none",
+        borderTop: "1px solid " + S.line, color: S.tint, fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".06em" } },
+      h(Spark, { size: 9, color: S.tint }),
+      busy === key ? (char.remark || char.name) + " 在看…" : (notes[key] ? "让 " + (char.remark || char.name) + " 再看看" : (label || "让 " + (char.remark || char.name) + " 看看")),
+      h(Spark, { size: 9, color: S.tint })) : null;
 
     const pickRow = (list, val, set, label) => h("div", { style: { marginBottom: 10 } },
       label ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginBottom: 6 } }, label) : null,
       h("div", { style: { display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 } },
-        list.map(p => h("button", { key: p.id, onClick: () => set(p.id), className: "active:opacity-70 shrink-0",
-          style: { display: "flex", alignItems: "center", gap: 6, padding: "5px 11px 5px 5px", borderRadius: 999, border: "1px solid " + (val === p.id ? S.tint : S.line),
-            background: val === p.id ? S.tint + "26" : "transparent", color: val === p.id ? S.ink : S.sub, fontFamily: F_BODY, fontSize: 12.5 } },
-          typeof Avatar !== "undefined" ? h(Avatar, { character: p.char || { name: p.name, avatarImage: profile.avatarImage, color: profile.color || "#8a8fb5" }, size: 22, radius: 999 }) : null,
-          p.name))));
+        // 一个人就是一颗星：头像外一圈光，选中的那颗亮、名字上墨；没选的暗着（tabs-not-plain-pills：不是一排药丸）
+        list.map(p => { const on = val === p.id; return h("button", { key: p.id, onClick: () => set(p.id), "aria-pressed": on, className: "active:opacity-70 shrink-0",
+          style: { display: "flex", flexDirection: "column", alignItems: "center", gap: 5, minWidth: 56, padding: "4px 2px", background: "transparent", border: "none", color: on ? S.ink : S.fog, fontFamily: F_BODY, fontSize: 11.5 } },
+          h("span", { style: { display: "inline-flex", borderRadius: 999, padding: 2, boxShadow: on ? "0 0 0 1.5px " + S.tint + ", 0 0 16px " + S.tint + "88" : "none", opacity: on ? 1 : 0.62, transition: "all .2s" } },
+            typeof Avatar !== "undefined" ? h(Avatar, { character: p.char || { name: p.name, avatarImage: profile.avatarImage, color: profile.color || "#8a8fb5" }, size: 38, radius: 999 }) : null),
+          h("span", { style: { maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name)); })));
 
     // ---- 今日 ----
     const meInfo = birthInfo(profile.birthday);
     const day = meInfo && meInfo.sign >= 0 ? daily(meInfo.sign, today) : null;
-    const todayView = h("div", { className: "flex flex-col gap-3" },
-      h(Panel, { S: S },
+    const todayView = h("div", { className: "flex flex-col" },
+      h(ZodiacWheel, { S: S, sign: meInfo ? meInfo.sign : -1 }),
+      h(Panel, { S: S, title: "今日" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, today.replace(/-/g, " · ") + " · " + meName),
         !day ? h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: S.ink, marginTop: 4 } }, "还算不出你今天的运势"), missing(people[0])) : h("div", null,
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 4 } },
@@ -259,13 +302,13 @@
           h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 12, fontFamily: F_BODY, fontSize: 12.5, color: S.sub, alignItems: "center" } },
             "爱情", h(Stars, { n: day.love, color: S.accent }), "事业", h(Stars, { n: day.work, color: S.accent }), "财运", h(Stars, { n: day.money, color: S.accent })),
           h("div", { className: "flex gap-3", style: { marginTop: 14 } },
-            h("div", { "data-wk": "astrolucky", style: { flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, border: "1px solid " + S.line } },
+            h("div", { "data-wk": "astrolucky", style: { flex: 1, display: "flex", alignItems: "center", gap: 10, padding: "6px 0" } },
               h("span", { style: { width: 28, height: 28, borderRadius: 99, background: day.color.hex, boxShadow: "0 0 0 3px " + S.bg + "," + "0 0 12px " + day.color.hex } }),
               h("div", null, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog } }, "幸运色"), h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: S.ink } }, day.color.name))),
-            h("div", { style: { width: 92, padding: "10px 12px", borderRadius: 12, border: "1px solid " + S.line } },
+            h("div", { style: { width: 92, padding: "6px 0 6px 14px", borderLeft: "1px solid " + S.line } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog } }, "幸运数字"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: S.ink } }, day.number))))),
-      day && chars.length ? h(Panel, { S: S },
-        pickRow(people.filter(p => p.char), commenter, setCommenter, "让谁看看你今天的运势"),
+      day && chars.length ? h(Panel, { S: S, title: "让谁看看" },
+        pickRow(people.filter(p => p.char), commenter, setCommenter, ""),
         (() => {
           const c = (byId(commenter) || {}).char;
           if (!c) return null;
@@ -293,12 +336,12 @@
         info && info.sign >= 0 ? signName(info.sign) + (info.signApprox ? "（约）" : "") : "星座未知",
         " · ", info && info.shuku >= 0 ? SHUKU[info.shuku] + "宿" : "宿未知"),
       !info ? missing(p) : (info.shukuNeedsYear ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 4 } }, "生日带上年份才算得出宿") : null));
-    const pairView = h("div", { className: "flex flex-col gap-3" },
-      h(Panel, { S: S },
+    const pairView = h("div", { className: "flex flex-col" },
+      h(Panel, { S: S, title: "挑两个人" },
         pickRow(people, pa, setPa, "左边"),
         pickRow(people, pb, setPb, "右边"),
         pa === pb ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.fog } }, "两边选了同一个人——换一个再看") : null),
-      pa === pb ? null : h(Panel, { S: S },
+      pa === pb ? null : h(Panel, { S: S, title: "两颗星之间" },
         h("div", { className: "flex items-start" }, whoLine(A, ai),
           h("div", { style: { alignSelf: "center", fontFamily: F_DISPLAY, fontSize: 26, color: S.tint, padding: "0 4px" } }, sm ? sm.score : "?"),
           whoLine(B, bi)),
