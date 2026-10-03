@@ -26,7 +26,8 @@ test("NPC 绝不许掉进任何会花钱的后台循环", () => {
     .map((l, n) => ({ l, n: n + 1 }))
     .filter(x => /\bcharacters\.(forEach|filter|map)\(/.test(x.l))
     // 这两处是有意用全量的：清理孤儿数据要认得所有 id；npcsOf 本来就是找配角
-    .filter(x => !/const valid = new Set/.test(x.l) && !/const npcsOf/.test(x.l) && !/const liveChars/.test(x.l));
+    // playChars（v74.625）：一起玩那三处的选人名单——她自己点开、自己挑人才用，不是后台循环，不花钱
+    .filter(x => !/const valid = new Set/.test(x.l) && !/const npcsOf/.test(x.l) && !/const liveChars/.test(x.l) && !/const playChars/.test(x.l));
   assert.deepEqual(stray.map(x => x.n), [],
     "这些行还在遍历全量 characters，必须走 liveChars：\n" + stray.map(x => x.n + ": " + x.l.trim().slice(0, 80)).join("\n"));
 });

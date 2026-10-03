@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.623";
+const APP_VERSION = "v74.625";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5519,6 +5519,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // 「一起玩」那三处（小游戏 / 跑团 / 小剧场）也能邀认识的配角（群里 2026-10-03：「全部游戏都要」）：
+  //   都是平行时空沙盒，只读不写主线，配角进来碰不到好感心情（配角本来就没有）。主角色排前面，配角跟在后面。
+  const playChars = characters.filter(c => c && !c.isGroup).sort((a, b) => (a.npc ? 1 : 0) - (b.npc ? 1 : 0));
   // 配角在群成员表里的那一行。
   // ⚠️原来只写一句「这是 X 身边的人」——户口报完就完了。可配角是【可以同时认识好几个人】的
   //   （她 2026-09-15：「万一 npc 跟 ab 都认识呢」）：关系本来就住在 x_rels 那张任意多边的图里，
@@ -26786,7 +26789,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 小游戏需要规则推演与长程角色演绎，统一走线下创作线路。
     active: offlineActive,
     bgActive: offlineActive,
-    characters: liveChars,
+    // 认识的配角也能上桌（群里 2026-10-03：「玩游戏这里能不能加入认识的 npc」）。小游戏是沙盒，只读不写主线，
+    //   配角进来不会碰到好感/心情那些（配角本来就没有）；选人页把配角单列一组。
+    characters: playChars,
     profile: profile,
     worldbook: loreForContext("creative", [], ""),
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
@@ -26833,7 +26838,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 跑团:守密人叙事沙箱,走线下创作线路;同小剧场先例——不传世界书/记忆/好感,
     // 平行时空天然隔离主线(四处一样喂·合法差异,理由见 trpg.js 头注)
     active: offlineActive,
-    characters: liveChars,
+    characters: playChars,
     profile: profile,
     // 言秋的座位:队友宣言走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
@@ -26857,7 +26862,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "theater") body = h(TheaterApp, {
     // 小剧场:if 线沙箱,走线下创作线路;不传世界书/记忆/好感,天然隔离主线
     active: offlineActive,
-    characters: liveChars,
+    characters: playChars,
     profile: profile,
     // 言秋的座位:if 线对戏的「演」也走 CC 亲笔(同小游戏切座管道),超时才由模型顶
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
