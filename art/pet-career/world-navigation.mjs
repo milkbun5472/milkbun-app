@@ -1,4 +1,4 @@
-import {createNavigator} from '../../apps/fairy-garden/navigation.mjs?v=fg-73cf3f7fbd011350';
+import {createNavigator} from '../../apps/fairy-garden/navigation.mjs?v=fg-898378e12153192c';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createPetWorld(layout){
  const padding=.25;
@@ -19,7 +19,7 @@ export function createPetWorld(layout){
  const building=id=>layout.buildings.find(b=>b.id===id);
  const nearest=p=>layout.buildings.map(b=>({building:b,distance:distance(p,b.approach)})).sort((a,b)=>a.distance-b.distance)[0];
  const canEnter=(p,id)=>!!building(id)&&distance(p,building(id).approach)<.45;
- function restore(raw){const d=raw&&typeof raw==='object'?raw:{},position=walkable(d.position?.x,d.position?.z)?{x:d.position.x,z:d.position.z}:{...layout.spawn};let outdoor=null;if(d.outdoor&&walkable(d.outdoor.position?.x,d.outdoor.position?.z)){const o=d.outdoor,p=o.pan;outdoor={position:{x:o.position.x,z:o.position.z},heading:Number.isFinite(o.heading)?o.heading:0,pan:p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:Math.max(-35,Math.min(35,p.x)),z:Math.max(-54,Math.min(35,p.z))}:{x:o.position.x,z:o.position.z},zoom:Number.isFinite(o.zoom)?Math.max(.45,Math.min(2.2,o.zoom)):1,follow:o.follow!==false};}const room=building(d.room)?d.room:null;return {room:room&&outdoor&&canEnter(outdoor.position,room)?room:null,position,outdoor,evening:d.evening===true};}
+ function restore(raw){const d=raw&&typeof raw==='object'?raw:{},position=walkable(d.position?.x,d.position?.z)?{x:d.position.x,z:d.position.z}:{...layout.spawn};let outdoor=null;if(d.outdoor&&walkable(d.outdoor.position?.x,d.outdoor.position?.z)){const o=d.outdoor,p=o.pan;outdoor={position:{x:o.position.x,z:o.position.z},heading:Number.isFinite(o.heading)?o.heading:0,pan:p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:Math.max(-35,Math.min(35,p.x)),z:Math.max(-54,Math.min(35,p.z))}:{x:o.position.x,z:o.position.z},zoom:Number.isFinite(o.zoom)?Math.max(.45,Math.min(2.2,o.zoom)):1,follow:o.follow!==false,...(typeof o.overview==='boolean'?{overview:o.overview}:{})};}const room=building(d.room)?d.room:null;return {room:room&&outdoor&&canEnter(outdoor.position,room)?room:null,position,outdoor,evening:d.evening===true};}
 
  return {walkable,segmentClear,path,ground,building,nearest,canEnter,restore};
 }
