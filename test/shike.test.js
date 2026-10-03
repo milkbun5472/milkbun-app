@@ -164,3 +164,19 @@ function kitNote(K, c, ctx) {
   new Function("window", "globalThis", "React", "h", "Svg", P("js/shike.js"))(g, g, g.React, () => null, () => null);
   return g.ShikeKit.chatNote(c, ctx);
 }
+
+test("第二轮：时刻的日子走纪念日主动那条路；主屏「去年今天」", () => {
+  const app = P("js/app.js"), K = kit();
+  assert.match(app, /if \(!u \|\| u\.days !== 0 \|\| !\/\^\(认识\|在一起第\)\/\.test\(u\.title\)\) continue;/);
+  assert.match(app, /aToday\.push\(\{ cid: c\.id, name: u\.title, yrs: 0 \}\);/);
+  assert.match(app, /screen === "home" && shikeOTD && window\.ShikeOTD && h\(window\.ShikeOTD, \{/);
+  assert.match(app, /saveJSON\("x_shikeOTD", schedDayKey\(new Date\(\)\)\)/);
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [{ role: "user", content: "嗨", ts: D(2025, 1, 10) }] };
+  const pins = { c1: [{ id: "p", ts: D(2025, 10, 3), title: "他第一次吃醋", text: "哼", role: "assistant" }] };
+  const otd = K.onThisDay([c], { now: D(2026, 10, 3), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins });
+  assert.ok(otd, "去年今天那张没找到");
+  assert.equal(otd.years, 1);
+  assert.equal(otd.m.title, "他第一次吃醋");
+  assert.equal(K.onThisDay([c], { now: D(2026, 10, 4), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins }), null);
+});

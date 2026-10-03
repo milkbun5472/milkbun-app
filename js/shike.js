@@ -414,8 +414,37 @@
       + "。今天你偶尔会想起它——聊着自然想起就提一句，不合时宜就不提，别硬拐过去。";
   }
 
+  // 去年今天（她 2026-10-03 点的第 5 条）：今天跟某张旧时刻同月同日、年份更早 → 主屏冒一张小卡。不花钱。
+  //   一个人挑一张最近的那一年；几个人都有就挑第一个（主屏只冒一张，不堆）。
+  function onThisDay(chars, ctx) {
+    const now = new Date(ctx.now || Date.now()), mo = now.getMonth(), da = now.getDate(), yr = now.getFullYear();
+    const pins = ctx.pins || (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {};
+    for (const c of (chars || [])) {
+      if (!c || c.npc) continue;
+      const hit = momentsFor(c, Object.assign({}, ctx, { pins })).find(m => { const d = new Date(m.ts); return d.getMonth() === mo && d.getDate() === da && d.getFullYear() < yr; });
+      if (hit) return { char: c, m: hit, years: yr - new Date(hit.ts).getFullYear() };
+    }
+    return null;
+  }
+  function ShikeOTD({ item, onOpen, onClose }) {
+    const t = useTheme();
+    if (!item) return null;
+    const c = item.char, src = typeof resolveImg === "function" ? resolveImg(c.avatarImage || c.chatAvatar || "") : "";
+    return h("div", { "data-wk": "shikeotd", style: { position: "absolute", left: 16, right: 16, bottom: "calc(118px + env(safe-area-inset-bottom))", zIndex: 40,
+        display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: 18, background: "rgba(255,252,246,.94)", border: "1px solid " + t.line,
+        boxShadow: "0 10px 30px rgba(40,30,20,.22)", backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" } },
+      h("button", { onClick: onOpen, className: "active:opacity-80 flex items-center", style: { flex: 1, minWidth: 0, gap: 12, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
+        src ? h("img", { src, alt: "", style: { width: 46, height: 46, borderRadius: 12, objectFit: "cover", flexShrink: 0 } }) : null,
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 2, color: t.fog } }, (item.years === 1 ? "一年前" : item.years + " 年前") + "的今天 · " + (c.remark || c.name)),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + item.m.title + "」"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 1 } }, "去时刻里看看 ›"))),
+      h("button", { onClick: onClose, className: "active:opacity-60", "aria-label": "收起", style: { fontFamily: F_BODY, fontSize: 18, color: t.fog, background: "transparent", border: "none", padding: "4px 6px" } }, "×"));
+  }
+  g.ShikeOTD = ShikeOTD;
+
   g.ShikeApp = ShikeApp;
-  g.ShikeKit = { momentsFor, monthDay, whatHappened, dayImage, upcoming, HOLIDAYS,
+  g.ShikeKit = { onThisDay, momentsFor, monthDay, whatHappened, dayImage, upcoming, HOLIDAYS,
     // 聊天那头用：三天内（含今天）有日子就给一句，没有就空——零调用，只是让TA知道
     chatNote: (c, ctx) => {
       const u = upcoming(c, ctx, 3);

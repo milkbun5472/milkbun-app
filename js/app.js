@@ -1441,6 +1441,8 @@ function App() {
   const [toastMsg, setToastMsg] = useState(null);
   const [appConfirm, setAppConfirm] = useState(null);
   const [appPrompt, setAppPrompt] = useState(null);   // 借这一层填一行字（v64.88）
+  // 去年今天（时刻）：开机进主屏时算一次；今天已经收起过就不再冒
+  const [shikeOTD, setShikeOTD] = useState(null);
   // 预览台（v65.00）：她在主题工作台点「去这一页看看」→ 跳到【真页面】，屏幕上浮一条回程条。
   // ⚠️v62.02 删掉过一版 iframe 假预览，理由写在 theme-studio-ui.js 里：那一版跟真页面
   //   共享的只有挂点名字，底色、层级、字体、组件全是另写的，预览里对的东西上机不对。
@@ -5519,6 +5521,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // 去年今天（时刻）：开机落到主屏时算一次，零调用；今天收起过（x_shikeOTD）就不再冒
+  useEffect(() => {
+    if (!loaded || screen !== "home" || !window.ShikeKit || !window.ShikeKit.onThisDay) return;
+    if (loadJSON("x_shikeOTD", "") === schedDayKey(new Date())) return;
+    try { setShikeOTD(window.ShikeKit.onThisDay(liveChars, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile), calendar })); } catch (e) {}
+    // eslint-disable-next-line
+  }, [loaded, screen === "home"]);
   // 「一起玩」那三处（小游戏 / 跑团 / 小剧场）也能邀认识的配角（群里 2026-10-03：「全部游戏都要」）：
   //   都是平行时空沙盒，只读不写主线，配角进来碰不到好感心情（配角本来就没有）。主角色排前面，配角跟在后面。
   const playChars = characters.filter(c => c && !c.isGroup).sort((a, b) => (a.npc ? 1 : 0) - (b.npc ? 1 : 0));
@@ -6652,6 +6661,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             if (an && an.characterId === c.id && annivNext(an).days === 0)
               aToday.push({ cid: c.id, name: String(an.name || "纪念日"), yrs: 0 });
           });
+        }
+        // 时刻里那几种日子（她 2026-10-03 点的第 3 条）：认识第 N 天 / 认识几周年 / 在一起第 N 天——
+        //   不要求在一起，走同一条纪念日的路、同一套闸。在一起的周年上面已经有了，这里不重复。
+        if (window.ShikeKit && window.ShikeKit.upcoming) {
+          for (const c of liveChars) {
+            const u = window.ShikeKit.upcoming(c, { chats: chatsRef.current, lib: memLibRef.current, couples: couplesRef.current || {}, profile: profileRef.current || {} }, 0);
+            if (!u || u.days !== 0 || !/^(认识|在一起第)/.test(u.title)) continue;
+            if (aToday.some(x => x.cid === c.id)) continue;
+            aToday.push({ cid: c.id, name: u.title, yrs: 0 });
+          }
         }
         for (const it of aToday) {
           const cid = it.cid;
@@ -28243,6 +28262,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     multiline: appPrompt.multiline, maxLength: appPrompt.maxLength,
     onCancel: () => setAppPrompt(null),
     onOk: v => { const fn = appPrompt.onOk; setAppPrompt(null); setTimeout(() => { try { const r = fn(v); if (r && typeof r.catch === "function") r.catch(e => toast("没成：" + ((e && e.message) || "再试一次"), 5000)); } catch (e) { toast("没成：" + ((e && e.message) || "再试一次"), 5000); } }, 0); }
+  }), screen === "home" && shikeOTD && window.ShikeOTD && h(window.ShikeOTD, {
+    item: shikeOTD,
+    onOpen: () => { saveJSON("x_shikeOTD", schedDayKey(new Date())); setShikeOTD(null); setScreen("shike"); },
+    onClose: () => { saveJSON("x_shikeOTD", schedDayKey(new Date())); setShikeOTD(null); }
   }), themePeek && h(ThemePeekBar, {
     zh: themePeek.zh,
     onBack: () => { setThemePeek(null); setConfigPage("themeStudio"); setScreen("config"); }
