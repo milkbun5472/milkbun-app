@@ -1,5 +1,5 @@
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-bc49cee1c502f6b8';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-bc49cee1c502f6b8';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-5d603e59adc1a246';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-5d603e59adc1a246';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};

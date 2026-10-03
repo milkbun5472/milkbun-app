@@ -1,14 +1,14 @@
 import * as T from 'three';
-import {CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-bc49cee1c502f6b8';
-import {restorePetState,snapshotPetState,petProfile,bodyWidth} from '../../apps/pets/state.mjs?v=fg-bc49cee1c502f6b8';
-import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-bc49cee1c502f6b8';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-bc49cee1c502f6b8';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-bc49cee1c502f6b8';
-import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-bc49cee1c502f6b8';
-import {loadPetCompanion,mountPetControls} from '../pet-house/pet-companion.mjs?v=fg-bc49cee1c502f6b8';
-import {createPetWorld} from './world-navigation.mjs?v=fg-bc49cee1c502f6b8';
+import {CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-5d603e59adc1a246';
+import {restorePetState,snapshotPetState,petProfile,bodyWidth} from '../../apps/pets/state.mjs?v=fg-5d603e59adc1a246';
+import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-5d603e59adc1a246';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-5d603e59adc1a246';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-5d603e59adc1a246';
+import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-5d603e59adc1a246';
+import {loadPetCompanion,mountPetControls} from '../pet-house/pet-companion.mjs?v=fg-5d603e59adc1a246';
+import {createPetWorld} from './world-navigation.mjs?v=fg-5d603e59adc1a246';
 const read=async url=>{const r=await fetch(new URL(url,import.meta.url));if(!r.ok)throw Error('场景文件 '+r.status);return r.json();};
-const layout=await read('./outside.json?v=fg-bc49cee1c502f6b8'),world=createPetWorld(layout);
+const layout=await read('./outside.json?v=fg-5d603e59adc1a246'),world=createPetWorld(layout);
 const view=document.getElementById('view'),loading=document.getElementById('loading'),labels=document.getElementById('door-labels');
 const title=document.querySelector('h1'),subtitle=document.getElementById('subtitle'),back=document.getElementById('back'),enterButton=document.getElementById('enter');
 const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;view.append(renderer.domElement);
@@ -83,7 +83,7 @@ document.getElementById('light').onclick=()=>{evening=!evening;applyLight();save
 let persistAt=0;const persist=()=>{if(host&&ready&&!customizing&&performance.now()-persistAt>2500){persistAt=performance.now();save();}};setInterval(persist,3000);
 document.addEventListener('visibilitychange',()=>{gesture.cancel();cameraControls?.clearGesture();lastTime=0;save();if(!document.hidden)draw();});window.addEventListener('pagehide',save);
 try{
- const [outsideFile,companion]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-bc49cee1c502f6b8',import.meta.url).href),loadPetCompanion(T,loader,{persist:!host,initialSpecies:petState?.profile.species,compressedMask:!!host})]);
+ const [outsideFile,companion]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-5d603e59adc1a246',import.meta.url).href),loadPetCompanion(T,loader,{persist:!host,initialSpecies:petState?.profile.species,compressedMask:!!host})]);
  outsideModel=outsideFile.scene;shade(outsideModel);scene.add(outsideModel);activeModel=outsideModel;pet=companion;petRoot=pet.root;cat=pet.model;rig=pet.rig;dye=pet.dye;scene.add(petRoot);setOutdoorPet();if(host){petRoot.traverse(mesh=>{if(mesh.isMesh){const original=mesh.geometry.attributes.position.array.slice();mesh.geometry=mesh.geometry.clone();const h=new T.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);shapeMeshes.push({mesh,original,height:h.max.y-h.min.y});}});applyProfile(petState.profile);}else{petControls=mountPetControls(pet,{draw,onSpecies:()=>{cat=pet.model;rig=pet.rig;dye=pet.dye;if(room)placeIndoor();else setOutdoorPet();refresh();}});}applyLight();loading.hidden=true;ready=true;
  window.petCareerPreview={scene,camera,renderer,pet,get cat(){return cat;},petRoot,world,layout,enter,leave,goTo,step:advance,reset:()=>document.getElementById('reset').click(),snapshot:()=>({ready,species:pet.species,tail:pet.tail,room,position:{...position},outdoor,pan:{...pan},zoom:room?cameraControls?.snapshot().zoom:zoom,camera:cameraControls?.snapshot(),evening,busy,walking:path.length>0,destination,zone:activeZone,motion:motion?.snapshot()}),get model(){return activeModel;},project:(x,z,h=0)=>{const v=new T.Vector3(x,h,z).project(camera);return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};}};
  note(layout.title,'点地面散步 · 点房子门牌走进去');refresh();resize();

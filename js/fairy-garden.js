@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-bc49cee1c502f6b8", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-5d603e59adc1a246", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -169,7 +169,7 @@
   function PetSession(props){
     const key=props.storeKey||KEY,seed=useRef(null);if(!seed.current){seed.current=read(key);if(!seed.current.partnerId&&props.lockPartnerId)seed.current={...seed.current,partnerId:String(props.lockPartnerId)};}const owner=useRef(seed.current.id),frame=useRef(null),latest=useRef(props);latest.current=props;
     const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
-    const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current)throw Error('存档已切换，请重新进入宠物小世界。');return d;};
+    const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current)throw Error('存档已切换，请重新进入绒绒小镇。');return d;};
     const game=()=>frame.current?.contentWindow.PetGame;
     const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),ready:()=>{if(frame.current===node)setLoaded(true);}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
@@ -184,9 +184,9 @@
     const palette=(game()?.palettes||[]).map(p=>[p.label,p.base,p.patch]);
     const d=current(),c=(props.characters||[]).find(x=>String(x.id)===String(d.partnerId));
     return h('div',{className:'h-full flex flex-col','data-pet-world':true,style:{background:'#eee8dc',color:G.ink}},
-      h(Head,{zh:panel==='pet'?'宠物预览':panel==='travel'?'去哪里':'宠物小世界',sub:loaded&&!panel?game()?.snapshot().profile.name:undefined,bg:'transparent',ink:G.ink,onBack:panel==='travel'?()=>setPanel(''):panel==='pet'?()=>{cancel();if(!current().worlds?.pets?.configured)leave(props.onBack);}:()=>loaded?leave(props.onBack):props.onBack(),right:loaded&&!panel?h('button',{onClick:()=>setPanel('travel'),style:{minHeight:40,padding:'8px 12px'}},'去别处'):null}),
+      h(Head,{zh:panel==='pet'?'宠物预览':panel==='travel'?'去哪里':'绒绒小镇',sub:loaded&&!panel?game()?.snapshot().profile.name:undefined,bg:'transparent',ink:G.ink,onBack:panel==='travel'?()=>setPanel(''):panel==='pet'?()=>{cancel();if(!current().worlds?.pets?.configured)leave(props.onBack);}:()=>loaded?leave(props.onBack):props.onBack(),right:loaded&&!panel?h('button',{onClick:()=>setPanel('travel'),style:{minHeight:40,padding:'8px 12px'}},'去别处'):null}),
       h('div',{className:'flex-1 min-h-0',style:{position:'relative'}},
-        h('iframe',{ref:bind,title:'宠物小世界游戏',src:'apps/pets/index.html?v='+BUILD,style:{position:'absolute',inset:0,width:'100%',height:'100%',border:0,display:'block'},onLoad:()=>{if(game()?.ready)setLoaded(true);}}),
+        h('iframe',{ref:bind,title:'绒绒小镇游戏',src:'apps/pets/index.html?v='+BUILD,style:{position:'absolute',inset:0,width:'100%',height:'100%',border:0,display:'block'},onLoad:()=>{if(game()?.ready)setLoaded(true);}}),
         !loaded&&h('p',{role:'status',style:{position:'absolute',top:10,left:20,right:20}},'正在打开宠物街区…'),
         error&&h('p',{role:'alert',style:{position:'absolute',left:10,right:10,bottom:panel==='pet'?'64%':70,zIndex:12,background:'#fff5e7',padding:10,color:'#994a36'}},error),
         panel==='pet'&&h('div',{'data-pet-settings':true,className:'flex flex-col',style:{position:'absolute',top:'38%',left:0,right:0,bottom:0,background:'#eee8dc'}},
@@ -263,7 +263,7 @@
           h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:G.soft,lineHeight:1.8,marginBottom:14}},"只换这一档列车里的样子；没换过的沿用庭院那一身。"),
           h(DressControls,{who,look,styles,game:trainGame,pushLook:pushTrainLook})))),
       panel==="album"&&h(TravelAlbum,{getArchive:current,onNote:noteBack,onAskNote:c?askBack:null,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
-      panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"),h("button",{style:{...pickButtonStyle(),marginTop:12},onClick:()=>leave("pets")},"进入宠物小世界"))),
+      panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"),h("button",{style:{...pickButtonStyle(),marginTop:12},onClick:()=>leave("pets")},"进入绒绒小镇"))),
       panel==="settings"&&page("旅程设置",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},
         h("p",{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.9,marginBottom:20}},c?"这段旅程与 "+(c.remark||c.name)+" 同行，和庭院共用这一档。":"庭院和列车共用这一档旅程。"),
         h("div",{style:{display:"grid",gap:12}},
@@ -1460,7 +1460,7 @@
           onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
         travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
-          h("button",{style:{...pickButtonStyle(),margin:"12px 16px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("pets");}catch(e){props.toast(e.message);}}},"进入宠物小世界"),
+          h("button",{style:{...pickButtonStyle(),margin:"12px 16px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("pets");}catch(e){props.toast(e.message);}}},"进入绒绒小镇"),
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
           //   没选的往边上缩进去、暗着，像压在后面几页。七张竖着排也放得下，不会像横排那样把最后一张挤出屏幕。
@@ -1878,7 +1878,7 @@
   const WORLDS = [
     { id: "garden", name: "微光庭院", label: "庭院", note: "种花、下井、和同行者一起把日子过下去" },
     { id: "train", name: "远行列车", label: "列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" },
-    { id: "pets", name: "宠物小世界", label: "宠物", note: "给猫猫取名、挑毛色，在公园和小店之间散步" }
+    { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子" }
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
@@ -2040,7 +2040,7 @@
       });
       return shell("挑一个世界", props.onBack, h(React.Fragment, null,
         h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
-          "庭院、列车与宠物小世界共用同一档旅程。选一个世界，和同行者接着走。"),
+          "庭院、列车与绒绒小镇共用同一档旅程。选一个世界，和同行者接着走。"),
         h("div", null, path)));
     }
 
