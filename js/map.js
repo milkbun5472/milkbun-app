@@ -441,8 +441,10 @@ function mapSubSkin(t) {
 
 
   // 一个世界的舆图：满屏 SVG，可拖可捏；角色钉在节点上，头像贴着那个点
-  function WorldMap({ world, characters, status, me, busy, onPin, onRoute, onAdd, onGen, onBack, onEdit, onDelNode }) {
+  function WorldMap({ world, characters, status, me, busy, onPin, onRoute, onAdd, onGen, onBack, onEdit, onDelNode, onEditNode }) {
     const [delAsk, setDelAsk] = useState(false);
+    // 改地点：就在节点页里改（名字 / 类型 / 眼下的事）
+    const [editing, setEditing] = useState(null);
     const t = useTheme();
     const [selNode, setSelNode] = useState(null);
     const [adding, setAdding] = useState(false);
@@ -522,13 +524,37 @@ function mapSubSkin(t) {
     // 节点页：整页（no-half-sheet）——这一层的正文（钩子、谁在这儿、通往哪儿）不需要同时看见地图
     const nodePage = sel ? h("div", { style: mapSubSkin(t) },
       // 删地点（她 2026-10-03 群友：「可以删掉地图上不想要的地点嘛，这个随机的名字太雷霆了」）：点一下先问，再点才删
-      h(Head, { zh: sel.name, en: sel.region + " · " + sel.kind, bg: "transparent", onBack: function () { setSelNode(null); setDelAsk(false); },
-        right: onDelNode ? h("button", { onClick: function () {
+      h(Head, { zh: sel.name, en: sel.region + " · " + sel.kind, bg: "transparent", onBack: function () { setSelNode(null); setDelAsk(false); setEditing(null); },
+        right: (onDelNode || onEditNode) ? h("div", { className: "flex items-center", style: { gap: 6 } },
+          onEditNode && !editing ? h("button", { onClick: function () { setDelAsk(false); setEditing({ name: sel.name, kind: sel.kind, hook: sel.hook || "" }); }, className: "active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", background: "transparent" } }, "编辑") : null,
+          onDelNode && !editing ? h("button", { onClick: function () {
           if (!delAsk) { setDelAsk(true); return; }
           if (onDelNode(sel.name) !== false) { setSelNode(null); }
           setDelAsk(false);
-        }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + (delAsk ? t.accent : t.line), borderRadius: 999, padding: "5px 12px", background: delAsk ? t.accent + "14" : "transparent" } }, delAsk ? "确定删掉？" : "删除") : null }),
+        }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + (delAsk ? t.accent : t.line), borderRadius: 999, padding: "5px 12px", background: delAsk ? t.accent + "14" : "transparent" } }, delAsk ? "确定删掉？" : "删除") : null) : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 30px" } },
+        editing ? h("div", { style: Object.assign({ borderRadius: 16, padding: "14px 16px 16px", border: "1px solid " + t.line, marginBottom: 12 }, worldPaper(t)) },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", marginBottom: 6 } }, "名字"),
+          h("input", { value: editing.name, onChange: function (e) { setEditing(Object.assign({}, editing, { name: e.target.value })); },
+            style: { width: "100%", outline: "none", fontFamily: F_DISPLAY, fontSize: 18, color: "#3b3227", background: "transparent", border: "none", borderBottom: "1px solid rgba(120,104,80,0.45)", padding: "4px 0" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", margin: "12px 0 6px" } }, "是什么地方"),
+          h("div", { className: "flex flex-wrap", style: { gap: 6 } }, ["城镇", "遗迹", "野外", "地标"].map(function (k) {
+            const on2 = editing.kind === k;
+            return h("button", { key: k, onClick: function () { setEditing(Object.assign({}, editing, { kind: k })); }, className: "active:opacity-70 flex items-center",
+              style: { gap: 5, fontFamily: F_BODY, fontSize: 12.5, padding: "5px 10px", borderRadius: 3, color: on2 ? "#fff" : "#3b3227", background: on2 ? "#3b3227" : "transparent", border: (on2 ? 2 : 1) + "px solid rgba(80,66,48," + (on2 ? 1 : 0.4) + ")" } },
+              kindMark(k, 13, on2 ? "#fff" : "#3b3227"), k);
+          })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54", margin: "12px 0 6px" } }, "这儿眼下正有什么事（可以空着）"),
+          h("textarea", { value: editing.hook, rows: 3, onChange: function (e) { setEditing(Object.assign({}, editing, { hook: e.target.value })); },
+            style: { width: "100%", outline: "none", resize: "vertical", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.8, color: "#4a3f31", background: "rgba(255,255,255,0.35)", border: "1px solid rgba(120,104,80,0.35)", borderRadius: 8, padding: "6px 8px" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7a6a54", marginTop: 6, lineHeight: 1.6 } }, "改名的话，钉在这儿的人和行程里写到这儿的地方会一起改过来。"),
+          h("div", { className: "flex justify-end", style: { gap: 10, marginTop: 10 } },
+            h("button", { onClick: function () { setEditing(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: "#7a6a54", minHeight: 36, padding: "0 6px" } }, "取消"),
+            h("button", { onClick: function () {
+              const r = onEditNode(sel.name, editing);
+              if (r) { setSelNode(typeof r === "string" ? r : sel.name); setEditing(null); }
+            }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3b3227", borderRadius: 10, minHeight: 36, padding: "0 16px" } }, "存"))) : null,
         h("div", { style: Object.assign({ borderRadius: 16, padding: "16px 16px 18px", border: "1px solid " + t.line }, worldPaper(t)) },
           h("div", { className: "flex items-center", style: { gap: 7, fontFamily: F_DISPLAY, fontSize: 22, color: "#3b3227" } },
             kindMark(sel.kind, 15, "#3b3227"), sel.name),
@@ -762,10 +788,11 @@ function mapSubSkin(t) {
       onRoute: function (charId) { o.onRoute && o.onRoute(world.id, charId); },
       onAdd: function (r, nd) { return o.onAddNode ? o.onAddNode(world.id, r, nd) : false; },
       onGen: function (r, hint) { o.onGenNodes && o.onGenNodes(world.id, r, hint); },
-      onDelNode: o.onDelNode ? function (nm) { return o.onDelNode(world.id, nm); } : null });
+      onDelNode: o.onDelNode ? function (nm) { return o.onDelNode(world.id, nm); } : null,
+      onEditNode: o.onEditNode ? function (nm, p) { return o.onEditNode(world.id, nm, p); } : null });
   }
   // 架空那一半的总入口：世界列表 → 某个世界的舆图
-  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onRoute, onAddNode, onGenNodes, onDelNode }) {
+  function StoryMap({ worlds, characters, status, me, busy, onGen, onSave, onDel, onPin, onRoute, onAddNode, onGenNodes, onDelNode, onEditNode }) {
     const t = useTheme();
     const [wid, setWid] = useState(null);
     const [form, setForm] = useState(null);   // "new" | 世界 id
@@ -788,7 +815,8 @@ function mapSubSkin(t) {
         onRoute: function (charId) { onRoute(cur.id, charId); },
         onAdd: function (r, nd) { return onAddNode(cur.id, r, nd); },
         onGen: function (r, hint) { onGenNodes(cur.id, r, hint); },
-        onDelNode: onDelNode ? function (nm) { return onDelNode(cur.id, nm); } : null }));
+        onDelNode: onDelNode ? function (nm) { return onDelNode(cur.id, nm); } : null,
+        onEditNode: onEditNode ? function (nm, p) { return onEditNode(cur.id, nm, p); } : null }));
     return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 30px" } }, formLayer,
       list.length === 0
         ? h("div", { style: { textAlign: "center", padding: "56px 10px 30px" } },
@@ -814,7 +842,7 @@ function mapSubSkin(t) {
   }
 
   // 全屏好友地图
-  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onRouteWorld, onAddNode, onGenNodes, onDelNode }) {
+  function CharMap({ characters, status, profile, userGeo, mode, onSetMode, onSetHome, onBack, worlds, worldBusy, onGenWorld, onSaveWorld, onDelWorld, onPinWorld, onRouteWorld, onAddNode, onGenNodes, onDelNode, onEditNode }) {
     const t = useTheme();
     useSchedGeo(characters, status);
     const [sel, setSel] = useState(null);   // 选中要设城市的角色 id
@@ -997,7 +1025,7 @@ function mapSubSkin(t) {
             return h("button", { key: m[0], onClick: function () { onSetMode && onSetMode(m[0]); }, style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", borderRadius: 999, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, m[1]);
           })) }),
       (mode || "real") === "story"
-        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onRoute: onRouteWorld, onAddNode: onAddNode, onGenNodes: onGenNodes, onDelNode: onDelNode })
+        ? h(StoryMap, { worlds: worlds, characters: characters, status: status, me: profile, busy: worldBusy, onGen: onGenWorld, onSave: onSaveWorld, onDel: onDelWorld, onPin: onPinWorld, onRoute: onRouteWorld, onAddNode: onAddNode, onGenNodes: onGenNodes, onDelNode: onDelNode, onEditNode: onEditNode })
         : h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, isolation: "isolate" } },
             // ⚠️人少了要说一声：住在架空世界里的那几位不画在这张图上。
             //   不说的话她只会看见「有人不见了」，以为坏了（诚实的诊断要写在她看得见的地方）。
