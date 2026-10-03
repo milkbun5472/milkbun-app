@@ -173,6 +173,68 @@ test("导进来：再导一次换掉手机那份，自己手记的不动", () =>
 
 test("导入不走服务器：只读剪贴板、读不到就去贴的那页", () => {
   assert.match(src, /navigator\.clipboard\.readText\(\)/);
-  assert.doesNotMatch(src, /fetch\(/, "健康页不往外发任何请求");
+  assert.equal((src.match(/await fetch\(/g) || []).length, 1, "只有一处：去她自己填的网关拿");
+  assert.match(src, /const res = await fetch\(gw\.url, /);
   assert.match(src, /if \(page && page\.kind === "import"\) return h\(ImportPage,/);
+});
+
+test("位置天气电量：只说在不在家，不给坐标；另开开关；三小时后就不算此刻", () => {
+  const { H, C } = load();
+  let d = H.load();
+  d = H.applyShortcut(d, H.parseShortcut("秋秋健康\n纬度：31.2300\n经度：121.4737\n天气：小雨\n气温：18\n电量：0.15", "2026-10-03"));
+  assert.equal(d.env.battery, 15, "快捷指令给 0.15 也认成 15%");
+  d.home = { lat: 31.2, lon: 121.47 };
+  d.watch = { on: true, ids: ["c1"], nudge: true, env: false };
+  H.save(d);
+  assert.match(C.whereText(d), /^不在家（离家约 3\.\d 公里）$/);
+  const now = d.env.ts + 60000;
+  const off = new Date(2026, 9, 3, 15, 30).getTime();
+  d.env.ts = off - 60000; H.save(d);
+  assert.equal(C.noteFor("c1", off), "", "这个开关关着：饭点外一个字不给");
+  d.env.ts = now - 60000;
+  d.watch.env = true; H.save(d);
+  const line = C.envLine(d, now);
+  assert.match(line, /不在家/); assert.match(line, /小雨 18°/); assert.match(line, /电量 15%/);
+  assert.doesNotMatch(line, /31\.2|121\.4/, "坐标原数不进提示词");
+  assert.equal(C.envLine(d, d.env.ts + 4 * 3600000), "", "过了三小时不算此刻");
+});
+
+test("会来问：电量低、下雨在外面各一天一次，饭点照旧", () => {
+  const { H, C } = load();
+  const base = new Date(2026, 9, 3, 15, 0).getTime();
+  const d = H.load();
+  d.watch = { on: true, ids: ["c1"], nudge: true, env: true };
+  d.home = { lat: 31.2, lon: 121.47 };
+  d.env = { ts: base, lat: 31.23, lon: 121.47, weather: "小雨", battery: 12 };
+  H.save(d);
+  const a = C.nudgeDue(base + 60000); assert.equal(a.meal, "battery");
+  C.markNudged(a.day, a.meal);
+  const b = C.nudgeDue(base + 60000); assert.equal(b.meal, "rain");
+  C.markNudged(b.day, b.meal);
+  assert.equal(C.nudgeDue(base + 60000), null);
+  d.watch.env = false; d.env.ts = base; H.save(d);
+});
+
+test("网关：认那几行字，也认同样字段的 JSON", () => {
+  const { C } = load();
+  assert.match(C.gatewayText('{"steps":8000,"battery":40,"weather":"晴"}'), /^秋秋健康\n步数：8000\n电量：40\n天气：晴$/);
+  assert.match(C.gatewayText('{"data":{"text":"步数：10"}}'), /^秋秋健康\n步数：10$/);
+  assert.equal(C.gatewayText("<html>"), "");
+});
+
+test("给她们复制的那段网关代码真能跑：密钥不对拦、投进去、取出来、跨域放行", async () => {
+  const { C } = load();
+  const worker = new Function(C.GATEWAY_WORKER.replace("export default", "return"))();
+  const store = {}, env = { SECRET: "abc", HEALTH: { put: async (k, v) => { store[k] = v; }, get: async k => store[k] || null } };
+  const req = (method, body, key) => new Request("https://x.workers.dev/", { method, body, headers: key ? { Authorization: "Bearer " + key } : {} });
+  assert.equal((await worker.fetch(req("GET", undefined, "nope"), env)).status, 401);
+  assert.equal((await worker.fetch(req("POST", "步数：1", "abc"), env)).status, 400, "不是那段字不收");
+  const ok = await worker.fetch(req("POST", "秋秋健康\n步数：8000", "abc"), env);
+  assert.equal(await ok.text(), "收到");
+  const got = await worker.fetch(req("GET", undefined, "abc"), env);
+  assert.equal(got.headers.get("Access-Control-Allow-Origin"), "*");
+  assert.equal(await got.text(), "秋秋健康\n步数：8000");
+  const pre = await worker.fetch(new Request("https://x.workers.dev/", { method: "OPTIONS" }), env);
+  assert.match(pre.headers.get("Access-Control-Allow-Headers"), /Authorization/, "预检放行，不然浏览器带不了密钥");
+  assert.match(src, /if \(page && page\.kind === "gateway"\) return h\(GatewayGuide,/);
 });

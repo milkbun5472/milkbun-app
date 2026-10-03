@@ -21,7 +21,7 @@ test("认识、在一起、生日都立；节日只有那天说过话才立", ()
   assert.match(titles, /第一次说上话/);
   assert.match(titles, /认识第 100 天/);
   assert.match(titles, /认识 1 周年/);
-  assert.match(titles, /在一起了/);
+  assert.doesNotMatch(titles, /在一起了|在一起第/, "在一起的日子留给情侣空间「第一次们」，这里不再立");
   assert.match(titles, /江识 的生日/);
   assert.match(titles, /你的生日/);
   assert.match(titles, /圣诞节/, "那天说过话的节日要立");
@@ -61,23 +61,6 @@ test("卡面默认用档案馆那张头像；里层时刻也是横着滑的高�
   assert.match(inner, /list\.map\(mcard\)/);
 });
 
-test("「第一次」从聊天和线下里找；那天的照片当卡面", () => {
-  const K = kit();
-  const c = { id: "c1", name: "江识" };
-  const chats = { c1: [
-    { role: "user", content: "嗨", ts: D(2025, 1, 10) },
-    { role: "assistant", kind: "selfie", imgKey: "img_1", content: "", ts: D(2025, 2, 1) },
-    { role: "system", kind: "callend", content: "通话", ts: D(2025, 3, 1) },
-    { role: "assistant", content: "晚安啦", ts: D(2025, 3, 2) }
-  ] };
-  const ms = K.momentsFor(c, { now: D(2026, 1, 1), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", offlines: { c1: [{ startTs: D(2025, 4, 5), msgs: [] }] } });
-  const by = t => ms.find(m => m.title.indexOf(t) >= 0);
-  assert.ok(by("第一张照片"), "第一张照片没立");
-  assert.deepEqual(by("第一张照片").img, { imgKey: "img_1" }, "那天的照片没当卡面");
-  assert.ok(by("第一次打电话"));
-  assert.ok(by("第一次说晚安"));
-  assert.ok(by("第一次见面"), "线下第一场没认出来");
-});
 
 test("「让 TA 说说」走 runProbe voice，点了才调", () => {
   const app = P("js/app.js");
@@ -106,7 +89,8 @@ test("更多「第一次」、收着的时刻、往前看", () => {
   const pins = { c1: [{ id: "p1", ts: D(2025, 5, 5), title: "他第一次吃醋", text: "你跟谁聊呢", role: "assistant" }] };
   const ctx = { now: D(2026, 10, 3), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins };
   const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
-  ["第一次视频", "TA 写来的情书", "第一次说爱你", "他第一次吃醋"].forEach(x => assert.match(titles, new RegExp(x)));
+  assert.match(titles, /他第一次吃醋/, "她收进来的那一刻没出现");
+  ["第一次视频", "TA 写来的情书", "第一次说爱你"].forEach(x => assert.doesNotMatch(titles, new RegExp(x), "「第一次」留给情侣空间，这里不该再立：" + x));
   const u = K.upcoming(c, ctx);
   assert.equal(u.days, 2);
   assert.match(u.title, /江识 的生日/);
@@ -121,3 +105,62 @@ test("聊天长按能「收进时刻」；快到的日子递进提示词", () =>
   assert.match(app, /shikeNote: \(!char\.npc && window\.ShikeKit/);
   assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.shikeNote\) parts\.push\("【快到的日子】"/);
 });
+
+test("那天的照片当卡面", () => {
+  const K = kit();
+  assert.deepEqual(K.dayImage(D(2025, 2, 1), [{ role: "assistant", kind: "selfie", imgKey: "img_1", ts: D(2025, 2, 1) }]), { imgKey: "img_1" });
+});
+
+test("收进来的一段、自己开的卡、日历世界事件都成时刻，按日子排", () => {
+  const K = kit();
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [{ role: "user", content: "嗨", ts: D(2025, 1, 10) }, { role: "assistant", content: "下雪了", ts: D(2025, 12, 1) }] };
+  const pins = { c1: [
+    { id: "a", ts: D(2025, 6, 1), title: "一长段", lines: [{ role: "user", text: "1" }, { role: "char", text: "2" }, { role: "user", text: "3" }, { role: "char", text: "4" }], summary: "那天他们聊了很久。" },
+    { id: "b", ts: D(2025, 3, 1), title: "我开的", manual: true, role: "manual", lines: [{ role: "manual", text: "自己写的" }] }
+  ] };
+  const calendar = { world: { "2025-12-1": [{ title: "初雪" }], "2025-11-11": [{ title: "没来往的那天" }] } };
+  const ms = K.momentsFor(c, { now: D(2026, 1, 1), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins, calendar });
+  const by = t => ms.find(m => m.title.indexOf(t) >= 0);
+  assert.equal(by("一长段").what.lines[0], "那天他们聊了很久。", "有总结先给总结");
+  assert.equal(by("一长段").raw.length, 4, "原话得留着");
+  assert.equal(by("我开的").kind, "manual");
+  assert.match(by("我开的").what.lines[0], /^自己写的$/);
+  assert.ok(by("初雪"), "那天有来往的世界事件没进来");
+  assert.ok(!by("没来往的那天"), "没来往那天的世界事件不该进来");
+  for (let i = 1; i < ms.length; i++) assert.ok(ms[i - 1].ts >= ms[i].ts, "没按日子排");
+});
+
+test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", () => {
+  const comp = P("js/components.js"), app = P("js/app.js");
+  assert.equal((comp.match(/"补中间"/g) || []).length, 2);
+  assert.equal((comp.match(/onPinShike\(selIds\)/g) || []).length, 2);
+  assert.equal((app.match(/onPinShike: indices =>/g) || []).length, 2);
+  assert.match(app, /onSummarizePin: async \(c, m\) =>/);
+});
+
+test("第一轮：发给 TA、TA 偶尔想起一张旧的、TA 自己存一刻", () => {
+  const K = kit(), s = P("js/shike.js"), app = P("js/app.js");
+  assert.match(s, /props\.onSendMoment \? h\("button", \{ onClick: \(\) => props\.onSendMoment\(cur, m\)/);
+  assert.match(app, /onSendMoment: \(c, m\) => \{/);
+  assert.match(app, /keepMoment:\{"title":"给这一刻起的名字","why":/);
+  assert.match(app, /if \(parsed\.keepMoment && typeof parsed\.keepMoment === "object" && !sideRoom && !char\.npc/);
+  // 想起旧的：五天里大约一天，同一天挑的是同一张
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [{ role: "user", content: "嗨", ts: D(2025, 1, 10) }] };
+  const pins = { c1: [{ id: "p", ts: D(2025, 5, 5), title: "他第一次吃醋", text: "你跟谁聊呢", role: "assistant" }] };
+  let hits = 0, same = true;
+  for (let i = 0; i < 20; i++) {
+    const now = D(2026, 3, 1) + i * 86400000;
+    const ctx = { now, chats, lib: [], couples: {}, profile: {}, uName: "Lisa", pins };
+    const x = kitNote(K, c, ctx), y = kitNote(K, c, ctx);
+    if (x) hits++; if (x !== y) same = false;
+  }
+  assert.ok(hits >= 2 && hits <= 6, "大约五天一次，实际 " + hits + " / 20");
+  assert.ok(same, "同一天挑的得是同一张");
+});
+function kitNote(K, c, ctx) {
+  const g = { React: { useState: () => [], useMemo: f => f() } };
+  new Function("window", "globalThis", "React", "h", "Svg", P("js/shike.js"))(g, g, g.React, () => null, () => null);
+  return g.ShikeKit.chatNote(c, ctx);
+}

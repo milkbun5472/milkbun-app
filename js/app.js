@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.663";
+const APP_VERSION = "v74.669";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5640,7 +5640,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     affinity: char.npc ? null : Math.round(affOf(char.id)),
     // 时刻 · 往前看（她 2026-10-03）：三天内有认识/在一起的整数天、周年或生日，就让TA知道；怎么表示全看TA
     shikeNote: (!char.npc && window.ShikeKit && window.ShikeKit.chatNote)
-      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile }) : "",
+      ? window.ShikeKit.chatNote(char, { chats: chatsRef.current, lib: memLibRef.current, couples, profile, uName: userName(profile) }) : "",
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
     // 提示词照原样塞进去，等于要求TA把三天前那阵气重演一遍（她 2026-08-24 问到的）。
@@ -10206,8 +10206,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
-      // 健康·饭点来问（v74.640）：只给事实那一行，管不管、怎么开口是TA自己的事
-      const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "的点】" + uName + " 在健康 app 里开了让你帮着盯吃饭。"
+      // 健康·饭点来问（v74.640）／手机电量低、下雨还在外面（v74.661）：只给事实那一行，管不管、怎么开口是TA自己的事
+      const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"
         + opts.health.line + "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。" : "";
       // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
       // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
@@ -10958,7 +10958,7 @@ ${SCHED_NOW_SPEC}
 ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
-silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
+silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
 ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
@@ -11964,6 +11964,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
+      // TA 自己存一刻（她 2026-10-03 点的第 4 条）：进 x_shikePins，相册里多一张「TA 存的」。侧房和配角不存
+      if (parsed.keepMoment && typeof parsed.keepMoment === "object" && !sideRoom && !char.npc && String(parsed.keepMoment.title || "").trim()) {
+        try {
+          const all = loadJSON("x_shikePins", {}) || {};
+          all[charId] = [{ id: "pin_" + Date.now(), ts: Date.now(), byChar: true, role: "char", title: String(parsed.keepMoment.title).trim().slice(0, 30),
+            text: String(parsed.keepMoment.why || "").trim().slice(0, 300) }].concat(all[charId] || []).slice(0, 300);
+          saveJSON("x_shikePins", all);
+          pChat(chatKey, p => [...p, { role: "system", kind: "system", content: char.name + " 把这一刻存进了时刻：「" + String(parsed.keepMoment.title).trim().slice(0, 30) + "」", ts: Date.now(), turnId }]);
+        } catch (e) {}
+      }
       if (parsed.location && parsed.location.name) {
         pChat(chatKey, p => [...p, {
         role: "assistant",
@@ -12369,12 +12379,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     drawChatSelfie({ chatKey, charId, sid: m.sid, photoKind: m.photoKind, photoScene: m.desc || "", keySuffix: "_r" + Date.now() });
   };
   // 收进时刻：起个名，存进 x_shikePins[角色]——时刻那头每人一张「收着的」卡。单聊、群聊共用这一处。
-  const pinToShike = (cid, m) => {
-    if (!m || !cid) { toast("这条记不到哪个角色名下"); return; }
-    requestAppPrompt("收进时刻", "给这一刻起个名字，比如「他第一次吃醋」。不填就叫「收着的一刻」。", "", name => {
+  // ⚠️一句、多选的几句、首尾圈出来的一长段，都走这一处：ms 可以是一条也可以是一串（按时间排好）
+  const pinToShike = (cid, ms, nameOf) => {
+    const list = (Array.isArray(ms) ? ms : [ms]).filter(m => m && !m.recalled && (m.content || m.desc || m.imgKey || m.imageRef));
+    if (!list.length || !cid) { toast(cid ? "选中的这几条没有能收的内容" : "这条记不到哪个角色名下"); return; }
+    const m = list[0], pic = list.find(x => x.imgKey || x.imageRef) || {};
+    requestAppPrompt("收进时刻", (list.length > 1 ? "收进 " + list.length + " 条。" : "") + "给这一刻起个名字，比如「他第一次吃醋」。不填就叫「收着的一刻」。", "", name => {
       const all = loadJSON("x_shikePins", {}) || {};
-      const row = { id: "pin_" + Date.now(), ts: Number(m.ts) || Date.now(), title: String(name || "").trim().slice(0, 30), text: String(m.content || m.desc || "").slice(0, 400), role: m.role,
-        ...(m.imgKey ? { imgKey: m.imgKey } : {}), ...(m.imageRef ? { imageRef: m.imageRef } : {}) };
+      const row = { id: "pin_" + Date.now(), ts: Number(m.ts) || Date.now(), endTs: Number(list[list.length - 1].ts) || undefined, title: String(name || "").trim().slice(0, 30),
+        text: String(m.content || m.desc || "").slice(0, 400), role: m.role,
+        ...(list.length > 1 ? { lines: list.slice(0, 200).map(x => ({ role: x.role === "user" ? "user" : "char", name: nameOf ? nameOf(x) : undefined, text: String(x.content || x.desc || (x.imgKey || x.imageRef ? "[照片]" : "")).slice(0, 600) })) } : {}),
+        ...(pic.imgKey ? { imgKey: pic.imgKey } : {}), ...(pic.imageRef ? { imageRef: pic.imageRef } : {}) };
       all[cid] = [row].concat(all[cid] || []).slice(0, 300);
       saveJSON("x_shikePins", all);
       toast("收进时刻了");
@@ -25970,6 +25985,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
+    // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
+    onPinShike: indices => {
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const msgs = chatsRef.current[threadKey] || [];
+      pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
+    },
     onDeleteMessages: indices => {
       const set = new Set(indices);
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
@@ -26053,6 +26074,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
+    // 群里圈一段收进时刻：挂在这一段里说话最多的那个角色名下（她说的话不算）
+    onPinShike: indices => {
+      const msgs = (groupChatsRef.current[activeGroup.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(Boolean);
+      const cnt = {}; picked.forEach(m => { if (m.senderId && characters.some(c => c.id === m.senderId && !c.npc)) cnt[m.senderId] = (cnt[m.senderId] || 0) + 1; });
+      const cid = Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a])[0] || null;
+      pinToShike(cid, picked, m => m.role === "user" ? null : (m.senderName || null));
+    },
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
       const items = msgs.map(m => ({
@@ -27085,6 +27113,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     couples: couples,
     chats: chats,
     memLib: memLibRef.current,
+    // 发给 TA：卡片作为她发的一条消息进聊天，然后直接进那个聊天——她可以接着说一句再让 TA 回
+    onSendMoment: (c, m) => {
+      const d0 = new Date(m.ts);
+      const body = "〔翻到一张时刻〕「" + m.title + "」 · " + d0.getFullYear() + "." + (d0.getMonth() + 1) + "." + d0.getDate()
+        + ((m.what && m.what.lines && m.what.lines.length) ? "\n" + m.what.lines.slice(0, 3).join("\n").slice(0, 300) : "");
+      pChat(c.id, p => [...p, { role: "user", content: body, ts: Date.now(), shikeKey: m.key }]);
+      openChatById(c.id);
+    },
+    calendar: calendar,      // 日历里的世界事件：过去的、那天你们有来往的，自动成时刻
+    // 收进来的一长段 → 总结成一段（调一次，走后台线路；原话照留，卡上能翻回去看）
+    onSummarizePin: async (c, m) => {
+      const p = sumRoute(apiFor(c.id));
+      if (!p) { toast("先到设置配置 API"); return null; }
+      try {
+        const raw = await callAI(p, "你在替她整理一张回忆卡。只根据下面这段原话，写一段第三人称的小结（三到六句）：那天发生了什么、两个人说了什么要紧的、情绪怎么走的。不编原话里没有的事，不加评价，不写标题。",
+          [{ role: "user", content: "卡片名：" + m.title + "\n原话：\n" + (m.raw || []).join("\n").slice(0, 12000) }], { maxTokens: 8000, timeout: 120000 });
+        const txt = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
+        if (!txt) throw new Error("模型没有返回内容");
+        return txt.slice(0, 1200);
+      } catch (e) { toast("没总结成：" + String((e && e.message) || e).slice(0, 120)); return null; }
+    },
     offlines: offlines,      // 「第一次见面」从线下场次里找（懒加载没灌到的，时刻那头自己 loadJSON 兜）
     toast: toast,
     // 「让 TA 说说」：走 runProbe voice，跟星测、解梦馆同一条路——人设/心情/反八股整份白得

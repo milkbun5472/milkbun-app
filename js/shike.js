@@ -91,13 +91,6 @@
       DAY_MARKS.filter(n => n > 1).forEach(n => add(f + (n - 1) * DAY, "认识第 " + n + " 天", "meet", true));
       for (let y = 1; y < 50; y++) { const d = new Date(f); d.setFullYear(d.getFullYear() + y); if (d.getTime() > today) break; add(d.getTime(), "认识 " + y + " 周年", "meet", true); }
     }
-    const cp = (ctx.couples || {})[c.id];
-    if (cp && cp.status === "together" && cp.since) {
-      const s = startOf(cp.since);
-      add(s, "在一起了", "us", true);
-      DAY_MARKS.filter(n => n > 1).forEach(n => add(s + (n - 1) * DAY, "在一起第 " + n + " 天", "us", true));
-      for (let y = 1; y < 50; y++) { const d = new Date(s); d.setFullYear(d.getFullYear() + y); if (d.getTime() > today) break; add(d.getTime(), "在一起 " + y + " 周年", "us", true); }
-    }
     const fromYear = firstTs ? new Date(firstTs).getFullYear() : new Date(now).getFullYear();
     const thisYear = new Date(now).getFullYear();
     const bdays = [[monthDay(c.birthday), (c.remark || c.name) + " 的生日"], [monthDay(ctx.profile && ctx.profile.birthday), "你的生日"]];
@@ -105,38 +98,42 @@
       bdays.forEach(([md, title]) => { if (md) { const ts = new Date(y, md.mo - 1, md.d).getTime(); if (!firstTs || ts >= startOf(firstTs)) add(ts, title, "bday", true); } });
       HOLIDAYS.forEach(([mo, d, name]) => add(new Date(y, mo - 1, d).getTime(), name, "fest", false));
     }
-    // 「第一次」（她 2026-10-03 点的第 2 条）：都从聊天记录里找得到，不花钱。
-    //   ⚠️手机里只留最近那一截聊天，更早的归档到云上了——找不到就不立，不猜。
-    const firstOf = pred => { const m = chat.find(x => x && !x.recalled && pred(x)); return m ? Number(m.ts) || 0 : 0; };
-    add(firstOf(m => (m.kind === "selfie" || m.kind === "duo") && m.imgKey), "第一张照片", "first", true);
-    add(firstOf(m => m.kind === "callend" && m.callMode !== "video"), "第一次打电话", "first", true);
-    add(firstOf(m => m.kind === "callend" && m.callMode === "video"), "第一次视频", "first", true);
-    add(firstOf(m => m.kind === "datememory"), "第一次约会", "first", true);
-    add(firstOf(m => m.kind === "loveletter"), "TA 写来的情书", "first", true);
-    add(firstOf(m => m.kind === "unblock_req" && m.status === "accepted"), "第一次和好", "first", true);
-    add(firstOf(m => m.role === "assistant" && (!m.kind) && /我爱你|爱你/.test(String(m.content || ""))), "第一次说爱你", "first", true);
-    add(firstOf(m => m.kind === "carved"), "刻进唱片的第一首歌", "first", true);
-    add(firstOf(m => m.kind === "gift"), "第一份礼物", "first", true);
-    add(firstOf(m => m.kind === "transfer" || m.kind === "redpacket"), "第一次转账", "first", true);
-    add(firstOf(m => m.role === "assistant" && /晚安/.test(String(m.content || ""))), "第一次说晚安", "first", true);
-    const offs = ((ctx.offlines || {})[c.id]) || (typeof loadJSON === "function" ? loadJSON("x_offline:" + c.id, []) : []) || [];
-    const firstMeet = offs.map(x => Number(x && (x.startTs || (x.msgs && x.msgs[0] && x.msgs[0].ts))) || 0).filter(x => x > 0).sort((x, y) => x - y)[0];
-    add(firstMeet, "第一次见面", "first", true);
+    // ⚠️「第一次」和「在一起第 N 天」不在这儿立（她 2026-10-03：「第一次就留给情侣空间不然重复了也无聊」）——
+    //   情侣空间那本「第一次们」(js/couple-firsts.js) 已经从同一批记录里推这些，这里再立一份就是两套各认各的。
+    //   卡面和倒计时照旧认得在一起的日子（那是「往前看」，不是再摆一遍）。
     // 她自己收进来的（聊天长按「收进时刻」）：机器认不出的心动瞬间，由她来挑。一条一张，不跟别的并
     const pins = ((ctx.pins || {})[c.id]) || [];
     // 同一天撞了好几个（生日正好是在一起一周年）就并成一张
     const byDay = {};
     out.forEach(m => { const k = dayKey(m.ts); if (byDay[k]) { if (byDay[k].title.indexOf(m.title) < 0) byDay[k].title += " · " + m.title; } else byDay[k] = Object.assign({}, m); });
     const dated = Object.values(byDay).map(m => Object.assign(m, { what: whatHappened(c.id, c.remark || c.name, ctx.uName, m.ts, lib, chat), img: dayImage(m.ts, chat) }));
-    const pinned = pins.filter(p => p && p.ts).map(p => ({ key: "pin_" + p.id, ts: Number(p.ts), title: p.title || "收着的一刻", kind: "pin",
-      what: { kind: "pin", lines: [(p.role === "user" ? ctx.uName : (c.remark || c.name)) + "：" + String(p.text || "").replace(/\s+/g, " ").slice(0, 160)] },
-      img: p.imgKey ? { imgKey: p.imgKey } : p.imageRef ? { ref: p.imageRef } : dayImage(p.ts, chat) }));
-    return dated.concat(pinned).sort((x, y) => y.ts - x.ts);
+    // 收进来的有三种：一句（旧）、一段（多选/首尾圈进来的，lines）、她自己开的卡（manual，没有说话人）。
+    //   一段有了 summary 就先给 summary，原话留着能翻回去看（raw）。
+    const speaker = r => r.role === "user" ? ctx.uName : r.role === "manual" ? "" : (r.name || c.remark || c.name);
+    const lineOf = r => { const who = speaker(r); return (who ? who + "：" : "") + String(r.text || "").replace(/\s+/g, " ").slice(0, 160); };
+    const pinned = pins.filter(p => p && p.ts).map(p => {
+      const raw = Array.isArray(p.lines) && p.lines.length ? p.lines.map(lineOf) : [lineOf(p)];
+      return { key: "pin_" + p.id, pinId: p.id, ts: Number(p.ts), title: p.title || "收着的一刻", kind: p.manual ? "manual" : p.byChar ? "kept" : "pin",
+        what: { kind: p.summary ? "summary" : "pin", lines: p.summary ? [p.summary] : raw.slice(0, 40) }, raw, summary: p.summary || "",
+        img: p.imgKey ? { imgKey: p.imgKey } : p.imageRef ? { ref: p.imageRef } : dayImage(p.ts, chat) };
+    });
+    // 日历里的世界事件（她 2026-10-03）：已经过去的、而且那天你们真有来往的，才算你们俩的时刻
+    const world = [];
+    Object.keys((ctx.calendar && ctx.calendar.world) || {}).forEach(k => {
+      const a = String(k).split("-").map(Number); if (a.length < 3 || !a[0]) return;
+      const ts = new Date(a[0], a[1] - 1, a[2]).getTime();
+      if (ts > today || !hasTrace(c.id, ts, lib, chat)) return;
+      const evs = (ctx.calendar.world[k] || []).filter(e => e && e.title);
+      if (!evs.length) return;
+      world.push({ key: "world_" + dayKey(ts), ts, title: evs.map(e => e.title).slice(0, 2).join(" · "), kind: "world",
+        what: whatHappened(c.id, c.remark || c.name, ctx.uName, ts, lib, chat), img: dayImage(ts, chat) });
+    });
+    return dated.concat(pinned, world).sort((x, y) => y.ts - x.ts);
   }
 
   // ── 界面 ───────────────────────────────────────────────────
   const loadCovers = () => { try { return (typeof loadJSON === "function" ? loadJSON(COVER_KEY, {}) : {}) || {}; } catch (e) { return {}; } };
-  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的" };
+  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次", pin: "收着的", kept: "TA 存的", manual: "我开的", world: "那天的世界" };
   // 时刻卡的底图：那天的照片（自拍在 IDB 图库里，用 useIdbImgUrl 取；她发的照片是 iv_ 门牌）
   function MomentArt({ img }) {
     const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
@@ -213,12 +210,18 @@
       } catch (err) { props.toast && props.toast("没贴上：" + String((err && err.message) || err).slice(0, 80)); }
     };
     const [idx, setIdx] = useState(0);
-    const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName, offlines: props.offlines,
+    // 收着的那些在这儿改（总结、删、自己开一张）后要重算，pinTick 就是那一下
+    const [pinTick, setPinTick] = useState(0);
+    const [rawOpen, setRawOpen] = useState({});
+    const [summing, setSumming] = useState("");
+    const [creating, setCreating] = useState(null);
+    const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName, offlines: props.offlines, calendar: props.calendar,
       pins: (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {} };
+    const editPins = (cid, fn) => { const all = (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {}; all[cid] = fn(all[cid] || []); try { saveJSON("x_shikePins", all); } catch (e) {} setPinTick(x => x + 1); };
     const all = useMemo(() => {
       const m = {}; chars.forEach(c => { m[c.id] = momentsFor(c, ctx); }); return m;
       // eslint-disable-next-line
-    }, [chars.length, props.chats, props.memLib, props.couples]);
+    }, [chars.length, props.chats, props.memLib, props.couples, props.calendar, pinTick]);
     const cur = chars.find(c => c.id === openId);
     // 卡面默认用【人格档案馆那张】（她 2026-10-03：「能不能选人格档案馆的头像而不是聊天头像」）；
     //   TA在聊天里自己换的那张(chatAvatar)只在档案那张空着时兜底。
@@ -239,6 +242,24 @@
         if (txt) { const n = Object.assign({}, notes); n[cur.id] = Object.assign({}, n[cur.id] || {}, { [m.key]: txt }); setNotes(n); try { saveJSON("x_shikeNotes", n); } catch (e) {} }
       } finally { setSaying(""); }
     };
+    const summarize = async m => {
+      if (summing || !props.onSummarizePin || !cur) return;
+      setSumming(m.key);
+      try { const txt = await props.onSummarizePin(cur, m); if (txt) editPins(cur.id, list => list.map(p => p.id === m.pinId ? Object.assign({}, p, { summary: txt }) : p)); }
+      finally { setSumming(""); }
+    };
+    const dropPin = m => {
+      const go = () => editPins(cur.id, list => list.filter(p => p.id !== m.pinId));
+      if (typeof requestAppConfirm === "function") requestAppConfirm("删掉这张时刻？", "只删这张卡，聊天记录不动。", go, "删掉"); else go();
+    };
+    const saveCreate = () => {
+      const f = creating || {}, a = String(f.date || "").split("-").map(Number);
+      if (!cur || !a[0] || !String(f.title || "").trim()) { props.toast && props.toast("写个日子和名字"); return; }
+      const ts = new Date(a[0], a[1] - 1, a[2], 12).getTime();
+      editPins(cur.id, list => [{ id: "pin_" + Date.now(), ts, title: String(f.title).trim().slice(0, 30), manual: true, role: "manual",
+        lines: String(f.text || "").trim() ? [{ role: "manual", text: String(f.text).trim().slice(0, 2000) }] : [] }].concat(list));
+      setCreating(null); setMIdx(0);
+    };
     const chip = dim => ({ fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.3)", borderRadius: 999, padding: "6px 12px", opacity: dim ? .5 : 1 });
     const art = (c, extra) => {
       const src = srcOf(c);
@@ -253,6 +274,21 @@
 
     // ── 里层：一个人的时刻，也做成横着滑的展览（她 2026-10-03：「里面的时刻也做成滑动的展览」）──
     //   一个时刻一张高卡：上半截是日子和名目，下半截是那天发生了什么。底图用这个人的封面压暗，一张张像展墙上的画。
+    // 自己开一张（她 2026-10-03）：挑个日子、起个名、写几句。按日子排进去——插在两张中间，后面的序号就跟着变
+    if (cur && creating) {
+      const inSt = { width: "100%", outline: "none", padding: "10px 12px", borderRadius: 10, fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: "1px solid " + t.line };
+      const set = k => e => { const v = e.target.value; setCreating(o => Object.assign({}, o, { [k]: v })); };
+      return h("div", { className: "h-full flex flex-col", "data-wk": "shikecreate", style: shell(t) },
+        h(Head, { zh: "开一张时刻", onBack: () => setCreating(null), bg: "transparent" }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "12px 16px calc(24px + env(safe-area-inset-bottom))" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 6 } }, "哪一天"),
+          h("input", { type: "date", value: creating.date || "", onChange: set("date"), style: inSt }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 6px" } }, "叫它什么"),
+          h("input", { value: creating.title || "", onChange: set("title"), maxLength: 30, placeholder: "比如「一起看了第一场雪」", style: inSt }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 6px" } }, "那天发生了什么（可以不写）"),
+          h("textarea", { value: creating.text || "", onChange: set("text"), rows: 6, style: Object.assign({}, inSt, { resize: "vertical", lineHeight: 1.6 }) }),
+          h("button", { onClick: saveCreate, className: "w-full active:opacity-70", style: { marginTop: 18, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "放进时刻")));
+    }
     if (cur) {
       const list = all[cur.id] || [];
       const mcard = (m, i) => {
@@ -271,9 +307,9 @@
             h("div", { className: "flex-1 min-h-0", style: { marginTop: 22, overflowY: "auto", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.22)",
               borderRadius: 14, padding: "14px 16px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 8 } },
-                m.what.kind === "mem" ? "那天记下的事" : m.what.kind === "chat" ? "那天你们说的话" : "那一天"),
-              m.what.lines.length
-                ? m.what.lines.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "rgba(255,255,255,.95)", marginBottom: 6 } }, x))
+                rawOpen[m.key] ? "原话" : m.what.kind === "mem" ? "那天记下的事" : m.what.kind === "chat" ? "那天你们说的话" : m.what.kind === "summary" ? "那一段" : m.what.kind === "pin" ? "收着的原话" : "那一天"),
+              ((rawOpen[m.key] && m.raw) ? m.raw : m.what.lines).length
+                ? ((rawOpen[m.key] && m.raw) ? m.raw : m.what.lines).map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "rgba(255,255,255,.95)", marginBottom: 6, whiteSpace: "pre-wrap" } }, x))
                 : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "rgba(255,255,255,.7)" } }, "那天没留下记录。"),
               // 「让 TA 说说」（她 2026-10-03 点的第 5 条）：TA用自己的口气回忆这一天，点了才调一次
               (notes[cur.id] || {})[m.key] ? h("div", { "data-wk": "shikesay", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(255,255,255,.3)" } },
@@ -284,6 +320,14 @@
                 saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再让 TA 说说" : "让 TA 说说")) : null),
             // 换这张卡的图：画一张（走生图，一次一张额度）／自己贴一张／拿掉换回当天照片或封面
             h("div", { className: "flex", style: { gap: 8, marginTop: 12, flexWrap: "wrap" } },
+              // 收进来的那一长段：总结成一段（调一次），总结过的能翻回原话；收进来的和自己开的能删
+              m.pinId && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? h("button", { onClick: () => summarize(m), disabled: !!summing, className: "active:opacity-70", style: chip(summing && summing !== m.key) },
+                summing === m.key ? "正在总结…" : "总结成一段") : null,
+              m.summary ? h("button", { onClick: () => setRawOpen(o => Object.assign({}, o, { [m.key]: !o[m.key] })), className: "active:opacity-70", style: chip(false) },
+                rawOpen[m.key] ? "看总结" : "看原话") : null,
+              m.pinId ? h("button", { onClick: () => dropPin(m), className: "active:opacity-70", style: chip(false) }, "删掉这张") : null,
+              // 发给 TA（她 2026-10-03 点的第 1 条）：卡片进聊天，TA 接着跟你聊那天
+              props.onSendMoment ? h("button", { onClick: () => props.onSendMoment(cur, m), className: "active:opacity-70", style: chip(false) }, "发给 TA") : null,
               props.onDrawMoment ? h("button", { onClick: () => draw(m), disabled: !!drawing, className: "active:opacity-70", style: chip(drawing && drawing !== m.key) },
                 drawing === m.key ? "正在画…" : "画一张") : null,
               h("button", { onClick: () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }, className: "active:opacity-70", style: chip(false) }, "贴一张"),
@@ -303,7 +347,9 @@
             style: { fontFamily: F_BODY, fontSize: 11.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "6px 12px", opacity: busy ? .5 : 1 } },
             busy === cur.id ? "正在画…" : (covers[cur.id] ? "重画封面" : "生成封面")) : null,
           covers[cur.id] ? h("button", { onClick: () => setCover(cur.id, null), className: "active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "用回头像") : null),
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "用回头像") : null,
+          h("button", { onClick: () => setCreating({ date: dayKey(Date.now()), title: "", text: "" }), className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "＋ 开一张")),
         list.length
           ? h("div", { onScroll: onMScroll, className: "flex-1 min-h-0 flex",
               style: { gap: 14, overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch",
@@ -353,8 +399,27 @@
         chars.map((c, i) => h("span", { key: c.id, style: { width: i === idx ? 16 : 6, height: 6, borderRadius: 999, background: i === idx ? t.ink : t.line, transition: "width .2s" } }))));
   }
 
+  // TA 偶尔自己想起一张旧的（她 2026-10-03 点的第 2 条）：大约五天一次、每人错开，挑两周以前的一张。
+  //   同一天里挑的永远是同一张（按日子算，不随机），所以这一天聊几轮都是同一件事，不会一轮一个回忆。
+  //   只是递一句「你们有过这么一天」——聊着自然想起就提，不想提就不提，零调用。
+  const hashOf = str => { let x = 0; for (const ch of String(str)) x = (x * 31 + ch.charCodeAt(0)) >>> 0; return x; };
+  function oldMomentNote(c, ctx) {
+    const now = ctx.now || Date.now(), d = Math.floor(startOf(now) / DAY);
+    if ((d + hashOf(c.id)) % 5 !== 0) return "";
+    const pins = ctx.pins || (typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {};
+    const pool = momentsFor(c, Object.assign({}, ctx, { pins, uName: ctx.uName || "她" })).filter(m => m.ts < startOf(now) - 14 * DAY && (m.what.lines || []).length);
+    if (!pool.length) return "";
+    const m = pool[hashOf(c.id + ":" + d) % pool.length], dd = new Date(m.ts);
+    return "你们的相册里有一张「" + m.title + "」（" + dd.getFullYear() + " 年 " + (dd.getMonth() + 1) + " 月 " + dd.getDate() + " 日）：" + m.what.lines.slice(0, 2).join(" / ").slice(0, 160)
+      + "。今天你偶尔会想起它——聊着自然想起就提一句，不合时宜就不提，别硬拐过去。";
+  }
+
   g.ShikeApp = ShikeApp;
   g.ShikeKit = { momentsFor, monthDay, whatHappened, dayImage, upcoming, HOLIDAYS,
     // 聊天那头用：三天内（含今天）有日子就给一句，没有就空——零调用，只是让TA知道
-    chatNote: (c, ctx) => { const u = upcoming(c, ctx, 3); return u ? (u.days === 0 ? "今天是你们的「" + u.title + "」。" : "再过 " + u.days + " 天是你们的「" + u.title + "」。") + "记不记得、要不要表示、怎么表示，全看你这个人；她没提的话，你也可以不提。" : ""; } };
+    chatNote: (c, ctx) => {
+      const u = upcoming(c, ctx, 3);
+      if (u) return (u.days === 0 ? "今天是你们的「" + u.title + "」。" : "再过 " + u.days + " 天是你们的「" + u.title + "」。") + "记不记得、要不要表示、怎么表示，全看你这个人；她没提的话，你也可以不提。";
+      return oldMomentNote(c, ctx);
+    } };
 })();

@@ -325,6 +325,9 @@ for o in cat_objs:
 for im in bpy.data.images:
     if max(im.size)>1024:
         w,h=im.size;s=1024/max(w,h);im.scale(round(w*s),round(h*s))
+sys.path.insert(0,str(HERE))
+from cat_asset import rig_cat
+cat_objs=rig_cat(cat_objs,HERE)
 bpy.ops.object.select_all(action='DESELECT')
 for o in cat_objs:o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=str(HERE/'cat.glb'),export_format='GLB',use_selection=True,
@@ -374,6 +377,6 @@ bpy.ops.wm.save_as_mainfile(filepath=str(EVIDENCE/'pet-house.blend'))
 report={'catSourceSha256':hashlib.sha256(Path(opt.cat).read_bytes()).hexdigest(),
         'roomBytes':(HERE/'room.glb').stat().st_size,'catBytes':(HERE/'cat.glb').stat().st_size,
         'zones':[o.name for o in room_objects if o.type=='EMPTY'],
-        'roomObjects':len(room_objects),'sceneOnly':True,'catRigged':False}
+        'roomObjects':len(room_objects),'sceneOnly':True,'catRigged':True}
 (HERE/'asset-report.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
 print('PET HOUSE',json.dumps(report,ensure_ascii=False))

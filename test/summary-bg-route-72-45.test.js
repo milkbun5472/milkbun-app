@@ -13,7 +13,7 @@ const screens = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
 
 test("选路只有一份，九处总结都问它要", () => {
   assert.equal((app.match(/const sumRoute = /g) || []).length, 1, "选路不许有第二份");
-  assert.equal((app.match(/sumRoute\(/g) || []).length, 9, "九枪各问一次（闸和调用共用一个局部变量，别调两遍）");
+  assert.equal((app.match(/sumRoute\(/g) || []).length, 10, "十枪各问一次（v74.667 加了时刻的「总结成一段」）（闸和调用共用一个局部变量，别调两遍）");
 });
 
 // ⚠️没挑过后台线路时 bgActive 就是主模型，直接顶上去会把原来走角色专线/线下线路的
