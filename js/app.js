@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.576";
+const APP_VERSION = "v74.580";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8040,6 +8040,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     rememberOfflineStyle(charId, patch);
     toast("文风已切换 · 下次演绎生效");
   };
+  // 这一场是从哪张邀约出发的（她 2026-10-03：「就是邀约马场进的啊」，散场却没有「那天」）：
+  //   那一场开在「记住约的是哪儿」上线之前，场子上没有 datePlace。就从聊天里找出发时被点掉的那张
+  //   （回执／他约你的卡，state 已是 gone、在开场前两天内）认回来。单人散场和下面的补卡共用这一处。
+  const datePlaceOf = (charId, sess) => {
+    if (!sess) return null;
+    if (sess.datePlace && sess.datePlace.name) return sess.datePlace;
+    const st = Number(sess.startTs) || 0;
+    const m = [...(chatsRef.current[charId] || [])].reverse().find(x => x && (x.kind === "datereceipt" || x.kind === "dateask" || x.kind === "dateinvite")
+      && x.state === "gone" && x.place && x.place.name && (Number(x.ts) || 0) <= st + 60000 && st - (Number(x.ts) || 0) < 2 * 86400000);
+    return m ? { name: m.place.name, note: m.place.note || "", how: "date" } : null;
+  };
   const endOffline = async scopeKey => {
     const charId = offlinePersonId(scopeKey), sideRoom = offlineIsRoom(scopeKey), sideRoomData = offlineRoomFor(scopeKey);
     const char = offlineCharacterFor(scopeKey);
@@ -8067,15 +8078,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { sumErr = (e && e.message) || String(e); }
     pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, endTs: Date.now(), summary } : s));
     // 地图上那个地方：记一次去过；聊天里留一张「那天」
-    if (!sideRoom && sess.datePlace && sess.datePlace.name) {
+    const _dp = sideRoom ? null : datePlaceOf(charId, sess);
+    if (_dp) {
       try {
-        const v = loadJSON("x_dateVisits", {}) || {}, nm = sess.datePlace.name;
+        const v = loadJSON("x_dateVisits", {}) || {}, nm = _dp.name;
         v[nm] = [...(v[nm] || []), { charId, ts: sess.startTs || Date.now(), line: String(summary || "").split(/[。！？\n]/)[0].slice(0, 40) }].slice(-30);
         saveJSON("x_dateVisits", v);
       } catch (e) {}
       const lastTa = [...(sess.msgs || [])].reverse().find(m => m && m.role === "assistant" && m.content);
-      pChat(charId, p => [...p, { id: "mem_" + Date.now(), role: "system", kind: "datememory", place: sess.datePlace, startTs: sess.startTs,
-        line: lastTa ? String(lastTa.content).replace(/\s+/g, " ").slice(0, 60) : "", content: "那天在「" + sess.datePlace.name + "」", ts: Date.now() }]);
+      pChat(charId, p => [...p, { id: "mem_" + Date.now(), role: "system", kind: "datememory", place: _dp, startTs: sess.startTs,
+        line: lastTa ? String(lastTa.content).replace(/\s+/g, " ").slice(0, 60) : "", content: "那天在「" + _dp.name + "」", ts: Date.now() }]);
     }
     // 旧记忆保留，新条交给共享去重/确认候选机制，不按场次自动隐藏。
     if (!sideRoom && summary) addMemEntry({ text: summary, tags: ["线下"], charIds: [charId], knownBy: [charId], source: "auto", ofs: sess.id });
@@ -9827,6 +9839,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     dpMigRef.current = true;
     try {
       window.DatePlaces.migrate(name => Object.keys(chatsRef.current || {}).filter(k => (chatsRef.current[k] || []).some(m => m && (m.kind === "dateinvite" || m.kind === "datereceipt") && m.place && m.place.name === name)));
+    } catch (e) {}
+  }, [chats]);
+  // 补卡：「那天」上线之前就开始、之后才散的那几场约会，当时没留卡。开机补一次：
+  //   近三天散场的、认得出是从邀约出发的、聊天里还没有同一场的「那天」——才补。只补卡和星，不动别的。
+  const dateMemFixRef = useRef(new Set());   // 每个人只查一次；聊天还没载进来的，等载进来再查
+  useEffect(() => {
+    if (!Object.keys(chats || {}).length) return;
+    try {
+      (characters || []).forEach(c => {
+        // ⚠️这个人的聊天还没载进来就跳过：往没载进来的记录上追加一条，等于拿一条卡盖掉整段聊天
+        if (dateMemFixRef.current.has(c.id) || !Array.isArray(chatsRef.current[c.id]) || !chatsRef.current[c.id].length) return;
+        dateMemFixRef.current.add(c.id);
+        const list = offlinesRef.current[c.id] || loadJSON("x_offline:" + c.id, []) || [];
+        list.filter(x => x && x.endTs && Date.now() - x.endTs < 3 * 86400000 && !x.datePlace).forEach(x => {
+          const dp = datePlaceOf(c.id, x);
+          const chat = chatsRef.current[c.id] || [];
+          if (!dp || chat.some(m => m && m.kind === "datememory" && m.startTs === x.startTs)) return;
+          try { const v = loadJSON("x_dateVisits", {}) || {}; v[dp.name] = [...(v[dp.name] || []), { charId: c.id, ts: x.startTs || x.endTs, line: String(x.summary || "").split(/[。！？\n]/)[0].slice(0, 40) }].slice(-30); saveJSON("x_dateVisits", v); } catch (e) {}
+          const lastTa = [...(x.msgs || [])].reverse().find(m => m && m.role === "assistant" && m.content);
+          pChat(c.id, p => [...p, { id: "mem_fix_" + x.id, role: "system", kind: "datememory", place: dp, startTs: x.startTs,
+            line: lastTa ? String(lastTa.content).replace(/\s+/g, " ").slice(0, 60) : "", content: "那天在「" + dp.name + "」", ts: (x.endTs || Date.now()) + 1 }]);
+        });
+      });
     } catch (e) {}
   }, [chats]);
   // 约到点了：不管她在哪一页，盖一层、中间弹出赴约卡，点它就出发（她 2026-10-02）。

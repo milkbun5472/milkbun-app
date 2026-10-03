@@ -186,3 +186,12 @@ test("不互通的群：约过的地方不进各人的城、不记去过、挑�
   const pl = app.slice(app.indexOf("const groupInvitePlacesFor"), app.indexOf("const groupInvitePlacesFor") + 900);
   assert.match(pl, /if \(!interop && p\.from === "我们的城市"\) return;/);
 });
+
+test("从邀约出发、场子上却没记地方的那场：散场时从聊天里认回来；开机给近三天漏掉的补卡，聊天没载进来不碰", () => {
+  const dp = app.slice(app.indexOf("const datePlaceOf = "), app.indexOf("const endOffline = async"));
+  assert.match(dp, /x\.state === "gone"/);
+  assert.match(app, /const _dp = sideRoom \? null : datePlaceOf\(charId, sess\);/);
+  const fix = app.slice(app.indexOf("const dateMemFixRef"), app.indexOf("// 约到点了：不管她在哪一页"));
+  assert.match(fix, /!Array\.isArray\(chatsRef\.current\[c\.id\]\) \|\| !chatsRef\.current\[c\.id\]\.length\) return;/, "聊天没载进来就往上追加会盖掉整段");
+  assert.match(fix, /chat\.some\(m => m && m\.kind === "datememory" && m\.startTs === x\.startTs\)/, "补过的不再补");
+});
