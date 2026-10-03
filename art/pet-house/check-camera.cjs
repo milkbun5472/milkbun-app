@@ -1,7 +1,7 @@
 const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
 const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.PET_CAMERA_URL||'http://127.0.0.1:18952',out=process.env.PET_CAMERA_EVIDENCE||'/tmp/pet-camera-browser';fs.mkdirSync(out,{recursive:true});
-const scenes=[['home','/art/pet-house/preview.html','petHousePreview'],...['bakery','florist','alley'].map(id=>[id,'/art/pet-career/preview.html?scene='+id,'petCareerPreview'])];
+const scenes=[['home','/art/pet-house/preview.html','petHousePreview'],...JSON.parse(fs.readFileSync(path.join(__dirname,'../pet-career/scenes.json'),'utf8')).map(({id})=>[id,'/art/pet-career/preview.html?scene='+id,'petCareerPreview'])];
 async function snapshot(page,key){return page.evaluate(key=>window[key].snapshot(),key);}
 async function catRect(page,key){return page.evaluate(async key=>{
  const T=await import('three'),p=window[key],b=new T.Box3().setFromObject(p.cat);const points=[];

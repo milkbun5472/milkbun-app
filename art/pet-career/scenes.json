@@ -1,0 +1,32 @@
+[
+  {
+    "id": "bakery",
+    "title": "面包店",
+    "revision": "pet-career-1"
+  },
+  {
+    "id": "florist",
+    "title": "花店",
+    "revision": "pet-career-1"
+  },
+  {
+    "id": "alley",
+    "title": "侦探小巷",
+    "revision": "pet-career-1"
+  },
+  {
+    "id": "store",
+    "title": "便利店",
+    "revision": "pet-career-2"
+  },
+  {
+    "id": "park",
+    "title": "公园",
+    "revision": "pet-career-2"
+  },
+  {
+    "id": "cafe",
+    "title": "咖啡店",
+    "revision": "pet-career-2"
+  }
+]
