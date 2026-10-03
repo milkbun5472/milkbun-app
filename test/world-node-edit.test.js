@@ -37,5 +37,26 @@ test("节点页有「编辑」，三处入口都接上", () => {
   assert.match(map, /onEditNode: o\.onEditNode \?/, "嵌在「我们的城市」里的那张也要能改");
   assert.match(map, /onEditNode: onEditNode \? function \(nm, p\) \{ return onEditNode\(cur\.id, nm, p\); \}/);
   assert.match(app, /onEditNode: editWorldNode,/);
-  assert.match(app, /onDelNode: delWorldNode, onEditNode: editWorldNode \}/);
+  assert.match(app, /onDelNode: delWorldNode, onEditNode: editWorldNode[,}]/);
+});
+
+// 她 2026-10-03：「加吧」——一块地方本身也能改（名字、地形）
+const rsrc = app.slice(app.indexOf("  const editWorldRegion = "), app.indexOf("  const genWorldNodes = "));
+function runR(worlds, wid, nm, patch) {
+  let saved = null;
+  const f = new Function("worldsRef", "worlds", "saveWorlds", "toast", rsrc + "; return editWorldRegion;")({ current: worlds }, worlds, w => { saved = w; }, () => {});
+  return { r: f(wid, nm, patch), saved };
+}
+const W2 = () => [{ id: "w", regions: [{ name: "东区", terrain: "平原", adj: ["港口"], nodes: [{ name: "酒馆" }] }, { name: "港口", terrain: "水泽", adj: ["东区"], nodes: [{ name: "码头" }] }] }];
+test("改一块地方：名字地形都改，别的块「挨着谁」跟着改；重名、空名不许", () => {
+  const { r, saved } = runR(W2(), "w", "东区", { name: "灯市", terrain: "城郭" });
+  assert.equal(r, "灯市");
+  assert.deepEqual([saved[0].regions[0].name, saved[0].regions[0].terrain], ["灯市", "城郭"]);
+  assert.deepEqual(saved[0].regions[1].adj, ["灯市"]);
+  assert.deepEqual(saved[0].regions[0].nodes, [{ name: "酒馆" }], "块里的地点跟着它，不用动");
+  assert.equal(runR(W2(), "w", "东区", { name: "港口" }).r, false);
+  assert.equal(runR(W2(), "w", "东区", { name: "" }).r, false);
+  assert.match(map, /"改这一块"/);
+  assert.match(map, /onEditRegion: o\.onEditRegion \?/);
+  assert.match(app, /onEditRegion: editWorldRegion,/);
 });

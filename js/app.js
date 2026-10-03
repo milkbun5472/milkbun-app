@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.629";
+const APP_VERSION = "v74.630";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17759,6 +17759,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
     return nm;
   };
+  // 改「一块地方」（她 2026-10-03：「加吧」，接着上面改地点那一条）：名字、地形。
+  //   改名要连着改别的地方「挨着谁」那张表（adj），地点挂在这块底下的不用动——它们是嵌在里面的。
+  const editWorldRegion = (wid, oldName, patch) => {
+    const w = (worldsRef.current || worlds || []).find(x => x.id === wid);
+    if (!w) return false;
+    const nm = String((patch && patch.name) || "").trim().slice(0, 16);
+    if (!nm) { toast("这块地方得有个名字"); return false; }
+    if (nm !== oldName && (w.regions || []).some(r => r.name === nm)) { toast("这个世界里已经有叫「" + nm + "」的一块了"); return false; }
+    const regions = (w.regions || []).map(r => {
+      const base = r.name === oldName ? { ...r, name: nm, terrain: patch.terrain || r.terrain } : r;
+      return { ...base, adj: (base.adj || []).map(a => a === oldName ? nm : a) };
+    });
+    saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x, regions }));
+    toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
+    return nm;
+  };
   const genWorldNodes = async (wid, regionName, hint, done) => {
     if (!active) { toast("请先到设置配置 API"); return; }
     const w = (worlds || []).find(x => x.id === wid);
@@ -25404,6 +25420,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenNodes: genWorldNodes,
     onDelNode: delWorldNode,
     onEditNode: editWorldNode,
+    onEditRegion: editWorldRegion,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
     characters: liveChars,
@@ -26775,7 +26792,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     userGeo: realGeo(),
     profile: profile,
     dateAlbumFor: dateAlbumFor,
-    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode, onEditNode: editWorldNode },
+    worldOps: { busy: worldBusy, onPin: pinWorld, onRoute: routeWorld, onAddNode: addWorldNode, onGenNodes: genWorldNodes, onDelNode: delWorldNode, onEditNode: editWorldNode, onEditRegion: editWorldRegion },
     onOpenMap: () => setScreen("map"),
     toast: toast,
     onBack: () => setScreen("home")
