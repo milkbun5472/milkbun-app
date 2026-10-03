@@ -77,7 +77,10 @@
   const lastKg = d => { const w = (d.weight || []).slice().sort((a, b) => (a.day < b.day ? -1 : 1)); return w.length ? Number(w[w.length - 1].kg) : 55; };
   // 睡了多久（分钟）：跨午夜按第二天算
   const hm = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "")); return m ? +m[1] * 60 + +m[2] : null; };
-  const sleepMin = r => { const a = r && hm(r.bed), b = r && hm(r.wake); return a == null || b == null ? 0 : ((b - a + 1440) % 1440) || 0; };
+  // 填了几点睡几点醒就按那两个算；只有快捷指令带来的总时长（min）时用它
+  const sleepMin = r => { const a = r && hm(r.bed), b = r && hm(r.wake);
+    if (a != null && b != null) return ((b - a + 1440) % 1440) || 0;
+    return r && Number(r.min) > 0 ? Math.round(Number(r.min)) : 0; };
   const hrs = min => Math.floor(min / 60) + " 小时" + (min % 60 ? " " + (min % 60) + " 分" : "");
   const SLEEP_Q = ["老醒", "一般", "睡得沉"];
 
@@ -142,6 +145,56 @@
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const keep = {}; keep[day] = (log[day] || []).concat([meal]);
     if (typeof saveJSON === "function") saveJSON(NUDGE_KEY, keep);   // 只留今天那一格，旧的自然丢掉
+  }
+
+  // ── 手机健康 → 快捷指令 → 剪贴板 → 这里 ─────────────────────────
+  // 不经过任何服务器（她 2026-10-03：「让每个人可以自己设置，不用靠我来搭服务」）：
+  //   每个人在自己 iPhone 的「快捷指令」里读健康数据，拼成下面这几行字拷到剪贴板，回来点「导入」。
+  //   网页读不到健康 App，也不能从快捷指令直接往 App 里塞（主屏上的网页和 Safari 是两份存档），剪贴板是两边都够得着的那一处。
+  const SHORTCUT_MARK = "秋秋健康";
+  const SHORTCUT_TEMPLATE = [SHORTCUT_MARK, "日期：", "步数：", "睡眠：", "活动能量：", "运动分钟：", "体重：", "喝水：", ""].join("\n");
+  const SC_KEYS = [["steps", /^(步数|步|steps?)$/i], ["sleep", /^(睡眠|睡眠小时|睡眠时长|睡觉|sleep)$/i], ["kcal", /^(活动能量|动态能量|运动消耗|消耗|active ?energy)$/i],
+    ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i]];
+  const num = s => { const m = String(s || "").replace(/[,，\s]/g, "").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
+  function scDay(v, today) {
+    const s = String(v || "").trim();
+    let m = /(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/.exec(s);
+    if (m) return m[1] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[3]).slice(-2);
+    m = /(\d{1,2})\s*月\s*(\d{1,2})/.exec(s);
+    if (m) return today.slice(0, 4) + "-" + ("0" + m[1]).slice(-2) + "-" + ("0" + m[2]).slice(-2);
+    if (/昨天|yesterday/i.test(s)) return shift(today, -1);
+    return today;
+  }
+  // 认不出（没有「秋秋健康」那一行、或者一个数都没有）→ null。数字后面带单位、带千分位都行。
+  function parseShortcut(text, today) {
+    const lines = String(text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    if (!lines.some(l => l.replace(/\s/g, "") === SHORTCUT_MARK)) return null;
+    const r = { day: today };
+    lines.forEach(l => {
+      const m = /^([^:：]+)[:：](.*)$/.exec(l); if (!m) return;
+      const k = (SC_KEYS.find(x => x[1].test(m[1].trim())) || [])[0], v = m[2].trim();
+      if (!k || !v) return;
+      if (k === "date") { r.day = scDay(v, today); return; }
+      const n = num(v); if (n == null || n < 0) return;
+      if (k === "sleep") {
+        // 快捷指令给的时长可能是小时、分钟或秒：按大小认，单位写了就照单位
+        r.sleepMin = /秒|sec/i.test(v) || n > 1440 ? Math.round(n / 60) : /分|min/i.test(v) || n > 24 ? Math.round(n) : Math.round(n * 60);
+      } else if (k === "water") r.waterMl = /升|\bl\b/i.test(v) && !/毫升|ml/i.test(v) ? n * 1000 : n;
+      else r[k] = n;
+    });
+    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl"].some(k => r[k] != null) ? r : null;
+  }
+  // 合进存档：同一天再导一次就覆盖手机那一份，她自己记的不动
+  function applyShortcut(d, r) {
+    const day = r.day, n = Object.assign({}, d);
+    if (r.steps != null) n.steps = Object.assign({}, d.steps, { [day]: Math.round(r.steps) });
+    if (r.sleepMin) n.sleep = Object.assign({}, d.sleep, { [day]: Object.assign({}, (d.sleep || {})[day] || {}, { min: r.sleepMin, src: "shortcut" }) });
+    if (r.kcal || r.min) n.sport = (d.sport || []).filter(s => s.id !== "hk-" + day)
+      .concat([{ id: "hk-" + day, day, kind: "手机记的活动", min: Math.round(r.min || 0), kcal: Math.round(r.kcal || 0), src: "shortcut", ts: Date.now() }]);
+    if (r.kg > 20 && r.kg < 300) n.weight = (d.weight || []).filter(w => w.day !== day).concat([{ day, kg: Math.round(r.kg * 10) / 10 }]);
+    if (r.waterMl) n.water = Object.assign({}, d.water, { [day]: Math.max(Number((d.water || {})[day]) || 0, Math.round(r.waterMl / 250)) });
+    n.hkAt = Date.now();
+    return n;
   }
 
   // ── 让模型估 ────────────────────────────────────────────────
@@ -326,6 +379,39 @@
               style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: !man.name.trim() || !Number(man.kcal) ? 0.5 : 1 }) }, "记下")))));
   }
 
+  // ── 从手机健康导入（整页）：怎么搭快捷指令 + 剪贴板读不到时手动粘 ──────────
+  function ImportPage({ S, onImport, toast, onBack }) {
+    const [txt, setTxt] = useState("");
+    const step = (n, title, body) => h("div", { className: "flex", style: { gap: 12, padding: "10px 0" } },
+      h("span", { style: { width: 24, height: 24, borderRadius: 99, background: A(S.accent, "1c"), color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, n),
+      h("div", { style: { flex: 1, fontFamily: F_BODY } },
+        h("div", { style: { fontSize: 14.5, color: S.ink, fontWeight: 600 } }, title),
+        h("div", { style: { fontSize: 12.5, color: S.sub, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, body)));
+    const tryPaste = () => { if (!onImport(txt)) toast && toast("没认出来：第一行要是「" + SHORTCUT_MARK + "」，后面每行「名字：数」"); };
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "从手机健康导入", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
+        h(Section, { S, title: "这是怎么走的", wk: "healthimport" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.75 } },
+            "网页读不到 iPhone 的健康 App，所以借你手机里的「快捷指令」：它把今天的步数、睡眠、活动能量、体重、喝水抄成几行字放进剪贴板，你回到这里点「导入」。整个过程不经过任何服务器，每个人在自己手机上搭一次就行，以后一点就跑。")),
+        h(Section, { S, title: "搭一次快捷指令（iPhone）" },
+          step(1, "新建快捷指令", "打开「快捷指令」App →「＋」。名字随便起，比如「秋秋健康」。"),
+          step(2, "每样数据加一组「查找健康样本」", "搜索动作「查找健康样本」，类型选「步数」，条件设「开始日期 是 今天」。\n再加一个「计算统计数据」（或「获取…的总和」），统计「总和」。\n睡眠同理：类型选「睡眠分析」，开始日期选「过去 1 天」，统计时长的总和。活动能量、锻炼分钟、体重、水也照这样；不想要的就不加。"),
+          step(3, "加一个「文本」动作，贴进下面这个模板", "点下面的「复制模板」，粘进「文本」动作里，再把每行冒号后面换成上一步算出来的那个变量（长按冒号后面 → 选变量）。\n日期那行可以空着，空着就算今天；没加的那几行也空着就行。"),
+          h("div", { style: { margin: "4px 0 6px 36px", padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre-wrap", lineHeight: 1.7 } }, SHORTCUT_TEMPLATE.trim()),
+          h("div", { style: { marginLeft: 36 } },
+            h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(SHORTCUT_TEMPLATE); toast && toast(ok ? "模板已复制" : "没复制上，长按上面那段自己复制"); }, style: btnS(S) }, "复制模板")),
+          step(4, "最后加「拷贝到剪贴板」，再加「打开 App」", "「拷贝到剪贴板」拷的是上面那个文本；「打开 App」选秋秋机（用浏览器的就选 Safari）。"),
+          step(5, "回到这里点「导入」", "健康页「今天」最上面那行的「导入」。第一次 iPhone 会问能不能粘贴，点允许。\n想每天自动跑：快捷指令 →「自动化」→「特定时间」，比如每晚十点跑它，第二天打开点一下就进来了。")),
+        h(Section, { S, title: "剪贴板读不到的话，贴在这儿" },
+          h("textarea", { value: txt, onChange: e => setTxt(e.target.value), rows: 7, placeholder: SHORTCUT_TEMPLATE.trim(),
+            style: Object.assign(inputS(S), { minHeight: 150, padding: "8px 2px", resize: "none", lineHeight: 1.6 }) }),
+          h("button", { onClick: tryPaste, disabled: !txt.trim(), style: Object.assign(btnS(S, true), { width: "100%", marginTop: 12, opacity: txt.trim() ? 1 : 0.5 }) }, "导入这一段")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, lineHeight: 1.6, textAlign: "center" } },
+          "同一天再导一次，会换掉上次手机导进来的那份；你自己手记的不动。")));
+  }
+
   // ── 谁看着（整页）────────────────────────────────────────────
   function WatchPage({ S, d, chars, onPatch, onBack }) {
     const w = d.watch, ids = w.ids || [];
@@ -387,6 +473,22 @@
     if (page && page.kind === "add") return h(AddMeal, { S, meal0: page.meal, api, toast: props.toast, onBack: () => setPage(null),
       onAdd: rows => patch(prev => ({ meals: (prev.meals || []).concat(rows.map((r, i) => ({ id: "m" + Date.now().toString(36) + i, day: today, ts: Date.now(),
         meal: r.meal, name: r.name, kcal: r.kcal, p: r.p || 0, c: r.c || 0, f: r.f || 0, qty: r.qty || 1, src: r.src }))) })) });
+    // 导入：认得出就合进存档、回到今天；认不出返回 false，由调用的那一处决定怎么提示
+    const importText = text => {
+      const r = parseShortcut(text, today);
+      if (!r) return false;
+      patch(prev => applyShortcut(prev, r));
+      const bits = [r.steps != null ? r.steps + " 步" : "", r.sleepMin ? "睡了 " + hrs(r.sleepMin) : "", r.kcal ? "活动 " + Math.round(r.kcal) + " 千卡" : "", r.kg ? r.kg + " 公斤" : ""].filter(Boolean);
+      props.toast && props.toast((r.day === today ? "" : r.day + " · ") + "导进来了：" + (bits.join("，") || "已更新"));
+      setPage(null);
+      return true;
+    };
+    const importClip = async () => {
+      let text = "";
+      try { if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText(); } catch (e) {}
+      if (!importText(text)) { setPage({ kind: "import" }); props.toast && props.toast(text ? "剪贴板里不是快捷指令那段，可以在这页贴进来" : "读不到剪贴板，可以在这页贴进来"); }
+    };
+    if (page && page.kind === "import") return h(ImportPage, { S, onImport: importText, toast: props.toast, onBack: () => setPage(null) });
     if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null) });
 
     const delMeal = id => patch(prev => ({ meals: prev.meals.filter(m => m.id !== id) }));
@@ -404,6 +506,12 @@
     // ── 今天 ──
     const rowsToday = mealsOn(d, today);
     const todayView = h("div", null,
+      h("div", { "data-wk": "healthsync", className: "flex items-center", style: { gap: 10, padding: "4px 0 2px" } },
+        h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", style: { flexShrink: 0 } }, h("path", { d: "M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z", fill: A(S.blood, "cc") })),
+        h("button", { onClick: () => setPage({ kind: "import" }), style: { flex: 1, minHeight: 40, background: "transparent", border: "none", padding: 0, textAlign: "left", fontFamily: F_BODY } },
+          h("div", { style: { fontSize: 13, color: S.ink } }, "手机健康"),
+          h("div", { style: { fontSize: 11, color: S.fog } }, d.hkAt ? "上次导入 " + new Date(d.hkAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "还没设过 · 点这里看怎么用快捷指令")),
+        h("button", { onClick: importClip, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "导入")),
       h("div", { "data-wk": "healthsum", className: "flex items-center", style: { gap: 18, padding: "10px 0 6px" } },
         h(Ring, { S, val: tot.kcal, goal: d.goal.kcal || 1800, burn: tot.burn }),
         h("div", { style: { flex: 1, minWidth: 0 } },
@@ -556,7 +664,7 @@
   }
 
   g.HealthCtx = { noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
-  g.Health = { estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
+  g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电
   g.GHealth = function (p) {

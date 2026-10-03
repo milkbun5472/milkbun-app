@@ -146,3 +146,33 @@ test("框撤掉了：按钮和输入框不画边", () => {
   assert.doesNotMatch(src, /1px solid/);
   assert.match(src, /const inputS = S => \(\{[^}]*border: "none", borderBottom:/);
 });
+
+test("快捷指令那段字：认标题、认单位、认日期，没标题就不认", () => {
+  const { H } = load();
+  assert.equal(H.parseShortcut("步数：8000", "2026-10-03"), null, "没有「秋秋健康」那一行");
+  const r = H.parseShortcut("秋秋健康\n日期：2026年10月2日\n步数：8,203\n睡眠：7.5\n活动能量：432 千卡\n体重：\n喝水：1.5 升", "2026-10-03");
+  assert.equal(r.day, "2026-10-02"); assert.equal(r.steps, 8203); assert.equal(r.sleepMin, 450); assert.equal(r.kcal, 432);
+  assert.equal(r.kg, undefined, "空着的不算"); assert.equal(r.waterMl, 1500);
+  assert.equal(H.parseShortcut("秋秋健康\n睡眠：27000", "2026-10-03").sleepMin, 450, "秒");
+  assert.equal(H.parseShortcut("秋秋健康\n睡眠：450 分钟", "2026-10-03").sleepMin, 450);
+  assert.equal(H.parseShortcut("秋秋健康\n日期：\n步数：10", "2026-10-03").day, "2026-10-03", "日期空着算今天");
+});
+
+test("导进来：再导一次换掉手机那份，自己手记的不动", () => {
+  const { H } = load();
+  let d = H.load();
+  d.sport = [{ id: "s1", day: "2026-10-03", kind: "瑜伽", min: 20, kcal: 50 }];
+  d.water = { "2026-10-03": 7 };
+  d = H.applyShortcut(d, { day: "2026-10-03", steps: 5000, kcal: 200, min: 15, waterMl: 1000, sleepMin: 400 });
+  d = H.applyShortcut(d, { day: "2026-10-03", steps: 9000, kcal: 300, min: 30 });
+  const t = H.dayTotals(d, "2026-10-03");
+  assert.equal(t.steps, 9000); assert.equal(t.sportMin, 50); assert.equal(t.burn, 350);
+  assert.equal(t.water, 7, "她自己点的七杯不被四杯盖掉"); assert.equal(t.sleep, 400);
+  assert.ok(d.hkAt > 0);
+});
+
+test("导入不走服务器：只读剪贴板、读不到就去贴的那页", () => {
+  assert.match(src, /navigator\.clipboard\.readText\(\)/);
+  assert.doesNotMatch(src, /fetch\(/, "健康页不往外发任何请求");
+  assert.match(src, /if \(page && page\.kind === "import"\) return h\(ImportPage,/);
+});
