@@ -110,7 +110,7 @@ test("饭点来问接进主动那一路，出口单独记账", () => {
 test("注册齐：REG、每日看、老用户搬一次、色相、名字、说明书、脚本、路由、挂点", () => {
   assert.match(comp, /health: \{ kind: "app", zh: "健康", G: window\.GHealth \|\| GTarot \},/);
   assert.match(comp, /f_def_daily: \{ name: "每日看", keys: \[[^\]]*"health"\] \}/);
-  assert.match(comp, /\["health", "astro", "x_healthPlaced"\]/);
+  assert.match(comp, /st = placeNewAppOnce\(st, "health", "astro", "x_healthPlaced"\);/);
   assert.match(read("js/core.js"), /health: 108,/);
   assert.match(read("js/core.js"), /health: "健康",/);
   assert.match(read("js/assistant.js"), /health: "health",/);

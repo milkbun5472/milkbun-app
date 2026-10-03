@@ -11,7 +11,7 @@ function fixture(reply) {
   const timers = [], lanes = [], systems = [], saved = {};
   const chatsRef = {current:{c1:[{role:'user',content:'主房私事'}], [key]:[{role:'user',content:'侧房诉说'}]}};
   let blocks = {c1:{iBlocked:true}};
-  const box = {window:{ChatRooms:{...Rooms, get:()=>room}}, activeRoomId:'r1', active:{},
+  const box = {window:{ChatRooms:{...Rooms, get:()=>room}, Axes:require('../js/axes.js')}, activeRoomId:'r1', active:{},
     characters:[{id:'c1', name:'虚构甲'}], profile:{name:'测试用户'}, blocksRef:{current:blocks}, chatsRef,
     setBlocks:fn=>{blocks=fn(blocks)}, saveJSON:(k,v)=>{saved[k]=v},
     pChat:(k,fn)=>{chatsRef.current[k]=fn(chatsRef.current[k]||[])},
@@ -19,6 +19,11 @@ function fixture(reply) {
     apiFor:()=>({}), ctxFor:()=>({char:{id:'c1',name:'虚构甲'},recentChat:'主房私事',mem:'主房记忆'}),
     roomTimeAwareFor:()=>false, contextAllowsMessage:()=>true, isOocMsg:m=>m.kind==='ooc'||String(m.turnId||'').startsWith('ooc_'), roomStatesRef:{current:{}}, loreForContext:()=>'', directives:{},
     buildBundle:ctx=>JSON.stringify(ctx), extractJSON:JSON.parse, onlineRerollHint:()=>'', applySchedChange:()=>{},
+    // ⚠️v74.642 拉黑那一枪多用了两样，deps 漏一个就是 ReferenceError，
+    //   而它被 blockedReaction 自己的 try/catch 吞掉——表现成「什么都没写进去」，
+    //   红得像隔离坏了，其实是桩没跟上（施工规则/stub-from-the-writer 的同一族）。
+    ONLINE_CHAT_RULE_V2:'【线上即时通讯】（测试桩）',
+    Axes:require('../js/axes.js'),
     callAI:async (api,sys)=>{systems.push(sys);return JSON.stringify(reply)},
     setTimeout:fn=>timers.push(fn), Date};
   vm.createContext(box);

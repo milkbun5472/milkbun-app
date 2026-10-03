@@ -73,10 +73,15 @@ test("单聊和群聊两条线路都真的拿到这段字", () => {
 });
 
 test("只管线上打字，不许波及线下叙事和写字类产出", () => {
-  // ONLINE_CHAT_RULE_V2 只在这两处注入；线下/日记/情书走的是另外的规则常量。
+  // ONLINE_CHAT_RULE_V2 只在【线上打字】那几处注入；线下/日记/情书走的是另外的规则常量。
   // 只数【真的注入】的那几行——注释里提到它不算（v54.81 兜底那段注释就提了一次）。
+  // ⚠️v74.642 从 2 处变 3 处：拉黑期间那一枪补上了它。
+  //   那一处原来只用一句「短句多气泡」顶替，于是条数对、味道不对
+  //   （群里 2026-10-04：「他像个背词机」）。拉黑说的也是手机上发出去的话，
+  //   属于这条规则该管的范围，不是漏进线下。
   const inject = app.split("\n").filter(l => l.includes("ONLINE_CHAT_RULE_V2") && !/^\s*\/\//.test(l));
-  assert.equal(inject.length, 2, "注入点数量变了，确认没被塞进线下或日记：\n" + inject.join("\n"));
+  assert.equal(inject.length, 3, "注入点数量变了，确认没被塞进线下或日记：\n" + inject.join("\n"));
+  assert.ok(inject.some(l => l.includes("blockBundleFor")), "第三处该是拉黑那一枪");
   assert.ok(!grabConst("NARRATIVE_ANTI_CLICHE_LEGACY_V1").includes("句尾不打句号"),
     "线下是叙事散文，标点该好好打");
 });

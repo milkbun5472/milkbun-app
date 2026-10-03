@@ -456,6 +456,8 @@ const APP_TONE_HUE = {
   cast: 210, ties: 340, phone: 168, shop: 16, carry: 88, cwallet: 152, dwell: 108,
   lore: 250, memlib: 292, anon: 200, study: 328,
   fanfic: 316, theater: 186, impression: 20, weekly: 206,
+  // 时刻借月度印象隔壁的周刊那一档（同上：不往池子里加新值）
+  shike: 206,
   // watch 借一个已有的色相：往池子里加新值会让所有文件夹的哈希色一起挪位
   read: 158, watch: 262, debate: 8, dream: 248, tarot: 296, astro: 262,
   pomodoro: 4, fairyGarden: 112, companion: 206, games: 190, trpg: 134, dreamjournal: 224,
@@ -578,7 +580,7 @@ const SCREEN_ZH = {
   diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答", anonme: "我的匿名主页",
   study: "一起学", fanfic: "同人文", read: "一起读", watch: "一起看", weekly: "周刊", debate: "擂台",
   dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", astro: "星测", health: "健康", companion: "陪伴", pomodoro: "番茄钟",
-  games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象",
+  games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象", shike: "时刻",
   yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
   forum: "论坛", momprofile: "朋友圈个人页", us: "情侣空间",
   favorites: "收藏", emotes: "表情包", stylelab: "文风台",

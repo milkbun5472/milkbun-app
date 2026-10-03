@@ -5105,7 +5105,12 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const imgs = [];
       if (useRef) for (const b of refBlobs) { const u = await toUrl(b); imgs.push(shape === 2 ? { type: "image_url", image_url: u } : { type: "image_url", image_url: { url: u } }); }
       const parts = shape ? imgs.concat(content) : content.concat(imgs);
-      const body = { model: a.model, messages: [{ role: "user", content: parts }], stream: !!stream };
+      // shape 3：content 写成一整串字（raivip 文档的例子就是这样，2026-10-03）——有的中转只认字符串，
+      //   见到数组就转成空的 contents；参考图用 Markdown 图片挂在字后面，认得的中转会把它当图
+      // ⚠️带参考照时不走这一种：试过了，Markdown 里的图中转根本不读（她 2026-10-03 测：锁的是黑发少年，出来一位白发老太太），
+      //   还把几百 KB 的 base64 塞进了正文，聊天里那张直接等到超时。生成陌生人是这套出图的红线，宁可明说锁不了脸。
+      const strContent = content[0].text;
+      const body = { model: a.model, messages: [{ role: "user", content: shape === 3 ? strContent : parts }], stream: !!stream };
       if (!shape) body.modalities = ["image", "text"];
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: sig || ctrl.signal });
     };
@@ -5128,13 +5133,18 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (a.apiFormat === "gemini") r = await geminiFetch();
       else if (chatFirst) {
         r = await chatFetch();
-        for (let sh = 1; sh <= 2 && !r.ok; sh++) {
+        for (let sh = 3; sh >= 1 && !r.ok; sh--) {
           const peek = await r.clone().text().catch(() => "");
           if (!/contents is required|contents.{0,20}empty|invalid.{0,30}(content|part)|messages.{0,20}required/i.test(peek)) break;
+          if (sh === 3 && useRef && refBlobs.length) continue;   // 纯字符串那种带不了图，有参考照时不试
           r = await chatFetch(false, null, sh);
         }
         // 几种摆法都回「contents is required」→ 这家是把请求原样转给 Gemini 的，改发原生格式
-        if (!r.ok && /contents is required/i.test(await r.clone().text().catch(() => ""))) r = await geminiFetch();
+        if (!r.ok && /contents is required/i.test(await r.clone().text().catch(() => ""))) {
+          // 带图的几种摆法全被打回、而这家纯文字（字符串）能出图（群友 raivip 2026-10-03 实测）：它的聊天接口不收图片
+          if (useRef && refBlobs.length) throw new Error("这条线路的聊天接口只收纯文字、不收图片，参考照送不过去，锁不了脸（为了不画出陌生人，这次停下了）。不带参考照的出图可以用；要锁脸得换一条能传图的线路或模型，或者请求方式试试「Gemini 原生」");
+          r = await geminiFetch();
+        }
       }
       else if (useRef && refBlobs.length) {
         const fd = new FormData();
@@ -6061,7 +6071,21 @@ async function generateNpc(p, hostChar, ask, takenNames) {
     + "\n【输出】只输出 JSON，不要代码块：\n"
     + '{"name":"这位配角的名字（用户给了名字就用用户给的）","brief":"300~500字的第二人称简介","relFromHost":"主角色眼里这个人是谁，一句话（如：我的副将，跟了我八年）","relToHost":"这个人眼里主角色是谁，一句话（如：我的主子，也是把我从死人堆里拖出来的人）"}';
   const raw = await callAI(p, sys, [{ role: "user", content: "生成这位配角。" }], { maxTokens: 10000, timeout: 90000 });
-  const d = parseJSONLoose(raw);
+  let d = parseJSONLoose(raw);
+  // 兜底（群友 2026-10-03 一直掉格式：回的是 {"name":"裴鸣玉","brief":"你是……——正文里夹了没转义的英文引号，或者被截断）：
+  //   按字段名把几段字硬抠出来；brief 取到下一个字段名或结尾为止
+  if (!d || !d.name || !d.brief) {
+    const t = String(raw || "");
+    const grab = (k, next) => {
+      const m = t.match(new RegExp('"' + k + '"\\s*:\\s*"')); if (!m) return "";
+      let rest = t.slice(m.index + m[0].length);
+      const stop = next.map(n => rest.search(new RegExp('"\\s*,\\s*"' + n + '"'))).filter(i => i >= 0);
+      rest = stop.length ? rest.slice(0, Math.min.apply(null, stop)) : rest.replace(/"\s*}\s*$/, "");
+      return rest.replace(/\\n/g, "\n").replace(/\\"/g, '"').trim();
+    };
+    const fb = { name: grab("name", ["brief"]), brief: grab("brief", ["relFromHost", "relToHost"]), relFromHost: grab("relFromHost", ["relToHost"]), relToHost: grab("relToHost", []) };
+    if (fb.name && fb.brief.length > 20) d = fb;
+  }
   if (!d || !d.name || !d.brief) throw new Error("模型没按格式返回（它回的是：" + String(raw || "").replace(/\s+/g, " ").slice(0, 120) + "）");
   return {
     name: String(d.name).trim().slice(0, 24),
@@ -6913,11 +6937,23 @@ ${offlineRevisionAddressRule(narr)}
 // 早就不是规矩，是记录本身（Lisa 2026-08-19：日常对话、吃醋、管束全被翻译成了性器官词汇）。
 // 这条规则【常开且对称】：她带过去就跟上、尺度不设限；她没带就别自己起头。
 // 不做任何"检测到露骨就降温"的启发式——那会在她真的在场景里、只回一句「继续」时误伤。
+// ⚠️「占有欲、吃醋、管束、下命令统统照旧、该多凶多凶」那一句（v53.84 加的）不是被删了，
+//   是改成【跟着人设走】了。立因：她 2026-10-04 拿来一组对照——同一个人设、同一个人玩，
+//   在别家 app 上是「这是什么小表情，怎么这么可爱。乖宝，吃晚饭了吗？」，
+//   在这儿变成拿豆浆要挟、倒计时掀被子、「谁治谁」。角色自己 OOC 时说得最准：
+//   「我把他【对外的那层壳】错误地用在了对你的互动里，甚至比对外还多了一层用爱绑架的味道。」
+//   原句无条件递给每个角色一张「管束、下命令、该多凶多凶」的通行证——
+//   对一个本该软的人，那等于给了个模子当默认。
+//   施工规则/bans-make-it-dumber：**禁的是模子，不是尺度**；这条原来反过来了。
+//   v53.84 那个病（删掉露骨语域之后整个变淡）是真的，所以"日常不等于变淡"留着，
+//   只把【那股劲长什么样】还给人设。
 const REGISTER_FOLLOWS_SCENE = `【说话的尺度跟着此刻的场面走，不跟着聊天记录走】
 上面的记录里可能有过很露骨的段落——那属于【当时那个场面】，不是你们的固定说话方式，也不是这个群的默认语域。
 这一轮该用什么词，只看【用户这一轮说了什么、此刻正在发生什么】：
-· 她聊的是日常（猫、吃饭、睡觉、上班、拌嘴、谁又惹谁生气），你们就用日常的话接。占有欲、吃醋、管束、下命令统统照旧、该多凶多凶，但【不必把日常话题翻译成性器官词汇】——把"去睡午觉"说成"去睡午觉"就行。
+· 她聊的是日常（猫、吃饭、睡觉、上班、拌嘴、谁又惹谁生气），你们就用日常的话接——日常不等于变淡，该有的劲头照旧；【不必把日常话题翻译成性器官词汇】，把"去睡午觉"说成"去睡午觉"就行。
+· 【那股劲长什么样，由你这个人决定，不是这条规矩替你定】你本来就占有欲强、爱吃醋、爱管、说话凶，那就照旧，别因为是日常就收着；你对她本来就是软的、没有攻击性的，那【软就是对的】——不要为了"有张力"去跟她较劲、施压、倒计时、拿东西当筹码换她妥协，也不要把自己的难受摆出来让她愧疚。那不是有性格，那是换了个人。
 · 她把话带到亲密场面上、或此刻确实正在发生那种事，你们再自然跟上，【尺度不设限】，不必自我审查。
+【对外那层壳不是你对她的样子】人设里写他冷、话少、带刺、难搞，那多半是写给外人看的那一面。对她是什么样，看人设里【专门写她、或写亲近的人】的那几句；那几句才是这一轮的底色。没有明写的时候，按"他愿意让她看见的那一面"来——不要把对外那层壳原样端到她面前，更不要在它上面再加一层。
 【不许无来由起头】没有人把话题带过去的时候，不要自己把日常话题拧到身体、性器官或"昨晚"上去，也不要用它当调情的万能接话方式。想表达占有和亲昵有一百种方式，那只是其中一种，不是唯一一种。`;
 // 小 app 里「让 TA 说几句」那一类 runProbe（星测、塔罗、健康…）：buildBundle 白送不了、得靠调用点补上的那三层。
 // 原来星测和塔罗各抄一份（one-public-mechanism.md），收在这儿，各处只调这一个。

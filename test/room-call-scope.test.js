@@ -35,6 +35,7 @@ function setup(overrides={}) {
     callAI:async (api,sys)=>{requests.push(sys);return JSON.stringify({say:['测试回应'],thought:'房内心声',mood:'房内新心情',wearing:'测试衣服',summary:'房间通话摘要',open:['测试约定']})}
   };
   vm.createContext(box);
+  vm.runInContext(fs.readFileSync("js/call-camera.js", "utf8"), box);
   vm.runInContext(cut("const LIVE_STATE_TTL =", "  // 心声历史："), box);
   const components = fs.readFileSync('js/components.js', 'utf8');
   const audioPref = components.indexOf('function callAutoVoice(');
