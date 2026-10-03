@@ -1,6 +1,6 @@
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-2c0519291cfb0454';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-2c0519291cfb0454';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-2c0519291cfb0454';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-90e8d6c2826f99fa';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-90e8d6c2826f99fa';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-90e8d6c2826f99fa';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
@@ -9,7 +9,7 @@ export async function loadPetCompanion(T,loader,{height=.88,persist=true,initial
   const pets={};const saved=key=>persist?readSaved(key):null;const store=(key,value)=>{if(persist)save(key,value);};
   await Promise.all(['cat','dog'].map(async species=>{
     const version=species==='cat'?'pet-motion-6':'pet-dog-3';
-    const [file,rig,mask]=await Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json?v=pet-motion-6`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]);
+    const [file,rig,mask]=await Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]);
     const model=file.scene,bounds=new T.Box3().setFromObject(model),center=bounds.getCenter(new T.Vector3()),scale=height/bounds.getSize(new T.Vector3()).y;
     model.scale.setScalar(scale);model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
     model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});

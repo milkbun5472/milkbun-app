@@ -233,7 +233,12 @@ test("给她们复制的那段网关代码真能跑：密钥不对拦、投进�
   assert.equal(await ok.text(), "收到");
   const got = await worker.fetch(req("GET", undefined, "abc"), env);
   assert.equal(got.headers.get("Access-Control-Allow-Origin"), "*");
-  assert.equal(await got.text(), "秋秋健康\n步数：8000");
+  assert.match(await got.text(), /^秋秋健康\n步数：8000\n收到时间：\d{13}$/);
+  await worker.fetch(req("POST", "秋秋健康\n事件：到家", "abc"), env);
+  await worker.fetch(req("POST", "秋秋健康\n步数：9000", "abc"), env);
+  const both = await (await worker.fetch(req("GET", undefined, "abc"), env)).text();
+  assert.match(both, /步数：9000/); assert.match(both, /事件：到家/, "事件单独存，不被健康数据盖掉");
+  assert.doesNotMatch(both, /步数：8000/);
   const pre = await worker.fetch(new Request("https://x.workers.dev/", { method: "OPTIONS" }), env);
   assert.match(pre.headers.get("Access-Control-Allow-Headers"), /Authorization/, "预检放行，不然浏览器带不了密钥");
   assert.match(src, /if \(page && page\.kind === "gateway"\) return h\(GatewayGuide,/);
@@ -245,4 +250,51 @@ test("精简版模板（步数、位置、电量）在页面里，而且导得�
   const r = H.parseShortcut(H.SHORTCUT_TEMPLATE_MINI.replace("步数：", "步数：5000").replace("电量：", "电量：80"), "2026-10-03");
   assert.equal(r.steps, 5000); assert.equal(r.battery, 80);
   assert.match(src, /"复制精简版"/);
+});
+
+test("事件：到家/出门/起床/睡觉认得出、带收到时间、角色看得到、会来问一次", () => {
+  const { H, C } = load();
+  const base = new Date(2026, 9, 3, 18, 0).getTime();
+  let d = H.load();
+  d.watch = { on: true, ids: ["c1"], nudge: true, env: true };
+  H.save(d);
+  assert.equal(H.parseShortcut("秋秋健康\n事件：回家啦", "2026-10-03").event, "到家");
+  assert.equal(H.parseShortcut("秋秋健康\n事件：闹钟停了", "2026-10-03").event, "起床");
+  d = H.applyShortcut(d, H.parseShortcut("秋秋健康\n事件：到家\n收到时间：" + (base - 10 * 60000), "2026-10-03"));
+  d = H.applyShortcut(d, H.parseShortcut("秋秋健康\n事件：到家\n收到时间：" + (base - 10 * 60000), "2026-10-03"));
+  assert.equal(d.events.length, 1, "同一件事拿两次只算一次");
+  H.save(d);
+  assert.match(C.envLine(d, base), /她 10 分钟前到家了。/);
+  const n = C.nudgeDue(base); assert.equal(n.meal, "ev-到家"); assert.equal(n.label, "她刚到家");
+  C.markNudged(n.day, n.meal);
+  assert.notEqual((C.nudgeDue(base) || {}).meal, "ev-到家");
+  assert.equal(C.envLine(d, base + 4 * 3600000), "", "三小时后到家就不算此刻了");
+  d = H.applyShortcut(d, H.parseShortcut("秋秋健康\n事件：睡觉\n收到时间：" + base, "2026-10-03"));
+  H.save(d);
+  assert.match(C.envLine(d, base + 3600000), /说去睡了/);
+  assert.notEqual((C.nudgeDue(base + 60000) || {}).meal, "ev-睡觉", "说去睡了不来吵");
+});
+
+test("网关一次回好几段：都认；拿过的那段不再当成新报的", () => {
+  assert.match(src, /raw\.split\(new RegExp\("\(\?=" \+ SHORTCUT_MARK \+ "\)"\)\)/);
+  assert.match(src, /next\.seen = seen\.concat\(fresh\.map\(hash\)\)\.slice\(-60\);/);
+  assert.match(src, /n\.env = \{ ts: r\.at \|\| Date\.now\(\),/, "位置的时间用网关收到的那一刻，不是秋秋机拿到的那一刻");
+});
+
+test("从网关拿：健康和事件两段都合进来，再拿一次不重复、位置时间不刷新", async () => {
+  const { H, C } = load();
+  const d = H.load(); d.gateway = { url: "https://gw.example/", key: "abc", at: 0, err: "" }; H.save(d);
+  const t0 = Date.now() - 20 * 60000;
+  const body = "秋秋健康\n步数：4321\n电量：50\n收到时间：" + t0 + "\n\n秋秋健康\n事件：出门\n收到时间：" + (t0 + 1000);
+  const old = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, status: 200, text: async () => body });
+  try {
+    await C.pullGateway(true);
+    let s = H.load();
+    assert.equal(s.steps[Object.keys(s.steps)[0]], 4321);
+    assert.equal(s.env.ts, t0); assert.equal(s.events.length, 1); assert.equal(s.gateway.err, "");
+    await C.pullGateway(true);
+    s = H.load();
+    assert.equal(s.env.ts, t0, "第二次拿到同一段，不把旧电量当成刚报的"); assert.equal(s.events.length, 1);
+  } finally { globalThis.fetch = old; }
 });
