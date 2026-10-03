@@ -18871,17 +18871,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return ref;
   };
   // 朋友圈配图：描述就是 prompt（她 2026-09-28）。成图存进 m.image（iv_ 引用），原描述留在 m.imageDesc。
-  const momentGenImage = async (momentId, quiet) => {
+  // force＝重拍这一张（她 2026-10-03：「朋友圈图可以重 roll」）。
+  // ⚠️原来一看见已经是图就 return false——那正是「重不了」的原因。
+  //   重拍要用【当初那段描述】，它在第一次生成时存进了 imageDesc；
+  //   没存的（手贴的图、老数据）就没得重拍，按钮也不该出现。
+  const momentGenImage = async (momentId, quiet, force) => {
     const mom = (momentsRef.current || []).find(m => m && m.id === momentId);
-    if (!mom || !mom.image || isImgRef(mom.image)) return false;
+    if (!mom || !mom.image) return false;
+    const already = isImgRef(mom.image);
+    if (already && !force) return false;
+    if (already && !String(mom.imageDesc || "").trim()) { if (!quiet) toast("这张没留着画面描述，重拍不了"); return false; }
     if (!imgApiReady()) { if (!quiet) toast("先去 设置·图像API 配好再生图"); return false; }
     const char = characters.find(c => c.id === mom.characterId);
     if (!char) { if (!quiet) toast("找不到发这条的角色"); return false; }
-    const desc = String(mom.image);
+    const desc = already ? String(mom.imageDesc) : String(mom.image);
     try {
       const ref = await drawFromDesc(char, desc, mom.imageWho);
       pMom(p => p.map(m => m.id === momentId ? { ...m, image: ref, imageDesc: desc } : m));
-      return true;
+      return ref;   // 把新的那张交回去：重拍时大图要原地换掉，不该关了再点开
     } catch (e) {
       if (!quiet) toast("朋友圈配图没生成：" + String(e && e.message || "重试").slice(0, 120));
       return false;
