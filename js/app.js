@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.649";
+const APP_VERSION = "v74.651";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -17242,6 +17242,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("请先到设置配置 API");
       return;
     }
+    const cameraFrame = !opening && cur.mode === "video" ? window.CallCamera.validFrame(opts && opts.cameraFrame) : null;
+    const cameraHint = cur.mode === "video" ? window.CallCamera.prompt(cameraFrame) : "";
     startLane("call");
     try {
       const people = cur.participants;
@@ -17417,8 +17419,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             }
           };
         })();
-        const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint;
-        const raw = await callAI(apiFor(char.id), callSystem, hist, { maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
+        const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint + cameraHint;
+        const callMessages = window.CallCamera.withFrame(hist, cameraFrame);
+        const raw = await callAI(apiFor(char.id), callSystem, callMessages, { maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
         says = says.map(stripName).filter(Boolean);
@@ -17499,7 +17502,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
-        const raw = await callAI(active, sys + callBiHint, hist, { maxTokens: 65535 });
+        const raw = await callAI(active, sys + callBiHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { maxTokens: 65535 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
@@ -17515,7 +17518,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
       }
     } catch (e) {
-      toast("通话回复失败：" + (e.message || "重试"));
+      toast("通话回复失败：" + (e.message || "重试") + (cameraFrame ? "；开镜头时请使用支持识图的文字模型" : ""));
     } finally {
       endLane("call");
     }
@@ -27035,6 +27038,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPatchGroupSetting: (gid, patch) => saveGroupSettings(gid, patch),
     toast: toast,
     onBack: () => setScreen("home")
+  });else if (screen === "shike") body = h(window.ShikeApp, {
+    // 时刻（她 2026-10-03）：纪念日和节日，全是算出来的；只有「生成封面」那一下走生图
+    characters: liveChars,
+    profile: profile,
+    couples: couples,
+    chats: chats,
+    memLib: memLibRef.current,
+    toast: toast,
+    onGenCover: async c => {
+      if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
+      try {
+        const prompt = "A cinematic visual-novel CG illustration of " + (c.name || "the character") + ". "
+          + String(c.appearance || "").slice(0, 400) + " Soft warm light, gentle atmosphere, upper body, looking at the viewer, no text, no watermark.";
+        const r = await generateSelfieImage(prompt, c.refPhoto ? [c.refPhoto] : null, { size: "1024x1536" });
+        const dataUrl = r && (r.dataUrl || r.url);
+        if (!dataUrl) throw new Error("上游没有返回图片");
+        return typeof imgToVault === "function" ? await imgToVault(dataUrl) : dataUrl;
+      } catch (e) { toast("生成失败：" + ((e && e.message) || e)); return null; }
+    },
+    onBack: () => setScreen("home")
   });else if (screen === "impression") body = h(ImpressionApp, {
     // 月度印象：写字走线下创作线路（要文学性），素材自己从存储层取
     active: offlineActive,
@@ -27959,7 +27982,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     minimized: !!call.min,
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),
-    onSend: txt => callSend(txt),
+    onSend: (txt, opts) => callSend(txt, opts),
     onHangup: (sec, by) => endCall(sec, by)
   }), anonChar && h(AnonBox, {
     char: anonChar,

@@ -98,7 +98,7 @@ test("群通话那一路：中译和名字都拿得到（不然字幕上补了�
   assert.match(app, /senderId: spk\.id, senderName: spk\.name, content: ln\.speech, zh: ln\.zh \}\)/);
   // 双语规则也发给了群通话（callBilingualRule 收的是 people，复数）
   assert.match(app, /const callBiHint = callBilingualRule\(people, settingsFor\);/);
-  assert.match(app, /callAI\(active, sys \+ callBiHint, hist/);
+  assert.match(app, /callAI\(active, sys \+ callBiHint \+ cameraHint, window\.CallCamera\.withFrame\(hist, cameraFrame\)/);
   // 流式字幕：在场任何一位开了就开——群通话一样吃得到
   assert.match(app, /const stream = people\.some\(c => callStreamFor\(c\.id\)\);/);
 });
