@@ -5184,7 +5184,7 @@ function HomeDecorAppearanceEditor({ surface, borderMode, accent, align, badge, 
 //   名字按她自己的口气起（查一查／每日看／一起做／一起玩 都是她起的）。
 const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
-  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout"] },
+  f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
   f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
@@ -5195,6 +5195,21 @@ const DEFAULT_FOLDERS = {
   f_def_back:  { name: "回头看", keys: ["weekly", "impression"] },
   f_def_ops:   { name: "后台", keys: ["rescue", "vpscodex", "loungeapp"] }
 };
+// 新 app 进老用户的文件夹（v74.590 星测）：她画的位置就在「每日看」塔罗旁边。
+//   哪个文件夹里有塔罗就放进哪个；已经摆在哪儿了（页上或别的文件夹）就不动，而且只搬一次。
+function placeAstroOnce(st) {
+  try {
+    if (loadJSON("x_astroPlaced", false)) return st;
+    var seenA = Object.keys(st).some(function (fid) { return (st[fid].keys || []).indexOf("astro") >= 0; });
+    var L0 = loadJSON("x_homeLayout", {});
+    var onPage = Object.keys(L0 || {}).some(function (k) { return Array.isArray(L0[k]) && L0[k].indexOf("astro") >= 0; });
+    var home = Object.keys(st).filter(function (fid) { return (st[fid].keys || []).indexOf("tarot") >= 0; })[0];
+    if (seenA || onPage || !home) return st;
+    var n = Object.assign({}, st); n[home] = Object.assign({}, st[home], { keys: (st[home].keys || []).concat(["astro"]) });
+    saveJSON("x_homeFolders", n); saveJSON("x_astroPlaced", true);
+    return n;
+  } catch (e) { return st; }
+}
 function Home({
   now,
   characters,
@@ -5335,6 +5350,7 @@ function Home({
   // 用户自建文件夹：x_homeFolders = { "f_<ts>": { name, keys:[appKey...] } }；fid 直接躺在 layout 数组里当一个可摆放项
   const [folders, setFolders] = useState(function () {
     var st = loadJSON("x_homeFolders", {});
+    if (st && Object.keys(st).length) st = placeAstroOnce(st);
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -5407,6 +5423,7 @@ function Home({
     debate: { kind: "app", zh: "擂台", G: GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
+    astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },
     pomodoro: { kind: "app", zh: "番茄钟", G: GFocus },
     companion: { kind: "app", zh: "陪伴", G: window.GCompanion || GFocus },
     games: { kind: "app", zh: "小游戏", G: GGame },

@@ -390,6 +390,15 @@
         ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
+    // 星测（v74.590）：整页是一片夜空，挂点都在这一页
+    Object.freeze({
+      zh: "星测", pages: Object.freeze(["astro"]),
+      hooks: Object.freeze([
+        ["astrotabs", "顶上那条星座连线（今日运势／配对）"], ["astrocard", "每一块卡片"],
+        ["astrolucky", "幸运色那一格"], ["astrosign", "配对里「星座配对」那一段"], ["astroshuku", "配对里「星宿关系」那一段"],
+        ["astronote", "TA看完说的那段话"]
+      ])
+    }),
     // 主屏（v65.05，她 2026-09-06：「主题台的 css 还是不显示」）。
     // ⚠️病根不是主题台坏了——是主屏上【一个挂点都没有】，只有最外那层 app。
     //   给主屏写的 CSS 因此抓不到任何东西，写得再对也一条不生效。
@@ -752,7 +761,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.593", changed: "", none: "这版没有新的可换装部件" };
+  const BRIEF_STAMP = { v: "v74.595", changed: "新页面「星测」（astro）：挂点 astrotabs、astrocard、astrolucky、astrosign、astroshuku、astronote；整页夜空，八支色走 pagePalette", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
