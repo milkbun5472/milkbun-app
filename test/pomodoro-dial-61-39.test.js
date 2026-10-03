@@ -46,7 +46,7 @@ test("专注页的进度也是发条在往回松，不是一条 2px 横线", () 
 });
 
 test("原来的逻辑一条没动（计时以墙上时间为准、切后台能接回来）", () => {
-  assert.match(code, /window\.PomodoroLogic = \{ remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle \};/);
+  assert.match(code, /window\.PomodoroLogic = \{ remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore \};/);
   assert.match(code, /x_pomodoro_active/);
   assert.match(code, /if \(remain <= 0 && !current\.pausedAt\) finishRef\.current\("done"\);/);
 });
