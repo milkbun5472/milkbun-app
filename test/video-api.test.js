@@ -37,7 +37,7 @@ test('大整数任务编号保持原值',async()=>{
 });
 test('新编辑页标准 Head/单滚动区与安全区，语音点播不创建视频',()=>{
  assert.match(src,/h\(Head, \{ zh: "动态陪伴图"/);assert.match(src,/flex-1 min-h-0 overflow-y-auto px-5/);assert.match(src,/safe-area-inset-bottom\) \* 0\.4/);
- const pom=fs.readFileSync(path.join(__dirname,'../js/pomodoro.js'),'utf8');assert.match(pom,/点击陪伴画面听语音/);assert.match(pom,/tp\.toggle\("pmd-note-/);assert.doesNotMatch(pom,/VideoApi\.(create|poll)\(/);
+ const pom=fs.readFileSync(path.join(__dirname,'../js/pomodoro.js'),'utf8');assert.match(pom,/戳一戳陪伴画面/);assert.match(pom,/tp\.toggle\("pmd-note-/);assert.doesNotMatch(pom,/VideoApi\.(create|poll)\(/);
  const screens=fs.readFileSync(path.join(__dirname,'../js/screens.js'),'utf8');assert.match(screens,/page === "apiVideo"/);assert.match(screens,/MINIMAX_API_SITES\.map/);
 });
 

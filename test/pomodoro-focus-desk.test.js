@@ -64,3 +64,16 @@ test("准备页和记录页复用标准 Head，正文只有一个主滚动区", 
   assert.match(src, /flex-1 min-h-0 overflow-y-auto px-6/);
   assert.match(src, /safe-area-inset-bottom\) \* 0\.4/);
 });
+
+test("三种模式的轻戳字幕兼容旧场次，报时使用真实剩余时间", () => {
+  const { companionSubtitle } = loadLogic();
+  const base = { task: "校稿", min: 25, endTs: 1501000, pack: { notes: ["开场", "半程", "收尾"], taps: ["回应一", "回应二"], pause: "留座" } };
+  assert.equal(companionSubtitle({ ...base, mode: "quiet" }, 1200, 1, "tap").text, "回应二");
+  assert.equal(companionSubtitle({ ...base, mode: "quiet" }, 100, 0, "node").text, "开场");
+  assert.equal(companionSubtitle({ ...base, mode: "notes" }, 600, 0, "node").text, "半程");
+  assert.equal(companionSubtitle({ ...base, mode: "checkpoints" }, 1200, 0, "tap").label, "已专注 05:00 · 还剩 20:00");
+  assert.equal(companionSubtitle({ ...base, mode: "notes", pausedAt: 301000 }, 1200, 0, "tap").text, "留座");
+  const legacy = { ...base, mode: "quiet", pack: { notes: ["旧开场"] } };
+  assert.equal(companionSubtitle(legacy, 1200, 0, "tap").text, "嗯，我在。");
+  assert.equal(companionSubtitle({ ...legacy, pack: { taps: [null, {}, ""] } }, 1200, 0, "tap").text, "嗯，我在。");
+});

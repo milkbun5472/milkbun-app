@@ -333,7 +333,7 @@
   //   不许在旁边再并排开一对 WK_XXX / WK_XXX_PAGES —— 那就是同一层写在两处，
   //   秋秋那边迟早只念到其中一份（one-public-mechanism.md）。
   const WK_SCOPED = Object.freeze([
-    Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
+    Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
     Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
       ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
       ["radioreceiver","调频接入面板"],["radiodial","频率刻度与指针"],["radiostage","接入后的全屏单句舞台（data-speaking/data-ended/data-long）"],
@@ -752,7 +752,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.577", changed: "语音服务恢复三项选择，移除电脑连接面板，沿用原设置容器", none: "" };
+  const BRIEF_STAMP = { v: "v74.578", changed: "番茄钟专注页全屏视频、轻戳模式字幕与底部发条计时，新增四个美化挂点", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
@@ -765,7 +765,7 @@
       "4. 只交回 CSS，不要 <style> 标签，不要 html，不要 JavaScript。",
       "5. 有的挂点带附加属性可以细分：data-me=\"1\" 是我这一侧、data-me=\"0\" 是对方那一侧；气泡还有 data-kind（text/voice/photo 等）。",
       "6. 想跟着屏幕大小走，可以用这几个变量：--app-w（屏宽）、--app-h（屏高）、--app-vh（屏高的百分之一）、--app-safe-top、--app-safe-bottom；html 上还有 data-screen-size=\"short\"/\"tall\" 可以分矮屏高屏。",
-      "番茄钟动态陪伴图：pomvideoeditor 是整页外壳，pomvideostage 的 video 可调 object-fit；保持画面按钮可点击、视频与语音独立。",
+      "番茄钟：pomfocus 是专注整页，视频铺满外壳、标准 Head 透明；pompoke 是轻戳透明按钮，pomsubtitle 是底部模式字幕，pomtimer 是独立发条倒计时。人物脸部留空，字幕读完收起；保留按钮层级与 0.4 底安全区，不让字幕挡住计时。pomvideoeditor 是制作整页，pomvideostage 的 video 可调 object-fit；视频与语音独立。",
       "7. 里面的 url(...) 图片引用原样保留，别改它们的地址。",
       "8. 背景可以用渐变（linear-gradient）。有的主题会给气泡画一个小尖角，它是气泡的 ::before 三角，用 border 颜色上色：改颜色写 border-left-color（我这侧）/ border-right-color（对方），不要就 display:none。",
       "9. 按键上的图标是 svg：换颜色写 svg { stroke: 颜色 !important; }；换成图片就先 svg { display:none !important; }，再给按键本身写 background: url(...) center / contain no-repeat 并给宽高。",
