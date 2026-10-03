@@ -395,7 +395,7 @@
       zh: "星测", pages: Object.freeze(["astro"]),
       hooks: Object.freeze([
         ["astrotabs", "顶上那条星座连线（今日运势／配对）"], ["astrocard", "每一块卡片"],
-        ["astrolucky", "幸运色那一格"], ["astrosign", "配对里「星座配对」那一段"], ["astroshuku", "配对里「星宿关系」那一段"],
+        ["astrolucky", "幸运色那一格"], ["astrosyn", "配对里「合盘」那一段"], ["astrosign", "配对里「星座配对」那一段"], ["astroshuku", "配对里「星宿关系」那一段"],
         ["astronote", "TA看完说的那段话"]
       ])
     }),
@@ -761,7 +761,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.599", changed: "", none: "星测去掉卡片边框，挂点名字没变" };
+  const BRIEF_STAMP = { v: "v74.600", changed: "星测新挂点 astrosyn（配对里的合盘那一段）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

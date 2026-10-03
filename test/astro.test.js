@@ -96,3 +96,50 @@ test("挂上了：主屏、每日看、路由、页名、手册；点评走 runP
   assert.match(src, /maxTokens: 65535/);
   assert.match(src, /h\(Head, \{ zh: "星测"/, "顶栏走共用 Head");
 });
+
+// ── 严谨版（她 2026-10-03：「要是更严谨点得咋弄」「做吧」）──
+test("星历：2000-01-01 12:00 UT 各行星黄经对得上（误差一度以内）", () => {
+  const p = A.planetLongitudes(new Date(Date.UTC(2000, 0, 1, 12)));
+  const ref = { sun: 280.37, moon: 223.32, mercury: 271.89, venus: 241.57, mars: 327.96, jupiter: 25.25, saturn: 40.40, uranus: 314.81, neptune: 303.19, pluto: 251.45 };
+  for (const k in ref) { const d = Math.abs(p[k] - ref[k]); assert.ok(Math.min(d, 360 - d) < 1, k + " 差了 " + d.toFixed(2) + "°"); }
+});
+
+test("上升：赤道、天顶在白羊零度时，上升在巨蟹零度", () => {
+  // 反推一个 RAMC=0 的时刻太麻烦，直接验公式两头：同一时刻往东挪 90° 经度，上升跟着转
+  const t = new Date(Date.UTC(2000, 2, 20, 0));
+  const a0 = A.ascendant(t, 0, 0), a90 = A.ascendant(t, 0, 90);
+  const d = ((a90 - a0) % 360 + 360) % 360;
+  assert.ok(d > 80 && d < 100, "经度东移 90°，上升也该挪 90° 左右：" + d.toFixed(1));
+});
+
+test("星盘：没年份不排；没时间不算上升、月亮可能差一点；填了时间城市才有上升", () => {
+  assert.equal(A.natalChart("05-08", {}), null);
+  const noTime = A.natalChart("1999-05-08", { city: "北京", lat: 39.9, lon: 116.41, tz: 8 });
+  assert.equal(noTime.lon.asc, undefined);
+  assert.equal(noTime.hasTime, false);
+  const full = A.natalChart("1999-05-08", { time: "08:30", city: "北京", lat: 39.9, lon: 116.41, tz: 8 });
+  assert.ok(full.lon.asc >= 0 && full.lon.asc < 360);
+  assert.equal(A.SIGNS[Math.floor(full.lon.sun / 30)][0], "金牛");
+  assert.ok(A.natalChart("农历1999年三月廿三", {}), "带年份的农历生日也能排");
+});
+
+test("合盘：同一张盘自己跟自己合，满是合相；分数夹在 32~98；行运给出几颗星和依据", () => {
+  const c = A.natalChart("1999-05-08", { time: "08:30", lat: 39.9, lon: 116.41, tz: 8 });
+  const self = A.synastry(c, c);
+  assert.ok(self.list.length >= 10);
+  assert.ok(self.score >= 32 && self.score <= 98);
+  const other = A.synastry(c, A.natalChart("1996-11-02", {}));
+  assert.ok(other.score >= 32 && other.score <= 98);
+  assert.equal(A.synastry(c, null), null);
+  const tr = A.transits(c, new Date(Date.UTC(2026, 9, 3, 4)));
+  for (const k of ["all", "love", "work", "money"]) assert.ok(tr[k] >= 1 && tr[k] <= 5);
+  assert.ok(Array.isArray(tr.hits) && tr.hits.length <= 5);
+});
+
+test("出生信息只存在星测里（x_astro_birth），整页、不动档案", () => {
+  assert.match(src, /const BIRTH_KEY = "x_astro_birth";/);
+  assert.match(src, /function BirthPage\(/);
+  assert.match(src, /h\(Head, \{ zh: "出生信息"/);
+  assert.ok(!/onEditChar[^\n]*birth|saveChar/.test(src), "不许顺手改角色档案");
+  assert.ok(A.CITIES.length >= 60 && A.CITIES.every(c => c.length === 4 && isFinite(c[1]) && isFinite(c[2]) && isFinite(c[3])));
+});

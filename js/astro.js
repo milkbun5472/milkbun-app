@@ -127,6 +127,206 @@
     return { all: all, love: love, work: work, money: money, color: { name: color[0], hex: color[1] }, number: 1 + Math.floor(r() * 9), line: lines[Math.floor(r() * lines.length)] };
   }
 
+
+  // ── 严谨版：星历 → 星盘 → 合盘 / 行运（v74.600，她 2026-10-03：「要是更严谨点得咋弄」「就在星测里面设置城市」）──
+  // 星历（Paul Schlyter「How to compute planetary positions」那一套）：1900~2100 年内误差在一两度以内
+  const RAD = Math.PI / 180;
+  const rev = x => ((x % 360) + 360) % 360;
+  const sind = x => Math.sin(x * RAD), cosd = x => Math.cos(x * RAD);
+  const atan2d = (y, x) => Math.atan2(y, x) / RAD;
+  function dayNum(dt) {   // dt: Date（UTC 时刻）
+    const y = dt.getUTCFullYear(), m = dt.getUTCMonth() + 1, D = dt.getUTCDate();
+    const ut = dt.getUTCHours() + dt.getUTCMinutes() / 60 + dt.getUTCSeconds() / 3600;
+    return 367 * y - Math.floor(7 * (y + Math.floor((m + 9) / 12)) / 4) + Math.floor(275 * m / 9) + D - 730530 + ut / 24;
+  }
+  const ELEM = {
+    sun: d => ({ N: 0, i: 0, w: 282.9404 + 4.70935e-5 * d, a: 1, e: 0.016709 - 1.151e-9 * d, M: 356.0470 + 0.9856002585 * d }),
+    moon: d => ({ N: 125.1228 - 0.0529538083 * d, i: 5.1454, w: 318.0634 + 0.1643573223 * d, a: 60.2666, e: 0.054900, M: 115.3654 + 13.0649929509 * d }),
+    mercury: d => ({ N: 48.3313 + 3.24587e-5 * d, i: 7.0047 + 5.00e-8 * d, w: 29.1241 + 1.01444e-5 * d, a: 0.387098, e: 0.205635 + 5.59e-10 * d, M: 168.6562 + 4.0923344368 * d }),
+    venus: d => ({ N: 76.6799 + 2.46590e-5 * d, i: 3.3946 + 2.75e-8 * d, w: 54.8910 + 1.38374e-5 * d, a: 0.723330, e: 0.006773 - 1.302e-9 * d, M: 48.0052 + 1.6021302244 * d }),
+    mars: d => ({ N: 49.5574 + 2.11081e-5 * d, i: 1.8497 - 1.78e-8 * d, w: 286.5016 + 2.92961e-5 * d, a: 1.523688, e: 0.093405 + 2.516e-9 * d, M: 18.6021 + 0.5240207766 * d }),
+    jupiter: d => ({ N: 100.4542 + 2.76854e-5 * d, i: 1.3030 - 1.557e-7 * d, w: 273.8777 + 1.64505e-5 * d, a: 5.20256, e: 0.048498 + 4.469e-9 * d, M: 19.8950 + 0.0830853001 * d }),
+    saturn: d => ({ N: 113.6634 + 2.38980e-5 * d, i: 2.4886 - 1.081e-7 * d, w: 339.3939 + 2.97661e-5 * d, a: 9.55475, e: 0.055546 - 9.499e-9 * d, M: 316.9670 + 0.0334442282 * d }),
+    uranus: d => ({ N: 74.0005 + 1.3978e-5 * d, i: 0.7733 + 1.9e-8 * d, w: 96.6612 + 3.0565e-5 * d, a: 19.18171 - 1.55e-8 * d, e: 0.047318 + 7.45e-9 * d, M: 142.5905 + 0.011725806 * d }),
+    neptune: d => ({ N: 131.7806 + 3.0173e-5 * d, i: 1.7700 - 2.55e-7 * d, w: 272.8461 - 6.027e-6 * d, a: 30.05826 + 3.313e-8 * d, e: 0.008606 + 2.15e-9 * d, M: 260.2471 + 0.005995147 * d })
+  };
+  function kepler(o) {
+    const M = rev(o.M), e = o.e;
+    let E = M + (e / RAD) * sind(M) * (1 + e * cosd(M));
+    for (let k = 0; k < 8; k++) E = E - (E - (e / RAD) * sind(E) - M) / (1 - e * cosd(E));
+    const xv = o.a * (cosd(E) - e), yv = o.a * Math.sqrt(1 - e * e) * sind(E);
+    const v = atan2d(yv, xv), r = Math.sqrt(xv * xv + yv * yv);
+    const N = o.N, w = o.w, i = o.i;
+    return {
+      x: r * (cosd(N) * cosd(v + w) - sind(N) * sind(v + w) * cosd(i)),
+      y: r * (sind(N) * cosd(v + w) + cosd(N) * sind(v + w) * cosd(i)),
+      z: r * (sind(v + w) * sind(i)), v: v, r: r
+    };
+  }
+  function planetLongitudes(dt) {
+    const d = dayNum(dt);
+    const so = ELEM.sun(d), sk = kepler(so);
+    const sunLon = rev(sk.v + so.w);
+    const xs = sk.r * cosd(sunLon), ys = sk.r * sind(sunLon);
+    const out = { sun: sunLon };
+    // 月亮（本来就是地心的）+ 主要摄动
+    const mo = ELEM.moon(d), mk = kepler(mo);
+    const Ms = rev(so.M), Mm = rev(mo.M), Ls = rev(so.M + so.w), Lm = rev(mo.M + mo.w + mo.N);
+    const D = Lm - Ls, F = Lm - mo.N;
+    out.moon = rev(atan2d(mk.y, mk.x)
+      - 1.274 * sind(Mm - 2 * D) + 0.658 * sind(2 * D) - 0.186 * sind(Ms) - 0.059 * sind(2 * Mm - 2 * D)
+      - 0.057 * sind(Mm - 2 * D + Ms) + 0.053 * sind(Mm + 2 * D) + 0.046 * sind(2 * D - Ms) + 0.041 * sind(Mm - Ms)
+      - 0.035 * sind(D) - 0.031 * sind(Mm + Ms) - 0.015 * sind(2 * F - 2 * D) + 0.011 * sind(Mm - 4 * D));
+    const Mj = rev(ELEM.jupiter(d).M), Msa = rev(ELEM.saturn(d).M), Mu = rev(ELEM.uranus(d).M);
+    ["mercury", "venus", "mars", "jupiter", "saturn", "uranus", "neptune"].forEach(k => {
+      const h = kepler(ELEM[k](d));
+      let lon = atan2d(h.y, h.x), lat = atan2d(h.z, Math.sqrt(h.x * h.x + h.y * h.y)), r = Math.sqrt(h.x * h.x + h.y * h.y + h.z * h.z);
+      if (k === "jupiter") lon += -0.332 * sind(2 * Mj - 5 * Msa - 67.6) - 0.056 * sind(2 * Mj - 2 * Msa + 21) + 0.042 * sind(3 * Mj - 5 * Msa + 21)
+        - 0.036 * sind(Mj - 2 * Msa) + 0.022 * cosd(Mj - Msa) + 0.023 * sind(2 * Mj - 3 * Msa + 52) - 0.016 * sind(Mj - 5 * Msa - 69);
+      if (k === "saturn") lon += 0.812 * sind(2 * Mj - 5 * Msa - 67.6) - 0.229 * cosd(2 * Mj - 4 * Msa - 2) + 0.119 * sind(Mj - 2 * Msa - 3)
+        + 0.046 * sind(2 * Mj - 6 * Msa - 69) + 0.014 * sind(Mj - 3 * Msa + 32);
+      if (k === "uranus") lon += 0.040 * sind(Msa - 2 * Mu + 6) + 0.035 * sind(Msa - 3 * Mu + 33) - 0.015 * sind(Mj - Mu + 20);
+      const xh = r * cosd(lon) * cosd(lat), yh = r * sind(lon) * cosd(lat);
+      out[k] = rev(atan2d(yh + ys, xh + xs));
+    });
+    // 冥王星：数值拟合（J2000 春分点），再补上岁差
+    const S = 50.03 + 0.033459652 * d, P = 238.95 + 0.003968789 * d;
+    const pl = 238.9508 + 0.00400703 * d - 19.799 * sind(P) + 19.848 * cosd(P) + 0.897 * sind(2 * P) - 4.956 * cosd(2 * P)
+      + 0.610 * sind(3 * P) + 1.211 * cosd(3 * P) - 0.341 * sind(4 * P) - 0.190 * cosd(4 * P) + 0.128 * sind(5 * P) - 0.034 * cosd(5 * P)
+      - 0.038 * sind(6 * P) + 0.031 * cosd(6 * P) + 0.020 * sind(S - P) - 0.010 * cosd(S - P);
+    const pb = -3.9082 - 5.453 * sind(P) - 14.975 * cosd(P) + 3.527 * sind(2 * P) + 1.673 * cosd(2 * P) - 1.051 * sind(3 * P) + 0.328 * cosd(3 * P)
+      + 0.179 * sind(4 * P) - 0.292 * cosd(4 * P) + 0.019 * sind(5 * P) + 0.100 * cosd(5 * P) - 0.031 * sind(6 * P) - 0.026 * cosd(6 * P) + 0.011 * cosd(S - P);
+    const pr = 40.72 + 6.68 * sind(P) + 6.90 * cosd(P) - 1.18 * sind(2 * P) - 0.03 * cosd(2 * P) + 0.15 * sind(3 * P) - 0.14 * cosd(3 * P);
+    const pxh = pr * cosd(pl) * cosd(pb), pyh = pr * sind(pl) * cosd(pb);
+    out.pluto = rev(atan2d(pyh + ys, pxh + xs) + 3.82394e-5 * d);
+    return out;
+  }
+  // 上升：本地恒星时 → 上升点黄经。lat/lon 东经为正
+  function ascendant(dt, lat, lon) {
+    const d = dayNum(dt), so = ELEM.sun(d);
+    const ut = dt.getUTCHours() + dt.getUTCMinutes() / 60 + dt.getUTCSeconds() / 3600;
+    const ramc = rev(so.M + so.w + 180 + ut * 15.04107 + lon);
+    const ecl = 23.4393 - 3.563e-7 * d;
+    return rev(atan2d(cosd(ramc), -(sind(ramc) * cosd(ecl) + Math.tan(lat * RAD) * sind(ecl))));
+  }
+
+
+  const PLANETS = [["sun", "太阳"], ["moon", "月亮"], ["mercury", "水星"], ["venus", "金星"], ["mars", "火星"],
+    ["jupiter", "木星"], ["saturn", "土星"], ["uranus", "天王星"], ["neptune", "海王星"], ["pluto", "冥王星"]];
+  const PL_ZH = {}; PLANETS.forEach(x => { PL_ZH[x[0]] = x[1]; }); PL_ZH.asc = "上升";
+  // 每颗星管哪一块（说明文字只说「管什么」，不替人下结论）
+  const PL_THEME = { sun: "自我和精神头", moon: "情绪和安全感", mercury: "说话和想法", venus: "喜欢和享受", mars: "行动和脾气",
+    jupiter: "运气和舒展", saturn: "责任和压力", uranus: "变化和意外", neptune: "想象和迷糊", pluto: "很深的执念和改变", asc: "给人的第一印象" };
+  const ASPECTS_DEG = [
+    { k: "conj", zh: "合", deg: 0, orb: 8, tone: 0, verb: "被放大了" },
+    { k: "sext", zh: "六合", deg: 60, orb: 4, tone: 1, verb: "有个顺手的机会" },
+    { k: "sq", zh: "刑", deg: 90, orb: 6, tone: -1, verb: "容易起摩擦" },
+    { k: "tri", zh: "拱", deg: 120, orb: 6, tone: 1, verb: "很顺" },
+    { k: "opp", zh: "冲", deg: 180, orb: 8, tone: -1, verb: "被两头拉扯" }
+  ];
+  // 合相本身不分好坏，看是哪两颗：温和的星合在一起偏甜，硬的星合在一起偏烈
+  const SOFT = { venus: 1, moon: 1, jupiter: 1, sun: 0.5 }, HARD = { mars: 1, saturn: 1, pluto: 1, uranus: 0.5 };
+  const lonDiff = (a, b) => { const x = Math.abs(rev(a) - rev(b)); return x > 180 ? 360 - x : x; };
+  function aspectOf(a, b, orbScale) {
+    const dd = lonDiff(a, b);
+    for (const asp of ASPECTS_DEG) { const off = Math.abs(dd - asp.deg); if (off <= asp.orb * (orbScale || 1)) return { asp: asp, off: off }; }
+    return null;
+  }
+  const signDeg = lon => ({ sign: Math.floor(rev(lon) / 30), deg: Math.floor(rev(lon) % 30) });
+
+  // 城市：经纬度 + 标准时区（夏令时不算——夏令时那几年出生的，自己把时间往前拨一小时）
+  const CITIES = [
+    ["北京", 39.90, 116.41, 8], ["上海", 31.23, 121.47, 8], ["天津", 39.13, 117.20, 8], ["重庆", 29.56, 106.55, 8], ["广州", 23.13, 113.26, 8],
+    ["深圳", 22.54, 114.06, 8], ["杭州", 30.27, 120.15, 8], ["南京", 32.06, 118.80, 8], ["苏州", 31.30, 120.59, 8], ["武汉", 30.59, 114.31, 8],
+    ["成都", 30.57, 104.07, 8], ["西安", 34.34, 108.94, 8], ["长沙", 28.23, 112.94, 8], ["郑州", 34.75, 113.63, 8], ["济南", 36.65, 117.12, 8],
+    ["青岛", 36.07, 120.38, 8], ["沈阳", 41.80, 123.43, 8], ["大连", 38.91, 121.61, 8], ["哈尔滨", 45.80, 126.53, 8], ["长春", 43.82, 125.32, 8],
+    ["石家庄", 38.04, 114.51, 8], ["太原", 37.87, 112.55, 8], ["呼和浩特", 40.84, 111.75, 8], ["合肥", 31.82, 117.23, 8], ["福州", 26.07, 119.30, 8],
+    ["厦门", 24.48, 118.09, 8], ["南昌", 28.68, 115.86, 8], ["南宁", 22.82, 108.37, 8], ["海口", 20.04, 110.20, 8], ["三亚", 18.25, 109.51, 8],
+    ["贵阳", 26.65, 106.63, 8], ["昆明", 25.04, 102.71, 8], ["拉萨", 29.65, 91.13, 8], ["兰州", 36.06, 103.83, 8], ["西宁", 36.62, 101.78, 8],
+    ["银川", 38.49, 106.23, 8], ["乌鲁木齐", 43.83, 87.62, 8], ["宁波", 29.87, 121.55, 8], ["无锡", 31.49, 120.31, 8], ["温州", 28.00, 120.67, 8],
+    ["佛山", 23.02, 113.12, 8], ["东莞", 23.02, 113.75, 8], ["珠海", 22.27, 113.58, 8], ["洛阳", 34.62, 112.45, 8], ["扬州", 32.39, 119.41, 8],
+    ["桂林", 25.27, 110.29, 8], ["香港", 22.32, 114.17, 8], ["澳门", 22.20, 113.54, 8], ["台北", 25.03, 121.57, 8], ["高雄", 22.63, 120.30, 8],
+    ["东京", 35.68, 139.69, 9], ["大阪", 34.69, 135.50, 9], ["首尔", 37.57, 126.98, 9], ["釜山", 35.18, 129.08, 9], ["新加坡", 1.35, 103.82, 8],
+    ["吉隆坡", 3.14, 101.69, 8], ["曼谷", 13.76, 100.50, 7], ["河内", 21.03, 105.85, 7], ["马尼拉", 14.60, 120.98, 8], ["雅加达", -6.21, 106.85, 7],
+    ["新德里", 28.61, 77.21, 5.5], ["迪拜", 25.20, 55.27, 4], ["莫斯科", 55.76, 37.62, 3], ["伊斯坦布尔", 41.01, 28.98, 3], ["开罗", 30.04, 31.24, 2],
+    ["伦敦", 51.51, -0.13, 0], ["巴黎", 48.86, 2.35, 1], ["柏林", 52.52, 13.40, 1], ["罗马", 41.90, 12.50, 1], ["马德里", 40.42, -3.70, 1],
+    ["阿姆斯特丹", 52.37, 4.90, 1], ["维也纳", 48.21, 16.37, 1], ["纽约", 40.71, -74.01, -5], ["波士顿", 42.36, -71.06, -5], ["多伦多", 43.65, -79.38, -5],
+    ["芝加哥", 41.88, -87.63, -6], ["洛杉矶", 34.05, -118.24, -8], ["旧金山", 37.77, -122.42, -8], ["西雅图", 47.61, -122.33, -8], ["温哥华", 49.28, -123.12, -8],
+    ["悉尼", -33.87, 151.21, 10], ["墨尔本", -37.81, 144.96, 10], ["奥克兰", -36.85, 174.76, 12]
+  ];
+  const BIRTH_KEY = "x_astro_birth";
+  function loadBirth() { try { const v = loadJSON(BIRTH_KEY, {}); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } }
+  function saveBirth(all) { saveJSON(BIRTH_KEY, all); return all; }
+
+  // 公历出生日期（要有年份）。农历带年份的先换公历。没有年份就算不了星盘
+  function birthDateOf(birthday) {
+    const raw = String(birthday || "").trim();
+    if (!raw) return null;
+    const lu = typeof parseLunarBirthday === "function" ? parseLunarBirthday(raw) : null;
+    if (lu) { if (!lu.y) return null; const d = lunarToSolar(lu.y, lu.m, lu.d, lu.isLeap); return d ? { y: d.getFullYear(), mo: d.getMonth() + 1, d: d.getDate() } : null; }
+    const ym = raw.match(/(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/);
+    return ym ? { y: +ym[1], mo: +ym[2], d: +ym[3] } : null;
+  }
+  // 星盘：有年份才算；有城市用城市时区，没城市按东八区；没时间按当地正午算，月亮会标「可能差一点」，上升不算
+  function natalChart(birthday, info) {
+    const bd = birthDateOf(birthday);
+    if (!bd || bd.y < 1901 || bd.y > 2099) return null;
+    info = info || {};
+    const tm = /^(\d{1,2}):(\d{2})$/.exec(String(info.time || ""));
+    const tz = isFinite(info.tz) ? +info.tz : 8;
+    const hh = tm ? +tm[1] : 12, mm = tm ? +tm[2] : 0;
+    const utc = new Date(Date.UTC(bd.y, bd.mo - 1, bd.d, hh, mm) - tz * 3600e3);
+    const lon = planetLongitudes(utc);
+    const hasPlace = isFinite(info.lat) && isFinite(info.lon);
+    const chart = { lon: lon, hasTime: !!tm, hasPlace: hasPlace };
+    if (tm && hasPlace) chart.lon = Object.assign({}, lon, { asc: ascendant(utc, +info.lat, +info.lon) });
+    // 没时间时月亮一天走十二三度：离星座边界不到七度就可能换宫
+    if (!tm) { const m = rev(lon.moon) % 30; chart.moonUnsure = m < 7 || m > 23; }
+    return chart;
+  }
+  const KEYS_FOR = chart => PLANETS.map(x => x[0]).concat(chart && chart.lon.asc != null ? ["asc"] : []).filter(k => !(k === "moon" && chart.moonUnsure));
+  const PAIR_WEIGHT = k => ({ sun: 1.4, moon: 1.4, venus: 1.5, mars: 1.3, asc: 1.2, mercury: 1, jupiter: 0.9, saturn: 1 })[k] || 0.5;
+  // 合盘：两张盘之间所有行星的相位。分数＝好相位加、硬相位减，按星的分量和合得多紧加权
+  function synastry(ca, cb) {
+    if (!ca || !cb) return null;
+    const list = [];
+    KEYS_FOR(ca).forEach(a => KEYS_FOR(cb).forEach(b => {
+      const hit = aspectOf(ca.lon[a], cb.lon[b]);
+      if (!hit) return;
+      let tone = hit.asp.tone;
+      if (hit.asp.k === "conj") tone = ((SOFT[a] || 0) + (SOFT[b] || 0) - (HARD[a] || 0) - (HARD[b] || 0)) > 0 ? 1 : ((HARD[a] || 0) + (HARD[b] || 0) > 0 ? -0.5 : 0.5);
+      const w = PAIR_WEIGHT(a) * PAIR_WEIGHT(b) * (1 - hit.off / (hit.asp.orb + 1));
+      list.push({ a: a, b: b, asp: hit.asp, off: hit.off, tone: tone, w: w });
+    }));
+    list.sort((x, y) => y.w - x.w);
+    const sum = list.reduce((t, x) => t + x.tone * x.w, 0);
+    const heat = list.reduce((t, x) => t + x.w, 0);
+    const score = Math.max(32, Math.min(98, Math.round(60 + sum * 4.2)));
+    return { score: score, list: list, heat: heat };
+  }
+  // 行运：今天天上的星 对 本命盘。只取合得紧的（月亮放宽一点），按分量排
+  function transits(chart, when) {
+    if (!chart) return null;
+    const now = planetLongitudes(when || new Date());
+    const hits = [];
+    PLANETS.map(x => x[0]).forEach(t => KEYS_FOR(chart).forEach(n => {
+      const hit = aspectOf(now[t], chart.lon[n], t === "moon" ? 0.7 : 0.4);
+      if (!hit) return;
+      const slow = { jupiter: 1.2, saturn: 1.3, uranus: 1.1, neptune: 1, pluto: 1.1 }[t] || 1;
+      hits.push({ t: t, n: n, asp: hit.asp, off: hit.off, w: PAIR_WEIGHT(n) * slow * (1 - hit.off / (hit.asp.orb + 1)) });
+    }));
+    hits.sort((x, y) => y.w - x.w);
+    // 几颗星：每一块看管那一块的星今天挨了什么相位
+    const area = (keys) => {
+      const sc = hits.filter(x => keys.indexOf(x.t) >= 0 || keys.indexOf(x.n) >= 0).reduce((t, x) => t + (x.asp.tone || (SOFT[x.t] ? 0.6 : HARD[x.t] ? -0.6 : 0.2)) * x.w, 0);
+      return Math.max(1, Math.min(5, Math.round(3 + sc * 1.2)));
+    };
+    const love = area(["venus", "moon"]), work = area(["sun", "mercury", "mars", "saturn"]), money = area(["jupiter", "venus"]);
+    return { hits: hits.slice(0, 5), love: love, work: work, money: money, all: Math.max(1, Math.min(5, Math.round((love + work + money) / 3))) };
+  }
+  const transitLine = x => "行运" + PL_ZH[x.t] + x.asp.zh + "你的" + PL_ZH[x.n] + "：" + PL_THEME[x.n] + "这块" + x.asp.verb;
+  const synLine = (x, A, B) => A + "的" + PL_ZH[x.a] + " " + x.asp.zh + " " + B + "的" + PL_ZH[x.b];
+
   // ── 存 ────────────────────────────────────────────────────
   // x_astro_notes：TA的点评。{ "<种类>|<日期或配对>|<谁说的>": { text, ts } }，只留最近 120 条。
   const NOTE_KEY = "x_astro_notes";
@@ -225,6 +425,50 @@
       sign >= 0 ? h("path", { d: sparkle(C, C, 46), fill: S.tint, opacity: 0.12 }) : null);
   }
 
+  // 出生信息：整页（no-half-sheet），时间＋城市；城市不在列表里的自己填经纬度和时区
+  function BirthPage({ S, person, value, onBack, onSave }) {
+    const [time, setTime] = useState(value.time || "");
+    const [q, setQ] = useState("");
+    const [city, setCity] = useState(value.city ? { name: value.city, lat: value.lat, lon: value.lon, tz: value.tz } : null);
+    const [own, setOwn] = useState(!!(value.city && !CITIES.some(c => c[0] === value.city)));
+    const [lat, setLat] = useState(own && value.lat != null ? String(value.lat) : "");
+    const [lon, setLon] = useState(own && value.lon != null ? String(value.lon) : "");
+    const [tz, setTz] = useState(own && value.tz != null ? String(value.tz) : "8");
+    const list = CITIES.filter(c => !q.trim() || c[0].indexOf(q.trim()) >= 0);
+    const inSt = { width: "100%", outline: "none", padding: "10px 0", fontFamily: F_BODY, fontSize: 15, background: "transparent", color: S.ink, border: "none", borderBottom: "1px solid " + S.line, colorScheme: "dark" };
+    const label = tx => h("div", { className: "flex items-center", style: { gap: 7, margin: "18px 0 4px" } }, h(Spark, { size: 9, color: S.tint }), h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, letterSpacing: ".18em" } }, tx));
+    const save = () => {
+      const out = {};
+      if (/^\d{1,2}:\d{2}$/.test(time)) out.time = time;
+      if (own) { const a = parseFloat(lat), b = parseFloat(lon), z = parseFloat(tz); if (isFinite(a) && isFinite(b)) Object.assign(out, { city: "自定", lat: a, lon: b, tz: isFinite(z) ? z : 8 }); }
+      else if (city) Object.assign(out, { city: city.name, lat: city.lat, lon: city.lon, tz: city.tz });
+      onSave(Object.keys(out).length ? out : null);
+    };
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
+      h(Head, { zh: "出生信息", sub: person.name, onBack: onBack, ink: S.ink, bg: "transparent", noLine: true,
+        right: h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 14, color: S.tint, background: "transparent", border: "none", minHeight: 40 } }, "存") }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 20px 28px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.7, marginTop: 6 } }, "只存在星测里，不改档案。日期还是用档案里那个生日（要带年份）。"),
+        label("几点出生"),
+        h("input", { type: "time", value: time, onChange: e => setTime(e.target.value), style: inSt }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 4 } }, "不知道就空着：按正午算，没有上升，月亮可能差一点。"),
+        label("在哪儿出生"),
+        own ? h("div", null,
+          h("input", { value: lat, onChange: e => setLat(e.target.value), placeholder: "纬度（北纬为正，比如 39.9）", inputMode: "decimal", style: inSt }),
+          h("input", { value: lon, onChange: e => setLon(e.target.value), placeholder: "经度（东经为正，比如 116.4）", inputMode: "decimal", style: inSt }),
+          h("input", { value: tz, onChange: e => setTz(e.target.value), placeholder: "时区（东八区写 8）", inputMode: "decimal", style: inSt }))
+          : h("div", null,
+            h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: city ? "已选：" + city.name + "（输入换一个）" : "搜城市", style: inSt }),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 8 } },
+              list.map(c => { const on = city && city.name === c[0]; return h("button", { key: c[0], onClick: () => setCity({ name: c[0], lat: c[1], lon: c[2], tz: c[3] }), className: "active:opacity-70",
+                style: { display: "flex", alignItems: "center", gap: 4, minHeight: 34, background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 13.5, color: on ? S.ink : S.sub, fontWeight: on ? 600 : 400 } },
+                on ? h(Spark, { size: 8, color: S.tint }) : null, c[0]); }))),
+        h("button", { onClick: () => setOwn(!own), className: "active:opacity-70", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "none", borderBottom: "1px dotted " + S.tint, padding: "6px 0 1px" } },
+          own ? "从城市列表里选" : "列表里没有 · 自己填经纬度"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 10, lineHeight: 1.7 } }, "夏令时没算：那几年夏天出生的，把时间往前拨一小时再填。古代、架空的角色挑一个最接近的城市就行。"),
+        value && (value.time || value.city) ? h("button", { onClick: () => onSave(null), className: "active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 12.5, color: S.fog, background: "transparent", border: "none" } }, "清掉这份出生信息") : null));
+  }
+
   function AstroApp(props) {
     const S = sky();
     const t = useTheme();
@@ -242,6 +486,16 @@
     const [pa, setPa] = useState("me");
     const [pb, setPb] = useState(chars[0] ? chars[0].id : "me");
     const [commenter, setCommenter] = useState(chars[0] ? chars[0].id : "");
+    // 出生时间、城市：只存在星测自己这儿（x_astro_birth），不改档案（她 2026-10-03：「不能就在星测里面设置城市啥的吗」）
+    const [birth, setBirth] = useState(loadBirth);
+    const [editing, setEditing] = useState("");
+    const chartOf = p => p ? natalChart(p.birthday, birth[p.id]) : null;
+    const birthLink = p => {
+      const b = birth[p.id];
+      const label = b && (b.time || b.city) ? [b.time, b.city].filter(Boolean).join(" · ") : "填出生时间和城市";
+      return h("button", { onClick: () => setEditing(p.id), className: "active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 11, color: b ? S.sub : S.tint, background: "transparent", border: "none", borderBottom: "1px dotted " + (b ? S.line : S.tint), padding: "6px 0 1px", minHeight: 30 } }, label);
+    };
 
     const missing = (p) => h("button", { onClick: () => p.char ? props.onEditChar && props.onEditChar(p.char) : props.onEditProfile && props.onEditProfile(),
       className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "none", borderBottom: "1px dashed " + S.tint, padding: "6px 0 2px", marginTop: 4, minHeight: 32 } },
@@ -289,7 +543,20 @@
 
     // ---- 今日 ----
     const meInfo = birthInfo(profile.birthday);
-    const day = meInfo && meInfo.sign >= 0 ? daily(meInfo.sign, today) : null;
+    const day0 = meInfo && meInfo.sign >= 0 ? daily(meInfo.sign, today) : null;
+    // 有星盘就按行运算几颗星和那一句；幸运色、幸运数字照旧按日子（那两样本来就没有天文上的说法）
+    const meChart = chartOf(people[0]);
+    const tr = day0 && meChart ? transits(meChart, new Date()) : null;
+    const day = !day0 ? null : !tr ? day0 : Object.assign({}, day0, { all: tr.all, love: tr.love, work: tr.work, money: tr.money,
+      line: tr.hits.length ? transitLine(tr.hits[0]) + "。" : "今天天上没有哪颗星贴近你的星盘，平平稳稳的一天。" });
+    const chartRows = (chart) => h("div", { style: { display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: "4px 14px", fontFamily: F_BODY, fontSize: 12.5 } },
+      PLANETS.map(x => x[0]).concat(chart.lon.asc != null ? ["asc"] : []).map(k => {
+        const sd = signDeg(chart.lon[k]);
+        return h("div", { key: k, className: "flex justify-between", style: { padding: "5px 0", borderBottom: "1px solid " + S.line } },
+          h("span", { style: { color: S.sub } }, PL_ZH[k]),
+          h("span", { style: { color: S.ink } }, SIGNS[sd.sign][0] + " " + sd.deg + "°" + (k === "moon" && chart.moonUnsure ? "？" : "")));
+      }));
+    const chartNote = chart => !chart.hasPlace ? "没填出生城市，按东八区算；没有上升。" : !chart.hasTime ? "没填出生时间，按当天正午算：没有上升，月亮可能差一点。" : "";
     const todayView = h("div", { className: "flex flex-col" },
       h(ZodiacWheel, { S: S, sign: meInfo ? meInfo.sign : -1 }),
       h(Panel, { S: S, title: "今日" },
@@ -299,6 +566,9 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: S.ink } }, signName(meInfo.sign) + (meInfo.signApprox ? "（约）" : "")),
             h(Stars, { n: day.all, color: S.tint })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: S.ink, lineHeight: 1.7, marginTop: 8 } }, day.line),
+          tr && tr.hits.length > 1 ? h("div", { style: { marginTop: 8 } }, tr.hits.slice(1, 4).map((x, i) => h("div", { key: i, className: "flex items-center", style: { gap: 7, fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.8 } },
+            h(Spark, { size: 7, color: x.asp.tone < 0 ? S.accent : S.tint, op: 0.7 }), transitLine(x)))) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, tr ? "按今天天上的行星和你的星盘算" : "只按星座和日期算 · 填上带年份的生日和出生信息会按行运算"),
           h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 12, fontFamily: F_BODY, fontSize: 12.5, color: S.sub, alignItems: "center" } },
             "爱情", h(Stars, { n: day.love, color: S.accent }), "事业", h(Stars, { n: day.work, color: S.accent }), "财运", h(Stars, { n: day.money, color: S.accent })),
           h("div", { className: "flex gap-3", style: { marginTop: 14 } },
@@ -307,6 +577,10 @@
               h("div", null, h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog } }, "幸运色"), h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: S.ink } }, day.color.name))),
             h("div", { style: { width: 92, padding: "6px 0 6px 14px", borderLeft: "1px solid " + S.line } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog } }, "幸运数字"), h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: S.ink } }, day.number))))),
+      h(Panel, { S: S, title: "你的星盘" },
+        meChart ? h("div", null, chartRows(meChart), chartNote(meChart) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, chartNote(meChart)) : null)
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7 } }, birthDateOf(profile.birthday) ? "" : "生日要带上年份（比如 1999-05-08）才排得出星盘。"),
+        h("div", null, birthLink(people[0]))),
       day && chars.length ? h(Panel, { S: S, title: "让谁看看" },
         pickRow(people.filter(p => p.char), commenter, setCommenter, ""),
         (() => {
@@ -316,6 +590,7 @@
           const key = "day|" + today + "|" + c.id;
           const ins = meName + "把她今天的星座运势拿给你看（这是按星座和日期算出来的，不是你编的）：\n"
             + "她是" + signName(meInfo.sign) + "；综合 " + day.all + " 星，爱情 " + day.love + "、事业 " + day.work + "、财运 " + day.money + " 星；幸运色" + day.color.name + "，幸运数字 " + day.number + "；那一句是「" + day.line + "」。\n"
+            + (tr && tr.hits.length ? "今天的行运：" + tr.hits.slice(0, 4).map(transitLine).join("；") + "。\n" : "")
             + (ci && ci.sign >= 0 ? "你是" + signName(ci.sign) + (m ? "，你俩是「" + m.aspect + "」，配对指数 " + m.score + "。" : "。") : "你的生日她还不知道，所以你的星座在这儿没算。") + "\n"
             + "看完说说你的想法。信不信星座、当不当真、顺着哪一点说，全由你这个人决定。";
           return h("div", null, noteBox(key, c), askBtn(key, c, ins));
@@ -326,6 +601,7 @@
     const ai = birthInfo(A.birthday), bi = birthInfo(B.birthday);
     const sm = ai && bi ? signMatch(ai.sign, bi.sign) : null;
     const sr = ai && bi ? shukuRelation(ai.shuku, bi.shuku) : null;
+    const syn = synastry(chartOf(A), chartOf(B));
     const pairChar = A.char || B.char;          // 谁来点评：左边是角色就左边，否则右边那位
     const pairOther = pairChar === A.char ? B : A;
     const pairKey = "pair|" + [A.id, B.id].join("~") + "|" + (pairChar ? pairChar.id : "");
@@ -335,6 +611,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.sub, marginTop: 2 } },
         info && info.sign >= 0 ? signName(info.sign) + (info.signApprox ? "（约）" : "") : "星座未知",
         " · ", info && info.shuku >= 0 ? SHUKU[info.shuku] + "宿" : "宿未知"),
+      info ? h("div", null, birthLink(p)) : null,
       !info ? missing(p) : (info.shukuNeedsYear ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 4 } }, "生日带上年份才算得出宿") : null));
     const pairView = h("div", { className: "flex flex-col" },
       h(Panel, { S: S, title: "挑两个人" },
@@ -343,9 +620,21 @@
         pa === pb ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.fog } }, "两边选了同一个人——换一个再看") : null),
       pa === pb ? null : h(Panel, { S: S, title: "两颗星之间" },
         h("div", { className: "flex items-start" }, whoLine(A, ai),
-          h("div", { style: { alignSelf: "center", fontFamily: F_DISPLAY, fontSize: 26, color: S.tint, padding: "0 4px" } }, sm ? sm.score : "?"),
+          h("div", { style: { alignSelf: "center", textAlign: "center", padding: "0 4px" } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 26, color: S.tint } }, syn ? syn.score : sm ? sm.score : "?"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: S.fog } }, syn ? "合盘" : "星座")),
           whoLine(B, bi)),
-        h("div", { "data-wk": "astrosign", style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + S.line } },
+        // 合盘：两张星盘之间合得最紧的那几组（她要的「更严谨」那一层）
+        h("div", { "data-wk": "astrosyn", style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + S.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, "合盘（两张星盘之间的相位）"),
+          syn ? h("div", { style: { marginTop: 4 } },
+            syn.list.length ? syn.list.slice(0, 6).map((x, i) => h("div", { key: i, className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: 13, color: S.ink, lineHeight: 1.9 } },
+              h(Spark, { size: 8, color: x.tone < 0 ? S.accent : S.tint, op: 0.85 }),
+              h("span", null, synLine(x, A.name, B.name)),
+              h("span", { style: { color: S.fog, fontSize: 11 } }, x.tone > 0 ? "顺" : x.tone < 0 ? "磨" : ""))) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "两张盘之间没什么贴得近的相位——不怎么互相牵动。"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, "金色是顺的，粉色是磨的；" + ([chartOf(A), chartOf(B)].some(c => !c.hasTime) ? "有人没填出生时间，月亮和上升没全算进去。" : "两个人的出生时间都在。")))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, marginTop: 4, lineHeight: 1.7 } }, "两个人都要有带年份的生日才合得了盘；再填上出生时间和城市会更准。")),
+        h("div", { "data-wk": "astrosign", style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed " + S.line } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, "星座配对"),
           sm ? h("div", null,
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: S.ink, marginTop: 2 } }, sm.aspect + " · " + sm.score),
@@ -358,15 +647,18 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginTop: 2 } }, sr.pair === "命" ? "同一个宿" : A.name + " 是 " + B.name + " 的「" + sr.theirs + "」，" + B.name + " 是 " + A.name + " 的「" + sr.mine + "」"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.7, marginTop: 4 } }, sr.note))
             : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, marginTop: 4 } }, "两个人的本命宿都算得出来才能看")),
-        pairChar && (sm || sr) ? (() => {
+        pairChar && (sm || sr || syn) ? (() => {
           const ins = "这是按生日算出来的「你」和「" + pairOther.name + "」的配对（不是你编的）：\n"
             + (sm ? "星座：你是" + signName((pairChar === A.char ? ai : bi).sign) + "，" + pairOther.name + "是" + signName((pairChar === A.char ? bi : ai).sign) + "，「" + sm.aspect + "」，配对指数 " + sm.score + "。\n" : "")
             + (sr ? "宿曜：" + (sr.pair === "命" ? "你俩同一个宿（命命）" : "你俩是「" + sr.pair + "」" + (sr.distance ? "（" + sr.distance + "）" : "")) + "。\n" : "")
+            + (syn && syn.list.length ? "合盘（" + syn.score + "）里最紧的几组：" + syn.list.slice(0, 5).map(x => synLine(x, pairChar === A.char ? "你" : A.name, pairChar === B.char ? "你" : B.name)).join("；") + "。\n" : "")
             + (pairOther.id === "me" ? meName + "把这个拿给你看。" : meName + "把你和" + pairOther.name + "的这份配对拿给你看。") + "\n"
             + "说说你怎么看。当真不当真、顺着哪一点说、要不要反驳，全由你这个人和你们的关系决定。";
           return h("div", null, noteBox(pairKey, pairChar), askBtn(pairKey, pairChar, ins));
         })() : null));
 
+    if (editing) return h(BirthPage, { S: S, person: byId(editing), value: birth[editing] || {}, onBack: () => setEditing(""),
+      onSave: v => { const all = Object.assign({}, loadBirth()); if (v) all[editing] = v; else delete all[editing]; setBirth(saveBirth(all)); setEditing(""); } });
     const tabs = [["today", "今日运势"], ["pair", "配对"]];
     return h("div", { "data-wk": "app", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
       h(Head, { zh: "星测", onBack: props.onBack, ink: S.ink, bg: "transparent", noLine: true }),
@@ -377,7 +669,8 @@
           "按生日算的，图个乐。让 TA 看看才会调用一次模型。")));
   }
 
-  g.Astro = { signOf, signMatch, shukuOf, shukuRelation, birthInfo, daily, dayKeyOf, SIGNS, SHUKU, SHUKU_POS };
+  g.Astro = { signOf, signMatch, shukuOf, shukuRelation, birthInfo, daily, dayKeyOf, SIGNS, SHUKU, SHUKU_POS,
+    planetLongitudes, ascendant, natalChart, synastry, transits, birthDateOf, CITIES };
   g.AstroApp = AstroApp;
   g.GAstro = function (p) {
     return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 5.5l1.3 3.9 4.1.1-3.3 2.4 1.2 3.9L12 13.5l-3.3 2.3 1.2-3.9-3.3-2.4 4.1-.1z" }));
