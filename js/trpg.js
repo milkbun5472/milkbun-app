@@ -924,7 +924,10 @@
         return { name: nm, kind: KIND.indexOf(n.kind) >= 0 ? n.kind : "野外", hook: String(n.hook || "").trim().slice(0, 60) };
       }).filter(Boolean).slice(0, MAXN);
       if (!nodes.length) nodes.push({ name: name, kind: "地标", hook: "" });
-      return { name, terrain: TERR.indexOf(r.terrain) >= 0 ? r.terrain : "平原", adj: (Array.isArray(r.adj) ? r.adj : []).map(x => String(x || "").trim()).filter(Boolean), nodes };
+      // 手动摆过的位置（0~1 的比例）和大小（0.6~1.6 倍），没摆过就是 null，照旧自动排
+      const pos = r.pos && isFinite(r.pos.x) && isFinite(r.pos.y) ? { x: Math.max(0.08, Math.min(0.92, +r.pos.x)), y: Math.max(0.08, Math.min(0.92, +r.pos.y)) } : null;
+      const size = isFinite(r.size) ? Math.max(0.6, Math.min(1.6, +r.size)) : 1;
+      return { name, terrain: TERR.indexOf(r.terrain) >= 0 ? r.terrain : "平原", adj: (Array.isArray(r.adj) ? r.adj : []).map(x => String(x || "").trim()).filter(Boolean), nodes, pos, size };
     }).filter(Boolean).slice(0, MAXR);
     // 接壤只认双方都存在的名字,并补成对称;谁都不挨的孤区随后由道路兜底接上
     const names = regions.map(r => r.name);
@@ -1011,8 +1014,11 @@
     if (!regions) return null;
     const rand = mulberry32(hashStr(seed) ^ 0x51ab);
     const centers = forceLayout(regions, rand, W, H);
+    // 她手动挪过／放大缩小过的那几块（她 2026-10-03 群友：「可以调整每块地的大小和位置」）：
+    //   随机数照旧按原顺序消耗，所以没动过的那几块形状、地点位置都跟以前一模一样
+    regions.forEach((r, i) => { if (r.pos) centers[i] = { x: r.pos.x * W, y: r.pos.y * H }; });
     const baseR = Math.min(W, H) / (regions.length <= 3 ? 3.4 : 4.2);
-    const outR = regions.map((r, i) => regionBlob(centers[i], centers.filter((_, j) => j !== i), rand, baseR));
+    const outR = regions.map((r, i) => regionBlob(centers[i], centers.filter((_, j) => j !== i), rand, baseR * (r.size || 1)));
     // 节点:围着区域中心的环带里撒,彼此至少隔 30;第一个节点就放中心(区域首府感)
     const nodes = [];
     regions.forEach((r, i) => {
@@ -1021,12 +1027,12 @@
         if (k === 0) p2 = { x: centers[i].x, y: centers[i].y };
         else {
           for (let t = 0; t < 40 && !p2; t++) {
-            const a = rand() * Math.PI * 2, rr = baseR * (0.35 + rand() * 0.45);
+            const a = rand() * Math.PI * 2, rr = baseR * (r.size || 1) * (0.35 + rand() * 0.45);
             const c = { x: centers[i].x + Math.cos(a) * rr, y: centers[i].y + Math.sin(a) * rr };
             if (c.x < 16 || c.x > W - 16 || c.y < 20 || c.y > H - 20) continue;
             if (nodes.every(x => (x.x - c.x) ** 2 + (x.y - c.y) ** 2 > 30 * 30)) p2 = c;
           }
-          if (!p2) p2 = { x: centers[i].x + (rand() - 0.5) * baseR, y: centers[i].y + (rand() - 0.5) * baseR };
+          if (!p2) p2 = { x: centers[i].x + (rand() - 0.5) * baseR * (r.size || 1), y: centers[i].y + (rand() - 0.5) * baseR * (r.size || 1) };
         }
         nodes.push({ name: nd.name, kind: nd.kind, hook: nd.hook, region: r.name, ri: i, x: Math.round(p2.x * 10) / 10, y: Math.round(p2.y * 10) / 10 });
       });
@@ -1075,7 +1081,7 @@
       link(nodes[pair[0]], nodes[pair[1]]);
       uf.union(pair[0], pair[1]);
     }
-    return { W, H, regions: regions.map((r, i) => ({ name: r.name, terrain: r.terrain, cx: Math.round(centers[i].x), cy: Math.round(centers[i].y), blob: outR[i] })), nodes, roads, edges };
+    return { W, H, regions: regions.map((r, i) => ({ name: r.name, terrain: r.terrain, cx: Math.round(centers[i].x), cy: Math.round(centers[i].y), size: r.size || 1, moved: !!r.pos, blob: outR[i] })), nodes, roads, edges };
   }
   const mapAdjacent = (edges, name) => (edges || []).reduce((out, e) => { if (e[0] === name) out.push(e[1]); else if (e[1] === name) out.push(e[0]); return out; }, []);
   const findNode = (nodes, name) => {

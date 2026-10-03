@@ -444,6 +444,7 @@ function mapSubSkin(t) {
   function WorldMap({ world, characters, status, me, busy, onPin, onRoute, onAdd, onGen, onBack, onEdit, onDelNode, onEditNode, onEditRegion }) {
     const [delAsk, setDelAsk] = useState(false);
     const [regEdit, setRegEdit] = useState(null);   // 改这个地点所在的那一块：{ name, terrain }
+    const [layoutReg, setLayoutReg] = useState(null); // 正在图上挪位置／调大小的那一块
     // 改地点：就在节点页里改（名字 / 类型 / 眼下的事）
     const [editing, setEditing] = useState(null);
     const t = useTheme();
@@ -452,7 +453,9 @@ function mapSubSkin(t) {
     const [vb, setVb] = useState(null);
     const ptr = useRef({ pts: {}, dist: 0, moved: false });
     const skel = (world.regions || []).map(function (r) {
-      return r.name + ":" + (r.nodes || []).map(function (n) { return n.name; }).join(",");
+      // 地形、挨着谁、手动位置、大小都算进来——不然改了这些图不重画（v74.636 补：上一版改「挨着谁」也栽在这儿）
+      return r.name + "/" + (r.terrain || "") + "/" + (r.adj || []).join("+") + "/" + (r.pos ? r.pos.x.toFixed(3) + "," + r.pos.y.toFixed(3) : "") + "/" + (r.size || 1)
+        + ":" + (r.nodes || []).map(function (n) { return n.name + (n.kind || ""); }).join(",");
     }).join("|");
     const built = React.useMemo(function () {
       const K = window.TrpgMap;
@@ -581,6 +584,8 @@ function mapSubSkin(t) {
                   style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 10px", borderRadius: 3, color: on2 ? "#fff" : "#3b3227", background: on2 ? "#5e7a5a" : "transparent", border: (on2 ? 2 : 1) + "px " + (on2 ? "solid" : "dashed") + " rgba(80,66,48," + (on2 ? 1 : 0.4) + ")" } }, r.name);
               }))) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7a6a54", marginTop: 6, lineHeight: 1.6 } }, "改的是整块地方：这一块里的地点都跟着它；挨着谁两头一起改，A 连着 B，B 也就连着 A。"),
+            h("button", { onClick: function () { const nm = sel.region; setRegEdit(null); setSelNode(null); setLayoutReg(nm); }, className: "active:opacity-60",
+              style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: "#3b3227", borderBottom: "1px dotted #3b3227", padding: "6px 0 1px", minHeight: 32 } }, "到图上挪位置、调大小 ›"),
             h("div", { className: "flex justify-end", style: { gap: 10, marginTop: 8 } },
               h("button", { onClick: function () { setRegEdit(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: "#7a6a54", minHeight: 36, padding: "0 6px" } }, "取消"),
               h("button", { onClick: function () { if (onEditRegion(sel.region, regEdit)) setRegEdit(null); }, className: "active:opacity-70",
@@ -640,13 +645,36 @@ function mapSubSkin(t) {
         h("button", { onClick: function () { setAdding(true); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "＋ 地点"),
         onEdit ? h("button", { onClick: onEdit, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, flexShrink: 0 } }, "···") : null),
       h("div", { className: "flex-1", style: { position: "relative", minHeight: 0, padding: "4px 12px 0" } },
+        // 挪位置、调大小（她 2026-10-03 群友）：每按一下就存、图当场跟着变；没动过的那几块照旧自动排
+        layoutReg && onEditRegion ? (function () {
+          const br = built.regions.find(function (r) { return r.name === layoutReg; });
+          if (!br) return null;
+          const W0 = built.W || 360, H0 = built.H || 620;
+          const nudge = function (dx, dy) { onEditRegion(layoutReg, { name: layoutReg, quiet: true, pos: { x: Math.max(0.08, Math.min(0.92, br.cx / W0 + dx)), y: Math.max(0.08, Math.min(0.92, br.cy / H0 + dy)) } }); };
+          const resize = function (d) { onEditRegion(layoutReg, { name: layoutReg, quiet: true, size: Math.max(0.6, Math.min(1.6, Math.round(((br.size || 1) + d) * 10) / 10)) }); };
+          const key = function (lab, fn, aria) { return h("button", { onClick: fn, "aria-label": aria || lab, className: "active:opacity-60", style: { width: 40, height: 40, borderRadius: 10, border: "1px solid rgba(80,66,48,0.4)", background: "rgba(255,255,255,0.6)", fontFamily: F_BODY, fontSize: 15, color: "#3b3227" } }, lab); };
+          return h("div", { style: Object.assign({ position: "absolute", left: 20, right: 20, bottom: 12, zIndex: 3, borderRadius: 14, padding: "10px 12px", border: "1px solid " + t.line, boxShadow: "0 6px 18px rgba(60,40,20,.18)" }, worldPaper(t)) },
+            h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#3b3227" } }, "挪「" + layoutReg + "」"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: "#7a6a54" } }, "大小 ×" + (br.size || 1).toFixed(1))),
+            h("div", { className: "flex items-center justify-between" },
+              h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3, 40px)", gap: 4 } },
+                h("span"), key("↑", function () { nudge(0, -0.04); }, "往上"), h("span"),
+                key("←", function () { nudge(-0.05, 0); }, "往左"), h("span"), key("→", function () { nudge(0.05, 0); }, "往右"),
+                h("span"), key("↓", function () { nudge(0, 0.04); }, "往下"), h("span")),
+              h("div", { className: "flex flex-col", style: { gap: 6, alignItems: "flex-end" } },
+                h("div", { className: "flex", style: { gap: 6 } }, key("－", function () { resize(-0.1); }, "缩小"), key("＋", function () { resize(0.1); }, "放大")),
+                h("div", { className: "flex", style: { gap: 10 } },
+                  h("button", { onClick: function () { onEditRegion(layoutReg, { name: layoutReg, quiet: true, pos: null, size: 1 }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: "#7a6a54", minHeight: 34 } }, "复位"),
+                  h("button", { onClick: function () { setLayoutReg(null); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: "#3b3227", borderRadius: 10, minHeight: 34, padding: "0 14px" } }, "完成")))));
+        })() : null,
         h("div", { style: { position: "absolute", right: 20, top: 14, zIndex: 2, display: "flex", flexDirection: "column", gap: 6 } },
           zoomBtn("＋", function () { setVb(function (v) { return zoomAt(v || V, 1.4); }); }),
           zoomBtn("－", function () { setVb(function (v) { return zoomAt(v || V, 1 / 1.4); }); }),
           zoomBtn("⌖", function () { setVb(null); })),
         h("svg", { viewBox: vbStr, preserveAspectRatio: "xMidYMid meet", onPointerDown: onPD, onPointerMove: onPM, onPointerUp: onPU, onPointerCancel: onPU,
           style: Object.assign({ width: "100%", height: "100%", display: "block", borderRadius: 16, border: "1px solid " + t.line, touchAction: "none" }, worldPaper(t)) },
-          built.regions.map(function (r) { return h("path", { key: "b" + r.name, d: r.blob, fill: TERR_TINT[r.terrain] || "#e3ded2", stroke: "rgba(88,72,52,0.45)", strokeWidth: 1, opacity: 0.82 }); }),
+          built.regions.map(function (r) { const on = layoutReg === r.name; return h("path", { key: "b" + r.name, d: r.blob, fill: TERR_TINT[r.terrain] || "#e3ded2", stroke: on ? "#3b3227" : "rgba(88,72,52,0.45)", strokeWidth: on ? 2.4 : 1, strokeDasharray: on ? "6 4" : null, opacity: 0.82 }); }),
           built.regions.map(function (r) {
             // 区域名压在中心那个节点上会糊成一团（首府节点就在 cx,cy）——
             // 从团块路径里抠出最高的那个点，把名字挂在上边缘

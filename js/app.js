@@ -17779,7 +17779,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 挨着谁（她 2026-10-03：「版块之间的衔接也能编辑吗」）：传了 adj 就照它改，两头一起改——A 挨着 B，B 也挨着 A
     const want = Array.isArray(patch.adj) ? patch.adj.filter(a => a && a !== oldName && a !== nm) : null;
     const regions = (w.regions || []).map(r => {
-      const base = r.name === oldName ? { ...r, name: nm, terrain: patch.terrain || r.terrain } : r;
+      let base = r.name === oldName ? { ...r, name: nm, terrain: patch.terrain || r.terrain } : r;
+      // 位置、大小（她 2026-10-03 群友：「可以调整每块地的大小和位置」）：传 pos:null / size:1 就是复位
+      if (r.name === oldName && "pos" in patch) { base = { ...base }; if (patch.pos) base.pos = { x: +patch.pos.x, y: +patch.pos.y }; else delete base.pos; }
+      if (r.name === oldName && "size" in patch) { base = { ...base }; if (patch.size && Math.abs(patch.size - 1) > 0.01) base.size = +patch.size; else delete base.size; }
       let adj = (base.adj || []).map(a => a === oldName ? nm : a);
       if (want) {
         if (r.name === oldName) adj = want.slice();
@@ -17788,7 +17791,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return { ...base, adj: adj };
     });
     saveWorlds((worldsRef.current || worlds || []).map(x => x.id !== wid ? x : { ...x, regions }));
-    toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
+    if (!patch.quiet) toast(nm !== oldName ? "改好了：「" + oldName + "」→「" + nm + "」" : "改好了");
     return nm;
   };
   const genWorldNodes = async (wid, regionName, hint, done) => {
