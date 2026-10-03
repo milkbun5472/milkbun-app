@@ -1,8 +1,8 @@
 // ============================================================
 // 健康（v74.640，她 2026-10-03：「按你说的先做健康app吧，页面简洁点方便操作但是不要没有设计感光秃秃」）
 //
-// 第一批：饮食（热量）、喝水、体重、经期（跟日历月事本【同一份】x_period）、心情、这一周。
-// 运动/步数、睡眠先不做；接手机健康数据要走快捷指令 → 云端收件箱，另起一版。
+// 饮食（热量）、喝水、运动和步数、睡眠、体重、经期（跟日历月事本【同一份】x_period）、心情、这一周。
+// 接手机健康数据要走快捷指令 → 云端收件箱，另起一版；现在步数和睡眠是她自己填的。
 //
 // 角色监督是【她自己开的开关】：开不开、谁来管、饭点会不会主动来问，都在「谁看着」那一页。
 //   · 上下文只给她点名的那几位，而且只在用得上的时候给一行事实（饭点前后、她刚记过一餐）——
@@ -28,6 +28,9 @@
     weight: [],         // [{ day, kg }]，一天一条，新记的盖旧的
     mood: {},           // { day: { v: 0-4, note } }
     symptoms: {},       // { day: ["痛经", …] }
+    sport: [],          // [{ id, day, kind, min, kcal, ts }]
+    steps: {},          // { day: 步数 }
+    sleep: {},          // { 醒来那天: { bed: "23:40", wake: "07:20", q: 0-2 } }
     goal: { kcal: 1800, water: 8, kg: null },
     watch: { on: false, ids: [], nudge: false }
   });
@@ -67,13 +70,30 @@
     ["拿铁", "一杯", 190, 10, 15, 10], ["可乐", "一罐", 140, 0, 35, 0], ["啤酒", "一罐", 150, 1.5, 13, 0]
   ].map(r => ({ name: r[0], unit: r[1], kcal: r[2], p: r[3], c: r[4], f: r[5] }));
 
+  // 运动：代谢当量（MET）。消耗 ≈ MET × 体重 × 小时；体重用她最近记的那个，没记过按 55 公斤
+  const SPORTS = [["走路", 3.5], ["快走", 4.5], ["跑步", 8], ["骑车", 6], ["游泳", 7], ["跳绳", 10], ["爬楼梯", 8],
+    ["力量训练", 5], ["瑜伽", 2.5], ["普拉提", 3], ["跳舞", 5], ["羽毛球", 5.5], ["拉伸", 2.3]];
+  const burnOf = (met, min, kg) => Math.round(met * (kg || 55) * min / 60);
+  const lastKg = d => { const w = (d.weight || []).slice().sort((a, b) => (a.day < b.day ? -1 : 1)); return w.length ? Number(w[w.length - 1].kg) : 55; };
+  // 睡了多久（分钟）：跨午夜按第二天算
+  const hm = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "")); return m ? +m[1] * 60 + +m[2] : null; };
+  // 填了几点睡几点醒就按那两个算；只有快捷指令带来的总时长（min）时用它
+  const sleepMin = r => { const a = r && hm(r.bed), b = r && hm(r.wake);
+    if (a != null && b != null) return ((b - a + 1440) % 1440) || 0;
+    return r && Number(r.min) > 0 ? Math.round(Number(r.min)) : 0; };
+  const hrs = min => Math.floor(min / 60) + " 小时" + (min % 60 ? " " + (min % 60) + " 分" : "");
+  const SLEEP_Q = ["老醒", "一般", "睡得沉"];
+
   // ── 算 ────────────────────────────────────────────────────
   const mealsOn = (d, day) => (d.meals || []).filter(m => m.day === day);
   const sum = (rows, k) => Math.round(rows.reduce((a, m) => a + (Number(m[k]) || 0) * (Number(m.qty) || 1), 0));
   function dayTotals(d, day) {
     const rows = mealsOn(d, day);
     return { kcal: sum(rows, "kcal"), p: sum(rows, "p"), c: sum(rows, "c"), f: sum(rows, "f"), n: rows.length,
-      water: Number((d.water || {})[day]) || 0, mood: (d.mood || {})[day] || null, sym: (d.symptoms || {})[day] || [] };
+      water: Number((d.water || {})[day]) || 0, mood: (d.mood || {})[day] || null, sym: (d.symptoms || {})[day] || [],
+      sportMin: (d.sport || []).filter(s => s.day === day).reduce((a, s) => a + (Number(s.min) || 0), 0),
+      burn: (d.sport || []).filter(s => s.day === day).reduce((a, s) => a + (Number(s.kcal) || 0), 0),
+      steps: Number((d.steps || {})[day]) || 0, sleep: sleepMin((d.sleep || {})[day]) };
   }
   function weekOf(d, endDay) {
     const days = [];
@@ -102,7 +122,8 @@
     const got = MEALS.slice(0, 3).map(m => mealName(m[0]) + (rows.some(r => r.meal === m[0]) ? "记了" : "没记")).join("、");
     const ate = rows.slice(-4).map(m => m.name).join("、");
     return "今天到现在记了约 " + tot.kcal + " 千卡（她给自己定的是 " + d.goal.kcal + "），" + got
-      + (ate ? "；最近记的是" + ate : "") + "；水喝了 " + tot.water + "/" + d.goal.water + " 杯。"
+      + (ate ? "；最近记的是" + ate : "") + "；水喝了 " + tot.water + "/" + d.goal.water + " 杯"
+      + (tot.sportMin ? "；今天动了 " + tot.sportMin + " 分钟" : "") + (tot.sleep ? "；昨晚睡了 " + hrs(tot.sleep) : "") + "。"
       + "这是她自己开的，让你帮着看着她吃饭喝水——管不管、怎么管，照你自己的性子和你们现在的关系来。";
   }
   // 主动来问：开了「饭点会来问」、在午饭/晚饭窗口里、那一顿还没记、今天这一顿还没问过、一天最多两次
@@ -124,6 +145,56 @@
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const keep = {}; keep[day] = (log[day] || []).concat([meal]);
     if (typeof saveJSON === "function") saveJSON(NUDGE_KEY, keep);   // 只留今天那一格，旧的自然丢掉
+  }
+
+  // ── 手机健康 → 快捷指令 → 剪贴板 → 这里 ─────────────────────────
+  // 不经过任何服务器（她 2026-10-03：「让每个人可以自己设置，不用靠我来搭服务」）：
+  //   每个人在自己 iPhone 的「快捷指令」里读健康数据，拼成下面这几行字拷到剪贴板，回来点「导入」。
+  //   网页读不到健康 App，也不能从快捷指令直接往 App 里塞（主屏上的网页和 Safari 是两份存档），剪贴板是两边都够得着的那一处。
+  const SHORTCUT_MARK = "秋秋健康";
+  const SHORTCUT_TEMPLATE = [SHORTCUT_MARK, "日期：", "步数：", "睡眠：", "活动能量：", "运动分钟：", "体重：", "喝水：", ""].join("\n");
+  const SC_KEYS = [["steps", /^(步数|步|steps?)$/i], ["sleep", /^(睡眠|睡眠小时|睡眠时长|睡觉|sleep)$/i], ["kcal", /^(活动能量|动态能量|运动消耗|消耗|active ?energy)$/i],
+    ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i]];
+  const num = s => { const m = String(s || "").replace(/[,，\s]/g, "").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
+  function scDay(v, today) {
+    const s = String(v || "").trim();
+    let m = /(\d{4})\s*[-/.年]\s*(\d{1,2})\s*[-/.月]\s*(\d{1,2})/.exec(s);
+    if (m) return m[1] + "-" + ("0" + m[2]).slice(-2) + "-" + ("0" + m[3]).slice(-2);
+    m = /(\d{1,2})\s*月\s*(\d{1,2})/.exec(s);
+    if (m) return today.slice(0, 4) + "-" + ("0" + m[1]).slice(-2) + "-" + ("0" + m[2]).slice(-2);
+    if (/昨天|yesterday/i.test(s)) return shift(today, -1);
+    return today;
+  }
+  // 认不出（没有「秋秋健康」那一行、或者一个数都没有）→ null。数字后面带单位、带千分位都行。
+  function parseShortcut(text, today) {
+    const lines = String(text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+    if (!lines.some(l => l.replace(/\s/g, "") === SHORTCUT_MARK)) return null;
+    const r = { day: today };
+    lines.forEach(l => {
+      const m = /^([^:：]+)[:：](.*)$/.exec(l); if (!m) return;
+      const k = (SC_KEYS.find(x => x[1].test(m[1].trim())) || [])[0], v = m[2].trim();
+      if (!k || !v) return;
+      if (k === "date") { r.day = scDay(v, today); return; }
+      const n = num(v); if (n == null || n < 0) return;
+      if (k === "sleep") {
+        // 快捷指令给的时长可能是小时、分钟或秒：按大小认，单位写了就照单位
+        r.sleepMin = /秒|sec/i.test(v) || n > 1440 ? Math.round(n / 60) : /分|min/i.test(v) || n > 24 ? Math.round(n) : Math.round(n * 60);
+      } else if (k === "water") r.waterMl = /升|\bl\b/i.test(v) && !/毫升|ml/i.test(v) ? n * 1000 : n;
+      else r[k] = n;
+    });
+    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl"].some(k => r[k] != null) ? r : null;
+  }
+  // 合进存档：同一天再导一次就覆盖手机那一份，她自己记的不动
+  function applyShortcut(d, r) {
+    const day = r.day, n = Object.assign({}, d);
+    if (r.steps != null) n.steps = Object.assign({}, d.steps, { [day]: Math.round(r.steps) });
+    if (r.sleepMin) n.sleep = Object.assign({}, d.sleep, { [day]: Object.assign({}, (d.sleep || {})[day] || {}, { min: r.sleepMin, src: "shortcut" }) });
+    if (r.kcal || r.min) n.sport = (d.sport || []).filter(s => s.id !== "hk-" + day)
+      .concat([{ id: "hk-" + day, day, kind: "手机记的活动", min: Math.round(r.min || 0), kcal: Math.round(r.kcal || 0), src: "shortcut", ts: Date.now() }]);
+    if (r.kg > 20 && r.kg < 300) n.weight = (d.weight || []).filter(w => w.day !== day).concat([{ day, kg: Math.round(r.kg * 10) / 10 }]);
+    if (r.waterMl) n.water = Object.assign({}, d.water, { [day]: Math.max(Number((d.water || {})[day]) || 0, Math.round(r.waterMl / 250)) });
+    n.hkAt = Date.now();
+    return n;
   }
 
   // ── 让模型估 ────────────────────────────────────────────────
@@ -187,13 +258,17 @@
         right || null),
       children);
   }
-  const btnS = (S, strong) => ({ minHeight: 40, padding: "0 16px", borderRadius: 12, border: "1px solid " + (strong ? S.accent : S.line),
-    background: strong ? S.accent : "transparent", color: strong ? S.bg : S.ink, fontFamily: F_BODY, fontSize: 13.5, fontWeight: strong ? 600 : 400 });
-  const inputS = S => ({ minHeight: 42, padding: "0 12px", borderRadius: 12, border: "1px solid " + S.line, background: A(S.bg2, "99"),
-    color: S.ink, fontFamily: F_BODY, fontSize: 14, outline: "none", width: "100%", boxSizing: "border-box" });
+  // 不画框（她 2026-10-03：「这个页面的框不好看」）：按钮是一块浅色的底，输入框是化验单上那条填写横线
+  const btnS = (S, strong) => ({ minHeight: 40, padding: "0 16px", borderRadius: 99, border: "none",
+    background: strong ? S.accent : A(S.accent, "17"), color: strong ? S.bg : S.accent, fontFamily: F_BODY, fontSize: 13.5, fontWeight: 600 });
+  const inputS = S => ({ minHeight: 42, padding: "0 2px", borderRadius: 0, border: "none", borderBottom: "1.5px solid " + A(S.ink, "2b"), background: "transparent",
+    color: S.ink, fontFamily: F_BODY, fontSize: 14.5, outline: "none", width: "100%", boxSizing: "border-box" });
+  const chipS = (S, on, col) => ({ minHeight: 36, padding: "0 13px", borderRadius: 99, border: "none",
+    background: on ? A(col || S.accent, "24") : A(S.ink, "0b"), color: on ? (col || S.accent) : S.sub, fontFamily: F_BODY, fontSize: 12.5, fontWeight: on ? 600 : 400 });
 
   // 热量环：吃了多少 / 定的多少；超了那一截换暖橘、转第二圈
-  function Ring({ S, val, goal }) {
+  function Ring({ S, val, goal: g0, burn }) {
+    const goal = g0 + (burn || 0);   // 动了多少，今天就多吃得下多少
     const R = 46, C = 2 * Math.PI * R, r = goal > 0 ? val / goal : 0;
     const left = Math.max(0, goal - val);
     return h("div", { style: { position: "relative", width: 112, height: 112, flexShrink: 0 } },
@@ -205,7 +280,8 @@
           strokeDasharray: C, strokeDashoffset: C * (1 - Math.min(1, r - 1)), transform: "rotate(-90 56 56)" }) : null),
       h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" } },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: S.ink, lineHeight: 1 } }, val),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.sub, marginTop: 4 } }, r > 1 ? "多了 " + (val - goal) : "还剩 " + left)));
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.sub, marginTop: 4 } }, r > 1 ? "多了 " + (val - goal) : "还剩 " + left),
+        burn ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: S.accent, marginTop: 2 } }, "运动 +" + burn) : null));
   }
   function MacroBar({ S, label, v, color, of }) {
     return h("div", { style: { marginBottom: 8 } },
@@ -264,9 +340,7 @@
       h(Head, { zh: "记一餐", onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "shrink-0 flex", style: { padding: "0 16px 6px", gap: 6 } },
         MEALS.map(m => h("button", { key: m[0], onClick: () => setMeal(m[0]), "aria-pressed": meal === m[0],
-          style: { flex: 1, minHeight: 40, borderRadius: 10, border: "1px solid " + (meal === m[0] ? S.accent : S.line),
-            background: meal === m[0] ? A(S.accent, "1a") : "transparent", color: meal === m[0] ? S.ink : S.sub,
-            fontFamily: F_BODY, fontSize: 13, fontWeight: meal === m[0] ? 600 : 400 } }, m[1]))),
+          style: Object.assign(chipS(S, meal === m[0]), { flex: 1, minHeight: 40, fontSize: 13 }) }, m[1]))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
         h(Section, { S, title: "说一句，让模型估" },
           h("div", { className: "flex", style: { gap: 8 } },
@@ -303,6 +377,39 @@
             h("input", { value: man.kcal, onChange: e => setMan(Object.assign({}, man, { kcal: e.target.value.replace(/[^\d]/g, "") })), placeholder: "千卡", inputMode: "numeric", style: Object.assign(inputS(S), { width: 84, flexShrink: 0 }) }),
             h("button", { disabled: !man.name.trim() || !Number(man.kcal), onClick: () => add([{ name: man.name.trim().slice(0, 30), kcal: Number(man.kcal), p: 0, c: 0, f: 0, qty: 1, src: "manual" }]),
               style: Object.assign(btnS(S, true), { flexShrink: 0, opacity: !man.name.trim() || !Number(man.kcal) ? 0.5 : 1 }) }, "记下")))));
+  }
+
+  // ── 从手机健康导入（整页）：怎么搭快捷指令 + 剪贴板读不到时手动粘 ──────────
+  function ImportPage({ S, onImport, toast, onBack }) {
+    const [txt, setTxt] = useState("");
+    const step = (n, title, body) => h("div", { className: "flex", style: { gap: 12, padding: "10px 0" } },
+      h("span", { style: { width: 24, height: 24, borderRadius: 99, background: A(S.accent, "1c"), color: S.accent, fontFamily: F_BODY, fontSize: 12.5, fontWeight: 700,
+        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } }, n),
+      h("div", { style: { flex: 1, fontFamily: F_BODY } },
+        h("div", { style: { fontSize: 14.5, color: S.ink, fontWeight: 600 } }, title),
+        h("div", { style: { fontSize: 12.5, color: S.sub, marginTop: 4, lineHeight: 1.7, whiteSpace: "pre-wrap" } }, body)));
+    const tryPaste = () => { if (!onImport(txt)) toast && toast("没认出来：第一行要是「" + SHORTCUT_MARK + "」，后面每行「名字：数」"); };
+    return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: GRID(S.ink), backgroundSize: "22px 22px" } },
+      h(Head, { zh: "从手机健康导入", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 16px 28px" } },
+        h(Section, { S, title: "这是怎么走的", wk: "healthimport" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.75 } },
+            "网页读不到 iPhone 的健康 App，所以借你手机里的「快捷指令」：它把今天的步数、睡眠、活动能量、体重、喝水抄成几行字放进剪贴板，你回到这里点「导入」。整个过程不经过任何服务器，每个人在自己手机上搭一次就行，以后一点就跑。")),
+        h(Section, { S, title: "搭一次快捷指令（iPhone）" },
+          step(1, "新建快捷指令", "打开「快捷指令」App →「＋」。名字随便起，比如「秋秋健康」。"),
+          step(2, "每样数据加一组「查找健康样本」", "搜索动作「查找健康样本」，类型选「步数」，条件设「开始日期 是 今天」。\n再加一个「计算统计数据」（或「获取…的总和」），统计「总和」。\n睡眠同理：类型选「睡眠分析」，开始日期选「过去 1 天」，统计时长的总和。活动能量、锻炼分钟、体重、水也照这样；不想要的就不加。"),
+          step(3, "加一个「文本」动作，贴进下面这个模板", "点下面的「复制模板」，粘进「文本」动作里，再把每行冒号后面换成上一步算出来的那个变量（长按冒号后面 → 选变量）。\n日期那行可以空着，空着就算今天；没加的那几行也空着就行。"),
+          h("div", { style: { margin: "4px 0 6px 36px", padding: "10px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre-wrap", lineHeight: 1.7 } }, SHORTCUT_TEMPLATE.trim()),
+          h("div", { style: { marginLeft: 36 } },
+            h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(SHORTCUT_TEMPLATE); toast && toast(ok ? "模板已复制" : "没复制上，长按上面那段自己复制"); }, style: btnS(S) }, "复制模板")),
+          step(4, "最后加「拷贝到剪贴板」，再加「打开 App」", "「拷贝到剪贴板」拷的是上面那个文本；「打开 App」选秋秋机（用浏览器的就选 Safari）。"),
+          step(5, "回到这里点「导入」", "健康页「今天」最上面那行的「导入」。第一次 iPhone 会问能不能粘贴，点允许。\n想每天自动跑：快捷指令 →「自动化」→「特定时间」，比如每晚十点跑它，第二天打开点一下就进来了。")),
+        h(Section, { S, title: "剪贴板读不到的话，贴在这儿" },
+          h("textarea", { value: txt, onChange: e => setTxt(e.target.value), rows: 7, placeholder: SHORTCUT_TEMPLATE.trim(),
+            style: Object.assign(inputS(S), { minHeight: 150, padding: "8px 2px", resize: "none", lineHeight: 1.6 }) }),
+          h("button", { onClick: tryPaste, disabled: !txt.trim(), style: Object.assign(btnS(S, true), { width: "100%", marginTop: 12, opacity: txt.trim() ? 1 : 0.5 }) }, "导入这一段")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, lineHeight: 1.6, textAlign: "center" } },
+          "同一天再导一次，会换掉上次手机导进来的那份；你自己手记的不动。")));
   }
 
   // ── 谁看着（整页）────────────────────────────────────────────
@@ -355,6 +462,7 @@
     const [tab, setTab] = useState("today");
     const [page, setPage] = useState(null);          // { kind: "add", meal } | { kind: "watch" }
     const [kg, setKg] = useState("");
+    const [sp, setSp] = useState(null), [spMin, setSpMin] = useState(30), [stepIn, setStepIn] = useState("");
     const [week, setWeekNote] = useState(null), [weekBusy, setWeekBusy] = useState(false);
     const today = dayOf();
     const patch = p => setD(prev => save(Object.assign({}, prev, typeof p === "function" ? p(prev) : p)));
@@ -365,19 +473,47 @@
     if (page && page.kind === "add") return h(AddMeal, { S, meal0: page.meal, api, toast: props.toast, onBack: () => setPage(null),
       onAdd: rows => patch(prev => ({ meals: (prev.meals || []).concat(rows.map((r, i) => ({ id: "m" + Date.now().toString(36) + i, day: today, ts: Date.now(),
         meal: r.meal, name: r.name, kcal: r.kcal, p: r.p || 0, c: r.c || 0, f: r.f || 0, qty: r.qty || 1, src: r.src }))) })) });
+    // 导入：认得出就合进存档、回到今天；认不出返回 false，由调用的那一处决定怎么提示
+    const importText = text => {
+      const r = parseShortcut(text, today);
+      if (!r) return false;
+      patch(prev => applyShortcut(prev, r));
+      const bits = [r.steps != null ? r.steps + " 步" : "", r.sleepMin ? "睡了 " + hrs(r.sleepMin) : "", r.kcal ? "活动 " + Math.round(r.kcal) + " 千卡" : "", r.kg ? r.kg + " 公斤" : ""].filter(Boolean);
+      props.toast && props.toast((r.day === today ? "" : r.day + " · ") + "导进来了：" + (bits.join("，") || "已更新"));
+      setPage(null);
+      return true;
+    };
+    const importClip = async () => {
+      let text = "";
+      try { if (navigator.clipboard && navigator.clipboard.readText) text = await navigator.clipboard.readText(); } catch (e) {}
+      if (!importText(text)) { setPage({ kind: "import" }); props.toast && props.toast(text ? "剪贴板里不是快捷指令那段，可以在这页贴进来" : "读不到剪贴板，可以在这页贴进来"); }
+    };
+    if (page && page.kind === "import") return h(ImportPage, { S, onImport: importText, toast: props.toast, onBack: () => setPage(null) });
     if (page && page.kind === "watch") return h(WatchPage, { S, d, chars, onPatch: patch, onBack: () => setPage(null) });
 
     const delMeal = id => patch(prev => ({ meals: prev.meals.filter(m => m.id !== id) }));
     const setWater = n => patch(prev => ({ water: Object.assign({}, prev.water, { [today]: n }) }));
     const setMood = v => patch(prev => ({ mood: Object.assign({}, prev.mood, { [today]: Object.assign({}, prev.mood[today] || {}, { v }) }) }));
     const toggleSym = s => patch(prev => { const cur = prev.symptoms[today] || []; return { symptoms: Object.assign({}, prev.symptoms, { [today]: cur.includes(s) ? cur.filter(x => x !== s) : cur.concat([s]) }) }; });
+    const addSport = () => { if (!sp) return; const kc = burnOf(sp[1], spMin, lastKg(d));
+      patch(prev => ({ sport: (prev.sport || []).concat([{ id: "s" + Date.now().toString(36), day: today, kind: sp[0], min: spMin, kcal: kc, ts: Date.now() }]) })); setSp(null); setSpMin(30); };
+    const delSport = id => patch(prev => ({ sport: (prev.sport || []).filter(s => s.id !== id) }));
+    const saveSteps = () => { const v = parseInt(stepIn, 10); if (!(v >= 0)) return; patch(prev => ({ steps: Object.assign({}, prev.steps, { [today]: v }) })); setStepIn(""); };
+    const sl = (d.sleep || {})[today] || {};
+    const setSleep = p2 => patch(prev => ({ sleep: Object.assign({}, prev.sleep, { [today]: Object.assign({}, (prev.sleep || {})[today] || {}, p2) }) }));
     const saveKg = () => { const v = Number(kg); if (!(v > 20 && v < 300)) return; patch(prev => ({ weight: (prev.weight || []).filter(w => w.day !== today).concat([{ day: today, kg: Math.round(v * 10) / 10 }]) })); setKg(""); };
 
     // ── 今天 ──
     const rowsToday = mealsOn(d, today);
     const todayView = h("div", null,
+      h("div", { "data-wk": "healthsync", className: "flex items-center", style: { gap: 10, padding: "4px 0 2px" } },
+        h("svg", { width: 16, height: 16, viewBox: "0 0 24 24", style: { flexShrink: 0 } }, h("path", { d: "M12 20s-7.5-4.6-7.5-10A4.2 4.2 0 0 1 12 7.6 4.2 4.2 0 0 1 19.5 10c0 5.4-7.5 10-7.5 10z", fill: A(S.blood, "cc") })),
+        h("button", { onClick: () => setPage({ kind: "import" }), style: { flex: 1, minHeight: 40, background: "transparent", border: "none", padding: 0, textAlign: "left", fontFamily: F_BODY } },
+          h("div", { style: { fontSize: 13, color: S.ink } }, "手机健康"),
+          h("div", { style: { fontSize: 11, color: S.fog } }, d.hkAt ? "上次导入 " + new Date(d.hkAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "还没设过 · 点这里看怎么用快捷指令")),
+        h("button", { onClick: importClip, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "导入")),
       h("div", { "data-wk": "healthsum", className: "flex items-center", style: { gap: 18, padding: "10px 0 6px" } },
-        h(Ring, { S, val: tot.kcal, goal: d.goal.kcal || 1800 }),
+        h(Ring, { S, val: tot.kcal, goal: d.goal.kcal || 1800, burn: tot.burn }),
         h("div", { style: { flex: 1, minWidth: 0 } },
           h(MacroBar, { S, label: "蛋白质", v: tot.p, color: S.accent, of: Math.round((d.goal.kcal || 1800) * 0.2 / 4) }),
           h(MacroBar, { S, label: "碳水", v: tot.c, color: S.tint, of: Math.round((d.goal.kcal || 1800) * 0.5 / 4) }),
@@ -390,7 +526,7 @@
               h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: S.ink, fontWeight: 600, width: 48 } }, m[1]),
               h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12, color: S.fog } }, rows.length ? sum(rows, "kcal") + " 千卡" : "还没记"),
               h("button", { onClick: () => setPage({ kind: "add", meal: m[0] }), "aria-label": "记" + m[1],
-                style: { width: 40, height: 40, borderRadius: 99, border: "1px solid " + S.line, background: "transparent", color: S.accent, fontSize: 20, lineHeight: 1 } }, "＋")),
+                style: { width: 36, height: 36, borderRadius: 99, border: "none", background: A(S.accent, "17"), color: S.accent, fontSize: 19, lineHeight: 1 } }, "＋")),
             rows.map(r => h("div", { key: r.id, className: "flex items-center", style: { padding: "2px 0 6px 48px", fontFamily: F_BODY, fontSize: 13, color: S.sub } },
               h("span", { style: { flex: 1 } }, r.name + (r.qty && r.qty !== 1 ? " ×" + r.qty : "")),
               h("span", { style: { color: S.tint, marginRight: 4 } }, Math.round(r.kcal * (r.qty || 1))),
@@ -400,6 +536,23 @@
         h("div", { className: "flex flex-wrap", style: { gap: 2 } },
           Array.from({ length: Math.max(d.goal.water || 8, tot.water + 1) }, (_, i) =>
             h(Cup, { key: i, S, full: i < tot.water, onClick: () => setWater(i + 1 === tot.water ? i : i + 1) })))),
+      h(Section, { S, title: "动了动", wk: "healthsport", right: tot.sportMin ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.accent } }, tot.sportMin + " 分钟 · " + tot.burn + " 千卡") : null },
+        (d.sport || []).filter(s => s.day === today).map(s => h("div", { key: s.id, className: "flex items-center", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 13.5, color: S.ink } },
+          h("span", { style: { flex: 1 } }, s.kind + " · " + s.min + " 分钟"),
+          h("span", { style: { color: S.accent, marginRight: 4 } }, "−" + s.kcal),
+          h("button", { onClick: () => delSport(s.id), "aria-label": "删掉这一条", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×"))),
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 6 } },
+          SPORTS.map(x => h("button", { key: x[0], onClick: () => setSp(sp && sp[0] === x[0] ? null : x), "aria-pressed": !!(sp && sp[0] === x[0]), style: chipS(S, sp && sp[0] === x[0]) }, x[0]))),
+        sp ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12 } },
+          h("button", { onClick: () => setSpMin(Math.max(5, spMin - 5)), style: Object.assign(btnS(S), { padding: 0, width: 40 }) }, "−"),
+          h("span", { style: { minWidth: 64, textAlign: "center", fontFamily: F_BODY, fontSize: 14, color: S.ink } }, spMin + " 分钟"),
+          h("button", { onClick: () => setSpMin(spMin + 5), style: Object.assign(btnS(S), { padding: 0, width: 40 }) }, "＋"),
+          h("button", { onClick: addSport, style: Object.assign(btnS(S, true), { flex: 1 }) }, "记下 · 约 " + burnOf(sp[1], spMin, lastKg(d)) + " 千卡")) : null,
+        h("div", { className: "flex items-center", style: { gap: 8, marginTop: 14 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, flexShrink: 0 } }, "今天走了"),
+          h("input", { value: stepIn, onChange: e => setStepIn(e.target.value.replace(/[^\d]/g, "")), inputMode: "numeric", placeholder: tot.steps ? String(tot.steps) : "多少步", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveSteps(); } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, flexShrink: 0 } }, "步"),
+          h("button", { onClick: saveSteps, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "记下"))),
       h(Section, { S, title: "心情", wk: "healthmood" },
         h("div", { className: "flex" }, [0, 1, 2, 3, 4].map(v => h(Face, { key: v, S, v, on: tot.mood && tot.mood.v === v, onClick: () => setMood(v) })))));
 
@@ -411,7 +564,19 @@
     const startedToday = plist.some(p => p.start === legacyToday);
     const pBtn = startedToday ? "今天不算，撤掉" : open ? "今天走了" : "今天来了";
     const wrows = weightTrend(d), lastW = wrows[wrows.length - 1];
+    const nights = weekOf(d, today);
     const bodyView = h("div", null,
+      h(Section, { S, title: "睡觉", wk: "healthsleep", right: tot.sleep ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.water } }, "昨晚 " + hrs(tot.sleep)) : null },
+        h("div", { className: "flex items-end", style: { gap: 14 } },
+          [["bed", "几点睡的"], ["wake", "几点醒的"]].map(f => h("label", { key: f[0], style: { flex: 1, fontFamily: F_BODY } },
+            h("div", { style: { fontSize: 11.5, color: S.sub, marginBottom: 2 } }, f[1]),
+            h("input", { type: "time", value: sl[f[0]] || "", onChange: e => setSleep({ [f[0]]: e.target.value }), style: Object.assign(inputS(S), { fontSize: 17 }) })))),
+        h("div", { className: "flex", style: { gap: 8, marginTop: 12 } },
+          SLEEP_Q.map((q, i) => h("button", { key: q, onClick: () => setSleep({ q: sl.q === i ? null : i }), "aria-pressed": sl.q === i, style: Object.assign(chipS(S, sl.q === i, S.water), { flex: 1 }) }, q))),
+        h("div", { className: "flex items-end", style: { gap: 8, height: 62, marginTop: 14 } },
+          nights.map(x => h("div", { key: x.day, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" } },
+            h("div", { style: { width: 8, height: x.sleep ? Math.max(4, Math.min(1, x.sleep / 600) * 44) : 2, borderRadius: 99, background: x.sleep ? (x.day === today ? S.water : A(S.water, "70")) : A(S.ink, "12") } }),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: x.day === today ? S.ink : S.fog, marginTop: 5 } }, x.sleep ? (x.sleep / 60).toFixed(1) : "·"))))),
       h(Section, { S, title: "体重", wk: "healthweight", right: lastW ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub } },
           "最近 " + lastW.kg + " 公斤" + (d.goal.kg ? " · 离目标 " + Math.round((lastW.kg - d.goal.kg) * 10) / 10 + " 公斤" : "")) : null },
         h(Spark, { S, rows: wrows }),
@@ -425,13 +590,12 @@
           h("div", { style: { flex: 1, fontFamily: F_BODY } },
             h("div", { style: { fontSize: 15, color: S.ink, fontWeight: 600 } }, per ? per.label : "还没记过"),
             h("div", { style: { fontSize: 11.5, color: S.sub, marginTop: 3 } }, per && per.next != null ? (per.next <= 0 ? "按周期算该来了" : "离下次大约 " + per.next + " 天") : "记一次之后就能往后推算"))),
-        props.onRecordPeriod ? h("button", { onClick: () => props.onRecordPeriod(legacyToday), style: Object.assign(btnS(S), { width: "100%", borderColor: A(S.blood, "66"), color: S.blood }) }, pBtn) : null,
+        props.onRecordPeriod ? h("button", { onClick: () => props.onRecordPeriod(legacyToday), style: Object.assign(btnS(S), { width: "100%", background: A(S.blood, "17"), color: S.blood }) }, pBtn) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, margin: "16px 0 8px" } }, "今天身上哪儿不舒服"),
         h("div", { className: "flex flex-wrap", style: { gap: 8 } },
           SYMS.map(s => { const on = tot.sym.includes(s);
             return h("button", { key: s, onClick: () => toggleSym(s), "aria-pressed": on,
-              style: { minHeight: 36, padding: "0 12px", borderRadius: 10, border: "1px " + (on ? "solid " + S.blood : "dashed " + S.line),
-                background: on ? A(S.blood, "14") : "transparent", color: on ? S.blood : S.sub, fontFamily: F_BODY, fontSize: 12.5 } }, s); })),
+              style: chipS(S, on, S.blood) }, s); })),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 12, lineHeight: 1.6 } }, "跟日历里的月事本是同一份，哪边记都一样；谁能看到也在月事本里设。")));
 
     // ── 这周 ──
@@ -445,6 +609,8 @@
     const watchers = chars.filter(c => d.watch.on && (d.watch.ids || []).includes(c.id));
     const weekFacts = "这一周（" + wk[0].day + " 到 " + today + "）：记了饮食的有 " + logged.length + " 天，那几天平均约 " + avgK + " 千卡（她定的 " + (d.goal.kcal || 1800) + "）；"
       + "平均每天喝水 " + avgW + " 杯（定的 " + (d.goal.water || 8) + "）；" + (dW != null ? "体重变了 " + (dW > 0 ? "+" : "") + dW + " 公斤；" : "")
+      + "这周运动 " + wk.reduce((a, x) => a + x.sportMin, 0) + " 分钟；"
+      + (wk.some(x => x.sleep) ? "睡眠：" + wk.map(x => x.sleep ? hrs(x.sleep) : "没记").join("、") + "；" : "")
       + "心情：" + wk.map(x => x.mood ? MOODS[x.mood.v] : "没记").join("、") + "。";
     const askWeek = async c => {
       const p = props.apiFor && props.apiFor(c), ctx = props.ctxFor && props.ctxFor(c);
@@ -473,6 +639,8 @@
       h(Section, { S, title: "这周的数" },
         [["记了饮食", logged.length + " / 7 天"], ["平均热量", logged.length ? avgK + " 千卡" : "—"], ["平均喝水", avgW + " 杯"],
           ["体重", dW == null ? "这周记得不够两次" : (dW > 0 ? "+" : "") + dW + " 公斤"],
+          ["运动", wk.reduce((a, x) => a + x.sportMin, 0) + " 分钟 · " + wk.filter(x => x.sportMin).length + " 天"],
+          ["平均睡眠", wk.filter(x => x.sleep).length ? hrs(Math.round(wk.filter(x => x.sleep).reduce((a, x) => a + x.sleep, 0) / wk.filter(x => x.sleep).length)) : "没记"],
           ["不舒服的日子", wk.filter(x => x.sym.length).length + " 天"]].map(r =>
           h("div", { key: r[0], className: "flex", style: { minHeight: 40, alignItems: "center", borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
             h("span", { style: { flex: 1, fontSize: 13.5, color: S.sub } }, r[0]), h("span", { style: { fontSize: 14, color: S.ink } }, r[1]))),
@@ -496,7 +664,7 @@
   }
 
   g.HealthCtx = { noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
-  g.Health = { estimate, FOODS, MEALS, windowAt, dayTotals, weekOf, load, save };
+  g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电
   g.GHealth = function (p) {

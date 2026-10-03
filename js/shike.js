@@ -50,6 +50,15 @@
     return said.length ? { kind: "chat", lines: said } : { kind: "none", lines: [] };
   }
   const hasTrace = (charId, ts, lib, chat) => whatHappened(charId, "", "", ts, lib, chat).kind !== "none";
+  // 那天聊天里的照片（她 2026-10-03 点的第 1 条）：TA的自拍/合照优先，其次她发的照片。拿来当这张时刻卡的底图。
+  function dayImage(ts, chat) {
+    const a = startOf(ts), b = a + DAY;
+    const day = (chat || []).filter(m => m && !m.recalled && Number(m.ts) >= a && Number(m.ts) < b);
+    const shot = day.find(m => (m.kind === "selfie" || m.kind === "duo") && m.imgKey);
+    if (shot) return { imgKey: shot.imgKey };
+    const pic = day.find(m => m.kind === "photo" && m.imageRef);
+    return pic ? { ref: pic.imageRef } : null;
+  }
 
   // ── 一个人的全部时刻（只算到今天为止） ─────────────────────
   function momentsFor(c, ctx) {
@@ -86,16 +95,33 @@
       bdays.forEach(([md, title]) => { if (md) { const ts = new Date(y, md.mo - 1, md.d).getTime(); if (!firstTs || ts >= startOf(firstTs)) add(ts, title, "bday", true); } });
       HOLIDAYS.forEach(([mo, d, name]) => add(new Date(y, mo - 1, d).getTime(), name, "fest", false));
     }
+    // 「第一次」（她 2026-10-03 点的第 2 条）：都从聊天记录里找得到，不花钱。
+    //   ⚠️手机里只留最近那一截聊天，更早的归档到云上了——找不到就不立，不猜。
+    const firstOf = pred => { const m = chat.find(x => x && !x.recalled && pred(x)); return m ? Number(m.ts) || 0 : 0; };
+    add(firstOf(m => (m.kind === "selfie" || m.kind === "duo") && m.imgKey), "第一张照片", "first", true);
+    add(firstOf(m => m.kind === "callend"), "第一次打电话", "first", true);
+    add(firstOf(m => m.kind === "gift"), "第一份礼物", "first", true);
+    add(firstOf(m => m.kind === "transfer" || m.kind === "redpacket"), "第一次转账", "first", true);
+    add(firstOf(m => m.role === "assistant" && /晚安/.test(String(m.content || ""))), "第一次说晚安", "first", true);
+    const offs = ((ctx.offlines || {})[c.id]) || (typeof loadJSON === "function" ? loadJSON("x_offline:" + c.id, []) : []) || [];
+    const firstMeet = offs.map(x => Number(x && (x.startTs || (x.msgs && x.msgs[0] && x.msgs[0].ts))) || 0).filter(x => x > 0).sort((x, y) => x - y)[0];
+    add(firstMeet, "第一次见面", "first", true);
     // 同一天撞了好几个（生日正好是在一起一周年）就并成一张
     const byDay = {};
     out.forEach(m => { const k = dayKey(m.ts); if (byDay[k]) { if (byDay[k].title.indexOf(m.title) < 0) byDay[k].title += " · " + m.title; } else byDay[k] = Object.assign({}, m); });
     return Object.values(byDay).sort((x, y) => y.ts - x.ts)
-      .map(m => Object.assign(m, { what: whatHappened(c.id, c.remark || c.name, ctx.uName, m.ts, lib, chat) }));
+      .map(m => Object.assign(m, { what: whatHappened(c.id, c.remark || c.name, ctx.uName, m.ts, lib, chat), img: dayImage(m.ts, chat) }));
   }
 
   // ── 界面 ───────────────────────────────────────────────────
   const loadCovers = () => { try { return (typeof loadJSON === "function" ? loadJSON(COVER_KEY, {}) : {}) || {}; } catch (e) { return {}; } };
-  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日" };
+  const KIND_ZH = { meet: "认识", us: "我们", bday: "生日", fest: "节日", first: "第一次" };
+  // 时刻卡的底图：那天的照片（自拍在 IDB 图库里，用 useIdbImgUrl 取；她发的照片是 iv_ 门牌）
+  function MomentArt({ img }) {
+    const idbUrl = typeof useIdbImgUrl === "function" ? useIdbImgUrl(img && img.imgKey) : null;
+    const src = img && img.imgKey ? idbUrl : (img && img.ref ? (typeof resolveImg === "function" ? resolveImg(img.ref) : img.ref) : null);
+    return src ? h("img", { src, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", filter: "brightness(.62)" } }) : null;
+  }
   // 外壳铺纸：它是一本按日子贴卡的相册（last-flat-shells：不许拿 t.bg 当外壳）
   const shell = t => (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg2 });
 
@@ -120,7 +146,28 @@
     const [openId, setOpenId] = useState(null);
     const [covers, setCovers] = useState(loadCovers);
     const [busy, setBusy] = useState("");
-    const [openKey, setOpenKey] = useState(null);
+    const [mIdx, setMIdx] = useState(0);
+    const [notes, setNotes] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeNotes", {}) : {}) || {}; } catch (e) { return {}; } });
+    const [saying, setSaying] = useState("");
+    // 每张时刻卡自己的图（她 2026-10-03 点的第 3、4 条）：画一张 / 自己贴一张。{ charId: { momentKey: iv_ } }
+    const [arts, setArts] = useState(() => { try { return (typeof loadJSON === "function" ? loadJSON("x_shikeArt", {}) : {}) || {}; } catch (e) { return {}; } });
+    const [drawing, setDrawing] = useState("");
+    const fileRef = React.useRef(null), pickFor = React.useRef(null);
+    const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
+    const draw = async m => {
+      if (drawing || !props.onDrawMoment || !cur) return;
+      setDrawing(m.key);
+      try { const k = await props.onDrawMoment(cur, m); if (k) setArt(cur.id, m.key, k); } finally { setDrawing(""); }
+    };
+    const onFile = async e => {
+      const f = e.target.files && e.target.files[0], m = pickFor.current; e.target.value = "";
+      if (!f || !m || !cur) return;
+      try {
+        const data = typeof resizeImageFile === "function" ? await resizeImageFile(f, 1400, 0.9) : null;
+        const k = data && typeof imgToVault === "function" ? await imgToVault(data) : data;
+        if (k) setArt(cur.id, m.key, k);
+      } catch (err) { props.toast && props.toast("没贴上：" + String((err && err.message) || err).slice(0, 80)); }
+    };
     const [idx, setIdx] = useState(0);
     const ctx = { chats: props.chats, lib: props.memLib, couples: props.couples, profile: props.profile, uName };
     const all = useMemo(() => {
@@ -128,7 +175,9 @@
       // eslint-disable-next-line
     }, [chars.length, props.chats, props.memLib, props.couples]);
     const cur = chars.find(c => c.id === openId);
-    const coverOf = c => covers[c.id] || c.chatAvatar || c.avatarImage || "";
+    // 卡面默认用【人格档案馆那张】（她 2026-10-03：「能不能选人格档案馆的头像而不是聊天头像」）；
+    //   TA在聊天里自己换的那张(chatAvatar)只在档案那张空着时兜底。
+    const coverOf = c => covers[c.id] || c.avatarImage || c.chatAvatar || "";
     const srcOf = c => (typeof resolveImg === "function" ? resolveImg(coverOf(c)) : coverOf(c));
     const setCover = (id, v) => { const n = Object.assign({}, covers); if (v) n[id] = v; else delete n[id]; setCovers(n); try { saveJSON(COVER_KEY, n); } catch (e) {} };
     const gen = async c => {
@@ -137,6 +186,15 @@
       try { const key = await props.onGenCover(c); if (key) setCover(c.id, key); }
       finally { setBusy(""); }
     };
+    const recall = async m => {
+      if (saying || !props.onRecall || !cur) return;
+      setSaying(m.key);
+      try {
+        const txt = await props.onRecall(cur, m);
+        if (txt) { const n = Object.assign({}, notes); n[cur.id] = Object.assign({}, n[cur.id] || {}, { [m.key]: txt }); setNotes(n); try { saveJSON("x_shikeNotes", n); } catch (e) {} }
+      } finally { setSaying(""); }
+    };
+    const chip = dim => ({ fontFamily: F_BODY, fontSize: 11.5, color: "#fff", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.3)", borderRadius: 999, padding: "6px 12px", opacity: dim ? .5 : 1 });
     const art = (c, extra) => {
       const src = srcOf(c);
       return src ? h("img", { src, alt: "", style: Object.assign({ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }, extra || {}) })
@@ -148,40 +206,67 @@
       h(Head, { zh: "时刻", onBack: props.onBack, bg: "transparent" }),
       h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }));
 
-    // ── 里层：一个人的时刻 ──
+    // ── 里层：一个人的时刻，也做成横着滑的展览（她 2026-10-03：「里面的时刻也做成滑动的展览」）──
+    //   一个时刻一张高卡：上半截是日子和名目，下半截是那天发生了什么。底图用这个人的封面压暗，一张张像展墙上的画。
     if (cur) {
       const list = all[cur.id] || [];
-      const row = m => {
-        const open = openKey === m.key, d = new Date(m.ts);
-        return h("div", { key: m.key, "data-wk": "shikeitem", "data-kind": m.kind, onClick: () => setOpenKey(open ? null : m.key),
-          style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px", marginBottom: 10, cursor: "pointer" } },
-          h("div", { className: "flex items-baseline justify-between", style: { gap: 10 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, m.title),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, whiteSpace: "nowrap" } }, d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate() + " · " + KIND_ZH[m.kind])),
-          open ? h("div", { style: { marginTop: 9, paddingTop: 9, borderTop: "1px dashed " + t.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 5 } },
-              m.what.kind === "mem" ? "那天记下的事" : m.what.kind === "chat" ? "那天你们说的话" : ""),
-            m.what.lines.length
-              ? m.what.lines.map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: t.sub } }, x))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "那天没留下记录。")) : null);
+      const mcard = (m, i) => {
+        const d = new Date(m.ts);
+        return h("div", { key: m.key, "data-wk": "shikeitem", "data-kind": m.kind, className: "shrink-0",
+          style: { position: "relative", height: "100%", width: "min(80vw, 400px)", borderRadius: 24, overflow: "hidden", scrollSnapAlign: "center",
+            background: cur.color || t.ink, boxShadow: "0 16px 36px rgba(30,22,14,.26)", transform: i === mIdx ? "none" : "scale(.95)", transition: "transform .25s" } },
+          art(cur, { filter: "blur(2px) brightness(.55)", transform: "scale(1.06)" }),
+          ((arts[cur.id] || {})[m.key] || m.img) ? h(MomentArt, { img: (arts[cur.id] || {})[m.key] ? { ref: arts[cur.id][m.key] } : m.img }) : null,
+          h("div", { style: { position: "absolute", inset: 10, borderRadius: 16, border: "1px solid rgba(255,255,255,.45)", pointerEvents: "none" } }),
+          h("div", { style: { position: "absolute", inset: 0, padding: "34px 28px 30px", display: "flex", flexDirection: "column", color: "#fff", textAlign: "left" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 3, color: "rgba(255,255,255,.72)" } }, KIND_ZH[m.kind] + " · 第 " + (list.length - i) + " 个时刻"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 44, lineHeight: 1.05, marginTop: 14 } }, (d.getMonth() + 1) + "." + d.getDate()),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "rgba(255,255,255,.75)", marginTop: 4 } }, d.getFullYear() + " 年"),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.3, marginTop: 18 } }, m.title),
+            h("div", { className: "flex-1 min-h-0", style: { marginTop: 22, overflowY: "auto", background: "rgba(255,255,255,.12)", border: "1px solid rgba(255,255,255,.22)",
+              borderRadius: 14, padding: "14px 16px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 8 } },
+                m.what.kind === "mem" ? "那天记下的事" : m.what.kind === "chat" ? "那天你们说的话" : "那一天"),
+              m.what.lines.length
+                ? m.what.lines.map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "rgba(255,255,255,.95)", marginBottom: 6 } }, x))
+                : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "rgba(255,255,255,.7)" } }, "那天没留下记录。"),
+              // 「让 TA 说说」（她 2026-10-03 点的第 5 条）：TA用自己的口气回忆这一天，点了才调一次
+              (notes[cur.id] || {})[m.key] ? h("div", { "data-wk": "shikesay", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(255,255,255,.3)" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 6 } }, (cur.remark || cur.name) + " 说"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "#fff", whiteSpace: "pre-wrap" } }, (notes[cur.id] || {})[m.key])) : null,
+              props.onRecall ? h("button", { onClick: () => recall(m), disabled: !!saying, className: "active:opacity-70",
+                style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(255,255,255,.18)", border: "1px solid rgba(255,255,255,.35)", borderRadius: 999, padding: "7px 14px", opacity: saying && saying !== m.key ? .5 : 1 } },
+                saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再让 TA 说说" : "让 TA 说说")) : null),
+            // 换这张卡的图：画一张（走生图，一次一张额度）／自己贴一张／拿掉换回当天照片或封面
+            h("div", { className: "flex", style: { gap: 8, marginTop: 12, flexWrap: "wrap" } },
+              props.onDrawMoment ? h("button", { onClick: () => draw(m), disabled: !!drawing, className: "active:opacity-70", style: chip(drawing && drawing !== m.key) },
+                drawing === m.key ? "正在画…" : "画一张") : null,
+              h("button", { onClick: () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }, className: "active:opacity-70", style: chip(false) }, "贴一张"),
+              (arts[cur.id] || {})[m.key] ? h("button", { onClick: () => setArt(cur.id, m.key, null), className: "active:opacity-70", style: chip(false) }, "拿掉") : null)));
+      };
+      const onMScroll = e => {
+        const el = e.currentTarget, w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth;
+        const k = Math.round(el.scrollLeft / Math.max(1, w));
+        if (k !== mIdx) setMIdx(Math.max(0, Math.min(list.length - 1, k)));
       };
       return h("div", { className: "h-full flex flex-col", "data-wk": "shikedetail", style: shell(t) },
-        h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setOpenKey(null); }, bg: "transparent" }),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
-          h("div", { "data-wk": "shikehero", style: { position: "relative", margin: "6px 16px 0", height: "38vh", borderRadius: 20, overflow: "hidden", boxShadow: "0 10px 28px rgba(40,30,20,.18)" } },
-            art(cur),
-            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "50px 16px 14px", background: "linear-gradient(transparent, rgba(0,0,0,.6))" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(255,255,255,.88)" } }, daysLine(cur, ctx) || "还没开始的故事"))),
-          h("div", { className: "flex justify-center", style: { gap: 10, padding: "12px 16px 16px" } },
-            props.onGenCover ? h("button", { onClick: () => gen(cur), disabled: !!busy, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12, color: t.bg2, background: t.ink, borderRadius: 999, padding: "8px 16px", opacity: busy ? .5 : 1 } },
-              busy === cur.id ? "正在画…" : (covers[cur.id] ? "重新生成封面" : "生成封面")) : null,
-            covers[cur.id] ? h("button", { onClick: () => setCover(cur.id, null), className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 14px", background: "transparent" } }, "用回头像") : null),
-          h("div", { style: { padding: "0 16px" } },
-            list.length ? list.map(row)
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.fog, textAlign: "center", padding: "30px 10px" } },
-                  "还没有时刻。认识满 100 天、在一起的日子、生日，还有节日那天你们说过话，都会自己出现在这里。"))));
+        h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: onFile, style: { display: "none" } }),
+        h(Head, { zh: cur.remark || cur.name, onBack: () => { setOpenId(null); setMIdx(0); }, bg: "transparent" }),
+        h("div", { className: "shrink-0 flex items-center justify-center", style: { gap: 10, padding: "4px 16px 2px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, daysLine(cur, ctx)),
+          props.onGenCover ? h("button", { onClick: () => gen(cur), disabled: !!busy, className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.bg2, background: t.ink, borderRadius: 999, padding: "6px 12px", opacity: busy ? .5 : 1 } },
+            busy === cur.id ? "正在画…" : (covers[cur.id] ? "重画封面" : "生成封面")) : null,
+          covers[cur.id] ? h("button", { onClick: () => setCover(cur.id, null), className: "active:opacity-70",
+            style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 11px", background: "transparent" } }, "用回头像") : null),
+        list.length
+          ? h("div", { onScroll: onMScroll, className: "flex-1 min-h-0 flex",
+              style: { gap: 14, overflowX: "auto", overflowY: "hidden", scrollSnapType: "x mandatory", WebkitOverflowScrolling: "touch",
+                padding: "12px calc((100vw - min(80vw, 400px)) / 2) 10px" } }, list.map(mcard))
+          : h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.fog, textAlign: "center", padding: "60px 30px" } },
+              "还没有时刻。认识满 100 天、在一起的日子、生日，还有节日那天你们说过话，都会自己出现在这里。"),
+        h("div", { className: "shrink-0 flex justify-center", style: { gap: 6, padding: "4px 0 calc(16px + env(safe-area-inset-bottom))" } },
+          list.slice(0, 30).map((m, k) => h("span", { key: m.key, style: { width: k === mIdx ? 16 : 6, height: 6, borderRadius: 999, background: k === mIdx ? t.ink : t.line, transition: "width .2s" } }))));
     }
 
     // ── 外层：几乎整屏高的 CG 卡，横着滑 ──
@@ -221,5 +306,5 @@
   }
 
   g.ShikeApp = ShikeApp;
-  g.ShikeKit = { momentsFor, monthDay, whatHappened, HOLIDAYS };
+  g.ShikeKit = { momentsFor, monthDay, whatHappened, dayImage, HOLIDAYS };
 })();

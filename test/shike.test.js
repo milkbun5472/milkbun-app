@@ -52,3 +52,44 @@ test("两层：外层只有整屏高的卡横着滑，点进去才有时刻列�
   const outer = s.slice(s.indexOf("// ── 外层"));
   assert.ok(!/list\.map\(row\)/.test(outer), "外层又摆出了时刻列表");
 });
+
+test("卡面默认用档案馆那张头像；里层时刻也是横着滑的高卡", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /const coverOf = c => covers\[c\.id\] \|\| c\.avatarImage \|\| c\.chatAvatar \|\| "";/);
+  const inner = s.slice(s.indexOf("// ── 里层"), s.indexOf("// ── 外层"));
+  assert.match(inner, /scrollSnapType: "x mandatory"/, "里层不是横滑");
+  assert.match(inner, /list\.map\(mcard\)/);
+});
+
+test("「第一次」从聊天和线下里找；那天的照片当卡面", () => {
+  const K = kit();
+  const c = { id: "c1", name: "江识" };
+  const chats = { c1: [
+    { role: "user", content: "嗨", ts: D(2025, 1, 10) },
+    { role: "assistant", kind: "selfie", imgKey: "img_1", content: "", ts: D(2025, 2, 1) },
+    { role: "system", kind: "callend", content: "通话", ts: D(2025, 3, 1) },
+    { role: "assistant", content: "晚安啦", ts: D(2025, 3, 2) }
+  ] };
+  const ms = K.momentsFor(c, { now: D(2026, 1, 1), chats, lib: [], couples: {}, profile: {}, uName: "Lisa", offlines: { c1: [{ startTs: D(2025, 4, 5), msgs: [] }] } });
+  const by = t => ms.find(m => m.title.indexOf(t) >= 0);
+  assert.ok(by("第一张照片"), "第一张照片没立");
+  assert.deepEqual(by("第一张照片").img, { imgKey: "img_1" }, "那天的照片没当卡面");
+  assert.ok(by("第一次打电话"));
+  assert.ok(by("第一次说晚安"));
+  assert.ok(by("第一次见面"), "线下第一场没认出来");
+});
+
+test("「让 TA 说说」走 runProbe voice，点了才调", () => {
+  const app = P("js/app.js");
+  assert.match(app, /onRecall: async \(c, m\) => \{/);
+  assert.match(app, /runProbe\(p, ctxFor\(c\), \{ voice: true, tag: "shike"/);
+  assert.match(P("js/shike.js"), /props\.onRecall \? h\("button", \{ onClick: \(\) => recall\(m\)/);
+});
+
+test("每张时刻卡能画一张、贴一张、拿掉；自己的图压过当天照片", () => {
+  const s = P("js/shike.js"), app = P("js/app.js");
+  assert.match(app, /onDrawMoment: async \(c, m\) => \{/);
+  assert.match(s, /\(\(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \|\| m\.img\) \? h\(MomentArt, \{ img: \(arts\[cur\.id\] \|\| \{\}\)\[m\.key\] \? \{ ref: arts\[cur\.id\]\[m\.key\] \} : m\.img \}\)/);
+  assert.match(s, /"贴一张"/);
+  assert.match(s, /saveJSON\("x_shikeArt", n\)/);
+});
