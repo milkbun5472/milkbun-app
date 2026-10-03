@@ -1,4 +1,4 @@
-import {createNavigator} from '../../apps/fairy-garden/navigation.mjs?v=fg-898378e12153192c';
+import {createNavigator,segmentIntersectsRect} from '../../apps/fairy-garden/navigation.mjs?v=fg-a9ae1eeede4db867';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createPetWorld(layout){
  const padding=.25;
@@ -8,7 +8,7 @@ export function createPetWorld(layout){
  function walkable(x,z){return Number.isFinite(x)&&Number.isFinite(z)&&Math.hypot(x,z)<=layout.radius&&inRegion(x,z)&&!rectangles.some(o=>Math.abs(x-o.x)<o.w/2+padding&&Math.abs(z-o.z)<o.d/2+padding)&&!circles.some(o=>Math.hypot(x-o.x,z-o.z)<o.r+padding);}
  function segmentClear(a,b){
   if(!walkable(a.x,a.z)||!walkable(b.x,b.z))return false;
-  for(const o of rectangles){let lo=0,hi=1;for(const [axis,size]of [['x',o.w],['z',o.d]]){const d=b[axis]-a[axis],min=o[axis]-size/2-padding,max=o[axis]+size/2+padding;if(Math.abs(d)<1e-10){if(a[axis]<=min||a[axis]>=max){lo=1;hi=0;break;}}else{const t1=(min-a[axis])/d,t2=(max-a[axis])/d;lo=Math.max(lo,Math.min(t1,t2));hi=Math.min(hi,Math.max(t1,t2));}}if(lo<hi&&hi>0&&lo<1)return false;}
+  for(const o of rectangles)if(segmentIntersectsRect(a,b,o,padding))return false;
   const dx=b.x-a.x,dz=b.z-a.z,l=dx*dx+dz*dz;
   for(const o of circles){const t=l?Math.max(0,Math.min(1,((o.x-a.x)*dx+(o.z-a.z)*dz)/l)):0;if(Math.hypot(a.x+dx*t-o.x,a.z+dz*t-o.z)<o.r+padding)return false;}
   const n=Math.ceil(distance(a,b)/.18);for(let i=1;i<n;i++){const t=i/n;if(!inRegion(a.x+dx*t,a.z+dz*t))return false;}return true;

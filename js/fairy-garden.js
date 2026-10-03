@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-898378e12153192c", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-a9ae1eeede4db867", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -168,11 +168,13 @@
   }
   function PetSession(props){
     const key=props.storeKey||KEY,seed=useRef(null);if(!seed.current){seed.current=read(key);if(!seed.current.partnerId&&props.lockPartnerId)seed.current={...seed.current,partnerId:String(props.lockPartnerId)};}const owner=useRef(seed.current.id),frame=useRef(null),latest=useRef(props);latest.current=props;
-    const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
+    const [careView,setCareView]=useState(null),[loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
     const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current)throw Error('存档已切换，请重新进入绒绒小镇。');return d;};
     const game=()=>frame.current?.contentWindow.PetGame;
-    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),ready:()=>{if(frame.current===node)setLoaded(true);}});};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),openCare:()=>{if(frame.current===node){setCareView(game()?.care());setPanel('care');setError('');}},ready:()=>{if(frame.current===node)setLoaded(true);}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
+    useEffect(()=>{game()?.pause?.(!!panel);},[panel,loaded]);
+    const showCare=()=>{setCareView(game()?.care());setPanel('care');setError('');};
     const edit=()=>{const g=game();if(!g)return;setProfile(g.snapshot().profile);g.preview(true);setPanel('pet');setError('');};
     useEffect(()=>{if(loaded&&!game()?.snapshot().configured)edit();},[loaded]);
     const change=patch=>{const next={...profile,...patch};setProfile(next);game()?.applyProfile(next);};
@@ -184,7 +186,7 @@
     const palette=(game()?.palettes||[]).map(p=>[p.label,p.base,p.patch]);
     const d=current(),c=(props.characters||[]).find(x=>String(x.id)===String(d.partnerId));
     return h('div',{className:'h-full flex flex-col','data-pet-world':true,style:{background:'#eee8dc',color:G.ink}},
-      h(Head,{zh:panel==='pet'?'宠物预览':panel==='travel'?'去哪里':'绒绒小镇',sub:loaded&&!panel?game()?.snapshot().profile.name:undefined,bg:'transparent',ink:G.ink,onBack:panel==='travel'?()=>setPanel(''):panel==='pet'?()=>{cancel();if(!current().worlds?.pets?.configured)leave(props.onBack);}:()=>loaded?leave(props.onBack):props.onBack(),right:loaded&&!panel?h('button',{onClick:()=>setPanel('travel'),style:{minHeight:40,padding:'8px 12px'}},'去别处'):null}),
+      h(Head,{zh:panel==='care'?'看看它':panel==='pet'?'宠物预览':panel==='travel'?'去哪里':'绒绒小镇',sub:loaded&&!panel?game()?.snapshot().profile.name:undefined,bg:'transparent',ink:G.ink,onBack:panel==='care'?()=>setPanel(''):panel==='travel'?()=>setPanel(''):panel==='pet'?()=>{cancel();if(!current().worlds?.pets?.configured)leave(props.onBack);}:()=>loaded?leave(props.onBack):props.onBack(),right:loaded&&!panel?h('button',{onClick:()=>setPanel('travel'),style:{minHeight:40,padding:'8px 12px'}},'去别处'):null}),
       h('div',{className:'flex-1 min-h-0',style:{position:'relative'}},
         h('iframe',{ref:bind,title:'绒绒小镇游戏',src:'apps/pets/index.html?v='+BUILD,style:{position:'absolute',inset:0,width:'100%',height:'100%',border:0,display:'block'},onLoad:()=>{if(game()?.ready)setLoaded(true);}}),
         !loaded&&h('p',{role:'status',style:{position:'absolute',top:10,left:20,right:20}},'正在打开宠物街区…'),
@@ -198,7 +200,16 @@
             ...[['胖瘦','weight',.8,1.25],['大小','size',.7,1.3]].map(([label,k,min,max])=>plate(label+' · '+Math.round(profile[k]*100)+'%',h('input',{type:'range','aria-label':label,min,max,step:.01,value:profile[k],onChange:e=>change({[k]:Number(e.target.value)}),style:{width:'100%',minHeight:40,accentColor:G.deep}}))),
             h('p',{style:{fontSize:11,color:G.soft}},'实时预览；名字、毛色与体型只属于这一档宠物。')),
           h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),
-        panel==='travel'&&h('div',{className:'absolute inset-0 flex flex-col',style:{background:'#eee8dc',zIndex:10}},h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:18}},h('p',{style:{marginBottom:14}},c?'与 '+(c.remark||c.name)+' 共用这一档旅程。':'三个世界共用这一档旅程。'),h('div',{style:{display:'grid',gap:12}},h('button',{style:pickButtonStyle(),onClick:edit},'宠物名字与外貌'),...WORLDS.filter(w=>w.id!=='pets').map(w=>h('button',{key:w.id,style:pickButtonStyle(),onClick:()=>leave(()=>props.onTravel(w.id))},'进入'+w.name)),h('button',{style:pickButtonStyle(),onClick:()=>leave(()=>props.onChooseSave('pets'))},'选择另一档'))))));
+        panel==='care'&&careView&&h('div',{'data-pet-care':true,className:'absolute inset-0 flex flex-col',style:{background:'#eee8dc',zIndex:10}},
+          h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:18}},
+            h('p',{style:{fontSize:18,marginBottom:6}},game()?.snapshot().profile.name),h('p',{style:{fontSize:13,color:G.deep,marginBottom:18}},careView.summary.activity+' · '+careView.summary.mood),
+            ...[['饱腹','satiety',careView.summary.satiety],['精力','energy',careView.summary.energy]].map(([label,k,text])=>h('section',{key:k,style:{marginBottom:20}},h('div',{style:{display:'flex',justifyContent:'space-between',fontSize:12,marginBottom:8}},h('label',{htmlFor:'pet-care-'+k},label+' · '+text),h('span',null,Math.round(careView[k])+'/100')),h('progress',{id:'pet-care-'+k,max:100,value:careView[k],'aria-label':label,style:{width:'100%',height:12,accentColor:G.deep}}))),
+            plate('它的脾气',h('p',{style:{fontSize:13,lineHeight:1.9}},careView.summary.traits.join(' · '))),
+            plate('慢慢发现的喜好',h('div',null,h('p',{style:{fontSize:13,lineHeight:1.9}},'玩具：'+careView.summary.favoriteToy),h('p',{style:{fontSize:13,lineHeight:1.9}},'休息：'+careView.summary.favoriteRest))),
+            plate('最近的小事',careView.recent.length?h('ol',{style:{padding:0,listStyle:'none'}},careView.recent.slice().reverse().map((x,i)=>h('li',{key:i,style:{fontSize:13,lineHeight:1.9,padding:'8px 0'}},x.text,h('span',{style:{display:'block',fontSize:11,color:G.soft}},careView.elapsed-x.at<60?'刚刚':Math.floor((careView.elapsed-x.at)/60)+' 分钟前')))):h('p',{style:{fontSize:13,color:G.soft}},'一起吃顿饭、玩一会儿，慢慢留下它的小日子。')),
+            h('p',{style:{fontSize:11,lineHeight:1.8,color:G.soft,marginTop:18}},'饱腹、精力和心情随生活变化；脾气与喜好慢慢长出来。切后台或打开菜单时暂停，离线不扣状态。')),
+          h('div',{style:{padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{style:{...field,background:G.deep,color:'#fffaf1'},onClick:()=>{setPanel('');if(!careView.atHome)game()?.goHome?.();}},careView.atHome?'回到它身边':'回家照料'))),
+        panel==='travel'&&h('div',{className:'absolute inset-0 flex flex-col',style:{background:'#eee8dc',zIndex:10}},h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:18}},h('p',{style:{marginBottom:14}},c?'与 '+(c.remark||c.name)+' 共用这一档旅程。':'三个世界共用这一档旅程。'),h('div',{style:{display:'grid',gap:12}},h('button',{style:pickButtonStyle(),onClick:showCare},'看看它'),h('button',{style:pickButtonStyle(),onClick:edit},'宠物名字与外貌'),...WORLDS.filter(w=>w.id!=='pets').map(w=>h('button',{key:w.id,style:pickButtonStyle(),onClick:()=>leave(()=>props.onTravel(w.id))},'进入'+w.name)),h('button',{style:pickButtonStyle(),onClick:()=>leave(()=>props.onChooseSave('pets'))},'选择另一档'))))));
   }
 
   function TrainSession(props){
