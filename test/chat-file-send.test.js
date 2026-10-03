@@ -16,3 +16,11 @@ test("model reads the file as a file, not as her words", () => {
   assert.match(app, /m\.kind === "file" \? "【" \+ uName \+ "发来一个文件「"/);
   ["filecard", "filename", "filebody"].forEach(k => assert.ok(ts.includes('["' + k + '", '), k));
 });
+test("PDF and docx via vendored, lazily loaded libraries", () => {
+  assert.ok(fs.existsSync(__dirname + "/../vendor/pdf.min.js") && fs.existsSync(__dirname + "/../vendor/pdf.worker.min.js") && fs.existsSync(__dirname + "/../vendor/mammoth.browser.min.js"));
+  assert.match(comp, /lazyScript\("vendor\/pdf\.min\.js"\)/);
+  assert.match(comp, /workerSrc = "vendor\/pdf\.worker\.min\.js"/);
+  assert.match(comp, /lazyScript\("vendor\/mammoth\.browser\.min\.js"\)/);
+  const idx = fs.readFileSync(__dirname + "/../index.html", "utf8");
+  assert.ok(!/pdf\.min\.js|mammoth/.test(idx), "解析库不该进开机那一串");
+});
