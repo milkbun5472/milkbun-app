@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.657";
+const APP_VERSION = "v74.658";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27066,7 +27066,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     couples: couples,
     chats: chats,
     memLib: memLibRef.current,
+    offlines: offlines,      // 「第一次见面」从线下场次里找（懒加载没灌到的，时刻那头自己 loadJSON 兜）
     toast: toast,
+    // 「让 TA 说说」：走 runProbe voice，跟星测、解梦馆同一条路——人设/心情/反八股整份白得
+    onRecall: async (c, m) => {
+      const p = apiFor(c.id);
+      if (!p || typeof runProbe !== "function") { toast("先到设置配置 API"); return null; }
+      const d0 = new Date(m.ts), when = d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日";
+      const rec = (m.what && m.what.lines && m.what.lines.length) ? m.what.lines.join("\n") : "（那天没留下记录）";
+      try {
+        const d = await runProbe(p, ctxFor(c), { voice: true, tag: "shike", maxTokens: 65535, schemaHint: "{\"text\":\"你想对她说的话\"}",
+          instruction: "你们一起翻相册，翻到一张卡：「" + m.title + "」，" + when + "。那天留下的记录：\n" + rec
+            + "\n用你自己的口气跟她说说你记得的那天，或者现在翻到它心里是什么感觉——像随口聊起，一两段就够。记录里没有的具体细节别编，记不清就说记不清。" });
+        const txt = String((d && d.text) || "").trim();
+        if (!txt) throw new Error("TA 这回没说出话来，再点一次");
+        return txt;
+      } catch (e) { toast("没说成：" + String((e && e.message) || e).slice(0, 120)); return null; }
+    },
     onGenCover: async c => {
       if (typeof imgApiReady !== "function" || !imgApiReady(loadImgApi())) { toast("先去 设置 · 图像 API 配一条线路"); return null; }
       try {
