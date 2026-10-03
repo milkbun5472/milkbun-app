@@ -15,3 +15,7 @@ test("online reroll feeds the removed version as avoid, single and group", () =>
   assert.match(app, /replyGroup\(groupId, \{ rerollAvoid \}\)/);
   assert.match(app, /onlineRerollHint\(rgOpts && rgOpts\.rerollAvoid\)/);
 });
+test("reroll while I blocked him goes back to the blocked path with the avoid", () => {
+  assert.match(app, /if \(bkNow\.iBlocked\) blockedReaction\(activeChar\.id, blockChatKey\(activeChar\.id\), rerollAvoid\)/);
+  assert.match(app, /progress \+ onlineRerollHint\(rerollAvoid\)/);
+});

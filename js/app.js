@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.605";
+const APP_VERSION = "v74.606";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12436,7 +12436,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setTimeout(() => {
         const roomId = window.ChatRooms && window.ChatRooms.isSideKey(threadKey) ? String(threadKey).split("::room::")[1] : "main";
         const rerollRoom = window.ChatRooms ? window.ChatRooms.get(activeChar.id, roomId) : null;
-        replyNow(activeChar.id, null, null, { chatKey: threadKey, room: rerollRoom, rerollAvoid });
+        // 拉黑期间的重 Roll 也得回到拉黑那条路（她 2026-10-03）：原来直接走普通回复，绕过了拉黑场景
+        const bkNow = blocksRef.current[blockChatKey(activeChar.id)] || {};
+        if (bkNow.iBlocked) blockedReaction(activeChar.id, blockChatKey(activeChar.id), rerollAvoid);
+        else replyNow(activeChar.id, null, null, { chatKey: threadKey, room: rerollRoom, rerollAvoid });
       }, 200);
     }
   };
@@ -14378,7 +14381,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
-  const blockedReaction = async (charId, chatKey = charId) => {
+  const blockedReaction = async (charId, chatKey = charId, rerollAvoid) => {
     if (laneBusy("c:" + chatKey) || !active) { if (!active) toast("请先配置 API"); return; }
     const char = characters.find(c => c.id === charId); if (!char) return;
     startLane("c:" + chatKey);
@@ -14396,7 +14399,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "\n这一轮是接着上面往下走，不是刚被拉黑的那一刻：你在做的事、你的处境、你的心情都已经往前挪了一步——"
           + "继续找也好、换个办法、累了、气消了、想通了什么、还是干脆不说了，由你这个人决定；说出口的是这一步的新东西。"
         : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感，选一种反应：mutter=自言自语碎碎念(委屈/不在乎/嘴硬)；angry=生气骂几句；appeal=想和好、发一条『解除拉黑申请』并给理由。短句多气泡。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
       queueUnblockSpeech(chatKey, says, 250, charId, true);
