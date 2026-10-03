@@ -76,3 +76,14 @@ test("点感叹号打开写话框，不再直接把那条消息当申请发出�
   assert.match(components, /if \(!txt\) return;/, "空的不许发");
   assert.match(components, /点消息旁的 ! 写一句话求 TA/, "横幅说明要跟着改");
 });
+
+// 她 2026-10-03 转群里那张：拉黑期间按「回复」，他一轮轮原地打转，OOC 立了准则也没用。
+test("被拉黑那条链有进度：过了多久、已经说过的那几句摆给他，场景接着往下走", () => {
+  const a = app.indexOf("const blockedReaction = async"), b = app.indexOf("const respondUnblockFromChar", a);
+  const fn = app.slice(a, b);
+  assert.match(fn, /m\.role === "assistant" && m\.blocked/, "拿的是他拉黑期间自己发的那几句");
+  assert.match(fn, /saidWhileBlocked\.slice\(-6\)/);
+  assert.match(fn, /不是刚被拉黑的那一刻/);
+  assert.match(fn, /"\\n\\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" \+ progress/);
+  assert.match(app, /setBlockFor\(chatKey, \{ iBlocked: true, blockedTs: Date\.now\(\) \}\)/, "她拉黑他也要记开始时间，不然算不出过了多久");
+});
