@@ -1,6 +1,6 @@
 // ============================================================
 // 塔罗（tarot）—— 抽牌 + 角色声音解牌，独立小 app
-// 四种玩法（都靠全局 callAI + ANTI_CLICHE，存 localStorage x_tarot_saves 随云同步）：
+// 四种玩法（解牌/入座/补牌/桌边聊走 runProbe 那份公共 bundle，每日一牌一次发全员；存 localStorage x_tarot_saves 随云同步）：
 //   · reading  角色为你解牌：你问一件事，选一个角色，Ta 用自己的口吻按牌面为你解读
 //   · relation 关系占卜：为「你和某角色」抽牌，牌面暗暗被真实好感/关系上色，不露数字
 //   · daily    每日一牌：一天只【一张】牌（全体共用，当天固定），各角色解读同一张给你当日签（可一次生成全部角色）
@@ -239,23 +239,36 @@
   ];
   const pickShopMoment = () => SHOP_MOMENTS[Math.floor(Math.random() * SHOP_MOMENTS.length)];
 
+  // ── 走公共那条路（v74.596，她 2026-10-03：「把塔罗的提示词也放进公共的吧」）──
+  // 原来这几处都自己拼 sys：人设截到 700~850 字，心情一个词，近况几句，反八股自己挑着贴。
+  // 换成 runProbe：buildBundle 那一整份白得（人设全文/心情/好感/印象卡/记忆/世界书/反陈词滥调/
+  // 居高临下/三件套/内容边界），线路也跟着这个角色自己的那条走（apiFor）。
+  // 靠调用点一条条 push 的那三层（回声禁令/语域跟场面走/读懂这句话在做什么）在 voiceTail 里补上，跟解梦馆、星测同一个做法。
+  // 塔罗自己的那两条（忠于牌面 HONEST、你对占卜的态度 STANCE）照旧跟在任务里。
+  function voiceTail() {
+    return (typeof ECHO_QUESTION_BAN !== "undefined" ? "\n\n" + ECHO_QUESTION_BAN : "")
+      + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n\n" + REGISTER_FOLLOWS_SCENE : "")
+      + (window.ReplyPacing ? "\n\n" + window.ReplyPacing.reading() : "");
+  }
+  // voice＝TA本人在说话（替你解牌、入座前那一句、补牌、桌边接着聊）；
+  // 不是 voice 的是旁白占者（关系占卜、给TA算一卦）——料一样是TA那一整份，站位换成冷静的推演。
+  async function tarotProbe(env, char, instruction, schemaHint, voice) {
+    const ctx = env && env.ctxFor && char ? env.ctxFor(char) : null;
+    if (!ctx || typeof runProbe !== "function") throw new Error("缺这个角色的上下文，退出塔罗再进一次");
+    const route = (env.apiFor && char && env.apiFor(char.id)) || env.active;
+    return await runProbe(route, ctx, { voice: !!voice, instruction: instruction + (voice ? voiceTail() : ""), schemaHint: schemaHint, maxTokens: 65535, tag: "tarot" });
+  }
+
   // 让角色自己决定“今天想不想坐上牌桌、想问什么”。只用于开局前，
   // 不把一次犹豫或拒绝写成人格，也不替角色硬答应。
-  async function askReadingIntent(active, ctx) {
+  async function askReadingIntent(env, char, ctx) {
     const forSelf = ctx.mode === "forchar";
-    const sys = AC() + CB() + "你就是「" + ctx.charName + "」本人。" +
-      "现在 " + ctx.uName + (forSelf ? "提出替你算一卦。" : "请你自己挑一个此刻真正想拿来问牌的问题。") +
+    const ins = "现在 " + ctx.uName + (forSelf ? "提出替你算一卦，问你愿不愿意。" : "请你自己挑一个此刻真正想拿来问牌的问题。") +
       "按你的人设、此刻心情和最近相处自然反应，不必配合演出。" +
-      (forSelf ? "你可以接受、带着一点犹豫接受，或明确拒绝。拒绝时说人话，不要讲规则。犹豫仍代表愿意继续，但问题可以保守些。" : "挑真实、具体、此刻会在意的问题；不要替自己制造重大危机。") +
-      "\n\n【角色资料】" + String(ctx.charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 700) +
-      (ctx.mood ? "\n【此刻心情】" + ctx.mood : "") +
-      (ctx.voiceRef ? "\n【最近的说话与近况】\n" + ctx.voiceRef : "") +
-      "\n\n只输出 JSON：{\"decision\":\"accept|hesitate|refuse\",\"line\":\"你当面说的一句自然回应\",\"question\":\"真正拿来问牌的问题\"}。" +
-      (forSelf ? "若拒绝，question 留空。" : "decision 固定为 accept。");
-    const raw = await callAI(active, sys, [{ role: "user", content: forSelf ? "你愿意让我替你算吗？" : "这次你想问牌什么？" }], { maxTokens: 8900 });
-    const p = extractJSON(raw) || {};
+      (forSelf ? "你可以接受、带着一点犹豫接受，或明确拒绝。拒绝时说人话，不要讲规则。犹豫仍代表愿意继续，但问题可以保守些。若拒绝，question 留空。" : "挑真实、具体、此刻会在意的问题；不要替自己制造重大危机。decision 固定为 accept。");
+    const p = await tarotProbe(env, char, ins, "{\"decision\":\"accept|hesitate|refuse\",\"line\":\"你当面说的一句自然回应\",\"question\":\"真正拿来问牌的问题\"}", true) || {};
     const decision = ["accept", "hesitate", "refuse"].includes(p.decision) ? p.decision : "accept";
-    return { decision: decision, line: String(p.line || raw || "").trim().slice(0, 240), question: String(p.question || "").trim().slice(0, 240) };
+    return { decision: decision, line: String(p.line || "").trim().slice(0, 240), question: String(p.question || "").trim().slice(0, 240) };
   }
 
   function loadSaves() { return loadJSON("x_tarot_saves", []); }
@@ -275,8 +288,8 @@
   // 模型：解一副牌（reading / relation / forchar）
   // 返回 {reads:[{pos,text}], summary, charThought}
   // ============================================================
-  async function readSpread(active, ctx) {
-    const { mode, cards, spread, charName, charPersona, uName, question, questionOwner, relText, band, voiceRef, mood, worldbook } = ctx;
+  async function readSpread(env, char, ctx) {
+    const { mode, cards, spread, charName, uName, question, questionOwner, relText, band, worldbook } = ctx;
     const cardList = cards.map((c, i) => {
       const ref = cardReference(c);
       return (i + 1) + "、【" + spread[i] + "】" + cardLabel(c) + "\n本地牌义锚点：" + ref.keywords + "；" + ref.text;
@@ -301,11 +314,9 @@
       thoughtAsk = "charThought：切换成「" + charName + "」本人的口吻，说一句 Ta 若看到替自己算的这一卦、心里真实的一句反应（第一人称）。";
     }
 
-    const sys = AC() + CB() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" + voice + "\n\n" +
-      "【角色资料】「" + charName + "」：" + (charPersona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 800) +
-      (mood ? "\n\n【Ta 此刻的心情：" + mood + "】顺带透一点即可，别喧宾夺主、牌义才是主角。" : "") +
-      (voiceRef ? "\n\n【Ta 近期的语气 / 近况，仅参考】\n" + voiceRef : "") +
-      (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim().slice(0, 500) : "") +
+    // 人设、心情、近况都在 runProbe 那份 bundle 里了，这儿只摆这一卦自己的料
+    const ins = HONEST + "\n\n" + (mode === "reading" ? STANCE + "\n\n" : "") + voice +
+      (worldbook && worldbook.trim() ? "\n\n【和这一卦相关的世界书】\n" + worldbook.trim().slice(0, 1200) : "") +
       "\n\n" + view +
       "\n\n【摊开的牌】\n" + cardList +
       "\n\n【怎么解】\n· 逐张解：每张牌结合它所在的位置、正位或逆位的含义来讲，别背牌义词典，要落到具体的处境/情绪/建议上，每张 80~180 字。\n" +
@@ -314,9 +325,10 @@
       "· readerSummary（220~520 字）：最后以占卜师视角重新综合全副牌。必须明确牌与牌之间怎样互相加强、抵消或转折，结合问题给出当下判断、风险和可执行建议；忠于以上本地牌义锚点，不要写成空泛心灵鸡汤，也不要复述逐张解读。\n" +
       "· " + thoughtAsk + "（20~50 字）。\n" +
       "· moment（16~34 字）：这副牌落桌的【那一刻】，桌边或店里的一个具体动静——光、声音、手上的一个动作、茶、窗外走过的人。要贴这一次的场合和解牌的人，别写心理活动、别点评牌面、别提问题内容。\n" +
-      "【输出】只输出 JSON：{\"reads\":[{\"pos\":\"位置名\",\"text\":\"这张牌的解读\"}...],\"summary\":\"短收束\",\"readerSummary\":\"占卜师综合总结\",\"charThought\":\"角色本人的一句反应\",\"moment\":\"落桌那一刻的一句动静\"}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始解牌。" }], { maxTokens: (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535 });
-    const p = extractJSON(raw) || {};
+      "";
+    const raw = "";
+    const p = await tarotProbe(env, char, ins, "{\"reads\":[{\"pos\":\"位置名\",\"text\":\"这张牌的解读\"}],\"summary\":\"短收束\",\"readerSummary\":\"占卜师综合总结\",\"charThought\":\"角色本人的一句反应\",\"moment\":\"落桌那一刻的一句动静\"}", mode === "reading") || {};
+
     let reads = Array.isArray(p.reads) ? p.reads.filter(r => r && r.text).map((r, i) => ({ pos: r.pos || spread[i] || "", text: String(r.text).trim() })) : [];
     if (!reads.length) reads = [{ pos: spread[0] || "", text: String(raw || "牌面模糊，重试。").trim() }];
     return { reads: reads, summary: String(p.summary || "").trim(), readerSummary: String(p.readerSummary || p.summary || "").trim(), charThought: String(p.charThought || "").trim(),
@@ -325,27 +337,31 @@
       moment: String(p.moment || "").trim().slice(0, 40) };
   }
 
-  async function readSupplement(active, session, char, uName, pos, card) {
+  async function readSupplement(env, session, char, uName, pos, card) {
     const ref = cardReference(card);
-    const sys = AC() + CB() + HONEST + "\n\n你就是「" + session.charName + "」本人，仍坐在 " + uName + " 对面。" +
-      "刚才的整副牌已经解完；现在只为【" + pos + "】补了一张牌。用你自己的口吻补充 50~130 字：说明它澄清了什么、推翻了什么或加重了什么。不要重做整副解牌，不要报幕。" +
-      "\n【人设】" + String(char && char.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 700) +
+    const ins = HONEST + "\n\n你仍坐在 " + uName + " 对面。刚才的整副牌已经解完；现在只为【" + pos + "】补了一张牌。" +
+      "用你自己的口吻补充 50~130 字：说明它澄清了什么、推翻了什么或加重了什么。不要重做整副解牌，不要报幕。" +
       "\n【原问题】" + (session.question || "未明说") + "\n【原收束】" + String(session.summary || "").slice(0, 500) +
       "\n【补牌】" + cardLabel(card) + "\n【本地牌义锚点】" + ref.keywords + "；" + ref.text;
-    return String(await callAI(active, sys, [{ role: "user", content: "把这张补牌接到刚才的牌位上。" }], { maxTokens: 9000 }) || "").trim();
+    const d = await tarotProbe(env, char, ins, "{\"text\":\"你补的那段话\"}", true) || {};
+    return String(d.text || "").trim();
   }
 
   // ============================================================
   // 模型：每日一牌 —— 今天【同一张牌】，多个角色各自解读；一次调用返回每人一句当日签
   // 注入很克制（只给此刻心情一词 + 很短的近况），避免喧宾夺主把解读搞乱。返回按传入顺序对齐 [{text}]
   // ============================================================
+  // ⚠️这一处【没】换成 runProbe，是有意的（four-surfaces 的「写明理由」）：
+  //   每日一牌是一次调用让所有角色各说一句，runProbe 一次只装得下一个人的 bundle——
+  //   换过去就成了「几个角色几次调用」，她按次付钱。人设这儿给到每人 1500 字（原来 260），
+  //   心情和近况照旧；一个人一句当日签用不着整份 bundle。
   async function readDailyForCard(active, card, list, uName, worldbook) {
-    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 260) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.voiceRef ? "\n  近况一瞥：" + it.voiceRef.replace(/\n/g, "；").slice(0, 90) : "")).join("\n\n");
+    const block = list.map((it, i) => (i + 1) + "、「" + it.name + "」\n  人设：" + (it.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 1500) + (it.mood ? "\n  此刻心情：" + it.mood : "") + (it.voiceRef ? "\n  近况一瞥：" + it.voiceRef.replace(/\n/g, "；").slice(0, 90) : "")).join("\n\n");
     const sys = AC() + CB() + NAC() + HONEST + "\n\n" + STANCE + "\n\n" +
       "今天的塔罗牌是【同一张】：" + cardLabel(card) + "。请【分别以下面每位角色本人的口吻】，就【这同一张牌】给 " + uName + " 递一句今天的当日签——短，像随口说的一两句，结合这张牌（含正/逆位）与各自人设" + (list.some(it => it.mood) ? "（有此刻心情就顺带透一点，但别喧宾夺主，牌义才是主角）" : "") + "，别混淆、别串味、别把几个人写成同一个腔调、也别千篇一律。\n\n" +
       "【要解读这张牌的角色】\n" + block +
       "\n\n【输出】只输出 JSON，readings 数组和上面角色顺序【一一对应、数量一致】：{\"readings\":[{\"name\":\"角色名\",\"text\":\"这位角色对今天这张牌的当日签\"}...]}。别加解释、别加代码块。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始发签。" }], { maxTokens: 12000 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始发签。" }], { maxTokens: 65535 });
     const p = extractJSON(raw) || {};
     const arr = Array.isArray(p.readings) ? p.readings : [];
     // 优先按 name 对齐，兜底按顺序
@@ -410,7 +426,7 @@
         // 这一卦是TA自己开口要的（房里那张卡点进来的），不是她从架上挑的
         proposed: !!(seed && seed.proposed),
         modeKey: view.slice(5), characters: props.characters, profile: props.profile, rels: props.rels,
-        affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, toast: props.toast,
+        affinities: props.affinities, moods: props.moods, worldbook: props.worldbook, worldbookFor: props.worldbookFor, active: props.active, ctxFor: props.ctxFor, apiFor: props.apiFor, toast: props.toast,
         onCancel: () => { setSeed(null); setView("home"); },
         onDone: (session, skipHook) => {
           persist([session].concat(loadSaves().filter(s => s.id !== session.id)));
@@ -430,7 +446,7 @@
       const s = saves.find(x => x.id === view.slice(2));
       if (!s) { setView("home"); return null; }
       return h(SessionView, {
-        session: s, characters: props.characters, profile: props.profile, active: props.active,
+        session: s, characters: props.characters, profile: props.profile, active: props.active, ctxFor: props.ctxFor, apiFor: props.apiFor,
         onForwardToChat: props.onForwardToChat, toast: props.toast,
         onUpdate: updated => persist(loadSaves().map(x => x.id === updated.id ? updated : x)),
         onBack: () => { setSaves(loadSaves()); setView("home"); }
@@ -669,10 +685,7 @@
           const heAsked = !!props.proposed && props.modeKey === "forchar" && !!finalQuestion;
           if (!heAsked && (props.modeKey === "forchar" || (props.modeKey === "reading" && questionOwner === "character"))) {
             update(null, props.modeKey === "forchar" ? "先问问 " + c.name + " 愿不愿意…" : c.name + " 正在想要问什么…");
-            intent = await askReadingIntent(props.active, {
-              mode: props.modeKey, charName: c.name, charPersona: c.persona || "", uName: uName,
-              mood: moodOf(c.id), voiceRef: recentChat(c.id, uName, c.name)
-            });
+            intent = await askReadingIntent(props, c, { mode: props.modeKey, uName: uName });
             setGate(intent);
             if (props.modeKey === "forchar" && intent.decision === "refuse") {
               update(null, "");
@@ -705,17 +718,17 @@
           const r1 = rels[c.id + "->me"], r2 = rels["me->" + c.id];
           const relText = [r2 && r2.label ? "你把 Ta 当作：" + r2.label : "", r1 && r1.label ? "Ta 把你当作：" + r1.label : ""].filter(Boolean).join("；");
           const aff = props.affinities ? props.affinities[c.id] : null;
-          const out = await readSpread(props.active, {
+          const out = await readSpread(props, c, {
             mode: props.modeKey, cards: cards, spread: spread,
-            charName: c.name, charPersona: c.persona || "", uName: uName,
+            charName: c.name, uName: uName,
             question: deal.finalQuestion, questionOwner: questionOwner, relText: relText,
             band: (props.modeKey === "relation" || props.modeKey === "reading") ? affBand(aff) : "",
-            voiceRef: recentChat(c.id, uName, c.name), mood: moodOf(c.id), worldbook: props.worldbookFor ? props.worldbookFor(c.id, [deal.finalQuestion, cards.map(function (x) { return x.name; }).join("、")].filter(Boolean).join("\n")) : props.worldbook
+            worldbook: props.worldbookFor ? props.worldbookFor(c.id, [deal.finalQuestion, cards.map(function (x) { return x.name; }).join("、")].filter(Boolean).join("\n")) : props.worldbook
           });
           const session = { id: "tr_" + Date.now(), mode: props.modeKey, charId: c.id, charName: c.name,
             question: deal.finalQuestion, questionOwner: questionOwner, spreadKey: spreadKey, spread: spread,
             cards: cards, reads: out.reads, summary: out.summary, readerSummary: out.readerSummary, charThought: out.charThought,
-            consent: deal.intent ? { decision: deal.intent.decision, line: deal.intenSKY_LINE } : null,
+            consent: deal.intent ? { decision: deal.intent.decision, line: deal.intent.line } : null,
             shopMoment: out.moment || shopMoment, revealed: [], supplements: [], followups: [], ts: Date.now() };
           props.onDone(session);
           return session;
@@ -850,20 +863,22 @@
   // ============================================================
   // 一次占卜的正文
   // ============================================================
-  async function continueAtTable(active, session, char, uName, history, question) {
+  async function continueAtTable(env, session, char, uName, history, question) {
     const cards = (session.cards || []).map((c, i) => "【" + ((session.spread || [])[i] || "第" + (i + 1) + "张") + "】" + cardLabel(c)).join("；");
     const reads = (session.reads || []).map(r => (r.pos || "") + "：" + r.text).join("\n");
-    const sys = AC() + CB() + "你就是「" + session.charName + "」本人。占卜已经结束，但你和 " + uName + " 还坐在店里的小桌边。" +
+    // runProbe 只发一句触发，所以桌边说过的那几句照原样摆进任务里（料在 system，user 一句话——prompt-send-shape）
+    const said = (history || []).slice(-10).map(x => (x.role === "assistant" ? "你：" : uName + "：") + String(x.content || "")).join("\n");
+    const ins = "占卜已经结束，但你和 " + uName + " 还坐在店里的小桌边。" +
       "现在是围绕刚才这副牌自然说话，不是重新生成一份解牌报告，也不是客服答疑。你可以赞同、保留、调侃、追问，或者承认自己也没想明白；保持你自己对占卜的态度和人设。" +
       "不要声称牌能证明事实，不要每次都总结人生。用第一人称，通常一两段就够。" +
-      "\n\n【你的人设】" + String(char && char.persona || "（暂无设定）").replace(/\s+/g, " ").slice(0, 850) +
       "\n【原问题】" + (session.question || "未明说") +
       "\n【牌面】" + cards +
       "\n【刚才的解读】\n" + reads.slice(0, 1800) +
-      "\n【占卜师总结】" + String(session.readerSummary || session.summary || "").slice(0, 1800);
-    const msgs = (history || []).slice(-10).map(x => ({ role: x.role === "assistant" ? "assistant" : "user", content: x.content }));
-    msgs.push({ role: "user", content: question });
-    return String(await callAI(active, sys, msgs, { maxTokens: 9400 }) || "").trim();
+      "\n【占卜师总结】" + String(session.readerSummary || session.summary || "").slice(0, 1800) +
+      (said ? "\n\n【桌边刚才说过的】\n" + said : "") +
+      "\n\n【" + uName + " 刚说】" + question;
+    const d = await tarotProbe(env, char, ins, "{\"text\":\"你接的那句话\"}", true) || {};
+    return String(d.text || "").trim();
   }
 
   function SessionView(props) {
@@ -997,7 +1012,7 @@
       const next = followups.concat(mine);
       setFollowups(next); setFollowText(""); setFollowBusy(true);
       try {
-        const answer = await continueAtTable(props.active, s, char, userName(props.profile), followups, text);
+        const answer = await continueAtTable(props, s, char, userName(props.profile), followups, text);
         const done = next.concat({ id: "tfa_" + Date.now(), role: "assistant", content: answer || "……", ts: Date.now() });
         setFollowups(done);
         props.onUpdate && props.onUpdate({ ...s, followups: done });
@@ -1022,7 +1037,7 @@
       setSuppBusy(i);
       let text = "";
       try {
-        text = await readSupplement(props.active, s, char, userName(props.profile), pos, card);
+        text = await readSupplement(props, s, char, userName(props.profile), pos, card);
       } catch (e) {
         text = cardReference(card).text;
         props.toast && props.toast("补牌解读没接上，先保留了牌面");
@@ -1042,7 +1057,7 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: N.tint, fontWeight: 700 } }, m.icon),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: N.ink } }, subject)),
         s.shopMoment ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: N.fog, lineHeight: 1.6, margin: "5px 0 12px", paddingLeft: 9, borderLeft: "2px solid " + N.tint } }, s.shopMoment) : null,
-        s.consent && s.consenSKY_LINE ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: N.sub, marginBottom: 10 } }, s.charName + "入座前说：『" + s.consenSKY_LINE + "』") : null,
+        s.consent && s.consent.line ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: N.sub, marginBottom: 10 } }, s.charName + "入座前说：『" + s.consent.line + "』") : null,
         s.mode !== "daily" && s.question ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: N.sub, fontStyle: "italic", marginBottom: 16 } }, "「" + s.question + "」") : h("div", { style: { height: 12 } }),
         // 「给角色算一卦」的主动作必须在牌面之前看得见，不能埋到整篇解读和追问区之后。
         s.mode === "forchar" && props.onForwardToChat ? h("button", {

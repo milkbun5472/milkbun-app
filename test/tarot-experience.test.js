@@ -5,6 +5,7 @@ const path = require("node:path");
 
 const root = path.join(__dirname, "..");
 const tarot = fs.readFileSync(path.join(root, "js/tarot.js"), "utf8");
+const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
 
 test("塔罗保留原入口、基础与主题牌阵册和 1 至 8 位自定义牌阵", () => {
   for (const mode of ["reading", "relation", "daily", "forchar"]) {
@@ -50,8 +51,8 @@ test("78 张真实牌面使用本地图片并兼容旧存档", () => {
 
 test("解牌输出包含高预算的占卜师综合总结", () => {
   assert.match(tarot, /readerSummary（220~520 字）/);
-  assert.match(tarot, /StylePresets\.OUT_CEILING/);
-  assert.match(tarot, /\|\| 65535/);
+  // v74.596 起走 runProbe（公共 bundle），天花板开满在 tarotProbe 那一处
+  assert.match(tarot, /schemaHint: schemaHint, maxTokens: 65535, tag: "tarot"/);
   // v63.01 no-english-titles：中英夹着的那半英文删掉
   assert.match(tarot, /"占卜师总结"/);
   assert.match(tarot, /readerSummary: out\.readerSummary/);
@@ -88,7 +89,7 @@ test("角色可自己选问题，给角色算卦前允许接受犹豫或拒绝",
 
 test("角色自己问牌时，逐张解读与最终小结都保留提问者归属", () => {
   assert.match(tarot, /question: deal\.finalQuestion, questionOwner: questionOwner/);
-  assert.match(tarot, /const \{ mode, cards, spread, charName, charPersona, uName, question, questionOwner,/);
+  assert.match(tarot, /const \{ mode, cards, spread, charName, uName, question, questionOwner,/);
   assert.match(tarot, /questionOwner === "character"/);
   assert.match(tarot, /问题中的第一人称指你，不指/);
   assert.match(tarot, /逐张解读、短收束和占卜师综合总结都要把问题与判断归给你/);
@@ -122,4 +123,22 @@ test("店主只作为低存在感环境，不替角色解牌", () => {
   // 生成的那一句同样不许点评牌面、不许提问题、不许替角色说话
   assert.match(tarot, /shopMoment: out\.moment \|\| shopMoment/);
   assert.match(tarot, /别写心理活动、别点评牌面、别提问题内容/);
+});
+
+test("塔罗走公共的 runProbe：解牌、入座、补牌、桌边聊都吃整份 bundle；每日一牌写明为什么不换", () => {
+  assert.match(tarot, /async function tarotProbe\(env, char, instruction, schemaHint, voice\)/);
+  assert.match(tarot, /return await runProbe\(route, ctx, \{ voice: !!voice, instruction: instruction \+ \(voice \? voiceTail\(\) : ""\)/);
+  assert.match(tarot, /const route = \(env\.apiFor && char && env\.apiFor\(char\.id\)\) \|\| env\.active;/, "线路跟着角色自己那条");
+  for (const f of ["askReadingIntent", "readSpread", "readSupplement", "continueAtTable"]) {
+    const a = tarot.indexOf("async function " + f + "("), b = tarot.indexOf("\n  }\n", a);
+    const body = tarot.slice(a, b);
+    assert.match(body, /tarotProbe\(env, char,/, f + " 没走公共那条路");
+    assert.ok(!/callAI\(/.test(body), f + " 又自己 callAI 了");
+    assert.ok(!/\.slice\(0, (700|800|850)\)/.test(body), f + " 又在截人设");
+  }
+  assert.match(tarot, /mode === "reading"\) \|\| \{\};/, "替你解牌是TA本人在说（voice），关系占卜/给TA算是旁白");
+  assert.match(tarot, /每日一牌是一次调用让所有角色各说一句/);
+  assert.match(app, /onForwardToChat: forwardTarotToChat,[\s\S]{0,160}ctxFor: ctxFor,\s*apiFor: apiFor,/);
+  assert.ok(!/SKY_LINE/.test(tarot), "入座前那句被批量替换弄坏的那两处");
+  assert.match(tarot, /line: deal\.intent\.line \}/);
 });
