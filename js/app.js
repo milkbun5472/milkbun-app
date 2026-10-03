@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.592";
+const APP_VERSION = "v74.593";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3055,6 +3055,7 @@ function App() {
     return Math.round(Math.max(-5, Math.min(5, d)) * 0.2 * 1000) / 1000;
   };
   const bumpAff = (charId, aiDelta) => {
+    if (typeof charactersRef !== "undefined" && ((charactersRef.current || []).find(c => c && c.id === charId) || {}).npc) return;   // 配角没有好感度（私聊也一样）
     const inc = affinityStep(aiDelta);
     if (inc) setAff(charId, current => current + inc);
   };
@@ -4821,6 +4822,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 点数按【一段相处】结算，不按消息条数（按条数＝拿抽卡催她水消息）。两道闸都在 GachaKit 里。
   const gachaEarn = (charId, kind) => {
     if (!window.GachaKit || !charId) return 0;
+    if (((charactersRef.current || []).find(c => c && c.id === charId) || {}).npc) return 0;   // 配角没有抽卡点
     const r = window.GachaKit.earn(gachaPtsRef.current || {}, charId, kind, Date.now(), gachaDay());
     gachaPtsRef.current = r.box; setGachaPts(r.box); saveJSON("x_gachaPts", r.box);
     // 花房（v62.33）吃同一份：GachaKit 刚判定「真的相处了一段」，花就长同一口。
@@ -5605,7 +5607,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     rels,
     // 情侣状态（表白在一起后自动生效，不用去改「关系」字段）：together 权威、覆盖旧关系标签
     coupleStatus: (() => {
-      const cp = couples[char.id];
+      const cp = !char.npc && couples[char.id];
       if (!cp) return "";
       if (cp.status === "together") { const days = cp.since ? Math.max(1, Math.floor((Date.now() - cp.since) / 86400000) + 1) : null; return "together" + (days ? "|" + days : ""); }
       if (cp.status === "pending") return "pending";
@@ -5626,7 +5628,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     yanqiuWall: yanqiuWallFor(char, ctxOpts),
     ccContinuity: ccContinuityFor(char),
     profile: profileFor(char.id),
-    affinity: Math.round(affOf(char.id)),
+    // 配角没有好感度：null 时引擎那一行整句不发（typeof affinity === "number"）
+    affinity: char.npc ? null : Math.round(affOf(char.id)),
     // 心情会自己平复：注入前按放了多久重新表述（存储不动，历史照留）。
     // 隔了一夜以上就不再报「你此刻的心情是X」——那是上次相处结束时的读数，
     // 提示词照原样塞进去，等于要求TA把三天前那阵气重演一遍（她 2026-08-24 问到的）。
@@ -6609,6 +6612,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const year = String(nowD.getFullYear());
         const vis = (periodRef.current && periodRef.current.visibleTo) || [];
         for (const c of characters) {
+          if (c.npc) continue;   // 配角私聊只在她找TA时才说话，后台一律不碰（她 2026-10-03）
           const cid = c.id;
           if (!vis.includes(cid)) continue;                          // 只有你允许看日历的角色才知道你生日
           if (laneBusy("c:" + cid)) continue;
@@ -6856,6 +6860,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } catch (e) {}
       try {
         for (const c of characters) {
+          if (c.npc) continue;   // 配角私聊只在她找TA时才说话，后台一律不碰（她 2026-10-03）
           try { window.__pTick.loop = Date.now(); } catch (e) {}
           const cid = c.id;
           const s = settingsFor(cid);
@@ -7101,6 +7106,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 一个场推一步。私聊和群走的是同一份漂移/补记/阈值逻辑——
   // 这一层只许有一份实现（这个仓库最常犯的错就是「一层写在两处，第二处没跟上」）。
   const dongnianTickOne = async (char, gid, now) => {
+    if (char && char.npc && !gid) return;   // 配角私聊没有自己的动念：从不主动找她（她 2026-10-03）
     const arr = (gid ? groupChatsRef.current[gid] : chatsRef.current[char.id]) || [];
     if (!arr.length) return;                                  // 这个场里一句话都没有，不跑
     const eng = getDongnian(char, gid); if (!eng) return;
@@ -10906,7 +10912,7 @@ wearing: string，仅在穿着发生变化时填写。若你在 word 里明确�
 affinityDelta: ${AFFINITY_DELTA_SPEC}
 ${SCHED_NOW_SPEC}
 未发生、未改变的按需字段直接省略；action 不属于按需字段，普通角色每轮都要填写。
-${window.Gaze ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
+${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : ""}
 【能力使用总则】这些功能都可以日常使用，gift、photo、call、voice、moment、recall 等按当前对话与你自己的真实意愿选择，不必等待特殊时刻。没有使用频率或轮数要求，不用为了证明记得能力而找机会触发。recall 可用于日常纠错或调整已发消息，不限于后悔、说漏嘴；需要补发时写入 word。能力字段是否使用不限制表达的热情、篇幅或性格。
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
@@ -10985,7 +10991,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
-      const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
+      const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
@@ -11300,9 +11306,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 只记录明确交回的更新或复看结果；省略时保留原文。
       if (_roomCanWrite("gaze") && window.Gaze && !_s.engineerEyes) {
         let _impWrote = false;
-        if (parsed.impression) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
+        if (parsed.impression && !char.npc) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
         // 兼容旧协议的明确复看回执，不要求每轮提交。
-        if (!_impWrote && parsed.impressionChecked && window.Gaze.markChecked) {
+        if (!_impWrote && !char.npc && parsed.impressionChecked && window.Gaze.markChecked) {
           try {
             const _ck = window.Gaze.normKey("", String(parsed.impressionChecked));
             if (_ck) _impWrote = window.Gaze.markChecked(char.id, _ck);
@@ -11926,7 +11932,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         delivered = true;
       }
       // 仅当该角色开启了「自由发朋友圈」才把 Ta 想发的动态发出去
-      const mo = settingsFor(charId).autoMoment && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
+      const mo = !char.npc && settingsFor(charId).autoMoment && parsed.moment && String(parsed.moment).toLowerCase() !== "null" ? String(parsed.moment) : null;
       if (mo) { pMom(p => [{
         id: "m_" + Date.now(),
         characterId: charId,
@@ -14987,6 +14993,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     schedSelfRevRef.current = true;
     try {
       for (const c of characters) {
+        if (c.npc) continue;   // 配角私聊只在她找TA时才说话，后台一律不碰（她 2026-10-03）
         if (!autoRefreshOn("schedule", c.id)) continue;
         const today = schedLocalDayKey(c);
         const plan = (schedulesRef.current[c.id] || {})[today];
@@ -15267,6 +15274,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     diaryRunRef.current = dayKey;
     try {
       for (const c of characters) {
+        if (c.npc) continue;   // 配角私聊只在她找TA时才说话，后台一律不碰（她 2026-10-03）
         if (!autoRefreshOn("diary", c.id)) continue;
         if (diaryWroteFor(c.id, targetTs)) continue;
         await window.AutoGate.run("diary|" + c.id, dayKey, async () => {
@@ -15543,6 +15551,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const today = schedDayKey(new Date());
     try {
       for (const c of characters) {
+        if (c.npc) continue;   // 配角私聊只在她找TA时才说话，后台一律不碰（她 2026-10-03）
         if (!autoRefreshOn("desire", c.id)) continue;
         if (!desiresRef.current[c.id]) continue;
         const box = HeartKit.boxOf(desiresRef.current, c.id);
@@ -25324,6 +25333,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
+    onChatNpc: id => openChatById(id),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
     chats: chats,
