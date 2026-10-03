@@ -1670,7 +1670,7 @@
   //   主题台只有一支点缀色，所以从它【算】出三支——认真教就是它本身，一起研究、一教一学
   //   在色环上往两边各转 70°，明暗和浓淡跟它一样，看着是同一套又分得开（soft 是各自的淡底）。
   //   没给点缀色照旧各是各的绿／紫／蓝；给的不是 #hex／rgb() 这种算不动的写法，就三种共用它。
-  const STUDY_MODE_TURN = { teach: 0, costudy: 70, nv1: -70 };
+  const STUDY_MODE_TURN = { teach: 0, costudy: 70, nv1: -70, tb: 150 };
   function studyTurnHue(color, deg) {
     const c = String(color || "").trim();
     let r, g, b;
@@ -1693,7 +1693,8 @@
   const STUDY_MODE_BASE = {
     teach: { accent: "#657c60", soft: "#e5ebdf", label: "老师批注", code: "01" },
     costudy: { accent: "#78698e", soft: "#ebe5f0", label: "共同研究", code: "02" },
-    nv1: { accent: "#5d7685", soft: "#e2eaed", label: "三人课堂", code: "03" }
+    nv1: { accent: "#5d7685", soft: "#e2eaed", label: "三人课堂", code: "03" },
+    tb: { accent: "#a0694a", soft: "#f2e6dc", label: "我来教", code: "04" }
   };
   const STUDY_MODE_SKIN = {};
   Object.keys(STUDY_MODE_BASE).forEach(function (mode) {
@@ -3776,6 +3777,12 @@
         onCreated: function (sess) { setOpenId(sess.id); setView("thread"); }
       });
     }
+    // 我来教：她当老师，角色当学生
+    const tbCtx = { worldbookFor: props.worldbookFor, uName: (props.profile && props.profile.name) || "老师" };
+    if (view === "tbNew") return h(TbNew, { characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
+      onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
+    if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
+      onBack: function () { refresh(); setView("home"); restoreHome(); } });
     if (view === "newCostudy") {
       return h(NewCostudy, {
         characters: props.characters, toast: props.toast,
@@ -3825,9 +3832,14 @@
     }
 
     // home：顶部三板 tab
-    const tabs = [["teach", "认真教"], ["costudy", "一起研究"], ["nv1", "一教一学"]];
+    const tabs = [["teach", "认真教"], ["costudy", "一起研究"], ["nv1", "一教一学"], ["tb", "我来教"]];
     let panel;
-    if (tab === "costudy") {
+    if (tab === "tb") {
+      panel = h(TbList, { characters: props.characters, scrollRef: homeScrollRef,
+        onNew: function () { rememberHome(); setView("tbNew"); },
+        onOpen: function (id) { rememberHome(); setOpenId(id); setView("tbThread"); },
+        onDel: function (id) { requestAppConfirm("移除这节课？", "这节课的对话、笔记和小测都会一起删除，无法恢复。", function () { saveTb(loadTb().filter(function (x) { return x.id !== id; })); refresh(); }, "移除"); } });
+    } else if (tab === "costudy") {
       const cs = sessions.filter(function (s) { return !s.curriculum_id; })
         .sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
       panel = h(CostudyList, {
@@ -3881,6 +3893,265 @@
           h("span", { style: { display: "block", fontFamily: "'Archivo',sans-serif", fontSize: 8, letterSpacing: ".12em", color: skin.accent, marginBottom: 2 } }, skin.code), tb[1]);
       })),
       panel);
+  }
+
+  // ================================================================
+  // 我来教（她 2026-10-03：「一起学里开第四种，让角色做学生，我当老师」）
+  // 费曼那一套：讲得给别人听懂才算自己懂。玩法四件：
+  //   ① 开课时给 TA 偷偷安排 2~3 个这门课上常见的误解——她挖出一个就当场亮一个（她定：边挖边亮）；
+  //   ② TA 的课堂笔记：用 TA 自己的话记下听懂了什么，记歪了她一眼看得见（跟回话同一枪，不多花）；
+  //   ③ TA 照自己的性子当学生：会举手、会追问、会走神；她讲得含糊的地方 TA 接不住；
+  //   ④ 下课：她出题或让系统按这节课讲过的出题（她定：两种都要），TA 答，她判；最后 TA 给老师写张评教卡。
+  // 存在 x_studyTeachBack，跟其余三种的课页分开（这一种没有大纲、没有错题本，是她的课不是 TA 的课）。
+  // ================================================================
+  const K_TB = "x_studyTeachBack";
+  function loadTb() { return loadJSON(K_TB, []) || []; }
+  function saveTb(list) { saveJSON(K_TB, list); }
+  function patchTb(id, fn) { const list = loadTb().map(function (x) { return x.id === id ? Object.assign({}, x, fn(x), { updated_at: Date.now() }) : x; }); saveTb(list); return list.find(function (x) { return x.id === id; }); }
+  function tbCharBlock(char, ctx) {
+    const parts = [];
+    if (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt) parts.push(ContentBoundaries.prompt);
+    parts.push("【你的人设】\n" + String(char.persona || "（暂无设定）").slice(0, 6000));
+    if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    const wb = ctx.worldbookFor ? ctx.worldbookFor(char.id, ctx.subject || "") : "";
+    if (wb && String(wb).trim()) parts.push("【世界书】\n" + String(wb).trim());
+    return parts.join("\n\n");
+  }
+  function tbScene(s, char, uName) {
+    return "【当前场景：一起学 · 我来教】" + uName + " 当老师，你当学生，这节课教你『" + s.subject + "』。\n"
+      + "你是真的在学：照你这个人的性子听课——会的会抢答、不会的会懵、坐不住的会走神，人设里是古人就按古人的见识去理解新东西。"
+      + "老师讲清楚了你才懂；讲得含糊、跳步了，你就接不住，会追问或者理解歪——这正是这节课对老师有用的地方，别为了配合假装听懂。\n"
+      + "【你心里本来就这么以为的几件事】（这是你真信的，不是剧本；别自己说破「我有个误解」，在相关的地方自然露出来就好。"
+      + "只有老师讲到点上、你真被说服了，才算改过来）\n"
+      + (s.misconceptions || []).map(function (m) { return m.id + ". " + m.text + (m.found ? "（已经被老师纠正过了，你现在知道正确的了）" : ""); }).join("\n")
+      + (s.material && s.material.text ? "\n【老师手上的教案（你没看过，只是让你知道老师大概要讲什么；别照着它背）】\n" + String(s.material.text).slice(0, 6000) : "");
+  }
+  const TB_TURN_FMT = "【输出】只输出 JSON：{\"say\":[\"你说的话，一句一个气泡\"],\"note\":\"你此刻的课堂笔记全文，用你自己的话分条记（每条一行，以「· 」开头），记的是你理解到的样子，理解歪了就照歪的记\",\"fixed\":[\"这一轮被老师纠正过来的那几条的编号，没有就空数组\"],\"hand\":\"想举手问的一个问题，没有就空字符串\"}";
+  // 连着同一边的合成一条、开头补一句老师的——有的接口不许 assistant 打头、不许同一边连发
+  function tbTail(s) {
+    const out = [];
+    (s.transcript || []).slice(-30).forEach(function (m) {
+      const role = m.role === "user" ? "user" : "assistant";
+      const last = out[out.length - 1];
+      if (last && last.role === role) last.content += "\n" + m.text; else out.push({ role: role, content: m.text });
+    });
+    if (!out.length || out[0].role !== "user") out.unshift({ role: "user", content: "（上课了）" });
+    return out;
+  }
+  async function tbStart(active, char, subject, material, ctx) {
+    const sys = tbCharBlock(char, Object.assign({}, ctx, { subject: subject }))
+      + "\n\n【这一步】" + ctx.uName + " 要给你上一节『" + subject + "』，你当学生。先为你设想 3 个初学这门课的人【最常见、最真实】的误解（要具体到一句话能判对错，别是「不太懂」这种空话；跟你的人设和见识对得上），"
+      + "再说一两句开课前你会说的话（照你的性子：期待、紧张、嘴硬、走神都行）。"
+      + (material && material.text ? "\n老师给的教案（误解要贴着这里面的内容设）：\n" + String(material.text).slice(0, 6000) : "")
+      + "\n【输出】只输出 JSON：{\"misconceptions\":[\"误解1\",\"误解2\",\"误解3\"],\"say\":[\"开课前你说的话\"]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "请按上面的要求开始生成，直接给出结果。" }], { maxTokens: TOK.turn });
+    const d = (typeof extractJSON === "function" ? extractJSON(raw) : null) || {};
+    const mis = (Array.isArray(d.misconceptions) ? d.misconceptions : []).map(function (x) { return String(x || "").trim(); }).filter(Boolean).slice(0, 3);
+    if (!mis.length) throw new Error("没能设好这节课（模型没按格式回）：" + String(raw || "").slice(0, 80));
+    return { misconceptions: mis.map(function (x, i) { return { id: String(i + 1), text: x, found: false }; }), say: (Array.isArray(d.say) ? d.say : [d.say]).filter(Boolean).map(String) };
+  }
+  async function tbTurn(active, s, char, ctx) {
+    const sys = tbCharBlock(char, Object.assign({}, ctx, { subject: s.subject })) + "\n\n" + tbScene(s, char, ctx.uName)
+      + "\n【你现在的笔记】\n" + (s.note || "（还没记）") + "\n\n" + TB_TURN_FMT;
+    const raw = await callAI(active, sys, tbTail(s), { maxTokens: TOK.turn });
+    const d = (typeof extractJSON === "function" ? extractJSON(raw) : null) || {};
+    let say = (Array.isArray(d.say) ? d.say : [d.say]).filter(Boolean).map(String);
+    if (!say.length) say = [String(raw || "").replace(/[{}"]/g, "").slice(0, 200)];
+    return { say: say, note: typeof d.note === "string" ? d.note.trim() : null, fixed: (Array.isArray(d.fixed) ? d.fixed : []).map(String), hand: String(d.hand || "").trim() };
+  }
+  async function tbAutoQuiz(active, s) {
+    const conv = (s.transcript || []).map(function (m) { return (m.role === "user" ? "老师" : "学生") + "：" + m.text; }).join("\n").slice(-8000);
+    const sys = "下面是一节课的对话（老师在教『" + s.subject + "』）。只按【老师这节课真讲过的内容】出 3 道小测题，能用一两句话作答，别出没讲过的。\n【输出】只输出 JSON：{\"questions\":[\"题1\",\"题2\",\"题3\"]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: conv || "（这节课还没讲什么）" }], { maxTokens: TOK.small });
+    const d = (typeof extractJSON === "function" ? extractJSON(raw) : null) || {};
+    return (Array.isArray(d.questions) ? d.questions : []).map(String).filter(Boolean).slice(0, 5);
+  }
+  async function tbAnswer(active, s, char, ctx, qs) {
+    const sys = tbCharBlock(char, Object.assign({}, ctx, { subject: s.subject })) + "\n\n" + tbScene(s, char, ctx.uName)
+      + "\n【你的笔记】\n" + (s.note || "（没记什么）")
+      + "\n\n【这一步】下课了，老师出了小测。照你【这节课真学到的】来答：笔记里有、听懂了的就答对；没讲过的、你还误解着的，就照你以为的答（会答错就答错，别硬凑正确答案）。用你自己的口气，一题一两句。"
+      + "\n【输出】只输出 JSON：{\"answers\":[\"第1题的答案\",\"第2题的答案\"]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: qs.map(function (q, i) { return (i + 1) + ". " + q; }).join("\n") }], { maxTokens: TOK.turn });
+    const d = (typeof extractJSON === "function" ? extractJSON(raw) : null) || {};
+    return (Array.isArray(d.answers) ? d.answers : []).map(String);
+  }
+  async function tbReview(active, s, char, ctx) {
+    const q = (s.quiz || []).map(function (x, i) { return (i + 1) + ". " + x.q + " —— 你答：" + (x.a || "") + (x.ok === true ? "（老师判对）" : x.ok === false ? "（老师判错）" : ""); }).join("\n");
+    const found = (s.misconceptions || []).filter(function (m) { return m.found; }).length;
+    const sys = tbCharBlock(char, Object.assign({}, ctx, { subject: s.subject }))
+      + "\n\n【这一步】你刚上完 " + ctx.uName + " 教你的一节『" + s.subject + "』。老师帮你纠正了 " + found + "/" + (s.misconceptions || []).length + " 个你原来想错的地方。"
+      + "\n小测：\n" + (q || "（没考）") + "\n\n现在给老师写一张评教卡：照你的性子写，几句话就好——哪儿讲得好、哪儿你还是没懂、你想对老师说点什么，都可以；别写成客套的五星好评。"
+      + "\n【输出】只输出 JSON：{\"card\":\"评教卡正文\",\"stars\":1到5的整数}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "请按上面的要求开始生成，直接给出结果。" }], { maxTokens: TOK.small });
+    const d = (typeof extractJSON === "function" ? extractJSON(raw) : null) || {};
+    return { card: String(d.card || raw || "").trim().slice(0, 600), stars: Math.max(1, Math.min(5, Number(d.stars) || 4)) };
+  }
+
+  function TbList(props) {
+    const skin = studyModeSkin("tb");
+    const list = loadTb().slice().sort(function (a, b) { return (b.updated_at || 0) - (a.updated_at || 0); });
+    return h("div", { ref: props.scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-4 pb-8" },
+      h("button", { onClick: props.onNew, className: "w-full active:opacity-70 flex items-center justify-between",
+        style: { minHeight: 50, margin: "4px 0 13px", padding: "0 15px 0 17px", fontFamily: F_BODY, fontSize: 14, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "16px 5px 16px 5px" } },
+        h("span", null, "开一节课"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22 } }, "+")),
+      list.length === 0
+        ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.fog, textAlign: "center", marginTop: 54, lineHeight: 1.9, whiteSpace: "pre-line" } },
+            "你当老师，挑一个角色当学生。\nTA 心里藏着几个想错的地方，挖出来一个亮一个；\n讲得给 TA 听懂了，才算你自己懂。")
+        : list.map(function (s) {
+            const ch = (props.characters || []).find(function (c) { return c.id === s.char_id; });
+            const found = (s.misconceptions || []).filter(function (m) { return m.found; }).length;
+            return h("button", { key: s.id, onClick: function () { props.onOpen(s.id); }, className: "w-full flex items-center gap-3 active:opacity-70",
+              style: { minHeight: 76, marginBottom: 11, padding: "13px 13px 13px 16px", background: STUDY_SKIN.paper, border: "1px solid " + skin.accent + "55", borderRadius: "16px 5px 16px 5px", textAlign: "left" } },
+              ch ? h(Avatar, { character: ch, size: 38, radius: 999 }) : null,
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: STUDY_SKIN.ink } }, s.subject),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, marginTop: 3 } },
+                  (ch ? ch.name + " 当学生 · " : "") + "挖出 " + found + "/" + (s.misconceptions || []).length + (s.review ? " · 已下课" : "") + " · " + timeShort(s.updated_at))),
+              h("span", { onClick: function (e) { e.stopPropagation(); props.onDel(s.id); }, style: { fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, padding: "12px 6px" } }, "移除"));
+          }));
+  }
+  function TbNew(props) {
+    const skin = studyModeSkin("tb");
+    const [pick, setPick] = useState(null);
+    const [subject, setSubject] = useState("");
+    const [mat, setMat] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const chars = (props.characters || []).filter(function (c) { return c && !c.npc; });
+    const go = async function () {
+      const ch = chars.find(function (c) { return c.id === pick; });
+      if (!ch || !subject.trim() || busy) return;
+      if (!props.active) { props.toast && props.toast("先去 设置·API 配一条线路"); return; }
+      setBusy(true);
+      try {
+        const r = await tbStart(props.active, ch, subject.trim(), mat, props.ctx);
+        const s = { id: "tb_" + Date.now(), char_id: ch.id, subject: subject.trim(), material: mat, misconceptions: r.misconceptions, note: "",
+          transcript: r.say.map(function (x) { return { role: "char", text: x, ts: Date.now() }; }), created_at: Date.now(), updated_at: Date.now() };
+        saveTb([s].concat(loadTb()));
+        props.onCreated(s.id);
+      } catch (e) { props.toast && props.toast("开课失败：" + ((e && e.message) || e)); } finally { setBusy(false); }
+    };
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
+      h(StudyHead, { zh: "开一节课", mode: "tb", onBack: props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.accent, margin: "18px 0 8px" } }, "教什么"),
+        h("input", { value: subject, onChange: function (e) { setSubject(e.target.value.slice(0, 40)); }, placeholder: "光合作用 / 五十音 / 我的专业课第三章",
+          className: "w-full outline-none", style: { fontFamily: F_DISPLAY, fontSize: 18, color: STUDY_SKIN.ink, background: "transparent", borderBottom: "1px solid " + STUDY_SKIN.line, paddingBottom: 6 } }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.accent, margin: "20px 0 8px" } }, "教案（可选）"),
+        h("button", { onClick: function () { if (typeof pickTextFile === "function") pickTextFile(function (m) { setMat({ name: m.name, text: m.text }); }); },
+          className: "w-full active:opacity-70", style: { textAlign: "left", fontFamily: F_BODY, fontSize: 13, color: mat ? STUDY_SKIN.ink : STUDY_SKIN.sub, border: "1px dashed " + STUDY_SKIN.line, borderRadius: 10, padding: "11px 12px", background: STUDY_SKIN.paper } },
+          mat ? "📄 " + mat.name + "（点这里换一份）" : "上传你的笔记 / 课件（txt、md、PDF、Word）——TA 的误解会贴着它来设"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: skin.accent, margin: "20px 0 8px" } }, "谁来当学生"),
+        h("div", { className: "grid grid-cols-2 gap-2" }, chars.map(function (c) {
+          const on = pick === c.id;
+          return h("button", { key: c.id, onClick: function () { setPick(c.id); }, className: "flex items-center gap-2 active:opacity-70",
+            style: { padding: "9px 10px", borderRadius: 12, background: on ? skin.soft : STUDY_SKIN.paper, border: "1px solid " + (on ? skin.accent : STUDY_SKIN.line), textAlign: "left" } },
+            h(Avatar, { character: c, size: 30, radius: 999 }), h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink } }, c.remark || c.name));
+        })),
+        h("button", { onClick: go, disabled: busy, className: "w-full active:opacity-80 disabled:opacity-60",
+          style: { marginTop: 24, padding: "13px 0", borderRadius: 12, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_DISPLAY, fontSize: 16, opacity: pick && subject.trim() ? 1 : .45 } },
+          busy ? "学生正在进教室…" : "上课")));
+  }
+  function TbThread(props) {
+    const skin = studyModeSkin("tb");
+    const [s, setS] = useState(function () { return loadTb().find(function (x) { return x.id === props.id; }); });
+    const [draft, setDraft] = useState("");
+    const [busy, setBusy] = useState("");
+    const [noteOpen, setNoteOpen] = useState(false);
+    const [quizText, setQuizText] = useState("");
+    const [stage, setStage] = useState(s && s.quiz ? "quiz" : "class");
+    const [flash, setFlash] = useState(null);
+    const endRef = React.useRef(null);
+    React.useEffect(function () { endRef.current && endRef.current.scrollIntoView({ block: "end" }); }, [s && (s.transcript || []).length, stage]);
+    if (!s) return null;
+    const ch = (props.characters || []).find(function (c) { return c.id === s.char_id; }) || { name: "学生", persona: "" };
+    const save = function (fn) { const n = patchTb(s.id, fn); setS(n); return n; };
+    const run = async function (label, fn) { if (busy) return; if (!props.active) { props.toast && props.toast("先去 设置·API 配一条线路"); return; } setBusy(label); try { await fn(); } catch (e) { props.toast && props.toast("出错了：" + ((e && e.message) || e)); } finally { setBusy(""); } };
+    const send = function () {
+      const v = draft.trim(); if (!v) return;
+      setDraft("");
+      const cur = save(function (x) { return { transcript: (x.transcript || []).concat([{ role: "user", text: v, ts: Date.now() }]) }; });
+      run("学生在想…", async function () {
+        const r = await tbTurn(props.active, cur, ch, props.ctx);
+        const hit = [];
+        const n = save(function (x) {
+          const mis = (x.misconceptions || []).map(function (m) { if (!m.found && r.fixed.indexOf(m.id) >= 0) { hit.push(m); return Object.assign({}, m, { found: true, foundAt: Date.now() }); } return m; });
+          const add = r.say.map(function (t) { return { role: "char", text: t, ts: Date.now() }; });
+          if (r.hand) add.push({ role: "char", text: "（举手）" + r.hand, hand: true, ts: Date.now() });
+          return { misconceptions: mis, note: r.note != null ? r.note : x.note, transcript: (x.transcript || []).concat(add) };
+        });
+        if (hit.length) { setFlash(hit); setTimeout(function () { setFlash(null); }, 4200); }
+        return n;
+      });
+    };
+    const found = (s.misconceptions || []).filter(function (m) { return m.found; }).length, total = (s.misconceptions || []).length;
+    const bubble = function (m, i) {
+      const me = m.role === "user";
+      return h("div", { key: i, className: "flex py-1 " + (me ? "justify-end" : "items-start gap-2") },
+        !me ? h(Avatar, { character: ch, size: 32, radius: 999 }) : null,
+        h("div", { "data-wk": "tbmsg", "data-me": me ? "1" : "0", style: { maxWidth: "78%", padding: "8px 12px", borderRadius: me ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
+          background: me ? skin.accent : STUDY_SKIN.paper, color: me ? STUDY_SKIN.paper : STUDY_SKIN.ink, border: me ? "none" : "1px solid " + (m.hand ? skin.accent : STUDY_SKIN.line),
+          fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, m.text));
+    };
+    // 小测
+    const startQuiz = function (qs) { save(function () { return { quiz: qs.map(function (q) { return { q: q }; }) }; }); setStage("quiz"); };
+    const quizUi = stage === "quiz" ? h("div", { "data-wk": "tbquiz", style: { margin: "14px 0", padding: "14px", background: STUDY_SKIN.paper, border: "1px solid " + skin.accent + "66", borderRadius: 14 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: STUDY_SKIN.ink, marginBottom: 8 } }, "随堂小测"),
+      !(s.quiz || []).length ? h("div", null,
+        h("textarea", { value: quizText, onChange: function (e) { setQuizText(e.target.value); }, rows: 4, placeholder: "你来出题：一行一道",
+          className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink, background: STUDY_SKIN.desk, border: "1px solid " + STUDY_SKIN.line, borderRadius: 10, padding: "9px 11px", resize: "none" } }),
+        h("div", { className: "flex gap-2", style: { marginTop: 8 } },
+          h("button", { onClick: function () { const qs = quizText.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 8); if (qs.length) startQuiz(qs); }, className: "flex-1 active:opacity-70",
+            style: { padding: "9px 0", borderRadius: 10, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 13, opacity: quizText.trim() ? 1 : .45 } }, "用我出的题"),
+          h("button", { onClick: function () { run("正在按这节课出题…", async function () { const qs = await tbAutoQuiz(props.active, s); if (!qs.length) throw new Error("没出出题来"); startQuiz(qs); }); }, className: "flex-1 active:opacity-70",
+            style: { padding: "9px 0", borderRadius: 10, border: "1px solid " + skin.accent, color: skin.accent, fontFamily: F_BODY, fontSize: 13 } }, "让系统出题")))
+      : h("div", null,
+        (s.quiz || []).map(function (x, i) {
+          return h("div", { key: i, style: { padding: "9px 0", borderTop: i ? "1px dashed " + STUDY_SKIN.line : "none" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink } }, (i + 1) + ". " + x.q),
+            x.a != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.sub, marginTop: 4, lineHeight: 1.6 } }, ch.name + "：" + x.a) : null,
+            x.a != null ? h("div", { className: "flex gap-2", style: { marginTop: 6 } }, [[true, "✓ 对"], [false, "✗ 错"]].map(function (b) {
+              const on = x.ok === b[0];
+              return h("button", { key: String(b[0]), onClick: function () { save(function (y) { return { quiz: y.quiz.map(function (z, j) { return j === i ? Object.assign({}, z, { ok: b[0] }) : z; }) }; }); },
+                style: { padding: "3px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, border: "1px solid " + (on ? skin.accent : STUDY_SKIN.line), background: on ? skin.soft : "transparent", color: on ? skin.accent : STUDY_SKIN.sub } }, b[1]);
+            })) : null);
+        }),
+        !(s.quiz || []).some(function (x) { return x.a != null; })
+          ? h("button", { onClick: function () { run(ch.name + " 在答题…", async function () { const ans = await tbAnswer(props.active, s, ch, props.ctx, s.quiz.map(function (x) { return x.q; })); save(function (y) { return { quiz: y.quiz.map(function (z, j) { return Object.assign({}, z, { a: ans[j] || "（这题空着没写）" }); }) }; }); }); },
+              className: "w-full active:opacity-70", style: { marginTop: 10, padding: "10px 0", borderRadius: 10, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 13.5 } }, "收卷，让 " + ch.name + " 答")
+          : !s.review ? h("button", { onClick: function () { run(ch.name + " 在写评教卡…", async function () { const r = await tbReview(props.active, loadTb().find(function (y) { return y.id === s.id; }), ch, props.ctx); save(function () { return { review: r }; }); }); },
+              className: "w-full active:opacity-70", style: { marginTop: 10, padding: "10px 0", borderRadius: 10, border: "1px solid " + skin.accent, color: skin.accent, fontFamily: F_BODY, fontSize: 13.5 } }, "判完了，让 TA 写评教卡") : null)) : null;
+    const reviewUi = s.review ? h("div", { "data-wk": "tbreview", style: { margin: "4px 0 14px", padding: "16px", background: skin.soft, borderRadius: 14, border: "1px solid " + skin.accent + "55" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".14em", color: skin.accent } }, "评教卡 · " + ch.name),
+      h("div", { style: { fontSize: 15, color: skin.accent, margin: "4px 0 6px", letterSpacing: 2 } }, "★★★★★".slice(0, s.review.stars) + "☆☆☆☆☆".slice(0, 5 - s.review.stars)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: STUDY_SKIN.ink, whiteSpace: "pre-wrap" } }, s.review.card),
+      // 下课才揭晓：没挖出来的那几条（下次可以专门冲着它讲）
+      (s.misconceptions || []).some(function (m) { return !m.found; }) ? h("div", { "data-wk": "tbleft", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + skin.accent + "66" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: skin.accent, marginBottom: 4 } }, "还没挖出来的——" + ch.name + " 到现在都以为："),
+        (s.misconceptions || []).filter(function (m) { return !m.found; }).map(function (m) { return h("div", { key: m.id, style: { fontFamily: F_BODY, fontSize: 13.5, color: STUDY_SKIN.ink, lineHeight: 1.6 } }, "「" + m.text + "」"); })) : null) : null;
+    return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk, position: "relative" } },
+      h(StudyHead, { zh: s.subject, en: ch.name + " 当学生", mode: "tb", onBack: props.onBack,
+        right: stage === "class" && !s.quiz ? h("button", { onClick: function () { setStage("quiz"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: skin.accent } }, "下课") : null }),
+      // 误解进度：挖出来的亮出原文，没挖出来的是问号
+      h("div", { "data-wk": "tbmis", className: "shrink-0 px-4", style: { padding: "9px 16px", borderBottom: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.7) } },
+        h("div", { className: "flex items-center justify-between" },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: skin.accent } }, "TA 心里想错的地方 · 挖出 " + found + "/" + total),
+          h("button", { onClick: function () { setNoteOpen(function (v) { return !v; }); }, style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub } }, noteOpen ? "收起笔记" : "看 TA 的笔记")),
+        h("div", { className: "flex flex-wrap gap-1.5", style: { marginTop: 6 } }, (s.misconceptions || []).map(function (m) {
+          return h("span", { key: m.id, "data-found": m.found ? "1" : "0", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, padding: "3px 9px", borderRadius: 999,
+            background: m.found ? skin.soft : "transparent", border: "1px " + (m.found ? "solid " + skin.accent : "dashed " + STUDY_SKIN.line), color: m.found ? STUDY_SKIN.ink : STUDY_SKIN.fog } }, m.found ? "✓ " + m.text : "？？？");
+        })),
+        noteOpen ? h("div", { "data-wk": "tbnote", style: { marginTop: 8, maxHeight: 180, overflowY: "auto", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: STUDY_SKIN.ink, whiteSpace: "pre-wrap", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: 10, padding: "8px 11px" } }, s.note || "（TA 还没记什么）") : null),
+      flash ? h("div", { "data-wk": "tbflash", style: { position: "absolute", left: 16, right: 16, top: 120, zIndex: 5, padding: "14px 16px", borderRadius: 14, background: skin.accent, color: STUDY_SKIN.paper, boxShadow: "0 10px 30px rgba(0,0,0,.18)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".12em", opacity: .85 } }, "挖出来了！" + ch.name + " 原来一直以为——"),
+        flash.map(function (m) { return h("div", { key: m.id, style: { fontFamily: F_DISPLAY, fontSize: 15.5, marginTop: 5, lineHeight: 1.5 } }, "「" + m.text + "」"); })) : null,
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingTop: 8, paddingBottom: 10 } },
+        (s.transcript || []).map(bubble), quizUi, reviewUi,
+        busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, padding: "6px 4px" } }, busy) : null,
+        h("div", { ref: endRef })),
+      stage === "class" ? h("div", { className: "shrink-0 flex items-end gap-2 px-3", style: { paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.6 + 10px)", borderTop: "1px solid " + STUDY_SKIN.line, background: studyPaperA(.92) } },
+        h("textarea", { value: draft, onChange: function (e) { setDraft(e.target.value); }, rows: 1, placeholder: "讲课、提问、点名让 TA 复述…",
+          className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 14.5, color: STUDY_SKIN.ink, background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: 14, padding: "9px 12px", resize: "none", maxHeight: 120 } }),
+        h("button", { onClick: send, disabled: !!busy, className: "active:opacity-70 disabled:opacity-50", style: { padding: "9px 14px", borderRadius: 14, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 14 } }, "讲")) : null);
   }
 
   window.StudyApp = StudyApp;
