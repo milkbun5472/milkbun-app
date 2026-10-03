@@ -44,3 +44,11 @@ test("接进了回头看、页面路由、攻略、挂点名单", () => {
   assert.match(P("js/assistant-manual.js"), /id: "shike", app: "shike", zh: "时刻"/);
   assert.match(P("index.html"), /<script src="js\/shike\.js\?v=/);
 });
+
+test("两层：外层只有整屏高的卡横着滑，点进去才有时刻列表", () => {
+  const s = P("js/shike.js");
+  assert.match(s, /onClick: \(\) => setOpenId\(c\.id\)/, "卡片点了不进里层");
+  assert.match(s, /height: "100%", width: "min\(80vw, 400px\)"/, "卡不是整屏高");
+  const outer = s.slice(s.indexOf("// ── 外层"));
+  assert.ok(!/list\.map\(row\)/.test(outer), "外层又摆出了时刻列表");
+});
