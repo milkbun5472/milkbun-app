@@ -4,7 +4,7 @@ const base=process.env.PET_CAREER_URL||'http://127.0.0.1:18954',out=process.env.
 (async()=>{
  const browser=await chromium.launch({channel:'chrome',headless:true});const result={rooms:[],viewports:[],errors:[]};
  try{
-  const page=await browser.newPage({viewport:{width:390,height:780}});page.on('pageerror',e=>result.errors.push(e.message));
+  const page=await browser.newPage({viewport:{width:390,height:780},hasTouch:true});page.on('pageerror',e=>result.errors.push(e.message));
   await page.goto(base+'/art/pet-career/preview.html');await page.waitForFunction(()=>window.petCareerPreview?.snapshot().ready&&!petCareerPreview.snapshot().busy,{timeout:60000});
   assert.equal((await page.evaluate(()=>petCareerPreview.snapshot())).room,null);
   assert.equal(await page.evaluate(()=>petCareerPreview.layout.radius),55);
@@ -35,9 +35,11 @@ const base=process.env.PET_CAREER_URL||'http://127.0.0.1:18954',out=process.env.
   // Scene failures leave the pet at the same exterior door and permit retry.
   await page.route('**/alley.glb*',r=>r.abort());assert.equal(await page.evaluate(()=>petCareerPreview.enter('alley')),false);assert.equal((await page.evaluate(()=>petCareerPreview.snapshot())).room,null);await page.unroute('**/alley.glb*');assert.equal(await page.evaluate(()=>petCareerPreview.enter('alley')),true);await page.evaluate(()=>petCareerPreview.leave());result.failedEntryRecovers=true;
   await page.locator('#reset').click();const oldPosition=(await page.evaluate(()=>petCareerPreview.snapshot())).position;
-  await page.mouse.move(190,360);await page.mouse.down();await page.mouse.move(250,395,{steps:8});await page.mouse.up();assert.deepEqual((await page.evaluate(()=>petCareerPreview.snapshot())).position,oldPosition);result.dragDoesNotWalk=true;
+  await page.mouse.move(190,360);await page.mouse.down();await page.mouse.move(250,395,{steps:8});await page.mouse.up();assert.deepEqual((await page.evaluate(()=>petCareerPreview.snapshot())).position,oldPosition);result.dragDoesNotWalk=true;const cdp=await page.context().newCDPSession(page),touch=(a,b)=>[{x:a,y:380,id:1},{x:b,y:380,id:2}];const z=(await page.evaluate(()=>petCareerPreview.snapshot())).zoom;
+  await cdp.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:touch(150,240)});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:touch(110,280)});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[touch(110,280)[0]]});await cdp.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x:125,y:390,id:1}]});await cdp.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});assert.ok((await page.evaluate(()=>petCareerPreview.snapshot())).zoom>z);assert.deepEqual((await page.evaluate(()=>petCareerPreview.snapshot())).position,oldPosition);result.pinchDoesNotWalk=true;
+  
   await page.mouse.wheel(0,-150);await page.waitForTimeout(100);assert.ok((await page.evaluate(()=>petCareerPreview.snapshot())).zoom>.55);
-  await page.locator('#reset').click();await page.waitForTimeout(100);const point=await page.evaluate(()=>petCareerPreview.project(0,20,.1));await page.mouse.click(point.x,point.y);await page.evaluate(()=>{const p=petCareerPreview;for(let i=0;i<6000&&p.snapshot().walking;i++)p.step(.05);});assert.ok(Math.hypot((await page.evaluate(()=>petCareerPreview.snapshot())).position.x,(await page.evaluate(()=>petCareerPreview.snapshot())).position.z-20)<.1);result.groundTap=true;
+  await page.locator('#reset').click();await page.waitForTimeout(100);const point=await page.evaluate(()=>petCareerPreview.project(0,20,.06));await page.mouse.click(point.x,point.y);await page.evaluate(()=>{const p=petCareerPreview;for(let i=0;i<6000&&p.snapshot().walking;i++)p.step(.05);});assert.ok(Math.hypot((await page.evaluate(()=>petCareerPreview.snapshot())).position.x,(await page.evaluate(()=>petCareerPreview.snapshot())).position.z-20)<.1);result.groundTap=true;
   await page.reload();await page.waitForFunction(()=>window.petCareerPreview?.snapshot().ready&&!petCareerPreview.snapshot().busy);assert.equal((await page.evaluate(()=>petCareerPreview.snapshot())).room,null);result.reloadOutside=true;
   assert.deepEqual(result.errors,[]);result.ok=true;fs.writeFileSync(path.join(out,'browser.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));
  }finally{await browser.close();}
