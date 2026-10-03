@@ -5100,7 +5100,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify({ model: a.model, messages: [{ role: "user", content }], stream: !!stream, modalities: ["image", "text"] }), signal: sig || ctrl.signal });
     };
     try {
-      if (a.apiFormat === "chat") r = await chatFetch();
+      // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
+      //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
+      const chatFirst = a.apiFormat === "chat" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
+      if (chatFirst) r = await chatFetch();
       else if (useRef && refBlobs.length) {
         const fd = new FormData();
         fd.append("model", a.model || "gpt-image-2"); fd.append("prompt", promptText); fd.append("size", size); fd.append("n", "1"); fd.append("response_format", "b64_json");
@@ -5134,9 +5137,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
-      if (a.apiFormat !== "chat" && a.apiFormat !== "images" && (r.status === 404 || r.status === 405)) r = await chatFetch();
+      if (!chatFirst && a.apiFormat !== "images" && !r.ok) {
+        // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
+        const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
+        if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();
+      }
     } catch (err) {
-      if (a.apiFormat !== "chat" && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
+      if (!usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
         try { r = await chatFetch(); } catch (e2) { throw err; }
       } else {
       // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」

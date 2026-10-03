@@ -6,8 +6,9 @@ const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
 test("image api can post to chat/completions", () => {
   assert.match(eng, /apiFormat: "auto"/);
   assert.match(eng, /root \+ "\/chat\/completions"[\s\S]{0,300}modalities: \["image", "text"\]/);
-  assert.match(eng, /a\.apiFormat === "chat"\) r = await chatFetch\(\)/);
-  assert.match(eng, /r\.status === 404 \|\| r\.status === 405\)\) r = await chatFetch\(\)/);
+  assert.match(eng, /if \(chatFirst\) r = await chatFetch\(\)/);
+  assert.match(eng, /contents is required[^\n]*\) r = await chatFetch\(\)/);
+  assert.match(eng, /const chatFirst = a\.apiFormat === "chat" \|\| \(a\.apiFormat !== "images" && \/gemini\|banana/);
   assert.match(scr, /value: "chat" \}, "聊天接口 \/chat\/completions"/);
 });
 test("empty chat reply retries as stream and stitches SSE", () => {
