@@ -5104,7 +5104,10 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       const imgs = [];
       if (useRef) for (const b of refBlobs) { const u = await toUrl(b); imgs.push(shape === 2 ? { type: "image_url", image_url: u } : { type: "image_url", image_url: { url: u } }); }
       const parts = shape ? imgs.concat(content) : content.concat(imgs);
-      const body = { model: a.model, messages: [{ role: "user", content: parts }], stream: !!stream };
+      // shape 3：content 写成一整串字（raivip 文档的例子就是这样，2026-10-03）——有的中转只认字符串，
+      //   见到数组就转成空的 contents；参考图用 Markdown 图片挂在字后面，认得的中转会把它当图
+      const strContent = content[0].text + imgs.map(x => "\n![ref](" + (typeof x.image_url === "string" ? x.image_url : x.image_url.url) + ")").join("");
+      const body = { model: a.model, messages: [{ role: "user", content: shape === 3 ? strContent : parts }], stream: !!stream };
       if (!shape) body.modalities = ["image", "text"];
       return fetch(root + "/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: sig || ctrl.signal });
     };
@@ -5127,7 +5130,7 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       if (a.apiFormat === "gemini") r = await geminiFetch();
       else if (chatFirst) {
         r = await chatFetch();
-        for (let sh = 1; sh <= 2 && !r.ok; sh++) {
+        for (let sh = 3; sh >= 1 && !r.ok; sh--) {
           const peek = await r.clone().text().catch(() => "");
           if (!/contents is required|contents.{0,20}empty|invalid.{0,30}(content|part)|messages.{0,20}required/i.test(peek)) break;
           r = await chatFetch(false, null, sh);

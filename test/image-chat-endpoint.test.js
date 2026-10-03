@@ -34,7 +34,7 @@ test("NAI models get danbooru tags translated first", () => {
 });
 test("NAI never asked for fake photos", () => { assert.match(eng, /do NOT write photorealistic\/photo[\s\S]{0,200}semi-realistic, realistic shading, painterly/); });
 test("chat image: retries other content shapes on 'contents is required'; untyped blobs become image/png", () => {
-  assert.match(eng, /for \(let sh = 1; sh <= 2 && !r\.ok; sh\+\+\)[\s\S]{0,200}contents is required[\s\S]{0,200}chatFetch\(false, null, sh\)/);
+  assert.match(eng, /for \(let sh = 3; sh >= 1 && !r\.ok; sh--\)[\s\S]{0,200}contents is required[\s\S]{0,200}chatFetch\(false, null, sh\)/);
   assert.match(eng, /new Blob\(\[b0\], \{ type: "image\/png" \}\)/);
 });
 test("gemini native fallback: generateContent with contents/parts/inline_data", () => {
@@ -45,4 +45,7 @@ test("gemini native fallback: generateContent with contents/parts/inline_data", 
 });
 test("gemini-ish image models get a longer per-try cap; test button's attemptMs is honored", () => {
   assert.match(eng, /msOverride \|\| \(opts && opts\.attemptMs\) \|\| \(\/gemini\|banana\|imagen\/i[^\n]*240000 : 130000/);
+});
+test("shape 3 sends content as a plain string (relay doc style)", () => {
+  assert.match(eng, /content: shape === 3 \? strContent : parts/);
 });
