@@ -254,6 +254,42 @@
     ["芝加哥", 41.88, -87.63, -6], ["洛杉矶", 34.05, -118.24, -8], ["旧金山", 37.77, -122.42, -8], ["西雅图", 47.61, -122.33, -8], ["温哥华", 49.28, -123.12, -8],
     ["悉尼", -33.87, 151.21, 10], ["墨尔本", -37.81, 144.96, 10], ["奥克兰", -36.85, 174.76, 12]
   ];
+  // 内置列表里不在大陆的那几个（夏令时只有大陆 1986~1991 那几年有）
+  const NON_CN = { 香港: "hk", 澳门: "mo", 台北: "tw", 高雄: "tw" };
+  const cityCC = c => NON_CN[c[0]] || (c[3] === 8 && CITIES.indexOf(c) < 50 ? "cn" : "");
+  // 中国夏令时（tzdata 的 PRC 规则）：1986 年 5 月 4 日起；1987~1991 年 4 月第一个 ≥11 号的星期天 2:00 拨快，
+  //   1986~1991 年 9 月第一个 ≥11 号的星期天 2:00 拨回。那几年夏天出生的，当地钟表时间比东八区快一小时。
+  function sundayOnOrAfter(y, mo, day) { const d = new Date(Date.UTC(y, mo - 1, day)); d.setUTCDate(day + (7 - d.getUTCDay()) % 7); return d.getUTCDate(); }
+  function chinaDst(y, mo, d, hh) {
+    if (y < 1986 || y > 1991) return false;
+    const sM = y === 1986 ? 5 : 4, sD = y === 1986 ? 4 : sundayOnOrAfter(y, 4, 11), eD = sundayOnOrAfter(y, 9, 11);
+    const x = mo * 10000 + d * 100 + hh, from = sM * 10000 + sD * 100 + 2, to = 9 * 10000 + eD * 100 + 2;
+    return x >= from && x < to;
+  }
+  // 国家 → 标准时区。一个国家好几个时区的（美、加、俄、澳、巴西、墨西哥、印尼、哈萨克、蒙古）不在表里：按经度猜，界面上让她确认
+  const CC_TZ = { cn: 8, hk: 8, mo: 8, tw: 8, jp: 9, kr: 9, kp: 9, sg: 8, my: 8, ph: 8, bn: 8, th: 7, vn: 7, la: 7, kh: 7, mm: 6.5, in: 5.5, lk: 5.5, np: 5.75,
+    bd: 6, bt: 6, pk: 5, af: 4.5, ae: 4, om: 4, qa: 3, sa: 3, kw: 3, iq: 3, ir: 3.5, tr: 3, by: 3, eg: 2, il: 2, jo: 2, lb: 2, gr: 2, fi: 2, ee: 2, lv: 2, lt: 2,
+    ua: 2, ro: 2, bg: 2, za: 2, gb: 0, ie: 0, pt: 0, is: 0, ma: 0, fr: 1, de: 1, it: 1, es: 1, nl: 1, be: 1, lu: 1, ch: 1, at: 1, se: 1, no: 1, dk: 1, pl: 1,
+    cz: 1, sk: 1, hu: 1, si: 1, hr: 1, rs: 1, ng: 1, nz: 12, ar: -3, uy: -3, cl: -4, ve: -4, bo: -4, pe: -5, co: -5, ec: -5, cu: -5, ke: 3, et: 3, tz: 3 };
+  function tzForPlace(cc, lon) {
+    cc = String(cc || "").toLowerCase();
+    if (CC_TZ[cc] != null) return { tz: CC_TZ[cc], guessed: false };
+    // 美国、加拿大本土四个时区按经度大致分一刀（边界是弯的，所以照样标「猜的」）
+    if (cc === "us" || cc === "ca") return { tz: lon > -87.5 ? -5 : lon > -101.5 ? -6 : lon > -114.5 ? -7 : lon > -141 ? -8 : -9, guessed: true };
+    return { tz: Math.round(lon / 15), guessed: true };
+  }
+  // 在线地名搜索（OpenStreetMap 的 Nominatim）：只发她输入的那个地名。连不上就退回内置列表
+  async function searchPlace(q) {
+    const url = "https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=zh-CN&q=" + encodeURIComponent(q);
+    const r = await (typeof fetchT === "function" ? fetchT(url, { headers: { Accept: "application/json" } }, 12000) : fetch(url));
+    if (!r.ok) throw new Error("地名搜索没回应（HTTP " + r.status + "）");
+    const rows = await r.json();
+    return (Array.isArray(rows) ? rows : []).map(x => {
+      const lat = parseFloat(x.lat), lon = parseFloat(x.lon), cc = x.address && x.address.country_code || "";
+      const tz = tzForPlace(cc, lon);
+      return { name: String(x.name || (x.display_name || "").split(",")[0] || q).trim(), full: String(x.display_name || ""), lat: lat, lon: lon, cc: cc, tz: tz.tz, guessed: tz.guessed };
+    }).filter(x => isFinite(x.lat) && isFinite(x.lon));
+  }
   const BIRTH_KEY = "x_astro_birth";
   function loadBirth() { try { const v = loadJSON(BIRTH_KEY, {}); return v && typeof v === "object" ? v : {}; } catch (e) { return {}; } }
   function saveBirth(all) { saveJSON(BIRTH_KEY, all); return all; }
@@ -273,12 +309,19 @@
     if (!bd || bd.y < 1901 || bd.y > 2099) return null;
     info = info || {};
     const tm = /^(\d{1,2}):(\d{2})$/.exec(String(info.time || ""));
-    const tz = isFinite(info.tz) ? +info.tz : 8;
     const hh = tm ? +tm[1] : 12, mm = tm ? +tm[2] : 0;
+    // 大陆出生、1986~1991 年夏天：钟表时间是夏令时，自动按东九区换算（她不用自己往前拨）
+    // 哪国：存了 cc 就用；老存档没 cc 的按内置城市名认；自己填经纬度的，东八区且落在大陆那一片才算大陆；什么都没填按大陆
+    const known = info.city ? CITIES.find(c => c[0] === info.city) : null;
+    const cc = info.cc || (known ? cityCC(known) : !info.city ? "cn"
+      : (+info.tz === 8 && info.lat >= 18 && info.lat <= 54 && info.lon >= 73 && info.lon <= 135 ? "cn" : ""));
+    const cnPlace = cc === "cn";
+    const dst = !!tm && info.dst !== false && cnPlace && chinaDst(bd.y, bd.mo, bd.d, hh);
+    const tz = (isFinite(info.tz) ? +info.tz : 8) + (dst ? 1 : 0);
     const utc = new Date(Date.UTC(bd.y, bd.mo - 1, bd.d, hh, mm) - tz * 3600e3);
     const lon = planetLongitudes(utc);
     const hasPlace = isFinite(info.lat) && isFinite(info.lon);
-    const chart = { lon: lon, hasTime: !!tm, hasPlace: hasPlace };
+    const chart = { lon: lon, hasTime: !!tm, hasPlace: hasPlace, dst: dst };
     if (tm && hasPlace) chart.lon = Object.assign({}, lon, { asc: ascendant(utc, +info.lat, +info.lon) });
     // 没时间时月亮一天走十二三度：离星座边界不到七度就可能换宫
     if (!tm) { const m = rev(lon.moon) % 30; chart.moonUnsure = m < 7 || m > 23; }
@@ -429,19 +472,34 @@
   function BirthPage({ S, person, value, onBack, onSave }) {
     const [time, setTime] = useState(value.time || "");
     const [q, setQ] = useState("");
-    const [city, setCity] = useState(value.city ? { name: value.city, lat: value.lat, lon: value.lon, tz: value.tz } : null);
+    const [city, setCity] = useState(value.city ? { name: value.city, lat: value.lat, lon: value.lon, tz: value.tz, cc: value.cc } : null);
+    const [tzEdit, setTzEdit] = useState(value.tz != null ? String(value.tz) : "");
+    const [dstAuto, setDstAuto] = useState(value.dst !== false);
+    const [found, setFound] = useState(null);
+    const [searching, setSearching] = useState(false);
+    const [searchErr, setSearchErr] = useState("");
+    const pick = c => { setCity(c); setTzEdit(String(c.tz)); };
+    const runSearch = async () => {
+      const qq = q.trim(); if (!qq || searching) return;
+      setSearching(true); setSearchErr("");
+      try { const rows = await searchPlace(qq); setFound(rows); if (!rows.length) setSearchErr("没搜到——换个写法，或者从下面的列表里挑"); }
+      catch (e) { setFound(null); setSearchErr("连不上地名搜索，先从下面的列表里挑：" + String((e && e.message) || e).slice(0, 60)); }
+      finally { setSearching(false); }
+    };
     const [own, setOwn] = useState(!!(value.city && !CITIES.some(c => c[0] === value.city)));
     const [lat, setLat] = useState(own && value.lat != null ? String(value.lat) : "");
     const [lon, setLon] = useState(own && value.lon != null ? String(value.lon) : "");
     const [tz, setTz] = useState(own && value.tz != null ? String(value.tz) : "8");
-    const list = CITIES.filter(c => !q.trim() || c[0].indexOf(q.trim()) >= 0);
+    const hit = CITIES.filter(c => !q.trim() || c[0].indexOf(q.trim()) >= 0);
+    const list = hit.length ? hit : CITIES;    // 搜的是县镇、列表里没有时，常用城市别跟着空掉
     const inSt = { width: "100%", outline: "none", padding: "10px 0", fontFamily: F_BODY, fontSize: 15, background: "transparent", color: S.ink, border: "none", borderBottom: "1px solid " + S.line, colorScheme: "dark" };
     const label = tx => h("div", { className: "flex items-center", style: { gap: 7, margin: "18px 0 4px" } }, h(Spark, { size: 9, color: S.tint }), h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, letterSpacing: ".18em" } }, tx));
     const save = () => {
       const out = {};
       if (/^\d{1,2}:\d{2}$/.test(time)) out.time = time;
       if (own) { const a = parseFloat(lat), b = parseFloat(lon), z = parseFloat(tz); if (isFinite(a) && isFinite(b)) Object.assign(out, { city: "自定", lat: a, lon: b, tz: isFinite(z) ? z : 8 }); }
-      else if (city) Object.assign(out, { city: city.name, lat: city.lat, lon: city.lon, tz: city.tz });
+      else if (city) Object.assign(out, { city: city.name, lat: city.lat, lon: city.lon, tz: isFinite(parseFloat(tzEdit)) ? parseFloat(tzEdit) : city.tz, cc: city.cc || "" });
+      if (!dstAuto) out.dst = false;
       onSave(Object.keys(out).length ? out : null);
     };
     return h("div", { className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
@@ -458,14 +516,33 @@
           h("input", { value: lon, onChange: e => setLon(e.target.value), placeholder: "经度（东经为正，比如 116.4）", inputMode: "decimal", style: inSt }),
           h("input", { value: tz, onChange: e => setTz(e.target.value), placeholder: "时区（东八区写 8）", inputMode: "decimal", style: inSt }))
           : h("div", null,
-            h("input", { value: q, onChange: e => setQ(e.target.value), placeholder: city ? "已选：" + city.name + "（输入换一个）" : "搜城市", style: inSt }),
-            h("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 8 } },
-              list.map(c => { const on = city && city.name === c[0]; return h("button", { key: c[0], onClick: () => setCity({ name: c[0], lat: c[1], lon: c[2], tz: c[3] }), className: "active:opacity-70",
+            h("div", { className: "flex items-center", style: { gap: 10 } },
+              h("input", { value: q, onChange: e => setQ(e.target.value), onKeyDown: e => { if (e.key === "Enter") runSearch(); }, placeholder: city ? "已选：" + city.name + "（输入县、镇、村都行）" : "输入出生的地方：县、镇、村都行", style: Object.assign({}, inSt, { flex: 1 }) }),
+              h("button", { onClick: runSearch, disabled: searching || !q.trim(), className: "active:opacity-70 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13.5, color: S.tint, background: "transparent", border: "none", minHeight: 40, padding: "0 4px" } }, searching ? "搜…" : "搜")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 4 } }, "点「搜」会把这个地名发给 OpenStreetMap 查经纬度，只发地名。不想联网就直接在下面列表里挑。"),
+            searchErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.accent, marginTop: 6 } }, searchErr) : null,
+            found && found.length ? h("div", { style: { marginTop: 6 } }, found.map((c, i) => { const on = city && city.lat === c.lat && city.lon === c.lon; return h("button", { key: i, onClick: () => pick(c), className: "active:opacity-70",
+              style: { display: "flex", alignItems: "flex-start", gap: 8, width: "100%", textAlign: "left", padding: "8px 0", background: "transparent", border: "none", borderBottom: "1px solid " + S.line } },
+              h("span", { style: { marginTop: 3 } }, h(Spark, { size: 8, color: on ? S.tint : S.line })),
+              h("span", { style: { flex: 1, minWidth: 0 } },
+                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, color: on ? S.ink : S.sub, fontWeight: on ? 600 : 400 } }, c.name),
+                h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: S.fog, lineHeight: 1.5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.full))); })) : null,
+            city ? h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: S.sub } },
+              h("span", null, city.name + " · " + (city.lat < 0 ? "南纬 " : "北纬 ") + Math.abs(+city.lat).toFixed(2) + " · " + (city.lon < 0 ? "西经 " : "东经 ") + Math.abs(+city.lon).toFixed(2) + " · 时区"),
+              h("input", { value: tzEdit, onChange: e => setTzEdit(e.target.value), inputMode: "decimal", style: { width: 46, outline: "none", background: "transparent", color: S.ink, border: "none", borderBottom: "1px solid " + (city.guessed ? S.accent : S.line), fontFamily: F_BODY, fontSize: 13, textAlign: "center" } }),
+              null) : null,
+            city && city.guessed ? h("div", { style: { fontFamily: F_BODY, color: S.accent, fontSize: 11, marginTop: 4 } }, "这个国家有好几个时区，是按经度猜的，对一下（标准时间，不含夏令时）") : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, margin: "14px 0 2px" } }, "常用城市（不联网）"),
+            h("div", { style: { display: "flex", flexWrap: "wrap", gap: "2px 14px", marginTop: 4 } },
+              list.map(c => { const on = city && city.name === c[0]; return h("button", { key: c[0], onClick: () => pick({ name: c[0], lat: c[1], lon: c[2], tz: c[3], cc: cityCC(c) }), className: "active:opacity-70",
                 style: { display: "flex", alignItems: "center", gap: 4, minHeight: 34, background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 13.5, color: on ? S.ink : S.sub, fontWeight: on ? 600 : 400 } },
                 on ? h(Spark, { size: 8, color: S.tint }) : null, c[0]); }))),
         h("button", { onClick: () => setOwn(!own), className: "active:opacity-70", style: { marginTop: 12, fontFamily: F_BODY, fontSize: 12, color: S.tint, background: "transparent", border: "none", borderBottom: "1px dotted " + S.tint, padding: "6px 0 1px" } },
           own ? "从城市列表里选" : "列表里没有 · 自己填经纬度"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 10, lineHeight: 1.7 } }, "夏令时没算：那几年夏天出生的，把时间往前拨一小时再填。古代、架空的角色挑一个最接近的城市就行。"),
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 16, gap: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.6 } }, "自动算中国夏令时", h("div", { style: { fontSize: 10.5, color: S.fog } }, "大陆 1986~1991 年夏天出生的，按钟表上的时间填就行，这边自动换算。国外的夏令时没算。")),
+          h("button", { onClick: () => setDstAuto(!dstAuto), "aria-pressed": dstAuto, className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: dstAuto ? S.tint : S.fog, background: "transparent", border: "none", borderBottom: "1px dotted " + (dstAuto ? S.tint : S.line), minHeight: 36 } }, dstAuto ? "开着" : "关了")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 10, lineHeight: 1.7 } }, "古代、架空的角色挑一个最接近的地方就行。"),
         value && (value.time || value.city) ? h("button", { onClick: () => onSave(null), className: "active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 12.5, color: S.fog, background: "transparent", border: "none" } }, "清掉这份出生信息") : null));
   }
 
@@ -556,7 +633,7 @@
           h("span", { style: { color: S.sub } }, PL_ZH[k]),
           h("span", { style: { color: S.ink } }, SIGNS[sd.sign][0] + " " + sd.deg + "°" + (k === "moon" && chart.moonUnsure ? "？" : "")));
       }));
-    const chartNote = chart => !chart.hasPlace ? "没填出生城市，按东八区算；没有上升。" : !chart.hasTime ? "没填出生时间，按当天正午算：没有上升，月亮可能差一点。" : "";
+    const chartNote = chart => chart.dst ? "那天大陆在实行夏令时，已自动按东九区换算。" : !chart.hasPlace ? "没填出生城市，按东八区算；没有上升。" : !chart.hasTime ? "没填出生时间，按当天正午算：没有上升，月亮可能差一点。" : "";
     const todayView = h("div", { className: "flex flex-col" },
       h(ZodiacWheel, { S: S, sign: meInfo ? meInfo.sign : -1 }),
       h(Panel, { S: S, title: "今日" },
@@ -670,7 +747,7 @@
   }
 
   g.Astro = { signOf, signMatch, shukuOf, shukuRelation, birthInfo, daily, dayKeyOf, SIGNS, SHUKU, SHUKU_POS,
-    planetLongitudes, ascendant, natalChart, synastry, transits, birthDateOf, CITIES };
+    planetLongitudes, ascendant, natalChart, synastry, transits, birthDateOf, CITIES, chinaDst, tzForPlace, searchPlace };
   g.AstroApp = AstroApp;
   g.GAstro = function (p) {
     return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 5.5l1.3 3.9 4.1.1-3.3 2.4 1.2 3.9L12 13.5l-3.3 2.3 1.2-3.9-3.3-2.4 4.1-.1z" }));
