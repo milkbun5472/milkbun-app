@@ -239,7 +239,7 @@ test("非审核类失败立刻抛出，不许拖着走完整套阶梯", () => {
 });
 
 test("整条阶梯有总时间预算，每一级都要先问一句还来不来得及", () => {
-  assert.match(engine, /const deadline = Date\.now\(\) \+ Number\(\(opts && opts\.budgetMs\) \|\| 180000\);/);
+  assert.match(engine, /const deadline = Date\.now\(\) \+ Number\(\(opts && opts\.budgetMs\) \|\| \([^\n]*180000\)\);/);
   assert.match(engine, /const canRetry = \(\) => timeLeft\(\) > 20000;/, "剩不到 20 秒就别开新一轮");
   // 每一级重试都得挂上闸，漏一级那一级就能独自超时
   const gated = (engine.match(/canRetry\(\)/g) || []).length;
@@ -254,7 +254,7 @@ test("重试级的 70 秒上限真实传到请求定时器", () => {
   assert.match(engine, /attemptWith\(refBlobs, "first", opts\.minimalPrompt, RETRY_MS\)/);
   // 超时参数要真的串到发请求那一层
   assert.match(engine, /const attempt = async \(useRef, slim, refMode, pOverride, msOverride, legacyShape\)/);
-  assert.match(engine, /const capMs = Math\.min\(Number\(msOverride \|\| 130000\), 300000\);/);
+  assert.match(engine, /const capMs = Math\.min\(Number\(msOverride \|\| [^\n]*130000\)\), 300000\);/);
   assert.match(engine, /setTimeout\(\(\) => ctrl\.abort\(\), capMs\)/);
   const cap = engine.match(/const capMs = ([^;]+);/);
   assert.ok(cap);

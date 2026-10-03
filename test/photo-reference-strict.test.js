@@ -19,7 +19,7 @@ test("参考照失败不会退回无参考生成陌生人", () => {
   //   现在报的是【真的发出去了几张】，丢了就标 degraded。
   assert.match(fn, /out\.referenceCount = mode === "first" \? Math\.min\(1, refBlobs\.length\) : refBlobs\.length;/);
   assert.match(fn, /if \(out\.referenceDropped > 0\) out\.degraded = "refs-dropped-" \+ out\.referenceDropped;/);
-  assert.match(fn, /Math\.min\(Number\(msOverride \|\| 130000\), 300000\)/);
+  assert.match(fn, /Math\.min\(Number\(msOverride \|\| [^\n]*130000\)\), 300000\)/);
   assert.match(fn, /fd\.append\("input_fidelity", "high"\)/);
   assert.match(fn, /identityVerification = "not-provided"/);
   assert.match(fn, /refFilename/);

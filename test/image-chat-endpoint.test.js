@@ -43,3 +43,6 @@ test("gemini native fallback: generateContent with contents/parts/inline_data", 
   assert.match(eng, /contents is required\/i\.test\(await r\.clone\(\)\.text\(\)[^\n]*\) r = await geminiFetch\(\)/);
   assert.match(scr, /value: "gemini" \}, "Gemini 原生/);
 });
+test("gemini-ish image models get a longer per-try cap; test button's attemptMs is honored", () => {
+  assert.match(eng, /msOverride \|\| \(opts && opts\.attemptMs\) \|\| \(\/gemini\|banana\|imagen\/i[^\n]*240000 : 130000/);
+});
