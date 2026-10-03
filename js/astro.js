@@ -659,12 +659,13 @@
         (() => {
           const c = (byId(commenter) || {}).char;
           if (!c) return null;
-          const ci = birthInfo(c.birthday), m = ci && signMatch(meInfo.sign, ci.sign);
+          const ci = birthInfo(c.birthday);
           const key = "day|" + today + "|" + c.id;
           const ins = meName + "把她今天的星座运势拿给你看（这是按星座和日期算出来的，不是你编的）：\n"
             + "她是" + signName(meInfo.sign) + "；综合 " + day.all + " 星，爱情 " + day.love + "、事业 " + day.work + "、财运 " + day.money + " 星；幸运色" + day.color.name + "，幸运数字 " + day.number + "；那一句是「" + day.line + "」。\n"
             + (tr && tr.hits.length ? "今天的行运：" + tr.hits.slice(0, 4).map(transitLine).join("；") + "。\n" : "")
-            + (ci && ci.sign >= 0 ? "你是" + signName(ci.sign) + (m ? "，你俩是「" + m.aspect + "」，配对指数 " + m.score + "。" : "。") : "你的生日她还不知道，所以你的星座在这儿没算。") + "\n"
+            // 配对那一句不放这儿（她 2026-10-03：「今日说说怎么还能看见配对的信息」）——配对有自己那一页，今日就只说今日
+            + (ci && ci.sign >= 0 ? "你是" + signName(ci.sign) + "。" : "") + "\n"
             + "看完说说你的想法。信不信星座、当不当真、顺着哪一点说，全由你这个人决定。";
           return h("div", null, noteBox(key, c), askBtn(key, c, ins));
         })()) : null);
