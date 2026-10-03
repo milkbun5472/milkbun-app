@@ -13591,6 +13591,8 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     // 长按菜单那一列(v60.25)
     copy: [R(8.4, 3.4, 12, 14.4, 2), P("M15.6 20.6h-9a2 2 0 01-2-2V7.4")],
     bookmark: [P("M6.2 3.6h11.6v16.8L12 16.2l-5.8 4.2z")],
+    // 收进时刻：一张卡上一颗星（跟时刻那个 app 的图标同一个形）
+    shikeStar: [R(5, 3, 14, 18, 2.5), P("M12 8.2l1.2 2.5 2.7.4-2 1.9.5 2.7-2.4-1.3-2.4 1.3.5-2.7-2-1.9 2.7-.4z")],
     quote: [P("M9.6 6.2C7 7.4 5.6 9.4 5.6 12v5.8h5.6V12H8.4c0-2 .6-3.4 2.2-4.3zM19.4 6.2c-2.6 1.2-4 3.2-4 5.8v5.8H21V12h-2.8c0-2 .6-3.4 2.2-4.3z")],
     pencil: [P("M16.4 3.6l4 4L8.2 19.8l-4.6 1.2 1.2-4.6z"), P("M14.2 5.8l4 4")],
     redo: [P("M20 5.6v5.2h-5.2"), P("M19.3 10.8a7.6 7.6 0 10-1.6 6.6")],
@@ -13785,6 +13787,8 @@ function EmoteBubble({ url, keyword, max }) {
 // speak = 她 2026-09-02 要的「气泡转语音」：不是语音条也能听。
 const MSG_MENU = {
   copy: ["复制", "copy"], fav: ["收藏", "bookmark"], quote: ["引用", "quote"],
+  // 收进时刻（另一个窗口 2026-10-03：机器认不出的心动瞬间，由她来挑）
+  shike: ["收进时刻", "shikeStar"],
   edit: ["编辑", "pencil"], reroll: ["重Roll", "redo"], speak: ["念出来", "wave"],
   // 只重拍这张图（她 2026-10-01）：TA 那一轮的话留着，只把这张照片重新画一遍
   reshoot: ["只重拍这张图", "picture"],
@@ -13807,11 +13811,11 @@ function menuItemsForKind(m, canSpeak) {
       ? [["copy", "fav"], ["edit", "reroll"], ["multi", "recall", "del"]]
       : [["copy", "fav"], ["edit"], ["multi", "recall", "del"]];
   }
-  if (textLike) return [["copy", "fav", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall", "del"]];
+  if (textLike) return [["copy", "fav", "shike", "quote"], ["edit", "reroll"].concat(listen), ["multi", "recall", "del"]];
   // 语音有转文字内容 → 可复制/引用（引用的是转文字），别只给收藏/删除；它自己气泡上就有 ▶，不再给念出来
   if (k === "voice") return [["copy", "fav", "quote"], [], ["multi", "recall", "del"]];
   // TA 发的照片：「只重拍这张图」只换像素；「重Roll」照旧把这一轮整个重来
-  if (k === "selfie" && m.role === "assistant" && m.sid) return [["fav"], m.pending ? ["reroll"] : ["edit", "reshoot", "reroll"], ["multi", "recall", "del"]];
+  if (k === "selfie" && m.role === "assistant" && m.sid) return [["fav", "shike"], m.pending ? ["reroll"] : ["edit", "reshoot", "reroll"], ["multi", "recall", "del"]];
   return [[  "fav"], listen, ["multi", "recall", "del"]];
 }
 // 编辑消息弹层：替掉难看又不能放大的原生 prompt。大号可拉伸文本框，长内容自动撑高+可滚，风格随 app。

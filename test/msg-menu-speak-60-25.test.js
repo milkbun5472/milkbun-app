@@ -23,7 +23,8 @@ test("按「这个动作对这句话做了什么」分组，不是一长条", ()
   const fn = new Function("return " + f.slice(f.indexOf("function menuItemsForKind")))();
   const g = fn({ kind: null }, false);
   assert.equal(g.length, 3, "三组：拿走它 / 动它 / 撤掉它");
-  assert.deepEqual(g[0], ["copy", "fav", "quote"]);
+  // v74.661 拿走它那一组多了「收进时刻」（她 2026-10-03）
+  assert.deepEqual(g[0], ["copy", "fav", "shike", "quote"]);
   assert.deepEqual(g[2], ["multi", "recall", "del"]);
   // 空组不许留下一道空隔断
   assert.match(menu, /items\.filter\(g => g && g\.length\)/);
