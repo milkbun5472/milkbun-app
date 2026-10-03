@@ -233,6 +233,7 @@
     const fileRef = React.useRef(null), pickFor = React.useRef(null), mRef = React.useRef(null);
     const [exporting, setExporting] = useState(false);
     const [menuOpen, setMenuOpen] = useState(false);
+    const [actsOpen, setActsOpen] = useState({});
     const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
     const draw = async m => {
       if (drawing || !props.onDrawMoment || !cur) return;
@@ -433,12 +434,12 @@
             m.with && m.with.length ? h("div", { "data-wk": "shikewith", style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(255,255,255,.8)", marginTop: 6 } }, "一起的还有：" + m.with.join("、")) : null,
             // 底框压矮、沉到卡底（她 2026-10-03：「底框可以再矮一点」）：上面留给画，字只占一小截，多了就在框里滚
             h("div", { style: { flex: 1, minHeight: 12 } }),
-            h("div", { "data-wk": "shikenote", className: "min-h-0", style: { maxHeight: "30%", flexShrink: 1, overflowY: "auto", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.18)",
-              borderRadius: 12, padding: "10px 13px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 8 } },
+            h("div", { "data-wk": "shikenote", className: "min-h-0", style: { maxHeight: "20%", flexShrink: 1, overflowY: "auto", background: "rgba(0,0,0,.28)", border: "1px solid rgba(255,255,255,.18)",
+              borderRadius: 12, padding: "8px 12px", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: "rgba(255,255,255,.65)", marginBottom: 5 } },
                 rawOpen[m.key] ? "原话" : m.what.kind === "mem" ? "那天记下的事" : m.what.kind === "chat" ? "那天你们说的话" : m.what.kind === "summary" ? "那一段" : m.what.kind === "pin" ? "收着的原话" : "那一天"),
               ((rawOpen[m.key] && m.raw) ? m.raw : m.what.lines).length
-                ? ((rawOpen[m.key] && m.raw) ? m.raw : m.what.lines).map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "rgba(255,255,255,.95)", marginBottom: 6, whiteSpace: "pre-wrap" } }, x))
+                ? ((rawOpen[m.key] && m.raw) ? m.raw : m.what.lines).map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "rgba(255,255,255,.95)", marginBottom: 4, whiteSpace: "pre-wrap" } }, x))
                 : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: "rgba(255,255,255,.7)" } }, "那天没留下记录。"),
               // 「让 TA 说说」（她 2026-10-03 点的第 5 条）：TA用自己的口气回忆这一天，点了才调一次
               (notes[cur.id] || {})[m.key] ? h("div", { "data-wk": "shikesay", style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed rgba(255,255,255,.3)" } },
@@ -446,7 +447,10 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: "#fff", whiteSpace: "pre-wrap" } }, (notes[cur.id] || {})[m.key])) : null,
               null),
             // 卡底一行小字动作（不再是一排药丸——她 2026-10-03：「很占位置而且丑」）：像展签底下那行小注，点哪个字就是哪个
-            h("div", { "data-wk": "shikeacts", className: "flex items-center", style: { flexWrap: "wrap", marginTop: 10, rowGap: 4 } },
+            // 收起来（她 2026-10-03：「卡里面的设置也收一收」）：平时只露一个「⋯」，点开才是那行小字
+            !actsOpen[m.key] ? h("button", { onClick: () => setActsOpen(o => Object.assign({}, o, { [m.key]: true })), className: "active:opacity-60", "aria-label": "展开动作",
+              style: { alignSelf: "flex-end", marginTop: 6, fontSize: 18, lineHeight: 1, color: "rgba(255,255,255,.8)", background: "transparent", border: "none", padding: "2px 2px" } }, "⋯") :
+            h("div", { "data-wk": "shikeacts", className: "flex items-center", style: { flexWrap: "wrap", marginTop: 8, rowGap: 4 } },
               [props.onRecall ? [saying === m.key ? "TA 在想…" : ((notes[cur.id] || {})[m.key] ? "再说说" : "让 TA 说说"), () => recall(m), !!saying] : null,
                props.onSendMoment ? ["发给 TA", () => props.onSendMoment(cur, m)] : null,
                (m.pinId || m.gpinId) && m.raw && m.raw.length > 3 && !m.summary && props.onSummarizePin ? [summing === m.key ? "总结中…" : "总结", () => summarize(m), !!summing] : null,
@@ -454,7 +458,8 @@
                props.onDrawMoment ? [drawing === m.key ? "正在画…" : "画一张", () => draw(m), !!drawing] : null,
                ["贴图", () => { pickFor.current = m; fileRef.current && fileRef.current.click(); }],
                (arts[cur.id] || {})[m.key] ? ["拿掉图", () => setArt(cur.id, m.key, null)] : null,
-               (m.pinId || m.gpinId) ? ["删掉", () => dropPin(m)] : null
+               (m.pinId || m.gpinId) ? ["删掉", () => dropPin(m)] : null,
+               ["收起", () => setActsOpen(o => Object.assign({}, o, { [m.key]: false }))]
               ].filter(Boolean).map((a, k) => h(React.Fragment, { key: k },
                 k ? h("span", { style: { color: "rgba(255,255,255,.35)", margin: "0 8px", fontSize: 11 } }, "·") : null,
                 h("button", { onClick: a[1], disabled: !!a[2], className: "active:opacity-60",
@@ -499,12 +504,15 @@
           h("div", { style: { position: "relative", height: "100%", minWidth: Math.max(list.length * 18, 100) + "px" } },
             h("div", { style: { position: "absolute", left: 0, right: 0, top: 12, height: 1, background: t.line } }),
             list.map((m, k) => {
-              const on = k === mIdx, d = new Date(m.ts), first = months.some(x => x.k === k);
+              // 旧的在左、新的在右（她 2026-10-03）：list 是新→旧，所以位置倒过来；每个月最旧那张底下写月份
+              const on = k === mIdx, d = new Date(m.ts), nx = list[k + 1] ? new Date(list[k + 1].ts) : null,
+                first = !nx || nx.getMonth() !== d.getMonth() || nx.getFullYear() !== d.getFullYear(),
+                x = (list.length - 1 - k) / (list.length - 1), shift = x < .08 ? "-8px" : x > .92 ? "calc(-100% + 8px)" : "-50%";
               return h("button", { key: m.key, onClick: () => jump(k), "aria-label": d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate(),
-                style: { position: "absolute", left: (list.length === 1 ? 50 : (k / (list.length - 1)) * 100) + "%", top: 0, width: 18, height: 40, marginLeft: -9, background: "transparent", border: "none", padding: 0 } },
+                style: { position: "absolute", left: x * 100 + "%", top: 0, width: 18, height: 40, marginLeft: -9, background: "transparent", border: "none", padding: 0 } },
                 h("span", { style: { position: "absolute", left: 8, top: on ? 4 : 8, width: on ? 2 : 1, height: on ? 16 : 9, background: on ? t.ink : t.fog, borderRadius: 1 } }),
-                first || on ? h("span", { style: { position: "absolute", left: "50%", top: 24, transform: "translateX(-50%)", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 10, color: on ? t.ink : t.fog, fontWeight: on ? 600 : 400 } },
-                  on ? (d.getMonth() + 1) + "." + d.getDate() : (d.getMonth() + 1) + "月") : null);
+                first || on ? h("span", { style: { position: "absolute", left: 9, top: 24, transform: "translateX(" + shift + ")", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 10, color: on ? t.ink : t.fog, fontWeight: on ? 600 : 400 } },
+                  (d.getMonth() + 1) + "月") : null);
             }))) : h("div", { style: { height: "calc(14px + env(safe-area-inset-bottom))" } }));
     }
 

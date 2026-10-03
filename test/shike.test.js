@@ -244,7 +244,9 @@ test("里层：动作收进右上角「⋯」，卡底是一行小字，底框�
   const inner = s.slice(s.indexOf("// ── 里层"), s.indexOf("// ── 外层"));
   assert.match(inner, /"data-wk": "shikemenu"/);
   assert.match(inner, /"data-wk": "shikeacts"/);
-  assert.match(inner, /maxHeight: "30%"/, "底框没压矮");
+  assert.match(inner, /maxHeight: "20%"/, "底框没压矮");
+  assert.match(inner, /actsOpen/, "卡底动作没收起来");
+  assert.match(inner, /list.length - 1 - k/, "刻度不是旧的在左");
   assert.ok(!/borderRadius: 999, padding: "6px 1[12]px"/.test(inner), "顶上那排药丸还在");
   assert.match(app, /exactly two arms and two hands/, "画图没交代手脚");
 });
