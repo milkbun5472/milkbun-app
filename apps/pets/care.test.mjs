@@ -1,3 +1,4 @@
+import {turnPet} from './movement.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createPetCare,restoreCare,careSummary} from './care.mjs';
 import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs';
@@ -10,3 +11,5 @@ test('idle pets choose available food or rest without player dispatch',()=>{cons
 test('home paths reach every care approach at all supported sizes and avoid furniture at every segment',()=>{for(const size of[.7,1,1.3]){const n=createHomeNavigation(size),spawn=n.restore(null);for(const origin of[spawn,...Object.values(HOME_PLACES)])for(const [key,target]of Object.entries(HOME_PLACES)){assert.ok(n.walkable(target.x,target.z),key+' target');const route=n.path(origin,target);assert.ok(route,key+' route');let from=origin;for(const p of route){for(let i=0;i<=20;i++){const t=i/20;assert.ok(n.walkable(from.x+(p.x-from.x)*t,from.z+(p.z-from.z)*t),key+' segment');}from=p;}}}});
 
 test('a small snack is eaten over time and a full pet refuses another',()=>{const c=createPetCare({satiety:50});assert.equal(c.request('snack').accepted,true);c.arrive();run(c,6);assert.ok(c.state.satiety>55);assert.equal(c.state.task,null);assert.equal(createPetCare({satiety:95}).request('snack').accepted,false);});
+
+test('street and home pivots turn on the shortest arc and wait to move when facing away',()=>{const t=turnPet(0,Math.PI,.05);assert.ok(Math.abs(t.heading-.15)<1e-12);assert.equal(t.canMove,false);const wrap=turnPet(Math.PI-.01,-Math.PI+.01,.05);assert.ok(wrap.canMove);assert.ok(Math.abs(wrap.heading-(Math.PI+.01))<1e-8);});
