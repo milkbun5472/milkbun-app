@@ -7160,6 +7160,7 @@ function ProfileSheet({
 function Messages({
   characters,
   allChars,
+  onSaveNpcAvatar,
   groups,
   chats,
   groupChats,
@@ -7202,6 +7203,7 @@ function Messages({
   const [composeOpen, setComposeOpen] = useState(false);
   const [groupMgr, setGroupMgr] = useState(false);
   const [groupList, setGroupList] = useState(false);   // 通讯录里的「群聊」入口
+  const [npcBook, setNpcBook] = useState(false);       // 通讯录里的「配角」入口（她 2026-10-03）
   const [q, setQ] = useState("");                       // 聊天列表顶部搜索（她 2026-08-26）
   const TITLES = {
     chats: "聊天",
@@ -7250,6 +7252,7 @@ function Messages({
   // 病因：那条索引原来 position:absolute 挂在【列表内容】上，而列表内容自己在滚——
   // 于是它跟着内容一起往上跑，得滑一段才露出来。它必须挂在【不滚的那一层】上。
   // 所以分组、跳转、当前字母都提到组件这一层，索引条渲染成滚动容器的兄弟，钉在右边。
+  const npcAll = (allChars || []).filter(c => c && c.npc);
   const listRef = useRef(null);
   const contactSecs = (tab === "contacts" && typeof pinyinSections === "function") ? pinyinSections(characters) : [];
   const [curLetter, setCurLetter] = useState("");
@@ -7374,6 +7377,11 @@ function Messages({
       entry("标签", friendGroups.length ? friendGroups.length + " 组" : "", "#3d7de0",
         [h("path", { key: "a", d: "M20.6 12.6L12 4H4v8l8.6 8.6a2 2 0 002.8 0l5.2-5.2a2 2 0 000-2.8z" }), h("circle", { key: "b", cx: 8, cy: 8, r: 1.3 })],
         () => setGroupMgr(true)),
+      // 配角原来只住在关系页里，换不了头像、通讯录里也找不着（她 2026-10-03 转群友）。
+      //   这里只是【一本册子】：按主人分组摆出来、能换头像；聊天以后再说。
+      onSaveNpcAvatar ? entry("配角", npcAll.length ? npcAll.length + " 位" : "", "#c28a3e",
+        [h("circle", { key: "a", cx: 12, cy: 8, r: 3.5 }), h("path", { key: "b", d: "M5 21v-1a5 5 0 015-5h4a5 5 0 015 5v1" }), h("path", { key: "c", d: "M18.5 3.5l1 1.8 2 .3-1.5 1.4.4 2-1.9-1-1.9 1 .4-2-1.5-1.4 2-.3z" })],
+        () => setNpcBook(true)) : null,
       characters.length === 0
         ? h(Empty, { text: "通讯录是空的", sub: "去人格档案馆录入角色" })
         : h("div", { style: { paddingRight: 22 } }, secs.map(sec => h("div", { key: sec.letter, id: "mcontact-" + sec.letter },
@@ -7547,6 +7555,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onClose: () => setNpcBook(false) })
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
@@ -7745,6 +7754,27 @@ function MomentCompose({
   })))))));
 }
 // 好友分组管理
+// 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
+//   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
+function NpcBook({ npcs, owners, onSaveAvatar, onClose }) {
+  const t = useTheme();
+  const ownerName = id => id === "me" ? "我身边的人" : (((owners || []).find(c => c && c.id === id) || {}).name || "（主人已不在）") + " 身边的人";
+  const byOwner = [];
+  (npcs || []).forEach(n => { const k = String(n.ownerId || ""); let g = byOwner.find(x => x.k === k); if (!g) { g = { k, list: [] }; byOwner.push(g); } g.list.push(n); });
+  byOwner.sort((a, b) => (a.k === "me" ? -1 : b.k === "me" ? 1 : 0));
+  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
+    h(Head, { zh: "配角", onBack: onClose, bg: "transparent" }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
+      !byOwner.length
+        ? h(Empty, { text: "还没有配角", sub: "去关系页的 NPC 那一栏加" })
+        : byOwner.map(g => h("div", { key: g.k },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, ownerName(g.k)),
+            g.list.map(n => h("div", { key: n.id, className: "flex items-center gap-3 px-5 py-3", style: { borderBottom: "1px solid " + t.line, background: t.bg } },
+              h(AvatarPicker, { character: n, size: 46, radius: 9, onPick: img => onSaveAvatar(n.id, img), onClear: n.avatarImage ? () => onSaveAvatar(n.id, null) : undefined }),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, n.name),
+                h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, String(n.persona || "").replace(/\s+/g, " ").slice(0, 60) || "（还没写介绍）"))))))));
+}
 function GroupManager({
   friendGroups,
   characters,
