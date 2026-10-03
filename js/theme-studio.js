@@ -449,6 +449,7 @@
         // 拉黑提示条和解除申请卡（她 2026-10-03：「拉黑的提示搞点挂点」）
         ["blockbar", "拉黑时顶上那条提示（data-who＝me 她拉黑了TA／them TA拉黑了她）"], ["blockbaricon", "提示条左边那个禁止圈"],
         ["blockbartitle", "提示条第一行（谁拉黑了谁）"], ["blockbarhint", "提示条第二行（现在能做什么）"], ["blockbarbtn", "提示条右边的「解除」键"],
+        ["filecard", "聊天里发的文件卡整张"], ["filename", "文件卡上的文件名"], ["filebody", "点开后的文件内容"],
         ["sysnote", "聊天里那张系统小纸条（data-kind＝block 拉黑／解除那几张，其余 system）"], ["sysnotelabel", "纸条上「系统／拉黑」那行小字"],
         ["sysnotetext", "纸条正文"], ["sysnoteclose", "纸条右上角那个 ✕"],
         ["unblockcard", "解除拉黑申请卡（data-from＝char TA发的／me 她发的；data-state＝pending/accepted/declined）"],
