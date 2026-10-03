@@ -126,15 +126,30 @@
     }
     return e.place ? "在" + e.place : "";
   }
-  const isAway = d => /^不在家/.test(whereText(d));
+  // 最近一件事：到家/出门三小时内、起床两小时内、睡觉十小时内才算数
+  const EV_FRESH = { 到家: 3, 出门: 3, 起床: 2, 睡觉: 10 };
+  function lastEvent(d, now) {
+    const e = (d.events || []).slice(-1)[0]; if (!e) return null;
+    const ago = (now || Date.now()) - e.at;
+    return ago >= 0 && ago <= (EV_FRESH[e.kind] || 2) * 3600000 ? Object.assign({ ago }, e) : null;
+  }
+  const agoText = ms => { const m = Math.max(1, Math.round(ms / 60000)); return m < 60 ? m + " 分钟" : Math.round(m / 60) + " 小时"; };
+  const EV_SAY = { 到家: "到家了", 出门: "出门了", 起床: "起床了", 睡觉: "说去睡了" };
+  const isAway = d => { const e = lastEvent(d); if (e && (e.kind === "到家" || e.kind === "出门") && (!d.env || e.at >= (d.env.ts || 0))) return e.kind === "出门"; return /^不在家/.test(whereText(d)); };
   const isRain = e => /雨|雪|雷|rain|snow|storm|shower|drizzle/i.test(String(e && e.weather || ""));
   const ENV_FRESH = 3 * 3600000;   // 三小时前报的就不算「此刻」了
   function envLine(d, now) {
-    const e = d.env; if (!e || (now || Date.now()) - (e.ts || 0) > ENV_FRESH) return "";
-    const mins = Math.max(1, Math.round(((now || Date.now()) - e.ts) / 60000));
-    const bits = [whereText(d), e.weather ? "那边" + e.weather + (e.temp != null ? " " + Math.round(e.temp) + "°" : "") : "",
-      e.battery != null ? "手机电量 " + Math.round(e.battery) + "%" : ""].filter(Boolean);
-    return bits.length ? "（" + (mins < 60 ? mins + " 分钟" : Math.round(mins / 60) + " 小时") + "前手机报的）她" + bits.join("，") + "。" : "";
+    const t = now || Date.now(), e = d.env, ev = lastEvent(d, t);
+    let out = "";
+    if (e && t - (e.ts || 0) <= ENV_FRESH) {
+      // 比这份位置更新的一件「到家/出门」盖掉按坐标算的那句
+      const where = ev && (ev.kind === "到家" || ev.kind === "出门") && ev.at >= (e.ts || 0) ? "" : whereText(d);
+      const bits = [where, e.weather ? "那边" + e.weather + (e.temp != null ? " " + Math.round(e.temp) + "°" : "") : "",
+        e.battery != null ? "手机电量 " + Math.round(e.battery) + "%" : ""].filter(Boolean);
+      if (bits.length) out += "（" + agoText(t - (e.ts || t)) + "前手机报的）她" + bits.join("，") + "。";
+    }
+    if (ev) out += "她 " + agoText(ev.ago) + "前" + (EV_SAY[ev.kind] || "：" + ev.kind) + "。";
+    return out;
   }
 
   // noteFor：只给她点了名的人；只在饭点前后、或她两小时内刚记过一餐时出一行，其余时候空字符串＝零 token
@@ -164,6 +179,12 @@
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const today = log[day] || [];
     const ids = d.watch.ids.slice();
+    const ev = d.watch.env ? lastEvent(d, t) : null;
+    if (ev && ev.ago < 40 * 60000 && !today.includes("ev-" + ev.kind)) {
+      const hr = new Date(t).getHours();
+      const say = { 起床: hr >= 5 && hr < 13 ? "她刚起床" : "", 到家: "她刚到家", 出门: hr >= 6 && hr < 23 ? "她刚出门" : "" }[ev.kind];
+      if (say) return { meal: "ev-" + ev.kind, label: say, ids, day, line: envLine(d, t) + "她开了让你知道她在哪、在干嘛。" };
+    }
     if (d.watch.env && d.env && t - (d.env.ts || 0) < ENV_FRESH) {
       const hr = new Date(t).getHours(), env = envLine(d, t);
       if (d.env.battery != null && d.env.battery < 20 && !today.includes("battery") && hr >= 8 && hr < 24)
@@ -198,7 +219,8 @@
   const SC_KEYS = [["steps", /^(步数|步|steps?)$/i], ["sleep", /^(睡眠|睡眠小时|睡眠时长|睡觉|sleep)$/i], ["kcal", /^(活动能量|动态能量|运动消耗|消耗|active ?energy)$/i],
     ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i],
     ["lat", /^(纬度|lat|latitude)$/i], ["lon", /^(经度|lon|lng|longitude)$/i], ["place", /^(地点|位置|地址|place|location)$/i],
-    ["weather", /^(天气|weather)$/i], ["temp", /^(气温|温度|temp|temperature)$/i], ["battery", /^(电量|电池|battery)$/i]];
+    ["weather", /^(天气|weather)$/i], ["temp", /^(气温|温度|temp|temperature)$/i], ["battery", /^(电量|电池|battery)$/i],
+    ["event", /^(事件|发生了|event)$/i], ["at", /^(收到时间|received)$/i]];
   const num = s => { const m = String(s || "").replace(/[,，\s]/g, "").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
   function scDay(v, today) {
     const s = String(v || "").trim();
@@ -210,6 +232,9 @@
     return today;
   }
   // 认不出（没有「秋秋健康」那一行、或者一个数都没有）→ null。数字后面带单位、带千分位都行。
+  // 手机那头的「此刻发生了什么」（到家、出门、起床、睡觉）：每种一个自动化，各投一句「事件：到家」
+  const EVENTS = [["到家", /到家|回家|回来了|arrive|home/i], ["出门", /出门|离家|出去|leave/i], ["起床", /起床|醒了|醒来|闹钟|wake/i], ["睡觉", /睡觉|睡了|就寝|晚安|sleep|bed/i]];
+  const eventKind = v => (EVENTS.find(e => e[1].test(v)) || [String(v).slice(0, 12)])[0];
   function parseShortcut(text, today) {
     const lines = String(text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
     if (!lines.some(l => l.replace(/\s/g, "") === SHORTCUT_MARK)) return null;
@@ -220,6 +245,8 @@
       if (!k || !v) return;
       if (k === "date") { r.day = scDay(v, today); return; }
       if (k === "place" || k === "weather") { r[k] = v.slice(0, 40); return; }
+      if (k === "event") { r.event = eventKind(v); return; }
+      if (k === "at") { const x = num(v); if (x > 1e12) r.at = x; return; }
       if (k === "battery") { const b = num(v); if (b != null) r.battery = b <= 1 && !/%/.test(v) && /\./.test(v) ? b * 100 : b; return; }
       if (k === "temp" || k === "lat" || k === "lon") { const x = num(v); if (x != null) r[k] = x; return; }
       const n = num(v); if (n == null || n < 0) return;
@@ -229,7 +256,7 @@
       } else if (k === "water") r.waterMl = /升|\bl\b/i.test(v) && !/毫升|ml/i.test(v) ? n * 1000 : n;
       else r[k] = n;
     });
-    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl", "lat", "place", "weather", "battery"].some(k => r[k] != null) ? r : null;
+    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl", "lat", "place", "weather", "battery", "event"].some(k => r[k] != null) ? r : null;
   }
   // 合进存档：同一天再导一次就覆盖手机那一份，她自己记的不动
   function applyShortcut(d, r) {
@@ -242,8 +269,12 @@
     if (r.waterMl) n.water = Object.assign({}, d.water, { [day]: Math.max(Number((d.water || {})[day]) || 0, Math.round(r.waterMl / 250)) });
     if (r.lat != null || r.place || r.weather || r.battery != null) {
       const ok = r.lat != null && r.lon != null && Math.abs(r.lat) <= 90 && Math.abs(r.lon) <= 180;
-      n.env = { ts: Date.now(), lat: ok ? r.lat : null, lon: ok ? r.lon : null, place: r.place || "", weather: r.weather || "",
+      n.env = { ts: r.at || Date.now(), lat: ok ? r.lat : null, lon: ok ? r.lon : null, place: r.place || "", weather: r.weather || "",
         temp: r.temp != null ? r.temp : null, battery: r.battery != null ? Math.max(0, Math.min(100, r.battery)) : null };
+    }
+    if (r.event) {
+      const at = r.at || Date.now();
+      n.events = (d.events || []).filter(e => e.at !== at).concat([{ at, kind: r.event }]).sort((a, b) => a.at - b.at).slice(-30);
     }
     n.hkAt = Date.now();
     return n;
@@ -253,7 +284,7 @@
   // 有人自己架了网关：快捷指令每天定时把那段字（或同样字段的 JSON）发给网关，网关存着最新一份；
   //   秋秋机打开、切回前台时去 GET 一次。只往她填的那个地址发，别的地方一个字都不发。十分钟内不重复拉。
   const JSON_KEYS = { steps: "步数", sleep: "睡眠", activeEnergy: "活动能量", kcal: "活动能量", exercise: "运动分钟", weight: "体重", water: "喝水",
-    lat: "纬度", latitude: "纬度", lon: "经度", lng: "经度", longitude: "经度", weather: "天气", temp: "气温", temperature: "气温", battery: "电量", date: "日期", place: "地点" };
+    lat: "纬度", latitude: "纬度", lon: "经度", lng: "经度", longitude: "经度", weather: "天气", temp: "气温", temperature: "气温", battery: "电量", date: "日期", place: "地点", event: "事件", at: "收到时间" };
   function gatewayText(raw) {
     const s = String(raw || "").trim();
     if (s.includes(SHORTCUT_MARK)) return s;
@@ -268,7 +299,7 @@
   //   POST（快捷指令发来）→ 存进 KV 那一格；GET（秋秋机来拿）→ 吐出最新那一份。两头都要带同一把密钥。
   //   ⚠️这段代码是写给她们复制进 Cloudflare 的，改它要连着下面的教程和测试一起看。
   const GATEWAY_WORKER = [
-    "// 秋秋机 · 健康网关（Cloudflare Workers）",
+    "// 秋秋机 · 健康网关（Cloudflare Workers）第 2 版：健康数据存最新一份，到家/出门/起床/睡觉这些事件存最近 20 件",
     "// 需要：一个名为 HEALTH 的 KV 绑定，一个名为 SECRET 的密钥变量",
     "export default {",
     "  async fetch(req, env) {",
@@ -279,14 +310,20 @@
     "    if (req.method === \"POST\") {",
     "      const text = await req.text();",
     "      if (!text.includes(\"秋秋健康\")) return new Response(\"第一行要是「秋秋健康」\", { status: 400, headers: cors });",
-    "      await env.HEALTH.put(\"latest\", text.slice(0, 4000));",
+    "      const stamped = text.slice(0, 4000).trim() + \"\\n收到时间：\" + Date.now();",
+    "      if (/事件[:：]\\s*\\S/.test(text)) {",
+    "        const ev = JSON.parse((await env.HEALTH.get(\"events\")) || \"[]\").concat([stamped]).slice(-20);",
+    "        await env.HEALTH.put(\"events\", JSON.stringify(ev));",
+    "      } else await env.HEALTH.put(\"latest\", stamped);",
     "      return new Response(\"收到\", { headers: cors });",
     "    }",
-    "    const v = await env.HEALTH.get(\"latest\");",
-    "    return new Response(v || \"\", { headers: Object.assign({ \"Content-Type\": \"text/plain; charset=utf-8\", \"Cache-Control\": \"no-store\" }, cors) });",
+    "    const latest = (await env.HEALTH.get(\"latest\")) || \"\";",
+    "    const ev = JSON.parse((await env.HEALTH.get(\"events\")) || \"[]\");",
+    "    return new Response([latest].concat(ev).filter(Boolean).join(\"\\n\\n\"), { headers: Object.assign({ \"Content-Type\": \"text/plain; charset=utf-8\", \"Cache-Control\": \"no-store\" }, cors) });",
     "  }",
     "};",
     ""].join("\n");
+  const hash = s => { let x = 0; for (let i = 0; i < s.length; i++) x = (x * 31 + s.charCodeAt(i)) | 0; return String(x); };
   let pulling = false;
   async function pullGateway(force) {
     const d = load(), gw = d.gateway || {};
@@ -298,14 +335,21 @@
       const res = await fetch(gw.url, { headers: gw.key ? { Authorization: "Bearer " + gw.key } : {}, cache: "no-store" });
       if (!res.ok) throw new Error("网关回了 " + res.status);
       const raw = await res.text();
-      r = parseShortcut(gatewayText(raw), dayOf());
-      if (!r) throw new Error("网关回的不是那几行字。它回的是：" + raw.slice(0, 120));
+      // 新版网关一次回好几段（最近一份健康 + 最近几件事），每段都以「秋秋健康」开头；旧版只回一段
+      const blocks = raw.includes(SHORTCUT_MARK) ? raw.split(new RegExp("(?=" + SHORTCUT_MARK + ")")).filter(b => b.includes(SHORTCUT_MARK)) : [gatewayText(raw)];
+      const seen = (d.gateway && d.gateway.seen) || [];
+      const fresh = blocks.map(b => b.trim()).filter(b => b && !seen.includes(hash(b)));
+      const rs = fresh.map(b => parseShortcut(b, dayOf())).filter(Boolean);
+      if (!blocks.some(b => parseShortcut(b, dayOf()))) throw new Error("网关回的不是那几行字。它回的是：" + raw.slice(0, 120));
+      // 同一段拿过就不再用：不然每拿一次，那份旧位置旧电量就又被当成「刚报的」
+      next.seen = seen.concat(fresh.map(hash)).slice(-60);
+      r = rs.length ? rs : null;
       next.err = "";
     } catch (e) {
       next.err = String(e && e.message || e).slice(0, 200);
     } finally { pulling = false; }
     const cur = load();
-    save(Object.assign(r ? applyShortcut(cur, r) : cur, { gateway: next }));
+    save(Object.assign((r || []).reduce((acc, x) => applyShortcut(acc, x), cur), { gateway: next }));
     try { g.dispatchEvent && g.dispatchEvent(new Event("qq-health-updated")); } catch (e) {}
     return r;
   }
@@ -565,6 +609,16 @@
           step(9, "填地址和密钥", "回「谁看着」最下面，网关地址填第 6 步那个，密钥填第 5 步那串（只填那串，不用写 Bearer）。点「现在拿一次」，显示拿到了就好了。以后每次打开秋秋机都会自己去拿。"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.7, marginTop: 8 } },
             "没拿到时下面那行会写原因：「密钥不对」是两边那串不一样；「回了 404」多半是地址抄错；什么都没回，多半是快捷指令还没往里投过。")),
+        h(Section, { S, title: "再让他们知道你到家、出门、起床、睡觉", wk: "healthevents" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.7 } },
+            "每件事一个小快捷指令，让手机在那一刻自己投一句「事件：到家」。点了名的人就知道你刚到家、刚出门、刚起床、说去睡了；开了「会来问」的话，到家、出门、起床那会儿会有人来找你（各一天一次），说去睡了就不来吵你。"),
+          step(10, "⚠️之前搭过网关的，先换一次代码", "回 Cloudflare 这个 Worker →「编辑代码」（Edit code），全删掉，把第 3 步的代码重新复制粘贴进去，再「部署」（Deploy）。新版能把事件和健康数据分开存，不会互相盖掉。KV 和密钥不用动。"),
+          step(11, "复制一份快捷指令，改成只投一句话", "长按「秋秋健康」快捷指令 →「复制」（或「复制快捷指令」）→ 改名比如「秋秋·到家」。\n打开它，把前面那些查找健康、电量、位置的动作都删掉，只留「文本」和「获取 URL 内容」两个。「文本」里只写下面这两行（到家那个就写到家，其他同理）：",
+            h("div", null, ["到家", "出门", "起床", "睡觉"].map(k => h("div", { key: k, className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+              h("div", { style: { flex: 1, padding: "8px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre", lineHeight: 1.6 } }, SHORTCUT_MARK + "\n事件：" + k),
+              h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(SHORTCUT_MARK + "\n事件：" + k); toast && toast(ok ? "已复制" : "没复制上，长按自己复制"); }, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "复制"))))),
+          step(12, "给每个建一个自动化", "快捷指令 →「自动化」→「＋」，按下面选触发，都选「立即运行」，再选对应那个快捷指令：\n· 到家：选「到达」→ 位置选你家 → 时间「任何时间」\n· 出门：选「离开」→ 位置选你家\n· 起床：选「闹钟」→「停止时」（或者「睡眠」→「醒来」）\n· 睡觉：选「睡眠」→「就寝时间开始」（没设睡眠的话，用「专注模式 → 睡眠 → 打开时」也行）\n不想要的那几件不建就是了。"),
+          step(13, "回秋秋机打开开关", "「谁看着」里要开着「让他们知道我在哪、天气、电量」，事件才会给他们看；「饭点会来问」开着，才会有人主动来找你。")),
         h(Section, { S, title: "常被问到的" },
           step("问", "能用我放别的网页（比如公共版）的那个 Cloudflare 账号吗？", "能，不会互相吃额度。静态网页（Pages）打开不计次数；网关吃的是 Worker 和 KV 的免费额度——每天 10 万次请求、10 万次读、1000 次写。快捷指令一天跑几次、秋秋机十分钟最多拿一次，连零头都用不到。就算哪天真超了，也只是网关那天拿不到数，网页照常开。"),
           step("问", "别人拿到我的网关地址怎么办？", "没有你那串密钥，只会被拦下（密钥不对），读不到也写不进。每个人要用就在自己账号里搭自己的。"),
