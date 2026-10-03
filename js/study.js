@@ -1645,11 +1645,21 @@
 
   // v59.68：一起学是一册真的活页学习夹，不再是通用白卡列表。
   // 三种模式分别长成老师批注、共同研究纸和三人课堂页；所有内页共用纸色、孔位和格线。
-  const STUDY_SKIN = {
+  // v74.555 接上主题台的「这一页单独换几支色」（群里 2026-10-03：「换了一起学页面的底色进去还是一片绿油油的」）：
+  //   原来这份是模块加载时写死的，主题台改 bg 一个字都到不了这页。改成【每次读都现取】，
+  //   走 core.js 那一处 pagePalette（梦境、解梦本同一个入口），没改过的那几支原样是活页夹的底稿。
+  const STUDY_SKIN_BASE = {
     desk: "linear-gradient(155deg,#e5e9e1 0%,#dce2d8 100%)",
     paper: "#fbf8ef", paper2: "#f2eee1", ink: "#30352f", sub: "#646b62", fog: "#92978e",
     line: "rgba(64,74,62,.16)", red: "#ad6254", green: "#657c60", shadow: "rgba(43,52,41,.09)"
   };
+  const STUDY_SKIN_ALIAS = { desk: "bg", paper: "bg2", red: "accent", green: "tint" };
+  const STUDY_SKIN = {};
+  Object.keys(STUDY_SKIN_BASE).forEach(function (k) {
+    Object.defineProperty(STUDY_SKIN, k, { enumerable: true, get: function () {
+      return typeof pagePalette === "function" ? pagePalette("study", STUDY_SKIN_BASE, STUDY_SKIN_ALIAS)[k] : STUDY_SKIN_BASE[k];
+    } });
+  });
   const STUDY_MODE_SKIN = {
     teach: { accent: "#657c60", soft: "#e5ebdf", label: "老师批注", code: "01" },
     costudy: { accent: "#78698e", soft: "#ebe5f0", label: "共同研究", code: "02" },
