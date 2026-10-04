@@ -13,7 +13,7 @@ const shadow = read("js/dream-loop-shadow.js"), journal = read("js/dreamjournal.
 
 test("取材只写一处：解梦馆和梦境都问 DreamLoop.excerptsFor", () => {
   assert.match(shadow, /function excerptsFor\(row, limit\)/);
-  assert.match(shadow, /window\.DreamLoop = \{ observe, report, clearAll, listDreams, saveGenerated, excerptsFor, markEntered \}/);
+  assert.match(shadow, /window\.DreamLoop = \{ observe, report, clearAll, listDreams, saveGenerated, excerptsFor, markEntered, removeDream, removeCharDreams \}/);
   assert.match(journal, /const excerpts = window\.DreamLoop\.excerptsFor\(row, 12\);/, "解梦馆没用共用那份");
   assert.doesNotMatch(journal, /refMatches\(ref, m\.content\)/, "解梦馆里那份自己捞材料的循环还在——两份迟早走散");
   assert.match(dream, /window\.DreamLoop\.excerptsFor\(row, 12\)/, "梦境没用共用那份");

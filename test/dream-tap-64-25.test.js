@@ -25,11 +25,11 @@ test("tap() 是一处定义，六处小动作都从它拿", () => {
   assert.equal(tap({ color: "#000" }).color, "#000", "extra 没合进去");
   assert.equal(tap({ minHeight: 12 }).minHeight, 12, "extra 该盖得住默认值（Object.assign 的顺序）");
   // 六处：找TA解 / 删 / 展开收起 / 选谁来解 / 推门进这场梦 / 展开这场梦
-  assert.equal((src.match(/style: tap\(/g) || []).length, 6, "有小动作没接上 tap()");
+  assert.equal((src.match(/style: tap\(/g) || []).length, 7, "有小动作没接上 tap()（v74.769 TA们的梦也有了删）");
 });
 
 test("那两颗最小的键：找TA解成了真的一颗键，删也垫开了", () => {
-  const row = src.slice(src.indexOf('busyId === e.id ? "解梦中…" : "找TA解"') - 700, src.indexOf('}, "删")') + 12);
+  const row = src.slice(src.indexOf('busyId === e.id ? "解梦中…" : "找TA解"') - 700, src.lastIndexOf('}, "删")') + 12);
   assert.match(row, /style: tap\(\{ color: PINK, padding: "0 13px", borderRadius: 999, border:/, "找TA解 还是裸的一行小字");
   assert.match(row, /style: tap\(\{ color: PSUB \}\) \}, "删"\)/, "删 还没垫开");
   // 「撤掉东西要删除」——旧那个裸样式不许留着

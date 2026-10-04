@@ -1,3 +1,4 @@
+import {choosePetToy} from './habits.mjs?v=fg-368b5d075633a5d3';
 // Physical requests grow out of completed care, rather than assigned roles.
 export const YOU_SPOT={x:-.65,z:1.72};
 export const TOY_SPOTS={ball:{x:.45,z:.95},mouse:{x:-.45,z:.9}};
@@ -23,5 +24,5 @@ export function initiativeFor(state,people,random){
  if(state.satiety<83&&Object.values(state.relationships||{}).some(r=>r.snack>0)&&random()<.28){const person=choosePetPerson(state,'snack',people,random());return person?{kind:'askSnack',place:'person',person}:null;}
  const play=state.energy>40&&state.satiety>25&&random()<state.traits.active*.65;
  const person=choosePetPerson(state,play?'play':'pet',people,random());
- return person?{kind:play?'invitePlay':'invitePet',place:play?'toy':'person',person,toy:state.toys.mouse>state.toys.ball?'mouse':'ball'}:null;
+ return person?{kind:play?'invitePlay':'invitePet',place:play?'toy':'person',person,toy:choosePetToy(state,random)}:null;
 }

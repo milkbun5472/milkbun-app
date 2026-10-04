@@ -179,5 +179,18 @@
     } catch (e) { return null; }
   }
 
-  window.DreamLoop = { observe, report, clearAll, listDreams, saveGenerated, excerptsFor, markEntered };
+  // 删一场（群友 2026-10-05：「解梦馆删掉的 char 的梦不能删除吗」）；删角色时整个人的一起清（forChar）
+  async function removeDream(key) {
+    try { const db = await openDB(), tx = db.transaction("dreams", "readwrite"); tx.objectStore("dreams").delete(key); await done(tx); return true; } catch (e) { return false; }
+  }
+  async function removeCharDreams(charId) {
+    try {
+      const db = await openDB();
+      const all = await rq(db.transaction("dreams", "readonly").objectStore("dreams").getAll());
+      const tx = db.transaction("dreams", "readwrite");
+      all.filter(d => d && d.charId === charId).forEach(d => tx.objectStore("dreams").delete(d.key));
+      await done(tx); return true;
+    } catch (e) { return false; }
+  }
+  window.DreamLoop = { observe, report, clearAll, listDreams, saveGenerated, excerptsFor, markEntered, removeDream, removeCharDreams };
 })();
