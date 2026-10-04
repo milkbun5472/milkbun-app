@@ -1,8 +1,8 @@
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-1c2b9317458d023e';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-f330d135f2ad1c03';
 export const WORK_EVENTS=BAKERY_EVENTS;
-import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,chooseShopping} from './shopping.mjs?v=fg-1c2b9317458d023e';
+import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,chooseShopping} from './shopping.mjs?v=fg-f330d135f2ad1c03';
 export {PET_SHOP};
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
 const str=(v,max=160)=>typeof v==='string'?v.slice(0,max):'';
