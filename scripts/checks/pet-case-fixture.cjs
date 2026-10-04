@@ -1,0 +1,2 @@
+// The model stub retells the real case writer's wind evidence, with the model output schema.
+module.exports=async()=>{const {PET_CASES}=await import('../../apps/pets/detective.mjs');const c=PET_CASES.find(c=>c.id==='paper-bag');return {title:'今天的花桶边纸袋',intro:c.intro,clues:c.clues.map((text,i)=>({text,supports:['a'],excludes:i===0?['b']:i===1?['c']:['b','c']})),options:c.options.map((x,i)=>({id:['a','b','c'][i],label:x.label})),answer:'a',ending:c.ending,hint:c.hint};};
