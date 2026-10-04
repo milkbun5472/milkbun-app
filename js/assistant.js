@@ -387,6 +387,24 @@
         return 1;
       }
     },
+    // 这一个人线下那层的 CSS（她 2026-10-05：秋秋说「系统没给我线下 CSS 的权限」）——
+    //   存在 x_offlineSettings[charId].customCSS，跟线下设置里「这个人的线下长什么样」是同一格
+    offlinecss: {
+      zh: "这个人线下的 CSS",
+      read: ctx => {
+        const st = loadJ("x_offlineSettings", {}) || {};
+        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: (st[c.id] || {}).customCSS || "" }));
+      },
+      write: (id, patch, ctx) => {
+        const ts = TS(); if (!ts) throw new Error("主题工作台没加载出来");
+        if (!ctx.onPatchOfflineSetting) throw new Error("这个页面没接线下写入口");
+        const css = String(patch.text || "");
+        const bad = ts.unsafeReason(css); if (bad) throw new Error(bad);
+        ts.scopeCSS(css, "html");
+        ctx.onPatchOfflineSetting(id, { customCSS: css });
+        return 1;
+      }
+    },
     // 某一个群的 CSS 和排版（她 2026-09-30：「接吧」）——跟单聊那两栏同一个形状，只是存在这个群的设置里
     groupcss: {
       zh: "这个群聊天窗的 CSS",
@@ -495,8 +513,11 @@
     /[\w-]+\.(js|mjs|ts|jsx|html|json)\b/i
   ];
   // 命中就当场回绝，一次调用都不花（她按次计费，这也是替她省钱）
+  // 美化那一路是放行的：「这段 CSS 代码帮我改改」问的是样子，不是 App 怎么造的（她 2026-10-05）
+  const LOOK_TALK = /\bcss\b|美化|装修|皮肤|样式|挂点|data-wk/i;
   function codeQuestion(text) {
     const s = String(text || "");
+    if (LOOK_TALK.test(s)) return false;
     return CODE_SIGNS.some(re => re.test(s));
   }
   const CODE_REPLY = "这个我不答——我只管这个世界里【怎么玩】，不管它是怎么造出来的。\n"
@@ -665,7 +686,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}]}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|chatcss|chatlayout|offlinecss|groupcss|grouplayout","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -731,6 +752,9 @@
       + "再让底色、字色、圆角、投影一起往那个方向走——四栏各说各的，出来就是一套四不像。\n"
       + "  · **字要看得清**：底色深就把字色调亮，底色浅就调暗。这一条压过任何审美。\n"
       + "  · 这一份只盖【这一个人的聊天窗】，别人的窗口和全局都不受影响。她没说是谁、你也不知道她开着谁的窗口时，先问。\n"
+      + "· offlinecss 这个人【线下见面那一层】的 CSS（id＝角色 id；text 是 CSS，会自动限到这一个人的线下，别人的线下不受影响；"
+      + "挂点用线下那几个：offline、offmsg、offcard、offhead、offname、offtext、offsay、offthought、offnarr 等，见上面的名单）。"
+      + "她说的是「线下」「见面」「卡片」那一层，就走这一栏，不是 chatcss。\n"
       + "· chatcss 这个人聊天窗自己的 CSS（id＝角色 id；text 是 CSS，写法同 theme 的单聊页，会自动限到这一个人的窗口；"
       + "它压在皮肤、气泡、排版所有层上面）。挂点照上面那份名单用；msg／bubble 还带 data-first／data-last（连发那一串的头/尾）、"
       + "data-kind（text/voice/photo…）、data-recent=\"1\"（刚进来，可做入场动画）。高度别写死 px，用 var(--app-h)／var(--app-vh)／"
@@ -746,6 +770,10 @@
       + "群里的 deco.ta 管全部群成员的头像，deco.me 管她自己的。\n"
       + "别的一律不许碰，也别假装你改了。**theme 那一栏只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把全 App 弄坏。"
       + "要藏东西、挪位置、换排法，只在这一个人的聊天窗里做：走 chatlayout 或 chatcss。\n\n"
+      + "【给她一份文件】她要把一份东西拿走（一整份 CSS、一份文风、一份整理好的清单），或者内容长到不适合放进对话框，就放进 file："
+      + "{\"name\":\"文件名（带后缀，如 线下皮肤.css）\",\"text\":\"完整内容\"}——她那边会出一张文件卡，能一键复制、存成文件。"
+      + "file 里放的东西【不受「正文不贴代码」那条限制】，CSS 就原样完整地放；reply 里只说一两句这份文件是什么。不需要就省略 file。\n"
+      + "【她发来的文件】她这一句要是附了文件，内容就在这一轮她的话后面，照它办。\n\n"
       + "【两种改法 · 挑对的那一种】\n"
       + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
       + "text＝换成的那一段。替换在本地做，原文别处一个字节都不动。\n"
@@ -766,9 +794,14 @@
     // 门在最前面：命中就当场回绝，一次调用都不花
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
     // 她发的图（她 2026-09-30）：只跟着【这一句】发给模型；历史里只留一张小缩略图给她看，不再回传——一张图每轮重发太贵
-    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了一张图）" : "") }))
-      .concat([{ role: "user", content: String(text || "") || "（她发来一张图，看看说说）", imageDataUrls: pic ? [pic] : undefined }]);
-    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 12000, timeout: 120000 });
+    // 附件两种：图（只跟这一句走）、文件（她发来的 CSS/文本，内容接在这一句后面）
+    const isFile = pic && typeof pic === "object" && pic.kind === "file";
+    const img = isFile ? null : pic;
+    const fileTail = isFile ? "\n\n【她发来的文件《" + pic.name + "》" + (pic.cut ? "（太长，只给了前 " + pic.text.length + " 字）" : "") + "】\n" + pic.text : "";
+    const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了一张图）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
+      .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? [img] : undefined }]);
+    // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
+    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65535, timeout: 180000 });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       .slice(0, 3)
@@ -781,6 +814,9 @@
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200)
       }));
+    // 她要拿走的那份文件：原样保留（不洗代码——那是交给她的东西，不是正文）
+    const outFile = d.file && typeof d.file === "object" && String(d.file.text || "").trim()
+      ? { name: (String(d.file.name || "秋秋给你的文件.txt").replace(/[\\/:*?"<>|\n]/g, "").trim().slice(0, 60) || "秋秋给你的文件.txt"), text: String(d.file.text).slice(0, 400000) } : null;
     let reply = scrubCode(String(d.reply || "").trim());
     // 有些线路会无视 JSON 外壳，直接把已经写好的正文吐出来。纯问答没有 patch，
     // 这时保住正文比让她为同一个问题再付一次更重要；写入仍只认上面的结构化白名单。
@@ -790,8 +826,8 @@
       if (quoted) { try { plain = JSON.parse('"' + quoted[1] + '"'); } catch (_) {} }
       reply = scrubCode(plain);
     }
-    if (!reply && !patches.length) throw new Error("线路没有返回可读内容，可以再问一次");
-    return { reply: reply || "改动稿在下面。", patches };
+    if (!reply && !patches.length && !outFile) throw new Error("线路没有返回可读内容，可以再问一次");
+    return { reply: reply || (outFile ? "文件在下面。" : "改动稿在下面。"), patches, file: outFile };
   }
 
   // ---- 她此刻在哪一页（她 2026-09-03 点名要的）----
@@ -1101,10 +1137,12 @@
       if (!act && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
       A.bumpBusy(1); A.markAsking(q);
       const before = A.loadChat();
-      put(before.concat([{ role: "me", text: q, pic: pic ? pic.thumb : undefined, ts: Date.now() }]));
+      const isFile = pic && pic.kind === "file";
+      put(before.concat([{ role: "me", text: q, pic: pic && !isFile ? pic.thumb : undefined,
+        file: isFile ? { name: pic.name, size: pic.size, chars: pic.chars, cut: pic.cut, max: pic.max, text: pic.text } : undefined, ts: Date.now() }]));
       try {
-        const r = await A.ask(act, ctx, before, q, pic ? pic.full : null);
-        put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, ts: Date.now() }]));
+        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? pic.full : null));
+        put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, outFile: r.file || undefined, ts: Date.now() }]));
       } catch (e) {
         put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
       } finally { A.clearAsking(); A.bumpBusy(-1); }
@@ -1154,12 +1192,22 @@
       ? h("div", { key: i, style: { display: "flex", justifyContent: "flex-end", alignItems: "flex-start", gap: 7, marginBottom: sm ? 9 : 12 } },
           h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
             m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
+            m.file && typeof FileCard === "function" ? h(FileCard, { m: m.file }) : null,
             m.text ? h("div", { style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null),
           h(MeFace, { profile: props.profile, size: av, radius: 9 }))
       : h("div", { key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
           h("div", { style: { flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text),
+            h("div", { style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, m.text),
+            // 她 2026-10-05：「复制不了」——手机上在气泡里滑选太难，每条都给一颗复制
+            m.text ? h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
+              style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "复制") : null,
+            m.outFile && typeof FileCard === "function" ? h("div", { style: { marginTop: 6 } }, h(FileCard, {
+              m: { name: m.outFile.name, text: m.outFile.text, chars: m.outFile.text.length, size: new Blob([m.outFile.text]).size },
+              actions: [
+                ["复制全部", async () => { const ok = typeof copyText === "function" && await copyText(m.outFile.text); props.toast && props.toast(ok ? "整份复制好了" : "没复制上"); }],
+                ["存成文件", async () => { try { await saveTextFile(m.outFile.name, m.outFile.text, /\.css$/i.test(m.outFile.name) ? "text/css" : /\.json$/i.test(m.outFile.name) ? "application/json" : "text/plain"); } catch (e) { props.toast && props.toast("没存成：" + (e.message || e)); } }]
+              ] })) : null,
             (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: p.done, onApply: () => C.applyOne(p), onUndo: () => C.undoOne(p), onSkip: () => C.skip(p) }))))));
   }
 
@@ -1285,6 +1333,7 @@
   // ============================================================
   // 发图给秋秋（她 2026-09-30）：整页和小悬浮屏两处输入栏共用这一颗（one-public-mechanism）。
   //   pic＝{ full, thumb }：full 768px 给模型看，thumb 240px 留在聊天记录里给她看。
+  // 附件：📷 一张图，📎 一份文件（CSS、文本、PDF、Word——读法跟聊天里发文件是同一个 pickTextFile）
   function AssistAttach({ pic, setPic, small, toast }) {
     const t = useTheme(), ref = useRef(null);
     const pick = async e => {
@@ -1292,15 +1341,21 @@
       try { setPic({ full: await resizeImageFile(f, 768, .82), thumb: await resizeImageFile(f, 240, .75) }); }
       catch (err) { toast && toast("这张图读不出来，换一张试试"); }
     };
+    const pickFile = () => { if (typeof pickTextFile === "function") pickTextFile(m => setPic(Object.assign({ kind: "file" }, m)), { max: 60000 }); };
     const sz = small ? 32 : 38;
+    const round = { flexShrink: 0, width: sz, height: sz, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.sub, fontSize: small ? 14 : 16, display: "flex", alignItems: "center", justifyContent: "center" };
+    const x = label => h("button", { onClick: () => setPic(null), "aria-label": label, style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×");
     return h(React.Fragment, null,
-      pic ? h("div", { style: { position: "relative", flexShrink: 0 } },
-        h("img", { src: pic.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }),
-        h("button", { onClick: () => setPic(null), "aria-label": "拿掉这张图", style: { position: "absolute", top: -6, right: -6, width: 18, height: 18, borderRadius: 999, border: "none", background: t.ink, color: t.bg2, fontSize: 11, lineHeight: "18px", padding: 0 } }, "×"))
-        : h("button", { onClick: () => ref.current && ref.current.click(), "aria-label": "发一张图", className: "active:opacity-60",
-            style: { flexShrink: 0, width: sz, height: sz, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.sub, fontSize: small ? 14 : 16, display: "flex", alignItems: "center", justifyContent: "center" } }, "📷"),
+      pic && pic.kind === "file" ? h("div", { style: { position: "relative", flexShrink: 0, maxWidth: small ? 90 : 120, height: sz, padding: "0 8px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, display: "flex", alignItems: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub, overflow: "visible" } },
+          h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "📎 " + pic.name), x("拿掉这个文件"))
+      : pic ? h("div", { style: { position: "relative", flexShrink: 0 } },
+          h("img", { src: pic.thumb, alt: "", style: { width: sz, height: sz, borderRadius: 9, objectFit: "cover", border: "1px solid " + t.line, display: "block" } }), x("拿掉这张图"))
+      : h(React.Fragment, null,
+          h("button", { onClick: () => ref.current && ref.current.click(), "aria-label": "发一张图", className: "active:opacity-60", style: round }, "📷"),
+          h("button", { onClick: pickFile, "aria-label": "发一个文件", className: "active:opacity-60", style: round }, "📎")),
       h("input", { ref: ref, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }));
   }
+
 
   function AssistantApp(props) {
     const t = useTheme();
@@ -1350,7 +1405,7 @@
           ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 6 } },
               "这个 App 整体是做什么的、某一页或一个概念是什么意思、不同玩法有什么区别，以及现在有哪些角色、文风和设置，都可以问我。找不到入口、哪儿不对劲或没生效，也一并问。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
           : null,
-        h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg }),
+        h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, toast: props.toast }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "在想…") : null,
         h(StaleAsk, { C: C, big: true }),
         !C.busy && C.msgs.length === 0
@@ -1511,7 +1566,7 @@
                 ["这一页是干嘛的", "这个 App 都能玩什么", "把这一页的字调大一点"].map(q =>
                   h("button", { key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))
           : null,
-        h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true }),
+        h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true, toast: props.toast }),
         C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "在想…") : null,
         h(StaleAsk, { C: C })),
       h("div", { style: { display: "flex", gap: 6, alignItems: "center", padding: "7px 9px 8px", borderTop: "1px solid " + t.line, flexShrink: 0 } },

@@ -742,10 +742,12 @@ async function docxToText(buf) {
   if (!window.mammoth) throw new Error("Word 组件没加载下来");
   return (await window.mammoth.extractRawText({ arrayBuffer: buf })).value || "";
 }
-function pickTextFile(onMsg) {
+// opts.max：最多留多少字（默认 FILE_MAX；秋秋那边收 CSS 这种长文件给得宽一些）
+function pickTextFile(onMsg, opts) {
+  const MAX = (opts && opts.max) || FILE_MAX;
   const inp = document.createElement("input");
   inp.type = "file";
-  inp.accept = ".txt,.md,.markdown,.csv,.json,.srt,.log,.pdf,.docx,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  inp.accept = ".txt,.md,.markdown,.csv,.json,.srt,.log,.css,.pdf,.docx,text/css,text/plain,text/markdown,text/csv,application/json,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document";
   inp.onchange = async () => {
     const f = inp.files && inp.files[0];
     if (!f) return;
@@ -766,15 +768,16 @@ function pickTextFile(onMsg) {
       }
       txt = txt.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n").replace(/\n{3,}/g, "\n\n");
       if (!txt.trim()) { typeof toast === "function" && toast("这份文件是空的"); return; }
-      const cut = txt.length > FILE_MAX;
-      const body = cut ? txt.slice(0, FILE_MAX) : txt;
-      onMsg({ kind: "file", name: f.name, size: f.size, chars: txt.length, cut: cut, text: body,
-        content: "[文件] " + f.name + "（" + txt.length + " 字" + (cut ? "，只给了前 " + FILE_MAX + " 字" : "") + "）\n" + body });
+      const cut = txt.length > MAX;
+      const body = cut ? txt.slice(0, MAX) : txt;
+      onMsg({ kind: "file", name: f.name, size: f.size, chars: txt.length, cut: cut, max: MAX, text: body,
+        content: "[文件] " + f.name + "（" + txt.length + " 字" + (cut ? "，只给了前 " + MAX + " 字" : "") + "）\n" + body });
     } catch (e) { typeof toast === "function" && toast("这份文件读不出来：" + ((e && e.message) || e)); }
   };
   inp.click();
 }
-function FileCard({ m }) {
+// actions：卡片底下几颗按钮（秋秋写给她的文件用：复制、存成文件）——同一张卡，不另起一份
+function FileCard({ m, actions }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const ext = (String(m.name || "").match(/\.([a-z0-9]+)$/i) || [, "txt"])[1].toUpperCase();
@@ -783,10 +786,13 @@ function FileCard({ m }) {
     h("button", { onClick: () => setOpen(v => !v), className: "w-full text-left active:opacity-70", style: { display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", background: "transparent", border: "none" } },
       h("div", { style: { minWidth: 0, flex: 1 } },
         h("div", { "data-wk": "filename", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.35, overflowWrap: "anywhere" } }, m.name || "文件"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, [kb, (m.chars || 0) + " 字", m.cut ? "只给了前 " + FILE_MAX + " 字" : ""].filter(Boolean).join(" · "))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, [kb, (m.chars || 0) + " 字", m.cut ? "只给了前 " + (m.max || FILE_MAX) + " 字" : ""].filter(Boolean).join(" · "))),
       h("div", { style: { flexShrink: 0, width: 38, height: 46, borderRadius: 4, border: "1px solid " + t.line, background: t.bg, display: "flex", alignItems: "flex-end", justifyContent: "center", paddingBottom: 6, fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".04em", color: t.tint } }, ext)),
     open ? h("div", { "data-wk": "filebody", style: { borderTop: "1px solid " + t.line, maxHeight: 320, overflowY: "auto", padding: "10px 12px", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, m.text || "")
-      : h("div", { style: { borderTop: "1px solid " + t.line, padding: "6px 12px", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "点开看内容"));
+      : h("div", { style: { borderTop: "1px solid " + t.line, padding: "6px 12px", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "点开看内容"),
+    actions && actions.length ? h("div", { className: "flex", style: { borderTop: "1px solid " + t.line } },
+      actions.map((a, k) => h("button", { key: k, onClick: a[1], className: "active:opacity-60",
+        style: { flex: 1, minHeight: 40, background: "transparent", border: "none", borderLeft: k ? "1px solid " + t.line : "none", fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, a[0]))) : null);
 }
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";

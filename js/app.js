@@ -27423,6 +27423,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只给悬浮屏的话，她从整页问同一句就会被告知「这个页面没接写入口」。
     onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
+    // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
+    onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
     onPatchGroupSetting: (gid, patch) => saveGroupSettings(gid, patch),
     toast: toast,
@@ -28075,6 +28077,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 合并方式只写在 applyBubblePatch 那一处，整页那边用的是同一个
       onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
+    // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
+    onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
     onPatchGroupSetting: (gid, patch) => saveGroupSettings(gid, patch),
       toast: toast
