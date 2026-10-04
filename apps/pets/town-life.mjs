@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-bdac7b0b6fceb7b0';
-import {walkRoute} from './movement.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-bdac7b0b6fceb7b0';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-481369461868ccda';
+import {walkRoute} from './movement.mjs?v=fg-481369461868ccda';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-481369461868ccda';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-481369461868ccda';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
