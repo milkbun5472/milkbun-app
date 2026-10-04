@@ -1,7 +1,7 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-8a09c3b7bcc34a79';
-import {turnPet} from './movement.mjs?v=fg-8a09c3b7bcc34a79';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-8a09c3b7bcc34a79';
-import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-8a09c3b7bcc34a79';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-ea391396cda97f42';
+import {turnPet} from './movement.mjs?v=fg-ea391396cda97f42';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-ea391396cda97f42';
+import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-ea391396cda97f42';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[]}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false;
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);

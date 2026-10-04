@@ -9,6 +9,7 @@ test("letter answer note reaches the model history in place", () => {
   assert.match(app, /: _letterAns\(m\) \? _ansRow\(m\) : m\)/);
   assert.match(app, /\{ role: "system", kind: "system", sub: "letter", content: yes \?/);
 });
-test("answer row tells him the button IS her answer; don't keep asking", () => {
-  assert.match(app, /点了「答应」——这就是她的回答[^"]*别再追问她答不答应/);
+test("answer row states the fact only, no scripted reading of her reply (2026-10-04: 别写死限定)", () => {
+  assert.match(app, /点了「答应」，你们从这一刻起在一起了（这是已经发生的事）/);
+  assert.doesNotMatch(app, /别再追问她答不答应/);
 });
