@@ -1,12 +1,12 @@
 import * as T from 'three';
-import {createPetCamera} from './pet-camera.mjs?v=fg-02fe86f2d0c2d6f3';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-02fe86f2d0c2d6f3';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-02fe86f2d0c2d6f3';
-import {floorHeight} from './cat-motion.mjs?v=fg-02fe86f2d0c2d6f3';
-import {loadPetCompanion,mountPetControls} from './pet-companion.mjs?v=fg-02fe86f2d0c2d6f3';
-import {CAT_PALETTES} from './cat-dye.mjs?v=fg-02fe86f2d0c2d6f3';
+import {createPetCamera} from './pet-camera.mjs?v=fg-b6a462402d3646d4';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-b6a462402d3646d4';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-b6a462402d3646d4';
+import {floorHeight} from './cat-motion.mjs?v=fg-b6a462402d3646d4';
+import {loadPetCompanion,mountPetControls} from './pet-companion.mjs?v=fg-b6a462402d3646d4';
+import {CAT_PALETTES} from './cat-dye.mjs?v=fg-b6a462402d3646d4';
 
-const layout=await (await fetch(new URL('./layout.json?v=fg-02fe86f2d0c2d6f3',import.meta.url))).json();
+const layout=await (await fetch(new URL('./layout.json?v=fg-b6a462402d3646d4',import.meta.url))).json();
 const view=document.getElementById('view'),loading=document.getElementById('loading');
 const toWeb=p=>new T.Vector3(p[0],p[2],-p[1]);
 const renderer=new T.WebGLRenderer({antialias:true,alpha:false});
@@ -28,7 +28,7 @@ const meshes=[],pathOrigin=toWeb(layout.cat.position),pathYaw=layout.cat.yaw;
 const walkButton=document.getElementById('walk'),furButton=document.getElementById('fur');
 const baseInput=document.getElementById('fur-base'),patchInput=document.getElementById('fur-patch');
 try{
-  const [roomFile,companion]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-02fe86f2d0c2d6f3',import.meta.url).href),loadPetCompanion(T,loader,{height:layout.cat.height})]);
+  const [roomFile,companion]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-b6a462402d3646d4',import.meta.url).href),loadPetCompanion(T,loader,{height:layout.cat.height})]);
   room=roomFile.scene;pet=companion;scene.add(room);
   room.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;meshes.push(o);}});
   petRoot=pet.root;petRoot.position.copy(toWeb(layout.cat.position));petRoot.rotation.y=layout.cat.yaw;scene.add(petRoot);

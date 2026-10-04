@@ -1,6 +1,6 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-02fe86f2d0c2d6f3';
-import {turnPet} from './movement.mjs?v=fg-02fe86f2d0c2d6f3';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-02fe86f2d0c2d6f3';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-b6a462402d3646d4';
+import {turnPet} from './movement.mjs?v=fg-b6a462402d3646d4';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-b6a462402d3646d4';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw}){
  let nav,route=[],pendingTask=null,homeTime=0,reactionTime=0,poseBase=null,food=[];
  const toy=new T.Group(),ball=new T.Mesh(new T.SphereGeometry(.095,16,12),new T.MeshStandardMaterial({color:'#d6a08d',roughness:.85}));

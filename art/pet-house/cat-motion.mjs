@@ -1,4 +1,4 @@
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-02fe86f2d0c2d6f3';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-b6a462402d3646d4';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
