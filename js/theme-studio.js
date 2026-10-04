@@ -818,8 +818,22 @@
       wallpaper: sel.wall ? (extras && extras.wallpaper) : undefined,
       bubbleSkin, assets }, null, 2);
   };
+  // 导进来的那份到底是什么——认得出几种常见的走错门，各给一条出路
+  const whatIsThis = text => {
+    const t = String(text || "").replace(/^\uFEFF/, "").trim();
+    if (!t) return "这份是空的，什么都没读到";
+    if (/^PK/.test(t)) return "这是一个压缩包（.zip）：先在「文件」里点开解压，再选里面那个 .json";
+    if (/^</.test(t)) return "这是一个网页，不是主题包：多半是转发时被换成了预览页，请让对方直接发原文件";
+    if (/[{}]/.test(t) && /[a-z-]+\s*:\s*[^;{}]+;/i.test(t))
+      return "这是一份 CSS，不是主题包：去「设置 → 这个 app 长什么样 → 主题工作台」，把它整份贴进「全局 CSS」那一格（只管聊天页的就贴进聊天页那格）";
+    return "读不懂这份文件：这里只认这个 app「导出」存出来的那种 json 文件";
+  };
   const importPackage = async text => {
-    const pkg = JSON.parse(text); if (!pkg || pkg.kind !== "lisa-theme") throw new Error("不是这个 app 的主题包");
+    // 读不懂的时候说人话（群友 2026-10-05：把一整份 CSS 当气泡导，弹的是「Unexpected token P in JSON」）。
+    //   气泡、主题包两个导入口都走这一处，所以只在这儿认一次。
+    let pkg;
+    try { pkg = JSON.parse(text); } catch (_) { throw new Error(whatIsThis(text)); }
+    if (!pkg || pkg.kind !== "lisa-theme") throw new Error("这不是这个 app 导出的主题包或气泡包（得是「导出」按钮存出来的那种 json 文件）");
     const map = {};
     for (const [oldRef, data] of Object.entries(pkg.assets || {})) { try { map[oldRef] = await g.imgToVault(data); } catch (_) {} }
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
@@ -859,7 +873,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.780", changed: "聊天气泡上方增加轻量世界来源小字，沿原气泡列与正文滚动；搜索、云端回看与总结保留来源，顶底栏和安全区沿原结构", none: "" };
+  const BRIEF_STAMP = { v: "v74.781", changed: "聊天气泡上方增加轻量世界来源小字，沿原气泡列与正文滚动；搜索、云端回看与总结保留来源，顶底栏和安全区沿原结构", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
