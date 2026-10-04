@@ -23,7 +23,7 @@ test("复制只有公共那一处，四处手写的都搬过来了", () => {
   assert.deepEqual(stray.map(x => x[0]), [], "还有人自己写 navigator.clipboard");
   assert.ok(comp.includes("async function copyText(text)"), "公共那一层没了");
   // 搬过去不是各自包一层：四处都得真的在叫它
-  assert.ok(app.includes("copyText(m.content)"), "单聊长按复制没搬");
+  assert.ok(app.includes("copyText(gameChatText(m))"), "单聊长按复制没搬");
   assert.ok(app.includes('copyText(m.content || "")'), "群聊长按复制没搬");
   assert.ok(screens.includes("await copyText(s)"), "主屏布局那处没搬");
   assert.ok(trpg.includes("copyText(txt)"), "跑团打包模组没搬");
@@ -37,7 +37,7 @@ test("等真写进去了才算数，写不进去要说实话", () => {
   assert.ok(seg.includes('createElement("textarea")') && seg.includes('execCommand("copy")'), "没有退路——非 https 下 clipboard 压根不存在");
   assert.ok(/return !!ok;/.test(seg), "老那条路的成败没往外报");
   // 四处的提示都得看它的返回值，不许写死一句「已复制」
-  assert.ok(/copyText\(m\.content\)\.then\(ok => toast\(ok \?/.test(app), "单聊又在无条件报已复制");
+  assert.ok(/copyText\(gameChatText\(m\)\)\.then\(ok => toast\(ok \?/.test(app), "单聊又在无条件报已复制");
   assert.ok(/copyText\(m\.content \|\| ""\)\.then\(ok => toast\(ok \?/.test(app), "群聊又在无条件报已复制");
 });
 

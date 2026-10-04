@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.781";
+const APP_VERSION = "v74.782";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2847,12 +2847,12 @@ function App() {
       && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
     if (!fresh.length) { toast("上次摘要以后还没有新对话"); return null; }
     const toTs = Math.max.apply(null, fresh.map(m => Number(m.ts || 0)));
-    const transcript = fresh.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + String(m.content)).join("\n");
+    const transcript = fresh.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + gameChatText(m)).join("\n");
     try {
       const raw = await callAI(apiFor(character.id),
-        "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。",
-        [{ role: "user", content: "房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript }],
-        { maxTokens: 10400, timeout: 120000 });
+        "你是房间交接整理器。只根据原话，忠实整理这段对话中真正发生的事、双方表达的感受、做出的决定、仍未结束的事和值得主聊天接住的变化。不得杜撰，不把设想写成事实，不代替任何人说新台词。输出一段自然中文正文，不要标题、列表、JSON 或代码块。" + gameChatSummaryContext(fresh) + "\n\n房间名：" + room.name + "\n需要整理的新增原话：\n" + transcript,
+        [{ role: "user", content: "整理这段记录。" }],
+        { maxTokens: 65535, timeout: 120000 });
       const summary = String(raw || "").replace(/^```[^\n]*\n?|```$/g, "").trim();
       if (!summary) throw new Error("模型没有返回摘要");
       window.ChatRooms.addSummary({ personId: character.id, roomId: room.id, roomName: room.name, frame: String(frame || ""), summary, fromTs: Number(room.summaryCursorTs || 0), toTs });
@@ -12733,7 +12733,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (act === "shike") { pinToShike(activeChar.id, m); return; }
     if (act === "reshoot") { reshootChatSelfie(threadKey, idx, activeChar.id); return; }
     if (act === "copy") {
-      copyText(m.content).then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
+      copyText(gameChatText(m)).then(ok => toast(ok ? "已复制" : "复制不了，长按那段自己选"));
     } else if (act === "recall") {
       const orig = m;
       pChat(threadKey, p => {
@@ -12763,7 +12763,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } else if (act === "memsave") {
       const who = m.role === "user" ? profile.name || "我" : activeChar.name;
       addMemEntry({
-        text: who + "：" + m.content,
+        text: who + "：" + gameChatText(m),
         charIds: [activeChar.id],
         knownBy: [activeChar.id],
         source: "chat"
@@ -26426,7 +26426,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForward: (msgs, destination) => {
       const items = msgs.map(m => ({
         name: m.role === "user" ? profile.name || "我" : activeChar.name,
-        text: m.content || "",
+        text: gameChatText(m),
         ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
       }));
       const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
