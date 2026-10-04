@@ -1,8 +1,8 @@
-import {restoreHomeCondition} from './home-condition.mjs?v=fg-eae30f836abea0b8';
-import {createHomeNavigation,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-eae30f836abea0b8';
-import {turnPet,walkRoute} from './movement.mjs?v=fg-eae30f836abea0b8';
-import {nextRandom} from './autonomy.mjs?v=fg-eae30f836abea0b8';
-import {residentStepClear,residentGoalClear} from './resident-choice.mjs?v=fg-eae30f836abea0b8';
+import {restoreHomeCondition} from './home-condition.mjs?v=fg-bf021d59ce962c23';
+import {createHomeNavigation,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-bf021d59ce962c23';
+import {turnPet,walkRoute} from './movement.mjs?v=fg-bf021d59ce962c23';
+import {nextRandom} from './autonomy.mjs?v=fg-bf021d59ce962c23';
+import {residentStepClear,residentGoalClear} from './resident-choice.mjs?v=fg-bf021d59ce962c23';
 
 export const HOME_CHORES={toys:{label:'收回玩具',duration:1.4},bowl:{label:'擦饭碗边',duration:5},water:{label:'换一碗清水',duration:6},bedding:{label:'整理睡处',duration:5}};
 const bound=(v,a,b,f=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;

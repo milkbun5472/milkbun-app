@@ -52,6 +52,7 @@ const base=process.env.WORLD_DIALOG_URL||'http://127.0.0.1:18961',out=process.en
    await p.waitForFunction(()=>dialogCalls.some(c=>c.sys.includes('【这个世界里你们最近的对话】')));
    const sys=await p.evaluate(()=>dialogCalls.at(-1).sys);for(const other of ['garden','train','pets'].filter(x=>x!==world))assert.ok(!sys.includes('QUESTION_'+other),other+' leaked into '+world);
    assert.ok(!sys.includes('LEGACY_SHARED_LINE'));assert.ok(!sys.includes('PHONE_ONLY_LINE'));assert.ok(!sys.includes('ALL_ROOM_LEAK'));
+   if(world==='pets'){const premise=await p.evaluate(()=>FairyWorldDialogs.cognition('pets'));assert.ok(sys.includes(premise));assert.ok(sys.includes('一起养宠的日常'));for(const stale of ['这一档宠物小游戏','一起生活在魔法庭院','游戏中的生活按游戏经历'])assert.ok(!sys.includes(stale),stale);}
    txt=await chat.innerText();assert.ok(txt.includes('QUESTION_'+world));assert.ok(txt.includes('ANSWER_'+world));
    for(const width of [320,390,430]){await p.setViewportSize({width,height:width===320?568:width===390?844:932});await p.waitForTimeout(120);assert.ok(await r.evaluate(el=>el.scrollWidth<=innerWidth));
     if(world!=='train'){const old=r.locator('[data-world-legacy]');if(await old.count()){await old.locator('summary').click();assert.ok((await old.innerText()).includes('LEGACY_SHARED_LINE'));const input=await r.getByLabel('对同行者说').boundingBox();assert.ok(input.y+input.height<=p.viewportSize().height);await old.locator('summary').click();}}
