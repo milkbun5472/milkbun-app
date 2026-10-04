@@ -68,3 +68,10 @@ test("群里私下说一嘴、私聊去群里说一嘴，都有本地骰子开�
   assert.match(app, /const gDmPick = gDmMembers\.length && Math\.random\(\) < GDM_ODDS \?/);
   assert.match(app, /Math\.random\(\) < TOGROUP_ODDS && _gLast\(toGroupTarget\)/);
 });
+// 她 2026-10-05：「也不一定是要回我……他和别人的旁观群相当于私聊……概率提高到3分之一」
+test("私下说一嘴可以说给别人：落进只有他俩的旁观群；两头都是三分之一", () => {
+  assert.match(app, /const GDM_ODDS = 1 \/ 3;/);
+  assert.match(app, /const TOGROUP_ODDS = 1 \/ 3;/);
+  assert.match(app, /groupSpectating\(g\)\s*&& \(g\.memberIds \|\| \[\]\)\.length === 2/);
+  assert.match(app, /pGChat\(gDmPair\.g\.id, p => \[\.\.\.p, \{ role: "assistant", senderId: spk\.id/);
+});
