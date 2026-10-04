@@ -20,7 +20,42 @@
   function save(patch) { const c = normalize(Object.assign(load(), patch)); if (!saveJSON(CONFIG, c)) throw Error("视频设置没有保存成功"); return c; }
   const ready = c => !!((c || load()).enabled && (c || load()).apiKey && /^https?:\/\//.test((c || load()).baseUrl));
   function patchMap(key, id, value) { const m = loadJSON(key, {}); if (value == null) delete m[id]; else m[id] = value; if (!saveJSON(key, m)) throw Error("没有保存成功，请检查本机存储空间"); return value; }
-  const media = id => loadJSON(MEDIA, {})[id] || null;
+  // ── 动态形象库（她 2026-10-05：「公共的，我也确实希望不同场景有不同样子的视频」）──
+  //   一个角色一本：{ default, focus, call } 各一格，每格 { videoRef?, imageRef?, updatedAt }。
+  //   哪格空着就退回「平时」那格，再空就是静态头像。只挂图不挂视频也行（纯图陪伴）。
+  //   ⚠️原来叫 x_pomodoro_media、只有番茄钟用；第一次读的时候整份搬成「专注时」那格，旧键删掉，
+  //   不留两份（施工规则/one-public-mechanism.md）。任务记录也一起改名成「谁|哪格」。
+  const LIB = "x_charMotion";
+  const SCENES = [{ id: "default", zh: "平时", sub: "哪里都没单独挂的时候用它" }, { id: "focus", zh: "专注时", sub: "番茄钟坐在对面" }, { id: "call", zh: "通话时", sub: "视频通话里 TA 那一格" }];
+  const sceneOf = id => { const p = String(id || "").split("|"); return { cid: p[0], scene: p[1] || "focus" }; };
+  function motionAll() {
+    // 旧任务记录按角色 id 记的，改名成「谁|专注时」（只在还有旧名字时写一次）
+    const jobs = loadJSON(JOBS, {});
+    if (Object.keys(jobs).some(k => k.indexOf("|") < 0)) {
+      const moved = {}; Object.keys(jobs).forEach(k => { moved[k.indexOf("|") < 0 ? k + "|focus" : k] = jobs[k]; }); saveJSON(JOBS, moved);
+    }
+    const lib = loadJSON(LIB, null), old = loadJSON(MEDIA, null);
+    if (!old) return lib || {};
+    const next = Object.assign({}, lib || {});
+    Object.keys(old).forEach(cid => { if (old[cid] && !(next[cid] && next[cid].focus)) next[cid] = Object.assign({}, next[cid] || {}, { focus: old[cid] }); });
+    if (!saveJSON(LIB, next)) return next;
+    try { saveJSON(MEDIA, null); if (g.localStorage) g.localStorage.removeItem(MEDIA); } catch (_) {}
+    return next;
+  }
+  // 这一格自己的；没有就退回「平时」那格
+  const slotOwn = (cid, scene) => { const x = (motionAll()[cid] || {})[scene]; return x && (x.videoRef || x.imageRef) ? x : null; };
+  const slotFor = (cid, scene) => slotOwn(cid, scene) || (scene !== "default" ? slotOwn(cid, "default") : null);
+  function setSlot(cid, scene, value) {
+    const all = motionAll(), mine = Object.assign({}, all[cid] || {});
+    if (value == null) delete mine[scene]; else mine[scene] = value;
+    if (Object.keys(mine).length) all[cid] = mine; else delete all[cid];
+    if (!saveJSON(LIB, all)) throw Error("没有保存成功，请检查本机存储空间");
+    return value;
+  }
+  // 一段视频可能同时挂在好几格（「平时」和「通话时」用同一段），只有没人用了才删文件
+  const refUsed = ref => Object.values(motionAll()).some(m => Object.values(m || {}).some(x => x && x.videoRef === ref));
+  async function dropIfUnused(ref) { if (ref && !refUsed(ref)) await blobOp(ref, null, true).catch(() => {}); }
+  const media = id => { const k = sceneOf(id); return slotOwn(k.cid, k.scene); };
   const job = id => loadJSON(JOBS, {})[id] || null;
   function openStore() { return new Promise((resolve, reject) => { const r = indexedDB.open("x_companion_video", 1); r.onupgradeneeded = () => r.result.createObjectStore("video"); r.onsuccess = () => resolve(r.result); r.onerror = () => reject(r.error); }); }
   async function blobOp(key, value, remove) {
@@ -125,17 +160,60 @@
     for (let i = 0; i < 120; i++) { const r = await queryTracked(id, signal); if (onUpdate) onUpdate(r); if (r.draftRef) return r; await wait(10000, signal); }
     throw Error("等待较久，任务编号已保留，稍后回来查询即可");
   }
-  async function adopt(id) { const r = job(id); if (!r || !r.draftRef || !await blobOp(r.draftRef)) throw Error("还没有可保存的视频"); const previous = media(id); const value = { videoRef: r.draftRef, imageRef: r.imageRef, updatedAt: Date.now() }; patchMap(MEDIA, id, value); patchMap(JOBS, id, null); if (previous && previous.videoRef !== value.videoRef) await blobOp(previous.videoRef, null, true).catch(() => {}); return value; }
-  async function importVideo(id, file, imageRef) { if (!file || !/^video\//.test(file.type) || !file.size || file.size > 100 * 1024 * 1024) throw Error("请选择 100MB 以内的视频文件"); const ref = "pvideo_local_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7); await blobOp(ref, file); return patchMap(MEDIA, id, { videoRef: ref, imageRef: imageRef || "", updatedAt: Date.now() }); }
+  async function adopt(id) { const r = job(id); if (!r || !r.draftRef || !await blobOp(r.draftRef)) throw Error("还没有可保存的视频"); const k = sceneOf(id), previous = slotOwn(k.cid, k.scene); const value = { videoRef: r.draftRef, imageRef: r.imageRef, updatedAt: Date.now() }; setSlot(k.cid, k.scene, value); patchMap(JOBS, id, null); if (previous && previous.videoRef !== value.videoRef) await dropIfUnused(previous.videoRef); return value; }
+  // 只挂一张图（纯图陪伴）：不调接口、不花钱
+  async function useImage(id, imageRef) { if (!imageRef) throw Error("先选一张图"); const k = sceneOf(id), previous = slotOwn(k.cid, k.scene); setSlot(k.cid, k.scene, { imageRef, updatedAt: Date.now() }); if (previous && previous.videoRef) await dropIfUnused(previous.videoRef); }
+  async function clearSlot(id) { const k = sceneOf(id), previous = slotOwn(k.cid, k.scene); setSlot(k.cid, k.scene, null); if (previous && previous.videoRef) await dropIfUnused(previous.videoRef); }
+  // 拿「平时」那格（或别的格）的东西原样挂到这一格：同一个文件，不复制
+  function copySlot(fromId, toId) { const a = sceneOf(fromId), b = sceneOf(toId), v = slotOwn(a.cid, a.scene); if (!v) throw Error("那一格还是空的"); setSlot(b.cid, b.scene, Object.assign({}, v, { updatedAt: Date.now() })); }
+  // 备份：视频文件不在 localStorage 里，「导出全部数据」要专门来这儿取（她 2026-10-05：很多人就靠导入导出过日子）
+  async function allVideos() {
+    const refs = new Set(); Object.values(motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) refs.add(x.videoRef); }));
+    const out = []; for (const ref of refs) { const b = await blobOp(ref).catch(() => null); if (b) out.push([ref, b]); } return out;
+  }
+  const restoreVideo = (ref, blob) => blobOp(ref, blob);
+  async function importVideo(id, file, imageRef) { if (!file || !/^video\//.test(file.type) || !file.size || file.size > 100 * 1024 * 1024) throw Error("请选择 100MB 以内的视频文件"); const ref = "pvideo_local_" + Date.now() + "_" + Math.random().toString(36).slice(2, 7); await blobOp(ref, file); const k = sceneOf(id), previous = slotOwn(k.cid, k.scene); setSlot(k.cid, k.scene, { videoRef: ref, imageRef: imageRef || "", updatedAt: Date.now() }); if (previous && previous.videoRef) await dropIfUnused(previous.videoRef); return slotOwn(k.cid, k.scene); }
   async function exportVideo(ref) { const b = await blobOp(ref); if (!b) throw Error("视频不在这台设备上，请重新导入备份"); const ext = /webm/.test(b.type) ? "webm" : /quicktime/.test(b.type) ? "mov" : "mp4"; return saveFile(new File([b], "动态陪伴图." + ext, { type: b.type || "video/mp4" })); }
   function useVideoURL(ref) { const [url, setUrl] = useState(""); useEffect(() => { let live = true, own = ""; setUrl(""); if (ref) blobOp(ref).then(b => { if (b && live) { own = URL.createObjectURL(b); setUrl(own); } }).catch(() => {}); return () => { live = false; if (own) URL.revokeObjectURL(own); }; }, [ref]); return url; }
-  function LoopVideo({ videoRef, poster, style, controls, controlStyle }) {
-    const url = useVideoURL(videoRef), ref = useRef(null), [paused, setPaused] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
-    useEffect(() => { const mq = window.matchMedia("(prefers-reduced-motion: reduce)"); const sync = () => { const v = ref.current; if (!v) return; if (document.hidden || paused) v.pause(); else v.play().catch(() => {}); }; const motionChange = () => setPaused(mq.matches); sync(); document.addEventListener("visibilitychange", sync); mq.addEventListener("change", motionChange); return () => { document.removeEventListener("visibilitychange", sync); mq.removeEventListener("change", motionChange); if (ref.current) ref.current.pause(); }; }, [url, paused]);
-    return h("div", { style: Object.assign({ position: "relative" }, style), "data-pomodoro-video": "", "data-wk": "pomvideostage" },
-      url ? h("video", { ref, src: url, poster: resolveImg(poster) || undefined, muted: true, loop: true, playsInline: true, preload: "metadata", onError: () => setPaused(true), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : poster ? h("img", { src: resolveImg(poster), alt: "陪伴原图", style: { width: "100%", height: "100%", objectFit: "cover" } }) : null,
+  // 循环接缝：两层同一段视频叠着放，前一层快播完时后一层从头起、淡进来——
+  //   原来靠提示词求「最后回到初始姿态」，接不接得上看运气；这样哪个模型做的、自己导的都接得上，也不多花一分钱。
+  const SEAM = 0.45;
+  function LoopVideo({ videoRef, poster, style, controls, controlStyle, fit }) {
+    const url = useVideoURL(videoRef), a = useRef(null), b = useRef(null), [front, setFront] = useState(0), fading = useRef(false);
+    const [paused, setPaused] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+    const cur = () => (front === 0 ? a : b).current, other = () => (front === 0 ? b : a).current;
+    useEffect(() => {
+      const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+      const sync = () => { const v = cur(); if (!v) return; if (document.hidden || paused) { v.pause(); const o = other(); if (o) o.pause(); } else v.play().catch(() => {}); };
+      const motionChange = () => setPaused(mq.matches); sync();
+      document.addEventListener("visibilitychange", sync); mq.addEventListener("change", motionChange);
+      return () => { document.removeEventListener("visibilitychange", sync); mq.removeEventListener("change", motionChange); [a.current, b.current].forEach(v => v && v.pause()); };
+    }, [url, paused, front]);
+    const onTime = e => {
+      const v = e.currentTarget; if (v !== cur() || fading.current || paused || !v.duration || v.duration < SEAM * 3) return;
+      if (v.duration - v.currentTime > SEAM) return;
+      const o = other(); if (!o) return; fading.current = true;
+      try { o.currentTime = 0; } catch (_) {}
+      o.play().catch(() => {}); setFront(front === 0 ? 1 : 0);
+      setTimeout(() => { v.pause(); fading.current = false; }, SEAM * 1000 + 60);
+    };
+    const layer = (r, k) => h("video", { ref: r, src: url, poster: k === 0 ? (resolveImg(poster) || undefined) : undefined, muted: true, playsInline: true, preload: "auto",
+      onTimeUpdate: onTime, onEnded: e => { if (e.currentTarget === cur()) { e.currentTarget.currentTime = 0; e.currentTarget.play().catch(() => {}); } },
+      onError: () => setPaused(true),
+      style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: fit || "cover", display: "block", opacity: front === k ? 1 : 0, transition: "opacity " + SEAM + "s linear" } });
+    return h("div", { style: Object.assign({ position: "relative", overflow: "hidden" }, style), "data-pomodoro-video": "", "data-wk": "pomvideostage" },
+      url ? [h(React.Fragment, { key: "a" }, layer(a, 0)), h(React.Fragment, { key: "b" }, layer(b, 1))]
+        : poster ? h("img", { src: resolveImg(poster), alt: "陪伴原图", style: { width: "100%", height: "100%", objectFit: fit || "cover" } }) : null,
       controls && url ? h("button", { type: "button", onClick: () => setPaused(!paused), style: Object.assign({ position: "absolute", right: 10, bottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", zIndex: 2, minHeight: 40, padding: "0 12px", border: "1px solid #ffffff88", background: "#24221ecc", color: "#fff", fontFamily: F_BODY }, controlStyle || {}) }, paused ? "播放画面" : "暂停画面") : null,
-      !url && videoRef ? h("div", { style: { position: "absolute", bottom: 8, left: 8, right: 8, color: "#fff", background: "#24221ecc", padding: 8, fontSize: 11 } }, "本机视频暂不可用，可在动态陪伴图里重新导入") : null);
+      !url && videoRef ? h("div", { style: { position: "absolute", bottom: 8, left: 8, right: 8, color: "#fff", background: "#24221ecc", padding: 8, fontSize: 11 } }, "本机视频暂不可用：从「导出全部数据」的备份导回来，或在动态形象里重新导入") : null);
+  }
+  // 一格的画面：有视频放视频，只有图就放图，都没有就交给调用方（画头像）
+  function MotionStage({ slot, style, controls, controlStyle, fit }) {
+    if (!slot) return null;
+    if (slot.videoRef) return h(LoopVideo, { key: slot.videoRef, videoRef: slot.videoRef, poster: slot.imageRef, style, controls, controlStyle, fit });
+    if (slot.imageRef) return h("div", { style: Object.assign({ position: "relative", overflow: "hidden" }, style), "data-wk": "pomvideostage" },
+      h("img", { src: resolveImg(slot.imageRef), alt: "", style: { width: "100%", height: "100%", objectFit: fit || "cover", display: "block" } }));
+    return null;
   }
   function VideoApiConfig() {
     const t = useTheme(), [c, setC] = useState(load), [err, setErr] = useState("");
@@ -154,8 +232,32 @@
       h("p", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7 } }, "H3 可选 4～15 秒，H3 Max 可选 5～15 秒；旧型号保留原时长。H3 官方站直连可能被浏览器跨域拦截，此时接口地址需填写支持 MiniMax V2 的中转地址。密钥与语音设置分别保存。到番茄钟的「动态陪伴图」制作和预览；模型是否开放、费用以对应站点账户为准。"),
       err ? h("p", { role: "alert", style: { color: t.accent } }, err) : null);
   }
-  function PomodoroVideoEditor({ character, onBack, onSaved, toast }) {
-    const t = useTheme(), id = character.id, existing = media(id);
+  // 动态形象编辑页（她 2026-10-05）：一个角色一本，顶上一条胶片选哪一格（平时 / 专注时 / 通话时）。
+  //   番茄钟、角色资料都进这一页，番茄钟进来时直接停在「专注时」。
+  function MotionEditor(props) {
+    const [scene, setScene] = useState(props.scene || "default");
+    return h(PomodoroVideoEditor, Object.assign({}, props, { key: scene, scene, onScene: setScene }));
+  }
+  // 胶片条：一格一个场景。选中那格拉满高、上墨、齿孔点亮；没选的矮一截、暗着，像还没冲出来的底片
+  //   （施工规则/tabs-not-plain-pills.md：形状从「一卷胶片」长出来，不是一排药丸）
+  function SceneStrip({ cid, scene, onScene, t }) {
+    const holes = on => h("div", { style: { display: "flex", justifyContent: "space-around", padding: "0 6px" } },
+      [0, 1, 2, 3].map(i => h("span", { key: i, style: { width: 6, height: 4, borderRadius: 1, background: on ? t.bg2 : "rgba(255,255,255,.25)" } })));
+    return h("div", { "data-wk": "motionstrip", className: "flex", style: { gap: 3, alignItems: "flex-end", background: "#24211c", padding: "6px 6px 0", borderRadius: 3, marginTop: 4 } },
+      SCENES.map(sc => {
+        const on = sc.id === scene, own = slotOwn(cid, sc.id), thumb = own && own.imageRef;
+        return h("button", { key: sc.id, onClick: () => onScene(sc.id), "aria-pressed": on, "data-on": on ? "1" : "0", className: "flex-1 active:opacity-80",
+          style: { minHeight: on ? 86 : 72, padding: "4px 0 6px", border: "none", background: on ? "#3a352d" : "transparent", opacity: on ? 1 : .62, borderRadius: "2px 2px 0 0", transition: "min-height .2s" } },
+          holes(on),
+          h("div", { style: { height: on ? 34 : 26, margin: "4px 6px", borderRadius: 2, background: thumb ? "center/cover no-repeat url(\"" + resolveImg(thumb) + "\")" : "rgba(255,255,255,.08)", border: "1px solid " + (on ? "rgba(255,255,255,.7)" : "rgba(255,255,255,.18)") } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: on ? "#fff" : "rgba(255,255,255,.75)", fontWeight: on ? 600 : 400 } }, sc.zh),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: "rgba(255,255,255,.5)", marginTop: 1 } }, own ? (own.videoRef ? "视频" : "图片") : sc.id === "default" ? "头像" : "跟平时"));
+      }));
+  }
+  function PomodoroVideoEditor({ character, onBack, onSaved, toast, scene: slotScene, onScene }) {
+    slotScene = slotScene || "focus";
+    const t = useTheme(), id = character.id + "|" + slotScene, existing = media(id);
+    const sceneZh = (SCENES.find(x => x.id === slotScene) || {}).zh || "";
     const [imageRef, setImageRef] = useState(() => { const r = job(id); return (r && r.imageRef) || (existing && existing.imageRef) || character.refPhoto || character.avatarImage || ""; });
     const [imageURL, setImageURL] = useState(""), [motion, setMotion] = useState(() => (job(id) || {}).prompt || MOTION);
     const [scene, setScene] = useState("坐在桌边安静陪我专注，半身构图，保留人物原来的长相与画风。");
@@ -190,7 +292,10 @@
       let b = out.blob; if (!b && out.dataUrl) b = dataUrlToBlob(out.dataUrl); if (!b && out.url) { const r = await fetch(out.url); if (!r.ok) throw Error("原图下载失败"); b = await r.blob(); }
       const ref = await storeImage(b); if (live.current) setImageRef(ref); report("新图已保存。喜欢这张图，再点生成动画。");
     });
-    const useDraft = () => run(async () => { await adopt(id); onSaved(); toast && toast("这段画面已设为陪伴图，以后一直用它"); onBack(); });
+    const useDraft = () => run(async () => { await adopt(id); onSaved(); toast && toast("「" + sceneZh + "」那格就用这段了"); });
+    const keepImage = () => run(async () => { await useImage(id, imageRef); onSaved(); report("「" + sceneZh + "」那格先用这张图，不做动画也行。"); });
+    const sameAsDefault = () => run(async () => { copySlot(character.id + "|default", id); onSaved(); report("跟「平时」用同一段，没有另存一份。"); });
+    const emptySlot = () => run(async () => { await clearSlot(id); onSaved(); report(slotScene === "default" ? "「平时」空了，没单独挂的地方都回到头像。" : "这一格空了，会跟「平时」一样。"); });
     const forgetJob = () => requestAppConfirm("放弃这次视频任务？", "已经提交的任务不会取消或退款。之后重新生成会另计费；当前已选中的陪伴图保留。", () => { if (controller.current) controller.current.abort(); const old = job(id); patchMap(JOBS, id, null); if (old && old.draftRef && (!media(id) || media(id).videoRef !== old.draftRef)) blobOp(old.draftRef, null, true).catch(() => {}); setRecord(null); setMessage(""); }, "放弃任务");
     const importTask = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { const r = await importTaskVideo(id, f); update(r); }); };
     const importLocal = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { await importVideo(id, f, imageRef); onSaved(); toast && toast("视频已导入并设为陪伴图"); onBack(); }); };
@@ -204,9 +309,10 @@
     const state = taskState(record, busy);
     const showPoster = record && record.draftRef ? record.imageRef : imageRef;
     return h("div", { className: "h-full flex flex-col", "data-pomodoro-video-editor": "", "data-wk": "pomvideoeditor", style: paper },
-      h(Head, { zh: "动态陪伴图", bg: "transparent", onBack, right: h("button", { onClick: () => { savedScroll.current = scroller.current ? scroller.current.scrollTop : 0; setConfigOpen(true); }, style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
+      h(Head, { zh: "动态形象", bg: "transparent", onBack, right: h("button", { onClick: () => { savedScroll.current = scroller.current ? scroller.current.scrollTop : 0; setConfigOpen(true); }, style: Object.assign({}, btn, { border: "none", background: "transparent", padding: "0 4px" }) }, "接口") }),
       h("div", { ref: scroller, className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
-        h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub } }, character.name + " 的画面：选一张喜欢的图，制作一次动画，满意后一直用。点击语音时只播放声音，画面独立循环。"),
+        h(SceneStrip, { cid: character.id, scene: slotScene, onScene: x => { if (!busy) onScene && onScene(x); }, t }),
+        h("p", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub, marginTop: 10 } }, character.name + "「" + sceneZh + "」的样子：" + ((SCENES.find(x => x.id === slotScene) || {}).sub || "") + "。可以只挂一张图，也可以做成一段会动的；哪格空着就跟「平时」一样。"),
         showRef ? h(LoopVideo, { key: showRef, videoRef: showRef, poster: showPoster, controls: true, style: { width: "100%", aspectRatio: "3 / 4", maxHeight: 420, overflow: "hidden", borderRadius: 3, background: t.bg2 } }) : imageURL ? h("img", { src: imageURL, alt: "待制作的陪伴原图", style: { width: "100%", maxHeight: 420, objectFit: "contain", display: "block", background: t.bg2 } }) : h("div", { style: { padding: "40px 20px", background: t.bg2, textAlign: "center", color: t.sub, fontFamily: F_BODY } }, "先放一张人物图在桌上"),
         record && record.draftRef ? h("button", { onClick: useDraft, disabled: busy, style: Object.assign({}, btn, { width: "100%", marginTop: 12, background: t.ink, color: t.bg2 }) }, "满意，就一直用这段") : null,
         h("div", { role: message ? "status" : undefined, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.8, color: t.sub, marginTop: 10, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, message || (record && !record.taskId ? "上次提交没有拿到任务编号。请先到 MiniMax 控制台核对，避免重复付费。" : "画面与声音分开保存，视频本体保存在这台设备；换设备前请导出备份。")),
@@ -217,7 +323,7 @@
         h("button", { disabled: busy || !!record, onClick: generateImage, style: Object.assign({}, btn, { width: "100%", marginTop: 8 }) }, "用图像 API 生成新图"),
         heading("让它怎么动"),
         h("textarea", { "aria-label": "视频动作描述", value: motion, onChange: e => setMotion(e.target.value), disabled: busy || !!record, maxLength: 2000, rows: 4, style: input }),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, marginTop: 6 } }, "轻动作更适合专注。首尾能否自然衔接，以预览效果为准。当前：" + load().duration + " 秒 · " + load().resolution),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.8, marginTop: 6 } }, "轻动作更合适。播放时首尾会自动淡接，不用强求最后一帧回到原位。当前：" + load().duration + " 秒 · " + load().resolution),
         state ? h("div", { "data-video-task-status": "", role: "status", style: { marginTop: 14, padding: "12px 0", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line, fontFamily: F_BODY, color: t.ink, overflowWrap: "anywhere" } },
           h("div", { style: { fontSize: 14, fontWeight: 600, marginBottom: 6 } }, state.title),
           h("div", { style: { fontSize: 12, lineHeight: 1.8, color: t.sub } }, state.detail),
@@ -237,8 +343,11 @@
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
           h("button", { disabled: busy || !!record, onClick: () => localVideo.current.click(), style: btn }, "导入本机视频"),
           exportRef ? h("button", { onClick: () => run(() => exportVideo(exportRef)), disabled: busy, style: btn }, "导出视频备份") : null,
-          existing ? h("button", { disabled: busy, onClick: () => { patchMap(MEDIA, id, null); onSaved(); onBack(); }, style: btn }, "恢复静态头像") : null)));
+          imageRef && !record ? h("button", { disabled: busy, onClick: keepImage, style: btn }, "只用这张图") : null,
+          slotScene !== "default" && slotOwn(character.id, "default") && !record ? h("button", { disabled: busy, onClick: sameAsDefault, style: btn }, "跟「平时」用同一段") : null,
+          existing ? h("button", { disabled: busy, onClick: emptySlot, style: btn }, "清空这一格") : null)));
   }
-  g.VideoApi = { load, save, normalize, ready, taskState, create: createTracked, query: queryTracked, poll, adopt, media, job, importVideo, importTaskVideo, exportVideo, blob: blobOp, imageData, patchMap, keys: { CONFIG, MEDIA, JOBS } };
-  g.VideoApiConfig = VideoApiConfig; g.PomodoroVideoEditor = PomodoroVideoEditor; g.PomodoroLoopVideo = LoopVideo;
+  g.VideoApi = { load, save, normalize, ready, taskState, create: createTracked, query: queryTracked, poll, adopt, media, job, importVideo, importTaskVideo, exportVideo, blob: blobOp, imageData, patchMap,
+    SCENES, slotFor, slotOwn, useImage, clearSlot, copySlot, allVideos, restoreVideo, motionAll, keys: { CONFIG, MEDIA, JOBS, LIB } };
+  g.VideoApiConfig = VideoApiConfig; g.PomodoroVideoEditor = MotionEditor; g.MotionEditor = MotionEditor; g.PomodoroLoopVideo = LoopVideo; g.MotionStage = MotionStage;
 })(window);
