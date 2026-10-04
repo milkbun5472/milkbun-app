@@ -14792,6 +14792,7 @@ function OfflineMode({
                 h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4, maxHeight: 180, overflow: "auto" } }, registerTelemetry.rewriteDraft)) : null) : null))
         : h("div", null, "还没有本轮记录")))));
   const scroller = useRef(null);
+  const [pick, setPick] = useState(null);   // 线下多选收进时刻：null＝没在选
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
   const exampleSection = h("div", { className: "pt-5", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
@@ -14915,9 +14916,9 @@ function OfflineMode({
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike, onOpenState: onOpenState })),
+      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
-    h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
       // 把它放到加号里吧，现在加号是写导演拍刚好 ooc 放那边」）——导演便签和出戏说本来就是
       // 同一类事：都是绕过戏、只有你和模型看得见。留在这儿的只有【正在出戏】时的退出口，
@@ -15151,6 +15152,26 @@ function offCardSkin(t, accent) {
     padding: "14px 16px"
   };
 }
+// 线下多选收进时刻（她 2026-10-05：「继续做吧宝宝多选」）：单人线下、群线下共用这一套。
+//   点卡上那颗星＝进入多选、这一张先勾上；再点别的卡加进来，选了头尾可以「补中间」，跟线上多选那条底栏一个样。
+//   选的时候卡上的按钮都收起来（editable:false），整张卡点一下就是勾／不勾。
+function offPickCard(card, i, pick, setPick, t) {
+  if (!pick) return card;
+  const on = pick.includes(i);
+  return h("div", { key: "pk" + i, onClick: () => setPick(p => p.includes(i) ? p.filter(x => x !== i) : p.concat(i)), className: "relative cursor-pointer",
+    style: { borderRadius: 14, outline: on ? "2px solid " + t.ink : "1px dashed " + t.line, outlineOffset: 2, opacity: on ? 1 : 0.62, margin: "6px 0" } },
+    h("div", { style: { pointerEvents: "none" } }, card),
+    h("div", { style: { position: "absolute", top: 8, right: 8, width: 20, height: 20, borderRadius: 10, border: "1.5px solid " + t.ink, background: on ? t.ink : t.bg2,
+      color: t.bg2, fontSize: 12, lineHeight: "17px", textAlign: "center" } }, on ? "✓" : ""));
+}
+function OffPickBar({ t, pick, setPick, onPin }) {
+  return h("div", { className: "flex items-center justify-between px-4 py-3 shrink-0", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingBottom: "calc(12px + env(safe-area-inset-bottom) * 0.4)" } },
+    h("button", { onClick: () => setPick(null), style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"),
+    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "已选 " + pick.length),
+    h("div", { className: "flex gap-3 items-center" },
+      pick.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, pick), hi = Math.max.apply(null, pick); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setPick(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
+      h("button", { onClick: () => { if (pick.length) { onPin(pick.slice().sort((a, b) => a - b)); setPick(null); } }, disabled: !pick.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻")));
+}
 function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
@@ -15373,6 +15394,7 @@ function GroupOfflineMode({
   const styleEditor = useOfflineCustomStyles(t, styleKey, setStyleKey);
   const { customStyles, styleSheet, setStyleSheet, curStyle } = styleEditor;
   const scroller = useRef(null);
+  const [pick, setPick] = useState(null);   // 线下多选收进时刻：null＝没在选
   const memberLine = members.map(c => c.name).join("、");
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
@@ -15557,9 +15579,9 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike, onOpenState: offOpenState, canOpenState: offCanPeek })),
+      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
-    h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
+    pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
