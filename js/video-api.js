@@ -411,7 +411,9 @@
     const chooseImage = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) run(async () => { const ref = await storeImage(f); if (live.current) setImageRef(ref); report("原图已选好，点生成才会制作视频。"); }); };
     const generateImage = () => run(async () => {
       if (!scene.trim()) throw Error("先写一下想要的画面");
-      const out = await generateSelfieImage(scene.trim(), character.refPhoto || imageRef || null, { singleShot: true, size: "1024x1536" });
+      // 外貌原文跟着画面描述一起发：站点锁不住脸时，模型手里至少还有「白色长发」这几个字（她 2026-10-05）
+      const look = String(character.appearance || "").replace(/\s+/g, " ").trim().slice(0, 300);
+      const out = await generateSelfieImage(scene.trim() + (look ? "\n「" + (character.name || "TA") + "」的外貌（务必贴合）：" + look + "。" : ""), character.refPhoto || imageRef || null, { singleShot: true, size: "1024x1536" });
       let b = out.blob; if (!b && out.dataUrl) b = dataUrlToBlob(out.dataUrl); if (!b && out.url) { const r = await fetch(out.url); if (!r.ok) throw Error("原图下载失败"); b = await r.blob(); }
       const ref = await storeImage(b); if (live.current) setImageRef(ref); report("新图已保存。喜欢这张图，再点生成动画。");
     });

@@ -33,3 +33,6 @@ test("番茄钟和视频通话都从同一本库取，播放首尾淡接", () =>
   assert.match(comp, /window\.VideoApi\.slotFor\(c\.id, "call"\)/);
   assert.match(src, /const SEAM = /);
 });
+test("动态形象里生新图也带外貌原文：参考照锁不住时靠文字兜底", () => {
+  assert.match(src, /的外貌（务必贴合）：" \+ look/);
+});
