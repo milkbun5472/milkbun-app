@@ -1,11 +1,13 @@
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-bdac7b0b6fceb7b0';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-bdac7b0b6fceb7b0';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-bdac7b0b6fceb7b0';
-import {turnPet} from './movement.mjs?v=fg-bdac7b0b6fceb7b0';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-a9776f9ee2cd3be9';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-a9776f9ee2cd3be9';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-a9776f9ee2cd3be9';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-a9776f9ee2cd3be9';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-a9776f9ee2cd3be9';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-a9776f9ee2cd3be9';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-a9776f9ee2cd3be9';
+import {turnPet} from './movement.mjs?v=fg-a9776f9ee2cd3be9';
 // No model calls here: these are visible, local acts in this archive.
-export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home'}){
+export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
  const archive=host.load(),garden=archive.worlds?.garden||archive.world;
  const look=seatLook('companion',archive.journey?.companionLook||garden?.companion?.look,person.ta);
@@ -25,16 +27,23 @@ export async function createHousemate({scene,host,care,home,notice,save,getPets=
  const petSize=x=>x.pet?.root.scale.x||1;
  function clearGoal(q){return members().every(x=>{const p=petPosition(x);return Math.hypot(q.x-p.x,q.z-p.z)>.55*petSize(x);});}
  function idleLife(dt,settled){
+  const time=getTime(),life=lifeOf(resident),period=time?dailyRoutine(time,resident.rng):null;
+  if(period&&resident.activity?.kind==='sleep'&&(period.id!=='sleep'||life.wakeUntil>time.at)){resident.activity=null;route=[];}
+  if(!settled&&period&&(!town||town.state.place==='home')&&!resident.activity){
+   const sleeping=period.id==='sleep'&&!(life.wakeUntil>time.at),meal=['breakfast','lunch','dinner'].includes(period.id);
+   if(sleeping||meal&&!(life.marks.date===time.date&&life.marks[period.id])){const goal=nav.restore({x:-.65,z:.55});resident.activity={kind:sleeping?'sleep':'meal',phase:'walking',goal,time:0,duration:sleeping?86400:8};route=nav.path(pos(),goal)||[];}
+  }
+
   if(settled){route=[];resident.activity=null;resident.idle=0;return false;}
   const a=resident.activity;
   if(!a){resident.idle+=dt;if(resident.idle<7)return false;resident.idle=0;const next=localRoute(nav,pos(),()=>nextRandom(resident),{radius:2.5,clear:clearGoal});if(!next)return false;const roll=nextRandom(resident);resident.activity={kind:roll<.35?'read':roll<.65?'look':roll<.85?'rest':'stroll',phase:'walking',goal:next.goal,time:0,duration:8+nextRandom(resident)*8};route=next.route;save();return false;}
   if(a.phase==='walking'){
    const q=route[0];if(q){const p=pos(),dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz),turn=turnPet(doll.root.rotation.y,Math.atan2(dx,dz),dt);doll.root.rotation.y=turn.heading;const step=turn.canMove?Math.min(d,dt*.65):0,next={x:p.x+(d?dx/d*step:0),z:p.z+(d?dz/d*step:0)};const safe=members().every(x=>{const pet=petPosition(x),r=.45*petSize(x);return Math.hypot(next.x-pet.x,next.z-pet.z)>=r||Math.hypot(next.x-pet.x,next.z-pet.z)>Math.hypot(p.x-pet.x,p.z-pet.z);});blockedTime=step&&!safe?blockedTime+dt:0;if(blockedTime>2){route=[];resident.activity=null;resident.idle=3;save();return false;}if(step&&safe){doll.root.position.x=next.x;doll.root.position.z=next.z;}if(d<=step+.002&&safe)route.shift();if(route.length)return step>0&&safe;}
    a.phase='doing';a.time=0;save();
-  }else{a.time+=dt;if(a.kind==='look')doll.root.rotation.y+=Math.cos(a.time*.7)*dt*.1;if(a.time>=a.duration){resident.activity=null;resident.idle=0;save();}}
+  }else{a.time+=dt;if(a.kind==='look')doll.root.rotation.y+=Math.cos(a.time*.7)*dt*.1;if(a.kind==='sleep'&&time)lifeNote(resident,time,person.name+'在家里睡下了。','sleep');if(a.time>=a.duration){if(a.kind==='meal'&&time)lifeNote(resident,time,person.name+'在家里吃过'+({breakfast:'早餐',lunch:'午饭',dinner:'晚饭'})[period.id]+'。',period.id);resident.activity=null;resident.idle=0;save();}}
   return false;
  }
- function tick(dt){if(job&&town&&!members().some(x=>x.entry.id===job.petId)){care.record(person.name+'看见它出门了，等回家再照料。');if(care.state.task?.source==='companion'&&String(care.state.task.actor)===String(person.id))care.cancel();care.state.helper=null;job=null;route=[];save();}if(town){const settled=members().some(x=>{const t=x.care.state.task;return t?.target==='companion:'+person.id&&['sleep','invitePet','askSnack','invitePlay','waitFood'].includes(t.kind);});const result=town.tick(dt,{blocked:!!job||settled||getPets().some(x=>x.career?.state.job),position:pos(),heading:doll.root.rotation.y,needsHome:members().some(x=>x.care.state.satiety<40)});if(result.owned||town.state.place!=='home'){if(resident.activity){resident.activity=null;route=[];}const q=town.state.position;doll.root.position.set(q.x,town.nav().ground(q.x,q.z)+.03,q.z);doll.root.rotation.y=town.state.heading;clock+=dt;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;doll.animate(clock,{moving:result.speed>0,gesture:'rest',height:doll.root.position.y});syncResident();return;}visible=town.state.place==='home'&&getPlace()==='home';doll.root.visible=visible;}if(!visible&&!town)return;clock+=dt;idle+=dt;let moving=false;
+ function tick(dt){if(job&&town&&!members().some(x=>x.entry.id===job.petId)){care.record(person.name+'看见它出门了，等回家再照料。');if(care.state.task?.source==='companion'&&String(care.state.task.actor)===String(person.id))care.cancel();care.state.helper=null;job=null;route=[];save();}if(town){const settled=members().some(x=>{const t=x.care.state.task;return t?.target==='companion:'+person.id&&['sleep','invitePet','askSnack','invitePlay','waitFood'].includes(t.kind);});const time=getTime(),period=time?dailyRoutine(time,resident.rng):null,stayHome=period?.home&&!(period.id==='sleep'&&lifeOf(resident).wakeUntil>time.at);if(stayHome&&!job&&!settled&&town.state.place!=='home'&&(town.state.target!=='home'||!town.state.goal))town.go('home');const result=town.tick(dt,{stayHome:!!stayHome,blocked:!!job||settled||getPets().some(x=>x.career?.state.job),position:pos(),heading:doll.root.rotation.y,needsHome:!!stayHome||members().some(x=>x.care.state.satiety<40)});if(result.owned||town.state.place!=='home'){if(resident.activity){resident.activity=null;route=[];}const q=town.state.position;doll.root.position.set(q.x,town.nav().ground(q.x,q.z)+.03,q.z);doll.root.rotation.y=town.state.heading;clock+=dt;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;doll.animate(clock,{moving:result.speed>0,gesture:'rest',height:doll.root.position.y});syncResident();return;}visible=town.state.place==='home'&&getPlace()==='home';doll.root.visible=visible;}if(!visible&&!town)return;clock+=dt;idle+=dt;let moving=false;
   const pending=members().filter(x=>{const v=x.care.state.task;return v?.source==='self'&&v.target==='companion:'+person.id&&v.phase==='doing'&&v.time>=2&&['waiting','cuddle'].includes(v.stage);}).sort((a,b)=>b.care.state.task.time-a.care.state.task.time)[0];if(!job&&pending)choose(pending.entry.id);const visit=care.state.task;if(!job&&visit?.source==='self'&&visit.target==='companion:'+person.id&&visit.phase==='doing'&&visit.time>=2&&['waiting','cuddle'].includes(visit.stage)){const action=({waitFood:'feed',invitePlay:'play',invitePet:'pet',askSnack:'snack'})[visit.kind];if(action)request(action,{responsive:true,petId:pending?.entry.id});}
   if(job){if(job.phase==='walking'){
    const dest=route[0];if(dest){const p=pos(),dx=dest.x-p.x,dz=dest.z-p.z,d=Math.hypot(dx,dz),turn=turnPet(doll.root.rotation.y,Math.atan2(dx,dz),dt);doll.root.rotation.y=turn.heading;const step=turn.canMove?Math.min(d,dt*.8):0;moving=step>0;if(d>1e-5){doll.root.position.x+=dx/d*step;doll.root.position.z+=dz/d*step;}if(d<=step+.002)route.shift();}
@@ -48,8 +57,9 @@ export async function createHousemate({scene,host,care,home,notice,save,getPets=
   const settled=members().some(x=>{const t=x.care.state.task;return t?.phase==='doing'&&t.target==='companion:'+person.id&&['sleep','invitePet'].includes(t.kind);});
   const approaching=members().some(x=>{const t=x.care.state.task;return t?.phase==='walking'&&t.target==='companion:'+person.id&&['sleep','invitePet','askSnack','invitePlay'].includes(t.kind)&&t.stage!=='fetch';});
   if(!job)moving=idleLife(dt,settled||approaching);syncResident();
-  doll.animate(clock,{moving,gesture:job?.phase==='doing'?(job.action==='play'?'stir':'hold'):resident.activity?.phase==='doing'&&resident.activity.kind==='read'?'read':'rest',seated:resident.activity?.phase==='doing'&&['rest','read'].includes(resident.activity.kind)||settled||job?.phase==='doing'&&job.action==='pet'||visit?.kind==='sleep'&&visit.place==='person'&&visit.target==='companion:'+person.id&&visit.phase==='doing',height:.08});
+  doll.animate(clock,{moving,gesture:job?.phase==='doing'?(job.action==='play'?'stir':'hold'):resident.activity?.phase==='doing'&&resident.activity.kind==='read'?'read':resident.activity?.phase==='doing'&&resident.activity.kind==='meal'?'hold':'rest',seated:resident.activity?.phase==='doing'&&['rest','read','sleep','meal'].includes(resident.activity.kind)||settled||job?.phase==='doing'&&job.action==='pet'||visit?.kind==='sleep'&&visit.place==='person'&&visit.target==='companion:'+person.id&&visit.phase==='doing',height:.08});
  }
  function leave(){if(town){syncResident();visible=false;doll.root.visible=false;return;}syncResident();resident.activity=null;resident.idle=0;visible=false;doll.root.visible=false;route=[];if(job)care.record(person.name+'跟着出门了，这次照料先停下。');job=null;for(const p of members())p.care.state.helper=null;}
- return {begin,tick,request,leave,doll,person,town,setVisible:value=>{visible=!!value;doll.root.visible=visible;},snapshot:()=>({visible,place:town?.state.place||'home',town:town?structuredClone(town.state):null,position:pos(),job:job?{...job}:null,activity:resident.activity?structuredClone(resident.activity):null,summary:town?.summary(id=>world.building(id)?.title||'小镇街区')|| (job?'正在照料宠物':resident.activity?.phase==='walking'?'在家里慢慢走动':resident.activity?.kind==='read'?'坐下来翻书':resident.activity?.kind==='look'?'看看家里':resident.activity?.kind==='rest'?'歇一会儿':'在家里陪着它们'),look})};
+ function wake(){const life=lifeOf(resident);life.wakeUntil=Date.now()+30*60000;if(resident.activity?.kind==='sleep'){resident.activity=null;route=[];}save();return true;}
+ return {begin,tick,request,wake,leave,doll,person,town,setVisible:value=>{visible=!!value;doll.root.visible=visible;},snapshot:()=>({visible,place:town?.state.place||'home',town:town?structuredClone(town.state):null,position:pos(),job:job?{...job}:null,activity:resident.activity?structuredClone(resident.activity):null,summary:town?.summary(id=>world.building(id)?.title||'小镇街区')|| (job?'正在照料宠物':resident.activity?.phase==='walking'?'在家里慢慢走动':resident.activity?.kind==='sleep'?'在家里睡觉':resident.activity?.kind==='meal'?'在家里吃饭':resident.activity?.kind==='read'?'坐下来翻书':resident.activity?.kind==='look'?'看看家里':resident.activity?.kind==='rest'?'歇一会儿':'在家里陪着它们'),look})};
 }

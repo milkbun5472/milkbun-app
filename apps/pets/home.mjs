@@ -1,11 +1,11 @@
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-bdac7b0b6fceb7b0';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-bdac7b0b6fceb7b0';
-import {turnPet} from './movement.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-bdac7b0b6fceb7b0';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-bdac7b0b6fceb7b0';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-a9776f9ee2cd3be9';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-a9776f9ee2cd3be9';
+import {turnPet} from './movement.mjs?v=fg-a9776f9ee2cd3be9';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-a9776f9ee2cd3be9';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-a9776f9ee2cd3be9';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
- const places=station?{...HOME_PLACES,feeding:{...station.bowl,yaw:Math.PI/2},box:{...station.rest,yaw:0},bed:{...station.rest,yaw:-2.3},rug:{...station.rug,yaw:0},window:{...station.watch,yaw:Math.PI},sofa:{...station.rest,yaw:Math.PI}}:HOME_PLACES;
+ const places=petHomePlaces(station);
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);
  const bags=new Map();
  const material=color=>new T.MeshStandardMaterial({color,roughness:.9});

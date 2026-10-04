@@ -1,16 +1,17 @@
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-a9776f9ee2cd3be9';
 import * as T from 'three';
-import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-bdac7b0b6fceb7b0';
-import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-bdac7b0b6fceb7b0';
-import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,seatLook,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createPassengers} from './passengers.mjs?v=fg-bdac7b0b6fceb7b0';
-import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createTravelCamera} from './camera-view.mjs?v=fg-bdac7b0b6fceb7b0';
-import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-bdac7b0b6fceb7b0';
-import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-bdac7b0b6fceb7b0';
-import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-bdac7b0b6fceb7b0';
-import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-bdac7b0b6fceb7b0';
+import {restState,isResting,changeRest,restContext} from './rest.mjs?v=fg-a9776f9ee2cd3be9';
+import {makePromise,creditPhoto,promiseSummaries} from './photo-promise.mjs?v=fg-a9776f9ee2cd3be9';
+import {mergeLook,outfitId,outfitColors,DEFAULT_LOOK,COMPANION_LOOK,seatLook,hairId,dyesOf,HAIR_MODES} from '../fairy-garden/wardrobe.mjs?v=fg-a9776f9ee2cd3be9';
+import {createPassengers} from './passengers.mjs?v=fg-a9776f9ee2cd3be9';
+import {photoPlan,photoLabel,exchangePhotos} from './photography.mjs?v=fg-a9776f9ee2cd3be9';
+import {createTravelCamera} from './camera-view.mjs?v=fg-a9776f9ee2cd3be9';
+import {removeAlbumItem,setBackNote} from './album.mjs?v=fg-a9776f9ee2cd3be9';
+import {createPuzzleDesk} from './puzzle-view.mjs?v=fg-a9776f9ee2cd3be9';
+import {createCarriageView} from '../../art/train-carriage/view.mjs?v=fg-a9776f9ee2cd3be9';
+import {restoreTrip,travelEnvironment,travelContext,advanceTrip} from './travel.mjs?v=fg-a9776f9ee2cd3be9';
+import {ROUTES,SEASONS,WEATHERS} from '../../art/train-carriage/scenery.mjs?v=fg-a9776f9ee2cd3be9';
+import {createTraveler} from '../fairy-garden/traveler.mjs?v=fg-a9776f9ee2cd3be9';
 const host=window.parent!==window&&window.parent.FairyGardenHostFor?.(window),status=document.querySelector('#status');
 let wander=()=>{},cameraSubject='window',companionCamera=()=>{},passengers,cameraUI,desk,view,state,frame=0,last=0,saveAt=0,closed=false,saveFailed=false;
 // 改外貌时的预览（她 2026-09-25：「设置外貌的时候看不到预览，搞成跟庭院一样」）：
@@ -28,14 +29,14 @@ function drawPreview(clock){const doll=previewDolls[previewWho],r=view.renderer;
  previewCam.left=-span*aspect/2;previewCam.right=span*aspect/2;previewCam.top=span/2;previewCam.bottom=-span/2;previewCam.updateProjectionMatrix();
  const size=r.getSize(new T.Vector2());r.setScissorTest(true);r.setScissor(0,y,w,h);r.setViewport(0,y,w,h);const old=r.getClearColor(new T.Color()),oa=r.getClearAlpha();r.setClearColor('#e9ecdd',1);r.clear();r.render(previewScene,previewCam);r.setClearColor(old,oa);r.setScissorTest(false);r.setViewport(0,0,size.x,size.y);}
 function lookOf(who){const a=host?.load?.()||{},g=a.worlds?.garden||a.world;return seatLook(who,state?.looks?.[who]||(who==='me'?a.journey?.look||g?.look:a.journey?.companionLook||g?.companion?.look),host?.companion?.()?.ta);}
-function flush(){if(!view||!state)return false;try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}
+function flush(){if(!view||!state)return false;if(state.clock){const t=realTime(state.clock);state={...state,day:t.day,minute:t.minute};}try{if(!host.save({...state},'train'))throw Error('没有保存成功');saveFailed=false;status.textContent='';return true;}catch(e){saveFailed=true;status.textContent='进度没有保存成功，请留在车上重试。';return false;}}
 // 休息面板那行字照实说：站起来走动了就别再写「在桌边」
 function standAt(w){const at=passengers?.where(w);return at&&at!=='坐在座位上'?at:'在桌边';}
-function sync(){const r=restState(state),has=!!host.companion?.()?.id;document.querySelector('#rest-controls').hidden=view.currentView!=='berths'||cameraUI?.isOpen||desk?.isOpen||!document.querySelector('#move-controls').hidden;document.querySelector('#rest-you').textContent=r.you?'我回桌边':'我躺下';document.querySelector('#rest-companion').textContent=r.companion?'TA回桌边':'TA休息';document.querySelector('#rest-companion').disabled=!has;document.querySelector('#rest-together').disabled=!has;document.querySelector('#rest-info').textContent=(r.you?'你在下铺休息':'你'+standAt('me'))+(has?(r.companion?' · TA在上铺休息':' · TA'+standAt('companion')):'');document.querySelector('#take-photo').textContent=isResting(state)?'起身拍照':'拍照';document.querySelector('#open-puzzle').textContent=isResting(state)?'起身拼图':'拼图';const pending=(state.companionPhotos||[]).length;document.querySelector('#open-album').textContent=pending?'相册 · '+pending:'相册';const env=travelEnvironment(state);view.scenery.set({...env,distance:state.distance,playing:false});view.syncLighting();if((!cameraUI?.isOpen||cameraSubject!=='window')&&!(desk?.isOpen&&desk.activity!=='travel'))view.render();if(previewWho)drawPreview(performance.now()/1000);const minute=Math.floor(state.minute),clock=String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');document.querySelector('#scene-info').textContent=`${SEASONS[env.season]} · ${WEATHERS[env.weather]} · ${clock}　${env.routeBlend>0?ROUTES[env.route]+' → '+ROUTES[env.nextRoute]:ROUTES[env.route]}`;}
-function animate(now){frame=requestAnimationFrame(animate);if(closed||document.hidden){last=0;return;}if(last&&now-last<1000/30)return;const dt=last?Math.min(.1,(now-last)/1000):0;last=now;
+function sync(){const r=restState(state),has=!!host.companion?.()?.id;document.querySelector('#rest-controls').hidden=view.currentView!=='berths'||cameraUI?.isOpen||desk?.isOpen||!document.querySelector('#move-controls').hidden;document.querySelector('#rest-you').textContent=r.you?'我回桌边':'我躺下';document.querySelector('#rest-companion').textContent=r.companion?'TA回桌边':'TA休息';document.querySelector('#rest-companion').disabled=!has;document.querySelector('#rest-together').disabled=!has;document.querySelector('#rest-info').textContent=(r.you?'你在下铺休息':'你'+standAt('me'))+(has?(r.companion?' · TA在上铺休息':' · TA'+standAt('companion')):'');document.querySelector('#take-photo').textContent=isResting(state)?'起身拍照':'拍照';document.querySelector('#open-puzzle').textContent=isResting(state)?'起身拼图':'拼图';const pending=(state.companionPhotos||[]).length;document.querySelector('#open-album').textContent=pending?'相册 · '+pending:'相册';const env=travelEnvironment(state);view.scenery.set({...env,distance:state.distance,playing:false});view.syncLighting();if((!cameraUI?.isOpen||cameraSubject!=='window')&&!(desk?.isOpen&&desk.activity!=='travel'))view.render();if(previewWho)drawPreview(performance.now()/1000);const minute=Math.floor(state.minute),clock=String(Math.floor(minute/60)).padStart(2,'0')+':'+String(minute%60).padStart(2,'0');document.querySelector('#scene-info').textContent=`${state.clock?realTime(state.clock).label:clock} · ${SEASONS[env.season]} · ${WEATHERS[env.weather]}　${env.routeBlend>0?ROUTES[env.route]+' → '+ROUTES[env.nextRoute]:ROUTES[env.route]}`;}
+function animate(now){frame=requestAnimationFrame(animate);if(state?.clock){const t=realTime(state.clock);state={...state,day:t.day,minute:t.minute};}if(closed||document.hidden){last=0;return;}if(last&&now-last<1000/30)return;const dt=last?Math.min(.1,(now-last)/1000):0;last=now;
  if(!saveFailed){state=advanceTrip(state,dt,view.scenery.destination.speedFactor);view.scenery.state.weatherTime+=dt;sync();passengers?.tick(now,dt,!cameraUI?.isOpen);wander(now);companionCamera();saveAt+=dt;if(saveAt>=3){saveAt=0;flush();}}
 }
-try{if(!host)throw Error('请从小世界的列车入口进入。');state=restoreTrip(host.load().worlds?.train);view=await createCarriageView(document.querySelector('#stage'),{immersive:true});passengers=await createPassengers(view,host,document.querySelector('#stage'),()=>state);view.setView(isResting(state)?'berths':'table');view.setZoom(.72);sync();
+try{if(!host)throw Error('请从小世界的列车入口进入。');const archive=host.load();state=restoreTrip({...archive.worlds?.train,clock:archive.clock});view=await createCarriageView(document.querySelector('#stage'),{immersive:true});passengers=await createPassengers(view,host,document.querySelector('#stage'),()=>state);view.setView(isResting(state)?'berths':'table');view.setZoom(.72);sync();
  for(const b of document.querySelectorAll('[data-view]'))b.onclick=()=>{try{if(b.dataset.view==='table')rise();view.setView(b.dataset.view);document.querySelectorAll('[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));}catch(e){status.textContent=e.message;}};document.querySelector('[data-view='+view.currentView+']').setAttribute('aria-pressed','true');
  function setRest(who,lying){const before=state;state=changeRest(state,who,lying,!!host.companion?.()?.id);if(!flush()){state=before;throw Error('休息状态没有保存成功，请重试。');}passengers.tick(performance.now(),0,true);sync();}
  function rise(){if(isResting(state)){setRest('both',false);view.setView('table');}}
@@ -45,12 +46,12 @@ try{if(!host)throw Error('请从小世界的列车入口进入。');state=restor
  function moveTo(who,spot,quiet=false){try{const key=moveKey[who];if(restState(state)[key])setRest(key,false);passengers.go(who,spot,spot==='berth'?()=>{try{setRest(key,true);if(!quiet)view.setView('berths');}catch(e){status.textContent=e.message;}}:null);syncMove();return true;}catch(e){status.textContent=e.message;return false;}}
  // TA 自己也会起来走走（她 2026-09-25）：坐一阵就起身看看窗外、理理行李，过一会儿自己回座位；
  // 夜里（22 点到 6 点）偶尔自己去上铺躺下，天亮了自己起来。拼图、拍照开着的时候不动。
- let wanderAt=0,selfRest=false;const rand=(a,b)=>a+Math.random()*(b-a);
+ let wanderAt=0,selfRest=!!state.autoRest;const rand=(a,b)=>a+Math.random()*(b-a);
  wander=(now,force=false)=>{if(!passengers||saveFailed||!host.companion?.()?.id||cameraUI?.isOpen||(desk?.isOpen&&desk.activity!=='travel'))return;const p=passengers.people.find(x=>x.who==='companion');if(!p||p.path.length)return;
   const hour=state.minute/60,night=hour>=22||hour<6,resting=!!restState(state).companion;
-  if(resting){if(selfRest&&!night){selfRest=false;try{setRest('companion',false);}catch(e){}wanderAt=now+rand(60,150)*1000;}return;}
+  if(resting){if(selfRest&&!night){selfRest=false;state.autoRest=false;try{setRest('companion',false);}catch(e){}wanderAt=now+rand(60,150)*1000;}return;}
   if(!wanderAt&&!force){wanderAt=now+rand(90,240)*1000;return;}if(now<wanderAt&&!force)return;
-  if(p.spot==='seat'){const spot=night&&Math.random()<.5?'berth':['stand','stand','rack'][Math.floor(Math.random()*3)];if(moveTo('companion',spot,true)&&spot==='berth')selfRest=true;wanderAt=now+rand(40,90)*1000;}
+  if(p.spot==='seat'){const spot=night&&Math.random()<.5?'berth':['stand','stand','rack'][Math.floor(Math.random()*3)];if(moveTo('companion',spot,true)&&spot==='berth'){selfRest=true;state.autoRest=true;}wanderAt=now+rand(40,90)*1000;}
   else{moveTo('companion','seat',true);wanderAt=now+rand(120,300)*1000;}};
  // 点一下地板：我就走过去。拖动、双指缩放不算点；拍照、拼图开着时不接
  {const c=view.renderer.domElement;let down=null;c.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY,t:performance.now(),id:e.pointerId};});
@@ -72,7 +73,7 @@ document.querySelector('#rest-together').onclick=()=>{try{const r=restState(stat
  document.querySelector('#open-puzzle').onclick=()=>desk.open().catch(e=>{status.textContent=e.message;});
  document.querySelector('#take-photo').onclick=()=>{try{passengers?.home();cameraUI.open();}catch(e){status.textContent=e.message;}};
  document.querySelector('#open-album').onclick=()=>{if(flush())host.openAlbum?.();};
- window.TrainGame={desk,flush,speak:(lines,who)=>passengers?.speak(lines,who),passengers,
+ window.TrainGame={calendar:()=>realTime(state.clock),desk,flush,speak:(lines,who)=>passengers?.speak(lines,who),passengers,
   // 改外貌（她 2026-09-25：「列车里的设置能不能把改外貌也放进去」）：只记在这一档列车里，
   // 没改过就沿用庭院那一身；合并规则和庭院是同一个 mergeLook。
   // 聊天里 TA 说要去哪，就真的走过去（只动 TA 自己）

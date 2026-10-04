@@ -1,3 +1,4 @@
+import {restoreClock} from '../fairy-garden/real-clock.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {freshState,seasonOf,weather} from '../fairy-garden/world.mjs';
 import {startTrip,restoreTrip,travelEnvironment,advanceTrip,travelContext,WEATHER_CODES} from './travel.mjs';
@@ -7,8 +8,8 @@ test('boarding carries the actual garden clock and climate, without changing its
 test('direct entries vary initial time and both entry paths can start on all three routes',()=>{
  const times=new Set();for(const n of [.01,.4,.8]){const s=startTrip(null,()=>n);times.add(s.minute);assert.equal(s.routeStart,Math.floor(n*3));assert.equal(startTrip(freshState(),()=>n).routeStart,s.routeStart);}assert.equal(times.size,3);
 });
-test('time advances through midnight, all seasons and year wrap, independently of scenic slowing',()=>{
- for(const day of [14,28,42,56]){const s={...startTrip(freshState()),day,startDay:day,minute:1439.9};const next=advanceTrip(s,.1,.36);assert.equal(next.day,day+1);assert.ok(next.minute<.61);assert.ok(Math.abs(next.distance-.036)<1e-10);assert.notEqual(travelEnvironment(next).season,travelEnvironment(s).season);assert.equal(advanceTrip(s,0),s);}
+test('real midnight changes date and season while scenic slowing only changes distance',()=>{
+ const old=Date.now;try{for(const day of [14,28,42,56]){let at=new Date(2026,9,5,23,59).getTime();Date.now=()=>at;const clock=restoreClock(null,day,at),s=startTrip({...freshState(),clock},()=>0);at=new Date(2026,9,6,0,0).getTime();const next=advanceTrip(s,.1,.36);assert.equal(next.day,day+1);assert.equal(next.minute,0);assert.ok(Math.abs(next.distance-.036)<1e-10);assert.notEqual(travelEnvironment(next).season,travelEnvironment({...s,clock:null}).season);assert.equal(advanceTrip(s,0),s);}}finally{Date.now=old;}
 });
 test('each route signals the next for forty distance units and swaps without losing mileage',()=>{
  const s=startTrip(null,()=>0);for(let i=0;i<3;i++){const before=travelEnvironment({...s,distance:i*160+120});const middle=travelEnvironment({...s,distance:i*160+140});const edge=travelEnvironment({...s,distance:i*160+159.999});const next=travelEnvironment({...s,distance:(i+1)*160});assert.equal(before.routeBlend,0);assert.equal(middle.routeBlend,.5);assert.ok(edge.routeBlend>.999);assert.equal(edge.nextRoute,next.route);assert.equal(next.routeBlend,0);}
