@@ -1,21 +1,22 @@
-import {HOME_DETAILS} from './room-layout.mjs?v=fg-cfafe7f5b7719d58';
-import {skillTask} from './skills.mjs?v=fg-cfafe7f5b7719d58';
-import {chorePlaces} from './home-chores.mjs?v=fg-cfafe7f5b7719d58';
-import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-cfafe7f5b7719d58';
-import {chooseComfortSpot} from './habits.mjs?v=fg-cfafe7f5b7719d58';
-import {createParcelProp} from './parcel-prop.mjs?v=fg-cfafe7f5b7719d58';
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-cfafe7f5b7719d58';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-cfafe7f5b7719d58';
-import {turnPet} from './movement.mjs?v=fg-cfafe7f5b7719d58';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-cfafe7f5b7719d58';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-cfafe7f5b7719d58';
+import {createPetToy} from './toy-prop.mjs?v=fg-5f9d3b38880c1385';
+import {HOME_DETAILS} from './room-layout.mjs?v=fg-5f9d3b38880c1385';
+import {skillTask} from './skills.mjs?v=fg-5f9d3b38880c1385';
+import {chorePlaces} from './home-chores.mjs?v=fg-5f9d3b38880c1385';
+import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-5f9d3b38880c1385';
+import {chooseComfortSpot} from './habits.mjs?v=fg-5f9d3b38880c1385';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-5f9d3b38880c1385';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-5f9d3b38880c1385';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-5f9d3b38880c1385';
+import {turnPet} from './movement.mjs?v=fg-5f9d3b38880c1385';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-5f9d3b38880c1385';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-5f9d3b38880c1385';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],getChore=()=>null,index=0,station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places={...petHomePlaces(station),water:chorePlaces(index).water};
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);
  const bags=new Map();
  const material=color=>new T.MeshStandardMaterial({color,roughness:.9});
- function makeToy(kind){if(kind==='ball'){const g=new T.Group(),body=new T.Mesh(new T.SphereGeometry(.065,16,12),material('#d6a08d'));g.add(body);const face=new T.Group();for(const [x,y,r]of[[-.03,.025,.025],[.03,.008,.018]]){const eye=new T.Mesh(new T.SphereGeometry(r,10,8),material('#f8efdf'));eye.position.set(x,y,.052);face.add(eye);const pupil=new T.Mesh(new T.SphereGeometry(r*.42,8,6),material('#635550'));pupil.position.set(x+.006,y-.004,.052+r*.85);face.add(pupil);}face.visible=false;g.add(face);g.userData.wonkyFace=face;return g;}const m=new T.Group(),body=new T.Mesh(new T.SphereGeometry(.07,16,12),material('#bba991'));body.scale.set(.7,.65,1.6);m.add(body);for(const x of[-.038,.038]){const e=new T.Mesh(new T.SphereGeometry(.022,8,8),material('#c98070'));e.position.set(x,.04,.05);m.add(e);}return m;}
+ const makeToy=kind=>createPetToy(T,kind);
  const ball=makeToy('ball'),mouse=makeToy('mouse'),treat=new T.Mesh(new T.SphereGeometry(.05,10,8),material('#a97850'));toy.add(ball,mouse,treat);toy.visible=false;
  const floorToys=Object.fromEntries(Object.keys(TOY_SPOTS).map(k=>{const m=makeToy(k);m.userData.petToy=k;props.add(m);return[k,m];}));
  let ownFood;
