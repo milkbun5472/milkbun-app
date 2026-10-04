@@ -1,6 +1,6 @@
-import {WORK_HABITS,habitTask,carriesToy,chooseWorkHabit} from './habits.mjs?v=fg-b7f55ed153bedf69';
-import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-b7f55ed153bedf69';
-import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-b7f55ed153bedf69';
+import {WORK_HABITS,habitTask,carriesToy,chooseWorkHabit} from './work-habits.mjs?v=fg-c1b1fa5d8b37308d';
+import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-c1b1fa5d8b37308d';
+import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-c1b1fa5d8b37308d';
 const clamp=(v,a=0,b=100,f=65)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
 const kinds=['eat','treat','play','sleep','pet','watch','wander','carryBag','inspectBag','habit',...SEEK_KINDS,'moveAway'];
 const actorKey=v=>typeof v==='string'?v.slice(0,80):'';
@@ -76,7 +76,7 @@ export function createPetCare(raw,{real=false}={}){
  }
  function pickupToy(){const t=s.task;if(!carriesToy(t)||t.stage!=='fetch'||t.phase!=='doing'||t.time<2)return false;t.stage='carry';t.phase='walking';t.time=0;return true;}
  function deliverToy(point){const t=s.task,p=homePoint(point);if(!carriesToy(t)||t.stage!=='lower'||t.phase!=='doing'||t.time<1.2||!p)return false;s.toyPlaces[t.toy]=p;t.stage='waiting';t.time=0;if(habitTask(t)){finish();return true;}visit(t,'它把'+(t.toy==='mouse'?'小老鼠':'小球')+'叼到'+(t.name||'你')+'脚边，放下等着一起玩。');return true;}
- function startBag(id,spot,reaction){if(!homePoint(spot)||s.helper||s.task&&!(s.task.source==='self'&&['watch','wander','play','habit'].includes(s.task.kind)&&!s.task.socialId))return {accepted:false,text:'等它忙完，再把小袋子放好。'};s.task={kind:reaction?'inspectBag':'carryBag',phase:'walking',time:0,place:'rug',spot:homePoint(spot),source:'self',bagId:actorKey(id),bagReaction:reaction||'curious'};s.idle=0;return {accepted:true,text:reaction?'它准备闻闻小袋子。':'它叼着小袋子，准备找地方放下。'};}
+ function startBag(id,spot,reaction){if(!homePoint(spot)||s.helper||s.task&&!(s.task.source==='self'&&(['watch','wander','play'].includes(s.task.kind)||habitTask(s.task)&&!carriesToy(s.task))&&!s.task.socialId))return {accepted:false,text:'等它忙完，再把小袋子放好。'};s.task={kind:reaction?'inspectBag':'carryBag',phase:'walking',time:0,place:'rug',spot:homePoint(spot),source:'self',bagId:actorKey(id),bagReaction:reaction||'curious'};s.idle=0;return {accepted:true,text:reaction?'它准备闻闻小袋子。':'它叼着小袋子，准备找地方放下。'};}
  function startSocial(t){if(!homePoint(t.spot)&&t.kind!=='invitePlay')return false;if(!['watch','invitePlay','sleep'].includes(t.kind)||!actorKey(t.socialId))return false;s.task={...t,phase:'walking',time:0,source:'self',toy:t.toy||'ball'};s.idle=0;return true;}
  return {state:s,startBag,finishBagReaction:()=>{if(s.task?.kind==='inspectBag'&&s.task.phase==='doing'&&s.task.time>=4){finish();return true;}return false;},startSocial,request,tick,arrive,pickupToy,deliverToy,cancel:()=>{s.task=null;s.idle=0;},record,snapshot:()=>structuredClone(s)};
 }

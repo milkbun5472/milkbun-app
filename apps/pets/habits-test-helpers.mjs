@@ -1,5 +1,5 @@
 // Test fixtures use the public career/care/town writers, never a fabricated job or habit.
-import{createPetCareer}from'./career.mjs?v=fg-b7f55ed153bedf69';import{createPetCare}from'./care.mjs?v=fg-b7f55ed153bedf69';import{createTownLife,newTownLife}from'./town-life.mjs?v=fg-b7f55ed153bedf69';import{workRoom}from'./workplaces.mjs?v=fg-b7f55ed153bedf69';
+import{createPetCareer}from'./career.mjs?v=fg-c1b1fa5d8b37308d';import{createPetCare}from'./care.mjs?v=fg-c1b1fa5d8b37308d';import{createTownLife,newTownLife}from'./town-life.mjs?v=fg-c1b1fa5d8b37308d';import{workRoom}from'./workplaces.mjs?v=fg-c1b1fa5d8b37308d';
 export function writeHabitShift(id,world,{seed=1,keep=true}={}){
  let body,career,town;for(let rng=seed;rng<seed+100;rng++){body=createPetCare({energy:100,mood:100,satiety:80},{real:true});career=createPetCareer({rng,selected:id,balance:100});town=createTownLife(newTownLife(workRoom(id),{x:-.28,z:.55},1),{world});const ctx={care:body.state,room:town.state.place,position:town.state.position};if(id==='stall'){career.request('stall-pack',{item:'snack',delta:1},ctx);career.request('stall-pack',{item:'snack',delta:1},ctx);}if(career.request('invite',{},ctx).accepted)break;}
  const ctx=()=>({care:body.state,room:town.state.place,position:town.state.position});let rounds=0;
@@ -15,6 +15,6 @@ export function writeHabitShift(id,world,{seed=1,keep=true}={}){
  if(career.summary().event?.kind==='deduction'){const e=career.summary().event;career.request('choose',{eventId:e.id,choice:'leave'},ctx());}
  if(!career.request('finish',{},ctx()).accepted)throw Error('fixture finish rejected');
  // Buy through the original treasury writer; this is the actually owned toy used by stash.
- career.request('buy',{item:'toy'},ctx());
+ career.request('buy',{item:'toy'},ctx());if(id==='stall')career.request('buy',{item:'box'},ctx());
  return {body,career,town};
 }

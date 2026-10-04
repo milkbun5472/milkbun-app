@@ -1,12 +1,12 @@
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-b7f55ed153bedf69';
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-b7f55ed153bedf69';
-import {lifeOf,lifeNote} from './routine.mjs?v=fg-b7f55ed153bedf69';
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-b7f55ed153bedf69';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-b7f55ed153bedf69';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-b7f55ed153bedf69';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-b7f55ed153bedf69';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-b7f55ed153bedf69';
-import {turnPet} from './movement.mjs?v=fg-b7f55ed153bedf69';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-c1b1fa5d8b37308d';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-c1b1fa5d8b37308d';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-c1b1fa5d8b37308d';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-c1b1fa5d8b37308d';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-c1b1fa5d8b37308d';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-c1b1fa5d8b37308d';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-c1b1fa5d8b37308d';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-c1b1fa5d8b37308d';
+import {turnPet} from './movement.mjs?v=fg-c1b1fa5d8b37308d';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
