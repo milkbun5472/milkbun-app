@@ -817,8 +817,22 @@
       wallpaper: sel.wall ? (extras && extras.wallpaper) : undefined,
       bubbleSkin, assets }, null, 2);
   };
+  // 导进来的那份到底是什么——认得出几种常见的走错门，各给一条出路
+  const whatIsThis = text => {
+    const t = String(text || "").replace(/^\uFEFF/, "").trim();
+    if (!t) return "这份是空的，什么都没读到";
+    if (/^PK/.test(t)) return "这是一个压缩包（.zip）：先在「文件」里点开解压，再选里面那个 .json";
+    if (/^</.test(t)) return "这是一个网页，不是主题包：多半是转发时被换成了预览页，请让对方直接发原文件";
+    if (/[{}]/.test(t) && /[a-z-]+\s*:\s*[^;{}]+;/i.test(t))
+      return "这是一份 CSS，不是主题包：去「设置 → 这个 app 长什么样 → 主题工作台」，把它整份贴进「全局 CSS」那一格（只管聊天页的就贴进聊天页那格）";
+    return "读不懂这份文件：这里只认这个 app「导出」存出来的那种 json 文件";
+  };
   const importPackage = async text => {
-    const pkg = JSON.parse(text); if (!pkg || pkg.kind !== "lisa-theme") throw new Error("不是这个 app 的主题包");
+    // 读不懂的时候说人话（群友 2026-10-05：把一整份 CSS 当气泡导，弹的是「Unexpected token P in JSON」）。
+    //   气泡、主题包两个导入口都走这一处，所以只在这儿认一次。
+    let pkg;
+    try { pkg = JSON.parse(text); } catch (_) { throw new Error(whatIsThis(text)); }
+    if (!pkg || pkg.kind !== "lisa-theme") throw new Error("这不是这个 app 导出的主题包或气泡包（得是「导出」按钮存出来的那种 json 文件）");
     const map = {};
     for (const [oldRef, data] of Object.entries(pkg.assets || {})) { try { map[oldRef] = await g.imgToVault(data); } catch (_) {} }
     const p = normalize(pkg.profile); Object.keys(p.icons).forEach(k => { if (map[p.icons[k]]) p.icons[k] = map[p.icons[k]]; });
