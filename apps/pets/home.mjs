@@ -1,7 +1,7 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-1c2b9317458d023e';
-import {turnPet} from './movement.mjs?v=fg-1c2b9317458d023e';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-1c2b9317458d023e';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-1c2b9317458d023e';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-f330d135f2ad1c03';
+import {turnPet} from './movement.mjs?v=fg-f330d135f2ad1c03';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-f330d135f2ad1c03';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-f330d135f2ad1c03';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[],getBelongings=()=>({})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false;
  const places=station?{...HOME_PLACES,feeding:{...station.bowl,yaw:Math.PI/2},box:{...station.rest,yaw:0},bed:{...station.rest,yaw:-2.3},rug:{...station.rug,yaw:0},window:{...station.watch,yaw:Math.PI},sofa:{...station.rest,yaw:Math.PI}}:HOME_PLACES;
