@@ -48,3 +48,5 @@
 .pet-social-card{padding:12px 0;border-bottom:1px dashed #d9c5ba}.pet-social-card:last-child{border-bottom:0}.pet-social-peer{display:block;font-size:14px;font-weight:600;overflow-wrap:anywhere}.pet-social-counts{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 12px;color:#8d7067;font-size:11px}.pet-social-card>.pet-button{width:100%;white-space:normal;overflow-wrap:anywhere}.pet-social-note .pet-quiet{margin:6px 0}
 
 .pet-work-posting:last-child:nth-child(odd){grid-column:1 / -1}.pet-resume-counts p:nth-child(odd){border-left:0}
+
+.pet-resume-counts p:last-child:nth-child(odd){grid-column:1 / -1}
