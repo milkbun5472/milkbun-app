@@ -1,9 +1,9 @@
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-5bbee1935867dc12';
-import {createPetCare} from './care.mjs?v=fg-5bbee1935867dc12';
-import {createPetCareer} from './career.mjs?v=fg-5bbee1935867dc12';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-5bbee1935867dc12';
-import {walkRoute} from './movement.mjs?v=fg-5bbee1935867dc12';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-5bbee1935867dc12';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-c5ca36428fa98b69';
+import {createPetCare} from './care.mjs?v=fg-c5ca36428fa98b69';
+import {createPetCareer} from './career.mjs?v=fg-c5ca36428fa98b69';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-c5ca36428fa98b69';
+import {walkRoute} from './movement.mjs?v=fg-c5ca36428fa98b69';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-c5ca36428fa98b69';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}

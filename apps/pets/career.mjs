@@ -1,11 +1,11 @@
-import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-5bbee1935867dc12';
-import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase} from './detective.mjs?v=fg-5bbee1935867dc12';
-import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-5bbee1935867dc12';
+import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-c5ca36428fa98b69';
+import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase} from './detective.mjs?v=fg-c5ca36428fa98b69';
+import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-c5ca36428fa98b69';
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-5bbee1935867dc12';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-c5ca36428fa98b69';
 export const WORK_EVENTS=BAKERY_EVENTS;
-import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,chooseShopping} from './shopping.mjs?v=fg-5bbee1935867dc12';
+import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,chooseShopping} from './shopping.mjs?v=fg-c5ca36428fa98b69';
 export {PET_SHOP};
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
 const str=(v,max=160)=>typeof v==='string'?v.slice(0,max):'';

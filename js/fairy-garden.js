@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-5bbee1935867dc12", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-c5ca36428fa98b69", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -24,7 +24,7 @@
   // 一份空存档长什么样，只写在这一处：read 兜底和「新开一段」建档都来拿。
   // 一条记录＝【一段旅程】：同一位同行者，底下挂着好几个世界各自的进度
   // （她 2026-09-19：「每个庭院档连一个列车档连一个别的什么档」）。
-  // 地图和材料各自保存；现实日期与14天季节共用 archive.clock（2026-10-04）。
+  // 绒绒小镇用 archive.clock 走现实日历；庭院与列车保留各自游戏时间。
   //   journey 只装跟世界无关的那几样（谁、长什么样、随身袋），由 world.mjs 的
   //   JOURNEY_SHAPE 一张表说了算，这儿不判断哪样归哪层。
   const blankSave = () => ({ version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, worlds: {}, journey: {}, dialogs: {} });
@@ -40,7 +40,7 @@
   function saveWorld(key, current, world, worldId, journey) {
     const w=String(worldId||"garden");
     if(!WORLDS.some(x=>x.id===w)||!world||!Number.isFinite(world.version)||!Number.isFinite(world.day)||typeof world.map!=="string")throw Error("世界进度异常，暂未覆盖旧存档。");
-    const d=current();world={...world,clock:d.clock};return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
+    const d=current(),{clock,...game}=world;world=w==="pets"?{...game,clock:d.clock}:game;return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
   }
   function WorldSession(props) {
     const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});
@@ -54,9 +54,9 @@
       const before=loadJSON(key,null);
       const {startTrip}=await import("../apps/train/travel.mjs?v="+TRAIN_BUILD);
       if(!alive.current)return false;
-      const d=read(key);if(before&&d.id!==before.id)throw Error("存档已切换，请重新进入。");const garden=worldOf(d,"garden")||{day:d.clock.day,minute:root.GameClock.sample(d.clock).minute,clock:d.clock};
+      const d=read(key);if(before&&d.id!==before.id)throw Error("存档已切换，请重新进入。");const garden=from==="garden"?worldOf(d,"garden"):null;
       if(from==="garden"&&!garden)throw Error("庭院还没有保存成功，请留在车站。");
-      write(key,{...d,partnerId:props.lockPartnerId?String(props.lockPartnerId):d.partnerId,activeWorld:"train",worlds:{...(d.worlds||{}),train:startTrip({...garden,clock:d.clock},Math.random,d.worlds?.train)}});return true;
+      write(key,{...d,partnerId:props.lockPartnerId?String(props.lockPartnerId):d.partnerId,activeWorld:"train",worlds:{...(d.worlds||{}),train:startTrip(garden,Math.random,d.worlds?.train)}});return true;
     };
     useEffect(()=>{alive.current=true;if(place==="train"&&!props.entryWorld&&read(key).worlds?.train){setReady(true);}else if(place==="train")initialize("direct").then(ok=>{if(ok)setReady(true);}).catch(e=>{if(alive.current)setError(e.message);});return()=>{alive.current=false;};},[]);
     const travel=async(to,options={})=>{

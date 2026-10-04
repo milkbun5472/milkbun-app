@@ -1,4 +1,4 @@
-// One civil calendar for every world in an archive. Animation time is separate.
+// The town uses real local dates. Garden and train keep their own game clocks.
 (function(root){
   const DAY=86400000, WEEK=['周日','周一','周二','周三','周四','周五','周六'];
   const pad=n=>String(n).padStart(2,'0');
@@ -18,13 +18,12 @@
       season:Math.floor((day-1)/14)%4,seasonDay:(day-1)%14+1};
   }
   function archive(data,at=Date.now()){
-    const worlds=Object.values(data.worlds||{}),pets=data.worlds?.pets?.pets||[];
-    const garden=data.worlds?.garden||data.world;
-    const oldDay=Number.isFinite(garden?.day)?number(garden.day):Math.max(1,...worlds.map(w=>number(w?.day)),...pets.map(p=>number(p.career?.day)));
+    const town=data.worlds?.pets,pets=town?.pets||[];
+    const oldDay=Math.max(1,number(town?.day),...pets.map(p=>number(p.career?.day)));
     const clock=restore(data.clock,oldDay,at);clock.day=sample(clock,at).day;
     return {...data,clock};
   }
-  function world(data,id){const a=archive(data),w=a.worlds?.[id]||(id==='garden'?a.world:null);return w?{...w,clock:a.clock}:null;}
+  function world(data,id){const a=archive(data),w=a.worlds?.[id]||(id==='garden'?a.world:null);if(!w)return null;const {clock,...game}=w;return id==='pets'?{...game,clock:a.clock}:game;}
   function workWindow(time,plan={}){
     if(!time)return {open:true,label:'先到店里商量一班'};
     const morning=time.minute>=540&&time.minute<720,afternoon=time.minute>=840&&time.minute<1020;

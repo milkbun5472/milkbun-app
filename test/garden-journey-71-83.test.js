@@ -26,7 +26,8 @@ test("一条记录装得下好几个世界，而且老档照样打得开", () =>
   const garden={version:9,day:43,herbs:17},train={version:1,day:365};
   assert.equal(GameClock.world({world:garden},'garden').herbs,17);
   assert.equal(GameClock.world({world:garden,worlds:{garden,train}},'train').day,365);
-  assert.equal(GameClock.world({world:garden,worlds:{garden,train}},'garden').clock.startDay,43);
+  assert.equal(GameClock.world({world:garden,worlds:{garden,train}},'garden').clock,undefined);
+  assert.equal(GameClock.world({world:garden,worlds:{garden,train}},'garden').day,43);
   assert.match(host, /worlds: \{ \.\.\.\(d\.worlds \|\| \{\}\), \[w\]: world \}/, "存的时候没往新位置写");
   assert.match(host, /world: w === "garden" \? world : d\.world/, "庭院那份不再写回老位置——回滚就丢进度");
 });

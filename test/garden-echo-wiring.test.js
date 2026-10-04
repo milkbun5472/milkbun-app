@@ -45,7 +45,7 @@ test("他去馆里看过要留下痕迹", () => {
 // B：回来看看变了什么
 test("每天早上把世界自己长的那一件说出来", () => {
   assert.match(world, /function withDailyNote\(s\)/);
-  assert.match(world, /function rollDay\(s\)\{const day=s\.day\+1;return withDailyNote\(/);
+  assert.match(world, /export function nextDay\(s\)\{const day=s\.day\+1;return withDailyNote\(/);
   assert.match(game, /\(recentHappenings\(data,1\)\[0\]\|\|\{\}\)\.text/, "不说出来，她回来看到的还是只有天数在变");
   // 连着几天同一句，「世界在动」立刻就假了
   assert.match(world, /先把最近说过的那几句划掉再抽/);

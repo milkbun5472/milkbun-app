@@ -1,5 +1,5 @@
-import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-5bbee1935867dc12';
-import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-5bbee1935867dc12';
+import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-c5ca36428fa98b69';
+import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-c5ca36428fa98b69';
 const clamp=(v,a=0,b=100,f=65)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
 const kinds=['eat','treat','play','sleep','pet','watch','wander','carryBag','inspectBag',...SEEK_KINDS,'moveAway'];
 const actorKey=v=>typeof v==='string'?v.slice(0,80):'';
