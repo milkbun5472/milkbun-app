@@ -1,13 +1,13 @@
-import {applyRoomLayout,ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-ffd9972dc4f3545d';
+import {applyRoomLayout,ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-57f639a9e37e60f0';
 import * as T from 'three';
-import {createPetCamera} from './pet-camera.mjs?v=fg-ffd9972dc4f3545d';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-ffd9972dc4f3545d';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-ffd9972dc4f3545d';
-import {floorHeight} from './cat-motion.mjs?v=fg-ffd9972dc4f3545d';
-import {loadPetCompanion,mountPetControls} from './pet-companion.mjs?v=fg-ffd9972dc4f3545d';
-import {CAT_PALETTES} from './cat-dye.mjs?v=fg-ffd9972dc4f3545d';
+import {createPetCamera} from './pet-camera.mjs?v=fg-57f639a9e37e60f0';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-57f639a9e37e60f0';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-57f639a9e37e60f0';
+import {floorHeight} from './cat-motion.mjs?v=fg-57f639a9e37e60f0';
+import {loadPetCompanion,mountPetControls} from './pet-companion.mjs?v=fg-57f639a9e37e60f0';
+import {CAT_PALETTES} from './cat-dye.mjs?v=fg-57f639a9e37e60f0';
 
-const layout=await (await fetch(new URL('./layout.json?v=fg-ffd9972dc4f3545d',import.meta.url))).json();
+const layout=await (await fetch(new URL('./layout.json?v=fg-57f639a9e37e60f0',import.meta.url))).json();
 const view=document.getElementById('view'),loading=document.getElementById('loading');
 const toWeb=p=>new T.Vector3(p[0],p[2],-p[1]);
 const renderer=new T.WebGLRenderer({antialias:true,alpha:false});
@@ -29,7 +29,7 @@ const meshes=[],pathOrigin=toWeb(layout.cat.position),pathYaw=layout.cat.yaw;
 const walkButton=document.getElementById('walk'),furButton=document.getElementById('fur');
 const baseInput=document.getElementById('fur-base'),patchInput=document.getElementById('fur-patch');
 try{
-  const [roomFile,companion]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-ffd9972dc4f3545d',import.meta.url).href),loadPetCompanion(T,loader,{height:layout.cat.height})]);
+  const [roomFile,companion]=await Promise.all([loader.loadAsync(new URL('./room.glb?v=fg-57f639a9e37e60f0',import.meta.url).href),loadPetCompanion(T,loader,{height:layout.cat.height})]);
   room=roomFile.scene;applyRoomLayout(room,'home');pet=companion;scene.add(room);
   room.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;meshes.push(o);}});
   petRoot=pet.root;petRoot.position.copy(toWeb(layout.cat.position));petRoot.rotation.y=layout.cat.yaw;scene.add(petRoot);
