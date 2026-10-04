@@ -1,9 +1,9 @@
-import {makeCurio} from './curio-view.mjs?v=fg-8a3cad69c2d629ad';
-import {makeWellSigns} from './well-view.mjs?v=fg-8a3cad69c2d629ad';
-import {wellFind} from './world.mjs?v=fg-8a3cad69c2d629ad';
+import {makeCurio} from './curio-view.mjs?v=fg-e9163e7a99dc4d2d';
+import {makeWellSigns} from './well-view.mjs?v=fg-e9163e7a99dc4d2d';
+import {wellFind} from './world.mjs?v=fg-e9163e7a99dc4d2d';
 import * as T from 'three';
-import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-8a3cad69c2d629ad';
-import {NODES} from './world.mjs?v=fg-8a3cad69c2d629ad';
+import {mergeGeometries} from './vendor/BufferGeometryUtils.js?v=fg-e9163e7a99dc4d2d';
+import {NODES} from './world.mjs?v=fg-e9163e7a99dc4d2d';
 
 // A cutaway of the old well: masonry, roots and a little lamplight, not a ring of pillars.
 // All decoration stays outside the walking disc; node IDs and positions come from the rules.

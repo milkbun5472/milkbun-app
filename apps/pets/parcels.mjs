@@ -1,8 +1,8 @@
-import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-8a3cad69c2d629ad';
-import {shoppingItem} from './shopping.mjs?v=fg-8a3cad69c2d629ad';
-import {homePoint} from './initiative.mjs?v=fg-8a3cad69c2d629ad';
+import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-e9163e7a99dc4d2d';
+import {shoppingItem} from './shopping.mjs?v=fg-e9163e7a99dc4d2d';
+import {homePoint} from './initiative.mjs?v=fg-e9163e7a99dc4d2d';
 export const parcelSourceTitle=source=>source==='shopping'?'便利店':petWorkplace(source).title;
-export const PARCEL_ITEMS={caseCard:{name:'案件纪念卡',unit:'张',kind:'search',collectible:true},coaster:{name:'小爪印杯垫',unit:'张',kind:'cup',collectible:true},guestCard:{name:'客人留言卡',unit:'张',kind:'book',collectible:true},receipt:{name:'奇怪小票',unit:'张',kind:'book',collectible:true},sticker:{name:'小贴纸',unit:'张',kind:'paw',collectible:true},bread:{name:'小面包',unit:'个',kind:'bread'},flower:{name:'小花',unit:'枝',kind:'leaf'},petals:{name:'花瓣',unit:'片',kind:'leaf'},snack:{name:'小零食',unit:'份',kind:'bread'},toy:{name:'歪眼小怪球',unit:'个',kind:'ball'},box:{name:'小纸箱窝',unit:'个',kind:'home'}};
+export const PARCEL_ITEMS={deliveryReceipt:{name:'配送小回执',unit:'张',kind:'book',collectible:true},caseCard:{name:'案件纪念卡',unit:'张',kind:'search',collectible:true},coaster:{name:'小爪印杯垫',unit:'张',kind:'cup',collectible:true},guestCard:{name:'客人留言卡',unit:'张',kind:'book',collectible:true},receipt:{name:'奇怪小票',unit:'张',kind:'book',collectible:true},sticker:{name:'小贴纸',unit:'张',kind:'paw',collectible:true},bread:{name:'小面包',unit:'个',kind:'bread'},flower:{name:'小花',unit:'枝',kind:'leaf'},petals:{name:'花瓣',unit:'片',kind:'leaf'},snack:{name:'小零食',unit:'份',kind:'bread'},toy:{name:'歪眼小怪球',unit:'个',kind:'ball'},box:{name:'小纸箱窝',unit:'个',kind:'home'}};
 const text=v=>typeof v==='string'?v.slice(0,100):'';
 const number=(v,max=10000)=>Number.isFinite(v)?Math.max(0,Math.min(max,Math.floor(v))):0;
 export function parcelItems(raw){return Object.fromEntries(Object.keys(PARCEL_ITEMS).filter(k=>number(raw?.[k])>0).map(k=>[k,number(raw[k],['toy','box'].includes(k)?1:10000)]));}

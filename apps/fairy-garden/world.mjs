@@ -1,11 +1,11 @@
-import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-8a3cad69c2d629ad';
-import {validImage} from '../train/album.mjs?v=fg-8a3cad69c2d629ad';
-import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-8a3cad69c2d629ad';
-import {brewError,brewResult} from './brewing.mjs?v=fg-8a3cad69c2d629ad';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-8a3cad69c2d629ad';
-import './rules.js?v=fg-8a3cad69c2d629ad';
+import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-e9163e7a99dc4d2d';
+import {validImage} from '../train/album.mjs?v=fg-e9163e7a99dc4d2d';
+import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-e9163e7a99dc4d2d';
+import {brewError,brewResult} from './brewing.mjs?v=fg-e9163e7a99dc4d2d';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-e9163e7a99dc4d2d';
+import './rules.js?v=fg-e9163e7a99dc4d2d';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-8a3cad69c2d629ad';
+import {createNavigator} from './navigation.mjs?v=fg-e9163e7a99dc4d2d';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
