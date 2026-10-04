@@ -1,6 +1,6 @@
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-3051364b75e512bb';
-import {NEIGHBORS} from './neighborhood.mjs?v=fg-3051364b75e512bb';
-import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-3051364b75e512bb';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-12c6361fe4236f5b';
+import {NEIGHBORS} from './neighborhood.mjs?v=fg-12c6361fe4236f5b';
+import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-12c6361fe4236f5b';
 
 export async function createNeighborhoodView(T,{scene,engine,getRows,getPlace}){
  const source=await loadTravelerSource(),dolls=new Map();

@@ -1,5 +1,5 @@
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation} from './town-life.mjs?v=fg-3051364b75e512bb';
-import {careSummary} from './care.mjs?v=fg-3051364b75e512bb';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation} from './town-life.mjs?v=fg-12c6361fe4236f5b';
+import {careSummary} from './care.mjs?v=fg-12c6361fe4236f5b';
 
 export const NEIGHBORS=[
  {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},
@@ -21,7 +21,7 @@ export function weekendGathering(time,weather='晴日'){
 }
 // Each participant gets a reachable place beside the host, rather than standing
 // on the same root. Indoor arrivals still use the original room doorway.
-export function gatheringSpot(event,who,world){const n=event.place==='outside'?world:createTownNavigation(event.place,1.4),offsets=who==='companion'?[[1.15,.1],[.8,-.8],[-.8,-.8]]:[[-1,.6],[-1.1,0],[0,1.1]];for(const[x,z]of offsets){const p={x:event.point.x+x,z:event.point.z+z};if(n.walkable(p.x,p.z)&&n.path(event.point,p))return p;}return {...event.point};}
+export function gatheringSpot(event,who,world){const n=event.place==='outside'?world:createTownNavigation(event.place,1.4),offsets=event.place!=='outside'&&who==='pet'?[[-.9,0]]:who==='companion'?[[1.15,.1],[.8,-.8],[-.8,-.8]]:[[-1,.6],[-1.1,0],[0,1.1]];for(const[x,z]of offsets){const p={x:event.point.x+x,z:event.point.z+z};if(n.walkable(p.x,p.z)&&n.path(event.point,p))return p;}return {...event.point};}
 // Relationships grow only from observed encounters. Route execution is shared
 // with pets and TA; none of this module runs in the offline recovery writer.
 export function createNeighborhood(state,{world,getRows,getTime,getWeather=()=> '晴日',save=()=>true}){
