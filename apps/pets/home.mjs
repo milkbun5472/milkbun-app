@@ -1,8 +1,8 @@
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-7687e710eedc3d19';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-7687e710eedc3d19';
-import {turnPet} from './movement.mjs?v=fg-7687e710eedc3d19';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-7687e710eedc3d19';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-7687e710eedc3d19';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-e8531bef89d78e7b';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-e8531bef89d78e7b';
+import {turnPet} from './movement.mjs?v=fg-e8531bef89d78e7b';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-e8531bef89d78e7b';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-e8531bef89d78e7b';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[],getBelongings=()=>({})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places=station?{...HOME_PLACES,feeding:{...station.bowl,yaw:Math.PI/2},box:{...station.rest,yaw:0},bed:{...station.rest,yaw:-2.3},rug:{...station.rug,yaw:0},window:{...station.watch,yaw:Math.PI},sofa:{...station.rest,yaw:Math.PI}}:HOME_PLACES;
@@ -66,5 +66,5 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  }
  function leave(){if(nav)dropToy();resetPose();visible=false;props.visible=false;reactionTime=0;pet.motion?.setActionPose({});care.cancel();route=[];pendingTask=null;}
  function dispose(){leave();scene.remove(props);props.traverse(o=>{o.geometry?.dispose();if(o.material){o.material.map?.dispose();o.material.dispose();}});}
- return {begin,request,tick,leave,resetPose,dispose,toyObject:kind=>floorToys[kind],boxObject:()=>box,snapshot:()=>({visible,station,route:route.map(p=>({...p})),position:local(),toy:toy.visible,held,box:{visible:box.visible,position:box.position.toArray()},toyPosition:toy.visible?toy.position.toArray():null,people:people(),floorToys:Object.fromEntries(Object.entries(floorToys).map(([k,m])=>[k,{visible:m.visible,position:m.position.toArray()}]))})};
+ return {begin,request,tick,leave,resetPose,dispose,setVisible:value=>{visible=!!value;props.visible=!!value;},toyObject:kind=>floorToys[kind],boxObject:()=>box,snapshot:()=>({visible,station,route:route.map(p=>({...p})),position:local(),toy:toy.visible,held,box:{visible:box.visible,position:box.position.toArray()},toyPosition:toy.visible?toy.position.toArray():null,people:people(),floorToys:Object.fromEntries(Object.entries(floorToys).map(([k,m])=>[k,{visible:m.visible,position:m.position.toArray()}]))})};
 }

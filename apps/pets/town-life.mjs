@@ -1,0 +1,42 @@
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-e8531bef89d78e7b';
+import {walkRoute} from './movement.mjs?v=fg-e8531bef89d78e7b';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-e8531bef89d78e7b';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-e8531bef89d78e7b';
+const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
+const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
+export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
+export const roomDoor=id=>id==='home'?{x:0,z:2.25}:id==='alley'?{x:-2.1,z:2.25}:{x:-2.65,z:2.25};
+// Footprints come from the existing Blender furniture, converted from Z-up.
+const footprints={
+ cafe:[[1.03,-1.24,3.61,1.2],[-2.62,.48,.82,2.08],[-.73,1.29,1,1],[1.67,1.35,1,1],[-1.35,1.29,.44,.44],[-.11,1.29,.44,.44],[1.05,1.35,.44,.44],[2.29,1.35,.44,.44],[2.88,.92,.36,.36],[-2.4,-1.98,.44,.44]],
+ store:[[.4,-2.26,4.8,.74],[1.68,-.1,2.26,1.13],[.25,-.02,.65,.7],[-2.32,-1.63,1.3,1.03],[-2.41,.15,.65,.62],[-1.62,-.1,.65,.62],[-1.7,.85,.72,.65],[.85,1.67,.53,.37],[2.77,1.51,.38,.38]],
+ alley:[[-1.83,-2.18,2.75,.9],[1.43,-2.18,3.35,.9],[1.8,1.45,1.7,.8],[-1.56,1.44,1.45,.62],[-2.62,-.45,.98,.13],[-2.7,2.05,.46,.46],[.05,1.7,.6,.5]],
+ bakery:[[1.25,-.72,3.2,1.2],[-2.25,-1.86,1.32,1.12],[-2.15,-.2,.58,.44],[-.85,-.45,.72,.7],[-1.8,1.48,1.06,1.06],[1.6,1.48,1.06,1.06],[-2.5,1.48,.46,.46],[-1.1,1.48,.46,.46],[.9,1.48,.46,.46],[2.3,1.48,.46,.46]],
+ florist:[[1.15,-1.22,2.5,1.03],[.12,-.65,.6,.6],[.7,-2.35,4.05,.58],[1.75,1.65,1.9,.64],[2.72,.5,.5,.5],[-2.6,-1.8,.56,.56],[-1.85,-1.8,.56,.56],[-2.6,-.9,.56,.56],[-1.85,-.9,.56,.56],[-2.6,0,.56,.56]]
+};
+export function createTownNavigation(id,size=1){if(id==='home')return createHomeNavigation(size);const pad=.16*size,obstacles=(footprints[id]||[]).map(([x,z,w,d])=>({x,z,w,d}));const walkable=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&x>-3+pad&&x<3.1-pad&&z>-2.6+pad&&z<2.65-pad&&!obstacles.some(o=>Math.abs(x-o.x)<o.w/2+pad&&Math.abs(z-o.z)<o.d/2+pad);const clear=(a,b)=>walkable(a.x,a.z)&&walkable(b.x,b.z)&&!obstacles.some(o=>segmentIntersectsRect(a,b,o,pad));const navigator=createNavigator({room:{radius:3.4}},walkable,clear);return {walkable,ground:()=>.047,path:(a,b)=>navigator(a,b,'room'),restore:p=>walkable(p?.x,p?.z)?point(p):roomDoor(id)};}
+export function restoreTownLife(raw){if(!raw||!TOWN_PLACES.includes(raw.place))return null;return {place:raw.place,position:point(raw.position),heading:bound(raw.heading,-Math.PI*4,Math.PI*4,0),phase:['idle','exit','travel','visit','stroll'].includes(raw.phase)?raw.phase:'idle',target:TOWN_PLACES.includes(raw.target)?raw.target:'home',goal:point(raw.goal),time:bound(raw.time,0,600,0),idle:bound(raw.idle,0,600,0),hold:bound(raw.hold,0,120,0),rng:bound(raw.rng,1,4294967295,97531),duration:bound(raw.duration,10,60,24),wait:bound(raw.wait,80,240,120),returning:raw.returning===true};}
+export function newTownLife(place,position,rng){return restoreTownLife({place,position,rng,wait:95+(rng%70)});}
+export function townSummary(s,title=id=>id){return s.phase==='exit'?'准备出门走走':s.phase==='travel'?(s.target==='home'?'散步结束，正在回家':'正去'+title(s.target)):s.place==='outside'?(s.phase==='stroll'?'在街区慢慢散步':'在街区歇歇看看'):s.place!=='home'?'在'+title(s.place)+'闲逛':null;}
+// Pet and companion share one itinerary and one path executor. Room boundaries
+// are crossed only after reaching their doorway; outdoor legs use the real town.
+export function createTownLife(state,{world,size=()=>1,onChange=()=>{}}){let route=[],routeKey='',speed=0;
+ const nav=()=>state.place==='outside'?world:createTownNavigation(state.place,size());
+ if(!nav().walkable(state.position?.x,state.position?.z)){state.position=state.place==='outside'?world.restore({position:state.position}).position:nav().restore(state.position);state.phase='idle';state.goal=null;}if(state.phase==='travel'&&state.target==='outside'||state.phase==='exit'&&state.place==='outside'){state.phase='visit';state.goal=null;}
+ const key=()=>state.place+':'+JSON.stringify(state.goal);
+ function goal(q){state.goal=point(q);route=[];routeKey='';}
+ function sync(place,p,heading,{manual=false}={}){state.place=place||'outside';state.position=point(p);state.heading=heading;if(manual){state.phase='idle';state.target='home';state.returning=false;state.time=0;state.idle=0;state.hold=60;goal(null);}route=[];routeKey='';}
+ function depart(target){state.target=target;state.phase='exit';state.time=0;goal(roomDoor(state.place));onChange();}
+ function travel(target){state.target=target;state.phase='travel';state.time=0;goal(world.building(target).approach);onChange();}
+ function arrive(){const wasStroll=state.phase==='stroll';goal(null);if(!wasStroll)state.time=0;if(state.phase==='exit'){const old=state.place;state.place='outside';state.position={...world.building(old).approach};if(state.target==='outside'){state.phase='visit';state.time=0;}else travel(state.target);}else if(state.phase==='travel'){if(!world.canEnter(state.position,state.target))return;state.place=state.target;state.position=roomDoor(state.place);state.phase=state.place==='home'?'idle':'visit';state.returning=false;state.idle=0;state.wait=95+nextRandom(state)*100;}else if(state.phase==='stroll'){state.phase=state.place==='home'?'idle':'visit';}onChange();}
+ function walk(dt){if(!state.goal)return false;const n=nav();if(routeKey!==key()){route=n.path(state.position,state.goal)||[];routeKey=key();if(!route.length){goal(null);state.phase=state.place==='home'?'idle':'visit';state.time=0;onChange();return false;}}const moved=walkRoute(route,state.position,state.heading,dt,.7*size(),q=>n.walkable(q.x,q.z));state.position=moved.position;state.heading=moved.heading;speed=moved.speed;if(!route.length)arrive();return speed>0;}
+ function tick(dt,{blocked=false,needsHome=false,position,heading}={}){speed=0;if(!Number.isFinite(dt)||dt<=0)return {owned:state.place!=='home'||state.phase==='exit',speed};dt=Math.min(dt,.1);if(blocked){if(state.place==='home'&&state.phase==='exit'){state.phase='idle';state.idle=0;goal(null);}if(state.place==='home'&&position){state.position=point(position);state.heading=heading||0;}return {owned:false,speed};}state.hold=Math.max(0,state.hold-dt);if(state.hold>0){if(position){state.position=point(position);state.heading=heading||0;}return {owned:false,speed};}state.idle+=dt;
+  if(state.place==='home'&&state.phase==='idle'){if(position){state.position=point(position);state.heading=heading||0;}if(needsHome||state.idle<state.wait)return {owned:false,speed};const choices=['outside','cafe','store','alley','bakery','florist'];const target=choices[Math.floor(nextRandom(state)*choices.length)];state.duration=20+nextRandom(state)*20;if(target==='outside'){state.target='outside';state.phase='exit';goal(roomDoor('home'));}else depart(target);onChange();}
+  if(needsHome&&state.place!=='home'&&state.target!=='home'){state.returning=true;if(state.place==='outside')travel('home');else depart('home');}
+  if(state.phase==='exit'&&state.target==='outside'&&state.goal){const old=state.place;walk(dt);if(state.place!==old){state.phase='visit';state.target='outside';goal(null);}return {owned:true,speed};}
+  if(state.goal){if(state.phase==='stroll')state.time+=dt;walk(dt);return {owned:true,speed};}
+  if(state.place==='outside'||state.place!=='home'){state.time+=dt;if(state.phase==='idle')state.phase='visit';if(state.time>=state.duration){if(state.place==='outside')travel('home');else depart('home');return {owned:true,speed};}if(state.time>4&&Math.floor(state.time*10)%40===0){const next=localRoute(nav(),state.position,()=>nextRandom(state),{radius:state.place==='outside'?4.5:1.5,minDistance:state.place==='outside'?1.5:.6});if(next){goal(next.goal);state.phase='stroll';}}return {owned:true,speed};}
+  return {owned:false,speed};
+ }
+ return {state,tick,sync,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
+}
