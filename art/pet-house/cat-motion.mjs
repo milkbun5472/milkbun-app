@@ -1,4 +1,5 @@
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-12c6361fe4236f5b';
+import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-ffd9972dc4f3545d';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-ffd9972dc4f3545d';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -29,7 +30,8 @@ export function solveLimb(root,ankle,restKnee,upperLength,lowerLength){
 
 export function floorHeight(x,z){
   // Same authored oval rug and plank dimensions as build.py (web uses Y-up).
-  const r=(x/1.86)**2+((z-.54)/1.32)**2;
+  const [sx,sz]=ROOM_LAYOUTS.home.zones.rug.scale;
+  const r=(x/(1.86*sx))**2+((z-.54*sz)/(1.32*sz))**2;
   return r<1?.067+.039*Math.sqrt(1-r):.04;
 }
 

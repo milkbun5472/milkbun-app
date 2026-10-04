@@ -31,9 +31,9 @@ test('IK preserves actual leg lengths and the rest pose; impossible goals stay f
  }
 });
 test('contact surface agrees with the authored rug top and wood floor',()=>{
- assert.ok(Math.abs(floorHeight(0,.54)-.106)<1e-9);
- assert.equal(floorHeight(2,.54),.04);
- assert.equal(floorHeight(0,2),.04);
+ assert.ok(Math.abs(floorHeight(0,.54*1.36)-.106)<1e-9);
+ assert.equal(floorHeight(3,.54*1.36),.04);
+ assert.equal(floorHeight(0,3),.04);
 });
 test('fur looks accept palettes and valid custom colours and reject broken saved values',()=>{
  for(const p of CAT_PALETTES){const v=normalizeCatLook(p);assert.equal(v.id,p.id==='original'?'original':'custom');}

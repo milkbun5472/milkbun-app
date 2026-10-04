@@ -1,23 +1,24 @@
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation} from './town-life.mjs?v=fg-12c6361fe4236f5b';
-import {careSummary} from './care.mjs?v=fg-12c6361fe4236f5b';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-ffd9972dc4f3545d';
+import {careSummary} from './care.mjs?v=fg-ffd9972dc4f3545d';
 
 export const NEIGHBORS=[
  {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},
  {id:'florist',name:'青禾',role:'花店主',shop:'florist',spot:{x:-14,z:-13},to:'regular',item:'给咖啡店的一小束花',detail:'说话慢慢的，喜欢记住小动物的习惯。',look:{hair:'longpart',hairColor:'#443d32',outfit:'jacket',wardrobe:{jacket:{cloth:'#7e9b80'}}}},
  {id:'regular',name:'小满',role:'咖啡店的常客',shop:'cafe',spot:{x:14,z:12},to:'baker',item:'给面包师的手写便条',detail:'爱散步，也爱张罗周末的小聚会。',look:{hair:'pixie',hairColor:'#9a7654',outfit:'suit',wardrobe:{suit:{cloth:'#a18599'}}}}
 ];
+const rainPoint=()=>{const d=roomDoor('cafe');return {x:d.x+1.2,z:d.z};};
 const profile=id=>NEIGHBORS.find(n=>n.id===id),num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
 const text=v=>typeof v==='string'?v.slice(0,160):'',same=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z)<1.8;
 export function restoreNeighborhood(raw,petIds=[]){
  const neighbors=Object.fromEntries(NEIGHBORS.map((n,i)=>{const r=raw?.neighbors?.[n.id];return[n.id,{town:restoreTownLife(r?.town)||newTownLife('outside',n.spot,371+i*117),met:Object.fromEntries(petIds.filter(id=>r?.met?.[id]).map(id=>{const m=r.met[id];return[id,{greetings:num(m.greetings,10000),favors:num(m.favors,10000),visits:num(m.visits,10000),events:num(m.events,10000),lastDate:text(m.lastDate),knownName:text(m.knownName),habit:text(m.habit),lastVisit:text(m.lastVisit),eventDate:text(m.eventDate)}];})),favors:Object.fromEntries(Object.entries(r?.favors||{}).filter(([id,d])=>petIds.includes(id)&&typeof d==='string').map(([id,d])=>[id,text(d)]))}];}));
  const q=raw?.quest,e=raw?.event,v=raw?.visit;
- return {version:1,neighbors,quest:profile(q?.from)&&petIds.includes(q?.petId)?{from:q.from,to:profile(q.from).to,petId:q.petId,phase:['carrying','handoff','returning'].includes(q.phase)?q.phase:'carrying',time:num(q.time,3),date:text(q.date)}:null,visit:profile(v?.id)?{id:v.id,petId:petIds.includes(v.petId)?v.petId:petIds[0],phase:['going','staying','returning'].includes(v.phase)?v.phase:'returning',time:num(v.time,180),date:text(v.date)}:null,event:profile(e?.host)&&petIds.includes(e?.petId)&&['meet','picnic'].includes(e?.id)?{id:e.id,host:e.host,petId:e.petId,date:text(e.date),place:e.place==='cafe'?'cafe':'outside',point:e.point&&Number.isFinite(e.point.x)&&Number.isFinite(e.point.z)?{x:e.point.x,z:e.point.z}:e.place==='cafe'?{x:-1.75,z:2.2}:e.id==='meet'?{x:7,z:19}:{x:-9,z:15},time:num(e.time,20),done:e.done===true}:null,recent:Array.isArray(raw?.recent)?raw.recent.filter(x=>Number.isFinite(x.at)&&typeof x.text==='string').slice(-12).map(x=>({at:x.at,text:text(x.text)})):[]};
+ return {version:1,neighbors,quest:profile(q?.from)&&petIds.includes(q?.petId)?{from:q.from,to:profile(q.from).to,petId:q.petId,phase:['carrying','handoff','returning'].includes(q.phase)?q.phase:'carrying',time:num(q.time,3),date:text(q.date)}:null,visit:profile(v?.id)?{id:v.id,petId:petIds.includes(v.petId)?v.petId:petIds[0],phase:['going','staying','returning'].includes(v.phase)?v.phase:'returning',time:num(v.time,180),date:text(v.date)}:null,event:profile(e?.host)&&petIds.includes(e?.petId)&&['meet','picnic'].includes(e?.id)?{id:e.id,host:e.host,petId:e.petId,date:text(e.date),place:e.place==='cafe'?'cafe':'outside',point:e.point&&Number.isFinite(e.point.x)&&Number.isFinite(e.point.z)?{x:e.point.x,z:e.point.z}:e.place==='cafe'?rainPoint():e.id==='meet'?{x:7,z:19}:{x:-9,z:15},time:num(e.time,20),done:e.done===true}:null,recent:Array.isArray(raw?.recent)?raw.recent.filter(x=>Number.isFinite(x.at)&&typeof x.text==='string').slice(-12).map(x=>({at:x.at,text:text(x.text)})):[]};
 }
 export function weekendGathering(time,weather='晴日'){
  const rainy=/雨|雪/.test(weather),weekday=time.weekday;
  const event=weekday===6?{id:'meet',title:'周六遛宠物小聚',start:600,end:720,host:'regular',point:{x:7,z:19}}:weekday===0?{id:'picnic',title:'周日下午的小野餐',start:900,end:1020,host:'florist',point:{x:-9,z:15}}:null;
  if(!event)return {available:false,title:'下一次周末小聚',when:'周六 10:00–12:00 · 周日 15:00–17:00'};
- return {...event,date:time.date,place:rainy?'cafe':'outside',point:rainy?{x:-1.75,z:2.2}:event.point,venue:rainy?'咖啡店门内避雨':'小公园',available:time.minute>=event.start&&time.minute<event.end,when:weekday===6?'周六 10:00–12:00':'周日 15:00–17:00'};
+ return {...event,date:time.date,place:rainy?'cafe':'outside',point:rainy?rainPoint():event.point,venue:rainy?'咖啡店门内避雨':'小公园',available:time.minute>=event.start&&time.minute<event.end,when:weekday===6?'周六 10:00–12:00':'周日 15:00–17:00'};
 }
 // Each participant gets a reachable place beside the host, rather than standing
 // on the same root. Indoor arrivals still use the original room doorway.

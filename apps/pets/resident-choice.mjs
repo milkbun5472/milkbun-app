@@ -1,3 +1,4 @@
+import {roomPoint,HOME_DETAILS} from './room-layout.mjs?v=fg-ffd9972dc4f3545d';
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const RESIDENT_ACTS={
  read:{label:'翻一会儿书',gesture:'read',seated:true,point:{x:-.65,z:.55},tags:['reading','quiet'],duration:18},
@@ -10,6 +11,7 @@ export const RESIDENT_ACTS={
  stroll:{label:'在家里走走',gesture:'rest',tags:['active','explore'],duration:8},
  look:{label:'慢慢看看家里',gesture:'rest',tags:['explore'],duration:12}
 };
+for(const [kind,zone]of [['plants','shelf'],['window','window']]){const act=RESIDENT_ACTS[kind];act.point=kind==='plants'?{...HOME_DETAILS.plantStand}:roomPoint('home',zone,act.point);act.face=roomPoint('home',zone,act.face);}
 // Independent cues bias choices, rather than assigning a character to a personality template.
 const PREFERENCE_VERSION=2;
 const CUES={reading:/读书|阅读|看书|书籍|翻书|reading|\bbooks?\b/gi,tea:/喝茶|饮茶|品茶|茶香|\btea\b/gi,coffee:/咖啡|\bcoffee\b/gi,quiet:/安静|喜静|内向|沉静|独处|\bquiet\b|\bintrovert/gi,active:/活泼|活力|运动|锻炼|散步|户外|\benergetic\b|\bexercise\b|\bactive\b/gi,plants:/植物|养花|花草|园艺|花香|\bgardening\b|\bplants?\b|\bflowers?\b/gi,nature:/自然|风景|看雨|听雨|赏雨|晒太阳|\bnature\b|\bscenery\b/gi,animals:/小动物|猫咪|猫猫|狗狗|宠物|动物|猫(?!妖|耳)|狗(?!头)|\bcats?\b|\bdogs?\b|\bpets?\b|\banimals?\b/gi,social:/外向|健谈|热情|社交|与人相处|sociable|extrovert|outgoing/gi,tidy:/整洁|爱干净|有条理|井井有条|tidy|organised|organized/gi,explore:/好奇|探索|逛店|探究|\bcurious\b|\bexplor/gi,gentle:/温柔|轻柔|柔和|\bgentle\b/gi,attentive:/细心|细致|周到|体贴|照顾人|\battentive\b|\bthoughtful\b/gi,patient:/耐心|沉稳|慢条斯理|\bpatient\b/gi,cautious:/谨慎|小心|慎重|\bcautious\b|\bcareful\b/gi,rest:/慵懒|悠闲|慢生活|lazy|leisure/gi};

@@ -1,14 +1,15 @@
-import {restoreHomeCondition} from './home-condition.mjs?v=fg-12c6361fe4236f5b';
-import {createHomeNavigation,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-12c6361fe4236f5b';
-import {turnPet,walkRoute} from './movement.mjs?v=fg-12c6361fe4236f5b';
-import {nextRandom} from './autonomy.mjs?v=fg-12c6361fe4236f5b';
-import {residentStepClear,residentGoalClear} from './resident-choice.mjs?v=fg-12c6361fe4236f5b';
+import {restoreHomeCondition} from './home-condition.mjs?v=fg-ffd9972dc4f3545d';
+import {createHomeNavigation,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-ffd9972dc4f3545d';
+import {turnPet,walkRoute} from './movement.mjs?v=fg-ffd9972dc4f3545d';
+import {nextRandom} from './autonomy.mjs?v=fg-ffd9972dc4f3545d';
+import {residentStepClear,residentGoalClear} from './resident-choice.mjs?v=fg-ffd9972dc4f3545d';
 
 export const HOME_CHORES={toys:{label:'收回玩具',duration:1.4},bowl:{label:'擦饭碗边',duration:5},water:{label:'换一碗清水',duration:6},bedding:{label:'整理睡处',duration:5}};
 const bound=(v,a,b,f=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
-const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.abs(p.x)<3.1&&Math.abs(p.z)<2.6?{x:p.x,z:p.z}:null;
+import {homePoint as point} from './room-layout.mjs?v=fg-ffd9972dc4f3545d';
 const body=row=>row.care?.state||row.care,entry=row=>row.entry||row;
-export function chorePlaces(index=0){const p=petHomePlaces(PET_STATIONS[index]),base={x:-.85+(index%2)*.34,z:1.7+Math.floor(index/2)*.34};return {bowl:{...p.feeding},water:{x:p.feeding.x+(index===2?.32:-.32),z:p.feeding.z},toys:{ball:{x:base.x-.065,z:base.z},mouse:{x:base.x+.065,z:base.z}},tray:base,bedding:{bed:index?{...p.bed}:{x:-1.4,z:-1.4},sofa:index?{...p.sofa}:{x:1.1,z:-1.3},box:{...p.box}}};}
+import {chorePlaces} from './room-layout.mjs?v=fg-ffd9972dc4f3545d';
+export {chorePlaces};
 export function restoreHousehold(raw){const t=raw?.task;return {version:1,rng:bound(raw?.rng,1,4294967295,916735),wait:bound(raw?.wait,0,90,45),assignments:Object.fromEntries(Object.keys(HOME_CHORES).map(k=>[k,['you','ta','shared'].includes(raw?.assignments?.[k])?raw.assignments[k]:'shared'])),task:t&&HOME_CHORES[t.kind]&&typeof t.petId==='string'&&point(t.position)&&point(t.goal)&&point(t.focus)&&point(t.target)&&['you','companion'].includes(t.actor)?{kind:t.kind,petId:t.petId,actor:t.actor,actorId:String(t.actorId||'').slice(0,80),name:String(t.name||'你').slice(0,24),petName:String(t.petName||'它').slice(0,24),phase:['walking','pickup','carry','doing'].includes(t.phase)?t.phase:'walking',time:bound(t.time,0,20),blocked:0,heading:bound(t.heading,-1e5,1e5),position:point(t.position),goal:point(t.goal),focus:point(t.focus),target:point(t.target),toy:t.toy==='mouse'?'mouse':'ball',place:['bed','sofa','box'].includes(t.place)?t.place:'bed',picked:t.picked===true}:null,recent:Array.isArray(raw?.recent)?raw.recent.filter(x=>Number.isFinite(x?.at)&&typeof x.text==='string').slice(-12).map(x=>({at:x.at,text:x.text.slice(0,160),completed:x.completed===true})):[]};}
 export function choreNeeds(row,index,at=Date.now()){const s=body(row),p=chorePlaces(index),c=s.condition||restoreHomeCondition(),toys=['ball','mouse'].filter(k=>Math.hypot(s.toyPlaces[k].x-p.toys[k].x,s.toyPlaces[k].z-p.toys[k].z)>.16),available=['bed','sofa',...((row.career?.state||entry(row).career)?.inventory?.box===1?['box']:[])],rest=available.slice().sort((a,b)=>c.bedding[b]-c.bedding[a])[0];return [{kind:'toys',needed:toys.length>0,toy:toys[0],status:toys.length?toys.length+'件玩具在收纳盘外':'玩具已收好'},{kind:'bowl',needed:c.bowl>=12,status:c.bowl>=12?'碗边留下了一点粮屑':'饭碗边干净着'},{kind:'water',needed:c.water<70||c.waterAt>0&&at-c.waterAt>=8*3600000,status:c.waterAt>0&&at-c.waterAt>=8*3600000?'这碗水放了一阵子':c.water<70?'水剩下 '+Math.round(c.water)+'%':'清水还充足'},{kind:'bedding',needed:c.bedding[rest]>=12,place:rest,status:c.bedding[rest]>=12?({bed:'窝里',sofa:'沙发边',box:'纸箱里'}[rest])+'的垫子有些褶皱':'睡处平整着'}];}
 function free(row){const s=body(row),t=s.task;return entry(row).town?.place==='home'&&!s.helper&&(!(row.career?.state||entry(row).career)?.job)&&(!t||t.source==='self'&&['watch','wander'].includes(t.kind)&&!t.socialId);}

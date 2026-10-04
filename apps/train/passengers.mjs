@@ -1,8 +1,8 @@
-import {restState} from './rest.mjs?v=fg-12c6361fe4236f5b';
+import {restState} from './rest.mjs?v=fg-ffd9972dc4f3545d';
 import * as T from 'three';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-12c6361fe4236f5b';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-12c6361fe4236f5b';
-import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-12c6361fe4236f5b';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-ffd9972dc4f3545d';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-ffd9972dc4f3545d';
+import {bubbleRows,bubbleHold,BUBBLE_GAP} from '../fairy-garden/speech.mjs?v=fg-ffd9972dc4f3545d';
 export async function createPassengers(view,host,stage,state=()=>({})){
  const archive=host.load(),journey=archive.journey||{},garden=archive.worlds?.garden||archive.world,companion=host.companion?.();
  const source=await loadTravelerSource();

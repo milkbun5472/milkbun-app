@@ -3,7 +3,7 @@
 export const PET_ZOOM={min:.72,max:8,cat:5};
 export function defaultPetZoom(width,height){return width<height?1.30:1.12;}
 
-export function createPetCamera(T,{camera,view,position,target,scale,getCat,getName=()=> '猫咪',draw,onTap,controlsHost,getFollowing=null,onInteract=()=>{},onChange=()=>{},onFocus=null,restore=null,getFocusHeight=()=>.44}){
+export function createPetCamera(T,{camera,view,position,target,scale,getCat,getName=()=> '猫咪',draw,onTap,controlsHost,getFollowing=null,onInteract=()=>{},onChange=()=>{},onFocus=null,restore=null,getFocusHeight=()=>.44,overviewZoom=1}){
   const origin=target.clone(),home=target.clone(),pan=new T.Vector3();
   const orbit=new T.Spherical().setFromVector3(position.clone().sub(home));
   const initial={theta:orbit.theta,phi:orbit.phi};if(restore?.orbit){orbit.theta=restore.orbit.theta;orbit.phi=restore.orbit.phi;}if(restore?.pan?.length===3)pan.fromArray(restore.pan);if(restore?.at?.length===3)home.fromArray(restore.at);let lastAt=home.clone();
@@ -36,7 +36,7 @@ export function createPetCamera(T,{camera,view,position,target,scale,getCat,getN
   }
   function freeze(){home.copy(lastAt);pan.set(0,0,0);following=false;}
   function followTarget(){pan.set(0,0,0);following=true;updateButtons();}
-  function reset(){home.copy(origin);lastAt.copy(origin);zoom=1;following=false;pan.set(0,0,0);orbit.theta=initial.theta;orbit.phi=initial.phi;clearGesture();updateButtons();draw();}
+  function reset(){home.copy(origin);lastAt.copy(origin);zoom=T.MathUtils.clamp(overviewZoom,PET_ZOOM.min,PET_ZOOM.max);following=false;pan.set(0,0,0);orbit.theta=initial.theta;orbit.phi=initial.phi;clearGesture();updateButtons();draw();}
   function pair(){const a=[...pointers.values()];return {distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2};}
   function screenOffset(p,units,right,up){const r=rect();return right.clone().multiplyScalar((p.x-r.left-r.width/2)*units).addScaledVector(up,-(p.y-r.top-r.height/2)*units);}
   function beginPair(){
