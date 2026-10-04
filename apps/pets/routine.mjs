@@ -1,16 +1,17 @@
-import {createHousehold} from './home-chores.mjs?v=fg-c7c2e5d18599bf3e';
-import {homeUse} from './home-condition.mjs?v=fg-c7c2e5d18599bf3e';
-import {choosePetRest} from './habits.mjs?v=fg-c7c2e5d18599bf3e';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-c7c2e5d18599bf3e';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-c7c2e5d18599bf3e';
-import {weather} from '../fairy-garden/world.mjs?v=fg-c7c2e5d18599bf3e';
-import {workRoom} from './workplaces.mjs?v=fg-c7c2e5d18599bf3e';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-c7c2e5d18599bf3e';
-import {createPetCare} from './care.mjs?v=fg-c7c2e5d18599bf3e';
-import {createPetCareer} from './career.mjs?v=fg-c7c2e5d18599bf3e';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-c7c2e5d18599bf3e';
-import {walkRoute} from './movement.mjs?v=fg-c7c2e5d18599bf3e';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-c7c2e5d18599bf3e';
+import {cancelOfflineSkill} from './skills.mjs?v=fg-59c6445cfc162636';
+import {createHousehold} from './home-chores.mjs?v=fg-59c6445cfc162636';
+import {homeUse} from './home-condition.mjs?v=fg-59c6445cfc162636';
+import {choosePetRest} from './habits.mjs?v=fg-59c6445cfc162636';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-59c6445cfc162636';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-59c6445cfc162636';
+import {weather} from '../fairy-garden/world.mjs?v=fg-59c6445cfc162636';
+import {workRoom} from './workplaces.mjs?v=fg-59c6445cfc162636';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-59c6445cfc162636';
+import {createPetCare} from './care.mjs?v=fg-59c6445cfc162636';
+import {createPetCareer} from './career.mjs?v=fg-59c6445cfc162636';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-59c6445cfc162636';
+import {walkRoute} from './movement.mjs?v=fg-59c6445cfc162636';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-59c6445cfc162636';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}
@@ -47,6 +48,7 @@ export function recoverPetLife(state,world,at=Date.now()){
  if(!state.clock)return state;
  const resident=state.resident,rl=lifeOf(resident),choreElapsed=rl.at?Math.max(0,(at-rl.at)/1000):0;recoverChores(state,at,choreElapsed);
  for(const entry of state.pets){
+  if(entry.life?.at&&at-entry.life.at>=60000)cancelOfflineSkill(entry.care);
   const life=lifeOf(entry),before=life.at,places=petHomePlaces(PET_STATIONS[state.pets.indexOf(entry)]);if(!before||at<=before){life.at=at;continue;}if(at-before<60000)continue;
   let cursor=Math.max(before,at-3*86400000),time=realTime({...state.clock,day:state.clock.startDay},cursor);
   const care=createPetCare(entry.care,{real:true});entry.care=care.state;const career=createPetCareer(entry.career,{calendar:()=>time});

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.782";
+const APP_VERSION = "v74.785";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27166,6 +27166,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbookFor: (charId, text) => loreForContext("study", charId ? [charId] : [], text),
     // 长出来的自我：跟 buildBundle 读同一份（ctxFor），只取这两项，记忆照旧不进一起学
     selfFor: c => { try { const x = ctxFor(c); return { grown: x.personaGrown || "", evolve: !!x.personaEvolve }; } catch (e) { return null; } },
+    // 面具按角色绑定（她 2026-10-05：「要分角色绑定的面具」）——跟谁上课就是跟 TA 的那张脸
+    profileFor: profileFor,
+    // 她是谁、你俩什么关系、你俩平时怎么说话（她 2026-10-05：「人设很刻板印象说话跟聊天不一样」，都做）。
+    //   关系那几块跟单聊同一份拼法（engine 的 herStableLines / coupleStatusLines），不另写；
+    //   最近几句原话只给他记得自己的口气，不是记忆库、不是长期记忆——那两样照旧不进一起学。
+    besideFor: c => {
+      try {
+        const x = ctxFor(c), uN = userName(x.profile);
+        const lines = [...herStableLines(x, uN), ...coupleStatusLines(x, uN)];
+        const tail = (chatsRef.current[c.id] || []).filter(m => m && !m.kind && typeof m.content === "string" && m.content.trim() && (m.role === "user" || m.role === "assistant"))
+          .slice(-14).map(m => (m.role === "user" ? uN : c.name) + "：" + m.content.replace(/\s+/g, " ").slice(0, 140));
+        if (tail.length) lines.push("【你俩平时在手机上怎么说话 · 最近几句原话】\n" + tail.join("\n")
+          + "\n这几句只是让你记得自己平时的口气、你俩怎么相处；不是这节课的内容，也别接着它们往下聊。");
+        return lines.join("\n\n");
+      } catch (e) { return ""; }
+    },
     // 三人课堂：两位角色之间设定过的关系（有方向：a->b 是 a 眼里的 b）
     relFor: (a, b) => ({ mine: ((rels[a + "->" + b] || {}).label || "").trim(), theirs: ((rels[b + "->" + a] || {}).label || "").trim() }),
     toast: toast,

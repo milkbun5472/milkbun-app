@@ -12,6 +12,12 @@
   //   不许塞进 ANTI_CLICHE 搭便车（v55.90 那条：能独立成立的规则就让它独立成立，
   //   挂在别人身上，别人不发的那一轮它就跟着消失）。
   const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 跟单聊同一层「线上说话」（她 2026-10-05：「一起学里人设很刻板印象，说话跟聊天不一样」）——
+  //   原来这儿一条都没有，他只能拿模型默认的讲课腔说话。不另写，直接调 engine 那一份。
+  const VOICE = () => (typeof onlineRegisterLayer === "function" ? onlineRegisterLayer() : "");
+  // 她是谁、你俩什么关系、你俩平时怎么说话：App 那头用单聊同一份拼法（herStableLines/coupleStatusLines）算好递进来。
+  //   面具按角色绑定走（profileFor）——跟谁上课，就是跟 TA 的那张脸。
+  const BESIDE_TAIL = "\n（上面这几块是你和她本来的样子；下面说的「用户」就是她。教也好学也好，开口还是你平时跟她说话的那个人。）";
   // ---- 内置 prompt 块 -------------------------------------------------
   const USER_SLOT_PROTECT =
     "【用户槽位保护（最高优先级）】\n" +
@@ -61,7 +67,7 @@
     if (mode === "teach")
       return "【当前场景：一起学 · 认真教】你在一对一地教「用户」学『" + subject + "』。" +
         "你是有能力的老师：按下方课程大纲的【当前单元】推进，讲解具体、给例子、可跟练，并留出让用户练习和提问的空间。" +
-        "一次只推进一小步，别把整个单元一口气倒完。用自然的教学口吻，不八股。";
+        "一次只推进一小步，别把整个单元一口气倒完。怎么讲、用什么口气，照你这个人来——你是会教的这个人，不是换了一个老师。";
     if (mode === "costudy")
       // 原来只说了「别装懂」，没说「那你拿什么来研究」——于是只剩附和、提问、说不确定，
       //   像陪聊不像搭档（她 2026-09-23：「一起研究现在是个什么模式怎么样能做更好一点」）。
@@ -71,7 +77,7 @@
         "别不懂装懂、别硬编权威答案或来源；拿不准就直说拿不准，说清楚是哪一点拿不准、怎么能验证。";
     if (mode === "nv1-teacher")
       return "【当前场景：一起学 · 你是老师，现场还有另一个同学】你在教「用户」和另一位同学一起学『" + subject + "』。" +
-        "按大纲【当前单元】推进，照顾两个学生，但绝不替他们回答。" + (extra ? "另一位同学：" + extra + "。" : "");
+        "按大纲【当前单元】推进，照顾两个学生，但绝不替他们回答；怎么讲、用什么口气，照你这个人来。" + (extra ? "另一位同学：" + extra + "。" : "");
     if (mode === "nv1-peer")
       // 原来写死「会答错、会提问、偶尔走神」——那是一个模板学生，谁来演都一样。
       return "【当前场景：一起学 · 你和用户是同学】你和用户一起跟老师" + (extra ? "「" + extra + "」" : "") + "学『" + subject + "』。" +
@@ -381,7 +387,9 @@
     if (typeof grownSelfBlock === "function" && ctx.grown) parts.push(grownSelfBlock(ctx.grown, ctx.grownEvolve));
     if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
     if (typeof WHOLE_CARD_RULE !== "undefined") parts.push(WHOLE_CARD_RULE);
-    if (profile.name || profile.persona)
+    if (VOICE()) parts.push(VOICE());
+    if (ctx.beside) parts.push(ctx.beside + BESIDE_TAIL);
+    else if (profile.name || profile.persona)
       parts.push("【和你一起学的人 · " + userName(profile) + "】\n" + (profile.persona || "（未填写）"));
     if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
 
@@ -3104,12 +3112,15 @@
     const prog = sess.progress || {};
     const chars = (sess.character_ids || []).map(function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); }).filter(Boolean);
     const teacher = sess.teacher_id ? chars.find(function (c) { return c.id === sess.teacher_id; }) : chars[0];
-    const userName = (props.profile && props.profile.name) || "我";
-    const ctx = { worldbook: props.worldbook, profile: props.profile, characters: props.characters };
+    const myFace = (props.profileFor && teacher ? props.profileFor(teacher.id) : null) || props.profile;   // 跟这位绑的那张面具
+    const userName = (myFace && myFace.name) || "我";
+    const ctx = { worldbook: props.worldbook, profile: myFace, characters: props.characters };
     function contextFor(char) {
       const recent = (sessRef.current.transcript || []).slice(-16).map(function (m) { return String(m.content || ""); }).join("\n");
       const me = props.selfFor && char ? props.selfFor(char) : null;
       return Object.assign({}, ctx, {
+        profile: (props.profileFor && char ? props.profileFor(char.id) : null) || props.profile,
+        beside: props.besideFor && char ? props.besideFor(char) : "",
         grown: me && me.grown || "", grownEvolve: !!(me && me.evolve), relFor: props.relFor,
         worldbook: props.worldbookFor && char ? props.worldbookFor(char.id, [sessRef.current.subject, recent].filter(Boolean).join("\n")) : props.worldbook
       });
@@ -3779,7 +3790,7 @@
       });
     }
     // 我来教：她当老师，角色当学生
-    const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, uName: (props.profile && props.profile.name) || "老师" };
+    const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
     if (view === "tbNew") return h(TbNew, { characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
       onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
     if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
@@ -3826,7 +3837,7 @@
       const sess = loadSessions().find(function (s) { return s.id === openId; });
       if (!sess) { setView("home"); return null; }
       return h(StudyThread, {
-        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, relFor: props.relFor, toast: props.toast,
+        session: sess, active: props.active, bgActive: props.bgActive, characters: props.characters, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, selfFor: props.selfFor, profileFor: props.profileFor, besideFor: props.besideFor, relFor: props.relFor, toast: props.toast,
         onBack: function () { refresh(); if (!sess.curriculum_id && fromRoomAt(sess.id)) return props.onBack(); setView(sess.curriculum_id ? "console" : "home"); if (sess.curriculum_id) { setCurId(sess.curriculum_id); restoreConsole(); } else restoreHome(); },
         onUpdated: function () { }
       });
@@ -3925,9 +3936,19 @@
       parts.push("【" + stus[0].name + " 和 " + stus[1].name + "】" + (r && (r.mine || r.theirs) ? [r.mine ? stus[0].name + " 眼里对方是：" + r.mine : "", r.theirs ? stus[1].name + " 眼里对方是：" + r.theirs : ""].filter(Boolean).join("；") : "之前没设定过关系：照不太熟的同学来"));
     }
     if (typeof PERSONA_REGISTER_ANCHOR !== "undefined") parts.push(PERSONA_REGISTER_ANCHOR);
+    if (VOICE()) parts.push(VOICE());
+    if (ctx.besideFor) stus.forEach(function (c) {
+      const b = ctx.besideFor(c);
+      if (b) parts.push((stus.length > 1 ? "〔以下是 " + c.name + " 和她〕\n" : "") + b);
+    });
     const wb = ctx.worldbookFor ? ctx.worldbookFor(stus[0].id, ctx.subject || "") : "";
     if (wb && String(wb).trim()) parts.push("【世界书】\n" + String(wb).trim());
     return parts.join("\n\n");
+  }
+  // 她在这节课上用的是哪张面具：跟第一个学生绑的那张（面具按角色绑定）
+  function tbU(stus, ctx) {
+    const p = ctx.profileFor && stus && stus[0] ? ctx.profileFor(stus[0].id) : null;
+    return (p && p.name) || ctx.uName;
   }
   function tbScene(s, stus, uName) {
     const two = stus.length > 1, names = stus.map(function (c) { return c.name; }).join("、");
@@ -3943,7 +3964,10 @@
     const two = stus.length > 1;
     return "【输出】只输出 JSON：{\"turns\":[{\"who\":\"" + (two ? stus[0].name + "或" + stus[1].name : stus[0].name) + "\",\"say\":\"一句话，一个气泡\"}],"
       + "\"notes\":{" + stus.map(function (c) { return "\"" + c.name + "\":\"" + c.name + " 此刻的课堂笔记全文，用自己的话分条记（每条一行，以「· 」开头），理解歪了就照歪的记\""; }).join(",") + "},"
-      + "\"fixed\":[\"这一轮被老师纠正过来的那几条的编号，没有就空数组\"],\"hand\":{\"who\":\"想举手的人，没有就空字符串\",\"q\":\"要问的问题\"}}";
+      + "\"fixed\":[\"这一轮被老师纠正过来的那几条的编号，没有就空数组\"],\"hand\":null}"
+      // 举手（她 2026-10-05：「每轮消息后面都跟着举手是啥」）：原来格式里摆着一个填好的 hand 槽，模型就每轮都填，
+      //   而且多半是把 turns 里刚问过的那句再抄一遍。现在默认 null，只说它是什么。
+      + "\nhand 默认就是 null。只有某个学生憋着一个【这一轮没说出口】的问题、想等老师讲完再问时，才写成 {\"who\":\"谁\",\"q\":\"那个问题\"}；已经在 turns 里问出来的，别再举一次手。";
   }
   function tbWho(stus, name) { const n = String(name || "").trim(); return stus.find(function (c) { return c.name === n || (c.remark && c.remark === n); }) || stus.find(function (c) { return n && (n.indexOf(c.name) >= 0 || c.name.indexOf(n) >= 0); }) || stus[0]; }
   // 连着同一边的合成一条、开头补一句老师的——有的接口不许 assistant 打头、不许同一边连发
@@ -3962,7 +3986,7 @@
   async function tbStart(active, stus, subject, material, ctx) {
     const two = stus.length > 1;
     const sys = tbPersonas(stus, Object.assign({}, ctx, { subject: subject }))
-      + "\n\n【这一步】" + ctx.uName + " 要给" + (two ? stus.map(function (c) { return c.name; }).join("和") + "两个人" : "你") + "上一节『" + subject + "』。"
+      + "\n\n【这一步】" + tbU(stus, ctx) + " 要给" + (two ? stus.map(function (c) { return c.name; }).join("和") + "两个人" : "你") + "上一节『" + subject + "』。"
       + "为每个学生设想 " + (two ? 2 : 3) + " 个初学这门课的人【最常见、最真实】的误解（要具体到一句话能判对错，别是「不太懂」这种空话；跟各自的人设和见识对得上" + (two ? "；两个人的别重样" : "") + "），"
       + "再写开课前" + (two ? "两人" : "你") + "会说的一两句（照性子：期待、紧张、嘴硬、走神都行）。"
       + (material && material.text ? "\n老师给的教案（误解要贴着这里面的内容设）：\n" + String(material.text).slice(0, 6000) : "")
@@ -3983,7 +4007,7 @@
     return { misconceptions: mis, transcript: turns };
   }
   async function tbTurn(active, s, stus, ctx) {
-    const sys = tbPersonas(stus, Object.assign({}, ctx, { subject: s.subject })) + "\n\n" + tbScene(s, stus, ctx.uName)
+    const sys = tbPersonas(stus, Object.assign({}, ctx, { subject: s.subject })) + "\n\n" + tbScene(s, stus, tbU(stus, ctx))
       + "\n【现在的笔记】\n" + stus.map(function (c) { return "〔" + c.name + "〕\n" + (tbNote(s, c.id) || "（还没记）"); }).join("\n") + "\n\n" + tbFmt(stus);
     const raw = await callAI(active, sys, tbTail(s, stus), { maxTokens: TOK.turn });
     const d = tbJSON(raw);
@@ -3993,8 +4017,12 @@
     const notes = {};
     if (d.notes && typeof d.notes === "object") Object.keys(d.notes).forEach(function (k) { notes[tbWho(stus, k).id] = String(d.notes[k] || "").trim(); });
     else if (typeof d.note === "string") notes[stus[0].id] = d.note.trim();
-    const hd = d.hand && typeof d.hand === "object" ? d.hand : (d.hand ? { who: stus[0].name, q: d.hand } : null);
-    return { turns: turns, notes: notes, fixed: (Array.isArray(d.fixed) ? d.fixed : []).map(String), hand: hd && hd.q ? { who: tbWho(stus, hd.who).id, q: String(hd.q).trim() } : null };
+    let hd = d.hand && typeof d.hand === "object" ? d.hand : (d.hand ? { who: stus[0].name, q: d.hand } : null);
+    // 跟刚说过的那句重了就不举：去掉标点空白后互相包含即算同一句
+    const bare = function (x) { return String(x || "").replace(/[\s（）()，。？！?!、,.…「」“”"'：:；;]/g, ""); };
+    const hq = hd && bare(hd.q);
+    if (!hq || turns.some(function (t) { const b = bare(t.text); return b && (b.indexOf(hq) >= 0 || hq.indexOf(b) >= 0); })) hd = null;
+    return { turns: turns, notes: notes, fixed: (Array.isArray(d.fixed) ? d.fixed : []).map(String), hand: hd ? { who: tbWho(stus, hd.who).id, q: String(hd.q).trim() } : null };
   }
   async function tbAutoQuiz(active, s, stus) {
     const conv = (s.transcript || []).map(function (m) { return (m.role === "user" ? "老师" : "学生" + (stus.length > 1 ? "（" + (stus.find(function (c) { return c.id === m.who; }) || stus[0]).name + "）" : "")) + "：" + m.text; }).join("\n").slice(-8000);
@@ -4004,7 +4032,7 @@
     return (Array.isArray(d.questions) ? d.questions : []).map(String).filter(Boolean).slice(0, 5);
   }
   async function tbAnswer(active, s, stus, ctx, qs) {
-    const sys = tbPersonas(stus, Object.assign({}, ctx, { subject: s.subject })) + "\n\n" + tbScene(s, stus, ctx.uName)
+    const sys = tbPersonas(stus, Object.assign({}, ctx, { subject: s.subject })) + "\n\n" + tbScene(s, stus, tbU(stus, ctx))
       + "\n【笔记】\n" + stus.map(function (c) { return "〔" + c.name + "〕\n" + (tbNote(s, c.id) || "（没记什么）"); }).join("\n")
       + "\n\n【这一步】下课了，老师出了小测，" + (stus.length > 1 ? "两个人各自答（别抄对方的，要抄也只能抄得半对）" : "你来答") + "。照【这节课真学到的】来答：笔记里有、听懂了的就答对；没讲过的、还误解着的，就照自己以为的答（会答错就答错，别硬凑正确答案）。用自己的口气，一题一两句。"
       + "\n【输出】只输出 JSON：{\"answers\":{" + stus.map(function (c) { return "\"" + c.name + "\":[\"第1题\",\"第2题\"]"; }).join(",") + "}}";
@@ -4016,7 +4044,7 @@
   }
   async function tbReview(active, s, stus, ctx) {
     const sys = tbPersonas(stus, Object.assign({}, ctx, { subject: s.subject }))
-      + "\n\n【这一步】刚上完 " + ctx.uName + " 教的一节『" + s.subject + "』。\n"
+      + "\n\n【这一步】刚上完 " + tbU(stus, ctx) + " 教的一节『" + s.subject + "』。\n"
       + stus.map(function (c) {
         const mis = tbMisOf(s, c.id), f = mis.filter(function (m) { return m.found; }).length;
         const q = (s.quiz || []).map(function (x, i) { const a = tbAns(x, c.id, s); return (i + 1) + ". " + x.q + " —— 答：" + ((a && a.a) || "") + (a && a.ok === true ? "（老师判对）" : a && a.ok === false ? "（老师判错）" : ""); }).join("\n");

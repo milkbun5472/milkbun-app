@@ -1,3 +1,4 @@
+import {skillTask} from './skills.mjs?v=fg-59c6445cfc162636';
 // Local habits are earned by actual work/choices and share the pet's career save.
 export const WORK_HABITS = {
  bakery:{label:'在饭碗边等人',done:'像守面包柜台一样，在饭碗边安静等了一会儿。',pose:'look'},
@@ -22,7 +23,7 @@ export function learnWorkHabit(h,id,{finished=false,choice='',pressured=false}={
  h.scores[id]=bound(h.scores[id]+(finished?.22:pressured?0:.025)+(id==='stall'&&choice==='keep'?.065:0));
  if(pressured)h.pressure[id]=bound(h.pressure[id]+.12);
 }
-export const carriesToy=t=>t?.kind==='invitePlay'||t?.kind==='habit'&&['alley','stall'].includes(t.habit);
+export const carriesToy=t=>skillTask(t)&&t.skill==='fetch'||t?.kind==='invitePlay'||t?.kind==='habit'&&['alley','stall'].includes(t.habit);
 export const habitTask=t=>t?.kind==='habit'&&!!WORK_HABITS[t.habit]&&t.source==='self';
 export function chooseWorkHabit(care,career,people,random){
  if(!career?.habits||career.job||care.helper||care.habitCooldown>0||care.energy<50||care.satiety<55||care.mood<35)return null;
