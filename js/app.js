@@ -13468,6 +13468,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const item = safeArr[i];
           // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
           if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasPause === "function" && ttsHasPause(item.text)) item.text = stripPauseMarks(item.text);
+          // 带声音标签的那句是要说出口的（单聊同一条判据，见 markPauseVoice）
+          if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasSoundTag === "function" && ttsHasSoundTag(item.text)) item.voice = true;
           // 群里一条自己包了【voice】…【/voice】：当语音发，标签擦掉（跟单聊 markPauseVoice 认的同一组写法）
           if (item && typeof item.text === "string" && /^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]/i.test(item.text)) {
             item.text = item.text.replace(/^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]\s*/i, "").replace(/\s*[【\[<]\s*\/\s*(?:voice|语音)\s*[】\]>]\s*$/i, "").trim();

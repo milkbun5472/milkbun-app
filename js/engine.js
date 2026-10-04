@@ -5943,6 +5943,8 @@ function ttsHasMark(text) {
 // 停顿标记只有语音才有意义（<#0.5#> 是说给 TTS 听的）。模型偶尔把一条语音写进了普通文字气泡，
 // 气泡里就冒出一串 <#0.5#>（群里有人报 2026-09-28）。带停顿标记的气泡＝TA 本来想发语音：
 // 连着的几条并成一条语音还回去，不带标记的原样留在文字里。
+// 这句里有没有声音标签（(sighs) 那种）——单聊、群聊认语音都问这一处
+function ttsHasSoundTag(text) { return new RegExp(TTS_MARK_TAG_RE.source, "i").test(String(text == null ? "" : text)); }
 function stripPauseMarks(text) { return String(text == null ? "" : text).replace(TTS_MARK_PAUSE, "").replace(/[ \t]{2,}/g, " ").trim(); }
 function ttsHasPause(text) {
   const s = String(text == null ? "" : text);
@@ -5986,6 +5988,12 @@ function markPauseVoice(words) {
       return;
     }
     if (w && typeof w === "object") return;   // 认不出的对象不当字发出去（不然就是一串 [object Object]）
+    // 带声音标签的文字句【算语音】（她 2026-10-04 截图：「(clear-throat) 刚被特别提示音震醒…… (sighs) 别生气嘛」
+    //   掉成了文字气泡）。跟停顿记号不一样：<#秒#> 是节奏、文字里写多了擦掉就行；
+    //   (sighs) 这种是【声音】，只有语音里才教过、也只在语音里出得来声——它出现在哪句，哪句就是要说出口的。
+    if (typeof w === "string" && typeof ttsHasSoundTag === "function" && ttsHasSoundTag(w)) {
+      flush(); out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push(w.trim()); return;
+    }
     // 带 <#秒#> 停顿的文字句【不再猜成语音】（她 2026-09-30 拍板）：现在有 {"voice":…} 这条正经写法了，
     //   文字里的停顿记号只是写多了——擦掉记号，照文字发。
     flush();
