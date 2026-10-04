@@ -18,7 +18,7 @@ test("闸：默认关、只管主线单聊、正聊着不拦、一段只掷一�
   assert.match(g, /if \(chatKey && chatKey !== char\.id\) return null/);
   assert.match(g, /BUSY_GAP_MIN \* 60000\) return null/);
   assert.match(g, /h0\.segKey === b\.segKey\) return null/);
-  assert.match(g, /Math\.random\(\) < BUSY_ODDS\[b\.level\]/);
+  assert.match(g, /Math\.random\(\) < \(b\.odds != null \? b\.odds : BUSY_ODDS\[b\.level\]\)/);
   assert.doesNotMatch(g, /replyNow|runProbe|callAI/, "掷骰子这一步一分钱不花");
   assert.match(comp, /const \[busyHold, setBusyHold\] = useState\(settings\.busyHold === true\)/, "开关默认关");
   assert.match(comp, /busyHold: busyHold,/);
@@ -27,8 +27,8 @@ test("闸：默认关、只管主线单聊、正聊着不拦、一段只掷一�
 test("让TA回复：拦下就只落她的话；再按一次就当场回；忙完由主动那一路回一次", () => {
   const r = cut(app, "const bg = busyGate(activeChar, chatKey);", "return replyNow(activeChar.id, extraText, null, { room, chatKey });");
   assert.match(r, /if \(bg && bg\.held\) \{[\s\S]*pushUser\(activeChar\.id, extra, chatKey\);[\s\S]*return;/);
-  assert.match(r, /busyNudge: \{ title: bg\.nudge\.title \}/);
-  assert.match(app, /replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title \} \}\)/);
+  assert.match(r, /busyNudge: \{ title: bg\.nudge\.title, sleep: !!bg\.nudge\.sleep \}/);
+  assert.match(app, /replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title, sleep: !!h0\.sleep \} \}\)/);
   assert.match(app, /paceHint \+ callHint \+ busyHint \+ proactiveHintAll/);
   // busyHint 读 uName，必须在 uName 声明之后（TDZ）
   assert.ok(app.indexOf("const busyHint = opts.busyBack") > app.indexOf("const uName = userName(profile); // 须在下面"));
@@ -50,8 +50,21 @@ test("提示词里不说「催」：只说你还在忙、抽空看了一眼（�
 });
 
 test("忙完那一回：回成了才算数，关 App、断网、被截断下次还会来；忙完后她自己按就当TA看到了", () => {
-  assert.match(app, /pOnce\("busy:" \+ cid, "busy:" \+ cid \+ ":" \+ h0\.at,\s*\(\) => replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title \} \}\),\s*\(\) => busyRelease\(cid\)\);/);
+  assert.match(app, /pOnce\("busy:" \+ cid, "busy:" \+ cid \+ ":" \+ h0\.at,\s*\(\) => replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title, sleep: !!h0\.sleep \} \}\),\s*\(\) => busyRelease\(cid\)\);/);
   assert.match(app, /Date\.now\(\) >= \(h0\.until \|\| 0\) \? \{ back: h0 \} : \{ nudge: h0 \}/);
-  assert.match(app, /busyBack: \{ title: bg\.back\.title \}/);
+  assert.match(app, /busyBack: \{ title: bg\.back\.title, sleep: !!bg\.back\.sleep \}/);
   assert.match(app, /x_busyHold/, "拦下来的那笔落盘，关了 App 也记得");
+});
+
+// 她 2026-10-05：「睡觉的时候让他不回复其实一次都没触发……挂到忙碌晚点回那里」
+test("睡着也走晚点回那一条：拦下就等到醒，醒了回一句；被叫醒有自己的说法", () => {
+  assert.match(app, /const sleepHoldFor = char => \{\n\s+if \(sleepPhaseOf\(char\) !== "asleep"\) return null;/);
+  assert.match(app, /const zz = sleepHoldFor\(char\);\n\s+if \(zz\) return zz;/, "busyNowFor 没先问睡没睡");
+  assert.match(app, /opts\.busyBack && opts\.busyBack\.sleep \? /);
+  assert.match(app, /opts\.busyNudge && opts\.busyNudge\.sleep \? /);
+});
+// 群↔私聊说一嘴：掷的是给谁开门，不是替他说
+test("群里私下说一嘴、私聊去群里说一嘴，都有本地骰子开门", () => {
+  assert.match(app, /const gDmPick = gDmMembers\.length && Math\.random\(\) < GDM_ODDS \?/);
+  assert.match(app, /Math\.random\(\) < TOGROUP_ODDS && _gLast\(toGroupTarget\)/);
 });

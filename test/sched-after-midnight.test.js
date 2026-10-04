@@ -63,7 +63,8 @@ test("凌晨兜底只在【今天第一项还没到】的时候出手", () => {
 
 test("聊天顶栏、单聊行程块、群里那一行，三处都要接", () => {
   const hits = (code.match(/schedCarryNowFor\(char\)/g) || []).length;
-  assert.equal(hits, 3, "现在只接了 " + hits + " 处");
+  // v74.80 起第四处：睡着晚点回要知道几点醒（sleepHoldFor）
+  assert.equal(hits, 4, "现在只接了 " + hits + " 处");
   const i = code.indexOf('title: "还没开始今天的安排"');
   assert.ok(i > 0);
   const before = code.slice(Math.max(0, i - 400), i);
