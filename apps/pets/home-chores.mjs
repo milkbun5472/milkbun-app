@@ -1,8 +1,8 @@
-import {restoreHomeCondition} from './home-condition.mjs?v=fg-4bd795b35ab50198';
-import {createHomeNavigation,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-4bd795b35ab50198';
-import {turnPet,walkRoute} from './movement.mjs?v=fg-4bd795b35ab50198';
-import {nextRandom} from './autonomy.mjs?v=fg-4bd795b35ab50198';
-import {residentStepClear,residentGoalClear} from './resident-choice.mjs?v=fg-4bd795b35ab50198';
+import {restoreHomeCondition} from './home-condition.mjs?v=fg-9fe6ba94028d573f';
+import {createHomeNavigation,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-9fe6ba94028d573f';
+import {turnPet,walkRoute} from './movement.mjs?v=fg-9fe6ba94028d573f';
+import {nextRandom} from './autonomy.mjs?v=fg-9fe6ba94028d573f';
+import {residentStepClear,residentGoalClear} from './resident-choice.mjs?v=fg-9fe6ba94028d573f';
 
 export const HOME_CHORES={toys:{label:'收回玩具',duration:1.4},bowl:{label:'擦饭碗边',duration:5},water:{label:'换一碗清水',duration:6},bedding:{label:'整理睡处',duration:5}};
 const bound=(v,a,b,f=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;

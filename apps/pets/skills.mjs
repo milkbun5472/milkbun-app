@@ -1,4 +1,4 @@
-import {homePoint} from './initiative.mjs?v=fg-4bd795b35ab50198';
+import {homePoint} from './initiative.mjs?v=fg-9fe6ba94028d573f';
 export const PET_SKILLS={come:{label:'听名字过来',cue:'叫它过来',duration:3},stay:{label:'坐好等一等',cue:'请它等一等',duration:6},fetch:{label:'把玩具叼回来',cue:'请它叼回来',duration:1.2}};
 const count=v=>Number.isFinite(v)?Math.max(0,Math.min(10000,Math.floor(v))):0;
 const key=v=>v==='you'||typeof v==='string'&&/^companion:.{1,80}$/.test(v);
