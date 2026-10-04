@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PET_ACTIONS,samplePetAction,postureFrame} from './pet-action.mjs';
-import {restingTailWeights,kittenBackWeights} from './pet-skin.mjs';
+import {restingTailWeights,kittenBackWeights,softCrotchWeights} from './pet-skin.mjs';
 import {solveLimb} from './cat-motion.mjs';
 const size=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
 test('both real rigs can reach the folded sleeping and seated paw targets',()=>{
@@ -31,4 +31,11 @@ test('tail tip repair removes its residual torso pull without affecting the skul
 test('cat back fur no longer follows the face, while the actual rear skull stays rigid',()=>{
  const row=kittenBackWeights([0,.46,-.15],['head','chest','pelvis','earL'],[.8,.1,.1,0]);assert.equal(new Map(row).get('head')||0,0);assert.ok(new Map(row).get('pelvis')>.4);
  for(const point of [[0,.60,.064],[-.14,.71,.198],[0,.43,.437]])assert.deepEqual(kittenBackWeights(point,['head','chest','pelvis','earL'],[1,0,0,0]),[['head',1],['chest',0],['pelvis',0],['earL',0]]);
+});
+
+test('leg-root influence crosses the old hard crotch boundary continuously and keeps paw soles rigid',()=>{
+ const names=['chest','frontLLower','frontLPaw','pelvis'],weights=[1,0,0,0];
+ const a=new Map(softCrotchWeights([-.068,.115-1e-6,.23],names,weights)),b=new Map(softCrotchWeights([-.068,.115+1e-6,.23],names,weights));
+ for(const key of new Set([...a.keys(),...b.keys()]))assert.ok(Math.abs((a.get(key)||0)-(b.get(key)||0))<.0001);
+ assert.equal(new Map(softCrotchWeights([-.11,.02,.27],names,weights)).get('frontLPaw'),1);
 });

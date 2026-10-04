@@ -1,6 +1,6 @@
-import {postureFrame} from './pet-action.mjs';
-import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs';
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs';
+import {postureFrame} from './pet-action.mjs?v=fg-2540c9ca15689c36';
+import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-2540c9ca15689c36';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-2540c9ca15689c36';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -45,7 +45,7 @@ export function walkPhase(cycle,name){return ((cycle+WALK_PHASE[name])%1+1)%1;}
 export function normalizeTail(value={}){
   return {wag:value.wag!==false,pitch:clamp(Number(value.pitch)||0,-25,25),yaw:clamp(Number(value.yaw)||0,-35,35)};
 }
-export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=false,expressionState,eyes}={}){
+export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=false,expressionState,eyes,resetAction=false}={}){
   const modelScale=root.getWorldScale(new T.Vector3()).x*cat.scale.x;
   const controls=new Map();
   cat.updateWorldMatrix(true,true);
@@ -64,13 +64,13 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
   const response=()=>responseTime<0?0:Math.sin(Math.PI*Math.min(1,responseTime/2.6));
   let mood=normalizePetMood('neutral'),pose=samplePetMood(rig.species,mood),action={sit:0,lie:0,crouch:0,chestPitch:0,earPitch:0,tailCurl:0,tailQuiet:0,headPitch:0,headRoll:0,headYaw:0,height:0,chestHeight:0,pelvisHeight:0,roll:0},actionTarget={...action};
   if(expressionState?.pose)for(const key of Object.keys(pose))if(Number.isFinite(expressionState.pose[key]))pose[key]=expressionState.pose[key];
-  if(expressionState?.action)for(const key of Object.keys(action))if(Number.isFinite(expressionState.action[key]))action[key]=actionTarget[key]=expressionState.action[key];
+  if(!resetAction&&expressionState?.action)for(const key of Object.keys(action))if(Number.isFinite(expressionState.action[key]))action[key]=actionTarget[key]=expressionState.action[key];
   const chestOffset=new T.Vector3(),pelvisOffset=new T.Vector3();
   function expression(dt){elapsed+=dt;if(responseTime>=0){responseTime+=dt;if(responseTime>=2.6)responseTime=-1;}const target=samplePetMood(rig.species,mood,elapsed),blend=1-Math.exp(-2.5*dt);for(const key of Object.keys(pose))pose[key]+=(target[key]-pose[key])*blend;for(const key of Object.keys(action))action[key]+=(actionTarget[key]-action[key])*(1-Math.exp(-3.8*dt));}
   function poseHead(chestQ,offset,amount=0,phase=0,turn=0){
     const pivot=controls.get('chest').head,head=rig.bones.head;
     const reply=response(),local=new T.Quaternion().setFromEuler(new T.Euler(pose.headPitch+action.headPitch-.004*amount*Math.sin(phase)-.10*reply,pose.headYaw+action.headYaw+clamp(turn*.07,-.08,.08),pose.headRoll+action.headRoll-.005*amount*Math.sin(phase)+.18*reply*Math.sin(responseTime*3)));
-    const headQ=chestQ.clone().multiply(local),anchor=transformed(head.head,pivot,chestQ,offset);
+    const headQ=chestQ.clone().multiply(local),anchor=transformed(head.head,pivot,chestQ,offset);anchor[1]-=action.lie*(1-amount)*(rig.species==='dog'?.030:.040);
     place('head',anchor,add(anchor,new T.Vector3().fromArray(sub(head.tail,head.head)).applyQuaternion(headQ).toArray()),headQ);
     for(const [side,sign] of [['L',1],['R',-1]]){
       const name='ear'+side,d=rig.bones[name];if(!d)continue;

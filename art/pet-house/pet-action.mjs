@@ -1,7 +1,7 @@
 // One pose vocabulary for home care, street idling, friends and skin inspection.
 // Root travel and completion stay with their existing gameplay controllers.
 export const PET_ACTIONS=[
- ['stand','自然站立'],['walk','慢走'],['trot','小跑'],['turn','转身'],
+ ['stand','自然站立'],['greet','回应街坊'],['walk','慢走'],['trot','小跑'],['turn','转身'],
  ['sleep','趴着睡'],['wake','醒来起身'],['eat','吃饭'],['drink','喝水'],
  ['treat','吃零食'],['pet','被摸摸'],['sniff','低头闻闻'],['look','四处看看'],
  ['sit','坐下等候'],['waitFood','等添粮'],['askSnack','讨零食'],['play','追玩具'],
@@ -35,7 +35,7 @@ export function postureFrame(rig,action,time=0,amount=0){
  const breathe=.0018*Math.sin(time*(lie> .1?1.7:2.1))*quiet;
  return {lie,sit,
   chestY:breathe-(dog?.109:.110)*lie-.044*crouch+.006*sit,
-  pelvisY:breathe*.65-(dog?.120:.120)*lie-.024*crouch-(dog?.141:.126)*sit,
+  pelvisY:breathe*.65-.120*lie-.024*crouch-(dog?.141:.126)*sit,
   chestScale:1-.32*lie,pelvisScale:1-.28*lie,
   chestPitch:.07*lie-.22*sit+action.chestPitch*quiet,
   pelvisPitch:.07*lie+.16*sit,

@@ -1,6 +1,6 @@
 // Eyelids follow the authored, skinned face through rest-position shader masks.
 // No floating stickers, extra textures or changes to the eye/nose dye mask.
-export function createPetEyes(T,model,species,dye){
+export function createPetEyes(model,species){
  const dog=species==='dog',closed={value:0};
  model.traverse(o=>{if(!o.isMesh)return;const before=o.material.onBeforeCompile,key=o.material.customProgramCacheKey;
   o.material.onBeforeCompile=shader=>{before(shader);shader.uniforms.uEyeClosed=closed;

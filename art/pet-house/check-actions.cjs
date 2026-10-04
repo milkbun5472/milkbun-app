@@ -17,7 +17,7 @@ const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18961',out=process.env.P
    const r=await page.evaluate(id=>{const p=petHousePreview,T=actionT;p.petRoot.position.set(0,.041,0);p.petRoot.rotation.y=0;p.pet.setMood('neutral');p.pet.motion.setActionPose({});for(let i=0;i<240;i++)p.pet.motion.update(1/60,0);const m=p.pet.bind({ground:()=>.04,matchSpeed:true}),original=actionPoints(),pairs=[];for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)pairs.push([i,j,original[i].distanceTo(original[j])]);
     const mood=id.startsWith('mood-')?id.slice(5):id==='sleep'||id==='wake'?'sleepy':['pet','play','treat'].includes(id)?'happy':'neutral';p.pet.setMood(mood);let maxFootError=0,maxSkullError=0,maxHeadStep=0,previous=null;
     if(id==='wake'){m.setActionPose(actionP.samplePetAction('sleep',0,{species:p.pet.species}));for(let i=0;i<180;i++)m.update(1/60,0);p.pet.setMood('relaxed');}
-    const frames=id==='wake'?24:240;
+    if(id==='greet')m.respond();const frames=id==='wake'?24:id==='greet'?78:240;
     for(let i=0;i<frames;i++){const time=i/60,walking=['walk','trot','carry'].includes(id),speed=walking?(id==='walk'?.20:.8)*p.pet.model.scale.x:0;if(walking)p.petRoot.position.z+=speed/60;if(id==='turn')p.petRoot.rotation.y+=.010;
      m.setActionPose(actionP.samplePetAction(id,time,{species:p.pet.species}));m.update(1/60,speed,0,walking||id==='turn');const s=m.snapshot();for(const f of s.feet)maxFootError=Math.max(maxFootError,Math.hypot(...f.ankle.map((v,j)=>v-f.goal[j])));
      const points=actionPoints();for(const[a,b,d]of pairs)maxSkullError=Math.max(maxSkullError,Math.abs(points[a].distanceTo(points[b])-d));if(previous)maxHeadStep=Math.max(maxHeadStep,points[0].distanceTo(previous));previous=points[0];
@@ -29,7 +29,7 @@ const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18961',out=process.env.P
    await page.locator('canvas').screenshot({path:path.join(out,species+'-'+id+'.png')});
    if(id==='sleep'){
     report[species].sleepRebind=await page.evaluate(()=>{const p=petHousePreview,before=actionPoints(),pose=p.pet.motion.snapshot();p.pet.bind({ground:()=>.04,matchSpeed:true});const after=actionPoints();return {maxChange:Math.max(...before.map((v,i)=>v.distanceTo(after[i]))),lie:p.pet.motion.snapshot().action.lie,posePreserved:JSON.stringify(pose.pose)===JSON.stringify(p.pet.motion.snapshot().pose)};});assert.ok(report[species].sleepRebind.maxChange<1e-6);assert.equal(report[species].sleepRebind.posePreserved,true);
-    await page.evaluate(()=>{const p=petHousePreview,T=actionT,at=p.petRoot.position.clone().add(new T.Vector3(0,.30,0));p.camera.position.copy(at).add(new T.Vector3(2,.12,.35));p.camera.lookAt(at);p.camera.updateProjectionMatrix();p.renderer.render(p.scene,p.camera);});await page.locator('canvas').screenshot({path:path.join(out,species+'-sleep-side.png')});
+    await page.evaluate(()=>{const p=petHousePreview,T=actionT,at=p.petRoot.position.clone().add(new T.Vector3(0,.30,-.10));p.camera.left=-.85;p.camera.right=.85;p.camera.top=.85;p.camera.bottom=-.85;p.camera.position.copy(at).add(new T.Vector3(2,.12,.35));p.camera.lookAt(at);p.camera.updateProjectionMatrix();p.renderer.render(p.scene,p.camera);});await page.locator('canvas').screenshot({path:path.join(out,species+'-sleep-side.png')});assert.equal(await page.evaluate(()=>{const p=petHousePreview;p.pet.bind({ground:()=>.04,resetAction:true});return p.pet.motion.snapshot().action.lie;}),0,'Appearance preview starts upright without altering gameplay');
    }
   }
  }
