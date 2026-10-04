@@ -6183,7 +6183,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   }
   // 情侣空间子模块：如果馆
   if (partner && cp[view] && cp[view].status === "together" && sub === "ifroom") {
-    return h(IfRoom, { partner, lines: ifLines, uName: (profile || {}).name || "我", busy: ifBusy, bgBusy: ifBgBusy,
+    // 小剧场 if 线也戴这个人认识的那张面具（她 2026-10-03 问「情侣空间的面具名字也是对的吧」
+    //   顺着查出来的：封面那儿认了面具，这两处还认着主面具的名字）
+    return h(IfRoom, { partner, lines: ifLines, uName: ((typeof profileFor === "function" && profileFor(partner.id)) || profile || {}).name || "我", busy: ifBusy, bgBusy: ifBgBusy,
       onOpen: hint => onIfOpen(partner, hint), onAdvance: onIfAdvance, onBg: onIfBg, onEnd: onIfEnd, onDrop: onIfDrop,
       shotBusy: studioBusy, onShot: onIfShot,
       // 背景也能从已经有的合照里挑一张（她 2026-09-18）。名单跟合照墙是同一份，
@@ -6279,7 +6281,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   //   跟这一页别的十几扇门做成同一个形状就好了——退一层就是退一层，滚动位置也跟着回来。
   if (partner && cp[view] && cp[view].status === "together" && sub === "capsule" && typeof window !== "undefined" && window.CapsuleApp) {
     return h(window.CapsuleApp, Object.assign({}, capsuleProps || {}, {
-      characters: characters, characterId: partner.id, profile: profile, onBack: () => setSub(null) }));
+      characters: characters, characterId: partner.id, profile: ((typeof profileFor === "function" && profileFor(partner.id)) || profile), onBack: () => setSub(null) }));
   }
   // 情侣空间子模块：旅行（v62.26，从愿望板进，返回也回愿望板——一层层退）
   if (partner && cp[view] && cp[view].status === "together" && sub === "trip") {
