@@ -1,7 +1,7 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-d529ac6a9708be65';
-import {turnPet} from './movement.mjs?v=fg-d529ac6a9708be65';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-d529ac6a9708be65';
-import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-d529ac6a9708be65';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-be7752e2ce00694b';
+import {turnPet} from './movement.mjs?v=fg-be7752e2ce00694b';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-be7752e2ce00694b';
+import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-be7752e2ce00694b';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[]}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false;
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);
@@ -32,11 +32,11 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  function tick(dt){resetPose();schedule();homeTime+=dt;targetClock+=dt;reactionTime=Math.max(0,reactionTime-dt);pet.setMood(moodFromCare(care.state,reactionTime>0));let task=care.state.task;const before=task;
   if(task?.target&&['person','toy'].includes(task.place)&&task.kind!=='moveAway'&&!person(task)){dropToy();care.cancel();schedule();onSave();task=null;}
   if(task?.phase==='walking'&&task.target&&!task.spot&&!(task.kind==='invitePlay'&&task.stage==='fetch')&&targetClock>.6){targetClock=0;const dest=destination(task),last=route.at(-1);if(dest&&last&&Math.hypot(dest.x-last.x,dest.z-last.z)>.25)route=nav.path(local(),dest)||route;}
-  let speed=move(dt);if(task?.phase==='walking'&&!route.length){if(task.place==='person')task.spot=local();care.arrive();homeTime=0;task=care.state.task;if(task?.kind==='sleep'){pet.motion.dispose();pet.root.rotation.y=task.place==='person'?Math.atan2(person(task).position.x-pet.root.position.x,person(task).position.z-pet.root.position.z):HOME_PLACES[task.place].yaw;}onSave();}
+  let speed=move(dt);if(task?.phase==='walking'&&!route.length){if(task.place==='person')task.spot=local();const visits=care.state.recent.length;care.arrive();homeTime=0;task=care.state.task;if(care.state.recent.length!==visits)onNotice('它来找你们了',care.state.recent.at(-1).text);if(task?.kind==='sleep'){pet.motion.dispose();pet.root.rotation.y=task.place==='person'?Math.atan2(person(task).position.x-pet.root.position.x,person(task).position.z-pet.root.position.z):HOME_PLACES[task.place].yaw;}onSave();}
   const doing=task?.phase==='doing',p=task&&person(task)?.position;let desired=null,pose={};
   if(doing&&['eat','treat'].includes(task.kind))pose={headPitch:.18+.04*Math.sin(task.time*5)};
   if(doing&&task.kind==='waitFood'){const lookBowl=Math.floor(task.time/3)%2===0;desired=lookBowl?HOME_PLACES.feeding.yaw:p?Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z):0;pose={headPitch:lookBowl?.2:-.06};}
-  if(doing&&['pet','invitePet'].includes(task.kind)){const rub=task.kind==='pet'||task.time<4;pose={roll:rub?.07*Math.sin(task.time*2.5):.025,height:-.025,chestHeight:rub?-.01:-.025,headRoll:rub?.12*Math.sin(task.time*2.5):.08,headYaw:rub?.08*Math.sin(task.time*2):0};if(p)desired=Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z);}
+  if(doing&&['pet','invitePet'].includes(task.kind)){const rub=task.kind==='pet'||task.time<4;pose={roll:rub?.07*Math.sin(task.time*2.5):.025,height:rub?-.025:-.085,chestHeight:rub?-.01:-.065,pelvisHeight:rub?0:-.04,headRoll:rub?.12*Math.sin(task.time*2.5):.08,headYaw:rub?.08*Math.sin(task.time*2):0};if(p)desired=Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z);}
   if(doing&&task.kind==='askSnack'){pose={headPitch:-.12,headYaw:.12*Math.sin(task.time*.9)};if(p)desired=Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z);}
   if(doing&&task.kind==='watch')desired=HOME_PLACES.window.yaw+.08*Math.sin(task.time*.6);
   if(task?.kind==='invitePlay'&&task.stage==='fetch'&&doing){const q=care.state.toyPlaces[task.toy];desired=Math.atan2(q.x-pet.root.position.x,q.z-pet.root.position.z);}
@@ -48,8 +48,8 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
   if(task?.kind==='invitePlay'){
    const stage=task.stage;ball.visible=task.toy==='ball';mouse.visible=!ball.visible;treat.visible=false;
    if(stage==='carry'||stage==='lower'||stage==='fetch'&&doing&&task.time>=1.6){held=true;toy.visible=true;const q=mouth();if(stage==='fetch')q.lerp(groundToy(care.state.toyPlaces[task.toy]),Math.max(0,(2-task.time)/.4));if(stage==='lower')q.lerp(groundToy({x:q.x,z:q.z}),Math.max(0,Math.min(1,(task.time-.8)/.4)));toy.position.copy(q);toy.quaternion.copy(pet.root.quaternion);}
-   if(stage==='fetch'&&care.pickupToy()){schedule();onSave();}
-   else if(stage==='lower'&&care.deliverToy({x:toy.position.x,z:toy.position.z})){held=false;toy.visible=false;schedule();onSave();}
+   if(stage==='fetch'&&care.pickupToy()){schedule();onNotice('它想一起玩','叼起玩具，正送到'+(task.name||'你')+'身边。');onSave();}
+   else if(stage==='lower'&&care.deliverToy({x:toy.position.x,z:toy.position.z})){held=false;toy.visible=false;schedule();onNotice('它来找你们了',care.state.recent.at(-1).text);onSave();}
   }else if(doing&&task.kind==='play'){toy.visible=true;treat.visible=false;ball.visible=task.toy==='ball';mouse.visible=!ball.visible;const phase=task.time*.65,base=task.place==='person'?task.spot:HOME_PLACES.rug,target={x:base.x+.55*Math.sin(phase),z:base.z+.4*Math.cos(phase)};toy.position.set(target.x,nav.ground(target.x,target.z)+.12+.06*Math.abs(Math.sin(task.time*2)),target.z);toy.rotation.y=phase;care.state.toyPlaces[task.toy]=nav.restore(target);if(!route.length&&Math.hypot(target.x-pet.root.position.x,target.z-pet.root.position.z)>.18)route=nav.path(local(),target)||[];}
   else if(doing&&task.kind==='treat'){toy.visible=true;treat.visible=true;ball.visible=false;mouse.visible=false;toy.position.copy(mouth());}
   if(doing&&task.kind==='sleep'){const blend=Math.min(1,homeTime/1.3),p=task.place==='person'?task.spot:HOME_PLACES[task.place];if(task.place==='bed'){pet.root.position.x=T.MathUtils.lerp(p.x,-1.89,blend);pet.root.position.z=T.MathUtils.lerp(p.z,-1.64,blend);pet.root.position.y=.11+.25*blend+Math.sin(blend*Math.PI)*.18;}poseBase.model.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),blend*1.45));pet.root.updateMatrixWorld(true);const bottom=new T.Box3().setFromObject(poseBase.model).min.y,floor=task.place==='bed'?.32:nav.ground(pet.root.position.x,pet.root.position.z);pet.root.position.y+=floor-bottom+.003*(1+Math.sin(task.time*1.6));}
