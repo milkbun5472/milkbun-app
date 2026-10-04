@@ -9075,6 +9075,8 @@ function AutoRefreshConfig(props) {
   const policy = window.AutoRefreshPolicy.normalize(props.policy);
   const chars = props.characters || [];
   const [open, setOpen] = useState("");
+  // 后台跑完提示我（她 2026-10-04）：下面这些自己跑的活儿，每一枪成没成都弹一句、说清是谁的什么
+  const [bgToast, setBgToast] = useState(() => loadJSON("x_bgToast", true) !== false);
   const groups = [
     { id: "content", eyebrow: "不用你点，它自己补上的", title: "自动内容", note: "跨天、跨周或回到 App 时补齐内容。" },
     { id: "social", eyebrow: "他们自己会做的那些事", title: "主动社交", note: "角色自己开口、发帖或留下东西。" }
@@ -9086,6 +9088,11 @@ function AutoRefreshConfig(props) {
   return h("div", null,
     h("div", { style: { padding: "2px 2px 14px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } },
       "总开关关掉只会暂停，不会抹掉下面每个人的选择；手动刷新、手动写日记等按钮仍可照常使用。"),
+    h("div", { className: "flex items-center justify-between", style: { marginBottom: 14, padding: "15px 15px 13px", gap: 12, borderRadius: 3, background: t.bg2, border: "1px solid " + CFG_LINE(t) } },
+      h("div", { style: { minWidth: 0 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "后台跑完提示我"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, marginTop: 3 } }, "下面这些自己跑的，每调用一次都弹一句：谁的什么、走的哪条线路、成没成")),
+      h(Toggle, { on: bgToast, onChange: on => { setBgToast(on); saveJSON("x_bgToast", on); } })),
     h(ApiMeterCard, { toast: props.toast }),
     groups.map(g => h("div", { key: g.id, style: { marginBottom: 22 } },
       h("div", { style: { padding: "0 2px 9px" } },

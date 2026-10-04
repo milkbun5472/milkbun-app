@@ -667,6 +667,11 @@ async function callAI(p, system, messages, opts) {
     messages = [{ role: "user", content: again ? "上一次没能用上，请按上面的要求重新完整生成一次。" : "请按上面的要求开始生成，直接给出结果。" }];
   }
   const t0 = Date.now();
+  // 后台自己跑的那一枪（AutoGate 里挂着名字的活儿）：成没成都广播一声，app 那头弹提示。
+  //   发起那一刻就把名字取下来——等它回来，那件活儿可能已经收工了。
+  const bgShow = typeof window !== "undefined" && window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
+  const bgRoute = (p && (p.name || p.model)) || "";
+  const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
   let streamed = false;
   const o = Object.assign({}, opts || {});
@@ -689,6 +694,7 @@ async function callAI(p, system, messages, opts) {
   try {
     const first = await once();
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
+    bgSay(true);
     return first;
   } catch (e) {
     const msg = String((e && e.message) || e || "");
@@ -701,7 +707,7 @@ async function callAI(p, system, messages, opts) {
       for (const wait of waits) {
         await new Promise(r => setTimeout(r, wait));
         if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
-        try { return await once(); }
+        try { const again = await once(); bgSay(true); return again; }
         catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }
@@ -711,6 +717,7 @@ async function callAI(p, system, messages, opts) {
     }
     // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
     const m2 = String((e && e.message) || e || "");
+    bgSay(false, m2);
     if (!CONFIG_ERR.test(m2)) {
       try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2 } })); } catch (_) {}
     }
