@@ -1,9 +1,9 @@
-import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-7670c9121cd6d59a';
+import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-b8eec8a77ffcfedb';
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-7670c9121cd6d59a';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-b8eec8a77ffcfedb';
 export const WORK_EVENTS=BAKERY_EVENTS;
-import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,chooseShopping} from './shopping.mjs?v=fg-7670c9121cd6d59a';
+import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,chooseShopping} from './shopping.mjs?v=fg-b8eec8a77ffcfedb';
 export {PET_SHOP};
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
 const str=(v,max=160)=>typeof v==='string'?v.slice(0,max):'';
