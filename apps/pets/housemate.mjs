@@ -1,7 +1,7 @@
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-0000000000000000';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-0000000000000000';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-0000000000000000';
-import {turnPet} from './movement.mjs?v=fg-0000000000000000';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-1c2b9317458d023e';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-1c2b9317458d023e';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-1c2b9317458d023e';
+import {turnPet} from './movement.mjs?v=fg-1c2b9317458d023e';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
