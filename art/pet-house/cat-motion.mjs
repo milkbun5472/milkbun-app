@@ -1,6 +1,6 @@
-import {postureFrame} from './pet-action.mjs?v=fg-fdf08489d1c907b4';
-import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-fdf08489d1c907b4';
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-fdf08489d1c907b4';
+import {postureFrame} from './pet-action.mjs?v=fg-64da02bbb7b1ba2d';
+import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-64da02bbb7b1ba2d';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-64da02bbb7b1ba2d';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -89,7 +89,7 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
       if(action.lie>.00001){
         // All three resting segments share one rotation, preserving the
         // authored fluffy curl while the entire tail settles beside the body.
-        const tuck=new T.Quaternion().setFromEuler(new T.Euler(-1.50,.55,0));
+        const tuck=new T.Quaternion().setFromEuler(rig.species==='dog'?new T.Euler(-.55,.20,-1.0):new T.Euler(-1.50,.55,0));
         q.slerp(tuck,action.lie);
       }
       const end=new T.Vector3().fromArray(sub(d.tail,d.head)).applyQuaternion(q).add(head);
