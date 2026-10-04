@@ -1,5 +1,6 @@
-import {createTownNavigation} from './town-life.mjs?v=fg-eda307386ddebe83';
-import {walkRoute,turnPet} from './movement.mjs?v=fg-eda307386ddebe83';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-1f97d5e22ffbb0e8';
+import {createTownNavigation} from './town-life.mjs?v=fg-1f97d5e22ffbb0e8';
+import {walkRoute,turnPet} from './movement.mjs?v=fg-1f97d5e22ffbb0e8';
 
 // Stable street identities and their actual places, shared by work and visits.
 export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:true,role:'花店里的奶茶猫',shop:'florist',spot:{x:0,z:.65},detail:'喜欢慢慢闻花，也喜欢安静的陪伴。',place:'florist',placeName:'花店',about:'花店里的奶茶猫，喜欢慢慢闻花，也喜欢安静的陪伴。',position:{x:0,z:.65},approaches:[{x:1,z:.7},{x:-1,z:.7}],profile:{species:'cat',name:'小茉',size:.9,weight:1,look:{id:'custom',base:'#eee1cb',patch:'#a98565'}}}];
@@ -46,27 +47,27 @@ export function createPetFriends(shared,{rows,now=()=>Date.now(),save=()=>true,o
   if(shared.quest||shared.event||shared.visit)return {accepted:false,text:'先陪完正在进行的街坊小约定。'};
   if(state.pending)return {accepted:false,text:'先让这次相处做完，再找朋友。'};
   if(!row||row.entry.town.place!==f.place||state.resident.place!==f.place)return {accepted:false,text:'先实际走进花店，再去'+f.name+'身边。'};
-  if(Math.hypot(state.resident.position.x-f.position.x,state.resident.position.z-f.position.z)>.1)return {accepted:false,text:f.name+'还在慢慢走回来，等它走回来再一起玩。'};
   if(!free(row))return {accepted:false,text:'它还在忙，或想先吃饱休息好，等空下来再认识朋友。'};
   const bond=neighborBondView(bonds(row),id);if(kind!=='greet'&&bond.visits<2)return {accepted:false,text:'它们还在认识彼此，先慢慢打两次招呼。'};
   if(bond.lastAt&&now()-bond.lastAt<20*60000)return {accepted:false,text:'刚刚已经陪过朋友了，先各自玩一会儿，晚一点再来。'};
   const nav=row.town.nav(),goal=f.approaches.find(q=>nav.path(row.entry.town.position,q)?.length);
   if(!goal)return {accepted:false,text:'这会儿没有能走过去的位置，晚一点再试。'};
-  const backup=before();if(row.care.state.task)row.care.cancel();row.home?.resetPose();row.town.sync(f.place,row.entry.town.position,row.entry.town.heading,{manual:true});state.pending={id:++state.seq,petId,neighborId:id,kind,phase:'walking',time:0,round:0,goal:{...goal},startedAt:now()};route=[];routeId=0;
+  const backup=before();state.resident.goal=null;state.resident.idle=0;if(row.care.state.task)row.care.cancel();row.home?.resetPose();row.town.sync(f.place,row.entry.town.position,row.entry.town.heading,{manual:true});state.pending={id:++state.seq,petId,neighborId:id,kind,phase:'walking',time:0,round:0,goal:{...goal},startedAt:now()};route=[];routeId=0;
   return persist(backup,{accepted:true,text:row.entry.profile.name+'准备走过去'+(kind==='greet'?'和'+f.name+'打个招呼。':kind==='play'?'和'+f.name+'一起追小球。':'陪'+f.name+'待一会儿。')});
  }
  function moveFriend(goal,dt){const key=JSON.stringify(goal),r=state.resident;if(friendGoal!==key){friendRoute=NPC_NAV.path(r.position,goal)||[];friendGoal=key;}const moved=walkRoute(friendRoute,r.position,r.heading,dt,.63,q=>NPC_NAV.walkable(q.x,q.z));r.position=moved.position;r.heading=moved.heading;return {arrived:Math.hypot(r.position.x-goal.x,r.position.z-goal.z)<.02,speed:moved.speed};}
  function tick(dt,{paused=false,offline=false}={}){
   if(paused||!Number.isFinite(dt)||dt<=0)return null;dt=Math.min(dt,.05);
-  if(!state.pending){const m=moveFriend(PET_NEIGHBORS[0].position,dt);return {friendSpeed:m.speed};}
+  if(!state.pending){if(offline)return null;const r=state.resident,anchor=PET_NEIGHBORS[0].position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(NPC_NAV,r.position,()=>nextRandom(r),{radius:1.3,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.8});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(!r.goal)return {friendSpeed:0};const m=moveFriend(r.goal,dt);if(m.arrived){r.goal=null;r.phase='visit';r.idle=0;}return {friendSpeed:m.speed};}
   const t=state.pending,row=find(t.petId),f=neighbor(t.neighborId);
   if(offline||now()-t.startedAt>10*60000||!row||!free(row)){const r=cancel();return {...r,changed:true,cancelled:true};}
   const p=row.entry.town;if(t.phase==='doing'&&t.kind!=='play'&&Math.hypot(p.position.x-t.goal.x,p.position.z-t.goal.z)>.15){cancel();return {changed:true,cancelled:true};}
   if(t.phase==='walking'){
+   const friend=moveFriend(f.position,dt);
    if(routeId!==t.id){route=row.town.nav().path(p.position,t.goal)||[];routeId=t.id;if(!route.length){cancel();return {changed:true,cancelled:true};}}
    const moved=walkRoute(route,p.position,p.heading,dt,.7*row.pet.root.scale.x,q=>row.town.nav().walkable(q.x,q.z));p.position=moved.position;p.heading=moved.heading;
-   if(!route.length){const backup=before();t.phase='doing';t.time=0;routeId=0;const r=persist(backup,{accepted:true,changed:true});if(!r.accepted)return r;}
-   return {owned:true,speed:moved.speed,kind:t.kind,phase:t.phase,time:t.time,friendSpeed:0};
+   if(!route.length&&friend.arrived){const backup=before();t.phase='doing';t.time=0;routeId=0;const r=persist(backup,{accepted:true,changed:true});if(!r.accepted)return r;}
+   return {owned:true,speed:moved.speed,kind:t.kind,phase:t.phase,time:t.time,friendSpeed:friend.speed};
   }
   let speed=0,friendSpeed=0,ball=null,playDone=false;
   if(t.kind==='play'){

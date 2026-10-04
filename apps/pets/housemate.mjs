@@ -1,14 +1,14 @@
-import {gatheringSpot} from './neighborhood.mjs?v=fg-eda307386ddebe83';
-import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-eda307386ddebe83';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-eda307386ddebe83';
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-eda307386ddebe83';
-import {lifeOf,lifeNote} from './routine.mjs?v=fg-eda307386ddebe83';
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-eda307386ddebe83';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-eda307386ddebe83';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-eda307386ddebe83';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-eda307386ddebe83';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-eda307386ddebe83';
-import {turnPet} from './movement.mjs?v=fg-eda307386ddebe83';
+import {gatheringSpot} from './neighborhood.mjs?v=fg-1f97d5e22ffbb0e8';
+import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-1f97d5e22ffbb0e8';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-1f97d5e22ffbb0e8';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-1f97d5e22ffbb0e8';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-1f97d5e22ffbb0e8';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-1f97d5e22ffbb0e8';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-1f97d5e22ffbb0e8';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-1f97d5e22ffbb0e8';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-1f97d5e22ffbb0e8';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-1f97d5e22ffbb0e8';
+import {turnPet} from './movement.mjs?v=fg-1f97d5e22ffbb0e8';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null,chores=null,getOuting=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
