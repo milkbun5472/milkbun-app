@@ -435,18 +435,23 @@ const chatBgRule = css => {
   const m = /(^|\})\s*([^{}@]*\[data-wk="chat"\][^{}@]*)\{([^{}]*)\}/.exec(String(css || ""));
   return m ? m[2].trim() + "{" + m[3] + "}" : "";
 };
+// 挂一块带 id 的 <style>：没有就建，有就换内容，再 append 一次挪到最后
+// （重新 append＝按调用顺序层层压上去）。单聊那几层、群那层、线下那层都是这个形状，
+// 收成一份（施工规则/one-public-mechanism）。
+function mountStyle(id, css) {
+  if (typeof document === "undefined") return;
+  let el = document.getElementById(id);
+  if (!el) { el = document.createElement("style"); el.id = id; }
+  el.textContent = css || "";
+  document.head.appendChild(el);
+}
 function applyChatLook(next) {
   if (typeof document === "undefined") return;
   if (next) CHAT_LOOK = next || {};
   const L = CHAT_LOOK || {};
   // 没有当前这个人就没有「这个人那几层」：全部发空的，别把上一个人的留在页面上
   const scope = L.scope || "";
-  const put = (id, css) => {
-    let el = document.getElementById(id);
-    if (!el) { el = document.createElement("style"); el.id = id; }
-    el.textContent = css || "";
-    document.head.appendChild(el);      // 重新 append＝挪到最后，按调用顺序层层压上去
-  };
+  const put = mountStyle;
   // ① 这个人的皮肤：压在主题那张（全局皮肤）上面。CSS 由 App 那头限好页面再传进来。
   put("wk-char-skin-css", scope ? (L.skinCSS || "") : "");
   // ①.5 这个人自己的字体（她 2026-09-18：「聊天里的字体按角色单独设置」）。
@@ -488,13 +493,10 @@ function applyChatLook(next) {
   put("wk-char-custom-css", (scope && L.customCSS) ? L.customCSS : "");
 }
 // 群聊窗自己那层（排版开关 + 自己写的 CSS）：App 那头已经限到这一个群、换好图片地址，这里只管挂上去（挂在单聊那几层后面）
-function applyGroupLook(css) {
-  if (typeof document === "undefined") return;
-  let el = document.getElementById("wk-group-look-css");
-  if (!el) { el = document.createElement("style"); el.id = "wk-group-look-css"; }
-  el.textContent = css || "";
-  document.head.appendChild(el);
-}
+function applyGroupLook(css) { mountStyle("wk-group-look-css", css); }
+// 线下那层（这一个人自己的线下长相）：App 那头已经限到这个人、换好图片地址，
+// 这里只管挂上去。挂在群那层后面＝比它更具体的东西压在更上面。
+function applyOfflineLook(css) { mountStyle("wk-offline-look-css", css); }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }
 // 「打电话也用这套皮肤」那一行。开关本身不进 x_bubbleSkin（那份是发成 CSS 的，
@@ -14545,6 +14547,10 @@ function OfflineMode({
   const [sTasteDensity, setSTasteDensity] = useState(activeSession && activeSession.taste && activeSession.taste.density || os.tasteDensity || "auto");
   const [sBg, setSBg] = useState(os.bg || "");
   const bgFileRef = useRef(null);
+  // 这个人自己的线下长相（她 2026-10-03：「线下每个角色能不能单独做一个美化页面」）。
+  //   走的是聊天那条「只给 TA 写 CSS」的同一条路：同一个编辑器、同一支限作用域，
+  //   只是存在这个人的线下设置里、页面挂点换成线下那三个（offline/offbody/offcomposer）。
+  const [sCss, setSCss] = useState(os.customCSS || "");
   // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
   const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
   // ── 线下设置（v74.713 照着线上那一套重做）────────────────────────────
@@ -14579,6 +14585,8 @@ function OfflineMode({
       state: () => "记忆 " + sMemN + " 条 · 线上 " + sOnlineN + " 条" },
     { key: "style", char: "风", title: "文风与好吃片段", tint: "#9b7bc4",
       state: () => (presetOn ? "吃着预设" : "没吃预设") + " · 片段 " + ((os.examples || []).length) + " 条" },
+    { key: "look", char: "样", title: "这个人的线下长什么样", tint: "#b0708f",
+      state: () => (sCss.trim() ? "写了 " + sCss.trim().length + " 字 CSS" : "还没写") + (sBg ? " · 有背景图" : "") },
     { key: "debug", char: "诊", title: "上一轮到底发生了什么", tint: "#7a8fa8",
       state: () => registerTelemetry ? "有本轮记录" : "还没有本轮记录" }
   ];
@@ -14586,7 +14594,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -14644,6 +14652,11 @@ function OfflineMode({
     h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
       offShow("style", "custom", "自定义文风", styleSection),
       offShow("style", "example", "好吃片段库", exampleSection),
+      offShow("look", "css", "只给这个人的线下写 CSS",
+        h(ChatCssFields, { css: sCss, setCSS: setSCss,
+          fileBase: (char && (char.remark || char.name)) || "TA",
+          onPeek: () => { try { window.__previewOfflineLook && window.__previewOfflineLook({ customCSS: sCss }); } catch (e) {} setSetOpen(false); },
+          page: "offline", title: "只给这个人的线下写 CSS" })),
       offShow("debug", "telemetry", "上一轮到底发生了什么",
     h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
       h("div", null, ".87 immersive fine-grained editor · 仅内存诊断"),

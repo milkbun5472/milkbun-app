@@ -2297,6 +2297,35 @@ function App() {
     applyGroupLook([one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
   };
   useEffect(() => { paintGroupLook(null); }, [activeGroup && activeGroup.id, groupSettings, screen]);
+  // 线下也给每个人单独一张皮（她 2026-10-03：「线下每个角色能不能单独做一个美化页面」）。
+  // ⚠️不另起一套：存在这个人的线下设置里（x_offlineSettings[charId].customCSS），
+  //   编辑器用聊天那一份 ChatCssFields，限作用域用主题那一支 scopeCSS——
+  //   跟「只给 TA 写 CSS」是同一条路，只是页面换成线下（one-public-mechanism）。
+  // ⚠️限到【这个人】不是只限页面：线下那层所有人共用 data-wk="offline"，
+  //   只按页面限的话一个人的皮会串到所有人的线下去（单聊、群聊都栽过这一跤）。
+  // ⚠️自己挂一个属性，不蹭 data-lisa-char：那一个是 paintChatLook 管的，只有
+  //   【人在聊天页】时才写得上；线下这一层开着的时候它可能已经被清空了。
+  //   蹭别人管的状态＝那边一改这边静默失灵（本仓库反复栽的那种）。
+  const offlineLookScope = id => 'html[data-lisa-offchar="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"] [data-wk="offline"]';
+  const paintOfflineLook = draft => {
+    if (typeof applyOfflineLook !== "function") return;
+    // 线下是盖在聊天页上的一层，所以 screen 仍是 thread；真正的判据是「这个人的线下开着」
+    // ⚠️判据是 offlineChar（线下正开着谁的那一场），不是 screen——线下是盖在聊天页
+    //   上面的一层，screen 仍旧是 thread（2026-10-03 第一版写成 screen 判据，当场不生效）
+    const on = !!offlineChar;
+    document.documentElement.setAttribute("data-lisa-offchar", on ? String(offlineChar.id) : "");
+    if (!on || !window.ThemeStudio) { applyOfflineLook(""); return; }
+    const os0 = Object.assign({}, offlineSettings[offlineChar.id] || {}, draft || {});
+    const scope = offlineLookScope(offlineChar.id);
+    try {
+      // 不安全的 CSS 一律不挂（跟云端导出那道同一个判据，别只在编辑框里提示一句就放过去）
+      const raw = os0.customCSS && !window.ThemeStudio.unsafeReason(os0.customCSS) ? os0.customCSS : "";
+      const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, scope)) : "";
+      applyOfflineLook(css);
+    } catch (e) { applyOfflineLook(""); }
+  };
+  useEffect(() => { paintOfflineLook(null); }, [offlineChar && offlineChar.id, offlineSettings, screen]);
+  useEffect(() => { window.__previewOfflineLook = draft => paintOfflineLook(draft); return () => { delete window.__previewOfflineLook; }; });
   useEffect(() => { window.__previewGroupLook = draft => paintGroupLook(draft); return () => { delete window.__previewGroupLook; }; });
   // 聊天设置「TA 的聊天长相」的预览台（她 2026-09-30）：草稿先铺到真聊天窗上看，回去改或保存时再按存档重铺
   useEffect(() => { window.__previewChatLook = draft => paintChatLook(draft); return () => { delete window.__previewChatLook; }; });
