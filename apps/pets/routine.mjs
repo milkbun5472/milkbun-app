@@ -1,9 +1,10 @@
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-8a3cad69c2d629ad';
-import {createPetCare} from './care.mjs?v=fg-8a3cad69c2d629ad';
-import {createPetCareer} from './career.mjs?v=fg-8a3cad69c2d629ad';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-8a3cad69c2d629ad';
-import {walkRoute} from './movement.mjs?v=fg-8a3cad69c2d629ad';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-8a3cad69c2d629ad';
+import {workRoom} from './workplaces.mjs?v=fg-e9163e7a99dc4d2d';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-e9163e7a99dc4d2d';
+import {createPetCare} from './care.mjs?v=fg-e9163e7a99dc4d2d';
+import {createPetCareer} from './career.mjs?v=fg-e9163e7a99dc4d2d';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-e9163e7a99dc4d2d';
+import {walkRoute} from './movement.mjs?v=fg-e9163e7a99dc4d2d';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-e9163e7a99dc4d2d';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}
@@ -12,10 +13,10 @@ export function petRoutine(entry,time,career){
  const plan=dailyRoutine(time,entry.care.rng),life=lifeOf(entry),job=career.state.job;
  const scheduled=career.state.schedule.shift!=='none'&&workWindow(time,career.state.schedule).open;
  return {...plan,home:plan.home&&job?.phase!=='working'&&!(plan.id==='sleep'&&life.wakeUntil>time.at),work:scheduled&&!career.state.daily.closed&&!career.state.daily.rest,
-  target:job?(job.phase==='working'||workWindow(time,career.state.schedule).open&&!plan.home?job.profession:'home'):scheduled&&!career.state.daily.invited&&!career.state.daily.closed&&!career.state.daily.rest?career.state.selected:plan.home&&life.wakeUntil<=time.at?'home':null};
+  target:job?(job.phase==='working'||workWindow(time,career.state.schedule).open&&!plan.home?career.destination():'home'):scheduled&&!career.state.daily.invited&&!career.state.daily.closed&&!career.state.daily.rest?workRoom(career.state.selected):plan.home&&life.wakeUntil<=time.at?'home':null};
 }
 export function startScheduledWork(entry,time,career,care){
- const life=lifeOf(entry),s=career.state;if(!petRoutine(entry,time,career).work||s.job||s.daily.invited||entry.town.place!==s.selected)return null;
+ const life=lifeOf(entry),s=career.state;if(!petRoutine(entry,time,career).work||s.job||s.daily.invited||entry.town.place!==workRoom(s.selected))return null;
  if(life.marks.date!==time.date)life.marks={date:time.date};if(life.marks.workAttempt)return null;life.marks.workAttempt=true;
  const result=career.request('invite',{}, {care:care.state,room:entry.town.place,name:entry.profile.name});
  lifeNote(entry,time,entry.profile.name+(result.accepted?'到了'+career.summary().workplace.title+'，接下约好的一班。':'这次排班先歇歇：'+result.text),'work');return result;
@@ -48,7 +49,7 @@ export function recoverPetLife(state,world,at=Date.now()){
     else if(care.state.task?.night){care.cancel();lifeNote(entry,time,entry.profile.name+'醒来，开始今天的小日子。','wake');}
    }
    startScheduledWork(entry,time,career,care);
-   if(career.state.job?.phase==='working'&&entry.town.place===career.state.job.profession){for(let i=0;i<Math.min(seconds,18);i++){const event=career.tick(1,{care:care.state,room:entry.town.place,offline:true});if(event){lifeNote(entry,time,entry.profile.name+'在店里遇到一件小事，留着等你拿主意。','work-choice:'+career.state.job.id+':'+career.state.job.index);break;}}}
+   if(career.state.job?.phase==='working'&&entry.town.place===career.destination()){for(let i=0;i<Math.min(seconds,18);i++){const event=career.tick(1,{care:care.state,room:entry.town.place,offline:true,position:entry.town.position});if(event){lifeNote(entry,time,entry.profile.name+(career.state.job.profession==='courier'?'配送时遇到一件小事，留着等你拿主意。':'在店里遇到一件小事，留着等你拿主意。'),'work-choice:'+career.state.job.id+':'+career.state.job.index);break;}}}
    }
    if(entry===state.pets[0]&&resident.id&&resident.town&&!state.pets.some(p=>p.care.helper)){
     const rp=dailyRoutine(time,resident.rng),awake=rp.id==='sleep'&&rl.wakeUntil>time.at;
