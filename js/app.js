@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.774";
+const APP_VERSION = "v74.778";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7145,18 +7145,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const _back = _cross ? Math.max(lastInteract + 60000, Math.min(_cross, Date.now() - 60000)) : 0;
           dongnianCrossedRef.current[cid] = 0;
           const _cpNow = ((couplesRef.current || {})[cid] || {}).status === "together";
+          // 想你时只发消息（聊天设置里的子开关）：开了就不走愿望板、情侣空间那两个出口
+          const _altOut = _cpNow && settingsFor(cid).dongnianMsgOnly !== true;
           if (activeOffScene) { offlineReply(cid); _drain(); }                    // 思念攒够 → 线下自己动一拍
           // ⭐愿望板那一档【排在出口这一层，不是塞进「留东西」的三选一里】（v62.34）。
           //   她 2026-09-04 问的正是这个：给模型的选项越多，它越会塌到默认那一档上
           //   ——拾/半/画 就是这么几乎永远轮不上的。所以这一档由【代码】判，模型只写内容。
           //   闸是天然的：板上已经有TA钉着、还没了结的那条，就不再钉第二条。
-          else if (_cpNow && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
+          else if (_altOut && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
             pinWishAsChar(c, jwStyle).then(_settle);
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
           // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
-          else if (_cpNow && Math.random() < COUPLE_LEAVE_P)
+          else if (_altOut && Math.random() < COUPLE_LEAVE_P)
             leaveInCoupleSpace(c, jwStyle).then(_settle);
           // ⚠️发消息这一路原来是「调了就泄」——不管 replyNow 有没有真送到（群友 2026-10-01：
           //   「憋到红条爆了也不发，然后自动退回粉色」）。模型回空、里面哪道闸没放行、接口报错，
@@ -14775,7 +14777,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 我拉黑 TA 后按「回复」：TA 依人设/心情 碎碎念 / 生气 / 发解除申请
-  const blockedReaction = async (charId, chatKey = charId, rerollAvoid) => {
+  const blockedReaction = async (charId, chatKey = charId, rerollAvoid, opts) => {
+    const freed = !!(opts && opts.freed);   // 刚被她放出来的那一刻：同一枪，只是场景换成「她收得到了」
     if (laneBusy("c:" + chatKey) || !active) { if (!active) toast("请先配置 API"); return; }
     const char = characters.find(c => c.id === charId); if (!char) return;
     startLane("c:" + chatKey);
@@ -14842,21 +14845,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         on: "\n\n【这一轮的几条轴（别点破）】它们互相独立；没列出来的方面你自己拿主意。别为了凑这几条而说话。",
         off: "\n\n【这一轮没有给你任何限制】按你这个人此刻真实的样子来，别挑一种「被拉黑的人该有的反应」来演。"
       }) : "";
-      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: "（你被拉黑了）" }], { maxTokens: 65535 });
+      const raw = await callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer() + (freed
+        ? "\n\n【场景】你之前被用户拉黑了，你发了解除申请，她刚刚同意、把你放出来了——从这一刻起你说的话她都收得到。按你这个人和刚才闹的那件事，说你这会儿真会说的话；也可以什么都不说（say 给空数组）。mode 填 mutter。"
+        : "\n\n【场景】用户把你拉黑了——你发的消息 Ta 暂时收不到，而你知道自己被拉黑了。" + progress + herLine + _blkAxes) + onlineRerollHint(rerollAvoid) + "\n完全代入「" + char.name + "」，按人设、此刻心情、对用户的好感说话。说完之后给这一轮归个档填进 mode：mutter=你只是自己在说话；angry=你是冲着她发火；appeal=你决定低头，想和好（填了它会真的给她发出一张『解除拉黑申请』，所以只有真想和好才填）。\n【输出】只输出 JSON：{\"mode\":\"mutter|angry|appeal\",\"say\":[\"气泡1\",\"气泡2\"],\"reason\":\"appeal 时的申请理由，否则 null\"" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC, [{ role: "user", content: freed ? "（她解除了拉黑）" : "（你被拉黑了）" }], { maxTokens: 65535 });
       const d = extractJSON(raw) || {};
       const says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-      queueUnblockSpeech(chatKey, says, 250, charId, true);
+      queueUnblockSpeech(chatKey, says.filter(x => typeof x === "string" && x.trim()), 250, charId, !freed);
       applyBlockTurnState(charId, chatKey, d);
       // 日程也跟着场景走（她 2026-10-03：拉黑了他还站在门口淋雨，顶上 NOW 却写着「搂在身上摩挲她手臂」）——
       //   跟聊天、线下同一个口子 applySchedChange
       if (String(chatKey) === String(charId)) applySchedChange(charId, d.schedNow);
-      if (d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
+      if (!freed && d.mode === "appeal") setTimeout(() => pChat(chatKey, p => [...p, { role: "assistant", kind: "unblock_req", from: "char", cid: "ub_" + Date.now(), status: "pending", reason: d.reason || "想和你和好", content: "[解除拉黑申请]", ts: Date.now(), read: false }]), 250 + says.length * 650);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
   // 我处理 TA 发来的解除申请
   const respondUnblockFromChar = (charId, cid, accept, chatKey = charId) => {
     pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
-    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); queueUnblockSpeech(chatKey, ["……谢谢你愿意听我说。"], 300, charId); }
+    // 和好那一刻TA说什么，交给TA自己（她 2026-10-05：「为啥拉黑解除永远后面带一句谢谢你愿意听我说」）——
+    //   原来这里写死了一句台词，谁被放出来都是同一句。现在跟拉黑期间那几轮同一个口子：同一份 blockBundleFor、同一个 lane。
+    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); setTimeout(() => blockedReaction(charId, chatKey, null, { freed: true }), 300); }
     else { toast("已拒绝"); setTimeout(() => blockedReaction(charId, chatKey), 400); }
   };
   // TA 拉黑我期间，我点某条消息的感叹号→发解除申请（该消息作为诉说），TA 依人设决定
@@ -28401,6 +28408,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             webSearch: !!s.webSearch,
             // 允许TA主动写申请信（v74.732）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
+            dongnianMsgOnly: s.dongnianMsgOnly === true,
             busyHold: s.busyHold === true,
             busyReroll: s.busyReroll === true,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
