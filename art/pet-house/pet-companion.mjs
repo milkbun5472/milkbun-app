@@ -1,16 +1,19 @@
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-e5dfe8371f807a25';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-e5dfe8371f807a25';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-e5dfe8371f807a25';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-03b1ea37035c61cf';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-03b1ea37035c61cf';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-03b1ea37035c61cf';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
 const dataURL=name=>{const url=new URL(name,import.meta.url),build=new URL(import.meta.url).searchParams.get('v');if(build?.startsWith('fg-'))url.searchParams.set('v',build);return url.href;};
+const sources=new Map();
+function clonePetSource(source){const model=source.clone(true),pairs=new Map();function pair(a,b){pairs.set(a,b);for(let i=0;i<a.children.length;i++)pair(a.children[i],b.children[i]);}pair(source,model);source.traverse(o=>{const copy=pairs.get(o);if(o.isMesh)copy.geometry=o.geometry.clone();if(o.isSkinnedMesh){copy.skeleton=o.skeleton.clone();copy.skeleton.bones=o.skeleton.bones.map(b=>pairs.get(b));copy.bind(copy.skeleton,o.bindMatrix);}});return model;}
 export async function loadPetCompanion(T,loader,{height=.88,persist=true,initialSpecies='cat',compressedMask=false}={}){
   const pets={};const saved=key=>persist?readSaved(key):null;const store=(key,value)=>{if(persist)save(key,value);};
   await Promise.all(['cat','dog'].map(async species=>{
     const version=species==='cat'?'pet-motion-6':'pet-dog-3';
-    const [file,rig,mask]=await Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]);
-    const model=file.scene,bounds=new T.Box3().setFromObject(model),center=bounds.getCenter(new T.Vector3()),scale=height/bounds.getSize(new T.Vector3()).y;
+    const cacheKey=species+':'+compressedMask;if(!sources.has(cacheKey))sources.set(cacheKey,Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]).catch(e=>{sources.delete(cacheKey);throw e;}));
+    const [file,rig,mask]=await sources.get(cacheKey);
+    const model=clonePetSource(file.scene),bounds=new T.Box3().setFromObject(model),center=bounds.getCenter(new T.Vector3()),scale=height/bounds.getSize(new T.Vector3()).y;
     model.scale.setScalar(scale);model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
     model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     const dye=createCatDye(T,model,mask,rig.dye),lookKey=species==='cat'?CAT_LOOK_KEY:'lisa-pet-house-dog-look-v1';dye.set(saved(lookKey));
@@ -21,7 +24,7 @@ export async function loadPetCompanion(T,loader,{height=.88,persist=true,initial
   let species=(persist?saved(PET_SPECIES_KEY):initialSpecies)==='dog'?'dog':'cat',motion,boundSpecies,options={};
   function bind(value=options){options=value;const expressionState=boundSpecies===species?motion?.snapshot():undefined;motion?.dispose();for(const [key,p] of Object.entries(pets))p.model.visible=key===species;motion=createCatMotion(T,pets[species].model,pets[species].rig,root,{...options,expressionState});boundSpecies=species;motion.setTail(pets[species].tail);motion.setMood(pets[species].mood);motion.update(0,0);return motion;}
   function select(value){if(!pets[value])return;species=value;store(PET_SPECIES_KEY,species);bind();}
-  return {root,bind,select,get species(){return species;},get mouthPoint(){return [...pets[species].mouthPoint];},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get mood(){return {...pets[species].mood};},get animating(){return this.tail.wag||this.mood.id!=='neutral'||!!motion?.animating;},setMood(value){pets[species].mood=normalizePetMood(value);motion?.setMood(pets[species].mood);return this.mood;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
+  return {root,bind,select,dispose(){motion?.dispose();root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();o.skeleton?.dispose();}});root.removeFromParent();},get species(){return species;},get mouthPoint(){return [...pets[species].mouthPoint];},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get mood(){return {...pets[species].mood};},get animating(){return this.tail.wag||this.mood.id!=='neutral'||!!motion?.animating;},setMood(value){pets[species].mood=normalizePetMood(value);motion?.setMood(pets[species].mood);return this.mood;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
 }
 // These controls are shared by the living room and the whole street. The
 // settings float over the actual pet so users can see an angle change live.
