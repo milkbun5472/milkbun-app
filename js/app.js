@@ -12383,7 +12383,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.health && typeof parsed.health === "object" && typeof window.healthAddByChar === "function") {
         const _hx = window.healthAddByChar(charId, parsed.health);
         if (_hx) {
-          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "health", charId: charId, title: _hx.title, sub: _hx.sub, note: "", ts: Date.now(), turnId }]);
+          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "health", charId: charId, title: _hx.title, sub: _hx.sub, rows: _hx.rows, day: _hx.day, note: "", ts: Date.now(), turnId }]);
           delivered = true;
         }
       }
@@ -15081,6 +15081,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   window.calOpenFromMemo = () => { setScreen("calendar"); };
   window.memoGoApp = () => { setScreen("memo"); };
   window.ledgerGoApp = () => { setScreen("ledger"); };
+  window.healthGoApp = () => { setScreen("health"); };
   // ---- 日历 / calendar ----
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });
