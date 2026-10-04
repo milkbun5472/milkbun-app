@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-59c6445cfc162636";
+  const KEY = "x_companion", BUILD = "fg-eae30f836abea0b8";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -323,6 +323,7 @@
   // 主屏图标：一个圆脑袋的小人
   window.GCompanion = p => h(Svg, p, h("circle", { cx: 12, cy: 8, r: 4.6 }), h("path", { d: "M6.5 20.5c.4-4 2.6-6.3 5.5-6.3s5.1 2.3 5.5 6.3" }), h("path", { d: "M9.6 8.4h.01M14.4 8.4h.01" }));
   window.Companion = Companion;
+  window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
   window.CompanionFace = { faceForMood, FACE_ZH };
 })();

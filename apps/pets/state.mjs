@@ -1,10 +1,10 @@
-import {restoreHousehold} from './home-chores.mjs?v=fg-59c6445cfc162636';
-import {restoreTownLife} from './town-life.mjs?v=fg-59c6445cfc162636';
-import {restoreSocial} from './social.mjs?v=fg-59c6445cfc162636';
-import {restoreResident} from './autonomy.mjs?v=fg-59c6445cfc162636';
-import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-59c6445cfc162636';
-import {restoreCare} from './care.mjs?v=fg-59c6445cfc162636';
-import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-59c6445cfc162636';
+import {restoreHousehold} from './home-chores.mjs?v=fg-eae30f836abea0b8';
+import {restoreTownLife} from './town-life.mjs?v=fg-eae30f836abea0b8';
+import {restoreSocial} from './social.mjs?v=fg-eae30f836abea0b8';
+import {restoreResident} from './autonomy.mjs?v=fg-eae30f836abea0b8';
+import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-eae30f836abea0b8';
+import {restoreCare} from './care.mjs?v=fg-eae30f836abea0b8';
+import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-eae30f836abea0b8';
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const PET_LIMIT=4;
 export function petProfile(value){const species=value?.species==='dog'?'dog':'cat',fallback=species==='dog'?'狗狗':'猫猫';return {species,name:typeof value?.name==='string'?value.name.trim().slice(0,24)||fallback:fallback,look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
