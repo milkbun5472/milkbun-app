@@ -74,8 +74,9 @@ test("带回聊天：先落这张卡，再落那句话和小桌边那几句", ()
 test("卡面：单聊和群聊两处都认得它，骨架跟同人文那一族一样", () => {
   assert.match(comp, /function TarotShareCard\(\{ m, isU \}\) \{/);
   // 两处渲染器各一条——只接一处的话，另一处就又是一串光秃秃的气泡
-  assert.equal((comp.match(/m\.kind === "tarotshare"/g) || []).length, 2, "两个渲染器里没有各接一条");
-  assert.match(comp, /h\(TarotShareCard, \{ m: m, isU: m\.role === "user" \}\)/);
+  // 分享卡收成一张表（shareCardOf），单聊、群聊两个渲染器都问它
+  assert.match(comp, /if \(kind === "tarotshare"\) return TarotShareCard;/);
+  assert.equal((comp.match(/= (?:m\.kind !== "forumshare" && )?shareCardOf\(m\.kind\)/g) || []).length, 2, "两个渲染器里没有各接一条");
   // 同一族：宽度、圆角、卡面挂点跟 FicShareCard 一样（换的是材质，不是骨架）
   const seg = comp.slice(comp.indexOf("function TarotShareCard"), comp.indexOf("function FicShareCard"));
   assert.match(seg, /"data-wk": "card", "data-kind": "tarotshare", style: \{ width: 242, borderRadius: 14/);

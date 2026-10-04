@@ -9472,23 +9472,12 @@ function ChatThread({
         h(ChatForwardCard, { m: m, isU: m.role === "user", onOpen: setFwdView }),
         last && subLine(m) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "1px 4px 0" } }, subLine(m)) : null),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "forumshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    // 分享来的那几张小卡（论坛帖 / 同人文 / 塔罗 / 时刻 / 番茄钟）：一个外框、一张表（shareCardOf），
+    //   原来是四段一模一样的外框各抄一份（施工规则/one-public-mechanism.md）。
+    const _Share = shareCardOf(m.kind);
+    if (_Share) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(ForumShareCard, { m: m, isU: m.role === "user" }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    if (m.kind === "ficshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(FicShareCard, { m: m, isU: m.role === "user" }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    // 塔罗这一卦（v67.67）：跟同人文那张卡同一处、同一个形状
-    if (m.kind === "tarotshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(TarotShareCard, { m: m, isU: m.role === "user" }),
-      m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    // 时刻卡（她 2026-10-03：「转发回去的是聊天气泡而不是小卡」）：跟同人文、塔罗那几张卡同一个形状
-    if (m.kind === "shikeshare" && window.ShikeShareCard) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(window.ShikeShareCard, { m: m, isU: m.role === "user" }),
+      h(_Share, { m: m, isU: m.role === "user" }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     // 逛购物 app 时拿给TA看的那件东西（v57.98）
     if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
@@ -12463,6 +12452,16 @@ function ChatForwardSheet({ m, onClose }) {
           it.name ? h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, it.name) : null,
           it.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.line } }, chatForwardTime(it.ts)) : null) : null,
         h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.65, color: t.ink, whiteSpace: "pre-wrap" } }, it.text)))));
+}
+// 聊天里能画成小卡的那几种分享（单聊、群聊都问这一张表）。时刻和番茄钟的卡住在各自的 app 文件里，
+//   那两个文件不一定比这里先加载，所以取的时候再去 window 上找。
+function shareCardOf(kind) {
+  if (kind === "forumshare") return ForumShareCard;
+  if (kind === "ficshare") return FicShareCard;
+  if (kind === "tarotshare") return TarotShareCard;
+  if (kind === "shikeshare") return window.ShikeShareCard || null;
+  if (kind === "pomoshare") return window.PomoShareCard || null;
+  return null;
 }
 function ForumShareCard({ m, isU }) {
   const t = useTheme();
@@ -16055,17 +16054,13 @@ function GroupThread({
     if (m.kind === "forumshare") return h("div", { key: i, className: "flex flex-col py-1 " + (m.role === "user" ? "items-end" : "items-start") },
       m.role === "user" && m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
       h(ForumShareCard, { m: m, isU: m.role === "user" }));
-    if (m.kind === "ficshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
+    // 群里的分享卡同一张表（论坛帖在群里另有排法，上面单写）
+    const _GShare = m.kind !== "forumshare" && shareCardOf(m.kind);
+    if (_GShare) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-        h(FicShareCard, { m: m, isU: m.role === "user" })),
-      m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
-    if (m.kind === "tarotshare") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
-      m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
-      h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
-        m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-        h(TarotShareCard, { m: m, isU: m.role === "user" })),
+        h(_GShare, { m: m, isU: m.role === "user" })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
