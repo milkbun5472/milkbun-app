@@ -21,7 +21,13 @@
     const changed = [];
     if (!ls || !ids.size) return changed;
     const keys = [];
-    for (let i = 0; i < ls.length; i++) { const k = ls.key(i); if (k && k.indexOf("x_") === 0 && !SKIP.test(k)) keys.push(k); }
+    const seen = new Set();
+    const add = k => { if (k && k.indexOf("x_") === 0 && !SKIP.test(k) && !seen.has(k)) { seen.add(k); keys.push(k); } };
+    for (let i = 0; i < ls.length; i++) add(ls.key(i));
+    // ⚠️大部分存档早就不在 localStorage 本体里了（2026-10-04 全搬进 IndexedDB，内存里有一份镜像 __txtMirror）。
+    //   只数 localStorage 的键会一个都扫不到——读写照旧走 getItem/setItem，那一层会自己转进大仓库。
+    const g = typeof window !== "undefined" ? window : globalThis;
+    if (!store && g.__txtMirror) g.__txtMirror.forEach((v, k) => { if (v != null) add(k); });
     keys.forEach(k => {
       // 侧房的键长这样：x_chat:角色id::room::房间id——认人看 ::room:: 前面那段
       if (k.indexOf(":") > 0 && ids.has(owner(k.slice(k.indexOf(":") + 1)))) { ls.removeItem(k); changed.push(k); return; }
