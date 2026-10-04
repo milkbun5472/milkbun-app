@@ -4596,10 +4596,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (h0 && h0.held && !h0.released) return Date.now() >= (h0.until || 0) ? { back: h0 } : { nudge: h0 };
     const b = busyNowFor(char);
     if (!b) return null;
-    if (h0 && h0.segKey === b.segKey) return null;             // 这一段已经掷过一次了，不重复掷
-    const ms = (chatsRef.current[char.id] || []).filter(m => m && m.role === "assistant" && !m.recalled);
-    const lastTs = ms.length ? Number(ms[ms.length - 1].ts) || 0 : 0;
-    if (Date.now() - lastTs < BUSY_GAP_MIN * 60000) return null;
+    // 每轮都重新掷（子开关 busyReroll，她 2026-10-04：「正常人忙着的时候是按他自己的节奏回复的，
+    //   而不是看我距离上次回他过了多久」）：开了就不看「这段掷过没有」、也不看她隔了多久，
+    //   每一轮只按这段的忙碌度掷——正聊着也可能被叫回去忙。
+    const reroll = settingsFor(char.id).busyReroll === true;
+    if (!reroll) {
+      if (h0 && h0.segKey === b.segKey) return null;             // 这一段已经掷过一次了，不重复掷
+      const ms = (chatsRef.current[char.id] || []).filter(m => m && m.role === "assistant" && !m.recalled);
+      const lastTs = ms.length ? Number(ms[ms.length - 1].ts) || 0 : 0;
+      if (Date.now() - lastTs < BUSY_GAP_MIN * 60000) return null;
+    }
     const held = Math.random() < BUSY_ODDS[b.level];
     busyHoldSet(char.id, { segKey: b.segKey, held, title: b.title, level: b.level, until: b.endTs, at: Date.now(), released: false });
     return held ? { held: busyHolds()[char.id] } : null;
@@ -28195,6 +28201,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 允许TA主动写申请信（v74.507）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
             busyHold: s.busyHold === true,
+            busyReroll: s.busyReroll === true,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
             // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
             maskId: String(s.maskId || "").trim().slice(0, 40)

@@ -17765,6 +17765,7 @@ function ChatSettings({
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
+  const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
@@ -18059,6 +18060,7 @@ function ChatSettings({
       webSearch,
       noLoveLetter: !loveLetter,
       busyHold: busyHold,
+      busyReroll: busyReroll,
       toyEnabled,
       defaultOffline,
       actDesc,
@@ -18387,6 +18389,11 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "忙的时候晚点回"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "按 " + cNm + " 今天的日程：正忙的那段（开会、上课、开车这种）你第一次叫 Ta 回复或打电话，有几率先不回——消息停在未读、电话打不通落一张未接；那段忙完 Ta 自己回你。真急就再按一次，算催。这一下不花调用。")),
     h("div", { className: "shrink-0" }, h(Toggle, { on: busyHold, onChange: () => setBusyHold(v => !v) }))),
+  busyHold ? h("div", { className: "flex items-center justify-between pt-3", style: { paddingLeft: 14 } },
+    h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub } }, "每一轮都看 Ta 的节奏"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "关着：一段忙碌只掷一次，你们正聊着不会被打断。开着：忙的那段里每一轮都按忙碌度重新掷，聊着聊着 " + cNm + " 也可能被叫回去忙。")),
+    h("div", { className: "shrink-0" }, h(Toggle, { on: busyReroll, onChange: () => setBusyReroll(v => !v) }))) : null,
   h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {
