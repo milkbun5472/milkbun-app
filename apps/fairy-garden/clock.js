@@ -12,10 +12,15 @@
   }
   function sample(raw,at=Date.now()){
     const d=new Date(at),clock=restore(raw,1,at),weekday=d.getDay();
-    const day=Math.max(clock.day,clock.startDay+ordinal(d)-clock.anchor);
+    // Saved day is only the old progress counter (receipts and daily guards).
+    // The public calendar and seasons never depend on an archive's start date.
+    const day=Math.max(clock.day,clock.startDay+ordinal(d)-clock.anchor),calendarDay=ordinal(d)+1;
+    const month=d.getMonth(),season=Math.floor(((month+10)%12)/3);
+    const seasonYear=d.getFullYear()-(month<2?1:0),startMonth=[2,5,8,11][season];
+    const start=new Date(seasonYear,startMonth,1),end=new Date(seasonYear,startMonth+3,1);
     return {at,day,minute:d.getHours()*60+d.getMinutes(),second:d.getSeconds(),date:dateKey(d),weekday,week:WEEK[weekday],weekend:weekday===0||weekday===6,
       label:(d.getMonth()+1)+'月'+d.getDate()+'日 '+WEEK[weekday]+' '+pad(d.getHours())+':'+pad(d.getMinutes()),
-      season:Math.floor((day-1)/14)%4,seasonDay:(day-1)%14+1};
+      calendarDay,season,seasonYear,seasonDay:ordinal(d)-ordinal(start)+1,seasonLength:ordinal(end)-ordinal(start)};
   }
   function archive(data,at=Date.now()){
     const town=data.worlds?.pets,pets=town?.pets||[];
