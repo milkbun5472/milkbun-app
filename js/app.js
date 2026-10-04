@@ -22480,9 +22480,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   她传过参考照、这张又写到了她，就当一张「TA 给她拍的照片」画，锁她的脸；写到两个人一起的，就当合照，两张脸都锁。
   //   不是拍她的就返回 null，照旧走空景那条路。
   const albumHerShot = (char, scene, again) => {
-    if (!(profile && profile.refPhoto) || typeof buildPhotoPrompt !== "function") return null;
+    if (typeof buildPhotoPrompt !== "function") return null;
+    // 认她：名字、TA 私下给她起的称呼、几种常见叫法都算（她 2026-10-04：「还是不行」——相册小字多半写的是「宝宝睡着了」这种，不写她的名字）
     const uN = userName(profile);
-    if (!(scene.indexOf(uN) >= 0 || /她|你/.test(scene))) return null;
+    const nk = ((charTitleRef.current || {})[char.id] || {}).text || "";
+    const names = [uN, profile && profile.name, nk].map(x => String(x || "").trim()).filter(x => x.length >= 1);
+    if (!(names.some(x => scene.indexOf(x) >= 0) || /她|你|宝宝|宝贝|老婆|媳妇|女朋友|女友|对象|小朋友|乖乖/.test(scene))) return null;
+    // 拍的是她、可她自己没传参考照：没脸可锁，照实说一声（不然她只看到「又是个陌生人」）
+    if (!(profile && profile.refPhoto)) { toast("这张拍的是你，但你还没传自己的参考照（在你自己的资料里传一张），只能照文字画一个人", 7000); return null; }
     const meP = photoMe("她");
     const both = !!char.refPhoto && /合照|我们|一起|两个人|和她|跟她|我和|自拍/.test(scene);
     const prompt = both
