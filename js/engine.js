@@ -6282,7 +6282,9 @@ function translatableLang(text) {
   const count = re => (t.match(re) || []).length;
   const han    = count(/[\u4e00-\u9fff]/g);
   const kana   = count(/[\u3040-\u30ff]/g);
-  const hangul = count(/[\uac00-\ud7af\u1100-\u11ff\u3130-\u318f]/g);
+  // ⚠️谚文只数【成字的音节】（가-힣）。单个字母 ㅅㅠㅋ 这类是拿来拼颜文字的（她 2026-10-05：
+  //   「ㄑ ˃ ᐞ ˂ ჴ」被认成韩文），真韩文句子不可能一个音节都没有。
+  const hangul = count(/[\uac00-\ud7af]/g);
   const cyr    = count(/[\u0400-\u04ff]/g);
   const latin  = count(/[A-Za-z\u00c0-\u024f]/g);
   // 假名和谚文是【决定性】的：中文里不会出现，见到一个就是日文/韩文，哪怕句中还有汉字。
