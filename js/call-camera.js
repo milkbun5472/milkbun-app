@@ -2,9 +2,11 @@
 // 不录视频、不另开识图请求；画面只活在本轮请求，关闭/后台/缩小/挂断释放设备。
 (function () {
   function environmentError(env) {
-    if (env.webkit && env.webkit.messageHandlers && (env.webkit.messageHandlers.nativeMedia || env.webkit.messageHandlers.nativeHttp)) {
-      // 仓库现役 iOS 壳 Info.plist 没有 NSCameraUsageDescription；纯网页无法补原生权限。
-      return "这个 App 壳还没有摄像头权限。请在 Safari 打开秋秋机网页使用摄像头。";
+    if (env.webkit && env.webkit.messageHandlers && (env.webkit.messageHandlers.nativeMedia || env.webkit.messageHandlers.nativeHttp)
+      && !(env.__qqShellCaps && env.__qqShellCaps.camera)) {
+      // 旧壳的 Info.plist 没有 NSCameraUsageDescription：这时申请镜头 iOS 会直接把 App 杀掉，所以不申请。
+      // 新壳（2026-10-05 起）会在网页里挂 __qqShellCaps.camera，见 tools/ios-shell 的 AppDelegate。
+      return "这个 App 壳是旧的，还没有摄像头权限。用 Xcode 把壳重新 Run 一次覆盖安装（别删 App）就能用；或者先在 Safari 打开秋秋机网页。";
     }
     if (!env.isSecureContext) return "摄像头需要安全网页，请用 https 地址打开。";
     if (!env.navigator || !env.navigator.mediaDevices || !env.navigator.mediaDevices.getUserMedia) return "这个浏览器不能打开摄像头，请用 Safari 或 Chrome 打开。";

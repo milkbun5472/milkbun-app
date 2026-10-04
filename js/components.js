@@ -10655,7 +10655,13 @@ function CallScreen({
   // 所以改成【谁要被读，谁自己带底】：
   //   · 飘在照片上的白字各自带一道暗影（一行 textShadow，任何照片上都立得住）
   //   · 顶上那块和输入栏各压一层自己的暗底（只有它们那一条，中间脸那块不动）
-  const onPhoto = !!bgUrl;
+  // 单人视频跟微信一个摆法（她 2026-10-05）：平时 TA 铺满、你在右上角小框；点小框换过来，再点换回去
+  //   ⚠️hook 一样得在 minimized 早退前面
+  const [meBig, setMeBig] = useState(false);
+  const pip = isVideo && !isGroup && !bye;
+  const camOn = camera.phase === "on";
+  const showMeBig = pip && meBig && camOn;      // 镜头关了就自动回到 TA 铺满
+  const onPhoto = !!bgUrl || pip;
   const litText = onPhoto ? { textShadow: "0 1px 3px rgba(8,8,10,.92),0 0 12px rgba(8,8,10,.5)" } : null;
   const litPlate = (from, to) => onPhoto ? {
     background: "linear-gradient(180deg,rgba(10,11,14," + from + ") 0,rgba(10,11,14," + to + ") 100%)",
@@ -10682,6 +10688,14 @@ function CallScreen({
   // 人已经在画面里了，再摆一个圆头像是两份同样的东西。
   const setTypeOpen = v => { setTypeOpenRaw(v); try { localStorage.setItem("x_callTypeOpen", v ? "1" : "0"); } catch (e) {} };
   // 底下那一排大按键：圆钮 + 底下一行小字，跟微信通话一个分寸；挂断永远在正中、红色，离别的键远一点
+  // TA 那一格的样子：挂了动态形象就放它，没有就头像铺满，再没有就首字
+  const callHimFace = () => (window.VideoApi && window.MotionStage && window.VideoApi.slotFor(primary.id, "call"))
+    ? h(window.MotionStage, { slot: window.VideoApi.slotFor(primary.id, "call"), style: { width: "100%", height: "100%" } })
+    : primary.avatarImage ? h("img", { src: (typeof resolveImg === "function" ? resolveImg(primary.avatarImage) : primary.avatarImage), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
+    : h("div", { style: { width: "100%", height: "100%", background: primary.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 44, color: "#fff" } }, (primary.name || "?")[0]);
+  // 你的镜头：同一时刻只挂一个 <video>（大的或小的），cameraAttach 跟着它走，截图照旧从它取
+  const callMeVideo = big => h("video", { ref: cameraAttach, "data-call-camera-preview": true, autoPlay: true, muted: true, playsInline: true, "aria-label": "你的摄像头预览",
+    style: { display: "block", width: "100%", height: "100%", objectFit: "cover", background: "#000", transform: camera.facing === "user" ? "scaleX(-1)" : "none" } });
   const bigKey = (label, icon, onClick, bg, extra) => h("button", Object.assign({ onClick: onClick, className: "flex flex-col items-center active:opacity-70", style: { gap: 7, minWidth: 72 } }, extra || {}),
     h("span", { style: { width: 62, height: 62, borderRadius: 999, background: bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 6px 18px rgba(0,0,0,.25)" } }, icon),
     h("span", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.85)" }, litText) }, label));
@@ -10702,13 +10716,25 @@ function CallScreen({
     //   所以图一出来就把整段对话糊掉了，只剩那几个自带 zIndex 的按钮还看得见。
     //   z-index:-1 才是真的往后退一层：它画在父节点自己的底色之上、正文之下。
     //   （外面那层有 z-[70] 和背景，是个层叠上下文，所以 -1 不会掉出这一屏。）
-  }, bgUrl ? h("div", { style: { position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none" } },
-      h("img", { src: bgUrl, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }),
+  }, (bgUrl || pip) ? h("div", { "data-wk": "callstage", style: { position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", background: "#0d0f12" } },
+      showMeBig ? callMeVideo(true) : bgUrl ? h("img", { src: bgUrl, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : callHimFace(),
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(10,10,12,.58) 0,rgba(10,10,12,.42) 30%,rgba(10,10,12,.74) 100%)" } })) : null, onMinimize && h("button", {
     onClick: () => { cameraRef.current.close(); onMinimize(); },
     className: "absolute active:opacity-60 flex items-center justify-center",
     style: { top: "calc(env(safe-area-inset-top) + 14px)", left: 16, zIndex: 5, width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.14)" }
   }, h(Svg, { size: 18, color: "#fff", sw: 2 }, h("path", { d: "M6 9l6 6 6-6" }))),
+  pip ? h("div", { "data-wk": "callpip", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 62px)", right: 12, zIndex: 5, width: 98 } },
+    camOn
+      ? h("button", { onClick: () => setMeBig(v => !v), "aria-label": showMeBig ? "换回TA的大画面" : "换成我的大画面",
+          style: { display: "block", width: 98, height: 136, padding: 0, border: "1.5px solid rgba(255,255,255,.35)", borderRadius: 14, overflow: "hidden", background: "#111", boxShadow: "0 6px 20px rgba(0,0,0,.45)" } },
+          showMeBig ? callHimFace() : callMeVideo(false))
+      : h("button", { onClick: () => camera.phase === "opening" ? cameraRef.current.close() : cameraRef.current.open(camera.facing), "aria-label": camera.phase === "opening" ? "取消开启摄像头" : "开启摄像头",
+          style: { width: 98, height: 136, borderRadius: 14, border: "1.5px dashed rgba(255,255,255,.4)", background: "rgba(255,255,255,.1)", color: "#fff", fontFamily: F_BODY, fontSize: 11, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" } },
+          h(Svg, { size: 22, color: "#fff", sw: 1.5 }, h("rect", { x: 3, y: 6, width: 13, height: 12, rx: 3 }), h("path", { d: "m16 10 5-3v10l-5-3" })), camera.phase === "opening" ? "正在开启 · 取消" : "开镜头"),
+    camOn ? h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 2 } },
+      h("button", { onClick: () => { setMeBig(false); cameraRef.current.close(); }, "aria-label": "关闭摄像头", style: { minHeight: 34, minWidth: 46, border: "none", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 10, textShadow: "0 1px 3px rgba(0,0,0,.8)" } }, "关镜头"),
+      h("button", { onClick: () => cameraRef.current.switch(), "aria-label": "切换前后摄像头", style: { minHeight: 34, minWidth: 46, border: "none", background: "transparent", color: "#fff", fontFamily: F_BODY, fontSize: 10, textShadow: "0 1px 3px rgba(0,0,0,.8)" } }, "翻转")) : null,
+    camera.message && !camOn ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: 10, lineHeight: 1.4, color: "#ffd6a0", textShadow: "0 1px 3px rgba(0,0,0,.8)" } }, camera.message) : null) : null,
   bg ? h("button", {
     onClick: () => saveCallPhoto(bg),
     "aria-label": "保存通话照片",
@@ -10732,7 +10758,8 @@ function CallScreen({
   h("div", {
     "data-wk": "callhead",
     className: "shrink-0 pt-10 pb-3 flex flex-col items-center",
-    style: Object.assign({}, litPlate(".62", "0"))
+    // 右上角那个小框占着一块：两边对称让出来，名字照旧居中、字不压在小框底下
+    style: Object.assign(pip ? { paddingLeft: 112, paddingRight: 112 } : {}, litPlate(".62", "0"))
   }, h("div", {
     "data-wk": "calltitle",
     className: "px-6 text-center",
@@ -10752,7 +10779,7 @@ function CallScreen({
     h("div", { role: "status", "data-call-audio-status": true, style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
       audioStatus || (autoVoice ? (audioReady ? "连续播报已开启 · 等待新台词" : "声音未启用，轻触页面重试") : "连续播报未开启 · 可在聊天设置中打开"))), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
-  }, bgUrl ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
+  }, (bgUrl || pip) ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
     key: ci, "data-wk": "callavatar",
     style: {
       width: isGroup ? 64 : (isVideo ? 148 : 104),
@@ -10783,7 +10810,7 @@ function CallScreen({
       fontSize: isGroup ? 26 : 44,
       color: "#fff"
     }
-  }, (c.name || "?")[0]))), isVideo && !bye ? h("div", { "data-wk": "callcamera", style: { width: 104, flexShrink: 0, alignSelf: "center" } },
+  }, (c.name || "?")[0]))), isVideo && !bye && !pip ? h("div", { "data-wk": "callcamera", style: { width: 104, flexShrink: 0, alignSelf: "center" } },
     camera.phase === "on" ? h("div", null,
       h("video", { ref: cameraAttach, "data-call-camera-preview": true, autoPlay: true, muted: true, playsInline: true, "aria-label": "你的摄像头预览", style: { display: "block", width: "100%", height: 126, borderRadius: 14, objectFit: "cover", background: "#1a2025", transform: camera.facing === "user" ? "scaleX(-1)" : "none" } }),
       h("div", { style: { display: "flex", justifyContent: "space-between", gap: 4 } },
@@ -10795,7 +10822,8 @@ function CallScreen({
     "data-call-history": true,
     onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
     "data-wk": "callbody",
-    className: "flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2"
+    className: "flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2",
+    style: pip ? { paddingRight: 120 } : undefined
   }, recent.map((m, i) => {
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
     const messageKey = list.length - recent.length + i;
