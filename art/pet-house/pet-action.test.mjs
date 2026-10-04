@@ -49,9 +49,10 @@ test('leg-root influence crosses the old hard crotch boundary continuously and k
  assert.equal(new Map(softCrotchWeights([-.11,.02,.27],names,weights)).get('frontLPaw'),1);
 });
 
-test('cat sleeping torso preserves its rounded volume throughout lowering and waking',()=>{
- const rig=JSON.parse(readFileSync(new URL('cat-rig.json',import.meta.url)));
+test('both sleeping torsos preserve their rounded volume throughout lowering and waking',()=>{
+ for(const species of ['cat','dog']){const rig=JSON.parse(readFileSync(new URL(species+'-rig.json',import.meta.url)));
  for(const lie of [0,.25,.5,.75,1]){const p=postureFrame(rig,{lie,sit:0,crouch:0,chestPitch:0},1);assert.equal(p.chestScale,1);assert.equal(p.pelvisScale,1);}
+ }
 });
 test('cat tail tip no longer keeps any torso influence and tail root remains unchanged',()=>{
  const n=['pelvis','tail2','tail1','backLLower'],w=[.8,.18,.02,0];
