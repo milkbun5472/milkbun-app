@@ -57,3 +57,5 @@
 .pet-case-inbox h4{margin:8px 0;font-size:14px;line-height:1.7;font-weight:600}.pet-case-inbox .pet-button{width:100%;margin-top:8px;white-space:normal;min-height:44px}.pet-case-detail{margin-top:12px;font-size:12px;line-height:1.8}.pet-case-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;color:var(--pet-soft);padding:10px;background:var(--pet-paper)}
 
 .pet-delivery-note h4{font-size:14px;font-weight:600;margin:0 0 10px}.pet-delivery-hold{margin-top:12px;padding-top:12px;border-top:1px dashed #d0b9a4;font-size:12px;line-height:1.8}.pet-delivery-hold p{margin:6px 0}.pet-delivery-routes{list-style:none;padding:0;margin:14px 0 0}.pet-delivery-routes li{display:flex;flex-wrap:wrap;gap:4px 10px;justify-content:space-between;padding:8px 0;border-top:1px dashed #d0b9a4;font-size:12px;line-height:1.7}.pet-delivery-routes small{font-size:11px;color:var(--pet-soft)}
+
+.pet-stall-stock{gap:6px}.pet-stall-stock>span{min-width:0;flex:1}.pet-stall-stock .pet-small-button{min-width:36px;min-height:40px;flex-shrink:0}.pet-stall-note .pet-inventory{margin-top:12px}
