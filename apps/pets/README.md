@@ -210,3 +210,7 @@ neighborhood v2 沿同一 realTime / townEnvironment 选择当日目的地：面
 meeting 沿原存档按真实 petId 保存短暂找人等候（120前景秒）/转向挥手（3秒）。找人不记关系，近处才挥手，重打招呼不重复加见面；超时、宠物忙碌、收工或离线一分钟结束等候。goNeighbor 在公共 commandPlace 选择原 town-life 的完整出入门路线；其余原指令保留行为。室外相遇和聚会共用 gatheringSpot 分开可达站点，室内仍从原门口接近。原 IDB writer 失败回滚等候/路线/动作/关系；GLB、人物/宠物尺寸、库存和三世界时间范围未改。
 
 原 town-neighbors-browser.cjs 增加 TOWN_NEIGHBORS_RHYTHM=1：同一真实宿主/原 archive writer 的昼夜、实际雨天、找人回滚/等候、旁边站位、挥手原姿态、咖啡店原书本、离线停止等候和收工拒绝。仍可用 TOWN_NEIGHBORS_RAIN=1 测真实天气；原送物/串门/TA聚会与三宽纸页模式保留。
+
+## 统一的真实日历与四季
+
+小镇日期、星期与时钟按设备当地日历，四季统一按3–5月春、6–8月夏、9–11月秋、12–2月冬变化；所有角色与存档在同一当地日期看到同一季。GameClock.sample 的 calendarDay 是当地民用日期的固定序号，season/seasonDay/seasonLength 从真实月份计算，景色、天气概率、日落和离线日常共用此结果。天气仍沿原档种子逐日稳定抽取，不伪装成实时天气预报。旧 day/anchor/startDay 只保留履历与每天结算用的进度计数，迁移不重写工资、物品、习惯或已完成日额。庭院和列车保留游戏时间。

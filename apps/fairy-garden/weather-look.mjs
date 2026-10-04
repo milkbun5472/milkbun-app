@@ -1,4 +1,4 @@
-import {MAPS,seasonOf,weather,walkable,floorHeight,inPolygon} from './world.mjs?v=fg-8e456763764ffd25';
+import {MAPS,SEASONS,seasonOf,weather,walkable,floorHeight,inPolygon} from './world.mjs?v=fg-3bb9642e6e87c7b9';
 // Visual profiles consume the existing seeded weather; they never draw new weather or change saves.
 const PALETTES=[
  {leaf:'#acd69a',ground:'#a8bd83',water:'#80b9ae',sky:'#d9e7cf',fog:'#dce5cf',rainSky:'#abbeb7',drift:'#f5c6d2',sun:'#fff0cd'},
@@ -6,7 +6,7 @@ const PALETTES=[
  {leaf:'#c98a43',ground:'#ac9467',water:'#8baca0',sky:'#ecd9bc',fog:'#d9c8b0',rainSky:'#a2aaa5',drift:'#c9863e',sun:'#ffd7a2'},
  {leaf:'#9cb1b5',ground:'#d3dfe1',water:'#bad9df',sky:'#dce8ef',fog:'#d1dce4',rainSky:'#bacbd9',drift:'#e4f4ff',sun:'#e9f3ff'}
 ];
-export function weatherLook(s){const season=seasonOf(s.day),index=season.index%4,kind=weather(s.day,s.epoch),p=PALETTES[index],rain=kind==='细雨',snow=kind==='细雪',mist=kind==='薄雾',night=s.minute>=season.dusk+90;
+export function weatherLook(s){const season=Number.isInteger(s.seasonIndex)&&SEASONS[s.seasonIndex]?{...SEASONS[s.seasonIndex],index:s.seasonIndex}:seasonOf(s.day),index=season.index%4,kind=weather(s.day,s.epoch,s.seasonIndex),p=PALETTES[index],rain=kind==='细雨',snow=kind==='细雪',mist=kind==='薄雾',night=s.minute>=season.dusk+90;
  return {...p,key:index+':'+kind,season:index,kind,rain,snow,mist,night,
   sky:mist?p.fog:rain?p.rainSky:snow?'#c3d3e0':p.sky,
   sunScale:rain?[.48,.35,.4,.4][index]:snow?.48:mist?.5:1,
