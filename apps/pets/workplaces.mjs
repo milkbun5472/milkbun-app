@@ -10,9 +10,16 @@ export const FLORIST_EVENTS=[
  {id:'neighbor',title:'门口的小邻居又探了探头',text:'附近的小宠物停在门垫外，想看看花桶边的新面孔。它回头望了望你。',options:[{id:'greet',label:'陪它慢慢认识小邻居',note:'隔着门垫互相闻了闻，认识了花店门口的小邻居。',tip:1,friend:true,like:.09,trait:'social'},{id:'stay',label:'留在熟悉的花桶旁',note:'先从花桶边观察新邻居，没有勉强它靠近。',tip:2,like:.04},{id:'quiet',label:'让它独自缓一缓',note:'小邻居先走了，它在安静处恢复了精神。',tip:0,like:.06,energy:4}]},
  {id:'little-flower',title:'收工前留下了一枝小花',text:'店里整理出几枝不用于出售的小花，可以留给今天来帮忙的它。',options:[{id:'take',label:'收好一枝带回家',note:'把属于它的小花包好了，回家可以插进花瓶。',tip:0,flower:1,like:.08},{id:'help',label:'再陪店里整理一会儿',note:'陪完最后一小段整理，收工时多拿到一点酬谢和花瓣。',tip:4,petals:1,like:.03,trait:'social'},{id:'easy',label:'慢慢结束这一天',note:'没有催它营业，按自己的节奏收工。',tip:0,like:.07,energy:3}]}
 ];
+export const STORE_EVENTS=[
+ {id:'price-tag',title:'货架前掉下一张价签',text:'它把价签拨到了爪边，旁边两件商品看起来几乎一样。店员正等你们帮忙辨认。',options:[{id:'return',label:'一起核对，再交给店员',note:'核对好了掉落的价签，店员送了它一张多余的小贴纸。',tip:2,sticker:1,like:.05,trait:'bold'},{id:'counter',label:'让它留在柜台陪客人',note:'它安稳守了一段柜台，店员自己收好了价签。',tip:3,like:.03,trait:'social'},{id:'quiet',label:'陪它去安静处歇歇',note:'先缓了缓，今天没有被催着在货架前忙。',tip:0,like:.08,energy:4}]},
+ {id:'long-receipt',title:'收银机吐出一张长长的小票',text:'小票上只有一瓶水，却印了很长一串积分说明。店员说这张作废的小票可以留给它。',options:[{id:'keep',label:'折好收进下班的小袋子',note:'把长得离谱的作废小票折好了，准备下班带回家。',tip:0,receipt:2,like:.08},{id:'stay',label:'先陪完这位结账的客人',note:'没有追着小票跑，陪客人安稳结完了账。',tip:4,receipt:1,like:.04,trait:'social'},{id:'look',label:'让它在一旁慢慢观察',note:'盯着吐小票的机器看了好一会儿，慢慢熟悉了收银台的声音。',tip:1,receipt:1,like:.07,trait:'bold'}]},
+ {id:'directions',title:'门口的客人来问路',text:'客人想找花店，它却认真望向隔壁的面包店。店员笑着等你们一起指路。',options:[{id:'help',label:'陪店员指向花店',note:'一起帮客人找到了花店方向，店员多给了它一点酬谢。',tip:4,like:.05,trait:'social'},{id:'observe',label:'让它在门内慢慢看',note:'留在门内看客人离开，没有勉强它招呼陌生人。',tip:1,sticker:1,like:.07},{id:'break',label:'先休息，交给店员招呼',note:'在安静处休息，问路的事交给店员处理。',tip:0,like:.09,energy:5}]},
+ {id:'sticker-roll',title:'封箱贴纸上有一个歪歪的小脸',text:'整理货架时，店员留下几张不再使用的贴纸。其中一张的眼睛贴得一高一低。',options:[{id:'pick',label:'给它收好那张歪脸贴纸',note:'挑了歪歪小脸的贴纸，装进属于它的下班袋子。',tip:0,sticker:2,like:.08,trait:'active'},{id:'finish',label:'陪店员把最后一层货架理好',note:'陪完最后一段整理，得到了额外酬谢和一张贴纸。',tip:4,sticker:1,like:.03},{id:'easy',label:'按它的节奏收工',note:'留了一张小贴纸，没有催它继续营业。',tip:0,sticker:1,like:.07,energy:3}]}
+];
 export const PET_WORKPLACES=[
- {id:'bakery',title:'面包店',role:'面包店看板宠物',icon:'bread',steps:['先熟悉店里','陪一会儿客人','准备收工'],trialWage:24,wage:30,energy:.18,events:BAKERY_EVENTS},
- {id:'florist',title:'花店',role:'花店店宠',icon:'leaf',steps:['认识花香','陪着包花','带花回家'],trialWage:18,wage:24,energy:.12,events:FLORIST_EVENTS}
+ {id:'bakery',title:'面包店',description:'柜台、纸袋与小面包',rewards:{bread:1},role:'面包店看板宠物',icon:'bread',steps:['先熟悉店里','陪一会儿客人','准备收工'],trialWage:24,wage:30,energy:.18,events:BAKERY_EVENTS},
+ {id:'florist',title:'花店',description:'花香、小邻居与带回的小花',rewards:{flower:1,petals:1},role:'花店店宠',icon:'leaf',steps:['认识花香','陪着包花','带花回家'],trialWage:18,wage:24,energy:.12,events:FLORIST_EVENTS},
+ {id:'store',title:'便利店',description:'值班、奇怪小票与小贴纸',rewards:{receipt:1,sticker:1},role:'便利店值班宠物',icon:'bag',steps:['熟悉货架','陪着值班','收好下班小物'],trialWage:16,wage:22,energy:.15,events:STORE_EVENTS}
 ];
 export const petWorkplace=id=>PET_WORKPLACES.find(x=>x.id===id)||PET_WORKPLACES[0];
 export const workplaceInfo=id=>{const {events,...info}=petWorkplace(id);return structuredClone(info);};

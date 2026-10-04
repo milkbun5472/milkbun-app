@@ -2064,10 +2064,12 @@
       const participants = props.autoCharacters || [];
       if (!participants.length) return;
       autoStartedRef.current = win.key;
-      window.Weekly.startGenerate({
+      // 自动装订是后台活儿：挂上名字，每一枪成没成都会弹「后台 · 周刊」（她 2026-10-04）
+      const go = function () { return window.Weekly.startGenerate({
         active: props.active, characters: participants, groups: props.groups || [],
         userName: userName, win: win, toast: props.toast
-      });
+      }); };
+      if (window.AutoGate && window.AutoGate.tagged) window.AutoGate.tagged(window.AutoGate.labelOf("weekly"), go); else go();
     }, [props.autoEnabled, props.active, win.key, !!currentIssue, gen.busy, (props.autoCharacters || []).map(function (c) { return c.id; }).join("|")]);
 
     function persist(list) { setIssues(list); saveIssues(list); }

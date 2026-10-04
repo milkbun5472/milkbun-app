@@ -18,7 +18,7 @@ const normal = { id: "g1", memberIds: ["c1"] };
 const watch = { id: "g2", memberIds: ["c1"], roomKind: "spectate" };
 // 另一种旁观群：群自己身上没记，记在 x_groupSettings 里（两头都要问）
 const watch2 = { id: "g3", memberIds: ["c1"] };
-const settings = { g3: { spectate: true } };
+const settings = { g1: { memoryInterop: true }, g3: { spectate: true } };
 
 test("旁观群里她推的那两句剧情，不算她理过TA", () => {
   const ts = C.latestUserSharedTs("c1", {
