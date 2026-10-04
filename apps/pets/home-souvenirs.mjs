@@ -1,4 +1,4 @@
-import {petWorkplace} from './workplaces.mjs?v=fg-825293982226977e';
+import {petWorkplace} from './workplaces.mjs?v=fg-b7f55ed153bedf69';
 // One inventory projection for the room and the conversation. No second furniture save.
 export function homeSouvenirs(career,care){
  const inventory=career?.inventory||{},task=care?.task;

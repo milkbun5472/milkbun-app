@@ -1,13 +1,13 @@
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-825293982226977e';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-825293982226977e';
-import {weather} from '../fairy-garden/world.mjs?v=fg-825293982226977e';
-import {workRoom} from './workplaces.mjs?v=fg-825293982226977e';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-825293982226977e';
-import {createPetCare} from './care.mjs?v=fg-825293982226977e';
-import {createPetCareer} from './career.mjs?v=fg-825293982226977e';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-825293982226977e';
-import {walkRoute} from './movement.mjs?v=fg-825293982226977e';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-825293982226977e';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-b7f55ed153bedf69';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-b7f55ed153bedf69';
+import {weather} from '../fairy-garden/world.mjs?v=fg-b7f55ed153bedf69';
+import {workRoom} from './workplaces.mjs?v=fg-b7f55ed153bedf69';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-b7f55ed153bedf69';
+import {createPetCare} from './care.mjs?v=fg-b7f55ed153bedf69';
+import {createPetCareer} from './career.mjs?v=fg-b7f55ed153bedf69';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-b7f55ed153bedf69';
+import {walkRoute} from './movement.mjs?v=fg-b7f55ed153bedf69';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-b7f55ed153bedf69';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}
