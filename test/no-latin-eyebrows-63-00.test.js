@@ -12,7 +12,7 @@ const src = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 
 // 全库一起问。以前这条只管 screens.js，v63.01 起 Lisa 把别的文件也交过来了。
 // 例外分三类，每一类都写着理由——不是"看着顺眼就放过"：
-const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|IDB|LRU|TTS|SSE|MCP|ECDSA|NFKC|RIFF|SSR|SR|UID|PWA|AI|OK|ID|TA|OOC)$/;
+const OK_TECH = /^(GET|POST|PUT|DELETE|JSON|HTTP|HTTPS|UTF|API|URL|CSS|SVG|PNG|JPG|WEBP|IDB|LRU|TTS|SSE|MCP|ECDSA|HMAC|NFKC|RIFF|SSR|SR|UID|PWA|AI|OK|ID|TA|OOC)$/;
 const ALLOW = {
   // Lisa 2026-09-28 明确要求逐项复制 IMG_0188.PNG；只放行图中实际的卡面/小票字样。
   // Lisa 2026-09-28 又放行一次：「英文可以破例」——Y2K 要有标志性的英文字标（每页顶上一个）
