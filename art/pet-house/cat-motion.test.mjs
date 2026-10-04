@@ -46,7 +46,7 @@ test('the exported cat contains a skin and all runtime bones; original source re
  const gltf=JSON.parse(buffer.subarray(20,20+buffer.readUInt32LE(12)).toString());
  assert.equal(gltf.skins.length,1);
  for(const name of Object.keys(rig.bones))assert.ok(gltf.nodes.some(n=>n.name===name));
- assert.equal(gltf.skins[0].joints.length,18);
+ assert.equal(gltf.skins[0].joints.length,20);
  const report=JSON.parse(readFileSync(new URL('./asset-report.json',import.meta.url)));
  assert.equal(report.catBytes,buffer.length);assert.equal(report.roomBytes,readFileSync(new URL('./room.glb',import.meta.url)).length);
  assert.equal(report.catSourceSha256,'404fae1c8f47baf08e7c0f64597295fc8a6f12cfcf8d0324dc65bd40b89f5f7b');
@@ -67,7 +67,7 @@ test('dog export has the same complete motion contract and records the untouched
  assert.deepEqual(normalizeTail({pitch:999,yaw:-999,wag:false}),{pitch:25,yaw:-35,wag:false});
  const dog=JSON.parse(readFileSync(new URL('./dog-rig.json',import.meta.url))),b=readFileSync(new URL('./dog.glb',import.meta.url));
  const gltf=JSON.parse(b.subarray(20,20+b.readUInt32LE(12)).toString());
- assert.equal(dog.species,'dog');assert.equal(gltf.skins[0].joints.length,18);
+ assert.equal(dog.species,'dog');assert.equal(gltf.skins[0].joints.length,20);
  for(const name of Object.keys(rig.bones))assert.ok(gltf.nodes.some(n=>n.name===name));
  const report=JSON.parse(readFileSync(new URL('./dog-report.json',import.meta.url)));
  assert.equal(report.dogBytes,b.length);assert.ok(b.length<500000);assert.equal(report.sourceSha256,'850144996492084e0de67d7cc8a340480845f8498d33ff48d05dfbb741e576ce');

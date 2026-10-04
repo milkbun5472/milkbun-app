@@ -15,7 +15,7 @@ const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18952',out=process.env.P
     const neutral=pose({wag:false}),angled=pose({wag:false,pitch:20,yaw:-25}),wag0=pose({wag:true}),wag1=pose({wag:true},.05);pose(p.pet.tail);
     return {angledChange:Math.max(...neutral.map((v,i)=>Math.hypot(...v.map((n,j)=>n-angled[i][j])))),wagChange:Math.max(...wag0.map((v,i)=>Math.hypot(...v.map((n,j)=>n-wag1[i][j])))),bones:mesh.skeleton.bones.length};
    });
-   assert.equal(deformation.bones,18);assert.ok(deformation.angledChange>.04);assert.ok(deformation.wagChange>.0001);report.pets[species]={deformation};
+   assert.equal(deformation.bones,20);assert.ok(deformation.angledChange>.04);assert.ok(deformation.wagChange>.0001);report.pets[species]={deformation};
    report.pets[species].dyeProtection=await page.evaluate(async()=>{
    const T=await import('three'),p=petHousePreview,look=p.dye.snapshot();let mesh;p.cat.traverse(o=>{if(o.isSkinnedMesh)mesh=o;});
    const at=p.petRoot.position.clone().add(new T.Vector3(0,.45,0));
