@@ -95,7 +95,7 @@ test("秋秋能改任意一页的配色，页名写错当场红", () => {
   // 它是一份 JSON：不许走「改一小段」
   assert.match(asst, /if \(p\.target === "pagecolor"\) throw new Error\("配色这一栏要整份给，不能改一小段"\);/);
   // 模型得知道有这一栏：形状里和清单里都要有
-  assert.match(asst, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory"/);
+  assert.match(asst, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory[|"]/);
   assert.match(asst, /· pagecolor 某一页的配色/);
 });
 

@@ -206,8 +206,8 @@ test("三处共用同一套气泡和改动稿卡片，不是各抄一份", () =>
   assert.equal((src.match(/function useAssistChat\(/g) || []).length, 1);
   assert.equal((src.match(/function Bubbles\(/g) || []).length, 1);
   assert.equal((src.match(/h\(PatchCard, \{ key: p\.pid/g) || []).length, 1, "卡片被抄成了两处");
-  assert.match(src, /h\(Bubbles, \{ C: C, ctx: props, profile: props\.profile, cfg: cfg \}\)/, "整页没用公共气泡");
-  assert.match(src, /h\(Bubbles, \{ C: C, ctx: props, profile: props\.profile, cfg: cfg, compact: true \}\)/, "悬浮屏没用公共气泡");
+  assert.match(src, /h\(Bubbles, \{ C: C, ctx: props, profile: props\.profile, cfg: cfg, toast: props\.toast \}\)/, "整页没用公共气泡");
+  assert.match(src, /h\(Bubbles, \{ C: C, ctx: props, profile: props\.profile, cfg: cfg, compact: true, toast: props\.toast \}\)/, "悬浮屏没用公共气泡");
 });
 
 // 她 2026-09-03：「把问改和查毛病合并一起」
