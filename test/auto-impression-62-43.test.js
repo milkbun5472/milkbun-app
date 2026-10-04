@@ -17,7 +17,7 @@ test("月度印象自动出卡挂进 wakeSweeps，闸齐全：run 锁 / offlineA
   assert.match(seg, /autoRefreshOn\("impression", c\.id\)/);
   assert.match(seg, /some\(x => x\.monthKey === monthKey\)/);
   assert.match(seg, /rows\.length < 6/);
-  assert.match(app, /desireTendAllToday, phoneWeeklySweep, autoImpressionSweep\]/);
+  assert.match(app, /desireTendAllToday, phoneWeeklySweep, autoImpressionSweep[,\]]/);
 });
 
 test("周刊素材三处全按「喂不喂」名单取，展示仍用全量", () => {

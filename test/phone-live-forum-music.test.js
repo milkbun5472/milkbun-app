@@ -17,7 +17,7 @@ const P = new Function(phoneSrc + "; return { PHONE_LIVE_KEYS, PHONE_APPS, PHONE
 //   timeline 压根不生成任何东西，它只把别的 app 已经翻出来的碎片按时间串起来。
 // 「不生成」这件事必须在代码里是真的：没有取材层、没有 probe spec、不进全刷。
 test("接真数据的那几个从生成管线里整个撤掉了，不是留着说「这个别用」", () => {
-  assert.deepEqual(P.PHONE_LIVE_KEYS, ["forum", "music", "calendar", "anon", "timeline"]);
+  assert.deepEqual(P.PHONE_LIVE_KEYS, ["forum", "music", "calendar", "anon", "timeline", "astro"]);
   P.PHONE_LIVE_KEYS.forEach(k => {
     assert.equal(P.PHONE_ANGLE[k], undefined, k + " 还留着取材层");
     assert.equal(P.PHONE_DIGEST_PICK[k], undefined, k + " 还留在避重清单抽取表里");

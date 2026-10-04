@@ -485,7 +485,7 @@
     Object.freeze({
       zh: "星测", pages: Object.freeze(["astro"]),
       hooks: Object.freeze([
-        ["astrotabs", "顶上那条星座连线（今日／配对／星盘／群榜／问星）"], ["astrowheel", "星盘页那张圆盘"], ["astroyear", "星盘页「这一年」（太阳回归）"], ["astrogood", "配对里「星星点头的日子」"], ["astrorank", "群榜里的一行配对"], ["astroask", "问星的答案"], ["astrosky", "今日页那行天象"], ["astrocard", "每一块卡片"],
+        ["astrotabs", "顶上那条星座连线（今日／配对／星盘／群榜／问星）"], ["astrowheel", "星盘页那张圆盘"], ["astroyear", "星盘页「这一年」（太阳回归）"], ["astrogood", "配对里「星星点头的日子」"], ["astrorank", "群榜里的一行配对"], ["astroask", "问星的答案"], ["astrosky", "今日页那行天象"], ["phoneastro", "查手机里 TA 那页星测（整页）"], ["astroshare", "聊天里那张「今日签」小卡"], ["astromoon", "今日页「月亮日记」"], ["astrohalo", "星星点头那天聊天顶栏头像外那圈星光"], ["astrocard", "每一块卡片"],
         ["astrolucky", "幸运色那一格"], ["astrosyn", "配对里「合盘」那一段"], ["astrosign", "配对里「星座配对」那一段"], ["astroshuku", "配对里「星宿关系」那一段"],
         ["astronote", "TA看完说的那段话"]
       ])
@@ -876,7 +876,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.810", changed: "", none: "猫狗骨骼、蒙皮与闭眼材质修补，外貌预览沿原页面，没有新增主题样式能力" };
+  const BRIEF_STAMP = { v: "v74.815", changed: "", none: "猫狗骨骼、蒙皮与闭眼材质修补，外貌预览沿原页面，没有新增主题样式能力" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

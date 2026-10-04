@@ -220,7 +220,7 @@ test("相册：只有【挪去哪一摞】那一下写得动，别的一律只�
 test("打得开哪几个 app 只此一份名单", () => {
   // 论坛和匿名信箱在名单里（她 2026-09-10：「可以点开看但是不改」），
   // ⚠️但 applyWrite 里一个分支都不许有——它们接的是真数据，发一帖就是真发出去。
-  assert.match(app, /"calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",\s*\n\s*"forum", "anon"\]/);
+  assert.match(app, /"calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",\s*\n\s*"forum", "anon", "astro"\]/);
   assert.equal(W.applyWrite("forum", { posts: [] }, "帖子", "他要发的话", 1).wrote, false);
   assert.equal(W.applyWrite("anon", { records: [] }, "一封", "他要回的话", 1).wrote, false);
   // 提示词、归一、播放器都读它，不各写一份

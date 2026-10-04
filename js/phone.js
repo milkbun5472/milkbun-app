@@ -72,6 +72,11 @@ const PHONE_APPS = [{
   // 所以它同时属于 PHONE_LIVE_KEYS（不调模型、不进 phones）。
   key: "timeline",
   zh: "时间线"
+}, {
+  // 星测（她 2026-10-05）：TA 那天打开星测看到的运势和跟你的配对。按生日算、不调模型，
+  //   所以跟日历、论坛一样是 PHONE_LIVE_KEYS——日子取 TA 上一次真打开的那天（刷新或看TA玩时点开）。
+  key: "astro",
+  zh: "星测"
 }];
 const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 接真数据的 app：不调模型、不存进 phones，直接读 App 里那份真的。
@@ -82,7 +87,7 @@ const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
 // 日历接的是 App 里那份真的（x_calendar 里TA自己的那格 + 带时刻的日程 + TA答应过她的事），
 // 不再另生成一份假的——翻到角色日历上真的写着某一天有事，比生成出来的任何一条都重。
-const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline"];
+const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline", "astro"];
 // 自己画满整屏（连顶栏和内页导航一起画）的 app：外层不套通用 Head，也不加 padding，
 // 否则会叠出两层标题栏。
 // 内层 app 的底衬。
@@ -110,7 +115,7 @@ function PTX(v) {
 function phoneTextClamp(text, lines) {
   return typeof translatableLang === "function" && translatableLang(String(text || "")) ? "unset" : lines;
 }
-const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum"];
+const FULL_BLEED_KEYS = ["music", "wechat", "album", "reading", "shopping", "takeout", "health", "bili", "latenight", "liked", "calendar", "notes", "clipboard", "browser", "calls", "timeline", "tally", "mail", "anon", "forum", "astro"];
 // 桌面组件：装饰件（不是 app，点了不进任何 app，也不调任何模型）
 //   clock  一只走针的表      frame  从TA相册里挑一张当相框      saying 把TA写过的一句话放大
 const PHONE_DECOR = ["clock", "frame", "saying"];
@@ -131,28 +136,28 @@ const PHONE_DESKTOP_LAYOUTS = [{
   id: "social", label: "爱聊的",
   dock: ["calls", "wechat", "browser", "music"],
   pages: [["notes", "album", "forum", "shopping"],
-          ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail", "anon"]],
+          ["timeline", "liked", "clipboard", "reading", "bili", "takeout", "latenight", "tally", "mail", "anon", "astro"]],
   widgets: [[{ key: "wechat", span: 2, size: "hero" }, { key: "timeline" }, { key: "clock" }, { key: "liked", span: 2, size: "wide" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "health" }, { key: "calendar" }]]
 }, {
   id: "archive", label: "爱记的",
   dock: ["calls", "wechat", "notes", "browser"],
   pages: [["album", "music", "clipboard", "calendar"],
-          ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout", "anon"]],
+          ["shopping", "forum", "liked", "bili", "health", "latenight", "takeout", "anon", "astro"]],
   widgets: [[{ key: "notes", span: 2, size: "hero" }, { key: "timeline", span: 2, size: "wide" }, { key: "tally", span: 2, size: "wide" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "reading", span: 2, size: "wide" }, { key: "saying", span: 2, size: "wide" }, { key: "mail" }, { key: "clock" }]]
 }, {
   id: "media", label: "泡内容的",
   dock: ["calls", "wechat", "music", "album"],
   pages: [["forum", "browser", "notes", "reading"],
-          ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail", "anon"]],
+          ["shopping", "clipboard", "calendar", "health", "takeout", "latenight", "tally", "mail", "anon", "astro"]],
   widgets: [[{ key: "music", span: 2, size: "hero" }, { key: "album", span: 2, size: "wide" }, { key: "bili" }, { key: "clock" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "frame", span: 2, size: "tall" }, { key: "liked" }, { key: "timeline" }]]
 }, {
   id: "wander", label: "安静的",
   dock: ["calls", "wechat", "browser", "album"],
   pages: [["notes", "music", "shopping", "forum"],
-          ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health", "anon"]],
+          ["timeline", "liked", "bili", "clipboard", "latenight", "tally", "mail", "health", "anon", "astro"]],
   widgets: [[{ key: "clock" }, { key: "health" }, { key: "saying", span: 2, size: "wide" }, { key: "timeline", span: 2, size: "wide" }, { key: "refresh" }, { key: "watch" }],
             [{ key: "reading" }, { key: "takeout" }, { key: "calendar", span: 2, size: "wide" }]]
 }];
@@ -1423,7 +1428,7 @@ const PHONE_TONE_KEY = {
   wallet: "ledger", album: "carry", forum: "forum", music: "cast", bili: "fanfic",
   latenight: "dream", reading: "read", liked: "impression", health: "dwell",
   clipboard: "memo", calendar: "calendar", takeout: "shop", timeline: "forum",
-  tally: "ledger", anon: "anon", mail: "messages"
+  tally: "ledger", anon: "anon", mail: "messages", astro: "astro"
 };
 function phoneTone(key) {
   if (typeof appTone === "function") return appTone(PHONE_TONE_KEY[key] || key);
@@ -1618,6 +1623,7 @@ function PGlyph({
     tally: [P("M5 3.2h14v17.6H5z"), P("M9 3.2v17.6"), P("M12 7.6h4.2M12 11.6h4.2M12 15.6h2.6"), P("M6.4 8.6l1.2 1.2 1.4-2.2")],
     anon: [P("M4 5.2h16v11.2H9l-5 4z"), P("M8.2 9.2h7.6M8.2 12.4h4.8"), P("M18.4 3.2l.5 1.1 1.1.5-1.1.5-.5 1.1-.5-1.1-1.1-.5 1.1-.5z")],
     mail: [R(2.6, 5, 18.8, 14, 2.6), P("M2.6 7.2l9.4 6.4 9.4-6.4")],
+    astro: [C(12, 12, 8.5), P("M12 5.5l1.3 3.9 4.1.1-3.3 2.4 1.2 3.9L12 13.5l-3.3 2.3 1.2-3.9-3.3-2.4 4.1-.1z")],
     settings: [C(12, 6, 2), C(12, 18, 2), C(6, 12, 2), P("M3 6h7M14 6h7M3 18h7M14 18h7M3 12h1M8 12h13")]
   };
   return h(Svg, {
@@ -5979,6 +5985,8 @@ function renderPhoneModule(key, d, ctx) {
     onDelRecord: ctx.onDelAnonRecord,
     onClose: ctx.onBack
   });
+  if (key === "astro") return typeof window !== "undefined" && window.AstroPhoneView ? h(window.AstroPhoneView, { char, profile: ctx.profile, onBack: ctx.onBack })
+    : h("div", { className: "h-full flex items-center justify-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "星测还没加载好");
   if (key === "timeline") return h(TimelineView, {
     rows: ctx.timelineRows, char, t, onBack: ctx.onBack, onOpenApp: ctx.onOpenApp, onPeek: ctx.onPeek,
     newIds: ctx.newIds, newCount: ctx.newCount, onMarkRead: ctx.onMarkRead,

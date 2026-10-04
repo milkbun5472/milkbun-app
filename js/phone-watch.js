@@ -849,6 +849,8 @@
       const cs = arr((ph.health || {}).cards).slice(0, 12).map(x => (x.name || "")).filter(Boolean).join("、");
       now.push("〔健康 health〕今天这几张读数（openItem 的 name 就是那一项的名字）：" + (cs || "（今天还没有读数）"));
     }
+    // 星测：按生日算的那一页（今天的运势、跟她的配对），只能看
+    if (can.indexOf("astro") >= 0) now.push(characterText(c, "〔星测 astro〕他手机里的星测：点开能看到他自己今天的运势，还有他跟你的配对。只能看（openPage）。"));
     if (can.indexOf("calendar") >= 0) {
       const cs = arr(((o && o.calendar) || {}).items).slice(0, 12).map(x => "· " + (x.title || "?") + (x.date ? "（" + x.date + "）" : "")).join("\n");
       now.push(characterText(c, "〔日历 calendar〕他记下的事（openItem 的 name 就是那件事）：\n") + (cs || "（日历上什么也没有）"));
