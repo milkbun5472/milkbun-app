@@ -358,7 +358,9 @@ test("她说的那一框也挂名字，挂在右上角", () => {
   assert.match(body, /mine: bt\.role === "user"/, "调用处没把 role 传下去，她说的会变成旁白");
   assert.match(body, /uName: uName/, "调用处没把她的名字传下去");
   assert.match(scr, /function IfRoom\(\{ partner, lines, uName,/, "IfRoom 没收 uName");
-  assert.match(scr, /uName: \(profile \|\| \{\}\)\.name \|\| "我"/, "路由没把她的名字传进如果馆");
+  // v74.721：名字改成走这个人认识的那张面具（封面那儿本来就是这么取的，这两处漏了）
+  assert.match(scr, /uName: \(\(typeof profileFor === "function" && profileFor\(partner\.id\)\) \|\| profile \|\| \{\}\)\.name \|\| "我"/,
+    "路由没把她的名字传进如果馆，或者没跟着面具走");
 });
 
 // 她 2026-08-31：「可以做这种游戏对话框样式（不要照抄，我们自己设计一下样式）」

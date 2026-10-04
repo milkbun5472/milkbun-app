@@ -21,8 +21,12 @@ test("时光胶囊只搬入口、不搬数据，并从情侣空间原路返回",
   assert.match(screens, /spine\("capsule", \{ zh: "时光胶囊"/);
   assert.doesNotMatch(screens, /onOpenCapsule/, "旧那条跳屏的线还留着");
   assert.match(screens, /sub === "capsule" && typeof window !== "undefined" && window\.CapsuleApp\)/);
-  assert.match(screens, /characters: characters, characterId: partner\.id, profile: profile, onBack: \(\) => setSub\(null\)/,
+  // v74.721：profile 换成了「这个人认识的那张面具」（她 2026-10-03 问「情侣空间的
+  //   面具名字也是对的吧」顺着查出来的）。这条守的是【onBack 只退一层】，不是 profile 怎么取。
+  assert.match(screens, /characters: characters, characterId: partner\.id, profile: [^,]+, onBack: \(\) => setSub\(null\)/,
     "退出来没有只退一层");
+  assert.match(screens, /characterId: partner\.id, profile: \(\(typeof profileFor === "function" && profileFor\(partner\.id\)\) \|\| profile\)/,
+    "时光胶囊里的「我」没戴这个人认识的那张面具");
   assert.match(app, /capsuleProps: \{ active: active, apiFor: apiFor, ctxFor: ctxFor, toast: toast, onKeep: coupleKeep \}/);
   // 旧那一屏整块删掉，不是留在原地打个叉（她 2026-08-30）
   assert.doesNotMatch(app, /screen === "capsule"/, "那一屏还留着——两条路进同一个页面");
