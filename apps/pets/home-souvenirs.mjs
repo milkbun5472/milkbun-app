@@ -1,10 +1,10 @@
-import {petWorkplace} from './workplaces.mjs?v=fg-ad36803fee25eb2f';
+import {petWorkplace} from './workplaces.mjs?v=fg-ecfc54c761836580';
 // One inventory projection for the room and the conversation. No second furniture save.
 export function homeSouvenirs(career,care){
  const inventory=career?.inventory||{},task=care?.task;
- return {flowerVase:{flowers:career?.vase?.flowers||0,unplaced:inventory.flower||0,petals:inventory.petals||0,day:career?.vase?.day||null,by:career?.vase?.by||'',place:'窗边桌上的小花瓶'},breadBasket:{count:inventory.bread||0,place:'饭盆旁的面包篮',portion:task?.kind==='treat'&&task.food==='bread'?{phase:task.phase,food:'小面包'}:null},ownBall:{owned:inventory.toy===1,place:'玩具角或它上次放下的地方',position:care?.toyPlaces?.ball?{...care.toyPlaces.ball}:null,playing:inventory.toy===1&&task?.kind==='play'&&task.toy==='ball'},firstTrial:career?.firstTrial?structuredClone(career.firstTrial):null};
+ return {flowerVase:{flowers:career?.vase?.flowers||0,unplaced:inventory.flower||0,petals:inventory.petals||0,day:career?.vase?.day||null,by:career?.vase?.by||'',place:'窗边桌上的小花瓶'},breadBasket:{count:inventory.bread||0,place:'饭盆旁的面包篮',portion:task?.kind==='treat'&&task.food==='bread'?{phase:task.phase,food:'小面包'}:null},ownBox:{owned:inventory.box===1,resting:task?.kind==='sleep'&&task.place==='box',place:'自己的敞口小纸箱'},ownBall:{owned:inventory.toy===1,name:career?.shopping?.toyStyle==='wonky'?'歪眼小怪球':'自己的小球',place:'玩具角或它上次放下的地方',position:care?.toyPlaces?.ball?{...care.toyPlaces.ball}:null,playing:inventory.toy===1&&task?.kind==='play'&&task.toy==='ball'},firstTrial:career?.firstTrial?structuredClone(career.firstTrial):null};
 }
-export function createHomeSouvenirs(T,{model,career,care,ballObject}){
+export function createHomeSouvenirs(T,{model,career,care,ballObject,boxObject}){
  const root=new T.Group();root.name='pet-earned-souvenirs';model.add(root);
  const material=color=>new T.MeshStandardMaterial({color,roughness:.88});
  const wood=material('#c8a787'),bread=material('#c99662'),cut=material('#f5dfbb'),cloth=material('#efe0d5');
@@ -17,7 +17,7 @@ export function createHomeSouvenirs(T,{model,career,care,ballObject}){
  for(const z of[-.23,.23])mesh(basket,new T.BoxGeometry(.65,.18,.045),wood,0,.09,z);
  for(let i=0;i<4;i++)for(const z of[-.26,.26])mesh(basket,new T.BoxGeometry(.62,.014,.015),cut,0,.025+i*.047,z);
  const loaves=[];for(let i=0;i<3;i++){const loaf=new T.Group();loaf.position.set((i-1)*.17,.19,i===1?-.06:.02);const body=mesh(loaf,new T.SphereGeometry(.14,16,10),bread,0,0,0);body.scale.set(.65,.65,1.28);for(const z of[-.065,0,.065]){const slash=mesh(loaf,new T.BoxGeometry(.09,.018,.023),cut,0,.084,z);slash.rotation.z=-.12;}basket.add(loaf);loaves.push(loaf);}
- const ball=ballObject;objects.ball=ball;
+ const ball=ballObject;objects.ball=ball;const box=boxObject;objects.box=box;
 
  const vase=group('flowers',-.16,.83,-2.02),pink=material('#d7aaa9'),stem=material('#a2a589');
  mesh(vase,new T.CylinderGeometry(.065,.085,.18,16),cloth,0,.09,0);
@@ -34,8 +34,8 @@ export function createHomeSouvenirs(T,{model,career,care,ballObject}){
  const print=mesh(memory,new T.PlaneGeometry(.55,.68),new T.MeshStandardMaterial({map:texture,roughness:1}),0,0,.026);print.castShadow=false;
  let printId=career.firstTrial?.id;
  function sync(){if(printId!==career.firstTrial?.id){printId=career.firstTrial?.id;paint();texture.needsUpdate=true;}const facts=homeSouvenirs(career,care);vase.visible=facts.flowerVase.flowers>0||facts.flowerVase.unplaced>0;flowers.forEach((o,i)=>o.visible=i<facts.flowerVase.flowers);basket.visible=facts.breadBasket.count>0;loaves.forEach((o,i)=>o.visible=i<facts.breadBasket.count);if(facts.ownBall.owned)ball.userData.souvenir='ball';else delete ball.userData.souvenir;memory.visible=!!facts.firstTrial;return facts;}
- function pick(ray){root.updateMatrixWorld(true);for(const hit of ray.intersectObjects(career.inventory.toy===1?[root,ball]:[root],true)){let o=hit.object,visible=true,id;while(o&&o!==model){if(!o.visible)visible=false;if(o.userData.souvenir)id=o.userData.souvenir;o=o.parent;}if(visible&&id)return id;}return null;}
- function markers(camera,width,height){root.updateMatrixWorld(true);return Object.entries(objects).filter(([id,o])=>o.visible&&(id!=='ball'||career.inventory.toy===1)).map(([id,o])=>{const p=o.getWorldPosition(new T.Vector3());p.y+=id==='memory'?.42:.35;p.project(camera);return {id,x:(p.x+1)*width/2,y:(1-p.y)*height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.95&&Math.abs(p.y)<.95};});}
+ function pick(ray){root.updateMatrixWorld(true);for(const hit of ray.intersectObjects([root,...(career.inventory.toy===1?[ball]:[]),...(career.inventory.box===1?[box]:[])],true)){let o=hit.object,visible=true,id;while(o&&o!==model){if(!o.visible)visible=false;if(o.userData.souvenir)id=o.userData.souvenir;o=o.parent;}if(visible&&id)return id;}return null;}
+ function markers(camera,width,height){root.updateMatrixWorld(true);return Object.entries(objects).filter(([id,o])=>o&&o.visible&&(id!=='ball'||career.inventory.toy===1)&&(id!=='box'||career.inventory.box===1)).map(([id,o])=>{const p=o.getWorldPosition(new T.Vector3());p.y+=id==='memory'?.42:.35;p.project(camera);return {id,x:(p.x+1)*width/2,y:(1-p.y)*height/2,visible:p.z>=-1&&p.z<=1&&Math.abs(p.x)<.95&&Math.abs(p.y)<.95};});}
  function dispose(){delete ball.userData.souvenir;model.remove(root);const geometries=new Set(),materials=new Set();root.traverse(o=>{if(o.geometry)geometries.add(o.geometry);if(o.material)materials.add(o.material);});for(const g of geometries)g.dispose();for(const m of materials){m.map?.dispose();m.dispose();}}
  sync();return {sync,pick,markers,dispose};
 }
