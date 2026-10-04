@@ -62,7 +62,7 @@ console.log("ledger-acctface ok");
 // 聊天里 TA 记账的卡：账本玻璃皮时是小票（她 2026-09-29 的票纸、回形针、RECORDED 章）；纸皮还是原来那张
 {
   const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
-  assert.match(comp, /if \(!isMemo && typeof window !== "undefined" && window\.ledgerIsGlass && window\.ledgerIsGlass\(\)\) return h\(LedgerTicketCard, \{ m \}\);/);
+  assert.match(comp, /if \(!isMemo && !isHealth && typeof window !== "undefined" && window\.ledgerIsGlass && window\.ledgerIsGlass\(\)\) return h\(LedgerTicketCard, \{ m \}\);/);
   assert.match(src, /window\.ledgerIsGlass = function/);
   ["rc-ticket", "rc-clip", "rc-stamp"].forEach(n => assert.ok(fs.existsSync(__dirname + "/../assets/ledger/" + n + ".webp"), n));
   console.log("ledger-ticket-card ok");
