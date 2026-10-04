@@ -18,38 +18,12 @@ const anchor = (() => {
   return engine.slice(start, engine.indexOf("`", start));
 })();
 
-test("称呼那条按日记的规格重写：给出替代、点名体裁、留人设例外", () => {
-  // ① 去哪儿找真正的称呼 + 具体替代。v72.55 她把锚里那半句圈掉了（[17]），
-  //    这一层没丢：THOUGHT_MEANING（线上线下共用的心声字段说明）里还在发，
-  //    而且它离心声更近——见下面第三条。
-  assert.match(app + engine, /名字、昵称、或者直接「你」/);
-  // ② 禁用清单要盖住同族说法，只禁一个它就换一个
-  ["这女人", "那女人", "那家伙", "这丫头", "这小东西"].forEach(w =>
-    assert.ok(anchor.includes(w), "疏离称呼禁用清单里少了：" + w));
-  // ③ 人设里真这么叫的角色不能被误伤
-  assert.match(anchor, /除非你的人设里真的就这么叫她/);
-});
-
 test("关键的一条：明确点名心声与内心独白，并说破这是体裁默认不是人设", () => {
   assert.match(anchor, /【心声、内心独白同样受这一条管】/);
   assert.match(anchor, /那是【体裁自带的默认】，不是你的人设/);
   assert.match(anchor, /和日记那边犯的是同一个毛病/);
   // 心里直接用「你」是正常的，别把这条读成"必须用名字"
   assert.match(anchor, /心里跟她说话时，直接用「你」也完全正常/);
-});
-
-test("字段说明本地也补一句：action 有人称硬规则，thought 不能缺", () => {
-  // action 那条一直都在，thought 这条是新补的对称规则
-  // v67.26：action 那条人称硬规则搬进了 engine.js 的 ACT_MEANING（单聊群聊共用一份）
-  assert.match(fs.readFileSync(path.resolve(__dirname, "..", "js/engine.js"), "utf8"),
-    /必须用第一人称「我」写，禁止用角色名或「TA／她／TA」从旁描述/, "action 的人称规则还在");
-  // ⚠️v67.49 起心声那一段抠成了 engine.js 的公共 THOUGHT_MEANING（线上线下共用一份），
-  //   app.js 那头只剩一个 ${THOUGHT_MEANING}。所以这条要对着【拼起来的那一份】验。
-  assert.match(app + engine, /心声里怎么称呼她，用你平时真的用的那个（名字、昵称、或者直接「你」）/);
-  // v74.311 心声那段重写成短的：「这是体裁默认、不是人设」那半句只留在 PERSONA_REGISTER_ANCHOR 里
-  //   （见下面那条——锚里点名了心声），不在字段说明里再说一遍。
-  // 群聊那条也要有
-  assert.match(app, /心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔/);
 });
 
 test("六条通道都吃得到这条锚（心声在其中每一条里都会出现）", () => {

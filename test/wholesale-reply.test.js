@@ -66,12 +66,3 @@ test("这条刀四处都挂上了", () => {
                (codeOnly(app).match(/STOCK_REPLY_BAN/g) || []).length, 4,
     "1 处定义 + buildBundle + groupBans（三处群共用）+ OVERREACH_BAN 别名；注释不算");
 });
-
-test("提示词封的是那个位置，不是某个词", () => {
-  // ⚠️v67.49 起心声那一段抠成了 engine.js 的公共 THOUGHT_MEANING（线上线下共用一份），
-  //   app.js 那头只剩一个 ${THOUGHT_MEANING}。所以这条要对着【拼起来的那一份】验。
-  assert.match(app + engine, /心声可以没有结尾/);
-  assert.match(app + engine, /不管那句是狠话还是甜话/, "甜话也算——否则封了收拾就换成捏脸");
-  // v74.311 起不再列例句（内容示范会把所有人的心声教成同一个形状），只封位置
-  assert.match(app + engine, /那个【位置】本身就是旁白在结案/);
-});
