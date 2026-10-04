@@ -1,5 +1,5 @@
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation} from './town-life.mjs?v=fg-c061907def01ea5f';
-import {careSummary} from './care.mjs?v=fg-c061907def01ea5f';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation} from './town-life.mjs?v=fg-3051364b75e512bb';
+import {careSummary} from './care.mjs?v=fg-3051364b75e512bb';
 
 export const NEIGHBORS=[
  {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},

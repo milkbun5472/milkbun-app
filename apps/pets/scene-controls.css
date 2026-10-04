@@ -21,7 +21,7 @@
 .pet-game .tools button+button{border-left:1px solid var(--town-line)}
 .pet-game .tools button:last-child::after{content:'';position:absolute;right:2px;bottom:2px;width:5px;height:5px;border-right:1px solid var(--town-line);border-bottom:1px solid var(--town-line)}
 .pet-scene-dock{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:8px;padding-bottom:var(--town-dock);pointer-events:none;z-index:2}
-.pet-game .home-actions{position:static;margin:0 12px;pointer-events:auto;display:flex;gap:0;padding:4px 3px;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:14px 14px 7px 7px;box-shadow:0 3px 0 #b8a48e18;z-index:2}
+.pet-game .home-actions{position:relative;margin:0 12px;pointer-events:auto;display:flex;gap:0;padding:4px 3px;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:14px 14px 7px 7px;box-shadow:0 3px 0 #b8a48e18;z-index:2}
 .pet-game .home-actions button{flex:1;min-width:0;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:3px 1px;white-space:nowrap;font-size:11px;color:var(--town-pencil)}
 .pet-game .home-actions button:nth-child(3),.pet-game .home-actions button:nth-child(5){border-left:1px solid var(--town-line);border-radius:0}
 .pet-game .home-actions svg{width:20px;height:20px}
@@ -42,3 +42,7 @@
 .pet-game #loading{pointer-events:none}
 .pet-game.customizing .scene-head,.pet-game.customizing #door-labels,.pet-game.customizing .near-door,.pet-game.customizing .scene-foot,.pet-game.customizing .pet-view-tools,.pet-game.customizing .home-actions{display:none!important}
 @media(max-width:350px){.pet-game .tools button{padding:0 7px;gap:4px}.pet-game .tools svg{width:16px;height:16px}.pet-game #back{gap:3px}.pet-game .pet-watch{min-width:48px;padding:0 4px}.pet-game #reset{min-width:44px;padding:0 4px}.pet-game #reset svg{display:none}}
+
+.pet-game .home-actions::before{content:attr(data-who);position:absolute;left:12px;bottom:100%;padding:2px 8px 1px;font-size:11px;line-height:1.5;color:var(--town-pencil);background:var(--town-sheet);border:1px solid var(--town-line);border-bottom:0;border-radius:7px 7px 0 0;pointer-events:none}
+.pet-game .home-actions button.is-blocked{opacity:.48}
+.pet-game .door-label.is-edge{white-space:nowrap;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:8px;color:var(--town-pencil)}
