@@ -15823,7 +15823,7 @@ function GroupThread({
     exitSel();
   };
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
-  const memberById = id => { const c = (allChars || characters).find(x => x.id === id); return c && c.chatAvatar ? { ...c, avatarImage: c.chatAvatar } : c; };
+  const memberById = id => chatFace((allChars || characters).find(x => x.id === id));
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），
