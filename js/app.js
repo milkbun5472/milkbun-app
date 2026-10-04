@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.767";
+const APP_VERSION = "v74.771";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2286,7 +2286,9 @@ function App() {
   // 顺序全靠 <style> 在 head 里的先后，所以只能有一个出口：components 那边的 applyChatLook。
   // ⚠️限死到【这一个人的这一页】：别人的聊天窗也是 thread，只按页面限的话，
   //   给沈屿白挑的皮肤会照样出现在陆闻那儿（浏览器里当场看出来的）。
-  const lookScope = id => 'html[data-lisa-screen="thread"][data-lisa-char="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"]';
+  // ⚠️跟 TA 单独通话时也算「TA 这一页」（她 2026-10-05：「做1吧」）：她给 TA 写的贴纸、气泡 CSS
+  //   原来一进通话就整份收走，秋秋往里加再多 call* 挂点也显示不出来。通话那层由 data-lisa-call 认人。
+  const lookScope = id => { const k = String(id).replace(/[^A-Za-z0-9_:-]/g, ""); return 'html[data-lisa-char="' + k + '"]:is([data-lisa-screen="thread"],[data-lisa-call="' + k + '"])'; };
   const charSkinCSS = (name, scope) => {
     if (!name || !window.ThemeStudio) return "";
     const hit = ((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === name);
@@ -2302,10 +2304,14 @@ function App() {
   // 这个聊天窗的长相发出去：存档那份，或者预览台递过来的一份草稿（draft 盖在存档上，不落盘）
   const paintChatLook = draft => {
     if (typeof applyChatLook !== "function") return;
-    const inChat = !!(activeChar && screen === "thread");
-    document.documentElement.setAttribute("data-lisa-char", inChat ? String(activeChar.id) : "");
-    const s = inChat ? Object.assign({}, settingsFor(activeChar.id), draft || {}) : {};
-    const scope = inChat ? lookScope(activeChar.id) : "";
+    // 单人通话（不是群通话）优先：通话盖在哪一页上都按通话里那个人来
+    const callOne = call && !call.groupId && call.participants && call.participants.length === 1 ? call.participants[0] : null;
+    const who = callOne || (activeChar && screen === "thread" ? activeChar : null);
+    const inChat = !!who;
+    document.documentElement.setAttribute("data-lisa-char", inChat ? String(who.id) : "");
+    document.documentElement.setAttribute("data-lisa-call", callOne ? String(callOne.id).replace(/[^A-Za-z0-9_:-]/g, "") : "");
+    const s = inChat ? Object.assign({}, settingsFor(who.id), draft || {}) : {};
+    const scope = inChat ? lookScope(who.id) : "";
     // 只给 TA 换字（她 2026-09-18）：名单和自己传的那几支都问主题那份要——
     // 聊天窗这儿不另存一份字体名单（one-public-mechanism）。
     const _prof = (window.ThemeStudio && window.ThemeStudio.current()) || {};
@@ -2327,7 +2333,7 @@ function App() {
       chatBg: s.chatBg || ""
     });
   };
-  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen]);
+  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId]);
   // 群聊窗那一层（她 2026-09-30：「群聊也加这一堆美化」）：排版开关 + 这个群自己写的 CSS，限到【这一个群】
   //   ——别的群也是 gthread，只按页面限的话会串到别的群里去（单聊那条同样的教训）。
   const paintGroupLook = draft => {
@@ -9435,6 +9441,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     requestAppConfirm("删掉「" + ((c && (c.name || c.remark)) || "这位角色") + "」的卷宗？",
       "这一下撤不回来。"
       + (kids.length ? "\nTA 身边的 " + kids.length + " 位配角会跟着一起删掉。" : "")
+      + "\n聊天、线下、记忆、梦、收藏这些属于 TA 的东西也一起清掉。"
       // ⚠️别在这儿提「找回失联的角色」（她 2026-09-14）：那一条是她自己用的，
       //   公共版里没有。说明书上写着、点过去却没有，比不说更糟。
       + "\n要紧的话先去 设置 → 数据 → 导出全部数据，存一份在自己手上。",
@@ -9451,6 +9458,99 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_groups", n);
       return n;
     });
+    // 她 2026-10-05：「主动删除就是不要的」——TA的东西一起清，不留给「找回失联」（那条路是给意外丢数据的）。
+    //   本机的按人存档、按人的表、带 charId 的记录都扫一遍（CharPurge），扫到的那几张表再从存档重读回界面；
+    //   记忆库走 saveMemLib 才同步得上云；梦在 IndexedDB 里另清。
+    const gone = Array.from(doomed);
+    const changed = window.CharPurge ? window.CharPurge.sweep(gone) : [];
+    const RELOAD = {
+      x_ambientCount: v => typeof setAmbientCount === "function" && setAmbientCount(v),
+      x_anon: v => typeof setAnon === "function" && setAnon(v),
+      x_anonPool: v => typeof setAnonPool === "function" && setAnonPool(v),
+      x_avatarSwap: v => typeof setAvatarSwap === "function" && setAvatarSwap(v),
+      x_blocks: v => typeof setBlocks === "function" && setBlocks(v),
+      x_calEvents: v => typeof setCalEvents === "function" && setCalEvents(v),
+      x_carry: v => typeof setCarry === "function" && setCarry(v),
+      x_carryGifts: v => typeof setCarryGifts === "function" && setCarryGifts(v),
+      x_carryPins: v => typeof setCarryPins === "function" && setCarryPins(v),
+      x_shopCart: v => typeof setCart === "function" && setCart(v),
+      x_charTitle: v => typeof setCharTitle === "function" && setCharTitle(v),
+      x_charWallet: v => typeof setCharWallet === "function" && setCharWallet(v),
+      x_chatArch: v => typeof setChatArch === "function" && setChatArch(v),
+      x_chatSettings: v => typeof setChatSettings === "function" && setChatSettings(v),
+      x_coupleBreakup: v => typeof setCoupleBreakup === "function" && setCoupleBreakup(v),
+      x_coupleDisc: v => typeof setCoupleDisc === "function" && setCoupleDisc(v),
+      x_coupleDrawer: v => typeof setCoupleDrawer === "function" && setCoupleDrawer(v),
+      x_coupleExDiary: v => typeof setCoupleExDiary === "function" && setCoupleExDiary(v),
+      x_coupleGarden: v => typeof setCoupleGarden === "function" && setCoupleGarden(v),
+      x_coupleHome: v => typeof setCoupleHome === "function" && setCoupleHome(v),
+      x_coupleLetterCfg: v => typeof setCoupleLetterCfg === "function" && setCoupleLetterCfg(v),
+      x_coupleLetters: v => typeof setCoupleLetters === "function" && setCoupleLetters(v),
+      x_coupleProfile: v => typeof setCoupleProfile === "function" && setCoupleProfile(v),
+      x_coupleQA: v => typeof setCoupleQA === "function" && setCoupleQA(v),
+      x_coupleQABooks: v => typeof setCoupleQABooks === "function" && setCoupleQABooks(v),
+      x_coupleQACustom: v => typeof setCoupleQACustom === "function" && setCoupleQACustom(v),
+      x_coupleQACustomBooks: v => typeof setCoupleQACustomBooks === "function" && setCoupleQACustomBooks(v),
+      x_coupleQATitle: v => typeof setCoupleQATitle === "function" && setCoupleQATitle(v),
+      x_coupleRecall: v => typeof setCoupleRecall === "function" && setCoupleRecall(v),
+      x_coupleShots: v => typeof setCoupleShots === "function" && setCoupleShots(v),
+      x_coupleSweet: v => typeof setCoupleSweet === "function" && setCoupleSweet(v),
+      x_coupleTimeline: v => typeof setCoupleTimeline === "function" && setCoupleTimeline(v),
+      x_coupleTrips: v => typeof setCoupleTrips === "function" && setCoupleTrips(v),
+      x_desires: v => typeof setDesires === "function" && setDesires(v),
+      x_directives: v => typeof setDirectives === "function" && setDirectives(v),
+      x_favorites: v => typeof setFavorites === "function" && setFavorites(v),
+      x_forumCharMeta: v => typeof setForumCharMeta === "function" && setForumCharMeta(v),
+      x_forumFollows: v => typeof setForumFollows === "function" && setForumFollows(v),
+      x_forumPMs: v => typeof setForumPMs === "function" && setForumPMs(v),
+      x_friendGroups: v => typeof setFriendGroups === "function" && setFriendGroups(v),
+      x_gachaCards: v => typeof setGachaCards === "function" && setGachaCards(v),
+      x_gachaLuck: v => typeof setGachaLuck === "function" && setGachaLuck(v),
+      x_gachaPts: v => typeof setGachaPts === "function" && setGachaPts(v),
+      x_gachaSeeds: v => typeof setGachaSeeds === "function" && setGachaSeeds(v),
+      x_giftOut: v => typeof setGiftOut === "function" && setGiftOut(v),
+      x_greetLog: v => typeof setGreetLog === "function" && setGreetLog(v),
+      x_groupSettings: v => typeof setGroupSettings === "function" && setGroupSettings(v),
+      x_ifLines: v => typeof setIfLines === "function" && setIfLines(v),
+      x_kinshipCards: v => typeof setKinshipCards === "function" && setKinshipCards(v),
+      x_makeup: v => typeof setMakeups === "function" && setMakeups(v),
+      x_memories: v => typeof setMemories === "function" && setMemories(v),
+      x_moments: v => typeof setMoments === "function" && setMoments(v),
+      x_momentsCover: v => typeof setMomentsCover === "function" && setMomentsCover(v),
+      x_moods: v => typeof setMoods === "function" && setMoods(v),
+      x_myCloset: v => typeof setMyCloset === "function" && setMyCloset(v),
+      x_openers: v => typeof setOpeners === "function" && setOpeners(v),
+      x_shopOrders: v => typeof setOrders === "function" && setOrders(v),
+      x_phoneArch: v => typeof setPhoneArch === "function" && setPhoneArch(v),
+      x_phoneLastAll: v => typeof setPhoneLastAll === "function" && setPhoneLastAll(v),
+      x_phoneVitals: v => typeof setPhoneVitals === "function" && setPhoneVitals(v),
+      x_phone: v => typeof setPhones === "function" && setPhones(v),
+      x_promises: v => typeof setPromises === "function" && setPromises(v),
+      x_roomStateHist: v => typeof setRoomStateHist === "function" && setRoomStateHist(v),
+      x_roomStates: v => typeof setRoomStates === "function" && setRoomStates(v),
+      x_shopFeed: v => typeof setShopFeed === "function" && setShopFeed(v),
+      x_snoops: v => typeof setSnoops === "function" && setSnoops(v),
+      x_stateHist: v => typeof setStateHist === "function" && setStateHist(v),
+      x_states: v => typeof setStates === "function" && setStates(v),
+      x_studio: v => typeof setStudio === "function" && setStudio(v),
+      x_takeoutFeed: v => typeof setTakeoutFeed === "function" && setTakeoutFeed(v),
+      x_takeoutLog: v => typeof setTakeoutLog === "function" && setTakeoutLog(v),
+      x_tiesPos: v => typeof setTiePos === "function" && setTiePos(v),
+      x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
+      x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
+      x_shopWish: v => typeof setWish === "function" && setWish(v),
+      x_worlds: v => typeof setWorlds === "function" && setWorlds(v)
+    };
+    changed.forEach(k => { const f = RELOAD[k]; if (f) { try { const d = loadJSON(k, null); f(d == null ? (Array.isArray(loadJSON(k, [])) ? [] : {}) : d); } catch (e) {} } });
+    const mine = k => doomed.has(String(k).split("::room::")[0]);   // 侧房 chatKey 也算TA的
+    chatsRef.current = Object.fromEntries(Object.entries(chatsRef.current || {}).filter(([k]) => !mine(k)));
+    setChats(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
+    setOfflines(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
+    { const lib = memLibRef.current || [];
+      const next = lib.filter(m => !((m.charIds || []).length && (m.charIds || []).every(x => doomed.has(x))))
+        .map(m => (m.charIds || []).some(x => doomed.has(x)) ? { ...m, charIds: m.charIds.filter(x => !doomed.has(x)) } : m);
+      if (next.length !== lib.length || next.some((m, i) => m !== lib[i])) saveMemLib(next); }
+    if (window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
     setScreen("cast");
     setEditingChar(null);
   };

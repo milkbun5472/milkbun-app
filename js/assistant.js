@@ -756,6 +756,7 @@
       + "挂点用线下那几个：offline、offmsg、offcard、offhead、offname、offtext、offsay、offthought、offnarr 等，见上面的名单）。"
       + "她说的是「线下」「见面」「卡片」那一层，就走这一栏，不是 chatcss。\n"
       + "· chatcss 这个人聊天窗自己的 CSS（id＝角色 id；text 是 CSS，写法同 theme 的单聊页，会自动限到这一个人的窗口；"
+      + "跟这个人【单独通话】时这份也生效，所以通话里的样子也写在这一栏，挂点用 call、callbubble、callmsg、callbody 这些 call 开头的；群通话不吃这一份；"
       + "它压在皮肤、气泡、排版所有层上面）。挂点照上面那份名单用；msg／bubble 还带 data-first／data-last（连发那一串的头/尾）、"
       + "data-kind（text/voice/photo…）、data-recent=\"1\"（刚进来，可做入场动画）。高度别写死 px，用 var(--app-h)／var(--app-vh)／"
       + "var(--app-safe-top)／var(--app-safe-bottom)，或 html[data-screen-size=\"short|mid|tall\"] 分开写。\n"
