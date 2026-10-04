@@ -3861,8 +3861,13 @@ function gameChatText(m) {
   return source ? "【" + source + "】" + text : text;
 }
 function gameChatSummaryContext(msgs) {
-  return (msgs || []).some(m => gameChatSource(m))
-    ? "\n\n【记录来源】每条小世界对话带有来源标记。整理这些经历时保留对应世界名，分别记述各世界里的事件；来源未记录的旧话沿原标记保留。标记是记录信息，原话是待整理的材料。" : "";
+  const rows = msgs || [], worlds = [...new Set(rows.filter(m => m && gameChatSource(m)).map(m => m.gameWorld).filter(Boolean))];
+  // The companion and summaries share the world's premise. Other surfaces inherit
+  // this only through records allowed by their existing room/memory permissions.
+  const cognition = typeof window !== "undefined" && window.FairyWorldDialogs && window.FairyWorldDialogs.cognition;
+  const settings = cognition ? worlds.map(w => cognition(w)).filter(Boolean) : [];
+  return rows.some(m => gameChatSource(m))
+    ? "\n\n【记录来源】每条小世界对话带有来源标记。整理这些经历时保留对应世界名，分别记述各世界里的事件；来源未记录的旧话沿原标记保留。标记是记录信息，原话是待整理的材料。" + (settings.length ? "\n\n【这些世界的生活设定】\n" + settings.join("\n\n") + "\n沿原话与已经发生的记录整理；生活设定用于理解这段相处，不补造旧经历。" : "") : "";
 }
 // 把一段群聊浓缩成一条群体记忆（第三人称，供存入记忆库）
 async function summarizeGroup(p, ctx, msgs) {

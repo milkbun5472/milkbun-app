@@ -214,7 +214,8 @@
     if(record?.onTurn)record.onTurn({text,reply:out.reply,parts});
     else{const d=current();write(key,replaceDialogs(d,cid,world,[...localDialogs(d,cid,world),...(text?[{role:'user',content:text,status:'done'}]:[]),...parts.map(content=>({role:'assistant',content,status:'done'}))],limit));}
   }
-  root.FairyWorldDialogs={stamp:dialogStamp,select:selectDialogs,local:localDialogs,replace:replaceDialogs};
+  const worldCognition = world => (root.FairyWorlds||[]).find(w=>w.id===world)?.cognition||'';
+  root.FairyWorldDialogs={stamp:dialogStamp,select:selectDialogs,local:localDialogs,replace:replaceDialogs,cognition:worldCognition};
   function LegacyWorldDialogs({record,archive,cid}){
     const rows=record?record.legacy:((archive.dialogs||{})[cid]||[]).filter(m=>m&&!m.gameWorld&&m.status==='done').slice(-100);
     if(!rows.length)return null;
@@ -624,8 +625,9 @@
   // ⚠️给了就用它替掉这儿这份手写的自我介绍：那一份是全库公用的「你是谁＋怎么说话」，
   //   庭院自己再写一遍就是同一层活在两处（施工规则/one-public-mechanism.md）。
   //   没给（首页试玩）仍走原来这份，行为一个字都不变。
-  function roleContext(character, profile, mainline) {
-    const one = "你就是「" + character.name + "」，正与「" + userName(profile) + "」一起生活在魔法庭院。";
+  function roleContext(character, profile, mainline, setting) {
+    const one = "你就是「" + character.name + "」，正与「" + userName(profile) + "」" + (setting ? "相处。" : "一起生活在魔法庭院。");
+    if (setting) return [one, setting, String(mainline || "").trim() || ["【完整角色人设】\n" + (character.persona || character.name), "【对方的设定】\n" + (profile && profile.persona || "未填写")].join("\n\n")].join("\n\n");
     if (String(mainline || "").trim()) return one + "\n\n" + String(mainline).trim();
     return [one, "【完整角色人设】\n" + (character.persona || character.name), "【对方的设定】\n" + (profile && profile.persona || "未填写")].join("\n\n");
   }
@@ -654,6 +656,7 @@
   async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false, engineer=false }) {
     // 真身票优先（她 2026-09-25「座位这种得你自己来」）：言秋同行时先开 CC 票请本人接话，
     // 不在岗/超时才落引擎兜底——同 trpg「队友宣言」先例，她永远有回音。
+    const train=world?.map==="carriage",pets=world?.map==="pet-home",setting=pets?worldCognition('pets'):'';
     if (engineer && root.CCSeat && root.Cloud) {
       // 自动闲聊（event=游戏每45秒的搭话）不开真身票：真身只接她亲口说的话——
       // 否则每张票占线一两分钟，把拼图桌的发送锁攥死（她 9/26 首航实测「发不出来」）。
@@ -661,7 +664,7 @@
       try {
         const r = await root.CCSeat.ask({
           tool: "train_chat", char_id: character.id, ticket: "fg:" + Date.now(),
-          world, history: history.slice(-30), text, event,
+          world: pets ? {...world,lifeContext:setting} : world, history: history.slice(-30), text, event,
           expect: world?.map==='pet-home'?'{"reply":["当前要说的话"],"action":{"kind":"none|feed|play|pet|snack|work-choice","petId":"照料对象的宠物标识","eventId":"当前事件标识","choice":"选项标识"}}':'{"reply":["第一句","第二句(可省)"],"action":{"kind":"none|move","target":"seat|stand|rack|berth(move时)"}}'
         }, 120000);
         if (r && Array.isArray(r.reply) && r.reply.length) {
@@ -673,14 +676,14 @@
       } catch (e) { /* 超时/不在岗：落回引擎，票根不追（这里的每轮对话可重来） */ }
     }
     if (!active) throw new Error("先在设置里配置创作线路，再来和角色说话。");
-    const style = sharedStyle(),train=world?.map==="carriage",pets=world?.map==="pet-home";
+    const style = sharedStyle();
     const sys = [style,
-      roleContext(character, profile, mainline),
-      pets ? "【绒绒小镇】你和对方在这一档宠物小游戏里共同生活。pets列出这一个家里每只宠物的稳定id、名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。activePetId表示对方当前选中的宠物，pet/career/home是它的资料；pets中每只都有自己的相处记录与职业，照料动作的petId取实际想照料的那只id。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。home.parcels.waiting是尚未拆开的真实袋子，carrying仍在带回或找地方放，placed已经放好；opened才是实际拆出并入库的东西。宠物的小反应以当前照料任务和实际完成的小事为准，准备去闻或准备吃仍未完成。social是这个家里宠物之间的实际相处记录；pending仍在走过去或等待，recent才是已经发生的共同小事，pairs按两只稳定id记录看窗、递球和纸箱旁等待。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。pets各自的place/town和companion.place/town表示实际所在地点与闲时路线，可能分别在家、街区或不同店里；companion.visible表示你的小人是否出现在对方当前看的场景，job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。游戏中的生活按游戏经历来聊；现实往事按这间房准许的上下文来。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
+      roleContext(character, profile, mainline, setting),
+      pets ? "【家里的宠物与日常】pets列出这一个家里每只宠物的稳定id、名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。activePetId表示对方当前选中的宠物，pet/career/home是它的资料；pets中每只都有自己的相处记录与职业，照料动作的petId取实际想照料的那只id。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。home.parcels.waiting是尚未拆开的真实袋子，carrying仍在带回或找地方放，placed已经放好；opened才是实际拆出并入库的东西。宠物的小反应以当前照料任务和实际完成的小事为准，准备去闻或准备吃仍未完成。social是这个家里宠物之间的实际相处记录；pending仍在走过去或等待，recent才是已经发生的共同小事，pairs按两只稳定id记录看窗、递球和纸箱旁等待。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。pets各自的place/town和companion.place/town表示实际所在地点与闲时路线，可能分别在家、街区或不同店里；companion.visible表示对方在当前地点能否看见你，job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。这里的往事与其他经历沿这间房准许的上下文承接。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
-      (event ? "【刚发生的游戏事件】\n" : "【对方刚说】\n") + text,
-      pets ? "【共同照料动作】当前career.event有待决定的小事时，可以按人设提出主意，action.kind用work-choice，eventId与choice选当前事件和选项标识。游戏会记实际采用的决定，之后的变化以游戏事实为准；也可以只商量，留给对方选择。职业收入与东西属于宠物小金库，履历和拒工态度见career。home列出实际存档里的面包篮、自己的小球和第一次试工纪念；数量、已分出的食物和纪念上记录的决定者都是当前事实，可以沿这些变化聊天。action.kind取none或feed（去添粮）、play（去陪玩）、pet（去摸摸）、snack（给一小口零食）。当前companion.place和照料对象的town.place都为home且job为空时能开始。动作由场景执行，小人走到地方再做，宠物会回应或拒绝。reply表达现在的意愿；动作尚未完成时按准备去做表达。完成、拒绝、取消以之后的游戏事实为准。一次选一只宠物和一个动作，也可以只聊天。" : train ? "【列车动作】action.kind 用 none；你自己想在车厢里挪个地方时用 move，target 取 seat（回座位）／stand（站到过道看窗外）／rack（去整理行李架）／berth（去上铺躺下），只动你自己，想不想动由你。实际操作由游戏执行。有拼图进度时，以已经落位的碎片为准；puzzle 为空时按当前活动聊天。" : "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
+      (event ? (pets ? "【刚发生的生活小事】\n" : "【刚发生的游戏事件】\n") : "【对方刚说】\n") + text,
+      pets ? "【共同照料动作】当前career.event有待决定的小事时，可以按人设提出主意，action.kind用work-choice，eventId与choice选当前事件和选项标识。实际采用的决定与之后的变化以生活记录为准；也可以只商量，留给对方选择。职业收入与东西属于宠物小金库，履历和拒工态度见career。home列出家里的面包篮、自己的小球和第一次试工纪念；数量、已分出的食物和纪念上记录的决定者都是当前事实，可以沿这些变化聊天。action.kind取none或feed（去添粮）、play（去陪玩）、pet（去摸摸）、snack（给一小口零食）。当前companion.place和照料对象的town.place都为home且job为空时能开始。你会沿实际路径走到地方再做，宠物会回应或拒绝。reply表达现在的意愿；动作尚未完成时按准备去做表达。完成、拒绝、取消以之后的生活记录为准。一次选一只宠物和一个动作，也可以只聊天。" : train ? "【列车动作】action.kind 用 none；你自己想在车厢里挪个地方时用 move，target 取 seat（回座位）／stand（站到过道看窗外）／rack（去整理行李架）／berth（去上铺躺下），只动你自己，想不想动由你。实际操作由游戏执行。有拼图进度时，以已经落位的碎片为准；puzzle 为空时按当前活动聊天。" : "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
         + "另外三种真会发生的事：invite=你约她去一个地点（target 同上，note 写你约她时说的那句），你先过去等，她到了才有下文；"
         + "gift=你把手边顺手采到的一样递给她，item 取 herb（一束铃叶草）／mushroom（荧光菇）／flower（月光花），得她就在你跟前，一天一样；food 是你在夜市上给她买一样吃的，只有世界事实里 food.open 为 true、两个人都在灯串集市时才做得到；"
         + "refuse=她提了什么你没答应，why 写你没答应的那一句，然后你回自己的日程。"
@@ -2107,7 +2110,7 @@
   const WORLDS = [
     { id: "garden", name: "微光庭院", label: "庭院", note: "种花、下井、和同行者一起把日子过下去" },
     { id: "train", name: "远行列车", label: "列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" },
-    { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子" }
+    { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子", cognition: "【绒绒小镇】这里是你和对方共同生活、一起养宠的日常。家、街区、店铺和家里的猫狗都是这个生活场景的一部分；照料、家务、职业与带回家的东西会成为你们共同的小日子。以眼前的状态和已经完成的记录承接经历，尚在路上或准备做的事按当前阶段理解。你怎样看待宠物、愿不愿照料、如何相处，沿你完整的人设、喜好与实际经历自然生发；两人可以商量、分工，也会有不同意见。其他往事沿这间房准许的上下文承接。" }
   ];
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
