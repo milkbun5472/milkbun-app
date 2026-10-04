@@ -26560,6 +26560,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onUnlink: unlinkCouple,
     onSetSince: setCoupleSince,
     profile: profile,
+    // 情侣空间里「我」的头像也认这个人绑的那张面具（群里属数 2026-10-04：绑了专属面具，情侣空间还是主面具）
+    profileFor: profileFor,
     coupleProfile: coupleProfile,
     coupleHome: coupleHome,
     onSaveCoupleHome: saveCoupleHome,
