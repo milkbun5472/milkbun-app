@@ -14581,6 +14581,7 @@ function OfflineMode({
   onEditNote,
   onChangeStyle,
   onSaveExample,
+  onPinShike,
   onDeleteExample,
   onEditMsg,
   onRerollMsg,
@@ -14914,7 +14915,7 @@ function OfflineMode({
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: onOpenState })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike, onOpenState: onOpenState })),
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
@@ -15150,7 +15151,7 @@ function offCardSkin(t, accent) {
     padding: "14px 16px"
   };
 }
-function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, editable, sending, onOpenState, showReason }) {
+function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdit, onReroll, onDelete, onSaveExample, onPinShike, editable, sending, onOpenState, showReason }) {
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
@@ -15196,6 +15197,8 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     .then(ok => window.__toast && window.__toast(ok ? "已复制" : "复制不了，长按那段自己选"));
   const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },
     h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })),
+    // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
+    onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
     (!isUser && !isNarr && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
     (!isUser && !isNarr && onReroll) ? iconBtn(IRefresh, () => onReroll(m.id), "重写", sending) : null,
     onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
@@ -15304,6 +15307,7 @@ function GroupOfflineMode({
   onEditNote,
   onChangeStyle,
   onSaveExample,
+  onPinShike,
   onEditMsg,
   onRerollMsg,
   onDelMsg,
@@ -15553,7 +15557,7 @@ function GroupOfflineMode({
     directorNotes,
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
-      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onOpenState: offOpenState, canOpenState: offCanPeek })),
+      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: true, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike, onOpenState: offOpenState, canOpenState: offCanPeek })),
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口

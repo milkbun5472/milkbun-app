@@ -28510,6 +28510,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditNote: (id, text) => offlineEditNote(activeOfflineScopeKey, id, text),
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
+    onPinShike: m => pinToShike(offlineChar.id, m),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
     onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),
@@ -28554,6 +28555,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditNote: (id, text) => groupOfflineEditNote(offlineGroup.id, id, text),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
+    // 群线下收进时刻：角色那张卡记在TA名下；她自己的、旁白那种没主人的，记在这一场在场的头一个角色名下
+    onPinShike: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id) || ((offlineGroup.memberIds || []).find(id => characters.some(c => c.id === id && !c.npc))); pinToShike(cid, m); },
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
