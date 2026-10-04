@@ -42,3 +42,11 @@ test('chat, search, archive, copy and forwarding retain the same source formatte
  assert.match(components,/const body = .*gameChatText\(m\)/);assert.match(app,/copyText\(gameChatText\(m\)\)/);assert.match(app,/text: who \+ "：" \+ gameChatText\(m\)/);assert.match(app,/text: gameChatText\(m\),\n        ts:/);
  const studio=fs.readFileSync('js/theme-studio.js','utf8');assert.match(studio,/\["messagesource", "游戏对话上方的世界来源/);
 });
+
+test('actual phone copy action keeps source and waits for clipboard success/failure',async()=>{
+ const c=setup();c.activeChar={id:'room'};c.window.ChatRooms={isSideKey:()=>false};c.notices=[];c.toast=t=>c.notices.push(t);c.copied=[];let resolveCopy;
+ c.copyText=text=>{c.copied.push(text);return new Promise(r=>{resolveCopy=r;});};
+ vm.runInContext(between(app,'  const handleMsgAction =','  const gsFor =')+';this.copyAction=handleMsgAction;',c);
+ c.copyAction('copy',6,'room');assert.ok(c.copied[0].includes('【小世界 · 绒绒小镇】'));assert.equal(c.notices.length,0);resolveCopy(false);await Promise.resolve();assert.ok(c.notices[0].includes('复制不了'));
+ c.copyAction('copy',10,'room');assert.equal(c.copied[1],'普通聊天');assert.equal(c.notices.length,1);resolveCopy(true);await Promise.resolve();assert.equal(c.notices[1],'已复制');
+});
