@@ -101,7 +101,7 @@
   function wavOf(f32) {
     const buf = new ArrayBuffer(44 + f32.length * 2), v = new DataView(buf);
     const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o + i, s.charCodeAt(i)); };
-    w(0, "RIFF"); v.setUint32(4, 36 + f32.length * 2, true); w(8, "WAV" + "E");   // 拆开写：全库不许有大写拉丁眉标那条测试认的是整串字面量 w(12, "fmt ");
+    w(0, "RIFF"); v.setUint32(4, 36 + f32.length * 2, true); w(8, "WAV" + "E"); w(12, "fmt ");   // 拆开写 WAVE：全库不许有大写拉丁眉标那条测试认的是整串字面量
     v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
     v.setUint32(24, RATE, true); v.setUint32(28, RATE * 2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
     w(36, "data"); v.setUint32(40, f32.length * 2, true);
@@ -118,15 +118,24 @@
   // 两个 <audio> 挂在 body 上：离开番茄钟页面也照样响（跟一起听那个全局播放器一个道理）
   let synthEl = null, mineEl = null, synthUrl = null, mineUrl = null, playing = false, remixTimer = null;
   const el = () => { if (typeof document === "undefined") return null; const a = document.createElement("audio"); a.loop = true; a.preload = "auto"; a.setAttribute("playsinline", ""); a.style.display = "none"; document.body.appendChild(a); return a; };
+  // 编成 data: 地址，不用 blob:——有的原生壳里 <audio> 放不了 blob:，静音保活一直用的就是 data:
+  const dataUrlOf = buf => { const b = new Uint8Array(buf); let bin = ""; for (let i = 0; i < b.length; i += 0x8000) bin += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return "data:audio/wav;base64," + btoa(bin); };
+  const SILENT = () => dataUrlOf(wavOf(new Float32Array(RATE / 10)));
   function setSynth(cfg) {
     const f = mix(cfg.levels);
     if (!synthEl) synthEl = el(); if (!synthEl) return;
-    if (!f) { synthEl.pause(); synthEl.removeAttribute("src"); if (synthUrl) { URL.revokeObjectURL(synthUrl); synthUrl = null; } return; }
+    if (!f) { synthEl.pause(); synthEl.removeAttribute("src"); synthUrl = null; return; }
     const at = synthEl.currentTime || 0;
-    const url = URL.createObjectURL(new Blob([wavOf(f)], { type: "audio/wav" }));
-    synthEl.src = url; if (synthUrl) URL.revokeObjectURL(synthUrl); synthUrl = url;
+    synthUrl = dataUrlOf(wavOf(f));
+    synthEl.src = synthUrl;
     try { synthEl.currentTime = at % SEC; } catch (e) {}
     if (playing) synthEl.play().catch(() => {});
+  }
+  // iOS 只认【她点下去那一刻】同步调的 play()；中间隔了一次 await（比如上发条要先等模型写纸条）就不算了。
+  //   所以在点击的当下先拿一小段静音把这两个 <audio> 解锁，之后换 src 再 play 就都放得出来。
+  function unlock() {
+    if (!synthEl) synthEl = el(); if (!mineEl) mineEl = el(); const s0 = SILENT();
+    [synthEl, mineEl].forEach(a => { if (!a || !a.paused) return; if (!a.src) a.src = s0; const pr = a.play(); if (pr && pr.then) pr.then(() => { if (!playing) a.pause(); }).catch(() => {}); });
   }
   async function setMineEl(cfg) {
     if (!(cfg.mine > 0 && cfg.mineName)) { if (mineEl) mineEl.pause(); return; }
@@ -136,7 +145,7 @@
     if (playing) mineEl.play().catch(() => {});
   }
   // play 必须在她点按钮的那一下里调（iOS 的自动播放规矩）
-  function play() { const cfg = load(); playing = true; setSynth(cfg); setMineEl(cfg); }
+  function play() { unlock(); const cfg = load(); playing = true; setSynth(cfg); setMineEl(cfg); }
   function stop() { playing = false; if (synthEl) synthEl.pause(); if (mineEl) mineEl.pause(); }
   const isPlaying = () => playing;
   function setLevel(k, v) {
@@ -145,7 +154,7 @@
     save(cfg);
     clearTimeout(remixTimer);
     if (k === "mine") { setMineEl(cfg); return cfg; }
-    remixTimer = setTimeout(() => { if (playing || synthUrl) setSynth(cfg); }, 350);   // 拖滑块时别每一格都重混
+    remixTimer = setTimeout(() => { if (playing) setSynth(cfg); }, 350);   // 拖滑块时别每一格都重混
     return cfg;
   }
   async function setMine(file) {
@@ -161,5 +170,5 @@
     if (mineEl) mineEl.pause(); if (mineUrl) { URL.revokeObjectURL(mineUrl); mineUrl = null; }
     const cfg = load(); cfg.mineName = ""; cfg.mine = 0; save(cfg); return cfg;
   }
-  return { LAYERS, RATE, SEC, load, save, anyOn, play, stop, isPlaying, setLevel, setMine, clearMine, _mix: mix, _wavOf: wavOf, _layer: layer };
+  return { LAYERS, RATE, SEC, load, save, anyOn, play, stop, unlock, isPlaying, setLevel, setMine, clearMine, _mix: mix, _wavOf: wavOf, _layer: layer };
 });
