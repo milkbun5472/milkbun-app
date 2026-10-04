@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-c2be65f088459562", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ef50e6818d2983b6", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -24,23 +24,23 @@
   // 一份空存档长什么样，只写在这一处：read 兜底和「新开一段」建档都来拿。
   // 一条记录＝【一段旅程】：同一位同行者，底下挂着好几个世界各自的进度
   // （她 2026-09-19：「每个庭院档连一个列车档连一个别的什么档」）。
-  // ⚠️她拍板各走各的进度，所以天数/地图/材料都在 worlds[世界] 自己那一份里；
+  // 地图和材料各自保存；现实日期与14天季节共用 archive.clock（2026-10-04）。
   //   journey 只装跟世界无关的那几样（谁、长什么样、随身袋），由 world.mjs 的
   //   JOURNEY_SHAPE 一张表说了算，这儿不判断哪样归哪层。
   const blankSave = () => ({ version: 1, id: "garden_" + Date.now() + "_" + Math.random().toString(36).slice(2), partnerId: "", world: null, worlds: {}, journey: {}, dialogs: {} });
   const read = (key) => {
     const k = key || KEY;
     const d = loadJSON(k, null);
-    if (d && d.version === 1 && d.id) return d;
+    if (d && d.version === 1 && d.id) return root.GameClock.archive(d);
     const stall = vaultStalled(k); if (stall) throw new Error(stall);
-    return blankSave();
+    return root.GameClock.archive(blankSave());
   };
-  const write = (key, data) => { if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
+  const write = (key, data) => { data=root.GameClock.archive(data); if (!saveJSON(key || KEY, data)) throw new Error("庭院没能保存，请先留在这里。空间不足时可以导出手机备份。"); return data; };
   const TRAIN_BUILD = BUILD;
   function saveWorld(key, current, world, worldId, journey) {
     const w=String(worldId||"garden");
     if(!WORLDS.some(x=>x.id===w)||!world||!Number.isFinite(world.version)||!Number.isFinite(world.day)||typeof world.map!=="string")throw Error("世界进度异常，暂未覆盖旧存档。");
-    const d=current();return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
+    const d=current();world={...world,clock:d.clock};return write(key,{...d,activeWorld:w,journey: { ...(d.journey || {}), ...(journey || {}) }, worlds: { ...(d.worlds || {}), [w]: world }, world: w === "garden" ? world : d.world});
   }
   function WorldSession(props) {
     const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});
@@ -54,9 +54,9 @@
       const before=loadJSON(key,null);
       const {startTrip}=await import("../apps/train/travel.mjs?v="+TRAIN_BUILD);
       if(!alive.current)return false;
-      const d=read(key);if(before&&d.id!==before.id)throw Error("存档已切换，请重新进入。");const garden=from==="garden"?worldOf(d,"garden"):null;
+      const d=read(key);if(before&&d.id!==before.id)throw Error("存档已切换，请重新进入。");const garden=worldOf(d,"garden")||{day:d.clock.day,minute:root.GameClock.sample(d.clock).minute,clock:d.clock};
       if(from==="garden"&&!garden)throw Error("庭院还没有保存成功，请留在车站。");
-      write(key,{...d,partnerId:props.lockPartnerId?String(props.lockPartnerId):d.partnerId,activeWorld:"train",worlds:{...(d.worlds||{}),train:startTrip(garden,Math.random,d.worlds?.train)}});return true;
+      write(key,{...d,partnerId:props.lockPartnerId?String(props.lockPartnerId):d.partnerId,activeWorld:"train",worlds:{...(d.worlds||{}),train:startTrip({...garden,clock:d.clock},Math.random,d.worlds?.train)}});return true;
     };
     useEffect(()=>{alive.current=true;if(place==="train"&&!props.entryWorld&&read(key).worlds?.train){setReady(true);}else if(place==="train")initialize("direct").then(ok=>{if(ok)setReady(true);}).catch(e=>{if(alive.current)setError(e.message);});return()=>{alive.current=false;};},[]);
     const travel=async(to,options={})=>{
@@ -216,16 +216,17 @@
     const [parcelView,setParcelView]=useState(null);
     const caseRequest=useRef(false);const [caseBusy,setCaseBusy]=useState(false),[caseDetail,setCaseDetail]=useState(''),[caseDraft,setCaseDraft]=useState(null);
     const [careerTab,setCareerTab]=useState('today'),panelScroll=useRef(null),panelPositions=useRef({}),panelReturn=useRef(''),[careerView,setCareerView]=useState(null),[careerNotice,setCareerNotice]=useState(''),[careView,setCareView]=useState(null),[loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
-    const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current||String(d.partnerId||'')!==ownerPartner.current)throw Error('存档已切换，请重新进入绒绒小镇。');return d;};
+    const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current||String(d.partnerId||'')!==ownerPartner.current)throw Error('存档已切换，请重新进入绒绒小镇。');return root.GameClock.archive(d);};
     const chatReturn=useRef(''),talking=useRef(false),alive=useRef(true),chatScroll=useRef(null);const [draft,setDraft]=useState(''),[chatBusy,setChatBusy]=useState(false),[chatRows,setChatRows]=useState([]),[chatNotice,setChatNotice]=useState('');
     const record=()=>worldRecord(latest.current,key);
     const history=()=>worldHistory(latest.current,key,current());
     const character=()=>{const d=current();return(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;};
-    const openChat=()=>{chatReturn.current=panel;setChatRows(history().slice(-100));setPanel('chat');setError('');};
+    const openChat=()=>{game()?.wakeCompanion?.();chatReturn.current=panel;setChatRows(history().slice(-100));setPanel('chat');setError('');};
     const game=()=>frame.current?.contentWindow.PetGame;
     const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,chooseStation:()=>props.onStation(),travel:to=>leave(()=>props.onTravel(to,{station:true})),companion:()=>{const c=character();return c?{id:c.id,name:c.remark||c.name,ta:typeof CharacterPronoun!=='undefined'?CharacterPronoun.ta(c):'TA'}:null;},openChat,openParcel:data=>{if(frame.current===node){setParcelView(data);setPanel('parcel');setError('');}},openView:()=>{if(frame.current===node){viewReturn.current='';setViewInfo(game()?.observation());setPanel('view');setError('');}},openPets:()=>{if(frame.current===node){panelReturn.current='';setPetsView(game()?.roster());setPanel('pets');setError('');}},selectionChanged:()=>{if(frame.current===node)setPetsView(game()?.roster());},save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),openCareer:tab=>{if(frame.current===node){panelReturn.current='';setCareerTab(tab==='history'?'history':'today');setCareerNotice('');setCareerView(game()?.career());setPanel('career');setError('');}},openCare:()=>{if(frame.current===node){setCareView(game()?.care());setPanel('care');setError('');}},ready:()=>{if(frame.current===node){setLoaded(true);game()?.pause(!!panel);}}});};
     useEffect(()=>()=>{alive.current=false;if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     useEffect(()=>{game()?.pause?.(!!panel);},[panel,loaded]);
+    useEffect(()=>{if(!loaded||panel!=='career')return;const timer=setInterval(()=>{try{setCareerView(game()?.career());}catch{}},1000);return()=>clearInterval(timer);},[panel,loaded]);
     useEffect(()=>{if(panel==='chat'&&chatScroll.current)chatScroll.current.scrollTop=chatScroll.current.scrollHeight;},[panel,chatRows,chatBusy,chatNotice]);
     const scrollKey=(panel==='career'?'career:'+careerTab:panel)+(['career','care'].includes(panel)?':'+(game()?.snapshot().activePetId||''):'');const rememberScroll=()=>{panelPositions.current[scrollKey]=panelScroll.current?.scrollTop||0;};
     useEffect(()=>{if(!panelScroll.current)return;panelScroll.current.scrollTop=panelPositions.current[scrollKey]||0;},[panel,careerTab,petsView?.activePetId]);
@@ -310,6 +311,8 @@
           h('div',{role:'tabpanel',id:'pet-book-'+careerTab,'aria-labelledby':'pet-tab-'+careerTab},
             careerNotice&&h('p',{role:'status',className:'pet-message'},careerNotice),
             careerTab==='today'&&h('div',null,
+              h(PetNote,{title:'现实日历',kind:'book'},h('p',{className:'pet-quiet'},careerView.calendar?.label+' · '+['春','夏','秋','冬'][careerView.calendar?.season]+' '+careerView.calendar?.seasonDay+'/14'),h('p',{className:'pet-quiet'},careerView.window?.label),h('label',null,'每周排班',h('select',{'aria-label':'每周排班',style:field,value:careerView.schedule.shift,onChange:e=>work('schedule',{shift:e.target.value,weekend:careerView.schedule.weekend})},h('option',{value:'none'},'到店再商量'),h('option',{value:'morning'},'上午班 · 09:00–12:00'),h('option',{value:'afternoon'},'下午班 · 14:00–17:00'))),h('label',{className:'pet-shopping-toggle'},h('span',null,'周末也可以排班'),h('input',{type:'checkbox',role:'switch','aria-label':'周末也可以排班',checked:careerView.schedule.weekend,onChange:e=>work('schedule',{shift:careerView.schedule.shift,weekend:e.target.checked})})),h('p',{className:'pet-quiet'},'按约好的时段走到店里，愿意才接班。工作小事留着等你，一天最多一班。')),
+              game()?.routineNotes?.().length>0&&h(PetNote,{title:'你不在时的小日子',kind:'paw'},h('ol',{className:'pet-care-memories'},...game().routineNotes().map((x,i)=>h('li',{key:x.at+':'+i},h('small',null,root.GameClock.sample(d.clock,x.at).label),h('span',null,x.text))))),
               h('div',{className:'pet-nameplate'},h(PetPortrait,{profile:petProfileView}),h('div',null,h('span',{className:'pet-eyebrow'},'第 '+careerView.day+' 天的小日子'),h('h2',null,careerView.petName),h('p',null,careerView.activity))),
               h('div',{className:'pet-work-postings','aria-label':'今天想去的小店'},...careerView.workplaces.map(place=>h('button',{key:place.id,className:'pet-work-posting','aria-pressed':careerView.workplace.id===place.id,disabled:caseBusy||careerView.workplace.id!==place.id&&(!!careerView.job||careerView.daily.invited||careerView.daily.closed||careerView.daily.rest),onClick:()=>work('select',{profession:place.id})},h(PetSeal,{kind:place.icon,size:26}),h('span',null,h('strong',null,place.title),h('small',null,place.description))))),
               h('section',{className:'pet-bakery-order'},h('div',{className:'pet-order-heading'},h(PetSeal,{kind:careerView.workplace.icon,size:32}),h('div',null,h('h3',null,careerView.workplace.role),h('p',null,careerView.opinion)),h('span',{className:'pet-ticket-stamp'},careerView.trialDone?'店里熟客':'初次试工')),
@@ -325,11 +328,11 @@
                   careerView.job?.phase==='ready'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>work('finish')},'一起收工，结工资'),
                   careerView.job?.phase==='tired'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>work('resume')},'恢复精神后继续'),
                   careerView.job?.phase==='working'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');if(careerView.room!==careerView.workplace.id)game()?.goWork(careerView.workplace.id);}},'回店里陪它继续'),
-                  !careerView.job&&!careerView.daily.closed&&!careerView.daily.rest&&(careerView.room!==careerView.workplace.id?h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');game()?.goWork(careerView.workplace.id);}},'走去'+careerView.workplace.title+'看看'):h('button',{className:'pet-button pet-button-primary',onClick:()=>work(careerView.daily.declined?'bribe':'invite'),disabled:careerView.daily.declined&&(careerView.daily.bribed||!careerView.inventory.snack)},careerView.daily.declined?'用一份零食再邀请一次':'问问它愿不愿意试工')),
+                  !careerView.job&&!careerView.daily.closed&&!careerView.daily.rest&&(careerView.room!==careerView.workplace.id?h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');game()?.goWork(careerView.workplace.id);}},'走去'+careerView.workplace.title+'看看'):h('button',{className:'pet-button pet-button-primary',onClick:()=>work(careerView.daily.declined?'bribe':'invite'),disabled:!careerView.window?.open||careerView.daily.declined&&(careerView.daily.bribed||!careerView.inventory.snack)},careerView.daily.declined?'用一份零食再邀请一次':'问问它愿不愿意试工')),
                   careerView.daily.closed&&!careerView.job&&h('p',{className:'pet-quiet'},'今天已经收工啦，去公园走走，或回家陪它。'),careerView.daily.rest&&h('p',{className:'pet-quiet'},'今天属于它自己，想怎么玩都可以。')),
                 careerView.job?h('button',{className:'pet-text-button',onClick:()=>work('cancel')},'今天先停下，不结工资'):!careerView.daily.closed&&!careerView.daily.rest&&h('button',{className:'pet-text-button',onClick:()=>work('rest')},'今天不上班，让它休息')),
               careerView.receipt&&h('button',{className:'pet-pay-envelope',onClick:()=>setCareerTab('bag')},h(PetSeal,{kind:'bag',size:24}),h('span',null,careerView.receipt.text),h(PetSeal,{kind:'arrow',size:16})),
-              h('details',{className:'pet-fold-note'},h('summary',null,'试工怎么过一天'),h('p',null,'三段小试工，遇到小事一起拿主意，做完才结工资。猫狗都可以来，愿不愿意由它自己的状态决定。'),h('p',null,'游戏里每五分钟前台生活算一天。菜单、后台和离线暂停；试工只在当天选好的店里继续。选择会改变它对这份工作的印象。'))),
+              h('details',{className:'pet-fold-note'},h('summary',null,'试工怎么过一天'),h('p',null,'三段小试工，遇到小事一起拿主意，做完才结工资。猫狗都可以来，愿不愿意由它自己的状态决定。'),h('p',null,'日期、星期和时钟与手机当地时间一致，每14个现实日换季。菜单和离线也照常过时间；普通吃睡会接着生活，已约好的工作遇到需要选择的小事会等你。选择会改变它对这份工作的印象。'))),
             careerTab==='bag'&&h('div',null,
               h('section',{className:'pet-money-pouch'},h(PetSeal,{kind:'bag',size:64}),h('div',null,h('span',{className:'pet-eyebrow'},careerView.petName+'自己的小金库'),h('p',{className:'pet-balance'},h('small',null,'￥'),careerView.balance),h('p',{className:'pet-quiet'},'每一笔，都是它自己的。'))),
               h(PetNote,{title:'让它自己挑一点喜欢的',kind:'bag'},h('label',{className:'pet-shopping-toggle'},h('span',null,h('strong',null,'逛店时让它自己花钱'),h('small',null,'每只一天最多挑一次，也可能什么都不买。')),h('input',{type:'checkbox',role:'switch','aria-label':'逛店时让它自己花钱',checked:careerView.shopping.enabled,onChange:e=>work('shopping-settings',{enabled:e.target.checked})})),h('div',{className:'pet-shopping-budget'},h('label',{htmlFor:'pet-shopping-cap'},'每次最多花'),h('select',{id:'pet-shopping-cap',value:careerView.shopping.cap,onChange:e=>work('shopping-settings',{cap:Number(e.target.value)})},...[8,12,24].map(value=>h('option',{key:value,value},'￥'+value)))),h('p',{className:'pet-quiet'},'只用它自己的钱，不够就留着。买好的小袋子要带回家再拆。'),h('button',{className:'pet-button pet-button-soft',disabled:!!careerView.job||!careerView.shopping.enabled&&careerView.shopping.trip?.phase!=='packed',onClick:()=>{setPanel('');if(careerView.shopping.trip?.phase==='packed')game()?.goHome();else game()?.goShopping();}},careerView.shopping.trip?.phase==='packed'?'带它和小袋子回家':'陪它去便利店逛逛'),careerView.shopping.trip?.phase==='browsing'&&h('p',{className:'pet-quiet'},'它正在货架前慢慢挑，回到店里等一小会儿。'),careerView.shopping.log.length>0&&h('ol',{className:'pet-shopping-slips'},...careerView.shopping.log.slice().reverse().map(x=>h('li',{key:x.id},h('small',null,'第 '+x.day+' 天 · 它自己拿的主意'),h('strong',null,x.text),h('p',null,x.reason),x.item&&h('small',null,x.delivered?(x.served?'已经拆开，留了一份准备慢慢吃':'已经拆开收好了'):careerView.parcels.queue.find(p=>p.id===x.id)?.phase==='placed'?'袋子已经放在家里，等你一起拆':'装在小袋子里，等带回家'))))),
@@ -374,7 +377,7 @@
     const aloud=useRef(null);if(!aloud.current)aloud.current=makeAloud();useEffect(()=>()=>aloud.current.stop(),[]);
     const [loaded,setLoaded]=useState(false),[panel,setPanel]=useState(""),[error,setError]=useState("");
     const key=props.storeKey||KEY;
-    const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
+    const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return root.GameClock.archive(d);};
     const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{...aloud.current.bridge(()=>frame.current===node,()=>{const d=current();return (latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;}),load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node){setLoaded(true);trainGame()?.pause?.(!!panel);}},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name,ta:typeof CharacterPronoun!=="undefined"?CharacterPronoun.ta(c):"TA",voice:!!c.voiceId,avatar:c.avatarImage?(typeof resolveImg==="function"?resolveImg(c.avatarImage):c.avatarImage):""}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     useEffect(()=>{frame.current?.contentWindow.TrainGame?.pause?.(!!panel);},[panel,loaded]);
@@ -1095,7 +1098,7 @@
     useEffect(() => { alive.current = true; return () => { alive.current = false; serial.current++; if (window.FloatKeepClear) window.FloatKeepClear.set(0); if (frame.current) hosts.delete(frame.current.contentWindow); }; }, []);
     const current = () => {
       if (!alive.current) throw new Error("这个庭院页面已经离开了。");
-      const d = loadJSON(storeKey.current, null); if (!d || d.id !== owner.current) throw new Error("存档已经切换，请重新进入庭院。"); return d;
+      const d = loadJSON(storeKey.current, null); if (!d || d.id !== owner.current) throw new Error("存档已经切换，请重新进入庭院。"); return root.GameClock.archive(d);
     };
     const partner = () => (propsRef.current.characters || []).find(c => String(c.id) === String(current().partnerId)) || null;
     const update = fn => { const next = write(storeKey.current, fn(current())); setEntry(next); return next; };
@@ -2061,8 +2064,7 @@
   //   新档存在 `worlds.garden` 里——读的人不该知道这件事。
   const worldOf = (rec, id) => {
     const w = String(id || "garden");
-    const slot = rec && rec.worlds && rec.worlds[w];
-    return slot || (w === "garden" ? (rec && rec.world) || null : null);
+    return root.GameClock.world(rec||{},w);
   };
   const saveKeyOf = row => { const id = typeof row === "string" ? row : (row && row.id); return (row && row.key) || (id === "legacy" ? KEY : KEY + ":" + id); };
   // 老的那一档（KEY 里躺着的那份）要认回来当一条存档。
@@ -2106,7 +2108,7 @@
     const d = loadJSON(saveKeyOf(row), null) || {};
     const w = worldOf(d, worldId) || {};
     return {
-      day: Number(w.day) || 0,
+      day: w.clock ? root.GameClock.sample(w.clock).day : Number(w.day) || 0,
       partnerId: String(d.partnerId || ""),
       fresh: !worldOf(d, worldId)
     };

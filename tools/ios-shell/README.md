@@ -62,6 +62,13 @@
 安装后点通话麦克风，允许系统语音识别授权。若仍被拒绝，检查系统对本 App 的
 语音识别权限以及听写是否可用；真机授权与实际收音仍需在手机上验证。
 
+## 视频通话摄像头
+
+壳的 Info.plist 需要 `NSCameraUsageDescription`（2026-10-05 补上），AppDelegate 同时往网页注入
+`window.__qqShellCaps={camera:true}`。网页只认这个牌子：旧壳没有这条声明时申请镜头，iOS 会直接把 App
+杀掉，所以旧壳里只提示、不申请。更新方式同上：同一个工程、同一个 Bundle Identifier 按 Run 覆盖安装，
+**不要删除 App**。装好后第一次开镜头会弹系统授权。
+
 ## 图片保险仓
 
 壳内生成/导入的聊天自拍除了网页 IndexedDB，还会镜像到 App 自己的

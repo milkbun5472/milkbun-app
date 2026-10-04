@@ -73,6 +73,10 @@ class ShellViewController: UIViewController, WKNavigationDelegate, WKUIDelegate,
     let fakeStandalone = WKUserScript(source: "Object.defineProperty(navigator,'standalone',{get:function(){return true}});",
                                       injectionTime: .atDocumentStart, forMainFrameOnly: true)
     webView.configuration.userContentController.addUserScript(fakeStandalone)
+    // 壳会什么，原样告诉网页（2026-10-05 补摄像头）：Info.plist 里有 NSCameraUsageDescription 才写 camera:true。
+    // ⚠️没有这条声明的旧壳一申请镜头，iOS 会当场把 App 杀掉——所以网页只认这个牌子，不靠猜。
+    let caps = WKUserScript(source: "window.__qqShellCaps={camera:true};", injectionTime: .atDocumentStart, forMainFrameOnly: true)
+    webView.configuration.userContentController.addUserScript(caps)
     webView.navigationDelegate = self
     webView.uiDelegate = self
     // （真声通话麦克风放行见下方 requestMediaCapturePermissionFor 代理方法）

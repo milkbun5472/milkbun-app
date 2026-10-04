@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-c2be65f088459562';
-import {walkRoute} from './movement.mjs?v=fg-c2be65f088459562';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-c2be65f088459562';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-c2be65f088459562';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-ef50e6818d2983b6';
+import {walkRoute} from './movement.mjs?v=fg-ef50e6818d2983b6';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-ef50e6818d2983b6';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-ef50e6818d2983b6';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
@@ -30,13 +30,14 @@ export function createTownLife(state,{world,size=()=>1,onChange=()=>{}}){let rou
  function travel(target){state.target=target;state.phase='travel';state.time=0;goal(world.building(target).approach);onChange();}
  function arrive(){const wasStroll=state.phase==='stroll';goal(null);if(!wasStroll)state.time=0;if(state.phase==='exit'){const old=state.place;state.place='outside';state.position={...world.building(old).approach};if(state.target==='outside'){state.phase='visit';state.time=0;}else travel(state.target);}else if(state.phase==='travel'){if(!world.canEnter(state.position,state.target))return;state.place=state.target;state.position=roomDoor(state.place);state.phase=state.place==='home'?'idle':'visit';state.returning=false;state.idle=0;state.wait=95+nextRandom(state)*100;}else if(state.phase==='stroll'){state.phase=state.place==='home'?'idle':'visit';}onChange();}
  function walk(dt){if(!state.goal)return false;const n=nav();if(routeKey!==key()){route=n.path(state.position,state.goal)||[];routeKey=key();if(!route.length){goal(null);state.phase=state.place==='home'?'idle':'visit';state.time=0;onChange();return false;}}const moved=walkRoute(route,state.position,state.heading,dt,.7*size(),q=>n.walkable(q.x,q.z));state.position=moved.position;state.heading=moved.heading;speed=moved.speed;if(!route.length)arrive();return speed>0;}
- function tick(dt,{blocked=false,needsHome=false,position,heading}={}){speed=0;if(!Number.isFinite(dt)||dt<=0)return {owned:state.place!=='home'||state.phase==='exit',speed};dt=Math.min(dt,.1);if(blocked){if(state.place==='home'&&state.phase==='exit'){state.phase='idle';state.idle=0;goal(null);}if(state.place==='home'&&position){state.position=point(position);state.heading=heading||0;}return {owned:false,speed};}state.hold=Math.max(0,state.hold-dt);if(state.hold>0){if(position){state.position=point(position);state.heading=heading||0;}return {owned:false,speed};}state.idle+=dt;
-  if(state.place==='home'&&state.phase==='idle'){if(position){state.position=point(position);state.heading=heading||0;}if(needsHome||state.idle<state.wait)return {owned:false,speed};const choices=['outside','cafe','store','alley','bakery','florist'];const target=choices[Math.floor(nextRandom(state)*choices.length)];state.duration=20+nextRandom(state)*20;if(target==='outside'){state.target='outside';state.phase='exit';goal(roomDoor('home'));}else depart(target);onChange();}
+ function tick(dt,{blocked=false,needsHome=false,stayHome=false,position,heading}={}){speed=0;if(!Number.isFinite(dt)||dt<=0)return {owned:state.place!=='home'||state.phase==='exit',speed};dt=Math.min(dt,.1);if(blocked){if(state.place==='home'&&state.phase==='exit'){state.phase='idle';state.idle=0;goal(null);}if(state.place==='home'&&position){state.position=point(position);state.heading=heading||0;}return {owned:false,speed};}state.hold=Math.max(0,state.hold-dt);if(state.hold>0){if(position){state.position=point(position);state.heading=heading||0;}return {owned:false,speed};}state.idle+=dt;
+  if(state.place==='home'&&state.phase==='idle'){if(position){state.position=point(position);state.heading=heading||0;}if(needsHome||stayHome||state.idle<state.wait)return {owned:false,speed};const choices=['outside','cafe','store','alley','bakery','florist'];const target=choices[Math.floor(nextRandom(state)*choices.length)];state.duration=20+nextRandom(state)*20;if(target==='outside'){state.target='outside';state.phase='exit';goal(roomDoor('home'));}else depart(target);onChange();}
   if(needsHome&&state.place!=='home'&&state.target!=='home'){state.returning=true;if(state.place==='outside')travel('home');else depart('home');}
   if(state.phase==='exit'&&state.target==='outside'&&state.goal){const old=state.place;walk(dt);if(state.place!==old){state.phase='visit';state.target='outside';goal(null);}return {owned:true,speed};}
   if(state.goal){if(state.phase==='stroll')state.time+=dt;walk(dt);return {owned:true,speed};}
   if(state.place==='outside'||state.place!=='home'){state.time+=dt;if(state.phase==='idle')state.phase='visit';if(state.time>=state.duration){if(state.place==='outside')travel('home');else depart('home');return {owned:true,speed};}if(state.time>4&&Math.floor(state.time*10)%40===0){const next=localRoute(nav(),state.position,()=>nextRandom(state),{radius:state.place==='outside'?4.5:1.5,minDistance:state.place==='outside'?1.5:.6});if(next){goal(next.goal);state.phase='stroll';}}return {owned:true,speed};}
   return {owned:false,speed};
  }
- return {state,tick,sync,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
+ function go(target){if(!TOWN_PLACES.includes(target)||target==='outside'||state.place===target)return false;state.hold=0;if(state.place==='outside')travel(target);else depart(target);return true;}
+ return {state,tick,sync,go,hold:()=>{state.hold=60;state.idle=0;},nav,summary:title=>townSummary(state,title)};
 }

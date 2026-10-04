@@ -19,10 +19,14 @@ test("从 vendor 里 new 出来的东西，必须真的 import 过", () => {
 
 // 她 2026-09-19：「每个庭院档连一个列车档连一个别的什么档」
 test("一条记录装得下好几个世界，而且老档照样打得开", () => {
-  assert.match(host, /const worldOf = \(rec, id\) => \{/, "没有那一处公共的取法");
-  const fn = host.slice(host.indexOf("const worldOf = (rec, id) => {"), host.indexOf("const saveKeyOf = row =>"));
-  assert.match(fn, /rec\.worlds\[w\]/, "不看新位置");
-  assert.match(fn, /rec\.world/, "老档那一份读不出来了——她的日子会凭空没掉");
+  assert.match(host, /const worldOf\b/, "没有那一处公共的取法");
+  const fn = host.slice(host.indexOf("const worldOf"), host.indexOf("const saveKeyOf"));
+  assert.match(fn, /root\.GameClock\.world/, "必须沿公共时钟取这一档");
+  require('../apps/fairy-garden/clock.js');
+  const garden={version:9,day:43,herbs:17},train={version:1,day:365};
+  assert.equal(GameClock.world({world:garden},'garden').herbs,17);
+  assert.equal(GameClock.world({world:garden,worlds:{garden,train}},'train').day,365);
+  assert.equal(GameClock.world({world:garden,worlds:{garden,train}},'garden').clock.startDay,43);
   assert.match(host, /worlds: \{ \.\.\.\(d\.worlds \|\| \{\}\), \[w\]: world \}/, "存的时候没往新位置写");
   assert.match(host, /world: w === "garden" \? world : d\.world/, "庭院那份不再写回老位置——回滚就丢进度");
 });

@@ -4,6 +4,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
+require('../apps/fairy-garden/clock.js');
 const host = fs.readFileSync(path.join(__dirname, '../js/fairy-garden.js'), 'utf8');
 const shell = host.slice(host.indexOf('  const WORLDS = ['), host.indexOf('  root.FairyGardenApp ='));
 
@@ -15,9 +16,9 @@ const build = store => {
     key: i => Object.keys(mem)[i],
     removeItem: k => { delete mem[k]; }
   };
-  return new Function('loadJSON', 'saveJSON', 'KEY', 'localStorage',
+  return new Function('loadJSON', 'saveJSON', 'KEY', 'localStorage','root',
     shell + ';return {WORLDS,INDEX_KEY,saveKeyOf,readSaves,saveMeta};')(
-    (k, d) => (k in mem ? mem[k] : d), (k, v) => { mem[k] = v; return true; }, 'x_fairyGarden', localStorage);
+    (k, d) => (k in mem ? mem[k] : d), (k, v) => { mem[k] = v; return true; }, 'x_fairyGarden', localStorage,globalThis);
 };
 
 // 她 2026-09-18：「这块没删其他的」——占位的那三个世界全撤了。

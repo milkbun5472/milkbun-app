@@ -1,5 +1,6 @@
-import {stepRoute} from './locomotion.mjs?v=fg-c2be65f088459562';
-import {seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-c2be65f088459562';
+import {realTime,dailyRoutine} from './real-clock.mjs?v=fg-ef50e6818d2983b6';
+import {stepRoute} from './locomotion.mjs?v=fg-ef50e6818d2983b6';
+import {companionMeal,seatsOf,nightMarketDay,festivalDay,lakeFrozen,MAPS,COMPANION_DESTINATIONS,ACTIVITIES,seasonOf,weather,exitToward,landingOf,findPath,segmentClear,walkable,companionCare,companionMillHelp,noteHappening,opened,addMiss,onLakeIce,missWanting,missGaveUp,workSpot,walkSpeedFor,starLive,starOther,restoreStar,STAR_SPOTS,destinationOf,noteBond,guideStep,guideTarget,marketDay,areaSpots,areaPick} from './world.mjs?v=fg-ef50e6818d2983b6';
 const activity=ACTIVITIES;
 // ⚠️原来这儿是三张按「性格」分的表（爱照料植物／爱探索／喜欢安静研究）。
 //   那三档换个角色照样成立——正是「换个角色还照样成立的就是写坏了」，v69.55 撤掉。
@@ -143,6 +144,7 @@ function areaFor(s,plan,start,end){
   label:'在'+at.label+'那儿'+(AREA_VERB[at.gesture]||'待着')}:plan;
 }
 export function plannedActivity(s){const star=starFor(s);if(star)return star;
+ if(s.clock&&!s.companion.home){const p=dailyRoutine({...realTime(s.clock,s.routineAt||Date.now()),minute:s.minute});if(p.id==='sleep')return {id:'real-sleep',map:'home',target:MAPS.home.beds.dusk.approach.companion,label:'回卧室休息',gesture:'rest'};if(['breakfast','lunch','dinner'].includes(p.id))return {id:'real-meal:'+p.id,map:'home',target:{x:3.7,z:4.45},label:'准备'+({breakfast:'早餐',lunch:'午饭',dinner:'晚饭'})[p.id],gesture:'hold'};if(p.id==='nap')return {id:'real-nap',map:'home',target:{...MAPS.home.spawn},label:'午后歇一会儿',gesture:'rest'};}
  const list=dailySchedule(s);
  const i=list.findLastIndex(item=>s.minute>=item.start),at=i<0?0:i;
  const start=list[at].start,end=at+1<list.length?list[at+1].start:1440;
@@ -212,6 +214,8 @@ export function makeCompanionController(){
   else if(stuck){status='在原地等一条合适的小路';}
   else if(cross){out={...s,companion:{...c,map:exit.to,position:{...landingOf(exit)}}};routeKey='';status=`刚到${MAPS[plan.map].name}`;}
   else{idle+=dt;gesture=plan.gesture;if(Number.isFinite(plan.heading))heading=plan.heading;status=plan.label;if(plan.id==='follow'){status='在你身边';gesture='rest';}if(plan.id==='miss'){status='像是有话要说';gesture='rest';}if(plan.id.startsWith('guide:')){status='在这儿等你';gesture='rest';}if(plan.id==='flowers'){heading=Math.PI;if(c.helpDay===s.day){status='在花圃旁看看新芽';gesture='rest';}}
+   if(s.clock&&plan.id==='real-sleep'&&idle>=2.8&&finishedKey!==key){finishedKey=key;out={...s,sleep:{...s.sleep,companion:'dusk'},sleepDay:s.day,sleepAt:s.routineAt||Date.now()};}
+   if(s.clock&&plan.id.startsWith('real-meal:')&&idle>=8&&finishedKey!==key){finishedKey=key;out=companionMeal(s,plan.id.slice(10));if(out!==s)event=c.name+'吃过饭了。';}
    if(allowCare&&!autonomous&&plan.id==='flowers'&&idle>=2.8&&finishedKey!==key){out=companionCare(s);finishedKey=key;if(out!==s)event=`${c.name}用自带的晨露照料了一朵月光花。`;}
    // 并肩坐下来了：相处册记一笔（同一天只记一次，坐一下午不是坐了四十次）
    if(!autonomous&&plan.id==='sit-together'&&idle>=2.8&&finishedKey!==key){finishedKey=key;out=noteBond(s,'sit','和你并肩'+(plan.label||'坐了一会儿'));}

@@ -15,7 +15,7 @@ const cmp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "
 const call = cmp.slice(cmp.indexOf("function CallScreen({"), cmp.indexOf("function CallReceipt") > 0 ? cmp.indexOf("function CallReceipt") : cmp.length);
 
 test("两样工具都在，而且只在有画面时才出手", () => {
-  assert.match(call, /const onPhoto = !!bgUrl;/);
+  assert.match(call, /const onPhoto = !!bgUrl \|\| pip;/, "单人视频 TA 铺满时也算在画面上（v74.750）");
   assert.match(call, /const litText = onPhoto \? \{ textShadow:/, "没有那道字影");
   assert.match(call, /const litPlate = \(from, to\) => onPhoto \? \{/, "没有那层自带的暗底");
   // 没有画面时两样都是 null —— 语音通话那一屏一个像素都不该动
@@ -38,7 +38,7 @@ test("飘在照片上的每一处白字都带上了字影", () => {
 });
 
 test("顶上那块和输入栏各自压一层底，中间那块【不许】压", () => {
-  assert.match(call, /className: "shrink-0 pt-10 pb-3 flex flex-col items-center",\n\s*style: Object\.assign\(\{\}, litPlate\("\.62", "0"\)\)/,
+  assert.match(call, /className: "shrink-0 pt-10 pb-3 flex flex-col items-center",\n(?:\s*\/\/.*\n)?\s*style: Object\.assign\(pip \? \{ paddingLeft: 112, paddingRight: 112 \} : \{\}, litPlate\("\.62", "0"\)\)/,
     "顶上名字时长那块没有自己的底");
   assert.match(call, /paddingBottom: COMPOSER_PAD_BOTTOM\n\s*\}, litPlate\("0", "\.78"\)\)/,
     "输入栏那一条没有自己的底");
