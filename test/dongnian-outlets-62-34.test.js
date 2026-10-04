@@ -36,7 +36,7 @@ test("⚠️泄压排在出口【落地之后】——空返回不许把这一�
 
 test("愿望是【出口层】的一档，不是塞进「留东西」那个多选里", () => {
   // 那个多选正是塌陷风险最高的地方；再加第六档，大概率跟拾/半/画 一个下场。
-  const i = app.indexOf("else if (_cpNow && !charHasOpenWish(cid)");
+  const i = app.indexOf("else if (_altOut && !charHasOpenWish(cid)");
   assert.ok(i > 0, "钉愿望没排进出口那条 if/else 链");
   assert.match(app, /const CHAR_WISH_P = 0\.\d+;/, "概率没有一个能改的常量");
   // 闸是【有没有】，不是纯概率：板上已经有他钉着没了结的那条就不再钉第二条

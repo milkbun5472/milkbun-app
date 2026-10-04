@@ -7145,18 +7145,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const _back = _cross ? Math.max(lastInteract + 60000, Math.min(_cross, Date.now() - 60000)) : 0;
           dongnianCrossedRef.current[cid] = 0;
           const _cpNow = ((couplesRef.current || {})[cid] || {}).status === "together";
+          // 想你时只发消息（聊天设置里的子开关）：开了就不走愿望板、情侣空间那两个出口
+          const _altOut = _cpNow && settingsFor(cid).dongnianMsgOnly !== true;
           if (activeOffScene) { offlineReply(cid); _drain(); }                    // 思念攒够 → 线下自己动一拍
           // ⭐愿望板那一档【排在出口这一层，不是塞进「留东西」的三选一里】（v62.34）。
           //   她 2026-09-04 问的正是这个：给模型的选项越多，它越会塌到默认那一档上
           //   ——拾/半/画 就是这么几乎永远轮不上的。所以这一档由【代码】判，模型只写内容。
           //   闸是天然的：板上已经有TA钉着、还没了结的那条，就不再钉第二条。
-          else if (_cpNow && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
+          else if (_altOut && !charHasOpenWish(cid) && Math.random() < CHAR_WISH_P)
             pinWishAsChar(c, jwStyle).then(_settle);
           // ⭐思念的第三个出口（v58.85）：正式在一起的那一位，有时候不发消息，
           // 而是【在你俩的小空间里留下一样东西】，等她自己发现。
           // ⚠️花的还是【本来就要花的那一次】——这是出口换了，不是多开一条链。
           // 概率见 COUPLE_LEAVE_P：常发消息才是主线，留东西是偶尔的惊喜，天天留就成了另一种刷屏。
-          else if (_cpNow && Math.random() < COUPLE_LEAVE_P)
+          else if (_altOut && Math.random() < COUPLE_LEAVE_P)
             leaveInCoupleSpace(c, jwStyle).then(_settle);
           // ⚠️发消息这一路原来是「调了就泄」——不管 replyNow 有没有真送到（群友 2026-10-01：
           //   「憋到红条爆了也不发，然后自动退回粉色」）。模型回空、里面哪道闸没放行、接口报错，
@@ -28406,6 +28408,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             webSearch: !!s.webSearch,
             // 允许TA主动写申请信（v74.732）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
+            dongnianMsgOnly: s.dongnianMsgOnly === true,
             busyHold: s.busyHold === true,
             busyReroll: s.busyReroll === true,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
