@@ -57,8 +57,10 @@ test("看得见的那半是一块两拍，不是两张并排的卡", () => {
 test("好感度是一颗会灌满的心，不是进度条也不是尺", () => {
   const sc = card.slice(card.indexOf("const heartInk ="), card.indexOf("const body ="));
   assert.match(shell, /const HEART_D = "M12 21\.35/, "没有心形");
-  assert.match(sc, /clipPath: "url\(#sc-heart\)"/, "水位没裁进心里，那就只是块色");
-  assert.match(sc, /y: 24 \* \(1 - lvl\), width: 24, height: 24 \* lvl/, "水位不跟着分数走");
+  // v74.79 起改成蒙版分层（为了能换图案）：水位裁进形状里、高度跟着分数走
+  assert.match(sc, /"data-wk": "stateheartfill", style: scMask\(/, "水位没裁进心里，那就只是块色");
+  assert.match(sc, /height: "calc\(var\(--sc-heart-lvl\) \* 100%\)"/, "水位不跟着分数走");
+  assert.match(sc, /"--sc-heart-lvl": String\(lvl\)/);
   assert.match(sc, /const heartInk = aff >= 80 \? "#b83b4e" : aff >= 60 \? "#c4606f" : aff >= 40 \? "#c58089" : aff >= 20 \? "#b08a86" : "#8794a6";/,
     "颜色不跟着分数变");
   // 数字压在心中间，而且得读得清
@@ -93,8 +95,9 @@ test("深色主题下不许白底白字", () => {
   // 连 "1px solid #fff" 这种嵌在里面的也要抓：深色主题里 t.ink 是近白色
   // 唯一允许的一处：心里水面那道亮边（它压在自己那块朱色上，不受主题影响）
   const whites = (card.match(/#fff/g) || []).length + (shell.match(/#fff/g) || []).length;
-  assert.equal(whites, 1, "除了水面那道亮边，不许再写死 #fff");
-  assert.match(card, /fill: "#fff", opacity: \.5/, "那一处 #fff 不是水面那道亮边");
+  assert.equal(whites, 0, "不许再写死 #fff");
+  // 唯一一处白：水面那道半透明亮边
+  assert.equal((card.match(/rgba\(255,255,255,\.5\)/g) || []).length, 1, "那道亮边不见了，或者白色又多写了一处");
   assert.ok(!/#ffffff|rgb\(255, ?255, ?255\)/i.test(card + shell), "换个写法写死了纯白");
   assert.match(shell, /transparent 1px 7px\)," \+ t\.bg2/, "框的底色没走主题");
 });

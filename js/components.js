@@ -13974,6 +13974,11 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
 //   那层聊天是它成立的前提，而且内容就三段——正中一个框才是它该有的形状。
 //   这是她 2026-09-01 直接点的。
 const HEART_D = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z";
+// 心声卡那颗心的形状：默认就是上面这颗心，写成蒙版图，CSS 里改 --sc-heart-mask 就换图案
+const SC_HEART_MASK = 'url("data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="' + HEART_D + '"/></svg>') + '")';
+const scMask = st => Object.assign({ position: "absolute", WebkitMaskImage: "var(--sc-heart-mask, " + SC_HEART_MASK + ")", maskImage: "var(--sc-heart-mask, " + SC_HEART_MASK + ")",
+  WebkitMaskSize: "contain", maskSize: "contain", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat",
+  WebkitMaskPosition: "center", maskPosition: "center", overflow: "hidden" }, st);
 function CenterCard({ children, onClose, maxWidth, wk }) {
   const t = useTheme();
   return h("div", {
@@ -14049,17 +14054,21 @@ function StateCard({
   const heartInk = aff >= 80 ? "#b83b4e" : aff >= 60 ? "#c4606f" : aff >= 40 ? "#c58089" : aff >= 20 ? "#b08a86" : "#8794a6";
   const lvl = Math.max(0, Math.min(100, aff)) / 100;
   const scale = (isNpc || roomName) ? null : h("div", { "data-wk": "stateaff", className: "flex items-center", style: { gap: 15, padding: "13px 17px 15px", borderTop: "1px solid " + t.line } },
-    h("div", { style: { position: "relative", width: 78, height: 78, flexShrink: 0 } },
-      h("svg", { viewBox: "0 0 24 24", width: 78, height: 78, "aria-hidden": "true", style: { display: "block", overflow: "visible" } },
-        h("defs", null, h("clipPath", { id: "sc-heart" }, h("path", { d: HEART_D }))),
-        h("path", { d: HEART_D, fill: t.line, opacity: .45 }),
-        h("g", { clipPath: "url(#sc-heart)" },
-          h("rect", { x: 0, y: 24 * (1 - lvl), width: 24, height: 24 * lvl + 0.4, fill: heartInk, opacity: .9 }),
+    // 这颗心拆成几层蒙版（她 2026-10-05：「要可以改图案」）：形状只认一个变量 --sc-heart-mask，
+    //   换成别的图（星星、猫爪、自己传的 png/svg）四层一起跟着变——描边、底、水位都不用另画。
+    //   描边＝整块墨色，里面三层缩进一圈盖上去，露出来的那一圈就是边；任何形状都成立。
+    h("div", { "data-wk": "stateheart", style: { position: "relative", width: 78, height: 78, flexShrink: 0,
+      // ⚠️形状和颜色不写在行内：行内的变量会压过她写的 CSS。层里用 var(她的, 默认) 兜底。
+      "--sc-heart-ink-auto": heartInk, "--sc-heart-lvl": String(lvl) } },
+      h("div", { "data-wk": "stateheartline", style: scMask({ inset: 0, background: "var(--sc-heart-ink, var(--sc-heart-ink-auto))", opacity: .85 }) }),
+      h("div", { style: scMask({ inset: "5%", background: t.bg2 }) }),
+      h("div", { "data-wk": "stateheartbase", style: scMask({ inset: "5%", background: t.line, opacity: .45 }) }),
+      h("div", { "data-wk": "stateheartfill", style: scMask({ inset: "5%" }) },
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: "calc(var(--sc-heart-lvl) * 100%)", background: "var(--sc-heart-ink, var(--sc-heart-ink-auto))", opacity: .9,
           // 水面那一道亮边：不加的话就是块色，看不出是「灌到这儿」
-          lvl > 0 && lvl < 1 ? h("rect", { x: 0, y: 24 * (1 - lvl), width: 24, height: .45, fill: "#fff", opacity: .5 }) : null),
-        h("path", { d: HEART_D, fill: "none", stroke: heartInk, strokeWidth: 1, opacity: .85 })),
+          borderTop: lvl > 0 && lvl < 1 ? "1px solid rgba(255,255,255,.5)" : "none" } })),
       // 数字压在心中间：描一圈卡片底色，压在水位上也读得清
-      h("span", { style: {
+      h("span", { "data-wk": "stateheartnum", style: {
         position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
         paddingTop: 4, fontFamily: F_DISPLAY, fontSize: 23, color: t.ink,
         WebkitTextStroke: "3px " + t.bg2, paintOrder: "stroke"
