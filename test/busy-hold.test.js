@@ -24,11 +24,11 @@ test("闸：默认关、只管主线单聊、正聊着不拦、一段只掷一�
   assert.match(comp, /busyHold: busyHold,/);
 });
 
-test("让TA回复：拦下就只落她的话；再按一次＝催；忙完由主动那一路回一次", () => {
+test("让TA回复：拦下就只落她的话；再按一次就当场回；忙完由主动那一路回一次", () => {
   const r = cut(app, "const bg = busyGate(activeChar, chatKey);", "return replyNow(activeChar.id, extraText, null, { room, chatKey });");
   assert.match(r, /if \(bg && bg\.held\) \{[\s\S]*pushUser\(activeChar\.id, extra, chatKey\);[\s\S]*return;/);
   assert.match(r, /busyNudge: \{ title: bg\.nudge\.title \}/);
-  assert.match(app, /replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title \} \}\);/);
+  assert.match(app, /replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title \} \}\)/);
   assert.match(app, /paceHint \+ callHint \+ busyHint \+ proactiveHintAll/);
   // busyHint 读 uName，必须在 uName 声明之后（TDZ）
   assert.ok(app.indexOf("const busyHint = opts.busyBack") > app.indexOf("const uName = userName(profile); // 须在下面"));
@@ -40,4 +40,18 @@ test("通话跟线上一类：打不通落未接卡，拨号键和回拨都过�
   assert.match(app, /onStartCall: m => callCharGated\(activeChar, m\),/);
   assert.match(app, /onCallBack: m => callCharGated\(activeChar, m\.mode\),/);
   assert.match(comp, /m\.busyMissed \? "无法接通 · " \+ \(who \|\| "TA"\) \+ "在忙（" \+ m\.busyMissed \+ "）"/);
+});
+
+test("提示词里不说「催」：只说你还在忙、抽空看了一眼（不然开口就是催什么催）", () => {
+  const i = app.indexOf("const busyHint = opts.busyBack"), j = app.indexOf("const bdayHint = opts.bday", i);
+  assert.ok(i > 0 && j > i);
+  assert.doesNotMatch(app.slice(i, j).replace(/\/\/.*$/gm, ""), /催/);
+  assert.match(app.slice(i, j), /这会儿抽空看了一眼手机/);
+});
+
+test("忙完那一回：回成了才算数，关 App、断网、被截断下次还会来；忙完后她自己按就当TA看到了", () => {
+  assert.match(app, /pOnce\("busy:" \+ cid, "busy:" \+ cid \+ ":" \+ h0\.at,\s*\(\) => replyNow\(cid, "", null, \{ busyBack: \{ title: h0\.title \} \}\),\s*\(\) => busyRelease\(cid\)\);/);
+  assert.match(app, /Date\.now\(\) >= \(h0\.until \|\| 0\) \? \{ back: h0 \} : \{ nudge: h0 \}/);
+  assert.match(app, /busyBack: \{ title: bg\.back\.title \}/);
+  assert.match(app, /x_busyHold/, "拦下来的那笔落盘，关了 App 也记得");
 });

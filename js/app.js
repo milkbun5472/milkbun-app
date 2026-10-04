@@ -4573,7 +4573,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!char || settingsFor(char.id).busyHold !== true) return null;
     if (chatKey && chatKey !== char.id) return null;          // 小房间、拉黑那些另有规矩，只管主线单聊
     const h0 = busyHolds()[char.id];
-    if (h0 && h0.held && !h0.released) return { nudge: h0 };
+    // 那段已经忙完、只是还没轮到TA回（App 刚打开那一下）：她这时候按，就当TA忙完看到了
+    if (h0 && h0.held && !h0.released) return Date.now() >= (h0.until || 0) ? { back: h0 } : { nudge: h0 };
     const b = busyNowFor(char);
     if (!b) return null;
     if (h0 && h0.segKey === b.segKey) return null;             // 这一段已经掷过一次了，不重复掷
@@ -4591,10 +4592,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 打不通：不进通话、不调模型，只落一张未接卡（点它回拨＝催）
       pChat(activeChar.id, p => [...p, { role: "user", kind: "callinvite", mode: m === "video" ? "video" : "voice", content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请]",
         answered: "missed", busyMissed: bg.held.title, ts: Date.now(), read: false }]);
-      toast(characterText(activeChar, "无法接通——TA 在忙（" + bg.held.title + "）。再打一次就是催"));
+      toast(characterText(activeChar, "无法接通——TA 在忙（" + bg.held.title + "）。真有急事就再打一次"));
       return;
     }
-    if (bg && bg.nudge) busyRelease(activeChar.id);
+    if (bg && (bg.nudge || bg.back)) busyRelease(activeChar.id);
     return startCall([activeChar], m, null, "me", blockChatKey(activeChar.id));
   };
   const busyRelease = cid => { const h0 = busyHolds()[cid]; if (h0) busyHoldSet(cid, Object.assign({}, h0, { released: true })); };
@@ -6841,8 +6842,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (laneBusy("c:" + cid)) continue;
           const c = characters.find(x => x.id === cid);
           if (!c || settingsFor(cid).busyHold !== true) { busyRelease(cid); continue; }
-          busyRelease(cid);
-          replyNow(cid, "", null, { busyBack: { title: h0.title } });
+          // 回成了才算数（DeliveryCommit）：中途关掉 App、断网、被截断都不会把这一笔吞掉——
+          //   下次打开 App 这一轮还会再来；失败了半小时后再试（pSkip）。
+          if (pSkip("busy:" + cid)) continue;
+          pOnce("busy:" + cid, "busy:" + cid + ":" + h0.at,
+            () => replyNow(cid, "", null, { busyBack: { title: h0.title } }),
+            () => busyRelease(cid));
           return;                                                // 一次一个，错峰
         }
       } catch (e) {}
@@ -10330,7 +10335,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
       const busyHint = opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
-        : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），" + uName + " 又催了你一次，你抽空回 Ta。照你自己的性子来。" : "";
+        // ⚠️不写「她催你」：写了模型一开口就是「催什么催」。只给事实——你还在忙、抽空看了一眼
+        : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），这会儿抽空看了一眼手机，看到 " + uName + " 发来的消息。照你自己的性子来。" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
@@ -25961,10 +25967,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (bg && bg.held) {
         const extra = String(extraText || "").trim();
         if (extra) pushUser(activeChar.id, extra, chatKey);
-        toast(characterText(activeChar, "TA 这会儿在忙（" + bg.held.title + "），还没看手机——忙完会回你。真有急事就再按一次催一下"));
+        toast(characterText(activeChar, "TA 这会儿在忙（" + bg.held.title + "），还没看手机——忙完会回你。真有急事就再按一次"));
         return;
       }
       if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title } }); }
+      if (bg && bg.back) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyBack: { title: bg.back.title } }); }
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
