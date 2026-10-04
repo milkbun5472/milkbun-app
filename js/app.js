@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.806";
+const APP_VERSION = "v74.808";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6179,6 +6179,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // —— 农历节日（春节/中秋/端午…含除夕）——
       const lf = typeof lunarFestivalOn === "function" ? lunarFestivalOn(today) : null;
       if (lf) lines.push("今天是农历的【" + lf + "】（若情境合适可自然应景：问候、聊吃食习俗、约着过节都行，别硬凹）。");
+      // —— 天象（星测，她 2026-10-05）：满月新月、水逆、换星座。只给事实，信不信、提不提是TA自己的事 ——
+      const _sky = window.Astro && window.Astro.skyNote ? window.Astro.skyNote(today) : "";
+      if (_sky) lines.push("今天的天象：" + _sky + "（天上真发生的事。你信不信这些、要不要提，全看你自己）。");
+      // —— 你俩的好日子（星测按两张星盘算的，接下来三天内有就说一声）——
+      try {
+        const _gd = window.Astro && window.Astro.pairGoodDays ? window.Astro.pairGoodDays(profile && profile.birthday, char.id, char.birthday, today, 4) : [];
+        if (_gd.length) lines.push("星测按你和 " + uName + " 的星盘算出来，" + _gd.map(x => x.day.slice(5).replace("-", "月") + "日").join("、") + " 对你俩都顺（要不要当回事、拿不拿来约她，看你自己）。");
+      } catch (e) {}
       // —— 今日日历三视角 ——
       const w = evTitles(cal.world && cal.world[tK]);
       if (w) lines.push("今天这个世界里：" + w + "（大家都知道的公共事件，聊到可自然带出）。");
@@ -27362,6 +27370,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onEditChar: c => { setEditingChar(c); setScreen("castForm"); },
     onEditProfile: () => setProfileOpen(true),
+    // 群榜「发到群里」（她 2026-10-05）：她自己发一条，群里的人照常接话
+    groups: groups,
+    onShareToGroup: (gid, text) => {
+      pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]);
+      toast("发到群里了");
+      try { replyGroup(gid, {}); } catch (e) {}
+    },
     onBack: () => setScreen("home")
   });else if (screen === "health") body = h(window.HealthApp, {
     characters: liveChars,

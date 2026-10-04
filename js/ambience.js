@@ -21,7 +21,8 @@
   const RATE = 22050, SEC = 20, N = RATE * SEC, FADE = RATE;   // 20 秒一圈，头尾 1 秒交叉
   const KEY = "x_pomoAmbience", MINE_KEY = "__ambience_mine__";
   const LAYERS = [
-    ["rain", "雨声"], ["waves", "海浪"], ["wind", "风"], ["fire", "壁炉"], ["clock", "钟"],
+    ["rain", "雨声"], ["stream", "溪水"], ["waves", "海浪"], ["wind", "风"], ["fire", "壁炉"],
+    ["birds", "鸟叫"], ["purr", "猫呼噜"], ["clock", "钟"],
     ["brown", "棕噪音"], ["pink", "粉噪音"], ["white", "白噪音"]
   ];
 
@@ -41,50 +42,102 @@
   const norm = (a, peak) => { let m = 0; for (let i = 0; i < a.length; i++) m = Math.max(m, Math.abs(a[i])); const k = m ? peak / m : 0; for (let i = 0; i < a.length; i++) a[i] *= k; return a; };
   const per = (i, sec) => Math.sin(2 * Math.PI * i / (RATE * sec));   // sec 必须整除 SEC
 
+  // 二阶带通（RBJ 那一式）：f0 中心频率可以每个样本变——风的呜呜声就靠它扫
+  const bandpass = (x, f0At, q) => {
+    const o = new Float32Array(x.length); let x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+    for (let i = 0; i < x.length; i++) {
+      const w = 2 * Math.PI * f0At(i) / RATE, al = Math.sin(w) / (2 * q), cw = Math.cos(w), a0 = 1 + al;
+      const y = ((al) * x[i] - al * x2 - (-2 * cw) * y1 - (1 - al) * y2) / a0;
+      x2 = x1; x1 = x[i]; y2 = y1; y1 = y; o[i] = y;
+    }
+    return o;
+  };
+  // 按「听起来多响」对齐（均方根），不是按最高点：最高点对齐的话，一直沙沙响的那几层会比别的吵一大截
+  const rms = (a, target) => { let e = 0; for (let i = 0; i < a.length; i++) e += a[i] * a[i]; const k = e ? target / Math.sqrt(e / a.length) : 0; for (let i = 0; i < a.length; i++) a[i] *= k; return a; };
+  const chirp = (o, at, len, f0, f1, amp, decay) => { let ph = 0; for (let j = 0; j < len && at + j < o.length; j++) { const f = f0 + (f1 - f0) * j / len; ph += 2 * Math.PI * f / RATE; o[at + j] += amp * Math.sin(ph) * Math.exp(-j / decay) * Math.min(1, j / 30); } };
+  const randAt = (r, margin) => Math.floor((r() * .5 + .5) * (N - margin));
+
+  // ⚠️她 2026-10-05：「好多听起来都一个样，放一点点就已经很吵」。
+  //   第一版几乎全是「噪音换个滤波」，耳朵里都是沙沙。这一版每层抓住【它自己才有的那个声音】：
+  //   雨是密密的雨点、溪是咕噜的水泡、鸟是啾、猫是一呼一吸的呼噜、风是呜呜扫过去、火是噼啪。
+  //   三种噪音留着给要「纯底噪」的人，但统一压低。
   const SYN = {
-    white: () => norm(loopIt(noise(N + FADE, 11)), .35),
-    pink: () => norm(loopIt(pinkOf(noise(N + FADE, 12))), .45),
-    brown: () => norm(loopIt(brownOf(noise(N + FADE, 13))), .6),
     rain: () => {
-      // 沙沙的底（粉噪音去掉低频）＋一阵一阵的疏密＋随机落下的雨滴
-      const p = pinkOf(noise(N + FADE, 21)), o = new Float32Array(N + FADE);
-      let prev = 0; for (let i = 0; i < o.length; i++) { const hp = p[i] - prev; prev = p[i]; o[i] = hp; }
-      const base = loopIt(o);
-      for (let i = 0; i < N; i++) base[i] *= .8 + .2 * per(i, 5) * per(i, 4);
-      const r = rng(22);
-      for (let d = 0; d < 260; d++) {
-        const at = Math.floor((r() * .5 + .5) * (N - 600)), amp = .25 + .35 * Math.abs(r()), f = 2400 + 1800 * r();
-        for (let j = 0; j < 500; j++) base[at + j] += amp * Math.exp(-j / 70) * Math.sin(2 * Math.PI * f * j / RATE);
+      // 一层很轻的中频沙沙打底，上面是成千上万颗大小不一的雨点（每颗是一小截带通噪音）
+      const bed = loopIt(bandpass(noise(N + FADE, 21), () => 1800, .7));
+      const o = rms(bed, .02), r = rng(22), drop = noise(400, 23);
+      for (let d = 0; d < 5200; d++) {
+        const at = randAt(r, 400), amp = .02 + .06 * Math.pow(Math.abs(r()), 3), len = 120 + Math.floor(200 * Math.abs(r()));
+        for (let j = 0; j < len; j++) o[at + j] += amp * drop[j] * Math.exp(-j / (len / 4));
       }
-      return norm(base, .5);
+      return rms(o, .05);
+    },
+    stream: () => {
+      // 溪水：一串往上滑的小水泡，底下一点点流水声
+      const o = rms(loopIt(bandpass(noise(N + FADE, 61), () => 900, 1.2)), .012), r = rng(62);
+      for (let k = 0; k < 900; k++) {
+        const f0 = 350 + 700 * Math.abs(r()), len = Math.floor(RATE * (.02 + .04 * Math.abs(r())));
+        chirp(o, randAt(r, len), len, f0, f0 * (1.6 + .6 * Math.abs(r())), .05 + .07 * Math.abs(r()), len / 3);
+      }
+      return rms(o, .05);
     },
     waves: () => {
-      // 棕噪音按 10 秒一涨一落（20 秒里正好两浪）
-      const b = loopIt(brownOf(noise(N + FADE, 31))), o = new Float32Array(N);
-      for (let i = 0; i < N; i++) { const env = Math.pow(.5 - .5 * Math.cos(2 * Math.PI * i / (RATE * 10)), 1.6); o[i] = b[i] * (.12 + env); }
-      return norm(o, .6);
+      // 10 秒一浪：涨的时候低频涌上来，到顶那一下高频哗地碎开
+      const lo = loopIt(lowpass(pinkOf(noise(N + FADE, 31)), .05)), hi = loopIt(bandpass(noise(N + FADE, 32), () => 2500, .5)), o = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const ph = (i / (RATE * 10)) % 1, swell = Math.pow(.5 - .5 * Math.cos(2 * Math.PI * ph), 2), wash = Math.exp(-Math.pow((ph - .55) / .12, 2));
+        o[i] = lo[i] * (.08 + swell) + hi[i] * .35 * wash;
+      }
+      return rms(o, .05);
     },
     wind: () => {
-      const b = loopIt(lowpass(pinkOf(noise(N + FADE, 41)), .08)), o = new Float32Array(N);
-      for (let i = 0; i < N; i++) o[i] = b[i] * (.55 + .3 * per(i, 20) + .15 * per(i, 4));
-      return norm(o, .55);
+      // 呜——的那一声：窄带通的中心频率慢慢地扫上扫下
+      const x = noise(N + FADE, 41);
+      const f = i => 380 + 220 * Math.sin(2 * Math.PI * (i % N) / (RATE * 20)) + 90 * Math.sin(2 * Math.PI * (i % N) / (RATE * 5));
+      const o = loopIt(bandpass(x, f, 6));
+      for (let i = 0; i < N; i++) o[i] *= .6 + .4 * Math.pow(.5 + .5 * per(i, 10), 2);
+      return rms(o, .045);
     },
     fire: () => {
-      // 低低的一团火声＋噼啪
-      const o = norm(loopIt(lowpass(brownOf(noise(N + FADE, 51)), .3)), .35), r = rng(52);
-      for (let c = 0; c < 140; c++) {
-        const at = Math.floor((r() * .5 + .5) * (N - 400)), amp = .2 + .5 * Math.abs(r());
-        for (let j = 0; j < 300; j++) o[at + j] += amp * Math.exp(-j / (8 + 20 * Math.abs(r()))) * r();
+      // 几乎没有底噪，主要是噼啪：大小、亮暗都不一样的爆点
+      const o = rms(loopIt(lowpass(brownOf(noise(N + FADE, 51)), .12)), .008), r = rng(52), pop = noise(600, 53);
+      for (let c = 0; c < 420; c++) {
+        const at = randAt(r, 600), amp = .05 + .35 * Math.pow(Math.abs(r()), 2.5), len = 60 + Math.floor(500 * Math.pow(Math.abs(r()), 2));
+        for (let j = 0; j < len; j++) o[at + j] += amp * pop[(j * 3) % 600] * Math.exp(-j / (len / 5));
       }
-      return norm(o, .55);
+      return rms(o, .04);
+    },
+    birds: () => {
+      // 几只鸟隔一阵叫一串：每声是一段很快的上下滑音
+      const o = new Float32Array(N), r = rng(71);
+      for (let g = 0; g < 9; g++) {
+        let at = randAt(r, RATE * 2); const base = 2600 + 1600 * Math.abs(r()), n = 2 + Math.floor(5 * Math.abs(r()));
+        for (let k = 0; k < n; k++) {
+          const len = Math.floor(RATE * (.05 + .07 * Math.abs(r())));
+          chirp(o, at, len, base * (1 + .25 * r()), base * (1.3 + .3 * r()), .12, len / 2.5);
+          at += len + Math.floor(RATE * (.03 + .08 * Math.abs(r())));
+        }
+      }
+      return rms(o, .03);
+    },
+    purr: () => {
+      // 猫打呼噜：25 下一秒的低颤，4 秒一呼一吸
+      const b = loopIt(lowpass(brownOf(noise(N + FADE, 81)), .08)), o = new Float32Array(N);
+      for (let i = 0; i < N; i++) {
+        const breath = .35 + .65 * Math.pow(.5 - .5 * Math.cos(2 * Math.PI * i / (RATE * 4)), 1.5);
+        o[i] = b[i] * (.5 + .5 * Math.sin(2 * Math.PI * 25 * i / RATE)) * breath;
+      }
+      return rms(o, .05);
     },
     clock: () => {
-      // 一秒一下，滴、答两种音高交替
       const o = new Float32Array(N);
       for (let s = 0; s < SEC; s++) { const at = s * RATE, f = s % 2 ? 1700 : 2100;
         for (let j = 0; j < 700; j++) o[at + j] += Math.exp(-j / 90) * Math.sin(2 * Math.PI * f * j / RATE); }
-      return norm(o, .45);
-    }
+      return rms(o, .02);
+    },
+    brown: () => rms(loopIt(brownOf(noise(N + FADE, 13))), .04),
+    pink: () => rms(loopIt(pinkOf(noise(N + FADE, 12))), .025),
+    white: () => rms(loopIt(noise(N + FADE, 11)), .015)
   };
   const cache = {};
   const layer = k => cache[k] || (cache[k] = SYN[k]());
@@ -93,9 +146,10 @@
   function mix(levels) {
     const out = new Float32Array(N);
     let any = false;
-    LAYERS.forEach(([k]) => { const g = Number(levels && levels[k]) || 0; if (g <= 0) return; any = true; const a = layer(k); for (let i = 0; i < N; i++) out[i] += a[i] * g; });
+    // 滑块按平方走：耳朵听响度是对数的，拖一点点就该是很轻的一点点
+    LAYERS.forEach(([k]) => { const v = Number(levels && levels[k]) || 0; if (v <= 0) return; any = true; const g = v * v, a = layer(k); for (let i = 0; i < N; i++) out[i] += a[i] * g; });
     if (!any) return null;
-    for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i] * 1.2) / Math.tanh(1.2);
+    for (let i = 0; i < N; i++) out[i] = Math.tanh(out[i]);   // 只防爆，不放大
     return out;
   }
   function wavOf(f32) {
