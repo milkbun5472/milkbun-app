@@ -33,7 +33,10 @@ test('空记录不占位，缺 ID 仍传正确索引，无删除权限隐藏按�
   assert.equal(fixture([{ endTs: 1, msgs: [] }], { onDelSession: null }).tree.children[1][0].children[1], null);
 });
 test('两个开局页接公共卡片，选择与删除回调不串会话', () => {
-  assert.equal((src.match(/h\(OfflineSetupHistory, \{ sessions, t, fmtStamp, onSelect: setReadView, onDelSession \}\)/g) || []).length, 2);
+  // v74.732 多带了 who（导出文件名）和 members（群里按人署名）：
+  //   锚只钉【两个开局页都接同一个公共卡片、回调不串会话】，不钉参数表写到哪一位
+  //   （施工规则/anchor-on-code：参数表是会被加东西的）。
+  assert.equal((src.match(/h\(OfflineSetupHistory, \{ sessions, t, fmtStamp, onSelect: setReadView, onDelSession[,}]/g) || []).length, 2);
   const a = fixture([{ id: 'a', endTs: 1, msgs: [] }]), b = fixture([{ id: 'b', endTs: 1, msgs: [] }]);
   a.tree.children[1][0].children[1].props.onClick();
   assert.deepEqual(a.deleted, [['a', 0]]); assert.deepEqual(b.deleted, []);
