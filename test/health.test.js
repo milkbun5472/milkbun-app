@@ -306,3 +306,36 @@ test("网关教程：到家出门那几份并进快捷指令那一步，不再�
   assert.ok(i > 0 && j > i);
   assert.match(src.slice(i, j), /到家、出门、起床、睡觉/);
 });
+
+test("充电：插上了就不提醒充电、也不顶掉到家那件事；拔掉认成拔掉", () => {
+  const { H, C } = load();
+  const base = new Date(2026, 9, 3, 15, 0).getTime();
+  assert.equal(H.parseShortcut("秋秋健康\n事件：拔掉充电器", "2026-10-03").event, "拔电");
+  assert.equal(H.parseShortcut("秋秋健康\n事件：充电", "2026-10-03").event, "充电");
+  let d = H.load();
+  d.watch = { on: true, ids: ["c1"], nudge: true, env: true };
+  d.env = { ts: base - 30 * 60000, battery: 12 };
+  d.events = [{ at: base - 3 * 3600000, kind: "到家" }, { at: base - 20 * 60000, kind: "充电" }];
+  H.save(d);
+  assert.notEqual((C.nudgeDue(base) || {}).meal, "battery", "插着电不提醒");
+  assert.match(C.envLine(d, base), /插上了充电器/);
+  d.events.push({ at: base - 5 * 60000, kind: "拔电" }); H.save(d);
+  assert.equal(C.nudgeDue(base).meal, "battery", "拔了又没电，照常提醒");
+});
+
+test("预报：早上要下雨提醒一次带伞；出门那次带上；第二天就不算了", () => {
+  const { H, C } = load();
+  const morning = new Date(2026, 9, 3, 8, 0).getTime();
+  let d = H.load();
+  d.watch = { on: true, ids: ["c1"], nudge: true, env: true };
+  d = H.applyShortcut(d, H.parseShortcut("秋秋健康\n天气：晴\n预报：中雨\n收到时间：" + morning, "2026-10-03"));
+  d = H.applyShortcut(d, H.parseShortcut("秋秋健康\n电量：80\n收到时间：" + (morning + 60000), "2026-10-03"));
+  assert.equal(d.env.forecast, "中雨", "后面那次没带预报，沿用今天的");
+  H.save(d);
+  assert.match(C.envLine(d, morning + 120000), /今天预报中雨/);
+  const n = C.nudgeDue(morning + 120000); assert.equal(n.meal, "umbrella");
+  C.markNudged(n.day, n.meal);
+  d.events = [{ at: morning + 30 * 60000, kind: "出门" }]; H.save(d);
+  assert.equal(C.nudgeDue(morning + 35 * 60000).label, "她刚出门，今天预报要下雨");
+  assert.doesNotMatch(C.envLine(d, new Date(2026, 9, 4, 8, 0).getTime()), /预报/);
+});

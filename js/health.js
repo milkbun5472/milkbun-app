@@ -128,8 +128,13 @@
   }
   // 最近一件事：到家/出门三小时内、起床两小时内、睡觉十小时内才算数
   const EV_FRESH = { 到家: 3, 出门: 3, 起床: 2, 睡觉: 10 };
+  const CHARGE = { 充电: 1, 拔电: 1 };
+  function chargeState(d, now) {
+    const e = (d.events || []).filter(x => CHARGE[x.kind]).slice(-1)[0];
+    return e && (now || Date.now()) - e.at < 12 * 3600000 ? Object.assign({ on: e.kind === "充电" }, e) : null;
+  }
   function lastEvent(d, now) {
-    const e = (d.events || []).slice(-1)[0]; if (!e) return null;
+    const e = (d.events || []).filter(x => !CHARGE[x.kind]).slice(-1)[0]; if (!e) return null;
     const ago = (now || Date.now()) - e.at;
     return ago >= 0 && ago <= (EV_FRESH[e.kind] || 2) * 3600000 ? Object.assign({ ago }, e) : null;
   }
@@ -137,7 +142,8 @@
   const EV_SAY = { 到家: "到家了", 出门: "出门了", 起床: "起床了", 睡觉: "说去睡了" };
   const isAway = d => { const e = lastEvent(d); if (e && (e.kind === "到家" || e.kind === "出门") && (!d.env || e.at >= (d.env.ts || 0))) return e.kind === "出门"; return /^不在家/.test(whereText(d)); };
   const isRain = e => /雨|雪|雷|rain|snow|storm|shower|drizzle/i.test(String(e && e.weather || ""));
-  const ENV_FRESH = 3 * 3600000;   // 三小时前报的就不算「此刻」了
+  const ENV_FRESH = 3 * 3600000;
+  const rainyToday = (d, t) => !!(d.env && d.env.forecast && d.env.forecastDay === dayOf(new Date(t || Date.now())) && isRain({ weather: d.env.forecast }));   // 三小时前报的就不算「此刻」了
   function envLine(d, now) {
     const t = now || Date.now(), e = d.env, ev = lastEvent(d, t);
     let out = "";
@@ -146,9 +152,12 @@
       const where = ev && (ev.kind === "到家" || ev.kind === "出门") && ev.at >= (e.ts || 0) ? "" : whereText(d);
       const bits = [where, e.weather ? "那边" + e.weather + (e.temp != null ? " " + Math.round(e.temp) + "°" : "") : "",
         e.battery != null ? "手机电量 " + Math.round(e.battery) + "%" : ""].filter(Boolean);
+      if (e.forecast && e.forecastDay === dayOf(new Date(t))) bits.push("今天预报" + e.forecast);
       if (bits.length) out += "（" + agoText(t - (e.ts || t)) + "前手机报的）她" + bits.join("，") + "。";
     }
     if (ev) out += "她 " + agoText(ev.ago) + "前" + (EV_SAY[ev.kind] || "：" + ev.kind) + "。";
+    const ch = chargeState(d, t);
+    if (ch && ch.on) out += "她的手机 " + agoText(t - ch.at) + "前插上了充电器。";
     return out;
   }
 
@@ -182,13 +191,18 @@
     const ev = d.watch.env ? lastEvent(d, t) : null;
     if (ev && ev.ago < 40 * 60000 && !today.includes("ev-" + ev.kind)) {
       const hr = new Date(t).getHours();
-      const say = { 起床: hr >= 5 && hr < 13 ? "她刚起床" : "", 到家: "她刚到家", 出门: hr >= 6 && hr < 23 ? "她刚出门" : "" }[ev.kind];
+      const say = { 起床: hr >= 5 && hr < 13 ? "她刚起床" : "", 到家: "她刚到家", 出门: hr >= 6 && hr < 23 ? (rainyToday(d, t) ? "她刚出门，今天预报要下雨" : "她刚出门") : "" }[ev.kind];
       if (say) return { meal: "ev-" + ev.kind, label: say, ids, day, line: envLine(d, t) + "她开了让你知道她在哪、在干嘛。" };
     }
     if (d.watch.env && d.env && t - (d.env.ts || 0) < ENV_FRESH) {
       const hr = new Date(t).getHours(), env = envLine(d, t);
-      if (d.env.battery != null && d.env.battery < 20 && !today.includes("battery") && hr >= 8 && hr < 24)
+      const ch = chargeState(d, t);
+      // 报完电量之后插上了充电器，就不来提醒充电
+      const charging = ch && ch.on && ch.at >= (d.env.ts || 0) - 10 * 60000;
+      if (d.env.battery != null && d.env.battery < 20 && !charging && !today.includes("battery") && hr >= 8 && hr < 24)
         return { meal: "battery", label: "她手机快没电了", ids, day, line: env + "她开了让你知道她在哪、那边天气和手机电量。" };
+      if (rainyToday(d, t) && !isRain(d.env) && !today.includes("umbrella") && !today.includes("ev-出门") && hr >= 7 && hr < 10)
+        return { meal: "umbrella", label: "今天预报要下雨", ids, day, line: envLine(d, t) + "她开了让你知道她在哪、那边天气。" };
       if (isRain(d.env) && isAway(d) && !today.includes("rain") && hr >= 7 && hr < 23)
         return { meal: "rain", label: "她在外面，那边下雨", ids, day, line: env + "她开了让你知道她在哪、那边天气和手机电量。" };
     }
@@ -213,13 +227,13 @@
   //   网页读不到健康 App，也不能从快捷指令直接往 App 里塞（主屏上的网页和 Safari 是两份存档），剪贴板是两边都够得着的那一处。
   const SHORTCUT_MARK = "秋秋健康";
   const SHORTCUT_TEMPLATE = [SHORTCUT_MARK, "日期：", "步数：", "睡眠：", "活动能量：", "运动分钟：", "体重：", "喝水：",
-    "纬度：", "经度：", "天气：", "气温：", "电量：", ""].join("\n");
+    "纬度：", "经度：", "天气：", "气温：", "预报：", "电量：", ""].join("\n");
   // 先跑通用的精简版：只有步数、位置、电量三样（教程第 2 步就是先搭这三样）
   const SHORTCUT_TEMPLATE_MINI = [SHORTCUT_MARK, "步数：", "纬度：", "经度：", "电量：", ""].join("\n");
   const SC_KEYS = [["steps", /^(步数|步|steps?)$/i], ["sleep", /^(睡眠|睡眠小时|睡眠时长|睡觉|sleep)$/i], ["kcal", /^(活动能量|动态能量|运动消耗|消耗|active ?energy)$/i],
     ["min", /^(运动分钟|锻炼分钟|锻炼|运动|exercise)$/i], ["kg", /^(体重|weight)$/i], ["water", /^(喝水|水|饮水|water)$/i], ["date", /^(日期|date)$/i],
     ["lat", /^(纬度|lat|latitude)$/i], ["lon", /^(经度|lon|lng|longitude)$/i], ["place", /^(地点|位置|地址|place|location)$/i],
-    ["weather", /^(天气|weather)$/i], ["temp", /^(气温|温度|temp|temperature)$/i], ["battery", /^(电量|电池|battery)$/i],
+    ["weather", /^(天气|weather)$/i], ["forecast", /^(预报|天气预报|今天天气|forecast)$/i], ["temp", /^(气温|温度|temp|temperature)$/i], ["battery", /^(电量|电池|battery)$/i],
     ["event", /^(事件|发生了|event)$/i], ["at", /^(收到时间|received)$/i]];
   const num = s => { const m = String(s || "").replace(/[,，\s]/g, "").match(/-?\d+(\.\d+)?/); return m ? Number(m[0]) : null; };
   function scDay(v, today) {
@@ -233,7 +247,8 @@
   }
   // 认不出（没有「秋秋健康」那一行、或者一个数都没有）→ null。数字后面带单位、带千分位都行。
   // 手机那头的「此刻发生了什么」（到家、出门、起床、睡觉）：每种一个自动化，各投一句「事件：到家」
-  const EVENTS = [["到家", /到家|回家|回来了|arrive|home/i], ["出门", /出门|离家|出去|leave/i], ["起床", /起床|醒了|醒来|闹钟|wake/i], ["睡觉", /睡觉|睡了|就寝|晚安|sleep|bed/i]];
+  // 插上/拔掉充电器单独算一条线（chargeState），不顶掉「到家/出门」那件事；拔掉得排在前面，不然「拔掉充电器」会被认成充电
+  const EVENTS = [["拔电", /拔|断开|unplug/i], ["充电", /插上|开始充电|充电|charg/i], ["到家", /到家|回家|回来了|arrive|home/i], ["出门", /出门|离家|出去|leave/i], ["起床", /起床|醒了|醒来|闹钟|wake/i], ["睡觉", /睡觉|睡了|就寝|晚安|sleep|bed/i]];
   const eventKind = v => (EVENTS.find(e => e[1].test(v)) || [String(v).slice(0, 12)])[0];
   function parseShortcut(text, today) {
     const lines = String(text || "").split(/\r?\n/).map(x => x.trim()).filter(Boolean);
@@ -244,7 +259,7 @@
       const k = (SC_KEYS.find(x => x[1].test(m[1].trim())) || [])[0], v = m[2].trim();
       if (!k || !v) return;
       if (k === "date") { r.day = scDay(v, today); return; }
-      if (k === "place" || k === "weather") { r[k] = v.slice(0, 40); return; }
+      if (k === "place" || k === "weather" || k === "forecast") { r[k] = v.slice(0, 40); return; }
       if (k === "event") { r.event = eventKind(v); return; }
       if (k === "at") { const x = num(v); if (x > 1e12) r.at = x; return; }
       if (k === "battery") { const b = num(v); if (b != null) r.battery = b <= 1 && !/%/.test(v) && /\./.test(v) ? b * 100 : b; return; }
@@ -256,7 +271,7 @@
       } else if (k === "water") r.waterMl = /升|\bl\b/i.test(v) && !/毫升|ml/i.test(v) ? n * 1000 : n;
       else r[k] = n;
     });
-    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl", "lat", "place", "weather", "battery", "event"].some(k => r[k] != null) ? r : null;
+    return ["steps", "sleepMin", "kcal", "min", "kg", "waterMl", "lat", "place", "weather", "forecast", "battery", "event"].some(k => r[k] != null) ? r : null;
   }
   // 合进存档：同一天再导一次就覆盖手机那一份，她自己记的不动
   function applyShortcut(d, r) {
@@ -267,9 +282,12 @@
       .concat([{ id: "hk-" + day, day, kind: "手机记的活动", min: Math.round(r.min || 0), kcal: Math.round(r.kcal || 0), src: "shortcut", ts: Date.now() }]);
     if (r.kg > 20 && r.kg < 300) n.weight = (d.weight || []).filter(w => w.day !== day).concat([{ day, kg: Math.round(r.kg * 10) / 10 }]);
     if (r.waterMl) n.water = Object.assign({}, d.water, { [day]: Math.max(Number((d.water || {})[day]) || 0, Math.round(r.waterMl / 250)) });
-    if (r.lat != null || r.place || r.weather || r.battery != null) {
+    if (r.lat != null || r.place || r.weather || r.forecast || r.battery != null) {
       const ok = r.lat != null && r.lon != null && Math.abs(r.lat) <= 90 && Math.abs(r.lon) <= 180;
+      const prev = d.env || {};
       n.env = { ts: r.at || Date.now(), lat: ok ? r.lat : null, lon: ok ? r.lon : null, place: r.place || "", weather: r.weather || "",
+        // 预报一天报一次就够：这次没带就沿用今天早些时候那份
+        forecast: r.forecast || (prev.forecastDay === r.day ? prev.forecast || "" : ""), forecastDay: r.forecast ? r.day : (prev.forecastDay === r.day ? r.day : ""),
         temp: r.temp != null ? r.temp : null, battery: r.battery != null ? Math.max(0, Math.min(100, r.battery)) : null };
     }
     if (r.event) {
@@ -558,7 +576,7 @@
             "网页读不到 iPhone 的健康 App，所以借你手机里的「快捷指令」：它把今天的步数、睡眠、活动能量、体重、喝水抄成几行字放进剪贴板，你回到这里点「导入」。整个过程不经过任何服务器，每个人在自己手机上搭一次就行，以后一点就跑。")),
         h(Section, { S, title: "搭一次快捷指令（iPhone）" },
           step(1, "新建快捷指令", "打开「快捷指令」App →「＋」。名字随便起，比如「秋秋健康」。"),
-          step(2, "加动作：先只放步数、电量、位置三样", "先跑通三样，再往里加别的，出错好找。点底下「搜索操作」，依次加：\n① 查找健康样本：「类型」选 步数，「添加过滤条件」设成 开始日期 是 今天\n② 计算统计数据（搜「统计」）：选 总和——算出来的就是今天总步数\n③ 获取电池电量\n④ 获取当前位置\n以后想加：睡眠是「查找健康样本」类型选 睡眠分析、开始日期选 过去 1 天，再「计算统计数据」统计时长的总和；天气是「获取当前天气」；活动能量、锻炼分钟、体重、水都跟步数一个做法。"),
+          step(2, "加动作：先只放步数、电量、位置三样", "先跑通三样，再往里加别的，出错好找。点底下「搜索操作」，依次加：\n① 查找健康样本：「类型」选 步数，「添加过滤条件」设成 开始日期 是 今天\n② 计算统计数据（搜「统计」）：选 总和——算出来的就是今天总步数\n③ 获取电池电量\n④ 获取当前位置\n以后想加：睡眠是「查找健康样本」类型选 睡眠分析、开始日期选 过去 1 天，再「计算统计数据」统计时长的总和；天气是「获取当前天气」；今天的预报是「获取天气预报」（类型选「每日」）→「从列表中获取项目」取第一项 → 填它的「状况」到「预报：」后面（一天报一次就够，早上那次带上）；活动能量、锻炼分钟、体重、水都跟步数一个做法。"),
           step(3, "加一个「文本」动作，贴进模板、填变量", "先点下面的「复制精简版」，粘进「文本」里；以后加了睡眠、天气这些，再换成「复制完整版」。用不上的行可以删掉，也可以空着。\n填变量：把光标点到冒号后面，键盘上方会出现变量栏——\n· 步数：后面选「统计数据」\n· 电量：后面选「电池电量」\n· 纬度：后面选「当前位置」，再点一下这个变量，属性选「纬度」；经度同理选「经度」\n日期那行空着就算今天。"),
           [["先跑通用的精简版（三样）", SHORTCUT_TEMPLATE_MINI, "复制精简版"], ["想要的都加上以后换成完整版", SHORTCUT_TEMPLATE, "复制完整版"]].map(m => h("div", { key: m[2], style: { margin: "6px 0 12px 36px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginBottom: 4 } }, m[0]),
@@ -603,11 +621,11 @@
           step(5, "设一把密钥", "同一页上面「运行时变量和机密」（Runtime variables and secrets）右边点「添加变量」（Add variable）：\n· 环境保持勾着 Production，Previews 不用勾\n· Key 填 SECRET（大写）\n· Value 填你自己编的一串乱码，二三十位，字母加数字随便敲，或者用 iPhone「密码」App 生成的强密码\n· 把 Value 右边「Secret」那个小方框勾上\n· 点「Add variable and deploy」\n为什么要这么长：网关地址是公开的，谁拿到都能来试密钥，短的（生日、123456）一下就被试出来，对方就能看到你的位置电量、还能塞假数据。这串只用填两次（快捷指令和秋秋机），存进备忘录复制粘贴就行，不用背。"),
           step(6, "记下网关地址，顺手验一下", "Worker 页面上方（或者右上角 Visit）那个 https://名字.你的账号.workers.dev 就是网关地址。\n用浏览器直接打开它：显示「密钥不对」就说明网关活了——浏览器没带密钥，被拦下是对的。")),
         h(Section, { S, title: "让快捷指令往里投" },
-          step(7, "快捷指令最后改成「获取 URL 内容」", "照「从手机健康导入」那页把前面的动作和「文本」搭好。然后把最后的「拷贝到剪贴板」换成「获取 URL 内容」：\n· URL 粘第 6 步的网关地址。⚠️加进来时它会自动把上一步的「文本」塞进 URL 那格（显示成「获取 文本 内容」）——点一下那个蓝色的「文本」，选「清除」，再把网关地址粘进去。只要一个「获取 URL 内容」，多加的那个点 × 删掉\n· 点「显示更多」展开\n· 方法：改成 POST\n· 头部：点「添加新头部」，键填 Authorization，值填 Bearer 加一个空格再加你的密钥（Bearer 后面一定要有那个空格）\n· 请求体：选「文件」，点那个文件格，选变量「文本」\n再临时加一个「显示结果」，点 ▶ 试跑。第一次会问能不能读健康和位置，都点允许。\n弹出「收到」就通了，把「显示结果」删掉（不然以后每次都弹）。\n弹出「密钥不对」：头部那行写错了，看 Bearer 后面的空格、密钥前后有没有多空格；弹出「第一行要是秋秋健康」：文本第一行没写对。\n\n想让他们也知道你到家、出门、起床、睡觉：长按这个快捷指令 →「复制」，改名比如「秋秋·到家」；打开它，把查找健康、电量、位置那些动作删掉，只留「文本」和「获取 URL 内容」，「文本」里只写下面对应的两行。四件事各复制一份，不想要的不做。",
-            h("div", null, ["到家", "出门", "起床", "睡觉"].map(k => h("div", { key: k, className: "flex items-center", style: { gap: 10, marginTop: 8 } },
+          step(7, "快捷指令最后改成「获取 URL 内容」", "照「从手机健康导入」那页把前面的动作和「文本」搭好。然后把最后的「拷贝到剪贴板」换成「获取 URL 内容」：\n· URL 粘第 6 步的网关地址。⚠️加进来时它会自动把上一步的「文本」塞进 URL 那格（显示成「获取 文本 内容」）——点一下那个蓝色的「文本」，选「清除」，再把网关地址粘进去。只要一个「获取 URL 内容」，多加的那个点 × 删掉\n· 点「显示更多」展开\n· 方法：改成 POST\n· 头部：点「添加新头部」，键填 Authorization，值填 Bearer 加一个空格再加你的密钥（Bearer 后面一定要有那个空格）\n· 请求体：选「文件」，点那个文件格，选变量「文本」\n再临时加一个「显示结果」，点 ▶ 试跑。第一次会问能不能读健康和位置，都点允许。\n弹出「收到」就通了，把「显示结果」删掉（不然以后每次都弹）。\n弹出「密钥不对」：头部那行写错了，看 Bearer 后面的空格、密钥前后有没有多空格；弹出「第一行要是秋秋健康」：文本第一行没写对。\n\n想让他们也知道你到家、出门、起床、睡觉、插上或拔掉充电器：长按这个快捷指令 →「复制」，改名比如「秋秋·到家」；打开它，把查找健康、电量、位置那些动作删掉，只留「文本」和「获取 URL 内容」，「文本」里只写下面对应的两行。每件事各复制一份，不想要的不做。",
+            h("div", null, ["到家", "出门", "起床", "睡觉", "充电", "拔掉充电器"].map(k => h("div", { key: k, className: "flex items-center", style: { gap: 10, marginTop: 8 } },
               h("div", { style: { flex: 1, padding: "8px 12px", borderRadius: 12, background: A(S.ink, "08"), fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12.5, color: S.ink, whiteSpace: "pre", lineHeight: 1.6 } }, SHORTCUT_MARK + "\n事件：" + k),
               h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(SHORTCUT_MARK + "\n事件：" + k); toast && toast(ok ? "已复制" : "没复制上，长按自己复制"); }, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "复制"))))),
-          step(8, "设成定时自动跑", "快捷指令 App 底部点「自动化」→ 右上角「＋」（第一次是「新建自动化」）→ 选「特定时间」：\n· 选一个时间，重复选「每天」\n· 下面选「立即运行」——⚠️别选「运行前确认」，不然每次都要你点；「运行时通知」可以关掉\n· 点「下一步」，选你那个「秋秋健康」快捷指令，完成\n想一天报几次就重复建几个（比如 9 点、13 点、18 点、22 点各一个）——报上来的位置三小时内才算「此刻」。锁屏的时候它也会跑。\n\n到家、出门、起床、睡觉那几份不用定时，换成这些触发（也都选「立即运行」）：\n· 到家：「到达」→ 位置选你家 → 任何时间\n· 出门：「离开」→ 位置选你家\n· 起床：「闹钟」→「停止时」（或「睡眠」→「醒来」）\n· 睡觉：「睡眠」→「就寝时间开始」（没设睡眠的话用「专注模式 → 睡眠 → 打开时」）")),
+          step(8, "设成定时自动跑", "快捷指令 App 底部点「自动化」→ 右上角「＋」（第一次是「新建自动化」）→ 选「特定时间」：\n· 选一个时间，重复选「每天」\n· 下面选「立即运行」——⚠️别选「运行前确认」，不然每次都要你点；「运行时通知」可以关掉\n· 点「下一步」，选你那个「秋秋健康」快捷指令，完成\n想一天报几次就重复建几个（比如 9 点、13 点、18 点、22 点各一个）——报上来的位置三小时内才算「此刻」。锁屏的时候它也会跑。\n\n到家、出门、起床、睡觉那几份不用定时，换成这些触发（也都选「立即运行」）：\n· 到家：「到达」→ 位置选你家 → 任何时间\n· 出门：「离开」→ 位置选你家\n· 起床：「闹钟」→「停止时」（或「睡眠」→「醒来」）\n· 睡觉：「睡眠」→「就寝时间开始」（没设睡眠的话用「专注模式 → 睡眠 → 打开时」）\n· 充电：「充电器」→「已连接」\n· 拔掉充电器：「充电器」→「已断开」")),
         h(Section, { S, title: "回秋秋机填上" },
           step(9, "填地址和密钥", "回「谁看着」最下面，网关地址填第 6 步那个，密钥填第 5 步那串（只填那串，不用写 Bearer）。点「现在拿一次」，显示拿到了就好了。以后每次打开秋秋机都会自己去拿。\n要让他们知道你在哪、天气、电量、到家出门这些：「谁看着」里打开「让他们知道我在哪、天气、电量」；开着「饭点会来问」，电量低、下雨在外面、到家出门起床那会儿才会有人主动来找你（各一天一次，说去睡了不会来吵）。"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.7, marginTop: 8 } },
