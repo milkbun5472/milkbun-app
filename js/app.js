@@ -3338,7 +3338,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const prev = p[id] || [];
       const last = prev[0];
       if (last && last.thought === s.thought) return p; // 同一条不重复
-      const n = { ...p, [id]: [{ thought: s.thought, mood: s.mood, wearing: s.wearing, action: s.action, wearingUpdatedAt: s.wearingUpdatedAt, actionUpdatedAt: s.actionUpdatedAt, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
+      const n = { ...p, [id]: [{ thought: s.thought, mood: window.MoodLabel ? window.MoodLabel.localize(s.mood) : s.mood, wearing: s.wearing, action: s.action, wearingUpdatedAt: s.wearingUpdatedAt, actionUpdatedAt: s.actionUpdatedAt, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
       n[id][0].turnId = s.turnId || null;
       n[id][0].affinityBefore = s.affinityBefore;
       stateHistRef.current = n;

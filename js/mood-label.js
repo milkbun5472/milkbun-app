@@ -16,8 +16,20 @@
     embarrassed: "害羞", shy: "害羞", guilty: "愧疚", confused: "困惑", surprised: "惊讶",
     relieved: "如释重负"
   });
+  // 模型偶尔把 label 也写成对象（{"label":{"label":"平静"}} 或 {"label":{"zh":"平静"}}）：
+  //   原来直接 String() 成「[object Object]」存进去、摆在心声卡上（她 2026-10-05 截图）。剥开取里面那个词；
+  //   已经存成「[object Object]」的旧记录当空的。
+  function unwrap(label) {
+    for (let i = 0; i < 3 && label && typeof label === "object"; i++) {
+      const v = label.label != null ? label.label : label.zh != null ? label.zh : label.text != null ? label.text : label.name != null ? label.name
+        : Object.keys(label).map(function (k) { return label[k]; }).find(function (x) { return typeof x === "string" && x.trim(); });
+      label = v;
+    }
+    return label && typeof label === "object" ? "" : label;
+  }
   function localize(label) {
-    const raw = String(label == null ? "" : label).trim();
+    let raw = String(unwrap(label) == null ? "" : unwrap(label)).trim();
+    if (raw === "[object Object]") raw = "";
     if (!raw) return raw;
     const key = raw.toLowerCase().replace(/[\s_-]+/g, " ");
     if (EN_ZH[key]) return EN_ZH[key];

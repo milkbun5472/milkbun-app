@@ -14160,7 +14160,7 @@ function StateCard({
       label(scTa + "心里闪过的那些 · " + hist.length + " 条"),
       h("div", { style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 4 } },
-          s2.mood ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
+          (window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : "")),
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [s2.action, s2.wearing].filter(Boolean).join(" · ")) : null))))
