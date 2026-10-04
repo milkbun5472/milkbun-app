@@ -1,3 +1,5 @@
+import {repairPetSkin} from './pet-skin.mjs';
+import {createPetEyes} from './pet-eyes.mjs';
 import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-eda307386ddebe83';
 import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-eda307386ddebe83';
 import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-eda307386ddebe83';
@@ -16,13 +18,13 @@ export async function loadPetCompanion(T,loader,{height=.88,persist=true,initial
     const model=clonePetSource(file.scene),bounds=new T.Box3().setFromObject(model),center=bounds.getCenter(new T.Vector3()),scale=height/bounds.getSize(new T.Vector3()).y;
     model.scale.setScalar(scale);model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
     model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
-    const dye=createCatDye(T,model,mask,rig.dye),lookKey=species==='cat'?CAT_LOOK_KEY:'lisa-pet-house-dog-look-v1';dye.set(saved(lookKey));
+    repairPetSkin(model,species);const dye=createCatDye(T,model,mask,rig.dye),lookKey=species==='cat'?CAT_LOOK_KEY:'lisa-pet-house-dog-look-v1';dye.set(saved(lookKey));const eyes=createPetEyes(T,model,species,dye);
     let mouthMesh;model.traverse(o=>{if(o.isSkinnedMesh)mouthMesh=o;});const positions=mouthMesh.geometry.attributes.position,hint=new T.Vector3().fromArray(species==='dog'?[0,.44,.489]:[0,.425,.455]),mouthPoint=new T.Vector3(),probe=new T.Vector3();let nearest=Infinity;for(let i=0;i<positions.count;i++){probe.fromBufferAttribute(positions,i);const distance=probe.distanceToSquared(hint);if(distance<nearest){nearest=distance;mouthPoint.copy(probe);}}
-    pets[species]={model,rig,dye,mouthPoint:mouthPoint.toArray(),lookKey,tailKey:`lisa-pet-${species}-tail-v1`,tail:normalizeTail(saved(`lisa-pet-${species}-tail-v1`)||{}),mood:normalizePetMood('neutral')};
+    pets[species]={model,rig,dye,eyes,mouthPoint:mouthPoint.toArray(),lookKey,tailKey:`lisa-pet-${species}-tail-v1`,tail:normalizeTail(saved(`lisa-pet-${species}-tail-v1`)||{}),mood:normalizePetMood('neutral')};
   }));
   const root=new T.Group();for(const p of Object.values(pets))root.add(p.model);
   let species=(persist?saved(PET_SPECIES_KEY):initialSpecies)==='dog'?'dog':'cat',motion,boundSpecies,options={};
-  function bind(value=options){options=value;const expressionState=boundSpecies===species?motion?.snapshot():undefined;motion?.dispose();for(const [key,p] of Object.entries(pets))p.model.visible=key===species;motion=createCatMotion(T,pets[species].model,pets[species].rig,root,{...options,expressionState});boundSpecies=species;motion.setTail(pets[species].tail);motion.setMood(pets[species].mood);motion.update(0,0);return motion;}
+  function bind(value=options){options=value;const expressionState=boundSpecies===species?motion?.snapshot():undefined;motion?.dispose();for(const [key,p] of Object.entries(pets))p.model.visible=key===species;motion=createCatMotion(T,pets[species].model,pets[species].rig,root,{...options,expressionState,eyes:pets[species].eyes});boundSpecies=species;motion.setTail(pets[species].tail);motion.setMood(pets[species].mood);motion.update(0,0);return motion;}
   function select(value){if(!pets[value])return;species=value;store(PET_SPECIES_KEY,species);bind();}
   return {root,bind,select,dispose(){motion?.dispose();root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();o.skeleton?.dispose();}});root.removeFromParent();},get species(){return species;},get mouthPoint(){return [...pets[species].mouthPoint];},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get mood(){return {...pets[species].mood};},get animating(){return this.tail.wag||this.mood.id!=='neutral'||!!motion?.animating;},setMood(value){pets[species].mood=normalizePetMood(value);motion?.setMood(pets[species].mood);return this.mood;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
 }

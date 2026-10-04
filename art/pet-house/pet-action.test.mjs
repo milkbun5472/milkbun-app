@@ -1,0 +1,34 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {PET_ACTIONS,samplePetAction,postureFrame} from './pet-action.mjs';
+import {restingTailWeights,kittenBackWeights} from './pet-skin.mjs';
+import {solveLimb} from './cat-motion.mjs';
+const size=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
+test('both real rigs can reach the folded sleeping and seated paw targets',()=>{
+ for(const species of ['cat','dog']){const rig=JSON.parse(readFileSync(new URL(species+'-rig.json',import.meta.url)));
+  for(const kind of ['sleep','sit','sniff','play']){
+   const a={lie:0,sit:0,crouch:0,chestPitch:0,...samplePetAction(kind,2,{species})},p=postureFrame(rig,a,2);
+   for(const[name,l]of Object.entries(rig.legs)){
+    const front=name.startsWith('front'),pivot=rig.bones[front?'chest':'pelvis'].head,theta=front?p.chestPitch:p.pelvisPitch;
+    const dy=l.root[1]-pivot[1],dz=l.root[2]-pivot[2],hip=[l.root[0],pivot[1]+dy*Math.cos(theta)-dz*Math.sin(theta)+(front?p.chestY:p.pelvisY),pivot[2]+dy*Math.sin(theta)+dz*Math.cos(theta)];
+    const folded=p.paw({name}),ankle=l.ankle.map((v,i)=>v+(i===0?folded.x:i===2?folded.z:0));
+    const solved=solveLimb(hip,ankle,[hip[0],hip[1]+1,hip[2]],size(l.root,l.knee),size(l.knee,l.ankle));assert.equal(solved.clamped,false,species+' '+kind+' '+name);
+   }
+  }
+ }
+});
+test('each existing action has a finite shared pose and sleep uses the articulated posture',()=>{
+ for(const species of ['cat','dog'])for(const{id}of PET_ACTIONS)for(const t of [0,.3,2,10])assert.ok(Object.values(samplePetAction(id,t,{species})).every(Number.isFinite));
+ assert.equal(samplePetAction('sleep').lie,1);assert.equal(samplePetAction('sit').sit,1);assert.ok(samplePetAction('pickup').crouch>.5);assert.ok(samplePetAction('eat').headPitch>samplePetAction('look').headPitch);
+});
+test('tail tip repair removes its residual torso pull without affecting the skull, paws or root',()=>{
+ const fixed=restingTailWeights(['tail2','pelvis','tail1','head'],[.87,.11,.02,0],.835);assert.equal(fixed[1],0);assert.ok(Math.abs(fixed.reduce((n,w)=>n+w,0)-1)<1e-12);assert.ok(fixed[0]> .97);
+ for(const row of [ [['head','earL','chest','pelvis'],[1,0,0,0],.6], [['frontLPaw','chest','pelvis','head'],[1,0,0,0],.07], [['tail0','pelvis','tail1','head'],[.5,.5,0,0],.405]])assert.deepEqual(restingTailWeights(...row),row[1]);
+ const mixed=restingTailWeights(['tail1','pelvis','head','earL'],[.3,.4,.2,.1],.7);assert.equal(mixed[2],.2);assert.equal(mixed[3],.1);assert.equal(mixed[1],0);
+});
+
+test('cat back fur no longer follows the face, while the actual rear skull stays rigid',()=>{
+ const row=kittenBackWeights([0,.46,-.15],['head','chest','pelvis','earL'],[.8,.1,.1,0]);assert.equal(new Map(row).get('head')||0,0);assert.ok(new Map(row).get('pelvis')>.4);
+ for(const point of [[0,.60,.064],[-.14,.71,.198],[0,.43,.437]])assert.deepEqual(kittenBackWeights(point,['head','chest','pelvis','earL'],[1,0,0,0]),[['head',1],['chest',0],['pelvis',0],['earL',0]]);
+});
