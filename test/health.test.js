@@ -298,3 +298,11 @@ test("从网关拿：健康和事件两段都合进来，再拿一次不重复�
     assert.equal(s.env.ts, t0, "第二次拿到同一段，不把旧电量当成刚报的"); assert.equal(s.events.length, 1);
   } finally { globalThis.fetch = old; }
 });
+
+test("网关教程：到家出门那几份并进快捷指令那一步，不再叫人重粘代码", () => {
+  assert.doesNotMatch(src, /先换一次代码/);
+  assert.match(src, /SHORTCUT_MARK \+ "\\n事件：" \+ k/, "复制出去的是真换行，不是反斜杠 n");
+  const i = src.indexOf('step(7, "快捷指令最后改成'), j = src.indexOf('step(8, ', i);
+  assert.ok(i > 0 && j > i);
+  assert.match(src.slice(i, j), /到家、出门、起床、睡觉/);
+});
