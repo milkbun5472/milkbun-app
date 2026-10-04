@@ -100,15 +100,19 @@
     if (!startMatch) return null;
     const start = startMatch.index + startMatch[0].length;
     const rest = text.slice(start);
-    const endMatch = /"\s*,\s*"goalReached"\s*:/.exec(rest);
-    if (!endMatch) return null;
+    // 正文的尾巴：先认后面跟着的任一协议键（模型偶尔调换字段顺序），再认收尾的 "}；
+    //   都没有＝输出被截断了，就把已经写出来的那截正文收下（她 2026-10-04 截图：整拍白写、只弹一句解析失败）
+    const endMatch = /"\s*,\s*"(?:goalReached|goalFailed|goalNote)"\s*:/.exec(rest) || /"\s*\}\s*$/.exec(rest)
+      || { index: rest.replace(/["\s}]*$/, "").length };
     const scene = decodeLooseJsonText(rest.slice(0, endMatch.index)).trim();
     if (!scene) return null;
+    // 协议键可能在正文前也可能在后：除了正文那一截，其余都算
+    const outside = text.slice(0, startMatch.index) + text.slice(start + endMatch.index);
     const bool = name => {
-      const m = new RegExp('"' + name + '"\\s*:\\s*(true|false)', "i").exec(text.slice(start + endMatch.index));
+      const m = new RegExp('"' + name + '"\\s*:\\s*(true|false)', "i").exec(outside);
       return m ? m[1].toLowerCase() === "true" : false;
     };
-    const noteMatch = /"goalNote"\s*:\s*(null|"([\s\S]*?)")\s*[},]/.exec(text.slice(start + endMatch.index));
+    const noteMatch = /"goalNote"\s*:\s*(null|"([\s\S]*?)")\s*[},]/.exec(outside);
     return {
       scene,
       goalReached: bool("goalReached"),
@@ -560,7 +564,12 @@
           // 小稿写在正文 JSON 之前，先剥掉再交给 parseTheaterPayload，否则整份解析不出来
           if (cotT && typeof splitCot === "function") { const sp = splitCot(raw, true); cotOut = sp.cot || null; raw = sp.clean; }
         }
-        const p = parseTheaterPayload(raw);
+        let p = parseTheaterPayload(raw);
+        // 模型没套 JSON、直接写了一段正文：那段就是这一拍，照收（带协议痕迹的仍然拦住，宁可重试不污染历史）
+        if (!p && !selfRevise) {
+          const bare = String(raw || "").replace(/```[a-z]*/gi, "").trim();
+          if (bare.length > 40 && !/[{}]|"(?:scene|draftScene|goal\w*)"/.test(bare)) p = { scene: bare, goalReached: false, goalFailed: false, goalNote: null };
+        }
         if (!p) throw new Error("模型返回的剧情格式无法解析，已拦住协议原文；请再按一次「演」");
         // 自修轮:draftScene 只是内部草稿,scene 才是进历史的终稿;终稿缺失就当本轮失败重试,
         // 绝不拿草稿顶上——那等于把去认证句这一步悄悄跳过

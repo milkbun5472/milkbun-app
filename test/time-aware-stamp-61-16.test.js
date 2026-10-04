@@ -48,8 +48,15 @@ test("两处线下：offlineHistory / offlineGroupHistory 都收 clock", () => {
   assert.equal((eng.match(/clock !== false && window\.TemporalAnchor/g) || []).length, 2);
 });
 
-test("相对间隔留着，只砍掉绝对时刻", () => {
-  // 「中间隔了约三小时」说的是对话连不连得上，不是现实几点；砍掉它会让线下断片。
-  assert.equal((eng.match(/中间隔了约 " \+ gapPhrase\(ts - prevTs\) \+ \(clock === false \? "" : "，到 "/g) || []).length, 2);
+test("线下：时间感知关着连相对间隔也不标（2026-10-04 改）；线上群聊照旧", () => {
+  // 原来留着「中间隔了约三小时」，怕线下断片；可群友关了时间感知隔天回来接着演，他照样知道过了一夜。
+  //   线下是一场戏：关着就是戏里不过时间。开着时间感知照旧标间隔和时刻。
+  assert.equal((eng.match(/const gap = clock !== false && prevTs && ts && ts - prevTs > 90 \* 60000/g) || []).length, 2);
   assert.match(app, /gapPhrase\(ts - _gprev\) \+ \(_gClockAny \? "，到 "/);
+});
+
+test("线上也关：群聊不标间隔、线下挂着不算「隔了一阵」、刚结束的线下不说几小时前（2026-10-04）", () => {
+  assert.match(app, /if \(_gClockAny && _gprev && ts && ts - _gprev > 90 \* 60000\) _gparts\.push\(/);
+  assert.match(app, /if \(offlineTogetherNow\(charId\) \|\| !timeAwareFor\(charId\)\) \{/);
+  assert.match(app, /\(timeAwareFor\(charId\) \? "约 " \+ \(hrs >= 24/);
 });

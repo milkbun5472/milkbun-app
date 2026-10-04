@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.709";
+const APP_VERSION = "v74.712";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4592,7 +4592,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const recent = settingsFor(charId).engineerEyes ? (s.msgs || []).filter(m => m && m.kind !== "ooc" && m.content).slice(-8)
         .map(m => (m.role === "char" ? (char ? char.name : "TA") : m.role === "narration" ? "【场景】" : uName) + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 90)).join("\n")
         : "";
-      if (offlineTogetherNow(charId)) {
+      // 时间感知关着：没有「隔了一阵」这回事，线下照旧当正在进行（她 2026-10-04：「线上的也关了吧」）
+      if (offlineTogetherNow(charId) || !timeAwareFor(charId)) {
         // 此刻真面对面（最近一拍够新）：别催、别当没开始/已结束
         return "【线下进行中】你和" + uName + "此刻有一场线下相处【正在进行、还没散场】" + (narr ? "（场景：" + String(narr).replace(/\s+/g, " ").slice(0, 50) + "）" : "") + "。聊天时别把它当成还没开始或已经结束——" + FACING_BAN + "；此刻的线上消息更像同处一地的间隙里随手发的短讯（比如 Ta 去洗手间/你去买单的空档），而不是在等 Ta 赴约。"
           + (recent ? "\n【刚才线下正进行到这儿（还没结束，顺着这个接）】\n" + recent + "\n——用户现在从线上给你发消息，多半是这场线下的间隙里插空发的（比如 Ta 说要去买菜、下楼取个快递）；你清楚你俩正面对面约着、线下进行到上面这一刻，就顺着接，别当成新的一天/新话题。" : "");
@@ -4606,7 +4607,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const done = (list || []).filter(x => x && x.endTs && Date.now() - x.endTs < 72 * 3600000).sort((a, b) => b.endTs - a.endTs)[0];
     if (done) {
       const hrs = Math.max(1, Math.round((Date.now() - done.endTs) / 3600000));
-      return "【最近线下·已发生】你们约 " + (hrs >= 24 ? Math.round(hrs / 24) + " 天" : hrs + " 小时") + "前刚线下见过面，这件事【已经发生并结束了】" + (done.summary ? "（经过：" + String(done.summary).replace(/\s+/g, " ").slice(0, 90) + "）" : "") + "——之前聊天里约的/计划的就是这件事，它做完了。**绝不许再问「什么时候做」、说「等了好久」或把它当成还没发生**；要聊就聊感受和回味。";
+      return "【最近线下·已发生】你们" + (timeAwareFor(charId) ? "约 " + (hrs >= 24 ? Math.round(hrs / 24) + " 天" : hrs + " 小时") + "前" : "前不久") + "刚线下见过面，这件事【已经发生并结束了】" + (done.summary ? "（经过：" + String(done.summary).replace(/\s+/g, " ").slice(0, 90) + "）" : "") + "——之前聊天里约的/计划的就是这件事，它做完了。**绝不许再问「什么时候做」、说「等了好久」或把它当成还没发生**；要聊就聊感受和回味。";
     }
     return "";
   };
@@ -12707,7 +12708,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️历史上的时刻戳原来挂在 gs.memoryInterop（闭群那个开关）上——那跟时间感知半点关系没有。
       //   v61.16 改成：群里没有一个人开着时间感知，就一个戳都不盖（相对间隔照留）。
       const _gClockAny = members.some(c => !c.npc && timeAwareFor(c.id));
-      for (const m of _graw) { const ts = m.ts || 0; if (_gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, ts) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
+      for (const m of _graw) { const ts = m.ts || 0; if (_gClockAny && _gprev && ts && ts - _gprev > 90 * 60000) _gparts.push("〔—— 中间隔了约 " + gapPhrase(ts - _gprev) + (_gClockAny ? "，到 " + fmtStampAI(ts) : "") + " ——〕"); const ta = _gClockAny && (m.role === "user" || m.role === "narration") && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, ts) : ""; const qr = gQuoteByMessage.get(m); const quoteNote = m.replyTo ? "【这条正在引用 " + (m.replyToSenderName || "作者未知") + (m.replyToId ? "（消息 " + m.replyToId + "）" : "") + "：『" + String(m.replyTo).replace(/\s+/g, " ").slice(0, 100) + "』】\n" : ""; _gparts.push((qr ? "[" + qr.alias + "] " : "") + quoteNote + (_gClockAny && ts ? "[" + fmtStampAI(ts) + "] " : "") + fmtGLine(m) + (ta ? " " + ta : "")); if (ts) _gprev = ts; }
       const hist = _gparts.join("\n");
       // 断档要看「用户这次刚发的几条」之前的最后一条——不然刚发的消息把间隔清零，
       // 断档提醒永远不触发，隔夜回来成员还接着昨晚的事演（比如牛腩炖了一整夜）
