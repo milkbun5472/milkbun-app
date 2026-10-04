@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-57f639a9e37e60f0", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-3f6daa26d2203e22", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -303,17 +303,19 @@
     const cancel=()=>{game()?.cancelProfile();refreshPets();if(panelReturn.current==='care')setCareView(game()?.care());setNewPet(false);setPanel(panelReturn.current);panelReturn.current='';};
     const savePet=()=>{try{if(!game()?.commitProfile(profile))throw Error('宠物设置没有保存成功，请留在这里重试。');game().preview(false);refreshPets();setPanel(newPet?'pets':'');setNewPet(false);setError('');}catch(e){setError(e.message);}};
     const leave=async action=>{try{if(talking.current)throw Error('同行者正在回复，等这句说完再离开。');if(!game()?.ready||!game()?.flush())throw Error('进度还没有保存成功，请留在这里重试。');return await action();}catch(e){setError(e.message);props.toast(e.message);return false;}};
-    async function sendChat(e){e.preventDefault();const text=draft.trim(),c=character(),node=frame.current;if(!text||!c||talking.current)return;talking.current=true;setChatBusy(true);setError('');setChatNotice('');try{
+    async function sendChat(e){e.preventDefault();const text=draft.trim(),c=character(),node=frame.current;if(!text||!c||talking.current)return;talking.current=true;setChatBusy(true);setError('');setChatNotice('');
+      // Her line shows the moment she sends it; if the reply fails it goes back into the box instead of staying as if delivered.
+      const sent={role:'user',content:text};setChatRows(rows=>[...rows,sent].slice(-100));setDraft('');try{
       if(!game()?.flush())throw Error('进度还没有保存成功，请先重试保存。');
       const p=latest.current,cid=c.id,world=game().chatContext();const account=root.Cloud?.getSessionUser?await root.Cloud.getSessionUser().catch(()=>null):null;
       const out=await ask({active:p.apiFor?p.apiFor(cid):p.active,character:c,profile:p.profile,world,history:history().slice(-100),text,mainline:worldMainline(p,key,current(),'pets',cid),engineer:!!p.isEngineer?.(cid)});
       const accountNow=root.Cloud?.getSessionUser?await root.Cloud.getSessionUser().catch(()=>null):null;
       if(!alive.current||frame.current!==node||String(current().partnerId)!==String(cid)||String(account?.id||'')!==String(accountNow?.id||''))throw Error('角色或存档已经变更，这句回复没有写入其他房间。');
       const parts=out.parts||[out.reply];storeWorldTurn(key,current,record(),cid,text,out,200,'pets');
-      setChatRows(rows=>[...rows,{role:'user',content:text},...parts.map(content=>({role:'assistant',content}))].slice(-100));setDraft('');
+      setChatRows(rows=>[...rows,...parts.map(content=>({role:'assistant',content}))].slice(-100));
       if(out.workChoice){const result=game().snapshot().activePetId!==world.activePetId?{text:'同行的小家伙变了，这个主意留给原来那只。'}:game().careerAction('choose',{...out.workChoice,by:c.remark||c.name});setChatNotice(result.text);}
       if(out.petAction){const result=game().companionAction(out.petAction,out.petId||world.activePetId);setChatNotice(result.text+' 回到场景就能看它们互动。');}
-    }catch(e){if(alive.current)setError(e.message||'这次没能连上，可以重试。');}finally{talking.current=false;if(alive.current)setChatBusy(false);}}
+    }catch(e){if(alive.current){setChatRows(rows=>rows.filter(row=>row!==sent));setDraft(d=>d||text);setError(e.message||'这次没能连上，可以重试。');}}finally{talking.current=false;if(alive.current)setChatBusy(false);}}
     const field={width:'100%',minHeight:42,border:'1px solid #ccd4be',borderRadius:12,padding:'8px 10px',background:'#fffdf5',color:'var(--pet-ink)' ,fontFamily:'inherit',fontSize:16};
     const plate=(title,body)=>h('section',{className:'pet-edit-field'},h('label',null,title),body);
     const palette=(game()?.palettes||[]).map(p=>[p.label,p.base,p.patch]);
@@ -715,7 +717,7 @@
     const style = sharedStyle();
     const sys = [style,
       roleContext(character, profile, mainline, setting),
-      pets ? "【家里的宠物与日常】pets列出这一个家里每只宠物的稳定id、名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。activePetId表示对方当前选中的宠物，pet/career/home是它的资料；pets中每只都有自己的相处记录与职业，照料动作的petId取实际想照料的那只id。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。home.parcels.waiting是尚未拆开的真实袋子，carrying仍在带回或找地方放，placed已经放好；opened才是实际拆出并入库的东西。宠物的小反应以当前照料任务和实际完成的小事为准，准备去闻或准备吃仍未完成。social是这个家里宠物之间的实际相处记录；pending仍在走过去或等待，recent才是已经发生的共同小事，pairs按两只稳定id记录看窗、递球和纸箱旁等待。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。pets各自的place/town和companion.place/town表示实际所在地点与闲时路线，可能分别在家、街区或不同店里；companion.visible表示对方在当前地点能否看见你，job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。这里的往事与其他经历沿这间房准许的上下文承接。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
+      pets ? "【家里的宠物与日常】pets列出这一个家里每只宠物的稳定id、名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。activePetId表示对方当前选中的宠物，pet/career/home是它的资料；pets中每只都有自己的相处记录与职业，照料动作的petId取实际想照料的那只id。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。home.parcels.waiting是尚未拆开的真实袋子，carrying仍在带回或找地方放，placed已经放好；opened才是实际拆出并入库的东西。宠物的小反应以当前照料任务和实际完成的小事为准，准备去闻或准备吃仍未完成。social是这个家里宠物之间的实际相处记录；pending仍在走过去或等待，recent才是已经发生的共同小事，pairs按两只稳定id记录看窗、递球和纸箱旁等待。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。pets各自的place/town和companion.place/town表示实际所在地点与闲时路线，可能分别在家、街区或不同店里；companion.visible表示对方在当前地点能否看见你。you.place是对方此刻所在的地方，you.with是对方正跟着的那只宠物；sameRoomAsCompanion为false时你们不在同一处，是隔着各自的地方在说话，你看不到对方眼前的场面，对方眼前发生什么以you和pets里的实际地点为准。job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。这里的往事与其他经历沿这间房准许的上下文承接。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       (event ? (pets ? "【刚发生的生活小事】\n" : "【刚发生的游戏事件】\n") : "【对方刚说】\n") + text,
