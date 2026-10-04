@@ -6,7 +6,7 @@ const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const ts = fs.readFileSync(__dirname + "/../js/theme-studio.js", "utf8");
 test("chat ＋ panels (single and group) offer 文件; text files only; gbk fallback; cap", () => {
   assert.equal((comp.match(/\["file", "文件", "file"\]/g) || []).length, 2);
-  assert.match(comp, /function pickTextFile\(onMsg\)/);
+  assert.match(comp, /function pickTextFile\(onMsg, opts\)/);
   assert.match(comp, /inp\.accept = "\.txt,\.md/);
   assert.match(comp, /new TextDecoder\("gb18030"\)/);
   assert.match(comp, /const FILE_MAX = 12000;/);
