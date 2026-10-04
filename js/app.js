@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.714";
+const APP_VERSION = "v74.716";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19052,12 +19052,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         npcsOf(char.id).forEach(add);   // TA 自己的配角天然算熟人（她 2026-08-26 问的皇帝 NPC）
         return out;
       })();
+      // 朋友圈也跟着「外语中译」走（她 2026-10-03：「朋友圈也搞个外语翻译吧，设置跟着聊天设置走，
+      //   如果开了自动翻译生成的时候带上，然后还有免费的兜底」）。
+      // ⚠️不新开一个开关（施工规则外的家规 minimize-toggles：能跟着现有逻辑走就别再做一个）：
+      //   读的就是这个人聊天设置里那一格 bilingual。开着就在这一轮顺手把译文要回来
+      //   （同一次调用，不额外花钱）；没开、或者模型没给，气泡上那颗「译」照旧点得动，
+      //   走的是免费优先那条链（translateToZh：Google → MyMemory → 后台线路）。
+      const _momBi = !!(settingsFor(char.id) || {}).bilingual;
+      const _momBiSpec = _momBi
+        ? "\n\n【这条朋友圈要带中译】你用的不是中文的话，在 zh 里给出这条正文的简体中文翻译："
+          + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。"
+          + "本来就用中文发的，zh 填 null。评论不用译。"
+        : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
+        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
-          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
-          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
@@ -19071,6 +19083,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         content,
         image: newMomImage,
         ...(newMomImage && newMomWho ? { imageWho: newMomWho } : {}),
+        // 模型随这一轮给回来的中译（没开/没给就不存这一格，气泡那颗「译」照旧能现翻）
+        ...(_momBi && d.zh && String(d.zh).toLowerCase() !== "null" && String(d.zh).trim() ? { zh: String(d.zh).trim() } : {}),
         ts: Date.now(),
         liked: false,
         likeCount: 0,
@@ -26223,6 +26237,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     rels: rels,
     profile: profile,
+    // 关系网是【一人一页】的，所以「我」那个节点该戴的是【这一页这个人认识的那张脸】。
+    //   群友 2026-10-03 报的：聊天里给 u 和 c 绑了专属面具，关系网上 u 还是主面具。
+    //   病根是这一页只拿到一张全局 profile，而换脸那一层走的是 profileFor（ctxFor 那一口）。
+    //   不在这儿另算一遍：profileFor 是现成的公共件（one-public-mechanism），递下去就行。
+    profileFor: profileFor,
     onBack: goHome,
     onSave: saveRel,
     // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
