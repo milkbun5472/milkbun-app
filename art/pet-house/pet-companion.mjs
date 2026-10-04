@@ -1,5 +1,6 @@
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-8dad30b9422ee718';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-8dad30b9422ee718';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-02fe86f2d0c2d6f3';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-02fe86f2d0c2d6f3';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-02fe86f2d0c2d6f3';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
@@ -7,32 +8,36 @@ const dataURL=name=>{const url=new URL(name,import.meta.url),build=new URL(impor
 export async function loadPetCompanion(T,loader,{height=.88,persist=true,initialSpecies='cat',compressedMask=false}={}){
   const pets={};const saved=key=>persist?readSaved(key):null;const store=(key,value)=>{if(persist)save(key,value);};
   await Promise.all(['cat','dog'].map(async species=>{
-    const version=species==='cat'?'pet-motion-5':'pet-dog-2';
-    const [file,rig,mask]=await Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json?v=pet-motion-5`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]);
+    const version=species==='cat'?'pet-motion-6':'pet-dog-3';
+    const [file,rig,mask]=await Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]);
     const model=file.scene,bounds=new T.Box3().setFromObject(model),center=bounds.getCenter(new T.Vector3()),scale=height/bounds.getSize(new T.Vector3()).y;
     model.scale.setScalar(scale);model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
     model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     const dye=createCatDye(T,model,mask,rig.dye),lookKey=species==='cat'?CAT_LOOK_KEY:'lisa-pet-house-dog-look-v1';dye.set(saved(lookKey));
-    pets[species]={model,rig,dye,lookKey,tailKey:`lisa-pet-${species}-tail-v1`,tail:normalizeTail(saved(`lisa-pet-${species}-tail-v1`)||{})};
+    pets[species]={model,rig,dye,lookKey,tailKey:`lisa-pet-${species}-tail-v1`,tail:normalizeTail(saved(`lisa-pet-${species}-tail-v1`)||{}),mood:normalizePetMood('neutral')};
   }));
   const root=new T.Group();for(const p of Object.values(pets))root.add(p.model);
-  let species=(persist?saved(PET_SPECIES_KEY):initialSpecies)==='dog'?'dog':'cat',motion,options={};
-  function bind(value=options){options=value;motion?.dispose();for(const [key,p] of Object.entries(pets))p.model.visible=key===species;motion=createCatMotion(T,pets[species].model,pets[species].rig,root,options);motion.setTail(pets[species].tail);motion.update(0,0);return motion;}
+  let species=(persist?saved(PET_SPECIES_KEY):initialSpecies)==='dog'?'dog':'cat',motion,boundSpecies,options={};
+  function bind(value=options){options=value;const expressionState=boundSpecies===species?motion?.snapshot():undefined;motion?.dispose();for(const [key,p] of Object.entries(pets))p.model.visible=key===species;motion=createCatMotion(T,pets[species].model,pets[species].rig,root,{...options,expressionState});boundSpecies=species;motion.setTail(pets[species].tail);motion.setMood(pets[species].mood);motion.update(0,0);return motion;}
   function select(value){if(!pets[value])return;species=value;store(PET_SPECIES_KEY,species);bind();}
-  return {root,bind,select,get species(){return species;},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
+  return {root,bind,select,get species(){return species;},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get mood(){return {...pets[species].mood};},get animating(){return this.tail.wag||this.mood.id!=='neutral'||!!motion?.animating;},setMood(value){pets[species].mood=normalizePetMood(value);motion?.setMood(pets[species].mood);return this.mood;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
 }
 // These controls are shared by the living room and the whole street. The
 // settings float over the actual pet so users can see an angle change live.
 export function mountPetControls(pet,{draw,onSpecies=()=>{}}){
   const choice=document.createElement('section');choice.className='pet-choice';choice.setAttribute('aria-label','选择宠物');
-  choice.innerHTML='<label>陪伴 <select id="pet-species" aria-label="选择猫咪或狗狗"><option value="cat">猫咪</option><option value="dog">狗狗</option></select></label><button id="tail" aria-expanded="false" aria-controls="tail-panel">尾巴</button>';
+  choice.innerHTML='<label>陪伴 <select id="pet-species" aria-label="选择猫咪或狗狗"><option value="cat">猫咪</option><option value="dog">狗狗</option></select></label><button id="tail" aria-expanded="false" aria-controls="tail-panel">尾巴</button><button id="mood" aria-expanded="false" aria-controls="mood-panel">体态</button>';
   const panel=document.createElement('section');panel.id='tail-panel';panel.className='pet-settings';panel.hidden=true;panel.setAttribute('aria-label','尾巴姿态');
   panel.innerHTML='<div class="tail-head"><strong>尾巴姿态</strong><button id="tail-wag" aria-pressed="true">轻轻摇</button></div><label>抬低 <input id="tail-pitch" type="range" min="-25" max="25" step="1" aria-label="尾巴抬低角度"><output></output></label><label>左右 <input id="tail-yaw" type="range" min="-35" max="35" step="1" aria-label="尾巴左右角度"><output></output></label><button id="tail-reset">自然姿态</button>';
-  document.body.append(choice,panel);
-  const select=choice.querySelector('select'),button=choice.querySelector('button'),wag=panel.querySelector('#tail-wag'),pitch=panel.querySelector('#tail-pitch'),yaw=panel.querySelector('#tail-yaw');
-  function sync(){select.value=pet.species;const value=pet.tail;pitch.value=value.pitch;yaw.value=value.yaw;pitch.nextElementSibling.value=value.pitch+'°';yaw.nextElementSibling.value=value.yaw+'°';wag.setAttribute('aria-pressed',String(value.wag));wag.textContent=value.wag?'轻轻摇':'不摇尾巴';}
+  const moodPanel=document.createElement('section');moodPanel.id='mood-panel';moodPanel.className='pet-settings';moodPanel.hidden=true;moodPanel.setAttribute('aria-label','心情体态');
+  moodPanel.innerHTML='<strong>心情体态</strong><p>看看它开心、困困或好奇时的样子。</p><div class="mood-grid">'+PET_MOODS.map(m=>`<button data-mood="${m.id}" aria-pressed="false">${m.label}</button>`).join('')+'</div>';
+  document.body.append(choice,panel,moodPanel);
+  const select=choice.querySelector('select'),button=choice.querySelector('#tail'),moodButton=choice.querySelector('#mood'),wag=panel.querySelector('#tail-wag'),pitch=panel.querySelector('#tail-pitch'),yaw=panel.querySelector('#tail-yaw');
+  function sync(){moodPanel.querySelectorAll('[data-mood]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.mood===pet.mood.id)));select.value=pet.species;const value=pet.tail;pitch.value=value.pitch;yaw.value=value.yaw;pitch.nextElementSibling.value=value.pitch+'°';yaw.nextElementSibling.value=value.yaw+'°';wag.setAttribute('aria-pressed',String(value.wag));wag.textContent=value.wag?'轻轻摇':'不摇尾巴';}
   select.onchange=()=>{pet.select(select.value);sync();onSpecies();draw();};
-  button.onclick=()=>{panel.hidden=!panel.hidden;button.setAttribute('aria-expanded',String(!panel.hidden));const fur=document.getElementById('fur-panel');if(fur&&!panel.hidden){fur.hidden=true;document.getElementById('fur')?.setAttribute('aria-expanded','false');}};
+  function toggle(id){const open=document.getElementById(id+'-panel').hidden;for(const name of ['tail','mood','fur']){const el=document.getElementById(name+'-panel');if(el)el.hidden=name!==id||!open;document.getElementById(name)?.setAttribute('aria-expanded',String(name===id&&open));}}
+  button.onclick=()=>toggle('tail');moodButton.onclick=()=>toggle('mood');
+  moodPanel.onclick=event=>{const b=event.target.closest('[data-mood]');if(!b)return;pet.setMood(b.dataset.mood);sync();draw();};
   function change(){pet.setTail({wag:pet.tail.wag,pitch:Number(pitch.value),yaw:Number(yaw.value)});sync();draw();}
   pitch.oninput=yaw.oninput=change;wag.onclick=()=>{pet.setTail({...pet.tail,wag:!pet.tail.wag});sync();draw();};panel.querySelector('#tail-reset').onclick=()=>{pet.setTail({});sync();draw();};sync();
   return {sync};

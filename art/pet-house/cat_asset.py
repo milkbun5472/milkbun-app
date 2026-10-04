@@ -36,6 +36,8 @@ def rig_pet(objects,out,species):
           'tail0':[(0,.35,.405),(0,.46,.51)],
           'tail1':[(0,.46,.51),(0,.47,.65)],
           'tail2':[(0,.47,.65),(0,.32,.69)]}
+    for side,sgn in [('L',-1),('R',1)]:
+        bones['ear'+side]=[(sgn*.18,-.20,.66),(sgn*.25,-.17,.50)] if species=='dog' else [(sgn*.135,-.155,.605),(sgn*.165,-.16,.72)]
     legs={}
     for side,sgn in [('L',-1),('R',1)]:
         for kind,root,knee,ankle,toe in [
@@ -77,7 +79,10 @@ def rig_pet(objects,out,species):
         for kind,k in [('front',front),('back',back)]:
             a=limb*k*side_mask
             for suffix,w in [('Upper',upper),('Lower',lower),('Paw',paw)]:setcol(kind+side+suffix,a*w)
-    setcol('head',head)
+    # Ears blend into the rigid skull. Eye, muzzle and rear dome keep one head control.
+    ear=head*smooth((ax-(.175 if species=='dog' else .075))/(.065 if species=='dog' else .04))*smooth((z-(.39 if species=='dog' else .60))/(.055 if species=='dog' else .07))*(1-smooth((y-(.04 if species=='dog' else -.03))/.05))
+    for side,sign in [('L',-1),('R',1)]:setcol('ear'+side,ear*((x<0) if sign<0 else (x>=0)))
+    setcol('head',head-ear)
     t=(z-.355)/(.81-.355)
     tw=np.stack([np.exp(-((t-c)/.27)**2) for c in [.12,.48,.87]],axis=1);tw/=tw.sum(1)[:,None]
     for i in range(3):setcol('tail'+str(i),tail*tw[:,i])
@@ -90,7 +95,7 @@ def rig_pet(objects,out,species):
             if row[j]>1e-6:groups[names[j]].add([i],float(row[j]/total),'REPLACE')
     arm=mesh.modifiers.new('KittenSkin','ARMATURE');arm.object=rig;mesh.parent=rig
     bounds=[web(points.min(0)),web(points.max(0))]
-    meta={'version':2,'height':float(points[:,2].max()-points[:,2].min()),
+    meta={'version':3,'height':float(points[:,2].max()-points[:,2].min()),
           'bones':{n:{'head':web(a),'tail':web(b)} for n,(a,b) in bones.items()},'legs':legs,
           'species':species,'duty':.68,'stride':.13,'cycle':1.00 if species=='cat' else .95,'lift':.025 if species=='cat' else .027,
           'bounds':bounds,'headRigid':{'minHeight':.41,'maxForwardY':.18}}

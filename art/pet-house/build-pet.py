@@ -22,7 +22,7 @@ bpy.ops.object.select_all(action='DESELECT')
 for o in objects:o.select_set(True)
 bpy.ops.export_scene.gltf(filepath=str(HERE/(args.species+'.glb')),export_format='GLB',use_selection=True,export_extras=True,export_animations=False,export_image_format='WEBP',export_draco_mesh_compression_enable=True,export_draco_mesh_compression_level=7)
 out=Path(args.evidence);out.mkdir(parents=True,exist_ok=True);bpy.ops.wm.save_as_mainfile(filepath=str(out/(args.species+'-rig.blend')))
-report={'sourceSha256':hashlib.sha256(Path(args.source).read_bytes()).hexdigest(),'sourceBytes':Path(args.source).stat().st_size,'modelBytes':(HERE/(args.species+'.glb')).stat().st_size,'triangles':sum(sum(len(p.vertices)-2 for p in o.data.polygons) for o in objects if o.type=='MESH'),'rigged':True,'bones':18}
+report={'sourceSha256':hashlib.sha256(Path(args.source).read_bytes()).hexdigest(),'sourceBytes':Path(args.source).stat().st_size,'modelBytes':(HERE/(args.species+'.glb')).stat().st_size,'triangles':sum(sum(len(p.vertices)-2 for p in o.data.polygons) for o in objects if o.type=='MESH'),'rigged':True,'bones':sum(len(o.data.bones) for o in objects if o.type=='ARMATURE')}
 if args.species=='dog':
  report['dogBytes']=report.pop('modelBytes');(HERE/'dog-report.json').write_text(json.dumps(report,indent=2)+'\n')
 else:
