@@ -1,0 +1,44 @@
+/* The host's shared Head owns the top safe area; the town owns only its scene controls. */
+.pet-game{--town-line:#baa99a66;--town-sheet:#fbf5ebef;--town-pencil:#79665b;--town-dock:calc(env(safe-area-inset-bottom) * .4)}
+.pet-game button{box-shadow:none;border:0;background:transparent;border-radius:5px;color:var(--ink);padding:0;min-width:40px;min-height:40px;font-size:11px;-webkit-tap-highlight-color:transparent}
+.pet-game button:active:not(:disabled){background:#d7bdae33;transform:translateY(1px)}
+.pet-game button:focus-visible{outline:2px solid var(--town-pencil);outline-offset:2px}
+.pet-game button svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex-shrink:0}
+.pet-game button:disabled{opacity:.4;cursor:default}
+.pet-game .scene-head{inset:0 12px auto;padding:3px 0 0;display:flex;flex-direction:column;align-items:stretch;gap:3px;background:none;pointer-events:none;z-index:2}
+.pet-game .scene-head button{pointer-events:auto}
+.pet-game .heading{display:none}
+.pet-town-line{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:40px}
+.pet-game .selected-pet{position:relative;inset:auto;display:flex;align-items:center;gap:7px;max-width:45%;padding:0 7px 0 0;color:var(--town-pencil);font-size:12px;border-radius:0;white-space:nowrap}
+.selected-pet [data-control-label]{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.pet-game #light{display:flex;align-items:center;gap:5px;white-space:nowrap;min-height:32px;font-size:10px;color:var(--muted)}
+.pet-game #light svg{width:14px;height:14px}
+.pet-game #light:disabled{opacity:1}
+.pet-scene-links{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.pet-game #back{display:flex;align-items:center;gap:5px;padding:0 5px;font-size:11px}
+.pet-game .tools{display:flex;gap:0;max-width:none;flex-wrap:nowrap;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:3px 3px 8px 3px;box-shadow:2px 3px 0 #b8a48e16;pointer-events:auto}
+.pet-game .tools button{position:relative;display:flex;align-items:center;justify-content:center;gap:5px;min-height:42px;padding:0 10px;font-size:11px;border-radius:0}
+.pet-game .tools button+button{border-left:1px solid var(--town-line)}
+.pet-game .tools button:last-child::after{content:'';position:absolute;right:2px;bottom:2px;width:5px;height:5px;border-right:1px solid var(--town-line);border-bottom:1px solid var(--town-line)}
+.pet-game .home-actions{position:fixed;left:12px;right:12px;bottom:calc(54px + var(--town-dock));display:flex;gap:0;padding:4px 3px;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:14px 14px 7px 7px;box-shadow:0 3px 0 #b8a48e18;z-index:2}
+.pet-game .home-actions button{flex:1;min-width:0;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:3px 1px;white-space:nowrap;font-size:10px;color:var(--town-pencil)}
+.pet-game .home-actions button:nth-child(3),.pet-game .home-actions button:nth-child(5){border-left:1px solid var(--town-line);border-radius:0}
+.pet-game .home-actions svg{width:20px;height:20px}
+.pet-view-tools{position:fixed;left:50%;bottom:calc(124px + var(--town-dock));transform:translateX(-50%);display:flex;align-items:center;gap:0;padding:0 5px;border-bottom:1px solid var(--town-line);background:#eee8dcc4;border-radius:3px;width:max-content;max-width:calc(100vw - 24px);z-index:2}
+.pet-game .pet-watch,.pet-game #reset{position:static;display:flex;align-items:center;justify-content:center;gap:4px;min-height:40px;min-width:52px;padding:0 6px;font-size:10px;white-space:nowrap;color:var(--town-pencil)}
+.pet-game .pet-watch svg,.pet-game #reset svg{width:15px;height:15px}
+.pet-game .scene-camera{position:static;inset:auto;transform:none;width:auto;pointer-events:auto}
+.pet-game .camera-tools{gap:0;border-inline:1px solid var(--town-line);padding:0 2px}
+.pet-game .camera-tools button{min-height:40px;min-width:40px;padding:0 4px}
+.pet-game .camera-tools #look-cat{min-width:48px;font-size:10px;padding:0 5px}
+.pet-game .camera-tools button[aria-pressed=true]{background:#d7bdae44;border-radius:4px}
+.pet-game .scene-foot{min-height:50px;padding:5px 16px calc(6px + var(--town-dock));gap:1px;background:linear-gradient(transparent,var(--paper) 50%)}
+.pet-game .scene-foot strong{font-size:12px}
+.pet-game .scene-foot span{font-size:10px;line-height:1.5}
+.pet-game .near-door{bottom:calc(112px + var(--town-dock));z-index:2}
+.pet-game .near-door button{padding:6px 14px;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:3px 3px 8px 3px}
+.pet-game[data-place]:not([data-place=home]) .pet-view-tools{bottom:calc(58px + var(--town-dock))}
+.pet-game .home-souvenirs{display:none}
+.pet-game #loading{pointer-events:none}
+.pet-game.customizing .scene-head,.pet-game.customizing #door-labels,.pet-game.customizing .near-door,.pet-game.customizing .scene-foot,.pet-game.customizing .pet-view-tools,.pet-game.customizing .home-actions{display:none!important}
+@media(max-width:350px){.pet-game .tools button{padding:0 7px;gap:4px}.pet-game .tools svg{width:16px;height:16px}.pet-game #back{gap:3px}.pet-game .pet-watch{min-width:48px;padding:0 4px}.pet-game #reset{min-width:44px;padding:0 4px}.pet-game #reset svg{display:none}}

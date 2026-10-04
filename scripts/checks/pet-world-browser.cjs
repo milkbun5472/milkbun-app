@@ -14,6 +14,7 @@ await require('./pet-care-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_HOUSEMATE_CHECK==='1')await require('./pet-housemate-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_INITIATIVE_CHECK==='1')await require('./pet-initiative-browser.cjs')({p,r,f,out,result});
 
+if(process.env.PET_CONTROLS_CHECK==='1')await require('./pet-controls-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_PANEL_CHECK==='1')await require('./pet-panels-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_DETECTIVE_CHECK==='1')await require('./pet-store-browser.cjs')({p,r,f,out,result},'alley');if(process.env.PET_CAFE_CHECK==='1')await require('./pet-store-browser.cjs')({p,r,f,out,result},'cafe');if(process.env.PET_STORE_CHECK==='1')await require('./pet-store-browser.cjs')({p,r,f,out,result});if(process.env.PET_CAREER_CHECK==='1')await require('./pet-career-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_HABITS_CHECK==='1')await require('./pet-habits-browser.cjs')({p,r,f,out,result});
