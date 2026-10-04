@@ -16,7 +16,8 @@ const MOVED = ["four-surfaces-same-context", "home-screen-layout", "max-tokens-f
   "no-english-titles", "no-half-sheet", "no-yes-unless", "one-public-mechanism", "phone-data-layers",
   "prompt-no-content-samples", "prompt-send-shape", "stub-from-the-writer", "tabs-not-plain-pills"];
 // 留下的两份：它们跟改不改代码无关，所以每个会话都该读得到
-const STAY = ["cc-ledger-marker.md", "never-say-delete-first.md"];
+// answer-goes-into-manual.md（她 2026-10-05）：管的正是【不改代码】只答疑的那种轮，只答疑的窗口不翻施工规则，所以必须留在这儿。
+const STAY = ["cc-ledger-marker.md", "never-say-delete-first.md", "answer-goes-into-manual.md"];
 
 test("十三份都搬到了 施工规则/，一份不少", () => {
   MOVED.forEach(n => assert.ok(fs.existsSync(path.join(root, "施工规则", n + ".md")), "施工规则/ 里没有 " + n));
