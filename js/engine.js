@@ -6842,8 +6842,10 @@ function offlineHistory(msgs, userName, charName, clock) {
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     const ts = Number(m.ts) || 0;
-    const gap = prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + (clock === false ? "" : "，到 " + fmtStampAI(ts)) + " ——〕\n"
+    // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
+    //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
+    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     // ⚠️只标一边等于没标：线上那几条标了【线上私聊】，线下这几条什么都不标，
@@ -7553,8 +7555,10 @@ function offlineGroupHistory(msgs, userName, clock) {
   (msgs || []).forEach(m => {
     if (m.kind === "ooc") return; // OOC 不进角色扮演上下文
     const ts = Number(m.ts) || 0;
-    const gap = prevTs && ts && ts - prevTs > 90 * 60000
-      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + (clock === false ? "" : "，到 " + fmtStampAI(ts)) + " ——〕\n"
+    // 时间感知关着的时候，线下连「中间隔了多久」也不说（群友 2026-10-04：「线下昨天聊一半想继续聊，关了时间感知，他还是知道到第二天了」）——
+    //   线下是一场戏，她隔天回来接着演，戏里不该凭空过了一夜。开着时照旧标出来。
+    const gap = clock !== false && prevTs && ts && ts - prevTs > 90 * 60000
+      ? "〔—— 中间隔了约 " + gapPhrase(ts - prevTs) + "，到 " + fmtStampAI(ts) + " ——〕\n"
       : "";
     const stamp = (ts && clock !== false) ? "〔" + fmtStampAI(ts) + "〕" : "";
     if (m.role === "char") {
