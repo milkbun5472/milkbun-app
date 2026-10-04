@@ -1,4 +1,5 @@
-import {petWorkplace} from './workplaces.mjs?v=fg-dddefd2ab1fb071b';
+import {HOME_DETAILS} from './room-layout.mjs?v=fg-85294a4bf3613c13';
+import {petWorkplace} from './workplaces.mjs?v=fg-85294a4bf3613c13';
 // One inventory projection for the room and the conversation. No second furniture save.
 export function homeSouvenirs(career,care){
  const inventory=career?.inventory||{},task=care?.task;
@@ -11,7 +12,7 @@ export function createHomeSouvenirs(T,{model,career,care,ballObject,boxObject}){
  const objects={};
  function mesh(group,geometry,mat,x,y,z){const m=new T.Mesh(geometry,mat);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;group.add(m);return m;}
  function group(id,x,y,z){const g=new T.Group();g.userData.souvenir=id;g.position.set(x,y,z);root.add(g);objects[id]=g;return g;}
- const basket=group('bread',2.42,.14,.28);
+ const basket=group('bread',HOME_DETAILS.bread.x,.14,HOME_DETAILS.bread.z);
  mesh(basket,new T.BoxGeometry(.62,.08,.47),cloth,0,.015,0);
  for(const x of[-.31,.31])mesh(basket,new T.BoxGeometry(.055,.18,.5),wood,x,.09,0);
  for(const z of[-.23,.23])mesh(basket,new T.BoxGeometry(.65,.18,.045),wood,0,.09,z);
@@ -19,10 +20,10 @@ export function createHomeSouvenirs(T,{model,career,care,ballObject,boxObject}){
  const loaves=[];for(let i=0;i<3;i++){const loaf=new T.Group();loaf.position.set((i-1)*.17,.19,i===1?-.06:.02);const body=mesh(loaf,new T.SphereGeometry(.14,16,10),bread,0,0,0);body.scale.set(.65,.65,1.28);for(const z of[-.065,0,.065]){const slash=mesh(loaf,new T.BoxGeometry(.09,.018,.023),cut,0,.084,z);slash.rotation.z=-.12;}basket.add(loaf);loaves.push(loaf);}
  const ball=ballObject;objects.ball=ball;const box=boxObject;objects.box=box;
 
- const vase=group('flowers',-.16,.83,-2.02),pink=material('#d7aaa9'),stem=material('#a2a589');
+ const vase=group('flowers',HOME_DETAILS.flowers.x,.83,HOME_DETAILS.flowers.z),pink=material('#d7aaa9'),stem=material('#a2a589');
  mesh(vase,new T.CylinderGeometry(.065,.085,.18,16),cloth,0,.09,0);
  const flowers=[];for(let i=0;i<3;i++){const flower=new T.Group();flower.position.set((i-1)*.045,.17,(i===1?-.025:.025));const height=.17+i*.025;mesh(flower,new T.CylinderGeometry(.006,.006,height,6),stem,0,height/2,0);for(let p=0;p<5;p++){const angle=p*Math.PI*2/5;const petal=mesh(flower,new T.SphereGeometry(.031,8,6),pink,Math.cos(angle)*.028,height,Math.sin(angle)*.028);petal.scale.y=.4;}mesh(flower,new T.SphereGeometry(.019,8,6),cut,0,height+.006,0);vase.add(flower);flowers.push(flower);}
- const memory=group('memory',-3.02,1.98,-.57);memory.rotation.y=Math.PI/2;
+ const memory=group('memory',HOME_DETAILS.memory.x,1.98,HOME_DETAILS.memory.z);memory.rotation.y=Math.PI/2;
  mesh(memory,new T.BoxGeometry(.62,.75,.045),wood,0,0,0);
  const canvas=document.createElement('canvas');canvas.width=384;canvas.height=480;const ctx=canvas.getContext('2d');
  function paint(){const saved=career.firstTrial;ctx.fillStyle='#fff7e8';ctx.fillRect(0,0,384,480);ctx.fillStyle='#bd9271';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.fillText('第一份工作',192,56);

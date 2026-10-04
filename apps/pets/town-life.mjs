@@ -1,11 +1,12 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-dddefd2ab1fb071b';
-import {walkRoute} from './movement.mjs?v=fg-dddefd2ab1fb071b';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-dddefd2ab1fb071b';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-dddefd2ab1fb071b';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-85294a4bf3613c13';
+import {walkRoute} from './movement.mjs?v=fg-85294a4bf3613c13';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-85294a4bf3613c13';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-85294a4bf3613c13';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
-export const roomDoor=id=>id==='home'?{x:0,z:2.25}:id==='alley'?{x:-2.1,z:2.25}:{x:-2.65,z:2.25};
+import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-85294a4bf3613c13';
+export {roomDoor} from './room-layout.mjs?v=fg-85294a4bf3613c13';
 // Footprints come from the existing Blender furniture, converted from Z-up.
 const footprints={
  cafe:[[1.03,-1.24,3.61,1.2],[-2.62,.48,.82,2.08],[-.73,1.29,1,1],[1.67,1.35,1,1],[-1.35,1.29,.44,.44],[-.11,1.29,.44,.44],[1.05,1.35,.44,.44],[2.29,1.35,.44,.44],[2.88,.92,.36,.36],[-2.4,-1.98,.44,.44]],
@@ -14,7 +15,8 @@ const footprints={
  bakery:[[1.25,-.72,3.2,1.2],[-2.25,-1.86,1.32,1.12],[-2.15,-.2,.58,.44],[-.85,-.45,.72,.7],[-1.8,1.48,1.06,1.06],[1.6,1.48,1.06,1.06],[-2.5,1.48,.46,.46],[-1.1,1.48,.46,.46],[.9,1.48,.46,.46],[2.3,1.48,.46,.46]],
  florist:[[1.15,-1.22,2.5,1.03],[.12,-.65,.6,.6],[.7,-2.35,4.05,.58],[1.75,1.65,1.9,.64],[2.72,.5,.5,.5],[-2.6,-1.8,.56,.56],[-1.85,-1.8,.56,.56],[-2.6,-.9,.56,.56],[-1.85,-.9,.56,.56],[-2.6,0,.56,.56]]
 };
-export function createTownNavigation(id,size=1){if(id==='home')return createHomeNavigation(size);const pad=.16*size,obstacles=(footprints[id]||[]).map(([x,z,w,d])=>({x,z,w,d}));const walkable=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&x>-3+pad&&x<3.1-pad&&z>-2.6+pad&&z<2.65-pad&&!obstacles.some(o=>Math.abs(x-o.x)<o.w/2+pad&&Math.abs(z-o.z)<o.d/2+pad);const clear=(a,b)=>walkable(a.x,a.z)&&walkable(b.x,b.z)&&!obstacles.some(o=>segmentIntersectsRect(a,b,o,pad));const navigator=createNavigator({room:{radius:3.4}},walkable,clear);return {walkable,ground:()=>.047,path:(a,b)=>navigator(a,b,'room'),restore:p=>walkable(p?.x,p?.z)?point(p):roomDoor(id)};}
+const footprintZones={cafe:['bar','window','tables','tables','tables','tables','tables','tables','welcome','shelves'],store:['groceries','checkout','checkout','fridge','delivery','delivery','delivery','entrance','entrance'],alley:['facades','facades','stall','rest','clues','rest','rest'],bakery:['counter','oven','oven','perch','seating','seating','seating','seating','seating','seating'],florist:['worktable','worktable','plants','bench','bench','bouquets','bouquets','bouquets','bouquets','bouquets']};
+export function createTownNavigation(id,size=1){if(id==='home')return createHomeNavigation(size);const b=roomBounds(id),pad=.16*size,obstacles=(footprints[id]||[]).map(([x,z,w,d],i)=>roomPoint(id,footprintZones[id][i],{x,z,w,d}));const walkable=(x,z)=>Number.isFinite(x)&&Number.isFinite(z)&&x>b.minX+pad&&x<b.maxX-pad&&z>b.minZ+pad&&z<b.maxZ-pad&&!obstacles.some(o=>Math.abs(x-o.x)<o.w/2+pad&&Math.abs(z-o.z)<o.d/2+pad);const clear=(a,b)=>walkable(a.x,a.z)&&walkable(b.x,b.z)&&!obstacles.some(o=>segmentIntersectsRect(a,b,o,pad));const navigator=createNavigator({room:{radius:5}},walkable,clear);return {walkable,ground:()=>.047,path:(a,b)=>navigator(a,b,'room'),restore:p=>walkable(p?.x,p?.z)?point(p):roomDoor(id)};}
 export function restoreTownLife(raw){if(!raw||!TOWN_PLACES.includes(raw.place))return null;return {place:raw.place,position:point(raw.position),heading:bound(raw.heading,-Math.PI*4,Math.PI*4,0),phase:['idle','exit','travel','visit','stroll'].includes(raw.phase)?raw.phase:'idle',target:TOWN_PLACES.includes(raw.target)?raw.target:'home',goal:point(raw.goal),stop:point(raw.stop),time:bound(raw.time,0,600,0),idle:bound(raw.idle,0,600,0),hold:bound(raw.hold,0,120,0),rng:bound(raw.rng,1,4294967295,97531),duration:bound(raw.duration,10,60,24),wait:bound(raw.wait,80,240,120),returning:raw.returning===true};}
 export function newTownLife(place,position,rng){return restoreTownLife({place,position,rng,wait:95+(rng%70)});}
 export function townSummary(s,title=id=>id){return s.phase==='exit'?'准备出门走走':s.phase==='travel'?(s.target==='home'?'散步结束，正在回家':'正去'+title(s.target)):s.place==='outside'?(s.phase==='stroll'?'在街区慢慢散步':'在街区歇歇看看'):s.place!=='home'?'在'+title(s.place)+'闲逛':null;}

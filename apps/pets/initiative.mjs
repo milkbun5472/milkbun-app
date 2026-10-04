@@ -1,10 +1,11 @@
-import {choosePetToy} from './habits.mjs?v=fg-dddefd2ab1fb071b';
+import {choosePetToy} from './habits.mjs?v=fg-85294a4bf3613c13';
 // Physical requests grow out of completed care, rather than assigned roles.
 export const YOU_SPOT={x:-.65,z:1.72};
 export const TOY_SPOTS={ball:{x:.45,z:.95},mouse:{x:-.45,z:.9}};
 export const SEEK_KINDS=['waitFood','invitePlay','invitePet','askSnack'];
 export const VISIT_STAGES=['fetch','carry','lower','waiting','cuddle'];
-export const homePoint=v=>v&&Number.isFinite(v.x)&&Number.isFinite(v.z)&&Math.abs(v.x)<3&&Math.abs(v.z)<2.55?{x:v.x,z:v.z}:null;
+import {homePoint as homePoint} from './room-layout.mjs?v=fg-85294a4bf3613c13';
+export {homePoint};
 export function choosePetPerson(state,kind,people,random){
  const available=(people||[]).filter(p=>p.available!==false&&p.key&&homePoint(p.position));if(!available.length)return null;
  const scores=available.map(p=>{const r=state.relationships?.[p.key]||{};let n=1;
