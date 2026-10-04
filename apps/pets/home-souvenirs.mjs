@@ -1,3 +1,4 @@
+import {petWorkplace} from './workplaces.mjs?v=fg-1f4c1214c4d189b0';
 // One inventory projection for the room and the conversation. No second furniture save.
 export function homeSouvenirs(career,care){
  const inventory=career?.inventory||{},task=care?.task;
@@ -27,7 +28,7 @@ export function createHomeSouvenirs(T,{model,career,care,ballObject}){
  function paint(){const saved=career.firstTrial;ctx.fillStyle='#fff7e8';ctx.fillRect(0,0,384,480);ctx.fillStyle='#bd9271';ctx.font='22px sans-serif';ctx.textAlign='center';ctx.fillText('第一份工作',192,56);
  // A printed paw keepsake, not a fabricated photograph of a past event.
  ctx.fillStyle='#c79b85';ctx.beginPath();ctx.ellipse(192,206,61,45,0,0,Math.PI*2);ctx.fill();for(const [x,y,r]of[[124,154,22],[168,126,24],[218,128,24],[259,159,21]]){ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();}
- ctx.fillStyle='#806b60';ctx.font='26px sans-serif';ctx.fillText((saved?.name||'试工纪念').slice(0,12),192,317);ctx.font='20px sans-serif';ctx.fillText('小镇第 '+(saved?.day||1)+' 天 · 面包店',192,359);ctx.font='18px sans-serif';ctx.fillText('点开，看那天的三个小主意',192,416);}
+ ctx.fillStyle='#806b60';ctx.font='26px sans-serif';ctx.fillText((saved?.name||'试工纪念').slice(0,12),192,317);ctx.font='20px sans-serif';ctx.fillText('小镇第 '+(saved?.day||1)+' 天 · '+petWorkplace(saved?.profession).title,192,359);ctx.font='18px sans-serif';ctx.fillText('点开，看那天的三个小主意',192,416);}
  paint();
  const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;
  const print=mesh(memory,new T.PlaneGeometry(.55,.68),new T.MeshStandardMaterial({map:texture,roughness:1}),0,0,.026);print.castShadow=false;
