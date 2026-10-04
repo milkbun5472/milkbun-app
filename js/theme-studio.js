@@ -427,6 +427,7 @@
         ["row", "一整行消息（含头像）"], ["avatar", "头像"],
         ["bubble", "气泡本体（data-me=\"1\" 是她的；data-kind＝text/voice/photo…；长按菜单里那一颗带 data-preview=\"1\"）"],
         ["msg", "一条消息：data-me；data-first/data-last＝连发那一串的头/尾（\"1\"是）；data-kind；data-recent=\"1\" 刚进来（做入场动画）"],
+        ["messagesource", "游戏对话上方的世界来源（data-world区分世界；旧记录显示来源未记录）"],
         ["name", "气泡上面那行名字（单聊默认藏着，排版里能打开）"],
         ["meta", "气泡边上的时间/已读那一小行"], ["time", "中间那条日期分隔"],
         ["note", "系统小字（撤回、进房这类）"], ["noteink", "系统小字的字色"],
@@ -858,7 +859,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.780", changed: "三个世界复用原聊天与设置正文，在原滚动区增加共用旧记录的折叠详情；顶底栏和安全区沿原结构", none: "" };
+  const BRIEF_STAMP = { v: "v74.780", changed: "聊天气泡上方增加轻量世界来源小字，沿原气泡列与正文滚动；搜索、云端回看与总结保留来源，顶底栏和安全区沿原结构", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

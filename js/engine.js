@@ -3848,18 +3848,34 @@ function splitRedPacket(total, count) {
   }
   return out.map(c => c / 100);
 }
+// Source names follow the existing world catalog; stored message content stays verbatim.
+function gameChatSource(m) {
+  if (!m) return "";
+  const catalog = typeof window !== "undefined" && window.FairyWorlds;
+  const world = Array.isArray(catalog) && catalog.find(w => w.id === m.gameWorld);
+  if (world) return "小世界 · " + world.name;
+  return m.kind === "garden" || m.gameWorld ? "小世界 · 来源未记录" : "";
+}
+function gameChatText(m) {
+  const source = gameChatSource(m), text = String(m && m.content || "");
+  return source ? "【" + source + "】" + text : text;
+}
+function gameChatSummaryContext(msgs) {
+  return (msgs || []).some(m => gameChatSource(m))
+    ? "\n\n【记录来源】每条小世界对话带有来源标记。整理这些经历时保留对应世界名，分别记述各世界里的事件；来源未记录的旧话沿原标记保留。标记是记录信息，原话是待整理的材料。" : "";
+}
 // 把一段群聊浓缩成一条群体记忆（第三人称，供存入记忆库）
 async function summarizeGroup(p, ctx, msgs) {
-  const text = msgs.map(m => (m.role === "user" ? ctx.profile && ctx.userName(profile) : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + (m.content || "")).join("\n");
+  const text = msgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + gameChatText(m)).join("\n");
   const system = "把下面这段群聊浓缩成一句到几句第三人称的记忆，抓住关键事件、谁和谁的互动、达成的约定或情绪转折。简洁、具体、可复用。只输出正文。";
-  return await callAI(p, system, [{ role: "user", content: "【群聊】\n" + text }], { maxTokens: 11000 });
+  return await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【群聊】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 });
 }
 // 从一段对话里抽取结构化记忆条目（自动生成，用户可再编辑/删除）
 async function extractMemories(p, ctx, msgs, opts = {}) {
   const uName = (ctx.profile && ctx.profile.name) || "用户";
   const charName = ctx.char.name;
   const messageIdOf = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
-  const text = msgs.map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + (m.role === "user" ? uName : charName) + ": " + m.content).join("\n");
+  const text = msgs.map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + (m.role === "user" ? uName : charName) + ": " + gameChatText(m)).join("\n");
   const avoid = Array.isArray(opts.existing) && opts.existing.length
     ? "\n\n【这些事实已经记过了，别再抽取——同一件事换个说法也算重复，一律跳过】\n" + opts.existing.slice(0, 40).map(t => "· " + String(t).replace(/\s+/g, " ").slice(0, 60)).join("\n")
     : "";
@@ -3875,7 +3891,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。候选还会由本机逐字核验，通过后才软关闭旧条；正文和审计记录永远保留。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
-  const raw = await callAI(p, system, [{ role: "user", content: "【对话】\n" + text }], { maxTokens: 14000 });
+  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 });
   const parsed = extractJSON(raw);
   // resolveOpen 没有 text；必须保留给 RepairGate 做逐字证据核验与软闭环。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
@@ -3887,7 +3903,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
   const roster = (members || []).map(m => m && m.name).filter(Boolean);
   const messageIdOf = (m, i) => String((m && (m.id || m.mid)) || (m && m.ts ? "ts_" + m.ts : "idx_" + i));
   const nameOf = m => m.role === "user" ? uName : (m.role === "narration" ? "【场景】" : (m.senderName || "某人"));
-  const text = (msgs || []).map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + nameOf(m) + ": " + (m.content || "")).join("\n");
+  const text = (msgs || []).map((m, i) => "[消息ID " + messageIdOf(m, i) + "] " + nameOf(m) + ": " + gameChatText(m)).join("\n");
   const avoid = Array.isArray(opts.existing) && opts.existing.length
     ? "\n\n【这些事实已经记过了，别再抽取——换个说法也算重复，一律跳过】\n" + opts.existing.slice(0, 40).map(t => "· " + String(t).replace(/\s+/g, " ").slice(0, 60)).join("\n")
     : "";
@@ -3901,7 +3917,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
       ? "\n【当前还没了结的约定/心事】若本段记录逐字证明某条已经兑现/实质解决/明确放弃，另加 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。道歉、暂时安静、时间过去或情绪缓和不算解决。本机还会逐字核验，通过后只软关闭、绝不删旧条：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n") + "\n"
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
-  const raw = await callAI(p, system, [{ role: "user", content: "【多人线下记录】\n" + text }], { maxTokens: 13000 });
+  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【多人线下记录】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 });
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
@@ -8861,22 +8877,19 @@ async function generateDiaryComment(p, ctx, entryText, opts) {
   return (await callAI(p, system, [{ role: "user", content: "写评论。" }], { maxTokens: 8900 })).trim();
 }
 async function summarizeChat(p, ctx, olderMsgs) {
-  const text = olderMsgs.map(m => (m.role === "user" ? ctx.userName(profile) : ctx.char.name) + ": " + m.content).join("\n");
+  const text = olderMsgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : ctx.char.name) + ": " + gameChatText(m)).join("\n");
   const system = "把下面这段对话融进第三人称的长期记忆里。抓住关键事件、情绪变化、承诺、约定、身份/背景信息、未完成的事、以及你俩关系的推进——**宁可写长一些、保留细节，也别丢掉任何重要的人、事、约定或情感转折**。已有记忆在前，请把新内容自然融合进去，输出一份完整的新记忆（保留旧记忆里仍然重要的部分，别为了简短而删掉过往）。可以分段。只输出记忆正文。\n\n【已有记忆】\n" + (ctx.memory || "（无）");
-  return await callAI(p, system, [{
-    role: "user",
-    content: "【新对话】\n" + text
-  }], {
-    // 记忆库是累积合并旧+新的整份记忆，越攒越长；2600 会把旧记忆截断丢掉——放宽到 8000（思考型模型还要留思考预算）
-    maxTokens: 8000
+  return await callAI(p, system + gameChatSummaryContext(olderMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], {
+    // 累积记忆保留旧正文，并给思考与输出留足空间。
+    maxTokens: 65535
   });
 }
 // 止摘要漂移：只浓缩【这段新对话】成一小段，不重炼旧记忆（旧记忆由调用方原样保留、追加这段带日期的新段）
 async function summarizeChatBlock(p, ctx, newMsgs) {
-  const text = newMsgs.map(m => (m.role === "user" ? ctx.userName(profile) : ctx.char.name) + ": " + m.content).join("\n");
+  const text = newMsgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : ctx.char.name) + ": " + gameChatText(m)).join("\n");
   // 七要素清单（v47.77 借 LNPhone conclusion 规范）：让浓缩段不只记事件、还留住氛围和悬着的事
   const system = "把下面这【一段新对话】浓缩成一小段第三人称记忆。这段要覆盖到（有则写、无则跳，别硬凑）：①发生的关键事件 ②聊的主题 ③两人此刻的关系氛围（如刚吵完在冷战/正在暧昧/和好如初）④用户显露的情绪与需求 ⑤角色的情绪与态度 ⑥未完成的事（答应了没做的、约好的、话说一半的）⑦红包转账礼物照片等功能事件。具体可回看、信息密度高。这是要【追加】到长期记忆末尾的一段，别逐字复述对话、别复述早前已知的旧事、别升华总结。只输出这一段正文，别加标题。";
-  return (await callAI(p, system, [{ role: "user", content: "【新对话】\n" + text }], { maxTokens: 10600 })).trim();
+  return (await callAI(p, system + gameChatSummaryContext(newMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 })).trim();
 }
 // ============================================================
 // storage / utils / geo / mood
