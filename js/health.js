@@ -935,12 +935,12 @@
           if (!name || !(kcal > 0 && kcal < 5000)) return;
           const meal = MEALS.some(m => m[0] === r.meal) ? r.meal : MEAL_ZH[String(r.meal || "").trim()] || "snack";
           d = Object.assign({}, d, { meals: (d.meals || []).concat([Object.assign({ id: "m" + Date.now().toString(36) + "c" + i, day, meal, name, kcal, p: 0, c: 0, f: 0, qty: 1, src: "char" }, by)]) });
-          done.push({ t: mealName(meal) + " · " + name, v: kcal + " 千卡" });
+          done.push({ t: mealName(meal) + " · " + name, v: kcal + " 千卡", k: "meal", meal: mealName(meal), name, kcal });
         } else if (kind === "water") {
           const cups = Math.round(Number(r.cups) || 0); if (!(cups > 0 && cups <= 20)) return;
           const now = Number((d.water || {})[day]) || 0;
           d = Object.assign({}, d, { water: Object.assign({}, d.water, { [day]: now + cups }) });
-          done.push({ t: "喝水", v: "+" + cups + " 杯（这天共 " + (now + cups) + " 杯）" });
+          done.push({ t: "喝水", v: "+" + cups + " 杯（这天共 " + (now + cups) + " 杯）", k: "water", cups, total: now + cups });
         } else if (kind === "sport") {
           const min = Math.round(Number(r.min) || 0); if (!(min > 0 && min <= 600)) return;
           const name = String(r.sport || r.name || "运动").trim().slice(0, 12), sp = SPORTS.find(x => x[0] === name);
@@ -969,7 +969,7 @@
       if (!done.length) return null;
       save(d);
       try { g.dispatchEvent && g.dispatchEvent(new CustomEvent("qq-health-updated")); } catch (_) {}
-      return { title: done.map(x => x.t).join("、"), sub: done.map(x => x.v).join(" · "), n: done.length };
+      return { title: done.map(x => x.t).join("、"), sub: done.map(x => x.v).join(" · "), n: done.length, rows: done, day: today };
     } catch (e) { return null; }
   }
   g.healthAddByChar = healthAddByChar;
