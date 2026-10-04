@@ -1,6 +1,6 @@
-import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-689ad7e1ba6d49e2';
-import {deriveResidentPreferences,weightedChoice} from './resident-choice.mjs?v=fg-689ad7e1ba6d49e2';
-import {parcelContents,parcelSourceTitle} from './parcels.mjs?v=fg-689ad7e1ba6d49e2';
+import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-3bb9642e6e87c7b9';
+import {deriveResidentPreferences,weightedChoice} from './resident-choice.mjs?v=fg-3bb9642e6e87c7b9';
+import {parcelContents,parcelSourceTitle} from './parcels.mjs?v=fg-3bb9642e6e87c7b9';
 const text=(x,n=200)=>typeof x==='string'?x.slice(0,n):'';
 const places=new Set(PET_WORKPLACES.map(x=>x.id));
 const distance=(a,b)=>a&&b?Math.hypot(a.x-b.x,a.z-b.z):Infinity;
