@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PET_ACTIONS,samplePetAction,postureFrame} from './pet-action.mjs';
-import {restingTailWeights,kittenBackWeights,softCrotchWeights} from './pet-skin.mjs';
+import {restingTailWeights,dogTailWeights,kittenBackWeights,softCrotchWeights} from './pet-skin.mjs';
 import {solveLimb} from './cat-motion.mjs';
 const size=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
 test('both real rigs can reach the folded sleeping and seated paw targets',()=>{
@@ -26,6 +26,15 @@ test('tail tip repair removes its residual torso pull without affecting the skul
  const fixed=restingTailWeights(['tail2','pelvis','tail1','head'],[.87,.11,.02,0],.835);assert.equal(fixed[1],0);assert.ok(Math.abs(fixed.reduce((n,w)=>n+w,0)-1)<1e-12);assert.ok(fixed[0]> .97);
  for(const row of [ [['head','earL','chest','pelvis'],[1,0,0,0],.6], [['frontLPaw','chest','pelvis','head'],[1,0,0,0],.07], [['tail0','pelvis','tail1','head'],[.5,.5,0,0],.405]])assert.deepEqual(restingTailWeights(...row),row[1]);
  const mixed=restingTailWeights(['tail1','pelvis','head','earL'],[.3,.4,.2,.1],.7);assert.equal(mixed[2],.2);assert.equal(mixed[3],.1);assert.equal(mixed[1],0);
+});
+test('forward-curled dog tip follows the tail even when the export assigned it entirely to the pelvis',()=>{
+ const names=['pelvis','chest','backLLower','head'],weights=[1,0,0,0];
+ for(const p of [[.003,.711,-.306],[.024,.694,-.278],[.09,.60,-.248]]){
+  const row=dogTailWeights(p,names,weights);assert.ok(row.every(([name,w])=>w===0||name.startsWith('tail')));assert.ok(Math.abs(row.reduce((n,[,w])=>n+w,0)-1)<1e-12);
+ }
+ for(const p of [[0,.405,-.35],[0,.52,-.28],[0,.60,.06],[-.1,.04,.25]])assert.deepEqual(dogTailWeights(p,names,weights),names.map((n,i)=>[n,weights[i]]));
+ const a=new Map(dogTailWeights([0,.53-1e-6,-.3],names,weights)),b=new Map(dogTailWeights([0,.53+1e-6,-.3],names,weights));
+ assert.ok(Math.abs(a.get('pelvis')-b.get('pelvis'))<1e-6);
 });
 
 test('cat back fur no longer follows the face, while the actual rear skull stays rigid',()=>{

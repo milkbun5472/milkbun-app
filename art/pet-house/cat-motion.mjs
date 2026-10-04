@@ -89,7 +89,7 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
       if(action.lie>.00001){
         // All three resting segments share one rotation, preserving the
         // authored fluffy curl while the entire tail settles beside the body.
-        const tuck=new T.Quaternion().setFromEuler(new T.Euler(-1.50,.55,0));
+        const tuck=new T.Quaternion().setFromEuler(rig.species==='dog'?new T.Euler(-.55,.20,-1.0):new T.Euler(-1.50,.55,0));
         q.slerp(tuck,action.lie);
       }
       const end=new T.Vector3().fromArray(sub(d.tail,d.head)).applyQuaternion(q).add(head);
