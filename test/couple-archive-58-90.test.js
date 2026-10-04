@@ -31,7 +31,7 @@ test("带围栏：是背景不是剧本", () => {
 // 四处一样喂：单聊线上 / 单聊线下（都走 buildBundle）/ 群聊线上 / 群聊线下
 test("四处都接上了，一处都没落下", () => {
   assert.match(app, /coupleArchive: coupleArchiveFor\(char\.id\)/, "单聊两处（ctxFor）没接");
-  assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.coupleArchive\) parts\.push\(coupleArchiveBlock\(ctx\.coupleArchive, uName\)\);/, "buildBundle 里没发出去");
+  assert.match(eng, /if \(!ctx\.notRoleplay && ctx\.coupleArchive\) out\.push\(coupleArchiveBlock\(ctx\.coupleArchive, uName\)\);/, "buildBundle 里没发出去");
   assert.match(app, /memberCoupleArchive: backgroundMap\("archive"\)/, "群聊线下那一份没算");
   assert.match(eng, /archive: ctx\.memberCoupleArchive && ctx\.memberCoupleArchive\[c\.id\]/);
   assert.match(eng, /\+ bg\.caSeg/);
@@ -77,8 +77,11 @@ test("栏名跟界面上那七栏一一对上", () => {
 // 档案是【稳定】内容（称呼、梗、仪式几个月不变）——跟人设一起待在缓存前缀里。
 // 情侣状态那块含「约 X 天」每天变，才被挪到时间切点之后，两者别混为一谈。
 test("待在缓存前缀里，别跟着每天变的那块跑到切点后面", () => {
-  const iRel = eng.indexOf("的关系网（有方向）】");
-  const iArc = eng.indexOf("ctx.coupleArchive) parts.push");
-  const iTime = eng.indexOf("if (timeBlock.length) parts.push(...timeBlock);");
-  assert.ok(iRel > 0 && iArc > iRel && iArc < iTime, "档案掉到时间切点后面去了——每天作废一次，白扔缓存");
+  // v74.78 起这几块收进 herStableLines（单聊和一起学共用）：档案还在关系网之后，整份在时间切点之前
+  const fn = eng.slice(eng.indexOf("function herStableLines("), eng.indexOf("function coupleStatusLines("));
+  assert.ok(fn.indexOf("的关系网（有方向）】") > 0 && fn.indexOf("ctx.coupleArchive) out.push") > fn.indexOf("的关系网（有方向）】"));
+  const bb = eng.slice(eng.indexOf("function buildBundle("));
+  const iStable = bb.indexOf("parts.push(...herStableLines(ctx, uName));");
+  const iTime = bb.indexOf("if (timeBlock.length) parts.push(...timeBlock);");
+  assert.ok(iStable > 0 && iStable < iTime, "档案掉到时间切点后面去了——每天作废一次，白扔缓存");
 });
