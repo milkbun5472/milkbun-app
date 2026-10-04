@@ -1,4 +1,17 @@
 const smooth=x=>{const t=Math.max(0,Math.min(1,x));return t*t*(3-2*t);};
+export function catLooseFragmentIndices(position,index){
+ const count=position.length/3,parent=Array.from({length:count},(_,i)=>i),weld=new Map();
+ const find=i=>{while(parent[i]!==i){parent[i]=parent[parent[i]];i=parent[i];}return i;},join=(a,b)=>{parent[find(a)]=find(b);};
+ for(let i=0;i<count;i++){const key=[0,1,2].map(j=>Math.round(position[i*3+j]*1e5)).join(',');if(weld.has(key))join(i,weld.get(key));else weld.set(key,i);}
+ for(let i=0;i<index.length;i+=3){join(index[i],index[i+1]);join(index[i],index[i+2]);}
+ const islands=new Map();
+ for(const i of new Set(index)){const key=find(i);if(!islands.has(key))islands.set(key,{count:0,min:[Infinity,Infinity,Infinity],max:[-Infinity,-Infinity,-Infinity]});const island=islands.get(key);island.count++;for(let j=0;j<3;j++){const v=position[i*3+j];island.min[j]=Math.min(island.min[j],v);island.max[j]=Math.max(island.max[j],v);}}
+ // Only detached pieces entirely inside the two tiny, authored spur volumes.
+ // The connected paws/body, including coincident UV seam vertices, stay whole.
+ const loose=new Set([...islands].filter(([,b])=>b.count<1000&&((b.min[0]>.085&&b.max[0]<.17)||(b.min[0]>-.17&&b.max[0]<-.085))&&b.min[1]>.07&&b.max[1]<.13&&b.min[2]>-.25&&b.max[2]<-.20).map(([key])=>key));
+ const kept=[];for(let i=0;i<index.length;i+=3)if(!loose.has(find(index[i])))kept.push(index[i],index[i+1],index[i+2]);
+ return {index:kept,removedTriangles:(index.length-kept.length)/3,components:loose.size};
+}
 // The curled tips cross back into the old torso mask. Transfer only that
 // residual torso influence to their already authored tail controls. Leave
 // the root blend, rigid skull, ears and every leg weight intact.
@@ -39,6 +52,7 @@ export function softCrotchWeights(point,names,weights){
 }
 export function repairPetSkin(model,species){
  model.traverse(o=>{if(!o.isSkinnedMesh)return;const {position,skinIndex,skinWeight}=o.geometry.attributes,indices=new Map(o.skeleton.bones.map((b,i)=>[b.name,i]));
+  if(species==='cat'&&o.geometry.index){const clean=catLooseFragmentIndices(position.array,o.geometry.index.array);if(clean.removedTriangles)o.geometry.setIndex(clean.index);}
   for(let i=0;i<position.count;i++){
    const names=Array.from({length:4},(_,j)=>o.skeleton.bones[skinIndex.getComponent(i,j)]?.name),weights=Array.from({length:4},(_,j)=>skinWeight.getComponent(i,j));
    const point=[position.getX(i),position.getY(i),position.getZ(i)],tail=restingTailWeights(names,weights,point[1]),covered=curledTailWeights(point,names,tail,species),back=species==='cat'?kittenBackWeights(point,covered.map(p=>p[0]),covered.map(p=>p[1])):covered;
