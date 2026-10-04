@@ -75,5 +75,5 @@ test('dog export has the same complete motion contract and records the untouched
 
 test('outdoor trot alternates diagonal pairs rather than accelerating the four-beat walk',async()=>{
  const {TROT_PHASE}=await import('./cat-motion.mjs');assert.equal(TROT_PHASE.frontL,TROT_PHASE.backR);assert.equal(TROT_PHASE.frontR,TROT_PHASE.backL);assert.equal(Math.abs(TROT_PHASE.frontL-TROT_PHASE.frontR),.5);
- for(const name of ['cat','dog']){const meta=JSON.parse(readFileSync(new URL('./'+name+'-rig.json',import.meta.url)));assert.deepEqual(meta.headRigid,{minHeight:.41,maxForwardY:.18});}
+ for(const name of ['cat','dog']){const meta=JSON.parse(readFileSync(new URL('./'+name+'-rig.json',import.meta.url)));assert.deepEqual(meta.headRigid,name==='dog'?{minHeight:.575,maxForwardY:.09}:{minHeight:.41,maxForwardY:.18});}
 });

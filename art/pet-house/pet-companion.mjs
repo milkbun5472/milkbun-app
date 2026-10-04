@@ -1,6 +1,6 @@
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-f522e6afa121fce1';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-f522e6afa121fce1';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-f522e6afa121fce1';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-0000000000000000';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-0000000000000000';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-0000000000000000';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
@@ -10,7 +10,7 @@ function clonePetSource(source){const model=source.clone(true),pairs=new Map();f
 export async function loadPetCompanion(T,loader,{height=.88,persist=true,initialSpecies='cat',compressedMask=false}={}){
   const pets={};const saved=key=>persist?readSaved(key):null;const store=(key,value)=>{if(persist)save(key,value);};
   await Promise.all(['cat','dog'].map(async species=>{
-    const version=species==='cat'?'pet-motion-6':'pet-dog-3';
+    const version=species==='cat'?'pet-motion-6':'pet-dog-4';
     const cacheKey=species+':'+compressedMask;if(!sources.has(cacheKey))sources.set(cacheKey,Promise.all([loader.loadAsync(dataURL(`${species}.glb?v=${version}`)),fetch(dataURL(`${species}-rig.json`)).then(r=>{if(!r.ok)throw Error('宠物骨骼 '+r.status);return r.json();}),new T.TextureLoader().loadAsync(dataURL(`${species}-mask.${compressedMask?'webp':'png'}?v=${version}`))]).catch(e=>{sources.delete(cacheKey);throw e;}));
     const [file,rig,mask]=await sources.get(cacheKey);
     const model=clonePetSource(file.scene),bounds=new T.Box3().setFromObject(model),center=bounds.getCenter(new T.Vector3()),scale=height/bounds.getSize(new T.Vector3()).y;

@@ -355,8 +355,8 @@
     ]
   ],
   "headRigid": {
-    "minHeight": 0.41,
-    "maxForwardY": 0.18
+    "minHeight": 0.575,
+    "maxForwardY": 0.09
   },
   "dye": {
     "patchReference": "#d2b6a5",
