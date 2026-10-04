@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.700";
+const APP_VERSION = "v74.705";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10132,7 +10132,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她回信那一下（系统小纸条「你答应了X ♥」／「你说再想想」）原来跟别的系统纸条一起被滤掉——
     //   TA 只在很早那封信上看到「她答应了」，后面接着聊就又不知道了（她 2026-10-03 截图：「泥系答应惹吗」）。按发生的位置交给 TA 一句。
     const _letterAns = m => m && m.kind === "system" && (m.sub === "letter" || /^你答应了.*♥$|^你说再想想$/.test(String(m.content || "")));
-    const _ansRow = m => ({ ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "答应了——你们从这一刻起在一起了") + "〕" });
+    const _ansRow = m => ({ ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "点了「答应」，你们从这一刻起在一起了（这是已经发生的事）") + "〕" });
     const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : (m && m.kind === "loveletter") ? _letterRow(m) : _letterAns(m) ? _ansRow(m) : m)
       .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
         // 「TA想看你手机」「你发现TA偷翻过」那两张卡不是TA说的话（她 2026-10-02）；那几件事走下面的查手机记事
@@ -22480,9 +22480,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   她传过参考照、这张又写到了她，就当一张「TA 给她拍的照片」画，锁她的脸；写到两个人一起的，就当合照，两张脸都锁。
   //   不是拍她的就返回 null，照旧走空景那条路。
   const albumHerShot = (char, scene, again) => {
-    if (!(profile && profile.refPhoto) || typeof buildPhotoPrompt !== "function") return null;
+    if (typeof buildPhotoPrompt !== "function") return null;
+    // 认她：名字、TA 私下给她起的称呼、几种常见叫法都算（她 2026-10-04：「还是不行」——相册小字多半写的是「宝宝睡着了」这种，不写她的名字）
     const uN = userName(profile);
-    if (!(scene.indexOf(uN) >= 0 || /她|你/.test(scene))) return null;
+    const nk = ((charTitleRef.current || {})[char.id] || {}).text || "";
+    const names = [uN, profile && profile.name, nk].map(x => String(x || "").trim()).filter(x => x.length >= 1);
+    if (!(names.some(x => scene.indexOf(x) >= 0) || /她|你|宝宝|宝贝|老婆|媳妇|女朋友|女友|对象|小朋友|乖乖/.test(scene))) return null;
+    // 拍的是她、可她自己没传参考照：没脸可锁，照实说一声（不然她只看到「又是个陌生人」）
+    if (!(profile && profile.refPhoto)) { toast("这张拍的是你，但你还没传自己的参考照（在你自己的资料里传一张），只能照文字画一个人", 7000); return null; }
     const meP = photoMe("她");
     const both = !!char.refPhoto && /合照|我们|一起|两个人|和她|跟她|我和|自拍/.test(scene);
     const prompt = both
