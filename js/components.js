@@ -12574,9 +12574,9 @@ function LedgerTicketCard({ m }) {
 }
 function RecordedCard({ m }) {
   const t = useTheme();
-  const isMemo = m.what === "memo";
-  if (!isMemo && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
-  const tone = isMemo ? "122,106,154" : "79,109,90";
+  const isMemo = m.what === "memo", isHealth = m.what === "health";
+  if (!isMemo && !isHealth && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
+  const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : "79,109,90";
   return h("div", { "data-wk": "card",
     style: {
       maxWidth: "78%", borderRadius: 14, padding: "10px 13px",
@@ -12591,7 +12591,7 @@ function RecordedCard({ m }) {
     }
   },
     h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: "rgba(" + tone + ",0.95)", marginBottom: 4 } },
-      m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : "已记进账本"),
+      m.kind === "ledgershare" ? "拿给你看的这笔账" : isMemo ? "已记进备忘录" : isHealth ? "已记进健康" : "已记进账本"),
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, lineHeight: 1.3 } }, m.title || ""),
     m.sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 3 } }, m.sub) : null,
     m.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, m.note) : null);
