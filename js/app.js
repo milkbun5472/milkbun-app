@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.727";
+const APP_VERSION = "v74.728";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -203,7 +203,7 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
@@ -279,6 +279,25 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       const p = clean.profiles.find(x => x.id === id);
       if (typeof window.__toast === "function") window.__toast("生图已切换为 " + ((p && (p.name || p.model)) || "该站"));
     } }] : []);
+  // 时间感知（群友 2026-10-04：「在悬浮球小窗能改就不用退出聊天界面了」）。
+  //   在单聊里改的是【这个角色那一层】（跟聊天设置里那个是同一份 timeAwareMode）；
+  //   别处改的是全局默认。只改全局的话，单独设过开/关的角色不会跟着变，看着像开关坏了。
+  const CLOCK_OPTS = clock ? (clock.charName
+    ? [["inherit", "跟随全局（" + (clock.globalOn ? "开" : "关") + "）"], ["on", "开"], ["off", "关"]]
+    : [["on", "开"], ["off", "关"]]) : [];
+  const clockRow = clock ? h("div", { key: "clock", style: { marginTop: 6 } },
+    h("button", { onClick: () => setTab(v => v === "clock" ? "" : "clock"), className: "w-full active:opacity-60 flex items-center",
+      style: { gap: 8, minHeight: 40, padding: "7px 8px", borderRadius: 10, textAlign: "left",
+        background: tab === "clock" ? t.bg : "transparent", border: "1px solid " + (tab === "clock" ? t.line : "transparent") } },
+      h("span", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "时间感知"),
+      h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11, color: t.sub } },
+        (clock.charName ? clock.charName + " · " : "全局 · ") + ((CLOCK_OPTS.find(o => o[0] === clock.mode) || CLOCK_OPTS[0])[1])),
+      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, transition: "transform .2s",
+        transform: tab === "clock" ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
+    tab === "clock" ? h("div", { style: { marginTop: 4 } }, CLOCK_OPTS.map(o => h("button", {
+      key: o[0], onClick: () => clock.set(o[0]), className: "active:opacity-60",
+      style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.35,
+        color: clock.mode === o[0] ? t.bg2 : t.ink, background: clock.mode === o[0] ? t.ink : "transparent" } }, o[1]))) : null) : null;
   const choice = (lane, p) => h("button", {
     key: lane.key + ":" + (p && p.id || "follow"),
     onClick: () => lane.set(p && p.id),
@@ -311,7 +330,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
       padding: 12, borderRadius: 18, background: t.bg2,
       border: "1px solid " + t.line, boxShadow: "0 12px 34px rgba(0,0,0,.22)" }, panelSide) },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 4 } }, "快速切换模型"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。生图有两个站以上才会出现。"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.45, marginBottom: 10 } }, "只切全局线路；角色专线仍优先。生图有两个站以上才会出现。时间感知在单聊里改的是这个角色。"),
       ALL_LANES.map((lane, li) => h("div", { key: lane.key, style: li ? { marginTop: 6 } : null },
         // 收着的那一行：左边是这一档叫什么、右边是它现在走哪条线路。点一下摊开这一档，
         // 再点一下收起；摊开一档就把别的收上去（面板高度才不会一路长下去）。
@@ -325,7 +344,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
           ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
-          : null))) : null,
+          : null)), clockRow) : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
     // 原来是一颗近黑的圆 + 一圈白边 + 一个等宽字体的 ⇄：那是随便哪个 app 都有的
@@ -28235,6 +28254,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetOffline: id => { setOfflineApiId(id); saveJSON("x_offlineApi", id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("线下已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); },
     bgApiId: bgApiId,
     // 后台那一档走 setBgApi（设置页用的同一处）——记忆整理、翻译、查手机那些活都读它
+    clock: screen === "thread" && activeChar && activeChar.id
+      ? { charName: activeChar.remark || activeChar.name || "TA", globalOn: prefs.timeAware !== false,
+          mode: ["on", "off"].includes((chatSettings[activeChar.id] || {}).timeAwareMode) ? chatSettings[activeChar.id].timeAwareMode : "inherit",
+          set: v => { patchChatSetting(activeChar.id, { timeAwareMode: v }); toast((activeChar.remark || activeChar.name || "TA") + " 的时间感知：" + (v === "on" ? "开" : v === "off" ? "关" : "跟随全局")); } }
+      : { charName: "", mode: prefs.timeAware !== false ? "on" : "off",
+          set: v => { const p = { ...prefs, timeAware: v === "on" }; setPrefs(p); saveJSON("x_prefs", p); toast("全局时间感知：" + (v === "on" ? "开" : "关")); } },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
