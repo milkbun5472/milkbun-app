@@ -1,7 +1,7 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-06f7a8384aa9ddbf';
-import {turnPet} from './movement.mjs?v=fg-06f7a8384aa9ddbf';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-06f7a8384aa9ddbf';
-import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-06f7a8384aa9ddbf';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-1162b509026609ff';
+import {turnPet} from './movement.mjs?v=fg-1162b509026609ff';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-1162b509026609ff';
+import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-1162b509026609ff';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[]}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false;
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);
@@ -19,7 +19,7 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  function resetPose(){if(!poseBase)return;poseBase.model.position.copy(poseBase.position);poseBase.model.quaternion.copy(poseBase.quaternion);poseBase.model.scale.copy(poseBase.scale);}
  function begin(model){resetPose();visible=true;props.visible=true;nav=createHomeNavigation(pet.root.scale.x);poseBase={model:pet.model,position:pet.model.position.clone(),quaternion:pet.model.quaternion.clone(),scale:pet.model.scale.clone()};const p=nav.restore(care.state.position);pet.root.position.set(p.x,nav.ground(p.x,p.z),p.z);for(const k of Object.keys(TOY_SPOTS))if(!nav.walkable(care.state.toyPlaces[k].x,care.state.toyPlaces[k].z))care.state.toyPlaces[k]={...TOY_SPOTS[k]};food=[];model.traverse(o=>{if(o.isMesh&&o.name.startsWith('feeding-food-'))food.push(o);});pet.bind({ground:nav.ground,matchSpeed:true});pendingTask=null;pendingStage='';route=[];homeTime=0;reactionTime=0;sync();}
  function sync(){for(const mesh of food)mesh.visible=care.state.bowl>0;for(const[k,m]of Object.entries(floorToys)){m.visible=!(held&&care.state.task?.toy===k)&&!(care.state.task?.kind==='play'&&care.state.task.phase==='doing'&&care.state.task.toy===k);m.position.copy(groundToy(care.state.toyPlaces[k]));}}
- function approach(t){const p=person(t)?.position;if(!p)return null;const from=local(),dx=from.x-p.x,dz=from.z-p.z,a=Math.atan2(dx,dz),r=.43*pet.root.scale.x+.1;for(const angle of[a,a+.7,a-.7,a+1.5,a-1.5,a+Math.PI]){const q={x:p.x+Math.sin(angle)*r,z:p.z+Math.cos(angle)*r};if(nav.walkable(q.x,q.z))return q;}return null;}
+ function approach(t){const p=person(t)?.position;if(!p)return null;const from=local(),dx=from.x-p.x,dz=from.z-p.z,a=Math.atan2(dx,dz),m=pet.model.localToWorld(new T.Vector3().fromArray(pet.mouthPoint)),r=Math.hypot(m.x-from.x,m.z-from.z)+(t.target==='you'?.1:.23*pet.root.scale.x);for(const angle of[a,a+.7,a-.7,a+1.5,a-1.5,a+Math.PI]){const q={x:p.x+Math.sin(angle)*r,z:p.z+Math.cos(angle)*r};if(nav.walkable(q.x,q.z))return q;}return null;}
  function destination(t){if(t.kind==='moveAway'){if(t.spot)return t.spot;const from=local(),p=person(t)?.position||from;const options=[HOME_PLACES.rug,HOME_PLACES.window,{x:1.1,z:.7},{x:-1.15,z:.2}].filter(q=>Math.hypot(q.x-from.x,q.z-from.z)>.6&&Math.hypot(q.x-p.x,q.z-p.z)>.7);return t.spot=options.find(q=>nav.path(from,q))||HOME_PLACES.rug;}
   if(t.kind==='invitePlay'&&t.stage==='fetch'){const q=care.state.toyPlaces[t.toy],from=local(),a=Math.atan2(q.x-from.x,q.z-from.z),r=.35*pet.root.scale.x;const stand={x:q.x-Math.sin(a)*r,z:q.z-Math.cos(a)*r};return nav.walkable(stand.x,stand.z)?stand:TOY_SPOTS[t.toy];}
   if(t.place==='person'||t.kind==='invitePlay')return t.spot||approach(t);
