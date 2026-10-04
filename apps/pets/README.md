@@ -155,3 +155,11 @@ career v10 的 courier 使用便利店代收点（room=store），workRoom/profe
 带回家暂放必须实际到家并有合法 homePoint，才写 courier.pending 的 holdPlaced/position，随后回柜台交回执。下一班从原暂放点取同一包裹；取消只把已携带且未签收/交回的原包裹保存为义务，不发工资、不吞货。pending 与 own inventory/parcels 分开，courier-props 的封箱不属于可拆工作袋；纸道具几何抽到 parcel-prop，原已赚小袋子也复用。路线 visits 只在实际送达并结算这一趟时记一次，like 随自己的选择演化；最近30配送结果在履历册，旧职业和侦探不被替换。
 
 试工26/熟悉34另加实际选择酬谢，回便利店代收点且 ready 才能领取一次。配送回执沿原工作袋回家放下和精确 id 拆开才入本宠收藏。真实日历每日全职业一班、拒工/一份零食、疲劳、四宠独立所有权、保存失败回滚均复用。普通聊天与明确TA商量只投当前标签/下一站和实际配送结果，不带尚未发生的 issue/错误目标。离线沿原路线到 pending decision 为止，不代选择、不自动工资、不自动模型调用。
+
+## 公园小摊与真实余货
+
+career v11/stall 在家选择真实已拆库存的最多三件；愿意才扣库存成为 job.market.packed/remaining，拒工不扣。三段是家里装袋→公园野餐角 STALL_POINT(-9,17) 三位客人→实际回家收摊。career.destinationPoint/atDestination 为前台事务、时钟日程和离线共用到场闸；createTownLife.go 的 stop 是可保存的 outside 步行目标，离屋走到原门再沿实际碰撞地图去摊布，不新增虚假室内。原快递和小店沿同一接口。
+
+market 固定三位客人的完整提议与随机结果，只公开当前客人和已发生交易，刷新不重抽。接受售卖/砍价确认才扣 remaining 并逐笔记 market:job:cursor 金库小票；拒绝/留着不收钱，勉强卖喜欢的食物会影响心情与职业印象，TA沿原 work-choice 留实际归属。交换收入先存 received，真实到家收摊的 work 袋和提前停工的回家袋保所有余货/交换品，放袋并精确 id 拆一次才入 inventory；收摊不加固定工资或重复现金。12项真实writer测试含代价、拒工、两种砍价结果、旧事件、离线、途中重载和四宠隔离。
+
+shopping.canOwn/ownedItemCount 为交易与旧购物共用单件物品额度，计真实库存与未拆袋，避免换/买第二个小球。新纽扣/叶船仅本宠小收藏；小球沿原玩耍实物，玩具风格为 wonky。stall-view 运行时仅少量摊布/纸包几何，访客以已有 loadPetCompanion 猫狗模型克隆、既有姿态显示，不新增 GLB 或改骨骼、家庭成员/主线记忆。默认本地算法，不新开模型调用，明确问TA才沿旧聊天接口。每个本宠 log 最近30趟，现实班次/周末/保存失败回滚沿原 careerAction。
