@@ -22955,6 +22955,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const n = p.filter(x => x.id !== id);
     coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
   });
+  // 改抽屉里拆开那一样的字（她 2026-10-05：「悄悄话能不能修改」）：只换这一条的正文，别的不动
+  const editDrawerItem = (id, text) => setCoupleDrawer(p => {
+    const v = String(text || "").trim(); if (!v) return p;
+    // 悄悄话的 title 是正文头一截（老数据）——改了正文就把它清掉，不然会多出一行旧的
+    const n = p.map(x => x.id === id ? { ...x, text: v, edited: Date.now(), ...(x.kind === "whisper" ? { title: "" } : {}) } : x);
+    coupleDrawerRef.current = n; saveJSON("x_coupleDrawer", n); return n;
+  });
   // ── 情侣空间的纸面往来凝进记忆库（v62.09，她 2026-09-04 同意）───────────────
   // 问答揭晓、交换日记回页、情书——全 app 最浓的关系素材，原来一个字不进上下文：
   // 聊天里她提「你上次答的那道题」TA一脸茫然。不做常驻注入（每轮白烧 token，她按次计费），
@@ -26914,6 +26921,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMakeupClose: makeupClose,
     onOpenDrawer: openDrawerItem,
     onDropDrawer: dropDrawerItem,
+    onEditDrawer: editDrawerItem,
     // 抽卡（她 2026-08-31：「抽卡是情侣空间的功能，每个恋爱角色单独一份，不是主页」）
     gachaPts: gachaPts,
     gachaCards: gachaCards,
