@@ -1,6 +1,6 @@
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-5f9d3b38880c1385';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-5f9d3b38880c1385';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-5f9d3b38880c1385';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-0000000000000000';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-0000000000000000';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-0000000000000000';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};

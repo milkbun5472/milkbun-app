@@ -1,4 +1,4 @@
-import {roomPoint,HOME_DETAILS} from './room-layout.mjs?v=fg-5f9d3b38880c1385';
+import {roomPoint,HOME_DETAILS} from './room-layout.mjs?v=fg-0000000000000000';
 const clamp=(n,a,b)=>Math.max(a,Math.min(b,n));
 export const RESIDENT_ACTS={
  read:{label:'翻一会儿书',gesture:'read',seated:true,point:{x:-.65,z:.55},tags:['reading','quiet'],duration:18},
