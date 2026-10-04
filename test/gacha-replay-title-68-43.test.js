@@ -75,7 +75,7 @@ test("换掉的留一条旧的（跟印象卡改写留修订史同一个形状�
 
 test("八处一样喂：白送的那条路 + 群聊两处显式补", () => {
   // buildBundle 里那一句＝单聊线上/线下、通话、穿书、匿名箱、解梦馆一起白得
-  assert.match(eng, /if \(ctx\.nickname && String\(ctx\.nickname\)\.trim\(\)\) parts\.push/);
+  assert.match(eng, /if \(ctx\.nickname && String\(ctx\.nickname\)\.trim\(\)\) out\.push/);
   // 群聊两处不走 buildBundle，所以另有一份，而且落在【那位成员自己那一段】里
   assert.match(app, /const nickLineFor = \(charId, uName\) => \{/);
   assert.equal((app.match(/nickLineFor\(/g) || []).length, 1, "称呼应由共用关系层组装");
@@ -88,7 +88,7 @@ test("八处一样喂：白送的那条路 + 群聊两处显式补", () => {
 test("给出口不给判决：不规定他每句都得用（bans-make-it-dumber）", () => {
   // ⚠️只核【真的发出去那一句】，不是扫整个 engine.js——
   //   我自己写在旁边的注释里就有「要多叫她」四个字，扫全文会假红。
-  const i = eng.indexOf('if (ctx.nickname && String(ctx.nickname).trim()) parts.push(');
+  const i = eng.indexOf('if (ctx.nickname && String(ctx.nickname).trim()) out.push(');
   assert.ok(i > 0);
   const line = eng.slice(i, eng.indexOf(");\n", i));
   assert.match(line, /想用的时候自然用，不必每句都用/);

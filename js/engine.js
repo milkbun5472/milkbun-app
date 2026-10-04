@@ -3187,6 +3187,39 @@ function ledgerContextBlock(note, uName) {
   if (!String(note || "").trim()) return "";
   return "【" + uName + " 允许你看到的记账动态】（这是 Ta 真实的个人收支，账户资金由 Ta 自己管理。备注里的消费、出行与兴趣也可以成为你们生活的后续：结合你的人设、关系和当前话题，选择你会在意的一件事自然接话。日期与备注是已知事实，体验和结果以你们实际聊过的为准；若还不知道结果，可以在合适的时候问起，若已经聊过就接着已有进展。是否关心、怎么回应由你自己决定。）\n" + String(note).trim();
 }
+// 「她是谁、你俩什么关系」——单聊 buildBundle 和一起学（她 2026-10-05：「人设很刻板印象说话跟聊天不一样」）共用这一份。
+//   拆成稳定的一半（称呼、她的面具、关系网、档案）和每天会变的一半（情侣状态），buildBundle 两半中间还夹着时间切点。
+function herStableLines(ctx, uName) {
+  const out = [], char = ctx.char, profile = ctx.profile, rels = ctx.rels, chars = ctx.chars;
+  // 他私下管她叫的那个称呼（抽卡 s_title；她点过「收下」才有）。
+  // ⚠️给出口不给判决（施工规则/bans-make-it-dumber.md）：只说这个称呼是你自己起的，
+  //   不规定你每句都得用——写成「要多叫她」会出来一个满嘴昵称的人。
+  if (ctx.nickname && String(ctx.nickname).trim()) out.push("【你私下管 " + uName + " 叫的那个】「" + String(ctx.nickname).trim()
+    + "」——这是你自己给她起的称呼，想用的时候自然用，不必每句都用，也不用解释它的来历。");
+  if (profile && (profile.name || profile.persona)) out.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
+  out.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
+  // 档案是【稳定】内容（称呼、梗、仪式几个月不变），所以放在时间切点【之前】跟着人设一起被缓住。
+  // 情侣状态那一块含「约 X 天」每天变，才被挪到切点之后——两者别混为一谈。
+  if (!ctx.notRoleplay && ctx.coupleArchive) out.push(coupleArchiveBlock(ctx.coupleArchive, uName));
+  return out.filter(Boolean);
+}
+function coupleStatusLines(ctx, uName) {
+  const out = [], char = ctx.char, rels = ctx.rels, chars = ctx.chars;
+  // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
+  // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
+  if (!ctx.notRoleplay && ctx.coupleStatus) {
+    const cs = String(ctx.coupleStatus).split("|");
+    if (cs[0] === "together") out.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
+    else if (cs[0] === "pending") out.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
+  }
+  // ⚠️和用户【不是】恋人时不能就此留白——那个空白正是病根。补上另一半：TA是不是和别人在一起了。
+  //   （notRoleplay＝言秋那种不被扮演的，照旧不发扮演类的层）
+  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together")) {
+    const taken = takenByOthersLine(char && char.id, rels, chars, uName);
+    if (taken) out.push(taken);
+  }
+  return out.filter(Boolean);
+}
 function buildBundle(ctx, opts) {
   const {
     char,
@@ -3280,32 +3313,11 @@ function buildBundle(ctx, opts) {
   // Runtime v2 已在角色卡准则中定义根基、短期状态与长期成长的关系；
   // 不再为白名单角色重复注入旧版长篇成长教程，正式长出来的自我本身仍照常进入下文。
   if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push(grownSelfBlock(ctx.personaGrown, ctx.personaEvolve));
-  // 他私下管她叫的那个称呼（抽卡 s_title；她点过「收下」才有）。
-  // ⚠️给出口不给判决（施工规则/bans-make-it-dumber.md）：只说这个称呼是你自己起的，
-  //   不规定你每句都得用——写成「要多叫她」会出来一个满嘴昵称的人。
-  if (ctx.nickname && String(ctx.nickname).trim()) parts.push("【你私下管 " + uName + " 叫的那个】「" + String(ctx.nickname).trim()
-    + "」——这是你自己给她起的称呼，想用的时候自然用，不必每句都用，也不用解释它的来历。");
-  if (profile && (profile.name || profile.persona)) parts.push("【和你交谈的人 · " + uName + " 的设定】\n" + (profile.persona || "（未填写）"));
-  parts.push("【" + char.name + " 的关系网（有方向）】\n" + directedRelationLines(char, rels, chars, profile));
-  // 档案是【稳定】内容（称呼、梗、仪式几个月不变），所以放在时间切点【之前】跟着人设一起被缓住。
-  // 情侣状态那一块含「约 X 天」每天变，才被挪到切点之后——两者别混为一谈。
-  if (!ctx.notRoleplay && ctx.coupleArchive) parts.push(coupleArchiveBlock(ctx.coupleArchive, uName));
+  parts.push(...herStableLines(ctx, uName));
   // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
   //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
   if (timeBlock.length) parts.push(...timeBlock);
-  // 情侣状态（2026-08-15 缓存大案终章·复发器①）：这块含「约 X 天」每天变，原在切点前=每日作废整面稳定墙；
-  // 挪到切点后，语义不变（仍在心情/好感之前，覆盖关系网旧标签的效力不受位置影响）。
-  if (!ctx.notRoleplay && ctx.coupleStatus) {
-    const cs = String(ctx.coupleStatus).split("|");
-    if (cs[0] === "together") parts.push("【你和 " + uName + " 现在是恋人 · 已经在一起了" + (cs[1] ? "（约 " + cs[1] + " 天）" : "") + "，你俩的情侣空间也已经开着】这是你俩【当前真实的关系】，以此为准——就算上面『关系网』里还写着朋友/暗恋之类的旧标签，也按【已经在一起的恋人】来相处、别当成还没在一起。");
-    else if (cs[0] === "pending") parts.push("【情侣邀请待定】你和 " + uName + " 之间有一个还没敲定的情侣邀请（在观望/等回应），关系正处在暧昧、要不要更进一步的微妙阶段。");
-  }
-  // ⚠️和用户【不是】恋人时不能就此留白——那个空白正是病根。补上另一半：TA是不是和别人在一起了。
-  //   （notRoleplay＝言秋那种不被扮演的，照旧不发扮演类的层）
-  if (!ctx.notRoleplay && !(ctx.coupleStatus && String(ctx.coupleStatus).split("|")[0] === "together")) {
-    const taken = takenByOthersLine(char && char.id, rels, chars, uName);
-    if (taken) parts.push(taken);
-  }
+  parts.push(...coupleStatusLines(ctx, uName));
   // 位置=易变近况，移到时间切点之后（v48.95，Codex 指出：放稳定前缀里、一移动就破小克缓存）
   // ⚠️只喂【她在哪】、不说【你在哪】，等于告诉模型「你不在那儿」（她 2026-09-04 抓到：
   //   位置写着温尼伯，沈屿白就在电话里说异国不能来陪她，而人设和记忆里都没有异地这回事）。
