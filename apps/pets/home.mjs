@@ -1,13 +1,13 @@
-import {skillTask} from './skills.mjs?v=fg-9fe6ba94028d573f';
-import {chorePlaces} from './home-chores.mjs?v=fg-9fe6ba94028d573f';
-import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-9fe6ba94028d573f';
-import {chooseComfortSpot} from './habits.mjs?v=fg-9fe6ba94028d573f';
-import {createParcelProp} from './parcel-prop.mjs?v=fg-9fe6ba94028d573f';
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-9fe6ba94028d573f';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-9fe6ba94028d573f';
-import {turnPet} from './movement.mjs?v=fg-9fe6ba94028d573f';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-9fe6ba94028d573f';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-9fe6ba94028d573f';
+import {skillTask} from './skills.mjs?v=fg-59c6445cfc162636';
+import {chorePlaces} from './home-chores.mjs?v=fg-59c6445cfc162636';
+import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-59c6445cfc162636';
+import {chooseComfortSpot} from './habits.mjs?v=fg-59c6445cfc162636';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-59c6445cfc162636';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-59c6445cfc162636';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-59c6445cfc162636';
+import {turnPet} from './movement.mjs?v=fg-59c6445cfc162636';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-59c6445cfc162636';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-59c6445cfc162636';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],getChore=()=>null,index=0,station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places={...petHomePlaces(station),water:chorePlaces(index).water};
@@ -63,6 +63,7 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
   if(carriesToy(task)&&task.stage==='fetch'&&doing){const q=care.state.toyPlaces[task.toy];desired=Math.atan2(q.x-pet.root.position.x,q.z-pet.root.position.z);}
   if(carriesToy(task)&&['fetch','lower'].includes(task.stage)&&doing)pose={height:-.02,chestHeight:-.012,pelvisHeight:-.01,headPitch:1.03};
   if(carriesToy(task)&&task.stage==='carry')pose={headPitch:.06};
+  if(carriesToy(task)&&['lower','waiting'].includes(task.stage)&&p)desired=Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z);
   let pivot=false;if(desired!==null){const turn=turnPet(pet.root.rotation.y,desired,dt);pivot=Math.abs(turn.heading-pet.root.rotation.y)>.001;pet.root.rotation.y=turn.heading;}
   if(doing&&task.kind==='sleep'&&task.place==='person')pose={height:-.02,chestHeight:-.012,pelvisHeight:-.014,headPitch:.12,headRoll:.10};
   pet.motion.setActionPose(pose);if(doing&&task.kind==='sleep'&&task.place!=='person')pet.motion.updateExpression(dt);else pet.motion.update(dt,speed,0,speed>0||route.length>0||pivot);

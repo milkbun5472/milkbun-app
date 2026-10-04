@@ -1,12 +1,13 @@
-import {homePoint} from './initiative.mjs?v=fg-9fe6ba94028d573f';
+import {homePoint} from './initiative.mjs?v=fg-59c6445cfc162636';
 export const PET_SKILLS={come:{label:'听名字过来',cue:'叫它过来',duration:3},stay:{label:'坐好等一等',cue:'请它等一等',duration:6},fetch:{label:'把玩具叼回来',cue:'请它叼回来',duration:1.2}};
+const known=id=>Object.hasOwn(PET_SKILLS,id);
 const count=v=>Number.isFinite(v)?Math.max(0,Math.min(10000,Math.floor(v))):0;
 const key=v=>v==='you'||typeof v==='string'&&/^companion:.{1,80}$/.test(v);
 export function restoreSkills(raw){return {version:1,progress:Object.fromEntries(Object.keys(PET_SKILLS).map(id=>{const r=raw?.progress?.[id]||{};return [id,{practice:count(r.practice),shown:count(r.shown),teachers:Object.fromEntries(Object.entries(r.teachers||{}).filter(([k])=>key(k)).slice(-40).map(([k,v])=>[k,{name:typeof v?.name==='string'?v.name.slice(0,24):k==='you'?'你':'TA',practice:count(v?.practice),shown:count(v?.shown)}]))}];}))};}
-export const skillTask=t=>t?.kind==='skill'&&!!PET_SKILLS[t.skill]&&['you','companion'].includes(t.source)&&(t.source==='you'?t.target==='you':typeof t.actor==='string'&&!!t.actor&&t.target==='companion:'+t.actor)&&key(t.target)&&['practice','show'].includes(t.mode);
-export const skillDuration=t=>PET_SKILLS[t?.skill]?.duration||3;
+export const skillTask=t=>t?.kind==='skill'&&known(t.skill)&&['you','companion'].includes(t.source)&&(t.source==='you'?t.target==='you':typeof t.actor==='string'&&!!t.actor&&t.target==='companion:'+t.actor)&&key(t.target)&&['practice','show'].includes(t.mode);
+export const skillDuration=t=>known(t?.skill)?PET_SKILLS[t.skill].duration:3;
 export function startSkill(s,id,{mode='practice',source='you',actor='',name='你',toy='ball'}={},random=()=>0){
- if(!PET_SKILLS[id]||!['practice','show'].includes(mode)||!['you','companion'].includes(source)||source==='companion'&&(typeof actor!=='string'||!actor||actor.length>80))return {accepted:false,text:'没找到这次练习。'};
+ if(!known(id)||!['practice','show'].includes(mode)||!['you','companion'].includes(source)||source==='companion'&&(typeof actor!=='string'||!actor||actor.length>80))return {accepted:false,text:'没找到这次练习。'};
  if(mode==='show'&&s.skills.progress[id].practice<3)return {accepted:false,text:'先一起练几次，让它慢慢记住这个口令。'};
  if(s.helper||s.task&&!(s.task.source==='self'&&['watch','wander'].includes(s.task.kind)&&!s.task.socialId))return {accepted:false,text:s.task?.kind==='sleep'?'正睡得香，等醒来再一起练。':'它正在忙自己的事，等空下来再练。'};
  if(s.energy<30||s.satiety<25||s.mood<25)return {accepted:false,text:s.energy<30?'有点累了，先歇一会儿。':s.satiety<25?'肚子空空，先让它吃些粮。':'这会儿想自己静一静，晚一点再试。'};
