@@ -55,6 +55,18 @@ function manualSkin(t) {
     return blocks.map((b, bi) => {
       if (b.startsWith("### ")) return h("div", { key: bi, style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "16px 0 4px" } }, b.slice(4));
       const lines = b.split("\n");
+      // 表格（她 2026-10-05 要的「每一种调用走哪条线路」那张）：| 列 | 列 |，第二行是 |---|。
+      //   手机上一行放不下就让表自己横着滑，页面本身不许横滚（mobile-ui-layout）。
+      if (/^\s*\|/.test(lines[0]) && lines.length >= 2 && /^\s*\|[\s:|-]+\|\s*$/.test(lines[1])) {
+        const cells = ln => ln.trim().replace(/^\||\|$/g, "").split("|").map(x => x.trim());
+        const head = cells(lines[0]), rows = lines.slice(2).map(cells);
+        const td = (txt, j, th) => h(th ? "th" : "td", { key: j, style: { textAlign: "left", verticalAlign: "top", padding: "6px 8px", borderBottom: "1px solid " + t.line,
+          fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: th ? t.ink : t.sub, fontWeight: th ? 600 : 400, minWidth: j === 0 ? 92 : 110 } }, inline(txt, t, onJump, M));
+        return h("div", { key: bi, style: { overflowX: "auto", WebkitOverflowScrolling: "touch", marginTop: 10 } },
+          h("table", { style: { borderCollapse: "collapse", width: "100%" } },
+            h("thead", null, h("tr", null, head.map((c, j) => td(c, j, true)))),
+            h("tbody", null, rows.map((r, ri) => h("tr", { key: ri }, r.map((c, j) => td(c, j, false)))))));
+      }
       if (/^\s*- /.test(lines[0])) return h("div", { key: bi, style: { marginTop: 6 } }, lines.map((ln, j) => {
         const sub = /^\s{2,}- /.test(ln);
         return h("div", { key: j, className: "flex", style: { gap: 7, marginTop: 5, paddingLeft: sub ? 16 : 0 } },
