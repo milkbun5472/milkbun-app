@@ -1,15 +1,15 @@
-import {restoreWorkHabits,fadeWorkHabits,learnWorkHabit,workHabitsView} from './work-habits.mjs?v=fg-dddefd2ab1fb071b';
-import {STALL_POINT,STALL_GOODS,stallStock,stockSize,atStall,restoreMarket,restoreStall,makeMarket,marketEvent,chooseMarket,marketReturns,finishMarket,marketView} from './stall.mjs?v=fg-dddefd2ab1fb071b';
-import {restoreCourier,restoreDelivery,newDelivery,courierStop,courierEvent,chooseCourier,courierArrival,keepCourierParcel,finishCourier,deliveryView,courierView} from './courier.mjs?v=fg-dddefd2ab1fb071b';
-import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-dddefd2ab1fb071b';
-import {normalizeCase} from './case-schema.mjs?v=fg-dddefd2ab1fb071b';
-import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase,caseEvents,restoreDetective,rememberCase,detectiveView} from './detective.mjs?v=fg-dddefd2ab1fb071b';
-import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-dddefd2ab1fb071b';
+import {restoreWorkHabits,fadeWorkHabits,learnWorkHabit,workHabitsView} from './work-habits.mjs?v=fg-c061907def01ea5f';
+import {STALL_POINT,STALL_GOODS,stallStock,stockSize,atStall,restoreMarket,restoreStall,makeMarket,marketEvent,chooseMarket,marketReturns,finishMarket,marketView} from './stall.mjs?v=fg-c061907def01ea5f';
+import {restoreCourier,restoreDelivery,newDelivery,courierStop,courierEvent,chooseCourier,courierArrival,keepCourierParcel,finishCourier,deliveryView,courierView} from './courier.mjs?v=fg-c061907def01ea5f';
+import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-c061907def01ea5f';
+import {normalizeCase} from './case-schema.mjs?v=fg-c061907def01ea5f';
+import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase,caseEvents,restoreDetective,rememberCase,detectiveView} from './detective.mjs?v=fg-c061907def01ea5f';
+import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-c061907def01ea5f';
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo,workRoom} from './workplaces.mjs?v=fg-dddefd2ab1fb071b';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo,workRoom} from './workplaces.mjs?v=fg-c061907def01ea5f';
 export const WORK_EVENTS=BAKERY_EVENTS;
-import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,ownedItemCount,chooseShopping} from './shopping.mjs?v=fg-dddefd2ab1fb071b';
+import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,ownedItemCount,chooseShopping} from './shopping.mjs?v=fg-c061907def01ea5f';
 export {PET_SHOP};
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
 const str=(v,max=160)=>typeof v==='string'?v.slice(0,max):'';

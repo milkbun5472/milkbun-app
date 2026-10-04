@@ -1,13 +1,13 @@
-import {skillTask} from './skills.mjs?v=fg-dddefd2ab1fb071b';
-import {chorePlaces} from './home-chores.mjs?v=fg-dddefd2ab1fb071b';
-import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-dddefd2ab1fb071b';
-import {chooseComfortSpot} from './habits.mjs?v=fg-dddefd2ab1fb071b';
-import {createParcelProp} from './parcel-prop.mjs?v=fg-dddefd2ab1fb071b';
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-dddefd2ab1fb071b';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-dddefd2ab1fb071b';
-import {turnPet} from './movement.mjs?v=fg-dddefd2ab1fb071b';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-dddefd2ab1fb071b';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-dddefd2ab1fb071b';
+import {skillTask} from './skills.mjs?v=fg-c061907def01ea5f';
+import {chorePlaces} from './home-chores.mjs?v=fg-c061907def01ea5f';
+import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-c061907def01ea5f';
+import {chooseComfortSpot} from './habits.mjs?v=fg-c061907def01ea5f';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-c061907def01ea5f';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-c061907def01ea5f';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-c061907def01ea5f';
+import {turnPet} from './movement.mjs?v=fg-c061907def01ea5f';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-c061907def01ea5f';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-c061907def01ea5f';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],getChore=()=>null,index=0,station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places={...petHomePlaces(station),water:chorePlaces(index).water};

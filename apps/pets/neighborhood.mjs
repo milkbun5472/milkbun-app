@@ -1,0 +1,69 @@
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation} from './town-life.mjs?v=fg-c061907def01ea5f';
+import {careSummary} from './care.mjs?v=fg-c061907def01ea5f';
+
+export const NEIGHBORS=[
+ {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},
+ {id:'florist',name:'青禾',role:'花店主',shop:'florist',spot:{x:-14,z:-13},to:'regular',item:'给咖啡店的一小束花',detail:'说话慢慢的，喜欢记住小动物的习惯。',look:{hair:'longpart',hairColor:'#443d32',outfit:'jacket',wardrobe:{jacket:{cloth:'#7e9b80'}}}},
+ {id:'regular',name:'小满',role:'咖啡店的常客',shop:'cafe',spot:{x:14,z:12},to:'baker',item:'给面包师的手写便条',detail:'爱散步，也爱张罗周末的小聚会。',look:{hair:'pixie',hairColor:'#9a7654',outfit:'suit',wardrobe:{suit:{cloth:'#a18599'}}}}
+];
+const profile=id=>NEIGHBORS.find(n=>n.id===id),num=(v,max=1e15)=>Number.isFinite(v)?Math.max(0,Math.min(max,v)):0;
+const text=v=>typeof v==='string'?v.slice(0,160):'',same=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z)<1.8;
+export function restoreNeighborhood(raw,petIds=[]){
+ const neighbors=Object.fromEntries(NEIGHBORS.map((n,i)=>{const r=raw?.neighbors?.[n.id];return[n.id,{town:restoreTownLife(r?.town)||newTownLife('outside',n.spot,371+i*117),met:Object.fromEntries(petIds.filter(id=>r?.met?.[id]).map(id=>{const m=r.met[id];return[id,{greetings:num(m.greetings,10000),favors:num(m.favors,10000),visits:num(m.visits,10000),events:num(m.events,10000),lastDate:text(m.lastDate),knownName:text(m.knownName),habit:text(m.habit),lastVisit:text(m.lastVisit),eventDate:text(m.eventDate)}];})),favors:Object.fromEntries(Object.entries(r?.favors||{}).filter(([id,d])=>petIds.includes(id)&&typeof d==='string').map(([id,d])=>[id,text(d)]))}];}));
+ const q=raw?.quest,e=raw?.event,v=raw?.visit;
+ return {version:1,neighbors,quest:profile(q?.from)&&petIds.includes(q?.petId)?{from:q.from,to:profile(q.from).to,petId:q.petId,phase:['carrying','handoff','returning'].includes(q.phase)?q.phase:'carrying',time:num(q.time,3),date:text(q.date)}:null,visit:profile(v?.id)?{id:v.id,petId:petIds.includes(v.petId)?v.petId:petIds[0],phase:['going','staying','returning'].includes(v.phase)?v.phase:'returning',time:num(v.time,180),date:text(v.date)}:null,event:profile(e?.host)&&petIds.includes(e?.petId)&&['meet','picnic'].includes(e?.id)?{id:e.id,host:e.host,petId:e.petId,date:text(e.date),place:e.place==='cafe'?'cafe':'outside',point:e.point&&Number.isFinite(e.point.x)&&Number.isFinite(e.point.z)?{x:e.point.x,z:e.point.z}:e.place==='cafe'?{x:-1.75,z:2.2}:e.id==='meet'?{x:7,z:19}:{x:-9,z:15},time:num(e.time,20),done:e.done===true}:null,recent:Array.isArray(raw?.recent)?raw.recent.filter(x=>Number.isFinite(x.at)&&typeof x.text==='string').slice(-12).map(x=>({at:x.at,text:text(x.text)})):[]};
+}
+export function weekendGathering(time,weather='晴日'){
+ const rainy=/雨|雪/.test(weather),weekday=time.weekday;
+ const event=weekday===6?{id:'meet',title:'周六遛宠物小聚',start:600,end:720,host:'regular',point:{x:7,z:19}}:weekday===0?{id:'picnic',title:'周日下午的小野餐',start:900,end:1020,host:'florist',point:{x:-9,z:15}}:null;
+ if(!event)return {available:false,title:'下一次周末小聚',when:'周六 10:00–12:00 · 周日 15:00–17:00'};
+ return {...event,date:time.date,place:rainy?'cafe':'outside',point:rainy?{x:-1.75,z:2.2}:event.point,venue:rainy?'咖啡店门内避雨':'小公园',available:time.minute>=event.start&&time.minute<event.end,when:weekday===6?'周六 10:00–12:00':'周日 15:00–17:00'};
+}
+// Each participant gets a reachable place beside the host, rather than standing
+// on the same root. Indoor arrivals still use the original room doorway.
+export function gatheringSpot(event,who,world){const n=event.place==='outside'?world:createTownNavigation(event.place,1.4),offsets=who==='companion'?[[1.15,.1],[.8,-.8],[-.8,-.8]]:[[-1,.6],[-1.1,0],[0,1.1]];for(const[x,z]of offsets){const p={x:event.point.x+x,z:event.point.z+z};if(n.walkable(p.x,p.z)&&n.path(event.point,p))return p;}return {...event.point};}
+// Relationships grow only from observed encounters. Route execution is shared
+// with pets and TA; none of this module runs in the offline recovery writer.
+export function createNeighborhood(state,{world,getRows,getTime,getWeather=()=> '晴日',save=()=>true}){
+ let routes=new Map(),changed=false;
+ const bind=()=>{routes=new Map(NEIGHBORS.map(n=>[n.id,createTownLife(state.neighbors[n.id].town,{world,size:()=>1.4,onChange:()=>{changed=true;}})]));};bind();
+ const row=id=>getRows().find(x=>x.entry.id===id),near=(id,p)=>!!p&&p.entry.town?.place===state.neighbors[id].town.place&&same(p.entry.town.position,state.neighbors[id].town.position);
+ const free=p=>!!p&&!p.career.state.job&&!p.care.state.helper&&!p.care.state.task&&p.care.state.energy>=30&&p.care.state.satiety>=30;
+ const memory=(id,p)=>state.neighbors[id].met[p.entry.id]||(state.neighbors[id].met[p.entry.id]={greetings:0,favors:0,visits:0,events:0,lastDate:'',knownName:'',habit:'',lastVisit:'',eventDate:''});
+ const score=m=>m?m.greetings+m.favors*2+m.visits+m.events:0;
+ function remember(id,p){const m=memory(id,p),facts=careSummary(p.care.state);m.knownName=p.entry.profile.name;m.habit=(Math.max(...Object.values(p.care.state.toys||{}))>=3?'爱玩'+facts.favoriteToy:'')||(Math.max(...Object.values(p.care.state.rests||{}))>=3?'爱在'+facts.favoriteRest+'休息':'');return m;}
+ function log(message){state.recent.push({at:getTime().at,text:message});state.recent=state.recent.slice(-12);changed=true;}
+ function replace(old){for(const k of Object.keys(state))delete state[k];Object.assign(state,old);changed=false;bind();}
+ function transaction(fn){const before=structuredClone(state);changed=false;const result=fn();if(!result.accepted){replace(before);return result;}if(result.accepted){if(!save()){replace(before);return {accepted:false,text:'这件小事没有保存成功，请先重试保存。'};}}return result;}
+ const no=message=>({accepted:false,text:message}),yes=message=>({accepted:true,text:message});
+ function go(id,place,point=null){const r=routes.get(id),s=r.state;if(place==='outside'){if(s.place==='outside'&&Math.hypot(s.position.x-point.x,s.position.z-point.z)<.15)return; r.go(place,point);}else if(s.place!==place)r.go(place);else if(point&&r.nav().walkable(point.x,point.z)){s.phase='stroll';s.goal={...point};s.stop=null;s.hold=0;changed=true;}}
+ function home(id){go(id,'outside',profile(id).spot);}
+ function request(action,id,petId){const p=row(petId),n=profile(id),time=getTime();if(!p)return no('先选好同行的小家伙。');
+  return transaction(()=>{
+   if(action==='join'){
+    const event=weekendGathering(time,getWeather());if(!event.available)return no('还没到小聚的时间，周末再来看看。');if(state.event||state.visit)return no('先陪完正在进行的小约定。');if(!free(p))return no('它正在忙或想先吃饭休息，晚点再出发。');if(state.quest?.petId===petId)return no('先把街坊托付的东西送好。');
+    // recent is a bounded journal; the per-pet date is the authoritative guard.
+    const m=memory(event.host,p);if(m.eventDate>=time.date)return no('今天已经一起参加过了。');
+    state.event={id:event.id,host:event.host,petId,date:time.date,place:event.place,point:{...event.point},time:0,done:false};go(event.host,event.place,event.point);log('约好了参加'+event.title+'，正在等'+p.entry.profile.name+'走到现场。');return yes('小聚约好了，带它到'+event.venue+'；到场后一起待一会儿。');
+   }
+   if(action==='leave-event'){if(!state.event)return no('现在没有正在参加的小聚。');home(state.event.host);state.event=null;log('这次小聚先告一段落。');return yes('各自慢慢回去，下个周末再见。');}
+   if(!n)return no('没有找到这位街坊。');
+   if(action==='greet'){if(!near(id,p))return no('先带它走到'+n.name+'身边，再打招呼。');if(p.care.state.task||p.career.state.job)return no('先让它忙完眼前的事。');const m=memory(id,p);if(m.lastDate>=time.date)return yes(n.name+'今天已经和'+p.entry.profile.name+'打过招呼了。');m.greetings++;m.lastDate=time.date;remember(id,p);log(n.name+'认识了'+p.entry.profile.name+'，在街上打了招呼。');return yes(m.greetings===1?n.name+'记住了它叫'+m.knownName+'。':n.name+'认出了'+m.knownName+(m.habit?'，还记得它'+m.habit:'')+'。');}
+   if(action==='accept'){if(state.quest)return no('先送完或还回手上的东西。');if(state.visit||state.event)return no('先陪完正在进行的小约定。');if(!near(id,p))return no('先走到'+n.name+'身边拿东西。');if(!free(p))return no('它现在想先忙自己的事，吃饱休息好再来。');if(state.neighbors[id].favors[petId]>=time.date)return no('今天已经帮过这位街坊了。');state.quest={from:id,to:n.to,petId,phase:'carrying',time:0,date:time.date};log(n.name+'把'+n.item+'交给'+p.entry.profile.name+'，等着实际送到。');return yes('拿好了'+n.item+'，送到'+profile(n.to).name+'身边再交给对方。');}
+   if(action==='deliver'){const q=state.quest;if(!q||q.petId!==petId)return no('这只宠物手上没有街坊的托付。');const target=q.phase==='returning'?q.from:q.to;if(id!==target||!near(target,p))return no('先走到收东西的街坊身边。');if(p.care.state.task||p.career.state.job)return no('等它忙完，再把东西交过去。');if(q.phase==='returning'){state.quest=null;log('把'+profile(q.from).item+'还给了'+profile(target).name+'。');return yes('东西已经交还，下次再帮忙。');}q.phase='handoff';q.time=0;log('正把'+profile(q.from).item+'交到'+profile(target).name+'手里。');return yes(q.phase==='returning'?'东西已经还给原来的街坊。':'回到场景，看看它把东西交过去。');}
+   if(action==='return'){if(!state.quest||state.quest.petId!==petId)return no('它手上没有需要还回的东西。');state.quest.phase='returning';state.quest.time=0;return yes('把东西带回'+profile(state.quest.from).name+'身边，再点「交还东西」。');}
+   if(action==='invite'){const m=memory(id,p);if(score(m)<3)return no('再见几次，或帮它送一次东西，熟悉后就能串门。');if(m.lastVisit>=time.date)return no('今天已经约过串门了，改天再聚。');if(state.visit||state.event||state.quest)return no('先陪完正在进行的小约定。');if(!free(p))return no('它现在想先忙自己的事，晚点再请客。');m.lastVisit=time.date;state.visit={id,petId,phase:'going',time:0,date:time.date};go(id,'home');log('邀请'+n.name+'到家串门，对方正在沿街走过来。');return yes(n.name+'沿路来串门了，你也可以带它回家等一会儿。');}
+   if(action==='end-visit'){if(state.visit?.id!==id)return no('这位街坊现在没有在串门。');state.visit.phase='returning';home(id);log('和'+n.name+'道别，它正在回到街上。');return yes('说好了下次再见。');}
+   return no('这件事暂时还做不到。');
+  });
+ }
+ function tick(dt){if(!Number.isFinite(dt)||dt<=0)return;dt=Math.min(dt,.1);const before=structuredClone(state);changed=false;
+  for(const r of routes.values())if(r.state.goal)r.tick(dt,{stayHome:true});
+  const q=state.quest;if(q){const p=row(q.petId),id=q.phase==='returning'?q.from:q.to;if(q.phase==='handoff'){if(near(id,p)&&free(p)){q.time+=dt;if(q.time>=3){remember(q.from,p).favors++;remember(q.to,p).favors++;state.neighbors[q.from].favors[q.petId]=getTime().date;state.quest=null;log(p.entry.profile.name+'真的送到了'+profile(id).name+'手里，这件小托付完成了。');}}else {q.phase='carrying';q.time=0;changed=true;}}}
+  const v=state.visit;if(v){const t=state.neighbors[v.id].town;if(v.phase==='going'&&t.place==='home'&&!t.goal){v.phase='staying';v.time=0;log(profile(v.id).name+'走到家门里了，来陪大家坐一会儿。');const p=row(v.petId);if(near(v.id,p)&&!p.care.state.task){remember(v.id,p).visits++;changed=true;}}else if(v.phase==='staying'){v.time+=dt;if(v.time>=180){v.phase='returning';home(v.id);log(profile(v.id).name+'串门结束，正在回到街上。');}}else if(v.phase==='returning'&&t.place==='outside'&&!t.goal){state.visit=null;changed=true;}}
+  const e=state.event;if(e){const time=getTime(),event=weekendGathering(time,getWeather()),r=routes.get(e.host);if(!event.available||e.date!==time.date||event.id!==e.id){home(e.host);state.event=null;log('这次周末小聚已经结束，街坊慢慢回去。');}else if(event.place!==e.place){e.place=event.place;e.point={...event.point};e.time=0;go(e.host,e.place,e.point);log('天气变了，小聚挪到了'+event.venue+'，等大家重新到场。');}else if(e.place==='cafe'&&r.state.place==='cafe'&&!r.state.goal&&Math.hypot(r.state.position.x-e.point.x,r.state.position.z-e.point.z)>.2){go(e.host,'cafe',e.point);}else if(!e.done){const p=row(e.petId);if(near(e.host,p)&&!r.state.goal&&free(p)){e.time+=dt;if(e.time>=20){const m=remember(e.host,p);m.events++;m.eventDate=time.date;e.done=true;log(p.entry.profile.name+'和'+profile(e.host).name+'一起参加了'+event.title+'。');}}else e.time=0;}}
+  if(changed&&!save())replace(before);
+ }
+ function summary(petId){const p=row(petId),time=getTime(),q=state.quest;return {neighbors:NEIGHBORS.map(n=>{const s=state.neighbors[n.id],m=s.met[petId],level=score(m);return {...n,look:undefined,town:structuredClone(s.town),near:near(n.id,p),familiarity:level,relation:level>=6?'熟悉的街坊':level>=3?'可以串门的朋友':level?'见过面的街坊':'还没认识',memory:m&&level?{...m,knownName:p?.entry.profile.name||m.knownName}:null,place:s.town.place==='home'?'正在你家串门':s.town.goal?'正在路上':s.town.place==='outside'?n.role+'常在的门口':'咖啡店里',canInvite:level>=3&&(!m?.lastVisit||m.lastVisit<time.date)};}),quest:q?{...q,item:profile(q.from).item,petName:row(q.petId)?.entry.profile.name,toName:profile(q.phase==='returning'?q.from:q.to).name}:null,visit:state.visit?{...state.visit,name:profile(state.visit.id).name}:null,event:{...weekendGathering(time,getWeather()),joined:state.event?structuredClone(state.event):null},recent:structuredClone(state.recent).reverse(),local:true};}
+ return {state,tick,request,summary,near,reserves:petId=>state.quest?.petId===petId||state.event?.petId===petId,target:id=>{const t=state.neighbors[id]?.town;return t?{place:t.place,point:{...t.position}}:null;},snapshot:()=>structuredClone(state)};
+}

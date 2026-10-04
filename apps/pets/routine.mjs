@@ -1,17 +1,17 @@
-import {cancelOfflineSkill} from './skills.mjs?v=fg-dddefd2ab1fb071b';
-import {createHousehold} from './home-chores.mjs?v=fg-dddefd2ab1fb071b';
-import {homeUse} from './home-condition.mjs?v=fg-dddefd2ab1fb071b';
-import {choosePetRest} from './habits.mjs?v=fg-dddefd2ab1fb071b';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-dddefd2ab1fb071b';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-dddefd2ab1fb071b';
-import {weather} from '../fairy-garden/world.mjs?v=fg-dddefd2ab1fb071b';
-import {workRoom} from './workplaces.mjs?v=fg-dddefd2ab1fb071b';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-dddefd2ab1fb071b';
-import {createPetCare} from './care.mjs?v=fg-dddefd2ab1fb071b';
-import {createPetCareer} from './career.mjs?v=fg-dddefd2ab1fb071b';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-dddefd2ab1fb071b';
-import {walkRoute} from './movement.mjs?v=fg-dddefd2ab1fb071b';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-dddefd2ab1fb071b';
+import {cancelOfflineSkill} from './skills.mjs?v=fg-c061907def01ea5f';
+import {createHousehold} from './home-chores.mjs?v=fg-c061907def01ea5f';
+import {homeUse} from './home-condition.mjs?v=fg-c061907def01ea5f';
+import {choosePetRest} from './habits.mjs?v=fg-c061907def01ea5f';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-c061907def01ea5f';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-c061907def01ea5f';
+import {weather} from '../fairy-garden/world.mjs?v=fg-c061907def01ea5f';
+import {workRoom} from './workplaces.mjs?v=fg-c061907def01ea5f';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-c061907def01ea5f';
+import {createPetCare} from './care.mjs?v=fg-c061907def01ea5f';
+import {createPetCareer} from './career.mjs?v=fg-c061907def01ea5f';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-c061907def01ea5f';
+import {walkRoute} from './movement.mjs?v=fg-c061907def01ea5f';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-c061907def01ea5f';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}
@@ -46,7 +46,7 @@ function recoverResidentPastime(state,time,seconds){const owner=state.resident,t
 function recoverChores(state,at,elapsed,automatic=false){if(!state.household||elapsed<60)return;const r=state.resident,period=dailyRoutine(realTime(state.clock,at),r.rng),c=createHousehold(state.household,{getRows:()=>state.pets,getActor:actor=>({id:r.id,name:'TA',position:r.town?.position,heading:r.heading,preferences:r.choices?.preferences?.scores,available:actor==='companion'&&!!r.id&&r.town?.place==='home'&&!['sleep','breakfast','lunch','dinner'].includes(period.id)&&!state.pets.some(p=>p.care.helper||p.care.task?.target==='companion:'+r.id)}),now:()=>at});if(c.state.task?.actor==='you'){c.cancel('你不在时先放下了收拾，东西留在实际位置。');return;}if(automatic&&c.state.task)return;if(automatic){c.state.wait=Math.max(0,c.state.wait-Math.min(elapsed,120));c.auto();}if(!c.state.task)return;r.activity=null;for(let t=0;t<Math.min(elapsed,120)&&c.state.task;t+=.1){c.tick(.1);const job=c.state.task;if(job){r.position={...job.position};r.heading=job.heading;r.town.position={...job.position};r.town.heading=job.heading;}}}
 export function recoverPetLife(state,world,at=Date.now()){
  if(!state.clock)return state;
- const resident=state.resident,rl=lifeOf(resident),lead=state.pets.find(p=>p.life?.at&&at-p.life.at>=60000),choreElapsed=rl.at?Math.max(0,(at-rl.at)/1000):0;recoverChores(state,at,choreElapsed);
+ const resident=state.resident,rl=lifeOf(resident),lead=state.pets.find(p=>p.life?.at&&at-p.life.at>=60000),choreElapsed=rl.at?Math.max(0,(at-rl.at)/1000):0;if(choreElapsed>=60&&resident.outing){resident.outing=null;if(resident.town){resident.town.goal=null;resident.town.stop=null;resident.town.phase=resident.town.place==='home'?'idle':'visit';resident.town.hold=0;}}if(lead&&state.neighborhood){const q=state.neighborhood.quest;if(q?.phase==='handoff'){q.phase='carrying';q.time=0;}if(state.neighborhood.event&&!state.neighborhood.event.done)state.neighborhood.event.time=0;}recoverChores(state,at,choreElapsed);
  for(const entry of state.pets){
   if(entry.life?.at&&at-entry.life.at>=60000)cancelOfflineSkill(entry.care);
   const life=lifeOf(entry),before=life.at,places=petHomePlaces(PET_STATIONS[state.pets.indexOf(entry)]);if(!before){life.at=at;continue;}if(at-before<60000)continue;
