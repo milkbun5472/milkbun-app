@@ -1,13 +1,13 @@
-import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-368b5d075633a5d3';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-368b5d075633a5d3';
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-368b5d075633a5d3';
-import {lifeOf,lifeNote} from './routine.mjs?v=fg-368b5d075633a5d3';
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-368b5d075633a5d3';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-368b5d075633a5d3';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-368b5d075633a5d3';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-368b5d075633a5d3';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-368b5d075633a5d3';
-import {turnPet} from './movement.mjs?v=fg-368b5d075633a5d3';
+import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-3bbe391665204944';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-3bbe391665204944';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-3bbe391665204944';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-3bbe391665204944';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-3bbe391665204944';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-3bbe391665204944';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-3bbe391665204944';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-3bbe391665204944';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-3bbe391665204944';
+import {turnPet} from './movement.mjs?v=fg-3bbe391665204944';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
