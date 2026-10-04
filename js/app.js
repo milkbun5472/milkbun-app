@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.801";
+const APP_VERSION = "v74.802";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -420,9 +420,6 @@ function neteaseSharedTitle(input) {
 //   缺席时把心声全丢掉，比放行一条偶尔出戏的更坏。
 // ⚠️turnPatch 那三行是照抄真实实现：「这一轮没有有效心声就清掉旧的」是铁律，
 //   不能因为守卫没加载就失效——那会让状态卡永远冻在上一句。
-// 聊天界面看到的那张脸：TA 在聊天里自己换过（chatAvatar）就用那张，否则就是档案那张。
-//   只给聊天列表和聊天页用；档案、编辑页、锁脸都还读 avatarImage。
-const chatFace = c => c && c.chatAvatar ? { ...c, avatarImage: c.chatAvatar } : c;
 const TVG = {
   accept(value, pronoun) {
     const g = typeof window !== "undefined" && window.ThoughtVoiceGuard;
@@ -4424,7 +4421,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       name: g ? (g.name || "群聊") : (c.remark || c.name || "TA"),
       // 旁观群她本来就不在场，标出来省得以为是有人在跟她说话
       tag: g ? (g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate ? "旁观" : "群") : "",
-      who: g ? { id: g.id, name: g.name, avatarImage: g.avatarImage || g.avatar || "" } : c,
+      who: g ? { id: g.id, name: g.name, avatarImage: g.avatarImage || g.avatar || "" } : chatFace(c),   // 跟聊天里同一张脸（她 2026-10-05）
       text: text, n: count
     };
     setBanners(p => [b, ...p].slice(0, 4));
@@ -28565,7 +28562,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   }), call && h(CallScreen, {
     key: call.sessionId,
     audioSession: call.audioSession,
-    participants: call.participants,
+    participants: (call.participants || []).map(chatFace),   // 通话里也是聊天那张脸
     mode: call.mode,
     msgs: call.msgs,
     // ⚠️通话跑的是 "call" 这条 lane,不是聊天那条。
