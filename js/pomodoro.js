@@ -284,6 +284,38 @@
       h("circle", { cx: R, cy: R, r: 2, fill: t.bg2 }));
   }
 
+  // 背景音那一格（她 2026-10-05）：设置桌上和专注中的浮层用同一份。
+  //   每一层一根滑块，往右拖就叠进去；拖到最左＝不要这一层。声音见 js/ambience.js。
+  function AmbiencePanel({ ink, fog, line, accent, onChange }) {
+    const A = window.Ambience;
+    const [cfg, setCfg] = useState(() => A ? A.load() : { levels: {}, mine: 0, mineName: "" });
+    const [on, setOn] = useState(() => !!(A && A.isPlaying()));
+    const fileRef = useRef(null);
+    if (!A) return null;
+    const set = (k, v) => { const n = A.setLevel(k, v); setCfg({ ...n }); onChange && onChange(n); };
+    const row = (k, zh, val, extra) => h("label", { key: k, style: { display: "flex", alignItems: "center", gap: 10, minHeight: 40 } },
+      h("span", { style: { width: 52, flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: val > 0 ? ink : fog } }, zh),
+      h("input", { type: "range", min: 0, max: 100, value: Math.round(val * 100), "aria-label": zh + "音量",
+        onChange: e => set(k, Number(e.target.value) / 100), style: { flex: 1, minWidth: 0, accentColor: accent } }),
+      extra || null);
+    const toggle = () => { if (on) { A.stop(); setOn(false); } else { A.play(); setOn(true); } };
+    return h("div", null,
+      A.LAYERS.map(([k, zh]) => row(k, zh, Number(cfg.levels[k]) || 0)),
+      cfg.mineName
+        ? row("mine", "我的", cfg.mine, h("button", { onClick: e => { e.preventDefault(); A.clearMine().then(n => setCfg({ ...n })); }, style: { flexShrink: 0, minHeight: 32, padding: "0 4px", fontFamily: F_BODY, fontSize: 11, color: fog, background: "transparent", border: "none" } }, "移除"))
+        : null,
+      h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: 6 } },
+        h("button", { onClick: () => fileRef.current && fileRef.current.click(), style: { minHeight: 36, padding: "0 12px", borderRadius: 999, border: "1px solid " + line, background: "transparent", fontFamily: F_BODY, fontSize: 11.5, color: ink } },
+          cfg.mineName ? "换一段我的音频" : "＋ 用我自己的音频"),
+        h("button", { onClick: toggle, disabled: !A.anyOn(cfg), className: "disabled:opacity-40", style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "none", background: ink, color: "#fdf6e6", fontFamily: F_BODY, fontSize: 11.5 } },
+          on ? "停下背景音" : "放背景音")),
+      cfg.mineName ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10.5, color: fog, lineHeight: 1.6 } }, "我的：" + cfg.mineName + "（iPhone 上它按文件原本的音量放）") : null,
+      h("input", { ref: fileRef, type: "file", accept: "audio/*", style: { display: "none" }, onChange: e => {
+        const f = e.target.files && e.target.files[0]; e.target.value = ""; if (!f) return;
+        A.setMine(f).then(n => n && setCfg({ ...n }));
+      } }));
+  }
+
   function Pomodoro(props) {
     const t = useTheme();
     const uName = (props.profile && props.profile.name) || "我";
@@ -315,6 +347,7 @@
     const sessRef = useRef(null);
     const [left, setLeft] = useState(0);
     const [endOpen, setEndOpen] = useState(false);
+    const [ambOpen, setAmbOpen] = useState(false);   // 专注中打开背景音那一层
     const [result, setResult] = useState(null);
     const [resumed, setResumed] = useState(false);
     const [subtitle, setSubtitle] = useState(null);
@@ -391,6 +424,7 @@
       };
       const next = [rec].concat(loadSaves());
       saveSaves(next); setSaves(next); clearActive();
+      if (window.Ambience) window.Ambience.stop();   // 收桌，声音也收
       setResult({ rec, char: s.char }); setEndOpen(false); setView("result");
       // 收桌就往 TA 的私聊里放一张小卡（不另调模型：批注是开场那一次就写好的）
       if (props.onShare) { try { props.onShare(rec, s.char); } catch (e) {} }
@@ -438,6 +472,8 @@
       const now = Date.now();
       const next = { char: c, charId: c.id, curId: curId || null, pack, category, extraLines: [], min: duration, task: task.trim() || "专注", mode, startTs: now, endTs: now + duration * 60000, pausedAt: null, pauseCount: 0 };
       pokeRef.current = { at: 0, turn: 0 }; keepSession(next); setLeft(duration * 60); setBusy(false); setResumed(false); setView("focus");
+      // 调好了背景音就跟着上发条一起响；退出 App 也不停（<audio> 那一路，见 ambience.js）
+      if (window.Ambience && window.Ambience.anyOn()) window.Ambience.play();
     };
 
     const more = async () => {
@@ -476,8 +512,8 @@
       const s = sessRef.current; if (!s) return;
       if (stopSpeechRef.current) stopSpeechRef.current();
       const now = Date.now();
-      if (s.pausedAt) keepSession(resumeSession(s, now));
-      else keepSession({ ...s, pausedAt: now, pauseCount: (s.pauseCount || 0) + 1 });
+      if (s.pausedAt) { keepSession(resumeSession(s, now)); if (window.Ambience && window.Ambience.anyOn()) window.Ambience.play(); }
+      else { keepSession({ ...s, pausedAt: now, pauseCount: (s.pauseCount || 0) + 1 }); if (window.Ambience) window.Ambience.stop(); }
     };
 
     if (view === "result" && result) {
@@ -598,6 +634,7 @@
             h("span", { style: { overflowWrap: "anywhere", maxHeight: 42, overflowY: "auto", lineHeight: 1.7 } }, sess.task),
             h("span", { style: { flexShrink: 0, fontSize: 10 } }, "已坐住 " + Math.floor((sess.min * 60 - left) / 60) + " 分钟")),
           h("div", { "data-wk": "pommore", style: { display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginTop: 12 } },
+            h("button", { onClick: () => setAmbOpen(true), "aria-label": "背景音", style: { minHeight: 40, padding: "0 10px", borderRadius: 3, border: "1px solid rgba(246,239,223,.26)", background: "transparent", color: dim, fontFamily: F_BODY, fontSize: 11 } }, "背景音"),
             h("button", { onClick: more, disabled: moreBusy, "aria-label": "再说几句", style: { minHeight: 40, padding: "0 14px", borderRadius: 3, border: "1px solid rgba(246,239,223,.38)", background: "rgba(246,239,223,.06)", color: cream, fontFamily: F_BODY, fontSize: 12, opacity: moreBusy ? .6 : 1 } }, moreBusy ? "正在想新的几句…" : "再说几句"),
             (sess.extraLines || []).length ? h("button", { onClick: () => {
               const choices = tapChoices(sess), index = choices.findIndex(x => x.extraId); if (stopSpeechRef.current) stopSpeechRef.current();
@@ -605,6 +642,10 @@
             }, style: { minHeight: 40, padding: "0 3px", border: "none", background: "transparent", color: dim, fontFamily: F_BODY, fontSize: 10.5 } }, "已留 " + sess.extraLines.length + " 句 · 翻一翻") : h("span", { style: { color: dim, fontFamily: F_BODY, fontSize: 10 } }, "点了才准备新话")),
           sess.moreError ? h("div", { role: "alert", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: dim } }, "这次没续上，原来的纸条还在。",
             h("details", null, h("summary", { style: { paddingTop: 5, cursor: "pointer" } }, "查看原因"), h("div", { style: { maxHeight: 65, overflowY: "auto", overflowWrap: "anywhere", paddingTop: 5 } }, sess.moreError))) : null),
+        ambOpen ? h("div", { role: "dialog", "aria-modal": "true", "aria-label": "背景音", className: "absolute inset-0 flex flex-col", style: { zIndex: 20, background: "#eee6d6", color: "#3c382e" } },
+          h(Head, { zh: "背景音", onBack: () => setAmbOpen(false), bg: "transparent", ink: "#3c382e" }),
+          h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "16px 24px calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
+            h(AmbiencePanel, { ink: "#3a3024", fog: "#8a7a5e", line: "rgba(90,72,44,.28)", accent: "#8c743c" }))) : null,
         endOpen ? h("div", { role: "dialog", "aria-modal": "true", "aria-label": "收桌确认", className: "absolute inset-0 flex flex-col", style: { zIndex: 20, background: "#eee6d6", color: "#3c382e" } },
           h(Head, { zh: "收桌", onBack: () => setEndOpen(false), bg: "transparent", ink: "#3c382e" }),
           h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "32px 24px calc(env(safe-area-inset-bottom) * 0.4 + 24px)" } },
@@ -716,6 +757,13 @@
             [{ id: "quiet", name: "安静", desc: "轻戳才回应，平时安静陪你" },
              { id: "notes", name: "递纸条", desc: "节点递纸条，轻戳也有回应" },
              { id: "checkpoints", name: "报时", desc: "节点提醒，轻戳看当前进度" }].map(modeCard))),
+        // ⑤ 背景音：桌边一台小收音机，几层声音拧着叠
+        h("div", { style: { marginTop: 22 } },
+          h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 6 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#3a3024" } }, "背景音"),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7a5e" } }, "上发条时一起响，退出 App 也不停")),
+          h("div", { style: { background: "rgba(255,253,246,.6)", border: "1px solid rgba(90,72,44,.16)", borderRadius: 3, padding: "8px 12px 12px" } },
+            h(AmbiencePanel, { ink: "#3a3024", fog: "#8a7a5e", line: "rgba(90,72,44,.28)", accent: "#8c743c" }))),
         h("button", { onClick: start, disabled: busy || !cur, className: "w-full active:opacity-80 disabled:opacity-40",
           style: { marginTop: 24, background: t.ink, color: t.bg2, border: "none", borderRadius: 3,
             padding: "15px 16px", display: "flex", alignItems: "center", justifyContent: "space-between",
