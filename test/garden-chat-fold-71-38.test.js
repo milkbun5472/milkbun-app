@@ -21,12 +21,12 @@ test("说话那一层三档：收着／只留一条／点开才长高", () => {
 // 她 2026-09-18：「从游戏界面进是不显示聊天记录的，只有从房间里面进才有」
 test("两条路进来都看得到这间房的记录，而且只取最近 100 条", () => {
   assert.match(app, /const GARDEN_LOG = 100;/);
-  assert.match(app, /const gardenHistory = key => \(chats\[key\] \|\| \[\]\)/);
+  assert.match(app, /const gardenHistory = \(key,world,archiveId,legacy=false\) =>/);
   assert.match(app, /\.slice\(-GARDEN_LOG\)/, "整本几千条塞进那层小面板就是开局卡住");
-  assert.match(app, /history: gardenHistory\(key\)/, "从房间进来那一处也走同一个");
+  assert.match(app, /record: gardenRecord\(key\)/, "从房间进来那一处也走同一个");
   assert.match(app, /recordFor: gardenRecordFor/);
-  assert.match(host, /props\.record \|\| \(props\.recordFor \? props\.recordFor\(storeKey\.current\) : null\)/);
-  assert.equal((app.match(/kind: "garden" \}\)\)\]\)/g) || []).length, 2, "写回那一段两处，形状要一样");
+  assert.match(host, /worldRecord\(props,storeKey.current,'garden',entry\)/);
+  assert.equal((app.match(/const gardenRecord = key =>/g) || []).length, 1, "两条入口共用同一写回机制");
 });
 
 // 她 2026-09-18：「坐下来为什么朝向还是不对」「坐上去下不来了，显示没有空地可以走」

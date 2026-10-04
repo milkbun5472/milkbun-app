@@ -182,13 +182,45 @@
           kit.promiseSummaries(archive.worlds?.train||{}).slice().reverse().map(p=>h('section',{key:p.id,style:{borderBottom:'1px solid '+G.line,padding:'8px 0',marginBottom:12}},h('h3',{style:{fontSize:14,fontWeight:500}},'第 '+p.trip+' 趟 · 拍照约定'),h('p',{style:{fontSize:12}},'你：'+p.you.theme+' · '+p.you.status),p.companion&&h('p',{style:{fontSize:12}},p.companion.name+'：'+p.companion.theme+' · '+p.companion.status))),rows.length?['puzzle','photo'].map(kind=>{const group=rows.filter(x=>x.kind===kind);return group.length?h('section',{key:kind,style:{marginBottom:22}},h('h3',{style:{fontFamily:F_BODY,fontSize:14,fontWeight:500}},kind==='puzzle'?'拼好的风景':'旅途照片'),h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},group.map(x=>h('button',{key:x.id,onClick:()=>{scrollAt.current=scroll.current?.scrollTop||0;setSelected(x.id);setMessage('');setConfirm(false);},style:{padding:6,border:'1px solid '+G.line,borderRadius:9,background:'#fffaf0',textAlign:'left',color:G.ink}},h('img',{src:x.src,alt:x.label,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'3/2',objectFit:'contain'}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.6,padding:5}},x.label),x.kind==='photo'&&h('span',{style:{fontSize:11,color:G.soft,padding:5}},kit.photographerLabel(x)))))):null;}):h('p',null,'还没有照片，坐上列车，用取景器留下一张风景吧。')),
         message&&h('p',{role:'status',style:{fontSize:12,lineHeight:1.8,color:G.deep,marginTop:14}},message)));
   }
-  // Train and pet chat share room ownership, permitted history and turn storage.
-  const worldRecord=(p,key)=>p.record||(p.recordFor?p.recordFor(key):null);
-  const worldHistory=(p,key,d)=>worldRecord(p,key)?.history||((d.dialogs||{})[d.partnerId]||[]).filter(m=>m.status==='done');
-  function storeWorldTurn(key,current,record,cid,text,out,limit=Infinity){
+  // One record, partitioned by archive and world. Untagged old replies remain readable,
+  // but cannot establish which world they happened in and never enter a world prompt.
+  const DIALOG_WORLDS = new Set(['garden','train','pets']);
+  const dialogStamp = (world, archiveId) => {
+    if(!DIALOG_WORLDS.has(world)||!String(archiveId||''))throw Error('对话来源异常，暂未写入。');
+    return {gameWorld:world,gameArchiveId:String(archiveId)};
+  };
+  const scopedDialog = (m, world, archiveId) => !!m && m.gameWorld===world && String(m.gameArchiveId||'')===String(archiveId||'');
+  const selectDialogs = (rows, world, archiveId) => (Array.isArray(rows)?rows:[]).filter(m=>scopedDialog(m,world,archiveId));
+  // Only garden ever wrote untagged pending/failed requests; completed legacy turns are ambiguous.
+  const oldGardenRequest = m => m && !m.gameWorld && m.role==='user' && ['pending','failed'].includes(m.status);
+  const localDialogs = (d,cid,world) => ((d.dialogs||{})[cid]||[]).filter(m=>scopedDialog(m,world,d.id)||(world==='garden'&&oldGardenRequest(m)));
+  function replaceDialogs(d,cid,world,rows,limit=200){
+    const old=(d.dialogs||{})[cid]||[],stamp=dialogStamp(world,d.id);
+    const kept=old.filter(m=>!scopedDialog(m,world,d.id)&&!(world==='garden'&&oldGardenRequest(m)));
+    return {...d,dialogs:{...(d.dialogs||{}),[cid]:kept.concat(rows.slice(-limit).map(m=>({...m,...stamp})))}};
+  }
+  const worldRecord=(p,key,world,d)=>{
+    const raw=p.record||(p.recordFor?p.recordFor(key):null);if(!raw)return null;
+    return {history:raw.historyFor?raw.historyFor(world,d.id):selectDialogs(raw.history,world,d.id),
+      legacy:raw.legacyHistory||[],hasMainline:!!raw.mainlineFor,mainline:()=>raw.mainlineFor?.(world,d.id)||'',onTurn:turn=>raw.onTurn({...turn,...dialogStamp(world,d.id)})};
+  };
+  const worldMainline=(p,key,d,world,cid)=>{
+    const raw=p.record||(p.recordFor?p.recordFor(key):null);
+    return raw?.mainlineFor?raw.mainlineFor(world,d.id):p.mainline||(p.mainlineFor?p.mainlineFor(cid):'');
+  };
+  const worldHistory=(p,key,d,world)=>worldRecord(p,key,world,d)?.history||localDialogs(d,d.partnerId,world).filter(m=>m.status==='done');
+  function storeWorldTurn(key,current,record,cid,text,out,limit=Infinity,world='garden'){
     const parts=out.parts||[out.reply];
     if(record?.onTurn)record.onTurn({text,reply:out.reply,parts});
-    else{const d=current();write(key,{...d,dialogs:{...(d.dialogs||{}),[cid]:[...((d.dialogs||{})[cid]||[]),...(text?[{role:'user',content:text,status:'done'}]:[]),...parts.map(content=>({role:'assistant',content,status:'done'}))].slice(-limit)}});}
+    else{const d=current();write(key,replaceDialogs(d,cid,world,[...localDialogs(d,cid,world),...(text?[{role:'user',content:text,status:'done'}]:[]),...parts.map(content=>({role:'assistant',content,status:'done'}))],limit));}
+  }
+  root.FairyWorldDialogs={stamp:dialogStamp,select:selectDialogs,local:localDialogs,replace:replaceDialogs};
+  function LegacyWorldDialogs({record,archive,cid}){
+    const rows=record?record.legacy:((archive.dialogs||{})[cid]||[]).filter(m=>m&&!m.gameWorld&&m.status==='done').slice(-100);
+    if(!rows.length)return null;
+    return h('details',{'data-world-legacy':true,style:{fontSize:12,lineHeight:1.8,margin:'10px 0'}},
+      h('summary',null,'分开前的共用记录'),h('p',null,'这些旧话没有标明发生在哪个世界，保留在这里翻看。新的对话会各自记下。'),
+      rows.map((m,i)=>h('p',{key:m.id||i,style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}},(m.role==='user'?'你':'TA')+'：'+m.content)));
   }
   // Pet pages share the existing full-page / composer geometry; their material belongs to the town.
   function PetSeal({kind='paw',size=24}){
@@ -218,8 +250,8 @@
     const [careerTab,setCareerTab]=useState('today'),panelScroll=useRef(null),panelPositions=useRef({}),panelReturn=useRef(''),[careerView,setCareerView]=useState(null),[careerNotice,setCareerNotice]=useState(''),[careView,setCareView]=useState(null),[loaded,setLoaded]=useState(false),[panel,setPanel]=useState(''),[error,setError]=useState(''),[profile,setProfile]=useState({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});
     const current=()=>{const stall=vaultStalled(key);if(stall)throw Error(stall);const d=loadJSON(key,null)||seed.current;if(d.id!==owner.current||String(d.partnerId||'')!==ownerPartner.current)throw Error('存档已切换，请重新进入绒绒小镇。');return root.GameClock.archive(d);};
     const chatReturn=useRef(''),talking=useRef(false),alive=useRef(true),chatScroll=useRef(null);const [draft,setDraft]=useState(''),[chatBusy,setChatBusy]=useState(false),[chatRows,setChatRows]=useState([]),[chatNotice,setChatNotice]=useState('');
-    const record=()=>worldRecord(latest.current,key);
-    const history=()=>worldHistory(latest.current,key,current());
+    const record=()=>worldRecord(latest.current,key,'pets',current());
+    const history=()=>worldHistory(latest.current,key,current(),'pets');
     const character=()=>{const d=current();return(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;};
     const openChat=()=>{game()?.wakeCompanion?.();chatReturn.current=panel;setChatRows(history().slice(-100));setPanel('chat');setError('');};
     const game=()=>frame.current?.contentWindow.PetGame;
@@ -264,10 +296,10 @@
     async function sendChat(e){e.preventDefault();const text=draft.trim(),c=character(),node=frame.current;if(!text||!c||talking.current)return;talking.current=true;setChatBusy(true);setError('');setChatNotice('');try{
       if(!game()?.flush())throw Error('进度还没有保存成功，请先重试保存。');
       const p=latest.current,cid=c.id,world=game().chatContext();const account=root.Cloud?.getSessionUser?await root.Cloud.getSessionUser().catch(()=>null):null;
-      const out=await ask({active:p.apiFor?p.apiFor(cid):p.active,character:c,profile:p.profile,world,history:history().slice(-100),text,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(cid):''),engineer:!!p.isEngineer?.(cid)});
+      const out=await ask({active:p.apiFor?p.apiFor(cid):p.active,character:c,profile:p.profile,world,history:history().slice(-100),text,mainline:worldMainline(p,key,current(),'pets',cid),engineer:!!p.isEngineer?.(cid)});
       const accountNow=root.Cloud?.getSessionUser?await root.Cloud.getSessionUser().catch(()=>null):null;
       if(!alive.current||frame.current!==node||String(current().partnerId)!==String(cid)||String(account?.id||'')!==String(accountNow?.id||''))throw Error('角色或存档已经变更，这句回复没有写入其他房间。');
-      const parts=out.parts||[out.reply];storeWorldTurn(key,current,record(),cid,text,out,200);
+      const parts=out.parts||[out.reply];storeWorldTurn(key,current,record(),cid,text,out,200,'pets');
       setChatRows(rows=>[...rows,{role:'user',content:text},...parts.map(content=>({role:'assistant',content}))].slice(-100));setDraft('');
       if(out.workChoice){const result=game().snapshot().activePetId!==world.activePetId?{text:'同行的小家伙变了，这个主意留给原来那只。'}:game().careerAction('choose',{...out.workChoice,by:c.remark||c.name});setChatNotice(result.text);}
       if(out.petAction){const result=game().companionAction(out.petAction,out.petId||world.activePetId);setChatNotice(result.text+' 回到场景就能看它们互动。');}
@@ -285,7 +317,8 @@
         error&&h('p',{role:'alert',style:{position:'absolute',left:10,right:10,bottom:panel==='pet'?'64%':70,zIndex:12,background:'#fff5e7',padding:10,color:'#994a36'}},error),
         panel==='chat'&&h('section',{'data-pet-chat':true,'aria-label':'小镇聊天',className:'pet-chat-page absolute inset-0 flex flex-col',style:{zIndex:10}},
           h('div',{ref:chatScroll,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:'12px 16px'}},
-            h('div',{className:'pet-chat-note'},h(PetSeal,{kind:'paw',size:24}),h('p',null,'一边照顾它，一边和'+(c?.remark||c?.name||'TA')+'说说话。'),h('details',null,h('summary',null,'关于这一档的对话'),h('p',null,'沿用本房间的记忆权限。回到场景后继续生活，准备中的照料在那里发生。'))),
+            h('div',{className:'pet-chat-note'},h(PetSeal,{kind:'paw',size:24}),h('p',null,'一边照顾它，一边和'+(c?.remark||c?.name||'TA')+'说说话。'),h('details',null,h('summary',null,'关于这一档的对话'),h('p',null,'这页只显示这一档在绒绒小镇说过的话，手机房间仍能看全。记忆权限沿用本房间设置；准备中的照料回场景后发生。'))),
+            h(LegacyWorldDialogs,{record:record(),archive:current(),cid:c?.id}),
             ...chatRows.map((m,i)=>h('div',{key:i,className:'pet-chat-row '+(m.role==='user'?'pet-chat-you':'pet-chat-ta')},h('span',{className:'pet-chat-author'},m.role==='user'?'你':c?.remark||c?.name||'TA'),h('p',{className:'pet-chat-bubble'},m.content))),
             chatBusy&&h('p',{role:'status'},'TA正在回复…'),chatNotice&&h('p',{role:'status',style:{fontSize:13,lineHeight:1.8}},chatNotice),
             h('div',{'aria-label':'请TA照料宠物',className:'pet-chat-care-actions'},...[['feed','请TA添粮'],['play','请TA陪玩'],['pet','请TA摸摸']].map(([action,label])=>h('button',{key:action,disabled:chatBusy,className:'pet-chat-care-action',onClick:()=>{const result=game()?.companionAction(action);setChatNotice(result?.text||'先回家吧。');}},label)))),
@@ -399,8 +432,8 @@
     const leave=to=>savedAction(()=>to?props.onTravel(to,{station:true}):props.onBack());
     const newRoom=id=>savedAction(()=>props.onNewGardenRoom(id,"train"));
     const d=read(key),c=(props.characters||[]).find(c=>String(c.id)===String(d.partnerId));
-    const trainRecord=()=>worldRecord(latest.current,key);
-    const trainHistory=()=>worldHistory(latest.current,key,current());
+    const trainRecord=()=>worldRecord(latest.current,key,'train',current());
+    const trainHistory=()=>worldHistory(latest.current,key,current(),'train');
     async function trainChat(text,puzzle,automatic=false){
       if(talking.current)throw Error("上一句还在回复，稍等一下。");
       const p=latest.current,d=current(),cid=d.partnerId,c=(p.characters||[]).find(c=>String(c.id)===String(cid)),node=frame.current;
@@ -409,9 +442,9 @@
       if(!automatic)node.contentWindow.TrainGame?.speak(text,"me");
       talking.current=true;
       try{
-        const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(c.id):""),engineer:!!(p.isEngineer&&p.isEngineer(c.id))});
+        const out=await ask({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,world:{...node.contentWindow.TrainGame.chatContext(),puzzle:puzzle?{...puzzle}:null,puzzleLastMove:puzzle?d.worlds.train?.puzzleLastMove:null},history:history.slice(-100),text,event:automatic,mainline:worldMainline(p,key,current(),'train',c.id),engineer:!!(p.isEngineer&&p.isEngineer(c.id))});
         if(frame.current!==node)throw Error("已经离开这桌拼图，回复未写入其他房间。");
-        current();storeWorldTurn(key,current,record,cid,automatic?'':text,out);
+        if(String(current().partnerId)!==String(cid))throw Error('同行者已经变更，回复未写入其他角色。');storeWorldTurn(key,current,record,cid,automatic?'':text,out,Infinity,'train');
         node.contentWindow.TrainGame?.speak(out.parts,"companion");
         if(out.move)node.contentWindow.TrainGame?.companionMove?.(out.move);
         return out;
@@ -426,7 +459,7 @@
     const pushTrainLook=patch=>{const g=trainGame();if(!g||!g.setLook)return;if(!g.setLook(who,patch)){props.toast("这次没存上，样貌还是原来的。");return;}pullLook();};
     // 背面写字：先落列车相册，已经带回庭院的那一幅跟着改
     const noteBack=async(item,who,text)=>{const g=frame.current?.contentWindow.TrainGame;if(!g)throw Error("列车还没准备好");g.editAlbum({kind:'note',id:item.id,who,text});const m=await import('../apps/fairy-garden/world.mjs?v='+BUILD),d=current(),row=[...(d.worlds?.train?.artworks||[]),...(d.worlds?.train?.photos||[])].find(x=>x.id===item.id),old=worldOf(d,'garden');if(!row||!old)return;const garden=m.updateTravelBack(m.restoreState(old),item.id,row);write(key,{...d,world:garden,worlds:{...(d.worlds||{}),garden}});};
-    const askBack=async item=>{const p=latest.current,d=current(),ch=(p.characters||[]).find(x=>String(x.id)===String(d.partnerId));if(!ch)throw Error("这一档还没有同行者。");const pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(ch.id):p.active,character:ch,profile:p.profile,mainline:p.mainline||(p.mainlineFor?p.mainlineFor(ch.id):""),item,lines:pm.puzzleMemoryLines(item.memory),history:trainHistory().slice(-30)});await noteBack(item,'companion',line);};
+    const askBack=async item=>{const p=latest.current,d=current(),ch=(p.characters||[]).find(x=>String(x.id)===String(d.partnerId));if(!ch)throw Error("这一档还没有同行者。");const pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(ch.id):p.active,character:ch,profile:p.profile,mainline:worldMainline(p,key,current(),'train',ch.id),item,lines:pm.puzzleMemoryLines(item.memory),history:trainHistory().slice(-30)});await noteBack(item,'companion',line);};
     const small={...pickButtonStyle(),padding:"5px 10px",fontSize:12};
     const page=(title,back,body)=>h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
       h(Head,{zh:title,bg:"transparent",ink:G.ink,onBack:back}),body);
@@ -454,6 +487,7 @@
           h(TrainSwitch,{label:"拼图时 TA 自己开口",note:"一起拼的时候，拼到一段、拼完、想请你帮忙时 TA 会自己说一句。关了就只在你说话时回。",storeKey:"x_trainAutoTalk",fallback:true}),
           h(TrainSwitch,{label:"念出来",note:c&&c.voiceId?"TA 说的每一句都念出来，念完这句才冒下一句。和庭院是同一个开关。":"要先在角色资料里给 TA 选一个声音，才念得出来。和庭院是同一个开关。",storeKey:"x_fairyGardenVoice",fallback:false,onChange:on=>{if(!on)aloud.current.stop();}}),
           h("button",{style:pickButtonStyle(),onClick:()=>setPanel("partner")},"选同行者，开新房间")),
+        h(LegacyWorldDialogs,{record:trainRecord(),archive:current(),cid:current().partnerId}),
         h("p",{style:{fontFamily:F_BODY,fontSize:12,lineHeight:1.8,color:G.soft,marginTop:16}},"新房间会先让你设置名称、设定和记忆权限。原来的房间与存档都会保留。"))),
       panel==="partner"&&page("选择同行者",()=>setPanel("settings"),partnerPickBody({characters:props.characters,live:[],error,
         note:"选一位同行者，再设置新房间，开始你们的列车旅程。",onPick:newRoom})));
@@ -1124,6 +1158,8 @@
     // 小世界这条路的同行者是按存档挑的、会换人，所以要的是【一个函数】不是一段字：
     //   问它要谁的，它就现拼谁的。房间那条路锁死一个人，传进来的那段照旧直接用。
     const mainlineNow = () => {
+      const raw=worldRecord(propsRef.current,storeKey.current,'garden',current());
+      if(raw?.hasMainline)return raw.mainline();
       const fixed = String(propsRef.current.mainline || "").trim();
       if (fixed) return fixed;
       const c = partner(); if (!c) return "";
@@ -1233,8 +1269,8 @@
             // ⚠️他说的话跟她问出来的那些落在同一处：不另开一本，不然聊天记录就有两份
             const record = recordRef.current;
             if (record) record.onTurn({ text: "", reply: parts.join("\n"), parts: parts });
-            else update(old => ({ ...old, dialogs: { ...old.dialogs, [c.id]: ((old.dialogs || {})[c.id] || [])
-              .concat(parts.map((part, i) => ({ id: "miss_" + Date.now() + "_" + i, role: "assistant", content: part, status: "done" }))).slice(-200) } }));
+            else update(old => replaceDialogs(old,c.id,'garden',localDialogs(old,c.id,'garden')
+              .concat(parts.map((part, i) => ({ id: "miss_" + Date.now() + "_" + i, role: "assistant", content: part, status: "done" })))));
             return parts;
           } finally { busyRef.current = false; if (alive.current) setBusy(false); }
         },
@@ -1418,18 +1454,18 @@
       });
     };
     // ── 说过的话只有一份 ────────────────────────────────────────────────
-    // 庭院房里，那一份就是【这间房的聊天记录】（父页递来的 record.history）：
+    // 庭院房里，那一份就是【这间房的聊天记录】，游戏按存档与世界筛选：
     // 主聊天那边翻得到，「能进记忆」「总结回主线」这些开关也才有东西可带。
     // 存档里只留还没落定的那几条（pending/failed）——重试要靠它认领，
     // 落定之后立刻交给房间，不在这儿留第二份。
-    // 首页试玩没有房间可写，仍旧全存在自己的存档里（行为不变）。
+    // 首页试玩没有房间可写，三世界对话仍保存在原存档，各自保留最近200条。
     // ⚠️从房间进来时 app.js 直接给 record；从【小世界那条路】进来时它给的是 recordFor，
     //   按这一档的钥匙现取（她 2026-09-18：「从游戏界面进是不显示聊天记录的」）。
-    const record = props.record || (props.recordFor ? props.recordFor(storeKey.current) : null) || null;
+    const record = worldRecord(props,storeKey.current,'garden',entry);
     recordRef.current = record;   // ⚠️回调里一律读这一份：props.record 只有从房间进来才有
     const doneHistory = (d, cid) => record
       ? ((recordRef.current && recordRef.current.history) || [])
-      : ((d.dialogs || {})[cid] || []).filter(m => m.status === "done");
+      : localDialogs(d,cid,'garden').filter(m => m.status === "done");
     // ── 样貌（她 2026-09-16 接着要的）─────────────────────────────────────
     // 一个身体十二款头发，换一款是数据：这儿只管把选择递给游戏，存档由游戏那头写。
     // 清单从 apps/fairy-garden/doll.json 拿——发型名单和六个体型参数的上下限都在里面，
@@ -1559,7 +1595,7 @@
       pullLook();
     };
     const char = (props.characters || []).find(c => String(c.id) === String(entry.partnerId));
-    const localRows = (entry.dialogs && entry.dialogs[entry.partnerId]) || [];
+    const localRows = localDialogs(entry,entry.partnerId,'garden');
     const rows = record
       ? (record.history || []).concat(localRows.filter(m => m && m.status !== "done"))
       : localRows;
@@ -1578,7 +1614,7 @@
       busyRef.current = true; setBusy(true); setError(""); setDetail("");
       try {
         flush(); const world = game().snapshot();
-        const d = update(old => { const previous = (old.dialogs || {})[cid] || [], next = pending ? previous.map(m => m.id === pending.id ? { ...m, request, status: "pending" } : m) : previous.concat({ id: request, request, role: "user", content: text, status: "pending" }); return { ...old, dialogs: { ...old.dialogs, [cid]: next.slice(-200) } }; });
+        const d = update(old => { const previous = localDialogs(old,cid,'garden'), next = pending ? previous.map(m => m.id === pending.id ? { ...m, request, status: "pending" } : m) : previous.concat({ id: request, request, role: "user", content: text, status: "pending" }); return replaceDialogs(old,cid,'garden',next); });
         setDraft("");
         // 她自己说的那句也浮到她头顶上（她 2026-09-17：「我自己说话也要气泡」）。
         // ⚠️和他那只走同一个 speak()，只是 who 不同：另写一套的话，
@@ -1591,7 +1627,7 @@
         const accountNow = root.Cloud && root.Cloud.getSessionUser ? await root.Cloud.getSessionUser().catch(() => null) : null;
         if (!alive.current || serial.current !== epoch) return;
         const latest = current();
-        if (String(latest.partnerId) !== String(cid) || !partner() || String(account && account.id || "") !== String(accountNow && accountNow.id || "") || !(latest.dialogs[cid] || []).some(m => m.request === request && m.status === "pending")) throw new Error("角色或存档已变更，这次回复没有写入。");
+        if (String(latest.partnerId) !== String(cid) || !partner() || String(account && account.id || "") !== String(accountNow && accountNow.id || "") || !localDialogs(latest,cid,'garden').some(m => m.request === request && m.status === "pending")) throw new Error("角色或存档已变更，这次回复没有写入。");
         // 第一只气泡的那段静默（她 2026-09-19：「第一个气泡也是」）：
         // 下面还要写房间、写存档、过一遍 React，之后才轮到 speak() 去念。
         // 那几步跟合成没有先后关系，所以在这儿就先把头一句发出去合成——
@@ -1602,14 +1638,14 @@
           // 先把这一轮交给房间（它才是记录），再把存档里那条在途的撤掉——
           // 顺序反过来的话，中间那一瞬这句话谁都没有。
           recordRef.current.onTurn({ text: text, reply: result.reply, parts: result.parts });
-          update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).filter(m => m.request !== request) } }));
-        } else update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: old.dialogs[cid].map(m => m.request === request ? { ...m, status: "done" } : m).concat(result.parts.map((part, i) => ({ id: request + "_reply" + (i ? "_" + i : ""), role: "assistant", content: part, status: "done" }))).slice(-200) } }));
+          update(old => replaceDialogs(old,cid,'garden',localDialogs(old,cid,'garden').filter(m => m.request !== request)));
+        } else update(old => replaceDialogs(old,cid,'garden',localDialogs(old,cid,'garden').map(m => m.request === request ? { ...m, status: "done" } : m).concat(result.parts.map((part, i) => ({ id: request + "_reply" + (i ? "_" + i : ""), role: "assistant", content: part, status: "done" })))));
         // 他刚说的那句话浮到他头顶上（她 2026-09-17）。⚠️只是把已经收到的这句显示一遍，
         //   不另存一份、也不另发一次——聊天记录仍旧只有上面那一处。
         try { if (game() && game().speak) game().speak(result.parts); } catch (e) {}
         const accepted = game() && game().applyAction(result.action); if (!accepted) props.toast("回复已保存，这个动作暂时无法执行。");
       } catch (e) {
-        if (alive.current && serial.current === epoch) { setError(e.message || "这次没能连上，稍后可以重试。"); setDetail(e.detail || ""); try { update(old => ({ ...old, dialogs: { ...old.dialogs, [cid]: (old.dialogs[cid] || []).map(m => m.request === request ? { ...m, status: "failed" } : m) } })); } catch (_) {} }
+        if (alive.current && serial.current === epoch) { setError(e.message || "这次没能连上，稍后可以重试。"); setDetail(e.detail || ""); try { update(old => replaceDialogs(old,cid,'garden',localDialogs(old,cid,'garden').map(m => m.request === request ? { ...m, status: "failed" } : m))); } catch (_) {} }
       } finally { busyRef.current = false; if (alive.current) setBusy(false); }
     }
     // ── 这一页的按键（她 2026-09-16：「那些按键的 ui 好拥挤」）─────────────
@@ -1648,8 +1684,8 @@
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
         openFrameT&&h(FrameSheet,{thing:openFrameT,busy:frameBusy,onClose:()=>setFrame(null),
           onNote:(who,text)=>frameAct(async()=>{await gardenBack(openFrameT.sourceId,who,text);}),
-          onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
-        travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:((current().dialogs||{})[c.id]||[]).filter(m=>m.status==="done").slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
+          onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:doneHistory(current(),c.id).slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
+        travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:doneHistory(current(),c.id).slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
         book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           h("button",{style:{...pickButtonStyle(),margin:"12px 16px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("pets");}catch(e){props.toast(e.message);}}},"进入绒绒小镇"),
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
@@ -2046,6 +2082,7 @@
               style: { border: 0, background: "transparent", color: G.soft, fontSize: 15, minWidth: 40, minHeight: 34, lineHeight: 1 } },
               chat === "tall" ? "⌄" : "⌃")),
           chat === "tall" ? h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
+            h(LegacyWorldDialogs,{record,archive:entry,cid:entry.partnerId}),
             rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
               h("div", { style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),

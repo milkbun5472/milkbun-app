@@ -2885,20 +2885,28 @@ function App() {
   // 庭院那层小面板里的聊天记录：两条路（从房间进、从小世界进）共用这一处，
   // 只取最近这些条——整本几千条塞进去就是开局白屏（她 2026-09-18 报的卡）。
   const GARDEN_LOG = 100;
-  const gardenHistory = key => (chats[key] || [])
-    .filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant"))
-    .slice(-GARDEN_LOG)
-    .map(m => ({ id: m.ts + ":" + m.role, role: m.role, content: m.content, status: "done" }));
-  // 小世界那条路进来时，这一档的钥匙反过来就是那间房的聊天键
+  const gardenHistory = (key,world,archiveId,legacy=false) => {
+    const all=(chats[key]||[]).filter(m=>m&&!m.recalled&&m.content&&(m.role==='user'||m.role==='assistant'));
+    const rows=legacy?all.filter(m=>m.kind==='garden'&&!m.gameWorld):world?window.FairyWorldDialogs.select(all,world,archiveId):all;
+    return rows.slice(-GARDEN_LOG).map(m=>({...m,id:m.ts+':'+m.role,status:'done'}));
+  };
+  // Phone chat keeps the full room stream. Games select their own world before limiting history.
+  const gardenRecord = key => ({
+    historyFor:(world,archiveId)=>gardenHistory(key,world,archiveId),
+    mainlineFor:(world,archiveId)=>{
+      const personId=window.ChatRooms.personFromKey(key),c=(characters||[]).find(c=>String(c.id)===personId),room=window.ChatRooms.list(personId).find(r=>window.ChatRooms.chatKey(personId,r.id)===key);
+      if(!c||!room)return '';
+      return buildBundle(roomContextFor(c,key,room,{chat:true,gameWorld:world,gameArchiveId:archiveId}))+roomPromptFor(c.id,room);
+    },
+    legacyHistory:gardenHistory(key,null,null,true),
+    onTurn: turn => pChat(key, p => [...p,
+      ...(String(turn.text || "").trim() ? [{ role: "user", content: turn.text, ts: Date.now(), kind: "garden", gameWorld: turn.gameWorld, gameArchiveId: turn.gameArchiveId }] : []),
+      ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
+        .map((part, i) => ({ role: "assistant", content: part, ts: Date.now()+1+i, kind: "garden", gameWorld: turn.gameWorld, gameArchiveId: turn.gameArchiveId }))])
+  });
   const gardenRecordFor = storeKey => {
-    const k = String(storeKey || "");
-    const key = k.startsWith("x_fairyGarden::") ? k.slice("x_fairyGarden::".length) : "";
-    if (!key || !window.ChatRooms) return null;
-    return { history: gardenHistory(key),
-      onTurn: turn => pChat(key, p => [...p,
-        ...(String(turn.text || "").trim() ? [{ role: "user", content: turn.text, ts: Date.now(), kind: "garden" }] : []),
-        ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
-          .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))]) };
+    const k=String(storeKey||''),key=k.startsWith('x_fairyGarden::')?k.slice('x_fairyGarden::'.length):'';
+    return key&&window.ChatRooms?gardenRecord(key):null;
   };
   const openGardenRoomFor = (charId, world="garden") => openPresetRoomFor(charId, "garden", "先给这间房定好设定，建好就进去", ["train","pets"].includes(world) ? world : "");
   // 从别的 app 直接开一间带预设的房（她 2026-09-23：「从一起学也能选择开房间，就跟微光庭院一样」）。
@@ -14647,7 +14655,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
-    const text = roomHistoryText(char, chatKey);
+    const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey);
     const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory"));
     const ctx = ctxFor(char, { ...ctxOpts, noMemory, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
@@ -26112,15 +26120,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️底子走 buildBundle：那是全库公用的「你是谁＋怎么说话＋这间房准带什么」，
       //   庭院自己再手写一份就是同一层活在两处。cognition 全关时它只剩人设与文风。
       mainline: (() => { try { return buildBundle(roomContextFor(activeChar, key, room, { chat: true })) + roomPromptFor(activeChar.id, room); } catch (e) { return ""; } })(),
-      record: {
-        // ⚠️只给最近 GARDEN_LOG 条：整本聊天记录几千条塞进这层小面板，开局就卡
-        //   （她 2026-09-18：「只显示最近100条，不然加载很卡」）。
-        history: gardenHistory(key),
-        onTurn: turn => pChat(key, p => [...p,
-          ...(String(turn.text || "").trim() ? [{ role: "user", content: turn.text, ts: Date.now(), kind: "garden" }] : []),
-          ...(turn.parts && turn.parts.length ? turn.parts : [turn.reply])
-            .map((part, i) => ({ role: "assistant", content: part, ts: Date.now() + 1 + i, kind: "garden" }))])
-      },
+      record: gardenRecord(key),
       toast: toast,
       onNewGardenRoom: openGardenRoomFor,
       onChooseSave: world => { setGardenEntryWorld(world); setGardenOpen(""); setScreen("fairyGarden"); },
