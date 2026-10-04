@@ -63,7 +63,7 @@
   async function run(key, period, fn, opts) {
     if (!due(key, period, opts)) return "skip";
     let ok = false;
-    try { ok = !!(await tagged((opts && opts.tag) || labelOf(key), fn)); } catch (e) { ok = false; }
+    try { ok = !!(await tagged((opts && opts.tag) || labelOf(key), fn, showOf(key))); } catch (e) { ok = false; }
     mark(key, period, ok);
     return ok ? "ok" : "fail";
   }
@@ -78,14 +78,29 @@
     const hit = F && F.filter(f => f.id === head)[0];
     return (hit && hit.title) || head || "其它";
   }
+  // 给提示看的全名：「日记·沈屿白」。谁是谁由 app 那头填 AutoGate.nameOf（这儿不认角色表）。
+  //   ⚠️记账仍按 labelOf 那个短名分——不然一个人一行，账本就碎了。
+  function showOf(key, who) {
+    const id = who != null ? who : String(key || "").split("|")[1];
+    const nm = id && typeof root.AutoGate.nameOf === "function" ? root.AutoGate.nameOf(id) : "";
+    return labelOf(key) + (nm ? "·" + nm : "");
+  }
   // 正在跑的活儿。⚠️同时开着两件的时候【不猜】——记成「其它」也不许张冠李戴。
   let openJobs = [];
-  function currentTag() { return openJobs.length === 1 ? openJobs[0] : ""; }
+  function currentTag() { return openJobs.length === 1 ? openJobs[0].tag : ""; }
+  // 后台提示用（她 2026-10-04：「每一次调用成功或者失败都显示出来并且说明它是什么」）。
+  //   同时开着几件就照实列出来，不挑一个猜。
+  function currentShow() {
+    if (!openJobs.length) return "";
+    const names = openJobs.map(j => j.show).filter((x, i, a) => a.indexOf(x) === i);
+    return names.length === 1 ? names[0] : names.join("／");
+  }
   // 只贴标签、不管闸：给「闸和干活分在两处」的那种用（查手机先占坑、再刷十五枪）
-  async function tagged(label, fn) {
-    openJobs.push(label);
+  async function tagged(label, fn, show) {
+    const job = { tag: label, show: show || label };
+    openJobs.push(job);
     try { return await fn(); }
-    finally { const i = openJobs.indexOf(label); if (i >= 0) openJobs.splice(i, 1); }
+    finally { const i = openJobs.indexOf(job); if (i >= 0) openJobs.splice(i, 1); }
   }
 
   // ── 计数 ──────────────────────────────────────────────────────────
@@ -117,7 +132,7 @@
   function today() { const box = read(METER_KEY); const d = box[dayKey()]; return { day: dayKey(), n: (d && d.n) || 0, by: (d && d.by) || {} }; }
   function reset() { write(METER_KEY, {}); }
 
-  root.AutoGate = { KEY, METER_KEY, MAX_TRIES, COOLDOWN_MS, due, mark, claim, clear, run, tagged, labelOf, currentTag, rowOf, load };
+  root.AutoGate = { KEY, METER_KEY, MAX_TRIES, COOLDOWN_MS, due, mark, claim, clear, run, tagged, labelOf, showOf, currentTag, currentShow, rowOf, load, nameOf: null };
   root.ApiMeter = { KEY: METER_KEY, note, recent, today, reset, dayKey };
   if (typeof module !== "undefined" && module.exports) module.exports = { AutoGate: root.AutoGate, ApiMeter: root.ApiMeter };
 })(typeof window !== "undefined" ? window : globalThis);
