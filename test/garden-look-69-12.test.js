@@ -44,7 +44,8 @@ test('藏起来的十一款头发也各自一份材质', () => {
 // v71.52 起这件事搬进了游戏里的 ensureLook：宿主只回答「这一位是他还是她」，
 // 「还没设过才补」和「配哪一身」都在那一处（施工规则/one-public-mechanism.md）。
 test('第一次进来按角色卡给一身默认，之后听她挑的', () => {
-  const seed = host.slice(host.indexOf('const taOf = c =>'), host.indexOf('const pushLook'));
+  const start = host.indexOf('const taOf = c =>');
+  const seed = host.slice(start, host.indexOf('const pushLook', start));
   assert.ok(seed.length > 200, '抠不出 ensureLooks');
   assert.match(seed, /CharacterPronoun\.ta\(c\)/, '性别要读那张唯一的判断表');
   assert.match(seed, /cloth: c\.color \|\| '#729786'/, '衣色不再取角色卡上那个色了');
