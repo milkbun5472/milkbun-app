@@ -17881,7 +17881,7 @@ function ChatSettings({
   // 否则只存一栏改动、别的栏空着，合并回去会拿全局的值顶上，看着像改了又没改全。
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
-  const [msgOnly, setMsgOnly] = useState(settings.dongnianMsgOnly === true); // 想你时只发消息（默认关）
+  const [dongnianMsgOnly, setMsgOnly] = useState(settings.dongnianMsgOnly === true); // 想你时只发消息（默认关）
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
   const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
@@ -18185,7 +18185,7 @@ function ChatSettings({
       engineerEyes,
       webSearch,
       noLoveLetter: !loveLetter,
-      dongnianMsgOnly: msgOnly,
+      dongnianMsgOnly,
       busyHold: busyHold,
       busyReroll: busyReroll,
       toyEnabled,
@@ -18604,7 +18604,7 @@ function ChatSettings({
     h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub } }, "想你时只发消息"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们在一起之后，" + cNm + " 想你想到忍不住时，有时不发消息，而是去愿望板钉一条、或往情侣空间留一样东西。开了这个就一律来发消息。")),
-    h("div", { className: "shrink-0" }, h(Toggle, { on: msgOnly, onChange: () => setMsgOnly(v => !v) }))) : null,
+    h("div", { className: "shrink-0" }, h(Toggle, { on: dongnianMsgOnly, onChange: () => setMsgOnly(v => !v) }))) : null,
   proactive && h("div", {
     className: "pt-3"
   }, h("div", {

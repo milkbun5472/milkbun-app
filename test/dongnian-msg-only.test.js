@@ -8,5 +8,5 @@ test("想你时只发消息：开了就不走愿望板和情侣空间两个出�
   assert.ok(/else if \(_altOut && !charHasOpenWish\(cid\)/.test(app));
   assert.ok(/else if \(_altOut && Math\.random\(\) < COUPLE_LEAVE_P\)/.test(app));
   assert.ok(/dongnianMsgOnly: s\.dongnianMsgOnly === true/.test(app), "存档那一处接住了");
-  assert.ok(/dongnianMsgOnly: msgOnly/.test(comp) && /"想你时只发消息"/.test(comp));
+  assert.ok(/      dongnianMsgOnly,/.test(comp) && /"想你时只发消息"/.test(comp));
 });
