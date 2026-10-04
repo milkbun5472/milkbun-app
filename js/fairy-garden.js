@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-4861619d48a060ff", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e5dfe8371f807a25", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -256,7 +256,7 @@
             plate('自选毛色',h('div',{style:{display:'flex',gap:12}},[['底毛','base','#f2eee6'],['花纹','patch','#a98565']].map(([label,k,fallback])=>h('label',{key:k,style:{display:'flex',alignItems:'center',gap:6}},label,h('input',{type:'color','aria-label':label+'颜色',value:profile.look?.[k]||fallback,onChange:e=>change({look:{id:'custom',base:profile.look?.base||'#f2eee6',patch:profile.look?.patch||'#a98565',[k]:e.target.value}}),style:{width:48,height:42}}))))),
             ...[['胖瘦','weight',.8,1.25],['大小','size',.7,1.3]].map(([label,k,min,max])=>plate(label+' · '+Math.round(profile[k]*100)+'%',h('input',{type:'range','aria-label':label,min,max,step:.01,value:profile[k],onChange:e=>change({[k]:Number(e.target.value)}),style:{width:'100%',minHeight:40,accentColor:G.deep}}))),
             h('p',{style:{fontSize:11,color:G.soft}},'实时预览；名字、毛色与体型只属于这一档宠物。')),
-          h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({species:'cat',name:'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),
+          h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({species:profile.species,name:profile.species==='dog'?'狗狗':'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),
         panel==='career'&&careerView&&h(PetPanel,{page:'career',scrollRef:panelScroll,onScroll:rememberScroll,footer:h('button',{className:'pet-button pet-button-primary',onClick:()=>setPanel('')},h(PetSeal,{kind:'paw',size:18}),'回到它身边')},
           h('div',{className:'pet-book-tabs',role:'tablist','aria-label':'职业生活册'},...[['today','bread','店里的今天'],['bag','bag','零钱袋'],['history','book','履历册']].map(([id,kind,label])=>h('button',{key:id,role:'tab',tabIndex:careerTab===id?0:-1,onKeyDown:e=>{const ids=['today','bag','history'],index=ids.indexOf(id),next=e.key==='ArrowRight'?(index+1)%3:e.key==='ArrowLeft'?(index+2)%3:e.key==='Home'?0:e.key==='End'?2:-1;if(next<0)return;e.preventDefault();rememberScroll();setCareerTab(ids[next]);e.currentTarget.parentElement.querySelectorAll('[role=tab]')[next].focus();},'aria-selected':careerTab===id,'aria-controls':'pet-book-'+id,id:'pet-tab-'+id,onClick:()=>{rememberScroll();setCareerTab(id);},className:'pet-book-tab '+(careerTab===id?'pet-book-selected':'')},h(PetSeal,{kind,size:20}),label))),
           h('div',{role:'tabpanel',id:'pet-book-'+careerTab,'aria-labelledby':'pet-tab-'+careerTab},
@@ -538,12 +538,12 @@
         const r = await root.CCSeat.ask({
           tool: "train_chat", char_id: character.id, ticket: "fg:" + Date.now(),
           world, history: history.slice(-30), text, event,
-          expect: world?.map==='pet-home'?'{"reply":["当前要说的话"],"action":{"kind":"none|feed|play|pet|work-choice","eventId":"当前事件标识","choice":"选项标识"}}':'{"reply":["第一句","第二句(可省)"],"action":{"kind":"none|move","target":"seat|stand|rack|berth(move时)"}}'
+          expect: world?.map==='pet-home'?'{"reply":["当前要说的话"],"action":{"kind":"none|feed|play|pet|snack|work-choice","eventId":"当前事件标识","choice":"选项标识"}}':'{"reply":["第一句","第二句(可省)"],"action":{"kind":"none|move","target":"seat|stand|rack|berth(move时)"}}'
         }, 120000);
         if (r && Array.isArray(r.reply) && r.reply.length) {
           const parts=r.reply.map(x=>String(x||"").trim()).filter(Boolean);const out={parts,reply:parts.join("\n")};
           const a = r.action; if(world?.map==='pet-home')out.workChoice=petWorkChoice(a,world); if (a && a.kind === "move" && ["seat","stand","rack","berth"].includes(a.target)) out.move = a.target;
-          if(world?.map==="pet-home"&&["feed","play","pet"].includes(a?.kind))out.petAction=a.kind;
+          if(world?.map==="pet-home"&&["feed","play","pet","snack"].includes(a?.kind))out.petAction=a.kind;
           if (out.parts.length) return out;
         }
       } catch (e) { /* 超时/不在岗：落回引擎，票根不追（这里的每轮对话可重来） */ }
@@ -552,11 +552,11 @@
     const style = sharedStyle(),train=world?.map==="carriage",pets=world?.map==="pet-home";
     const sys = [style,
       roleContext(character, profile, mainline),
-      pets ? "【绒绒小镇】你和对方在这一档宠物小游戏里共同生活。宠物名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。companion.visible表示你的小人是否在家里，job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。游戏中的生活按游戏经历来聊；现实往事按这间房准许的上下文来。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
+      pets ? "【绒绒小镇】你和对方在这一档宠物小游戏里共同生活。宠物名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。companion.visible表示你的小人是否在家里，job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。游戏中的生活按游戏经历来聊；现实往事按这间房准许的上下文来。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
       "【这个世界里你们最近的对话】\n" + history.map(m => (m.role === "user" ? userName(profile) : character.name) + "：" + m.content).join("\n"),
       (event ? "【刚发生的游戏事件】\n" : "【对方刚说】\n") + text,
-      pets ? "【共同照料动作】当前career.event有待决定的小事时，可以按人设提出主意，action.kind用work-choice，eventId与choice选当前事件和选项标识。游戏会记实际采用的决定，之后的变化以游戏事实为准；也可以只商量，留给对方选择。职业收入与东西属于宠物小金库，履历和拒工态度见career。home列出实际存档里的面包篮、自己的小球和第一次试工纪念；数量、已分出的食物和纪念上记录的决定者都是当前事实，可以沿这些变化聊天。action.kind取none或feed（去添粮）、play（去陪玩）、pet（去摸摸）。只有companion.visible为true且job为空时能开始。动作由场景执行，小人走到地方再做，宠物会回应或拒绝。reply表达现在的意愿；动作尚未完成时按准备去做表达。完成、拒绝、取消以之后的游戏事实为准。一次选一个动作，也可以只聊天。" : train ? "【列车动作】action.kind 用 none；你自己想在车厢里挪个地方时用 move，target 取 seat（回座位）／stand（站到过道看窗外）／rack（去整理行李架）／berth（去上铺躺下），只动你自己，想不想动由你。实际操作由游戏执行。有拼图进度时，以已经落位的碎片为准；puzzle 为空时按当前活动聊天。" : "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
+      pets ? "【共同照料动作】当前career.event有待决定的小事时，可以按人设提出主意，action.kind用work-choice，eventId与choice选当前事件和选项标识。游戏会记实际采用的决定，之后的变化以游戏事实为准；也可以只商量，留给对方选择。职业收入与东西属于宠物小金库，履历和拒工态度见career。home列出实际存档里的面包篮、自己的小球和第一次试工纪念；数量、已分出的食物和纪念上记录的决定者都是当前事实，可以沿这些变化聊天。action.kind取none或feed（去添粮）、play（去陪玩）、pet（去摸摸）、snack（给一小口零食）。只有companion.visible为true且job为空时能开始。动作由场景执行，小人走到地方再做，宠物会回应或拒绝。reply表达现在的意愿；动作尚未完成时按准备去做表达。完成、拒绝、取消以之后的游戏事实为准。一次选一个动作，也可以只聊天。" : train ? "【列车动作】action.kind 用 none；你自己想在车厢里挪个地方时用 move，target 取 seat（回座位）／stand（站到过道看窗外）／rack（去整理行李架）／berth（去上铺躺下），只动你自己，想不想动由你。实际操作由游戏执行。有拼图进度时，以已经落位的碎片为准；puzzle 为空时按当前活动聊天。" : "【你能落实的动作】none=继续当前行动；follow=沿路来陪对方；routine=恢复自己的日程；wait=停在当前位置等候；goto=去一个地点，target 取 " + (destinations || "home（屋前）") + "。你们处得越熟，能一起去的地方越多（世界事实里 bond 那一栏写着你们处到哪儿了、一起做过什么、她递过你什么）。"
         + "另外三种真会发生的事：invite=你约她去一个地点（target 同上，note 写你约她时说的那句），你先过去等，她到了才有下文；"
         + "gift=你把手边顺手采到的一样递给她，item 取 herb（一束铃叶草）／mushroom（荧光菇）／flower（月光花），得她就在你跟前，一天一样；food 是你在夜市上给她买一样吃的，只有世界事实里 food.open 为 true、两个人都在灯串集市时才做得到；"
         + "refuse=她提了什么你没答应，why 写你没答应的那一句，然后你回自己的日程。"
@@ -568,7 +568,7 @@
     ].join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65535, timeout: 180000, tag: "微光庭院" });
     const out = normalizeReply(raw);
-    if(pets){const a=extractJSON(raw)?.action;out.workChoice=petWorkChoice(a,world);out.petAction=["feed","play","pet"].includes(a?.kind)?a.kind:null;}
+    if(pets){const a=extractJSON(raw)?.action;out.workChoice=petWorkChoice(a,world);out.petAction=["feed","play","pet","snack"].includes(a?.kind)?a.kind:null;}
     if (train) { const o = extractJSON(raw), a = o && o.action; if (a && a.kind === "move" && ["seat", "stand", "rack", "berth"].includes(a.target)) out.move = a.target; }
     return out;
   }
