@@ -9108,7 +9108,10 @@ function ChatThread({
   }))), /*#__PURE__*/React.createElement("button", {
     onClick: () => setModeOpen(true),
     className: "flex items-center gap-2.5 flex-1 active:opacity-70"
-  }, /*#__PURE__*/React.createElement(Avatar, {
+  // 星星点头的日子（星测按你俩的星盘算的）：头像外亮一圈慢慢转的星光，平常日子原样
+  }, (window.AstroHalo && window.Astro && window.Astro.isGoodDay && window.Astro.isGoodDay(character))
+    ? h(window.AstroHalo, { size: 36 }, h(Avatar, { character: character, size: 36, radius: 9 }))
+    : /*#__PURE__*/React.createElement(Avatar, {
     character: character,
     size: 36,
     radius: 9
@@ -12510,6 +12513,7 @@ function shareCardOf(kind) {
   if (kind === "tarotshare") return TarotShareCard;
   if (kind === "shikeshare") return window.ShikeShareCard || null;
   if (kind === "pomoshare") return window.PomoShareCard || null;
+  if (kind === "astroshare") return window.AstroSignCard || null;
   return null;
 }
 function ForumShareCard({ m, isU }) {

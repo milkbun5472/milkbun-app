@@ -31,3 +31,24 @@ test("天象和好日子接进日历与聊天那一行；群榜能发到群里",
   assert.match(comp, /window\.Astro\.skyOn\(dk\)/); assert.match(app, /onShareToGroup: \(gid, text\)/);
   assert.match(astro, /\["chart", "星盘"\], \["group", "群榜"\], \["ask", "问星"\]/);
 });
+test("查手机里有星测：接真数据、不生成；日子取 TA 上次真打开那天（刷新、看TA玩点开）", () => {
+  const phone = read("phone.js"), app = read("app.js"), astro = read("astro.js");
+  assert.match(phone, /const PHONE_LIVE_KEYS = \[[^\]]*"astro"\]/);
+  assert.match(phone, /if \(key === "astro"\) return/);
+  assert.match(app, /opened\.indexOf\("astro"\) >= 0 && window\.Astro && window\.Astro\.markSeen/);
+  assert.match(app, /整份刷新[\s\S]{0,120}window\.Astro\.markSeen\(char\.id\)/);
+  assert.match(astro, /const seenDay = charId =>/);
+});
+test("今日签：手动抽和自动发同一份提示词；能转发回聊天；自动默认关", () => {
+  const app = read("app.js"), astro = read("astro.js"), pol = read("auto-refresh-policy.js"), comp = read("components.js");
+  assert.match(astro, /function signInstruction\(meName, facts\)/);
+  assert.match(app, /window\.Astro\.signInstruction\(userName\(profile\), facts\)/);
+  assert.match(app, /kind: "astroshare"/); assert.match(comp, /if \(kind === "astroshare"\) return window\.AstroSignCard/);
+  assert.match(pol, /id: "astroSign"[^}]*globalDefault: false, charDefault: false/);
+});
+test("月亮日记写的心情就是健康 app 那一格；好日子头像光环、群里吵一架都有", () => {
+  const astro = read("astro.js"), comp = read("components.js");
+  assert.match(astro, /d0\.mood = Object\.assign\(\{\}, d0\.mood/); assert.match(astro, /H\.save\(d0\)/);
+  assert.match(comp, /window\.Astro\.isGoodDay\(character\)/);
+  assert.match(astro, /照着星盘吵一架给我看看/);
+});

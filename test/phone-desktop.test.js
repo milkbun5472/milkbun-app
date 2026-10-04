@@ -28,7 +28,7 @@ test("20 个 App 一个都没在桌面上丢入口", () => {
   const declared = P.PHONE_APPS.map(app => app.key);
   assert.deepEqual(declared.sort(), ["album", "browser", "calendar", "calls", "clipboard", "forum", "health",
     "liked", "music", "notes", "reading", "shopping", "takeout", "wechat"]
-    .concat(["bili", "latenight", "timeline", "tally", "mail", "anon"]).sort());
+    .concat(["bili", "latenight", "timeline", "tally", "mail", "anon", "astro"]).sort());
 
   for (const layout of P.PHONE_DESKTOP_LAYOUTS) {
     const keys = layout.dock.concat(...layout.pages, ...layout.widgets.map(page => page.map(w => w.key)));

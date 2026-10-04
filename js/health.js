@@ -974,7 +974,7 @@
   }
   g.healthAddByChar = healthAddByChar;
   g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
-  g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, SHORTCUT_TEMPLATE_MINI, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
+  g.Health = { MOOD_ZH, parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, SHORTCUT_TEMPLATE_MINI, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电
   g.GHealth = function (p) {
