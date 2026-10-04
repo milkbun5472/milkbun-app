@@ -10132,7 +10132,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她回信那一下（系统小纸条「你答应了X ♥」／「你说再想想」）原来跟别的系统纸条一起被滤掉——
     //   TA 只在很早那封信上看到「她答应了」，后面接着聊就又不知道了（她 2026-10-03 截图：「泥系答应惹吗」）。按发生的位置交给 TA 一句。
     const _letterAns = m => m && m.kind === "system" && (m.sub === "letter" || /^你答应了.*♥$|^你说再想想$/.test(String(m.content || "")));
-    const _ansRow = m => ({ ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "点了「答应」——这就是她的回答，你们从这一刻起在一起了；她后面发的笑脸、表情是在害羞地确认，不是没回答，别再追问她答不答应") + "〕" });
+    const _ansRow = m => ({ ...m, role: "user", kind: "letteranswer", content: "〔" + userName(profile) + " 拆开了你的申请信，" + (/再想想/.test(m.content) ? "说再想想" : "点了「答应」，你们从这一刻起在一起了（这是已经发生的事）") + "〕" });
     const history = base.map(m => (m && m.recalled && m.role === "user") ? recallStub(m) : (m && m.kind === "loveletter") ? _letterRow(m) : _letterAns(m) ? _ansRow(m) : m)
       .filter(m => !m.recalled && m.kind !== "ooc" && contextAllowsMessage(m) && (m.kind !== "system" || m.ccToolResult === true)
         // 「TA想看你手机」「你发现TA偷翻过」那两张卡不是TA说的话（她 2026-10-02）；那几件事走下面的查手机记事
