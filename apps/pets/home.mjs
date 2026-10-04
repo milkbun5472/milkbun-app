@@ -1,8 +1,8 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-03b1ea37035c61cf';
-import {turnPet} from './movement.mjs?v=fg-03b1ea37035c61cf';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-03b1ea37035c61cf';
-import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-03b1ea37035c61cf';
-export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[],showUserSpot=true}){
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-80a59cfd72cd63cc';
+import {turnPet} from './movement.mjs?v=fg-80a59cfd72cd63cc';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-80a59cfd72cd63cc';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-80a59cfd72cd63cc';
+export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[]}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false;
  const places=station?{...HOME_PLACES,feeding:{...station.bowl,yaw:Math.PI/2},bed:{...station.rest,yaw:-2.3},rug:{...station.rug,yaw:0},sofa:{...station.rest,yaw:Math.PI}}:HOME_PLACES;
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);
@@ -10,8 +10,6 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  function makeToy(kind){if(kind==='ball')return new T.Mesh(new T.SphereGeometry(.065,16,12),material('#d6a08d'));const m=new T.Group(),body=new T.Mesh(new T.SphereGeometry(.07,16,12),material('#bba991'));body.scale.set(.7,.65,1.6);m.add(body);for(const x of[-.038,.038]){const e=new T.Mesh(new T.SphereGeometry(.022,8,8),material('#c98070'));e.position.set(x,.04,.05);m.add(e);}return m;}
  const ball=makeToy('ball'),mouse=makeToy('mouse'),treat=new T.Mesh(new T.SphereGeometry(.05,10,8),material('#a97850'));toy.add(ball,mouse,treat);toy.visible=false;
  const floorToys=Object.fromEntries(Object.keys(TOY_SPOTS).map(k=>{const m=makeToy(k);m.userData.petToy=k;props.add(m);return[k,m];}));
- const youMat=new T.Mesh(new T.CircleGeometry(.3,40),material('#c1ccc1'));youMat.visible=showUserSpot;youMat.rotation.x=-Math.PI/2;youMat.position.set(YOU_SPOT.x,.043,YOU_SPOT.z);props.add(youMat);
- const labelCanvas=document.createElement('canvas');labelCanvas.width=192;labelCanvas.height=64;const ctx=labelCanvas.getContext('2d');ctx.fillStyle='#6d6051';ctx.font='56px sans-serif';ctx.textAlign='center';ctx.fillText('你这边',96,54);const label=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(labelCanvas),depthTest:false}));label.visible=showUserSpot;label.scale.set(.8,.267,1);label.position.set(YOU_SPOT.x,.3,YOU_SPOT.z+.22);props.add(label);
  let ownFood;
  if(station){const bowl=new T.Mesh(new T.CylinderGeometry(.18,.15,.07,24),material(station.color));bowl.position.set(station.bowl.x,.079,station.bowl.z);props.add(bowl);ownFood=new T.Mesh(new T.CylinderGeometry(.13,.13,.018,20),material('#b58c60'));ownFood.position.set(station.bowl.x,.12,station.bowl.z);props.add(ownFood);const cushion=new T.Mesh(new T.CylinderGeometry(.42,.42,.055,32),material(station.color));cushion.scale.z=.85;cushion.position.set(station.rest.x,.063,station.rest.z);props.add(cushion);}
  const others=()=>getOtherPets().filter(p=>p.visible!==false);
