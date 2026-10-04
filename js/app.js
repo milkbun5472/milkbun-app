@@ -12601,6 +12601,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("收进时刻了");
     }, "收进去");
   };
+  // 群里圈一段收进时刻：收成一张【多人的】卡，这一段里说过话的每个角色名下都有。群聊、群线下共用这一处。
+  const pinGroupToShike = (g, ms) => {
+    const picked = (ms || []).filter(m => m && !m.recalled && m.content);
+    const cids = Array.from(new Set(picked.map(m => m.senderId).filter(id => id && characters.some(c => c.id === id && !c.npc))));
+    if (!picked.length || !cids.length) { toast(picked.length ? "这一段里没有角色说话，挂不到谁名下" : "选中的这几条没有能收的内容"); return; }
+    requestAppPrompt("收进时刻", "收进 " + picked.length + " 条，会出现在 " + cids.length + " 个人的时刻里。给这一刻起个名字。", "", name => {
+      const all = loadJSON("x_shikeGroupPins", []) || [];
+      all.unshift({ id: "gpin_" + Date.now(), ts: Number(picked[0].ts) || Date.now(), title: String(name || "").trim().slice(0, 30), groupId: g.id, groupName: g.name || "", cids,
+        lines: picked.slice(0, 200).map(m => ({ role: m.role === "user" ? "user" : "char", name: m.role === "user" ? null : (m.senderName || (m.role === "narration" ? "旁白" : null)), text: String(m.content).slice(0, 600) })) });
+      saveJSON("x_shikeGroupPins", all.slice(0, 500));
+      toast("收进时刻了");
+    }, "收进去");
+  };
   const handleMsgAction = (act, idx, sourceKey) => {
     const threadKey = sourceKey || activeChar.id;
     const isSideRoom = !!(window.ChatRooms && window.ChatRooms.isSideKey(threadKey));
@@ -26373,16 +26386,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     // 群里圈一段收进时刻（她 2026-10-03 点的第 8 条）：收成一张【多人的】卡，这一段里说过话的每个角色名下都有
     onPinShike: indices => {
-      const g = activeGroup, msgs = (groupChatsRef.current[g.id] || []), picked = indices.slice().sort((a, b) => a - b).map(i => msgs[i]).filter(m => m && !m.recalled && m.content);
-      const cids = Array.from(new Set(picked.map(m => m.senderId).filter(id => id && characters.some(c => c.id === id && !c.npc))));
-      if (!picked.length || !cids.length) { toast(picked.length ? "这一段里没有角色说话，挂不到谁名下" : "选中的这几条没有能收的内容"); return; }
-      requestAppPrompt("收进时刻", "收进 " + picked.length + " 条，会出现在 " + cids.length + " 个人的时刻里。给这一刻起个名字。", "", name => {
-        const all = loadJSON("x_shikeGroupPins", []) || [];
-        all.unshift({ id: "gpin_" + Date.now(), ts: Number(picked[0].ts) || Date.now(), title: String(name || "").trim().slice(0, 30), groupId: g.id, groupName: g.name || "", cids,
-          lines: picked.slice(0, 200).map(m => ({ role: m.role === "user" ? "user" : "char", name: m.role === "user" ? null : (m.senderName || null), text: String(m.content).slice(0, 600) })) });
-        saveJSON("x_shikeGroupPins", all.slice(0, 500));
-        toast("收进时刻了");
-      }, "收进去");
+      const msgs = (groupChatsRef.current[activeGroup.id] || []);
+      pinGroupToShike(activeGroup, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
     },
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
@@ -28510,7 +28515,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditNote: (id, text) => offlineEditNote(activeOfflineScopeKey, id, text),
     onChangeStyle: patch => offlineSetStyle(activeOfflineScopeKey, patch),
     onSaveExample: m => saveOfflineStyleExample(offlineChar.id, m && m.content),
-    onPinShike: m => pinToShike(offlineChar.id, m),
+    onPinShike: ms => pinToShike(offlineChar.id, ms, x => x.role === "user" ? (profile.name || "我") : x.role === "narration" ? "旁白" : offlineChar.name),
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
     onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),
@@ -28555,8 +28560,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditNote: (id, text) => groupOfflineEditNote(offlineGroup.id, id, text),
     onChangeStyle: patch => groupOfflineSetStyle(offlineGroup.id, patch),
     onSaveExample: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id); if (cid) saveOfflineStyleExample(cid, m && m.content); },
-    // 群线下收进时刻：角色那张卡记在TA名下；她自己的、旁白那种没主人的，记在这一场在场的头一个角色名下
-    onPinShike: (m, spk) => { const cid = (m && m.senderId) || (spk && spk.id) || ((offlineGroup.memberIds || []).find(id => characters.some(c => c.id === id && !c.npc))); pinToShike(cid, m); },
+    onPinShike: ms => pinGroupToShike(offlineGroup, ms),
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),

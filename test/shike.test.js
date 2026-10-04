@@ -133,7 +133,7 @@ test("收进来的一段、自己开的卡、日历世界事件都成时刻，�
 
 test("多选栏有「补中间」「收进时刻」，单聊群聊都接上", () => {
   const comp = P("js/components.js"), app = P("js/app.js");
-  assert.equal((comp.match(/"补中间"/g) || []).length, 2);
+  assert.equal((comp.match(/"补中间"/g) || []).length, 3, "单聊、群聊、线下多选条（OffPickBar，单人和群线下共用）");
   assert.equal((comp.match(/onPinShike\(selIds\)/g) || []).length, 2);
   assert.equal((app.match(/onPinShike: indices =>/g) || []).length, 2);
   assert.match(app, /saveJSON\("x_shikeGroupPins", all\.slice\(0, 500\)\)/, "群里收的一段要存成多人卡");

@@ -37,7 +37,7 @@ test("头像该不该长成按钮，按这个人算", () => {
 // ⚠️单人线下没有这道闸：那儿只有一个人，互通与否跟能不能看自己对象的心声无关
 test("单人线下照旧点得开", () => {
   assert.match(app, /onOpenState: \(\) => \{ setStateCardRoomKey\(offlineIsRoom\(activeOfflineScopeKey\)/, "单人线下没传打开心声那一支");
-  const i = comp.indexOf("      msgs.map((m, i) => h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile");
+  const i = comp.indexOf("      msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile");
   assert.ok(i > 0, "抠不出单人线下那一处 OffCard");
   const line = comp.slice(i, comp.indexOf("\n", i));
   assert.match(line, /onOpenState: onOpenState/, "单人线下没把口子传给卡片");
