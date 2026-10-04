@@ -8720,6 +8720,11 @@ function GenStopX({ onStop }) {
     style: { alignSelf: "center", width: 28, height: 28, borderRadius: 14, display: "flex", alignItems: "center", justifyContent: "center", color: t.fog, fontSize: 17, lineHeight: 1, background: "transparent" }
   }, "×");
 }
+function GameChatSource({ m }) {
+  const t = useTheme(), source = gameChatSource(m);
+  return source ? h("div", { "data-wk": "messagesource", "data-world": m.gameWorld || "legacy",
+    style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.sub, margin: "0 4px 3px", overflowWrap: "anywhere" } }, source) : null;
+}
 function ChatThread({
   unreadOther,
   onOpenUs,
@@ -9640,6 +9645,7 @@ function ChatThread({
         minWidth: 0
       }, (cardLayout(m.content) || {}).col)
     },
+    part === 0 && h(GameChatSource, { m }),
     // 名字：单聊平常不显示（只有两个人），留着给排版「名字写在气泡上面」和写 CSS 的人打开
     h("div", { "data-wk": "name", "data-me": isU ? "1" : "0", style: { display: "none", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, isU ? ((profile && profile.name) || "我") : cName),
     m.replyTo && h("div", {
@@ -9975,7 +9981,7 @@ function ChatThread({
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, textAlign: "center", marginBottom: 2 } }, "共 " + archView.length + " 条 · 只读回看（不占本地空间）"),
           archView.map((m, i) => {
             const mine = m.role === "user";
-            const body = m.content != null && String(m.content) !== "" ? String(m.content) : (m.kind ? "[" + m.kind + "]" : "");
+            const body = m.content != null && String(m.content) !== "" ? gameChatText(m) : (m.kind ? "[" + m.kind + "]" : "");
             return h("div", { key: i, style: { display: "flex", justifyContent: mine ? "flex-end" : "flex-start" } },
               h("div", { style: { maxWidth: "82%", padding: "7px 11px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, body));
           }))), descView && h(PhotoSheet, { m: typeof descView === "object" ? descView : { desc: descView }, toast: toast, onClose: () => setDescView(null) }), transferOpen && h(TransferComposeSheet, {
@@ -12189,7 +12195,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const dayOf = ts => { const d = new Date(ts || 0); return d.getFullYear() + "年" + (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
   const hm = ts => { const d = new Date(ts || 0); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const kindTag = m => m.kind === "chatforward" ? "💬聊天记录" : m.kind === "voice" ? "🎤语音" : m.kind === "selfie" ? "📷自拍" : m.kind === "photo" ? "📷照片" : m.kind === "transfer" ? "💸转账" : m.kind === "callend" ? "📞通话" : m.kind === "geo" ? "📍位置" : m.kind === "redpacket" ? "🧧红包" : m.kind === "gift" ? "🎁礼物" : m.kind === "takeout" ? "🛵外卖" : m.kind === "emote" ? "表情" : null;
-  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : (m.content || m.desc || "");
+  const textOf = m => m.kind === "transfer" ? ("转账" + (m.amount != null ? " " + mTight(m.amount, m.toId || m.senderId || (chars && chars[0] && chars[0].id)) : "") + (m.note ? " · " + m.note : "")) : m.kind === "redpacket" ? ("红包" + (m.message ? " · " + m.message : "")) : m.kind === "geo" ? (m.name || "") : m.kind === "poll" ? (m.title || "") : gameChatText({ ...m, content: m.content || m.desc || "" });
   const matchType = m => !typeF ? true : typeF === "image" ? (m.kind === "selfie" || m.kind === "photo") : m.kind === typeF;
   const kw = q.trim();
   const hits = (kw || typeF) ? msgs.filter(x => matchType(x.m) && (!kw || String(textOf(x.m)).indexOf(kw) >= 0)) : [];
@@ -15992,7 +15998,7 @@ function GroupThread({
           archView.map((m, i) => {
             const mine = m.role === "user";
             const who = mine ? (meName || "我") : (m.senderName || "");
-            const body = m.content != null && String(m.content) !== "" ? String(m.content) : (m.kind ? "[" + m.kind + "]" : "");
+            const body = m.content != null && String(m.content) !== "" ? gameChatText(m) : (m.kind ? "[" + m.kind + "]" : "");
             return h("div", { key: i, style: { display: "flex", flexDirection: "column", alignItems: mine ? "flex-end" : "flex-start" } },
               who ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, margin: "0 4px 1px" } }, who) : null,
               h("div", { style: { maxWidth: "82%", padding: "7px 11px", borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, whiteSpace: "pre-wrap", wordBreak: "break-word", background: mine ? t.tint : t.bg2, color: mine ? "#fff" : t.ink, border: mine ? "none" : "1px solid " + t.line } }, body));
