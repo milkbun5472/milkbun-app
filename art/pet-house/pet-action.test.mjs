@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {PET_ACTIONS,samplePetAction,postureFrame} from './pet-action.mjs';
-import {restingTailWeights,dogTailWeights,kittenBackWeights,softCrotchWeights} from './pet-skin.mjs';
+import {restingTailWeights,curledTailWeights,kittenBackWeights,softCrotchWeights} from './pet-skin.mjs';
 import {solveLimb} from './cat-motion.mjs';
 const size=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
 test('both real rigs can reach the folded sleeping and seated paw targets',()=>{
@@ -30,10 +30,10 @@ test('tail tip repair removes its residual torso pull without affecting the skul
 test('forward-curled dog tip follows the tail even when the export assigned it entirely to the pelvis',()=>{
  const names=['pelvis','chest','backLLower','head'],weights=[1,0,0,0];
  for(const p of [[.003,.711,-.306],[.024,.694,-.278],[.09,.60,-.248]]){
-  const row=dogTailWeights(p,names,weights);assert.ok(row.every(([name,w])=>w===0||name.startsWith('tail')));assert.ok(Math.abs(row.reduce((n,[,w])=>n+w,0)-1)<1e-12);
+  const row=curledTailWeights(p,names,weights);assert.ok(row.every(([name,w])=>w===0||name.startsWith('tail')));assert.ok(Math.abs(row.reduce((n,[,w])=>n+w,0)-1)<1e-12);
  }
- for(const p of [[0,.405,-.35],[0,.52,-.28],[0,.60,.06],[-.1,.04,.25]])assert.deepEqual(dogTailWeights(p,names,weights),names.map((n,i)=>[n,weights[i]]));
- const a=new Map(dogTailWeights([0,.53-1e-6,-.3],names,weights)),b=new Map(dogTailWeights([0,.53+1e-6,-.3],names,weights));
+ for(const p of [[0,.405,-.35],[0,.52,-.28],[0,.60,.06],[-.1,.04,.25]])assert.deepEqual(curledTailWeights(p,names,weights),names.map((n,i)=>[n,weights[i]]));
+ const a=new Map(curledTailWeights([0,.53-1e-6,-.3],names,weights)),b=new Map(curledTailWeights([0,.53+1e-6,-.3],names,weights));
  assert.ok(Math.abs(a.get('pelvis')-b.get('pelvis'))<1e-6);
 });
 
@@ -47,4 +47,14 @@ test('leg-root influence crosses the old hard crotch boundary continuously and k
  const a=new Map(softCrotchWeights([-.068,.115-1e-6,.23],names,weights)),b=new Map(softCrotchWeights([-.068,.115+1e-6,.23],names,weights));
  for(const key of new Set([...a.keys(),...b.keys()]))assert.ok(Math.abs((a.get(key)||0)-(b.get(key)||0))<.0001);
  assert.equal(new Map(softCrotchWeights([-.11,.02,.27],names,weights)).get('frontLPaw'),1);
+});
+
+test('cat sleeping torso preserves its rounded volume throughout lowering and waking',()=>{
+ const rig=JSON.parse(readFileSync(new URL('cat-rig.json',import.meta.url)));
+ for(const lie of [0,.25,.5,.75,1]){const p=postureFrame(rig,{lie,sit:0,crouch:0,chestPitch:0},1);assert.equal(p.chestScale,1);assert.equal(p.pelvisScale,1);}
+});
+test('cat tail tip no longer keeps any torso influence and tail root remains unchanged',()=>{
+ const n=['pelvis','tail2','tail1','backLLower'],w=[.8,.18,.02,0];
+ for(const point of [[-.02,.821,-.364],[.03,.79,-.355]]){const row=curledTailWeights(point,n,w,'cat');assert.equal(new Map(row).get('pelvis'),0);assert.ok(Math.abs(row.reduce((s,[,v])=>s+v,0)-1)<1e-12);}
+ assert.deepEqual(curledTailWeights([0,.355,-.355],n,w,'cat'),n.map((v,i)=>[v,w[i]]));
 });

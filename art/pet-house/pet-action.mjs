@@ -36,7 +36,7 @@ export function postureFrame(rig,action,time=0,amount=0){
  return {lie,sit,
   chestY:breathe-(dog?.109:.110)*lie-.044*crouch+.006*sit,
   pelvisY:breathe*.65-.120*lie-.024*crouch-(dog?.141:.126)*sit,
-  chestScale:1-.32*lie,pelvisScale:1-.28*lie,
+  chestScale:1-(dog?.32:0)*lie,pelvisScale:1-(dog?.28:0)*lie,
   chestPitch:.07*lie-.22*sit+action.chestPitch*quiet,
   pelvisPitch:.07*lie+.16*sit,
   paw(leg){const front=leg.name.startsWith('front'),sign=leg.name.endsWith('L')?-1:1;
