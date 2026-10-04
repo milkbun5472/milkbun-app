@@ -1,9 +1,9 @@
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-a9d49073fc7ae3a2';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-a9d49073fc7ae3a2';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-a9d49073fc7ae3a2';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-a9d49073fc7ae3a2';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-a9d49073fc7ae3a2';
-import {turnPet} from './movement.mjs?v=fg-a9d49073fc7ae3a2';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-bdac7b0b6fceb7b0';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-bdac7b0b6fceb7b0';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-bdac7b0b6fceb7b0';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-bdac7b0b6fceb7b0';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-bdac7b0b6fceb7b0';
+import {turnPet} from './movement.mjs?v=fg-bdac7b0b6fceb7b0';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home'}){
  const person=host.companion?.();if(!person?.id)return null;
