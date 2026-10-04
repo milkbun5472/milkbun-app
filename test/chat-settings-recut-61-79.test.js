@@ -32,7 +32,7 @@ const SECTIONS = [...CS.matchAll(/show\("(\w+)",\s*\{\s*title: ([^\n]*?)(?:,\s*\
   .map(m => ({ tab: m[1], title: m[2] }));
 
 test("七类都在，而且每一类都有名有姓", () => {
-  assert.equal(PAGES.length, 9, "现在是 " + PAGES.length + " 类");
+  assert.equal(PAGES.length, 10, "现在是 " + PAGES.length + " 类");
   for (const p of PAGES) {
     assert.ok(/[一-鿿]/.test(p.title), "「" + p.key + "」的标题不是中文");
     assert.ok(/[一-鿿]/.test(p.char), "「" + p.key + "」的索引牌不是一个汉字");
@@ -60,9 +60,9 @@ test("每一节都落在真有那一格的类里，没有孤儿", () => {
   const keys = new Set(PAGES.map(p => p.key));
   const orphan = [...new Set(SECTIONS.map(s => s.tab))].filter(k => !keys.has(k));
   assert.deepEqual(orphan, [], "这几节挂在不存在的分类下，永远打不开：" + orphan.join(" / "));
-  // 反过来：有格子却一节都没有 = 点进去一片空白。rooms 是嵌进来的整块，不走 show()
+  // 反过来：有格子却一节都没有 = 点进去一片空白。rooms、motion（动态形象编辑页）是嵌进来的整块，不走 show()
   const used = new Set(SECTIONS.map(s => s.tab));
-  const empty = PAGES.map(p => p.key).filter(k => k !== "rooms" && !used.has(k));
+  const empty = PAGES.map(p => p.key).filter(k => k !== "rooms" && k !== "motion" && !used.has(k));
   assert.deepEqual(empty, [], "这几格点进去是空的：" + empty.join(" / "));
 });
 

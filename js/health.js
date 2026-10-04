@@ -914,6 +914,65 @@
         tab === "today" ? todayView : tab === "body" ? bodyView : weekView));
   }
 
+  // ── 角色替她记（她 2026-10-05：「健康那里能不能也支持让角色帮我记，跟记账一样触发关键词才记」）──
+  //   跟 ledgerAddByChar 同一个形状：模型给一份（或几份）结构化记录，这里逐条校验、落进同一份 x_health。
+  //   认不出的那条直接丢掉，绝不猜着记；一条都没记上就返回 null（app 那头就不会出「记好了」的卡）。
+  //   rec.kind：meal 一餐 / water 喝水（杯）/ sport 运动 / weight 体重 / sleep 睡眠 / steps 步数 / mood 心情
+  const MEAL_ZH = { 早餐: "breakfast", 早饭: "breakfast", 午餐: "lunch", 午饭: "lunch", 晚餐: "dinner", 晚饭: "dinner", 加餐: "snack", 零食: "snack", 夜宵: "snack" };
+  const MOOD_ZH = ["很糟", "低落", "一般", "不错", "很好"];
+  function healthAddByChar(charId, recs) {
+    try {
+      const list = (Array.isArray(recs) ? recs : [recs]).filter(r => r && typeof r === "object").slice(0, 6);
+      if (!list.length) return null;
+      let d = load(); const today = dayOf(), done = [];
+      const lastKg = () => { const w = weightTrend(d); return w.length ? w[w.length - 1].kg : null; };
+      list.forEach((r, i) => {
+        const day = /^\d{4}-\d{2}-\d{2}$/.test(String(r.date || "")) ? r.date : today;
+        const by = { byChar: charId || "", ts: Date.now() };
+        const kind = String(r.kind || "").trim();
+        if (kind === "meal") {
+          const name = String(r.name || "").trim().slice(0, 30), kcal = Math.round(Number(r.kcal) || 0);
+          if (!name || !(kcal > 0 && kcal < 5000)) return;
+          const meal = MEALS.some(m => m[0] === r.meal) ? r.meal : MEAL_ZH[String(r.meal || "").trim()] || "snack";
+          d = Object.assign({}, d, { meals: (d.meals || []).concat([Object.assign({ id: "m" + Date.now().toString(36) + "c" + i, day, meal, name, kcal, p: 0, c: 0, f: 0, qty: 1, src: "char" }, by)]) });
+          done.push({ t: mealName(meal) + " · " + name, v: kcal + " 千卡" });
+        } else if (kind === "water") {
+          const cups = Math.round(Number(r.cups) || 0); if (!(cups > 0 && cups <= 20)) return;
+          const now = Number((d.water || {})[day]) || 0;
+          d = Object.assign({}, d, { water: Object.assign({}, d.water, { [day]: now + cups }) });
+          done.push({ t: "喝水", v: "+" + cups + " 杯（这天共 " + (now + cups) + " 杯）" });
+        } else if (kind === "sport") {
+          const min = Math.round(Number(r.min) || 0); if (!(min > 0 && min <= 600)) return;
+          const name = String(r.sport || r.name || "运动").trim().slice(0, 12), sp = SPORTS.find(x => x[0] === name);
+          const kcal = Math.round(Number(r.kcal) || 0) || burnOf(sp ? sp[1] : 5, min, lastKg());
+          d = Object.assign({}, d, { sport: (d.sport || []).concat([Object.assign({ id: "s" + Date.now().toString(36) + "c" + i, day, kind: name, min, kcal }, by)]) });
+          done.push({ t: name, v: min + " 分钟 · 约 " + kcal + " 千卡" });
+        } else if (kind === "weight") {
+          const kg = Math.round((Number(r.kg) || 0) * 10) / 10; if (!(kg > 20 && kg < 300)) return;
+          d = Object.assign({}, d, { weight: (d.weight || []).filter(w => w.day !== day).concat([{ day, kg }]) });
+          done.push({ t: "体重", v: kg + " kg" });
+        } else if (kind === "sleep") {
+          const ok = v => /^\d{1,2}:\d{2}$/.test(String(v || "")); if (!ok(r.bed) || !ok(r.wake)) return;
+          const row = { bed: r.bed, wake: r.wake }; const mins = sleepMin(row); if (!mins) return;
+          d = Object.assign({}, d, { sleep: Object.assign({}, d.sleep, { [day]: Object.assign({}, (d.sleep || {})[day] || {}, row, { src: "char" }) }) });
+          done.push({ t: "睡眠", v: r.bed + " → " + r.wake + "（" + Math.floor(mins / 60) + " 小时" + (mins % 60 ? mins % 60 + " 分" : "") + "）" });
+        } else if (kind === "steps") {
+          const n = Math.round(Number(r.steps) || 0); if (!(n > 0 && n < 200000)) return;
+          d = Object.assign({}, d, { steps: Object.assign({}, d.steps, { [day]: n }) });
+          done.push({ t: "步数", v: n + " 步" });
+        } else if (kind === "mood") {
+          const v = Math.round(Number(r.v)); if (!(v >= 0 && v <= 4)) return;
+          d = Object.assign({}, d, { mood: Object.assign({}, d.mood, { [day]: { v, note: String(r.note || "").trim().slice(0, 40) } }) });
+          done.push({ t: "心情", v: MOOD_ZH[v] });
+        }
+      });
+      if (!done.length) return null;
+      save(d);
+      try { g.dispatchEvent && g.dispatchEvent(new CustomEvent("qq-health-updated")); } catch (_) {}
+      return { title: done.map(x => x.t).join("、"), sub: done.map(x => x.v).join(" · "), n: done.length };
+    } catch (e) { return null; }
+  }
+  g.healthAddByChar = healthAddByChar;
   g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
   g.Health = { parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, SHORTCUT_TEMPLATE_MINI, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;

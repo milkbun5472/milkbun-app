@@ -294,6 +294,10 @@
     useEffect(() => { if (view === "setup" && setupScroller.current) setupScroller.current.scrollTop = setupScroll.current; }, [view]);
     const [saves, setSaves] = useState(loadSaves);
     const [detail, setDetail] = useState(null);
+    const [archWho, setArchWho] = useState("");   // 往期按人分：空＝全部
+    const archScroller = useRef(null), archScroll = useRef(0);
+    // 看完一张再回来，停在原来那一行（mobile-ui-layout.md §3）
+    useEffect(() => { if (view === "archive" && !detail && archScroller.current) archScroller.current.scrollTop = archScroll.current; }, [view, detail, archWho]);
     const [charId, setCharId] = useState(chars[0] ? chars[0].id : "");
     const [task, setTask] = useState("一起看书");
     // 这一场算进哪门课（她 2026-09-28：「可以开番茄钟选一门课」）。记在场次和往期记录上，
@@ -484,28 +488,55 @@
     //   （那会变成「列表底下又接了一页」）。要么整页替换，要么就不是整页。
     if (view === "archive" && detail) return ResultCard(t, detail, charOf(detail.charId), () => setDetail(null), tp);
     if (view === "archive") {
-      const archiveRight = h("div", { style: { minWidth: 32, textAlign: "right", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, saves.length);
+      // 往期按人分（她 2026-10-05：「archive 要不要做好看点然后可以按角色分」）。
+      //   这张桌子在现实里是什么？——每次换人坐对面，桌上就立一块【桌牌】。所以分栏就是一排桌牌：
+      //   选中的那块立起来（高、上墨、看得见折痕），没选的平放着（矮、暗）。「全部」是桌角那叠单子。
+      //   （施工规则/tabs-not-plain-pills.md）
       const DESKA = "linear-gradient(163deg,#efe9dd,#e5dccb 62%,#dbd0bb)";
-      return h("div", { className: "h-full flex flex-col", style: { background: DESKA,
+      const ink = "#3a3024", fog = "#8a7a5e", line = "rgba(120,96,58,.24)";
+      const who = [...new Set(saves.map(r => r.charId))].map(id => ({ id, name: (charOf(id) || {}).name || (saves.find(r => r.charId === id) || {}).charName || "?", n: saves.filter(r => r.charId === id).length }))
+        .sort((a, b) => b.n - a.n);
+      const list = archWho ? saves.filter(r => r.charId === archWho) : saves;
+      const mins = list.reduce((a, r) => a + Number(r.focusedMinutes != null ? r.focusedMinutes : r.minutes || 0), 0);
+      const doneN = list.filter(r => r.status === "done").length;
+      const tent = (id, label, n) => { const on = archWho === id;
+        return h("button", { key: id || "all", onClick: () => { archScroll.current = 0; setArchWho(id); }, "aria-pressed": on, "data-on": on ? "1" : "0", className: "active:opacity-80",
+          style: { flexShrink: 0, minWidth: 66, minHeight: on ? 58 : 46, padding: "0 10px", alignSelf: "flex-end", border: "1px solid " + (on ? ink : line), borderBottom: "none",
+            borderRadius: "3px 3px 0 0", background: on ? "#fffdf6" : "rgba(255,253,246,.45)", color: on ? ink : fog, position: "relative", transition: "min-height .18s" } },
+          on ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 6, right: 6, top: 9, borderTop: "1px dashed rgba(58,48,36,.28)" } }) : null,
+          h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: on ? 15 : 13, marginTop: on ? 14 : 6, whiteSpace: "nowrap" } }, label),
+          h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 9.5, color: fog, marginTop: 2 } }, n + " 场")); };
+      const card = (r, i) => { const m = r.focusedMinutes != null ? r.focusedMinutes : r.minutes, done = r.status === "done";
+        return h("button", { key: r.id, "data-wk": "pomarchrow", "data-done": done ? "1" : "0", onClick: () => { archScroll.current = archScroller.current ? archScroller.current.scrollTop : 0; setDetail(r); }, className: "w-full text-left active:opacity-80",
+          style: { display: "grid", gridTemplateColumns: "62px 1fr", gap: 12, alignItems: "center", marginTop: 10, padding: "12px 12px 12px 0", background: "#fffdf6", border: "1px solid " + line, borderRadius: 3,
+            boxShadow: "0 2px 6px rgba(96,72,40,.08)", transform: "rotate(" + ((i % 3) - 1) * 0.35 + "deg)" } },
+          h("span", { style: { textAlign: "center", borderRight: "1px dashed " + line } },
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1, color: done ? "#4a6b52" : ink } }, Math.round(m)),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 9.5, color: fog, marginTop: 3 } }, "分钟")),
+          h("span", { style: { minWidth: 0 } },
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 16, color: ink, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.task || "没写做什么"),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: fog, marginTop: 4 } }, fmtDate(r.ts) + (archWho ? "" : " · " + r.charName) + " · " + (done ? "坐满了" : "先收桌") + (r.pokes ? " · 戳了 " + r.pokes + " 次" : "")),
+            r.annotation ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: "#5a4c38", marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + r.annotation + "」") : null)); };
+      return h("div", { className: "h-full flex flex-col", "data-wk": "pomarchive", style: { background: DESKA,
         backgroundImage: "repeating-linear-gradient(96deg,rgba(120,96,58,.03) 0 2px,transparent 2px 26px)," + DESKA,
         boxShadow: "inset 0 0 60px rgba(96,72,40,.16)" } },
-        h(Head, { zh: "坐过的那些", onBack: () => setView("setup"), right: archiveRight, bg: "transparent" }),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
+        h(Head, { zh: "坐过的那些", onBack: () => setView("setup"), right: h("div", { style: { minWidth: 32, textAlign: "right", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, saves.length), bg: "transparent" }),
+        saves.length ? h("div", { "data-wk": "pomarchtabs", className: "shrink-0 flex", style: { gap: 6, overflowX: "auto", padding: "4px 24px 0", borderBottom: "1px solid " + ink } },
+          tent("", "全部", saves.length), who.map(w => tent(w.id, w.name, w.n))) : null,
+        h("div", { ref: archScroller, className: "flex-1 min-h-0 overflow-y-auto px-6", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
           saves.length === 0
-            ? h("div", { style: { borderTop: "1px solid rgba(120,96,58,.24)", padding: "48px 0", fontFamily: F_BODY, fontSize: 13, color: "#8a7a5e" } }, "桌上还没有留下记录。")
-            : saves.map((r, i) => h("button", { key: r.id, onClick: () => setDetail(r), className: "w-full text-left active:opacity-70", style: { background: "transparent", border: "none", borderTop: "1px solid rgba(120,96,58,.24)", padding: "17px 0", display: "grid", gridTemplateColumns: "32px 1fr auto", gap: 10, alignItems: "start" } },
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a3925f", paddingTop: 3 } }, pad2(i + 1)),
-                h("span", null,
-                  h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 17, color: "#3a3024", lineHeight: 1.35 } }, r.task),
-                  h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e", marginTop: 5 } }, fmtDate(r.ts) + " · " + r.charName + " · " + minutesText(r.focusedMinutes != null ? r.focusedMinutes : r.minutes))),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: r.status === "done" ? "#4a6b52" : "#a3925f", paddingTop: 3 } }, r.status === "done" ? "完成" : "收桌"))))
-      );
+            ? h("div", { style: { borderTop: "1px solid " + line, padding: "48px 0", fontFamily: F_BODY, fontSize: 13, color: fog } }, "桌上还没有留下记录。")
+            : [h("div", { key: "sum", "data-wk": "pomarchsum", style: { display: "flex", gap: 18, padding: "14px 2px 4px", fontFamily: F_BODY, fontSize: 11, color: fog } },
+                h("span", null, h("b", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: ink, fontWeight: 400, marginRight: 4 } }, minutesText(Math.round(mins))), archWho ? "一起坐过" : "一共坐过"),
+                h("span", null, h("b", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: ink, fontWeight: 400, marginRight: 4 } }, list.length), "场"),
+                h("span", null, h("b", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#4a6b52", fontWeight: 400, marginRight: 4 } }, doneN), "场坐满")),
+              list.map(card)]));
     }
 
-    if (view === "video" && charOf(charId)) return h(PomodoroVideoEditor, { key: charId, character: charOf(charId), onBack: () => setView("setup"), onSaved: () => setVideoRevision(v => v + 1), toast: props.toast });
+    if (view === "video" && charOf(charId)) return h(MotionEditor, { key: charId, scene: "focus", character: charOf(charId), onBack: () => setView("setup"), onSaved: () => setVideoRevision(v => v + 1), toast: props.toast });
 
     if (view === "focus" && sess) {
-      const c = sess.char, companion = VideoApi.media(c.id);
+      const c = sess.char, companion = VideoApi.slotFor(c.id, "focus");
       const progress = Math.max(0, Math.min(1, 1 - left / Math.max(1, sess.min * 60)));
       const bg = c.avatarImage
         ? { backgroundImage: "url(\"" + resolveImg(c.avatarImage) + "\")", backgroundSize: "cover", backgroundPosition: "center" }
@@ -536,7 +567,7 @@
       const exitRight = h("button", { onClick: () => setEndOpen(true), "aria-label": "收桌", style: { width: 46, minHeight: 40, border: "none", background: "transparent", color: cream, fontFamily: F_BODY, fontSize: 12 } }, "收桌");
       return h("div", { className: "h-full flex flex-col", "data-wk": "pomfocus", "data-pomodoro-focus": sess.mode, style: { position: "relative", ...bg, overflow: "hidden", color: cream } },
         h("style", null, ".pom-subtitle{animation:fadeUp .3s ease both}.pom-poke:focus-visible{outline:2px solid #f6efdf;outline-offset:-8px}@media(max-height:650px){.pom-extra-subtitle{padding:12px 14px!important}.pom-extra-copy{max-height:3.2em!important;font-size:15.5px!important}}@media(prefers-reduced-motion:reduce){.pom-subtitle{animation:none}}"),
-        companion ? h(PomodoroLoopVideo, { key: companion.videoRef, videoRef: companion.videoRef, poster: companion.imageRef, controls: true, controlStyle: { right: 18, top: safeTop(82), bottom: "auto", zIndex: 6, fontSize: 10.5, borderRadius: 999, minHeight: 36, background: "rgba(26,25,21,.38)", backdropFilter: "blur(12px)" }, style: { position: "absolute", inset: 0 } }) : null,
+        companion ? h(MotionStage, { slot: companion, controls: true, controlStyle: { right: 18, top: safeTop(82), bottom: "auto", zIndex: 6, fontSize: 10.5, borderRadius: 999, minHeight: 36, background: "rgba(26,25,21,.38)", backdropFilter: "blur(12px)" }, style: { position: "absolute", inset: 0 } }) : null,
         h("div", { "aria-hidden": "true", style: { pointerEvents: "none", position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(18,17,14,.62) 0%,transparent 30%,transparent 45%,rgba(18,17,14,.44) 65%,rgba(18,17,14,.95) 100%)" } }),
         h(Head, { zh: c.name + " 在对面", sub: modeLabels[sess.mode] || modeLabels.notes, onBack: props.onBack, right: exitRight, bg: "transparent", ink: cream, subInk: dim, noLine: true, inkShadow: "0 1px 12px rgba(0,0,0,.35)", barStyle: { position: "relative", zIndex: 5 } }),
         h("div", { className: "flex-1 min-h-0", style: { position: "relative", zIndex: 1 } },
@@ -677,7 +708,7 @@
           chars.length
             ? h("div", { className: "flex", style: { gap: 10, overflowX: "auto", paddingBottom: 4 } }, chars.map(seat))
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5e" } }, "先去『人格档案馆』建个角色，再来共桌。")),
-        cur ? h("button", { onClick: () => { setupScroll.current = setupScroller.current ? setupScroller.current.scrollTop : 0; setView("video"); }, "data-pomodoro-video-entry": "", "data-wk": "pomvideoentry", style: { width: "100%", minHeight: 48, marginTop: 14, padding: "12px 14px", textAlign: "left", border: "1px solid rgba(90,72,44,.28)", borderRadius: 3, background: "#fffdf6", color: "#3a3024", fontFamily: F_BODY, fontSize: 12 } }, VideoApi.media(cur.id) ? "动态陪伴图 · 已选好，换一段或导出" : "动态陪伴图 · 上传 / 生图，让它动起来") : null,
+        cur ? h("button", { onClick: () => { setupScroll.current = setupScroller.current ? setupScroller.current.scrollTop : 0; setView("video"); }, "data-pomodoro-video-entry": "", "data-wk": "pomvideoentry", style: { width: "100%", minHeight: 48, marginTop: 14, padding: "12px 14px", textAlign: "left", border: "1px solid rgba(90,72,44,.28)", borderRadius: 3, background: "#fffdf6", color: "#3a3024", fontFamily: F_BODY, fontSize: 12 } }, VideoApi.slotFor(cur.id, "focus") ? "动态形象 · 专注时已挂好，换一段或导出" : "动态形象 · 挂一张图或一段视频，坐在对面陪你") : null,
         // ④ 怎么陪：三张摊在桌上的小卡
         h("div", { style: { marginTop: 22 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#3a3024", marginBottom: 10 } }, "怎么陪"),

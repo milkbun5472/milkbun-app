@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.745";
+const APP_VERSION = "v74.749";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10789,7 +10789,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 窗口取【最近 6 条她说的话】：她习惯拆成几个气泡说
       //（「宝宝」／「帮我记一下」／「下周三10点开会」），
       // 关键那句常常不是最后一句，卡在 3 条就容易正好漏掉。
-      const _askedRecord = askedRecently(history, /帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)/, 6);
+      const _askedRecord = askedRecently(history, /帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)|(记|写|存|加)(进|到|入)?.{0,3}健康/, 6);
       const _recordLedgerChoices = _askedRecord && typeof window.ledgerChoices === "function"
         ? window.ledgerChoices()
         : null;
@@ -10809,6 +10809,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "挑不出对应的就选最接近的那一个，别自己造新的（造出来的归不进任何一栏汇总，看着记上了其实是废的）。"
           + "date 写 YYYY-MM-DD，她说「昨天」「上周五」就自己换算好；没说就省略＝今天。note 写她说的那句缘由。"
           + "⚠️只记【她明确报给你的那一笔】，别顺手替她把聊天里提到的别的花销也记上。");
+      }
+      // 健康也能替她记（她 2026-10-05：「跟记账一样触发关键词才记」）——同一把闸：她这几句里开口让你记，才开
+      if (_askedRecord && typeof window.healthAddByChar === "function") {
+        openCaps.push("health");
+        capState.push("health：她让你【替她记进健康】时才填——吃了什么、喝了几杯水、运动、体重、睡眠、步数、心情。"
+          + "一条一个 kind；她一句话里说了好几样就填成数组，一样一条。"
+          + "吃的东西 kcal 你按常见份量估一个整数（她自己报了就用她的）。date 写 YYYY-MM-DD，她说「昨天」「昨晚」就自己换算；没说就省略＝今天。"
+          + "⚠️只记她这次明确让你记的那几样，别把聊天里顺口提到的也记上。");
       }
       if (emotes.length) {
         openCaps.push("emote");
@@ -11103,7 +11111,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 言秋在手机这间房走的是本人专线，不吃普通角色的完整能力协议；但 Lisa 点名让TA
       // 记日期/记账时，必须把同一张真写入凭证递给TA。只补传输字段，不给TA说法、态度或
       // 是否记录下指令；真正落盘仍统一走下面的 memoAddByChar / ledgerAddByChar 安全写路。
-      const _digitalRecordHint = _askedRecord && (openCaps.includes("memo") || openCaps.includes("ledger"))
+      const _digitalRecordHint = _askedRecord && (openCaps.includes("memo") || openCaps.includes("ledger") || openCaps.includes("health"))
         ? "\n【本轮可用的真实记录字段】Lisa 这几条消息里明确请你替她记录。你本人决定照办时，必须在 JSON 里加入对应字段，不能只在 word 里说‘记好了’："
           + (openCaps.includes("memo")
             ? "memo:{\"title\":\"事项\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none|weekly|biweekly|monthly|monthlyEnd|yearly\",\"note\":\"补充或省略\"}。相对日期请按今天换算成真实日期；没说时刻就省略 time。"
@@ -11113,6 +11121,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
               + (_recordLedgerChoices
                 ? "currency 只用 " + _recordLedgerChoices.currencies.join(" / ") + "；支出分类只用 " + _recordLedgerChoices.expense.join(" / ") + "；收入分类只用 " + _recordLedgerChoices.income.join(" / ") + "。"
                 : "")
+            : "")
+          + (openCaps.includes("health")
+            ? "health:[{\"kind\":\"meal|water|sport|weight|sleep|steps|mood\", …按 kind 带 name/kcal、cups、sport/min、kg、bed/wake、steps、v，可带 date}]。"
             : "")
           + "不打算记录就省略对应字段；协议只负责把你的决定交给 App。"
         : "";
@@ -11147,7 +11158,7 @@ ${window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) 
 【能力字段字典】
 silent:true=明确不发消息；quote:string=引用某条消息；语音＝直接写进 word 数组里、你想让它出现的那个位置，那一项写成 {"voice":"内容","emo":"happy|sad|angry|fearful|disgusted|surprised|neutral"}（${VOICE_PAUSE_MARK}${voiceSoundHint()}）——先说一句、再发条语音、再补一句，就按这个顺序排在 word 里；transfer:{"amount":数字,"note":"附言"}=转账；location:{"name":"地点"}=位置；gift:{"name":"物品","price":数字,"note":"寄语，一两句，不填就没有"}=寄一份会留下来的礼物；takeout:{"shop":"店名","items":["点的每一样"],"price":数字,"note":"写在单子上给对方的一句话，不填就没有"}=给对方点外卖；kinshipcard:{"limit":数字,"note":"附言"}=亲属卡；askPhone:"开口那句话"=想看她的手机；pinPlace:{"name":"地名","note":"一句话"}=在你们的城市地图上钉一个想带她去的地方；dateReply:{"go":"yes"|"no","say":"写在回执上的一句"}=回她的约会邀请；loveLetter:"信的全文"=写给她的情侣申请信；block:true 与 blockreason:string=拉黑；recall:{"text":"要撤掉的那句原话","reason":"你为什么撤"}=撤回（会先正常显示一秒再变成「已撤回」，所以 text 写你真发出去过的那句）；momentComment:string=评论最新朋友圈；toGroup:string=把这句公开发到共同群里（只写要发的话）；moment:string=发朋友圈；whisper:string=情侣便签；carve:{"song":"歌名，可带歌手","note":"刻在B面的一句话"}=把一首歌刻进你俩的唱片（会进情侣空间，两个人都看得到）；keepMoment:{"title":"给这一刻起的名字","why":"你为什么想记住它，一两句"}=把刚才这一刻存进你们的相册「时刻」（她看得到；只在你真觉得这一刻值得记住时填，不是每轮都有）；emote:string=表情包关键词；call:"voice"|"video"=发起通话；songSwitch:string=切歌；listenInvite:{"song":"歌名","say":"邀请语"}=邀请一起听；photo:{"kind":"self|other|duo","scene":"画面"}=发照片；toy:{"pattern":"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge","intensity":1到20,"duration":1到90,"reason":"原因"}=配件。
 能力字段只在本轮开放且角色实际决定触发时填写，未触发直接省略。历史中的〔今天14:32〕等标记只表示时间，不得写进 word。
-${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账。两个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
+${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\":\"HH:MM或省略\",\"repeat\":\"none等\",\"note\":\"补充或省略\"}=替她记进备忘录；ledger:{\"type\":\"expense或income\",\"amount\":数字,\"currency\":\"上面列出的币种\",\"category\":\"上面列出的分类\",\"date\":\"YYYY-MM-DD或省略\",\"note\":\"缘由\"}=替她记一笔账；health:[{\"kind\":\"meal\",\"meal\":\"breakfast|lunch|dinner|snack\",\"name\":\"吃了什么\",\"kcal\":估的整数} 或 {\"kind\":\"water\",\"cups\":杯数} 或 {\"kind\":\"sport\",\"sport\":\"跑步等\",\"min\":分钟} 或 {\"kind\":\"weight\",\"kg\":数字} 或 {\"kind\":\"sleep\",\"bed\":\"HH:MM\",\"wake\":\"HH:MM\"} 或 {\"kind\":\"steps\",\"steps\":数字} 或 {\"kind\":\"mood\",\"v\":0到4}，每条都可带 \"date\":\"YYYY-MM-DD\"]=替她记进健康。这几个都只在她这一轮真的开口让你记时才填，记完在话里自然说一声记好了，别复述成一张表。\n" : ""}transferAccept:true|false=对【她转过来还挂着的那一笔】表态：true 收下、false 退回；这一轮不处理就省略。只在本轮开放能力里列出它时才有得填。
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
@@ -12226,6 +12237,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             title: _mo.title, sub: (_mo.anchor || "") + (_mo.startTime ? " " + _mo.startTime : "")
               + (_mo.repeat && _mo.repeat !== "none" ? " · 重复" : ""),
             note: _mo.note || "", ts: Date.now(), turnId }]);
+          delivered = true;
+        }
+      }
+      // 跟 ledger 同一个落法：开没开这一格由上面 openCaps（含房间闸）决定，这里只管落盘
+      if (parsed.health && typeof parsed.health === "object" && typeof window.healthAddByChar === "function") {
+        const _hx = window.healthAddByChar(charId, parsed.health);
+        if (_hx) {
+          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "health", charId: charId, title: _hx.title, sub: _hx.sub, note: "", ts: Date.now(), turnId }]);
           delivered = true;
         }
       }
@@ -13468,6 +13487,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const item = safeArr[i];
           // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
           if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasPause === "function" && ttsHasPause(item.text)) item.text = stripPauseMarks(item.text);
+          // 带声音标签的那句是要说出口的（单聊同一条判据，见 markPauseVoice）
+          if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasSoundTag === "function" && ttsHasSoundTag(item.text)) item.voice = true;
           // 群里一条自己包了【voice】…【/voice】：当语音发，标签擦掉（跟单聊 markPauseVoice 认的同一组写法）
           if (item && typeof item.text === "string" && /^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]/i.test(item.text)) {
             item.text = item.text.replace(/^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]\s*/i, "").replace(/\s*[【\[<]\s*\/\s*(?:voice|语音)\s*[】\]>]\s*$/i, "").trim();
@@ -25376,6 +25397,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
       }
     } catch (e) {}
+    // 动态形象的视频（她 2026-10-05：「很多人都不用云端，就靠导入导出备份」）。
+    //   视频住在自己那个库里，不在 localStorage，原来导出只带走了门牌、视频本身留在旧手机上。
+    //   跟自拍一个口径：只要带图就一起带，备份可以大，但不能悄悄缺。
+    let videos = {}, videoCount = 0, videoWanted = 0;
+    try {
+      if (!noImages && window.VideoApi && window.VideoApi.allVideos) {
+        Object.values(window.VideoApi.motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) videoWanted++; }));
+        for (const [k, b] of await window.VideoApi.allVideos()) { try { videos[k] = await blobToDataUrl(b); videoCount++; } catch (e) {} }
+      }
+    } catch (e) {}
     // ⚠️图库读失败是【静默】的：idbVaultEntries 的 tx.onerror 直接 res([])，
     //   于是「一张图都没有」和「一次没读出来」返回值一模一样，导出就写「含 0 张图片」。
     //   把这份文件导回本机 → 下面 doImport 看见 vault 是真值 → idbVaultClear() →
@@ -25403,7 +25434,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       data: dump,
       vault: vault,
       selfies: selfies,
-      album: album
+      album: album,
+      videos: videos
     }, null, 2)], {
       type: "application/json"
     });
@@ -25412,6 +25444,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ? "（只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍）"
       : "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
       + (album.length ? "、" + album.length + " 条照片说明" : "")
+      + (videoCount ? "、" + videoCount + " 段动态形象视频" : "")
+      + (videoWanted && !videoCount ? "；⚠️动态形象的视频没读出来，这份备份里没有视频" : "")
       + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
     return { name: name, text: await blob.text(), what: what };
@@ -25641,6 +25675,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // album 跟着图一起回来（v4 起备份里才有）。清仓把它一起清了，不写回就永远没了。
         if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
           for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
+        }
+      }
+      // 动态形象的视频：只增量写回，不清本机已有的（键是一段一个，覆盖无害）
+      if (parsed.videos && window.VideoApi && window.VideoApi.restoreVideo && typeof dataUrlToBlob === "function") {
+        for (const [k, durl] of Object.entries(parsed.videos)) {
+          try { const b = dataUrlToBlob(durl); if (b) await window.VideoApi.restoreVideo(k, b); } catch (e2) {}
         }
       }
       // ⭐备份 v3：恢复自拍（打包过才有）——不清旧自拍，只增量写回（自拍键是内容相关的，覆盖无害）
