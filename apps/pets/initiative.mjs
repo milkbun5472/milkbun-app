@@ -1,4 +1,4 @@
-import {choosePetToy} from './habits.mjs?v=fg-dddefd2ab1fb071b';
+import {choosePetToy} from './habits.mjs?v=fg-ccd26bd600dd8e95';
 // Physical requests grow out of completed care, rather than assigned roles.
 export const YOU_SPOT={x:-.65,z:1.72};
 export const TOY_SPOTS={ball:{x:.45,z:.95},mouse:{x:-.45,z:.9}};

@@ -1,10 +1,10 @@
-import {PET_SKILLS,restoreSkills,skillTask,skillDuration,startSkill,completeSkill,skillFacts} from './skills.mjs?v=fg-dddefd2ab1fb071b';
-import {restoreHomeCondition,homeUse} from './home-condition.mjs?v=fg-dddefd2ab1fb071b';
-import {WORK_HABITS,habitTask,carriesToy,chooseWorkHabit} from './work-habits.mjs?v=fg-dddefd2ab1fb071b';
-import {restoreHabitMemory,choosePetToy,choosePetRest,learnComfortSpot,greetingFor,petHabitFacts} from './habits.mjs?v=fg-dddefd2ab1fb071b';
-import {restoreCareManner} from './resident-care.mjs?v=fg-dddefd2ab1fb071b';
-import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-dddefd2ab1fb071b';
-import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-dddefd2ab1fb071b';
+import {PET_SKILLS,restoreSkills,skillTask,skillDuration,startSkill,completeSkill,skillFacts} from './skills.mjs?v=fg-ccd26bd600dd8e95';
+import {restoreHomeCondition,homeUse} from './home-condition.mjs?v=fg-ccd26bd600dd8e95';
+import {WORK_HABITS,habitTask,carriesToy,chooseWorkHabit} from './work-habits.mjs?v=fg-ccd26bd600dd8e95';
+import {restoreHabitMemory,choosePetToy,choosePetRest,learnComfortSpot,greetingFor,petHabitFacts} from './habits.mjs?v=fg-ccd26bd600dd8e95';
+import {restoreCareManner} from './resident-care.mjs?v=fg-ccd26bd600dd8e95';
+import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-ccd26bd600dd8e95';
+import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-ccd26bd600dd8e95';
 const clamp=(v,a=0,b=100,f=65)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
 const kinds=['skill','drink','eat','treat','play','sleep','pet','watch','wander','carryBag','inspectBag','habit',...SEEK_KINDS,'moveAway'];
 const actorKey=v=>typeof v==='string'?v.slice(0,80):'';
@@ -17,27 +17,37 @@ export function restoreCare(raw){
  const task=candidate&&(!SEEK_KINDS.includes(candidate.kind)||target)?{...candidate,night:candidate.night===true,place:candidate.place==='person'&&(!target||candidate.phase==='doing'&&!homePoint(candidate.spot)&&!(carriesToy(candidate)&&candidate.stage==='fetch'))?(candidate.kind==='sleep'?'bed':'rug'):candidate.kind==='sleep'&&!['bed','sofa','box','person'].includes(candidate.place)?'bed':candidate.place}:null;
  return {version:7,skills,condition:restoreHomeCondition(r.condition),habitCooldown:clamp(r.habitCooldown,0,600,0),habits:restoreHabitMemory(r.habits),outdoorIdle:restoreOutdoorIdle(r.outdoorIdle),initiativeCooldown:clamp(r.initiativeCooldown,0,120,20),toyPlaces:Object.fromEntries(Object.entries(TOY_SPOTS).map(([k,v])=>[k,homePoint(r.toyPlaces?.[k])||{...v}])),relationships:Object.fromEntries(Object.entries(r.relationships||{}).filter(([k])=>k==='you'||k.startsWith('companion:')).slice(0,40).map(([k,v])=>[k.slice(0,90),bond(v)])),helper:r.helper&&['feed','play','pet','snack'].includes(r.helper.action)&&actorKey(r.helper.id)?{petId:actorKey(r.helper.petId),action:r.helper.action,id:actorKey(r.helper.id),name:actorName(r.helper.name),phase:r.helper.phase==='doing'?'doing':'walking',time:clamp(r.helper.time,0,60,0),started:!!r.helper.started,responsive:!!r.helper.responsive,manner:restoreCareManner(r.helper.manner),position:r.helper.position&&Number.isFinite(r.helper.position.x)&&Number.isFinite(r.helper.position.z)?{x:r.helper.position.x,z:r.helper.position.z}:null}:null,satiety:clamp(r.satiety),energy:clamp(r.energy,0,100,75),mood:clamp(r.mood,0,100,70),bowl:clamp(r.bowl,0,100,0),elapsed:clamp(r.elapsed,0,1e9,0),idle:0,cooldown:clamp(r.cooldown,0,60,0),rng:clamp(r.rng,1,4294967295,246813579),traits:{active:clamp(traits.active,0,1,.6),social:clamp(traits.social,0,1,.55),bold:clamp(traits.bold,0,1,.45)},toys:{ball:clamp(r.toys?.ball,0,1e6,0),mouse:clamp(r.toys?.mouse,0,1e6,0)},rests:{box:clamp(r.rests?.box,0,1e6,0),bed:clamp(r.rests?.bed,0,1e6,0),sofa:clamp(r.rests?.sofa,0,1e6,0)},task:task&&kinds.includes(task.kind)&&(task.kind!=='skill'||skillTask(task)&&(task.mode!=='show'||skills.progress[task.skill].practice>=3)&&(!carriesToy(task)||['fetch','carry','lower'].includes(task.stage)))&&(task.kind!=='habit'||habitTask(task)&&(!['alley','stall'].includes(task.habit)||task.stage==='fetch'||task.stage==='carry'||task.stage==='lower'||task.stage==='waiting')&&(task.habit!=='alley'||target))?{...(skillTask(task)?{skill:task.skill,mode:task.mode}:{}),...(habitTask(task)?{habit:task.habit}:{}),night:task.kind==='sleep'&&task.night===true,greeting:task.greeting===true,manner:restoreCareManner(task.manner),bagId:actorKey(task.bagId),bagReaction:['eager','curious','leave'].includes(task.bagReaction)?task.bagReaction:'curious',socialId:actorKey(task.socialId),peer:actorKey(task.peer),focus:homePoint(task.focus),kind:task.kind,food:task.kind==='treat'&&task.food==='bread'?'bread':'snack',phase:task.phase==='doing'&&(task.kind!=='wander'||homePoint(task.spot))?'doing':'walking',time:clamp(task.time,0,skillTask(task)?Math.max(2,skillDuration(task)):lengths[task.kind],0),place:['bed','sofa','box','feeding','rug','window','person','toy','water'].includes(task.place)?task.place:'rug',toy:task.toy==='mouse'?'mouse':'ball',source:['self','companion'].includes(task.source)?task.source:'you',actor:actorKey(task.actor),name:actorName(task.name),target,stage:VISIT_STAGES.includes(task.stage)?task.stage:'',spot:homePoint(task.spot),idleAction:IDLE_ACTIONS.includes(task.idleAction)?task.idleAction:'look',reason:task.reason==='waited'?'waited':'pet'}:null,position:r.position&&Number.isFinite(r.position.x)&&Number.isFinite(r.position.z)?{x:r.position.x,z:r.position.z}:null,recent:Array.isArray(r.recent)?r.recent.filter(x=>typeof x?.text==='string').slice(-8).map(x=>({text:x.text.slice(0,120),at:clamp(x.at,0,1e9,0),...(x.type==='skill'&&Object.hasOwn(PET_SKILLS,x.skill)?{type:'skill',skill:x.skill,mode:x.mode==='show'?'show':'practice',target:actorKey(x.target)}:{}),...(x.type==='social'?{type:'social',peer:actorKey(x.peer),kind:['window','ball','box'].includes(x.kind)?x.kind:'window'}:{}),...(x.type==='habit'&&WORK_HABITS[x.habit]?{type:'habit',habit:x.habit}:{}),...(x.type==='visit'?{type:'visit',kind:kinds.includes(x.kind)?x.kind:'invitePet',target:actorKey(x.target)}:{})})):[]};
 }
+// A self-chosen idle task gives way to a person's request; everything else keeps the pet busy.
+function interruptible(t){return t?.source==='self'&&(SEEK_KINDS.includes(t.kind)||['moveAway','watch','wander','play','habit'].includes(t.kind)||t.kind==='sleep'&&t.phase==='walking');}
+// The fixed reasons a request is turned down, shared by request() and the care buttons; mood-based refusals stay a surprise.
+export function careBlock(s,action){const t=interruptible(s.task)?null:s.task;
+ if(t?.kind==='sleep'&&t.phase==='doing'&&action!=='wake')return {short:'睡着了',text:'正睡得香，先让它休息吧。',refuse:true};
+ if(action==='wake')return t?.kind==='sleep'?null:{short:'醒着',text:'它已经醒着啦。'};
+ if(action==='pet'&&s.cooldown>0)return {short:'刚摸过',text:'刚刚摸过啦，它躲开了，想自己待会儿。',refuse:true,note:'摸得有点久，它轻轻挪开了。'};
+ if(t)return {short:'在忙',text:'它正在忙这件事，等一小会儿。'};
+ if(action==='feed'&&s.bowl>25)return {short:'碗里还有',text:'碗里还有粮，先吃完这一份。',refuse:true};
+ if(action==='snack'&&s.satiety>90)return {short:'吃饱了',text:'已经吃饱啦，这一口留到下次。',refuse:true};
+ if(action==='play'&&s.energy<22)return {short:'有点累',text:'有点累，趴着看你晃玩具。',refuse:true};
+ if(action==='play'&&s.satiety<15)return {short:'饿了',text:'肚子空空，先往饭碗那边看。',refuse:true};
+ return null;}
 export function createPetCare(raw,{real=false}={}){
  const s=restoreCare(raw);
  const record=(text,event)=>{s.recent.push({text,at:s.elapsed,...event});s.recent=s.recent.slice(-8);};
  const random=()=>{s.rng=(Math.imul(s.rng,1664525)+1013904223)>>>0;return s.rng/4294967296;};
  function start(kind,place,toy='ball',source='you',actor='',name=''){s.task={kind,phase:'walking',time:0,place,toy,source,actor,name};s.idle=0;return {accepted:true,text:kind==='drink'?'往水碗边走去，准备喝几口。':kind==='eat'?'闻到饭香，往碗边去了。':kind==='treat'?'走过来，想尝一小口。':kind==='play'?'盯上了玩具，准备追过去。':kind==='sleep'?'找个舒服的地方歇歇。':kind==='pet'?'靠过来，等你摸摸。':'自己去窗边看看。'};}
  function request(action,{toy='',source='you',actor='',name='',nearPerson=false,food='snack',place='',restPlaces=['bed','sofa'],manner}={}){
-  toy=['ball','mouse'].includes(toy)?toy:action==='play'?choosePetToy(s,random):'ball';const previous=s.task,canInterrupt=previous?.source==='self'&&(SEEK_KINDS.includes(previous.kind)||['moveAway','watch','wander','play','habit'].includes(previous.kind)||previous.kind==='sleep'&&previous.phase==='walking');
+  toy=['ball','mouse'].includes(toy)?toy:action==='play'?choosePetToy(s,random):'ball';const previous=s.task,canInterrupt=interruptible(previous);
   if(canInterrupt)s.task=null;
   const started=result=>{if(s.task&&source==='companion')s.task.manner=restoreCareManner(manner);if(nearPerson&&s.task&&['play','pet','treat'].includes(s.task.kind)){s.task.place='person';s.task.target=source==='companion'?'companion:'+actorKey(actor):'you';}return result;};
   const who=source==='companion'?(actorName(name)||'TA'):'你';const rel=()=>{const k=source==='companion'?'companion:'+actorKey(actor):'you';return s.relationships[k]||(s.relationships[k]=bond());};
   const refuse=text=>{if(canInterrupt)s.task=previous;if(source!=='self'){rel().refused++;record(who+'想陪它'+(action==='play'?'玩':action==='pet'?'贴贴':'吃东西')+'：'+text);}return {accepted:false,text};};
-  if(s.task?.kind==='sleep'&&s.task.phase==='doing'&&action!=='wake')return refuse('正睡得香，先让它休息吧。');
-  if(action==='wake'){if(s.task?.kind!=='sleep'){if(canInterrupt)s.task=previous;return {accepted:false,text:'它已经醒着啦。'};};if(!finishNightRest())s.task=null;s.idle=0;record('被轻轻叫醒，伸了个懒腰。');return {accepted:true,text:'慢慢醒过来了。'};}
-  if(s.task?.source==='self'&&s.task.kind==='watch')s.task=null;
-  if(action==='pet'&&s.cooldown>0){record('摸得有点久，它轻轻挪开了。');return refuse('刚刚摸过啦，它躲开了，想自己待会儿。');}
-  if(s.task)return {accepted:false,text:'它正在忙这件事，等一小会儿。'};
-  if(action==='feed'){if(s.bowl>25)return refuse('碗里还有粮，先吃完这一份。');s.bowl=100;record(who+'给饭碗添了一份粮。');rel().food++;if(s.satiety>85)return {accepted:true,text:'闻了闻饭碗，现在还不饿。'};return start('eat','feeding','ball',source,actor,name);}
-  if(action==='snack'){if(s.satiety>90)return refuse('已经吃饱啦，这一口留到下次。');const result=started(start('treat','rug','ball',source,actor,name));s.task.food=food==='bread'?'bread':'snack';return result;}
+  const block=careBlock(s,action);if(block){if(block.note)record(block.note);if(block.refuse)return refuse(block.text);if(canInterrupt)s.task=previous;return {accepted:false,text:block.text};}
+  if(action==='wake'){if(!finishNightRest())s.task=null;s.idle=0;record('被轻轻叫醒，伸了个懒腰。');return {accepted:true,text:'慢慢醒过来了。'};}
+  if(action==='feed'){s.bowl=100;record(who+'给饭碗添了一份粮。');rel().food++;if(s.satiety>85)return {accepted:true,text:'闻了闻饭碗，现在还不饿。'};return start('eat','feeding','ball',source,actor,name);}
+  if(action==='snack'){const result=started(start('treat','rug','ball',source,actor,name));s.task.food=food==='bread'?'bread':'snack';return result;}
   if(action==='drink'){if(s.condition.water<=0)return {accepted:false,text:'水碗里还没有清水。'};return start('drink','water','ball',source);}
   if(action==='eat'){if(!s.bowl||s.satiety>90)return {accepted:false,text:'现在不想吃。'};return start('eat','feeding','ball',source);}
-  if(action==='play'){if(s.energy<22)return refuse('有点累，趴着看你晃玩具。');if(s.satiety<15)return refuse('肚子空空，先往饭碗那边看。');if(source!=='self'&&random()>.65+s.traits.active*.25+s.mood*.0015+Math.min(.1,rel().play*.015)){record('今天这次没想玩，转头看了窗外。');return refuse('看了一眼玩具，今天这会儿没兴趣。');}return started(start('play','rug',toy,source,actor,name));}
+  if(action==='play'){if(source!=='self'&&random()>.65+s.traits.active*.25+s.mood*.0015+Math.min(.1,rel().play*.015)){record('今天这次没想玩，转头看了窗外。');return refuse('看了一眼玩具，今天这会儿没兴趣。');}return started(start('play','rug',toy,source,actor,name));}
   if(action==='rest'&&place==='box')return start('sleep','box','ball',source);
   if(action==='rest')return start('sleep',choosePetRest(s,restPlaces,random),'ball',source);
   if(action==='pet'){return started(start('pet','rug','ball',source,actor,name));}
