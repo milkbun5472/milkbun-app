@@ -74,3 +74,5 @@ node art/pet-house/check-preview.cjs
 `pet-skin.mjs` 在独立克隆的蒙皮上修正猫背误跟头、尾尖残留躯干权重与腿根硬切换，原压缩 GLB/纹理不改；`pet-eyes.mjs` 在真实脸部材质上闭眼、轻眨，不加载新图片。重绑保留正在进行的姿态、心情和招呼阶段。
 
 `node --test art/pet-house/pet-action.test.mjs` 检查真实关节长度、权重边界和爪底绑定。`node art/pet-house/check-actions.cjs` 解码两只真实模型，逐一检查21种动作、7种心情的皮肤落地、头骨刚性、腿部可达与过渡，并输出所有截图及睡眠侧面、重绑证据；沿用 PET_HOUSE_URL/PET_HOUSE_EVIDENCE。截图不是额外的动画系统。实体 iPhone 尚未测。
+
+狗狗闭眼线原来过长、过黑；`pet-eyes.mjs` 只缩短狗狗眼睑弧线并降低宽度和深色混合，猫咪闭眼保持原样，嘴巴/鼻子/舌头和原压缩 GLB/图片不改。`check-face.cjs` 在同一个实际 WebGL 材质上比较原版与新版闭眼，验证两侧和正面闭眼线变细变浅、清醒状态/猫咪/鼻嘴舌头保持原像素。沿用 PET_FACE_URL/PET_FACE_EVIDENCE。
