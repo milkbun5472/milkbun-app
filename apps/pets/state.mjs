@@ -9,7 +9,9 @@ import {restoreCare} from './care.mjs?v=fg-6b58fa2d3a23d231';
 import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-6b58fa2d3a23d231';
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const PET_LIMIT=4;
-export function petProfile(value){const species=value?.species==='dog'?'dog':'cat',fallback=species==='dog'?'狗狗':'猫猫';return {species,name:typeof value?.name==='string'?value.name.trim().slice(0,24)||fallback:fallback,look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
+export const petDefaultName=(species,newcomer=false)=>(newcomer?'新来的':'')+(species==='dog'?'狗狗':'猫猫');
+export function petSpeciesProfile(profile,species){const next=species==='dog'?'dog':'cat',name=profile?.name;return {...profile,species:next,name:name===petDefaultName(profile?.species)?petDefaultName(next):name===petDefaultName(profile?.species,true)?petDefaultName(next,true):name};}
+export function petProfile(value){const species=value?.species==='dog'?'dog':'cat',fallback=petDefaultName(species);return {species,name:typeof value?.name==='string'?value.name.trim().slice(0,24)||fallback:fallback,look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
 export function petEntry(raw,id){const care=restoreCare(raw?.care);return {id,life:{at:bound(raw?.life?.at,0,1e15,0),wakeUntil:bound(raw?.life?.wakeUntil,0,1e15,0),marks:raw?.life?.marks&&typeof raw.life.marks==='object'?{...raw.life.marks}:{},notes:Array.isArray(raw?.life?.notes)?raw.life.notes.filter(x=>typeof x?.text==='string'&&Number.isFinite(x.at)).slice(-12).map(x=>({at:x.at,text:x.text.slice(0,160)})):[]},town:restoreTownLife(raw?.town),profile:petProfile(raw?.profile),configured:raw?.configured===true,care,career:restoreCareer(raw?.career||{day:Math.floor(care.elapsed/PET_DAY_SECONDS)+1})};}
 // Stable identity lives in the world save, never in a species or array index.
 // The top-level projection preserves the existing single-pet API and old backups.

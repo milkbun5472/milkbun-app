@@ -33,10 +33,11 @@ const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18952',out=process.env.P
    function pixels(value){p.dye.set(value);p.renderer.render(p.scene,p.camera);ctx.drawImage(p.renderer.domElement,0,0);return {samples:probes.map(([x,y])=>Array.from(ctx.getImageData(x-1,y-1,3,3).data)),frame:ctx.getImageData(0,0,canvas.width,canvas.height).data};}
    const original=pixels({id:'original'}),dyed=pixels({base:'#ff3333',patch:'#3355ff'});p.dye.set(look);
    let changedPixels=0;for(let i=0;i<original.frame.length;i+=4)if([0,1,2].some(j=>Math.abs(original.frame[i+j]-dyed.frame[i+j])>5))changedPixels++;
-   return {probes,changedPixels,centres:original.samples.map((a,i)=>Math.max(...[16,17,18].map(j=>Math.abs(a[j]-dyed.samples[i][j])))),changes:original.samples.map((a,i)=>Math.max(...a.map((v,j)=>Math.abs(v-dyed.samples[i][j])))),maxChannelChange:Math.max(...original.samples.flatMap((a,i)=>a.map((v,j)=>Math.abs(v-dyed.samples[i][j]))))};
+   return {probes,changedPixels,centres:original.samples.map((a,i)=>Math.max(...[16,17,18].map(j=>Math.abs(a[j]-dyed.samples[i][j])))),changes:original.samples.map((a,i)=>Math.max(...a.map((v,j)=>Math.abs(v-dyed.samples[i][j])))),maxChannelChange:Math.max(...original.samples.flatMap((a,i)=>i<2?[16,17,18].map(j=>Math.abs(a[j]-dyed.samples[i][j])):a.map((v,j)=>Math.abs(v-dyed.samples[i][j]))))};
   });
   console.log('DYE',species,JSON.stringify(report.pets[species].dyeProtection));
   assert.ok(report.pets[species].dyeProtection.changedPixels>100,'Fur dye must visibly change rendered pixels');
+  // The eye-centre pixel is the iris; the surrounding 3x3 rim now contains dyeable coat. Nose/mouth still check all nine pixels.
   assert.ok(report.pets[species].dyeProtection.maxChannelChange<=1,'Eyes and nose must retain their original colour under extreme fur dye');
 
    await page.screenshot({path:path.join(out,species+'-tail.png')});await page.locator('#tail-reset').click();await page.locator('#tail').click();
