@@ -719,7 +719,7 @@ async function callAI(p, system, messages, opts) {
     const m2 = String((e && e.message) || e || "");
     bgSay(false, m2);
     if (!CONFIG_ERR.test(m2)) {
-      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2 } })); } catch (_) {}
+      try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute } })); } catch (_) {}
     }
     throw e;
   }
