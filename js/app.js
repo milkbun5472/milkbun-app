@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.743";
+const APP_VERSION = "v74.744";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27262,6 +27262,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbookFor: (charId, text) => loreForContext("lifestyle", charId ? [charId] : [], text),
     moods: moods,
     toast: toast,
+    // 收桌就往 TA 的私聊里放一张「一起专注」小卡（群里 2026-10-05）。算 TA 发的：批注本来就是 TA 写的。
+    //   content 照样留整段字——TA 下回聊天读历史时读的是它，于是记得你们刚一起坐过多久。
+    onShare: (rec, c) => {
+      if (!c || !c.id) return;
+      const mins = rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes;
+      const body = "〔一起专注〕" + (rec.task ? "「" + rec.task + "」，" : "") + (rec.status === "done" ? "坐满了 " : "坐了 ") + mins + " 分钟"
+        + (rec.pokes ? "，中间她戳了我 " + rec.pokes + " 次" : "") + (rec.status === "done" ? "" : "，先收桌了（" + (rec.interruptReason || "") + "）")
+        + (rec.annotation ? "\n" + rec.annotation : "");
+      pChat(c.id, p => [...p, { role: "char", kind: "pomoshare", content: body, ts: Date.now(),
+        pomo: { status: rec.status, task: rec.task, minutes: rec.minutes, focusedMinutes: rec.focusedMinutes, pauseCount: rec.pauseCount, pokes: rec.pokes, annotation: rec.annotation, interruptReason: rec.interruptReason } }]);
+    },
     onBack: () => setScreen("home")
   });else if (screen === "games") body = h(Games, {
     entry: gameEntry,

@@ -382,11 +382,14 @@
         focusedMinutes: status === "done" ? Number(s.min) : actual, pauseCount: s.pauseCount || 0,
         ts: Date.now(), status, statusZh: status === "done" ? "完成" : "提前收桌",
         interruptReason: status === "done" ? "" : (reason || "今天先到这里"),
-        annotation: status === "done" ? s.pack.done : s.pack.left, mode: s.mode, category: s.category || null
+        annotation: status === "done" ? s.pack.done : s.pack.left, mode: s.mode, category: s.category || null,
+        pokes: s.pokes || 0
       };
       const next = [rec].concat(loadSaves());
       saveSaves(next); setSaves(next); clearActive();
       setResult({ rec, char: s.char }); setEndOpen(false); setView("result");
+      // 收桌就往 TA 的私聊里放一张小卡（不另调模型：批注是开场那一次就写好的）
+      if (props.onShare) { try { props.onShare(rec, s.char); } catch (e) {} }
     };
     const finishRef = useRef(finish);
     finishRef.current = finish;
@@ -514,6 +517,8 @@
         if (stopSpeechRef.current) stopSpeechRef.current();
         const next = companionSubtitle(sess, left, pokeRef.current.turn, "tap");
         pokeRef.current = { at: now, turn: pokeRef.current.turn + 1 };
+        // 戳了几次记在这一场上，收桌时带进私聊那张小卡（群里 2026-10-05：「中间偷偷戳了我几次呀」）
+        if (sessRef.current) keepSession({ ...sessRef.current, pokes: (sessRef.current.pokes || 0) + 1 });
         showSubtitle(next);
       };
       const current = subtitle || lastSubtitle.current || companionSubtitle(sess, left, Math.max(0, pokeRef.current.turn - 1), "tap");
@@ -690,4 +695,25 @@
 
   window.PomodoroLogic = { remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore };
   window.Pomodoro = Pomodoro;
+  // 私聊里那张「一起专注」小卡（群里 2026-10-05：「一起番茄时钟后，能不能返回 char 的私聊给一个交互的小卡片」）。
+  //   点一下翻开：做的什么、停了几次、戳了几次；再点收回去。外框和别的分享卡同一张表（components.js shareCardOf）。
+  function PomoShareCard({ m }) {
+    const t = useTheme(), r = (m && m.pomo) || {};
+    const [open, setOpen] = React.useState(false);
+    const done = r.status === "done";
+    const row = (k, v) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginTop: 4, gap: 10 } },
+      h("span", { style: { color: t.fog } }, k), h("span", { style: { textAlign: "right" } }, v));
+    return h("button", { "data-wk": "pomoshare", "data-done": done ? "1" : "0", onClick: () => setOpen(v => !v), className: "active:opacity-90",
+      style: { width: 230, textAlign: "left", borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(40,30,20,.08)", padding: 0 } },
+      h("div", { style: { padding: "10px 12px 11px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.fog } }, "一起专注 · " + (done ? "坐住了" : "先收桌")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, marginTop: 3 } }, minutesText(r.focusedMinutes != null ? r.focusedMinutes : r.minutes)),
+        r.annotation ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, r.annotation) : null,
+        open ? h("div", { style: { marginTop: 8, paddingTop: 6, borderTop: "1px dashed " + t.line } },
+          r.task ? row("做的事", r.task) : null,
+          row("停下来", (r.pauseCount || 0) + " 次"),
+          row("戳了 TA", (r.pokes || 0) + " 次"),
+          r.interruptReason ? row("为什么收桌", r.interruptReason) : null) : h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, "点开看细节")));
+  }
+  window.PomoShareCard = PomoShareCard;
 })();
