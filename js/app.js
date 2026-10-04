@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.736";
+const APP_VERSION = "v74.739";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1165,7 +1165,7 @@ function App() {
     if (!window.Gaze.autoSeedDue(char.id)) return;
     const msgs = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m));
     if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
-    seedGazeFor(char, true);
+    bgJob("gaze", char, () => seedGazeFor(char, true));
   };
   // ── 自动复看（v66.88 接回来）─────────────────────────────────────────
   // ⚠️这一条**原来就该有**。她 2026-09-11：「这本来就是要自动的，我们就是修不好很多次而已」——
@@ -1181,7 +1181,7 @@ function App() {
     const fresh = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)
       && contextAllowsMessage(m) && Number(m.ts || 0) > since).length + (Number(extra) || 0);
     if (!window.Gaze.reviewDue(char.id, fresh)) return;
-    reviewGazeFor(char, false);
+    bgJob("gaze", char, () => reviewGazeFor(char, false));
   };
   // 手动那颗键在状态卡底下，走同一个 reviewGazeFor（manual=true，不占自动预算）。
   // ── 被线路拦下来时，自己缩一次再试（v64.47）─────────────────────────────
@@ -1410,6 +1410,13 @@ function App() {
   const autoRefreshRef = useRef(autoRefreshPolicy);
   autoRefreshRef.current = autoRefreshPolicy;
   const autoRefreshOn = (feature, charId) => window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
+  const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
+  // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
+  window.AutoGate.nameOf = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name || "") : ""; };
+  // 后台活儿挂名字：AutoGate.run 以外那些自己跑的（主动私聊、朋友圈、情书……）从这儿过一下，
+  //   callAI 才知道这一枪是谁的什么活，好弹「后台 · 日记·沈屿白 生成好了」。who 是角色或群。
+  const bgJob = (feature, who, fn) => window.AutoGate.tagged(window.AutoGate.labelOf(feature), fn,
+    window.AutoGate.labelOf(feature) + (who && (who.remark || who.name) ? "·" + (who.remark || who.name) : ""));
   const saveAutoRefreshPolicy = next => {
     const clean = window.AutoRefreshPolicy.normalize(next);
     autoRefreshRef.current = clean; setAutoRefreshPolicy(clean); saveJSON(window.AutoRefreshPolicy.KEY, clean);
@@ -1482,7 +1489,11 @@ function App() {
   const genFailSeenRef = useRef({});
   useEffect(() => {
     const on = ev => {
-      const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.tag || "后台生成");
+      // 后台活儿的那一声归下面 bg-call 那个提示管（它带着名字），这儿不再报一遍
+      if (bgToastOn() && window.AutoGate && window.AutoGate.currentShow && window.AutoGate.currentShow()) return;
+      // 没报名字的那一声，问一句「此刻在跑哪件活儿」（她 2026-10-04：「之前失败也只是说后台失败，没说到底是啥」）
+      const _now = window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
+      const d = (ev && ev.detail) || {}, at = Date.now(), key = String(d.tag || _now || "后台生成") + (d.route ? "（" + d.route + "）" : "");
       if (at - (genFailSeenRef.current[key] || 0) < 60000) return;
       // 收到就先记下：runProbe 和 callAI 两层都会报同一次失败，第二声进来直接挡掉
       genFailSeenRef.current[key] = at;
@@ -1493,6 +1504,20 @@ function App() {
     };
     window.addEventListener("gen-failed", on);
     return () => window.removeEventListener("gen-failed", on);
+  }, []);
+  // 后台每一枪都报一声（她 2026-10-04：「做个 toast 把每一次调用成功或者失败都显示出来并且说明它是什么」）。
+  //   只管后台自己跑的（AutoGate 里挂着名字的活儿）；她自己点出来的那些本来就看得见，不弹。
+  //   设置 → 自动生成 最上面那颗开关关掉就不弹（失败仍走上面那张兜底网）。
+  useEffect(() => {
+    const on = ev => {
+      const d = (ev && ev.detail) || {};
+      if (!bgToastOn()) return;
+      const via = d.route ? "（" + d.route + "）" : "";
+      toast(d.ok ? "后台 · " + d.show + " 生成好了" + via
+        : "后台 · " + d.show + " 没生成出来" + via + "：" + String(d.msg || "").replace(/\s+/g, " ").slice(0, 60), d.ok ? 2600 : 5000);
+    };
+    window.addEventListener("bg-call", on);
+    return () => window.removeEventListener("bg-call", on);
   }, []);
   // 自包含子组件（如事件书架）不走 props 也能弹提示
   useEffect(() => { window.__toast = toast; return () => { delete window.__toast; }; });
@@ -6656,7 +6681,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const lastTs = sess.msgs[sess.msgs.length - 1].ts || 0;
       if (Date.now() - lastTs < 150000 * (1 + Math.random() * 0.5)) return; // 闲置约 2.5~3.75 分钟才推进一拍
       urge.forEach(c => { try { const eng = getDongnian(c); if (eng) eng.applyDelta({ connection: -0.2 }); } catch (e) {} }); // 泄一点，别下tick又触发
-      groupOfflineReply(gid);
+      bgJob("groupChat", (groups || []).find(g => g.id === gid), () => groupOfflineReply(gid));
     }, 20000);
     return () => clearInterval(timer);
     // ⚠️groupSettings 必须在 deps 里：少了它，她刚把开关关掉，这个 interval 还闭包着
@@ -7522,7 +7547,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (block.length < 4) return;
     offSumBusyRef.current[charId] = true;
     try {
-      const r = await summarizeOffline(sumRoute(offlineApiFor(charId)), ctxFor(char), { ...sess, msgs: block }, offlineRecordedOf(sess.id));
+      const r = await window.AutoGate.tagged("线下自动总结", () => summarizeOffline(sumRoute(offlineApiFor(charId)), ctxFor(char), { ...sess, msgs: block }, offlineRecordedOf(sess.id)), "线下自动总结·" + (char.remark || char.name));
       const summ = (r && r.summary || "").trim();
       if (summ) {
         const d = new Date();
@@ -9746,6 +9771,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   全改成 return null；只有 false 才是「跑完了，什么都没送到」。
   //   主动那一路不重来：没人在等，而且它本来就可能选择不说话。
   const replyNow = async (charId, extraText, mode, opts) => {
+    // 主动私聊那一路（opts.proactive）是后台自己跑的：挂上名字，callAI 那头才会弹「后台 · 主动私聊·谁」
+    if (opts && opts.proactive && !opts._bg && typeof bgJob === "function") return bgJob("proactive", characters.find(c => c.id === charId), () => replyNow(charId, extraText, mode, { ...opts, _bg: true }));
     const ok = await _replyTurn(charId, extraText, mode, opts);
     if (ok !== false) return ok;
     if (opts && (opts.proactive || opts._emptyRetry)) return ok;
@@ -12761,6 +12788,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
+    // 群里自己聊（rgOpts.auto）是后台自己跑的：挂上群名
+    if (rgOpts && rgOpts.auto && !rgOpts._bg && typeof bgJob === "function") return bgJob("groupChat", (groups || []).find(g => g.id === groupId), () => replyGroup(groupId, { ...rgOpts, _bg: true }));
     if (rgOpts.auto && groupCallActive(groupId)) return;
     const callEpoch = groupAutoCallEpochRef.current[groupId] || 0;
     const autoCancelled = () => !!rgOpts.auto && (groupCallActive(groupId) || (groupAutoCallEpochRef.current[groupId] || 0) !== callEpoch);
@@ -15316,11 +15345,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const nowStr = String(charNow.getHours()).padStart(2, "0") + ":" + String(charNow.getMinutes()).padStart(2, "0");
         const seqText = plan.seqs.map(s => (s.time || "") + " " + (s.title || "") + (s.location ? "（" + s.location + "）" : "")).join("\n");
         try {
-          const rawRevision = await runProbe(bgActive, { ...ctxFor(c), worldbook: loreFor(c, "lifestyle") }, {
+          const rawRevision = await bgJob("schedule", c, () => runProbe(bgActive, { ...ctxFor(c), worldbook: loreFor(c, "lifestyle") }, {
             instruction: SCHED_END_RULE + "\n" + SCHED_TENSE_RULE + "\n「" + c.name + "」今天原本的计划：\n" + seqText + "\n现在 TA 当地约 " + nowStr + "。TA 此刻临时起意，想改一下今天【还没到的】安排——人之常情：不想去了、朋友临时约、兴致来了想干别的、换个地方、临时多办一件事……原因要贴 TA 的人设和此刻心情，是日常的小变动，别硬编狗血事件。输出修改后的当天完整 seqs：【早于 " + nowStr + " 的时段一律原样保留】，只动之后的 1~2 段（就寝段保留或按需微调）；被改动的段 deviation 填 {\"plan\":\"原计划一句\",\"reason\":\"TA 自己起意的原因（TA 视角的念头，一句）\",\"actual\":\"实际改成什么\"}，没改的段 deviation 为 null。若 TA 今天就是会照计划走（负荷太高/性格自律/没由头），changed 填 false、seqs 给 []。",
             schemaHint: "{\"changed\":true,\"seqs\":[{\"time\":\"08:00\",\"title\":\"起床\",\"location\":\"家\",\"type\":\"coffee\",\"deviation\":null}]}",
             maxTokens: 11000
-          });
+          }));
           const d = window.ContentBoundaries ? window.ContentBoundaries.sanitizeSchedule(rawRevision) : rawRevision;
           if (d && d.changed && Array.isArray(d.seqs) && d.seqs.length >= 3) {
             const seqs = schedFillEnds(d.seqs.map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null })));
@@ -15661,8 +15690,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   免得哪天谁看见这支还在、顺手把线接回去。
       //   论坛的新内容只有两条路：她自己在论坛里按（刷新 / 请TA们发帖 / 让TA发一条），
       //   或者角色低频主动发帖那一条（autoForumForChar，设置里「论坛」那个开关管得住）。
-      if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) await genMoment(ps[Math.floor(Math.random() * ps.length)]); }
-      else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) await genWhisper(ps[Math.floor(Math.random() * ps.length)]); }
+      if (kind === "moments") { const ps = liveChars.filter(c => autoRefreshOn("moments", c.id)); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("moments", pk, () => genMoment(pk)); } }
+      else if (kind === "whisper") { const ps = liveChars.filter(c => autoRefreshOn("whisper", c.id) && couples[c.id] && couples[c.id].status === "together"); if (ps.length) { const pk = ps[Math.floor(Math.random() * ps.length)]; await bgJob("whisper", pk, () => genWhisper(pk)); } }
     } catch (e) {/* 静默 */}
   };
   // ---- 角色动态：主屏红点通知 + 保底触发 ----
@@ -15812,7 +15841,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     due.forEach(k => { if (k === "whisper") n.whisper = 0; else if (k === "moment") n.moment = 0; else if (k === "capsule") n.capsule = 0; else { n.forum = 0; n.lastForumTs = Date.now(); } });
     const np = { ...ambientCountRef.current, [charId]: n };
     ambientCountRef.current = np; setAmbientCount(np); saveJSON("x_ambientCount", np);
-    due.forEach(k => forceAmbient(char, k));
+    due.forEach(k => bgJob(k === "moment" ? "moments" : k, char, () => forceAmbient(char, k)));
   };
   // ---- 心上·每日发呆（v48.22 P1，引擎在 js/heart.js）----
   // 角色独处发呆：想起盒子里的旧念想、偶尔长出一条新芽。独白/念想内容全由「以角色身份的生成调用」落笔，
@@ -15874,7 +15903,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (_lastTs && Date.now() - _lastTs < 7 * 86400000) {
             let _observerCompleted = false;
             try {
-              const od = await runProbe(bgActive, leanWriteCtx(ctxFor(c)), HeartKit.observerSpec(c, box));
+              const od = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), HeartKit.observerSpec(c, box)));
               HeartKit.applyObserver(box, od, today);
               saveDesires(n => { n[c.id] = box; });
               _observerCompleted = true;
@@ -15883,7 +15912,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 只把逐字证据核验通过的候选放进本机 IDB；不改 box/persona，不进聊天 prompt。
             try {
               if (_observerCompleted && window.PersonalityShadow) {
-                const pd = await runProbe(bgActive, leanWriteCtx(ctxFor(c)), window.PersonalityShadow.spec(c, box, _msgs));
+                const pd = await bgJob("desire", c, () => runProbe(bgActive, leanWriteCtx(ctxFor(c)), window.PersonalityShadow.spec(c, box, _msgs)));
                 await window.PersonalityShadow.observe({ charId: c.id, result: pd, messages: _msgs });
               }
             } catch (e) {}
@@ -15939,7 +15968,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const rows = M.monthMaterial(char.id, char.name, monthKey, uName, groups, arch);
           if (rows.length < 6) continue; // 这个月没什么来往，写不出印象，安静跳过
           const gazeText = window.Gaze && window.Gaze.text ? String(window.Gaze.text(char.id, uName) || "").slice(0, 900) : "";
-          const d = await M.genText(offlineActive, char, profile, monthKey, rows, gazeText, M.genOpts(M.load(), char.id, monthKey, 0));
+          const d = await bgJob("impression", char, () => M.genText(offlineActive, char, profile, monthKey, rows, gazeText, M.genOpts(M.load(), char.id, monthKey, 0)));
           let img = null;
           try { if (typeof imgApiReady === "function" && imgApiReady()) img = await M.genArt(d.silhouette, profile, { tags: d.tags, title: d.title }); } catch (e) {}
           const next = M.load();
@@ -23336,7 +23365,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const r = lastChar ? ((lastChar.createdAt % 1000) / 1000) : 0.5; // 稳定随机，不随每次检查抖
         const threshold = cfg.freqRandom ? freq * (0.7 + r * 0.6) : freq;
         if (days < Math.max(3, threshold)) continue;
-        const ok = await genCoupleLetter(c);
+        const ok = await bgJob("letter", c, () => genCoupleLetter(c));
         if (ok) {
           toast(c.name + " 给你写了封情书");
           if (window.Notify) window.Notify.push({ title: c.name + " 给你写了封情书", body: "去情侣空间拆开看看", tag: "letter-" + c.id, charId: c.id });

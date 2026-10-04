@@ -17,6 +17,14 @@
     const gs = (data && data.groupSettings) || {};
     return !!(gs[g.id] && gs[g.id].spectate);
   };
+  // 封闭群（没开记忆互通）也不算「她理过TA」（她 2026-10-04 报：「111 没开记忆互通为什么会影响」）。
+  // ⚠️封闭群是另一个时空：那边的事私聊这头的TA不知道，那她在那边开口，这头的TA也就没被理过。
+  //   只在调用方给了 groupSettings 时才判——没给的（老调用、只问时间的）照旧全算。
+  const sealedRoom = function (g, data) {
+    if (!g || !data || !data.groupSettings) return false;
+    const gs = data.groupSettings[g.id];
+    return !(gs && gs.memoryInterop);
+  };
   function latestSharedTs(charId, data) {
     data = data || {};
     let best = maxSessions((data.offlines || {})[charId], function (m) { return m && (m.role === "user" || m.role === "narration" || m.role === "assistant"); });
@@ -36,6 +44,7 @@
     (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
       if (!g || !(g.memberIds || []).includes(charId)) return;
       if (watchingOnly(g, data)) return;                 // 她在旁边看，不是在跟TA说话
+      if (sealedRoom(g, data)) return;                   // 另一个时空，这头的TA不知道
       best = Math.max(best, maxMsgs((data.groupChats || {})[g.id], fromUser));
       best = Math.max(best, maxSessions((data.groupOfflines || {})[g.id], fromUser));
     });
@@ -52,7 +61,7 @@
     if (!best.ts) best = { ts: 0, kind: "", gid: "" };
     (Array.isArray(data.groups) ? data.groups : []).forEach(function (g) {
       if (!g || !(g.memberIds || []).includes(charId)) return;
-      if (watchingOnly(g, data)) return;
+      if (watchingOnly(g, data) || sealedRoom(g, data)) return;
       const inChat = maxMsgs((data.groupChats || {})[g.id], fromUser);
       if (inChat > best.ts) best = { ts: inChat, kind: "group", gid: g.id };
       const inOff = maxSessions((data.groupOfflines || {})[g.id], fromUser);
@@ -81,6 +90,6 @@
       return s && !s.endTs && ((s.msgs || []).length > 0) && (now - (Number(s.startTs) || 0) < OFFLINE_LIVE_MS);
     });
   }
-  return { watchingOnly: watchingOnly, latestUserSharedWhere: latestUserSharedWhere, latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
+  return { watchingOnly: watchingOnly, sealedRoom: sealedRoom, latestUserSharedWhere: latestUserSharedWhere, latestSharedTs: latestSharedTs, latestUserSharedTs: latestUserSharedTs, isTogetherNow: isTogetherNow,
     offlineSceneLive: offlineSceneLive };
 });

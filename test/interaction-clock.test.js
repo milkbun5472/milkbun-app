@@ -42,5 +42,6 @@ test("页面继续加载未改动的用户跨场景钟缓存指纹", () => {
   const clockVersion = html.match(/interaction-clock\.js\?v=([^"]+)/);
   assert.ok(clockVersion);
   // v68.07 旁观群不再算「她理过TA」；v68.10 又加了 latestUserSharedWhere——归零要说得出是被什么清的。
-  assert.equal(clockVersion[1], "68.10", "未改文件不要跟随 App 发布号乱升指纹；真改了就把这个数一起挪，并在上面写清哪一版为什么改");
+  // v74.739 封闭群（没开记忆互通）里开口也不算——那边是另一个时空，这头的TA不知道。
+  assert.equal(clockVersion[1], "74.739", "未改文件不要跟随 App 发布号乱升指纹；真改了就把这个数一起挪，并在上面写清哪一版为什么改");
 });
