@@ -128,13 +128,13 @@ test("App 那头把三样都算好传进来，且皮肤 CSS 跟主题用同一�
   assert.match(app, /const charSkinCSS = \(name, scope\) => \{/, "没有按名字取内置皮肤那一步");
   assert.match(app, /window\.ThemeStudio\.scopeCSS\(hit\[1\], scope\)/,
     "自己另写了一套加前缀的写法——两处限法迟早不一样");
-  assert.match(app, /const lookScope = id => 'html\[data-lisa-screen="thread"\]\[data-lisa-char="' \+ String\(id\)\.replace/,
+  assert.match(app, /return 'html\[data-lisa-char="' \+ k \+ '"\]:is\(\[data-lisa-screen="thread"\],\[data-lisa-call="' \+ k \+ '"\]\)';/,
     "限法里没有人——别人的窗口也是 thread，只限页面等于没限");
-  assert.match(app, /setAttribute\("data-lisa-char", inChat \? String\(activeChar\.id\) : ""\)/,
+  assert.match(app, /setAttribute\("data-lisa-char", inChat \? String\(who\.id\) : ""\)/,
     "没往 <html> 上挂当前是谁，选择器就永远选不中");
   assert.match(app, /applyChatLook\(\{\s*scope: scope,\s*fontCSS: charFontCSS\(s\.font, scope\),\s*skinCSS: charSkinCSS\(s\.skin, scope\),/, "没把这个人的皮肤／字体传下去");
   assert.match(app, /bubble: \(s\.bubble && typeof s\.bubble === "object"\) \? s\.bubble : null,/, "没把这个人的气泡传下去");
-  assert.match(app, /\}, \[activeChar && activeChar\.id, chatSettings, screen\]\);/, "换人／改设置／换页时不重算，等于改了不生效");
+  assert.match(app, /\}, \[activeChar && activeChar\.id, chatSettings, screen, call && call\.participants/, "换人／改设置／换页时不重算，等于改了不生效");
   // 存得下来才算数
   assert.match(app, /skin: s\.skin \|\| "",/, "没存这个人的皮肤");
   assert.match(app, /bubble: \(s\.bubble && typeof s\.bubble === "object"\) \? s\.bubble : null,\s*\n\s*apiId:/, "没存这个人的气泡");
@@ -154,4 +154,10 @@ test("两个选择器都留着【跟随全局】那一档，不然退不回去",
   assert.match(seg, /onClick: \(\) => setBubble\(o\.key \? Object\.assign\(\{ _preset: o\.key \}, bubblePresetSkin\(o\.key\)\) : null\)/,
     "气泡那格写的还是全局那一路（applyBubblePreset 会改所有人）");
   assert.ok(seg.indexOf("h(BubbleSkinPresets") < 0, "还挂着那个写全局的按钮排——点一下会把所有人的气泡都改掉");
+});
+
+// 她 2026-10-05：给 TA 写的贴纸 CSS 一进通话就没了。单人通话也算 TA 这一页；群通话不算。
+test("跟 TA 单独通话时，TA 那份聊天 CSS 照样生效", () => {
+  assert.match(app, /const callOne = call && !call\.groupId && call\.participants && call\.participants\.length === 1 \? call\.participants\[0\] : null;/);
+  assert.match(app, /setAttribute\("data-lisa-call", callOne \?/);
 });

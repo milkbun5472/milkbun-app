@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.767";
+const APP_VERSION = "v74.769";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2286,7 +2286,9 @@ function App() {
   // 顺序全靠 <style> 在 head 里的先后，所以只能有一个出口：components 那边的 applyChatLook。
   // ⚠️限死到【这一个人的这一页】：别人的聊天窗也是 thread，只按页面限的话，
   //   给沈屿白挑的皮肤会照样出现在陆闻那儿（浏览器里当场看出来的）。
-  const lookScope = id => 'html[data-lisa-screen="thread"][data-lisa-char="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"]';
+  // ⚠️跟 TA 单独通话时也算「TA 这一页」（她 2026-10-05：「做1吧」）：她给 TA 写的贴纸、气泡 CSS
+  //   原来一进通话就整份收走，秋秋往里加再多 call* 挂点也显示不出来。通话那层由 data-lisa-call 认人。
+  const lookScope = id => { const k = String(id).replace(/[^A-Za-z0-9_:-]/g, ""); return 'html[data-lisa-char="' + k + '"]:is([data-lisa-screen="thread"],[data-lisa-call="' + k + '"])'; };
   const charSkinCSS = (name, scope) => {
     if (!name || !window.ThemeStudio) return "";
     const hit = ((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === name);
@@ -2302,10 +2304,14 @@ function App() {
   // 这个聊天窗的长相发出去：存档那份，或者预览台递过来的一份草稿（draft 盖在存档上，不落盘）
   const paintChatLook = draft => {
     if (typeof applyChatLook !== "function") return;
-    const inChat = !!(activeChar && screen === "thread");
-    document.documentElement.setAttribute("data-lisa-char", inChat ? String(activeChar.id) : "");
-    const s = inChat ? Object.assign({}, settingsFor(activeChar.id), draft || {}) : {};
-    const scope = inChat ? lookScope(activeChar.id) : "";
+    // 单人通话（不是群通话）优先：通话盖在哪一页上都按通话里那个人来
+    const callOne = call && !call.groupId && call.participants && call.participants.length === 1 ? call.participants[0] : null;
+    const who = callOne || (activeChar && screen === "thread" ? activeChar : null);
+    const inChat = !!who;
+    document.documentElement.setAttribute("data-lisa-char", inChat ? String(who.id) : "");
+    document.documentElement.setAttribute("data-lisa-call", callOne ? String(callOne.id).replace(/[^A-Za-z0-9_:-]/g, "") : "");
+    const s = inChat ? Object.assign({}, settingsFor(who.id), draft || {}) : {};
+    const scope = inChat ? lookScope(who.id) : "";
     // 只给 TA 换字（她 2026-09-18）：名单和自己传的那几支都问主题那份要——
     // 聊天窗这儿不另存一份字体名单（one-public-mechanism）。
     const _prof = (window.ThemeStudio && window.ThemeStudio.current()) || {};
@@ -2327,7 +2333,7 @@ function App() {
       chatBg: s.chatBg || ""
     });
   };
-  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen]);
+  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId]);
   // 群聊窗那一层（她 2026-09-30：「群聊也加这一堆美化」）：排版开关 + 这个群自己写的 CSS，限到【这一个群】
   //   ——别的群也是 gthread，只按页面限的话会串到别的群里去（单聊那条同样的教训）。
   const paintGroupLook = draft => {
