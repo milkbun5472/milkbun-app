@@ -199,3 +199,12 @@ neighborhood.mjs 共管 worlds.pets v6 的 neighborhood。三位固定街坊复�
 周六10–12遛宠物、周日15–17野餐使用原 realTime；雨雪改咖啡店门内，天气中途变化重新集合。实际近处相聚20秒才记，每宠/现实日期一次；聚会参与者使用同一 gatheringSpot 找不同可达站点，空闲TA明确接受邀约后沿原路线来到，忙/吃睡保留优先。菜单/后台/保存失败不推进邻里；离线仍原3天有界普通生活，不推进邻里关系/访客/相聚/交接，手动交接与相聚等待中断重置，TA邀约中断后恢复原日程。事实随原 chatContext 提供给共同生活认知，没有新模型调用。
 
 验证：neighborhood.test.mjs 使用原 care/career/state writer，覆盖路径门口/保存回滚/持物与刷新/实际交接/每日防重复/多宠隔离/天气改场地/离线不补完成；town-neighbors-ui.test.js 和 scripts/checks/town-neighbors-browser.cjs 验实际原模型、IDB writer、TA到场、320/390/430单正文与返回滚动。
+
+
+### 街坊的现实作息
+
+neighborhood v2 沿同一 realTime / townEnvironment 选择当日目的地：面包师06–21、其余08–22；午饭、早晚看店/翻书、晴天午后公园和雨雪避雨分别走原 town-life 路线。没有新的离线 NPC 结算或位置重置：重开先留在实际位置，再走向当前目的地。appearance 同时供应原 traveler 的 eat/read/wave 动作、纸页地点/见面时间和原 chatContext；收工拒绝新约定，已拿的托付能交完。约好的串门/聚会优先，另一宠物持物不冻结赴约的主持人。
+
+meeting 沿原存档按真实 petId 保存短暂找人等候（120前景秒）/转向挥手（3秒）。找人不记关系，近处才挥手，重打招呼不重复加见面；超时、宠物忙碌、收工或离线一分钟结束等候。goNeighbor 在公共 commandPlace 选择原 town-life 的完整出入门路线；其余原指令保留行为。室外相遇和聚会共用 gatheringSpot 分开可达站点，室内仍从原门口接近。原 IDB writer 失败回滚等候/路线/动作/关系；GLB、人物/宠物尺寸、库存和三世界时间范围未改。
+
+原 town-neighbors-browser.cjs 增加 TOWN_NEIGHBORS_RHYTHM=1：同一真实宿主/原 archive writer 的昼夜、实际雨天、找人回滚/等候、旁边站位、挥手原姿态、咖啡店原书本、离线停止等候和收工拒绝。仍可用 TOWN_NEIGHBORS_RAIN=1 测真实天气；原送物/串门/TA聚会与三宽纸页模式保留。

@@ -1,12 +1,12 @@
-import {restoreNeighborhood} from './neighborhood.mjs?v=fg-cfafe7f5b7719d58';
-import {upgradeRoomLayout,ROOM_LAYOUT_VERSION} from './room-layout.mjs?v=fg-cfafe7f5b7719d58';
-import {restoreHousehold} from './home-chores.mjs?v=fg-cfafe7f5b7719d58';
-import {restoreTownLife} from './town-life.mjs?v=fg-cfafe7f5b7719d58';
-import {restoreSocial} from './social.mjs?v=fg-cfafe7f5b7719d58';
-import {restoreResident} from './autonomy.mjs?v=fg-cfafe7f5b7719d58';
-import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-cfafe7f5b7719d58';
-import {restoreCare} from './care.mjs?v=fg-cfafe7f5b7719d58';
-import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-cfafe7f5b7719d58';
+import {restoreNeighborhood} from './neighborhood.mjs?v=fg-4a8594d379aee662';
+import {upgradeRoomLayout,ROOM_LAYOUT_VERSION} from './room-layout.mjs?v=fg-4a8594d379aee662';
+import {restoreHousehold} from './home-chores.mjs?v=fg-4a8594d379aee662';
+import {restoreTownLife} from './town-life.mjs?v=fg-4a8594d379aee662';
+import {restoreSocial} from './social.mjs?v=fg-4a8594d379aee662';
+import {restoreResident} from './autonomy.mjs?v=fg-4a8594d379aee662';
+import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-4a8594d379aee662';
+import {restoreCare} from './care.mjs?v=fg-4a8594d379aee662';
+import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-4a8594d379aee662';
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const PET_LIMIT=4;
 export function petProfile(value){const species=value?.species==='dog'?'dog':'cat',fallback=species==='dog'?'狗狗':'猫猫';return {species,name:typeof value?.name==='string'?value.name.trim().slice(0,24)||fallback:fallback,look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
