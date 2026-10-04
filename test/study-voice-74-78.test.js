@@ -32,3 +32,11 @@ test("面具按角色绑定：上课用的是跟这位绑的那张", () => {
 test("场景只交代做什么，不替他定口气", () => {
   assert.doesNotMatch(study, /用自然的教学口吻/);
 });
+
+// 她 2026-10-05：「每轮消息后面都跟着举手是啥」
+test("举手默认没有，跟刚说过的重了也不举", () => {
+  const fmt = study.slice(study.indexOf("function tbFmt("), study.indexOf("function tbWho("));
+  assert.match(fmt, /\\"hand\\":null\}/, "格式里又摆了一个填好的举手槽，模型会每轮都填");
+  const turn = study.slice(study.indexOf("async function tbTurn("), study.indexOf("async function tbAnswer("));
+  assert.match(turn, /turns\.some\(function \(t\) \{ const b = bare\(t\.text\);/);
+});

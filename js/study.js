@@ -3964,7 +3964,10 @@
     const two = stus.length > 1;
     return "【输出】只输出 JSON：{\"turns\":[{\"who\":\"" + (two ? stus[0].name + "或" + stus[1].name : stus[0].name) + "\",\"say\":\"一句话，一个气泡\"}],"
       + "\"notes\":{" + stus.map(function (c) { return "\"" + c.name + "\":\"" + c.name + " 此刻的课堂笔记全文，用自己的话分条记（每条一行，以「· 」开头），理解歪了就照歪的记\""; }).join(",") + "},"
-      + "\"fixed\":[\"这一轮被老师纠正过来的那几条的编号，没有就空数组\"],\"hand\":{\"who\":\"想举手的人，没有就空字符串\",\"q\":\"要问的问题\"}}";
+      + "\"fixed\":[\"这一轮被老师纠正过来的那几条的编号，没有就空数组\"],\"hand\":null}"
+      // 举手（她 2026-10-05：「每轮消息后面都跟着举手是啥」）：原来格式里摆着一个填好的 hand 槽，模型就每轮都填，
+      //   而且多半是把 turns 里刚问过的那句再抄一遍。现在默认 null，只说它是什么。
+      + "\nhand 默认就是 null。只有某个学生憋着一个【这一轮没说出口】的问题、想等老师讲完再问时，才写成 {\"who\":\"谁\",\"q\":\"那个问题\"}；已经在 turns 里问出来的，别再举一次手。";
   }
   function tbWho(stus, name) { const n = String(name || "").trim(); return stus.find(function (c) { return c.name === n || (c.remark && c.remark === n); }) || stus.find(function (c) { return n && (n.indexOf(c.name) >= 0 || c.name.indexOf(n) >= 0); }) || stus[0]; }
   // 连着同一边的合成一条、开头补一句老师的——有的接口不许 assistant 打头、不许同一边连发
@@ -4014,8 +4017,12 @@
     const notes = {};
     if (d.notes && typeof d.notes === "object") Object.keys(d.notes).forEach(function (k) { notes[tbWho(stus, k).id] = String(d.notes[k] || "").trim(); });
     else if (typeof d.note === "string") notes[stus[0].id] = d.note.trim();
-    const hd = d.hand && typeof d.hand === "object" ? d.hand : (d.hand ? { who: stus[0].name, q: d.hand } : null);
-    return { turns: turns, notes: notes, fixed: (Array.isArray(d.fixed) ? d.fixed : []).map(String), hand: hd && hd.q ? { who: tbWho(stus, hd.who).id, q: String(hd.q).trim() } : null };
+    let hd = d.hand && typeof d.hand === "object" ? d.hand : (d.hand ? { who: stus[0].name, q: d.hand } : null);
+    // 跟刚说过的那句重了就不举：去掉标点空白后互相包含即算同一句
+    const bare = function (x) { return String(x || "").replace(/[\s（）()，。？！?!、,.…「」“”"'：:；;]/g, ""); };
+    const hq = hd && bare(hd.q);
+    if (!hq || turns.some(function (t) { const b = bare(t.text); return b && (b.indexOf(hq) >= 0 || hq.indexOf(b) >= 0); })) hd = null;
+    return { turns: turns, notes: notes, fixed: (Array.isArray(d.fixed) ? d.fixed : []).map(String), hand: hd ? { who: tbWho(stus, hd.who).id, q: String(hd.q).trim() } : null };
   }
   async function tbAutoQuiz(active, s, stus) {
     const conv = (s.transcript || []).map(function (m) { return (m.role === "user" ? "老师" : "学生" + (stus.length > 1 ? "（" + (stus.find(function (c) { return c.id === m.who; }) || stus[0]).name + "）" : "")) + "：" + m.text; }).join("\n").slice(-8000);
