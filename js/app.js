@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.810";
+const APP_VERSION = "v74.812";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16165,11 +16165,29 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
     } finally { impressionAutoRunRef.current = false; }
   };
+  // 今日签（她 2026-10-05）：开了的那几位，每天替她抽一张发进私聊。一天一人一张，走公共闸（成了不再跑、失败两小时后再试）
+  const astroSignSweep = async () => {
+    if (!active || !window.Astro || !window.Astro.todayFacts || !autoRefreshOn("astroSign")) return;
+    const today = schedDayKey(new Date());
+    const facts = window.Astro.todayFacts(profile, window.Astro.loadBirth(), today);
+    if (!facts) return;
+    for (const c of liveChars) {
+      if (!autoRefreshOn("astroSign", c.id) || settingsFor(c.id).engineerEyes) continue;
+      await window.AutoGate.run("astroSign|" + c.id, today, async () => {
+        const d = await runProbe(apiFor(c.id), ctxFor(c), { voice: true, tag: "astro", instruction: window.Astro.signInstruction(userName(profile), facts) + "\n这张是你自己想起来、主动抽了发给她的。" + (typeof probeVoiceTail === "function" ? probeVoiceTail() : ""),
+          schemaHint: window.Astro.SIGN_SCHEMA, maxTokens: 65535 });
+        if (!d || !String(d.title || d.text || "").trim()) return false;
+        const sg = { title: String(d.title || "").trim().slice(0, 12), text: String(d.text || "").trim().slice(0, 120), by: c.remark || c.name, ts: Date.now() };
+        pChat(c.id, p => [...p, { role: "char", kind: "astroshare", content: "〔给你抽了一张今日签〕「" + sg.title + "」：" + sg.text, ts: Date.now(), astro: sg }]);
+        return true;
+      });
+    }
+  };
   const wakeSweeps = async () => {
     if (!active || !characters.length) return;
     deliverDeskLog();
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
-      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep];
+      desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];
     for (const step of steps) { try { await step(); } catch (e) {/* 一步失手不拖累后面几步 */ } }
   };
   // 打开 app 当天第一次就给所有人生成今日行程（每天一次）；随后看有没有人临时起意改计划
@@ -18922,6 +18940,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 每周刷新在开 app 那一拍就跑了，她这会儿可能在别的页面，
     // 等她进查手机时选中的却变成了刚被补刷的那个角色。手动全刷才该切过去。
     if (!weekly) setSelPhone(char.id);
+    // 整份刷新＝TA这一天把手机里的东西都过了一遍：星测那页也换成今天的（她 2026-10-05）
+    if (window.Astro && window.Astro.markSeen) window.Astro.markSeen(char.id);
     setGen(g => ({
       ...g,
       phoneApp: "__all__"
@@ -18992,7 +19012,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   所以名单里有它们（TA能点进去翻），但 applyWrite 里一个分支都没有。
   const WATCH_APPS = ["wechat", "album", "notes", "browser", "music", "shopping", "takeout", "liked",
     "calls", "mail", "reading", "tally", "bili", "latenight", "health", "calendar", "clipboard",
-    "forum", "anon"];
+    "forum", "anon", "astro"];
   const genWatchSession = async char => { return withPhoneWork(async () => {
     const WK = window.PhoneWatch;
     if (!WK || !char) return null;
@@ -19082,6 +19102,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       // ⚠️只记【上一段】是不够的（她 2026-09-10 第三次报：还是那张照片、那个标签页）：
       //   两段之间来回换，等于什么都没记住。改成滚动记最近几段，新的在前，封顶 24 个。
+      // 看TA玩时TA点开了星测：TA手机里那页星测就换成今天这份（她 2026-10-05）
+      if (opened.indexOf("astro") >= 0 && window.Astro && window.Astro.markSeen) window.Astro.markSeen(char.id);
       if (opened.length || its.length) setWatchSeen(m => {
         const prev0 = m[char.id];
         const prevIts = Array.isArray(prev0) ? [] : ((prev0 && prev0.i) || []);
@@ -27370,6 +27392,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onEditChar: c => { setEditingChar(c); setScreen("castForm"); },
     onEditProfile: () => setProfileOpen(true),
+    // 今日签转发回聊天（她 2026-10-05：「跟塔罗一样可以转发回聊天」）：她转过去的，算她发的
+    onShareSign: (c, sg) => {
+      pChat(c.id, p => [...p, { role: "user", kind: "astroshare", content: "〔转来一张今日签〕" + (sg.by || "") + " 抽的「" + sg.title + "」：" + sg.text, ts: Date.now(), astro: sg }]);
+      openChatById(c.id);
+    },
     // 群榜「发到群里」（她 2026-10-05）：她自己发一条，群里的人照常接话
     groups: groups,
     onShareToGroup: (gid, text) => {

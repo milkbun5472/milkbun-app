@@ -468,7 +468,35 @@
     const pool = tone > 0.2 ? YES : tone < -0.2 ? WAIT : MID;
     return { q, area: area[2], verdict: pool[Math.floor(r() * pool.length)], line, day: dk };
   }
-  const ASK_KEY = "x_astro_asks";
+  // ── 今日签（第 3 条）：TA 替她抽一张签。手动（星测里点）和自动（TA 每天早上自己发）用同一份提示词 ──
+  const SIGN_SCHEMA = "{\"title\":\"签名，四到八个字\",\"text\":\"写在签上的话，一两句\"}";
+  function signInstruction(meName, facts) {
+    return "你替" + meName + "抽一张今天的签。下面是按她的星座和今天的日子算出来的（不是你编的）：\n" + facts + "\n"
+      + "签上写什么、怎么写、当不当真，全由你这个人决定——可以照着运势写，也可以完全不信、写你自己想对她说的。title 是签名，text 是签上的话。";
+  }
+  function todayFacts(profile, birth, dk) {
+    const info = birthInfo((profile || {}).birthday); if (!info || info.sign < 0) return "";
+    const d0 = daily(info.sign, dk), chart = natalChart(profile.birthday, (birth || {}).me), tr = chart ? transits(chart, noonOf(dk)) : null;
+    const d = !tr ? d0 : Object.assign({}, d0, { all: tr.all, love: tr.love, work: tr.work, money: tr.money, line: tr.hits.length ? transitLine(tr.hits[0]) + "。" : d0.line });
+    return signName(info.sign) + "；综合 " + d.all + " 星，爱情 " + d.love + "、事业 " + d.work + "、财运 " + d.money + " 星；幸运色" + d.color.name + "、幸运数字 " + d.number + "；" + d.line
+      + (skyNote(noonOf(dk)) ? "今天的天象：" + skyNote(noonOf(dk)) + "。" : "");
+  }
+  // 聊天里那张小签（转发回去的、TA 自己发来的都是它）——外框走 components.js 的 shareCardOf
+  function AstroSignCard({ m }) {
+    const S = sky(), a = (m && m.astro) || {}, d = new Date(a.ts || m.ts || Date.now());
+    return h("div", { "data-wk": "astroshare", style: { width: 196, borderRadius: 4, overflow: "hidden", background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px", border: "1px solid " + S.tint + "66", boxShadow: "0 4px 14px rgba(20,22,50,.25)" } },
+      h("div", { style: { padding: "12px 14px 14px", textAlign: "center" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: S.fog } }, "今日签 · " + (d.getMonth() + 1) + "." + d.getDate()),
+        h("div", { style: { width: 1, height: 14, background: S.tint, margin: "8px auto 6px", opacity: 0.6 } }),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: S.tint, lineHeight: 1.3 } }, a.title || "签"),
+        a.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.ink, lineHeight: 1.7, marginTop: 8, textAlign: "left" } }, a.text) : null,
+        a.by ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 8, textAlign: "right" } }, "—— " + a.by + " 抽的") : null));
+  }
+  // ── 月亮日记（第 5 条）：今天月亮在哪个星座 + 一个情绪小词；她顺手记的心情就是健康 app 心情那一格（同一份）──
+  const MOON_WORD = ["冲劲", "安稳", "好奇", "想家", "想被看见", "挑剔", "想讲和", "很深", "想跑远", "收着", "抽离", "迷糊"];
+  const moonSignOn = dk => Math.floor(rev(planetLongitudes(noonOf(dk)).moon) / 30);
+
+  const ASK_KEY = "x_astro_asks", SIGN_KEY = "x_astro_signs";
   const loadAsks = () => { try { const v = loadJSON(ASK_KEY, []); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
 
   // ── 存 ────────────────────────────────────────────────────
@@ -695,6 +723,26 @@
     const [gid, setGid] = useState(groups[0] ? groups[0].id : "");
     const [askText, setAskText] = useState("");
     const [asks, setAsks] = useState(loadAsks);
+    const [signs, setSigns] = useState(() => loadJSON(SIGN_KEY, {}) || {});
+    const [moonTick, setMoonTick] = useState(0);
+    // 今日签：手动抽一张（跟自动那一路同一份提示词）
+    const drawSign = async c => {
+      const key = "sign|" + today + "|" + c.id;
+      if (busy) return;
+      const p = props.apiFor ? props.apiFor(c.id) : null, ctx = props.ctxFor ? props.ctxFor(c) : null;
+      if (!p || !ctx || typeof runProbe !== "function") { props.toast && props.toast("先到设置配置 API"); return; }
+      const facts = todayFacts(profile, birth, today); if (!facts) { props.toast && props.toast("先填上你的生日"); return; }
+      setBusy(key);
+      try {
+        const prev = signs[key];
+        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 65535 });
+        if (!d || !String(d.title || d.text || "").trim()) throw new Error("TA 这回没抽出来，再点一次");
+        const next = Object.assign({}, signs, { [key]: { title: String(d.title || "").trim().slice(0, 12), text: String(d.text || "").trim().slice(0, 120), by: c.remark || c.name, ts: Date.now() } });
+        const ks = Object.keys(next).sort((a, b) => (next[b].ts || 0) - (next[a].ts || 0)); ks.slice(60).forEach(k => delete next[k]);
+        setSigns(next); saveJSON(SIGN_KEY, next);
+      } catch (e) { props.toast && props.toast("没抽成：" + String((e && e.message) || e).slice(0, 120)); }
+      finally { setBusy(""); }
+    };
     const chartOf = p => p ? natalChart(p.birthday, birth[p.id]) : null;
     const birthLink = p => {
       const b = birth[p.id];
@@ -805,7 +853,35 @@
             + (ci && ci.sign >= 0 ? "你是" + signName(ci.sign) + "。" : "") + "\n"
             + "看完说说你的想法。信不信星座、当不当真、顺着哪一点说，全由你这个人决定。";
           return h("div", null, noteBox(key, c), askBtn(key, c, ins));
-        })()) : null);
+        })()) : null,
+      // 今日签：挑个人替你抽，抽完能转发回你们的聊天
+      day && chars.length ? h(Panel, { S: S, title: "今日签" }, (() => {
+        const c = (byId(commenter) || {}).char; if (!c) return pickRow(people.filter(p => p.char), commenter, setCommenter, "让谁替你抽");
+        const key = "sign|" + today + "|" + c.id, got = signs[key];
+        return h("div", null, pickRow(people.filter(p => p.char), commenter, setCommenter, "让谁替你抽"),
+          got ? h("div", { style: { display: "flex", justifyContent: "center", margin: "6px 0 4px" } }, h(AstroSignCard, { m: { astro: got } })) : null,
+          h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+            h("button", { onClick: () => drawSign(c), disabled: !!busy, className: "active:opacity-80 disabled:opacity-50", style: { flex: 1, minHeight: 44, background: "transparent", border: "1px solid " + S.tint, borderRadius: 3, color: S.tint, fontFamily: F_BODY, fontSize: 13.5 } },
+              busy === key ? (c.remark || c.name) + " 在抽…" : got ? "再抽一张" : "让 " + (c.remark || c.name) + " 抽一张"),
+            got && props.onShareSign ? h("button", { onClick: () => props.onShareSign(c, got), className: "active:opacity-80", style: { flex: 1, minHeight: 44, background: S.tint, border: "none", borderRadius: 3, color: S.bg, fontFamily: F_BODY, fontSize: 13.5 } }, "转发回聊天") : null));
+      })()) : null,
+      // 月亮日记
+      h(Panel, { S: S, title: "月亮日记" }, (() => {
+        const ms = moonSignOn(today), H = g.Health, hd = H && H.load ? H.load() : null, mine = hd && hd.mood ? hd.mood[today] : null, MZ = (H && H.MOOD_ZH) || ["很糟", "低落", "一般", "不错", "很好"];
+        const setMood = (v, note) => { if (!H) return; const d0 = H.load(); d0.mood = Object.assign({}, d0.mood, { [today]: Object.assign({}, (d0.mood || {})[today] || {}, v != null ? { v } : {}, note != null ? { note: String(note).slice(0, 60) } : {}) }); H.save(d0); setMoonTick(x => x + 1); try { g.dispatchEvent(new CustomEvent("qq-health-updated")); } catch (e) {} };
+        const days = []; for (let i = 13; i >= 0; i--) { const dk = dayKeyOf(new Date(Date.now() - i * 864e5)); days.push({ dk, ms: moonSignOn(dk), mood: hd && hd.mood && hd.mood[dk] }); }
+        return h("div", { "data-wk": "astromoon" },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: S.ink, lineHeight: 1.7 } }, "今天月亮在" + SIGNS[ms][0] + "座 · 「" + MOON_WORD[ms] + "」"),
+          h("div", { className: "flex", style: { gap: 6, marginTop: 10 } }, MZ.map((z, v) => { const on = mine && mine.v === v;
+            return h("button", { key: v, onClick: () => setMood(v), "aria-pressed": on, className: "active:opacity-70", style: { flex: 1, minHeight: 40, background: on ? S.tint : "transparent", color: on ? S.bg : S.sub, border: "1px solid " + (on ? S.tint : S.line), borderRadius: 3, fontFamily: F_BODY, fontSize: 12 } }, z); })),
+          h("input", { defaultValue: (mine && mine.note) || "", key: today + "|" + moonTick, placeholder: "今天心里是什么样子（跟健康 app 的心情是同一格）", onBlur: e => setMood(null, e.target.value), "aria-label": "今天的心情",
+            style: { width: "100%", minWidth: 0, minHeight: 40, marginTop: 8, padding: "8px 10px", background: "transparent", border: "1px solid " + S.line, borderRadius: 3, color: S.ink, fontFamily: F_BODY, fontSize: 13 } }),
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, marginTop: 12 } }, days.map(x => h("div", { key: x.dk, title: x.dk, style: { textAlign: "center", padding: "6px 0", borderRadius: 3, background: x.dk === today ? S.bg2 : "transparent" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: S.fog } }, x.dk.slice(8)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.sub, marginTop: 2 } }, SIGNS[x.ms][0]),
+            h("div", { style: { width: 7, height: 7, borderRadius: 99, margin: "4px auto 0", background: x.mood && x.mood.v != null ? [S.accent, S.accent, S.fog, S.tint, S.tint][x.mood.v] : "transparent", border: x.mood && x.mood.v != null ? "none" : "1px solid " + S.line, opacity: x.mood && x.mood.v != null ? 0.4 + x.mood.v * 0.15 : 1 } })))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, "两周里月亮走过的星座和你的心情，翻回来看看对不对得上"));
+      })()));
 
     // ---- 配对 ----
     const A = byId(pa), B = byId(pb);
@@ -937,7 +1013,12 @@
           return h("button", { key: gp.id, onClick: () => setGid(gp.id), "aria-pressed": on, className: "active:opacity-70 shrink-0",
             style: { minHeight: 40, padding: "0 12px", background: "transparent", border: "none", borderBottom: "2px solid " + (on ? S.tint : "transparent"), color: on ? S.ink : S.fog, fontFamily: F_BODY, fontSize: 13 } }, gp.name || "群"); }))),
       G ? h(Panel, { S: S, title: "最合的" }, gPairs.length ? gPairs.slice(0, 3).map((x, i) => rankRow(x, i, S.tint)) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "生日都不知道，排不了")) : null,
-      G && gPairs.length > 3 ? h(Panel, { S: S, title: "最冲的" }, gPairs.slice(-Math.min(2, gPairs.length - 3)).reverse().map((x, i) => rankRow(x, i, S.accent))) : null,
+      G && gPairs.length > 3 ? h(Panel, { S: S, title: "最冲的" }, gPairs.slice(-Math.min(2, gPairs.length - 3)).reverse().map((x, i) => rankRow(x, i, S.accent)),
+        // 星座吵架（第 7 条）：她在群里起个头，最冲的那一对照着星盘吵——群里照常接话，会调一次群聊
+        (() => { const low = gPairs[gPairs.length - 1]; if (!props.onShareToGroup || low.a.id === "me" || low.b.id === "me") return null;
+          return h("button", { onClick: () => props.onShareToGroup(G.id, "〔星测〕群榜上最冲的是 " + low.a.name + " 和 " + low.b.name + "（" + low.score + " 分" + (low.why ? "：" + low.why : "") + "）——你俩照着星盘吵一架给我看看？"),
+            className: "active:opacity-80", style: { width: "100%", minHeight: 44, marginTop: 10, background: "transparent", border: "1px dashed " + S.accent, borderRadius: 3, color: S.accent, fontFamily: F_BODY, fontSize: 13.5 } },
+            "让 " + low.a.name + " 和 " + low.b.name + " 在群里吵一架"); })()) : null,
       G && unknown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, padding: "0 4px 8px" } }, "不知道生日、没排进来的：" + unknown.map(p => p.name).join("、")) : null,
       G && gPairs.length && props.onShareToGroup ? h("button", { onClick: () => {
           const top = gPairs[0], low = gPairs.length > 1 ? gPairs[gPairs.length - 1] : null;
@@ -987,6 +1068,66 @@
   g.Astro = { signOf, signMatch, shukuOf, shukuRelation, birthInfo, daily, dayKeyOf, SIGNS, SHUKU, SHUKU_POS,
     planetLongitudes, ascendant, natalChart, synastry, transits, birthDateOf, CITIES, chinaDst, tzForPlace, searchPlace,
     skyOn, skyNote, goodDays, pairGoodDays, solarReturn, askStars, loadBirth };
+  // ── 查手机里的「星测」（她 2026-10-05：「数据就拿刷新当天的看，看他玩抽到的话他点开看到的也会更新成看他玩当天的」）──
+  //   不调模型：TA 那天打开星测会看到的东西，全是按生日算的。哪天算？——TA 上一次「真打开」的那天：
+  //   查手机整份刷新那天，或者看 TA 玩时 TA 点开星测的那天。没记过就按今天。
+  const SEEN_KEY = "x_phoneAstroDay";
+  function markSeen(charId, day) { if (!charId) return; const all = loadJSON(SEEN_KEY, {}) || {}; all[charId] = day || dayKeyOf(); saveJSON(SEEN_KEY, all); }
+  const seenDay = charId => (loadJSON(SEEN_KEY, {}) || {})[charId] || dayKeyOf();
+  function AstroPhoneView({ char, profile, onBack }) {
+    const S = sky(), day = seenDay(char.id), birth = loadBirth();
+    const ci = birthInfo(char.birthday), mi = birthInfo((profile || {}).birthday);
+    const cChart = natalChart(char.birthday, birth[char.id]), mChart = natalChart((profile || {}).birthday, birth.me);
+    const d0 = ci && ci.sign >= 0 ? daily(ci.sign, day) : null;
+    const tr = d0 && cChart ? transits(cChart, noonOf(day)) : null;
+    const dd = !d0 ? null : !tr ? d0 : Object.assign({}, d0, { all: tr.all, love: tr.love, work: tr.work, money: tr.money, line: tr.hits.length ? transitLine(tr.hits[0]) + "。" : d0.line });
+    const syn = synastry(cChart, mChart), sm = ci && mi ? signMatch(ci.sign, mi.sign) : null;
+    const uName = (profile && profile.name) || "她", cName = char.remark || char.name;
+    return h("div", { "data-wk": "phoneastro", className: "h-full min-h-0 flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px", color: S.ink } },
+      h(Head, { zh: "星测", sub: cName + " 上次打开 · " + day.slice(5).replace("-", "月") + "日", onBack, ink: S.ink, bg: "transparent", noLine: true }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 16px 24px" } },
+        h(ZodiacWheel, { S, sign: ci ? ci.sign : -1 }),
+        h(Panel, { S, title: "那天的运势" }, !dd ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "不知道 " + cName + " 的生日，这一页是空的")
+          : h("div", null,
+            h("div", { className: "flex items-baseline justify-between" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20 } }, signName(ci.sign)), h(Stars, { n: dd.all, color: S.tint })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, marginTop: 6 } }, dd.line),
+            h("div", { style: { display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 12px", marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: S.sub, alignItems: "center" } },
+              "爱情", h(Stars, { n: dd.love, color: S.accent }), "事业", h(Stars, { n: dd.work, color: S.accent }), "财运", h(Stars, { n: dd.money, color: S.accent })),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.fog, marginTop: 8 } }, "幸运色 " + dd.color.name + " · 幸运数字 " + dd.number))),
+        h(Panel, { S, title: "他配过的对" }, (syn || sm)
+          ? h("div", null, h("div", { className: "flex items-baseline justify-between" },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 14 } }, cName + " × " + uName),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: S.tint } }, syn ? syn.score : sm.score)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginTop: 4, lineHeight: 1.7 } },
+              syn && syn.list[0] ? synLine(syn.list[0], cName, uName) : sm ? sm.aspect + " · " + sm.note : ""))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "两个人的生日都知道了才配得出来"))));
+  }
+  g.AstroPhoneView = AstroPhoneView;
+  g.AstroSignCard = AstroSignCard;
+  // ── 星星点头的日子，聊天顶栏那颗头像亮一圈（第 6 条，她：「也可以但是搞好看点」）──
+  //   一圈金色细光慢慢转，三颗小星沿着轨道走；平常日子什么都没有。系统开了「减少动态」就只留一圈静光。
+  //   判据只问 pairGoodDays 那一处（星测配对页、日历、角色那一行都是它），今天在不在那三天里。
+  function isGoodDay(char) {
+    try { const prof = loadJSON("x_profile", {}) || {}; const dk = dayKeyOf();
+      return !!(char && char.id && pairGoodDays(prof.birthday, char.id, char.birthday, new Date(), 30).some(x => x.day === dk)); } catch (e) { return false; }
+  }
+  function AstroHalo({ size, children }) {
+    const S = SKY_BASE, R = size / 2 + 5, W = size + 14;
+    return h("span", { "data-wk": "astrohalo", title: "星星点头的日子", style: { position: "relative", display: "inline-flex", flexShrink: 0 } },
+      h("style", null, "@keyframes qqHaloSpin{to{transform:rotate(360deg)}}@media (prefers-reduced-motion:reduce){.qq-halo-spin{animation:none!important}}"),
+      h("span", { "aria-hidden": "true", style: { position: "absolute", left: -7, top: -7, width: W, height: W, borderRadius: 999, boxShadow: "0 0 10px 1px " + S.tint + "55", pointerEvents: "none" } }),
+      h("svg", { "aria-hidden": "true", className: "qq-halo-spin", viewBox: "0 0 " + W + " " + W, width: W, height: W,
+        style: { position: "absolute", left: -7, top: -7, pointerEvents: "none", animation: "qqHaloSpin 14s linear infinite" } },
+        h("defs", null, h("linearGradient", { id: "qqHaloG", x1: "0", y1: "0", x2: "1", y2: "1" },
+          h("stop", { offset: "0%", stopColor: "#f6e3a1" }), h("stop", { offset: "55%", stopColor: S.tint }), h("stop", { offset: "100%", stopColor: S.accent }))),
+        h("circle", { cx: W / 2, cy: W / 2, r: R, fill: "none", stroke: "url(#qqHaloG)", strokeWidth: 1.4, strokeDasharray: "2 3.2", opacity: 0.95 }),
+        [0, 120, 240].map(deg => { const a = (deg - 90) * Math.PI / 180, x = W / 2 + Math.cos(a) * R, y = W / 2 + Math.sin(a) * R;
+          return h("path", { key: deg, d: sparkle(x, y, deg ? 3.2 : 4.4), fill: deg ? "#f6e3a1" : "#fff7d6" }); })),
+      children);
+  }
+  g.AstroHalo = AstroHalo; g.Astro.isGoodDay = isGoodDay;
+  g.Astro.signInstruction = signInstruction; g.Astro.todayFacts = todayFacts; g.Astro.SIGN_SCHEMA = SIGN_SCHEMA;
+  g.Astro.markSeen = markSeen; g.Astro.seenDay = seenDay;
   g.AstroApp = AstroApp;
   g.GAstro = function (p) {
     return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 5.5l1.3 3.9 4.1.1-3.3 2.4 1.2 3.9L12 13.5l-3.3 2.3 1.2-3.9-3.3-2.4 4.1-.1z" }));

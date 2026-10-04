@@ -20,6 +20,8 @@
       // 中频＝原来那套算法本身；低频、高频是把整套【时间】乘一个倍数——想念攒得慢一些（×0.75）／快一倍，冷却跟着拉长／缩短
       rates: [{ id: "low", zh: "低频", x: 0.75 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 }] },
     { id: "letter", group: "social", title: "情书", sub: "恋人按你定的频率自己提笔", globalDefault: true, charDefault: true },
+    // 今日签（她 2026-10-05）：TA 每天早上按你的星座替你抽一张签发到私聊。默认关，想要的自己开、自己挑谁
+    { id: "astroSign", group: "social", title: "今日签", sub: "TA 每天替你抽一张签发到私聊（按你的星座和当天）", globalDefault: false, charDefault: false },
     { id: "react", group: "social", title: "顺手点评", sub: "你记完一笔账、勾掉一条提醒时TA搭一句", globalDefault: true, charDefault: true },
     // 下面两样是按「群」「这一场」开的，不按人：设置里只有总闸，细的开关留在各自页面里
     { id: "groupChat", group: "social", title: "群里自己聊", sub: "群成员在你不说话时自己接着聊", globalDefault: true, charDefault: true, noChars: true },
