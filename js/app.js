@@ -2316,6 +2316,35 @@ function App() {
     applyGroupLook([one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
   };
   useEffect(() => { paintGroupLook(null); }, [activeGroup && activeGroup.id, groupSettings, screen]);
+  // 线下也给每个人单独一张皮（她 2026-10-03：「线下每个角色能不能单独做一个美化页面」）。
+  // ⚠️不另起一套：存在这个人的线下设置里（x_offlineSettings[charId].customCSS），
+  //   编辑器用聊天那一份 ChatCssFields，限作用域用主题那一支 scopeCSS——
+  //   跟「只给 TA 写 CSS」是同一条路，只是页面换成线下（one-public-mechanism）。
+  // ⚠️限到【这个人】不是只限页面：线下那层所有人共用 data-wk="offline"，
+  //   只按页面限的话一个人的皮会串到所有人的线下去（单聊、群聊都栽过这一跤）。
+  // ⚠️自己挂一个属性，不蹭 data-lisa-char：那一个是 paintChatLook 管的，只有
+  //   【人在聊天页】时才写得上；线下这一层开着的时候它可能已经被清空了。
+  //   蹭别人管的状态＝那边一改这边静默失灵（本仓库反复栽的那种）。
+  const offlineLookScope = id => 'html[data-lisa-offchar="' + String(id).replace(/[^A-Za-z0-9_:-]/g, "") + '"] [data-wk="offline"]';
+  const paintOfflineLook = draft => {
+    if (typeof applyOfflineLook !== "function") return;
+    // 线下是盖在聊天页上的一层，所以 screen 仍是 thread；真正的判据是「这个人的线下开着」
+    // ⚠️判据是 offlineChar（线下正开着谁的那一场），不是 screen——线下是盖在聊天页
+    //   上面的一层，screen 仍旧是 thread（2026-10-03 第一版写成 screen 判据，当场不生效）
+    const on = !!offlineChar;
+    document.documentElement.setAttribute("data-lisa-offchar", on ? String(offlineChar.id) : "");
+    if (!on || !window.ThemeStudio) { applyOfflineLook(""); return; }
+    const os0 = Object.assign({}, offlineSettings[offlineChar.id] || {}, draft || {});
+    const scope = offlineLookScope(offlineChar.id);
+    try {
+      // 不安全的 CSS 一律不挂（跟云端导出那道同一个判据，别只在编辑框里提示一句就放过去）
+      const raw = os0.customCSS && !window.ThemeStudio.unsafeReason(os0.customCSS) ? os0.customCSS : "";
+      const css = raw ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(raw, scope)) : "";
+      applyOfflineLook(css);
+    } catch (e) { applyOfflineLook(""); }
+  };
+  useEffect(() => { paintOfflineLook(null); }, [offlineChar && offlineChar.id, offlineSettings, screen]);
+  useEffect(() => { window.__previewOfflineLook = draft => paintOfflineLook(draft); return () => { delete window.__previewOfflineLook; }; });
   useEffect(() => { window.__previewGroupLook = draft => paintGroupLook(draft); return () => { delete window.__previewGroupLook; }; });
   // 聊天设置「TA 的聊天长相」的预览台（她 2026-09-30）：草稿先铺到真聊天窗上看，回去改或保存时再按存档重铺
   useEffect(() => { window.__previewChatLook = draft => paintChatLook(draft); return () => { delete window.__previewChatLook; }; });
@@ -4381,14 +4410,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   });
   // 角色此刻正在做的那一段是什么 type（sleep / work / meal …）。
   // schedNowFor 下面那几行本来就在算同一件事，抽出来一份给思念速率用，别再写第二遍。
-  const schedNowTypeFor = char => {
-    if (!char) return "";
+  // 此刻在日程的哪一段：{ disp, idx, cur }（v74.725 抽出来——「此刻类型」和「忙不忙」都问它，不各算一遍）
+  const schedNowSegFor = char => {
+    if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
     const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
-    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return "";
+    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const disp = schedDisplaySeqs(char, s0.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
-    return idx >= 0 && disp[idx] ? String(disp[idx].type || "") : "";
+    return { disp, idx, cur: idx >= 0 ? disp[idx] || null : null };
+  };
+  const schedNowTypeFor = char => {
+    const seg = schedNowSegFor(char);
+    return seg && seg.cur ? String(seg.cur.type || "") : "";
   };
   // 角色此刻的行程（给聊天/心情联动用）
   const schedNowFor = char => {
@@ -4529,6 +4563,60 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 日历那边 v56.47 已经用 schedSleepCarry 把这一截画出来了，状态这几处一直没跟上
   //（施工规则/four-surfaces-same-context.md：这一层当初只写在一处，别处没跟上）。
   // charAwakeState 早就按「今天第一项之前＝还没醒」判 asleep，这里跟它同一个假设。
+  // ── 忙的时候晚点回（v74.713，群里肉肉肉酱意面提、她 2026-10-04 拍板）──────────────
+  // 她的版本：排日程时每段顺手标一个「顾不顾得上手机」（busy 0-3，不多花一次调用）；
+  //   她在TA忙的那段第一次按「让TA回复」/打电话、而且离上次说话有一阵了，就在本地掷一次骰子——
+  //   中了就【不调模型】：消息停在未读，电话打不通、落一张未接卡；那段忙完TA自己回一次（一枪看完这期间所有的）。
+  //   她非要现在就聊，再按一次＝催，当场接通。
+  // ⚠️默认关、每个角色自己开（她：「默认关着的按钮是必须的，不然会破坏一些人设」）。
+  const BUSY_ODDS = [0, 0.35, 0.6, 0.85];
+  const BUSY_GAP_MIN = 20;          // 离TA上一条话不到这么久＝正聊着，不拦
+  const busyNowFor = char => {
+    const seg = schedNowSegFor(char);
+    if (!seg || !seg.cur || seg.cur.type === "sleep") return null;          // 睡着有睡眠那一套管，这里不重复
+    const { disp, idx, cur } = seg;
+    const level = Number.isFinite(Number(cur.busy)) && cur.busy !== undefined ? Number(cur.busy) : (cur.type === "work" ? 1 : 0);
+    if (!(level >= 1)) return null;
+    const hm = x => { const m = /(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? +m[1] * 60 + +m[2] : null; };
+    const endM = hm(cur.end || (disp[idx + 1] && disp[idx + 1].time)), nowM = charLocalMin(char);
+    let left = endM == null ? 60 : endM - nowM;
+    if (left < -720) left += 1440;
+    left = Math.max(5, Math.min(240, left));
+    return { level: Math.min(3, level), title: cur.title || "在忙", endTs: Date.now() + left * 60000, segKey: schedLocalDayKey(char) + "#" + (cur.time || idx) };
+  };
+  const busyHoldsRef = useRef(null);
+  const busyHolds = () => { if (!busyHoldsRef.current) busyHoldsRef.current = loadJSON("x_busyHold", {}) || {}; return busyHoldsRef.current; };
+  const busyHoldSet = (cid, v) => { const m = busyHolds(); if (v) m[cid] = v; else delete m[cid]; saveJSON("x_busyHold", m); };
+  // 返回值：null＝放行；{held}＝这次拦下来了；{nudge}＝之前拦过、这是她在催
+  const busyGate = (char, chatKey) => {
+    if (!char || settingsFor(char.id).busyHold !== true) return null;
+    if (chatKey && chatKey !== char.id) return null;          // 小房间、拉黑那些另有规矩，只管主线单聊
+    const h0 = busyHolds()[char.id];
+    if (h0 && h0.held && !h0.released) return { nudge: h0 };
+    const b = busyNowFor(char);
+    if (!b) return null;
+    if (h0 && h0.segKey === b.segKey) return null;             // 这一段已经掷过一次了，不重复掷
+    const ms = (chatsRef.current[char.id] || []).filter(m => m && m.role === "assistant" && !m.recalled);
+    const lastTs = ms.length ? Number(ms[ms.length - 1].ts) || 0 : 0;
+    if (Date.now() - lastTs < BUSY_GAP_MIN * 60000) return null;
+    const held = Math.random() < BUSY_ODDS[b.level];
+    busyHoldSet(char.id, { segKey: b.segKey, held, title: b.title, level: b.level, until: b.endTs, at: Date.now(), released: false });
+    return held ? { held: busyHolds()[char.id] } : null;
+  };
+  // 单聊里她打出去的电话（拨号键、未接卡上的回拨）都从这儿过：忙的时候可能打不通
+  const callCharGated = (activeChar, m) => {
+    const bg = busyGate(activeChar, blockChatKey(activeChar.id));
+    if (bg && bg.held) {
+      // 打不通：不进通话、不调模型，只落一张未接卡（点它回拨＝催）
+      pChat(activeChar.id, p => [...p, { role: "user", kind: "callinvite", mode: m === "video" ? "video" : "voice", content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请]",
+        answered: "missed", busyMissed: bg.held.title, ts: Date.now(), read: false }]);
+      toast(characterText(activeChar, "无法接通——TA 在忙（" + bg.held.title + "）。再打一次就是催"));
+      return;
+    }
+    if (bg && bg.nudge) busyRelease(activeChar.id);
+    return startCall([activeChar], m, null, "me", blockChatKey(activeChar.id));
+  };
+  const busyRelease = cid => { const h0 = busyHolds()[cid]; if (h0) busyHoldSet(cid, Object.assign({}, h0, { released: true })); };
   const schedCarryNowFor = char => {
     try {
       if (!char) return null;
@@ -6761,6 +6849,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             );
             return;                                               // 一次一个，错峰
           }
+        }
+      } catch (e) {}
+      // —— 忙的时候晚点回：那段忙完了，TA 自己回一次（一枪看完这期间她发的全部）——
+      try {
+        const holds = busyHolds();
+        for (const cid of Object.keys(holds)) {
+          const h0 = holds[cid];
+          if (!h0 || !h0.held || h0.released || Date.now() < (h0.until || 0)) continue;
+          if (laneBusy("c:" + cid)) continue;
+          const c = characters.find(x => x.id === cid);
+          if (!c || settingsFor(cid).busyHold !== true) { busyRelease(cid); continue; }
+          busyRelease(cid);
+          replyNow(cid, "", null, { busyBack: { title: h0.title } });
+          return;                                                // 一次一个，错峰
         }
       } catch (e) {}
       // —— 健康·饭点来问（v74.640）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
@@ -10245,6 +10347,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
+      // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
+      const busyHint = opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
+        : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），" + uName + " 又催了你一次，你抽空回 Ta。照你自己的性子来。" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
@@ -11079,7 +11184,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -15014,7 +15119,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"end\":\"03:30\",\"title\":\"扫报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"end\":\"06:00\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
         // ⚠️占位值写【说明】，不写【样例内容】：写成「起床，晨间咖啡／家里厨房」的话，
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
-        : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
+        : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"busy\":\"这一段他顾不顾得上看手机：0 随时能看／1 偶尔瞄一眼／2 基本顾不上／3 完全碰不了（整数）\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
@@ -15024,7 +15129,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const plan = {
         load: d.load || "NORMAL",
         estTime: Number(d.estTime) || null,
-        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
+        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", busy: Math.max(0, Math.min(3, Math.round(Number(s.busy) || 0))), deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
         // 今天先不留碎碎念（明天回看时补）；回溯的过去日才当场写
         murmurs: retro ? (Array.isArray(d.murmurs) ? d.murmurs : []).filter(m => m && m.text) : [],
         generatedAt: Date.now()
@@ -19071,12 +19176,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         npcsOf(char.id).forEach(add);   // TA 自己的配角天然算熟人（她 2026-08-26 问的皇帝 NPC）
         return out;
       })();
+      // 朋友圈也跟着「外语中译」走（她 2026-10-03：「朋友圈也搞个外语翻译吧，设置跟着聊天设置走，
+      //   如果开了自动翻译生成的时候带上，然后还有免费的兜底」）。
+      // ⚠️不新开一个开关（施工规则外的家规 minimize-toggles：能跟着现有逻辑走就别再做一个）：
+      //   读的就是这个人聊天设置里那一格 bilingual。开着就在这一轮顺手把译文要回来
+      //   （同一次调用，不额外花钱）；没开、或者模型没给，气泡上那颗「译」照旧点得动，
+      //   走的是免费优先那条链（translateToZh：Google → MyMemory → 后台线路）。
+      const _momBi = !!(settingsFor(char.id) || {}).bilingual;
+      const _momBiSpec = _momBi
+        ? "\n\n【这条朋友圈要带中译】你用的不是中文的话，在 zh 里给出这条正文的简体中文翻译："
+          + "只译正文、保留原话的语气和口吻，不要注音、不要解释、不要引号。"
+          + "本来就用中文发的，zh 填 null。"
+          // 评论也一起译（她 2026-10-03：「朋友圈评论的外语能不能也翻译了」）——
+          //   在同一轮里要，不额外花钱；不要的话每条评论都得各自走一次免费接口。
+          + "下面那些评论里，不是中文的那几条也各自给一份中译，填在那条评论自己的 zh 里；中文的填 null。"
+        : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat,
+        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
         schemaHint: _momImgOpen
-          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
-          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"}]}"
+          ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
+          : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
       });
       const content = String(d && d.content || "").trim();
       if (!content) throw new Error("模型没有返回朋友圈正文");
@@ -19090,6 +19210,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         content,
         image: newMomImage,
         ...(newMomImage && newMomWho ? { imageWho: newMomWho } : {}),
+        // 模型随这一轮给回来的中译（没开/没给就不存这一格，气泡那颗「译」照旧能现翻）
+        ...(_momBi && d.zh && String(d.zh).toLowerCase() !== "null" && String(d.zh).trim() ? { zh: String(d.zh).trim() } : {}),
         ts: Date.now(),
         liked: false,
         likeCount: 0,
@@ -25854,6 +25976,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           .then(ok => toast(ok ? "书房已收到" : "书房没接到，点亮「直连」可走订阅"));
         return;
       }
+      const bg = busyGate(activeChar, chatKey);
+      if (bg && bg.held) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, chatKey);
+        toast(characterText(activeChar, "TA 这会儿在忙（" + bg.held.title + "），还没看手机——忙完会回你。真有急事就再按一次催一下"));
+        return;
+      }
+      if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title } }); }
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
@@ -25931,8 +26061,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
-    onStartCall: m => startCall([activeChar], m, null, "me", blockChatKey(activeChar.id)),
-    onCallBack: m => startCall([activeChar], m.mode, null, "me", blockChatKey(activeChar.id)),
+    onStartCall: m => callCharGated(activeChar, m),
+    onCallBack: m => callCharGated(activeChar, m.mode),
     onAskCouple: cid => runRoomAction(activeChar.id, "coupleInvite", () => askCoupleInvite(activeChar.id, cid)),
     askingCouple: gen.coupleAsk || null,
     onAcceptListen: acceptListenInvite,
@@ -26242,6 +26372,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     rels: rels,
     profile: profile,
+    // 关系网是【一人一页】的，所以「我」那个节点该戴的是【这一页这个人认识的那张脸】。
+    //   群友 2026-10-03 报的：聊天里给 u 和 c 绑了专属面具，关系网上 u 还是主面具。
+    //   病根是这一页只拿到一张全局 profile，而换脸那一层走的是 profileFor（ctxFor 那一口）。
+    //   不在这儿另算一遍：profileFor 是现成的公共件（one-public-mechanism），递下去就行。
+    profileFor: profileFor,
+    // 「我」自己那一页的面具筛子（她 2026-10-03 拍板）：这个 app 里面具本来就
+    //   被当成【另一台手机、另一个她】（查手机那儿「跟 TA 不是同一张面具聊的
+    //   他默认查不到」），所以把两圈人画在同一张网上是把两个社交圈画成了一个。
+    //   给的是【筛子】不是【分叉】：面具没有自己认识的人，人还是那些人。
+    masks: masks,
+    maskPrimary: maskPrimary,
+    maskOf: charId => String((settingsFor(charId) || {}).maskId || ""),
     onBack: goHome,
     onSave: saveRel,
     // NPC 入口挪到这儿（她 2026-08-25：塞在资料卡里找不到）。
@@ -28045,6 +28187,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             webSearch: !!s.webSearch,
             // 允许TA主动写申请信（v74.507）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
+            busyHold: s.busyHold === true,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
             // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
             maskId: String(s.maskId || "").trim().slice(0, 40)

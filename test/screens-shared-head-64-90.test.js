@@ -61,7 +61,8 @@ test("screens.js 里换掉的那些顶栏，逐页点名（少一处才红）", 
     ['h(Head, { zh: "导入角色卡"', "导入角色卡"],
     ['h(Head, { zh: "人格档案馆"', "人格档案馆"],
     ['h(Head, { zh: initial ? "编辑档案" : "新建档案"', "新建/编辑档案"],
-    ['h(Head, { zh: (boardId === "me" ? me : nameOf(boardId)) + " 的关系"', "关系板"],
+    // v74.719：「我」那一页按面具筛之后，标题写的是当前那张面具的名字（meBoardMe）
+    ['h(Head, { zh: (boardId === "me" ? meBoardMe : nameOf(boardId)) + " 的关系"', "关系板"],
     ['h(Head, { zh: "世界书"', "世界书"],
     ["h(Head, { zh: title, sub: (!inSub && nav === \"home\") ? \"街坊的告示板\" : \"\"", "论坛"],
     // ⚠️论坛那身雾绿是它自己调好的：不传 subInk/lineInk 就会被自动推的那一档冲成灰

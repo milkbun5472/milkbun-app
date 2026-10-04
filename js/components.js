@@ -435,18 +435,23 @@ const chatBgRule = css => {
   const m = /(^|\})\s*([^{}@]*\[data-wk="chat"\][^{}@]*)\{([^{}]*)\}/.exec(String(css || ""));
   return m ? m[2].trim() + "{" + m[3] + "}" : "";
 };
+// 挂一块带 id 的 <style>：没有就建，有就换内容，再 append 一次挪到最后
+// （重新 append＝按调用顺序层层压上去）。单聊那几层、群那层、线下那层都是这个形状，
+// 收成一份（施工规则/one-public-mechanism）。
+function mountStyle(id, css) {
+  if (typeof document === "undefined") return;
+  let el = document.getElementById(id);
+  if (!el) { el = document.createElement("style"); el.id = id; }
+  el.textContent = css || "";
+  document.head.appendChild(el);
+}
 function applyChatLook(next) {
   if (typeof document === "undefined") return;
   if (next) CHAT_LOOK = next || {};
   const L = CHAT_LOOK || {};
   // 没有当前这个人就没有「这个人那几层」：全部发空的，别把上一个人的留在页面上
   const scope = L.scope || "";
-  const put = (id, css) => {
-    let el = document.getElementById(id);
-    if (!el) { el = document.createElement("style"); el.id = id; }
-    el.textContent = css || "";
-    document.head.appendChild(el);      // 重新 append＝挪到最后，按调用顺序层层压上去
-  };
+  const put = mountStyle;
   // ① 这个人的皮肤：压在主题那张（全局皮肤）上面。CSS 由 App 那头限好页面再传进来。
   put("wk-char-skin-css", scope ? (L.skinCSS || "") : "");
   // ①.5 这个人自己的字体（她 2026-09-18：「聊天里的字体按角色单独设置」）。
@@ -488,13 +493,10 @@ function applyChatLook(next) {
   put("wk-char-custom-css", (scope && L.customCSS) ? L.customCSS : "");
 }
 // 群聊窗自己那层（排版开关 + 自己写的 CSS）：App 那头已经限到这一个群、换好图片地址，这里只管挂上去（挂在单聊那几层后面）
-function applyGroupLook(css) {
-  if (typeof document === "undefined") return;
-  let el = document.getElementById("wk-group-look-css");
-  if (!el) { el = document.createElement("style"); el.id = "wk-group-look-css"; }
-  el.textContent = css || "";
-  document.head.appendChild(el);
-}
+function applyGroupLook(css) { mountStyle("wk-group-look-css", css); }
+// 线下那层（这一个人自己的线下长相）：App 那头已经限到这个人、换好图片地址，
+// 这里只管挂上去。挂在群那层后面＝比它更具体的东西压在更上面。
+function applyOfflineLook(css) { mountStyle("wk-offline-look-css", css); }
 // 老名字留着：全局气泡改了就调它，这一份不知道也不该知道当前是谁的聊天窗。
 function applyBubbleSkinCSS() { applyChatLook(); }
 // 「打电话也用这套皮肤」那一行。开关本身不进 x_bubbleSkin（那份是发成 CSS 的，
@@ -8193,7 +8195,12 @@ function MomentsFeed({
         whiteSpace: "pre-wrap"
       },
       "data-wk": "motext"
-    }, m.content), m.image && (isImgRef(m.image) ? h("button", {
+      // 朋友圈也走全库那条唯一的正文渲染路（她 2026-10-03：「朋友圈也搞个外语翻译」）。
+      //   TransText 自带两件事：中文直接原样返回、零开销；外语就挂一颗「译」，
+      //   展开走免费优先那条链（Google → MyMemory → 后台线路）。
+      //   zhReady＝生成那一轮模型随手给的译文（这个人的聊天设置开了「外语中译」才会有），
+      //   有就直接显示、不再花一次翻译；没有也点得动。
+    }, h(TransText, { text: m.content, zhReady: m.zh })), m.image && (isImgRef(m.image) ? h("button", {
       onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); },
       "data-wk": "mophoto", "data-kind": "img",
       className: "mt-2.5 block active:opacity-80"
@@ -8303,7 +8310,9 @@ function MomentsFeed({
       style: {
         color: t.sub
       }
-    }, "：", cm.text)))), onMore && /*#__PURE__*/React.createElement("button", {
+      // 评论也跟着翻（她 2026-10-03）：外语角色的评论原来只有正文能翻、
+      //   评论一句一句躺在那儿读不懂。同一条 TransText，中文照旧零开销。
+    }, "：", h(TransText, { text: cm.text, zhReady: cm.zh }))))), onMore && /*#__PURE__*/React.createElement("button", {
       onClick: () => moreBusy !== m.id && onMore(m.id),
       disabled: moreBusy === m.id,
       className: "mt-2 active:opacity-60",
@@ -8425,7 +8434,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const sendC = m => { if (cText.trim()) { onCommentMoment(m.id, cText.trim(), cReply || undefined); setCommenting(null); setCReply(null); setCText(""); } };
 
   const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
-    h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, m.content),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, whiteSpace: "pre-wrap" } }, h(TransText, { text: m.content, zhReady: m.zh })),
     m.image ? (isImgRef(m.image)
       ? h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2.5 block active:opacity-80" }, h("img", { src: resolveImg(m.image), style: { maxWidth: 160, maxHeight: 160, borderRadius: 10, display: "block" } }))
       : h("button", { onClick: () => { setImgView(m.image); setImgMid(m.characterId ? m.id : null); }, className: "mt-2 flex items-center gap-2 px-3 py-2 active:opacity-70", style: { background: t.bg, borderRadius: 10, border: "1px solid " + t.line } }, h(PGlyph, { k: "album", size: 16, color: t.fog }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "[图片] 点开看描述"))) : null,
@@ -8435,7 +8444,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "评论"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "删除")),
     (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
-    (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", cm.text)))) : null,
+    (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(TransText, { text: cm.text, zhReady: cm.zh }))))) : null,
     commenting === m.id ? h("div", { className: "flex gap-2 mt-2" },
       h("input", { value: cText, onChange: e => setCText(e.target.value), autoFocus: true, placeholder: cReply ? "回复 " + cReply + "…" : "评论…", onKeyDown: e => { if (e.key === "Enter") sendC(m); }, className: "flex-1 outline-none px-3 py-1.5 rounded-full", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
       h("button", { onClick: () => sendC(m), className: "px-3 rounded-full", style: { background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "发")) : null);
@@ -8573,7 +8582,7 @@ function OfflineLogCard({ m, t, sel, onResummarize }) {
   };
   return h("div", { "data-wk": "card", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "10px 13px", whiteSpace: "pre-wrap", outline: sel ? `2px solid ${t.tint}` : "none", outlineOffset: 2 } },
     h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9, letterSpacing: "0.18em", color: t.fog, marginBottom: 5 } }, "线下经过"),
-    m.content,
+    h(TransText, { text: m.content, zhReady: m.zh }),
     m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
     onResummarize ? h("button", { onClick: redo, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, busy ? "正在重新总结…" : "⟳ 重新总结这一场") : null,
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
@@ -12329,7 +12338,7 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
         // ⚠️「响过你没接」和「来得太晚、压根没响」不是一回事，界面上得分得开
         //（她 2026-09-12：「不知道是打了我没看到还是只是显示未接但是根本没播」）
         (missed
-          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : "未接" + (video ? "视频" : "语音") + "通话")
+          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : m.busyMissed ? "无法接通 · " + (who || "TA") + "在忙（" + m.busyMissed + "）" : "未接" + (video ? "视频" : "语音") + "通话")
           : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
       onCallBack ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 2 } }, "回拨") : null));
 }
@@ -14523,6 +14532,10 @@ function OfflineMode({
   const { customStyles, styleSheet, setStyleSheet, curStyle } = styleEditor;
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
+  // 线下设置这一页现在是【目录 → 一类 → 几个折叠小节】，跟线上同一个形状：
+  //   offSetTab＝进了哪一类（""＝还在目录那一屏）；offSec＝这一类里展开的是哪一节。
+  const [offSetTab, setOffSetTab] = useState("");
+  const [offSec, setOffSec] = useState("");
   const [sMax, setSMax] = useState(os.maxTokens || 4000);
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
@@ -14536,12 +14549,117 @@ function OfflineMode({
   const [sTasteDensity, setSTasteDensity] = useState(activeSession && activeSession.taste && activeSession.taste.density || os.tasteDensity || "auto");
   const [sBg, setSBg] = useState(os.bg || "");
   const bgFileRef = useRef(null);
+  // 这个人自己的线下长相（她 2026-10-03：「线下每个角色能不能单独做一个美化页面」）。
+  //   走的是聊天那条「只给 TA 写 CSS」的同一条路：同一个编辑器、同一支限作用域，
+  //   只是存在这个人的线下设置里、页面挂点换成线下那三个（offline/offbody/offcomposer）。
+  const [sCss, setSCss] = useState(os.customCSS || "");
   // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
   const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
-  const offlineSetSheet = () => setOpen && onSaveSettings && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
-    h("div", { className: "flex items-center justify-between mb-1" },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink }))),
+  // ── 线下设置（v74.713 照着线上那一套重做）────────────────────────────
+  // 她 2026-10-03：「线下的设置界面也好乱，做跟线上一样好几个 dropdown，群线下也要」
+  //   「线下的你看看线上那条咋做的直接搬过来」。
+  // 原来这儿是【一个半窗里从头堆到尾十三块】：背景图、三根拉条、长度模式、最低字数、
+  //   两个人称、描写开关、本场口味、文风预设、自定义文风、好吃片段库，最上面还压着
+  //   一块英文诊断。乱的不是哪一块，是十三块平铺在半屏里。
+  // 线上那套是现成的：分类卡片（一行一类，右边写着现在是什么状态）→ 点进去 →
+  //   SettingSection 折叠小节。两件公共件都已经有了，这儿只是接上（one-public-mechanism）。
+  // ⚠️顺带从半窗改成整页（施工规则/no-half-sheet：默认整页）——这一层的内容
+  //   不需要同时看见下面那一层，而半窗的代价是固定的：先扣掉一半屏幕。
+  // 目录那一行右边写着【现在是什么状态】——跟线上同一个做法：写出来就不用点进去看。
+  const TASTE_ZH = { pace: { auto: "自然", slow: "慢慢磨", forward: "往前走" },
+    focus: { auto: "镜头自己找", dialogue: "多说话", action: "多行动", atmosphere: "多氛围" },
+    density: { auto: "自然疏密", airy: "多留白", rich: "更饱满" } };
+  const offTasteBrief = [TASTE_ZH.pace[sTastePace] || "自然", TASTE_ZH.focus[sTasteFocus] || "镜头自己找",
+    TASTE_ZH.density[sTasteDensity] || "自然疏密"].join("·");
+  const offLenBrief = sLengthMode === "immersive" ? "多生活一会儿" : "由事件决定长短";
+  const offShow = (tab, key, title, ...kids) => offSetTab === tab
+    ? h(SettingSection, { title, open: offSec === key, onToggle: () => setOffSec(v => v === key ? "" : key) }, ...kids)
+    : null;
+  const offSetPages = [
+    { key: "scene", char: "场", title: "这一场长什么样", tint: "#687f73",
+      state: () => (sBg ? "有背景图" : "没有背景图") + " · " + offTasteBrief },
+    { key: "write", char: "写", title: "他每一轮写多长", tint: "#c0904f",
+      state: () => offLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 最低 " + sMinW + " 字" : "") },
+    { key: "pers", char: "称", title: "人称 · 写不写我的动作", tint: "#d97c86",
+      state: () => (sSelf === "first" ? "他称「我」" : "他称名字") + " · " + (sUser === "second" ? "叫我「你」" : "叫我名字")
+        + " · 描写我 " + (sDesc ? "开" : "关") },
+    { key: "bring", char: "带", title: "他带着什么进这一场", tint: "#477f88",
+      state: () => "记忆 " + sMemN + " 条 · 线上 " + sOnlineN + " 条" },
+    { key: "style", char: "风", title: "文风与好吃片段", tint: "#9b7bc4",
+      state: () => (presetOn ? "吃着预设" : "没吃预设") + " · 片段 " + ((os.examples || []).length) + " 条" },
+    { key: "look", char: "样", title: "这个人的线下长什么样", tint: "#b0708f",
+      state: () => (sCss.trim() ? "写了 " + sCss.trim().length + " 字 CSS" : "还没写") + (sBg ? " · 有背景图" : "") },
+    { key: "debug", char: "诊", title: "上一轮到底发生了什么", tint: "#7a8fa8",
+      state: () => registerTelemetry ? "有本轮记录" : "还没有本轮记录" }
+  ];
+  const offlineSetSheet = () => setOpen && onSaveSettings && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t) },
+    h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
+      bg: "transparent",
+      onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
+      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
+      !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
+      offShow("scene", "bg", "场景背景图",
+    h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "场景背景图"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sBg ? "已设置 · 可更换或清除" : "从相册选一张图当这次赴约的背景")),
+      h("div", { className: "flex items-center gap-2 shrink-0" },
+        sBg ? h("div", { style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
+        h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, sBg ? "更换" : "选择"),
+        sBg ? h("button", { onClick: () => setSBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setSBg(d)); e.target.value = ""; } })))),
+      offShow("scene", "taste", "本场口味",
+    h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
+      offShow("write", "len", "他每一轮写多长",
+    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode })),
+      offShow("write", "max", "单次输出上限",
+    h("div", { className: "pt-4" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "这是输出容量上限，不会强迫模型把简单场景写长——给宽点只是让它有空间写完，不是硬性要求。"),
+      // 她 2026-09-22：「两边线下的 token 上限和最低字数的拉条都放开点吧。
+      // 上限也不是硬性规定，给他们多点输出的机会」——拉到 OUT_CEILING（65535，
+      // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
+      // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
+      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax }))),
+      offShow("write", "floor", "高级 · 最低字数目标",
+    h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
+      note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" })),
+      offShow("pers", "pers", "人称",
+    persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: characterText(char, "他/名字") }]),
+    persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }])),
+      offShow("pers", "desc", "让角色描写我的行动",
+    h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { className: "pr-3" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：角色会替你写动作、推动走向（如「你摇了摇头说…」）；关：只写它自己。")),
+      h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) }))),
+      offShow("bring", "mem", "关联记忆条数",
+    h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "关联记忆条数"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMemN + " 条")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "线下场景带入最近多少条记忆库条目（含单聊和群聊沉淀的）。"),
+      h(Slider, { value: sMemN, min: 0, max: 20, step: 1, onChange: setSMemN }))),
+      offShow("bring", "online", "带入线上私聊条数",
+    h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "带入线上私聊条数"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sOnlineN + " 条")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "每轮线下按真实时间带入最近多少条线上私聊；开场前和线下进行中后来发的消息都会参与，并与线下记录按时间合流。"),
+      h(Slider, { value: sOnlineN, min: 0, max: 100, step: 5, onChange: setSOnlineN }))),
+      offShow("style", "preset", "吃入文风预设",
+    h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
+      offShow("style", "custom", "自定义文风", styleSection),
+      offShow("style", "example", "好吃片段库", exampleSection),
+      offShow("look", "css", "只给这个人的线下写 CSS",
+        h(ChatCssFields, { css: sCss, setCSS: setSCss,
+          fileBase: (char && (char.remark || char.name)) || "TA",
+          onPeek: () => { try { window.__previewOfflineLook && window.__previewOfflineLook({ customCSS: sCss }); } catch (e) {} setSetOpen(false); },
+          page: "offline", title: "只给这个人的线下写 CSS" })),
+      offShow("debug", "telemetry", "上一轮到底发生了什么",
     h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
       h("div", null, ".87 immersive fine-grained editor · 仅内存诊断"),
       registerTelemetry
@@ -14583,52 +14701,7 @@ function OfflineMode({
               registerTelemetry.rewriteDraft ? h("details", { style: { marginTop: 5 } },
                 h("summary", { style: { cursor: "pointer" } }, "查看首遍草稿（不入 history）"),
                 h("div", { style: { whiteSpace: "pre-wrap", marginTop: 4, maxHeight: 180, overflow: "auto" } }, registerTelemetry.rewriteDraft)) : null) : null))
-        : h("div", null, "还没有本轮记录")),
-    h("div", { className: "flex items-center justify-between pt-5" },
-      h("div", { className: "pr-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "场景背景图"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sBg ? "已设置 · 可更换或清除" : "从相册选一张图当这次赴约的背景")),
-      h("div", { className: "flex items-center gap-2 shrink-0" },
-        sBg ? h("div", { style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
-        h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, sBg ? "更换" : "选择"),
-        sBg ? h("button", { onClick: () => setSBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setSBg(d)); e.target.value = ""; } }))),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "关联记忆条数"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMemN + " 条")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "线下场景带入最近多少条记忆库条目（含单聊和群聊沉淀的）。"),
-      h(Slider, { value: sMemN, min: 0, max: 20, step: 1, onChange: setSMemN })),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "带入线上私聊条数"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sOnlineN + " 条")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "每轮线下按真实时间带入最近多少条线上私聊；开场前和线下进行中后来发的消息都会参与，并与线下记录按时间合流。"),
-      h(Slider, { value: sOnlineN, min: 0, max: 100, step: 5, onChange: setSOnlineN })),
-    h("div", { className: "pt-4" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "这是输出容量上限，不会强迫模型把简单场景写长——给宽点只是让它有空间写完，不是硬性要求。"),
-      // 她 2026-09-22：「两边线下的 token 上限和最低字数的拉条都放开点吧。
-      // 上限也不是硬性规定，给他们多点输出的机会」——拉到 OUT_CEILING（65535，
-      // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
-      // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
-      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
-    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
-    h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
-      note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" }),
-    persRow("角色称自己", sSelf, setSSelf, [{ v: "first", t: "我" }, { v: "third", t: characterText(char, "他/名字") }]),
-    persRow("角色称我", sUser, setSUser, [{ v: "second", t: "你" }, { v: "third", t: "她/他/名字" }]),
-    h("div", { className: "flex items-center justify-between pt-5" },
-      h("div", { className: "pr-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：角色会替你写动作、推动走向（如「你摇了摇头说…」）；关：只写它自己。")),
-      h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
-    h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
-    h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
-    styleSection,
-    exampleSection);
+        : h("div", null, "还没有本轮记录")))));
   const scroller = useRef(null);
   // 设置弹层里的「文风预设」小节（进行中随时改）
   const styleSection = h(OfflineCustomStyleSection, { t, editor: styleEditor });
@@ -15165,6 +15238,9 @@ function GroupOfflineMode({
   const offCanPeek = canPeekMember || null;
   const os = settings || {};
   const [setOpen, setSetOpen] = useState(false);
+  // 跟单人线下同一个形状：gSetTab＝进了哪一类（""＝目录那一屏），gSec＝展开哪一节
+  const [gSetTab, setGSetTab] = useState("");
+  const [gSec, setGSec] = useState("");
   const [sBg, setSBg] = useState(os.bg || "");
   // 群线下没设过时的默认（v73.01 从 3200 抬到 12000）：3200 写七个人的戏不够，
   // 四段就满了——她那边早拉满所以没事，别人一次都没进过这页（engine 那头同一个数）。
@@ -15257,47 +15333,83 @@ function GroupOfflineMode({
 
   // ---- live ----
   const msgs = activeSession ? activeSession.msgs : [];
-  const gBgSheet = setOpen && h(Sheet, { onClose: () => setSetOpen(false), tall: true },
-    h("div", { className: "flex items-center justify-between mb-4" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "线下设置"),
-      h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink }))),
+  // ── 群线下设置（v74.713，跟单人线下同一天同一套）────────────────────
+  // 她 2026-10-03：「群线下也要」。这儿原来也是一个半窗平铺十块，跟单人线下
+  //   一模一样的病；两边各写各的，所以得各改一次（这正是 one-public-mechanism
+  //   讲的那种「同一个形状长在两处」——目录和折叠两件公共件现在是共用的，
+  //   剩下的差别是真差别：群里没有人称那两项，多一项「入场前群聊条数」）。
+  const gSetPages = [
+    { key: "scene", char: "场", title: "这一场长什么样", tint: "#687f73",
+      state: () => (sBg ? "有背景图" : "没有背景图") + " · " + gTasteBrief },
+    { key: "write", char: "写", title: "他们每一轮写多长", tint: "#c0904f",
+      state: () => gLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 下限 " + sMinW + " 字" : "") },
+    { key: "bring", char: "带", title: "他们带着什么进这一场", tint: "#477f88",
+      state: () => "群聊 " + sOnlineN + " 条 · 记忆 " + sMemN + " 条" },
+    { key: "style", char: "风", title: "文风 · 写不写我的动作", tint: "#9b7bc4",
+      state: () => (presetOn ? "吃着预设" : "没吃预设") + " · 描写我 " + (sDesc ? "开" : "关") }
+  ];
+  const G_TASTE_ZH = { pace: { auto: "自然", slow: "慢慢磨", forward: "往前走" },
+    focus: { auto: "镜头自己找", dialogue: "多说话", action: "多行动", atmosphere: "多氛围" },
+    density: { auto: "自然疏密", airy: "多留白", rich: "更饱满" } };
+  const gTasteBrief = [G_TASTE_ZH.pace[sTastePace] || "自然", G_TASTE_ZH.focus[sTasteFocus] || "镜头自己找",
+    G_TASTE_ZH.density[sTasteDensity] || "自然疏密"].join("·");
+  const gLenBrief = sLengthMode === "immersive" ? "多生活一会儿" : "由事件决定长短";
+  const gShow = (tab, key, title, ...kids) => gSetTab === tab
+    ? h(SettingSection, { title, open: gSec === key, onToggle: () => setGSec(v => v === key ? "" : key) }, ...kids)
+    : null;
+  const gBgSheet = setOpen && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t) },
+    h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
+      bg: "transparent",
+      onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
+      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
+      !gSetTab && h(SettingCatalog, { pages: gSetPages, onOpen: k => { setGSetTab(k); setGSec(""); },
+        note: "保存后下次开场生效" }),
+      gShow("scene", "bg", "场景背景图",
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, marginBottom: 4 } }, "场景背景图"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "从相册选一张图当这次多人线下的背景。"),
     h("div", { className: "flex items-center gap-3" },
       sBg ? h("div", { style: { width: 52, height: 52, borderRadius: 8, background: "center/cover no-repeat url(\"" + sBg + "\")", border: "1px solid " + t.line } }) : null,
       h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "9px 14px" } }, sBg ? "更换" : "选择"),
       sBg ? h("button", { onClick: () => { setSBg(""); onSaveSettings && onSaveSettings({ bg: "" }); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent } }, "清除") : null,
-      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } })),
-    h("div", { className: "pt-6", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "入场前群聊条数"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sOnlineN + " 条")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "赴约时带入线上群聊最后几条，让线下接住刚聊到的事；只冻结一次、不复制进线下记录。0=从新场景开始。"),
-      h(Slider, { value: sOnlineN, min: 0, max: 30, step: 1, onChange: setSOnlineN })),
-    h("div", { className: "pt-5" },
-      h("div", { className: "flex items-baseline justify-between mb-1" },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "关联记忆条数"),
-        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMemN + " 条")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "额外带入与群成员相关的记忆库条目；0=不带。群聊未开启记忆互通时不会注入。"),
-      h(Slider, { value: sMemN, min: 0, max: 20, step: 1, onChange: setSMemN })),
+      h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } }))),
+      gShow("scene", "taste", "本场口味",
+    h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
+      gShow("write", "len", "他们每一轮写多长",
+    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode })),
+      gShow("write", "max", "单次输出上限",
     h("div", { className: "pt-5" },
       h("div", { className: "flex items-baseline justify-between mb-1" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
-      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax })),
-    h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode }),
+      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax }))),
+      gShow("write", "floor", "输出下限（约字数）",
     h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "输出下限（约字数）",
-      note: "让每次至少写这么多字（>0 生效）。" }),
+      note: "让每次至少写这么多字（>0 生效）。" })),
+      gShow("bring", "online", "入场前群聊条数",
+    h("div", { className: "pt-6", style: { borderTop: "1px solid " + t.line, marginTop: 18 } },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "入场前群聊条数"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sOnlineN + " 条")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "赴约时带入线上群聊最后几条，让线下接住刚聊到的事；只冻结一次、不复制进线下记录。0=从新场景开始。"),
+      h(Slider, { value: sOnlineN, min: 0, max: 30, step: 1, onChange: setSOnlineN }))),
+      gShow("bring", "mem", "关联记忆条数",
+    h("div", { className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "关联记忆条数"),
+        h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMemN + " 条")),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "额外带入与群成员相关的记忆库条目；0=不带。群聊未开启记忆互通时不会注入。"),
+      h(Slider, { value: sMemN, min: 0, max: 20, step: 1, onChange: setSMemN }))),
+      gShow("style", "preset", "吃入文风预设",
+    h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
+      gShow("style", "custom", "自定义文风", styleSection),
+      gShow("style", "desc", "让角色描写我的行动",
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", { className: "pr-3" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.sub } }, "让角色描写我的行动"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "开：在场角色可以替你写动作、反应并推动剧情；关：只写他们自己和环境，不替你决定行动或台词。")),
-      h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })),
-    h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
-    h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
-    styleSection,
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 6 } }, "保存后下次生成生效。"));
+      h(Toggle, { on: sDesc, onChange: () => setSDesc(v => !v) })))));
   const directorNotes = h(DirectorNotesPanel, { t: t, notes: activeSession && activeSession.customNotes, onDeleteNote: onDeleteNote, onEditNote: onEditNote });
   return h("div", { "data-wk": "offline", className: "absolute inset-0 z-20 flex flex-col", style: os.bg ? { backgroundImage: "url(\"" + resolveImg(os.bg) + "\")", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat" } : offSceneBg(t) },
     h("div", { "data-wk": "chathead", className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { paddingTop: safeTop(12), position: "relative", zIndex: 3, borderBottom: `1px solid ${t.line}`, background: os.bg ? "rgba(255,255,255,0.5)" : "transparent", backdropFilter: os.bg ? "blur(8px)" : "none", WebkitBackdropFilter: os.bg ? "blur(8px)" : "none" } },
@@ -17111,6 +17223,29 @@ function offlineSubSkin(t) {
   return Object.assign({ paddingTop: safeTop(0) },
     typeof pageSkin === "function" ? pageSkin("lined", t, { corner: false, strength: .8 }) : { background: t.bg });
 }
+// 设置分类目录：一行一类，左边一个汉字索引牌，右边写着【现在是什么状态】。
+// 原来只长在聊天设置里（v61.79 她说「分类还是有点难找你重新分类一遍」之后定的形状）。
+// 2026-10-03 线下设置也要这一套（她：「看看线上那条咋做的直接搬过来」），
+// 所以提成一份、两处都用它（one-public-mechanism：新开公共件要把已有的也搬过来）。
+// pages: [{ key, char, title, tint, state() }]
+function SettingCatalog({ pages, onOpen, note }) {
+  const t = useTheme();
+  return h("div", { style: { marginTop: 6 } },
+    // ⚠️不是两列大卡：一眼扫不完的东西，不管怎么分类都难找（线上那次的教训）。
+    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, pages.map(page => h("button", {
+      key: page.key,
+      onClick: () => onOpen(page.key),
+      className: "w-full flex items-center active:opacity-70",
+      style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
+    },
+      h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
+      h("span", { className: "flex-1 min-w-0" },
+        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
+        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
+      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "\u203a")
+    ))),
+    note ? h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } }, note) : null);
+}
 function SettingSection({ title, open, onToggle, danger, children }) {
   const t = useTheme();
   // ⚠️v63.92 从「一条发丝线 + 一行字」改成卡片：这一页铺上档案纸的底纹之后，
@@ -17630,6 +17765,7 @@ function ChatSettings({
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
+  const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
@@ -17922,6 +18058,7 @@ function ChatSettings({
       engineerEyes,
       webSearch,
       noLoveLetter: !loveLetter,
+      busyHold: busyHold,
       toyEnabled,
       defaultOffline,
       actDesc,
@@ -17938,26 +18075,12 @@ function ChatSettings({
   }))
     }),
     h("div", { ref: setScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
-    !settingsTab && h("div", { style: { marginTop: 6 } },
-    // ⚠️原来是两列 142px 的大卡：七张要滚两屏才看得全，「难找」有一半是这么来的
-    //   ——一眼扫不完的东西，不管怎么分类都难找。改成一列窄行，一屏放得下。
-    // 每一行右边写着【现在是什么状态】：这一页答的问题是「TA现在是怎么设的」，
-    //   写出来就不用点进去看。别的 app 的设置目录不会长这样，因为别处没有「TA」。
-    h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } }, settingPages.map(page => h("button", {
-      key: page.key,
-      onClick: () => openTab(page.key),
-      className: "w-full flex items-center active:opacity-70",
-      style: { gap: 12, padding: "11px 13px 11px 11px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2, textAlign: "left" }
-    },
-      // 汉字索引牌：一类一个字，撞不了车
-      h("span", { style: { flexShrink: 0, width: 34, height: 34, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", background: page.tint + "1f", color: page.tint, fontFamily: F_DISPLAY, fontSize: 16 } }, page.char),
-      h("span", { className: "flex-1 min-w-0" },
-        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, page.title),
-        h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, page.state())),
-      h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 15, color: t.line } }, "›")
-    ))),
-    h("div", { style: { marginTop: 14, padding: "13px 15px", borderRadius: 16, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
-      "房间决定这一段对话看得见什么、能主动做什么、会写回哪里——只管当前这一段；其余八类是这个人的长期设置，换房间也跟着走。")),
+    // ⚠️这一段【原来就长在这儿】，v74.713 提成公共件 SettingCatalog 给线下也用，
+    //   这边一起搬过来（one-public-mechanism：新开公共的，已有的也要搬，
+    //   不然就是「同一个形状两份，改一处另一处永远落单」）。
+    //   卡片长什么样、右边那行状态怎么摆，现在只写在 SettingCatalog 一处。
+    !settingsTab && h(SettingCatalog, { pages: settingPages, onOpen: openTab,
+      note: "房间决定这一段对话看得见什么、能主动做什么、会写回哪里——只管当前这一段；其余八类是这个人的长期设置，换房间也跟着走。" }),
   settingsTab === "rooms" && h(ChatRoomSheet, {
     embedded: true,
     character,
@@ -18258,6 +18381,12 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "允许 Ta 主动表白"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
     h("div", { className: "shrink-0" }, h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) }))),
+  // 忙的时候晚点回（v74.713）：默认关——秒回型、黏人的、本来就闲着的人设开了会走样
+  h("div", { className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "忙的时候晚点回"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "按 " + cNm + " 今天的日程：正忙的那段（开会、上课、开车这种）你第一次叫 Ta 回复或打电话，有几率先不回——消息停在未读、电话打不通落一张未接；那段忙完 Ta 自己回你。真急就再按一次，算催。这一下不花调用。")),
+    h("div", { className: "shrink-0" }, h(Toggle, { on: busyHold, onChange: () => setBusyHold(v => !v) }))),
   h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {

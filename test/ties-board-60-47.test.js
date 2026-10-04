@@ -19,7 +19,13 @@ test("一人一页：这一页只画和中心那个人直接有关系的", () =>
   // 老那份「所有人画一张网」整个删掉，不留半截
   assert.ok(!scr.includes("function TiesMap("), "v60.46 那张汇总网还留着");
   assert.ok(!scr.includes("const tethers = npcs.map"), "汇总网那套配角虚线也一起走");
-  assert.match(ties, /h\(TiesBoard, \{\n?\s*key: boardId, centerId: boardId/, "换人要真的换一页");
+  // ⚠️原来钉的是「h(TiesBoard, { 紧接着就是 key: boardId」——中间加一行注释就断
+  //   （施工规则/anchor-on-code：钉的该是代码，不是它上面有没有注释）。
+  //   2026-10-03 给这儿加「我戴哪张脸」的说明时断过一次。
+  // key 里又多了面具那一档（v74.719：「我」那一页按面具筛，换筛子也要真的换一页，
+  //   不然板子上的节点位置和选中状态会留在上一张筛子里）。
+  assert.match(ties.replace(/^\s*\/\/.*$/gm, ""), /h\(TiesBoard, \{\s*key: boardId \+ "\|" \+ maskPick, centerId: boardId/,
+    "换人/换面具要真的换一页");
 });
 
 test("标签只取中心这一头的说法——两头拼一句就是那行横穿全图的字", () => {
@@ -109,7 +115,8 @@ test("⌖ 只归位视野，不许顺手清掉她摆好的位置", () => {
 test("整页 + 紧凑标题栏，配角简介的入口没丢", () => {
   assert.ok(!/h\(Sheet,/.test(board), "不许用半窗");
   // ⚠️原来这里禁的是 Head——v61.27 起 Head 本身就是那条紧凑栏，v64.90 换了过来
-  assert.match(ties, /h\(Head, \{ zh: \(boardId === "me" \? me : nameOf\(boardId\)\) \+ " 的关系"/, "顶栏没走共用 Head");
+  // 标题里的「我」换成了 meBoardMe：选了面具就写那张面具的名字（v74.719）
+  assert.match(ties, /h\(Head, \{ zh: \(boardId === "me" \? meBoardMe : nameOf\(boardId\)\) \+ " 的关系"/, "顶栏没走共用 Head");
   assert.doesNotMatch(ties, /paddingTop: safeTop\(10\)/, "又自己手写一条顶栏了");
   assert.match(board, /className: "flex-1 min-h-0"/);
   assert.match(board, /touchAction: "none"/);

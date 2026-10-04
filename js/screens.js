@@ -834,7 +834,7 @@ function tieBoardPointer(env) {
   };
   return { onDown, onMove, onUp };
 }
-function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos, onEditEdge, onCenter }) {
+function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos, onEditEdge, onCenter, keepId }) {
   const t = useTheme();
   const wrapRef = useRef(null);
   const [k, setK] = useState(1);
@@ -857,6 +857,8 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
     const other = f === centerId ? g : f;
     if (other === centerId || seen[other]) return;
     if (other !== "me" && !byId(other)) return;
+    // 面具筛子（只有「我」那一页会传 keepId）：只画认识这张面具的那些人
+    if (typeof keepId === "function" && !keepId(other)) return;
     seen[other] = 1;
     const out = rels[centerId + "->" + other], inc = rels[other + "->" + centerId];
     // ⚠️标签只取【中心这个人怎么称呼对方】这一个方向。
@@ -1189,7 +1191,7 @@ function TiesNet({ ids, me, profile, allChars, rels, savedPos, onSavePos, onOpen
           background: "rgba(246,244,239,.92)", border: "1px solid " + t.line, boxShadow: "0 1px 5px rgba(0,0,0,.08)" } }, lb))));
 }
 
-function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, onEditEdge, onClose }) {
+function TiesWalk({ startId, me, profile, profileFor, allChars, rels, tiePos, onSaveTiePos, onEditEdge, onClose }) {
   const t = useTheme();
   // 走过的路。末尾那个是现在站的地方；返回＝退一步，退到头才是关掉这一页。
   const [trail, setTrail] = useState([startId]);
@@ -1197,7 +1199,11 @@ function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, 
 
   const centerId = trail[trail.length - 1];
   const all = allChars || [];
-  const nameOf = id => id === "me" ? me : (all.find(c => c.id === id) || {}).name || "?";
+  // 走到谁身上，「我」就换成【那个人认识的那张脸和那个名字】——跟板子那一页同一条规矩。
+  //   站在「我」自己身上时没有「对谁」可言，照旧是主面具。
+  const walkProfile = (centerId !== "me" && typeof profileFor === "function") ? (profileFor(centerId) || profile) : profile;
+  const walkMe = walkProfile.name || me;
+  const nameOf = id => id === "me" ? walkMe : (all.find(c => c.id === id) || {}).name || "?";
   // 同一个人在路上出现两次，只保留后面那次——绕回原地不该让返回键越退越长
   const walkTo = id => setTrail(p => {
     const cut = p.indexOf(id);
@@ -1233,16 +1239,20 @@ function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, 
             background: i === trail.length - 1 ? "rgba(0,0,0,.06)" : "transparent" } }, nameOf(id))))),
     netOpen
       // 整网图是地图，关系图才是走路：在地图上点谁，就落回那个人的关系图接着走
-      ? h(TiesNet, { ids: all.map(c => c.id).concat(["me"]), me, profile, allChars: all, rels,
+      ? h(TiesNet, { ids: all.map(c => c.id).concat(["me"]), me: walkMe, profile: walkProfile, allChars: all, rels,
           savedPos: tiePos, onSavePos: onSaveTiePos,
           onOpen: id => { walkTo(id); setNetOpen(false); } })
-      : h(TiesBoard, { key: centerId, centerId, me, profile, allChars: all, rels,
+      : h(TiesBoard, { key: centerId, centerId, me: walkMe, profile: walkProfile, allChars: all, rels,
           savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge, onCenter: walkTo }));
 }
 
 function Ties({
   characters,
   allChars,
+  profileFor,
+  masks,
+  maskPrimary,
+  maskOf,
   onSaveNpcKnows,
   onDraftRel,
   relBusy,
@@ -1463,6 +1473,38 @@ function Ties({
   // 选中那张抬起来、放大、露出名字，没选中的缩着压暗。换个 app 这条不成立。
   const boardIds = ["me"].concat(characters.map(c => c.id));
   const boardId = boardIds.indexOf(board) >= 0 ? board : boardIds[0];
+  const boardProfile = (boardId !== "me" && typeof profileFor === "function") ? (profileFor(boardId) || profile) : profile;
+  // ⚠️换脸不是只换头像：专属面具连【名字】一起换（她 2026-10-03 抓到：
+  //   「面具那边不能只改头像名字也得改」）。一张面具上名字和脸是一个人，
+  //   只换一半出来的是个四不像——板子上写着主面具的名字、配着另一张脸。
+  const boardMe = boardProfile.name || me;
+  // ── 「我」那一页的面具筛子（她 2026-10-03 拍板：「加一个面具筛子」）──────
+  // 为什么不给每张面具单独建一张网：面具没有【自己认识的人】，人还是那些人，
+  //   分叉等于把一套关系拆成两套各自维护。这儿给的是【怎么看】，不是【存几份】。
+  // 为什么需要它：这个 app 里面具本来就被当成另一台手机、另一个她
+  //   （查手机：「跟 TA 不是同一张面具聊的，他默认查不到」）。两圈人画在同一张网上，
+  //   等于把两个社交圈画成了一个。
+  const maskList = (masks || []).filter(m => m && m.id && m.id !== maskPrimary);
+  const [maskPick, setMaskPick] = useState("");       // ""＝全部
+  const maskIdOf = id => (typeof maskOf === "function" ? String(maskOf(id) || "") : "");
+  const maskHit = id => {
+    if (!maskPick) return true;
+    const cur = maskIdOf(id);
+    // 主面具那一档：没挑过面具的、和明确挑了主面具的，都算
+    return maskPick === "_main" ? (!cur || cur === maskPrimary) : cur === maskPick;
+  };
+  const maskProfile = maskPick && maskPick !== "_main"
+    ? ((masks || []).find(m => m && m.id === maskPick) || profile) : profile;
+  const meBoardProfile = boardId === "me" ? maskProfile : boardProfile;
+  const meBoardMe = boardId === "me" ? (maskProfile.name || me) : boardMe;
+  const maskStrip = (boardId === "me" && maskList.length) ? h("div", { className: "shrink-0 flex items-center gap-1.5 px-4 pb-2",
+    style: { overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch" } },
+    [["", "全部"], ["_main", "主面具"]].concat(maskList.map(m => [m.id, m.label || m.name || "未命名"]))
+      .map(([v, label]) => h("button", {
+        key: v || "_all", onClick: () => setMaskPick(v), className: "shrink-0 active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999,
+          background: maskPick === v ? t.ink : "transparent", color: maskPick === v ? t.bg2 : t.fog,
+          border: "1px solid " + (maskPick === v ? t.ink : t.line) } }, label))) : null;
   const faceStrip = h("div", { className: "shrink-0 flex items-end gap-2 px-4 pb-2",
     style: { overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch" } },
     boardIds.map(id => {
@@ -1479,11 +1521,15 @@ function Ties({
         on ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.ink, marginTop: 3, maxWidth: 66,
           overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, id === "me" ? me : nameOf(id)) : null);
     }));
-  const nBoard = partnersOf(boardId).length;
+  // 标题和段数也跟着筛子走：选了面具还写着主面具的名字、数着全部人的段数，
+  //   那就是只换了板子、没换这一页在讲谁。
+  const nBoard = (boardId === "me"
+    ? partnersOf("me").filter(c => maskHit(c.a === "me" ? c.b : c.a))
+    : partnersOf(boardId)).length;
   // 那块板子摊在同一张桌子上（v62.83）：原来板子合格、桌子是米白
   return h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
     // 紧凑标题栏（mobile-ui-layout 第 1 条）：这一页的正文就是那块板子，高度全给它
-    h(Head, { zh: (boardId === "me" ? me : nameOf(boardId)) + " 的关系",
+    h(Head, { zh: (boardId === "me" ? meBoardMe : nameOf(boardId)) + " 的关系",
       sub: nBoard ? nBoard + " 段 · 点线上的牌子看整句" : "还没有关系",
       bg: "transparent", noLine: true, onBack,
       right: h("div", { className: "flex items-center" },
@@ -1491,10 +1537,16 @@ function Ties({
         characters.length > 0 ? h("button", { onClick: () => setMapAt(boardId), className: "active:opacity-50 flex items-center justify-center", style: { height: 38, padding: "0 6px", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "走一圈") : null,
         characters.length > 0 ? h("button", { onClick: openNew, className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) : null) }),
     faceStrip,
+    maskStrip,
     characters.length === 0
       ? h("div", { className: "flex-1 px-6" }, h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }))
       : h(TiesBoard, {
-          key: boardId, centerId: boardId, me, profile, allChars: all, rels,
+          // 「我」那个节点戴的是【这一页这个人认识的那张脸】（群友 2026-10-03 报的：
+          //   聊天里绑了专属面具，关系网上还是主面具）。换脸那一层走 profileFor，
+          //   跟单聊/线下/通话/日记那八处同一口，这儿不另算。
+          //   「我」自己那一页没有「对谁」可言，照旧是主面具。
+          key: boardId + "|" + maskPick, centerId: boardId, me: meBoardMe, profile: meBoardProfile, allChars: all, rels,
+          keepId: boardId === "me" ? maskHit : null,
           savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge: openEdit,
           // 这块板子上点一张脸，就进那一页接着往下走（她 2026-09-15 要的就是这个动作）。
           // 板子本身照旧是「这个人有哪些关系」，走网是另一页的事，两件事别挤在一页里。
@@ -1508,7 +1560,7 @@ function Ties({
       valid: validComp(comp), onSave: doSave, onDelete: doDelete, onClose: () => setComp(null)
     }),
     walkAt && h(TiesWalk, {
-      startId: walkAt, me, profile, allChars: all, rels,
+      startId: walkAt, me, profile, profileFor, allChars: all, rels,
       tiePos, onSaveTiePos, onEditEdge: openEdit, onClose: () => setMapAt(null)
     }));
 }

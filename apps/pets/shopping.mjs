@@ -1,0 +1,14 @@
+// One catalogue and one purchase policy for gifts chosen by you and by the pet.
+export const SHOPPING_CAPS=[8,12,24];
+export const PET_SHOP=[
+ {id:'snack',name:'小零食包',selfName:'自己挑的小零食包',cost:8,count:2,icon:'bread',text:'两份零食，可以分给它，也能在拒工后再邀请一次。'},
+ {id:'toy',name:'它自己的小球',selfName:'歪眼小怪球',cost:22,count:1,max:1,icon:'ball',text:'自己的小球带回家，用原来的玩球玩法陪它玩。'},
+ {id:'box',name:'小纸箱窝',selfName:'小纸箱窝',cost:6,count:1,max:1,icon:'home',text:'敞口的矮纸箱，带回家以后可以钻进去歇歇。'}
+];
+export const shoppingItem=id=>PET_SHOP.find(x=>x.id===id);
+const bound=(v,min,max,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
+const text=(v,max=180)=>typeof v==='string'?v.slice(0,max):'';
+export function restoreShopping(raw,seed=23456789){const r=raw||{},trip=r.trip,item=shoppingItem(trip?.item);return {enabled:r.enabled!==false,cap:SHOPPING_CAPS.includes(r.cap)?r.cap:24,rng:bound(r.rng,1,4294967295,seed),lastDay:Math.floor(bound(r.lastDay,0,1e7)),toyStyle:r.toyStyle==='wonky'?'wonky':'plain',trip:trip&&typeof trip.id==='string'&&(['browsing'].includes(trip.phase)||trip.phase==='packed'&&item)?{id:text(trip.id,80),day:Math.floor(bound(trip.day,1,1e7,1)),phase:trip.phase,time:bound(trip.time,0,12),item:item?.id||'',amount:trip.phase==='packed'?item.cost:0}:null,log:Array.isArray(r.log)?r.log.filter(x=>typeof x?.id==='string'&&typeof x?.text==='string').slice(-8).map(x=>({id:text(x.id,80),day:Math.floor(bound(x.day,1,1e7,1)),item:shoppingItem(x.item)?.id||'',amount:Math.floor(bound(x.amount,0,24)),reason:text(x.reason),text:text(x.text),delivered:!!x.delivered,served:!!x.served})):[]};}
+export function canPurchase(state,item){return !!item&&state.balance>=item.cost&&(!item.max||(state.inventory[item.id]||0)+(state.shopping.trip?.phase==='packed'&&state.shopping.trip.item===item.id?item.count:0)<item.max);}
+// Current hunger, learned play/rest/food experience and personality bias choices; saving is always possible.
+export function chooseShopping(state,care,random){const food=Object.values(care.relationships||{}).reduce((sum,r)=>sum+(r.food||0)+(r.snack||0),0),traits=care.traits||{};const weights={snack:.15+(100-care.satiety)/100*2+Math.min(1,food/8),toy:.1+(traits.active||0)*2+Math.min(1,(care.toys?.ball||0)/6),box:.1+(1-(traits.bold||0))*2+(care.energy<50?.6:0)};const options=PET_SHOP.filter(item=>item.cost<=state.shopping.cap&&canPurchase(state,item)).map(item=>({item,weight:weights[item.id]}));const saving={item:null,weight:.8+(state.balance<8?2:0)};options.push(saving);let roll=random()*options.reduce((sum,x)=>sum+x.weight,0);const chosen=options.find(x=>(roll-=x.weight)<=0)||saving;if(!chosen.item)return {item:null,reason:'今天没有挑到想带回家的东西，钱先留在自己的袋子里。'};return {item:chosen.item,reason:chosen.item.id==='toy'?'它在玩具架前停了很久，挑中了这颗歪眼的小怪球。':chosen.item.id==='box'?'它闻了闻纸箱边缘，想带一个安静的小角落回家。':'它在零食架前认真闻了闻，挑了一包自己的小零食。'};}

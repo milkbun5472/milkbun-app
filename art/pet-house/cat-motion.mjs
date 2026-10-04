@@ -1,4 +1,4 @@
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-845d685297c8f9f1';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-f330d135f2ad1c03';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -50,19 +50,20 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
     const bone=cat.getObjectByName(name);if(!bone?.isBone)throw Error('Missing kitten bone '+name);
     const parentQ=bone.parent.getWorldQuaternion(new T.Quaternion()).premultiply(cat.getWorldQuaternion(new T.Quaternion()).invert());
     controls.set(name,{bone,position:bone.position.clone(),quaternion:bone.quaternion.clone(),parentQ,
+      restInverse:bone.matrixWorld.clone().premultiply(cat.matrixWorld.clone().invert()).invert(),
       head:new T.Vector3().fromArray(data.head),dir:new T.Vector3().fromArray(data.tail).sub(new T.Vector3().fromArray(data.head)).normalize()});
   }
   const legs=Object.entries(rig.legs).map(([name,data])=>({name,data,
     phase:walkPhase(0,name),started:false,lock:null,start:null,landing:null,wasStance:true,orientation:cat.getWorldQuaternion(new T.Quaternion()),startQ:null,
     upperLength:length(sub(data.knee,data.root)),lowerLength:length(sub(data.ankle,data.knee))}));
-  let elapsed=Number.isFinite(expressionState?.elapsed)?expressionState.elapsed:0,cycle=0,clamps=0,lastFeet=[],tail=normalizeTail(),lastRate=1/rig.cycle,wasWalking=false,gait={...rig,name:'walk'},phases=WALK_PHASE;
-  let mood=normalizePetMood('neutral'),pose=samplePetMood(rig.species,mood),action={headPitch:0,headRoll:0};
+  let elapsed=Number.isFinite(expressionState?.elapsed)?expressionState.elapsed:0,cycle=0,clamps=0,lastFeet=[],lastClamp=null,tail=normalizeTail(),lastRate=1/rig.cycle,wasWalking=false,gait={...rig,name:'walk'},phases=WALK_PHASE;
+  let mood=normalizePetMood('neutral'),pose=samplePetMood(rig.species,mood),action={headPitch:0,headRoll:0,headYaw:0,height:0,chestHeight:0,pelvisHeight:0,roll:0},actionTarget={...action};
   if(expressionState?.pose)for(const key of Object.keys(pose))if(Number.isFinite(expressionState.pose[key]))pose[key]=expressionState.pose[key];
   const chestOffset=new T.Vector3(),pelvisOffset=new T.Vector3();
-  function expression(dt){elapsed+=dt;const target=samplePetMood(rig.species,mood,elapsed),blend=1-Math.exp(-2.5*dt);for(const key of Object.keys(pose))pose[key]+=(target[key]-pose[key])*blend;}
+  function expression(dt){elapsed+=dt;const target=samplePetMood(rig.species,mood,elapsed),blend=1-Math.exp(-2.5*dt);for(const key of Object.keys(pose))pose[key]+=(target[key]-pose[key])*blend;for(const key of Object.keys(action))action[key]+=(actionTarget[key]-action[key])*(1-Math.exp(-5*dt));}
   function poseHead(chestQ,offset,amount=0,phase=0,turn=0){
     const pivot=controls.get('chest').head,head=rig.bones.head;
-    const local=new T.Quaternion().setFromEuler(new T.Euler(pose.headPitch+action.headPitch-.004*amount*Math.sin(phase),pose.headYaw+clamp(turn*.07,-.08,.08),pose.headRoll+action.headRoll-.005*amount*Math.sin(phase)));
+    const local=new T.Quaternion().setFromEuler(new T.Euler(pose.headPitch+action.headPitch-.004*amount*Math.sin(phase),pose.headYaw+action.headYaw+clamp(turn*.07,-.08,.08),pose.headRoll+action.headRoll-.005*amount*Math.sin(phase)));
     const headQ=chestQ.clone().multiply(local),anchor=transformed(head.head,pivot,chestQ,offset);
     place('head',anchor,add(anchor,new T.Vector3().fromArray(sub(head.tail,head.head)).applyQuaternion(headQ).toArray()),headQ);
     for(const [side,sign] of [['L',1],['R',-1]]){
@@ -122,33 +123,28 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
     const amount=clamp(movement/(rig.stride/rig.duty/rig.cycle*modelScale),0,1);
     const phase=cycle*TAU,bodyBlend=1-.7*amount;
     const bob=.0035*amount*Math.cos(phase*2),sway=.0045*amount*Math.sin(phase);
-    const chestQ=new T.Quaternion().setFromEuler(new T.Euler(.012*amount*Math.sin(phase)+pose.pitch*bodyBlend,.014*amount*Math.sin(phase),.010*amount*Math.sin(phase)+pose.roll*bodyBlend));
-    const pelvisQ=new T.Quaternion().setFromEuler(new T.Euler(-.010*amount*Math.sin(phase)+pose.pitch*bodyBlend,-.012*amount*Math.sin(phase),-.008*amount*Math.sin(phase)+pose.roll*bodyBlend));
+    const chestQ=new T.Quaternion().setFromEuler(new T.Euler(.012*amount*Math.sin(phase)+pose.pitch*bodyBlend,.014*amount*Math.sin(phase),.010*amount*Math.sin(phase)+(pose.roll+action.roll)*bodyBlend));
+    const pelvisQ=new T.Quaternion().setFromEuler(new T.Euler(-.010*amount*Math.sin(phase)+pose.pitch*bodyBlend,-.012*amount*Math.sin(phase),-.008*amount*Math.sin(phase)+(pose.roll+action.roll)*bodyBlend));
     // The body's height follows the paw support surface, not an abrupt curb
     // height sampled only under its centre. Legs remain reachable across steps.
     const contacts=legs.map(l=>l.wasStance?l.lock:l.landing).filter(Boolean);
     const supportGround=contacts.length?contacts.reduce((sum,p)=>sum+ground(p.x,p.z),0)/contacts.length:ground(rootPosition.x,rootPosition.z);
     const terrain=clamp((supportGround-ground(rootPosition.x,rootPosition.z))/modelScale,-.06,.06);
-    const offset=new T.Vector3(sway,bob-.006*amount+terrain+pose.height*bodyBlend,pose.forward*bodyBlend),chestPivot=controls.get('chest').head,pelvisPivot=controls.get('pelvis').head;
+    const offset=new T.Vector3(sway,bob-.006*amount+terrain+(pose.height+action.height)*bodyBlend,pose.forward*bodyBlend),chestPivot=controls.get('chest').head,pelvisPivot=controls.get('pelvis').head;
     let neededDrop=0;
     for(const leg of legs){
       if(!leg.wasStance||!leg.lock)continue;
-      const a=cat.worldToLocal(leg.lock.clone()),d=leg.data.root;
-      const horizontal=(a.x-d[0]-sway)**2+(a.z-d[2])**2;
+      const a=cat.worldToLocal(leg.lock.clone()),front=leg.name.startsWith('front');
+      const supportOffset=offset.clone();supportOffset.y+=((front?pose.chestHeight:pose.pelvisHeight)+(front?action.chestHeight:action.pelvisHeight))*bodyBlend;
+      const hip=transformed(leg.data.root,front?chestPivot:pelvisPivot,front?chestQ:pelvisQ,supportOffset);
+      const horizontal=(a.x-hip[0])**2+(a.z-hip[2])**2;
       const reach=Math.sqrt(Math.max(0,(leg.upperLength+leg.lowerLength-.006)**2-horizontal));
-      neededDrop=Math.max(neededDrop,d[1]+offset.y-a.y-reach);
+      neededDrop=Math.max(neededDrop,hip[1]-a.y-reach);
     }
     // Bend into support during a pivot; recover gradually after the short step.
     supportDrop=Math.min(.09,Math.max(0,neededDrop,supportDrop*Math.exp(-10*dt)));offset.y-=supportDrop;
-    chestOffset.copy(offset);chestOffset.y+=pose.chestHeight*bodyBlend;pelvisOffset.copy(offset);pelvisOffset.y+=pose.pelvisHeight*bodyBlend;
-    for(const [name,q,pivot,o] of [['chest',chestQ,chestPivot,chestOffset],['pelvis',pelvisQ,pelvisPivot,pelvisOffset]]){
-      const d=rig.bones[name];place(name,transformed(d.head,pivot,q,o),transformed(d.tail,pivot,q,o),q);
-    }
-    // A common parent pose carries the entire head with the neck. Small
-    // local stabilization/looking is composed afterwards, never applied
-    // just to the front of the face while the rear follows the torso.
-    poseHead(chestQ,chestOffset,amount,phase,turn);
-    lastFeet=[];
+    chestOffset.copy(offset);chestOffset.y+=(pose.chestHeight+action.chestHeight)*bodyBlend;pelvisOffset.copy(offset);pelvisOffset.y+=(pose.pelvisHeight+action.pelvisHeight)*bodyBlend;
+    const plans=[];lastFeet=[];
     for(const leg of legs){
       const oldPhase=leg.phase;
       leg.phase=footPhase(leg.name);
@@ -184,12 +180,32 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
       }
       const ankle=cat.worldToLocal(goal.clone()).toArray();
       const q=leg.name.startsWith('front')?chestQ:pelvisQ,pivot=leg.name.startsWith('front')?chestPivot:pelvisPivot;
+      plans.push({leg,f,goal,ankle,q,pivot});
+    }
+    // A swinging paw can still be behind the shoulder while turning over a
+    // rug edge. All current paw targets must be reachable before posing the
+    // torso; checking only planted paws misses that short lift transition.
+    let extraDrop=0;
+    for(const {leg,ankle,q,pivot} of plans){
+      const hip=transformed(leg.data.root,pivot,q,leg.name.startsWith('front')?chestOffset:pelvisOffset);
+      const horizontal=(ankle[0]-hip[0])**2+(ankle[2]-hip[2])**2;
+      const reach=Math.sqrt(Math.max(0,(leg.upperLength+leg.lowerLength-.006)**2-horizontal));
+      extraDrop=Math.max(extraDrop,hip[1]-ankle[1]-reach);
+    }
+    extraDrop=Math.min(.09-supportDrop,Math.max(0,extraDrop));supportDrop+=extraDrop;
+    chestOffset.y-=extraDrop;pelvisOffset.y-=extraDrop;
+    for(const [name,q,pivot,o] of [['chest',chestQ,chestPivot,chestOffset],['pelvis',pelvisQ,pelvisPivot,pelvisOffset]]){
+      const d=rig.bones[name];place(name,transformed(d.head,pivot,q,o),transformed(d.tail,pivot,q,o),q);
+    }
+    // The same parent pose carries the entire head and both ears.
+    poseHead(chestQ,chestOffset,amount,phase,turn);
+    for(const {leg,f,goal,ankle,q,pivot} of plans){
       const hip=transformed(leg.data.root,pivot,q,leg.name.startsWith('front')?chestOffset:pelvisOffset);
       // An elbow/hock bends to the same anatomical side even when a paw
       // passes its shoulder. Projecting the almost-straight rest knee would
       // flip the bend direction mid-stride and curl the foreleg backwards.
       const restKnee=add(hip,new T.Vector3(0,0,leg.name.startsWith('front')?-1:1).applyQuaternion(q).toArray());
-      const solved=solveLimb(hip,ankle,restKnee,leg.upperLength,leg.lowerLength);if(solved.clamped)clamps++;
+      const solved=solveLimb(hip,ankle,restKnee,leg.upperLength,leg.lowerLength);if(solved.clamped){clamps++;lastClamp={name:leg.name,hip,ankle,phase:leg.phase,stance:f.stance,root:rootPosition.toArray(),distance:length(sub(hip,ankle)),reach:leg.upperLength+leg.lowerLength,drop:supportDrop,action:{...action}};}
       place(leg.name+'Upper',hip,solved.knee);place(leg.name+'Lower',solved.knee,solved.ankle);
       const pawQ=cat.getWorldQuaternion(new T.Quaternion()).invert().multiply(leg.orientation);
       place(leg.name+'Paw',solved.ankle,add(solved.ankle,sub(leg.data.toe,leg.data.ankle)),pawQ);
@@ -201,5 +217,5 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
     poseTail(pelvisQ,pelvisOffset);
     root.updateMatrixWorld(true);wasWalking=walking;
   }
-  return {get animating(){const target=samplePetMood(rig.species,mood,elapsed);return Object.keys(pose).some(k=>Math.abs(pose[k]-target[k])>.0001);},update,setMood:value=>(mood=normalizePetMood(value)),setActionPose(value={}){action={headPitch:clamp(Number(value.headPitch)||0,-.35,.35),headRoll:clamp(Number(value.headRoll)||0,-.35,.35)};},updateExpression(dt){expression(clamp(dt,0,.05));poseHead(new T.Quaternion(),new T.Vector3());poseTail(new T.Quaternion(),new T.Vector3());root.updateMatrixWorld(true);},setTail:value=>(tail=normalizeTail(value)),snapshot:()=>({clamps,feet:lastFeet,elapsed,cycle,gait:gait.name,rate:lastRate,tail:{...tail},mood:{...mood},pose:{...pose}}),dispose:()=>{for(const c of controls.values()){c.bone.position.copy(c.position);c.bone.quaternion.copy(c.quaternion);}}};
+  return {get animating(){const target=samplePetMood(rig.species,mood,elapsed);return Object.keys(pose).some(k=>Math.abs(pose[k]-target[k])>.0001);},update,setMood:value=>(mood=normalizePetMood(value)),setActionPose(value={}){for(const k of Object.keys(actionTarget)){const limit=k==='headPitch'?1.06:k==='height'||k.endsWith('Height')?.09:.35;actionTarget[k]=clamp(Number(value[k])||0,-limit,limit);}},updateExpression(dt){expression(clamp(dt,0,.05));poseHead(new T.Quaternion(),new T.Vector3());poseTail(new T.Quaternion(),new T.Vector3());root.updateMatrixWorld(true);},attachment(name,point){const c=controls.get(name);if(!c)return null;root.updateMatrixWorld(true);return new T.Vector3().fromArray(point).applyMatrix4(c.restInverse).applyMatrix4(c.bone.matrixWorld);},setTail:value=>(tail=normalizeTail(value)),snapshot:()=>({clamps,lastClamp,feet:lastFeet,elapsed,cycle,gait:gait.name,rate:lastRate,tail:{...tail},mood:{...mood},pose:{...pose},action:{...action}}),dispose:()=>{for(const c of controls.values()){c.bone.position.copy(c.position);c.bone.quaternion.copy(c.quaternion);}}};
 }

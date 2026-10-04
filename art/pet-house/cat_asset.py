@@ -64,6 +64,10 @@ def rig_pet(objects,out,species):
     # threshold alone would assign the back of the skull to the torso.
     face=smooth((-.13-y)/.10)*smooth((z-.275)/.08)
     skull=smooth((z-.34)/.07)*(1-smooth((y-.18)/.08))
+    if species=='dog':
+        # The puppy's back rises above the kitten's skull threshold. Keep that
+        # fur on the torso; only the taller rear skull joins the rigid head.
+        skull=smooth((z-.50)/.075)*(1-smooth((y-.09)/.07))
     head=np.maximum(face,skull)
     tail=smooth((y-(.335 if species=='cat' else .32))/.095)*smooth((z-(.335 if species=='cat' else .415))/.075)
     limb=smooth((.335-z)/.105)*(1-head)*(1-tail)
@@ -98,7 +102,7 @@ def rig_pet(objects,out,species):
     meta={'version':3,'height':float(points[:,2].max()-points[:,2].min()),
           'bones':{n:{'head':web(a),'tail':web(b)} for n,(a,b) in bones.items()},'legs':legs,
           'species':species,'duty':.68,'stride':.13,'cycle':1.00 if species=='cat' else .95,'lift':.025 if species=='cat' else .027,
-          'bounds':bounds,'headRigid':{'minHeight':.41,'maxForwardY':.18}}
+          'bounds':bounds,'headRigid':{'minHeight':.575 if species=='dog' else .41,'maxForwardY':.09 if species=='dog' else .18}}
     rig['catRig']=meta
     mask_report=make_dye_mask(mesh,out,species)
     meta['dye']=mask_report
