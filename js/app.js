@@ -25661,7 +25661,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const importData = parsed.data;
       try { if (typeof idbTxtClear === "function") await idbTxtClear(); } catch (e) {}
       // 先清本地 x_ 键
-      Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
+      // ⚠️裸删：IDB 那一半上面已经清过；走转接的话，删除是异步的，会把下面刚写进去的同名键再删掉。
+      Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => (typeof lsRaw !== "undefined" ? lsRaw.del(k) : localStorage.removeItem(k)));
       // 逐键写入：单键失败（多半是超了浏览器单站点 ~5MB 上限）不整体中断，记下漏掉的，尽量恢复其余
       const failed = [];
       for (const [k, v] of Object.entries(importData)) {
@@ -27984,8 +27985,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         (arch - back > 0 ? "，还有 " + (arch - back) + " 条在云上（点「加载更早」看）" : "") + "——去人格档案馆补人设和头像");
       return { added, arch, back };
     },
-    onClearAll: () => {
-      Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => localStorage.removeItem(k));
+    // 存档大半住在 IDB：只清 localStorage 的话，重载后一切原样回来。两半都清完再重载。
+    onClearAll: async () => {
+      try { if (typeof idbTxtClear === "function") await idbTxtClear(); } catch (e) {}
+      Object.keys(localStorage).filter(k => k.startsWith("x_")).forEach(k => (typeof lsRaw !== "undefined" ? lsRaw.del(k) : localStorage.removeItem(k)));
+      try { localStorage.removeItem("qq_vaultHasData"); } catch (e) {}
       location.reload();
     },
     // 上下文透视：把此刻会喂给模型的完整 bundle 给设置页展示（只读、零 API）
@@ -28628,19 +28632,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const hyd = [];
   if (typeof hydrateImgVault === "function") hyd.push(hydrateImgVault());
   if (typeof hydrateNativeSelfies === "function") hyd.push(hydrateNativeSelfies());
-  if (typeof hydrateTxtVault === "function") hyd.push(hydrateTxtVault());
+  const txtP = typeof hydrateTxtVault === "function" ? hydrateTxtVault() : null;
+  if (txtP) hyd.push(txtP);
   // ⚠️凭证金库打不开要说出来（审计 P1）。API key 全都住在本机 IDB 的
   //   x_credential_vault 里，用一把【不可导出的设备密钥】加密；金库解不开时
   //   storeProfile 会抛「无法解密」，而这一路的 .catch(() => 0) 把它整个吞掉——
   //   开机静默、每条线路都在、每条线路都没 key，症状是【所有模型调用都失败】，
   //   而那个症状会把她引到完全错的方向（以为是模型坏了、以为是网络）。
-  if (window.CredentialVault) hyd.push(window.CredentialVault.hydrateApiCredentials().catch(e => {
+  // ⚠️x_api（线路列表）也搬进 IDB 了：必须等文字库灌完再解密，否则读到的是空列表。
+  if (window.CredentialVault) hyd.push(Promise.resolve(txtP).catch(() => 0).then(() => window.CredentialVault.hydrateApiCredentials()).catch(e => {
     try { window.__credentialVaultError = String((e && e.message) || e || "凭证金库打不开"); } catch (_) {}
     throw e;
   }));
   if (hyd.length) Promise.all(hyd.map(p => Promise.resolve(p).catch(() => 0))).then(mount, mount); else mount();
   // 挂载之后再说——太早说的话 toast 还没挂起来
   setTimeout(() => {
+    // 存档几乎全在本机 IDB：打不开时这台手机看起来是空的，而这段时间写的东西一律只留在内存里不落盘——必须说出来
+    try { const st = typeof txtVaultState === "function" ? txtVaultState() : null; if (st && st.done && !st.ok) window.toast && window.toast("⚠️ 本机存档仓库这次没打开（" + st.err + "）——东西都还在，先别改任何设置，把 app 彻底关掉重开一次", 8000); } catch (e) {}
     if (!window.__credentialVaultError) return;
     try { window.toast && window.toast("⚠️ 本机 API 凭证金库打不开：" + window.__credentialVaultError + "——各条线路的密钥要去「设置 · API」重新填一次"); } catch (e) {}
   }, 2500);

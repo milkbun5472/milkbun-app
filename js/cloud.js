@@ -35,7 +35,9 @@
   const tableMemoryMode = () => { try { return localStorage.getItem("memory_table_authority_v1") === "1"; } catch (e) { return false; } };
   // 开机快照：本脚本执行(app 之前)时本地是否已有存档。localStorage 跨刷新持久，
   // 只有真·新设备/新网址首次打开才空。用它守 autoPull：本地已有数据=老设备回来，本地权威，绝不自动拿云端覆盖。
-  const bootHadLocal = (function () { try { return Object.keys(localStorage).some(function (k) { return k.indexOf("x_") === 0; }); } catch (e) { return false; } })();
+  // ⚠️v74.77 起存档几乎全住 IDB，localStorage 里可能一个 x_ 都没有——光看它会把老设备当新设备、拿云端盖本机。
+  //   所以再认一把 qq_vaultHasData（engine.js 的 hydrateTxtVault 灌出东西就立）。
+  const bootHadLocal = (function () { try { return localStorage.getItem("qq_vaultHasData") === "1" || Object.keys(localStorage).some(function (k) { return k.indexOf("x_") === 0; }); } catch (e) { return false; } })();
   // 世界书防呆（她 2026-07-24 报「世界书被同步清空」）：判断一份 x_loreEntries 原始字符串里是不是真有词条。
   // 空数组 []、缺失、坏 JSON 都算「空」。防呆闸只在「本机非空 vs 对端空」时护本机、绝不让空覆盖非空。
   // 拦下这一次自动备份的理由 → 一句人话。toast 和设置页共用同一份，
@@ -241,7 +243,7 @@
         try {
           Object.keys(localStorage)
             .filter((k) => k.startsWith("x_"))
-            .forEach((k) => { try { rollback.set(k, localStorage.getItem(k)); } catch (e) {} });
+            .forEach((k) => { try { rollback.set(k, typeof lsRaw !== "undefined" ? lsRaw.get(k) : localStorage.getItem(k)); } catch (e) {} });
         } catch (e) {}
         // 行表权威开启后，旧 saves blob 无权再覆盖/清空本机记忆镜像。
         const keepMemLib = tableMemoryMode() && typeof storedJSONText === "function" ? storedJSONText("x_memLib") : (tableMemoryMode() ? localStorage.getItem("x_memLib") : null);
@@ -251,7 +253,8 @@
         if (typeof idbTxtApplySnapshot === "function") await idbTxtApplySnapshot(data || {}, tableMemoryMode() ? ["x_memLib"] : []);
         Object.keys(localStorage)
           .filter((k) => k.startsWith("x_") && k !== "x_neteaseCookie" && !(tableMemoryMode() && k === "x_memLib"))
-          .forEach((k) => localStorage.removeItem(k));
+          // ⚠️裸删：这里只清 localStorage 这一半。走转接的话，还没迁完的键会连刚恢复进 IDB 的那份一起删掉。
+          .forEach((k) => (typeof lsRaw !== "undefined" ? lsRaw.del(k) : localStorage.removeItem(k)));
         // v62.44 热修（审计 P0 当晚应验，她恢复时真吃到 QuotaExceeded）：
         // 云快照的 x_characters / x_profile 里嵌着 base64 头像/参考照，原来先整段塞 localStorage、
         // 等开机迁移器再挪进图库——5MB 池子根本装不下，第 N 个键 QuotaExceeded，本机已删光只写回一半。
@@ -302,13 +305,16 @@
             try { window.__txtMirror && window.__txtMirror.set("x_memLib", keepMemLib); if (typeof idbTxtPut === "function") idbTxtPut("x_memLib", keepMemLib).catch(() => {}); } catch (e) {}
           } else localStorage.setItem("x_memLib", keepMemLib);
         }
-        if (keepLore != null) { localStorage.setItem("x_loreEntries", keepLore); try { console.warn("[Cloud] 世界书防呆：云端为空，保留本机词条，未被覆盖"); } catch (e) {} }
+        if (keepLore != null) {
+          // 世界书现在归 IDB：apply 完调用方马上 reload，必须等它真落盘再走
+          if (typeof isIdbTextKey === "function" && isIdbTextKey("x_loreEntries") && typeof idbTxtPut === "function") { await idbTxtPut("x_loreEntries", keepLore); window.__txtMirror && window.__txtMirror.set("x_loreEntries", keepLore); }
+          else localStorage.setItem("x_loreEntries", keepLore); try { console.warn("[Cloud] 世界书防呆：云端为空，保留本机词条，未被覆盖"); } catch (e) {} }
       } catch (e) {
         // 整份回滚。此刻 suspend 还是 true、frozen 还是 false，所以写回既不触发
         // markDirty、也不会被冻结闸挡掉——顺序不能换。
         try {
-          Object.keys(localStorage).filter((k) => k.startsWith("x_")).forEach((k) => { try { localStorage.removeItem(k); } catch (e2) {} });
-          rollback.forEach((v, k) => { if (v != null) { try { localStorage.setItem(k, v); } catch (e2) {} } });
+          Object.keys(localStorage).filter((k) => k.startsWith("x_")).forEach((k) => { try { (typeof lsRaw !== "undefined" ? lsRaw.del(k) : localStorage.removeItem(k)); } catch (e2) {} });
+          rollback.forEach((v, k) => { if (v != null) { try { typeof lsRaw !== "undefined" ? lsRaw.set(k, v) : localStorage.setItem(k, v); } catch (e2) {} } });
         } catch (e2) {}
         this.pushBlocked = { reason: "apply_threw", at: Date.now(), detail: String((e && e.message) || e || "恢复中断") };
         try { localStorage.setItem("x_cloudApplyFailed_v1", JSON.stringify({ at: new Date().toISOString(), threw: String((e && e.message) || e) })); } catch (e2) {}
@@ -457,8 +463,9 @@
       // 清空本地所有 x_ 存档：退出＝回到初始空账号，数据只在云端。挂起同步避免删除触发 push
       suspend = true;
       try {
-        Object.keys(localStorage).filter(function (k) { return k.startsWith("x_"); }).forEach(function (k) { localStorage.removeItem(k); });
+        Object.keys(localStorage).filter(function (k) { return k.startsWith("x_"); }).forEach(function (k) { (typeof lsRaw !== "undefined" ? lsRaw.del(k) : localStorage.removeItem(k)); });
         localStorage.removeItem(MARK);
+        localStorage.removeItem("qq_vaultHasData");
         localStorage.removeItem("memory_table_authority_v1"); // 切表批准只属于当前账号在当前设备；退出后不带给下一个账号
         try { if (window.ChatLedgerShadow) window.ChatLedgerShadow.clearLocal(); } catch (e) {}
       } finally { suspend = false; }

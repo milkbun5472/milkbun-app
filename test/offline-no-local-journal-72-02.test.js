@@ -53,6 +53,6 @@ test("开机时，赖在 localStorage 的老 journal 不许盖掉新数据", () 
 
 test("救出来的老 journal 不进内存镜像", () => {
   // 镜像会被上云和导出整份带走（cloud.js 那一处 forEach），放进去等于把旧副本也推上去
-  assert.match(eng, /String\(k\)\.indexOf\("x_lsjournal_rescue:"\) !== 0\) mir\.set\(k, v\)/,
+  assert.match(eng, /String\(k\)\.indexOf\("x_lsjournal_rescue:"\) === 0 \|\| _txtEarlyWrites\.has\(k\)\) continue;\n\s+if \(isIdbTextKey\(k\)\) \{ mir\.set\(k, v\);/,
     "救出来的旧副本混进镜像了，会跟着上云和导出");
 });

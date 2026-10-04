@@ -61,10 +61,10 @@ test("通用 JSON 写盘会读回验真，缩小写失败时挪开旧值再试",
   const start = engine.indexOf("function saveJSON(k, v) {");
   const end = engine.indexOf("// ============================================================\n// 施工卡 1A", start);
   assert.ok(start > 0 && end > start);
-  const make = localStorage => new Function("localStorage", "window", "console", "isIdbTextKey", "isQuotaError",
+  const make = localStorage => new Function("localStorage", "window", "console", "isIdbTextKey", "isQuotaError", "txtEarlyTouch",
     engine.slice(start, end) + "\nreturn saveJSON;")(
       localStorage, {}, { error() {} }, () => false,
-      e => !!e && e.name === "QuotaExceededError"
+      e => !!e && e.name === "QuotaExceededError", () => {}
     );
 
   const swallowed = { value: '"old"', getItem() { return this.value; }, setItem() {}, removeItem() {} };

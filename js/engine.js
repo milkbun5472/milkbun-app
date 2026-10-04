@@ -5575,6 +5575,18 @@ async function hydrateImgVault() { try { const entries = await idbVaultEntries()
 //   开机仍先 hydrate 完再挂载，所以同步读路径不变，又不再挤占 localStorage 的 5MB。
 //   机制同图库：开机 hydrateTxtVault() 把 IDB 里的值一次性灌进内存镜像 __txtMirror；此后 loadJSON/saveJSON
 //   对这些键读写镜像(同步)+异步落 IDB，绝不进 localStorage。云端同步靠 collect 补镜像、apply 回写 IDB。
+// 裸 localStorage：文字库自己（迁移、journal、清理）必须绕过下面那层转接，否则会自己转给自己。
+// ⚠️在装转接之前就把原生方法攥在手里；没有 Storage（测试/老环境）就直连。
+const lsRaw = (function () {
+  const P = (typeof Storage !== "undefined" && Storage.prototype) || null;
+  const g = P && P.getItem, st = P && P.setItem, r = P && P.removeItem;
+  const ls = () => (typeof localStorage !== "undefined" ? localStorage : null);
+  return {
+    get: k => { const o = ls(); if (!o) return null; return g ? g.call(o, k) : o.getItem(k); },
+    set: (k, v) => { const o = ls(); if (!o) return; return st ? st.call(o, k, v) : o.setItem(k, v); },
+    del: k => { const o = ls(); if (!o) return; return r ? r.call(o, k) : o.removeItem(k); }
+  };
+})();
 const DURABLE_TEXT_KEYS = new Set([
   // 已有的大文本仓
   "x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger",
@@ -5598,7 +5610,49 @@ const DURABLE_TEXT_KEYS = new Set([
 //   搬家本身不在这儿写第二遍：hydrateTxtVault 的那一段就是「复制→逐字读回核对→才删本地」，
 //   任一步不对就原样留在 localStorage 下次再迁（施工规则/one-public-mechanism.md）。
 const IDB_TEXT_PREFIXES = ["x_fanfic_", "x_memLib", "x_offline:", "x_goffline:", "x_chat:", "x_gchat:", "x_fairyGarden"];
-function isIdbTextKey(k) { return typeof k === "string" && (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0)); }
+// ── 小仓库不再放存档（她 2026-10-04：「以后做东西不准放小仓库！全给我搬过去」）──────────
+// 起因：Arlota 的地图（x_worlds）和几条 API（x_api）没了、文字一条没少——
+//   文字早搬进 IDB 了，地图和线路还挤在 localStorage 那 5MB 里，满了就写不进去。
+// ⚠️所以现在反过来：**所有 x_ 键默认都进 IDB**，只有下面这几把【开机灌库之前就要读】的
+//   小开关留在 localStorage。新功能一律不用往这里加任何东西——直接 loadJSON/saveJSON 就进大仓库。
+//   这份名单是 2026-10-04 拿浏览器实测「挂载前谁读了 x_ 键」得来的，不是凭印象列的。
+const LS_ONLY_KEYS = new Set([
+  "x_theme", "x_firstDayTs",            // index.html 内联脚本：首帧配色/字体
+  "x_theme_studio", "x_bubbleSkin",     // 美化：脚本加载时就把 CSS 发出去，否则开机闪一下
+  "x_radioDial",                        // 收音机拧到哪一格，模块加载时读
+  "x_errlog",                           // 开机就摔死时也要记得下来
+  "x_neteaseCookie",                    // 账号凭据：只存本机，不进云、不进导出
+  "x_cloudApplyFailed_v1"               // 云恢复失败旗：cloud.js 开机同步读
+]);
+// 兜底：哪段代码在灌库之前读/写了一个 x_ 键（名单漏了、或者以后谁新写了一段），
+// 这把键就【钉回 localStorage】并记在本机（不带 x_，不上云不导出）——下次开机起它一直留在小仓库，
+// IDB 里那份也会被 hydrateTxtVault 原样搬回来。宁可这把小钥匙不搬，也不能让它开机读成空。
+const LS_PIN_MARK = "qq_lsPinned";
+let _lsPinned = null;
+function lsPinnedSet() {
+  if (_lsPinned) return _lsPinned;
+  _lsPinned = new Set();
+  try { const a = JSON.parse(lsRaw.get(LS_PIN_MARK) || "[]"); if (Array.isArray(a)) a.forEach(k => _lsPinned.add(String(k))); } catch (e) {}
+  return _lsPinned;
+}
+function lsPin(k) {
+  const set = lsPinnedSet(); if (set.has(k)) return;
+  set.add(k);
+  try { lsRaw.set(LS_PIN_MARK, JSON.stringify([...set])); } catch (e) {}
+  try { console.warn("[存储] " + k + " 在文字库灌好之前就被读写了，钉回 localStorage"); } catch (e) {}
+}
+function isIdbTextKey(k) {
+  if (typeof k !== "string" || k.indexOf("x_") !== 0) return false;
+  if (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0)) return true;
+  return !LS_ONLY_KEYS.has(k) && !lsPinnedSet().has(k);
+}
+// 灌库之前碰到一把本该进 IDB 的键：钉回 localStorage（见 lsPin）。
+// 那几类大正文（聊天/线下/记忆/同人文…）从不钉——它们本来就挂载后才读，钉回去等于又把 5MB 撑爆。
+function txtEarlyTouch(k) {
+  if ((_txtGate && _txtGate.done) || typeof k !== "string" || k.indexOf("x_") !== 0) return;
+  if (DURABLE_TEXT_KEYS.has(k) || IDB_TEXT_PREFIXES.some(p => k.indexOf(p) === 0) || LS_ONLY_KEYS.has(k)) return;
+  lsPin(k);
+}
 function isDurableTextKey(k) {
   k = String(k || "");
   return DURABLE_TEXT_KEYS.has(k) || k === "x_memLib" || k.indexOf("x_offline:") === 0 || k.indexOf("x_goffline:") === 0 || k.indexOf("x_chat:") === 0 || k.indexOf("x_gchat:") === 0;
@@ -5628,7 +5682,8 @@ async function idbTxtPut(k, v) { const db = await idbTxtOpen(); return new Promi
 async function idbTxtGet(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const rq = tx.objectStore("txt").get(k); rq.onsuccess = () => res(rq.result == null ? null : rq.result); rq.onerror = () => rej(rq.error); }); }
 async function idbTxtDel(k) { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").delete(k); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); }
 async function idbTxtClear() { try { const db = await idbTxtOpen(); await new Promise((res, rej) => { const tx = db.transaction("txt", "readwrite"); tx.objectStore("txt").clear(); tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); }); } catch (e) {} try { _txtMirror().clear(); } catch (e) {} try { await walDeleteDurableTextKeys(); } catch (e) {} }
-async function idbTxtAll() { const db = await idbTxtOpen(); return new Promise(res => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => res([]); }); }
+// ⚠️读失败必须抛，不能当成「空的」：存档几乎全在这里，读失败当空 = 开机看见一台空手机。
+async function idbTxtAll() { const db = await idbTxtOpen(); return new Promise((res, rej) => { const tx = db.transaction("txt", "readonly"); const st = tx.objectStore("txt"); let ks = null, vs = null; const done = () => { if (ks && vs) res(ks.map((k, i) => [k, vs[i]])); }; const kq = st.getAllKeys(); const vq = st.getAll(); kq.onsuccess = () => { ks = kq.result || []; done(); }; vq.onsuccess = () => { vs = vq.result || []; done(); }; tx.onerror = () => rej(tx.error || new Error("文字库读不出来")); }); }
 // 云恢复用：只替换备份里归文字仓管理的键；preserveKeys（如行表权威的 x_memLib）原样保留。
 // 完成后调用方才允许 reload，避免大线下记录异步写到一半被刷新截断。
 async function idbTxtApplySnapshot(data, preserveKeys) {
@@ -5654,7 +5709,10 @@ async function idbTxtApplySnapshot(data, preserveKeys) {
 //   所以闸立在【灌的那一头】：谁要上云谁自己来问一句「灌完了没有」。
 // ⚠️等超时也算【没灌完】。宁可这一轮不备份，也绝不推一份残档上去覆盖真存档：
 //   不备份是「今天没进展」，推残档是「昨天的也没了」。
-const _txtGate = { done: false, ok: false, err: "", waiters: [] };
+// ⚠️var 不是 const：loadJSON/saveJSON 可能在这一行之前就被调到（TDZ 会直接抛），所以用到它的地方都先问一句它在不在。
+var _txtGate = { done: false, ok: false, err: "", waiters: [] };
+// 灌库之前就被写过的键：灌的时候不许拿 IDB 里的旧值盖掉它们，也不许再把 localStorage 那份当新的搬进来。
+const _txtEarlyWrites = new Set();
 function _txtGateSettle(ok, err) {
   _txtGate.done = true; _txtGate.ok = !!ok; _txtGate.err = String(err || "");
   const w = _txtGate.waiters.splice(0);
@@ -5674,14 +5732,31 @@ function txtVaultReady(timeoutMs) {
 async function hydrateTxtVault() {
   const mir = _txtMirror();
   try {
-    const entries = await idbTxtAll();
+    // 读失败重试两次（iOS 冷启动偶尔第一下打不开）；还不行就整体按失败处理，绝不当成空仓。
+    let entries = null, lastErr = null;
+    for (let i = 0; i < 3 && !entries; i++) {
+      try { entries = await idbTxtAll(); } catch (e) { lastErr = e; await new Promise(r => setTimeout(r, 300 * (i + 1))); }
+    }
+    if (!entries) throw lastErr || new Error("文字库打不开");
     // ⚠️救出来的那些老 journal（x_lsjournal_rescue:…）只躺在 IDB 里备查，不进内存镜像：
     //   镜像会被上云和导出整份带走（cloud.js 那一处 forEach），放进去等于把旧副本也推上去。
-    entries.forEach(([k, v]) => { if (k && v != null && String(k).indexOf("x_lsjournal_rescue:") !== 0) mir.set(k, v); });
+    for (const [k, v] of entries) {
+      if (!k || v == null || String(k).indexOf("x_lsjournal_rescue:") === 0 || _txtEarlyWrites.has(k)) continue;
+      if (isIdbTextKey(k)) { mir.set(k, v); continue; }
+      // 钉回小仓库的键（LS_ONLY_KEYS / lsPin）：IDB 里那份原样搬回 localStorage，读回一致才删 IDB。
+      //   localStorage 已经有一份的，以它为准（开机前读写的就是它），IDB 那份不动、也不进镜像。
+      //   两边都有又对不上：IDB 那份挪去 x_lsjournal_rescue: 存着备查，不销毁。
+      try {
+        const cur = lsRaw.get(k);
+        if (cur == null) { lsRaw.set(k, v); if (lsRaw.get(k) === v) await idbTxtDel(k); }
+        else if (cur !== v) { await idbTxtPut("x_lsjournal_rescue:" + k + ":" + Date.now(), v); await idbTxtDel(k); }
+        else await idbTxtDel(k);
+      } catch (e) {/* 写不回去就留在 IDB，什么都不丢 */ }
+    }
     const toMig = [];
-    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (isIdbTextKey(k)) toMig.push(k); }
+    for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (isIdbTextKey(k) && !_txtEarlyWrites.has(k)) toMig.push(k); }
     for (const k of toMig) {
-      const s = localStorage.getItem(k); if (s == null) continue;
+      const s = lsRaw.get(k); if (s == null) continue;
       // ⚠️不再写 journal 的那几类（聊天／线下）：localStorage 里还剩着的这一份必然是【老版本】——
       //   它正是当初写不进去、又没人清掉的那一份。照原路搬回 IDB，就是拿旧的盖掉新的
       //   （她 2026-09-20「线下记录存不了 20w」的最后一环）。
@@ -5693,7 +5768,7 @@ async function hydrateTxtVault() {
           const live = fromWal != null ? fromWal : await idbTxtGet(k);
           if (live != null && live !== s) {
             await idbTxtPut("x_lsjournal_rescue:" + k + ":" + Date.now(), s);
-            localStorage.removeItem(k);
+            lsRaw.del(k);
             continue;   // 剩下的交给下面那段 WAL 回收
           }
         } catch (e) { continue; }   // 拿不准就原样留着，下次开机再说
@@ -5701,14 +5776,14 @@ async function hydrateTxtVault() {
       try {
         if (isDurableTextKey(k) && !(await walPutVerified(k, s))) continue;
         await idbTxtPut(k, s); const back = await idbTxtGet(k);
-        if (back === s && (!isDurableTextKey(k) || (await walGetRaw(k)) === s)) { mir.set(k, s); localStorage.removeItem(k); if (isDurableTextKey(k)) await walDel(k); }
+        if (back === s && (!isDurableTextKey(k) || (await walGetRaw(k)) === s)) { mir.set(k, s); lsRaw.del(k); if (isDurableTextKey(k)) await walDel(k); }
       } catch (e) {/* 任一验真失败都保留 localStorage，下次再迁 */ }
     }
     // 上次已经进 WAL、却在 IDB 提交前被系统杀掉：以 WAL 最新版补齐金库。
     try {
       const durableWalKeys = (await walKeys("x_")).filter(isDurableTextKey);
       for (const k of durableWalKeys) {
-        if (localStorage.getItem(k) != null) continue; // journal 更可能是刚写的新版本，由上面的迁移负责
+        if (lsRaw.get(k) != null) continue; // journal 更可能是刚写的新版本，由上面的迁移负责
         const s = await walGetRaw(k); if (s == null) continue;
         await idbTxtPut(k, s); const back = await idbTxtGet(k);
         if (back === s) { mir.set(k, s); await walDel(k); }
@@ -5716,6 +5791,9 @@ async function hydrateTxtVault() {
     } catch (e) {
       console.error("durable text WAL recovery failed:", e);
     }
+    // cloud.js 开机时靠「本机有没有存档」判断是不是新设备；存档几乎全在 IDB 之后，
+    //   光看 localStorage 会把老设备认成新的、拿云端盖本机。这一把不带 x_，只说「这台机器的大仓库里有东西」。
+    if (mir.size) { try { lsRaw.set("qq_vaultHasData", "1"); } catch (e) {} }
     _txtGateSettle(true, "");
     return mir.size;
   } catch (e) {
@@ -5733,7 +5811,7 @@ function storedJSONText(k) {
       const mv = _txtMirror().get(k);
       if (mv != null) return String(mv);
     }
-    const v = localStorage.getItem(k);
+    const v = lsRaw.get(k);
     return v == null ? null : String(v);
   } catch (e) { return null; }
 }
@@ -8805,13 +8883,14 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
 // ============================================================
 function loadJSON(k, fb) {
   try {
+    txtEarlyTouch(k);
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
       const mv = _txtMirror().get(k);
       if (mv != null) return JSON.parse(mv);
-      const ls = localStorage.getItem(k); // 镜像还没灌好/迁移失败：回落 localStorage，绝不让数据凭空消失
+      const ls = lsRaw.get(k); // 镜像还没灌好/迁移失败：回落 localStorage，绝不让数据凭空消失
       return ls ? JSON.parse(ls) : fb;
     }
-    const v = localStorage.getItem(k);
+    const v = lsRaw.get(k);
     return v ? JSON.parse(v) : fb;
   } catch {
     return fb;
@@ -8821,7 +8900,7 @@ function loadJSON(k, fb) {
 // ⚠️只 localStorage.removeItem 的话，搬进 IDB 的键删了也会在下次开机被镜像原样端回来——
 //   界面说删掉了、下次它又在，那比不让删更吓人。
 function dropStored(k) {
-  try { localStorage.removeItem(k); } catch (e) {}
+  try { lsRaw.del(k); } catch (e) {}
   if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
     try { _txtMirror().delete(k); } catch (e) {}
     try { idbTxtDel(k).catch(e => console.error("idbTxtDel failed:", k, e)); } catch (e) {}
@@ -8832,40 +8911,57 @@ function isQuotaError(e) {
   return !!e && (e.name === "QuotaExceededError" || e.name === "NS_ERROR_DOM_QUOTA_REACHED" || e.code === 22 || e.code === 1014 || /quota|exceed|storage/i.test(String(e.message || "")));
 }
 // 写 localStorage。成功返回 true；写满(quota)时【弹全局警告】并返回 false——不再默默丢数据。
+// 文字库的唯一写入口（原样字符串）。saveJSON 和下面那层 localStorage 转接都走这一个。
+const TXT_PAD_MAX = 256 * 1024;
+function txtWrite(k, s) {
+  s = String(s);
+  if (_txtGate && !_txtGate.done) _txtEarlyWrites.add(k);
+  // 文字库没灌起来（镜像是空的）：这时界面上看到的是一台「空手机」，它写下的默认值
+  //   绝不能落进 IDB 盖掉真存档，也不能垫进小仓库（下次开机会被当成新版搬进去）。只留在内存里。
+  if (_txtGate && _txtGate.done && !_txtGate.ok) { _txtMirror().set(k, s); return true; }
+    _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
+    if (isDurableTextKey(k)) {
+      // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
+      // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
+      const needsLocalJournal = durableTextNeedsLocalJournal(k);
+      // ⚠️写不进去也不能中断（WAL+IDB 才是主路），但不许再一声不吭：
+      //   journal 悄悄写失败正是上面那条「存不了 20w」能活这么久的原因。
+      if (needsLocalJournal) try { lsRaw.set(k, s); } catch (e) { console.error("local journal skipped (quota?):", k, s.length); }
+      try {
+        const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
+        staged.then(ok => {
+          if (!ok) throw new Error("WAL read-back mismatch");
+          return idbTxtPut(k, s).then(() => idbTxtGet(k));
+        }).then(back => {
+          const verifyWal = isDurableTextKey(k) ? walGetRaw(k) : Promise.resolve(s);
+          return verifyWal.then(walBack => {
+            if (back === s && (!needsLocalJournal || lsRaw.get(k) === s) && walBack === s) {
+              if (needsLocalJournal) lsRaw.del(k);
+              if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
+            }
+          });
+        }).catch(e => console.error("durable idbTxtPut failed:", k, e));
+      } catch (e) {}
+    } else {
+      // ⚠️小仓库只当【这一版落进 IDB 之前】的临时垫子：先同步垫一份（只垫小的），IDB 读回一致才撤。
+      //   原来是写 IDB 的同时就把 localStorage 那份删了——IDB 那一笔要是被杀进程截断，新旧两版都没了。
+      //   垫不进去（满了/太大）就把旧垫子撤掉：留着旧的，下次开机会被当成新的搬回来（v72.02 那个坑）。
+      let padded = false;
+      if (s.length <= TXT_PAD_MAX) { try { lsRaw.set(k, s); padded = lsRaw.get(k) === s; } catch (e) {} }
+      if (!padded) { try { lsRaw.del(k); } catch (e) {} }
+      try {
+        idbTxtPut(k, s).then(() => idbTxtGet(k)).then(back => {
+          if (back === s && lsRaw.get(k) === s) lsRaw.del(k);
+        }).catch(e => console.error("idbTxtPut failed:", k, e));
+      } catch (e) {}
+    }
+    return true;
+}
 function saveJSON(k, v) {
   let encoded = null, previous = null;
   try {
-    if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) {
-      const s = JSON.stringify(v);
-      _txtMirror().set(k, s);                         // 同步：内存镜像立刻更新（读侧马上拿得到）
-      if (isDurableTextKey(k)) {
-        // 记忆/线下剧情是核心数据：先把这一版同步写进临时 journal，再异步写 IDB；读回逐字一致后才删 journal。
-        // 连续保存时，旧事务完成也不能删掉更新的 journal（值相等检查守住 lost write）。
-        const needsLocalJournal = durableTextNeedsLocalJournal(k);
-        // ⚠️写不进去也不能中断（WAL+IDB 才是主路），但不许再一声不吭：
-        //   journal 悄悄写失败正是上面那条「存不了 20w」能活这么久的原因。
-        if (needsLocalJournal) try { localStorage.setItem(k, s); } catch (e) { console.error("local journal skipped (quota?):", k, s.length); }
-        try {
-          const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
-          staged.then(ok => {
-            if (!ok) throw new Error("WAL read-back mismatch");
-            return idbTxtPut(k, s).then(() => idbTxtGet(k));
-          }).then(back => {
-            const verifyWal = isDurableTextKey(k) ? walGetRaw(k) : Promise.resolve(s);
-            return verifyWal.then(walBack => {
-              if (back === s && (!needsLocalJournal || localStorage.getItem(k) === s) && walBack === s) {
-                if (needsLocalJournal) localStorage.removeItem(k);
-                if (isDurableTextKey(k)) walDel(k).catch(e => console.error("wal cleanup failed:", k, e));
-              }
-            });
-          }).catch(e => console.error("durable idbTxtPut failed:", k, e));
-        } catch (e) {}
-      } else {
-        try { idbTxtPut(k, s).catch(e => console.error("idbTxtPut failed:", k, e)); } catch (e) {}  // 异步落 IDB
-        try { localStorage.removeItem(k); } catch (e) {} // 顺手清掉可能残留的 localStorage 旧副本（腾 5MB）
-      }
-      return true;
-    }
+    txtEarlyTouch(k);
+    if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) return txtWrite(k, JSON.stringify(v));
     encoded = JSON.stringify(v);
     previous = localStorage.getItem(k);
     localStorage.setItem(k, encoded);
@@ -8893,6 +8989,34 @@ function saveJSON(k, v) {
     return false;
   }
 }
+// ── localStorage 转接（2026-10-04 全搬家）────────────────────────────────
+// 全仓还有七十多处直接 localStorage.getItem/setItem 某个 x_ 键（地图、API 线路、论坛、跑团……）。
+// 一处处改迟早漏一处，所以在这一个口子上转：只要是归 IDB 的键，读走内存镜像、写走 txtWrite、
+// 删走 dropStored——调用方一个字不用改，以后新写的直连代码也自动进大仓库。
+// ⚠️只转 localStorage 本身（sessionStorage 不动），只转 x_ 键；文字库自己用 lsRaw 绕过这一层。
+(function installLsBridge() {
+  if (typeof Storage === "undefined" || typeof localStorage === "undefined" || Storage.prototype.__qqBridge) return;
+  const P = Storage.prototype, g = P.getItem, st = P.setItem, r = P.removeItem;
+  const mine = (o, k) => o === localStorage && typeof k === "string" && k.indexOf("x_") === 0;
+  P.getItem = function (k) {
+    if (!mine(this, k)) return g.call(this, k);
+    txtEarlyTouch(k);
+    if (isIdbTextKey(k)) { const mv = _txtMirror().get(k); if (mv != null) return String(mv); }
+    return g.call(this, k);
+  };
+  P.setItem = function (k, v) {
+    if (!mine(this, k)) return st.call(this, k, v);
+    txtEarlyTouch(k);
+    if (isIdbTextKey(k)) { txtWrite(k, String(v)); return; }
+    return st.call(this, k, v);
+  };
+  P.removeItem = function (k) {
+    if (!mine(this, k)) return r.call(this, k);
+    if (isIdbTextKey(k)) { dropStored(k); return; }
+    return r.call(this, k);
+  };
+  P.__qqBridge = true;
+})();
 // ============================================================
 // 施工卡 1A(2026-08-13 大扫除审计五审定稿):可等待的持久写入 WAL。
 // saveJSON 返回 true 不代表已真正落盘(IDB 分支异步、quota 失败只返 false),

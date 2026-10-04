@@ -56,5 +56,5 @@ test("loadJSON 对 IDB 键有 localStorage 兜底", () => {
   const seg = engine.slice(i, i + 600);
   assert.match(seg, /isIdbTextKey/);
   assert.match(seg, /_txtMirror\(\)\.get\(k\)/);
-  assert.match(seg, /localStorage\.getItem\(k\)/, "镜像没灌好要回落，绝不让数据凭空消失");
+  assert.match(seg, /lsRaw\.get\(k\)/, "镜像没灌好要回落，绝不让数据凭空消失");
 });

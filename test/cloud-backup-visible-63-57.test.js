@@ -24,7 +24,7 @@ const applyFn = bare(slice(cloud, "async apply(data)", "\n    async getUser()"))
 // 而开机 autoPull→autoPush 跟它并排跑、谁也不等谁。
 test("文字库没灌完就不许上云——闸立在【灌的那一头】，不靠开机顺序", () => {
   // 闸的实现要能单独跑起来：把 engine.js 里那一段原样抠出来在沙箱里执行
-  const src = slice(engine, "const _txtGate = {", "// 开机：IDB→内存镜像");
+  const src = slice(engine, "var _txtGate = {", "// 开机：IDB→内存镜像");
   const ctx = { setTimeout, clearTimeout, Promise };
   vm.createContext(ctx); vm.runInContext(src + "\nthis.G={_txtGateSettle,txtVaultState,txtVaultReady};", ctx);
   const G = ctx.G;
@@ -43,7 +43,7 @@ test("灌失败要把败因交出去，不能再只 return 0", () => {
 });
 
 test("等超时【也算没灌完】：宁可这一轮不备份，也不推残档", () => {
-  const src = slice(engine, "const _txtGate = {", "// 开机：IDB→内存镜像");
+  const src = slice(engine, "var _txtGate = {", "// 开机：IDB→内存镜像");
   const ctx = { setTimeout, clearTimeout, Promise };
   vm.createContext(ctx); vm.runInContext(src + "\nthis.G={txtVaultReady};", ctx);
   return ctx.G.txtVaultReady(10).then(st => {
@@ -183,12 +183,12 @@ test("删本机之前先留底，任何抛错都整份还原", () => {
   assert.match(applyFn, /const rollback = new Map\(\);/);
   // ⚠️两处都得先【确认存在】再比先后：indexOf 找不到是 -1，而 -1 小于任何下标，
   //   光比大小的话「压根没留底」会一声不吭地通过（变异测试当场逮到）。
-  const iSave = applyFn.indexOf("rollback.set(k, localStorage.getItem(k))");
-  const iWipe = applyFn.indexOf("forEach((k) => localStorage.removeItem(k))");
+  const iSave = applyFn.indexOf("rollback.set(k, typeof lsRaw !== \"undefined\" ? lsRaw.get(k) : localStorage.getItem(k))");
+  const iWipe = applyFn.indexOf("forEach((k) => (typeof lsRaw !== \"undefined\" ? lsRaw.del(k) : localStorage.removeItem(k)))");
   assert.ok(iSave > 0, "删之前根本没留底");
   assert.ok(iWipe > 0, "那句整份删没了？");
   assert.ok(iSave < iWipe, "先删了才留底，那留的是个空的");
-  assert.match(applyFn, /rollback\.forEach\(\(v, k\) => \{ if \(v != null\) \{ try \{ localStorage\.setItem\(k, v\); \}/);
+  assert.match(applyFn, /rollback\.forEach\(\(v, k\) => \{ if \(v != null\) \{ try \{ typeof lsRaw !== "undefined" \? lsRaw\.set\(k, v\) : localStorage\.setItem\(k, v\); \}/);
   assert.match(applyFn, /this\.pushBlocked = \{ reason: "apply_threw"/);
   assert.match(applyFn, /localStorage\.setItem\("x_cloudApplyFailed_v1", JSON\.stringify\(\{ at: new Date\(\)\.toISOString\(\), threw:/,
     "抛错那一路没落盘，重载之后禁推旗就没了");

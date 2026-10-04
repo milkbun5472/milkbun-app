@@ -34,7 +34,7 @@ const idbPrefixes = engine.match(/const IDB_TEXT_PREFIXES = \[([^\]]*)\]/);
 assert.ok(idbPrefixes, "IDB_TEXT_PREFIXES 还在原地");
 assert.ok(idbPrefixes[1].includes('"x_chat:"') && idbPrefixes[1].includes('"x_gchat:"'), "聊天要归 IDB 文字仓管");
 assert.match(engine, /function storedJSONText\(k\)/);
-assert.match(engine, /back === s && \(!needsLocalJournal \|\| localStorage\.getItem\(k\) === s\)/);
+assert.match(engine, /back === s && \(!needsLocalJournal \|\| lsRaw\.get\(k\) === s\)/);
 assert.match(engine, /async function idbTxtApplySnapshot\(data, preserveKeys\)/);
 assert.match(app, /MemoryAudit\.build\(storedJSONText\("x_memLib"\)/);
 assert.match(app, /window\.__txtMirror\.forEach\(\(v, k\) => offlineKeys\.add\(k\)\)/);

@@ -158,7 +158,8 @@
     if (sChanged) saveSessions(sess);
     if (cChanged) saveCurricula(curs);
   }
-  migrate();
+  // 课程住在 IDB（x_curricula）：等文字库灌完再迁，否则开机这一刻读到的是空的
+  (typeof txtVaultReady === "function" ? txtVaultReady(20000) : Promise.resolve({ done: true })).then(function (st) { if (st && st.done) migrate(); });
 
   // ---- transcript 工具 ----------------------------------------------
   // entry: { id, role:'user'|'char', speakerId, name, content, ts }

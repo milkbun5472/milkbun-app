@@ -32,7 +32,7 @@ test("旧键必须 WAL 与 IDB 双重逐字验真后才删除", () => {
   assert.match(engine, /isDurableTextKey\(k\) && !\(await walPutVerified\(k, s\)\)/);
   assert.match(engine, /back === s && \(!isDurableTextKey\(k\) \|\| \(await walGetRaw\(k\)\) === s\)/);
   assert.match(engine, /durableWalKeys = \(await walKeys\("x_"\)\)\.filter\(isDurableTextKey\)/);
-  assert.match(engine, /if \(back === s && \(!needsLocalJournal \|\| localStorage\.getItem\(k\) === s\) && walBack === s\)/);
+  assert.match(engine, /if \(back === s && \(!needsLocalJournal \|\| lsRaw\.get\(k\) === s\) && walBack === s\)/);
   assert.match(engine, /if \(isDurableTextKey\(k\)\) walDel\(k\)/);
   assert.match(engine, /async function walDeleteDurableTextKeys/);
 });

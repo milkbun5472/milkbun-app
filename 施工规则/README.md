@@ -26,7 +26,7 @@
 | `merge-to-main.md` | 干完就自己合进 main（她 2026-09-16 授权，不用再问）；⚠️收冲突不许 `git checkout --ours` |
 | `anchor-on-code.md` | 测试切代码时，两头只许钉函数名/常量名，**不许钉注释或整行参数表** |
 
-剩下九条**按今天动哪儿去挑**：
+剩下十条**按今天动哪儿去挑**：
 
 | 今天动的是 | 读这份 |
 |---|---|
@@ -39,6 +39,7 @@
 | 新开一处模型调用 | `prompt-send-shape.md`（料全放 system，user 只留一句触发） |
 | 任何 `callAI` / `runProbe` | `max-tokens-floor.md`（不许低于 8000） |
 | 查手机那四层数据 | `phone-data-layers.md`（钉死／演化／日志／快照＋名册） |
+| 任何要存下来的东西 | `no-small-warehouse.md`（一律进 IDB；不许新加 localStorage 键） |
 
 ## 还留在 `.claude/rules/` 的两份，和这儿无关
 

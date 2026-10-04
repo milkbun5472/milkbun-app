@@ -22,7 +22,7 @@ test("庭院自己不许写第二套搬家代码", () => {
 test("删一档要四处都删干净，不能只删 localStorage", () => {
   assert.match(engine, /function dropStored\(k\)/);
   const seg = engine.slice(engine.indexOf("function dropStored(k)"), engine.indexOf("function isQuotaError"));
-  assert.match(seg, /localStorage\.removeItem\(k\)/);
+  assert.match(seg, /lsRaw\.del\(k\)/);   // 裸删：dropStored 本身就是转接层删 x_ 键时走的那一路
   assert.match(seg, /_txtMirror\(\)\.delete\(k\)/);
   assert.match(seg, /idbTxtDel\(k\)/);
   assert.ok(!/localStorage\.removeItem\(saveKeyOf\(row\)\)/.test(garden), "删存档要走 dropStored");
@@ -53,9 +53,9 @@ test("dropStored 真的把镜像那份也删掉", () => {
   const src = engine.slice(engine.indexOf("function dropStored(k)"), engine.indexOf("function isQuotaError"));
   const mirror = new Map([["x_fairyGarden:g1", "{}"]]);
   const removed = [], idbDel = [];
-  const fn = new Function("localStorage", "isIdbTextKey", "_txtMirror", "idbTxtDel", "walDel", "console",
+  const fn = new Function("lsRaw", "isIdbTextKey", "_txtMirror", "idbTxtDel", "walDel", "console",
     src + "; return dropStored;")(
-    { removeItem: k => removed.push(k) },
+    { del: k => removed.push(k) },
     k => k.indexOf("x_fairyGarden") === 0,
     () => mirror,
     k => { idbDel.push(k); return Promise.resolve(); },
