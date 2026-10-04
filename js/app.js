@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.724";
+const APP_VERSION = "v74.725";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4391,14 +4391,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   });
   // 角色此刻正在做的那一段是什么 type（sleep / work / meal …）。
   // schedNowFor 下面那几行本来就在算同一件事，抽出来一份给思念速率用，别再写第二遍。
-  const schedNowTypeFor = char => {
-    if (!char) return "";
+  // 此刻在日程的哪一段：{ disp, idx, cur }（v74.725 抽出来——「此刻类型」和「忙不忙」都问它，不各算一遍）
+  const schedNowSegFor = char => {
+    if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
     const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
-    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return "";
+    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const disp = schedDisplaySeqs(char, s0.seqs);
     const idx = schedCurrentSeqIdx(disp, true, char);
-    return idx >= 0 && disp[idx] ? String(disp[idx].type || "") : "";
+    return { disp, idx, cur: idx >= 0 ? disp[idx] || null : null };
+  };
+  const schedNowTypeFor = char => {
+    const seg = schedNowSegFor(char);
+    return seg && seg.cur ? String(seg.cur.type || "") : "";
   };
   // 角色此刻的行程（给聊天/心情联动用）
   const schedNowFor = char => {
@@ -4548,13 +4553,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const BUSY_ODDS = [0, 0.35, 0.6, 0.85];
   const BUSY_GAP_MIN = 20;          // 离TA上一条话不到这么久＝正聊着，不拦
   const busyNowFor = char => {
-    const plans = schedulesRef.current[char.id] || {};
-    const s = plans[schedLocalDayKey(char)];
-    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
-    const disp = schedDisplaySeqs(char, s.seqs);
-    const idx = schedCurrentSeqIdx(disp, true, char);
-    const cur = idx >= 0 ? disp[idx] : null;
-    if (!cur || cur.type === "sleep") return null;          // 睡着有睡眠那一套管，这里不重复
+    const seg = schedNowSegFor(char);
+    if (!seg || !seg.cur || seg.cur.type === "sleep") return null;          // 睡着有睡眠那一套管，这里不重复
+    const { disp, idx, cur } = seg;
     const level = Number.isFinite(Number(cur.busy)) && cur.busy !== undefined ? Number(cur.busy) : (cur.type === "work" ? 1 : 0);
     if (!(level >= 1)) return null;
     const hm = x => { const m = /(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? +m[1] * 60 + +m[2] : null; };
@@ -28167,6 +28168,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             webSearch: !!s.webSearch,
             // 允许TA主动写申请信（v74.507）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
+            busyHold: s.busyHold === true,
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
             // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
             maskId: String(s.maskId || "").trim().slice(0, 40)
