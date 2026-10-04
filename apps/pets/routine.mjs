@@ -1,14 +1,14 @@
-import {choosePetRest} from './habits.mjs?v=fg-368b5d075633a5d3';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-368b5d075633a5d3';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-368b5d075633a5d3';
-import {weather} from '../fairy-garden/world.mjs?v=fg-368b5d075633a5d3';
-import {workRoom} from './workplaces.mjs?v=fg-368b5d075633a5d3';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-368b5d075633a5d3';
-import {createPetCare} from './care.mjs?v=fg-368b5d075633a5d3';
-import {createPetCareer} from './career.mjs?v=fg-368b5d075633a5d3';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-368b5d075633a5d3';
-import {walkRoute} from './movement.mjs?v=fg-368b5d075633a5d3';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-368b5d075633a5d3';
+import {choosePetRest} from './habits.mjs?v=fg-3bbe391665204944';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-3bbe391665204944';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-3bbe391665204944';
+import {weather} from '../fairy-garden/world.mjs?v=fg-3bbe391665204944';
+import {workRoom} from './workplaces.mjs?v=fg-3bbe391665204944';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-3bbe391665204944';
+import {createPetCare} from './care.mjs?v=fg-3bbe391665204944';
+import {createPetCareer} from './career.mjs?v=fg-3bbe391665204944';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-3bbe391665204944';
+import {walkRoute} from './movement.mjs?v=fg-3bbe391665204944';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-3bbe391665204944';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}

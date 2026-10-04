@@ -1,11 +1,11 @@
-import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-c1b1fa5d8b37308d';
-import {chooseComfortSpot} from './habits.mjs?v=fg-368b5d075633a5d3';
-import {createParcelProp} from './parcel-prop.mjs?v=fg-368b5d075633a5d3';
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-368b5d075633a5d3';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-368b5d075633a5d3';
-import {turnPet} from './movement.mjs?v=fg-368b5d075633a5d3';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-368b5d075633a5d3';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-368b5d075633a5d3';
+import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-3bbe391665204944';
+import {chooseComfortSpot} from './habits.mjs?v=fg-3bbe391665204944';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-3bbe391665204944';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-3bbe391665204944';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-3bbe391665204944';
+import {turnPet} from './movement.mjs?v=fg-3bbe391665204944';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-3bbe391665204944';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-3bbe391665204944';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places=petHomePlaces(station);
