@@ -370,6 +370,107 @@
   const transitLine = x => "行运" + PL_ZH[x.t] + x.asp.zh + "你的" + PL_ZH[x.n] + "：" + PL_THEME[x.n] + "这块" + x.asp.verb;
   const synLine = (x, A, B) => A + "的" + PL_ZH[x.a] + " " + x.asp.zh + " " + B + "的" + PL_ZH[x.b];
 
+  // ── 天象（她 2026-10-05 点的第 3 条：满月新月、水逆、换星座这些日子，挂日历、悄悄告诉角色）──
+  //   都是用上面同一份星历算的，不调模型。按当地正午取样，跟前一天比：跨过 0°／180°＝新月满月，
+  //   水星黄经往回走＝逆行，进了新的三十度＝换星座。只报真发生了的那天。
+  const noonOf = dk => { const a = String(dk).split("-").map(Number); return new Date(a[0], a[1] - 1, a[2], 12, 0, 0); };
+  const sdiff = (b, a) => { let d = rev(b) - rev(a); if (d > 180) d -= 360; if (d < -180) d += 360; return d; };
+  const SKY_MOVERS = [["sun", "太阳"], ["venus", "金星"], ["mars", "火星"], ["jupiter", "木星"], ["saturn", "土星"]];
+  const skyCache = {};
+  function skyOn(dk) {
+    if (skyCache[dk]) return skyCache[dk];
+    // 这一天＝当地 0 点到次日 0 点：事情发生在这段里就算这一天（新月在晚上 11 点也是这一天，不是第二天）
+    const t0 = noonOf(dk); t0.setHours(0, 0, 0, 0);
+    const a = planetLongitudes(t0), b = planetLongitudes(new Date(t0.getTime() + 864e5)), z = planetLongitudes(new Date(t0.getTime() - 864e5));
+    const ev = [];
+    const ea = rev(a.moon - a.sun), eb = rev(b.moon - b.sun);
+    if (eb < ea) ev.push({ k: "new", icon: "🌑", text: "新月" });
+    else if (ea < 180 && eb >= 180) ev.push({ k: "full", icon: "🌕", text: "满月" });
+    const retroA = sdiff(a.mercury, z.mercury) < 0, retroB = sdiff(b.mercury, a.mercury) < 0;
+    if (!retroA && retroB) ev.push({ k: "rxStart", icon: "☿", text: "水星开始逆行" });
+    if (retroA && !retroB) ev.push({ k: "rxEnd", icon: "☿", text: "水逆结束" });
+    SKY_MOVERS.forEach(([k, zh]) => { const sa = Math.floor(rev(a[k]) / 30), sb = Math.floor(rev(b[k]) / 30); if (sa !== sb) ev.push({ k: "in_" + k, icon: "✦", text: zh + "进入" + SIGNS[sb][0] + "座" }); });
+    const out = { events: ev, mercuryRx: retroB };
+    const ks = Object.keys(skyCache); if (ks.length > 120) delete skyCache[ks[0]];
+    skyCache[dk] = out; return out;
+  }
+  // 水逆还要多久结束（往后最多找 40 天）
+  function rxEndFrom(dk) { const t = noonOf(dk); for (let i = 1; i <= 40; i++) { const d = dayKeyOf(new Date(t.getTime() + i * 864e5)); if (!skyOn(d).mercuryRx) return d; } return ""; }
+  // 给角色那一行：只说天上发生了什么，信不信、提不提是TA的事
+  function skyNote(date) {
+    const dk = dayKeyOf(date || new Date()), s = skyOn(dk), bits = s.events.map(e => e.text);
+    if (s.mercuryRx && !s.events.some(e => e.k === "rxStart")) { const end = rxEndFrom(dk); bits.push("水星逆行中" + (end ? "（" + end.slice(5).replace("-", "月") + "日结束）" : "")); }
+    return bits.join("、");
+  }
+  // ── 你俩的好日子（第 6 条）：接下来哪几天行运对两个人的金星、月亮、太阳、上升都顺 ──
+  //   只看温和的那几颗（金星、木星、月亮）落在两人星盘上的相位；两个人都顺才算，挑最好的三天。
+  const GOOD_T = { venus: 1.2, jupiter: 1.1, moon: 0.7 }, GOOD_N = { venus: 1.3, moon: 1.1, sun: 1, asc: 0.9 };
+  function goodFor(chart, now) {
+    let sc = 0;
+    Object.keys(GOOD_T).forEach(t => Object.keys(GOOD_N).forEach(n => {
+      if (chart.lon[n] == null || (n === "moon" && chart.moonUnsure)) return;
+      const hit = aspectOf(now[t], chart.lon[n], t === "moon" ? 0.6 : 0.5); if (!hit) return;
+      const tone = hit.asp.k === "conj" ? 1 : hit.asp.tone;
+      sc += tone * GOOD_T[t] * GOOD_N[n] * (1 - hit.off / (hit.asp.orb + 1));
+    }));
+    return sc;
+  }
+  function goodDays(ca, cb, from, days) {
+    if (!ca || !cb) return [];
+    const start = noonOf(dayKeyOf(from || new Date())), rows = [];
+    for (let i = 0; i < (days || 30); i++) {
+      const d = new Date(start.getTime() + i * 864e5), now = planetLongitudes(d);
+      const x = goodFor(ca, now), y = goodFor(cb, now);
+      if (x > 0.6 && y > 0.6) rows.push({ day: dayKeyOf(d), score: Math.round((x + y) * 10) / 10 });
+    }
+    return rows.sort((p, q) => q.score - p.score).slice(0, 3).sort((p, q) => (p.day < q.day ? -1 : 1));
+  }
+  // 我和某个角色的好日子：星测里存的出生信息 + 档案生日，两边都排得出星盘才有
+  // ⚠️日历一个月四十来格、每格都会问一遍：同一天、同样的出生信息只算一次
+  const goodCache = {};
+  function pairGoodDays(meBirthday, charId, charBirthday, from, days) {
+    const b = loadBirth();
+    const key = [meBirthday, charId, charBirthday, JSON.stringify(b.me || {}), JSON.stringify(b[charId] || {}), dayKeyOf(from || new Date()), days].join("|");
+    if (goodCache[key]) return goodCache[key];
+    const ks = Object.keys(goodCache); if (ks.length > 60) delete goodCache[ks[0]];
+    return (goodCache[key] = goodDays(natalChart(meBirthday, b.me), natalChart(charBirthday, b[charId]), from, days));
+  }
+  // ── 太阳回归（第 5 条，生日那周的年运卡）：今年太阳回到出生那一刻位置的那一天，那一刻的天 ↔ 本命盘 ──
+  function solarReturn(chart, year) {
+    if (!chart) return null;
+    const target = chart.lon.sun;
+    let t = new Date(Date.UTC(year, 0, 1));
+    for (let i = 0; i < 366; i++) { const d = new Date(t.getTime() + i * 864e5); if (Math.abs(sdiff(planetLongitudes(d).sun, target)) < 0.6) { t = d; break; } }
+    for (let k = 0; k < 20; k++) { const off = sdiff(target, planetLongitudes(t).sun); if (Math.abs(off) < 0.01) break; t = new Date(t.getTime() + off / 0.9856 * 864e5); }
+    const lon = planetLongitudes(t), ret = { lon, hasTime: true, moonUnsure: false };
+    const syn = synastry(ret, chart);
+    return { when: t, day: dayKeyOf(t), moonSign: Math.floor(rev(lon.moon) / 30), list: syn ? syn.list.slice(0, 5) : [], score: syn ? syn.score : null };
+  }
+  const yearLine = x => "这一年的" + PL_ZH[x.a] + x.asp.zh + "你的" + PL_ZH[x.b] + "：" + PL_THEME[x.b] + "这块" + x.asp.verb;
+  // ── 问星星一件事（第 4 条）：按问的是哪一块，挑今天行运里管那一块的那一相；没星盘就按星座日运。同一天同一问，答案不变 ──
+  const ASK_AREAS = [[/喜欢|爱|表白|恋|在一起|分手|复合|暧昧|约会|他|她|对象|crush/i, ["venus", "moon"], "感情"], [/工作|面试|考试|学习|上班|老板|项目|论文|offer|升职|作业/i, ["sun", "mercury", "mars", "saturn"], "事情"],
+    [/钱|买|工资|投资|花|省|贵|理财|消费/i, ["jupiter", "venus"], "钱"]];
+  function askStars(question, chart, sign, dk) {
+    const q = String(question || "").trim(); if (!q) return null;
+    const area = ASK_AREAS.find(a => a[0].test(q)) || [null, null, "这件事"];
+    let seed = 0; for (const ch of (q + dk)) seed = (seed * 31 + ch.charCodeAt(0)) >>> 0;
+    const r = rng(seed);
+    let tone = 0, line = "";
+    const tr = chart ? transits(chart, noonOf(dk)) : null;
+    if (tr && tr.hits.length) {
+      const pick = (area[1] ? tr.hits.find(x => area[1].indexOf(x.t) >= 0 || area[1].indexOf(x.n) >= 0) : null) || tr.hits[0];
+      tone = pick.asp.tone || (SOFT[pick.t] ? 0.5 : HARD[pick.t] ? -0.5 : 0); line = transitLine(pick);
+    } else if (sign >= 0) {
+      const d = daily(sign, dk), v = area[2] === "感情" ? d.love : area[2] === "钱" ? d.money : area[2] === "事情" ? d.work : d.all;
+      tone = (v - 3) / 2; line = "只按星座算：今天" + area[2] + " " + v + " 星";
+    } else return null;
+    const YES = ["星星点头了", "可以，往前走", "顺着去吧"], WAIT = ["缓一缓再说", "今天先别急", "等它自己再亮一点"], MID = ["看你自己", "星星没表态", "一半一半"];
+    const pool = tone > 0.2 ? YES : tone < -0.2 ? WAIT : MID;
+    return { q, area: area[2], verdict: pool[Math.floor(r() * pool.length)], line, day: dk };
+  }
+  const ASK_KEY = "x_astro_asks";
+  const loadAsks = () => { try { const v = loadJSON(ASK_KEY, []); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+
   // ── 存 ────────────────────────────────────────────────────
   // x_astro_notes：TA的点评。{ "<种类>|<日期或配对>|<谁说的>": { text, ts } }，只留最近 120 条。
   const NOTE_KEY = "x_astro_notes";
@@ -462,6 +563,33 @@
       }),
       sign >= 0 ? h("path", { d: sparkle(C, C, 30), fill: S.tint, opacity: 0.9 }) : null,
       sign >= 0 ? h("path", { d: sparkle(C, C, 46), fill: S.tint, opacity: 0.12 }) : null);
+  }
+
+  // 一张真的星盘（第 1 条）：外圈十二宫，里圈每颗星按出生那一刻的黄经落位；贴得太近的往里错开一层
+  const PL_GLYPH = { sun: "日", moon: "月", mercury: "水", venus: "金", mars: "火", jupiter: "木", saturn: "土", uranus: "天", neptune: "海", pluto: "冥", asc: "升" };
+  function ChartWheel({ S, chart }) {
+    const W = 300, C = 150, R = 128;
+    const ang = lon => (rev(lon) - 90) * Math.PI / 180;
+    const keys = PLANETS.map(x => x[0]).concat(chart.lon.asc != null ? ["asc"] : []);
+    const placed = [];
+    keys.slice().sort((a, b) => rev(chart.lon[a]) - rev(chart.lon[b])).forEach(k => {
+      let ring = 0; while (ring < 4 && placed.some(p => p.ring === ring && lonDiff(p.lon, chart.lon[k]) < 11)) ring++;
+      placed.push({ k, lon: chart.lon[k], ring });
+    });
+    return h("svg", { "data-wk": "astrowheel", viewBox: "0 0 " + W + " " + W, style: { width: "min(86%, 300px)", display: "block", margin: "0 auto" } },
+      h("circle", { cx: C, cy: C, r: R, fill: "none", stroke: S.line, strokeWidth: 0.8 }),
+      h("circle", { cx: C, cy: C, r: R - 24, fill: "none", stroke: S.line, strokeWidth: 0.6 }),
+      h("circle", { cx: C, cy: C, r: 34, fill: "none", stroke: S.line, strokeWidth: 0.5, strokeDasharray: "1.5 4" }),
+      SIGNS.map((sg, i) => { const a = ang(i * 30), m = ang(i * 30 + 15);
+        return h("g", { key: i },
+          h("line", { x1: C + Math.cos(a) * (R - 24), y1: C + Math.sin(a) * (R - 24), x2: C + Math.cos(a) * R, y2: C + Math.sin(a) * R, stroke: S.line, strokeWidth: 0.6 }),
+          h("text", { x: C + Math.cos(m) * (R - 12), y: C + Math.sin(m) * (R - 12) + 3.5, textAnchor: "middle", fontSize: 9.5, fill: S.fog, fontFamily: F_BODY }, sg[0])); }),
+      placed.map(p => { const a = ang(p.lon), rr = R - 38 - p.ring * 15;
+        return h("g", { key: p.k },
+          h("line", { x1: C + Math.cos(a) * (R - 24), y1: C + Math.sin(a) * (R - 24), x2: C + Math.cos(a) * (rr + 8), y2: C + Math.sin(a) * (rr + 8), stroke: p.k === "asc" ? S.accent : S.tint, strokeWidth: 0.6, opacity: 0.6 }),
+          h("circle", { cx: C + Math.cos(a) * rr, cy: C + Math.sin(a) * rr, r: 8.5, fill: S.bg2, stroke: p.k === "asc" ? S.accent : S.tint, strokeWidth: 0.8 }),
+          h("text", { x: C + Math.cos(a) * rr, y: C + Math.sin(a) * rr + 3.6, textAnchor: "middle", fontSize: 9.5, fill: S.ink, fontFamily: F_BODY }, PL_GLYPH[p.k])); }),
+      h("path", { d: sparkle(C, C, 14), fill: S.tint, opacity: 0.8 }));
   }
 
   // 出生信息：整页（no-half-sheet），时间＋城市；城市不在列表里的自己填经纬度和时区
@@ -562,6 +690,11 @@
     // 出生时间、城市：只存在星测自己这儿（x_astro_birth），不改档案（她 2026-10-03：「不能就在星测里面设置城市啥的吗」）
     const [birth, setBirth] = useState(loadBirth);
     const [editing, setEditing] = useState("");
+    const [chartWho, setChartWho] = useState(chars[0] ? chars[0].id : "me");   // 星盘页看谁
+    const groups = (props.groups || []).filter(gp => gp && (gp.memberIds || []).length >= 2);
+    const [gid, setGid] = useState(groups[0] ? groups[0].id : "");
+    const [askText, setAskText] = useState("");
+    const [asks, setAsks] = useState(loadAsks);
     const chartOf = p => p ? natalChart(p.birthday, birth[p.id]) : null;
     const birthLink = p => {
       const b = birth[p.id];
@@ -637,6 +770,7 @@
       h(ZodiacWheel, { S: S, sign: meInfo ? meInfo.sign : -1 }),
       h(Panel, { S: S, title: "今日" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, today.replace(/-/g, " · ") + " · " + meName),
+        skyNote(new Date()) ? h("div", { "data-wk": "astrosky", style: { fontFamily: F_BODY, fontSize: 12, color: S.tint, marginTop: 4 } }, "今天的天象：" + skyNote(new Date())) : null,
         !day ? h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: S.ink, marginTop: 4 } }, "还算不出你今天的运势"), missing(people[0])) : h("div", null,
           h("div", { className: "flex items-baseline justify-between", style: { marginTop: 4 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: S.ink } }, signName(meInfo.sign) + (meInfo.signApprox ? "（约）" : "")),
@@ -724,6 +858,16 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginTop: 2 } }, sr.pair === "命" ? "同一个宿" : A.name + " 是 " + B.name + " 的「" + sr.theirs + "」，" + B.name + " 是 " + A.name + " 的「" + sr.mine + "」"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.7, marginTop: 4 } }, sr.note))
             : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, marginTop: 4 } }, "两个人的本命宿都算得出来才能看")),
+        // 你俩的好日子（第 6 条）：接下来一个月里，行运对两个人都顺的那三天。日历上也会标出来，TA 也知道
+        h("div", { "data-wk": "astrogood", style: { marginTop: 12, paddingTop: 12, borderTop: "1px dashed " + S.line } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, "星星点头的日子（接下来一个月）"),
+          (() => { const gd = goodDays(chartOf(A), chartOf(B), new Date(), 30);
+            if (!chartOf(A) || !chartOf(B)) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, marginTop: 4 } }, "两个人都排得出星盘才算得出来（生日要带年份）");
+            if (!gd.length) return h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, marginTop: 4 } }, "这一个月天上没给你俩特别的好日子——那就哪天都行");
+            return h("div", { className: "flex", style: { gap: 8, marginTop: 6 } }, gd.map(x => h("div", { key: x.day, style: { flex: 1, textAlign: "center", padding: "8px 0", border: "1px solid " + S.line, borderRadius: 3 } },
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: S.tint } }, x.day.slice(5).replace("-", ".")),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: S.fog, marginTop: 2 } }, "周" + "日一二三四五六"[noonOf(x.day).getDay()])))); })(),
+          (A.id === "me" || B.id === "me") && pairChar ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, "这几天也会标在 " + (pairChar.remark || pairChar.name) + " 的日历上，TA 也知道。") : null),
         pairChar && (sm || sr || syn) ? (() => {
           const ins = "这是按生日算出来的「你」和「" + pairOther.name + "」的配对（不是你编的）：\n"
             + (sm ? "星座：你是" + signName((pairChar === A.char ? ai : bi).sign) + "，" + pairOther.name + "是" + signName((pairChar === A.char ? bi : ai).sign) + "，「" + sm.aspect + "」，配对指数 " + sm.score + "。\n" : "")
@@ -734,20 +878,115 @@
           return h("div", null, noteBox(pairKey, pairChar), askBtn(pairKey, pairChar, ins));
         })() : null));
 
+    // ---- 星盘（第 1、5 条）：一张真的盘 + 这一年（太阳回归）+ 让 TA 看看 ----
+    const CP = byId(chartWho), cChart = chartOf(CP);
+    const yr = (() => { if (!cChart) return null; const now = new Date(); const sr0 = solarReturn(cChart, now.getFullYear());
+      return sr0 && sr0.when > new Date(now.getTime() + 15 * 864e5) ? solarReturn(cChart, now.getFullYear() - 1) : sr0; })();
+    const nearBday = yr && Math.abs(new Date() - yr.when) < 7 * 864e5;
+    const chartReader = CP.char || (byId(commenter) || {}).char;
+    const chartFacts = cChart ? KEYS_FOR(cChart).map(k => { const sd = signDeg(cChart.lon[k]); return PL_ZH[k] + "在" + SIGNS[sd.sign][0] + "座"; }).join("、") : "";
+    const chartView = h("div", { className: "flex flex-col" },
+      h(Panel, { S: S, title: "看谁的盘" }, pickRow(people, chartWho, setChartWho, "")),
+      h(Panel, { S: S, title: CP.name + " 的星盘" },
+        cChart ? h("div", null, h(ChartWheel, { S: S, chart: cChart }), h("div", { style: { marginTop: 8 } }, chartRows(cChart)),
+          h("div", { style: { marginTop: 8 } }, KEYS_FOR(cChart).slice(0, 7).map(k => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.8 } },
+            h("span", { style: { color: S.tint } }, PL_ZH[k]), " 管" + PL_THEME[k]))),
+          chartNote(cChart) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, chartNote(cChart)) : null)
+          : h("div", null, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.7 } }, "生日要带上年份才排得出星盘。"), birthDateOf(CP.birthday) ? null : missing(CP)),
+        h("div", null, birthLink(CP)),
+        cChart && !CP.char && chars.length ? h("div", { style: { marginTop: 10 } }, pickRow(people.filter(p => p.char), commenter, setCommenter, "让谁看你的盘")) : null,
+        cChart && chartReader ? (() => {
+          const key = "natal|" + CP.id + "|" + chartReader.id;
+          const ins = (CP.char ? "这是按你的生日算出来的你自己的星盘（不是你编的）：" : meName + "把她自己的星盘拿给你看（按她的生日算的）：") + chartFacts + "。\n"
+            + (CP.char ? "看看你自己的盘，说说你的想法：对得上就对得上，对不上、不信、觉得好笑，都照你自己来。" : "说说你怎么看她的盘。信不信、顺着哪一点说，全由你这个人决定。");
+          return h("div", null, noteBox(key, chartReader), askBtn(key, chartReader, ins, CP.char ? "让 " + (CP.char.remark || CP.char.name) + " 看看自己的盘" : null));
+        })() : null),
+      yr ? h(Panel, { S: S, title: (nearBday ? "生日这周 · " : "") + CP.name + " 的这一年" },
+        h("div", { "data-wk": "astroyear", style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, "从 " + yr.day.replace(/-/g, ".") + " 太阳回到出生那一刻的位置算起（太阳回归）"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: S.ink, lineHeight: 1.8, marginTop: 6 } }, "这一年的月亮落在" + SIGNS[yr.moonSign][0] + "座——心里那块地方，这一年是" + SIGNS[yr.moonSign][0] + "座的样子。"),
+        yr.list.slice(0, 4).map((x, i) => h("div", { key: i, className: "flex items-center", style: { gap: 7, fontFamily: F_BODY, fontSize: 12.5, color: S.sub, lineHeight: 1.9 } },
+          h(Spark, { size: 7, color: x.tone < 0 ? S.accent : S.tint, op: 0.8 }), yearLine(x))),
+        chartReader ? (() => {
+          const key = "year|" + CP.id + "|" + yr.day + "|" + chartReader.id;
+          const ins = (CP.char ? "这是按你的生日算的你这一年的运（太阳回归，从 " + yr.day + " 起）：" : meName + "把她这一年的运拿给你看（太阳回归，从 " + yr.day + " 起）：")
+            + "这一年的月亮在" + SIGNS[yr.moonSign][0] + "座；" + yr.list.slice(0, 4).map(yearLine).join("；") + "。\n" + (nearBday ? "这几天正好是" + (CP.char ? "你" : "她") + "的生日前后。" : "") + "说说你的想法，怎么说全由你自己。";
+          return h("div", null, noteBox(key, chartReader), askBtn(key, chartReader, ins));
+        })() : null) : null);
+
+    // ---- 群榜（第 2 条）：一个群里两两配对，最合的、最冲的。全靠算 ----
+    const G = groups.find(x => x.id === gid) || null;
+    const gPeople = G ? [people[0]].concat((G.memberIds || []).map(id => people.find(p => p.id === id)).filter(Boolean)) : [];
+    const gPairs = [];
+    for (let i = 0; i < gPeople.length; i++) for (let j = i + 1; j < gPeople.length; j++) {
+      const a = gPeople[i], b = gPeople[j], ia = birthInfo(a.birthday), ib = birthInfo(b.birthday);
+      const syn2 = synastry(chartOf(a), chartOf(b)), sm2 = ia && ib ? signMatch(ia.sign, ib.sign) : null;
+      const sc = syn2 ? syn2.score : sm2 ? sm2.score : null;
+      if (sc != null) gPairs.push({ a, b, score: sc, by: syn2 ? "合盘" : "星座", why: syn2 && syn2.list[0] ? synLine(syn2.list[0], a.name, b.name) : sm2 ? sm2.aspect : "" });
+    }
+    gPairs.sort((x, y) => y.score - x.score);
+    const unknown = gPeople.filter(p => !birthInfo(p.birthday));
+    const rankRow = (x, i, tone) => h("div", { key: x.a.id + x.b.id, "data-wk": "astrorank", className: "flex items-center", style: { gap: 10, padding: "9px 0", borderBottom: "1px solid " + S.line } },
+      h("div", { style: { width: 22, fontFamily: F_DISPLAY, fontSize: 15, color: tone } }, i + 1),
+      h("div", { style: { flex: 1, minWidth: 0 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: S.ink } }, x.a.name + " × " + x.b.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.by + (x.why ? " · " + x.why : ""))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: tone } }, x.score));
+    const groupView = h("div", { className: "flex flex-col" },
+      !groups.length ? h(Panel, { S: S, title: "群榜" }, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "还没有群——建个群再来排。"))
+        : h(Panel, { S: S, title: "哪个群" }, h("div", { style: { display: "flex", gap: 8, overflowX: "auto" } }, groups.map(gp => { const on = gp.id === gid;
+          return h("button", { key: gp.id, onClick: () => setGid(gp.id), "aria-pressed": on, className: "active:opacity-70 shrink-0",
+            style: { minHeight: 40, padding: "0 12px", background: "transparent", border: "none", borderBottom: "2px solid " + (on ? S.tint : "transparent"), color: on ? S.ink : S.fog, fontFamily: F_BODY, fontSize: 13 } }, gp.name || "群"); }))),
+      G ? h(Panel, { S: S, title: "最合的" }, gPairs.length ? gPairs.slice(0, 3).map((x, i) => rankRow(x, i, S.tint)) : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub } }, "生日都不知道，排不了")) : null,
+      G && gPairs.length > 3 ? h(Panel, { S: S, title: "最冲的" }, gPairs.slice(-Math.min(2, gPairs.length - 3)).reverse().map((x, i) => rankRow(x, i, S.accent))) : null,
+      G && unknown.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, padding: "0 4px 8px" } }, "不知道生日、没排进来的：" + unknown.map(p => p.name).join("、")) : null,
+      G && gPairs.length && props.onShareToGroup ? h("button", { onClick: () => {
+          const top = gPairs[0], low = gPairs.length > 1 ? gPairs[gPairs.length - 1] : null;
+          props.onShareToGroup(G.id, "〔星测 · 群配对榜〕最合：" + gPairs.slice(0, 3).map(x => x.a.name + "×" + x.b.name + " " + x.score).join("、") + (low && low !== top ? "；最冲：" + low.a.name + "×" + low.b.name + " " + low.score : "") + "。按生日算的，图个乐～");
+        }, className: "active:opacity-80", style: { width: "100%", minHeight: 44, background: "transparent", border: "1px solid " + S.tint, borderRadius: 3, color: S.tint, fontFamily: F_BODY, fontSize: 13.5, marginTop: 4 } }, "发到「" + (G.name || "群") + "」里，让大家看看") : null);
+
+    // ---- 问星（第 4 条）：写一件事，按今天的行运抽一句；同一天同一问，答案不变 ----
+    const lastAsk = asks[0] && asks[0].day === today ? asks[0] : null;
+    const doAsk = () => {
+      const res = askStars(askText, meChart, meInfo ? meInfo.sign : -1, today);
+      if (!res) { props.toast && props.toast(askText.trim() ? "先填上你的生日才问得了星星" : "先写下想问的事"); return; }
+      const next = [res].concat(asks.filter(x => !(x.q === res.q && x.day === res.day))).slice(0, 12);
+      setAsks(next); try { saveJSON(ASK_KEY, next); } catch (e) {}
+      setAskText("");
+    };
+    const askView = h("div", { className: "flex flex-col" },
+      h(Panel, { S: S, title: "问星星一件事" },
+        h("textarea", { value: askText, onChange: e => setAskText(e.target.value), rows: 3, placeholder: "比如：这周适合跟他表白吗？", "aria-label": "想问的事",
+          style: { width: "100%", minWidth: 0, padding: 12, borderRadius: 3, border: "1px solid " + S.line, background: "transparent", color: S.ink, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6 } }),
+        h("button", { onClick: doAsk, className: "active:opacity-80", style: { width: "100%", minHeight: 44, marginTop: 8, background: S.tint, color: S.bg, border: "none", borderRadius: 3, fontFamily: F_BODY, fontSize: 14, letterSpacing: ".1em" } }, "抽一句"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, marginTop: 6 } }, meChart ? "按今天天上的行星和你的星盘挑；同一天同一个问题，答案不会变" : "没有带年份的生日，只按星座的日运来")),
+      lastAsk ? h(Panel, { S: S, title: "星星说" },
+        h("div", { "data-wk": "astroask", style: { fontFamily: F_BODY, fontSize: 12, color: S.fog } }, "「" + lastAsk.q + "」 · 问的是" + lastAsk.area),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: S.tint, marginTop: 6 } }, lastAsk.verdict),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, lineHeight: 1.7, marginTop: 4 } }, lastAsk.line),
+        chars.length ? h("div", { style: { marginTop: 10 } }, pickRow(people.filter(p => p.char), commenter, setCommenter, "让谁看看")) : null,
+        (() => { const c = (byId(commenter) || {}).char; if (!c) return null;
+          const key = "ask|" + today + "|" + lastAsk.q.slice(0, 40) + "|" + c.id;
+          const ins = meName + "拿一件事问了星星：「" + lastAsk.q + "」。按今天的行运抽出来的是「" + lastAsk.verdict + "」（" + lastAsk.line + "）。这是算出来的，不是你编的。\n她把这个拿给你看。说说你怎么想——问的是什么事、你信不信、要不要接她这个话，全由你这个人决定。";
+          return h("div", null, noteBox(key, c), askBtn(key, c, ins)); })()) : null,
+      asks.filter(x => x !== lastAsk).length ? h(Panel, { S: S, title: "问过的" }, asks.filter(x => x !== lastAsk).slice(0, 8).map((x, i) => h("div", { key: i, style: { padding: "7px 0", borderBottom: "1px solid " + S.line } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: S.ink } }, x.q),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 2 } }, x.day.replace(/-/g, ".") + " · " + x.verdict)))) : null);
+
     if (editing) return h(BirthPage, { S: S, person: byId(editing), value: birth[editing] || {}, onBack: () => setEditing(""),
       onSave: v => { const all = Object.assign({}, loadBirth()); if (v) all[editing] = v; else delete all[editing]; setBirth(saveBirth(all)); setEditing(""); } });
-    const tabs = [["today", "今日运势"], ["pair", "配对"]];
+    const tabs = [["today", "今日"], ["pair", "配对"], ["chart", "星盘"], ["group", "群榜"], ["ask", "问星"]];
     return h("div", { "data-wk": "app", className: "h-full flex flex-col", style: { background: S.bg, backgroundImage: STARS, backgroundSize: "320px 380px" } },
       h(Head, { zh: "星测", onBack: props.onBack, ink: S.ink, bg: "transparent", noLine: true }),
       h("div", { className: "shrink-0" }, h(StarTabs, { tabs: tabs, cur: tab, onPick: setTab, S: S })),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 16px 24px" } },
-        tab === "today" ? todayView : pairView,
+        tab === "today" ? todayView : tab === "pair" ? pairView : tab === "chart" ? chartView : tab === "group" ? groupView : askView,
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: S.fog, textAlign: "center", marginTop: 18, lineHeight: 1.6 } },
           "按生日算的，图个乐。让 TA 看看才会调用一次模型。")));
   }
 
   g.Astro = { signOf, signMatch, shukuOf, shukuRelation, birthInfo, daily, dayKeyOf, SIGNS, SHUKU, SHUKU_POS,
-    planetLongitudes, ascendant, natalChart, synastry, transits, birthDateOf, CITIES, chinaDst, tzForPlace, searchPlace };
+    planetLongitudes, ascendant, natalChart, synastry, transits, birthDateOf, CITIES, chinaDst, tzForPlace, searchPlace,
+    skyOn, skyNote, goodDays, pairGoodDays, solarReturn, askStars, loadBirth };
   g.AstroApp = AstroApp;
   g.GAstro = function (p) {
     return h(Svg, p, h("circle", { cx: 12, cy: 12, r: 8.5 }), h("path", { d: "M12 5.5l1.3 3.9 4.1.1-3.3 2.4 1.2 3.9L12 13.5l-3.3 2.3 1.2-3.9-3.3-2.4 4.1-.1z" }));
