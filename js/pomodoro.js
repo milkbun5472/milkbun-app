@@ -291,6 +291,8 @@
     const [cfg, setCfg] = useState(() => A ? A.load() : { levels: {}, mine: 0, mineName: "" });
     const [on, setOn] = useState(() => !!(A && A.isPlaying()));
     const fileRef = useRef(null);
+    // 先把用得上的几层在空闲时合好：点「放」的那一下就不用现算半秒（iPhone 认「她点的」那一刻很短）
+    useEffect(() => { const tm = A && setTimeout(() => { try { A._mix(A.load().levels); } catch (e) {} }, 300); return () => clearTimeout(tm); }, []);
     if (!A) return null;
     const set = (k, v) => { const n = A.setLevel(k, v); setCfg({ ...n }); onChange && onChange(n); };
     const row = (k, zh, val, extra) => h("label", { key: k, style: { display: "flex", alignItems: "center", gap: 10, minHeight: 40 } },
@@ -462,6 +464,8 @@
       const duration = Number(min);
       if (!c) { props.toast && props.toast("先去『人格档案馆』选/建个角色陪你"); return; }
       if (!duration || duration < 1) { props.toast && props.toast("时长至少 1 分钟"); return; }
+      // 先在这一下点击里把背景音解锁——下面要 await 模型，等回来再 play 在 iPhone 上就不算「她点的」了
+      if (window.Ambience && window.Ambience.anyOn()) window.Ambience.unlock();
       setBusy(true);
       let pack;
       try {
