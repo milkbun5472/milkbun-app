@@ -1,6 +1,6 @@
-import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-835d080fab70e268';
-import {shoppingItem} from './shopping.mjs?v=fg-835d080fab70e268';
-import {homePoint} from './initiative.mjs?v=fg-835d080fab70e268';
+import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-7da9d4ce0f16fc7b';
+import {shoppingItem} from './shopping.mjs?v=fg-7da9d4ce0f16fc7b';
+import {homePoint} from './initiative.mjs?v=fg-7da9d4ce0f16fc7b';
 export const parcelSourceTitle=source=>source==='shopping'?'便利店':petWorkplace(source).title;
 export const PARCEL_ITEMS={receipt:{name:'奇怪小票',unit:'张',kind:'book'},sticker:{name:'小贴纸',unit:'张',kind:'paw'},bread:{name:'小面包',unit:'个',kind:'bread'},flower:{name:'小花',unit:'枝',kind:'leaf'},petals:{name:'花瓣',unit:'片',kind:'leaf'},snack:{name:'小零食',unit:'份',kind:'bread'},toy:{name:'歪眼小怪球',unit:'个',kind:'ball'},box:{name:'小纸箱窝',unit:'个',kind:'home'}};
 const text=v=>typeof v==='string'?v.slice(0,100):'';
