@@ -6938,6 +6938,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;                                                // 一次一个，错峰
         }
       } catch (e) {}
+      // —— 健康·小习惯到点（她 2026-10-05）：她自己加的那几样（吃维生素、护肤……）到点还没勾，弹一下。不找角色、不调模型。
+      try {
+        const hd = window.HealthCtx && window.HealthCtx.habitDue ? window.HealthCtx.habitDue() : [];
+        hd.forEach(x => {
+          window.HealthCtx.markHabitPinged(x.id);
+          toast("该「" + x.name + "」了");
+          if (window.Notify) window.Notify.push({ title: "该「" + x.name + "」了", body: "健康里的小习惯 · " + x.at, tag: "habit-" + x.id });
+        });
+      } catch (e) {}
       // —— 健康·饭点来问（v74.732）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
       //    她点了名的人里挑一位主动问一句。一天最多两次，那一顿记了就不问（条件全在 HealthCtx.nudgeDue 那一处）——
       try {
@@ -6947,7 +6956,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
           if (cand && !pSkip("health:" + hn.meal)) {
             pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
-              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line } }),
+              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } }),
               () => window.HealthCtx.markNudged(hn.day, hn.meal)
             );
             return;                                               // 一次一个，错峰
@@ -10530,7 +10539,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
       // 健康·饭点来问（v74.732）／手机电量低、下雨还在外面（v74.732）：只给事实那一行，管不管、怎么开口是TA自己的事
       const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"
-        + opts.health.line + "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。" : "";
+        + opts.health.line + (opts.health.tail || "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。") : "";
       // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
       // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
       const annivHint = opts.anniv ? "\n\n【此刻·今天是你和 " + uName + " 的"

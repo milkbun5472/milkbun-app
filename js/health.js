@@ -31,7 +31,11 @@
     sport: [],          // [{ id, day, kind, min, kcal, ts }]
     steps: {},          // { day: 步数 }
     sleep: {},          // { 醒来那天: { bed: "23:40", wake: "07:20", q: 0-2 } }
-    goal: { kcal: 1800, water: 8, kg: null },
+    goal: { kcal: 1800, water: 8, kg: null, sleepH: null, bedBy: null, steps: null, sportWeek: null },
+    pacts: [],          // 跟某个角色立的约：[{ id, charId, kind, target, start, days, reported }]
+    weekly: { charId: "", last: "" },   // 每周一谁来写这一周的小结；last＝写过的那一周（周一那天）
+    habits: [],         // 自己加的小习惯：[{ id, name, at: "21:30" | "" }]
+    habitLog: {},       // { day: [习惯 id] }
     watch: { on: false, ids: [], nudge: false, env: false },
     env: null,          // 手机最近一次报上来的：{ ts, lat, lon, place, weather, temp, battery }
     home: null,         // { lat, lon }：她自己设的「家」
@@ -43,6 +47,8 @@
     if (!d || typeof d !== "object") return b;
     return Object.assign(b, d, {
       goal: Object.assign(b.goal, d.goal || {}),
+      weekly: Object.assign(b.weekly, d.weekly || {}),
+      pacts: Array.isArray(d.pacts) ? d.pacts : [], habits: Array.isArray(d.habits) ? d.habits : [], habitLog: d.habitLog && typeof d.habitLog === "object" ? d.habitLog : {},
       watch: Object.assign(b.watch, d.watch || {}),
       gateway: Object.assign(b.gateway, d.gateway || {})
     });
@@ -109,6 +115,87 @@
     return w.slice(-30);
   }
 
+  // ── 目标、立约、每周小结（她 2026-10-05：「都可以，做吧」）────────────
+  // 几点前睡：凌晨的那几个点按「前一天夜里」比（0:30 比 23:50 晚），所以中午以前的一律加一天
+  const lateMin = s => { const v = hm(s); return v == null ? null : (v < 720 ? v + 1440 : v); };
+  // 睡眠记在【醒来那天】：说「X 号晚上」的那一觉，记在 X+1 那一格
+  const nightOf = (d, day) => (d.sleep || {})[shift(day, 1)] || null;
+  // 立约能约的几样。each：名字、拿哪个目标当默认、这一天做到没（true/false；没记＝null 不算）
+  const PACT_KINDS = [
+    { k: "water", zh: "每天喝够水", goal: d => d.goal.water, unit: v => v + " 杯", ok: (d, day, v) => dayTotals(d, day).water >= v },
+    { k: "kcal", zh: "每天不吃超", goal: d => d.goal.kcal, unit: v => v + " 千卡以内", ok: (d, day, v) => { const t = dayTotals(d, day); return t.n ? t.kcal <= v + t.burn : null; } },
+    { k: "sleepH", zh: "每晚睡够", goal: d => d.goal.sleepH, unit: v => v + " 小时", night: true, ok: (d, day, v) => { const n = nightOf(d, day), m = sleepMin(n); return m ? m >= v * 60 : null; } },
+    { k: "bedBy", zh: "每晚按时睡", goal: d => d.goal.bedBy, unit: v => v + " 前睡", night: true, ok: (d, day, v) => { const n = nightOf(d, day), b = n && lateMin(n.bed); return b == null ? null : b <= lateMin(v); } },
+    { k: "steps", zh: "每天走够", goal: d => d.goal.steps, unit: v => v + " 步", ok: (d, day, v) => { const n = dayTotals(d, day).steps; return n ? n >= v : null; } },
+    { k: "sport", zh: "每天动一动", goal: () => 20, unit: v => v + " 分钟", ok: (d, day, v) => dayTotals(d, day).sportMin >= v }
+  ];
+  const pactKind = k => PACT_KINDS.find(x => x.k === k) || null;
+  // 这一约每一天：ok（做到）/ miss（没做到）/ none（没记）/ wait（还没到、或者那一晚还没醒来）
+  function pactDays(d, p, today) {
+    const K = pactKind(p.kind); if (!K) return [];
+    const out = [];
+    for (let i = 0; i < p.days; i++) {
+      // 白天那几样：过了那天才算定局（今天已经够了就先亮）；夜里那两样：那一觉醒来才知道
+      const day = shift(p.start, i), ready = K.night ? shift(day, 1) <= today : day < today;
+      if (!ready) { out.push({ day, st: !K.night && day === today && K.ok(d, day, p.target) === true ? "ok" : "wait" }); continue; }
+      const r = K.ok(d, day, p.target);
+      out.push({ day, st: r === true ? "ok" : r === false ? "miss" : "none" });
+    }
+    return out;
+  }
+  const pactEnd = p => { const K = pactKind(p.kind); return shift(p.start, p.days + (K && K.night ? 1 : 0)); };   // 这一天起就能结账了
+  const pactLive = (p, today) => today < pactEnd(p);
+  const pactText = (d, p, today) => {
+    const K = pactKind(p.kind), ds = pactDays(d, p, today);
+    const zh = { ok: "做到了", miss: "没做到", none: "没记", wait: "还没到" };
+    return "从 " + p.start.slice(5) + " 起 " + p.days + " 天，" + K.zh + "（" + K.unit(p.target) + "）："
+      + ds.map((x, i) => "第" + (i + 1) + "天" + zh[x.st]).join("、") + "。做到 " + ds.filter(x => x.st === "ok").length + " 天。";
+  };
+  // 体重照这样走，大约哪天到目标：最近四周的体重拉一条直线，方向对了才说
+  function weightEta(d) {
+    const goal = Number(d.goal.kg); if (!goal) return null;
+    const w = weightTrend(d).filter(x => x.day >= shift(dayOf(), -28));
+    if (w.length < 3) return null;
+    const t0 = g.ScheduleClock.parseDayKey(w[0].day).getTime(), xs = w.map(x => (g.ScheduleClock.parseDayKey(x.day).getTime() - t0) / 864e5), ys = w.map(x => Number(x.kg));
+    const n = xs.length, mx = xs.reduce((a, b) => a + b) / n, my = ys.reduce((a, b) => a + b) / n;
+    const den = xs.reduce((a, x) => a + (x - mx) * (x - mx), 0); if (!den) return null;
+    const k = xs.reduce((a, x, i) => a + (x - mx) * (ys[i] - my), 0) / den;   // 公斤／天
+    const last = ys[n - 1], gap = goal - last;
+    if (Math.abs(gap) < 0.1) return { reached: true };
+    if (!k || Math.sign(k) !== Math.sign(gap)) return { away: true, perWeek: Math.round(k * 70) / 10 };
+    const days = Math.round(gap / k); if (days > 730) return null;
+    const at = g.ScheduleClock.parseDayKey(dayOf()); at.setDate(at.getDate() + days);
+    return { days, date: (at.getMonth() + 1) + " 月 " + at.getDate() + " 日", perWeek: Math.round(k * 70) / 10 };
+  }
+  // 这一周的数，一段话。「让 TA 看看这周」和每周一那封小结共用这一份
+  function weekFacts(d, endDay) {
+    const wk = weekOf(d, endDay), G = d.goal;
+    const logged = wk.filter(x => x.n), avgK = logged.length ? Math.round(logged.reduce((a, x) => a + x.kcal, 0) / logged.length) : 0;
+    const avgW = Math.round(wk.reduce((a, x) => a + x.water, 0) / 7 * 10) / 10;
+    const wIn = (d.weight || []).filter(w => w.day >= wk[0].day && w.day <= endDay).sort((a, b) => (a.day < b.day ? -1 : 1));
+    const dW = wIn.length >= 2 ? Math.round((wIn[wIn.length - 1].kg - wIn[0].kg) * 10) / 10 : null;
+    const sportW = wk.reduce((a, x) => a + x.sportMin, 0), stepD = wk.filter(x => x.steps);
+    const pacts = (d.pacts || []).filter(p => p.start <= endDay && pactEnd(p) > wk[0].day);
+    return "这一周（" + wk[0].day + " 到 " + endDay + "）：记了饮食的有 " + logged.length + " 天，那几天平均约 " + avgK + " 千卡（她定的 " + (G.kcal || 1800) + "）；"
+      + "平均每天喝水 " + avgW + " 杯（定的 " + (G.water || 8) + "）；" + (dW != null ? "体重变了 " + (dW > 0 ? "+" : "") + dW + " 公斤；" : "")
+      + "这周运动 " + sportW + " 分钟" + (G.sportWeek ? "（定的一周 " + G.sportWeek + "）" : "") + "；"
+      + (stepD.length ? "走路平均 " + Math.round(stepD.reduce((a, x) => a + x.steps, 0) / stepD.length) + " 步" + (G.steps ? "（定的 " + G.steps + "）" : "") + "；" : "")
+      + (wk.some(x => x.sleep) ? "睡眠：" + wk.map(x => x.sleep ? hrs(x.sleep) : "没记").join("、") + (G.sleepH ? "（定的 " + G.sleepH + " 小时）" : "") + "；" : "")
+      + "心情：" + wk.map(x => x.mood ? MOODS[x.mood.v] : "没记").join("、") + "。"
+      + (pacts.length ? "这周有约在身：" + pacts.map(p => pactText(d, p, dayOf())).join("") : "");
+  }
+  // 小习惯到点了还没勾：给 app 那头发个提醒（每样一天只提醒一次）
+  const HABIT_PING = "x_healthHabitPing";
+  function habitDue(now) {
+    const d = load(), t = now || Date.now(), day = dayOf(new Date(t)), m = minuteNow(t);
+    const done = d.habitLog[day] || [], log = (typeof loadJSON === "function" ? loadJSON(HABIT_PING, {}) : {}) || {}, pinged = log[day] || [];
+    return (d.habits || []).filter(x => x.at && hm(x.at) != null && m >= hm(x.at) && m - hm(x.at) < 180 && !done.includes(x.id) && !pinged.includes(x.id));
+  }
+  function markHabitPinged(id, now) {
+    const day = dayOf(new Date(now || Date.now())), log = (typeof loadJSON === "function" ? loadJSON(HABIT_PING, {}) : {}) || {};
+    if (typeof saveJSON === "function") saveJSON(HABIT_PING, { [day]: (log[day] || []).concat([id]) });
+  }
+
   // ── 角色那一头：一行事实，按需给 ─────────────────────────────
   // 饭点窗口用她这边的钟（吃饭的是她）：早 6:30–9:30、午 11–13:30、晚 17–20
   const WINDOWS = [["breakfast", 390, 570], ["lunch", 660, 810], ["dinner", 1020, 1200]];
@@ -162,7 +249,17 @@
   }
 
   // noteFor：只给她点了名的人；只在饭点前后、或她两小时内刚记过一餐时出一行，其余时候空字符串＝零 token
+  // 跟这个人立着的约：不看「谁看着」开没开——约是她跟他两个人定的，他本来就该知道
+  function pactLine(d, charId, t) {
+    const today = dayOf(new Date(t)), ps = (d.pacts || []).filter(p => p.charId === charId && pactLive(p, today));
+    return ps.length ? "你们俩约好了的：" + ps.map(p => pactText(d, p, today)).join("") + "做到没做到、要不要提，照你自己的性子和你们现在的关系来。" : "";
+  }
   function noteFor(charId, now) {
+    const pl = pactLine(load(), charId, now || Date.now());
+    const rest = noteForWatch(charId, now);
+    return pl + rest;
+  }
+  function noteForWatch(charId, now) {
     const d = load();
     if (!d.watch.on || !(d.watch.ids || []).includes(charId)) return "";
     const t = now || Date.now(), day = dayOf(new Date(t));
@@ -183,10 +280,19 @@
   // 饭点那两次和手机报上来的那两种（电量低、下雨还在外面）各算各的：饭点一天最多两次，后两种各一天一次
   function nudgeDue(now) {
     const d = load();
-    if (!d.watch.on || !d.watch.nudge || !(d.watch.ids || []).length) return null;
     const t = now || Date.now(), day = dayOf(new Date(t));
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const today = log[day] || [];
+    // 约满了：跟他约的那个人来结账（一约一次）
+    const due = (d.pacts || []).find(p => !p.reported && !pactLive(p, day));
+    if (due) return { meal: "pact-" + due.id, label: "你们的约到期了", ids: [due.charId], day,
+      line: "你们俩约好的那件事到期了。" + pactText(d, due, day), tail: "你【主动】找 Ta 说说这一约——照你的性子和你们现在的关系来。" };
+    // 每周一封小结：周一上午九点以后，那个人来说说上一周。周一没开 App 的话，这周晚些时候补上（一周一次）
+    const hr = new Date(t).getHours(), wd = new Date(t).getDay(), monday = shift(day, -((wd + 6) % 7));
+    if (d.weekly.charId && d.weekly.last !== monday && (wd !== 1 || hr >= 9))
+      return { meal: "weekly-" + monday, label: "每周的小结", ids: [d.weekly.charId], day,
+        line: "她在健康 app 里请你每周看看她上一周过得怎样。" + weekFacts(d, shift(monday, -1)), tail: "你【主动】找 Ta，跟 Ta 说说你看完这一周的感想。" };
+    if (!d.watch.on || !d.watch.nudge || !(d.watch.ids || []).length) return null;
     const ids = d.watch.ids.slice();
     const ev = d.watch.env ? lastEvent(d, t) : null;
     if (ev && ev.ago < 40 * 60000 && !today.includes("ev-" + ev.kind)) {
@@ -216,6 +322,9 @@
         + (d.watch.env ? envLine(d, t) : "") };
   }
   function markNudged(day, meal) {
+    // 约和每周小结记在存档本身上（不只记今天那一格）：明天再看也知道结过账、写过了
+    if (/^pact-/.test(meal)) { const d = load(), id = meal.slice(5); save(Object.assign({}, d, { pacts: (d.pacts || []).map(p => p.id === id ? Object.assign({}, p, { reported: true }) : p) })); }
+    if (/^weekly-/.test(meal)) { const d = load(); save(Object.assign({}, d, { weekly: Object.assign({}, d.weekly, { last: meal.slice(7) }) })); }
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const keep = {}; keep[day] = (log[day] || []).concat([meal]);
     if (typeof saveJSON === "function") saveJSON(NUDGE_KEY, keep);   // 只留今天那一格，旧的自然丢掉
@@ -696,7 +805,14 @@
             h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: d.gateway.err ? S.blood : S.fog, lineHeight: 1.5, wordBreak: "break-all" } },
               d.gateway.err ? "上次没拿到：" + d.gateway.err : d.gateway.at ? "上次拿的时间 " + new Date(d.gateway.at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) : ""))),
         h(Section, { S, title: "给自己定的数" },
-          num("一天吃多少", "kcal", "千卡"), num("一天喝几杯水", "water", "杯"), num("目标体重", "kg", "公斤"))));
+          num("一天吃多少", "kcal", "千卡"), num("一天喝几杯水", "water", "杯"), num("目标体重", "kg", "公斤"),
+          num("每晚睡够", "sleepH", "小时"),
+          h("div", { className: "flex items-center", style: { minHeight: 52, borderBottom: "1px dashed " + S.line, fontFamily: F_BODY } },
+            h("span", { style: { flex: 1, fontSize: 14, color: S.ink } }, "几点前睡"),
+            h("input", { type: "time", value: d.goal.bedBy || "", onChange: e => onPatch({ goal: Object.assign({}, d.goal, { bedBy: e.target.value || null }) }), style: Object.assign(inputS(S), { width: 110, textAlign: "right" }) }),
+            d.goal.bedBy ? h("button", { onClick: () => onPatch({ goal: Object.assign({}, d.goal, { bedBy: null }) }), style: { width: 34, minHeight: 40, background: "transparent", border: "none", color: S.fog, fontSize: 14 } }, "×") : h("span", { style: { width: 34 } })),
+          num("每天走", "steps", "步"), num("一周动够", "sportWeek", "分钟"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.fog, lineHeight: 1.6, marginTop: 10 } }, "不填的就不定。定了的会在今天、身体、这周几页画出来，也能拿去跟 TA 立约。"))));
   }
 
   // ── 主页 ────────────────────────────────────────────────────
@@ -713,6 +829,8 @@
     const [kg, setKg] = useState("");
     const [sp, setSp] = useState(null), [spMin, setSpMin] = useState(30), [stepIn, setStepIn] = useState("");
     const [week, setWeekNote] = useState(null), [weekBusy, setWeekBusy] = useState(false);
+    const [habIn, setHabIn] = useState(""), [habAt, setHabAt] = useState("");
+    const [pk, setPk] = useState({ charId: "", kind: "", days: 7 });   // 立约那一格正在挑的
     const today = dayOf();
     const patch = p => setD(prev => save(Object.assign({}, prev, typeof p === "function" ? p(prev) : p)));
     const tot = dayTotals(d, today);
@@ -743,6 +861,10 @@
       onPull: async () => { const r = await pullGateway(true); props.toast && props.toast(r ? "拿到了" : "没拿到，看下面那行"); } });
 
     const delMeal = id => patch(prev => ({ meals: prev.meals.filter(m => m.id !== id) }));
+    const toggleHabit = id => patch(prev => { const cur = (prev.habitLog || {})[today] || []; return { habitLog: { [today]: cur.includes(id) ? cur.filter(x => x !== id) : cur.concat([id]), ...Object.fromEntries(Object.entries(prev.habitLog || {}).filter(([k]) => k !== today && k >= shift(today, -60))) } }; });
+    const addHabit = () => { const n = habIn.trim(); if (!n) return; patch(prev => ({ habits: (prev.habits || []).concat([{ id: "hb" + Date.now().toString(36), name: n, at: habAt || "" }]) })); setHabIn(""); setHabAt(""); };
+    const delHabit = id => patch(prev => ({ habits: (prev.habits || []).filter(x => x.id !== id) }));
+    const sportThisWeek = (d.sport || []).filter(x => x.day > shift(today, -7) && x.day <= today).reduce((a, x) => a + (Number(x.min) || 0), 0);
     const setWater = n => patch(prev => ({ water: Object.assign({}, prev.water, { [today]: n }) }));
     const setMood = v => patch(prev => ({ mood: Object.assign({}, prev.mood, { [today]: Object.assign({}, prev.mood[today] || {}, { v }) }) }));
     const toggleSym = s => patch(prev => { const cur = prev.symptoms[today] || []; return { symptoms: Object.assign({}, prev.symptoms, { [today]: cur.includes(s) ? cur.filter(x => x !== s) : cur.concat([s]) }) }; });
@@ -787,7 +909,8 @@
         h("div", { className: "flex flex-wrap", style: { gap: 2 } },
           Array.from({ length: Math.max(d.goal.water || 8, tot.water + 1) }, (_, i) =>
             h(Cup, { key: i, S, full: i < tot.water, onClick: () => setWater(i + 1 === tot.water ? i : i + 1) })))),
-      h(Section, { S, title: "动了动", wk: "healthsport", right: tot.sportMin ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.accent } }, tot.sportMin + " 分钟 · " + tot.burn + " 千卡") : null },
+      h(Section, { S, title: "动了动", wk: "healthsport", right: (tot.sportMin || d.goal.sportWeek) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.accent } },
+          (tot.sportMin ? tot.sportMin + " 分钟 · " + tot.burn + " 千卡" : "") + (d.goal.sportWeek ? (tot.sportMin ? " · " : "") + "这七天 " + sportThisWeek + " / " + d.goal.sportWeek : "")) : null },
         (d.sport || []).filter(s => s.day === today).map(s => h("div", { key: s.id, className: "flex items-center", style: { minHeight: 36, fontFamily: F_BODY, fontSize: 13.5, color: S.ink } },
           h("span", { style: { flex: 1 } }, s.kind + " · " + s.min + " 分钟"),
           h("span", { style: { color: S.accent, marginRight: 4 } }, "−" + s.kcal),
@@ -803,7 +926,25 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, flexShrink: 0 } }, "今天走了"),
           h("input", { value: stepIn, onChange: e => setStepIn(e.target.value.replace(/[^\d]/g, "")), inputMode: "numeric", placeholder: tot.steps ? String(tot.steps) : "多少步", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveSteps(); } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: S.sub, flexShrink: 0 } }, "步"),
-          h("button", { onClick: saveSteps, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "记下"))),
+          h("button", { onClick: saveSteps, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "记下")),
+        d.goal.steps ? h("div", { style: { marginTop: 8 } },
+          h("div", { style: { height: 4, borderRadius: 99, background: A(S.ink, "10"), overflow: "hidden" } },
+            h("div", { style: { width: Math.min(100, Math.round(tot.steps / d.goal.steps * 100)) + "%", height: "100%", background: S.accent, borderRadius: 99 } })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 4 } }, "今天 " + tot.steps + " / " + d.goal.steps + " 步")) : null),
+      // 小习惯：自己加的那几样，每天勾一下；定了时间的，到点还没勾会弹一下
+      h(Section, { S, title: "小习惯", wk: "healthhabit" },
+        (d.habits || []).map(x => { const on = (d.habitLog[today] || []).includes(x.id);
+          return h("div", { key: x.id, className: "flex items-center", style: { minHeight: 44, borderBottom: "1px dashed " + S.line } },
+            h("button", { onClick: () => toggleHabit(x.id), "aria-pressed": on, className: "flex items-center", style: { flex: 1, minHeight: 44, gap: 10, background: "transparent", border: "none", padding: 0, textAlign: "left" } },
+              h("span", { style: { width: 22, height: 22, borderRadius: 7, border: "1.5px solid " + (on ? S.accent : A(S.ink, "33")), background: on ? S.accent : "transparent", color: S.bg, fontSize: 13, lineHeight: "19px", textAlign: "center", flexShrink: 0 } }, on ? "✓" : ""),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 14, color: on ? S.sub : S.ink, textDecoration: on ? "line-through" : "none" } }, x.name),
+              x.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog } }, x.at) : null),
+            h("button", { onClick: () => delHabit(x.id), "aria-label": "删掉这个习惯", style: { width: 32, height: 32, background: "transparent", border: "none", color: S.fog, fontSize: 15 } }, "×")); }),
+        h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
+          h("input", { value: habIn, onChange: e => setHabIn(e.target.value.slice(0, 16)), placeholder: "吃维生素、护肤……", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") addHabit(); } }),
+          h("input", { type: "time", value: habAt, onChange: e => setHabAt(e.target.value), "aria-label": "几点提醒（可空）", style: Object.assign(inputS(S), { width: 92, flexShrink: 0 }) }),
+          h("button", { onClick: addHabit, style: Object.assign(btnS(S), { flexShrink: 0 }) }, "加")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 6 } }, "时间可以不填；填了的，到点还没勾会提醒一下（App 开着、或者后台醒着的时候）。")),
       h(Section, { S, title: "心情", wk: "healthmood" },
         h("div", { className: "flex" }, [0, 1, 2, 3, 4].map(v => h(Face, { key: v, S, v, on: tot.mood && tot.mood.v === v, onClick: () => setMood(v) })))));
 
@@ -817,20 +958,29 @@
     const wrows = weightTrend(d), lastW = wrows[wrows.length - 1];
     const nights = weekOf(d, today);
     const bodyView = h("div", null,
-      h(Section, { S, title: "睡觉", wk: "healthsleep", right: tot.sleep ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.water } }, "昨晚 " + hrs(tot.sleep)) : null },
+      h(Section, { S, title: "睡觉", wk: "healthsleep", right: (tot.sleep || d.goal.sleepH) ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.water } },
+          (tot.sleep ? "昨晚 " + hrs(tot.sleep) : "") + (d.goal.sleepH ? (tot.sleep ? " / " : "目标 ") + d.goal.sleepH + " 小时" : "")) : null },
         h("div", { className: "flex items-end", style: { gap: 14 } },
           [["bed", "几点睡的"], ["wake", "几点醒的"]].map(f => h("label", { key: f[0], style: { flex: 1, fontFamily: F_BODY } },
             h("div", { style: { fontSize: 11.5, color: S.sub, marginBottom: 2 } }, f[1]),
             h("input", { type: "time", value: sl[f[0]] || "", onChange: e => setSleep({ [f[0]]: e.target.value }), style: Object.assign(inputS(S), { fontSize: 17 }) })))),
         h("div", { className: "flex", style: { gap: 8, marginTop: 12 } },
           SLEEP_Q.map((q, i) => h("button", { key: q, onClick: () => setSleep({ q: sl.q === i ? null : i }), "aria-pressed": sl.q === i, style: Object.assign(chipS(S, sl.q === i, S.water), { flex: 1 }) }, q))),
-        h("div", { className: "flex items-end", style: { gap: 8, height: 62, marginTop: 14 } },
+        h("div", { className: "flex items-end", style: { gap: 8, height: 62, marginTop: 14, position: "relative" } },
+          // 睡够几小时那条线：柱子高 44 对 10 小时
+          d.goal.sleepH ? h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 19 + Math.min(1, d.goal.sleepH / 10) * 44, borderTop: "1px dashed " + A(S.water, "99") } }) : null,
           nights.map(x => h("div", { key: x.day, style: { flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" } },
             h("div", { style: { width: 8, height: x.sleep ? Math.max(4, Math.min(1, x.sleep / 600) * 44) : 2, borderRadius: 99, background: x.sleep ? (x.day === today ? S.water : A(S.water, "70")) : A(S.ink, "12") } }),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: x.day === today ? S.ink : S.fog, marginTop: 5 } }, x.sleep ? (x.sleep / 60).toFixed(1) : "·"))))),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: x.day === today ? S.ink : S.fog, marginTop: 5 } }, x.sleep ? (x.sleep / 60).toFixed(1) : "·")))),
+        d.goal.bedBy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.sub, marginTop: 10 } },
+          "这七晚有 " + nights.filter(x => { const b = (d.sleep || {})[x.day]; return b && b.bed && lateMin(b.bed) <= lateMin(d.goal.bedBy); }).length + " 晚在 " + d.goal.bedBy + " 前睡了"
+          + "（填了几点睡的有 " + nights.filter(x => ((d.sleep || {})[x.day] || {}).bed).length + " 晚）") : null),
       h(Section, { S, title: "体重", wk: "healthweight", right: lastW ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub } },
           "最近 " + lastW.kg + " 公斤" + (d.goal.kg ? " · 离目标 " + Math.round((lastW.kg - d.goal.kg) * 10) / 10 + " 公斤" : "")) : null },
         h(Spark, { S, rows: wrows }),
+        (function () { const e = weightEta(d); if (!e) return null;
+          return h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: S.sub, marginTop: 4, lineHeight: 1.6 } },
+            e.reached ? "已经到目标了。" : e.away ? "最近四周每周大约 " + (e.perWeek > 0 ? "+" : "") + e.perWeek + " 公斤，跟目标是反着走的。" : "照最近四周的走法（每周 " + (e.perWeek > 0 ? "+" : "") + e.perWeek + " 公斤），大约 " + e.date + " 到目标。"); })(),
         h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
           h("input", { value: kg, onChange: e => setKg(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "今天多少公斤", style: inputS(S), onKeyDown: e => { if (e.key === "Enter") saveKg(); } }),
           h("button", { onClick: saveKg, style: Object.assign(btnS(S, true), { flexShrink: 0 }) }, "记下"))),
@@ -858,11 +1008,7 @@
     const wIn = (d.weight || []).filter(w => w.day >= wk[0].day && w.day <= today).sort((a, b) => (a.day < b.day ? -1 : 1));
     const dW = wIn.length >= 2 ? Math.round((wIn[wIn.length - 1].kg - wIn[0].kg) * 10) / 10 : null;
     const watchers = chars.filter(c => d.watch.on && (d.watch.ids || []).includes(c.id));
-    const weekFacts = "这一周（" + wk[0].day + " 到 " + today + "）：记了饮食的有 " + logged.length + " 天，那几天平均约 " + avgK + " 千卡（她定的 " + (d.goal.kcal || 1800) + "）；"
-      + "平均每天喝水 " + avgW + " 杯（定的 " + (d.goal.water || 8) + "）；" + (dW != null ? "体重变了 " + (dW > 0 ? "+" : "") + dW + " 公斤；" : "")
-      + "这周运动 " + wk.reduce((a, x) => a + x.sportMin, 0) + " 分钟；"
-      + (wk.some(x => x.sleep) ? "睡眠：" + wk.map(x => x.sleep ? hrs(x.sleep) : "没记").join("、") + "；" : "")
-      + "心情：" + wk.map(x => x.mood ? MOODS[x.mood.v] : "没记").join("、") + "。";
+    const weekFactsNow = weekFacts(d, today);
     const askWeek = async c => {
       const p = props.apiFor && props.apiFor(c), ctx = props.ctxFor && props.ctxFor(c);
       if (!p || !ctx || typeof runProbe !== "function") { props.toast && props.toast("先到设置配置 API"); return; }
@@ -871,7 +1017,7 @@
         // 靠调用点补的那三层走公共那一份（跟星测、塔罗同一个）
         const tail = typeof probeVoiceTail === "function" ? probeVoiceTail() : "";
         const r = await runProbe(p, ctx, { voice: true, maxTokens: 65535, tag: "health",
-          instruction: "她把这一周的健康记录拿给你看。下面是记下来的数：\n" + weekFacts + "\n用你自己的口吻跟她说几句。" + tail,
+          instruction: "她把这一周的健康记录拿给你看。下面是记下来的数：\n" + weekFactsNow + "\n用你自己的口吻跟她说几句。" + tail,
           schemaHint: "{\"text\":\"你想对她说的话\"}" });
         const text = String(r && r.text || "").trim();
         if (!text) throw new Error("没说出话来");
@@ -899,6 +1045,42 @@
         h("div", { className: "flex items-center" },
           wk.map(x => h("div", { key: x.day, style: { flex: 1, height: 44, display: "flex", alignItems: "center", justifyContent: "center", color: S.fog } },
             x.mood ? h(Face, { S, v: x.mood.v, on: x.day === today, mini: true, onClick: () => {} }) : "·")))),
+      // ── 跟 TA 立约：拿一个目标，约几天；他知道每天做到没，到期自己来结账 ──
+      h(Section, { S, title: "跟 TA 立的约", wk: "healthpact" },
+        (d.pacts || []).slice().reverse().slice(0, 6).map(p => { const K = pactKind(p.kind), c = chars.find(x => x.id === p.charId), ds = pactDays(d, p, today), live = pactLive(p, today);
+          if (!K) return null;
+          return h("div", { key: p.id, style: { padding: "8px 0 10px", borderBottom: "1px dashed " + S.line } },
+            h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY } },
+              h("span", { style: { flex: 1, fontSize: 13.5, color: S.ink } }, (c ? c.name : "（不在了）") + " · " + K.zh + " " + K.unit(p.target)),
+              h("span", { style: { fontSize: 11, color: live ? S.accent : S.fog } }, live ? "进行中" : "做到 " + ds.filter(x => x.st === "ok").length + "/" + p.days),
+              h("button", { onClick: () => patch(prev => ({ pacts: (prev.pacts || []).filter(x => x.id !== p.id) })), "aria-label": "撤掉这一约", style: { width: 30, height: 30, background: "transparent", border: "none", color: S.fog, fontSize: 14 } }, "×")),
+            h("div", { className: "flex", style: { gap: 5, marginTop: 7, flexWrap: "wrap" } }, ds.map(x => h("span", { key: x.day, title: x.day,
+              style: { width: 22, height: 22, borderRadius: 99, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11,
+                background: x.st === "ok" ? S.accent : x.st === "miss" ? A(S.tint, "33") : "transparent",
+                color: x.st === "ok" ? S.bg : x.st === "miss" ? S.tint : S.fog, border: "1px " + (x.st === "wait" ? "dashed " : "solid ") + (x.st === "ok" ? S.accent : x.st === "miss" ? A(S.tint, "66") : A(S.ink, "22")) } },
+              x.st === "ok" ? "✓" : x.st === "miss" ? "×" : x.st === "none" ? "?" : ""))));
+        }),
+        chars.length ? h("div", { style: { marginTop: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, marginBottom: 6 } }, "跟谁约"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } }, chars.map(c => h("button", { key: c.id, onClick: () => setPk(Object.assign({}, pk, { charId: c.id })), "aria-pressed": pk.charId === c.id, style: chipS(S, pk.charId === c.id) }, c.name))),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, margin: "12px 0 6px" } }, "约什么"),
+          h("div", { className: "flex flex-wrap", style: { gap: 8 } }, PACT_KINDS.filter(K => K.goal(d)).map(K => h("button", { key: K.k, onClick: () => setPk(Object.assign({}, pk, { kind: K.k })), "aria-pressed": pk.kind === K.k, style: chipS(S, pk.kind === K.k) }, K.zh + " " + K.unit(K.goal(d))))),
+          h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12 } },
+            [3, 7, 14].map(n => h("button", { key: n, onClick: () => setPk(Object.assign({}, pk, { days: n })), "aria-pressed": pk.days === n, style: chipS(S, pk.days === n) }, n + " 天")),
+            h("button", { disabled: !pk.charId || !pk.kind, onClick: () => { const K = pactKind(pk.kind); if (!K || !pk.charId) return;
+                patch(prev => ({ pacts: (prev.pacts || []).concat([{ id: "pc" + Date.now().toString(36), charId: pk.charId, kind: pk.kind, target: K.goal(prev), start: today, days: pk.days, reported: false }]) }));
+                setPk({ charId: "", kind: "", days: 7 }); props.toast && props.toast("约好了，从今天算起"); },
+              style: Object.assign(btnS(S, true), { marginLeft: "auto", opacity: pk.charId && pk.kind ? 1 : 0.45 }) }, "立约")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: S.fog, marginTop: 8, lineHeight: 1.6 } }, "约什么跟着你定的目标走（在右上角「谁看着」最底下改）。他这几天聊天时都知道你做到没，到期那天会自己来找你说。")) : null),
+      // ── 每周一封小结 ──
+      h(Section, { S, title: "每周一封小结", wk: "healthweekly" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: S.sub, lineHeight: 1.6, marginBottom: 8 } },
+          d.weekly.charId ? "每周一上午，" + ((chars.find(c => c.id === d.weekly.charId) || {}).name || "TA") + " 会看完你上一周的饮食、睡觉、运动，来聊天里跟你说说。" : "挑一个人，每周一上午他会看完你上一周的数，来聊天里跟你说说。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+          h("button", { onClick: () => patch(prev => ({ weekly: Object.assign({}, prev.weekly, { charId: "" }) })), "aria-pressed": !d.weekly.charId, style: chipS(S, !d.weekly.charId) }, "不用"),
+          chars.map(c => h("button", { key: c.id, "aria-pressed": d.weekly.charId === c.id, style: chipS(S, d.weekly.charId === c.id),
+            // 刚挑上的那一周不算：从下周一开始（不然周三挑上，立刻就来讲上一周）
+            onClick: () => patch(prev => ({ weekly: { charId: c.id, last: shift(today, -((g.ScheduleClock.parseDayKey(today).getDay() + 6) % 7)) } })) }, c.name)))),
       watchers.length ? h(Section, { S, title: "让 TA 看看这周", wk: "healthnote" },
         h("div", { className: "flex flex-wrap", style: { gap: 8 } },
           watchers.map(c => h("button", { key: c.id, disabled: weekBusy, onClick: () => askWeek(c), style: Object.assign(btnS(S), { opacity: weekBusy ? 0.5 : 1 }) }, weekBusy ? "在看…" : "给" + c.name + "看"))),
@@ -973,7 +1155,7 @@
     } catch (e) { return null; }
   }
   g.healthAddByChar = healthAddByChar;
-  g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, load, dayTotals, weekOf, FOODS, KEY };
+  g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, habitDue, markHabitPinged, pactDays, weekFacts, weightEta, PACT_KINDS, load, dayTotals, weekOf, FOODS, KEY };
   g.Health = { MOOD_ZH, parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, SHORTCUT_TEMPLATE_MINI, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电
