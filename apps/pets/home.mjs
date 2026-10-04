@@ -1,7 +1,7 @@
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-be7752e2ce00694b';
-import {turnPet} from './movement.mjs?v=fg-be7752e2ce00694b';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-be7752e2ce00694b';
-import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-be7752e2ce00694b';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-8a09c3b7bcc34a79';
+import {turnPet} from './movement.mjs?v=fg-8a09c3b7bcc34a79';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-8a09c3b7bcc34a79';
+import {YOU_SPOT,TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-8a09c3b7bcc34a79';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[]}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false;
  const props=new T.Group(),toy=new T.Group();props.visible=false;scene.add(props);props.add(toy);
@@ -9,15 +9,15 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  function makeToy(kind){if(kind==='ball')return new T.Mesh(new T.SphereGeometry(.065,16,12),material('#d6a08d'));const m=new T.Group(),body=new T.Mesh(new T.SphereGeometry(.07,16,12),material('#bba991'));body.scale.set(.7,.65,1.6);m.add(body);for(const x of[-.038,.038]){const e=new T.Mesh(new T.SphereGeometry(.022,8,8),material('#c98070'));e.position.set(x,.04,.05);m.add(e);}return m;}
  const ball=makeToy('ball'),mouse=makeToy('mouse'),treat=new T.Mesh(new T.SphereGeometry(.05,10,8),material('#a97850'));toy.add(ball,mouse,treat);toy.visible=false;
  const floorToys=Object.fromEntries(Object.keys(TOY_SPOTS).map(k=>{const m=makeToy(k);m.userData.petToy=k;props.add(m);return[k,m];}));
- const youMat=new T.Mesh(new T.CircleGeometry(.3,40),material('#c9bba7'));youMat.rotation.x=-Math.PI/2;youMat.position.set(YOU_SPOT.x,.043,YOU_SPOT.z);props.add(youMat);
- const labelCanvas=document.createElement('canvas');labelCanvas.width=256;labelCanvas.height=64;const ctx=labelCanvas.getContext('2d');ctx.fillStyle='#6d6051';ctx.font='32px sans-serif';ctx.textAlign='center';ctx.fillText('你这边',128,44);const label=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(labelCanvas),depthTest:false}));label.scale.set(.44,.11,1);label.position.set(YOU_SPOT.x,.13,YOU_SPOT.z+.22);props.add(label);
+ const youMat=new T.Mesh(new T.CircleGeometry(.3,40),material('#c1ccc1'));youMat.rotation.x=-Math.PI/2;youMat.position.set(YOU_SPOT.x,.043,YOU_SPOT.z);props.add(youMat);
+ const labelCanvas=document.createElement('canvas');labelCanvas.width=192;labelCanvas.height=64;const ctx=labelCanvas.getContext('2d');ctx.fillStyle='#6d6051';ctx.font='56px sans-serif';ctx.textAlign='center';ctx.fillText('你这边',96,54);const label=new T.Sprite(new T.SpriteMaterial({map:new T.CanvasTexture(labelCanvas),depthTest:false}));label.scale.set(.8,.267,1);label.position.set(YOU_SPOT.x,.3,YOU_SPOT.z+.22);props.add(label);
  const local=()=>({x:pet.root.position.x,z:pet.root.position.z});
  const people=()=>getPeople().filter(p=>p.available!==false);
  const person=t=>people().find(p=>p.key===t.target);
- const mouth=()=>pet.motion.attachment('head',pet.species==='dog'?[0,.555,.489]:[0,.425,.455]);
+ const mouth=()=>pet.motion.attachment('head',pet.mouthPoint);
  const groundToy=p=>new T.Vector3(p.x,nav.ground(p.x,p.z)+.065,p.z);
  function resetPose(){if(!poseBase)return;poseBase.model.position.copy(poseBase.position);poseBase.model.quaternion.copy(poseBase.quaternion);poseBase.model.scale.copy(poseBase.scale);}
- function begin(model){resetPose();visible=true;props.visible=true;nav=createHomeNavigation(pet.root.scale.x);poseBase={model:pet.model,position:pet.model.position.clone(),quaternion:pet.model.quaternion.clone(),scale:pet.model.scale.clone()};const p=nav.restore(care.state.position);pet.root.position.set(p.x,nav.ground(p.x,p.z),p.z);food=[];model.traverse(o=>{if(o.isMesh&&o.name.startsWith('feeding-food-'))food.push(o);});pet.bind({ground:nav.ground,matchSpeed:true});pendingTask=null;pendingStage='';route=[];homeTime=0;reactionTime=0;sync();}
+ function begin(model){resetPose();visible=true;props.visible=true;nav=createHomeNavigation(pet.root.scale.x);poseBase={model:pet.model,position:pet.model.position.clone(),quaternion:pet.model.quaternion.clone(),scale:pet.model.scale.clone()};const p=nav.restore(care.state.position);pet.root.position.set(p.x,nav.ground(p.x,p.z),p.z);for(const k of Object.keys(TOY_SPOTS))if(!nav.walkable(care.state.toyPlaces[k].x,care.state.toyPlaces[k].z))care.state.toyPlaces[k]={...TOY_SPOTS[k]};food=[];model.traverse(o=>{if(o.isMesh&&o.name.startsWith('feeding-food-'))food.push(o);});pet.bind({ground:nav.ground,matchSpeed:true});pendingTask=null;pendingStage='';route=[];homeTime=0;reactionTime=0;sync();}
  function sync(){for(const mesh of food)mesh.visible=care.state.bowl>0;for(const[k,m]of Object.entries(floorToys)){m.visible=!(held&&care.state.task?.toy===k)&&!(care.state.task?.kind==='play'&&care.state.task.phase==='doing'&&care.state.task.toy===k);m.position.copy(groundToy(care.state.toyPlaces[k]));}}
  function approach(t){const p=person(t)?.position;if(!p)return null;const from=local(),dx=from.x-p.x,dz=from.z-p.z,a=Math.atan2(dx,dz),r=.43*pet.root.scale.x+.1;for(const angle of[a,a+.7,a-.7,a+1.5,a-1.5,a+Math.PI]){const q={x:p.x+Math.sin(angle)*r,z:p.z+Math.cos(angle)*r};if(nav.walkable(q.x,q.z))return q;}return null;}
  function destination(t){if(t.kind==='moveAway'){if(t.spot)return t.spot;const from=local(),p=person(t)?.position||from;const options=[HOME_PLACES.rug,HOME_PLACES.window,{x:1.1,z:.7},{x:-1.15,z:.2}].filter(q=>Math.hypot(q.x-from.x,q.z-from.z)>.6&&Math.hypot(q.x-p.x,q.z-p.z)>.7);return t.spot=options.find(q=>nav.path(from,q))||HOME_PLACES.rug;}
@@ -32,7 +32,7 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  function tick(dt){resetPose();schedule();homeTime+=dt;targetClock+=dt;reactionTime=Math.max(0,reactionTime-dt);pet.setMood(moodFromCare(care.state,reactionTime>0));let task=care.state.task;const before=task;
   if(task?.target&&['person','toy'].includes(task.place)&&task.kind!=='moveAway'&&!person(task)){dropToy();care.cancel();schedule();onSave();task=null;}
   if(task?.phase==='walking'&&task.target&&!task.spot&&!(task.kind==='invitePlay'&&task.stage==='fetch')&&targetClock>.6){targetClock=0;const dest=destination(task),last=route.at(-1);if(dest&&last&&Math.hypot(dest.x-last.x,dest.z-last.z)>.25)route=nav.path(local(),dest)||route;}
-  let speed=move(dt);if(task?.phase==='walking'&&!route.length){if(task.place==='person')task.spot=local();const visits=care.state.recent.length;care.arrive();homeTime=0;task=care.state.task;if(care.state.recent.length!==visits)onNotice('它来找你们了',care.state.recent.at(-1).text);if(task?.kind==='sleep'){pet.motion.dispose();pet.root.rotation.y=task.place==='person'?Math.atan2(person(task).position.x-pet.root.position.x,person(task).position.z-pet.root.position.z):HOME_PLACES[task.place].yaw;}onSave();}
+  let speed=move(dt);if(task?.phase==='walking'&&!route.length){if(task.place==='person')task.spot=local();const visits=care.state.recent.length;care.arrive();homeTime=0;task=care.state.task;if(care.state.recent.length!==visits)onNotice('它来找你们了',care.state.recent.at(-1).text);if(task?.kind==='sleep'){if(task.place!=='person')pet.motion.dispose();pet.root.rotation.y=task.place==='person'?Math.atan2(person(task).position.x-pet.root.position.x,person(task).position.z-pet.root.position.z):HOME_PLACES[task.place].yaw;}onSave();}
   const doing=task?.phase==='doing',p=task&&person(task)?.position;let desired=null,pose={};
   if(doing&&['eat','treat'].includes(task.kind))pose={headPitch:.18+.04*Math.sin(task.time*5)};
   if(doing&&task.kind==='waitFood'){const lookBowl=Math.floor(task.time/3)%2===0;desired=lookBowl?HOME_PLACES.feeding.yaw:p?Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z):0;pose={headPitch:lookBowl?.2:-.06};}
@@ -40,10 +40,11 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
   if(doing&&task.kind==='askSnack'){pose={headPitch:-.12,headYaw:.12*Math.sin(task.time*.9)};if(p)desired=Math.atan2(p.x-pet.root.position.x,p.z-pet.root.position.z);}
   if(doing&&task.kind==='watch')desired=HOME_PLACES.window.yaw+.08*Math.sin(task.time*.6);
   if(task?.kind==='invitePlay'&&task.stage==='fetch'&&doing){const q=care.state.toyPlaces[task.toy];desired=Math.atan2(q.x-pet.root.position.x,q.z-pet.root.position.z);}
-  if(task?.kind==='invitePlay'&&['fetch','lower'].includes(task.stage)&&doing)pose={height:-.055,chestHeight:-.055,pelvisHeight:-.015,headPitch:.78};
+  if(task?.kind==='invitePlay'&&['fetch','lower'].includes(task.stage)&&doing)pose={height:-.07,chestHeight:-.07,pelvisHeight:-.015,headPitch:.9};
   if(task?.kind==='invitePlay'&&task.stage==='carry')pose={headPitch:.06};
   let pivot=false;if(desired!==null){const turn=turnPet(pet.root.rotation.y,desired,dt);pivot=Math.abs(turn.heading-pet.root.rotation.y)>.001;pet.root.rotation.y=turn.heading;}
-  pet.motion.setActionPose(pose);if(doing&&task.kind==='sleep')pet.motion.updateExpression(dt);else pet.motion.update(dt,speed,0,speed>0||route.length>0||pivot);
+  if(doing&&task.kind==='sleep'&&task.place==='person')pose={height:-.065,chestHeight:-.05,pelvisHeight:-.025,headPitch:.12,headRoll:.10};
+  pet.motion.setActionPose(pose);if(doing&&task.kind==='sleep'&&task.place!=='person')pet.motion.updateExpression(dt);else pet.motion.update(dt,speed,0,speed>0||route.length>0||pivot);
   held=false;toy.visible=false;
   if(task?.kind==='invitePlay'){
    const stage=task.stage;ball.visible=task.toy==='ball';mouse.visible=!ball.visible;treat.visible=false;
@@ -52,7 +53,7 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
    else if(stage==='lower'&&care.deliverToy({x:toy.position.x,z:toy.position.z})){held=false;toy.visible=false;schedule();onNotice('它来找你们了',care.state.recent.at(-1).text);onSave();}
   }else if(doing&&task.kind==='play'){toy.visible=true;treat.visible=false;ball.visible=task.toy==='ball';mouse.visible=!ball.visible;const phase=task.time*.65,base=task.place==='person'?task.spot:HOME_PLACES.rug,target={x:base.x+.55*Math.sin(phase),z:base.z+.4*Math.cos(phase)};toy.position.set(target.x,nav.ground(target.x,target.z)+.12+.06*Math.abs(Math.sin(task.time*2)),target.z);toy.rotation.y=phase;care.state.toyPlaces[task.toy]=nav.restore(target);if(!route.length&&Math.hypot(target.x-pet.root.position.x,target.z-pet.root.position.z)>.18)route=nav.path(local(),target)||[];}
   else if(doing&&task.kind==='treat'){toy.visible=true;treat.visible=true;ball.visible=false;mouse.visible=false;toy.position.copy(mouth());}
-  if(doing&&task.kind==='sleep'){const blend=Math.min(1,homeTime/1.3),p=task.place==='person'?task.spot:HOME_PLACES[task.place];if(task.place==='bed'){pet.root.position.x=T.MathUtils.lerp(p.x,-1.89,blend);pet.root.position.z=T.MathUtils.lerp(p.z,-1.64,blend);pet.root.position.y=.11+.25*blend+Math.sin(blend*Math.PI)*.18;}poseBase.model.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),blend*1.45));pet.root.updateMatrixWorld(true);const bottom=new T.Box3().setFromObject(poseBase.model).min.y,floor=task.place==='bed'?.32:nav.ground(pet.root.position.x,pet.root.position.z);pet.root.position.y+=floor-bottom+.003*(1+Math.sin(task.time*1.6));}
+  if(doing&&task.kind==='sleep'&&task.place!=='person'){const blend=Math.min(1,homeTime/1.3),p=task.place==='person'?task.spot:HOME_PLACES[task.place];if(task.place==='bed'){pet.root.position.x=T.MathUtils.lerp(p.x,-1.89,blend);pet.root.position.z=T.MathUtils.lerp(p.z,-1.64,blend);pet.root.position.y=.11+.25*blend+Math.sin(blend*Math.PI)*.18;}poseBase.model.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(0,0,1),blend*1.45));pet.root.updateMatrixWorld(true);const bottom=new T.Box3().setFromObject(poseBase.model,true).min.y,floor=task.place==='bed'?.32:nav.ground(pet.root.position.x,pet.root.position.z);pet.root.position.y+=floor-bottom+.003*(1+Math.sin(task.time*1.6));}
   care.state.position=doing&&task.kind==='sleep'?{...(task.place==='person'?task.spot:HOME_PLACES[task.place])}:local();
   const result=care.tick(dt,{home:true,people:people()});if(result?.accepted){schedule();onNotice('它自己决定了',result.text);onSave();}if(before&&before!==care.state.task){if(before.kind==='sleep'){resetPose();const p=nav.restore(care.state.position);pet.root.position.set(p.x,nav.ground(p.x,p.z),p.z);pet.bind({ground:nav.ground,matchSpeed:true});}schedule();onSave();}sync();
  }
