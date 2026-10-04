@@ -1,0 +1,2 @@
+// Move the real calendar through its production clock, then let the real career writer reset daily gates.
+module.exports=async(p,f)=>{const at=await p.evaluate(()=>Date.now());let d=new Date(at+86400000);while([0,6].includes(d.getUTCDay()))d=new Date(d.getTime()+86400000);await p.clock.setFixedTime(d);await f.evaluate(()=>{const x=petCareerPreview.household.get(PetGame.snapshot().activePetId);x.career.syncDay(x.care.state,PetGame.calendar());PetGame.flush();});};
