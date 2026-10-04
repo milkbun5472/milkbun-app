@@ -75,4 +75,10 @@ node art/pet-house/check-preview.cjs
 
 `node --test art/pet-house/pet-action.test.mjs` 检查真实关节长度、权重边界和爪底绑定。`node art/pet-house/check-actions.cjs` 解码两只真实模型，逐一检查21种动作、7种心情的皮肤落地、头骨刚性、腿部可达与过渡，并输出所有截图及睡眠侧面、重绑证据；沿用 PET_HOUSE_URL/PET_HOUSE_EVIDENCE。截图不是额外的动画系统。实体 iPhone 尚未测。
 
-狗狗闭眼线原来过长、过黑；`pet-eyes.mjs` 只缩短狗狗眼睑弧线并降低宽度和深色混合，猫咪闭眼保持原样，嘴巴/鼻子/舌头和原压缩 GLB/图片不改。`check-face.cjs` 在同一个实际 WebGL 材质上比较原版与新版闭眼，验证两侧和正面闭眼线变细变浅、清醒状态/猫咪/鼻嘴舌头保持原像素。沿用 PET_FACE_URL/PET_FACE_EVIDENCE。
+猫狗闭眼共用清楚的弧线；宠物自己的眼位遮罩同步替换虹膜颜色、眼球法线、粗糙度与金属度，闭眼不留下灰色球面或反光，原几何与阴影不变。程序缓存键区分猫狗，防止混养后复用错误眼位；旧版狗狗侧面鼻子连耳朵的长黑线正是猫眼睑串到狗鼻口所致。`check-face.cjs` 用两种加载顺序和正面/两侧的站立、回应街坊、趴睡姿态检查真实 WebGL 睁闭眼：虹膜消失、闭眼线仍可见、鼻嘴舌头像素不变。沿用 PET_FACE_URL/PET_FACE_EVIDENCE。
+
+`catLooseFragmentIndices` 焊合 UV 接缝后只移除猫咪后腿前面两个微小区域内的独立网格岛；连接到腿身的三角面保留。真实资产删除505个三角面（两碎块及八个微小碎片），不改源压缩 GLB。`pet-details.test.mjs` 回归连接爪身保护、双侧碎块、幂等和猫狗着色缓存隔离。
+
+狗狗趴睡按自身较长四肢重新设置胸腹/骨盆下压及后爪收幅，去掉狗躯干的纵向缩扁；后腿根不再因深压与过折拉开硬楔面。猫姿态原值、膝弯方向、IK长度与蒙皮算法保留，醒来沿原姿态平滑恢复；源GLB和贴图仍不改。
+
+`check-leg-root.cjs` 检查实际腿根边长的塌缩/拉伸、脚底和IK；PET_LEG_URL/PET_LEG_EVIDENCE 指定预览与证据，PET_LEG_BASELINE 可传旧pose源码做同角度比较。新版狗后腿塌缩边从55降至15（1208条有效边），猫同姿指标保持原值。

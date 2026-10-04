@@ -34,14 +34,14 @@ export function postureFrame(rig,action,time=0,amount=0){
  const quiet=Math.max(0,1-amount),lie=action.lie*quiet,sit=action.sit*quiet,crouch=action.crouch*quiet,dog=rig.species==='dog';
  const breathe=.0018*Math.sin(time*(lie> .1?1.7:2.1))*quiet;
  return {lie,sit,
-  chestY:breathe-(dog?.109:.110)*lie-.044*crouch+.006*sit,
-  pelvisY:breathe*.65-.120*lie-.024*crouch-(dog?.141:.126)*sit,
-  chestScale:1-(dog?.32:0)*lie,pelvisScale:1-(dog?.28:0)*lie,
+  chestY:breathe-(dog?.085:.110)*lie-.044*crouch+.006*sit,
+  pelvisY:breathe*.65-(dog?.060:.120)*lie-.024*crouch-(dog?.141:.126)*sit,
+  chestScale:1,pelvisScale:1,
   chestPitch:.07*lie-.22*sit+action.chestPitch*quiet,
   pelvisPitch:.07*lie+.16*sit,
   paw(leg){const front=leg.name.startsWith('front'),sign=leg.name.endsWith('L')?-1:1;
    return {x:sign*((front?.018:.035)*lie+(front?0:.026)*sit),
-    z:front?(dog?.065:.07)*lie+.025*crouch:.14*lie+.16*sit,
+    z:front?(dog?.065:.07)*lie+.025*crouch:(dog?.040:.14)*lie+.16*sit,
     yaw:front?0:sign*(-.24*lie-.30*sit)};
   }
  };
