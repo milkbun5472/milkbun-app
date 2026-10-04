@@ -12338,7 +12338,7 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
         // ⚠️「响过你没接」和「来得太晚、压根没响」不是一回事，界面上得分得开
         //（她 2026-09-12：「不知道是打了我没看到还是只是显示未接但是根本没播」）
         (missed
-          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : "未接" + (video ? "视频" : "语音") + "通话")
+          ? (m.lateMissed ? "TA当时打过来了 · 补记（手机没响）" : m.busyMissed ? "无法接通 · " + (who || "TA") + "在忙（" + m.busyMissed + "）" : "未接" + (video ? "视频" : "语音") + "通话")
           : "你拒绝了" + (who ? who + "的" : "") + (video ? "视频" : "语音") + "通话邀请") + " · " + clock),
       onCallBack ? h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginLeft: 2 } }, "回拨") : null));
 }
@@ -17765,6 +17765,7 @@ function ChatSettings({
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
+  const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
@@ -18057,6 +18058,7 @@ function ChatSettings({
       engineerEyes,
       webSearch,
       noLoveLetter: !loveLetter,
+      busyHold: busyHold,
       toyEnabled,
       defaultOffline,
       actDesc,
@@ -18379,6 +18381,12 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "允许 Ta 主动表白"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们还不是恋人时，" + cNm + " 想跟你在一起了会写一封申请信，聊天里是一个封着的信封，拆开再选答应或再想想。说了再想想，至少隔 3 天才会再写。")),
     h("div", { className: "shrink-0" }, h(Toggle, { on: loveLetter, onChange: () => setLoveLetter(v => !v) }))),
+  // 忙的时候晚点回（v74.713）：默认关——秒回型、黏人的、本来就闲着的人设开了会走样
+  h("div", { className: "flex items-center justify-between pt-5" },
+    h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "忙的时候晚点回"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "按 " + cNm + " 今天的日程：正忙的那段（开会、上课、开车这种）你第一次叫 Ta 回复或打电话，有几率先不回——消息停在未读、电话打不通落一张未接；那段忙完 Ta 自己回你。真急就再按一次，算催。这一下不花调用。")),
+    h("div", { className: "shrink-0" }, h(Toggle, { on: busyHold, onChange: () => setBusyHold(v => !v) }))),
   h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {

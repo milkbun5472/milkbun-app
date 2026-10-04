@@ -4539,6 +4539,64 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 日历那边 v56.47 已经用 schedSleepCarry 把这一截画出来了，状态这几处一直没跟上
   //（施工规则/four-surfaces-same-context.md：这一层当初只写在一处，别处没跟上）。
   // charAwakeState 早就按「今天第一项之前＝还没醒」判 asleep，这里跟它同一个假设。
+  // ── 忙的时候晚点回（v74.713，群里肉肉肉酱意面提、她 2026-10-04 拍板）──────────────
+  // 她的版本：排日程时每段顺手标一个「顾不顾得上手机」（busy 0-3，不多花一次调用）；
+  //   她在TA忙的那段第一次按「让TA回复」/打电话、而且离上次说话有一阵了，就在本地掷一次骰子——
+  //   中了就【不调模型】：消息停在未读，电话打不通、落一张未接卡；那段忙完TA自己回一次（一枪看完这期间所有的）。
+  //   她非要现在就聊，再按一次＝催，当场接通。
+  // ⚠️默认关、每个角色自己开（她：「默认关着的按钮是必须的，不然会破坏一些人设」）。
+  const BUSY_ODDS = [0, 0.35, 0.6, 0.85];
+  const BUSY_GAP_MIN = 20;          // 离TA上一条话不到这么久＝正聊着，不拦
+  const busyNowFor = char => {
+    const plans = schedulesRef.current[char.id] || {};
+    const s = plans[schedLocalDayKey(char)];
+    if (!s || !Array.isArray(s.seqs) || !s.seqs.length) return null;
+    const disp = schedDisplaySeqs(char, s.seqs);
+    const idx = schedCurrentSeqIdx(disp, true, char);
+    const cur = idx >= 0 ? disp[idx] : null;
+    if (!cur || cur.type === "sleep") return null;          // 睡着有睡眠那一套管，这里不重复
+    const level = Number.isFinite(Number(cur.busy)) && cur.busy !== undefined ? Number(cur.busy) : (cur.type === "work" ? 1 : 0);
+    if (!(level >= 1)) return null;
+    const hm = x => { const m = /(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? +m[1] * 60 + +m[2] : null; };
+    const endM = hm(cur.end || (disp[idx + 1] && disp[idx + 1].time)), nowM = charLocalMin(char);
+    let left = endM == null ? 60 : endM - nowM;
+    if (left < -720) left += 1440;
+    left = Math.max(5, Math.min(240, left));
+    return { level: Math.min(3, level), title: cur.title || "在忙", endTs: Date.now() + left * 60000, segKey: schedLocalDayKey(char) + "#" + (cur.time || idx) };
+  };
+  const busyHoldsRef = useRef(null);
+  const busyHolds = () => { if (!busyHoldsRef.current) busyHoldsRef.current = loadJSON("x_busyHold", {}) || {}; return busyHoldsRef.current; };
+  const busyHoldSet = (cid, v) => { const m = busyHolds(); if (v) m[cid] = v; else delete m[cid]; saveJSON("x_busyHold", m); };
+  // 返回值：null＝放行；{held}＝这次拦下来了；{nudge}＝之前拦过、这是她在催
+  const busyGate = (char, chatKey) => {
+    if (!char || settingsFor(char.id).busyHold !== true) return null;
+    if (chatKey && chatKey !== char.id) return null;          // 小房间、拉黑那些另有规矩，只管主线单聊
+    const h0 = busyHolds()[char.id];
+    if (h0 && h0.held && !h0.released) return { nudge: h0 };
+    const b = busyNowFor(char);
+    if (!b) return null;
+    if (h0 && h0.segKey === b.segKey) return null;             // 这一段已经掷过一次了，不重复掷
+    const ms = (chatsRef.current[char.id] || []).filter(m => m && m.role === "assistant" && !m.recalled);
+    const lastTs = ms.length ? Number(ms[ms.length - 1].ts) || 0 : 0;
+    if (Date.now() - lastTs < BUSY_GAP_MIN * 60000) return null;
+    const held = Math.random() < BUSY_ODDS[b.level];
+    busyHoldSet(char.id, { segKey: b.segKey, held, title: b.title, level: b.level, until: b.endTs, at: Date.now(), released: false });
+    return held ? { held: busyHolds()[char.id] } : null;
+  };
+  // 单聊里她打出去的电话（拨号键、未接卡上的回拨）都从这儿过：忙的时候可能打不通
+  const callCharGated = (activeChar, m) => {
+    const bg = busyGate(activeChar, blockChatKey(activeChar.id));
+    if (bg && bg.held) {
+      // 打不通：不进通话、不调模型，只落一张未接卡（点它回拨＝催）
+      pChat(activeChar.id, p => [...p, { role: "user", kind: "callinvite", mode: m === "video" ? "video" : "voice", content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请]",
+        answered: "missed", busyMissed: bg.held.title, ts: Date.now(), read: false }]);
+      toast(characterText(activeChar, "无法接通——TA 在忙（" + bg.held.title + "）。再打一次就是催"));
+      return;
+    }
+    if (bg && bg.nudge) busyRelease(activeChar.id);
+    return startCall([activeChar], m, null, "me", blockChatKey(activeChar.id));
+  };
+  const busyRelease = cid => { const h0 = busyHolds()[cid]; if (h0) busyHoldSet(cid, Object.assign({}, h0, { released: true })); };
   const schedCarryNowFor = char => {
     try {
       if (!char) return null;
@@ -6771,6 +6829,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             );
             return;                                               // 一次一个，错峰
           }
+        }
+      } catch (e) {}
+      // —— 忙的时候晚点回：那段忙完了，TA 自己回一次（一枪看完这期间她发的全部）——
+      try {
+        const holds = busyHolds();
+        for (const cid of Object.keys(holds)) {
+          const h0 = holds[cid];
+          if (!h0 || !h0.held || h0.released || Date.now() < (h0.until || 0)) continue;
+          if (laneBusy("c:" + cid)) continue;
+          const c = characters.find(x => x.id === cid);
+          if (!c || settingsFor(cid).busyHold !== true) { busyRelease(cid); continue; }
+          busyRelease(cid);
+          replyNow(cid, "", null, { busyBack: { title: h0.title } });
+          return;                                                // 一次一个，错峰
         }
       } catch (e) {}
       // —— 健康·饭点来问（v74.640）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
@@ -10255,6 +10327,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
+      // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
+      const busyHint = opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
+        : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），" + uName + " 又催了你一次，你抽空回 Ta。照你自己的性子来。" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
@@ -11089,7 +11164,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -15024,7 +15099,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         ? "{\"load\":\"NORMAL\",\"estTime\":18,\"seqs\":[{\"time\":\"02:00\",\"end\":\"03:30\",\"title\":\"扫报错日志\",\"location\":\"后台进程\",\"type\":\"work\",\"deviation\":null},{\"time\":\"03:30\",\"end\":\"06:00\",\"title\":\"低功耗待机\",\"location\":\"待命\",\"type\":\"rest\",\"deviation\":null}]" + murmurSchema + "}"
         // ⚠️占位值写【说明】，不写【样例内容】：写成「起床，晨间咖啡／家里厨房」的话，
         //   模型会连那个世界一起抄走（王爷也开始在公寓里煮咖啡）。
-        : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
+        : characterText(char, "{\"load\":\"HIGH LOAD\",\"estTime\":22,\"seqs\":[{\"time\":\"这一段几点开始\",\"end\":\"几点结束\",\"busy\":\"这一段他顾不顾得上看手机：0 随时能看／1 偶尔瞄一眼／2 基本顾不上／3 完全碰不了（整数）\",\"title\":\"这一段他在做什么（这个身份的人真会做的具体事）\",\"location\":\"在哪儿（细到具体处所，贴着他那个世界）\",\"place\":\"这会儿他在哪个【大地方】：城／坊市／宅院这一级，要跟地图上认得出的地名对得上\",\"type\":\"从上面那几个词里挑最接近的\",\"deviation\":null},{\"time\":\"就寝那一段几点\",\"end\":\"24:00\",\"title\":\"临睡前在做什么\",\"location\":\"他睡的地方\",\"type\":\"sleep\",\"deviation\":null}]") + murmurSchema + "}";
       const rawPlan = await runProbe(bgActive, { ...ctxFor(char), worldbook: loreFor(char, "lifestyle") }, {
         instruction: schedInstr + schedPeerBlock(char, [dayKey]) + "\n" + SCHED_WORLD_RULE + "\n" + SCHED_END_RULE + "\n" + SCHED_TENSE_RULE,
         schemaHint: schedSchema,
@@ -15034,7 +15109,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const plan = {
         load: d.load || "NORMAL",
         estTime: Number(d.estTime) || null,
-        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
+        seqs: schedFillEnds((Array.isArray(d.seqs) ? d.seqs : []).map((s, i) => ({ seq: i + 1, time: s.time || "", end: s.end || "", title: s.title || "", location: s.location || "", place: s.place || "", type: s.type || "other", busy: Math.max(0, Math.min(3, Math.round(Number(s.busy) || 0))), deviation: s.deviation && (s.deviation.plan || s.deviation.reason) ? s.deviation : null }))),
         // 今天先不留碎碎念（明天回看时补）；回溯的过去日才当场写
         murmurs: retro ? (Array.isArray(d.murmurs) ? d.murmurs : []).filter(m => m && m.text) : [],
         generatedAt: Date.now()
@@ -25881,6 +25956,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           .then(ok => toast(ok ? "书房已收到" : "书房没接到，点亮「直连」可走订阅"));
         return;
       }
+      const bg = busyGate(activeChar, chatKey);
+      if (bg && bg.held) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, chatKey);
+        toast(characterText(activeChar, "TA 这会儿在忙（" + bg.held.title + "），还没看手机——忙完会回你。真有急事就再按一次催一下"));
+        return;
+      }
+      if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title } }); }
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
@@ -25958,8 +26041,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
-    onStartCall: m => startCall([activeChar], m, null, "me", blockChatKey(activeChar.id)),
-    onCallBack: m => startCall([activeChar], m.mode, null, "me", blockChatKey(activeChar.id)),
+    onStartCall: m => callCharGated(activeChar, m),
+    onCallBack: m => callCharGated(activeChar, m.mode),
     onAskCouple: cid => runRoomAction(activeChar.id, "coupleInvite", () => askCoupleInvite(activeChar.id, cid)),
     askingCouple: gen.coupleAsk || null,
     onAcceptListen: acceptListenInvite,
