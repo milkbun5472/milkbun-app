@@ -8911,6 +8911,10 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
 // ============================================================
 // storage / utils / geo / mood
 // ============================================================
+// 聊天里看到的那张脸：TA 在聊天里自己换过（chatAvatar）就用那张，否则就是档案那张。
+//   ⚠️一处写、处处调（她 2026-10-05：「消息通知这里头像没更新成聊天里的，又是没做成公共的地方」）：
+//   聊天列表、聊天页、群聊、状态卡、顶上那条消息通知、通话都走这一个。档案、编辑页、锁脸还读 avatarImage。
+function chatFace(c) { return c && c.chatAvatar ? Object.assign({}, c, { avatarImage: c.chatAvatar }) : c; }
 function loadJSON(k, fb) {
   try {
     txtEarlyTouch(k);
