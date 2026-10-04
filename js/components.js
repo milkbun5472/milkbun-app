@@ -3262,6 +3262,9 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
   const [len, setLen] = useState(per.periodLen || 5);
   const [key, setKey] = useState(daySel);
   const [visOpen, setVisOpen] = useState(false);
+  // 日子那一排现在长了：选中的那天滚到看得见的地方
+  const chipRow = useRef(null);
+  useEffect(function () { const r = chipRow.current, b = r && r.querySelector('[data-k="' + key + '"]'); if (b) r.scrollLeft = Math.max(0, b.offsetLeft - r.clientWidth / 2 + b.clientWidth / 2); }, [key]);
   const logs = periodLogsOf(per);
   const log = logs[key] || {};
   const list = periodList(per);
@@ -3320,18 +3323,32 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
       // ── 今天这一页 ──
       sec("记在 " + key.slice(5) + " 这一页"),
       // ⚠️右边留一截：选中的那天永远是最右一个，不留白就被裁在屏幕边上
-      h("div", { className: "flex", style: { gap: 6, marginBottom: 12, overflowX: "auto", paddingRight: 14 } },
+      h("div", { ref: chipRow, className: "flex", style: { gap: 6, marginBottom: 12, overflowX: "auto", paddingRight: 14 } },
         (function () {
+          // ⚠️原来是「月历上选中那天往前七天」（她 2026-10-05：「经期跨不了月」）：
+          //   月历停在 9-29，这一排就只到 9-29，10 月的日子一个都点不到。
+          //   现在一直排到今天（或者选中那天，取晚的），往前三周；这次还开着的那轮从哪天起就从哪天起。
+          //   再远的用最后那个「别的日子」挑。
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const endD = pKeyDate(daySel) > today ? pKeyDate(daySel) : today;
+          const openP = list.filter(function (x) { return !x.end; }).slice(-1)[0];
+          let from = new Date(endD); from.setDate(from.getDate() - 20);
+          if (openP && pKeyDate(openP.start) < from) from = pKeyDate(openP.start);
           const days = [];
-          for (let i = 6; i >= 0; i--) { const d = pKeyDate(daySel); d.setDate(d.getDate() - i); days.push(calPadKey(d.getFullYear(), d.getMonth(), d.getDate())); }
+          for (const d = new Date(from); d <= endD; d.setDate(d.getDate() + 1)) days.push(calPadKey(d.getFullYear(), d.getMonth(), d.getDate()));
+          if (days.indexOf(key) < 0) days.push(key);
           return days.map(function (k) {
             const on = k === key, has = !!logs[k];
-            return h("button", { key: k, onClick: function () { setKey(k); }, className: "shrink-0 active:opacity-70",
+            return h("button", { key: k, "data-k": k, onClick: function () { setKey(k); }, className: "shrink-0 active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 9px", borderRadius: 9,
                 color: on ? t.bg2 : (has ? t.ink : t.fog), background: on ? t.ink : "transparent",
                 border: "1px solid " + (on ? t.ink : t.line) } }, k.slice(5) + (has && !on ? " ·" : ""));
           });
-        })()),
+        })(),
+        h("label", { className: "shrink-0", style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, padding: "5px 9px", borderRadius: 9, color: t.sub, border: "1px dashed " + t.line, overflow: "hidden" } },
+          "别的日子",
+          h("input", { type: "date", value: key, "aria-label": "挑别的日子", onChange: function (e) { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setKey(e.target.value); },
+            style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%" } }))),
       h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 10 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, width: 30 } }, "量"),
         PERIOD_FLOW.map(function (f) {
