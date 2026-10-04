@@ -101,7 +101,7 @@ test("监督那一行接进上下文：ctxFor、buildBundle、隔离房、精简
 
 test("饭点来问接进主动那一路，出口单独记账", () => {
   assert.match(app, /const hn = window\.HealthCtx && window\.HealthCtx\.nudgeDue\(\);/);
-  assert.match(app, /replyNow\(cand\.id, "", null, \{ proactive: true, health: \{ meal: hn\.label, line: hn\.line \} \}\)/);
+  assert.match(app, /replyNow\(cand\.id, "", null, \{ proactive: true, health: \{ meal: hn\.label, line: hn\.line, tail: hn\.tail \} \}\)/);
   assert.match(app, /\(\) => window\.HealthCtx\.markNudged\(hn\.day, hn\.meal\)/);
   assert.match(app, /opts\.remind \? remindHint : opts\.health \? healthHint :/);
   assert.match(app, /opts\.health \? "health_meal" :/);
