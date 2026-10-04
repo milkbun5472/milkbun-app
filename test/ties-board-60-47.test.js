@@ -19,7 +19,11 @@ test("一人一页：这一页只画和中心那个人直接有关系的", () =>
   // 老那份「所有人画一张网」整个删掉，不留半截
   assert.ok(!scr.includes("function TiesMap("), "v60.46 那张汇总网还留着");
   assert.ok(!scr.includes("const tethers = npcs.map"), "汇总网那套配角虚线也一起走");
-  assert.match(ties, /h\(TiesBoard, \{\n?\s*key: boardId, centerId: boardId/, "换人要真的换一页");
+  // ⚠️原来钉的是「h(TiesBoard, { 紧接着就是 key: boardId」——中间加一行注释就断
+  //   （施工规则/anchor-on-code：钉的该是代码，不是它上面有没有注释）。
+  //   2026-10-03 给这儿加「我戴哪张脸」的说明时断过一次。
+  assert.match(ties.replace(/^\s*\/\/.*$/gm, ""), /h\(TiesBoard, \{\s*key: boardId, centerId: boardId/,
+    "换人要真的换一页");
 });
 
 test("标签只取中心这一头的说法——两头拼一句就是那行横穿全图的字", () => {

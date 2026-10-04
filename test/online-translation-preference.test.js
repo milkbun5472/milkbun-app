@@ -16,7 +16,9 @@ test('全局译文默认手动，沿用旧通话偏好，新设置 false 也有�
 test('六个线上气泡/语音消息/转录入口都经公共 TransText，不再有通话专属显示状态', () => {
   // v72.40：语音条那一处改喂【剥掉语气标记的那一份】(say)——标记是说给 TTS 听的，
   // 不给她看（她 2026-09-21）。入口仍旧是同一个 TransText，只是文本先过了 ttsMarkStrip。
-  assert.equal((src.match(/h\(TransText, \{ text: (?:[ml]\.content|say)/g) || []).length, 6);
+  // 6 → 9（v74.713）：朋友圈那三处正文也走公共 TransText，于是「自动展开译文」
+  //   这个偏好在朋友圈上也一起生效了——这正是这条测试守的事（别再有第二套显示状态）。
+  assert.equal((src.match(/h\(TransText, \{ text: (?:[ml]\.content|say)/g) || []).length, 9);
   assert.match(src, /h\(TransText, \{ text: say,/, "语音条的转录没走剥标记那一份");
   assert.match(fn('TransText'), /useOnlineTranslationAuto\(\)/);
   assert.equal((src.match(/h\(OnlineTranslationControl,/g) || []).length, 1);

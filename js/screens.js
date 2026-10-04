@@ -1243,6 +1243,7 @@ function TiesWalk({ startId, me, profile, allChars, rels, tiePos, onSaveTiePos, 
 function Ties({
   characters,
   allChars,
+  profileFor,
   onSaveNpcKnows,
   onDraftRel,
   relBusy,
@@ -1463,6 +1464,7 @@ function Ties({
   // 选中那张抬起来、放大、露出名字，没选中的缩着压暗。换个 app 这条不成立。
   const boardIds = ["me"].concat(characters.map(c => c.id));
   const boardId = boardIds.indexOf(board) >= 0 ? board : boardIds[0];
+  const boardProfile = (boardId !== "me" && typeof profileFor === "function") ? (profileFor(boardId) || profile) : profile;
   const faceStrip = h("div", { className: "shrink-0 flex items-end gap-2 px-4 pb-2",
     style: { overflowX: "auto", overflowY: "hidden", WebkitOverflowScrolling: "touch" } },
     boardIds.map(id => {
@@ -1494,7 +1496,11 @@ function Ties({
     characters.length === 0
       ? h("div", { className: "flex-1 px-6" }, h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入" }))
       : h(TiesBoard, {
-          key: boardId, centerId: boardId, me, profile, allChars: all, rels,
+          // 「我」那个节点戴的是【这一页这个人认识的那张脸】（群友 2026-10-03 报的：
+          //   聊天里绑了专属面具，关系网上还是主面具）。换脸那一层走 profileFor，
+          //   跟单聊/线下/通话/日记那八处同一口，这儿不另算。
+          //   「我」自己那一页没有「对谁」可言，照旧是主面具。
+          key: boardId, centerId: boardId, me, profile: boardProfile, allChars: all, rels,
           savedPos: tiePos, onSavePos: onSaveTiePos, onEditEdge: openEdit,
           // 这块板子上点一张脸，就进那一页接着往下走（她 2026-09-15 要的就是这个动作）。
           // 板子本身照旧是「这个人有哪些关系」，走网是另一页的事，两件事别挤在一页里。

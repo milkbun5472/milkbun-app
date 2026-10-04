@@ -18,6 +18,11 @@ const path = require("node:path");
 const root = path.join(__dirname, "..");
 const comp = fs.readFileSync(path.join(root, "js/components.js"), "utf8");
 const CS = comp.slice(comp.indexOf("function ChatSettings({"));
+// v74.713：分类目录那一段提成了公共件 SettingCatalog（线下设置也要同一套，
+//   她 2026-10-03「看看线上那条咋做的直接搬过来」）。于是【长什么样】那几条
+//   断言的落点从 ChatSettings 挪到了这个公共件里——它守的事一个字没变：
+//   一列窄行、每行写着现在什么状态、点一下进那一类。
+const CATALOG = comp.slice(comp.indexOf("function SettingCatalog({"), comp.indexOf("function SettingSection({"));
 assert.ok(CS.length > 20000, "抠不出 ChatSettings");
 
 // 从源码里读出这一页现在怎么分的：settingPages 定义 + 每个 show(tab,...) 落在哪一类
@@ -70,20 +75,24 @@ test("只装一节的那几类，进去就摊开", () => {
     .flatMap(m => [...m[1].matchAll(/(\w+):/g)].map(x => x[1])).sort();
   assert.deepEqual(declared, solo, "SOLO 名单跟实际只有一节的那几类对不上");
   assert.match(CS, /const openTab = k => \{ setSettingsTab\(k\); setOpenSec\(SOLO\[k\] \|\| ""\); \}/);
-  assert.match(CS, /onClick: \(\) => openTab\(page\.key\)/, "首页那一行没走 openTab，SOLO 就白写了");
+  // 目录提成公共件之后，「点哪一行开哪一类」是公共件通过 onOpen 回调做的；
+  //   这边要守的是【ChatSettings 交给它的那个回调就是 openTab】——SOLO 才不会白写。
+  assert.match(CS, /h\(SettingCatalog, \{ pages: settingPages, onOpen: openTab/,
+    "首页没把 openTab 交给目录，SOLO 就白写了");
+  assert.match(CATALOG, /onClick: \(\) => onOpen\(page\.key\)/, "目录那一行点了没反应");
 });
 
 test("每一行写着现在是什么状态（不用点进去就知道）", () => {
   // 「难找」有一半是「不点开看不出现在设成什么」。别的 app 的设置目录不会长这样，
   // 因为别处没有「他」——这是 tabs-not-plain-pills.md 那条判据要的：换个 app 就不成立。
   assert.equal(PAGES.length, [...CS.matchAll(/\n\s*state: \(\) =>/g)].length, "有几类没写状态那一行");
-  assert.match(CS, /\}, page\.state\(\)\)/, "首页没把状态渲染出来");
+  assert.match(CATALOG, /\}, page\.state\(\)\)/, "目录没把状态渲染出来");
 });
 
 test("一屏放得下：一列窄行，不是两列大卡", () => {
-  assert.doesNotMatch(CS, /minHeight: 142/, "又变回 142px 的大卡了，七张要滚两屏");
-  assert.doesNotMatch(CS, /grid grid-cols-2 gap-3/, "又变回两列网格了");
-  assert.match(CS, /flexDirection: "column", gap: 8/, "首页不是一列");
+  assert.doesNotMatch(CATALOG, /minHeight: 142/, "又变回 142px 的大卡了，七张要滚两屏");
+  assert.doesNotMatch(CATALOG, /grid grid-cols-2 gap-3/, "又变回两列网格了");
+  assert.match(CATALOG, /flexDirection: "column", gap: 8/, "目录不是一列");
 });
 
 test("挪过位置的那几节留在新家（附理由，别再挪回去）", () => {
