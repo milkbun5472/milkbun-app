@@ -1,6 +1,6 @@
 import {turnPet} from './movement.mjs';
 import test from 'node:test';import assert from 'node:assert/strict';
-import {createPetCare,restoreCare,careSummary} from './care.mjs';
+import {createPetCare,restoreCare,careSummary,careBlock} from './care.mjs';
 import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs';
 const run=(care,n,options={home:true})=>{for(let i=0;i<n;i++)care.tick(1,options);};
 test('legacy and corrupt care saves recover to finite bounded values without inventing offline time',()=>{const s=restoreCare({satiety:Infinity,energy:-4,mood:300,task:{kind:'bogus'},recent:[null,{text:'饭'}]});assert.equal(s.satiety,65);assert.equal(s.energy,0);assert.equal(s.mood,100);assert.equal(s.task,null);assert.equal(s.elapsed,0);assert.equal(s.bowl,0);assert.equal(s.recent.length,1);});
@@ -13,3 +13,4 @@ test('home paths reach every care approach at all supported sizes and avoid furn
 test('a small snack is eaten over time and a full pet refuses another',()=>{const c=createPetCare({satiety:50});assert.equal(c.request('snack').accepted,true);c.arrive();run(c,6);assert.ok(c.state.satiety>55);assert.equal(c.state.task,null);assert.equal(createPetCare({satiety:95}).request('snack').accepted,false);});
 
 test('street and home pivots turn on the shortest arc and wait to move when facing away',()=>{const t=turnPet(0,Math.PI,.05);assert.ok(Math.abs(t.heading-.15)<1e-12);assert.equal(t.canMove,false);const wrap=turnPet(Math.PI-.01,-Math.PI+.01,.05);assert.ok(wrap.canMove);assert.ok(Math.abs(wrap.heading-(Math.PI+.01))<1e-8);});
+test('care buttons gray out exactly when request would surely refuse, with the same words',()=>{const cases=[[{bowl:60},'feed'],[{satiety:95},'snack'],[{energy:10},'play'],[{satiety:5,energy:80},'play'],[{cooldown:5},'pet'],[{task:{kind:'sleep',phase:'doing',place:'bed',source:'self',time:3}},'snack']];for(const [raw,action] of cases){const care=createPetCare(raw),block=careBlock(care.state,action);assert.ok(block,action+' 应该预先灰掉');const r=care.request(action,{toy:'ball'});assert.equal(r.accepted,false);assert.equal(r.text,block.text);}const fresh=createPetCare({bowl:0,satiety:50,energy:80});for(const a of ['feed','snack','play','pet'])assert.equal(careBlock(fresh.state,a),null,a+' 不该灰');});

@@ -1,14 +1,14 @@
-import {HOME_DETAILS} from './room-layout.mjs?v=fg-85294a4bf3613c13';
-import {skillTask} from './skills.mjs?v=fg-85294a4bf3613c13';
-import {chorePlaces} from './home-chores.mjs?v=fg-85294a4bf3613c13';
-import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-85294a4bf3613c13';
-import {chooseComfortSpot} from './habits.mjs?v=fg-85294a4bf3613c13';
-import {createParcelProp} from './parcel-prop.mjs?v=fg-85294a4bf3613c13';
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-85294a4bf3613c13';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-85294a4bf3613c13';
-import {turnPet} from './movement.mjs?v=fg-85294a4bf3613c13';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-85294a4bf3613c13';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-85294a4bf3613c13';
+import {HOME_DETAILS} from './room-layout.mjs?v=fg-15e6da97127bf7f7';
+import {skillTask} from './skills.mjs?v=fg-15e6da97127bf7f7';
+import {chorePlaces} from './home-chores.mjs?v=fg-15e6da97127bf7f7';
+import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-15e6da97127bf7f7';
+import {chooseComfortSpot} from './habits.mjs?v=fg-15e6da97127bf7f7';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-15e6da97127bf7f7';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-15e6da97127bf7f7';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-15e6da97127bf7f7';
+import {turnPet} from './movement.mjs?v=fg-15e6da97127bf7f7';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-15e6da97127bf7f7';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-15e6da97127bf7f7';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],getChore=()=>null,index=0,station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places={...petHomePlaces(station),water:chorePlaces(index).water};
