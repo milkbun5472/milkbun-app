@@ -1,8 +1,8 @@
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-62c73d2268da4674';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-62c73d2268da4674';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-62c73d2268da4674';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-62c73d2268da4674';
-import {turnPet} from './movement.mjs?v=fg-62c73d2268da4674';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-669a7169adca921b';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-669a7169adca921b';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-669a7169adca921b';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-669a7169adca921b';
+import {turnPet} from './movement.mjs?v=fg-669a7169adca921b';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={}}){
  const person=host.companion?.();if(!person?.id)return null;

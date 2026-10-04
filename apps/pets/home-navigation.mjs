@@ -1,5 +1,5 @@
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-62c73d2268da4674';
-import {floorHeight} from '../../art/pet-house/cat-motion.mjs?v=fg-62c73d2268da4674';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-669a7169adca921b';
+import {floorHeight} from '../../art/pet-house/cat-motion.mjs?v=fg-669a7169adca921b';
 // Authored furniture footprints in the existing room (Y-up world coordinates).
 export const HOME_PLACES={box:{x:-1,z:.05,yaw:0},feeding:{x:1.55,z:1.4,yaw:Math.PI/2},rug:{x:0,z:.55,yaw:0},bed:{x:-1.2,z:-.82,yaw:-2.3},sofa:{x:1.1,z:-.5,yaw:Math.PI},window:{x:-.55,z:-1.9,yaw:Math.PI}};
 const obstacles=[{x:1.52,z:-1.76,w:2.56,d:1.27},{x:-1.89,z:-1.64,w:1.28,d:.98},{x:-2.51,z:-.25,w:.88,d:.82},{x:2.36,z:1.12,w:.87,d:1.08},{x:-2.45,z:1.75,w:.9,d:.65}];
