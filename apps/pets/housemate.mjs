@@ -1,16 +1,16 @@
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-e8531bef89d78e7b';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-e8531bef89d78e7b';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-e8531bef89d78e7b';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-e8531bef89d78e7b';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-e8531bef89d78e7b';
-import {turnPet} from './movement.mjs?v=fg-e8531bef89d78e7b';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-00e53f677aa3a5c2';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-00e53f677aa3a5c2';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-00e53f677aa3a5c2';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-00e53f677aa3a5c2';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-00e53f677aa3a5c2';
+import {turnPet} from './movement.mjs?v=fg-00e53f677aa3a5c2';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home'}){
  const person=host.companion?.();if(!person?.id)return null;
  const archive=host.load(),garden=archive.worlds?.garden||archive.world;
  const look=seatLook('companion',archive.journey?.companionLook||garden?.companion?.look,person.ta);
  const doll=createTraveler(await loadTravelerSource(),true,look);await doll.ready();scene.add(doll.root);doll.root.scale.setScalar(1.6);doll.root.visible=false;
- if(resident.id!==String(person.id))Object.assign(resident,restoreResident({id:String(person.id)}));
+ if(resident.id!==String(person.id)){Object.assign(resident,restoreResident({id:String(person.id)}));delete resident.town;}
  if(world&&!resident.town)resident.town=newTownLife('home',resident.town?.position||resident.position||{x:-1.15,z:1.35},resident.rng);const town=world?createTownLife(resident.town,{world,size:()=>1.4,onChange:save}):null;const nav=createHomeNavigation(1.4);let route=[],clock=0,idle=0,visible=false,job=null,blockedTime=0;
  const members=()=>getPets().length?getPets().filter(x=>!x.entry.town||x.entry.town.place==='home'):[{entry:{id:'pet-1'},care,home}];
  const choose=id=>{const selected=members().find(x=>x.entry.id===id)||members().find(x=>x.entry.id===getActiveId())||members()[0];if(!selected)return '';care=selected.care;home=selected.home;return selected.entry.id;};
@@ -33,7 +33,7 @@ export async function createHousemate({scene,host,care,home,notice,save,getPets=
   }else{a.time+=dt;if(a.kind==='look')doll.root.rotation.y+=Math.cos(a.time*.7)*dt*.1;if(a.time>=a.duration){resident.activity=null;resident.idle=0;save();}}
   return false;
  }
- function tick(dt){if(town){const settled=members().some(x=>{const t=x.care.state.task;return t?.target==='companion:'+person.id&&['sleep','invitePet','askSnack','invitePlay','waitFood'].includes(t.kind);});const result=town.tick(dt,{blocked:!!job||settled||getPets().some(x=>x.career?.state.job),position:pos(),heading:doll.root.rotation.y,needsHome:members().some(x=>x.care.state.satiety<40)});if(result.owned||town.state.place!=='home'){if(resident.activity){resident.activity=null;route=[];}const q=town.state.position;doll.root.position.set(q.x,town.nav().ground(q.x,q.z)+.03,q.z);doll.root.rotation.y=town.state.heading;clock+=dt;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;doll.animate(clock,{moving:result.speed>0,gesture:'rest',height:doll.root.position.y});syncResident();return;}visible=town.state.place==='home'&&getPlace()==='home';doll.root.visible=visible;}if(!visible&&!town)return;clock+=dt;idle+=dt;let moving=false;
+ function tick(dt){if(job&&town&&!members().some(x=>x.entry.id===job.petId)){care.record(person.name+'看见它出门了，等回家再照料。');if(care.state.task?.source==='companion'&&String(care.state.task.actor)===String(person.id))care.cancel();care.state.helper=null;job=null;route=[];save();}if(town){const settled=members().some(x=>{const t=x.care.state.task;return t?.target==='companion:'+person.id&&['sleep','invitePet','askSnack','invitePlay','waitFood'].includes(t.kind);});const result=town.tick(dt,{blocked:!!job||settled||getPets().some(x=>x.career?.state.job),position:pos(),heading:doll.root.rotation.y,needsHome:members().some(x=>x.care.state.satiety<40)});if(result.owned||town.state.place!=='home'){if(resident.activity){resident.activity=null;route=[];}const q=town.state.position;doll.root.position.set(q.x,town.nav().ground(q.x,q.z)+.03,q.z);doll.root.rotation.y=town.state.heading;clock+=dt;visible=town.state.place===(getPlace()||'outside');doll.root.visible=visible;doll.animate(clock,{moving:result.speed>0,gesture:'rest',height:doll.root.position.y});syncResident();return;}visible=town.state.place==='home'&&getPlace()==='home';doll.root.visible=visible;}if(!visible&&!town)return;clock+=dt;idle+=dt;let moving=false;
   const pending=members().filter(x=>{const v=x.care.state.task;return v?.source==='self'&&v.target==='companion:'+person.id&&v.phase==='doing'&&v.time>=2&&['waiting','cuddle'].includes(v.stage);}).sort((a,b)=>b.care.state.task.time-a.care.state.task.time)[0];if(!job&&pending)choose(pending.entry.id);const visit=care.state.task;if(!job&&visit?.source==='self'&&visit.target==='companion:'+person.id&&visit.phase==='doing'&&visit.time>=2&&['waiting','cuddle'].includes(visit.stage)){const action=({waitFood:'feed',invitePlay:'play',invitePet:'pet',askSnack:'snack'})[visit.kind];if(action)request(action,{responsive:true,petId:pending?.entry.id});}
   if(job){if(job.phase==='walking'){
    const dest=route[0];if(dest){const p=pos(),dx=dest.x-p.x,dz=dest.z-p.z,d=Math.hypot(dx,dz),turn=turnPet(doll.root.rotation.y,Math.atan2(dx,dz),dt);doll.root.rotation.y=turn.heading;const step=turn.canMove?Math.min(d,dt*.8):0;moving=step>0;if(d>1e-5){doll.root.position.x+=dx/d*step;doll.root.position.z+=dz/d*step;}if(d<=step+.002)route.shift();}

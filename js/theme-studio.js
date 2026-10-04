@@ -307,7 +307,7 @@
     return Number(m[2]) < SKIN_VER ? { name: m[1], from: Number(m[2]), to: SKIN_VER } : null;
   };
   // 消息列表的两套起手式（群友 2026-10-03：「这个界面的这种是没办法美化吗」）。
-  //   只用 v74.615 补的那 12 个挂点 + 通用的 app/head，换的是颜色、圆角、间距，不碰排版。
+  //   只用 v74.732 补的那 12 个挂点 + 通用的 app/head，换的是颜色、圆角、间距，不碰排版。
   const listSkinCSS = o => [
     '[data-wk="app"], [data-wk="mlpage"] { background: ' + o.bg + ' !important; }',
     '[data-wk="mlsearch"] { background: ' + o.card + ' !important; border-color: ' + o.line + ' !important; border-radius: ' + o.searchRadius + ' !important; }',
@@ -475,7 +475,7 @@
         ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
-    // 星测（v74.590）：整页是一片夜空，挂点都在这一页
+    // 星测（v74.732）：整页是一片夜空，挂点都在这一页
     Object.freeze({
       zh: "星测", pages: Object.freeze(["astro"]),
       hooks: Object.freeze([
@@ -484,7 +484,7 @@
         ["astronote", "TA看完说的那段话"]
       ])
     }),
-    // 健康（v74.640）：坐标纸底、心电图 tab
+    // 健康（v74.732）：坐标纸底、心电图 tab
     Object.freeze({
       zh: "健康", pages: Object.freeze(["health"]),
       hooks: Object.freeze([

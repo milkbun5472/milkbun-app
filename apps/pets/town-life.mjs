@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-e8531bef89d78e7b';
-import {walkRoute} from './movement.mjs?v=fg-e8531bef89d78e7b';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-e8531bef89d78e7b';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-e8531bef89d78e7b';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-00e53f677aa3a5c2';
+import {walkRoute} from './movement.mjs?v=fg-00e53f677aa3a5c2';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-00e53f677aa3a5c2';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-00e53f677aa3a5c2';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
@@ -20,8 +20,8 @@ export function newTownLife(place,position,rng){return restoreTownLife({place,po
 export function townSummary(s,title=id=>id){return s.phase==='exit'?'准备出门走走':s.phase==='travel'?(s.target==='home'?'散步结束，正在回家':'正去'+title(s.target)):s.place==='outside'?(s.phase==='stroll'?'在街区慢慢散步':'在街区歇歇看看'):s.place!=='home'?'在'+title(s.place)+'闲逛':null;}
 // Pet and companion share one itinerary and one path executor. Room boundaries
 // are crossed only after reaching their doorway; outdoor legs use the real town.
-export function createTownLife(state,{world,size=()=>1,onChange=()=>{}}){let route=[],routeKey='',speed=0;
- const nav=()=>state.place==='outside'?world:createTownNavigation(state.place,size());
+export function createTownLife(state,{world,size=()=>1,onChange=()=>{}}){let route=[],routeKey='',speed=0;const navigators=new Map();
+ const nav=()=>{if(state.place==='outside')return world;const key=state.place+':'+size();if(!navigators.has(key))navigators.set(key,createTownNavigation(state.place,size()));return navigators.get(key);};
  if(!nav().walkable(state.position?.x,state.position?.z)){state.position=state.place==='outside'?world.restore({position:state.position}).position:nav().restore(state.position);state.phase='idle';state.goal=null;}if(state.phase==='travel'&&state.target==='outside'||state.phase==='exit'&&state.place==='outside'){state.phase='visit';state.goal=null;}
  const key=()=>state.place+':'+JSON.stringify(state.goal);
  function goal(q){state.goal=point(q);route=[];routeKey='';}
