@@ -42,7 +42,7 @@ import {makeForest} from './forest.mjs?v=fg-7da9d4ce0f16fc7b';
 import {makeDepths} from './depths.mjs?v=fg-7da9d4ce0f16fc7b';
 import {createTraveler} from './traveler.mjs?v=fg-7da9d4ce0f16fc7b';
 import {makeCompanionController,dailySchedule,plannedActivity} from './companion.mjs?v=fg-7da9d4ce0f16fc7b';const $=id=>document.getElementById(id),KEY='fairy-garden-prototype-v1';
-import {makeArrivingTrain} from './arrival-view.mjs?v=fg-7da9d4ce0f16fc7b';
+import {runStationBoarding,makeArrivingTrain} from './arrival-view.mjs?v=fg-7da9d4ce0f16fc7b';
 const embedded=new URLSearchParams(location.search).get('embedded')==='1';
 const host=embedded&&window.parent.FairyGardenHostFor?window.parent.FairyGardenHostFor(window):null;
 if(embedded&&!host){$('load-text').textContent='请从小手机里的「微光庭院」入口重新打开。';throw new Error('Missing garden host');}
@@ -388,7 +388,7 @@ async function load(){try{const loader=assetLoader;await mapLoader.ensure(data.m
  // 存档里存着的样貌（发型/发色/衣色）——没有就用 traveler.mjs 的默认。换发型是数据，不是另导一个模型。
  if(data.look)playerAvatar.setLook(data.look);if(data.companion&&data.companion.look)companionAvatar.setLook(data.companion.look);
  actor.position.set(data.position.x,.08,data.position.z);actor.rotation.y=.35;ready=true;showMap(true);if(data.map==='forest')say('林间的微光还在，背包和采集进度也都留下了。');else if(data.blooms)say('你上次照料过的月光花，还在这里。');$('loading').style.opacity=0;setTimeout(()=>$('loading').remove(),550);save();window.dispatchEvent(new Event('garden-ready'));if(host)host.ready();}catch(e){console.error(e);$('load-text').textContent='素材没有加载完成，请刷新重试。'+e.message;}}
-function go(target,job=null){if(!ready||acting)return false;festivalWait=false;
+function go(target,job=null){if(!ready||boarding||acting)return false;festivalWait=false;
  // ⚠️坐着的时候人在【家具上】，那一点本来就不是空地：从这儿找路当然找不出来
  //   （她 2026-09-18：「坐上去下不来了，显示没有空地可以走」）。
  //   起身＝先回到坐下之前站的那一点，再从那儿走。
@@ -422,7 +422,7 @@ $('garden').onclick=()=>data.map==='forest'?gather('mushroom'):data.map==='depth
 $('brew').onclick=()=>request('brew');
 for(const [id,activity] of [['seat-tea','tea'],['seat-read','read'],['seat-idle','sit']])$(id).onclick=()=>{if(data.seat&&!acting){seatActivity=activity;say(activity==='tea'?'捧起杯子，慢慢喝一口。':activity==='read'?'把书放在手边，慢慢翻一页。':'收好东西，坐着看看水面。');}};
 for(const kind of ['wave','stretch'])$('gesture-'+kind).onclick=()=>{
- if(!ready||acting||loadingMap||isMenuOpen())return;
+ if(!ready||boarding||acting||loadingMap||isMenuOpen())return;
  data.position={x:actor.position.x,z:actor.position.z};const err=gestureError(data,kind);
  // 同行者不在跟前、邻居在跟前：这一下是冲邻居挥的（世界那头记交情，打招呼那句问宿主要）
  const nb=kind==='wave'&&err?neighborNear(data):null;
@@ -628,9 +628,11 @@ $('rest').onclick=()=>request('rest');
 // 上车（她 2026-09-25）：列车沿铁轨开进站、停稳开门，画面淡出，再真的换到车厢里。
 // 宿主那头要是不放行（比如他话还没说完），车就开走、画面收回来，人留在站台上。
 let boarding=false;
-function boardTrain(){if(boarding||!host?.travel)return;boarding=true;actor.rotation.y=0;if(companionAvatar)companionAvatar.root.rotation.y=0;say('列车进站了。');
- arrival.play().then(()=>{const veil=document.createElement('div');veil.style.cssText='position:fixed;inset:0;background:#e8e6d7;opacity:0;transition:opacity .6s;z-index:50;pointer-events:none';document.body.append(veil);requestAnimationFrame(()=>veil.style.opacity='1');
-  setTimeout(()=>{Promise.resolve(host.travel()).then(ok=>{if(ok===false){veil.remove();arrival.hide();boarding=false;}}).catch(e=>{veil.remove();arrival.hide();boarding=false;say(e.message);});},650);});}
+async function boardTrain(){
+ if(boarding||!host?.travel)return;boarding=true;ui();
+ try{const to=host.chooseStation?await host.chooseStation():'train';if(!to)return;actor.rotation.y=0;if(companionAvatar)companionAvatar.root.rotation.y=0;say('列车正在驶进站台。');if(!save()){say('没有保存成功，请先留在车站。');return;}await runStationBoarding(arrival,()=>host.travel(to));}
+ catch(e){say(e.message);}finally{boarding=false;ui();}
+}
 function beginAction(job){if(job.kind==='festival'){openFestival();return;}if(job.kind==='boardTrain'){if(save())boardTrain();else say('没有保存成功，请先留在车站。');return;}if(job.kind==='repair'){openRepair(job.id);return;}if(job.kind==='gather'&&data.map==='depths'){openExcavating(job.id);return;}if(job.kind==='brew'){openDew();return;}acting={...job,intent:job.kind==='bed'?job.sleepMode:job.kind==='garden'?gardenIntent(data):null,time:0};if(!['wave','stretch'].includes(job.kind))actor.rotation.y=job.kind==='brew'?-Math.PI/2:Math.PI;$('progress').hidden=false;$('progress').firstElementChild.style.width='0%';ui();say(job.kind==='visit'?'在这里停一会儿。':({eat:'捧着碗，慢慢吃一口。',buy:'把功绩数给摊主，货从摊面上递下来。',gift:'把东西递过去，等 TA 接住。',wave:'抬起手，向同行者打个招呼。',stretch:'抬起双手，慢慢伸个懒腰。',plant:'把种子撒进土里，再轻轻覆好。',dreamSow:'把梦种放进松软的土里，轻轻覆土。',dreamHarvest:'托住花根，把梦花轻轻收回。',mill:'把材料和空瓶在工作台上放好。',door:'推开门，往里面走。',bed:'把枕头放好，床铺暖暖的。',enter:'推开门，屋里的光暖暖的。',sit:'在水边慢慢坐下来。',well:'井水晃了一下，清凉地流进壶底。',garden:data.blooms===3?'把开好的花轻轻摘下来，留住花根。':data.potions?'月露落在叶尖，微光沿着叶脉散开。':'一点一点浇下去，叶子舒展开来。',brew:'草叶、荧光菇和清水，在锅里轻轻旋转……',seed:'把手放在微光两侧，等两个人的魔力慢慢汇合。',star:'留一点清水，看看花的变化。',lamp:'把花的微光留进灯罩里。',gather:'轻轻摘下，给它留一点明天生长的余地。',travel:'穿过小路，风里换了一种草木香。',rest:'灯熄了。窗外的风，替你翻过了一页日历。'})[job.kind]);}
 // ── 公告栏（v69.35）：接委托、交委托。⚠️也是一枪都不打，文案由表拼
 // 还有几天撕板子。⚠️这一句必须说出来：接了没做就没了，不告诉她就是坑她
@@ -1544,7 +1546,7 @@ $('companion-routine').onclick=()=>{data=wakeSleeper(data,'companion');applyComp
 $('companion-wait').onclick=()=>{if(acting)return;applyCompanion();path=[];task=null;targetRing.visible=false;data.position={x:actor.position.x,z:actor.position.z};for(let i=0;i<60;i++){data=advanceTime(data,1);const result=companionController.tick(data,1);data=result.state;if(result.event)lastCompanionEvent=result.event;}syncThaw();timeAccumulator=0;$('companion-dialog').close();showMap();save();say(`歇了一会儿，现在是 ${timeLabel(data.minute)}。${data.companion.name}${companionController.view().status}。`);};
 function syncThaw(){if(!actor)return;if(Math.hypot(actor.position.x-data.position.x,actor.position.z-data.position.z)>.01){actor.position.x=data.position.x;actor.position.z=data.position.z;path=[];task=null;playerSpeed=0;targetRing.visible=false;companionController.reset();say('春天到了，湖冰渐渐化开。你们回到了岸边。');}}
 function updateWorld(elapsed,dt){
- if(!ready||!actor)return;const paused=isMenuOpen()||['gift','wave'].includes(acting?.kind);
+ if(!ready||!actor)return;const paused=boarding||isMenuOpen()||['gift','wave'].includes(acting?.kind);
  if(!paused){data.position={x:actor.position.x,z:actor.position.z};
   // ⚠️走着说话，日子照走；站定了说话，时间停下来等她（她 2026-09-17）。
   //   原来只要在打字时间就停，于是「边走边聊」这件事在这游戏里等于不存在。
@@ -1584,7 +1586,7 @@ function updateWorld(elapsed,dt){
 }
 let playerSpeed=0;
 let last=performance.now(),lastRender=0;function frame(now){requestAnimationFrame(frame);if(document.hidden){last=now;return;}const elapsed=Math.min((now-last)/1000,1),dt=Math.min(elapsed,.05);last=now;clock+=dt;if(loadingMap){renderer.render(scene,camera);return;}
- if(actor&&!isMenuOpen()){moving=path.length>0;if(moving){const step=stepRoute(actor.position,path,dt,{speed:playerSpeed,walkSpeed:walkSpeedFor(data.map),skating:onLakeIce(data.map,actor.position,data)});playerSpeed=step.speed;actor.position.x=step.position.x;actor.position.z=step.position.z;if(step.heading!==null){const k=onLakeIce(data.map,actor.position,data)?4:13;actor.rotation.y+=Math.atan2(Math.sin(step.heading-actor.rotation.y),Math.cos(step.heading-actor.rotation.y))*Math.min(1,dt*k);}if(!path.length){targetRing.visible=false;save();if(task){const k=task;task=null;beginAction(k);}else {ui();arriveSpot();}}}else playerSpeed=0;
+ if(actor&&!boarding&&!isMenuOpen()){moving=path.length>0;if(moving){const step=stepRoute(actor.position,path,dt,{speed:playerSpeed,walkSpeed:walkSpeedFor(data.map),skating:onLakeIce(data.map,actor.position,data)});playerSpeed=step.speed;actor.position.x=step.position.x;actor.position.z=step.position.z;if(step.heading!==null){const k=onLakeIce(data.map,actor.position,data)?4:13;actor.rotation.y+=Math.atan2(Math.sin(step.heading-actor.rotation.y),Math.cos(step.heading-actor.rotation.y))*Math.min(1,dt*k);}if(!path.length){targetRing.visible=false;save();if(task){const k=task;task=null;beginAction(k);}else {ui();arriveSpot();}}}else playerSpeed=0;
  // 坐下那一下要真落在坐面上（她 2026-09-18：「沙发坐下去对不上建模」）：
  // 走过去停的是家具旁边站得住的那一点，坐下再挪到坐垫上、抬到坐面高度。
  const mySeat=data.seat?seatsOf(data.map)[data.seat]:null;

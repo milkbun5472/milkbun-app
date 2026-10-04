@@ -46,6 +46,10 @@
     const [place,setPlace]=useState(()=>{try{return props.entryWorld||read(props.storeKey||KEY).activeWorld||"garden";}catch{return "garden";}});
     const [ready,setReady]=useState(place!=="train"),[error,setError]=useState("");
     const alive=useRef(true),switching=useRef(false),key=props.storeKey||KEY;
+    const [stationChoice,setStationChoice]=useState(false),choiceDone=useRef(null);
+    const chooseStation=()=>new Promise(resolve=>{if(choiceDone.current){resolve(null);return;}choiceDone.current=resolve;setStationChoice(true);});
+    const finishChoice=to=>{const done=choiceDone.current;choiceDone.current=null;setStationChoice(false);done?.(to);};
+    useEffect(()=>()=>{choiceDone.current?.(null);choiceDone.current=null;},[]);
     const initialize=async(from)=>{
       const before=loadJSON(key,null);
       const {startTrip}=await import("../apps/train/travel.mjs?v="+TRAIN_BUILD);
@@ -55,7 +59,7 @@
       write(key,{...d,partnerId:props.lockPartnerId?String(props.lockPartnerId):d.partnerId,activeWorld:"train",worlds:{...(d.worlds||{}),train:startTrip(garden,Math.random,d.worlds?.train)}});return true;
     };
     useEffect(()=>{alive.current=true;if(place==="train"&&!props.entryWorld&&read(key).worlds?.train){setReady(true);}else if(place==="train")initialize("direct").then(ok=>{if(ok)setReady(true);}).catch(e=>{if(alive.current)setError(e.message);});return()=>{alive.current=false;};},[]);
-    const travel=async(to)=>{
+    const travel=async(to,options={})=>{
       if(switching.current)return false;switching.current=true;
       try{
         if(to==="train"){if(!await initialize(place==="garden"?"garden":"direct"))return false;}
@@ -64,12 +68,16 @@
           const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");const old=m.restoreState(m.putJourney(m.restoreState(worldOf(d,"garden")),d.journey)),at=m.MAPS.garden.station.target;
           const garden={...old,map:"garden",depth:0,seat:null,sleep:{player:null,companion:null},position:{...at},companion:{...old.companion,map:"garden",mode:"follow",seat:null,position:{x:at.x+.75,z:at.z}}};
           write(key,{...d,activeWorld:"garden",world:garden,worlds:{...(d.worlds||{}),garden}});
-        }else if(to==="pets"){const d=read(key);write(key,{...d,activeWorld:"pets"});}else return false;
+        }else if(to==="pets"){
+          const before=read(key);let pets=before.worlds?.pets;
+          if(options.station){const [m,n,r]=await Promise.all([import("../apps/pets/railway.mjs?v="+BUILD),import("../art/pet-career/world-navigation.mjs?v="+BUILD),fetch("art/pet-career/outside.json?v="+BUILD).then(r=>{if(!r.ok)throw Error("小镇车站暂时没能打开，请稍后再试。");return r.json();})]);if(!alive.current)return false;pets=m.arrivePetStation(pets,n.createPetWorld(r),r.station);}
+          const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");write(key,{...d,activeWorld:"pets",worlds:{...(d.worlds||{}),...(pets?{pets}:{})}});
+        }else return false;
         setReady(true);setPlace(to);return true;
       }catch(e){setError(e.message);props.toast(e.message);return false;}finally{switching.current=false;}
     };
     if(!ready)return h("div",{className:"h-full flex flex-col",style:{background:G.paper,color:G.ink}},h(Head,{zh:"远行列车",onBack:props.onBack}),h("p",{role:"status",style:{padding:20}},error||"正在准备旅程…"));
-    return h(place==="pets"?PetSession:place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel});
+    return h('div',{className:'h-full',style:{position:'relative'}},h(place==="pets"?PetSession:place==="train"?TrainSession:GardenSession,{...props,key:place,onTravel:travel,onStation:chooseStation}),stationChoice&&h(RailwayPage,{from:place,onClose:()=>finishChoice(null),onChoose:finishChoice}));
   }
   // 旅行相框：点图看原样大图；「翻看背面」看日期、拼图纪念和两个人各留的那句话（2026-09-25）
   // 念出来（庭院和列车共用）：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
@@ -78,6 +86,14 @@
   // 念不了就老老实实返回 false，让游戏退回原来的定时——不许把气泡卡死在那儿。
   // 上一条还在念的时候，warmAloud 把下一条先合成掉；按缓存钥匙合流，不会再花一次钱。
   // 列车设置里的开关：记在这台设备上（跟庭院「念出来」一个口径，存 '1'/'0'）
+  function RailwayChoices({from,onChoose}){
+    return h('div',{'data-railway-choices':true,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:20,paddingBottom:COMPOSER_PAD_BOTTOM}},
+      h('p',{style:{fontSize:13,lineHeight:1.8,marginBottom:20}},from==='train'?'选择下车的站点，继续这一档的日子。':'选好目的地，列车就会沿铁轨驶进站台。'),
+      h('div',{style:{display:'grid',gap:12}},...WORLDS.filter(w=>w.id!==from).map(w=>h('button',{key:w.id,'data-railway-destination':w.id,'aria-label':'进入'+w.name,onClick:()=>onChoose(w.id),style:{...pickButtonStyle(),textAlign:'left',minHeight:72,padding:'14px 16px'}},h('strong',{style:{display:'block',fontSize:15,fontWeight:500}},'进入'+w.name),h('span',{style:{display:'block',fontSize:12,marginTop:5,color:G.soft}},w.id==='train'?'登上远行列车，留在车厢里看窗景':w.id==='pets'?'绒绒小镇车站 · 南边街道':'微光庭院南站 · 林边站台')))));
+  }
+  function RailwayPage({from,onClose,onChoose}){
+    return h('section',{'data-railway-page':from,className:'absolute inset-0 flex flex-col',style:{zIndex:30,background:G.paper,color:G.ink}},h(Head,{zh:from==='pets'?'绒绒小镇车站':'微光庭院南站',bg:'transparent',onBack:onClose}),h(RailwayChoices,{from,onChoose}));
+  }
   function TrainSwitch({label,note,storeKey,fallback,onChange}){
     const read=()=>{try{const v=localStorage.getItem(storeKey);return v===null?fallback:v==="1";}catch(e){return fallback;}};
     const [on,setOn]=useState(read);
@@ -206,7 +222,7 @@
     const character=()=>{const d=current();return(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;};
     const openChat=()=>{chatReturn.current=panel;setChatRows(history().slice(-100));setPanel('chat');setError('');};
     const game=()=>frame.current?.contentWindow.PetGame;
-    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,companion:()=>{const c=character();return c?{id:c.id,name:c.remark||c.name,ta:typeof CharacterPronoun!=='undefined'?CharacterPronoun.ta(c):'TA'}:null;},openChat,openParcel:data=>{if(frame.current===node){setParcelView(data);setPanel('parcel');setError('');}},openView:()=>{if(frame.current===node){viewReturn.current='';setViewInfo(game()?.observation());setPanel('view');setError('');}},openPets:()=>{if(frame.current===node){panelReturn.current='';setPetsView(game()?.roster());setPanel('pets');setError('');}},selectionChanged:()=>{if(frame.current===node)setPetsView(game()?.roster());},save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),openCareer:tab=>{if(frame.current===node){panelReturn.current='';setCareerTab(tab==='history'?'history':'today');setCareerNotice('');setCareerView(game()?.career());setPanel('career');setError('');}},openCare:()=>{if(frame.current===node){setCareView(game()?.care());setPanel('care');setError('');}},ready:()=>{if(frame.current===node){setLoaded(true);game()?.pause(!!panel);}}});};
+    const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(node)hosts.set(node.contentWindow,{load:current,chooseStation:()=>props.onStation(),travel:to=>leave(()=>props.onTravel(to,{station:true})),companion:()=>{const c=character();return c?{id:c.id,name:c.remark||c.name,ta:typeof CharacterPronoun!=='undefined'?CharacterPronoun.ta(c):'TA'}:null;},openChat,openParcel:data=>{if(frame.current===node){setParcelView(data);setPanel('parcel');setError('');}},openView:()=>{if(frame.current===node){viewReturn.current='';setViewInfo(game()?.observation());setPanel('view');setError('');}},openPets:()=>{if(frame.current===node){panelReturn.current='';setPetsView(game()?.roster());setPanel('pets');setError('');}},selectionChanged:()=>{if(frame.current===node)setPetsView(game()?.roster());},save:(state,id)=>frame.current===node&&!!saveWorld(key,current,state,id),openCareer:tab=>{if(frame.current===node){panelReturn.current='';setCareerTab(tab==='history'?'history':'today');setCareerNotice('');setCareerView(game()?.career());setPanel('career');setError('');}},openCare:()=>{if(frame.current===node){setCareView(game()?.care());setPanel('care');setError('');}},ready:()=>{if(frame.current===node){setLoaded(true);game()?.pause(!!panel);}}});};
     useEffect(()=>()=>{alive.current=false;if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
     useEffect(()=>{game()?.pause?.(!!panel);},[panel,loaded]);
     useEffect(()=>{if(panel==='chat'&&chatScroll.current)chatScroll.current.scrollTop=chatScroll.current.scrollHeight;},[panel,chatRows,chatBusy,chatNotice]);
@@ -226,7 +242,7 @@
     const addPet=async()=>{if(petLoading)return;setPetLoading(true);setError('');try{const result=await game()?.beginAdd();if(!result?.accepted)throw Error(result?.text||'还没有准备好。');setNewPet(true);panelReturn.current='pets';setProfile(result.profile);setPanel('pet');}catch(e){setError(e.message);}finally{setPetLoading(false);}};
     const cancel=()=>{game()?.cancelProfile();refreshPets();if(panelReturn.current==='care')setCareView(game()?.care());setNewPet(false);setPanel(panelReturn.current);panelReturn.current='';};
     const savePet=()=>{try{if(!game()?.commitProfile(profile))throw Error('宠物设置没有保存成功，请留在这里重试。');game().preview(false);refreshPets();setPanel(newPet?'pets':'');setNewPet(false);setError('');}catch(e){setError(e.message);}};
-    const leave=async action=>{try{if(talking.current)throw Error('同行者正在回复，等这句说完再离开。');if(!loaded||!game()?.flush())throw Error('进度还没有保存成功，请留在这里重试。');await action();}catch(e){setError(e.message);props.toast(e.message);}};
+    const leave=async action=>{try{if(talking.current)throw Error('同行者正在回复，等这句说完再离开。');if(!game()?.ready||!game()?.flush())throw Error('进度还没有保存成功，请留在这里重试。');return await action();}catch(e){setError(e.message);props.toast(e.message);return false;}};
     async function sendChat(e){e.preventDefault();const text=draft.trim(),c=character(),node=frame.current;if(!text||!c||talking.current)return;talking.current=true;setChatBusy(true);setError('');setChatNotice('');try{
       if(!game()?.flush())throw Error('进度还没有保存成功，请先重试保存。');
       const p=latest.current,cid=c.id,world=game().chatContext();const account=root.Cloud?.getSessionUser?await root.Cloud.getSessionUser().catch(()=>null):null;
@@ -324,7 +340,7 @@
         panel==='travel'&&h(PetPanel,{page:'travel',scrollRef:panelScroll,onScroll:rememberScroll},
           h('div',{className:'pet-town-sign'},h(PetSeal,{kind:'home',size:42}),h('div',null,h('h2',null,'今天带它去哪里'),h('p',null,c?'和'+(c.remark||c.name)+'，继续这一档的小日子。':'从小镇出发，继续这一档的旅程。'))),
           h('div',{className:'pet-town-routes'},...[['paw','镜头看谁','跟着猫狗、看看TA，或留在这里观察',showView],['paw','家里的宠物','每一只都有自己的小档案，也能迎接新家人',showPets],['bread','职业与小金库','去小店试工，攒钱并带回小东西',showCareer],['paw','看看它','翻翻照料记录，看它过得好不好',showCare],['paw','宠物名字与外貌','给'+petProfileView.name+'改小名、毛色和体型',edit],...(c?[['chat','和TA说话','商量今天的小事，也聊聊你们',openChat]]:[])].map(([kind,label,note,action])=>h('button',{key:label,className:'pet-town-route',onClick:action},h('span',{className:'pet-route-icon'},h(PetSeal,{kind,size:25})),h('span',null,h('strong',null,label),h('small',null,note)),h(PetSeal,{kind:'arrow',size:17})))),
-          h(PetNote,{title:'街区以外，还有两段旅程',kind:'leaf'},h('div',{className:'pet-world-postcards'},...WORLDS.filter(w=>w.id!=='pets').map(w=>h('button',{key:w.id,'aria-label':'进入'+w.name,className:'pet-world-postcard '+(w.id==='train'?'pet-postcard-train':'pet-postcard-garden'),onClick:()=>leave(()=>props.onTravel(w.id))},h(PetSeal,{kind:w.id==='train'?'train':'leaf',size:46}),h('span',null,'进入'+w.name),h('small',null,w.id==='train'?'一起看窗外，慢慢走远':'种花、散步，把日子过慢一点'))))),
+          h(PetNote,{title:'从南边车站出发',kind:'train'},h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');game()?.goStation();}},h(PetSeal,{kind:'train',size:24}),'走到绒绒小镇车站'),h('p',{className:'pet-quiet'},'沿街走到站台，可以上远行列车，或坐到微光庭院南站。')),
           h('button',{className:'pet-text-button pet-save-switch',onClick:()=>leave(()=>props.onChooseSave('pets'))},'选择另一档'))));
   }
 
@@ -337,9 +353,10 @@
     const current=()=>{const d=loadJSON(key,null);if(!d||d.id!==owner.current)throw Error("存档已切换，请重新进入列车。");return d;};
     const bind=node=>{if(frame.current&&frame.current!==node)hosts.delete(frame.current.contentWindow);frame.current=node;if(!node)return;hosts.set(node.contentWindow,{...aloud.current.bridge(()=>frame.current===node,()=>{const d=current();return (latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId))||null;}),load:current,setToolbar:bar=>{if(frame.current===node)setToolbar(bar);},ready:()=>{if(frame.current===node){setLoaded(true);trainGame()?.pause?.(!!panel);}},save:(world,id)=>frame.current===node&&!!saveWorld(key,current,world,id),companion:()=>{const d=current(),c=(latest.current.characters||[]).find(c=>String(c.id)===String(d.partnerId));return c?{id:c.id,name:c.remark||c.name,ta:typeof CharacterPronoun!=="undefined"?CharacterPronoun.ta(c):"TA",voice:!!c.voiceId,avatar:c.avatarImage?(typeof resolveImg==="function"?resolveImg(c.avatarImage):c.avatarImage):""}:null;},chat:trainChat,history:()=>trainHistory().slice(-30),openAlbum:()=>{if(frame.current===node)setPanel("album");}});};
     useEffect(()=>()=>{if(frame.current)hosts.delete(frame.current.contentWindow);},[]);
+    useEffect(()=>{frame.current?.contentWindow.TrainGame?.pause?.(!!panel);},[panel,loaded]);
     const flush=()=>{if(!frame.current?.contentWindow.TrainGame?.flush())throw Error("进度还没有保存成功，请先留在列车。");};
     const savedAction=async action=>{try{if(talking.current)throw Error("同行者正在回复，等这句说完再离开。");flush();await action();}catch(e){setError(e.message);props.toast(e.message);}};
-    const leave=to=>savedAction(()=>to?props.onTravel(to):props.onBack());
+    const leave=to=>savedAction(()=>to?props.onTravel(to,{station:true}):props.onBack());
     const newRoom=id=>savedAction(()=>props.onNewGardenRoom(id,"train"));
     const d=read(key),c=(props.characters||[]).find(c=>String(c.id)===String(d.partnerId));
     const trainRecord=()=>worldRecord(latest.current,key);
@@ -388,7 +405,7 @@
           h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:G.soft,lineHeight:1.8,marginBottom:14}},"只换这一档列车里的样子；没换过的沿用庭院那一身。"),
           h(DressControls,{who,look,styles,game:trainGame,pushLook:pushTrainLook})))),
       panel==="album"&&h(TravelAlbum,{getArchive:current,onNote:noteBack,onAskNote:c?askBack:null,onExchange:()=>frame.current.contentWindow.TrainGame.editAlbum({kind:'exchange'}),onDelete:id=>frame.current.contentWindow.TrainGame.editAlbum({kind:'delete',id}),onCarry:carryArt,onClose:()=>setPanel("")}),
-      panel==="landing"&&page("下一站",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},h("p",{style:{marginBottom:20}},"在林边车站下车，回到这一档的庭院。"),h("button",{style:pickButtonStyle(),onClick:()=>leave("garden")},"进入微光庭院"),h("button",{style:{...pickButtonStyle(),marginTop:12},onClick:()=>leave("pets")},"进入绒绒小镇"))),
+      panel==="landing"&&page("下一站",()=>setPanel(""),h(RailwayChoices,{from:'train',onChoose:leave})),
       panel==="settings"&&page("旅程设置",()=>setPanel(""),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:20}},
         h("p",{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.9,marginBottom:20}},c?"这段旅程与 "+(c.remark||c.name)+" 同行，和庭院共用这一档。":"庭院和列车共用这一档旅程。"),
         h("div",{style:{display:"grid",gap:12}},
@@ -1125,7 +1142,8 @@
       hosts.set(node.contentWindow, {
         load: () => current(), partner: () => { const c = partner(); return c ? { id: c.id, name: c.remark || c.name, birthday: gameBirthdayOf(c) } : null; },
         save: (world, worldId, journey) => frame.current === node && !!saveWorld(storeKey.current,current,world,worldId,journey),
-        travel: () => { if(frame.current!==node||busyRef.current){props.toast("等这次回复完成后再上车。");return false;}flush();stopAloud();serial.current++;return props.onTravel?.("train"); },
+        chooseStation: () => props.onStation(),
+        travel: (to="train") => { if(frame.current!==node||busyRef.current){props.toast("等这次回复完成后再上车。");return false;}flush();stopAloud();serial.current++;return props.onTravel?.(to,{station:true}); },
         // 念出来：一句一句念，念完了才回来——游戏靠这个决定什么时候翻下一只气泡
         // （她 2026-09-19：「开了就每个气泡念完再到下一个气泡念」）。
         // ⚠️和聊天里那条语音走【同一个 ttsSpeak】：它自带 idb 缓存，另写一套合成

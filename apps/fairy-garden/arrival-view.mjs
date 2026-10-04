@@ -23,11 +23,23 @@ export function makeArrivingTrain(scene,station){
  let job=null;
  function place(head){cars.forEach((c,i)=>{const p=at(head-i*4.9);c.position.set(p.x,.12,p.z);c.rotation.y=p.yaw;});}
  return {
-  play(){return new Promise(done=>{root.visible=true;job={t:0,done};place(stopAt-40);});},
+  play(){return new Promise(done=>{root.visible=true;for(const c of cars){const d=c.getObjectByName('door');d.position.x=.05;d.position.z=-.97;}job={t:0,done};place(stopAt-40);});},
   update(dt){if(!job)return;job.t+=dt;const k=Math.min(1,job.t/4.2);place(lerp(stopAt-40,stopAt+2.4,ease(k)));
    // 停稳后门往里一推，稍候就交出去
-   const door=cars[1].getObjectByName('door');if(door)door.position.z=-.97+(k>=1?Math.min(.25,(job.t-4.2)*.6):0);
+   const door=cars[1].getObjectByName('door');if(door)door.position.x=.05+(k>=1?Math.min(.7,(job.t-4.2)*.9):0);
    if(job.t>5.2){const d=job.done;job=null;d();}},
   hide(){root.visible=false;job=null;},
-  inspect(){return {visible:root.visible,playing:!!job,x:cars[0].position.x,z:cars[0].position.z};}};
+  inspect(){return {visible:root.visible,playing:!!job,x:cars[0].position.x,z:cars[0].position.z,door:cars[1].getObjectByName('door').position.x-.05};}};
+}
+
+// Both stations use the same visual transition and failed-save recovery.
+export async function runStationBoarding(arrival,travel){
+ let veil;
+ try{
+  await arrival.play();
+  veil=document.createElement('div');veil.dataset.railwayFade='';veil.style.cssText='position:fixed;inset:0;background:#e8e6d7;opacity:0;transition:opacity .6s;z-index:50;pointer-events:auto';document.body.append(veil);
+  requestAnimationFrame(()=>veil.style.opacity='1');
+  await new Promise(resolve=>setTimeout(resolve,650));
+  return await travel();
+ }finally{veil?.remove();arrival.hide();}
 }

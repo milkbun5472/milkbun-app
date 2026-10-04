@@ -6,7 +6,7 @@ export function restoreObservation(raw,activeId,petIds,companionId){
  const mode=['pet','companion','fixed'].includes(raw?.mode)&&!(raw.mode==='companion'&&!companionId)?raw.mode:'pet';
  const resume=raw?.resume==='companion'&&companionId?'companion':'pet';
  const street=raw?.street||{};
- return {mode,petId:id,companionId:String(companionId||''),resume,place:place(raw?.place),street:{pan:{x:number(street.pan?.x,-35,35,0),z:number(street.pan?.z,-54,35,0)},zoom:number(street.zoom,.45,2.2,1.6),overview:street.overview===true},rooms:Object.fromEntries(Object.entries(raw?.rooms||{}).filter(([k,v])=>TOWN_PLACES.includes(k)&&k!=='outside'&&v&&typeof v==='object').map(([k,v])=>[k,{zoom:number(v.zoom,.72,8,1.3),pan:Array.isArray(v.pan)?v.pan.slice(0,3).map(x=>number(x,-6,6,0)):[0,0,0],at:Array.isArray(v.at)?v.at.slice(0,3).map(x=>number(x,-12,12,0)):null,orbit:{theta:number(v.orbit?.theta,.18,1.18,.6),phi:number(v.orbit?.phi,.66,1.19,.9)}}]))};
+ return {mode,petId:id,companionId:String(companionId||''),resume,place:place(raw?.place),street:{pan:{x:number(street.pan?.x,-35,35,0),z:number(street.pan?.z,-54,39.2,0)},zoom:number(street.zoom,.45,2.2,1.6),overview:street.overview===true},rooms:Object.fromEntries(Object.entries(raw?.rooms||{}).filter(([k,v])=>TOWN_PLACES.includes(k)&&k!=='outside'&&v&&typeof v==='object').map(([k,v])=>[k,{zoom:number(v.zoom,.72,8,1.3),pan:Array.isArray(v.pan)?v.pan.slice(0,3).map(x=>number(x,-6,6,0)):[0,0,0],at:Array.isArray(v.at)?v.at.slice(0,3).map(x=>number(x,-12,12,0)):null,orbit:{theta:number(v.orbit?.theta,.18,1.18,.6),phi:number(v.orbit?.phi,.66,1.19,.9)}}]))};
 }
 export function observedActor(view,pets,companion){
  const mode=view.mode==='fixed'?view.resume:view.mode;
