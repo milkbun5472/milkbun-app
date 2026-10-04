@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-f591c645cdcb76d0", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-e8f3e8df7d5b71c4", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -338,7 +338,7 @@
           h('form',{className:'pet-chat-composer',onSubmit:sendChat,style:{display:'flex',gap:8,padding:'8px 12px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line,flexShrink:0}},h('input',{'aria-label':'对同行者说',value:draft,onChange:e=>setDraft(e.target.value),disabled:chatBusy||!c,maxLength:12000,placeholder:'和TA说句话…',style:{...field,flex:1,minWidth:0}}),h('button',{type:'submit',disabled:chatBusy||!c||!draft.trim(),style:{...field,width:'auto',background:G.deep,color:'#fffaf1'}},'发送'))),
         panel==='pet'&&h('div',{'data-pet-settings':true,className:'pet-edit-page flex flex-col',style:{position:'absolute',top:'38%',left:0,right:0,bottom:0}},
           h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:'0 18px 12px'}},
-            plate('宠物',h('div',{style:{display:'flex',gap:10}},[['cat','猫咪'],['dog','狗狗']].map(([species,label])=>h('button',{className:'pet-species-choice',key:species,'aria-label':'选择'+label,'aria-pressed':profile.species===species,onClick:()=>change({species,name:profile.name==='猫猫'||profile.name==='狗狗'?(species==='dog'?'狗狗':'猫猫'):profile.name}),style:{...field,borderBottom:'3px solid '+(profile.species===species?G.deep:G.line),transform:profile.species===species?'translateY(-2px)':'none'}},label)))),
+            plate('宠物',h('div',{style:{display:'flex',gap:10}},[['cat','猫咪'],['dog','狗狗']].map(([species,label])=>h('button',{className:'pet-species-choice',key:species,'aria-label':'选择'+label,'aria-pressed':profile.species===species,onClick:()=>change(game().speciesProfile(profile,species)),style:{...field,borderBottom:'3px solid '+(profile.species===species?G.deep:G.line),transform:profile.species===species?'translateY(-2px)':'none'}},label)))),
             plate('名字',h('input',{'aria-label':'宠物名字',maxLength:24,value:profile.name,onChange:e=>change({name:e.target.value}),style:field})),
             plate('毛色',h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},palette.map(([label,base,patch])=>h('button',{className:'pet-coat-swatch',key:label,'aria-label':label+'毛色','aria-pressed':base?profile.look?.patch===patch:profile.look?.id==='original',onClick:()=>change({look:base?{id:'custom',base,patch}:{id:'original'}}),style:{'--pet-coat-base':base||'#eee9e0','--pet-coat-patch':patch||'#afa199'}},h('span',{className:'pet-coat-colors'}),h('span',null,label))))),
             plate('自选毛色',h('div',{style:{display:'flex',gap:12}},[['底毛','base','#f2eee6'],['花纹','patch','#a98565']].map(([label,k,fallback])=>h('label',{key:k,style:{display:'flex',alignItems:'center',gap:6}},label,h('input',{type:'color','aria-label':label+'颜色',value:profile.look?.[k]||fallback,onChange:e=>change({look:{id:'custom',base:profile.look?.base||'#f2eee6',patch:profile.look?.patch||'#a98565',[k]:e.target.value}}),style:{width:48,height:42}}))))),
