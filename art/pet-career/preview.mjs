@@ -1,19 +1,20 @@
-import {moodFromCare} from '../pet-house/pet-mood.mjs?v=fg-90e8d6c2826f99fa';
-import {createHousemate} from '../../apps/pets/housemate.mjs?v=fg-90e8d6c2826f99fa';
-import {turnPet} from '../../apps/pets/movement.mjs?v=fg-90e8d6c2826f99fa';
-import {createPetCare,careSummary} from '../../apps/pets/care.mjs?v=fg-90e8d6c2826f99fa';
-import {createPetHome} from '../../apps/pets/home.mjs?v=fg-90e8d6c2826f99fa';
+import {YOU_SPOT} from '../../apps/pets/initiative.mjs?v=fg-d529ac6a9708be65';
+import {moodFromCare} from '../pet-house/pet-mood.mjs?v=fg-d529ac6a9708be65';
+import {createHousemate} from '../../apps/pets/housemate.mjs?v=fg-d529ac6a9708be65';
+import {turnPet} from '../../apps/pets/movement.mjs?v=fg-d529ac6a9708be65';
+import {createPetCare,careSummary} from '../../apps/pets/care.mjs?v=fg-d529ac6a9708be65';
+import {createPetHome} from '../../apps/pets/home.mjs?v=fg-d529ac6a9708be65';
 import * as T from 'three';
-import {CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-90e8d6c2826f99fa';
-import {restorePetState,snapshotPetState,petProfile,bodyWidth} from '../../apps/pets/state.mjs?v=fg-90e8d6c2826f99fa';
-import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-90e8d6c2826f99fa';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-90e8d6c2826f99fa';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-90e8d6c2826f99fa';
-import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-90e8d6c2826f99fa';
-import {loadPetCompanion,mountPetControls} from '../pet-house/pet-companion.mjs?v=fg-90e8d6c2826f99fa';
-import {createPetWorld} from './world-navigation.mjs?v=fg-90e8d6c2826f99fa';
+import {CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-d529ac6a9708be65';
+import {restorePetState,snapshotPetState,petProfile,bodyWidth} from '../../apps/pets/state.mjs?v=fg-d529ac6a9708be65';
+import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-d529ac6a9708be65';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-d529ac6a9708be65';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-d529ac6a9708be65';
+import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-d529ac6a9708be65';
+import {loadPetCompanion,mountPetControls} from '../pet-house/pet-companion.mjs?v=fg-d529ac6a9708be65';
+import {createPetWorld} from './world-navigation.mjs?v=fg-d529ac6a9708be65';
 const read=async url=>{const r=await fetch(new URL(url,import.meta.url));if(!r.ok)throw Error('场景文件 '+r.status);return r.json();};
-const layout=await read('./outside.json?v=fg-90e8d6c2826f99fa'),world=createPetWorld(layout);
+const layout=await read('./outside.json?v=fg-d529ac6a9708be65'),world=createPetWorld(layout);
 const view=document.getElementById('view'),loading=document.getElementById('loading'),labels=document.getElementById('door-labels');
 const title=document.querySelector('h1'),subtitle=document.getElementById('subtitle'),back=document.getElementById('back'),enterButton=document.getElementById('enter');
 const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;view.append(renderer.domElement);
@@ -26,6 +27,7 @@ const studio=new T.Mesh(new T.PlaneGeometry(500,500),new T.MeshStandardMaterial(
 const loader=new GLTFLoader(),draco=new DRACOLoader();draco.setDecoderPath(new URL('../../apps/fairy-garden/vendor/draco/',import.meta.url).href);loader.setDRACOLoader(draco);
 const toWeb=p=>new T.Vector3(p[0],p[2],-p[1]);
 const host=location.pathname.includes('/apps/pets/')&&window.parent!==window&&window.parent.FairyGardenHostFor?.(window);
+
 let housemate,care,homeCare,carePaused=false,previewProfile,petState,dye,customizing=false,saveFailed=false,previewScene,previewCamera;const shapeMeshes=[];
 const sessionKey='lisa-pet-street-preview-v1';let raw;try{raw=JSON.parse(sessionStorage.getItem(sessionKey));}catch{}
 if(host){petState=restorePetState(host.load().worlds?.pets,world);raw=petState;care=createPetCare(petState.care);}
@@ -46,7 +48,7 @@ function applyLight(){hemi.color.set(evening?'#d4dcf3':'#fff1dc');hemi.intensity
 function refresh(){const bar=document.getElementById('home-actions');if(bar){bar.hidden=!host||room!=='home'||customizing;bar.querySelector('[data-care=rest]').textContent=care?.state.task?.kind==='sleep'?'叫醒':'休息';for(const b of bar.querySelectorAll('button'))b.disabled=busy||saveFailed||carePaused;}title.textContent=room?world.building(room).title:layout.title;document.title=title.textContent+' · 宠物小世界';subtitle.textContent=room?'从门口进来的小屋':'点地面散步 · 拖动画面';back.textContent=room?'出门':pet?.species==='dog'?'跟着狗':'跟着猫';back.setAttribute('aria-label',room?'出门回到街区':pet?.species==='dog'?'回到狗狗身边':'回到猫猫身边');labels.hidden=!!room;const near=world.nearest(position);enterButton.hidden=!!room||!near||near.distance>.65;enterButton.disabled=busy;enterButton.textContent=near?'走进'+near.building.title:'走进屋里';back.disabled=busy;view.setAttribute('aria-busy',String(busy));}
 function setOutdoorPet(){motion?.dispose();petRoot.position.set(position.x,world.ground(position.x,position.z)+.001,position.z);petRoot.rotation.y=heading;motion=pet.bind({ground:world.ground,matchSpeed:true});motion.update(0,0);}
 function placeIndoor(){homeCare?.resetPose();petRoot.position.copy(toWeb(roomLayout.cat.position));petRoot.rotation.y=roomLayout.cat.yaw;cat.updateMatrixWorld(true);if(pet)motion=pet.bind({ground:()=>petRoot.position.y});if(host&&room==='home'){homeCare?.begin(activeModel);housemate?.begin();}}
-function housemateLabel(){const el=document.getElementById('housemate-state');if(!el)return;const c=housemate?.snapshot();el.hidden=!c?.visible||room!=='home'||customizing;if(el.hidden)return;const v=new T.Vector3(c.position.x,1.8,c.position.z).project(camera);el.hidden=v.z< -1||v.z>1||Math.abs(v.x)>1||Math.abs(v.y)>1;el.textContent=housemate.person.name+(c.job?' · '+(c.job.phase==='walking'?'走过去':c.job.started?'正在':'准备')+({feed:'添粮',play:'陪玩',pet:'摸摸'})[c.job.action]:' · 在家陪着它');el.style.left=Math.max(90,Math.min(innerWidth-90,(v.x+1)*innerWidth/2))+'px';el.style.top=Math.max(45,(1-v.y)*innerHeight/2)+'px';}
+function housemateLabel(){const el=document.getElementById('housemate-state');if(!el)return;const c=housemate?.snapshot();el.hidden=!c?.visible||room!=='home'||customizing;if(el.hidden)return;const v=new T.Vector3(c.position.x,1.8,c.position.z).project(camera);el.hidden=v.z< -1||v.z>1||Math.abs(v.x)>1||Math.abs(v.y)>1;el.textContent=housemate.person.name+(c.job?' · '+(c.job.phase==='walking'?'走过去':c.job.started?'正在':'准备')+({feed:'添粮',play:'陪玩',pet:'摸摸',snack:'给零食'})[c.job.action]:' · 在家陪着它');el.style.left=Math.max(90,Math.min(innerWidth-90,(v.x+1)*innerWidth/2))+'px';el.style.top=Math.max(45,(1-v.y)*innerHeight/2)+'px';}
 function updateCamera(){
  const aspect=innerWidth/innerHeight;
  if(!room){const width=(aspect<1?(overview?40:10):(overview?48:12)*aspect)/zoom,height=width/aspect;camera.left=-width/2;camera.right=width/2;camera.top=height/2;camera.bottom=-height/2;const distance=Math.max(75,height*1.5);camera.position.set(pan.x+distance*.6,distance*.75,pan.z+distance*.85);camera.lookAt(pan.x,0,pan.z);camera.far=Math.max(250,distance*4);}
@@ -92,8 +94,8 @@ const homeBar=document.getElementById('home-actions');homeBar?.addEventListener(
 let persistAt=0;const persist=()=>{if(host&&ready&&!customizing&&performance.now()-persistAt>2500){persistAt=performance.now();save();}};setInterval(persist,3000);
 document.addEventListener('visibilitychange',()=>{gesture.cancel();cameraControls?.clearGesture();lastTime=0;save();if(!document.hidden)draw();});window.addEventListener('pagehide',()=>save());
 try{
- const [outsideFile,companion]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-90e8d6c2826f99fa',import.meta.url).href),loadPetCompanion(T,loader,{persist:!host,initialSpecies:petState?.profile.species,compressedMask:!!host})]);
- outsideModel=outsideFile.scene;shade(outsideModel);scene.add(outsideModel);activeModel=outsideModel;pet=companion;petRoot=pet.root;cat=pet.model;rig=pet.rig;dye=pet.dye;scene.add(petRoot);setOutdoorPet();if(host)homeCare=createPetHome(T,{scene,pet,care,onNotice:note,onSave:save,draw});if(host){petRoot.traverse(mesh=>{if(mesh.isMesh){const original=mesh.geometry.attributes.position.array.slice();mesh.geometry=mesh.geometry.clone();const h=new T.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);shapeMeshes.push({mesh,original,height:h.max.y-h.min.y});}});applyProfile(petState.profile);}else{petControls=mountPetControls(pet,{draw,onSpecies:()=>{cat=pet.model;rig=pet.rig;dye=pet.dye;if(room)placeIndoor();else setOutdoorPet();refresh();}});}applyLight();loading.hidden=true;ready=true;
+ const [outsideFile,companion]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-d529ac6a9708be65',import.meta.url).href),loadPetCompanion(T,loader,{persist:!host,initialSpecies:petState?.profile.species,compressedMask:!!host})]);
+ outsideModel=outsideFile.scene;shade(outsideModel);scene.add(outsideModel);activeModel=outsideModel;pet=companion;petRoot=pet.root;cat=pet.model;rig=pet.rig;dye=pet.dye;scene.add(petRoot);setOutdoorPet();if(host)homeCare=createPetHome(T,{scene,pet,care,onNotice:note,onSave:save,draw,getPeople:()=>[{key:'you',name:'你',position:YOU_SPOT},...(housemate?.snapshot().visible?[{key:'companion:'+housemate.person.id,id:String(housemate.person.id),name:housemate.person.name,position:housemate.snapshot().position}]:[])]});if(host){petRoot.traverse(mesh=>{if(mesh.isMesh){const original=mesh.geometry.attributes.position.array.slice();mesh.geometry=mesh.geometry.clone();const h=new T.Box3().setFromBufferAttribute(mesh.geometry.attributes.position);shapeMeshes.push({mesh,original,height:h.max.y-h.min.y});}});applyProfile(petState.profile);}else{petControls=mountPetControls(pet,{draw,onSpecies:()=>{cat=pet.model;rig=pet.rig;dye=pet.dye;if(room)placeIndoor();else setOutdoorPet();refresh();}});}applyLight();loading.hidden=true;ready=true;
  window.petCareerPreview={scene,camera,renderer,pet,get cat(){return cat;},petRoot,world,layout,enter,leave,goTo,step:advance,reset:()=>document.getElementById('reset').click(),snapshot:()=>({ready,species:pet.species,tail:pet.tail,mood:pet.mood,room,position:{...position},outdoor,pan:{...pan},zoom:room?cameraControls?.snapshot().zoom:zoom,camera:cameraControls?.snapshot(),evening,busy,walking:path.length>0,destination,zone:activeZone,motion:pet?.motion?.snapshot()}),get model(){return activeModel;},project:(x,z,h=0)=>{const v=new T.Vector3(x,h,z).project(camera);return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};}};
  note(layout.title,'点地面散步 · 点房子门牌走进去');refresh();resize();
  if(host){window.PetGame={ready:false,companion:()=>housemate?.snapshot()||null,companionAction:action=>{if(saveFailed||busy||customizing)return {accepted:false,text:'进度还没保存成功，请稍后再试。'};return housemate?.request(action)||{accepted:false,text:'这一档还没有在场的同行者。'};},chatContext:()=>({map:'pet-home',place:room==='home'?'家里':room?world.building(room).title:'小镇街区',pet:{...petState.profile,...care.snapshot(),summary:careSummary(care.state)},companion:housemate?.snapshot()||null}),care:()=>({...care.snapshot(),summary:{...careSummary(care.state),...(!room?{activity:'在小镇散步'}:{})},atHome:room==='home',paused:carePaused}),careAction,goHome:()=>{if(room==='home')return true;if(room)leave();return goTo(world.building('home').approach,'home');},pause:value=>{carePaused=!!value;lastTime=0;refresh();if(!carePaused)draw();},home:()=>homeCare.snapshot(),palettes:CAT_PALETTES,get previewCamera(){return previewCamera;},get previewScene(){return previewScene;},snapshot:()=>snapshotPetState(petState,{position,room,outdoor,evening}),flush:()=>!busy&&save(),preview:customize,applyProfile,commitProfile,enter,leave,goTo,step:advance};}
