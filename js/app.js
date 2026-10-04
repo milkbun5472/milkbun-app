@@ -19227,12 +19227,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 「评论者从关系网里挑」原来只是一句抽象的话——关系网确实在上下文里（leanWriteCtx 没砍它），
       // 但模型得自己去那一段里翻。把名字直接点出来，命中率完全不是一回事。
       // 名单＝和 TA 有【任一方向】关系的角色 + TA 自己的 NPC（她 2026-08-26 问的皇帝 NPC 走的正是这条）。
+      const peerChars = [];
       const peerNames = (() => {
         const seen = new Set(), out = [];
         const add = o => {
           if (!o || o.id === char.id) return;
           const n = o.remark || o.name;
-          if (n && !seen.has(n)) { seen.add(n); out.push(n); }
+          if (n && !seen.has(n)) { seen.add(n); out.push(n); peerChars.push(o); }
         };
         liveChars.forEach(o => { if (rels[char.id + "->" + o.id] || rels[o.id + "->" + char.id]) add(o); });
         npcsOf(char.id).forEach(add);   // TA 自己的配角天然算熟人（她 2026-08-26 问的皇帝 NPC）
@@ -19255,7 +19256,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "";
       const d = await runProbe(apiFor(char.id), leanWriteCtx(ctxFor(char)), { // 自动朋友圈=TA 的社交发言，跟随专线（v48.37）：专线用专线，否则照旧主模型；瘦身省贵线（v48.95，Codex 指出漏套 lean）
         voice: true,
-        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec,
+        instruction: "完全代入「" + char.name + "」。你就是他，此刻拿着自己的手机在发一条朋友圈——不是在替他写一条，是你自己想发。" + _momAxes + "1-4句，不暴露隐藏剧情。优先从你真正参与的近期相处里自然长出内容，但不要逐句复述或把私密细节直接公开。" + (_momImgOpen ? "**配不配图你自己定**：看这一条本身，也看你这个人平时发朋友圈的习惯——有的人几乎条条带图，有的人一年配不了几张，别为了配而配。" + _momImgHabit + "要配就在 image 里写一句这张图的画面描述（如「窗台上的多肉，逆光」「深夜便利店的关东煮」），再在 imageWho 里说清楚画面里有没有你：none＝画面里没有人（拍的是东西、吃的、风景）；part＝只拍到你的手、背影这类局部、看不见脸；self＝你本人入镜、看得见脸。不配图 image 填 null。" : "这一条只发文字，不配图，image 填 null。") + "再生成认识的其他角色对这条的 0-3 条评论。" + (peerNames.length ? "TA 已经建立关系的人有：" + peerNames.join("、") + "——这些是【优先】人选，谁真会关心这条谁才出现，不必都出现。" : "") + "评论者也【不限于】这些人：人设里合理存在、只是还没单独建卡的人（同学、舍友、同事、下属、邻居、旧友…）照样可以来评论，那正是朋友圈该有的样子；只要名字和口吻贴这个世界、这个身份就行，别让明显不搭的人冒出来。**绝对不要替用户本人（" + meName + "）生成任何评论或回复——用户会自己去评论。**" + (livedMaterial ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下）】\n" + livedMaterial : "") + noRepeat + _momBiSpec
+          + (peerChars.length ? "\n\n" + commenterPersonaBlock(peerChars.slice(0, 6)) : ""),
         schemaHint: _momImgOpen
           ? "{\"content\":\"朋友圈正文\",\"image\":\"配图描述或null\",\"imageWho\":\"none｜part｜self\",\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
           : "{\"content\":\"朋友圈正文\",\"image\":null,\"comments\":[{\"author\":\"评论者名\",\"text\":\"评论\"" + (_momBi ? ",\"zh\":\"这条评论的中译或null\"" : "") + "}]" + (_momBi ? ",\"zh\":\"正文的中译或null\"" : "") + "}"
@@ -19399,6 +19401,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   more=true  —— 我什么都没说，只是想看这条下面再多几条（刷更多评论）
   // ⚠️朋友圈没有路人（她同日）：roster 一直是【跟发帖人真有关系的角色】算出来的，
   //   两档共用同一份名单，more 那档还在提示里把「不许出现名单外的人」写明。
+  // 朋友圈里「别人来评论」那几个人各自是谁（v74.754，她 2026-10-05：「朋友圈评论的不会看评论的人的语气吧，就看人设」）。
+  //   原来评论人只给名字（或人设前 70 字），于是一条评论是发帖那个人的模型照名字猜出来的——
+  //   名字里带个「现代」，猜出来的就是网文里嘴欠的现代男。人设按在场人数分预算，跟群聊同一把尺（groupPersonaBudget）。
+  //   三处都走这一份：角色发圈时的评论、她发圈时的反应、刷更多评论。
+  const commenterPersonaBlock = list => {
+    const xs = (list || []).filter(c => c && String(c.persona || "").trim());
+    if (!xs.length) return "";
+    const cap = typeof groupPersonaBudget === "function" ? groupPersonaBudget(xs.length) : 1500;
+    return "【会来评论的这几个人各自是谁——谁开口，就照谁自己的人设和口吻写】\n"
+      + xs.map(c => "「" + (c.remark || c.name) + "」\n" + String(c.persona).slice(0, cap)).join("\n\n");
+  };
   const momentReplies = async (mom, opts) => {
     const o = opts || {};
     const more = !!o.more, text = o.text || "", replyTo = o.replyTo || null;
@@ -19408,13 +19421,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const isMine = !author && mom.mine;
     if (!author && !isMine) return;
     const byName = n => characters.find(c => c.remark === n || c.name === n || (n && String(n).includes(c.name)));
-    let roster, primary;
+    let roster, primary, rosterChars = [];
     if (author) {
       // 角色的帖子：发帖人 + 认识发帖人的其他角色（都可能插话）；定向回复的对象排最前
       const others = liveChars.filter(c => c.id !== author.id && (rels[c.id + "->" + author.id] || rels[author.id + "->" + c.id]));
       const target = replyTo ? byName(replyTo) : null;
       primary = target || author;
-      roster = [...new Set([primary, author, ...others.slice(0, 4)])].map(c => c.remark || c.name);
+      rosterChars = [...new Set([primary, author, ...others.slice(0, 4)])];
+      roster = rosterChars.map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
       const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
@@ -19425,6 +19439,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const uniq = [...new Set([target, ...inThread, ...byAff].filter(Boolean))].slice(0, 5);
       if (!uniq.length) return;
       primary = uniq[0];
+      rosterChars = uniq;
       roster = uniq.map(c => c.remark || c.name);
     }
     const meName = meName0;
@@ -19459,7 +19474,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "。**只许是这几个人，不许出现名单外的任何人（没有路人、没有陌生网友）。**"
         + "每个人要么是对【这条朋友圈本身】说一句，要么是【回复上面某一条评论】（回复谁就把那人的名字填进 replyTo，必须是上面评论区里真出现过的名字）。"
         + "1-3 条，各自符合人设与彼此的关系，短句、有具体内容，别重复上面已经说过的意思。";
-      const system = bundle + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}");
+      // 主角的人设在 bundle 里；同场插话的另外几个人这里补上（不然他们只是几个名字）
+      const peersSeg = commenterPersonaBlock(rosterChars.filter(c => c.id !== primary.id));
+      const system = bundle + (peersSeg ? "\n\n" + peersSeg : "") + "\n\n【场景】" + scene + (thread ? "\n【评论区已有的往来（按时间先后，你都看得到、要接着聊，别重复也别跳戏）】\n" + thread + "\n" : "") + (more ? "\n" + moreAsk + "\n只输出 JSON：{\"replies\":[{\"author\":\"说话的人\",\"replyTo\":\"回复谁（回这条朋友圈本身就填 null）\",\"text\":\"内容\"}]}" : "\n用户「" + meName + "」" + lastLine + "可能回复的人：" + roster.join("、") + "。请生成他们对【用户这条最新评论「" + text + "」】的回复——**必须直接回应用户说的这句话的具体内容、并接住上面评论区已经聊到的脉络（像微信朋友圈里回复评论那样，有来有往、能接着上一轮往下聊），别答非所问、别自说自话、别把前面聊过的又重说一遍。绝对不许用「看到啦」「收到」这种敷衍空话搪塞**；至少一条（保底），谁最合适谁回，1-3 条，各自符合人设与关系，短句、有具体内容。\n只输出 JSON：{\"replies\":[{\"author\":\"回复者名\",\"text\":\"回复内容（直接回应用户那句的具体内容）\"}]}");
       const raw = await callAI(apiFor(primary.id), system, [{ role: "user", content: more ? "生成这一轮新评论 JSON" : "针对用户评论「" + text + "」生成回复 JSON" }], { maxTokens: 10000 });
       const d = extractJSON(raw) || {};
       // 容错解析：{replies:[...]} / 裸数组 / {reply} / {text}
@@ -19547,8 +19564,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
         const rel = rels[c.id + "->me"] ? rels[c.id + "->me"].label : "";
-        return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "");
-      }).join("\n");
+        return "- " + c.name + "：好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "");
+      }).join("\n") + "\n\n" + commenterPersonaBlock(canSee);
       const socialLore = loreForContext("social", canSee.map(c => c.id), mom.content);
       const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
