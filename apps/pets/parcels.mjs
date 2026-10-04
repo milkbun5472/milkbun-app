@@ -1,6 +1,6 @@
-import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-b8eec8a77ffcfedb';
-import {shoppingItem} from './shopping.mjs?v=fg-b8eec8a77ffcfedb';
-import {homePoint} from './initiative.mjs?v=fg-b8eec8a77ffcfedb';
+import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-a9d49073fc7ae3a2';
+import {shoppingItem} from './shopping.mjs?v=fg-a9d49073fc7ae3a2';
+import {homePoint} from './initiative.mjs?v=fg-a9d49073fc7ae3a2';
 export const parcelSourceTitle=source=>source==='shopping'?'便利店':petWorkplace(source).title;
 export const PARCEL_ITEMS={coaster:{name:'小爪印杯垫',unit:'张',kind:'cup',collectible:true},guestCard:{name:'客人留言卡',unit:'张',kind:'book',collectible:true},receipt:{name:'奇怪小票',unit:'张',kind:'book',collectible:true},sticker:{name:'小贴纸',unit:'张',kind:'paw',collectible:true},bread:{name:'小面包',unit:'个',kind:'bread'},flower:{name:'小花',unit:'枝',kind:'leaf'},petals:{name:'花瓣',unit:'片',kind:'leaf'},snack:{name:'小零食',unit:'份',kind:'bread'},toy:{name:'歪眼小怪球',unit:'个',kind:'ball'},box:{name:'小纸箱窝',unit:'个',kind:'home'}};
 const text=v=>typeof v==='string'?v.slice(0,100):'';

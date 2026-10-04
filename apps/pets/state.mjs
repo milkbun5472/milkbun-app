@@ -1,9 +1,9 @@
-import {restoreTownLife} from './town-life.mjs?v=fg-b8eec8a77ffcfedb';
-import {restoreSocial} from './social.mjs?v=fg-b8eec8a77ffcfedb';
-import {restoreResident} from './autonomy.mjs?v=fg-b8eec8a77ffcfedb';
-import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-b8eec8a77ffcfedb';
-import {restoreCare} from './care.mjs?v=fg-b8eec8a77ffcfedb';
-import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-b8eec8a77ffcfedb';
+import {restoreTownLife} from './town-life.mjs?v=fg-a9d49073fc7ae3a2';
+import {restoreSocial} from './social.mjs?v=fg-a9d49073fc7ae3a2';
+import {restoreResident} from './autonomy.mjs?v=fg-a9d49073fc7ae3a2';
+import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-a9d49073fc7ae3a2';
+import {restoreCare} from './care.mjs?v=fg-a9d49073fc7ae3a2';
+import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-a9d49073fc7ae3a2';
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const PET_LIMIT=4;
 export function petProfile(value){const species=value?.species==='dog'?'dog':'cat',fallback=species==='dog'?'狗狗':'猫猫';return {species,name:typeof value?.name==='string'?value.name.trim().slice(0,24)||fallback:fallback,look:normalizeCatLook(value?.look),weight:bound(value?.weight,.8,1.25,1),size:bound(value?.size,.7,1.3,1)};}
