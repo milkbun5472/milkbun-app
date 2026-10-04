@@ -15,8 +15,8 @@ assert.ok(/take-photo[\s\S]{0,400}passengers\?\.home\(\)/.test(game) || game.inc
 for (const k of ["getLook:", "getDyes:", "getOutfit:", "setLook:"]) assert.ok(game.includes(k), "TrainGame." + k);
 assert.ok(game.includes("mergeLook(lookOf(who),patch)"), "same merge as the garden");
 assert.ok(pass.includes("state()?.looks?.me||journey.look||garden?.look"), "train look overrides garden look");
-// 4. 宿主：庭院和列车共用同一份 DressControls
-assert.equal((fg.match(/h\(DressControls,/g) || []).length, 2, "one control set, two places");
+// 4. 宿主：庭院、列车与小镇共用同一份 DressControls
+assert.equal((fg.match(/h\(DressControls,/g) || []).length, 3, "one control set, three worlds");
 assert.ok(fg.includes('"改外貌"') && fg.includes('panel==="dress"'), "train settings has 改外貌");
 // 5. 点地板走过去（74.059）：拖动不算点，落点夹在地板里
 assert.ok(pass.includes("function goTo(") && pass.includes("function floorPoint("), "floor tap walking");
