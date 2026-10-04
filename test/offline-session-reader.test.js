@@ -3,8 +3,13 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const src = fs.readFileSync(require('node:path').join(__dirname, '../js/components.js'), 'utf8');
+// 桩照着【这一页现在真的要用什么】给（施工规则/stub-from-the-writer）：
+//   v74.732 顶栏多了一颗「导出这一场」，它要用 offlineSessionsText / stampSlug / saveTextFile。
+const saved = [];
 const ctx = { h: (type, props, ...children) => ({ type, props, children }), F_BODY: '', F_DISPLAY: '',
-  IArrow: 'arrow', ITrash: 'trash', OffCard: 'card', offlineSubSkin: t => t };
+  IArrow: 'arrow', ITrash: 'trash', OffCard: 'card', offlineSubSkin: t => t,
+  offlineSessionsText: () => '一场', stampSlug: () => '戳',
+  saveTextFile: (name, text) => saved.push([name, text]), window: {} };
 vm.createContext(ctx);
 vm.runInContext(src.slice(src.indexOf('function OfflineSessionReader('), src.indexOf('function OfflinePastSessions(')), ctx);
 function fixture(extra = {}) {
@@ -29,9 +34,9 @@ test('返回只关闭当前详情，删除先关闭再传原 ID 与原列表索�
   const f = fixture();
   f.tree.children[0].children[0].props.onClick();
   assert.deepEqual(f.calls, ['close']);
-  f.tree.children[0].children[2].props.onClick();
+  f.tree.children[0].children[3].props.onClick();
   assert.deepEqual(f.calls, ['close', 'close', ['off_1', 1]]);
-  assert.equal(fixture({ onDelSession: null }).tree.children[0].children[2], null);
+  assert.equal(fixture({ onDelSession: null }).tree.children[0].children[3], null);
 });
 test('便签仅显式启用时展示，正文层级与原滚动样式不变', () => {
   assert.equal(fixture().tree.children[1].children[1], false);
