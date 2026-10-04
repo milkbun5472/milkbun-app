@@ -53,6 +53,7 @@ const INNER = {
   "components.js|shrink-0 pt-10 pb-3 flex flex-col items-center": "通话浮层内部；外壳自己已经让开了刘海",
   "components.js|shrink-0 px-5 pt-5 pb-3 flex items-center gap-3": "通话记录浮层内部；外壳自己已经让开了刘海",
   "components.js|active:opacity-50 shrink-0 pt-0.5": "记录行里的删除按钮，不是顶栏",
+  "components.js|active:opacity-60 shrink-0 pt-0.5": "记录行里的「导出这一场」，跟它旁边那颗删除同一行，不是顶栏",
   "codex.js|px-5 pt-2 pb-3 shrink-0": "搜索框那一行，上面还有 Head",
   "vps-codex.js|px-4 pt-2 shrink-0": "底部输入行，让的是下边",
   "phone.js|shrink-0 flex items-center gap-3 px-5 pt-6 pb-4": "接在 Head 底下的一行，不是顶栏",
