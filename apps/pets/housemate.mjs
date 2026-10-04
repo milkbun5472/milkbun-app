@@ -1,13 +1,13 @@
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-ad36803fee25eb2f';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-ad36803fee25eb2f';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-ad36803fee25eb2f';
-import {turnPet} from './movement.mjs?v=fg-ad36803fee25eb2f';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-d02c57eb19aaa998';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-d02c57eb19aaa998';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-d02c57eb19aaa998';
+import {turnPet} from './movement.mjs?v=fg-d02c57eb19aaa998';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActiveId=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
  const archive=host.load(),garden=archive.worlds?.garden||archive.world;
  const look=seatLook('companion',archive.journey?.companionLook||garden?.companion?.look,person.ta);
- const doll=createTraveler(await loadTravelerSource(),true,look);await doll.ready();scene.add(doll.root);doll.root.scale.setScalar(1.2);doll.root.visible=false;
+ const doll=createTraveler(await loadTravelerSource(),true,look);await doll.ready();scene.add(doll.root);doll.root.scale.setScalar(1.6);doll.root.visible=false;
  const nav=createHomeNavigation(1.4);let route=[],clock=0,idle=0,visible=false,job=null;
  const members=()=>getPets().length?getPets():[{entry:{id:'pet-1'},care,home}];
  const choose=id=>{const selected=members().find(x=>x.entry.id===id)||members().find(x=>x.entry.id===getActiveId())||members()[0];care=selected.care;home=selected.home;return selected.entry.id;};

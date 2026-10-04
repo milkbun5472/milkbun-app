@@ -1,6 +1,6 @@
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-ad36803fee25eb2f';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo} from './workplaces.mjs?v=fg-d02c57eb19aaa998';
 export const WORK_EVENTS=BAKERY_EVENTS;
 export const PET_SHOP=[{id:'snack',name:'小零食包',cost:8,count:2,text:'两份零食，可以分给它，也能在拒工后再邀请一次。'},{id:'toy',name:'它自己的小球',cost:22,count:1,text:'把小球记在它的名下；可以带回家，用原来的玩球玩法陪它玩。'}];
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
