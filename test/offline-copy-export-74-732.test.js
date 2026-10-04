@@ -14,6 +14,7 @@ const comp = fs.readFileSync("js/components.js", "utf8");
 const live = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 const CARD = live.slice(live.indexOf("function OffCard({"), live.indexOf("function GroupOfflineMode({", live.indexOf("function OffCard({")));
 const HIST = live.slice(live.indexOf("function offlineSessionsText("), live.indexOf("function OfflineSetupStyleSection"));
+const READER = (() => { const i = live.indexOf("function OfflineSessionReader({"); return live.slice(i, live.indexOf("\nfunction ", i + 10)); })();
 
 test("① 每一轮卡片上有「复制」，走公共那一支", () => {
   assert.match(CARD, /const copyOne = \(\) => copyText\(String\(m\.content \|\| ""\)\.trim\(\)\)/, "没接 copyText，或者又自己写了一份");
@@ -49,4 +50,17 @@ test("④ 群线下按人署名，不是一律写群名", () => {
 test("⑤ 开场白和总结都带上，不然读起来缺一截", () => {
   assert.match(HIST, /if \(s\.opening\) head\.push\("【开场】"/, "开场白丢了");
   assert.match(HIST, /s\.summary \? \["【这一场后来被总结成】"/, "总结丢了");
+});
+
+// ⚠️她 2026-10-03 当场纠正：「笨蛋我要的是每一次的线下单独导出」。
+//   第一版只做了「全部合成一个文件」——那是另一件事。
+//   现在：往期那一行各自一颗「导出」，读一场那一页也有一颗；
+//   「导出全部」留着（已经做好了、一颗按钮的事），但它不是这条的答案。
+test("⑥ 每一场单独导出：往期每一行一颗，读一场那一页也有", () => {
+  assert.match(HIST, /offlineSessionsText\(\[s\], fmtStamp, who, members\)/, "往期那一行没有单场导出");
+  assert.match(HIST, /title: "导出这一场"/, "往期那一行那颗没有标题");
+  assert.match(READER, /offlineSessionsText\(\[session\], fmtStamp/, "读一场那一页没有导出");
+  // 文件名带这一场的时间，不然导几场全叫同一个名字、互相覆盖
+  assert.match(live, /function stampSlug\(ts\)/, "没有时间戳那一支");
+  assert.equal((live.match(/stampSlug\(/g) || []).length, 3, "两处导出都要带时间戳（定义 1 + 用 2）");
 });

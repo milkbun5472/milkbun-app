@@ -14229,6 +14229,13 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(session.startTs)),
+        // 读着读着想留一份：这一页也给一颗（跟往期那一行同一支，喂它这一场）
+        h("button", { onClick: () => {
+          const one = offlineSessionsText([session], fmtStamp, (char && (char.remark || char.name)) || "线下", members);
+          if (!one.trim()) { window.__toast && window.__toast("这一场没有内容"); return; }
+          if (typeof saveTextFile === "function") saveTextFile(((char && (char.remark || char.name)) || "线下") + "-" + stampSlug(session.startTs) + ".txt", one, "text/plain");
+        }, className: "active:opacity-60 shrink-0", title: "导出这一场",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "导出"),
         onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         session.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + session.summary),
@@ -14375,6 +14382,10 @@ function OfflineCustomStyleSection({ t, editor }) {
 //   这儿不另写（one-public-mechanism）。导的是【纯文本】不是 json：
 //   她要的是能读、能存、能发给别人的那一份，不是拿去再导进来的存档
 //   （整包存档走设置 → 数据 → 导出全部数据，那一份本来就含线下）。
+function stampSlug(ts) {
+  const d = new Date(Number(ts) || Date.now()), p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
 function offlineSessionsText(sessions, fmtStamp, who, members) {
   const past = (sessions || []).filter(s => s && (s.msgs || []).length)
     .slice().sort((a, b) => (a.startTs || 0) - (b.startTs || 0));
@@ -14412,6 +14423,14 @@ function OfflineSetupHistory({ sessions, t, fmtStamp, onSelect, onDelSession, wh
             h("button", { onClick: () => onSelect(s), className: "flex-1 text-left active:opacity-70" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
               h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
+            // 这一场单独导（她 2026-10-03：「我要的是每一次的线下单独导出」）——
+            //   跟「导出全部」同一支 offlineSessionsText，只是喂它一场。
+            h("button", { onClick: () => {
+              const one = offlineSessionsText([s], fmtStamp, who, members);
+              if (!one.trim()) { window.__toast && window.__toast("这一场没有内容"); return; }
+              if (typeof saveTextFile === "function") saveTextFile((who || "线下") + "-" + stampSlug(s.startTs) + ".txt", one, "text/plain");
+            }, className: "active:opacity-60 shrink-0 pt-0.5", title: "导出这一场",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "导出"),
             onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))));
 }
 
