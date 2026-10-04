@@ -1,14 +1,14 @@
-import {choosePetRest} from './habits.mjs?v=fg-adc21987235ccc73';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-adc21987235ccc73';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-adc21987235ccc73';
-import {weather} from '../fairy-garden/world.mjs?v=fg-adc21987235ccc73';
-import {workRoom} from './workplaces.mjs?v=fg-adc21987235ccc73';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-adc21987235ccc73';
-import {createPetCare} from './care.mjs?v=fg-adc21987235ccc73';
-import {createPetCareer} from './career.mjs?v=fg-adc21987235ccc73';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-adc21987235ccc73';
-import {walkRoute} from './movement.mjs?v=fg-adc21987235ccc73';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-adc21987235ccc73';
+import {choosePetRest} from './habits.mjs?v=fg-368b5d075633a5d3';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-368b5d075633a5d3';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-368b5d075633a5d3';
+import {weather} from '../fairy-garden/world.mjs?v=fg-368b5d075633a5d3';
+import {workRoom} from './workplaces.mjs?v=fg-368b5d075633a5d3';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-368b5d075633a5d3';
+import {createPetCare} from './care.mjs?v=fg-368b5d075633a5d3';
+import {createPetCareer} from './career.mjs?v=fg-368b5d075633a5d3';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-368b5d075633a5d3';
+import {walkRoute} from './movement.mjs?v=fg-368b5d075633a5d3';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-368b5d075633a5d3';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}
@@ -52,13 +52,14 @@ export function recoverPetLife(state,world,at=Date.now()){
    care.state.satiety=clamp(care.state.satiety-seconds*.0015);care.state.energy=clamp(care.state.energy-seconds*.0006);
    const plan=petRoutine(entry,time,career),busy=care.state.helper||care.state.task&&care.state.task.source!=='self'||care.state.task?.socialId;
    if(!busy){travelTo(town,plan.target,seconds,plan.target==='outside'?plan.targetPoint:null);if(entry.town.place==='home'){
+    if(care.state.task?.night&&(plan.id!=='sleep'||!plan.home)){care.finishNightRest();care.cancel();lifeNote(entry,time,entry.profile.name+'醒来，开始今天的小日子。','wake');}
     if(resident.town&&resident.town.place!=='home'&&plan.home&&!resident.activity){const rt=createTownLife(resident.town,{world,size:()=>1.4});travelTo(rt,'home',seconds);}
     if(resident.id&&resident.town?.place==='home'&&care.state.satiety<65&&care.state.bowl<25){const fed=care.request('feed',{source:'companion',actor:resident.id,name:'TA'});if(fed.accepted){care.cancel();lifeNote(entry,time,'TA给'+entry.profile.name+'的饭碗添了粮。','refill:'+plan.id);}}
     if((meals.includes(plan.id)||care.state.satiety<60)&&care.state.bowl>0&&care.state.satiety<85){const point=places.feeding;if(homeMove(entry,point)){
      const food=Math.min(care.state.bowl,(90-care.state.satiety)/.65);care.state.bowl-=food;care.state.satiety=clamp(care.state.satiety+food*.65);care.state.mood=clamp(care.state.mood+2);care.record('自己走到饭碗边吃了一些粮。');lifeNote(entry,time,entry.profile.name+'自己到饭碗边吃过了。','meal:'+plan.id);care.cancel();
     }}
-    if(plan.id==='sleep'&&plan.home){const available=['bed','sofa',...(career.state.inventory.box===1?['box']:[])],previous=care.state.task?.night?care.state.task:null,rest=previous&&available.includes(previous.place)?previous.place:choosePetRest(care.state,available,()=>nextRandom(care.state));if(homeMove(entry,places[rest])){care.state.energy=clamp(care.state.energy+seconds*.006);care.state.task={kind:'sleep',phase:'doing',time:Math.min(45,(previous?.time||0)+seconds),place:rest,source:'self',night:true};lifeNote(entry,time,entry.profile.name+'回到窝里睡下了。','sleep');}}
-    else if(care.state.task?.night){care.finishNightRest();care.cancel();lifeNote(entry,time,entry.profile.name+'醒来，开始今天的小日子。','wake');}
+    if(plan.id==='sleep'&&plan.home){const available=['bed','sofa',...(career.state.inventory.box===1?['box']:[])],previous=care.state.task?.night?care.state.task:null,rest=previous&&available.includes(previous.place)?previous.place:choosePetRest(care.state,available,()=>nextRandom(care.state));if(homeMove(entry,places[rest])){care.state.energy=clamp(care.state.energy+seconds*.006);care.state.task={kind:'sleep',phase:'doing',time:Math.min(45,(previous?.time||0)+seconds),place:rest,source:'self',night:true};lifeNote(entry,time,entry.profile.name+'在'+({bed:'自己的窝里',sofa:'沙发边',box:'自己的小纸箱里'}[rest])+'睡下了。','sleep');}}
+
    }
    startScheduledWork(entry,time,career,care);
    if(career.state.job?.phase==='working'&&career.atDestination({room:entry.town.place,position:entry.town.position})){for(let i=0;i<Math.min(seconds,18);i++){const event=career.tick(1,{care:care.state,room:entry.town.place,offline:true,position:entry.town.position});if(event){lifeNote(entry,time,entry.profile.name+(career.state.job.profession==='courier'?'配送时遇到一件小事，留着等你拿主意。':'在店里遇到一件小事，留着等你拿主意。'),'work-choice:'+career.state.job.id+':'+career.state.job.index);break;}}}
