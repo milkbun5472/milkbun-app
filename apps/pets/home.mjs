@@ -1,8 +1,9 @@
-import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-d1ea6d59dbbb2cd2';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-d1ea6d59dbbb2cd2';
-import {turnPet} from './movement.mjs?v=fg-d1ea6d59dbbb2cd2';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-d1ea6d59dbbb2cd2';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-d1ea6d59dbbb2cd2';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-9b7f0cc9f166568e';
+import {localRoute,idlePose,nextRandom} from './autonomy.mjs?v=fg-9b7f0cc9f166568e';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-9b7f0cc9f166568e';
+import {turnPet} from './movement.mjs?v=fg-9b7f0cc9f166568e';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-9b7f0cc9f166568e';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-9b7f0cc9f166568e';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',homeTime=0,reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places=petHomePlaces(station);
@@ -15,7 +16,7 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  let ownFood;
  if(station){const bowl=new T.Mesh(new T.CylinderGeometry(.18,.15,.07,24),material(station.color));bowl.position.set(station.bowl.x,.079,station.bowl.z);props.add(bowl);ownFood=new T.Mesh(new T.CylinderGeometry(.13,.13,.018,20),material('#b58c60'));ownFood.position.set(station.bowl.x,.12,station.bowl.z);props.add(ownFood);const cushion=new T.Mesh(new T.CylinderGeometry(.42,.42,.055,32),material(station.color));cushion.scale.z=.85;cushion.position.set(station.rest.x,.063,station.rest.z);props.add(cushion);}
  const box=new T.Group();box.userData.souvenir='box';box.position.set(places.box.x,.05,places.box.z);props.add(box);const cardboard=material('#bd9373'),liner=material('#ead5b6');for(const [w,h,d,x,y,z]of[[.98,.025,.76,0,0,0],[.035,.13,.78,-.49,.065,0],[.035,.13,.78,.49,.065,0],[1,.13,.035,0,.065,-.38],[1,.065,.035,0,.035,.38]]){const m=new T.Mesh(new T.BoxGeometry(w,h,d),cardboard);m.position.set(x,y,z);m.receiveShadow=true;box.add(m);}const mat=new T.Mesh(new T.BoxGeometry(.85,.01,.66),liner);mat.position.y=.02;box.add(mat);
- function makeBag(id){const g=new T.Group();g.userData.parcel=id;const paper=material('#caa485'),fold=material('#ecd6bd');for(const [w,h,d,x,y,z]of[[.24,.24,.14,0,.12,0],[.26,.025,.16,0,.25,0],[.014,.09,.012,-.045,.28,0],[.014,.09,.012,.045,.28,0],[.10,.012,.012,0,.325,0]]){const m=new T.Mesh(new T.BoxGeometry(w,h,d),y>.24?fold:paper);m.position.set(x,y,z);m.castShadow=true;g.add(m);}props.add(g);return g;}
+ function makeBag(id){const g=createParcelProp(T,id);props.add(g);return g;}
  function syncBags(){const saved=getParcels(),queue=[...saved.queue,...(saved.opened||[]).filter(b=>care.state.task?.kind==='inspectBag'&&care.state.task.bagId===b.id).map(b=>({...b,empty:true}))];for(const[id,g]of bags)if(!queue.some(b=>b.id===id)){props.remove(g);g.traverse(o=>{o.geometry?.dispose();o.material?.dispose();});bags.delete(id);}for(const bag of queue){let g=bags.get(bag.id);if(!g){g=makeBag(bag.id);bags.set(bag.id,g);}g.scale.setScalar(pet.root.scale.x);const t=care.state.task;g.visible=visible&&(bag.phase==='placed'||t?.kind==='carryBag'&&t.bagId===bag.id);if(bag.phase==='placed'){g.position.set(bag.position.x,nav.ground(bag.position.x,bag.position.z),bag.position.z);g.rotation.y=0;}else if(g.visible){const m=mouth();g.position.set(m.x,m.y-.3*pet.root.scale.x,m.z);g.rotation.y=pet.root.rotation.y;}}}
  function pickBag(ray){props.updateMatrixWorld(true);for(const hit of ray.intersectObjects([...bags.values()].filter(g=>g.visible),true)){let g=hit.object;while(g&&!g.userData.parcel)g=g.parent;const bag=getParcels().queue.find(b=>b.id===g?.userData.parcel);if(bag?.phase==='placed')return bag.id;}return null;}
  const others=()=>getOtherPets().filter(p=>p.visible!==false);
