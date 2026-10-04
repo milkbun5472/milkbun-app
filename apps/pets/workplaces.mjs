@@ -16,10 +16,17 @@ export const STORE_EVENTS=[
  {id:'directions',title:'门口的客人来问路',text:'客人想找花店，它却认真望向隔壁的面包店。店员笑着等你们一起指路。',options:[{id:'help',label:'陪店员指向花店',note:'一起帮客人找到了花店方向，店员多给了它一点酬谢。',tip:4,like:.05,trait:'social'},{id:'observe',label:'让它在门内慢慢看',note:'留在门内看客人离开，没有勉强它招呼陌生人。',tip:1,sticker:1,like:.07},{id:'break',label:'先休息，交给店员招呼',note:'在安静处休息，问路的事交给店员处理。',tip:0,like:.09,energy:5}]},
  {id:'sticker-roll',title:'封箱贴纸上有一个歪歪的小脸',text:'整理货架时，店员留下几张不再使用的贴纸。其中一张的眼睛贴得一高一低。',options:[{id:'pick',label:'给它收好那张歪脸贴纸',note:'挑了歪歪小脸的贴纸，装进属于它的下班袋子。',tip:0,sticker:2,like:.08,trait:'active'},{id:'finish',label:'陪店员把最后一层货架理好',note:'陪完最后一段整理，得到了额外酬谢和一张贴纸。',tip:4,sticker:1,like:.03},{id:'easy',label:'按它的节奏收工',note:'留了一张小贴纸，没有催它继续营业。',tip:0,sticker:1,like:.07,energy:3}]}
 ];
+export const CAFE_EVENTS=[
+ {id:'counter-seat',title:'收银台旁留了一个空位置',text:'店员说今天的店长不用管账，只要愿意陪客人待一会儿。它看了看柜台，又看了看窗边。',options:[{id:'welcome',label:'陪它慢慢招呼客人',note:'陪着来结账的客人待了一会儿，店员给它多留了一点酬谢。',tip:4,like:.04,trait:'social'},{id:'window',label:'让它先在窗边熟悉店里',note:'从安静的窗边观察店里，收好了一张印着小爪子的杯垫。',tip:1,coaster:1,like:.08,trait:'bold'},{id:'break',label:'先歇歇，营业不用急',note:'店员替它招呼客人，今天按舒服的节奏开始。',tip:0,like:.09,energy:5}]},
+ {id:'guest-card',title:'客人留下了一张小卡片',text:'卡片上写着「今天也见到你啦」。客人想多陪它待一会儿，它还没有决定要不要靠近。',options:[{id:'company',label:'陪它和客人待一小会儿',note:'慢慢陪完这一小段，客人把写好的留言卡留给了它。',tip:3,guestCard:1,like:.05,trait:'social'},{id:'keep',label:'收好卡片，给它留点距离',note:'留下了客人的留言卡，也给它保留了舒服的距离。',tip:0,guestCard:2,like:.09},{id:'observe',label:'让它自己决定靠不靠近',note:'没有催它营业，它在一旁慢慢认识了这位客人。',tip:1,guestCard:1,like:.07,trait:'bold'}]},
+ {id:'crooked-coaster',title:'杯垫上的爪印印歪了',text:'店员整理出几张没用过的纸杯垫。其中一张爪印歪到了边上，它看得比看菜单还认真。',options:[{id:'pick',label:'把歪爪印留给它',note:'挑走了歪歪的小爪印杯垫，准备带回自己的家。',tip:0,coaster:2,like:.09,trait:'active'},{id:'counter',label:'先陪完这一段柜台',note:'陪完柜台这一段，店员把一张杯垫装进它的下班袋子。',tip:4,coaster:1,like:.03,trait:'social'},{id:'quiet',label:'陪它在安静处缓一缓',note:'杯垫收好了，剩下的时间没有再催它招呼客人。',tip:0,coaster:1,like:.08,energy:4}]},
+ {id:'slow-afternoon',title:'下午的客人想多坐一会儿',text:'忙的时候过去了，窗边只剩慢慢聊天的客人。这份工作也可以安静地收尾。',options:[{id:'stay',label:'再陪最后一位客人',note:'安稳陪完最后一位客人，得到了一点额外酬谢。',tip:5,like:.03,trait:'social'},{id:'card',label:'收好今天留给它的卡片',note:'把今天的小卡片装进下班袋子，准备带回家慢慢看。',tip:1,guestCard:1,like:.08},{id:'easy',label:'就这样慢慢收工',note:'没有被催着继续营业，按自己的节奏结束了这一班。',tip:0,like:.09,energy:5}]}
+];
 export const PET_WORKPLACES=[
  {id:'bakery',title:'面包店',description:'柜台、纸袋与小面包',rewards:{bread:1},role:'面包店看板宠物',icon:'bread',steps:['先熟悉店里','陪一会儿客人','准备收工'],trialWage:24,wage:30,energy:.18,events:BAKERY_EVENTS},
  {id:'florist',title:'花店',description:'花香、小邻居与带回的小花',rewards:{flower:1,petals:1},role:'花店店宠',icon:'leaf',steps:['认识花香','陪着包花','带花回家'],trialWage:18,wage:24,energy:.12,events:FLORIST_EVENTS},
- {id:'store',title:'便利店',description:'值班、奇怪小票与小贴纸',rewards:{receipt:1,sticker:1},role:'便利店值班宠物',icon:'bag',steps:['熟悉货架','陪着值班','收好下班小物'],trialWage:16,wage:22,energy:.15,events:STORE_EVENTS}
+ {id:'store',title:'便利店',description:'值班、奇怪小票与小贴纸',rewards:{receipt:1,sticker:1},role:'便利店值班宠物',icon:'bag',steps:['熟悉货架','陪着值班','收好下班小物'],trialWage:16,wage:22,energy:.15,events:STORE_EVENTS},
+ {id:'cafe',title:'咖啡店',description:'陪客人、歪爪杯垫与留言卡',rewards:{coaster:1,guestCard:1},role:'咖啡店小店长',icon:'cup',steps:['认识柜台','陪着慢慢营业','收好今天的留言'],trialWage:20,wage:26,energy:.10,events:CAFE_EVENTS}
 ];
 export const petWorkplace=id=>PET_WORKPLACES.find(x=>x.id===id)||PET_WORKPLACES[0];
 export const workplaceInfo=id=>{const {events,...info}=petWorkplace(id);return structuredClone(info);};

@@ -15,7 +15,7 @@ if(process.env.PET_HOUSEMATE_CHECK==='1')await require('./pet-housemate-browser.
 if(process.env.PET_INITIATIVE_CHECK==='1')await require('./pet-initiative-browser.cjs')({p,r,f,out,result});
 
 if(process.env.PET_PANEL_CHECK==='1')await require('./pet-panels-browser.cjs')({p,r,f,out,result});
-if(process.env.PET_STORE_CHECK==='1')await require('./pet-store-browser.cjs')({p,r,f,out,result});if(process.env.PET_CAREER_CHECK==='1')await require('./pet-career-browser.cjs')({p,r,f,out,result});
+if(process.env.PET_CAFE_CHECK==='1')await require('./pet-store-browser.cjs')({p,r,f,out,result},'cafe');if(process.env.PET_STORE_CHECK==='1')await require('./pet-store-browser.cjs')({p,r,f,out,result});if(process.env.PET_CAREER_CHECK==='1')await require('./pet-career-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_SOUVENIRS_CHECK==='1')await require('./pet-souvenirs-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_FLORIST_CHECK==='1')await require('./pet-florist-browser.cjs')({p,r,f,out,result});
 if(process.env.PET_SHOPPING_CHECK==='1')await require('./pet-shopping-browser.cjs')({p,r,f,out,result});
