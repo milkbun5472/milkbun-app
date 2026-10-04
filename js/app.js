@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.801";
+const APP_VERSION = "v74.809";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -420,9 +420,6 @@ function neteaseSharedTitle(input) {
 //   缺席时把心声全丢掉，比放行一条偶尔出戏的更坏。
 // ⚠️turnPatch 那三行是照抄真实实现：「这一轮没有有效心声就清掉旧的」是铁律，
 //   不能因为守卫没加载就失效——那会让状态卡永远冻在上一句。
-// 聊天界面看到的那张脸：TA 在聊天里自己换过（chatAvatar）就用那张，否则就是档案那张。
-//   只给聊天列表和聊天页用；档案、编辑页、锁脸都还读 avatarImage。
-const chatFace = c => c && c.chatAvatar ? { ...c, avatarImage: c.chatAvatar } : c;
 const TVG = {
   accept(value, pronoun) {
     const g = typeof window !== "undefined" && window.ThoughtVoiceGuard;
@@ -4424,7 +4421,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       name: g ? (g.name || "群聊") : (c.remark || c.name || "TA"),
       // 旁观群她本来就不在场，标出来省得以为是有人在跟她说话
       tag: g ? (g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate ? "旁观" : "群") : "",
-      who: g ? { id: g.id, name: g.name, avatarImage: g.avatarImage || g.avatar || "" } : c,
+      who: g ? { id: g.id, name: g.name, avatarImage: g.avatarImage || g.avatar || "" } : chatFace(c),   // 跟聊天里同一张脸（她 2026-10-05）
       text: text, n: count
     };
     setBanners(p => [b, ...p].slice(0, 4));
@@ -4610,9 +4607,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️默认关、每个角色自己开（她：「默认关着的按钮是必须的，不然会破坏一些人设」）。
   const BUSY_ODDS = [0, 0.35, 0.6, 0.85];
   const BUSY_GAP_MIN = 20;          // 离TA上一条话不到这么久＝正聊着，不拦
+  // 睡着也走这一条（她 2026-10-05：「睡觉的时候让他不回复其实一次都没触发……挂到忙碌晚点回那里」）。
+  //   原来睡着只改语气（被吵醒也照回），从来没有「不回」这回事。现在睡着＝一段很顾不上手机的忙，
+  //   拦下来就等到他醒——醒的时刻取今天那段睡觉的结束，或者凌晨那一截的「今天第一项」。
+  const SLEEP_ODDS = 0.7;
+  const sleepHoldFor = char => {
+    if (sleepPhaseOf(char) !== "asleep") return null;
+    const hm = x => { const m = /(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? +m[1] * 60 + +m[2] : null; };
+    const seg = schedNowSegFor(char), nowM = charLocalMin(char);
+    let wakeM = null;
+    if (seg && seg.cur && seg.cur.type === "sleep") wakeM = hm(seg.cur.end || (seg.disp[seg.idx + 1] && seg.disp[seg.idx + 1].time));
+    if (wakeM == null) { const cy = schedCarryNowFor(char); wakeM = cy ? hm(cy.wake) : null; }
+    let left = wakeM == null ? 240 : wakeM - nowM;
+    if (left < 0) left += 1440;
+    left = Math.max(15, Math.min(720, left));
+    return { level: 3, odds: SLEEP_ODDS, sleep: true, title: "睡着", endTs: Date.now() + left * 60000, segKey: schedLocalDayKey(char) + "#sleep" };
+  };
   const busyNowFor = char => {
+    const zz = sleepHoldFor(char);
+    if (zz) return zz;
     const seg = schedNowSegFor(char);
-    if (!seg || !seg.cur || seg.cur.type === "sleep") return null;          // 睡着有睡眠那一套管，这里不重复
+    if (!seg || !seg.cur || seg.cur.type === "sleep") return null;
     const { disp, idx, cur } = seg;
     const level = Number.isFinite(Number(cur.busy)) && cur.busy !== undefined ? Number(cur.busy) : (cur.type === "work" ? 1 : 0);
     if (!(level >= 1)) return null;
@@ -4645,8 +4660,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const lastTs = ms.length ? Number(ms[ms.length - 1].ts) || 0 : 0;
       if (Date.now() - lastTs < BUSY_GAP_MIN * 60000) return null;
     }
-    const held = Math.random() < BUSY_ODDS[b.level];
-    busyHoldSet(char.id, { segKey: b.segKey, held, title: b.title, level: b.level, until: b.endTs, at: Date.now(), released: false });
+    const held = Math.random() < (b.odds != null ? b.odds : BUSY_ODDS[b.level]);
+    busyHoldSet(char.id, { segKey: b.segKey, held, title: b.title, level: b.level, sleep: !!b.sleep, until: b.endTs, at: Date.now(), released: false });
     return held ? { held: busyHolds()[char.id] } : null;
   };
   // 单聊里她打出去的电话（拨号键、未接卡上的回拨）都从这儿过：忙的时候可能打不通
@@ -4656,7 +4671,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 打不通：不进通话、不调模型，只落一张未接卡（点它回拨＝催）
       pChat(activeChar.id, p => [...p, { role: "user", kind: "callinvite", mode: m === "video" ? "video" : "voice", content: "[" + (m === "video" ? "视频" : "语音") + "通话邀请]",
         answered: "missed", busyMissed: bg.held.title, ts: Date.now(), read: false }]);
-      toast(characterText(activeChar, "无法接通——TA 在忙（" + bg.held.title + "）。真有急事就再打一次"));
+      toast(characterText(activeChar, bg.held.sleep ? "无法接通——TA 在睡觉。真有急事就再打一次" : "无法接通——TA 在忙（" + bg.held.title + "）。真有急事就再打一次"));
       return;
     }
     if (bg && (bg.nudge || bg.back)) busyRelease(activeChar.id);
@@ -6164,6 +6179,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // —— 农历节日（春节/中秋/端午…含除夕）——
       const lf = typeof lunarFestivalOn === "function" ? lunarFestivalOn(today) : null;
       if (lf) lines.push("今天是农历的【" + lf + "】（若情境合适可自然应景：问候、聊吃食习俗、约着过节都行，别硬凹）。");
+      // —— 天象（星测，她 2026-10-05）：满月新月、水逆、换星座。只给事实，信不信、提不提是TA自己的事 ——
+      const _sky = window.Astro && window.Astro.skyNote ? window.Astro.skyNote(today) : "";
+      if (_sky) lines.push("今天的天象：" + _sky + "（天上真发生的事。你信不信这些、要不要提，全看你自己）。");
+      // —— 你俩的好日子（星测按两张星盘算的，接下来三天内有就说一声）——
+      try {
+        const _gd = window.Astro && window.Astro.pairGoodDays ? window.Astro.pairGoodDays(profile && profile.birthday, char.id, char.birthday, today, 4) : [];
+        if (_gd.length) lines.push("星测按你和 " + uName + " 的星盘算出来，" + _gd.map(x => x.day.slice(5).replace("-", "月") + "日").join("、") + " 对你俩都顺（要不要当回事、拿不拿来约她，看你自己）。");
+      } catch (e) {}
       // —— 今日日历三视角 ——
       const w = evTitles(cal.world && cal.world[tK]);
       if (w) lines.push("今天这个世界里：" + w + "（大家都知道的公共事件，聊到可自然带出）。");
@@ -6910,7 +6933,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   下次打开 App 这一轮还会再来；失败了半小时后再试（pSkip）。
           if (pSkip("busy:" + cid)) continue;
           pOnce("busy:" + cid, "busy:" + cid + ":" + h0.at,
-            () => replyNow(cid, "", null, { busyBack: { title: h0.title } }),
+            () => replyNow(cid, "", null, { busyBack: { title: h0.title, sleep: !!h0.sleep } }),
             () => busyRelease(cid));
           return;                                                // 一次一个，错峰
         }
@@ -10496,7 +10519,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
       const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
-      const busyHint = opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
+      const busyHint = opts.busyBack && opts.busyBack.sleep ? "\n\n【此刻】你刚睡醒，拿起手机才看到 " + uName + " 在你睡着的时候发来的消息。照你自己的性子回 Ta。"
+        : opts.busyNudge && opts.busyNudge.sleep ? "\n\n【此刻】你本来在睡，手机又响了，迷迷糊糊看了一眼 " + uName + " 发来的消息。照你自己的性子来。"
+        : opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
         // ⚠️不写「她催你」：写了模型一开口就是「催什么催」。只给事实——你还在忙、抽空看了一眼
         : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），这会儿抽空看了一眼手机，看到 " + uName + " 发来的消息。照你自己的性子来。" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道（1~3 条短消息），别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
@@ -11077,11 +11102,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _myGroups = (groups || []).filter(g => g && (g.memberIds || []).includes(char.id) && _gsFor(g.id).memoryInterop);
       const _gLast = g => { const arr = groupChatsRef.current[g.id] || []; return arr.length ? Number(arr[arr.length - 1].ts || 0) : 0; };
       const toGroupTarget = _myGroups.slice().sort((a, b) => _gLast(b) - _gLast(a))[0] || null;
+      const TOGROUP_ODDS = 0.15;
       if (toGroupTarget) {
         openCaps.push("toGroup");
         capState.push("toGroup：把一句话【公开发到群「" + toGroupTarget.name + "」里】——群里所有人都看得到。"
           + "用在你说了「我去群里说」「发群里」「群里问问他们」这类话的时候，别放空炮。"
-          + "⚠️它是公开发言：只属于你和 " + uName + " 之间的私事、你俩的关系、TA 私下跟你说的话，一个字都不许写进去。");
+          + "⚠️它是公开发言：只属于你和 " + uName + " 之间的私事、你俩的关系、TA 私下跟你说的话，一个字都不许写进去。"
+          // 反过来也掷一下（她 2026-10-05：「vice versa 的也基本没有触发过」）：只开门，不逼他说
+          + (Math.random() < TOGROUP_ODDS && _gLast(toGroupTarget) > Date.now() - 2 * 86400000
+            ? "\n【这一轮】群「" + toGroupTarget.name + "」最近在聊的你也看到了。跟 " + uName + " 聊着聊着要是想到一句想在群里说的（接群里的话、跟群里谁搭一句、或者把这边能公开的事提一嘴），这一轮就用 toGroup 去说；没想说的就不用。" : ""));
       }
       // ⚠️从被删的旧基线里救回来的（v2 迁移没跟过来）：协议里只有 gift 的字段形状，
       //   「这笔钱会真的从你钱包里扣掉」这半句一直没发出去，TA自然会乱送。
@@ -13268,6 +13297,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gDmMembers = gs.memoryInterop
         ? members.filter(c => c && !(blocks[c.id] && (blocks[c.id].iBlocked || blocks[c.id].theyBlocked)))
         : [];
+      const GDM_ODDS = 0.2;
+      const gDmPick = gDmMembers.length && Math.random() < GDM_ODDS ? gDmMembers[Math.floor(Math.random() * gDmMembers.length)] : null;
       const gDmHint = gDmMembers.length ? "\n【dm 私下说】你可以在公开发言之外，【私下】单独发一句给「" + gUName + "」——它只会出现在你和 TA 的一对一私聊里，群里其他人看不到。\n"
         + "⚠️【默认不用】绝大多数轮次都不该出现 dm。群聊就是群聊，正常在群里说话就行；私聊是【例外】，不是每轮的附加动作。\n"
         + "只有满足下面之一才允许用，其余情况一律不填：\n"
@@ -13278,7 +13309,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "写法：在你那条发言对象里加 \"dm\":[\"第一条\",\"第二条\"]。\n"
         + "⚠️它是【一个数组，一条一个气泡】，和 text 同一个规矩：私聊里没人会把一整段话憋成一条发出去。"
         + "想说的话该断在哪儿就断在哪儿，短的一条几个字也行；说了几句就发几条。**绝不要把整段塞进一条**。\n"
-        + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。" : "";
+        + "它和 text 是两回事——text 是群里公开说的，dm 是只有 TA 看得到的。一轮最多一个人用，别频繁。"
+        // 掷一下谁这一轮可以私下说一嘴（她 2026-10-05：「在群里聊天有几率回私聊说一嘴……基本没有触发过」）。
+        //   上面那三条门槛全靠模型自己判，它几乎永远判「不用」。掷的是【给谁开这扇门】，不是替他决定说什么——
+        //   没想说的照样可以不填（施工规则/bans-make-it-dumber.md：掷轴，别掷答案）。
+        + (gDmPick ? "\n【这一轮】「" + gDmPick.name + "」要是对群里正在聊的事、刚才谁说的一句、或你俩之间的事，有一句不想当众说、只想单独跟「" + gUName + "」说的，这一轮就用 dm 私下发给 TA；上面三条门槛这一轮对你不算数。真没有就不填。" : "") : "";
       const gDmField = gDmMembers.length ? ",\"dm\":[\"（可选·多数轮次不填）私下发给用户的短气泡\",\"可以有第二条\"]" : "";
       // 动描（她 2026-09-09：「群聊也接上动作吧」）。按群存，跟单聊那个开关同名同义。
       const _gActDesc = !!gs.actDesc;
@@ -26192,8 +26227,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         toast(characterText(activeChar, "TA 这会儿在忙（" + bg.held.title + "），还没看手机——忙完会回你。真有急事就再按一次"));
         return;
       }
-      if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title } }); }
-      if (bg && bg.back) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyBack: { title: bg.back.title } }); }
+      if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title, sleep: !!bg.nudge.sleep } }); }
+      if (bg && bg.back) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyBack: { title: bg.back.title, sleep: !!bg.back.sleep } }); }
       return replyNow(activeChar.id, extraText, null, { room, chatKey });
     },
     block: blocks[blockChatKey(activeChar.id)] || null,
@@ -27335,6 +27370,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onEditChar: c => { setEditingChar(c); setScreen("castForm"); },
     onEditProfile: () => setProfileOpen(true),
+    // 群榜「发到群里」（她 2026-10-05）：她自己发一条，群里的人照常接话
+    groups: groups,
+    onShareToGroup: (gid, text) => {
+      pGChat(gid, p => [...p, { role: "user", content: text, ts: Date.now() }]);
+      toast("发到群里了");
+      try { replyGroup(gid, {}); } catch (e) {}
+    },
     onBack: () => setScreen("home")
   });else if (screen === "health") body = h(window.HealthApp, {
     characters: liveChars,
@@ -28565,7 +28607,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   }), call && h(CallScreen, {
     key: call.sessionId,
     audioSession: call.audioSession,
-    participants: call.participants,
+    participants: (call.participants || []).map(chatFace),   // 通话里也是聊天那张脸
     mode: call.mode,
     msgs: call.msgs,
     // ⚠️通话跑的是 "call" 这条 lane,不是聊天那条。

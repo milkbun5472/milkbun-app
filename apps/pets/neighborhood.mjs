@@ -1,6 +1,7 @@
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-eda307386ddebe83';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-eda307386ddebe83';
-import {careSummary} from './care.mjs?v=fg-eda307386ddebe83';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-e8f3e8df7d5b71c4';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-e8f3e8df7d5b71c4';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-e8f3e8df7d5b71c4';
+import {careSummary} from './care.mjs?v=fg-e8f3e8df7d5b71c4';
 
 export const NEIGHBORS=[
  {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},
@@ -66,9 +67,10 @@ export function createNeighborhood(state,{world,getRows,getTime,getWeather=()=> 
  const awake=id=>promised(id)||entrusted(id)||schedule(id).awake;
  function face(id,p){const t=state.neighbors[id].town;if(near(id,p)){const q=p.entry.town.position;t.heading=Math.atan2(q.x-t.position.x,q.z-t.position.z);}}
  function meet(id,p,kind='wave'){state.meeting={id,petId:p.entry.id,kind,time:kind==='wave'?3:120};face(id,p);changed=true;}
- function followSchedule(id){const plan=schedule(id),t=state.neighbors[id].town;
+ function followSchedule(id,dt){const plan=schedule(id),t=state.neighbors[id].town;
   if(t.place!==plan.place){if(!t.goal||t.target!==plan.place)go(id,plan.place,plan.point);return;}
   const distance=Math.hypot(t.position.x-plan.point.x,t.position.z-plan.point.z);
+  if(plan.awake&&plan.gesture==='rest'&&distance<2.2){if(t.goal&&t.phase==='stroll'&&t.target===plan.place&&Math.hypot(t.goal.x-plan.point.x,t.goal.z-plan.point.z)<2.2)return;if(!t.goal){t.idle+=dt;if(t.idle>=18){const r=routes.get(id),next=localRoute(r.nav(),t.position,()=>nextRandom(t),{radius:1.5,minDistance:.6,clear:q=>Math.hypot(q.x-plan.point.x,q.z-plan.point.z)<2});t.idle=0;if(next)go(id,plan.place,next.goal);}return;}}
   if(distance<.15){if(t.goal){t.goal=null;t.stop=null;t.phase='visit';t.target=plan.place;changed=true;}return;}
   if(!t.goal||t.target!==plan.place||t.phase==='stroll'&&Math.hypot(t.goal.x-plan.point.x,t.goal.z-plan.point.z)>.15)go(id,plan.place,plan.point);
  }
@@ -76,7 +78,7 @@ export function createNeighborhood(state,{world,getRows,getTime,getWeather=()=> 
   if(m?.id===id&&m.kind==='wave')return {gesture:'wave',progress:1-m.time/3,activity:'正和小家伙打招呼',awake:true,hours:plan.hours};
   if(promised(id))return {gesture:state.visit?.id===id&&state.visit.phase==='staying'?'sit':'rest',activity:state.visit?.id===id?'正在串门':'正在参加周末小聚',awake:true,hours:plan.hours};
   if(entrusted(id)||m?.id===id)return {gesture:'rest',activity:entrusted(id)?'等着交接小托付':'等小家伙走过来',awake:true,hours:plan.hours};
-  const arrived=t.place===plan.place&&!t.goal&&Math.hypot(t.position.x-plan.point.x,t.position.z-plan.point.z)<.2;
+  const arrived=t.place===plan.place&&Math.hypot(t.position.x-plan.point.x,t.position.z-plan.point.z)<(plan.awake&&plan.gesture==='rest'?2.2:.2);
   return {...plan,gesture:arrived?plan.gesture:'rest',activity:arrived?plan.activity:'正去'+(plan.place==='outside'?plan.activity.replace(/^在/,''):world.building(plan.place)?.title||plan.place),awake:plan.awake};
  }
  function request(action,id,petId){if(action.startsWith('pet-'))return friends.request(action.slice(4),petId,id);if(profile(id)?.pet)return no('小茉喜欢一起待着或追球，打开它的小档案再邀请。');if(state.petMeeting)return no('先陪完正在进行的宠物相处。');const p=row(petId),n=profile(id),time=getTime();if(!p)return no('先选好同行的小家伙。');
@@ -101,7 +103,7 @@ export function createNeighborhood(state,{world,getRows,getTime,getWeather=()=> 
   });
  }
  function tick(dt){if(!Number.isFinite(dt)||dt<=0)return;dt=Math.min(dt,.1);const before=structuredClone(state);changed=false;
-  for(const n of NEIGHBORS.filter(n=>!n.pet)){const held=entrusted(n.id)&&!promised(n.id)||state.meeting?.id===n.id||state.quest?.phase==='handoff'&&state.quest.to===n.id;if(!held&&!promised(n.id))followSchedule(n.id);const r=routes.get(n.id);if(!held&&r.state.goal)r.tick(dt,{stayHome:true});}
+  for(const n of NEIGHBORS.filter(n=>!n.pet)){const held=entrusted(n.id)&&!promised(n.id)||state.meeting?.id===n.id||state.quest?.phase==='handoff'&&state.quest.to===n.id;if(!held&&!promised(n.id))followSchedule(n.id,dt);const r=routes.get(n.id);if(!held&&r.state.goal)r.tick(dt,{stayHome:true});}
   const meeting=state.meeting;if(meeting){const p=row(meeting.petId);meeting.time-=dt;if(!free(p)||!awake(meeting.id)||meeting.time<=0||meeting.kind==='wave'&&!near(meeting.id,p)){state.meeting=null;changed=true;}else face(meeting.id,p);}
   const q=state.quest;if(q){const p=row(q.petId),id=q.phase==='returning'?q.from:q.to;if(q.phase==='handoff'){if(near(id,p)&&free(p)){q.time+=dt;if(q.time>=3){remember(q.from,p).favors++;remember(q.to,p).favors++;state.neighbors[q.from].favors[q.petId]=getTime().date;state.quest=null;log(p.entry.profile.name+'真的送到了'+profile(id).name+'手里，这件小托付完成了。');}}else {q.phase='carrying';q.time=0;changed=true;}}}
   const v=state.visit;if(v){const t=state.neighbors[v.id].town;if(v.phase==='going'&&t.place==='home'&&!t.goal){v.phase='staying';v.time=0;log(profile(v.id).name+'走到家门里了，来陪大家坐一会儿。');const p=row(v.petId);if(near(v.id,p)&&!p.care.state.task){remember(v.id,p).visits++;changed=true;}}else if(v.phase==='staying'){v.time+=dt;if(v.time>=180){v.phase='returning';home(v.id);log(profile(v.id).name+'串门结束，正在回到街上。');}}else if(v.phase==='returning'&&t.place==='outside'&&!t.goal){state.visit=null;changed=true;}}

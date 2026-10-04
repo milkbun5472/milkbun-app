@@ -1,8 +1,8 @@
 import {repairPetSkin} from './pet-skin.mjs';
 import {createPetEyes} from './pet-eyes.mjs';
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-eda307386ddebe83';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-eda307386ddebe83';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-eda307386ddebe83';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
@@ -26,7 +26,7 @@ export async function loadPetCompanion(T,loader,{height=.88,persist=true,initial
   let species=(persist?saved(PET_SPECIES_KEY):initialSpecies)==='dog'?'dog':'cat',motion,boundSpecies,options={};
   function bind(value=options){options=value;const expressionState=boundSpecies===species?motion?.snapshot():undefined;motion?.dispose();for(const [key,p] of Object.entries(pets))p.model.visible=key===species;motion=createCatMotion(T,pets[species].model,pets[species].rig,root,{...options,expressionState,eyes:pets[species].eyes});boundSpecies=species;motion.setTail(pets[species].tail);motion.setMood(pets[species].mood);motion.update(0,0);return motion;}
   function select(value){if(!pets[value])return;species=value;store(PET_SPECIES_KEY,species);bind();}
-  return {root,bind,select,dispose(){motion?.dispose();root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();o.skeleton?.dispose();}});root.removeFromParent();},get species(){return species;},get mouthPoint(){return [...pets[species].mouthPoint];},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get mood(){return {...pets[species].mood};},get animating(){return this.tail.wag||this.mood.id!=='neutral'||!!motion?.animating;},setMood(value){pets[species].mood=normalizePetMood(value);motion?.setMood(pets[species].mood);return this.mood;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
+  return {root,bind,select,respond:()=>motion?.respond()||false,dispose(){motion?.dispose();root.traverse(o=>{if(o.isMesh){o.geometry.dispose();o.material.dispose();o.skeleton?.dispose();}});root.removeFromParent();},get species(){return species;},get mouthPoint(){return [...pets[species].mouthPoint];},get model(){return pets[species].model;},get rig(){return pets[species].rig;},get dye(){return pets[species].dye;},get motion(){return motion;},get mood(){return {...pets[species].mood};},get animating(){return this.tail.wag||this.mood.id!=='neutral'||!!motion?.animating;},setMood(value){pets[species].mood=normalizePetMood(value);motion?.setMood(pets[species].mood);return this.mood;},get tail(){return {...pets[species].tail};},setTail(value){pets[species].tail=normalizeTail(value);motion?.setTail(pets[species].tail);store(pets[species].tailKey,pets[species].tail);return this.tail;},saveLook(value){const look=this.dye.set(value);store(pets[species].lookKey,look);return look;}};
 }
 // These controls are shared by the living room and the whole street. The
 // settings float over the actual pet so users can see an angle change live.

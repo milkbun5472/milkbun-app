@@ -115,7 +115,6 @@ def make_dye_mask(mesh,out,species="cat"):
     image=next(n.image for n in mat.node_tree.nodes if n.type=='TEX_IMAGE' and n.image and n.outputs['Color'].is_linked and any(l.to_node==bsdf and l.to_socket.name=='Base Color' for l in n.outputs['Color'].links))
     w,h=image.size;pixels=np.empty(w*h*4,dtype=np.float32);image.pixels.foreach_get(pixels);a=pixels.reshape(h,w,4)[:,:,:3]
     lum=a@np.array([.2126,.7152,.0722]);chroma=a.max(2)-a.min(2)
-    protected=(chroma>.105)|(lum<.36)
     patch=1-smooth((lum-.75)/.14);base=1-patch
     # Keep coloured facial details and eye outlines completely unchanged.
     fur=1-smooth((chroma-(.065 if species=="cat" else .24))/(.04 if species=="cat" else .12));fur*=smooth((lum-.36)/.12)
@@ -123,8 +122,14 @@ def make_dye_mask(mesh,out,species="cat"):
     points=np.array([v.co[:] for v in mesh.data.vertices]);x,y,z=points.T
     feature=np.zeros(len(points))
     for cx in ([-.115,.115] if species=='cat' else [-.075,.075]):
-        ell=((x-cx)/(.070 if species=='cat' else .09))**2+((y+(.416 if species=='cat' else .382))/(.06 if species=='cat' else .085))**2+((z-(.51 if species=='cat' else .617))/(.082 if species=='cat' else .085))**2
+        # Protect the actual eyeball and its highlights. The old ellipsoid
+        # also covered the surrounding coat, leaving a brown ring after dyeing.
+        ell=((x-cx)/(.05 if species=='cat' else .055))**2+((y+(.429 if species=='cat' else .382))/(.04 if species=='cat' else .048))**2+((z-(.51 if species=='cat' else .614))/(.064 if species=='cat' else .057))**2
         feature=np.maximum(feature,1-smooth((ell-.70)/.35))
+    eye_feature=feature.copy();feature=np.zeros(len(points))
+    # Inside the eye region, keep dark iris/outline and bright reflections,
+    # while the mid-tone surrounding coat follows the chosen fur palette.
+    iris=np.maximum(1-smooth((lum-.43)/.15),smooth((lum-.84)/.10))
     ell=(x/.04)**2+((y+.448)/.032)**2+((z-.425)/.032)**2
     feature=np.maximum(feature,1-smooth((ell-.7)/.35))
     if species=='dog':
@@ -137,7 +142,8 @@ def make_dye_mask(mesh,out,species="cat"):
     # on even nearly grey reflections inside the eyeballs.
     for tri in mesh.data.loop_triangles:
         values=feature[list(tri.vertices)]
-        if values.max()<.01:continue
+        eyes=eye_feature[list(tri.vertices)]
+        if max(values.max(),eyes.max())<.01:continue
         q=np.array([uv[i].uv[:] for i in tri.loops])*[w-1,h-1]
         xmin=max(0,int(np.floor(q[:,0].min())));xmax=min(w-1,int(np.ceil(q[:,0].max())))
         ymin=max(0,int(np.floor(q[:,1].min())));ymax=min(h-1,int(np.ceil(q[:,1].max())))
@@ -149,6 +155,8 @@ def make_dye_mask(mesh,out,species="cat"):
         v=((c[1]-a0[1])*(xx-c[0])+(a0[0]-c[0])*(yy-c[1]))/den
         inside=(u>=-.02)&(v>=-.02)&(u+v<=1.02)
         val=np.clip(u*values[0]+v*values[1]+(1-u-v)*values[2],0,1)
+        eye_val=np.clip(u*eyes[0]+v*eyes[1]+(1-u-v)*eyes[2],0,1)
+        val=np.maximum(val,eye_val*iris[ymin:ymax+1,xmin:xmax+1])
         region=fur[ymin:ymax+1,xmin:xmax+1];region[:]=np.minimum(region,1-val*inside)
     if species=='dog':
         # Protect UV seams too: linear sampling and quantized glTF UVs can

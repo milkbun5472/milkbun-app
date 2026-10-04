@@ -3462,6 +3462,12 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     if (typeof FIXED_FESTIVALS !== "undefined" && FIXED_FESTIVALS[a[1] + "-" + a[2]]) out.push({ text: "🎊 " + FIXED_FESTIVALS[a[1] + "-" + a[2]], kind: "fest" });
     const lf = typeof lunarFestivalOn === "function" ? lunarFestivalOn(dt) : null;
     if (lf) out.push({ text: "🎊 " + lf, kind: "fest" });
+    // 天象（星测算的，她 2026-10-05）：新月满月、水逆起止、换星座——只在「我的」那页挂，不在每个人页上重复
+    if (view === "mine" && window.Astro && window.Astro.skyOn) window.Astro.skyOn(dk).events.forEach(e => out.push({ text: e.icon + " " + e.text, kind: "sky" }));
+    // 你俩的好日子：在这个人的那页挂（星测按两张星盘算的）
+    if (view !== "mine" && curChar && window.Astro && window.Astro.pairGoodDays) {
+      try { if (window.Astro.pairGoodDays(profile && profile.birthday, curChar.id, curChar.birthday, new Date(), 40).some(x => x.day === dk)) out.push({ text: "✨ 星星点头的日子", kind: "sky" }); } catch (e) {}
+    }
     const bd = view === "mine" ? parseBd(profile && profile.birthday) : (curChar ? parseBd(curChar.birthday) : null);
     if (bd && bd.mo === a[1] && bd.dd === a[2]) out.push({ text: "🎂 " + (view === "mine" ? "我的生日" : (curChar.remark || curChar.name) + " 生日"), kind: "bd" });
     if (view === "mine" && window.memoRemindersOnDay) (window.memoRemindersOnDay(a[0], a[1], a[2]) || []).forEach(r => {
@@ -15823,7 +15829,7 @@ function GroupThread({
     exitSel();
   };
   // 群里也用TA单聊里那张头像（她 2026-10-02）：聊天头像 chatAvatar 只换脸，档案那张不动
-  const memberById = id => { const c = (allChars || characters).find(x => x.id === id); return c && c.chatAvatar ? { ...c, avatarImage: c.chatAvatar } : c; };
+  const memberById = id => chatFace((allChars || characters).find(x => x.id === id));
   const members = (group.memberIds || []).map(memberById).filter(Boolean);
   // 记忆互通时：成员头像可点，开心声卡（和私聊同一套 states）。没开互通就是普通头像。
   // ⚠️配角是例外：他那四样（心情／想法／穿着／动作）不看互通开关（她 2026-09-20），

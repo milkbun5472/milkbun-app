@@ -6,7 +6,9 @@ const scr = fs.readFileSync(__dirname + "/../js/screens.js", "utf8");
 test("TA 换头像只换聊天里那张，档案那张不动；档案页能用回", () => {
   assert.ok(app.includes("{ ...x, chatAvatar: msg.imageRef }"));
   assert.ok(!app.includes("{ ...x, avatarImage: msg.imageRef }"));
-  const f = new Function(app.match(/const chatFace = [^\n]+/)[0] + "; return chatFace;")();
+  // v74.80 起 chatFace 搬进 engine.js（公共件），各处共用
+  const eng = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "engine.js"), "utf8");
+  const f = new Function(eng.match(/function chatFace\(c\) \{[^\n]+/)[0] + "; return chatFace;")();
   assert.strictEqual(f({ avatarImage: "a", chatAvatar: "b" }).avatarImage, "b");
   assert.strictEqual(f({ avatarImage: "a" }).avatarImage, "a");
   assert.ok(app.includes("character: chatFace(activeChar)"));

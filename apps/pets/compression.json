@@ -1,34 +1,34 @@
 {
   "mask": {
-    "sourceBytes": 899691,
-    "bytes": 366706,
+    "sourceBytes": 899805,
+    "bytes": 364220,
     "pixelExact": true,
     "size": [
       1024,
       1024
     ],
-    "sha256": "b8ba738bb02549aa62f64d89b2bd630a3553dcfa975eb841e73504508297e5ad"
+    "sha256": "f04d234d7b706721a704eb19f961c584486557142e58dd3720234adb95d50b27"
   },
   "masks": {
     "cat": {
-      "sourceBytes": 899691,
-      "bytes": 366706,
+      "sourceBytes": 899805,
+      "bytes": 364220,
       "pixelExact": true,
       "size": [
         1024,
         1024
       ],
-      "sha256": "b8ba738bb02549aa62f64d89b2bd630a3553dcfa975eb841e73504508297e5ad"
+      "sha256": "f04d234d7b706721a704eb19f961c584486557142e58dd3720234adb95d50b27"
     },
     "dog": {
-      "sourceBytes": 681866,
-      "bytes": 348714,
+      "sourceBytes": 677583,
+      "bytes": 346536,
       "pixelExact": true,
       "size": [
         1024,
         1024
       ],
-      "sha256": "2d0f25ef7a3c037e98aced55774946298747c2179180bfdadba36cbf36f379aa"
+      "sha256": "d8cee9634965471f4a1a4c4228395815719f0877bedd293d08b265eeff0a5c05"
     }
   },
   "models": [
@@ -39,8 +39,8 @@
     },
     {
       "path": "art/pet-house/dog.glb",
-      "bytes": 339724,
-      "sha256": "72bda8ccf8d770085f42461a807b610392c6b8d1c8205dab9ae7745462e7cef3"
+      "bytes": 347224,
+      "sha256": "aea9010c63f5839167df1f283c9a93129e8d6f0cf0e1b50a0913ec8dc34cfe5a"
     },
     {
       "path": "art/pet-house/room.glb",
