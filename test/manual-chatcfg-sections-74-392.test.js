@@ -17,13 +17,13 @@ test("聊天设置的每一格都在攻略里写着，件数也对得上", () =>
   assert.ok(i > 0, "抠不出 ChatSettings");
   const seg = comp.slice(i, i + 60000);
   // 界面那九格：单字分类牌
-  const ui = [...new Set([...seg.matchAll(/["“]([性动记窗衣听房线清])["”]\s*,/g)].map(m => m[1]))];
+  const ui = [...new Set([...seg.matchAll(/["“]([性动记窗衣影听房线清])["”]\s*,/g)].map(m => m[1]))];
   assert.ok(ui.length >= 7, "抠不到分类牌了，锚可能断了：" + ui.join("/"));
 
   const w = {};
   new Function("window", fs.readFileSync("js/assistant-manual.js", "utf8"))(w);
   const doc = w.AssistantManual.byId("chatcfg").doc;
-  const inDoc = [...doc.matchAll(/- \*\*([性动记窗衣听房线清]) /g)].map(m => m[1]);
+  const inDoc = [...doc.matchAll(/- \*\*([性动记窗衣影听房线清]) /g)].map(m => m[1]);
 
   const missing = ui.filter(x => !inDoc.includes(x));
   assert.deepEqual(missing, [],

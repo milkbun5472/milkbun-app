@@ -1,5 +1,5 @@
-import {syncRealWorld} from './world.mjs?v=fg-a9776f9ee2cd3be9';
-import {makeCompanionController} from './companion.mjs?v=fg-a9776f9ee2cd3be9';
+import {syncRealWorld} from './world.mjs?v=fg-79d7bb3ff1e9cce3';
+import {makeCompanionController} from './companion.mjs?v=fg-79d7bb3ff1e9cce3';
 export function recoverGardenLife(state,at=Date.now()){
  if(!state.clock||!state.lifeAt||at-state.lifeAt<60000)return {...state,lifeAt:at};
  let out=state,cursor=Math.max(state.lifeAt,at-3*86400000);const controller=makeCompanionController();

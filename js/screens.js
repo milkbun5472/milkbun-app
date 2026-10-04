@@ -9273,7 +9273,7 @@ function Config(props) {
       page === "api" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "文", tint: "#5c7fa3", title: "文字模型", sub: "聊天、线下、后台模型与多线路方案", onClick: () => setPage("apiText"), wide: true }),
         h(ConfigTile, { icon: "图", tint: "#7c8a52", title: "图像 API", sub: "自拍、合照与多个图像站点", onClick: () => setPage("apiImage") }),
-        h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax 三站、动态陪伴图", onClick: () => setPage("apiVideo") }),
+        h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax · 可灵 · 即梦，做动态形象", onClick: () => setPage("apiVideo") }),
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "语音合成、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
         h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),

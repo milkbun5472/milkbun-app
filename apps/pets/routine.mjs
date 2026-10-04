@@ -1,9 +1,9 @@
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-a9776f9ee2cd3be9';
-import {createPetCare} from './care.mjs?v=fg-a9776f9ee2cd3be9';
-import {createPetCareer} from './career.mjs?v=fg-a9776f9ee2cd3be9';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-a9776f9ee2cd3be9';
-import {walkRoute} from './movement.mjs?v=fg-a9776f9ee2cd3be9';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-a9776f9ee2cd3be9';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-79d7bb3ff1e9cce3';
+import {createPetCare} from './care.mjs?v=fg-79d7bb3ff1e9cce3';
+import {createPetCareer} from './career.mjs?v=fg-79d7bb3ff1e9cce3';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-79d7bb3ff1e9cce3';
+import {walkRoute} from './movement.mjs?v=fg-79d7bb3ff1e9cce3';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-79d7bb3ff1e9cce3';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}

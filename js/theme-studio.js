@@ -408,7 +408,7 @@
     Object.freeze({zh:"时刻",pages:Object.freeze(["shike"]),hooks:Object.freeze([["shikepage","时刻外层整页（横着滑那一层）"],["shikecard","横着滑的那张整屏 CG 卡（data-on=\"1\" 是当前停着的）"],["shikedetail","点进一个人以后的那一页"],["shikeitem","里层横着滑的一张时刻卡（data-kind=meet/us/bday/fest/first）"],["shikesay","时刻卡上TA说的那段话"],["shikecreate","「开一张时刻」那一页"],["shikemonths","里层底下那条时间轴（一张时刻一道刻度）"],["shikemenu","里层右上角「⋯」打开的那张小菜单"],["shikeacts","时刻卡底那一行小字动作"],["shikenote","时刻卡上写着那天的事的那块底框"],["shikewith","群里那种卡上「一起的还有」那一行"],["shikesoon","卡上那个倒计时小签（data-today=\"1\" 是就在今天）"]])}),
     // 一起学 · 我来教（2026-10-03）
     Object.freeze({zh:"我来教",pages:Object.freeze(["study"]),hooks:Object.freeze([["tbmis","顶上那条「TA 心里想错的地方」（每颗带 data-found=\"1\" 是挖出来的）"],["tbnote","TA 的课堂笔记"],["tbmsg","课上一句（data-me=\"1\" 是你讲的）"],["tbflash","挖出来时弹的那张"],["tbquiz","随堂小测那张"],["tbreview","评教卡"],["tbleft","评教卡底下「还没挖出来的」"]])}),
-    Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pommore","手动补充陪伴话与回看入口"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
+    Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pommore","手动补充陪伴话与回看入口"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["motionstrip","动态形象编辑页顶上那条胶片（平时／专注时／通话时，data-on=\"1\" 是选中那格）"],["pomarchive","往期「坐过的那些」整页"],["pomarchtabs","往期顶上那排桌牌（按谁坐对面分）"],["pomarchrow","往期里的一张单子（data-done=\"1\" 是坐满了）"],["pomarchsum","往期顶上那行合计（坐了多久／几场／几场坐满）"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
     Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
       ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
       ["radioreceiver","调频接入面板"],["radiodial","频率刻度与指针"],["radiostage","接入后的全屏单句舞台（data-speaking/data-ended/data-long）"],
@@ -858,7 +858,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.744", changed: "聊天页新增 pomoshare（番茄钟收桌后 TA 发来的「一起专注」小卡，data-done=1 是坐满了）", none: "" };
+  const BRIEF_STAMP = { v: "v74.748", changed: "", none: "只改了语音识别判据，界面没动" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
@@ -873,7 +873,7 @@
       "6. 想跟着屏幕大小走，可以用这几个变量：--app-w（屏宽）、--app-h（屏高）、--app-vh（屏高的百分之一）、--app-safe-top、--app-safe-bottom；html 上还有 data-screen-size=\"short\"/\"tall\" 可以分矮屏高屏。",
       "番茄钟：pomfocus 是专注整页，视频铺满外壳、标准 Head 透明；pompoke 是轻戳透明按钮，pomsubtitle 是底部模式字幕，pomtimer 是独立发条倒计时，pommore 是手动补新话与回看入口；字幕内有新话上一句/下一句按钮，长话只在字幕正文内滚动。人物脸部留空，字幕读完收起；保留按钮层级与 0.4 底安全区，不让字幕挡住计时。pomvideoeditor 是制作整页，pomvideostage 的 video 可调 object-fit；视频与语音独立。",
       "通话：callcamera 是用户真实摄像头小窗，不替换角色背景；保留开关和前后镜头切换触区至少 40px，与头像并排，窄屏不越屏。callcomposer 继续使用 0.4 底安全区，正文为唯一主滚动区。",
-      "小世界宠物页：回家拆袋子共用整页纸底、透明Head、单滚动正文及约56px/0.4安全区底栏；实际物件在原库存行按图标、名称和份数排列，反应单独一张便签。家里的宠物用带书脊边线的小档案卡，每只单独显示名字、头像与状态，卡片内有名字外貌和职业入口；选中同时改变书脊边线与标记。名册共用PetPanel的单滚动正文及约56px底栏，返回恢复阅读位置。奶油纸底、灰粉布零钱袋与面包暖棕的印章和索引；首工纪念用墙上纸贴及履历里的同一份事件记录。照料记录、面包店/花店试工单、零钱袋/收支小票与履历册共用透明 head；自主购物用袋内便签、原生勾选开关与带金额的纸票选框，按实际购物逐张显示小票；四张虚线纸质小店启事按两列选职业，选中以实线和灰粉纸色标识，履历按面包店/花店/便利店/咖啡店在两列排列，休息单独一行；各小店收藏沿原库存行展示名称与份数；书页索引有贴页形状，选中同时改变高度与边线。页面只有一处主滚动，底栏约56px并使用0.4安全区；材质铺在外壳上。宠物外貌预览保留上方模型，控件所在区域独立滚动。",
+      "小世界宠物页：回家拆袋子共用整页纸底、透明Head、单滚动正文及约56px/0.4安全区底栏；实际物件在原库存行按图标、名称和份数排列，反应单独一张便签。家里的宠物用带书脊边线的小档案卡，每只单独显示名字、头像与状态，卡片内有名字外貌和职业入口；选中同时改变书脊边线与标记。名册共用PetPanel的单滚动正文及约56px底栏，返回恢复阅读位置。奶油纸底、灰粉布零钱袋与面包暖棕的印章和索引；首工纪念用墙上纸贴及履历里的同一份事件记录。照料记录、面包店/花店试工单、零钱袋/收支小票与履历册共用透明 head；自主购物用袋内便签、原生勾选开关与带金额的纸票选框，按实际购物逐张显示小票；五张虚线纸质小店启事按两列选职业，最后一张侦探启事占满一行，选中以实线和灰粉纸色标识，履历的各职业与休息在两列排列，奇数末项独占一行；各小店收藏沿原库存行展示名称与份数，侦探卷宗用三条编号线索、纸页左侧双线和末尾结论便签，猜结论仍用当前纸页上的选项，未完成线索不提前展示；书页索引有贴页形状，选中同时改变高度与边线。页面只有一处主滚动，底栏约56px并使用0.4安全区；材质铺在外壳上。宠物外貌预览保留上方模型，控件所在区域独立滚动。",
       "7. 里面的 url(...) 图片引用原样保留，别改它们的地址。",
       "8. 背景可以用渐变（linear-gradient）。有的主题会给气泡画一个小尖角，它是气泡的 ::before 三角，用 border 颜色上色：改颜色写 border-left-color（我这侧）/ border-right-color（对方），不要就 display:none。",
       "9. 按键上的图标是 svg：换颜色写 svg { stroke: 颜色 !important; }；换成图片就先 svg { display:none !important; }，再给按键本身写 background: url(...) center / contain no-repeat 并给宽高。",

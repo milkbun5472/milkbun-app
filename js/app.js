@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.744";
+const APP_VERSION = "v74.748";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13468,6 +13468,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const item = safeArr[i];
           // 文字里的 <#秒#> 停顿记号只对语音有用：不是语音那一条就擦掉记号照文字发（她 2026-09-30，跟单聊同一条）
           if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasPause === "function" && ttsHasPause(item.text)) item.text = stripPauseMarks(item.text);
+          // 带声音标签的那句是要说出口的（单聊同一条判据，见 markPauseVoice）
+          if (item && item.voice !== true && typeof item.text === "string" && typeof ttsHasSoundTag === "function" && ttsHasSoundTag(item.text)) item.voice = true;
           // 群里一条自己包了【voice】…【/voice】：当语音发，标签擦掉（跟单聊 markPauseVoice 认的同一组写法）
           if (item && typeof item.text === "string" && /^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]/i.test(item.text)) {
             item.text = item.text.replace(/^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]\s*/i, "").replace(/\s*[【\[<]\s*\/\s*(?:voice|语音)\s*[】\]>]\s*$/i, "").trim();
@@ -25376,6 +25378,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
       }
     } catch (e) {}
+    // 动态形象的视频（她 2026-10-05：「很多人都不用云端，就靠导入导出备份」）。
+    //   视频住在自己那个库里，不在 localStorage，原来导出只带走了门牌、视频本身留在旧手机上。
+    //   跟自拍一个口径：只要带图就一起带，备份可以大，但不能悄悄缺。
+    let videos = {}, videoCount = 0, videoWanted = 0;
+    try {
+      if (!noImages && window.VideoApi && window.VideoApi.allVideos) {
+        Object.values(window.VideoApi.motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) videoWanted++; }));
+        for (const [k, b] of await window.VideoApi.allVideos()) { try { videos[k] = await blobToDataUrl(b); videoCount++; } catch (e) {} }
+      }
+    } catch (e) {}
     // ⚠️图库读失败是【静默】的：idbVaultEntries 的 tx.onerror 直接 res([])，
     //   于是「一张图都没有」和「一次没读出来」返回值一模一样，导出就写「含 0 张图片」。
     //   把这份文件导回本机 → 下面 doImport 看见 vault 是真值 → idbVaultClear() →
@@ -25403,7 +25415,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       data: dump,
       vault: vault,
       selfies: selfies,
-      album: album
+      album: album,
+      videos: videos
     }, null, 2)], {
       type: "application/json"
     });
@@ -25412,6 +25425,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ? "（只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍）"
       : "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
       + (album.length ? "、" + album.length + " 条照片说明" : "")
+      + (videoCount ? "、" + videoCount + " 段动态形象视频" : "")
+      + (videoWanted && !videoCount ? "；⚠️动态形象的视频没读出来，这份备份里没有视频" : "")
       + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
     return { name: name, text: await blob.text(), what: what };
@@ -25641,6 +25656,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // album 跟着图一起回来（v4 起备份里才有）。清仓把它一起清了，不写回就永远没了。
         if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
           for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
+        }
+      }
+      // 动态形象的视频：只增量写回，不清本机已有的（键是一段一个，覆盖无害）
+      if (parsed.videos && window.VideoApi && window.VideoApi.restoreVideo && typeof dataUrlToBlob === "function") {
+        for (const [k, durl] of Object.entries(parsed.videos)) {
+          try { const b = dataUrlToBlob(durl); if (b) await window.VideoApi.restoreVideo(k, b); } catch (e2) {}
         }
       }
       // ⭐备份 v3：恢复自拍（打包过才有）——不清旧自拍，只增量写回（自拍键是内容相关的，覆盖无害）
