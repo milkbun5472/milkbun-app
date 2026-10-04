@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.727";
+const APP_VERSION = "v74.735";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4410,7 +4410,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   });
   // 角色此刻正在做的那一段是什么 type（sleep / work / meal …）。
   // schedNowFor 下面那几行本来就在算同一件事，抽出来一份给思念速率用，别再写第二遍。
-  // 此刻在日程的哪一段：{ disp, idx, cur }（v74.725 抽出来——「此刻类型」和「忙不忙」都问它，不各算一遍）
+  // 此刻在日程的哪一段：{ disp, idx, cur }（v74.732 抽出来——「此刻类型」和「忙不忙」都问它，不各算一遍）
   const schedNowSegFor = char => {
     if (!char) return null;
     const plans = schedulesRef.current[char.id] || {};
@@ -4563,7 +4563,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 日历那边 v56.47 已经用 schedSleepCarry 把这一截画出来了，状态这几处一直没跟上
   //（施工规则/four-surfaces-same-context.md：这一层当初只写在一处，别处没跟上）。
   // charAwakeState 早就按「今天第一项之前＝还没醒」判 asleep，这里跟它同一个假设。
-  // ── 忙的时候晚点回（v74.713，群里肉肉肉酱意面提、她 2026-10-04 拍板）──────────────
+  // ── 忙的时候晚点回（v74.732，群里肉肉肉酱意面提、她 2026-10-04 拍板）──────────────
   // 她的版本：排日程时每段顺手标一个「顾不顾得上手机」（busy 0-3，不多花一次调用）；
   //   她在TA忙的那段第一次按「让TA回复」/打电话、而且离上次说话有一阵了，就在本地掷一次骰子——
   //   中了就【不调模型】：消息停在未读，电话打不通、落一张未接卡；那段忙完TA自己回一次（一枪看完这期间所有的）。
@@ -6050,7 +6050,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!ph) return "";
       return "用户此刻的生理期状态：" + ph.phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心、提醒注意事项，或选择不提；别生硬报数据、别越界。）";
     })(),
-    // 健康 app 的监督（v74.640）：只给她在「谁看着」里点了名的人，只在饭点前后/她刚记过一餐时出一行，别的时候空＝零 token。
+    // 健康 app 的监督（v74.732）：只给她在「谁看着」里点了名的人，只在饭点前后/她刚记过一餐时出一行，别的时候空＝零 token。
     //   跟生理期那一栏同一档、走同几处（单聊线上/线下/通话都经 ctxFor）；群里不发——那是她跟某一个人之间的约定，不是端上台面的事。
     healthNote: window.HealthCtx ? window.HealthCtx.noteFor(char.id) : "",
     // 日期感知：只有【今天/临近】真有事时才出内容，平时空字符串 → 不进 prompt、零 token（守聊天预算铁律）。
@@ -6876,7 +6876,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;                                                // 一次一个，错峰
         }
       } catch (e) {}
-      // —— 健康·饭点来问（v74.640）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
+      // —— 健康·饭点来问（v74.732）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
       //    她点了名的人里挑一位主动问一句。一天最多两次，那一顿记了就不问（条件全在 HealthCtx.nudgeDue 那一处）——
       try {
         const hn = window.HealthCtx && window.HealthCtx.nudgeDue();
@@ -9455,7 +9455,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const pid = String((o.room && o.room.personId) || o.personId || charIds[0] || "");
     const side = rid && rid !== "main" && pid && window.ChatRooms;
     const room = side ? window.ChatRooms.get(pid, rid) : null;
-    // v74.266 起落进【这间房自己的记忆】（ChatRooms.memAdd），不再塞进前情浓缩：
+    // v74.732 起落进【这间房自己的记忆】（ChatRooms.memAdd），不再塞进前情浓缩：
     //   浓缩满仓会整段掉，她亲手点的那一下不该跟着滚掉；记忆按相关度召回、记忆库里也翻得到。
     if (room && !room.main) {
       const e = o.entry || {};
@@ -10366,7 +10366,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，1~2 条短消息，别说教、别指责式翻旧账、别粘人。"
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
-      // 健康·饭点来问（v74.640）／手机电量低、下雨还在外面（v74.661）：只给事实那一行，管不管、怎么开口是TA自己的事
+      // 健康·饭点来问（v74.732）／手机电量低、下雨还在外面（v74.732）：只给事实那一行，管不管、怎么开口是TA自己的事
       const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"
         + opts.health.line + "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。" : "";
       // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
@@ -10918,7 +10918,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         capState.push("dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
           + (_dp ? "你俩城里钉过的地方：" + _dp + "，可以挑一个，也可以是你自己想带她去的。" : "") + "没这个心思就别填；话照常写在 word 里。");
       }
-      // 申请信（v74.507）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
+      // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
       if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
         openCaps.push("loveLetter");
@@ -11168,9 +11168,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 她 2026-10-02：「为啥他的心声都是这样」——十几条全是同一个调侃骨架。
       //   THOUGHT_MEANING 写着「别把上一条换个说法再写一遍」，可单聊从来没给它看过以前的心声。
       //   只摆出来、只说别撞同一个角度；往哪边变不指定（她：「这样改又会往另一个极端逼吧」）。
-      const _recentThoughts = sideRoom ? [] : ((stateHistRef.current || {})[charId] || []).slice(0, 5).map(h => String(h && h.thought || "").trim()).filter(Boolean);
+      //   撤了：把旧心声摆给它看，它照着学（她 2026-10-04：「其他都是往极端走」）。
       const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。"
-        + (_recentThoughts.length >= 2 ? "\n你最近几条心声：" + _recentThoughts.map(t => "「" + t + "」").join("") + "。这一条换个句子骨架、换个由头，别和它们撞同一个角度；想的还是不是她、什么腔调，照你自己。" : "");
+;
       // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
       // 这一句挂在每轮任务串里——历史缓存模式下它拼在最后一条用户消息末尾，离得最近。
       const _biTurnLine = _bilingualOn && typeof bilingualTurnHint === "function" ? "\n" + bilingualTurnHint("") : "";
@@ -12985,7 +12985,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   所以这个数往大了给一分钱都不多花（同一次调用，maxTokens 有 65535，
       //   二十来条聊天离截断还远得很），给小了却会实打实地把来回掐掉。
       //   两个人的群 12 条＝六个来回；人多按 n*3 放宽，20 封顶。
-      // ⚠️v74.308 再放开（她 2026-09-29：「人多当然话也得多，反正上限不是必须，给少了反而限制」）：
+      // ⚠️v74.732 再放开（她 2026-09-29：「人多当然话也得多，反正上限不是必须，给少了反而限制」）：
       //   七个人的群按 n*3 算是 21、被 20 封顶——还不到一人三条。改成每人四条、48 封顶：
       //   七人 28、十人 40。同上面那句：天花板是许可，模型不会写满；四十来条 JSON 离 maxTokens 还远。
       let nMax = Math.min(48, Math.max(12, members.length * 4));
@@ -14553,7 +14553,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 这两处一直没跟上——又是「一层写在两处，第二处没跟上」。
   // 规矩：读不出来就重问一次；还是读不出来就【明说读不出来】，让调用方标成「再问一次」，
   //       绝不替TA做决定。accept 缺字段也算读不出来（能解析 ≠ TA表了态）。
-  // 拒到第几次就由代码定下「这次解」（v74.503）：前五次全看他，第六次起只管他怎么解
+  // 拒到第几次就由代码定下「这次解」（v74.732）：前五次全看他，第六次起只管他怎么解
   const UNBLOCK_FLOOR_TRIES = 6;
   const _yesVal = v => v === true || v === 1 || /^\s*(true|1|yes|y|是|同意|接受|好)\s*$/i.test(String(v == null ? "" : v));
   const _hasAccept = d => !!d && d.accept !== undefined && d.accept !== null;
@@ -14710,7 +14710,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .slice(-3).map((m, k) => (k + 1) + ". 「" + String(m.plea).slice(0, 60) + "」" + (m.status === "declined" ? "（你拒了）" : ""));
     const hoursSince = bk.blockedTs ? Math.floor((Date.now() - Number(bk.blockedTs)) / 3600000) : null;
     pChat(chatKey, p => [...p, { role: "user", kind: "unblock_req", from: "me", cid, status: "pending", content: "[解除拉黑申请] " + (pleaText || ""), plea: pleaText || "", ts: Date.now(), read: true }]);
-    // 地板（v74.503，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
+    // 地板（v74.732，群里 2026-10-02 报「点了 20 多条解除申请，一直不同意」）：
     //   接不接受原来全交给模型，而它每次都看得见前面一长串「你拒了」，越拒越顺——这条路就成了死路。
     //   拒到第 UNBLOCK_FLOOR_TRIES 次，这一次由代码定下【解】；怎么解（嘴硬、别扭、带条件）还是他自己说。
     const floor = tries >= UNBLOCK_FLOOR_TRIES;
@@ -17272,7 +17272,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //   摆在最前面——被关在门外这件事压过一切日常语气。
         const l = relationshipLineFor(c.id);
         // ⚠️标签跟行程／状态那两道围栏分开写（「跟用户的关系」这几个字）：修罗场只公开【这一段】，
-        //   要是共用一句「只有本人知道」，修罗场一开，连各人的行程、心声也一起被当成公开的了（v74.441）。
+        //   要是共用一句「只有本人知道」，修罗场一开，连各人的行程、心声也一起被当成公开的了（v74.732）。
         // 修罗场开着：这一段在群里是公开的，标签自己就别再说「别的成员并不知情」（跟修罗场那段打架）
         if (l && o.drama) return "\n〔以下是 " + c.name + " 跟用户的关系 · 修罗场开着，群里每个人都知道〕" + l;
         return l ? "\n〔以下是 " + c.name + " 跟用户的关系 · 只有 " + c.name + " 本人知道，别的成员并不知情〕" + l : "";
@@ -20007,7 +20007,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   发帖、刷吧、盖楼共用这一句（one-public-mechanism）。
   // ⚠️photoWho 这一格是必须的（她 2026-10-01 拿一张贴吧配图来问：描述写着
   //   「微信个人主页截图，头像是一只小黑狗」，画出来却是一张人脸）。
-  //   v74.426 给朋友圈治过同一个病，当时的注释写着「发的人说了就照他说的；
+  //   v74.732 给朋友圈治过同一个病，当时的注释写着「发的人说了就照他说的；
   //   没说（旧数据、**贴吧**）才退回去猜」——贴吧就留在「猜」那条路上了。
   //   那个猜法（noFaceKindFor）是查词表：描述里没有「风景／无人」就不算空镜、
   //   没有「只拍手／背影」就不算局部，剩下的一律当成本人自拍【锁着脸画】。
@@ -21624,7 +21624,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 在一起纪念日写进日历（该角色视角）
     saveCalEvent(charId, now.getFullYear() + "-" + (now.getMonth() + 1) + "-" + now.getDate(), "♥ 和 " + (char ? char.name : "TA") + " 在一起", "情侣纪念日");
   };
-  // ── TA写给她的申请信（v74.507，群里 2026-10-02：「char 可以反过来向 user 提出情侣申请让 user 拆开看吗」）──
+  // ── TA写给她的申请信（v74.732，群里 2026-10-02：「char 可以反过来向 user 提出情侣申请让 user 拆开看吗」）──
   // 原来只有她 → 他一个方向。现在他也能先开口：在回复里附一封信，聊天里是一张封着的信封，点开才读得到。
   // 发不发、什么时候发全是他自己的事；代码只挡【不该发】的：已经在一起／她那边的邀请还挂着、
   // 这间聊天设置里关了、刚分手不到一周、她上次说「再想想」不到 3 天、一天里已经写过一封、还有一封没拆。
@@ -27116,7 +27116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     moods: moods,
     toast: toast,
     onForwardToChat: forwardTarotToChat,
-    // 解牌走 runProbe（v74.596）：人设全文/心情/好感/反八股整份白得，线路跟着角色自己那条
+    // 解牌走 runProbe（v74.732）：人设全文/心情/好感/反八股整份白得，线路跟着角色自己那条
     ctxFor: ctxFor,
     apiFor: apiFor,
     onBack: () => setScreen("home")
@@ -28198,7 +28198,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 而 js/app.js:7596 那句 `!!_s.webSearch` 一直在读它——
             // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。
             webSearch: !!s.webSearch,
-            // 允许TA主动写申请信（v74.507）：存成「关掉了没有」，没设过＝允许
+            // 允许TA主动写申请信（v74.732）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
             busyHold: s.busyHold === true,
             busyReroll: s.busyReroll === true,

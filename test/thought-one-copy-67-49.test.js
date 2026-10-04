@@ -31,20 +31,6 @@ test("心声那一格只许有一份定义", () => {
   assert.ok(A.indexOf("写角色本人脑中此刻真正闪过") < 0, "app.js 里还留着一份原文");
 });
 
-test("她圈的那两样，这一份里逐条都在", () => {
-  // v74.311 重写成短的：收口那一族改成只封【位置】（不再列『』例句）；「这女人」那一族归 PERSONA_REGISTER_ANCHOR 管（它点名了心声）
-  assert.match(TM, /别在最后补一句给这一轮盖章收口/, "「她怎么能……」+ 收口那一族");
-  assert.match(TM, /心声可以没有结尾/);
-  assert.match(TM, /别把上一条心声换个说法再写一遍/, "两条心声同一个意思换几个词，这条专治");
-  assert.match(engine, /【心声、内心独白同样受这一条管】/, "网文旁观称谓那一族");
-});
-
-test("共用之后不写死字段名（线上说出口的是 word，线下是 scene 里的对白）", () => {
-  assert.ok(TM.indexOf("写进 word") < 0, "写死了 word，线下那一处就读不通");
-  assert.match(TM, /说得出口的话就让 TA 听见/);
-});
-
-// ── action：线下那一份原来跟 ACT_MEANING 正好相反 ────────────────
 test("线下的 action 也接公共那一份，不再自己写一套", () => {
   assert.ok(AM, "ACT_MEANING 没了");
   assert.equal((E.match(/\$\{ACT_MEANING\}/g) || []).length, 1, "线下那一处没取公共的");

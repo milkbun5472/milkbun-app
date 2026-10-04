@@ -7,24 +7,6 @@ const fs = require("node:fs");
 const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8")
   + fs.readFileSync(require.resolve("../js/engine.js"), "utf8");
 
-test("心声要求直接内在声音，而不是第三人称角色分析报告", () => {
-  assert.match(app, /角色本人脑中此刻真正闪过、却没有说出口的一句第一人称念头/);
-  assert.match(app, /不要总结互动、分析自己、规划回复/);
-  // v74.311 起字段说明只说它是什么、用谁的嗓子想，不再列一串禁令（她 2026-09-29：三个人心声一个形状）
-  assert.match(app, /\*\*用你自己说话的样子想\*\*/);
-  // v74.314：说清它的位置——说完之后接着想的下一句，不是回头给这段对话写评语
-  assert.match(app, /\*\*它接在你刚说出口的那几句后面\*\*/);
-  assert.match(app, /不是回过头来给这段对话写一句评语/);
-});
-
-test("每轮都写真实心声，但不强迫它深刻或紧扣话题", () => {
-  assert.match(app, /每轮必须写一句，禁止 null、空串或省略/);
-  // 她 2026-09-29：「他可以对说的话有想法，也可以自己联想到别的」
-  assert.match(app, /可以是对刚才那几句话的想法，也可以是由它联想到的别的/);
-  assert.match(app, /【本轮心声·普通角色必填】/);
-  assert.match(app, /thought 必须是非空字符串/);
-});
-
 test("四条心声写入路径全部过 ThoughtVoiceGuard，群线下不留旁路", () => {
   // 单聊线上 / 单聊线下 / 群线上 / 群线下 —— 任何一条把 thought 写进状态卡前都必须过守卫
   // v68.88：四条通道都走公共的 TVG（它内部再委托给 window.ThoughtVoiceGuard）

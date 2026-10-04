@@ -14229,6 +14229,13 @@ function OfflineSessionReader({ session, sessions, t, profile, char, members, on
       h("div", { className: "flex items-center gap-3 px-4 py-3 shrink-0", style: { borderBottom: `1px solid ${t.line}` } },
         h("button", { onClick: () => onClose(), className: "active:opacity-50" }, h(IArrow, { size: 22, color: t.ink })),
         h("div", { className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "线下记录 · " + fmtStamp(session.startTs)),
+        // 读着读着想留一份：这一页也给一颗（跟往期那一行同一支，喂它这一场）
+        h("button", { onClick: () => {
+          const one = offlineSessionsText([session], fmtStamp, (char && (char.remark || char.name)) || "线下", members);
+          if (!one.trim()) { window.__toast && window.__toast("这一场没有内容"); return; }
+          if (typeof saveTextFile === "function") saveTextFile(((char && (char.remark || char.name)) || "线下") + "-" + stampSlug(session.startTs) + ".txt", one, "text/plain");
+        }, className: "active:opacity-60 shrink-0", title: "导出这一场",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, marginRight: 10 } }, "导出"),
         onDelSession && h("button", { onClick: () => { const id = session.id, idx = sessions.indexOf(session); onClose(); onDelSession(id, idx); }, className: "active:opacity-50 shrink-0", title: "删除这条记录" }, h(ITrash, { size: 18, color: t.fog }))),
       h("div", { className: "flex-1 overflow-y-auto px-5 py-5" },
         session.summary && h("div", { className: "mb-4 p-3", style: { background: t.bg2, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub } }, "【当时总结】" + session.summary),
@@ -14370,15 +14377,60 @@ function OfflineCustomStyleSection({ t, editor }) {
           curStyle && curStyle.custom && h("div", { className: "mt-2 flex items-center gap-4" }, h("button", { onClick: () => editCustomStyle(curStyle.key), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "编辑此预设"), h("button", { onClick: () => requestAppConfirm("删掉「" + (curStyle.name || "这条预设") + "」？", "内容不会留档。", () => delCustomStyle(curStyle.key), "删除"), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent } }, "删除此预设"))));
 }
 // 开局页的往期卡片保留输入顺序；删除索引始终取自原会话数组。
-function OfflineSetupHistory({ sessions, t, fmtStamp, onSelect, onDelSession }) {
+// 线下记录整份导出（她 2026-10-03：「线下全部记录可以导出」）。
+// ⚠️写文件只有 engine.js 的 saveTextFile 那一支（它管 iOS 壳和浏览器两条路），
+//   这儿不另写（one-public-mechanism）。导的是【纯文本】不是 json：
+//   她要的是能读、能存、能发给别人的那一份，不是拿去再导进来的存档
+//   （整包存档走设置 → 数据 → 导出全部数据，那一份本来就含线下）。
+function stampSlug(ts) {
+  const d = new Date(Number(ts) || Date.now()), p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + "-" + p(d.getHours()) + p(d.getMinutes());
+}
+function offlineSessionsText(sessions, fmtStamp, who, members) {
+  const past = (sessions || []).filter(s => s && (s.msgs || []).length)
+    .slice().sort((a, b) => (a.startTs || 0) - (b.startTs || 0));
+  // 群线下一场里好几个人：按 senderId 找人（跟卡片那儿同一个口径，OffCard 的 spk）。
+  //   单人线下没有 members，就是那一个人。
+  const nameOfSeg = m => m.role === "narration" ? "旁白"
+    : m.role === "user" ? "我"
+    : (((members && m.senderId ? members.find(x => x && x.id === m.senderId) : null) || {}).name) || who || "TA";
+  const one = s => {
+    const head = ["── " + (fmtStamp ? fmtStamp(s.startTs) : new Date(s.startTs || 0).toLocaleString())
+      + (s.endTs ? "" : "（还没结束）") + " ──"];
+    if (s.opening) head.push("【开场】" + String(s.opening).trim());
+    const body = (s.msgs || []).map(m => nameOfSeg(m) + "：" + String(m.content || "").trim());
+    const tail = s.summary ? ["【这一场后来被总结成】" + String(s.summary).trim()] : [];
+    return head.concat(body, tail).join("\n\n");
+  };
+  return past.map(one).join("\n\n\n");
+}
+function OfflineSetupHistory({ sessions, t, fmtStamp, onSelect, onDelSession, who, members }) {
   const past = (sessions || []).filter(s => s.endTs);
-  if (!past.length) return null;
+  const hasAny = (sessions || []).some(s => s && (s.msgs || []).length);
+  const exportAll = () => {
+    const txt = offlineSessionsText(sessions, fmtStamp, who, members);
+    if (!txt.trim()) { window.__toast && window.__toast("还没有可导的记录"); return; }
+    if (typeof saveTextFile === "function") saveTextFile((who || "线下") + "-线下记录.txt", txt, "text/plain");
+  };
+  if (!past.length && !hasAny) return null;
   return h("div", null,
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, marginBottom: 8 } }, "往期线下记录"),
+          h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 8 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog } }, "往期线下记录"),
+            // 正在演的那一场也一起导（她要的是「全部记录」，不是「已经结束的那些」）
+            hasAny ? h("button", { onClick: exportAll, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "导出全部") : null),
           past.map(s => h("div", { key: s.id, className: "mb-2 p-3 flex items-start gap-2", style: { background: t.bg2, borderRadius: 10, border: `1px solid ${t.line}` } },
             h("button", { onClick: () => onSelect(s), className: "flex-1 text-left active:opacity-70" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 3 } }, fmtStamp(s.startTs)),
               h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.sub } }, s.summary || (s.msgs[0] && s.msgs[0].content) || "（无总结）")),
+            // 这一场单独导（她 2026-10-03：「我要的是每一次的线下单独导出」）——
+            //   跟「导出全部」同一支 offlineSessionsText，只是喂它一场。
+            h("button", { onClick: () => {
+              const one = offlineSessionsText([s], fmtStamp, who, members);
+              if (!one.trim()) { window.__toast && window.__toast("这一场没有内容"); return; }
+              if (typeof saveTextFile === "function") saveTextFile((who || "线下") + "-" + stampSlug(s.startTs) + ".txt", one, "text/plain");
+            }, className: "active:opacity-60 shrink-0 pt-0.5", title: "导出这一场",
+              style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, "导出"),
             onDelSession && h("button", { onClick: () => onDelSession(s.id, sessions.indexOf(s)), className: "active:opacity-50 shrink-0 pt-0.5", title: "删除这条记录" }, h(ITrash, { size: 16, color: t.fog })))));
 }
 
@@ -14763,7 +14815,7 @@ function OfflineMode({
         h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
-        h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession })),
+        h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession, who: cName })),
       styleSheet && sheet("自定义文风预设", h(OfflineSetupStyleEditor, { t, editor: styleEditor })));
   }
 
@@ -15100,7 +15152,14 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
           h("button", { onClick: () => { const v = txt.trim(); setEditing(false); if (v) onEdit(m.id, v); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, fontWeight: 600 } }, "照这个重拍"))) : null,
       h(SelfieBubble, { m: m })));
   const iconBtn = (Ic, fn, title, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-50 disabled:opacity-30", title: title }, h(Ic, { size: 15, color: t.fog }));
+  // 复制这一轮（她 2026-10-03：「线下单轮可以复制」）。
+  //   ⚠️复制只有 components.js 的 copyText 那一处（新接口 → execCommand 老路），
+  //     这儿不另写一份（one-public-mechanism）。图标也用长按菜单那张同一个 copy。
+  //   放在最前面：它是最无害的一个，不该排在「删除」旁边等着误触。
+  const copyOne = () => copyText(String(m.content || "").trim())
+    .then(ok => window.__toast && window.__toast(ok ? "已复制" : "复制不了，长按那段自己选"));
   const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },
+    h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })),
     (!isUser && !isNarr && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
     (!isUser && !isNarr && onReroll) ? iconBtn(IRefresh, () => onReroll(m.id), "重写", sending) : null,
     onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
@@ -15327,7 +15386,7 @@ function GroupOfflineMode({
         h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab }),
         h(OfflineTastePanel, { t, compact: true, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity }),
         h("button", { onClick: enter, className: "w-full py-3 mb-8", style: { fontFamily: F_BODY, fontSize: 14, background: t.ink, color: t.bg2, borderRadius: 8 } }, "进入线下 →"),
-        h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession })),
+        h(OfflineSetupHistory, { sessions, t, fmtStamp, onSelect: setReadView, onDelSession, who: gName, members })),
       styleSheet && sheet("自定义文风预设", h(OfflineSetupStyleEditor, { t, editor: styleEditor })));
   }
 

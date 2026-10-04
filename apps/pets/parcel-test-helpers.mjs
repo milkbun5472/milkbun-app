@@ -1,0 +1,2 @@
+export function placeParcel(c,body,ctx={}){const home={...ctx,room:'home',care:body.state,startBag:(id,p)=>body.startBag(id,p),finishBag:()=>body.cancel()};const bag=c.state.parcels.queue.find(p=>p.phase==='carrying');if(!bag)return home;c.request('carry-bag',{bagId:bag.id,position:{x:0,z:1}},home);body.arrive();body.tick(1,{home:true});body.tick(.3,{home:true});c.request('place-bag',{bagId:bag.id},home);return home;}
+export function openParcel(c,body,ctx={}){const home=placeParcel(c,body,ctx);return c.request('unpack',{},home);}
