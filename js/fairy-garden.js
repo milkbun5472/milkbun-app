@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-e16dea7221715f3f", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-83c6fcb64c32e009", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -69,9 +69,10 @@
           const garden={...old,map:"garden",depth:0,seat:null,sleep:{player:null,companion:null},position:{...at},companion:{...old.companion,map:"garden",mode:"follow",seat:null,position:{x:at.x+.75,z:at.z}}};
           write(key,{...d,activeWorld:"garden",world:garden,worlds:{...(d.worlds||{}),garden}});
         }else if(to==="pets"){
-          const before=read(key);let pets=before.worlds?.pets;
-          if(options.station){const [m,n,r]=await Promise.all([import("../apps/pets/railway.mjs?v="+BUILD),import("../art/pet-career/world-navigation.mjs?v="+BUILD),fetch("art/pet-career/outside.json?v="+BUILD).then(r=>{if(!r.ok)throw Error("小镇车站暂时没能打开，请稍后再试。");return r.json();})]);if(!alive.current)return false;pets=m.arrivePetStation(pets,n.createPetWorld(r),r.station);}
-          const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");write(key,{...d,activeWorld:"pets",worlds:{...(d.worlds||{}),...(pets?{pets}:{})}});
+          const before=read(key);let station=null;
+          if(options.station){station=await Promise.all([import("../apps/pets/railway.mjs?v="+BUILD),import("../art/pet-career/world-navigation.mjs?v="+BUILD),fetch("art/pet-career/outside.json?v="+BUILD).then(r=>{if(!r.ok)throw Error("小镇车站暂时没能打开，请稍后再试。");return r.json();})]);if(!alive.current)return false;}
+          // Re-read after the awaits: the town may have saved meanwhile, so arrive on the latest pets save.
+          const d=read(key);if(d.id!==before.id)throw Error("存档已切换，请重新进入。");let pets=d.worlds?.pets;if(station){const [m,n,r]=station;pets=m.arrivePetStation(pets,n.createPetWorld(r),r.station);}write(key,{...d,activeWorld:"pets",worlds:{...(d.worlds||{}),...(pets?{pets}:{})}});
         }else return false;
         setReady(true);setPlace(to);return true;
       }catch(e){setError(e.message);props.toast(e.message);return false;}finally{switching.current=false;}
