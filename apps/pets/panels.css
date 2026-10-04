@@ -52,3 +52,6 @@
 .pet-resume-counts p:last-child:nth-child(odd){grid-column:1 / -1}
 
 .pet-case-note{margin:14px 0!important;border-left:3px double #bda99b}.pet-case-clues{list-style:none;padding:0;margin:12px 0;display:grid;gap:10px}.pet-case-clues li{display:flex;gap:9px;align-items:baseline;border-bottom:1px dashed #d9c7bb;padding-bottom:9px}.pet-case-clues li>span{font-size:10px;color:#a38a79;border:1px solid #d0bcae;border-radius:50%;min-width:18px;text-align:center;flex-shrink:0}.pet-case-clues p{font-size:12px;line-height:1.7;color:#78685e}.pet-case-conclusion{font-size:12px;line-height:1.8;border-left:2px solid #bba395;padding:8px 10px;background:#f1e7db}.pet-casebook{list-style:none;padding:0;margin:0}.pet-casebook>li+li{border-top:1px dashed #cdbbb1;margin-top:20px;padding-top:16px}.pet-casebook small{display:block;font-size:10px;color:#99877b;margin-bottom:6px}.pet-casebook strong{font-size:13px;color:#796156}
+
+/* A small incoming letter stays inside the same work page and scroll region. */
+.pet-case-inbox h4{margin:8px 0;font-size:14px;line-height:1.7;font-weight:600}.pet-case-inbox .pet-button{width:100%;margin-top:8px;white-space:normal;min-height:44px}.pet-case-detail{margin-top:12px;font-size:12px;line-height:1.8}.pet-case-detail pre{white-space:pre-wrap;overflow-wrap:anywhere;font:inherit;color:var(--pet-soft);padding:10px;background:var(--pet-paper)}
