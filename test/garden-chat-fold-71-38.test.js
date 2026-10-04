@@ -46,8 +46,10 @@ test("朝向看它摆在那儿是冲着什么，不看她从哪边走过来", ()
 test("坐着也走得掉：起身先回到坐下之前站的那一点", () => {
   assert.match(game, /function leaveSeat\(\)\{/);
   assert.match(game, /const seat=seatsOf\(data\.map\)\[data\.seat\],back=seat&&seat\.approach;/);
-  assert.match(game, /function go\(target,job=null\)\{if\(!ready\|\|acting\)return false;festivalWait=false;\s*\n[^\n]*\n[^\n]*\n[^\n]*\n leaveSeat\(\);/,
-    "从家具上找路当然找不出来——先起身再找");
+  const start=game.indexOf('function go('),end=game.indexOf('function request(',start);
+  assert.ok(start>0&&end>start);
+  const go=game.slice(start,end),stand=go.indexOf('leaveSeat();'),route=go.indexOf('findPath(');
+  assert.ok(stand>=0&&route>stand,"先起身回到站位，再从那里寻路");
   assert.match(game, /function sitAt\(id\)\{seatActivity='sit';if\(data\.seat===id\)\{leaveSeat\(\);/);
 });
 

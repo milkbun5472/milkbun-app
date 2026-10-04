@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.739";
+const APP_VERSION = "v74.747";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -25378,6 +25378,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         for (const [k, b] of sEntries) { try { selfies[k] = await blobToDataUrl(b); selfieCount++; } catch (e) {} }
       }
     } catch (e) {}
+    // 动态形象的视频（她 2026-10-05：「很多人都不用云端，就靠导入导出备份」）。
+    //   视频住在自己那个库里，不在 localStorage，原来导出只带走了门牌、视频本身留在旧手机上。
+    //   跟自拍一个口径：只要带图就一起带，备份可以大，但不能悄悄缺。
+    let videos = {}, videoCount = 0, videoWanted = 0;
+    try {
+      if (!noImages && window.VideoApi && window.VideoApi.allVideos) {
+        Object.values(window.VideoApi.motionAll()).forEach(m => Object.values(m || {}).forEach(x => { if (x && x.videoRef) videoWanted++; }));
+        for (const [k, b] of await window.VideoApi.allVideos()) { try { videos[k] = await blobToDataUrl(b); videoCount++; } catch (e) {} }
+      }
+    } catch (e) {}
     // ⚠️图库读失败是【静默】的：idbVaultEntries 的 tx.onerror 直接 res([])，
     //   于是「一张图都没有」和「一次没读出来」返回值一模一样，导出就写「含 0 张图片」。
     //   把这份文件导回本机 → 下面 doImport 看见 vault 是真值 → idbVaultClear() →
@@ -25405,7 +25415,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       data: dump,
       vault: vault,
       selfies: selfies,
-      album: album
+      album: album,
+      videos: videos
     }, null, 2)], {
       type: "application/json"
     });
@@ -25414,6 +25425,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       ? "（只有文字：角色、聊天、记忆、手机、情侣空间这些；⚠️不含图片和自拍）"
       : "（含 " + vaultCount + " 张图片" + (selfieCount ? "、" + selfieCount + " 张自拍" : "")
       + (album.length ? "、" + album.length + " 条照片说明" : "")
+      + (videoCount ? "、" + videoCount + " 段动态形象视频" : "")
+      + (videoWanted && !videoCount ? "；⚠️动态形象的视频没读出来，这份备份里没有视频" : "")
       + (missing ? "；⚠️有 " + missing + " 张图只剩门牌、图本身找不到了" : "") + "）";
     const name = "archive-backup-" + new Date().toISOString().slice(0, 10) + ".json";
     return { name: name, text: await blob.text(), what: what };
@@ -25643,6 +25656,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // album 跟着图一起回来（v4 起备份里才有）。清仓把它一起清了，不写回就永远没了。
         if (Array.isArray(parsed.album) && typeof idbAlbumPut === "function") {
           for (const row of parsed.album) { try { if (row && row.imageRef) await idbAlbumPut(row); } catch (e2) {} }
+        }
+      }
+      // 动态形象的视频：只增量写回，不清本机已有的（键是一段一个，覆盖无害）
+      if (parsed.videos && window.VideoApi && window.VideoApi.restoreVideo && typeof dataUrlToBlob === "function") {
+        for (const [k, durl] of Object.entries(parsed.videos)) {
+          try { const b = dataUrlToBlob(durl); if (b) await window.VideoApi.restoreVideo(k, b); } catch (e2) {}
         }
       }
       // ⭐备份 v3：恢复自拍（打包过才有）——不清旧自拍，只增量写回（自拍键是内容相关的，覆盖无害）
@@ -27264,6 +27283,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbookFor: (charId, text) => loreForContext("lifestyle", charId ? [charId] : [], text),
     moods: moods,
     toast: toast,
+    // 收桌就往 TA 的私聊里放一张「一起专注」小卡（群里 2026-10-05）。算 TA 发的：批注本来就是 TA 写的。
+    //   content 照样留整段字——TA 下回聊天读历史时读的是它，于是记得你们刚一起坐过多久。
+    onShare: (rec, c) => {
+      if (!c || !c.id) return;
+      const mins = rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes;
+      const body = "〔一起专注〕" + (rec.task ? "「" + rec.task + "」，" : "") + (rec.status === "done" ? "坐满了 " : "坐了 ") + mins + " 分钟"
+        + (rec.pokes ? "，中间她戳了我 " + rec.pokes + " 次" : "") + (rec.status === "done" ? "" : "，先收桌了（" + (rec.interruptReason || "") + "）")
+        + (rec.annotation ? "\n" + rec.annotation : "");
+      pChat(c.id, p => [...p, { role: "char", kind: "pomoshare", content: body, ts: Date.now(),
+        pomo: { status: rec.status, task: rec.task, minutes: rec.minutes, focusedMinutes: rec.focusedMinutes, pauseCount: rec.pauseCount, pokes: rec.pokes, annotation: rec.annotation, interruptReason: rec.interruptReason } }]);
+    },
     onBack: () => setScreen("home")
   });else if (screen === "games") body = h(Games, {
     entry: gameEntry,

@@ -3,12 +3,12 @@
 export const PET_ZOOM={min:.72,max:8,cat:5};
 export function defaultPetZoom(width,height){return width<height?1.30:1.12;}
 
-export function createPetCamera(T,{camera,view,position,target,scale,getCat,getName=()=> '猫咪',draw,onTap,controlsHost}){
-  const home=target.clone(),pan=new T.Vector3();
+export function createPetCamera(T,{camera,view,position,target,scale,getCat,getName=()=> '猫咪',draw,onTap,controlsHost,getFollowing=null,onInteract=()=>{},onChange=()=>{},onFocus=null,restore=null,getFocusHeight=()=>.44}){
+  const origin=target.clone(),home=target.clone(),pan=new T.Vector3();
   const orbit=new T.Spherical().setFromVector3(position.clone().sub(home));
-  const initial={theta:orbit.theta,phi:orbit.phi};
+  const initial={theta:orbit.theta,phi:orbit.phi};if(restore?.orbit){orbit.theta=restore.orbit.theta;orbit.phi=restore.orbit.phi;}if(restore?.pan?.length===3)pan.fromArray(restore.pan);if(restore?.at?.length===3)home.fromArray(restore.at);let lastAt=home.clone();
   const rect=()=>view.getBoundingClientRect();
-  let zoom=defaultPetZoom(rect().width,rect().height),following=false,gesture=null;
+  let zoom=defaultPetZoom(rect().width,rect().height),following=false,gesture=null;if(Number.isFinite(restore?.zoom))zoom=T.MathUtils.clamp(restore.zoom,PET_ZOOM.min,PET_ZOOM.max);const isFollowing=()=>getFollowing?getFollowing():following;
   const pointers=new Map();
   const controls=document.createElement('div');controls.className='camera-tools';controls.setAttribute('aria-label','镜头控制');
   function button(id,label,html,click){
@@ -16,29 +16,31 @@ export function createPetCamera(T,{camera,view,position,target,scale,getCat,getN
   }
   const minus=button('zoom-out','缩小场景','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>',()=>zoomBy(1/1.25));
   const focus=button('look-cat','近距离看猫咪','看猫',()=>{
-    following=!following;pan.set(0,0,0);if(following)zoom=Math.max(zoom,PET_ZOOM.cat);else zoom=defaultPetZoom(rect().width,rect().height);
-    updateButtons();draw();
+    if(onFocus){if(zoom>=PET_ZOOM.cat){zoom=defaultPetZoom(rect().width,rect().height);pan.set(0,0,0);}else{zoom=PET_ZOOM.cat;void onFocus();}updateButtons();draw();onChange();return;}following=!following;pan.set(0,0,0);if(following)zoom=Math.max(zoom,PET_ZOOM.cat);else zoom=defaultPetZoom(rect().width,rect().height);
+    updateButtons();draw();onChange();
   });
   const plus=button('zoom-in','放大场景','<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M12 5v14"/></svg>',()=>zoomBy(1.25));
   controlsHost.append(controls);
   function updateButtons(){
     minus.disabled=zoom<=PET_ZOOM.min;plus.disabled=zoom>=PET_ZOOM.max;focus.disabled=!getCat();
-    focus.textContent=following?'看场景':('看'+getName()[0]);focus.setAttribute('aria-pressed',String(following));focus.setAttribute('aria-label',following?'回到场景视角':('近距离看'+getName()));
+    const close=onFocus?zoom>=PET_ZOOM.cat:following;focus.textContent=close?'看场景':('看'+getName()[0]);focus.setAttribute('aria-pressed',String(close));focus.setAttribute('aria-label',close?'回到场景视角':('近距离看'+getName()));
   }
-  function zoomBy(factor){zoom=T.MathUtils.clamp(zoom*factor,PET_ZOOM.min,PET_ZOOM.max);updateButtons();draw();}
+  function zoomBy(factor){zoom=T.MathUtils.clamp(zoom*factor,PET_ZOOM.min,PET_ZOOM.max);updateButtons();draw();onChange();}
   function update(){
     updateButtons();
     const {width,height}=rect();if(width<=0||height<=0)return;
     const aspect=width/height,span=scale/Math.min(1,aspect)/zoom;
-    const at=following&&getCat()?getCat().getWorldPosition(new T.Vector3()).add(new T.Vector3(0,.44,0)):home.clone();at.add(pan);
+    const at=isFollowing()&&getCat()?getCat().getWorldPosition(new T.Vector3()).add(new T.Vector3(0,getFocusHeight(),0)):home.clone();at.add(pan);lastAt.copy(at);
     camera.left=-span*aspect/2;camera.right=span*aspect/2;camera.top=span/2;camera.bottom=-span/2;
     camera.position.copy(at).add(new T.Vector3().setFromSpherical(orbit));camera.lookAt(at);camera.updateProjectionMatrix();camera.updateMatrixWorld(true);
   }
-  function reset(){zoom=1;following=false;pan.set(0,0,0);orbit.theta=initial.theta;orbit.phi=initial.phi;clearGesture();updateButtons();draw();}
+  function freeze(){home.copy(lastAt);pan.set(0,0,0);following=false;}
+  function followTarget(){pan.set(0,0,0);following=true;updateButtons();}
+  function reset(){home.copy(origin);lastAt.copy(origin);zoom=1;following=false;pan.set(0,0,0);orbit.theta=initial.theta;orbit.phi=initial.phi;clearGesture();updateButtons();draw();}
   function pair(){const a=[...pointers.values()];return {distance:Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y),x:(a[0].x+a[1].x)/2,y:(a[0].y+a[1].y)/2};}
   function screenOffset(p,units,right,up){const r=rect();return right.clone().multiplyScalar((p.x-r.left-r.width/2)*units).addScaledVector(up,-(p.y-r.top-r.height/2)*units);}
   function beginPair(){
-    const p=pair(),right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),up=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
+    if(getFollowing){freeze();onInteract();}const p=pair(),right=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,0),up=new T.Vector3().setFromMatrixColumn(camera.matrixWorld,1);
     gesture={moved:true,pinch:p.distance,startZoom:zoom,pan:pan.clone(),right,up,anchor:screenOffset(p,(camera.top-camera.bottom)/Math.max(rect().height,1),right,up)};
   }
   function clearGesture(){pointers.clear();gesture=null;}
@@ -54,7 +56,7 @@ export function createPetCamera(T,{camera,view,position,target,scale,getCat,getN
       pan.copy(gesture.pan).add(gesture.anchor).sub(screenOffset(p,units,gesture.right,gesture.up));pan.clampLength(0,scale*.5);gesture.moved=true;
     }else{
       const dx=e.clientX-gesture.lastX,dy=e.clientY-gesture.lastY;
-      if(Math.hypot(e.clientX-gesture.x,e.clientY-gesture.y)>5)gesture.moved=true;
+      if(Math.hypot(e.clientX-gesture.x,e.clientY-gesture.y)>5){gesture.moved=true;if(getFollowing&&!gesture.interacted){freeze();onInteract();gesture.interacted=true;}}
       orbit.theta=T.MathUtils.clamp(orbit.theta-dx*.004,.18,1.18);orbit.phi=T.MathUtils.clamp(orbit.phi-dy*.003,.66,1.19);
       gesture.lastX=e.clientX;gesture.lastY=e.clientY;
     }
@@ -63,10 +65,10 @@ export function createPetCamera(T,{camera,view,position,target,scale,getCat,getN
   view.onpointerup=e=>{
     if(!pointers.has(e.pointerId))return;const tap=gesture&&!gesture.moved&&pointers.size===1;pointers.delete(e.pointerId);
     if(tap)onTap(e);
-    if(pointers.size>=2)beginPair();else if(pointers.size===1){const p=[...pointers.values()][0];gesture={x:p.x,y:p.y,lastX:p.x,lastY:p.y,moved:true};}else gesture=null;
+    if(pointers.size>=2)beginPair();else if(pointers.size===1){const p=[...pointers.values()][0];gesture={x:p.x,y:p.y,lastX:p.x,lastY:p.y,moved:true};}else gesture=null;onChange();
   };
   view.onpointercancel=clearGesture;
   const wheel=e=>{e.preventDefault();zoomBy(Math.exp(-e.deltaY*.001));};view.addEventListener('wheel',wheel,{passive:false});
   updateButtons();
-  return {update,reset,clearGesture,snapshot:()=>({zoom,following,pan:pan.toArray()}),dispose:()=>{clearGesture();view.onpointerdown=view.onpointermove=view.onpointerup=view.onpointercancel=null;view.removeEventListener('wheel',wheel);controls.remove();}};
+  return {update,reset,freeze,followTarget,clearGesture,snapshot:()=>({zoom,following:isFollowing(),pan:pan.toArray(),at:lastAt.toArray(),orbit:{theta:orbit.theta,phi:orbit.phi}}),dispose:()=>{clearGesture();view.onpointerdown=view.onpointermove=view.onpointerup=view.onpointercancel=null;view.removeEventListener('wheel',wheel);controls.remove();}};
 }

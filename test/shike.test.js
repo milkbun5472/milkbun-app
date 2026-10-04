@@ -223,7 +223,7 @@ test("修：生图只回 blob 也能存；认识从在一起那天起算（更�
   const titles = K.momentsFor(c, ctx).map(m => m.title).join("|");
   assert.match(titles, /认识第 100 天/, "在一起比来到这里早，认识得从在一起那天算");
   assert.match(app, /kind: "shikeshare", content: body/);
-  assert.match(comp, /m\.kind === "shikeshare" && window\.ShikeShareCard/);
+  assert.match(comp, /kind === "shikeshare"\) return window\.ShikeShareCard/);
 });
 
 test("点「认识 N 天」能改认识那天：定了就以它为准，清空回到自动算", () => {

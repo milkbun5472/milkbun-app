@@ -20,7 +20,7 @@ const base=process.env.TRAIN_BASE||'http://127.0.0.1:18924';
  const garden=await f.evaluate(()=>gardenDebug.getState());assert.equal(garden.herbs,17);assert.equal(garden.day,43);assert.deepEqual(garden.position,await f.evaluate(()=>FairyGardenRules.MAPS.garden.station.target));
  // Click the real station in the rendered scene, then use its real action.
  await f.locator('#panel-toggle').evaluate(el=>{if(!document.querySelector('#panel-content').hidden)el.click();});
- const at=await f.evaluate(()=>{const at=FairyGardenRules.MAPS.garden.station.target;return gardenDebug.project(at.x,at.z);});const box=await root.locator('iframe').boundingBox();await p.mouse.click(box.x+at.x,box.y+at.y);await f.getByRole('button',{name:'登上列车',exact:true}).click();
+ const at=await f.evaluate(()=>{const at=FairyGardenRules.MAPS.garden.station.target;return gardenDebug.project(at.x,at.z);});const box=await root.locator('iframe').boundingBox();await p.mouse.click(box.x+at.x,box.y+at.y);await f.getByRole('button',{name:'登上列车',exact:true}).click();await root.getByRole('button',{name:'进入远行列车',exact:true}).click();
  await p.waitForFunction(()=>document.querySelector('#train-test-root iframe')?.contentWindow.TrainGame?.ready);
  f=p.frames().find(f=>f.url().includes('/apps/train/'));const boarded=await f.evaluate(()=>TrainGame.snapshot());const saved=await p.evaluate(()=>loadJSON('x_fairyGarden:train-test',null));
  assert.equal(boarded.day,saved.world.day);assert.equal(boarded.epoch,saved.world.epoch);assert.ok(Math.abs(boarded.minute-saved.world.minute)<1);assert.equal(saved.id,'train-test');assert.equal(saved.partnerId,'test');assert.equal(saved.world.herbs,17);assert.equal(saved.dialogs.test[0].content,'保留的测试记录');assert.deepEqual(saved.world,saved.worlds.garden);
