@@ -4524,7 +4524,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const soloLook = !(kind === "duo" || multi) && char.appearance && char.appearance.trim();
   if (soloLook) parts.push("【「" + cName + "」长什么样·务必贴合】" + char.appearance.trim() + "。");
   // 银发、紫瞳、兽耳这些：写实照片里也是设定，不许被「真人常见」拉回黑发黑眼
-  if (soloLook && RARE_LOOK.test(char.appearance)) parts.push("外貌里写的发色、瞳色、耳朵这些是设定，哪怕真人少见也照样画出来（写实照片里就是染发、美瞳、cos 道具的质感），别改成黑发黑眼。");
+  if (soloLook && RARE_LOOK.test(char.appearance)) parts.push("外貌里写的发色、瞳色、耳朵就是这个人本来的样子，照设定原样画出来，别改成黑发黑眼。");
   // 手部/肢端解剖（治 AI 经典翻车：比耶少一根手指、多指并指）——correct hands 关键词一起上
   parts.push("【手脚必须解剖正确】correct human hands, exactly five fingers per hand, anatomically correct fingers——每只手正好五根手指、每只脚五根脚趾；比耶(V手势)/比心/挥手/竖大拇指/握东西/十指相扣时，手指的数目、长短、朝向和关节都要正确自然，**绝对不许多指、少指、断指、并指融合、手指扭曲畸形或长度诡异**。手若入镜就照实画对，拿不准就让手自然下垂/插兜/被遮挡，也别画错。");
   // 数手：拿手机的那只也算（她 2026-10-01 对镜自拍截图：镜里两只手在掀衣服，画面边上又伸进来一只举手机的）
