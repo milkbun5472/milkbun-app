@@ -14762,7 +14762,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我处理 TA 发来的解除申请
   const respondUnblockFromChar = (charId, cid, accept, chatKey = charId) => {
     pChat(chatKey, p => p.map(m => m.cid === cid ? { ...m, status: accept ? "accepted" : "declined" } : m));
-    if (accept) { setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑"); queueUnblockSpeech(chatKey, ["……谢谢你愿意听我说。"], 300, charId); }
+    // 和好那一刻TA说什么，交给TA自己（她 2026-10-05：「为啥拉黑解除永远后面带一句谢谢你愿意听我说」）——
+    //   原来这里写死了一句台词，谁被放出来都是同一句。现在跟拉黑期间那几轮同一个口子：同一份 blockBundleFor、同一个 lane。
+    if (accept) {
+      setBlockFor(chatKey, { iBlocked: false }); toast("已和好，解除拉黑");
+      const char = characters.find(c => c.id === charId);
+      if (char && active && !laneBusy("c:" + chatKey)) {
+        startLane("c:" + chatKey);
+        callAI(apiFor(charId), blockBundleFor(char, chatKey) + "\n\n" + onlineRegisterLayer()
+          + "\n\n【场景】你之前被用户拉黑了，你发了解除申请，她刚刚同意、把你放出来了——从这一刻起你说的话她都收得到。"
+          + "\n完全代入「" + char.name + "」，按人设、此刻心情和你们刚才闹的那件事，说你这会儿真会说的话；也可以什么都不说。"
+          + "\n用即时通讯口吻。\n【输出】只输出 JSON：{\"say\":[\"气泡1\"]" + BLOCK_STATE_SHAPE + "}" + BLOCK_STATE_SPEC,
+          [{ role: "user", content: "（她解除了拉黑）" }], { maxTokens: 65535 })
+          .then(raw => {
+            const d = extractJSON(raw) || {};
+            const says = (Array.isArray(d.say) ? d.say : (d.say ? [d.say] : [])).filter(x => typeof x === "string" && x.trim());
+            if (says.length) queueUnblockSpeech(chatKey, says, 300, charId);
+            applyBlockTurnState(charId, chatKey, d);
+          })
+          .catch(e => toast("TA 没接上话：" + ((e && e.message) || "")))
+          .finally(() => endLane("c:" + chatKey));
+      }
+    }
     else { toast("已拒绝"); setTimeout(() => blockedReaction(charId, chatKey), 400); }
   };
   // TA 拉黑我期间，我点某条消息的感叹号→发解除申请（该消息作为诉说），TA 依人设决定
