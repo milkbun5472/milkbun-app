@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.851";
+const APP_VERSION = "v74.854";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -27981,9 +27981,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   else if (screen === "listen") body = h(ListenTogether, {
     // 边听边说（listen-talk.js）：上下文走 ctxFor；说的每一句原样落进单聊（via:"listen"）
     profile: profile, active: active, ctxFor: ctxFor, toast: toast,
-    // 语音那几句落成单聊里真的语音条（跟单聊发语音同一个形状），回到单聊也点得开、听得到
-    onToChat: (charId, rows) => pChat(charId, p => [...p, ...rows.map(r => Object.assign({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" },
-      r.voice ? { kind: "voice", dur: Math.max(1, Math.min(60, Math.round(String(r.content).replace(/\s/g, "").length / 3))) } : {}))]),
+    onToChat: (charId, rows) => pChat(charId, p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
     listen: listen,
     characters: liveChars,
     onBack: exitListen,
