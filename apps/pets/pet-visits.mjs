@@ -37,7 +37,7 @@ export function createPetVisits(shared,{world,rows,getActors=()=>[],now=()=>Date
  function request(action,petId,id){const p=row(petId),t=shared.petVisit,n=find(id);
   if(action==='invite'){
    if(!n)return {accepted:false,text:'先看看想邀请哪位朋友。'};
-   if(t||shared.petMeeting||shared.quest||shared.visit||shared.event)return {accepted:false,text:'先陪完眼前的街坊约定。'};
+   if(t||shared.streetVisit||shared.petMeeting||shared.quest||shared.visit||shared.event)return {accepted:false,text:'先陪完眼前的街坊约定。'};
    if(!free(p))return {accepted:false,text:'先实际回家、吃饱休息好，空下来再请朋友做客。'};
    const m=shared.neighbors[id].met[petId],bond=neighborBondView({[id]:m},id);if(bond.visits<2)return {accepted:false,text:'先在店里慢慢认识两次，再邀请它到家里。'};
    if(m?.homeDate>=date())return {accepted:false,text:'今天已经请过它了，改天再聚。'};

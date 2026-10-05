@@ -75,3 +75,4 @@
 /* The original chat divider is shared by all live town reading windows. */
 .pet-live-window .pet-page-body{overscroll-behavior:contain;overflow-anchor:none}
 .pet-live-window .pet-chat-heading{flex-shrink:0;position:relative;z-index:3;background:#f2e8e7}
+.pet-living-photos{margin-top:18px}.pet-living-photos img{aspect-ratio:4/3}.pet-living-photos button{display:block;width:100%;padding:0;border:0;background:none;min-height:44px}.pet-living-print{margin:0;padding:10px;background:#fbf6ee;border:1px solid #e2d5c6;box-shadow:0 3px 8px #80655118}.pet-living-print img{display:block;width:100%;height:auto;aspect-ratio:4/3;object-fit:contain}.pet-living-print figcaption{padding:12px 4px;color:#806c5d;overflow-wrap:anywhere}.pet-living-print small{display:block;margin-top:8px;font-size:11px}.pet-photo-remove{width:100%}.pet-photo-remove summary{min-height:42px;padding:12px 0;font-size:12px;color:var(--pet-soft)}

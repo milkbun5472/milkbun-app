@@ -1,5 +1,6 @@
 // One label/icon renderer for the town's existing buttons; callbacks stay with the game.
 const marks={
+ photo:'<path d="M3 6h5l2-2h4l2 2h5v14H3Z"/><circle cx="12" cy="13" r="4"/>',
  pet:'<ellipse cx="12" cy="15.5" rx="5" ry="4"/><circle cx="5" cy="8.5" r="2"/><circle cx="10" cy="5.5" r="2"/><circle cx="15" cy="5.5" r="2"/><circle cx="19.5" cy="9" r="2"/>',
  wake:'<circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.5 1.5m11 11L19 19M5 19l1.5-1.5m11-11L19 5"/>',
  clock:'<circle cx="12" cy="12" r="8"/><path d="M12 7v5l3 2"/>',
@@ -20,7 +21,7 @@ export function setSceneControlLabel(button,text,mark){if(!button)return;const l
 export function mountTownControls(doc=document){
  if(!doc.body.classList.contains('pet-game'))return;
  const decorate=(button,mark)=>{if(!button||button.querySelector('[data-control-label]'))return;const text=button.textContent;button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" data-control-mark="'+mark+'">'+marks[mark]+'</svg><span data-control-label></span>';setSceneControlLabel(button,text);};
- for(const[id,mark]of Object.entries({'selected-pet':'pet',light:'clock',back:'door','pet-talk':'talk','pet-work':'book','pet-status':'care','watch-view':'view',reset:'full'}))decorate(doc.getElementById(id),mark);
+ for(const[id,mark]of Object.entries({'selected-pet':'pet',light:'clock',back:'door','pet-talk':'talk','pet-work':'book','pet-status':'care','pet-photo':'photo','watch-view':'view',reset:'full'}))decorate(doc.getElementById(id),mark);
  for(const b of doc.querySelectorAll('#walk-actions [data-walk]'))decorate(b,({pause:'view',play:'ball',pet:'touch',resume:'door',home:'rest'})[b.dataset.walk]);
  for(const b of doc.querySelectorAll('#home-actions [data-care]'))decorate(b,({feed:'feed',snack:'snack',play:b.dataset.toy==='mouse'?'mouse':'ball',rest:'rest',pet:'touch'})[b.dataset.care]);
 }
