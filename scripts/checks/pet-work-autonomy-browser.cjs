@@ -15,7 +15,7 @@ const photoCount=initial.career.photos.length;const stages=[],seen=new Set();let
 if(offline){await f.evaluate(()=>PetGame.flush());await p.clock.setFixedTime(new Date('2026-10-04T21:27:00-05:00'));await f.goto(f.url());await f.waitForFunction(()=>window.PetGame?.ready&&!petCareerPreview.snapshot().busy);await f.evaluate(()=>PetGame.pause(true));}
 else for(let loop=0;loop<120;loop++){
  const a=await facts();if(!a.job)break;
- if(a.atDestination&&a.job.phase==='working'&&a.job.time>.6&&!seen.has(a.job.index)){seen.add(a.job.index);assert.ok(a.work.kind);stages.push({index:a.job.index,point:a.town.position,kind:a.work.kind});await p.screenshot({path:path.join(out,profession+'-stage-'+a.job.index+'.png')});}
+ if(a.atDestination&&a.job.phase==='working'&&a.job.time>.6&&!seen.has(a.job.index)){if(!a.work.kind){await f.evaluate(()=>{PetGame.pause(false);PetGame.step(.05);PetGame.pause(true);});continue;}seen.add(a.job.index);assert.ok(a.work.kind);stages.push({index:a.job.index,point:a.town.position,kind:a.work.kind});await p.screenshot({path:path.join(out,profession+'-stage-'+a.job.index+'.png')});}
  if(!failureChecked&&process.env.WORK_AUTONOMY_FAIL_SAVE==='1'&&a.job.phase==='ready'){
   const failed=await f.evaluate(()=>{const host=parent.FairyGardenHostFor(window),save=host.save;host.save=()=>false;const before=PetGame.career();PetGame.pause(false);PetGame.step(.05);PetGame.pause(true);host.save=save;const after=PetGame.career(),blocked=PetGame.careerAction('finish').text.includes('进度还没保存成功');PetGame.flush();return {before,after,blocked};});assert.equal(failed.after.balance,failed.before.balance);assert.equal(failed.after.job.id,jobId);assert.equal(failed.after.job.phase,'ready');assert.equal(failed.blocked,true);failureChecked=true;
  }
