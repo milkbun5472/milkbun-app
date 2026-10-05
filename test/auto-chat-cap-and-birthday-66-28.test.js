@@ -51,7 +51,7 @@ test("他生日那天，说清今天【不是】她的生日", () => {
 });
 
 test("群里也说清：今天是谁的生日、不是谁的", () => {
-  const seg = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      const gEmotes = emotesForGroup"));
+  const seg = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      // 每个成员只列他自己能用的那几套"));
   assert.match(seg, /if \(gs\.spectate\) return "";/, "旁观群里她不在场，没有「不是她的」这回事");
   assert.match(seg, /members\.filter\(c => c && !c\.npc && daysUntilBirthday\(c\.birthday, _t\) === 0\)/, "没找出今天过生日的是谁");
   assert.match(seg, /\*\*不是 " \+ uN \+ " 的生日\*\*/, "群里没说清不是她的");
@@ -86,7 +86,7 @@ test("生日那几行的名字来自设置，不是写死的", () => {
   assert.match(seg, /const uName = userName\(profile\);/, "又自己写了一份兜底");
   assert.ok(!/Lisa/.test(seg), "生日这一段里出现了写死的名字");
   // 群里那一句同理
-  const g = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      const gEmotes = emotesForGroup"));
+  const g = app.slice(app.indexOf("      const gBdayHint = (() => {"), app.indexOf("      // 每个成员只列他自己能用的那几套"));
   assert.match(g, /const uN = userName\(profile\);/);
   assert.ok(!/Lisa/.test(g), "群里那一句出现了写死的名字");
 });
