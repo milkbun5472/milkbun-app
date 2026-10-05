@@ -16028,6 +16028,15 @@ function GroupThread({
   const gChatBg = settings && settings.chatBg;
   // 气泡皮肤刷的那层聊天底色（跟单聊那处同一条判据）：它也会把居中那行动描吞掉
   const _gWkBg = (typeof BUBBLE_SKIN !== "undefined" && BUBBLE_SKIN.chatBg) || "";
+  // 群里动描那一行（她 2026-10-05：「群里不能改动描人称」）。存的照旧是状态卡那句第一人称，只改显示，跟单聊同一把刀（ActLine）。
+  //   「我」：照原样，前面挂名字——「沈清和 我把伞递给你」；「名字」：把「我」换成名字、前面不再挂——「沈清和把伞递给你」。
+  const groupActText = m => {
+    const gsx = settings || {}, nm = m.senderName || "TA";
+    const asName = gsx.actPerson === "name";
+    const toYou = gsx.userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""];
+    const body = window.ActLine ? window.ActLine.as(m.content, asName ? nm : "", toYou, gsx.userPerson === "ta" ? "她" : "") : m.content;
+    return asName && body.indexOf(nm) === 0 ? body : nm + " " + body;
+  };
   // 白＝等我接话（他们不自己聊），黑＝他们可以自己去聊。翻的就是群设置里那个「群里自发聊天」，
   // 不另立一个会跟它打架的状态（她 2026-08-27 定的形状：开关放设置旁，状态画在底下那颗按钮上）。
   const gHold = gs.autoChat === false;
@@ -16181,7 +16190,7 @@ function GroupThread({
         lineHeight: 1.5
         , ...((gChatBg || _gWkBg) ? { display: "inline-block", background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
       }
-    }, m.who === "char" ? (m.senderName || "TA") + " " + m.content : "— " + m.content + " —"),
+    }, m.who === "char" ? groupActText(m) : "— " + m.content + " —"),
       (onDeleteMessages && m.who !== "char") ? h("button", {
       onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
       className: "active:opacity-50 shrink-0",
@@ -16978,6 +16987,10 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [gDrama, setGDrama] = useState(!!gs.drama);
   // 动描（她 2026-09-09：「群聊也接上动作吧」）：按群存，跟单聊那个开关同名同义。
   const [gActDesc, setGActDesc] = useState(!!gs.actDesc);
+  // 动描那一行的人称（她 2026-10-05：「群里不能改动描人称」）——跟单聊那两颗同义，按群存。
+  //   群里一行前面本来就挂着说话人的名字，所以「TA 自己叫什么」第二档不是「他/她」（一群人分不清谁），是名字本身。
+  const [gActPerson, setGActPerson] = useState(gs.actPerson === "name" ? "name" : "me");
+  const [gUserPerson, setGUserPerson] = useState(gs.userPerson === "ta" ? "ta" : "you");
   // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
   // 一直只在 NewGroupSheet 里，设置页从来没有过。
   const [gName, setGName] = useState((group && group.name) || "");
@@ -17063,7 +17076,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   return h(Sheet, { onClose: onClose, tall: true },
     h("div", { className: "flex items-center justify-between mb-1" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
     //   按「管的是什么」装进六个框：谁在群里 / 他们自己聊不聊 / 怎么相处 / 长什么样 / 记得多少 / 清掉。
@@ -17133,6 +17146,22 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     row("修罗场（关系不保密）", "关着：每个成员跟你是什么关系只有他自己知道，别人不会吃醋、不会拆穿。开着：群里每个人都知道你和其他成员各是什么关系——吃不吃醋、当面问不问、拆不拆穿，看他们各自的性子。只管这一个群。", gDrama, setGDrama),
     row("默认进线下（同处一室 / 常聚）", "点进这个群默认直接进群线下相处（多人面对面叙事），随时可离开跳回线上；关着就跟以前一样默认线上。适合同居/几乎总在一起的群。", gDefaultOffline, setGDefaultOffline),
     row("动描（居中那一行）", "每个成员的状态卡本来就记着「此刻在做什么」。开着之后，谁的那一格变了，就在TA这几条气泡前面居中显示一行——一轮里两个人各变一次，就出两行；没变的人一行都不出。不用他们多写一个字。那一行长按能编辑、能重 Roll。", gActDesc, setGActDesc),
+    gActDesc ? h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, paddingRight: 12 } }, "那一行里，TA 自己叫什么"),
+      h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
+        [["me", "我"], ["name", "名字"]].map(function (o) {
+          const on = gActPerson === o[0];
+          return h("button", { key: o[0], onClick: function () { setGActPerson(o[0]); }, className: "active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
+        }))) : null,
+    gActDesc ? h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub, paddingRight: 12 } }, "那一行里，你叫什么"),
+      h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
+        [["you", "你"], ["ta", "她"]].map(function (o) {
+          const on = gUserPerson === o[0];
+          return h("button", { key: o[0], onClick: function () { setGUserPerson(o[0]); }, className: "active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none", background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
+        }))) : null
     ),
     gCard({ title: "这个群长什么样", char: "衣", tint: "#9b7bc4", state: (chatBg ? "有背景图 · " : "") + "已读 " + gOnOff(showRead) + " · 时间戳 " + gOnOff(showTime) }, null,
     h("div", { className: "flex items-center justify-between pt-5" },
@@ -17570,6 +17599,9 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
   }, [initialPreset]);
+  // 「挑一句接起」那一列摆多少句、搜什么（得在下面那个提前 return 之前，hooks 顺序不能变）
+  const [startShowN, setStartShowN] = useState(40);
+  const [startQ, setStartQ] = useState("");
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
@@ -17623,6 +17655,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
           patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
+  // 记忆只到起点为止（她 2026-10-05）：带开场开的房才有这一格，「你们一起经历过的事」关着时也不摆（没东西可截）
+  const memCutRow = show => show && (Kit.allows ? Kit.allows(draft, "formalMemory") : true) ? h("div", { className: "flex items-center justify-between", style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
+    h("div", { style: { paddingRight: 10 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "只记得到起点那一句为止"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。"))),
+    h(Toggle, { on: !!draft.memUntilAnchor, onChange: () => patch({ memUntilAnchor: !draft.memUntilAnchor }) })) : null;
   const save = () => {
     const saved = Kit.save(character.id, draft);
     if (!saved) { window.__toast && window.__toast("这次没保存成功，原房间还在"); return null; }
@@ -17636,7 +17674,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   };
 
   const sourceRows = Array.isArray(sourceMessages) ? sourceMessages : [];
-  const startChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text).slice(-16);
+  // 「挑一句接起」原来只摆最后 16 句（群友 2026-10-05：「我想回到开头或者中间某一段怎么办」）。
+  //   现在整段都能挑：默认摆最近 40 句，往上点「再往前」一次多 40 句；也能搜一个词直接找到那一句。
+  const allStartChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text);
+  const startQs = startQ.trim();
+  const startChoices = startQs ? allStartChoices.filter(x => x.text.indexOf(startQs) >= 0) : allStartChoices.slice(-startShowN);
+  const startMore = !startQs && allStartChoices.length > startShowN;
   const chooseStartMode = mode => {
     setStartMode(mode);
     if (mode === "until" && startIndex == null && startChoices.length) setStartIndex(startChoices[startChoices.length - 1].index);
@@ -17762,7 +17805,13 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
           startMode === "blank" ? "房里不放旧消息，从第一句重新开始。" : startMode === "recent"
             ? characterText(character, "带入当前房间已载入的最近 20 条聊天；他还记得哪些主线经历，由这间房自己的开关决定。")
             : "选中的这句和它之前已载入的聊天会成为新房开场；这句之后的内容不带入。"),
-        startMode === "until" && h("div", { style: { maxHeight: 190, overflowY: "auto", marginTop: 8, border: "1px solid " + t.line, borderRadius: 11 } },
+        startMode === "until" && h("input", { value: startQ, onChange: e => setStartQ(e.target.value), placeholder: "搜一个词找那一句（共 " + allStartChoices.length + " 句）",
+          style: { width: "100%", marginTop: 8, padding: "7px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }),
+        startMode === "until" && h("div", { style: { maxHeight: 260, overflowY: "auto", marginTop: 8, border: "1px solid " + t.line, borderRadius: 11 } },
+          startMore ? h("button", { onClick: () => setStartShowN(n => n + 40), className: "w-full active:opacity-60",
+            style: { display: "block", padding: "9px 10px", borderBottom: "1px solid " + t.line, background: "transparent", color: t.tint || t.ink, fontFamily: F_BODY, fontSize: 11.5 } },
+            "再往前 40 句（还有 " + (allStartChoices.length - startShowN) + " 句）") : null,
+          startQs && !startChoices.length ? h("div", { style: { padding: "9px 10px", color: t.fog, fontFamily: F_BODY, fontSize: 11 } }, "没找到这个词") : null,
           startChoices.map(({ m, index, text }) => h("button", { key: (m.id || "m") + "_" + index, onClick: () => setStartIndex(index),
             className: "w-full text-left", style: { display: "block", padding: "8px 10px", borderBottom: "1px solid " + t.line,
               background: startIndex === index ? t.bg : "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5 } },
@@ -17775,6 +17824,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
           (window.ChatRooms && window.ChatRooms.doorLine ? window.ChatRooms.doorLine(draft) : "") + "现在就能调，建好之后也随时能改。"),
         group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
+        memCutRow(startMode !== "blank"),
         group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
         group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
@@ -17810,6 +17860,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h(Eyebrow, null, "隔多久回主聊天看一眼"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
     group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
+    memCutRow(!draft.main && !!(draft.startFrom && draft.startFrom.anchorTs)),
     !draft.main && group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
     group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
     // 房内浓缩的上限（她 2026-09-29：「上限搞个拉条自由选择」）。只有侧房有这一份——主聊天走长期记忆。

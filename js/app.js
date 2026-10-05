@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.863";
+const APP_VERSION = "v74.866";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5903,7 +5903,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (ctxOpts && ctxOpts.noMemory) return [];
       const isLeanYanqiuChat = !!(ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes);
       const recallText = ctxOpts && typeof ctxOpts.queryText === "string" ? ctxOpts.queryText : recentChatText(char);
-      const rows = retrieveMemories(memLibRef.current, char.id, recallText, {
+      // 小房间开了「只记得到起点为止」：起点之后记下的那些先拿掉再检索（roomContextFor 传进来）
+      const memPool = ctxOpts && ctxOpts.memCutoff && window.ChatRooms ? window.ChatRooms.memBefore(memLibRef.current, ctxOpts.memCutoff) : memLibRef.current;
+      const rows = retrieveMemories(memPool, char.id, recallText, {
         limit: isLeanYanqiuChat ? 3 : (memCfgRef.current.topK || 5),
         source: ctxOpts && ctxOpts.chat === true ? "chat" : "background",
         touch: !(ctxOpts && ctxOpts.debug === true)
@@ -7900,7 +7902,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 引擎那头空场会发 OFFLINE_OPEN_SCENE 当触发句，不是「（继续）」。
     const _abort = laneAbortBegin("c:" + scopeKey);
     try {
-      let oCtx = ctxFor(char);
+      let oCtx = ctxFor(char, sideRoom && window.ChatRooms && window.ChatRooms.memCutoff ? { memCutoff: window.ChatRooms.memCutoff(sideRoom) } : undefined);
       if (sideRoom) {
         // turns＝这间房自己已经有几条真对话：只决定【开场】那半是当指令发还是当往事发
         // 线下这份的查询字跟下面递进去的 queryText 是同一段——向量缓存按字对账
@@ -7961,7 +7963,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const oMemN = osFor(charId).memN;
       // 向量记忆：预热线下这段的查询向量，让下面的同步检索走语义相似度（失败自动纯关键词）
       if (typeof primeQueryVec === "function" && (!sideRoom || (sideRoom.cognition || {}).formalMemory) && (oMemN == null || oMemN > 0)) await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
-      if (oMemN != null && (!sideRoom || (sideRoom.cognition || {}).formalMemory)) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
+      if (oMemN != null && (!sideRoom || (sideRoom.cognition || {}).formalMemory)) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(sideRoom && window.ChatRooms && window.ChatRooms.memCutoff ? window.ChatRooms.memBefore(memLibRef.current, window.ChatRooms.memCutoff(sideRoom)) : memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
       // 配件·授权门（线下）：线下天然是用户当面在场，只需 已连+已激活给本角色+该角色 opt-in+已解锁
       const offToyOn = !!(typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
         && settingsFor(charId) && settingsFor(charId).toyEnabled
@@ -14742,7 +14744,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!room || room.main) return ctxFor(char, ctxOpts);
     const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey);
     const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory"));
-    const ctx = ctxFor(char, { ...ctxOpts, noMemory, queryText: ctxOpts && ctxOpts.queryText || text });
+    const ctx = ctxFor(char, { ...ctxOpts, noMemory, memCutoff: window.ChatRooms.memCutoff ? window.ChatRooms.memCutoff(room) : 0, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
     // ⚠️只留【这间房自己】立的 OOC 规矩。原来是主线那份（ctxFor 给的 directives[char.id]）
     //   再拼上房间这份——于是她在主线立过的任何一条长期规矩（怎么称呼她、上次说好的事）

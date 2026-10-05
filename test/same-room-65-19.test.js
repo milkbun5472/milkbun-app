@@ -209,11 +209,11 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // 群渲染：跟单聊同一个待遇，且写出是谁做的
   const j = comp.indexOf('"data-wk": "narr"', comp.indexOf('"data-wk": "narr"') + 10);
   const row = comp.slice(j - 400, j + 1400);
-  assert.match(row, /m\.who === "char" \? \(m\.senderName \|\| "TA"\) \+ " " \+ m\.content/);
+  assert.match(row, /m\.who === "char" \? groupActText\(m\)/);
   assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "群里那一行还挂着 ✕");
   // 群设置里那个开关（群设置是整份 patch 存的，不像单聊那头逐项手抄）
   assert.match(comp, /const \[gActDesc, setGActDesc\] = useState\(!!gs\.actDesc\);/);
-  assert.match(comp, /defaultOffline: gDefaultOffline, actDesc: gActDesc, name: gName(, avatarImage: gAvatar)?(, layout: gLayout, customCSS: gCss)? \}\);/);
+  assert.match(comp, /defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName(, avatarImage: gAvatar)?(, layout: gLayout, customCSS: gCss)? \}\);/);
   assert.match(comp, /row\("动描（居中那一行）"/);
 });
 
