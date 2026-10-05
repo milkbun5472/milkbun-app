@@ -26101,7 +26101,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
     onChatNpc: id => openChatById(id),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
-    onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null } : c)); toast(img ? "换好了" : "已清掉头像"); },
+    // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
+    //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，
+    //   而聊天里永远是 chatAvatar 赢——外面换了里面看不见。这儿换就两张一起换。
+    onSaveNpcAvatar: (id, img) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, avatarImage: img || null, chatAvatar: null } : c)); toast(img ? "换好了" : "已清掉头像"); },
     groups: groups,
     chats: chats,
     groupChats: groupChats,
