@@ -27981,9 +27981,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   else if (screen === "listen") body = h(ListenTogether, {
     // 边听边说（listen-talk.js）：上下文走 ctxFor；说的每一句原样落进单聊（via:"listen"）
     profile: profile, active: active, ctxFor: ctxFor, toast: toast,
-    // 语音那几句落成单聊里真的语音条（跟单聊发语音同一个形状），回到单聊也点得开、听得到
-    onToChat: (charId, rows) => pChat(charId, p => [...p, ...rows.map(r => Object.assign({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" },
-      r.voice ? { kind: "voice", dur: Math.max(1, Math.min(60, Math.round(String(r.content).replace(/\s/g, "").length / 3))) } : {}))]),
+    onToChat: (charId, rows) => pChat(charId, p => [...p, ...rows.map(r => ({ role: r.role, content: r.content, ts: r.ts, read: true, via: "listen", listenSong: r.song || "" }))]),
     listen: listen,
     characters: liveChars,
     onBack: exitListen,
