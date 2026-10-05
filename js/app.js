@@ -3951,7 +3951,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   ⚠️判据按【一句话】看：这一句里既说了「拿到/送到」、又说了「告诉你/找你」才算，
   //     「到了」太泛（「我到家了」），只有同一句里点了外卖/礼物才认它。
   const PROMISE_EVENT_WORDS = { takeout: /外卖|饭|吃的|奶茶|咖啡/, gift: /礼物|快递|包裹|东西/ };
-  const promiseFromWords = (charId, words) => {
+  // 「二十分钟」「15 分钟」「半小时」「一个小时」→ 分钟数；没有就 0
+  const minutesFromWords = text => {
+    const t = String(text || "");
+    if (/半(个)?小时/.test(t)) return 30;
+    const m = /([0-9]+|[一二两三四五六七八九十]+)\s*(?:个)?\s*(分钟|分|小时|钟头)/.exec(t);
+    if (!m) return 0;
+    let n = /^[0-9]+$/.test(m[1]) ? +m[1] : (() => {
+      const d = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }, w = m[1];
+      if (w === "十") return 10;
+      const i = w.indexOf("十");
+      if (i < 0) return d[w] || 0;
+      return (i === 0 ? 1 : (d[w[0]] || 0)) * 10 + (d[w[i + 1]] || 0);
+    })();
+    if (/小时|钟头/.test(m[2])) n *= 60;
+    return n > 0 && n <= 24 * 60 ? n : 0;
+  };  const promiseFromWords = (charId, words) => {
     const lines = (Array.isArray(words) ? words : [words]).map(x => String(x == null ? "" : x))
       .join("\n").split(/[。！？!?\n]+/).map(x => x.trim()).filter(Boolean);
     for (const line of lines) {
@@ -3966,8 +3981,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           how: /视频/.test(line) ? "video" : /打给你|给你打|电话/.test(line) ? "voice" : "chat" };
       }
     }
+    // 按时间约的（她 2026-10-05 截图：「到了我给你打电话」「乖乖等我二十分钟」——然后什么都没来）。
+    //   模型说了却没填 laterPromise，原来这道兜底只认「外卖/礼物到了」那种，按分钟说的一律漏掉。
+    //   要两样都在：有一句是回头来找她（打电话/找你/跟你说），再有一个说清了几分钟的时间（几分钟、半小时、一个小时）。
+    const callLine = lines.find(l => /打给你|给你打|打电话|视频给你|找你|联系你|告诉你|跟你说|给你发|发你/.test(l));
+    if (callLine) {
+      const all = lines.join("。");
+      const durM = minutesFromWords(all);
+      // ⚠️只认【说了几分钟】的：「忙完找你」「到家告诉你」没有时间可对，原来就定了不兜（test/promise-after-event）
+      if (durM) return { minutes: durM, about: callLine.slice(0, 60),
+        how: /视频/.test(callLine) ? "video" : /打给你|给你打|电话/.test(callLine) ? "voice" : "chat" };
+    }
     return null;
   };
+
   const PACT_VIA = { chat: "发消息", voice: "语音电话", video: "视频电话" };
   const setPactDue = (memId, charId, about, dueTs, via) => {
     if (!dueTs) { setPromises(p => { const n = p.filter(x => x.memId !== memId); promisesRef.current = n; saveJSON("x_promises", n); return n; }); toast("不催了"); return; }
