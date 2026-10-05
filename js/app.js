@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.877";
+const APP_VERSION = "v74.878";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -309,7 +309,10 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const side = pos ? pos.side : "right";
   const anchor = drag
     ? { left: drag.x - 23, top: drag.y - 23, right: "auto", flexDirection: "row-reverse" }
-    : Object.assign({ top: pos ? pos.top : "42%", transition: "left .28s ease, right .28s ease, opacity .28s ease", opacity: tucked ? .82 : 1 },
+    // ⚠️位置在【拖完那一刻】按当时的屏幕高度夹过一次，但 x_modelFloatPos 是 x_ 键、会跟着云同步
+    //   走到别的设备上：在高屏幕上拖到下面，同步到矮屏幕上就直接落在屏幕外面，旋钮「开着却看不见」。
+    //   所以每次画的时候再按【现在这块屏幕】夹一次。
+    : Object.assign({ top: pos ? Math.min(Math.max(pos.top, 70), Math.max(70, (window.innerHeight || 800) - 130)) : "42%", transition: "left .28s ease, right .28s ease, opacity .28s ease", opacity: tucked ? .82 : 1 },
         side === "left" ? { left: tucked ? -23 : 12, flexDirection: "row-reverse" } : { right: tucked ? -23 : 12 });
   // ⚠️她 2026-09-05 报的那个：「有很多 api 的时候点开会跳到屏幕下面然后关不掉，
   //   得关掉 app 重开」。病根有两层，两层都得治：

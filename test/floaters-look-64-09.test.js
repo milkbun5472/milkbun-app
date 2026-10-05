@@ -41,7 +41,9 @@ test("位置、拖动、层级一个都没动（那几样是修过很多次的�
   assert.match(mini, /const keepClear = Math\.min\(declared,/, "禁区没有上限，会被顶到画面正中");
   assert.match(mini, /zIndex: MINI_PLAYER_Z/, "层级被改写死了");
   assert.match(mini, /localStorage\.setItem\("x_miniPos"/, "拖完记不住位置了");
-  assert.match(app, /top: pos \? pos\.top : "42%"/, "旋钮的默认位置被挪了");
+  // v74.877：存下来的位置画的时候再按当前屏幕夹一次（x_ 键会跨设备同步，高屏的位置到矮屏会落在外面）。
+  //   这条守的是【默认还是 42%、存了就用存的】，夹不夹是另一条测试的事（model-float-empty-hint）。
+  assert.match(app, /top: pos \? [^:]*pos\.top[^:]* : "42%"/, "旋钮的默认位置被挪了");
   assert.match(app, /localStorage\.setItem\("x_modelFloatPos"/, "旋钮拖完记不住位置了");
 });
 
