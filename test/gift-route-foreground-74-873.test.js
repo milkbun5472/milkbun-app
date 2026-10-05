@@ -69,3 +69,15 @@ test("⑥ 预览口令：从网址记一次，之后礼物线每枪都带；不�
   assert.ok(fn.indexOf('if (!isGiftRoute(p)) return {};') < fn.indexOf("qq_giftPreview"),
     "先读了口令再判断线路——有可能把口令发去别人的站子");
 });
+
+// 限流按设备算（她 2026-10-05：每台设备每分钟 4 次 + 每个 IP 30 次兜底）。
+//   不按 IP 卡：国内手机流量很多人共用同一个出口 IP，按 IP 等于一栋楼的陌生人共用 4 次。
+test("⑦ 礼物线每枪带设备编号：随手生成、不跟云同步、只发给礼物线", () => {
+  const fn = E.slice(E.indexOf("function giftHeaders"), E.indexOf("async function callAI"));
+  assert.match(fn, /localStorage\.getItem\("qq_giftDevice"\)/, "没有设备编号");
+  assert.ok(!/x_giftDevice/.test(E), "编号存进了 x_ 键——会被云同步，一个人两台设备共用一份额度");
+  assert.match(fn, /crypto\.randomUUID/, "编号不是随机的");
+  assert.match(fn, /h\["x-qq-device"\] = d;/, "生成了却没带上");
+  assert.ok(fn.indexOf('if (!isGiftRoute(p)) return {};') < fn.indexOf("qq_giftDevice"),
+    "先生成编号再判断线路——编号会被发去她们自己的站子");
+});

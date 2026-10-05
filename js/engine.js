@@ -680,6 +680,18 @@ function giftHeaders(p, opts) {
   const use = String((opts && opts.use) || "").toLowerCase();
   const h = { "x-qq-use": GIFT_USES[use] ? use : "bg" };
   try { const t = localStorage.getItem("qq_giftPreview"); if (t) h["x-qq-preview"] = t; } catch (e) {}
+  // 设备编号：代理按它限流（她 2026-10-05 定的：每台设备每分钟 4 次）。
+  //   ⚠️不按 IP 卡：国内手机流量很多人共用同一个出口 IP，按 IP 等于一栋楼的陌生人共用 4 次。
+  //   编号是第一次用时随手生成的一串随机字，跟人、跟账号、跟存档都没关系；
+  //   存在 qq_ 键里不跟云同步——同步了的话，一个人的两台设备会共用一个份额。
+  try {
+    let d = localStorage.getItem("qq_giftDevice");
+    if (!d) {
+      d = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
+      localStorage.setItem("qq_giftDevice", d);
+    }
+    h["x-qq-device"] = d;
+  } catch (e) {}
   return h;
 }
 async function callAI(p, system, messages, opts) {
