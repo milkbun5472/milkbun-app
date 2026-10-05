@@ -10,14 +10,14 @@ const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18952',out=process.env.P
    assert.deepEqual((await page.evaluate(()=>petHousePreview.snapshot())).tail,{wag:true,pitch:20,yaw:-25});
    await page.locator('#tail-wag').click();assert.equal((await page.evaluate(()=>petHousePreview.snapshot())).tail.wag,false);
    const deformation=await page.evaluate(async()=>{
-    const T=await import('three'),p=petHousePreview;const mesh=(()=>{let m;p.cat.traverse(o=>{if(o.isSkinnedMesh)m=o;});return m;})();
+    const T=await import('three'),p=petHousePreview;const mesh=(()=>{let m;p.cat.traverse(o=>{if(o.isSkinnedMesh&&!o.userData.eyeBacking)m=o;});return m;})();
     function pose(tail,time=0){p.motion.setTail(tail);p.motion.update(time,0);mesh.skeleton.update();const pos=mesh.geometry.attributes.position;return Array.from({length:pos.count},(_,i)=>mesh.localToWorld(mesh.applyBoneTransform(i,new T.Vector3().fromBufferAttribute(pos,i))).toArray());}
     const neutral=pose({wag:false}),angled=pose({wag:false,pitch:20,yaw:-25}),wag0=pose({wag:true}),wag1=pose({wag:true},.05);pose(p.pet.tail);
     return {angledChange:Math.max(...neutral.map((v,i)=>Math.hypot(...v.map((n,j)=>n-angled[i][j])))),wagChange:Math.max(...wag0.map((v,i)=>Math.hypot(...v.map((n,j)=>n-wag1[i][j])))),bones:mesh.skeleton.bones.length};
    });
    assert.equal(deformation.bones,20);assert.ok(deformation.angledChange>.04);assert.ok(deformation.wagChange>.0001);report.pets[species]={deformation};
    report.pets[species].dyeProtection=await page.evaluate(async()=>{
-   const T=await import('three'),p=petHousePreview,look=p.dye.snapshot();let mesh;p.cat.traverse(o=>{if(o.isSkinnedMesh)mesh=o;});
+   const T=await import('three'),p=petHousePreview,look=p.dye.snapshot();let mesh;p.cat.traverse(o=>{if(o.isSkinnedMesh&&!o.userData.eyeBacking)mesh=o;});
    const at=p.petRoot.position.clone().add(new T.Vector3(0,.45,0));
    p.camera.left=-.65;p.camera.right=.65;p.camera.top=.65;p.camera.bottom=-.65;
    p.camera.position.copy(at).add(new T.Vector3(.05,.25,1.8).applyAxisAngle(new T.Vector3(0,1,0),p.petRoot.rotation.y));p.camera.lookAt(at);p.camera.updateProjectionMatrix();

@@ -1,8 +1,8 @@
-import {repairPetSkin} from './pet-skin.mjs?v=fg-d74e8950a8dcd8c4';
-import {createPetEyes} from './pet-eyes.mjs?v=fg-d74e8950a8dcd8c4';
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-d74e8950a8dcd8c4';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-d74e8950a8dcd8c4';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-d74e8950a8dcd8c4';
+import {repairPetSkin} from './pet-skin.mjs?v=fg-c6a0064942dfc867';
+import {createPetEyes} from './pet-eyes.mjs?v=fg-c6a0064942dfc867';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-c6a0064942dfc867';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-c6a0064942dfc867';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-c6a0064942dfc867';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
@@ -19,7 +19,7 @@ export async function loadPetCompanion(T,loader,{height=.88,persist=true,initial
     model.scale.setScalar(scale);model.position.set(-center.x*scale,-bounds.min.y*scale,-center.z*scale);
     model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}});
     repairPetSkin(model,species);const dye=createCatDye(T,model,mask,rig.dye),lookKey=species==='cat'?CAT_LOOK_KEY:'lisa-pet-house-dog-look-v1';dye.set(saved(lookKey));const eyes=createPetEyes(model,species);
-    let mouthMesh;model.traverse(o=>{if(o.isSkinnedMesh)mouthMesh=o;});const positions=mouthMesh.geometry.attributes.position,hint=new T.Vector3().fromArray(species==='dog'?[0,.44,.489]:[0,.425,.455]),mouthPoint=new T.Vector3(),probe=new T.Vector3();let nearest=Infinity;for(let i=0;i<positions.count;i++){probe.fromBufferAttribute(positions,i);const distance=probe.distanceToSquared(hint);if(distance<nearest){nearest=distance;mouthPoint.copy(probe);}}
+    let mouthMesh;model.traverse(o=>{if(o.isSkinnedMesh&&!o.userData.eyeBacking)mouthMesh=o;});const positions=mouthMesh.geometry.attributes.position,hint=new T.Vector3().fromArray(species==='dog'?[0,.44,.489]:[0,.425,.455]),mouthPoint=new T.Vector3(),probe=new T.Vector3();let nearest=Infinity;for(let i=0;i<positions.count;i++){probe.fromBufferAttribute(positions,i);const distance=probe.distanceToSquared(hint);if(distance<nearest){nearest=distance;mouthPoint.copy(probe);}}
     pets[species]={model,rig,dye,eyes,mouthPoint:mouthPoint.toArray(),lookKey,tailKey:`lisa-pet-${species}-tail-v1`,tail:normalizeTail(saved(`lisa-pet-${species}-tail-v1`)||{}),mood:normalizePetMood('neutral')};
   }));
   const root=new T.Group();for(const p of Object.values(pets))root.add(p.model);

@@ -8,7 +8,7 @@ const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18961',out=process.env.P
  for(const species of ['cat','dog']){
   await page.locator('#pet-species').selectOption(species,{force:true});report[species]={};
   await page.evaluate(()=>{const p=petHousePreview,T=actionT;p.petRoot.position.set(0,.041,0);p.petRoot.rotation.y=0;p.pet.setMood('neutral');p.pet.setTail({wag:true});p.pet.bind({ground:()=>.04,matchSpeed:true});p.room.visible=false;p.scene.children.find(o=>o.isMesh&&o.geometry.type==='PlaneGeometry').position.y=.04;p.pet.saveLook({base:'#f4eee0',patch:p.pet.species==='cat'?'#d5a064':'#a98565'});document.querySelectorAll('body > :not(#view):not(script)').forEach(e=>e.style.visibility='hidden');
-   let mesh;p.pet.model.traverse(o=>{if(o.isSkinnedMesh)mesh=o});window.actionSkin=mesh;const pos=mesh.geometry.attributes.position;
+   let mesh;p.pet.model.traverse(o=>{if(o.isSkinnedMesh&&!o.userData.eyeBacking)mesh=o});window.actionSkin=mesh;const pos=mesh.geometry.attributes.position;
    const points=p.pet.species==='cat'?[[0,.425,.455],[-.115,.51,.445],[.115,.51,.445],[0,.60,.06]]:[[0,.555,.489],[-.075,.617,.382],[.075,.617,.382],[0,.66,.075]];
    window.actionProbes=points.map(a=>{let index=0,d=Infinity;for(let i=0;i<pos.count;i++){const v=new T.Vector3().fromBufferAttribute(pos,i).distanceToSquared(new T.Vector3().fromArray(a));if(v<d){index=i;d=v}}return index});
    window.actionBodyProbes=[[0,.46,-.10],[0,.20,-.10]].map(a=>{let index=0,d=Infinity;for(let i=0;i<pos.count;i++){const v=new T.Vector3().fromBufferAttribute(pos,i).distanceToSquared(new T.Vector3().fromArray(a));if(v<d){index=i;d=v}}return index});
