@@ -375,7 +375,7 @@
   // 全 App 每一页都有的那几个（挂在共用组件上，所以九十来页一起有）
   const WK_COMMON = Object.freeze([
     ["app", "这一页的底（最外那层）"],
-    ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"],
+    ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["themeundo", "主题工作台「回到上一版」那颗"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
     ["empty", "空状态那一块（还没有内容时）"],
     ["sheet", "从底下掀起来的半窗"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
@@ -661,7 +661,30 @@
     return { ...fresh(), ...x, icons: { ...(x.icons || {}) }, iconPack, iconBare: !!x.iconBare, fonts, customFonts, pageCSS: { ...(x.pageCSS || {}) }, pageTokens, pageZoom };
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
-  const save = p => { const n = normalize({ ...p, updatedAt: Date.now() }); localStorage.setItem(KEY, JSON.stringify(n)); return n; };
+  // 每次正式存之前，把【被盖掉的那一版】留一份（她 2026-10-05：「美化改错了想恢复前一步，现在没办法」）。
+  //   秋秋改的、自己手改的都走这一个 save，所以两边都有退路。只留最近 10 版，存在大仓库里。
+  const HIST_KEY = "x_theme_studio_hist", HIST_MAX = 10;
+  const histList = () => { try { const v = typeof loadJSON === "function" ? loadJSON(HIST_KEY, []) : []; return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+  const save = p => {
+    const n = normalize({ ...p, updatedAt: Date.now() });
+    const prev = localStorage.getItem(KEY), next = JSON.stringify(n);
+    if (prev && typeof saveJSON === "function") {
+      try { const a = JSON.parse(prev), b = JSON.parse(next); delete a.updatedAt; delete b.updatedAt;
+        if (JSON.stringify(a) !== JSON.stringify(b)) saveJSON(HIST_KEY, [{ at: Date.now(), raw: prev }].concat(histList()).slice(0, HIST_MAX)); } catch (_) {}
+    }
+    localStorage.setItem(KEY, next); return n;
+  };
+  // 历史：新的在前，只给时间；restoreHist(i) 把第 i 版拿回来正式应用（当前这版照样先进历史，退错了还能再退回来）
+  const history = () => histList().map(x => ({ at: x.at }));
+  const restoreHist = i => {
+    const list = histList(), row = list[i];
+    if (!row) return null;
+    let p; try { p = JSON.parse(row.raw); } catch (_) { return null; }
+    const rest = list.filter((_, k) => k !== i);
+    if (typeof saveJSON === "function") saveJSON(HIST_KEY, rest);
+    clearTimeout(timer); timer = 0; previewBase = null;
+    return apply(save(p));
+  };
   const unsafeReason = css => {
     const s = String(css || "");
     if (/@(?:import|charset|namespace)\b/i.test(s)) return "不允许 @import / @charset / @namespace";
@@ -916,7 +939,7 @@
     out.push("", "【我现在的 CSS】", String(css || "").trim() || "（还是空的，从头写）", "", "【我想改成】", "（在这里写你想要的样子）");
     return out.join("\n");
   }
-  g.ThemeStudio = { aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
+  g.ThemeStudio = { aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

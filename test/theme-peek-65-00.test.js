@@ -45,7 +45,7 @@ test("② 回得来，而且刚写的那段还在", () => {
   assert.match(ui, /useState\(\(\) => \(studio\.isPreviewing\(\) && studio\.current\) \? studio\.current\(\) : studio\.load\(\)\)/,
     "回来时读的还是存档那份，草稿会丢");
   assert.match(studio, /const current = \(\) => active;/, "拿不到屏幕上真正生效的那一份");
-  assert.match(studio, /load, save, apply, preview, commit, cancelPreview, current, iconRef,/, "current 没导出去");
+  assert.match(studio, /load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef,/, "current 没导出去");
   // 撤销键：预览还armed着回来时得能撤
   assert.match(ui, /\[previewing, setPreviewing\] = useState\(\(\) => studio\.isPreviewing\(\)\)/, "回来时撤销键不见了");
   // 落回原处
