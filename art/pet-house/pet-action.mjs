@@ -27,6 +27,7 @@ export function samplePetAction(kind,time=0,{species='cat',manner={},lookBowl=tr
  case 'inspectBag':return {crouch:.32,headPitch:.53+.045*s(time*2.5),headYaw:.13*s(time*1.1),headRoll:.04*s(time*.7),chestPitch:.06,tailQuiet:.4};
  case 'workInspect':return {crouch:.28,headPitch:.51+.14*s(time*1.8),headYaw:.17*s(time*.9),chestPitch:.045,tailQuiet:.5,frontLLift:.012*(1+s(time*2)),frontLReach:.018*(1+s(time*2))};
  case 'workGreet':return {sit:.55,headPitch:-.10+.06*s(time*1.5),headYaw:.24*s(time*.85),headRoll:.065*s(time*1.2),earPitch:-.06,frontLLift:.025*(1+s(time*1.8)),frontLReach:.012*(1+s(time*1.8))};
+ case 'wipePaws':return {sit:.7,headPitch:.28,headYaw:.08*s(time),frontLLift:.055,frontLReach:.055,tailQuiet:.65};
  case 'workSort':return {crouch:.22,headPitch:.44+.09*s(time*1.7),headYaw:.10*s(time*1.3),chestPitch:.045,tailQuiet:.4,frontLLift:.022*(1+s(time*2.2)),frontLReach:.026*(1+s(time*2.2))};
  default:return {};
  }

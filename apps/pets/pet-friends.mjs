@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-d94d9e8b2f82fac5';
-import {createTownNavigation} from './town-life.mjs?v=fg-d94d9e8b2f82fac5';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-d94d9e8b2f82fac5';
-import {walkRoute,turnPet} from './movement.mjs?v=fg-d94d9e8b2f82fac5';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-76e3f5c390b0ba29';
+import {createTownNavigation} from './town-life.mjs?v=fg-76e3f5c390b0ba29';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-76e3f5c390b0ba29';
+import {walkRoute,turnPet} from './movement.mjs?v=fg-76e3f5c390b0ba29';
 
 // Stable street identities and their actual places, shared by work and visits.
 export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:true,role:'花店里的奶茶猫',shop:'florist',spot:{x:0,z:.65},detail:'喜欢慢慢闻花，也喜欢安静的陪伴。',place:'florist',placeName:'花店',about:'花店里的奶茶猫，喜欢慢慢闻花，也喜欢安静的陪伴。',position:{x:0,z:.65},approaches:[{x:1,z:.7},{x:-1,z:.7}],profile:{species:'cat',name:'小茉',size:.9,weight:1,look:{id:'custom',base:'#eee1cb',patch:'#a98565'}}},
@@ -65,7 +65,7 @@ export function createPetFriends(shared,{rows,getActors=()=>[],now=()=>Date.now(
  function moveFriend(goal,dt){const key=(state.pending?.neighborId||'florist-cat')+JSON.stringify(goal),r=state.resident;if(friendGoal!==key||friendDestination&&!nav.clearPoint(friendDestination)){friendDestination=nav.freePoint(goal,r.position);friendRoute=friendDestination?nav.path(r.position,friendDestination)||[]:[];friendGoal=key;}if(!friendDestination)return {arrived:false,speed:0};const moved=nav.walk(friendRoute,r.position,r.heading,dt,.63);r.position=moved.position;r.heading=moved.heading;const arrived=Math.hypot(r.position.x-friendDestination.x,r.position.z-friendDestination.z)<.02;if(!friendRoute.length&&!arrived)friendGoal='';return {arrived,speed:moved.speed};}
  function tick(dt,{paused=false,offline=false}={}){
   if(paused||!Number.isFinite(dt)||dt<=0)return null;dt=Math.min(dt,.05);
-  if(!state.pending){if(offline)return null;const speeds={};for(const f of PET_NEIGHBORS){const r=shared.neighbors[f.id].town,n=navs.get(f.id),anchor=f.position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(n,r.position,()=>nextRandom(r),{radius:1.1,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.6});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(r.goal){const key=JSON.stringify(r.goal);let cached=idleRoutes.get(f.id);if(cached?.key!==key){cached={key,path:n.path(r.position,r.goal)||[]};idleRoutes.set(f.id,cached);}const path=cached.path,m=n.walk(path,r.position,r.heading,dt,.63);r.position=m.position;r.heading=m.heading;speeds[f.id]=m.speed;if(Math.hypot(r.position.x-r.goal.x,r.position.z-r.goal.z)<.02){r.goal=null;r.phase='visit';r.idle=0;}}else speeds[f.id]=0;}return {friendSpeed:speeds['florist-cat'],friends:speeds};}
+  if(!state.pending){if(offline)return null;const speeds={};for(const f of PET_NEIGHBORS){if(shared.streetVisit?.neighborId===f.id||shared.neighbors[f.id].town.place!==f.place)continue;const r=shared.neighbors[f.id].town,n=navs.get(f.id),anchor=f.position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(n,r.position,()=>nextRandom(r),{radius:1.1,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.6});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(r.goal){const key=JSON.stringify(r.goal);let cached=idleRoutes.get(f.id);if(cached?.key!==key){cached={key,path:n.path(r.position,r.goal)||[]};idleRoutes.set(f.id,cached);}const path=cached.path,m=n.walk(path,r.position,r.heading,dt,.63);r.position=m.position;r.heading=m.heading;speeds[f.id]=m.speed;if(Math.hypot(r.position.x-r.goal.x,r.position.z-r.goal.z)<.02){r.goal=null;r.phase='visit';r.idle=0;}}else speeds[f.id]=0;}return {friendSpeed:speeds['florist-cat'],friends:speeds};}
   const t=state.pending,row=find(t.petId),f=neighbor(t.neighborId);
   if(offline||now()-t.startedAt>10*60000||!row||!free(row)){const r=cancel();return {...r,changed:true,cancelled:true};}
   const p=row.entry.town;if(t.phase==='doing'&&t.kind!=='play'&&Math.hypot(p.position.x-t.goal.x,p.position.z-t.goal.z)>.15){cancel();return {changed:true,cancelled:true};}
@@ -88,6 +88,6 @@ export function createPetFriends(shared,{rows,getActors=()=>[],now=()=>Date.now(
   const backup=before(),text=record(row,t.kind);row.care.record(text,{type:'neighbor',peer:f.id,kind:t.kind});state.pending=null;row.town.hold();route=[];
   return persist(backup,{accepted:true,changed:true,completed:true,petId:row.entry.id,text});
  }
- function facts(petId){const row=find(petId);return {pending:state.pending?.petId===petId?structuredClone(state.pending):null,friends:PET_NEIGHBORS.map(f=>({...structuredClone(f),...neighborBondView(row?bonds(row):{},f.id),samePlace:row?.entry.town?.place===f.place})),recent:PET_NEIGHBORS.flatMap(f=>neighborBondView(row?bonds(row):{},f.id).recent.map(x=>({...x,neighborId:f.id,name:f.name}))).sort((a,b)=>b.at-a.at).slice(0,8)};}
+ function facts(petId){const row=find(petId);return {pending:state.pending?.petId===petId?structuredClone(state.pending):null,friends:PET_NEIGHBORS.map(f=>({...structuredClone(f),...neighborBondView(row?bonds(row):{},f.id),samePlace:row?.entry.town?.place===(state.neighbors?.[f.id]?.town?.place||f.place)})),recent:PET_NEIGHBORS.flatMap(f=>neighborBondView(row?bonds(row):{},f.id).recent.map(x=>({...x,neighborId:f.id,name:f.name}))).sort((a,b)=>b.at-a.at).slice(0,8)};}
  return {state,request,tick,cancel,facts,snapshot:()=>structuredClone(shared)};
 }
