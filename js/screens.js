@@ -2184,7 +2184,7 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: 10.5 } }, x))),
     f.category === "照做" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.65, marginTop: 8 } },
       "「照做」不是设定，是给 TA 的输出指令：这条被翻出来的那一轮，TA 会照着正文去做。适合「提到冰箱就发一张冰箱小卡」这种——把 HTML 模板和怎么填写进正文，配上关键词触发。") : null,
-    lbl("交给模型的正文", f.category === "照做" ? "写清楚什么时候、发什么、照什么格式；HTML 模板整块贴进来" : "只写事实、背景或规则；模型看到的是这里，不是标题"),
+    lbl("交给模型的正文", f.category === "照做" ? "写清楚什么时候、发什么、照什么格式；网页小卡的模板整块贴进来" : "只写事实、背景或规则；模型看到的是这里，不是标题"),
     h("textarea", { value: f.payload, onChange: e => { set({ payload: e.target.value }); setError(""); }, rows: 6, placeholder: "例如：港口城每晚十一点宵禁，钟声后只有持银色通行证的人可以上街。", style: Object.assign({}, field, { resize: "vertical", minHeight: 132, lineHeight: 1.65 }) }),
     lbl("谁能拿到", "不选角色就是公共设定；绑定后只有该角色本人或有 Ta 在场的群聊能拿到"),
     h("button", { onClick: () => set({ charIds: [] }), className: "active:opacity-65", style: { width: "100%", textAlign: "left", border: "1px solid " + (!(f.charIds || []).length ? t.ink : t.line), background: !(f.charIds || []).length ? t.ink : "transparent", color: !(f.charIds || []).length ? t.bg : t.sub, padding: "10px 11px", fontFamily: F_BODY, fontSize: 12 } }, "所有角色 · 公共设定"),

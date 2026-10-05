@@ -8,7 +8,7 @@ const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf
 // 她 2026-10-05：冰箱 HTML 世界书 Gemini 能出、Sonnet 不出——世界书被当成事实交出去，模型只是「知道」。
 // 「照做」一类换成指令口气，八个去向都走 loreText 这一处。
 function loadLore() {
-  const i = eng.indexOf("const LORE_DO_CATEGORY");
+  const i = eng.indexOf("function loreText(");
   const j = eng.indexOf("function loreEntryState(", i);
   assert.ok(i > 0 && j > i, "抠不出 loreLine/loreText");
   const selectLore = (entries) => entries;

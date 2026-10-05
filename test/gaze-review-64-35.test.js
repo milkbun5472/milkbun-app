@@ -406,6 +406,7 @@ test("⑦ 去向这道闸是真的：没勾 chat 的词条不许混进来", () =
     grab("function loreKeywordHit(e, text)", "\n}"),
     grab("function selectLore(entries, opts)", "\n}"),
     grab("function loreText(entries, opts)", "\n}"),
+    grab("function loreLine(e)", "\n}"),
     "globalThis.L = loreText;"
   ].join("\n"), ctx);
   // ⚠️桩照着【写词条的那段代码】来：WorldBookEntrySheet 存的 scope 每一栏都是显式布尔，

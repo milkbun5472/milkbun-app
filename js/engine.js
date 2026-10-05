@@ -3114,15 +3114,14 @@ function selectLore(entries, opts) {
 //   不会去做（她 2026-10-05：冰箱卡 Gemini 能出、Sonnet 怎么都不出）。所以这一类换个领句，
 //   说清是指令、被翻出来就照做；一整块 HTML 单独作为一条消息发，不受「一句一条」那条管。
 //   ⚠️领句写在这一处：八个去向都从 loreText 拿世界书，改一处全接上（one-public-mechanism）。
-const LORE_DO_CATEGORY = "照做";
-function loreLine(e) {
-  const body = String(e.payload).trim();
-  if (e.category !== LORE_DO_CATEGORY) return (e.title ? "〔" + e.title + "〕" : "") + body;
-  return "〔照做" + (e.title ? " · " + e.title : "") + "〕这一条不是世界设定，是给你的输出指令：它现在被翻出来了，这一轮就照着做。"
-    + "要发的东西如果是一整块 HTML，就原样单独作为一条消息发出去（这一条不受「一句一条、别写括号说明」的限制），不要包代码块，也不要改写成文字描述。\n" + body;
-}
 function loreText(entries, opts) {
   return selectLore(entries, opts).map(loreLine).join("\n\n");
+}
+function loreLine(e) {
+  const body = String(e.payload).trim();
+  if (e.category !== "照做") return (e.title ? "〔" + e.title + "〕" : "") + body;
+  return "〔照做" + (e.title ? " · " + e.title : "") + "〕这一条不是世界设定，是给你的输出指令：它现在被翻出来了，这一轮就照着做。"
+    + "要发的东西如果是一整块 HTML，就原样单独作为一条消息发出去（这一条不受「一句一条、别写括号说明」的限制），不要包代码块，也不要改写成文字描述。\n" + body;
 }
 // 给世界书 UI 的确定性诊断：解释一条为什么会/不会进某个场景。
 // 向量补捞是发送前的加分通道，UI 不假装能预知；字面触发未命中时明确写「等待关键词或语义召回」。
