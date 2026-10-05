@@ -876,7 +876,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.842", changed: "绒绒小镇聊天半窗与场景上下分区、收起、键盘抬升、窄屏现场控件与消息滚动尺寸", none: "" };
+  const BRIEF_STAMP = { v: "v74.843", changed: "", none: "正式上班托管与离线结算沿用原职业册和控件，没有新增样式挂点或改变布局公式" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
