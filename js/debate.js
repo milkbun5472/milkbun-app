@@ -86,7 +86,8 @@
   // 立场可以改，但「度要把控好：不要无厘头脑残粉，也不要墙头草每轮换」。
   // round＝这一轮说得好（v73.314）。value「理念对上」只留着给旧存档显示——新票不再有这一项：
   //   有它，模型每轮都挑它，票就跟立场焊死（她 2026-09-23：「还是不行。。。还是全部理念对上」）。
-  const VOTE_WHY = { round: "这一轮说得好", friend: "交情", moved: "被说动", random: "随手投", value: "理念对上" };
+  // me＝她在观战时自己投的那一票（她 2026-10-05：「如果我观战我也能投票，把我的结果也喂给裁判和选手」）
+  const VOTE_WHY = { round: "这一轮说得好", friend: "交情", moved: "被说动", random: "随手投", value: "理念对上", me: "观战的她亲手投的" };
   // 某人这一场到目前为止的投票记录（按回合先后）：只数【已经投出去】的那些
   function voteHistory(session) {
     const out = {};
@@ -958,6 +959,29 @@
         }));
     };
     // 裁判这一轮那一句：比场边响一点（TA是裁判），但仍然不比台上响
+    // 观战时她自己也投一票：每轮一票，点别人就改投，再点一次撤回。
+    //   票跟台下那些人的落在同一个 r.votes 里，所以下一轮台上的人、裁判、最后判定读到的实录和票数里都有她这一票。
+    const myVoteBlock = function (r, k) {
+      if (!watch || !r.gen || ended) return null;
+      const names = (s.parts || []).filter(function (p) { return p.kind === "char"; }).map(function (p) { return p.name; });
+      const mine = (r.votes || []).find(function (v) { return v && v.me; });
+      const cast = function (n) {
+        patch(function (prev) {
+          const rounds = prev.rounds.slice(), one = Object.assign({}, rounds[k]);
+          const rest = (one.votes || []).filter(function (v) { return !(v && v.me); });
+          one.votes = mine && mine.for === n ? rest : rest.concat([{ name: uName, for: n, why: "me", reason: "", me: true }]);
+          rounds[k] = one;
+          return { rounds: rounds };
+        });
+      };
+      return h("div", { "data-wk": "myvote", style: { margin: "8px 0 12px", padding: "10px 12px", border: "1px dashed " + t.line, borderRadius: 12 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 7 } }, mine ? "你这一轮投给了「" + mine.for + "」，台上和裁判都会知道" : "这一轮你觉得谁说得好？"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6 } }, names.map(function (n) {
+          const on = mine && mine.for === n;
+          return h("button", { key: n, onClick: function () { cast(n); }, className: "active:opacity-60",
+            style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 30, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink } }, n);
+        })));
+    };
     const callBlock = function (call, k) {
       if (!call || !s.judge) return null;
       const jc = (props.characters || []).find(function (c) { return c.id === s.judge.id; }) || { name: s.judge.name };
@@ -1049,6 +1073,7 @@
           (r.turns || []).map(turnCard),
           sideBlock(r.side, ri2),
           voteBlock(r.votes, ri2),
+          myVoteBlock(r, ri2),
           callBlock(r.call, ri2),
           focusBlock(r.focus, ri2),
           legacyAudience(r.audience, ri2))),
