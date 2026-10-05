@@ -1,5 +1,5 @@
-import {PARCEL_ITEMS,parcelItems} from './parcels.mjs?v=fg-e996cb26fee0a618';
-import {canOwn} from './shopping.mjs?v=fg-e996cb26fee0a618';
+import {PARCEL_ITEMS,parcelItems} from './parcels.mjs?v=fg-31af19fdd5b679a0';
+import {canOwn} from './shopping.mjs?v=fg-31af19fdd5b679a0';
 export const STALL_POINT={x:-9,z:17};
 export const STALL_GOODS=['snack','bread','flower','petals','receipt','sticker','coaster'];
 const prices={snack:5,bread:4,flower:3,petals:1,receipt:2,sticker:3,coaster:3};

@@ -1,4 +1,4 @@
-import {TOWN_PLACES} from './town-life.mjs?v=fg-e996cb26fee0a618';
+import {TOWN_PLACES} from './town-life.mjs?v=fg-31af19fdd5b679a0';
 const place=v=>TOWN_PLACES.includes(v)?v:'home';
 const number=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export function restoreObservation(raw,activeId,petIds,companionId){

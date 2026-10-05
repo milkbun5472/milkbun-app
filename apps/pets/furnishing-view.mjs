@@ -1,4 +1,4 @@
-import {furniturePoint,homeGood} from './furnishings.mjs?v=fg-e996cb26fee0a618';
+import {furniturePoint,homeGood} from './furnishings.mjs?v=fg-31af19fdd5b679a0';
 export function createFurnishingView(T,{parent,pet,getState,index=0,ground=()=>.047}){
  const root=new T.Group();root.name='pet-owned-furniture';parent.add(root);const pads=new Map();
  const mat=color=>new T.MeshStandardMaterial({color,roughness:.96});
