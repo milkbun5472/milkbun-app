@@ -7990,7 +7990,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const oMemN = osFor(charId).memN;
       // 向量记忆：预热线下这段的查询向量，让下面的同步检索走语义相似度（失败自动纯关键词）
       if (typeof primeQueryVec === "function" && (!sideRoom || (sideRoom.cognition || {}).formalMemory) && (oMemN == null || oMemN > 0)) await primeQueryVec((workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"));
-      if (oMemN != null && (!sideRoom || (sideRoom.cognition || {}).formalMemory)) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(sideRoom && window.ChatRooms && window.ChatRooms.memCutoff ? window.ChatRooms.memBefore(memLibRef.current, window.ChatRooms.memCutoff(sideRoom)) : memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
+      if (oMemN != null && (!sideRoom || (sideRoom.cognition || {}).formalMemory || (window.ChatRooms && window.ChatRooms.memOnly && window.ChatRooms.memOnly(sideRoom)))) oCtx.memLib = oMemN <= 0 ? [] : retrieveMemories(sideRoom && window.ChatRooms && window.ChatRooms.memCutoff ? window.ChatRooms.memBefore(memLibRef.current, window.ChatRooms.memCutoff(sideRoom)) : memLibRef.current, charId, (workSess.msgs || []).slice(-6).map(m => m.content || "").join("\n"), { limit: oMemN });
       // 配件·授权门（线下）：线下天然是用户当面在场，只需 已连+已激活给本角色+该角色 opt-in+已解锁
       const offToyOn = !!(typeof toyReady === "function" && toyReady() && toyArmedRef.current && toyArmedForRef.current === charId
         && settingsFor(charId) && settingsFor(charId).toyEnabled
@@ -10509,7 +10509,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _s = settingsFor(charId);
       // 向量记忆（v48.11）：先把「最近对话」查询向量预热进缓存（一次小嵌入调用 ~300ms），
       // 下面 ctxFor 里的同步记忆检索即可用语义相似度挑条目；没开开关/失败自动纯关键词，永不抛错不挡发送
-      if (roomReads("formalMemory") && typeof primeQueryVec === "function") await primeQueryVec(sideRoom ? roomHistoryText(char, chatKey) : recentChatText(char));
+      if ((roomReads("formalMemory") || (window.ChatRooms && window.ChatRooms.memOnly && window.ChatRooms.memOnly(room))) && typeof primeQueryVec === "function") await primeQueryVec(sideRoom ? roomHistoryText(char, chatKey) : recentChatText(char));
       if (sideRoom && window.ChatRooms.memCount(charId, room.id)) await primeRoomMemVec(charId, room);
       // ── A 情绪 / E 余温：v62.37 起【全开、不留授权】（她 2026-09-04 定）──────────
       // 原来两层都要她在诊断台逐个角色「授权试点」。可 A 那一路的授权【从来没接过管子】
@@ -14748,6 +14748,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ctx.timeAware = clockOn;
     if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = geoForPrompt(); }
     const gated = gateByDoor(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
+    // 只带截过的记忆库：门把「一起经历过的事」整栏关了，记忆库这一格单独放回来（上面 ctx 里那份已经截到起点）
+    if (window.ChatRooms && window.ChatRooms.memOnly && window.ChatRooms.memOnly(room)) gated.memLib = Array.isArray(ctx.memLib) ? ctx.memLib : [];
     // 拉黑按聊天键落库；本房发生的事在主线认知关闭时也应知道，不继承主房的拉黑。
     gated.blockLine = blockLineFor(chatKey);
     return gated;
@@ -14770,7 +14772,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
     const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey);
-    const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory"));
+    const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory") && !(window.ChatRooms.memOnly && window.ChatRooms.memOnly(room)));
     const ctx = ctxFor(char, { ...ctxOpts, noMemory, memCutoff: window.ChatRooms.memCutoff ? window.ChatRooms.memCutoff(room) : 0, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
     // ⚠️只留【这间房自己】立的 OOC 规矩。原来是主线那份（ctxFor 给的 directives[char.id]）

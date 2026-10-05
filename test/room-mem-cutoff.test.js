@@ -25,3 +25,14 @@ test("单聊房、线下房两条检索都过这道截", () => {
   assert.match(app, /let oCtx = ctxFor\(char, sideRoom && window\.ChatRooms && window\.ChatRooms\.memCutoff/);
   assert.match(comp, /patch\(\{ memUntilAnchor: !draft\.memUntilAnchor \}\)/);
 });
+
+// 她 2026-10-05：「能不能做区分就是有一个只开到那一句之前的记忆库」
+test("一起经历过的事关着、只开截断：只带截过的记忆库", () => {
+  const base = { id: "r2", main: false, memUntilAnchor: true, startFrom: { mode: "until", anchorTs: 1000 } };
+  assert.equal(K.memOnly({ ...base, cognition: { formalMemory: false } }), true);
+  assert.equal(K.memOnly({ ...base, cognition: { formalMemory: true } }), false);
+  assert.equal(K.memOnly({ ...base, memUntilAnchor: false, cognition: { formalMemory: false } }), false);
+  assert.match(app, /window\.ChatRooms\.memOnly\(room\)\) gated\.memLib = Array\.isArray\(ctx\.memLib\)/);
+  assert.match(app, /!window\.ChatRooms\.allows\(room, "formalMemory"\) && !\(window\.ChatRooms\.memOnly/);
+  assert.match(comp, /const memCutRow = show => show \? h\("div",/);
+});

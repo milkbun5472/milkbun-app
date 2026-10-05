@@ -17655,11 +17655,13 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
           patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
-  // 记忆只到起点为止（她 2026-10-05）：带开场开的房才有这一格，「你们一起经历过的事」关着时也不摆（没东西可截）
-  const memCutRow = show => show && (Kit.allows ? Kit.allows(draft, "formalMemory") : true) ? h("div", { className: "flex items-center justify-between", style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
+  // 记忆只到起点为止（她 2026-10-05）：带开场开的房才有这一格。「你们一起经历过的事」关着时它单独成立＝只带截过的记忆库
+  const memCutRow = show => show ? h("div", { className: "flex items-center justify-between", style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
     h("div", { style: { paddingRight: 10 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "只记得到起点那一句为止"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。"))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, (Kit.allows && !Kit.allows(draft, "formalMemory"))
+        ? "上面那格关着时：只带记忆库，而且只到那一句为止；档案、礼物、长期记忆那些都不带。"
+        : "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。"))),
     h(Toggle, { on: !!draft.memUntilAnchor, onChange: () => patch({ memUntilAnchor: !draft.memUntilAnchor }) })) : null;
   const save = () => {
     const saved = Kit.save(character.id, draft);

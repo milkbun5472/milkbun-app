@@ -327,6 +327,11 @@
     const ts = Number(room.startFrom && room.startFrom.anchorTs || 0);
     return ts > 0 ? ts : 0;
   }
+  // 只带截过的记忆库（她 2026-10-05：「有一个只开到那一句之前的记忆库」）：
+  //   「你们一起经历过的事」关着、这一格开着＝只给记忆库那一栏（截到起点），档案、礼物、长期记忆那几样都不给。
+  function memOnly(room) {
+    return memCutoff(room) > 0 && !allows(room, "formalMemory");
+  }
   function memBefore(lib, cutoff) {
     const c = Number(cutoff || 0);
     if (!c) return lib || [];
@@ -753,6 +758,6 @@
     });
   }
 
-  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
+  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });
