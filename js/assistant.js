@@ -483,6 +483,48 @@
         return Object.keys(clean).length || 1;
       }
     },
+    // 某一层美化退一步／换回来（她 2026-10-05：「也可以让秋秋退」）——跟设置页那颗「↶ 回到上一版」是同一本账
+    //   （engine.js LookHist），自己改的、秋秋改的都在里面。id＝chat:角色id／group:群id／offline:角色id／theme；
+    //   text 写「退一步」或「换回来」。
+    lookundo: {
+      zh: "美化退回上一版",
+      read: ctx => {
+        if (typeof LookHist !== "object") return [];
+        const nm = (kind, id) => {
+          if (kind === "theme") return "主题工作台（全 App 和各页的 CSS、配色、字体）";
+          if (kind === "group") { const g = (ctx.groups || []).find(x => x && x.id === id); return "群「" + ((g && g.name) || id) + "」的聊天窗"; }
+          const c = (ctx.characters || []).find(x => x && x.id === id);
+          return ((c && c.name) || id) + (kind === "offline" ? " 的线下" : " 的聊天窗");
+        };
+        return LookHist.scopes().map(x => {
+          const i = x.scope.indexOf(":"), kind = i < 0 ? x.scope : x.scope.slice(0, i), id = i < 0 ? "" : x.scope.slice(i + 1);
+          return { id: x.scope, name: nm(kind, id), text: "能退 " + x.back + " 步" + (x.fwd ? "，能换回来 " + x.fwd + " 步" : "") };
+        });
+      },
+      write: (id, patch, ctx) => {
+        const dir = /换回|重做|前进|redo|fwd/i.test(String(patch.text || "")) ? "fwd" : "back";
+        const sc = String(id || "");
+        if (sc === "theme") {
+          const ts = TS(); if (!ts || !ts.undoStep) throw new Error("主题工作台没加载出来");
+          if (!ts.undoStep(dir)) throw new Error(dir === "fwd" ? "主题那边没有能换回来的了" : "主题那边没有更早的版本了");
+          return 1;
+        }
+        const i = sc.indexOf(":"), kind = sc.slice(0, i), cid = sc.slice(i + 1);
+        if (i < 0 || !WIN_STORE[kind] || !cid) throw new Error("不认识这一层：" + sc + "（要写成 chat:角色id、group:群id、offline:角色id 或 theme）");
+        if (typeof LookHist !== "object") throw new Error("美化的版本本子没加载出来");
+        const row = LookHist.step(sc, winLook(kind, cid), dir);
+        if (!row) throw new Error(dir === "fwd" ? "这一层没有能换回来的了" : "这一层没有更早的版本了");
+        writeLook(kind, cid, row.v, ctx);
+        return 1;
+      }
+    },
+    // 秋秋退掉自己改过的某一条（她 2026-10-05：「秋秋也可以自己退它做错的」）——
+    //   就是改动卡上那颗「撤回」，id 是快照里「你改过的」那一条的编号。
+    undo: {
+      zh: "撤回我改过的一条",
+      read: () => loadUndo().filter(x => x && !x.undone).map(x => ({ id: x.uid, name: x.title || x.label, text: x.label })),
+      write: (id, patch, ctx) => { undo(id, ctx); return 1; }
+    },
     memory: {
       zh: "记忆库条目",
       read: () => [],                       // 记忆是往里加，不是改现有的
@@ -632,7 +674,12 @@
         排版: st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）",
         CSS: st.customCSS ? clipRaw(st.customCSS, 3000) : "（空）" };
     });
-    return { 角色: chars, 群: groups, 已存的文风预设: styles, 线下设置: offSet, 最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
+    // 美化能退几步、你自己改过哪几条（她 2026-10-05：「也可以让秋秋退，秋秋也可以自己退它做错的」）
+    const lookBack = TARGETS.lookundo.read(ctx).map(x => ({ id: x.id, 哪一层: x.name, 存着: x.text }));
+    const mine = TARGETS.undo.read(ctx).slice(0, 12).map(x => ({ id: x.id, 改的是: x.name }));
+    return { 角色: chars, 群: groups, 已存的文风预设: styles, 线下设置: offSet,
+      美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
+      最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
   }
 
   // ---- 让它按固定形状说话：正文 + 改动稿 ----
@@ -686,7 +733,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|chatcss|chatlayout|offlinecss|groupcss|grouplayout","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -769,6 +816,9 @@
       + "只填她提到的那几栏。\n"
       + "· groupcss／grouplayout 某一个群的聊天窗 CSS 和排版（id＝群 id，见快照里的群列表）：写法同 chatcss／chatlayout，只是作用在那个群里；"
       + "群里的 deco.ta 管全部群成员的头像，deco.me 管她自己的。\n"
+      + "· lookundo 把某一层美化退回上一版（id 照快照「美化能退回的」那一栏抄：chat:角色id、group:群id、offline:角色id、theme；"
+      + "text 写「退一步」，退过头了写「换回来」）。她自己改的、你改的都记在这本账上，一条退一步；她说「退回去」「刚才那样更好」就出这一条，不要凭记忆把旧 CSS 重写一遍。\n"
+      + "· undo 撤回你自己改过的某一条（id 照快照「你改过还能撤回的」那一栏抄）。你看出自己上一条改错了（她说没生效、变丑了、改错人了），先出这一条把它退掉，再出改对的那条。\n"
       + "别的一律不许碰，也别假装你改了。**theme 那一栏只许改样子**——颜色、字号、间距、圆角、背景这些；别去动定位和显示与否，那会把全 App 弄坏。"
       + "要藏东西、挪位置、换排法，只在这一个人的聊天窗里做：走 chatlayout 或 chatcss。\n\n"
       + "【给她一份文件】她要把一份东西拿走（一整份 CSS、一份文风、一份整理好的清单），或者内容长到不适合放进对话框，就放进 file："
@@ -921,10 +971,18 @@
   const UNDO_KEEP = 40;
   // 能退的：原样写回去就行的那几种。
   // memory 退不了（往里加，没有写回的路）；style 新建也退不了（那要删，不是写回）。
-  // ⚠️气泡不在这张表里，是【说得出理由的】：撤销存的是 before() 那段【摆给她看的人话】，
-  //   写回去要的却是一份 JSON，两头对不上。她要退回去有现成的路：
-  //   ••• → 这个聊天窗 → 气泡 → 「清掉，跟随全局」，或者再跟秋秋说一句。
-  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, theme: 1, style: 1 };
+  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, theme: 1, style: 1, bubble: 1, chatcss: 1, chatlayout: 1, offlinecss: 1, groupcss: 1, grouplayout: 1 };
+  // 聊天窗那几栏（她 2026-10-05：「秋秋也可以自己退它做错的」）：存的不是 before() 那段人话，
+  //   是这一层长相那几栏的原样（engine.js lookPick），退的时候整层写回去——气泡那份 JSON 也就退得动了。
+  const WIN_KIND = { bubble: "chat", chatcss: "chat", chatlayout: "chat", offlinecss: "offline", groupcss: "group", grouplayout: "group" };
+  const WIN_STORE = { chat: "x_chatSettings", offline: "x_offlineSettings", group: "x_groupSettings" };
+  const winLook = (kind, id) => (typeof lookPick === "function" ? lookPick(kind, (loadJ(WIN_STORE[kind], {}) || {})[id]) : {});
+  function writeLook(kind, id, look, ctx) {
+    const full = typeof lookFullPatch === "function" ? lookFullPatch(kind, look) : look;
+    const fn = kind === "chat" ? ctx.onPatchChatSetting : kind === "group" ? ctx.onPatchGroupSetting : ctx.onPatchOfflineSetting;
+    if (!fn) throw new Error("这个页面没接聊天窗写入口");
+    fn(id, full);
+  }
   function undoable(patch) {
     if (!patch || !UNDOABLE[patch.target]) return false;
     if (patch.target === "style" && !patch.id) return false;   // 新建的那一份没有「原来的样子」
@@ -946,7 +1004,7 @@
       uid: uid, pid: patch.pid || "", ts: Date.now(),
       target: patch.target, id: patch.id, field: patch.field || "",
       label: labelOf(patch, ctx), title: patch.title || "",
-      prev: String(before(patch, ctx) || "")
+      prev: WIN_KIND[patch.target] ? JSON.stringify(winLook(WIN_KIND[patch.target], patch.id)) : String(before(patch, ctx) || "")
     }].concat(loadUndo()));
     return uid;
   }
@@ -958,7 +1016,8 @@
     if (e.undone) throw new Error("这一条已经退回过了");
     const T = TARGETS[e.target];
     if (!T) throw new Error("不认识的改动类型");
-    T.write(e.id, { target: e.target, id: e.id, field: e.field, text: e.prev }, ctx);
+    if (WIN_KIND[e.target]) { let look = {}; try { look = JSON.parse(e.prev || "{}"); } catch (x) {} writeLook(WIN_KIND[e.target], e.id, look, ctx); }
+    else T.write(e.id, { target: e.target, id: e.id, field: e.field, text: e.prev }, ctx);
     saveUndo(list.map(x => x.uid === uid ? Object.assign({}, x, { undone: true, undoneAt: Date.now() }) : x));
     if (e.pid) markPatch(e.pid, "已撤回");
     return e;
@@ -1113,7 +1172,7 @@
                 ? h("button", { onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, "撤回")
                 : null,
               state === "已应用" && !A.undoable(p)
-                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : "（新建的，退不了）")
+                ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : p.target === "undo" ? "" : "（新建的，退不了）")
                 : null)
           : h(React.Fragment, null,
               h("button", { onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "应用这条"),

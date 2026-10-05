@@ -49,8 +49,10 @@ test("改前改后要能并排比：两边都是人话", () => {
   assert.match(asi, /sanitizeBubblePatch\(o\) : null;\n\s*return c \? bubbleText\(c\)/, "摆的不是真会落进去的那一份");
 });
 
-test("撤销那张表为什么没有它，写下来了", () => {
-  const i = asi.indexOf("const UNDOABLE =");
-  assert.ok(asi.slice(Math.max(0, i - 400), i).indexOf("气泡不在这张表里") > 0,
-    "少一样却没写理由——下一个人会当成漏了，顺手加进去，然后撤销写回一段人话");
+// v74.882 起气泡也退得动（她 2026-10-05：「秋秋也可以自己退它做错的」）：
+//   原来不收它是因为撤销存的是 before() 那段人话；现在聊天窗那几栏存的是长相原样，不再写回人话。
+test("气泡进了撤销那张表，但存的是长相原样，不是那段人话", () => {
+  assert.match(asi, /UNDOABLE = \{[^}]*bubble: 1/);
+  assert.match(asi, /prev: WIN_KIND\[patch\.target\] \? JSON\.stringify\(winLook\(/);
+  assert.match(asi, /存的不是 before\(\) 那段人话/);
 });

@@ -2377,6 +2377,22 @@ function App() {
   useEffect(() => { paintOfflineLook(null); }, [offlineChar && offlineChar.id, offlineSettings, screen]);
   useEffect(() => { window.__previewOfflineLook = draft => paintOfflineLook(draft); return () => { delete window.__previewOfflineLook; }; });
   useEffect(() => { window.__previewGroupLook = draft => paintGroupLook(draft); return () => { delete window.__previewGroupLook; }; });
+  // 美化退一步／换回来（她 2026-10-05）：单聊、群聊、线下三层一个口子。本子在 engine.js 的 LookHist，
+  //   写回去照旧走各自那一个写入口——不另开一条路。聊天设置页、秋秋都调这一个。
+  const LOOK_STORE_OF = { chat: "x_chatSettings", group: "x_groupSettings", offline: "x_offlineSettings" };
+  const lookStep = (kind, id, dir) => {
+    if (!LOOK_STORE_OF[kind] || !id || typeof LookHist !== "object") return null;
+    const cur = lookPick(kind, (loadJSON(LOOK_STORE_OF[kind], {}) || {})[id]);
+    const row = LookHist.step(kind + ":" + id, cur, dir);
+    if (!row) return null;
+    const full = lookFullPatch(kind, row.v);
+    if (kind === "chat") patchChatSetting(id, full);
+    else if (kind === "group") saveGroupSettingsRaw(id, full);
+    else saveOfflineSettings(id, full);
+    return row.v;
+  };
+  const lookCount = (kind, id) => (typeof LookHist === "object" && id ? LookHist.count(kind + ":" + id) : { back: 0, fwd: 0 });
+  useEffect(() => { window.__lookStep = lookStep; window.__lookCount = lookCount; return () => { delete window.__lookStep; delete window.__lookCount; }; });
   // 聊天设置「TA 的聊天长相」的预览台（她 2026-09-30）：草稿先铺到真聊天窗上看，回去改或保存时再按存档重铺
   useEffect(() => { window.__previewChatLook = draft => paintChatLook(draft); return () => { delete window.__previewChatLook; }; });
   // 全局只给默认值；角色可单独覆盖。侧房还会在生成入口处再覆盖这一层。

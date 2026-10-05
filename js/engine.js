@@ -8967,6 +8967,103 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
 //   ⚠️一处写、处处调（她 2026-10-05：「消息通知这里头像没更新成聊天里的，又是没做成公共的地方」）：
 //   聊天列表、聊天页、群聊、状态卡、顶上那条消息通知、通话都走这一个。档案、编辑页、锁脸还读 avatarImage。
 function chatFace(c) { return c && c.chatAvatar ? Object.assign({}, c, { avatarImage: c.chatAvatar }) : c; }
+// ============================================================
+// 美化的「上一版／换回来」：一处写、处处调（她 2026-10-05：「美化回退做到每个聊天窗口里，
+//   自己做错的自己退，也可以让秋秋退；秋秋也可以自己退它做错的」）。
+//   单聊、群聊、线下这三层的长相，以及主题工作台那一整份，都存在这一个本子里，按「哪一层」分页：
+//   chat:<角色id>、group:<群id>、offline:<角色id>、theme。
+// ⚠️存版本挂在 saveJSON 上，不挂在各个写入口：聊天设置、秋秋、气泡细调……写这三张表的地方有好几处，
+//   挂在调用点上迟早漏一处（漏的那一处改错了就退不回去）。
+// ⚠️退一步不是「把上一版拿回来、当前这版再塞到最前面」——那样点第二下会跳回来，退不到更早。
+//   back 一摞、fwd 一摞：退一步把当前这版放进 fwd；「换回来」再从 fwd 拿；正常改一次就清掉 fwd。
+const LOOK_HIST_KEY = "x_look_hist", LOOK_HIST_MAX = 10, LOOK_HIST_CHARS = 1500000;
+const LOOK_FIELDS = {
+  chat: ["customCSS", "skin", "layout", "bubble", "font", "chatBg", "callBg"],
+  group: ["customCSS", "layout", "bubble", "chatBg"],
+  offline: ["customCSS"]
+};
+const LOOK_STORES = { x_chatSettings: "chat", x_groupSettings: "group", x_offlineSettings: "offline" };
+function lookPick(kind, o) {
+  const out = {}, src = o && typeof o === "object" ? o : {};
+  (LOOK_FIELDS[kind] || []).forEach(f => {
+    let v = src[f];
+    // 「原样」的几种写法算同一版：设置页一保存就把排版铺满默认值、字体写成两格空——不能因此记一笔
+    if (f === "layout" && v && typeof v === "object") {
+      const d = typeof CHAT_LAYOUT_DEFAULT === "object" ? CHAT_LAYOUT_DEFAULT : {}, o = {};
+      Object.keys(v).sort().forEach(k => {
+        const x = v[k];
+        if (x === undefined || x === null || x === "" || d[k] === x) return;
+        if (k === "deco" && (typeof x !== "object" || !Object.keys(x).some(w => x[w] && Object.keys(x[w]).some(q => x[w][q])))) return;
+        o[k] = x;
+      });
+      v = Object.keys(o).length ? o : undefined;
+    }
+    if (f === "font" && v && typeof v === "object" && !v.body && !v.display) v = undefined;
+    if (v !== undefined && v !== null && v !== "") out[f] = v;
+  });
+  return out;
+}
+// 写回去用的那一份：这一层管的每一栏都给出来，上一版没有的那栏要清空，不然新加的东西退不掉
+function lookFullPatch(kind, look) {
+  const out = {}, v = look && typeof look === "object" ? look : {};
+  (LOOK_FIELDS[kind] || []).forEach(f => { out[f] = f in v ? v[f] : (f === "customCSS" || f === "skin" || f === "chatBg" || f === "callBg" ? "" : undefined); });
+  return out;
+}
+const LookHist = (() => {
+  const quiet = {};          // 刚退过去的那一版：紧接着落库时别再当成一次新改动
+  const str = v => { try { return JSON.stringify(v); } catch (e) { return ""; } };
+  const all = () => { const v = loadJSON(LOOK_HIST_KEY, {}); return v && typeof v === "object" && !Array.isArray(v) ? v : {}; };
+  const put = book => {
+    // 太大就从最旧的那几版剪起，别让一本「后悔药」挤爆存档
+    const rows = [];
+    Object.keys(book).forEach(sc => ["back", "fwd"].forEach(side => (book[sc][side] || []).forEach((x, i) => rows.push({ sc, side, i, at: x.at || 0, n: str(x.v).length }))));
+    let total = rows.reduce((a, r) => a + r.n, 0);
+    rows.sort((a, b) => a.at - b.at);
+    const cut = new Set();
+    for (const r of rows) { if (total <= LOOK_HIST_CHARS) break; cut.add(r.sc + "|" + r.side + "|" + r.i); total -= r.n; }
+    if (cut.size) Object.keys(book).forEach(sc => ["back", "fwd"].forEach(side => {
+      book[sc][side] = (book[sc][side] || []).filter((_, i) => !cut.has(sc + "|" + side + "|" + i));
+    }));
+    Object.keys(book).forEach(sc => { if (!(book[sc].back || []).length && !(book[sc].fwd || []).length) delete book[sc]; });
+    saveJSON(LOOK_HIST_KEY, book);
+  };
+  const page = (book, sc) => (book[sc] = { back: (book[sc] && book[sc].back) || [], fwd: (book[sc] && book[sc].fwd) || [] });
+  // 正常改了一次：把被盖掉的那一版放进 back
+  const note = (sc, prev, next) => {
+    const a = str(prev), b = str(next);
+    if (a === b) return false;
+    if (quiet[sc] != null && quiet[sc] === b) { delete quiet[sc]; return false; }
+    delete quiet[sc];
+    const book = all(), pg = page(book, sc);
+    if (pg.back[0] && str(pg.back[0].v) === a) return false;   // 同一下被记了两次（React 会把 updater 跑两遍）
+    pg.back = [{ at: Date.now(), v: prev }].concat(pg.back).slice(0, LOOK_HIST_MAX);
+    pg.fwd = [];
+    put(book);
+    return true;
+  };
+  // 退一步／换回来：交出要写回去的那一版；当前这版挪到另一摞。写回去由调用的人走原来的写入口。
+  const step = (sc, cur, dir) => {
+    const book = all(), pg = page(book, sc);
+    const from = dir === "fwd" ? "fwd" : "back", to = from === "fwd" ? "back" : "fwd";
+    const row = pg[from][0];
+    if (!row) return null;
+    pg[from] = pg[from].slice(1);
+    pg[to] = [{ at: Date.now(), v: cur }].concat(pg[to]).slice(0, LOOK_HIST_MAX);
+    quiet[sc] = str(row.v);
+    put(book);
+    return { v: row.v, at: row.at };
+  };
+  const count = sc => { const pg = all()[sc] || {}; return { back: (pg.back || []).length, fwd: (pg.fwd || []).length, at: ((pg.back || [])[0] || {}).at || 0 }; };
+  const scopes = () => { const book = all(); return Object.keys(book).map(sc => Object.assign({ scope: sc }, count(sc))).filter(x => x.back || x.fwd); };
+  // saveJSON 那一道：这三张表里每个人／每个群，长相那几栏变了就记一笔
+  const noteStore = (k, next) => {
+    const kind = LOOK_STORES[k]; if (!kind) return;
+    const prev = loadJSON(k, {}) || {}, n = next && typeof next === "object" ? next : {};
+    const ids = new Set(Object.keys(prev).concat(Object.keys(n)));
+    ids.forEach(id => { try { note(kind + ":" + id, lookPick(kind, prev[id]), lookPick(kind, n[id])); } catch (e) {} });
+  };
+  return { note, step, count, scopes, noteStore, KEY: LOOK_HIST_KEY, MAX: LOOK_HIST_MAX };
+})();
 function loadJSON(k, fb) {
   try {
     txtEarlyTouch(k);
@@ -9047,6 +9144,7 @@ function saveJSON(k, v) {
   let encoded = null, previous = null;
   try {
     txtEarlyTouch(k);
+    if (typeof LOOK_STORES === "object" && LOOK_STORES[k]) { try { LookHist.noteStore(k, v); } catch (e) {} }
     if (typeof isIdbTextKey === "function" && isIdbTextKey(k)) return txtWrite(k, JSON.stringify(v));
     encoded = JSON.stringify(v);
     previous = localStorage.getItem(k);

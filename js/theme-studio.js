@@ -375,7 +375,7 @@
   // 全 App 每一页都有的那几个（挂在共用组件上，所以九十来页一起有）
   const WK_COMMON = Object.freeze([
     ["app", "这一页的底（最外那层）"],
-    ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["themeundo", "主题工作台「回到上一版」那颗"],
+    ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["lookundo", "美化「回到上一版／换回来」那一行"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
     ["empty", "空状态那一块（还没有内容时）"],
     ["sheet", "从底下掀起来的半窗"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
@@ -662,29 +662,45 @@
   };
   const load = () => { try { return normalize(JSON.parse(localStorage.getItem(KEY) || "null")); } catch (_) { return fresh(); } };
   // 每次正式存之前，把【被盖掉的那一版】留一份（她 2026-10-05：「美化改错了想恢复前一步，现在没办法」）。
-  //   秋秋改的、自己手改的都走这一个 save，所以两边都有退路。只留最近 10 版，存在大仓库里。
-  const HIST_KEY = "x_theme_studio_hist", HIST_MAX = 10;
-  const histList = () => { try { const v = typeof loadJSON === "function" ? loadJSON(HIST_KEY, []) : []; return Array.isArray(v) ? v : []; } catch (_) { return []; } };
+  //   秋秋改的、自己手改的都走这一个 save，所以两边都有退路。
+  // ⚠️本子是 engine.js 那一本 LookHist（单聊、群聊、线下也记在里面），这里不另记一份；
+  //   这一页叫 "theme"。v74.88 那会儿单独记在 x_theme_studio_hist，头一次用时搬进来。
+  const HIST_SCOPE = "theme", OLD_HIST_KEY = "x_theme_studio_hist";
+  const LH = () => (typeof LookHist === "object" ? LookHist : null);
+  const migrateHist = () => {
+    try {
+      const old = typeof loadJSON === "function" ? loadJSON(OLD_HIST_KEY, null) : null;
+      if (!Array.isArray(old) || !old.length || !LH()) return;
+      const book = loadJSON(LH().KEY, {}) || {};
+      if (!book[HIST_SCOPE]) { book[HIST_SCOPE] = { back: old.slice(0, LH().MAX).map(x => ({ at: x.at, v: x.raw })), fwd: [] }; saveJSON(LH().KEY, book); }
+      if (typeof dropStored === "function") dropStored(OLD_HIST_KEY);
+    } catch (_) {}
+  };
   const save = p => {
     const n = normalize({ ...p, updatedAt: Date.now() });
     const prev = localStorage.getItem(KEY), next = JSON.stringify(n);
-    if (prev && typeof saveJSON === "function") {
-      try { const a = JSON.parse(prev), b = JSON.parse(next); delete a.updatedAt; delete b.updatedAt;
-        if (JSON.stringify(a) !== JSON.stringify(b)) saveJSON(HIST_KEY, [{ at: Date.now(), raw: prev }].concat(histList()).slice(0, HIST_MAX)); } catch (_) {}
+    if (prev && LH()) {
+      try { migrateHist(); const a = JSON.parse(prev), b = JSON.parse(next); delete a.updatedAt; delete b.updatedAt;
+        if (JSON.stringify(a) !== JSON.stringify(b)) LH().note(HIST_SCOPE, prev, next); } catch (_) {}
     }
     localStorage.setItem(KEY, next); return n;
   };
-  // 历史：新的在前，只给时间；restoreHist(i) 把第 i 版拿回来正式应用（当前这版照样先进历史，退错了还能再退回来）
-  const history = () => histList().map(x => ({ at: x.at }));
-  const restoreHist = i => {
-    const list = histList(), row = list[i];
+  // 还能退几步、能换回来几步（新的在前）。undoStep("back") 退一步、undoStep("fwd") 把退掉的换回来；
+  //   一直点「退一步」就一直往更早退，最多 10 版。
+  const histCount = () => { migrateHist(); return LH() ? LH().count(HIST_SCOPE) : { back: 0, fwd: 0, at: 0 }; };
+  const history = () => { const c = histCount(); return new Array(c.back).fill(0).map(() => ({ at: c.at })); };
+  const undoStep = dir => {
+    if (!LH()) return null;
+    migrateHist();
+    const row = LH().step(HIST_SCOPE, localStorage.getItem(KEY) || "", dir);
     if (!row) return null;
-    let p; try { p = JSON.parse(row.raw); } catch (_) { return null; }
-    const rest = list.filter((_, k) => k !== i);
-    if (typeof saveJSON === "function") saveJSON(HIST_KEY, rest);
+    let p; try { p = JSON.parse(row.v); } catch (_) { return null; }
     clearTimeout(timer); timer = 0; previewBase = null;
-    return apply(save(p));
+    const n = normalize({ ...p, updatedAt: Date.now() });
+    localStorage.setItem(KEY, JSON.stringify(n));   // 不走 save：退一步本身不该再记成一次新改动
+    return apply(n);
   };
+  const restoreHist = () => undoStep("back");
   const unsafeReason = css => {
     const s = String(css || "");
     if (/@(?:import|charset|namespace)\b/i.test(s)) return "不允许 @import / @charset / @namespace";
@@ -939,7 +955,7 @@
     out.push("", "【我现在的 CSS】", String(css || "").trim() || "（还是空的，从头写）", "", "【我想改成】", "（在这里写你想要的样子）");
     return out.join("\n");
   }
-  g.ThemeStudio = { aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
+  g.ThemeStudio = { histCount, undoStep, aiBrief, sizePresets, BRIEF_STAMP, KEY, appIconList, PAGES, ICON_PACKS, packList, packIconSrc, packIcon, iconBare, fresh, normalize, load, save, apply, preview, commit, cancelPreview, history, restoreHist, current, iconRef, compile, scopeCSS, unsafeReason, cssImageRefs, resolveCSSImages, remapCSSImages, exportPackage, importPackage, PACK_PARTS, PACK_KEYS, packHas, packParts, cleanPick, pickProfile, isPreviewing: () => !!previewBase, safeMode, CSS_BUILTINS, WK_COMMON, WK_SCOPED, TOKENS, TOKEN_KEYS, OWN_PALETTE, okColor, cleanTokens, tokensFor, themeFor, SLOT_MAX, pageSlots, addSlot, saveSlot, clearSlot, cssStale, SKIN_VER, ZOOM_MIN, ZOOM_MAX, cleanZoom, zoomFor };
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => { try { apply(load()); } catch (_) {} });
   else { try { apply(load()); } catch (_) {} }
 })(window);

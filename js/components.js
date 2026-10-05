@@ -221,6 +221,28 @@ function ChatLayoutFields({ layout, setLayout, taName, meNote, onPeek, group }) 
     onPeek ? h("button", { onClick: onPeek, className: "w-full active:opacity-70", style: { minHeight: 40, marginTop: 12, borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "去聊天里看看") : null,
     h("button", { onClick: () => setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT)), className: "active:opacity-70", style: { minHeight: 34, marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "全部回到原样"));
 }
+// 美化「退一步／换回来」那一行（她 2026-10-05）：主题工作台、单聊、群聊、线下都摆这一颗，各自只告诉它怎么数、怎么退。
+//   count() → {back, fwd, at}；step("back"|"fwd") → 退成功了给回那一版（交给 onDone 去刷草稿），没有就 null。
+//   本子是 engine.js 的 LookHist：自己改的、秋秋改的都记在里面，所以两边改错了都能从这里退。
+function LookUndoRow({ count, step, onDone, toast }) {
+  const t = useTheme();
+  const [, bump] = useState(0);
+  const c = (() => { try { return count() || {}; } catch (e) { return {}; } })();
+  if (!c.back && !c.fwd) return null;
+  const go = dir => {
+    let n = null;
+    try { n = step(dir); } catch (e) { toast && toast("没退成：" + ((e && e.message) || "")); return; }
+    if (!n) { toast && toast(dir === "fwd" ? "没有能换回来的了" : "没有更早的了"); return; }
+    onDone && onDone(n);
+    bump(x => x + 1);
+    toast && toast(dir === "fwd" ? "换回来了" : "退回上一版了；退过头了点「换回来」");
+  };
+  const pill = (label, fn, on) => h("button", { onClick: fn, disabled: !on, className: "active:opacity-60",
+    style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.sub : t.fog, opacity: on ? 1 : .5, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, label);
+  return h("div", { "data-wk": "lookundo", className: "flex items-center justify-center", style: { gap: 8, margin: "16px auto 0", flexWrap: "wrap" } },
+    pill("↶ 回到上一版（存着 " + (c.back || 0) + " 版）", () => go("back"), !!c.back),
+    c.fwd ? pill("↷ 换回来", () => go("fwd"), true) : null);
+}
 function ChatCssFields({ css, setCSS, fileBase, seedName, seedCSS, onPeek, page, title }) {
   const t = useTheme();
   const fileRef = useRef(null), editRef = useRef(null);
@@ -14915,7 +14937,10 @@ function OfflineMode({
         h(ChatCssFields, { css: sCss, setCSS: setSCss,
           fileBase: (char && (char.remark || char.name)) || "TA",
           onPeek: () => { try { window.__previewOfflineLook && window.__previewOfflineLook({ customCSS: sCss }); } catch (e) {} setSetOpen(false); },
-          page: "offline", title: "只给这个人的线下写 CSS" })),
+          page: "offline", title: "只给这个人的线下写 CSS" }),
+        char ? h(LookUndoRow, { count: () => (window.__lookCount ? window.__lookCount("offline", char.id) : {}),
+          step: dir => (window.__lookStep ? window.__lookStep("offline", char.id, dir) : null),
+          toast: window.__toast, onDone: L => setSCss(L.customCSS || "") }) : null),
       offShow("debug", "telemetry", "上一轮到底发生了什么",
     h("div", { style: { marginTop: 14, padding: "9px 11px", borderRadius: 9, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10.5, lineHeight: 1.65, color: t.fog } },
       h("div", null, ".87 immersive fine-grained editor · 仅内存诊断"),
@@ -17207,6 +17232,10 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
       getLook: () => ({ chatBg, layout: gLayout, customCSS: gCss }),
       onApply: L => { if (L.chatBg != null) setChatBg(L.chatBg); if (L.layout) setGLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout)); if (L.customCSS != null) setGCss(L.customCSS); } }),
     h(ChatCssFields, { css: gCss, setCSS: setGCss, fileBase: (group && group.name) || "群聊", onPeek: gPeekGo, page: "gthread", title: "只给这个群写 CSS" }),
+    group ? h(LookUndoRow, { count: () => (window.__lookCount ? window.__lookCount("group", group.id) : {}),
+      step: dir => (window.__lookStep ? window.__lookStep("group", group.id, dir) : null),
+      toast: window.__toast,
+      onDone: L => { setChatBg(L.chatBg || ""); setGLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setGCss(L.customCSS || ""); } }) : null,
     h(OnlineMediaSettings, null)),
     gCard({ title: "记忆库 · 群规矩", char: "记", tint: "#6693c7", state: "带 " + ctxN + " 条上下文 · 满 " + sumThresh + " 条总结" + ((directives && directives.length) ? " · 群规矩 " + directives.length + " 条" : "") }, null,
     sliderRow("记忆上下文条数", "每次群成员回复时真正读到的就是这些条——超出的一句都不进上下文。", ctxN, setCtxN, 10, 300, 5, " 条"),
@@ -18751,7 +18780,15 @@ function ChatSettings({
       onApply: L => { if (L.skin != null) setSkin(L.skin); if (L.bubble != null) setBubble(L.bubble); if (L.font != null) setFont(L.font);
         if (L.chatBg != null) setChatBg(L.chatBg); if (L.layout) setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout)); if (L.customCSS != null) setCustomCSS(L.customCSS); } }),
     h(ChatCssFields, { css: customCSS, setCSS: setCustomCSS, fileBase: (settings.remark || (character && character.name) || "TA"), seedName: skin,
-      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" })), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
+      seedCSS: skin && window.ThemeStudio ? (((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === skin) || [])[1] : "", onPeek: peekLook, page: "thread", title: "只给 TA 写 CSS" }),
+    // 改错了退一步（她 2026-10-05）：这一个人聊天窗的皮肤、气泡、字体、背景、排版、CSS 一起退；秋秋改的也算
+    character ? h(LookUndoRow, { count: () => (window.__lookCount ? window.__lookCount("chat", character.id) : {}),
+      step: dir => (window.__lookStep ? window.__lookStep("chat", character.id, dir) : null),
+      toast: window.__toast,
+      onDone: L => { setSkin(L.skin || ""); setBubble(L.bubble && typeof L.bubble === "object" ? L.bubble : null);
+        const F = window.FontChoice, cus = ((window.ThemeStudio && window.ThemeStudio.current()) || {}).customFonts || [];
+        setFont(F ? F.clean(L.font, cus) : (L.font || { body: "", display: "" }));
+        setChatBg(L.chatBg || ""); setCallBg(L.callBg || ""); setLayout(Object.assign({}, CHAT_LAYOUT_DEFAULT, L.layout || {})); setCustomCSS(L.customCSS || ""); } }) : null), show("act", { title: "主动消息 · 朋友圈 / 主动找你", ...sec("act") },
   // 申请信（v74.507；她 2026-10-02：「移下去到主动消息那里」）：还不是恋人时，TA自己想表白就能写一封；关掉就不会
   h("div", { className: "flex items-center justify-between pt-5" },
     h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },

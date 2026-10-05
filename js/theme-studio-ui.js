@@ -581,12 +581,12 @@
             "现在看到的是预览。点下面「正式应用」才真的落盘；基础配色、壁纸、气泡也一样。")) : null,
         // 贴一份：手机上挑不开文件的时候，这条路永远死不了（照表情包「贴上去」那个先例）
         h("div", { style: { marginTop: 12 } }, h(ThemePackPasteBox, { onText: applyPack }))),
-      // 退回上一版（她 2026-10-05：「美化改错了想恢复前一步」）：秋秋改的、自己改的，每次正式应用前那一版都留着
-      (studio.history && studio.history().length) ? h("button", {
-        onClick: () => { try { const h0 = studio.history()[0]; const n = studio.restoreHist(0); if (n) { setDraft(n); const d = new Date(h0.at); toast("已回到 " + (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + " 改之前那一版；退错了再点一次能换回来"); } } catch (e) { toast("没退成：" + ((e && e.message) || "")); } },
-        className: "active:opacity-60", "data-wk": "themeundo",
-        style: { display: "block", margin: "16px auto 0", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } },
-        "↶ 回到上一版（存着 " + studio.history().length + " 版）") : null,
+      // 退回上一版（她 2026-10-05：「美化改错了想恢复前一步」）：秋秋改的、自己改的，每次正式应用前那一版都留着。
+      //   跟聊天窗、群、线下那几处是同一颗 LookUndoRow（components.js），这里只告诉它怎么退。
+      typeof LookUndoRow === "function" ? h(LookUndoRow, {
+        count: () => studio.histCount(),
+        step: dir => studio.undoStep(dir),
+        onDone: n => { if (n) setDraft(n); }, toast: toast }) : null,
       h("div", { style: { position: "sticky", bottom: 8, zIndex: 5, display: "flex", gap: 7, marginTop: 18, padding: 8, borderRadius: 16, background: "rgba(248,245,238,.92)", backdropFilter: "blur(18px)", border: "1px solid " + t.line, boxShadow: "0 8px 28px rgba(30,25,20,.12)" } }, h("button", { onClick: preview, className: "flex-1 py-3", style: { borderRadius: 11, border: "1px solid " + t.ink, fontFamily: F_BODY, color: t.ink } }, "先预览 30 秒"), previewing ? h("button", { onClick: cancel, className: "py-3 px-3", style: { color: t.accent, fontFamily: F_BODY } }, "撤销") : null, h("button", { onClick: commit, className: "flex-1 py-3", style: { borderRadius: 11, background: t.ink, color: t.bg2, fontFamily: F_BODY } }, "正式应用")));
   }
   g.ThemeStudioConfig = ThemeStudioConfig;
