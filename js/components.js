@@ -17599,6 +17599,9 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       ...JSON.parse(JSON.stringify(p)), createdAt: Date.now() }, character.id);
     setDraft(d); setEditingId(d.id); setCreating(true); setStartMode("blank"); setStartIndex(null);
   }, [initialPreset]);
+  // 「挑一句接起」那一列摆多少句、搜什么（得在下面那个提前 return 之前，hooks 顺序不能变）
+  const [startShowN, setStartShowN] = useState(40);
+  const [startQ, setStartQ] = useState("");
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
@@ -17665,7 +17668,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   };
 
   const sourceRows = Array.isArray(sourceMessages) ? sourceMessages : [];
-  const startChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text).slice(-16);
+  // 「挑一句接起」原来只摆最后 16 句（群友 2026-10-05：「我想回到开头或者中间某一段怎么办」）。
+  //   现在整段都能挑：默认摆最近 40 句，往上点「再往前」一次多 40 句；也能搜一个词直接找到那一句。
+  const allStartChoices = sourceRows.map((m, index) => ({ m, index, text: Kit.visibleText(m) })).filter(x => x.text);
+  const startQs = startQ.trim();
+  const startChoices = startQs ? allStartChoices.filter(x => x.text.indexOf(startQs) >= 0) : allStartChoices.slice(-startShowN);
+  const startMore = !startQs && allStartChoices.length > startShowN;
   const chooseStartMode = mode => {
     setStartMode(mode);
     if (mode === "until" && startIndex == null && startChoices.length) setStartIndex(startChoices[startChoices.length - 1].index);
@@ -17791,7 +17799,13 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
           startMode === "blank" ? "房里不放旧消息，从第一句重新开始。" : startMode === "recent"
             ? characterText(character, "带入当前房间已载入的最近 20 条聊天；他还记得哪些主线经历，由这间房自己的开关决定。")
             : "选中的这句和它之前已载入的聊天会成为新房开场；这句之后的内容不带入。"),
-        startMode === "until" && h("div", { style: { maxHeight: 190, overflowY: "auto", marginTop: 8, border: "1px solid " + t.line, borderRadius: 11 } },
+        startMode === "until" && h("input", { value: startQ, onChange: e => setStartQ(e.target.value), placeholder: "搜一个词找那一句（共 " + allStartChoices.length + " 句）",
+          style: { width: "100%", marginTop: 8, padding: "7px 10px", borderRadius: 9, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12 } }),
+        startMode === "until" && h("div", { style: { maxHeight: 260, overflowY: "auto", marginTop: 8, border: "1px solid " + t.line, borderRadius: 11 } },
+          startMore ? h("button", { onClick: () => setStartShowN(n => n + 40), className: "w-full active:opacity-60",
+            style: { display: "block", padding: "9px 10px", borderBottom: "1px solid " + t.line, background: "transparent", color: t.tint || t.ink, fontFamily: F_BODY, fontSize: 11.5 } },
+            "再往前 40 句（还有 " + (allStartChoices.length - startShowN) + " 句）") : null,
+          startQs && !startChoices.length ? h("div", { style: { padding: "9px 10px", color: t.fog, fontFamily: F_BODY, fontSize: 11 } }, "没找到这个词") : null,
           startChoices.map(({ m, index, text }) => h("button", { key: (m.id || "m") + "_" + index, onClick: () => setStartIndex(index),
             className: "w-full text-left", style: { display: "block", padding: "8px 10px", borderBottom: "1px solid " + t.line,
               background: startIndex === index ? t.bg : "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5 } },
