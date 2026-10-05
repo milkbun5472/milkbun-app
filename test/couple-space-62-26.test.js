@@ -33,10 +33,12 @@ test("整页封面留着，但内容自己是一张有边的纸", () => {
     "纱又兼职当内容的底了——那正是「整页糊成一片、纸没有边」的病根");
   assert.doesNotMatch(scr, /bgA\(0\.86\) \+ " calc\("/, "旧那层 .86 收口还在");
   // 纸：圆角上沿 + 向上的投影 = 那条边界；半透明，所以封面照样透着
-  const i = scr.indexOf('h("div", { className: "px-6", style: Object.assign({ position: "relative", background: bgA(0.88)');
+  const i = scr.indexOf('h("div", { "data-wk": "uspaper", className: "px-6", style: Object.assign({ position: "relative", background: bgA(usPaperA)');
   assert.ok(i > 0, "内容那一块没做成纸");
   const seg = scr.slice(i, i + 560);
-  assert.match(scr, /usFrost \? \{ background: bgA\(0\.72\), backdropFilter: "blur\(18px\)/, "磨砂选项没接到纸上");
+  assert.match(scr, /usFrost \? \{ backdropFilter: "blur\(18px\)/, "磨砂选项没接到纸上");
+  assert.match(scr, /saveJSON\("x_usPaperA", v\)/, "透明度滑杆没存下来");
+  assert.match(scr, /loadJSON\("x_usPaperA", 0\.88\)/, "默认不再是原来的 .88");
   assert.match(scr, /saveJSON\("x_usFrost", v\)/, "磨砂开关没存下来");
   assert.match(seg, /borderRadius: "26px 26px 0 0"/, "没有上沿的圆角＝看不出是另一层");
   assert.match(seg, /boxShadow: "0 -9px 26px/, "投影朝上才像纸压着封面");

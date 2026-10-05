@@ -6163,6 +6163,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   const [sinceVal, setSinceVal] = useState("");
   const [cpEdit, setCpEdit] = useState(false);
   const [usFrost, setUsFrost] = useState(() => typeof loadJSON === "function" ? loadJSON("x_usFrost", false) === true : false);
+  // 底纸有多实：0.2–1，默认 0.88（原来写死的那个数）。跟磨砂开关各管各的。
+  const [usPaperA, setUsPaperA] = useState(() => { const v = typeof loadJSON === "function" ? Number(loadJSON("x_usPaperA", 0.88)) : 0.88; return v >= 0.2 && v <= 1 ? v : 0.88; });
   const bgRef = useRef(null); const myAvRef = useRef(null); const chAvRef = useRef(null);
   const [unlinkChar, setUnlinkChar] = useState(null); // 待确认解除的角色
   // 情侣唱片:进空间自动落针、离开自动收针——礼数全在 app.js 的 discEnter/discLeave
@@ -6521,10 +6523,10 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
         // ⭐这就是那条边界：一张有上沿的纸，从封面带底下探出来、盖着往上滚。
         //   paddingTop 让正文避开压在沿上的那两枚头像；纸是半透明的，封面照样透着。
         //   「纸做成磨砂」是个选项（✎ 里开，默认关）：开了封面透过来是糊开的一片颜色。
-        h("div", { className: "px-6", style: Object.assign({ position: "relative", background: bgA(0.88),
+        h("div", { "data-wk": "uspaper", className: "px-6", style: Object.assign({ position: "relative", background: bgA(usPaperA),
           borderRadius: "26px 26px 0 0", borderTop: "1px solid rgba(255,255,255,.45)",
           boxShadow: "0 -9px 26px rgba(60,40,50,.15)", paddingTop: 46, paddingBottom: 32,
-          minHeight: "calc(100% - 150px)" }, usFrost ? { background: bgA(0.72), backdropFilter: "blur(18px) saturate(1.2)", WebkitBackdropFilter: "blur(18px) saturate(1.2)" } : null) },
+          minHeight: "calc(100% - 150px)" }, usFrost ? { backdropFilter: "blur(18px) saturate(1.2)", WebkitBackdropFilter: "blur(18px) saturate(1.2)" } : null) },
           h("div", { className: "flex items-end justify-between" },
             h("div", { className: "min-w-0" },
               h("div", { "data-wk": "usdays", className: "flex items-baseline gap-2" },
@@ -6973,8 +6975,17 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
         h("div", { className: "flex items-center justify-between", style: { marginTop: 16, paddingTop: 12, borderTop: "1px solid " + t.line } },
           h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "内容底纸做成磨砂"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "背景图透过来糊成一片颜色")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "背景图透过来糊成一片颜色；配上透明度一起调")),
           h(Toggle, { on: usFrost, onChange: v => { setUsFrost(v); saveJSON("x_usFrost", v); } })),
+        h("div", { style: { marginTop: 14 } },
+          h("div", { className: "flex items-baseline justify-between" },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, "底纸透明度"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, Math.round((1 - usPaperA) * 100) + "% 透")),
+          h("input", { type: "range", min: 20, max: 100, step: 1, value: Math.round(usPaperA * 100),
+            onChange: e => { const v = Number(e.target.value) / 100; setUsPaperA(v); saveJSON("x_usPaperA", v); },
+            style: { width: "100%", marginTop: 8, accentColor: t.ink } }),
+          h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
+            h("span", null, "更透"), h("span", null, "更实"))),
         h("input", { ref: bgRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) onSetCoupleImg(partner.id, "bg", f); e.target.value = ""; }, style: { display: "none" } }),
         h("input", { ref: myAvRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) onSetCoupleImg(partner.id, "myAvatar", f); e.target.value = ""; }, style: { display: "none" } }),
         h("input", { ref: chAvRef, type: "file", accept: "image/*", onChange: e => { const f = e.target.files && e.target.files[0]; if (f) onSetCoupleImg(partner.id, "charAvatar", f); e.target.value = ""; }, style: { display: "none" } })),
