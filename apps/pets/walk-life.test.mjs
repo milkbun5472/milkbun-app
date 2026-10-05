@@ -5,7 +5,7 @@ import {createPetWorld} from '../../art/pet-career/world-navigation.mjs';
 import {newPetEntry,restorePetState,snapshotPetState} from './state.mjs';
 import {createTownLife,newTownLife} from './town-life.mjs';
 import {restoreTogether,togetherWaiting,cancelOfflineTogether} from './together.mjs';
-import {restoreWalkMemory,walkHabitFacts,chooseWalkInterest,beginWalkEvent,advanceWalkEvent,rememberWalk,weatherWalkKind,walkShelters} from './walk-life.mjs';
+import {restoreWalkMemory,walkHabitFacts,chooseWalkInterest,beginWalkEvent,advanceWalkEvent,rememberWalk,weatherWalkKind,walkShelters,walkFriendPoint} from './walk-life.mjs';
 import {createNeighborhood,restoreNeighborhood} from './neighborhood.mjs';
 import {recordNeighborBond} from './pet-friends.mjs';
 import {createPetCare} from './care.mjs';
@@ -24,3 +24,5 @@ test('a street friend cannot complete a greeting until the real third body arriv
 test('living photo writer, wall display and deletion belong to the original archive and only metadata enters chat',()=>{const f=fixture(),album=restoreLivingAlbum(),photo={id:'living:1',image:'data:image/jpeg;base64,YWJj',at:f.at,petId:f.entry.id,personId:'ta',petName:'小团',personName:'阿榆',place:'家里',caption:'一起待着',weather:'细雨',season:'春天',time:'10:00'};assert.ok(addLivingPhoto(album,photo));assert.equal(addLivingPhoto(album,photo),false);assert.ok(editLivingAlbum(album,'display',photo.id));const state=restorePetState({pets:[f.entry],album},world,{at:f.at}),again=restorePetState(snapshotPetState(state,{position:state.position,room:'home',outdoor:null,evening:false}),world,{at:f.at+1});assert.equal(again.album.photos[0].image,photo.image);assert.equal(again.album.wallPhotoId,photo.id);assert.equal(JSON.stringify(livingPhotoFacts(album)).includes('base64'),false);assert.equal(editLivingAlbum(album,'delete','other'),false);assert.ok(editLivingAlbum(album,'delete',photo.id));assert.equal(album.wallPhotoId,'');assert.equal(album.photos.length,0);assert.equal(restoreLivingAlbum().photos.length,0);});
 
 test('different actual activity traits change group walking pace without changing ordinary town movement',()=>{const move=(pace,group)=>{const town=newTownLife('outside',{x:0,z:5},3),life=createTownLife(town,{world});life.go('outside',{x:0,z:12},{manual:true});for(let i=0;i<25;i++)life.tick(.05,{group,pace});return town.position.z-5;};assert.ok(move(1.35,true)>move(.8,true)*1.4);assert.equal(move(1.35,false),move(.8,false));});
+
+test('street greetings use a real clear street point and a reachable original shop doorway',()=>{for(const place of['bakery','cafe','florist']){const p=walkFriendPoint(world,place),door=world.building(place).approach;assert.ok(p);assert.ok(world.path(door,p));assert.ok(Math.abs(p.x)<=6);assert.ok(world.walkable(p.x,p.z));}assert.equal(walkFriendPoint(world,'missing'),null);});
