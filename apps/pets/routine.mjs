@@ -1,22 +1,22 @@
-import {autonomousWork} from './work-autonomy.mjs?v=fg-726b27b0c88a1525';
-import {collectJournal} from './weekly-journal.mjs?v=fg-726b27b0c88a1525';
-import {cancelOfflineTogether} from './together.mjs?v=fg-726b27b0c88a1525';
-import {cancelOfflineSkill} from './skills.mjs?v=fg-726b27b0c88a1525';
-import {createHousehold} from './home-chores.mjs?v=fg-726b27b0c88a1525';
-import {homeUse} from './home-condition.mjs?v=fg-726b27b0c88a1525';
-import {choosePetRest} from './habits.mjs?v=fg-726b27b0c88a1525';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-726b27b0c88a1525';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-726b27b0c88a1525';
-import {townEnvironment} from './environment.mjs?v=fg-726b27b0c88a1525';
-import {workRoom,petWorkplace} from './workplaces.mjs?v=fg-726b27b0c88a1525';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-726b27b0c88a1525';
-import {createPetCare} from './care.mjs?v=fg-726b27b0c88a1525';
-import {petWorkStation} from './work-station.mjs?v=fg-726b27b0c88a1525';
-import {furniturePoint} from './furnishings.mjs?v=fg-726b27b0c88a1525';
-import {createPetCareer} from './career.mjs?v=fg-726b27b0c88a1525';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-726b27b0c88a1525';
-import {walkRoute} from './movement.mjs?v=fg-726b27b0c88a1525';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-726b27b0c88a1525';
+import {autonomousWork} from './work-autonomy.mjs?v=fg-17c956fa1b18b4c0';
+import {collectJournal} from './weekly-journal.mjs?v=fg-17c956fa1b18b4c0';
+import {cancelOfflineTogether} from './together.mjs?v=fg-17c956fa1b18b4c0';
+import {cancelOfflineSkill} from './skills.mjs?v=fg-17c956fa1b18b4c0';
+import {createHousehold} from './home-chores.mjs?v=fg-17c956fa1b18b4c0';
+import {homeUse} from './home-condition.mjs?v=fg-17c956fa1b18b4c0';
+import {choosePetRest} from './habits.mjs?v=fg-17c956fa1b18b4c0';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-17c956fa1b18b4c0';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-17c956fa1b18b4c0';
+import {townEnvironment} from './environment.mjs?v=fg-17c956fa1b18b4c0';
+import {workRoom,petWorkplace} from './workplaces.mjs?v=fg-17c956fa1b18b4c0';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-17c956fa1b18b4c0';
+import {createPetCare} from './care.mjs?v=fg-17c956fa1b18b4c0';
+import {petWorkStation} from './work-station.mjs?v=fg-17c956fa1b18b4c0';
+import {furniturePoint} from './furnishings.mjs?v=fg-17c956fa1b18b4c0';
+import {createPetCareer} from './career.mjs?v=fg-17c956fa1b18b4c0';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-17c956fa1b18b4c0';
+import {walkRoute} from './movement.mjs?v=fg-17c956fa1b18b4c0';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-17c956fa1b18b4c0';
 const meals=['breakfast','lunch','dinner'];
 const offlineThreshold=entry=>autonomousWork(entry.career?.job)?1000:60000;
 const clamp=n=>Math.max(0,Math.min(100,n));
@@ -43,7 +43,7 @@ function recoverWork(entry,town,career,care,budget,time){
   if(job.phase!=='tired'){const trip=travelTo(town,career.destination(),budget,career.destinationPoint());budget-=trip.seconds;if(!trip.arrived)break;}
   const dt=Math.min(1,budget);if(dt<=0)break;
   const event=career.tick(dt,{care:care.state,room:entry.town.place,offline:true,position:entry.town.position,name:entry.profile.name});budget-=dt;
-  if(event?.automatic&&event.action){lifeNote(entry,time,entry.profile.name+'自己上班：'+event.text,'work:'+job.id+':'+job.index+':'+job.choices.length+':'+(job.investigation?.conclusion||'')+':'+event.action);if(event.finished||event.stopped){const plan=petRoutine(entry,time,career);travelTo(town,plan.target,budget,plan.targetPoint);break;}}
+  if(event?.automatic&&event.action){lifeNote(entry,time,entry.profile.name+'自己上班：'+event.text,'work:'+job.id+':'+job.index+':'+job.choices.length+':'+(job.investigation?.conclusion||'')+':'+event.action);if(event.finished||event.stopped){travelTo(town,'home',budget);break;}}
   else if(event?.event&&!event.automatic){lifeNote(entry,time,entry.profile.name+(job.profession==='courier'?'配送时遇到一件小事，留着等你拿主意。':'在店里遇到一件小事，留着等你拿主意。'),'work-choice:'+job.id+':'+job.index);break;}
  }
 }

@@ -39,7 +39,7 @@ vec3 petFurDye(vec3 color,vec2 uv){
  float nose=furFeature(p,mix(vec3(0.,.425,.455),vec3(0.,.555,.489),uFurDog),mix(vec3(.026,.018,.022),vec3(.058,.029,.038),uFurDog));
  float mouth=uFurDog*furFeature(p,vec3(0.,.490,.445),vec3(.040,.029,.030));
  float pink=smoothstep(.28,.42,(color.r-color.g)/max(color.r,.001));
- float coverage=(1.-eye)*max(covered,(1.-max(nose,mouth))*(1.-pink));
+ float coverage=max(covered,(1.-eye)*(1.-max(nose,mouth))*(1.-pink));
  return petFurPalette(color,fm,coverage);
 }`;
 export function createCatDye(T,cat,mask,meta,{species='cat'}={}){
