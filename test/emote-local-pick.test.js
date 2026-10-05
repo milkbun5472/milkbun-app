@@ -15,7 +15,7 @@ test("表情渲染会先解析 iv_ 引用", () => {
   const c = src("components.js");
   const i = c.indexOf("function EmoteBubble(");
   assert.ok(i > 0);
-  assert.match(c.slice(i, i + 400), /stickerSrc\(url\)/);
+  assert.match(c.slice(i, i + 600), /stickerSrc\(raw\)/);
   assert.match(c, /multiple: !!multiple/);
 });
 

@@ -13945,10 +13945,29 @@ function GeoStampSheet({ recent, onClose, onSend }) {
 // 卡片类只给能用的（收藏/多选删除/撤回）——复制/编辑/引用/重Roll 对它们没意义。
 // 表情图：加载失败时【不要】塌成 0 尺寸（那样气泡看不见、也没法长按/多选删除），
 // 改显一个带关键词的占位框，保持尺寸 + 可长按，用户能认出是哪张、也删得掉。
+// ⚠️「图裂了」原来是一锤子：第一次没加载出来就一直裂着（她 2026-10-05 转群里：「有时候发的表情包会图裂，
+//   等一会儿表情包库加载出来又好了」）。两种情况都是暂时的：
+//   ① 本机图库（iv_）这一张还没进缓存——显示的那一刻拿不到地址；② 外链图床慢、第一下超时。
+//   现在：iv_ 拿不到就自己去图库取一次；外链出错隔一会儿重试两次；地址变了就重新来。都不行才裂。
 function EmoteBubble({ url, keyword, max }) {
   const t = useTheme();
-  url = stickerSrc(url); // 从相册选的表情存的是 iv_ 引用（本机图库），先换成能显示的地址
-  const [broken, setBroken] = useState(!url);
+  const raw = url;
+  const [own, setOwn] = useState("");          // 从图库现取出来的那张
+  const [tries, setTries] = useState(0);
+  url = own || stickerSrc(raw); // 从相册选的表情存的是 iv_ 引用（本机图库），先换成能显示的地址
+  const [broken, setBroken] = useState(false);
+  useEffect(() => { setBroken(false); setTries(0); }, [raw]);
+  useEffect(() => {
+    if (url || typeof raw !== "string" || raw.indexOf("iv_") !== 0 || typeof imgVaultFetchBlob !== "function") return;
+    let dead = false;
+    imgVaultFetchBlob(raw).then(b => { if (!dead && b) setOwn(URL.createObjectURL(b)); else if (!dead) setBroken(true); }).catch(() => { if (!dead) setBroken(true); });
+    return () => { dead = true; };
+  }, [raw, url]);
+  const onErr = () => {
+    if (tries < 2 && /^https?:/i.test(url || "")) { const n = tries + 1; setTimeout(() => setTries(n), 1500 * n); return; }
+    setBroken(true);
+  };
+  if (!url && !broken) return h("div", { style: { width: max || 116, height: max || 116, borderRadius: 12, background: t.bg2, opacity: .6 } });
   const kw = keyword || "表情";
   max = max || 116;
   if (broken) return h("div", {
@@ -13964,8 +13983,10 @@ function EmoteBubble({ url, keyword, max }) {
   const style = isSvg
     ? { width: max, height: "auto", maxWidth: max, maxHeight: max, borderRadius: 12, display: "block", objectFit: "contain" }
     : { maxWidth: max, maxHeight: max, borderRadius: 12, display: "block", objectFit: "contain" };
-  return h("img", { src: url, alt: kw, title: kw, referrerPolicy: "no-referrer", loading: "lazy",
-    style: style, onError: () => setBroken(true) });
+  // 重试换一个查询参数，绕开浏览器记住的那次失败
+  const src = tries && /^https?:/i.test(url) ? url + (url.indexOf("?") > -1 ? "&" : "?") + "_r=" + tries : url;
+  return h("img", { key: src, src: src, alt: kw, title: kw, referrerPolicy: "no-referrer", loading: "lazy",
+    style: style, onError: onErr });
 }
 // 长按一句话能做的事(v60.25 重做)
 //
