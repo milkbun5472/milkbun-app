@@ -1,4 +1,4 @@
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-07218f36fd21c1b1';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-320b077366663085';
 export const TOGETHER_SHOPS=['cafe','bakery','florist','store','alley'];
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.abs(p.x)<100&&Math.abs(p.z)<100?{x:p.x,z:p.z}:null;
 export const togetherDestination=t=>t?.phase==='home'?'home':t?.mode==='walk'?'outside':t?.shop;
