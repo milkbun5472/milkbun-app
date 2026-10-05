@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-211e287ced33c68b';
-import {createTownNavigation} from './town-life.mjs?v=fg-211e287ced33c68b';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-211e287ced33c68b';
-import {walkRoute,turnPet} from './movement.mjs?v=fg-211e287ced33c68b';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-56d22a214af323bc';
+import {createTownNavigation} from './town-life.mjs?v=fg-56d22a214af323bc';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-56d22a214af323bc';
+import {walkRoute,turnPet} from './movement.mjs?v=fg-56d22a214af323bc';
 
 // Stable street identities and their actual places, shared by work and visits.
 export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:true,role:'花店里的奶茶猫',shop:'florist',spot:{x:0,z:.65},detail:'喜欢慢慢闻花，也喜欢安静的陪伴。',place:'florist',placeName:'花店',about:'花店里的奶茶猫，喜欢慢慢闻花，也喜欢安静的陪伴。',position:{x:0,z:.65},approaches:[{x:1,z:.7},{x:-1,z:.7}],profile:{species:'cat',name:'小茉',size:.9,weight:1,look:{id:'custom',base:'#eee1cb',patch:'#a98565'}}},
@@ -9,15 +9,15 @@ export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:tr
  {id:'cafe-cat',name:'墨墨',species:'cat',pet:true,role:'咖啡店的慢热黑白猫',shop:'cafe',spot:{x:0,z:.35},detail:'先远远看你一眼，熟悉以后愿意一起安静待着。',place:'cafe',placeName:'咖啡店',about:'慢热的黑白猫，喜欢安静地陪着朋友看店里的日常。',position:{x:0,z:.35},approaches:[{x:1,z:.35},{x:-1,z:.35}],profile:{species:'cat',name:'墨墨',size:.85,weight:1,look:{id:'custom',base:'#f4eee4',patch:'#5c5756'}}}];
 const neighbor=id=>PET_NEIGHBORS.find(x=>x.id===id);
 const count=v=>Number.isFinite(v)?Math.floor(Math.max(0,Math.min(1e7,v))):0;
-const sharedMemory=()=>({favors:0,visits:0,events:0,lastDate:'',knownName:'',habit:'',lastVisit:'',eventDate:''});
+const sharedMemory=()=>({homeVisits:0,homeDate:'',favors:0,visits:0,events:0,lastDate:'',knownName:'',habit:'',lastVisit:'',eventDate:''});
 const at=v=>Number.isFinite(v)?Math.max(0,Math.min(1e15,v)):0;
 export function restoreNeighborBonds(raw,legacy){
  const bonds={};
- for(const f of PET_NEIGHBORS){const r=raw?.[f.id];if(r&&typeof r==='object')bonds[f.id]={...sharedMemory(),greetings:count(r.greetings),together:count(r.together),play:count(r.play),work:count(r.work),firstDay:count(r.firstDay),lastDay:count(r.lastDay),lastAt:at(r.lastAt),recent:(Array.isArray(r.recent)?r.recent:[]).filter(x=>['greet','together','play','work'].includes(x?.kind)&&typeof x.text==='string').slice(-8).map(x=>({kind:x.kind,day:count(x.day),at:at(x.at),text:x.text.slice(0,160)}))};}
+ for(const f of PET_NEIGHBORS){const r=raw?.[f.id];if(r&&typeof r==='object')bonds[f.id]={...sharedMemory(),homeVisits:count(r.homeVisits),homeDate:typeof r.homeDate==='string'?r.homeDate.slice(0,10):'',greetings:count(r.greetings),together:count(r.together),play:count(r.play),work:count(r.work),firstDay:count(r.firstDay),lastDay:count(r.lastDay),lastAt:at(r.lastAt),recent:(Array.isArray(r.recent)?r.recent:[]).filter(x=>['greet','together','play','work','visit'].includes(x?.kind)&&typeof x.text==='string').slice(-8).map(x=>({kind:x.kind,day:count(x.day),at:at(x.at),text:x.text.slice(0,160)}))};}
  if(!Object.hasOwn(bonds,'florist-cat')&&Number.isFinite(legacy?.day)&&Number.isFinite(legacy?.visits)&&legacy.visits>0)bonds['florist-cat']={...sharedMemory(),greetings:0,together:0,play:0,work:count(legacy.visits),firstDay:count(legacy.day),lastDay:count(legacy.day),lastAt:0,recent:[]};
  return bonds;
 }
-export function neighborBondView(bonds,id){const r=bonds?.[id],visits=(r?.greetings||0)+(r?.work||0),familiarity=visits+((r?.together||0)+(r?.play||0))*2;return {known:visits>0||r?.together>0,greetings:r?.greetings||0,work:r?.work||0,together:r?.together||0,play:r?.play||0,visits,firstDay:r?.firstDay||0,lastDay:r?.lastDay||0,lastAt:r?.lastAt||0,label:familiarity>=12?'见到彼此会自在地待在一起':familiarity>=5?'慢慢熟悉了彼此':familiarity?'已经认识了，见面还会闻闻对方':'还没打过招呼',recent:structuredClone(r?.recent||[])};}
+export function neighborBondView(bonds,id){const r=bonds?.[id],visits=(r?.greetings||0)+(r?.work||0),familiarity=visits+((r?.together||0)+(r?.play||0)+(r?.homeVisits||0))*2;return {homeVisits:r?.homeVisits||0,homeDate:r?.homeDate||'',known:visits>0||r?.together>0,greetings:r?.greetings||0,work:r?.work||0,together:r?.together||0,play:r?.play||0,visits,firstDay:r?.firstDay||0,lastDay:r?.lastDay||0,lastAt:r?.lastAt||0,label:familiarity>=12?'见到彼此会自在地待在一起':familiarity>=5?'慢慢熟悉了彼此':familiarity?'已经认识了，见面还会闻闻对方':'还没打过招呼',recent:structuredClone(r?.recent||[])};}
 export function recordNeighborBond(bonds,id,kind,{day,at:stamp=0,name='它'}={}){
  const f=neighbor(id);if(!f||!['greet','together','play','work'].includes(kind))return null;
  const r=bonds[id]||(bonds[id]={...sharedMemory(),greetings:0,together:0,play:0,work:0,firstDay:count(day),lastDay:0,lastAt:0,recent:[]});
@@ -51,7 +51,7 @@ export function createPetFriends(shared,{rows,getActors=()=>[],now=()=>Date.now(
  function request(kind,petId,id='florist-cat'){
   if(kind==='stop')return cancel(petId);
   const f=neighbor(id),row=find(petId);if(!f||!['greet','together','play'].includes(kind))return {accepted:false,text:'先看看想找哪位街坊。'};
-  if(shared.quest||shared.event||shared.visit)return {accepted:false,text:'先陪完正在进行的街坊小约定。'};
+  if(shared.quest||shared.event||shared.visit||shared.petVisit)return {accepted:false,text:'先陪完正在进行的街坊小约定。'};
   if(state.pending)return {accepted:false,text:'先让这次相处做完，再找朋友。'};
   if(!row||row.entry.town.place!==f.place||shared.neighbors[id].town.place!==f.place)return {accepted:false,text:'先实际走进'+f.placeName+'，再去'+f.name+'身边。'};
   if(!free(row))return {accepted:false,text:'它还在忙，或想先吃饱休息好，等空下来再认识朋友。'};
@@ -65,7 +65,7 @@ export function createPetFriends(shared,{rows,getActors=()=>[],now=()=>Date.now(
  function moveFriend(goal,dt){const key=(state.pending?.neighborId||'florist-cat')+JSON.stringify(goal),r=state.resident;if(friendGoal!==key||friendDestination&&!nav.clearPoint(friendDestination)){friendDestination=nav.freePoint(goal,r.position);friendRoute=friendDestination?nav.path(r.position,friendDestination)||[]:[];friendGoal=key;}if(!friendDestination)return {arrived:false,speed:0};const moved=nav.walk(friendRoute,r.position,r.heading,dt,.63);r.position=moved.position;r.heading=moved.heading;const arrived=Math.hypot(r.position.x-friendDestination.x,r.position.z-friendDestination.z)<.02;if(!friendRoute.length&&!arrived)friendGoal='';return {arrived,speed:moved.speed};}
  function tick(dt,{paused=false,offline=false}={}){
   if(paused||!Number.isFinite(dt)||dt<=0)return null;dt=Math.min(dt,.05);
-  if(!state.pending){if(offline)return null;const speeds={};for(const f of PET_NEIGHBORS){if(shared.streetVisit?.neighborId===f.id||shared.neighbors[f.id].town.place!==f.place)continue;const r=shared.neighbors[f.id].town,n=navs.get(f.id),anchor=f.position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(n,r.position,()=>nextRandom(r),{radius:1.1,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.6});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(r.goal){const key=JSON.stringify(r.goal);let cached=idleRoutes.get(f.id);if(cached?.key!==key){cached={key,path:n.path(r.position,r.goal)||[]};idleRoutes.set(f.id,cached);}const path=cached.path,m=n.walk(path,r.position,r.heading,dt,.63);r.position=m.position;r.heading=m.heading;speeds[f.id]=m.speed;if(Math.hypot(r.position.x-r.goal.x,r.position.z-r.goal.z)<.02){r.goal=null;r.phase='visit';r.idle=0;}}else speeds[f.id]=0;}return {friendSpeed:speeds['florist-cat'],friends:speeds};}
+  if(!state.pending){if(offline)return null;const speeds={};for(const f of PET_NEIGHBORS){const r=shared.neighbors[f.id].town;if(shared.streetVisit?.neighborId===f.id||shared.petVisit?.neighborId===f.id||r.place!==f.place)continue;const n=navs.get(f.id),anchor=f.position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(n,r.position,()=>nextRandom(r),{radius:1.1,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.6});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(r.goal){const key=JSON.stringify(r.goal);let cached=idleRoutes.get(f.id);if(cached?.key!==key){cached={key,path:n.path(r.position,r.goal)||[]};idleRoutes.set(f.id,cached);}const path=cached.path,m=n.walk(path,r.position,r.heading,dt,.63);r.position=m.position;r.heading=m.heading;speeds[f.id]=m.speed;if(Math.hypot(r.position.x-r.goal.x,r.position.z-r.goal.z)<.02){r.goal=null;r.phase='visit';r.idle=0;}}else speeds[f.id]=0;}return {friendSpeed:speeds['florist-cat'],friends:speeds};}
   const t=state.pending,row=find(t.petId),f=neighbor(t.neighborId);
   if(offline||now()-t.startedAt>10*60000||!row||!free(row)){const r=cancel();return {...r,changed:true,cancelled:true};}
   const p=row.entry.town;if(t.phase==='doing'&&t.kind!=='play'&&Math.hypot(p.position.x-t.goal.x,p.position.z-t.goal.z)>.15){cancel();return {changed:true,cancelled:true};}
@@ -88,6 +88,6 @@ export function createPetFriends(shared,{rows,getActors=()=>[],now=()=>Date.now(
   const backup=before(),text=record(row,t.kind);row.care.record(text,{type:'neighbor',peer:f.id,kind:t.kind});state.pending=null;row.town.hold();route=[];
   return persist(backup,{accepted:true,changed:true,completed:true,petId:row.entry.id,text});
  }
- function facts(petId){const row=find(petId);return {pending:state.pending?.petId===petId?structuredClone(state.pending):null,friends:PET_NEIGHBORS.map(f=>({...structuredClone(f),...neighborBondView(row?bonds(row):{},f.id),samePlace:row?.entry.town?.place===(state.neighbors?.[f.id]?.town?.place||f.place)})),recent:PET_NEIGHBORS.flatMap(f=>neighborBondView(row?bonds(row):{},f.id).recent.map(x=>({...x,neighborId:f.id,name:f.name}))).sort((a,b)=>b.at-a.at).slice(0,8)};}
+ function facts(petId){const row=find(petId);return {pending:state.pending?.petId===petId?structuredClone(state.pending):null,friends:PET_NEIGHBORS.map(f=>({...structuredClone(f),...neighborBondView(row?bonds(row):{},f.id),samePlace:row?.entry.town?.place===shared.neighbors[f.id].town.place})),recent:PET_NEIGHBORS.flatMap(f=>neighborBondView(row?bonds(row):{},f.id).recent.map(x=>({...x,neighborId:f.id,name:f.name}))).sort((a,b)=>b.at-a.at).slice(0,8)};}
  return {state,request,tick,cancel,facts,snapshot:()=>structuredClone(shared)};
 }

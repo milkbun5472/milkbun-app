@@ -1,4 +1,4 @@
-import {homePoint} from './initiative.mjs?v=fg-211e287ced33c68b';
+import {homePoint} from './initiative.mjs?v=fg-56d22a214af323bc';
 // Parcel obligations are separate from the pet's own inventory and work souvenirs.
 export const COURIER_DOORS=[{id:'bakery',title:'面包店',label:'麦穗门牌'},{id:'florist',title:'花店',label:'小花门牌'},{id:'cafe',title:'咖啡店',label:'杯子门牌'}];
 const kinds=['一包新的纸杯','一卷包花纸','一盒烘焙纸'];
@@ -6,7 +6,7 @@ const door=id=>COURIER_DOORS.find(d=>d.id===id);
 const bounded=(n,max=10000)=>Number.isFinite(n)?Math.max(0,Math.min(max,Math.floor(n))):0;
 export function restoreDelivery(raw){
  if(!raw||typeof raw.id!=='string'||!raw.id||raw.id.length>80||!door(raw.to)||!door(raw.wrong)||raw.to===raw.wrong||!kinds.includes(raw.parcel))return null;
- return {id:raw.id,to:raw.to,wrong:raw.wrong,parcel:raw.parcel,issue:['normal','absent','wrong'].includes(raw.issue)?raw.issue:'normal',pickup:raw.pickup==='home'?'home':'store',picked:raw.picked===true,status:['sealed','carrying','delivered','returning','returned','holding'].includes(raw.status)?raw.status:'sealed',activeWrong:raw.activeWrong===true,revisit:['away','back'].includes(raw.revisit)?raw.revisit:'',attempts:bounded(raw.attempts,1),revision:bounded(raw.revision,20),holdPlaced:raw.holdPlaced===true&&!!homePoint(raw.position),position:homePoint(raw.position)};
+ return {id:raw.id,to:raw.to,wrong:raw.wrong,parcel:raw.parcel,issue:['normal','absent','wrong'].includes(raw.issue)?raw.issue:'normal',pickup:raw.pickup==='home'?'home':'store',picked:raw.picked===true,status:['sealed','carrying','delivered','returning','returned','holding'].includes(raw.status)?raw.status:'sealed',activeWrong:raw.activeWrong===true,revisit:['away','back'].includes(raw.revisit)?raw.revisit:'',attempts:bounded(raw.attempts,1),revision:bounded(raw.revision,20),followup:typeof raw.followup==='string'?raw.followup.slice(0,200):'',holdPlaced:raw.holdPlaced===true&&!!homePoint(raw.position),position:homePoint(raw.position)};
 }
 export function restoreCourier(raw){
  const pending=restoreDelivery(raw?.pending);
@@ -16,7 +16,8 @@ export function newDelivery(id,random,courier){
  if(courier.pending)return {...structuredClone(courier.pending),issue:'normal',pickup:courier.pending.holdPlaced?'home':'store',picked:false,status:'sealed',activeWrong:false,revisit:'',attempts:0,revision:0,holdPlaced:false};
  const weights=COURIER_DOORS.map(d=>Math.max(.4,1+courier.routes[d.id].like*.5));let pick=random()*weights.reduce((a,b)=>a+b,0),index=0;
  while(index<weights.length-1&&pick>=weights[index])pick-=weights[index++];
- return restoreDelivery({id,to:COURIER_DOORS[index].id,wrong:COURIER_DOORS[(index+1)%3].id,parcel:kinds[Math.floor(random()*kinds.length)],issue:['normal','absent','wrong'][Math.floor(random()*3)]});
+ const last=courier.log.at(-1),followup=last?.status==='returned'?'上次送到'+door(last.to).title+'的包裹已交回柜台；店员记得这次先和它核对门牌。':last?.status==='delivered'?'上次它送好了'+door(last.to).title+'的包裹，柜台还留着那张签收回执。':'';
+ return restoreDelivery({id,followup,to:COURIER_DOORS[index].id,wrong:COURIER_DOORS[(index+1)%3].id,parcel:kinds[Math.floor(random()*kinds.length)],issue:['normal','absent','wrong'][Math.floor(random()*3)]});
 }
 export function courierStop(job){const d=job?.delivery;if(!d)return 'store';return job.index===0?d.pickup:job.index===1?d.revisit==='away'?'store':d.activeWrong?d.wrong:d.to:d.status==='holding'&&!d.holdPlaced?'home':'store';}
 const option=(id,label,note,tip=0,like=.05,extras={})=>({id,label,note,tip,like,...extras});
@@ -28,6 +29,7 @@ export function courierEvent(job){
  else if(d.activeWrong){title='门牌对不上';text='走到了'+door(d.wrong).title+'，门牌和原标签不一样。包裹还封着，得再拿个主意。';options=[option('redirect','核对标签，重新送到原地址','在门边核对了标签，包裹保持原封，准备重新送。'+(d.wrong==='florist'?'花店把落下的花瓣留给了它。':''),0,.07,{trait:'bold',...(d.wrong==='florist'?{petals:1}:{}),routeLike:-.02}),option('return','把原包裹带回代收点','这次先把原包裹带回代收点，不留给错误的门牌。',0,.05,{routeLike:-.04})];}
  else if(d.issue==='absent'&&!d.attempts){title='这会儿没人收件';text=to.title+'的门牌核对好了，门边留着稍后回来的小牌子。原包裹仍在它身边。';options=[option('revisit','回代收点看看，再送一趟','先带原包裹回代收点，稍后再走到同一扇门。',0,.04,{routeLike:.02}),option('hold','带回家暂放，下一班继续送','准备把原包裹带回家暂放；它仍属于收件人。',0,.08,{routeLike:-.02}),option('return','把原包裹交回代收点','这次准备把原包裹交回代收点，交由店里安排。',0,.04,{routeLike:-.03})];}
  else{title=d.attempts?'第二趟等到了收件人':'到了标签上的门口';text=to.title+' · '+to.label+'。'+(d.attempts?'门边的小牌子收起来了，这次有人确认标签。':'收件人核对了标签，可以把原包裹交过去。');options=[option('deliver','确认门牌，把包裹交过去','在正确门牌交出了原包裹，收好签收记录。',4,.05,{trait:'social',routeLike:.05}),option('gentle','给它缓一会儿，再交给收件人','在正确门牌缓了缓，再把原包裹交给收件人。',2,.09,{energy:3,routeLike:.09})];}
+ if(job.index===0&&d.followup)text=d.followup+' '+text;
  return {id:job.id+':'+job.index+':'+d.revision,title,text,options};
 }
 export function chooseCourier(job,id){const d=job.delivery;let next=true;
