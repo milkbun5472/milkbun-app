@@ -14,7 +14,7 @@ const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),shops=['bakery','florist','sto
 function setup(profession,{size=1,species='cat',weight=1.25,actors=()=>[],saved}={}){
  const town=createTownLife(saved?.town||newTownLife(profession,roomDoor(profession),17),{world,size:()=>size,actor:()=>({id:'pet-1',kind:'pet',species,size,weight}),actors});
  const care=createPetCare(saved?.care||{energy:100,satiety:90,mood:100,rng:1});
- const career=createPetCareer(saved?.career||{selected:profession,rng:1},{workStation:job=>petWorkStation(job,town.nav(profession),town.state.place===profession?town.state.position:null)});
+ const career=createPetCareer(saved?.career||{selected:profession,rng:1},{workStation:job=>petWorkStation(job,town.nav(profession),town.state.place===profession?town.state.position:null,{moving:!!town.state.goal})});
  const ctx=()=>({care:care.state,room:town.state.place,position:town.state.position});
  return {town,care,career,ctx};
 }
@@ -24,7 +24,7 @@ function walkToWork(f){
   const before=career.state.job.time;town.tick(.1,{stayHome:true,position:town.state.position,heading:town.state.heading});
   if(!career.atDestination(f.ctx())){career.tick(.1,f.ctx());assert.equal(career.state.job.time,before,'door/travel cannot earn work time');}
  }
- assert.ok(career.atDestination(f.ctx()));assert.ok(distance(town.state.position,roomDoor(town.state.place))>1.5);
+ assert.ok(career.atDestination(f.ctx()));town.sync(town.state.place,town.state.position,town.state.heading,{manual:true});assert.ok(distance(town.state.position,roomDoor(town.state.place))>1.5);
 }
 test('both pet sizes really walk from each of five shop doors and between all three work stages before earning work',()=>{
  for(const profession of shops)for(const species of ['cat','dog'])for(const size of [1,1.3]){
