@@ -3262,6 +3262,9 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
   const [len, setLen] = useState(per.periodLen || 5);
   const [key, setKey] = useState(daySel);
   const [visOpen, setVisOpen] = useState(false);
+  // 日子那一排现在长了：选中的那天滚到看得见的地方
+  const chipRow = useRef(null);
+  useEffect(function () { const r = chipRow.current, b = r && r.querySelector('[data-k="' + key + '"]'); if (b) r.scrollLeft = Math.max(0, b.offsetLeft - r.clientWidth / 2 + b.clientWidth / 2); }, [key]);
   const logs = periodLogsOf(per);
   const log = logs[key] || {};
   const list = periodList(per);
@@ -3320,18 +3323,32 @@ function PeriodBook({ period, chars, daySel, onSave, onRecord, onBack }) {
       // ── 今天这一页 ──
       sec("记在 " + key.slice(5) + " 这一页"),
       // ⚠️右边留一截：选中的那天永远是最右一个，不留白就被裁在屏幕边上
-      h("div", { className: "flex", style: { gap: 6, marginBottom: 12, overflowX: "auto", paddingRight: 14 } },
+      h("div", { ref: chipRow, className: "flex", style: { gap: 6, marginBottom: 12, overflowX: "auto", paddingRight: 14 } },
         (function () {
+          // ⚠️原来是「月历上选中那天往前七天」（她 2026-10-05：「经期跨不了月」）：
+          //   月历停在 9-29，这一排就只到 9-29，10 月的日子一个都点不到。
+          //   现在一直排到今天（或者选中那天，取晚的），往前三周；这次还开着的那轮从哪天起就从哪天起。
+          //   再远的用最后那个「别的日子」挑。
+          const today = new Date(); today.setHours(0, 0, 0, 0);
+          const endD = pKeyDate(daySel) > today ? pKeyDate(daySel) : today;
+          const openP = list.filter(function (x) { return !x.end; }).slice(-1)[0];
+          let from = new Date(endD); from.setDate(from.getDate() - 20);
+          if (openP && pKeyDate(openP.start) < from) from = pKeyDate(openP.start);
           const days = [];
-          for (let i = 6; i >= 0; i--) { const d = pKeyDate(daySel); d.setDate(d.getDate() - i); days.push(calPadKey(d.getFullYear(), d.getMonth(), d.getDate())); }
+          for (const d = new Date(from); d <= endD; d.setDate(d.getDate() + 1)) days.push(calPadKey(d.getFullYear(), d.getMonth(), d.getDate()));
+          if (days.indexOf(key) < 0) days.push(key);
           return days.map(function (k) {
             const on = k === key, has = !!logs[k];
-            return h("button", { key: k, onClick: function () { setKey(k); }, className: "shrink-0 active:opacity-70",
+            return h("button", { key: k, "data-k": k, onClick: function () { setKey(k); }, className: "shrink-0 active:opacity-70",
               style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 9px", borderRadius: 9,
                 color: on ? t.bg2 : (has ? t.ink : t.fog), background: on ? t.ink : "transparent",
                 border: "1px solid " + (on ? t.ink : t.line) } }, k.slice(5) + (has && !on ? " ·" : ""));
           });
-        })()),
+        })(),
+        h("label", { className: "shrink-0", style: { position: "relative", fontFamily: F_BODY, fontSize: 11.5, padding: "5px 9px", borderRadius: 9, color: t.sub, border: "1px dashed " + t.line, overflow: "hidden" } },
+          "别的日子",
+          h("input", { type: "date", value: key, "aria-label": "挑别的日子", onChange: function (e) { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setKey(e.target.value); },
+            style: { position: "absolute", inset: 0, opacity: 0, width: "100%", height: "100%" } }))),
       h("div", { className: "flex items-center", style: { gap: 10, marginBottom: 10 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, width: 30 } }, "量"),
         PERIOD_FLOW.map(function (f) {
@@ -12637,10 +12654,68 @@ function LedgerTicketCard({ m }) {
       h("div", { "aria-hidden": "true", style: { height: 16, margin: "10px 34px 0 12px", opacity: .55, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 6px," + ink + " 6px 7px,transparent 7px 10px)" } }),
       h("img", { src: A + "rc-stamp.webp" + V, alt: "RECORDED", draggable: false, style: { position: "absolute", right: -34, bottom: -30, width: 66, height: "auto", transform: "rotate(-12deg)", opacity: .92, pointerEvents: "none" } })));
 }
+// TA 替她记进健康的那一张（她 2026-10-05：「健康卡略丑」）。
+//   原来跟账本、备忘录共用一张左边一道粗色条的便签——三样东西一个长相，健康那张还是最没信息的：
+//   标题、一行小字，看完不知道今天吃到哪儿了。
+//   现在照健康 app 自己的样子：顶上走一小段心电，记的每一样一行（吃的那样热量写大），
+//   底下一道今天吃到目标的几成（现读健康的存档，点开那天之后再记的也算进去）。点一下进健康。
+function HealthRecordCard({ m }) {
+  const C = { bg: "#f6f4ee", ink: "#27332c", sub: "#6f7a72", fog: "#a3aba4", line: "rgba(39,51,44,.12)", accent: "#4f8a6c", tint: "#d9824f", water: "#4f8db5" };
+  const rows = Array.isArray(m.rows) && m.rows.length ? m.rows : [{ t: m.title || "", v: m.sub || "" }];
+  let tot = null, goal = 0;
+  try { const H = window.HealthCtx; if (H && m.day) { const d = H.load(); tot = H.dayTotals(d, m.day); goal = Number(d.goal && d.goal.kcal) || 0; } } catch (e) {}
+  const hasMeal = rows.some(r => r.k === "meal");
+  const pct = tot && goal ? Math.min(1, tot.kcal / goal) : 0;
+  return h("button", { "data-wk": "card", "data-health-card": true, "aria-label": "去健康看", className: "active:opacity-80 text-left",
+      onClick: () => { try { window.healthGoApp && window.healthGoApp(); } catch (e) {} },
+      style: { display: "block", width: 228, borderRadius: 16, overflow: "hidden", background: C.bg, border: "1px solid " + C.line, boxShadow: "0 2px 8px rgba(39,51,44,.07)" } },
+    h("div", { style: { display: "flex", alignItems: "center", gap: 7, padding: "9px 13px 0" } },
+      h("svg", { width: 34, height: 12, viewBox: "0 0 34 12", "aria-hidden": "true" },
+        h("path", { d: "M0 7 H9 L11 3 L14 11 L17 1 L19 7 H34", fill: "none", stroke: C.tint, strokeWidth: 1.4, strokeLinecap: "round", strokeLinejoin: "round" })),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: C.sub } }, "记进健康了")),
+    h("div", { style: { padding: "6px 13px 10px" } }, rows.map((r, i) => r.k === "meal"
+      ? h("div", { key: i, style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "5px 0", borderTop: i ? "1px dashed " + C.line : "none" } },
+          h("div", { style: { minWidth: 0 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: C.fog } }, r.meal),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: C.ink, lineHeight: 1.35, overflowWrap: "anywhere" } }, r.name)),
+          h("div", { style: { flexShrink: 0, textAlign: "right", lineHeight: 1 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: C.tint, fontVariantNumeric: "tabular-nums" } }, r.kcal),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: C.sub, marginLeft: 2 } }, "千卡")))
+      : h("div", { key: i, style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, padding: "5px 0", borderTop: i ? "1px dashed " + C.line : "none" } },
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: C.ink } }, r.t),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: r.k === "water" ? C.water : C.sub, textAlign: "right" } }, r.v)))),
+    hasMeal && tot && goal ? h("div", { style: { padding: "8px 13px 10px", borderTop: "1px solid " + C.line, background: "rgba(79,138,108,.05)" } },
+      h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 10, color: C.sub, marginBottom: 5 } },
+        h("span", null, (window.ScheduleClock && m.day === window.ScheduleClock.deviceDayKey(new Date())) ? "今天吃到" : m.day + " 吃到"),
+        h("span", { style: { fontVariantNumeric: "tabular-nums" } }, tot.kcal + " / " + goal + " 千卡")),
+      h("div", { style: { height: 4, borderRadius: 999, background: "rgba(39,51,44,.08)", overflow: "hidden" } },
+        h("div", { style: { width: Math.round(pct * 100) + "%", height: "100%", borderRadius: 999, background: tot.kcal > goal ? C.tint : C.accent } }))) : null);
+}
+// 立约到期、每周小结：TA 说完话跟着的那张小卡（她 2026-10-05）。跟「记进健康」那张同一套颜色，点一下进健康。
+function HealthNoteCard({ m }) {
+  const C = { bg: "#f6f4ee", ink: "#27332c", sub: "#6f7a72", fog: "#a3aba4", line: "rgba(39,51,44,.12)", accent: "#4f8a6c", tint: "#d9824f" };
+  const pact = m.note === "pact", dots = Array.isArray(m.dots) ? m.dots : [], ok = dots.filter(x => x === "ok").length;
+  return h("button", { "data-wk": "card", "data-health-note": m.note || "", "aria-label": "去健康看", className: "active:opacity-80 text-left",
+      onClick: () => { try { window.healthGoApp && window.healthGoApp(); } catch (e) {} },
+      style: { display: "block", width: 228, borderRadius: 16, overflow: "hidden", background: C.bg, border: "1px solid " + C.line, boxShadow: "0 2px 8px rgba(39,51,44,.07)", padding: "10px 13px 12px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: C.sub } }, pact ? "我们约好的 · 到期了" : "上一周 · 小结"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: C.ink, marginTop: 4, lineHeight: 1.35 } }, m.title || ""),
+    pact ? h(React.Fragment, null,
+      h("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginTop: 9 } }, dots.map((st, i) => h("span", { key: i,
+        style: { width: 20, height: 20, borderRadius: 99, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 10.5,
+          background: st === "ok" ? C.accent : st === "miss" ? "rgba(217,130,79,.18)" : "transparent", color: st === "ok" ? "#fff" : st === "miss" ? C.tint : C.fog,
+          border: "1px solid " + (st === "ok" ? C.accent : st === "miss" ? "rgba(217,130,79,.45)" : "rgba(39,51,44,.18)") } }, st === "ok" ? "✓" : st === "miss" ? "×" : "?"))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: ok === dots.length && dots.length ? C.accent : C.sub, marginTop: 8 } },
+        ok === dots.length && dots.length ? "一天不落，" + dots.length + " 天全做到了" : "做到 " + ok + " / " + dots.length + " 天"))
+    : h("div", { style: { marginTop: 6 } }, (m.rows || []).map((r, i) => h("div", { key: i, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 0", borderTop: i ? "1px dashed " + C.line : "none", fontFamily: F_BODY } },
+        h("span", { style: { fontSize: 12, color: C.sub } }, r[0]), h("span", { style: { fontSize: 12.5, color: C.ink, textAlign: "right" } }, r[1])))));
+}
 function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo", isHealth = m.what === "health";
+  if (m.what === "healthnote") return h(HealthNoteCard, { m });   // 排在账本小票那一条前面：不然玻璃皮会把它画成一张小票
   if (!isMemo && !isHealth && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
+  if (isHealth) return h(HealthRecordCard, { m });
   const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : "79,109,90";
   return h("div", { "data-wk": "card",
     style: {
@@ -14148,7 +14223,7 @@ function StateCard({
       label(scTa + "心里闪过的那些 · " + hist.length + " 条"),
       h("div", { style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 4 } },
-          s2.mood ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
+          (window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : "")),
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, [s2.action, s2.wearing].filter(Boolean).join(" · ")) : null))))

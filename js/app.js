@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.830";
+const APP_VERSION = "v74.829";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3338,7 +3338,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const prev = p[id] || [];
       const last = prev[0];
       if (last && last.thought === s.thought) return p; // 同一条不重复
-      const n = { ...p, [id]: [{ thought: s.thought, mood: s.mood, wearing: s.wearing, action: s.action, wearingUpdatedAt: s.wearingUpdatedAt, actionUpdatedAt: s.actionUpdatedAt, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
+      const n = { ...p, [id]: [{ thought: s.thought, mood: window.MoodLabel ? window.MoodLabel.localize(s.mood) : s.mood, wearing: s.wearing, action: s.action, wearingUpdatedAt: s.wearingUpdatedAt, actionUpdatedAt: s.actionUpdatedAt, ts: s.ts || Date.now() }, ...prev].slice(0, 40) };
       n[id][0].turnId = s.turnId || null;
       n[id][0].affinityBefore = s.affinityBefore;
       stateHistRef.current = n;
@@ -6938,6 +6938,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;                                                // 一次一个，错峰
         }
       } catch (e) {}
+      // —— 健康·小习惯到点（她 2026-10-05）：她自己加的那几样（吃维生素、护肤……）到点还没勾，弹一下。不找角色、不调模型。
+      try {
+        const hd = window.HealthCtx && window.HealthCtx.habitDue ? window.HealthCtx.habitDue() : [];
+        hd.forEach(x => {
+          window.HealthCtx.markHabitPinged(x.id);
+          toast("该「" + x.name + "」了");
+          if (window.Notify) window.Notify.push({ title: "该「" + x.name + "」了", body: "健康里的小习惯 · " + x.at, tag: "habit-" + x.id });
+        });
+      } catch (e) {}
       // —— 健康·饭点来问（v74.732）：她在健康 app「谁看着」里开了「饭点会来问」、午饭/晚饭那会儿那一顿还没记 →
       //    她点了名的人里挑一位主动问一句。一天最多两次，那一顿记了就不问（条件全在 HealthCtx.nudgeDue 那一处）——
       try {
@@ -6947,7 +6956,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
           if (cand && !pSkip("health:" + hn.meal)) {
             pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
-              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line } }),
+              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } })
+                .then(r => { if (r === true && hn.card) pChat(cand.id, p => [...p, Object.assign({ role: "system", kind: "recorded", charId: cand.id, ts: Date.now() }, hn.card)]); return r; }),
               () => window.HealthCtx.markNudged(hn.day, hn.meal)
             );
             return;                                               // 一次一个，错峰
@@ -10530,7 +10540,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : "\n\n【此刻·提醒 " + uName + "】" + uName + " 之前在备忘录里记了今天要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，还没勾掉。你【主动】发消息提醒 Ta 一句——按你的性格和你俩的关系，自然、简短（1~2 条），像真的记着 Ta 的事那样顺口提一嘴，别像闹钟报事项、别说教、别粘人。") : "";
       // 健康·饭点来问（v74.732）／手机电量低、下雨还在外面（v74.732）：只给事实那一行，管不管、怎么开口是TA自己的事
       const healthHint = opts.health ? "\n\n【此刻·" + opts.health.meal + "】"
-        + opts.health.line + "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。" : "";
+        + opts.health.line + (opts.health.tail || "你【主动】找 Ta 说一句——照你的性子和你们现在的关系来，1~2 条短消息。") : "";
       // 纪念日主动（v58.83）：跟生日那条平级。⚠️不给例句、不给"该送什么"的样子——
       // 送什么、说什么必须从你们俩自己的事里长出来（见 prompt-no-content-samples.md）。
       const annivHint = opts.anniv ? "\n\n【此刻·今天是你和 " + uName + " 的"
@@ -11278,7 +11288,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
 
 【生成与输出协议】
 你就是 TA 本人。开口之前先以 TA 的第一人称把眼前这件事想一遍：她刚才那句话在 TA 看来是什么、TA 此刻真正在意的是哪一点、TA 的处境和脾气让 TA 怎么看它——word 从那个判断里长出来。不是先想「这种人该说什么」再往人设上凑。
-mood、thought、action、wearing 与能力字段只记录已经形成的反应、状态或决定，不用来提前铺排剧情，也不用来给 word 补一段解释；没有真实变化或实际触发时，不要为了填字段制造内容。
+mood、action、wearing 与能力字段只记录已经形成的反应、状态或决定，不用来提前铺排剧情，也不用来给 word 补一段解释；没有真实变化或实际触发时，不要为了填字段制造内容。
 只输出一个合法 JSON 对象，不要代码块。
 【核心字段】
 word: string[]，角色实际发送的消息。【一个元素＝一句话】：说了几句就给几个元素，别把几句话用逗号缝进同一个元素。**这一格不能空着**——她那头看到的就是这几条；只填了 action 而 word 是空的，她收到的是一行动作、一个字都没有。这一轮你确实不想开口，就用 silent 那一格（那是专门给「已读不回」的），别交一个空 word。${_biWordSpec}
@@ -11346,7 +11356,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   THOUGHT_MEANING 写着「别把上一条换个说法再写一遍」，可单聊从来没给它看过以前的心声。
       //   只摆出来、只说别撞同一个角度；往哪边变不指定（她：「这样改又会往另一个极端逼吧」）。
       //   撤了：把旧心声摆给它看，它照着学（她 2026-10-04：「其他都是往极端走」）。
-      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。它不是回复规划、互动总结或第三人称旁白。"
+      // 她 2026-10-05：「心声为啥还在总结」——两处把它往总结那边拉：它跟 mood/action 被归进同一句「只记录已经形成的反应」，
+      //   这里又写着「不是……互动总结」（禁令本身把那个词塞进去了）。两处都删，心声只照 THOUGHT_MEANING 那一句来。
+      const _normalThoughtTurnHint = "\n【本轮心声·普通角色必填】输出 JSON 时 thought 必须是非空字符串：写一句本人此刻没说出口的第一人称短念头；不能填 null、空串或省略。"
 ;
       // 每轮再提醒一次（v56.77）：系统里那段 bilingualRule 是稳定前缀，隔几轮模型就忘了。
       // 这一句挂在每轮任务串里——历史缓存模式下它拼在最后一条用户消息末尾，离得最近。
@@ -12383,7 +12395,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (parsed.health && typeof parsed.health === "object" && typeof window.healthAddByChar === "function") {
         const _hx = window.healthAddByChar(charId, parsed.health);
         if (_hx) {
-          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "health", charId: charId, title: _hx.title, sub: _hx.sub, note: "", ts: Date.now(), turnId }]);
+          pChat(chatKey, p => [...p, { role: "system", kind: "recorded", what: "health", charId: charId, title: _hx.title, sub: _hx.sub, rows: _hx.rows, day: _hx.day, note: "", ts: Date.now(), turnId }]);
           delivered = true;
         }
       }
@@ -13283,13 +13295,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
       const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
-      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给【本轮真正有情绪波动、或有话没说出口】的成员各加一条 \"thought\"（此刻没说出口的真实心声，一句话；心里怎么称呼别人就用平时那个称呼，别写成「这女人」「那家伙」这类旁观点评腔）——**每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人，绝不能写成用户或另一成员的视角**；每条都要贴合当下、和这个成员上一条心声不一样，别重复、别原地打转、别套话；没什么内心活动的成员可省略。另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
-        // 闭群：只要心声那一栏（先想后说），不要心情／好感／穿着——那些是写回主线的，闭群只进不出
-        : "\n【心声】给【本轮真正开口的】成员各加一条 \"thought\"：此刻没说出口的真实心声，一句话。"
-          + "**先把这一句想清楚，再写 TA 说出口的那句**——话从这句心声里长出来，不从「这种人设一般怎么说话」里长出来。"
-          + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人；心里怎么称呼别人就用平时那个称呼，"
-          + "别写成「这女人」「那家伙」这类旁观点评腔；每条都要贴合当下、和这个成员上一条心声不一样；没什么内心活动的可以省略。"
-          + "心声只留在这个群里，不会带回别处。";
+      // 心声那一格跟单聊同一句 THOUGHT_MEANING（她 2026-10-05：「群线上开了共处一室……心声还是这样，单聊有时候又是好的」）。
+      //   单聊 10-04 已经收成那一句，群这边还留着旧的一长串：「本轮有情绪波动的」「别写成这女人那家伙」「别重复、别原地打转、别套话」——
+      //   禁令把路堵成一个形状，「有情绪波动」又把它推成每轮汇报心里落没落地。只留它是什么，和「我」是谁（那条是事实，不是文风）。
+      //   「先想后说」那句是 v73.06 她定的闭群规矩，两支共用：心声是开口之前那一下，不是说完的批注。
+      const _gThoughtIs = "\"thought\"：" + THOUGHT_MEANING + "每条 thought 的第一人称『我』必须就是该对象 name 指定的成员本人。"
+        + "**先把这一句想清楚，再写 TA 说出口的那句**——话从这句心声里长出来，不从「这种人设一般怎么说话」里长出来。";
+      const thoughtHint = gs.memoryInterop ? "\n【心声与心情】开启了记忆互通：给本轮开口的成员各加一条 " + _gThoughtIs + "另可加 \"mood\"（必须填写中文心情词，如「愉快」「烦躁」，不要英文内部标签）、\"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。【后台状态】每个真正发言的成员都要给 wearing 和 action：wearing 沿用上面的当前穿着，除非时间/地点/剧情明确导致换装；action 就是" + G_ACTION_SPEC + "两项只更新共享状态，绝不写进 text 气泡。\n" + MOOD_TURN_RULE
+        // 闭群：只要心声那一栏，不要心情／好感／穿着——那些是写回主线的，闭群只进不出
+        : "\n【心声】给本轮开口的成员各加一条 " + _gThoughtIs + "心声只留在这个群里，不会带回别处。";
       // 群↔私聊打通（v53.96）：TA在群里说「待会私聊跟你说」，那句就该真的到私聊里去，
       // 而不是放空炮。内容在【同一轮】里写好，不额外发起一次调用——零成本。
       // 封闭群（没开记忆互通）是密封空间：记忆不进也不出，也就不许从群里牵一条线到私聊。
@@ -15081,6 +15095,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   window.calOpenFromMemo = () => { setScreen("calendar"); };
   window.memoGoApp = () => { setScreen("memo"); };
   window.ledgerGoApp = () => { setScreen("ledger"); };
+  window.healthGoApp = () => { setScreen("health"); };
   // ---- 日历 / calendar ----
   const saveCalendar = next => { setCalendar(next); saveJSON("x_calendar", next); };
   const cloneCal = prev => ({ world: { ...(prev.world || {}) }, chars: { ...(prev.chars || {}) }, mine: { ...(prev.mine || {}) } });
@@ -17830,7 +17845,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 那为什么不能每轮都写状态卡呢」）。字段名跟线上那份协议一模一样，
           // 写入也走同一个出口（setStateFor / pushStateHist / setMoodFor）——
           // 「如果没有这个功能就不要自己再开一个，挂到公共的里面跟着线上走」。
-          + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought 你心里那一句（第一人称，你自己的话，不是总结）；"
+          + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought 你心里那一句（第一人称，你自己的话）；"
           + "place 人在哪一句短的；action 此刻正在做什么（每轮都更新，别照抄上一轮）；wearing 此刻穿着（跟场合时间对得上；没换就照旧）；condition 身体状态（只在确实不同于平常时才填，否则 null）。"
           + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词

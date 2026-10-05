@@ -4,6 +4,8 @@
   const pad=n=>String(n).padStart(2,'0');
   const ordinal=d=>Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/DAY);
   const dateKey=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+  // Shared town cycle: 2026-10-04 is spring day 1 for every archive.
+  const SEASON_DAYS=14,SEASON_ANCHOR=Math.floor(Date.UTC(2026,9,4)/DAY),SEASON_EPOCH=new Date(SEASON_ANCHOR*DAY).toISOString().slice(0,10);
   const number=(n,f=1)=>Number.isFinite(n)?Math.max(1,Math.floor(n)):f;
   function restore(raw,day=1,at=Date.now()){
     if(raw?.version===1&&Number.isInteger(raw.anchor)&&Number.isFinite(raw.startDay))
@@ -12,10 +14,15 @@
   }
   function sample(raw,at=Date.now()){
     const d=new Date(at),clock=restore(raw,1,at),weekday=d.getDay();
-    const day=Math.max(clock.day,clock.startDay+ordinal(d)-clock.anchor);
+    // Saved day is only the old progress counter (receipts and daily guards).
+    // The public calendar and seasons never depend on an archive's start date.
+    const day=Math.max(clock.day,clock.startDay+ordinal(d)-clock.anchor),calendarDay=ordinal(d)+1;
+    const elapsed=ordinal(d)-SEASON_ANCHOR,seasonCycle=Math.floor(elapsed/SEASON_DAYS);
+    const season=(seasonCycle%4+4)%4,seasonDay=(elapsed%SEASON_DAYS+SEASON_DAYS)%SEASON_DAYS+1;
+    const seasonStart=dateKey(new Date(d.getFullYear(),d.getMonth(),d.getDate()-seasonDay+1));
     return {at,day,minute:d.getHours()*60+d.getMinutes(),second:d.getSeconds(),date:dateKey(d),weekday,week:WEEK[weekday],weekend:weekday===0||weekday===6,
       label:(d.getMonth()+1)+'月'+d.getDate()+'日 '+WEEK[weekday]+' '+pad(d.getHours())+':'+pad(d.getMinutes()),
-      season:Math.floor((day-1)/14)%4,seasonDay:(day-1)%14+1};
+      calendarDay,season,seasonCycle,seasonStart,seasonDay,seasonLength:SEASON_DAYS,seasonEpoch:SEASON_EPOCH};
   }
   function archive(data,at=Date.now()){
     const town=data.worlds?.pets,pets=town?.pets||[];

@@ -1,0 +1,44 @@
+// Real decoded skins and the same action sampler used by home and street.
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const base=process.env.PET_HOUSE_URL||'http://127.0.0.1:18961',out=process.env.PET_HOUSE_EVIDENCE||'/tmp/pet-actions';fs.mkdirSync(out,{recursive:true});
+(async()=>{const b=await chromium.launch({channel:'chrome',headless:true}),page=await b.newPage({viewport:{width:640,height:640}}),errors=[],report={};page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});try{
+ await page.goto(base+'/art/pet-house/preview.html');await page.waitForFunction(()=>window.petHousePreview?.snapshot().ready);await page.evaluate(()=>requestAnimationFrame=()=>0);
+ const actions=await page.evaluate(async()=>{window.actionT=await import('three');window.actionP=await import('./pet-action.mjs');window.actionM=await import('./pet-mood.mjs');return [...actionP.PET_ACTIONS,...actionM.PET_MOODS.map(m=>({id:'mood-'+m.id,label:m.label+'的样子'}))];});
+ for(const species of ['cat','dog']){
+  await page.locator('#pet-species').selectOption(species,{force:true});report[species]={};
+  await page.evaluate(()=>{const p=petHousePreview,T=actionT;p.petRoot.position.set(0,.041,0);p.petRoot.rotation.y=0;p.pet.setMood('neutral');p.pet.setTail({wag:true});p.pet.bind({ground:()=>.04,matchSpeed:true});p.room.visible=false;p.scene.children.find(o=>o.isMesh&&o.geometry.type==='PlaneGeometry').position.y=.04;p.pet.saveLook({base:'#f4eee0',patch:p.pet.species==='cat'?'#d5a064':'#a98565'});document.querySelectorAll('body > :not(#view):not(script)').forEach(e=>e.style.visibility='hidden');
+   let mesh;p.pet.model.traverse(o=>{if(o.isSkinnedMesh)mesh=o});window.actionSkin=mesh;const pos=mesh.geometry.attributes.position;
+   const points=p.pet.species==='cat'?[[0,.425,.455],[-.115,.51,.445],[.115,.51,.445],[0,.60,.06]]:[[0,.555,.489],[-.075,.617,.382],[.075,.617,.382],[0,.66,.075]];
+   window.actionProbes=points.map(a=>{let index=0,d=Infinity;for(let i=0;i<pos.count;i++){const v=new T.Vector3().fromBufferAttribute(pos,i).distanceToSquared(new T.Vector3().fromArray(a));if(v<d){index=i;d=v}}return index});
+   window.actionBodyProbes=[[0,.46,-.10],[0,.20,-.10]].map(a=>{let index=0,d=Infinity;for(let i=0;i<pos.count;i++){const v=new T.Vector3().fromBufferAttribute(pos,i).distanceToSquared(new T.Vector3().fromArray(a));if(v<d){index=i;d=v}}return index});
+   window.actionBodyPoints=()=>{mesh.skeleton.update();return actionBodyProbes.map(i=>mesh.localToWorld(mesh.applyBoneTransform(i,new T.Vector3().fromBufferAttribute(pos,i))));};
+   window.actionTailProbes=Array.from({length:pos.count},(_,i)=>i).filter(i=>pos.getY(i)>.59&&pos.getZ(i)<-.23);
+   window.actionTailPoints=()=>{mesh.skeleton.update();return actionTailProbes.filter((_,i)=>i%80===0).map(i=>mesh.localToWorld(mesh.applyBoneTransform(i,new T.Vector3().fromBufferAttribute(pos,i))));};
+   window.actionPoints=()=>{mesh.skeleton.update();return actionProbes.map(i=>mesh.localToWorld(mesh.applyBoneTransform(i,new T.Vector3().fromBufferAttribute(pos,i))));};
+  });
+  for(const{id,label}of actions){
+   const r=await page.evaluate(id=>{const p=petHousePreview,T=actionT;p.petRoot.position.set(0,.041,0);p.petRoot.rotation.y=0;p.pet.setMood('neutral');p.pet.motion.setActionPose({});for(let i=0;i<240;i++)p.pet.motion.update(1/60,0);const m=p.pet.bind({ground:()=>.04,matchSpeed:true}),original=actionPoints(),pairs=[];for(let i=0;i<4;i++)for(let j=i+1;j<4;j++)pairs.push([i,j,original[i].distanceTo(original[j])]);
+    const mood=id.startsWith('mood-')?id.slice(5):id==='sleep'||id==='wake'?'sleepy':['pet','play','treat'].includes(id)?'happy':'neutral';p.pet.setMood(mood);let maxFootError=0,maxSkullError=0,maxHeadStep=0,previous=null;
+    if(id==='wake'){m.setActionPose(actionP.samplePetAction('sleep',0,{species:p.pet.species}));for(let i=0;i<180;i++)m.update(1/60,0);p.pet.setMood('relaxed');}
+    let bodyThickness=null,tailShape=null;if(id==='sleep'){p.pet.setTail({wag:false});p.pet.setMood('neutral');for(let i=0;i<240;i++)m.update(1/60,0);tailShape=actionTailPoints();const body=actionBodyPoints();bodyThickness=body[0].distanceTo(body[1]);const weights=actionSkin.geometry.attributes.skinWeight,indices=actionSkin.geometry.attributes.skinIndex;for(const i of actionTailProbes){let sum=0;for(let j=0;j<4;j++)if(actionSkin.skeleton.bones[indices.getComponent(i,j)].name.startsWith('tail'))sum+=weights.getComponent(i,j);if(sum<.99999)throw Error('Tail tip still attached to pelvis '+i);}}
+    if(id==='greet')m.respond();const frames=id==='wake'?24:id==='greet'?78:240;
+    for(let i=0;i<frames;i++){const time=i/60,walking=['walk','trot','carry'].includes(id),speed=walking?(id==='walk'?.20:.8)*p.pet.model.scale.x:0;if(walking)p.petRoot.position.z+=speed/60;if(id==='turn')p.petRoot.rotation.y+=.010;
+     m.setActionPose(actionP.samplePetAction(id,time,{species:p.pet.species}));m.update(1/60,speed,0,walking||id==='turn');const s=m.snapshot();for(const f of s.feet)maxFootError=Math.max(maxFootError,Math.hypot(...f.ankle.map((v,j)=>v-f.goal[j])));
+     const points=actionPoints();for(const[a,b,d]of pairs)maxSkullError=Math.max(maxSkullError,Math.abs(points[a].distanceTo(points[b])-d));if(previous)maxHeadStep=Math.max(maxHeadStep,points[0].distanceTo(previous));previous=points[0];
+    }
+    const pos=actionSkin.geometry.attributes.position;let minY=Infinity;actionSkin.skeleton.update();for(let i=0;i<pos.count;i++)minY=Math.min(minY,actionSkin.localToWorld(actionSkin.applyBoneTransform(i,new T.Vector3().fromBufferAttribute(pos,i))).y);
+    const at=p.petRoot.position.clone().add(new T.Vector3(0,.39,0));p.camera.left=-.73;p.camera.right=.73;p.camera.top=.73;p.camera.bottom=-.73;p.camera.position.copy(at).add(new T.Vector3(1.6,.65,2.8));p.camera.lookAt(at);p.camera.updateProjectionMatrix();p.renderer.render(p.scene,p.camera);
+    let waistRetention=1;if(bodyThickness){const body=actionBodyPoints();waistRetention=body[0].distanceTo(body[1])/bodyThickness;if(waistRetention<.94)throw Error('Pet waist collapses in sleep '+waistRetention);}
+    let tailShapeError=0;if(tailShape){const after=actionTailPoints();for(let i=1;i<after.length;i++)tailShapeError=Math.max(tailShapeError,Math.abs(after[0].distanceTo(after[i])-tailShape[0].distanceTo(tailShape[i])));if(tailShapeError>.00001)throw Error('Sleep flattens its fluffy tail '+tailShapeError);p.pet.setTail({wag:true});}
+    return {waistRetention,tailShapeError,maxFootError,maxSkullError,maxHeadStep,minY,clamps:m.snapshot().clamps,action:m.snapshot().action,rootRotation:p.pet.model.quaternion.toArray()};
+   },id);report[species][id]={label,...r};assert.ok(r.maxFootError<.001,species+' '+id+' unreachable paw '+JSON.stringify(r));assert.ok(r.maxSkullError<1e-6,species+' '+id+' distorted skull');assert.equal(r.clamps,0,species+' '+id+' limb clamp');assert.ok(r.minY>=.033,species+' '+id+' below floor '+r.minY);assert.ok(r.maxHeadStep<.030,species+' '+id+' sudden head jump '+r.maxHeadStep);
+   await page.locator('canvas').screenshot({path:path.join(out,species+'-'+id+'.png')});
+   if(id==='sleep'){
+    report[species].sleepRebind=await page.evaluate(()=>{const p=petHousePreview,before=actionPoints(),pose=p.pet.motion.snapshot();p.pet.bind({ground:()=>.04,matchSpeed:true});const after=actionPoints();return {maxChange:Math.max(...before.map((v,i)=>v.distanceTo(after[i]))),lie:p.pet.motion.snapshot().action.lie,posePreserved:JSON.stringify(pose.pose)===JSON.stringify(p.pet.motion.snapshot().pose)};});assert.ok(report[species].sleepRebind.maxChange<1e-6);assert.equal(report[species].sleepRebind.posePreserved,true);
+    await page.evaluate(()=>{const p=petHousePreview,T=actionT,at=p.petRoot.position.clone().add(new T.Vector3(0,.30,-.10));p.camera.left=-.85;p.camera.right=.85;p.camera.top=.85;p.camera.bottom=-.85;p.camera.position.copy(at).add(new T.Vector3(2,.12,.35));p.camera.lookAt(at);p.camera.updateProjectionMatrix();p.renderer.render(p.scene,p.camera);});await page.locator('canvas').screenshot({path:path.join(out,species+'-sleep-side.png')});assert.equal(await page.evaluate(()=>{const p=petHousePreview;p.pet.bind({ground:()=>.04,resetAction:true});return p.pet.motion.snapshot().action.lie;}),0,'Appearance preview starts upright without altering gameplay');
+   }
+  }
+ }
+ assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'actions.json'),JSON.stringify({actions,report,errors,ok:true},null,2));console.log('Both actual skins: '+actions.length+' actions/moods, reachable paws, rigid skulls, grounded skins, smooth transitions and sleep rebind passed.');
+ }finally{await b.close();}})().catch(e=>{console.error(e);process.exit(1)});

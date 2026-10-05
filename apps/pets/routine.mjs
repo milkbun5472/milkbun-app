@@ -1,17 +1,17 @@
-import {cancelOfflineSkill} from './skills.mjs?v=fg-4c2b634f7d6c276a';
-import {createHousehold} from './home-chores.mjs?v=fg-4c2b634f7d6c276a';
-import {homeUse} from './home-condition.mjs?v=fg-4c2b634f7d6c276a';
-import {choosePetRest} from './habits.mjs?v=fg-4c2b634f7d6c276a';
-import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-4c2b634f7d6c276a';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-4c2b634f7d6c276a';
-import {weather} from '../fairy-garden/world.mjs?v=fg-4c2b634f7d6c276a';
-import {workRoom} from './workplaces.mjs?v=fg-4c2b634f7d6c276a';
-import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetCare} from './care.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetCareer} from './career.mjs?v=fg-4c2b634f7d6c276a';
-import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-4c2b634f7d6c276a';
-import {walkRoute} from './movement.mjs?v=fg-4c2b634f7d6c276a';
-import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-4c2b634f7d6c276a';
+import {cancelOfflineSkill} from './skills.mjs?v=fg-d74e8950a8dcd8c4';
+import {createHousehold} from './home-chores.mjs?v=fg-d74e8950a8dcd8c4';
+import {homeUse} from './home-condition.mjs?v=fg-d74e8950a8dcd8c4';
+import {choosePetRest} from './habits.mjs?v=fg-d74e8950a8dcd8c4';
+import {RESIDENT_ACTS,residentGoalClear,residentStepClear,planResidentAct,rememberResidentAct} from './resident-choice.mjs?v=fg-d74e8950a8dcd8c4';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-d74e8950a8dcd8c4';
+import {townEnvironment} from './environment.mjs?v=fg-d74e8950a8dcd8c4';
+import {workRoom} from './workplaces.mjs?v=fg-d74e8950a8dcd8c4';
+import {realTime,dailyRoutine,workWindow} from '../fairy-garden/real-clock.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetCare} from './care.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetCareer} from './career.mjs?v=fg-d74e8950a8dcd8c4';
+import {createTownLife,createTownNavigation} from './town-life.mjs?v=fg-d74e8950a8dcd8c4';
+import {walkRoute} from './movement.mjs?v=fg-d74e8950a8dcd8c4';
+import {HOME_PLACES,PET_STATIONS,petHomePlaces} from './home-navigation.mjs?v=fg-d74e8950a8dcd8c4';
 const meals=['breakfast','lunch','dinner'];
 const clamp=n=>Math.max(0,Math.min(100,n));
 export function lifeOf(owner){return owner.life||(owner.life={at:0,marks:{},notes:[],wakeUntil:0});}
@@ -38,7 +38,7 @@ function homeMove(entry,target){const nav=createTownNavigation('home',entry.prof
 function recoverResidentPastime(state,time,seconds){const owner=state.resident,town=owner.town;if(state.household?.task||!owner.id||town?.place!=='home'||town.phase!=='idle'||owner.activity?.kind==='sleep'||owner.activity?.kind==='meal'||state.pets.some(p=>p.care.helper||p.care.task?.target==='companion:'+owner.id))return;
  const period=dailyRoutine(time,owner.rng);if(period.id==='sleep'||['breakfast','lunch','dinner'].includes(period.id))return;
  const nav=createTownNavigation('home',1.4),position={...town.position},peers=state.pets.filter(p=>p.town.place==='home').map(p=>({position:p.town.position,size:p.profile.size})),clear=q=>residentGoalClear(q,peers);
- if(!owner.activity){const plan=planResidentAct(owner,{nav,position,context:{minute:time.minute,kind:weather(time.day,state.epoch||state.clock.anchor),pets:state.pets.some(p=>p.town.place==='home')},clear,randomRoute:random=>localRoute(nav,position,random,{radius:2.5,clear})},()=>nextRandom(owner));if(!plan)return;owner.activity=plan.activity;}
+ if(!owner.activity){const plan=planResidentAct(owner,{nav,position,context:{minute:time.minute,kind:townEnvironment(time,state.epoch||state.clock.anchor).kind,pets:state.pets.some(p=>p.town.place==='home')},clear,randomRoute:random=>localRoute(nav,position,random,{radius:2.5,clear})},()=>nextRandom(owner));if(!plan)return;owner.activity=plan.activity;}
  const a=owner.activity;if(!RESIDENT_ACTS[a.kind])return;let budget=seconds,p={...position},heading=town.heading;
  if(a.phase==='walking'){const route=a.goal&&nav.walkable(a.goal.x,a.goal.z)?nav.path(p,a.goal):null;if(!route){owner.activity=null;return;}while(route.length&&budget>.1){const moved=walkRoute(route,p,heading,.1,.65,q=>nav.walkable(q.x,q.z));if(!residentStepClear(p,moved.position,peers)){town.position={...p};town.heading=heading;owner.position={...p};owner.heading=heading;owner.activity=null;return;}p=moved.position;heading=moved.heading;budget-=.1;}town.position={...p};town.heading=heading;owner.position={...p};owner.heading=heading;if(route.length)return;a.phase='doing';a.time=0;}
  a.time+=budget;if(a.time>=a.duration){rememberResidentAct(owner,a.kind,time.at);lifeNote(owner,time,'TA在家里'+RESIDENT_ACTS[a.kind].label+'。','activity:'+a.kind);owner.activity=null;owner.idle=0;}

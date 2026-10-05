@@ -1,49 +1,49 @@
-import {createCareerCompany} from '../../apps/pets/career-company.mjs?v=fg-4c2b634f7d6c276a';
-import {createNeighborhood,gatheringSpot} from '../../apps/pets/neighborhood.mjs?v=fg-4c2b634f7d6c276a';
-import {createNeighborhoodView} from '../../apps/pets/neighborhood-view.mjs?v=fg-4c2b634f7d6c276a';
-import {applyRoomLayout,ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-4c2b634f7d6c276a';
-import {mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES,COMPANION_LOOK} from '../../apps/fairy-garden/wardrobe.mjs?v=fg-4c2b634f7d6c276a';
-import {createHousehold} from '../../apps/pets/home-chores.mjs?v=fg-4c2b634f7d6c276a';
-import {createChoreView} from '../../apps/pets/home-chores-view.mjs?v=fg-4c2b634f7d6c276a';
-import {mountTownControls,setSceneControlLabel} from '../../apps/pets/scene-controls.mjs?v=fg-4c2b634f7d6c276a';
+import {createCareerCompany} from '../../apps/pets/career-company.mjs?v=fg-d74e8950a8dcd8c4';
+import {createNeighborhood,gatheringSpot} from '../../apps/pets/neighborhood.mjs?v=fg-d74e8950a8dcd8c4';
+import {createNeighborhoodView} from '../../apps/pets/neighborhood-view.mjs?v=fg-d74e8950a8dcd8c4';
+import {applyRoomLayout,ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-d74e8950a8dcd8c4';
+import {mergeLook,dyesOf,outfitId,outfitColors,hairId,HAIR_MODES,COMPANION_LOOK} from '../../apps/fairy-garden/wardrobe.mjs?v=fg-d74e8950a8dcd8c4';
+import {createHousehold} from '../../apps/pets/home-chores.mjs?v=fg-d74e8950a8dcd8c4';
+import {createChoreView} from '../../apps/pets/home-chores-view.mjs?v=fg-d74e8950a8dcd8c4';
+import {mountTownControls,setSceneControlLabel} from '../../apps/pets/scene-controls.mjs?v=fg-d74e8950a8dcd8c4';
 
-import {createStallView} from '../../apps/pets/stall-view.mjs?v=fg-4c2b634f7d6c276a';
-import {syncResidentPreferences} from '../../apps/pets/resident-choice.mjs?v=fg-4c2b634f7d6c276a';
-import {createCourierProps} from '../../apps/pets/courier-props.mjs?v=fg-4c2b634f7d6c276a';
-import {workRoom,professionAtRoom} from '../../apps/pets/workplaces.mjs?v=fg-4c2b634f7d6c276a';
-import {makeOutdoor} from '../../apps/fairy-garden/outdoor.mjs?v=fg-4c2b634f7d6c276a';
-import {townEnvironment,townSeasonRole,townRainSurface} from '../../apps/pets/environment.mjs?v=fg-4c2b634f7d6c276a';
-import {PET_STATIONS as STATIONS} from '../../apps/pets/home-navigation.mjs?v=fg-4c2b634f7d6c276a';
-import {realTime,dailyRoutine} from '../../apps/fairy-garden/real-clock.mjs?v=fg-4c2b634f7d6c276a';
-import {recoverPetLife,petRoutine,startScheduledWork,lifeNote,lifeOf} from '../../apps/pets/routine.mjs?v=fg-4c2b634f7d6c276a';
-import {makeTownStation} from '../../apps/pets/station-view.mjs?v=fg-4c2b634f7d6c276a';
-import {runStationBoarding,makeArrivingTrain} from '../../apps/fairy-garden/arrival-view.mjs?v=fg-4c2b634f7d6c276a';
-import {restoreObservation,observedActor,observe,stopObservation} from '../../apps/pets/observation.mjs?v=fg-4c2b634f7d6c276a';
-import {PET_WORKPLACES} from '../../apps/pets/workplaces.mjs?v=fg-4c2b634f7d6c276a';
-import {createTownLife,newTownLife,townSummary,roomDoor} from '../../apps/pets/town-life.mjs?v=fg-4c2b634f7d6c276a';
-import {parcelFacts} from '../../apps/pets/parcels.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetSocial} from '../../apps/pets/social.mjs?v=fg-4c2b634f7d6c276a';
-import {idlePose} from '../../apps/pets/autonomy.mjs?v=fg-4c2b634f7d6c276a';
-import {createHomeSouvenirs,homeSouvenirs} from '../../apps/pets/home-souvenirs.mjs?v=fg-4c2b634f7d6c276a';
-import {YOU_SPOT} from '../../apps/pets/initiative.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetCareer} from '../../apps/pets/career.mjs?v=fg-4c2b634f7d6c276a';
-import {moodFromCare} from '../pet-house/pet-mood.mjs?v=fg-4c2b634f7d6c276a';
-import {createHousemate} from '../../apps/pets/housemate.mjs?v=fg-4c2b634f7d6c276a';
-import {walkRoute} from '../../apps/pets/movement.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetCare,careSummary,careBlock} from '../../apps/pets/care.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetHome} from '../../apps/pets/home.mjs?v=fg-4c2b634f7d6c276a';
+import {createStallView} from '../../apps/pets/stall-view.mjs?v=fg-d74e8950a8dcd8c4';
+import {syncResidentPreferences} from '../../apps/pets/resident-choice.mjs?v=fg-d74e8950a8dcd8c4';
+import {createCourierProps} from '../../apps/pets/courier-props.mjs?v=fg-d74e8950a8dcd8c4';
+import {workRoom,professionAtRoom} from '../../apps/pets/workplaces.mjs?v=fg-d74e8950a8dcd8c4';
+import {makeOutdoor} from '../../apps/fairy-garden/outdoor.mjs?v=fg-d74e8950a8dcd8c4';
+import {townEnvironment,townSeasonRole,townRainSurface} from '../../apps/pets/environment.mjs?v=fg-d74e8950a8dcd8c4';
+import {PET_STATIONS as STATIONS} from '../../apps/pets/home-navigation.mjs?v=fg-d74e8950a8dcd8c4';
+import {realTime,dailyRoutine} from '../../apps/fairy-garden/real-clock.mjs?v=fg-d74e8950a8dcd8c4';
+import {recoverPetLife,petRoutine,startScheduledWork,lifeNote,lifeOf} from '../../apps/pets/routine.mjs?v=fg-d74e8950a8dcd8c4';
+import {makeTownStation} from '../../apps/pets/station-view.mjs?v=fg-d74e8950a8dcd8c4';
+import {runStationBoarding,makeArrivingTrain} from '../../apps/fairy-garden/arrival-view.mjs?v=fg-d74e8950a8dcd8c4';
+import {restoreObservation,observedActor,observe,stopObservation} from '../../apps/pets/observation.mjs?v=fg-d74e8950a8dcd8c4';
+import {PET_WORKPLACES} from '../../apps/pets/workplaces.mjs?v=fg-d74e8950a8dcd8c4';
+import {createTownLife,newTownLife,townSummary,roomDoor} from '../../apps/pets/town-life.mjs?v=fg-d74e8950a8dcd8c4';
+import {parcelFacts} from '../../apps/pets/parcels.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetSocial} from '../../apps/pets/social.mjs?v=fg-d74e8950a8dcd8c4';
+import {idlePose} from '../../apps/pets/autonomy.mjs?v=fg-d74e8950a8dcd8c4';
+import {createHomeSouvenirs,homeSouvenirs} from '../../apps/pets/home-souvenirs.mjs?v=fg-d74e8950a8dcd8c4';
+import {YOU_SPOT} from '../../apps/pets/initiative.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetCareer} from '../../apps/pets/career.mjs?v=fg-d74e8950a8dcd8c4';
+import {moodFromCare} from '../pet-house/pet-mood.mjs?v=fg-d74e8950a8dcd8c4';
+import {createHousemate} from '../../apps/pets/housemate.mjs?v=fg-d74e8950a8dcd8c4';
+import {walkRoute} from '../../apps/pets/movement.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetCare,careSummary,careBlock} from '../../apps/pets/care.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetHome} from '../../apps/pets/home.mjs?v=fg-d74e8950a8dcd8c4';
 import * as T from 'three';
-import {CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-4c2b634f7d6c276a';
-import {restorePetState,snapshotPetState,petProfile,petSpeciesProfile,petDefaultName,bodyWidth,PET_LIMIT,newPetEntry,projectActivePet} from '../../apps/pets/state.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-4c2b634f7d6c276a';
-import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-4c2b634f7d6c276a';
-import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-4c2b634f7d6c276a';
-import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-4c2b634f7d6c276a';
-import {loadPetCompanion,mountPetControls} from '../pet-house/pet-companion.mjs?v=fg-4c2b634f7d6c276a';
-import {createPetWorld} from './world-navigation.mjs?v=fg-4c2b634f7d6c276a';
+import {CAT_PALETTES} from '../pet-house/cat-dye.mjs?v=fg-d74e8950a8dcd8c4';
+import {restorePetState,snapshotPetState,petProfile,petSpeciesProfile,petDefaultName,bodyWidth,PET_LIMIT,newPetEntry,projectActivePet} from '../../apps/pets/state.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetCamera} from '../pet-house/pet-camera.mjs?v=fg-d74e8950a8dcd8c4';
+import {GLTFLoader} from '../../apps/fairy-garden/vendor/GLTFLoader.js?v=fg-d74e8950a8dcd8c4';
+import {DRACOLoader} from '../../apps/fairy-garden/vendor/DRACOLoader.js?v=fg-d74e8950a8dcd8c4';
+import {createMapGesture,orthographicPanDelta} from '../../apps/fairy-garden/view-controls.mjs?v=fg-d74e8950a8dcd8c4';
+import {loadPetCompanion,mountPetControls} from '../pet-house/pet-companion.mjs?v=fg-d74e8950a8dcd8c4';
+import {createPetWorld} from './world-navigation.mjs?v=fg-d74e8950a8dcd8c4';
 mountTownControls();
 const read=async url=>{const r=await fetch(new URL(url,import.meta.url));if(!r.ok)throw Error('场景文件 '+r.status);return r.json();};
-const layout=await read('./outside.json?v=fg-4c2b634f7d6c276a'),world=createPetWorld(layout);
+const layout=await read('./outside.json?v=fg-d74e8950a8dcd8c4'),world=createPetWorld(layout);
 const view=document.getElementById('view'),loading=document.getElementById('loading'),labels=document.getElementById('door-labels');
 const title=document.querySelector('h1'),subtitle=document.getElementById('subtitle'),back=document.getElementById('back'),enterButton=document.getElementById('enter');
 const renderer=new T.WebGLRenderer({antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;view.append(renderer.domElement);
@@ -78,8 +78,8 @@ let evening=restored.evening,indoorOrbit={theta:0,phi:0};
 function save(force=false,journey){if(host){captureObservation();syncHousehold();petState.observation=structuredClone(observation);}if(career){petState.career=career.snapshot();petState.day=career.state.day;}if(care)petState.care=care.snapshot();if(host&&(customizing||!petState.configured)&&force!==true)return true;if(host){try{const snapshot=snapshotPetState(petState,{position,room,outdoor,evening});if(!host.save(snapshot,'pets',journey))throw Error('没有保存成功');saveFailed=false;return true;}catch(e){saveFailed=true;note('进度还没有保存成功','请留在这里重试，保存成功后再离开。');return false;}}try{sessionStorage.setItem(sessionKey,JSON.stringify({position,room,outdoor,evening}));}catch{}}
 function companionLook(){const person=host?.companion?.();if(!housemate||String(person?.id)!==String(housemate.person.id))throw Error('同行者已切换，请重新进入绒绒小镇。');return structuredClone(housemate.snapshot().look);}
 function setCompanionLook(who,patch){if(who!=='companion'||busy||customizing||!ready||!petState.configured)return false;const next=mergeLook(companionLook(),patch);if(!save(true,{companionLook:next}))return false;housemate.setLook(next);housemate.doll.ready().then(draw).catch(e=>console.error(e));draw();return true;}
-function applyProfile(value){homeCare?.resetPose();const next=petProfile(value);petState.profile=next;pet.select(next.species);cat=pet.model;rig=pet.rig;dye=pet.dye;dye?.set(next.look);for(const {mesh,original,height}of shapeMeshes){const attr=mesh.geometry.attributes.position;for(let i=0;i<attr.count;i++)attr.setX(i,bodyWidth(original[i*3],original[i*3+1],original[i*3+2],height,next.weight));attr.needsUpdate=true;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();}petRoot.scale.setScalar(next.size);if(customizing)motion=pet.bind({ground:()=>0});if(!customizing){if(host&&cachedHome)restoreResidents();else if(room)placeIndoor();else setOutdoorPet();}draw();return next;}
-function customize(on){homeCare?.resetPose();if(on&&!customizing&&!adding)previewProfile=structuredClone(petState.profile);customizing=!!on;document.body.classList.toggle('customizing',customizing);path=[];destination='';settling=0;motion?.dispose();motion=null;if(customizing){for(const x of household.values())x.pet.root.visible=false;petRoot.visible=true;if(!previewScene){previewScene=new T.Scene();previewScene.background=new T.Color('#eee8dc');previewScene.add(new T.HemisphereLight('#fff4e6','#b9bdad',2.4));const light=new T.DirectionalLight('#fff4e0',3);light.position.set(-2,4,4);previewScene.add(light);previewCamera=new T.OrthographicCamera(-2,2,2,-2,.1,30);}previewScene.add(petRoot);petRoot.position.set(0,0,0);petRoot.rotation.y=0;const held=(adding?draftSession:household.get(petState.activePetId))?.courierProps.held;if(held)held.visible=false;motion=pet.bind({ground:()=>0});}else{scene.add(petRoot);if(host&&cachedHome){restoreResidents();syncSouvenirs();}else if(room)placeIndoor();else setOutdoorPet();}draw();if(!customizing&&welcomeHome){welcomeHome=false;if(goTo(world.building('home').approach,'home'))note('先回家看看它','到家后点「添粮」给它添一碗粮，点它就能摸摸；想出门点「出门」，其他事在「小镇菜单」里。');}}
+function applyProfile(value){homeCare?.resetPose();const next=petProfile(value);petState.profile=next;pet.select(next.species);cat=pet.model;rig=pet.rig;dye=pet.dye;dye?.set(next.look);for(const {mesh,original,height}of shapeMeshes){const attr=mesh.geometry.attributes.position;for(let i=0;i<attr.count;i++)attr.setX(i,bodyWidth(original[i*3],original[i*3+1],original[i*3+2],height,next.weight));attr.needsUpdate=true;mesh.geometry.computeBoundingBox();mesh.geometry.computeBoundingSphere();}petRoot.scale.setScalar(next.size);if(customizing)motion=pet.bind({ground:()=>0,resetAction:true});if(!customizing){if(host&&cachedHome)restoreResidents();else if(room)placeIndoor();else setOutdoorPet();}draw();return next;}
+function customize(on){homeCare?.resetPose();if(on&&!customizing&&!adding)previewProfile=structuredClone(petState.profile);customizing=!!on;document.body.classList.toggle('customizing',customizing);path=[];destination='';settling=0;motion?.dispose();motion=null;if(customizing){for(const x of household.values())x.pet.root.visible=false;petRoot.visible=true;if(!previewScene){previewScene=new T.Scene();previewScene.background=new T.Color('#eee8dc');previewScene.add(new T.HemisphereLight('#fff4e6','#b9bdad',2.4));const light=new T.DirectionalLight('#fff4e0',3);light.position.set(-2,4,4);previewScene.add(light);previewCamera=new T.OrthographicCamera(-2,2,2,-2,.1,30);}previewScene.add(petRoot);petRoot.position.set(0,0,0);petRoot.rotation.y=0;const held=(adding?draftSession:household.get(petState.activePetId))?.courierProps.held;if(held)held.visible=false;motion=pet.bind({ground:()=>0,resetAction:true});}else{scene.add(petRoot);if(host&&cachedHome){restoreResidents();syncSouvenirs();}else if(room)placeIndoor();else setOutdoorPet();}draw();if(!customizing&&welcomeHome){welcomeHome=false;if(goTo(world.building('home').approach,'home'))note('先回家看看它','到家后点「添粮」给它添一碗粮，点它就能摸摸；想出门点「出门」，其他事在「小镇菜单」里。');}}
 // Gray a care button and say why when the pet would surely turn it down; tapping still shows the full reason.
 function markCareBlocks(bar){if(!care)return;const sleeping=care.state.task?.kind==='sleep';bar.dataset.who='照顾 '+(petState?.profile?.name||'它');for(const b of bar.querySelectorAll('[data-care]')){const action=b.dataset.care==='rest'?(sleeping?'wake':'rest'):b.dataset.care,label=b.dataset.care==='rest'?(sleeping?'叫醒':'休息'):(b.dataset.label||=b.querySelector('[data-control-label]')?.textContent||b.textContent),block=careBlock(care.state,action);b.classList.toggle('is-blocked',!!block);setSceneControlLabel(b,block?block.short:label);b.setAttribute('aria-label',block?label+'：'+block.text:label);}}
 function commitProfile(value){if(adding)return commitAddition(value);const previous=structuredClone(petState);previous.profile=previewProfile||previous.profile;const first=!previous.configured,profile=applyProfile(value);petState.configured=true;if(!save(true)){petState.profile=previous.profile;petState.configured=previous.configured;const entry=household.get(petState.activePetId).entry;entry.profile=previous.profile;entry.configured=previous.configured;applyProfile(previous.profile);return false;}if(first&&host)welcomeHome=true;return profile;}
@@ -249,7 +249,7 @@ document.getElementById('selected-pet')?.addEventListener('click',()=>host?.open
 let persistAt=0;const persist=()=>{if(host&&ready&&!customizing&&performance.now()-persistAt>2500){persistAt=performance.now();save();}};setInterval(persist,3000);
 document.addEventListener('visibilitychange',()=>{gesture.cancel();cameraControls?.clearGesture();lastTime=0;save();if(!document.hidden){recoverLife();draw();}});window.addEventListener('pagehide',()=>save());
 try{
- const [outsideFile,companion]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-4c2b634f7d6c276a',import.meta.url).href),loadPetCompanion(T,loader,{persist:!host,initialSpecies:petState?.profile.species,compressedMask:!!host})]);
+ const [outsideFile,companion]=await Promise.all([loader.loadAsync(new URL('./outside.glb?v=fg-d74e8950a8dcd8c4',import.meta.url).href),loadPetCompanion(T,loader,{persist:!host,initialSpecies:petState?.profile.species,compressedMask:!!host})]);
  outsideModel=outsideFile.scene;shade(outsideModel);scene.add(outsideModel);activeModel=outsideModel;pet=companion;petRoot=pet.root;cat=pet.model;rig=pet.rig;dye=pet.dye;scene.add(petRoot);if(host){for(const entry of petState.pets){const model=entry.id===petState.activePetId?companion:await loadPetCompanion(T,loader,{persist:false,initialSpecies:entry.profile.species,compressedMask:true});const session=makeSession(entry,model);household.set(entry.id,session);model.root.visible=entry.id===petState.activePetId;}activateSession(household.get(petState.activePetId));applyProfile(petState.profile);}else{petControls=mountPetControls(pet,{draw,onSpecies:()=>{cat=pet.model;rig=pet.rig;dye=pet.dye;if(room)placeIndoor();else setOutdoorPet();refresh();}});}applyLight();loading.hidden=true;ready=true;
  window.petCareerPreview={scene,camera,renderer,get neighborView(){return neighborView;},stationView,stallView,arrival,goStation,get pet(){return pet;},get cat(){return cat;},get petRoot(){return petRoot;},household,world,layout,enter,leave,goTo,step:advance,reset:()=>document.getElementById('reset').click(),snapshot:()=>({ready,species:pet.species,tail:pet.tail,mood:pet.mood,room,position:{...position},outdoor,pan:{...pan},zoom:room?cameraControls?.snapshot().zoom:zoom,camera:cameraControls?.snapshot(),evening,busy,walking:path.length>0||!!household.get(petState?.activePetId)?.entry.town.goal,autoWalking,destination,zone:activeZone,motion:pet?.motion?.snapshot()}),get model(){return activeModel;},project:(x,z,h=0)=>{const v=new T.Vector3(x,h,z).project(camera);return {x:(v.x+1)*innerWidth/2,y:(1-v.y)*innerHeight/2};}};
  note(layout.title,'点地面散步 · 点房子门牌走进去');refresh();resize();

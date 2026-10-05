@@ -5,11 +5,18 @@ function load(store) {
   const win = {}; const ctx = { window: win, globalThis: win, React: { useState() {}, useMemo() {} }, loadJSON: (k, d) => (store && store[k]) ?? d, saveJSON() {}, h: () => null, console, Date, Math, JSON };
   vm.createContext(ctx); vm.runInContext(read("astro.js"), ctx); return win.Astro;
 }
-test("天象：2026 年 10 月的新月、满月、水逆开始落在对的那天", () => {
+// ⚠️这几个日子【按本机时区算】，不能写死（2026-10-04 抓到：这条在 UTC 的会话里绿、
+//   在她本机 CDT 上红）。2026 年 10 月那次满月是 UTC 10-26 04:12 —— 温尼伯是
+//   10-25 晚上 11 点多，所以 app 在她那儿标 10-25 才是对的，写死 26 的是测试。
+//   改成从那个【真实时刻】换算出本机那一天再比，哪个时区跑都对。
+const dayOf = (utcISO) => { const d = new Date(utcISO);
+  const p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()); };
+test("天象：2026 年 10 月的新月、满月、水逆开始落在对的那天（按本机时区）", () => {
   const A = load(), on = d => A.skyOn(d).events.map(e => e.k);
-  assert.ok(on("2026-10-10").includes("new"), "10 月 10 日新月");
-  assert.ok(on("2026-10-26").includes("full"), "10 月 26 日满月");
-  assert.ok(on("2026-10-24").includes("rxStart"), "10 月 24 日水星开始逆行");
+  assert.ok(on(dayOf("2026-10-10T15:50:00Z")).includes("new"), "新月那天");
+  assert.ok(on(dayOf("2026-10-26T04:12:00Z")).includes("full"), "满月那天");
+  assert.ok(on(dayOf("2026-10-24T12:00:00Z")).includes("rxStart"), "水星开始逆行那天");
   assert.match(A.skyNote(new Date(2026, 9, 28)), /水星逆行中/);
   assert.equal(A.skyNote(new Date(2026, 9, 5)), "", "平常日子什么都不说");
 });
