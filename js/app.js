@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.858";
+const APP_VERSION = "v74.863";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -26295,7 +26295,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (bg && bg.held) {
         const extra = String(extraText || "").trim();
         if (extra) pushUser(activeChar.id, extra, chatKey);
-        toast(characterText(activeChar, "TA 这会儿在忙（" + bg.held.title + "），还没看手机——忙完会回你。真有急事就再按一次"));
+        // 灰字落在聊天里，不弹 toast（她 2026-10-05）：toast 一闪就没了，回头翻不到他那会儿为什么没回。
+        //   连按几次只留一条：最后一条已经是同一句就不再叠。
+        const busyNote = characterText(activeChar, (bg.held.sleep ? "TA 在睡觉" : "TA 这会儿在忙（" + bg.held.title + "）") + "，还没看手机——忙完会回你。真有急事就再按一次");
+        pChat(chatKey || activeChar.id, p => {
+          const last = p[p.length - 1];
+          return last && last.kind === "busynote" && last.content === busyNote ? p : [...p, { id: "busy_" + Date.now(), role: "system", kind: "busynote", ts: Date.now(), content: busyNote }];
+        });
         return;
       }
       if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title, sleep: !!bg.nudge.sleep } }); }

@@ -419,6 +419,12 @@
       zh: "聊天页", pages: Object.freeze(["thread", "gthread"]),
       hooks: Object.freeze([
         ["chat", "聊天页整块背景"], ["body", "正文区背景"],
+        // 「Ta 眼里」那页：聊天里点顶栏名字 → Ta 眼里（群友 2026-10-05：「这个和关于我/关于我们有挂点嘛」）
+        ["gazepage","整页那张手记底（data-side=\"me\" 关于我 / \"us\" 关于我们）"],["gazetitle","右上角「关于我/关于我们」大字"],
+        ["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],
+        ["gazecard","每一块便签（data-k＝me.person 这类块名；data-empty=\"1\" 还没写）"],["gazecardname","便签标题"],["gazecardtext","便签正文"],["gazecardtime","便签底下「N 天前写的」"],
+        ["gazebtn","底下的按钮（data-kind＝review 再看一遍 / redo 整份重写 / history 从前那几版 / seed 第一次写）"],
+        ["gazeletter","点开一块后的那张信纸"],["gazehistory","「从前都怎么写的」那张总表"],
         ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
         ["headme", "顶栏里她自己的头像（单聊；默认 display:none，写 display:inline-flex 打开就是双人头像）"],
         ["htmlcard", "消息里那种小卡片（角色发的排版卡，iframe 本体）"],
@@ -876,7 +882,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.858", changed: "小镇状态、职业履历等查看页与聊天共用可拖半窗，原Head、单滚动和0.4底安全区保留", none: "" };
+  const BRIEF_STAMP = { v: "v74.863", changed: "新挂点组「Ta 眼里」：gazepage、gazetab、gazecard 等十一个", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
