@@ -9538,7 +9538,15 @@ function ApiConfig({
       h("div", { className: "flex items-center justify-between", style: { gap: 14 } },
         h("div", null,
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "模型快速切换浮窗"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "线上、线下分别切换；角色专线不受影响。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3, lineHeight: 1.45 } }, "线上、线下分别切换；角色专线不受影响。"),
+          // 开着却看不见那颗旋钮（她 2026-10-05 截图：「这玩意显示不出来悬浮球」）。
+          //   病根：一条线路都没【存】的时候，下面会先摆一张空白的「未命名配置」——
+          //   那张卡还没保存，旋钮认的是存好的线路，于是它看着有一条、其实一条都没有，
+          //   旋钮就安安静静地不出现，开关却亮着。说一句，别让人对着开关干瞪眼。
+          modelFloatOn && !(profiles || []).length
+            ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 4, lineHeight: 1.5 } },
+                "现在还没有存好的线路，所以浮窗还不会出来——在下面填好一条、点保存就有了。")
+            : null),
         h("button", { onClick: () => onSetModelFloat(!modelFloatOn), style: { flexShrink: 0, width: 48, height: 27, borderRadius: 14, padding: 3, background: modelFloatOn ? t.ink : t.line } },
           h("span", { style: { display: "block", width: 21, height: 21, borderRadius: 11, background: t.bg2, transform: modelFloatOn ? "translateX(21px)" : "translateX(0)", transition: "transform .18s" } })))),
     h("div", { className: "flex items-center justify-between", style: { marginTop: 18, marginBottom: 10 } },
