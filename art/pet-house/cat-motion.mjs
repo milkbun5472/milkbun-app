@@ -1,6 +1,6 @@
-import {postureFrame} from './pet-action.mjs?v=fg-16eae74f6268e446';
-import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-16eae74f6268e446';
-import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-16eae74f6268e446';
+import {postureFrame} from './pet-action.mjs?v=fg-72d417ec299780c9';
+import {ROOM_LAYOUTS} from '../../apps/pets/room-layout.mjs?v=fg-72d417ec299780c9';
+import {normalizePetMood,samplePetMood} from './pet-mood.mjs?v=fg-72d417ec299780c9';
 const TAU=Math.PI*2;
 const clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
 const add=(a,b)=>a.map((v,i)=>v+b[i]);
@@ -62,7 +62,7 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
   let elapsed=Number.isFinite(expressionState?.elapsed)?expressionState.elapsed:0,cycle=0,clamps=0,lastFeet=[],lastClamp=null,tail=normalizeTail(),lastRate=1/rig.cycle,wasWalking=false,gait={...rig,name:'walk'},phases=WALK_PHASE;
   let responseTime=Number.isFinite(expressionState?.responseTime)&&expressionState.responseTime>=0&&expressionState.responseTime<2.6?expressionState.responseTime:-1;
   const response=()=>responseTime<0?0:Math.sin(Math.PI*Math.min(1,responseTime/2.6));
-  let mood=normalizePetMood('neutral'),pose=samplePetMood(rig.species,mood),action={sit:0,lie:0,crouch:0,chestPitch:0,earPitch:0,tailCurl:0,tailQuiet:0,headPitch:0,headRoll:0,headYaw:0,height:0,chestHeight:0,pelvisHeight:0,roll:0},actionTarget={...action};
+  let mood=normalizePetMood('neutral'),pose=samplePetMood(rig.species,mood),action={sit:0,lie:0,crouch:0,chestPitch:0,earPitch:0,tailCurl:0,tailQuiet:0,headPitch:0,headRoll:0,headYaw:0,height:0,chestHeight:0,pelvisHeight:0,roll:0,frontLLift:0,frontLReach:0,frontRLift:0,frontRReach:0},actionTarget={...action};
   if(expressionState?.pose)for(const key of Object.keys(pose))if(Number.isFinite(expressionState.pose[key]))pose[key]=expressionState.pose[key];
   if(!resetAction&&expressionState?.action)for(const key of Object.keys(action))if(Number.isFinite(expressionState.action[key]))action[key]=actionTarget[key]=expressionState.action[key];
   const chestOffset=new T.Vector3(),pelvisOffset=new T.Vector3();
@@ -192,7 +192,7 @@ export function createCatMotion(T,cat,rig,root,{ground=floorHeight,matchSpeed=fa
       }
       const folded=posture.paw(leg);
       if(!walking&&f.stance){
-        const rest=groundAnkle(leg),shift=new T.Vector3(folded.x,posture.lie*(leg.name.startsWith('front')?.005:0),folded.z).multiplyScalar(modelScale).applyQuaternion(cat.getWorldQuaternion(new T.Quaternion()));
+        const rest=groundAnkle(leg),lift=(action[leg.name+'Lift']||0)*(1-amount),reach=(action[leg.name+'Reach']||0)*(1-amount),shift=new T.Vector3(folded.x,posture.lie*(leg.name.startsWith('front')?.005:0)+lift,folded.z+reach).multiplyScalar(modelScale).applyQuaternion(cat.getWorldQuaternion(new T.Quaternion()));
         // Paws fold continuously instead of staying in the standing footprint.
         const blend=Math.max(posture.lie,posture.sit,action.crouch*(1-amount));
         goal.lerp(rest,blend).add(shift);
