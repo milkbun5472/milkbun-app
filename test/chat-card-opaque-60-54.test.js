@@ -54,10 +54,11 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
    ['if (m.kind === "narration" || m.role === "narration")', "旁白"],
    ['if (m.kind === "recalled")', "撤回"],
    ['if (m.kind === "silence")', "沉默"],
+   ['if (m.kind === "busynote")', "在忙"],
   ].forEach(([a, name]) =>
     assert.match(near(a), /\.\.\.plate\(/, "这一支还是裸字：" + name));
-  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 4,
-    "单聊里该垫的正好四处（拍一拍/旁白/撤回/沉默）");
+  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 5,
+    "单聊里该垫的正好五处（拍一拍/旁白/撤回/沉默/在忙）");
   // v63.49：系统行和 OOC 收进 SysNote，它【自带一张纸】（近实心的 bg2），
   // 所以不再走 plate；但那张纸本身必须挡得住壁纸，不能是裸字。
   const note = comp.slice(comp.indexOf("function SysNote("), comp.indexOf("// 气泡角落贴纸"));
