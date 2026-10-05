@@ -1485,7 +1485,9 @@ const WORLDBOOK_RULE = `【世界书执行准则】
 
 未定义之处只做当前需要的最小合理补全，并结合完整设定、社会环境和个人立场理解，不因单一标签扩写世界或主动制造 NPC、冲突、秘密和重大事件。
 
-世界书负责什么真实存在、什么可能发生、谁可能知道；人物负责面对这些事实时如何理解和选择。`;
+世界书负责什么真实存在、什么可能发生、谁可能知道；人物负责面对这些事实时如何理解和选择。
+
+例外：标着〔照做〕的条目不是事实，是用户给你的输出指令，被翻出来的那一轮照着执行。`;
 
 const CHARCARD_RULE = `【角色卡执行准则】
 角色卡决定这个人如何注意、理解、判断和选择，不是等待展示的标签。
@@ -3107,8 +3109,20 @@ function selectLore(entries, opts) {
   hit.sort((a, b) => (b.priority || 3) - (a.priority || 3) || (a.ts || 0) - (b.ts || 0));
   return hit;
 }
+// 「照做」那一类不是世界的事实，是她（或她抄来的模板）给模型的【输出指令】——
+//   典型的就是「提到冰箱就发一张 HTML 小卡」。按事实那种口气交出去，模型只会「知道有这回事」，
+//   不会去做（她 2026-10-05：冰箱卡 Gemini 能出、Sonnet 怎么都不出）。所以这一类换个领句，
+//   说清是指令、被翻出来就照做；一整块 HTML 单独作为一条消息发，不受「一句一条」那条管。
+//   ⚠️领句写在这一处：八个去向都从 loreText 拿世界书，改一处全接上（one-public-mechanism）。
+const LORE_DO_CATEGORY = "照做";
+function loreLine(e) {
+  const body = String(e.payload).trim();
+  if (e.category !== LORE_DO_CATEGORY) return (e.title ? "〔" + e.title + "〕" : "") + body;
+  return "〔照做" + (e.title ? " · " + e.title : "") + "〕这一条不是世界设定，是给你的输出指令：它现在被翻出来了，这一轮就照着做。"
+    + "要发的东西如果是一整块 HTML，就原样单独作为一条消息发出去（这一条不受「一句一条、别写括号说明」的限制），不要包代码块，也不要改写成文字描述。\n" + body;
+}
 function loreText(entries, opts) {
-  return selectLore(entries, opts).map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n");
+  return selectLore(entries, opts).map(loreLine).join("\n\n");
 }
 // 给世界书 UI 的确定性诊断：解释一条为什么会/不会进某个场景。
 // 向量补捞是发送前的加分通道，UI 不假装能预知；字面触发未命中时明确写「等待关键词或语义召回」。
