@@ -1,4 +1,4 @@
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-72d417ec299780c9';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-fa757987f7f84c8d';
 const DAY=86400000;
 // Stored civil dates stay fixed. Today's ordinal comes from the same real
 // calendar as the town, so DST and the game's season/day counters cannot age a pet.

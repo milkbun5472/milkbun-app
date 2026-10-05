@@ -1,6 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-72d417ec299780c9';
-import {createTownNavigation} from './town-life.mjs?v=fg-72d417ec299780c9';
-import {walkRoute,turnPet} from './movement.mjs?v=fg-72d417ec299780c9';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-fa757987f7f84c8d';
+import {createTownNavigation} from './town-life.mjs?v=fg-fa757987f7f84c8d';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-fa757987f7f84c8d';
+import {walkRoute,turnPet} from './movement.mjs?v=fg-fa757987f7f84c8d';
 
 // Stable street identities and their actual places, shared by work and visits.
 export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:true,role:'花店里的奶茶猫',shop:'florist',spot:{x:0,z:.65},detail:'喜欢慢慢闻花，也喜欢安静的陪伴。',place:'florist',placeName:'花店',about:'花店里的奶茶猫，喜欢慢慢闻花，也喜欢安静的陪伴。',position:{x:0,z:.65},approaches:[{x:1,z:.7},{x:-1,z:.7}],profile:{species:'cat',name:'小茉',size:.9,weight:1,look:{id:'custom',base:'#eee1cb',patch:'#a98565'}}}];
@@ -28,11 +29,12 @@ const NPC_NAV=createTownNavigation('florist',.9);
 const PLAY_ROUNDS=[{ball:{x:.3,z:1.1},pet:{x:1,z:1.15},friend:{x:-.4,z:1.1}},{ball:{x:-.5,z:1.35},pet:{x:.2,z:1.45},friend:{x:-1.2,z:1.35}}];
 export function restorePetMeeting(raw,ids=[]){const t=raw?.pending,f=neighbor(t?.neighborId);return {seq:Math.max(count(raw?.seq),count(t?.id)),ball:point(raw?.ball)&&NPC_NAV.walkable(raw.ball.x,raw.ball.z)?point(raw.ball):{x:.45,z:.8},pending:f&&count(t.id)>0&&ids.includes(t.petId)&&['greet','together','play'].includes(t.kind)&&['walking','doing'].includes(t.phase)&&point(t.goal)?{id:count(t.id),petId:t.petId,neighborId:f.id,kind:t.kind,phase:t.phase,time:Math.min(8,at(t.time)),round:Math.min(1,count(t.round)),goal:point(t.goal),startedAt:at(t.startedAt)}:null};}
 const free=row=>row&&row.entry.town.place==='florist'&&!row.career.state.job&&!row.care.state.helper&&(!row.care.state.task||row.care.state.task.source==='self'&&['watch','wander'].includes(row.care.state.task.kind))&&row.care.state.energy>=35&&row.care.state.satiety>=25&&row.care.state.mood>=30;
-export function createPetFriends(shared,{rows,now=()=>Date.now(),save=()=>true,onRestore=()=>{}}={}){
+export function createPetFriends(shared,{rows,getActors=()=>[],now=()=>Date.now(),save=()=>true,onRestore=()=>{}}={}){
  // Access the same neighborhood ledger dynamically: the parent transaction may
  // replace nested records after a failed write.
  const state={};for(const [key,field]of Object.entries({seq:'petMeetingSeq',ball:'friendBall',pending:'petMeeting'}))Object.defineProperty(state,key,{enumerable:true,get:()=>shared[field],set:v=>{shared[field]=v;}});
  Object.defineProperty(state,'resident',{enumerable:true,get:()=>shared.neighbors['florist-cat'].town,set:v=>{shared.neighbors['florist-cat'].town=v;}});
+ const nav=createActorNavigation(NPC_NAV,{actor:()=>({id:'neighbor:florist-cat',kind:'pet',species:'cat',size:.9,place:'florist'}),actors:getActors});
  const bonds=row=>({'florist-cat':shared.neighbors['florist-cat'].met[row.entry.id]});
  function record(row,kind){const holder=bonds(row),message=recordNeighborBond(holder,'florist-cat',kind,{day:row.career.state.day,at:now(),name:row.entry.profile.name});const m=holder['florist-cat'];m.knownName=row.entry.profile.name;shared.neighbors['florist-cat'].met[row.entry.id]=m;shared.recent.push({at:now(),text:message});shared.recent=shared.recent.slice(-12);return message;}
  let route=[],routeId=0,friendRoute=[],friendGoal='';
@@ -55,17 +57,17 @@ export function createPetFriends(shared,{rows,now=()=>Date.now(),save=()=>true,o
   const backup=before();state.resident.goal=null;state.resident.idle=0;if(row.care.state.task)row.care.cancel();row.home?.resetPose();row.town.sync(f.place,row.entry.town.position,row.entry.town.heading,{manual:true});state.pending={id:++state.seq,petId,neighborId:id,kind,phase:'walking',time:0,round:0,goal:{...goal},startedAt:now()};route=[];routeId=0;
   return persist(backup,{accepted:true,text:row.entry.profile.name+'准备走过去'+(kind==='greet'?'和'+f.name+'打个招呼。':kind==='play'?'和'+f.name+'一起追小球。':'陪'+f.name+'待一会儿。')});
  }
- function moveFriend(goal,dt){const key=JSON.stringify(goal),r=state.resident;if(friendGoal!==key){friendRoute=NPC_NAV.path(r.position,goal)||[];friendGoal=key;}const moved=walkRoute(friendRoute,r.position,r.heading,dt,.63,q=>NPC_NAV.walkable(q.x,q.z));r.position=moved.position;r.heading=moved.heading;return {arrived:Math.hypot(r.position.x-goal.x,r.position.z-goal.z)<.02,speed:moved.speed};}
+ function moveFriend(goal,dt){const key=JSON.stringify(goal),r=state.resident;if(friendGoal!==key){friendRoute=nav.path(r.position,goal)||[];friendGoal=key;}const moved=nav.walk(friendRoute,r.position,r.heading,dt,.63);r.position=moved.position;r.heading=moved.heading;return {arrived:Math.hypot(r.position.x-goal.x,r.position.z-goal.z)<.02,speed:moved.speed};}
  function tick(dt,{paused=false,offline=false}={}){
   if(paused||!Number.isFinite(dt)||dt<=0)return null;dt=Math.min(dt,.05);
-  if(!state.pending){if(offline)return null;const r=state.resident,anchor=PET_NEIGHBORS[0].position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(NPC_NAV,r.position,()=>nextRandom(r),{radius:1.3,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.8});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(!r.goal)return {friendSpeed:0};const m=moveFriend(r.goal,dt);if(m.arrived){r.goal=null;r.phase='visit';r.idle=0;}return {friendSpeed:m.speed};}
+  if(!state.pending){if(offline)return null;const r=state.resident,anchor=PET_NEIGHBORS[0].position;r.idle+=dt;if(!r.goal&&r.idle>=18){const backup=before(),next=localRoute(nav,r.position,()=>nextRandom(r),{radius:1.3,minDistance:.5,clear:q=>Math.hypot(q.x-anchor.x,q.z-anchor.z)<1.8});r.idle=0;if(next){r.goal=next.goal;r.phase='stroll';if(!persist(backup,{accepted:true,changed:true}).accepted)return {friendSpeed:0};}}if(!r.goal)return {friendSpeed:0};const m=moveFriend(r.goal,dt);if(m.arrived){r.goal=null;r.phase='visit';r.idle=0;}return {friendSpeed:m.speed};}
   const t=state.pending,row=find(t.petId),f=neighbor(t.neighborId);
   if(offline||now()-t.startedAt>10*60000||!row||!free(row)){const r=cancel();return {...r,changed:true,cancelled:true};}
   const p=row.entry.town;if(t.phase==='doing'&&t.kind!=='play'&&Math.hypot(p.position.x-t.goal.x,p.position.z-t.goal.z)>.15){cancel();return {changed:true,cancelled:true};}
   if(t.phase==='walking'){
    const friend=moveFriend(f.position,dt);
    if(routeId!==t.id){route=row.town.nav().path(p.position,t.goal)||[];routeId=t.id;if(!route.length){cancel();return {changed:true,cancelled:true};}}
-   const moved=walkRoute(route,p.position,p.heading,dt,.7*row.pet.root.scale.x,q=>row.town.nav().walkable(q.x,q.z));p.position=moved.position;p.heading=moved.heading;
+   const moved=(row.town.nav().walk?row.town.nav().walk(route,p.position,p.heading,dt,.7*row.pet.root.scale.x):walkRoute(route,p.position,p.heading,dt,.7*row.pet.root.scale.x,q=>row.town.nav().walkable(q.x,q.z)));p.position=moved.position;p.heading=moved.heading;
    if(!route.length&&friend.arrived){const backup=before();t.phase='doing';t.time=0;routeId=0;const r=persist(backup,{accepted:true,changed:true});if(!r.accepted)return r;}
    return {owned:true,speed:moved.speed,kind:t.kind,phase:t.phase,time:t.time,friendSpeed:friend.speed};
   }
@@ -73,7 +75,7 @@ export function createPetFriends(shared,{rows,now=()=>Date.now(),save=()=>true,o
   if(t.kind==='play'){
    const q=PLAY_ROUNDS[t.round],key=t.id+':'+t.round;
    if(routeId!==key){route=row.town.nav().path(p.position,q.pet)||[];routeId=key;if(!route.length&&Math.hypot(p.position.x-q.pet.x,p.position.z-q.pet.z)>.02){cancel();return {changed:true,cancelled:true};}}
-   const moved=walkRoute(route,p.position,p.heading,dt,.75*row.pet.root.scale.x,q=>row.town.nav().walkable(q.x,q.z));p.position=moved.position;p.heading=moved.heading;speed=moved.speed;
+   const moved=(row.town.nav().walk?row.town.nav().walk(route,p.position,p.heading,dt,.75*row.pet.root.scale.x):walkRoute(route,p.position,p.heading,dt,.75*row.pet.root.scale.x,q=>row.town.nav().walkable(q.x,q.z)));p.position=moved.position;p.heading=moved.heading;speed=moved.speed;
    const m=moveFriend(q.friend,dt);friendSpeed=m.speed;const d=Math.hypot(state.ball.x-q.ball.x,state.ball.z-q.ball.z),step=Math.min(d,dt*.9);if(d){state.ball.x+=(q.ball.x-state.ball.x)*step/d;state.ball.z+=(q.ball.z-state.ball.z)*step/d;}ball={...state.ball};
    if(!route.length&&m.arrived&&Math.hypot(state.ball.x-q.ball.x,state.ball.z-q.ball.z)<.02){t.time+=dt;if(t.time>=1.5){if(t.round===0){const backup=before();t.round=1;t.time=0;routeId=0;const r=persist(backup,{accepted:true,changed:true});if(!r.accepted)return r;}else {t.time=8;playDone=true;}}}
   }else {p.heading=turnPet(p.heading,Math.atan2(state.resident.position.x-p.position.x,state.resident.position.z-p.position.z),dt).heading;state.resident.heading=turnPet(state.resident.heading,Math.atan2(p.position.x-state.resident.position.x,p.position.z-state.resident.position.z),dt).heading;t.time+=dt;}
