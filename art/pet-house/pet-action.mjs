@@ -5,7 +5,8 @@ export const PET_ACTIONS=[
  ['sleep','趴着睡'],['wake','醒来起身'],['eat','吃饭'],['drink','喝水'],
  ['treat','吃零食'],['pet','被摸摸'],['sniff','低头闻闻'],['look','四处看看'],
  ['sit','坐下等候'],['waitFood','等添粮'],['askSnack','讨零食'],['play','追玩具'],
- ['pickup','低头叼起'],['carry','叼着走'],['drop','放下玩具'],['inspectBag','看下班袋子']
+ ['pickup','低头叼起'],['carry','叼着走'],['drop','放下玩具'],['inspectBag','看下班袋子'],
+ ['workInspect','检查工作小物'],['workGreet','招呼店里客人'],['workSort','拨拢工作小物']
 ].map(([id,label])=>({id,label}));
 export function samplePetAction(kind,time=0,{species='cat',manner={},lookBowl=true}={}){
  const dog=species==='dog',s=Math.sin,tempo=manner.tempo||1;
@@ -24,6 +25,9 @@ export function samplePetAction(kind,time=0,{species='cat',manner={},lookBowl=tr
  case 'pickup':case 'drop':return {crouch:.56,chestPitch:.10,headPitch:.96,tailQuiet:.65};
  case 'carry':return {headPitch:.04,earPitch:-.025,tailQuiet:.20};
  case 'inspectBag':return {crouch:.32,headPitch:.53+.045*s(time*2.5),headYaw:.13*s(time*1.1),headRoll:.04*s(time*.7),chestPitch:.06,tailQuiet:.4};
+ case 'workInspect':return {crouch:.28,headPitch:.51+.14*s(time*1.8),headYaw:.17*s(time*.9),chestPitch:.045,tailQuiet:.5,frontLLift:.012*(1+s(time*2)),frontLReach:.018*(1+s(time*2))};
+ case 'workGreet':return {sit:.55,headPitch:-.10+.06*s(time*1.5),headYaw:.24*s(time*.85),headRoll:.065*s(time*1.2),earPitch:-.06,frontLLift:.025*(1+s(time*1.8)),frontLReach:.012*(1+s(time*1.8))};
+ case 'workSort':return {crouch:.22,headPitch:.44+.09*s(time*1.7),headYaw:.10*s(time*1.3),chestPitch:.045,tailQuiet:.4,frontLLift:.022*(1+s(time*2.2)),frontLReach:.026*(1+s(time*2.2))};
  default:return {};
  }
 }
