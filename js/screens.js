@@ -131,42 +131,87 @@ function parseCharCard(raw, userName) {
 function CardImportSheet({ onImport, onClose, userName }) {
   const t = useTheme();
   const [txt, setTxt] = useState("");
-  const [nameEdit, setNameEdit] = useState(null);   // null=跟着解析走，字符串=她自己改过了
+  // 预览每一栏都能改（她 2026-10-05：「格式有时候是错的需要手动调整」）。
+  // edits 里有哪一栏就以她改的为准，没有就跟着解析走；原文一改，全部回到跟解析走。
+  const [edits, setEdits] = useState({});
+  const [fileBusy, setFileBusy] = useState(false);
+  const [fileErr, setFileErr] = useState("");
+  const fileRef = useRef(null);
   const p = txt.trim() ? parseCharCard(txt, userName) : null;
-  const name = nameEdit != null ? nameEdit : (p ? p.name : "");
-  const line = (zh, v) => h("div", { className: "flex items-baseline gap-2", style: { marginTop: 4 } },
-    h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, zh),
-    h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.6 } }, v));
+  const seedsToText = arr => (arr || []).map(x => (x.pinned ? "〔置顶〕" : "") + x.text).join("\n");
+  const textToSeeds = s => String(s || "").split("\n").map(x => x.trim()).filter(Boolean).map(x => {
+    const pinned = /^[〔\[【]\s*置顶\s*[〕\]】]/.test(x);
+    return { text: x.replace(/^[〔\[【]\s*置顶\s*[〕\]】]\s*/, "").trim(), pinned };
+  }).filter(x => x.text);
+  const val = k => edits[k] != null ? edits[k] : (p ? (k === "seeds" ? seedsToText(p.seeds) : (p[k] || "")) : "");
+  const setVal = (k, v) => setEdits(e => Object.assign({}, e, { [k]: v }));
+  const persona = val("persona");
+  const importFile = async e => {
+    const input = e.target, file = input.files && input.files[0];
+    input.value = "";
+    if (!file) return;
+    setFileBusy(true); setFileErr("");
+    try {
+      if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了，在 Word 里另存为 .docx 再导");
+      if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
+      const text = await readOfflineStyleDocument(file);
+      if (!String(text || "").trim()) throw new Error("文件里没有可导入的文字");
+      setTxt(text); setEdits({});
+    } catch (err) {
+      setFileErr(String(err && err.message || "文件读取失败，请重新选择").replace(/文风/g, "角色卡"));
+    } finally { setFileBusy(false); }
+  };
+  const label = zh => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "10px 0 4px" } }, zh);
+  const box = (k, rows, ph) => h("textarea", {
+    value: val(k), onChange: e => setVal(k, e.target.value), rows, placeholder: ph,
+    style: { width: "100%", background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: "8px 10px", fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", lineHeight: 1.6 }
+  });
+  const count = k => { const v = val(k).trim(); return v ? "（" + v.length + " 字）" : "（无）"; };
   return h("div", { className: "absolute inset-0 z-50 h-full flex flex-col", style: DESK(t.accent || t.tint) },
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来就行。认得出酒馆卡的 JSON（v1/v2，连世界书一起收成记忆种子），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。"),
-      h("textarea", { value: txt, onChange: e => { setTxt(e.target.value); setNameEdit(null); }, rows: 12, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出酒馆卡的 JSON（v1/v2，连世界书一起收成记忆种子），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+      h("button", {
+        onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
+        className: "w-full active:opacity-70",
+        style: { marginBottom: 10, background: "transparent", color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0", fontFamily: F_BODY, fontSize: 13.5 }
+      }, fileBusy ? "正在读文件…" : "从文件导入"),
+      h("input", { ref: fileRef, type: "file", accept: ".docx,.txt,.md,.markdown,.json,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importFile }),
+      fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
+      h("textarea", { value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
-        h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是酒馆卡" : "解析预览"),
-        // 名字在这里就能改——原来只能先导进去、再去档案里改一遍
+        h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是酒馆卡 · 可直接改" : "解析预览 · 可直接改"),
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, "名字"),
           h("input", {
-            value: name, onChange: e => setNameEdit(e.target.value), placeholder: "没认出来，自己写一个",
+            value: val("name"), onChange: e => setVal("name", e.target.value), placeholder: "没认出来，自己写一个",
             className: "flex-1 min-w-0 bg-transparent outline-none",
             style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, borderBottom: "1px solid " + t.line, padding: "2px 0" }
           })),
-        p.tagline ? line("一句话", p.tagline) : null,
-        line("人设", p.persona ? p.persona.length + " 字" : "—"),
-        line("长期记忆", p.longMem ? p.longMem.length + " 字" : "（无）"),
-        line("记忆种子", p.seeds.length ? p.seeds.length + " 条（置顶 " + p.seeds.filter(x => x.pinned).length + " 条）" : "（无）"),
-        p.greeting ? line("开场白", p.greeting.length + " 字 · 导入后当 TA 的第一句话") : null,
+        h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, "一句话"),
+          h("input", {
+            value: val("tagline"), onChange: e => setVal("tagline", e.target.value.slice(0, 40)), placeholder: "（可空）",
+            className: "flex-1 min-w-0 bg-transparent outline-none",
+            style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, borderBottom: "1px solid " + t.line, padding: "2px 0" }
+          })),
+        label("人设" + count("persona")), box("persona", 8, "人设是必填的"),
+        label("长期记忆" + count("longMem")), box("longMem", 3, "（可空）"),
+        label("记忆种子 · 一行一条，行首写〔置顶〕就置顶（" + textToSeeds(val("seeds")).length + " 条）"), box("seeds", 4, "（可空）"),
+        label("开场白 · 导入后当 TA 的第一句话" + count("greeting")), box("greeting", 3, "（可空）"),
         (p.warnings || []).length ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line } },
-          p.warnings.map((w, n) => h("div", { key: n, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } }, "· " + w))) : null,
-        p.persona ? h("div", { style: { marginTop: 10, paddingTop: 9, borderTop: "1px solid " + t.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 4 } }, "人设开头长这样"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 108, overflow: "hidden" } }, p.persona.slice(0, 220))) : null) : null,
+          p.warnings.map((w, n) => h("div", { key: n, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } }, "· " + w))) : null) : null,
       h("button", {
-        onClick: () => { if (p && p.persona) onImport(Object.assign({}, p, { name: (name || "").trim() })); },
+        onClick: () => {
+          if (!p || !persona.trim()) return;
+          onImport(Object.assign({}, p, {
+            name: val("name").trim(), tagline: val("tagline").trim(), persona: persona.trim(),
+            longMem: val("longMem").trim(), greeting: val("greeting").trim(), seeds: textToSeeds(val("seeds"))
+          }));
+        },
         className: "w-full mt-4 active:opacity-70",
-        style: { background: p && p.persona ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 }
+        style: { background: p && persona.trim() ? t.ink : t.line, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 }
       }, "导入并建档")));
 }
 // 长文导入记忆库（v48.83，她要「把总结的一切存进记忆库、能被 app 小克搜到」）：粘长文→切条目→绑角色→建向量索引

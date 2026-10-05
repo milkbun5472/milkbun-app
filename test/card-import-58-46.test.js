@@ -121,20 +121,26 @@ test("不是 JSON 的文本不许被 cardFromJSON 认走", () => {
   assert.equal(cardFromJSON('{"foo":1}'), null, "没有任何角色字段的对象不该算角色卡");
 });
 
-// 名字认不出来的时候，原来只能先导进去再去档案里改
-test("名字在导入页上就能改", () => {
+// 名字认不出来的时候，原来只能先导进去再去档案里改；
+// 她 2026-10-05：格式有时候拆错，预览每一栏都要能手动改，还要能直接选 docx 文件
+test("预览每一栏都能改，改过的带进导入；能从文件导入", () => {
   const i = screens.indexOf("function CardImportSheet");
-  const j = screens.indexOf("// 长文导入记忆库", i);
-  const sheet = screens.slice(i, j);
+  const j = screens.indexOf("function MemImportSheet", i);
   assert.ok(i > 0 && j > i, "抠不出导入页");
-  assert.match(sheet, /setNameEdit/, "名字没有可编辑的输入框");
-  assert.match(sheet, /onImport\(Object\.assign\(\{\}, p, \{ name: \(name \|\| ""\)\.trim\(\) \}\)\)/, "改过的名字没被带进导入");
+  const sheet = screens.slice(i, j);
+  for (const k of ["name", "tagline", "persona", "longMem", "seeds", "greeting"]) {
+    assert.match(sheet, new RegExp('setVal\\("' + k + '"|box\\("' + k + '"'), k + " 没有可编辑的框");
+  }
+  assert.match(sheet, /seeds: textToSeeds\(val\("seeds"\)\)/, "改过的种子没被带进导入");
+  assert.match(sheet, /persona: persona\.trim\(\)/, "改过的人设没被带进导入");
+  assert.match(sheet, /readOfflineStyleDocument\(file\)/, "文件导入没走公共的 docx 读取");
+  assert.match(sheet, /accept: "\.docx/, "选不了 docx");
 });
 
 // no-half-sheet.md：这一页要装粘贴框＋预览＋一串提醒，半窗先扣掉一半屏幕
 test("导入页是整页，不是半窗", () => {
   const i = screens.indexOf("function CardImportSheet");
-  const j = screens.indexOf("// 长文导入记忆库", i);
+  const j = screens.indexOf("function MemImportSheet", i);
   const sheet = screens.slice(i, j);
   assert.doesNotMatch(sheet, /h\(Sheet,/, "又改回半窗了");
   assert.match(sheet, /h-full flex flex-col/);
