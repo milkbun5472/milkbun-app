@@ -21,5 +21,6 @@ export function mountTownControls(doc=document){
  if(!doc.body.classList.contains('pet-game'))return;
  const decorate=(button,mark)=>{if(!button||button.querySelector('[data-control-label]'))return;const text=button.textContent;button.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true" data-control-mark="'+mark+'">'+marks[mark]+'</svg><span data-control-label></span>';setSceneControlLabel(button,text);};
  for(const[id,mark]of Object.entries({'selected-pet':'pet',light:'clock',back:'door','pet-talk':'talk','pet-work':'book','pet-status':'care','watch-view':'view',reset:'full'}))decorate(doc.getElementById(id),mark);
+ for(const b of doc.querySelectorAll('#walk-actions [data-walk]'))decorate(b,({pause:'view',play:'ball',pet:'touch',resume:'door',home:'rest'})[b.dataset.walk]);
  for(const b of doc.querySelectorAll('#home-actions [data-care]'))decorate(b,({feed:'feed',snack:'snack',play:b.dataset.toy==='mouse'?'mouse':'ball',rest:'rest',pet:'touch'})[b.dataset.care]);
 }
