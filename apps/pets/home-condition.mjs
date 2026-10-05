@@ -1,3 +1,3 @@
 const bound=(v,a=0,b=100,f=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
-export function restoreHomeCondition(raw){return {version:1,bowl:bound(raw?.bowl),water:bound(raw?.water,0,100,100),waterAt:bound(raw?.waterAt,0,1e15),bedding:Object.fromEntries(['bed','sofa','box'].map(k=>[k,bound(raw?.bedding?.[k])]))};}
+export function restoreHomeCondition(raw){return {version:1,bowl:bound(raw?.bowl),water:bound(raw?.water,0,100,100),waterAt:bound(raw?.waterAt,0,1e15),bedding:Object.fromEntries(['bed','sofa','box','own'].map(k=>[k,bound(raw?.bedding?.[k])]))};}
 export function homeUse(care,kind,amount=1,place='bed'){const c=care.condition||(care.condition=restoreHomeCondition());if(kind==='eat')c.bowl=bound(c.bowl+amount*.8);if(kind==='sleep'&&place in c.bedding)c.bedding[place]=bound(c.bedding[place]+18);if(kind==='drink')c.water=bound(c.water-amount);return c;}

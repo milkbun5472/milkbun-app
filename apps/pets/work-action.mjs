@@ -1,9 +1,14 @@
-import {samplePetAction} from '../../art/pet-house/pet-action.mjs?v=fg-a12fdcde83e5b78e';
-import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-a12fdcde83e5b78e';
+import {samplePetAction} from '../../art/pet-house/pet-action.mjs?v=fg-e996cb26fee0a618';
+import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-e996cb26fee0a618';
 
 // Work facts own the clock and completion. This view only samples the current
 // stage; it never awards items, chooses a story, moves a pet or writes a save.
 const STAGES={
+ model:[['workGreet','camera'],['workGreet','camera'],['workInspect','photo']],
+ actor:[['workInspect','tag'],['workGreet','camera'],['workSort','photo']],
+ wedding:[['workInspect','flower'],['workSort','flower'],['workGreet','flower']],
+ books:[['workInspect','book'],['workGreet',''],['workSort','book']],
+ scent:[['workInspect','flower'],['workInspect','clue'],['workSort','flower']],
  bakery:[['workInspect','bag'],['workGreet',''],['workSort','bag']],
  florist:[['workInspect','flower'],['workSort','flower'],['workInspect','flower']],
  store:[['workInspect','tag'],['workGreet',''],['workSort','tag']],
@@ -23,9 +28,11 @@ export function createPetWorkView(T,{pet}){
  function make(kind){
   const g=kind==='bag'||kind==='parcel'?createParcelProp(T,'work-'+kind,{sealed:kind==='parcel'}):new T.Group();g.userData.workProp=kind;
   const add=(geometry,color,x,y,z)=>{const m=new T.Mesh(geometry,new T.MeshStandardMaterial({color,roughness:1}));m.position.set(x,y,z);m.castShadow=true;g.add(m);return m;};
-  if(['tag','coaster','clue'].includes(kind)){
+  if(['tag','coaster','clue','book','photo'].includes(kind)){
    add(kind==='coaster'?new T.CylinderGeometry(.10,.10,.009,24):new T.BoxGeometry(.18,.008,.14),'#eee1c8',0,.006,0);
    for(let i=0;i<3;i++)add(new T.BoxGeometry(.085,.003,.006),kind==='clue'?'#81778b':'#a48878',0,.012,-.035+i*.025);
+  }else if(kind==='camera'){
+   add(new T.BoxGeometry(.20,.12,.075),'#b8acbb',0,.08,0);const lens=add(new T.CylinderGeometry(.05,.05,.03,16),'#625a66',0,.08,.052);lens.rotation.x=Math.PI/2;
   }else if(kind==='flower'){
    add(new T.BoxGeometry(.012,.012,.22),'#79916b',0,.01,-.08);
    add(new T.SphereGeometry(.032,10,6),'#79916b',-.026,.016,-.05).scale.set(1.4,.2,.6);

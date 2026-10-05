@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-a12fdcde83e5b78e';
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-a12fdcde83e5b78e';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-a12fdcde83e5b78e';
-import {careSummary} from './care.mjs?v=fg-a12fdcde83e5b78e';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-e996cb26fee0a618';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-e996cb26fee0a618';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-e996cb26fee0a618';
+import {careSummary} from './care.mjs?v=fg-e996cb26fee0a618';
 
 export const NEIGHBORS=[
  {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},
@@ -14,7 +14,7 @@ const text=v=>typeof v==='string'?v.slice(0,160):'',same=(a,b)=>Math.hypot(a.x-b
 // The real clock chooses a destination; the original route executor walks there.
 // Reopening the town never relocates a neighbor to a completed appointment.
 export function neighborSchedule(id,time,weather='晴日'){
- const n=profile(id);if(!n)return null;if(n.pet)return {place:n.place,point:{...n.position},activity:'在花店等熟悉的小伙伴',gesture:'rest',awake:true,hours:''};const minute=time.minute;
+ const n=profile(id);if(!n)return null;if(n.pet)return {place:n.place,point:{...n.position},activity:'在'+n.placeName+'等熟悉的小伙伴',gesture:'rest',awake:true,hours:''};const minute=time.minute;
  const early=id==='baker'?360:480,late=id==='baker'?1260:1320;
  const hours=id==='baker'?'06:00–21:00':'08:00–22:00';
  let place=n.shop,activity='',gesture='rest',awake=minute>=early&&minute<late;
@@ -81,7 +81,7 @@ export function createNeighborhood(state,{world,getRows,getActors=()=>[],getTime
   const arrived=t.place===plan.place&&Math.hypot(t.position.x-plan.point.x,t.position.z-plan.point.z)<(plan.awake&&plan.gesture==='rest'?2.2:.2);
   return {...plan,gesture:arrived?plan.gesture:'rest',activity:arrived?plan.activity:'正去'+(plan.place==='outside'?plan.activity.replace(/^在/,''):world.building(plan.place)?.title||plan.place),awake:plan.awake};
  }
- function request(action,id,petId){if(action.startsWith('pet-'))return friends.request(action.slice(4),petId,id);if(profile(id)?.pet)return no('小茉喜欢一起待着或追球，打开它的小档案再邀请。');if(state.petMeeting)return no('先陪完正在进行的宠物相处。');const p=row(petId),n=profile(id),time=getTime();if(!p)return no('先选好同行的小家伙。');
+ function request(action,id,petId){if(action.startsWith('pet-'))return friends.request(action.slice(4),petId,id);if(profile(id)?.pet)return no(profile(id).name+'喜欢一起待着或追球，打开它的小档案再邀请。');if(state.petMeeting)return no('先陪完正在进行的宠物相处。');const p=row(petId),n=profile(id),time=getTime();if(!p)return no('先选好同行的小家伙。');
   return transaction(()=>{
    if(action==='join'){
     const event=weekendGathering(time,getWeather());if(!event.available)return no('还没到小聚的时间，周末再来看看。');if(state.event||state.visit)return no('先陪完正在进行的小约定。');if(!free(p))return no('它正在忙或想先吃饭休息，晚点再出发。');if(state.quest?.petId===petId)return no('先把街坊托付的东西送好。');

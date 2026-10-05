@@ -1,6 +1,11 @@
-import {skillTask} from './skills.mjs?v=fg-a12fdcde83e5b78e';
+import {skillTask} from './skills.mjs?v=fg-e996cb26fee0a618';
 // Local habits are earned by actual work/choices and share the pet's career save.
 export const WORK_HABITS = {
+ model:{label:'在窗边坐好等人',done:'在窗边安稳坐了一会儿，像拍摄时等熟悉的人。',pose:'sit',target:'florist'},
+ actor:{label:'看看门边的小动静',done:'轻轻探头看了看门边，像在等自己的小出场。',pose:'look',target:'courier'},
+ wedding:{label:'看看窗边的小花',done:'在小花旁慢慢待了一会儿，记着布花时的安静。',pose:'sniff',target:'florist'},
+ books:{label:'在沙发边安静守一会儿',done:'安静守在沙发边，像陪人翻书的小管理员。',pose:'sit',target:'cafe'},
+ scent:{label:'闻闻门边的小痕迹',done:'在门边低头闻闻，带着花店寻香时的认真。',pose:'sniff',target:'courier'},
  bakery:{label:'在饭碗边等人',done:'像守面包柜台一样，在饭碗边安静等了一会儿。',pose:'look'},
  store:{label:'闻闻玩具角',done:'像检查便利店货架一样，低头闻过了自己的玩具角。',pose:'sniff'},
  florist:{label:'到窗边看看',done:'在窗边慢慢看了一会儿，带着花店里学来的好奇。',pose:'look'},
