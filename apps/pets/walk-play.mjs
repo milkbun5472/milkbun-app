@@ -1,4 +1,4 @@
-import {createPetToy} from './toy-prop.mjs?v=fg-fe8f75d08ee71bdf';
+import {createPetToy} from './toy-prop.mjs?v=fg-fb71468913807d97';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.abs(p.x)<100&&Math.abs(p.z)<100?{x:p.x,z:p.z}:null;
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 // Plan two reachable, separate stops through the original body-aware navigator.
