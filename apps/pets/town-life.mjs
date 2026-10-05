@@ -1,12 +1,12 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-570c0654ba22212e';
-import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-570c0654ba22212e';
-import {createHomeNavigation} from './home-navigation.mjs?v=fg-570c0654ba22212e';
-import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-570c0654ba22212e';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-a12fdcde83e5b78e';
+import {clearActorSegment,createActorNavigation} from './actor-spacing.mjs?v=fg-a12fdcde83e5b78e';
+import {createHomeNavigation} from './home-navigation.mjs?v=fg-a12fdcde83e5b78e';
+import {createNavigator,segmentIntersectsRect} from '../fairy-garden/navigation.mjs?v=fg-a12fdcde83e5b78e';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)?{x:p.x,z:p.z}:null;
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const TOWN_PLACES=['home','outside','cafe','store','alley','bakery','florist'];
-import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-570c0654ba22212e';
-export {roomDoor} from './room-layout.mjs?v=fg-570c0654ba22212e';
+import {roomBounds,roomPoint,roomDoor} from './room-layout.mjs?v=fg-a12fdcde83e5b78e';
+export {roomDoor} from './room-layout.mjs?v=fg-a12fdcde83e5b78e';
 // Footprints come from the existing Blender furniture, converted from Z-up.
 const footprints={
  cafe:[[1.03,-1.24,3.61,1.2],[-2.62,.48,.82,2.08],[-.73,1.29,1,1],[1.67,1.35,1,1],[-1.35,1.29,.44,.44],[-.11,1.29,.44,.44],[1.05,1.35,.44,.44],[2.29,1.35,.44,.44],[2.88,.92,.36,.36],[-2.4,-1.98,.44,.44]],

@@ -1,16 +1,16 @@
-import {restoreCareerCompany} from './career-company.mjs?v=fg-570c0654ba22212e';
-import {restoreWorkHabits,fadeWorkHabits,learnWorkHabit,workHabitsView} from './work-habits.mjs?v=fg-570c0654ba22212e';
-import {STALL_POINT,STALL_GOODS,stallStock,stockSize,atStall,restoreMarket,restoreStall,makeMarket,marketEvent,chooseMarket,marketReturns,finishMarket,marketView} from './stall.mjs?v=fg-570c0654ba22212e';
-import {restoreCourier,restoreDelivery,newDelivery,courierStop,courierEvent,chooseCourier,courierArrival,keepCourierParcel,finishCourier,deliveryView,courierView} from './courier.mjs?v=fg-570c0654ba22212e';
-import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-570c0654ba22212e';
-import {normalizeCase} from './case-schema.mjs?v=fg-570c0654ba22212e';
-import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase,caseEvents,restoreDetective,rememberCase,detectiveView} from './detective.mjs?v=fg-570c0654ba22212e';
-import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-570c0654ba22212e';
+import {restoreCareerCompany} from './career-company.mjs?v=fg-a12fdcde83e5b78e';
+import {restoreWorkHabits,fadeWorkHabits,learnWorkHabit,workHabitsView} from './work-habits.mjs?v=fg-a12fdcde83e5b78e';
+import {STALL_POINT,STALL_GOODS,stallStock,stockSize,atStall,restoreMarket,restoreStall,makeMarket,marketEvent,chooseMarket,marketReturns,finishMarket,marketView} from './stall.mjs?v=fg-a12fdcde83e5b78e';
+import {restoreCourier,restoreDelivery,newDelivery,courierStop,courierEvent,chooseCourier,courierArrival,keepCourierParcel,finishCourier,deliveryView,courierView} from './courier.mjs?v=fg-a12fdcde83e5b78e';
+import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-a12fdcde83e5b78e';
+import {normalizeCase} from './case-schema.mjs?v=fg-a12fdcde83e5b78e';
+import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase,caseEvents,restoreDetective,rememberCase,detectiveView} from './detective.mjs?v=fg-a12fdcde83e5b78e';
+import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-a12fdcde83e5b78e';
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo,workRoom} from './workplaces.mjs?v=fg-570c0654ba22212e';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo,workRoom} from './workplaces.mjs?v=fg-a12fdcde83e5b78e';
 export const WORK_EVENTS=BAKERY_EVENTS;
-import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,ownedItemCount,chooseShopping} from './shopping.mjs?v=fg-570c0654ba22212e';
+import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,ownedItemCount,chooseShopping} from './shopping.mjs?v=fg-a12fdcde83e5b78e';
 export {PET_SHOP};
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
 const str=(v,max=160)=>typeof v==='string'?v.slice(0,max):'';
