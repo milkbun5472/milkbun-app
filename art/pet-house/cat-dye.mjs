@@ -19,14 +19,12 @@ export function createCatDye(T,cat,mask,meta){
  cat.traverse(o=>{if(!o.isMesh)return;o.material=o.material.clone();o.material.vertexColors=false;
   o.material.onBeforeCompile=shader=>{
    Object.assign(shader.uniforms,uniforms);
-   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uFurMask;uniform vec3 uFurBase,uFurPatch,uBaseRef,uPatchRef;uniform float uFurOriginal;')
+   shader.fragmentShader=shader.fragmentShader.replace('#include <common>','#include <common>\nuniform sampler2D uFurMask;uniform vec3 uFurBase,uFurPatch,uBaseRef,uPatchRef;uniform float uFurOriginal;\nvec3 petFurDye(vec3 color,vec2 uv){vec2 fm=texture2D(uFurMask,uv).rg;vec3 dyed=color*(1.-fm.x-fm.y)+fm.x*color*uFurPatch/max(uPatchRef,vec3(.001))+fm.y*color*uFurBase/max(uBaseRef,vec3(.001));return mix(dyed,color,uFurOriginal);}')
     .replace('#include <map_fragment>',`#include <map_fragment>
     #ifdef USE_MAP
-    vec2 fm=texture2D(uFurMask,vMapUv).rg;
-    vec3 dyed=diffuseColor.rgb*(1.-fm.x-fm.y)+fm.x*diffuseColor.rgb*uFurPatch/max(uPatchRef,vec3(.001))+fm.y*diffuseColor.rgb*uFurBase/max(uBaseRef,vec3(.001));
-    diffuseColor.rgb=mix(dyed,diffuseColor.rgb,uFurOriginal);
+    diffuseColor.rgb=petFurDye(diffuseColor.rgb,vMapUv);
     #endif`);
-  };o.material.customProgramCacheKey=()=>'kitten-fur-dye-v2';o.material.needsUpdate=true;
+  };o.material.customProgramCacheKey=()=>'kitten-fur-dye-v3';o.material.needsUpdate=true;
  });
  let look={id:'original',base:null,patch:null};
  function set(value){look=normalizeCatLook(value);uniforms.uFurOriginal.value=look.id==='original'?1:0;
