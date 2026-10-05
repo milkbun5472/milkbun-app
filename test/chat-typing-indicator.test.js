@@ -15,7 +15,9 @@ test("主聊天和每一间侧房都用自己的生成状态，不能串钥匙",
 
 test("生成期间在聊天流末尾显示原来的白色三点气泡", () => {
   const thread = components.slice(components.indexOf("function ChatThread("), components.indexOf("// ---- chat settings"));
-  const indicator = thread.slice(thread.indexOf("}), sending &&"), thread.indexOf("selMode ?", thread.indexOf("}), sending &&")));
+  // 卡片长按那层包在消息行外面之后，这一段前面是「…toggleSel })), sending &&」，锚只认「, sending &&」后面那半
+  const at = thread.indexOf(", sending && /*#__PURE__*/React.createElement(\"div\"");
+  const indicator = thread.slice(at, thread.indexOf("selMode ?", at));
   assert.match(thread, /\[messages\.length, sending\]/, "输入气泡出现时要自动滚到底");
   assert.match(indicator, /role: "status"/);
   assert.match(indicator, /"aria-label": character\.name \+ " 正在输入"/);

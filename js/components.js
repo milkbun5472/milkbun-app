@@ -9073,6 +9073,7 @@ function ChatThread({
     if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
     setQuoted(String(mm.content));
   } });
+  useCardPressMenu(setMenu, selMode);
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
     "data-wk": "chat",
@@ -9312,7 +9313,7 @@ function ChatThread({
         ...parts.map((p, k) => ({ m: { ...m, content: p }, i, part: k, last: k === parts.length - 1 }))];
     }
     return hasReasonRow(m) ? [{ m, i, part: -1, last: false }, { m, i, part: 0, last: true }] : [{ m, i, part: 0, last: true }];
-  }).map(({ m, i, part, last }) => {
+  }).map(_row => cardPressRow((({ m, i, part, last }) => {
     // 居中那几行（系统行/撤回/沉默/拍一拍/旁白/通话小结）本来是【直接写在背景上】的字。
     // 素色背景上没事，一换壁纸就被图案打穿——她 2026-09-02 从记账卡起的疑，一路查下来
     // 这一类全中。跟顶栏同一个办法：设了壁纸就垫一层磨砂，没设壁纸时返回空对象、一个像素都不变。
@@ -9749,7 +9750,7 @@ function ChatThread({
       // 微信那颗红（她 2026-10-01）。原来是 t.accent——换个蓝主题，感叹号就成了蓝的，认不出是「发不出去」。
       style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: "#FA5151", color: "#fff", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
     }, "!")));
-  }), sending && /*#__PURE__*/React.createElement("div", {
+  })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })), sending && /*#__PURE__*/React.createElement("div", {
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
@@ -11593,7 +11594,14 @@ const HTML_CARD_BOOT = tok => '<script>(function(){function r(){try{var w=docume
   + 'parent.postMessage({wkCard:"' + tok + '",h:x},"*")}catch(e){}}'
   + 'addEventListener("load",r);addEventListener("resize",r);'
   + 'if(window.ResizeObserver&&document.body)new ResizeObserver(r).observe(document.body);'
-  + '[60,300,1000].forEach(function(d){setTimeout(r,d)});r()})()<\/script>';
+  + '[60,300,1000].forEach(function(d){setTimeout(r,d)});r();'
+  // 长按卡片（她 2026-10-05：「小卡类的都没有长按菜单，html 删都删不了」）：触摸进了 iframe 就到不了外面那层，
+  //   所以在卡片里面认长按，认到了喊外面一声；外面按同一条消息弹同一份菜单。手指一挪就算滑动，不算长按。
+  + 'var lp=0;function cl(){clearTimeout(lp);lp=0}function lpGo(){parent.postMessage({wkCard:"' + tok + '",press:1},"*")}'
+  + 'addEventListener("touchstart",function(){cl();lp=setTimeout(lpGo,500)},{passive:true});'
+  + 'addEventListener("touchmove",cl,{passive:true});addEventListener("touchend",cl);addEventListener("touchcancel",cl);'
+  + 'addEventListener("contextmenu",function(e){e.preventDefault();lpGo()})'
+  + '})()<\/script>';
 const HTML_CARD_CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; '
   + 'img-src data: blob:; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; font-src data:">';
 function htmlCardDoc(html, tok) {
@@ -11612,6 +11620,37 @@ function htmlCardDoc(html, tok) {
 // 一张卡要滑三屏才看完。所以卡片这一条整行铺开，气泡那层皮整个撤掉。
 // ⚠️只有一处判据：同一个 htmlCardOf。单聊和群聊都从这儿要样式，不许各写一份
 //   （施工规则/one-public-mechanism.md）。
+// 卡片那一族的长按（她 2026-10-05：「小卡类的东西都没有长按菜单……其他卡片也是」）。
+//   普通气泡的长按挂在气泡自己身上；卡片那几十种各画各的，一个都没挂。这里一处补齐：
+//   整行包一层（display: contents，不占位置、不改排版），长按弹同一份菜单、多选时点一下就选中。
+//   ⚠️只包【卡片】——普通气泡自己有，再包一层多选时会点一下选两次（等于没选）。
+//   HTML 卡片：触摸进了 iframe 出不来，只挂 data-msgi，长按由卡片里面喊出来（HtmlCard 那一段）。
+const CARD_PRESS_KINDS = ["recorded", "ledgershare", "geo", "gift", "takeout", "dateinvite", "datereceipt", "dateask", "peeksneak", "loveletter",
+  "askphone", "kinship", "kinbill", "kinraise", "kinunbind", "paylater", "couple_invite", "unblock_req", "chatforward", "shopask", "phonepeek", "carved", "listeninvite"];
+function cardPressRow(el, m, i, o) {
+  if (!el || !m || m.recalled) return el;
+  const html = !m.kind && typeof htmlCardOf === "function" && htmlCardOf(m.content);
+  const card = CARD_PRESS_KINDS.indexOf(m.kind) >= 0 || !!shareCardOf(m.kind) || !!(m.receipt && m.receipt.amount != null);
+  if (!html && !card) return el;
+  return h("div", Object.assign({ key: el.key != null ? el.key : i, "data-msgi": i, className: o.selMode ? "qq-cardsel" : undefined, style: { display: "contents" } }, card ? {
+    onTouchStart: o.selMode ? undefined : () => o.startPress(i), onTouchEnd: o.endPress,
+    onMouseDown: o.selMode ? undefined : () => o.startPress(i), onMouseUp: o.endPress, onMouseLeave: o.endPress,
+    onClickCapture: o.selMode ? e => { e.stopPropagation(); e.preventDefault(); o.toggleSel(i); } : undefined
+  } : null), el);
+}
+// HTML 卡片里认到的长按：找它在哪一行，弹那一行的菜单（单聊、群聊同一个）
+function useCardPressMenu(open, selMode) {
+  useEffect(() => {
+    const on = e => { if (selMode) return; const row = e.target && e.target.closest && e.target.closest("[data-msgi]"); if (row) open(Number(row.getAttribute("data-msgi"))); };
+    document.addEventListener("qq-card-press", on);
+    return () => document.removeEventListener("qq-card-press", on);
+  }, [open, selMode]);
+}
+// 多选时 HTML 卡片得让点击穿过 iframe 落到底下那一泡，才选得中
+if (typeof document !== "undefined" && document.head && !document.getElementById("qq-card-sel-css")) {
+  const st = document.createElement("style"); st.id = "qq-card-sel-css";
+  st.textContent = ".qq-cardsel [data-wk=htmlcard]{pointer-events:none}"; document.head.appendChild(st);
+}
 function cardLayout(content) {
   if (typeof htmlCardOf !== "function" || !htmlCardOf(content)) return null;
   return {
@@ -11624,10 +11663,13 @@ function HtmlCard({ html }) {
   const t = useTheme();
   const tok = React.useMemo(() => "c" + Math.random().toString(36).slice(2, 10), [html]);
   const [hgt, setHgt] = useState(160);
+  const frame = useRef(null);
   useEffect(() => {
     const on = e => {
       const d = e && e.data;
       if (!d || d.wkCard !== tok) return;
+      // 卡片里头认到了长按：从这张卡的位置往外冒一个事件，聊天那头按它所在那一行弹菜单
+      if (d.press) { if (frame.current) frame.current.dispatchEvent(new CustomEvent("qq-card-press", { bubbles: true })); return; }
       const n = Number(d.h);
       // ⚠️这儿不许再加余量。量的是内容层，但 ResizeObserver 会把我们设的高度
       //   再吹回来一次；加一点就涨一点，正是 258→260→262 那条爬升回路。
@@ -11637,6 +11679,7 @@ function HtmlCard({ html }) {
     return () => window.removeEventListener("message", on);
   }, [tok]);
   return h("iframe", {
+    ref: frame,
     "data-wk": "htmlcard",
     srcDoc: htmlCardDoc(html, tok),
     sandbox: "allow-scripts",     // ⚠️不许加 allow-same-origin，见上面那段
@@ -15824,6 +15867,7 @@ function GroupThread({
     if (!mm || selMode || !menuItemsForKind(mm, false).some(g => g.indexOf("quote") >= 0) || !mm.content) return;
     setQuoted(window.GroupQuote ? window.GroupQuote.makeSelection(mm, i, meName) : String(mm.content));
   } });
+  useCardPressMenu(setMenu, selMode);
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
   const exitSel = () => { setSelMode(false); setSelIds([]); setFwdPick(false); };
   const doDelete = () => { if (selIds.length) onDeleteMessages && onDeleteMessages(selIds); exitSel(); };
@@ -16333,6 +16377,7 @@ function GroupThread({
     // 思考链画在这一组回复的上方（和单聊、线下同一个组件、同一个位置）。
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
     const _m = messages[i];
+    row = cardPressRow(row, _m, i, { selMode, startPress, endPress, toggleSel });
     return (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
   }), sending && h("div", {
     "data-wk": "row",
