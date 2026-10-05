@@ -31,8 +31,20 @@ test("播放页接上头像气泡和输入；说的每句原样落进单聊，�
 test("parseSay：JSON 与空数组", () => {
   const body = src.slice(src.indexOf("function parseSay"), src.indexOf("// mode：reply"));
   const parseSay = new Function(body + "\nreturn parseSay;")();
-  assert.deepEqual(parseSay('{"say":["嗯","好听"]}'), ["嗯", "好听"]);
+  // v74.84 起每项是 {t, voice}：可以是字，也可以是 TA 的语音
+  assert.deepEqual(parseSay('{"say":["嗯","好听"]}').map(x => x.t), ["嗯", "好听"]);
   assert.deepEqual(parseSay('{"say":[]}'), []);
+});
+
+// 她 2026-10-05：「一起听能不能角色发语音」
+test("一起听里TA能发语音：认 {voice}、当场念、落进单聊是语音条", () => {
+  const body = src.slice(src.indexOf("function parseSay"), src.indexOf("// mode：reply"));
+  const parseSay = new Function(body + "\nreturn parseSay;")();
+  assert.deepEqual(parseSay('{"say":["嗯",{"voice":"这句好听"}]}'), [{ t: "嗯", voice: false }, { t: "这句好听", voice: true }]);
+  assert.match(src, /哪一句想直接用嗓子说给她听，就把那一项写成/);
+  assert.match(src, /const blob = await ttsSpeak\(r\.content, partner\.voiceId\);/);
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /r\.voice \? \{ kind: "voice", dur:/);
 });
 
 // 她 2026-09-29：「我的气泡能不能消失的时间和他的一致，因为有时候等回复很久我的气泡消失了他才回」

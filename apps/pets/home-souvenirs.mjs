@@ -1,9 +1,10 @@
-import {HOME_DETAILS} from './room-layout.mjs?v=fg-c13ff9c0dae5cbe1';
-import {petWorkplace} from './workplaces.mjs?v=fg-c13ff9c0dae5cbe1';
+import {HOME_DETAILS} from './room-layout.mjs?v=fg-9e725779023f1908';
+import {petWorkplace} from './workplaces.mjs?v=fg-9e725779023f1908';
+import {furnishingFacts} from './furnishings.mjs?v=fg-9e725779023f1908';
 // One inventory projection for the room and the conversation. No second furniture save.
 export function homeSouvenirs(career,care){
  const inventory=career?.inventory||{},task=care?.task;
- return {flowerVase:{flowers:career?.vase?.flowers||0,unplaced:inventory.flower||0,petals:inventory.petals||0,day:career?.vase?.day||null,by:career?.vase?.by||'',place:'窗边桌上的小花瓶'},breadBasket:{count:inventory.bread||0,place:'饭盆旁的面包篮',portion:task?.kind==='treat'&&task.food==='bread'?{phase:task.phase,food:'小面包'}:null},ownBox:{owned:inventory.box===1,resting:task?.kind==='sleep'&&task.place==='box',place:'自己的敞口小纸箱'},ownBall:{owned:inventory.toy===1,name:career?.shopping?.toyStyle==='wonky'?'歪眼小怪球':'自己的小球',place:'玩具角或它上次放下的地方',position:care?.toyPlaces?.ball?{...care.toyPlaces.ball}:null,playing:inventory.toy===1&&task?.kind==='play'&&task.toy==='ball'},firstTrial:career?.firstTrial?structuredClone(career.firstTrial):null};
+ return {furnishings:furnishingFacts(career),flowerVase:{flowers:career?.vase?.flowers||0,unplaced:inventory.flower||0,petals:inventory.petals||0,day:career?.vase?.day||null,by:career?.vase?.by||'',place:'窗边桌上的小花瓶'},breadBasket:{count:inventory.bread||0,place:'饭盆旁的面包篮',portion:task?.kind==='treat'&&task.food==='bread'?{phase:task.phase,food:'小面包'}:null},ownBox:{owned:inventory.box===1,resting:task?.kind==='sleep'&&task.place==='box',place:'自己的敞口小纸箱'},ownBall:{owned:inventory.toy===1||inventory.bellBall===1,name:career.furnishings?.toy==='bellBall'?'铃铛小球':career?.shopping?.toyStyle==='wonky'?'歪眼小怪球':'自己的小球',place:'玩具角或它上次放下的地方',position:care?.toyPlaces?.ball?{...care.toyPlaces.ball}:null,playing:(inventory.toy===1||inventory.bellBall===1)&&task?.kind==='play'&&task.toy==='ball'},firstTrial:career?.firstTrial?structuredClone(career.firstTrial):null};
 }
 export function createHomeSouvenirs(T,{model,career,care,ballObject,boxObject}){
  const root=new T.Group();root.name='pet-earned-souvenirs';model.add(root);
