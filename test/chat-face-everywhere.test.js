@@ -18,3 +18,9 @@ test("群头像能设、能存、列表里显示", () => {
   assert.match(app, /updateGroup\(activeGroup\.id, \{ avatarImage: gAvNew \|\| null \}\)/);
   assert.equal((comp.match(/g\.avatarImage \? h\(Avatar, \{ character: \{ name: g\.name, avatarImage: g\.avatarImage \}/g) || []).length, 2);
 });
+// 她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」
+test("配角只有一张脸：通讯录那儿换头像连聊天那张一起换，册子里显示的也是聊天那张", () => {
+  assert.match(app, /onSaveNpcAvatar: \(id, img\) => \{ pC\(p => p\.map\(c => c\.id === id && c\.npc \? \{ \.\.\.c, avatarImage: img \|\| null, chatAvatar: null \}/);
+  assert.match(comp, /h\(AvatarPicker, \{ character: chatFace\(cur\)/);
+  assert.match(comp, /h\(AvatarPicker, \{ character: chatFace\(n\)/);
+});
