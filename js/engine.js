@@ -655,7 +655,9 @@ function noteServedModel(profile, req, got) {
 //   不工作；反过来默认放行的话，漏标一处就是在偷偷烧她的额度，而且没人看得见。
 const GIFT_USES = { chat: 1, offline: 1, call: 1, models: 1 };
 function isGiftRoute(p) {
-  try { return !!(p && p.gift) || /qiuqiu-trial\.[^/]*workers\.dev/.test(String((p && p.baseUrl) || "")); }
+  // 地址两种都认：公共版里写的是秋秋机自己的 /gift/（Worker 的真地址带着她账号名，不进包），
+  //   Worker 的原地址也留着——有人手填它，照样走同一道闸。
+  try { return !!(p && p.gift) || /qiuqiu-trial\.[^/]*workers\.dev|qiuqiu-machine\.pages\.dev\/gift\//.test(String((p && p.baseUrl) || "")); }
   catch (e) { return false; }
 }
 // 开场前她自己要在真的 app 里试（curl 只证明代理和站子通，证明不了整条链）。
