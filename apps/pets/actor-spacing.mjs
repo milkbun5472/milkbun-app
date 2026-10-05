@@ -1,4 +1,4 @@
-import {walkRoute} from './movement.mjs?v=fg-fa757987f7f84c8d';
+import {walkRoute} from './movement.mjs?v=fg-1088be5ba26edda2';
 
 // Physical bodies stay in the existing room/path system. Busy or sleeping
 // residents still occupy space; the off-screen player's hand has no body.
@@ -20,7 +20,7 @@ export function createActorNavigation(base,{actor,actors}){
   const avoid=obstacles(),clear=q=>base.walkable(q.x,q.z)&&avoid.every(o=>Math.hypot(q.x-o.x,q.z-o.z)>=o.r);
   if(clear(point))return {...point};
   const angle=Math.atan2(from.x-point.x,from.z-point.z);
-  for(let r=.2;r<=maxOffset+1e-7;r+=.2)for(const offset of [0,.6,-.6,1.2,-1.2,1.8,-1.8,Math.PI]){const q={x:point.x+Math.sin(angle+offset)*r,z:point.z+Math.cos(angle+offset)*r};if(clear(q)&&base.path(point,q,avoid))return q;}
+  for(let r=.2;r<=maxOffset+1e-7;r+=.2)for(const offset of [0,.6,-.6,1.2,-1.2,Math.PI/2,-Math.PI/2,1.8,-1.8,Math.PI]){const q={x:point.x+Math.sin(angle+offset)*r,z:point.z+Math.cos(angle+offset)*r};if(clear(q)&&base.path(from,q,avoid))return q;}
   return null;
  }
  function walk(route,position,heading,dt,speed){

@@ -4,14 +4,14 @@
 //   原来这儿是另一条路：结冰单独建一台寻路器、喂一个假存档 {day:43}——
 //   那样每多一种会变的地形就多一台寻路器、多一整张格子，她的手机撑不住
 //   （半径 55 的那张图一张就是二十万个点）。乐观格子只要一张。
-export function createNavigator(maps,walkable,segmentClear,gridWalkable=walkable){
- const grids=new Map(),STEP=.24;
+export function createNavigator(maps,walkable,segmentClear,gridWalkable=walkable,{step=.24}={}){
+ const grids=new Map(),STEP=step;
  const avoids=(p,avoid)=>avoid.every(o=>Math.hypot(p.x-o.x,p.z-o.z)>=o.r);
  function grid(map){if(grids.has(map))return grids.get(map);const m=maps[map],extent=m.walkRegions?m.walkRegions.flatMap(a=>a.polygon||[{x:a.x-a.r,z:a.z-a.r},{x:a.x+a.r,z:a.z+a.r}]):[{x:-m.radius,z:-m.radius},{x:m.radius,z:m.radius}];
   const minX=Math.floor(Math.min(...extent.map(p=>p.x))/STEP),maxX=Math.ceil(Math.max(...extent.map(p=>p.x))/STEP),minZ=Math.floor(Math.min(...extent.map(p=>p.z))/STEP),maxZ=Math.ceil(Math.max(...extent.map(p=>p.z))/STEP),rows=maxX-minX+1,N=maxZ-minZ+1;
   const points=Array.from({length:rows*N},(_,k)=>({x:(Math.floor(k/N)+minX)*STEP,z:(k%N+minZ)*STEP})),free=points.map(p=>gridWalkable(p.x,p.z,map));const g={N,rows,minX,minZ,points,free};grids.set(map,g);return g;}
 
- function nearest(p,map,g,avoid,s){const i=Math.round(p.x/STEP)-g.minX,j=Math.round(p.z/STEP)-g.minZ;for(let r=0;r<=5;r++){const candidates=[];for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++){if(r&&Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const x=i+di,y=j+dj;if(x<0||y<0||x>=g.rows||y>=g.N)continue;const k=x*g.N+y,q=g.points[k];if(g.free[k]&&avoids(q,avoid))candidates.push(k);}candidates.sort((a,b)=>Math.hypot(p.x-g.points[a].x,p.z-g.points[a].z)-Math.hypot(p.x-g.points[b].x,p.z-g.points[b].z));for(const k of candidates)if(segmentClear(p,g.points[k],map,avoid,s))return k;}return null;}
+ function nearest(p,map,g,avoid,s){const i=Math.round(p.x/STEP)-g.minX,j=Math.round(p.z/STEP)-g.minZ;for(let r=0;r<=Math.ceil(1.2/STEP);r++){const candidates=[];for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++){if(r&&Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const x=i+di,y=j+dj;if(x<0||y<0||x>=g.rows||y>=g.N)continue;const k=x*g.N+y,q=g.points[k];if(g.free[k]&&avoids(q,avoid))candidates.push(k);}candidates.sort((a,b)=>Math.hypot(p.x-g.points[a].x,p.z-g.points[a].z)-Math.hypot(p.x-g.points[b].x,p.z-g.points[b].z));for(const k of candidates)if(segmentClear(p,g.points[k],map,avoid,s))return k;}return null;}
  return function findPath(start,target,map='garden',avoid=[],s=null){
   if(!walkable(start.x,start.z,map,s)||!walkable(target.x,target.z,map,s)||!avoids(target,avoid))return null;
   if(segmentClear(start,target,map,avoid,s))return [{...target}];

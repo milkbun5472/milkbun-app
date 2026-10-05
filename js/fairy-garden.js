@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-fa757987f7f84c8d", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-1088be5ba26edda2", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -405,7 +405,7 @@
                 h('div',{className:'pet-work-controls'},
                   careerView.job?.phase==='ready'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>work('finish')},careerView.market?'收好小票，结束摆摊':'一起收工，结工资'),
                   careerView.job?.phase==='tired'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>work('resume')},'恢复精神后继续'),
-                  careerView.job?.phase==='working'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');if(!careerView.atDestination)game()?.goDelivery();}},(careerView.delivery||careerView.market)?'陪它走到'+(careerView.delivery||careerView.market).destinationTitle:'回店里陪它继续'),
+                  careerView.job?.phase==='working'&&h('button',{className:'pet-button pet-button-primary',onClick:()=>{setPanel('');if(!careerView.atDestination)game()?.goDelivery();}},(careerView.delivery||careerView.market)?'陪它走到'+(careerView.delivery||careerView.market).destinationTitle:careerView.atDestination?'回店里陪它继续':'陪它走到工作位置'),
                   !careerView.job&&!careerView.daily.closed&&!careerView.daily.rest&&(careerView.room!==careerView.destination?h('button',{className:'pet-button pet-button-primary',onClick:()=>{if(game()?.goWork(careerView.workplace.id))setPanel('');else setCareerNotice('这次还没能出发，先等眼前的事情做完，或重试保存后再点一次。');}},careerView.workplace.id==='stall'?'先回家准备摊袋':'走去'+careerView.workplace.title+'看看'):h('button',{className:'pet-button pet-button-primary',onClick:()=>work(careerView.daily.declined?'bribe':'invite'),disabled:!careerView.window?.open||careerView.daily.declined&&(careerView.daily.bribed||!careerView.inventory.snack)},careerView.daily.declined?'用一份零食再邀请一次':careerView.workplace.id==='stall'?'问问它愿不愿意出摊':'问问它愿不愿意试工')),
                   careerView.daily.closed&&!careerView.job&&h('p',{className:'pet-quiet'},'今天已经收工啦，去公园走走，或回家陪它。'),careerView.daily.rest&&h('p',{className:'pet-quiet'},'今天属于它自己，想怎么玩都可以。')),
                 careerView.job?h('button',{className:'pet-text-button',onClick:()=>work('cancel')},careerView.market?'今天先收摊，带余货回家':'今天先停下，不结工资'):!careerView.daily.closed&&!careerView.daily.rest&&h('button',{className:'pet-text-button',onClick:()=>work('rest')},'今天不上班，让它休息')),
