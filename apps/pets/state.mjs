@@ -1,13 +1,16 @@
-import {restoreNeighborhood} from './neighborhood.mjs?v=fg-a12fdcde83e5b78e';
-import {upgradeRoomLayout,ROOM_LAYOUT_VERSION} from './room-layout.mjs?v=fg-a12fdcde83e5b78e';
-import {restoreHousehold} from './home-chores.mjs?v=fg-a12fdcde83e5b78e';
-import {restoreTownLife} from './town-life.mjs?v=fg-a12fdcde83e5b78e';
-import {restoreSocial} from './social.mjs?v=fg-a12fdcde83e5b78e';
-import {restoreResident} from './autonomy.mjs?v=fg-a12fdcde83e5b78e';
-import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-a12fdcde83e5b78e';
-import {restoreCare} from './care.mjs?v=fg-a12fdcde83e5b78e';
-import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-a12fdcde83e5b78e';
-import {restorePetBirth,newPetBirth} from './birth.mjs?v=fg-a12fdcde83e5b78e';
+import {chatRatio} from './chat-layout.mjs?v=fg-95dfbc20ee832516';
+import {restoreJournal} from './weekly-journal.mjs?v=fg-95dfbc20ee832516';
+import {restoreTogether} from './together.mjs?v=fg-95dfbc20ee832516';
+import {restoreNeighborhood} from './neighborhood.mjs?v=fg-95dfbc20ee832516';
+import {upgradeRoomLayout,ROOM_LAYOUT_VERSION} from './room-layout.mjs?v=fg-95dfbc20ee832516';
+import {restoreHousehold} from './home-chores.mjs?v=fg-95dfbc20ee832516';
+import {restoreTownLife} from './town-life.mjs?v=fg-95dfbc20ee832516';
+import {restoreSocial} from './social.mjs?v=fg-95dfbc20ee832516';
+import {restoreResident} from './autonomy.mjs?v=fg-95dfbc20ee832516';
+import {restoreCareer,PET_DAY_SECONDS} from './career.mjs?v=fg-95dfbc20ee832516';
+import {restoreCare} from './care.mjs?v=fg-95dfbc20ee832516';
+import {normalizeCatLook} from '../../art/pet-house/cat-dye.mjs?v=fg-95dfbc20ee832516';
+import {restorePetBirth,newPetBirth} from './birth.mjs?v=fg-95dfbc20ee832516';
 const bound=(v,a,b,d)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
 export const PET_LIMIT=4;
 export const petDefaultName=(species,newcomer=false)=>(newcomer?'新来的':'')+(species==='dog'?'狗狗':'猫猫');
@@ -17,7 +20,7 @@ export function petEntry(raw,id,{at=Date.now(),random=Math.random}={}){const car
 // Stable identity lives in the world save, never in a species or array index.
 // The top-level projection preserves the existing single-pet API and old backups.
 export function projectActivePet(state){const p=state.pets.find(p=>p.id===state.activePetId)||state.pets[0];state.activePetId=p.id;state.profile=p.profile;state.care=p.care;state.career=p.career;state.configured=p.configured;return state;}
-export function restorePetState(raw,world,{at=Date.now(),random=Math.random}={}){raw=upgradeRoomLayout(raw);const saved=world.restore(raw),used=new Set(),rows=Array.isArray(raw?.pets)&&raw.pets.length?raw.pets:[raw||{}];const pets=rows.map((r,i)=>{let id=typeof r?.id==='string'&&/^[\w-]{1,80}$/.test(r.id)?r.id:'pet-'+(i+1);while(used.has(id))id+='-copy';used.add(id);return petEntry(r,id,{at,random});});return projectActivePet({version:7,neighborhood:restoreNeighborhood(raw?.neighborhood,pets.map(p=>p.id),pets),roomLayoutVersion:ROOM_LAYOUT_VERSION,household:restoreHousehold(raw?.household),epoch:typeof raw?.epoch==='string'?raw.epoch:'',...(raw?.clock?{clock:structuredClone(raw.clock)}:{}),observation:raw?.observation?structuredClone(raw.observation):null,social:restoreSocial(raw?.social,pets.map(p=>p.id)),resident:{...restoreResident(raw?.resident),...(raw?.resident?.town?{town:restoreTownLife(raw.resident.town)}:{})},pets,activePetId:raw?.activePetId,day:Math.floor(bound(raw?.day,1,100000,1)),map:saved.room||'outside',...saved});}
+export function restorePetState(raw,world,{at=Date.now(),random=Math.random}={}){raw=upgradeRoomLayout(raw);const saved=world.restore(raw),used=new Set(),rows=Array.isArray(raw?.pets)&&raw.pets.length?raw.pets:[raw||{}];const pets=rows.map((r,i)=>{let id=typeof r?.id==='string'&&/^[\w-]{1,80}$/.test(r.id)?r.id:'pet-'+(i+1);while(used.has(id))id+='-copy';used.add(id);return petEntry(r,id,{at,random});});return projectActivePet({version:8,ui:{chatRatio:chatRatio(raw?.ui?.chatRatio)},journal:restoreJournal(raw?.journal),together:restoreTogether(raw?.together),neighborhood:restoreNeighborhood(raw?.neighborhood,pets.map(p=>p.id),pets),roomLayoutVersion:ROOM_LAYOUT_VERSION,household:restoreHousehold(raw?.household),epoch:typeof raw?.epoch==='string'?raw.epoch:'',...(raw?.clock?{clock:structuredClone(raw.clock)}:{}),observation:raw?.observation?structuredClone(raw.observation):null,social:restoreSocial(raw?.social,pets.map(p=>p.id)),resident:{...restoreResident(raw?.resident),...(raw?.resident?.town?{town:restoreTownLife(raw.resident.town)}:{})},pets,activePetId:raw?.activePetId,day:Math.floor(bound(raw?.day,1,100000,1)),map:saved.room||'outside',...saved});}
 export function snapshotPetState(state,view){const saved=structuredClone({...state,position:{...view.position},outdoor:view.outdoor?structuredClone(view.outdoor):null,room:view.room,map:view.room||'outside',evening:view.evening,profile:petProfile(state.profile)});const p=saved.pets?.find(p=>p.id===saved.activePetId);if(p){p.profile=petProfile(saved.profile);p.care=structuredClone(saved.care);p.career=structuredClone(saved.career);p.configured=saved.configured;}return saved;}
 export function newPetEntry(profile,existing,random=Math.random,at=Date.now()){let id;do{id='pet-'+Math.floor(random()*0xffffffff).toString(36)+'-'+at.toString(36)+'-'+existing.length;}while(existing.some(p=>p.id===id));const seed=Math.max(1,Math.floor(random()*0xffffffff)),p=petEntry({profile,configured:true,birth:newPetBirth({at,random}),career:{rng:(seed^0x5f3759df)>>>0},care:{rng:seed,traits:{active:.3+random()*.5,social:.3+random()*.5,bold:.25+random()*.5}}},id);return p;}
 // A body-only rest-mesh deformation. Feet, face, eyes and ears stay unchanged.
