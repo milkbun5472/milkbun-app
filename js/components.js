@@ -17859,6 +17859,16 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     !draft.main && h("div", { style: { marginTop: 14 } },
       h(Eyebrow, null, "隔多久回主聊天看一眼"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
+    // 这三组开关上面原来是光秃秃的（她 2026-10-05 拿两张图对出来的）：建房那一支
+    //   有「这扇门带进带出什么」压着它们，编辑页却没有——同样三排开关，一边有人
+    //   告诉你它们合起来是干嘛的，一边没有。标题和那句说明都走建房那边同一份。
+    //   ⚠️主聊天那一间说法要换：它没有「门」，三组里也只剩两组，
+    //     说「带进带出」会让人以为主聊天也是一间侧房。
+    h("div", { style: { marginTop: 14, paddingTop: 12, borderTop: "1px dashed " + t.line } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, draft.main ? "主聊天记得什么、写回什么" : "这扇门带进带出什么"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+        draft.main ? "你平时坐的那间：他带着你们的全部经历，这儿发生的事也照常记进去。"
+          : ((window.ChatRooms && window.ChatRooms.doorLine ? window.ChatRooms.doorLine(draft) : "") + "随时能改，改完下一轮就算数。"))),
     group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
     memCutRow(!draft.main && !!(draft.startFrom && draft.startFrom.anchorTs)),
     !draft.main && group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
