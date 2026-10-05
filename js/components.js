@@ -12648,9 +12648,29 @@ function HealthRecordCard({ m }) {
       h("div", { style: { height: 4, borderRadius: 999, background: "rgba(39,51,44,.08)", overflow: "hidden" } },
         h("div", { style: { width: Math.round(pct * 100) + "%", height: "100%", borderRadius: 999, background: tot.kcal > goal ? C.tint : C.accent } }))) : null);
 }
+// 立约到期、每周小结：TA 说完话跟着的那张小卡（她 2026-10-05）。跟「记进健康」那张同一套颜色，点一下进健康。
+function HealthNoteCard({ m }) {
+  const C = { bg: "#f6f4ee", ink: "#27332c", sub: "#6f7a72", fog: "#a3aba4", line: "rgba(39,51,44,.12)", accent: "#4f8a6c", tint: "#d9824f" };
+  const pact = m.note === "pact", dots = Array.isArray(m.dots) ? m.dots : [], ok = dots.filter(x => x === "ok").length;
+  return h("button", { "data-wk": "card", "data-health-note": m.note || "", "aria-label": "去健康看", className: "active:opacity-80 text-left",
+      onClick: () => { try { window.healthGoApp && window.healthGoApp(); } catch (e) {} },
+      style: { display: "block", width: 228, borderRadius: 16, overflow: "hidden", background: C.bg, border: "1px solid " + C.line, boxShadow: "0 2px 8px rgba(39,51,44,.07)", padding: "10px 13px 12px" } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: C.sub } }, pact ? "我们约好的 · 到期了" : "上一周 · 小结"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: C.ink, marginTop: 4, lineHeight: 1.35 } }, m.title || ""),
+    pact ? h(React.Fragment, null,
+      h("div", { style: { display: "flex", gap: 4, flexWrap: "wrap", marginTop: 9 } }, dots.map((st, i) => h("span", { key: i,
+        style: { width: 20, height: 20, borderRadius: 99, display: "inline-flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 10.5,
+          background: st === "ok" ? C.accent : st === "miss" ? "rgba(217,130,79,.18)" : "transparent", color: st === "ok" ? "#fff" : st === "miss" ? C.tint : C.fog,
+          border: "1px solid " + (st === "ok" ? C.accent : st === "miss" ? "rgba(217,130,79,.45)" : "rgba(39,51,44,.18)") } }, st === "ok" ? "✓" : st === "miss" ? "×" : "?"))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: ok === dots.length && dots.length ? C.accent : C.sub, marginTop: 8 } },
+        ok === dots.length && dots.length ? "一天不落，" + dots.length + " 天全做到了" : "做到 " + ok + " / " + dots.length + " 天"))
+    : h("div", { style: { marginTop: 6 } }, (m.rows || []).map((r, i) => h("div", { key: i, style: { display: "flex", justifyContent: "space-between", gap: 10, padding: "4px 0", borderTop: i ? "1px dashed " + C.line : "none", fontFamily: F_BODY } },
+        h("span", { style: { fontSize: 12, color: C.sub } }, r[0]), h("span", { style: { fontSize: 12.5, color: C.ink, textAlign: "right" } }, r[1])))));
+}
 function RecordedCard({ m }) {
   const t = useTheme();
   const isMemo = m.what === "memo", isHealth = m.what === "health";
+  if (m.what === "healthnote") return h(HealthNoteCard, { m });   // 排在账本小票那一条前面：不然玻璃皮会把它画成一张小票
   if (!isMemo && !isHealth && typeof window !== "undefined" && window.ledgerIsGlass && window.ledgerIsGlass()) return h(LedgerTicketCard, { m });
   if (isHealth) return h(HealthRecordCard, { m });
   const tone = isMemo ? "122,106,154" : isHealth ? "196,110,92" : "79,109,90";

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.827";
+const APP_VERSION = "v74.828";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6956,7 +6956,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
           if (cand && !pSkip("health:" + hn.meal)) {
             pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
-              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } }),
+              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } })
+                .then(r => { if (r === true && hn.card) pChat(cand.id, p => [...p, Object.assign({ role: "system", kind: "recorded", charId: cand.id, ts: Date.now() }, hn.card)]); return r; }),
               () => window.HealthCtx.markNudged(hn.day, hn.meal)
             );
             return;                                               // 一次一个，错峰
