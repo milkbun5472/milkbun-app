@@ -10,8 +10,9 @@ const fs = require("node:fs");
 const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 const bare = s => s.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
-const hintAt = app.indexOf("const thoughtHint = gs.memoryInterop ?");
-const hint = app.slice(hintAt, app.indexOf("\n      const ", hintAt + 20));
+// v74.84 起两支共用 _gThoughtIs（心声那句收成 THOUGHT_MEANING），一起切进来看
+const hintAt = app.indexOf("const _gThoughtIs = ");
+const hint = app.slice(hintAt, app.indexOf("\n      const ", app.indexOf("const thoughtHint = gs.memoryInterop ?", hintAt) + 20));
 const fieldAt = app.indexOf("const thoughtField = gs.memoryInterop");
 const field = app.slice(fieldAt, app.indexOf("\n      const ", fieldAt + 20));
 
