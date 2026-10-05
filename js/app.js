@@ -16265,8 +16265,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
     }
   };
+  // 一串唤醒还没跑完就又被叫（开 App、切回前台、定时器挤在一起）：后来的那次直接不进（她 2026-10-05：「自动抽了三签」）
+  const sweepRunBusy = useRef(false);
   const wakeSweeps = async () => {
-    if (!active || !characters.length) return;
+    if (!active || !characters.length || sweepRunBusy.current) return;
+    sweepRunBusy.current = true;
+    try { await sweepRunOnce(); } finally { sweepRunBusy.current = false; }
+  };
+  const sweepRunOnce = async () => {
     deliverDeskLog();
     const steps = [schedGenAllToday, schedMaybeSelfRevise, walletCatchAllToday,
       desireMuseAllToday, desireTendAllToday, phoneWeeklySweep, autoImpressionSweep, astroSignSweep];

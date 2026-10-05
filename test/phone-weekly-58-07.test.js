@@ -63,7 +63,8 @@ test("连着刷完这一周欠的，每个人都是成没成都先记账", () =>
 
 test("每一步各自兜底——原来一条 .then 链，中间抛了后面全静默跳过", () => {
   assert.match(app, /const wakeSweeps = async \(\) => \{/);
-  const i = app.indexOf("  const wakeSweeps = async () => {");
+  // v74.88 起外面那层只管「别同时跑两串」，每一步在 wakeSweepsOnce 里
+  const i = app.indexOf("  const sweepRunOnce = async () => {");
   const seg = app.slice(i, i + 900);
   assert.match(seg, /for \(const step of steps\) \{ try \{ await step\(\); \} catch \(e\) \{/, "还是一步失手拖垮后面几步");
   ["schedGenAllToday", "schedMaybeSelfRevise", "walletCatchAllToday",

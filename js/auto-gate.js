@@ -60,10 +60,18 @@
   function claim(key, period) { mark(key, period, true); }
   // 跑一件事：过不了闸就返回 "skip"；跑完按【真成了没有】记账。
   // fn 返回 falsy 或抛异常都算没成——两种都要留痕迹，不然又回到「每次刷新重来」。
+  // ⚠️同一格还在跑就不许再进（她 2026-10-05：「为啥他自动抽了三签」）。
+  //   账是【跑完】才记的，可唤醒那一串（开 App、切回前台、定时）会在一枪还没回来时又叫一次——
+  //   due() 三次都说「该跑」，于是三枪齐发、三张签。闸立在这一处，所有自动活儿一起有。
+  const inflight = new Set();
   async function run(key, period, fn, opts) {
+    const slot = key + "@" + period;
+    if (inflight.has(slot)) return "skip";
     if (!due(key, period, opts)) return "skip";
+    inflight.add(slot);
     let ok = false;
     try { ok = !!(await tagged((opts && opts.tag) || labelOf(key), fn, showOf(key))); } catch (e) { ok = false; }
+    finally { inflight.delete(slot); }
     mark(key, period, ok);
     return ok ? "ok" : "fail";
   }
