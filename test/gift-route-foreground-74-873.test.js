@@ -21,6 +21,8 @@ test("① 认得出这条线，而且认两种写法（显式标记 + 代理地�
   const fn = E.slice(E.indexOf("function isGiftRoute(p)"), E.indexOf("function giftHeaders"));
   assert.match(fn, /p\.gift/, "显式标记认不出来");
   assert.match(fn, /qiuqiu-trial/, "按地址认不出来——有人手填这条线路也该走同一道闸");
+  // 公共版里写的是秋秋机自己的 /gift/（Worker 真地址带着她账号名，黑名单会拦）
+  assert.match(fn, /qiuqiu-machine\\\.pages\\\.dev\\\/gift\\\//, "/gift/ 那个前门认不出来");
 });
 
 test("② fail-closed：没写明用途的当后台", () => {
