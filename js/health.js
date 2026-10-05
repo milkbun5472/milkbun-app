@@ -184,6 +184,16 @@
       + "心情：" + wk.map(x => x.mood ? MOODS[x.mood.v] : "没记").join("、") + "。"
       + (pacts.length ? "这周有约在身：" + pacts.map(p => pactText(d, p, dayOf())).join("") : "");
   }
+  // 这一周几样数，一行一样——每周小结那张卡上用
+  function weekRows(d, endDay) {
+    const wk = weekOf(d, endDay), G = d.goal, logged = wk.filter(x => x.n), sl = wk.filter(x => x.sleep);
+    return [
+      ["吃", logged.length ? "平均 " + Math.round(logged.reduce((a, x) => a + x.kcal, 0) / logged.length) + " 千卡" + (G.kcal ? " / " + G.kcal : "") : "没记"],
+      ["喝水", "平均 " + Math.round(wk.reduce((a, x) => a + x.water, 0) / 7 * 10) / 10 + " 杯" + (G.water ? " / " + G.water : "")],
+      ["睡", sl.length ? "平均 " + hrs(Math.round(sl.reduce((a, x) => a + x.sleep, 0) / sl.length)) + (G.sleepH ? " / " + G.sleepH + " 小时" : "") : "没记"],
+      ["动", wk.reduce((a, x) => a + x.sportMin, 0) + " 分钟" + (G.sportWeek ? " / " + G.sportWeek : "")]
+    ];
+  }
   // 小习惯到点了还没勾：给 app 那头发个提醒（每样一天只提醒一次）
   const HABIT_PING = "x_healthHabitPing";
   function habitDue(now) {
@@ -285,13 +295,17 @@
     const today = log[day] || [];
     // 约满了：跟他约的那个人来结账（一约一次）
     const due = (d.pacts || []).find(p => !p.reported && !pactLive(p, day));
-    if (due) return { meal: "pact-" + due.id, label: "你们的约到期了", ids: [due.charId], day,
-      line: "你们俩约好的那件事到期了。" + pactText(d, due, day), tail: "你【主动】找 Ta 说说这一约——照你的性子和你们现在的关系来。" };
+    if (due) { const K = pactKind(due.kind), ds = pactDays(d, due, day);
+      return { meal: "pact-" + due.id, label: "你们的约到期了", ids: [due.charId], day,
+        line: "你们俩约好的那件事到期了。" + pactText(d, due, day), tail: "你【主动】找 Ta 说说这一约——照你的性子和你们现在的关系来。",
+        // 他说完话，聊天里跟一张小卡：那几天的圆点（她 2026-10-05）
+        card: { what: "healthnote", note: "pact", title: K.zh + " " + K.unit(due.target), start: due.start, days: due.days, dots: ds.map(x => x.st) } }; }
     // 每周一封小结：周一上午九点以后，那个人来说说上一周。周一没开 App 的话，这周晚些时候补上（一周一次）
     const hr = new Date(t).getHours(), wd = new Date(t).getDay(), monday = shift(day, -((wd + 6) % 7));
     if (d.weekly.charId && d.weekly.last !== monday && (wd !== 1 || hr >= 9))
       return { meal: "weekly-" + monday, label: "每周的小结", ids: [d.weekly.charId], day,
-        line: "她在健康 app 里请你每周看看她上一周过得怎样。" + weekFacts(d, shift(monday, -1)), tail: "你【主动】找 Ta，跟 Ta 说说你看完这一周的感想。" };
+        line: "她在健康 app 里请你每周看看她上一周过得怎样。" + weekFacts(d, shift(monday, -1)), tail: "你【主动】找 Ta，跟 Ta 说说你看完这一周的感想。",
+        card: { what: "healthnote", note: "weekly", title: shift(monday, -7).slice(5) + " — " + shift(monday, -1).slice(5), rows: weekRows(d, shift(monday, -1)) } };
     if (!d.watch.on || !d.watch.nudge || !(d.watch.ids || []).length) return null;
     const ids = d.watch.ids.slice();
     const ev = d.watch.env ? lastEvent(d, t) : null;
@@ -323,7 +337,16 @@
   }
   function markNudged(day, meal) {
     // 约和每周小结记在存档本身上（不只记今天那一格）：明天再看也知道结过账、写过了
-    if (/^pact-/.test(meal)) { const d = load(), id = meal.slice(5); save(Object.assign({}, d, { pacts: (d.pacts || []).map(p => p.id === id ? Object.assign({}, p, { reported: true }) : p) })); }
+    if (/^pact-/.test(meal)) { const d = load(), id = meal.slice(5), p0 = (d.pacts || []).find(p => p.id === id);
+      save(Object.assign({}, d, { pacts: (d.pacts || []).map(p => p.id === id ? Object.assign({}, p, { reported: true }) : p) }));
+      // 一天不落地做满了：收进你们俩的「时刻」（她 2026-10-05）——跟她自己「收进时刻」的那些放在同一处
+      try { if (p0 && !p0.pinned && pactDays(d, p0, day).every(x => x.st === "ok") && typeof loadJSON === "function") {
+        const K = pactKind(p0.kind), all = loadJSON("x_shikePins", {}) || {};
+        all[p0.charId] = [{ id: "pin_pact_" + p0.id, ts: Date.now(), title: "说好的 " + p0.days + " 天，一天不落", text: "从 " + p0.start.slice(5) + " 起 " + p0.days + " 天，" + K.zh + "（" + K.unit(p0.target) + "），每一天都做到了。", role: "user" }].concat(all[p0.charId] || []).slice(0, 300);
+        saveJSON("x_shikePins", all);
+        const d2 = load(); save(Object.assign({}, d2, { pacts: (d2.pacts || []).map(p => p.id === id ? Object.assign({}, p, { pinned: true }) : p) }));
+      } } catch (e) {}
+    }
     if (/^weekly-/.test(meal)) { const d = load(); save(Object.assign({}, d, { weekly: Object.assign({}, d.weekly, { last: meal.slice(7) }) })); }
     const log = (typeof loadJSON === "function" ? loadJSON(NUDGE_KEY, {}) : {}) || {};
     const keep = {}; keep[day] = (log[day] || []).concat([meal]);

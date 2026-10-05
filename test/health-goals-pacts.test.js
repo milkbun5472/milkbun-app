@@ -17,3 +17,11 @@ test("健康：目标补齐、立约、每周小结、小习惯都接上了", ()
   // 「这周」那段话只有一份
   assert.strictEqual((hl.match(/"这一周（"/g) || []).length, 1);
 });
+test("立约到期、每周小结后面跟卡；一天不落的约收进时刻", () => {
+  const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.ok(/card: \{ what: "healthnote", note: "pact"/.test(hl) && /card: \{ what: "healthnote", note: "weekly"/.test(hl));
+  assert.ok(/if \(r === true && hn\.card\) pChat\(cand\.id/.test(app), "送到了才跟卡");
+  const rc = comp.slice(comp.indexOf("function RecordedCard("), comp.indexOf("function RecordedCard(") + 600);
+  assert.ok(rc.indexOf('m.what === "healthnote"') > 0 && rc.indexOf('m.what === "healthnote"') < rc.indexOf("LedgerTicketCard"), "要排在账本小票前面");
+  assert.ok(/pin_pact_/.test(hl) && /every\(x => x\.st === "ok"\)/.test(hl));
+});

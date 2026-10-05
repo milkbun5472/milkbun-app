@@ -6956,7 +6956,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
           if (cand && !pSkip("health:" + hn.meal)) {
             pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
-              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } }),
+              () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } })
+                .then(r => { if (r === true && hn.card) pChat(cand.id, p => [...p, Object.assign({ role: "system", kind: "recorded", charId: cand.id, ts: Date.now() }, hn.card)]); return r; }),
               () => window.HealthCtx.markNudged(hn.day, hn.meal)
             );
             return;                                               // 一次一个，错峰
