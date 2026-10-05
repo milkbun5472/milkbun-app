@@ -42,7 +42,8 @@ test("「开没开某一档」只有一份判据，调用点都问它", () => {
   assert.match(src, /const OPT_IN_OFF = \{ worldbook: true \}/, "缺省表要收在一处");
   assert.equal((src.match(/OPT_IN_OFF/g) || []).length, 2, "一处定义、一处使用");
   // 两个调用点都走 allows，不自己认一遍
-  assert.match(app, /const noMemory = !!\(window\.ChatRooms && !window\.ChatRooms\.allows\(room, "formalMemory"\)\)/);
+  // 2026-10-05 起多一道「只带截过的记忆库」（memOnly 也住在 chat-rooms.js 那一处，同样问 allows）
+  assert.match(app, /const noMemory = !!\(window\.ChatRooms && !window\.ChatRooms\.allows\(room, "formalMemory"\) && !\(window\.ChatRooms\.memOnly/);
   assert.match(app, /noMemory: !window\.ChatRooms\.allows\(_door, "formalMemory"\)/, "邻居那条路也要省掉检索");
 });
 
