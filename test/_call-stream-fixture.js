@@ -15,7 +15,10 @@ exports.streamFixture = (chunks, options = {}) => {
   };
   const request = opts => new Function('opts', 'fetchT', 'TextDecoder', `
     const model='fixture', maxTokens=65535, wireMessages=[], system='', root='https://fixture.invalid/v1',
-      temp=0.7, _mcpTools=null, viaProxy=null, reqTimeout=1000, p={apiKey:'fake'}, captureWirePayload=()=>{};
+      temp=0.7, _mcpTools=null, viaProxy=null, reqTimeout=1000, p={apiKey:'fake'}, captureWirePayload=()=>{},
+      // v74.873 起 postOpenAI 会问一句「这枪是不是走秋秋的礼物那条线」（engine.js giftHeaders）。
+      //   这份桩只测流式收发，跟那条线无关，所以给个空的（施工规则/stub-from-the-writer）。
+      giftHeaders=()=>({});
     ${code}; return postOpenAI(true);
   `)({ stream: true, streamSilenceMs: 30, ...options, ...opts }, async () => ({
     headers: { get: () => 'text/event-stream' }, body: { getReader: () => reader }

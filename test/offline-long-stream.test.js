@@ -14,8 +14,10 @@ test("大请求走流式，短请求保持原路", () => {
   assert.match(engine, /const wantStreamOffline = canStream && generationBudget >= 3000;/);
   assert.match(engine, /两三分钟不吐一个字节/, "为什么要流式，得写在代码里");
   // 主调用 + 纯文本兜底两处都要带上（补写那一路 v55.62 起整个不存在了）
+  // ⚠️v74.873 在 opts 最前面插了 use:"offline"（秋秋的礼物那条线要认前台后台）。
+  //   锚只钉这两项挨在一起，不钉它们是不是排在第一位。
   assert.match(engine, /maxTokens: generationBudget,\n      stream: wantStreamOffline,/, "主调用");
-  assert.match(engine, /\{ maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline"/, "纯文本兜底");
+  assert.match(engine, /maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline"/, "纯文本兜底");
 });
 
 test("流式是安全替换：中转不支持会自动退回普通解析", () => {

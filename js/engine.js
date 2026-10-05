@@ -132,10 +132,10 @@ async function fetchModelList(p) {
   const root = openAICompatibleRoot(base);
   const endpoint = root + "/models";
   const request = {
-    headers: {
+    headers: Object.assign({
       Authorization: "Bearer " + p.apiKey,
       Accept: "application/json"
-    }
+    }, giftHeaders(p, { use: "models" }))
   };
   // CatsAPI 不给 WKWebView/browser 跨域放行；原生壳代发，避免明明 curl 200 页面却只报 Load failed。
   // 保险柜线路（proxyRef）：钥匙住 VPS，本地 apiKey 只是占位符——拉模型也得借道保险柜贴真钥匙，
@@ -647,6 +647,39 @@ function noteServedModel(profile, req, got) {
 //   **对面明说自己满了／限流** 是另一回事，要给它真的喘口气的时间。
 //   这一类被拒的请求没进模型、不扣钱，所以多试一次也不多花钱；
 //   代价只是失败时她多等十来秒才看到那行红字，比直接失败划算。
+// ── 「秋秋的礼物」那两条线（2026-10-05 她的回馈活动）────────────────────
+// 钥匙住在 Cloudflare Worker 里，前端拿不到，所以这边不管钱、只管一件事：
+//   **只让「她自己按下去的那一下」走这条线**（她：「更像她们自己选的生成
+//   而不是后台烧」）。代理那头也有同一道闸，这儿是第一道。
+// ⚠️fail-closed：没写明用途的一律当后台。漏标一处，最坏是那个功能对试玩用户
+//   不工作；反过来默认放行的话，漏标一处就是在偷偷烧她的额度，而且没人看得见。
+const GIFT_USES = { chat: 1, offline: 1, call: 1, models: 1 };
+function isGiftRoute(p) {
+  try { return !!(p && p.gift) || /qiuqiu-trial\.[^/]*workers\.dev/.test(String((p && p.baseUrl) || "")); }
+  catch (e) { return false; }
+}
+// 开场前她自己要在真的 app 里试（curl 只证明代理和站子通，证明不了整条链）。
+//   打开一次 …/?giftpreview=口令 就记住，之后礼物线每一枪都带着它，代理见了就提前放行。
+//   ⚠️存在 qq_ 开头的键里，不是 x_：x_ 会被云同步带走，口令不该跟着存档到处跑。
+//   ⚠️口令本身不进代码、不进包——它只活在她自己那台手机的 localStorage 里。
+(function giftPreviewFromUrl() {
+  try {
+    if (typeof location === "undefined" || typeof localStorage === "undefined") return;
+    const q = new URLSearchParams(location.search), v = q.get("giftpreview");
+    if (v == null) return;
+    if (v) localStorage.setItem("qq_giftPreview", v); else localStorage.removeItem("qq_giftPreview");
+    q.delete("giftpreview");
+    const rest = q.toString();
+    history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash);
+  } catch (e) {}
+})();
+function giftHeaders(p, opts) {
+  if (!isGiftRoute(p)) return {};
+  const use = String((opts && opts.use) || "").toLowerCase();
+  const h = { "x-qq-use": GIFT_USES[use] ? use : "bg" };
+  try { const t = localStorage.getItem("qq_giftPreview"); if (t) h["x-qq-preview"] = t; } catch (e) {}
+  return h;
+}
 async function callAI(p, system, messages, opts) {
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
@@ -1045,7 +1078,7 @@ async function callAIOnce(p, system, messages, opts) {
     captureWirePayload("openai", root + "/chat/completions", body, opts, withTemp ? "with-temperature" : "without-temperature");
     const r = viaProxy ? await viaProxy(root + "/chat/completions", body, {}) : await fetchT(root + "/chat/completions", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: "Bearer " + p.apiKey },
+      headers: Object.assign({ "Content-Type": "application/json", Authorization: "Bearer " + p.apiKey }, giftHeaders(p, opts)),
       body: JSON.stringify(body)
     }, reqTimeout);
     if (wantStream && /text\/event-stream/i.test(r.headers.get("content-type") || "")) {
@@ -7403,6 +7436,7 @@ async function generateOffline(p, ctx, session) {
   const _wantReason = !isDigital && !!ctx.wantReasoning;
   try {
     raw = await callAI(p, system, hist, {
+      use: "offline",
       maxTokens: generationBudget,
       stream: wantStreamOffline,
       timeout: 180000,
@@ -7441,7 +7475,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -8051,7 +8085,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const _reasonMeta = {};
   const _wantReason = !!ctx.wantReasoning;
   try {
-    raw = await callAI(p, system, hist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, system, hist, { use: "offline", maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -8061,7 +8095,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);

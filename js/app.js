@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.874";
+const APP_VERSION = "v74.875";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11593,7 +11593,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
+        raw = await callAI(_route, system, aiMessages, { use: "chat", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -11603,7 +11603,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
+        raw = await callAI(_route, system, retryMessages, { use: "chat", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -17955,7 +17955,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         })();
         const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint + cameraHint;
         const callMessages = window.CallCamera.withFrame(hist, cameraFrame);
-        const raw = await callAI(apiFor(char.id), callSystem, callMessages, { maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
+        const raw = await callAI(apiFor(char.id), callSystem, callMessages, { use: "call", maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
         says = says.map(stripName).filter(Boolean);
