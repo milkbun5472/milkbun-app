@@ -33,9 +33,10 @@ test("整页封面留着，但内容自己是一张有边的纸", () => {
     "纱又兼职当内容的底了——那正是「整页糊成一片、纸没有边」的病根");
   assert.doesNotMatch(scr, /bgA\(0\.86\) \+ " calc\("/, "旧那层 .86 收口还在");
   // 纸：圆角上沿 + 向上的投影 = 那条边界；半透明，所以封面照样透着
-  const i = scr.indexOf('h("div", { className: "px-6", style: { position: "relative", background: bgA(0.88)');
+  const i = scr.indexOf('h("div", { className: "px-6", style: { position: "relative", background: bgA(0.72)');
   assert.ok(i > 0, "内容那一块没做成纸");
-  const seg = scr.slice(i, i + 420);
+  const seg = scr.slice(i, i + 560);
+  assert.match(seg, /WebkitBackdropFilter: "blur\(18px\)/, "纸不是磨砂的（群友 2026-10-05 要的）");
   assert.match(seg, /borderRadius: "26px 26px 0 0"/, "没有上沿的圆角＝看不出是另一层");
   assert.match(seg, /boxShadow: "0 -9px 26px/, "投影朝上才像纸压着封面");
   assert.match(seg, /paddingTop: 46/, "正文没避开压在沿上的那两枚头像");

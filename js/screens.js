@@ -6519,7 +6519,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, bottom: 0, width: D, height: D, borderRadius: 999, border: RING + "px solid " + ringA, clipPath: "polygon(" + weaveFrom + "% 0," + weaveFrom + "% 50%,100% 50%,100% 0)", pointerEvents: "none" } }))),
         // ⭐这就是那条边界：一张有上沿的纸，从封面带底下探出来、盖着往上滚。
         //   paddingTop 让正文避开压在沿上的那两枚头像；纸是半透明的，封面照样透着。
-        h("div", { className: "px-6", style: { position: "relative", background: bgA(0.88),
+        //   磨砂（她 2026-10-05 群友要的）：封面透过来是糊开的一片颜色，不再是清清楚楚一张图压在字底下。
+        h("div", { className: "px-6", style: { position: "relative", background: bgA(0.72),
+          backdropFilter: "blur(18px) saturate(1.2)", WebkitBackdropFilter: "blur(18px) saturate(1.2)",
           borderRadius: "26px 26px 0 0", borderTop: "1px solid rgba(255,255,255,.45)",
           boxShadow: "0 -9px 26px rgba(60,40,50,.15)", paddingTop: 46, paddingBottom: 32,
           minHeight: "calc(100% - 150px)" } },
