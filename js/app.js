@@ -10966,8 +10966,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (emotes.length) {
         openCaps.push("emote");
         // ⚠️「频率跟着这个角色自己的习惯走」也是从旧基线里救回来的，同上。
-        capState.push("emote：发多发少必须延续你这个角色已经形成的聊天习惯——本来爱发的可以自然地常发、兴头上连甩几张；"
-          + "本来很少发或从不发的，别因为列表里有就开始发。可用关键词：" + emotes.map(e => e.keyword).join(" / "));
+        // 她 2026-10-05 转群里：「角色突然不会发表情包了」——原来让它照「最近的聊天习惯」发，
+        //   模型拿最近的记录当习惯：连着一段没发，就当他不爱发，越不发越不发。判据改成这个人本身。
+        capState.push("emote：发多发少看你这个人——爱用表情的可以自然地常发、兴头上连甩几张；"
+          + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。可用关键词：" + emotes.map(e => e.keyword).join(" / "));
       }
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
@@ -11836,8 +11838,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
         // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
         const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+        // 「【emote：小仓鼠举起两个大拇指】」这种把字段名连同括号写进气泡的（她 2026-10-05 转群里截图，
+        //   还常被切成两个气泡：「【emote：白色小狗……」「……摸头夸夸】」）。先把没合上的那半拼回去，再认。
+        const WRAP_OPEN = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]/i;
+        const WRAP_RE = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]\s*([\s\S]+?)\s*[\u3011\]\uff3d]?\s*$/i;
+        const _joined = [];
+        for (let wi = 0; wi < words.length; wi++) {
+          let cur = String(words[wi] == null ? "" : words[wi]);
+          if (WRAP_OPEN.test(cur) && !/[\u3011\]\uff3d]\s*$/.test(cur)) {
+            while (wi + 1 < words.length && typeof words[wi + 1] === "string" && !/[\u3011\]\uff3d]\s*$/.test(cur) && cur.length < 60) cur += words[++wi];
+          }
+          _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
+        }
+        words = _joined;
         words = words.filter(w => {
           const s = String(w == null ? "" : w);
+          const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
+          if (mWrap && mWrap[1].trim()) { emoteWordKws.push(mWrap[1].trim()); return false; }
           const mTag = s.match(TAG_RE);
           if (mTag && mTag[1].trim()) { emoteWordKws.push(mTag[1].trim()); return false; }
           const n = emoteNorm(w);
@@ -13244,14 +13261,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + (hers ? "，也是 " + uN + " 的生日（同一天）。" : "，**不是 " + uN + " 的生日**：别祝 " + uN + " 生日快乐、别叫 " + uN + " 寿星、别问 " + uN + " 想怎么过。今天要被大家记得的是上面这位。")
           + "本人自己怎么表现看各自性子（期待被记得、感慨、故作不在意都行）。";
       })();
-      const gEmotes = emotesForGroup(group.memberIds);
       const gPolls = _graw.filter(m => m.kind === "poll");
       const _gInv = pendingGroupInviteOf(groupId);
       const gInviteHint = _gInv ? "\n【邀约】" + inviteAskText(_gInv, userName(profile)) + "被约到的成员（" + inviteNames(_gInv) + "）表态时，在自己这条发言对象里加 dateReply:{\"go\":\"yes\" 或 \"no\",\"say\":\"答应的话，写在回执上给她的一句（可空）\"}；"
         + ((_gInv.replies && Object.keys(_gInv.replies).length) ? "已经回过的（" + _gInv.invitees.filter(x => _gInv.replies[x.id]).map(x => x.name + (_gInv.replies[x.id] === "yes" ? "去" : "不去")).join("、") + "）不用再填；" : "")
         + "没被约到的人不填，也别替别人答。" : "";
       const gPollHint = gPolls.length ? "\n【投票操作】上文投票卡列出了编号与选项。成员要投票或改票，在自己的发言对象中增加 pollVote:{\"pollId\":\"对应投票编号\",\"choice\":从0起的选项序号}；-1 为撤回自己的票。只说投了不会改变票数，text 必须与 choice 一致。匿名投票不在 text 里透露自己的选择。" : "";
-      const gEmoteHint = gEmotes.length ? "\n【表情包】每个成员各自延续已经形成的聊天习惯：本来爱发的人可以常发或兴头上连发，本来很少发或从不发的人不要因为列表可用、也不要模仿别的成员或历史表情突然开始发；不存在全群统一频率。可用关键词：" + gEmotes.map(e => e.keyword).join(" / ") + "。要发就在该成员那条发言对象里加 emote 字段填一个关键词（与列出的完全一致），否则省略。" : "";
+      // 每个成员只列他自己能用的那几套（她 2026-10-05：「群里只用自己那份」）。原来列的是全群合起来的一份，
+      //   可落地只认这个人自己的（emotesForChar(spk.id)）——他挑了别人那套的词，就悄悄发不出去。
+      //   频率判据跟单聊同一句：看这个人，不看最近发没发过。
+      const gEmoteRows = members.map(c => { const l = emotesForChar(c.id); return l.length ? "「" + memberLabel(members, c) + "」：" + l.map(e => e.keyword).join(" / ") : ""; }).filter(Boolean);
+      const gEmoteHint = gEmoteRows.length ? "\n【表情包】发多发少看每个成员自己是什么样的人：爱用表情的可以常发或兴头上连发，不是这种性子的不要因为列表可用、也不要模仿别的成员突然开始发；最近一阵发没发过不算数；不存在全群统一频率。每个人只能用自己那一行里的关键词：\n" + gEmoteRows.join("\n") + "\n要发就在该成员那条发言对象里加 emote 字段填一个关键词（与他那一行里的完全一致），否则省略。" : "";
       // 群自拍：只有配了图像API且成员填了外貌/参考照才开放（按需注入，平时零 token）
       // ⚠️跟单聊同一条判据（她 2026-09-09）：「有脸可锁」管的是【拍人】，不是【拍照】。
       //   拍窗外、拍猫、拍刚上的菜——这些图里本来就没有脸。
@@ -25323,11 +25343,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       || null;
   };
   // 群聊可用表情：所有成员可用表情的并集（按 id 去重）
-  const emotesForGroup = memberIds => {
-    const map = new Map();
-    (memberIds || []).forEach(id => emotesForChar(id).forEach(e => map.set(e.id, e)));
-    return [...map.values()];
-  };
   // 只含「加入我的表情库」的包（pack.mine !== false）——供我自己发送的选择器用；AI 注入仍用全量
   const emotesForCharMine = charId => {
     const out = [];
