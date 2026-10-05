@@ -1,18 +1,18 @@
-import {togetherWaiting,togetherDestination,togetherActivity} from './together.mjs?v=fg-320b077366663085';
-import {gatheringSpot} from './neighborhood.mjs?v=fg-320b077366663085';
-import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-320b077366663085';
-import {RESIDENT_ACTS,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-320b077366663085';
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-320b077366663085';
-import {lifeOf,lifeNote} from './routine.mjs?v=fg-320b077366663085';
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-320b077366663085';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-320b077366663085';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-320b077366663085';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-320b077366663085';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-320b077366663085';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-320b077366663085';
-import {turnPet} from './movement.mjs?v=fg-320b077366663085';
+import {togetherWaiting,togetherDestination,togetherActivity} from './together.mjs?v=fg-fe8f75d08ee71bdf';
+import {gatheringSpot} from './neighborhood.mjs?v=fg-fe8f75d08ee71bdf';
+import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-fe8f75d08ee71bdf';
+import {RESIDENT_ACTS,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-fe8f75d08ee71bdf';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-fe8f75d08ee71bdf';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-fe8f75d08ee71bdf';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-fe8f75d08ee71bdf';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-fe8f75d08ee71bdf';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-fe8f75d08ee71bdf';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-fe8f75d08ee71bdf';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-fe8f75d08ee71bdf';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-fe8f75d08ee71bdf';
+import {turnPet} from './movement.mjs?v=fg-fe8f75d08ee71bdf';
 // No model calls here: these are visible, local acts in this archive.
-export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActors=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null,chores=null,getOuting=()=>null,getTogether=()=>null,getTogetherPeer=()=>null}){
+export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActors=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null,chores=null,getOuting=()=>null,getTogether=()=>null,getTogetherPeer=()=>null,getDomesticTask=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;
  const archive=host.load(),garden=archive.worlds?.garden||archive.world;
  let look=seatLook('companion',archive.journey?.companionLook||garden?.companion?.look,person.ta);
@@ -84,7 +84,7 @@ export async function createHousemate({scene,host,care,home,notice,save,getPets=
   const settled=members().some(x=>{const t=x.care.state.task;return t?.phase==='doing'&&t.target==='companion:'+person.id&&['skill','sleep','invitePet'].includes(t.kind);});
   const approaching=members().some(x=>{const t=x.care.state.task;return t?.phase==='walking'&&t.target==='companion:'+person.id&&['skill','sleep','invitePet','askSnack','invitePlay'].includes(t.kind)&&t.stage!=='fetch';});
   if(!companyActivity&&!job&&!settled&&!approaching&&!['sleep','meal'].includes(resident.activity?.kind)&&chores?.auto()){resident.activity=null;route=[];return;}if(!job)moving=idleLife(dt,settled||approaching);syncResident();
-  doll.animate(clock*(job?.phase==='doing'?job.manner?.tempo||1:1),{moving,gesture:job?.phase==='doing'?(job.action==='play'?'stir':'hold'):resident.activity?.phase==='doing'&&RESIDENT_ACTS[resident.activity.kind]?RESIDENT_ACTS[resident.activity.kind].gesture:resident.activity?.phase==='doing'&&resident.activity.kind==='meal'?'hold':'rest',progress:resident.activity?Math.min(1,resident.activity.time/resident.activity.duration):0,seated:resident.activity?.phase==='doing'&&(RESIDENT_ACTS[resident.activity.kind]?.seated||['sleep','meal'].includes(resident.activity.kind))||settled||job?.phase==='doing'&&job.action==='pet'||visit?.kind==='sleep'&&visit.place==='person'&&visit.target==='companion:'+person.id&&visit.phase==='doing',height:.08});
+  const domestic=getDomesticTask();doll.animate(clock*(job?.phase==='doing'?job.manner?.tempo||1:1),{moving,gesture:domestic?.actor===String(person.id)&&companyActivity?.phase==='doing'?(domestic.kind==='cook'?'stir':'wave'):job?.phase==='doing'?(job.action==='play'?'stir':'hold'):resident.activity?.phase==='doing'&&RESIDENT_ACTS[resident.activity.kind]?RESIDENT_ACTS[resident.activity.kind].gesture:resident.activity?.phase==='doing'&&resident.activity.kind==='meal'?'hold':'rest',progress:resident.activity?Math.min(1,resident.activity.time/resident.activity.duration):0,seated:domestic?.actor===String(person.id)&&companyActivity?.phase==='doing'||resident.activity?.phase==='doing'&&(RESIDENT_ACTS[resident.activity.kind]?.seated||['sleep','meal'].includes(resident.activity.kind))||settled||job?.phase==='doing'&&job.action==='pet'||visit?.kind==='sleep'&&visit.place==='person'&&visit.target==='companion:'+person.id&&visit.phase==='doing',height:.08});
  }
  function leave(){if(town){syncResident();visible=false;doll.root.visible=false;return;}syncResident();resident.activity=null;resident.idle=0;visible=false;doll.root.visible=false;route=[];if(job)care.record(person.name+'跟着出门了，这次照料先停下。');job=null;for(const p of members())p.care.state.helper=null;}
  function wake(){const life=lifeOf(resident);life.wakeUntil=Date.now()+30*60000;if(resident.activity?.kind==='sleep'){resident.activity=null;route=[];}save();return true;}

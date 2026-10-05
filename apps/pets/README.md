@@ -222,3 +222,9 @@ meeting 沿原存档按真实 petId 保存短暂找人等候（120前景秒）/�
 ## 手动试工出发与散步路径交接
 
 commandPlace沿原town.go的manual选项接替旧街道path/destination，保留实际出门、街道与进门；手动目的地在抵达前不被普通作息或低于自主出游门槛的吃睡需要覆盖，到店后释放manual并短暂停留，随后自主生活继续。真实忙碌或睡着沿careBlock拒绝出发，书页保留并显示反馈。正在工作、等选择和等收工时沿同一town执行器停止未完闲逛；明确离店仍能出门，工资进度只在真实目的地推进。care/chatContext共用petActivity，以当前工作写状态。pet-trial-route-browser.cjs覆盖猫狗、旧街道路径接替、到店后试工/三选择/一次工资、等候不乱走、午休与轻微饥疲、拒绝反馈及三宽；测试档沿原restore/snapshot与archive writer创建。
+
+## 家里的小日子
+
+原小镇菜单的一张共享半窗册子：持续心愿、真实生日与领养纪念、自己/TA用宠物零食实际准备点心、完成原照料才记口味与制作者、真实街坊来家赠礼；多宠的注意力与轻微矛盾按完成照料记，原窗边路线坐好才和解。已有床垫的自由位置/转向沿原家装和寻路，可实际趴睡；家具、同伴和门口安全位置校验。全部保存在原worlds.pets的domestic/pets[].domestic、原social与career.furnishings，无新存档桶或模型调用。制作完成才扣原料，取消不扣；短刷新继续，长离线取消准备且不伪造完成。事务沿宿主原writer，保存失败回退原料、准备、角色/宠物安排、关系和照片。
+
+`node --test apps/pets/domestic.test.mjs` 使用原care/career/state写入者验收；`scripts/checks/pet-domestic-browser.cjs` 用独立测试档验猫狗、四宠账目、实际料理/喂食/纪念/挪窝/和好、半窗布局与刷新回退。

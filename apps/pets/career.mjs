@@ -1,20 +1,20 @@
-import {restoreCareerLife,restoreJobStory,nextJobStory,regularEvent,completeCareerLife,careerLifeView} from './career-life.mjs?v=fg-320b077366663085';
-import {autonomousWork,chooseWorkOption} from './work-autonomy.mjs?v=fg-320b077366663085';
-import {restoreWorkPhotos} from './temporary-work.mjs?v=fg-320b077366663085';
-import {restoreFurnishings,arrangeFurnishing,furnishingFacts} from './furnishings.mjs?v=fg-320b077366663085';
-import {restoreCareerCompany} from './career-company.mjs?v=fg-320b077366663085';
-import {restoreWorkHabits,fadeWorkHabits,learnWorkHabit,workHabitsView} from './work-habits.mjs?v=fg-320b077366663085';
-import {STALL_POINT,STALL_GOODS,stallStock,stockSize,atStall,restoreMarket,restoreStall,makeMarket,marketEvent,chooseMarket,marketReturns,finishMarket,marketView} from './stall.mjs?v=fg-320b077366663085';
-import {restoreCourier,restoreDelivery,newDelivery,courierStop,courierEvent,chooseCourier,courierArrival,keepCourierParcel,finishCourier,deliveryView,courierView} from './courier.mjs?v=fg-320b077366663085';
-import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-320b077366663085';
-import {normalizeCase} from './case-schema.mjs?v=fg-320b077366663085';
-import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase,caseEvents,restoreDetective,rememberCase,detectiveView} from './detective.mjs?v=fg-320b077366663085';
-import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-320b077366663085';
+import {restoreCareerLife,restoreJobStory,nextJobStory,regularEvent,completeCareerLife,careerLifeView} from './career-life.mjs?v=fg-fe8f75d08ee71bdf';
+import {autonomousWork,chooseWorkOption} from './work-autonomy.mjs?v=fg-fe8f75d08ee71bdf';
+import {restoreWorkPhotos} from './temporary-work.mjs?v=fg-fe8f75d08ee71bdf';
+import {restoreFurnishings,arrangeFurnishing,furnishingFacts} from './furnishings.mjs?v=fg-fe8f75d08ee71bdf';
+import {restoreCareerCompany} from './career-company.mjs?v=fg-fe8f75d08ee71bdf';
+import {restoreWorkHabits,fadeWorkHabits,learnWorkHabit,workHabitsView} from './work-habits.mjs?v=fg-fe8f75d08ee71bdf';
+import {STALL_POINT,STALL_GOODS,stallStock,stockSize,atStall,restoreMarket,restoreStall,makeMarket,marketEvent,chooseMarket,marketReturns,finishMarket,marketView} from './stall.mjs?v=fg-fe8f75d08ee71bdf';
+import {restoreCourier,restoreDelivery,newDelivery,courierStop,courierEvent,chooseCourier,courierArrival,keepCourierParcel,finishCourier,deliveryView,courierView} from './courier.mjs?v=fg-fe8f75d08ee71bdf';
+import {workWindow} from '../fairy-garden/real-clock.mjs?v=fg-fe8f75d08ee71bdf';
+import {normalizeCase} from './case-schema.mjs?v=fg-fe8f75d08ee71bdf';
+import {caseForJob,caseEventIds,restoreInvestigation,investigationView,deductionEvent,chooseDeduction,restoreCasebook,casebookView,chooseCase,caseEvents,restoreDetective,rememberCase,detectiveView} from './detective.mjs?v=fg-fe8f75d08ee71bdf';
+import {restoreParcels,addParcel,migrateShoppingParcel,parcelReaction,parcelItems,parcelContents,keepOpened,PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-fe8f75d08ee71bdf';
 // Gameplay only. Scene/motion owners consume these facts through PetGame.career().
 export const PET_DAY_SECONDS=300;
-import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo,workRoom,availableWorkplaces} from './workplaces.mjs?v=fg-320b077366663085';
+import {BAKERY_EVENTS,PET_WORKPLACES,petWorkplace,workplaceInfo,workRoom,availableWorkplaces} from './workplaces.mjs?v=fg-fe8f75d08ee71bdf';
 export const WORK_EVENTS=BAKERY_EVENTS;
-import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,ownedItemCount,chooseShopping} from './shopping.mjs?v=fg-320b077366663085';
+import {PET_SHOP,SHOPPING_CAPS,restoreShopping,shoppingItem,canPurchase,ownedItemCount,chooseShopping} from './shopping.mjs?v=fg-fe8f75d08ee71bdf';
 export {PET_SHOP};
 const n=(v,min=0,max=1e7,f=0)=>Number.isFinite(v)?Math.max(min,Math.min(max,v)):f;
 const str=(v,max=160)=>typeof v==='string'?v.slice(0,max):'';
@@ -47,7 +47,7 @@ export function createPetCareer(raw,{calendar=()=>null,workStation=()=>null,getP
  const result=(accepted,text)=>({accepted,text});
  function purchase(item,{self=false,id='',reason=''}={}){if(!canPurchase(s,item))return result(false,item?.max&&s.inventory[item.id]?'自己的'+item.name+'已经有啦。':'它的小金库还不够，先留着这笔钱。');s.balance-=item.cost;const purchaseId=id||'buy:'+(++s.seq);if(self){s.shopping.trip={...s.shopping.trip,phase:'packed',item:item.id,amount:item.cost};addParcel(s,{id:s.shopping.trip.id,source:'shopping',day:s.day,items:{[item.id]:item.count}});}else {s.inventory[item.id]+=item.count;s.furnishings=restoreFurnishings(s.furnishings,s.inventory);}s.ledger.push({id:purchaseId,wallAt:calendar()?.at||Date.now(),day:s.day,amount:-item.cost,text:(self?'它自己买了':'')+(self?item.selfName:item.name)});s.ledger=s.ledger.slice(-80);record(self?reason+' 花了 ￥'+item.cost+'，收进小袋子，等带回家。':'用自己的小金库买了'+item.name+'。');return result(true,self?'它自己挑了'+item.selfName+'，花了 ￥'+item.cost+'。带回家再拆小袋子吧。':'已经放进它自己的小东西里了。');}
  function request(action,options={},ctx={}){const care=ctx.care;if(!care)return result(false,'宠物还没准备好。');syncDay(care);const j=s.job,place=current(),p=progress(place.id);
-  if(['furnish','wear','undress','own-rest'].includes(action)){const r=arrangeFurnishing(s,action,options,care,{atHome:ctx.room==='home',canPlace:ctx.canPlace,startRest:ctx.startRest});if(r.accepted)record(r.text);return r;}
+  if(['furnish','move-furniture','wear','undress','own-rest'].includes(action)){const r=arrangeFurnishing(s,action,options,care,{atHome:ctx.room==='home',canPlace:ctx.canPlace,startRest:ctx.startRest});if(r.accepted)record(r.text);return r;}
   if(action==='stall-pack'){if(ctx.room!=='home'||j||s.daily.invited||s.daily.closed||s.daily.rest||!STALL_GOODS.includes(options.item)||![1,-1].includes(options.delta))return result(false,'先在家里，挑好今天想带的小东西。');const pack=packed(),count=(pack[options.item]||0)+options.delta;if(count<0||count>s.inventory[options.item]||options.delta>0&&stockSize(pack)>=3)return result(false,'最多带三件，只挑已经收好的东西。');pack[options.item]=count;s.stall.pack=stallStock(pack);return result(true,'这趟的摊袋记好了，愿意出摊时才从库存装上。');}
   if(action==='schedule'){if(place.temporary&&options.shift!=='none')return result(false,'临时兼职只接这一次，不加入固定排班。');if(!['none','morning','afternoon'].includes(options.shift)||typeof options.weekend!=='boolean')return result(false,'选好上班时段和周末安排吧。');s.schedule={shift:options.shift,weekend:options.weekend};record(options.shift==='none'?'收起固定排班，到了店里再商量。':'约好'+(options.shift==='morning'?'上午':'下午')+'去'+place.title+'，愿意才接这一班。');return result(true,'排班记好了。第一次试工一起拿主意，正式上班会自己处理小事并结工资。');}
   if(action==='visit-store'){if(!['work','shopping'].includes(options.purpose)||j&&options.purpose==='shopping')return result(false,'先陪完这班，再逛货架。');s.storeVisit={purpose:options.purpose,arrived:ctx.room==='store'};if(options.purpose==='work'&&s.shopping.trip?.phase==='browsing')s.shopping.trip=null;return result(true,options.purpose==='work'?'先去便利店值班，逛货架留到下次。':'这次去便利店逛逛。');}

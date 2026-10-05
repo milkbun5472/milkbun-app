@@ -1,4 +1,5 @@
-import {petHomePlaces,PET_STATIONS} from './room-layout.mjs?v=fg-320b077366663085';
+import {homePoint} from './room-layout.mjs?v=fg-fe8f75d08ee71bdf';
+import {petHomePlaces,PET_STATIONS} from './room-layout.mjs?v=fg-fe8f75d08ee71bdf';
 
 // Inventory owns purchases; this records only how the same objects are used.
 export const PET_HOME_GOODS=[
@@ -12,17 +13,17 @@ export const PET_HOME_GOODS=[
 export const HOME_SLOTS=[{id:'corner',name:'自己的角落'},{id:'rug',name:'地毯旁'}];
 export const homeGood=id=>PET_HOME_GOODS.find(x=>x.id===id);
 export function restoreFurnishings(raw,inventory={}){
- const placements=Object.fromEntries(PET_HOME_GOODS.filter(x=>x.kind==='rest'&&inventory[x.id]>0).map(x=>[x.id,HOME_SLOTS.some(p=>p.id===raw?.placements?.[x.id])?raw.placements[x.id]:'corner']));
- return {placements,sleep:placements[raw?.sleep]?raw.sleep:Object.keys(placements)[0]||'',toy:raw?.toy==='bellBall'&&inventory.bellBall>0?'bellBall':'',wear:homeGood(raw?.wear)?.kind==='wear'&&inventory[raw.wear]>0?raw.wear:'',recent:Array.isArray(raw?.recent)?raw.recent.filter(x=>typeof x?.text==='string').slice(-8).map(x=>({text:x.text.slice(0,180),by:typeof x.by==='string'?x.by.slice(0,24):'你'})):[]};
+ const placements=Object.fromEntries(PET_HOME_GOODS.filter(x=>x.kind==='rest'&&inventory[x.id]>0).map(x=>[x.id,raw?.placements?.[x.id]==='free'&&homePoint(raw?.positions?.[x.id])?'free':HOME_SLOTS.some(p=>p.id===raw?.placements?.[x.id])?raw.placements[x.id]:'corner']));
+ const positions=Object.fromEntries(Object.entries(raw?.positions||{}).filter(([id,p])=>placements[id]&&homePoint(p)).map(([id,p])=>[id,{...homePoint(p),yaw:Number.isFinite(p.yaw)?p.yaw:0}]));return {placements,positions,sleep:placements[raw?.sleep]?raw.sleep:Object.keys(placements)[0]||'',toy:raw?.toy==='bellBall'&&inventory.bellBall>0?'bellBall':'',wear:homeGood(raw?.wear)?.kind==='wear'&&inventory[raw.wear]>0?raw.wear:'',recent:Array.isArray(raw?.recent)?raw.recent.filter(x=>typeof x?.text==='string').slice(-8).map(x=>({text:x.text.slice(0,180),by:typeof x.by==='string'?x.by.slice(0,24):'你'})):[]};
 }
 export function furniturePoint(state,index=0,item=state.furnishings?.sleep){
- const places=petHomePlaces(PET_STATIONS[index]),slot=state.furnishings?.placements?.[item];
+ const custom=state.furnishings?.positions?.[item];if(custom&&homePoint(custom))return {...custom};const places=petHomePlaces(PET_STATIONS[index]),slot=state.furnishings?.placements?.[item];
  return slot==='rug'?{x:places.rug.x+(index%2?-.75:.75),z:places.rug.z+.65,yaw:-.5}:index?{...places.bed}:{x:-.85,z:1.8,yaw:-.5};
 }
 export function furnishingFacts(state={}){
- return {sleep:homeGood(state.furnishings?.sleep)?.name||'',toy:homeGood(state.furnishings?.toy)?.name||'',wear:homeGood(state.furnishings?.wear)?.name||'',items:PET_HOME_GOODS.filter(x=>state.inventory?.[x.id]>0).map(x=>({...x,slot:state.furnishings?.placements?.[x.id]||'',slotName:HOME_SLOTS.find(p=>p.id===state.furnishings?.placements?.[x.id])?.name||'',active:[state.furnishings?.sleep,state.furnishings?.toy,state.furnishings?.wear].includes(x.id)})),slots:HOME_SLOTS.map(x=>({...x})),recent:structuredClone(state.furnishings?.recent||[])};
+ return {sleep:homeGood(state.furnishings?.sleep)?.name||'',toy:homeGood(state.furnishings?.toy)?.name||'',wear:homeGood(state.furnishings?.wear)?.name||'',items:PET_HOME_GOODS.filter(x=>state.inventory?.[x.id]>0).map(x=>({...x,slot:state.furnishings?.placements?.[x.id]||'',slotName:state.furnishings?.placements?.[x.id]==='free'?'自己挑的位置':HOME_SLOTS.find(p=>p.id===state.furnishings?.placements?.[x.id])?.name||'',active:[state.furnishings?.sleep,state.furnishings?.toy,state.furnishings?.wear].includes(x.id)})),slots:HOME_SLOTS.map(x=>({...x})),recent:structuredClone(state.furnishings?.recent||[])};
 }
-export function arrangeFurnishing(state,action,{item,slot,by='你'}={},care,{atHome=false,canPlace=()=>true,startRest}={}){
+export function arrangeFurnishing(state,action,{item,slot,point,by='你'}={},care,{atHome=false,canPlace=()=>true,startRest}={}){
  if(!atHome)return {accepted:false,text:'先实际回到家里，再摆好自己的东西。'};
  const idle=care.task?.source==='self'&&['watch','wander'].includes(care.task.kind)&&!care.task.socialId&&!care.task.target;
  if(state.job||care.task&&!idle||care.helper)return {accepted:false,text:'等它空下来，再换小窝或配饰。'};
@@ -30,9 +31,10 @@ export function arrangeFurnishing(state,action,{item,slot,by='你'}={},care,{atH
  if(action==='undress'){f.wear='';f.recent.push({by:'你',text:'你把小配饰摘下收好了。'});f.recent=f.recent.slice(-8);return {accepted:true,text:'小配饰摘下收好了。'};}
  if(!good||!state.inventory[item])return {accepted:false,text:'先用自己的钱买下，或把工作袋带回家拆开。'};
  let text='';
- if(action==='furnish'&&good.kind==='rest'&&HOME_SLOTS.some(x=>x.id===slot)){
+ if(action==='move-furniture'&&good.kind==='rest'){const p=homePoint(point);if(!p||!canPlace(item,{...p,yaw:point.yaw||0}))return {accepted:false,text:'这里会挤到家具、同伴或门口，换个空一点的位置。'};f.positions=f.positions||{};f.positions[item]={...p,yaw:Number.isFinite(point.yaw)?point.yaw:0};f.placements[item]='free';f.sleep=item;text='把'+good.name+'挪到自己挑的角落，它可以实际走过去睡。';}
+ else if(action==='furnish'&&good.kind==='rest'&&HOME_SLOTS.some(x=>x.id===slot)){
   if(!canPlace(item,slot))return {accepted:false,text:'这个角落现在放不下，换一个位置试试。'};
-  f.placements[item]=slot;f.sleep=item;text='把'+good.name+'摆在'+HOME_SLOTS.find(x=>x.id===slot).name+'，留给它自己选择休息。';
+  f.placements[item]=slot;if(f.positions)delete f.positions[item];f.sleep=item;text='把'+good.name+'摆在'+HOME_SLOTS.find(x=>x.id===slot).name+'，留给它自己选择休息。';
  }else if(action==='furnish'&&good.kind==='toy'){f.toy=item;text='把'+good.name+'拿出来，陪玩和叼回都用这颗球。';}
  else if(action==='wear'&&good.kind==='wear'){f.wear=item;text='给它戴好'+good.name+'。';}
  else if(action==='own-rest'&&good.kind==='rest'){

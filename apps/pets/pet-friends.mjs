@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-320b077366663085';
-import {createTownNavigation} from './town-life.mjs?v=fg-320b077366663085';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-320b077366663085';
-import {walkRoute,turnPet} from './movement.mjs?v=fg-320b077366663085';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-fe8f75d08ee71bdf';
+import {createTownNavigation} from './town-life.mjs?v=fg-fe8f75d08ee71bdf';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-fe8f75d08ee71bdf';
+import {walkRoute,turnPet} from './movement.mjs?v=fg-fe8f75d08ee71bdf';
 
 // Stable street identities and their actual places, shared by work and visits.
 export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:true,role:'花店里的奶茶猫',shop:'florist',spot:{x:0,z:.65},detail:'喜欢慢慢闻花，也喜欢安静的陪伴。',place:'florist',placeName:'花店',about:'花店里的奶茶猫，喜欢慢慢闻花，也喜欢安静的陪伴。',position:{x:0,z:.65},approaches:[{x:1,z:.7},{x:-1,z:.7}],profile:{species:'cat',name:'小茉',size:.9,weight:1,look:{id:'custom',base:'#eee1cb',patch:'#a98565'}}},
@@ -9,20 +9,20 @@ export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:tr
  {id:'cafe-cat',name:'墨墨',species:'cat',pet:true,role:'咖啡店的慢热黑白猫',shop:'cafe',spot:{x:0,z:.35},detail:'先远远看你一眼，熟悉以后愿意一起安静待着。',place:'cafe',placeName:'咖啡店',about:'慢热的黑白猫，喜欢安静地陪着朋友看店里的日常。',position:{x:0,z:.35},approaches:[{x:1,z:.35},{x:-1,z:.35}],profile:{species:'cat',name:'墨墨',size:.85,weight:1,look:{id:'custom',base:'#f4eee4',patch:'#5c5756'}}}];
 const neighbor=id=>PET_NEIGHBORS.find(x=>x.id===id);
 const count=v=>Number.isFinite(v)?Math.floor(Math.max(0,Math.min(1e7,v))):0;
-const sharedMemory=()=>({homeVisits:0,homeDate:'',favors:0,visits:0,events:0,lastDate:'',knownName:'',habit:'',lastVisit:'',eventDate:''});
+const sharedMemory=()=>({gifts:0,homeVisits:0,homeDate:'',favors:0,visits:0,events:0,lastDate:'',knownName:'',habit:'',lastVisit:'',eventDate:''});
 const at=v=>Number.isFinite(v)?Math.max(0,Math.min(1e15,v)):0;
 export function restoreNeighborBonds(raw,legacy){
  const bonds={};
- for(const f of PET_NEIGHBORS){const r=raw?.[f.id];if(r&&typeof r==='object')bonds[f.id]={...sharedMemory(),homeVisits:count(r.homeVisits),homeDate:typeof r.homeDate==='string'?r.homeDate.slice(0,10):'',greetings:count(r.greetings),together:count(r.together),play:count(r.play),work:count(r.work),firstDay:count(r.firstDay),lastDay:count(r.lastDay),lastAt:at(r.lastAt),recent:(Array.isArray(r.recent)?r.recent:[]).filter(x=>['greet','together','play','work','visit'].includes(x?.kind)&&typeof x.text==='string').slice(-8).map(x=>({kind:x.kind,day:count(x.day),at:at(x.at),text:x.text.slice(0,160)}))};}
+ for(const f of PET_NEIGHBORS){const r=raw?.[f.id];if(r&&typeof r==='object')bonds[f.id]={...sharedMemory(),gifts:count(r.gifts),homeVisits:count(r.homeVisits),homeDate:typeof r.homeDate==='string'?r.homeDate.slice(0,10):'',greetings:count(r.greetings),together:count(r.together),play:count(r.play),work:count(r.work),firstDay:count(r.firstDay),lastDay:count(r.lastDay),lastAt:at(r.lastAt),recent:(Array.isArray(r.recent)?r.recent:[]).filter(x=>['greet','together','play','work','visit','gift'].includes(x?.kind)&&typeof x.text==='string').slice(-8).map(x=>({kind:x.kind,day:count(x.day),at:at(x.at),text:x.text.slice(0,160)}))};}
  if(!Object.hasOwn(bonds,'florist-cat')&&Number.isFinite(legacy?.day)&&Number.isFinite(legacy?.visits)&&legacy.visits>0)bonds['florist-cat']={...sharedMemory(),greetings:0,together:0,play:0,work:count(legacy.visits),firstDay:count(legacy.day),lastDay:count(legacy.day),lastAt:0,recent:[]};
  return bonds;
 }
-export function neighborBondView(bonds,id){const r=bonds?.[id],visits=(r?.greetings||0)+(r?.work||0),familiarity=visits+((r?.together||0)+(r?.play||0)+(r?.homeVisits||0))*2;return {homeVisits:r?.homeVisits||0,homeDate:r?.homeDate||'',known:visits>0||r?.together>0,greetings:r?.greetings||0,work:r?.work||0,together:r?.together||0,play:r?.play||0,visits,firstDay:r?.firstDay||0,lastDay:r?.lastDay||0,lastAt:r?.lastAt||0,label:familiarity>=12?'见到彼此会自在地待在一起':familiarity>=5?'慢慢熟悉了彼此':familiarity?'已经认识了，见面还会闻闻对方':'还没打过招呼',recent:structuredClone(r?.recent||[])};}
+export function neighborBondView(bonds,id){const r=bonds?.[id],visits=(r?.greetings||0)+(r?.work||0),familiarity=visits+(r?.gifts||0)*2+((r?.together||0)+(r?.play||0)+(r?.homeVisits||0))*2;return {gifts:r?.gifts||0,homeVisits:r?.homeVisits||0,homeDate:r?.homeDate||'',known:visits>0||r?.together>0,greetings:r?.greetings||0,work:r?.work||0,together:r?.together||0,play:r?.play||0,visits,firstDay:r?.firstDay||0,lastDay:r?.lastDay||0,lastAt:r?.lastAt||0,label:familiarity>=12?'见到彼此会自在地待在一起':familiarity>=5?'慢慢熟悉了彼此':familiarity?'已经认识了，见面还会闻闻对方':'还没打过招呼',recent:structuredClone(r?.recent||[])};}
 export function recordNeighborBond(bonds,id,kind,{day,at:stamp=0,name='它'}={}){
- const f=neighbor(id);if(!f||!['greet','together','play','work'].includes(kind))return null;
+ const f=neighbor(id);if(!f||!['greet','together','play','work','gift'].includes(kind))return null;
  const r=bonds[id]||(bonds[id]={...sharedMemory(),greetings:0,together:0,play:0,work:0,firstDay:count(day),lastDay:0,lastAt:0,recent:[]});
- r[kind==='greet'?'greetings':kind==='work'?'work':kind==='play'?'play':'together']++;r.lastDay=count(day);if(stamp)r.lastAt=at(stamp);
- const text=kind==='work'?name+'在'+f.placeName+'工作时，和'+f.name+'打过了招呼。':kind==='greet'?name+'走到'+f.name+'身边，互相闻了闻，打过了招呼。':kind==='play'?name+'和'+f.name+'在'+f.placeName+'一起追过了小球。'+(f.id==='bakery-dog'?'可可先把球轻轻滚给了它。':f.id==='cafe-cat'?'墨墨追了两步，又蹲下来看球。':'小茉闻过小球，才跟着跑起来。'):name+'和'+f.name+'在'+f.placeName+'安静地待了一会儿。'+(f.id==='cafe-cat'?'墨墨看了一会儿，慢慢放松下来。':f.id==='bakery-dog'?'可可趴在旁边，偶尔闻闻面包香。':'小茉陪它闻了闻新来的花。');
+ r[kind==='gift'?'gifts':kind==='greet'?'greetings':kind==='work'?'work':kind==='play'?'play':'together']++;r.lastDay=count(day);if(stamp)r.lastAt=at(stamp);
+ const text=kind==='gift'?name+'把自己的小礼物送给了'+f.name+'，朋友凑近闻了闻。':kind==='work'?name+'在'+f.placeName+'工作时，和'+f.name+'打过了招呼。':kind==='greet'?name+'走到'+f.name+'身边，互相闻了闻，打过了招呼。':kind==='play'?name+'和'+f.name+'在'+f.placeName+'一起追过了小球。'+(f.id==='bakery-dog'?'可可先把球轻轻滚给了它。':f.id==='cafe-cat'?'墨墨追了两步，又蹲下来看球。':'小茉闻过小球，才跟着跑起来。'):name+'和'+f.name+'在'+f.placeName+'安静地待了一会儿。'+(f.id==='cafe-cat'?'墨墨看了一会儿，慢慢放松下来。':f.id==='bakery-dog'?'可可趴在旁边，偶尔闻闻面包香。':'小茉陪它闻了闻新来的花。');
  r.recent.push({kind,day:count(day),at:at(stamp),text});r.recent=r.recent.slice(-8);return text;
 }
 export function syncFriendWork(shared,rows){for(const row of rows){const legacy=row.career?.state?.florist?.friend||row.career?.florist?.friend;if(!legacy?.visits)continue;const id=row.entry?.id||row.id,met=shared.neighbors['florist-cat'].met,m=met[id]||(met[id]=restoreNeighborBonds(null,legacy)['florist-cat']);m.work=Math.max(m.work||0,count(legacy.visits));m.knownName=row.entry?.profile.name||row.profile?.name||m.knownName||'';}}

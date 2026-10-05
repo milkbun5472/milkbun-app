@@ -1,6 +1,6 @@
-import {isKeepsake,makeKeepsake,disposeKeepsake} from './keepsake-view.mjs?v=fg-320b077366663085';
-import {makeCurio} from './curio-view.mjs?v=fg-320b077366663085';
-import * as T from 'three';import {MAPS,centralLit} from './world.mjs?v=fg-320b077366663085';import {museumCollection} from './museum.mjs?v=fg-320b077366663085';
+import {isKeepsake,makeKeepsake,disposeKeepsake} from './keepsake-view.mjs?v=fg-fe8f75d08ee71bdf';
+import {makeCurio} from './curio-view.mjs?v=fg-fe8f75d08ee71bdf';
+import * as T from 'three';import {MAPS,centralLit} from './world.mjs?v=fg-fe8f75d08ee71bdf';import {museumCollection} from './museum.mjs?v=fg-fe8f75d08ee71bdf';
 export function makeMuseum(){const root=new T.Group(),groups={};let previous=null;
  const paper=new T.MeshStandardMaterial({color:'#e4d5b1',roughness:1}),green=new T.MeshStandardMaterial({color:'#a5bf93',roughness:.9}),amber=new T.MeshStandardMaterial({color:'#c6a362',roughness:.5}),crystal=new T.MeshStandardMaterial({color:'#b2c4cb',roughness:.45,metalness:.15});
  const card=new T.BoxGeometry(.56,.66,.025),leaf=new T.SphereGeometry(1,8,6),bottle=new T.SphereGeometry(.17,12,8),neck=new T.CylinderGeometry(.055,.07,.17,8),stone=new T.IcosahedronGeometry(.18,0);

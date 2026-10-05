@@ -1,19 +1,19 @@
-import {samplePetAction} from '../../art/pet-house/pet-action.mjs?v=fg-320b077366663085';
-import {createPetToy} from './toy-prop.mjs?v=fg-320b077366663085';
-import {HOME_DETAILS} from './room-layout.mjs?v=fg-320b077366663085';
-import {skillTask} from './skills.mjs?v=fg-320b077366663085';
-import {chorePlaces} from './home-chores.mjs?v=fg-320b077366663085';
-import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-320b077366663085';
-import {chooseComfortSpot} from './habits.mjs?v=fg-320b077366663085';
-import {createParcelProp} from './parcel-prop.mjs?v=fg-320b077366663085';
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-320b077366663085';
-import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-320b077366663085';
-import {turnPet} from './movement.mjs?v=fg-320b077366663085';
-import {actorDistance,createActorNavigation} from './actor-spacing.mjs?v=fg-320b077366663085';
-import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-320b077366663085';
-import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-320b077366663085';
-import {furniturePoint} from './furnishings.mjs?v=fg-320b077366663085';
-import {createFurnishingView} from './furnishing-view.mjs?v=fg-320b077366663085';
+import {samplePetAction} from '../../art/pet-house/pet-action.mjs?v=fg-fe8f75d08ee71bdf';
+import {createPetToy} from './toy-prop.mjs?v=fg-fe8f75d08ee71bdf';
+import {HOME_DETAILS} from './room-layout.mjs?v=fg-fe8f75d08ee71bdf';
+import {skillTask} from './skills.mjs?v=fg-fe8f75d08ee71bdf';
+import {chorePlaces} from './home-chores.mjs?v=fg-fe8f75d08ee71bdf';
+import {WORK_HABITS,habitTask,carriesToy} from './work-habits.mjs?v=fg-fe8f75d08ee71bdf';
+import {chooseComfortSpot} from './habits.mjs?v=fg-fe8f75d08ee71bdf';
+import {createParcelProp} from './parcel-prop.mjs?v=fg-fe8f75d08ee71bdf';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-fe8f75d08ee71bdf';
+import {moodFromCare} from '../../art/pet-house/pet-mood.mjs?v=fg-fe8f75d08ee71bdf';
+import {turnPet} from './movement.mjs?v=fg-fe8f75d08ee71bdf';
+import {actorDistance,createActorNavigation} from './actor-spacing.mjs?v=fg-fe8f75d08ee71bdf';
+import {createHomeNavigation,HOME_PLACES,petHomePlaces} from './home-navigation.mjs?v=fg-fe8f75d08ee71bdf';
+import {TOY_SPOTS,SEEK_KINDS} from './initiative.mjs?v=fg-fe8f75d08ee71bdf';
+import {furniturePoint} from './furnishings.mjs?v=fg-fe8f75d08ee71bdf';
+import {createFurnishingView} from './furnishing-view.mjs?v=fg-fe8f75d08ee71bdf';
 export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=()=>[],getActor=()=>({id:'pet',kind:'pet',species:pet.species,size:pet.root.scale.x,place:'home'}),getActors=()=>[],getChore=()=>null,index=0,station=null,getOtherPets=()=>[],getBelongings=()=>({}),getPeers=()=>[],getParcels=()=>({queue:[]}),onBag=()=>({accepted:false})}){
  let nav,route=[],pendingTask=null,pendingStage='',reactionTime=0,poseBase=null,food=[],targetClock=0,visible=false,held=false,blockedTime=0;
  const places={...petHomePlaces(station),water:chorePlaces(index).water};
@@ -49,7 +49,7 @@ export function createPetHome(T,{scene,pet,care,onNotice,onSave,draw,getPeople=(
  function dropToy(){if(held){const p=mouth();care.state.toyPlaces[care.state.task?.toy||'ball']=nav.restore({x:p.x,z:p.z});}held=false;toy.visible=false;}
  function schedule(){const t=care.state.task;if(!t){route=[];pendingTask=null;pendingStage='';toy.visible=false;held=false;return;}const stage=(t.stage||'')+'|'+t.phase+'|'+(t.socialId&&t.spot?t.spot.x+','+t.spot.z:'');if(t===pendingTask&&stage===pendingStage)return;pendingTask=t;pendingStage=stage;targetClock=0;const dest=destination(t);route=t.phase==='walking'&&dest?nav.path(local(),dest)||[]:[];if(t.phase==='walking'&&!route.length&&(!dest||Math.hypot(dest.x-local().x,dest.z-local().z)>.08)){dropToy();care.cancel();onNotice('它暂时走不过去','先换个地方待着。');onSave();}}
  function restPlaces(){return ['bed','sofa',...(getBelongings().inventory?.box===1?['box']:[]),...(getBelongings().furnishings?.sleep?['own']:[])];}
- function canFurnish(item,slot){const s=getBelongings(),p=furniturePoint({...s,furnishings:{...s.furnishings,placements:{...s.furnishings.placements,[item]:slot}}},index,item);return !!nav?.walkable(p.x,p.z)&&!!nav?.path(local(),p)&&roomClear(p);}
+ function canFurnish(item,slot){const s=getBelongings(),p=slot==='free'?furniturePoint(s,index,item):typeof slot==='object'?slot:furniturePoint({...s,furnishings:{...s.furnishings,positions:{...s.furnishings.positions,[item]:null},placements:{...s.furnishings.placements,[item]:slot}}},index,item);return !!nav?.walkable(p.x,p.z)&&Math.hypot(p.x,p.z-3.2)>.9&&!!nav?.path(local(),p)&&roomClear(p)&&!getActors().some(a=>a.kind==='pet'&&a.id!==getActor().id&&a.place==='home'&&Math.hypot(a.position.x-p.x,a.position.z-p.z)<.65*(a.size||1));}
  function request(action,options={}){sync();if(options.place==='own'&&!restPlaces().includes('own'))return {accepted:false,text:'先摆好自己的小窝。'};if(getChore())return {accepted:false,text:'正在收拾它的东西，等这件做完再照料。'};if(action==='wake')pet.motion.setActionPose({});const old=care.state.task,key=options.source==='companion'?'companion:'+options.actor:'you';const nearPerson=options.nearPerson||old?.target===key&&old.phase==='doing'&&SEEK_KINDS.includes(old.kind)&&old.stage!=='fetch';const result=care.request(action,{restPlaces:restPlaces(),...options,nearPerson});if(result.accepted){if(held){const p=mouth();care.state.toyPlaces[old.toy]=nav.restore({x:p.x,z:p.z});held=false;}if(nearPerson&&care.state.task?.place==='person')care.state.task.spot=local();schedule();sync();if(!options.deferSave)onSave();}else if(action==='pet'&&care.state.cooldown>0){reactionTime=4;}onNotice(result.accepted?(options.source==='companion'?'它回应'+(options.name||'TA')+'了':'它回应你了'):'它有自己的想法',result.text);draw();return result;}
  function saveSkill(before){if(onSave()!==false)return true;for(const k of Object.keys(care.state))delete care.state[k];Object.assign(care.state,before);route=[];pendingTask=null;pendingStage='';held=carriesToy(care.state.task)&&['carry','lower'].includes(care.state.task.stage);toy.visible=held;if(held){ball.visible=care.state.task.toy==='ball';mouse.visible=!ball.visible;treat.visible=false;toy.position.copy(mouth());toy.quaternion.copy(pet.root.quaternion);}sync();return false;}
  function requestSkill(id,options={}){if(getChore()||getBelongings().job)return {accepted:false,text:'它正忙着，等回家空下来再练。'};const before=care.snapshot();let result;if(id==='stop'){if(!skillTask(care.state.task))return {accepted:false,text:'现在没有正在练的小技能。'};if(care.state.task.skill==='fetch'&&['carry','lower'].includes(care.state.task.stage)&&!held)care.state.toyPlaces[care.state.task.toy]=nav.restore(local());dropToy();care.cancel();result={accepted:true,text:'这次先歇歇，没做完的练习不算完成。'};}else {const target=options.source==='companion'?'companion:'+options.actor:'you';if(!people().some(p=>p.key===target))return {accepted:false,text:'等教它的人回到家里，再一起练。'};result=care.requestSkill(id,options);}if(result.accepted){schedule();sync();if(id!=='stop'&&!skillTask(care.state.task))result={accepted:false,text:'现在走不过去，等换个位置再一起练。'};}if(!saveSkill(before))return {accepted:false,text:'这次练习还没有保存成功，请先重试保存。'};onNotice(result.accepted?'它的小技能':'先歇歇',result.text);draw();return result;}
