@@ -34,7 +34,7 @@
     const appText=await appRes.text();
     if (!appRes.ok || appText.indexOf('APP_VERSION = "v'+TARGET+'"')<0) throw new Error("程序文件仍不是 v"+TARGET);
     if ("serviceWorker" in navigator) {
-      const reg=await navigator.serviceWorker.register("./sw.js?v=7",{updateViaCache:"none"});
+      const reg=await navigator.serviceWorker.register("./sw.js?v=8",{updateViaCache:"none"});
       await reg.update();
     }
     status.textContent="已验证首页和程序均为 v"+TARGET+"，正在重新打开……";

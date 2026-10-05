@@ -1,0 +1,20 @@
+Mode: built-in image_gen, ads-marketing with style and product-image references.
+Use case: ads-marketing.
+Asset type: one finished Xiaohongshu image-post cover, portrait 3:4, ideally 1536 × 2048 pixels.
+Primary request: Create a polished, immediately readable cover for the user's existing 秋秋机 / 绒绒小镇 image carousel. Match the already approved cream-yellow + powder-sky-blue scrapbook art direction, but simplify strongly for a home-feed thumbnail.
+
+Input images:
+Image 1 is a STYLE REFERENCE ONLY: the existing double-page promotional sheet. Reuse its warm cream paper, powder-blue curved paper accents, small wool-felt cloud/sun ornaments, restrained paper tape, warm brown and dusty blue Chinese typography. Do NOT replicate the two-page spread, dense explanation, or multiple phone mockups.
+Image 2 is a FIXED PRODUCT SCREENSHOT / supporting compositing insert: the actual game view with a brown-haired chibi character in cream pajamas, an orange-and-white cat and a brown-and-white dog standing together on the oval rug in their home. Use this actual screenshot as the dominant photographic/game-image insert. Preserve the character, pets, model shapes, clothes, colors, proportions, furniture, and original perspective. Crop to the game scene, excluding the top/bottom interface controls. Do not invent or redraw the game, and do not add another human or animal.
+
+Composition: one vertical cover, generous but purposeful margins. Upper quarter has extremely large, bold, rounded Chinese headline in two lines, occupying most of the width. A small brand line above it. Below the headline, one broad white paper / instant-photo frame, very slightly tilted, containing the supplied actual cozy-home game scene. The character and two pets must be large and recognizable in the thumbnail, with complete heads and feet visible. Very few decorative elements: one small felt sun/cloud at a corner, a tiny paw print and two short pieces of translucent paper tape. Use cream background and a quiet powder-blue curved edge, with soft natural paper shadows. Do not obscure the main subjects with decorations.
+Typography: excellent Chinese glyph accuracy, thick rounded headline, the exact lowercase Latin word "char" harmonized with the rounded Chinese typography. Text contrast must be strong. Do not let pastel colors make the headline faint.
+
+Only these exact texts (verbatim):
+small brand line: "秋秋机 · 绒绒小镇"
+headline first line, dark warm brown: "和 char 一起"
+headline second line, dusty medium blue: "养猫猫狗狗"
+one small but readable subtitle below the headline: "住进小镇，过你们的小日子。"
+bottom short caption on a narrow cream paper strip: "一起养宠物 · 一起照顾家"
+
+Constraints: finished publishable cover, flat artwork, no external mockup, no watermark, no extra words, no English text except the exact lowercase word "char", no feature list, no invented UI, no collage of many screenshots. Retain actual product imagery faithfully; embellishment belongs only to the surrounding cover layout. Opaque background.

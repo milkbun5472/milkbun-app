@@ -5,7 +5,7 @@
 //   · 带 ?v= 的资源＝缓存优先——版本号即指纹，同 URL 内容永不变，缓存天然不脏；
 //     换版本时 URL 变了自然重新拉，旧版本条目就地清理（同路径不同 ?v= 删旧留新）。
 // 断网能干什么：翻聊天/记忆库/图库/记账/日历（全在本机）；callAI 和云同步仍需网。
-const SW_VERSION = "archive-sw-v7";
+const SW_VERSION = "archive-sw-v8";
 const SHELL_CACHE = "archive-shell-" + SW_VERSION;
 
 // 安装即接管，激活即控制所有页面（不等下次刷新）
@@ -19,6 +19,19 @@ self.addEventListener("activate", (e) => e.waitUntil((async () => {
 
 // ===== 离线壳缓存 =====
 const CACHEABLE_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com"]; // 字体也缓（跨域 opaque 可存）
+// ⚠️托管方（CF Pages / GitHub Pages）对【不存在的路径】不返回 404，而是把首页
+//   原样发回来：200 + text/html。于是「文件漏发了」在网络层看起来跟「拿到了」一样。
+//   这一层缓存又是【缓存优先】的，res.ok 为真就 put——坏响应被按同一个 ?v= 存住，
+//   之后每次都命中它，换多少次服务器都不会好（2026-10-05 绒绒小镇就是这么卡住的：
+//   漏发的那几个 .mjs/.json 被缓存成了首页 HTML，模块一解析就炸）。
+//   所以：资源路径拿到 html＝兜底页，既不许存，命中了也要当没命中并就地删掉。
+const ASSET_EXT = /\.(m?js|json|glb|gltf|css|png|jpe?g|webp|svg|woff2?|ttf|mp3|wav|ogg|mp4)$/i;
+function looksLikeFallback(url, res) {
+  try {
+    if (!res || !ASSET_EXT.test(url.pathname)) return false;
+    return /text\/html/i.test(res.headers.get("content-type") || "");
+  } catch (e) { return false; }
+}
 function isVersionedAsset(url) {
   return url.origin === self.location.origin && /[?&]v=/.test(url.search);
 }
@@ -61,9 +74,10 @@ self.addEventListener("fetch", (event) => {
   event.respondWith((async () => {
     const cache = await caches.open(SHELL_CACHE);
     const hit = await cache.match(req);
-    if (hit) return hit;
+    if (hit && !looksLikeFallback(url, hit)) return hit;
+    if (hit) { try { await cache.delete(req); } catch (e) {} }   // 存住的是兜底页：清掉，这一次重新去拿
     const res = await fetch(req);
-    if (res && (res.ok || res.type === "opaque")) {
+    if (res && (res.ok || res.type === "opaque") && !looksLikeFallback(url, res)) {
       cache.put(req, res.clone());
       // 同路径旧版本就地清理（防 ?v= 逐版累积吃存储）
       if (isVersionedAsset(url)) {
