@@ -11838,8 +11838,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const emoNormMap = new Map(emotes.map(e => [emoteNorm(e.keyword), e.keyword]).filter(x => x[0]));
         // \u300c[\u8868\u60c5] xxx\u300d\u524d\u7f00\u5f62\u6001\uff08\u6a21\u578b\u7167\u6284\u5386\u53f2\u91cc emote \u7684 content \u683c\u5f0f\uff0cv48.73 \u5c0f\u514b\u4eb2\u6d4b\u6293\u5230\uff09\uff1a\u62bd\u51fa xxx \u5f53\u8868\u60c5\u3001\u522b\u5f53\u6587\u5b57
         const TAG_RE = /^\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+        // 「【emote：小仓鼠举起两个大拇指】」这种把字段名连同括号写进气泡的（她 2026-10-05 转群里截图，
+        //   还常被切成两个气泡：「【emote：白色小狗……」「……摸头夸夸】」）。先把没合上的那半拼回去，再认。
+        const WRAP_OPEN = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]/i;
+        const WRAP_RE = /^\s*[\u3010\[\uff3b]\s*(?:emote|sticker|\u8868\u60c5(?:\u5305)?)\s*[:\uff1a]\s*([\s\S]+?)\s*[\u3011\]\uff3d]?\s*$/i;
+        const _joined = [];
+        for (let wi = 0; wi < words.length; wi++) {
+          let cur = String(words[wi] == null ? "" : words[wi]);
+          if (WRAP_OPEN.test(cur) && !/[\u3011\]\uff3d]\s*$/.test(cur)) {
+            while (wi + 1 < words.length && typeof words[wi + 1] === "string" && !/[\u3011\]\uff3d]\s*$/.test(cur) && cur.length < 60) cur += words[++wi];
+          }
+          _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
+        }
+        words = _joined;
         words = words.filter(w => {
           const s = String(w == null ? "" : w);
+          const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
+          if (mWrap && mWrap[1].trim()) { emoteWordKws.push(mWrap[1].trim()); return false; }
           const mTag = s.match(TAG_RE);
           if (mTag && mTag[1].trim()) { emoteWordKws.push(mTag[1].trim()); return false; }
           const n = emoteNorm(w);
