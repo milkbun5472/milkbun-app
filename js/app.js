@@ -3954,11 +3954,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   ⚠️判据按【一句话】看：这一句里既说了「拿到/送到」、又说了「告诉你/找你」才算，
   //     「到了」太泛（「我到家了」），只有同一句里点了外卖/礼物才认它。
   const PROMISE_EVENT_WORDS = { takeout: /外卖|饭|吃的|奶茶|咖啡/, gift: /礼物|快递|包裹|东西/ };
-  // 「二十分钟」「15 分钟」「半小时」「一个小时」→ 分钟数；没有就 0
+  // 「二十分钟」「15 分钟」「半小时」「一个小时」「两刻钟」→ 分钟数；没有就 0
   const minutesFromWords = text => {
     const t = String(text || "");
     if (/半(个)?小时/.test(t)) return 30;
-    const m = /([0-9]+|[一二两三四五六七八九十]+)\s*(?:个)?\s*(分钟|分|小时|钟头)/.exec(t);
+    const m = /([0-9]+|[一二两三四五六七八九十]+)\s*(?:个)?\s*(分钟|分|小时|钟头|刻)/.exec(t);
     if (!m) return 0;
     let n = /^[0-9]+$/.test(m[1]) ? +m[1] : (() => {
       const d = { 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 }, w = m[1];
@@ -3968,6 +3968,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       return (i === 0 ? 1 : (d[w[0]] || 0)) * 10 + (d[w[i + 1]] || 0);
     })();
     if (/小时|钟头/.test(m[2])) n *= 60;
+    else if (m[2] === "刻") n *= 15;
     return n > 0 && n <= 24 * 60 ? n : 0;
   };  const promiseFromWords = (charId, words) => {
     const lines = (Array.isArray(words) ? words : [words]).map(x => String(x == null ? "" : x))

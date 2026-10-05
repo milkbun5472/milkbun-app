@@ -13,3 +13,13 @@ test("嘴上按时间约了来找她，兜底照样记成约回", () => {
   assert.equal(f("c1", ["忙完跟你说"]), null, "没说几分钟的不兜（原来就这么定的）");
   assert.equal(f("c1", ["今天好累", "你吃了吗"]), null, "没约就别记");
 });
+
+// 她 2026-10-05：不说二十分钟了，改说「两刻钟」——一刻＝十五分钟
+test("「两刻钟」「一刻钟」也认得出时长", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  const i = src.indexOf("const minutesFromWords");
+  const f = new Function("return " + src.slice(src.indexOf("=", i) + 1, src.indexOf("};", i) + 1))();
+  assert.equal(f("乖乖等我两刻钟"), 30);
+  assert.equal(f("一刻钟就到"), 15);
+  assert.equal(f("我立刻过来"), 0);
+});
