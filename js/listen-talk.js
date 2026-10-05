@@ -27,21 +27,11 @@
       + "。这件事发生在这个位置，现在回到了聊天】" + (said ? "\n【当时边听边说的最后几句·原话】\n" + said : "");
   }
 
-  // 一项可以是字，也可以是 {"voice":"…"}——TA 用嗓子说的那句（她 2026-10-05：「一起听能不能角色发语音」）。
-  //   返回 [{t, voice}]；老调用方只要字的，用 .t。
   function parseSay(raw) {
     const s = String(raw || "").trim();
     const m = s.match(/\{[\s\S]*\}/);
-    const one = function (x) {
-      if (x && typeof x === "object") { const v = String(x.voice || x.t || x.text || "").trim(); return v ? { t: v, voice: !!x.voice } : null; }
-      const v = String(x == null ? "" : x).trim(); return v ? { t: v, voice: false } : null;
-    };
-    if (m) { try { const d = JSON.parse(m[0]); const arr = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []); return arr.map(one).filter(Boolean); } catch (e) {} }
-    return s && !/^[\[{]/.test(s) ? [{ t: s, voice: false }] : [];
-  }
-  // 能不能发语音：配了语音、这个人有音色。跟单聊发语音条同一个前提。
-  function canVoice(char) {
-    try { const a = typeof loadTtsApi === "function" ? loadTtsApi() : null; return !!(a && a.enabled && char && char.voiceId); } catch (e) { return false; }
+    if (m) { try { const d = JSON.parse(m[0]); const arr = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []); return arr.map(function (x) { return String(x || "").trim(); }).filter(Boolean); } catch (e) {} }
+    return s && !/^[\[{]/.test(s) ? [s] : [];
   }
 
   // mode：reply＝她说了一句；auto＝歌放着，TA想说就说（可以不说）
@@ -58,10 +48,7 @@
       + (mode === "auto"
         ? "歌正放着，没人问你。这一段你真有反应才说一两句，没什么想说的就给空数组——安静一起听本来就是常态。\n"
         : "")
-      + "一条就是一个气泡，短一点，像凑在耳边说的话。"
-      + (canVoice(char) ? "哪一句想直接用嗓子说给她听，就把那一项写成 {\"voice\":\"要说的话\"}，她会听到你的声音；想打字就照常写字。"
-        + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") + (typeof voiceSoundHint === "function" ? voiceSoundHint() : "") + "\n" : "")
-      + "只输出 JSON：{\"say\":[\"你说的话\"]}";
+      + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"]}";
     const msg = mode === "auto" ? "（歌放着）" : text;
     const raw = await callAI(p.active, sys, [{ role: "user", content: msg }], { maxTokens: 65535 });
     return parseSay(raw);
@@ -90,24 +77,10 @@
     useEffect(() => { const iv = setInterval(() => setTick(x => x + 1), 1000); return () => clearInterval(iv); }, []);
 
     // 同一句两处落：这一页的气泡（x_listenTalk）＋单聊里真的一条消息
-    // TA 的语音那几句当场念出来（一条接一条，不抢）；合成走单聊同一个 ttsSpeak，有缓存
-    const playQ = useRef(Promise.resolve());
-    const say = r => {
-      if (!r.voice || !partner || !partner.voiceId || typeof ttsSpeak !== "function") return;
-      playQ.current = playQ.current.then(async () => {
-        try {
-          const blob = await ttsSpeak(r.content, partner.voiceId);
-          const url = URL.createObjectURL(blob), a = new Audio(url);
-          await new Promise(res => { a.onended = a.onerror = res; a.play().catch(res); });
-          URL.revokeObjectURL(url);
-        } catch (e) {}
-      });
-    };
     const add = list => {
       if (!partner) return;
       push(partner.id, list); setRows(talkOf(partner.id));
       if (props.onToChat) props.onToChat(partner.id, list);
-      list.forEach(say);
     };
     const ask = async (mode, text) => {
       if (!partner || !song || busyRef.current) return;
@@ -116,7 +89,7 @@
       try {
         const lw = lyricWindow(props.lyricLines, props.lyricActive, props.player && props.player.t);
         const say = await askListen(props, partner, song, lw, mode, text);
-        if (say.length) add(say.map(s => Object.assign({ role: "assistant", content: s.t, ts: Date.now(), song: song.title || "" }, s.voice ? { voice: true } : {})));
+        if (say.length) add(say.map(s => ({ role: "assistant", content: s, ts: Date.now(), song: song.title || "" })));
         else if (mode !== "auto") props.toast && props.toast((partner.remark || partner.name) + " 听得入神，没出声");
       } catch (e) { if (mode !== "auto") props.toast && props.toast("没接上：" + ((e && e.message) || "重试一下")); }
       finally { busyRef.current = false; setBusy(false); }
@@ -156,8 +129,7 @@
         maxWidth: 150, padding: "7px 11px", borderRadius: 14, marginTop: 6, background: "rgba(255,255,255,.88)", color: "#2d2a26",
         boxShadow: "0 3px 10px rgba(30,28,24,.14)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, wordBreak: "break-word",
         [side === "l" ? "borderTopRightRadius" : "borderTopLeftRadius"]: 4,
-        opacity: Math.max(0.25, 1 - Math.max(0, now - clockOf(r) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } },
-        r.voice ? "🔊 " + (typeof ttsMarkStrip === "function" ? ttsMarkStrip(r.content) : r.content) : r.content);
+        opacity: Math.max(0.25, 1 - Math.max(0, now - clockOf(r) - BUBBLE_MS * 0.6) / (BUBBLE_MS * 0.4)), transition: "opacity .6s" } }, r.content);
     const me = props.profile || {};
     const head = (who, isMe) => h("div", { style: { width: 54, height: 54, borderRadius: 999, padding: 2, background: "rgba(255,255,255,.7)", boxShadow: "0 4px 12px rgba(30,28,24,.2)" } },
       isMe ? (me.avatarImage ? h("img", { src: typeof resolveImg === "function" ? resolveImg(me.avatarImage) : me.avatarImage, alt: "", style: { width: 50, height: 50, borderRadius: 999, objectFit: "cover" } })

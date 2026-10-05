@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-9e725779023f1908", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-726b27b0c88a1525", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -339,7 +339,7 @@
     }catch(e){if(alive.current){setChatRows(rows=>rows.filter(row=>row!==sent));setDraft(d=>d||text);setError(e.message||'这次没能连上，可以重试。');}}finally{talking.current=false;if(alive.current)setChatBusy(false);}}
     const field={width:'100%',minHeight:42,border:'1px solid #ccd4be',borderRadius:12,padding:'8px 10px',background:'#fffdf5',color:'var(--pet-ink)' ,fontFamily:'inherit',fontSize:16};
     const plate=(title,body)=>h('section',{className:'pet-edit-field'},h('label',null,title),body);
-    const palette=(game()?.palettes||[]).map(p=>[p.label,p.base,p.patch]);
+    const palette=(game()?.palettes||[]).map(p=>[p.label,p.base,p.patch]),furColors=game()?.furColors?.()||{};
     const split=game()?.chatLayout(chatRatio,splitHeight)||{scenePercent:50};
     const d=current(),c=(props.characters||[]).find(x=>String(x.id)===String(d.partnerId)),petProfileView=game()?.snapshot().profile||profile;
     return h('div',{className:'pet-session h-full flex flex-col '+(panel?'pet-paper-open':''),'data-pet-world':true,style:{color:'var(--pet-ink)' }},
@@ -363,7 +363,7 @@
             plate('宠物',h('div',{style:{display:'flex',gap:10}},[['cat','猫咪'],['dog','狗狗']].map(([species,label])=>h('button',{className:'pet-species-choice',key:species,'aria-label':'选择'+label,'aria-pressed':profile.species===species,onClick:()=>change(game().speciesProfile(profile,species)),style:{...field,borderBottom:'3px solid '+(profile.species===species?G.deep:G.line),transform:profile.species===species?'translateY(-2px)':'none'}},label)))),
             plate('名字',h('input',{'aria-label':'宠物名字',maxLength:24,value:profile.name,onChange:e=>change({name:e.target.value}),style:field})),
             plate('毛色',h('div',{style:{display:'flex',flexWrap:'wrap',gap:6}},palette.map(([label,base,patch])=>h('button',{className:'pet-coat-swatch',key:label,'aria-label':label+'毛色','aria-pressed':base?profile.look?.patch===patch:profile.look?.id==='original',onClick:()=>change({look:base?{id:'custom',base,patch}:{id:'original'}}),style:{'--pet-coat-base':base||'#eee9e0','--pet-coat-patch':patch||'#afa199'}},h('span',{className:'pet-coat-colors'}),h('span',null,label))))),
-            plate('自选毛色',h('div',{style:{display:'flex',gap:12}},[['底毛','base','#f2eee6'],['花纹','patch','#a98565']].map(([label,k,fallback])=>h('label',{key:k,style:{display:'flex',alignItems:'center',gap:6}},label,h('input',{type:'color','aria-label':label+'颜色',value:profile.look?.[k]||fallback,onChange:e=>change({look:{id:'custom',base:profile.look?.base||'#f2eee6',patch:profile.look?.patch||'#a98565',[k]:e.target.value}}),style:{width:48,height:42}}))))),
+            plate('自选毛色',h('div',{style:{display:'flex',gap:12}},[['底毛','base'],['花纹','patch']].map(([label,k])=>h('label',{key:k,style:{display:'flex',alignItems:'center',gap:6}},label,h('input',{type:'color','aria-label':label+'颜色',value:profile.look?.[k]||furColors[k],onChange:e=>change({look:{id:'custom',base:profile.look?.base||furColors.base,patch:profile.look?.patch||furColors.patch,[k]:e.target.value}}),style:{width:48,height:42}}))))),
             ...[['胖瘦','weight',.8,1.25],['大小','size',.7,1.3]].map(([label,k,min,max])=>plate(label+' · '+Math.round(profile[k]*100)+'%',h('input',{type:'range','aria-label':label,min,max,step:.01,value:profile[k],onChange:e=>change({[k]:Number(e.target.value)}),style:{width:'100%',minHeight:40,accentColor:G.deep}}))),
             h('p',{style:{fontSize:11,color:G.soft}},'实时预览；名字、毛色与体型只属于这一档宠物。')),
           h('div',{style:{display:'flex',gap:10,padding:'8px 18px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line}},h('button',{onClick:()=>{change({species:profile.species,name:profile.species==='dog'?'狗狗':'猫猫',look:{id:'original'},weight:1,size:1});},style:{...field,width:'auto'}},'复位'),h('button',{onClick:savePet,style:{...field,flex:1,background:G.deep,color:'#fffaf1'}},'保存并进入'))),

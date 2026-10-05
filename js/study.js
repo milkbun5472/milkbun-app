@@ -18,6 +18,37 @@
   // 她是谁、你俩什么关系、你俩平时怎么说话：App 那头用单聊同一份拼法（herStableLines/coupleStatusLines）算好递进来。
   //   面具按角色绑定走（profileFor）——跟谁上课，就是跟 TA 的那张脸。
   const BESIDE_TAIL = "\n（上面这几块是你和她本来的样子；下面说的「用户」就是她。教也好学也好，开口还是你平时跟她说话的那个人。）";
+  // 一起学里TA也能发语音（她 2026-10-05：「我的一起学要语音」）。跟单聊发语音条同一个前提：配了语音、这个人有音色。
+  //   那一句存成「🔊 」开头的一条，显示时把停顿记号擦掉；落地那一刻念一遍，点气泡再念。
+  const VOICE_PRE = "🔊 ";
+  function voiceOk(char) {
+    try { return !!(char && char.voiceId && typeof ttsReady === "function" && ttsReady()); } catch (e) { return false; }
+  }
+  function voiceHint(char) {
+    if (!voiceOk(char)) return "";
+    return "\n哪一句想直接用嗓子说给她听，就把 say 里那一项写成 {\"voice\":\"要说的话\"}，她会听到你的声音；想打字就照常写字。"
+      + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") + (typeof voiceSoundHint === "function" ? voiceSoundHint() : "");
+  }
+  // 一项 say：字照旧；{voice} 变成「🔊 」开头那一条
+  function sayStr(x) {
+    if (x && typeof x === "object") { const v = String(x.voice || x.text || x.say || "").trim(); return v ? (x.voice ? VOICE_PRE + v : v) : ""; }
+    return String(x == null ? "" : x);
+  }
+  const isVoice = t => typeof t === "string" && t.indexOf(VOICE_PRE) === 0;
+  const voiceShow = t => isVoice(t) ? VOICE_PRE + (typeof ttsMarkStrip === "function" ? ttsMarkStrip(t.slice(VOICE_PRE.length)) : t.slice(VOICE_PRE.length)) : t;
+  let _voiceQ = Promise.resolve();
+  function playVoice(char, t) {
+    if (!isVoice(t) || !char || !char.voiceId || typeof ttsSpeak !== "function") return;
+    const text = t.slice(VOICE_PRE.length);
+    _voiceQ = _voiceQ.then(async function () {
+      try {
+        const blob = await ttsSpeak(text, char.voiceId);
+        const url = URL.createObjectURL(blob), a = new Audio(url);
+        await new Promise(function (res) { a.onended = a.onerror = res; a.play().catch(res); });
+        URL.revokeObjectURL(url);
+      } catch (e) {}
+    });
+  }
   // ---- 内置 prompt 块 -------------------------------------------------
   const USER_SLOT_PROTECT =
     "【用户槽位保护（最高优先级）】\n" +
@@ -441,7 +472,7 @@
     if (mode === "teach" || mode === "nv1-teacher") parts.push(QUIZ_CARD_FMT);
     if (mode === "costudy" && session.mode === "costudy") parts.push(BOARD_FMT);
     if (mode === "teach" || mode === "nv1-teacher" || (mode === "costudy" && session.mode === "costudy")) parts.push(HANDOUT_FMT);
-    parts.push(OUT_FMT);
+    parts.push(OUT_FMT + voiceHint(char));
     return parts.join("\n\n");
   }
 
@@ -470,7 +501,7 @@
     // 明说不开口：{"say":[]} 就是一句话都没有，别让兜底从 JSON 骨架里抠出个 "say" 来
     if (Array.isArray(d.say) && !d.say.length) return [];
     let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
-    says = says.map(stripName).map(guardOverspeak).filter(Boolean);
+    says = says.map(sayStr).map(stripName).map(guardOverspeak).filter(Boolean);
     if (!says.length) says = sayFallback(raw).map(guardOverspeak).filter(Boolean);
     return says;
   }
@@ -3186,6 +3217,7 @@
       for (let i = 0; i < says.length; i++) {
         if (i > 0) await new Promise(function (r) { return setTimeout(r, 400); });
         pushEntry({ id: "c_" + Date.now() + "_" + i, role: "char", speakerId: char.id, name: char.name, content: says[i], ts: Date.now() });
+        playVoice(char, says[i]);
       }
     }
     // 三人课堂：一次生成写两个人，按先后落泡；题卡/证据只挂老师名下
@@ -3680,8 +3712,9 @@
         h("div", { className: "min-w-0" },
           (sess.mode === "nv1" || (char && char.voiceId && typeof ttsReady === "function" && ttsReady())) ? h("div", { className: "flex items-center gap-1", style: { marginBottom: 2 } },
             sess.mode === "nv1" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog } }, m.name + (isTeacher ? "（老师）" : "（同学）")) : null,
-            (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: m.content, spk: char, tp: tp }) : null) : null,
-          m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap" } }, m.content)));
+            (tp && typeof TtsDot === "function") ? h(TtsDot, { k: "st" + m.id, text: isVoice(m.content) ? m.content.slice(VOICE_PRE.length) : m.content, spk: char, tp: tp }) : null) : null,
+          m.handout ? handoutCard(m) : m.quiz ? quizCard(m) : h("div", { style: { display: "inline-block", maxWidth: "100%", background: indent ? STUDY_MODE_SKIN.costudy.soft : STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderLeft: "3px solid " + (indent ? STUDY_MODE_SKIN.costudy.accent : accent), color: STUDY_SKIN.ink, borderRadius: "4px 13px 13px 4px", padding: "9px 12px", boxShadow: "0 4px 12px " + STUDY_SKIN.shadow, fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", cursor: isVoice(m.content) ? "pointer" : undefined },
+            onClick: isVoice(m.content) ? function () { playVoice(char, m.content); } : undefined }, voiceShow(m.content))));
     });
 
     const hoEntry = hoView ? (sess.transcript || []).find(function (m) { return m.id === hoView && m.handout && m.handout.status === "done"; }) : null;
@@ -3965,6 +3998,7 @@
     return "【输出】只输出 JSON：{\"turns\":[{\"who\":\"" + (two ? stus[0].name + "或" + stus[1].name : stus[0].name) + "\",\"say\":\"一句话，一个气泡\"}],"
       + "\"notes\":{" + stus.map(function (c) { return "\"" + c.name + "\":\"" + c.name + " 此刻的课堂笔记全文，用自己的话分条记（每条一行，以「· 」开头），理解歪了就照歪的记\""; }).join(",") + "},"
       + "\"fixed\":[\"这一轮被老师纠正过来的那几条的编号，没有就空数组\"],\"hand\":null}"
+      + (stus.some(voiceOk) ? "\n哪个学生哪一句想直接开口说（用声音），就把那一项的 say 写成 {\"voice\":\"要说的话\"}。" + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") : "")
       // 举手（她 2026-10-05：「每轮消息后面都跟着举手是啥」）：原来格式里摆着一个填好的 hand 槽，模型就每轮都填，
       //   而且多半是把 turns 里刚问过的那句再抄一遍。现在默认 null，只说它是什么。
       + "\nhand 默认就是 null。只有某个学生憋着一个【这一轮没说出口】的问题、想等老师讲完再问时，才写成 {\"who\":\"谁\",\"q\":\"那个问题\"}；已经在 turns 里问出来的，别再举一次手。";
@@ -4003,7 +4037,7 @@
     if (!mis.length && Array.isArray(d.misconceptions)) d.misconceptions.slice(0, 3).forEach(function (t) { if (t) mis.push({ id: String(mis.length + 1), text: String(t), found: false, who: stus[0].id }); });
     if (!mis.length) throw new Error("没能设好这节课（模型没按格式回）：" + String(raw || "").slice(0, 80));
     const turns = (Array.isArray(d.turns) ? d.turns : (d.say ? [].concat(d.say).map(function (t) { return { who: stus[0].name, say: t }; }) : []))
-      .filter(function (t) { return t && t.say; }).map(function (t) { return { role: "char", who: tbWho(stus, t.who).id, text: String(t.say), ts: Date.now() }; });
+      .filter(function (t) { return t && t.say; }).map(function (t) { return { role: "char", who: tbWho(stus, t.who).id, text: sayStr(t.say), ts: Date.now() }; });
     return { misconceptions: mis, transcript: turns };
   }
   async function tbTurn(active, s, stus, ctx) {
@@ -4011,7 +4045,7 @@
       + "\n【现在的笔记】\n" + stus.map(function (c) { return "〔" + c.name + "〕\n" + (tbNote(s, c.id) || "（还没记）"); }).join("\n") + "\n\n" + tbFmt(stus);
     const raw = await callAI(active, sys, tbTail(s, stus), { maxTokens: TOK.turn });
     const d = tbJSON(raw);
-    let turns = (Array.isArray(d.turns) ? d.turns : []).filter(function (t) { return t && t.say; }).map(function (t) { return { who: tbWho(stus, t.who).id, text: String(t.say) }; });
+    let turns = (Array.isArray(d.turns) ? d.turns : []).filter(function (t) { return t && t.say; }).map(function (t) { return { who: tbWho(stus, t.who).id, text: sayStr(t.say) }; });
     if (!turns.length && d.say) turns = [].concat(d.say).map(function (t) { return { who: stus[0].id, text: String(t) }; });
     if (!turns.length) turns = [{ who: stus[0].id, text: String(raw || "").replace(/[{}"]/g, "").slice(0, 200) }];
     const notes = {};
@@ -4153,6 +4187,7 @@
         save(function (x) {
           const mis = (x.misconceptions || []).map(function (m) { if (!m.found && r.fixed.indexOf(m.id) >= 0) { hit.push(m); return Object.assign({}, m, { found: true, foundAt: Date.now() }); } return m; });
           const add = r.turns.map(function (t) { return { role: "char", who: t.who, text: t.text, ts: Date.now() }; });
+          r.turns.forEach(function (t) { playVoice(stus.find(function (c) { return c.id === t.who; }), t.text); });
           if (r.hand) add.push({ role: "char", who: r.hand.who, text: "（举手）" + r.hand.q, hand: true, ts: Date.now() });
           const notes = Object.assign({}, x.notes || (x.note ? { [tbIds(x)[0]]: x.note } : {}), r.notes);
           return { misconceptions: mis, notes: notes, transcript: (x.transcript || []).concat(add) };
@@ -4170,7 +4205,8 @@
           !me && two ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: STUDY_SKIN.fog, margin: "0 4px 2px" } }, who.name) : null,
           h("div", { "data-wk": "tbmsg", "data-me": me ? "1" : "0", style: { padding: "8px 12px", borderRadius: me ? "14px 4px 14px 14px" : "4px 14px 14px 14px",
             background: me ? skin.accent : STUDY_SKIN.paper, color: me ? STUDY_SKIN.paper : STUDY_SKIN.ink, border: me ? "none" : "1px solid " + (m.hand ? skin.accent : STUDY_SKIN.line),
-            fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, m.text)));
+            fontFamily: F_BODY, fontSize: 14, lineHeight: 1.6, whiteSpace: "pre-wrap", overflowWrap: "anywhere", cursor: isVoice(m.text) ? "pointer" : undefined },
+            onClick: isVoice(m.text) ? function () { playVoice(who, m.text); } : undefined }, voiceShow(m.text))));
     };
     const startQuiz = function (qs) { save(function () { return { quiz: qs.map(function (q) { return { q: q, ans: {} }; }) }; }); setStage("quiz"); };
     const answered = (s.quiz || []).some(function (x) { return stus.some(function (c) { return tbAns(x, c.id, s); }); });
