@@ -225,6 +225,8 @@
       // 那条横幅上此刻亮着哪一门课（她点「换课」挑的）；空＝最近上过的那门
       studyPick: String(src.studyPick || "").slice(0, 80),
       syncOnce: !!src.syncOnce,
+      // 记忆只到起点那一句（她 2026-10-05：「翻到三天前的然后不想要这三天的新记忆」）——只对带开场的房有意义
+      memUntilAnchor: !!src.memUntilAnchor,
       mainCursorTs: Number(src.mainCursorTs || 0),
       summaryCursorTs: Number(src.summaryCursorTs || 0),
       summaryFrame: String(src.summaryFrame || "我们刚刚在另一间房里经历了这些："),
@@ -317,6 +319,18 @@
       anchorText: anchor ? visibleText(anchor).slice(0, 300) : "", seedCount: rows.length
     } }, personId);
     return { room: prepared, messages: rows };
+  }
+  // 这间房的记忆截到哪一刻：开了「只记得到起点为止」、而且房是带着一段开场开出来的，才返回那一句的时间。
+  //   0＝不截。没有时间戳的老记忆一律放行（说不清是哪天的，宁可留着）。
+  function memCutoff(room) {
+    if (!room || room.main || !room.memUntilAnchor) return 0;
+    const ts = Number(room.startFrom && room.startFrom.anchorTs || 0);
+    return ts > 0 ? ts : 0;
+  }
+  function memBefore(lib, cutoff) {
+    const c = Number(cutoff || 0);
+    if (!c) return lib || [];
+    return (lib || []).filter(e => !(Number(e && e.ts || 0) > c));
   }
   // 清房只擦掉进门以后新长出来的记录；带入/挑句形成的开场原文留在门内。
   function messagesAfterClear(room, messages) {
@@ -739,6 +753,6 @@
     });
   }
 
-  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
+  return { canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });

@@ -17655,6 +17655,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
           patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
+  // 记忆只到起点为止（她 2026-10-05）：带开场开的房才有这一格，「你们一起经历过的事」关着时也不摆（没东西可截）
+  const memCutRow = show => show && (Kit.allows ? Kit.allows(draft, "formalMemory") : true) ? h("div", { className: "flex items-center justify-between", style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
+    h("div", { style: { paddingRight: 10 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "只记得到起点那一句为止"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。"))),
+    h(Toggle, { on: !!draft.memUntilAnchor, onChange: () => patch({ memUntilAnchor: !draft.memUntilAnchor }) })) : null;
   const save = () => {
     const saved = Kit.save(character.id, draft);
     if (!saved) { window.__toast && window.__toast("这次没保存成功，原房间还在"); return null; }
@@ -17818,6 +17824,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
           (window.ChatRooms && window.ChatRooms.doorLine ? window.ChatRooms.doorLine(draft) : "") + "现在就能调，建好之后也随时能改。"),
         group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
+        memCutRow(startMode !== "blank"),
         group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
         group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
@@ -17853,6 +17860,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h(Eyebrow, null, "隔多久回主聊天看一眼"),
       h("div", { className: "grid grid-cols-3 gap-2", style: { marginTop: 8 } }, [["follow","自动补近况"],["ask","需要时补"],["frozen","完全隔离"]].map(([v,l]) => h("button", { key: v, onClick: () => patch({ syncMode: v, cognition: { ...draft.cognition, mainDelta: v !== "frozen" } }), style: { padding: "9px 5px", borderRadius: 10, border: "1px solid " + (draft.syncMode === v ? t.ink : t.line), background: draft.syncMode === v ? t.ink : "transparent", color: draft.syncMode === v ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11 } }, l)))),
     group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
+    memCutRow(!draft.main && !!(draft.startFrom && draft.startFrom.anchorTs)),
     !draft.main && group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
     group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
     // 房内浓缩的上限（她 2026-09-29：「上限搞个拉条自由选择」）。只有侧房有这一份——主聊天走长期记忆。
