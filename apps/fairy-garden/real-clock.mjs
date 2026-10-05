@@ -1,2 +1,2 @@
-import './clock.js?v=fg-baa1e934292d19c8';
+import './clock.js?v=fg-772b25174cbeb5d9';
 export const {restore:restoreClock,sample:realTime,archive:clockArchive,workWindow,routine:dailyRoutine}=globalThis.GameClock;

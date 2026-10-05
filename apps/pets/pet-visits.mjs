@@ -1,6 +1,6 @@
-import {PET_NEIGHBORS,neighborBondView} from './pet-friends.mjs?v=fg-baa1e934292d19c8';
-import {createTownLife} from './town-life.mjs?v=fg-baa1e934292d19c8';
-import {furniturePoint} from './furnishings.mjs?v=fg-baa1e934292d19c8';
+import {PET_NEIGHBORS,neighborBondView} from './pet-friends.mjs?v=fg-772b25174cbeb5d9';
+import {createTownLife} from './town-life.mjs?v=fg-772b25174cbeb5d9';
+import {furniturePoint} from './furnishings.mjs?v=fg-772b25174cbeb5d9';
 
 const find=id=>PET_NEIGHBORS.find(x=>x.id===id);
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
@@ -50,7 +50,7 @@ export function createPetVisits(shared,{world,rows,getActors=()=>[],now=()=>Date
   const b=before(),r=choose(action,p,t);if(!r?.accepted){restore(b);return r;}return persist(b,r);
  }
  function movePet(p,t,dt){const target=t.petPoint;if(!target)return {arrived:true,speed:0};const key=t.id+':'+t.phase+JSON.stringify(target),nav=p.town.nav();if(key!==routeKey){const path=nav.path(p.entry.town.position,target);if(!path)return {arrived:false,speed:0};petRoute=path;routeKey=key;}const m=nav.walk(petRoute,p.entry.town.position,p.entry.town.heading,dt,.7*p.entry.profile.size);p.entry.town.position=m.position;p.entry.town.heading=m.heading;if(!petRoute.length&&distance(m.position,target)>.15)routeKey='';return {arrived:!petRoute.length&&distance(m.position,target)<.15,speed:m.speed};}
- function complete(p,t){if(t.done)return;const n=find(t.neighborId),m=shared.neighbors[n.id].met[p.entry.id];m.homeVisits=(m.homeVisits||0)+1;const text=p.entry.profile.name+'和'+n.name+'在家里'+(t.mode==='play'?'玩过自己的小球。':t.mode==='guard'?'各自留了舒服的空间；没有勉强分享自己的窝。':'安静陪着待了一会儿。');m.recent.push({kind:'visit',day:p.career.state.day,at:now(),text});m.recent=m.recent.slice(-8);log(text,true);p.care.record(text,{type:'neighbor',peer:n.id,kind:'together'});t.done=true;t.phase='relax';t.time=0;t.petPoint=null;p.town.hold();p.home?.resetPose();}
+ function complete(p,t){if(t.done)return;const n=find(t.neighborId),m=shared.neighbors[n.id].met[p.entry.id];m.homeVisits=(m.homeVisits||0)+1;const text=p.entry.profile.name+'和'+n.name+'在家里'+(t.mode==='play'?'玩过自己的小球。':t.mode==='guard'?'各自留了舒服的空间；没有勉强分享自己的窝。':'安静陪着待了一会儿。');m.recent.push({kind:'visit',day:p.career.state.day,at:now(),text});m.recent=m.recent.slice(-8);log(text);p.care.record(text,{type:'neighbor',peer:n.id,kind:'together'});t.done=true;t.phase='relax';t.time=0;t.petPoint=null;p.town.hold();p.home?.resetPose();}
  function tick(dt){const t=shared.petVisit;if(!t||!Number.isFinite(dt)||dt<=0)return null;dt=Math.min(dt,.05);let b=null;const remember=()=>b||(b=before()),p=row(t.petId),n=find(t.neighborId),c=controller(n.id);if(now()-t.lastAt>=60000&&t.phase!=='returning'){remember();returning();log('离开了一阵，这次串门先结束，朋友沿路回去。');const r=persist(b,{accepted:true,changed:true});if(!r.accepted)return r;}t.lastAt=now();
   if(t.phase!=='returning'&&(!['going'].includes(t.phase)&&c.state.place!=='home'||!p||p.entry.town.place!=='home'||p.career.state.job||p.care.state.helper||p.care.state.energy<25||p.care.state.satiety<20)){remember();returning();log(n.name+'先回店里，让主人宠物忙完或休息。');const r=persist(b,{accepted:true,changed:true});if(!r.accepted)return r;}
   const moved=c.tick(dt,{group:true,stayHome:true});let speed=0;
