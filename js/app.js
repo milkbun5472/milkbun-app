@@ -28553,6 +28553,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             userP: s.userP,
             describeMe: s.describeMe,
             chatBg: s.chatBg,
+            callBg: s.callBg || "",
             skin: s.skin || "",
             layout: s.layout && typeof s.layout === "object" ? s.layout : undefined,
             // 这个聊天自己写的 CSS：不安全的（@import / javascript: 之类）不存
@@ -28739,6 +28740,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     bye: call.bye || null,
     bg: call.bg || null,
     bgBusy: !!call.bgBusy,
+    fixedBg: (!call.groupId && call.participants && call.participants.length === 1) ? (settingsFor(call.participants[0].id).callBg || "") : "",
     onShot: callShotCan() ? runCallShot : null,
     minimized: !!call.min,
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),

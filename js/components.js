@@ -10221,6 +10221,7 @@ function CallSubtitle({ line, onPhoto, actions = [] }) {
     } }, zh.slice(0, Math.ceil(zh.length * (text.length ? n / text.length : 0)))) : null));
 }
 function CallScreen({
+  fixedBg,
   audioSession,
   participants,
   mode,
@@ -10748,7 +10749,8 @@ function CallScreen({
       if (autoVoice && !audioReady && !bye) unlockCallAudio(false).catch(() => setAudioStatus("声音未启用，轻触通话页面重试"));
     },
     style: {
-      background: callBackdrop(isVideo),
+      // 聊天设置里给这个人挑的通话背景：铺在最底下、压一层暗，字和按钮照样看得清；生图那张画面（stage）照旧盖在它上面
+      background: fixedBg ? "linear-gradient(rgba(0,0,0,.38),rgba(0,0,0,.58)), center/cover no-repeat url(\"" + (typeof resolveImg === "function" ? resolveImg(fixedBg) : fixedBg) + "\")" : callBackdrop(isVideo),
       paddingTop: "env(safe-area-inset-top)"
     }
     // ⚠️这层画面必须【压在正文底下】（她 2026-09-06：「视频画画会把聊天框和聊天
@@ -18085,6 +18087,9 @@ function ChatSettings({
   // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
   const [maskId, setMaskId] = useState(settings.maskId || "");
   const [chatBg, setChatBg] = useState(settings.chatBg || "");
+  // 跟TA通话时的背景（她 2026-10-05：「聊天设置里可以改通话背景」）：只管这一个人的单人通话，群通话不吃
+  const [callBg, setCallBg] = useState(settings.callBg || "");
+  const callBgFileRef = useRef(null);
   // 这个人自己的皮肤 / 气泡（空＝跟随全局）。这两层压在全局那两层上面，见 applyChatLook。
   const [skin, setSkin] = useState(settings.skin || "");
   const [customCSS, setCustomCSS] = useState(settings.customCSS || "");
@@ -18407,6 +18412,7 @@ function ChatSettings({
       userP,
       describeMe,
       chatBg,
+      callBg,
       skin,
       customCSS,
       layout,
@@ -18718,7 +18724,7 @@ function ChatSettings({
     })()),
   show("dress", { title: "排版 · 气泡怎么摆", ...sec("look-layout") },
     h(ChatLayoutFields, { layout: layout, setLayout: setLayout, taName: cNm, onPeek: peekLook })),
-  show("dress", { title: "聊天背景", ...sec("look-bg") },
+  show("dress", { title: "背景 · 聊天和通话", ...sec("look-bg") },
     h("div", { className: "flex items-center justify-between pt-5" },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),
@@ -18727,7 +18733,18 @@ function ChatSettings({
         chatBg ? h("div", { style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(" + chatBg + ")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
-        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } })))),
+        h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
+    // 通话背景跟聊天背景放同一节（「装扮」一类最多四节，见 test/chat-settings-recut）
+    h("div", { className: "flex items-center justify-between pt-5" },
+      h("div", null,
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "通话背景"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, callBg ? "已设置 · 跟 " + cNm + " 打电话时铺在底下" : "从相册选一张图，跟 " + cNm + " 打语音、视频时当背景")),
+      h("div", { className: "flex items-center gap-2 shrink-0" },
+        callBg ? h("div", { style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(" + (typeof resolveImg === "function" ? resolveImg(callBg) : callBg) + ")", border: "1px solid " + t.line } }) : null,
+        h("button", { onClick: () => callBgFileRef.current && callBgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, callBg ? "换一张" : "选图"),
+        callBg ? h("button", { onClick: () => setCallBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
+        h("input", { ref: callBgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0];
+          if (f) resizeImageFile(f, 1200, 0.82).then(d => typeof imgToVault === "function" ? imgToVault(d) : d).then(r => setCallBg(r)); e.target.value = ""; } })))),
   show("dress", { title: "自己写 CSS · 整套导出导入", ...sec("look-css") },
     h(ChatLookPack, { fileBase: (settings.remark || (character && character.name) || "TA"),
       getLook: () => ({ skin, bubble, font, chatBg, layout, customCSS }),

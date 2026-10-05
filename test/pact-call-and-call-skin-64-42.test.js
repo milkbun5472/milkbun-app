@@ -68,7 +68,7 @@ test("皮肤填的是一整段渐变时也认得出色号，认不出就退回�
 });
 
 test("通话屏真的用上了这几个函数（不是定义了没人引用）", () => {
-  assert.match(cmp, /background: callBackdrop\(isVideo\)/, "底还写死在那儿");
+  assert.match(cmp, /: callBackdrop\(isVideo\),/, "底还写死在那儿");
   assert.match(cmp, /background: callBubble\(isU\)\.background/);
   assert.match(cmp, /color: callBubble\(isU\)\.color/);
   assert.equal(cmp.indexOf('color: isU ? "#16330a" : "#fff"'), -1, "写死的那两个字色还在");
