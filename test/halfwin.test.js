@@ -16,3 +16,7 @@ test("半窗：TA这一轮读得到上半屏那一页", () => {
 test("半窗里聊天顶栏不留刘海安全区", () => {
   assert.match(cmp, /paddingTop: halfMode \? 6 : safeTop\(20\),/);
 });
+test("半窗按住顶条上下拖调高度，记住比例", () => {
+  assert.match(app, /localStorage\.setItem\("x_halfWinH", String\(last \/ vh\)\)/);
+  assert.match(app, /height: \(halfWin\.h \|\| halfWinH\(\)\) \+ "px"/);
+});

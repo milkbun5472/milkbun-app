@@ -968,6 +968,8 @@ function App() {
   const [halfWin, setHalfWin] = useState(null);
   const halfWinRef = useRef(null); halfWinRef.current = halfWin;
   const screenRef = useRef(screen); screenRef.current = screen;
+  // 半窗多高：上次拖到哪儿就是哪儿（存的是占屏幕的比例，换机型也对得上），没拖过就是半屏多一点
+  const halfWinH = () => { let r = 0.52; try { const v = Number(localStorage.getItem("x_halfWinH")); if (v >= 0.28 && v <= 0.88) r = v; } catch (e) {} return Math.round(window.innerHeight * r); };
   // 她此刻在看的那一页：页名 + 屏幕上实际显示的字（跳过半窗自己和秋秋那颗浮球），截到 1800 字
   const halfWinScreenText = () => {
     try {
@@ -28735,9 +28737,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: false } : w), "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
       h("button", { onClick: () => setHalfWin(null), "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
     return h("div", { "data-halfwin": "1", "data-wk": "halfwin",
-      style: { position: "fixed", left: 0, right: 0, bottom: 0, height: "52vh", zIndex: 930, display: "flex", flexDirection: "column",
+      style: { position: "fixed", left: 0, right: 0, bottom: 0, height: (halfWin.h || halfWinH()) + "px", zIndex: 930, display: "flex", flexDirection: "column",
         borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 -6px 24px rgba(0,0,0,.18)", background: "var(--bg, #fff)" } },
-      h("div", { "data-wk": "halfwinbar", style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)" } },
+      h("div", { "data-wk": "halfwinbar",
+        // 按住这条上下拖＝调半窗多高（她 2026-10-06）；松手记住，下次开还是这么高
+        onPointerDown: e => {
+          if (e.target.closest("button")) return;
+          const y0 = e.clientY, h0 = halfWin.h || halfWinH(), vh = window.innerHeight;
+          let last = h0;
+          const mv = ev => { last = Math.max(Math.round(vh * 0.28), Math.min(Math.round(vh * 0.88), h0 + (y0 - ev.clientY))); setHalfWin(w => w ? { ...w, h: last } : w); };
+          const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); try { localStorage.setItem("x_halfWinH", String(last / vh)); } catch (er) {} };
+          window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+        },
+        style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "ns-resize" } },
         h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "放大"),
         h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.18)" } }),
         h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "收起")),
