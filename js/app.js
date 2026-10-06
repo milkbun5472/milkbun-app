@@ -6733,7 +6733,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         } else {
           // kicked 只管这一段的第一轮：发过就消掉，别让它跨过下一次额度刷新还赖着
           cycle = writeAutoChatCycle(gid, { ...cycle, rounds: rounds + 1, msgs: msgsSoFar, cappedAt: 0, resetAt: 0, kicked: false, borrowLeft: 0 });
-          replyGroup(gid, { auto: true, msgBudget: totalCap - msgsSoFar, urgeCharIds: urgeChars.map(c => c.id) });
+          // 这一轮开得起来就让它说完（她 2026-10-06：「那一轮到了条数照样放行，只是不会开新轮」）：
+          //   不再把「还剩几条」递进去缩这一轮——总条数只管【下一轮还开不开】，上面 capped 那一道就是。
+          replyGroup(gid, { auto: true, urgeCharIds: urgeChars.map(c => c.id) });
         }
         break;
       }
@@ -13092,18 +13094,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️提示词里那句「一次产出 n~m 条」只降概率；闸得在代码这一道，而且要**当场停手**。
     // ⚠️借来的那几轮不受总数管（借的账本来就单独记在 borrowLeft 上，是她点头的设计），
     //   但那一轮自己有一份行额度：总条数 ÷ 轮数，还是她设的那两个数算出来的，不拍新魔数。
-    const _autoCap = Math.max(1, Number(gs.autoChatMaxMsg) || 50);
-    const _autoRoundRows = Math.max(2, Math.round(_autoCap / Math.max(1, Number(gs.autoChatRounds) || 5)));
-    let _rowsThisRound = 0;
-    const autoRoomLeft = () => {
-      if (!rgOpts.auto) return 1e9;
-      return rgOpts.borrowed
-        ? Math.max(0, _autoRoundRows - _rowsThisRound)
-        : Math.max(0, _autoCap - (autoChatMsgsRef.current[groupId] || 0));
-    };
+    // ⚠️v74.885 起【一轮开了就说完】（她 2026-10-06：「群聊自己聊到了条数就会截断吗？能不能改成
+    //   那一轮到了条数照样放行，只是不会开新轮」）：原来这里到顶就当场停手，一个人话说到一半就没了。
+    //   现在这一道不再拦行；每一行照旧记账（autoTook），记满了巡检那头 capped 就不再开下一轮。
+    //   所以屏幕上可能比设的数多出【最后那一轮】的几行——那是她要的。
+    const autoRoomLeft = () => 1e9;
     const autoTook = () => {
       if (!rgOpts.auto) return;
-      _rowsThisRound++;
       if (!rgOpts.borrowed) addAutoChatMessages(groupId, 1);
     };
     const _abort = laneAbortBegin("g:" + groupId);
