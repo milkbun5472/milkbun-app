@@ -16,3 +16,12 @@ test("newchar：只认名字、人设、外貌和档案那几栏；名字和人�
   assert.match(app, /pC\(p => \[\.\.\.p, CharacterPronoun\.newCharacter\(Object\.assign\(\{ id, color: "#5a6a7d" \}, o\)\)\]\);/);
   assert.equal((app.match(/onCreateCharacter: createCharFromAssistant,/g) || []).length, 2, "整屏秋秋和悬浮秋秋两处都接上");
 });
+
+// 她 2026-10-06：「我的意思是可以写完整长文人设，边写边改」
+test("长人设：先建档，再一段一段 append 接在最后；秋秋那一枪走流式、给 10 分钟", () => {
+  assert.match(asst, /append: x\.append === true \|\| x\.append === "true",/);
+  assert.match(asst, /if \(p\.append && !p\.find\) \{/);
+  assert.match(asst, /text: \(cur \? cur \+ "\\n\\n" : ""\) \+ String\(p\.text \|\| ""\)/);
+  assert.match(asst, /maxTokens: 65535, timeout: 600000, stream: true/);
+  assert.match(asst, /【长人设边写边改】/);
+});
