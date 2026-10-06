@@ -278,7 +278,8 @@ test("字数：人设不许再按固定字数砍，照群聊那套按在场人�
   const tarotEnd = app.indexOf("const forwardFicToGroup", tarotStart);
   assert.ok(tarotStart >= 0 && tarotEnd > tarotStart, "塔罗转发函数边界缺失");
   const tarot = app.slice(tarotStart, tarotEnd);
-  assert.match(tarot, /maxTokens: 8000 \}\);/, "塔罗那条反应还卡在 900");
+  // 2026-10-06：塔罗转发不再替他当场开口，那一枪整个拆了
+  assert.doesNotMatch(tarot, /runProbe\(/);
   assert.match(app, /schemaHint: "\{\\"say\\":\[\\"气泡1\\"\]\}", maxTokens: 8000/, "同人文新章那条反应还卡在 700");
 });
 

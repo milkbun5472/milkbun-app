@@ -87,7 +87,6 @@ test("凡是【他亲口说的话】都换了站位，凡是推演数据的照�
    ['刚填的那个网名跟别人重了', "马甲·撞名字重填"],
    ['你想把这个匿名树洞的号【重新捯饬一下】', "马甲·重新捯饬"]].forEach(x => has(x[0], x[1]));
   assert.match(app, /Object\.assign\(\{ voice: true \}, spec\)\); \/\/ 盘一盘盘点/, "盘一盘盘点/回头看自述（本体亲笔）");
-  assert.match(app, /\{ voice: true, instruction: instruction, schemaHint: "\{\\"say\\"/, "转发给他之后那一句反应");
   // 推演数据那些不许跟着改：坐错椅子会让行程/账本开始「说话」
   const notVoice = (fn, zh) => { const i = app.indexOf(fn); assert.ok(i > 0, "抠不出：" + zh);
     assert.equal(app.slice(i - 700, i + 40).indexOf("voice: true"), -1, zh + " 不该换站位——它产出的是数据不是话"); };

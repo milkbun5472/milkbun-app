@@ -20,7 +20,7 @@ test("在一起那一刻只写一份：她邀请他答应、他写信她答应�
   assert.match(ans, /markLoveLetter\(charId, \{ declinedTs: Date\.now\(\) \}\)/, "再想想要记下来，冷却才算得出来");
   // 她 2026-10-06：「我拒绝了就直接说话了，我还没打完字」——点完不当场开口，等她按回复那一轮再接（答应、再想想一样）
   assert.doesNotMatch(ans, /replyNow\(/, "点完答应／再想想不许当场让他开口");
-  assert.match(ans, /letterAnswerPendingRef\.current\[charId\] = yes \? "yes" : "no";/, "回信那一下要留到她按回复那一轮");
+  assert.match(ans, /waitForHer\(charId, \{ loveLetterAnswer: yes \? "yes" : "no" \}\);/, "回信那一下要留到她按回复那一轮");
 });
 
 test("闸：已在一起／邀请挂着／关了／刚分手／再想想不到 3 天／一天一封／还有一封没拆", () => {

@@ -3,8 +3,8 @@ const assert = require("node:assert");
 const app = require("fs").readFileSync(__dirname + "/../js/app.js", "utf8");
 test("letter answer reply is not a proactive turn (gates would swallow it)", () => {
   // 2026-10-06 起不当场开口：她回完信先记下，她按回复那一轮再带上；那一轮仍不是 proactive
-  assert.match(app, /letterAnswerPendingRef\.current\[charId\] = yes \? "yes" : "no";/);
-  assert.match(app, /!\(opts && \(opts\.proactive \|\| opts\.loveLetterAnswer\)\) && letterAnswerPendingRef\.current\[charId\]/);
+  assert.match(app, /waitForHer\(charId, \{ loveLetterAnswer: yes \? "yes" : "no" \}\);/);
+  assert.match(app, /const _wh = !opts\.room && !opts\.proactive && waitHerRef\.current\[charId\];/);
 });
 test("letter answer note reaches the model history in place", () => {
   assert.match(app, /const _letterAns = m => m && m\.kind === "system" && \(m\.sub === "letter"/);
