@@ -7211,6 +7211,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (laneBusy("c:" + cid)) continue;
           if (currentlyTogetherWithChar(cid)) pWhy(cid, "你们此刻在一起（共处一室或见面开着），想你会落成在一起时的动作，不发线上消息");
           if (currentlyTogetherWithChar(cid)) continue;
+          // 正跟你通着电话：人就在线上说着话，不该再另发一条主动消息（她 2026-10-06）
+          const _onCall = callRef.current && (callRef.current.participants || []).some(p => p && p.id === cid);
+          if (_onCall) pWhy(cid, "你们正在通电话，电话里说着呢，不另发消息");
+          if (_onCall) continue;
           // 有没有一场进行中的线下（同居/常在一起）。有【正在演的场景】→ 把「思念攒够→主动」落成【线下一拍】而不是线上消息（她 2026-07-23）。
           const _offL = offlinesRef.current[cid] || [];
           // 常驻线下(同居=一直在一起)：只要有进行中的场景就把主动落成线下一拍，不看远近；非常驻：只有此刻真面对面(近)才线下，挂着已散→线上
@@ -7472,6 +7476,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (isOther) {
         const mine = m.ts || 0;
         if (mine > otherTs) { otherTs = mine; why = { kind: gid ? (m.role === "user" ? "groupSaid" : "member") : "direct", gid: gid || "", who: m.senderName || "" }; }
+        break;
+      }
+    }
+    // 电话里她开口也算有人理了TA（她 2026-10-06）：正在通的那通看实时 msgs，挂了的看 callend 里的转录
+    if (!gid) {
+      const _cc = callRef.current;
+      if (_cc && !_cc.groupId && (_cc.participants || []).some(p => p && p.id === char.id)) {
+        const u = [...(_cc.msgs || [])].reverse().find(x => x && x.role === "user");
+        if (u && (u.ts || 0) > otherTs) { otherTs = u.ts; why = { kind: "direct", gid: "", who: "" }; }
+      }
+      for (let i = arr.length - 1; i >= 0; i--) {
+        const m = arr[i]; if (!m || m.kind !== "callend") continue;
+        const u = [...(m.log || [])].reverse().find(x => x && x.role === "user");
+        if (u) { const t = u.ts || m.ts || 0; if (t > otherTs) { otherTs = t; why = { kind: "direct", gid: "", who: "" }; } }
         break;
       }
     }

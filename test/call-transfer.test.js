@@ -14,3 +14,7 @@ test("通话转账：卡落聊天带 inCall，通话里只留 ev 指针", () => 
 test("挂断时通话卡插到通话中转账单前面", () => {
   assert.match(app, /p\.findIndex\(x => x && x\.inCall === cur\.sessionId\)/);
 });
+test("通话中不另发主动消息，电话里她开口也把想念清零", () => {
+  assert.match(app, /if \(_onCall\) continue;/);
+  assert.match(app, /m\.kind !== "callend"\) continue;\s*const u = \[\.\.\.\(m\.log \|\| \[\]\)\]\.reverse\(\)\.find\(x => x && x\.role === "user"\);/);
+});
