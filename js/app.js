@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.930";
+const APP_VERSION = "v74.933";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11887,6 +11887,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
+      // 照抄通话邀请卡的字当成一句话发（她 2026-10-06 截图：气泡里就是「〔语音通话邀请〕」）——
+      //   这是它想打电话却没填 call。摘掉那一句，替它把电话真的打过来（这一轮房间不让打就只摘不打）。
+      const CALL_TEXT = /^\s*[〔【\[（(]\s*(语音|视频)通话(?:邀请)?\s*[〕】\]）)]\s*$/;
+      const _callText = words.find(w => CALL_TEXT.test(String(w)));
+      if (_callText) {
+        words = words.filter(w => !CALL_TEXT.test(String(w)));
+        if (!parsed.call && (!room || !window.ChatRooms || window.ChatRooms.allowsField(room, "call"))) parsed.call = /视频/.test(String(_callText)) ? "video" : "voice";
+      }
       // 抄了历史里的旁注当正文（她 2026-10-01 截图：「【用户刚才要求你发一张自拍……这里你已经实际拍下并发出去了」
       //   「这已经是真实发生过的事」「不能在消息里说…】」「照片内容：男生宿舍全身镜前」一条条冒出来）。
       //   这轮发不了照片，模型就照着历史里那种【你在这里已经实际发出一张…】的旁注自己「写」了一张。
@@ -13812,6 +13820,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (item && typeof item.text === "string" && /^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]/i.test(item.text)) {
             item.text = item.text.replace(/^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]\s*/i, "").replace(/\s*[【\[<]\s*\/\s*(?:voice|语音)\s*[】\]>]\s*$/i, "").trim();
             if (item.text) item.voice = true;
+          }
+          // 「【这条语音里的声音带着…】那句话」：描述摘掉、当语音发，描述里的情绪翻成 emo（跟单聊同一支 voiceDescHead）
+          if (item && item.voice !== true && typeof item.text === "string" && typeof voiceDescHead === "function") {
+            const _vd = voiceDescHead(item.text);
+            if (_vd) { item.text = _vd.rest; item.voice = true; if (!item.voiceEmo) item.voiceEmo = _vd.emo; }
           }
           // 重名的群里按名字找到的永远是第一个（她 2026-09-22：「同名的头像会被第一个人覆盖」）
           const spk = pickMember(members, item.name);

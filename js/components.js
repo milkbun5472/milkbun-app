@@ -10930,6 +10930,9 @@ function CallScreen({
     if (m.act) return h("div", { key: messageKey, "data-wk": "callact", className: "flex justify-center py-0.5" }, h("div", {
       style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isU ? "你 " : (isGroup && m.senderName ? m.senderName + " " : "")) + "（" + m.content + "）"));
+    // 只剩声音标记/停顿的那句（如「(sighs)」「<#0.5#>」）剥完是空的：不画空白气泡，
+    // 它仍留在 msgs 里给 TTS 念（她 2026-10-06：「最后一个好像是空白气泡」）。
+    if (!String(typeof ttsMarkStrip === "function" ? ttsMarkStrip(m.content || "") : (m.content || "")).trim()) return null;
     // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
     const spk = m.senderId ? people.find(c => c.id === m.senderId) : (!isU && !isGroup ? primary : null);
     const canT = !isU && spk && spk.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
