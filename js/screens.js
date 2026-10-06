@@ -3528,7 +3528,8 @@ function shopFmtLeft(ms) {
 function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, accent, accentInk, iconInk, ink, sub, bg }) {
   const topBar = h("div", { "data-wk": "head", className: "shrink-0 px-3 pb-2.5 flex items-center gap-2", style: { paddingTop: safeTop(14), background: bg } },
     h("button", { onClick: onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 shrink-0 flex items-center justify-center", style: { width: 34, height: 34, marginLeft: -6 } }, h(IArrow, { size: 19, color: ink, wk: "headink" })),
-    h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + accent, borderRadius: 999, paddingLeft: 12, paddingRight: 3 } },
+    // minWidth:0：不设的话输入框按自己默认宽度把这条撑出屏幕右边（她 2026-10-06 外卖截图）
+    h("div", { className: "flex-1 flex items-center h-9", style: { background: "#fff", border: "1.5px solid " + accent, borderRadius: 999, paddingLeft: 12, paddingRight: 3, minWidth: 0 } },
       h(ISearch, { size: 14, color: iconInk }),
       h("input", {
         value: search, onChange: e => setSearch(e.target.value),
@@ -3536,7 +3537,7 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
         placeholder,
         "data-wk": "input",
         className: "flex-1 bg-transparent outline-none",
-        style: { fontFamily: F_BODY, fontSize: 13, color: ink, marginLeft: 7, minWidth: 0 }
+        style: { fontFamily: F_BODY, fontSize: 13, color: ink, marginLeft: 7, minWidth: 0, width: 0 }
       }),
       h("button", {
         onClick: onGo, disabled: busy,
