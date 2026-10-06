@@ -745,20 +745,8 @@ const lazyScript = src => _lazyP[src] || (_lazyP[src] = new Promise((res, rej) =
   const sc = document.createElement("script"); sc.src = src; sc.async = true;
   sc.onload = () => res(); sc.onerror = () => { delete _lazyP[src]; rej(new Error("解析组件没加载下来，检查网络后再试")); }; document.head.appendChild(sc);
 }));
-async function pdfToText(buf) {
-  if (!window.pdfjsLib) await lazyScript("vendor/pdf.min.js");
-  const lib = window.pdfjsLib;
-  if (!lib) throw new Error("PDF 组件没加载下来");
-  lib.GlobalWorkerOptions.workerSrc = "vendor/pdf.worker.min.js";
-  const doc = await lib.getDocument({ data: new Uint8Array(buf) }).promise;
-  const pages = [];
-  for (let i = 1; i <= Math.min(doc.numPages, 300); i++) {
-    const tc = await (await doc.getPage(i)).getTextContent();
-    pages.push(tc.items.map(it => it.str + (it.hasEOL ? "\n" : "")).join(""));
-    if (pages.join("\n").length > FILE_MAX * 2) break;   // 够了就停，后面的反正也给不进去
-  }
-  return pages.join("\n\n");
-}
+// 读 PDF 走 core.js 那一份 extractPdfText（原来这儿另抄了一份，合掉了），每页标页码
+function pdfToText(buf) { return extractPdfText(buf, null, { pageMarks: true, maxPages: 300, maxChars: FILE_MAX * 2 }); }
 async function docxToText(buf) {
   if (!window.mammoth) await lazyScript("vendor/mammoth.browser.min.js");
   if (!window.mammoth) throw new Error("Word 组件没加载下来");

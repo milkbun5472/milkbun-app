@@ -14,7 +14,7 @@ function harness() {
   const ctx = { Math, JSON, Number, String, Array, Object, Set };
   vm.createContext(ctx);
   vm.runInContext("const MAT_BUDGET = 6000, MAT_CHUNK = 700; const MAT_CACHE = {};\n"
-    + ["materialChunks", "chunkScore", "queryGrams", "materialText"].map(fn).join("\n")
+    + ["materialChunks", "cnToInt", "askedPages", "chunkScore", "queryGrams", "materialText"].map(fn).join("\n")
     + "\nObject.assign(this, { pick: materialText, cache: MAT_CACHE });", ctx);
   return ctx;
 }
@@ -44,7 +44,7 @@ test("没资料就什么都不给", () => {
 
 test("读 PDF、存正文只有一份：一起读和一起学共用 core.js 那一处", () => {
   assert.match(core, /function makeTextStore\(dbName, storeName\)/);
-  assert.match(core, /async function extractPdfText\(file, onProg\)/);
+  assert.match(core, /async function extractPdfText\(file, onProg, opts\)/);
   assert.doesNotMatch(read, /function extractPdfText\(|function loadPdfjs\(|indexedDB\.open/, "一起读里还留着一份");
   assert.match(read, /const _store = makeTextStore\(DB_NAME, STORE\);/, "一起读的书得还在原来那张表里");
   assert.match(src, /makeTextStore\("StudyDocsDB", "docs"\)/);

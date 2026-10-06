@@ -931,13 +931,39 @@
     }
   }
   // 按空行切段，太长的段再按字数切，每段带着出处
+  // PDF 那几份每页开头有「〔PDF 第 N 页〕」：每段记住自己在第几页，被切开的后半段也补上页码（不然老师看到的是没页码的一截）
   function materialChunks(name, text) {
     const out = [];
+    let page = 0;
     String(text || "").split(/\n\s*\n/).forEach(function (para) {
       const p = para.trim();
-      for (let i = 0; i < p.length; i += MAT_CHUNK) out.push({ name: name, text: p.slice(i, i + MAT_CHUNK) });
+      const pm = p.match(/^〔PDF 第 (\d+) 页〕/);
+      if (pm) page = Number(pm[1]);
+      for (let i = 0; i < p.length; i += MAT_CHUNK) {
+        const piece = p.slice(i, i + MAT_CHUNK);
+        out.push({ name: name, page: page, text: (page && !(i === 0 && pm) ? "〔PDF 第 " + page + " 页·接上〕\n" : "") + piece });
+      }
     });
     return out;
+  }
+  // 她点名「第十七页／第 17 页／p17」：认出页码，那几段优先挑
+  function cnToInt(s) {
+    const CN_NUM = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    if (/^\d+$/.test(s)) return Number(s);
+    let n = 0, cur = 0;
+    for (const ch of s) {
+      if (ch in CN_NUM) cur = CN_NUM[ch];
+      else if (ch === "十") { n += (cur || 1) * 10; cur = 0; }
+      else if (ch === "百") { n += (cur || 1) * 100; cur = 0; }
+    }
+    return n + cur;
+  }
+  function askedPages(query) {
+    const set = new Set();
+    const re = /第\s*([0-9]+|[零一二两三四五六七八九十百]+)\s*页|\bp\.?\s*([0-9]+)\b|([0-9]+)\s*页/gi;
+    let m;
+    while ((m = re.exec(String(query || "")))) { const v = cnToInt(m[1] || m[2] || m[3]); if (v > 0) set.add(v); }
+    return set;
   }
   // 一段跟这一节有多相关：数问句里的词（两个字一组）在这段里出现了几个
   function chunkScore(text, grams) {
@@ -968,7 +994,8 @@
     if (total <= cap) picked = chunks;
     else {
       const grams = queryGrams(query).map(function (g) { return g.toLowerCase(); });
-      const ranked = chunks.map(function (c, i) { return { c: c, i: i, s: chunkScore(c.text.toLowerCase(), grams) }; })
+      const pages = askedPages(query);
+      const ranked = chunks.map(function (c, i) { return { c: c, i: i, s: chunkScore(c.text.toLowerCase(), grams) + (c.page && pages.has(c.page) ? 1000 : 0) }; })
         .sort(function (a, b) { return b.s - a.s || a.i - b.i; });
       let used = 0; picked = [];
       for (let k = 0; k < ranked.length && used < cap; k++) { picked.push(ranked[k]); used += ranked[k].c.text.length; }
@@ -977,14 +1004,16 @@
     let last = "";
     return "【她传上来的资料（" + (total <= cap ? "全部" : "挑了跟这节有关的几段") + "）】\n"
       + picked.map(function (c) { const head = c.name !== last ? "〔" + c.name + "〕\n" : ""; last = c.name; return head + c.text; }).join(total <= cap ? "\n\n" : "\n…\n")
-      + "\n这是她正在学的那份东西：讲法、术语、例题尽量跟着它走；它没讲到的，你照自己会的补，顺口说一句这是资料外的。";
+      + "\n这是她正在学的那份东西：讲法、术语、例题尽量跟着它走；它没讲到的，你照自己会的补，顺口说一句这是资料外的。"
+      + (picked.some(function (c) { return c.page; }) ? "\n〔PDF 第 N 页〕是文件里的第几页。她说「第几页」多半指书上印的页码，可能跟它差几页——对不上时先在那几页正文里找印着的页码再对；资料里真没有那一页，就直说没看到，别编那页上有什么。" : "");
   }
   // 读她选的那个文件：txt/md 自己认编码，pdf 抽文字层
   async function readMaterialFile(f, onProg) {
     const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
     const isTxt = /\.(txt|md|markdown)$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
     if (!isPdf && !isTxt) throw new Error("现在能读 .txt、.md 和带文字层的 .pdf；拍的书页用课上的发图片");
-    const text = isPdf ? await extractPdfText(f, onProg) : await readTextFileSmart(f);
+    // 每页前面标「〔PDF 第 N 页〕」：她说「第十七页」时老师才知道是哪一页（书上印的页码可能跟 PDF 的第几页对不上，两个都在）
+    const text = isPdf ? await extractPdfText(f, onProg, { pageMarks: true }) : await readTextFileSmart(f);
     if (!String(text || "").trim()) throw new Error(isPdf ? "没读到文字——这份 PDF 可能是扫描图，拍的书页用课上的发图片" : "这个文件是空的");
     return { text: String(text), kind: isPdf ? "pdf" : "txt" };
   }
