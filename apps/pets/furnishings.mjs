@@ -1,5 +1,5 @@
-import {homePoint} from './room-layout.mjs?v=fg-fb71468913807d97';
-import {petHomePlaces,PET_STATIONS} from './room-layout.mjs?v=fg-fb71468913807d97';
+import {homePoint} from './room-layout.mjs?v=fg-925d2c25026483e9';
+import {petHomePlaces,PET_STATIONS} from './room-layout.mjs?v=fg-925d2c25026483e9';
 
 // Inventory owns purchases; this records only how the same objects are used.
 export const PET_HOME_GOODS=[
@@ -32,9 +32,9 @@ export function arrangeFurnishing(state,action,{item,slot,point,by='你'}={},car
  if(!good||!state.inventory[item])return {accepted:false,text:'先用自己的钱买下，或把工作袋带回家拆开。'};
  let text='';
  if(action==='move-furniture'&&good.kind==='rest'){const p=homePoint(point);if(!p||!canPlace(item,{...p,yaw:point.yaw||0}))return {accepted:false,text:'这里会挤到家具、同伴或门口，换个空一点的位置。'};f.positions=f.positions||{};f.positions[item]={...p,yaw:Number.isFinite(point.yaw)?point.yaw:0};f.placements[item]='free';f.sleep=item;text='把'+good.name+'挪到自己挑的角落，它可以实际走过去睡。';}
- else if(action==='furnish'&&good.kind==='rest'&&HOME_SLOTS.some(x=>x.id===slot)){
+ else if(action==='furnish'&&good.kind==='rest'&&(HOME_SLOTS.some(x=>x.id===slot)||slot==='free'&&homePoint(f.positions?.[item]))){
   if(!canPlace(item,slot))return {accepted:false,text:'这个角落现在放不下，换一个位置试试。'};
-  f.placements[item]=slot;if(f.positions)delete f.positions[item];f.sleep=item;text='把'+good.name+'摆在'+HOME_SLOTS.find(x=>x.id===slot).name+'，留给它自己选择休息。';
+  f.placements[item]=slot;if(slot!=='free'&&f.positions)delete f.positions[item];f.sleep=item;text='把'+good.name+'摆在'+(slot==='free'?'自己挑的位置':HOME_SLOTS.find(x=>x.id===slot).name)+'，留给它自己选择休息。';
  }else if(action==='furnish'&&good.kind==='toy'){f.toy=item;text='把'+good.name+'拿出来，陪玩和叼回都用这颗球。';}
  else if(action==='wear'&&good.kind==='wear'){f.wear=item;text='给它戴好'+good.name+'。';}
  else if(action==='own-rest'&&good.kind==='rest'){

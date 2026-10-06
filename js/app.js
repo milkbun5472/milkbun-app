@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.922";
+const APP_VERSION = "v74.929";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9475,6 +9475,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pC(p => p.some(x => x.id === c.id) ? p.map(x => x.id === c.id ? c : x) : [...p, CharacterPronoun.newCharacter(c)]);
     setScreen("cast");
     setEditingChar(null);
+  };
+  // 秋秋从头写的新角色落档（她 2026-10-06）：跟档案馆右上角＋建出来的是同一种角色，不跳页、只提示一句
+  const createCharFromAssistant = o => {
+    const id = "char_" + Date.now();
+    pC(p => [...p, CharacterPronoun.newCharacter(Object.assign({ id, color: "#5a6a7d" }, o))]);
+    toast("「" + o.name + "」已经进人格档案馆了，去点开补头像和线路");
+    return id;
   };
   // 角色卡一键导入（v48.30 搬家器）：建档 + 初始长期记忆 + 记忆库种子（绑定新角色、〔置顶〕生效）一步到位
   const [cardImportOpen, setCardImportOpen] = useState(false);
@@ -26354,6 +26361,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditRegion: editWorldRegion,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
+    onAskAssistant: () => setScreen("assistant"),
     characters: liveChars,
     // 调顺序：直接改 characters 本身的先后（聊天之外凡是按这份排的都跟着走）。
     //   配角夹在中间也不影响：上移/下移只跟【相邻的正式角色】换位置。
@@ -26380,6 +26388,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onClone: cloneChar
   });else if (screen === "castForm") body = /*#__PURE__*/React.createElement(CastForm, {
+    onAskAssistant: () => setScreen("assistant"),
     initial: editingChar,
     onBack: () => setScreen("cast"),
     onSave: saveChar,
@@ -27983,6 +27992,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只给悬浮屏的话，她从整页问同一句就会被告知「这个页面没接写入口」。
     onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
+    onCreateCharacter: createCharFromAssistant,
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
@@ -28640,6 +28650,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 合并方式只写在 applyBubblePatch 那一处，整页那边用的是同一个
       onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
+    onCreateCharacter: createCharFromAssistant,
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,

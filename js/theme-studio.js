@@ -381,7 +381,7 @@
     ["sheet", "从底下掀起来的半窗"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
     ["avatar", "头像（全 App 每一颗）"],
     ["field", "一栏设置（标题＋内容＋底下那道细线）"], ["fieldlabel", "那一栏的标题"], ["fieldline", "那一栏底下的细线"],
-    ["toggle", "开关（data-on=\"1\" 是开着的）"], ["toggleknob", "开关里那颗圆钮"],
+    ["toggle", "开关（data-on=\"1\" 是开着的）"], ["toggleknob", "开关里那颗圆钮"], ["askqiu", "「问秋秋 ›」那一行（人格档案馆和角色编辑页上）"],
     ["input", "单行输入框"], ["textarea", "多行输入框"], ["slider", "滑杆"]
   ]);
   // 底下这几组是【某几页专有】的（气泡、输入栏、主屏那些格子，别处没有）。
@@ -925,7 +925,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.922", changed: "", none: "只改了表情标记的识别，没动挂点和类名" };
+  const BRIEF_STAMP = { v: "v74.929", changed: "", none: "修复小镇家具位置、离线恢复和角色任务互斥，没有改动样式能力或挂点。" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

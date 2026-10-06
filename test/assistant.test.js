@@ -40,7 +40,7 @@ const A = (() => {
 // 它只写【某一页的那八支色】，写进去之前还要过 ThemeStudio.cleanTokens 那道白名单。
 test("能改的只有白名单那几样", () => {
   assert.deepEqual(Object.keys(A.api.TARGETS).sort(),
-    ["appearance", "bubble", "chatcss", "chatlayout", "groupcss", "grouplayout", "lookundo", "memory", "offlinecss", "pagecolor", "persona", "profile", "style", "theme", "undo"]);   // v74.882 退一步 / 撤回自己那条   // v74.753 加了线下那层的 CSS   // v74.329 加了这一个人聊天窗的 CSS 和排版
+    ["appearance", "bubble", "chatcss", "chatlayout", "groupcss", "grouplayout", "lookundo", "memory", "newchar", "offlinecss", "pagecolor", "persona", "profile", "style", "theme", "undo"]);   // v74.925 从头写新角色   // v74.882 退一步 / 撤回自己那条   // v74.753 加了线下那层的 CSS   // v74.329 加了这一个人聊天窗的 CSS 和排版
   assert.match(src, /不在这张表里的一律不许碰/);
 });
 

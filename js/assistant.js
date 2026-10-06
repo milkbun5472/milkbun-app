@@ -248,6 +248,15 @@
   const knownPage = (ts, id) => (ts.PAGES || []).some(x => x[0] === id);
   const badPage = (ts, id) => "没有「" + id + "」这一页。能改的是："
     + (ts.PAGES || []).filter(x => x[0] !== "all").map(x => x[0]).join("、");
+  // 新建角色那份 JSON → 只留认得的几栏
+  function newCharObj(text) {
+    let o = null;
+    try { o = JSON.parse(String(text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { o = null; }
+    if (!o || typeof o !== "object" || Array.isArray(o)) return null;
+    const out = { name: String(o.name || "").trim().slice(0, 24), persona: String(o.persona || "").trim().slice(0, 20000), appearance: String(o.appearance || "").trim().slice(0, 4000) };
+    Object.keys(CARD_FIELDS).forEach(k => { if (o[k] != null && String(o[k]).trim()) out[k] = String(o[k]).trim().slice(0, 400); });
+    return out;
+  }
   const TARGETS = {
     style: {
       zh: "文风预设",
@@ -291,6 +300,22 @@
         const f = String(patch.field || "");
         if (!CARD_FIELDS[f]) throw new Error("档案里没有「" + (f || "空") + "」这一栏");
         ctx.onPatchCharacter(id, { [f]: patch.text });
+        return 1;
+      }
+    },
+    // 从头写一个新角色（她 2026-10-06：「能不能让秋秋可以写人设，从头开始的，然后可以落到人格档案馆里」）。
+    //   text 是一份 JSON；只收名字、人设、外貌和档案里那几栏（CARD_FIELDS），别的键一律不认——
+    //   落档走 app.js 那一个新建入口，跟人格档案馆右上角＋建出来的是同一种角色。
+    newchar: {
+      zh: "新建角色",
+      read: () => [],
+      write: (id, patch, ctx) => {
+        if (!ctx.onCreateCharacter) throw new Error("这个页面没接新建角色的入口");
+        const o = newCharObj(patch.text);
+        if (!o) throw new Error("这一条不是一份能读的角色 JSON");
+        if (!o.name) throw new Error("新角色得有个名字");
+        if (!o.persona) throw new Error("新角色得有人设");
+        ctx.onCreateCharacter(o);
         return 1;
       }
     },
@@ -733,7 +758,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -784,6 +809,11 @@
       + "【你能动手改的东西·只有这几样】\n"
       + "· style 文风预设（写给 AI 的文风提示词；id 留空＝新建一份）\n"
       + "· persona 角色人设　· appearance 角色外貌\n"
+      + "· newchar 从头写一个新角色，落进人格档案馆（id 留空；text 是一份 JSON：{\"name\":\"名字\",\"persona\":\"完整人设\",\"appearance\":\"外貌\",\"tagline\":\"一句话简介\",\"gender\":\"性别\",\"birthday\":\"MM-DD\"}，name 和 persona 必填，其余可省）。"
+      + "她说「帮我写个人设／捏个角色」时，先问清她想要的那几样（是谁、什么关系、什么性子、什么世界），够了再出这一条；人设写成能直接拿去聊的完整一份，别留「待补充」。建好之后再改，用 persona／appearance／profile 那几条。\n"
+      + "  · 【长人设边写边改】她要一份很长的人设时，别一口气塞进一条：先用 newchar 建档，persona 放第一部分（基本信息、人物核心）；"
+      + "之后每一轮用 persona 加 \"append\":true 接着往后写下一部分（text 只写新的这一段，会接在现有人设最后）；她说哪里不对，就用 find 改那一小段。"
+      + "每一轮写完告诉她这一段写了什么、下一段打算写什么，让她能边看边说。\n"
       + "  ⚠️快照里每张角色卡都带一栏【这张卡是否完整】。为 true 就是全文，放心照它出 patch、别再说自己看不到；"
       + "为 false 的那张只给了开头，那就别出 patch——跟她确认是哪张卡，下一轮你就会拿到全文。\n"
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
@@ -852,7 +882,9 @@
     const msgs = chatWindow(history).map(m => ({ role: m.role === "me" ? "user" : "assistant", content: String(m.text || "") + (m.pic ? "（这句当时附了一张图）" : "") + (m.file ? "（这句当时附了文件《" + m.file.name + "》）" : "") + (m.outFile ? "（你当时给了她一份文件《" + m.outFile.name + "》）" : "") }))
       .concat([{ role: "user", content: (String(text || "") || (isFile ? "（她发来一个文件）" : "（她发来一张图，看看说说）")) + fileTail, imageDataUrls: img ? [img] : undefined }]);
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
-    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65535, timeout: 180000 });
+    // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
+    //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
+    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65535, timeout: 600000, stream: true });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       .slice(0, 3)
@@ -861,6 +893,7 @@
         target: x.target, id: String(x.id || "").trim(),
         field: String(x.field || "").trim(),
         find: String(x.find || ""),          // 有 find＝只改这一段，别处一个字节不动
+        append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续）
 
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200)
@@ -1027,11 +1060,17 @@
   function apply(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) throw new Error("不认识的改动类型");
-    if (patch.target !== "style" && !patch.id) throw new Error("这条没说要改谁");
+    if (patch.target !== "style" && patch.target !== "newchar" && !patch.id) throw new Error("这条没说要改谁");
     const p = patch;
     // ⚠️存旧版本必须在【写之前】，而且要在算最终文本之前——
     //   算完再存的话，改一小段那一支拿到的已经是新文本了，等于备份了个假的。
     pushUndo(p, ctx);
+    // 接着往后写（她 2026-10-06：长人设一段一段续）：只给人设、外貌、档案那几栏开，接在这一栏现有内容的最后
+    if (p.append && !p.find) {
+      if (!(p.target === "persona" || p.target === "appearance" || p.target === "profile")) throw new Error("只有人设、外貌和档案那几栏能接着往后写");
+      const cur = String(before(p, ctx) || "").replace(/\s+$/, "");
+      return T.write(p.id, Object.assign({}, p, { text: (cur ? cur + "\n\n" : "") + String(p.text || "").replace(/^\s+/, "") }), ctx);
+    }
     if (p.find) {
       // 记忆库是往里加，没有「原文那一段」可言
       if (p.target === "memory") throw new Error("记忆库是往里加的，不能改一小段");
@@ -1039,6 +1078,7 @@
       if (p.target === "bubble") throw new Error("气泡这一栏要整份给，不能改一小段");
       // 配色那一栏同理：它是一份 JSON，在里头替换一小段，出来多半不再是合法 JSON
       if (p.target === "pagecolor") throw new Error("配色这一栏要整份给，不能改一小段");
+      if (p.target === "newchar") throw new Error("新建角色要整份给，不能改一小段");
       if (p.target === "chatlayout" || p.target === "grouplayout") throw new Error("排版这一栏要整份给，不能改一小段");
       const cur = before(p, ctx);
       if (!String(cur || "").trim()) throw new Error("原来这一栏是空的，没有可改的一小段");
@@ -1071,6 +1111,13 @@
   // 摆给她看的那一份：气泡那一栏存的是 JSON，直接摆出来的话，改前是人话、改后是一串
   // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
   const previewText = patch => {
+    if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");
+    if (patch && patch.target === "newchar") {
+      const o = newCharObj(patch.text);
+      if (!o) return String(patch.text || "");
+      return ["名字：" + o.name, ...Object.keys(CARD_FIELDS).filter(k => o[k]).map(k => CARD_FIELDS[k] + "：" + o[k]),
+        o.appearance ? "外貌：\n" + o.appearance : "", "人设：\n" + o.persona].filter(Boolean).join("\n");
+    }
     if (!patch || patch.target !== "bubble") return String((patch && patch.text) || "");
     let o = null; try { o = JSON.parse(String(patch.text || "").replace(/^```(json)?|```$/g, "").trim()); } catch (e) { o = null; }
     const c = o && typeof sanitizeBubblePatch === "function" ? sanitizeBubblePatch(o) : null;
@@ -1082,7 +1129,7 @@
     const rows = (T && T.read(ctx)) || [];
     const hit = rows.find(x => String(x.id) === String(patch.id));
     const fld = patch.target === "profile" && CARD_FIELDS[patch.field] ? " · " + CARD_FIELDS[patch.field] : "";
-    return (T ? T.zh : "?") + (hit ? " · " + hit.name : (patch.target === "style" ? " · 新建" : "")) + fld;
+    return (T ? T.zh : "?") + (hit ? " · " + hit.name : (patch.target === "style" ? " · 新建" : patch.target === "newchar" ? " · " + ((newCharObj(patch.text) || {}).name || "未命名") : "")) + fld;
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
