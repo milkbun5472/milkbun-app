@@ -487,7 +487,7 @@
         // 通话
         ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
         ["callavatar", "通话中间的大头像"], ["callcamera", "用户真实摄像头小窗与开关/前后镜头切换"], ["callbody", "通话字幕滚动区"], ["callmsg", "通话里一句（带 data-me）"],
-        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
+        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
         ["callstage", "单人视频铺满全屏的那层（TA 或你）"], ["callpip", "单人视频右上角那个小框"], ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
@@ -925,7 +925,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.898", changed: "", none: "只改了查手机和梦境认哪张面具，没动挂点和类名" };
+  const BRIEF_STAMP = { v: "v74.902", changed: "", none: "只加了图像站一个开关和照片上一个小角标，没有新挂点" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

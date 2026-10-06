@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.898";
+const APP_VERSION = "v74.902";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7895,13 +7895,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(char, { kind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
-      if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
+      if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
       if (out.blob) {
         const key = "img_" + char.id + "_" + sid;
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，重拍一张多半就好）");
-        patch({ pending: false, imgKey: key });
+        patch({ pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") });
       } else if (out.url) {
         patch({ pending: false, imgUrl: out.url });
       } else { throw new Error("没拿到图"); }
@@ -12768,14 +12768,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const minimalPrompt = noFace ? null : buildMinimalPhotoPrompt(char, { kind: photoKind });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, noFace ? {} : { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       // 合照锁脸降级要说出来,别让「两个陌生人」看起来像生成成功
-      if (out && out.degraded) toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
+      if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
       if (out.blob) {
         const key = "img_" + charId + "_" + sid + (keySuffix || "");
         await idbImgPut(key, out.blob);
         // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
+        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") } : m));
       } else if (out.url) {
         // 跨域取不到 blob，直接用图片 URL 显示
         pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
@@ -12819,7 +12819,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
+        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") } : m));
       } else if (out.url) {
         pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
       } else { throw new Error("没拿到图"); }
@@ -17822,7 +17822,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (laneBusy("call")) return;
     let withUser = cur.msgs;
     if (!opening) {
-      const um = { role: "user", content: text.trim(), ts: Date.now() };
+      // 她写的是动作（视频里点了「动作」）：跟TA那行动作一样存 act，进模型时带括号
+      const um = { role: "user", content: text.trim().replace(/^[（(]\s*|\s*[）)]$/g, ""), ts: Date.now(), ...(opts && opts.act ? { act: true } : {}) };
       if (!cur.room && callCanWriteMain(cur, "state")) noteTidalUser(um.content, um.ts);
       withUser = [...cur.msgs, um];
       setCall(c => c ? { ...c, msgs: withUser } : c);
@@ -17944,7 +17945,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (people.length <= 1) {
         // 1:1：口语化对话，可一次多说几句把话说完；视频另给动作/神态
         const char = people[0];
-        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.act ? "（" + m.content + "）" : m.content }));
         if (!hist.length) hist.push(callOpenTrigger());
         const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
         // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
@@ -18032,7 +18033,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (d.hangup && String(d.hangup).toLowerCase() !== "null") markCallBye(char.id, char.name, String(d.hangup), cur.sessionId);
       } else {
         // 群通话：多角色你一言我一语；视频每条可带 action
-        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + m.content }));
+        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + (m.act ? "（" + m.content + "）" : m.content) }));
         if (!hist.length) hist.push(callOpenTrigger());
         // ⚠️别再砍到 160 字：只剩一个标签的角色，空白由训练先验补上，那就是网文霸总
         //   （v55.87 群聊那次就是这么变的，那次还有 200 字）。按在场人数分预算，同群聊。
@@ -18134,7 +18135,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (said.length >= 3 && bgActiveRef.current) (async () => {
         try {
           const uN = userName(profile);
-          const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n")
+          const text = log.map(m => m.role === "user" ? uN + (m.act ? "（" + m.content + "）" : "：" + m.content) : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n")
             + (byName ? "\n（这通电话是 " + byName + " 主动挂断的）" : "");
           const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
             "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +
@@ -23191,7 +23192,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
       const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
-      if (out && out.degraded) toast("这张有点将就：" + out.degraded, 7000);
+      if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
         imgKey = "img_studio_" + char.id + "_" + Date.now();
