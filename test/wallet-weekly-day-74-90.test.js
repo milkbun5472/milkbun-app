@@ -6,7 +6,7 @@ const fs = require("fs"), path = require("path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
 test("每周结算：只补到最近一个过完的周日", () => {
-  assert.match(app, /if \(rec\.weekly === true\) \{ const d = schedParseKey\(cutoffKey\); d\.setDate\(d\.getDate\(\) - d\.getDay\(\)\); cutoffKey = schedDayKey\(d\); \}/);
+  assert.match(app, /if \(weekly\) \{ const d = schedParseKey\(cutoffKey\); d\.setDate\(d\.getDate\(\) - d\.getDay\(\)\); cutoffKey = schedDayKey\(d\); \}/);
   // 周三看：昨天周二 → 退到上周日；周一看：昨天周日 → 就是昨天
   const back = ymd => { const d = new Date(ymd); d.setDate(d.getDate() - d.getDay()); return d.getDate(); };
   assert.equal(back("2026-10-06T12:00"), 4);   // 10/06 周二 → 10/04 周日
@@ -21,7 +21,6 @@ test("只重生某一天：撤掉那天推演的几笔、手机上的单不动�
   assert.match(app, /if \(manual\) \{ const rf = walletReflow\(ledger\); ledger = rf\.ledger; bal = rf\.balance; \}/);
   assert.match(app, /lastDailyKey: manual \? cur\.lastDailyKey : dayKey/);
   assert.match(scr, /onClick: \(\) => onRedoDay\(char, dailyDate\)/);
-  assert.match(scr, /h\(Toggle, \{ on: rec\.weekly === true, onChange: v => onSetWeekly\(char, v\) \}\)/);
 });
 test("重算余额：从最老一笔往后加", () => {
   const i = app.indexOf("const walletReflow = ledger => {"), j = app.indexOf("\n  };", i) + 4;
@@ -29,4 +28,21 @@ test("重算余额：从最老一笔往后加", () => {
   const r = f([{ ts: 3, delta: -20 }, { ts: 1, delta: 100 }, { ts: 2, delta: -30 }]);
   assert.equal(r.balance, 50);
   assert.deepEqual(r.ledger.map(e => e.after), [50, 70, 100]);
+});
+
+test("每周一次是为了省调用：一枪推演一整周（最多 7 天），各天拿结果入账，不再每天各打一枪", () => {
+  assert.match(app, /const genWeekSpend = async \(char, dayKeys, rec, alreadyBy\) => \{/);
+  assert.match(app, /const byDay = await genWeekSpend\(char, todo, charWalletRef\.current\[char\.id\], alreadyBy\);/);
+  assert.match(app, /for \(const dk of todo\) await applyWalletDay\(char, dk, \{ buys: byDay\[dk\] \|\| \[\] \}\);/);
+  assert.match(app, /const buys = opts && Array\.isArray\(opts\.buys\) \? opts\.buys : await genDailySpend\(char, dayKey, rec, already\);/);
+  assert.match(app, /for \(let i = 0; i < pending\.length; i \+= 7\)/);
+});
+test("开关在设置 → 自动生成 → 钱包那一档，默认每天", () => {
+  const P = require("../js/auto-refresh-policy.js");
+  const f = P.FEATURES.find(x => x.id === "wallet");
+  assert.deepEqual(f.rates.map(r => r.id), ["day", "week"]);
+  assert.equal(P.normalize({}).features.wallet.rate, "day");
+  assert.equal(P.normalize(P.setRate({}, "wallet", "week")).features.wallet.rate, "week");
+  assert.equal(P.normalize({}).features.proactive.rate, "mid", "主动私聊照旧默认中频");
+  assert.match(app, /const walletWeekly = \(\) => \{ try \{ return window\.AutoRefreshPolicy\.normalize\(autoRefreshRef\.current\)\.features\.wallet\.rate === "week"; \}/);
 });

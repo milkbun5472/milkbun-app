@@ -9197,10 +9197,11 @@ function AutoRefreshConfig(props) {
           // 频率档（她 2026-10-03）：中频＝原来那套，低频、高频是整套时间乘倍数
           f.rates && cfg.global && props.onSetRate ? h("div", { style: { padding: "0 15px 13px" } },
             h("div", { className: "flex", style: { border: "1px solid " + t.line, borderRadius: 3, overflow: "hidden" } },
-              f.rates.map(r => { const on = (cfg.rate || "mid") === r.id;
+              f.rates.map(r => { const on = (cfg.rate || f.rateDefault || "mid") === r.id;
                 return h("button", { key: r.id, onClick: () => props.onSetRate(f.id, r.id), className: "flex-1 active:opacity-70",
                   style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, r.zh); })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
+              ((f.rates.find(r => r.id === (cfg.rate || f.rateDefault)) || {}).note) ? f.rates.find(r => r.id === (cfg.rate || f.rateDefault)).note :
               (cfg.rate || "mid") === "low" ? "想念攒得慢一些（四分之三的速度），刚找过你之后也多等一会儿才会再找" : (cfg.rate || "mid") === "high" ? "想念攒得快一倍，刚找过你之后再找的间隔也减半" : "原来那套节奏")) : null,
           isOpen && !f.noChars ? h("div", { style: { borderTop: "1px solid " + t.line, padding: "5px 15px 9px" } },
             !chars.length ? h("div", { style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "还没有可设置的角色") : chars.map(c => h("div", { key: c.id, className: "flex items-center justify-between", style: { minHeight: 54, borderBottom: "1px solid " + t.line + "88", gap: 10 } },
@@ -13308,7 +13309,7 @@ function CurrencyBook({ char, cur, onSave, onBack }) {
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, ok ? v : "——")))),
       !ok ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "汇率要是个大于 0 的数，符号不能空") : null));
 }
-function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh, onRedoDay, onSetWeekly, onSettleDebt, debtPeerOf, charCur, onSetCurrency }) {
+function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh, onRedoDay, onSettleDebt, debtPeerOf, charCur, onSetCurrency }) {
   const t = useTheme();
   const chars = characters || [];
   const cw = charWallet || {};
@@ -13618,14 +13619,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: e.delta > 0 ? "#3f8a54" : t.ink, lineHeight: 1.5 } },
                     (e.label || "").replace(/^日常消费 · /, "").replace(/ · (外卖|网购)$/, "")))))
         ) : null,
-        dailyOpen ? note(notes.spending) : null,
-        // 每天结算 / 每周结算（她 2026-10-06）：每周就是周日过完、下周一打开时把那一整周一起补上
-        dailyOpen && onSetWeekly ? h("div", { key: "daily-weekly", className: "flex items-center justify-between", style: { marginTop: 12, paddingTop: 10, borderTop: "1px solid " + t.line } },
-          h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "每周结算一次"),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } },
-              rec.weekly === true ? "周日过完以后，下次打开 App 时把周一到周日一起补上；这周你自己生成过的那天会跳过。" : "现在是每天结算：每天过完补前一天。打开就改成一周补一次。")),
-          h("div", { className: "shrink-0" }, h(Toggle, { on: rec.weekly === true, onChange: v => onSetWeekly(char, v) }))) : null
+        dailyOpen ? note(notes.spending) : null
       ]),
       // 送礼与转账
       cardBox([

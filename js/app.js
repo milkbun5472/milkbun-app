@@ -1426,6 +1426,7 @@ function App() {
   forumOffRef.current = forumOff;
   const setAutoRefreshRate = (feature, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setRate(autoRefreshRef.current, feature, rate));
   // 主动私聊的倍速（低 ×0.5／中 ×1／高 ×2）：想念的钟走多快、刚试过一次后等多久，都按它缩放
+  const walletWeekly = () => { try { return window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.wallet.rate === "week"; } catch (e) { return false; } };
   const proactiveX = () => (window.AutoRefreshPolicy.rateX ? window.AutoRefreshPolicy.rateX(autoRefreshRef.current, "proactive") : 1) || 1;
   const setAutoRefreshGlobal = (feature, on) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, on));
   const setAutoRefreshChar = (feature, charId, on) => {
@@ -17246,8 +17247,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!rec || !rec.init) return;
     // 先把那天手机上真有的单子入账，再让模型补【这几笔之外】还花了什么
     const already = phoneOrdersOnDay(char.id, dayKey);
-    const buys = await genDailySpend(char, dayKey, rec, already);
-    if (manual && !buys) throw new Error("这一天没生成出来，再试一次");
+    // 每周那一路是一枪把整周推演完的，各天的账已经在 opts.buys 里，这儿不再单独打一枪
+    const buys = opts && Array.isArray(opts.buys) ? opts.buys : await genDailySpend(char, dayKey, rec, already);
     const parts = schedParseKey(dayKey);
     const dayTs = new Date(parts); dayTs.setHours(23, 0, 0, 0);
     const mk = (delta, label, kind, ts, after) => ({ id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000), ts, delta, after, label, kind, dayKey });
@@ -17414,6 +17415,44 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   发成 3+2+1＝6 个月，每翻一次钱包就多发一轮。这儿只剩「把地板补上」那半。
     applyWalletMonthly(char);
   };
+  // 一枪推演一整周（她 2026-10-06：「有没有可能我一周一次就是为了省调用次数」）——
+  //   跟 genDailySpend 同一套规矩，只是把几天的行程、手机上已入账的单子一起交出去，按天交回来。
+  //   哪一天没交回来就用那天自己的兜底，不为它再补一枪。
+  const genWeekSpend = async (char, dayKeys, rec, alreadyBy) => {
+    const out = {};
+    const bal = Number(rec.balance) || 0, broke = bal <= 0;
+    const fallbackDay = () => broke ? [{ item: "只买了口吃的", amount: Math.max(5, Math.round(8 + Math.random() * 12)) }]
+      : [{ item: "日常开销", amount: Math.max(8, Math.round(((Number(rec.fixedMonthly) || 1800) / 30) * (0.5 + Math.random()))) }];
+    const fill = () => dayKeys.forEach(dk => { if (!out[dk]) out[dk] = (alreadyBy[dk] || []).length ? [] : fallbackDay(); });
+    if (!active) { fill(); return out; }
+    try {
+      const days = dayKeys.map(dk => {
+        const plan = (schedulesRef.current[char.id] || {})[dk], dp = schedDateParts(dk);
+        const sched = plan && Array.isArray(plan.seqs) ? plan.seqs.map(x => (x.time || "") + " " + x.title + (x.location ? "（" + x.location + "）" : "")).join("；") : "";
+        const done = (alreadyBy[dk] || []).map(b => b.item + " " + Math.round(b.amount)).join("；");
+        return "· " + dk + "（" + dp.dowZh + "）" + (sched ? "行程：" + sched : "没排行程") + (done ? "｜手机上已入账（别重复、别再写同类）：" + done : "");
+      }).join("\n");
+      const d = await runProbe(bgActive, ctxFor(char), {
+        instruction: (broke
+          ? "⚠️TA 现在【已经透支】（卡里 " + Math.round(bal) + " 元）：这几天每天只有最低限度的必需开销，每天总额不超过 40 元，能不花就不花。\n"
+          : "TA 卡里现在有 " + Math.round(bal) + " 元。\n")
+          + "推演「" + char.name + "」下面这几天【每一天实际买了哪些东西】，按天逐笔列出：\n" + days + "\n"
+          + "要求：① 每笔写【具体名目】，严禁「日常开销」「杂费」这类糊弄话；② 买什么要贴 TA 的人设、口味和消费水平；③ 大多数日子就是吃喝交通几笔小额（1~4 笔），行程里的活动要如实反映到消费上；④ 一周里偶尔有一两天多一笔 TA 会喜欢的非日常小东西，别天天买；⑤ 允许有几乎不花钱的宅家日（buys 给空数组）；⑥ 这几天要像同一个人连着过的日子，别每天都一模一样；⑦ **amount 一律按【人民币】量级**，人在国外也换算成人民币记。\n"
+          + "date 照上面写的原样抄（形如 " + dayKeys[0] + "），每一天都要有一项。",
+        schemaHint: "{\"days\":[{\"date\":\"" + dayKeys[0] + "\",\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18}]}]}",
+        maxTokens: 65535
+      });
+      (Array.isArray(d && d.days) ? d.days : []).forEach(row => {
+        const dk = String((row && row.date) || "").trim();
+        if (dayKeys.indexOf(dk) < 0 || out[dk]) return;
+        let buys = (Array.isArray(row.buys) ? row.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
+        if (broke) { let left = 40; buys = buys.map(b => { const a = Math.min(b.amount, left); left -= a; return { item: b.item, amount: a }; }).filter(b => b.amount >= 1); }
+        out[dk] = buys;
+      });
+    } catch (e) {}
+    fill();
+    return out;
+  };
   const catchUpWallet = async char => {
     // ⚠️体检要在下面那道早退【前面】：补账已经补到昨天的钱包照样可能欠着工资
     healWalletPay(char);
@@ -17425,7 +17464,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     let cutoffKey = schedDayKey(new Date(now.getTime() - 86400000));
     // 每周结算（她 2026-10-06：「周日 24:00 后把周一到周日的全补了」）：只补到【最近一个已经过完的周日】，
     //   这周还没过完的日子等到下周一再一起补。她这周手动生成过的那天，下面那一圈会跳过。
-    if (rec.weekly === true) { const d = schedParseKey(cutoffKey); d.setDate(d.getDate() - d.getDay()); cutoffKey = schedDayKey(d); }
+    const weekly = walletWeekly();
+    if (weekly) { const d = schedParseKey(cutoffKey); d.setDate(d.getDate() - d.getDay()); cutoffKey = schedDayKey(d); }
     const lastKey = rec.lastDailyKey || schedDayKey(now);
     if (lastKey >= cutoffKey) return;
     const cursor = schedParseKey(lastKey);
@@ -17433,6 +17473,27 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️applyWalletDay 里那一枪失败的话 lastDailyKey 不会往前走，于是【同一天
     //   每次开 app 都重补一遍】。走公共闸：那一天补不成就记一笔，隔两小时再说。
     let guard = 0;
+    // 每周那一路：攒下来的这几天一枪推演完（一枪最多 7 天），再一天一天按顺序入账。她这周手动生成过的那天不进这一枪。
+    if (weekly) {
+      const pending = [];
+      while (cursor < stop && guard < 14) { cursor.setDate(cursor.getDate() + 1); guard++; pending.push(schedDayKey(cursor)); }
+      for (let i = 0; i < pending.length; i += 7) {
+        const chunk = pending.slice(i, i + 7);
+        const todo = chunk.filter(dk => !(charWalletRef.current[char.id].doneDays || {})[dk]);
+        const r = await window.AutoGate.run("wallet|" + char.id, "wk:" + chunk[0], async () => {
+          if (todo.length) {
+            const alreadyBy = {}; todo.forEach(dk => { alreadyBy[dk] = phoneOrdersOnDay(char.id, dk); });
+            const byDay = await genWeekSpend(char, todo, charWalletRef.current[char.id], alreadyBy);
+            for (const dk of todo) await applyWalletDay(char, dk, { buys: byDay[dk] || [] });
+          }
+          const last = chunk[chunk.length - 1];
+          setCharWallet(p => { const c = p[char.id]; if (!c || (c.lastDailyKey || "") >= last) return p; const n = { ...p, [char.id]: { ...c, lastDailyKey: last } }; saveJSON("x_charWallet", n); charWalletRef.current = n; return n; });
+          return true;
+        });
+        if (r !== "ok") break;
+      }
+      return;
+    }
     while (cursor < stop && guard < 14) {
       cursor.setDate(cursor.getDate() + 1);
       guard++;
@@ -17459,12 +17520,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     catch (e) { toast((e && e.message) || "没生成出来，再试一次"); }
     finally { setGen(g => ({ ...g, cwallet: null })); }
   };
-  // 每天结算 / 每周结算，存在这个人的钱包里
-  const setWalletWeekly = (char, on) => setCharWallet(p => {
-    const c = p[char.id]; if (!c) return p;
-    const n = { ...p, [char.id]: { ...c, weekly: !!on } };
-    saveJSON("x_charWallet", n); charWalletRef.current = n; return n;
-  });
+  // 每天结算 / 每周结算：设置 → 自动生成 → 钱包 那一档（她 2026-10-06：「放设置的钱包自动里，不然找都找不到」）
   // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
   // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
   // 每个角色一个币种（她 2026-09-18）。存的是 {symbol, rate, pos, dec}，
@@ -27029,7 +27085,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
     onRefresh: refreshCharAssets,
     onRedoDay: redoWalletDay,
-    onSetWeekly: setWalletWeekly,
     charCur: charCur,
     onSetCurrency: setCharCurrency
   });else if (screen === "emotes") body = h(EmoteMatrix, {

@@ -5,7 +5,11 @@
     { id: "phone", group: "content", title: "查手机", sub: "每周补刷角色手机内容", globalDefault: true, charDefault: false },
     { id: "weekly", group: "content", title: "周刊", sub: "进入新刊期后自动装订", globalDefault: true, charDefault: true },
     { id: "diary", group: "content", title: "日记", sub: "每天补写前一天日记", globalDefault: true, charDefault: true },
-    { id: "wallet", group: "content", title: "钱包", sub: "跨天补齐日常收支", globalDefault: true, charDefault: true },
+    // 每周一次（她 2026-10-06：「一周一次就是为了省调用次数」）：周日过完，一枪把那一周七天的日常消费推演完
+    { id: "wallet", group: "content", title: "钱包", sub: "跨天补齐日常收支", globalDefault: true, charDefault: true,
+      rates: [{ id: "day", zh: "每天一次", x: 1, note: "每天过完补前一天，一个人一天调用一次" },
+        { id: "week", zh: "每周一次", x: 1, note: "周日过完，下次打开时一枪把周一到周日七天一起补上，一个人一周只调用一次；这周你在钱包里自己生成过的那天会跳过" }],
+      rateDefault: "day" },
     { id: "schedule", group: "content", title: "角色日程", sub: "每周补排与白天临时改计划", globalDefault: true, charDefault: true },
     { id: "desire", group: "content", title: "心上", sub: "每日灵光与周期整理", globalDefault: true, charDefault: true },
     { id: "impression", group: "content", title: "月度印象", sub: "每月 1 号后自动写上个月的印象卡", globalDefault: true, charDefault: true },
@@ -40,7 +44,7 @@
       const migrateWeeklyOn = f.id === "weekly" && src.version === 1;
       features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars,
         // 频率档（她 2026-10-03：「整套乘以几倍速」）：只有带 rates 的那几样有，缺省就是中频＝原来那套
-        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : "mid" } : {}) };
+        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : (f.rateDefault || "mid") } : {}) };
     });
     return { version: 2, features, legacyMerged: !!src.legacyMerged };
   }
