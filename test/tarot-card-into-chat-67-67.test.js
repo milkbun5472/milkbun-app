@@ -66,9 +66,8 @@ test("带回聊天：先落这张卡，再落那句话和小桌边那几句", ()
   // 「我替你算了一卦」那一路也换成同一张卡，不再是一段光秃秃的文字
   assert.match(seg, /const card0 = tarotShareMsg\(session, "我替你算了一卦"\);/);
   assert.ok(!seg.includes("const shareText ="), "旧的那段纯文字还在，两处又长成两个样子了");
-  // ⚠️底下那一枪还在用 summary/cardsTxt/readTxt——改卡的时候别把它们连坐删掉
-  assert.match(seg, /const summary = session\.summary \|\| "";/);
-  assert.match(seg, /"有人（用户）替你算了一卦塔罗[\s\S]{0,80}牌：" \+ cardsTxt/);
+  // 2026-10-06：底下那一枪（替他当场开口）拆了，牌和解读就在卡的 content 里，她按回复那一轮他读得到
+  assert.doesNotMatch(seg, /runProbe\(/);
 });
 
 test("卡面：单聊和群聊两处都认得它，骨架跟同人文那一族一样", () => {

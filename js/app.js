@@ -9994,11 +9994,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   全改成 return null；只有 false 才是「跑完了，什么都没送到」。
   //   主动那一路不重来：没人在等，而且它本来就可能选择不说话。
   const replyNow = async (charId, extraText, mode, opts) => {
-    // 她刚回了申请信、还没等TA开口：这一轮（她按出来的那一轮，不是主动消息）把那一下带上，用一次就清
-    if (typeof letterAnswerPendingRef !== "undefined" && !(opts && (opts.proactive || opts.loveLetterAnswer)) && letterAnswerPendingRef.current[charId]) {
-      opts = { ...(opts || {}), loveLetterAnswer: letterAnswerPendingRef.current[charId] };
-      delete letterAnswerPendingRef.current[charId];
-    }
     // 主动私聊那一路（opts.proactive）是后台自己跑的：挂上名字，callAI 那头才会弹「后台 · 主动私聊·谁」
     if (opts && opts.proactive && !opts._bg && typeof bgJob === "function") return bgJob("proactive", characters.find(c => c.id === charId), () => replyNow(charId, extraText, mode, { ...opts, _bg: true }));
     const ok = await _replyTurn(charId, extraText, mode, opts);
@@ -10263,11 +10258,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
     if (how === "replay") { setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
     if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
-    if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
+    if (how === "ask") waitForHer(charId, { peekCaught: { thoughts: m.thoughts || [] } });
   };
-  // 翻完那一下的料先存着，直到TA真的接上话才算用掉（她 2026-10-01：「看完接不上啊」——
-  //   那一枪没送到时，她自己问一句「看了怎么样」，TA就只剩自己的日常可说了）
-  const peekPendingRef = useRef({});
+  // ── 等她开口（她 2026-10-06：「拒绝了就直接说话了，我还没打完字……以后加新功能都必须等我」）──
+  //   她在聊天里点了一张卡片上的按钮（回申请信、当面问、不给手机、递完手机回来……），TA【不当场开口】：
+  //   这一下的料先存在这儿，等她自己发消息或按「让 TA 回复」，那一轮带上它，真送到了才算用掉。
+  //   原来是递手机那一路自己的 peekPendingRef（她 2026-10-01「看完接不上啊」立的），现在所有这种都走这一份。
+  //   ⚠️新功能里凡是「她点了一下 → TA要接一句」的，一律 waitForHer，不许直接 replyNow（测试 wait-for-her 钉着）。
+  const waitHerRef = useRef({});
+  const waitForHer = (charId, patch) => { waitHerRef.current[charId] = { ...(waitHerRef.current[charId] || {}), ...patch, _ts: Date.now() }; };
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
   const dateWhenText = w => { if (!w) return ""; if (w.now) return "现在"; if (w.text && !w.date) return String(w.text).slice(0, 24); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
@@ -10394,7 +10393,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (give) { peekAskedRef.current[charId] = Date.now(); return; }   // 给：ChatThread 那边打开递手机那张单子
     peekLogAdd(charId, { how: "refused" });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你没把手机给他", ts: Date.now() }]);
-    replyNow(charId, "", null, { proactive: true, phoneRefused: true });
+    waitForHer(charId, { phoneRefused: true });
   };
   // 删好友／拉黑（她 2026-10-02：「删好友就是把那个聊天变成空白的假页面，给我一个加回来的按钮就恢复了」）：
   //   聊天记录一条不动，只是这一栏被盖上；x_peekCut = { [charId]: { kind: "unfriend"|"block", by, ts } }
@@ -10471,12 +10470,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       delete peekDidRef.current[p.charId];
     } catch (e) {}
     openChatById(p.charId);
-    peekPendingRef.current[p.charId] = { ts: Date.now(), seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed: peekRenamedRef.current[p.charId] };
     const renamed = peekRenamedRef.current[p.charId]; delete peekRenamedRef.current[p.charId];
+    waitForHer(p.charId, { peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed } });
     // 用她名义发出去的那几句，对面会接（她 2026-10-02：冒充你回一句）
     const follow = [...new Set(peekFollowRef.current)]; peekFollowRef.current = [];
     follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
-    replyNow(p.charId, "", null, { proactive: true, peekPhone: { seen: p.seen || "（翻了一圈，没什么东西）", hidden: p.hidden, thoughts: thoughts || [], renamed } });
   };
   const _replyTurn = async (charId, extraText, mode, opts) => {
     opts = opts || {};
@@ -10488,8 +10486,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let delivered = false;
     // 递手机是她亲手递的，不是TA自己冒出来的：下面几道「主动」闸（主动私聊开关、此刻在一起、防连发）
     //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
-    const _pk = !opts.room && peekPendingRef.current[charId];
-    if (_pk && Date.now() - _pk.ts < 2 * 3600e3 && !opts.peekPhone && !opts.proactive) opts = { ...opts, peekPhone: _pk };
+    // 她点完卡片留下的那一下（waitForHer）：她按出来的这一轮带上；主动消息不带（那不是在接她）。半天没接就作废。
+    const _wh = !opts.room && !opts.proactive && waitHerRef.current[charId];
+    if (_wh && Date.now() - _wh._ts < 12 * 3600e3) { const { _ts, ...whPatch } = _wh; opts = { ...whPatch, ...opts }; }
     const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
     // ⚠️这几条是【没跑】，不是「跑完了什么都没送到」——返回 null，外面那层才不会拿它去重来
@@ -12614,7 +12613,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const clearOneShot = room.syncMode === "ask" && room.syncOnce;
         if (seenTo > Number(room.mainCursorTs || 0) || clearOneShot) window.ChatRooms.save(charId, { ...room, mainCursorTs: seenTo, syncOnce: clearOneShot ? false : room.syncOnce });
       }
-      if (delivered && _peekTurn) delete peekPendingRef.current[charId];
+      if (delivered && _wh) delete waitHerRef.current[charId];
       return delivered;
     } catch (e) {
       if (_abort.signal.aborted) return null;       // 她自己点叉断掉的：不留「发送失败」
@@ -21242,27 +21241,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("已把小桌对话带回" + whereTxt);
       return;
     }
-    const cardsTxt = (session.cards || []).map((c, i) => ((session.spread || [])[i] ? session.spread[i] + "：" : "") + c.name + (c.rev ? "（逆位）" : "（正位）")).join("；");
-    const readTxt = (session.reads || []).map(r => (r.pos ? r.pos + "—" : "") + r.text).join("\n");
-    const summary = session.summary || "";          // 底下那一枪的 instruction 还要用它
     // ⚠️这一路也换成同一张卡（原来是一段光秃秃的文字）：同一种东西在两处长成两个样子，
     //   就是又一处要各自维护的地方（施工规则/one-public-mechanism.md：已有的也搬过去）。
     const card0 = tarotShareMsg(session, "我替你算了一卦");
     pChat(chatKey, p => [...p, { role: "user", kind: card0.kind, tarot: card0.tarot, content: card0.content, ts: Date.now(), read: false }]);
     toast("已把这一卦放进" + whereTxt);
-    // ⚠️落进房里的那一卦【不在这儿自动生成TA的反应】：房里那一枪有自己整套上下文
-    //   （门规、这间房自己的往事、能不能读主线），这一枪是按主聊天拼的，
-    //   在这儿代TA开口就等于绕过那一整层。她在房里按一次回复，那一枪才是对的。
-    if (sideRoom || !active) return;
-    const instruction = "有人（用户）替你算了一卦塔罗，把结果发给你看了。抽到的牌与解读：\n牌：" + cardsTxt + "\n解读：\n" + readTxt + (summary ? "\n收束：" + summary : "") +
-      "\n\n你【读到一份替你自己算的命卦】，按你的人设和此刻心情真实反应（信或不信、在意哪一句、被说中了还是嗤之以鼻、追问、或借机说点心里话都行，1-3 句可多气泡），别客服腔、别复述全文。";
-    try {
-      // 思考型模型的思考预算从 maxTokens 里扣，给紧了它想完就没配额说话（仓库铁律 ≥8000）
-      const react = await runProbe(apiFor(toChar.id), ctxFor(toChar), { voice: true, instruction: instruction, schemaHint: "{\"say\":[\"气泡1\",\"气泡2\"]}", maxTokens: 8000 });
-      const say = react && Array.isArray(react.say) ? react.say : (react && react.say ? [react.say] : []);
-      // 走到这儿一定是主聊天那一路（落进房里的上面已经 return 了），但键仍然只认 chatKey 这一个
-      if (say.length) pChat(chatKey, p => [...p, ...say.map(s => ({ role: "assistant", content: String(s), ts: Date.now(), read: false }))]);
-    } catch (e) {/* 卡已在，反应失败静默 */}
+    // ⚠️不在这儿自动生成TA的反应（她 2026-10-06：「以后加新功能都必须等我」）：
+    //   转完她多半要接着说两句；卡里已经带着牌和解读，她发消息或按回复那一轮TA自然读得到。
+    //   原来主聊天这一路会当场 runProbe 替TA开口，抢在她前面——跟申请信那次是同一个病。
   };
   // ───────── 擂台 · 分享这一场 ─────────
   // 她 2026-09-01：「再加一个可以分享给角色，既然这个是可以多人的，那就群和单聊都可以分享吧」。
@@ -22024,7 +22010,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 拆信只是改一下卡的样子；答应／再想想才是那一下。
   const openLoveLetter = (charId, m) => pChat(charId, p => p.map(x => x.id === m.id && x.state === "sealed" ? { ...x, state: "open" } : x));
-  const letterAnswerPendingRef = useRef({});
   const answerLoveLetter = (charId, m, yes) => {
     if (!m || (m.state !== "sealed" && m.state !== "open")) return;
     const char = characters.find(c => c.id === charId);
@@ -22035,7 +22020,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 不当场开口（她 2026-10-06：「我拒绝了就直接说话了，我还没打完字」）：她点完多半还要说几句，
     //   所以只记下「她刚回了信」，等她自己发消息或按回复，那一轮再带上【此刻】那一句（答应、再想想两边一样）。
     //   ⚠️仍旧不走 proactive：那一轮是她按出来的，主动私聊关着也照样回。
-    letterAnswerPendingRef.current[charId] = yes ? "yes" : "no";
+    waitForHer(charId, { loveLetterAnswer: yes ? "yes" : "no" });
   };
   const genWhisper = async char => {
     setGen(g => ({

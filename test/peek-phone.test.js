@@ -131,9 +131,10 @@ test("翻手机：购物先进「我的」、外卖先进「订单」，两份�
 
 test("翻手机：翻完的料留到TA真接上话才用掉，她先开口也接得上", () => {
   const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
-  assert.match(a, /peekPendingRef\.current\[p\.charId\] = \{/);
-  assert.match(a, /opts = \{ \.\.\.opts, peekPhone: _pk \}/);
-  assert.match(a, /if \(delivered && _peekTurn\) delete peekPendingRef\.current\[charId\]/);
+  // 2026-10-06 起这份料走公共的 waitForHer（不再是递手机自己一份），翻完也不当场开口
+  assert.match(a, /waitForHer\(p\.charId, \{ peekPhone: \{/);
+  assert.match(a, /const _wh = !opts\.room && !opts\.proactive && waitHerRef\.current\[charId\];/);
+  assert.match(a, /if \(delivered && _wh\) delete waitHerRef\.current\[charId\]/);
 });
 
 test("翻手机：帖子滑到评论区；组件不去点里面的按钮；料里带评论；按查她手机来想", () => {
@@ -236,7 +237,8 @@ test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA
   assert.match(a, /askPhone:"开口那句话"=想看她的手机；/);
   assert.match(a, /kind: "askphone"/);
   assert.match(c, /function PhoneAskCard\(/);
-  assert.match(a, /replyNow\(charId, "", null, \{ proactive: true, phoneRefused: true \}\)/);
+  // 2026-10-06：点「不给」TA不当场开口，等她按回复那一轮（wait-for-her.md）
+  assert.match(a, /waitForHer\(charId, \{ phoneRefused: true \}\);/);
   assert.match(a, /Date\.now\(\) - \(a\[charId\] \|\| 0\) > 20 \* 3600e3/, "一天最多要一回");
 });
 

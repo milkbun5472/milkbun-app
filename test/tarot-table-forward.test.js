@@ -21,7 +21,7 @@ test("塔罗小桌转发沿用私聊写入器并保留双方身份与原始时�
 });
 
 test("小桌转发不额外调用模型，也不直接写正式记忆", () => {
-  const tableBranch = forward.slice(forward.indexOf("if (options && options.table)"), forward.indexOf("const cardsTxt"));
+  const tableBranch = forward.slice(forward.indexOf("if (options && options.table)"), forward.indexOf("const card0 = tarotShareMsg"));
   assert.doesNotMatch(tableBranch, /runProbe|callAI|addMemEntry/);
   assert.match(tableBranch, /return;/);
 });
