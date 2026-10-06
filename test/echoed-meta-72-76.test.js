@@ -44,3 +44,15 @@ test("喂进去的记号改成了【】，并且自己说了别抄", () => {
   assert.ok(!/const ac = stp \+ byU \+ \(\(m\.role === "narration"/.test(app), "动作行又被放回 assistant 那一侧了");
   assert.ok(!/"（这一条是你此刻做的动作／你那边的动静，不是你发出去的消息）"/.test(app), "旧的括号版还留着");
 });
+
+test("语音标记后面夹着的旁注也摘掉", () => {
+
+  const out = strip("[语音:【这条你是用语音说的；这是旁注，别把它抄进你的正文】ちょっと安心した]");
+  assert.ok(!/旁注/.test(out), out);
+  assert.match(out, /ちょっと安心した/);
+});
+
+test("语音栏那两路也过一遍", () => {
+  assert.match(app, /const vt = stripEchoedMeta\(\(raw && \(raw\.t \|\| raw\.text\)\) \|\| ""\);/);
+  assert.match(app, /const vt = stripEchoedMeta\(item\.text\);/);
+});
