@@ -721,7 +721,7 @@ test("他在看他玩里发给她的那一条，是真的发到她手机上", ()
   assert.match(phone, /let toReal = false;/);
   assert.match(phone, /if \(!toReal && \(where === "wechat" \|\| where === "calls"\) && to\)/);
   // 认她认的是【她的本名 + 他给她起的备注】，走公共那条认名字规矩
-  assert.match(app, /\[userName\(profile\), profile && profile\.name, uc\.name, uc\.remark\]/);
+  assert.match(app, /\[userName\(profileFor\(char\.id\)\), profileFor\(char\.id\)\.name, uc\.name, uc\.remark\]/);
   assert.match(app, /watchMeNames\(char\)\.some\(n => WK\.sameName\(n, to\)\)/);
   // ⚠️「对面回一句」永远不能是她：她要回什么由她自己说
   assert.match(app, /if \(watchIsMe\(char, name\)\) return;/);

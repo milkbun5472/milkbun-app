@@ -16483,7 +16483,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const phoneKeyLabel = key => PHONE_LABEL[key] || (key === "video_day" ? "白天视频" : key === "video_night" ? "深夜视频" : key);
   const phoneWechatActual = char => {
     if (!char) return [];
-    const meName = userName(profile);
+    const meName = userName(profileFor(char.id));
     const stamp = ts => {
       if (!ts) return "";
       const d = new Date(ts);
@@ -19202,7 +19202,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!canApps.length) { toast(characterText(char, "他手机里还什么都没有，先翻一次再看他玩")); return null; }
       const out = await runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
-        instruction: WK.watchInstruction({ char, uName: userName(profile), phone: ph, apps: canApps, recent: seen, recentItems: seenIts,
+        instruction: WK.watchInstruction({ char, uName: userName(profileFor(char.id)), phone: ph, apps: canApps, recent: seen, recentItems: seenIts,
           // 音乐不在 x_phone 里——它是真数据（listen.playlists），所以单独递进去
           uRemark: (((ph.wechat || {}).userContact || {}).remark || ""),
           // 由头：几点、上一次放下手机多久了。**这一段做的事要跟它对得上。**
@@ -19275,7 +19275,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const watchMeNames = char => {
     const wx = ((phonesRef.current || {})[char.id] || {}).wechat || {};
     const uc = (wx.userContact && typeof wx.userContact === "object") ? wx.userContact : {};
-    return [userName(profile), profile && profile.name, uc.name, uc.remark]
+    return [userName(profileFor(char.id)), profileFor(char.id).name, uc.name, uc.remark]
       .map(x => String(x || "").trim()).filter(Boolean);
   };
   const watchIsMe = (char, to) => {
@@ -19421,7 +19421,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const id = String((session && session.id) || "");
     if (!char || !body || id.indexOf("actual:") !== 0) return false;
     if (id === "actual:private:" + char.id) {
-      watchSend(char, "wechat", userName(profile), body, { byUser: true });
+      watchSend(char, "wechat", userName(profileFor(char.id)), body, { byUser: true });
       return true;
     }
     const gid = id.indexOf("actual:group:") === 0 ? id.slice("actual:group:".length) : "";
@@ -19465,7 +19465,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const out = await Promise.race([runProbe(p, phoneCtx(char), {
         voice: true, tag: "phoneWatch",
         instruction: [
-          "你正一个人刷着手机。刚才屏幕被敲了一下——是 " + userName(profile) + "，她一直在旁边看着你。",
+          "你正一个人刷着手机。刚才屏幕被敲了一下——是 " + userName(profileFor(char.id)) + "，她一直在旁边看着你。",
           doing,
           step.hint,
           step.old > 0 ? "（这些天她已经这样看过你好几次了。）" : "",
@@ -19493,7 +19493,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️只认第三下：出口只在第三下给出去，第四下再收到 wx 也不发——
       //   不然连着敲就成了连着轰炸她手机。
       const wx = (step.n === 3) ? String((out && out.wx) || "").trim().slice(0, 200) : "";
-      if (wx) watchSend(char, "wechat", userName(profile), wx);
+      if (wx) watchSend(char, "wechat", userName(profileFor(char.id)), wx);
       return wx ? { say: say, wx: wx } : say;
     } catch (e) {
       // ⚠️别再吞掉：吞掉的样子就是「敲了没反应」，而且那一下还被算掉了
@@ -26871,7 +26871,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSel: setSelPhone,
     onGenApp: genPhoneApp,
     onGenAll: genPhoneAll,
-    profile: profile,
+    // 手机里的「我」是 TA 认的那张面具（群里属数 2026-10-06：「查手机时看见的微信聊天里也是主面具的欸」）
+    profile: selPhone ? profileFor(selPhone) : profile,
     actualWechatFor: phoneWechatActual,
     // ⚠️音乐那一屏和桌面那块组件原来都写死 songs[0]（她 2026-09-10：「音乐是死的
     //   永远只能显示歌单第一首」）。正在放哪一首是播放器说了算，递进去。
@@ -27460,6 +27461,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     active: active,
     characters: liveChars,
     profile: profile,
+    // 梦里的「你」是做梦那个人认的面具（群里属数 2026-10-06：「梦境的创作小稿为什么是认成主面具的」）
+    profileFor: profileFor,
     // 梦顺着 Ta【此刻】的状态铺，不是顺着一份静态设定（她 2026-09-04 要的「喂 bundle」）。
     // ⚠️只读不写：梦醒后什么都不写回（记忆、好感、心情一律不动）——跟闭群同一条界线。
     moodOf: cid => { const m = (moods || {})[cid] || {}; return m.label ? String(m.label) : ""; },

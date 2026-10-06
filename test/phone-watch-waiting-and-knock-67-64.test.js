@@ -42,7 +42,7 @@ test("敲到第三下：他可以真发一条，也可以什么都不发", () =>
   assert.match(app, /不想发就把 wx 留空/, "写成了非发不可");
   // 真发：走 watchSend 那条真聊天路径，不另开一个写入口
   assert.match(app, /const wx = \(step\.n === 3\) \? String\(\(out && out\.wx\) \|\| ""\)\.trim\(\)\.slice\(0, 200\) : "";/);
-  assert.match(app, /if \(wx\) watchSend\(char, "wechat", userName\(profile\), wx\);/);
+  assert.match(app, /if \(wx\) watchSend\(char, "wechat", userName\(profileFor\(char\.id\)\), wx\);/);
   // 第四下再收到 wx 也不发：连着敲不该变成连着轰炸她手机
   assert.ok(!/out\.wx[\s\S]{0,120}nth >= 3/.test(app));
   // 界面那头：老的一句话照旧认，多带一条时告诉她

@@ -18,7 +18,7 @@ test("落盘那一头：只认 actual: 开头的会话", () => {
 
 test("两条路都不另开写入口", () => {
   // 私聊：走「看他玩」发给她那条现成的路（施工规则/one-public-mechanism.md）
-  assert.match(app, /if \(id === "actual:private:" \+ char\.id\) \{\s*\n\s*watchSend\(char, "wechat", userName\(profile\), body, \{ byUser: true \}\);/);
+  assert.match(app, /if \(id === "actual:private:" \+ char\.id\) \{\s*\n\s*watchSend\(char, "wechat", userName\(profileFor\(char\.id\)\), body, \{ byUser: true \}\);/);
   // 群：落进 x_gchat 之后让群回复那条链自己去挑谁接话
   assert.match(app, /pGChat\(gid, p => \[\.\.\.p, \{\s*\n\s*role: "assistant", senderId: char\.id, senderName: char\.name, content: body,/);
   assert.match(app, /Promise\.resolve\(\)\.then\(\(\) => replyGroup\(gid\)\)/);

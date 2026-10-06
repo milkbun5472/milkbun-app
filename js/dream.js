@@ -178,14 +178,17 @@
     return s;
   }
   // 把梦回路里的一行做成梦境 app 的一场戏
+  // 梦里的「你」是做梦那个人认的那张面具（群里属数 2026-10-06：「梦境的创作小稿为什么是认成主面具的」）——
+  //   面具只在 app.js 的 profileFor 合成一处，这里只是问它要
+  function profOf(props, cid) { return (props.profileFor && cid ? props.profileFor(cid) : props.profile) || {}; }
   function sessionFromLoop(row, props) {
     const c = (props.characters || []).find(x => x.id === row.charId); if (!c) return null;
-    const uName = (props.profile && props.profile.name) || "我";
+    const uName = profOf(props, c.id).name || "我";
     const cp = props.couples && props.couples[c.id];
     const relationship = cp && cp.status === "together" ? "Ta 和你现实中已正式在一起，可以使用现实已有的恋人称谓"
       : cp && cp.status === "pending" ? "Ta 向你表达过关系意愿，但现实中尚未确认成为恋人"
       : "Ta 和你现实中没有已确认的恋人关系：梦里可以渴望、暧昧、欲言又止，但不得出现现实中未发生的关系事实";
-    const allowedNames = [c.name, c.remark, props.profile && props.profile.name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
+    const allowedNames = [c.name, c.remark, profOf(props, c.id).name].filter(Boolean).map(String).filter((x, i, a) => a.indexOf(x) === i).join("、") || "无";
     // 回来的梦（v63.09）：找到上次碎掉的那场，从碎之前那一幕接着做——碎的那一幕整个丢掉，重新给选项
     let recur = null, carried = [];
     if (row.recurOf) {
@@ -463,7 +466,7 @@
 
     if (view === "setup") {
       return h(Setup, {
-        characters: props.characters, profile: props.profile, rels: props.rels, toast: props.toast,
+        characters: props.characters, profile: props.profile, profileFor: props.profileFor, rels: props.rels, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -474,7 +477,7 @@
       return h(DreamView, {
         // ⚠️characters 必须递进去：幕文旁边那颗朗读点要拿角色的音色（v63.99 她报「一进梦页面就崩」）。
         //   这一层写在两处：一处用、一处传，传的那处没跟上——用的时候是 undefined.find()，整页当场白。
-        session: s, characters: props.characters, active: props.active, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: s, characters: props.characters, active: props.active, profile: profOf(props, s.charId), worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onKeepsake: props.onKeepsake,
         onPatch: patch => patchSession(s.id, patch)
@@ -569,7 +572,7 @@
       setStarting(true);
       try {
         const c = (props.characters || []).find(x => x.id === charId);
-        const uName = (props.profile && props.profile.name) || "我";
+        const uName = profOf(props, charId).name || "我";
         const rels = props.rels || {};
         const guests = guestIds.map(gid => {
           const g = (props.characters || []).find(x => x.id === gid);
