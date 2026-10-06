@@ -3017,17 +3017,24 @@ function Forum({
   function profileView(isMe) {
     const c = isMe ? null : charOf(profileId);
     if (!isMe && !c) return null;
-    const meta = isMe ? { handle: (forumMe && forumMe.handle) || profile.name || "我", bio: (forumMe && forumMe.bio) || "", joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
-    const av = h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
+    // 她现在挂着小号：这一页就是小号的主页（名字、头像、帖子都是小号那份）
+    const onAlt = isMe && forumMe && forumMe.using === "alt";
+    const altNm = ((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼";
+    const meta = isMe ? { handle: onAlt ? altNm : ((forumMe && forumMe.handle) || profile.name || "我"), bio: onAlt ? ((forumMe && forumMe.altBio) || "") : ((forumMe && forumMe.bio) || ""), joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
+    const av = onAlt ? h(AltAvatar, { seed: altNm, size: 62 }) : h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
     // 她自己的主页连匿名发的也列出来（她 2026-10-01：「我匿名的帖子能不能放进我的主页」）——
     //   这一页只有她自己看得到（还有她递手机时的那个人）；别人的主页照旧不露匿名帖
-    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? p.authorType === "me" : (p.authorId === profileId && p.authorType === "character" && !p.anon))).sort((a, b) => b.ts - a.ts);
+    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? (p.authorType === "me" && !!p.alt === !!onAlt) : (p.authorId === profileId && p.authorType === "character" && !p.anon))).sort((a, b) => b.ts - a.ts);
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
         h("div", { className: "flex items-start gap-3" },
           av,
           h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, isMe ? meChar.name : c.name),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, isMe ? (onAlt ? altNm : meChar.name) : c.name),
+            // 切号：像真的贴吧一样，切过去以后发帖、回楼、私信都用这个号
+            isMe ? h("button", { onClick: () => { onEditMe({ using: onAlt ? "main" : "alt" }); toast && toast(onAlt ? "切回大号了" : "切到小号「" + altNm + "」了，发帖、回楼、私信都用它"); },
+              className: "active:opacity-70", style: { marginTop: 6, minHeight: 30, padding: "0 11px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
+              onAlt ? "切回大号" : "切到小号「" + altNm + "」") : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + meta.handle)),
           isMe
             ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
@@ -3177,7 +3184,7 @@ function Forum({
           h("button", { onClick: () => { setPmId(th.id); onMarkPMRead(th.id); }, className: "flex-1 min-w-0 text-left flex items-center gap-3 active:opacity-70" },
             h(NpcAvatar, { seed: th.npcName, size: 42 }),
             h("div", { className: "flex-1 min-w-0" },
-              h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
+              h("div", { className: "flex items-center gap-1.5" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, th.npcName), th.attitude === "troll" && tag("杠"), th.alt && tag("小号"), th.unread && h("span", { style: { width: 7, height: 7, borderRadius: 999, background: t.accent } })),
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, (last.from === "me" ? "我：" : "") + last.text))),
           pmClean && h("button", { onClick: () => onDelPM && onDelPM(th.id), "aria-label": "删掉和 " + th.npcName + " 的私信", className: "shrink-0 active:opacity-60", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.accent, fontFamily: F_BODY, fontSize: 14 } }, "✕"));
       }));
@@ -3356,7 +3363,7 @@ function Forum({
         // 角色发帖带配图时要不要顺手画出来（她 2026-09-28，跟朋友圈那个是同一个开关件）
         h("div", { style: { padding: "0 11px", borderTop: "1px solid " + FORUM_SKIN.line } }, h(AutoImgSwitch, { storeKey: "x_forumAutoImg" })))),
     // 悬浮发帖按钮（主页/搜索）
-    (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => setComposer(true), "aria-label": "发帖", "data-wk": "fofab", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
+    (!inSub && (nav === "home" || nav === "search")) && h("button", { onClick: () => { setCbAs(forumMe && forumMe.using === "alt" ? "alt" : "main"); setComposer(true); }, "aria-label": "发帖", "data-wk": "fofab", className: "active:opacity-80", style: { position: "absolute", right: 18, bottom: "calc(58px + env(safe-area-inset-bottom) * .4)", width: 50, height: 50, borderRadius: 17, background: FORUM_SKIN.accent, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 9px 22px rgba(58,76,51,.28)", zIndex: 30 } }, h(IPlus, { size: 23, color: "#fff" })),
     // 转发 picker
     fwd && h(Sheet, { onClose: () => setFwd(null) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "转发「" + (fwd.title || "").slice(0, 14) + "」到"),
