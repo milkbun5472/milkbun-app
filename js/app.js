@@ -1723,7 +1723,7 @@ function App() {
     setForumFollows(loadJSON("x_forumFollows", []));
     setForumPMs(loadJSON("x_forumPMs", []));
     let fm = loadJSON("x_forumMe", null);
-    if (!fm || !fm.joinTs) { fm = { handle: (fm && fm.handle) || "", bio: (fm && fm.bio) || "", joinTs: Date.now() - (60 + Math.floor(Math.random() * 400)) * 86400000, followers: (fm && fm.followers) || Math.floor(Math.random() * 600) }; saveJSON("x_forumMe", fm); }
+    if (!fm || !fm.joinTs) { fm = { handle: (fm && fm.handle) || "", bio: (fm && fm.bio) || "", altName: (fm && fm.altName) || "", joinTs: Date.now() - (60 + Math.floor(Math.random() * 400)) * 86400000, followers: (fm && fm.followers) || Math.floor(Math.random() * 600) }; saveJSON("x_forumMe", fm); }
     setForumMe(fm);
     setForumCharMeta(loadJSON("x_forumCharMeta", {}));
     const npcRegistry = loadJSON("x_forumNpcs", null);
@@ -6105,7 +6105,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const meName = profile.name || "对方";
       const now = Date.now(), WINDOW = 3 * 86400000, FRESH = 8 * 3600000;
       const isCharPost = p => p.authorId === char.id && isForumCharAuthor(p);
-      const myPub = p => p.authorType === "me" && !p.anon && p.board !== "匿名吧";
+      const myPub = p => p.authorType === "me" && !p.anon && !p.alt && p.board !== "匿名吧";
 
       // —— 触发闸 ——
       const said = typeof lastUserTurnText === "function" ? lastUserTurnText(chatsRef.current[char.id] || []) : "";
@@ -10074,7 +10074,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const cms = forumCommentsRef.current || {};
       const floors = p => (Array.isArray(cms[p.id]) ? cms[p.id] : []).slice(0, 5).map(f => "    " + (f.authorType === "me" ? "她" : cut(f.authorName, 12) || "有人") + "评论：" + cut(f.body || f.text || f.content, 50)
         + (Array.isArray(f.replies) && f.replies.length ? "\n" + f.replies.slice(0, 2).map(r => "      ↳" + (r.authorType === "me" ? "她" : cut(r.authorName, 12) || "有人") + "：" + cut(r.body || r.text || r.content, 40)).join("\n") : "")).join("\n");
-      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
+      if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : p.alt ? "（用她的小号「" + cut(p.authorName, 12) + "」发的——平时没人知道这是她）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
     }
     if (on("money")) {
       const log = (walletLog || []).filter(w => !maskTrace(w.label)).slice(0, 10);
@@ -10215,7 +10215,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const L = peekLastOf(charId), seenT = new Set(L.taps || []);
       const myPosts = (forumPostsRef.current || []).filter(p => p && p.authorType === "me" && p.title)
         .sort((a, b) => (seenT.has(a.title) - seenT.has(b.title)) || ((b.ts || 0) - (a.ts || 0)))
-        .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧") }));
+        .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧"), alt: !!p.alt }));
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
       script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name }) : [];
@@ -20230,7 +20230,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const posts = forumPostsRef.current || [], cmts = forumCommentsRef.current || {};
     const meName = profile.name || "我";
     const clean = x => String(x || "").replace(/\s+/g, " ").trim();
-    const packReply = r => ({ name: r.authorType === "me" ? meName : (r.authorName || "网友"), text: clean(r.content).slice(0, 160), mine: r.authorType === "me", ts: r.ts || 0 });
+    const packReply = r => ({ name: r.authorType === "me" ? (r.alt ? (r.authorName || "网友") : meName) : (r.authorName || "网友"), text: clean(r.content).slice(0, 160), mine: r.authorType === "me" && !r.alt, ts: r.ts || 0 });
     const packPost = p => {
       const fl = cmts[p.id] || [];
       const flat = [];
@@ -20650,7 +20650,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forumCommentProbe = (post, n, opts = {}) => {
     const isSearch = /^搜索/.test(post.triggerSource || "");
     const opChar = isForumCharAuthor(post) ? (characters || []).find(c => c.id === post.authorId) : null;
-    const opName = opChar ? opChar.name : (post.authorType === "me" ? (forumMe.handle || profile.name || "我") : (post.authorName || "楼主"));
+    const opName = opChar ? opChar.name : (post.authorType === "me" ? (post.alt ? post.authorName : (forumMe.handle || profile.name || "我")) : (post.authorName || "楼主"));
     // 逛论坛的角色池要排除楼主本人——楼主不会在自己帖下冒泡回复自己
     const poolChars = forumActiveChars().filter(c => (!opChar || c.id !== opChar.id) && forumInWorld(c, post));
     const persona1 = c => { const fm = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 80) + (moods[c.id] && moods[c.id].label ? "｜此刻心情：" + moods[c.id].label : "") + "｜论坛习惯：常逛" + fm.boardPrefs.join("/") + "，" + fm.participation + "，" + fm.replyStyle + "，偏向" + (fm.identityBias === "alt" ? "小号" : "大号") + "）"; };
@@ -20665,7 +20665,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 楼主规则：别自问自答、别把谁的名字写成「楼主」
     // 楼主是她本人时，得说清楚那是【他们认识的那个人】——否则只看到一个网名，
     // 角色只能按陌生人科普。大号要认出她，小号知道是她但必须装不认识（她 2026-08-25）。
-    const meOwn = post.authorType === "me" && !post.anon && post.board !== "匿名吧";
+    // 她用小号发的（群友 2026-10-06：「论坛能开小号发帖吗」）：跟匿名一样，在场谁都不知道这是她——楼主就是一个陌生网名
+    const meOwn = post.authorType === "me" && !post.anon && !post.alt && post.board !== "匿名吧";
     // ⚠️这帖是她本人发的：模型一条都不许以楼主（＝她）的名义写。匿名帖也一样——
     //   匿名只是没署名，说话的人还是她。（她 2026-09-22：某一楼显示是她，但她没写）
     const opIsMe = post.authorType === "me";
@@ -21656,12 +21657,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 我开新楼评论 → 随后刷 4-6 条回我的（含楼主本人）挂到这层楼中楼
   // 我在这个帖子里叫什么（九里香 2026-10-01：「发了匿名贴之后发现回复评论是自己的大号」）。
   //   匿名吧里一律是「匿名者」，楼上楼下都一样，不许一回复就把大号亮出来；别的版块照旧用论坛昵称。
-  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : (forumMe.handle || profile.name || "我");
+  // 她在自己小号发的帖里回楼，还是小号那个名字（不然一回楼就自曝）
+  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : (post && post.alt && post.authorType === "me") ? post.authorName : (forumMe.handle || profile.name || "我");
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
-    const floor = { id: fid, authorId: "me", authorType: "me", authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
+    const floor = { id: fid, authorId: "me", authorType: "me", ...(post && post.alt && post.authorType === "me" ? { alt: true } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
@@ -21677,7 +21679,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId, "mine");
     const to = String(toName || "").trim();
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(post && post.alt && post.authorType === "me" ? { alt: true } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
@@ -21808,10 +21810,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     finally { setGen(g => ({ ...g, forumReplyMe: null })); }
   };
   // 我发帖
-  const postMyForum = (board, title, body, photo) => {
+  // as：「main」大号 /「alt」小号（她 2026-10-06）。小号的名字在「我」那页设，没设过就用一个默认的
+  const postMyForum = (board, title, body, photo, as) => {
     const anonB = board === "匿名吧";
+    const altB = !anonB && as === "alt";
+    const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", authorName: anonB ? "匿名者" : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld() };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), authorName: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     forumMineEnqueue(rec.id);   // 排好时间表：3 分钟 / 22 分钟 / 70 分钟 / 3 小时 / 8 小时 各来一波
     toast("已发布到「" + board + "」·  过会儿回来看看有没有人理你");
