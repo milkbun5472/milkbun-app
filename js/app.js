@@ -11633,6 +11633,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             try { window.__lastSentTail = { ts: Date.now(), who: char.name, toyInTask: _taskFull.indexOf('"toy":null') >= 0, offlineBleed: /\u3010\u7ebf\u4e0b\u8fdb\u884c\u4e2d\u3011|\u8fd8\u6ca1\u6b63\u5f0f\u6563\u573a/.test(String(g[_i].content)), tail: String(g[_i].content).slice(-1100) }; } catch (e) {}
         break;
       } } }
+      // 这一轮翻出来的〔照做〕条目，在最后一条用户消息的最末尾再说一遍（engine.js loreDoNow 那段写了为什么）
+      const _doTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { scope: "chat", charIds: [charId], text: recentChatText(char) }) : "";
+      if (_doTail) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") { g[_i] = { ...g[_i], content: g[_i].content + _doTail }; break; } } }
       // 真照片按需从 IndexedDB 临时展开，只附最近 2 张（公共那一份 expandMessageImages，一起学也走它）。
       // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
       const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), 2);
@@ -13687,7 +13690,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         wantReasoning: _gWantReason,
         meta: _gReasonMeta
       });
-      let raw = await _gShoot(userContent);
+      // 这一轮翻出来的〔照做〕条目，排在这一轮最末尾再说一遍（跟单聊同一支 loreDoNow）
+      const _gDoTail = typeof loreDoNow === "function" ? loreDoNow(loreRef.current, { charIds: members.map(m => m.id), scope: "chat", text: hist }) : "";
+      let raw = await _gShoot(userContent + _gDoTail);
       if (_abort.signal.aborted) return;             // 她点叉断掉了
       checkAutoCall();
       phase = "解析回复";

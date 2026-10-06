@@ -3204,6 +3204,19 @@ function loreLine(e) {
   return "〔照做" + (e.title ? " · " + e.title : "") + "〕这一条不是世界设定，是给你的输出指令：它现在被翻出来了，这一轮就照着做。"
     + "要发的东西如果是一整块 HTML，就原样单独作为一条消息发出去（这一条不受「一句一条、别写括号说明」的限制），不要包代码块，也不要改写成文字描述。\n" + body;
 }
+// 这一轮被翻出来的〔照做〕条目，单独再念一遍、放在这一轮指令的【最末尾】（她 2026-10-06：「我看了确实发出去了
+//   html 世界书，但是还是不行」）。世界书正文排在很长一段提示词的中间，后面还压着一大串格式规矩；
+//   Gemini 照做，Claude 会让排在后面的规矩说了算。所以挑出来的照做条目在最后再说一次，
+//   连怎么塞进 JSON 一起交代清楚——HTML 里的双引号要转义，不然整份回复解析不了。
+//   ⚠️跟 loreText 用同一个 selectLore，选哪几条只有一处说了算。
+function loreDoNow(entries, opts) {
+  const hit = selectLore(entries, opts).filter(e => e.category === "照做");
+  if (!hit.length) return "";
+  return "\n\n【这一轮要照做的（世界书〔照做〕条目，排在所有规矩最后，以这里为准）】\n"
+    + hit.map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n")
+    + "\n照着上面做。要发的是一整块 HTML 时：把它原样作为【单独的一条消息】（输出里单独一项），不要拆成几条、不要包代码块、不要改成文字描述；"
+    + "它在 JSON 字符串里，里面的双引号写成 \\\"（或者属性改用单引号），换行写成 \\n。";
+}
 // 给世界书 UI 的确定性诊断：解释一条为什么会/不会进某个场景。
 // 向量补捞是发送前的加分通道，UI 不假装能预知；字面触发未命中时明确写「等待关键词或语义召回」。
 function loreEntryState(e, opts) {
@@ -3222,7 +3235,7 @@ function loreEntryState(e, opts) {
   if (loreKeywordHit(e, opts.text || "")) return { on: true, code: "keyword", label: "会注入 · 已触发" };
   return { on: false, code: "waiting", label: "等待关键词或语义召回" };
 }
-if (typeof window !== "undefined") window.WorldBookRouting = { loreScopeOn, loreKeywordHit, selectLore, loreText, loreEntryState };
+if (typeof window !== "undefined") window.WorldBookRouting = { loreScopeOn, loreKeywordHit, selectLore, loreText, loreDoNow, loreEntryState };
 // 情侣空间【我们的档案】那一块的领句与围栏。三条路共用（单聊 buildBundle、群线上、群线下）——
 // 一层只写一处，别再抄第二遍。围栏那句是必须的：不挡的话TA会每句话都把称呼和梗端出来演一遍，
 // 跟记忆库那条「记忆用来不忘、不是用来重演」是同一个病。

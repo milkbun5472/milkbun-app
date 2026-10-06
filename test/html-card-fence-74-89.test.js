@@ -32,3 +32,17 @@ test("JSON 字符串里夹着 HTML、属性引号没转义：补上转义再解�
   assert.equal(esc(ok), ok, "转义过的不重复转");
   assert.match(s, /const html = typeof jsonEscapeHtmlQuotes === "function" \? jsonEscapeHtmlQuotes\(esc\) : esc;/);
 });
+
+// 她 2026-10-06 第三次：「我看了确实发出去了 html 世界书但是还是不行」——条目在提示词中间，后面的格式规矩说了算
+test("照做条目在这一轮最末尾再说一遍：单聊、群聊都接上，选哪几条跟 loreText 同一个 selectLore", () => {
+  const a = s.indexOf("function loreDoNow"), b2 = s.indexOf("// 给世界书 UI 的确定性诊断");
+  const f = new Function("selectLore", s.slice(a, b2) + ";return loreDoNow")(e => e);
+  const out = f([{ category: "照做", title: "冰箱", payload: "提到冰箱就发一张卡" }, { category: "世界观", payload: "别的设定" }], {});
+  assert.match(out, /〔冰箱〕提到冰箱就发一张卡/);
+  assert.ok(!out.includes("别的设定"), "只念照做那几条");
+  assert.match(out, /双引号写成/);
+  assert.equal(f([{ category: "世界观", payload: "x" }], {}), "");
+  const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(app, /const _doTail = typeof loreDoNow === "function" \? loreDoNow\(loreRef\.current, \{ scope: "chat", charIds: \[charId\], text: recentChatText\(char\) \}\) : "";/);
+  assert.match(app, /let raw = await _gShoot\(userContent \+ _gDoTail\);/);
+});
