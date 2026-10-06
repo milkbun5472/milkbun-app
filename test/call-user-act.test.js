@@ -17,3 +17,11 @@ test("她的动作进模型时带括号，单人群视频都一样", () => {
 test("画面上她那行动作带「你」", () => {
   assert.match(comp, /\(isU \? "你 " : \(isGroup && m\.senderName/);
 });
+
+// 群友 2026-10-06：「发完动作不会直接回复吧？发完还想多说几句；不想说再按一次发送也要能直接发出去」
+test("动作只落下不请TA开口；空着按发送＝flush 让TA接", () => {
+  assert.match(app, /if \(um\.act\) return;/);
+  assert.match(app, /if \(!opening && !flush && \(!text \|\| !text\.trim\(\)\)\) return;/);
+  assert.match(comp, /if \(actPending\) \{ stopCallAudio\(\); recResume\(\); followCallTail\.current = true; onSend\("", \{ flush: true \}\); \}/);
+  assert.match(comp, /disabled: sending \|\| \(!input\.trim\(\) && !actPending\)/);
+});
