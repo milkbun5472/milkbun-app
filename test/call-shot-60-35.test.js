@@ -56,7 +56,7 @@ test("通话页把画面铺成底，字还读得清", () => {
   const cs = comp.slice(comp.indexOf("function CallScreen("), comp.indexOf("// 懒 TTS 小播放器"));
   assert.match(cs, /const bgUrl = useIdbImgUrl\(bg\);/);
   assert.match(cs, /objectFit: "cover"/);
-  assert.match(cs, /rgba\(10,10,12,\.\d+\)[\s\S]{0,120}rgba\(10,10,12,\.\d+\)/, "没有暗罩，白字压在照片上读不出来");
+  assert.match(cs, /background: CALL_BG_SHADE \}/, "没有暗罩，白字压在照片上读不出来");
   assert.match(cs, /pointerEvents: "none"/, "底图不能吃掉点击");
   // 人已经在画面里了，再摆一个圆头像是两份同样的东西
   assert.match(cs, /\(bgUrl \|\| pip\) \? \[\] : \(isGroup \? people\.slice\(0, 4\) : \[primary\]\)\.map/);
