@@ -6273,7 +6273,18 @@ function voiceDescHead(w) {
 function markPauseVoice(words) {
   // word 里还认两种【明着写的语音】：{"voice":"内容","emo":"…"} 那一项（提示词教的写法），
   //   和「[语音] 内容」这种字面写法。它们各自一条，不跟前后的停顿句合并。
-  const raw = Array.isArray(words) ? words : [];
+  const raw0 = Array.isArray(words) ? words : [];
+  // 语音描述被拆成了两项（她 2026-10-06 截图：「【这条语音声音里全是委屈」「还带着点鼻音】我不管你得补偿我」）：
+  //   一项以【开头却没合上、下一项里有】，拼起来正好是 voiceDescHead 认得的那种，就先并成一项
+  const raw = [];
+  for (let i = 0; i < raw0.length; i++) {
+    const a = raw0[i], b = raw0[i + 1];
+    if (typeof a === "string" && typeof b === "string" && /^\s*[【\[（(]/.test(a) && !/[】\]）)]/.test(a) && /[】\]）)]/.test(b)) {
+      const joined = a.replace(/\s+$/, "") + "，" + b.replace(/^\s+/, "");
+      if (voiceDescHead(joined)) { raw.push(joined); i++; continue; }
+    }
+    raw.push(a);
+  }
   const list = raw.map(w => (w && typeof w === "object") ? w : String(w == null ? "" : w));
   const out = [], voice = [];
   let run = null;

@@ -11887,6 +11887,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
+      // 照抄通话邀请卡的字当成一句话发（她 2026-10-06 截图：气泡里就是「〔语音通话邀请〕」）——
+      //   这是它想打电话却没填 call。摘掉那一句，替它把电话真的打过来（这一轮房间不让打就只摘不打）。
+      const CALL_TEXT = /^\s*[〔【\[（(]\s*(语音|视频)通话(?:邀请)?\s*[〕】\]）)]\s*$/;
+      const _callText = words.find(w => CALL_TEXT.test(String(w)));
+      if (_callText) {
+        words = words.filter(w => !CALL_TEXT.test(String(w)));
+        if (!parsed.call && (!room || !window.ChatRooms || window.ChatRooms.allowsField(room, "call"))) parsed.call = /视频/.test(String(_callText)) ? "video" : "voice";
+      }
       // 抄了历史里的旁注当正文（她 2026-10-01 截图：「【用户刚才要求你发一张自拍……这里你已经实际拍下并发出去了」
       //   「这已经是真实发生过的事」「不能在消息里说…】」「照片内容：男生宿舍全身镜前」一条条冒出来）。
       //   这轮发不了照片，模型就照着历史里那种【你在这里已经实际发出一张…】的旁注自己「写」了一张。
