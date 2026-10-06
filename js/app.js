@@ -17804,6 +17804,39 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   useEffect(() => {
     callRef.current = call;
   }, [call]);
+  // 通话边打边存一份草稿（她 2026-10-06：「语音通话的时候要是卡掉了整个记录都没了」）。
+  //   原来整通转录只活在内存里，只有挂断那一下才落进聊天——中途闪退、被系统杀掉、卡死重开，一句不剩。
+  //   现在每多一句就写一份 x_callDraft；正常挂断时 endCall 收走它，没挂断就由下次开机补成一张通话回执。
+  //   ⚠️画面只留 iv_ 引用，不把整张图塞进草稿。
+  useEffect(() => {
+    if (!call || !(call.msgs || []).length) return;
+    try {
+      saveJSON("x_callDraft", {
+        sessionId: call.sessionId, mode: call.mode, groupId: call.groupId || null, chatKey: call.chatKey || null,
+        pIds: (call.participants || []).map(c => c && c.id).filter(Boolean),
+        startTs: call.startTs || null, lastTs: Date.now(),
+        shots: (call.shots || []).filter(x => typeof x === "string" && x.indexOf("iv_") === 0),
+        log: call.msgs.map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }))
+      });
+    } catch (e) {}
+  }, [call && call.msgs]);
+  // 开机时上一通没挂断就断了：补一张「通话中断了」的回执，转录照样点开能看
+  const callDraftDoneRef = useRef(false);
+  useEffect(() => {
+    if (!loaded || callDraftDoneRef.current) return;
+    callDraftDoneRef.current = true;
+    let d = null;
+    try { d = loadJSON("x_callDraft", null); } catch (e) {}
+    if (!d || !Array.isArray(d.log) || !d.log.length) return;
+    if (callRef.current && callRef.current.sessionId === d.sessionId) return;
+    try { localStorage.removeItem("x_callDraft"); } catch (e) {}
+    const s = Math.max(0, Math.round(((Number(d.lastTs) || Date.now()) - (Number(d.startTs) || Number(d.lastTs) || Date.now())) / 1000));
+    const dur = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0");
+    const bubble = { role: "system", kind: "callend", callMode: d.mode, dur, interrupted: true, shots: (d.shots || []).length ? d.shots : undefined,
+      content: (d.mode === "video" ? "视频通话" : "语音通话") + " · 中途断了 · 时长 " + dur, ts: Number(d.lastTs) || Date.now(), id: "call_" + (Number(d.lastTs) || Date.now()), log: d.log };
+    if (d.groupId) pGChat(d.groupId, p => [...p, bubble]);
+    else if (d.chatKey || d.pIds[0]) pChat(d.chatKey || d.pIds[0], p => [...p, bubble]);
+  }, [loaded]);
   // ---- 来电浮层(v60.13)----
   // 角色打电话来时不再往聊天里塞一张常驻的卡,而是顶上浮一条【正在响的电话】。
   // 它挂在 App 根上,所以人在主屏、在别的聊天、在设置里,电话响了都看得见——
@@ -18286,6 +18319,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         } catch (e) {/* 静默：摘要失败不影响通话记录本身 */}
       })();
     }
+    try { localStorage.removeItem("x_callDraft"); } catch (e) {}
     setCall(null);
     callRef.current = null;
   };
