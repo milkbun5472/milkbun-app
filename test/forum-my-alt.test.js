@@ -12,3 +12,10 @@ test("她能用小号发帖：角色认不出、她自己帖子里回楼也是�
   assert.ok(/onPostMine\(cbBoard, cbTitle\.trim\(\), cbBody\.trim\(\), photoAttachValue\(cbPhoto\), cbAs\)/.test(scr));
   assert.ok(/altName: emAlt\.trim\(\)/.test(scr) && /altName: \(fm && fm\.altName\)/.test(app));
 });
+test("小号是一个能切的号：回楼、私信都跟着；小号帖没人自动来回；小号私信不进聊天", () => {
+  assert.ok(/const usingAlt = post =>/.test(app) && /forumMe\.using === "alt"/.test(app));
+  assert.ok(/if \(altB\) \{ setForumComments\(prev => \{ const n = \{ \.\.\.prev, \[rec\.id\]: \[\] \}/.test(app), "小号帖不排队、打开也不现编");
+  assert.ok(/t\.charId === char\.id && !t\.alt\);   \/\/ 小号那条线不进来/.test(app));
+  assert.ok(/if \(pmChar && th\.alt\)/.test(app), "小号私信角色：他当陌生人");
+  assert.ok(/onEditMe\(\{ using: onAlt \? "main" : "alt" \}\)/.test(scr));
+});

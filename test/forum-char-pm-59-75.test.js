@@ -14,7 +14,7 @@ test("能私信角色的大号，不为开场白多花一次调用", () => {
   assert.match(st, /charId: char\.id/, "会话没记是哪个角色的");
   assert.match(st, /messages: \[\]/, "还替她编了一句开场白——是她去敲门，她先说话才对");
   assert.ok(st.indexOf("runProbe") < 0 && st.indexOf("await") < 0, "开一条会话还调了一次模型");
-  assert.match(st, /const exist = \(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && t\.charId === char\.id\);/, "同一个角色会开出第二条");
+  assert.match(st, /const exist = \(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && t\.charId === char\.id && !!t\.alt === altNow\);/, "同一个角色会开出第二条");
   assert.match(st, /if \(exist\) return exist\.id;/, "已经有会话时没直接开那一条");
 });
 
@@ -31,7 +31,7 @@ test("角色回私信走他自己那份上下文，不是网友那套提示词",
 
 test("这条线喂回聊天，跟线上线下一起算同一段关系", () => {
   const fb = cut(ap, "forumPmLog: (() => {", "\n    })(),");
-  assert.match(fb, /\(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && t\.charId === char\.id\)/, "喂回去的不是这个角色那条");
+  assert.match(fb, /\(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && t\.charId === char\.id && !t\.alt\)/, "喂回去的不是这个角色那条");
   assert.match(fb, /Date\.now\(\) - 3 \* 86400000/, "没有时间窗，三个月前的也喂");
   assert.match(fb, /\.slice\(-12\)/, "整条私信全塞进去，会把别的上下文挤掉");
   assert.match(fb, /engineerEyes\) return ""/, "工程师视角那条没关掉");

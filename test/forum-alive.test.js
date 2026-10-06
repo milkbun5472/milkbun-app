@@ -11,7 +11,7 @@ const engine = fs.readFileSync(path.join(root, "js/engine.js"), "utf8");
 // 死点是同一件事的三个面：她发的帖没人理、红点不认「回我的」、她的帖数字永远是 0。
 
 test("A · 她发帖之后要排一张时间表，陆续有人来回", () => {
-  const post = app.slice(app.indexOf("const postMyForum ="), app.indexOf("const postMyForum =") + 900);
+  const post = app.slice(app.indexOf("const postMyForum ="), app.indexOf("const postMyForum =") + 1800);
   assert.match(post, /forumMineEnqueue\(rec\.id\)/, "发完就该排期，不能只弹个 toast 就结束");
   assert.match(app, /const FORUM_MINE_WAVES_MS = \[3 \* 60000, 22 \* 60000, 70 \* 60000, 3 \* 3600000, 8 \* 3600000\]/,
     "五波：3 分钟到 8 小时，像真论坛那样陆续来");
