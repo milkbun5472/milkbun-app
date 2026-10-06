@@ -13,7 +13,7 @@ const endCall = app.slice(app.indexOf("const endCall"), app.indexOf("const endCa
 // 于是「我这边有事要走」只能是一句空话，说完还得继续待在线上。
 
 test("单人通话的协议里有 hangup 这一栏，而且写清了什么时候才填", () => {
-  assert.match(callSend, /\\"hangup\\":null\}/, "输出示例里没有这一栏，模型不会凭空填");
+  assert.match(callSend, /\\"hangup\\":null(\}|" \+ \(callTfOk)/, "输出示例里没有这一栏，模型不会凭空填");
   assert.match(callSend, /这通电话【你也可以自己挂】/);
   assert.match(callSend, /绝大多数回合填 null/, "没有门槛，它会每轮都想挂");
   assert.match(callSend, /别拿它当省事的出口/);

@@ -23,5 +23,5 @@ test("动作只落下不请TA开口；空着按发送＝flush 让TA接", () => {
   assert.match(app, /if \(um\.act\) return;/);
   assert.match(app, /if \(!opening && !flush && \(!text \|\| !text\.trim\(\)\)\) return;/);
   assert.match(comp, /if \(actPending\) \{ stopCallAudio\(\); recResume\(\); followCallTail\.current = true; onSend\("", \{ flush: true \}\); \}/);
-  assert.match(comp, /disabled: sending \|\| \(!input\.trim\(\) && !actPending\)/);
+  assert.match(comp, /disabled: tfMode \? [^:]+ : sending \|\| \(!input\.trim\(\) && !actPending\)/);
 });
