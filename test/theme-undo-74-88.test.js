@@ -62,5 +62,5 @@ test("秋秋：能替她退一步（lookundo），能撤回自己改错的（und
   assert.match(asst, /undo: \{\n      zh: "撤回我改过的一条"/);
   assert.match(asst, /UNDOABLE = \{[^}]*bubble: 1, chatcss: 1, chatlayout: 1, offlinecss: 1, groupcss: 1, grouplayout: 1 \}/);
   assert.match(asst, /美化能退回的:/);
-  assert.match(asst, /\|lookundo\|undo"/);
+  assert.match(asst, /\|lookundo\|undo[|"]/);
 });

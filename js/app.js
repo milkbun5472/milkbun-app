@@ -9476,6 +9476,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setScreen("cast");
     setEditingChar(null);
   };
+  // 秋秋从头写的新角色落档（她 2026-10-06）：跟档案馆右上角＋建出来的是同一种角色，不跳页、只提示一句
+  const createCharFromAssistant = o => {
+    const id = "char_" + Date.now();
+    pC(p => [...p, CharacterPronoun.newCharacter(Object.assign({ id, color: "#5a6a7d" }, o))]);
+    toast("「" + o.name + "」已经进人格档案馆了，去点开补头像和线路");
+    return id;
+  };
   // 角色卡一键导入（v48.30 搬家器）：建档 + 初始长期记忆 + 记忆库种子（绑定新角色、〔置顶〕生效）一步到位
   const [cardImportOpen, setCardImportOpen] = useState(false);
   const importCharCard = parsed => {
@@ -27949,6 +27956,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 只给悬浮屏的话，她从整页问同一句就会被告知「这个页面没接写入口」。
     onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
+    onCreateCharacter: createCharFromAssistant,
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
@@ -28606,6 +28614,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 合并方式只写在 applyBubblePatch 那一处，整页那边用的是同一个
       onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
+    onCreateCharacter: createCharFromAssistant,
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
