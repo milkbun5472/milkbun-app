@@ -11046,6 +11046,12 @@ function anonNightBg() {
     "linear-gradient(168deg, #1b2130 0%, #161b26 52%, #11151e 100%)"
   ].join(", ");
 }
+// 匿名主页背景（她 2026-10-06）：bgDesc 是 TA 注册时自己挑的那张图的描述；画出来的那张记着画的是哪句，
+// TA 换了背景描述，旧图就不再冒充新背景，退回渐变。
+function anonBgSrc(d, fallback) {
+  const src = d && d.bgImg && d.bgImgFor === (d.bgDesc || "") ? resolveImg(d.bgImg) : "";
+  return src ? "center/cover no-repeat url(\"" + src + "\"), " + fallback : fallback;
+}
 // 匿名问答正门：全角色聚合。详情仍复用原来的单角色匿名主页，旧 x_anon 数据原样沿用。
 // 布局遵守 mobile-ui-layout：紧凑顶栏 + 唯一主滚动容器；滚动位置离开后可恢复。
 // ⚠️她自己那张卡也摆在这张九宫格里（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
@@ -11097,7 +11103,7 @@ function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, 
       rows.map(function (row) {
         const r = row.latest;
         return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
-          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#7b6690,#3f6d8c)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
+          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: anonBgSrc((data || {})[row.char.id], "linear-gradient(150deg,#7b6690,#3f6d8c)"), color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
             h(Avatar, { character: row.char, size: 38, radius: 11 }),
             h("div", { style: { minWidth: 0 } },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, row.d.netname || row.char.remark || row.char.name),
@@ -11193,11 +11199,13 @@ function AnonBox({
   myMask,
   onGenMask,
   onDelRecord,
+  onGenBg,
   onClose
 }) {
   const t = useTheme();
   const A = ANON_INK;
   const [q, setQ] = useState("");
+  const bgDrawn = !!(data && data.bgImg && data.bgImgFor === (data.bgDesc || ""));
   const [asking, setAsking] = useState(false);
   const [replyTo, setReplyTo] = useState(null);   // 正在追问哪一条
   const [tab, setTab] = useState("all");          // all | me | netizen
@@ -11249,7 +11257,7 @@ function AnonBox({
     style: {
       position: "relative",
       height: 120,
-      background: "linear-gradient(135deg,#6d5a78,#3f6d8c)"
+      background: anonBgSrc(data, "linear-gradient(135deg,#6d5a78,#3f6d8c)")
     }
   }, h("div", {
     className: "absolute flex items-end gap-3",
@@ -11281,7 +11289,12 @@ function AnonBox({
   }, h(IRefresh, { size: 16, color: "#fff" })), data && data.bgDesc && h("div", {
     className: "absolute",
     style: { left: 20, top: 12, right: 56, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.4, color: "rgba(255,255,255,0.85)", textShadow: "0 1px 3px rgba(0,0,0,0.4)" }
-  }, "🖼 主页背景 · " + data.bgDesc)), h("div", {
+  }, bgDrawn ? "" : "🖼 主页背景 · " + data.bgDesc), onGenBg && data && data.bgDesc && h("button", {
+    onClick: onGenBg,
+    disabled: busy,
+    className: "absolute active:opacity-60 disabled:opacity-40",
+    style: { right: 14, bottom: 10, minHeight: 32, padding: "0 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", color: "#fff", fontFamily: F_BODY, fontSize: 11.5 }
+  }, busy ? "正在画…" : bgDrawn ? "重画背景" : "把背景画出来")), h("div", {
     className: "px-5 pt-10 pb-4",
     style: {
       borderBottom: `1px solid ${A.line}`
