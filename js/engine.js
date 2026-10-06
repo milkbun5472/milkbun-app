@@ -5005,7 +5005,7 @@ async function naiTagsFor(prompt) {
 
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
-  //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，图上写「没锁脸」）。
+  //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，界面上不另外标注）。
   //   不是「先带照片试、失败再不带补一次」——那是两笔钱，也破了「一张图只发一次请求」。
   //   没开的站带照片失败时，报错后面告诉她可以去开这个。
   if (!(opts && opts.__inner)) {

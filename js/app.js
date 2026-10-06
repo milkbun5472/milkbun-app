@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.902";
+const APP_VERSION = "v74.906";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7901,7 +7901,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，重拍一张多半就好）");
-        patch({ pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") });
+        patch({ pending: false, imgKey: key });
       } else if (out.url) {
         patch({ pending: false, imgUrl: out.url });
       } else { throw new Error("没拿到图"); }
@@ -12775,7 +12775,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") } : m));
+        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
       } else if (out.url) {
         // 跨域取不到 blob，直接用图片 URL 显示
         pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
@@ -12819,7 +12819,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") } : m));
+        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
       } else if (out.url) {
         pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
       } else { throw new Error("没拿到图"); }
@@ -17817,17 +17817,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cur = callRef.current;
     // opening=TA打来的那一通刚接通，这一轮没有她的话，由TA先说
     const opening = !!(opts && opts.opening);
+    // flush：她写完动作、没再说话，空着按一下发送＝就这样，请TA接（群友 2026-10-06）
+    const flush = !!(opts && opts.flush);
     if (!cur) return;
-    if (!opening && (!text || !text.trim())) return;
+    if (!opening && !flush && (!text || !text.trim())) return;
     if (laneBusy("call")) return;
     let withUser = cur.msgs;
-    if (!opening) {
+    if (!opening && !flush) {
       // 她写的是动作（视频里点了「动作」）：跟TA那行动作一样存 act，进模型时带括号
       const um = { role: "user", content: text.trim().replace(/^[（(]\s*|\s*[）)]$/g, ""), ts: Date.now(), ...(opts && opts.act ? { act: true } : {}) };
       if (!cur.room && callCanWriteMain(cur, "state")) noteTidalUser(um.content, um.ts);
       withUser = [...cur.msgs, um];
       setCall(c => c ? { ...c, msgs: withUser } : c);
       callRef.current = { ...cur, msgs: withUser };
+      // 动作只落下、不请TA开口：她写完动作多半还要接着说（群友 2026-10-06「发完动作还想多说几句」）。
+      //   她接着说的那一句发出去时，这一轮连动作带话一起交给TA；不想说了就空着再按一次发送（flush）。
+      if (um.act) return;
     }
     if (!active) {
       toast("请先到设置配置 API");

@@ -10717,8 +10717,15 @@ function CallScreen({
   // 真声档开关条件放这儿：isGroup/primary 声明之后（放前面吃过 TDZ 崩屏）
   // 输入只看识别能力，单人/群聊共用；没有角色音色也能开麦。
   const canLive = !!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady());
+  // 最后一条是她刚写的动作、TA还没接：空着按发送＝就这样，让TA接
+  const lastM = list[list.length - 1];
+  const actPending = !!(lastM && lastM.role === "user" && lastM.act);
   const send = () => {
-    if (!input.trim() || sending) return;
+    if (sending) return;
+    if (!input.trim()) {
+      if (actPending) { stopCallAudio(); recResume(); followCallTail.current = true; onSend("", { flush: true }); }
+      return;
+    }
     stopCallAudio(); recResume();
     followCallTail.current = true;
     // 动作那一档（群友 2026-10-06：「打视频的时候 char 可以写旁白，user 这里好像没有」）：发出去是你的一行动作
@@ -10999,14 +11006,14 @@ function CallScreen({
         autoFocus: true,
         onChange: e => setInput(e.target.value),
         onKeyDown: e => e.key === "Enter" && send(),
-        placeholder: actMode ? "写你的动作，比如：冲镜头比了个心" : "说点什么…",
+        placeholder: actMode ? "写你的动作，比如：冲镜头比了个心" : actPending ? "接着说…（不说了就空着按发送）" : "说点什么…",
         className: "flex-1 outline-none px-4 py-2.5 rounded-full",
         style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: "rgba(255,255,255,0.14)", border: "none", minWidth: 0 }
       }),
       h("button", {
         onClick: send,
-        disabled: sending || !input.trim(),
-        "aria-label": "发送",
+        disabled: sending || (!input.trim() && !actPending),
+        "aria-label": !input.trim() && actPending ? "不说了，让TA接" : "发送",
         className: "disabled:opacity-40 shrink-0 flex items-center justify-center",
         style: { width: 42, height: 42, borderRadius: 999, background: "rgba(255,255,255,0.2)" }
       }, h(ISend, { size: 17, color: "#fff" }))) : null,
@@ -15280,8 +15287,8 @@ function SelfieBubble({ m }) {
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: Object.assign({}, box, { position: "relative", display: "block" }) },
       h("img", { src: shown, onError: () => setImgErr(true), style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } }),
-      // 这张是在「这个站不锁脸」的站上出的：没带参考照，长相不保证像（她 2026-10-05）
-      m.noLock ? h("span", { style: { position: "absolute", left: 6, bottom: 6, padding: "1px 6px", borderRadius: 6, background: "rgba(0,0,0,.42)", color: "#fff", fontFamily: F_BODY, fontSize: 9.5 } }, "没锁脸") : null),
+      // 「这个站不锁脸」出的图不另外标注（她 2026-10-05 不要那个角标）
+      null),
     // 点开那一层：她 2026-09-07 要的「实际保存他们发的照片到手机」。
     // ⚠️存图走公共那一条 window.saveImgOriginal（engine.js）——它认 img_ 键，
     //   而自拍存的正是 "img_"+charId+"_"+sid（app.js 那处 idbImgPut）。别在这儿另写一条。
