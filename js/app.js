@@ -11656,7 +11656,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const _callMeta = {};
       try {
-        raw = await callAI(_route, system, aiMessages, { use: "chat", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天" });
+        // 这一轮有〔照做〕（多半是一整块 HTML 卡片）：回复会长得多。原来 180 秒一刀、不走流式，
+        //   Claude 走中转写一张大卡常常写不完就被掐成「超时」（她 2026-10-06：「要么很快回复文字，要么卡住 time out」）。
+        //   这一轮改走流式（边写边收，连接不会因为久没动静被断），总时限给 10 分钟，篇幅上限给满。
+        raw = await callAI(_route, system, aiMessages, { use: "chat", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天", ...(_doTail ? { maxTokens: 65535, stream: true, timeout: 600000 } : {}) });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -11685,6 +11688,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 字段名放宽到「可无引号、字段名后可有空格」，再加一条「以 { 或 [ 开头且含 : 」的结构判定，兜住被模型写坏引号的情况
       const protocolFieldRe = /(?:^|[\s{[,]\s*)["'“”‘’]?(word|thought|mood|wearing|action|affinityDelta|whisper|moment|silent|voice|quote)["'“”‘’]?\s*[:：=]/i;
       const looksLikeJSON = protocolFieldRe.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /[:：]/.test(String(raw)));
+      // 一整块 HTML 甩在 JSON 外面（照着「别包进 JSON」那种模板做的）：先抠出来，剩下的照常读，卡片最后接回 word
+      const _bareCard = typeof pullBareHtmlCard === "function" ? pullBareHtmlCard(raw) : null;
+      if (_bareCard) raw = _bareCard.rest;
       let parsed = extractJSON(raw);
       // 少数兼容线路会把 JSON 再包成一个 JSON 字符串；解开一层，不能把引号里的
       // word/mood 协议作为普通文字落进气泡。
@@ -11693,6 +11699,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      if (_bareCard) parsed.word = (Array.isArray(parsed.word) ? parsed.word : (parsed.word ? [parsed.word] : [])).concat([_bareCard.card]);
       const roomTurnState = sideRoom ? { ...parsed, mood: typeof parsed.mood === "string" ? parsed.mood : parsed.mood && parsed.mood.label } : null;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
@@ -13685,7 +13692,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         signal: _abort.signal,
         maxTokens: 65535,
         // 群聊最重（大 prompt + 多人 + 思考型），给足超时别让慢但有效的回复被掐断白扣钱
-        timeout: 180000,
+        // 这一轮有〔照做〕（多半是整块 HTML）：跟单聊一样改走流式、给 10 分钟（_gDoTail 在下面、调用时才读）
+        timeout: _gDoTail ? 600000 : 180000,
+        ...(_gDoTail ? { stream: true } : {}),
         webSearch: _gWantWeb,
         tools: _gMcpT,
         runTool: (n, ar) => window.MCP.callTool(n, ar),
