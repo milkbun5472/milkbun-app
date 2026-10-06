@@ -237,8 +237,7 @@ test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA
   assert.match(a, /askPhone:"开口那句话"=想看她的手机；/);
   assert.match(a, /kind: "askphone"/);
   assert.match(c, /function PhoneAskCard\(/);
-  // 2026-10-06：点「不给」TA不当场开口，等她按回复那一轮（wait-for-her.md）
-  assert.match(a, /waitForHer\(charId, \{ phoneRefused: true \}\);/);
+  assert.match(a, /replyNow\(charId, "", null, \{ proactive: true, phoneRefused: true \}\)/);
   assert.match(a, /Date\.now\(\) - \(a\[charId\] \|\| 0\) > 20 \* 3600e3/, "一天最多要一回");
 });
 

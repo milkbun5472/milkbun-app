@@ -14,8 +14,7 @@ const body = (startAnchor, endAnchor) => {
 };
 const TAP_HANDLERS = [
   ["const answerLoveLetter = (", "const genWhisper = async"],          // 回申请信：答应／再想想
-  ["const answerSneak = (", "const waitHerRef = useRef"],                // 偷翻被撞见：当面问
-  ["const answerPhoneAsk = (", "// 删好友／拉黑"],                       // TA要手机：给／不给
+  // 偷翻「当面问」、TA要手机「不给」不在表里：她 2026-10-06 要这两处当场开口（wait-for-her.md 例外）
   ["const forwardTarotToChat = async (", "// ───────── 擂台"]           // 塔罗转发进聊天
 ];
 
@@ -24,6 +23,11 @@ test("她点完卡片按钮，TA 不当场开口（不调 replyNow / runProbe / 
     const seg = body(a, b);
     assert.doesNotMatch(seg, /\breplyNow\(|\brunProbe\(|\bcallAI\(/, a + " 里又在替TA当场开口了——改用 waitForHer");
   });
+});
+
+test("例外那两处照她说的当场开口", () => {
+  assert.match(app, /if \(how === "ask"\) replyNow\(charId, "", null, \{ proactive: true, peekCaught:/);
+  assert.match(app, /replyNow\(charId, "", null, \{ proactive: true, phoneRefused: true \}\);/);
 });
 
 test("递完手机回来：本人那句也等她（别的会话被冒名回的那几位照旧会接）", () => {

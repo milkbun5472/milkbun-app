@@ -10258,7 +10258,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
     if (how === "replay") { setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
     if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
-    if (how === "ask") waitForHer(charId, { peekCaught: { thoughts: m.thoughts || [] } });
+    // ⚠️这一处【故意当场开口】（她 2026-10-06：「要手机和偷翻这俩改回来」）——wait-for-her.md 里记着这条例外
+    if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
   };
   // ── 等她开口（她 2026-10-06：「拒绝了就直接说话了，我还没打完字……以后加新功能都必须等我」）──
   //   她在聊天里点了一张卡片上的按钮（回申请信、当面问、不给手机、递完手机回来……），TA【不当场开口】：
@@ -10393,7 +10394,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (give) { peekAskedRef.current[charId] = Date.now(); return; }   // 给：ChatThread 那边打开递手机那张单子
     peekLogAdd(charId, { how: "refused" });
     pChat(charId, p => [...p, { role: "system", kind: "system", content: "你没把手机给他", ts: Date.now() }]);
-    waitForHer(charId, { phoneRefused: true });
+    // ⚠️这一处【故意当场开口】（她 2026-10-06：「要手机和偷翻这俩改回来」）——wait-for-her.md 里记着这条例外
+    replyNow(charId, "", null, { proactive: true, phoneRefused: true });
   };
   // 删好友／拉黑（她 2026-10-02：「删好友就是把那个聊天变成空白的假页面，给我一个加回来的按钮就恢复了」）：
   //   聊天记录一条不动，只是这一栏被盖上；x_peekCut = { [charId]: { kind: "unfriend"|"block", by, ts } }
