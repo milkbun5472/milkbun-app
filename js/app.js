@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.921";
+const APP_VERSION = "v74.922";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11952,6 +11952,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
         }
         words = _joined;
+        // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
+        //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
+        const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+        words = words.reduce((acc, w) => {
+          const mMid = typeof w === "string" ? w.match(MID_TAG) : null;
+          if (mMid && mMid[2].trim()) { emoteWordKws.push(mMid[2].trim()); acc.push(mMid[1].trim()); }
+          else acc.push(w);
+          return acc;
+        }, []);
         words = words.filter(w => {
           const s = String(w == null ? "" : w);
           const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
