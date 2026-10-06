@@ -40,10 +40,11 @@ test("她自己拨出去的那一路不变——那本来就该她先开口", ()
 test("opening 这一轮不往对话里塞一条她没说过的话", () => {
   const i = A.indexOf("const callSend = async (text, opts) => {");
   assert.ok(i > 0, "callSend 没收这个参数");
-  const blk = A.slice(i, i + 800);
+  const blk = A.slice(i, A.indexOf("if (!active) {", i));
   assert.match(blk, /const opening = !!\(opts && opts\.opening\);/);
-  assert.match(blk, /if \(!opening && \(!text \|\| !text\.trim\(\)\)\) return;/, "普通那一路照旧要有话才发");
-  assert.match(blk, /let withUser = cur\.msgs;\n\s*if \(!opening\) \{/, "opening 还是把空字符串当成她的一条消息了");
+  // 2026-10-06 多了 flush（她写完动作空按发送）：跟 opening 一样不塞一条她没说过的话
+  assert.match(blk, /if \(!opening && !flush && \(!text \|\| !text\.trim\(\)\)\) return;/, "普通那一路照旧要有话才发");
+  assert.match(blk, /let withUser = cur\.msgs;\n\s*if \(!opening && !flush\) \{/, "opening/flush 还是把空字符串当成她的一条消息了");
   assert.match(blk, /if \(laneBusy\("call"\)\) return;/, "并发闸不许拆");
 });
 

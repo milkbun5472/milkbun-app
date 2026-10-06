@@ -17817,17 +17817,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const cur = callRef.current;
     // opening=TA打来的那一通刚接通，这一轮没有她的话，由TA先说
     const opening = !!(opts && opts.opening);
+    // flush：她写完动作、没再说话，空着按一下发送＝就这样，请TA接（群友 2026-10-06）
+    const flush = !!(opts && opts.flush);
     if (!cur) return;
-    if (!opening && (!text || !text.trim())) return;
+    if (!opening && !flush && (!text || !text.trim())) return;
     if (laneBusy("call")) return;
     let withUser = cur.msgs;
-    if (!opening) {
+    if (!opening && !flush) {
       // 她写的是动作（视频里点了「动作」）：跟TA那行动作一样存 act，进模型时带括号
       const um = { role: "user", content: text.trim().replace(/^[（(]\s*|\s*[）)]$/g, ""), ts: Date.now(), ...(opts && opts.act ? { act: true } : {}) };
       if (!cur.room && callCanWriteMain(cur, "state")) noteTidalUser(um.content, um.ts);
       withUser = [...cur.msgs, um];
       setCall(c => c ? { ...c, msgs: withUser } : c);
       callRef.current = { ...cur, msgs: withUser };
+      // 动作只落下、不请TA开口：她写完动作多半还要接着说（群友 2026-10-06「发完动作还想多说几句」）。
+      //   她接着说的那一句发出去时，这一轮连动作带话一起交给TA；不想说了就空着再按一次发送（flush）。
+      if (um.act) return;
     }
     if (!active) {
       toast("请先到设置配置 API");
