@@ -1784,11 +1784,18 @@ function Toggle({
     onClick: () => onChange(!on),
     "data-wk": "toggle",
     "data-on": on ? "1" : "0",
+    // ⚠️flexShrink:0 ＋ minWidth（她 2026-10-06 拿两张截图对比：「这个 toggle 一直很小」）：
+    //   开关几乎都摆在「一段长说明 + 开关」那种横排里，没这两条时说明一长就把它挤成一道缝，
+    //   群友那台直接挤没了——于是以为图像 API 没地方填地址（那几栏要开关打开才出来）。
+    //   关着时再描一圈边、圆钮带点影：浅色底上 t.line 那一块原来几乎看不见。
     style: {
       width: 46,
+      minWidth: 46,
       height: 27,
+      flexShrink: 0,
       borderRadius: 999,
       background: on ? t.ink : t.line,
+      boxShadow: on ? "none" : "inset 0 0 0 1px " + (t.fog || "rgba(0,0,0,.25)"),
       position: "relative",
       transition: "background .2s"
     }
@@ -1802,6 +1809,7 @@ function Toggle({
       height: 21,
       borderRadius: 999,
       background: "#fff",
+      boxShadow: "0 1px 3px rgba(0,0,0,.25)",
       transition: "left .2s"
     }
   }));
