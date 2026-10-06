@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.915";
+const APP_VERSION = "v74.916";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -18694,6 +18694,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 重新生成匿名马甲（网名+签名）：随此刻心情 / 角色成长变化
+  // 匿名主页背景接生图（她 2026-10-06）：照 TA 自己挑的那句 bgDesc 画，背景不锁脸、不带参考照。
+  const genAnonBg = async char => {
+    const d = anon[char.id] || {};
+    if (!d.bgDesc) return;
+    if (!imgApiReady()) { toast("先去设置配好图像 API"); return; }
+    setAnonBusy(true);
+    try {
+      const prompt = "一张手机社交主页的【横幅背景图】，宽幅、安静，是一个人自己挑来挂在匿名树洞主页上的图。\n"
+        + "【这张图是】" + d.bgDesc + "\n"
+        + "【硬性要求】不出现文字、水印、边框；画面里不要出现清晰正脸；画面必须是可公开展示的。";
+      const out = await generateSelfieImage(prompt, null, { size: "1536x1024" });
+      if (!out || !out.blob) throw new Error("图没出来");
+      const durl = await blobToDataUrl(out.blob);
+      const ref = typeof imgToVault === "function" ? await imgToVault(durl) : durl;
+      pAnon(char.id, cur => ({ ...cur, bgImg: ref, bgImgFor: cur.bgDesc || "" }));
+    } catch (e) { toast("背景没画出来：" + e.message); } finally { setAnonBusy(false); }
+  };
   const refreshAnonPersona = async char => {
     if (!active) { toast("请先到设置配置 API"); return; }
     setAnonBusy(true);
@@ -28945,6 +28962,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     busy: anonBusy,
     onGenNetizen: () => genNetizenQ(anonChar),
     onRefreshPersona: () => refreshAnonPersona(anonChar),
+    onGenBg: imgApiReady() ? () => genAnonBg(anonChar) : null,
     onDelRecord: ts => delAnonRecord(anonChar.id, ts),
     onDrop: (q, re) => dropAnon(anonChar, q, re),
     onOpenBox: () => openAnonBox(anonChar),
