@@ -208,7 +208,8 @@ test("考试倒计时按本地日期数天，老师看得到；考完了就不�
   assert.equal(H2.api.examCountdown(cur, now).days, 7);
   assert.equal(H2.api.examCountdown({ exam: { date: "2026-09-28" } }, now).days, 0);
   assert.equal(H2.api.examCountdown({ exam: { date: "乱写" } }, now), null);
-  assert.match(H2.api.curriculumMemoryText(cur), /【她在备考】「N4」在 2026-10-05/);
+  // 这一句按【真的今天】判考没考完（不收 now）：日子写死在不远的将来，过了那天这条就自己红了（2026-10-06 就红过一次）
+  assert.match(H2.api.curriculumMemoryText({ ...cur, exam: { name: "N4", date: "2099-10-05" } }), /【她在备考】「N4」在 2099-10-05/);
   assert.doesNotMatch(H2.api.curriculumMemoryText({ id: "c1", exam: { name: "旧", date: "2020-01-01" } }), /备考/);
 });
 test("学习时长：课页里连着说话的算进去，隔太久断开；番茄钟按课名认；重叠只算一次", () => {
