@@ -8392,7 +8392,10 @@ function MomentsFeed({
         fontSize: 13,
         background: t.bg,
         color: t.ink,
-        border: `1px solid ${t.line}`
+        border: `1px solid ${t.line}`,
+        // iPhone 上输入框按默认宽度撑，会把「发送」挤出屏幕（她 2026-10-06 朋友圈截图）
+        minWidth: 0,
+        width: 0
       }
     }), /*#__PURE__*/React.createElement("button", {
       onClick: () => {
@@ -8403,12 +8406,13 @@ function MomentsFeed({
         setCReply(null);
         setCText("");
       },
-      className: "px-3 rounded-full",
+      className: "shrink-0 px-3 rounded-full",
       style: {
         background: t.ink,
         color: t.bg2,
         fontFamily: F_BODY,
-        fontSize: 12
+        fontSize: 12,
+        whiteSpace: "nowrap"
       }
     }, "发送"))));
   }), pick && /*#__PURE__*/React.createElement(Sheet, {
