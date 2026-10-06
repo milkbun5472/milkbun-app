@@ -14,7 +14,9 @@ test("单聊和群聊公开每颗聊天键及气泡细分挂点", () => {
   });
   assert.equal((comp.match(/"data-wk": "chatplus"/g) || []).length, 2, "单聊、群聊都要有加号挂点");
   assert.equal((comp.match(/"data-wk": "chatinput"/g) || []).length, 2, "单聊、群聊都要有输入框挂点");
-  assert.equal((comp.match(/"data-wk": "chattool", "data-chat-tool": k/g) || []).length, 2, "工具键要靠真实 action 区分");
+  // 2026-10-06 起单聊群聊共用 ChatToolKey 一份：挂点只写一处，两边都用它
+  assert.equal((comp.match(/"data-wk": "chattool", "data-chat-tool": k/g) || []).length, 1, "工具键要靠真实 action 区分，而且只写一份");
+  assert.equal((comp.match(/PANEL\.map\(\(\[k, zh, glyph\]\) => h\(ChatToolKey,/g) || []).length, 2, "单聊、群聊都用 ChatToolKey");
 });
 
 function loadStudio(resolveImg) {

@@ -816,6 +816,17 @@ function FileCard({ m, actions }) {
       actions.map((a, k) => h("button", { key: k, onClick: a[1], className: "active:opacity-60",
         style: { flex: 1, minHeight: 40, background: "transparent", border: "none", borderLeft: k ? "1px solid " + t.line : "none", fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, a[0]))) : null);
 }
+// ＋面板里的一个键：单聊、群聊共用这一份（原来两边各抄一份，长得一模一样）。
+//   挂点（群友 2026-10-06：「里面的键也能加挂点改样式吗」）：
+//   chattool 整个键（data-chat-tool 区分哪一个）、chattoolicon 那个方块、chattoolglyph 图标、chattoollabel 底下的字。
+function ChatToolKey({ k, zh, glyph, onTap }) {
+  const t = useTheme();
+  return h("button", { "data-wk": "chattool", "data-chat-tool": k, onClick: () => onTap(k), className: "flex flex-col items-center gap-1.5 active:opacity-60" },
+    h("div", { "data-wk": "chattoolicon", "data-chat-tool": k, className: "flex items-center justify-center",
+      style: { width: 52, height: 52, borderRadius: 14, background: t.bg, border: "1px solid " + t.line } },
+      h("span", { "data-wk": "chattoolglyph", style: { display: "inline-flex" } }, h(CGlyph, { k: glyph, size: 24, color: t.sub }))),
+    h("span", { "data-wk": "chattoollabel", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, zh));
+}
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
 // 挂点（她 2026-10-03：「拉黑那个系统小纸条也要挂点」）：sysnote 带 data-kind（block＝拉黑/解除那几张，其余 system）
@@ -9952,31 +9963,7 @@ function ChatThread({
       background: t.bg2,
       borderTop: `1px solid ${t.line}`
     }, CHAT_PANEL_SCROLL)
-  }, PANEL.map(([k, zh, glyph]) => h("button", {
-    key: k,
-    "data-wk": "chattool", "data-chat-tool": k,
-    onClick: () => onPanelTap(k),
-    className: "flex flex-col items-center gap-1.5 active:opacity-60"
-  }, h("div", {
-    className: "flex items-center justify-center",
-    style: {
-      width: 52,
-      height: 52,
-      borderRadius: 14,
-      background: t.bg,
-      border: `1px solid ${t.line}`
-    }
-  }, h(CGlyph, {
-    k: glyph,
-    size: 24,
-    color: t.sub
-  })), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog
-    }
-  }, zh)))), specialKind && h(Sheet, {
+  }, PANEL.map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k: k, zh: zh, glyph: glyph, onTap: onPanelTap }))), specialKind && h(Sheet, {
     onClose: () => setSpecialKind(null)
   }, h("div", {
     className: "flex items-center justify-between mb-3"
@@ -16610,31 +16597,7 @@ function GroupThread({
       background: t.bg2,
       borderTop: "1px solid " + t.line
     }, CHAT_PANEL_SCROLL)
-  }, PANEL.map(([k, zh, glyph]) => h("button", {
-    key: k,
-    "data-wk": "chattool", "data-chat-tool": k,
-    onClick: () => onPanelTap(k),
-    className: "flex flex-col items-center gap-1.5 active:opacity-60"
-  }, h("div", {
-    className: "flex items-center justify-center",
-    style: {
-      width: 52,
-      height: 52,
-      borderRadius: 14,
-      background: t.bg,
-      border: "1px solid " + t.line
-    }
-  }, h(CGlyph, {
-    k: glyph,
-    size: 24,
-    color: t.sub
-  })), h("span", {
-    style: {
-      fontFamily: F_BODY,
-      fontSize: 11,
-      color: t.fog
-    }
-  }, zh)))), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
+  }, PANEL.map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k: k, zh: zh, glyph: glyph, onTap: onPanelTap }))), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
     h(Eyebrow, { style: { marginBottom: 8 } }, (gRecallView.senderName || "TA") + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, gRecallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
