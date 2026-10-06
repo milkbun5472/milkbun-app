@@ -17229,17 +17229,32 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     }
   };
   // 应用某一天：当天日常消费 + 若是 1 号则月度收支
-  const applyWalletDay = async (char, dayKey) => {
+  // 账本从最老一笔起重算每笔之后的余额（换掉某一天的账之后，后面每一笔的「之后余额」都得跟着变）
+  const walletReflow = ledger => {
+    const asc = (ledger || []).slice().sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0));
+    let bal = 0;
+    const out = asc.map(e => { bal = r2(bal + (Number(e.delta) || 0)); return { ...e, after: bal }; });
+    return { ledger: out.reverse(), balance: bal };
+  };
+  // 记哪几天已经结算过（她 2026-10-06：每周补的时候，这周手动刷过的那天要跳过）——只留最近 120 天
+  const walletDoneAdd = (done, dk) => { const o = { ...(done || {}), [dk]: 1 }; const ks = Object.keys(o).sort(); ks.slice(0, Math.max(0, ks.length - 120)).forEach(k => delete o[k]); return o; };
+  // opts.manual：她在钱包里点「重新生成这一天」——先把那天推演出来的日常消费撤掉、退回余额，
+  //   再按那天的行程重生一份；不动 lastDailyKey（自动补账的进度照旧），只在「做过的日子」里记一笔。
+  const applyWalletDay = async (char, dayKey, opts) => {
+    const manual = !!(opts && opts.manual);
     const rec = charWalletRef.current[char.id];
     if (!rec || !rec.init) return;
     // 先把那天手机上真有的单子入账，再让模型补【这几笔之外】还花了什么
     const already = phoneOrdersOnDay(char.id, dayKey);
     const buys = await genDailySpend(char, dayKey, rec, already);
+    if (manual && !buys) throw new Error("这一天没生成出来，再试一次");
     const parts = schedParseKey(dayKey);
     const dayTs = new Date(parts); dayTs.setHours(23, 0, 0, 0);
-    const mk = (delta, label, kind, ts, after) => ({ id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000), ts, delta, after, label, kind });
+    const mk = (delta, label, kind, ts, after) => ({ id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000), ts, delta, after, label, kind, dayKey });
     setCharWallet(p => {
-      const cur = p[char.id]; if (!cur) return p;
+      let cur = p[char.id]; if (!cur) return p;
+      // 重生这一天：只撤【推演出来的】那几笔（kind daily），手机上真下过的单子不动
+      if (manual) cur = { ...cur, ledger: (cur.ledger || []).filter(e => !(e && e.kind === "daily" && (e.dayKey || schedDayKey(new Date(e.ts))) === dayKey)) };
       let bal = Number(cur.balance) || 0;
       const chron = []; // 按时间顺序（老→新）
       // ⚠️月度那两笔【搬去 applyWalletMonthly 了】，这儿一个字都不许再记。
@@ -17262,7 +17277,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         bal = r2(bal - Math.abs(b.amount));
         chron.push(mk(-Math.abs(b.amount), b.item, "daily", dayTs.getTime() + i * 60000, bal));
       });
-      const n = { ...p, [char.id]: { ...cur, balance: bal, lastDailyKey: dayKey, ledger: [...chron.reverse(), ...(cur.ledger || [])] } };
+      let ledger = [...chron.reverse(), ...(cur.ledger || [])];
+      if (manual) { const rf = walletReflow(ledger); ledger = rf.ledger; bal = rf.balance; }
+      const n = { ...p, [char.id]: { ...cur, balance: bal, ledger,
+        lastDailyKey: manual ? cur.lastDailyKey : dayKey, doneDays: walletDoneAdd(cur.doneDays, dayKey) } };
       saveJSON("x_charWallet", n);
       charWalletRef.current = n;
       return n;
@@ -17404,7 +17422,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const now = new Date();
     // ⭐只补到【昨天】——一天的开销要等这天真正过完（进入次日凌晨）才结算显示，绝不提前生成/扣除今天还没发生的花销。
     // 例：11 号凌晨只结算到 10 号，11 号自己的开销等 12 号凌晨再补。（她要的「别像能看到未来一样把今天的钱先花了」）
-    const cutoffKey = schedDayKey(new Date(now.getTime() - 86400000));
+    let cutoffKey = schedDayKey(new Date(now.getTime() - 86400000));
+    // 每周结算（她 2026-10-06：「周日 24:00 后把周一到周日的全补了」）：只补到【最近一个已经过完的周日】，
+    //   这周还没过完的日子等到下周一再一起补。她这周手动生成过的那天，下面那一圈会跳过。
+    if (rec.weekly === true) { const d = schedParseKey(cutoffKey); d.setDate(d.getDate() - d.getDay()); cutoffKey = schedDayKey(d); }
     const lastKey = rec.lastDailyKey || schedDayKey(now);
     if (lastKey >= cutoffKey) return;
     const cursor = schedParseKey(lastKey);
@@ -17416,6 +17437,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       cursor.setDate(cursor.getDate() + 1);
       guard++;
       const dk = schedDayKey(cursor);
+      // 这一天她已经手动生成过：不再花一次调用，只把进度往前挪
+      if ((charWalletRef.current[char.id].doneDays || {})[dk]) {
+        setCharWallet(p => { const c = p[char.id]; if (!c || (c.lastDailyKey || "") >= dk) return p; const n = { ...p, [char.id]: { ...c, lastDailyKey: dk } }; saveJSON("x_charWallet", n); charWalletRef.current = n; return n; });
+        continue;
+      }
       const r = await window.AutoGate.run("wallet|" + char.id, dk, async () => {
         await applyWalletDay(char, dk);
         const now2 = charWalletRef.current[char.id];
@@ -17424,6 +17450,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (r !== "ok") break;   // 这一天没补成就别往后补了，顺序断了后面全是错的
     }
   };
+  // 只重生某一天（她 2026-10-06：「现在那个刷新是不是只能把整个档案都刷了，而不是只能刷某一天的」）
+  const redoWalletDay = async (char, dayKey) => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    if (!dayKey || dayKey > schedDayKey(new Date(Date.now() - 86400000))) { toast("只能生成已经过完的日子：今天的花销要等今天过完"); return; }
+    setGen(g => ({ ...g, cwallet: char.id }));
+    try { await applyWalletDay(char, dayKey, { manual: true }); toast("重新生成了 " + dayKey + " 的日常消费"); }
+    catch (e) { toast((e && e.message) || "没生成出来，再试一次"); }
+    finally { setGen(g => ({ ...g, cwallet: null })); }
+  };
+  // 每天结算 / 每周结算，存在这个人的钱包里
+  const setWalletWeekly = (char, on) => setCharWallet(p => {
+    const c = p[char.id]; if (!c) return p;
+    const n = { ...p, [char.id]: { ...c, weekly: !!on } };
+    saveJSON("x_charWallet", n); charWalletRef.current = n; return n;
+  });
   // 钱写成字：界面、聊天正文、喂给模型那三处都从这儿过（js/money.js）。
   // ⚠️内部记账永远是人民币，这只是【出口】——把换算后的数写回存档就全错了。
   // 每个角色一个币种（她 2026-09-18）。存的是 {symbol, rate, pos, dec}，
@@ -27008,6 +27049,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSettleDebt: settleDebt,
     debtPeerOf: who => { const c = walletDebtPeer(who); if (!c) return null; const r = (charWalletRef.current || {})[c.id]; return { id: c.id, name: c.name, ready: !!(r && r.init) }; },
     onRefresh: refreshCharAssets,
+    onRedoDay: redoWalletDay,
+    onSetWeekly: setWalletWeekly,
     charCur: charCur,
     onSetCurrency: setCharCurrency
   });else if (screen === "emotes") body = h(EmoteMatrix, {

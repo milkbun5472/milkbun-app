@@ -13315,7 +13315,7 @@ function CurrencyBook({ char, cur, onSave, onBack }) {
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, ok ? v : "——")))),
       !ok ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, marginTop: 10 } }, "汇率要是个大于 0 的数，符号不能空") : null));
 }
-function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh, onSettleDebt, debtPeerOf, charCur, onSetCurrency }) {
+function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, onBack, onSel, onInit, onCatchUp, onSetBalance, onRefresh, onRedoDay, onSetWeekly, onSettleDebt, debtPeerOf, charCur, onSetCurrency }) {
   const t = useTheme();
   const chars = characters || [];
   const cw = charWallet || {};
@@ -13598,6 +13598,17 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
               style: { flex: 1, minWidth: 0, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "7px 9px", fontFamily: F_BODY, fontSize: 12 }
             }),
             dailyDate ? h("button", { onClick: () => setDailyDate(""), className: "active:opacity-60", style: { color: t.tint, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } }, "全部日期") : null),
+          // 只重生这一天（她 2026-10-06）：挑了日子才有；今天还没过完的不给生成
+          dailyDate && onRedoDay ? (() => {
+            const ok = dailyDate <= schedDayKey(new Date(Date.now() - 86400000));
+            return h("div", { className: "flex items-center gap-2", style: { marginBottom: 10 } },
+              h("button", { onClick: () => onRedoDay(char, dailyDate), disabled: loading || !ok || !hasApi,
+                className: "active:opacity-60 disabled:opacity-40",
+                style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "5px 12px", whiteSpace: "nowrap" } },
+                visibleDailyEntries.some(e => e.kind === "daily") ? "重新生成这一天" : "生成这一天"),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5 } },
+                !ok ? "这一天还没过完，过完才能生成" : "只换这一天推演出来的花销，手机上真下过的单子不动；调用一次模型"));
+          })() : null,
           dailyEntries.length === 0
             ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "每天晚上按当日行程结算，暂时还没有记录")
             : visibleDailyEntries.length === 0
@@ -13614,7 +13625,14 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: e.delta > 0 ? "#3f8a54" : t.ink, lineHeight: 1.5 } },
                     (e.label || "").replace(/^日常消费 · /, "").replace(/ · (外卖|网购)$/, "")))))
         ) : null,
-        dailyOpen ? note(notes.spending) : null
+        dailyOpen ? note(notes.spending) : null,
+        // 每天结算 / 每周结算（她 2026-10-06）：每周就是周日过完、下周一打开时把那一整周一起补上
+        dailyOpen && onSetWeekly ? h("div", { key: "daily-weekly", className: "flex items-center justify-between", style: { marginTop: 12, paddingTop: 10, borderTop: "1px solid " + t.line } },
+          h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "每周结算一次"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+              rec.weekly === true ? "周日过完以后，下次打开 App 时把周一到周日一起补上；这周你自己生成过的那天会跳过。" : "现在是每天结算：每天过完补前一天。打开就改成一周补一次。")),
+          h("div", { className: "shrink-0" }, h(Toggle, { on: rec.weekly === true, onChange: v => onSetWeekly(char, v) }))) : null
       ]),
       // 送礼与转账
       cardBox([

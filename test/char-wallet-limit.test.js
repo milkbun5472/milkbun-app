@@ -56,7 +56,7 @@ test("补账不再只在打开钱包页时跑", () => {
 
 test("补账本身的守卫还在：只补到昨天，最多 14 天", () => {
   const i = app.indexOf("const catchUpWallet = async char =>");
-  const seg = app.slice(i, i + 900);
+  const seg = app.slice(i, i + 1600);
   assert.match(seg, /if \(lastKey >= cutoffKey\) return;/, "补过就空跑——所以挂到开机上也不费钱");
   assert.match(seg, /guard < 14/);
   assert.match(seg, /now\.getTime\(\) - 86400000/, "今天还没过完，不许提前把今天的钱花了");
