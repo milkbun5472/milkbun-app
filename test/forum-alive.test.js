@@ -44,7 +44,7 @@ test("C · 她的帖不能永远挂着 0", () => {
 // 可他明明关注着她的账号。
 test("她公开发的帖要让角色刷到，匿名和小号一个字都不许漏", () => {
   const echo = app.slice(app.indexOf("forumEcho: (() => {"), app.indexOf("// 查手机内容"));
-  assert.match(echo, /p\.authorType === "me" && !p\.anon && p\.board !== "匿名吧"/,
+  assert.match(echo, /p\.authorType === "me" && !p\.anon && !p\.alt && p\.board !== "匿名吧"/,
     "只给公开的；匿名吧和小号正是她不想让人对上号的东西");
   assert.match(echo, /还没什么人回/, "没人回也要如实说，别只在有人回时才提");
   // 提示词那半边也要罩得住两种东西，否则角色会把她的帖当成自己发的
