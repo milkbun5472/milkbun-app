@@ -2823,8 +2823,51 @@ function phonePhotoSig(p) {
   p = p || {};
   return p.id || (p.caption || "") + "|" + (p.date || p.time || "") + "|" + (p.desc || "");
 }
+// ── 两个「我收着的」分开住（她 2026-10-06 群友：「为什么我收藏的照片都没有了，我没有换设备呀」）──
+//   相册收藏原来跟动态那颗「收着」共用 x_phoneKeep 一把键，形状还不一样：
+//     相册：x_phoneKeep[charId] = [照片, …]      动态：x_phoneKeep[charId] = { 条目id: 1 }
+//   查手机一打开就把整份读进手里；之后在动态里点一下「收着」，它拿那份旧的整份写回去——
+//   这个人的照片数组被摊成 { "0": 照片, "1": 照片, 条目id: 1 }，相册认不出＝0 张；
+//   别的人在那之后新收的照片也一并被旧快照盖回去。
+//   现在：动态那份搬去 x_phoneTlKeep；相册读的时候把被摊开的那几张认回来（数字键＋值是对象的就是照片）。
+function phoneKeptPhotos(v) {
+  if (Array.isArray(v)) return v.filter(x => x && typeof x === "object");
+  if (v && typeof v === "object") return Object.keys(v).filter(k => /^\d+$/.test(k)).sort((a, b) => a - b)
+    .map(k => v[k]).filter(x => x && typeof x === "object");
+  return [];
+}
+// 动态那份：有自己的键就用；没有就从混住的老 x_phoneKeep 里拆一次（值是 1 的才是动态条目）
+function phoneTlKeepLoad() {
+  const own = typeof loadJSON === "function" ? loadJSON("x_phoneTlKeep", null) : null;
+  if (own && typeof own === "object" && !Array.isArray(own)) return own;
+  const old = (typeof loadJSON === "function" ? loadJSON("x_phoneKeep", {}) : {}) || {};
+  const out = {};
+  Object.keys(old).forEach(cid => {
+    const v = old[cid];
+    if (!v || typeof v !== "object" || Array.isArray(v)) return;
+    const box = {};
+    Object.keys(v).forEach(k => { if (v[k] === 1) box[k] = 1; });
+    if (Object.keys(box).length) out[cid] = box;
+  });
+  if (typeof saveJSON === "function") saveJSON("x_phoneTlKeep", out);
+  return out;
+}
+// 相册那份：先保证动态那份拆出去了，再把每个人都整理回照片数组（被摊开的认回来），有改动才写
+function phoneKeepLoad() {
+  phoneTlKeepLoad();
+  const all = (typeof loadJSON === "function" ? loadJSON("x_phoneKeep", {}) : {}) || {};
+  let changed = false;
+  const out = {};
+  Object.keys(all).forEach(cid => {
+    const v = all[cid];
+    if (Array.isArray(v)) { out[cid] = v; return; }
+    out[cid] = phoneKeptPhotos(v); changed = true;
+  });
+  if (changed && typeof saveJSON === "function") saveJSON("x_phoneKeep", out);
+  return out;
+}
 function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPhoto, drawing, drive, onPhotoEdit }) {
-  const [keep, setKeep] = useState(() => loadJSON("x_phoneKeep", {}));
+  const [keep, setKeep] = useState(() => phoneKeepLoad());
   const [tab, setTab] = useState("collections");
   const [opened, setOpened] = useState(null);
   const [photo, setPhoto] = useState(null);
@@ -2953,7 +2996,7 @@ function AlbumView({ d, char, t, onBack, onRefresh, refreshing, onPeek, onDrawPh
   const drawPhoto = p => {
     if (!onDrawPhoto) return;
     Promise.resolve(onDrawPhoto(p, sig(p))).then(() => {
-      const k = loadJSON("x_phoneKeep", {});
+      const k = phoneKeepLoad();
       setKeep(k);
       // ⚠️她 2026-09-10：「TA说画好了但是图不会动，要我重开 app 进一次才会替换」。
       //   光 setKeep 不够稳：正看着的这一张是 photo 这份【快照】，而 drawnRef 先看
@@ -6631,7 +6674,7 @@ function PhoneCarry({
   const [phoneLooks, setPhoneLooks] = useState(phoneLooksBoot);
   // 「我收着的」——她自己留的那些，只给她自己看，不进任何上下文。
   // 转发是摆到TA面前，收着是我自己留一份：两件事。
-  const [kept, setKept] = useState(() => loadJSON("x_phoneKeep", {}));
+  const [kept, setKept] = useState(() => phoneTlKeepLoad());
   // 桌面顶部的全局搜索。在TA手机里搜自己的名字，是所有偷看动作里最真的一个。
   const [q, setQ] = useState("");
   // delta 账本：上次翻完时手机上有哪些条目。x_phoneMark[charId].ids = { 指纹: 1 }
@@ -6810,7 +6853,7 @@ function PhoneCarry({
     const box = { ...((p[char.id]) || {}) };
     if (box[id]) delete box[id]; else box[id] = 1;
     const n = { ...p, [char.id]: box };
-    saveJSON("x_phoneKeep", n);
+    saveJSON("x_phoneTlKeep", n);
     return n;
   });
   // 搜索：不调模型。时间线已经把各 app 的碎片规范化了，再补上它不收的那几栏。
@@ -7984,7 +8027,7 @@ if (typeof window !== "undefined") window.PhoneKit = {
   nameKeys: phoneNameKeys, samePerson: phoneSamePerson,
   dropDupWechat: phoneDropDupWechat, keptLine: phoneKeptLine,
   dropEchoes: phoneDropEchoes, chatWhen: phoneChatWhen, gateVisits: phoneGateVisits,
-  photoSig: phonePhotoSig,
+  photoSig: phonePhotoSig, keptPhotos: phoneKeptPhotos, keepLoad: phoneKeepLoad,
   resetApp: phoneResetApp, archDropApp: phoneArchDropApp, resetStored: phoneResetStored,
   langBlock: phoneLangBlock, LANG_MODES: PHONE_LANG_MODES, LANG_ZH: PHONE_LANG_ZH
 };

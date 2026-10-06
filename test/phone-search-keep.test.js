@@ -72,9 +72,10 @@ test("收着 ≠ 转发：两个按钮，两件事", () => {
   assert.match(SRC, /onToggleKeep \&\& h\("button"/, "详情里没有收着按钮");
 });
 
-test("收着只写 x_phoneKeep，不碰任何会喂给模型的东西", () => {
+// 2026-10-06：动态这颗搬去自己的键 x_phoneTlKeep——原来跟相册收藏共用 x_phoneKeep，一按就把照片吃了
+test("收着只写 x_phoneTlKeep，不碰任何会喂给模型的东西", () => {
   const fn = SRC.match(/const toggleKeep = id => setKept\(p => \{[\s\S]*?\n  \}\);/)[0];
-  assert.match(fn, /saveJSON\("x_phoneKeep", n\)/);
+  assert.match(fn, /saveJSON\("x_phoneTlKeep", n\)/);
   ["onPeek", "x_phone\"", "x_phoneArch", "runProbe"].forEach(w =>
     assert.ok(fn.indexOf(w) < 0, "收着动了不该动的：" + w));
   // 再点一次取消
