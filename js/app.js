@@ -4663,7 +4663,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const hm = x => { const m = /(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? +m[1] * 60 + +m[2] : null; };
     const seg = schedNowSegFor(char), nowM = charLocalMin(char);
     let wakeM = null;
-    if (seg && seg.cur && seg.cur.type === "sleep") wakeM = hm(seg.cur.end || (seg.disp[seg.idx + 1] && seg.disp[seg.idx + 1].time));
+    // ⚠️睡觉常常是今天日程的【最后一段】，end 要么没写、要么记成 24:00（一天一份的日程装不下跨夜）。
+    //   原来这两种都接不住：24:00 → 半小时后就「醒」；没写 → 拿 240 分钟兜底，
+    //   于是 23 点多拦下的消息凌晨三四点被放出来，TA 一开口就是「醒了没」
+    //   （群里肉肉肉酱意面 2026-10-06 报「前一晚来不及回的 char 都会在凌晨三四点问我醒了没」）。
+    //   所以跨夜那种一律按【明天第一项】算醒；明天的日程还没排，就按今天早上几点起的估。
+    if (seg && seg.cur && seg.cur.type === "sleep") {
+      const e = hm(seg.cur.end), nx = seg.disp[seg.idx + 1];
+      wakeM = e != null && e > 0 && e < 1440 ? e : (nx ? hm(nx.time) : null);
+      if (wakeM == null) {
+        const plans = schedulesRef.current[char.id] || {}, dk = schedLocalDayKey(char);
+        const first = d => d && Array.isArray(d.seqs) && d.seqs[0] ? hm(d.seqs[0].time) : null;
+        const tm = typeof schedShiftDayKey === "function" ? first(plans[schedShiftDayKey(dk, 1)]) : null;
+        wakeM = tm != null ? tm : first(plans[dk]);
+      }
+    }
     if (wakeM == null) { const cy = schedCarryNowFor(char); wakeM = cy ? hm(cy.wake) : null; }
     let left = wakeM == null ? 240 : wakeM - nowM;
     if (left < 0) left += 1440;
