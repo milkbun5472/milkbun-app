@@ -10280,6 +10280,8 @@ function CallScreen({
   onShot,
   onSend: sendCall,
   onHangup,
+  tfCard,
+  onRespondTransfer,
   minimized,
   onMinimize,
   onRestore
@@ -10927,6 +10929,19 @@ function CallScreen({
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
     const messageKey = list.length - recent.length + i;
     const isU = m.role === "user";
+    // 通话里的转账：卡在聊天里，这儿只是指向它的一行；TA转给你、还没收的，就地给收/退
+    if (m.ev === "transfer") {
+      const card = tfCard ? tfCard(m.tid) : null;
+      const can = card && card.status === "pending" && card.dir === "toMe" && onRespondTransfer && !isU;
+      const ink = onPhoto ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.72)";
+      const pill = { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: "#fff", border: "1px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.14)" };
+      return h("div", { key: messageKey, "data-wk": "calltf", className: "flex flex-col items-center gap-1.5 py-1" },
+        h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 12, color: ink, textAlign: "center", maxWidth: "84%" }, litText) },
+          "〔" + (isU ? "你" : (m.senderName || "TA")) + m.content + (card && !can ? " · " + (card.status === "accepted" ? "已收" : card.status === "returned" ? "已退" : "等对方收") : "") + "〕"),
+        can ? h("div", { className: "flex gap-2" },
+          h("button", { onClick: () => onRespondTransfer(m.tid, false), className: "active:opacity-60", style: pill }, "退回"),
+          h("button", { onClick: () => onRespondTransfer(m.tid, true), className: "active:opacity-60", style: Object.assign({}, pill, { background: "rgba(255,255,255,0.32)" }) }, "收下")) : null);
+    }
     if (m.act) return h("div", { key: messageKey, "data-wk": "callact", className: "flex justify-center py-0.5" }, h("div", {
       style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isU ? "你 " : (isGroup && m.senderName ? m.senderName + " " : "")) + "（" + m.content + "）"));
@@ -13738,7 +13753,7 @@ function TransferCard({
     h("div", { className: "flex items-start justify-between px-4 pt-3.5 pb-3" },
       h("div", { style: { minWidth: 0 } },
         // 美化挂点（她 2026-10-02 转群友：「转账卡片的『转账』是不是不能改」）
-        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账"),
+        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, (m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账") + (m.inCall ? " · 通话中" : "")),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：

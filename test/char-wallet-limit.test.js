@@ -19,7 +19,7 @@ test("角色得知道自己有多少钱——原来他对自己的余额一无�
 
 // 提示词降概率，代码才保证
 test("代码这一道：转不出超过余额的钱", () => {
-  const i = app.indexOf("const postCharTransfer = (charId, amount, note) =>");
+  const i = app.indexOf("const postCharTransfer = (charId, amount, note, extra) =>");
   const seg = app.slice(i, i + 900);
   assert.match(seg, /let a = Math\.round/, "要能改写金额，不能是 const");
   assert.match(seg, /if \(bal <= 0\) return;/, "一分没有就别转");
