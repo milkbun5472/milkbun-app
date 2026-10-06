@@ -29,3 +29,14 @@ test("写清楚了 end 的照旧按 end", () => {
   const seqs = [{ time: "13:00", title: "午睡", type: "sleep", end: "14:00" }, { time: "14:00", title: "上班" }];
   assert.equal(run({ nowM: 13 * 60 + 10, seqs, idx: 0 }), 50);
 });
+
+// 没开「忙的时候晚点回」的那一半：过了 0 点今天的日程还没排，原来一律算醒着，思念照常半夜开口
+test("过了 0 点、今天日程还没排：昨天以睡觉收尾，就睡到昨天几点起", () => {
+  const a = app.indexOf("  const charAwakeState = char => {"), b = app.indexOf("  // ── TA 此刻醒着还是睡着", a);
+  const mk = (nowM, plans) => new Function("schedulesRef", "schedLocalDayKey", "schedFillEnds", "charLocalMin", "schedShiftDayKey",
+    app.slice(a, b) + "\nreturn charAwakeState;")({ current: { c1: plans } }, () => "D", x => x, () => nowM, (k, n) => (n === -1 ? "Y" : k))({ id: "c1" });
+  const y = { seqs: [{ time: "07:30", title: "起床" }, { time: "23:20", title: "睡觉", type: "sleep" }] };
+  assert.equal(mk(3 * 60 + 30, { Y: y }), "asleep", "凌晨三点半该还在睡");
+  assert.equal(mk(9 * 60, { Y: y }), "awake", "过了平常起床的点就算醒了");
+  assert.equal(mk(3 * 60, {}), "awake", "压根没排作息的照旧不猜");
+});

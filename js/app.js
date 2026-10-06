@@ -4581,6 +4581,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (first != null && nowMin < first) return "asleep";
         return "awake";
       }
+      // 过了 0 点、今天这份日程还没排出来（多半要等她早上打开 App 才排）：原来这里直接落到「醒着」，
+      //   于是半夜三四点全体角色都算醒着、思念照常开口——前一晚没聊完的那几位就来问「醒了没」
+      //   （群里肉肉肉酱意面 2026-10-06 报的，没开「忙的时候晚点回」的那一半）。
+      //   昨天那份是以睡觉收尾的，就算还在睡，睡到他平常起床那会儿（昨天的第一项）。
+      const y = plans[schedShiftDayKey(schedLocalDayKey(char), -1)];
+      const ys = y && Array.isArray(y.seqs) ? y.seqs : [];
+      if (ys.length && ys[ys.length - 1].type === "sleep") {
+        const x = /(\d{1,2}):(\d{2})/.exec(String(ys[0].time || "")), w = x ? (+x[1]) * 60 + (+x[2]) : null;
+        if (w != null && nowMin < w) return "asleep";
+      }
       // ⚠️没排作息就【不猜】（她 2026-09-20：「那个 8-23 点兜底也去掉」「没有时间感知的
       //   意思就是我半夜说现在是早上他也能接得上」）。
       //   原来这儿是 `(hr >= 8 && hr <= 23) ? "awake" : "asleep"`——v64.66 为治
@@ -4679,6 +4689,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
     }
     if (wakeM == null) { const cy = schedCarryNowFor(char); wakeM = cy ? hm(cy.wake) : null; }
+    // 过了 0 点今天的日程还没排：按昨天几点起的估（跟 charAwakeState 判「还在睡」用的同一个数）
+    if (wakeM == null) {
+      const y = (schedulesRef.current[char.id] || {})[schedShiftDayKey(schedLocalDayKey(char), -1)];
+      wakeM = y && Array.isArray(y.seqs) && y.seqs[0] ? hm(y.seqs[0].time) : null;
+    }
     let left = wakeM == null ? 240 : wakeM - nowM;
     if (left < 0) left += 1440;
     left = Math.max(15, Math.min(720, left));
