@@ -10280,6 +10280,9 @@ function CallScreen({
   onShot,
   onSend: sendCall,
   onHangup,
+  tfCard,
+  onTransfer,
+  onRespondTransfer,
   minimized,
   onMinimize,
   onRestore
@@ -10723,6 +10726,14 @@ function CallScreen({
   const lastM = list[list.length - 1];
   const actPending = !!(lastM && lastM.role === "user" && lastM.act);
   const send = () => {
+    // 转账那一档：「520 生日快乐」＝金额 + 附言；卡写进聊天，这里只落一行指针，不请TA开口
+    if (tfMode) {
+      const mm = /^\s*(\d+(?:\.\d+)?)\s*(.*)$/.exec(input);
+      if (!mm || !(Number(mm[1]) > 0)) return;
+      onTransfer && onTransfer(Number(mm[1]), mm[2].trim());
+      setInput(""); setTfMode(false); followCallTail.current = true;
+      return;
+    }
     if (sending) return;
     if (!input.trim()) {
       if (actPending) { stopCallAudio(); recResume(); followCallTail.current = true; onSend("", { flush: true }); }
@@ -10755,6 +10766,7 @@ function CallScreen({
   const [meBig, setMeBig] = useState(false);
   // 视频里写自己的动作（跟TA那行「（…）」同一个样子）。只在视频里有：语音电话看不见人
   const [actMode, setActMode] = useState(false);
+  const [tfMode, setTfMode] = useState(false);
   const pip = isVideo && !isGroup && !bye;
   const camOn = camera.phase === "on";
   const showMeBig = pip && meBig && camOn;      // 镜头关了就自动回到 TA 铺满
@@ -10926,6 +10938,19 @@ function CallScreen({
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
     const messageKey = list.length - recent.length + i;
     const isU = m.role === "user";
+    // 通话里的转账：卡在聊天里，这儿只是指向它的一行；TA转给你、还没收的，就地给收/退
+    if (m.ev === "transfer") {
+      const card = tfCard ? tfCard(m.tid) : null;
+      const can = card && card.status === "pending" && card.dir === "toMe" && onRespondTransfer && !isU;
+      const ink = onPhoto ? "rgba(255,255,255,0.92)" : "rgba(255,255,255,0.72)";
+      const pill = { minHeight: 30, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, color: "#fff", border: "1px solid rgba(255,255,255,0.4)", background: "rgba(255,255,255,0.14)" };
+      return h("div", { key: messageKey, "data-wk": "calltf", className: "flex flex-col items-center gap-1.5 py-1" },
+        h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 12, color: ink, textAlign: "center", maxWidth: "84%" }, litText) },
+          "〔" + (isU ? "你" : (m.senderName || "TA")) + m.content + (card && !can ? " · " + (card.status === "accepted" ? "已收" : card.status === "returned" ? "已退" : "等对方收") : "") + "〕"),
+        can ? h("div", { className: "flex gap-2" },
+          h("button", { onClick: () => onRespondTransfer(m.tid, false), className: "active:opacity-60", style: pill }, "退回"),
+          h("button", { onClick: () => onRespondTransfer(m.tid, true), className: "active:opacity-60", style: Object.assign({}, pill, { background: "rgba(255,255,255,0.32)" }) }, "收下")) : null);
+    }
     if (m.act) return h("div", { key: messageKey, "data-wk": "callact", className: "flex justify-center py-0.5" }, h("div", {
       style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
     }, (isU ? "你 " : (isGroup && m.senderName ? m.senderName + " " : "")) + "（" + m.content + "）"));
@@ -11006,18 +11031,26 @@ function CallScreen({
         style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: "#fff",
           background: actMode ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.14)", border: "1px solid " + (actMode ? "rgba(255,255,255,0.7)" : "transparent") }
       }, "动作") : null,
+      onTransfer ? h("button", {
+        "data-wk": "calltfkey", "data-on": tfMode ? "1" : "0",
+        onClick: () => { setTfMode(v => !v); setActMode(false); }, "aria-pressed": tfMode ? "true" : "false",
+        className: "shrink-0 active:opacity-60",
+        style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: "#fff",
+          background: tfMode ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.14)", border: "1px solid " + (tfMode ? "rgba(255,255,255,0.7)" : "transparent") }
+      }, "转账") : null,
       h("input", {
         value: input,
         autoFocus: true,
         onChange: e => setInput(e.target.value),
         onKeyDown: e => e.key === "Enter" && send(),
-        placeholder: actMode ? "写你的动作，比如：冲镜头比了个心" : actPending ? "接着说…（不说了就空着按发送）" : "说点什么…",
+        inputMode: tfMode ? "decimal" : undefined,
+        placeholder: tfMode ? "金额 + 附言，比如：520 生日快乐" : actMode ? "写你的动作，比如：冲镜头比了个心" : actPending ? "接着说…（不说了就空着按发送）" : "说点什么…",
         className: "flex-1 outline-none px-4 py-2.5 rounded-full",
         style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: "rgba(255,255,255,0.14)", border: "none", minWidth: 0 }
       }),
       h("button", {
         onClick: send,
-        disabled: sending || (!input.trim() && !actPending),
+        disabled: tfMode ? !/^\s*\d/.test(input) : sending || (!input.trim() && !actPending),
         "aria-label": !input.trim() && actPending ? "不说了，让TA接" : "发送",
         className: "disabled:opacity-40 shrink-0 flex items-center justify-center",
         style: { width: 42, height: 42, borderRadius: 999, background: "rgba(255,255,255,0.2)" }
@@ -13733,7 +13766,7 @@ function TransferCard({
     h("div", { className: "flex items-start justify-between px-4 pt-3.5 pb-3" },
       h("div", { style: { minWidth: 0 } },
         // 美化挂点（她 2026-10-02 转群友：「转账卡片的『转账』是不是不能改」）
-        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账"),
+        h("div", { "data-wk": "transferlabel", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.22em", color: FADE } }, (m.receiptCard ? (m.status === "accepted" ? "收款" : "退还") : "转账") + (m.inCall ? " · 通话中" : "")),
         h("div", { className: "flex items-baseline", style: { gap: 3, marginTop: 5 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: FADE, lineHeight: 1 } }, _tfCur.pos === "pre" ? _tfCur.symbol : ""),
           // 卡只有 250 宽，日元一换算就是五六位数（她 2026-09-18）。缩字号，别拿 break-all 硬折：

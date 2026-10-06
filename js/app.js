@@ -17581,7 +17581,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });
   // 转账：联动我的钱包和角色钱包，并在聊天里留一条转账消息
   // 我转给 TA：入队一张待处理转账卡，钱在 TA 接受后才动
-  const sendTransfer = (charId, amount, note) => {
+  const sendTransfer = (charId, amount, note, extra) => {
     const a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
     if (wallet < a) {
@@ -17600,8 +17600,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       status: "pending",
       content: "[转账] 你向 " + char.name + " 转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
-      read: false
+      read: false,
+      ...(extra || {})
     }]);
+    if (extra && extra.inCall) return tid;
     // 转出去就挂着等 TA 点（她 2026-08-27）：以前是 1.6 秒后按 85% 概率随机收下、
     // 顺手再触发一轮主动回复——所以「一转完TA就自己回话了」。现在两件事都不做：
     // 收不收由 TA 在【下一次真的开口】那一轮里自己决定（见 replyNow 的 transferAccept），
@@ -17609,7 +17611,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("转账已发出，等 TA 点开");
   };
   // TA 转给我（AI 在回复里决定）：入队待处理卡，我接受才入账
-  const postCharTransfer = (charId, amount, note) => {
+  const postCharTransfer = (charId, amount, note, extra) => {
     let a = Math.round(Number(amount) * 100) / 100;
     if (a <= 0) return;
     // 掏不出来的钱不许掏（她 2026-08-26：阿屿转了 15000，人直接欠到 -14000 还在涨）。
@@ -17621,19 +17623,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (a > bal) a = Math.round(bal * 100) / 100;
     }
     const char = characters.find(c => c.id === charId);
+    const tid = "tfc_" + Date.now();
     pChat(charId, p => [...p, {
       role: "assistant",
       turnId: "tf_" + Date.now(),
       kind: "transfer",
-      tid: "tfc_" + Date.now(),
+      tid: tid,
       dir: "toMe",
       amount: a,
       note: note || "",
       status: "pending",
       content: "[转账] " + char.name + " 向你转了 " + moneyText(a, charId) + (note ? "（" + note + "）" : ""),
       ts: Date.now(),
-      read: false
+      read: false,
+      ...(extra || {})
     }]);
+    return { tid, amount: a };
   };
   // 结算：accept=接受入账；false=退回（只提示不动钱）
   const respondTransfer = (charId, tid, accept) => {
@@ -18127,6 +18132,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (people.length <= 1) {
         // 1:1：口语化对话，可一次多说几句把话说完；视频另给动作/神态
         const char = people[0];
+        // 通话里的转账（她 2026-10-06）：卡只有一张、住在聊天里（带 inCall），通话这边只留一行指针。
+        const callTfOk = !cur.groupId && (!cur.room || cur.room.main);
+        const callTfCard = () => [...(chatsRef.current[char.id] || [])].reverse().find(m => m.kind === "transfer" && m.inCall === cur.sessionId && m.dir === "toChar" && m.status === "pending");
+        const callTfPending = callTfOk && !!callTfCard();
         const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.act ? "（" + m.content + "）" : m.content }));
         if (!hist.length) hist.push(callOpenTrigger());
         const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
@@ -18143,7 +18152,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 「如果没有这个功能就不要自己再开一个，挂到公共的里面跟着线上走」。
           + "\n【状态卡】跟平时聊天一样，每轮都要更新：mood 此刻中文心情词；thought 你心里那一句（第一人称，你自己的话）；"
           + "place 人在哪一句短的；action 此刻正在做什么（每轮都更新，别照抄上一轮）；wearing 此刻穿着（跟场合时间对得上；没换就照旧）；condition 身体状态（只在确实不同于平常时才填，否则 null）。"
-          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
+          + (callTfOk ? "\n【通话里也能转账】跟平时聊天是同一个钱包、同一张转账单：你真想在电话里给 " + uName + " 转钱（不是嘴上说说），填 transfer:{\"amount\":数字,\"note\":\"附言\"}，否则 null。" + (callTfPending ? "上面通话里 " + uName + " 刚给你转了一笔还没收：这一轮决定收不收，transferAccept 填 true（收下）或 false（退回）；还没想好就 null。" : "transferAccept 填 null。") : "")
+          + "\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"],\"action\":\"此刻动作神态一句\",\"mood\":\"心情词\",\"thought\":\"心里那句\",\"place\":\"在哪\",\"wearing\":\"穿着\",\"condition\":null,\"hangup\":null" + (callTfOk ? ",\"transfer\":null,\"transferAccept\":null" : "") + "}。**say 的每一条都必须是你【能原样念出口的话】**——写你在做什么、什么表情、脸红没红、手在干嘛的字，一个都不许出现在 say 里，那些只属于 action。判据：这一条念出来对方在电话里听得见吗？听不见就不是台词。也别加名字前缀。";
         // v56.26 GPT-Live 流式：语音通话轮开 stream，增量解析 say 数组——每凑齐一条完整台词
         // 就立刻落气泡（CallScreen 的逐气泡 TTS 流水线自然跟上=模型还在写后半句，前半句已经开口）。
         // 视频轮不流式（action 必须先于台词落地）；流式解析失败零损失——结尾按全文重新对账补齐。
@@ -18212,6 +18222,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 通话时长只有它数着(secRef)，而且最后那句得留一会儿让她看完/听完。
         // 状态卡：跟线上聊天同一个出口，不另开一条写状态的路
         callPutState(char.id, d, "call_" + Date.now());
+        if (callTfOk) {
+          const pend = callTfCard();
+          if (pend && (d.transferAccept === true || d.transferAccept === false)) {
+            respondTransfer(char.id, pend.tid, d.transferAccept === true);
+            pushMsg({ role: "char", act: true, ev: "transfer", tid: pend.tid, senderId: char.id, senderName: char.name, content: (d.transferAccept === true ? "收下了你转的 " : "退回了你转的 ") + moneyText(pend.amount, char.id) });
+          }
+          const tf = d.transfer && typeof d.transfer === "object" ? d.transfer : null;
+          if (tf && Number(tf.amount) > 0) {
+            const r = postCharTransfer(char.id, Number(tf.amount), String(tf.note || ""), { inCall: cur.sessionId });
+            if (r) pushMsg({ role: "char", act: true, ev: "transfer", tid: r.tid, senderId: char.id, senderName: char.name, content: "给你转了 " + moneyText(r.amount, char.id) + (tf.note ? "（" + String(tf.note) + "）" : "") });
+          }
+        }
         if (d.hangup && String(d.hangup).toLowerCase() !== "null") markCallBye(char.id, char.name, String(d.hangup), cur.sessionId);
       } else {
         // 群通话：多角色你一言我一语；视频每条可带 action
@@ -18306,12 +18328,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const label = (cur.mode === "video" ? "视频通话" : "语音通话") + (byName ? " · " + byName + "挂断了 · 时长 " : " 已结束 · 时长 ") + dur;
       const callId = "call_" + Date.now();
       // 整通转录存进气泡（点开可回看）；act=视频里的动作行
-      const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }));
+      const log = (cur.msgs || []).map(m => ({ role: m.role, senderId: m.senderId || null, senderName: m.senderName || null, act: !!m.act, ...(m.ev ? { ev: m.ev, tid: m.tid } : {}), content: m.content, ...(m.zh ? { zh: m.zh } : {}), ts: m.ts || null }));
       // 这一通里拍过的画面跟着通话记录留下来（她：「结束了要留在聊天不能没了」）
       const shots = (cur.shots || []).filter(Boolean);
       const bubble = { role: "system", kind: "callend", callMode: cur.mode, dur: dur, endedBy: byName || null, shots: shots.length ? shots : undefined, content: label, ts: Date.now(), id: callId, log };
       if (cur.groupId) pGChat(cur.groupId, p => [...p, bubble]);
-      else if (cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, p => [...p, bubble]);
+      // 通话里转的账早就落进聊天了（真卡只有一张）；通话卡插到它们前面——先有这通电话，再有电话里转的钱
+      else if (cur.participants[0]) pChat(cur.chatKey || cur.participants[0].id, p => {
+        const at = p.findIndex(x => x && x.inCall === cur.sessionId);
+        return at < 0 ? [...p, bubble] : [...p.slice(0, at), { ...bubble, ts: p[at].ts - 1 }, ...p.slice(at)];
+      });
       // 挂断后走后台便宜池出 1~2 句摘要：补进气泡（回看小结+线上聊天接得上）+ 入记忆库；太短的通话不折腾
       const said = log.filter(m => !m.act && m.content && String(m.content).trim());
       if (said.length >= 3 && bgActiveRef.current) (async () => {
@@ -29034,6 +29060,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMinimize: () => setCall(c => c ? { ...c, min: true } : c),
     onRestore: () => setCall(c => c ? { ...c, min: false } : c),
     onSend: (txt, opts) => callSend(txt, opts),
+    // 通话里的转账：卡在聊天里，通话这边按 tid 去取它的状态
+    tfCard: tid => { const k = call.chatKey || (call.participants[0] || {}).id; return (chats[k] || []).find(m => m.kind === "transfer" && m.tid === tid) || null; },
+    onTransfer: !call.groupId && (!call.room || call.room.main) && call.participants && call.participants[0] ? (amt, note) => {
+      const c0 = call.participants[0], sid = call.sessionId;
+      const tid = sendTransfer(c0.id, amt, note, { inCall: sid });
+      if (!tid) return;
+      const um = { role: "user", act: true, ev: "transfer", tid, content: "给你转了 " + moneyText(Math.round(Number(amt) * 100) / 100, c0.id) + (note ? "（" + note + "）" : ""), ts: Date.now() };
+      setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, um] } : c);
+      if (callRef.current && callRef.current.sessionId === sid) callRef.current = { ...callRef.current, msgs: [...callRef.current.msgs, um] };
+    } : null,
+    onRespondTransfer: (tid, ok) => {
+      const c0 = call.participants[0], sid = call.sessionId;
+      const card = (chatsRef.current[c0.id] || []).find(m => m.kind === "transfer" && m.tid === tid);
+      if (!card || card.status !== "pending") return;
+      respondTransfer(c0.id, tid, ok);
+      const um = { role: "user", act: true, ev: "transfer", tid, content: (ok ? "收下了你转的 " : "退回了你转的 ") + moneyText(card.amount, c0.id), ts: Date.now() };
+      setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, um] } : c);
+      if (callRef.current && callRef.current.sessionId === sid) callRef.current = { ...callRef.current, msgs: [...callRef.current.msgs, um] };
+    },
     onHangup: (sec, by) => endCall(sec, by)
   }), anonChar && h(AnonBox, {
     char: anonChar,
