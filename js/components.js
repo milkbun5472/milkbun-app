@@ -10817,8 +10817,9 @@ function CallScreen({
     },
     style: {
       // 聊天设置里给这个人挑的通话背景：铺在最底下、压一层暗，字和按钮照样看得清；生图那张画面（stage）照旧盖在它上面
-      background: fixedBg ? "linear-gradient(rgba(0,0,0,.38),rgba(0,0,0,.58)), center/cover no-repeat url(\"" + (typeof resolveImg === "function" ? resolveImg(fixedBg) : fixedBg) + "\")" : callBackdrop(isVideo),
-      paddingTop: "env(safe-area-inset-top)"
+      background: fixedBg ? CALL_BG_SHADE + ", center/cover no-repeat url(\"" + (typeof resolveImg === "function" ? resolveImg(fixedBg) : fixedBg) + "\")" : callBackdrop(isVideo),
+      paddingTop: "env(safe-area-inset-top)",
+      textShadow: (fixedBg || bgUrl) ? "0 1px 3px rgba(0,0,0,.45)" : undefined
     }
     // ⚠️这层画面必须【压在正文底下】（她 2026-09-06：「视频画画会把聊天框和聊天
     //   记录盖住」）。它是 absolute 的，而下面那串台词和输入栏是普通的 in-flow 块——
@@ -10828,7 +10829,7 @@ function CallScreen({
     //   （外面那层有 z-[70] 和背景，是个层叠上下文，所以 -1 不会掉出这一屏。）
   }, (bgUrl || pip) ? h("div", { "data-wk": "callstage", style: { position: "absolute", inset: 0, zIndex: -1, pointerEvents: "none", background: "#0d0f12" } },
       showMeBig ? callMeVideo(true) : bgUrl ? h("img", { src: bgUrl, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : callHimFace(),
-      h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(10,10,12,.58) 0,rgba(10,10,12,.42) 30%,rgba(10,10,12,.74) 100%)" } })) : null, onMinimize && h("button", {
+      h("div", { style: { position: "absolute", inset: 0, background: CALL_BG_SHADE } })) : null, onMinimize && h("button", {
     onClick: () => { cameraRef.current.close(); onMinimize(); },
     className: "absolute active:opacity-60 flex items-center justify-center",
     style: { top: "calc(env(safe-area-inset-top) + 14px)", left: 16, zIndex: 5, width: 34, height: 34, borderRadius: 999, background: "rgba(255,255,255,0.14)" }
@@ -11086,6 +11087,10 @@ function anonNightBg() {
 }
 // 匿名主页背景（她 2026-10-06）：bgDesc 是 TA 注册时自己挑的那张图的描述；画出来的那张记着画的是哪句，
 // TA 换了背景描述，旧图就不再冒充新背景，退回渐变。
+// 通话背景只在字底下压暗（她 2026-10-06：「通话背景用了会发灰」，挑了「只压字底下」）：
+//   原来整张图盖一层 38%~74% 的黑，图本身的颜色全灰了。现在顶上一条薄的护住名字和按钮，
+//   中间原色，台词和按钮那一段才渐渐压下去；字另带一圈阴影兜着浅色图。
+const CALL_BG_SHADE = "linear-gradient(180deg,rgba(0,0,0,.32) 0,rgba(0,0,0,0) 16%,rgba(0,0,0,0) 42%,rgba(0,0,0,.62) 78%,rgba(0,0,0,.78) 100%)";
 function anonBgSrc(d, fallback) {
   const src = d && d.bgImg && d.bgImgFor === (d.bgDesc || "") ? resolveImg(d.bgImg) : "";
   return src ? "center/cover no-repeat url(\"" + src + "\"), " + fallback : fallback;
