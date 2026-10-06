@@ -18,3 +18,17 @@ test("夹在句子里的尖括号照旧不当卡", () => {
   assert.equal(f.htmlCardOf("<哭>我不管我就要抱一下你听见没有<哭>我不管我就要抱一下你听见没有<哭>我不管我就要抱一下你听见没有"), null);
   assert.equal(f.htmlCardOf("<p>短</p>"), null);
 });
+
+// 她 2026-10-06 第二次：「Claude 还是不能发 html」——真正卡住的是 JSON：style="…" 的引号没转义，整份解析不出来
+test("JSON 字符串里夹着 HTML、属性引号没转义：补上转义再解析，卡片完整", () => {
+  const a = s.indexOf("function jsonEscapeHtmlQuotes"), b2 = s.indexOf("function extractJSON");
+  const esc = new Function(s.slice(a, b2) + ";return jsonEscapeHtmlQuotes")();
+  const raw = '{"word":["给你看看<3","' + card + '"],"thought":"嗯"}';
+  assert.throws(() => JSON.parse(raw));
+  const o = JSON.parse(esc(raw));
+  assert.equal(o.word[1], card);
+  assert.equal(o.word[0], "给你看看<3", "「<3」不当标签");
+  const ok = JSON.stringify({ word: ['<div style="a">x</div>'] });
+  assert.equal(esc(ok), ok, "转义过的不重复转");
+  assert.match(s, /const html = typeof jsonEscapeHtmlQuotes === "function" \? jsonEscapeHtmlQuotes\(esc\) : esc;/);
+});

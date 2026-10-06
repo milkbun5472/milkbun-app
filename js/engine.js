@@ -1267,6 +1267,14 @@ function parseJSONLoose(raw) {
   }
   return v;
 }
+// 把 JSON 文本里【HTML 标签内部】和 <style>…</style> 里没转义的双引号补成 \"。认标签要求 < 后面紧跟字母、/ 或 !，
+//   「<3」「<哭>」这种不算；已经转义过的引号不重复转。
+function jsonEscapeHtmlQuotes(t) {
+  const fix = seg => seg.replace(/(^|[^\\])"/g, '$1\\"').replace(/(^|[^\\])"/g, '$1\\"');
+  return String(t)
+    .replace(/<style\b[^]*?<\/style\s*>/gi, fix)
+    .replace(/<[A-Za-z!\/][^<>]*>/g, fix);
+}
 function extractJSON(raw) {
   if (!raw) return null;
   let t = String(raw).replace(/```(?:json)?/gi, "").trim();
@@ -1295,6 +1303,18 @@ function extractJSON(raw) {
     if (r !== undefined) return r;
     const e2 = Math.max(esc.lastIndexOf("}"), esc.lastIndexOf("]"));
     if (e2 > 0) { r = tryParse(esc.slice(0, e2 + 1)); if (r !== undefined) return r; }
+  }
+  // 字符串里夹着一整块 HTML、属性引号没转义（Claude 最常这样：style="…" 原样写进 JSON 字符串）——
+  //   整份一个字都解析不出来，后面的抢救又按引号把卡片剁成好几截（她 2026-10-06：「Claude 还是不能发 html」）。
+  //   只动【标签里面】和 <style> 块里的裸双引号，别处一个字不碰；只在上面全失败时才试。
+  const html = typeof jsonEscapeHtmlQuotes === "function" ? jsonEscapeHtmlQuotes(esc) : esc;
+  if (html !== esc) {
+    r = tryParse(html);
+    if (r !== undefined) return r;
+    const e3 = Math.max(html.lastIndexOf("}"), html.lastIndexOf("]"));
+    if (e3 > 0) { r = tryParse(html.slice(0, e3 + 1)); if (r !== undefined) return r; }
+    r = tryParse(repairJSON(html));
+    if (r !== undefined) return pruneTruncatedTail(r);
   }
   r = tryParse(repairJSON(esc)); // 兜底：修复被截断的 JSON
   if (r !== undefined) return pruneTruncatedTail(r);
