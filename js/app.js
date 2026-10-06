@@ -13813,6 +13813,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             item.text = item.text.replace(/^\s*[【\[<]\s*(?:voice|语音)\s*[】\]>]\s*/i, "").replace(/\s*[【\[<]\s*\/\s*(?:voice|语音)\s*[】\]>]\s*$/i, "").trim();
             if (item.text) item.voice = true;
           }
+          // 「【这条语音里的声音带着…】那句话」：描述摘掉、当语音发，描述里的情绪翻成 emo（跟单聊同一支 voiceDescHead）
+          if (item && item.voice !== true && typeof item.text === "string" && typeof voiceDescHead === "function") {
+            const _vd = voiceDescHead(item.text);
+            if (_vd) { item.text = _vd.rest; item.voice = true; if (!item.voiceEmo) item.voiceEmo = _vd.emo; }
+          }
           // 重名的群里按名字找到的永远是第一个（她 2026-09-22：「同名的头像会被第一个人覆盖」）
           const spk = pickMember(members, item.name);
           if (!spk) continue;

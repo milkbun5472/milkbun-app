@@ -6256,6 +6256,20 @@ function ttsHasPause(text) {
 const VOICE_SLOT_TOKEN = n => "voiceslot" + n;
 const VOICE_SLOT_RE = /^[\s\p{P}\p{S}\uE000-\uF8FF]*voiceslot(\d+)[\s\p{P}\p{S}\uE000-\uF8FF]*$/u;
 function voiceSlotOf(w) { const m = VOICE_SLOT_RE.exec(String(w == null ? "" : w)); return m ? Number(m[1]) : null; }
+// 把「这条要用语音说」写成一段描述挂在句子前面（她 2026-10-06 截图，Gemini：
+//   「【这条语音里的声音带着刚睡醒的沙哑和浓浓的委屈】我刚才都睡着了又被你气醒了」）。
+//   认出来就交回 { rest: 要说出口的那句, emo: 从描述里翻出来的情绪 }；认不出就 null。
+//   只认描述里提到「语音」、或「声音／嗓音…带着／有点／哑／抖」的——「（小声）晚安」这种照旧是字。
+function voiceDescHead(w) {
+  const dm = /^\s*[【\[（(]\s*([^】\]）)]{0,60})[】\]）)]\s*/.exec(String(w == null ? "" : w));
+  if (!dm || !(/语音/.test(dm[1]) || /(声音|嗓音|嗓子).{0,8}(带着|有点|发|哑|抖)/.test(dm[1]))) return null;
+  const rest = String(w).slice(dm[0].length).trim();
+  if (!rest) return null;
+  const d = dm[1];
+  const emo = /委屈|难过|伤心|哭|哽|低落|失落/.test(d) ? "sad" : /生气|火|凶|恼|不耐/.test(d) ? "angry"
+    : /笑|开心|高兴|雀跃|轻快/.test(d) ? "happy" : /怕|慌|紧张/.test(d) ? "fearful" : /惊|愣/.test(d) ? "surprised" : "neutral";
+  return { rest, emo };
+}
 function markPauseVoice(words) {
   // word 里还认两种【明着写的语音】：{"voice":"内容","emo":"…"} 那一项（提示词教的写法），
   //   和「[语音] 内容」这种字面写法。它们各自一条，不跟前后的停顿句合并。
@@ -6275,6 +6289,11 @@ function markPauseVoice(words) {
       if (tag) { const closed = CLOSE.test(w); tag.push(w.replace(CLOSE, "").trim()); if (closed) endTag(); return; }
       // 后面没有合上的标签＝「[语音] 内容」那种前缀写法：只算这一项
       if (OPEN.test(w)) { flush(); const rest = w.replace(OPEN, ""); tag = []; const closed = CLOSE.test(rest) || !list.slice(idx + 1).some(x => typeof x === "string" && CLOSE.test(x)); tag.push(rest.replace(CLOSE, "").trim()); if (closed) endTag(); return; }
+    }
+    // 把「这条要用语音说」写成一段描述挂在前面：认法在 voiceDescHead（单聊、群聊共用）
+    if (typeof w === "string") {
+      const vd = voiceDescHead(w);
+      if (vd) { flush(); out.push(VOICE_SLOT_TOKEN(voice.length)); voice.push({ t: vd.rest, emo: vd.emo }); return; }
     }
     const vo = (w && typeof w === "object") ? String(w.voice || w.t || w.text || "").trim()
       : (/^\s*[\[【]语音[\]】]\s*[:：]?\s*/.test(w) ? w.replace(/^\s*[\[【]语音[\]】]\s*[:：]?\s*/, "").trim() : null);
