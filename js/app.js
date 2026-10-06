@@ -26327,6 +26327,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditRegion: editWorldRegion,
     onBack: goHome
   }) : h(Empty, { text: "地图组件没加载出来", sub: "需要联网加载地图库，检查网络后重开" }));else if (screen === "cast") body = /*#__PURE__*/React.createElement(Cast, {
+    onAskAssistant: () => setScreen("assistant"),
     characters: liveChars,
     // 调顺序：直接改 characters 本身的先后（聊天之外凡是按这份排的都跟着走）。
     //   配角夹在中间也不影响：上移/下移只跟【相邻的正式角色】换位置。
@@ -26353,6 +26354,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onClone: cloneChar
   });else if (screen === "castForm") body = /*#__PURE__*/React.createElement(CastForm, {
+    onAskAssistant: () => setScreen("assistant"),
     initial: editingChar,
     onBack: () => setScreen("cast"),
     onSave: saveChar,

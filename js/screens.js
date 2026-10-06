@@ -346,7 +346,16 @@ function CastSection({ no, title, en, tint, children }) {
     // 正文区换一档纸色，比抬头浅一点，看得出是「填写栏」
     h("div", { className: "px-4 pb-4", style: { position: "relative", background: "rgba(255,255,255,.42)" } }, children));
 }
+// 「这儿秋秋能帮忙」那一行（她 2026-10-06：「你在页面本身也写一下秋秋可以帮忙弄」）——档案馆和编辑页共用这一颗
+function AskQiuLine({ text, onAsk }) {
+  const t = useTheme();
+  if (!onAsk) return null;
+  return h("button", { onClick: onAsk, "data-wk": "askqiu", className: "w-full text-left active:opacity-60",
+    style: { display: "block", margin: "10px 0 4px", padding: "9px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.sub } },
+    text, h("span", { style: { color: t.ink, marginLeft: 4, whiteSpace: "nowrap" } }, "问秋秋 ›"));
+}
 function Cast({
+  onAskAssistant,
   characters,
   onBack,
   onAdd,
@@ -471,6 +480,7 @@ function Cast({
         !sorting && onImportCard ? h("button", { onClick: onImportCard, className: "active:opacity-50 whitespace-nowrap", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "8px 4px" } }, "导入") : null,
         h("button", { onClick: onAdd, className: "flex items-center justify-center active:opacity-50", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink }))) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+      h(AskQiuLine, { onAsk: onAskAssistant, text: "想从头捏一个角色、或者写一篇很长的人设？秋秋能帮你写，一段一段边写边改，写好直接进档案馆。" }),
       characters.length === 0
         ? h(Empty, { text: "档案馆里还没有人", sub: "点右上角 + 立第一份卷宗" })
         : [
@@ -496,6 +506,7 @@ function Cast({
           ]));
 }
 function CastForm({
+  onAskAssistant,
   initial,
   onBack,
   onSave,
@@ -681,7 +692,8 @@ function CastForm({
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),
       h(CastSection, { no: "01", title: "人物底稿", en: characterText({ gender }, "他是谁、从哪儿来"), tint: accent },
-        h(LineField, { zh: "人设", en: "Persona" }, h(LineArea, { value: persona, onChange: e => setPersona(e.target.value), rows: 9, placeholder: "性格、说话风格、背景、当前关系阶段……" }))),
+        h(LineField, { zh: "人设", en: "Persona" }, h(LineArea, { value: persona, onChange: e => setPersona(e.target.value), rows: 9, placeholder: "性格、说话风格、背景、当前关系阶段……" })),
+        h(AskQiuLine, { onAsk: onAskAssistant, text: "人设写不动、想加长或者改某一段？跟秋秋说「帮我改" + ((initial && initial.name) ? "「" + initial.name + "」" : "这个角色") + "的人设」，她改好你点应用就写进来（先存一下这页再去）。" })),
       h(CastSection, { no: "02", title: "时间坐标", en: "哪一年、在什么地方", tint: accent },
         h(LineField, { zh: "时区", en: "Timezone" }, timezone),
         h(LineField, { zh: "生日", en: "Birthday" }, birthdayField),
