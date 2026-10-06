@@ -16,9 +16,10 @@ test("半窗：TA这一轮读得到上半屏那一页", () => {
 test("半窗里聊天顶栏不留刘海安全区", () => {
   assert.match(cmp, /paddingTop: halfMode \? 6 : safeTop\(20\),/);
 });
-test("半窗按住顶条上下拖调高度，记住比例", () => {
-  assert.match(app, /localStorage\.setItem\("x_halfWinH", String\(last \/ vh\)\)/);
-  assert.match(app, /height: \(halfWin\.h \|\| halfWinH\(\)\) \+ "px"/);
+test("半窗像秋秋小屏一样整块拖：顶条挪位置，小横杠调大小，记住", () => {
+  assert.match(app, /"data-wk": "halfwinbar", onPointerDown: e => dragOn\(e, "move"\)/);
+  assert.match(app, /"data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => \{ e\.stopPropagation\(\); dragOn\(e, "size"\); \}/);
+  assert.match(app, /localStorage\.setItem\("x_halfWinBox"/);
 });
 test("收起后的小条也能拖，拖过那一下不算点", () => {
   assert.match(app, /localStorage\.setItem\("x_halfWinPill"/);

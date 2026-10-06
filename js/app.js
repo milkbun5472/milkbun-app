@@ -971,7 +971,17 @@ function App() {
   // 半窗多高：上次拖到哪儿就是哪儿（存的是占屏幕的比例，换机型也对得上），没拖过就是半屏多一点
   const halfPillDragged = useRef(false);
   const halfWinPill = () => { try { const v = JSON.parse(localStorage.getItem("x_halfWinPill") || "null"); if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 50) }; } catch (e) {} return null; };
-  const halfWinH = () => { let r = 0.52; try { const v = Number(localStorage.getItem("x_halfWinH")); if (v >= 0.28 && v <= 0.88) r = v; } catch (e) {} return Math.round(window.innerHeight * r); };
+  // 半窗摆在哪、多大：上次拖到哪儿就是哪儿（存比例，换机型也对得上）；没拖过就是贴底的半屏多一点
+  const halfWinBox = () => {
+    const vw = window.innerWidth, vh = window.innerHeight;
+    let r = null; try { r = JSON.parse(localStorage.getItem("x_halfWinBox") || "null"); } catch (e) {}
+    if (r && r.w > 0 && r.h > 0) {
+      const w = Math.min(vw, Math.max(Math.min(260, vw), Math.round(r.w * vw))), hh = Math.min(vh, Math.max(Math.round(vh * 0.28), Math.round(r.h * vh)));
+      return { w, h: hh, x: Math.max(0, Math.min(vw - w, Math.round(r.x * vw))), y: Math.max(0, Math.min(vh - 60, Math.round(r.y * vh))) };
+    }
+    const hh = Math.round(vh * 0.52);
+    return { x: 0, y: vh - hh, w: vw, h: hh };
+  };
   // 她此刻在看的那一页：页名 + 屏幕上实际显示的字（跳过半窗自己和秋秋那颗浮球），截到 1800 字
   const halfWinScreenText = () => {
     try {
@@ -28757,22 +28767,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         borderRadius: 999, background: "rgba(35,35,35,.82)", boxShadow: "0 3px 12px rgba(0,0,0,.25)", padding: "0 6px 0 14px" } },
       h("button", { onClick: () => { if (!halfPillDragged.current) setHalfWin(w => w ? { ...w, min: false } : w); }, "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
       h("button", { onClick: () => { if (!halfPillDragged.current) setHalfWin(null); }, "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
+    // 跟秋秋那块小屏一样能整块拖（她 2026-10-06「像秋秋那样任意拖」）：按住顶条挪位置，右下角那个角拖大小；松手都记住
+    const bx = halfWin.box || halfWinBox();
+    const dragOn = (e, kind) => {
+      if (e.target.closest("button")) return;
+      e.preventDefault();
+      const x0 = e.clientX, y0 = e.clientY, b0 = { ...bx }, vw = window.innerWidth, vh = window.innerHeight;
+      let last = b0;
+      const mv = ev => {
+        const dx = ev.clientX - x0, dy = ev.clientY - y0;
+        if (kind === "move") last = { ...b0, x: Math.max(0, Math.min(vw - b0.w, b0.x + dx)), y: Math.max(0, Math.min(vh - 60, b0.y + dy)) };
+        else last = { ...b0, w: Math.max(Math.min(260, vw), Math.min(vw - b0.x, b0.w + dx)), h: Math.max(Math.round(vh * 0.28), Math.min(vh - b0.y, b0.h + dy)) };
+        setHalfWin(w => w ? { ...w, box: last } : w);
+      };
+      const up = () => {
+        window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+        try { localStorage.setItem("x_halfWinBox", JSON.stringify({ x: last.x / vw, y: last.y / vh, w: last.w / vw, h: last.h / vh })); } catch (er) {}
+      };
+      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+    };
     return h("div", { "data-halfwin": "1", "data-wk": "halfwin",
-      style: { position: "fixed", left: 0, right: 0, bottom: 0, height: (halfWin.h || halfWinH()) + "px", zIndex: 930, display: "flex", flexDirection: "column",
-        borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 -6px 24px rgba(0,0,0,.18)", background: "var(--bg, #fff)" } },
-      h("div", { "data-wk": "halfwinbar",
-        // 按住这条上下拖＝调半窗多高（她 2026-10-06）；松手记住，下次开还是这么高
-        onPointerDown: e => {
-          if (e.target.closest("button")) return;
-          const y0 = e.clientY, h0 = halfWin.h || halfWinH(), vh = window.innerHeight;
-          let last = h0;
-          const mv = ev => { last = Math.max(Math.round(vh * 0.28), Math.min(Math.round(vh * 0.88), h0 + (y0 - ev.clientY))); setHalfWin(w => w ? { ...w, h: last } : w); };
-          const up = () => { window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up); try { localStorage.setItem("x_halfWinH", String(last / vh)); } catch (er) {} };
-          window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
-        },
-        style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "ns-resize" } },
+      style: { position: "fixed", left: bx.x, top: bx.y, width: bx.w, height: bx.h, zIndex: 930, display: "flex", flexDirection: "column",
+        borderRadius: 16, overflow: "hidden", boxShadow: "0 6px 24px rgba(0,0,0,.22)", background: "var(--bg, #fff)" } },
+      h("div", { "data-wk": "halfwinbar", onPointerDown: e => dragOn(e, "move"),
+        style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)", touchAction: "none", cursor: "move" } },
         h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "放大"),
-        h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.18)" } }),
+        // 中间那根小横杠＝调大小（上下拖高矮、左右拖宽窄）；顶条别处＝挪位置
+        h("div", { "data-wk": "halfwinsize", "aria-label": "按住拖调大小", onPointerDown: e => { e.stopPropagation(); dragOn(e, "size"); },
+          style: { padding: "10px 18px", touchAction: "none", cursor: "nwse-resize" } },
+          h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.28)" } })),
         h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "收起")),
       h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
         mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) })));
