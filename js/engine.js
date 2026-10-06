@@ -4177,7 +4177,7 @@ const IMG_REF_FAIL_FALLBACK = false;
 //   true：锁脸那一枪失败就直接报错，不换字段、不软化重发、不退无参考照，上面那个 FALLBACK 也不生效。
 //   想恢复原来的降级阶梯就改回 false，只此一处。
 const IMG_ONE_SHOT = true;
-const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto" };
+const IMG_API_DEFAULTS = { baseUrl: "", apiKey: "", model: "gpt-image-2", size: "1024x1536", quality: "medium", enabled: false, refFieldMode: "auto", apiFormat: "auto", noRef: false };
 function imgApiProfileId() { return "img_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 7); }
 function normalizeImgApiProfile(p, index) {
   const out = Object.assign({}, IMG_API_DEFAULTS, p || {});
@@ -5004,6 +5004,28 @@ async function naiTagsFor(prompt) {
 }
 
 async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
+  // 「这个站不锁脸」（她 2026-10-05）：有的站不收带图的请求，别的 app 只发文字能出、这里带着参考照就报错。
+  //   站上打开了这个开关 → 从第一下就不带参考照，只发文字，一次请求，回什么收什么（标成 site-no-ref，图上写「没锁脸」）。
+  //   不是「先带照片试、失败再不带补一次」——那是两笔钱，也破了「一张图只发一次请求」。
+  //   没开的站带照片失败时，报错后面告诉她可以去开这个。
+  if (!(opts && opts.__inner)) {
+    const a0 = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();
+    const hasRef = (Array.isArray(refPhotoDataUrl) ? refPhotoDataUrl : [refPhotoDataUrl]).some(x => x && typeof x === "string");
+    const inner = Object.assign({}, opts || {}, { api: a0, __inner: true });
+    if (hasRef && a0.noRef) {
+      const out = await generateSelfieImage(prompt, null, inner);
+      if (out && typeof out === "object") out.degraded = "site-no-ref";
+      return out;
+    }
+    if (hasRef) {
+      try { return await generateSelfieImage(prompt, refPhotoDataUrl, inner); }
+      catch (e) {
+        const m = String((e && e.message) || e);
+        if (!(opts && opts.singleShot) && /参考照|锁脸|不收图片|image/i.test(m)) throw new Error(m + "（这个站要是不收参考照，可以在「设置 → 图像 API」里给它打开「这个站不锁脸」：以后只发文字、照样出图，只是长相不保证像。）");
+        throw e;
+      }
+    }
+  }
   // opts.api：指定用哪一站（图像站点那页的「测试」用它——群友 2026-10-03：「在第二个站点那里点测试生图，
   //   它好像是用第一个站点设置的模型来测试的」）。不给就照旧走主用那一站。
   const a = (opts && opts.api) ? Object.assign({}, IMG_API_DEFAULTS, opts.api) : loadImgApi();

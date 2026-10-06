@@ -15258,8 +15258,10 @@ function SelfieBubble({ m }) {
   if (m.failed) return note((m.photoKind === "part" ? PHOTO_PART_ZH : m.photoKind === "view" ? PHOTO_VIEW_ZH : m.photoKind === "group" ? "合影" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "这张" : "自拍") + "没拍成");
   if (imgErr) return note(m.imgUrl && !url ? "图的临时链接已过期，看过就没啦" : "图数据坏了，显示不出来");
   if (shown) return h(React.Fragment, null,
-    h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: box },
-      h("img", { src: shown, onError: () => setImgErr(true), style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } })),
+    h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: Object.assign({}, box, { position: "relative", display: "block" }) },
+      h("img", { src: shown, onError: () => setImgErr(true), style: { display: "block", width: "100%", maxWidth: 200, maxHeight: 300, objectFit: "cover" } }),
+      // 这张是在「这个站不锁脸」的站上出的：没带参考照，长相不保证像（她 2026-10-05）
+      m.noLock ? h("span", { style: { position: "absolute", left: 6, bottom: 6, padding: "1px 6px", borderRadius: 6, background: "rgba(0,0,0,.42)", color: "#fff", fontFamily: F_BODY, fontSize: 9.5 } }, "没锁脸") : null),
     // 点开那一层：她 2026-09-07 要的「实际保存他们发的照片到手机」。
     // ⚠️存图走公共那一条 window.saveImgOriginal（engine.js）——它认 img_ 键，
     //   而自拍存的正是 "img_"+charId+"_"+sid（app.js 那处 idbImgPut）。别在这儿另写一条。
