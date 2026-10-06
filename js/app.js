@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.941";
+const APP_VERSION = "v74.942";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28735,7 +28735,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: false } : w), "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
       h("button", { onClick: () => setHalfWin(null), "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
     return h("div", { "data-halfwin": "1", "data-wk": "halfwin",
-      style: { position: "fixed", left: 0, right: 0, bottom: 0, height: "52dvh", zIndex: 930, display: "flex", flexDirection: "column",
+      style: { position: "fixed", left: 0, right: 0, bottom: 0, height: "52vh", zIndex: 930, display: "flex", flexDirection: "column",
         borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 -6px 24px rgba(0,0,0,.18)", background: "var(--bg, #fff)" } },
       h("div", { "data-wk": "halfwinbar", style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)" } },
         h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "放大"),
