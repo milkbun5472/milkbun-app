@@ -611,7 +611,7 @@
     return h("div", { "data-wk": "shikeshare", style: { width: 230, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(40,30,20,.08)" } },
       sk.img ? h("div", { style: { position: "relative", height: 120, background: t.bg } }, h(MomentArt, { img: sk.img })) : null,
       h("div", { style: { padding: "10px 12px 11px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.fog } }, "时刻 · " + d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate()),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 2, color: t.fog } }, (sk.byChar ? "TA 存进时刻 · " : "时刻 · ") + d.getFullYear() + "." + (d.getMonth() + 1) + "." + d.getDate()),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 3 } }, "「" + (sk.title || "") + "」"),
         (sk.lines || []).slice(0, 2).map((x, k) => h("div", { key: k, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: t.sub, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, x))));
   }

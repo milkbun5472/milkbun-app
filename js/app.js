@@ -12417,7 +12417,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           all[charId] = [{ id: "pin_" + Date.now(), ts: Date.now(), byChar: true, role: "char", title: String(parsed.keepMoment.title).trim().slice(0, 30),
             text: String(parsed.keepMoment.why || "").trim().slice(0, 300) }].concat(all[charId] || []).slice(0, 300);
           saveJSON("x_shikePins", all);
-          pChat(chatKey, p => [...p, { role: "system", kind: "system", content: char.name + " 把这一刻存进了时刻：「" + String(parsed.keepMoment.title).trim().slice(0, 30) + "」", ts: Date.now(), turnId }]);
+          // 聊天里落一张小卡（她 2026-10-06：「存进时刻也要做小卡」）——跟「发给 TA」那张是同一个 ShikeShareCard，
+          //   只是从 TA 那一侧来、卡上标「TA 存的」；content 照样留一整段字，模型读历史读的是它。
+          const _kt = String(parsed.keepMoment.title).trim().slice(0, 30), _kw = String(parsed.keepMoment.why || "").trim().slice(0, 300);
+          pChat(chatKey, p => [...p, { role: "assistant", kind: "shikeshare", content: "〔把这一刻存进了时刻〕「" + _kt + "」" + (_kw ? "\n" + _kw : ""),
+            ts: Date.now(), turnId, shike: { title: _kt, ts: Date.now(), byChar: true, lines: _kw ? [_kw] : [] } }]);
         } catch (e) {}
       }
       if (parsed.location && parsed.location.name) {
