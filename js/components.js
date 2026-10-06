@@ -9473,6 +9473,11 @@ function ChatThread({
     if (m.kind === "datememory") return h(DateMemoryCard, { key: i, m: m, character: character });
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
+    // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
+    const _oldKeep = (m.kind === "system" || m.role === "system") && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
+    if (_oldKeep) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
+      h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(window.ShikeShareCard, { m: _oldKeep, isU: false }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
@@ -12581,6 +12586,19 @@ function ChatForwardSheet({ m, onClose }) {
 }
 // 聊天里能画成小卡的那几种分享（单聊、群聊都问这一张表）。时刻和番茄钟的卡住在各自的 app 文件里，
 //   那两个文件不一定比这里先加载，所以取的时候再去 window 上找。
+// 旧的「X 把这一刻存进了时刻：「名目」」那行灰字 → 一份能交给 ShikeShareCard 的样子；认不出就 null
+function oldKeepMoment(m, character) {
+  const hit = /把这一刻存进了时刻：「(.+)」\s*$/.exec(String((m && m.content) || ""));
+  if (!hit || !character) return null;
+  const title = hit[1], ts = Number(m.ts) || Date.now();
+  let why = "";
+  try {
+    const pins = ((typeof loadJSON === "function" ? loadJSON("x_shikePins", {}) : {}) || {})[character.id] || [];
+    const near = pins.filter(x => x && x.byChar && x.title === title).sort((a, b) => Math.abs((a.ts || 0) - ts) - Math.abs((b.ts || 0) - ts))[0];
+    why = near ? String(near.text || "") : "";
+  } catch (e) {}
+  return { ts: ts, shike: { title: title, ts: ts, byChar: true, lines: why ? [why] : [] } };
+}
 function shareCardOf(kind) {
   if (kind === "forumshare") return ForumShareCard;
   if (kind === "ficshare") return FicShareCard;
