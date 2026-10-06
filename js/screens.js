@@ -4584,8 +4584,12 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
   const [titleEditing, setTitleEditing] = useState(false);
   const [titleVal, setTitleVal] = useState(bookTitle);
   // TA出的题（v62.10）她在这儿写她那半；翻到别页就清空，别把 A 题的草稿带进 B 题
-  const [revealVal, setRevealVal] = useState("");
-  useEffect(() => { setRevealVal(""); }, [pageIdx]);
+  // 揭题那格的草稿【认题不认页】（她 2026-10-06：「我明明答的是A题，交上去按进B了」）：
+  // 原来草稿只跟页码走——停在「最后一页」(9999) 时TA又出了一道新题，新题排到最后，
+  // 同一个页码底下换成了B，框里她给A写的字还留着，一按就交进了B。
+  const [revealDraft, setRevealDraft] = useState({ id: "", text: "" });
+  // 「翻到最后一页」(9999) 一落地就换成真页码：不然TA新出一题，停着的这页会自己跳到新题上
+  useEffect(() => { if (mine.length && pageIdx > mine.length - 1) setPageIdx(mine.length - 1); }, [pageIdx, mine.length]);
   const swipeRef = useRef({ x: 0, y: 0 });
   const draw = () => { if (pool.length) { setCur(pool[Math.floor(Math.random() * pool.length)]); setAns(""); } else setCur(null); };
   // 交卷＝把自己那份【封起来】，一次调用都不花；TA那份等你按「让 TA 也写一份」才生成，
@@ -4631,8 +4635,8 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a7a5c", marginBottom: 3 } }, "我"),
             // TA出的题（sealed 且她还没写）：她的那半直接在这儿写，写完两份一起打开——零调用
             (e.sealed && e.byCharacter && !e.myAnswer) ? h("div", null,
-              h("textarea", { value: revealVal, onChange: ev => setRevealVal(ev.target.value), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
-              h("button", { onClick: () => { if (onReveal && onReveal(e.id, revealVal)) setRevealVal(""); }, disabled: !revealVal.trim(), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
+              h("textarea", { value: revealDraft.id === e.id ? revealDraft.text : "", onChange: ev => setRevealDraft({ id: e.id, text: ev.target.value }), placeholder: "写下你的答案…", rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
+              h("button", { onClick: () => { if (revealDraft.id === e.id && onReveal && onReveal(e.id, revealDraft.text)) setRevealDraft({ id: "", text: "" }); }, disabled: !(revealDraft.id === e.id && revealDraft.text.trim()), className: "active:opacity-70 disabled:opacity-40", style: { marginTop: 8, background: "#3a3226", color: "#fdfaf1", fontFamily: F_DISPLAY, fontSize: 13, padding: "7px 16px", borderRadius: 8 } }, "写好了 · 一起打开")) :
             editId === e.id ? h("div", null,
               h("textarea", { value: editText, onChange: ev => setEditText(ev.target.value), rows: 3, style: { width: "100%", outline: "none", resize: "none", padding: "9px 11px", borderRadius: 6, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, background: "#fffdf6", color: "#3a3226", border: "1px solid #e6dcc4" } }),
               h("div", { className: "flex gap-2 mt-2" },
