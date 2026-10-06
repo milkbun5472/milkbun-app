@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.935";
+const APP_VERSION = "v74.936";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2841,11 +2841,11 @@ function App() {
     // 同时给通话上下文挂一行指针，TA在电话里接得上（她 2026-10-06：「不要为了新功能搞按钮」）
     const _cc = callRef.current;
     if (_cc && !_cc.groupId && (!_cc.room || _cc.room.main) && (_cc.chatKey || (_cc.participants[0] || {}).id) === id && n.length > pl.length) {
-      const added = n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "callend" && m.kind !== "narration" && !m.inCall && m.content);
-      if (added.length) {
+      const _ccAdd = n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "callend" && m.kind !== "narration" && !m.inCall && m.content);
+      if (_ccAdd.length) {
         const who = (_cc.participants[0] || {}).name || "TA", sid = _cc.sessionId;
-        n = n.map(m => added.includes(m) ? { ...m, inCall: sid } : m);
-        const lines = added.map(m => ({ role: "user", act: true, ev: m.kind === "transfer" ? "transfer" : "chat", ...(m.tid ? { tid: m.tid } : {}), ts: m.ts || Date.now(),
+        n = n.map(m => _ccAdd.includes(m) ? { ...m, inCall: sid } : m);
+        const lines = _ccAdd.map(m => ({ role: "user", act: true, ev: m.kind === "transfer" ? "transfer" : "chat", ...(m.tid ? { tid: m.tid } : {}), ts: m.ts || Date.now(),
           content: m.kind === "transfer" ? "给" + who + "转了 " + moneyText(m.amount, id) + (m.note ? "（" + m.note + "）" : "") : "在聊天里发了：" + String(m.content).slice(0, 160) }));
         callRef.current = { ..._cc, msgs: [..._cc.msgs, ...lines] };
         setTimeout(() => setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, ...lines] } : c), 0);
