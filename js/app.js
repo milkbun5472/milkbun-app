@@ -7901,7 +7901,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，重拍一张多半就好）");
-        patch({ pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") });
+        patch({ pending: false, imgKey: key });
       } else if (out.url) {
         patch({ pending: false, imgUrl: out.url });
       } else { throw new Error("没拿到图"); }
@@ -12775,7 +12775,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 回读验证：iOS 的 IndexedDB 偶发写成功读不出 → 别装成功，大声报出来
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") } : m));
+        pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgKey: key } : m));
       } else if (out.url) {
         // 跨域取不到 blob，直接用图片 URL 显示
         pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
@@ -12819,7 +12819,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，让 TA 重拍一张多半就好）");
-        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key, noLock: !!(out && out.degraded === "site-no-ref") } : m));
+        pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgKey: key } : m));
       } else if (out.url) {
         pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
       } else { throw new Error("没拿到图"); }

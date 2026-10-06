@@ -8662,11 +8662,11 @@ function ImageApiConfig({ toast }) {
         h("option", { value: "images" }, "出图接口 /images（gpt-image 等）"),
         h("option", { value: "chat" }, "聊天接口 /chat/completions"),
         h("option", { value: "gemini" }, "Gemini 原生 /v1beta/…:generateContent"))),
-      // 这个站不锁脸（她 2026-10-05）：有的站不收带图的请求——打开就只发文字，一次请求，出来的图标「没锁脸」
+      // 这个站不锁脸（她 2026-10-05）：有的站不收带图的请求——打开就只发文字，一次请求
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line } },
         h("div", { style: { paddingRight: 10, flex: 1, minWidth: 0 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "这个站不锁脸"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "有的站不收带图片的请求，带着参考照就报错。打开后这个站只发文字描述、一次请求，照样出图——只是长相不保证跟参考照一样，出来的图上会标「没锁脸」。")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginTop: 2 } }, "有的站不收带图片的请求，带着参考照就报错。打开后这个站只发文字描述、一次请求，照样出图——只是长相不保证跟参考照一样。")),
         h("div", { className: "shrink-0" }, h(Toggle, { on: !!c.noRef, onChange: () => set({ noRef: !c.noRef }) }))),
       h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "9px 12px", borderRadius: 10, background: t.bg2, border: "1px dashed " + t.line } },
         h("div", { style: { paddingRight: 10 } },
