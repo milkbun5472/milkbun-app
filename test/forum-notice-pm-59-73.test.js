@@ -46,7 +46,7 @@ test("能主动私信一个网友，他在私信里得还是吧里那个人", ()
   assert.match(st, /【TA 在吧里还没留下什么公开发言、也不是常驻熟面孔】/, "什么都查不到的人没有兜底，会被现编一堆");
   assert.match(st, /是被陌生人主动私信之后的反应\*\*，不是 TA 主动来搭讪/, "写成了他来找我，方向反了");
   // 同一个人不该在列表里躺两遍
-  assert.match(st, /const exist = \(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && \(t\.npcId === npc\.id \|\| t\.npcName === npc\.name\)\);/,
+  assert.match(st, /const exist = \(forumPMsRef\.current \|\| \[\]\)\.find\(t => t && \(t\.npcId === npc\.id \|\| t\.npcName === npc\.name\) && !!t\.alt === \(forumMe\.using === "alt"\)\);/,
     "同一个人会开出第二条会话");
   assert.match(st, /if \(exist\) return exist\.id;/, "已经有会话时没直接开那一条");
   // 聊几轮之后还得是同一个人
