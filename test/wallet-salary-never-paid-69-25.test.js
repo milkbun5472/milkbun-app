@@ -104,7 +104,7 @@ test("工资和固定支出拆成两笔，工资那一笔单独站着", () => {
   assert.ok(!/月度收支 · 工资到账 − 固定支出/.test(app));
   assert.equal((seg.match(/"monthly"/g) || []).length, 1, "monthly 只能是工资那一笔");
   // 搬走了就不许在原地留一份：两处各记一笔＝双倍工资
-  const day = cut("  const applyWalletDay = async (char, dayKey) =>", "  // 每天自动补一次账");
+  const day = cut("  const applyWalletDay = async (char, dayKey, opts) =>", "  // 每天自动补一次账");
   assert.ok(!/"工资到账"/.test(day), "applyWalletDay 里那份没删干净");
   assert.ok(!/isFirst/.test(day), "isFirst 还留着");
   // 这一条【不打枪】：它整个函数里不许出现 await / runProbe

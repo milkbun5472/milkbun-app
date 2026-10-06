@@ -131,7 +131,7 @@ test("为你花的能收起来，收起来的时候仍然看得见总额", () =>
 test("钱包和购物/外卖是双向接着的，而且不会同一笔算两遍", () => {
   const money = grab(app, "  const phoneMoneyFor = char =>", "  // ---- 查手机：每个 app 独立生成/刷新 ----", "phoneMoneyFor");
   assert.match(money, /balance:/, "余额没发给花钱的那几个 app，穷角色照样下大单");
-  const day = grab(app, "  const applyWalletDay = async (char, dayKey)", "  const catchUpWallet", "applyWalletDay");
+  const day = grab(app, "  const applyWalletDay = async (char, dayKey, opts)", "  const catchUpWallet", "applyWalletDay");
   assert.match(day, /phoneOrdersOnDay\(char\.id, dayKey\)/, "手机上真下过的单子没有入账");
   assert.match(day, /srcKey/, "没有防重键，补账跑两遍就会把同一单记两次");
   const spend = grab(app, "  const genDailySpend = async (char, dayKey, rec, already)", "  const applyWalletDay", "genDailySpend");

@@ -70,7 +70,7 @@ test("那天手机上真下过的单子直接入账，不再让模型编第二�
   assert.match(fn, /x\._ts != null\) \? x\._ts/, "没优先用冻结的时刻");
   assert.match(fn, /phonesRef\.current/, "读的是闭包里的旧 phones");
 
-  const ap = appSrc.match(/const applyWalletDay = async \(char, dayKey\) => \{[\s\S]*?\n  \};/)[0];
+  const ap = appSrc.match(/const applyWalletDay = async \(char, dayKey, opts\) => \{[\s\S]*?\n  \};/)[0];
   assert.match(ap, /const already = phoneOrdersOnDay\(char\.id, dayKey\)/);
   assert.match(ap, /genDailySpend\(char, dayKey, rec, already\)/, "没把已入账那几笔告诉模型");
   // 补账可能跑不止一遍，同一单不许记两次
