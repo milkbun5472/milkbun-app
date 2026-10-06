@@ -2275,10 +2275,21 @@ function bubbleGlueOrphans(list) {
 }
 const HTML_CARD_MIN = 80;   // 比这短的不当卡片看：避免把「<3」「<哭>」这种误判成 HTML
 // 认卡片：必须是一整块元素起头的 HTML，不是句子里夹了个尖括号。
+// 能当整块卡片起头的那几种标签（起头和「前面先说了一句话」那一刀共用这一份）
+const HTML_CARD_HEAD = "!doctype\\s+html|html|body|div|section|article|main|table|style|svg|figure|header|footer|nav|aside|details|form|ul|ol|blockquote|center|p|h[1-6]|span|button|img";
+// Claude 爱把卡片包进 ```html 代码块里；extractJSON 那一刀只削掉三个反引号，前面剩一个光秃秃的「html」——
+//   原来卡片就这样认不出来，整块当字发出去或者被拆碎（她 2026-10-06：「claude 还是发不了 html，世界书还是不管用」）。
+//   起头的 html 注释同理先削掉。
+function htmlCardUnwrap(text) {
+  return String(text == null ? "" : text).trim()
+    .replace(/^```[ \t]*html?[ \t]*\n?/i, "").replace(/\n?[ \t]*```\s*$/, "")
+    .replace(/^html[ \t]*\n\s*(?=<)/i, "")
+    .replace(/^(?:<!--[\s\S]*?-->\s*)+(?=<)/, "").trim();
+}
 function htmlCardOf(text) {
-  const s = String(text == null ? "" : text).trim();
+  const s = htmlCardUnwrap(text);
   if (s.length < HTML_CARD_MIN) return null;
-  if (!/^<(!doctype\s+html|html|div|section|article|main|table|style|svg|figure)\b/i.test(s)) return null;
+  if (!new RegExp("^<(" + HTML_CARD_HEAD + ")\\b", "i").test(s)) return null;
   if (!/<\/\s*[a-z][\w-]*\s*>/i.test(s)) return null;   // 得有闭合标签，半截的不画
   return s;
 }
@@ -2292,7 +2303,8 @@ function splitCardsAndLines(s) {
   if (whole) return [whole];
   // 前面先说了一句话、后面才跟着整块 HTML：话归话、卡归卡，两边都不丢。
   // （模型最常见的破法就是这个：「好的，这是你的成绩单：<div…」）
-  const i = str.search(/<(!doctype\s+html|html|div|section|article|main|table|figure)\b/i);
+  const fence = str.search(/```[ \t]*html?\b|(^|\n)html[ \t]*\n\s*</i);
+  const i = fence > 0 ? fence : str.search(new RegExp("<(" + HTML_CARD_HEAD + ")\\b", "i"));
   if (i > 0) {
     const tail = htmlCardOf(str.slice(i));
     if (tail) return str.slice(0, i).split(/\n+/).map(x => x.trim()).filter(Boolean).concat([tail]);
