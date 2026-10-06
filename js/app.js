@@ -11950,6 +11950,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           _joined.push(typeof words[wi] === "string" || WRAP_OPEN.test(cur) ? cur : words[wi]);
         }
         words = _joined;
+        // 「我爱听[表情] 老公开心的歪嘴笑」——标记夹在一句话后面（她 2026-10-06 截图）。
+        //   前半句照常当文字，标记后面那段当表情关键词；上面那道只认开头，抓不到这种。
+        const MID_TAG = /^([\s\S]*?\S)\s*[\u3010\[\uff3b]\s*\u8868\u60c5(?:\u5305)?\s*[\u3011\]\uff3d]\s*[:\uff1a]?\s*(.+)$/;
+        words = words.reduce((acc, w) => {
+          const mMid = typeof w === "string" ? w.match(MID_TAG) : null;
+          if (mMid && mMid[2].trim()) { emoteWordKws.push(mMid[2].trim()); acc.push(mMid[1].trim()); }
+          else acc.push(w);
+          return acc;
+        }, []);
         words = words.filter(w => {
           const s = String(w == null ? "" : w);
           const mWrap = typeof w === "string" ? s.match(WRAP_RE) : null;
