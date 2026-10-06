@@ -13,3 +13,6 @@ test("半窗：TA这一轮读得到上半屏那一页", () => {
   assert.match(app, /\+ _halfHint \+ _stateBootstrapHint/);
   assert.match(app, /closest\("\[data-halfwin\],\[data-assistant-dock\]"\)/, "读屏幕时跳过半窗自己和秋秋浮球");
 });
+test("半窗里聊天顶栏不留刘海安全区", () => {
+  assert.match(cmp, /paddingTop: halfMode \? 6 : safeTop\(20\),/);
+});

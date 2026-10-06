@@ -9161,7 +9161,7 @@ function ChatThread({
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     "data-wk": "chathead",
     style: {
-      paddingTop: safeTop(20),
+      paddingTop: halfMode ? 6 : safeTop(20), // 半窗里没有刘海，不留那条安全区（她 2026-10-06 截图）
       // 顶栏自成一层压在消息上面（她 2026-09-30：「顶上的蕾丝会被气泡 override 一部分」）——
       //   主题给气泡上了 position:relative，没层级的顶栏画出界的装饰（蕾丝边、::after）就被后画的气泡盖住。
       position: "relative", zIndex: 3,
