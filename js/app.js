@@ -1327,6 +1327,8 @@ function App() {
   const callRef = useRef(null);
   const groupAutoCallEpochRef = useRef({});
   const groupCallActive = gid => !!(callRef.current && callRef.current.groupId === gid);
+  const [takeoutNav, setTakeoutNav] = useState("near");     // 外卖 app 落在哪一页（聊天里点外卖卡进来＝订单）
+  const [takeoutBack, setTakeoutBack] = useState(null);     // 从哪一页进来的，返回键就回哪
   const [offlineChar, setOfflineChar] = useState(null);
   const [offlineRoomId, setOfflineRoomId] = useState("main");
   const [offlines, setOfflines] = useState({}); // main charId 或 room chatKey -> [session,...] newest-first
@@ -26569,6 +26571,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
     //   她还得再点一次才进得去（她 2026-09-14 报的就是这个）。
     onOpenUs: () => { setUsLand({ view: activeChar.id, sub: "disc" }); setScreen("us"); },
+    // 聊天里 TA 给你点的外卖卡 → 外卖 app 的订单页；返回键回到这个聊天
+    onOpenTakeout: () => { setTakeoutNav("orders"); setTakeoutBack("thread"); setScreen("takeout"); },
     onOpenSettings: () => setChatSettingsOpen(true),
     room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
     onOpenRooms: () => setChatRoomsOpen(true),
@@ -27228,6 +27232,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLeaveAtHis: leaveAtHis,
     toast: toast
   });else if (screen === "takeout") body = h(Takeout, {
+    key: "takeout:" + takeoutNav,
+    initialNav: takeoutNav,
     wallet: wallet,
     orders: orders,
     log: takeoutLog,
@@ -27236,11 +27242,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     kinshipCards: kinshipCards,
     feed: takeoutFeed,
     busy: takeoutBusy,
-    onBack: goHome,
     onGen: genTakeout,
     onOrder: orderTakeout,
     onEat: eatTakeout,
-    toast: toast
+    toast: toast,
+    onBack: () => { if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
     land: usLand,
     onLanded: () => setUsLand(null),
