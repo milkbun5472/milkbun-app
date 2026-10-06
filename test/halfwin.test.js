@@ -20,3 +20,7 @@ test("半窗按住顶条上下拖调高度，记住比例", () => {
   assert.match(app, /localStorage\.setItem\("x_halfWinH", String\(last \/ vh\)\)/);
   assert.match(app, /height: \(halfWin\.h \|\| halfWinH\(\)\) \+ "px"/);
 });
+test("收起后的小条也能拖，拖过那一下不算点", () => {
+  assert.match(app, /localStorage\.setItem\("x_halfWinPill"/);
+  assert.match(app, /if \(!halfPillDragged\.current\) setHalfWin\(w => w \? \{ \.\.\.w, min: false \} : w\);/);
+});

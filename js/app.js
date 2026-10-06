@@ -969,6 +969,8 @@ function App() {
   const halfWinRef = useRef(null); halfWinRef.current = halfWin;
   const screenRef = useRef(screen); screenRef.current = screen;
   // 半窗多高：上次拖到哪儿就是哪儿（存的是占屏幕的比例，换机型也对得上），没拖过就是半屏多一点
+  const halfPillDragged = useRef(false);
+  const halfWinPill = () => { try { const v = JSON.parse(localStorage.getItem("x_halfWinPill") || "null"); if (v && v.x >= 0 && v.x <= 1 && v.y >= 0 && v.y <= 1) return { x: Math.min(Math.round(v.x * window.innerWidth), window.innerWidth - 80), y: Math.min(Math.round(v.y * window.innerHeight), window.innerHeight - 50) }; } catch (e) {} return null; };
   const halfWinH = () => { let r = 0.52; try { const v = Number(localStorage.getItem("x_halfWinH")); if (v >= 0.28 && v <= 0.88) r = v; } catch (e) {} return Math.round(window.innerHeight * r); };
   // 她此刻在看的那一页：页名 + 屏幕上实际显示的字（跳过半窗自己和秋秋那颗浮球），截到 1800 字
   const halfWinScreenText = () => {
@@ -28731,11 +28733,30 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!halfWin || !activeChar || activeChar.id !== halfWin.charId || screen === "thread" || call) return null;
     // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开接着聊
     const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#fff" };
+    // 小条也能拖（她 2026-10-06）：按住挪到哪儿就停哪儿，记住位置；挪过了那一下不算点
+    const pp = halfWin.pill || halfWinPill();
+    const pillPos = pp ? { left: pp.x, top: pp.y } : { left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)" };
     if (halfWin.min) return h("div", { "data-halfwin": "1", "data-wk": "halfwinpill",
-      style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", zIndex: 930, display: "flex", alignItems: "center",
+      onPointerDown: e => {
+        const el = e.currentTarget, r = el.getBoundingClientRect(), dx = e.clientX - r.left, dy = e.clientY - r.top, x0 = e.clientX, y0 = e.clientY;
+        let moved = false, last = null;
+        const mv = ev => {
+          if (!moved && Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
+          moved = true; halfPillDragged.current = true;
+          last = { x: Math.max(4, Math.min(window.innerWidth - r.width - 4, ev.clientX - dx)), y: Math.max(4, Math.min(window.innerHeight - r.height - 4, ev.clientY - dy)) };
+          setHalfWin(w => w ? { ...w, pill: last } : w);
+        };
+        const up = () => {
+          window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+          if (last) try { localStorage.setItem("x_halfWinPill", JSON.stringify({ x: last.x / window.innerWidth, y: last.y / window.innerHeight })); } catch (er) {}
+          setTimeout(() => { halfPillDragged.current = false; }, 0);
+        };
+        window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+      },
+      style: { position: "fixed", ...pillPos, zIndex: 930, display: "flex", alignItems: "center", touchAction: "none",
         borderRadius: 999, background: "rgba(35,35,35,.82)", boxShadow: "0 3px 12px rgba(0,0,0,.25)", padding: "0 6px 0 14px" } },
-      h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: false } : w), "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
-      h("button", { onClick: () => setHalfWin(null), "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
+      h("button", { onClick: () => { if (!halfPillDragged.current) setHalfWin(w => w ? { ...w, min: false } : w); }, "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
+      h("button", { onClick: () => { if (!halfPillDragged.current) setHalfWin(null); }, "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
     return h("div", { "data-halfwin": "1", "data-wk": "halfwin",
       style: { position: "fixed", left: 0, right: 0, bottom: 0, height: (halfWin.h || halfWinH()) + "px", zIndex: 930, display: "flex", flexDirection: "column",
         borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 -6px 24px rgba(0,0,0,.18)", background: "var(--bg, #fff)" } },
