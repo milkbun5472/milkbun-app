@@ -8,7 +8,8 @@ test("TA 存一刻时落的是同一张 ShikeShareCard，标「TA 存进时刻�
   assert.ok(app.indexOf("把这一刻存进了时刻：") < 0, "那行灰字还在");
   assert.match(app, /role: "assistant", kind: "shikeshare", content: "〔把这一刻存进了时刻〕「"/);
   assert.match(app, /shike: \{ title: _kt, ts: Date\.now\(\), byChar: true, lines: _kw \? \[_kw\] : \[\] \}/);
-  assert.match(shike, /sk\.byChar \? "TA 存进时刻 · " : "时刻 · "/);
+  // 2026-10-06 卡重做：日期挪进右上那枚圆戳，眉标只剩「TA 存进时刻／时刻」
+  assert.match(shike, /sk\.byChar \? "TA 存进时刻" : "时刻"/);
 });
 
 test("以前那几行灰字画的时候也认成小卡，存档不动；为什么从时刻里那条找回来", () => {
