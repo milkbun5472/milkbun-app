@@ -19,7 +19,7 @@ assert.ok(/没写说明/.test(ctx.forumWithPhoto("", { photo: { imageRef: "iv_x"
 
 // 2. 发帖 / 回楼：她的图真的存上
 const pm = app.indexOf("const postMyForum = ("); assert.ok(pm > 0);
-assert.match(app.slice(pm, pm + 600), /\(board, title, body, photo\)[\s\S]*photo: forumPhotoOf\(\{ photo \}\)/);
+assert.match(app.slice(pm, pm + 1400), /\(board, title, body, photo, as\)[\s\S]*photo: forumPhotoOf\(\{ photo \}\)/);   // v74.908 多了 as（用哪个号发）
 const af = app.indexOf("const addForumFloor = ("); assert.ok(af > 0);
 const afBody = app.slice(af, app.indexOf("const addForumSubReply", af));
 assert.match(afBody, /photo: forumPhotoOf\(\{ photo \}\)/);
@@ -53,7 +53,7 @@ assert.match(app, /forumFloorTranscript\(\[\{ \.\.\.floor, floor: null \}\]\)/);
 assert.match(cmp, /function PhotoAttach\(\{ value, onChange, toast \}\)/);
 assert.match(cmp, /function photoAttachValue\(v\)/);
 assert.ok((scr.match(/h\(PhotoAttach,/g) || []).length === 2, "发帖、回楼各一处");
-assert.match(scr, /onPostMine\(cbBoard, cbTitle\.trim\(\), cbBody\.trim\(\), photoAttachValue\(cbPhoto\)\)/);
+assert.match(scr, /onPostMine\(cbBoard, cbTitle\.trim\(\), cbBody\.trim\(\), photoAttachValue\(cbPhoto\), cbAs\)/);
 assert.match(scr, /onReplyFloor\(open, rTxt\.trim\(\), ph\)/);
 assert.match(scr, /h\(PhotoCard, \{ m: ph/);
 assert.match(scr, /h\(PhotoSheet, \{ m: photoView/);

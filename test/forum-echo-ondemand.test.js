@@ -68,5 +68,5 @@ test("④ 三天以外的掉出去，最近的先占位，总量封在 6 条", (
 test("匿名吧和小号一个字都不许漏", () => {
   const anon = [{ id: "pa", authorId: "me", authorType: "me", anon: true, board: "匿名吧", title: "我不想让他知道的事", ts: now - H }];
   assert.equal(run("论坛", anon, {}), "");
-  assert.match(body, /p\.authorType === "me" && !p\.anon && p\.board !== "匿名吧"/);
+  assert.match(body, /p\.authorType === "me" && !p\.anon && !p\.alt && p\.board !== "匿名吧"/);
 });
