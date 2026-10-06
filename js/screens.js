@@ -1336,6 +1336,7 @@ function Ties({
   const [view, setView] = useState(null); // null=关系板 / participant id=按条看的详情页
   const [walkAt, setMapAt] = useState(null); // 关系图那一页站在谁身上；null=没开
   const [board, setBoard] = useState("me"); // 现在看谁的板子（一人一页）
+  const [maskPick, setMaskPick] = useState("");       // 「我」那页的面具筛子；""＝全部
   const me = profile.name || "我";
   const all = allChars || characters;   // 解析用全量（含 NPC）
   // ⚠️「角色之间」原来只给 liveChars（把配角滤掉了），于是配角除了建它那一刻自动写下的
@@ -1547,7 +1548,7 @@ function Ties({
   //   （查手机：「跟 TA 不是同一张面具聊的，他默认查不到」）。两圈人画在同一张网上，
   //   等于把两个社交圈画成了一个。
   const maskList = (masks || []).filter(m => m && m.id && m.id !== maskPrimary);
-  const [maskPick, setMaskPick] = useState("");       // ""＝全部
+  // ⚠️maskPick 搬到了最上面那排 useState 里：它原来在「按条看」那个提前 return 后面，一点进去 hook 数就变了，整页崩（React #300）。
   const maskIdOf = id => (typeof maskOf === "function" ? String(maskOf(id) || "") : "");
   const maskHit = id => {
     if (!maskPick) return true;
