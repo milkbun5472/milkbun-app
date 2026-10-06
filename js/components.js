@@ -7341,6 +7341,7 @@ function ProfileSheet({
 // ⚠️线下暂离的提醒（聊天顶上那条、消息列表那个「线下中」小签）试过又撤了——她 2026-09-30：「不要这个点！我知道我还在线下」「要拿掉」。
 //   别再加回来：进线下走聊天顶上「见一面」，或者聊天设置里开「默认进线下」。
 function Messages({
+  onPinMoment,
   characters,
   allChars,
   onSaveNpcAvatar,
@@ -7600,6 +7601,7 @@ function Messages({
     onMore: onMoreMomentComments,
     moreBusy: momentMoreBusy,
     onDelete: onDelMoment,
+    onPin: onPinMoment,
     onOpenProfile: cid => onOpenMomProfile && onOpenMomProfile(cid, false)
   }), tab === "me" && h("div", {
     className: "p-5"
@@ -8129,6 +8131,7 @@ function MomentsFeed({
   onMore,
   moreBusy,
   onDelete,
+  onPin,
   onOpenProfile
 }) {
   const t = useTheme();
@@ -8327,7 +8330,11 @@ function MomentsFeed({
         fontSize: 11,
         color: t.fog
       }
-    }, "评论"), onDelete && h("button", {
+    }, "评论"), onPin && m.characterId && h("button", {
+      // 收进时刻：连同底下的评论一起，收进发这条的那位名下（她 2026-10-06）
+      onClick: () => onPin(m), "data-wk": "mompin",
+      style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }
+    }, "收进时刻"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }
     }, "删除")), m.likers && m.likers.length > 0 && h("div", {

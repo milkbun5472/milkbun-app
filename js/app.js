@@ -12990,6 +12990,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast("收进时刻了");
     }, "收进去");
   };
+  // 朋友圈收进时刻（她 2026-10-06）：一条动态连同底下的评论，当成一段收进发帖那位的时刻里。
+  //   走上面同一处 pinToShike，不另开一条存法；配图是图库里的那种才跟着带过去。
+  const pinMomentToShike = m => {
+    if (!m || !m.characterId) return;
+    const char = characters.find(c => c.id === m.characterId);
+    const me = profile.name || "我";
+    const ts0 = Number(m.ts) || Date.now();
+    const rows = [{ role: "assistant", content: String(m.content || ""), ts: ts0, _who: char ? (char.remark || char.name) : "", ...(m.image && isImgRef(m.image) ? { imageRef: m.image } : {}) }]
+      .concat((m.comments || []).filter(c => c && c.text).map((c, i) => ({ role: c.author === me ? "user" : "assistant", content: String(c.text), ts: ts0 + i + 1, _who: c.author || "" })));
+    pinToShike(m.characterId, rows.length > 1 ? rows : rows[0], x => x._who || undefined);
+  };
   // 群里圈一段收进时刻：收成一张【多人的】卡，这一段里说过话的每个角色名下都有。群聊、群线下共用这一处。
   const pinGroupToShike = (g, ms) => {
     const picked = (ms || []).filter(m => m && !m.recalled && m.content);
@@ -26921,6 +26932,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onMoreMomentComments: genMoreMomentComments,
     momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
+    onPinMoment: pinMomentToShike,
     onOpenMomProfile: openMomProfile,
     onEditProfile: () => setProfileOpen(true),
     onOpenWallet: () => setScreen("wallet"),
