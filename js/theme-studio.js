@@ -450,6 +450,9 @@
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
         ["chatpanel", "点＋弹出来的那整块面板（底色、上边线、内边距；群友 2026-10-06 要的）"],
         ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"],
+        ["chattoolicon", "加号面板每个键上面那个方块（底色、边框、圆角、大小；也带 data-chat-tool）"],
+        ["chattoolglyph", "方块里的图标（svg：stroke 换颜色；换图就先 svg { display:none }，给这一格写 background）"],
+        ["chattoollabel", "键底下那行字"],
         // 点头像那张心声卡（她 2026-09-22 转群里读者：「那个卡片不可以美化的嘛？」）
         ["statecard", "点头像那张心声卡整张"], ["statehead", "心声卡抬头（头像·名字·此刻心情）"],
         ["stateseen", "心声卡「看得见的」那一段（穿着＋动作）"], ["statevoice", "心声卡「心里想的」那一块"],
@@ -922,7 +925,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.886", changed: "", none: "只改了群里自己聊的条数闸，没动挂点和类名" };
+  const BRIEF_STAMP = { v: "v74.887", changed: "聊天页新挂点 chattoolicon、chattoolglyph、chattoollabel（＋面板每个键的方块、图标、字）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
