@@ -8541,6 +8541,8 @@ function ImageApiConfig({ toast }) {
   };
   const [models, setModels] = useState([]);
   const [fetching, setFetching] = useState(false);
+  const MM_IMG = ["image-01", "image-01-live"];
+  const isMmImg = c.apiFormat === "minimax" || /minimax/i.test(String(c.baseUrl || ""));
   const pull = async () => {
     if (!c.baseUrl || !c.apiKey) { toast && toast("先填接口地址和密钥"); return; }
     setFetching(true);
@@ -8548,9 +8550,14 @@ function ImageApiConfig({ toast }) {
       const cleanBase = typeof normalizedOpenAIBase === "function" ? normalizedOpenAIBase(c.baseUrl) : c.baseUrl;
       if (cleanBase && cleanBase !== c.baseUrl) set({ baseUrl: cleanBase });
       const ms = await fetchModelList(Object.assign({}, c, { baseUrl: cleanBase }));
-      setModels(ms || []); toast && toast((ms || []).length + " 个模型（挑含 image/dall-e/flux 的）");
+      // MiniMax 的模型列表只列聊天模型，出图那两个永远拉不到（群里 2026-10-06：「密钥拉取不到 image 1」）——补在最前面
+      const all = isMmImg ? MM_IMG.concat((ms || []).filter(x => MM_IMG.indexOf(x) < 0)) : (ms || []);
+      setModels(all); toast && toast(all.length + " 个模型（" + (isMmImg ? "MiniMax 出图选 image-01" : "挑含 image/dall-e/flux 的") + "）");
     }
-    catch (e) { toast && toast("拉取失败：" + (e.message || e)); }
+    catch (e) {
+      if (isMmImg) { setModels(MM_IMG.slice()); toast && toast("列表没拉到（" + (e.message || e) + "），MiniMax 出图选 image-01 就行"); }
+      else toast && toast("拉取失败：" + (e.message || e));
+    }
     finally { setFetching(false); }
   };
   // 诊断：真调一次接口拍张测试图。成→当场显示；败→把原始报错整段贴出来（能截图排查）
