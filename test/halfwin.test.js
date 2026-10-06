@@ -25,3 +25,7 @@ test("收起后的小条也能拖，拖过那一下不算点", () => {
   assert.match(app, /localStorage\.setItem\("x_halfWinPill"/);
   assert.match(app, /if \(!halfPillDragged\.current\) setHalfWin\(w => w \? \{ \.\.\.w, min: false \} : w\);/);
 });
+test("半窗读屏先读她正露着的那一截，被盖住的不算", () => {
+  assert.match(app, /"（她屏幕上正露着的）" \+ seen/);
+  assert.match(app, /const at = document\.elementFromPoint\(cx, cy\)/);
+});

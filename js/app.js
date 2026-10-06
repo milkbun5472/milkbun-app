@@ -993,9 +993,29 @@ function App() {
         if (!String(n.nodeValue || "").trim()) return NodeFilter.FILTER_REJECT;
         const cs = getComputedStyle(el); if (cs.display === "none" || cs.visibility === "hidden") return NodeFilter.FILTER_REJECT;
         return NodeFilter.FILTER_ACCEPT; } });
-      let len = 0;
-      while (w.nextNode() && len < 1800) { const t = String(w.currentNode.nodeValue).replace(/\s+/g, " ").trim(); out.push(t); len += t.length + 1; }
-      return { zh, text: out.join(" ").slice(0, 1800) };
+      // 先读她眼睛正对着的那一截（她 2026-10-06：长日记翻到中间，原来从页顶数 1800 字，正看的那段被截掉了）：
+      // 屏幕里露着、又没被半窗盖住的字排前面；还有余量，再补一点紧挨着的上文和下文。
+      const hw = document.querySelector("[data-halfwin]");
+      const bottom = hw ? Math.min(window.innerHeight, hw.getBoundingClientRect().top) : window.innerHeight;
+      const top = hw && hw.getBoundingClientRect().top < 40 ? hw.getBoundingClientRect().bottom : 0;
+      const all = [];
+      while (w.nextNode()) {
+        const n = w.currentNode, t = String(n.nodeValue).replace(/\s+/g, " ").trim();
+        let vis = false;
+        try { const rg = document.createRange(); rg.selectNodeContents(n); const r = rg.getBoundingClientRect(); vis = r.height > 0 && r.bottom > top && r.top < bottom && r.right > 0 && r.left < window.innerWidth;
+          // 被别的层盖住的不算露着：看这段字中间那个点上最上面的是不是它自己
+          if (vis) { const cx = Math.min(window.innerWidth - 1, Math.max(0, (Math.max(r.left, 0) + Math.min(r.right, window.innerWidth)) / 2)), cy = Math.min(bottom - 1, Math.max(top, (Math.max(r.top, top) + Math.min(r.bottom, bottom)) / 2));
+            const at = document.elementFromPoint(cx, cy), pe = n.parentElement; vis = !!at && (at === pe || pe.contains(at) || at.contains(pe)); }
+        } catch (e) {}
+        all.push({ t, vis });
+      }
+      const first = all.findIndex(x => x.vis), lastV = all.length - 1 - [...all].reverse().findIndex(x => x.vis);
+      if (first < 0) { let len = 0; for (const x of all) { if (len >= 1800) break; out.push(x.t); len += x.t.length + 1; } return { zh, text: out.join(" ").slice(0, 1800) }; }
+      const seen = all.filter(x => x.vis).map(x => x.t).join(" ").slice(0, 1800);
+      let room = 2400 - seen.length;
+      const take = (from, step) => { const acc = []; let n = 0; for (let k = from; k >= 0 && k < all.length && n < room / 2; k += step) { acc.push(all[k].t); n += all[k].t.length + 1; } return step < 0 ? acc.reverse().join(" ").slice(-Math.floor(room / 2)) : acc.join(" ").slice(0, Math.floor(room / 2)); };
+      const before = take(first - 1, -1), after = take(lastV + 1, 1);
+      return { zh, text: (before ? "（上面）" + before + "\n" : "") + "（她屏幕上正露着的）" + seen + (after ? "\n（下面）" + after : "") };
     } catch (e) { return null; }
   };
   const notificationRoomRef = useRef(null);
