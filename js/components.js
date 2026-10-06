@@ -9945,6 +9945,7 @@ function ChatThread({
       onClick: () => { const v = draft.trim(); clear(); reply(v); }
     }))
   }))), panelOpen && !selMode && h("div", {
+    "data-wk": "chatpanel",
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
     // 她 2026-10-02：「这个+框太高了收小点可以下滑」——露两排多一点，剩下的往下滑
     style: Object.assign({
@@ -16603,6 +16604,7 @@ function GroupThread({
   })),
   // ＋面板在输入框【下面】，跟单聊一样（她 2026-10-02：「加号跑到下面、里面的东西跑上来了，做反了」）
   !selMode && panel && h("div", {
+    "data-wk": "chatpanel",
     className: "shrink-0 grid grid-cols-4 gap-y-5 px-5 py-5",
     style: Object.assign({
       background: t.bg2,
