@@ -16,5 +16,6 @@ test("挂断时通话卡插到通话中转账单前面", () => {
 });
 test("通话中不另发主动消息，电话里她开口也把想念清零", () => {
   assert.match(app, /if \(_onCall\) continue;/);
-  assert.match(app, /m\.kind !== "callend"\) continue;\s*const u = \[\.\.\.\(m\.log \|\| \[\]\)\]\.reverse\(\)\.find\(x => x && x\.role === "user"\);/);
+  assert.match(app, /gid \? _cc\.groupId === gid : !_cc\.groupId/);
+  assert.match(app, /m\.kind !== "callend"\) continue;\s*const u = \[\.\.\.\(m\.log \|\| \[\]\)\]\.reverse\(\)\.find\(otherIn\);/);
 });

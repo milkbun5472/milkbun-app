@@ -7479,17 +7479,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         break;
       }
     }
-    // 电话里她开口也算有人理了TA（她 2026-10-06）：正在通的那通看实时 msgs，挂了的看 callend 里的转录
-    if (!gid) {
+    // 电话里有人开口也算有人理了TA（她 2026-10-06，群通话同日补上）：正在通的那通看实时 msgs，挂了的看 callend 里的转录。
+    // 群里「别人」跟上面同一个判据：Lisa，或另一位成员。
+    {
+      const otherIn = x => x && (x.role === "user" || (gid && x.role !== "user" && x.senderId && String(x.senderId) !== String(char.id)));
       const _cc = callRef.current;
-      if (_cc && !_cc.groupId && (_cc.participants || []).some(p => p && p.id === char.id)) {
-        const u = [...(_cc.msgs || [])].reverse().find(x => x && x.role === "user");
-        if (u && (u.ts || 0) > otherTs) { otherTs = u.ts; why = { kind: "direct", gid: "", who: "" }; }
+      if (_cc && (gid ? _cc.groupId === gid : !_cc.groupId) && (_cc.participants || []).some(p => p && p.id === char.id)) {
+        const u = [...(_cc.msgs || [])].reverse().find(otherIn);
+        if (u && (u.ts || 0) > otherTs) { otherTs = u.ts; why = { kind: gid ? "groupSaid" : "direct", gid: gid || "", who: u.senderName || "" }; }
       }
       for (let i = arr.length - 1; i >= 0; i--) {
         const m = arr[i]; if (!m || m.kind !== "callend") continue;
-        const u = [...(m.log || [])].reverse().find(x => x && x.role === "user");
-        if (u) { const t = u.ts || m.ts || 0; if (t > otherTs) { otherTs = t; why = { kind: "direct", gid: "", who: "" }; } }
+        const u = [...(m.log || [])].reverse().find(otherIn);
+        if (u) { const t = u.ts || m.ts || 0; if (t > otherTs) { otherTs = t; why = { kind: gid ? "groupSaid" : "direct", gid: gid || "", who: u.senderName || "" }; } }
         break;
       }
     }
