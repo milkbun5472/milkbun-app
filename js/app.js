@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.889";
+const APP_VERSION = "v74.890";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9994,6 +9994,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   全改成 return null；只有 false 才是「跑完了，什么都没送到」。
   //   主动那一路不重来：没人在等，而且它本来就可能选择不说话。
   const replyNow = async (charId, extraText, mode, opts) => {
+    // 她刚回了申请信、还没等TA开口：这一轮（她按出来的那一轮，不是主动消息）把那一下带上，用一次就清
+    if (typeof letterAnswerPendingRef !== "undefined" && !(opts && (opts.proactive || opts.loveLetterAnswer)) && letterAnswerPendingRef.current[charId]) {
+      opts = { ...(opts || {}), loveLetterAnswer: letterAnswerPendingRef.current[charId] };
+      delete letterAnswerPendingRef.current[charId];
+    }
     // 主动私聊那一路（opts.proactive）是后台自己跑的：挂上名字，callAI 那头才会弹「后台 · 主动私聊·谁」
     if (opts && opts.proactive && !opts._bg && typeof bgJob === "function") return bgJob("proactive", characters.find(c => c.id === charId), () => replyNow(charId, extraText, mode, { ...opts, _bg: true }));
     const ok = await _replyTurn(charId, extraText, mode, opts);
@@ -22019,6 +22024,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 拆信只是改一下卡的样子；答应／再想想才是那一下。
   const openLoveLetter = (charId, m) => pChat(charId, p => p.map(x => x.id === m.id && x.state === "sealed" ? { ...x, state: "open" } : x));
+  const letterAnswerPendingRef = useRef({});
   const answerLoveLetter = (charId, m, yes) => {
     if (!m || (m.state !== "sealed" && m.state !== "open")) return;
     const char = characters.find(c => c.id === charId);
@@ -22026,9 +22032,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       { role: "system", kind: "system", sub: "letter", content: yes ? "你答应了" + (char ? char.name : "TA") + " ♥" : "你说再想想", ts: Date.now() }]);
     if (yes) { beginCouple(charId); toast("你们在一起了 ♥"); }
     else markLoveLetter(charId, { declinedTs: Date.now() });
-    // ⚠️不走 proactive：这一下是在接她的回信，不是TA自己找话说——当成主动消息的话，
-    //   「主动私聊」关着、或者信刚发出不到 12 分钟（防连发闸），这一轮就被悄悄吞了，TA一声不吭（她 2026-10-03）
-    replyNow(charId, "", null, { loveLetterAnswer: yes ? "yes" : "no" });
+    // 不当场开口（她 2026-10-06：「我拒绝了就直接说话了，我还没打完字」）：她点完多半还要说几句，
+    //   所以只记下「她刚回了信」，等她自己发消息或按回复，那一轮再带上【此刻】那一句（答应、再想想两边一样）。
+    //   ⚠️仍旧不走 proactive：那一轮是她按出来的，主动私聊关着也照样回。
+    letterAnswerPendingRef.current[charId] = yes ? "yes" : "no";
   };
   const genWhisper = async char => {
     setGen(g => ({
