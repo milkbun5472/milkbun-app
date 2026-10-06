@@ -5342,7 +5342,9 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
       // 没标类型的 Blob 读出来是 data:application/octet-stream——MiniMax 认不出是图，先当 png 包一层
       const toDataUrl = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res(String(fr.result || "")); fr.onerror = rej; fr.readAsDataURL(b); });
       const ar = /^(\d+)x(\d+)$/.exec(String(size || "")) ? (function () { const [w, h0] = String(size).split("x").map(Number); return w === h0 ? "1:1" : w < h0 ? (h0 / w > 1.6 ? "9:16" : "2:3") : (w / h0 > 1.6 ? "16:9" : "3:2"); })() : "2:3";
-      const body = { model: a.model || "image-01", prompt: String(promptText || "").slice(0, 1500), aspect_ratio: ar, response_format: "base64", n: 1, prompt_optimizer: false };
+      // 模型栏填的不是出图模型（群里截图：填了 MiniMax-M3，那是它家的聊天模型，报「unsupported model」）——
+      //   MiniMax 出图只有 image-01 这一家子，不是 image 开头的一律按 image-01 出，不让一个下拉选错卡死出图
+      const body = { model: /^image-/i.test(String(a.model || "")) ? a.model : "image-01", prompt: String(promptText || "").slice(0, 1500), aspect_ratio: ar, response_format: "base64", n: 1, prompt_optimizer: false };
       if (useRef && refBlobs.length) body.subject_reference = [{ type: "character", image_file: await toDataUrl(refBlobs[0]) }];
       const mRoot = String(root).replace(/\/v1\/?$/, "");
       const r0 = await fetch(mRoot + "/v1/image_generation", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
