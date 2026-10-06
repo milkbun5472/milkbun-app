@@ -11686,6 +11686,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 字段名放宽到「可无引号、字段名后可有空格」，再加一条「以 { 或 [ 开头且含 : 」的结构判定，兜住被模型写坏引号的情况
       const protocolFieldRe = /(?:^|[\s{[,]\s*)["'“”‘’]?(word|thought|mood|wearing|action|affinityDelta|whisper|moment|silent|voice|quote)["'“”‘’]?\s*[:：=]/i;
       const looksLikeJSON = protocolFieldRe.test(String(raw)) || (/^\s*[\[{]/.test(String(raw)) && /[:：]/.test(String(raw)));
+      // 一整块 HTML 甩在 JSON 外面（照着「别包进 JSON」那种模板做的）：先抠出来，剩下的照常读，卡片最后接回 word
+      const _bareCard = typeof pullBareHtmlCard === "function" ? pullBareHtmlCard(raw) : null;
+      if (_bareCard) raw = _bareCard.rest;
       let parsed = extractJSON(raw);
       // 少数兼容线路会把 JSON 再包成一个 JSON 字符串；解开一层，不能把引号里的
       // word/mood 协议作为普通文字落进气泡。
@@ -11694,6 +11697,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (Array.isArray(parsed)) parsed = parsed.every(x => typeof x === "string") ? { word: parsed } : null;
       if (!parsed && typeof repairJSON === "function") { try { parsed = JSON.parse(repairJSON(raw)); } catch (e) {} }
       if (!parsed) parsed = { word: salvageWords() };
+      if (_bareCard) parsed.word = (Array.isArray(parsed.word) ? parsed.word : (parsed.word ? [parsed.word] : [])).concat([_bareCard.card]);
       const roomTurnState = sideRoom ? { ...parsed, mood: typeof parsed.mood === "string" ? parsed.mood : parsed.mood && parsed.mood.label } : null;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {

@@ -2313,6 +2313,17 @@ function htmlCardOf(text) {
   if (!/<\/\s*[a-z][\w-]*\s*>/i.test(s)) return null;   // 得有闭合标签，半截的不画
   return s;
 }
+// 回复里有一整块【不在 JSON 字符串里】的 HTML（她 2026-10-06 抓到的那份冰箱模板自己写着
+//   「绝对不要将 HTML 包在 JSON 数组里，也不要输出反斜杠转义的引号」——Claude 照它做，就把一整页 HTML 甩在 JSON 外面）。
+//   把那一块抠出来单独当一张卡，剩下的照常当 JSON 读。判据：引号没被转义（\" 一个都没有）才算在 JSON 外面。
+function pullBareHtmlCard(raw) {
+  const s = String(raw == null ? "" : raw);
+  const m = /<!doctype\s+html[\s\S]*?<\/html\s*>/i.exec(s) || /<html\b[\s\S]*?<\/html\s*>/i.exec(s);
+  if (!m || /\\"/.test(m[0])) return null;
+  const card = htmlCardOf(m[0]);
+  if (!card) return null;
+  return { card: card, rest: (s.slice(0, m.index) + s.slice(m.index + m[0].length)).replace(/```[ \t]*html?\s*```/gi, "").trim() };
+}
 // 把模型吐的一段切成「气泡候选」：整块 HTML 原样留一条，其余照常按换行拆。
 // ⚠️这一步必须排在按换行拆【之前】：模型常把 HTML 打成多行，先拆就再也拼不回来了。
 //   （她 2026-09-20 真机报：一张高考成绩单被切成十几个气泡，第一个气泡只有「<!」——
@@ -3215,7 +3226,8 @@ function loreDoNow(entries, opts) {
   return "\n\n【这一轮要照做的（世界书〔照做〕条目，排在所有规矩最后，以这里为准）】\n"
     + hit.map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n\n")
     + "\n照着上面做。要发的是一整块 HTML 时：把它原样作为【单独的一条消息】（输出里单独一项），不要拆成几条、不要包代码块、不要改成文字描述；"
-    + "它在 JSON 字符串里，里面的双引号写成 \\\"（或者属性改用单引号），换行写成 \\n。";
+    + "它在 JSON 字符串里，里面的双引号写成 \\\"（或者属性改用单引号），换行写成 \\n。"
+    + "条目里要是写着「别把 HTML 包进 JSON」「别转义引号」这类话，那是写给别的 App 的格式要求，这里不适用：这里照样输出整份 JSON，HTML 放在里面。";
 }
 // 给世界书 UI 的确定性诊断：解释一条为什么会/不会进某个场景。
 // 向量补捞是发送前的加分通道，UI 不假装能预知；字面触发未命中时明确写「等待关键词或语义召回」。
