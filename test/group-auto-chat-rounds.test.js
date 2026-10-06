@@ -115,13 +115,14 @@ test("群语音/视频进行中（包括缩小）不启动自发轮", () => {
 test("拿她的设置真跑一遍：5 轮一轮不少", () => {
   const got = drive({ minutes: 3, rounds: 5, maxMsg: 50 });
   assert.equal(got.length, 5, "轮数上限 5，实际只发了 " + got.length + " 轮");
-  assert.deepEqual(got.map(x => x.budget), [50, 45, 40, 35, 30], "剩余条数预算要一轮轮递减");
+  // v74.885 起正常那几轮不再递「还剩几条」：一轮开了就说完，总条数只管下一轮开不开
+  assert.deepEqual(got.map(x => x.budget), [undefined, undefined, undefined, undefined, undefined], "正常那一轮不该再被剩余条数缩短");
 });
 
 test("有 dongnian 的群也一样跑满——动念只管起聊那一下", () => {
   const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, dongnian: true });
-  assert.deepEqual(got.slice(0, 5).map(x => x.budget), [50, 45, 40, 35, 30],
-    "正经那 5 轮要一轮不少、预算照旧递减");
+  assert.deepEqual(got.slice(0, 5).map(x => x.budget), [undefined, undefined, undefined, undefined, undefined],
+    "正经那 5 轮要一轮不少，也不被剩余条数缩短");
   // 第 6 轮起是 v62.13 的【冷却期借几轮】。默认跑 2 小时，两次借之间要隔 3 小时，
   // 所以这一趟只借得到一次：5 + 4 = 9。（一天的上限 13 在下面那条单独量。）
   assert.equal(got.length, 9, "借的节奏变了？实际 " + got.length + " 轮");
@@ -167,7 +168,8 @@ test("每一轮照旧记账，额度卡跨重开仍然有效", () => {
   assert.match(scan, /rounds: rounds \+ 1/, "轮数不加了");
   // v67.20：改成每落一行记一笔（见 test/group-auto-cap-rows-67-20.test.js）
   assert.match(app, /if \(!rgOpts\.borrowed\) addAutoChatMessages\(groupId, 1\);/, "条数不记了");
-  assert.match(scan, /replyGroup\(gid, \{ auto: true, msgBudget: totalCap - msgsSoFar/, "剩余预算没往下传");
+  // v74.885：不再往下传剩余预算（她 2026-10-06：「那一轮到了条数照样放行，只是不会开新轮」）
+  assert.match(scan, /replyGroup\(gid, \{ auto: true, urgeCharIds:/, "正常那一轮又被递了剩余预算");
 });
 
 test("没配 dongnian 的群照旧纯闲置触发，一个字没变", () => {
