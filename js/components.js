@@ -8790,6 +8790,7 @@ function GameChatSource({ m }) {
     style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.sub, margin: "0 4px 3px", overflowWrap: "anywhere" } }, source) : null;
 }
 function ChatThread({
+  autoReplySec,   // 停手几秒自己回：她最后发出的那条之后，键盘收起、输入框空着，过这么久就当按了一次叶子；0＝关
   unreadOther,
   onOpenUs,
   sameRoom,
@@ -9115,6 +9116,25 @@ function ChatThread({
       onReply("");
     } else onReply(pending);
   };
+  // ── 停手几秒自己回（群里唯心主弈 2026-10-06：「收起键盘多少秒后开始回复，点叶子感觉在逼他回复」）──
+  //   判据只有三样，都是此刻看得见的：最后一条是她发的、还没回过；键盘收着（输入框没聚焦）；输入框是空的。
+  //   她一点输入框、一打字，计时就作废；收起键盘再从头数。跟按叶子走同一个 reply("")——
+  //   睡着／忙着晚点回那些闸照旧管，这里不另开一条路。一条消息只自动回一次。
+  const autoFiredRef = useRef(0);
+  useEffect(() => {
+    if (!(autoReplySec > 0) || sending || selMode || chatMode === "ooc") return;
+    const last = messages && messages[messages.length - 1];
+    if (!last || last.role !== "user" || !last.ts || autoFiredRef.current >= last.ts) return;
+    const box = () => document.querySelector('[data-wk="chatinput"]');
+    const busy = () => { const b = box(); return !!b && (document.activeElement === b || String(b.value || "").trim().length > 0); };
+    let timer = 0;
+    const arm = () => { clearTimeout(timer); if (!busy()) timer = setTimeout(() => { if (busy() || sending) return; autoFiredRef.current = last.ts; reply(""); }, autoReplySec * 1000); };
+    const b = box();
+    const onAny = () => { clearTimeout(timer); setTimeout(arm, 0); };
+    if (b) { b.addEventListener("focus", onAny); b.addEventListener("blur", onAny); b.addEventListener("input", onAny); }
+    arm();
+    return () => { clearTimeout(timer); if (b) { b.removeEventListener("focus", onAny); b.removeEventListener("blur", onAny); b.removeEventListener("input", onAny); } };
+  }, [autoReplySec, sending, selMode, chatMode, messages && messages.length, messages && messages.length && messages[messages.length - 1].ts]);
   // 长按出菜单走公共那一份（滑动/滚动一动就取消；弹出后吞掉抬手那一下）
   // 左滑引用：只给菜单里本来就有「引用」的那几类消息（动作行、照片卡这些引用了也没意义）
   // 双击头像拍一拍（她 2026-10-02）。单击原来的动作（看心声）往后让 260ms，等第二下
@@ -18152,6 +18172,7 @@ function ChatSettings({
   const [dongnianMsgOnly, setMsgOnly] = useState(settings.dongnianMsgOnly === true); // 想你时只发消息（默认关）
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
   const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
+  const [autoReplySec, setAutoReplySec] = useState(Math.max(0, Number(settings.autoReplySec) || 0)); // 停手几秒自己回，0＝关
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
   const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
@@ -18457,6 +18478,7 @@ function ChatSettings({
       dongnianMsgOnly,
       busyHold: busyHold,
       busyReroll: busyReroll,
+      autoReplySec: autoReplySec,
       toyEnabled,
       defaultOffline,
       actDesc,
@@ -18809,6 +18831,14 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub } }, "每一轮都看 Ta 的节奏"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "关着：一段忙碌只掷一次，你们正聊着不会被打断。开着：忙的那段里每一轮都按忙碌度重新掷，聊着聊着 " + cNm + " 也可能被叫回去忙。")),
     h("div", { className: "shrink-0" }, h(Toggle, { on: busyReroll, onChange: () => setBusyReroll(v => !v) }))) : null,
+  // 停手几秒自己回（群里唯心主弈 2026-10-06 许愿）：不用每次都按叶子
+  h("div", { className: "pt-5" },
+    h("div", { className: "flex items-baseline justify-between mb-1" },
+      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "停手后自己回"),
+      h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, autoReplySec > 0 ? autoReplySec + " 秒" : "关")),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } },
+      "你发完消息、收起键盘、输入框空着，过这么久 " + cNm + " 就自己回，不用再按叶子。一点输入框或者再打字就重新数。拉到最左是关。每次回复照常调用一次模型。"),
+    h(Slider, { value: autoReplySec, min: 0, max: 120, step: 5, onChange: setAutoReplySec })),
   h("div", {
     className: "flex items-center justify-between pt-5"
   }, h("div", null, h("div", {

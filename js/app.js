@@ -26345,6 +26345,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : null,
     sameRoom: sameRoomFor(activeChar.id),
     actDesc: actDescFor(activeChar.id),
+    // 停手几秒自己回（群里唯心主弈 2026-10-06 许愿：「收起键盘多少秒后开始回复，点叶子感觉在逼他回复」）：0＝关
+    autoReplySec: Math.max(0, Math.min(600, Number(settingsFor(activeChar.id).autoReplySec) || 0)),
     // 那一行显示成「我」还是「TA」（她 2026-09-12：「就设置开关可以改」）。
     // ⚠️只管【显示】：存进状态卡的照旧是第一人称，那儿是角色自己的卡。
     actPerson: (settingsFor(activeChar.id) || {}).actPerson === "ta" ? "ta" : "me",
@@ -28638,6 +28640,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             dongnianMsgOnly: s.dongnianMsgOnly === true,
             busyHold: s.busyHold === true,
             busyReroll: s.busyReroll === true,
+            // 停手几秒自己回：0＝关，最多 10 分钟
+            autoReplySec: Math.max(0, Math.min(600, Number(s.autoReplySec) || 0)),
             timeAwareMode: ["on", "off"].includes(s.timeAwareMode) ? s.timeAwareMode : "inherit",
             // TA 认识的是我哪一张面具（她 2026-09-22）：空＝主面具
             maskId: String(s.maskId || "").trim().slice(0, 40)
