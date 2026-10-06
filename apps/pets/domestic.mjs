@@ -1,6 +1,6 @@
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-fb71468913807d97';
-import {restorePetBirth} from './birth.mjs?v=fg-fb71468913807d97';
-import {homeGood,furniturePoint,PET_HOME_GOODS} from './furnishings.mjs?v=fg-fb71468913807d97';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-925d2c25026483e9';
+import {restorePetBirth} from './birth.mjs?v=fg-925d2c25026483e9';
+import {homeGood,furniturePoint,PET_HOME_GOODS} from './furnishings.mjs?v=fg-925d2c25026483e9';
 export const PET_RECIPES=[
  {id:'crumb',name:'温水软粮小点',ingredients:{snack:1},detail:'把宠物自己的零食用温水泡软，捣成一口大的小点。',flavor:'soft'},
  {id:'crunch',name:'原味零食小粒',ingredients:{snack:2},detail:'只用它原有的宠物零食，分成方便慢慢嚼的小粒。',flavor:'crunch'}
@@ -43,7 +43,7 @@ export function domesticTick(state,dt,ctx={}){if(!Number.isFinite(dt)||dt<=0||ct
  for(const p of state.pets){changed=choosePetWish(p,{date:now,social:state.social,neighbors:ctx.neighbors?.(p.id)||[],hasCompanion:!!ctx.person})||changed;changed=settlePetWish(p,{social:state.social,at})||changed;}
  const serving=s.serving;if(serving){const p=state.pets.find(x=>x.id===serving.petId),done=p?.care.recent.some(x=>x.completed&&x.at>=serving.after&&x.wallAt>=serving.at&&x.text.includes('零食'));if(done){const r=p.domestic.tastes[serving.recipe],liked=(serving.recipe==='crunch'?p.care.traits.active:p.care.traits.social)>=.45;r.count++;if(liked)r.liked++;const maker=r.makers[serving.actor]||(r.makers[serving.actor]={name:serving.name,count:0});maker.count++;memory(p,serving.id,serving.name+'做的'+PET_RECIPES.find(r=>r.id===serving.recipe).name+'，它'+(liked?'认真吃完，喜欢这种口感。':'慢慢吃完，暂时没有特别偏爱这种口感。'),'taste',at);s.serving=null;changed=true;}else if(!p||!p.care.task){s.serving=null;changed=true;}}
  const t=s.task;if(!t)return changed?{changed:true}:null;const p=state.pets.find(x=>x.id===t.petId);
- if(!p||at-t.at>60000&&!ctx.online){ctx.stop?.(t);s.task=null;return {changed:true,cancelled:true};}
+ if(!p||at-preparationLastSeen(state,t)>60000&&!ctx.online){ctx.stop?.(t);s.task=null;return {changed:true,cancelled:true};}
  if(!ctx.present?.(t)){ctx.stop?.(t);s.task=null;return {changed:true,cancelled:true};}
  if(!ctx.arrived?.(t))return changed?{changed:true}:null;
  if(t.phase==='walking'){t.phase=t.kind==='cook'?'mix':'gather';t.time=0;changed=true;}
@@ -53,4 +53,5 @@ export function domesticTick(state,dt,ctx={}){if(!Number.isFinite(dt)||dt<=0||ct
  if(t.kind==='celebrate'&&t.phase==='gather'&&t.time>=8){if(!p.domestic.celebrated.includes(t.occasion)){p.domestic.celebrated.push(t.occasion);memory(p,t.id,'你和'+t.name+'陪它过了'+(t.occasion.startsWith('birthday')?'生日':'领养纪念日')+(t.gift?'，拿出给它选的'+(homeGood(t.gift)?.name||'小礼物')+'作纪念':'')+'。','celebrate',at);ctx.photo?.(t);}ctx.stop?.(t);s.task=null;return {changed:true,completed:true,text:'这一年的纪念留好了，照片成功拍下时会收进生活相册。'};}
  return changed?{changed:true}:null;
 }
-export function recoverDomestic(state,at=Date.now()){const t=state.domestic.task;if(t&&at-t.at>60000){state.domestic.task=null;return t;}return null;}
+function preparationLastSeen(state,t){const seen=state.pets.find(p=>p.id===t.petId)?.life?.at;return Number.isFinite(seen)?Math.max(t.at,seen):t.at;}
+export function recoverDomestic(state,at=Date.now()){const t=state.domestic.task;if(t&&at-preparationLastSeen(state,t)>60000){state.domestic.task=null;return t;}return null;}
