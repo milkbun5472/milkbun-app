@@ -31,7 +31,7 @@
   // v 必须等于 app.js 的 APP_VERSION，否则测试 manual-stamp 红。
   // 这一版改了哪几条就把 id 写进 entries；这一版她用起来什么都没变（纯修内部、纯测试），
   // entries 留空、在 none 里写一句为什么——不许光改号不写理由。
-  const STAMP = { v: "v74.950", entries: [], none: "情侣问答里TA出的题，写好的答案不会再交到另一道题上；用法没变" };
+  const STAMP = { v: "v74.951", entries: [], none: "朋友圈评论框在 iPhone 上不再把「发送」挤出屏幕；用法没变" };
   const E = [
     { id: "chat", app: "chat", zh: "说话 · 单聊", where: "消息列表里点开一个人",
       what: "开始前在「人格档案馆」创建角色，聊天框就能自动出现在聊天的最下面啦。",
