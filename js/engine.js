@@ -5246,8 +5246,11 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
   }
   // pOverride：审核软化重试用——同一套参考照，换一版措辞。不传就用原 prompt，行为不变。
   const attemptWith = async (blobs, refMode, pOverride, msOverride, legacyShape) => {
-    const saved = refBlobs.slice();
-    refBlobs.length = 0; blobs.forEach(b => refBlobs.push(b));
+    // ⚠️调用处几乎都是 attemptWith(refBlobs, …)——传进来的 blobs 就是 refBlobs 本身。
+    //   原来先 refBlobs.length = 0 再从 blobs 里往回抄，抄的是一个刚被清空的数组：
+    //   参考照一张都没发出去，请求变成纯文字出图（2026-10-06 测 MiniMax 时抓到）。先拷一份再清。
+    const saved = refBlobs.slice(), use = Array.from(blobs || []);
+    refBlobs.length = 0; use.forEach(b => refBlobs.push(b));
     try { return await attempt(true, false, refMode, pOverride, msOverride, legacyShape); }
     finally { refBlobs.length = 0; saved.forEach(b => refBlobs.push(b)); }
   };
@@ -5319,11 +5322,33 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey, "x-goog-api-key": a.apiKey },
         body: JSON.stringify({ contents: [{ role: "user", parts }], generationConfig: { responseModalities: ["image", "text"].map(x => x.toUpperCase()) } }), signal: ctrl.signal });
     };
+    // MiniMax 原生出图（她 2026-10-06：「生图支持 minimax」）：POST /v1/image_generation，
+    //   参考照走 subject_reference（只认一张人物照，多张时用第一张——角色那张）。
+    //   回包是 { data: { image_base64: [...] }, base_resp: { status_code, status_msg } }；
+    //   这里就地翻成 OpenAI 那种 { data: [{ b64_json }] }，后面 parseOut 一份照旧。
+    const minimaxFetch = async () => {
+      // 没标类型的 Blob 读出来是 data:application/octet-stream——MiniMax 认不出是图，先当 png 包一层
+      const toDataUrl = b0 => new Promise((res, rej) => { const b = /^image\//.test(String(b0 && b0.type || "")) ? b0 : new Blob([b0], { type: "image/png" }); const fr = new FileReader(); fr.onload = () => res(String(fr.result || "")); fr.onerror = rej; fr.readAsDataURL(b); });
+      const ar = /^(\d+)x(\d+)$/.exec(String(size || "")) ? (function () { const [w, h0] = String(size).split("x").map(Number); return w === h0 ? "1:1" : w < h0 ? (h0 / w > 1.6 ? "9:16" : "2:3") : (w / h0 > 1.6 ? "16:9" : "3:2"); })() : "2:3";
+      const body = { model: a.model || "image-01", prompt: String(promptText || "").slice(0, 1500), aspect_ratio: ar, response_format: "base64", n: 1, prompt_optimizer: false };
+      if (useRef && refBlobs.length) body.subject_reference = [{ type: "character", image_file: await toDataUrl(refBlobs[0]) }];
+      const mRoot = String(root).replace(/\/v1\/?$/, "");
+      const r0 = await fetch(mRoot + "/v1/image_generation", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
+      const txt = await r0.text();
+      let j = null; try { j = JSON.parse(txt); } catch (e) {}
+      const br = j && j.base_resp, b64 = j && j.data && Array.isArray(j.data.image_base64) ? j.data.image_base64[0] : null;
+      const url = j && j.data && Array.isArray(j.data.image_urls) ? j.data.image_urls[0] : null;
+      if (r0.ok && (b64 || url)) return new Response(JSON.stringify({ data: [b64 ? { b64_json: b64 } : { url }] }), { status: 200, headers: { "Content-Type": "application/json" } });
+      const msg = (br && br.status_msg) || txt.slice(0, 300) || ("HTTP " + r0.status);
+      return new Response(JSON.stringify({ error: { message: "MiniMax：" + msg + (br && br.status_code ? "（" + br.status_code + "）" : "") } }), { status: r0.ok ? 400 : r0.status, headers: { "Content-Type": "application/json" } });
+    };
+    const isMinimax = a.apiFormat === "minimax" || (a.apiFormat === "auto" && (/^image-0\d/i.test(String(a.model || "")) || /minimax/i.test(String(a.baseUrl || ""))));
     try {
       // 自动档里，模型名一看就是 Gemini / Nano Banana / Imagen / NAI 的，直接走聊天接口
       //   （群友 2026-10-03：gemini 走出图接口回「contents is required」——那是中转把 multipart 转成 Gemini 原生请求时丢了内容）
       const chatFirst = a.apiFormat === "chat" || a.apiFormat === "gemini" || (a.apiFormat !== "images" && /gemini|banana|imagen|(^|[^a-z])nai([^a-z]|$)|novelai/i.test(String(a.model || "")));
-      if (a.apiFormat === "gemini") r = await geminiFetch();
+      if (isMinimax) r = await minimaxFetch();
+      else if (a.apiFormat === "gemini") r = await geminiFetch();
       else if (chatFirst) {
         r = await chatFetch();
         for (let sh = 3; sh >= 1 && !r.ok; sh--) {
@@ -5372,13 +5397,13 @@ async function generateSelfieImage(prompt, refPhotoDataUrl, opts) {
         if (!slim) { body.response_format = "b64_json"; if (qualityOverride) body.quality = qualityOverride; }
         r = await fetch(root + "/images/generations", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + a.apiKey }, body: JSON.stringify(body), signal: ctrl.signal });
       }
-      if (!chatFirst && a.apiFormat !== "images" && !r.ok) {
+      if (!isMinimax && !chatFirst && a.apiFormat !== "images" && !r.ok) {
         // 出图接口不通：404/405，或者回的错一看就是「这条路不对」（缺 contents/messages、不支持这个模型）→ 改走一次聊天接口
         const peek = r.status === 404 || r.status === 405 ? "" : await r.clone().text().catch(() => "");
         if (r.status === 404 || r.status === 405 || /contents is required|messages.{0,20}required|not support|unsupported|no available channel|无可用渠道|不支持/i.test(peek)) r = await chatFetch();
       }
     } catch (err) {
-      if (!usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
+      if (!isMinimax && !usedChat && a.apiFormat !== "images" && !r && /failed to fetch|load failed|networkerror/i.test(String((err && err.message) || ""))) {
         try { r = await chatFetch(); } catch (e2) { throw err; }
       } else {
       // 测速仪(v55.04):分清「我们的闹钟到点」还是「被外部(如切后台)提前掐断」
