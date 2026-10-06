@@ -8790,6 +8790,7 @@ function GameChatSource({ m }) {
     style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.sub, margin: "0 4px 3px", overflowWrap: "anywhere" } }, source) : null;
 }
 function ChatThread({
+  onOpenTakeout,  // 点 TA 给你点的外卖卡 → 外卖 app 的订单页
   autoReplySec,   // 停手几秒自己回：她最后发出的那条之后，键盘收起、输入框空着，过这么久就当按了一次叶子；0＝关
   unreadOther,
   onOpenUs,
@@ -9532,6 +9533,7 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "takeout") return h(TakeoutCard, { key: i, m: m, isU: m.role === "user", now: now, character: character,
+      onOpen: m.role !== "user" && onOpenTakeout ? onOpenTakeout : null,
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "dateinvite" || m.kind === "datereceipt" || m.kind === "dateask") return h(DateInviteCard, { key: i, m: m, character: character, onGo: () => onDateGo && onDateGo(m),
@@ -13014,7 +13016,8 @@ function GiftCard({ m, isU, now, avatar, myAvatar, onOpenGift }) {
 // 礼物是一个盒子，外卖在现实里是【订在袋子上的那张小票】：店名、点了什么、多少钱，
 // 底边是撕纸的锯齿。状态靠骑手那一格：在路上＝进度条在走＋还有几分；送到了＝条走满。
 // ⚠️没有「拆」：外卖到了就是到了，别给它套礼物那套掀盖。
-function TakeoutCard({ m, isU, now, avatar, myAvatar, character }) {
+// onOpen：TA 给你点的那张，点一下去外卖 app 的「订单」看它（她 2026-10-06：「外卖单子点了跳转不过去」）
+function TakeoutCard({ m, isU, now, avatar, myAvatar, character, onOpen }) {
   const t = useTheme();
   const d = m.takeout || {};
   const items = Array.isArray(d.items) ? d.items : [];
@@ -13026,7 +13029,8 @@ function TakeoutCard({ m, isU, now, avatar, myAvatar, character }) {
   const PAPER = "#fffdf6", INK = "#2f2a22", SUB = "#8a8171", RIDER = "#f2b705";
   return h("div", { className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
     !isU && avatar ? avatar : null,
-    h("div", { "data-kind": "takeout", style: { width: 224, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))" } },
+    h("div", { "data-kind": "takeout", onClick: onOpen || undefined, className: onOpen ? "active:opacity-80" : undefined,
+      style: { width: 224, filter: "drop-shadow(0 2px 4px rgba(46,38,29,.16))", cursor: onOpen ? "pointer" : undefined } },
       h("div", { style: { background: PAPER, borderRadius: "4px 4px 0 0", padding: "12px 14px 10px", color: INK } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.12em", color: SUB, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
           isU ? "外卖 · 你给 " + ((character && (character.remark || character.name)) || "TA") + " 点的" : "外卖 · " + ((character && (character.remark || character.name)) || "TA") + " 给你点的"),

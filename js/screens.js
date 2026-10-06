@@ -4038,9 +4038,9 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast }) {
+function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav }) {
   const t = useTheme();
-  const [nav, setNav] = useState("near"); // near | orders
+  const [nav, setNav] = useState(initialNav === "orders" ? "orders" : "near"); // near | orders（从聊天里的外卖卡点进来直接落在订单）
   const [slot, setSlot] = useState(() => takeoutSlotAt(new Date().getHours()));
   const [search, setSearch] = useState("");
   const [shop, setShop] = useState(null);     // 点进去的那家店
