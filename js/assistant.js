@@ -1645,6 +1645,7 @@
     // 收起来的样子：一颗小球，点一下开合
     if (!open) return h("div", { ...dragProps,
       onClick: () => { if (!swallowIfDragged()) setOpen(true); },
+      "data-assistant-dock": "1",
       style: { ...base, left: a.x, top: a.y, width: BALL, height: BALL, borderRadius: 999,
         background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 4px 14px rgba(0,0,0,.22)",
         display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", cursor: "grab" } },
@@ -1652,6 +1653,7 @@
 
     // 展开的样子：一扇能拖的小窗
     return h("div", {
+      "data-assistant-dock": "1",
       style: { ...base, left: a.x, top: a.y, width: panelW(), height: panelH(), borderRadius: 16,
         background: t.bg, border: "1px solid " + t.line, boxShadow: "0 10px 34px rgba(0,0,0,.30)",
         display: "flex", flexDirection: "column", overflow: "hidden" }

@@ -8778,6 +8778,8 @@ function GameChatSource({ m }) {
     style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.sub, margin: "0 4px 3px", overflowWrap: "anywhere" } }, source) : null;
 }
 function ChatThread({
+  onHalfWin,
+  halfMode,
   onOpenTakeout,  // 点 TA 给你点的外卖卡 → 外卖 app 的订单页
   autoReplySec,   // 停手几秒自己回：她最后发出的那条之后，键盘收起、输入框空着，过这么久就当按了一次叶子；0＝关
   unreadOther,
@@ -8957,7 +8959,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"]].filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -8984,6 +8986,9 @@ function ChatThread({
       setPanelOpen(false);
       if (onPat) onPat();
       else sendRich({ role: "user", kind: "pat", content: "你拍了拍 " + cName + (character.patSig ? " " + character.patSig : "") });
+    } else if (k === "halfwin") {
+      setPanelOpen(false);
+      onHalfWin && onHalfWin();
     } else if (k === "voice" || k === "video") {
       setPanelOpen(false);
       onStartCall && onStartCall(k);
@@ -13875,6 +13880,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     handset: [P("M21.5 16.9v2.6a1.9 1.9 0 01-2.1 1.9A18.6 18.6 0 013.1 4.6 1.9 1.9 0 015 2.5h2.6a1.9 1.9 0 011.9 1.6c.1 1 .4 1.9.7 2.7a1.9 1.9 0 01-.5 2L8.5 10a15 15 0 005.5 5.5l1.2-1.2a1.9 1.9 0 012-.5c.8.3 1.7.6 2.7.7a1.9 1.9 0 011.6 1.9z")],
     camcorder: [R(3, 7, 12.5, 10, 2.4), P("M15.5 11.6l5.5-3.1v7l-5.5-3.1z")],
     mobile: [R(7, 2.5, 10, 19, 2.4), P("M11 18.5h2")],
+    halfwin: [R(4, 3, 16, 18, 2.4), P("M4 12.5h16"), P("M10 16.5h4")],
     clock: [C(12, 12, 8.6), P("M12 7.3V12l3.2 1.9")],
     magnifier: [C(10.8, 10.8, 6.4), P("M15.4 15.4L20.5 20.5")],
     grid: [R(4, 4, 7, 7, 1.6), R(13, 4, 7, 7, 1.6), R(4, 13, 7, 7, 1.6), R(13, 13, 7, 7, 1.6)],

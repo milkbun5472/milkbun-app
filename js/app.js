@@ -964,6 +964,26 @@ function App() {
     ? (characters.find(c => c && c.id === activeCharSel.id) || activeCharSel)
     : null;
   const [activeRoomId, setActiveRoomId] = useState("main");
+  // 半窗聊天（她 2026-10-06）：从加号里开，聊天缩成底下半屏，上面照常翻别的页；TA看得到她此刻在看什么
+  const [halfWin, setHalfWin] = useState(null);
+  const halfWinRef = useRef(null); halfWinRef.current = halfWin;
+  const screenRef = useRef(screen); screenRef.current = screen;
+  // 她此刻在看的那一页：页名 + 屏幕上实际显示的字（跳过半窗自己和秋秋那颗浮球），截到 1800 字
+  const halfWinScreenText = () => {
+    try {
+      const zh = (typeof SCREEN_ZH !== "undefined" && SCREEN_ZH[screenRef.current]) || screenRef.current || "主屏";
+      const out = [];
+      const skip = el => el && el.closest && el.closest("[data-halfwin],[data-assistant-dock]");
+      const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, { acceptNode: n => {
+        const el = n.parentElement; if (!el || skip(el)) return NodeFilter.FILTER_REJECT;
+        if (!String(n.nodeValue || "").trim()) return NodeFilter.FILTER_REJECT;
+        const cs = getComputedStyle(el); if (cs.display === "none" || cs.visibility === "hidden") return NodeFilter.FILTER_REJECT;
+        return NodeFilter.FILTER_ACCEPT; } });
+      let len = 0;
+      while (w.nextNode() && len < 1800) { const t = String(w.currentNode.nodeValue).replace(/\s+/g, " ").trim(); out.push(t); len += t.length + 1; }
+      return { zh, text: out.join(" ").slice(0, 1800) };
+    } catch (e) { return null; }
+  };
   const notificationRoomRef = useRef(null);
   const [chatRoomsOpen, setChatRoomsOpen] = useState(false);
   // 带着预设打开房间面板＝直接落到【新建那一页】（庭院里「给 TA 新开一间」走这条）。
@@ -2291,7 +2311,7 @@ function App() {
   //   给沈屿白挑的皮肤会照样出现在陆闻那儿（浏览器里当场看出来的）。
   // ⚠️跟 TA 单独通话时也算「TA 这一页」（她 2026-10-05：「做1吧」）：她给 TA 写的贴纸、气泡 CSS
   //   原来一进通话就整份收走，秋秋往里加再多 call* 挂点也显示不出来。通话那层由 data-lisa-call 认人。
-  const lookScope = id => { const k = String(id).replace(/[^A-Za-z0-9_:-]/g, ""); return 'html[data-lisa-char="' + k + '"]:is([data-lisa-screen="thread"],[data-lisa-call="' + k + '"])'; };
+  const lookScope = id => { const k = String(id).replace(/[^A-Za-z0-9_:-]/g, ""); return 'html[data-lisa-char="' + k + '"]:is([data-lisa-screen="thread"],[data-lisa-call="' + k + '"],[data-lisa-half="' + k + '"])'; };
   const charSkinCSS = (name, scope) => {
     if (!name || !window.ThemeStudio) return "";
     const hit = ((window.ThemeStudio.CSS_BUILTINS || {}).thread || []).find(x => x && x[0] === name);
@@ -2309,9 +2329,10 @@ function App() {
     if (typeof applyChatLook !== "function") return;
     // 单人通话（不是群通话）优先：通话盖在哪一页上都按通话里那个人来
     const callOne = call && !call.groupId && call.participants && call.participants.length === 1 ? call.participants[0] : null;
-    const who = callOne || (activeChar && screen === "thread" ? activeChar : null);
+    const who = callOne || (activeChar && (screen === "thread" || (halfWin && halfWin.charId === activeChar.id)) ? activeChar : null);
     const inChat = !!who;
     document.documentElement.setAttribute("data-lisa-char", inChat ? String(who.id) : "");
+    document.documentElement.setAttribute("data-lisa-half", !callOne && who && halfWin && halfWin.charId === who.id ? String(who.id).replace(/[^A-Za-z0-9_:-]/g, "") : "");
     document.documentElement.setAttribute("data-lisa-call", callOne ? String(callOne.id).replace(/[^A-Za-z0-9_:-]/g, "") : "");
     const s = inChat ? Object.assign({}, settingsFor(who.id), draft || {}) : {};
     const scope = inChat ? lookScope(who.id) : "";
@@ -2336,7 +2357,7 @@ function App() {
       chatBg: s.chatBg || ""
     });
   };
-  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId]);
+  useEffect(() => { paintChatLook(null); }, [activeChar && activeChar.id, halfWin && halfWin.charId, chatSettings, screen, call && call.participants && call.participants.map(c => c.id).join(","), call && call.groupId]);
   // 群聊窗那一层（她 2026-09-30：「群聊也加这一堆美化」）：排版开关 + 这个群自己写的 CSS，限到【这一个群】
   //   ——别的群也是 gthread，只按页面限的话会串到别的群里去（单聊那条同样的教训）。
   const paintGroupLook = draft => {
@@ -11519,7 +11540,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
       const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
-      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
+      const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
+      // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
+      const _halfHint = _halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就别硬扯。" : "";
+      const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
       const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
@@ -26349,6 +26373,344 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     ? (window.ChatRooms ? window.ChatRooms.chatKey(offlineChar.id, offlineRoomId) : offlineChar.id)
     : null;
   const activeOfflineRoom = activeOfflineScopeKey ? offlineRoomFor(activeOfflineScopeKey) : null;
+  // 单聊那一屏抽成一块：整屏和半窗用的是同一个 ChatThread、同一套 props，不各写一份
+  const mkThread = xtra => /*#__PURE__*/React.createElement(ChatThread, Object.assign({
+    key: activeChar.id + "::" + activeRoomId,
+    // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
+    unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
+    character: chatFace(activeChar),
+    characters: liveChars.map(chatFace),
+    groups: groups,
+    messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
+    sending: sending,
+    onStopGen: stopBtnFor(_curLane),
+    onBack: () => setScreen("messages"),
+    onSend: txt => {
+      gachaEarn(activeChar.id, "chat");
+      pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
+      // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
+      // 投递失败只提示不回滚——消息本来就该留在聊天里，她可以点「让TA回复」走直连兜底。
+      if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
+        window.CcLane.post(txt, { threadType: "private" }).then(ok => { if (!ok) toast("书房没接到，检查网络或钥匙；可点亮「直连」走订阅"); });
+      }
+    },
+    ccLane: (window.CcLane && window.CcLane.config().on && window.CcLane.config().token && settingsFor(activeChar.id).engineerEyes === true)
+      ? { direct: settingsFor(activeChar.id).ccDirect === true, onToggle: () => patchChatSetting(activeChar.id, { ccDirect: !(settingsFor(activeChar.id).ccDirect === true) }) }
+      : null,
+    sameRoom: sameRoomFor(activeChar.id),
+    actDesc: actDescFor(activeChar.id),
+    // 停手几秒自己回（群里唯心主弈 2026-10-06 许愿：「收起键盘多少秒后开始回复，点叶子感觉在逼他回复」）：0＝关
+    autoReplySec: Math.max(0, Math.min(600, Number(settingsFor(activeChar.id).autoReplySec) || 0)),
+    // 那一行显示成「我」还是「TA」（她 2026-09-12：「就设置开关可以改」）。
+    // ⚠️只管【显示】：存进状态卡的照旧是第一人称，那儿是角色自己的卡。
+    actPerson: (settingsFor(activeChar.id) || {}).actPerson === "ta" ? "ta" : "me",
+    userPerson: (settingsFor(activeChar.id) || {}).userPerson === "ta" ? "ta" : "you",
+    onToggleSameRoom: () => {
+      const on = !sameRoomFor(activeChar.id);
+      patchChatSetting(activeChar.id, { sameRoom: on });
+      toast(on ? characterText(activeChar, "同处一室：开——他知道你俩此刻面对面了") : "同处一室：关");
+    },
+    onReply: extraText => {
+      const b = blocks[blockChatKey(activeChar.id)] || {};
+      // 她拉黑他的时候自己也能说话（她 2026-10-03）：现实里拉黑的那一方照样能发，对方也看得到——
+      //   原来这儿把她打的字整个丢了，只让他自说自话。现在先把她这句落进聊天，再让他接。
+      if (b.iBlocked) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, blockChatKey(activeChar.id));
+        return blockedReaction(activeChar.id, blockChatKey(activeChar.id));
+      }
+      if (b.theyBlocked) { toast("TA 拉黑了你，点消息旁的 ! 申请解除"); return; }
+      const room = window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
+      const chatKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      // 书房直通时「让TA回复」不开引擎枪：带话就上屏+投书房，空按就只捎个「她在等」。
+      if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, chatKey);
+        window.CcLane.post(extra, { threadType: "private", nudge: true })
+          .then(ok => toast(ok ? "书房已收到" : "书房没接到，点亮「直连」可走订阅"));
+        return;
+      }
+      const bg = busyGate(activeChar, chatKey);
+      if (bg && bg.held) {
+        const extra = String(extraText || "").trim();
+        if (extra) pushUser(activeChar.id, extra, chatKey);
+        // 灰字落在聊天里，不弹 toast（她 2026-10-05）：toast 一闪就没了，回头翻不到他那会儿为什么没回。
+        //   连按几次只留一条：最后一条已经是同一句就不再叠。
+        const busyNote = characterText(activeChar, (bg.held.sleep ? "TA 在睡觉" : "TA 这会儿在忙（" + bg.held.title + "）") + "，还没看手机——忙完会回你。真有急事就再按一次");
+        pChat(chatKey || activeChar.id, p => {
+          const last = p[p.length - 1];
+          return last && last.kind === "busynote" && last.content === busyNote ? p : [...p, { id: "busy_" + Date.now(), role: "system", kind: "busynote", ts: Date.now(), content: busyNote }];
+        });
+        return;
+      }
+      if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title, sleep: !!bg.nudge.sleep } }); }
+      if (bg && bg.back) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyBack: { title: bg.back.title, sleep: !!bg.back.sleep } }); }
+      return replyNow(activeChar.id, extraText, null, { room, chatKey });
+    },
+    block: blocks[blockChatKey(activeChar.id)] || null,
+    onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id)),
+    onUnblock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
+    onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
+    profile: profile,
+    // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
+    //   「char2 对应面具 2，但聊天显示的不是面具 2 的头像」）。profile 本身不换——语音标定那些按它记的。
+    meProfile: profileFor(activeChar.id),
+    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
+    onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
+    schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
+    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
+    onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
+    // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
+    //   她还得再点一次才进得去（她 2026-09-14 报的就是这个）。
+    onOpenUs: () => { setUsLand({ view: activeChar.id, sub: "disc" }); setScreen("us"); },
+    // 聊天里 TA 给你点的外卖卡 → 外卖 app 的订单页；返回键回到这个聊天
+    onOpenTakeout: () => { setTakeoutNav("orders"); setTakeoutBack("thread"); setScreen("takeout"); },
+    onOpenSettings: () => setChatSettingsOpen(true),
+    room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
+    onOpenRooms: () => setChatRoomsOpen(true),
+    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(["train","pets"].includes(world) ? world : "garden"); setGardenOpen(activeRoomId); } : null,
+    // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
+    // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
+    roomStudy: (function (_tick) {
+      const K = window.ChatRooms, S = window.Study;
+      const room = K ? K.get(activeChar.id, activeRoomId) : null;
+      if (!room || room.main || !S || !S.studyCoursesOf) return null;
+      if (!(room.from === "study" || (room.actions && room.actions.study))) return null;
+      const roomName = id => id === "main" ? "主聊天" : ((K.list(activeChar.id).find(r => r.id === id) || {}).name || "别的房");
+      const all = S.studyCoursesOf(activeChar.id).map(c => ({ ...c, where: roomName(c.roomId) }));
+      const here = all.filter(c => c.roomId === room.id);
+      return { here, others: all.filter(c => c.roomId !== room.id), pick: (here.find(c => c.kind + ":" + c.id === room.studyPick) || here[0] || null) };
+    })(roomStudyTick),
+    onPickRoomStudy: c => {
+      const K = window.ChatRooms, room = K && K.get(activeChar.id, activeRoomId);
+      if (!room || room.main) return;
+      K.save(activeChar.id, { ...room, studyPick: c.kind + ":" + c.id });
+      setRoomStudyTick(v => v + 1);
+    },
+    onOpenRoomStudy: c => {
+      setStudyEntry(c ? { key: "study_" + Date.now(), mode: "course", kind: c.kind, id: c.id, back: "thread" }
+        : { key: "study_" + Date.now(), mode: "propose", subject: "", characterId: activeChar.id, roomId: activeRoomId, back: "thread" });
+      setScreen("study");
+    },
+    onMoveRoomStudy: (c, inHere) => {
+      if (!window.Study) return;
+      window.Study.setCourseRoom(c.kind, c.id, inHere ? activeRoomId : "main");
+      setRoomStudyTick(v => v + 1);
+      toast(inHere ? "「" + c.title + "」收进这间房了" : "「" + c.title + "」回主聊天了");
+    },
+    // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）────────────────
+    // 一间房可以放好几本；当前这一本由【最后一次提到的那一本】定，她也可以点着换。
+    // ⚠️换书不会把之前聊过的那本冲掉：a 的设定前情是每一轮从 a 身上现拼的，
+    //   换回去就原样长回来；而你们聊过的那几句按书分账，谁的还是谁的。
+    // ⚠️roomFicTick 是这两格真正的依赖：她挑的那一本存在 localStorage 里，
+    //   React 不会自己知道它变了。传进来读一下，也免得下次谁当成死变量删掉。
+    roomFics: (function (_tick) {
+      if (!window.ChatRooms || (window.ChatRooms.get(activeChar.id, activeRoomId) || {}).main) return [];
+      return roomFicsOf(window.ChatRooms.chatKey(activeChar.id, activeRoomId));
+    })(roomFicTick),
+    roomFicId: (function (_tick) {
+      if (!window.ChatRooms || (window.ChatRooms.get(activeChar.id, activeRoomId) || {}).main) return "";
+      const f = lastRoomFic(window.ChatRooms.chatKey(activeChar.id, activeRoomId));
+      return f ? f.id : "";
+    })(roomFicTick),
+    onPickRoomFic: (id, title) => {
+      if (!window.ChatRooms) return;
+      setRoomFicPick(window.ChatRooms.chatKey(activeChar.id, activeRoomId), id, title);
+      setRoomFicTick(v => v + 1);   // 这一格存在 localStorage 里，得推一下才重画
+      toast("现在在聊《" + String(title || "").slice(0, 20) + "》");
+    },
+    ficWriting: !!busyLanes["ficroom:" + activeChar.id],
+    toast: toast,
+    onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
+    onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
+    onStartCall: m => callCharGated(activeChar, m),
+    // 半窗：只在主聊天里有（小房间是另一条线，先不跟出去）；开了就回主屏，上面随便翻
+    onHalfWin: activeRoomId === "main" ? () => { setHalfWin({ charId: activeChar.id }); setScreen("home"); } : null,
+    onCallBack: m => callCharGated(activeChar, m.mode),
+    onAskCouple: cid => runRoomAction(activeChar.id, "coupleInvite", () => askCoupleInvite(activeChar.id, cid)),
+    askingCouple: gen.coupleAsk || null,
+    onAcceptListen: acceptListenInvite,
+    onOpenStudyInvite: m => {
+      // 带上是在哪间房里被邀请的：建出来的课会戳上这一戳，写回边界才认得出它。
+      setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id, roomId: m.roomId || activeRoomId || "main" });
+      setScreen("study");
+    },
+    // 一起写：她点了这张卡，TA才**真的动笔**（这一枪的钱花在这儿，不在TA开口那一下）。
+    // ⚠️写的人就是这间房里的这个人——她 2026-09-11：「我跟谁讨论让TA写谁再写」。
+    // ⚠️走向按你们在这间房里商量的来；分歧按TA的来，交稿说明写在 penNote 里。
+    onOpenFicInvite: async m => {
+      const K = window.Fanfic;
+      if (!K || !activeChar) return;
+      const cid = activeChar.id;
+      const key = window.ChatRooms ? window.ChatRooms.chatKey(cid, activeRoomId) : cid;
+      if (window.ChatRooms && !window.ChatRooms.pendingFicInvite(chatsRef.current[key] || [], m.ficId)) {
+        toast("这一轮已经写过了，继续商量下一章吧"); return;
+      }
+      const f = (K.loadFics() || []).filter(x => x && x.id === String(m.ficId || ""))[0];
+      if (!f) { toast("那一篇找不到了"); return; }
+      const p = bgActiveRef.current || active;
+      if (!p) { toast("先去 设置·API 配一条线路"); return; }
+      if (laneBusy("ficroom:" + cid)) return;
+      startLane("ficroom:" + cid);
+      toast(characterText(activeChar, "他写着呢…"));
+      try {
+        const tab = (K.loadTabs() || []).filter(x => x && x.id === f.tabId)[0] || { name: "", desc: "" };
+        const cpc = K.cpChars(f.cp || [], characters, profile);
+        const cfg = K.loadCfg();
+        const uName = (profile && profile.name) || "我";
+        const ids = cpc.filter(c => c && !c.isMe && c.id).map(c => c.id);
+        const ch = await K.genNextChapter(p, f, tab, cpc, uName,
+          loreForContext("creative", ids, [f.title, tab.name].filter(Boolean).join("\n")),
+          {
+            style: K.activeStyleText(cfg), perFic: cfg.perFic, minChars: cfg.minChars,
+            chatMaterial: K.chatMaterialFor(cpc),
+            byChar: activeChar,
+            charRel: relOfChar(cid),
+            writerAxes: K.rollWriterAxes(cid, f.id, (f.chapters || []).length),
+            roomTalk: roomTalkOf(key, activeChar.remark || activeChar.name, uName, 14, f.id),
+            nameOf: id2 => { const c = characters.find(x => x && x.id === id2); return c ? (c.remark || c.name) : "那个人"; }
+          });
+        const nm = activeChar.remark || activeChar.name;
+        const fics = K.loadFics().map(x => {
+          if (!x || x.id !== f.id) return x;
+          const next = Object.assign({}, x);
+          next.chapters = (x.chapters || []).concat([Object.assign({}, ch, { byAuthor: nm, byCharId: cid })]);
+          // 和阅读页续写共用设定/伏笔合并规则，落章时一起保存。
+          Object.assign(next, K.applyChapterMeta(x, ch));
+          // ⚠️热度：房里这条路原来一个字都没写过 authorHeat，于是她在房里让角色写了好几章，
+          //   原作者一点火气都没有（她 2026-09-11：「让角色代笔作者的热度也不会动」）。
+          //   算法在 fanfic.js 的 heatFields 那一份，两条路共用——阅读页那颗「请人」也走它。
+          Object.assign(next, K.heatFields(x, { by: activeChar }));
+          next.updatedAt = Date.now();
+          return next;
+        });
+        if (!K.saveFics(fics)) throw new Error("这一章没能保存，待写入口保留着；请检查存储后再试");
+        const no = (f.chapters || []).length + 1;
+        // 推回房里：卡上只放【开头两百字 + TA那句话】，全文在同人文里
+        pChat(key, prev => [...prev, {
+          role: "assistant", kind: "ficdone", ficId: f.id, ts: Date.now(), read: false,
+          subject: "《" + f.title + "》第 " + no + " 章",
+          chapIdx: no - 1,   // 卡上点一下直接翻到这一章（她 2026-09-12 要的快捷键）
+          // ⚠️这儿原来拿的是 authorNote——那是【原作者】看完这一章留的评论，不是TA的话。
+          //   于是TA交稿那一句用的是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
+          //   有一半在这儿）。现在TA自己那一格叫 penNote；TA没话说就不摆这一行。
+          say: String(ch.penNote || "").trim().slice(0, 300),
+          content: String(ch.content || "").trim().slice(0, 200)
+        }]);
+        toast(characterText(activeChar, "他写好了第 ") + no + " 章");
+      } catch (e) { toast(String(e.message || e)); }
+      endLane("ficroom:" + cid);
+    },
+    // 小游戏走同一张卡、同一条路（studyinvite 那个形状），只是落到游戏架上。
+    // 「去看这一章」：卡上带着是哪一篇、第几章，直接翻过去，不用她自己找
+    onOpenFicChapter: m => {
+      if (!m || !m.ficId) { toast("这张卡上没写是哪一篇"); return; }
+      setFicJump({ ficId: String(m.ficId), chap: Number(m.chapIdx) >= 0 ? Number(m.chapIdx) : -1, key: Date.now() });
+      setScreen("fanfic");
+    },
+    onOpenGameInvite: m => {
+      // 带上是在哪间房里被邀请的：这一局终局那一下要按它决定收到哪儿（同一起学那一戳）
+      setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id, roomId: activeRoomId || "main" });
+      setScreen("games");
+    },
+    // 算一卦：点了就直接进塔罗、进TA提的那一档，TA觉得该问的那件事也替她填好
+    // ⚠️牌在那头才落桌（塔罗自己洗牌、定正逆）——TA那张卡上没有、也不许有牌面。
+    onOpenTarotInvite: m => {
+      setTarotEntry({ key: "tarot_" + Date.now(), mode: String(m.mode || "reading"), charId: activeChar.id,
+        ask: String(m.ask || ""), spreadKey: String(m.spread || ""), asker: String(m.asker || "you") });
+      setScreen("tarot");
+    },
+    // 一起读：点了就直接翻到那本书TA停着的那一页（卡上带着 bookId，不用她自己去架上找）
+    onOpenReadInvite: m => {
+      setReadEntry({ key: "read_" + Date.now(), bookId: String(m.bookId || ""), characterId: activeChar.id });
+      setScreen("read");
+    },
+    emotes: emotesForCharMine(activeChar.id),
+    emotePacks: emotePacksForChar(activeChar.id),
+    onManageEmotes: () => setScreen("emotes"),
+    archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
+    onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
+    myBalance: wallet,
+    onSendTransfer: (amount, note) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note)),
+    onRespondTransfer: (tid, accept) => runRoomAction(activeChar.id, "transferAccept", () => respondTransfer(activeChar.id, tid, accept)),
+    // 拆开TA寄来的那个盒子（她 2026-09-19）。盖子掀开这件事只发生一次，记在那条消息上——
+    // ⚠️认的是 turnId 不是数组下标：聊天会删消息、会翻旧的，下标一变就拆错了那一盒。
+    onOpenGift: msg => {
+      const key = msg && msg.turnId;
+      if (!key) return;
+      pChat(activeChar.id, p => p.map(x => (x.kind === "gift" && x.turnId === key) ? { ...x, opened: true } : x));
+    },
+    onOpenMoments: () => openMomProfile(activeChar.id, false),
+    onHandPhone: (allow, hideIds, allMasks) => handPhoneTo(activeChar.id, allow, hideIds, false, allMasks),
+    onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
+    invitePlaces: invitePlacesFor(activeChar),
+    peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
+      .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
+      .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),
+    onPhoneAsk: (m, give) => answerPhoneAsk(activeChar.id, m, give),
+    onLoveLetterOpen: m => openLoveLetter(activeChar.id, m),
+    onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
+    onSneak: (m, how) => answerSneak(activeChar.id, m, how),
+    onDateGo: m => dateGo(activeChar.id, m),
+    onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
+    peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
+    onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
+    onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
+    onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
+    // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
+    onPinShike: indices => {
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const msgs = chatsRef.current[threadKey] || [];
+      pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
+    },
+    onDeleteMessages: indices => {
+      const set = new Set(indices);
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const picked = (chatsRef.current[threadKey] || []).filter((_, i) => set.has(i));
+      const imported = picked.filter(m => m && m.ledgerImported && m.ledgerKey);
+      // 跨端原话只能软删：本地先变成撤回占位，云端再盖 tombstone；普通本地消息保持原来的本机删除行为。
+      pChat(threadKey, p => p.map((m, i) => set.has(i) && m && m.ledgerImported ? { ...m, recalled: true } : m).filter((m, i) => !set.has(i) || (m && m.ledgerImported)));
+      if (imported.length && window.Cloud) window.Cloud.chatMessagesSoftDelete(imported.map(m => m.ledgerKey)).catch(e => {
+        const failed = new Set(imported.map(m => m.ledgerKey));
+        pChat(threadKey, p => p.map(m => m && failed.has(m.ledgerKey) ? { ...m, recalled: false } : m));
+        toast("跨端消息云端没删成，已恢复，请联网后重试：" + String((e && e.message) || e));
+      });
+      toast("已删除 " + indices.length + " 条");
+    },
+    onForward: (msgs, destination) => {
+      const items = msgs.map(m => ({
+        name: m.role === "user" ? profile.name || "我" : activeChar.name,
+        text: gameChatText(m),
+        ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
+      }));
+      const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
+      const msg = {
+        role: "user",
+        kind: "chatforward",
+        content,
+        forward: {
+          sourceType: "chat",
+          sourceId: activeChar.id,
+          from: activeChar.name,
+          items
+        },
+        ts: Date.now(),
+        read: false
+      };
+      if (destination && destination.type === "group") {
+        const g = groups.find(x => x.id === destination.id);
+        if (!g) return;
+        pGChat(g.id, p => [...p, { ...msg, senderName: profile.name || "我" }]);
+        toast("已转发到 " + g.name);
+      } else {
+        const toChar = characters.find(c => c.id === (destination && destination.id));
+        if (!toChar) return;
+        pChat(toChar.id, p => [...p, msg]);
+        toast("已转发给 " + (toChar.remark || toChar.name));
+      }
+    }
+  }, xtra || {}));
   let body = null;
   if (!loaded) body = /*#__PURE__*/React.createElement(Empty, {
     text: "加载中…"
@@ -26607,341 +26969,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   })());else if (screen === "thread" && activeChar && peekCut[activeChar.id]) body = h(PeekCutPage, {
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
-  });else if (screen === "thread" && activeChar) body = /*#__PURE__*/React.createElement(ChatThread, {
-    key: activeChar.id + "::" + activeRoomId,
-    // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
-    unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
-    character: chatFace(activeChar),
-    characters: liveChars.map(chatFace),
-    groups: groups,
-    messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
-    sending: sending,
-    onStopGen: stopBtnFor(_curLane),
-    onBack: () => setScreen("messages"),
-    onSend: txt => {
-      gachaEarn(activeChar.id, "chat");
-      pushUser(activeChar.id, txt, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id);
-      // 书房直通（她 2026-09-25 拍板）：言秋房的话默认投去 CC 老窗口，回复走账本流回来。
-      // 投递失败只提示不回滚——消息本来就该留在聊天里，她可以点「让TA回复」走直连兜底。
-      if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
-        window.CcLane.post(txt, { threadType: "private" }).then(ok => { if (!ok) toast("书房没接到，检查网络或钥匙；可点亮「直连」走订阅"); });
-      }
-    },
-    ccLane: (window.CcLane && window.CcLane.config().on && window.CcLane.config().token && settingsFor(activeChar.id).engineerEyes === true)
-      ? { direct: settingsFor(activeChar.id).ccDirect === true, onToggle: () => patchChatSetting(activeChar.id, { ccDirect: !(settingsFor(activeChar.id).ccDirect === true) }) }
-      : null,
-    sameRoom: sameRoomFor(activeChar.id),
-    actDesc: actDescFor(activeChar.id),
-    // 停手几秒自己回（群里唯心主弈 2026-10-06 许愿：「收起键盘多少秒后开始回复，点叶子感觉在逼他回复」）：0＝关
-    autoReplySec: Math.max(0, Math.min(600, Number(settingsFor(activeChar.id).autoReplySec) || 0)),
-    // 那一行显示成「我」还是「TA」（她 2026-09-12：「就设置开关可以改」）。
-    // ⚠️只管【显示】：存进状态卡的照旧是第一人称，那儿是角色自己的卡。
-    actPerson: (settingsFor(activeChar.id) || {}).actPerson === "ta" ? "ta" : "me",
-    userPerson: (settingsFor(activeChar.id) || {}).userPerson === "ta" ? "ta" : "you",
-    onToggleSameRoom: () => {
-      const on = !sameRoomFor(activeChar.id);
-      patchChatSetting(activeChar.id, { sameRoom: on });
-      toast(on ? characterText(activeChar, "同处一室：开——他知道你俩此刻面对面了") : "同处一室：关");
-    },
-    onReply: extraText => {
-      const b = blocks[blockChatKey(activeChar.id)] || {};
-      // 她拉黑他的时候自己也能说话（她 2026-10-03）：现实里拉黑的那一方照样能发，对方也看得到——
-      //   原来这儿把她打的字整个丢了，只让他自说自话。现在先把她这句落进聊天，再让他接。
-      if (b.iBlocked) {
-        const extra = String(extraText || "").trim();
-        if (extra) pushUser(activeChar.id, extra, blockChatKey(activeChar.id));
-        return blockedReaction(activeChar.id, blockChatKey(activeChar.id));
-      }
-      if (b.theyBlocked) { toast("TA 拉黑了你，点消息旁的 ! 申请解除"); return; }
-      const room = window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
-      const chatKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
-      // 书房直通时「让TA回复」不开引擎枪：带话就上屏+投书房，空按就只捎个「她在等」。
-      if (window.CcLane && window.CcLane.routes(settingsFor(activeChar.id))) {
-        const extra = String(extraText || "").trim();
-        if (extra) pushUser(activeChar.id, extra, chatKey);
-        window.CcLane.post(extra, { threadType: "private", nudge: true })
-          .then(ok => toast(ok ? "书房已收到" : "书房没接到，点亮「直连」可走订阅"));
-        return;
-      }
-      const bg = busyGate(activeChar, chatKey);
-      if (bg && bg.held) {
-        const extra = String(extraText || "").trim();
-        if (extra) pushUser(activeChar.id, extra, chatKey);
-        // 灰字落在聊天里，不弹 toast（她 2026-10-05）：toast 一闪就没了，回头翻不到他那会儿为什么没回。
-        //   连按几次只留一条：最后一条已经是同一句就不再叠。
-        const busyNote = characterText(activeChar, (bg.held.sleep ? "TA 在睡觉" : "TA 这会儿在忙（" + bg.held.title + "）") + "，还没看手机——忙完会回你。真有急事就再按一次");
-        pChat(chatKey || activeChar.id, p => {
-          const last = p[p.length - 1];
-          return last && last.kind === "busynote" && last.content === busyNote ? p : [...p, { id: "busy_" + Date.now(), role: "system", kind: "busynote", ts: Date.now(), content: busyNote }];
-        });
-        return;
-      }
-      if (bg && bg.nudge) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyNudge: { title: bg.nudge.title, sleep: !!bg.nudge.sleep } }); }
-      if (bg && bg.back) { busyRelease(activeChar.id); return replyNow(activeChar.id, extraText, null, { room, chatKey, busyBack: { title: bg.back.title, sleep: !!bg.back.sleep } }); }
-      return replyNow(activeChar.id, extraText, null, { room, chatKey });
-    },
-    block: blocks[blockChatKey(activeChar.id)] || null,
-    onSendUnblockReq: plea => sendMyUnblockReq(activeChar.id, plea, blockChatKey(activeChar.id)),
-    onUnblock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
-    onRespondUnblock: (cid, accept) => respondUnblockFromChar(activeChar.id, cid, accept, blockChatKey(activeChar.id)),
-    profile: profile,
-    // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
-    //   「char2 对应面具 2，但聊天显示的不是面具 2 的头像」）。profile 本身不换——语音标定那些按它记的。
-    meProfile: profileFor(activeChar.id),
-    disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
-    onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
-    schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
-    onOpenSched: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? (() => { calReturnRef.current = { screen: screen }; setSelSched(activeChar.id); setScreen("calendar"); }) : null,
-    onLongPress: (act, idx) => handleMsgAction(act, idx, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
-    // 唱片卡点进去＝去【这个人】情侣空间里的唱片架（那才是它落到的地方）。
-    // ⚠️原来这儿只有 setScreen("us")：没说是谁，于是落在「所有情侣空间」那张名册上，
-    //   她还得再点一次才进得去（她 2026-09-14 报的就是这个）。
-    onOpenUs: () => { setUsLand({ view: activeChar.id, sub: "disc" }); setScreen("us"); },
-    // 聊天里 TA 给你点的外卖卡 → 外卖 app 的订单页；返回键回到这个聊天
-    onOpenTakeout: () => { setTakeoutNav("orders"); setTakeoutBack("thread"); setScreen("takeout"); },
-    onOpenSettings: () => setChatSettingsOpen(true),
-    room: window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : { id: "main", name: "主聊天", main: true },
-    onOpenRooms: () => setChatRoomsOpen(true),
-    onEnterGarden: gardenRoomOf(activeChar.id, activeRoomId) ? world => { setGardenRoomWorld(["train","pets"].includes(world) ? world : "garden"); setGardenOpen(activeRoomId); } : null,
-    // ── 这间房收着哪几门课（她 2026-09-23）────────────────────────────
-    // 开了「TA可以拉你一起学」、或者就是从一起学开出来的房，才摆这一条。
-    roomStudy: (function (_tick) {
-      const K = window.ChatRooms, S = window.Study;
-      const room = K ? K.get(activeChar.id, activeRoomId) : null;
-      if (!room || room.main || !S || !S.studyCoursesOf) return null;
-      if (!(room.from === "study" || (room.actions && room.actions.study))) return null;
-      const roomName = id => id === "main" ? "主聊天" : ((K.list(activeChar.id).find(r => r.id === id) || {}).name || "别的房");
-      const all = S.studyCoursesOf(activeChar.id).map(c => ({ ...c, where: roomName(c.roomId) }));
-      const here = all.filter(c => c.roomId === room.id);
-      return { here, others: all.filter(c => c.roomId !== room.id), pick: (here.find(c => c.kind + ":" + c.id === room.studyPick) || here[0] || null) };
-    })(roomStudyTick),
-    onPickRoomStudy: c => {
-      const K = window.ChatRooms, room = K && K.get(activeChar.id, activeRoomId);
-      if (!room || room.main) return;
-      K.save(activeChar.id, { ...room, studyPick: c.kind + ":" + c.id });
-      setRoomStudyTick(v => v + 1);
-    },
-    onOpenRoomStudy: c => {
-      setStudyEntry(c ? { key: "study_" + Date.now(), mode: "course", kind: c.kind, id: c.id, back: "thread" }
-        : { key: "study_" + Date.now(), mode: "propose", subject: "", characterId: activeChar.id, roomId: activeRoomId, back: "thread" });
-      setScreen("study");
-    },
-    onMoveRoomStudy: (c, inHere) => {
-      if (!window.Study) return;
-      window.Study.setCourseRoom(c.kind, c.id, inHere ? activeRoomId : "main");
-      setRoomStudyTick(v => v + 1);
-      toast(inHere ? "「" + c.title + "」收进这间房了" : "「" + c.title + "」回主聊天了");
-    },
-    // ── 这间房现在在写哪一本（她 2026-09-12：「放吧」）────────────────
-    // 一间房可以放好几本；当前这一本由【最后一次提到的那一本】定，她也可以点着换。
-    // ⚠️换书不会把之前聊过的那本冲掉：a 的设定前情是每一轮从 a 身上现拼的，
-    //   换回去就原样长回来；而你们聊过的那几句按书分账，谁的还是谁的。
-    // ⚠️roomFicTick 是这两格真正的依赖：她挑的那一本存在 localStorage 里，
-    //   React 不会自己知道它变了。传进来读一下，也免得下次谁当成死变量删掉。
-    roomFics: (function (_tick) {
-      if (!window.ChatRooms || (window.ChatRooms.get(activeChar.id, activeRoomId) || {}).main) return [];
-      return roomFicsOf(window.ChatRooms.chatKey(activeChar.id, activeRoomId));
-    })(roomFicTick),
-    roomFicId: (function (_tick) {
-      if (!window.ChatRooms || (window.ChatRooms.get(activeChar.id, activeRoomId) || {}).main) return "";
-      const f = lastRoomFic(window.ChatRooms.chatKey(activeChar.id, activeRoomId));
-      return f ? f.id : "";
-    })(roomFicTick),
-    onPickRoomFic: (id, title) => {
-      if (!window.ChatRooms) return;
-      setRoomFicPick(window.ChatRooms.chatKey(activeChar.id, activeRoomId), id, title);
-      setRoomFicTick(v => v + 1);   // 这一格存在 localStorage 里，得推一下才重画
-      toast("现在在聊《" + String(title || "").slice(0, 20) + "》");
-    },
-    ficWriting: !!busyLanes["ficroom:" + activeChar.id],
-    toast: toast,
-    onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
-    onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
-    onStartCall: m => callCharGated(activeChar, m),
-    onCallBack: m => callCharGated(activeChar, m.mode),
-    onAskCouple: cid => runRoomAction(activeChar.id, "coupleInvite", () => askCoupleInvite(activeChar.id, cid)),
-    askingCouple: gen.coupleAsk || null,
-    onAcceptListen: acceptListenInvite,
-    onOpenStudyInvite: m => {
-      // 带上是在哪间房里被邀请的：建出来的课会戳上这一戳，写回边界才认得出它。
-      setStudyEntry({ key: "study_" + Date.now(), mode: m.mode === "resume" ? "resume" : "propose", sessionId: m.sessionId || null, subject: m.subject || m.sessionTitle || "", characterId: activeChar.id, roomId: m.roomId || activeRoomId || "main" });
-      setScreen("study");
-    },
-    // 一起写：她点了这张卡，TA才**真的动笔**（这一枪的钱花在这儿，不在TA开口那一下）。
-    // ⚠️写的人就是这间房里的这个人——她 2026-09-11：「我跟谁讨论让TA写谁再写」。
-    // ⚠️走向按你们在这间房里商量的来；分歧按TA的来，交稿说明写在 penNote 里。
-    onOpenFicInvite: async m => {
-      const K = window.Fanfic;
-      if (!K || !activeChar) return;
-      const cid = activeChar.id;
-      const key = window.ChatRooms ? window.ChatRooms.chatKey(cid, activeRoomId) : cid;
-      if (window.ChatRooms && !window.ChatRooms.pendingFicInvite(chatsRef.current[key] || [], m.ficId)) {
-        toast("这一轮已经写过了，继续商量下一章吧"); return;
-      }
-      const f = (K.loadFics() || []).filter(x => x && x.id === String(m.ficId || ""))[0];
-      if (!f) { toast("那一篇找不到了"); return; }
-      const p = bgActiveRef.current || active;
-      if (!p) { toast("先去 设置·API 配一条线路"); return; }
-      if (laneBusy("ficroom:" + cid)) return;
-      startLane("ficroom:" + cid);
-      toast(characterText(activeChar, "他写着呢…"));
-      try {
-        const tab = (K.loadTabs() || []).filter(x => x && x.id === f.tabId)[0] || { name: "", desc: "" };
-        const cpc = K.cpChars(f.cp || [], characters, profile);
-        const cfg = K.loadCfg();
-        const uName = (profile && profile.name) || "我";
-        const ids = cpc.filter(c => c && !c.isMe && c.id).map(c => c.id);
-        const ch = await K.genNextChapter(p, f, tab, cpc, uName,
-          loreForContext("creative", ids, [f.title, tab.name].filter(Boolean).join("\n")),
-          {
-            style: K.activeStyleText(cfg), perFic: cfg.perFic, minChars: cfg.minChars,
-            chatMaterial: K.chatMaterialFor(cpc),
-            byChar: activeChar,
-            charRel: relOfChar(cid),
-            writerAxes: K.rollWriterAxes(cid, f.id, (f.chapters || []).length),
-            roomTalk: roomTalkOf(key, activeChar.remark || activeChar.name, uName, 14, f.id),
-            nameOf: id2 => { const c = characters.find(x => x && x.id === id2); return c ? (c.remark || c.name) : "那个人"; }
-          });
-        const nm = activeChar.remark || activeChar.name;
-        const fics = K.loadFics().map(x => {
-          if (!x || x.id !== f.id) return x;
-          const next = Object.assign({}, x);
-          next.chapters = (x.chapters || []).concat([Object.assign({}, ch, { byAuthor: nm, byCharId: cid })]);
-          // 和阅读页续写共用设定/伏笔合并规则，落章时一起保存。
-          Object.assign(next, K.applyChapterMeta(x, ch));
-          // ⚠️热度：房里这条路原来一个字都没写过 authorHeat，于是她在房里让角色写了好几章，
-          //   原作者一点火气都没有（她 2026-09-11：「让角色代笔作者的热度也不会动」）。
-          //   算法在 fanfic.js 的 heatFields 那一份，两条路共用——阅读页那颗「请人」也走它。
-          Object.assign(next, K.heatFields(x, { by: activeChar }));
-          next.updatedAt = Date.now();
-          return next;
-        });
-        if (!K.saveFics(fics)) throw new Error("这一章没能保存，待写入口保留着；请检查存储后再试");
-        const no = (f.chapters || []).length + 1;
-        // 推回房里：卡上只放【开头两百字 + TA那句话】，全文在同人文里
-        pChat(key, prev => [...prev, {
-          role: "assistant", kind: "ficdone", ficId: f.id, ts: Date.now(), read: false,
-          subject: "《" + f.title + "》第 " + no + " 章",
-          chapIdx: no - 1,   // 卡上点一下直接翻到这一章（她 2026-09-12 要的快捷键）
-          // ⚠️这儿原来拿的是 authorNote——那是【原作者】看完这一章留的评论，不是TA的话。
-          //   于是TA交稿那一句用的是另一个人的口气（她 2026-09-11：「写的跟作者一个味」
-          //   有一半在这儿）。现在TA自己那一格叫 penNote；TA没话说就不摆这一行。
-          say: String(ch.penNote || "").trim().slice(0, 300),
-          content: String(ch.content || "").trim().slice(0, 200)
-        }]);
-        toast(characterText(activeChar, "他写好了第 ") + no + " 章");
-      } catch (e) { toast(String(e.message || e)); }
-      endLane("ficroom:" + cid);
-    },
-    // 小游戏走同一张卡、同一条路（studyinvite 那个形状），只是落到游戏架上。
-    // 「去看这一章」：卡上带着是哪一篇、第几章，直接翻过去，不用她自己找
-    onOpenFicChapter: m => {
-      if (!m || !m.ficId) { toast("这张卡上没写是哪一篇"); return; }
-      setFicJump({ ficId: String(m.ficId), chap: Number(m.chapIdx) >= 0 ? Number(m.chapIdx) : -1, key: Date.now() });
-      setScreen("fanfic");
-    },
-    onOpenGameInvite: m => {
-      // 带上是在哪间房里被邀请的：这一局终局那一下要按它决定收到哪儿（同一起学那一戳）
-      setGameEntry({ key: "game_" + Date.now(), gameKey: m.gameKey || "", characterId: activeChar.id, roomId: activeRoomId || "main" });
-      setScreen("games");
-    },
-    // 算一卦：点了就直接进塔罗、进TA提的那一档，TA觉得该问的那件事也替她填好
-    // ⚠️牌在那头才落桌（塔罗自己洗牌、定正逆）——TA那张卡上没有、也不许有牌面。
-    onOpenTarotInvite: m => {
-      setTarotEntry({ key: "tarot_" + Date.now(), mode: String(m.mode || "reading"), charId: activeChar.id,
-        ask: String(m.ask || ""), spreadKey: String(m.spread || ""), asker: String(m.asker || "you") });
-      setScreen("tarot");
-    },
-    // 一起读：点了就直接翻到那本书TA停着的那一页（卡上带着 bookId，不用她自己去架上找）
-    onOpenReadInvite: m => {
-      setReadEntry({ key: "read_" + Date.now(), bookId: String(m.bookId || ""), characterId: activeChar.id });
-      setScreen("read");
-    },
-    emotes: emotesForCharMine(activeChar.id),
-    emotePacks: emotePacksForChar(activeChar.id),
-    onManageEmotes: () => setScreen("emotes"),
-    archCount: activeRoomId === "main" ? (chatArch[activeChar.id] || 0) : 0,
-    onLoadOlder: activeRoomId === "main" ? loadChatArchive : null,
-    myBalance: wallet,
-    onSendTransfer: (amount, note) => runRoomAction(activeChar.id, "transfer", () => sendTransfer(activeChar.id, amount, note)),
-    onRespondTransfer: (tid, accept) => runRoomAction(activeChar.id, "transferAccept", () => respondTransfer(activeChar.id, tid, accept)),
-    // 拆开TA寄来的那个盒子（她 2026-09-19）。盖子掀开这件事只发生一次，记在那条消息上——
-    // ⚠️认的是 turnId 不是数组下标：聊天会删消息、会翻旧的，下标一变就拆错了那一盒。
-    onOpenGift: msg => {
-      const key = msg && msg.turnId;
-      if (!key) return;
-      pChat(activeChar.id, p => p.map(x => (x.kind === "gift" && x.turnId === key) ? { ...x, opened: true } : x));
-    },
-    onOpenMoments: () => openMomProfile(activeChar.id, false),
-    onHandPhone: (allow, hideIds, allMasks) => handPhoneTo(activeChar.id, allow, hideIds, false, allMasks),
-    onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
-    invitePlaces: invitePlacesFor(activeChar),
-    peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
-      .concat((groups || []).filter(g => g && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊", group: true })))
-      .map(x => ({ ...x, otherMask: peekMaskOthers(activeChar.id).includes(x.id) })),
-    onPhoneAsk: (m, give) => answerPhoneAsk(activeChar.id, m, give),
-    onLoveLetterOpen: m => openLoveLetter(activeChar.id, m),
-    onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
-    onSneak: (m, how) => answerSneak(activeChar.id, m, how),
-    onDateGo: m => dateGo(activeChar.id, m),
-    onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
-    peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
-    onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
-    onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
-    onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
-    // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
-    onPinShike: indices => {
-      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
-      const msgs = chatsRef.current[threadKey] || [];
-      pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
-    },
-    onDeleteMessages: indices => {
-      const set = new Set(indices);
-      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
-      const picked = (chatsRef.current[threadKey] || []).filter((_, i) => set.has(i));
-      const imported = picked.filter(m => m && m.ledgerImported && m.ledgerKey);
-      // 跨端原话只能软删：本地先变成撤回占位，云端再盖 tombstone；普通本地消息保持原来的本机删除行为。
-      pChat(threadKey, p => p.map((m, i) => set.has(i) && m && m.ledgerImported ? { ...m, recalled: true } : m).filter((m, i) => !set.has(i) || (m && m.ledgerImported)));
-      if (imported.length && window.Cloud) window.Cloud.chatMessagesSoftDelete(imported.map(m => m.ledgerKey)).catch(e => {
-        const failed = new Set(imported.map(m => m.ledgerKey));
-        pChat(threadKey, p => p.map(m => m && failed.has(m.ledgerKey) ? { ...m, recalled: false } : m));
-        toast("跨端消息云端没删成，已恢复，请联网后重试：" + String((e && e.message) || e));
-      });
-      toast("已删除 " + indices.length + " 条");
-    },
-    onForward: (msgs, destination) => {
-      const items = msgs.map(m => ({
-        name: m.role === "user" ? profile.name || "我" : activeChar.name,
-        text: gameChatText(m),
-        ts: m.ts || null            // 微信的转发记录每条都带时刻，展开时显示
-      }));
-      const content = "【转发的聊天记录】\n" + items.map(it => it.name + "：" + it.text).join("\n");
-      const msg = {
-        role: "user",
-        kind: "chatforward",
-        content,
-        forward: {
-          sourceType: "chat",
-          sourceId: activeChar.id,
-          from: activeChar.name,
-          items
-        },
-        ts: Date.now(),
-        read: false
-      };
-      if (destination && destination.type === "group") {
-        const g = groups.find(x => x.id === destination.id);
-        if (!g) return;
-        pGChat(g.id, p => [...p, { ...msg, senderName: profile.name || "我" }]);
-        toast("已转发到 " + g.name);
-      } else {
-        const toChar = characters.find(c => c.id === (destination && destination.id));
-        if (!toChar) return;
-        pChat(toChar.id, p => [...p, msg]);
-        toast("已转发给 " + (toChar.remark || toChar.name));
-      }
-    }
-  });else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+  });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
     onPatMember: cid => patGroupMember(activeGroup.id, cid),
     // 群里谁的开关都算数——和请求那一头（gCtx.wantReasoning）同一条判据
     showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
@@ -28695,6 +28723,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       armedHere
         ? h("button", { onClick: disarmToy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: "#fff", background: "#c0392b", borderRadius: 999, padding: "11px 18px", boxShadow: "0 4px 14px rgba(0,0,0,.28)" } }, "■ 急停")
         : h("button", { onClick: () => { setToyArmed(true); setToyArmedFor(tc.id); toast("配件已激活 · 仅本次会话本对话"); }, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "rgba(35,35,35,.82)", borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 10px rgba(0,0,0,.22)" } }, "▷ 激活配件"));
+  })(), (function () {
+    // 半窗聊天（她 2026-10-06）：跟秋秋那颗一样是个 fixed 的兄弟节点，不碰根节点和 safe-area 空带。
+    // 回到整屏聊天、或者通话铺满时让开；里面就是整屏那一块 ChatThread（mkThread），不另写一份。
+    if (!halfWin || !activeChar || activeChar.id !== halfWin.charId || screen === "thread" || call) return null;
+    // 收起＝缩成底下一颗小条：半窗会盖住页面自己的底栏，先收起来去翻页，翻到了再点开接着聊
+    const pillBtn = { minHeight: 36, border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#fff" };
+    if (halfWin.min) return h("div", { "data-halfwin": "1", "data-wk": "halfwinpill",
+      style: { position: "fixed", left: "50%", transform: "translateX(-50%)", bottom: "calc(env(safe-area-inset-bottom) + 92px)", zIndex: 930, display: "flex", alignItems: "center",
+        borderRadius: 999, background: "rgba(35,35,35,.82)", boxShadow: "0 3px 12px rgba(0,0,0,.25)", padding: "0 6px 0 14px" } },
+      h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: false } : w), "aria-label": "展开半窗", style: pillBtn }, "和" + (activeChar.remark || activeChar.name) + "聊 ▴"),
+      h("button", { onClick: () => setHalfWin(null), "aria-label": "关掉半窗", style: { ...pillBtn, padding: "0 10px", opacity: .75 } }, "×"));
+    return h("div", { "data-halfwin": "1", "data-wk": "halfwin",
+      style: { position: "fixed", left: 0, right: 0, bottom: 0, height: "52dvh", zIndex: 930, display: "flex", flexDirection: "column",
+        borderRadius: "16px 16px 0 0", overflow: "hidden", boxShadow: "0 -6px 24px rgba(0,0,0,.18)", background: "var(--bg, #fff)" } },
+      h("div", { "data-wk": "halfwinbar", style: { flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "space-between", padding: "4px 10px", background: "rgba(0,0,0,.04)" } },
+        h("button", { onClick: () => { setHalfWin(null); setScreen("thread"); }, "aria-label": "放大成整屏聊天", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "放大"),
+        h("div", { style: { width: 36, height: 4, borderRadius: 99, background: "rgba(0,0,0,.18)" } }),
+        h("button", { onClick: () => setHalfWin(w => w ? { ...w, min: true } : w), "aria-label": "收起半窗", style: { minHeight: 32, padding: "0 10px", border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: "#555" } }, "收起")),
+      h("div", { style: { flex: 1, minHeight: 0, position: "relative" } },
+        mkThread({ key: "half::" + activeChar.id, halfMode: true, onHalfWin: null, onBack: () => setHalfWin(null) })));
   })(), (function () {
     // 帮手的小悬浮屏（她 2026-09-03：「做个小悬浮屏可以拖动，边和它聊边改动或者研究功能」）。
     // ⚠️挂在这儿是照上面配件浮层那一层的做法：一个 position:fixed 的兄弟节点，
