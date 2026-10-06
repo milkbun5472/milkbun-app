@@ -407,7 +407,7 @@
     Object.freeze({zh:"情侣空间",pages:Object.freeze(["us"]),hooks:Object.freeze([["uscouple", "情侣列表的一行（data-on=\"1\" 在一起，否则邀请中；data-new=\"1\" 有新东西）"], ["usname", "列表行里的角色名"], ["uscount", "列表行里「在一起 N 天」的天数大字"], ["usdays", "空间内页「在一起 N 天」那一组"], ["usnow", "「TA 此刻」那张便签"], ["uspaper", "往上滚时盖住封面的那张底纸（颜色、透明度、磨砂都在它身上，写的时候要加 !important）"], ["uswall", "墙上的功能卡片（data-kind＝模块）"], ["usspine", "「收着的」那一列书脊入口（data-kind＝letters/exdiary/qa/capsule…；data-new=\"1\" 有新内容）"], ["useyebrow", "各区块的小眉标标题"]])}),
     Object.freeze({zh:"时刻",pages:Object.freeze(["shike"]),hooks:Object.freeze([["shikepage","时刻外层整页（横着滑那一层）"],["shikecard","横着滑的那张整屏 CG 卡（data-on=\"1\" 是当前停着的）"],["shikedetail","点进一个人以后的那一页"],["shikeitem","里层横着滑的一张时刻卡（data-kind=meet/us/bday/fest/first）"],["shikesay","时刻卡上TA说的那段话"],["shikecreate","「开一张时刻」那一页"],["shikemonths","里层底下那条时间轴（一张时刻一道刻度）"],["shikemenu","里层右上角「⋯」打开的那张小菜单"],["shikeacts","时刻卡底那一行小字动作"],["shikenote","时刻卡上写着那天的事的那块底框"],["shikewith","群里那种卡上「一起的还有」那一行"],["shikesoon","卡上那个倒计时小签（data-today=\"1\" 是就在今天）"]])}),
     // 一起学 · 我来教（2026-10-03）
-    Object.freeze({zh:"我来教",pages:Object.freeze(["study"]),hooks:Object.freeze([["tbmis","顶上那条「TA 心里想错的地方」（每颗带 data-found=\"1\" 是挖出来的）"],["tbnote","TA 的课堂笔记"],["tbmsg","课上一句（data-me=\"1\" 是你讲的）"],["tbflash","挖出来时弹的那张"],["tbquiz","随堂小测那张"],["tbreview","评教卡"],["tbleft","评教卡底下「还没挖出来的」"]])}),
+    Object.freeze({zh:"我来教",pages:Object.freeze(["study"]),hooks:Object.freeze([["studyunit","开一节课时排出来的那几小节卡（data-keep=\"1\" 是点了留着的）"],["tbmis","顶上那条「TA 心里想错的地方」（每颗带 data-found=\"1\" 是挖出来的）"],["tbnote","TA 的课堂笔记"],["tbmsg","课上一句（data-me=\"1\" 是你讲的）"],["tbflash","挖出来时弹的那张"],["tbquiz","随堂小测那张"],["tbreview","评教卡"],["tbleft","评教卡底下「还没挖出来的」"]])}),
     Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pommore","手动补充陪伴话与回看入口"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["motionstrip","动态形象编辑页顶上那条胶片（平时／专注时／通话时，data-on=\"1\" 是选中那格）"],["pomarchive","往期「坐过的那些」整页"],["pomarchtabs","往期顶上那排桌牌（按谁坐对面分）"],["pomarchrow","往期里的一张单子（data-done=\"1\" 是坐满了）"],["pomarchsum","往期顶上那行合计（坐了多久／几场／几场坐满）"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
     Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
       ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
@@ -925,7 +925,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.940", changed: "", none: "只改了群通话和想念的关系，没动挂点和类名" };
+  const BRIEF_STAMP = { v: "v74.941", changed: "一起学新挂点 studyunit（小大纲每一节卡）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
