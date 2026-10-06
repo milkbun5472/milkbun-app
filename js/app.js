@@ -17822,7 +17822,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (laneBusy("call")) return;
     let withUser = cur.msgs;
     if (!opening) {
-      const um = { role: "user", content: text.trim(), ts: Date.now() };
+      // 她写的是动作（视频里点了「动作」）：跟TA那行动作一样存 act，进模型时带括号
+      const um = { role: "user", content: text.trim().replace(/^[（(]\s*|\s*[）)]$/g, ""), ts: Date.now(), ...(opts && opts.act ? { act: true } : {}) };
       if (!cur.room && callCanWriteMain(cur, "state")) noteTidalUser(um.content, um.ts);
       withUser = [...cur.msgs, um];
       setCall(c => c ? { ...c, msgs: withUser } : c);
@@ -17944,7 +17945,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (people.length <= 1) {
         // 1:1：口语化对话，可一次多说几句把话说完；视频另给动作/神态
         const char = people[0];
-        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.content }));
+        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: m.act ? "（" + m.content + "）" : m.content }));
         if (!hist.length) hist.push(callOpenTrigger());
         const whoCalled = callerIsChar ? "【谁打的这通电话】是【你】主动拨给 " + uName + " 的、Ta 接起来了——是你想找 Ta，别搞反成 Ta 打给你、更别问 Ta『不是你打给我的吗』。" : "【谁打的这通电话】是 " + uName + " 打给你的、你接了。";
         // 电话有自己的短期对话；拿电话里刚说的话做召回查询，不能误用普通聊天窗口的最近文本。
@@ -18032,7 +18033,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (d.hangup && String(d.hangup).toLowerCase() !== "null") markCallBye(char.id, char.name, String(d.hangup), cur.sessionId);
       } else {
         // 群通话：多角色你一言我一语；视频每条可带 action
-        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + m.content }));
+        const hist = withUser.map(m => ({ role: m.role === "user" ? "user" : "assistant", content: (m.senderName ? m.senderName + "：" : "") + (m.act ? "（" + m.content + "）" : m.content) }));
         if (!hist.length) hist.push(callOpenTrigger());
         // ⚠️别再砍到 160 字：只剩一个标签的角色，空白由训练先验补上，那就是网文霸总
         //   （v55.87 群聊那次就是这么变的，那次还有 200 字）。按在场人数分预算，同群聊。
@@ -18134,7 +18135,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (said.length >= 3 && bgActiveRef.current) (async () => {
         try {
           const uN = userName(profile);
-          const text = log.map(m => m.role === "user" ? uN + "：" + m.content : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n")
+          const text = log.map(m => m.role === "user" ? uN + (m.act ? "（" + m.content + "）" : "：" + m.content) : (m.senderName || "") + (m.act ? "（" + m.content + "）" : "：" + m.content)).join("\n")
             + (byName ? "\n（这通电话是 " + byName + " 主动挂断的）" : "");
           const sys = "把这通『" + uN + "』和" + cur.participants.map(c => c.name).join("、") + "的" + (cur.mode === "video" ? "视频" : "语音") + "通话做记忆归档。只输出 JSON：\n" +
             "{\"summary\":\"1~2句第三人称总结：聊了什么关键内容、情绪转折。具体、可复用\"," +

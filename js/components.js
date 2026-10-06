@@ -10272,12 +10272,12 @@ function CallScreen({
     return () => { document.removeEventListener("visibilitychange", hidden); cameraRef.current.dispose(); };
   }, []);
   useEffect(() => { if (bye || minimized || mode !== "video") cameraRef.current.close(); }, [!!bye, !!minimized, mode]);
-  const onSend = text => {
+  const onSend = (text, extra) => {
     if (bye || minimized) return false;
     try {
       const frame = mode === "video" ? cameraRef.current.snapshot() : null;
       if (camera.message) setCamera(old => ({ ...old, message: "" }));
-      return sendCall(text, { cameraFrame: frame });
+      return sendCall(text, { ...(extra || {}), cameraFrame: frame });
     }
     catch (e) { setCamera(old => ({ ...old, message: String(e.message || e) })); return false; }
   };
@@ -10701,7 +10701,8 @@ function CallScreen({
     if (!input.trim() || sending) return;
     stopCallAudio(); recResume();
     followCallTail.current = true;
-    if (onSend(input.trim()) !== false) setInput("");
+    // 动作那一档（群友 2026-10-06：「打视频的时候 char 可以写旁白，user 这里好像没有」）：发出去是你的一行动作
+    if (onSend(input.trim(), actMode ? { act: true } : undefined) !== false) setInput("");
   };
   const avatarNode = (c, size) => { const av = c.avatarImage ? (typeof resolveImg === "function" ? resolveImg(c.avatarImage) : c.avatarImage) : ""; return av ? h("img", { src: av, style: { width: size, height: size, borderRadius: 999, objectFit: "cover" } }) : h("div", { style: { width: size, height: size, borderRadius: 999, background: c.color || "#c2bdb1", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42, color: "#fff" } }, (c.name || "?")[0]); };
   // —— PiP 小屏：悬浮在其它界面上，点一下回全屏，可拖动；计时/消息不中断 ——
@@ -10723,6 +10724,8 @@ function CallScreen({
   // 单人视频跟微信一个摆法（她 2026-10-05）：平时 TA 铺满、你在右上角小框；点小框换过来，再点换回去
   //   ⚠️hook 一样得在 minimized 早退前面
   const [meBig, setMeBig] = useState(false);
+  // 视频里写自己的动作（跟TA那行「（…）」同一个样子）。只在视频里有：语音电话看不见人
+  const [actMode, setActMode] = useState(false);
   const pip = isVideo && !isGroup && !bye;
   const camOn = camera.phase === "on";
   const showMeBig = pip && meBig && camOn;      // 镜头关了就自动回到 TA 铺满
@@ -10896,7 +10899,7 @@ function CallScreen({
     const isU = m.role === "user";
     if (m.act) return h("div", { key: messageKey, "data-wk": "callact", className: "flex justify-center py-0.5" }, h("div", {
       style: Object.assign({ fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, lineHeight: 1.4, color: onPhoto ? "rgba(255,255,255,0.88)" : "rgba(255,255,255,0.55)", textAlign: "center", maxWidth: "80%" }, litText)
-    }, (isGroup && m.senderName ? m.senderName + " " : "") + "（" + m.content + "）"));
+    }, (isU ? "你 " : (isGroup && m.senderName ? m.senderName + " " : "")) + "（" + m.content + "）"));
     // 台词可点听：这条的说话人配了音色 + TTS 开着才显示 ▶（点了才合成收费）
     const spk = m.senderId ? people.find(c => c.id === m.senderId) : (!isU && !isGroup ? primary : null);
     const canT = !isU && spk && spk.voiceId && m.content && typeof ttsReady === "function" && ttsReady();
@@ -10964,12 +10967,19 @@ function CallScreen({
     isVideo && !bye ? h("div", { "data-call-camera-status": true, role: "status", style: { padding: "4px 16px", fontFamily: F_BODY, fontSize: 10.5, color: camera.phase === "error" ? "#f0b06a" : "rgba(255,255,255,.68)", maxHeight: 54, overflowY: "auto", lineHeight: 1.6, textAlign: "center" } }, camera.message || (camera.phase === "on" ? "镜头开着 · 每次发话时给对方看当前画面" : "镜头关着 · 开启后发话就能给对方看")) : null,
     // 打字框：点「打字」才从按键上面滑出来；发完一句不收，方便连着打
     typeOpen && !bye ? h("div", { "data-wk": "calltype", className: "flex items-center gap-2 px-4 pt-3", style: { animation: "fadeUp .18s ease both" } },
+      isVideo ? h("button", {
+        "data-wk": "callactkey", "data-on": actMode ? "1" : "0",
+        onClick: () => setActMode(v => !v), "aria-pressed": actMode ? "true" : "false",
+        className: "shrink-0 active:opacity-60",
+        style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: "#fff",
+          background: actMode ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.14)", border: "1px solid " + (actMode ? "rgba(255,255,255,0.7)" : "transparent") }
+      }, "动作") : null,
       h("input", {
         value: input,
         autoFocus: true,
         onChange: e => setInput(e.target.value),
         onKeyDown: e => e.key === "Enter" && send(),
-        placeholder: "说点什么…",
+        placeholder: actMode ? "写你的动作，比如：冲镜头比了个心" : "说点什么…",
         className: "flex-1 outline-none px-4 py-2.5 rounded-full",
         style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: "rgba(255,255,255,0.14)", border: "none", minWidth: 0 }
       }),
