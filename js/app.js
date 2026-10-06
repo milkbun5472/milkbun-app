@@ -21032,7 +21032,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   同一段提示词喂回去，很多站子会稳定吐回同一张图——存进图库时按内容取哈希，
       //   于是键都一样、objectURL 也一样，屏幕上当然一动不动。所以重画时明说换个拍法。
       const sigOf0 = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
-      const prevKept = (Array.isArray(loadJSON("x_phoneKeep", {})[char.id]) ? loadJSON("x_phoneKeep", {})[char.id] : [])
+      const _kp = (window.PhoneKit && window.PhoneKit.keptPhotos) || (v => Array.isArray(v) ? v : []);
+      const prevKept = _kp(loadJSON("x_phoneKeep", {})[char.id])
         .find(x => sigOf0(x) === key) || null;
       const again = !!(prevKept && (prevKept.imageRef || prevKept.imageUrl));
       // ⭐先想清楚这句小字是什么意思，再去画（她 2026-09-10：「让TA生图之前先思考这个的语义」）。
@@ -21054,8 +21055,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const out = await generateSelfieImage(pFinal, pRefs, {});
       if (!(out && (out.blob || out.url))) throw new Error("没拿到图");
       const sigOf = (window.PhoneKit && window.PhoneKit.photoSig) || (x => (x && x.id) || "");
-      const all = loadJSON("x_phoneKeep", {});
-      const list = Array.isArray(all[char.id]) ? all[char.id] : [];
+      const all = (window.PhoneKit && window.PhoneKit.keepLoad) ? window.PhoneKit.keepLoad() : loadJSON("x_phoneKeep", {});
+      const list = ((window.PhoneKit && window.PhoneKit.keptPhotos) || (v => Array.isArray(v) ? v : []))(all[char.id]);
       const prev = list.find(x => sigOf(x) === key) || null;
       // ⚠️她 2026-09-10 拍了张图给我看：toast 说「画好了」，位置上却是一个碎图标。
       //   病根：这儿把图存进【聊天自拍那个仓】、键叫 img_pk_*，
