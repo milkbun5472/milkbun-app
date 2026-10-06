@@ -10281,7 +10281,6 @@ function CallScreen({
   onSend: sendCall,
   onHangup,
   tfCard,
-  onTransfer,
   onRespondTransfer,
   minimized,
   onMinimize,
@@ -10726,14 +10725,6 @@ function CallScreen({
   const lastM = list[list.length - 1];
   const actPending = !!(lastM && lastM.role === "user" && lastM.act);
   const send = () => {
-    // 转账那一档：「520 生日快乐」＝金额 + 附言；卡写进聊天，这里只落一行指针，不请TA开口
-    if (tfMode) {
-      const mm = /^\s*(\d+(?:\.\d+)?)\s*(.*)$/.exec(input);
-      if (!mm || !(Number(mm[1]) > 0)) return;
-      onTransfer && onTransfer(Number(mm[1]), mm[2].trim());
-      setInput(""); setTfMode(false); followCallTail.current = true;
-      return;
-    }
     if (sending) return;
     if (!input.trim()) {
       if (actPending) { stopCallAudio(); recResume(); followCallTail.current = true; onSend("", { flush: true }); }
@@ -10766,7 +10757,6 @@ function CallScreen({
   const [meBig, setMeBig] = useState(false);
   // 视频里写自己的动作（跟TA那行「（…）」同一个样子）。只在视频里有：语音电话看不见人
   const [actMode, setActMode] = useState(false);
-  const [tfMode, setTfMode] = useState(false);
   const pip = isVideo && !isGroup && !bye;
   const camOn = camera.phase === "on";
   const showMeBig = pip && meBig && camOn;      // 镜头关了就自动回到 TA 铺满
@@ -11032,26 +11022,18 @@ function CallScreen({
         style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: "#fff",
           background: actMode ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.14)", border: "1px solid " + (actMode ? "rgba(255,255,255,0.7)" : "transparent") }
       }, "动作") : null,
-      onTransfer ? h("button", {
-        "data-wk": "calltfkey", "data-on": tfMode ? "1" : "0",
-        onClick: () => { setTfMode(v => !v); setActMode(false); }, "aria-pressed": tfMode ? "true" : "false",
-        className: "shrink-0 active:opacity-60",
-        style: { minHeight: 40, padding: "0 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: "#fff",
-          background: tfMode ? "rgba(255,255,255,0.38)" : "rgba(255,255,255,0.14)", border: "1px solid " + (tfMode ? "rgba(255,255,255,0.7)" : "transparent") }
-      }, "转账") : null,
       h("input", {
         value: input,
         autoFocus: true,
         onChange: e => setInput(e.target.value),
         onKeyDown: e => e.key === "Enter" && send(),
-        inputMode: tfMode ? "decimal" : undefined,
-        placeholder: tfMode ? "金额 + 附言，比如：520 生日快乐" : actMode ? "写你的动作，比如：冲镜头比了个心" : actPending ? "接着说…（不说了就空着按发送）" : "说点什么…",
+        placeholder: actMode ? "写你的动作，比如：冲镜头比了个心" : actPending ? "接着说…（不说了就空着按发送）" : "说点什么…",
         className: "flex-1 outline-none px-4 py-2.5 rounded-full",
         style: { fontFamily: F_BODY, fontSize: 14, color: "#fff", background: "rgba(255,255,255,0.14)", border: "none", minWidth: 0 }
       }),
       h("button", {
         onClick: send,
-        disabled: tfMode ? !/^\s*\d/.test(input) : sending || (!input.trim() && !actPending),
+        disabled: sending || (!input.trim() && !actPending),
         "aria-label": !input.trim() && actPending ? "不说了，让TA接" : "发送",
         className: "disabled:opacity-40 shrink-0 flex items-center justify-center",
         style: { width: 42, height: 42, borderRadius: 999, background: "rgba(255,255,255,0.2)" }

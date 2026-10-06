@@ -2836,7 +2836,21 @@ function App() {
   };
   const pChat = (id, u) => setChats(p => {
     const pl = p[id] || [];
-    const n = typeof u === "function" ? u(pl) : u;
+    let n = typeof u === "function" ? u(pl) : u;
+    // 通话缩小时在聊天里发的东西（加号里转账、照片、位置……）：卡照常落聊天，
+    // 同时给通话上下文挂一行指针，TA在电话里接得上（她 2026-10-06：「不要为了新功能搞按钮」）
+    const _cc = callRef.current;
+    if (_cc && !_cc.groupId && (!_cc.room || _cc.room.main) && (_cc.chatKey || (_cc.participants[0] || {}).id) === id && n.length > pl.length) {
+      const added = n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "callend" && m.kind !== "narration" && !m.inCall && m.content);
+      if (added.length) {
+        const who = (_cc.participants[0] || {}).name || "TA", sid = _cc.sessionId;
+        n = n.map(m => added.includes(m) ? { ...m, inCall: sid } : m);
+        const lines = added.map(m => ({ role: "user", act: true, ev: m.kind === "transfer" ? "transfer" : "chat", ...(m.tid ? { tid: m.tid } : {}), ts: m.ts || Date.now(),
+          content: m.kind === "transfer" ? "给" + who + "转了 " + moneyText(m.amount, id) + (m.note ? "（" + m.note + "）" : "") : "在聊天里发了：" + String(m.content).slice(0, 160) }));
+        callRef.current = { ..._cc, msgs: [..._cc.msgs, ...lines] };
+        setTimeout(() => setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, ...lines] } : c), 0);
+      }
+    }
     saveJSON("x_chat:" + id, n);
     // x_chat 已归 IDB 文字仓管理；saveJSON 内部先写 WAL、逐字验真后落 IDB 并销账。
     chatsRef.current = { ...p, [id]: n };
@@ -17603,7 +17617,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       read: false,
       ...(extra || {})
     }]);
-    if (extra && extra.inCall) return tid;
     // 转出去就挂着等 TA 点（她 2026-08-27）：以前是 1.6 秒后按 85% 概率随机收下、
     // 顺手再触发一轮主动回复——所以「一转完TA就自己回话了」。现在两件事都不做：
     // 收不收由 TA 在【下一次真的开口】那一轮里自己决定（见 replyNow 的 transferAccept），
@@ -29062,14 +29075,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSend: (txt, opts) => callSend(txt, opts),
     // 通话里的转账：卡在聊天里，通话这边按 tid 去取它的状态
     tfCard: tid => { const k = call.chatKey || (call.participants[0] || {}).id; return (chats[k] || []).find(m => m.kind === "transfer" && m.tid === tid) || null; },
-    onTransfer: !call.groupId && (!call.room || call.room.main) && call.participants && call.participants[0] ? (amt, note) => {
-      const c0 = call.participants[0], sid = call.sessionId;
-      const tid = sendTransfer(c0.id, amt, note, { inCall: sid });
-      if (!tid) return;
-      const um = { role: "user", act: true, ev: "transfer", tid, content: "给你转了 " + moneyText(Math.round(Number(amt) * 100) / 100, c0.id) + (note ? "（" + note + "）" : ""), ts: Date.now() };
-      setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, um] } : c);
-      if (callRef.current && callRef.current.sessionId === sid) callRef.current = { ...callRef.current, msgs: [...callRef.current.msgs, um] };
-    } : null,
     onRespondTransfer: (tid, ok) => {
       const c0 = call.participants[0], sid = call.sessionId;
       const card = (chatsRef.current[c0.id] || []).find(m => m.kind === "transfer" && m.tid === tid);
