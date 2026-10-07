@@ -64,3 +64,16 @@ test("分享进聊天 + TA甩来 + 刷到彼此", () => {
   assert.match(S, /props\.ask\(spotSystem\(/);
   assert.match(A, /const route = \(routePicked\(bgApiId\) && bgActive\) \? bgActive/);
 });
+
+test("456：TA的号一贯的样子、今日热门、合拍", () => {
+  const A = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(S, /function charInstruction\(handle, skin, friends, acc, hot\)/);
+  assert.match(S, /hadAcc \? \{\} : \{ bio: S\(d\.bio\)/);
+  assert.match(S, /page\.kind === "acct"/);
+  assert.match(S, /const genHot = async \(\) =>/);
+  assert.match(S, /const topicHit = v =>/);
+  assert.match(S, /v\.withCharId && props\.drawDuo \? await props\.drawDuo/);
+  assert.match(S, /withId: onAlt \? "" : withId/);
+  assert.match(A, /drawDuo: async \(charId, desc\) =>/);
+  assert.match(A, /worldHint: \(\) => String\(loreForContext\("social"/);
+});

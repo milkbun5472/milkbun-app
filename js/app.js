@@ -28136,6 +28136,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       },
       canDraw: typeof imgApiReady === "function" && imgApiReady(),
       draw: (charId, desc, who) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, who),
+      // 合拍那张（第 4 条）：你俩都有参考照就锁两张脸，缺一张就退回只画TA
+      drawDuo: async (charId, desc) => {
+        const char = characters.find(c => c.id === charId);
+        if (!char || !char.refPhoto || !(profile && profile.refPhoto)) return drawFromDesc(char || null, desc, "self");
+        const prompt = buildPhotoPrompt(char, desc, (statesRef.current || {})[char.id] || null, { kind: "duo", me: photoMe("她"), closet: closetTextFor(char.id) });
+        const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
+        let ref = null;
+        if (out && out.blob) ref = await imgToVault(await blobToDataUrl(out.blob));
+        else if (out && out.url) { const b = await fetch(out.url).then(r => r.blob()).catch(() => null); if (b && b.size) ref = await imgToVault(await blobToDataUrl(b)); }
+        if (!ref) throw new Error("没拿到图");
+        return ref;
+      },
+      // 今日热门从这个世界里长出来：公开那一类世界书（第 6 条）
+      worldHint: () => String(loreForContext("social", [], "") || "").slice(0, 3000),
       live: liveProps,
       // 视频分享给 TA（她 2026-10-07）：跟直播回放一样，落一张卡、可选小房间、不让TA当场开口
       onShare: (v, c, roomId) => {
