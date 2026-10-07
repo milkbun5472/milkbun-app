@@ -45,9 +45,22 @@
     return Math.max(0, Math.ceil((s.endTs - at) / 1000));
   }
 
+  // 三种计时（她 2026-10-07「都做了吧」）：down 倒计时（原来那种）、up 正计时（不设时长，想停就停）、
+  //   cycle 循环番茄（专注 min 分 → 休息 → 下一轮，每 CYCLE_LONG_EVERY 轮长休一次）。
+  //   正计时也照样走 endTs 那一套（封顶 UP_CAP 分钟），暂停/恢复/重开 app 都不用另写一份。
+  const UP_CAP = 24 * 60, CYCLE_BREAK = 5, CYCLE_LONG = 15, CYCLE_LONG_EVERY = 4;
+  const kindLabels = { down: "倒计时", up: "正计时", cycle: "循环番茄" };
   function focusedSec(s, now) {
     if (!s) return 0;
-    return Math.max(0, Number(s.min || 0) * 60 - remainingSec(s, now || Date.now()));
+    const inPhase = s.kind === "cycle" && s.phase === "break" ? 0 : Math.max(0, Number(s.min || 0) * 60 - remainingSec(s, now || Date.now()));
+    return (s.kind === "cycle" ? Number(s.doneFocusSec || 0) : 0) + inPhase;
+  }
+  // 循环番茄走完一段：专注完→休息（第 4、8… 轮长休），休息完→下一轮专注
+  function nextCyclePhase(s, now) {
+    const t = now || Date.now();
+    if (s.phase === "break") return { ...s, phase: "focus", round: (s.round || 1) + 1, endTs: t + Number(s.min) * 60000, pausedAt: null };
+    const brk = (s.round || 1) % CYCLE_LONG_EVERY === 0 ? CYCLE_LONG : CYCLE_BREAK;
+    return { ...s, phase: "break", doneFocusSec: Number(s.doneFocusSec || 0) + Number(s.min) * 60, rounds: (s.rounds || 0) + 1, endTs: t + brk * 60000, breakMin: brk, pausedAt: null };
   }
 
   function resumeSession(s, now) {
@@ -58,6 +71,7 @@
 
   function noteIndex(s, left) {
     if (!s || !s.pack || s.mode === "quiet") return 0;
+    if (s.kind === "up") { const m = focusedSec(s) / 60; return m >= 40 ? 2 : m >= 15 ? 1 : 0; }
     const total = Math.max(1, Number(s.min || 1) * 60);
     const progress = 1 - Math.max(0, left) / total;
     if (s.mode === "checkpoints") return progress >= 0.78 ? 2 : progress >= 0.45 ? 1 : 0;
@@ -77,7 +91,9 @@
       taps: mode === "quiet" ? ["嗯，我在。", "陪你坐着呢。", "你忙，我等你。"] : mode === "checkpoints" ? ["照你的节奏来。", "这一段已经往前走了。", "把手上这小段做完就好。"] : ["给你留了一张小纸条。", "这一小段，陪你一起做。", "先做好眼前的这一件。"],
       done: "这张桌子没白坐，" + task + "被你好好推进了一截。",
       left: "先收桌也没关系，回来时我们从这里接上。",
-      pause: "去处理吧，位置给你留着。"
+      pause: "去处理吧，位置给你留着。",
+      brk: "起来走两步，喝口水。", back: "好，接着来下一轮。", caught: "刚刚跑哪去了？",
+      his: "", hisDone: "", goalYes: "做完了就好，这一轮没白坐。", goalNo: "没做完也没关系，下次从这儿接。"
     };
   }
 
@@ -85,11 +101,12 @@
     const fb = fallbackPack(s.task, s.mode), pack = s.pack || fb, idx = noteIndex(s, left);
     const node = (pack.notes && pack.notes[idx]) || fb.notes[idx];
     const lines = tapChoices(s), picked = lines[(turn || 0) % lines.length];
-    const text = s.pausedAt ? (pack.pause || fb.pause) : kind === "tap" ? picked.text : node;
-    const label = s.pausedAt ? "位置给你留着" : s.mode === "checkpoints"
+    const onBreak = s.kind === "cycle" && s.phase === "break";
+    const text = s.pausedAt ? (pack.pause || fb.pause) : onBreak && kind !== "tap" ? (pack.brk || fb.brk) : kind === "tap" ? picked.text : node;
+    const label = s.pausedAt ? "位置给你留着" : onBreak && kind !== "tap" ? "休息一下" : s.mode === "checkpoints"
       ? "已专注 " + fmtClock(focusedSec(s, s.endTs - left * 1000)) + " · 还剩 " + fmtClock(left)
       : s.mode === "notes" ? "递给你的小纸条" : kind === "tap" ? "轻轻回应你" : "一起安静坐一会儿";
-    return { text, label, key: (s.pausedAt ? "pause" : kind === "tap" ? picked.key : "note-" + idx), extraId: !s.pausedAt && kind === "tap" ? picked.extraId : undefined };
+    return { text, label, key: (s.pausedAt ? "pause" : onBreak && kind !== "tap" ? "brk-" + (s.round || 1) : kind === "tap" ? picked.key : "note-" + idx), extraId: !s.pausedAt && kind === "tap" ? picked.extraId : undefined };
   }
 
   async function requestCompanionText(active, ctx, instruction, schemaHint) {
@@ -145,21 +162,29 @@
 
   async function genPack(active, ctx) {
     const { uName, task, min, mode } = ctx;
-    const instruction = "你正和 " + uName + " 在一张桌子两边专注。Ta 这轮只做：「" + task + "」，类别「" + (focusCategories[ctx.category] || "未指定") + "」，时长 " + min + " 分钟；陪伴方式是「" + (modeLabels[mode] || modeLabels.notes) + "」。你不是监督员，也不要把专注写成服从测试。\n" +
+    const timeLine = ctx.kind === "up" ? "不设时长（正计时，Ta 想停就停）" : ctx.kind === "cycle" ? "循环番茄：每轮专注 " + min + " 分钟、休息 " + CYCLE_BREAK + " 分钟，每 " + CYCLE_LONG_EVERY + " 轮长休 " + CYCLE_LONG + " 分钟" : "时长 " + min + " 分钟";
+    const instruction = "你正和 " + uName + " 在一张桌子两边专注。Ta 这轮只做：「" + task + "」，类别「" + (focusCategories[ctx.category] || "未指定") + "」，" + timeLine + "；陪伴方式是「" + (modeLabels[mode] || modeLabels.notes) + "」。你不是监督员，也不要把专注写成服从测试。\n" +
+      "【你这边】你也不是干坐着陪：这段时间你在做你自己的事。" + (ctx.schedNow ? "你此刻的日程：" + ctx.schedNow + "。照这个来，" : "") + "挑一件你这会儿真会做的、能做出进度的事（写东西、练琴、看书、整理什么都行，照你这个人来）。\n" +
       "\n\n请写五类很短的文本，像对座的人在便签上随手写的，不要客服腔、鸡汤、训话或报菜名：\n" +
       "· notes：恰好 3 句，分别用于刚坐下、走到半程、快收尾。每句最多 24 字，彼此不能同义。安静同桌模式尤其克制。\n" +
       "· taps：3～5 句，用户主动轻戳画面时的独立回应，每句最多 24 字。按当前陪伴方式：安静模式回应短且轻；纸条模式带点彼此熟悉的互动；节点模式回应专注进度，具体时间由界面补上。语气与亲近程度来自你的人设和关系，每句都能单独显示。\n" +
       "· done：Ta 做完后的一句批注，承认具体投入，不夸张。\n" +
       "· left：Ta 提前收桌时的一句批注，不羞辱、不撒娇阻拦，允许以后接上。\n" +
       "· pause：Ta 暂停时的一句留座话。\n" +
+      "· his：你这段时间在做的那件事，一句第三人称的短描述（十来个字，比如在干嘛，不加引号），会显示成「他在：……」。\n" +
+      "· hisDone：收桌时你报一下你那边的进度，一句台词（像「我这边写完两页了」那种，照你实际在做的事）。\n" +
+      "· brk：循环番茄到休息时你说的一句；back：休息完叫 Ta 回来的一句（不是循环模式也照写，用不上就不用）。\n" +
+      "· caught：Ta 专注到一半偷偷切出去刷别的、过了一会儿才回来，你发现了说的一句——照你的脾气，可以吐槽、可以装没看见但点一下，别训话。\n" +
+      "· goalYes / goalNo：收桌后 Ta 告诉你「" + task + "」做完了 / 没做完时，你各回一句。\n" +
       "按格式准备这一轮的内容。";
-    const p = await requestCompanionText(active, ctx, instruction, "{\"notes\":[\"开场\",\"半程\",\"收尾\"],\"taps\":[\"轻戳回应\"],\"done\":\"完成批注\",\"left\":\"提前结束批注\",\"pause\":\"暂停留座话\"}");
+    const p = await requestCompanionText(active, ctx, instruction, "{\"notes\":[\"开场\",\"半程\",\"收尾\"],\"taps\":[\"轻戳回应\"],\"done\":\"完成批注\",\"left\":\"提前结束批注\",\"pause\":\"暂停留座话\",\"his\":\"他这段在做的事\",\"hisDone\":\"他报进度的一句\",\"brk\":\"休息一句\",\"back\":\"叫回来一句\",\"caught\":\"发现溜号一句\",\"goalYes\":\"做完了回一句\",\"goalNo\":\"没做完回一句\"}");
     const fb = fallbackPack(task, mode);
     const str = (v, d) => { const s = v != null ? String(v).trim() : ""; return s && s.toLowerCase() !== "null" ? s : d; };
     const notes = Array.isArray(p.notes) ? p.notes.filter(Boolean).slice(0, 3).map(x => String(x).trim()) : [];
     while (notes.length < 3) notes.push(fb.notes[notes.length]);
     const taps = Array.isArray(p.taps) ? p.taps.filter(x => typeof x === "string" && x.trim()).slice(0, 5).map(x => x.trim()) : [];
-    return { notes, taps: taps.length ? taps : fb.taps, done: str(p.done, fb.done), left: str(p.left, fb.left), pause: str(p.pause, fb.pause) };
+    return { notes, taps: taps.length ? taps : fb.taps, done: str(p.done, fb.done), left: str(p.left, fb.left), pause: str(p.pause, fb.pause),
+      his: str(p.his, ""), hisDone: str(p.hisDone, ""), brk: str(p.brk, fb.brk), back: str(p.back, fb.back), caught: str(p.caught, fb.caught), goalYes: str(p.goalYes, fb.goalYes), goalNo: str(p.goalNo, fb.goalNo) };
   }
 
   function minutesText(v) {
@@ -171,7 +196,7 @@
   // 原来是从底下掀起来的半窗（还犯了 no-half-sheet.md），里面是一排「键：值」。
   // 现在是整页：桌面打底，中间一张长条单据——齿孔边、虚线分栏、TA的批注写在最底下，
   // 像收摊时撕下来的那一联。结果页和往期回看共用它（一处画、两处用）。
-  function ResultCard(t, rec, char, onClose, tp) {
+  function ResultCard(t, rec, char, onClose, tp, onGoal) {
     const isDone = rec.status === "done";
     const DESKC = "linear-gradient(163deg,#efe9dd,#e5dccb 62%,#dbd0bb)";
     const row = (k, v, tone) => h("div", { style: { display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 16, padding: "10px 0", borderBottom: "1px dashed rgba(120,96,58,.28)" } },
@@ -195,7 +220,12 @@
           h("div", { style: { marginTop: 16, borderTop: "1px solid rgba(120,96,58,.3)" } },
             row("计划坐多久", minutesText(rec.minutes)),
             row("实际坐住", minutesText(rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes), isDone ? "#4a6b52" : "#3a3024"),
+            rec.kind && rec.kind !== "down" ? row("怎么计时", kindLabels[rec.kind] || rec.kind) : null,
+            rec.kind === "cycle" ? row("坐满几轮", (rec.rounds || 0) + " 轮") : null,
             rec.pauseCount != null ? row("中间停了", (rec.pauseCount || 0) + " 次") : null,
+            rec.sneaks ? row("偷偷溜出去", rec.sneaks + " 次", "#a8433a") : null,
+            rec.earned ? row("攒到扭蛋点", "+" + rec.earned, "#4a6b52") : null,
+            rec.his ? row((rec.charName || (char && char.name) || "TA") + " 这段在", rec.his) : null,
             rec.interruptReason ? row("为什么收桌", rec.interruptReason) : null,
             rec.escapes != null ? row("旧版 · 想跑", String(rec.escapes || 0), rec.escapes ? "#a8433a" : "#3a3024") : null,
             rec.wrong != null ? row("旧版 · 暗号输错", String(rec.wrong || 0), rec.wrong ? "#a8433a" : "#3a3024") : null),
@@ -205,6 +235,19 @@
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6, marginTop: 9 } },
               (tp && char && typeof TtsDot === "function") ? h(TtsDot, { k: "pmd" + rec.id, text: rec.annotation, spk: char, tp }) : null,
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#a3925f" } }, "—— " + (rec.charName || (char && char.name) || "")))) : null),
+        // TA报一下自己那边的进度（开场那一次就写好了，不另调模型）
+        rec.hisDone ? h("div", { style: { marginTop: 16, padding: "12px 14px", background: "rgba(255,253,247,.7)", border: "1px dashed rgba(120,96,58,.35)", borderRadius: 3 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a3925f", marginBottom: 4 } }, (rec.charName || (char && char.name) || "TA") + " 那边"),
+          h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.8, color: "#3a3024" } }, rec.hisDone)) : null,
+        // 「这一轮只做」那件，做完没？——她答了，TA回一句（也是开场就写好的）
+        rec.task && onGoal ? h("div", { "data-wk": "pomgoal", style: { marginTop: 16, padding: "14px 14px 12px", background: "#fdf6d8", borderRadius: 2, boxShadow: "0 6px 14px rgba(80,60,25,.14)", transform: "rotate(.4deg)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a7a5e" } }, (rec.charName || (char && char.name) || "TA") + " 问：「" + rec.task + "」做完了吗？"),
+          rec.goalDone == null ? h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+            h("button", { onClick: () => onGoal(true), style: { flex: 1, minHeight: 42, border: "none", borderRadius: 3, background: "#3a3024", color: "#fffdf7", fontFamily: F_BODY, fontSize: 13 } }, "做完了"),
+            h("button", { onClick: () => onGoal(false), style: { flex: 1, minHeight: 42, border: "1px solid rgba(90,72,44,.4)", borderRadius: 3, background: "transparent", color: "#3a3024", fontFamily: F_BODY, fontSize: 13 } }, "还没有"))
+            : h("div", { style: { marginTop: 8 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: rec.goalDone ? "#4a6b52" : "#8a7a5e" } }, rec.goalDone ? "做完了" + (rec.memoId ? " · 备忘录里那条已经勾掉" : "") : "还没做完"),
+              (rec.goalDone ? rec.goalYes : rec.goalNo) ? h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.8, color: "#3a3024", marginTop: 4 } }, "“" + (rec.goalDone ? rec.goalYes : rec.goalNo) + "”") : null)) : null,
         h("button", { onClick: onClose, className: "w-full active:opacity-80",
           style: { marginTop: 22, background: "#3a3024", color: "#fffdf7", border: "none", borderRadius: 3,
             padding: "14px 0", fontFamily: F_BODY, fontSize: 13, boxShadow: "0 8px 18px rgba(60,45,25,.22)" } },
@@ -339,6 +382,13 @@
     const [curId, setCurId] = useState("");
     const courses = (window.Study && window.Study.loadCurricula ? window.Study.loadCurricula() : []).filter(function (c) { return c && c.id && c.subject; });
     const [min, setMin] = useState(25);
+    // 计时方式、溜号开关记住她上次选的；待办里挑的那条记 id，做完了顺手勾掉
+    const [kind, setKindRaw] = useState(() => { try { const k = localStorage.getItem("x_pomoKind"); return kindLabels[k] ? k : "down"; } catch (e) { return "down"; } });
+    const setKind = k => { setKindRaw(k); try { localStorage.setItem("x_pomoKind", k); } catch (e) {} };
+    const [sneakOn, setSneakOnRaw] = useState(() => { try { return localStorage.getItem("x_pomoSneak") !== "0"; } catch (e) { return true; } });
+    const setSneakOn = v => { setSneakOnRaw(v); try { localStorage.setItem("x_pomoSneak", v ? "1" : "0"); } catch (e) {} };
+    const [memoId, setMemoId] = useState("");
+    const memoTodos = (() => { try { return ((loadJSON("x_memo", {}) || {}).reminders || []).filter(r => r && r.id && !r.done && String(r.title || "").trim()).slice(0, 8); } catch (e) { return []; } })();
     const [mode, setMode] = useState("notes");
     const [category, setCategory] = useState("reading");
     const [moreBusy, setMoreBusy] = useState(() => { const s = loadActive(); return !!s && MORE_PENDING.has(s.startTs); });
@@ -368,7 +418,7 @@
       if (stopSpeechRef.current) stopSpeechRef.current();
       showSubtitle(companionSubtitle(sess, left, 0, "node"));
       return () => clearTimeout(subtitleTimer.current);
-    }, [view, sess && sess.startTs, sess && sess.pausedAt, focusNote]);
+    }, [view, sess && sess.startTs, sess && sess.pausedAt, focusNote, sess && sess.phase === "break" && sess.round]);
     useEffect(() => () => clearTimeout(subtitleTimer.current), []);
     const didRestore = useRef(false);
     const timerRef = useRef(null);
@@ -379,6 +429,23 @@
     stopSpeechRef.current = tp && tp.stop;
     useEffect(() => { if (view !== "focus" && stopSpeechRef.current) stopSpeechRef.current(); }, [view]);
     useEffect(() => { const hidden = () => { if (document.hidden && stopSpeechRef.current) stopSpeechRef.current(); }; document.addEventListener("visibilitychange", hidden); return () => document.removeEventListener("visibilitychange", hidden); }, []);
+    // 溜号会被发现（开关在设置桌上，默认开）：专注中切出去超过 20 秒再回来，TA就知道你跑了。
+    //   暂停着、循环里的休息段不算——那本来就是给你走开的。
+    const awayAt = useRef(0);
+    useEffect(() => {
+      const onVis = () => {
+        const s0 = sessRef.current;
+        if (!s0 || !s0.sneak || s0.pausedAt || (s0.kind === "cycle" && s0.phase === "break")) { awayAt.current = 0; return; }
+        if (document.hidden) { awayAt.current = Date.now(); return; }
+        const away = awayAt.current ? Date.now() - awayAt.current : 0; awayAt.current = 0;
+        if (away < 20000) return;
+        const n = (s0.sneaks || 0) + 1;
+        keepSession({ ...s0, sneaks: n });
+        showSubtitle({ text: (s0.pack && s0.pack.caught) || fallbackPack(s0.task, s0.mode).caught, label: "你刚刚跑出去了 " + Math.round(away / 60000 * 10) / 10 + " 分钟", key: "caught-" + n });
+      };
+      document.addEventListener("visibilitychange", onVis);
+      return () => document.removeEventListener("visibilitychange", onVis);
+    }, []);
     sessRef.current = sess;
 
     const companionContext = (c, state) => {
@@ -386,7 +453,8 @@
       const chatRef = base ? base.recentChat || "" : recentChat(c.id, uName, c.name);
       const worldbook = props.worldbookFor ? props.worldbookFor(c.id, state.task + "\n" + chatRef) : props.worldbook;
       const course = courses.find(x => x.id === state.curId);
-      return { charName: c.name, persona: c.persona, mood: moodOf(c.id), uName, task: state.task, min: state.min, mode: state.mode, category: state.category,
+      return { charName: c.name, persona: c.persona, mood: moodOf(c.id), uName, task: state.task, min: state.min, mode: state.mode, category: state.category, kind: state.kind || "down",
+        schedNow: props.schedNowFor ? props.schedNowFor(c) : "",
         chatRef, worldbook, course: course && course.subject || "", bundle: base ? { ...base, char: c, worldbook } : null };
     };
 
@@ -416,9 +484,15 @@
       const s = sessRef.current;
       if (!s) return;
       const actual = Math.round((focusedSec(s, Date.now()) / 60) * 10) / 10;
+      const down = !s.kind || s.kind === "down";
+      // 坐满一轮攒扭蛋点（情侣空间那一份；段闸和日封顶在 GachaKit 里）
+      const earned = status === "done" && props.onEarn ? (props.onEarn(s.char.id) || 0) : 0;
+      const pk = s.pack || {};
       const rec = {
-        id: uid(), charId: s.char.id, charName: s.char.name, task: s.task, curId: s.curId || null, minutes: s.min,
-        focusedMinutes: status === "done" ? Number(s.min) : actual, pauseCount: s.pauseCount || 0,
+        id: uid(), charId: s.char.id, charName: s.char.name, task: s.task, curId: s.curId || null, minutes: down ? s.min : (s.kind === "cycle" ? s.min : actual),
+        focusedMinutes: status === "done" && down ? Number(s.min) : actual, pauseCount: s.pauseCount || 0,
+        kind: s.kind || "down", rounds: s.rounds || 0, sneaks: s.sneaks || 0, earned, memoId: s.memoId || null,
+        his: pk.his || "", hisDone: pk.hisDone || "", goalYes: pk.goalYes || "", goalNo: pk.goalNo || "",
         ts: Date.now(), status, statusZh: status === "done" ? "完成" : "提前收桌",
         interruptReason: status === "done" ? "" : (reason || "今天先到这里"),
         annotation: status === "done" ? s.pack.done : s.pack.left, mode: s.mode, category: s.category || null,
@@ -453,7 +527,16 @@
         if (!current) return;
         const remain = remainingSec(current, Date.now());
         setLeft(remain);
-        if (remain <= 0 && !current.pausedAt) finishRef.current("done");
+        if (remain <= 0 && !current.pausedAt) {
+          // 循环番茄：一段走完不收桌，换到下一段（专注→休息→下一轮）
+          if (current.kind === "cycle") {
+            const nx = nextCyclePhase(current, Date.now());
+            keepSession({ ...nx, char: current.char }); setLeft(remainingSec(nx, Date.now()));
+            if (nx.phase === "focus" && !document.hidden) showSubtitle({ text: (nx.pack && nx.pack.back) || fallbackPack(nx.task, nx.mode).back, label: "第 " + nx.round + " 轮", key: "back-" + nx.round });
+            return;
+          }
+          finishRef.current("done");
+        }
       };
       tick(); timerRef.current = setInterval(tick, 1000);
       return () => clearInterval(timerRef.current);
@@ -461,7 +544,7 @@
 
     const start = async () => {
       const c = charOf(charId);
-      const duration = Number(min);
+      const duration = kind === "up" ? UP_CAP : Number(min);
       if (!c) { props.toast && props.toast("先去『人格档案馆』选/建个角色陪你"); return; }
       if (!duration || duration < 1) { props.toast && props.toast("时长至少 1 分钟"); return; }
       // 先在这一下点击里把背景音解锁——下面要 await 模型，等回来再 play 在 iPhone 上就不算「她点的」了
@@ -470,11 +553,12 @@
       let pack;
       try {
         pack = props.active
-          ? await genPack(props.active, companionContext(c, { task: task.trim() || "专注", min: duration, mode, category, curId }))
+          ? await genPack(props.active, companionContext(c, { task: task.trim() || "专注", min: duration, mode, category, curId, kind }))
           : fallbackPack(task.trim() || "专注", mode);
       } catch (_) { pack = fallbackPack(task.trim() || "专注", mode); }
       const now = Date.now();
-      const next = { char: c, charId: c.id, curId: curId || null, pack, category, extraLines: [], min: duration, task: task.trim() || "专注", mode, startTs: now, endTs: now + duration * 60000, pausedAt: null, pauseCount: 0 };
+      const next = { char: c, charId: c.id, curId: curId || null, pack, category, extraLines: [], min: duration, task: task.trim() || "专注", mode, startTs: now, endTs: now + duration * 60000, pausedAt: null, pauseCount: 0,
+        kind, phase: "focus", round: 1, rounds: 0, doneFocusSec: 0, memoId: memoId || null, sneak: sneakOn, sneaks: 0 };
       pokeRef.current = { at: 0, turn: 0 }; keepSession(next); setLeft(duration * 60); setBusy(false); setResumed(false); setView("focus");
       // 调好了背景音就跟着上发条一起响；退出 App 也不停（<audio> 那一路，见 ambience.js）
       if (window.Ambience && window.Ambience.anyOn()) window.Ambience.play();
@@ -520,13 +604,23 @@
       else { keepSession({ ...s, pausedAt: now, pauseCount: (s.pauseCount || 0) + 1 }); if (window.Ambience) window.Ambience.stop(); }
     };
 
+    // 「做完了吗」：她答了就记在那张单子上；做完了、又是从备忘录待办里挑的，就把那条勾掉
+    const answerGoal = (rec, yes) => {
+      const r2 = { ...rec, goalDone: !!yes };
+      if (yes && rec.memoId) { try { const d = loadJSON("x_memo", {}) || {}; d.reminders = (d.reminders || []).map(x => x && x.id === rec.memoId ? { ...x, done: true } : x); saveJSON("x_memo", d); } catch (e) {} }
+      const next = loadSaves().map(x => x && x.id === rec.id ? r2 : x);
+      saveSaves(next); setSaves(next);
+      return r2;
+    };
+
     if (view === "result" && result) {
-      return ResultCard(t, result.rec, result.char, () => { setResult(null); setSess(null); sessRef.current = null; setView("setup"); }, tp);
+      return ResultCard(t, result.rec, result.char, () => { setResult(null); setSess(null); sessRef.current = null; setView("setup"); }, tp,
+        yes => setResult({ ...result, rec: answerGoal(result.rec, yes) }));
     }
 
     // ⚠️结算从半窗改成整页之后，往期那张不能再当兄弟节点挂在列表下面
     //   （那会变成「列表底下又接了一页」）。要么整页替换，要么就不是整页。
-    if (view === "archive" && detail) return ResultCard(t, detail, charOf(detail.charId), () => setDetail(null), tp);
+    if (view === "archive" && detail) return ResultCard(t, detail, charOf(detail.charId), () => setDetail(null), tp, yes => setDetail(answerGoal(detail, yes)));
     if (view === "archive") {
       // 往期按人分（她 2026-10-05：「archive 要不要做好看点然后可以按角色分」）。
       //   这张桌子在现实里是什么？——每次换人坐对面，桌上就立一块【桌牌】。所以分栏就是一排桌牌：
@@ -539,6 +633,29 @@
       const list = archWho ? saves.filter(r => r.charId === archWho) : saves;
       const mins = list.reduce((a, r) => a + Number(r.focusedMinutes != null ? r.focusedMinutes : r.minutes || 0), 0);
       const doneN = list.filter(r => r.status === "done").length;
+      // 专注日历（她 2026-10-07）：最近八周每天坐了多久，一格一天，越久越深；下面一行这周对上周
+      const focusCal = rows => {
+        const dayKey = ts => { const d = new Date(ts); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
+        const per = {}; rows.forEach(r => { const k = dayKey(r.ts); per[k] = (per[k] || 0) + Number(r.focusedMinutes != null ? r.focusedMinutes : r.minutes || 0); });
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const dow = (today.getDay() + 6) % 7;                 // 周一是一列的第一格
+        const start = new Date(today); start.setDate(today.getDate() - dow - 7 * 7);
+        const cells = []; let thisWeek = 0, lastWeek = 0;
+        for (let i = 0; i < 56; i++) {
+          const d = new Date(start); d.setDate(start.getDate() + i);
+          const m = d > today ? null : (per[dayKey(d.getTime())] || 0);
+          if (m != null && i >= 49) thisWeek += m; else if (m != null && i >= 42) lastWeek += m;
+          const a = m == null ? 0 : m <= 0 ? .08 : Math.min(1, .25 + m / 120);
+          cells.push(h("div", { key: i, title: (d.getMonth() + 1) + "/" + d.getDate() + (m ? " · " + Math.round(m) + " 分钟" : ""),
+            style: { width: 16, height: 16, borderRadius: 3, background: m == null ? "transparent" : "rgba(74,107,82," + a + ")", border: m == null ? "1px dashed " + line : "none" } }));
+        }
+        const diff = Math.round(thisWeek - lastWeek);
+        return h("div", { key: "cal", "data-wk": "pomcal", style: { marginTop: 12, padding: "12px 12px 10px", background: "#fffdf6", border: "1px solid " + line, borderRadius: 3 } },
+          h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8,16px)", gridAutoFlow: "column", gridTemplateRows: "repeat(7,16px)", gap: 4, justifyContent: "center" } }, cells),
+          h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: fog } },
+            h("span", null, "这周 " + Math.round(thisWeek) + " 分钟"),
+            h("span", null, lastWeek || thisWeek ? (diff >= 0 ? "比上周多 " + diff + " 分钟" : "比上周少 " + (-diff) + " 分钟") : "最近八周")));
+      };
       const tent = (id, label, n) => { const on = archWho === id;
         return h("button", { key: id || "all", onClick: () => { archScroll.current = 0; setArchWho(id); }, "aria-pressed": on, "data-on": on ? "1" : "0", className: "active:opacity-80",
           style: { flexShrink: 0, minWidth: 66, minHeight: on ? 58 : 46, padding: "0 10px", alignSelf: "flex-end", border: "1px solid " + (on ? ink : line), borderBottom: "none",
@@ -570,6 +687,7 @@
                 h("span", null, h("b", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: ink, fontWeight: 400, marginRight: 4 } }, minutesText(Math.round(mins))), archWho ? "一起坐过" : "一共坐过"),
                 h("span", null, h("b", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: ink, fontWeight: 400, marginRight: 4 } }, list.length), "场"),
                 h("span", null, h("b", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: "#4a6b52", fontWeight: 400, marginRight: 4 } }, doneN), "场坐满")),
+              focusCal(list),
               list.map(card)]));
     }
 
@@ -577,7 +695,12 @@
 
     if (view === "focus" && sess) {
       const c = sess.char, companion = VideoApi.slotFor(c.id, "focus");
-      const progress = Math.max(0, Math.min(1, 1 - left / Math.max(1, sess.min * 60)));
+      const onBreak = sess.kind === "cycle" && sess.phase === "break";
+      const elapsed = focusedSec(sess, Date.now());
+      const progress = sess.kind === "up" ? (elapsed % 3600) / 3600
+        : onBreak ? Math.max(0, Math.min(1, 1 - left / Math.max(1, (sess.breakMin || CYCLE_BREAK) * 60)))
+        : Math.max(0, Math.min(1, 1 - left / Math.max(1, sess.min * 60)));
+      const clockLabel = sess.pausedAt ? "发条停了一会儿" : sess.kind === "up" ? "已经一起坐了" : onBreak ? "休息一下，还剩" : sess.kind === "cycle" ? "第 " + (sess.round || 1) + " 轮，还剩" : "这一圈发条，还剩";
       const bg = c.avatarImage
         ? { backgroundImage: "url(\"" + resolveImg(c.avatarImage) + "\")", backgroundSize: "cover", backgroundPosition: "center" }
         : { background: "radial-gradient(ellipse at 50% 32%," + (c.color || "#716552") + ",#201e19 85%)" };
@@ -611,7 +734,9 @@
         h("div", { "aria-hidden": "true", style: { pointerEvents: "none", position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(18,17,14,.62) 0%,transparent 30%,transparent 45%,rgba(18,17,14,.44) 65%,rgba(18,17,14,.95) 100%)" } }),
         h(Head, { zh: c.name + " 在对面", sub: modeLabels[sess.mode] || modeLabels.notes, onBack: props.onBack, right: exitRight, bg: "transparent", ink: cream, subInk: dim, noLine: true, inkShadow: "0 1px 12px rgba(0,0,0,.35)", barStyle: { position: "relative", zIndex: 5 } }),
         h("div", { className: "flex-1 min-h-0", style: { position: "relative", zIndex: 1 } },
-          h("div", { style: { position: "absolute", top: 14, left: 22, pointerEvents: "none", fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: dim } }, sess.pausedAt ? "暂时歇一会儿" : resumed ? "接着刚才的这一轮" : "这一刻，只做一件事"),
+          h("div", { style: { position: "absolute", top: 14, left: 22, pointerEvents: "none", fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".06em", color: dim } }, sess.pausedAt ? "暂时歇一会儿" : onBreak ? "休息段 · 走开也不算溜号" : resumed ? "接着刚才的这一轮" : "这一刻，只做一件事",
+            // TA这段在忙他自己的（开场那一次就照日程写好了）
+            sess.pack && sess.pack.his ? h("div", { "data-wk": "pomhis", style: { marginTop: 4, fontFamily: F_BODY, fontSize: 11, letterSpacing: 0, color: "rgba(246,239,223,.8)", textShadow: "0 1px 6px rgba(0,0,0,.4)" } }, c.name + " 在：" + sess.pack.his) : null),
           h("button", { className: "pom-poke", "data-wk": "pompoke", "aria-label": "戳一戳陪伴画面", onClick: poke, style: { position: "absolute", inset: 0, width: "100%", border: "none", background: "transparent", cursor: "pointer", WebkitTapHighlightColor: "transparent" } }),
           h("div", { style: { position: "absolute", left: 22, right: 22, bottom: 12, pointerEvents: "none" } },
             subtitle || (tp && tp.play) ? h("div", { key: current.key, className: "pom-subtitle" + (current.extraId ? " pom-extra-subtitle" : ""), "data-wk": "pomsubtitle", "data-pomodoro-subtitle": "", role: "status", "aria-live": "polite", style: { maxWidth: 380, margin: "0 auto", padding: sess.mode === "notes" ? "17px 18px" : "14px 16px", borderRadius: sess.mode === "notes" ? "2px 16px 16px 16px" : 14, background: sess.mode === "notes" ? "rgba(249,243,230,.94)" : "rgba(30,29,25,.65)", border: "1px solid " + (sess.mode === "notes" ? "rgba(255,255,255,.32)" : "rgba(246,239,223,.18)"), backdropFilter: "blur(14px)", boxShadow: "0 8px 28px rgba(0,0,0,.12)", color: sess.mode === "notes" ? "#3c382e" : cream } },
@@ -627,8 +752,8 @@
         h("div", { className: "shrink-0", "data-wk": "pomtimer", style: { position: "relative", zIndex: 4, padding: "14px 22px calc(env(safe-area-inset-bottom) * 0.4 + 22px)", borderTop: "1px solid rgba(246,239,223,.16)", background: "linear-gradient(180deg,rgba(20,19,16,.12),rgba(20,19,16,.42))" } },
           h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 } },
             h("div", { style: { minWidth: 0 } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: dim, marginBottom: 5 } }, sess.pausedAt ? "发条停了一会儿" : "这一圈发条，还剩"),
-              h("div", { "data-pomodoro-clock": "", style: { fontFamily: F_DISPLAY, fontSize: 46, lineHeight: 1, fontVariantNumeric: "tabular-nums", letterSpacing: "-.02em", color: cream } }, fmtClock(left))),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: dim, marginBottom: 5 } }, clockLabel),
+              h("div", { "data-pomodoro-clock": "", style: { fontFamily: F_DISPLAY, fontSize: 46, lineHeight: 1, fontVariantNumeric: "tabular-nums", letterSpacing: "-.02em", color: cream } }, fmtClock(sess.kind === "up" ? elapsed : left))),
             h("div", { style: { position: "relative", width: 62, height: 62, flexShrink: 0 } },
               (function () { const RR = 28, C = 2 * Math.PI * RR; return h("svg", { width: 62, height: 62, viewBox: "0 0 62 62", "aria-hidden": "true", style: { position: "absolute", inset: 0, transform: "rotate(-90deg)", pointerEvents: "none" } },
                 h("circle", { cx: 31, cy: 31, r: RR, fill: "none", stroke: "rgba(246,239,223,.22)", strokeWidth: 1.5 }),
@@ -636,7 +761,7 @@
               h("button", { onClick: togglePause, style: { position: "absolute", left: 5, top: 5, width: 52, height: 52, borderRadius: 999, background: cream, color: "#39352b", border: "none", fontFamily: F_BODY, fontSize: 12 } }, sess.pausedAt ? "继续" : "暂停"))),
           h("div", { style: { display: "flex", gap: 12, alignItems: "baseline", justifyContent: "space-between", marginTop: 12, fontFamily: F_BODY, fontSize: 11, color: dim } },
             h("span", { style: { overflowWrap: "anywhere", maxHeight: 42, overflowY: "auto", lineHeight: 1.7 } }, sess.task),
-            h("span", { style: { flexShrink: 0, fontSize: 10 } }, "已坐住 " + Math.floor((sess.min * 60 - left) / 60) + " 分钟")),
+            h("span", { style: { flexShrink: 0, fontSize: 10 } }, "已坐住 " + Math.floor(elapsed / 60) + " 分钟" + (sess.kind === "cycle" && sess.rounds ? " · 满 " + sess.rounds + " 轮" : ""))),
           h("div", { "data-wk": "pommore", style: { display: "flex", gap: 12, alignItems: "center", justifyContent: "space-between", marginTop: 12 } },
             h("button", { onClick: () => setAmbOpen(true), "aria-label": "背景音", style: { minHeight: 40, padding: "0 10px", borderRadius: 3, border: "1px solid rgba(246,239,223,.26)", background: "transparent", color: dim, fontFamily: F_BODY, fontSize: 11 } }, "背景音"),
             h("button", { onClick: more, disabled: moreBusy, "aria-label": "再说几句", style: { minHeight: 40, padding: "0 14px", borderRadius: 3, border: "1px solid rgba(246,239,223,.38)", background: "rgba(246,239,223,.06)", color: cream, fontFamily: F_BODY, fontSize: 12, opacity: moreBusy ? .6 : 1 } }, moreBusy ? "正在想新的几句…" : "再说几句"),
@@ -656,6 +781,8 @@
             h("div", { style: { borderTop: "1px solid #c9bea7", paddingTop: 22, fontFamily: F_BODY, fontSize: 11, color: "#8d816a" } }, c.name + " · 这一桌"),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 27, marginTop: 14 } }, "这一轮先收到这里？"),
             h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: "#7d725d" } }, "已经坐住的时间会留下。给这一轮留个原因，下次回来接着做。"),
+            // 正计时、循环番茄本来就没有「到点」：收桌就是坐完了，算坐满
+            sess.kind === "up" || sess.kind === "cycle" ? h("button", { onClick: () => finish("done"), style: { width: "100%", minHeight: 52, marginTop: 22, background: "#3c382e", color: cream, border: "none", fontFamily: F_BODY, fontSize: 14 } }, "坐完了，收桌") : null,
             h("div", { style: { display: "grid", gap: 10, marginTop: 26 } }, ["临时有事", "状态不对", "任务已完成", "今天先到这里"].map(reason => h("button", { key: reason, onClick: () => finish("left", reason), style: { minHeight: 50, padding: "12px 16px", textAlign: "left", border: "1px solid #c9bea7", background: "rgba(255,253,247,.5)", fontFamily: F_BODY, fontSize: 13 } }, reason))),
             h("button", { onClick: () => setEndOpen(false), style: { width: "100%", minHeight: 48, marginTop: 22, background: "#3c382e", color: cream, border: "none", fontFamily: F_BODY, fontSize: 13 } }, "继续这一轮"))) : null);
     }
@@ -703,11 +830,18 @@
             transform: "translateX(-56%) rotate(-2.6deg)", background: "rgba(226,214,186,.66)",
             borderLeft: "1px dashed rgba(255,255,255,.55)", borderRight: "1px dashed rgba(255,255,255,.55)" } }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f" } }, "这一轮只做"),
-          h("input", { value: task, onChange: e => setTask(e.target.value), placeholder: "这一轮只做…", maxLength: 24,
+          h("input", { value: task, onChange: e => { setTask(e.target.value); setMemoId(""); }, placeholder: "这一轮只做…", maxLength: 24,
             style: { width: "100%", fontFamily: F_DISPLAY, fontSize: 21, color: "#3a3024", background: "transparent",
               border: "none", borderBottom: "1px solid rgba(140,116,60,.28)", outline: "none", padding: "9px 0 7px", marginTop: 8 } }),
           h("label", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginTop: 10, fontFamily: F_BODY, fontSize: 11, color: "#8a7a5e" } }, "专注类别",
             h("select", { value: category, "aria-label": "专注类别", onChange: e => setCategory(e.target.value), style: { minHeight: 40, border: "none", borderBottom: "1px solid rgba(140,116,60,.28)", background: "transparent", color: "#3a3024", minWidth: 100 } }, Object.entries(focusCategories).map(([id, label]) => h("option", { key: id, value: id }, label)))),
+          // 从备忘录的待办里挑一条当这一轮要做的：收桌时说做完了，那条就顺手勾掉
+          memoTodos.length ? h("div", { "data-wk": "pommemo", style: { marginTop: 11 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f", marginBottom: 6 } }, "从待办里挑"),
+            h("div", { className: "flex flex-wrap", style: { gap: 6 } }, memoTodos.map(r => { const on = memoId === r.id;
+              return h("button", { key: r.id, className: "active:opacity-70", onClick: () => { if (on) { setMemoId(""); } else { setMemoId(r.id); setTask(String(r.title).slice(0, 24)); } },
+                style: { minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  border: "1px solid " + (on ? "#8c743c" : "rgba(140,116,60,.3)"), background: on ? "#8c743c" : "transparent", color: on ? "#fdf6d8" : "#6b5a36" } }, r.title); }))) : null,
           // 算进哪门课：一起学里开过课才出现。点一门就挂上，再点一下取消；空着的便签顺手填上课名
           courses.length ? h("div", { style: { marginTop: 11 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#a3925f", marginBottom: 6 } }, "算进哪门课"),
@@ -720,9 +854,16 @@
                 style: { minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
                   border: "1px solid " + (on ? "#8c743c" : "rgba(140,116,60,.3)"), background: on ? "#8c743c" : "transparent", color: on ? "#fdf6d8" : "#6b5a36" } }, c.subject);
             }))) : null),
-        // ② 发条计时盘：拧到几分就走几分
-        h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 22 } },
+        // ② 怎么计时：倒计时 / 正计时 / 循环番茄（她 2026-10-07）
+        h("div", { "data-wk": "pomkind", className: "flex", style: { gap: 6, marginTop: 22, padding: 3, borderRadius: 999, background: "rgba(255,253,246,.5)", border: "1px solid rgba(90,72,44,.16)" } },
+          ["down", "up", "cycle"].map(k => h("button", { key: k, "data-on": kind === k ? "1" : "0", onClick: () => setKind(k), className: "active:opacity-70",
+            style: { flex: 1, minHeight: 38, borderRadius: 999, border: "none", fontFamily: F_BODY, fontSize: 12.5, background: kind === k ? t.ink : "transparent", color: kind === k ? t.bg2 : "#6b5b3e" } }, kindLabels[k]))),
+        kind === "up" ? h("div", { style: { textAlign: "center", marginTop: 16, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: "#8a7a5e" } },
+          "不设时长，从零往上走，想停就点「收桌」。", h("br"), "适合不知道要做多久的事。") : null,
+        // 发条计时盘：拧到几分就走几分（正计时不用拧）
+        kind === "up" ? null : h("div", { style: { display: "flex", flexDirection: "column", alignItems: "center", marginTop: 18 } },
           h(Dial, { t: t, min: min, size: 200, onPick: v => setMin(v) }),
+          kind === "cycle" ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11.5, color: "#8a7a5e", textAlign: "center" } }, "每轮专注这么久，休息 " + CYCLE_BREAK + " 分钟，每 " + CYCLE_LONG_EVERY + " 轮长休 " + CYCLE_LONG + " 分钟，自动接着下一轮") : null,
           // 超过一小时就按「几小时几分」念——「90 分钟」得在脑子里再换算一次
           (function () {
             const v = Number(min) || 0, hh = Math.floor(v / 60), mm = v % 60;
@@ -761,6 +902,14 @@
             [{ id: "quiet", name: "安静", desc: "轻戳才回应，平时安静陪你" },
              { id: "notes", name: "递纸条", desc: "节点递纸条，轻戳也有回应" },
              { id: "checkpoints", name: "报时", desc: "节点提醒，轻戳看当前进度" }].map(modeCard))),
+        // 溜号会被发现：专注中切出去超过 20 秒，回来TA会说你两句
+        h("button", { "data-wk": "pomsneak", "data-on": sneakOn ? "1" : "0", onClick: () => setSneakOn(!sneakOn), className: "w-full flex items-center justify-between active:opacity-80",
+          style: { marginTop: 14, minHeight: 48, padding: "10px 12px", background: "rgba(255,253,246,.5)", border: "1px solid rgba(90,72,44,.16)", borderRadius: 3, textAlign: "left" } },
+          h("span", null,
+            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 13.5, color: "#3a3024" } }, "溜号会被发现"),
+            h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: "#8a7a5e", marginTop: 3 } }, "专注中切出去刷别的超过 20 秒，回来TA会知道")),
+          h("span", { style: { flexShrink: 0, width: 44, height: 25, borderRadius: 13, padding: 3, background: sneakOn ? "#3a3024" : "rgba(90,72,44,.25)", display: "block" } },
+            h("span", { style: { display: "block", width: 19, height: 19, borderRadius: 10, background: "#fffdf6", transform: sneakOn ? "translateX(19px)" : "none", transition: "transform .18s" } }))),
         // ⑤ 背景音：桌边一台小收音机，几层声音拧着叠
         h("div", { style: { marginTop: 22 } },
           h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 6 } },
@@ -776,7 +925,7 @@
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, busy ? "···" : "→"))));
   }
 
-  window.PomodoroLogic = { remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore };
+  window.PomodoroLogic = { remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore, nextCyclePhase };
   window.Pomodoro = Pomodoro;
   // 私聊里那张「一起专注」小卡（群里 2026-10-05：「一起番茄时钟后，能不能返回 char 的私聊给一个交互的小卡片」）。
   //   点一下翻开：做的什么、停了几次、戳了几次；再点收回去。外框和别的分享卡同一张表（components.js shareCardOf）。

@@ -42,7 +42,7 @@ test("愿望板进 togetherLines：只给一条、做成的和搁着的不进", 
 });
 
 test("甜蜜值打卡接 GachaKit 的 sweet 档，gachaEarn 回报真给了多少", () => {
-  assert.match(gacha, /EARN = \{ chat: 40, offline: 60, sweet: 20, group: 40 \}/, "gacha 侧没有 sweet 档");
+  assert.match(gacha, /EARN = \{ chat: 40, offline: 60, sweet: 20, group: 40(, focus: 40)? \}/, "gacha 侧没有 sweet 档");
   assert.match(app, /const got = gachaEarn\(char\.id, "sweet"\);/, "打卡没接 gachaEarn");
   assert.match(app, /return r\.got;/, "gachaEarn 不回报 got，toast 只能谎报");
   // 判断在 updater 外面：toast/攒点是副作用，不进 setState updater（严格模式跑两遍）

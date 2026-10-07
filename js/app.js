@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.978";
+const APP_VERSION = "v74.980";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1054,11 +1054,29 @@ function App() {
   };
   useEffect(() => {
     const pending = notificationRoomRef.current;
-    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
+    // 没带着哪间房进来时，照这个人的「点进来先进哪间房」落（群友 2026-10-07）：主聊天 / 上次待的那间 / 指定一间。
+    //   那间房没了就回主聊天，不报错。
+    const landing = () => {
+      if (!activeChar || !window.ChatRooms) return "main";
+      const pick = (settingsFor(activeChar.id) || {}).enterRoom;
+      const rid = pick === "last" ? (loadJSON("x_lastRoom", {}) || {})[activeChar.id] : pick;
+      if (!rid || rid === "main") return "main";
+      const r = window.ChatRooms.get(activeChar.id, rid);
+      return r && !r.main ? rid : "main";
+    };
+    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : landing());
     notificationRoomRef.current = null;
     const intent = roomPresetIntentRef.current; roomPresetIntentRef.current = "";
     setChatRoomsOpen(!!intent); setChatRoomsPreset(intent);
   }, [activeChar && activeChar.id]);
+  // 记下每个人上次待在哪间房，给「上次待的那间」用。只认这个人真有的房间：
+  //   换人那一下 activeRoomId 还是上一个人的，那间在这个人名下查不到，就不记。
+  useEffect(() => {
+    if (!activeChar || !window.ChatRooms) return;
+    const rid = activeRoomId || "main";
+    if (rid !== "main") { const r = window.ChatRooms.get(activeChar.id, rid); if (!r || r.main) return; }
+    try { const m = loadJSON("x_lastRoom", {}) || {}; if (m[activeChar.id] !== rid) { m[activeChar.id] = rid; saveJSON("x_lastRoom", m); } } catch (e) {}
+  }, [activeChar && activeChar.id, activeRoomId]);
   // 群同上：开着群聊时改了群名/群头像/成员，原来也要退出去再进来才看得见。
   // 同一个形状的第二处，照同一个改法（施工规则/one-public-mechanism.md）。
   const [activeGroupSel, setActiveGroup] = useState(null);
@@ -10558,6 +10576,42 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     peekRenamedRef.current[charId] = { from: old || "", to: text };
     (peekDidRef.current[charId] = peekDidRef.current[charId] || []).push("把她给你的备注" + (old ? "从「" + old + "」" : "") + "改成了「" + text + "」");
   };
+  // 她在TA手机的微信通讯录里改备注（她 2026-10-07：「其他联系人的也都知道」）。
+  //   ⚠️不常驻上下文：只在两个时刻交给TA一次——
+  //   ① 她按出来的下一轮（waitForHer，跟递手机同一个口子），用完就没；
+  //   ② 下一次刷新微信的那一次生成（x_phoneRemarkEdits），刷完就清。
+  //   她这头落一行灰字（system 纸条不进TA的历史）。
+  const phoneRemarkLine = e => (e.me ? "你给她的备注" : "你给「" + e.name + "」的备注") + (e.from ? "从「" + e.from + "」" : "") + (e.to ? "改成了「" + e.to + "」" : "删掉了");
+  const phoneRemarkEdit = (char, c, to) => {
+    const name = String(c && c.name || "").trim();
+    to = String(to || "").trim().slice(0, 30);
+    const cur = char && ((phonesRef.current || {})[char.id] || {}).wechat;
+    if (!cur || !name) return;
+    const me = !!c._me, from = c.remark && c.remark !== c.name ? String(c.remark).trim() : "";
+    if (to === from) return;
+    const nd = me ? { ...cur, userContact: { ...(cur.userContact || { name }), remark: to } }
+      : { ...cur, contacts: (cur.contacts || []).map(x => x && x.name === name ? { ...x, remark: to } : x) };
+    savePhoneApp(char.id, "wechat", nd, { noArchive: true, patched: true });
+    const edit = { name, me, from, to };
+    pChat(char.id, p => [...p, { role: "system", kind: "system", content: "你偷偷改了 " + (char.remark || char.name) + " 的微信备注：" + phoneRemarkLine(edit).replace(/^你/, "TA").replace("给她", "给你"), ts: Date.now() }]);
+    const prev = (waitHerRef.current[char.id] || {}).phoneRemark || [];
+    waitForHer(char.id, { phoneRemark: [...prev.filter(x => x.name !== name), edit] });
+    const all = loadJSON("x_phoneRemarkEdits", {}) || {};
+    all[char.id] = [...(all[char.id] || []).filter(x => x.name !== name), edit].slice(-12);
+    saveJSON("x_phoneRemarkEdits", all);
+  };
+  // 刷新微信那一次：把她改过的告诉TA，留不留由TA；交出去就清
+  const phoneRemarkSpec = (char, key, spec) => {
+    const l = key === "wechat" ? ((loadJSON("x_phoneRemarkEdits", {}) || {})[char.id] || []) : [];
+    if (!l.length) return spec;
+    return { ...spec, instruction: spec.instruction + "\n\n【她翻你手机时动过你的通讯录备注】现在你手机里就是这样：" + l.map(phoneRemarkLine).join("；")
+      + "。这一轮要写到这几个人（contacts／userContact）时，remark 留着她改的、改回去、还是换一个，由你决定。" };
+  };
+  const phoneRemarkDone = (char, key) => {
+    if (key !== "wechat") return;
+    const all = loadJSON("x_phoneRemarkEdits", {}) || {};
+    if (all[char.id]) { delete all[char.id]; saveJSON("x_phoneRemarkEdits", all); }
+  };
   const peekDone = thoughts => {
     const p = peekPlay;
     setPeekPlay(null);
@@ -10871,7 +10925,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——你们现在在一起了。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
-      const peekMemo = opts.peekPhone ? "" : peekMemoFor(charId);
+      const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
+      // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
+      const peekMemo = (opts.peekPhone ? "" : peekMemoFor(charId)) + remarkHint;
       const dongnianHint = peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
@@ -11596,7 +11652,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
@@ -13649,7 +13705,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n\n" + GROUP_MULTI_BUBBLE
         // ⚠️跟单聊那一处同一条：开了动描，那一行就是【描写】，管描写的那几族才轮得上。
         //   没开动描时一个字都不发——线上就只有台词，那一份在这儿是白发（她立的：一堆禁令会变笨）。
-        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
@@ -19416,7 +19472,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const avoid = phoneRoundDigest((phones || {})[char.id] || {}, key);
       // 上一轮那份：号码/账号/住址/忌口这些身份项要沿用，不能每刷一次换一个人
       const known = ((phonesRef.current || {})[char.id] || {})[key];
-      const spec = phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current);
+      const spec = phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current));
       let d = await runProbe(bgActive, phoneCtx(char), spec);
       // ⚠️模型会把 schemaHint 里的占位说明原样抄回来当数据（她 2026-09-01：想吃清单
       // 刷完「什么时候会想起它」那句变成了灰的——那不是空，是占位词被逐字照抄，
@@ -19424,6 +19480,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 一模一样的，一律当没写；接着累积层的「空的不许抹掉旧的」就会把旧那句留住。
       try { d = window.PhoneKit.dropEchoes(d, spec.schemaHint); } catch (e) {/* 洗不动就照原样存 */}
       savePhoneApp(char.id, key, d);
+      phoneRemarkDone(char, key);
       // 她在转圈那一屏点了「先回桌面」：好了告诉她一声（js/phone.js 那颗键记的这一笔）
       try { const left = window.__phoneLeftWhileGen; if (left && left.delete(char.id + ":" + key)) toast(((char.remark || char.name) || "TA") + "的" + phoneKeyLabel(key) + "生成好了，回查手机就能看"); } catch (e) {}
       return true;
@@ -19471,9 +19528,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 避重从空开始（旧的马上要被换掉），但【身份】还得读旧那份——
         // 全刷不是换一个人，TA的号码住址忌口一律沿用。
         const known = ((phonesRef.current || {})[char.id] || {})[key];
-        const d = await runProbe(bgActive, phoneCtx(char), phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current));
+        const d = await runProbe(bgActive, phoneCtx(char), phoneRemarkSpec(char, key, phoneProbeSpec(key, char, relatedNames(char), key === "wechat" ? phoneWechatDigest(char) : "", avoid, known, phoneMoneyFor(char), weekly, phoneBondBlock(char), phoneLangRef.current)));
         fresh[key] = d;
         savePhoneApp(char.id, key, d);
+        phoneRemarkDone(char, key);
         ok++;
       } catch (e) {/* 单个失败不中断其余 */}
     }
@@ -27310,6 +27368,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onWatchSend: watchSend,
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
+    onRemark: phoneRemarkEdit,
     sendAsWaiting: phoneAsWait,
     onWatchReply: watchReply,
     onWatchKnock: watchKnock,
@@ -28052,6 +28111,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     // 收桌就往 TA 的私聊里放一张「一起专注」小卡（群里 2026-10-05）。算 TA 发的：批注本来就是 TA 写的。
     //   content 照样留整段字——TA 下回聊天读历史时读的是它，于是记得你们刚一起坐过多久。
+    // 番茄钟三样新东西要的（她 2026-10-07「都做了吧」）：TA这会儿照日程在干嘛、坐满一轮攒扭蛋点
+    schedNowFor: c => { try { return schedNowFor(c) || ""; } catch (e) { return ""; } },
+    onEarn: charId => { try { return gachaEarn(charId, "focus"); } catch (e) { return 0; } },
     onShare: (rec, c) => {
       if (!c || !c.id) return;
       const mins = rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes;
@@ -29083,6 +29145,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
             actDesc: !!s.actDesc,
+            actLong: !!s.actLong,
+            enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
             // callAuto 是【三态】：null=还没单独设过，走设置里那个全局默认；true/false=设过了。
             // ⚠️所以这一格不能 !! 归一，那会把「没设过」变成「设过而且是关」，
