@@ -300,7 +300,7 @@ test("翻手机：查手机记事进之后一周的上下文；两张卡不当TA
   const c = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
   const p = fs.readFileSync(path.join(__dirname, "../js/peek-phone.js"), "utf8");
   assert.match(a, /&& m\.kind !== "askphone" && m\.kind !== "peeksneak"\);/);
-  assert.match(a, /const peekMemo = opts\.peekPhone \? "" : peekMemoFor\(charId\);/);
+  assert.match(a, /const peekMemo = \(opts\.peekPhone \? "" : peekMemoFor\(charId\)\) \+ remarkHint;/);   // v74.978 她改TA通讯录备注那句挂在同一格
   assert.match(a, /Date\.now\(\) - x\.ts < 7 \* 86400000/);
   assert.match(a, /peekLogAdd\(charId, \{ how: "refused" \}\)/);
   assert.match(a, /peekLogAdd\(charId, \{ how: "sneak"/);
