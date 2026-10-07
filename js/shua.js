@@ -75,9 +75,11 @@
       + (skin === "b" ? B_EXTRA.replace("\n这是", "\n这个推荐流是在") : "");
   }
   const REPLY_SHAPE = '{"reply":""}';
-  function replyInstruction(v, uName, text) {
+  // alt：她用小号评的。TA只看得见一个陌生账号，不知道是她（跟论坛小号同一条：小号一个字都不漏）
+  function replyInstruction(v, uName, text, alt) {
     return "你在「" + APP_NAME + "」上发的那条视频——拍的是：" + v.scene + "；文案：" + v.caption + "。"
-      + "\n底下" + uName + "用她自己的号评论了你：「" + text + "」。评论区别人都看得见。"
+      + (alt ? "\n底下一个你不认识的账号「" + alt + "」评论了你：「" + text + "」。评论区别人都看得见。"
+        : "\n底下" + uName + "用她自己的号评论了你：「" + text + "」。评论区别人都看得见。")
       + "\n你回不回、怎么回（当着所有人的面），照你这个人来；不想回就把 reply 留空。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
@@ -254,7 +256,12 @@
     const addVideos = list => save(Object.assign({}, dbRef.current, { videos: list.concat(dbRef.current.videos) }));
     const note = text => save(Object.assign({}, dbRef.current, { notes: [{ id: uid("n"), text, ts: Date.now(), unread: true }].concat(dbRef.current.notes) }));
     const charOf = id => characters.find(c => c.id === id);
-    const myName = S(db.me && db.me.handle) || uName;
+    // 小号（她 2026-10-07：「片刻能不能也搞小号，跟论坛一样」）：在「我」里起名、切换。
+    //   用小号时：发的视频、评论都挂小号的名；小号发的视频悄悄的——认识她的人不会被叫来评论；
+    //   小号去评 TA 的视频，TA 只当是个陌生人。
+    const altName = S(db.me && db.me.altHandle);
+    const onAlt = !!(altName && db.me && db.me.using === "alt");
+    const myName = onAlt ? altName : (S(db.me && db.me.handle) || uName);
     const shapeChar = sk => sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + "}") : CHAR_SHAPE;
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
@@ -304,13 +311,14 @@
     };
     // 她评论：TA的视频，TA当着大家的面回不回
     const comment = async (id, text) => {
-      patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([{ id: uid("cm"), name: myName, text, by: "me", ts: Date.now() }]) }));
+      const asAlt = onAlt ? altName : "";
+      patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([{ id: uid("cm"), name: myName, text, by: "me", alt: !!asAlt, ts: Date.now() }]) }));
       const v = dbRef.current.videos.find(x => x.id === id);
       const c = v && v.by === "char" ? charOf(v.charId) : null;
       if (!c) return;
       setBusy("reply");
       try {
-        const d = await props.probeAs(c, replyInstruction(v, uName, text), REPLY_SHAPE);
+        const d = await props.probeAs(c, replyInstruction(v, uName, text, asAlt), REPLY_SHAPE);
         const r = S(d && d.reply).slice(0, 300);
         if (r) { patchV(id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: v.author, text: r, by: "char", isAuthor: true, ts: Date.now() }]) })); note(v.author + " 回复了你：" + r); }
       } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
@@ -319,7 +327,9 @@
     // 她发一条：认识她的人刷到了
     const postMine = async d => {
       const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin });
+      if (onAlt) v.alt = true;
       addVideos([v]); setPage(null); setTab("me");
+      if (onAlt) return;   // 小号发的：悄悄的，不叫认识她的人来
       const pool = characters.slice().sort(() => Math.random() - 0.5).slice(0, 3);
       if (!pool.length) return;
       setBusy("post");
@@ -346,7 +356,7 @@
     // 两套各刷各的：没标皮的旧视频算竖屏那套
     const ofSkin = arr(db.videos).filter(v => vidSkin(v) === skin);
     const list = ofSkin.filter(v => v.by !== "me" && (feed === "rec" || v.by === "char"));
-    const mine = ofSkin.filter(v => v.by === "me");
+    const mine = ofSkin.filter(v => v.by === "me" && !!v.alt === onAlt);   // 大号小号各看各的作品
     const unread = arr(db.notes).filter(n => n.unread).length;
 
     // 全屏的那几页
@@ -422,11 +432,17 @@
         h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
           h(Avatar, { character: { name: uName, avatarImage: profile && profile.avatarImage }, size: 70 }),
           h("div", { className: "flex", style: { gap: 20 } },
-            [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
+            [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [onAlt ? 0 : characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: P.ink } }, fmtN(x[0])),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, x[1]))))),
         h("input", { key: "h_" + skin, defaultValue: S(db.me && db.me.handle), placeholder: "账号名（默认用你的名字）", onBlur: e => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { handle: e.target.value.trim().slice(0, 20) }) })),
           className: "w-full outline-none", style: { marginTop: 14, minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13 } }),
+        h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
+          h("input", { key: "alt_" + skin, defaultValue: altName, placeholder: "小号叫什么（不填就没有小号）", onBlur: e => { const v = e.target.value.trim().slice(0, 20); save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { altHandle: v, using: v ? (dbRef.current.me || {}).using : "main" }) })); },
+            className: "flex-1 outline-none", style: { minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13 } }),
+          altName ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { using: onAlt ? "main" : "alt" }) })), className: "active:opacity-70 shrink-0",
+            style: { minHeight: 38, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, onAlt ? "切回大号" : "切到小号") : null),
+        onAlt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是小号「" + altName + "」：发的视频不会叫认识你的人来看，评 TA 的视频 TA 也不知道是你。") : null,
         // 首页样子：跟论坛「首页排版」同一个位置、同一个道理——两套视频，各刷各的
         h("div", { className: "flex items-center justify-between", style: { marginTop: 14, padding: "10px 12px", borderRadius: 12, background: P.field, border: "1px solid " + P.line } },
           h("div", null,
