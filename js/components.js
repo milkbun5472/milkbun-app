@@ -10884,9 +10884,9 @@ function CallScreen({
   h("div", {
     "data-wk": "callhead",
     className: "shrink-0 pb-3 flex flex-col " + (pip ? "pt-14 items-start" : "pt-10 items-center"), // 靠左时让开左上那颗收起键
-    // 右上角那个小框占着一块：只让右边，字靠左排（她 2026-10-07：「字不在侧边看着好挤」——
-    //   原来两边对称各让 112，中间剩一条缝，「连续播报已开启」都折成三行）
-    style: Object.assign(pip ? { paddingLeft: 24, paddingRight: 128 } : {}, litPlate(".62", "0"))
+    // 单人视频字靠左、左右都贴边（她 2026-10-07：「字不在侧边看着好挤」「右边也完全贴右边，被镜头盖上一点也没关系」）——
+    //   原来两边对称各让 112，中间剩一条缝，「连续播报已开启」都折成三行
+    style: Object.assign(pip ? { paddingLeft: 24, paddingRight: 24 } : {}, litPlate(".62", "0"))
   }, h("div", {
     "data-wk": "calltitle",
     className: pip ? "text-left" : "px-6 text-center",
@@ -10950,7 +10950,8 @@ function CallScreen({
     onScroll: e => { const el = e.currentTarget; callScrollTop.current = el.scrollTop; followCallTail.current = el.scrollHeight - el.scrollTop - el.clientHeight < 48; },
     "data-wk": "callbody",
     className: "flex-1 min-h-0 overflow-y-auto px-5 py-3 space-y-2",
-    style: pip ? { paddingRight: 120 } : undefined
+    // 不给右上角小框让位（她 2026-10-07：「右边的也完全贴右边，被镜头覆盖上面一点也没关系」）
+    style: undefined
   }, recent.map((m, i) => {
     // 通话消息只追加；使用完整转录中的位置，不能用滑动窗口内的位置。
     const messageKey = list.length - recent.length + i;

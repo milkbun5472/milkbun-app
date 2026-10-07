@@ -8,3 +8,6 @@ test("视频顶上那块只压渐变，不再毛玻璃", () => {
   assert.doesNotMatch(seg, /backdropFilter/);
   assert.match(seg, /linear-gradient\(180deg/);
 });
+test("单人视频：聊天那块不给右上小框让位，她的气泡贴右边", () => {
+  assert.doesNotMatch(src, /style: pip \? \{ paddingRight: 120 \} : undefined/);
+});

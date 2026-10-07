@@ -40,7 +40,7 @@ test("飘在照片上的每一处白字都带上了字影", () => {
 
 test("顶上那块和输入栏各自压一层底，中间那块【不许】压", () => {
   // v74.956 起单人视频字靠左、只让右边小框（她：「字不在侧边看着好挤」）
-  assert.match(call, /className: "shrink-0 pb-3 flex flex-col " \+ \(pip \? "pt-14 items-start" : "pt-10 items-center"\),[^\n]*\n(?:\s*\/\/.*\n)*\s*style: Object\.assign\(pip \? \{ paddingLeft: 24, paddingRight: 128 \} : \{\}, litPlate\("\.62", "0"\)\)/,
+  assert.match(call, /className: "shrink-0 pb-3 flex flex-col " \+ \(pip \? "pt-14 items-start" : "pt-10 items-center"\),[^\n]*\n(?:\s*\/\/.*\n)*\s*style: Object\.assign\(pip \? \{ paddingLeft: 24, paddingRight: 24 \} : \{\}, litPlate\("\.62", "0"\)\)/,
     "顶上名字时长那块没有自己的底");
   assert.match(call, /paddingBottom: COMPOSER_PAD_BOTTOM\n\s*\}, litPlate\("0", "\.78"\)\)/,
     "输入栏那一条没有自己的底");
