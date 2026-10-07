@@ -215,8 +215,14 @@
   ];
   function altNorm(a) {
     if (!a || typeof a !== "object") return null;
+    const ta = a.ta && typeof a.ta === "object" ? a.ta : {};
     return {
-      who: "me",
+      // 谁开小号：me 她开 / ta TA开 / both 两个都是（第三批起）
+      who: ["me", "ta", "both"].includes(a.who) ? a.who : "me",
+      // TA的小号：网名＋小号上的样子。TA自己起（onGenAlt）或她写
+      ta: { name: String(ta.name || "").slice(0, 24), persona: String(ta.persona || "").slice(0, 1500) },
+      // 她知不知道那个号是TA：不知道＝界面上也不露TA的真名和头像
+      youKnow: !!a.youKnow,
       maskId: String(a.maskId || "").slice(0, 80),
       // 挑面具那一刻抄一份下来：房间自己带着小号是谁，闸（gateCtx）不用回头去翻面具库
       mask: a.mask && typeof a.mask === "object" ? a.mask : null,
@@ -229,7 +235,13 @@
   // 这间房是不是小号房；不是就 null。只此一处判断（施工规则/one-public-mechanism）
   function altOf(room) { return room && !room.main && room.alt ? room.alt : null; }
   // 小号这一边TA看到的是谁：没认出来时，【对方是谁】那一栏就换成小号那张面具
-  function altHidesMe(room) { const a = altOf(room); return !!(a && a.knows !== "knows"); }
+  const altMe = a => !!(a && a.who !== "ta");
+  const altTa = a => !!(a && a.who !== "me");
+  function altHidesMe(room) { const a = altOf(room); return !!(altMe(a) && a.knows !== "knows"); }
+  // 她这一边【我】要不要显示成小号
+  function altShowsMe(room) { return altMe(altOf(room)); }
+  // TA开了小号、她又不知道是TA：界面上TA那一边显示成小号（返回 {name, persona}，否则 null）
+  function altTaFace(room) { const a = altOf(room); return altTa(a) && !a.youKnow ? { name: a.ta.name || "陌生人", persona: a.ta.persona } : null; }
   function altProfile(room) { const a = altOf(room); return a && a.mask && String(a.mask.name || a.mask.label || "").trim() ? a.mask : { name: "陌生网友", persona: a && a.mask && a.mask.persona || "" }; }
   function altName(room) { const p = altProfile(room); return String(p.name || p.label || "陌生网友"); }
   // TA没认出来时，叫她用的名字（认出来了或不是小号房：空串，调用点回落到她本来的名字）
@@ -237,7 +249,7 @@
   // TA这一轮说破了：只有开了「能拆穿」、而且还没认出来的房才算数。返回存好的新房，不算数返回 null
   function altUnmask(room) {
     const a = altOf(room);
-    if (!a || !a.unmask || a.knows === "knows") return null;
+    if (!altMe(a) || !a.unmask || a.knows === "knows") return null;
     return save(room.personId, { ...room, alt: { ...a, knows: "knows", unmaskedAt: Date.now() } });
   }
   function normalize(room, personId) {
@@ -671,7 +683,12 @@
       "【心声与状态】心声、心情、动作照常每轮填写，它们记在这间房自己的状态卡上，只在这间房里算数。");
     if (room.purpose) lines.push("【这间房想慢慢继续的事】" + room.purpose + "。它是这条分线的共同方向，不是每轮必须汇报的任务；相关时自然接着，不相关时正常聊天。");
     const alt = altOf(room);
-    if (alt) {
+    if (altTa(alt)) {
+      lines.push("【你的小号】这间房里你用的是自己的一个小号" + (alt.ta.name ? "，网名「" + alt.ta.name + "」" : "") + "。"
+        + (alt.ta.persona ? "小号上的你：" + alt.ta.persona + "。" : "")
+        + "对方面对的是这个号；你不确定她有没有看出来是你。藏到什么时候、要不要露馅，由你。");
+    }
+    if (altMe(alt)) {
       const o = opts || {}, nick = altName(room);
       lines.push("【小号】对方是用一个小号来找你的，网名「" + nick + "」。" + (alt.knows === "knows"
         ? "你一眼就认出来了：这个号后面是" + (o.realName ? "「" + o.realName + "」" : "你认识的那个人") + "。你装作不知道，陪她演；要不要点破、什么时候点破，由你。"
@@ -811,6 +828,6 @@
     });
   }
 
-  return { ALT_KNOWS, altOf, altHidesMe, altProfile, altName, altCallName, altUnmask, canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
+  return { ALT_KNOWS, altOf, altHidesMe, altShowsMe, altTaFace, altProfile, altName, altCallName, altUnmask, canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });

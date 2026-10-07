@@ -17809,7 +17809,7 @@ function RoomResume({ room, messages, character }) {
     (room.startFrom || room.fork) && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } },
       "进门时从「" + (room.startFrom || room.fork).sourceRoomName + "」带来 " + (room.startFrom || room.fork).seedCount + " 条聊天"));
 }
-function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded, initialPreset }) {
+function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, onClearRoom, onSelect, onClose, onSummarize, embedded, initialPreset, onGenAlt }) {
   const t = useTheme();
   const Kit = window.ChatRooms;
   const [rooms, setRooms] = useState(() => Kit ? Kit.list(character.id) : []);
@@ -17845,6 +17845,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // 「挑一句接起」那一列摆多少句、搜什么（得在下面那个提前 return 之前，hooks 顺序不能变）
   const [startShowN, setStartShowN] = useState(40);
   const [startQ, setStartQ] = useState("");
+  const [altGenBusy, setAltGenBusy] = useState(false);
   if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(PageSheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
@@ -17914,7 +17915,31 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     const a = draft.alt, setAlt = p => patch({ alt: { ...a, ...p } });
     const chip = (on, label, onClick, key) => h("button", { key, onClick, className: "active:opacity-70",
       style: { padding: "7px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, label);
+    const meOn = a.who !== "ta", taOn = a.who !== "me", ta = a.ta || {};
+    const genTa = async () => {
+      if (!onGenAlt || altGenBusy) return;
+      setAltGenBusy(true);
+      try { const g = await onGenAlt(); if (g && (g.name || g.persona)) setAlt({ ta: { ...ta, ...g } }); }
+      catch (e) { window.__toast && window.__toast("没起好：" + (e.message || e)); }
+      finally { setAltGenBusy(false); }
+    };
+    const field = { width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13 };
     return h("div", { style: { marginTop: 10, padding: "12px", borderRadius: 14, border: "1px solid #9fb5c0", background: "rgba(95,125,140,.08)" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#4f6b78" } }, "谁开小号"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 7 } },
+        [["me", "我开"], ["ta", characterText(character, "他开")], ["both", "两个都是"]].map(([k, l]) => chip(a.who === k, l, () => setAlt({ who: k }), k))),
+      taOn ? h("div", { style: { marginTop: 12, paddingTop: 10, borderTop: "1px dashed " + t.line } },
+        h("div", { className: "flex items-center justify-between" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#4f6b78" } }, characterText(character, "他的小号")),
+          onGenAlt ? h("button", { onClick: genTa, disabled: altGenBusy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, opacity: altGenBusy ? .5 : 1 } }, altGenBusy ? "在想……" : characterText(character, "让他自己起")) : null),
+        h("input", { value: ta.name || "", onChange: e => setAlt({ ta: { ...ta, name: e.target.value.slice(0, 24) } }), placeholder: "小号网名", style: { ...field, marginTop: 7 } }),
+        h("textarea", { value: ta.persona || "", onChange: e => setAlt({ ta: { ...ta, persona: e.target.value.slice(0, 1500) } }), rows: 3, placeholder: characterText(character, "这个号上的他看起来是什么样、打字什么习惯"), style: { ...field, marginTop: 7, resize: "vertical", fontSize: 12.5, lineHeight: 1.6 } }),
+        h("div", { className: "flex items-center justify-between", style: { marginTop: 9 } },
+          h("div", { style: { paddingRight: 10 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, characterText(character, "我知道这个号是他")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, "关着：这间房里顶栏和头像都只显示小号，你也认不出是他。他不知道你有没有看出来。"))),
+          h(Toggle, { on: !!a.youKnow, onChange: () => setAlt({ youKnow: !a.youKnow }) }))) : null,
+      meOn ? h("div", { style: { marginTop: taOn ? 12 : 10, paddingTop: taOn ? 10 : 0, borderTop: taOn ? "1px dashed " + t.line : "none" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#4f6b78" } }, "你的小号"),
       h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55 } },
         "挑一张面具当小号，或者自己写一个只给这间房用的：TA在这间房里看到的就是它的名字和人设。"),
@@ -17942,7 +17967,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       a.unmaskedAt ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#4f6b78" } }, characterText(character, "他已经在这间房里认出你了。")) : null,
       a.knows === "hint" && !(Kit.allows && Kit.allows(draft, "formalMemory"))
         ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.55 } }, characterText(character, "想让他起疑，下面「你们一起经历过的事」最好开着——他得记得你，才认得出像你。"))
-        : null);
+        : null) : null);
   };
   const save = () => {
     const saved = Kit.save(character.id, draft);

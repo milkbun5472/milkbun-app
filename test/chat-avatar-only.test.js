@@ -11,7 +11,8 @@ test("TA 换头像只换聊天里那张，档案那张不动；档案页能用�
   const f = new Function(eng.match(/function chatFace\(c\) \{[^\n]+/)[0] + "; return chatFace;")();
   assert.strictEqual(f({ avatarImage: "a", chatAvatar: "b" }).avatarImage, "b");
   assert.strictEqual(f({ avatarImage: "a" }).avatarImage, "a");
-  assert.ok(app.includes("character: chatFace(activeChar)"));
+  // v74.988 小号房里TA开小号时换成小号那张脸，其余照旧是 chatFace(activeChar)
+  assert.ok(app.includes(": chatFace(activeChar); })(),"));
   assert.ok(app.includes("characters: liveChars.map(chatFace)"));
   assert.ok(scr.includes("chatAvatar: chatAvatarOn ? initial.chatAvatar : null"));
 });

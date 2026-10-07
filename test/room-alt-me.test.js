@@ -59,3 +59,21 @@ test("拆穿：只认开了开关、还没认出来的房；说破后翻成认�
   assert.match(app, /parsed\.unmasked === true && room/);
   assert.match(app, /window\.ChatRooms\.addSummary\(\{ personId: charId, roomId: r2\.id/);
 });
+
+test("TA开小号：TA知道自己用小号；她不知道时界面只显示小号；她那边不换", () => {
+  const mk = (who, youKnow) => R.normalize({ id: "r1", name: "x", alt: { who, youKnow, ta: { name: "夜行", persona: "话少" }, mask: { name: "小鱼" } } }, "c1");
+  const ta = mk("ta", false);
+  assert.match(R.prompt(ta, [], {}), /【你的小号】.*网名「夜行」/);
+  assert.doesNotMatch(R.prompt(ta, [], {}), /【小号】对方/);
+  assert.equal(R.altTaFace(ta).name, "夜行");
+  assert.equal(R.altTaFace(mk("ta", true)), null);
+  assert.ok(!R.altHidesMe(ta));
+  assert.ok(!R.altShowsMe(ta));
+  const both = mk("both", false);
+  assert.match(R.prompt(both, [], {}), /【你的小号】/);
+  assert.match(R.prompt(both, [], {}), /【小号】对方/);
+  assert.ok(R.altHidesMe(both));
+  assert.equal(R.altTaFace(mk("me", false)), null);
+  assert.match(app, /window\.ChatRooms\.altTaFace\(rm\)/);
+  assert.match(app, /onGenAlt: async \(\) =>/);
+});
