@@ -859,16 +859,17 @@ function QuoteDraftBar({ text, onClear }) {
   }, [text]);
   const L = look || {}, I = L.inner || {};
   return h("div", { ref: outerRef, "data-wk": "quotedraft", className: "shrink-0",
-      style: { background: L.barBg || t.bg2, backgroundImage: L.barImg || undefined, borderTop: "1px solid " + (L.dark ? "rgba(255,255,255,0.08)" : t.line), padding: "6px 12px 0", display: "flex", alignItems: "center" } },
+      style: { background: L.barBg || t.bg2, backgroundImage: L.barImg || undefined, borderTop: "1px solid " + (L.dark ? "rgba(255,255,255,0.08)" : t.line), padding: "5px 12px 0", display: "flex", alignItems: "center" } },
     h("div", { ref: innerRef, "data-wk": "quote", "data-me": "1", "data-draft": "1",
-        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px",
+        // 跟气泡里那块一样薄（她 2026-10-07：「但是还是很宽」）：一行字的高度，× 不再把这一条撑高
+        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "2px 4px 2px 8px", lineHeight: 1.5,
           background: I.backgroundColor || t.bg, backgroundImage: I.backgroundImage && I.backgroundImage !== "none" ? I.backgroundImage : undefined,
           borderRadius: I.borderRadius || 7, borderLeft: I.borderLeft || ("2px solid " + t.accent), boxShadow: I.boxShadow && I.boxShadow !== "none" ? I.boxShadow : undefined,
           backdropFilter: I.backdropFilter && I.backdropFilter !== "none" ? I.backdropFilter : undefined, WebkitBackdropFilter: I.backdropFilter && I.backdropFilter !== "none" ? I.backdropFilter : undefined,
           fontFamily: I.fontFamily || F_BODY, fontSize: 11.5, color: I.color || t.fog } },
       h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
         h("span", { "data-wk": "quoteicon", style: I.iconColor ? { color: I.iconColor } : undefined }, "❝ "), h("span", { "data-wk": "quotetext" }, text)),
-      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: I.color || t.fog, padding: "0 4px", minWidth: 32, minHeight: 32 } }, "×")));
+      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: I.color || t.fog, padding: "0 6px", minWidth: 28, height: 22, margin: "-4px 0", display: "flex", alignItems: "center", justifyContent: "center" } }, "×")));
 }
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
@@ -7422,6 +7423,7 @@ function Messages({
   onSaveNpcAvatar,
   onSaveNpcBrief,
   onChatNpc,
+  onDeleteNpc,
   onSetNpcMem,
   groups,
   chats,
@@ -7821,7 +7823,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
@@ -8024,8 +8026,10 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onSetMem, onClose }) {
+function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onDelete, onSetMem, onClose }) {
   const t = useTheme();
+  // 删除要点两下：先问聊天要不要一起清（她 2026-10-07：通讯录这里原来只能发消息、删不掉）
+  const [delArm, setDelArm] = useState(null);
   // 点一行进这位配角的详情（她 2026-10-03：「能不能点击看详情啊，现在都是死的」）。
   //   简介读和改走关系页那一个 NpcBrief，不另写一份。
   const [openId, setOpenId] = useState(null);
@@ -8056,7 +8060,19 @@ function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onSetMem, on
               style: { padding: "7px 0", borderRadius: 9, fontFamily: F_BODY, fontSize: 12.5, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub } }, zh);
           }))) : null,
       onChat ? h("button", { onClick: () => onChat(cur.id), className: "w-full active:opacity-70",
-        style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "发消息") : null));
+        style: { marginTop: 16, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none" } }, "发消息") : null,
+      onDelete ? (delArm === cur.id
+        ? h("div", { "data-wk": "npcdel", style: { marginTop: 14, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 14px" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.6 } }, "删掉「" + (cur.name || "这个配角") + "」？会从通讯录、关系网和所有群里一起拿掉。跟 TA 的私聊要不要一起清？"),
+            h("div", { className: "flex flex-col", style: { gap: 8, marginTop: 10 } },
+              h("button", { onClick: () => { setDelArm(null); setOpenId(null); onDelete(cur.id, true); }, className: "w-full active:opacity-70",
+                style: { padding: "10px 0", borderRadius: 10, background: t.accent || t.ink, color: "#fff", fontFamily: F_BODY, fontSize: 13.5, border: "none" } }, "删掉，聊天和 TA 的记忆也清掉"),
+              h("button", { onClick: () => { setDelArm(null); setOpenId(null); onDelete(cur.id, false); }, className: "w-full active:opacity-70",
+                style: { padding: "10px 0", borderRadius: 10, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: 13.5, border: "1px solid " + t.line } }, "只删配角，聊天记录留着"),
+              h("button", { onClick: () => setDelArm(null), className: "w-full active:opacity-70",
+                style: { padding: "8px 0", background: "transparent", color: t.fog, fontFamily: F_BODY, fontSize: 12.5, border: "none" } }, "算了")))
+        : h("button", { onClick: () => setDelArm(cur.id), className: "w-full active:opacity-70",
+            style: { marginTop: 12, padding: "11px 0", borderRadius: 12, background: "transparent", color: t.accent || t.ink, fontFamily: F_BODY, fontSize: 13.5, border: "1px dashed " + t.line } }, "删除这个配角")) : null));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
     h(Head, { zh: "配角", onBack: onClose, bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },

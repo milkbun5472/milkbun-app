@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.967";
+const APP_VERSION = "v74.969";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -15245,6 +15245,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       applyBlockTurnState(charId, chatKey, r.d);
     } catch (e) { toast("失败：" + e.message); } finally { endLane("c:" + chatKey); }
   };
+  // 删一个配角（关系页、通讯录配角册子都走这一份）：从角色表和所有群里拿掉；
+  //   wipeChat＝连跟TA的私聊（线上＋线下）和TA的记忆一起清（她 2026-10-07 群友：「npc 聊天过后怎么删除」）
+  const deleteNpc = (id, wipeChat) => {
+    if (wipeChat) clearChat(id, true);
+    pC(p => p.filter(c => c.id !== id));
+    setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
+    toast(wipeChat ? "已删除，聊天也清掉了" : "已删除");
+  };
   const clearChat = (charId, wipeMem) => {
     pChat(charId, () => []);
     // “清除聊天记录”覆盖这个角色的一对一线上 + 单人线下时间线。直接删除，不结束会话、
@@ -26903,6 +26911,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
     onChatNpc: id => openChatById(id),
+    onDeleteNpc: (id, wipeChat) => deleteNpc(id, wipeChat),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
     // 配角只有一张脸（她 2026-10-05 转群里：「和生成的 NPC 聊天，里面头像可以换，外面的不行」）：
     //   配角没有档案页，聊天里换的是 chatAvatar、通讯录这儿换的是 avatarImage，两张各管各的，
@@ -27210,11 +27219,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     npcBusy: !!Object.keys(busyLanesRef.current || {}).some(k => k.indexOf("npc:") === 0),
     onCreateNpc: (hostId, ask) => createNpc(hostId, ask),
     onAddMyNpc: addMyNpc,
-    onDeleteNpc: id => {
-      pC(p => p.filter(c => c.id !== id));
-      setGroups(prev => { const n = prev.map(g => ({ ...g, memberIds: (g.memberIds || []).filter(x => x !== id) })); saveJSON("x_groups", n); return n; });
-      toast("已删除");
-    }
+    onDeleteNpc: id => deleteNpc(id, false)
   });else if (screen === "anon") body = h(AnonHub, {
     characters: liveChars,
     data: anon,
