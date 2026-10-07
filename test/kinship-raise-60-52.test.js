@@ -14,7 +14,7 @@ const card = comp.slice(comp.indexOf("function KinshipRaiseCard"), comp.indexOf(
 test("不再是一句加括号的话，而是一张申请单", () => {
   assert.ok(!/（在亲属卡上向 " \+ char\.name/.test(raise), "那句括号话还在");
   assert.match(raise, /kind: "kinraise"/);
-  assert.match(comp, /if \(m\.kind === "kinraise"\) return h\(KinshipRaiseCard/);
+  assert.match(comp, /kinraise: KinshipRaiseCard/);   // v75.019 改走 KIN_CARDS → cardRow
   // 该说清的四件事：谁的卡、现在多少、想加多少、批没批
   assert.match(card, /Avatar/);
   assert.match(card, /"现在 " \+ mTight\(m\.limit \|\| 0, c && c\.id\)/);
