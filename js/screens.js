@@ -2546,6 +2546,9 @@ function Forum({
   const [nav, setNav] = useState("home");           // home | search | pm | me
   const [tab, setTab] = useState("吐槽吧");           // 主页版块 或 "关注"
   const [feedSort, setFeedSort] = useState("active"); // active | latest | hot
+  // 「新帖在这里」「新回复在这里」默认收着，只露一行标题和数（她 2026-10-07：「能不能搞 dropdown 隐藏，点开才展开」）
+  const [newPostsOpen, setNewPostsOpen] = useState(false);
+  const [newRepliesOpen, setNewRepliesOpen] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);  // 置顶吧规那块牌子，默认只露第一条
   const [refreshMenu, setRefreshMenu] = useState(false);  // 右上角刷新键点开的那张小单子
   // 开个吧（她自己的吧，存 x_forumBoards）。boardsRev 只是让那排 tab 重画一次——吧表本身每次现读存档
@@ -3278,22 +3281,22 @@ function Forum({
     return h("div", { ref: feedScrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 14 } },
       // 角色发的新帖在哪个吧（她 2026-10-02 转群友：「首页论坛提示了数字2，点进去没有引导，得一个个吧去看」）
       forumNewCharPosts.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, overflow: "hidden" } },
-        h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+        h("button", { "data-wk": "fonewhead", onClick: () => setNewPostsOpen(v => !v), "aria-expanded": newPostsOpen ? "true" : "false", className: "w-full flex items-center justify-between px-3 py-2 active:opacity-60", style: { borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖")),
-        forumNewCharPosts.slice(0, 8).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖 " + (newPostsOpen ? "▴" : "▾"))),
+        newPostsOpen && forumNewCharPosts.slice(0, 8).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
           h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, p.board)))),
       forumUnreadRows.length > 0 && h("div", { className: "mx-4 mt-3", style: { borderRadius: 14, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, boxShadow: "0 5px 14px rgba(42,55,38,.05)", overflow: "hidden" } },
-        h("div", { className: "flex items-center justify-between px-3 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+        h("button", { "data-wk": "fonewhead", onClick: () => setNewRepliesOpen(v => !v), "aria-expanded": newRepliesOpen ? "true" : "false", className: "w-full flex items-center justify-between px-3 py-2 active:opacity-60", style: { borderBottom: newRepliesOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新回复在这里"),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumUnreadRows.length + " 个帖子 · " + forumUnreadTotal + " 条")),
-        forumUnreadRows.slice(0, 4).map(x => h("button", { key: x.post.id, onClick: () => openPost(x.post), className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumUnreadRows.length + " 个帖子 · " + forumUnreadTotal + " 条 " + (newRepliesOpen ? "▴" : "▾"))),
+        newRepliesOpen && forumUnreadRows.slice(0, 4).map(x => h("button", { key: x.post.id, onClick: () => openPost(x.post), className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (x.post.title || "帖子") + "》"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: FORUM_SKIN.fog, flexShrink: 0 } }, x.post.board),
           h("span", { style: { minWidth: 36, textAlign: "right", fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, "+" + x.count))),
-        forumUnreadRows.length > 4 && h("div", { className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, "还有 " + (forumUnreadRows.length - 4) + " 个帖子，读完上面几条后会继续列出")),
+        newRepliesOpen && forumUnreadRows.length > 4 && h("div", { className: "px-3 py-1.5", style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, "还有 " + (forumUnreadRows.length - 4) + " 个帖子，读完上面几条后会继续列出")),
       arrived > 0 && !forumNewCharPosts.length && h("div", { className: "mx-4 mt-3 px-3 py-2 flex items-center gap-2", style: { borderRadius: 12, background: FORUM_SKIN.paper, border: "1px solid " + FORUM_SKIN.line, fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.accent } }, h("span", { style: { width: 7, height: 7, borderRadius: 99, background: FORUM_SKIN.accent } }), h("span", null, "离开期间，这里新增了 " + arrived + " 条")),
       tab === "关注" && flw.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "点进角色或网友主页关注" }),
       tab === "关注" && (flw.length > 0 || npcFollows.length > 0) && shown.length === 0 && h(Empty, { text: "关注的人还没发过公开帖", sub: "" }),

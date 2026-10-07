@@ -12,3 +12,8 @@ test("笔记吧列表是双列瀑布流，点开还是同一个帖子页", () =>
   assert.match(scr, /tab === "笔记吧" \? h\("div", \{ "data-wk": "fonotes", style: \{ columnCount: 2/);
   assert.match(scr, /"data-wk": "fonote", role: "button", onClick: \(\) => openPost\(p\)/);
 });
+test("新帖、新回复默认收着，点了才展开", () => {
+  assert.match(scr, /const \[newPostsOpen, setNewPostsOpen\] = useState\(false\);/);
+  assert.match(scr, /newPostsOpen && forumNewCharPosts\.slice\(0, 8\)\.map\(/);
+  assert.match(scr, /newRepliesOpen && forumUnreadRows\.slice\(0, 4\)\.map\(/);
+});
