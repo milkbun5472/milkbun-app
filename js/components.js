@@ -821,14 +821,54 @@ function ChatToolKey({ k, zh, glyph, onTap }) {
 //   所以给「我引用的那块」写的样式，这里自动一样；只想单独改这一条就用 data-draft="1"。外面那条是 quotedraft。
 function QuoteDraftBar({ text, onClear }) {
   const t = useTheme();
-  return h("div", { "data-wk": "quotedraft", className: "shrink-0",
-      style: { background: t.bg2, borderTop: "1px solid " + t.line, padding: "6px 12px 0", display: "flex", alignItems: "center" } },
-    h("div", { "data-wk": "quote", "data-me": "1", "data-draft": "1",
-        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent,
-          fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
+  // ⭐自己对齐（她 2026-10-07：「不行啊为啥你不能自己调一下吗」）：只挂同名挂点还不够——
+  //   很多美化写的是「消息区里的 quote」（选择器前面带着 body／msg），够不着输入框这一条；
+  //   这一条外面那层又是写死的浅色底，深色皮肤下就是一块白条配一行看不清的浅字。
+  //   所以画出来以后照着【屏幕上真正的那块引用】和【下面那条输入栏】现量一遍颜色，抄过来：
+  //   · 里面那块：抄最近一条「我的」引用（没有就抄 TA 的）的底、字色、左边线、圆角、阴影、毛玻璃
+  //   · 外面那层：抄输入栏的底，跟它连成一片
+  //   屏幕上一条引用都没有时，按输入栏是深是浅给一套看得清的颜色。美化里给 quotedraft / data-draft 写了 !important 的照旧赢。
+  const outerRef = useRef(null), innerRef = useRef(null);
+  const [look, setLook] = useState(null);
+  React.useLayoutEffect(() => {
+    try {
+      const outer = outerRef.current; if (!outer) return;
+      const cs = el => window.getComputedStyle(el);
+      const solid = c => c && c !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(c);
+      const comp = outer.parentElement && outer.parentElement.querySelector('[data-wk="composer"]');
+      let barBg = null, barImg = null, dark = false;
+      if (comp) {
+        const c = cs(comp);
+        if (solid(c.backgroundColor)) barBg = c.backgroundColor;
+        if (c.backgroundImage && c.backgroundImage !== "none") barImg = c.backgroundImage;
+        const m = String(barBg || "").match(/\d+(\.\d+)?/g);
+        if (m) dark = (0.299 * m[0] + 0.587 * m[1] + 0.114 * m[2]) < 128;
+      }
+      const real = document.querySelector('[data-wk="quote"][data-me="1"]:not([data-draft])') || document.querySelector('[data-wk="quote"]:not([data-draft])');
+      let inner = null;
+      if (real) {
+        const r = cs(real), tx = real.querySelector('[data-wk="quotetext"]'), ic = real.querySelector('[data-wk="quoteicon"]');
+        inner = { backgroundColor: r.backgroundColor, backgroundImage: r.backgroundImage, color: (tx ? cs(tx).color : r.color),
+          iconColor: ic ? cs(ic).color : null, borderLeft: r.borderLeftWidth + " " + r.borderLeftStyle + " " + r.borderLeftColor,
+          borderRadius: r.borderRadius, boxShadow: r.boxShadow, backdropFilter: r.backdropFilter || r.webkitBackdropFilter, fontFamily: r.fontFamily };
+      } else if (dark) {
+        inner = { backgroundColor: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.78)", borderLeft: "2px solid rgba(255,255,255,0.4)" };
+      }
+      setLook({ barBg, barImg, dark, inner });
+    } catch (e) {}
+  }, [text]);
+  const L = look || {}, I = L.inner || {};
+  return h("div", { ref: outerRef, "data-wk": "quotedraft", className: "shrink-0",
+      style: { background: L.barBg || t.bg2, backgroundImage: L.barImg || undefined, borderTop: "1px solid " + (L.dark ? "rgba(255,255,255,0.08)" : t.line), padding: "6px 12px 0", display: "flex", alignItems: "center" } },
+    h("div", { ref: innerRef, "data-wk": "quote", "data-me": "1", "data-draft": "1",
+        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px",
+          background: I.backgroundColor || t.bg, backgroundImage: I.backgroundImage && I.backgroundImage !== "none" ? I.backgroundImage : undefined,
+          borderRadius: I.borderRadius || 7, borderLeft: I.borderLeft || ("2px solid " + t.accent), boxShadow: I.boxShadow && I.boxShadow !== "none" ? I.boxShadow : undefined,
+          backdropFilter: I.backdropFilter && I.backdropFilter !== "none" ? I.backdropFilter : undefined, WebkitBackdropFilter: I.backdropFilter && I.backdropFilter !== "none" ? I.backdropFilter : undefined,
+          fontFamily: I.fontFamily || F_BODY, fontSize: 11.5, color: I.color || t.fog } },
       h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-        h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, text)),
-      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px", minWidth: 32, minHeight: 32 } }, "×")));
+        h("span", { "data-wk": "quoteicon", style: I.iconColor ? { color: I.iconColor } : undefined }, "❝ "), h("span", { "data-wk": "quotetext" }, text)),
+      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: I.color || t.fog, padding: "0 4px", minWidth: 32, minHeight: 32 } }, "×")));
 }
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";

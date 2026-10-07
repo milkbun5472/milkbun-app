@@ -15,3 +15,13 @@ test("待发送的引用用同一套 quote 挂点，单聊群聊共用一份", (
   assert.equal((comp.match(/h\(QuoteDraftBar, \{/g) || []).length, 2, "单聊、群聊都要用它");
   ["quotedraft", "quoteclear"].forEach(k => assert.ok(ts.includes('["' + k + '"'), "名单里没有 " + k));
 });
+
+// 她 2026-10-07：「不行啊为啥你不能自己调一下吗」——只同名不够，要照着屏幕上真的那块引用和输入栏现量现抄
+test("待发送的引用自己对齐：抄屏幕上真的引用、抄输入栏的底，没有就按深浅给一套", () => {
+  const i = comp.indexOf("function QuoteDraftBar("), j = comp.indexOf("\n}\n", i);
+  const seg = comp.slice(i, j);
+  assert.match(seg, /querySelector\('\[data-wk="quote"\]\[data-me="1"\]:not\(\[data-draft\]\)'\)/);
+  assert.match(seg, /querySelector\('\[data-wk="composer"\]'\)/);
+  assert.match(seg, /else if \(dark\) \{/);
+  assert.match(seg, /React\.useLayoutEffect\(/);
+});
