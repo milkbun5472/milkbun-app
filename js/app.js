@@ -17752,6 +17752,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : [{ item: "日常开销", amount: Math.max(8, Math.round(((Number(rec.fixedMonthly) || 1800) / 30) * (0.5 + Math.random()))) }];
     const fill = () => dayKeys.forEach(dk => { if (!out[dk]) out[dk] = (alreadyBy[dk] || []).length ? [] : fallbackDay(); });
     if (!active) { fill(); return out; }
+    // 她给的亲属卡（开了平时也能刷）：每周那一路也告诉TA，跟按天那一路同一句（v75.010 补上，原来这条路不会刷）
+    const _kc = myKinOf(char.id);
+    const _kinDay = !!(_kc && _kc.daily && !_kc.frozen && myKinRemain(_kc) > 0);
+    const _kinLine = _kinDay ? "\nTA 手里还有一张 " + userName(profile) + " 给的亲属卡（还剩 " + Math.round(myKinRemain(_kc)) + " 元）。这几天哪几笔会刷她的卡、哪几笔自己付，照 TA 这个人来——刷她卡的那一笔写 card:true，一笔都不刷也正常。" : "";
     try {
       const days = dayKeys.map(dk => {
         const plan = (schedulesRef.current[char.id] || {})[dk], dp = schedDateParts(dk);
@@ -17765,14 +17769,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           : "TA 卡里现在有 " + Math.round(bal) + " 元。\n")
           + "推演「" + char.name + "」下面这几天【每一天实际买了哪些东西】，按天逐笔列出：\n" + days + "\n"
           + "要求：① 每笔写【具体名目】，严禁「日常开销」「杂费」这类糊弄话；② 买什么要贴 TA 的人设、口味和消费水平；③ 大多数日子就是吃喝交通几笔小额（1~4 笔），行程里的活动要如实反映到消费上；④ 一周里偶尔有一两天多一笔 TA 会喜欢的非日常小东西，别天天买；⑤ 允许有几乎不花钱的宅家日（buys 给空数组）；⑥ 这几天要像同一个人连着过的日子，别每天都一模一样；⑦ **amount 一律按【人民币】量级**，人在国外也换算成人民币记。\n"
-          + "date 照上面写的原样抄（形如 " + dayKeys[0] + "），每一天都要有一项。",
-        schemaHint: "{\"days\":[{\"date\":\"" + dayKeys[0] + "\",\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18}]}]}",
+          + "date 照上面写的原样抄（形如 " + dayKeys[0] + "），每一天都要有一项。" + _kinLine,
+        schemaHint: "{\"days\":[{\"date\":\"" + dayKeys[0] + "\",\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18" + (_kinDay ? ",\"card\":false" : "") + "}]}]}",
         maxTokens: 65535
       });
       (Array.isArray(d && d.days) ? d.days : []).forEach(row => {
         const dk = String((row && row.date) || "").trim();
         if (dayKeys.indexOf(dk) < 0 || out[dk]) return;
-        let buys = (Array.isArray(row.buys) ? row.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
+        let buys = (Array.isArray(row.buys) ? row.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0), card: _kinDay && b && b.card === true })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
         if (broke) { let left = 40; buys = buys.map(b => { const a = Math.min(b.amount, left); left -= a; return { item: b.item, amount: a }; }).filter(b => b.amount >= 1); }
         out[dk] = buys;
       });
@@ -28106,6 +28110,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + (rows ? "\n你俩最近聊的：\n" + rows : "");
     },
     pay: (delta, label) => changeWallet(delta, label, "live"),
+    charPay: (charId, delta, label) => adjustCharBalance(charId, delta, label, "live"),
     remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
     onPrivate: (charId, text) => pChat(charId, p => [...p, { role: "assistant", content: text, ts: Date.now(), read: false }]),
     // 回放发给 TA（她 2026-10-07）：跟论坛转帖同一个做法——只落一张卡，不让TA当场开口，等她说完按回复

@@ -104,6 +104,14 @@
       + "\n\n" + briefs.join("\n\n")
       + "\n\n每人写一项 spots：name（只能是：" + chars.map(c => c.name).join("、") + "）、comment 会不会在底下评论（不评就空着；评的话是公开的，用自己的号评）、recognized 觉得是不是她（true/false）、why 为什么这么觉得（一句，心里想的，不会被看到）。";
   }
+  // 熟人评论用他们自己的口气（v75.010：她可以在刷新页打开，多一次调用）
+  function acqSystem(v, host, others, briefs) {
+    return AC() + CB()
+      + "【场景】" + host.name + "在「" + APP_NAME + "」上发了一条视频（账号「" + v.author + "」）。拍的是：" + v.scene + (v.caption ? "\n文案：" + v.caption : "")
+      + "\n\n下面这几个人都认识 " + host.name + "，都刷到了这条。评不评、评什么、当着网友的面说成什么样，照各自的性子和跟 " + host.name + " 的关系来；不想评的就不写。"
+      + "\n\n" + others.map((c, i) => briefs[i] + (c.rel ? "\n跟 " + host.name + " 的关系：" + c.rel : "")).join("\n\n")
+      + "\n\n写：comments（name 只能是：" + others.map(c => c.name).join("、") + "）。";
+  }
   const HOT_SHAPE = '{"topics":[{"title":"","heat":0,"about":""}]}';
   function hotSystem(uName, world, date) {
     return AC() + CB()
@@ -168,7 +176,7 @@
   }
 
   // ── 刷新那一页：两颗，跟论坛一样 ────────────────────────
-  function RefreshPage({ characters, busy, prog, onNpc, onChars, onHot, hotDay, onBack, t, P }) {
+  function RefreshPage({ characters, busy, prog, onNpc, onChars, onHot, hotDay, realFriends, onRealFriends, onBack, t, P }) {
     const [pick, setPick] = useState(characters.slice(0, 3).map(c => c.id));
     const toggle = id => setPick(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.concat([id]).slice(0, PICK_MAX));
     // ⚠️按不了的时候字色跟着皮走（2026-10-07 群友截图：横着看那套底是白的，白字压白底，「正在刷…」整个看不见，像卡死了）
@@ -186,6 +194,9 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name));
         })),
         h("div", { style: { marginTop: 14 } }, big(busy === "chars" ? "TA们在拍…" + (prog ? "（" + prog + "）" : "") : "请TA们发", busy === "chars" ? "可以先退出去刷，拍好一条就出一条" : "挑中的人各发一条，照TA此刻的生活来", () => onChars(pick), busy === "npc" || busy === "chars" || !pick.length),
+        onRealFriends ? h("button", { onClick: onRealFriends, className: "w-full text-left active:opacity-70 flex items-center", style: { gap: 10, marginTop: 10, minHeight: 40 } },
+          h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + (realFriends ? P.accent : P.line), background: realFriends ? P.accent : "transparent", flexShrink: 0 } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, lineHeight: 1.5 } }, "认识 TA 的人来评时，让他们用自己的口气写（每条多调一次；关着时是 TA 发视频那一次顺手写的）")) : null,
         onHot ? h("div", { style: { marginTop: 14 } }, big(busy === "hot" ? "正在看今天的热门…" : (hotDay ? "重刷今天的热门" : "看看今天的热门"), "这个世界今天在聊什么，一天一份（调一次模型）。TA 们发视频时知道，跟不跟看各人", onHot, busy === "npc" || busy === "chars" || busy === "hot")) : null)));
   }
 
@@ -350,7 +361,8 @@
         // 有情侣号的那位，三回里大约有一回这条发在情侣号上
         const cpHere = (dbRef.current.cps || {})[c.id];
         if (cpHere && togetherIds.indexOf(c.id) >= 0 && Math.random() < 0.33) toCp[c.id] = cpHere;
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, friends, acc, hotToday()) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday()) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
@@ -369,6 +381,13 @@
           });
           save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
           names.push(c.name);
+          if (realFr && friends.length && props.ask) {
+            const frs = friends.map(f => Object.assign({}, charOf(f.id) || {}, { rel: f.rel })).filter(f => f.id);
+            props.ask(acqSystem(nv, c, frs, frs.map(props.briefFor)), MINE_SHAPE.replace(',"likes":0', ""), c.id).then(r => {
+              const cms = arr(r && r.comments).map(x => { const f = x && frs.find(y => y.name === S(x.name)); return f && S(x.text) ? { id: uid("cm"), name: S(((dbRef.current.accounts || {})[f.id] || {}).handle) || f.name, text: S(x.text).slice(0, 300), by: "char", charId: f.id, ts: Date.now() } : null; }).filter(Boolean);
+              if (cms.length) patchV(nv.id, x => Object.assign({}, x, { comments: arr(x.comments).concat(cms) }));
+            }).catch(() => {});
+          }
         });
       };
       try {
@@ -528,7 +547,8 @@
             className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } }, h(Avatar, { character: c, size: 48 }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
-    if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog, onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
+    if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
+      realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
     // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
@@ -579,7 +599,10 @@
         h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, bottom: 4, minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "刷新")),
       gridView(list, emptyFeed));
     else if (tab === "live") body = h("div", { className: "flex-1 min-h-0 flex flex-col" },
-      window.LiveApp ? h(window.LiveApp, Object.assign({}, props.live, { key: "live_" + liveStart, embedded: true, startView: liveStart || "home" })) : null);
+      window.LiveApp ? h(window.LiveApp, Object.assign({}, props.live, { key: "live_" + liveStart + "_" + skin, embedded: true, startView: liveStart || "home",
+        // 直播那一格也穿这套皮（直播间本身是黑的演播台，两套都不动）
+        pal: skin === "b" ? { bg: B.bg, bg2: "#fff", ink: B.ink, sub: B.dim, fog: B.dim, line: B.line, accent: B.accent, tint: B.accent }
+          : { bg: BLACK, bg2: "#1b1b21", ink: INK, sub: DIM, fog: DIM, line: LINE, accent: RED, tint: RED } })) : null);
     else if (tab === "msg") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "消息", bg: "transparent", ink: P.ink, right: unread ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { notes: dbRef.current.notes.map(n => Object.assign({}, n, { unread: false })) })), style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "全部已读") : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4" },

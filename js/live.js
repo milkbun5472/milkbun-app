@@ -181,7 +181,7 @@
     const chip = (on2, txt, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60",
       style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (on2 ? t.ink : t.line), background: on2 ? t.ink : "transparent", color: on2 ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, txt);
     return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
-      h(Head, { zh: watching ? "去看 TA 播" : "我来开播", onBack: onBack }),
+      h(Head, { zh: watching ? "去看 TA 播" : "我来开播", onBack: onBack, bg: "transparent", ink: t.__pal ? t.ink : undefined }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
         label(watching ? "看谁播" : "谁在直播间里看着（最多五个）"),
         h("div", { className: "flex flex-wrap", style: { gap: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 58, opacity: on(c.id) ? 1 : 0.45 } },
@@ -206,7 +206,9 @@
 
   // ── 入口 ───────────────────────────────────────────────
   function LiveApp(props) {
-    const t = useTheme();
+    // 嵌在片刻里时跟着片刻那套皮走（她 2026-10-07：直播那一格还是米白底，跟黑底／白粉都不搭）
+    const t0 = useTheme();
+    const t = props.pal ? Object.assign({}, t0, props.pal, { __pal: true }) : t0;
     const { characters, profile, toast } = props;
     const [list, setList] = useState(load);
     const [view, setView] = useState(props.startView || "home");   // home | setup:watch | setup:host | room
@@ -263,7 +265,12 @@
         const add = chat.map(x => ({ kind: "char", name: x.name, text: x.text, ts: Date.now() }))
           .concat(gifts.map(g => ({ kind: "gift", name: g.name, gift: g.gift, amount: g.amount, ts: Date.now() })))
           .concat(priv.map(x => ({ kind: "private", name: x.name, text: x.text, ts: Date.now() })));
-        gifts.forEach(g => props.pay(g.amount, "直播收到打赏 · " + g.name + " 的「" + g.gift + "」"));
+        gifts.forEach(g => {
+          props.pay(g.amount, "直播收到打赏 · " + g.name + " 的「" + g.gift + "」");
+          // 送礼的钱是从TA自己钱包里出的（v75.010 补上：原来只进了她的钱包，TA那边没扣）
+          const gc = chars.find(c => c.name === g.name);
+          if (gc && props.charPay) props.charPay(gc.id, -g.amount, "直播打赏 · 送了「" + g.gift + "」");
+        });
         priv.forEach(x => { const c = chars.find(cc => cc.name === x.name); if (c) props.onPrivate(c.id, x.text); });
         patch(id, s => ({ ...s, lines: arr(s.lines).concat(add).slice(-LINES_CAP), noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
           viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)) }));
@@ -329,7 +336,7 @@
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
     if (view === "share" && cur)
       return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
-        h(Head, { zh: "发给谁", sub: S(cur.title) || "直播回放", onBack: () => { if (shareTo) setShareTo(null); else setView("room"); } }),
+        h(Head, { zh: "发给谁", sub: S(cur.title) || "直播回放", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: () => { if (shareTo) setShareTo(null); else setView("room"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
           shareTo ? h("div", { style: { marginTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "发到 " + shareTo.name + " 的哪儿"),
@@ -349,7 +356,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4, lineHeight: 1.5 } }, sub));
     const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || "") : uName;
     return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
-      h(Head, { zh: "直播", onBack: props.embedded ? undefined : props.onBack }),
+      h(Head, { zh: "直播", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: props.embedded ? undefined : props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
         h("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 6 } },
           characters.length ? door("去看 TA 播", "挑一个人，看 TA 在直播间里是什么样。可以用自己的号，也可以挂马甲。", () => setView("setup:watch")) : null,

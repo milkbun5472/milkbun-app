@@ -14,7 +14,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
   assert.match(S, /const genChars = async ids =>/);
-  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\]/);
+  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
   assert.match(S, /tabBtn\("live", "直播"\)/);
@@ -33,7 +33,7 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\][^\n]*?, shapeChar\(sk, friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
+  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\][^\n]*?, shapeChar\(sk, !realFr && friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 
@@ -60,7 +60,7 @@ test("分享进聊天 + TA甩来 + 刷到彼此", () => {
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}/);
   assert.match(S, /她不知道你认出来了/);
   // v75.007 省钱：熟人来评并进TA自己那一枪；小号被刷到一枪写完；旁支走后台线路
-  assert.match(S, /charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\)/);
+  assert.match(S, /charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\)\)/);
   assert.match(S, /props\.ask\(spotSystem\(/);
   assert.match(A, /const route = \(routePicked\(bgApiId\) && bgActive\) \? bgActive/);
 });
@@ -84,4 +84,15 @@ test("情侣号：只给在一起的人，你俩共用，TA也会发在上面", 
   assert.match(S, /const mine = onCp \? ofSkin\.filter\(v => v\.cp === cpId\)/);
   assert.match(S, /toCp\[c\.id\] = cpHere/);
   assert.match(A, /togetherIds: \(\) => Object\.keys\(couplesRef\.current/);
+});
+
+test("v75.010 补欠账：直播那一格跟皮、熟人口气开关", () => {
+  assert.match(S, /pal: skin === "b" \? \{ bg: B\.bg/);
+  assert.match(S, /const realFr = !!\(dbRef\.current\.me && dbRef\.current\.me\.realFriends\);/);
+  const L = fs.readFileSync(path.join(__dirname, "..", "js", "live.js"), "utf8");
+  assert.match(L, /const t = props\.pal \? Object\.assign\(\{\}, t0, props\.pal, \{ __pal: true \}\) : t0;/);
+  assert.match(L, /props\.charPay\(gc\.id, -g\.amount,/);
+  const A = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  const w = A.slice(A.indexOf("const genWeekSpend = async"), A.indexOf("const catchUpWallet = async"));
+  assert.match(w, /card: _kinDay && b && b\.card === true/);
 });
