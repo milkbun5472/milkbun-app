@@ -17906,6 +17906,30 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         ? "上面那格关着时：只带记忆库，而且只到那一句为止；档案、礼物、长期记忆那些都不带。"
         : "那一句之后才记下的记忆，他在这间房里想不起来。关系和心情还是现在的。"))),
     h(Toggle, { on: !!draft.memUntilAnchor, onChange: () => patch({ memUntilAnchor: !draft.memUntilAnchor }) })) : null;
+  // 小号房间那一块（她 2026-10-07）：用哪张面具当小号、TA认不认得出。建房和编辑页共用这一份。
+  //   面具本身在「信息 → 我 → 我的面具」里建，这儿只挑（跟「TA 认识的是我哪一张」同一个分工）。
+  const altBlock = () => {
+    if (!draft.alt || !Kit.ALT_KNOWS) return null;
+    const masks = (loadJSON("x_masks", []) || []).filter(m => m && m.id);
+    const a = draft.alt, setAlt = p => patch({ alt: { ...a, ...p } });
+    const chip = (on, label, onClick, key) => h("button", { key, onClick, className: "active:opacity-70",
+      style: { padding: "7px 12px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, label);
+    return h("div", { style: { marginTop: 10, padding: "12px", borderRadius: 14, border: "1px solid #9fb5c0", background: "rgba(95,125,140,.08)" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#4f6b78" } }, "你的小号"),
+      h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55 } },
+        "挑一张面具当小号：TA在这间房里看到的就是它的名字和人设。面具在「信息 → 我 → 我的面具」里建。"),
+      masks.length
+        ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, masks.map(m => chip(a.maskId === m.id, m.label || m.name || "未命名", () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)))
+        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: "#4f6b78" } }, "你还没有别的面具。先去建一张，不挑的话TA只当你是「陌生网友」。"),
+      h("div", { style: { marginTop: 12, fontFamily: F_DISPLAY, fontSize: 14, color: "#4f6b78" } }, characterText(character, "他认不认得出是你")),
+      h("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 7 } }, Kit.ALT_KNOWS.map(([k, label, note]) => h("button", { key: k, onClick: () => setAlt({ knows: k }), className: "w-full text-left active:opacity-70",
+        style: { padding: "9px 11px", borderRadius: 11, border: "1px solid " + (a.knows === k ? t.ink : t.line), background: a.knows === k ? t.bg : "transparent" } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, label),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, characterText(character, note))))),
+      a.knows === "hint" && !(Kit.allows && Kit.allows(draft, "formalMemory"))
+        ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.55 } }, characterText(character, "想让他起疑，下面「你们一起经历过的事」最好开着——他得记得你，才认得出像你。"))
+        : null);
+  };
   const save = () => {
     const saved = Kit.save(character.id, draft);
     if (!saved) { window.__toast && window.__toast("这次没保存成功，原房间还在"); return null; }
@@ -17951,6 +17975,8 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const unsummarized = roomMsgs.filter(m => m && !m.forkSeed && Number(m.ts || 0) > Number(draft.summaryCursorTs || 0) && (m.role === "user" || m.role === "assistant") && m.content && !m.recalled);
   const roomMeta = r => r.main
     ? { label: "日常主线", note: "平时想到什么就聊什么", tint: t.tint }
+    : r.alt
+      ? { label: "小号房间", note: "你换了个号去找TA", tint: "#5f7d8c" }
     : r.garden
       ? { label: "微光庭院", note: "一间房一个庭院存档", tint: "#6b8753" }
     : r.scenario
@@ -17990,7 +18016,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // 不写设定＝普通隔离房，写了设定＝长篇如果。旧 alternate 房仍由 normalize 兼容。
   // ⚠️庭院房和上面三种是同一种东西（她 2026-09-16）：一间房＝一个庭院存档。
   //   默认架空、什么都不带；想让 TA 在庭院里记得你们，就拨上面那几排开关。
-  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"]];
+  const purposeChoices = [["everyday", "慢慢聊这件事", "给一个反复会聊到的话题单独留位置"], ["focused", "一起做件事", "把课程、计划或长期项目收在一起"], ["isolated", "不带出门", "只在这里成立；写下另一段设定，就会成为长篇如果"], ["garden", "微光庭院", "一间房一个庭院存档；进这扇门是玩，说过的话仍留在这里"], ["altme", "小号房间", "换一张面具去找TA；TA认不认得出你，你来定"]];
   // ⚠️她 2026-09-18：「从游戏新开档怎么跳回主聊天了，能不能调到设置房间那屏幕上」。
   //   带着预设来的那一次，她要的是【把这间房设好】这一件事，不是房间总览——
   //   房间列表、主聊天那几行、另外三个预设，一个都不该在这一屏上出现。
@@ -18037,6 +18063,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("div", { style: { marginTop: 9, fontFamily: F_DISPLAY, fontSize: 13.5, color: "#9b5f6d" } }, "开场那一刻 · 只发第一轮"),
         h("textarea", { value: draft.opening || "", onChange: e => patch({ opening: e.target.value }), rows: 2, placeholder: "例如：门被推开的那一刻。", style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid rgba(155,95,109,.35)", background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, outline: "none" } }),
         h("div", { style: { marginTop: 5, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.5 } }, characterText(character, "分不清写哪一栏就问：这句话三天之后还成立吗？成立（他是 17 岁）写上面，不成立（门刚被推开）写下面。把一个瞬间写进上面那一栏，他会被每轮按回那一刻，怎么聊都走不出去。两栏都留空就是普通的不带出门；写下另一段年龄、处境或关系，保存后会显示为长篇如果。"))),
+      altBlock(),
       h("div", { style: { marginTop: 11 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, "进门时，先放哪段聊天"),
         h("div", { className: "grid grid-cols-3", style: { gap: 6, marginTop: 7 } }, [
@@ -18082,6 +18109,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 3 } }, draft.main ? "你平时坐的那间" : "这间房自己的记录，自己的门")),
       h("button", { onClick: save, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "保存")),
     h("input", { value: draft.name, onChange: e => patch({ name: e.target.value }), disabled: draft.main, placeholder: "给房间起个名字", style: { width: "100%", marginTop: 12, padding: "11px 12px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_DISPLAY, fontSize: 16, outline: "none", opacity: draft.main ? .65 : 1 } }),
+    altBlock(),
     // ⚠️v66.80 拆成两栏（她 2026-09-11 报「困在一个 state 出不来」）。
     //   病根是一栏当了两样东西用：【底子】每轮重发是对的，可她写进去的是【一个瞬间】，
     //   于是每一轮在TA开口之前把TA按回门被推开的那一刻，戏永远走不出第一拍。

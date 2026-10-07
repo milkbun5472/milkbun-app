@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.984";
+const APP_VERSION = "v74.985";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10771,7 +10771,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
-      const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
+      const uName = (window.ChatRooms && window.ChatRooms.altCallName ? window.ChatRooms.altCallName(room) : "") || userName(profile); // 小号房里叫她小号的名字。须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
       const busyHint = opts.busyBack && opts.busyBack.sleep ? "\n\n【此刻】你刚睡醒，拿起手机才看到 " + uName + " 在你睡着的时候发来的消息。照你自己的性子回 Ta。"
         : opts.busyNudge && opts.busyNudge.sleep ? "\n\n【此刻】你本来在睡，手机又响了，迷迷糊糊看了一眼 " + uName + " 发来的消息。照你自己的性子来。"
@@ -14988,9 +14988,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!window.ChatRooms.allowsField(room, field)) { toast("这项操作请回主聊天处理"); return; }
     return action();
   };
-  const roomHistoryText = (char, chatKey) => {
+  const roomHistoryText = (char, chatKey, room) => {
     const rows = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
-    return rows.slice(-20).map(m => (m.role === "user" ? profile.name || "我" : char.name) + "：" + (m.content || "")).join("\n");
+    const me = (window.ChatRooms && window.ChatRooms.altCallName ? window.ChatRooms.altCallName(room) : "") || profile.name || "我";
+    return rows.slice(-20).map(m => (m.role === "user" ? me : char.name) + "：" + (m.content || "")).join("\n");
   };
   // 【这一轮的历史到底怎么发】——只此一份。
   // ⚠️她 2026-09-15 抓到：「TA 知道什么」里的【最近对话】是几百条之前的。
@@ -15049,7 +15050,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
-    const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey);
+    const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey, room);
     const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory") && !(window.ChatRooms.memOnly && window.ChatRooms.memOnly(room)));
     const ctx = ctxFor(char, { ...ctxOpts, noMemory, memCutoff: window.ChatRooms.memCutoff ? window.ChatRooms.memCutoff(room) : 0, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
@@ -15077,7 +15078,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // record＝这一轮真要发出去（单聊发送、通话）：房间记忆那份召回收据只认这种，预览不留
   const roomPromptFor = (charId, room, record) => !room || !window.ChatRooms ? "" : window.ChatRooms.prompt(
     { ...room, cognition: { ...room.cognition, schedule: roomTimeAwareFor(room, charId) } }, chatsRef.current[charId] || [],
-    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id), record: !!record });
+    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id), record: !!record,
+      // 真名只有小号房「早就认出来了」那一档用得上；别的房不去碰
+      realName: window.ChatRooms.altOf && window.ChatRooms.altOf(room) ? userName(profileFor(charId)) : "" });
   // 房间记忆的查询向量：跟 roomPromptFor 递进去的【同一段字】预热，retrieveMemories 才对得上缓存
   const primeRoomMemVec = async (charId, room) => {
     if (!room || room.main || !window.ChatRooms || typeof primeQueryVec !== "function") return;
