@@ -36,3 +36,9 @@ test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不
   assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk\), shapeChar\(sk\)\)\.catch\(\(\) => null\), timeout\]\)/);
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
+
+test("点进评论再回来还在原地，不回第一条", () => {
+  assert.match(S, /const posKey = /);
+  assert.match(S, /ref: el => \{ feedRef\.current = el; keepPos\(el, paneH\); \}/);
+  assert.match(S, /ref: el => keepPos\(el, 0\)/);
+});

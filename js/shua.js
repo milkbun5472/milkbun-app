@@ -244,6 +244,7 @@
     const [drawing, setDrawing] = useState(null);
     const [paneH, setPaneH] = useState(600);
     const feedRef = useRef(null);
+    const posRef = useRef({});   // 每一格滑到哪儿了（点进评论再回来要还在原地）
     const uName = (profile && profile.name) || "我";
     const skin = db.skin === "b" ? "b" : "v";
     const P = PAL[skin];
@@ -285,7 +286,7 @@
         await Promise.all(pick.map(one));
         if (names.length) toast(names.join("、") + " 发了新视频" + (failed.length ? "（" + failed.join("、") + " 这回没拍出来）" : ""));
         else toast("这一轮没发出来，再点一次试试");
-        if (names.length) { setPage(p => p && p.kind === "refresh" ? null : p); setTab("home"); setFeed("follow"); if (feedRef.current) feedRef.current.scrollTop = 0; }
+        if (names.length) { setPage(p => p && p.kind === "refresh" ? null : p); setTab("home"); setFeed("follow"); posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0; }
       } finally { setBusy(null); setProg(""); }
     };
     // 刷几条路人的：一枪写完
@@ -297,7 +298,7 @@
         const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, { by: "npc", author: S(x.author).slice(0, 20), skin: sk }));
         if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
         addVideos(vids); setPage(null); setTab("home"); setFeed("rec");
-        if (feedRef.current) feedRef.current.scrollTop = 0;
+        posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0;
       } catch (e) { toast("没刷出来：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(null); }
     };
@@ -361,12 +362,23 @@
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
-    const feedView = (vids, empty) => h("div", { ref: feedRef, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
+    // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
+    //   （群友 2026-10-07：「每次点视频的评论，看完了又会回到第一条」）。按「哪一格哪一套」记住滑到哪儿，挂回来时放回去。
+    //   竖屏记的是第几条（格高可能变），横屏记像素。
+    const posKey = (page && page.kind === "mine" ? "mine" : tab + "|" + feed) + "|" + skin;
+    const keepPos = (el, unit) => {
+      if (!el || el.__posKept) return;
+      el.__posKept = true;
+      const at = posRef.current[posKey] || 0;
+      if (at) requestAnimationFrame(() => { el.scrollTop = unit ? at * unit : at; });
+    };
+    const feedView = (vids, empty) => h("div", { ref: el => { feedRef.current = el; keepPos(el, paneH); },
+      onScroll: e => { posRef.current[posKey] = Math.round(e.currentTarget.scrollTop / (paneH || 1)); }, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
       vids.length ? vids.map(v => h(VideoPane, { key: v.id, v, height: paneH, charOf,
         onLike: () => like(v), onFave: () => fave(v),
         onComments: () => setPage({ kind: "comments", id: v.id, back: page }),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id })) : empty);
-    const gridView = (vids, empty) => h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
+    const gridView = (vids, empty) => h("div", { ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
     const emptyFeed = h("div", { style: { height: "100%", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 30px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : "还什么都没有"),
