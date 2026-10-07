@@ -27,3 +27,10 @@ test("入口、文件夹、脚本都挂上了", () => {
   assert.match(I, /<script src="js\/live\.js\?v=/);
   assert.match(R("js/engine.js"), /"x_live",/);
 });
+
+test("回放能发回聊天：走公共那条转发卡，不让TA当场开口", () => {
+  assert.match(C, /if \(kind === "liveshare"\) return window\.LiveShareCard \|\| null;/);
+  assert.match(L, /window\.LiveShareCard = LiveShareCard;/);
+  assert.match(A, /kind: "liveshare", live: snap, content: K\.shareText\(snap, userName\(profile\), c\.name\), ts: Date\.now\(\), read: true \}/);
+  assert.match(L, /直播间里那个「" \+ snap\.maskName \+ "」就是她/);
+});

@@ -28092,6 +28092,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     pay: (delta, label) => changeWallet(delta, label, "live"),
     remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
     onPrivate: (charId, text) => pChat(charId, p => [...p, { role: "assistant", content: text, ts: Date.now(), read: false }]),
+    // 回放发给 TA（她 2026-10-07）：跟论坛转帖同一个做法——只落一张卡，不让TA当场开口，等她说完按回复
+    onShare: (ses, c) => {
+      const K = window.LiveKit; if (!K || !c) return;
+      const host = ses.mode === "watch" ? (ses.host || ((characters.find(x => x.id === ses.charId) || {}).name) || "主播") : userName(profile);
+      const snap = K.shareSnap(ses, host);
+      pChat(c.id, p => [...p, { role: "user", kind: "liveshare", live: snap, content: K.shareText(snap, userName(profile), c.name), ts: Date.now(), read: true }]);
+      toast("已发给 " + (c.remark || c.name));
+    },
     onBack: () => setScreen("home")
   };
     body = window.ShuaApp ? h(window.ShuaApp, {

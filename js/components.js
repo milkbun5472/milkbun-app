@@ -12833,6 +12833,7 @@ function shareCardOf(kind) {
   if (kind === "shikeshare") return window.ShikeShareCard || null;
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
+  if (kind === "liveshare") return window.LiveShareCard || null;   // 直播回放（js/live.js，2026-10-07）
   return null;
 }
 function ForumShareCard({ m, isU }) {

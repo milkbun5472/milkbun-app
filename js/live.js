@@ -110,7 +110,7 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly }) {
+  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly, onShare }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const listRef = useRef(null);
@@ -134,7 +134,7 @@
     const stageTitle = watching ? (ses.host || (host && host.name) || "主播") : uName;
     return h("div", { className: "h-full flex flex-col", style: { background: LIVE_BG, position: "relative" } },
       h(Head, { zh: S(ses.title) || "直播间", sub: (ses.endTs ? "已下播" : "直播中") + " · " + (Number(ses.viewers) || 0) + " 人在看", bg: "transparent", ink: LIVE_INK, onBack: onBack,
-        right: (!readOnly && !ses.endTs) ? h("button", { onClick: onEnd, disabled: !!busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_RED, padding: "0 6px", minHeight: 40 } }, watching ? "离开" : "下播") : null }),
+        right: (ses.endTs || readOnly) ? (onShare ? h("button", { onClick: onShare, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_INK, padding: "0 6px", minHeight: 40 } }, "发给 TA") : null) : (!readOnly && !ses.endTs) ? h("button", { onClick: onEnd, disabled: !!busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_RED, padding: "0 6px", minHeight: 40 } }, watching ? "离开" : "下播") : null }),
       // 镜头那一块：主播（或她自己）此刻的样子＋刚说的那句；路人弹幕从这儿飘过去
       h("div", { className: "shrink-0", style: { position: "relative", height: 210, margin: "0 12px", borderRadius: 16, overflow: "hidden",
         background: "radial-gradient(120% 90% at 30% 20%,rgba(226,85,107,.28),rgba(80,60,120,.25) 55%,rgba(20,16,25,1))", border: "1px solid " + LIVE_LINE } },
@@ -322,7 +322,17 @@
     if (view === "setup:watch" || view === "setup:host")
       return h(Setup, { mode: view === "setup:watch" ? "watch" : "host", characters, maskName: props.maskName, t, onStart: start, onBack: () => setView("home") });
     if (view === "room" && cur)
-      return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end, onBack: () => { setView("home"); setCurId(null); } });
+      return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end, onBack: () => { setView("home"); setCurId(null); },
+        onShare: props.onShare ? () => setView("share") : null });
+    // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
+    if (view === "share" && cur)
+      return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
+        h(Head, { zh: "发给谁", sub: S(cur.title) || "直播回放", onBack: () => setView("room") }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+          h("div", { className: "flex flex-wrap", style: { gap: 14, marginTop: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => { props.onShare(cur, c); setView("room"); },
+            className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } },
+            h(Avatar, { character: c, size: 48 }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
 
     // 落地页：两扇门 + 回放
     const door = (title, sub, fn) => h("button", { onClick: fn, className: "w-full text-left active:opacity-80",
@@ -347,6 +357,39 @@
           h("button", { onClick: () => save(listRef.current.filter(x => x.id !== s.id)), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minHeight: 36, padding: "0 6px" } }, "删")))));
   }
 
+  // ── 回放卡：聊天里那一张 ─────────────────────────────────
+  // 卡上存的是【发的那一刻的快照】：标题、谁播的、几个人看、最后十来行。之后这场再怎么样，卡不跟着变。
+  function shareSnap(ses, hostName) {
+    return { title: S(ses.title) || "直播间", host: hostName, mode: ses.mode, as: ses.as, maskName: ses.maskName, viewers: Number(ses.viewers) || 0,
+      startTs: ses.startTs, lines: arr(ses.lines).slice(-14).map(l => ({ kind: l.kind, name: l.name, text: l.text, act: l.act, gift: l.gift, amount: l.amount })) };
+  }
+  // TA读到的那一段：经过照抄；她挂过马甲的，发给谁就等于对谁说破了
+  function shareText(snap, uName, toName) {
+    const who = snap.mode === "watch"
+      ? (snap.as === "mask" ? uName + "当时用马甲「" + snap.maskName + "」在直播间里——直播间里那个「" + snap.maskName + "」就是她" : uName + "用自己的号在直播间里")
+      : uName + "自己开的这场";
+    const rows = snap.lines.map(l => l.kind === "gift" ? l.name + " 送了「" + l.gift + "」" : l.kind === "enter" ? l.text : (l.kind === "host" ? "主播 " : "") + l.name + "：" + (l.act ? "（" + l.act + "）" : "") + l.text).join("\n");
+    return "[转发了一场直播回放]《" + snap.title + "》｜主播：" + snap.host + "｜" + who + "｜" + snap.viewers + " 人看过"
+      + (snap.host === toName ? "｜（这就是你自己播的那一场）" : "") + "\n最后那一段：\n" + rows;
+  }
+  function LiveShareCard({ m, isU }) {
+    const t = useTheme();
+    const [open, setOpen] = useState(false);
+    const v = m.live || {};
+    const rows = arr(v.lines);
+    return h("button", { onClick: () => setOpen(o => !o), className: "text-left active:opacity-90", style: { width: 250, maxWidth: "100%", borderRadius: 14, overflow: "hidden", background: LIVE_BG, border: "1px solid " + LIVE_LINE } },
+      h("div", { style: { padding: "11px 13px 9px", background: "radial-gradient(120% 120% at 0% 0%,rgba(226,85,107,.4),rgba(20,16,25,1))" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM } }, h(GlyphDot), "直播回放 · " + (v.viewers || 0) + " 人看过"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: LIVE_INK, marginTop: 4 } }, v.title || "直播间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, marginTop: 2 } }, "主播 " + (v.host || ""))),
+      h("div", { style: { padding: "8px 13px 10px" } },
+        (open ? rows : rows.slice(-3)).map((l, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: LIVE_INK, padding: "1px 0" } },
+          l.kind === "gift" ? h("span", { style: { color: "#f6c76b" } }, l.name + " 送了「" + l.gift + "」")
+            : l.kind === "enter" ? h("span", { style: { color: LIVE_DIM } }, l.text)
+            : h(Fragment, null, h("span", { style: { color: l.kind === "host" ? LIVE_RED : "#d6c7ff", marginRight: 5 } }, l.name), l.text))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM, marginTop: 6 } }, open ? "收起" : (rows.length > 3 ? "点开看最后 " + rows.length + " 行" : ""))));
+  }
+  window.LiveShareCard = LiveShareCard;
   window.LiveApp = LiveApp;
-  window.LiveKit = { watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS, NoiseLayer };
+  window.LiveKit = { shareSnap, shareText, watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS, NoiseLayer };
 })();
