@@ -9630,6 +9630,20 @@ function ChatThread({
       h(window.ShikeShareCard, { m: _oldKeep, isU: false }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
+    // 聊天里一张卡的公共外壳：跟转账同一个形状——整行可长按（出菜单／多选），对方的卡左边挂TA的头像、
+    //   自己的卡右边挂我的头像（显示我的头像开着时）。新卡片要进聊天就交给它，别再自己摆位置。
+    const cardRow = (i, m, card) => {
+      const isU = m.role === "user";
+      return h("div", { key: i,
+        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+        onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+        onClick: selMode ? () => toggleSel(i) : undefined,
+        className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start"),
+        style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 } },
+        !isU && h(Avatar, { character: character, size: 40, radius: 10 }),
+        h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
+        isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    };
     if (m.kind === "transfer") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -9668,15 +9682,10 @@ function ChatThread({
     if (m.kind === "askphone") return h(PhoneAskCard, { key: i, m: m, character: character,
       onGive: () => { onPhoneAsk && onPhoneAsk(m, true); setPeekOpen(true); },
       onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) });
-    if (m.kind === "kinship") return h(KinshipIssueCard, { key: i, m: m, character: character });
-    if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
-    if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
-    if (m.kind === "kinunbind") return h(KinshipUnbindCard, { key: i, m: m, character: character });
-    // 她给 TA 的那张卡（方向反过来，2026-10-07）
-    if (m.kind === "mykin") return h(MyKinIssueCard, { key: i, m: m, character: character });
-    if (m.kind === "mykinbill") return h(MyKinSpendCard, { key: i, m: m, character: character });
-    if (m.kind === "mykindaily") return h(MyKinDailyCard, { key: i, m: m, character: character });
-    if (m.kind === "mykinedit") return h(MyKinEditCard, { key: i, m: m, character: character });
+    // 亲属卡两个方向的八张卡：一律走 cardRow——谁发的就在谁那边、带头像、能长按出菜单（她 2026-10-07：「没带头像！没跟上公共形状！不能长按」）
+    const KIN_CARDS = { kinship: KinshipIssueCard, kinbill: KinshipSpendCard, kinraise: KinshipRaiseCard, kinunbind: KinshipUnbindCard,
+      mykin: MyKinIssueCard, mykinbill: MyKinSpendCard, mykindaily: MyKinDailyCard, mykinedit: MyKinEditCard };
+    if (KIN_CARDS[m.kind]) return cardRow(i, m, h(KIN_CARDS[m.kind], { m: m, character: character, inRow: true }));
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
@@ -13557,10 +13566,13 @@ function PhoneAskCard({ m, character, onGive, onRefuse }) {
             h("button", { onClick: onGive, className: "flex-1 active:opacity-80", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 14 } }, "给"))
         : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, st === "given" ? "你把手机给了" : "你没给")));
 }
-function KinshipIssueCard({ m, character }) {
+// 亲属卡那几张卡的外壳：在聊天行里（inRow）就只交出卡本身，头像、靠左靠右、长按都归 ChatThread 的 cardRow；
+//   别处单独用时照旧自己摆位置。
+const kinOuter = (inRow, cls, inner) => inRow ? inner : h("div", { className: cls }, inner);
+function KinshipIssueCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
-  return h("div", { className: "py-1 flex justify-start" },
+  return kinOuter(inRow, "py-1 flex justify-start",
     h("div", { style: { width: 252 } },
       h(KinshipCardFace, { character: c, limit: m.limit || 0, note: m.note || "" }),
       // 这一句原来是裸字，壁纸一来就糊了（v60.45 我加的）。它是卡的说明，
@@ -13577,19 +13589,19 @@ function KinshipIssueCard({ m, character }) {
 // 而且跟卡面同一套语言（TA的颜色那一道、TA的脸），一眼看得出说的是同一张卡。
 // ── 她给 TA 的亲属卡：那几张聊天卡（2026-10-07）──────────────────────────
 // 卡面还是那一张副卡（持卡人是TA，所以上面是TA的名字和脸），只是这回是她递出去的。
-function MyKinIssueCard({ m, character }) {
+function MyKinIssueCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
-  return h("div", { className: "my-2 flex justify-center px-6" },
+  return kinOuter(inRow, "my-2 flex justify-center px-6",
     h("div", { style: { width: "100%", maxWidth: 268 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginBottom: 6 } }, "你给了 " + (c.name || "TA") + " 一张亲属卡" + (m.daily ? " · 平时花钱也能刷" : "")),
       h(KinshipCardFace, { character: c, limit: m.limit, used: null, note: m.note })));
 }
-function MyKinSpendCard({ m, character }) {
+function MyKinSpendCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
   const ink = m.ok ? (c.color || "#6b7a8f") : "#b9a7a2";
-  return h("div", { className: "my-2 flex justify-center px-6" },
+  return kinOuter(inRow, "my-2 flex justify-center px-6",
     h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "flex" },
         h("div", { style: { width: 3, background: ink, flexShrink: 0 } }),
@@ -13604,12 +13616,12 @@ function MyKinSpendCard({ m, character }) {
           h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } },
             m.ok ? "已从你的钱包扣除" + (m.remain == null ? "" : " · 卡上还剩 " + mTight(m.remain)) : (m.why || "没刷过"))))));
 }
-function MyKinDailyCard({ m, character }) {
+function MyKinDailyCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
   const items = Array.isArray(m.items) ? m.items : [];
   const total = items.filter(x => x.ok).reduce((n, x) => n + (Number(x.amount) || 0), 0);
-  return h("div", { className: "my-2 flex justify-center px-6" },
+  return kinOuter(inRow, "my-2 flex justify-center px-6",
     h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "flex items-center", style: { gap: 7, padding: "10px 13px 6px" } },
         h(Avatar, { character: c, size: 20, radius: 6 }),
@@ -13619,22 +13631,22 @@ function MyKinDailyCard({ m, character }) {
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: x.ok ? t.ink : t.fog, textDecoration: x.ok ? "none" : "line-through" } }, "-" + mTight(x.amount || 0)))),
       h("div", { style: { marginTop: 6, padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "一共从你的钱包扣了 " + mTight(total))));
 }
-function MyKinEditCard({ m, character }) {
+function MyKinEditCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
   const what = m.action === "limit" ? "把额度改成了 " + mTight(m.limit || 0)
     : m.action === "freeze" ? "冻结了这张卡" : m.action === "unfreeze" ? "解冻了这张卡"
     : m.action === "daily" ? (m.daily ? "允许 TA 平时花钱也刷" : "不再让 TA 平时花钱刷")
     : m.action === "revoke" ? "把卡收回来了" : m.action === "ask" ? "拿着账单问：「" + (m.item || "") + "」-" + mTight(m.amount || 0) : "";
-  return h("div", { className: "my-2 flex justify-center px-6" },
+  return kinOuter(inRow, "my-2 flex justify-center px-6",
     h("div", { "data-wk": "card", style: { maxWidth: 268, borderRadius: 999, padding: "6px 13px", background: t.bg2, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, textAlign: "center" } },
       "给 " + (c.name || "TA") + " 的亲属卡 · " + what));
 }
-function KinshipSpendCard({ m, character }) {
+function KinshipSpendCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
   const ink = c.color || "#6b7a8f";
-  return h("div", { className: "my-2 flex justify-center px-6" },
+  return kinOuter(inRow, "my-2 flex justify-center px-6",
     h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
       // 左沿一道TA的颜色：扣的是TA的钱
       h("div", { className: "flex" },
@@ -13664,11 +13676,11 @@ function KinshipSpendCard({ m, character }) {
 // 跟提额单同一侧（右沿＝这是她按的一个键），但那一道颜色断成虚线：卡还在那儿，只是不通了。
 // ⚠️这张卡上不许写她「为什么」的推测，也不许替 TA 写反应——那两件事一个归她填的那行字，
 //   一个归 TA 下一轮自己说（bans-make-it-dumber：掷约束，别掷答案）。
-function KinshipUnbindCard({ m, character }) {
+function KinshipUnbindCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
   const ink = c.color || "#6b7a8f";
-  return h("div", { className: "py-1 flex justify-end" },
+  return kinOuter(inRow, "py-1 flex justify-end",
     h("div", { "data-wk": "card", style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
       h("div", { className: "flex" },
         h("div", { style: { flex: 1, minWidth: 0 } },
@@ -13688,7 +13700,7 @@ function KinshipUnbindCard({ m, character }) {
         // 断成虚线的那一道：卡还在，只是不通了
         h("div", { style: { width: 3, flexShrink: 0, backgroundImage: "repeating-linear-gradient(to bottom," + ink + " 0 5px,transparent 5px 10px)" } }))));
 }
-function KinshipRaiseCard({ m, character }) {
+function KinshipRaiseCard({ m, character, inRow }) {
   const t = useTheme();
   const c = character || {};
   const ink = c.color || "#6b7a8f";
@@ -13699,7 +13711,7 @@ function KinshipRaiseCard({ m, character }) {
     : st === "failed" ? "没送出去，回头再试"
     : "等" + (c.name || "TA") + "回话";
   const fc = st === "approved" ? "#3f8a54" : st === "declined" ? t.fog : st === "failed" ? t.accent : t.tint;
-  return h("div", { className: "py-1 flex justify-end" },
+  return kinOuter(inRow, "py-1 flex justify-end",
     h("div", { "data-wk": "card", style: { width: 244, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 1px 6px rgba(0,0,0,.07)" } },
       h("div", { className: "flex" },
         // 右沿一道TA的颜色：批的是TA的卡（刷卡通知那张在左沿，一眼分得出谁在动作）

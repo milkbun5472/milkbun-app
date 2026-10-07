@@ -45,7 +45,7 @@ test("这条不冒未读红点：是她自己按的，不是他来消息", () =>
 });
 
 test("聊天里那条长成一张刷卡通知，不是居中红斜体的 SYSTEM RESPONSE", () => {
-  assert.match(comp, /if \(m\.kind === "kinbill"\) return h\(KinshipSpendCard/);
+  assert.match(comp, /kinbill: KinshipSpendCard/);   // v75.019 八张亲属卡改走 KIN_CARDS → cardRow
   // ⚠️切到【下一个 function】为止，别切到某个具体的名字上：v60.52 在这两者之间又插了
   //   一张提额申请单，切片一下子把它也圈了进来，assert 就误报在别人身上。
   const _i = comp.indexOf("function KinshipSpendCard");
