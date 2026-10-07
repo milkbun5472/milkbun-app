@@ -54,7 +54,7 @@ test("卡：先封着、拆开才读到；读完再选；设置里有开关，�
   assert.match(card, /if \(st === "sealed"\) return/);
   assert.ok(card.indexOf("m.content") > card.indexOf('if (st === "sealed")'), "封着的时候信的内容不许露出来");
   assert.match(card, /"再想想"/); assert.match(card, /"答应"/);
-  assert.match(comp, /if \(m\.kind === "loveletter"\) return h\(LoveLetterCard,/);
+  assert.match(comp, /if \(m\.kind === "loveletter"\) return cardRow\(i, m, h\(LoveLetterCard,/);
   assert.match(comp, /const \[loveLetter, setLoveLetter\] = useState\(!settings\.noLoveLetter\)/);
   assert.match(comp, /noLoveLetter: !loveLetter,/);
   assert.match(app, /noLoveLetter: !!s\.noLoveLetter,/, "保存那头得接住，不然开关点了不算数");

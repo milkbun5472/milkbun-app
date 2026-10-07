@@ -9542,6 +9542,16 @@ function ChatThread({
         color: t.fog
       }
     }, m.role === "user" ? "你" : character.name, "撤回了一条消息"));
+    // 聊天里一张卡的【位置和头像】：谁发的就在谁那边，对方的卡左边挂TA的头像、自己的卡右边挂我的头像（开着显示我的头像时）。
+    //   长按／多选不在这儿——那是 cardPressRow 一处管（卡片名单 CARD_PRESS_KINDS），这儿再挂一次多选会点一下选两次。
+    //   新卡片要进聊天：在这儿套上头像，再把 kind 写进 CARD_PRESS_KINDS。
+    const cardRow = (i, m, card) => {
+      const isU = m.role === "user";
+      return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start") },
+        !isU && h(Avatar, { character: character, size: 40, radius: 10 }),
+        h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
+        isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
+    };
     if (m.kind === "pat") return h("div", {
       key: i,
       // 长按出菜单（她 2026-10-02：拍一拍也要能撤回，跟别的消息撤回一样）
@@ -9611,7 +9621,7 @@ function ChatThread({
       className: "my-4 mx-6"
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
-    if (m.kind === "ledgershare") return h("div", { key: i, className: "py-1 flex items-start justify-end" }, h(RecordedCard, { m }));
+    if (m.kind === "ledgershare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
@@ -9630,20 +9640,6 @@ function ChatThread({
       h(window.ShikeShareCard, { m: _oldKeep, isU: false }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
-    // 聊天里一张卡的公共外壳：跟转账同一个形状——整行可长按（出菜单／多选），对方的卡左边挂TA的头像、
-    //   自己的卡右边挂我的头像（显示我的头像开着时）。新卡片要进聊天就交给它，别再自己摆位置。
-    const cardRow = (i, m, card) => {
-      const isU = m.role === "user";
-      return h("div", { key: i,
-        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
-        onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-        onClick: selMode ? () => toggleSel(i) : undefined,
-        className: "py-1 flex items-start gap-2 " + (isU ? "justify-end" : "justify-start"),
-        style: { outline: selMode && selIds.includes(i) ? `2px solid ${t.tint}` : "none", outlineOffset: 2, borderRadius: 14 } },
-        !isU && h(Avatar, { character: character, size: 40, radius: 10 }),
-        h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
-        isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
-    };
     if (m.kind === "transfer") return h("div", {
       key: i,
       onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
@@ -9676,17 +9672,17 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "peeksneak") return h(PeekSneakCard, { key: i, m: m, character: character, onPick: how => onSneak && onSneak(m, how) });
-    if (m.kind === "loveletter") return h(LoveLetterCard, { key: i, m: m, character: character,
+    if (m.kind === "loveletter") return cardRow(i, m, h(LoveLetterCard, { m: m, character: character,
       onOpen: () => onLoveLetterOpen && onLoveLetterOpen(m),
-      onAnswer: yes => onLoveLetter && onLoveLetter(m, yes) });
-    if (m.kind === "askphone") return h(PhoneAskCard, { key: i, m: m, character: character,
+      onAnswer: yes => onLoveLetter && onLoveLetter(m, yes) }));
+    if (m.kind === "askphone") return cardRow(i, m, h(PhoneAskCard, { m: m, character: character,
       onGive: () => { onPhoneAsk && onPhoneAsk(m, true); setPeekOpen(true); },
-      onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) });
+      onRefuse: () => onPhoneAsk && onPhoneAsk(m, false) }));
     // 亲属卡两个方向的八张卡：一律走 cardRow——谁发的就在谁那边、带头像、能长按出菜单（她 2026-10-07：「没带头像！没跟上公共形状！不能长按」）
     const KIN_CARDS = { kinship: KinshipIssueCard, kinbill: KinshipSpendCard, kinraise: KinshipRaiseCard, kinunbind: KinshipUnbindCard,
       mykin: MyKinIssueCard, mykinbill: MyKinSpendCard, mykindaily: MyKinDailyCard, mykinedit: MyKinEditCard };
     if (KIN_CARDS[m.kind]) return cardRow(i, m, h(KIN_CARDS[m.kind], { m: m, character: character, inRow: true }));
-    if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
+    if (m.kind === "paylater") return cardRow(i, m, h(PayLaterCard, { m: m }));
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
       dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
@@ -11889,7 +11885,9 @@ function htmlCardDoc(html, tok) {
 //   ⚠️只包【卡片】——普通气泡自己有，再包一层多选时会点一下选两次（等于没选）。
 //   HTML 卡片：触摸进了 iframe 出不来，只挂 data-msgi，长按由卡片里面喊出来（HtmlCard 那一段）。
 const CARD_PRESS_KINDS = ["recorded", "ledgershare", "geo", "gift", "takeout", "dateinvite", "datereceipt", "dateask", "peeksneak", "loveletter",
-  "askphone", "kinship", "kinbill", "kinraise", "kinunbind", "paylater", "couple_invite", "unblock_req", "chatforward", "shopask", "phonepeek", "carved", "listeninvite"];
+  "askphone", "kinship", "kinbill", "kinraise", "kinunbind", "paylater", "couple_invite", "unblock_req", "chatforward", "shopask", "phonepeek", "carved", "listeninvite",
+  // 她 2026-10-07：「全部小卡类都接上去」——她给TA的亲属卡那四张、约会回忆、通话邀请、一起学／玩／读／写／算一卦的邀请卡原来都漏在名单外
+  "mykin", "mykinbill", "mykindaily", "mykinedit", "datememory", "callinvite", "ficinvite", "ficdone", "studyinvite", "gameinvite", "readinvite", "tarotinvite"];
 function cardPressRow(el, m, i, o) {
   if (!el || !m || m.recalled) return el;
   const html = !m.kind && typeof htmlCardOf === "function" && htmlCardOf(m.content);
