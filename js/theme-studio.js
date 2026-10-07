@@ -440,7 +440,7 @@
         ["narr", "居中那行旁白／动作（data-me=\"1\" 是她做的）"], ["narrink", "旁白那行字本身"],
         ["sameroom", "顶栏那个「同处一室」键（data-on=\"1\" 是开着）"],
         ["card", "气泡里的卡片（照片、转发、语音）"],
-        ["quote", "消息引用块（带 data-me）"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
+        ["quote", "消息引用块（带 data-me；输入框上面那条待发送的引用也是它，多带 data-draft=\"1\"）"], ["quotedraft", "输入框上面那一整条待发送的引用"], ["quoteclear", "待发送引用右边那个 ×"], ["quoteicon", "引用块前面那个 ❝"], ["quotetext", "引用的那句原话"], ["voice", "语音消息整块"], ["voicebar", "语音条"],
         ["translation", "外语正文和翻译区"], ["translatebutton", "翻译/收起键"], ["translatebody", "展开后的译文"],
         ["transfercard", "转账卡整张（那张纸的底、边、圆角）"], ["transferamount", "转账卡上的金额"], ["transferlabel", "转账卡左上角「转账／收款／退还」那几个字（想换成别的字：font-size:0 再用 ::after 写 content）"],
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
@@ -925,7 +925,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v74.961", changed: "论坛新挂点 fonewhead（「新帖在这里」「新回复在这里」那一行，点了展开）", none: "" };
+  const BRIEF_STAMP = { v: "v74.962", changed: "待发送引用挂上 quote（data-draft），新挂点 quotedraft、quoteclear", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

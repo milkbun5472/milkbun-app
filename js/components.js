@@ -815,6 +815,21 @@ function ChatToolKey({ k, zh, glyph, onTap }) {
       h("span", { "data-wk": "chattoolglyph", style: { display: "inline-flex" } }, h(CGlyph, { k: glyph, size: 24, color: t.sub }))),
     h("span", { "data-wk": "chattoollabel", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, zh));
 }
+// 输入框上面那条「待发送的引用」：单聊、群聊共用这一份（原来两边各抄一份）。
+//   挂点跟气泡里的引用是同一套（她 2026-10-07：「美化 quote 的只在实际屏幕上显示，聊天框还没发出去那里的 quote 没有同步」）：
+//   里面那块就是 [data-wk="quote"][data-me="1"]，多带 data-draft="1"；❝ 是 quoteicon、正文是 quotetext。
+//   所以给「我引用的那块」写的样式，这里自动一样；只想单独改这一条就用 data-draft="1"。外面那条是 quotedraft。
+function QuoteDraftBar({ text, onClear }) {
+  const t = useTheme();
+  return h("div", { "data-wk": "quotedraft", className: "shrink-0",
+      style: { background: t.bg2, borderTop: "1px solid " + t.line, padding: "6px 12px 0", display: "flex", alignItems: "center" } },
+    h("div", { "data-wk": "quote", "data-me": "1", "data-draft": "1",
+        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent,
+          fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
+      h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        h("span", { "data-wk": "quoteicon" }, "❝ "), h("span", { "data-wk": "quotetext" }, text)),
+      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px", minWidth: 32, minHeight: 32 } }, "×")));
+}
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
 // 挂点（她 2026-10-03：「拉黑那个系统小纸条也要挂点」）：sysnote 带 data-kind（block＝拉黑/解除那几张，其余 system）
@@ -9940,12 +9955,7 @@ function ChatThread({
   }, h("span", { style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 } },
     "《" + (pendingFic.subject || "这一篇") + "》"),
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
-  quoted && /*#__PURE__*/React.createElement("div", {
-    className: "shrink-0",
-    style: { background: t.bg2, borderTop: `1px solid ${t.line}`, padding: "6px 12px 0", display: "flex", alignItems: "center" }
-  }, h("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent } },
-    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "❝ " + quoted),
-    h("button", { onClick: () => setQuoted(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px" } }, "×"))),
+  quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     "data-wk": "composer",
@@ -16661,12 +16671,7 @@ function GroupThread({
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name))))),
-  !selMode && quoted && h("div", {
-    className: "shrink-0",
-    style: { background: t.bg2, borderTop: "1px solid " + t.line, padding: "6px 12px 0", display: "flex", alignItems: "center" }
-  }, h("div", { style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px", background: t.bg, borderRadius: 7, borderLeft: "2px solid " + t.accent } },
-    h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)),
-    h("button", { onClick: () => setQuoted(null), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: t.fog, padding: "0 4px" } }, "×"))),
+  !selMode && quoted && h(QuoteDraftBar, { text: (window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)).replace(/^❝\s*/, ""), onClear: () => setQuoted(null) }),
   !selMode && h("div", {
     "data-wk": "composer",
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
