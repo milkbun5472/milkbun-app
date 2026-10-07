@@ -24,9 +24,10 @@ test("同一拍连刷三笔：第三笔超了额度就刷不过（setState 还�
   assert.equal(k.myKinRef.current[0].ledger.length, 2);
 });
 
-test("小号房、不带出门的房里不摆卡、不刷卡；钱包空着时叫她直接问TA要", () => {
+test("小房间一律不摆卡、不刷卡；钱包空着时叫她直接问TA要", () => {
+  assert.match(app, /const _kinRoomOk = !sideRoom;/);
   assert.match(app, /const _myKin = _kinRoomOk \? myKinOf\(charId\) : null;/);
-  assert.match(app, /myKinOf\(charId\)\n\s*&& \(!sideRoom \|\| !!\(room && room\.writeback && room\.writeback\.sharedState\)\)\) \{/);
+  assert.match(app, /myKinOf\(charId\) && !sideRoom\) \{/);
   assert.match(app, /\|亲属卡\|副卡\/\.test\(recentUserText\)/);
   const screens = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
   assert.match(screens, /想要就直接在聊天里问 TA 要/);
