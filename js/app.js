@@ -1054,11 +1054,29 @@ function App() {
   };
   useEffect(() => {
     const pending = notificationRoomRef.current;
-    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
+    // 没带着哪间房进来时，照这个人的「点进来先进哪间房」落（群友 2026-10-07）：主聊天 / 上次待的那间 / 指定一间。
+    //   那间房没了就回主聊天，不报错。
+    const landing = () => {
+      if (!activeChar || !window.ChatRooms) return "main";
+      const pick = (settingsFor(activeChar.id) || {}).enterRoom;
+      const rid = pick === "last" ? (loadJSON("x_lastRoom", {}) || {})[activeChar.id] : pick;
+      if (!rid || rid === "main") return "main";
+      const r = window.ChatRooms.get(activeChar.id, rid);
+      return r && !r.main ? rid : "main";
+    };
+    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : landing());
     notificationRoomRef.current = null;
     const intent = roomPresetIntentRef.current; roomPresetIntentRef.current = "";
     setChatRoomsOpen(!!intent); setChatRoomsPreset(intent);
   }, [activeChar && activeChar.id]);
+  // 记下每个人上次待在哪间房，给「上次待的那间」用。只认这个人真有的房间：
+  //   换人那一下 activeRoomId 还是上一个人的，那间在这个人名下查不到，就不记。
+  useEffect(() => {
+    if (!activeChar || !window.ChatRooms) return;
+    const rid = activeRoomId || "main";
+    if (rid !== "main") { const r = window.ChatRooms.get(activeChar.id, rid); if (!r || r.main) return; }
+    try { const m = loadJSON("x_lastRoom", {}) || {}; if (m[activeChar.id] !== rid) { m[activeChar.id] = rid; saveJSON("x_lastRoom", m); } } catch (e) {}
+  }, [activeChar && activeChar.id, activeRoomId]);
   // 群同上：开着群聊时改了群名/群头像/成员，原来也要退出去再进来才看得见。
   // 同一个形状的第二处，照同一个改法（施工规则/one-public-mechanism.md）。
   const [activeGroupSel, setActiveGroup] = useState(null);
@@ -11488,7 +11506,7 @@ mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；�
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}
 【实时动作字段·普通角色每轮必填】
-action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
+action: string，每轮回复完成后${(!_s.engineerEyes && _s.actDesc && _s.actLong) ? ACT_MEANING_LONG : ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: ${AFFINITY_DELTA_SPEC}
@@ -13549,7 +13567,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️**定义取的是 ACT_MEANING 那一份**（engine.js）——跟单聊一模一样的那句话。
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
-      const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
+      const G_ACTION_SPEC = (gs.actDesc && gs.actLong ? ACT_MEANING_LONG : ACT_MEANING) + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
       // 心声那一格跟单聊同一句 THOUGHT_MEANING（她 2026-10-05：「群线上开了共处一室……心声还是这样，单聊有时候又是好的」）。
       //   单聊 10-04 已经收成那一句，群这边还留着旧的一长串：「本轮有情绪波动的」「别写成这女人那家伙」「别重复、别原地打转、别套话」——
       //   禁令把路堵成一个形状，「有情绪波动」又把它推成每轮汇报心里落没落地。只留它是什么，和「我」是谁（那条是事实，不是文风）。
@@ -29075,7 +29093,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
+            enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             actDesc: !!s.actDesc,
+            actLong: !!s.actLong,
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
             // callAuto 是【三态】：null=还没单独设过，走设置里那个全局默认；true/false=设过了。
             // ⚠️所以这一格不能 !! 归一，那会把「没设过」变成「设过而且是关」，
