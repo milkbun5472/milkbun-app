@@ -10826,7 +10826,8 @@ function CallScreen({
   return h("div", {
     // 通话页的挂点（她 2026-09-30：「整体美化都要」）：只是名字、不带样式——data-video="1" 是视频通话
     "data-wk": "call", "data-video": isVideo ? "1" : "0", "data-group": isGroup ? "1" : "0",
-    className: "absolute inset-0 z-[70] flex flex-col",
+    // fixed 不用 absolute（她 2026-10-07：「上面那节空的」）：贴着屏幕铺，状态栏那一截底下也是TA的画面
+    className: "fixed inset-0 z-[70] flex flex-col",
     onPointerDownCapture: () => {
       if (autoVoice && !audioReady && !bye) unlockCallAudio(false).catch(() => setAudioStatus("声音未启用，轻触通话页面重试"));
     },
