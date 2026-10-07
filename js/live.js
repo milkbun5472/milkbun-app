@@ -348,5 +348,5 @@
   }
 
   window.LiveApp = LiveApp;
-  window.LiveKit = { watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS };
+  window.LiveKit = { watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS, NoiseLayer };
 })();

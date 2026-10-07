@@ -20,7 +20,7 @@ test("两种都接上了：看 TA 播走 runProbe，我来播一枪写完", () =
 });
 test("入口、文件夹、脚本都挂上了", () => {
   // v74.99x 直播挪进刷刷当一格：主屏上只剩刷刷，原来放过直播的原位换掉
-  assert.match(C, /shua: \{ kind: "app", zh: "刷刷", G: window\.GShua \|\| GDebate \}/);
+  assert.match(C, /shua: \{ kind: "app", zh: "片刻", G: window\.GShua \|\| GDebate \}/);
   assert.match(C, /swapAppOnce\(st, "live", "shua", "x_shuaSwapped"\)/);
   assert.match(C, /placeNewAppOnce\(st, "shua", "theater", "x_shuaPlaced"\)/);
   assert.match(I, /<script src="js\/shua\.js\?v=/);

@@ -5682,7 +5682,7 @@ function Home({
     read: { kind: "app", zh: "一起读", G: IShelf },
     watch: { kind: "app", zh: "一起看", G: IFilm },
     debate: { kind: "app", zh: "擂台", G: GDebate },
-    shua: { kind: "app", zh: "刷刷", G: window.GShua || GDebate },
+    shua: { kind: "app", zh: "片刻", G: window.GShua || GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },
