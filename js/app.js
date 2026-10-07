@@ -28093,12 +28093,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
     onPrivate: (charId, text) => pChat(charId, p => [...p, { role: "assistant", content: text, ts: Date.now(), read: false }]),
     // 回放发给 TA（她 2026-10-07）：跟论坛转帖同一个做法——只落一张卡，不让TA当场开口，等她说完按回复
-    onShare: (ses, c) => {
+    onShare: (ses, c, roomId) => {
       const K = window.LiveKit; if (!K || !c) return;
+      // 可以发进小房间（她 2026-10-07：「可以选发到房间」）：落进那间房自己的聊天，TA在那间房里接
+      const key = roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id;
       const host = ses.mode === "watch" ? (ses.host || ((characters.find(x => x.id === ses.charId) || {}).name) || "主播") : userName(profile);
       const snap = K.shareSnap(ses, host);
-      pChat(c.id, p => [...p, { role: "user", kind: "liveshare", live: snap, content: K.shareText(snap, userName(profile), c.name), ts: Date.now(), read: true }]);
-      toast("已发给 " + (c.remark || c.name));
+      pChat(key, p => [...p, { role: "user", kind: "liveshare", live: snap, content: K.shareText(snap, userName(profile), c.name), ts: Date.now(), read: true }]);
+      toast("已发给 " + (c.remark || c.name) + (key !== c.id ? "（小房间里）" : ""));
     },
     onBack: () => setScreen("home")
   };
