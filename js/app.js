@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.978";
+const APP_VERSION = "v74.979";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11506,7 +11506,7 @@ mood: {"label":"中文短词"}，本轮回应完成后的当前主导心情；�
 【每轮必填字段】
 thought: string，【每轮必须写一句，禁止 null、空串或省略】。${THOUGHT_MEANING}
 【实时动作字段·普通角色每轮必填】
-action: string，每轮回复完成后${(!_s.engineerEyes && _s.actDesc && _s.actLong) ? ACT_MEANING_LONG : ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
+action: string，每轮回复完成后${ACT_MEANING}。这一格是它唯一的去处：写在这儿就够了，别在 word 里再说一遍——说完话再补一句交代自己此刻在做什么，不是人说话的样子。这件事真要紧到她该知道，就让它自然落在你要说的那句里，别在末尾挂一条通报。
 【按需状态字段】
 wearing: string，仅在穿着发生变化时填写。若你在 word 里明确决定马上出门、回家、洗澡、睡觉、起床、运动、上班、上课、赴约或换衣，本轮 wearing 必须同时填写为该决定落实后的实际穿着；不能嘴上已经去做下一件事，状态却仍停在旧衣服。
 affinityDelta: ${AFFINITY_DELTA_SPEC}
@@ -11614,7 +11614,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
@@ -13567,7 +13567,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️**定义取的是 ACT_MEANING 那一份**（engine.js）——跟单聊一模一样的那句话。
       //   原来这儿写的是「发这句话时正在做的一件事」：那按定义就是每句一换，
       //   于是后半句「没变就原样填写」永远用不上（她 2026-09-12 报的就是这个）。
-      const G_ACTION_SPEC = (gs.actDesc && gs.actLong ? ACT_MEANING_LONG : ACT_MEANING) + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
+      const G_ACTION_SPEC = ACT_MEANING + "；同一个人连着发好几条时也只按事实有没有变来定，不必每条都换一个新的。";
       // 心声那一格跟单聊同一句 THOUGHT_MEANING（她 2026-10-05：「群线上开了共处一室……心声还是这样，单聊有时候又是好的」）。
       //   单聊 10-04 已经收成那一句，群这边还留着旧的一长串：「本轮有情绪波动的」「别写成这女人那家伙」「别重复、别原地打转、别套话」——
       //   禁令把路堵成一个形状，「有情绪波动」又把它推成每轮汇报心里落没落地。只留它是什么，和「我」是谁（那条是事实，不是文风）。
@@ -13667,7 +13667,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n\n" + GROUP_MULTI_BUBBLE
         // ⚠️跟单聊那一处同一条：开了动描，那一行就是【描写】，管描写的那几族才轮得上。
         //   没开动描时一个字都不发——线上就只有台词，那一份在这儿是白发（她立的：一堆禁令会变笨）。
-        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
@@ -29100,9 +29100,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
-            enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             actDesc: !!s.actDesc,
             actLong: !!s.actLong,
+            enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
             // callAuto 是【三态】：null=还没单独设过，走设置里那个全局默认；true/false=设过了。
             // ⚠️所以这一格不能 !! 归一，那会把「没设过」变成「设过而且是关」，

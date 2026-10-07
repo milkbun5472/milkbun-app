@@ -11169,6 +11169,7 @@ function anonNightBg() {
 const CALL_BG_SHADE = "linear-gradient(180deg,rgba(0,0,0,.32) 0,rgba(0,0,0,0) 16%,rgba(0,0,0,0) 42%,rgba(0,0,0,.62) 78%,rgba(0,0,0,.78) 100%)";
 // 长字最多露几行，点一下展开、再点收起。没超出就跟普通一行字一样，不摆任何提示。
 function ClampText({ text, lines, style }) {
+  lines = lines || 4;
   const [open, setOpen] = useState(false);
   const [over, setOver] = useState(false);
   const ref = useRef(null);
@@ -14495,7 +14496,7 @@ function StateCard({
         label("看得见的"),
         S(state && state.wearing) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: 8 } }, S(state.wearing)) : null,
         // 动描开成「一小段」以后这一格会长（她 2026-10-07：「留意一下会不会卡被撑爆」）：最多露四行，点一下看全
-        S(state && state.action) ? h(ClampText, { lines: 4, text: S(state.action), style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 } }) : null) : null,
+        S(state && state.action) ? h(ClampText, { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.75, color: t.ink, marginTop: S(state && state.wearing) ? 5 : 8 }, text: S(state.action) }) : null) : null,
       // 没说出口的：跟上面那半明显不是一类
       (state && S(state.thought)) ? h("div", { "data-wk": "statevoice", style: { position: "relative", margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line, overflow: "hidden" } },
         // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
@@ -17305,7 +17306,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actLong: gActLong, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -18651,9 +18652,9 @@ function ChatSettings({
       autoReplySec: autoReplySec,
       toyEnabled,
       defaultOffline,
-      enterRoom,
       actDesc,
       actLong,
+      enterRoom,
       callAuto,
       callStream,
       actPerson,
@@ -19141,6 +19142,16 @@ function ChatSettings({
         "TA 的状态卡本来每轮就记着「此刻在做什么」。开着之后那一格会摆在 TA 这一轮气泡的前面、居中显示一行，只在它真的变了时出现——不用 TA 多写一个字，所以不会为了凑动作瞎编。那一行长按能编辑、能重 Roll，跟气泡一个待遇。你自己想写动作，照常在消息里用括号写就行，它留在你的气泡里。")),
     h("button", { onClick: () => setActDesc(v => !v), className: "shrink-0", style: { width: 46, height: 27, borderRadius: 999, background: actDesc ? t.tint : t.line, position: "relative", transition: "background .2s" } },
       h("span", { style: { position: "absolute", top: 3, left: actDesc ? 22 : 3, width: 21, height: 21, borderRadius: 999, background: "#fff", transition: "left .2s", boxShadow: "0 1px 3px rgba(0,0,0,0.2)" } }))),
+  actDesc ? h("div", { className: "flex items-center justify-between pt-3" },
+    h("div", { style: { paddingRight: 12 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "动描写多长")),
+    h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
+      [[false, "一句"], [true, "一小段"]].map(function (o) {
+        const on = actLong === o[0];
+        return h("button", { key: String(o[0]), onClick: function () { setActLong(o[0]); }, className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none",
+            background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
+      }))) : null,
   // ⚠️只在动描开着时才摆：关着的时候这一格没有意义，摆出来是噪音。
   //   而且这一条改的【只是显示】——状态卡里存的照旧是第一人称「我在厨房」，
   //   那儿本来就是角色自己的卡（她 2026-09-12 选的就是这条路）。
@@ -19154,16 +19165,6 @@ function ChatSettings({
       [["me", "我"], ["ta", characterText(character, "他")]].map(function (o) {
         const on = actPerson === o[0];
         return h("button", { key: o[0], onClick: function () { setActPerson(o[0]); }, className: "active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none",
-            background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
-      }))) : null,
-  actDesc ? h("div", { className: "flex items-center justify-between pt-4" },
-    h("div", { style: { paddingRight: 12 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "动描写多长")),
-    h("div", { className: "shrink-0 flex", style: { border: "1px solid " + t.line, borderRadius: 999, overflow: "hidden" } },
-      [[false, "一句"], [true, "一小段"]].map(function (o) {
-        const on = actLong === o[0];
-        return h("button", { key: String(o[0]), onClick: function () { setActLong(o[0]); }, className: "active:opacity-60",
           style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 16px", minHeight: 32, border: "none",
             background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
       }))) : null,
