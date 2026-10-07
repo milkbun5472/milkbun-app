@@ -372,6 +372,9 @@
     const [saves, setSaves] = useState(loadSaves);
     const [detail, setDetail] = useState(null);
     const [archWho, setArchWho] = useState("");   // 往期按人分：空＝全部
+    // 日历下面「让TA点评」（她 2026-10-07：「做一个可以选择让他点评的按钮」）：点了才调一次模型，按人存最近那一句
+    const [calNote, setCalNote] = useState(() => loadJSON("x_pomoCalNote", {}) || {});
+    const [calBusy, setCalBusy] = useState(false);
     const archScroller = useRef(null), archScroll = useRef(0);
     // 看完一张再回来，停在原来那一行（mobile-ui-layout.md §3）
     useEffect(() => { if (view === "archive" && !detail && archScroller.current) archScroller.current.scrollTop = archScroll.current; }, [view, detail, archWho]);
@@ -650,11 +653,41 @@
             style: { width: 16, height: 16, borderRadius: 3, background: m == null ? "transparent" : "rgba(74,107,82," + a + ")", border: m == null ? "1px dashed " + line : "none" } }));
         }
         const diff = Math.round(thisWeek - lastWeek);
+        // 点评的人：选了哪个桌牌就是谁；看「全部」时是坐得最多的那位
+        const critic = charOf(archWho) || charOf((who[0] || {}).id);
+        const note = critic && calNote[critic.id];
+        const askReview = async () => {
+          if (!critic || calBusy) return;
+          if (!props.active) { props.toast && props.toast("先在设置里配好文字模型，再让TA点评"); return; }
+          const weekAgo = Date.now() - 7 * 86400000;
+          const wk = rows.filter(r => r.ts >= weekAgo);
+          const days = new Set(wk.map(r => dayKey(r.ts))).size;
+          const facts = "这周（最近 7 天）一起坐了 " + Math.round(thisWeek) + " 分钟，上周 " + Math.round(lastWeek) + " 分钟；这周坐了 " + wk.length + " 场、分在 " + days + " 天，其中坐满 " + wk.filter(r => r.status === "done").length + " 场、提前收桌 " + wk.filter(r => r.status !== "done").length + " 场"
+            + "；中途偷偷溜出去 " + wk.reduce((a, r) => a + (r.sneaks || 0), 0) + " 次；做过的事：" + ([...new Set(wk.map(r => r.task).filter(Boolean))].slice(0, 8).join("、") || "没写");
+          setCalBusy(true);
+          try {
+            const res = await requestCompanionText(props.active, companionContext(critic, { task: "回看这几周一起专注的记录", min: 0, mode: "notes", category: "other" }),
+              "你和 " + uName + " 一直在一张桌子两边一起专注（番茄钟）。Ta 翻开记录让你点评一下最近坐得怎么样。下面是真实的数：\n" + facts
+              + "\n照你这个人说一两句：可以夸、可以损、可以心疼、可以点出哪儿松了，照你的脾气和你们的关系来。只说数里有的，别编没发生的事；别报菜名一样复述数字，挑你真在意的那一点说。",
+              "{\"line\":\"你的点评\"}");
+            const line = String((res && res.line) || "").trim();
+            if (!line) throw new Error("这次没说出话来");
+            const n = { ...calNote, [critic.id]: { text: line, ts: Date.now() } };
+            saveJSON("x_pomoCalNote", n); setCalNote(n);
+          } catch (e) { props.toast && props.toast("没点评成：" + String(e && e.message || e).slice(0, 80)); }
+          finally { setCalBusy(false); }
+        };
         return h("div", { key: "cal", "data-wk": "pomcal", style: { marginTop: 12, padding: "12px 12px 10px", background: "#fffdf6", border: "1px solid " + line, borderRadius: 3 } },
           h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8,16px)", gridAutoFlow: "column", gridTemplateRows: "repeat(7,16px)", gap: 4, justifyContent: "center" } }, cells),
           h("div", { style: { display: "flex", justifyContent: "space-between", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: fog } },
             h("span", null, "这周 " + Math.round(thisWeek) + " 分钟"),
-            h("span", null, lastWeek || thisWeek ? (diff >= 0 ? "比上周多 " + diff + " 分钟" : "比上周少 " + (-diff) + " 分钟") : "最近八周")));
+            h("span", null, lastWeek || thisWeek ? (diff >= 0 ? "比上周多 " + diff + " 分钟" : "比上周少 " + (-diff) + " 分钟") : "最近八周")),
+          note ? h("div", { "data-wk": "pomcalnote", style: { marginTop: 10, paddingTop: 10, borderTop: "1px dashed " + line } },
+            h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.85, color: ink } }, "“" + note.text + "”"),
+            h("div", { style: { textAlign: "right", fontFamily: F_BODY, fontSize: 11, color: fog, marginTop: 4 } }, "—— " + critic.name + " · " + fmtDate(note.ts))) : null,
+          critic ? h("button", { "data-wk": "pomcalask", onClick: askReview, disabled: calBusy, className: "w-full active:opacity-70 disabled:opacity-50",
+            style: { marginTop: 10, minHeight: 40, border: "1px solid " + line, borderRadius: 3, background: "transparent", fontFamily: F_BODY, fontSize: 12.5, color: ink } },
+            calBusy ? critic.name + " 在翻你的记录…" : (note ? "让 " + critic.name + " 再点评一次" : "让 " + critic.name + " 点评一下")) : null);
       };
       const tent = (id, label, n) => { const on = archWho === id;
         return h("button", { key: id || "all", onClick: () => { archScroll.current = 0; setArchWho(id); }, "aria-pressed": on, "data-on": on ? "1" : "0", className: "active:opacity-80",

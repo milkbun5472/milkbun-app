@@ -1148,8 +1148,13 @@
         h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderRadius: "18px 18px 0 0", padding: "14px 16px calc(env(safe-area-inset-bottom, 0px) + 14px)" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "0 2px 8px" } },
             "从这一拍岔开一条新线：这一拍之前原样保留，之后的重演。**原线一个字不动**，随时能切回去。"),
-          [["⑂ 从这里分支", () => branchFrom(msgMenu)],
-           ["取消", () => setMsgMenu(null)]].map(([label, fn], i) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i === 0 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
+          // 复制（群里 2026-10-07「希望小剧场可以复制」）：这一拍 / 这一幕整段（你的那几拍也带上，读起来是一台戏）
+          [["复制这一拍", async () => { const m = msgMenu; setMsgMenu(null); props.toast(await copyText(m.content) ? "复制好了" : "没复制上，长按正文自己选一下"); }],
+           ["复制这一幕全文", async () => { setMsgMenu(null); const r = line.rounds.find(x => x.msgs.some(m => m.id === msgMenu.id)) || round;
+             const txt = r.msgs.filter(m => m.role === "char" || m.role === "user").map(m => m.role === "user" ? "【" + uName + "】" + m.content : m.content).join("\n\n");
+             props.toast(await copyText(txt) ? "整幕复制好了" : "没复制上，长按正文自己选一下"); }],
+           ["⑂ 从这里分支", () => branchFrom(msgMenu)],
+           ["取消", () => setMsgMenu(null)]].map(([label, fn], i, arr) => h("button", { key: label, onClick: fn, style: { width: "100%", padding: "13px 0", fontFamily: F_BODY, fontSize: 14, color: i < arr.length - 1 ? t.ink : t.sub, background: "none", border: "none", borderTop: i ? "1px solid " + t.line : "none" } }, label))));
       return h("div", { style: S.wrap }, badges(),
         line.bg ? h("div", { style: { position: "absolute", inset: 0, zIndex: 0, backgroundImage: "linear-gradient(" + veil(t.bg, 80) + "," + veil(t.bg, 80) + "), url(" + imgSrc(line.bg) + ")", backgroundSize: "cover", backgroundPosition: "center" } }) : null,
         bigViewer(),
