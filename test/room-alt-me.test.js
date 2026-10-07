@@ -77,3 +77,16 @@ test("TA开小号：TA知道自己用小号；她不知道时界面只显示小�
   assert.match(app, /window\.ChatRooms\.altTaFace\(rm\)/);
   assert.match(app, /onGenAlt: async \(\) =>/);
 });
+
+test("TA自己承认小号：youKnow 翻开、之后不再问", () => {
+  const store = {}; global.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } };
+  const mk = who => R.normalize({ id: "r8", personId: "c1", alt: { who, ta: { name: "夜行" } } }, "c1");
+  assert.match(R.prompt(mk("ta"), [], {}), /"revealed":true/);
+  assert.equal(R.altReveal(mk("me")), null);
+  const r = R.altReveal(mk("ta"));
+  assert.ok(r.alt.youKnow && r.alt.revealedAt > 0);
+  assert.equal(R.altReveal(r), null);
+  assert.doesNotMatch(R.prompt(r, [], {}), /"revealed":true/);
+  assert.equal(R.altTaFace(r), null);
+  assert.match(app, /parsed\.revealed === true && room/);
+});

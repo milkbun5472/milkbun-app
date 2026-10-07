@@ -223,6 +223,8 @@
       ta: { name: String(ta.name || "").slice(0, 24), persona: String(ta.persona || "").slice(0, 1500) },
       // 她知不知道那个号是TA：不知道＝界面上也不露TA的真名和头像
       youKnow: !!a.youKnow,
+      // TA自己承认那个号是TA的时刻（第四批）；承认了 youKnow 跟着翻开
+      revealedAt: Number(a.revealedAt || 0),
       maskId: String(a.maskId || "").slice(0, 80),
       // 挑面具那一刻抄一份下来：房间自己带着小号是谁，闸（gateCtx）不用回头去翻面具库
       mask: a.mask && typeof a.mask === "object" ? a.mask : null,
@@ -246,6 +248,12 @@
   function altName(room) { const p = altProfile(room); return String(p.name || p.label || "陌生网友"); }
   // TA没认出来时，叫她用的名字（认出来了或不是小号房：空串，调用点回落到她本来的名字）
   function altCallName(room) { return altHidesMe(room) ? altName(room) : ""; }
+  // TA这一轮自己承认小号是TA：只认TA开了小号、还没承认过的房
+  function altReveal(room) {
+    const a = altOf(room);
+    if (!altTa(a) || a.revealedAt) return null;
+    return save(room.personId, { ...room, alt: { ...a, youKnow: true, revealedAt: Date.now() } });
+  }
   // TA这一轮说破了：只有开了「能拆穿」、而且还没认出来的房才算数。返回存好的新房，不算数返回 null
   function altUnmask(room) {
     const a = altOf(room);
@@ -686,7 +694,8 @@
     if (altTa(alt)) {
       lines.push("【你的小号】这间房里你用的是自己的一个小号" + (alt.ta.name ? "，网名「" + alt.ta.name + "」" : "") + "。"
         + (alt.ta.persona ? "小号上的你：" + alt.ta.persona + "。" : "")
-        + "对方面对的是这个号；你不确定她有没有看出来是你。藏到什么时候、要不要露馅，由你。");
+        + (alt.revealedAt ? "你已经在这间房里亲口承认了这个号是你，她知道了。"
+          : "对方面对的是这个号；你不确定她有没有看出来是你。藏到什么时候、要不要露馅，由你。要是你这一轮亲口承认这个号就是你，就在输出 JSON 里加一个字段 \"revealed\":true；没承认就别写。"));
     }
     if (altMe(alt)) {
       const o = opts || {}, nick = altName(room);
@@ -828,6 +837,6 @@
     });
   }
 
-  return { ALT_KNOWS, altOf, altHidesMe, altShowsMe, altTaFace, altProfile, altName, altCallName, altUnmask, canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
+  return { ALT_KNOWS, altReveal, altOf, altHidesMe, altShowsMe, altTaFace, altProfile, altName, altCallName, altUnmask, canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });
