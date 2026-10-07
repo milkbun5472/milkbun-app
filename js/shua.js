@@ -112,9 +112,10 @@
       + "\n写 6~8 个 topics：title 话题名（不带井号，像平台上真会冒出来的那种）、heat 热度（数字）、about 一句话说这是怎么回事。大小事都有，别全是一个调子。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
-  function mineSystem(v, uName, chars, briefs, co) {
+  function mineSystem(v, uName, chars, briefs, co, cp) {
     return AC() + CB()
       + "【场景】" + uName + "在「" + APP_NAME + "」上发了一条视频。拍的是：" + v.scene + "\n文案：" + (v.caption || "（没写）")
+      + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（2~4 条，name 网名、text）。" : "")
       + (co ? "\n这条是她和 " + co.name + " 一起出镜的合拍，" + co.name + " 就在画面里。" + co.name + " 评论时是合拍的另一半，当着大家的面怎么接，照TA跟她的关系来。另外写几条刷到这条的网友起哄 crowd（2~4 条，name 网名、text）。" : "")
       + "\n\n下面这几个人都认识她，都刷到了这条。各自照自己的性子决定评不评、评什么——评论区是公开的，别人都看得见；谁跟她什么关系、此刻什么心情，决定他当着别人怎么说。"
       + "\n\n" + briefs.join("\n\n")
@@ -300,8 +301,14 @@
     //   用小号时：发的视频、评论都挂小号的名；小号发的视频悄悄的——认识她的人不会被叫来评论；
     //   小号去评 TA 的视频，TA 只当是个陌生人。
     const altName = S(db.me && db.me.altHandle);
-    const onAlt = !!(altName && db.me && db.me.using === "alt");
-    const myName = onAlt ? altName : (S(db.me && db.me.handle) || uName);
+    const onAlt = !!(altName && db.me && db.me.using === "alt");   // 情侣号那一档另算，见下面 cpId
+    // 情侣号（她 2026-10-07）：只给在一起的人开，一人一个，你俩共用。using 写成 "cp:角色id"
+    const cps = db.cps || {};
+    const togetherIds = props.togetherIds ? props.togetherIds() : [];
+    const using = (db.me && db.me.using) || "main";
+    const cpId = /^cp:/.test(using) && cps[using.slice(3)] && togetherIds.indexOf(using.slice(3)) >= 0 ? using.slice(3) : "";
+    const onCp = !!cpId;
+    const myName = onCp ? cps[cpId].handle : onAlt ? altName : (S(db.me && db.me.handle) || uName);
     const shapeChar = (sk, withFriends, newAcc) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + (newAcc ? ACC_ADD : "") + "}");
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
@@ -330,6 +337,7 @@
       setBusy("chars"); setProg("0/" + pick.length);
       let done = 0;
       const names = [], failed = [];
+      const toCp = {};   // 这一批里谁这条发在情侣号上
       const one = c => {
         const acc = (dbRef.current.accounts || {})[c.id] || {};
         const timeout = new Promise(res => setTimeout(() => res(null), 180000));
@@ -339,7 +347,10 @@
         const friends = Math.random() < 0.5 ? (tied.length ? tied : others).slice().sort(() => Math.random() - 0.5).slice(0, tied.length ? 3 : 2)
           .map(x => ({ id: x.id, name: x.name, rel: props.relOf ? props.relOf(c.id, x.id) : "" })) : [];
         const newAcc = !(acc.bio || acc.niche);
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, friends, acc, hotToday()), shapeChar(sk, friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        // 有情侣号的那位，三回里大约有一回这条发在情侣号上
+        const cpHere = (dbRef.current.cps || {})[c.id];
+        if (cpHere && togetherIds.indexOf(c.id) >= 0 && Math.random() < 0.33) toCp[c.id] = cpHere;
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, friends, acc, hotToday()) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
@@ -350,7 +361,8 @@
           accounts[c.id] = Object.assign({}, prevAcc, { handle },
             hadAcc ? {} : { bio: S(d.bio).slice(0, 60), niche: S(d.niche).slice(0, 20) },
             { followers: Math.max(0, Math.round(Number(hadAcc ? prevAcc.followers : d.followers) || 0)) + Math.round((Number(d.likes) || 0) * 0.01) });
-          const nv = mkVideo(d, { by: "char", charId: c.id, author: handle, skin: sk });
+          const cpA = toCp[c.id];
+          const nv = mkVideo(d, cpA ? { by: "char", charId: c.id, author: cpA.handle, skin: sk, cp: c.id, withCharId: c.id } : { by: "char", charId: c.id, author: handle, skin: sk });
           arr(d.friends).forEach(f => {
             const fr = f && friends.find(x => x.name === S(f.name));
             if (fr && S(f.text)) nv.comments.push({ id: uid("cm"), name: S(((dbRef.current.accounts || {})[fr.id] || {}).handle) || fr.name, text: S(f.text).slice(0, 300), by: "char", charId: fr.id, ts: Date.now() });
@@ -417,20 +429,25 @@
       const co = d.withId ? charOf(d.withId) : null;
       if (co) { v.withCharId = co.id; v.withName = S(((dbRef.current.accounts || {})[co.id] || {}).handle) || co.name; }
       if (onAlt) v.alt = true;
+      // 发在情侣号上：TA也是这个号的主人，画面默认你俩（画出来锁两张脸），TA当然会看到
+      const cpChar = onCp ? charOf(cpId) : null;
+      if (cpChar) { v.cp = cpId; if (!co) { v.withCharId = cpChar.id; } }
       addVideos([v]); setPage(null); setTab("me");
       if (onAlt) { spotAlt(v, altName); return; }   // 小号发的：悄悄的，不叫认识她的人来；但TA们自己刷到了另说
       // 合拍的那一位一定在（TA就在画面里），其余随缘两个
-      const pool = (co ? [co] : []).concat(characters.filter(c => !co || c.id !== co.id).sort(() => Math.random() - 0.5).slice(0, co ? 2 : 3));
+      const lead = cpChar || co;
+      const pool = (lead ? [lead] : []).concat(characters.filter(c => !lead || c.id !== lead.id).sort(() => Math.random() - 0.5).slice(0, lead ? 2 : 3));
       if (!pool.length) return;
       setBusy("post");
       try {
-        const r = await props.ask(mineSystem(v, uName, pool, pool.map(props.briefFor), co), co ? MINE_SHAPE.replace(/\}$/, ',"crowd":[{"name":"","text":""}]}') : MINE_SHAPE, pool[0].id);
+        const r = await props.ask(mineSystem(v, uName, pool, pool.map(props.briefFor), co, cpChar ? { name: cpChar.name, handle: cps[cpId].handle } : null), (co || cpChar) ? MINE_SHAPE.replace(/\}$/, ',"crowd":[{"name":"","text":""}]}') : MINE_SHAPE, pool[0].id);
         const names = pool.map(c => c.name);
         const cms = arr(r && r.comments).filter(x => x && names.indexOf(S(x.name)) >= 0 && S(x.text))
           .map(x => { const c = pool.find(cc => cc.name === S(x.name)); return { id: uid("cm"), name: S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name, text: S(x.text).slice(0, 300), by: "char", charId: c.id, ts: Date.now() }; });
         const likes = Math.max(0, Math.round(Number(r && r.likes) || 0));
         // 合拍的起哄：网友那几句（只有合拍才有）
-        const crowd = co ? normComments(r && r.crowd) : [];
+        const crowd = (co || cpChar) ? normComments(r && r.crowd) : [];
+        if (cpChar) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [cpId]: Object.assign({}, (dbRef.current.cps || {})[cpId], { followers: ((((dbRef.current.cps || {})[cpId] || {}).followers) || 0) + Math.round(Math.max(0, Number(r && r.likes) || 0) * 0.02) }) }) }));
         patchV(v.id, x => Object.assign({}, x, { likes, plays: Math.max(likes * 8, likes), comments: cms.concat(crowd) }));
         cms.forEach(c => note(c.name + " 评论了你的视频：" + c.text));
       } catch (e) { toast("评论区还空着：" + ((e && e.message) || "")); }
@@ -458,7 +475,8 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.accent, flexShrink: 0 } }, "热门"),
       hot.map(x => h("button", { key: x.title, onClick: () => setTopic(t2 => t2 === x.title ? "" : x.title), className: "active:opacity-60 shrink-0",
         style: { fontFamily: F_BODY, fontSize: 12, color: topic === x.title ? P.accent : ink, fontWeight: topic === x.title ? 700 : 400, minHeight: 28, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.6)" : "none" } }, "#" + x.title))) : null;
-    const mine = ofSkin.filter(v => v.by === "me" && !!v.alt === onAlt);   // 大号小号各看各的作品
+    // 大号、小号、情侣号各看各的作品；情侣号里TA发的也算
+    const mine = onCp ? ofSkin.filter(v => v.cp === cpId) : ofSkin.filter(v => v.by === "me" && !v.cp && !!v.alt === onAlt);
     const unread = arr(db.notes).filter(n => n.unread).length;
 
     // 全屏的那几页
@@ -511,7 +529,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog, onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
-    if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
+    if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
     // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
     //   （群友 2026-10-07：「每次点视频的评论，看完了又会回到第一条」）。按「哪一格哪一套」记住滑到哪儿，挂回来时放回去。
@@ -575,7 +593,7 @@
         h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
           h(Avatar, { character: { name: uName, avatarImage: profile && profile.avatarImage }, size: 70 }),
           h("div", { className: "flex", style: { gap: 20 } },
-            [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [onAlt ? 0 : characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
+            [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [onCp ? (cps[cpId].followers || 0) : onAlt ? 0 : characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: P.ink } }, fmtN(x[0])),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, x[1]))))),
         h("input", { key: "h_" + skin, defaultValue: S(db.me && db.me.handle), placeholder: "账号名（默认用你的名字）", onBlur: e => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { handle: e.target.value.trim().slice(0, 20) }) })),
@@ -585,6 +603,23 @@
             className: "flex-1 outline-none", style: { minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13 } }),
           altName ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { using: onAlt ? "main" : "alt" }) })), className: "active:opacity-70 shrink-0",
             style: { minHeight: 38, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, onAlt ? "切回大号" : "切到小号") : null),
+        // 情侣号：在一起的那几位各一行。没开过就「开一个」，开过就「切过去」；正用着时一颗「切回大号」
+        togetherIds.length ? h("div", { style: { marginTop: 12 } }, togetherIds.map(id => {
+          const c = charOf(id); if (!c) return null;
+          const a = cps[id];
+          return h("div", { key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
+            h(Avatar, { character: c, size: 26 }),
+            a ? h("input", { key: "cp_" + id, defaultValue: a.handle, onBlur: e => { const v = e.target.value.trim().slice(0, 20); if (v) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { handle: v }) }) })); },
+              className: "flex-1 outline-none", style: { minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })
+              : h("div", { style: { flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: P.dim } }, "和 " + c.name + " 的情侣号"),
+            h("button", { onClick: () => {
+                const me2 = Object.assign({}, dbRef.current.me);
+                if (!a) { save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: { handle: (S(dbRef.current.me && dbRef.current.me.handle) || uName) + "和" + c.name, followers: 0, ts: Date.now() } }), me: Object.assign(me2, { using: "cp:" + id }) })); return; }
+                save(Object.assign({}, dbRef.current, { me: Object.assign(me2, { using: cpId === id ? "main" : "cp:" + id }) }));
+              }, className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12 } },
+              !a ? "开一个" : cpId === id ? "切回大号" : "切过去"));
+        })) : null,
+        onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
         onAlt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是小号「" + altName + "」：发的视频不会叫认识你的人来看，评 TA 的视频 TA 也不知道是你。") : null,
         // 首页样子：跟论坛「首页排版」同一个位置、同一个道理——两套视频，各刷各的
         h("div", { className: "flex items-center justify-between", style: { marginTop: 14, padding: "10px 12px", borderRadius: 12, background: P.field, border: "1px solid " + P.line } },

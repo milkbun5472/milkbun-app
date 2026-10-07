@@ -14,7 +14,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
   assert.match(S, /const genChars = async ids =>/);
-  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\), shapeChar\(sk, friends\.length > 0, newAcc\)\)/);
+  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
   assert.match(S, /tabBtn\("live", "直播"\)/);
@@ -29,11 +29,11 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
   assert.match(S, /\[\["v", "竖着刷"\], \["b", "横着看"\]\]/);
   assert.match(S, /function BCard\(/);
   assert.match(S, /function BDetail\(/);
-  assert.match(S, /mkVideo\(d, \{ by: "char", charId: c\.id, author: handle, skin: sk \}\)/);
+  assert.match(S, /\{ by: "char", charId: c\.id, author: handle, skin: sk \}/);
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\), shapeChar\(sk, friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
+  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\][^\n]*?, shapeChar\(sk, friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 
@@ -47,7 +47,7 @@ test("小号：TA只当陌生人；小号发的不叫熟人；作品各列各的
   assert.match(S, /const onAlt = !!\(altName && db\.me && db\.me\.using === "alt"\);/);
   assert.match(S, /底下一个你不认识的账号「" \+ alt \+ "」评论了你/);
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}   \/\/ 小号发的/);
-  assert.match(S, /const mine = ofSkin\.filter\(v => v\.by === "me" && !!v\.alt === onAlt\);/);
+  assert.match(S, /ofSkin\.filter\(v => v\.by === "me" && !v\.cp && !!v\.alt === onAlt\)/);
 });
 
 test("分享进聊天 + TA甩来 + 刷到彼此", () => {
@@ -76,4 +76,12 @@ test("456：TA的号一贯的样子、今日热门、合拍", () => {
   assert.match(S, /withId: onAlt \? "" : withId/);
   assert.match(A, /drawDuo: async \(charId, desc\) =>/);
   assert.match(A, /worldHint: \(\) => String\(loreForContext\("social"/);
+});
+
+test("情侣号：只给在一起的人，你俩共用，TA也会发在上面", () => {
+  const A = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(S, /const cpId = \/\^cp:\/\.test\(using\) && cps\[using\.slice\(3\)\] && togetherIds\.indexOf\(using\.slice\(3\)\) >= 0/);
+  assert.match(S, /const mine = onCp \? ofSkin\.filter\(v => v\.cp === cpId\)/);
+  assert.match(S, /toCp\[c\.id\] = cpHere/);
+  assert.match(A, /togetherIds: \(\) => Object\.keys\(couplesRef\.current/);
 });
