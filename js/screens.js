@@ -13330,7 +13330,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
     return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
       h(Head, { zh: "亲属卡", sub: cardList.length ? cardList.length + " 张 · 刷他们的钱" : "角色给你的卡", bg: "transparent", onBack: () => setView("main") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10 pt-2" },
-        cardList.length === 0 ? h("div", { className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n在聊天设置里开启「允许角色给我亲属卡」，\n合适的时候 TA 会主动给你一张，刷 TA 的钱。")
+        cardList.length === 0 ? h("div", { className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n想要就直接在聊天里问 TA 要，\n给不给、给多少看 TA 这个人。")
           // 一张张插在内衬上，不是一列按钮
           : cardList.map(cd => {
             const c = charById(cd.charId) || {};
