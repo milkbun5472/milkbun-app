@@ -22,10 +22,10 @@ const B = (stored) => {
 
 test("她开的吧接在六个老吧后面，跟老吧同名的不重复", () => {
   const b = B([{ name: "足球吧", about: "周末看球的", createdAt: 1 }, { name: "吐槽吧", about: "撞名" }, { name: "" }, null]);
-  assert.deepEqual(Array.from(b.all()), ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧", "足球吧"]);
+  assert.deepEqual(Array.from(b.all()), ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "笔记吧", "匿名吧", "足球吧"]);
   assert.equal(b.about("足球吧"), "周末看球的");
   assert.equal(b.about("吐槽吧"), "撞名");
-  assert.deepEqual(Array.from(B(null).all()).length, 6, "没开过吧（老存档）就是原来那六个");
+  assert.deepEqual(Array.from(B(null).all()).length, 7, "没开过吧（老存档）就是内置那七个（v74.960 加了笔记吧）");
 });
 
 test("吧名统一成「某某吧」", () => {
