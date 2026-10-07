@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.961";
+const APP_VERSION = "v74.960";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20301,6 +20301,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "求助吧": "「求助吧」：网友来提问 / 求助，也有人认真回答。就事论事、具体、别空谈，标题多是疑问句。",
     "兴趣吧": "「兴趣吧」：聊作品、游戏、吃喝、设备、收藏、学习进度和具体爱好。要有细节、有偏好，像同好交流，不要写成泛泛日记。",
     "脑洞吧": "「脑洞吧」：发假设题、投票、接龙、挑战和离谱但能参与的问题。重点是让楼下接得上，别写成普通生活流水账。",
+    "笔记吧": "「笔记吧」：小红书那种笔记——种草、测评、攻略、穿搭、探店、教程、生活记录。标题要抓人、可以带一两个 emoji；正文分段、口语、给具体干货（价格、做法、踩过的雷），结尾带 2~4 个「#话题」标签。多数笔记配一张图，photo 写清图里是什么。别写成论坛吵架帖，也别写成广告文案。",
     "匿名吧": "「匿名吧」：不署名才敢说的话。真实、赤裸、卸下人设的一面，可以是秘密、软肋、见不得人的念头。别端着。"
   }[b] || forumCustomVoice(b));
   // 她自己开的吧（x_forumBoards）没有写死的那一句：拿她写的简介拼。

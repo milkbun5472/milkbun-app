@@ -15,7 +15,7 @@ const app = fs.readFileSync("js/app.js", "utf8");
 const screens = fs.readFileSync("js/screens.js", "utf8");
 const strip = s => s.split("\n").map(l => l.split("//")[0]).join("\n");
 
-const BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
+const BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "笔记吧", "匿名吧"];
 
 const rules = (() => {
   const m = screens.match(/const FORUM_BOARD_RULES = \{[\s\S]*?\n\};/);
