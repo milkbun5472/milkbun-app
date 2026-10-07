@@ -5799,7 +5799,7 @@ const lsRaw = (function () {
 })();
 const DURABLE_TEXT_KEYS = new Set([
   // 已有的大文本仓
-  "x_weekly_issues", "x_study_sessions", "x_read_books", "x_live", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger",
+  "x_weekly_issues", "x_study_sessions", "x_read_books", "x_live", "x_shua", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger",
   // v58.83：这些内容会随着日常使用持续长大；继续留在 5MB localStorage 会反复写满。
   "x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_schedules", "x_charWallet",
   // 情侣空间正文。只列 saveJSON 管理的键；仍由旧 UI 直读的小标记继续留在 localStorage。

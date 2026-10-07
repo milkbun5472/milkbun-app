@@ -5421,7 +5421,7 @@ const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
-  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "live"] },
+  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "shua"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
@@ -5435,6 +5435,24 @@ const DEFAULT_FOLDERS = {
 function placeAstroOnce(st) { return placeNewAppOnce(st, "astro", "tarot", "x_astroPlaced"); }
 // 同一个形状的第二处（时刻，v74.649）：抽成公共的，星测那一处也搬过来（one-public-mechanism）。
 //   key＝新 app；beside＝跟谁放一个文件夹；flag＝只搬一次的记号。
+// 一个 app 被另一个接走时（直播 → 刷刷）：文件夹里、主屏页上原来那一格原位换成新的，只换一次。
+function swapAppOnce(st, from, to, flag) {
+  try {
+    if (loadJSON(flag, false)) return st;
+    var n = {}; Object.keys(st).forEach(function (fid) {
+      var ks = st[fid].keys || [];
+      n[fid] = ks.indexOf(from) >= 0 ? Object.assign({}, st[fid], { keys: ks.indexOf(to) >= 0 ? ks.filter(function (k) { return k !== from; }) : ks.map(function (k) { return k === from ? to : k; }) }) : st[fid];
+    });
+    var L0 = loadJSON("x_homeLayout", {});
+    if (L0 && typeof L0 === "object") {
+      var L1 = {}, hit = false;
+      Object.keys(L0).forEach(function (k) { L1[k] = Array.isArray(L0[k]) ? L0[k].map(function (x) { if (x === from) { hit = true; return to; } return x; }) : L0[k]; });
+      if (hit) saveJSON("x_homeLayout", L1);
+    }
+    saveJSON("x_homeFolders", n); saveJSON(flag, true);
+    return n;
+  } catch (e) { return st; }
+}
 function placeNewAppOnce(st, key, beside, flag) {
   try {
     if (loadJSON(flag, false)) return st;
@@ -5591,7 +5609,9 @@ function Home({
     if (st && Object.keys(st).length) st = placeAstroOnce(st);
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shike", "impression", "x_shikePlaced");
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "health", "astro", "x_healthPlaced");
-    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "live", "theater", "x_livePlaced");
+    // 直播（v74.990）挪进了刷刷当一格：已经放过「直播」的，原位换成刷刷；没放过的，放到小剧场旁边
+    if (st && Object.keys(st).length) st = swapAppOnce(st, "live", "shua", "x_shuaSwapped");
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shua", "theater", "x_shuaPlaced");
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -5662,7 +5682,7 @@ function Home({
     read: { kind: "app", zh: "一起读", G: IShelf },
     watch: { kind: "app", zh: "一起看", G: IFilm },
     debate: { kind: "app", zh: "擂台", G: GDebate },
-    live: { kind: "app", zh: "直播", G: window.GLive || GDebate },
+    shua: { kind: "app", zh: "刷刷", G: window.GShua || GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },

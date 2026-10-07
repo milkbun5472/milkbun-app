@@ -12,15 +12,18 @@ test("路人弹幕不进给模型看的那一段", () => {
   assert.ok(body.indexOf("noise") < 0, "transcript 里读了 noise");
 });
 test("两种都接上了：看 TA 播走 runProbe，我来播一枪写完", () => {
-  assert.match(A, /screen === "live"\) body = window\.LiveApp \? h\(window\.LiveApp,/);
+  assert.match(A, /screen === "live" \|\| screen === "shua"\) \{/);
   assert.match(A, /runProbe\(apiFor\(char\.id\), ctxFor\(char\), \{ voiceScene: true, instruction, schemaHint, tag: "live" \}\)/);
   assert.match(A, /maxTokens: 12000, tag: "live"/);
   assert.match(L, /function watchInstruction\(/);
   assert.match(L, /function hostInstruction\(/);
 });
 test("入口、文件夹、脚本都挂上了", () => {
-  assert.match(C, /live: \{ kind: "app", zh: "直播", G: window\.GLive \|\| GDebate \}/);
-  assert.match(C, /placeNewAppOnce\(st, "live", "theater", "x_livePlaced"\)/);
+  // v74.99x 直播挪进刷刷当一格：主屏上只剩刷刷，原来放过直播的原位换掉
+  assert.match(C, /shua: \{ kind: "app", zh: "刷刷", G: window\.GShua \|\| GDebate \}/);
+  assert.match(C, /swapAppOnce\(st, "live", "shua", "x_shuaSwapped"\)/);
+  assert.match(C, /placeNewAppOnce\(st, "shua", "theater", "x_shuaPlaced"\)/);
+  assert.match(I, /<script src="js\/shua\.js\?v=/);
   assert.match(I, /<script src="js\/live\.js\?v=/);
   assert.match(R("js/engine.js"), /"x_live",/);
 });

@@ -209,7 +209,8 @@
     const t = useTheme();
     const { characters, profile, toast } = props;
     const [list, setList] = useState(load);
-    const [view, setView] = useState("home");   // home | setup:watch | setup:host | room
+    const [view, setView] = useState(props.startView || "home");   // home | setup:watch | setup:host | room
+    // 嵌在刷刷里当一格时（v74.99x）：落地页不摆返回键，底栏就是出口；从「＋ → 开播」进来直接落在开播那一页
     const [curId, setCurId] = useState(null);
     const [busy, setBusy] = useState(false);
     const listRef = useRef(list); listRef.current = list;
@@ -331,7 +332,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4, lineHeight: 1.5 } }, sub));
     const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || "") : uName;
     return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
-      h(Head, { zh: "直播", onBack: props.onBack }),
+      h(Head, { zh: "直播", onBack: props.embedded ? undefined : props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
         h("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 6 } },
           characters.length ? door("去看 TA 播", "挑一个人，看 TA 在直播间里是什么样。可以用自己的号，也可以挂马甲。", () => setView("setup:watch")) : null,

@@ -27921,7 +27921,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return [...p, entry];
     }),
     onBack: () => setScreen("home")
-  });else if (screen === "live") body = window.LiveApp ? h(window.LiveApp, {
+  });else if (screen === "live" || screen === "shua") {
+    // 直播的那一套口子（js/live.js）。v74.99x 起直播是刷刷底栏的一格；老入口 "live" 也落进刷刷。
+    const liveProps = {
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
     characters: liveChars.filter(c => !c.npc && !settingsFor(c.id).engineerEyes),
     profile: profile,
@@ -27954,7 +27956,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
     onPrivate: (charId, text) => pChat(charId, p => [...p, { role: "assistant", content: text, ts: Date.now(), read: false }]),
     onBack: () => setScreen("home")
-  }) : null;else if (screen === "debate") body = h(Debate, {
+  };
+    body = window.ShuaApp ? h(window.ShuaApp, {
+      // 刷刷（她 2026-10-07：「整体做抖音界面，直播做其中一个板块」）。见 js/shua.js 开头。
+      characters: liveProps.characters, profile: profile, toast: toast,
+      probeAs: liveProps.probeAs, briefFor: liveProps.briefFor,
+      // 路人那一批 / 她发的那条底下认识的人评论：料全放 system，user 只留一句触发
+      ask: async (system, schemaHint, charId) => {
+        if (!active) throw new Error("请先到设置配置 API");
+        const raw = await callAI(charId ? apiFor(charId) : active, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "shua" });
+        const d = extractJSON(raw);
+        if (!d) throw new Error("这一批没写出来，再点一次");
+        return d;
+      },
+      canDraw: typeof imgApiReady === "function" && imgApiReady(),
+      draw: (charId, desc, who) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, who),
+      live: liveProps,
+      onBack: () => setScreen("home")
+    }) : null;
+  } else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
     // 场边（v60.42 回来）：只有【她自己的、没上台的角色】——路人和昵称那一套是借来的，
