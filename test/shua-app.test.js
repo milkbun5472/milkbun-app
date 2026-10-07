@@ -24,8 +24,8 @@ test("直播是底栏一格，生图要点了才画", () => {
 });
 
 test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
-  assert.match(S, /const skinOf = v => v && v\.skin === "b" \? "b" : "v";/);
-  assert.match(S, /const ofSkin = arr\(db\.videos\)\.filter\(v => skinOf\(v\) === skin\);/);
+  assert.match(S, /const vidSkin = v => v && v\.skin === "b" \? "b" : "v";/);
+  assert.match(S, /const ofSkin = arr\(db\.videos\)\.filter\(v => vidSkin\(v\) === skin\);/);
   assert.match(S, /\[\["v", "竖着刷"\], \["b", "横着看"\]\]/);
   assert.match(S, /function BCard\(/);
   assert.match(S, /function BDetail\(/);

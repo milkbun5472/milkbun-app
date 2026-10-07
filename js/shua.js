@@ -22,7 +22,7 @@
     v: { bg: BLACK, ink: INK, dim: DIM, line: LINE, accent: RED, field: "rgba(255,255,255,.06)", card: "#16161b", glow: "rgba(254,44,85,.22)" },
     b: { bg: "#f4f5f7", ink: "#18191c", dim: "#9499a0", line: "rgba(0,0,0,.08)", accent: "#fb7299", field: "#fff", card: "#fff", glow: "rgba(251,114,153,.18)" }
   };
-  const skinOf = v => v && v.skin === "b" ? "b" : "v";
+  const vidSkin = v => v && v.skin === "b" ? "b" : "v";
 
   window.GShua = p => h(Svg, p,
     h("rect", { x: 5, y: 3, width: 14, height: 18, rx: 3 }),
@@ -189,7 +189,7 @@
           v.dur ? h("span", { style: { marginLeft: "auto" } }, v.dur) : null)),
       h("div", { style: { padding: "7px 8px 9px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption || v.scene),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "UP · " : "") + v.author)));
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
   }
   function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend }) {
     const [text, setText] = useState("");
@@ -199,7 +199,7 @@
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 400 } }, label), h("span", { style: { fontFamily: F_BODY, fontSize: 11, marginTop: 2 } }, n));
     return h("div", { className: "h-full flex flex-col", style: { background: B.bg } },
       // 播放器那一块：黑底，画面（或那几句）＋飘过去的弹幕
-      h("div", { className: "shrink-0", style: { position: "relative", background: "#000", paddingTop: safeTop(0) } },
+      h("div", { "data-wk": "head", className: "shrink-0", style: { position: "relative", background: "#000", paddingTop: safeTop(0) } },
         h("div", { style: { position: "relative", aspectRatio: "16 / 9", background: coverBg(v), overflow: "hidden" } },
           !imgOf(v) ? h("div", { style: { position: "absolute", left: 18, right: 18, top: "28%", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,.92)" } }, v.scene) : null,
           window.LiveKit && window.LiveKit.NoiseLayer ? h(window.LiveKit.NoiseLayer, { noise: v.dms, seed: v.id }) : null,
@@ -219,7 +219,7 @@
         h("div", { style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
           arr(v.comments).map(c => h("div", { key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · UP" : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text))),
           busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, padding: "8px 0" } }, "……") : null)),
       h("div", { className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, background: B.card, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + B.line } },
@@ -335,7 +335,7 @@
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
 
     // 两套各刷各的：没标皮的旧视频算竖屏那套
-    const ofSkin = arr(db.videos).filter(v => skinOf(v) === skin);
+    const ofSkin = arr(db.videos).filter(v => vidSkin(v) === skin);
     const list = ofSkin.filter(v => v.by !== "me" && (feed === "rec" || v.by === "char"));
     const mine = ofSkin.filter(v => v.by === "me");
     const unread = arr(db.notes).filter(n => n.unread).length;
@@ -440,5 +440,5 @@
   }
 
   window.ShuaApp = ShuaApp;
-  window.ShuaKit = { APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, skinOf };
+  window.ShuaKit = { APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, vidSkin };
 })();
