@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.020";
+const APP_VERSION = "v75.023";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28135,6 +28135,25 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onBack: () => setScreen("home")
   };
+    const shuaCities = () => {
+      const K = window.MapKit, W = window.WorldWeather, out = [], seen = {};
+      liveChars.forEach(c => {
+        const r = c && K && K.charRealm ? K.charRealm(c, worldsRef.current || []) : null;
+        if (r && r.kind === "world") {
+          const rg = ((r.world && r.world.regions) || []).find(x => (x.nodes || []).some(n => n && String(n.name) === String(r.node)));
+          const region = rg ? String(rg.name) : String(r.node);
+          const name = region;
+          if (seen[name]) return; seen[name] = 1;
+          let weather = "";
+          try { if (W && W.dayOf && rg) { const d = W.dayOf(r.world.id + "|" + rg.name, rg.terrain || "平原", new Date()); weather = d ? wmoZh(d.code) + " " + d.lo + "~" + d.hi + "℃" : ""; } } catch (e) {}
+          out.push({ name, world: String(r.world.name || "无名之地"), region, terrain: String((rg && rg.terrain) || r.terrain || "平原"), weather: weather.trim() });
+          return;
+        }
+        const city = c && c.home && c.home.city ? String(c.home.city).trim() : "";
+        if (city && !seen[city]) { seen[city] = 1; out.push({ name: city }); }
+      });
+      return out.slice(0, 8);
+    };
     body = window.ShuaApp ? h(window.ShuaApp, {
       // 刷刷（她 2026-10-07：「整体做抖音界面，直播做其中一个板块」）。见 js/shua.js 开头。
       characters: liveProps.characters, profile: profile, toast: toast,
@@ -28182,7 +28201,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 充电（横着看那套）：从她钱包出、进TA钱包
       wallet: wallet, pay: liveProps.pay, charPay: liveProps.charPay,
       // 同城（竖着刷那套）：你的人住在哪几座城（好友地图里那份）
-      cities: () => Array.from(new Set(liveChars.map(c => c && c.home && c.home.city ? String(c.home.city).trim() : "").filter(Boolean))).slice(0, 8),
+      // ⚠️架空世界也算（她 2026-10-07：「同城只有真城市没有架空世界的」）：住哪儿跟好友地图同一条判据——
+      //   钉在某个架空世界里的人（MapKit.charRealm）落在那块地方；没钉的才看现实里设的家乡。
+      cities: () => shuaCities().map(x => x.name),
+      cityNote: name => {
+        const x = shuaCities().find(y => y.name === name);
+        if (!x || !x.world) return "";
+        const lore = String(loreForContext("social", [], x.world + " " + x.region) || "").slice(0, 1500);
+        return "\n「" + name + "」不是现实里的城市：它是架空世界「" + x.world + "」里的一块地方（" + x.terrain + "）。这个世界有它自己的时节、天气和过日子的样子，平台和视频也长在这个世界里。"
+          + (x.weather ? "\n那边今天：" + x.weather + "。" : "") + (lore ? "\n这个世界里大家都知道的：\n" + lore : "");
+      },
       onBack: () => setScreen("home")
     }) : null;
   } else if (screen === "debate") body = h(Debate, {

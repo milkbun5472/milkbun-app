@@ -57,6 +57,8 @@
   //   同一个人放进两种处境，自然会拍出不一样的东西；写进去哪种内容，模型就只会往那儿钻。
   // 文案和画面是两样东西（她 2026-10-07：「除了图片描述你没写抖音文案」）：只写「文案 caption」四个字，模型常常空着或者塞进 scene
   const CAPTION_FACT = "caption 是作者发布时自己配在视频底下的那段话，不是画面描述——看视频的人在画面下面读到的就是它；话题标签另写在 tags 里，这里不用再带。";
+  // 今天几号（她 2026-10-07：「十月份为什么能刷出暴雪」）：不给日子，模型拍的季节是随手挑的
+  const DATE_FACT = () => { const d = new Date(); return "\n今天是 " + d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日。"; };
   const V_FACT = "\n这个平台是竖屏的：一条通常十几秒到一两分钟。人是一条接一条往上划着看的，不喜欢一秒就划走了。推荐流会把你的视频推给不认识你的人，他们不知道你是谁，只看这一条。";
   const B_FACT = "\n这个平台是横屏的：一条几分钟到几十分钟都有。人多半是点进来从头看下去，很多是冲着这个号来的。视频有标题、有简介、放在某个分区里，看的人会在画面上发弹幕。";
   const B_EXTRA = B_FACT + "另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
@@ -74,7 +76,7 @@
         : "这是你在这个号上发的头几条，这个号是个什么样子由你定下来：写 bio（主页简介一句）、niche（你平时主要发什么，几个字）、followers（现在多少粉丝，数字，照你这个人在网上会有的样子）。")
       + (hot && hot.length ? "\n今天「" + APP_NAME + "」上的热门：" + hot.join("、") + "。跟不跟、借不借它说你自己的事，照你这个人来——大多数时候不必跟。" : "")
       + (extra || "")
-      + "你现在发一条新视频。"
+      + DATE_FACT() + "你现在发一条新视频。"
       + "拍什么、怎么拍、配什么文案，都从你此刻真实的生活和你这个人身上长出来——你今天在干嘛、最近心里装着什么、你这种人平时会不会发这种。"
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
       + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption（" + CAPTION_FACT + "）、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
@@ -88,7 +90,7 @@
   function npcSystem(uName, persona, n, skin, hot) {
     return AC() + CB()
       + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "——推荐流里会有几条在蹭这些。\n" : "")
-      + "【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
+      + DATE_FACT().slice(1) + "\n【场景】" + uName + "在刷「" + APP_NAME + "」的推荐流，刷到的是 " + n + " 个互不相识的博主各发的一条视频。"
       + (persona ? "\n推荐流会跟她平时在意的东西沾一点边，但不是全都对口——她是这样一个人：" + persona : "")
       + "\n\n每条一个不同的博主。题材、拍法、口吻、热度各不一样：有大号有小号，有认真做内容的也有随手一拍的。"
       + "\n写 videos（" + n + " 条），每条：author 博主网名、scene 视频里拍了什么（2~4 句，像在讲一段视频怎么走）、who 画面里有没有人（self 博主本人出镜 / part 只露手或背影 / none 没有人）、"
@@ -175,28 +177,34 @@
   // ── 一条视频（整屏那一格）─────────────────────────────────
   function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
     const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
+    const [more, setMore] = useState(false);   // 「⋯」：扔掉、画出来收在这儿，右边那排才不会顶到状态栏
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
-    const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
+    const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, minHeight: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
       icon(on ? RED : INK),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, marginTop: 4, color: INK, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, n));
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, color: INK, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, n));
     return h("div", { style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
       src ? h("img", { src: src, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null,
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.28) 0,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 52%,rgba(0,0,0,.66) 100%)" } }),
-      // 没画出来的时候，画面那几句摆在正中，当它就是这一段视频
-      !src ? h("div", { onClick: () => setOpen(o => !o), style: { position: "absolute", left: 26, right: 70, top: "18%", maxHeight: "calc(100% - 18% - 190px)", overflowY: open ? "auto" : "hidden", fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.7, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } },
-        h("div", { style: open ? null : { display: "-webkit-box", WebkitLineClamp: 9, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene),
-        !open && S(v.scene).length > 140 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: DIM, marginTop: 6 } }, "展开") : null) : null,
-      h("div", { className: "flex flex-col items-center", style: { position: "absolute", right: 10, bottom: 110, gap: 18 } },
+      // 没画出来的时候，画面那几句摆在正中，当它就是这一段视频（她 2026-10-07：「做居中而不是居左上」）
+      !src ? h("div", { className: "flex items-center justify-center", style: { position: "absolute", left: 30, right: 66, top: 110, bottom: 200, pointerEvents: "none" } },
+        h("div", { onClick: () => setOpen(o => !o), style: { pointerEvents: "auto", maxHeight: "100%", overflowY: open ? "auto" : "hidden", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } },
+          h("div", { style: open ? null : { display: "-webkit-box", WebkitLineClamp: 9, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene),
+          !open && S(v.scene).length > 140 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: DIM, marginTop: 6 } }, "展开") : null)) : null,
+      // 右边那排压矮（她 2026-10-07：「右边状态栏太高了上面几个按不到」）：图标小一号、间距收紧，扔掉和画出来进「⋯」
+      h("div", { className: "flex flex-col items-center", style: { position: "absolute", right: 8, bottom: 96, gap: 8 } },
         h("button", { onClick: onAuthor, "aria-label": "看这个号", className: "active:opacity-70", style: { width: 46, height: 46, borderRadius: 99, border: "2px solid #fff", overflow: "hidden", background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY } },
           ch ? h(Avatar, { character: ch, size: 42 }) : S(v.author).slice(0, 1)),
-        railBtn(c => icon("like", c, 30), fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike, "l"),
-        railBtn(c => icon("cm", c, 30), fmtN(arr(v.comments).length), false, onComments, "c"),
-        railBtn(c => icon("fav", c, 30, c === RED), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
-        onShare ? railBtn(c => icon("share", c, 30), "分享", false, onShare, "s") : null,
-        onSame ? railBtn(c => icon("same", c, 28), "拍同款", false, onSame, "same") : null,
-        onDel ? railBtn(c => icon("del", c, 26), "扔掉", false, onDel, "x") : null,
-        onDraw ? railBtn(c => icon("pen", c, 28), drawing ? "画着…" : (src ? "重画" : "画出来"), false, drawing ? null : onDraw, "d") : null),
+        railBtn(c => icon("like", c, 27), fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike, "l"),
+        railBtn(c => icon("cm", c, 27), fmtN(arr(v.comments).length), false, onComments, "c"),
+        railBtn(c => icon("fav", c, 27, c === RED), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
+        onShare ? railBtn(c => icon("share", c, 27), "分享", false, onShare, "s") : null,
+        onSame ? railBtn(c => icon("same", c, 25), "拍同款", false, onSame, "same") : null,
+        (onDel || onDraw) ? h("div", { key: "more", style: { position: "relative" } },
+          h("button", { onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { minWidth: 44, minHeight: 40, color: INK, fontSize: 22, lineHeight: "40px", textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, drawing ? "…" : "⋯"),
+          more ? h("div", { style: { position: "absolute", right: 48, bottom: 0, minWidth: 120, borderRadius: 10, background: "rgba(28,28,34,.96)", padding: "4px 0", boxShadow: "0 6px 20px rgba(0,0,0,.4)" } },
+            onDraw ? h("button", { onClick: () => { setMore(false); if (!drawing) onDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, drawing ? "画着…" : (src ? "重画" : "画出来")) : null,
+            onDel ? h("button", { onClick: () => { setMore(false); onDel(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, "扔掉这条") : null) : null) : null),
       h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
         src && v.scene ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: DIM, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
@@ -506,7 +514,8 @@
       setBusy("npc");
       try {
         const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday())
-          + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。" : ""), shapeNpc(sk));
+          + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。"
+            + (props.cityNote ? props.cityNote(city) : "") : ""), shapeNpc(sk));
         const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {})));
         if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
         addVideos(vids); setPage(null); setTab("home"); setFeed(city ? "city" : "rec");
@@ -700,9 +709,10 @@
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
           page.to ? [{ id: "main", name: "主聊天" }].concat(roomsOf(page.to)).map(r => h("button", { key: r.id, onClick: () => done(page.to, r.id), className: "w-full text-left active:opacity-70",
             style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, fontFamily: F_BODY, fontSize: 14 } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
-          : h("div", { className: "flex flex-wrap", style: { gap: 14, marginTop: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => roomsOf(c).length ? setPage(Object.assign({}, page, { to: c })) : done(c, "main"),
-            className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } }, h(Avatar, { character: c, size: 48 }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+          // 一排四个（她 2026-10-07：「看起来够一排四个为什么只有三个」）：原来是定宽 + 换行，宽度一放大就掉成三个；改成四等分
+          : h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => roomsOf(c).length ? setPage(Object.assign({}, page, { to: c })) : done(c, "main"),
+            className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
       realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: () => genNpc(""), onChars: genChars, onBack: () => setPage(null) });
@@ -731,7 +741,7 @@
     const gridView = (vids, empty) => h("div", { ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
     const emptyFeed = h("div", { style: { height: "100%", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 30px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : feed === "rec" ? "推荐里是路人博主，点刷新 → 刷几条路人的" : feed === "city" && cities.length ? "「" + cityNow + "」还没刷过，点上面「刷几条这座城的」" : "还什么都没有"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : feed === "rec" ? "推荐里是路人博主，点刷新 → 刷几条路人的" : feed === "city" && cities.length ? "「" + cityNow + "」还没刷过，点右上角「刷新」" : "还什么都没有"),
       h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-70", style: { minHeight: 42, padding: "0 22px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "刷一刷"));
 
     // 「我」那一格点进收藏：同一个竖着刷的样子，只放收藏的
@@ -752,9 +762,9 @@
       h("div", { "data-wk": "head", className: "flex items-center justify-center", style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 3, paddingTop: safeTop(8), paddingBottom: 6, gap: 26 } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 10, bottom: 2, width: 40, height: 40, color: INK } }, h(IArrow, { size: 20, color: INK })) : null,
         h("div", { className: "flex flex-col items-center" }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), feed === "city" ? h("div", { className: "flex items-center", style: { gap: 10, overflowX: "auto", padding: "4px 12px 6px", whiteSpace: "nowrap" } },
-          cities.map(c => h("button", { key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c)),
-          h("button", { onClick: () => genNpc(cityNow), disabled: busy === "npc", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: INK, minHeight: 28, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.3)" } }, busy === "npc" ? "刷着…" : "刷几条这座城的")) : hotStrip(INK, DIM, "transparent")),
-        h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: 12.5 } }, "刷新")),
+          cities.map(c => h("button", { key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c))) : hotStrip(INK, DIM, "transparent")),
+        // 同城那一格，右上角「刷新」就是刷这座城（她 2026-10-07：「刷新一下这座城的跟刷新是不是重复了」）
+        h("button", { onClick: () => feed === "city" && cities.length ? genNpc(cityNow) : setPage({ kind: "refresh" }), disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: 12.5 } }, busy === "npc" && feed === "city" ? "刷着…" : "刷新")),
       feedView(list, emptyFeed));
     else if (tab === "home") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: B.bg } },
       // 横屏那套的顶栏：白底，左边返回、中间关注推荐、右边刷新——不浮在画面上

@@ -165,3 +165,19 @@ test("文案说清楚是作者配的那段话，竖着刷底下一定露出来",
   assert.equal((src.match(/文案 caption（" \+ CAPTION_FACT|caption 文案（" \+ CAPTION_FACT/g) || []).length, 2, "TA 发和路人发两处都要讲清");
   assert.match(src, /\(v\.caption \|\| arr\(v\.tags\)\.length\) \?/);
 });
+
+test("同城算上架空世界；刷新在同城就刷这座城；带今天日期；右边那排压矮；分享一排四个", () => {
+  const fs = require("fs"), path = require("path");
+  const src = fs.readFileSync(path.join(__dirname, "../js/shua.js"), "utf8");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  assert.match(app, /const shuaCities = \(\) =>/);
+  assert.match(app, /K\.charRealm\(c, worldsRef\.current/);
+  assert.match(app, /cityNote: name =>/);
+  assert.doesNotMatch(src, /"刷几条这座城的"/);
+  assert.match(src, /feed === "city" && cities\.length \? genNpc\(cityNow\)/);
+  assert.equal((src.match(/DATE_FACT\(\)/g) || []).length, 2);
+  assert.match(src, /repeat\(4, minmax\(0, 1fr\)\)/);
+  const pane = src.slice(src.indexOf("function VideoPane"), src.indexOf("function CommentsPage"));
+  assert.match(pane, /"aria-label": "更多"/);
+  assert.match(pane, /textAlign: "center"/);
+});
