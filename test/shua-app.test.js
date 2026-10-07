@@ -33,7 +33,7 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk\), shapeChar\(sk\)\)\.catch\(\(\) => null\), timeout\]\)/);
+  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, friends\), shapeChar\(sk, friends\.length > 0\)\)\.catch\(\(\) => null\), timeout\]\)/);
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 
