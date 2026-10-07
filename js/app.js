@@ -28455,6 +28455,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
     onAddMemories: (charId, items) => (items || []).forEach(txt =>
       addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+    // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
+    onSetDirectives: (id, lines) => setDirectives(p => {
+      const old = p[id] || [];
+      const list = (lines || []).map((t, i) => old.find(d => d.text === t) || { id: "dir_" + Date.now() + "_" + i, text: t, ts: Date.now() });
+      const n = { ...p, [id]: list }; saveJSON("x_directives", n); return n;
+    }),
     // 整页和小悬浮屏是同一个秋秋：写入口要么两处都给，要么两处都没有。
     // 只给悬浮屏的话，她从整页问同一句就会被告知「这个页面没接写入口」。
     onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
@@ -29176,6 +29182,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
       onAddMemories: (charId, items) => (items || []).forEach(txt =>
         addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+      // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
+      onSetDirectives: (id, lines) => setDirectives(p => {
+        const old = p[id] || [];
+        const list = (lines || []).map((t, i) => old.find(d => d.text === t) || { id: "dir_" + Date.now() + "_" + i, text: t, ts: Date.now() });
+        const n = { ...p, [id]: list }; saveJSON("x_directives", n); return n;
+      }),
       // 合并方式只写在 applyBubblePatch 那一处，整页那边用的是同一个
       onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),

@@ -550,6 +550,23 @@
       read: () => loadUndo().filter(x => x && !x.undone).map(x => ({ id: x.uid, name: x.title || x.label, text: x.label })),
       write: (id, patch, ctx) => { undo(id, ctx); return 1; }
     },
+    // 长期准则（她经 OOC 立的那几条，角色和群都有；她 2026-10-07：「把 ooc 权限给秋秋放开吧」）。
+    //   一行一条，整份给：改一条、删一条、加一条都是把这一份重写一遍。存在 x_directives 里（OOC 那一路写的同一份）。
+    rules: {
+      zh: "长期准则",
+      read: ctx => {
+        const d = loadJ("x_directives", {}) || {};
+        const line = id => (Array.isArray(d[id]) ? d[id] : []).map(x => String((x && x.text) || "").trim()).filter(Boolean).join("\n");
+        return (ctx.characters || []).map(c => ({ id: c.id, name: c.name, text: line(c.id) }))
+          .concat((ctx.groups || []).map(g => ({ id: g.id, name: "群「" + g.name + "」", text: line(g.id) })));
+      },
+      write: (id, patch, ctx) => {
+        if (!ctx.onSetDirectives) throw new Error("这个页面没接准则写入口");
+        const lines = String(patch.text || "").split("\n").map(x => x.replace(/^[-·•\d.、\s]+/, "").trim()).filter(Boolean);
+        ctx.onSetDirectives(id, lines);
+        return lines.length || 1;
+      }
+    },
     memory: {
       zh: "记忆库条目",
       read: () => [],                       // 记忆是往里加，不是改现有的
@@ -688,6 +705,10 @@
       .map(e => clip(e && e.msg, 120));
     // 聊天窗的长相现在是什么（她 2026-09-30：让秋秋改单聊/群聊的 CSS 和排版）——不给它看，它只能照空白重写、把她原来的盖掉
     const cs = loadJ("x_chatSettings", {}) || {}, gsAll = loadJ("x_groupSettings", {}) || {};
+    // 长期准则（她经 OOC 立的）：原来快照里没有，她问「是不是哪条规矩把TA架住了」时秋秋只能说看不到（2026-10-07）
+    const dirs = loadJ("x_directives", {}) || {};
+    const dirOf = id => (Array.isArray(dirs[id]) ? dirs[id] : []).map(x => String((x && x.text) || "").trim()).filter(Boolean);
+    chars.forEach(row => { const l = dirOf(row.id); row.长期准则 = l.length ? l : "（没有）"; });
     chars.forEach(row => {
       const st = cs[row.id] || {};
       row.聊天窗排版 = st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）";
@@ -695,7 +716,8 @@
     });
     const groups = (ctx.groups || []).map(g => {
       const st = gsAll[g.id] || {};
-      return { 群名: g.name, id: g.id,
+      const gl = dirOf(g.id);
+      return { 群名: g.name, id: g.id, 群规矩: gl.length ? gl : "（没有）",
         排版: st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）",
         CSS: st.customCSS ? clipRaw(st.customCSS, 3000) : "（空）" };
     });
@@ -758,7 +780,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -844,6 +866,8 @@
       + "deco（{ta:{frame,frameSize,pend,pendSize,pendPos}, me:{…}}：头像框/挂件，图只能是 https 地址或现状里已有的 iv_ 门牌；frameSize 100-200，pendSize 20-100，pendPos br/bl/tr/tl）。"
       + "想要不用图的框（一圈描边、发光、渐变圈），写进 chatcss／groupcss：对 [data-wk=\"row\"] > [data-wk=\"avatar\"] 写 position:relative，再用 ::after 画。"
       + "只填她提到的那几栏。\n"
+      + "· rules 某个角色或某个群的长期准则（她经 OOC 立的那几条，每轮都会作为高优先要求喂给TA；id＝角色 id 或群 id）：text 写【改完之后的整份】，一行一条——删一条就是不写它，加一条就是多写一行，改措辞就改那一行。快照里每个角色的「长期准则」、每个群的「群规矩」就是现在的样子。"
+      + "她问某个角色为什么老这样、是不是哪条规矩卡住了TA，先去看这一栏。\n"
       + "· groupcss／grouplayout 某一个群的聊天窗 CSS 和排版（id＝群 id，见快照里的群列表）：写法同 chatcss／chatlayout，只是作用在那个群里；"
       + "群里的 deco.ta 管全部群成员的头像，deco.me 管她自己的。\n"
       + "· lookundo 把某一层美化退回上一版（id 照快照「美化能退回的」那一栏抄：chat:角色id、group:群id、offline:角色id、theme；"
@@ -1004,7 +1028,7 @@
   const UNDO_KEEP = 40;
   // 能退的：原样写回去就行的那几种。
   // memory 退不了（往里加，没有写回的路）；style 新建也退不了（那要删，不是写回）。
-  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, theme: 1, style: 1, bubble: 1, chatcss: 1, chatlayout: 1, offlinecss: 1, groupcss: 1, grouplayout: 1 };
+  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, rules: 1, theme: 1, style: 1, bubble: 1, chatcss: 1, chatlayout: 1, offlinecss: 1, groupcss: 1, grouplayout: 1 };
   // 聊天窗那几栏（她 2026-10-05：「秋秋也可以自己退它做错的」）：存的不是 before() 那段人话，
   //   是这一层长相那几栏的原样（engine.js lookPick），退的时候整层写回去——气泡那份 JSON 也就退得动了。
   const WIN_KIND = { bubble: "chat", chatcss: "chat", chatlayout: "chat", offlinecss: "offline", groupcss: "group", grouplayout: "group" };
