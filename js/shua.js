@@ -82,6 +82,21 @@
         : "\n底下" + uName + "用她自己的号评论了你：「" + text + "」。评论区别人都看得见。")
       + "\n你回不回、怎么回（当着所有人的面），照你这个人来；不想回就把 reply 留空。";
   }
+  // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
+  const SPOT_SHAPE = '{"comment":"","recognized":false,"why":""}';
+  function spotInstruction(v, alt, uName) {
+    return "你在「" + APP_NAME + "」上刷到一个叫「" + alt + "」的账号发的视频。拍的是：" + v.scene + (v.caption ? "；文案：" + v.caption : "") + "。"
+      + "\n这个号你没关注过，粉丝很少。它是不是 " + uName + " 的小号，你只能从这条视频本身（拍的东西、说话的口气、里面的细节）和你对她的了解去判断——认不出来再正常不过。"
+      + "\n写：你会不会在底下评论 comment（不评就空着；评的话是公开的，你用你自己的号评）、你觉得这是不是她 recognized（true/false）、为什么这么觉得 why（一句，心里想的，不会被看到）。";
+  }
+  // TA发的视频底下，认识TA的人刷到了（她 2026-10-07 选的第 1 条的另一半）
+  function acqSystem(v, host, others, briefs, relOf) {
+    return AC() + CB()
+      + "【场景】" + host.name + "在「" + APP_NAME + "」上发了一条视频（账号「" + v.author + "」）。拍的是：" + v.scene + (v.caption ? "\n文案：" + v.caption : "")
+      + "\n\n下面这几个人都认识 " + host.name + "，都刷到了这条。评不评、评什么、当着别人的面说成什么样，照各自的性子和跟 " + host.name + " 的关系来；不想评的就不写。"
+      + "\n\n" + others.map((c, i) => briefs[i] + (relOf(host.id, c.id) ? "\n跟 " + host.name + " 的关系：" + relOf(host.id, c.id) : "")).join("\n\n")
+      + "\n\n写：comments（name 只能是：" + others.map(c => c.name).join("、") + "）。";
+  }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
   function mineSystem(v, uName, chars, briefs) {
     return AC() + CB()
@@ -92,7 +107,7 @@
   }
 
   // ── 一条视频（整屏那一格）─────────────────────────────────
-  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height }) {
+  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare }) {
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
     const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
@@ -109,6 +124,7 @@
         railBtn(c => h(IHeart, { size: 30, color: c, filled: true }), fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike, "l"),
         railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M4 5.5h16v10.5H10l-4.5 3.5V16H4z" })), fmtN(arr(v.comments).length), false, onComments, "c"),
         railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { fill: c === RED ? c : "none", d: "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" })), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
+        onShare ? railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M13 5l7 6.5-7 6.5v-4c-5 0-8 1.5-10 5 .8-5.5 3.8-9 10-9.5z" })), "分享", false, onShare, "s") : null,
         onDraw ? railBtn(c => h(IPencil, { size: 28, color: c }), drawing ? "画着…" : (src ? "重画" : "画出来"), false, drawing ? null : onDraw, "d") : null),
       h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "")),
@@ -194,7 +210,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption || v.scene),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
   }
-  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend }) {
+  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare }) {
     const [text, setText] = useState("");
     const ch = v.charId ? charOf(v.charId) : null;
     const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); onSend(x); };
@@ -218,6 +234,7 @@
           h("div", { className: "flex", style: { marginTop: 10 } },
             act("点赞", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
             act("收藏", v.faved ? "已收藏" : "收藏", v.faved, onFave),
+            onShare ? act("分享", "给 TA", false, onShare) : null,
             onDraw ? act(drawing ? "画着…" : (imgOf(v) ? "重画" : "画出来"), "封面", false, drawing ? null : onDraw) : null)),
         h("div", { style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
@@ -285,8 +302,10 @@
           const accounts = Object.assign({}, dbRef.current.accounts);
           const handle = S((accounts[c.id] || {}).handle) || S(d.handle).slice(0, 20) || c.name;
           accounts[c.id] = Object.assign({}, accounts[c.id], { handle });
-          save(Object.assign({}, dbRef.current, { accounts, videos: [mkVideo(d, { by: "char", charId: c.id, author: handle, skin: sk })].concat(dbRef.current.videos) }));
+          const nv = mkVideo(d, { by: "char", charId: c.id, author: handle, skin: sk });
+          save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
           names.push(c.name);
+          acquaint(c, nv);
         });
       };
       try {
@@ -324,12 +343,42 @@
       } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
       finally { setBusy(null); }
     };
+    // 她小号发的那条：几个人里随缘有一两个刷到。评了她看得见；认出来了只记在TA心里，她不会被告知
+    const spotAlt = async (v, alt) => {
+      const pool = characters.slice().sort(() => Math.random() - 0.5).slice(0, 2).filter(() => Math.random() < 0.45);
+      for (const c of pool) {
+        try {
+          const d = await props.probeAs(c, spotInstruction(v, alt, uName), SPOT_SHAPE);
+          const cm = S(d && d.comment).slice(0, 300);
+          const handle = S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name;
+          if (cm) { patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: handle, text: cm, by: "char", charId: c.id, ts: Date.now() }]) })); note(handle + " 评论了你小号的视频：" + cm); }
+          if (d && d.recognized === true && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」上刷到一个叫「" + alt + "」的小号发的视频（拍的是：" + S(v.scene).slice(0, 60) + "），你觉得那是 " + uName + " 的小号" + (S(d.why) ? "——" + S(d.why).slice(0, 80) : "") + "。她不知道你认出来了。");
+        } catch (e) {}
+      }
+    };
+    // TA发的那条：认识TA的人里，有关系的优先，挑两三个，一枪写完他们评不评。不是每条都有人刷到
+    const acquaint = async (host, v) => {
+      if (!props.ask || Math.random() > 0.5) return;
+      const others = characters.filter(c => c.id !== host.id);
+      const tied = others.filter(c => props.relOf && props.relOf(host.id, c.id));
+      const pick = (tied.length ? tied : others).slice().sort(() => Math.random() - 0.5).slice(0, 3);
+      if (!pick.length) return;
+      try {
+        const r = await props.ask(acqSystem(v, host, pick, pick.map(props.briefFor), props.relOf || (() => "")), MINE_SHAPE.replace(',"likes":0', ""), host.id);
+        const names = pick.map(c => c.name);
+        const cms = arr(r && r.comments).filter(x => x && names.indexOf(S(x.name)) >= 0 && S(x.text)).map(x => {
+          const c = pick.find(cc => cc.name === S(x.name));
+          return { id: uid("cm"), name: S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name, text: S(x.text).slice(0, 300), by: "char", charId: c.id, ts: Date.now() };
+        });
+        if (cms.length) patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).concat(cms) }));
+      } catch (e) {}
+    };
     // 她发一条：认识她的人刷到了
     const postMine = async d => {
       const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin });
       if (onAlt) v.alt = true;
       addVideos([v]); setPage(null); setTab("me");
-      if (onAlt) return;   // 小号发的：悄悄的，不叫认识她的人来
+      if (onAlt) { spotAlt(v, altName); return; }   // 小号发的：悄悄的，不叫认识她的人来；但TA们自己刷到了另说
       const pool = characters.slice().sort(() => Math.random() - 0.5).slice(0, 3);
       if (!pool.length) return;
       setBusy("post");
@@ -367,7 +416,22 @@
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
       if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
-        onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x) });
+        onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
+        onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null });
+    }
+    // 分享给 TA（她 2026-10-07 选的第 3 条）：挑人，开过小房间的再挑发进哪间。落一张卡，不让TA当场开口
+    if (page && page.kind === "share") {
+      const v = db.videos.find(x => x.id === page.id);
+      const roomsOf = c => (window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []);
+      const done = (c, rid) => { props.onShare(v, c, rid); setPage(page.back || null); };
+      if (v) return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+        h(Head, { zh: page.to ? "发到 " + page.to.name + " 的哪儿" : "分享给谁", bg: "transparent", ink: P.ink, onBack: () => page.to ? setPage(Object.assign({}, page, { to: null })) : setPage(page.back || null) }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+          page.to ? [{ id: "main", name: "主聊天" }].concat(roomsOf(page.to)).map(r => h("button", { key: r.id, onClick: () => done(page.to, r.id), className: "w-full text-left active:opacity-70",
+            style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, fontFamily: F_BODY, fontSize: 14 } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
+          : h("div", { className: "flex flex-wrap", style: { gap: 14, marginTop: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => roomsOf(c).length ? setPage(Object.assign({}, page, { to: c })) : done(c, "main"),
+            className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } }, h(Avatar, { character: c, size: 48 }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
@@ -387,6 +451,7 @@
       vids.length ? vids.map(v => h(VideoPane, { key: v.id, v, height: paneH, charOf,
         onLike: () => like(v), onFave: () => fave(v),
         onComments: () => setPage({ kind: "comments", id: v.id, back: page }),
+        onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id })) : empty);
     const gridView = (vids, empty) => h("div", { ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
@@ -475,6 +540,25 @@
         tabBtn("msg", "消息"), tabBtn("me", "我")));
   }
 
+  // ── 分享卡：聊天里那一张（单聊、群聊走同一条 shareCardOf）──────────
+  const shareSnap = v => ({ author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 });
+  // TA读到的那一段：视频长什么样照抄；是TA自己的那条就说一声
+  const shareText = (snap, toCharId, fromName) => "[" + (fromName ? fromName + "从「" + APP_NAME + "」甩来一条视频" : "转发了一条「" + APP_NAME + "」上的视频") + "]"
+    + "作者 @" + snap.author + (snap.title ? "｜标题《" + snap.title + "》" : "") + "｜视频里拍的是：" + snap.scene + (snap.caption ? "｜文案：" + snap.caption : "")
+    + (snap.tags.length ? "｜" + snap.tags.map(x => "#" + x).join(" ") : "") + "｜" + snap.likes + " 赞"
+    + (toCharId && snap.by === "char" && snap.charId === toCharId ? "｜（这就是你自己发的那条）" : "");
+  function ShuaShareCard({ m }) {
+    const v = m.shua || {};
+    const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
+    return h("div", { style: { width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
+      h("div", { style: { position: "relative", aspectRatio: v.skin === "b" ? "16 / 10" : "3 / 4", maxHeight: 240, background: src ? "center/cover no-repeat url(\"" + src + "\")" : "linear-gradient(160deg,#3b2a4a,#111)", padding: 10 } },
+        !src ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,.9)", display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
+        h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "18px 10px 8px", background: "linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7))" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
+          (v.title || v.caption) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.88)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption) : null)),
+      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞"));
+  }
+  window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;
-  window.ShuaKit = { APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, vidSkin };
 })();

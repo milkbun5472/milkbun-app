@@ -11428,6 +11428,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!_myKin.frozen) openCaps.push("herkinspend");
         capState.push(_kinFact);
       }
+      // 甩一条「片刻」上的视频给她（她 2026-10-07 选的第 3 条）。大约四轮开一次，开了也不必用——真想给她看才甩
+      if (!sideRoom && window.ShuaKit && Math.random() < 0.25) {
+        openCaps.push("shuaShare");
+        capState.push("shuaShare：你平时会在「" + window.ShuaKit.APP_NAME + "」（一个短视频 app）上刷视频。刷到过真想甩给 " + uName + " 看的那种——跟你俩聊过的事有关、像她、或者你就是觉得她会笑——就填 shuaShare:{\"author\":\"博主网名\",\"scene\":\"视频里拍了什么，两三句\",\"caption\":\"那条视频的文案\"}，你想说的话照常写在 word 里；没有就不填，别硬找。");
+      }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       // 「这间房开了这一样活动吗」——原来一起学、一起玩、一起写各写了一遍同一句，
       // 一起读是第四处。抽成一份（施工规则/one-public-mechanism.md：开了公共的就把已有的搬过去）。
@@ -12304,7 +12309,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
-        parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.herkinspend = null; parsed.block = false; parsed.loveLetter = null;
+        parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.herkinspend = null; parsed.shuaShare = null; parsed.block = false; parsed.loveLetter = null;
       }
       // 角色自行撤回一句：先正常显示 ~1s，再变成「已撤回」（点开看内容+撤回想法）
       const recall = parsed.recall && parsed.recall.text && String(parsed.recall.text).toLowerCase() !== "null" ? parsed.recall : null;
@@ -12653,6 +12658,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         delivered = true;
       }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
+      // TA甩来一条片刻视频：落一张卡，同一条也放进片刻的推荐流里（她点进片刻刷得到）
+      if (parsed.shuaShare && typeof parsed.shuaShare === "object" && String(parsed.shuaShare.scene || "").trim() && window.ShuaKit) {
+        const _sv = window.ShuaKit.mkVideo({ scene: parsed.shuaShare.scene, caption: parsed.shuaShare.caption || "", who: "none", likes: Math.round(200 + Math.random() * 30000) },
+          { by: "npc", author: String(parsed.shuaShare.author || "").trim().slice(0, 20) || "某个博主" });
+        const _snap = window.ShuaKit.shareSnap(_sv);
+        try { const _db = loadJSON("x_shua", null) || {}; saveJSON("x_shua", { ..._db, videos: [_sv, ...((_db.videos || []))].slice(0, 200) }); } catch (e) {}
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "shuashare", shua: _snap, content: window.ShuaKit.shareText(_snap, null, "你").replace("[你从", "[你从") , ts: Date.now(), turnId, read: false }]);
+        delivered = true;
+      }
       // 刷她给的那张卡：过得去就扣她的钱、落一张账单；过不去也落一张「被拒」，TA下一轮知道
       if (parsed.herkinspend && typeof parsed.herkinspend === "object" && Number(parsed.herkinspend.amount) > 0 && myKinOf(charId)) {
         const _it = String(parsed.herkinspend.item || "").trim().slice(0, 30) || "一笔开销";
@@ -28119,6 +28133,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       canDraw: typeof imgApiReady === "function" && imgApiReady(),
       draw: (charId, desc, who) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, who),
       live: liveProps,
+      // 视频分享给 TA（她 2026-10-07）：跟直播回放一样，落一张卡、可选小房间、不让TA当场开口
+      onShare: (v, c, roomId) => {
+        const K = window.ShuaKit; if (!K || !c || !v) return;
+        const key = roomId && roomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(c.id, roomId) : c.id;
+        const snap = K.shareSnap(v);
+        pChat(key, p => [...p, { role: "user", kind: "shuashare", shua: snap, content: K.shareText(snap, c.id, ""), ts: Date.now(), read: true }]);
+        toast("已分享给 " + (c.remark || c.name) + (key !== c.id ? "（小房间里）" : ""));
+      },
+      relOf: (a, b) => { const r = rels[a + "->" + b] || rels[b + "->" + a]; return r && r.label ? r.label + (r.note ? "（" + r.note + "）" : "") : ""; },
+      remember: liveProps.remember,
       onBack: () => setScreen("home")
     }) : null;
   } else if (screen === "debate") body = h(Debate, {

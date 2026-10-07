@@ -49,3 +49,15 @@ test("小号：TA只当陌生人；小号发的不叫熟人；作品各列各的
   assert.match(S, /if \(onAlt\) return;   \/\/ 小号发的/);
   assert.match(S, /const mine = ofSkin\.filter\(v => v\.by === "me" && !!v\.alt === onAlt\);/);
 });
+
+test("分享进聊天 + TA甩来 + 刷到彼此", () => {
+  const C = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+  const A = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(C, /if \(kind === "shuashare"\) return window\.ShuaShareCard \|\| null;/);
+  assert.match(A, /kind: "shuashare", shua: snap, content: K\.shareText\(snap, c\.id, ""\)/);
+  assert.match(A, /openCaps\.push\("shuaShare"\)/);
+  assert.match(A, /parsed\.shuaShare = null;/);
+  assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}/);
+  assert.match(S, /她不知道你认出来了/);
+  assert.match(S, /acquaint\(c, nv\);/);
+});
