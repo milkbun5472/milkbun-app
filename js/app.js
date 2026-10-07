@@ -11421,9 +11421,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       // 她给的那张卡：有就每轮把事实摆出来（额度、还剩、冻没冻、最近刷过什么）。刷不刷、花在哪，全看TA这个人。
-      // 钱是真钱：只在【这里的事算数】的地方摆出来、让刷——主聊天，或开了「这里的事算数」的房。
-      //   小号房、不带出门的房里TA不该拿着你的卡（小号房里 uName 还是小号的名字，会说成「小号给的卡」）。
-      const _kinRoomOk = !sideRoom || !!(room && room.writeback && room.writeback.sharedState);
+      // 钱是真钱：只在主聊天里摆出来、让刷（她 2026-10-07：「小房间不准刷卡」）——哪一间小房间都不行。
+      const _kinRoomOk = !sideRoom;
       const _myKin = _kinRoomOk ? myKinOf(charId) : null;
       if (_myKin) {
         const _recent = (_myKin.ledger || []).slice(0, 4).map(l => "「" + l.item + "」" + moneyText(l.amount, charId)).join("、");
@@ -12673,8 +12672,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         delivered = true;
       }
       // 刷她给的那张卡：过得去就扣她的钱、落一张账单；过不去也落一张「被拒」，TA下一轮知道
-      if (parsed.herkinspend && typeof parsed.herkinspend === "object" && Number(parsed.herkinspend.amount) > 0 && myKinOf(charId)
-        && (!sideRoom || !!(room && room.writeback && room.writeback.sharedState))) {
+      if (parsed.herkinspend && typeof parsed.herkinspend === "object" && Number(parsed.herkinspend.amount) > 0 && myKinOf(charId) && !sideRoom) {
         const _it = String(parsed.herkinspend.item || "").trim().slice(0, 30) || "一笔开销";
         const _r = spendMyKin(charId, _it, Number(parsed.herkinspend.amount), "chat");
         pChat(chatKey, p => [...p, { role: "assistant", kind: "mykinbill", charId, item: _it, amount: Math.round(Math.abs(Number(parsed.herkinspend.amount)) * 100) / 100,
