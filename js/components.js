@@ -10883,12 +10883,13 @@ function CallScreen({
     h("span", null, bgBusy ? "在拍" : bg ? "换一张" : "看看画面")) : null,
   h("div", {
     "data-wk": "callhead",
-    className: "shrink-0 pt-10 pb-3 flex flex-col items-center",
-    // 右上角那个小框占着一块：两边对称让出来，名字照旧居中、字不压在小框底下
-    style: Object.assign(pip ? { paddingLeft: 112, paddingRight: 112 } : {}, litPlate(".62", "0"))
+    className: "shrink-0 pb-3 flex flex-col " + (pip ? "pt-14 items-start" : "pt-10 items-center"), // 靠左时让开左上那颗收起键
+    // 右上角那个小框占着一块：只让右边，字靠左排（她 2026-10-07：「字不在侧边看着好挤」——
+    //   原来两边对称各让 112，中间剩一条缝，「连续播报已开启」都折成三行）
+    style: Object.assign(pip ? { paddingLeft: 24, paddingRight: 128 } : {}, litPlate(".62", "0"))
   }, h("div", {
     "data-wk": "calltitle",
-    className: "px-6 text-center",
+    className: pip ? "text-left" : "px-6 text-center",
     style: Object.assign({
       fontFamily: F_DISPLAY,
       fontSize: 22,
@@ -10902,7 +10903,7 @@ function CallScreen({
       marginTop: 4
     }, litText)
   }, (isVideo ? "视频通话" : "语音通话") + (isGroup ? " · " + people.length + "人" : "") + " · " + mmss),
-    h("div", { role: "status", "data-call-audio-status": true, style: { color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: "0 16px", textAlign: "center" } },
+    h("div", { role: "status", "data-call-audio-status": true, style: Object.assign({ color: "rgba(255,255,255,.65)", fontSize: 10, marginTop: 4, padding: pip ? 0 : "0 16px", textAlign: pip ? "left" : "center" }, litText) },
       audioStatus || (autoVoice ? (audioReady ? "连续播报已开启 · 等待新台词" : "声音未启用，轻触页面重试") : "连续播报未开启 · 可在聊天设置中打开"))), h("div", {
     className: "shrink-0 flex justify-center py-3 gap-2 flex-wrap px-6"
   }, (bgUrl || pip) ? [] : (isGroup ? people.slice(0, 4) : [primary]).map((c, ci) => h("div", {
