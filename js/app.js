@@ -28045,6 +28045,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     // 收桌就往 TA 的私聊里放一张「一起专注」小卡（群里 2026-10-05）。算 TA 发的：批注本来就是 TA 写的。
     //   content 照样留整段字——TA 下回聊天读历史时读的是它，于是记得你们刚一起坐过多久。
+    // 番茄钟三样新东西要的（她 2026-10-07「都做了吧」）：TA这会儿照日程在干嘛、坐满一轮攒扭蛋点
+    schedNowFor: c => { try { return schedNowFor(c) || ""; } catch (e) { return ""; } },
+    onEarn: charId => { try { return gachaEarn(charId, "focus"); } catch (e) { return 0; } },
     onShare: (rec, c) => {
       if (!c || !c.id) return;
       const mins = rec.focusedMinutes != null ? rec.focusedMinutes : rec.minutes;

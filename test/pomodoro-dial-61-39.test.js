@@ -46,9 +46,9 @@ test("专注页的进度也是发条在往回松，不是一条 2px 横线", () 
 });
 
 test("原来的逻辑一条没动（计时以墙上时间为准、切后台能接回来）", () => {
-  assert.match(code, /window\.PomodoroLogic = \{ remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore \};/);
+  assert.match(code, /window\.PomodoroLogic = \{ remainingSec, focusedSec, resumeSession, noteIndex, companionSubtitle, uniqueCompanionLines, genMore(, nextCyclePhase)? \};/);
   assert.match(code, /x_pomodoro_active/);
-  assert.match(code, /if \(remain <= 0 && !current\.pausedAt\) finishRef\.current\("done"\);/);
+  assert.match(code, /if \(remain <= 0 && !current\.pausedAt\) \{[\s\S]{0,600}finishRef\.current\("done"\);/);
 });
 
 // v61.40 她 2026-09-03：「那超过一个小时的咋办」＋「进去后的页面和结算的页面也很无聊」
@@ -68,7 +68,7 @@ test("超过一小时＝多拧一圈，不是把指针钉死在 60", () => {
 test("结算是整页的一张单子，不再是半窗", () => {
   // 施工规则/no-half-sheet.md：默认不要半窗；原来那张就是从底下掀起来的
   assert.ok(code.indexOf('background: "rgba(20,18,15,0.58)"') < 0, "结算又变回半窗了");
-  assert.match(code, /function ResultCard\(t, rec, char, onClose, tp\) \{[\s\S]{0,900}h\("div", \{ className: "h-full flex flex-col"/);
+  assert.match(code, /function ResultCard\(t, rec, char, onClose, tp(, onGoal)?\) \{[\s\S]{0,900}h\("div", \{ className: "h-full flex flex-col"/);
   assert.match(code, /const perf = pos =>/, "少了单据的齿孔边");
   // 齿孔翻面要用 scaleY(-1)：rotate(180deg) 绕中心转，齿口会转到卡片里侧
   assert.match(code, /pos === "top" \? \{ top: -4, transform: "scaleY\(-1\)" \}/);
