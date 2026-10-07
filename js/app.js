@@ -18152,7 +18152,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   提示词把「say 里只放能念出口的话」说死，见下面 sys 里那一句。
       const splitSayLine = str => {
         const out = [];
-        const s = String(str || "");
+        // 颜文字不是动作（她 2026-10-07：「(ᵔᴥᵔ) 被误判成灰字了」）：括号里一个汉字、一个英文词都没有的，
+        //   先换成占位符藏起来，整句照常拆完再换回去——括号原样留着，跟着那句话走。
+        const kao = [];
+        const s = String(str || "").replace(/[（(][^（）()\u4e00-\u9fffA-Za-z]{1,24}[）)]/g, m => { kao.push(m); return String.fromCharCode(0xE000 + kao.length - 1); });
+        const unKao = x => x.replace(/[\uE000-\uE0FF]/g, c => kao[c.charCodeAt(0) - 0xE000] || "");
         const re = /[（(]([^（）()]{1,120})[）)]/g;
         let last = 0, mm;
         const clean = x => x.replace(/[（()）]/g, "").trim();
@@ -18178,7 +18182,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         };
         while ((mm = re.exec(s))) { pushSpeech(s.slice(last, mm.index)); const a = mm[1].trim(); if (a) out.push({ act: a }); last = re.lastIndex; }
         pushSpeech(s.slice(last));
-        return out;
+        return kao.length ? out.map(o => o.act != null ? { act: unKao(o.act) } : { speech: unKao(o.speech) }) : out;
       };
       const callTurnId = cur.sessionId + ":" + withUser.length;
       const pushMsg = line => setCall(c => c && c.sessionId === cur.sessionId ? { ...c, msgs: [...c.msgs, { ts: Date.now(), turnId: callTurnId, ...line }] } : c);
