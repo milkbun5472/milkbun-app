@@ -22026,7 +22026,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 她在自己小号发的帖里回楼，还是小号那个名字（不然一回楼就自曝）
   // 她现在挂的是哪个号（群友 2026-10-06：「开小号」——像真的贴吧那样切账号，切到小号后发帖、回楼、私信都用小号）
   const myAltName = () => String(forumMe.altName || "").trim() || "一只不说话的鱼";
-  const usingAlt = post => !(post && (post.board === "匿名吧" || post.anon)) && (!!(post && post.alt && post.authorType === "me") || forumMe.using === "alt");
+  // 回帖用哪个号【只看她现在切的是哪个】（2026-10-07 群友：「主页已经切了大号，去评论小号的帖子，还都显示小号」）——
+  //   原来在自己小号的帖下一律强制小号，她切回大号也没用。
+  const usingAlt = post => !(post && (post.board === "匿名吧" || post.anon)) && forumMe.using === "alt";
   const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : (forumMe.handle || profile.name || "我");
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
