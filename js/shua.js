@@ -156,6 +156,20 @@
       : k === "charge" ? h("path", { fill: on ? c : "none", d: "M13 3L5 13.5h6L10 21l9-11h-6z" })
       : null);
 
+  // ── 收藏夹那一排：真的文件夹（她 2026-10-07：「你这收藏夹还是胶囊啊」；tabs-not-plain-pills）──
+  //   上面一只耳朵、下面一个夹身。选中的那个是【打开的】：整个往上抬一截、着色，夹身里冒出一张纸；
+  //   没选的平躺在一排、只描边。新建那个是虚线的空夹子。长按挑文件夹那一排用同一个，小一号。
+  function FolderTab({ name, count, on, dashed, small, onClick, P, onInk }) {
+    const w = small ? 62 : 78, hb = small ? 36 : 48;
+    const line = dashed ? "1.5px dashed " + P.line : "1.5px solid " + (on ? P.accent : P.line);
+    return h("button", { onClick, className: "active:opacity-70 shrink-0 flex flex-col", style: { width: w, paddingTop: on ? 0 : 6, minHeight: 44, transition: "padding .15s" } },
+      h("span", { style: { display: "block", width: "42%", height: small ? 6 : 8, borderRadius: "5px 6px 0 0", border: line, borderBottom: "none", background: on ? P.accent : "transparent" } }),
+      h("span", { style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", width: "100%", height: hb, marginTop: -1, borderRadius: "0 8px 8px 8px", border: line, background: on ? P.accent : "transparent", padding: "0 7px " + (small ? 4 : 6) + "px", overflow: "hidden", textAlign: "left" } },
+        on ? h("span", { style: { position: "absolute", left: 8, right: 8, top: -1, height: small ? 6 : 8, borderRadius: "0 0 3px 3px", background: onInk, opacity: .85 } }) : null,
+        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: small ? 11.5 : 12.5, fontWeight: on ? 700 : 400, color: on ? onInk : dashed ? P.dim : P.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name),
+        count != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? onInk : P.dim, opacity: on ? .85 : 1 } }, count + " 条") : null));
+  }
+
   // ── 一条视频（整屏那一格）─────────────────────────────────
   function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
     const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
@@ -756,7 +770,9 @@
     else if (tab === "fav") body = (function () {
       const folders = arr(db.folders);
       const inF = folder === "all" ? favAll : folder === "none" ? favAll.filter(v => !v.folder || !folders.some(f => f.id === v.folder)) : favAll.filter(v => v.folder === folder);
-      const chip = (k, label) => h("button", { key: k, onClick: () => setFolder(k), className: "active:opacity-60 shrink-0", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, background: folder === k ? P.accent : "transparent", border: "1px solid " + (folder === k ? P.accent : P.line), color: folder === k ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12.5 } }, label);
+      const onInk = skin === "b" ? B.card : INK;
+      const unsorted = favAll.filter(v => !v.folder || !folders.some(f => f.id === v.folder)).length;
+      const chip = (k, label, n) => h(FolderTab, { key: k, name: label, count: n, on: folder === k, onClick: () => setFolder(k), P, onInk });
       const newFolder = () => { const name = S(fName).trim(); if (!name) return; setFName(null); const id = uid("fd"); save(Object.assign({}, dbRef.current, { folders: arr(dbRef.current.folders).concat([{ id, name }]) })); setFolder(id); };
       const delFolder = f => { const go = () => { save(Object.assign({}, dbRef.current, { folders: arr(dbRef.current.folders).filter(x => x.id !== f.id), videos: dbRef.current.videos.map(v => v.folder === f.id ? Object.assign({}, v, { folder: "" }) : v) })); setFolder("all"); };
         const ask = "不要文件夹「" + f.name + "」了？";
@@ -764,11 +780,11 @@
       const cur = folders.find(f => f.id === folder);
       return h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
         h(Head, { zh: "收藏", bg: "transparent", ink: P.ink, right: cur ? h("button", { onClick: () => delFolder(cur), style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "删这个文件夹") : null }),
-        h("div", { className: "shrink-0 flex items-center", style: { gap: 8, overflowX: "auto", padding: "4px 14px 10px", whiteSpace: "nowrap" } },
-          chip("all", "全部 " + favAll.length), folders.map(f => chip(f.id, f.name)), folders.length ? chip("none", "没分的") : null,
-          fName === null ? h("button", { onClick: () => setFName(""), className: "active:opacity-60 shrink-0", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px dashed " + P.line, color: P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, "＋ 新文件夹")
+        h("div", { className: "shrink-0 flex items-end", style: { gap: 10, overflowX: "auto", padding: "2px 14px 12px", whiteSpace: "nowrap" } },
+          chip("all", "全部", favAll.length), folders.map(f => chip(f.id, f.name, favAll.filter(v => v.folder === f.id).length)), folders.length ? chip("none", "没分的", unsorted) : null,
+          fName === null ? h(FolderTab, { name: "＋ 新建", dashed: true, onClick: () => setFName(""), P, onInk })
             : h("span", { className: "shrink-0 flex items-center", style: { gap: 6 } },
-              h("input", { autoFocus: true, value: fName, onChange: e => setFName(e.target.value), onKeyDown: e => { if (e.key === "Enter") newFolder(); }, placeholder: "叫什么", style: { width: 96, minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + P.line, background: "transparent", color: P.ink, fontFamily: F_BODY, fontSize: 16 } }),
+              h("input", { autoFocus: true, value: fName, onChange: e => setFName(e.target.value), onKeyDown: e => { if (e.key === "Enter") newFolder(); }, placeholder: "叫什么", style: { width: 96, minHeight: 36, padding: "0 10px", borderRadius: 8, border: "1px solid " + P.line, background: "transparent", color: P.ink, fontFamily: F_BODY, fontSize: 16 } }),
               h("button", { onClick: newFolder, className: "active:opacity-60", style: { minHeight: 32, padding: "0 10px", color: P.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "建"),
               h("button", { onClick: () => setFName(null), className: "active:opacity-60", style: { minHeight: 32, padding: "0 6px", color: P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, "算了"))),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 10px 16px" } },
@@ -785,8 +801,8 @@
                 !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.88)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene || v.caption) : null,
                 h("div", { style: { position: "absolute", left: 8, bottom: 6, right: 8, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + v.author)),
             (function () { const f = folders.find(x => x.id === v.folder); return f && folder === "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, "在「" + f.name + "」") : null; })(),
-            picking === v.id ? h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-              folders.length ? folders.map(f => h("button", { key: f.id, onClick: () => { patchV(v.id, x => Object.assign({}, x, { folder: x.folder === f.id ? "" : f.id })); setPicking(null); }, className: "active:opacity-60", style: { minHeight: 30, padding: "0 10px", borderRadius: 999, background: v.folder === f.id ? P.accent : "transparent", border: "1px solid " + (v.folder === f.id ? P.accent : P.line), color: v.folder === f.id ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12 } }, f.name))
+            picking === v.id ? h("div", { className: "flex flex-wrap items-end", style: { gap: 8 } },
+              folders.length ? folders.map(f => h(FolderTab, { key: f.id, small: true, name: f.name, on: v.folder === f.id, P, onInk, onClick: () => { patchV(v.id, x => Object.assign({}, x, { folder: x.folder === f.id ? "" : f.id })); setPicking(null); } }))
                 : h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim } }, "先在上面建个文件夹"),
               h("button", { onClick: () => setPicking(null), className: "active:opacity-60", style: { minHeight: 30, padding: "0 6px", color: P.dim, fontFamily: F_BODY, fontSize: 12 } }, "收起")) : null))) :
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 20px", lineHeight: 1.6 } }, favAll.length ? "这个文件夹还是空的。在「全部」里长按一条视频，就能把它放进来" : "还没收藏过，刷到喜欢的点星星")));

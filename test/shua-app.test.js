@@ -150,3 +150,11 @@ test("片刻／直播多人那一段走群聊公共的人设拼法，不另起�
   assert.match(blk, /groupNowSegs\(c, /);
   assert.doesNotMatch(blk, /persona \|\| ""\)\.slice\(0, 2500\)/);
 });
+
+test("收藏夹那一排是文件夹，不是药丸", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(src, /function FolderTab\(/);
+  const fav = src.slice(src.indexOf('tab === "fav"'), src.indexOf('tab === "msg"'));
+  assert.doesNotMatch(fav, /borderRadius: 999/);
+  assert.match(fav, /h\(FolderTab, \{ key: f\.id, small: true/);
+});
