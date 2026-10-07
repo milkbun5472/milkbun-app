@@ -95,5 +95,18 @@
     return { words: [], acts: list };
   }
 
-  return { split, couldBeAct, hasActEvidence, pullLabeled };
+  // 反方向：动描那一行（「此刻在做什么」）里塞进来的是【台词】。
+  // 群里有人报 2026-10-07：「对话被中间的那个气泡包裹了」——模型把要说的话写进了 action，
+  //   居中那行就成了「某某 要不送你抱回家练臂力」。
+  // 认台词只靠说话的痕迹：对着人说（你/您）、问号叹号引号、句尾语气词。
+  // ⚠️宁可漏判：认不出来就照旧是动描，维持现状。「一个气泡都没有」不算证据——
+  //   有人这一拍确实只动不说（「我低头刷手机」），挪成气泡就成了他发出去的消息。
+  const TAIL_PARTICLE = /[吧呢啊嘛呀哦哈啦咯呗噢喔]$|[~～…]$/;
+  function spokenAction(value) {
+    const text = clean(value).replace(/[。，,.]+$/, "");
+    if (!text) return false;
+    return SECOND_PERSON.test(text) || SPEAKING.test(text) || TAIL_PARTICLE.test(text);
+  }
+
+  return { split, couldBeAct, hasActEvidence, pullLabeled, spokenAction };
 });
