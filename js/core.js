@@ -826,16 +826,27 @@ async function extractPdfText(file, onProg, opts) {
   let total = 0;
   for (let p = 1; p <= lastPage; p++) {
     const tc = await (await pdf.getPage(p)).getTextContent();
-    let line = "", lastY = null;
+    let line = "", lastY = null, lastH = 0;
     const rows = [];
     tc.items.forEach(it => {
       if (typeof it.str !== "string") return;
       const y = it.transform ? it.transform[5] : null;
+      const hgt = Math.abs((it.transform && it.transform[3]) || it.height || 0);
+      // 上标／下标（群友 2026-10-07：单词右上角的考频数字读不出来）：字比这一行小、只挪了不到一行高。
+      //   原来 y 一跳就当换行，「deep¹³」被拆成「deep」「13」两行，后面半行又另起一行。
+      //   现在照原样贴在这个词后面，写成 deep^13 / x_2，不动这一行的基线。
+      const dy = lastY !== null && y !== null ? y - lastY : 0;
+      if (line && lastH && hgt && hgt < lastH * 0.85 && Math.abs(dy) > 0.5 && Math.abs(dy) < lastH * 0.8 && it.str.trim()) {
+        line += (dy > 0 ? "^" : "_") + it.str.trim();
+        if (it.hasEOL) { rows.push(line); line = ""; lastY = null; }
+        return;
+      }
       // 换行：pdf.js 给了 EOL，或 y 坐标跳了一行
-      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && line) { rows.push(line); line = ""; }
+      if (lastY !== null && y !== null && Math.abs(dy) > 2 && line) { rows.push(line); line = ""; }
       line += it.str;
       if (it.hasEOL) { rows.push(line); line = ""; }
       lastY = y;
+      if (hgt && it.str.trim()) lastH = hgt;
     });
     if (line) rows.push(line);
     const body = rows.join("\n");
