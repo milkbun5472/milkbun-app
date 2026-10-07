@@ -28127,7 +28127,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 路人那一批 / 她发的那条底下认识的人评论：料全放 system，user 只留一句触发
       ask: async (system, schemaHint, charId) => {
         if (!active) throw new Error("请先到设置配置 API");
-        const raw = await callAI(charId ? apiFor(charId) : active, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "shua" });
+        // 这一路都是旁支（路人那一批、熟人评论、小号被刷到）：她选过后台线路就走那条便宜的（她 2026-10-07：「这个费用没法减吗」）
+        const route = (routePicked(bgApiId) && bgActive) ? bgActive : (charId ? apiFor(charId) : active);
+        const raw = await callAI(route, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "shua" });
         const d = extractJSON(raw);
         if (!d) throw new Error("这一批没写出来，再点一次");
         return d;

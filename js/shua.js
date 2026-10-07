@@ -54,15 +54,19 @@
   // ── 提示词（料全在 system / 推演任务里，user 只有一句触发）────────────
   // 横屏那套：同一个人、同一份生活，只是平台的样子不一样——是有标题、有简介、按分区放的那种长一点的视频
   const B_EXTRA = "\n这是一个以横屏中长视频为主的平台：视频有标题、有简介、有分区，看的人会在画面上发弹幕。所以另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
+  const FRIENDS_ADD = ',"friends":[{"name":"","text":""}]';
   const B_SHAPE_ADD = ',"title":"","intro":"","dur":"08:24","plays":0,"zone":"","dms":[""]';
   const CHAR_SHAPE = '{"handle":"","scene":"","who":"self","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
-  function charInstruction(handle, skin) {
+  function charInstruction(handle, skin, friends) {
     return "你在一个叫「" + APP_NAME + "」的短视频平台上有账号" + (handle ? "，账号名「" + handle + "」" : "") + "。你现在发一条新视频。"
       + "拍什么、怎么拍、配什么文案，都从你此刻真实的生活和你这个人身上长出来——你今天在干嘛、最近心里装着什么、你这种人平时会不会发这种。"
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
       + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
       + "底下的评论 comments（3~6 条：name 是刷到这条的网友的网名，text 是他们说的话；各人各说各的，不是一个调子）。"
-      + (skin === "b" ? B_EXTRA : "");
+      + (skin === "b" ? B_EXTRA : "")
+      // 熟人来评并进这一枪里（她 2026-10-07 嫌多调一次贵）：认识TA的那几个人评不评、评什么，TA这一枪顺手写
+      + (friends && friends.length ? "\n认识你的人里，这几个也在刷「" + APP_NAME + "」，可能刷到这条：" + friends.map(f => f.name + (f.rel ? "（" + f.rel + "）" : "")).join("、")
+        + "。他们评不评、评什么、当着网友的面说成什么样，照他们跟你的关系来，写进 friends（name 只能是这几个；一个都没刷到就空着）。" : "");
   }
   const NPC_SHAPE = '{"videos":[{"author":"","scene":"","who":"none","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}]}';
   function npcSystem(uName, persona, n, skin) {
@@ -83,19 +87,13 @@
       + "\n你回不回、怎么回（当着所有人的面），照你这个人来；不想回就把 reply 留空。";
   }
   // 她小号发的视频，TA刷到了（她 2026-10-07 选的第 1 条）：认不认得出是她，全看TA对她的了解
-  const SPOT_SHAPE = '{"comment":"","recognized":false,"why":""}';
-  function spotInstruction(v, alt, uName) {
-    return "你在「" + APP_NAME + "」上刷到一个叫「" + alt + "」的账号发的视频。拍的是：" + v.scene + (v.caption ? "；文案：" + v.caption : "") + "。"
-      + "\n这个号你没关注过，粉丝很少。它是不是 " + uName + " 的小号，你只能从这条视频本身（拍的东西、说话的口气、里面的细节）和你对她的了解去判断——认不出来再正常不过。"
-      + "\n写：你会不会在底下评论 comment（不评就空着；评的话是公开的，你用你自己的号评）、你觉得这是不是她 recognized（true/false）、为什么这么觉得 why（一句，心里想的，不会被看到）。";
-  }
-  // TA发的视频底下，认识TA的人刷到了（她 2026-10-07 选的第 1 条的另一半）
-  function acqSystem(v, host, others, briefs, relOf) {
+  const SPOT_SHAPE = '{"spots":[{"name":"","comment":"","recognized":false,"why":""}]}';
+  function spotSystem(v, alt, uName, chars, briefs) {
     return AC() + CB()
-      + "【场景】" + host.name + "在「" + APP_NAME + "」上发了一条视频（账号「" + v.author + "」）。拍的是：" + v.scene + (v.caption ? "\n文案：" + v.caption : "")
-      + "\n\n下面这几个人都认识 " + host.name + "，都刷到了这条。评不评、评什么、当着别人的面说成什么样，照各自的性子和跟 " + host.name + " 的关系来；不想评的就不写。"
-      + "\n\n" + others.map((c, i) => briefs[i] + (relOf(host.id, c.id) ? "\n跟 " + host.name + " 的关系：" + relOf(host.id, c.id) : "")).join("\n\n")
-      + "\n\n写：comments（name 只能是：" + others.map(c => c.name).join("、") + "）。";
+      + "【场景】下面这几个人都认识 " + uName + "。他们在「" + APP_NAME + "」上各自刷到了一个叫「" + alt + "」的账号发的视频：" + v.scene + (v.caption ? "；文案：" + v.caption : "") + "。"
+      + "\n这个号谁都没关注过，粉丝很少。它是不是 " + uName + " 的小号，每个人只能从这条视频本身（拍的东西、口气、细节）和自己对她的了解去判断——认不出来再正常不过，各人各判，不必一致。"
+      + "\n\n" + briefs.join("\n\n")
+      + "\n\n每人写一项 spots：name（只能是：" + chars.map(c => c.name).join("、") + "）、comment 会不会在底下评论（不评就空着；评的话是公开的，用自己的号评）、recognized 觉得是不是她（true/false）、why 为什么这么觉得（一句，心里想的，不会被看到）。";
   }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
   function mineSystem(v, uName, chars, briefs) {
@@ -279,7 +277,7 @@
     const altName = S(db.me && db.me.altHandle);
     const onAlt = !!(altName && db.me && db.me.using === "alt");
     const myName = onAlt ? altName : (S(db.me && db.me.handle) || uName);
-    const shapeChar = sk => sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + "}") : CHAR_SHAPE;
+    const shapeChar = (sk, withFriends) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + "}");
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
     // 请TA们发：每人一条，各走自己那一整份料
@@ -296,16 +294,24 @@
       const one = c => {
         const acc = (dbRef.current.accounts || {})[c.id] || {};
         const timeout = new Promise(res => setTimeout(() => res(null), 180000));
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk), shapeChar(sk)).catch(() => null), timeout]).then(d => {
+        // 有关系的优先，最多三个；没关系网就随便两个——不是每条都有人刷到，所以一半的时候不递
+        const others = characters.filter(x => x.id !== c.id);
+        const tied = others.filter(x => props.relOf && props.relOf(c.id, x.id));
+        const friends = Math.random() < 0.5 ? (tied.length ? tied : others).slice().sort(() => Math.random() - 0.5).slice(0, tied.length ? 3 : 2)
+          .map(x => ({ id: x.id, name: x.name, rel: props.relOf ? props.relOf(c.id, x.id) : "" })) : [];
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, friends), shapeChar(sk, friends.length > 0)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
           const handle = S((accounts[c.id] || {}).handle) || S(d.handle).slice(0, 20) || c.name;
           accounts[c.id] = Object.assign({}, accounts[c.id], { handle });
           const nv = mkVideo(d, { by: "char", charId: c.id, author: handle, skin: sk });
+          arr(d.friends).forEach(f => {
+            const fr = f && friends.find(x => x.name === S(f.name));
+            if (fr && S(f.text)) nv.comments.push({ id: uid("cm"), name: S(((dbRef.current.accounts || {})[fr.id] || {}).handle) || fr.name, text: S(f.text).slice(0, 300), by: "char", charId: fr.id, ts: Date.now() });
+          });
           save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
           names.push(c.name);
-          acquaint(c, nv);
         });
       };
       try {
@@ -345,34 +351,21 @@
     };
     // 她小号发的那条：几个人里随缘有一两个刷到。评了她看得见；认出来了只记在TA心里，她不会被告知
     const spotAlt = async (v, alt) => {
+      // 一枪写完（她 2026-10-07 嫌贵）：随缘挑一两个人，各自一份短人设，各写各的评不评、认没认出来
       const pool = characters.slice().sort(() => Math.random() - 0.5).slice(0, 2).filter(() => Math.random() < 0.45);
-      for (const c of pool) {
-        try {
-          const d = await props.probeAs(c, spotInstruction(v, alt, uName), SPOT_SHAPE);
-          const cm = S(d && d.comment).slice(0, 300);
+      if (!pool.length || !props.ask) return;
+      try {
+        const r = await props.ask(spotSystem(v, alt, uName, pool, pool.map(props.briefFor)), SPOT_SHAPE, pool[0].id);
+        arr(r && r.spots).forEach(d => {
+          const c = d && pool.find(x => x.name === S(d.name)); if (!c) return;
+          const cm = S(d.comment).slice(0, 300);
           const handle = S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name;
           if (cm) { patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: handle, text: cm, by: "char", charId: c.id, ts: Date.now() }]) })); note(handle + " 评论了你小号的视频：" + cm); }
-          if (d && d.recognized === true && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」上刷到一个叫「" + alt + "」的小号发的视频（拍的是：" + S(v.scene).slice(0, 60) + "），你觉得那是 " + uName + " 的小号" + (S(d.why) ? "——" + S(d.why).slice(0, 80) : "") + "。她不知道你认出来了。");
-        } catch (e) {}
-      }
-    };
-    // TA发的那条：认识TA的人里，有关系的优先，挑两三个，一枪写完他们评不评。不是每条都有人刷到
-    const acquaint = async (host, v) => {
-      if (!props.ask || Math.random() > 0.5) return;
-      const others = characters.filter(c => c.id !== host.id);
-      const tied = others.filter(c => props.relOf && props.relOf(host.id, c.id));
-      const pick = (tied.length ? tied : others).slice().sort(() => Math.random() - 0.5).slice(0, 3);
-      if (!pick.length) return;
-      try {
-        const r = await props.ask(acqSystem(v, host, pick, pick.map(props.briefFor), props.relOf || (() => "")), MINE_SHAPE.replace(',"likes":0', ""), host.id);
-        const names = pick.map(c => c.name);
-        const cms = arr(r && r.comments).filter(x => x && names.indexOf(S(x.name)) >= 0 && S(x.text)).map(x => {
-          const c = pick.find(cc => cc.name === S(x.name));
-          return { id: uid("cm"), name: S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name, text: S(x.text).slice(0, 300), by: "char", charId: c.id, ts: Date.now() };
+          if (d.recognized === true && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」上刷到一个叫「" + alt + "」的小号发的视频（拍的是：" + S(v.scene).slice(0, 60) + "），你觉得那是 " + uName + " 的小号" + (S(d.why) ? "——" + S(d.why).slice(0, 80) : "") + "。她不知道你认出来了。");
         });
-        if (cms.length) patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).concat(cms) }));
       } catch (e) {}
     };
+
     // 她发一条：认识她的人刷到了
     const postMine = async d => {
       const v = mkVideo({ scene: d.scene, caption: d.caption, who: d.who, title: d.title, tags: (d.caption.match(/#([^\s#]+)/g) || []).map(x => x.slice(1)) }, { by: "me", author: myName, likes: 0, comments: [], skin });
