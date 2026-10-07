@@ -181,3 +181,10 @@ test("同城算上架空世界；刷新在同城就刷这座城；带今天日�
   assert.match(pane, /"aria-label": "更多"/);
   assert.match(pane, /textAlign: "center"/);
 });
+
+test("聊天里的视频卡画面铺满卡宽", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const card = src.slice(src.indexOf("function ShuaShareCard"), src.indexOf("window.ShuaShareCard"));
+  assert.doesNotMatch(card, /aspectRatio/);
+  assert.match(card, /width: "100%", height: v\.skin === "b"/);
+});
