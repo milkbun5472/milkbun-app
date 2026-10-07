@@ -35,3 +35,7 @@ test("TA也在忙、溜号、做完没、攒点、日历都接上了", () => {
   assert.match(app, /onEarn: charId => \{ try \{ return gachaEarn\(charId, "focus"\);/);
   assert.match(gacha, /focus: 40 \}/);
 });
+test("日历下面「让TA点评」：点了才调一次，按人存最近一句", () => {
+  assert.match(src, /saveJSON\("x_pomoCalNote", n\)/);
+  assert.match(src, /"data-wk": "pomcalask", onClick: askReview/);
+});
