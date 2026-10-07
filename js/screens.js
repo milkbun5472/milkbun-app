@@ -6535,7 +6535,6 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     //   交叠带的起点就是 (D-OVER)/D，弧只取上半圈 → 上半左压右、下半右压左＝扣住了。
     const A = 62, RING = 3, GAP = 2, OVER = 18;
     const D = A + 2 * (RING + GAP);
-    const weaveFrom = Math.round((D - OVER) / D * 100);
     const ringA = t.accent || "#c26b7a", ringB = t.tint || "#6f7fb0";
     const ringed = (ch, ring, ml) => h("div", { style: { marginLeft: ml || 0, width: D, height: D, borderRadius: 999, background: ring, boxShadow: "0 3px 12px rgba(0,0,0,.26)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
       // 环和照片之间留一圈极浅的缝：封面再花，这两张脸也分得开
@@ -6555,9 +6554,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
         h("div", { style: { position: "relative", height: 150 } },
           h("div", { style: { position: "absolute", left: 22, bottom: -30, zIndex: 2, display: "flex", alignItems: "flex-end" } },
             ringed(paChar, ringA),
-            ringed(myChar, ringB, -OVER),
-            // 交叠那一段：把左边那枚环的右半弧再画一次，压在右边这枚上面 → 两枚扣住了
-            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, bottom: 0, width: D, height: D, borderRadius: 999, border: RING + "px solid " + ringA, clipPath: "polygon(" + weaveFrom + "% 0," + weaveFrom + "% 50%,100% 50%,100% 0)", pointerEvents: "none" } }))),
+            ringed(myChar, ringB, -OVER))),
+            // 原来这儿还画了一道「两枚扣住」的交叠弧；她 2026-10-07 转来截图说串了（那道弧压在右边那张脸上），拿掉，两枚就是并排压着
         // ⭐这就是那条边界：一张有上沿的纸，从封面带底下探出来、盖着往上滚。
         //   paddingTop 让正文避开压在沿上的那两枚头像；纸是半透明的，封面照样透着。
         //   「纸做成磨砂」是个选项（✎ 里开，默认关）：开了封面透过来是糊开的一片颜色。
