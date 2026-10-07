@@ -4349,6 +4349,62 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
     nav === "near" ? nearView : ordersView,
     bottomNav);
 }
+// 她给 TA 的亲属卡（2026-10-07）：没开过就是开卡那一页，开过了就是这张卡的账单＋几颗键。
+// 从钱包进来没挑人的时候，先挑给谁。
+function MyKinPage({ characters, cards, charId, wallet, onPick, onIssue, onEdit, onBack }) {
+  const t = useTheme();
+  const [limit, setLimit] = useState("2000");
+  const [note, setNote] = useState("");
+  const [daily, setDaily] = useState(false);
+  const [newLimit, setNewLimit] = useState("");
+  const c = charId ? characters.find(x => x.id === charId) : null;
+  const card = c ? (cards || []).find(x => x.charId === c.id) : null;
+  const shell = (title, kids) => h("div", { className: "h-full flex flex-col", style: DESK(t.accent) },
+    h(Head, { zh: title, bg: "transparent", onBack }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } }, kids));
+  const btn = (label, fn, strong, dis) => h("button", { onClick: fn, disabled: dis, className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 12, border: "1px solid " + (strong ? t.ink : t.line), background: strong ? t.ink : t.bg2, color: strong ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 13, opacity: dis ? .45 : 1 } }, label);
+  const field = (val, set, ph, num) => h("input", { value: val, onChange: e => set(e.target.value), placeholder: ph, inputMode: num ? "numeric" : undefined, className: "w-full outline-none",
+    style: { minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 13px", fontFamily: F_BODY, fontSize: 14 } });
+  const label = x => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "18px 0 8px" } }, x);
+  if (!c) return shell("给 TA 开亲属卡", [
+    label("给谁开"),
+    h("div", { key: "p", className: "flex flex-wrap", style: { gap: 12 } }, characters.map(x => {
+      const has = (cards || []).some(k => k.charId === x.id);
+      return h("button", { key: x.id, onClick: () => onPick(x.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } },
+        h(Avatar, { character: x, size: 46 }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.remark || x.name),
+        has ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.accent } }, "已开") : null);
+    }))]);
+  if (!card) return shell("给 " + c.name + " 开亲属卡", [
+    h("div", { key: "f", style: { marginTop: 10 } }, h(KinshipCardFace, { character: c, limit: Number(limit) || 0, used: null, note })),
+    label("额度（从你的钱包里花，你的钱包现在有 " + mTight(wallet) + "）"), field(limit, setLimit, "比如 2000", true),
+    label("想说的一句（会签在卡背面）"), field(note, setNote, "不写也行"),
+    h("div", { key: "d", className: "flex items-center justify-between", style: { marginTop: 18, gap: 12 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, "平时花钱也能刷"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "关着：只有聊天时 TA 想刷才刷。开着：TA 每天的开销里也可能刷你的卡，第二天一起告诉你。")),
+      h(Toggle, { on: daily, onChange: () => setDaily(v => !v) })),
+    h("div", { key: "go", style: { marginTop: 24 } }, btn("把卡递给 " + c.name, () => onIssue(c.id, Number(limit) || 0, note.trim(), daily), true, !(Number(limit) > 0)))]);
+  const ledger = card.ledger || [];
+  return shell(c.name + " 手里的亲属卡", [
+    h("div", { key: "f", style: { marginTop: 10, opacity: card.frozen ? .55 : 1 } }, h(KinshipCardFace, { character: c, limit: card.limit, used: card.used || 0, note: card.note })),
+    card.frozen ? h("div", { key: "fz", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, marginTop: 8 } }, "冻结中：TA 现在刷不了") : null,
+    h("div", { key: "b", className: "flex flex-wrap", style: { gap: 8, marginTop: 14 } },
+      btn(card.frozen ? "解冻" : "冻结", () => onEdit(c.id, card.frozen ? "unfreeze" : "freeze")),
+      btn(card.daily ? "不让 TA 平时刷" : "平时花钱也能刷", () => onEdit(c.id, "daily")),
+      btn("收回", () => onEdit(c.id, "revoke"))),
+    label("调额度"),
+    h("div", { key: "l", className: "flex", style: { gap: 8 } }, h("div", { style: { flex: 1 } }, field(newLimit, setNewLimit, "新的总额度，现在是 " + card.limit, true)),
+      btn("改", () => { onEdit(c.id, "limit", Number(newLimit) || 0); setNewLimit(""); }, true, !(Number(newLimit) > 0))),
+    label("账单（" + ledger.length + " 笔）"),
+    ledger.length ? ledger.map(l => h("div", { key: l.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
+      h("div", { style: { flex: 1, minWidth: 0 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, l.item),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, new Date(l.ts).toLocaleString() + (l.source === "daily" ? " · 平时花钱" : " · 聊天时"))),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "-" + mTight(l.amount)),
+      h("button", { onClick: () => onEdit(c.id, "ask", l), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, minHeight: 36, padding: "0 4px" } }, "问问 TA"))) :
+      h("div", { key: "e", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "20px 0", textAlign: "center" } }, "TA 还一笔都没刷过")]);
+}
 function KinshipBill({ card, character, onBack, onRaise, onUnbind }) {
   const t = useTheme();
   const [asking, setAsking] = useState(false);
@@ -13249,7 +13305,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView }) {
+function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -13277,7 +13333,15 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
             const c = charById(cd.charId) || {};
             return h("button", { key: cd.charId, onClick: () => onOpenCard && onOpenCard(cd.charId), className: "w-full text-left active:opacity-80" },
               cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
-          })));
+          }),
+        // 她给出去的那几张（2026-10-07）：同一个卡包里的另一格，刷的是她的钱
+        onOpenMyKin ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "26px 4px 10px" } }, "我给出去的 · 刷的是我的钱") : null,
+        onOpenMyKin ? (myCards || []).map(cd => {
+          const c = charById(cd.charId) || {};
+          return h("button", { key: "my_" + cd.charId, onClick: () => onOpenMyKin(cd.charId), className: "w-full text-left active:opacity-80", style: { opacity: cd.frozen ? .55 : 1 } },
+            cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
+        }) : null,
+        onOpenMyKin ? h("button", { onClick: () => onOpenMyKin(null), className: "w-full active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13, marginTop: 6 } }, "＋ 给 TA 开一张") : null));
   }
   // 余额不是一张卡，是夹层里的那叠钱
   const faceCard = noteStack([

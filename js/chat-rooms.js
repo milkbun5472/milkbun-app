@@ -636,7 +636,7 @@
     return !room || room.main || !!(room.cognition && room.cognition[group]);
   }
   // 这些出口只实现了主线存档，不具备房间落点；提示和执行共用此表。
-  const MAIN_ONLY_FIELDS = ["moment", "momentComment", "transfer", "transferAccept", "gift", "takeout", "kinshipcard", "coupleInvite", "loveLetter", "whisper", "carve", "toGroup", "memo", "ledger", "health"];
+  const MAIN_ONLY_FIELDS = ["moment", "momentComment", "transfer", "transferAccept", "gift", "takeout", "kinshipcard", "herkinspend", "coupleInvite", "loveLetter", "whisper", "carve", "toGroup", "memo", "ledger", "health"];
   function allowsField(room, field) {
     return !room || room.main || !MAIN_ONLY_FIELDS.includes(field);
   }

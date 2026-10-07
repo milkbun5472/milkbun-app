@@ -8969,6 +8969,7 @@ function ChatThread({
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   onDateGo,      // 约会回执上的「出发」：点开才进见面
   onDateAnswer,  // TA约她的那张卡：好／改天
+  onMyKin,   // ＋面板「亲属卡」（她 2026-10-07）：给TA开一张，开过了就是那张卡的账单页
   onDateInvite, invitePlaces,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
   peekSneakOn, onToggleSneak,   // 递手机那张单子底下：允不允许TA偷偷翻
   peekPeople,    // 递手机前能一个个藏起来的聊天 [{id, name, group}]
@@ -9083,7 +9084,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -9128,6 +9129,9 @@ function ChatThread({
     } else if (k === "transfer") {
       setTransferOpen(true);
       setPanelOpen(false);
+    } else if (k === "mykin") {
+      setPanelOpen(false);
+      onMyKin();
     } else if (k === "peekphone") {
       setPanelOpen(false);
       setPeekOpen(true);
@@ -9668,6 +9672,11 @@ function ChatThread({
     if (m.kind === "kinbill") return h(KinshipSpendCard, { key: i, m: m, character: character });
     if (m.kind === "kinraise") return h(KinshipRaiseCard, { key: i, m: m, character: character });
     if (m.kind === "kinunbind") return h(KinshipUnbindCard, { key: i, m: m, character: character });
+    // 她给 TA 的那张卡（方向反过来，2026-10-07）
+    if (m.kind === "mykin") return h(MyKinIssueCard, { key: i, m: m, character: character });
+    if (m.kind === "mykinbill") return h(MyKinSpendCard, { key: i, m: m, character: character });
+    if (m.kind === "mykindaily") return h(MyKinDailyCard, { key: i, m: m, character: character });
+    if (m.kind === "mykinedit") return h(MyKinEditCard, { key: i, m: m, character: character });
     if (m.kind === "paylater") return h(PayLaterCard, { key: i, m: m });
     if (m.kind === "couple_invite") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
       h(CoupleInviteCard, { m: m, character: character, asking: askingCouple === m.cid, onAsk: onAskCouple }),
@@ -13564,6 +13573,61 @@ function KinshipIssueCard({ m, character }) {
 // 可这条不是系统在说话，是【TA的卡被刷了】这件事本身。
 // 现实里对应的东西是刷卡短信：谁的卡、买了什么、多少钱、还剩多少。就照那个来，
 // 而且跟卡面同一套语言（TA的颜色那一道、TA的脸），一眼看得出说的是同一张卡。
+// ── 她给 TA 的亲属卡：那几张聊天卡（2026-10-07）──────────────────────────
+// 卡面还是那一张副卡（持卡人是TA，所以上面是TA的名字和脸），只是这回是她递出去的。
+function MyKinIssueCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  return h("div", { className: "my-2 flex justify-center px-6" },
+    h("div", { style: { width: "100%", maxWidth: 268 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginBottom: 6 } }, "你给了 " + (c.name || "TA") + " 一张亲属卡" + (m.daily ? " · 平时花钱也能刷" : "")),
+      h(KinshipCardFace, { character: c, limit: m.limit, used: null, note: m.note })));
+}
+function MyKinSpendCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const ink = m.ok ? (c.color || "#6b7a8f") : "#b9a7a2";
+  return h("div", { className: "my-2 flex justify-center px-6" },
+    h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { className: "flex" },
+        h("div", { style: { width: 3, background: ink, flexShrink: 0 } }),
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { padding: "10px 13px 11px" } },
+            h("div", { className: "flex items-center", style: { gap: 7, marginBottom: 8 } },
+              h(Avatar, { character: c, size: 20, radius: 6 }),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (c.name || "TA") + (m.ok ? " 刷了你的亲属卡" : " 刷你的亲属卡 · 没刷过"))),
+            h("div", { className: "flex items-end", style: { gap: 10 } },
+              h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.35, color: t.ink } }, m.item || "一笔消费"),
+              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.1, color: m.ok ? t.ink : t.fog, whiteSpace: "nowrap", textDecoration: m.ok ? "none" : "line-through" } }, "-" + mTight(m.amount || 0)))),
+          h("div", { style: { padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } },
+            m.ok ? "已从你的钱包扣除" + (m.remain == null ? "" : " · 卡上还剩 " + mTight(m.remain)) : (m.why || "没刷过"))))));
+}
+function MyKinDailyCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const items = Array.isArray(m.items) ? m.items : [];
+  const total = items.filter(x => x.ok).reduce((n, x) => n + (Number(x.amount) || 0), 0);
+  return h("div", { className: "my-2 flex justify-center px-6" },
+    h("div", { "data-wk": "card", style: { width: "100%", maxWidth: 268, borderRadius: 12, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { className: "flex items-center", style: { gap: 7, padding: "10px 13px 6px" } },
+        h(Avatar, { character: c, size: 20, radius: 6 }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (c.name || "TA") + " " + (m.day || "") + " 平时花钱刷了你的卡")),
+      items.map((x, i) => h("div", { key: i, className: "flex items-baseline", style: { gap: 8, padding: "4px 13px" } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, color: x.ok ? t.ink : t.fog } }, x.item + (x.ok ? "" : "（没刷过：" + (x.why || "") + "）")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: x.ok ? t.ink : t.fog, textDecoration: x.ok ? "none" : "line-through" } }, "-" + mTight(x.amount || 0)))),
+      h("div", { style: { marginTop: 6, padding: "6px 13px 7px", borderTop: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "一共从你的钱包扣了 " + mTight(total))));
+}
+function MyKinEditCard({ m, character }) {
+  const t = useTheme();
+  const c = character || {};
+  const what = m.action === "limit" ? "把额度改成了 " + mTight(m.limit || 0)
+    : m.action === "freeze" ? "冻结了这张卡" : m.action === "unfreeze" ? "解冻了这张卡"
+    : m.action === "daily" ? (m.daily ? "允许 TA 平时花钱也刷" : "不再让 TA 平时花钱刷")
+    : m.action === "revoke" ? "把卡收回来了" : m.action === "ask" ? "拿着账单问：「" + (m.item || "") + "」-" + mTight(m.amount || 0) : "";
+  return h("div", { className: "my-2 flex justify-center px-6" },
+    h("div", { "data-wk": "card", style: { maxWidth: 268, borderRadius: 999, padding: "6px 13px", background: t.bg2, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, textAlign: "center" } },
+      "给 " + (c.name || "TA") + " 的亲属卡 · " + what));
+}
 function KinshipSpendCard({ m, character }) {
   const t = useTheme();
   const c = character || {};
@@ -14027,6 +14091,7 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     magnifier: [C(10.8, 10.8, 6.4), P("M15.4 15.4L20.5 20.5")],
     grid: [R(4, 4, 7, 7, 1.6), R(13, 4, 7, 7, 1.6), R(4, 13, 7, 7, 1.6), R(13, 13, 7, 7, 1.6)],
     bill: [R(2.8, 6.4, 18.4, 11.2, 2), C(12, 12, 2.6), P("M6.4 10v4M17.6 10v4")],
+    card: [R(2.8, 6, 18.4, 12, 2.2), P("M2.8 10.2h18.4M6.2 14.8h4.6")],
     hand: [P("M8.4 12.6V6.3a1.6 1.6 0 013.2 0v5.1"), P("M11.6 11.4V5.3a1.6 1.6 0 013.2 0v6.1"), P("M14.8 11.7V7.5a1.6 1.6 0 013.2 0v6.8c0 3.5-2.4 6-5.7 6-2.4 0-3.9-.9-5.2-2.7l-2.2-3a1.6 1.6 0 012.5-2l1.4 1.6")],
     bars: [P("M4 20.2h16"), P("M7.4 20.2v-8.4M12 20.2V5.4M16.6 20.2v-5.6")],
     packet: [R(4.2, 3.6, 15.6, 16.8, 2.4), P("M4.2 10.2h15.6"), C(12, 14.2, 2.2)],

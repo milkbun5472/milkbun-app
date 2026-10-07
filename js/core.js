@@ -576,7 +576,7 @@ const SCREEN_ZH = {
   thread: "单聊", gthread: "群聊",
   contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
   phone: "查手机", shop: "购物", takeout: "外卖", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",
-  cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", ledger: "记账",
+  cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", mykin: "给TA的亲属卡", ledger: "记账",
   calendar: "日历", memo: "备忘录", map: "好友地图",
   listen: "一起听", musiccard: "一起听那张卡的背面",
   diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答", anonme: "我的匿名主页",

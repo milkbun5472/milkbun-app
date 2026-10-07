@@ -728,6 +728,7 @@ function App() {
   // 情侣：多角色各一份 { [charId]: { status:"pending"|"together", since } }
   const [couples, setCouples] = useState({});
   const [wallet, setWallet] = useState(200);
+  const walletRef = useRef(200); walletRef.current = wallet;   // 刷她亲属卡时要读最新余额（回调里不读渲染期那份）
   // ============================================================
   // 外卖 Takeout —— 按饭点刷店 / 一次只在一家店里凑一单 / 骑手按分钟送
   // ============================================================
@@ -836,6 +837,10 @@ function App() {
   // 收藏的消息 x_favorites：[{id,charId,role,content,kind,url,keyword,ts,savedTs}]
   const [favorites, setFavorites] = useState([]);
   const [kinshipCards, setKinshipCards] = useState([]); // 收到的亲属卡 [{charId,cardName,limit,used,ledger:[]}]
+  // 她给出去的亲属卡（她 2026-10-07：「我也可以给角色亲属卡，然后后续的联动」）。方向跟上面那份反过来：
+  //   [{charId, cardId, limit, used, ledger:[{id,ts,amount,item,source:"chat"|"daily"}], issuedTs, note, daily, frozen}]
+  const [myKinCards, setMyKinCards] = useState([]);
+  const myKinRef = useRef([]); myKinRef.current = myKinCards;
   const [inventory, setInventory] = useState([]);
   const inventoryRef = useRef([]); inventoryRef.current = inventory;
   // 想要清单：看上了但没买的。它的价值不在购物页，在【角色知道你想要什么】——
@@ -850,6 +855,8 @@ function App() {
   const [takeoutBusy, setTakeoutBusy] = useState(false);
   const [takeoutLog, setTakeoutLog] = useState([]); // 吃过的外卖
   const [activeCardId, setActiveCardId] = useState(null); // 打开的亲属卡账单 charId
+  const [myKinFor, setMyKinFor] = useState(null);       // 她给 TA 的那张卡：看的是谁的（null＝先挑人）
+  const myKinBackRef = useRef("wallet");
   const [walletView, setWalletView] = useState("main"); // 钱包内页：main | cards（提上来才经得住进详情再退回来）
   // 关系网上她自己拖过的位置（v60.46）：布局是算出来的，摆法是她的。
   const [tiePos, setTiePos] = useState({});
@@ -1942,6 +1949,7 @@ function App() {
     saveJSON("x_emotePacks", _packs);
     setFavorites(loadJSON("x_favorites", []));
     setKinshipCards(loadJSON("x_kinshipCards", []));
+    setMyKinCards(loadJSON("x_myKinCards", []));
     setTiePos(loadJSON("x_tiesPos", {}));
     // 梦里那几件到期就让它回梦里去（她 2026-09-05）：开机时清一遍，
     // 别等她点进物品页才发现少了东西——那样看着像丢了，不像淡掉了。
@@ -9758,6 +9766,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_groupSettings: v => typeof setGroupSettings === "function" && setGroupSettings(v),
       x_ifLines: v => typeof setIfLines === "function" && setIfLines(v),
       x_kinshipCards: v => typeof setKinshipCards === "function" && setKinshipCards(v),
+      x_myKinCards: v => typeof setMyKinCards === "function" && setMyKinCards(v),
       x_makeup: v => typeof setMakeups === "function" && setMakeups(v),
       x_memories: v => typeof setMemories === "function" && setMemories(v),
       x_moments: v => typeof setMoments === "function" && setMoments(v),
@@ -11409,6 +11418,16 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "note 写你转这笔的那句话（「打车回去」「别省」），别只丢一个数字。"
         + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
+      // 她给的那张卡：有就每轮把事实摆出来（额度、还剩、冻没冻、最近刷过什么）。刷不刷、花在哪，全看TA这个人。
+      const _myKin = myKinOf(charId);
+      if (_myKin) {
+        const _recent = (_myKin.ledger || []).slice(0, 4).map(l => "「" + l.item + "」" + moneyText(l.amount, charId)).join("、");
+        const _kinFact = "herkinspend：你手里有一张 " + uName + " 给你的亲属卡（额度 " + moneyText(_myKin.limit || 0, charId) + "，还剩 " + moneyText(myKinRemain(_myKin), charId)
+          + (_myKin.frozen ? "；现在被她冻结了，刷不了" : "") + (_recent ? "；你最近刷过：" + _recent : "；你还一次都没刷过") + "）。"
+          + (_myKin.frozen ? "" : "用不用、花在什么上，照你这个人来；这一轮真要刷就填 herkinspend:{\"item\":\"买了什么\",\"amount\":数字}。钱会真的从她的钱包里扣，她会收到账单；额度不够或者她钱不够就刷不过去。");
+        if (!_myKin.frozen) openCaps.push("herkinspend");
+        capState.push(_kinFact);
+      }
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       // 「这间房开了这一样活动吗」——原来一起学、一起玩、一起写各写了一遍同一句，
       // 一起读是第四处。抽成一份（施工规则/one-public-mechanism.md：开了公共的就把已有的搬过去）。
@@ -11735,6 +11754,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               + (m.reason ? "，Ta 在退卡时留了一句：「" + m.reason + "」" : "，什么也没说") + "。卡已经作废，Ta 再也刷不了你的钱了。"
               + "这不是 Ta 跟你说的一句话，是 Ta 做的一件事——在你心里这算什么、要不要提、用什么口气提，全看你的人设、你俩现在的关系和此刻心情："
               + "可以追问、可以受伤、可以松一口气、可以觉得 Ta 是在跟你划清界限、也完全可以什么都不说】"
+            : m.kind === "mykin" ? "【" + uName + "给了你一张亲属卡，额度 " + moneyText(m.limit || 0, charId) + (m.note ? "，她说「" + m.note + "」" : "")
+              + (m.daily ? "；她说你平时花钱也可以刷" : "") + "。以后你花的是她的钱。这是她做的一件事，不是一句话；要不要、怎么接，看你这个人】"
+            : m.kind === "mykinedit" ? "【" + uName + "在给你的那张亲属卡上"
+              + (m.action === "limit" ? "把额度从 " + moneyText(m.before || 0, charId) + " 改成了 " + moneyText(m.limit || 0, charId)
+                : m.action === "freeze" ? "点了冻结——你现在刷不了了" : m.action === "unfreeze" ? "解了冻，又能刷了"
+                : m.action === "daily" ? (m.daily ? "允许你平时花钱也刷这张卡" : "不再让你平时花钱刷这张卡，只剩聊天时用得上")
+                : m.action === "revoke" ? "把卡收回去了（额度 " + moneyText(m.limit || 0, charId) + "，你一共刷了 " + moneyText(m.used || 0, charId) + "）"
+                : m.action === "ask" ? "翻账单，点着其中一笔来问你：「" + (m.item || "") + "」" + moneyText(m.amount || 0, charId) + (m.at ? "（" + new Date(m.at).toLocaleString() + " 刷的）" : "")
+                : "动了一下") + "。这是她做的事，不是一句话】"
             : m.kind === "file" ? "【" + uName + "发来一个文件「" + (m.name || "文件") + "」（" + (m.chars || 0) + " 字" + (m.cut ? "，下面只有前 " + String((m.text || "").length) + " 字" : "") + "）。下面是文件里的原文，不是 Ta 打给你的话；读了再接，别装没看到，也别逐段复述】\n" + (m.text || "")
             : m.kind === "pat" ? "【对方（之前）用微信「拍一拍」戳了你一下（隔着屏幕逗你/求关注的小动作，不是一句话）——要不要理会、要不要提起，【完全看你的人设和当下心情】：爱闹/在意 Ta 的可以回拍、调侃、明知故问「戳我干嘛」；高冷、正忙、没在意的完全可以当没看见、根本不提也行。别为这一下硬挤反应，自然就好】"
             : qpfx + m.content) + (roomClockOn && window.TemporalAnchor ? window.TemporalAnchor.anchor(m.content, m.ts) : "");
@@ -11767,6 +11795,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             : m.kind === "gift" ? "[你给对方寄了一份礼物：" + (m.name || (m.item && m.item.name) || "礼物") + "]"
             // 自己做过的事也点名：这一条原来是「沈清和 向你转了 ¥200」，他自述里叫自己名字，像在转述别人
             : m.kind === "transfer" ? transferLineForModel(m, "你（" + char.name + "）", uName, charId)
+            : m.kind === "mykinbill" ? (m.ok ? "【你刷了 " + uName + " 给你的亲属卡：「" + (m.item || "") + "」" + moneyText(m.amount || 0, charId) + "，钱从她那儿扣了" + (m.remain != null ? "，还剩 " + moneyText(m.remain, charId) : "") + "】"
+              : "【你想刷 " + uName + " 给你的亲属卡买「" + (m.item || "") + "」" + moneyText(m.amount || 0, charId) + "，没刷过去：" + (m.why || "") + "】")
+            : m.kind === "mykindaily" ? "【你" + (m.day ? m.day + "那天" : "") + "平时花钱时刷了 " + uName + " 给你的亲属卡：" + (m.items || []).map(x => "「" + x.item + "」" + moneyText(x.amount, charId) + (x.ok ? "" : "（没刷过：" + (x.why || "") + "，你自己付的）")).join("、") + "】"
             : m.kind === "kinship" ? "【你给 " + uName + " 发了一张亲属卡，额度 " + moneyText(m.limit || 0, charId) + (m.note ? "，你当时说「" + String(m.note).slice(0, 60) + "」" : "") + "。这是你做过的一件事】"
             : (m.content || ""));
           if (l && l.role === "assistant" && l._t === m.turnId) l.content += "\n" + ac;else g.push({
@@ -12273,7 +12304,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
-        parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.block = false; parsed.loveLetter = null;
+        parsed.listenInvite = null; parsed.songSwitch = null; parsed.location = null; parsed.kinshipcard = null; parsed.herkinspend = null; parsed.block = false; parsed.loveLetter = null;
       }
       // 角色自行撤回一句：先正常显示 ~1s，再变成「已撤回」（点开看内容+撤回想法）
       const recall = parsed.recall && parsed.recall.text && String(parsed.recall.text).toLowerCase() !== "null" ? parsed.recall : null;
@@ -12622,6 +12653,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         delivered = true;
       }
       if (parsed.kinshipcard && Number(parsed.kinshipcard.limit) > 0 && !hasKinship(charId)) { issueKinship(charId, Number(parsed.kinshipcard.limit), parsed.kinshipcard.note || ""); delivered = true; }
+      // 刷她给的那张卡：过得去就扣她的钱、落一张账单；过不去也落一张「被拒」，TA下一轮知道
+      if (parsed.herkinspend && typeof parsed.herkinspend === "object" && Number(parsed.herkinspend.amount) > 0 && myKinOf(charId)) {
+        const _it = String(parsed.herkinspend.item || "").trim().slice(0, 30) || "一笔开销";
+        const _r = spendMyKin(charId, _it, Number(parsed.herkinspend.amount), "chat");
+        pChat(chatKey, p => [...p, { role: "assistant", kind: "mykinbill", charId, item: _it, amount: Math.round(Math.abs(Number(parsed.herkinspend.amount)) * 100) / 100,
+          ok: _r.ok, why: _r.why || "", remain: _r.remain, content: "[亲属卡] " + (_r.ok ? "刷了你的亲属卡：" : "刷你的亲属卡没刷过（" + _r.why + "）：") + _it, ts: Date.now(), turnId, read: false }]);
+        delivered = true;
+      }
       if (parsed.gift && parsed.gift.name && String(parsed.gift.name).toLowerCase() !== "null") { postCharGift(charId, String(parsed.gift.name), parsed.gift.price, parsed.gift.note); delivered = true; }
       if (parsed.takeout && postCharTakeout(charId, parsed.takeout)) delivered = true;
       // TA 自己存一刻（她 2026-10-03 点的第 4 条）：进 x_shikePins，相册里多一张「TA 存的」。侧房和配角不存
@@ -17466,15 +17505,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           already.map(b => b.item + " " + Math.round(b.amount)).join("；") +
           "。你只补【这几笔之外】还花了什么；如果这一天光这几笔就够了，buys 给空数组。"
         : "";
+      // 她给的亲属卡、而且她允许平时花钱也刷：告诉TA手里有这张卡，哪几笔刷她的由TA自己挑（她 2026-10-07）
+      const _kc = myKinOf(char.id);
+      const _kinDay = !!(_kc && _kc.daily && !_kc.frozen && myKinRemain(_kc) > 0);
+      const _kinLine = _kinDay ? "\nTA 手里还有一张 " + userName(profile) + " 给的亲属卡（还剩 " + Math.round(myKinRemain(_kc)) + " 元）。这一天哪几笔会刷她的卡、哪几笔自己付，照 TA 这个人来——刷她卡的那一笔写 card:true，一笔都不刷也正常。" : "";
       const d = await runProbe(bgActive, ctxFor(char), {
         instruction: (broke
           ? "⚠️TA 现在【已经透支】（卡里 " + Math.round(bal) + " 元），正在借钱过日子：这一天只可能有【最低限度的必需开销】（一顿便宜的饭、通勤），总额不超过 40 元，能不花就不花。\n"
           : "TA 卡里现在有 " + Math.round(bal) + " 元" + ((Number(rec.monthlyIncome) || 0) && bal < (Number(rec.monthlyIncome) || 0) * 0.3 ? "，手头很紧，这几天花钱明显收敛。" : "。") + "\n")
-          + "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。" + doneBlock,
-        schemaHint: "{\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18}]}",
+          + "推演「" + char.name + "」在 " + dp.md + "（" + dp.dowZh + "）这一天【实际买了哪些东西】，逐笔列出。" + (schedText ? "这天 TA 的行程是：" + schedText + "。行程里的活动要如实反映到消费上（出门的交通、约饭的饭钱、看展的门票……）。" : "") + "要求：① 每笔写【具体名目】（哪家的什么/什么东西），严禁写「日常开销」「杂费」这类糊弄话；② 买什么、去哪买要贴 TA 的人设、口味和消费水平——不同的人买的东西该完全不一样；③ 大多数日子就是吃喝交通几笔小额（1~4 笔）；④ 偶尔（心情好/发薪/行程特殊/路过被种草）会多一笔 TA 这种人会喜欢的非日常小东西（一本书/模型/植物/唱片/游戏内购……由人设决定），别天天买；⑤ 也允许是几乎不花钱的宅家日（给空数组或只有一笔）；⑥ **【币种铁律】amount 一律按【人民币】量级——TA 人在国外（日本/韩国/欧美）也把当地消费换算成人民币记（一杯咖啡二三十、一顿饭几十到一两百、地铁几块钱），绝不许写日元/韩元的几百上千那种原币数字**。" + _kinLine + doneBlock,
+        schemaHint: _kinDay ? "{\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18,\"card\":false}]}" : "{\"buys\":[{\"item\":\"具体买了什么\",\"amount\":18}]}",
         maxTokens: 8800
       });
-      const buys = (Array.isArray(d.buys) ? d.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0) })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
+      const buys = (Array.isArray(d.buys) ? d.buys : []).map(b => ({ item: String((b && b.item) || "").slice(0, 30), amount: Math.abs(Number(b && b.amount) || 0), card: _kinDay && b && b.card === true })).filter(b => b.item && isFinite(b.amount) && b.amount > 0).slice(0, 6);
       // 代码侧封顶：透支的人一天花不出 40 块以上（模型有时不听）
       if (broke) {
         let left = 40, out = [];
@@ -17506,6 +17549,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const already = phoneOrdersOnDay(char.id, dayKey);
     // 每周那一路是一枪把整周推演完的，各天的账已经在 opts.buys 里，这儿不再单独打一枪
     const buys = opts && Array.isArray(opts.buys) ? opts.buys : await genDailySpend(char, dayKey, rec, already);
+    // 刷她卡的那几笔：先去她那儿扣。刷过了就不再记TA的账；刷不过就TA自己付（照常记TA的账）。
+    //   重生某一天（manual）时不刷——那一天刷过的已经在她的账单上了，再刷就是两遍。
+    const kinHits = [];
+    const buys2 = (buys || []).filter(b => {
+      if (!b || !b.card || manual) return true;
+      const r = spendMyKin(char.id, b.item, b.amount, "daily");
+      kinHits.push({ item: b.item, amount: b.amount, ok: r.ok, why: r.why || "" });
+      return !r.ok;
+    });
+    if (kinHits.length) pChat(char.id, p => [...p, { role: "assistant", kind: "mykindaily", charId: char.id, day: schedDateParts(dayKey).md, items: kinHits,
+      content: "[亲属卡] " + char.name + " " + schedDateParts(dayKey).md + " 刷了你的亲属卡 " + kinHits.filter(x => x.ok).length + " 笔", ts: Date.now(), read: false }]);
     const parts = schedParseKey(dayKey);
     const dayTs = new Date(parts); dayTs.setHours(23, 0, 0, 0);
     const mk = (delta, label, kind, ts, after) => ({ id: "cw_" + ts + "_" + Math.floor(Math.random() * 1000), ts, delta, after, label, kind, dayKey });
@@ -17530,7 +17584,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         e.srcKey = sk;
         chron.push(e);
       });
-      (buys || []).forEach((b, i) => {
+      (buys2 || []).forEach((b, i) => {
         if (!b || !b.amount) return;
         bal = r2(bal - Math.abs(b.amount));
         chron.push(mk(-Math.abs(b.amount), b.item, "daily", dayTs.getTime() + i * 60000, bal));
@@ -25680,6 +25734,80 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       toast(add > 0 ? char.name + " 把额度加了 ¥" + add : char.name + " 没有加额度");
     } catch (e) { stamp({ status: "failed" }); toast("加额度失败：" + e.message); }
   };
+  // ── 她给 TA 的亲属卡（她 2026-10-07 拍板「都可以」：聊天里刷、每天的开销里也能刷〔开卡时勾〕、钱不够就真刷不过）──
+  // ⚠️钱走她的钱包（changeWallet），不走 TA 的：这张卡就是「花她的钱」。
+  // ⚠️每一件她做的事（开卡、调额度、冻结、收回、拿账单问）都落成一张聊天卡，等她下次说话时一并喂给 TA——
+  //   跟 TA 给她那张卡的退卡单同一个道理：TA 是在聊天里知道这件事的，不是被系统通知的（wait-for-her）。
+  const saveMyKin = updater => setMyKinCards(p => {
+    const n = typeof updater === "function" ? updater(p) : updater;
+    myKinRef.current = n; saveJSON("x_myKinCards", n); return n;
+  });
+  const myKinOf = charId => (myKinRef.current || []).find(c => c.charId === charId) || null;
+  const myKinRemain = card => Math.max(0, Math.round(((Number(card.limit) || 0) - (Number(card.used) || 0)) * 100) / 100);
+  const issueMyKin = (charId, limit, note, daily) => {
+    const char = characters.find(c => c.id === charId);
+    const lim = Math.max(0, Math.round(Number(limit) || 0));
+    if (!char || lim <= 0) { toast("额度要大于 0"); return false; }
+    if (myKinOf(charId)) { toast("已经给过 " + char.name + " 一张了"); return false; }
+    const cardId = "mk_" + Date.now();
+    saveMyKin(p => [...p, { charId, cardId, limit: lim, used: 0, ledger: [], issuedTs: Date.now(), note: String(note || "").slice(0, 60), daily: !!daily, frozen: false }]);
+    pChat(charId, p => [...p, { role: "user", kind: "mykin", cardId, charId, limit: lim, note: String(note || "").slice(0, 60), daily: !!daily,
+      content: "[亲属卡] 给了" + char.name + "一张亲属卡，额度 ¥" + lim, ts: Date.now(), read: true }]);
+    toast("给 " + char.name + " 开了一张亲属卡");
+    return true;
+  };
+  // 刷她的卡：额度、冻结、她钱包里的钱，三道都过了才扣。过不去返回为什么，交给调用方落「被拒」那张卡。
+  const spendMyKin = (charId, item, amount, source) => {
+    const card = myKinOf(charId);
+    const amt = Math.round(Math.abs(Number(amount) || 0) * 100) / 100;
+    const char = characters.find(c => c.id === charId);
+    if (!card || !char || !amt) return { ok: false, why: "没有这张卡" };
+    if (card.frozen) return { ok: false, why: "卡被冻结了" };
+    if (myKinRemain(card) < amt) return { ok: false, why: "额度不够" };
+    if (walletRef.current < amt) return { ok: false, why: "她钱包里的钱不够" };
+    walletRef.current = Math.round((walletRef.current - amt) * 100) / 100;   // 同一拍里连刷几笔时，下一笔得看到这一笔扣过之后的钱
+    changeWallet(-amt, "亲属卡 · " + char.name + " 刷了「" + String(item || "").slice(0, 20) + "」", "kinship_out");
+    let remain = 0;
+    saveMyKin(p => p.map(c => {
+      if (c.charId !== charId) return c;
+      const used = Math.round(((Number(c.used) || 0) + amt) * 100) / 100;
+      remain = Math.max(0, Math.round(((Number(c.limit) || 0) - used) * 100) / 100);
+      return { ...c, used, ledger: [{ id: "mkl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), amount: amt, item: String(item || "").slice(0, 30), source }, ...(c.ledger || [])].slice(0, 300) };
+    }));
+    return { ok: true, remain: Math.max(0, myKinRemain(card) - amt) };
+  };
+  // 她在账单页做的几件事：调额度 / 冻结 / 解冻 / 收回 / 拿某一笔去问 TA
+  const editMyKin = (charId, action, val) => {
+    const char = characters.find(c => c.id === charId);
+    const card = myKinOf(charId);
+    if (!char || !card) return;
+    const post = extra => pChat(charId, p => [...p, { role: "user", kind: "mykinedit", charId, action, ts: Date.now(), read: true, ...extra }]);
+    if (action === "limit") {
+      const lim = Math.max(0, Math.round(Number(val) || 0));
+      if (!lim) { toast("额度要大于 0"); return; }
+      saveMyKin(p => p.map(c => c.charId === charId ? { ...c, limit: lim } : c));
+      post({ limit: lim, before: card.limit, content: "[亲属卡] 把给" + char.name + "的亲属卡额度改成 ¥" + lim });
+      toast("额度改成 ¥" + lim);
+    } else if (action === "freeze" || action === "unfreeze") {
+      saveMyKin(p => p.map(c => c.charId === charId ? { ...c, frozen: action === "freeze" } : c));
+      post({ content: "[亲属卡] " + (action === "freeze" ? "冻结了" : "解冻了") + "给" + char.name + "的亲属卡" });
+    } else if (action === "daily") {
+      saveMyKin(p => p.map(c => c.charId === charId ? { ...c, daily: !c.daily } : c));
+      post({ daily: !card.daily, content: "[亲属卡] " + (!card.daily ? "允许" : "不再让") + char.name + "平时花钱也刷这张卡" });
+    } else if (action === "revoke") {
+      requestAppConfirm("把给 " + char.name + " 的亲属卡收回来？",
+        "收回之后 " + char.name + " 就刷不了了，卡上这 " + (card.ledger || []).length + " 笔流水也跟着没有（已经扣掉的钱不会退回你的钱包）。" + char.name + "会在聊天里看到这件事。",
+        () => {
+          saveMyKin(p => p.filter(c => c.charId !== charId));
+          post({ limit: card.limit, used: card.used || 0, content: "[亲属卡] 收回了给" + char.name + "的亲属卡" });
+          if (screen === "mykin") setScreen(myKinBackRef.current || "wallet");
+          toast("收回来了");
+        });
+    } else if (action === "ask" && val) {
+      post({ item: val.item, amount: val.amount, at: val.ts, content: "[亲属卡] 拿着账单问" + char.name + "：「" + val.item + "」¥" + val.amount });
+      toast("发进聊天了，你说完按回复 TA 再接");
+    }
+  };
   // 退卡（她 2026-09-19：「亲属卡能不能做一个解绑功能然后解绑的时候可以落一张通知卡到聊天」）。
   // ⚠️这张卡不是一条消息，是一件【她做的事】：所以它跟刷卡单、提额单一样落进聊天，
   //   等她下次说话时一并喂给 TA——TA 是在聊天里知道这件事的，不是被系统通知的。
@@ -26808,6 +26936,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     onOpenMoments: () => openMomProfile(activeChar.id, false),
     onHandPhone: (allow, hideIds, allMasks) => handPhoneTo(activeChar.id, allow, hideIds, false, allMasks),
+    onMyKin: () => { setMyKinFor(activeChar.id); myKinBackRef.current = "thread"; setScreen("mykin"); },
     onDateInvite: (place, v) => sendDateInvite(activeChar, place, v),
     invitePlaces: invitePlacesFor(activeChar),
     peekPeople: (characters || []).filter(x => x.id !== activeChar.id).map(x => ({ id: x.id, name: x.remark || x.name }))
@@ -27096,7 +27225,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onSetBalance: setWalletTo,
     view: walletView,
     onView: setWalletView,
-    onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); }
+    onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); },
+    myCards: myKinCards,
+    onOpenMyKin: charId => { setMyKinFor(charId); myKinBackRef.current = "wallet"; setScreen("mykin"); }
+  });else if (screen === "mykin") body = h(MyKinPage, {
+    characters: liveChars.filter(c => !c.npc), cards: myKinCards, charId: myKinFor, wallet: wallet,
+    onPick: id => setMyKinFor(id),
+    onIssue: (id, limit, note, daily) => { if (issueMyKin(id, limit, note, daily)) setScreen(myKinBackRef.current || "wallet"); },
+    onEdit: (id, action, val) => editMyKin(id, action, val),
+    onBack: () => setScreen(myKinBackRef.current || "wallet")
   });else if (screen === "kincard") body = h(KinshipBill, {
     card: kinshipCards.find(c => c.charId === activeCardId),
     character: characters.find(c => c.id === activeCardId),

@@ -928,7 +928,7 @@
     home: "home", messages: "chat", thread: "chat", gthread: "group",
     contact: "cast", cast: "cast", castForm: "cast", ties: "ties",
     phone: "phone", shop: "shop", takeout: "takeout", carry: "carry", mycloset: "closet", dwell: "dwell",
-    cwallet: "wallet", wallet: "wallet", kincard: "wallet", ledger: "ledger",
+    cwallet: "wallet", wallet: "wallet", kincard: "wallet", mykin: "wallet", ledger: "ledger",
     calendar: "calendar", memo: "memo", map: "map",
     listen: "listen", musiccard: "listen", radio: "", radioArchive: "", radioLegacy: "",
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon", anonme: "anon",
