@@ -20,7 +20,8 @@ test("两样工具都在，而且只在有画面时才出手", () => {
   assert.match(call, /const litPlate = \(from, to\) => onPhoto \? \{/, "没有那层自带的暗底");
   // 没有画面时两样都是 null —— 语音通话那一屏一个像素都不该动
   assert.match(call, /const litText = onPhoto \? \{[^}]*\} : null;/);
-  assert.match(call, /WebkitBackdropFilter: "blur\(3px\)"\n  \} : null;/, "没画面时那层底也发出去了");
+  // v74.955 起那层底只剩渐变、不再毛玻璃（她：「视频这个上面虚好丑」）
+  assert.match(call, /rgba\(10,11,14," \+ to \+ "\) 100%\)"\n  \} : null;/, "没画面时那层底也发出去了");
 });
 
 test("飘在照片上的每一处白字都带上了字影", () => {
