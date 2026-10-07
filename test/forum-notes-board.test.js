@@ -25,3 +25,8 @@ test("新帖、新回复默认收着，点了才展开", () => {
   assert.match(scr, /newPostsOpen && forumNewCharPosts\.slice\(0, 8\)\.map\(/);
   assert.match(scr, /newRepliesOpen && forumUnreadRows\.slice\(0, 4\)\.map\(/);
 });
+test("两套入口：双列只列小红书那套帖子，单列只列原来那套", () => {
+  assert.match(app, /const forumFmtTag = \(\) => \{ try \{ return localStorage\.getItem\("x_forumLayout"\) === "cards" \? \{ fmt: "xhs" \} : \{\}/);
+  assert.match(scr, /&& \(p\.fmt === "xhs"\) === cardLayout\);/);
+  assert.equal((app.match(/\.\.\.forumFmtTag\(\)/g) || []).length, 3, "批量、角色、她自己发的三条路都打标记");
+});

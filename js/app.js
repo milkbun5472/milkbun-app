@@ -16178,6 +16178,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   只换格式，不换话题和脾气：吐槽吧照样吐槽，只是长成一篇小红书笔记的样子。
   const forumFmtLine = () => { let on = false; try { on = localStorage.getItem("x_forumLayout") === "cards"; } catch (e) {}
     return on ? " 【格式·小红书笔记】论坛现在是双列卡片排版，这一批帖子都写成小红书笔记的格式：标题抓人、可以带一两个 emoji；正文分段、口语、有具体细节；结尾带 2~4 个「#话题」；多数帖配一张图（photo 写清图里拍到了什么）。只改格式，这个吧原来聊什么、什么脾气照旧。" : ""; };
+  // 两套入口（她 2026-10-07：「切到小红书排版就只显示那个排版生成的帖子，换回来也一样」）：
+  //   双列时生成/发出的帖子打上 fmt:"xhs"，论坛主页只列跟当前排版同一套的帖子。
+  const forumFmtTag = () => { try { return localStorage.getItem("x_forumLayout") === "cards" ? { fmt: "xhs" } : {}; } catch (e) { return {}; } };
   const autoForumForChar = async (char, opts) => {
     const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
     if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return null;
@@ -20689,7 +20692,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const appendForumPosts = (recs, board) => setForumPosts(prev => {
     // 这一批记到她现在逛的那个世界（已经自己带了 world 的不动）
     const _w = forumCurWorld() === "*" ? "" : forumCurWorld();
-    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r), ...prev];
+    let n = [...recs.map(r => r && typeof r.world !== "string" ? { ...r, world: _w } : r).map(r => r ? { ...r, ...forumFmtTag() } : r), ...prev];
     const kill = new Set();
     const spare = forumTouchedPosts(forumCommentsRef.current);
     const evictable = x => x.authorType === "npc" && !x.keptFrom && !spare.has(x.id) && !forumCInflightRef.current[x.id];
@@ -21196,7 +21199,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       authorName: identity.authorName, authorHandle: identity.authorHandle,
       board, title: content.title, body: content.body || "",
       ...(forumPhotoOf(content) ? { photo: forumPhotoOf(content) } : {}),
-      anon: anonB, triggerSource: triggerSource || "", ts: base, world: charWorldOf(char.id),
+      anon: anonB, triggerSource: triggerSource || "", ts: base, world: charWorldOf(char.id), ...forumFmtTag(),
       ...forumCounts(char.id + base, content.replyCount || (3 + forumHash(char.id) % 40))
     };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
@@ -22166,7 +22169,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const altB = !anonB && (as ? as === "alt" : forumMe.using === "alt");
     const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), authorName: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld() };
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), authorName: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }

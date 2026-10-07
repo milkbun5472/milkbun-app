@@ -2685,7 +2685,7 @@ function Forum({
     .filter(x => x.count > 0).sort((a, b) => postLastActivity(b.post) - postLastActivity(a.post));
   const forumUnreadTotal = forumUnreadRows.reduce((n, x) => n + x.count, 0);
   const [newPostSeen, setNewPostSeen] = useState([]);
-  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && String(p.authorType || "").startsWith("character") && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
+  const forumNewCharPosts = (posts || []).filter(p => forumVisible(p) && (p.fmt === "xhs") === cardLayout && String(p.authorType || "").startsWith("character") && Number(p.visibleAt || p.ts || 0) > forumLastSeen && newPostSeen.indexOf(p.id) < 0)
     .sort((a, b) => Number(b.visibleAt || b.ts || 0) - Number(a.visibleAt || a.ts || 0));
   const forumNotices = [];
   (posts || []).forEach(p => (cmts[p.id] || []).forEach((f, floorIndex) => {
@@ -3274,7 +3274,8 @@ function Forum({
 
   // ---- 主页版块列表 ----
   function homeFeed() {
-    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || forumBoardsAll().includes(p.board)));
+    // 两套帖子各走各的：双列只列小红书格式那套（fmt:"xhs"），单列只列原来那套
+    let arr = (posts || []).filter(p => forumVisible(p) && (tab === "收藏" || forumBoardsAll().includes(p.board)) && (p.fmt === "xhs") === cardLayout);
     if (tab === "收藏") arr = arr.filter(p => bookmarked.has(p.id));
     else if (tab === "关注") arr = arr.filter(followedPost);
     else arr = arr.filter(p => p.board === tab);
