@@ -28169,6 +28169,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       },
       relOf: (a, b) => { const r = rels[a + "->" + b] || rels[b + "->" + a]; return r && r.label ? r.label + (r.note ? "（" + r.note + "）" : "") : ""; },
       remember: liveProps.remember,
+      // 充电（横着看那套）：从她钱包出、进TA钱包
+      wallet: wallet, pay: liveProps.pay, charPay: liveProps.charPay,
+      // 同城（竖着刷那套）：你的人住在哪几座城（好友地图里那份）
+      cities: () => Array.from(new Set(characters.map(c => c && c.home && c.home.city ? String(c.home.city).trim() : "").filter(Boolean))).slice(0, 8),
       onBack: () => setScreen("home")
     }) : null;
   } else if (screen === "debate") body = h(Debate, {

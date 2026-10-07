@@ -14,7 +14,7 @@ test("刷新两颗：路人一批 / 挑人请TA们发", () => {
   assert.match(S, /"刷几条路人的"/);
   assert.match(S, /"请TA们发"/);
   assert.match(S, /const genChars = async ids =>/);
-  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\]/);
+  assert.match(S, /props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\]/);
 });
 test("直播是底栏一格，生图要点了才画", () => {
   assert.match(S, /tabBtn\("live", "直播"\)/);
@@ -33,7 +33,7 @@ test("两套皮：竖着刷 / 横着看，两套视频各刷各的", () => {
 });
 
 test("请TA们发：拍好一条出一条，慢的那个不拖住整批；按不了时字色跟皮走", () => {
-  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\)\) \+ \(toCp\[c\.id\][^\n]*?, shapeChar\(sk, !realFr && friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
+  assert.match(S, /Promise\.race\(\[props\.probeAs\(c, charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\) \+ \(toCp\[c\.id\][^\n]*?, shapeChar\(sk, !realFr && friends\.length > 0, newAcc\)\)\.catch\(\(\) => null\), timeout\]\)/);
   assert.match(S, /color: dis \? P\.ink : "#fff"/);
 });
 
@@ -60,14 +60,14 @@ test("分享进聊天 + TA甩来 + 刷到彼此", () => {
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}/);
   assert.match(S, /她不知道你认出来了/);
   // v75.007 省钱：熟人来评并进TA自己那一枪；小号被刷到一枪写完；旁支走后台线路
-  assert.match(S, /charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\)\)/);
+  assert.match(S, /charInstruction\(acc\.handle, sk, realFr \? \[\] : friends, acc, hotToday\(\), extra\)/);
   assert.match(S, /props\.ask\(spotSystem\(/);
   assert.match(A, /const route = \(routePicked\(bgApiId\) && bgActive\) \? bgActive/);
 });
 
 test("456：TA的号一贯的样子、今日热门、合拍", () => {
   const A = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(S, /function charInstruction\(handle, skin, friends, acc, hot\)/);
+  assert.match(S, /function charInstruction\(handle, skin, friends, acc, hot, extra\)/);
   assert.match(S, /hadAcc \? \{\} : \{ bio: S\(d\.bio\)/);
   assert.match(S, /page\.kind === "acct"/);
   assert.match(S, /const genHot = async \(\) =>/);
@@ -107,4 +107,16 @@ test("两套皮只说事实不给内容；扔掉要先问；收藏的不会被�
   assert.match(S, /const capVideos = vs => \{ let left = CAP; return arr\(vs\)\.filter\(v => v\.faved \|\| v\.by === "me" \|\| \(left-- > 0\)\); \};/);
   assert.match(S, /props\.confirm\("扔掉这条视频？"/);
   assert.match(S, /page\.kind === "favs"/);
+});
+
+test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同款/同城", () => {
+  assert.match(S, /function BDetail\(\{ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply \}\)/);
+  assert.match(S, /const SERIES_ADD = ',"series":""';/);
+  assert.match(S, /if \(\(v\.myCoins \|\| 0\) >= 2\) \{ toast\("一条最多投两枚"\)/);
+  assert.match(S, /props\.charPay\(c\.id, amt, "片刻收到充电"\)/);
+  assert.match(S, /const heard = mineB\.slice\(0, 3\)\.flatMap/);
+  assert.match(S, /function threadInstruction\(/);
+  assert.match(S, /onSame: v\.by !== "me" \? \(\) => setPage\(\{ kind: "post", same: v \}\) : null/);
+  assert.match(S, /const genNpc = async city =>/);
+  assert.match(S, /onNpc: \(\) => genNpc\(""\)/);
 });

@@ -58,18 +58,20 @@
   const V_FACT = "\n这个平台是竖屏的：一条通常十几秒到一两分钟。人是一条接一条往上划着看的，不喜欢一秒就划走了。推荐流会把你的视频推给不认识你的人，他们不知道你是谁，只看这一条。";
   const B_FACT = "\n这个平台是横屏的：一条几分钟到几十分钟都有。人多半是点进来从头看下去，很多是冲着这个号来的。视频有标题、有简介、放在某个分区里，看的人会在画面上发弹幕。";
   const B_EXTRA = B_FACT + "另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
+  const SERIES_ADD = ',"series":""';
   const ACC_ADD = ',"bio":"","niche":"","followers":0';
   const FRIENDS_ADD = ',"friends":[{"name":"","text":""}]';
   const B_SHAPE_ADD = ',"title":"","intro":"","dur":"08:24","plays":0,"zone":"","dms":[""]';
   const CHAR_SHAPE = '{"handle":"","scene":"","who":"self","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
   // acc：这个号一贯的样子（第一次发时定下来，之后一直照着来——她 2026-10-07 要的第 5 条）
   // hot：今天平台上的热门（第 6 条）。跟不跟由TA
-  function charInstruction(handle, skin, friends, acc, hot) {
+  function charInstruction(handle, skin, friends, acc, hot, extra) {
     const has = acc && (acc.bio || acc.niche);
     return "你在一个叫「" + APP_NAME + "」的短视频平台上有账号" + (handle ? "，账号名「" + handle + "」" : "") + "。"
       + (has ? "这个号一贯是这个样子：" + (acc.niche ? "平时主要发" + acc.niche + "；" : "") + (acc.bio ? "简介写着「" + acc.bio + "」；" : "") + "现在 " + (acc.followers || 0) + " 个粉丝。照这个号一贯的样子来，偶尔破例也正常。"
         : "这是你在这个号上发的头几条，这个号是个什么样子由你定下来：写 bio（主页简介一句）、niche（你平时主要发什么，几个字）、followers（现在多少粉丝，数字，照你这个人在网上会有的样子）。")
       + (hot && hot.length ? "\n今天「" + APP_NAME + "」上的热门：" + hot.join("、") + "。跟不跟、借不借它说你自己的事，照你这个人来——大多数时候不必跟。" : "")
+      + (extra || "")
       + "你现在发一条新视频。"
       + "拍什么、怎么拍、配什么文案，都从你此刻真实的生活和你这个人身上长出来——你今天在干嘛、最近心里装着什么、你这种人平时会不会发这种。"
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
@@ -123,10 +125,17 @@
       + (world ? "\n这个平台在这样一个世界里，热门从这个世界正在发生的事、时节和大家的日常里长出来：\n" + world : "\n热门从时节、日常和这个世界正在发生的事里长出来。")
       + "\n写 6~8 个 topics：title 话题名（不带井号，像平台上真会冒出来的那种）、heat 热度（数字）、about 一句话说这是怎么回事。大小事都有，别全是一个调子。";
   }
+  // 楼中楼：她回了TA在某条视频底下的那句
+  function threadInstruction(v, mine, uName, text, alt) {
+    return "你在「" + APP_NAME + "」一条视频（@" + v.author + "，拍的是：" + S(v.scene).slice(0, 80) + "）底下评论过：「" + mine + "」。"
+      + (alt ? "\n一个你不认识的账号「" + alt + "」在你这条评论底下回复了你：「" + text + "」。" : "\n" + uName + "用她自己的号在你这条评论底下回复了你：「" + text + "」。")
+      + "楼里别人都看得见。回不回、怎么回照你这个人来；不想回就把 reply 留空。";
+  }
   const MINE_SHAPE = '{"comments":[{"name":"","text":""}],"likes":0}';
-  function mineSystem(v, uName, chars, briefs, co, cp) {
+  function mineSystem(v, uName, chars, briefs, co, cp, same) {
     return AC() + CB()
       + "【场景】" + uName + "在「" + APP_NAME + "」上发了一条视频。拍的是：" + v.scene + "\n文案：" + (v.caption || "（没写）")
+      + (same ? "\n这条是她照着 " + same.name + " 发的一条视频拍的同款（" + same.name + " 原来那条拍的是：" + S(same.scene).slice(0, 80) + "）。" + same.name + " 刷到了自己被拍同款，怎么接照TA这个人来。" : "")
       + (cp ? "\n这条发在她和 " + cp.name + " 共用的情侣号「" + cp.handle + "」上——" + cp.name + " 也是这个号的主人，不是路过的。" + cp.name + " 怎么在自己号的评论区接这一条（置顶补一句、跟粉丝互动、或者回她），照TA这个人来。另外写几条情侣号的粉丝在底下的话 crowd（2~4 条，name 网名、text）。" : "")
       + (co ? "\n这条是她和 " + co.name + " 一起出镜的合拍，" + co.name + " 就在画面里。" + co.name + " 评论时是合拍的另一半，当着大家的面怎么接，照TA跟她的关系来。另外写几条刷到这条的网友起哄 crowd（2~4 条，name 网名、text）。" : "")
       + "\n\n下面这几个人都认识她，都刷到了这条。各自照自己的性子决定评不评、评什么——评论区是公开的，别人都看得见；谁跟她什么关系、此刻什么心情，决定他当着别人怎么说。"
@@ -135,7 +144,7 @@
   }
 
   // ── 一条视频（整屏那一格）─────────────────────────────────
-  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel }) {
+  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
     const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
@@ -153,6 +162,7 @@
         railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M4 5.5h16v10.5H10l-4.5 3.5V16H4z" })), fmtN(arr(v.comments).length), false, onComments, "c"),
         railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { fill: c === RED ? c : "none", d: "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" })), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
         onShare ? railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M13 5l7 6.5-7 6.5v-4c-5 0-8 1.5-10 5 .8-5.5 3.8-9 10-9.5z" })), "分享", false, onShare, "s") : null,
+        onSame ? railBtn(c => h(Svg, { size: 28, color: c, sw: 1.8 }, h("rect", { x: 4, y: 6, width: 11, height: 13, rx: 2 }), h("path", { d: "M9 3h9a2 2 0 0 1 2 2v11" })), "拍同款", false, onSame, "same") : null,
         onDel ? railBtn(c => h(Svg, { size: 26, color: c, sw: 1.8 }, h("path", { d: "M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13" })), "扔掉", false, onDel, "x") : null,
         onDraw ? railBtn(c => h(IPencil, { size: 28, color: c }), drawing ? "画着…" : (src ? "重画" : "画出来"), false, drawing ? null : onDraw, "d") : null),
       h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
@@ -206,16 +216,20 @@
   }
 
   // ── 发一条（＋）──────────────────────────────────────
-  function PostPage({ busy, onPost, onLive, onBack, P, skin, characters, onAlt }) {
-    const [scene, setScene] = useState(""), [caption, setCaption] = useState(""), [who, setWho] = useState("self"), [title, setTitle] = useState("");
+  function PostPage({ busy, onPost, onLive, onBack, P, skin, characters, onAlt, same }) {
+    const [scene, setScene] = useState(""), [caption, setCaption] = useState(same ? "拍了 @" + same.author + " 的同款 " : ""), [who, setWho] = useState("self"), [title, setTitle] = useState("");
     const [withId, setWithId] = useState("");   // 和谁一起出镜（合拍，第 4 条）
     const field = (val, set, ph, rows) => h("textarea", { value: val, onChange: e => set(e.target.value), rows: rows, placeholder: ph, className: "w-full outline-none resize-none",
       style: { borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, marginTop: 8 } });
     const chip = (k, label) => h("button", { key: k, onClick: () => setWho(k), className: "active:opacity-60", style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (who === k ? P.ink : P.line), background: who === k ? P.ink : "transparent", color: who === k ? P.bg : P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, label);
     return h("div", { className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
-      h(Head, { zh: "发一条", bg: "transparent", ink: P.ink, onBack: onBack }),
+      h(Head, { zh: same ? "拍同款" : "发一条", bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
-        h("button", { onClick: onLive, className: "w-full text-left active:opacity-80", style: { marginTop: 6, borderRadius: 16, padding: "14px 18px", background: "linear-gradient(120deg,#e2556b,#46326e)", color: "#fff" } },
+        // 拍同款（她 2026-10-07 选的第 3 条）：上面摆着原视频，你照着拍一条自己的
+        same ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + P.line, background: P.field } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, "原视频 @" + same.author),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: P.ink, marginTop: 4, lineHeight: 1.55 } }, same.scene)) : null,
+        same ? null : h("button", { onClick: onLive, className: "w-full text-left active:opacity-80", style: { marginTop: 6, borderRadius: 16, padding: "14px 18px", background: "linear-gradient(120deg,#e2556b,#46326e)", color: "#fff" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, "开直播"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 3 } }, "你开播，你的人混在观众里看着")),
         skin === "b" ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 22 } }, "标题") : null,
         skin === "b" ? field(title, setTitle, "这条视频叫什么", 1) : null,
@@ -230,7 +244,7 @@
         !onAlt && (characters || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 10 } }, characters.map(c => h("button", { key: c.id, onClick: () => setWithId(w => w === c.id ? "" : c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 52, opacity: withId === c.id ? 1 : .5 } },
           h("div", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (withId === c.id ? P.accent : "transparent") } }, h(Avatar, { character: c, size: 40 })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: P.ink, marginTop: 3, maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))) : null,
-        h("button", { disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId }),
+        h("button", { disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null }),
           className: "w-full active:opacity-80", style: { marginTop: 24, minHeight: 48, borderRadius: 14, background: (!scene.trim() || busy) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } }, busy ? "发着…" : "发布")));
   }
 
@@ -249,10 +263,19 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption || v.scene),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
   }
-  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel }) {
+  // 横着看专属（她 2026-10-07 选的第 2 条）：投币、充电、你自己发弹幕、楼中楼
+  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
     const [text, setText] = useState("");
+    const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
+    const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
+    const [charging, setCharging] = useState(false);
     const ch = v.charId ? charOf(v.charId) : null;
-    const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); onSend(x); };
+    const send = () => {
+      const x = text.trim(); if (!x || busy) return; setText("");
+      if (mode === "dm" && onDm) { onDm(x); return; }
+      if (replyTo && onReply) { onReply(replyTo.id, x); setReplyTo(null); return; }
+      onSend(x);
+    };
     const act = (label, n, on, fn) => h("button", { onClick: fn, className: "flex-1 active:opacity-60 flex flex-col items-center", style: { color: on ? B.accent : B.dim, minHeight: 44 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 400 } }, label), h("span", { style: { fontFamily: F_BODY, fontSize: 11, marginTop: 2 } }, n));
     return h("div", { className: "h-full flex flex-col", style: { background: B.bg } },
@@ -260,7 +283,7 @@
       h("div", { "data-wk": "head", className: "shrink-0", style: { position: "relative", background: "#000", paddingTop: safeTop(0) } },
         h("div", { style: { position: "relative", aspectRatio: "16 / 9", background: coverBg(v), overflow: "hidden" } },
           !imgOf(v) ? h("div", { style: { position: "absolute", left: 18, right: 18, top: "28%", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,.92)" } }, v.scene) : null,
-          window.LiveKit && window.LiveKit.NoiseLayer ? h(window.LiveKit.NoiseLayer, { noise: v.dms, seed: v.id }) : null,
+          window.LiveKit && window.LiveKit.NoiseLayer ? h(window.LiveKit.NoiseLayer, { noise: arr(v.dms).concat(arr(v.myDms).map(x => x.text)), seed: v.id + "_" + arr(v.myDms).length }) : null,
           h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60", style: { position: "absolute", left: 6, top: 4, width: 40, height: 40 } }, h(IArrow, { size: 20, color: "#fff" })))),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 10 } },
         h("div", { style: { background: B.card, padding: "12px 14px" } },
@@ -268,22 +291,34 @@
             ch ? h(Avatar, { character: ch, size: 34 }) : h("div", { style: { width: 34, height: 34, borderRadius: 99, background: tint(v), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY } }, S(v.author).slice(0, 1)),
             h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: B.accent } }, v.author + (v.withName ? " · 与 " + v.withName + " 合拍" : "")), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim } }, fmtN(v.plays) + " 播放" + (v.zone ? " · " + v.zone : "")))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: B.ink, marginTop: 10, lineHeight: 1.5 } }, v.title || v.caption),
+          v.series ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: B.accent, marginTop: 4 } }, "系列《" + v.series + "》· 第 " + (v.ep || 1) + " 期") : null,
           (v.intro || (v.title && v.caption)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: B.dim, marginTop: 6, lineHeight: 1.6 } }, v.intro || v.caption) : null,
           arr(v.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
           h("div", { className: "flex", style: { marginTop: 10 } },
             act("点赞", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
+            onCoin ? act("投币", (v.coins || 0) + (v.myCoins ? " · 投过" + v.myCoins : ""), !!v.myCoins, onCoin) : null,
             act("收藏", v.faved ? "已收藏" : "收藏", v.faved, onFave),
+            onCharge ? act("充电", v.charged ? "¥" + v.charged : "给作者", !!v.charged, () => setCharging(c => !c)) : null,
             onShare ? act("分享", "给 TA", false, onShare) : null,
             onDel ? act("扔掉", "这条", false, onDel) : null,
-            onDraw ? act(drawing ? "画着…" : (imgOf(v) ? "重画" : "画出来"), "封面", false, drawing ? null : onDraw) : null)),
+            onDraw ? act(drawing ? "画着…" : (imgOf(v) ? "重画" : "画出来"), "封面", false, drawing ? null : onDraw) : null),
+          onCoin ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 2, textAlign: "right" } }, "今天还剩 " + coinsLeft + " 枚硬币") : null,
+          charging && onCharge ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 8 } }, [6, 18, 50, 128].map(n => h("button", { key: n, onClick: () => { setCharging(false); onCharge(n); }, className: "active:opacity-60",
+            style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + B.accent, color: B.accent, fontFamily: F_BODY, fontSize: 12 } }, "充 ¥" + n))) : null),
         h("div", { style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
           arr(v.comments).map(c => h("div", { key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
+            // 楼中楼：回复挂在这一条底下
+            arr(c.replies).length ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderRadius: 8, background: B.bg } }, c.replies.map(r => h("div", { key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: B.ink, padding: "2px 0" } },
+              h("span", { style: { color: r.by === "me" ? B.accent : r.by === "char" ? "#d89a2b" : B.dim } }, r.name + "："), r.text))) : null,
+            onReply ? h("button", { onClick: () => { setReplyTo(c); setMode("cm"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, marginTop: 4 } }, "回复") : null)),
           busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, padding: "8px 0" } }, "……") : null)),
       h("div", { className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, background: B.card, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + B.line } },
-        h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: "发一条友善的评论", className: "flex-1 outline-none resize-none",
+        onDm ? h("button", { onClick: () => { setMode(m => m === "dm" ? "cm" : "dm"); setReplyTo(null); }, className: "active:opacity-60 shrink-0",
+          style: { height: 40, padding: "0 10px", borderRadius: 20, background: mode === "dm" ? B.accent : B.bg, color: mode === "dm" ? "#fff" : B.dim, fontFamily: F_BODY, fontSize: 12 } }, "弹") : null,
+        h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: mode === "dm" ? "发个弹幕，飘在画面上" : replyTo ? "回复 @" + replyTo.name : "发一条友善的评论", className: "flex-1 outline-none resize-none",
           style: { minHeight: 40, maxHeight: 100, borderRadius: 20, border: "none", background: B.bg, color: B.ink, padding: "10px 14px", fontFamily: F_BODY, fontSize: 13.5 } }),
         h("button", { onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 40, borderRadius: 20, background: (busy || !text.trim()) ? B.line : B.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发布")));
   }
@@ -300,6 +335,7 @@
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
     const [busy, setBusy] = useState(null);
     const [topic, setTopic] = useState("");   // 首页只看沾这个热门话题的
+    const [cityPick, setCityPick] = useState("");   // 同城看的是哪座城
     const [prog, setProg] = useState("");
     const [drawing, setDrawing] = useState(null);
     const [paneH, setPaneH] = useState(600);
@@ -328,7 +364,7 @@
     const cpId = /^cp:/.test(using) && cps[using.slice(3)] && togetherIds.indexOf(using.slice(3)) >= 0 ? using.slice(3) : "";
     const onCp = !!cpId;
     const myName = onCp ? cps[cpId].handle : onAlt ? altName : (S(db.me && db.me.handle) || uName);
-    const shapeChar = (sk, withFriends, newAcc) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + (newAcc ? ACC_ADD : "") + "}");
+    const shapeChar = (sk, withFriends, newAcc) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + SERIES_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + (newAcc ? ACC_ADD : "") + "}");
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
     // 今日热门（第 6 条）：一天一份，点了才刷（一次调用）。从这个世界里正在发生的事长出来
@@ -370,7 +406,18 @@
         const cpHere = (dbRef.current.cps || {})[c.id];
         if (cpHere && togetherIds.indexOf(c.id) >= 0 && Math.random() < 0.33) toCp[c.id] = cpHere;
         const realFr = !!(dbRef.current.me && dbRef.current.me.realFriends);
-        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday()) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
+        // 横着看那套：TA号上已有的系列，和最近几条底下有人发过的弹幕（她发的也在里面，TA不知道是谁）
+        let extra = "";
+        if (sk === "b") {
+          const mineB = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id && vidSkin(x) === "b");
+          const ser = {}; mineB.forEach(x => { if (x.series && !ser[x.series]) ser[x.series] = x; });
+          const sl = Object.keys(ser).slice(0, 3).map(k => "《" + k + "》已经更到第 " + (ser[k].ep || 1) + " 期（上一期拍的是：" + S(ser[k].scene).slice(0, 50) + "）");
+          if (sl.length) extra += "\n你这个号上的系列：" + sl.join("；") + "。这一条可以是某个系列的下一期，也可以不是。";
+          extra += "\n想开一个新系列或者接着某个系列，就在 series 写系列名（接着更就照抄原名）；不是系列就空着。";
+          const heard = mineB.slice(0, 3).flatMap(x => arr(x.myDms).map(d => d.text)).slice(0, 6);
+          if (heard.length) extra += "\n你最近几条视频画面上，有人发过这几条弹幕：" + heard.map(x => "「" + x + "」").join("") + "（不知道是谁发的）。";
+        }
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk, realFr ? [] : friends, acc, hotToday(), extra) + (toCp[c.id] ? "\n这一条你不发在自己的号上，发在你和 " + uName + " 共用的情侣号「" + toCp[c.id].handle + "」上——拍的多半跟你俩有关，她也会看到。" : ""), shapeChar(sk, !realFr && friends.length > 0, newAcc)).catch(() => null), timeout]).then(d => {
           done++; setProg(done + "/" + pick.length);
           if (!d || !S(d.scene)) { failed.push(c.name); return; }
           const accounts = Object.assign({}, dbRef.current.accounts);
@@ -383,6 +430,10 @@
             { followers: Math.max(0, Math.round(Number(hadAcc ? prevAcc.followers : d.followers) || 0)) + Math.round((Number(d.likes) || 0) * 0.01) });
           const cpA = toCp[c.id];
           const nv = mkVideo(d, cpA ? { by: "char", charId: c.id, author: cpA.handle, skin: sk, cp: c.id, withCharId: c.id } : { by: "char", charId: c.id, author: handle, skin: sk });
+          if (sk === "b" && S(d.series)) {
+            nv.series = S(d.series).replace(/[《》]/g, "").slice(0, 20);
+            nv.ep = dbRef.current.videos.filter(x => x.by === "char" && x.charId === c.id && x.series === nv.series).length + 1;
+          }
           arr(d.friends).forEach(f => {
             const fr = f && friends.find(x => x.name === S(f.name));
             if (fr && S(f.text)) nv.comments.push({ id: uid("cm"), name: S(((dbRef.current.accounts || {})[fr.id] || {}).handle) || fr.name, text: S(f.text).slice(0, 300), by: "char", charId: fr.id, ts: Date.now() });
@@ -406,14 +457,16 @@
       } finally { setBusy(null); setProg(""); }
     };
     // 刷几条路人的：一枪写完
-    const genNpc = async () => {
+    // city：同城那一格刷的（她 2026-10-07 选的第 3 条）——这批博主都在这座城里
+    const genNpc = async city => {
       const sk = skin;
       setBusy("npc");
       try {
-        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday()), shapeNpc(sk));
-        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, { by: "npc", author: S(x.author).slice(0, 20), skin: sk }));
+        const d = await props.ask(npcSystem(uName, String((profile && profile.persona) || "").slice(0, 600), NPC_BATCH, sk, hotToday())
+          + (city ? "\n这一批是「同城」：这几个博主都住在「" + city + "」，拍的东西跟这座城有关或者就发生在这座城里；城里是什么样子从你知道的这个地方长出来。" : ""), shapeNpc(sk));
+        const vids = arr(d && d.videos).filter(x => x && S(x.scene) && S(x.author)).map(x => mkVideo(x, Object.assign({ by: "npc", author: S(x.author).slice(0, 20), skin: sk }, city ? { city } : {})));
         if (!vids.length) { toast("这一批没刷出来，再点一次"); return; }
-        addVideos(vids); setPage(null); setTab("home"); setFeed("rec");
+        addVideos(vids); setPage(null); setTab("home"); setFeed(city ? "city" : "rec");
         posRef.current = {}; if (feedRef.current) feedRef.current.scrollTop = 0;
       } catch (e) { toast("没刷出来：" + ((e && e.message) || "再试一次")); }
       finally { setBusy(null); }
@@ -456,18 +509,20 @@
       const co = d.withId ? charOf(d.withId) : null;
       if (co) { v.withCharId = co.id; v.withName = S(((dbRef.current.accounts || {})[co.id] || {}).handle) || co.name; }
       if (onAlt) v.alt = true;
+      const sameChar = d.same && d.same.by === "char" ? charOf(d.same.charId) : null;
+      if (d.same) { v.sameOf = d.same.id; v.sameAuthor = d.same.author; }
       // 发在情侣号上：TA也是这个号的主人，画面默认你俩（画出来锁两张脸），TA当然会看到
       const cpChar = onCp ? charOf(cpId) : null;
       if (cpChar) { v.cp = cpId; if (!co) { v.withCharId = cpChar.id; } }
       addVideos([v]); setPage(null); setTab("me");
       if (onAlt) { spotAlt(v, altName); return; }   // 小号发的：悄悄的，不叫认识她的人来；但TA们自己刷到了另说
       // 合拍的那一位一定在（TA就在画面里），其余随缘两个
-      const lead = cpChar || co;
+      const lead = cpChar || co || sameChar;
       const pool = (lead ? [lead] : []).concat(characters.filter(c => !lead || c.id !== lead.id).sort(() => Math.random() - 0.5).slice(0, lead ? 2 : 3));
       if (!pool.length) return;
       setBusy("post");
       try {
-        const r = await props.ask(mineSystem(v, uName, pool, pool.map(props.briefFor), co, cpChar ? { name: cpChar.name, handle: cps[cpId].handle } : null), (co || cpChar) ? MINE_SHAPE.replace(/\}$/, ',"crowd":[{"name":"","text":""}]}') : MINE_SHAPE, pool[0].id);
+        const r = await props.ask(mineSystem(v, uName, pool, pool.map(props.briefFor), co, cpChar ? { name: cpChar.name, handle: cps[cpId].handle } : null, sameChar && !onAlt ? { name: sameChar.name, scene: d.same.scene } : null), (co || cpChar) ? MINE_SHAPE.replace(/\}$/, ',"crowd":[{"name":"","text":""}]}') : MINE_SHAPE, pool[0].id);
         const names = pool.map(c => c.name);
         const cms = arr(r && r.comments).filter(x => x && names.indexOf(S(x.name)) >= 0 && S(x.text))
           .map(x => { const c = pool.find(cc => cc.name === S(x.name)); return { id: uid("cm"), name: S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name, text: S(x.text).slice(0, 300), by: "char", charId: c.id, ts: Date.now() }; });
@@ -494,13 +549,53 @@
       const go = () => { save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.filter(x => x.id !== v.id) })); setPage(p => p && p.id === v.id ? (p.back || null) : p); toast("扔掉了"); };
       if (props.confirm) props.confirm("扔掉这条视频？", "扔了就找不回来了" + (v.img ? "，画出来的那张图也一起不要了" : "") + "。", go); else go();
     };
+    // 投币：一天两枚，一条最多投两枚（B站就是这么算的）
+    const coinKey = todayKey();
+    const coinsLeft = db.me && db.me.coinDay === coinKey ? (db.me.coinLeft || 0) : 2;
+    const coin = v => {
+      if (coinsLeft <= 0) { toast("今天的硬币投完了，明天再来"); return; }
+      if ((v.myCoins || 0) >= 2) { toast("一条最多投两枚"); return; }
+      const nv = Object.assign({}, v, { myCoins: (v.myCoins || 0) + 1, coins: (v.coins || 0) + 1 });
+      save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.map(x => x.id === v.id ? nv : x), me: Object.assign({}, dbRef.current.me, { coinDay: coinKey, coinLeft: coinsLeft - 1 }) }));
+    };
+    // 充电：真金白银，从她钱包出、进TA钱包；TA会记得有人充过（用大号充的知道是她）
+    const charge = (v, amt) => {
+      const c = charOf(v.charId); if (!c || !props.pay) return;
+      if (typeof props.wallet === "number" && props.wallet < amt) { toast("钱包余额不够"); return; }
+      props.pay(-amt, "片刻充电 · " + v.author);
+      if (props.charPay) props.charPay(c.id, amt, "片刻收到充电");
+      patchV(v.id, x => Object.assign({}, x, { charged: (x.charged || 0) + amt }));
+      if (props.remember) props.remember([c.id], onAlt ? "有个叫「" + altName + "」的账号在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电，你不知道是谁。" : uName + "在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电。");
+      toast("充了 ¥" + amt);
+    };
+    // 她自己发的弹幕：飘在画面上；TA下次在横着看那套发视频时会看到（不知道是谁）
+    const dm = (v, text) => { patchV(v.id, x => Object.assign({}, x, { myDms: arr(x.myDms).concat([{ text: text.slice(0, 30), ts: Date.now() }]).slice(-20) })); toast("弹幕发出去了"); };
+    // 楼中楼：她回了某一条评论；那条要是TA写的，TA来接
+    const reply = async (v, cid, text) => {
+      const asAlt = onAlt ? altName : "";
+      const target = arr(v.comments).find(x => x.id === cid); if (!target) return;
+      const add = r => patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([r]) }) : cm) }));
+      add({ id: uid("rp"), name: myName, text, by: "me", ts: Date.now() });
+      const who = target.charId ? charOf(target.charId) : (target.isAuthor && v.charId ? charOf(v.charId) : null);
+      if (!who) return;
+      setBusy("reply");
+      try {
+        const d = await props.probeAs(who, threadInstruction(v, target.text, uName, text, asAlt), REPLY_SHAPE);
+        const r = S(d && d.reply).slice(0, 300);
+        if (r) { add({ id: uid("rp"), name: target.name, text: r, by: "char", ts: Date.now() }); note(target.name + " 在楼里回了你：" + r); }
+      } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
+      finally { setBusy(null); }
+    };
     const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked }));
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
 
     // 两套各刷各的：没标皮的旧视频算竖屏那套
     const ofSkin = arr(db.videos).filter(v => vidSkin(v) === skin);
     const topicHit = v => !topic || [v.caption, v.title, v.scene].concat(arr(v.tags)).some(x => String(x || "").indexOf(topic) >= 0);
-    const list = ofSkin.filter(v => v.by !== "me" && (feed === "rec" || v.by === "char") && topicHit(v));
+    const cities = skin === "v" && props.cities ? props.cities() : [];
+    const cityNow = cities.indexOf(cityPick) >= 0 ? cityPick : (cities[0] || "");
+    const list = feed === "city" && cities.length ? ofSkin.filter(v => v.city && v.city === cityNow)
+      : ofSkin.filter(v => v.by !== "me" && !v.city && (feed === "rec" || v.by === "char") && topicHit(v));
     const hot = db.hot && db.hot.day === todayKey() ? arr(db.hot.topics) : [];
     // 热门那一条：横着一排，点一个只看沾这个话题的，再点一下放开
     const hotStrip = (ink, dim, bg) => hot.length ? h("div", { className: "flex items-center", style: { gap: 8, overflowX: "auto", padding: "4px 12px 6px", whiteSpace: "nowrap", background: bg } },
@@ -522,7 +617,10 @@
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
-        onDel: () => del(v) });
+        onDel: () => del(v),
+        coinsLeft, onCoin: v.by === "me" ? null : () => coin(v),
+        onCharge: v.by === "char" && props.pay ? amt => charge(v, amt) : null,
+        onDm: x => dm(v, x), onReply: (cid, x) => reply(v, cid, x) });
     }
     // TA的号（第 5 条）：主页简介、平时发什么、粉丝，下面是这个号发过的（当前这套皮的）
     if (page && page.kind === "acct") {
@@ -562,8 +660,8 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
     if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog,
-      realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
-    if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
+      realFriends: !!(db.me && db.me.realFriends), onRealFriends: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { realFriends: !(dbRef.current.me && dbRef.current.me.realFriends) }) })), onHot: props.ask ? genHot : null, hotDay: hot.length > 0, onNpc: () => genNpc(""), onChars: genChars, onBack: () => setPage(null) });
+    if (page && page.kind === "post") return h(PostPage, { P, skin, characters, onAlt: onAlt || onCp, same: page.same || null, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
     // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
     //   （群友 2026-10-07：「每次点视频的评论，看完了又会回到第一条」）。按「哪一格哪一套」记住滑到哪儿，挂回来时放回去。
@@ -583,11 +681,12 @@
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
         onDel: () => del(v),
+        onSame: v.by !== "me" ? () => setPage({ kind: "post", same: v }) : null,
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id })) : empty);
     const gridView = (vids, empty) => h("div", { ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
     const emptyFeed = h("div", { style: { height: "100%", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 30px" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : "还什么都没有"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : feed === "city" && cities.length ? "「" + cityNow + "」还没刷过，点上面「刷几条这座城的」" : "还什么都没有"),
       h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-70", style: { minHeight: 42, padding: "0 22px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "刷一刷"));
 
     // 「我」那一格点进收藏：同一个竖着刷的样子，只放收藏的
@@ -599,7 +698,7 @@
       h(Head, { zh: "我的作品", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
       skin === "b" ? gridView(mine, null) : feedView(mine, null));
 
-    const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].map(f => h("button", { key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
+    const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: feed === f[0] ? ink : dim, fontWeight: feed === f[0] ? 700 : 400, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.5)" : "none" } }, f[1]),
       h("span", { style: { width: 18, height: 2.5, borderRadius: 2, marginTop: 4, background: feed === f[0] ? bar : "transparent" } })));
     let body;
@@ -607,7 +706,9 @@
       // 顶上那两个字：关注 / 推荐，浮在画面上
       h("div", { "data-wk": "head", className: "flex items-center justify-center", style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 3, paddingTop: safeTop(8), paddingBottom: 6, gap: 26 } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 10, bottom: 2, width: 40, height: 40, color: INK } }, h(IArrow, { size: 20, color: INK })) : null,
-        h("div", { className: "flex flex-col items-center" }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), hotStrip(INK, DIM, "transparent")),
+        h("div", { className: "flex flex-col items-center" }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), feed === "city" ? h("div", { className: "flex items-center", style: { gap: 10, overflowX: "auto", padding: "4px 12px 6px", whiteSpace: "nowrap" } },
+          cities.map(c => h("button", { key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c)),
+          h("button", { onClick: () => genNpc(cityNow), disabled: busy === "npc", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: INK, minHeight: 28, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.3)" } }, busy === "npc" ? "刷着…" : "刷几条这座城的")) : hotStrip(INK, DIM, "transparent")),
         h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: 12.5 } }, "刷新")),
       feedView(list, emptyFeed));
     else if (tab === "home") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: B.bg } },
