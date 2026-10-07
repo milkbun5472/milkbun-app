@@ -391,6 +391,7 @@
   const WK_SCOPED = Object.freeze([
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
+      ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
       ["mlpage","消息这一页的底（聊天／通讯录／朋友圈／我 四栏共用）"],
       ["mlsearch","聊天列表顶上的搜索框"],
       ["mlrow","聊天列表的一行（data-kind=\"char\"/\"group\"；data-pinned=\"1\" 是置顶；data-unread=\"1\" 有未读）"],
