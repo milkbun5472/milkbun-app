@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.984";
+const APP_VERSION = "v74.989";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10771,7 +10771,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       const emotes = emotesForChar(charId);
       const callHint = mode === "voice" ? "\n\n【当前场景】你们正在语音通话。用口语化、连贯的短句自然对话，就像在打电话，别发一长串气泡。" : mode === "video" ? "\n\n【当前场景】你们正在视频通话。用口语化短句对话，并在气泡里自然带一点动作/神态描写（用括号，如（歪头笑））。" : "";
-      const uName = userName(profile); // 须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
+      const uName = (window.ChatRooms && window.ChatRooms.altCallName ? window.ChatRooms.altCallName(room) : "") || userName(profile); // 小号房里叫她小号的名字。须在下面 bday/remind/wx/tf 等提示引用前声明（否则 TDZ：Cannot access 'uName' before initialization）
       // 忙的时候晚点回：忙完了自己来回 / 被她催出来的
       const busyHint = opts.busyBack && opts.busyBack.sleep ? "\n\n【此刻】你刚睡醒，拿起手机才看到 " + uName + " 在你睡着的时候发来的消息。照你自己的性子回 Ta。"
         : opts.busyNudge && opts.busyNudge.sleep ? "\n\n【此刻】你本来在睡，手机又响了，迷迷糊糊看了一眼 " + uName + " 发来的消息。照你自己的性子来。"
@@ -12518,6 +12518,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           setRinging({ cid: chatKey, m: inv, name: char.name, char: char });
         }
         delivered = true;
+      }
+      // 小号房：TA这一轮把你认出来、当面说破了（ChatRooms.altUnmask 只认开了「能拆穿」的房）
+      if (parsed.unmasked === true && room && window.ChatRooms && window.ChatRooms.altUnmask) {
+        const r2 = window.ChatRooms.altUnmask(room);
+        if (r2) {
+          const nick = window.ChatRooms.altName(r2);
+          pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "altunmask", content: char.name + " 认出了你：「" + nick + "」后面是你。从现在起TA知道了。", ts: Date.now() }]);
+          // 带不带回主聊天她说了算：答应了就往主聊天交接里放一句（跟「出门时捎一句」同一份 addSummary）
+          setTimeout(() => requestAppConfirm("要把这件事带回主聊天吗？", "带回去的话，" + char.name + " 在主聊天里也会记得：你用小号「" + nick + "」找过TA，被TA认出来了。", () => {
+            window.ChatRooms.addSummary({ personId: charId, roomId: r2.id, roomName: r2.name, frame: "", summary: "她用小号「" + nick + "」来找过我，被我认出来了。", fromTs: 0, toTs: Date.now() });
+            toast("带回去了");
+          }, "带回去"), 600);
+        }
+      }
+      // 小号房：TA自己承认那个号是TA（ChatRooms.altReveal）。之后这间房里TA就显示回本来的样子
+      if (parsed.revealed === true && room && window.ChatRooms && window.ChatRooms.altReveal) {
+        const r3 = window.ChatRooms.altReveal(room);
+        if (r3) pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "altreveal", content: char.name + " 承认了：「" + (r3.alt.ta.name || "那个号") + "」就是TA。", ts: Date.now() }]);
       }
       // TA 拉黑用户
       if (parsed.block === true) {
@@ -14988,9 +15006,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!window.ChatRooms.allowsField(room, field)) { toast("这项操作请回主聊天处理"); return; }
     return action();
   };
-  const roomHistoryText = (char, chatKey) => {
+  const roomHistoryText = (char, chatKey, room) => {
     const rows = (chatsRef.current[chatKey] || []).filter(m => m && !m.recalled && !isOocMsg(m) && contextAllowsMessage(m));
-    return rows.slice(-20).map(m => (m.role === "user" ? profile.name || "我" : char.name) + "：" + (m.content || "")).join("\n");
+    const me = (window.ChatRooms && window.ChatRooms.altCallName ? window.ChatRooms.altCallName(room) : "") || profile.name || "我";
+    return rows.slice(-20).map(m => (m.role === "user" ? me : char.name) + "：" + (m.content || "")).join("\n");
   };
   // 【这一轮的历史到底怎么发】——只此一份。
   // ⚠️她 2026-09-15 抓到：「TA 知道什么」里的【最近对话】是几百条之前的。
@@ -15049,7 +15068,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   const roomContextFor = (char, chatKey, room, ctxOpts) => {
     if (!room || room.main) return ctxFor(char, ctxOpts);
-    const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey);
+    const text = ctxOpts?.gameWorld ? gardenHistory(chatKey,ctxOpts.gameWorld,ctxOpts.gameArchiveId).map(m=>(m.role === "user" ? profile.name || "你" : char.name)+"："+m.content).join("\n") : roomHistoryText(char, chatKey, room);
     const noMemory = !!(window.ChatRooms && !window.ChatRooms.allows(room, "formalMemory") && !(window.ChatRooms.memOnly && window.ChatRooms.memOnly(room)));
     const ctx = ctxFor(char, { ...ctxOpts, noMemory, memCutoff: window.ChatRooms.memCutoff ? window.ChatRooms.memCutoff(room) : 0, queryText: ctxOpts && ctxOpts.queryText || text });
     ctx.recentChat = text;
@@ -15077,7 +15096,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // record＝这一轮真要发出去（单聊发送、通话）：房间记忆那份召回收据只认这种，预览不留
   const roomPromptFor = (charId, room, record) => !room || !window.ChatRooms ? "" : window.ChatRooms.prompt(
     { ...room, cognition: { ...room.cognition, schedule: roomTimeAwareFor(room, charId) } }, chatsRef.current[charId] || [],
-    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id), record: !!record });
+    { turns: roomTurnsOf(charId, room), queryText: roomRecentText(charId, room.id), record: !!record,
+      // 真名只有小号房「早就认出来了」那一档用得上；别的房不去碰
+      realName: window.ChatRooms.altOf && window.ChatRooms.altOf(room) ? userName(profileFor(charId)) : "" });
   // 房间记忆的查询向量：跟 roomPromptFor 递进去的【同一段字】预热，retrieveMemories 才对得上缓存
   const primeRoomMemVec = async (charId, room) => {
     if (!room || room.main || !window.ChatRooms || typeof primeQueryVec !== "function") return;
@@ -26517,7 +26538,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: activeChar.id + "::" + activeRoomId,
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
     unreadOther: Object.entries(unreadMap).reduce((a, kv) => a + (kv[0] === activeChar.id ? 0 : ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0)), 0),
-    character: chatFace(activeChar),
+    // 小号房里TA开了小号、她又不知道是TA：这一屏上TA就是那个号（ChatRooms.altTaFace）。id 不换，只换脸和名字
+    character: (() => { const rm = window.ChatRooms && window.ChatRooms.altTaFace ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
+      const f = rm && window.ChatRooms.altTaFace(rm);
+      return f ? { ...chatFace(activeChar), name: f.name, remark: f.name, avatarImage: "", chatAvatar: "" } : chatFace(activeChar); })(),
     characters: liveChars.map(chatFace),
     groups: groups,
     messages: chats[window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
@@ -26593,7 +26617,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
     //   「char2 对应面具 2，但聊天显示的不是面具 2 的头像」）。profile 本身不换——语音标定那些按它记的。
-    meProfile: profileFor(activeChar.id),
+    // 小号房里「我」显示小号那张（小号没头像就不显示头像图，只换名字）
+    meProfile: (() => { const rm = window.ChatRooms && window.ChatRooms.altOf ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
+      return rm && window.ChatRooms.altShowsMe(rm) ? { ...profileFor(activeChar.id), avatarImage: undefined, ...window.ChatRooms.altProfile(rm) } : profileFor(activeChar.id); })(),
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,
@@ -29059,6 +29085,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     initialPreset: chatRoomsPreset,
     onSelect: (roomId, close) => { setActiveRoomId(roomId || "main"); if (close) { if (chatRoomsPreset) setScreen("thread"); setChatRoomsOpen(false); setChatRoomsPreset(""); } },
     onSummarize: (room, frame) => summarizeChatRoom(activeChar, room, frame),
+    // 小号房：让TA自己起一个小号（网名＋小号上的样子），生成一次，她再改
+    onGenAlt: async () => {
+      const d = await runProbe(apiFor(activeChar.id), ctxFor(activeChar), {
+        voice: true,
+        instruction: "你要开一个微信小号，用它去找一个人，不让对方一眼认出是你。给这个号起网名，再写一两句：这个号上的你看起来是什么样、打字什么习惯。照你自己会怎么伪装来写。",
+        schemaHint: "{\"name\":\"小号网名\",\"persona\":\"这个号上的你\"}"
+      });
+      return { name: String(d && d.name || "").trim().slice(0, 24), persona: String(d && d.persona || "").trim().slice(0, 1500) };
+    },
     onClose: () => { setChatRoomsOpen(false); setChatRoomsPreset(""); }
   }) : null, chatSettingsOpen && activeChar && /*#__PURE__*/React.createElement(ChatSettings, {
     character: activeChar,
