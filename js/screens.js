@@ -16379,10 +16379,14 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
   const box = (bt.boxes || [])[at.box] || null;
   const more = at.box < (bt.boxes || []).length - 1;
   const lastBeat = at.beat >= beats.length - 1;
-  const myTurn = lastBeat && !more && bt.role === "char";
+  // ⚠️最后一拍是她的、TA那一拍没写出来（模型拒了／中转拦了，toast 一闪就过）时，原来这里不算她的回合：
+  //   底下写着「点一下继续」，点了却什么都不会发生——整条线就停死在那儿（群友 2026-10-07：「不是卡了也没有报错」）。
+  //   现在照样算她的回合，不用再写字，直接点发出就让TA接着这一拍重写。
+  const stuck = lastBeat && !more && bt.role === "user" && !line.endedAt;
+  const myTurn = lastBeat && !more && (bt.role === "char" || stuck);
   const bg = line.bgKey || line.bgUrl;
   const tap = () => { if (more) setAt({ beat: at.beat, box: at.box + 1 }); else if (!lastBeat) setAt({ beat: at.beat + 1, box: 0 }); };
-  const send = () => { const all = typing.trim() ? drafts.concat([typing.trim()]) : drafts; if (!all.length) return; setDrafts([]); setTyping(""); onAdvance(line.id, all); };
+  const send = () => { const all = typing.trim() ? drafts.concat([typing.trim()]) : drafts; if (!all.length && !stuck) return; setDrafts([]); setTyping(""); onAdvance(line.id, all); };
   return h("div", { className: "h-full flex flex-col", style: { position: "relative", background: "#0e0c16" } },
     bg ? h("div", { style: { position: "absolute", inset: 0, opacity: 0.4 } }, h(AlbumPhoto, { photo: { imgKey: line.bgKey, imgUrl: line.bgUrl }, cover: true })) : null,
     // 还没生成背景图时原来是一整片死黑。给一层很淡的光晕当底衬——不抢正文，
@@ -16437,7 +16441,7 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
         h("div", { key: "row", className: "flex items-end gap-2" },
           h("textarea", {
             value: typing, onChange: e => setTyping(e.target.value), rows: 1,
-            placeholder: drafts.length ? "还想说点什么" : "你说点什么，或先攒几条",
+            placeholder: drafts.length ? "还想说点什么" : stuck ? characterText(partner, "他这一拍没接上——直接点发出，让他接着写") : "你说点什么，或先攒几条",
             className: "flex-1 outline-none resize-none",
             style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + IF_LINE, background: "rgba(0,0,0,.34)", color: IF_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 }
           }),
@@ -16449,9 +16453,9 @@ function IfRoom({ partner, lines, uName, busy, bgBusy, shotBusy, photos, onOpen,
             style: { width: 42, height: 42, borderRadius: 12, border: "1px solid " + (typing.trim() ? "rgba(141,118,201,.5)" : IF_LINE), color: typing.trim() ? "#cdbdf0" : IF_DIM, fontFamily: F_DISPLAY, fontSize: 20, lineHeight: 1 }
           }, "+"),
           h("button", {
-            onClick: send, disabled: !!busy || (!drafts.length && !typing.trim()),
+            onClick: send, disabled: !!busy || (!drafts.length && !typing.trim() && !stuck),
             className: "active:opacity-70 shrink-0 flex items-center justify-center", "aria-label": "发出去",
-            style: { width: 42, height: 42, borderRadius: 12, background: (busy || (!drafts.length && !typing.trim())) ? "rgba(255,255,255,.08)" : IF_ACCENT, color: (busy || (!drafts.length && !typing.trim())) ? IF_DIM : "#fff" }
+            style: { width: 42, height: 42, borderRadius: 12, background: (busy || (!drafts.length && !typing.trim() && !stuck)) ? "rgba(255,255,255,.08)" : IF_ACCENT, color: (busy || (!drafts.length && !typing.trim() && !stuck)) ? IF_DIM : "#fff" }
           }, busy
             ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, "…")
             // 送出：一个朝右的小三角，跟对话框右下角那个是同一个形状
