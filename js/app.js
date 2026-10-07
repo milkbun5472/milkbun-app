@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.976";
+const APP_VERSION = "v74.977";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13966,7 +13966,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 这一条发言的人此刻在做什么。⚠️只算一次：动描那一行和状态卡写回共用这一个值，
           //   而且它【不看记忆互通】——互通管的是写不写状态卡，不是显不显示。
           const _rawGAction = item.action && String(item.action).toLowerCase() !== "null" ? String(item.action).trim() : null;
-          const gActionNow = TVG.normalizeAction(_rawGAction, spk && spk.name) || "";
+          let gActionNow = TVG.normalizeAction(_rawGAction, spk && spk.name) || "";
           const affinityBefore = spk ? affOf(spk.id) : null;
           if (spk) _gspoke.add(spk.id);
           if (i > 0) await new Promise(r => setTimeout(r, 780));
@@ -14031,6 +14031,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const _gGuard = window.BubbleActGuard ? window.BubbleActGuard.split(gBubbles, {}) : { words: gBubbles, acts: [] };
             gBubbles = _gGuard.words;
             const gRescuedActs = _gGuard.acts;
+            // 动描里写的其实是台词 → 挪回气泡、这一拍不摆动描（BubbleActGuard.spokenAction）。
+            //   挪的是【原文】：normalizeAction 会把开头的名字改成「我」，台词不该被改。
+            if (_rawGAction && gActionNow && window.BubbleActGuard && window.BubbleActGuard.spokenAction(_rawGAction)) {
+              const _said = _rawGAction.trim();
+              if (!gBubbles.some(b => String(b).trim() === _said)) gBubbles = [_said, ...gBubbles];
+              gActionNow = "";
+            }
             // 心声挂在末条气泡上显示。闭群也挂：它是这个群自己的内容，不回流主线
             //（往主线状态卡写的那一步在下面，照旧只认互通群和配角）。
             const gThought = item.thought && String(item.thought).toLowerCase() !== "null" ? String(item.thought).trim() : null;
