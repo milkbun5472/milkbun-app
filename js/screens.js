@@ -9294,6 +9294,7 @@ function Config(props) {
   const t = useTheme();
   // initialPage：预览台按「回去改」回来时直接落在主题工作台那一栏（v65.00）
   const [page, setPage] = useState(() => props.initialPage || "home");
+  const [, setBatTick] = useState(0); // 「右上角电池」那一格点完要重画一下，状态才对
   useEffect(() => { if (props.initialPage) { setPage(props.initialPage); props.onLandedPage && props.onLandedPage(); } }, [props.initialPage]);
   const scrollRef = React.useRef(null);
   React.useEffect(() => {
@@ -9417,7 +9418,11 @@ function Config(props) {
       page === "look" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "色", tint: "#8a6d9c", title: "外观与壁纸", sub: "颜色、字体和主屏背景", onClick: () => setPage("theme") }),
         h(ConfigTile, { icon: "泡", tint: "#4f8391", title: "聊天气泡", sub: "颜色、贴纸、尺寸与阴影", onClick: () => setPage("bubble") }),
-        h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包；改完能直接跳到那一页看", onClick: () => setPage("themeStudio"), wide: true })),
+        h(ConfigTile, { icon: "台", tint: "#a8794a", title: "主题工作台", sub: "图标、页面 CSS、主题包；改完能直接跳到那一页看", onClick: () => setPage("themeStudio"), wide: true }),
+        // 右上角那颗小电池（App 自己画的，不是手机状态栏）：点一下显示 / 隐藏
+        (() => { let off = false; try { off = localStorage.getItem("x_hideBattery") === "1"; } catch (e) {}
+          return h(ConfigTile, { icon: "电", tint: "#6f8a5e", title: "右上角电池", sub: off ? "已隐藏 · 点一下显示" : "显示着 · 点一下隐藏",
+            onClick: () => { try { localStorage.setItem("x_hideBattery", off ? "0" : "1"); } catch (e) {} window.dispatchEvent(new Event("x-battery")); setBatTick(x => x + 1); } }); })()),
       page === "write" && h(ConfigTileGrid, null,
         h(ConfigTile, { icon: "稿", tint: "#8a7a4f", title: "创作小稿", sub: "线下写正文前先打的那份草稿：写法、预设与模型保险", onClick: () => setPage("cot"), wide: true }),
         // ⚠️「情侣问答 · 自定义题目」这一格 v70.84 删掉了（她 2026-09-18：

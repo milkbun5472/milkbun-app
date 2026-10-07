@@ -132,11 +132,14 @@ function BatteryBadge() {
 // 顶部细状态栏（在流里，不浮空、不压组件）：左版本号 + 右电池。每页都在。做完可整块去掉。
 function DevBadges() {
   const t = useTheme();
+  // 右上那颗电池能关（她 2026-10-07）：设置 →「这个 app 长什么样」里那一格，改了发 x-battery 事件，这儿当场跟着变
+  const [hideBat, setHideBat] = React.useState(() => { try { return localStorage.getItem("x_hideBattery") === "1"; } catch (e) { return false; } });
+  React.useEffect(() => { const on = () => { try { setHideBat(localStorage.getItem("x_hideBattery") === "1"); } catch (e) {} }; window.addEventListener("x-battery", on); return () => window.removeEventListener("x-battery", on); }, []);
   // 绝对定位浮层：不占布局高度（不再压缩顶部内容），pointerEvents:none 不挡点击
   const base = { position: "absolute", top: "calc(env(safe-area-inset-top) + 2px)", zIndex: 50, pointerEvents: "none" };
   return h(React.Fragment, null,
     h("span", { style: Object.assign({ left: 8, fontFamily: "monospace", fontSize: 9, letterSpacing: 0.4, color: t.ink, opacity: 0.3 }, base) }, APP_VERSION),
-    h("span", { style: Object.assign({ right: 8, display: "flex", alignItems: "center" }, base) }, h(BatteryBadge, null)));
+    hideBat ? null : h("span", { style: Object.assign({ right: 8, display: "flex", alignItems: "center" }, base) }, h(BatteryBadge, null)));
 }
 // AssistiveTouch 风格模型切换器：只改全局线上/线下线路；角色专线仍由 apiFor/offlineApiFor 优先。
 // ── 一页崩了，不该把整个 App 带走（她 2026-09-22 转群里读者：点开一起读是白屏＋
