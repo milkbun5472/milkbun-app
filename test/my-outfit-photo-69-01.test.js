@@ -23,8 +23,8 @@ test("出图时的「我」只有一份，四处都读它", () => {
   // 原来那三处手搓的对象删干净了才算「只剩一处」
   assert.ok(live.indexOf('appearance: profile && profile.appearance, refPhoto: profile && profile.refPhoto }') < 0,
     "还有地方自己手搓 me，衣柜和固定锁一定会漏掉那一处");
-  assert.equal((live.match(/photoMe\(/g) || []).length, 5,
-    "五条出图路径（聊天 / 群聊 / 线下 / 照相馆 / TA 相册里拍她那张，2026-10-03）都要读同一份");
+  assert.equal((live.match(/photoMe\(/g) || []).length, 6,
+    "六条出图路径（聊天 / 群聊 / 线下 / 照相馆 / TA 相册里拍她那张，2026-10-03 / 片刻合拍那张，2026-10-07）都要读同一份");
 });
 
 test("照相馆那一处【不】塞衣柜——她刚挑的那身不能被顶掉", () => {
