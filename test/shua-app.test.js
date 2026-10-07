@@ -46,7 +46,7 @@ test("点进评论再回来还在原地，不回第一条", () => {
 test("小号：TA只当陌生人；小号发的不叫熟人；作品各列各的", () => {
   assert.match(S, /const onAlt = !!\(altName && db\.me && db\.me\.using === "alt"\);/);
   assert.match(S, /底下一个你不认识的账号「" \+ alt \+ "」评论了你/);
-  assert.match(S, /if \(onAlt\) return;   \/\/ 小号发的/);
+  assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}   \/\/ 小号发的/);
   assert.match(S, /const mine = ofSkin\.filter\(v => v\.by === "me" && !!v\.alt === onAlt\);/);
 });
 
