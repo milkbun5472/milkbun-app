@@ -83,7 +83,7 @@ test("群里开口也算相处：群线上 group 档、群线下 offline 档；�
   const fs = require("node:fs"), path = require("node:path");
   const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   const gacha = fs.readFileSync(path.join(__dirname, "..", "js", "gacha.js"), "utf8");
-  assert.match(gacha, /group: 40 \}/);
+  assert.match(gacha, /group: 40(, focus: 40)? \}/);
   const i = app.indexOf("  const gachaEarnGroup = (groupId, kind) => {"), j = app.indexOf("\n  };\n", i);
   assert.ok(i > 0 && j > i, "抠不出 gachaEarnGroup");
   const earned = [];
