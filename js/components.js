@@ -17196,10 +17196,12 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         ...kids) : null);
   };
   if (gPeek) return h(ThemePeekBar, { zh: ((group && group.name) || "这个群") + " 的长相（还没保存）", onBack: gPeekEnd });
-  return h(Sheet, { onClose: onClose, tall: true },
-    h("div", { className: "flex items-center justify-between mb-1" },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, "群聊设置"),
-      h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink }))),
+  // 整页，不是半窗（她 2026-10-07：「群聊设置还是个半窗！」；施工规则/no-half-sheet.md）——
+  //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
+  return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
+    h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
+      right: h("button", { onClick: () => { onSave({ memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
     //   按「管的是什么」装进六个框：谁在群里 / 他们自己聊不聊 / 怎么相处 / 长什么样 / 记得多少 / 清掉。
@@ -17371,7 +17373,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
           h("div", { className: "flex gap-2" },
             h("button", { onClick: () => setConfirmDel(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
             h("button", { onClick: () => { onDelete(); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, "删除")))
-      : h("button", { onClick: () => setConfirmDel(true), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "删除群聊")));
+      : h("button", { onClick: () => setConfirmDel(true), className: "w-full rounded-xl py-3 mt-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "删除群聊")))), document.body);
 }
 function NewGroupSheet({
   characters,
