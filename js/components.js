@@ -859,16 +859,17 @@ function QuoteDraftBar({ text, onClear }) {
   }, [text]);
   const L = look || {}, I = L.inner || {};
   return h("div", { ref: outerRef, "data-wk": "quotedraft", className: "shrink-0",
-      style: { background: L.barBg || t.bg2, backgroundImage: L.barImg || undefined, borderTop: "1px solid " + (L.dark ? "rgba(255,255,255,0.08)" : t.line), padding: "6px 12px 0", display: "flex", alignItems: "center" } },
+      style: { background: L.barBg || t.bg2, backgroundImage: L.barImg || undefined, borderTop: "1px solid " + (L.dark ? "rgba(255,255,255,0.08)" : t.line), padding: "5px 12px 0", display: "flex", alignItems: "center" } },
     h("div", { ref: innerRef, "data-wk": "quote", "data-me": "1", "data-draft": "1",
-        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "4px 9px",
+        // 跟气泡里那块一样薄（她 2026-10-07：「但是还是很宽」）：一行字的高度，× 不再把这一条撑高
+        style: { flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 6, padding: "2px 4px 2px 8px", lineHeight: 1.5,
           background: I.backgroundColor || t.bg, backgroundImage: I.backgroundImage && I.backgroundImage !== "none" ? I.backgroundImage : undefined,
           borderRadius: I.borderRadius || 7, borderLeft: I.borderLeft || ("2px solid " + t.accent), boxShadow: I.boxShadow && I.boxShadow !== "none" ? I.boxShadow : undefined,
           backdropFilter: I.backdropFilter && I.backdropFilter !== "none" ? I.backdropFilter : undefined, WebkitBackdropFilter: I.backdropFilter && I.backdropFilter !== "none" ? I.backdropFilter : undefined,
           fontFamily: I.fontFamily || F_BODY, fontSize: 11.5, color: I.color || t.fog } },
       h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
         h("span", { "data-wk": "quoteicon", style: I.iconColor ? { color: I.iconColor } : undefined }, "❝ "), h("span", { "data-wk": "quotetext" }, text)),
-      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 16, lineHeight: 1, color: I.color || t.fog, padding: "0 4px", minWidth: 32, minHeight: 32 } }, "×")));
+      h("button", { "data-wk": "quoteclear", onClick: onClear, "aria-label": "取消引用", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: I.color || t.fog, padding: "0 6px", minWidth: 28, height: 22, margin: "-4px 0", display: "flex", alignItems: "center", justifyContent: "center" } }, "×")));
 }
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
