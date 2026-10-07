@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.026";
+const APP_VERSION = "v75.029";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11191,7 +11191,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 窗口取【最近 6 条她说的话】：她习惯拆成几个气泡说
       //（「宝宝」／「帮我记一下」／「下周三10点开会」），
       // 关键那句常常不是最后一句，卡在 3 条就容易正好漏掉。
-      const _askedRecord = askedRecently(history, /帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)|(记|写|存|加)(进|到|入)?.{0,3}健康/, 6);
+      // 她说「帮我记」之后TA已经记过一次（那张「记进健康了／记了一笔」卡）：这句请求办完了。
+      //   不停的话，后面几轮还在喊「她请你记、必须填字段」，而那张卡是系统卡、TA自己看不见，就又记一遍（她 2026-10-07：喝水被记了两次 3 杯）。
+      //   所以翻的是整份聊天（含那张卡），碰到它就停。
+      const _recRows = chatsRef.current[chatKey] || history, _recDone = m => m && m.kind === "recorded";
+      const _askedRecord = askedRecently(_recRows, /帮我记|给我记|记(一笔|一下|一条|上|下|个|着|到|进|账)|(记|写|存|加)(进|到|入).{0,4}(备忘|提醒|日程|账|本)|添.{0,3}(备忘|提醒|日程)|加.{0,3}(备忘|提醒|日程)|提醒我|别忘|记得提醒|(记|存|写).{0,3}(备忘录|账本)|(记|写|存|加)(进|到|入)?.{0,3}健康/, 6, _recDone);
       const _recordLedgerChoices = _askedRecord && typeof window.ledgerChoices === "function"
         ? window.ledgerChoices()
         : null;
@@ -23115,10 +23119,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 按 施工规则/one-public-mechanism.md 抽成公共的，并把已有那处搬了过来。
   // ⚠️数的是【她说过几轮】不是几条消息：关键那句常常不是最后一句
   //   （「宝宝」「帮我记一下」「下周三10点开会」——卡在 3 条就正好漏掉）。
-  const askedRecently = (history, re, turns) => {
+  // stopAt：往回翻时碰到它就停——这件事在那之后已经办过了，她前面那句不再算「还在请你做」
+  const askedRecently = (history, re, turns, stopAt) => {
     let seen = 0;
     for (let i = (history || []).length - 1; i >= 0 && seen < (turns || 6); i--) {
       const m = history[i];
+      if (m && stopAt && stopAt(m)) return false;
       if (!m || m.role !== "user") continue;
       seen++;
       if (re.test(String(m.content || ""))) return true;
