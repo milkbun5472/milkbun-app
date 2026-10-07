@@ -143,8 +143,22 @@
       + "\n\n写：comments（name 只能是：" + chars.map(c => c.name).join("、") + "；不想评的人就不写）、likes（这条视频的点赞数，数字）。";
   }
 
+  // ── 图标：竖着刷右边那排、横着看播放页那排共用一套 ───────────
+  const icon = (k, c, size, on) => k === "like" ? h(IHeart, { size, color: c, filled: true })
+    : k === "pen" ? h(IPencil, { size, color: c })
+    : h(Svg, { size, color: c, sw: 1.8 },
+      k === "cm" ? h("path", { d: "M4 5.5h16v10.5H10l-4.5 3.5V16H4z" })
+      : k === "fav" ? h("path", { fill: on ? c : "none", d: "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" })
+      : k === "share" ? h("path", { d: "M13 5l7 6.5-7 6.5v-4c-5 0-8 1.5-10 5 .8-5.5 3.8-9 10-9.5z" })
+      : k === "same" ? [h("rect", { key: 1, x: 4, y: 6, width: 11, height: 13, rx: 2 }), h("path", { key: 2, d: "M9 3h9a2 2 0 0 1 2 2v11" })]
+      : k === "del" ? h("path", { d: "M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13" })
+      : k === "coin" ? [h("circle", { key: 1, cx: 12, cy: 12, r: 8.5 }), h("path", { key: 2, d: "M9 9.5h6M12 9.5v6" })]
+      : k === "charge" ? h("path", { fill: on ? c : "none", d: "M13 3L5 13.5h6L10 21l9-11h-6z" })
+      : null);
+
   // ── 一条视频（整屏那一格）─────────────────────────────────
   function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel, onSame }) {
+    const [open, setOpen] = useState(false);   // 画面那段太长时先收着，点一下展开（展开了在框里滑）
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
     const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
@@ -154,17 +168,19 @@
       src ? h("img", { src: src, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null,
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.28) 0,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 52%,rgba(0,0,0,.66) 100%)" } }),
       // 没画出来的时候，画面那几句摆在正中，当它就是这一段视频
-      !src ? h("div", { style: { position: "absolute", left: 26, right: 70, top: "18%", bottom: 190, overflowY: "auto", fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.75, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } }, v.scene) : null,
+      !src ? h("div", { onClick: () => setOpen(o => !o), style: { position: "absolute", left: 26, right: 70, top: "18%", maxHeight: "calc(100% - 18% - 190px)", overflowY: open ? "auto" : "hidden", fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.7, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } },
+        h("div", { style: open ? null : { display: "-webkit-box", WebkitLineClamp: 9, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene),
+        !open && S(v.scene).length > 140 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: DIM, marginTop: 6 } }, "展开") : null) : null,
       h("div", { className: "flex flex-col items-center", style: { position: "absolute", right: 10, bottom: 110, gap: 18 } },
         h("button", { onClick: onAuthor, "aria-label": "看这个号", className: "active:opacity-70", style: { width: 46, height: 46, borderRadius: 99, border: "2px solid #fff", overflow: "hidden", background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY } },
           ch ? h(Avatar, { character: ch, size: 42 }) : S(v.author).slice(0, 1)),
-        railBtn(c => h(IHeart, { size: 30, color: c, filled: true }), fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike, "l"),
-        railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M4 5.5h16v10.5H10l-4.5 3.5V16H4z" })), fmtN(arr(v.comments).length), false, onComments, "c"),
-        railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { fill: c === RED ? c : "none", d: "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" })), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
-        onShare ? railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M13 5l7 6.5-7 6.5v-4c-5 0-8 1.5-10 5 .8-5.5 3.8-9 10-9.5z" })), "分享", false, onShare, "s") : null,
-        onSame ? railBtn(c => h(Svg, { size: 28, color: c, sw: 1.8 }, h("rect", { x: 4, y: 6, width: 11, height: 13, rx: 2 }), h("path", { d: "M9 3h9a2 2 0 0 1 2 2v11" })), "拍同款", false, onSame, "same") : null,
-        onDel ? railBtn(c => h(Svg, { size: 26, color: c, sw: 1.8 }, h("path", { d: "M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13" })), "扔掉", false, onDel, "x") : null,
-        onDraw ? railBtn(c => h(IPencil, { size: 28, color: c }), drawing ? "画着…" : (src ? "重画" : "画出来"), false, drawing ? null : onDraw, "d") : null),
+        railBtn(c => icon("like", c, 30), fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike, "l"),
+        railBtn(c => icon("cm", c, 30), fmtN(arr(v.comments).length), false, onComments, "c"),
+        railBtn(c => icon("fav", c, 30, c === RED), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
+        onShare ? railBtn(c => icon("share", c, 30), "分享", false, onShare, "s") : null,
+        onSame ? railBtn(c => icon("same", c, 28), "拍同款", false, onSame, "same") : null,
+        onDel ? railBtn(c => icon("del", c, 26), "扔掉", false, onDel, "x") : null,
+        onDraw ? railBtn(c => icon("pen", c, 28), drawing ? "画着…" : (src ? "重画" : "画出来"), false, drawing ? null : onDraw, "d") : null),
       h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
         src && v.scene ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: DIM, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
@@ -269,6 +285,8 @@
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
     const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
     const [charging, setCharging] = useState(false);
+    const [open, setOpen] = useState(false);     // 播放器里那段画面描写：先露三行
+    const [more, setMore] = useState(false);     // 右上角「⋯」：扔掉、画出来收在这儿
     const ch = v.charId ? charOf(v.charId) : null;
     const send = () => {
       const x = text.trim(); if (!x || busy) return; setText("");
@@ -276,15 +294,22 @@
       if (replyTo && onReply) { onReply(replyTo.id, x); setReplyTo(null); return; }
       onSend(x);
     };
-    const act = (label, n, on, fn) => h("button", { onClick: fn, className: "flex-1 active:opacity-60 flex flex-col items-center", style: { color: on ? B.accent : B.dim, minHeight: 44 } },
-      h("span", { style: { fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 700 : 400 } }, label), h("span", { style: { fontFamily: F_BODY, fontSize: 11, marginTop: 2 } }, n));
+    const act = (k, n, on, fn) => h("button", { onClick: fn, className: "flex-1 active:opacity-60 flex flex-col items-center", style: { color: on ? B.accent : B.dim, minHeight: 50 } },
+      icon(k, on ? B.accent : B.dim, 24, on), h("span", { style: { fontFamily: F_BODY, fontSize: 11, marginTop: 3, whiteSpace: "nowrap" } }, n));
+    const moreItem = (label, fn) => h("button", { onClick: () => { setMore(false); if (fn) fn(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 16px", fontFamily: F_BODY, fontSize: 13.5, color: B.ink } }, label);
     return h("div", { className: "h-full flex flex-col", style: { background: B.bg } },
       // 播放器那一块：黑底，画面（或那几句）＋飘过去的弹幕
       h("div", { "data-wk": "head", className: "shrink-0", style: { position: "relative", background: "#000", paddingTop: safeTop(0) } },
         h("div", { style: { position: "relative", aspectRatio: "16 / 9", background: coverBg(v), overflow: "hidden" } },
-          !imgOf(v) ? h("div", { style: { position: "absolute", left: 18, right: 18, top: 44, bottom: 10, overflowY: "auto", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.7, color: "rgba(255,255,255,.92)" } }, v.scene) : null,
+          !imgOf(v) ? h("div", { onClick: () => setOpen(o => !o), style: { position: "absolute", left: 18, right: 18, top: 44, bottom: 10, overflowY: open ? "auto" : "hidden", fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.7, color: "rgba(255,255,255,.92)" } },
+            h("div", { style: open ? null : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene),
+            !open && S(v.scene).length > 60 ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.6)", marginTop: 4 } }, "点一下看全") : null) : null,
           window.LiveKit && window.LiveKit.NoiseLayer ? h(window.LiveKit.NoiseLayer, { noise: arr(v.dms).concat(arr(v.myDms).map(x => x.text)), seed: v.id + "_" + arr(v.myDms).length }) : null,
-          h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60", style: { position: "absolute", left: 6, top: 4, width: 40, height: 40 } }, h(IArrow, { size: 20, color: "#fff" })))),
+          h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-60", style: { position: "absolute", left: 6, top: 4, width: 40, height: 40 } }, h(IArrow, { size: 20, color: "#fff" })),
+          (onDel || onDraw) ? h("button", { onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { position: "absolute", right: 6, top: 4, width: 40, height: 40, color: "#fff", fontSize: 20, lineHeight: "40px" } }, "⋯") : null,
+          more ? h("div", { style: { position: "absolute", right: 10, top: 44, zIndex: 5, minWidth: 130, borderRadius: 10, background: B.card, boxShadow: "0 6px 20px rgba(0,0,0,.25)", padding: "4px 0" } },
+            onDraw ? moreItem(drawing ? "画着…" : (imgOf(v) ? "重画封面" : "画出来"), drawing ? null : onDraw) : null,
+            onDel ? moreItem("扔掉这条", onDel) : null) : null)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 10 } },
         h("div", { style: { background: B.card, padding: "12px 14px" } },
           h("button", { onClick: onAuthor, className: "flex items-center text-left active:opacity-70", style: { gap: 10 } },
@@ -295,13 +320,11 @@
           (v.intro || (v.title && v.caption)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: B.dim, marginTop: 6, lineHeight: 1.6 } }, v.intro || v.caption) : null,
           arr(v.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
           h("div", { className: "flex", style: { marginTop: 10 } },
-            act("点赞", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
-            onCoin ? act("投币", (v.coins || 0) + (v.myCoins ? " · 投过" + v.myCoins : ""), !!v.myCoins, onCoin) : null,
-            act("收藏", v.faved ? "已收藏" : "收藏", v.faved, onFave),
-            onCharge ? act("充电", v.charged ? "¥" + v.charged : "给作者", !!v.charged, () => setCharging(c => !c)) : null,
-            onShare ? act("分享", "给 TA", false, onShare) : null,
-            onDel ? act("扔掉", "这条", false, onDel) : null,
-            onDraw ? act(drawing ? "画着…" : (imgOf(v) ? "重画" : "画出来"), "封面", false, drawing ? null : onDraw) : null),
+            act("like", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
+            onCoin ? act("coin", v.myCoins ? "投过 " + v.myCoins : String(v.coins || "投币"), !!v.myCoins, onCoin) : null,
+            act("fav", v.faved ? "已收藏" : "收藏", v.faved, onFave),
+            onCharge ? act("charge", v.charged ? "¥" + v.charged : "充电", !!v.charged, () => setCharging(c => !c)) : null,
+            onShare ? act("share", "分享", false, onShare) : null),
           onCoin ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 2, textAlign: "right" } }, "今天还剩 " + coinsLeft + " 枚硬币") : null,
           charging && onCharge ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 8 } }, [6, 18, 50, 128].map(n => h("button", { key: n, onClick: () => { setCharging(false); onCharge(n); }, className: "active:opacity-60",
             style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + B.accent, color: B.accent, fontFamily: F_BODY, fontSize: 12 } }, "充 ¥" + n))) : null),
@@ -337,7 +360,9 @@
     const [topic, setTopic] = useState("");   // 首页只看沾这个热门话题的
     const [cityPick, setCityPick] = useState("");
     const [folder, setFolder] = useState("all");
-    const [fName, setFName] = useState(null);      // 正在起名的新文件夹   // 收藏那一格看哪个文件夹   // 同城看的是哪座城
+    const [fName, setFName] = useState(null);
+    const [picking, setPicking] = useState(null);  // 长按了哪一条，正在给它挑文件夹
+    const pressRef = useRef(null);      // 正在起名的新文件夹   // 收藏那一格看哪个文件夹   // 同城看的是哪座城
     const [prog, setProg] = useState("");
     const [drawing, setDrawing] = useState(null);
     const [paneH, setPaneH] = useState(600);
@@ -747,14 +772,24 @@
               h("button", { onClick: newFolder, className: "active:opacity-60", style: { minHeight: 32, padding: "0 10px", color: P.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "建"),
               h("button", { onClick: () => setFName(null), className: "active:opacity-60", style: { minHeight: 32, padding: "0 6px", color: P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, "算了"))),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 10px 16px" } },
-          inF.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, inF.map(v => h("div", { key: v.id, className: "flex flex-col", style: { gap: 4 } },
+          folders.length && inF.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim, padding: "0 4px 8px" } }, "长按一条视频，挑它放进哪个文件夹") : null,
+          inF.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, inF.map(v => h("div", { key: v.id, className: "flex flex-col", style: { gap: 6 },
+            // 长按（电脑上右键）一条，底下冒出一排文件夹点一下就放进去——不用系统那个下拉框
+            onPointerDown: () => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => { pressRef.current = "fired"; setPicking(v.id); }, 450); },
+            onPointerUp: () => { if (pressRef.current !== "fired") clearTimeout(pressRef.current); },
+            onPointerLeave: () => { if (pressRef.current !== "fired") clearTimeout(pressRef.current); },
+            onClickCapture: e => { if (pressRef.current === "fired") { pressRef.current = null; e.stopPropagation(); e.preventDefault(); } },
+            onContextMenu: e => { e.preventDefault(); setPicking(v.id); } },
             skin === "b" ? h(BCard, { v, onOpen: () => setPage({ kind: "bdetail", id: v.id }) })
-              : h("button", { onClick: () => setPage({ kind: "favs", folder }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 8, borderRadius: 6 } },
-                !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.88)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 7, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || v.scene) : null,
+              : h("button", { onClick: () => setPage({ kind: "favs", folder }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 8, borderRadius: 6, WebkitTouchCallout: "none", userSelect: "none" } },
+                !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.88)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene || v.caption) : null,
                 h("div", { style: { position: "absolute", left: 8, bottom: 6, right: 8, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + v.author)),
-            folders.length ? h("select", { value: folders.some(f => f.id === v.folder) ? v.folder : "", onChange: e => patchV(v.id, x => Object.assign({}, x, { folder: e.target.value })), style: { fontFamily: F_BODY, fontSize: 12, color: P.ink, background: "transparent", border: "1px solid " + P.line, borderRadius: 6, minHeight: 30, padding: "0 6px" } },
-              h("option", { value: "" }, "放进文件夹…"), folders.map(f => h("option", { key: f.id, value: f.id }, f.name))) : null))) :
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 20px", lineHeight: 1.6 } }, favAll.length ? "这个文件夹还是空的，在「全部」里给视频挑文件夹" : "还没收藏过，刷到喜欢的点星星")));
+            (function () { const f = folders.find(x => x.id === v.folder); return f && folder === "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, "在「" + f.name + "」") : null; })(),
+            picking === v.id ? h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+              folders.length ? folders.map(f => h("button", { key: f.id, onClick: () => { patchV(v.id, x => Object.assign({}, x, { folder: x.folder === f.id ? "" : f.id })); setPicking(null); }, className: "active:opacity-60", style: { minHeight: 30, padding: "0 10px", borderRadius: 999, background: v.folder === f.id ? P.accent : "transparent", border: "1px solid " + (v.folder === f.id ? P.accent : P.line), color: v.folder === f.id ? "#fff" : P.ink, fontFamily: F_BODY, fontSize: 12 } }, f.name))
+                : h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim } }, "先在上面建个文件夹"),
+              h("button", { onClick: () => setPicking(null), className: "active:opacity-60", style: { minHeight: 30, padding: "0 6px", color: P.dim, fontFamily: F_BODY, fontSize: 12 } }, "收起")) : null))) :
+            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 20px", lineHeight: 1.6 } }, favAll.length ? "这个文件夹还是空的。在「全部」里长按一条视频，就能把它放进来" : "还没收藏过，刷到喜欢的点星星")));
     })();
     else if (tab === "msg") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "消息", bg: "transparent", ink: P.ink, onBack: () => setTab("me"), right: unread ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { notes: dbRef.current.notes.map(n => Object.assign({}, n, { unread: false })) })), style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "全部已读") : null }),

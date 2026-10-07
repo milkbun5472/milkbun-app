@@ -130,3 +130,14 @@ test("关注和推荐不重样；底栏收藏格带文件夹；消息挪进「�
   assert.match(src, /folders: arr\(dbRef\.current\.folders\)\.concat/);
   assert.match(src, /onClick: \(\) => setTab\("msg"\)/);
 });
+
+test("播放页一排五个带图标，扔掉和画出来进「⋯」；收藏长按挑文件夹，不用系统下拉框", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  const bd = src.slice(src.indexOf("function BDetail"), src.indexOf("function ShuaApp") > 0 ? src.indexOf("function ShuaApp") : undefined);
+  assert.match(src, /const icon = \(k, c, size, on\)/);
+  assert.match(bd, /"aria-label": "更多"/);
+  assert.doesNotMatch(bd, /act\("扔掉"/);
+  assert.doesNotMatch(src, /h\("select"/);
+  assert.match(src, /setPicking\(v\.id\)/);
+  assert.match(src, /WebkitLineClamp: 3/);
+});
