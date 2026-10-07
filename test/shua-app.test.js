@@ -96,3 +96,15 @@ test("v75.010 补欠账：直播那一格跟皮、熟人口气开关", () => {
   const w = A.slice(A.indexOf("const genWeekSpend = async"), A.indexOf("const catchUpWallet = async"));
   assert.match(w, /card: _kinDay && b && b\.card === true/);
 });
+
+test("两套皮只说事实不给内容；扔掉要先问；收藏的不会被挤掉", () => {
+  assert.match(S, /const V_FACT = "/);
+  assert.match(S, /const B_FACT = "/);
+  ["BGM", "bgm", "挑战", "同款", "教程", "vlog", "测评", "盘点"].forEach(w => {
+    const facts = S.slice(S.indexOf("const V_FACT"), S.indexOf("const B_EXTRA"));
+    assert.ok(facts.indexOf(w) < 0, "事实那两句里出现了内容示范：" + w);
+  });
+  assert.match(S, /const capVideos = vs => \{ let left = CAP; return arr\(vs\)\.filter\(v => v\.faved \|\| v\.by === "me" \|\| \(left-- > 0\)\); \};/);
+  assert.match(S, /props\.confirm\("扔掉这条视频？"/);
+  assert.match(S, /page\.kind === "favs"/);
+});

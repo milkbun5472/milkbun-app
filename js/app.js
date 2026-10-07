@@ -28156,6 +28156,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 今日热门从这个世界里长出来：公开那一类世界书（第 6 条）
       worldHint: () => String(loreForContext("social", [], "") || "").slice(0, 3000),
       // 情侣号只给在一起的人开（她 2026-10-07）
+      confirm: (title, body, ok) => requestAppConfirm(title, body, ok),
       togetherIds: () => Object.keys(couplesRef.current || {}).filter(id => ((couplesRef.current || {})[id] || {}).status === "together"),
       live: liveProps,
       // 视频分享给 TA（她 2026-10-07）：跟直播回放一样，落一张卡、可选小房间、不让TA当场开口

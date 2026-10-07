@@ -53,7 +53,11 @@
 
   // ── 提示词（料全在 system / 推演任务里，user 只有一句触发）────────────
   // 横屏那套：同一个人、同一份生活，只是平台的样子不一样——是有标题、有简介、按分区放的那种长一点的视频
-  const B_EXTRA = "\n这是一个以横屏中长视频为主的平台：视频有标题、有简介、有分区，看的人会在画面上发弹幕。所以另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
+  // 两套皮各自是一种什么样的地方——只说事实（多长、人怎么看、推给谁），不说该拍什么（她 2026-10-07：「不然你都把路写死了」）。
+  //   同一个人放进两种处境，自然会拍出不一样的东西；写进去哪种内容，模型就只会往那儿钻。
+  const V_FACT = "\n这个平台是竖屏的：一条通常十几秒到一两分钟。人是一条接一条往上划着看的，不喜欢一秒就划走了。推荐流会把你的视频推给不认识你的人，他们不知道你是谁，只看这一条。";
+  const B_FACT = "\n这个平台是横屏的：一条几分钟到几十分钟都有。人多半是点进来从头看下去，很多是冲着这个号来的。视频有标题、有简介、放在某个分区里，看的人会在画面上发弹幕。";
+  const B_EXTRA = B_FACT + "另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
   const ACC_ADD = ',"bio":"","niche":"","followers":0';
   const FRIENDS_ADD = ',"friends":[{"name":"","text":""}]';
   const B_SHAPE_ADD = ',"title":"","intro":"","dur":"08:24","plays":0,"zone":"","dms":[""]';
@@ -71,7 +75,7 @@
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
       + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
       + "底下的评论 comments（3~6 条：name 是刷到这条的网友的网名，text 是他们说的话；各人各说各的，不是一个调子）。"
-      + (skin === "b" ? B_EXTRA : "")
+      + (skin === "b" ? B_EXTRA : V_FACT)
       // 熟人来评并进这一枪里（她 2026-10-07 嫌多调一次贵）：认识TA的那几个人评不评、评什么，TA这一枪顺手写
       + (friends && friends.length ? "\n认识你的人里，这几个也在刷「" + APP_NAME + "」，可能刷到这条：" + friends.map(f => f.name + (f.rel ? "（" + f.rel + "）" : "")).join("、")
         + "。他们评不评、评什么、当着网友的面说成什么样，照他们跟你的关系来，写进 friends（name 只能是这几个；一个都没刷到就空着）。" : "");
@@ -85,7 +89,7 @@
       + "\n\n每条一个不同的博主。题材、拍法、口吻、热度各不一样：有大号有小号，有认真做内容的也有随手一拍的。"
       + "\n写 videos（" + n + " 条），每条：author 博主网名、scene 视频里拍了什么（2~4 句，像在讲一段视频怎么走）、who 画面里有没有人（self 博主本人出镜 / part 只露手或背影 / none 没有人）、"
       + "caption 文案、tags 话题（0~4 个，不带井号）、likes 点赞数（数字）、comments 评论（2~5 条，name 网友网名，text）。"
-      + (skin === "b" ? B_EXTRA.replace("\n这是", "\n这个推荐流是在") : "");
+      + (skin === "b" ? B_EXTRA : V_FACT);
   }
   const REPLY_SHAPE = '{"reply":""}';
   // alt：她用小号评的。TA只看得见一个陌生账号，不知道是她（跟论坛小号同一条：小号一个字都不漏）
@@ -131,7 +135,7 @@
   }
 
   // ── 一条视频（整屏那一格）─────────────────────────────────
-  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor }) {
+  function VideoPane({ v, charOf, onLike, onFave, onComments, onDraw, drawing, height, onShare, onAuthor, onDel }) {
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
     const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
@@ -149,6 +153,7 @@
         railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M4 5.5h16v10.5H10l-4.5 3.5V16H4z" })), fmtN(arr(v.comments).length), false, onComments, "c"),
         railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { fill: c === RED ? c : "none", d: "M12 3.5l2.6 5.4 5.9.8-4.3 4.1 1 5.8L12 16.8 6.8 19.6l1-5.8-4.3-4.1 5.9-.8z" })), v.faved ? "已收藏" : "收藏", v.faved, onFave, "f"),
         onShare ? railBtn(c => h(Svg, { size: 30, color: c, sw: 1.8 }, h("path", { d: "M13 5l7 6.5-7 6.5v-4c-5 0-8 1.5-10 5 .8-5.5 3.8-9 10-9.5z" })), "分享", false, onShare, "s") : null,
+        onDel ? railBtn(c => h(Svg, { size: 26, color: c, sw: 1.8 }, h("path", { d: "M5 7h14M10 7V4.5h4V7M7 7l1 13h8l1-13" })), "扔掉", false, onDel, "x") : null,
         onDraw ? railBtn(c => h(IPencil, { size: 28, color: c }), drawing ? "画着…" : (src ? "重画" : "画出来"), false, drawing ? null : onDraw, "d") : null),
       h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
@@ -244,7 +249,7 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption || v.scene),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
   }
-  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor }) {
+  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel }) {
     const [text, setText] = useState("");
     const ch = v.charId ? charOf(v.charId) : null;
     const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); onSend(x); };
@@ -269,6 +274,7 @@
             act("点赞", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
             act("收藏", v.faved ? "已收藏" : "收藏", v.faved, onFave),
             onShare ? act("分享", "给 TA", false, onShare) : null,
+            onDel ? act("扔掉", "这条", false, onDel) : null,
             onDraw ? act(drawing ? "画着…" : (imgOf(v) ? "重画" : "画出来"), "封面", false, drawing ? null : onDraw) : null)),
         h("div", { style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
@@ -303,7 +309,9 @@
     const skin = db.skin === "b" ? "b" : "v";
     const P = PAL[skin];
     useEffect(function () { const el = feedRef.current; if (el && el.clientHeight && el.clientHeight !== paneH) setPaneH(el.clientHeight); });
-    const save = next => { const n = Object.assign({}, next, { videos: arr(next.videos).slice(0, CAP), notes: arr(next.notes).slice(0, 100) }); dbRef.current = n; setDb(n); saveJSON(KEY, n); };
+    // 收藏的不会被刷掉（她 2026-10-07）：满了只挤掉没收藏的那些
+    const capVideos = vs => { let left = CAP; return arr(vs).filter(v => v.faved || v.by === "me" || (left-- > 0)); };
+    const save = next => { const n = Object.assign({}, next, { videos: capVideos(next.videos), notes: arr(next.notes).slice(0, 100) }); dbRef.current = n; setDb(n); saveJSON(KEY, n); };
     const patchV = (id, fn) => save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.map(v => v.id === id ? fn(v) : v) }));
     const addVideos = list => save(Object.assign({}, dbRef.current, { videos: list.concat(dbRef.current.videos) }));
     const note = text => save(Object.assign({}, dbRef.current, { notes: [{ id: uid("n"), text, ts: Date.now(), unread: true }].concat(dbRef.current.notes) }));
@@ -481,6 +489,11 @@
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
       finally { setDrawing(null); }
     };
+    // 扔掉不想要的那条（ooc 的、写坏的）。先问一句，删了就没了
+    const del = v => {
+      const go = () => { save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.filter(x => x.id !== v.id) })); setPage(p => p && p.id === v.id ? (p.back || null) : p); toast("扔掉了"); };
+      if (props.confirm) props.confirm("扔掉这条视频？", "扔了就找不回来了" + (v.img ? "，画出来的那张图也一起不要了" : "") + "。", go); else go();
+    };
     const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked }));
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
 
@@ -508,7 +521,8 @@
       if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
-        onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null });
+        onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
+        onDel: () => del(v) });
     }
     // TA的号（第 5 条）：主页简介、平时发什么、粉丝，下面是这个号发过的（当前这套皮的）
     if (page && page.kind === "acct") {
@@ -554,7 +568,7 @@
     // ⚠️点进评论／播放页是整页换掉的，回来时首页重新挂一遍——原来就从第一条开始了
     //   （群友 2026-10-07：「每次点视频的评论，看完了又会回到第一条」）。按「哪一格哪一套」记住滑到哪儿，挂回来时放回去。
     //   竖屏记的是第几条（格高可能变），横屏记像素。
-    const posKey = (page && page.kind === "mine" ? "mine" : tab + "|" + feed) + "|" + skin;
+    const posKey = (page && (page.kind === "mine" || page.kind === "favs") ? page.kind : tab + "|" + feed) + "|" + skin;
     const keepPos = (el, unit) => {
       if (!el || el.__posKept) return;
       el.__posKept = true;
@@ -568,6 +582,7 @@
         onComments: () => setPage({ kind: "comments", id: v.id, back: page }),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
+        onDel: () => del(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id })) : empty);
     const gridView = (vids, empty) => h("div", { ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
@@ -575,6 +590,10 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : "还什么都没有"),
       h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-70", style: { minHeight: 42, padding: "0 22px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "刷一刷"));
 
+    // 「我」那一格点进收藏：同一个竖着刷的样子，只放收藏的
+    if (page && page.kind === "favs") return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+      h(Head, { zh: "我的收藏", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
+      feedView(ofSkin.filter(v => v.faved), null));
     // 「我」那一格点进自己的作品
     if (page && page.kind === "mine") return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的作品", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
@@ -658,7 +677,19 @@
           : h("button", { key: v.id, onClick: () => setPage({ kind: "mine" }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
             !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.85)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || v.scene) : null,
             h("div", { style: { position: "absolute", left: 6, bottom: 4, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)" } }, "赞 " + fmtN(v.likes))))) :
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "还没发过，点底栏中间的 ＋")));
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "还没发过，点底栏中间的 ＋"),
+        // 收藏（她 2026-10-07）：收藏过的不会被刷掉，在这儿都找得到（当前这套皮的）
+        (function () {
+          const favs = ofSkin.filter(v => v.faved);
+          if (!favs.length) return null;
+          return h("div", null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "22px 0 8px" } }, "收藏 · " + favs.length),
+            h("div", { style: { display: "grid", gridTemplateColumns: skin === "b" ? "1fr 1fr" : "repeat(3,1fr)", gap: skin === "b" ? 8 : 3 } }, favs.map(v => skin === "b"
+              ? h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id }) })
+              : h("button", { key: v.id, onClick: () => setPage({ kind: "favs" }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
+                !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.85)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || v.scene) : null,
+                h("div", { style: { position: "absolute", left: 6, bottom: 4, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)" } }, "@" + v.author)))));
+        })()));
 
     // 底栏：真的短视频 app 就是这么分的——中间那颗是「拍」，不是一个普通 tab
     const tabBtn = (k, label) => h("button", { key: k, onClick: () => { setTab(k); if (k !== "live") setLiveStart(""); }, className: "flex-1 active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 48, position: "relative" } },
