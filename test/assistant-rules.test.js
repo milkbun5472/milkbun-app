@@ -15,3 +15,9 @@ test("rules 能改能撤，两个入口都接了写口", () => {
   assert.match(A, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory\|rules\|/);
   assert.equal((P.match(/onSetDirectives: \(id, lines\) => setDirectives\(/g) || []).length, 2);
 });
+
+test("最近聊天：只给这会儿在说的那几个人，两个入口都接了", () => {
+  assert.match(A, /if \(!hot\.has\(row\.id\)\) return;/);
+  assert.match(A, /row\.最近聊天 = rows\.length \? rows : "（还没聊过）"/);
+  assert.equal((P.match(/recentChatFor: \(charId, n\) => \{/g) || []).length, 2);
+});

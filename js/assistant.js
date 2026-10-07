@@ -655,6 +655,7 @@
   //   所以拿【要发给模型的那整段窗口】来找：说过的名字都算，这才叫「在说谁」。
   //   同时封个数，不然一段长对话里提过八个角色，八张全卡一起塞进去。
   const SNAP_FULL_MAX = 4;
+  const SNAP_CHAT_N = 40;   // 给秋秋看最近几条（只给正在说的那几个人）
   function focusIds(list, focus, max) {
     const f = String(focus || "");
     const hit = [];
@@ -709,6 +710,13 @@
     const dirs = loadJ("x_directives", {}) || {};
     const dirOf = id => (Array.isArray(dirs[id]) ? dirs[id] : []).map(x => String((x && x.text) || "").trim()).filter(Boolean);
     chars.forEach(row => { const l = dirOf(row.id); row.长期准则 = l.length ? l : "（没有）"; });
+    // 最近聊天（她 2026-10-07：「最近聊天也给它看吧」）：只给【这会儿在说的那几个人】——
+    //   跟人设给全文是同一个判据（hot）；全员都给太长，也用不上。
+    if (typeof ctx.recentChatFor === "function") chars.forEach(row => {
+      if (!hot.has(row.id)) return;
+      const rows = ctx.recentChatFor(row.id, SNAP_CHAT_N) || [];
+      row.最近聊天 = rows.length ? rows : "（还没聊过）";
+    });
     chars.forEach(row => {
       const st = cs[row.id] || {};
       row.聊天窗排版 = st.layout ? JSON.stringify(st.layout).replace(/"(data:image[^"]{0,40})[^"]*"/g, '"$1…"') : "（原样）";

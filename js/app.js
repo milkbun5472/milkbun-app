@@ -28455,6 +28455,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
     onAddMemories: (charId, items) => (items || []).forEach(txt =>
       addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+    // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
+    recentChatFor: (charId, n) => {
+      const c = characters.find(x => x.id === charId); const uN = userName(profile);
+      return ((chatsRef.current || {})[charId] || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant" || m.role === "narration"))
+        .slice(-(n || 40)).map(m => {
+          const d = new Date(m.ts || 0);
+          const when = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+          const who = m.role === "user" ? uN : m.role === "narration" ? "旁白" : ((c && c.name) || "TA");
+          return when + " " + who + (m.kind === "ooc" ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
+        });
+    },
     // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
     onSetDirectives: (id, lines) => setDirectives(p => {
       const old = p[id] || [];
@@ -29182,6 +29193,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
       onAddMemories: (charId, items) => (items || []).forEach(txt =>
         addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
+      // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
+      recentChatFor: (charId, n) => {
+        const c = characters.find(x => x.id === charId); const uN = userName(profile);
+        return ((chatsRef.current || {})[charId] || []).filter(m => m && !m.recalled && m.content && (m.role === "user" || m.role === "assistant" || m.role === "narration"))
+          .slice(-(n || 40)).map(m => {
+            const d = new Date(m.ts || 0);
+            const when = (d.getMonth() + 1) + "/" + d.getDate() + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+            const who = m.role === "user" ? uN : m.role === "narration" ? "旁白" : ((c && c.name) || "TA");
+            return when + " " + who + (m.kind === "ooc" ? "（出戏）" : "") + "：" + String(m.content).replace(/\s+/g, " ").slice(0, 240);
+          });
+      },
       // 秋秋改长期准则（她 2026-10-07 放开）：整份重写；原来就有的那几条保留 id 和时间
       onSetDirectives: (id, lines) => setDirectives(p => {
         const old = p[id] || [];
