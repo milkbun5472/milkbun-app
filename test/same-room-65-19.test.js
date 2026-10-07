@@ -186,7 +186,8 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   assert.match(app, /\? ",\\"mood\\":\\"（只有配角填）/, "闭群里的配角没被要求填那四样");
   assert.match(app, /: ",\\"thought\\":\\"（可选）没说出口的心声\\""/, "闭群里的心声栏没了");
   // 显示不看记忆互通：那是写不写状态卡的事
-  assert.match(app, /const gActionNow = TVG\.normalizeAction\(_rawGAction, spk && spk\.name\) \|\| ""/);
+  // v74.977 改成 let：动描里写的是台词时会被清空、挪回气泡（BubbleActGuard.spokenAction）
+  assert.match(app, /(?:const|let) gActionNow = TVG\.normalizeAction\(_rawGAction, spk && spk\.name\) \|\| ""/);
   assert.match(app, /const gAction = gActionNow;/, "互通那一支又自己算了一遍");
   assert.equal((app.match(/normalizeAction\(_rawGAction/g) || []).length, 1);
   // 比的是【这个人自己上一次】，不是全群最后一条——不然 A 变了 B 没变会一起漏或一起出
