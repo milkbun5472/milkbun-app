@@ -24,7 +24,7 @@ test("世界分组单独存一份，默认所有人在同一个世界；拆掉�
 test("论坛：帖子里能开口的角色、认得出的角色、关系行都按世界过滤", () => {
   assert.match(a, /const forumThreadWorld = post =>/);
   assert.match(a, /const forumInWorld = \(c, post\) => !!c && \(forumCurWorld\(\) === "\*" \|\|/, "「全部」里谁都能去谁的帖下说话");
-  assert.match(a, /world: forumCurWorld\(\) \}/, "她在「全部」里发的记成 *");
+  assert.match(a, /world: forumCurWorld\(\)(, \.\.\.forumFmtTag\(\))? \}/, "她在「全部」里发的记成 *");
   assert.match(a, /const poolChars = forumActiveChars\(\)\.filter\(c => \(!opChar \|\| c\.id !== opChar\.id\) && forumInWorld\(c, post\)\);/);
   const n = (a.match(/c\.name === (x|r)\.char && forumInWorld\(c, post\)/g) || []).length;
   assert.ok(n >= 4, "模型写了别的世界的角色名也不许落成那个角色（现在 " + n + " 处）");
