@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.017";
+const APP_VERSION = "v75.018";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28103,14 +28103,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!d) throw new Error("这一拍没写出来，再发一次");
       return d;
     },
-    briefFor: c => {
+    // 几个人一枪写完时每人那一段（直播间观众、片刻评论区）。
+    // ⚠️原来是这里自拼的一套：人设硬切 2500、只有在没在一起和六句聊天，心情、长出来的自我、住哪、身上带着什么一概没有。
+    //   跟群聊／群通话走同一份：groupPersonaText 按在场人数分额度，groupNowSegs 给【此刻】那几层（私事带本人围栏）。
+    //   调用处都是 list.map(briefFor)，第三个参数就是在场的这一拨人。
+    briefFor: (c, _i, all) => {
       const uN = userName(profile);
+      const present = Array.isArray(all) && all.length ? all : [c];
+      if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, present.map(x => x.id));
       const cp = (couplesRef.current || {})[c.id] || {};
       const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
         .slice(-6).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
-      return "【" + c.name + "】\n" + String(c.persona || "").slice(0, 2500)
+      return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length))
+        + Object.values(groupNowSegs(c, { interop: true })).join("")
         + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
-        + (rows ? "\n你俩最近聊的：\n" + rows : "");
+        + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
     },
     pay: (delta, label) => changeWallet(delta, label, "live"),
     charPay: (charId, delta, label) => adjustCharBalance(charId, delta, label, "live"),

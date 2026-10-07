@@ -60,8 +60,9 @@ test("四处旧的固定截断一个都不许留着", () => {
   // v60.27 起【通话】是第五处（她 2026-09-02：「语音视频没喂八股禁令进去」）——
   // 那之前这一层在通话里一处都没有，见 施工规则/four-surfaces-same-context.md。
   // v60.31：群通话也分出了配角那一支（配角不吃「此刻」那几层），所以是 5 处
-  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 6,
-    "线上群、投票、群通话各自都区分真角色与配角");
+  // v75.018：直播间观众／片刻评论区那几个人一枪写完时（liveProps.briefFor）也改走这一份，又是真角色+配角两支，所以 8
+  assert.equal((app.match(/groupPersonaText\(c\.persona/g) || []).length, 8,
+    "线上群、投票、群通话、直播片刻多人那段各自都区分真角色与配角");
   assert.equal((engine.match(/groupPersonaText\(c\.persona/g) || []).length, 3, "群线下（真角色+配角） + 群 OOC");
 });
 
