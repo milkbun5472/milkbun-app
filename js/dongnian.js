@@ -664,9 +664,11 @@ function defaultPromptContext(state, p) {
   } else if (c < 0.35) {
     parts.push(`有一会儿没听到${p.subjectName}的动静了，但还不着急。`);
   } else if (c < 0.50) {
-    parts.push(`${p.subjectName}好一阵子没说话了。开始在想${p.subjectPronoun}在干嘛。`);
+    // ⚠️只摆事实，不替TA想好那句话（她 2026-10-07：「主动消息都是一条自己在干啥一条问我怎么样了」）——
+    //   原来写的是「开始在想她在干嘛」「她去哪了？」，TA就照着把第二条写成了问她在干嘛。
+    parts.push(`${p.subjectName}好一阵子没说话了，你有点惦记。`);
   } else {
-    parts.push(`${p.subjectName}很久没动静了。有点在意——${p.subjectPronoun}去哪了？`);
+    parts.push(`${p.subjectName}很久没动静了，你挺在意的。`);
   }
 
   // 骄傲 → 表达方式（五档）
