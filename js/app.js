@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.979";
+const APP_VERSION = "v74.981";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1054,11 +1054,29 @@ function App() {
   };
   useEffect(() => {
     const pending = notificationRoomRef.current;
-    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : "main");
+    // 没带着哪间房进来时，照这个人的「点进来先进哪间房」落（群友 2026-10-07）：主聊天 / 上次待的那间 / 指定一间。
+    //   那间房没了就回主聊天，不报错。
+    const landing = () => {
+      if (!activeChar || !window.ChatRooms) return "main";
+      const pick = (settingsFor(activeChar.id) || {}).enterRoom;
+      const rid = pick === "last" ? (loadJSON("x_lastRoom", {}) || {})[activeChar.id] : pick;
+      if (!rid || rid === "main") return "main";
+      const r = window.ChatRooms.get(activeChar.id, rid);
+      return r && !r.main ? rid : "main";
+    };
+    setActiveRoomId(pending && activeChar && pending.charId === activeChar.id ? pending.roomId : landing());
     notificationRoomRef.current = null;
     const intent = roomPresetIntentRef.current; roomPresetIntentRef.current = "";
     setChatRoomsOpen(!!intent); setChatRoomsPreset(intent);
   }, [activeChar && activeChar.id]);
+  // 记下每个人上次待在哪间房，给「上次待的那间」用。只认这个人真有的房间：
+  //   换人那一下 activeRoomId 还是上一个人的，那间在这个人名下查不到，就不记。
+  useEffect(() => {
+    if (!activeChar || !window.ChatRooms) return;
+    const rid = activeRoomId || "main";
+    if (rid !== "main") { const r = window.ChatRooms.get(activeChar.id, rid); if (!r || r.main) return; }
+    try { const m = loadJSON("x_lastRoom", {}) || {}; if (m[activeChar.id] !== rid) { m[activeChar.id] = rid; saveJSON("x_lastRoom", m); } } catch (e) {}
+  }, [activeChar && activeChar.id, activeRoomId]);
   // 群同上：开着群聊时改了群名/群头像/成员，原来也要退出去再进来才看得见。
   // 同一个形状的第二处，照同一个改法（施工规则/one-public-mechanism.md）。
   const [activeGroupSel, setActiveGroup] = useState(null);
@@ -11634,7 +11652,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
@@ -13687,7 +13705,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "\n\n" + GROUP_MULTI_BUBBLE
         // ⚠️跟单聊那一处同一条：开了动描，那一行就是【描写】，管描写的那几族才轮得上。
         //   没开动描时一个字都不发——线上就只有台词，那一份在这儿是白发（她立的：一堆禁令会变笨）。
-        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "");
+        + (_gActDesc ? "\n\n" + ownActNoBracketRule(userName(profile)) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_gActDesc && gs.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
       // 她想要什么（四处一样喂）：这是用户的信息，群里共享一份，不像随身物是每人私有
       // 她今天身上带着什么（四处一样喂）：这一条原来只在单聊那几处有——
       // 她带着东西来见【他们】，群里却一个字都看不到（群里那位 2026-09-15 报的）。
@@ -29127,6 +29145,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
             actDesc: !!s.actDesc,
+            actLong: !!s.actLong,
+            enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
             // callAuto 是【三态】：null=还没单独设过，走设置里那个全局默认；true/false=设过了。
             // ⚠️所以这一格不能 !! 归一，那会把「没设过」变成「设过而且是关」，
