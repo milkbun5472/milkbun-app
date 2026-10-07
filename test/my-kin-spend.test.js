@@ -33,3 +33,11 @@ test("小房间一律不摆卡、不刷卡；钱包空着时叫她直接问TA要
   assert.match(screens, /想要就直接在聊天里问 TA 要/);
   assert.doesNotMatch(screens, /允许角色给我亲属卡/);
 });
+
+test("小房间里钱的出口全关：TA转账、送礼、点外卖、发卡、刷卡、收转账；她的＋面板亲属卡也挡", () => {
+  const R = require("../js/chat-rooms.js");
+  const room = R.normalize({ id: "r1" }, "c1");
+  for (const f of ["transfer", "transferAccept", "gift", "takeout", "kinshipcard", "herkinspend"]) assert.equal(R.allowsField(room, f), false, f);
+  assert.match(app, /onMyKin: \(\) => runRoomAction\(activeChar\.id, "herkinspend"/);
+  assert.match(app, /const callTfOk = !cur\.groupId && \(!cur\.room \|\| cur\.room\.main\);/);
+});
