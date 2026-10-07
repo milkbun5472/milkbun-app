@@ -36,3 +36,12 @@ test("闸那一处换掉「对方是谁」；没认出来不漏主面具", () =>
   assert.match(app, /window\.ChatRooms\.altCallName\(room\) : ""\) \|\| userName\(profile\)/);
   assert.match(app, /window\.ChatRooms\.altCallName\(room\) : ""\) \|\| profile\.name \|\| "我"/);
 });
+
+test("自己写的小号：只存在房里，闸照样换上；没写名字就是陌生网友", () => {
+  const own = R.normalize({ id: "r1", alt: { maskId: "__own", mask: { name: "夜猫", persona: "大学生" }, knows: "no" } }, "c1");
+  assert.equal(R.gateCtx({ profile: { name: "真名" }, char: {} }, own).profile.persona, "大学生");
+  const blank = R.normalize({ id: "r1", alt: { maskId: "__own", mask: { name: "", persona: "x" }, knows: "no" } }, "c1");
+  assert.equal(R.altName(blank), "陌生网友");
+  const comp = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
+  assert.match(comp, /"＋ 自己写一个"/);
+});

@@ -17917,10 +17917,18 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
     return h("div", { style: { marginTop: 10, padding: "12px", borderRadius: 14, border: "1px solid #9fb5c0", background: "rgba(95,125,140,.08)" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#4f6b78" } }, "你的小号"),
       h("div", { style: { marginTop: 3, fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.55 } },
-        "挑一张面具当小号：TA在这间房里看到的就是它的名字和人设。面具在「信息 → 我 → 我的面具」里建。"),
-      masks.length
-        ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, masks.map(m => chip(a.maskId === m.id, m.label || m.name || "未命名", () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)))
-        : h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: "#4f6b78" } }, "你还没有别的面具。先去建一张，不挑的话TA只当你是「陌生网友」。"),
+        "挑一张面具当小号，或者自己写一个只给这间房用的：TA在这间房里看到的就是它的名字和人设。"),
+      // 「自己写一个」（她 2026-10-07：「有时候还要新的不是我面具的自己弄的新人设」）：
+      //   只活在这一间房里，不进面具库；名字和人设直接存进 alt.mask，闸那头照样读它
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+        masks.map(m => chip(a.maskId === m.id, m.label || m.name || "未命名", () => setAlt({ maskId: m.id, mask: { ...m } }), m.id)),
+        chip(a.maskId === "__own", "＋ 自己写一个", () => setAlt({ maskId: "__own", mask: a.maskId === "__own" ? a.mask : { name: "", persona: "" } }), "__own")),
+      a.maskId === "__own" ? h("div", { style: { marginTop: 8 } },
+        h("input", { value: (a.mask && a.mask.name) || "", onChange: e => setAlt({ mask: { ...(a.mask || {}), name: e.target.value.slice(0, 24) } }), placeholder: "小号的网名",
+          style: { width: "100%", padding: "9px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }),
+        h("textarea", { value: (a.mask && a.mask.persona) || "", onChange: e => setAlt({ mask: { ...(a.mask || {}), persona: e.target.value.slice(0, 3000) } }), rows: 4, placeholder: "这个小号是个什么样的人：年纪、性格、说话习惯……只用在这一间房里",
+          style: { width: "100%", marginTop: 7, resize: "vertical", padding: "9px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, color: t.ink, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6 } }))
+        : !masks.length ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: "#4f6b78" } }, "你还没有别的面具：可以去「信息 → 我 → 我的面具」建一张，或者点「自己写一个」只给这间房用。都不挑的话TA只当你是「陌生网友」。") : null,
       h("div", { style: { marginTop: 12, fontFamily: F_DISPLAY, fontSize: 14, color: "#4f6b78" } }, characterText(character, "他认不认得出是你")),
       h("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 7 } }, Kit.ALT_KNOWS.map(([k, label, note]) => h("button", { key: k, onClick: () => setAlt({ knows: k }), className: "w-full text-left active:opacity-70",
         style: { padding: "9px 11px", borderRadius: 11, border: "1px solid " + (a.knows === k ? t.ink : t.line), background: a.knows === k ? t.bg : "transparent" } },

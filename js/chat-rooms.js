@@ -227,7 +227,7 @@
   function altOf(room) { return room && !room.main && room.alt ? room.alt : null; }
   // 小号这一边TA看到的是谁：没认出来时，【对方是谁】那一栏就换成小号那张面具
   function altHidesMe(room) { const a = altOf(room); return !!(a && a.knows !== "knows"); }
-  function altProfile(room) { const a = altOf(room); return a && a.mask ? a.mask : { name: "陌生网友" }; }
+  function altProfile(room) { const a = altOf(room); return a && a.mask && String(a.mask.name || a.mask.label || "").trim() ? a.mask : { name: "陌生网友", persona: a && a.mask && a.mask.persona || "" }; }
   function altName(room) { const p = altProfile(room); return String(p.name || p.label || "陌生网友"); }
   // TA没认出来时，叫她用的名字（认出来了或不是小号房：空串，调用点回落到她本来的名字）
   function altCallName(room) { return altHidesMe(room) ? altName(room) : ""; }
