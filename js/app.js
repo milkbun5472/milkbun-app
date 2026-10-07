@@ -27895,7 +27895,40 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return [...p, entry];
     }),
     onBack: () => setScreen("home")
-  });else if (screen === "debate") body = h(Debate, {
+  });else if (screen === "live") body = window.LiveApp ? h(window.LiveApp, {
+    // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
+    characters: liveChars.filter(c => !c.npc && !settingsFor(c.id).engineerEyes),
+    profile: profile,
+    wallet: wallet,
+    toast: toast,
+    maskName: (anonMe && anonMe.name) || "",
+    // 看 TA 播：料就是TA平时那一整份（TA 开播的时候还是TA），站位是「TA本人在现场」
+    probeAs: (char, instruction, schemaHint) => {
+      if (!active) throw new Error("请先到设置配置 API");
+      return runProbe(apiFor(char.id), ctxFor(char), { voiceScene: true, instruction, schemaHint, tag: "live" });
+    },
+    // 我来播：几个人一枪写完。料全放 system，user 只留一句触发（prompt-send-shape）
+    probeMany: async (chars, instruction, schemaHint) => {
+      if (!active) throw new Error("请先到设置配置 API");
+      const raw = await callAI(apiFor(chars[0].id), instruction + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
+      const d = extractJSON(raw);
+      if (!d) throw new Error("这一拍没写出来，再发一次");
+      return d;
+    },
+    briefFor: c => {
+      const uN = userName(profile);
+      const cp = (couplesRef.current || {})[c.id] || {};
+      const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
+        .slice(-6).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
+      return "【" + c.name + "】\n" + String(c.persona || "").slice(0, 2500)
+        + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
+        + (rows ? "\n你俩最近聊的：\n" + rows : "");
+    },
+    pay: (delta, label) => changeWallet(delta, label, "live"),
+    remember: (charIds, text) => addMemEntry({ text, tags: ["直播"], charIds, knownBy: charIds, source: "auto" }),
+    onPrivate: (charId, text) => pChat(charId, p => [...p, { role: "assistant", content: text, ts: Date.now(), read: false }]),
+    onBack: () => setScreen("home")
+  }) : null;else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
     // 场边（v60.42 回来）：只有【她自己的、没上台的角色】——路人和昵称那一套是借来的，

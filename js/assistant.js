@@ -932,7 +932,7 @@
     calendar: "calendar", memo: "memo", map: "map",
     listen: "listen", musiccard: "listen", radio: "", radioArchive: "", radioLegacy: "",
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon", anonme: "anon",
-    study: "study", fanfic: "fanfic", read: "read", watch: "watch", weekly: "weekly", debate: "debate",
+    study: "study", fanfic: "fanfic", read: "read", watch: "watch", weekly: "weekly", debate: "debate", live: "live",
     dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", astro: "astro", health: "health", pomodoro: "pomodoro", companion: "companion",
     games: "games", fairyGarden: "fairyGarden", trpg: "trpg", theater: "theater", impression: "impression", shike: "shike",
     yanqiu: "yanqiu", loungeapp: "lounge", rescue: "rescue", vpscodex: "vpscodex",

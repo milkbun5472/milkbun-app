@@ -5421,7 +5421,7 @@ const DEFAULT_FOLDERS = {
   f_def_check: { name: "查一查", keys: ["phone", "carry", "dwell"] },
   f_def_daily: { name: "每日看", keys: ["cwallet", "tarot", "shop", "takeout", "astro", "health"] },
   f_def_ties:  { name: "角色关系", keys: ["ties", "cast", "lore"] },
-  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg"] },
+  f_def_play:  { name: "一起玩", keys: ["games", "theater", "trpg", "live"] },
   f_def_do:    { name: "一起做", keys: ["study", "read", "watch", "pomodoro"] },
   // ⚠️id 里带上「脑洞」的拼音不是随手起的：文件夹的颜色是【按 key 哈希】出来的，
   //   f_def_mind 那个名字算出来的色相和它左边的匿名问答只差 24，
@@ -5591,6 +5591,7 @@ function Home({
     if (st && Object.keys(st).length) st = placeAstroOnce(st);
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "shike", "impression", "x_shikePlaced");
     if (st && Object.keys(st).length) st = placeNewAppOnce(st, "health", "astro", "x_healthPlaced");
+    if (st && Object.keys(st).length) st = placeNewAppOnce(st, "live", "theater", "x_livePlaced");
     if (st && Object.keys(st).length) return st;
     // 第一次装：连布局也没有时才铺默认文件夹。老用户（布局已存过）保持空，
     // 免得凭空冒出九个文件夹压在她自己摆的图标上。
@@ -5661,6 +5662,7 @@ function Home({
     read: { kind: "app", zh: "一起读", G: IShelf },
     watch: { kind: "app", zh: "一起看", G: IFilm },
     debate: { kind: "app", zh: "擂台", G: GDebate },
+    live: { kind: "app", zh: "直播", G: window.GLive || GDebate },
     dream: { kind: "app", zh: "梦境", G: GDream },
     tarot: { kind: "app", zh: "塔罗", G: GTarot },
     astro: { kind: "app", zh: "星测", G: window.GAstro || GTarot },
