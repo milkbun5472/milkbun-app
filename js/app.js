@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v74.986";
+const APP_VERSION = "v74.987";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12518,6 +12518,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           setRinging({ cid: chatKey, m: inv, name: char.name, char: char });
         }
         delivered = true;
+      }
+      // 小号房：TA这一轮把你认出来、当面说破了（ChatRooms.altUnmask 只认开了「能拆穿」的房）
+      if (parsed.unmasked === true && room && window.ChatRooms && window.ChatRooms.altUnmask) {
+        const r2 = window.ChatRooms.altUnmask(room);
+        if (r2) {
+          const nick = window.ChatRooms.altName(r2);
+          pChat(chatKey, p => [...p, { role: "system", kind: "system", sub: "altunmask", content: char.name + " 认出了你：「" + nick + "」后面是你。从现在起TA知道了。", ts: Date.now() }]);
+          // 带不带回主聊天她说了算：答应了就往主聊天交接里放一句（跟「出门时捎一句」同一份 addSummary）
+          setTimeout(() => requestAppConfirm("要把这件事带回主聊天吗？", "带回去的话，" + char.name + " 在主聊天里也会记得：你用小号「" + nick + "」找过TA，被TA认出来了。", () => {
+            window.ChatRooms.addSummary({ personId: charId, roomId: r2.id, roomName: r2.name, frame: "", summary: "她用小号「" + nick + "」来找过我，被我认出来了。", fromTs: 0, toTs: Date.now() });
+            toast("带回去了");
+          }, "带回去"), 600);
+        }
       }
       // TA 拉黑用户
       if (parsed.block === true) {
@@ -26596,7 +26609,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     // 气泡旁边「我」的头像/名字：这个角色认的是哪张面具，就显示哪张（群里读者 2026-10-01：
     //   「char2 对应面具 2，但聊天显示的不是面具 2 的头像」）。profile 本身不换——语音标定那些按它记的。
-    meProfile: profileFor(activeChar.id),
+    // 小号房里「我」显示小号那张（小号没头像就不显示头像图，只换名字）
+    meProfile: (() => { const rm = window.ChatRooms && window.ChatRooms.altOf ? window.ChatRooms.get(activeChar.id, activeRoomId) : null;
+      return rm && window.ChatRooms.altOf(rm) ? { ...profileFor(activeChar.id), avatarImage: undefined, ...window.ChatRooms.altProfile(rm) } : profileFor(activeChar.id); })(),
     disp: { reason: !!settingsFor(activeChar.id).showReasoning, myAvatar: !!settingsFor(activeChar.id).showMyAvatar, time: !!settingsFor(activeChar.id).showTime, timeSec: !!settingsFor(activeChar.id).timeSec, read: settingsFor(activeChar.id).showRead !== false, chatBg: settingsFor(activeChar.id).chatBg || "" },
     onOpenState: () => { const k = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id; setStateCardRoomKey(window.ChatRooms && window.ChatRooms.isSideKey(k) ? k : null); setStateCardChar(null); setStateCardGroup(false); setStateCardOpen(true); },
     schedNow: roomTimeAwareFor(window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null, activeChar.id) ? schedNowBriefFor(activeChar) : null,

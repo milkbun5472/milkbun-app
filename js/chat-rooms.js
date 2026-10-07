@@ -220,7 +220,10 @@
       maskId: String(a.maskId || "").slice(0, 80),
       // 挑面具那一刻抄一份下来：房间自己带着小号是谁，闸（gateCtx）不用回头去翻面具库
       mask: a.mask && typeof a.mask === "object" ? a.mask : null,
-      knows: ALT_KNOWS.some(([k]) => k === a.knows) ? a.knows : "no"
+      knows: ALT_KNOWS.some(([k]) => k === a.knows) ? a.knows : "no",
+      // TA能不能自己拆穿你（第二批）。拆穿那一下 knows 翻成 "knows"，unmaskedAt 记下是什么时候
+      unmask: !!a.unmask,
+      unmaskedAt: Number(a.unmaskedAt || 0)
     };
   }
   // 这间房是不是小号房；不是就 null。只此一处判断（施工规则/one-public-mechanism）
@@ -231,6 +234,12 @@
   function altName(room) { const p = altProfile(room); return String(p.name || p.label || "陌生网友"); }
   // TA没认出来时，叫她用的名字（认出来了或不是小号房：空串，调用点回落到她本来的名字）
   function altCallName(room) { return altHidesMe(room) ? altName(room) : ""; }
+  // TA这一轮说破了：只有开了「能拆穿」、而且还没认出来的房才算数。返回存好的新房，不算数返回 null
+  function altUnmask(room) {
+    const a = altOf(room);
+    if (!a || !a.unmask || a.knows === "knows") return null;
+    return save(room.personId, { ...room, alt: { ...a, knows: "knows", unmaskedAt: Date.now() } });
+  }
   function normalize(room, personId) {
     const base = room && room.id === MAIN_ID ? mainRoom(personId) : { id: room && room.id || id(), personId: String(personId), name: "新房间", main: false, createdAt: Date.now(), updatedAt: Date.now(), preset: "everyday", ...clone(PRESETS.everyday) };
     const src = room || {};
@@ -668,7 +677,11 @@
         ? "你一眼就认出来了：这个号后面是" + (o.realName ? "「" + o.realName + "」" : "你认识的那个人") + "。你装作不知道，陪她演；要不要点破、什么时候点破，由你。"
         : alt.knows === "hint"
           ? "你不知道这个号后面是谁。但对方的说话方式、小习惯，让你隐约想起一个熟悉的人——你可以起疑、试探，没有把握之前别一口咬定。"
-          : "你不知道这个号后面是谁，就把对方当成网上刚认识的人；你自己的生活和身边的人照旧。"));
+          : "你不知道这个号后面是谁，就把对方当成网上刚认识的人；你自己的生活和身边的人照旧。")
+        + (alt.unmaskedAt ? "这个号是你后来自己认出来的，已经当面说破了。" : "")
+        + (alt.unmask && alt.knows !== "knows"
+          ? "要是你真的确定认出了这个号后面是谁，并且这一轮当面说破，就在输出 JSON 里加一个字段 \"unmasked\":true；没说破就别写这个字段。"
+          : ""));
     }
     lines.push("【认知边界】" + GROUPS.cognition.map(([k, label]) => label + (c[k] ? "可用" : "不可用")).join("；") + "。");
     if (allowedActions.length) lines.push("【本房可提议的活动】" + allowedActions.join("、") + "。只需在真的想做时自然开口，不要把它当作每轮任务，也不要假装界面已经打开。");
@@ -798,6 +811,6 @@
     });
   }
 
-  return { ALT_KNOWS, altOf, altHidesMe, altProfile, altName, altCallName, canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
+  return { ALT_KNOWS, altOf, altHidesMe, altProfile, altName, altCallName, altUnmask, canRead, allowsField, allows, visibleText, resumeLines, prepareStart, memCutoff, memBefore, memOnly, commitStart, messagesAfterClear, resetAfterClear, doorLine, STORAGE_KEY, SUMMARY_KEY, MAIN_ID, GROUPS, PRESETS, CTX_GATE, gateCtx, ROOM_SUM_THRESH, ROOM_SUM_BUFFER, ROOM_DIGEST_CAP, ROOM_DIGEST_MIN, ROOM_DIGEST_MAX, ROOM_DIGEST_STEP, digestCapOf, digestDue, digestMerge, MEM_KEY, memList, memCount, memAdd, memUpdate, memRemove, memDropRoom, memRecall, memAll, memAllIds, mainRoom, normalize, list, get, save, create, remove, chatKey, isSideKey, personFromKey, hydrateChats, readSummaries, addSummary, listSummaries, studySessionsFor, studyCounts, roomCounts, readBooksFor, canWrite, prompt, scenarioSetting,
     ROOM_FIC_CAP, pendingFicInvite, ficMarks, currentFicId, roomFicList, roomOfFic, ficTrack };
 });

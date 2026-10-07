@@ -45,3 +45,17 @@ test("自己写的小号：只存在房里，闸照样换上；没写名字就�
   const comp = require("fs").readFileSync(__dirname + "/../js/components.js", "utf8");
   assert.match(comp, /"＋ 自己写一个"/);
 });
+
+test("拆穿：只认开了开关、还没认出来的房；说破后翻成认出来了", () => {
+  const store = {}; global.localStorage = { getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; } };
+  const mk = (unmask, knows) => R.normalize({ id: "r9", personId: "c1", alt: { mask: { name: "小鱼" }, knows, unmask } }, "c1");
+  assert.equal(R.altUnmask(mk(false, "no")), null);
+  assert.equal(R.altUnmask(mk(true, "knows")), null);
+  const r2 = R.altUnmask(mk(true, "hint"));
+  assert.equal(r2.alt.knows, "knows");
+  assert.ok(r2.alt.unmaskedAt > 0);
+  assert.match(R.prompt(mk(true, "no"), [], {}), /"unmasked":true/);
+  assert.doesNotMatch(R.prompt(mk(false, "no"), [], {}), /unmasked/);
+  assert.match(app, /parsed\.unmasked === true && room/);
+  assert.match(app, /window\.ChatRooms\.addSummary\(\{ personId: charId, roomId: r2\.id/);
+});

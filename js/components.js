@@ -17934,6 +17934,12 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         style: { padding: "9px 11px", borderRadius: 11, border: "1px solid " + (a.knows === k ? t.ink : t.line), background: a.knows === k ? t.bg : "transparent" } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, label),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, characterText(character, note))))),
+      a.knows !== "knows" ? h("div", { className: "flex items-center justify-between", style: { marginTop: 10, padding: "10px 0 2px", borderTop: "1px dashed " + t.line } },
+        h("div", { style: { paddingRight: 10 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, characterText(character, "他能自己拆穿你")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, characterText(character, "开着：他真认出来、当面说破时，房里落一行字，之后他就知道是你了；还会问你要不要带回主聊天。"))),
+        h(Toggle, { on: !!a.unmask, onChange: () => setAlt({ unmask: !a.unmask }) })) : null,
+      a.unmaskedAt ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#4f6b78" } }, characterText(character, "他已经在这间房里认出你了。")) : null,
       a.knows === "hint" && !(Kit.allows && Kit.allows(draft, "formalMemory"))
         ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 10.5, color: "#9b5f6d", lineHeight: 1.55 } }, characterText(character, "想让他起疑，下面「你们一起经历过的事」最好开着——他得记得你，才认得出像你。"))
         : null);
