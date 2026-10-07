@@ -6189,6 +6189,10 @@ function PhoneCarry({
   actualWechatFor,
   onSendAs,
   sendAsWaiting,
+  // 改TA通讯录备注（v74.978）。⚠️原来这儿漏收了：app 那头递了 onRemark，
+  //   这一层没接、也没放进下面的 ctx，于是微信那页永远拿到 undefined，「›」一次都没出现过
+  //   （她 2026-10-07：「为啥 978 的微信改备注 cf 显示不出来」——其实家里也没有）。
+  onRemark,
   nowSongId,
   forumAccountsFor,
   playlistFor,
@@ -6827,6 +6831,8 @@ function PhoneCarry({
     // 她在TA手机上以TA的名义真的发一条（只有真实会话给这条口子，见 app.js phoneSendAs）
     onSendAs: (sess, text) => onSendAs ? onSendAs(char, sess, text) : false,
     sendAsWaiting: sendAsWaiting || "",
+    // 没有 onRemark 就别给一个空函数：微信那页拿它的真假决定要不要露「›」
+    onRemark: onRemark ? (ch, c, v) => onRemark(ch, c, v) : null,
     // 偷看转发：手机里的东西只有【转发了】才进TA的上下文（她 2026-08-29 定的）
     onPeek: pk => onPeek && onPeek(char, pk),
     // 相册里【我收着的】那几张可以真画出来（v59.59）。drawing 存的是正在画的那张
