@@ -18,8 +18,11 @@ test("model reads the file as a file, not as her words", () => {
 });
 test("PDF and docx via vendored, lazily loaded libraries", () => {
   assert.ok(fs.existsSync(__dirname + "/../vendor/pdf.min.js") && fs.existsSync(__dirname + "/../vendor/pdf.worker.min.js") && fs.existsSync(__dirname + "/../vendor/mammoth.browser.min.js"));
-  assert.match(comp, /lazyScript\("vendor\/pdf\.min\.js"\)/);
-  assert.match(comp, /workerSrc = "vendor\/pdf\.worker\.min\.js"/);
+  // 2026-10-06：聊天发文件的 PDF 读法合进 core.js 那一份 extractPdfText（懒加载在 loadPdfjs 里）
+  const core = fs.readFileSync(__dirname + "/../js/core.js", "utf8");
+  assert.match(comp, /function pdfToText\(buf\) \{ return extractPdfText\(/);
+  assert.match(core, /function loadPdfjs\(/);
+  assert.match(core, /tryLoad\("vendor\/pdf\.min\.js", "vendor\/pdf\.worker\.min\.js"\)/, "先用自带那份");
   assert.match(comp, /lazyScript\("vendor\/mammoth\.browser\.min\.js"\)/);
   const idx = fs.readFileSync(__dirname + "/../index.html", "utf8");
   assert.ok(!/pdf\.min\.js|mammoth/.test(idx), "解析库不该进开机那一串");

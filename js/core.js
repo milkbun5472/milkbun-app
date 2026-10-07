@@ -792,23 +792,37 @@ let _pdfjsP = null;
 function loadPdfjs() {
   if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
   if (_pdfjsP) return _pdfjsP;
-  _pdfjsP = new Promise((res, rej) => {
+  // 先用 App 自带的那份（vendor/，国内网络、离线都能用），载不下来再退到 CDN
+  const tryLoad = (src, worker) => new Promise((res, rej) => {
     const s = document.createElement("script");
-    s.src = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js";
+    s.src = src;
     s.onload = () => {
-      try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"; } catch (e) {}
+      if (!window.pdfjsLib) { rej(new Error("pdf.js 没挂上")); return; }
+      try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = worker; } catch (e) {}
       res(window.pdfjsLib);
     };
-    s.onerror = () => { _pdfjsP = null; rej(new Error("pdf.js 加载失败（需要联网）")); };
+    s.onerror = () => rej(new Error("pdf.js 加载失败"));
     document.head.appendChild(s);
   });
+  _pdfjsP = tryLoad("vendor/pdf.min.js", "vendor/pdf.worker.min.js")
+    .catch(() => tryLoad("https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js", "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js"))
+    .catch(e => { _pdfjsP = null; throw new Error("pdf.js 加载失败（需要联网）"); });
   return _pdfjsP;
 }
-async function extractPdfText(file, onProg) {
+// opts.pageMarks：每页前面标「〔PDF 第 N 页〕」（她 2026-10-06 群友：「为什么它一直识别 pdf 识别不出页数」——
+//   原来各页文字直接拼成一长串，老师根本不知道哪段在第几页，她说「第十七页」它只能猜）。
+//   一起读那边是给人读的正文，不标（标了会混进书页里）；一起学的资料、聊天里发的文件都标。
+// opts.maxPages / opts.maxChars：只读前几页／读够了就停（聊天发文件那一路用）。
+// ⚠️聊天发文件原来另有一份 pdfToText（components.js），跟这份几乎一样——合成这一份了（one-public-mechanism）。
+async function extractPdfText(file, onProg, opts) {
+  opts = opts || {};
   const lib = await loadPdfjs();
-  const pdf = await lib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const data = file && typeof file.arrayBuffer === "function" ? await file.arrayBuffer() : file;
+  const pdf = await lib.getDocument({ data: data instanceof Uint8Array ? data : new Uint8Array(data) }).promise;
   const pages = [];
-  for (let p = 1; p <= pdf.numPages; p++) {
+  const lastPage = Math.min(pdf.numPages, opts.maxPages || pdf.numPages);
+  let total = 0;
+  for (let p = 1; p <= lastPage; p++) {
     const tc = await (await pdf.getPage(p)).getTextContent();
     let line = "", lastY = null;
     const rows = [];
@@ -822,8 +836,11 @@ async function extractPdfText(file, onProg) {
       lastY = y;
     });
     if (line) rows.push(line);
-    pages.push(rows.join("\n"));
+    const body = rows.join("\n");
+    pages.push(opts.pageMarks ? "〔PDF 第 " + p + " 页〕\n" + body : body);
+    total += body.length;
     if (onProg) onProg(p, pdf.numPages);
+    if (opts.maxChars && total > opts.maxChars) break;
   }
   return pages.join("\n\n");
 }

@@ -20,7 +20,8 @@ test("两样工具都在，而且只在有画面时才出手", () => {
   assert.match(call, /const litPlate = \(from, to\) => onPhoto \? \{/, "没有那层自带的暗底");
   // 没有画面时两样都是 null —— 语音通话那一屏一个像素都不该动
   assert.match(call, /const litText = onPhoto \? \{[^}]*\} : null;/);
-  assert.match(call, /WebkitBackdropFilter: "blur\(3px\)"\n  \} : null;/, "没画面时那层底也发出去了");
+  // v74.955 起那层底只剩渐变、不再毛玻璃（她：「视频这个上面虚好丑」）
+  assert.match(call, /rgba\(10,11,14," \+ to \+ "\) 100%\)"\n  \} : null;/, "没画面时那层底也发出去了");
 });
 
 test("飘在照片上的每一处白字都带上了字影", () => {
@@ -38,7 +39,8 @@ test("飘在照片上的每一处白字都带上了字影", () => {
 });
 
 test("顶上那块和输入栏各自压一层底，中间那块【不许】压", () => {
-  assert.match(call, /className: "shrink-0 pt-10 pb-3 flex flex-col items-center",\n(?:\s*\/\/.*\n)?\s*style: Object\.assign\(pip \? \{ paddingLeft: 112, paddingRight: 112 \} : \{\}, litPlate\("\.62", "0"\)\)/,
+  // v74.956 起单人视频字靠左、只让右边小框（她：「字不在侧边看着好挤」）
+  assert.match(call, /className: "shrink-0 pb-3 flex flex-col " \+ \(pip \? "pt-14 items-start" : "pt-10 items-center"\),[^\n]*\n(?:\s*\/\/.*\n)*\s*style: Object\.assign\(pip \? \{ paddingLeft: 24, paddingRight: 24 \} : \{\}, litPlate\("\.62", "0"\)\)/,
     "顶上名字时长那块没有自己的底");
   assert.match(call, /paddingBottom: COMPOSER_PAD_BOTTOM\n\s*\}, litPlate\("0", "\.78"\)\)/,
     "输入栏那一条没有自己的底");

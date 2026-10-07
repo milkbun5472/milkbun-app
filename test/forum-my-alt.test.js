@@ -19,3 +19,8 @@ test("小号是一个能切的号：回楼、私信都跟着；小号帖没人�
   assert.ok(/if \(pmChar && th\.alt\)/.test(app), "小号私信角色：他当陌生人");
   assert.ok(/onEditMe\(\{ using: onAlt \? "main" : "alt" \}\)/.test(scr));
 });
+test("回楼用哪个号只看现在切的号，小号帖底下切了大号就用大号（2026-10-07 群友）", () => {
+  const fs2 = require("fs");
+  const a2 = fs2.readFileSync(__dirname + "/../js/app.js", "utf8");
+  assert.match(a2, /const usingAlt = post => !\(post && \(post\.board === "匿名吧" \|\| post\.anon\)\) && forumMe\.using === "alt";/);
+});

@@ -5,7 +5,7 @@ const fs = require("fs"), path = require("path");
 const scr = fs.readFileSync(path.join(__dirname, "..", "js/screens.js"), "utf8");
 const app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
 test("角色新帖跨吧列在首页最上面", () => {
-  assert.match(scr, /const forumNewCharPosts = \(posts \|\| \[\]\)\.filter\(p => forumVisible\(p\) && String\(p\.authorType \|\| ""\)\.startsWith\("character"\)/);
+  assert.match(scr, /const forumNewCharPosts = \(posts \|\| \[\]\)\.filter\(p => forumVisible\(p\) && (?:\(p\.fmt === "xhs"\) === cardLayout && )?String\(p\.authorType \|\| ""\)\.startsWith\("character"\)/);
   assert.match(scr, /forumNewCharPosts\.length > 0 && h\(/);
 });
 test("每一楼都能删，删前问一句", () => {

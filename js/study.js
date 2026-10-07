@@ -931,13 +931,39 @@
     }
   }
   // 按空行切段，太长的段再按字数切，每段带着出处
+  // PDF 那几份每页开头有「〔PDF 第 N 页〕」：每段记住自己在第几页，被切开的后半段也补上页码（不然老师看到的是没页码的一截）
   function materialChunks(name, text) {
     const out = [];
+    let page = 0;
     String(text || "").split(/\n\s*\n/).forEach(function (para) {
       const p = para.trim();
-      for (let i = 0; i < p.length; i += MAT_CHUNK) out.push({ name: name, text: p.slice(i, i + MAT_CHUNK) });
+      const pm = p.match(/^〔PDF 第 (\d+) 页〕/);
+      if (pm) page = Number(pm[1]);
+      for (let i = 0; i < p.length; i += MAT_CHUNK) {
+        const piece = p.slice(i, i + MAT_CHUNK);
+        out.push({ name: name, page: page, text: (page && !(i === 0 && pm) ? "〔PDF 第 " + page + " 页·接上〕\n" : "") + piece });
+      }
     });
     return out;
+  }
+  // 她点名「第十七页／第 17 页／p17」：认出页码，那几段优先挑
+  function cnToInt(s) {
+    const CN_NUM = { 零: 0, 一: 1, 二: 2, 两: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9 };
+    if (/^\d+$/.test(s)) return Number(s);
+    let n = 0, cur = 0;
+    for (const ch of s) {
+      if (ch in CN_NUM) cur = CN_NUM[ch];
+      else if (ch === "十") { n += (cur || 1) * 10; cur = 0; }
+      else if (ch === "百") { n += (cur || 1) * 100; cur = 0; }
+    }
+    return n + cur;
+  }
+  function askedPages(query) {
+    const set = new Set();
+    const re = /第\s*([0-9]+|[零一二两三四五六七八九十百]+)\s*页|\bp\.?\s*([0-9]+)\b|([0-9]+)\s*页/gi;
+    let m;
+    while ((m = re.exec(String(query || "")))) { const v = cnToInt(m[1] || m[2] || m[3]); if (v > 0) set.add(v); }
+    return set;
   }
   // 一段跟这一节有多相关：数问句里的词（两个字一组）在这段里出现了几个
   function chunkScore(text, grams) {
@@ -968,7 +994,8 @@
     if (total <= cap) picked = chunks;
     else {
       const grams = queryGrams(query).map(function (g) { return g.toLowerCase(); });
-      const ranked = chunks.map(function (c, i) { return { c: c, i: i, s: chunkScore(c.text.toLowerCase(), grams) }; })
+      const pages = askedPages(query);
+      const ranked = chunks.map(function (c, i) { return { c: c, i: i, s: chunkScore(c.text.toLowerCase(), grams) + (c.page && pages.has(c.page) ? 1000 : 0) }; })
         .sort(function (a, b) { return b.s - a.s || a.i - b.i; });
       let used = 0; picked = [];
       for (let k = 0; k < ranked.length && used < cap; k++) { picked.push(ranked[k]); used += ranked[k].c.text.length; }
@@ -977,14 +1004,16 @@
     let last = "";
     return "【她传上来的资料（" + (total <= cap ? "全部" : "挑了跟这节有关的几段") + "）】\n"
       + picked.map(function (c) { const head = c.name !== last ? "〔" + c.name + "〕\n" : ""; last = c.name; return head + c.text; }).join(total <= cap ? "\n\n" : "\n…\n")
-      + "\n这是她正在学的那份东西：讲法、术语、例题尽量跟着它走；它没讲到的，你照自己会的补，顺口说一句这是资料外的。";
+      + "\n这是她正在学的那份东西：讲法、术语、例题尽量跟着它走；它没讲到的，你照自己会的补，顺口说一句这是资料外的。"
+      + (picked.some(function (c) { return c.page; }) ? "\n〔PDF 第 N 页〕是文件里的第几页。她说「第几页」多半指书上印的页码，可能跟它差几页——对不上时先在那几页正文里找印着的页码再对；资料里真没有那一页，就直说没看到，别编那页上有什么。" : "");
   }
   // 读她选的那个文件：txt/md 自己认编码，pdf 抽文字层
   async function readMaterialFile(f, onProg) {
     const isPdf = /\.pdf$/i.test(f.name) || (f.type && f.type.indexOf("pdf") >= 0);
     const isTxt = /\.(txt|md|markdown)$/i.test(f.name) || (f.type && f.type.indexOf("text") >= 0);
     if (!isPdf && !isTxt) throw new Error("现在能读 .txt、.md 和带文字层的 .pdf；拍的书页用课上的发图片");
-    const text = isPdf ? await extractPdfText(f, onProg) : await readTextFileSmart(f);
+    // 每页前面标「〔PDF 第 N 页〕」：她说「第十七页」时老师才知道是哪一页（书上印的页码可能跟 PDF 的第几页对不上，两个都在）
+    const text = isPdf ? await extractPdfText(f, onProg, { pageMarks: true }) : await readTextFileSmart(f);
     if (!String(text || "").trim()) throw new Error(isPdf ? "没读到文字——这份 PDF 可能是扫描图，拍的书页用课上的发图片" : "这个文件是空的");
     return { text: String(text), kind: isPdf ? "pdf" : "txt" };
   }
@@ -1133,6 +1162,18 @@
     });
     if (!units.length) throw new Error("大纲起草失败，请重试");
     return { level: d.level || (lv || "入门"), language: d.language || "中文", units: units };
+  }
+
+  // 换一版时把她留着的那几节插回原位（同名的新小节不要，id 撞了给新的改名）
+  function mergeKeptUnits(outline, kept) {
+    if (!kept || !kept.length) return outline;
+    const keepTitles = new Set(kept.map(function (x) { return String(x.u.title || "").trim(); }));
+    const keepIds = new Set(kept.map(function (x) { return x.u.id; }));
+    const fresh = (outline.units || []).filter(function (u) { return !keepTitles.has(String(u.title || "").trim()); })
+      .map(function (u, k) { return keepIds.has(u.id) ? Object.assign({}, u, { id: u.id + "_n" + k }) : u; });
+    const out = fresh.slice();
+    kept.slice().sort(function (a, b) { return a.i - b.i; }).forEach(function (x) { out.splice(Math.min(x.i, out.length), 0, x.u); });
+    return Object.assign({}, outline, { units: out });
   }
 
   // ---- 结算一节课，浓缩成 1~2 句给课程记忆（下次开新 session 会读到）--------
@@ -2971,6 +3012,7 @@
     const [focus, setFocus] = useState("");
     const [busy, setBusy] = useState("");   // '' | 'sum' | 'draft'
     const [draft, setDraft] = useState(null);
+    const [editIdx, setEditIdx] = useState(-1);   // 正在改的是第几小节（-1＝没在改）
     // 起草大纲挂在后台生成上（一门课一份）：走开再回来，起草好的那份大纲还在，接着确认就行
     const BG = window.BackgroundGeneration;
     const outlineKey = "study:outline:" + props.curriculum.id;
@@ -3032,14 +3074,41 @@
         const teacherId = cur.teacher_id || (cur.character_ids || [])[0];
         const loreText = [cur.subject, focus.trim(), priorCtx].filter(Boolean).join("\n");
         const worldbook = props.worldbookFor && teacherId ? props.worldbookFor(teacherId, loreText) : props.worldbook;
-        return await draftSessionOutline(props.active, cur.subject, worldbook, cur.level, priorCtx, focus.trim());
+        // 她点了「留着」的那几小节（群友 2026-10-06：「第二次生成之前感觉可以的又没有了」）：
+        //   告诉起草的人这几节定了、别再排一遍；回来以后原样插回原来的位置，其余用新排的
+        const keepFocus = kept.length ? "已定下、要原样保留的小节：" + kept.map(function (x) { return "「" + x.u.title + "」"; }).join("、") + "——别再排一遍，排其余的。" : "";
+        const fresh2 = await draftSessionOutline(props.active, cur.subject, worldbook, cur.level, priorCtx, [focus.trim(), keepFocus].filter(Boolean).join("\n"));
+        return mergeKeptUnits(fresh2, kept);
       };
+      const kept = ((draft && draft.units) || []).map(function (u, i) { return { u: u, i: i }; }).filter(function (x) { return x.u._keep; });
       if (BG) { setBusy("sum"); BG.start(outlineKey, { label: "sum" }, run).catch(() => {}); return; }
       try { setBusy("sum"); const outline = await run((_, lab) => setBusy(lab)); setDraft(outline); setBusy(""); }
       catch (e) { props.toast("出错了：" + (e.message || "重试")); setBusy(""); }
     }
 
-    function confirm(outline) {
+    // 改大纲（群友 2026-10-06：「第一次生成可以在已经生成好的地方加编辑吗」）
+    const setUnit = function (i, patch) {
+      // 自己动过字的那一节自动算「留着」：换一版不该把她刚改的冲掉
+      if ("title" in patch || "objectives" in patch || "grammar" in patch) patch = Object.assign({ _keep: true }, patch);
+      setDraft(function (d) { return Object.assign({}, d, { units: d.units.map(function (u, k) { return k === i ? Object.assign({}, u, patch) : u; }) }); });
+    };
+    const dropUnit = function (i) { setEditIdx(-1); setDraft(function (d) { return Object.assign({}, d, { units: d.units.filter(function (_, k) { return k !== i; }) }); }); };
+    const addUnit = function () {
+      setDraft(function (d) {
+        const id = "unit_mine_" + Date.now().toString(36);
+        const units = (d.units || []).concat([{ id: id, title: "新的一小节", objectives: [], grammar: [{ id: id + "__core", label: "新的一小节", note: "本小节的核心能力" }], _keep: true }]);
+        setEditIdx(units.length - 1);
+        return Object.assign({}, d, { units: units });
+      });
+    };
+    function confirm(outline0) {
+      // 装订前把编辑用的小记号去掉；要点空了补一个核心点（没有可追踪要点的小节出不了题卡）
+      const outline = Object.assign({}, outline0, { units: (outline0.units || []).filter(function (u) { return String(u.title || "").trim(); }).map(function (u) {
+        const v = Object.assign({}, u); delete v._keep;
+        if (!(v.grammar || []).length) v.grammar = [{ id: v.id + "__core", label: (v.objectives && v.objectives[0]) || v.title, note: "本小节的核心能力" }];
+        return v;
+      }) });
+      if (!outline.units.length) { props.toast("至少留一小节"); return; }
       const chars = avatarsFor(cur.character_ids, props.characters);
       const progress = initSessionProgress(outline);
       progress.warmup_queue = dueReviewCards(findCurriculum(cur.id) || cur, Date.now());
@@ -3062,12 +3131,36 @@
           h("div", { style: { margin: "11px 2px 12px", fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, lineHeight: 1.7 } },
             "这是为这一节课起的小大纲（已参考之前几节的进度）。确认后就按它上课；不满意可重来。"),
           (draft.units || []).map(function (u, i) {
-            return h("div", { key: u.id, className: "mb-3", style: { position: "relative", padding: "14px 14px 14px 49px", background: STUDY_SKIN.paper, border: "1px solid " + STUDY_SKIN.line, borderRadius: "5px 14px 14px 5px", boxShadow: "0 6px 16px " + STUDY_SKIN.shadow } },
-              h("span", { style: { position: "absolute", left: 12, top: 12, width: 25, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: skin.soft, borderBottom: "3px solid " + skin.accent, fontFamily: F_DISPLAY, fontSize: 15, color: skin.accent } }, String(i + 1).padStart(2, "0")),
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: STUDY_SKIN.ink } }, u.title),
-              (u.objectives || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginTop: 5, lineHeight: 1.7 } }, "目标：" + u.objectives.join("；")) : null,
-              (u.grammar || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, marginTop: 3, lineHeight: 1.7 } }, "要点：" + u.grammar.map(function (g) { return g.label; }).join("、")) : null);
-          })),
+            const editing = editIdx === i;
+            const ed = { width: "100%", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.ink, background: STUDY_SKIN.desk, border: "1px solid " + STUDY_SKIN.line, borderRadius: 8, padding: "7px 9px", marginTop: 6, lineHeight: 1.6, resize: "vertical" };
+            const tool = function (label, on, fn, extra) { return h("button", Object.assign({ onClick: fn, className: "active:opacity-60",
+              style: { minHeight: 32, padding: "0 10px", borderRadius: 999, fontFamily: F_BODY, fontSize: 11.5, border: "1px solid " + (on ? skin.accent : STUDY_SKIN.line), background: on ? skin.soft : "transparent", color: on ? skin.accent : STUDY_SKIN.sub } }, extra || {}), label); };
+            return h("div", { key: u.id, "data-wk": "studyunit", "data-keep": u._keep ? "1" : "0", className: "mb-3", style: { position: "relative", padding: "14px 14px 12px 49px", background: STUDY_SKIN.paper, border: "1px solid " + (u._keep ? skin.accent : STUDY_SKIN.line), borderRadius: "5px 14px 14px 5px", boxShadow: "0 6px 16px " + STUDY_SKIN.shadow } },
+              h("span", { style: { position: "absolute", left: 12, top: 12, width: 25, height: 28, display: "flex", alignItems: "center", justifyContent: "center", background: skin.soft, borderBottom: "3px solid " + skin.accent, fontFamily: F_DISPLAY, fontSize: 14, color: skin.accent } }, i + 1),
+              editing
+                ? h("div", null,
+                    h("input", { value: u.title || "", onChange: function (e) { setUnit(i, { title: e.target.value }); }, placeholder: "这一小节叫什么", style: Object.assign({}, ed, { marginTop: 0, fontFamily: F_DISPLAY, fontSize: 15 }) }),
+                    h("textarea", { value: (u.objectives || []).join("\n"), rows: 2, placeholder: "目标，一行一条",
+                      onChange: function (e) { setUnit(i, { objectives: e.target.value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean) }); }, style: ed }),
+                    h("textarea", { value: (u.grammar || []).map(function (g) { return g.label; }).join("\n"), rows: 3, placeholder: "要点，一行一个",
+                      onChange: function (e) {
+                        const old = u.grammar || [];
+                        const labels = e.target.value.split("\n").map(function (x) { return x.trim(); }).filter(Boolean);
+                        // 原来就有的要点按名字认回来（id 和说明不变），新写的补一个 id
+                        setUnit(i, { grammar: labels.map(function (lb, gi) { return old.find(function (g) { return g.label === lb; }) || { id: u.id + "__e" + gi + "_" + Date.now().toString(36), label: lb, note: "" }; }) });
+                      }, style: ed }))
+                : h("div", null,
+                    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: STUDY_SKIN.ink } }, u.title),
+                    (u.objectives || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.sub, marginTop: 5, lineHeight: 1.7 } }, "目标：" + u.objectives.join("；")) : null,
+                    (u.grammar || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: STUDY_SKIN.fog, marginTop: 3, lineHeight: 1.7 } }, "要点：" + u.grammar.map(function (g) { return g.label; }).join("、")) : null),
+              h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 9 } },
+                tool(editing ? "改好了" : "改一改", editing, function () { setEditIdx(editing ? -1 : i); }),
+                tool(u._keep ? "📌 留着" : "留着", !!u._keep, function () { setUnit(i, { _keep: !u._keep }); }, { "aria-pressed": u._keep ? "true" : "false" }),
+                tool("删掉", false, function () { dropUnit(i); })));
+          }),
+          h("button", { onClick: addUnit, className: "w-full active:opacity-60", style: { padding: "11px 0", marginBottom: 6, borderRadius: "5px 12px 12px 5px", border: "1px dashed " + STUDY_SKIN.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: STUDY_SKIN.sub } }, "＋ 自己加一小节"),
+          h("div", { style: { margin: "4px 2px 0", fontFamily: F_BODY, fontSize: 11, color: STUDY_SKIN.fog, lineHeight: 1.6 } },
+            "点「留着」的小节，换一版时原样留下，只重排其余的；自己改过、自己加的都算留着。")),
         h(StudyFooter, null, h("div", { className: "flex gap-3" },
           h("button", { onClick: generate, disabled: !!busy, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 14, border: "1px solid " + STUDY_SKIN.line, color: STUDY_SKIN.ink, borderRadius: "5px 12px 5px 5px" } }, busy ? "重排中…" : "换一张大纲"),
           h("button", { onClick: function () { confirm(draft); }, disabled: !!busy, className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 14, background: skin.accent, color: STUDY_SKIN.paper, borderRadius: "5px 12px 5px 5px" } }, "装订并上课"))));

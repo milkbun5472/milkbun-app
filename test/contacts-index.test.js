@@ -82,7 +82,7 @@ test("A-Z 索引钉在不滚的那一层，且跟着滚动高亮当前那一格"
 });
 
 test("群聊入口列出所有群，标签走原来那个分组管理", () => {
-  assert.match(comp, /groupList && h\(Sheet/);
+  assert.match(comp, /groupList && h\(PageSheet/);
   assert.match(comp, /setGroupList\(false\); onOpenGroup && onOpenGroup\(g\)/, "点一个群要能直接进去");
   assert.match(comp, /setGroupList\(false\); onNewGroup && onNewGroup\(\)/, "也能从这儿新建");
   assert.match(comp, /entry\("标签".*?setGroupMgr\(true\)/s);
