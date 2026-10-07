@@ -158,3 +158,10 @@ test("收藏夹那一排是文件夹，不是药丸", () => {
   assert.doesNotMatch(fav, /borderRadius: 999/);
   assert.match(fav, /h\(FolderTab, \{ key: f\.id, small: true/);
 });
+
+test("文案说清楚是作者配的那段话，竖着刷底下一定露出来", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(src, /const CAPTION_FACT = /);
+  assert.equal((src.match(/文案 caption（" \+ CAPTION_FACT|caption 文案（" \+ CAPTION_FACT/g) || []).length, 2, "TA 发和路人发两处都要讲清");
+  assert.match(src, /\(v\.caption \|\| arr\(v\.tags\)\.length\) \?/);
+});

@@ -55,6 +55,8 @@
   // 横屏那套：同一个人、同一份生活，只是平台的样子不一样——是有标题、有简介、按分区放的那种长一点的视频
   // 两套皮各自是一种什么样的地方——只说事实（多长、人怎么看、推给谁），不说该拍什么（她 2026-10-07：「不然你都把路写死了」）。
   //   同一个人放进两种处境，自然会拍出不一样的东西；写进去哪种内容，模型就只会往那儿钻。
+  // 文案和画面是两样东西（她 2026-10-07：「除了图片描述你没写抖音文案」）：只写「文案 caption」四个字，模型常常空着或者塞进 scene
+  const CAPTION_FACT = "caption 是作者发布时自己配在视频底下的那段话，不是画面描述——看视频的人在画面下面读到的就是它；话题标签另写在 tags 里，这里不用再带。";
   const V_FACT = "\n这个平台是竖屏的：一条通常十几秒到一两分钟。人是一条接一条往上划着看的，不喜欢一秒就划走了。推荐流会把你的视频推给不认识你的人，他们不知道你是谁，只看这一条。";
   const B_FACT = "\n这个平台是横屏的：一条几分钟到几十分钟都有。人多半是点进来从头看下去，很多是冲着这个号来的。视频有标题、有简介、放在某个分区里，看的人会在画面上发弹幕。";
   const B_EXTRA = B_FACT + "另外写：标题 title、简介 intro（一两句）、时长 dur（分:秒）、播放量 plays（数字）、分区 zone（两三个字）、视频里飘过去的弹幕 dms（6~12 条，很短，看视频的人发的）。";
@@ -75,7 +77,7 @@
       + "你现在发一条新视频。"
       + "拍什么、怎么拍、配什么文案，都从你此刻真实的生活和你这个人身上长出来——你今天在干嘛、最近心里装着什么、你这种人平时会不会发这种。"
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
-      + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
+      + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption（" + CAPTION_FACT + "）、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
       + "底下的评论 comments（3~6 条：name 是刷到这条的网友的网名，text 是他们说的话；各人各说各的，不是一个调子）。"
       + (skin === "b" ? B_EXTRA : V_FACT)
       // 熟人来评并进这一枪里（她 2026-10-07 嫌多调一次贵）：认识TA的那几个人评不评、评什么，TA这一枪顺手写
@@ -90,7 +92,7 @@
       + (persona ? "\n推荐流会跟她平时在意的东西沾一点边，但不是全都对口——她是这样一个人：" + persona : "")
       + "\n\n每条一个不同的博主。题材、拍法、口吻、热度各不一样：有大号有小号，有认真做内容的也有随手一拍的。"
       + "\n写 videos（" + n + " 条），每条：author 博主网名、scene 视频里拍了什么（2~4 句，像在讲一段视频怎么走）、who 画面里有没有人（self 博主本人出镜 / part 只露手或背影 / none 没有人）、"
-      + "caption 文案、tags 话题（0~4 个，不带井号）、likes 点赞数（数字）、comments 评论（2~5 条，name 网友网名，text）。"
+      + "caption 文案（" + CAPTION_FACT + "）、tags 话题（0~4 个，不带井号）、likes 点赞数（数字）、comments 评论（2~5 条，name 网友网名，text）。"
       + (skin === "b" ? B_EXTRA : V_FACT);
   }
   const REPLY_SHAPE = '{"reply":""}';
@@ -198,8 +200,8 @@
       h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
         src && v.scene ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: DIM, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
-        v.caption ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: INK, marginTop: 6, lineHeight: 1.55, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, v.caption,
-          arr(v.tags).length ? h("span", { style: { fontWeight: 600 } }, " " + v.tags.map(x => "#" + x).join(" ")) : null) : null));
+        (v.caption || arr(v.tags).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: INK, marginTop: 6, lineHeight: 1.55, textShadow: "0 1px 3px rgba(0,0,0,.6)", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || "",
+          arr(v.tags).length ? h("span", { style: { fontWeight: 600 } }, (v.caption ? " " : "") + v.tags.map(x => "#" + x).join(" ")) : null) : null));
   }
 
   // ── 评论区（整页）──────────────────────────────────────
