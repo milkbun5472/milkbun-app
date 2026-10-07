@@ -10786,9 +10786,10 @@ function CallScreen({
   const showMeBig = pip && meBig && camOn;      // 镜头关了就自动回到 TA 铺满
   const onPhoto = !!bgUrl || pip;
   const litText = onPhoto ? { textShadow: "0 1px 3px rgba(8,8,10,.92),0 0 12px rgba(8,8,10,.5)" } : null;
+  // ⚠️不加 backdropFilter（她 2026-10-07：「视频这个上面虚好丑」）：模糊是整块一刀切的，
+  //   渐变淡到 0 了模糊还在，底边就是一道毛玻璃硬边。字有自己的 textShadow 兜着，只留渐变就够。
   const litPlate = (from, to) => onPhoto ? {
-    background: "linear-gradient(180deg,rgba(10,11,14," + from + ") 0,rgba(10,11,14," + to + ") 100%)",
-    backdropFilter: "blur(3px)", WebkitBackdropFilter: "blur(3px)"
+    background: "linear-gradient(180deg,rgba(10,11,14," + from + ") 0,rgba(10,11,14," + to + ") 100%)"
   } : null;
   // 打字框收着还是开着：记住她上次（⚠️hook 得排在 minimized 早退前面；她 2026-09-30：「记住上次吧」）——说话多的人进来就是一排大按键，打字多的进来框就在
   const [typeOpen, setTypeOpenRaw] = useState(() => { try { return localStorage.getItem("x_callTypeOpen") === "1"; } catch (e) { return false; } });
