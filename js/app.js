@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.004";
+const APP_VERSION = "v75.005";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5043,6 +5043,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return window.AmbientMaterial.format(rows);
   };
   // 按角色 + 适用范围检索世界书注入文本（scope: chat/subjects/debate/lifestyle/diary）
+  // 画图那一口拿「生图」世界书（engine.js imgLorePart 读它）。只此一处挂
+  window.__loreImg = (charIds, sceneText) => loreImgText(loreRef.current, charIds, sceneText);
   const loreFor = (char, scope) => loreForContext(scope || "chat", char ? [char.id] : [], char ? recentChatText(char) : "");
   const yanqiuWallFor = (char, ctxOpts) => {
     const y = ledgerYanqiu();

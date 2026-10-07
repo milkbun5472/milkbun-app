@@ -2027,7 +2027,8 @@ const LORE_STAMP = { chat: "聊", subjects: "机", lifestyle: "生", diary: "记
 // 筛选那一排底下的名字要一行放得下（「聊天与线下」换行会把整排顶歪），列表里仍用全名
 const LORE_STAMP_ZH = { chat: "聊天线下", subjects: "查手机", lifestyle: "生活", diary: "日记", study: "共读", creative: "创作", social: "公开", debate: "擂台" };
 // 「照做」：不是设定，是给模型的输出指令（比如提到冰箱就发一张 HTML 小卡）。领句在 engine.js 的 loreLine。
-const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "其他"];
+// 「生图」：只在画图时拼进画面要求，聊天、线下这些文字一处都不进（engine.js selectLore 那一道）。
+const LORE_CATEGORIES = ["世界观", "地点", "组织", "人物", "规则", "共同经历", "用语", "照做", "生图", "其他"];
 const loreScopeEnabled = (e, key) => key === "chat" ? (!e.scope || e.scope.chat !== false) : (key === "creative" && e.ensemble ? true : !!(e.scope && e.scope[key]));
 const loreScopeNames = e => LORE_SCOPE_UI.filter(x => loreScopeEnabled(e, x[0])).map(x => x[1]);
 function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRestore }) {
@@ -2197,11 +2198,13 @@ function WorldBookEntryPage({ entry, characters, onClose, onSave, onDelete }) {
     h("input", { ref: importRef, type: "file", accept: ".docx,.txt,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importDocument }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 30px)" } },
     importError && h("div", { role: "alert", style: { color: t.accent, fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, importError),
-    lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」会改变模型怎么用它"),
+    lbl("这条是什么", "标题是给你看的索引；分类帮助以后检索。只有「照做」「生图」会改变它怎么被用"),
     h("input", { value: f.title, onChange: e => { set({ title: e.target.value }); setError(""); }, placeholder: "例如：港口城的宵禁", style: field }),
     h("div", { style: { display: "flex", gap: 6, overflowX: "auto", marginTop: 9 } }, LORE_CATEGORIES.map(x => h("button", { key: x, onClick: () => set({ category: x }), className: "active:opacity-65 shrink-0", style: { border: "1px solid " + ((f.category || "世界观") === x ? t.ink : t.line), background: (f.category || "世界观") === x ? t.ink : "transparent", color: (f.category || "世界观") === x ? t.bg : t.sub, padding: "6px 9px", fontFamily: F_BODY, fontSize: 10.5 } }, x))),
     f.category === "照做" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.65, marginTop: 8 } },
       "「照做」不是设定，是给 TA 的输出指令：这条被翻出来的那一轮，TA 会照着正文去做。适合「提到冰箱就发一张冰箱小卡」这种——把 HTML 模板和怎么填写进正文，配上关键词触发。") : null,
+    f.category === "生图" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, lineHeight: 1.65, marginTop: 8 } },
+      "「生图」只在画图时用：拼进发给图像接口的画面要求，聊天、线下这些地方一个字都不带。适合画风、配色、这个世界的服装建筑。选「每次常驻」就张张都带；选「按话题触发」时关键词对的是这张图的画面描述。下面「去哪几处」对它不起作用。") : null,
     lbl("交给模型的正文", f.category === "照做" ? "写清楚什么时候、发什么、照什么格式；网页小卡的模板整块贴进来" : "只写事实、背景或规则；模型看到的是这里，不是标题"),
     h("textarea", { value: f.payload, onChange: e => { set({ payload: e.target.value }); setError(""); }, rows: 6, placeholder: "例如：港口城每晚十一点宵禁，钟声后只有持银色通行证的人可以上街。", style: Object.assign({}, field, { resize: "vertical", minHeight: 132, lineHeight: 1.65 }) }),
     lbl("谁能拿到", "不选角色就是公共设定；绑定后只有该角色本人或有 Ta 在场的群聊能拿到"),
