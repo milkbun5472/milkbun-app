@@ -120,3 +120,13 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
   assert.match(S, /const genNpc = async city =>/);
   assert.match(S, /onNpc: \(\) => genNpc\(""\)/);
 });
+
+test("关注和推荐不重样；底栏收藏格带文件夹；消息挪进「我」", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(src, /feed === "rec" \? v\.by !== "char" : v\.by === "char"/);
+  assert.match(src, /tabBtn\("fav", "收藏"\)/);
+  assert.doesNotMatch(src, /tabBtn\("msg"/);
+  assert.match(src, /tab === "fav"/);
+  assert.match(src, /folders: arr\(dbRef\.current\.folders\)\.concat/);
+  assert.match(src, /onClick: \(\) => setTab\("msg"\)/);
+});
