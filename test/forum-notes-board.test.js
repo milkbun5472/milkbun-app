@@ -17,3 +17,8 @@ test("新帖、新回复默认收着，点了才展开", () => {
   assert.match(scr, /newPostsOpen && forumNewCharPosts\.slice\(0, 8\)\.map\(/);
   assert.match(scr, /newRepliesOpen && forumUnreadRows\.slice\(0, 4\)\.map\(/);
 });
+test("双列排版是全论坛一颗开关，记在 x_forumLayout", () => {
+  assert.match(scr, /\(tab === "笔记吧" \|\| cardLayout\) \? h\("div", \{ "data-wk": "fonotes"/);
+  assert.match(scr, /localStorage\.setItem\("x_forumLayout", v \? "cards" : "list"\)/);
+  assert.match(scr, /"data-wk": "folayout"/);
+});
