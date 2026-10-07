@@ -307,7 +307,7 @@ test("详情页把这件衣服本身画进去，底色也取自它自己", () =>
   // Sheet 和整页那一段，红得跟真回退一样（这次就踩到了）。
   const seg = screens.slice(i, screens.indexOf("\n    })();", i));
   assert.match(seg, /clothRgba\(tone\.base, 0?\.\d+\)/, "顶部那层氛围底没取这件东西自己的色");
-  assert.match(seg, /if \(!tone\) return h\(Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
+  assert.match(seg, /if \(!tone\) return h\((?:Page)?Sheet/, "没有色的（收到的礼物那种）要走回原来那份半页");
   // v61.42 起眉标不留英文（施工规则/no-english-titles.md）；钉的是【那一栏说的是什么】，不是那串英文
   assert.match(seg, /label\("什么场合穿", sheet\._occ\)/, "衣柜那一路的 eyebrow 是场合");
   assert.match(seg, /label\("什么料子", tone\.word\)/, "东西那一路的 eyebrow 是材质");

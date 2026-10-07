@@ -6155,7 +6155,7 @@ function PhoneApp({
     }, h(IRefresh, { size: 18, color: t.ink })) : null
   }), h("div", {
     className: FULL_BLEED_KEYS.indexOf(appKey) >= 0 ? "flex-1 min-h-0 overflow-hidden" : "flex-1 min-h-0 overflow-y-auto px-5 pt-1 pb-5"
-  }, content), sheet && h(Sheet, {
+  }, content), sheet && h(PageSheet, {
     onClose: () => setSheet(null),
     tall: true
   }, sheet));

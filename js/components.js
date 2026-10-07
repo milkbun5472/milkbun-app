@@ -1333,6 +1333,26 @@ function Sheet({
     }
   }), children));
 }
+// 整页外壳（她 2026-10-07：「第一档慢慢做」——施工规则/no-half-sheet.md 那九十来处存量半窗里
+//   内容多、不需要看见下面那层的，逐处从 Sheet 换成它）。
+// ⚠️用法跟 Sheet 一模一样（onClose / children / scrollKey / skin 照收），换的时候里面一个字不用动：
+//   铺满整屏、紧凑顶栏（返回＝onClose）、正文自己滚。tall / lift 是半窗才要的，这里收下不用。
+//   zh 给顶栏标题；不传就只有返回键，里面原来那行大标题照旧当正文第一行。
+function PageSheet({ children, onClose, zh, sub, right, scrollKey, skin }) {
+  const t = useTheme();
+  const sk = typeof skin === "string" ? { background: skin } : (skin && typeof skin === "object" ? skin : null);
+  const skinStyle = sk ? Object.keys(sk).reduce((a, k) => { if (k !== "handle") a[k] = sk[k]; return a; }, {}) : null;
+  const scrollRef = useRef(null);
+  useEffect(() => {
+    if (scrollKey == null || !scrollRef.current) return;
+    scrollRef.current.scrollTop = 0;
+  }, [scrollKey]);
+  return ReactDOM.createPortal(h("div", { "data-wk": "pagesheet", className: "h-full flex flex-col",
+    style: Object.assign({ position: "fixed", inset: 0, zIndex: 245, background: t.bg, animation: "fadeUp .22s ease both" }, skinStyle || {}) },
+    h(Head, { bg: "transparent", zh: zh || "", sub: sub, onBack: onClose, right: right }),
+    h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto px-6 pt-3",
+      style: { overflowAnchor: "none", paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } }, children)), document.body);
+}
 // iOS 软键盘弹出时可视视口会缩短，但底部弹层是 absolute 定位（相对 100vh 容器）不会自动上移、被键盘挡住。
 // 这个 hook 返回键盘当前遮住的高度（px），底部弹层拿去做 marginBottom/位移，把自己顶到键盘上方。
 // ⚠️多小算「键盘没弹」（她 2026-09-13 报：线下那一屏「发送键不是在屏幕最下面，下面有一层空白」）：
@@ -3796,7 +3816,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
       onDelete: id => { onDelTimed && onDelTimed(id); setForm(null); } }),
 
     // 块详情
-    dayEv && h(Sheet, { onClose: () => setDayEv(null) },
+    dayEv && h(PageSheet, { onClose: () => setDayEv(null) },
       h("div", { className: "px-1 pb-2" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, (dayEv.b.icon ? dayEv.b.icon + " " : "") + dayEv.b.title),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4 } },
@@ -3846,7 +3866,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: visSet.includes(c.id) ? t.tint : t.fog } }, visSet.includes(c.id) ? "可见" : "不可见"))))),
 
     // AI 生成本月（沿用旧的全天事件那一层）
-    genOpen && h(Sheet, { onClose: () => setGenOpen(false) },
+    genOpen && h(PageSheet, { onClose: () => setGenOpen(false) },
       h("div", { className: "px-1 pb-2" },
         h(Eyebrow, { style: { marginBottom: 8 } }, "AI 生成 " + (ym.m + 1) + " 月 · " + (view === "mine" ? "世界大事" : (curChar ? (curChar.remark || curChar.name) : ""))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, view === "mine" ? "生成整月的公共大事（所有角色都知道的那种，会挂 🌐 显示）" : "生成这位角色这个月自己的事"),
@@ -3893,7 +3913,7 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
     // 重复的一律单日：跨天 + 重复叠在一起讲不清楚，备忘录那边也是单日
     onSave({ id: ini.id, owner: ini.owner || owner, startDate: sd, endDate: rec ? sd : (ed || sd), startTime: stt, endTime: stt ? ett : "", title: title.trim(), location: loc.trim(), icon, color, repeat, createdAt: ini.createdAt });
   };
-  return h(Sheet, { onClose, tall: true },
+  return h(PageSheet, { onClose, tall: true },
     h("div", { className: "px-1 pb-3" },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 14 } },
         h("button", { onClick: onClose, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog } }, "‹"),
@@ -7730,7 +7750,7 @@ function Messages({
     characters,
     onPost: onPostMoment,
     onClose: () => setComposeOpen(false)
-  }), groupList && h(Sheet, { onClose: () => setGroupList(false), tall: true },
+  }), groupList && h(PageSheet, { onClose: () => setGroupList(false), tall: true },
     h("div", { className: "px-1 pb-2" },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 12 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, "群聊"),
@@ -7813,7 +7833,7 @@ function MomentCompose({
     });
     onClose();
   };
-  return h(Sheet, {
+  return h(PageSheet, {
     onClose,
     tall: true
   }, h("div", {
@@ -8019,7 +8039,7 @@ function GroupManager({
     memberIds: g.memberIds.includes(cid) ? g.memberIds.filter(x => x !== cid) : [...g.memberIds, cid]
   } : g));
   const del = gid => setList(l => l.filter(g => g.id !== gid));
-  return h(Sheet, {
+  return h(PageSheet, {
     onClose,
     tall: true
   }, h("div", {
@@ -10045,13 +10065,13 @@ function ChatThread({
       color: t.ink,
       border: `1px solid ${t.line}`
     }
-  })), recallView && h(Sheet, { onClose: () => setRecallView(null) },
+  })), recallView && h(PageSheet, { onClose: () => setRecallView(null) },
     h(Eyebrow, { style: { marginBottom: 8 } }, cName + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, recallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.7, color: t.sub, fontStyle: "italic" } }, recallView.reason || "（没说）")),
   fwdView && h(ChatForwardSheet, { m: fwdView, onClose: () => setFwdView(null) }),
-  Array.isArray(archView) && h(Sheet, { onClose: () => setArchView(null), tall: true },
+  Array.isArray(archView) && h(PageSheet, { onClose: () => setArchView(null), tall: true },
     h(Eyebrow, { style: { marginBottom: 8 } }, "更早的聊天 · 云端归档"),
     archView.length === 0
       ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "30px 0" } }, "云端还没有更早的记录")
@@ -10092,7 +10112,7 @@ function ChatThread({
     })
   ), inviteOpen && h(DateComposeDialog, { places: invitePlaces || [], who: character.remark || character.name,
     onCancel: () => setInviteOpen(false),
-    onSend: v => { setInviteOpen(false); onDateInvite(v.place, v); } }), peekOpen && h(Sheet, { onClose: () => setPeekOpen(false) },
+    onSend: v => { setInviteOpen(false); onDateInvite(v.place, v); } }), peekOpen && h(PageSheet, { onClose: () => setPeekOpen(false) },
     h(Eyebrow, { style: { marginBottom: 6 } }, "把手机递给" + (character.remark || character.name)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
       "勾着的TA能翻到；不想给看的先关掉——那几样就算你藏起来了，TA看不到，但未必察觉不到。递过去以后，TA会照自己的性子挑着翻，再来跟你说。"),
@@ -12287,7 +12307,7 @@ function CallLogSheet({ calls, chars, onClose }) {
   const list = (calls || []).slice().reverse(); // 最新在前
   const fmtFull = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "月" + d.getDate() + "日 " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
   const fmtHM = ts => { const d = new Date(ts); return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0"); };
-  return h(Sheet, { onClose, tall: true },
+  return h(PageSheet, { onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 4 } }, "通话记录"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14 } }, list.length ? "共 " + list.length + " 通 · 点一通回看当时说了什么" : ""),
     list.length === 0
@@ -12381,7 +12401,7 @@ function ChatSearchSheet({ messages, chars, meName, onClose, onLocate, archCount
   const openDay = (d, key) => { setDay(d); setFocusKey(key || null); };
   const dayMsgs = day ? msgs.filter(x => x.m.ts && dayOf(x.m.ts) === day) : [];
   let focused = false;
-  return h(Sheet, { onClose, tall: true },
+  return h(PageSheet, { onClose, tall: true },
     day
       ? h(Fragment, null,
           h("div", { className: "flex items-center gap-2 shrink-0", style: { marginBottom: 10 } },
@@ -12661,7 +12681,7 @@ function ChatForwardCard({ m, isU, onOpen }) {
 function ChatForwardSheet({ m, onClose }) {
   const t = useTheme();
   const items = chatForwardItems(m);
-  return h(Sheet, { onClose: onClose, tall: true },
+  return h(PageSheet, { onClose: onClose, tall: true },
     h("div", { className: "px-1 pb-2" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 2 } }, chatForwardTitle(m)),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 14 } }, (m.forward && m.forward.label) ? m.forward.label : items.length + " 条 · 转发的聊天记录"),
@@ -16284,7 +16304,7 @@ function GroupThread({
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder("g_" + group.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
     className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "6px 0", marginBottom: 4 }
   }, archView === "loading" ? "加载中…" : ("☁ 更早的 " + archCount + " 条群聊在云端 · 点开查看")) : null,
-  Array.isArray(archView) && h(Sheet, { onClose: () => setArchView(null), tall: true },
+  Array.isArray(archView) && h(PageSheet, { onClose: () => setArchView(null), tall: true },
     h(Eyebrow, { style: { marginBottom: 8 } }, "更早的群聊 · 云端归档"),
     archView.length === 0
       ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", padding: "30px 0" } }, "云端还没有更早的记录")
@@ -16707,7 +16727,7 @@ function GroupThread({
       background: t.bg2,
       borderTop: "1px solid " + t.line
     }, CHAT_PANEL_SCROLL)
-  }, PANEL.map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k: k, zh: zh, glyph: glyph, onTap: onPanelTap }))), gRecallView && h(Sheet, { onClose: () => setGRecallView(null) },
+  }, PANEL.map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k: k, zh: zh, glyph: glyph, onTap: onPanelTap }))), gRecallView && h(PageSheet, { onClose: () => setGRecallView(null) },
     h(Eyebrow, { style: { marginBottom: 8 } }, (gRecallView.senderName || "TA") + " 撤回的消息"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: t.bg, borderRadius: 12, padding: "12px 14px" } }, gRecallView.origText || "（空）"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.12em", color: t.fog, marginTop: 14, marginBottom: 4 } }, "TA 为什么撤回"),
@@ -17386,7 +17406,7 @@ function NewGroupSheet({
   const [sel, setSel] = useState([]);
   const [spectate, setSpectate] = useState(false);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
-  return /*#__PURE__*/React.createElement(Sheet, {
+  return /*#__PURE__*/React.createElement(PageSheet, {
     onClose: onClose,
     tall: true
   }, /*#__PURE__*/React.createElement("div", {
@@ -17731,7 +17751,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   // 「挑一句接起」那一列摆多少句、搜什么（得在下面那个提前 return 之前，hooks 顺序不能变）
   const [startShowN, setStartShowN] = useState(40);
   const [startQ, setStartQ] = useState("");
-  if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(Sheet, { onClose, tall: true }, "房间模块未加载");
+  if (!Kit || !draft) return embedded ? h("div", null, "房间模块未加载") : h(PageSheet, { onClose, tall: true }, "房间模块未加载");
   const pick = rid => { setEditingId(rid); setDraft(Kit.get(character.id, rid)); setCreating(false); setStartMode("blank"); setStartIndex(null); };
   // 删掉一间房（v65.05，她 2026-09-06：「现在删除房间很麻烦」）。
   // ⚠️两个毛病一起修：
@@ -17881,7 +17901,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   //   带着预设来的那一次，她要的是【把这间房设好】这一件事，不是房间总览——
   //   房间列表、主聊天那几行、另外三个预设，一个都不该在这一屏上出现。
   const soloCreate = !!initialPreset;
-  if (!embedded) return h(Sheet, { onClose, tall: true, scrollKey: soloCreate ? "roomNew" : "roomHub" },
+  if (!embedded) return h(PageSheet, { onClose, tall: true, scrollKey: soloCreate ? "roomNew" : "roomHub" },
     h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
       h("div", null,
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } },
@@ -18107,7 +18127,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
       h("div", { style: { marginBottom: 11, padding: "9px 10px", borderRadius: 11, background: t.bg2, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.sub } }, Kit.doorLine(draft)),
       resumeFor(draft),
       editor));
-  return embedded ? content : h(Sheet, { onClose, tall: true }, content);
+  return embedded ? content : h(PageSheet, { onClose, tall: true }, content);
 }
 window.ChatRoomSheet = ChatRoomSheet;
 

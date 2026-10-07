@@ -324,7 +324,7 @@
       : repeat === "monthly" ? "每月 " + aDate.getDate() + " 号提醒" + (aDate.getDate() >= 29 ? "（碰上没这天的短月，自动落到当月最后一天）" : "") + "。"
       : repeat === "monthlyEnd" ? "每月最后一天提醒（自动适配 28/29/30/31）。"
       : "每年 " + (aDate.getMonth() + 1) + " 月 " + aDate.getDate() + " 日提醒。";
-    return h(Sheet, { onClose: props.onClose, tall: true },
+    return h(PageSheet, { onClose: props.onClose, tall: true },
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑提醒" : "新提醒"),
         h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT } }, "保存")),
@@ -354,7 +354,7 @@
       props.onSave(Object.assign({}, n, { id: n.id || uid("n"), title: title.trim(), body: body.trim(), pinned: !!n.pinned, visibleTo: n.visibleTo || [], comments: n.comments || [], ts: n.ts || Date.now(), updatedTs: Date.now() }));
     };
     const inp = { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, color: t.ink, outline: "none" };
-    return h(Sheet, { onClose: props.onClose, tall: true },
+    return h(PageSheet, { onClose: props.onClose, tall: true },
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑备忘" : "新备忘"),
         h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT } }, "保存")),
@@ -537,7 +537,7 @@
       form && form.kind === "note" && h(NoteForm, { initial: form.item, toast: props.toast, onClose: () => setForm(null), onSave: n => { saveNote(n); setForm(null); }, onDelete: delNote }),
 
       // 提醒详情
-      curReminder && h(Sheet, { onClose: closeDetail, tall: true },
+      curReminder && h(PageSheet, { onClose: closeDetail, tall: true },
         h("div", { className: "flex items-start justify-between", style: { marginBottom: 4 } },
           h("div", { style: { flex: 1 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, textDecoration: curReminder.done ? "line-through" : "none" } }, curReminder.title),
@@ -553,7 +553,7 @@
           onDel: i => upReminder(curReminder.id, r => ({ comments: (r.comments || []).filter((_, idx) => idx !== i) })) })),
 
       // 备忘详情
-      curNote && h(Sheet, { onClose: () => setDetail(null), tall: true },
+      curNote && h(PageSheet, { onClose: () => setDetail(null), tall: true },
         h("div", { className: "flex items-start justify-between", style: { marginBottom: 6 } },
           h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, curNote.title || "（无标题）"),
           h("button", { onClick: () => { setForm({ kind: "note", item: curNote }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "编辑")),

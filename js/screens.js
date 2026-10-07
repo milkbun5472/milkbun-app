@@ -229,7 +229,7 @@ function MemImportSheet({ characters, defaultCharId, onImport, onClose }) {
     }).length;
   })();
   const curName = (characters.find(c => c.id === cid) || {}).name || "—";
-  return h(Sheet, { onClose, tall: true },
+  return h(PageSheet, { onClose, tall: true },
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 4 } }, "导入长文进记忆库"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.55 } }, "把一大段文本（TA 写过的长回忆、你俩的旧对话原话…）粘进来——自动切成一条条记忆、绑给选中的角色、建好语义索引。以后 TA 聊天时会【搜到相关的原话回放出来】，不只是浓缩摘要。标题/分隔线/情绪标注会自动跳过。"),
     h("div", { className: "flex gap-2 overflow-x-auto", style: { marginBottom: 10, paddingBottom: 2 } },
@@ -1676,7 +1676,7 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
     }),
     h("div", { className: "text-right", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 3 } }, (val || "").length + "/500"));
 
-  return h(Sheet, { onClose, tall: true },
+  return h(PageSheet, { onClose, tall: true },
     // header
     h("div", { className: "flex items-center justify-between mb-5" },
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink } }, c.edit ? "编辑关系" : "新增关系"),
@@ -3391,7 +3391,7 @@ function Forum({
       h("div", { className: "space-y-1 max-h-40 overflow-y-auto" }, (groups || []).map(g => h("button", { key: g.id, onClick: () => { onForwardToGroup(fwd, g.id); setFwd(null); }, className: "w-full flex items-center gap-3 py-2 active:opacity-60" }, h("div", { style: { width: 32, height: 32, borderRadius: 8, background: t.bg2, border: `1px solid ${t.line}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15 } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, g.name))))),
     // 我发帖 composer
     photoView && h(PhotoSheet, { m: photoView, onClose: () => setPhotoView(null), toast: toast, onGen: !photoView.imageRef && photoView.itemId && typeof window.forumGenImage === "function" ? () => window.forumGenImage(photoView.itemId) : null }),
-    composer && h(Sheet, { onClose: () => setComposer(false), tall: true },
+    composer && h(PageSheet, { onClose: () => setComposer(false), tall: true },
       h(Eyebrow, { style: { marginBottom: 10 } }, "发帖"),
       h("div", { className: "flex gap-1.5 mb-3 flex-wrap" }, forumBoardsAll().map(b => chip(b, cbBoard === b, () => setCbBoard(b)))),
       // 用哪个号发：匿名吧本来就匿名，不用挑（群友 2026-10-06：「论坛能开小号发帖吗」）
@@ -3423,7 +3423,7 @@ function Forum({
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
           h("button", { onClick: () => setNewBoard(null), className: "active:opacity-70", style: { minHeight: 42, padding: "0 16px", borderRadius: 8, fontFamily: F_BODY, fontSize: 13, color: FORUM_SKIN.sub, border: "1px solid " + FORUM_SKIN.line } }, "算了"),
           h("button", { onClick: openBoard, className: "flex-1 active:opacity-80", style: { minHeight: 42, borderRadius: 8, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: FORUM_SKIN.paper, background: FORUM_SKIN.accent } }, newBoard.editOf ? "保存" : "开吧")))),
-    editMe && h(Sheet, { onClose: () => setEditMe(false) },
+    editMe && h(PageSheet, { onClose: () => setEditMe(false) },
       h(Eyebrow, { style: { marginBottom: 10 } }, "编辑我的贴吧资料"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 4 } }, "贴吧 id"),
       h("input", { value: emHandle, onChange: e => setEmHandle(e.target.value), placeholder: "你的网名", className: "w-full outline-none px-3.5 py-2.5 rounded-lg mb-3", style: { fontFamily: F_BODY, fontSize: 14, background: t.bg2, color: t.ink, border: `1px solid ${t.line}` } }),
@@ -3434,11 +3434,11 @@ function Forum({
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "用小号发的帖，楼里谁都认不出是你，认识你的角色也不知道；只有他翻你手机的时候才可能发现。"),
       h("button", { onClick: () => { onEditMe({ handle: emHandle.trim() || meChar.name, bio: emBio.trim(), altName: emAlt.trim() }); setEditMe(false); }, className: "w-full mt-3 py-2.5 active:opacity-70", style: { borderRadius: 8, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存")),
     // 谁在逛论坛
-    settingsOpen && h(Sheet, { onClose: () => setSettingsOpen(false) },
+    settingsOpen && h(PageSheet, { onClose: () => setSettingsOpen(false) },
       h(Eyebrow, { style: { marginBottom: 4 } }, "论坛设置"),
       h(ForumWorlds, { characters: characters, forumOff: forumOff, onToggleForumChar: onToggleForumChar, charToggles: h("div", { className: "space-y-1 max-h-80 overflow-y-auto" }, (characters || []).map(c => { const on = !(forumOff || []).includes(c.id); return h("button", { key: c.id, onClick: () => onToggleForumChar(c.id), className: "w-full flex items-center gap-3 py-2 active:opacity-70" }, h(Avatar, { character: c, size: 36, radius: 18 }), h("span", { className: "flex-1 text-left", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.name), h("div", { style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", flexShrink: 0 } }, h("div", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff" } }))); })) })),
     // 我关注的角色 + 公开网友目录，点进各自主页
-    followListOpen && h(Sheet, { onClose: () => setFollowListOpen(false) },
+    followListOpen && h(PageSheet, { onClose: () => setFollowListOpen(false) },
       h(Eyebrow, { style: { marginBottom: 6 } }, "我关注的"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, "角色、小号与普通网友共用这张公开关注名单；小号不会显示背后真身"),
       followedChars.length === 0 && npcFollows.length === 0 && h(Empty, { text: "还没有关注任何人", sub: "去角色或网友主页点关注" }),
@@ -4768,7 +4768,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
       // ── 加新题：原来在【设置 → 问答】里，v70.84 搬过来（她 2026-09-18）──
       // ⚠️搬＝设置那一处删掉，不是两处都留（one-public-mechanism.md：
       //   只开新的、旧的留在原地是最坏的一种，从此同一件事活在两处）。
-      addOpen ? h(Sheet, { onClose: () => setAddOpen(false), tall: true, skin: { background: "#fdfaf1", handle: "rgba(90,70,50,.3)" } },
+      addOpen ? h(PageSheet, { onClose: () => setAddOpen(false), tall: true, skin: { background: "#fdfaf1", handle: "rgba(90,70,50,.3)" } },
         h(QAAddSheet, { partner, bookName: spec.zh, customQ: (curCB && curCB.qs) || [],
           onSave: arr => {
             putCustomBooks(cbs.map(b => b.key === bookKey
@@ -4776,7 +4776,7 @@ function CoupleQABook({ partner, bank, customQ, customBooks, entries, title, boo
               : { id: b.id, name: b.zh, tint: b.tint, qs: b.qs }));
             setAddOpen(false);
           }, onClose: () => setAddOpen(false) })) : null,
-      shelfOpen ? h(Sheet, { onClose: () => setShelfOpen(false), tall: true, skin: { background: "#fdfaf1", handle: "rgba(90,70,50,.3)" } },
+      shelfOpen ? h(PageSheet, { onClose: () => setShelfOpen(false), tall: true, skin: { background: "#fdfaf1", handle: "rgba(90,70,50,.3)" } },
         h(QACoverSheet, { partner, spec, cfg,
           // 自己开的那几本：名字和布面色存在【题本自己身上】，不走封面那份配置——
           // 不然书架上那一排读的是一处、翻开读的是另一处，迟早对不上。
@@ -7009,7 +7009,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
             );
 })(),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, textAlign: "center", marginTop: 14 } }, "只属于你俩的私密层。"))),
-      cpEdit && h(Sheet, { onClose: () => setCpEdit(false), tall: true },
+      cpEdit && h(PageSheet, { onClose: () => setCpEdit(false), tall: true },
         h(Eyebrow, { style: { marginBottom: 16 } }, "自定义情侣空间"),
         imgRow("背景图", bgRef, "bg", !!cprof.bg),
         imgRow("我的头像", myAvRef, "myAvatar", !!cprof.myAvatar),
@@ -11123,7 +11123,7 @@ function EventComposeSheet({ entries, characters, onClose, onCreated, toast, pre
     } catch (e) { toast && toast("创建没成功：" + ((e && e.message) || "表可能还没部署")); }
     finally { setBusy(false); }
   };
-  return h(Sheet, { onClose: onClose },
+  return h(PageSheet, { onClose: onClose },
     h(Eyebrow, { style: { marginBottom: 8 } }, stage === "pick" ? "挑 2~30 条碎片，整理成一件事" : "核对后交给执笔人"),
     stage === "pick" && h(React.Fragment, null,
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, (characters || []).map(c =>
@@ -11261,7 +11261,7 @@ function CandidateReviewSheet({ candidateId, characters, onClose, onChanged, toa
       toast && toast("确认失败，没有写入半成品：" + ((e && e.message) || "稍后再试"));
     } finally { setBusy(false); }
   };
-  return h(Sheet, { onClose: onClose },
+  return h(PageSheet, { onClose: onClose },
     h(Eyebrow, { style: { marginBottom: 6 } }, "候选过目 · " + (cand ? nameOf(cand.requested_char_id) + " 执笔" : "加载中…")),
     lights == null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "12px 0" } }, "正在跟云端核对来源与草稿…") : h(React.Fragment, null,
       lights.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#9f5149", background: "rgba(159,81,73,.08)", borderRadius: 9, padding: "8px 10px", marginBottom: 8, lineHeight: 1.6 } }, "🔴 " + lights.join("；")) : null,
@@ -11422,7 +11422,7 @@ function EventShelfSection({ characters, entries }) {
         ev.edited_by_user ? " · 你改过" : "")))),
   composeOpen && h(EventComposeSheet, { entries: entries, characters: characters, preselect: preselect, toast: window.__toast, onCreated: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => { setComposeOpen(false); setPreselect(null); } }),
   reviewId && h(CandidateReviewSheet, { candidateId: reviewId, characters: characters, toast: window.__toast, onChanged: async () => { if (window.MemoryEvents) { await window.MemoryEvents.refresh(); load(); } }, onClose: () => setReviewId(null) }),
-  detail && h(Sheet, { onClose: () => setDetail(null) },
+  detail && h(PageSheet, { onClose: () => setDetail(null) },
     h(Eyebrow, { style: { marginBottom: 6 } }, detail.event.title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 10 } },
       "执笔：" + nameOf(detail.event.author_char_id) + (detail.event.edited_by_user ? " · 你改过" : "")
@@ -11479,7 +11479,7 @@ function MemoryCorrectionPreviewSheet({ candidate, onDecided, onClose }) {
     } catch (e) { window.__toast && window.__toast("纠错没有落地：" + (e.message || e)); }
     finally { setBusy(false); }
   };
-  return h(Sheet, { onClose },
+  return h(PageSheet, { onClose },
     h(Eyebrow, null, "纠错候选 · 由你定夺"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 10px" } }, reason),
     !pair ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "14px 0" } }, "正在从权威表重读新旧两条…") : h(React.Fragment, null,
@@ -11528,7 +11528,7 @@ function InnerLifeEDiagnosticSheet({ characters, onClose }) {
   const line = (a,b) => h("div", { className:"flex justify-between", style:{fontFamily:F_BODY,fontSize:11.5,color:t.sub,padding:"4px 0",borderBottom:"1px dashed "+t.line} }, h("span",null,a), h("span",{style:{color:t.ink,fontWeight:600}},b));
   const readiness = report && !report.error && window.InnerLifePromotionGate ? window.InnerLifePromotionGate.evaluateE(report) : null;
   const allEArmed = window.InnerLifePromotionGate && window.InnerLifePromotionGate.state("E","*").mode === "pilot";
-  return h(Sheet, { onClose: closeSafely },
+  return h(PageSheet, { onClose: closeSafely },
     h(Eyebrow, null, "E · 余温与潮汐 · 诊断与试点"),
     h("div", { style:{fontFamily:F_BODY,fontSize:11,color:t.fog,lineHeight:1.65,margin:"7px 0 10px"} }, "授权后只会在你主动点回复时，把上一段交流留下的一点心情色彩和未完注意力作为轻背景；不写记忆、不替角色决定、不复述旧话题。主动消息暂不接入。"),
     !report ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:t.fog,padding:"16px 0"} }, "正在读本机影子数据…") : report.error ? h("div", { style:{fontFamily:F_BODY,fontSize:12,color:"#9f5149",padding:"12px 0"} }, report.error) : h(React.Fragment, null,
@@ -11581,7 +11581,7 @@ function InnerLifeADiagnosticSheet({ characters, onClose }) {
   };
   useEffect(() => { load(); }, []);
   const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
-  return h(Sheet, { onClose },
+  return h(PageSheet, { onClose },
     h(Eyebrow, null, "A · 立体情绪 · 常开中"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "十维【正在接进语气】（v62.37 起常开，急停在记忆库那一屏）：数字本身不发出去，发出去的是折成的那一句偏离。这里看：维度分布合不合理、mood 未匹配率、钳制次数。"),
     !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
@@ -11636,7 +11636,7 @@ function SomaticDiagnosticSheet({ characters, onClose }) {
   useEffect(() => { load(); }, []);
   const line = (a, b) => h("div", { className: "flex justify-between", style: { gap: 12, fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600, textAlign: "right" } }, b));
   const fmtSources = surfaces => Object.entries(surfaces || {}).sort((a, b) => b[1] - a[1]).map(([k, n]) => (SOURCE_ZH[k] || k) + "×" + n).join(" · ") || "尚无";
-  return h(Sheet, { onClose },
+  return h(PageSheet, { onClose },
     h(Eyebrow, null, "五感系统 · 全角色纯影子诊断"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只看不注入：触觉、嗅觉、味觉、听觉只在独立影子库衰减演算，不会改变角色语气或决定。CC 与 App 共用同一套 somatic-core；App 只重放已获准回流的 CC 账本，不读取私人 CC transcript。"),
     !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
@@ -11686,7 +11686,7 @@ function InnerLifeBDiagnosticSheet({ characters, onClose }) {
   };
   useEffect(() => { load(); }, []);
   const line = (a, b) => h("div", { className: "flex justify-between", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 0", borderBottom: "1px dashed " + t.line } }, h("span", null, a), h("span", { style: { color: t.ink, fontWeight: 600 } }, b));
-  return h(Sheet, { onClose },
+  return h(PageSheet, { onClose },
     h(Eyebrow, null, "B · 关系轴 · 纯影子诊断"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "只算不注入：轴的受伤/修复只在影子库里演算，不影响角色反应。评审看三件事：误伤（玩笑被当伤害）、闪烁（反复进出）、假修复（道歉就清零——不该发生）。"),
     !rows ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读本机影子数据…") :
@@ -11755,7 +11755,7 @@ function MemoryRepairConflictSheet({ entries, onList, onDecide, onClose }) {
         finally { setBusy(null); }
       }, "确认");
   };
-  return h(Sheet, { onClose },
+  return h(PageSheet, { onClose },
     h(Eyebrow, null, "RepairGate · 结局冲突过目"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.65, margin: "7px 0 10px" } }, "旧诊断为保护隐私只保存证据哈希，无法还原逐字引文。请只处理你确定真实结果的条目；拿不准就保持未了。"),
     rows === null ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "16px 0" } }, "正在读取冲突…") :
@@ -12400,7 +12400,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.accent } }, val + (unit || ""))),
     h("input", { type: "range", min: min, max: max, step: step, value: val, onChange: e => onCh(Number(e.target.value)), className: "w-full" }),
     note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, note) : null);
-  return h(Sheet, { onClose: onClose, tall: true },
+  return h(PageSheet, { onClose: onClose, tall: true },
     h(Eyebrow, { style: { marginBottom: 2 } }, "召回设置"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "每轮往上下文塞几条 + 自动抽取的节拍 — token 封顶的旋钮"),
     toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）", c.autoExtract !== false, () => set({ autoExtract: c.autoExtract === false })),
@@ -12475,7 +12475,7 @@ function MemEntrySheet({
       a: aa
     });
   };
-  return h(Sheet, {
+  return h(PageSheet, {
     onClose: onClose,
     tall: true
   }, h("div", {
@@ -14992,7 +14992,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
                   sheet.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 6, lineHeight: 1.7 } }, sheet.note) : null)),
               think, pinRow))));
     })();
-  const giftNode = openGift && h(Sheet, { onClose: () => setOpenGiftId(null), tall: true },
+  const giftNode = openGift && h(PageSheet, { onClose: () => setOpenGiftId(null), tall: true },
       h(Eyebrow, { style: { marginBottom: 8 } }, openGift.name),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "你送的 · 收到于 " + new Date(openGift.receivedTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric" })),
       h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 9.5, letterSpacing: "0.16em", color: t.accent, marginBottom: 6 } }, char.name + " 的想法"),
