@@ -16174,6 +16174,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // opts.board：指定发在哪个吧（她正在看的那一版）；不给就照旧让 TA 自己挑
   // ⚠️「角色发一条帖」全库只有这一份（原来手动那条是另一份又薄又旧的：没有论坛习惯、
   //   不避重复、不看最近相处——同一件事两份，手动点出来的帖就是比自己发的差一截）。
+  // 论坛开着双列（x_forumLayout=cards，开关在论坛排序那排）时，帖子照小红书的格式写——
+  //   只换格式，不换话题和脾气：吐槽吧照样吐槽，只是长成一篇小红书笔记的样子。
+  const forumFmtLine = () => { let on = false; try { on = localStorage.getItem("x_forumLayout") === "cards"; } catch (e) {}
+    return on ? " 【格式·小红书笔记】论坛现在是双列卡片排版，这一批帖子都写成小红书笔记的格式：标题抓人、可以带一两个 emoji；正文分段、口语、有具体细节；结尾带 2~4 个「#话题」；多数帖配一张图（photo 写清图里拍到了什么）。只改格式，这个吧原来聊什么、什么脾气照旧。" : ""; };
   const autoForumForChar = async (char, opts) => {
     const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
     if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return null;
@@ -16199,7 +16203,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const avoidRepeat = myLast ? "\n\n【绝不要重复你上一个帖】你上次发的是《" + String(myLast.title || "").slice(0, 40) + "》「" + String(myLast.body || "").replace(/\s+/g, " ").slice(0, 70) + "」——这次必须【换一件不一样的、更新的事】，绝不许再写同一个话题/同一件事/同一种心情，哪怕只是换个说法也不行。" : "";
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         voice: true,
-        instruction: "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
+        instruction: forumFmtLine() + "以「" + char.name + characterText(char, "」的身份去论坛随手发一个帖（吐槽/日常/求助/兴趣/脑洞/匿名 六选一；用哪个身份发下面已经定好了）。\n【这一帖用「" + ({ main: "大号", alt: "固定小号", anonymous: "匿名" })[rolledId] + "」发，identity 填 " + rolledId + "】"
           + ({ main: "顶着自己的名字说话：认识他的人都看得见，说的是他愿意公开的那一面。",
               alt: "用固定小号：认识他的人认不出来——写他不想让熟人看见、但也算不上见不得人的那一面（太幼稚、太丧、太较真、和公开形象不符的爱好或牢骚）。正文不许自曝身份。",
               anonymous: "匿名：这件事和他这个人扯不上任何关系——写他平时绝不会顶着名字说的真心话、心事或怨气。正文不许自曝身份。" })[rolledId] + FORUM_ID_VOICE + "\n【Ta 长期稳定的论坛习惯】常逛：") + forumHabit.boardPrefs.join("、") + "；参与方式：" + forumHabit.participation + "；发言习惯：" + forumHabit.replyStyle + characterText(char, "；真需要遮一下的时候，他习惯用") + (forumHabit.identityBias === "alt" ? "固定小号" : "匿名") + "。" + (forceAnon ? "【这次明确去匿名吧，用 anonymous，说一件 Ta 不会用大号或固定小号留下痕迹的事。】" : "") + "**优先写你最近真实新发生的事**；兴趣吧要有具体爱好细节，脑洞吧要让别人能参与，匿名吧可以写不会用大号说的话。小号或匿名绝不在正文自曝真实身份。像真人发帖，别客服腔、别报流水账。" + FORUM_PHOTO_LINE + (sinceChat ? "\n\n【你最近亲历的共同相处（含私聊、群聊与线上/线下；可作灵感，别照抄原话）】\n" + sinceChat : "") + avoidRepeat
@@ -20301,7 +20305,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     "求助吧": "「求助吧」：网友来提问 / 求助，也有人认真回答。就事论事、具体、别空谈，标题多是疑问句。",
     "兴趣吧": "「兴趣吧」：聊作品、游戏、吃喝、设备、收藏、学习进度和具体爱好。要有细节、有偏好，像同好交流，不要写成泛泛日记。",
     "脑洞吧": "「脑洞吧」：发假设题、投票、接龙、挑战和离谱但能参与的问题。重点是让楼下接得上，别写成普通生活流水账。",
-    "笔记吧": "「笔记吧」：小红书那种笔记——种草、测评、攻略、穿搭、探店、教程、生活记录。标题要抓人、可以带一两个 emoji；正文分段、口语、给具体干货（价格、做法、踩过的雷），结尾带 2~4 个「#话题」标签。多数笔记配一张图，photo 写清图里是什么。别写成论坛吵架帖，也别写成广告文案。",
     "匿名吧": "「匿名吧」：不署名才敢说的话。真实、赤裸、卸下人设的一面，可以是秘密、软肋、见不得人的念头。别端着。"
   }[b] || forumCustomVoice(b));
   // 她自己开的吧（x_forumBoards）没有写死的那一句：拿她写的简介拼。
@@ -20782,7 +20785,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "写的是TA自己日子里的事、TA这个人才会发的帖，可以顺嘴带到 " + cast.host.name + "，但别把别人的私事往网上发。其余几条照旧是各路网友。"
         : "";
       const d = await runProbeRetry(active, forumWorldCtx(board, genW), {
-        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
+        instruction: forumBoardVoice(board) + forumNpcRule(board) + castLine + forumFmtLine() + " 生成 3-5 条不同网友刚发的新主帖（items 数组务必 3-5 条，别只给 1-2 条）。每条都填 authorName 和 handle；是常驻熟面孔的再额外写一个 npcId。写 title（标题）、body（楼主正文 2-4 句）、replyCount（编一个几十到几千的回复数字，不必真实）。同一批至少有 1 个一次性路人，别所有帖一个腔调。" + FORUM_PHOTO_LINE + lately,
         schemaHint: "{\"items\":[{\"npcId\":\"npc_regular_xxx（熟面孔才填）\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":128,\"refTitle\":\"接着哪个帖才填，原样照抄那个标题\"" + FORUM_PHOTO_FIELD + (cast ? ",\"cast\":\"只有配角那一条填 true\"" : "") + "}]}",
         maxTokens: FTOK.board
       });
@@ -22178,7 +22181,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     try {
       const recentAll = Object.values(chatsRef.current || {}).flat().filter(m => m && m.content && contextAllowsMessage(m)).slice(-30).map(m => m.content).join(" ").slice(0, 300);
       const d = await runProbeRetry(active, forumWorldCtx((query || "") + "\n" + recentAll, genW), {
-        instruction: "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
+        instruction: forumFmtLine() + "用户在贴吧搜索框" + (query ? "搜了「" + query + "」" : "没输关键词，随便逛逛") + "。挑一个贴合的贴吧（board 字段，如『足球吧』『考研吧』『猫吧』『追星吧』等，" + (query ? "围绕这个关键词" : "结合这个世界/最近聊天可能涉及的热门话题，别老是同一个吧") + "，**不要**用主页六个固定板块）。" + forumNpcRule("搜索") + "在这个吧里生成 3-5 条网友主帖，熟面孔与一次性路人混合，并含 title、body、replyCount。" + (recentAll ? "（最近聊天片段可作话题灵感，别照抄：" + recentAll + "）" : ""),
         schemaHint: "{\"board\":\"某某吧\",\"items\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"title\":\"标题\",\"body\":\"正文\",\"replyCount\":88}]}",
         maxTokens: FTOK.board
       });

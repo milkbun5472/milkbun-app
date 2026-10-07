@@ -2278,9 +2278,7 @@ function forumPostWorld(p, d) {
   return "";
 }
 function charWorldLore(w, d) { d = d || charWorldsLoad(); return w ? String(((d.worlds.find(x => x.id === w) || {}).lore) || "").trim() : ""; }
-// 「笔记吧」（她 2026-10-07：「讨论一下要不要做个小红书功能」→ 不另起一个 app，论坛里多一个吧）：
-//   同一套发帖、评论、关注，只是这个吧的帖子写成笔记腔、列表排成双列卡片。
-const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "笔记吧", "匿名吧"];
+const FORUM_BOARDS = ["吐槽吧", "日常吧", "求助吧", "兴趣吧", "脑洞吧", "匿名吧"];
 // 每个吧自己的规矩（她 2026-09-15 问「5 呢」）。一份写在这儿：置顶那块牌子（下面 Forum 里）
 // 和喂给模型的吧规（app.js 的 forumBoardRuleLines）读的是同一份——两处各抄一份必然有一处过时。
 // ⚠️每个吧的规矩要带着这个吧的脾气：吐槽吧的规矩本身就该有点火气，求助吧的该像个真管事的。
@@ -2291,7 +2289,6 @@ const FORUM_BOARD_RULES = {
   "求助吧": ["标题写清楚你到底卡在哪，「求助急」这种标题会被改", "有人认真答了就回一句，别拿了就跑", "答不上来别硬答，猜的要标明是猜的"],
   "兴趣吧": ["安利可以，踩别人的爱好不行", "报装备报价格随意，但别装内行", "连载贴请自己顶，别开新帖"],
   "脑洞吧": ["提问要给得出接的口子，没人接的自己顶", "抬杠归抬杠，别说「这不可能」就完事", "现实问题别发这儿"],
-  "笔记吧": ["标题要让人想点开，正文给干货别只晒", "种草要说清楚哪儿好，恰饭的自己标出来", "评论区别问「求链接」，自己翻正文"],
   "匿名吧": ["这儿不问你是谁，也别去问别人是谁", "扒人一律删帖", "说出来就算了，别追着要下文"]
 };
 // 论坛是一叠正在被翻动的社区小报，不再借用全 App 的通用白底列表。
@@ -2304,7 +2301,7 @@ const FORUM_SKIN = {
 const FORUM_BOARD_SKIN = {
   "吐槽吧": ["#a65f52", "rgba(166,95,82,.11)"], "日常吧": ["#667c5b", "rgba(102,124,91,.11)"],
   "求助吧": ["#55778c", "rgba(85,119,140,.11)"], "兴趣吧": ["#9a7745", "rgba(154,119,69,.11)"],
-  "脑洞吧": ["#765f93", "rgba(118,95,147,.11)"], "笔记吧": ["#d6455d", "rgba(214,69,93,.11)"], "匿名吧": ["#555957", "rgba(85,89,87,.11)"]
+  "脑洞吧": ["#765f93", "rgba(118,95,147,.11)"], "匿名吧": ["#555957", "rgba(85,89,87,.11)"]
 };
 // 她开的吧一人一个颜色（她 2026-09-23：「新开的吧颜色都一样改一改吧」）——原来没登记的吧
 //   一律落到论坛主色上。挑过的按她挑的，没挑过的按吧名散列，同一个吧永远同一个色。
@@ -2549,8 +2546,8 @@ function Forum({
   // 「新帖在这里」「新回复在这里」默认收着，只露一行标题和数（她 2026-10-07：「能不能搞 dropdown 隐藏，点开才展开」）
   const [newPostsOpen, setNewPostsOpen] = useState(false);
   const [newRepliesOpen, setNewRepliesOpen] = useState(false);
-  // 小红书那种双列瀑布流，不只给笔记吧（她 2026-10-07：「我想要小红书的排版但是不是只是这种笔记类的」）：
-  //   一颗开关管全论坛，记住她选的；笔记吧本来就是双列。
+  // 小红书那种双列瀑布流（她 2026-10-07：「我想要小红书的排版但是不是只是这种笔记类的」「排版变了不代表格式也跟上了，把笔记吧删了」）：
+  //   一颗开关管全论坛，记住她选的；开着时生成帖子也照小红书的格式写（app.js 的 forumFmtLine 读同一个 x_forumLayout）。
   const [cardLayout, setCardLayoutRaw] = useState(() => { try { return localStorage.getItem("x_forumLayout") === "cards"; } catch (e) { return false; } });
   const setCardLayout = v => { setCardLayoutRaw(v); try { localStorage.setItem("x_forumLayout", v ? "cards" : "list"); } catch (e) {} };
   const [rulesOpen, setRulesOpen] = useState(false);  // 置顶吧规那块牌子，默认只露第一条
@@ -2887,7 +2884,7 @@ function Forum({
   }
 
   // ---- 帖子行（推特式）----
-  // 笔记吧的一张卡：上面一块封面（有真图放图，没图拿配图描述或标题当封面字），下面标题两行 + 作者 + 赞。
+  // 双列时的一张卡：上面一块封面（有真图放图，没图拿配图描述或标题当封面字），下面标题两行 + 作者 + 赞。
   //   点开还是同一个帖子页（openPost），评论、关注、收藏全是论坛那一套。
   function noteCard(p) {
     const ph = typeof forumPhotoOf === "function" ? forumPhotoOf(p) : null;
@@ -3307,7 +3304,7 @@ function Forum({
       tab === "收藏" && shown.length === 0 && h(Empty, { text: "还没有收藏帖子", sub: "看到想留着的，点帖子下面的 ☆" }),
       tab !== "关注" && tab !== "收藏" && shown.length === 0 && !(gen && gen.forum === tab) && h(Empty, { text: "「" + tab + "」还没有帖子", sub: "点右上角刷新键让网友发帖" }),
       gen && gen.forum === tab && shown.length === 0 && h(Spinner, { label: "网友正在冒泡…" }),
-      (tab === "笔记吧" || cardLayout) ? h("div", { "data-wk": "fonotes", style: { columnCount: 2, columnGap: 8, padding: "10px 10px 0" } }, shown.map(noteCard)) : shown.map(p => postRow(p, false)),
+      cardLayout ? h("div", { "data-wk": "fonotes", style: { columnCount: 2, columnGap: 8, padding: "10px 10px 0" } }, shown.map(noteCard)) : shown.map(p => postRow(p, false)),
       arr.length > shown.length && h("button", { onClick: () => setPage(page + 1), className: "w-full py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "加载更多 (" + (arr.length - shown.length) + ")"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog, textAlign: "center", padding: "2px 16px 10px", lineHeight: 1.6 } },
         "每一帖右上角那个 ✕ 单独删它；整版清空在吧规那条横杠右边"));
