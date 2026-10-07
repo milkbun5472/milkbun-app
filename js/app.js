@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.011";
+const APP_VERSION = "v75.012";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10943,7 +10943,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
-      const moneyAsk = /穷|没钱|缺钱|差钱|借点|借我|借钱|给我钱|买不起|破产|吃土|月光|房租|还款|还不起|信用卡|养我|包养|花你的|花你钱|要钱|打钱|转点|接济|周转|手头紧|发不出|工资还没/.test(recentUserText);
+      const moneyAsk = /穷|没钱|缺钱|差钱|借点|借我|借钱|给我钱|买不起|破产|吃土|月光|房租|还款|还不起|信用卡|养我|包养|花你的|花你钱|要钱|打钱|转点|接济|周转|手头紧|发不出|工资还没|亲属卡|副卡/.test(recentUserText);
       const kinHint = (!hasKinship(charId) && moneyAsk)
         ? "\n【亲属卡·按需】用户这会儿在跟你哭穷/或张口想要钱花。你**不必**给——先掂量你的人设、此刻心情、以及对 Ta 的好感（当前 " + aff + "）：真心疼、也舍得、且这符合你会做的事，才给 Ta 一张「亲属卡」（Ta 以后刷卡花你的钱）：填 kinshipcard:{\"limit\":额度数字(按你人设财力自定),\"note\":\"发卡时说的一句话\"}。不情愿、觉得 Ta 得寸进尺、或人设本就不是会给钱的人，就 null（该拒绝就拒绝、别硬给）。"
         : "";
@@ -11421,7 +11421,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       // 她给的那张卡：有就每轮把事实摆出来（额度、还剩、冻没冻、最近刷过什么）。刷不刷、花在哪，全看TA这个人。
-      const _myKin = myKinOf(charId);
+      // 钱是真钱：只在【这里的事算数】的地方摆出来、让刷——主聊天，或开了「这里的事算数」的房。
+      //   小号房、不带出门的房里TA不该拿着你的卡（小号房里 uName 还是小号的名字，会说成「小号给的卡」）。
+      const _kinRoomOk = !sideRoom || !!(room && room.writeback && room.writeback.sharedState);
+      const _myKin = _kinRoomOk ? myKinOf(charId) : null;
       if (_myKin) {
         const _recent = (_myKin.ledger || []).slice(0, 4).map(l => "「" + l.item + "」" + moneyText(l.amount, charId)).join("、");
         const _kinFact = "herkinspend：你手里有一张 " + uName + " 给你的亲属卡（额度 " + moneyText(_myKin.limit || 0, charId) + "，还剩 " + moneyText(myKinRemain(_myKin), charId)
@@ -12670,7 +12673,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         delivered = true;
       }
       // 刷她给的那张卡：过得去就扣她的钱、落一张账单；过不去也落一张「被拒」，TA下一轮知道
-      if (parsed.herkinspend && typeof parsed.herkinspend === "object" && Number(parsed.herkinspend.amount) > 0 && myKinOf(charId)) {
+      if (parsed.herkinspend && typeof parsed.herkinspend === "object" && Number(parsed.herkinspend.amount) > 0 && myKinOf(charId)
+        && (!sideRoom || !!(room && room.writeback && room.writeback.sharedState))) {
         const _it = String(parsed.herkinspend.item || "").trim().slice(0, 30) || "一笔开销";
         const _r = spendMyKin(charId, _it, Number(parsed.herkinspend.amount), "chat");
         pChat(chatKey, p => [...p, { role: "assistant", kind: "mykinbill", charId, item: _it, amount: Math.round(Math.abs(Number(parsed.herkinspend.amount)) * 100) / 100,
@@ -25787,14 +25791,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (walletRef.current < amt) return { ok: false, why: "她钱包里的钱不够" };
     walletRef.current = Math.round((walletRef.current - amt) * 100) / 100;   // 同一拍里连刷几笔时，下一笔得看到这一笔扣过之后的钱
     changeWallet(-amt, "亲属卡 · " + char.name + " 刷了「" + String(item || "").slice(0, 20) + "」", "kinship_out");
-    let remain = 0;
-    saveMyKin(p => p.map(c => {
-      if (c.charId !== charId) return c;
-      const used = Math.round(((Number(c.used) || 0) + amt) * 100) / 100;
-      remain = Math.max(0, Math.round(((Number(c.limit) || 0) - used) * 100) / 100);
-      return { ...c, used, ledger: [{ id: "mkl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), amount: amt, item: String(item || "").slice(0, 30), source }, ...(c.ledger || [])].slice(0, 300) };
-    }));
-    return { ok: true, remain: Math.max(0, myKinRemain(card) - amt) };
+    // ⚠️新的那份【当场】写回 myKinRef 再交给 setState：每天补账那一路是一个循环里连刷好几笔，
+    //   setState 的 updater 要等下一次渲染才跑，下一笔读 myKinOf 还是没扣过的旧卡——额度就能被刷穿（同钱包那一行的道理）。
+    const used = Math.round(((Number(card.used) || 0) + amt) * 100) / 100;
+    const entry = { id: "mkl_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), amount: amt, item: String(item || "").slice(0, 30), source };
+    const next = (myKinRef.current || []).map(c => c.charId !== charId ? c : { ...c, used, ledger: [entry, ...(c.ledger || [])].slice(0, 300) });
+    myKinRef.current = next;
+    saveMyKin(next);
+    return { ok: true, remain: Math.max(0, Math.round(((Number(card.limit) || 0) - used) * 100) / 100) };
   };
   // 她在账单页做的几件事：调额度 / 冻结 / 解冻 / 收回 / 拿某一笔去问 TA
   const editMyKin = (charId, action, val) => {
