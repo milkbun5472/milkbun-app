@@ -2535,9 +2535,11 @@ function WechatNavIcon({ kind, active }) {
   return h("svg", { width: 24, height: 24, viewBox: "0 0 24 24" }, ...paths);
 }
 
-function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, sendAsWaiting }) {
+function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, sendAsWaiting, onRemark }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
+  // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
+  const [remarkDraft, setRemarkDraft] = useState(null);
   // ── 她自己在TA手机上打的那一句（她 2026-09-14）──────────────────────────
   //   只给【真实会话】：她建的旁观群、有TA的群、她跟TA的私聊——这些在她那头本来就有记录。
   //   推演出来的那几条会话没有这个口子（那是手机数据，不是聊天记录）。
@@ -2711,8 +2713,8 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   if (publicPage) return h("div", { className: "h-full min-h-0 flex flex-col", style: { background: "#f5f5f5" } }, innerHead(article ? "文章" : "公众号", null, () => article ? setArticle(null) : setPublicPage(false)), h("div", { className: "flex-1 min-h-0 overflow-y-auto" }, article ? h("article", { style: { background: "#fff", minHeight: "100%", padding: "24px 22px 48px" } }, h("h1", { style: { fontFamily: F_DISPLAY, fontSize: 24, lineHeight: 1.35, color: "#191919" } }, PTX(article.title)), h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#8a8a8a", marginTop: 10 } }, [article.source, article.time].filter(Boolean).join(" · ")), h("div", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 2, color: "#333", marginTop: 25, whiteSpace: "pre-wrap" } }, PTX(article.summary)), h("div", { style: { marginTop: 32, padding: 18, borderRadius: 8, background: "#f7f7f7" } }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a8a8a", marginBottom: 8 } }, char.name + " 读到这里时"), h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.8, color: "#444" } }, PTX(article.thought)))) : h("div", null, h("div", { style: { height: 118, background: "linear-gradient(135deg,#234635,#79a185)", padding: "34px 22px", color: "#fff" } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 25 } }, "订阅号消息"), h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .8, marginTop: 5 } }, char.name + " 最近打开过的文章")), h("div", { style: { padding: "10px 14px" } }, accounts.map((a, i) => h("button", { key: i, onClick: () => setArticle(a), className: "w-full text-left active:opacity-60", style: { padding: "17px 0", borderBottom: "1px solid #ddd" } }, h("div", { className: "flex gap-13" }, h("div", { className: "flex-1" }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.45, color: "#222" } }, a.title), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 8 } }, [a.source, a.time].filter(Boolean).join(" · "))), h("div", { style: { width: 72, height: 58, borderRadius: 5, background: `linear-gradient(135deg,${strColor(a.source)},#ddd)` } }))))))));
   const chatRow = (c, i) => h("button", { key: c.id || i, "data-watch": "item:" + (c.name || ""), onClick: () => setThread(c), className: "w-full text-left flex items-center gap-3 active:opacity-60", style: { minHeight: 67, borderBottom: "1px solid #e5e5e5", background: "#fff", padding: "8px 14px" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 47, radius: c.type === "group" ? 8 : 7 }), h("div", { className: "flex-1 min-w-0" }, h("div", { className: "flex justify-between gap-2" }, h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: "#191919" } }, c.name), h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#aaa", flexShrink: 0 } }, phoneChatWhen(c))), h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: c._empty ? "#bbb" : "#999", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.last || (c._empty ? "还没说过话" : ""))));
   const userContact = d.userContact || { name: meName, remark: meName, intro: "TA 把你放在最重要的位置，但这次刷新还没写下具体的话。" };
-  const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage }, ...arr(d.contacts)];
-  const contactRow = (c, i) => h("button", { key: i, onClick: () => setThread({ ...c, type: "contact" }), className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#1c1c1c" } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, c.intro)));
+  const contacts = [{ ...userContact, name: meName, avatarImage: profile && profile.avatarImage, _me: true }, ...arr(d.contacts)];
+  const contactRow = (c, i) => h("button", { key: i, onClick: () => { setRemarkDraft(null); setThread({ ...c, type: "contact" }); }, className: "w-full flex items-center gap-3 text-left active:opacity-60", style: { minHeight: 64, padding: "8px 14px", background: "#fff", borderBottom: "1px solid #e7e7e7" } }, h(Avatar, { character: person(c.name, c.avatarImage), size: 43, radius: 7 }), h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#1c1c1c" } }, c.remark || c.name), h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#999", marginTop: 3 } }, c.intro)));
   const searchBox = h("div", { className: "flex-1 flex items-center justify-center gap-2", style: { height: 39, borderRadius: 8, background: "#fff", border: "1px solid #e5e5e5", color: "#9a9a9a", boxShadow: "0 1px 1px rgba(0,0,0,.025)" } },
     h("svg", { width: 17, height: 17, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("circle", { cx: 10.5, cy: 10.5, r: 6.5 }), h("path", { d: "m16 16 4 4" })),
     h("span", { style: { fontFamily: F_BODY, fontSize: 13.5 } }, "搜索"));
@@ -2769,7 +2771,19 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
             thread.remark && thread.remark !== thread.name
               ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: "#8a8a8a", marginTop: 4 } }, "昵称：" + thread.name) : null))),
         block([
-          cell("备注", thread.remark && thread.remark !== thread.name ? thread.remark : "无", "first"),
+          // 备注可以改：点开就地改，改完TA会知道（app.js phoneRemarkEdit）
+          onRemark && !drive && remarkDraft != null
+            ? h("div", { key: "rm", className: "flex items-center", style: { gap: 10, padding: "9px 16px" } },
+                h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: "#191919", flexShrink: 0 } }, "备注"),
+                h("input", { value: remarkDraft, autoFocus: true, maxLength: 30, onChange: e => setRemarkDraft(e.target.value), placeholder: "留空就是删掉备注",
+                  style: { flex: 1, minWidth: 0, height: 34, borderRadius: 5, border: "1px solid #e0e0e0", padding: "0 9px", fontFamily: F_BODY, fontSize: 15, color: "#171717", outline: "none" } }),
+                h("button", { onClick: () => setRemarkDraft(null), className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 14, color: "#8a8a8a" } }, "取消"),
+                h("button", { onClick: () => { const v = remarkDraft.trim(); onRemark(char, thread, v); setThread({ ...thread, remark: v }); setRemarkDraft(null); },
+                  className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 14, color: "#07c160" } }, "改好了"))
+            : onRemark && !drive
+              ? h("button", { key: "rm", onClick: () => setRemarkDraft(thread.remark && thread.remark !== thread.name ? thread.remark : ""), className: "w-full text-left active:opacity-60" },
+                  cell("备注", (thread.remark && thread.remark !== thread.name ? thread.remark : "无") + "  ›", "first"))
+              : cell("备注", thread.remark && thread.remark !== thread.name ? thread.remark : "无", "first"),
           cell("来源", sess ? "微信联系人" : "通讯录")
         ]),
         // 这一块是我们独有的东西（不是本尊有的），所以它单独成一组，
@@ -5987,7 +6001,7 @@ function renderPhoneModule(key, d, ctx) {
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
-  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, sendAsWaiting: ctx.sendAsWaiting });
+  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
