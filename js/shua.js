@@ -134,15 +134,16 @@
   }
 
   // ── 刷新那一页：两颗，跟论坛一样 ────────────────────────
-  function RefreshPage({ characters, busy, onNpc, onChars, onBack, t, P }) {
+  function RefreshPage({ characters, busy, prog, onNpc, onChars, onBack, t, P }) {
     const [pick, setPick] = useState(characters.slice(0, 3).map(c => c.id));
     const toggle = id => setPick(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.concat([id]).slice(0, PICK_MAX));
-    const big = (title, sub, fn, dis) => h("button", { onClick: fn, disabled: dis, className: "w-full text-left active:opacity-80", style: { borderRadius: 16, padding: "16px 18px", background: dis ? P.field : "linear-gradient(120deg,#fe2c55,#7a3cff)", color: "#fff", opacity: dis ? .5 : 1 } },
+    // ⚠️按不了的时候字色跟着皮走（2026-10-07 群友截图：横着看那套底是白的，白字压白底，「正在刷…」整个看不见，像卡死了）
+    const big = (title, sub, fn, dis) => h("button", { onClick: fn, disabled: dis, className: "w-full text-left active:opacity-80", style: { borderRadius: 16, padding: "16px 18px", background: dis ? P.field : "linear-gradient(120deg,#fe2c55,#7a3cff)", color: dis ? P.ink : "#fff", border: "1px solid " + (dis ? P.line : "transparent"), opacity: dis ? .75 : 1 } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17 } }, title), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4 } }, sub));
     return h("div", { className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
       h(Head, { zh: "刷新", bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
-        h("div", { style: { marginTop: 8 } }, big(busy === "npc" ? "正在刷…" : "刷几条路人的", "推荐流里互不认识的博主，一次 " + NPC_BATCH + " 条（调一次模型）", onNpc, !!busy)),
+        h("div", { style: { marginTop: 8 } }, big(busy === "npc" ? "正在刷…" : "刷几条路人的", "推荐流里互不认识的博主，一次 " + NPC_BATCH + " 条（调一次模型）", onNpc, busy === "npc" || busy === "chars")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "22px 0 10px" } }, "请谁发（每人一条，最多 " + PICK_MAX + " 个）"),
         h("div", { className: "flex flex-wrap", style: { gap: 12 } }, characters.map(c => {
           const on = pick.indexOf(c.id) >= 0;
@@ -150,7 +151,7 @@
             h("div", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (on ? P.accent : "transparent") } }, h(Avatar, { character: c, size: 46 })),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name));
         })),
-        h("div", { style: { marginTop: 14 } }, big(busy === "chars" ? "TA们在拍…" : "请TA们发", "挑中的人各发一条，照TA此刻的生活来", () => onChars(pick), !!busy || !pick.length))));
+        h("div", { style: { marginTop: 14 } }, big(busy === "chars" ? "TA们在拍…" + (prog ? "（" + prog + "）" : "") : "请TA们发", busy === "chars" ? "可以先退出去刷，拍好一条就出一条" : "挑中的人各发一条，照TA此刻的生活来", () => onChars(pick), busy === "npc" || busy === "chars" || !pick.length))));
   }
 
   // ── 发一条（＋）──────────────────────────────────────
@@ -239,6 +240,7 @@
     const [page, setPage] = useState(null);           // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
     const [busy, setBusy] = useState(null);
+    const [prog, setProg] = useState("");
     const [drawing, setDrawing] = useState(null);
     const [paneH, setPaneH] = useState(600);
     const feedRef = useRef(null);
@@ -256,29 +258,35 @@
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
     // 请TA们发：每人一条，各走自己那一整份料
+    // 请TA们发：每人一条，各走自己那一整份料。
+    // ⚠️拍好一条就落一条，不等最慢那个（群友 2026-10-07：「刷新会卡着刷不出来」——原来 Promise.all 要等五个人全回来，
+    //   一个人的线路卡住，整批都看不见；再加一层 3 分钟的兜底，过了就当这个人这回没拍）
     const genChars = async ids => {
       const pick = ids.map(charOf).filter(Boolean).slice(0, PICK_MAX);
       if (!pick.length) return;
       const sk = skin;
-      setBusy("chars");
-      try {
-        const got = await Promise.all(pick.map(c => {
-          const acc = (dbRef.current.accounts || {})[c.id] || {};
-          return props.probeAs(c, charInstruction(acc.handle, sk), shapeChar(sk)).then(d => ({ c, d })).catch(() => null);
-        }));
-        const ok = got.filter(x => x && x.d && S(x.d.scene));
-        if (!ok.length) { toast("这一轮没发出来，再点一次试试"); return; }
-        const accounts = Object.assign({}, dbRef.current.accounts);
-        const vids = ok.map(({ c, d }) => {
+      setBusy("chars"); setProg("0/" + pick.length);
+      let done = 0;
+      const names = [], failed = [];
+      const one = c => {
+        const acc = (dbRef.current.accounts || {})[c.id] || {};
+        const timeout = new Promise(res => setTimeout(() => res(null), 180000));
+        return Promise.race([props.probeAs(c, charInstruction(acc.handle, sk), shapeChar(sk)).catch(() => null), timeout]).then(d => {
+          done++; setProg(done + "/" + pick.length);
+          if (!d || !S(d.scene)) { failed.push(c.name); return; }
+          const accounts = Object.assign({}, dbRef.current.accounts);
           const handle = S((accounts[c.id] || {}).handle) || S(d.handle).slice(0, 20) || c.name;
           accounts[c.id] = Object.assign({}, accounts[c.id], { handle });
-          return mkVideo(d, { by: "char", charId: c.id, author: handle, skin: sk });
+          save(Object.assign({}, dbRef.current, { accounts, videos: [mkVideo(d, { by: "char", charId: c.id, author: handle, skin: sk })].concat(dbRef.current.videos) }));
+          names.push(c.name);
         });
-        save(Object.assign({}, dbRef.current, { accounts, videos: vids.concat(dbRef.current.videos) }));
-        setPage(null); setTab("home"); setFeed("follow");
-        if (feedRef.current) feedRef.current.scrollTop = 0;
-        toast(ok.map(x => x.c.name).join("、") + " 发了新视频");
-      } finally { setBusy(null); }
+      };
+      try {
+        await Promise.all(pick.map(one));
+        if (names.length) toast(names.join("、") + " 发了新视频" + (failed.length ? "（" + failed.join("、") + " 这回没拍出来）" : ""));
+        else toast("这一轮没发出来，再点一次试试");
+        if (names.length) { setPage(p => p && p.kind === "refresh" ? null : p); setTab("home"); setFeed("follow"); if (feedRef.current) feedRef.current.scrollTop = 0; }
+      } finally { setBusy(null); setProg(""); }
     };
     // 刷几条路人的：一枪写完
     const genNpc = async () => {
@@ -350,7 +358,7 @@
       if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x) });
     }
-    if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
+    if (page && page.kind === "refresh") return h(RefreshPage, { characters, t, P, busy, prog, onNpc: genNpc, onChars: genChars, onBack: () => setPage(null) });
     if (page && page.kind === "post") return h(PostPage, { P, skin, busy: busy === "post", onPost: postMine, onLive: () => { setPage(null); setLiveStart("setup:host"); setTab("live"); }, onBack: () => setPage(null) });
 
     const feedView = (vids, empty) => h("div", { ref: feedRef, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
