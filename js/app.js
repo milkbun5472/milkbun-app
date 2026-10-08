@@ -4534,7 +4534,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!c) return;
     setActiveChar(c); clearUnread(id); setScreen("thread");
   };
-  const clearUnread = id => setUnreadMap(p => {
+  // 进群那一下记住这个群攒了几条没看，群里顶上挂一颗「↑ N 条新消息」，点了跳到第一条没看的
+  //   （群友 2026-10-08：「群聊他们聊新的几十条，可以直接跳转到我未读的地方吗，翻了老半天辨认哪些看过哪些没看过」）
+  const [gOpenUnread, setGOpenUnread] = useState(null);
+  const clearUnread = id => {
+    const was = (unreadMap && unreadMap[id]) || 0;
+    if ((groups || []).some(g => g && g.id === id)) setGOpenUnread(was > 0 ? { id: id, n: was } : null);
+    clearUnreadMap(id);
+  };
+  const clearUnreadMap = id => setUnreadMap(p => {
     const n = {
       ...p,
       [id]: 0
@@ -15599,7 +15607,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 自发额度也一起归零，否则清完记录它还记着「这一轮已经自发过 N 条」，
     // 新起的第一句就可能直接撞上限、或者反过来立刻自发一串。
     resetAutoChatCycle(groupId, Date.now());
-    clearUnread(groupId);
+    clearUnreadMap(groupId); setGOpenUnread(null);
     if (wipeMem) {
       const gName = (groups.find(x => x.id === groupId) || {}).name || "";
       const next = memLibRef.current.filter(e => {
@@ -27468,6 +27476,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    openUnread: gOpenUnread && gOpenUnread.id === activeGroup.id ? gOpenUnread.n : 0,
+    onOpenUnreadDone: () => setGOpenUnread(null),
     onPatMember: cid => patGroupMember(activeGroup.id, cid),
     // 群里谁的开关都算数——和请求那一头（gCtx.wantReasoning）同一条判据
     showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),

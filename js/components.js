@@ -16193,6 +16193,8 @@ function GroupOfflineMode({
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
+  openUnread,
+  onOpenUnreadDone,
   onStopGen,
   group,
   groups,
@@ -16548,7 +16550,16 @@ function GroupThread({
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     "data-wk": "body",
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
-  }, winStart > 0 ? h("button", {
+  }, (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
+    h("button", { "data-wk": "gunreadjump", onClick: () => {
+        const idx = Math.max(0, messages.length - openUnread);
+        revealMsg(idx);
+        setTimeout(() => locateMsgIn(ref.current, idx, messages, archCount > 0, { start: winStartRef.current }), 160);
+        onOpenUnreadDone && onOpenUnreadDone();
+      }, className: "active:opacity-70",
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 32, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
+      "↑ " + openUnread + " 条新消息")) : null,
+  winStart > 0 ? h("button", {
     onClick: growMore, className: "w-full active:opacity-70",
     style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0", marginBottom: 2 }
   }, "↑ 上面还有 " + winStart + " 条 · 点开或往上翻") : null,
