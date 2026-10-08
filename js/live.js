@@ -288,12 +288,22 @@
     })();
     const [capIdx, setCapIdx] = useState(0);
     const capKey = (ses.beat || 0) + "_" + capIdx;
-    useEffect(function () { setCapIdx(0); }, [ses.beat]);
+    // 自己左右划（她 2026-10-08：「能不能我自己左右划，我操作的时候不会被自动滑动 override」）：
+    //   她一碰字幕卡，这一拍就不再自己往下放，直到下一拍来了才恢复
+    const [capHand, setCapHand] = useState(false);
+    const capX = useRef(null);
+    useEffect(function () { setCapIdx(0); setCapHand(false); }, [ses.beat]);
     useEffect(function () {
-      if (capIdx >= caps.length - 1) return;
+      if (capHand || capIdx >= caps.length - 1) return;
       const tm = setTimeout(function () { setCapIdx(i => i + 1); }, 2800);
       return function () { clearTimeout(tm); };
-    }, [capIdx, ses.beat, caps.length]);
+    }, [capIdx, ses.beat, caps.length, capHand]);
+    const capGo = d => { setCapHand(true); setCapIdx(i => Math.max(0, Math.min(Math.max(0, caps.length - 1), i + d))); };
+    // 手机上碰一下会先来 touch、再补一对 mouse：补的那对不算，不然一划跳两句
+    const capTouchAt = useRef(0);
+    const capDown = e => { if (e.touches) capTouchAt.current = Date.now(); else if (Date.now() - capTouchAt.current < 800) return; const p = e.touches ? e.touches[0] : e; capX.current = p.clientX; };
+    const capUp = e => { if (!e.changedTouches && Date.now() - capTouchAt.current < 800) return; if (capX.current == null) return; const p = e.changedTouches ? e.changedTouches[0] : e; const dx = p.clientX - capX.current; capX.current = null;
+      if (Math.abs(dx) > 36) capGo(dx < 0 ? 1 : -1); else capGo(1); };
     const capNow = caps[Math.min(capIdx, Math.max(0, caps.length - 1))] || null;
     const lineEl = (l, i) => {
       if (l.kind === "gift") return h("div", { "data-wk": "livemsg", "data-kind": "gift", key: i, style: { fontFamily: F_BODY, fontSize: 12, color: "#f6c76b", padding: "3px 0" } }, l.name + " 送出了「" + l.gift + "」 ¥" + l.amount);
@@ -366,8 +376,8 @@
         S(ses.scene) ? h("div", { "data-wk": "livescene", key: "sc_" + S(ses.scene).slice(0, 12), style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, textShadow: shadowTx, animation: "liveFade .5s ease" } }, ses.scene) : null,
         watching && S(ses.act) ? h("div", { "data-wk": "liveact", key: "act_" + (ses.beat || 0), style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(243,238,247,.9)", lineHeight: 1.5, marginTop: 4, textShadow: shadowTx, animation: "liveFade .5s ease" } }, "（" + ses.act + "）") : null)),
       // ── 字幕卡：这一拍主播说的几句，一句一句放；他在回谁，那条弹幕小字带在上面 ──
-      capNow ? h("div", { "data-wk": "livecapcard", onClick: () => setCapIdx(i => Math.min(i + 1, Math.max(0, caps.length - 1))), className: "shrink-0",
-        style: { position: "relative", zIndex: 1, margin: "8px 12px 0", padding: "9px 12px 10px", borderRadius: 14, background: "rgba(20,16,25,.55)", border: "1px solid rgba(255,255,255,.1)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", cursor: caps.length > 1 ? "pointer" : "default" } },
+      capNow ? h("div", { "data-wk": "livecapcard", onTouchStart: capDown, onTouchEnd: capUp, onMouseDown: capDown, onMouseUp: capUp, className: "shrink-0",
+        style: { position: "relative", zIndex: 1, margin: "8px 12px 0", padding: "9px 12px 10px", borderRadius: 14, background: "rgba(20,16,25,.55)", border: "1px solid rgba(255,255,255,.1)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", cursor: caps.length > 1 ? "pointer" : "default", touchAction: "pan-y", userSelect: "none", WebkitUserSelect: "none" } },
         capNow.reply ? h("div", { key: "rp_" + capKey, style: { fontFamily: F_BODY, fontSize: 11, color: "#d6c7ff", marginBottom: 3, lineHeight: 1.5, animation: "liveFade .4s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "回 " + capNow.reply.name + "：" + capNow.reply.text)
           : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM, marginBottom: 2 } }, stageTitle),
         h("div", { "data-wk": "livehostline", key: "cap_" + capKey, style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.6, color: LIVE_INK, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", animation: "liveFade .4s ease" } },
