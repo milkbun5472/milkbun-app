@@ -125,3 +125,14 @@ test("路人主播：一次刷一批、关注上限 20、交情大号马甲分�
   assert.match(app, /promoteStranger: \(st, key, nm, fan\) =>/);
   assert.match(app, /createCharFromAssistant\(\{ name: st\.name/);
 });
+
+test("粉丝团名字主播自己起：路人主播生成时顺手起、能重新起名；你的角色第一次开播时起；显示成两套（小数字等级＋展开的粉丝团）", () => {
+  assert.match(live, /const normClub = c =>/);
+  assert.match(live, /club: normClub\(x\.club\)/, "路人主播生成时顺手起");
+  assert.match(live, /const rerollClub = async st =>/);
+  assert.match(live, /if \(!ses\.club && !cfg\.stranger\) ses\.needClub = true;/, "你的角色第一次开播时起");
+  assert.match(live, /clubs: Object\.assign\(\{\}, c0\.clubs, \{ \[ses\.charId\]: newClub \}\)/);
+  assert.match(live, /"data-wk": "livestlv"/);
+  assert.match(live, /"data-wk": "livestclub"/);
+  const K = kit();
+});
