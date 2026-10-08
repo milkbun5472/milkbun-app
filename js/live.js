@@ -131,11 +131,11 @@
     if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
-      + "\n\n接着往下播。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
+      + "\n\n接着往下播。镜头里看得见的样子要是变了（换了地方、挪了镜头、换了衣服、灯变了），写一个新的 scene（一两句），没变就不写。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
   }
   // 一拍里主播和常客的话排成一条时间线（她 2026-10-08：「主播的话在上面然后才轮到评论，但他是在回复评论，对不上」）
   const WATCH_SHAPE_FIRST = '{"title":"","host":"","scene":"","regulars":[{"name":"","who":"","lean":""}],"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","gifts":[],"noise":["",""],"viewers":0}';
-  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","gifts":[],"noise":["",""],"viewers":0,"end":false}';
+  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","scene":"","gifts":[],"noise":["",""],"viewers":0,"end":false}';
   // 这几样只在用得上的时候往形状里加，不然模型会觉得每拍都该填
   const watchShape = (ses, first) => (first ? WATCH_SHAPE_FIRST : WATCH_SHAPE).replace(/\}$/, ""
     + (first && ses.needClub ? "," + CLUB_SHAPE : "")
@@ -206,6 +206,7 @@
     styleIn = true;
     const st = document.createElement("style");
     st.textContent = "@keyframes liveFly{from{transform:translateX(0)}to{transform:translateX(-160vw)}}"
+      + "@keyframes liveFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}"
       // 自动往下播那根拉条：一根细线＋一颗小红点，不要系统那根粗白条
       + ".live-range{-webkit-appearance:none;appearance:none;background:transparent;height:24px}"
       + ".live-range::-webkit-slider-runnable-track{height:2px;border-radius:1px;background:rgba(255,255,255,.22)}"
@@ -256,6 +257,27 @@
     const host = watching ? chars.find(c => c.id === ses.charId) : null;
     const uName = (profile && profile.name) || "我";
     const lastHost = arr(ses.lines).filter(l => l.kind === (watching ? "host" : "me")).slice(-1)[0];
+    // 这一拍的字幕：带编号的拍取这一拍主播说的每一句；老记录没编号就只有最后一句
+    const allL = arr(ses.lines);
+    const caps = (function () {
+      if (!watching || !ses.beat) return lastHost ? [{ line: lastHost, reply: null }] : [];
+      const out = [];
+      allL.forEach((l, i) => {
+        if (l.beat !== ses.beat || l.kind !== "host") return;
+        const prev = allL[i - 1];
+        out.push({ line: l, reply: prev && prev.beat === ses.beat && prev.kind === "reg" ? prev : null });
+      });
+      return out.length ? out : (lastHost ? [{ line: lastHost, reply: null }] : []);
+    })();
+    const [capIdx, setCapIdx] = useState(0);
+    const capKey = (ses.beat || 0) + "_" + capIdx;
+    useEffect(function () { setCapIdx(0); }, [ses.beat]);
+    useEffect(function () {
+      if (capIdx >= caps.length - 1) return;
+      const tm = setTimeout(function () { setCapIdx(i => i + 1); }, 2800);
+      return function () { clearTimeout(tm); };
+    }, [capIdx, ses.beat, caps.length]);
+    const capNow = caps[Math.min(capIdx, Math.max(0, caps.length - 1))] || null;
     const lineEl = (l, i) => {
       if (l.kind === "gift") return h("div", { "data-wk": "livemsg", "data-kind": "gift", key: i, style: { fontFamily: F_BODY, fontSize: 12, color: "#f6c76b", padding: "3px 0" } }, l.name + " 送出了「" + l.gift + "」 ¥" + l.amount);
       if (l.kind === "enter") return h("div", { "data-wk": "livemsg", "data-kind": "enter", key: i, style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "3px 0" } }, l.text);
@@ -287,10 +309,15 @@
           h("div", null,
             h("div", { "data-wk": "livestagetitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: LIVE_INK } }, stageTitle),
             h("div", { "data-wk": "livestagesub", style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM } }, ses.endTs ? "已下播" : h(Fragment, null, h(GlyphDot), "直播中")))),
-        h("div", { style: { position: "absolute", left: 14, right: 14, bottom: 12 } },
-          S(ses.scene) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, marginBottom: 6 } }, ses.scene) : null,
-          lastHost ? h("div", { "data-wk": "livehostline", style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: LIVE_INK, textShadow: "0 1px 4px rgba(0,0,0,.5)", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
-            (lastHost.act ? "（" + lastHost.act + "）" : "") + lastHost.text) : null),
+        h("div", { onClick: () => setCapIdx(i => Math.min(i + 1, Math.max(0, caps.length - 1))), style: { position: "absolute", left: 14, right: 14, bottom: 12, cursor: caps.length > 1 ? "pointer" : "default" } },
+          S(ses.scene) ? h("div", { "data-wk": "livescene", key: "sc_" + S(ses.scene).slice(0, 12), style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, lineHeight: 1.5, marginBottom: 4, animation: "liveFade .5s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, ses.scene) : null,
+          // 此刻在干嘛：每一拍跟着换
+          watching && S(ses.act) ? h("div", { "data-wk": "liveact", key: "act_" + (ses.beat || 0), style: { fontFamily: F_BODY, fontSize: 12, color: "rgba(243,238,247,.82)", lineHeight: 1.5, marginBottom: 6, animation: "liveFade .5s ease" } }, "（" + ses.act + "）") : null,
+          // 字幕：这一拍主播说的几句，一句一句放；他在回谁，那条弹幕小字带在上面
+          capNow && capNow.reply ? h("div", { key: "rp_" + capKey, style: { fontFamily: F_BODY, fontSize: 11, color: "#d6c7ff", marginBottom: 3, animation: "liveFade .4s ease", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "回 " + capNow.reply.name + "：" + capNow.reply.text) : null,
+          capNow ? h("div", { "data-wk": "livehostline", key: "cap_" + capKey, style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: LIVE_INK, textShadow: "0 1px 4px rgba(0,0,0,.5)", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", animation: "liveFade .4s ease" } },
+            (!watching && capNow.line.act ? "（" + capNow.line.act + "）" : "") + capNow.line.text) : null,
+          caps.length > 1 ? h("div", { "data-wk": "livecapdots", className: "flex", style: { gap: 4, marginTop: 6 } }, caps.map((_, i) => h("span", { key: i, style: { width: i === capIdx ? 12 : 5, height: 3, borderRadius: 2, background: i === capIdx ? LIVE_INK : "rgba(243,238,247,.3)", transition: "width .3s" } }))) : null),
         ses.endTs ? null : h(NoiseLayer, { noise: ses.noise, seed: ses.noiseSeed || 0 }),
         // PK：两边比礼物，一根条子从中间往两头挤
         watching && ses.rival ? h("div", { "data-wk": "livepk", style: { position: "absolute", left: 14, right: 14, top: 58 } },
@@ -523,8 +550,9 @@
           linked: linkNow === true ? true : s.linked, linkAsk: linkNow === null ? s.linkAsk : false,
           mod: s.mod || d.mod === true, item: item || s.item, event: "", song: "",
           title: first ? (S(d.title).slice(0, 40) || s.title || char.name + "的直播间") : s.title,
-          host: hostName, scene: first ? S(d.scene).slice(0, 200) : s.scene, regulars: regs,
-          lines: arr(s.lines).concat(add).slice(-LINES_CAP),
+          host: hostName, scene: S(d.scene) ? S(d.scene).slice(0, 200) : s.scene, regulars: regs,
+          act: act || s.act || "", beat: (s.beat || 0) + 1,
+          lines: arr(s.lines).concat(add.map(l => Object.assign({}, l, { beat: (s.beat || 0) + 1 }))).slice(-LINES_CAP),
           noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
           viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)),
           endTs: (!first && d.end === true) ? Date.now() : s.endTs }));

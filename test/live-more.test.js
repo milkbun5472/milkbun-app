@@ -148,3 +148,12 @@ test("一拍里主播和常客的话按先后排（flow），回谁的弹幕那�
   assert.match(live, /if \(!flowLines\.length\) flowLines = normLines\(d\.say\)/);
   assert.match(live, /const add = flowLines/);
 });
+
+test("画面跟着每一拍：此刻在干嘛每拍换、镜头里的样子变了才换；字幕把这一拍主播的话一句句放，回谁的带在上面", () => {
+  assert.match(live, /act: act \|\| s\.act \|\| "", beat: \(s\.beat \|\| 0\) \+ 1,/);
+  assert.match(live, /scene: S\(d\.scene\) \? S\(d\.scene\)\.slice\(0, 200\) : s\.scene/);
+  assert.match(live, /"data-wk": "liveact"/);
+  assert.match(live, /if \(l\.beat !== ses\.beat \|\| l\.kind !== "host"\) return;/);
+  assert.match(live, /setTimeout\(function \(\) \{ setCapIdx\(i => i \+ 1\); \}, 2800\)/);
+  assert.match(live, /"回 " \+ capNow\.reply\.name/);
+});
