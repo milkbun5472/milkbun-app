@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.100";
+const APP_VERSION = "v75.102";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6100,6 +6100,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️跟 aMood 走同一条路，所以单聊线上/线下、通话、匿名信箱、解梦馆一次全有；
     //   群里两处另按人喂（memberDesc / memberSleep），跟 aMood 一模一样的三处。
     sleepTone: sleepToneOf(char),
+    // 刷什么他知道（她 2026-10-08）：她这一周在片刻上点赞的路人视频，同一话题够三条才有这一句，本机数、不花调用。
+    // ⚠️跟 aMood 走同一条路（bundle），单聊线上/线下、通话一次全有。群里【不给】：几个人共用一次调用，
+    //   这一句只该给在片刻上有号、看得见她点赞的那一个——这是写明理由的差异，不是漏。
+    shuaTaste: (() => { try { return window.ShuaKit && window.ShuaKit.tasteLine ? window.ShuaKit.tasteLine(loadJSON("x_shua", null), char.id) : ""; } catch (e) { return ""; } })(),
     // 她翻过TA昨晚那场梦之后，让那点感觉【轻轻】留在TA今天的语气里
     //（她 2026-09-04：「不要做卡片就只是轻轻地让TA带着这段梦境的感受和我相处」）。
     // ⚠️梦不是记忆：这一条只读不写，也不进记忆库、不驱动任何主动行为；

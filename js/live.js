@@ -849,6 +849,15 @@
     const whoOf = id => characters.find(cc => cc.id === id) || followedSt.find(x => x.id === id) || null;
     const stFace = (st, size) => h("div", { style: { width: size, height: size, borderRadius: 999, flexShrink: 0, background: "linear-gradient(135deg," + LIVE_RED + ",#6a4fb0)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42 } }, S(st.name).slice(0, 1));
     const onAir = slots.filter(x => x.start <= now && now < x.end), later = slots.filter(x => x.start > now);
+    // 本周礼物榜（她 2026-10-08）：本机按回放里这七天收到的礼物加一加，谁收得多谁在前；不花调用
+    const weekRank = (() => {
+      const since = now - 7 * 86400000, n = {}, mine = {};
+      list.filter(s2 => s2.mode === "watch" && (s2.startTs || 0) >= since && whoOf(s2.charId)).forEach(s2 => arr(s2.lines).filter(l => l.kind === "gift").forEach(l => {
+        n[s2.charId] = (n[s2.charId] || 0) + (Number(l.amount) || 0);
+        if (l.mine) mine[s2.charId] = (mine[s2.charId] || 0) + (Number(l.amount) || 0);
+      }));
+      return Object.keys(n).filter(k => n[k] > 0).sort((a, b) => n[b] - n[a]).slice(0, 5).map(k => ({ id: k, total: n[k], mine: mine[k] || 0 }));
+    })();
     // 错过的：今天已经播完的 + 昨天那场（昨天按日子算），她没进去过、也还没剪过高光的
     const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(characters.concat(followedSt), new Date(now - 86400000), () => null))
       .filter(x => x.end <= now && now - x.end < 36 * 3600000 && whoOf(x.charId) && !list.some(s2 => s2.slotId === x.id));
@@ -935,6 +944,13 @@
               h("button", { "data-wk": "livejoin", "data-part": "mask", onClick: () => joinSlot(x, "mask"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 8px", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, "挂马甲")); })) : null,
         later.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
           "今晚还会播：" + later.map(x => ((whoOf(x.charId) || {}).name || "") + " " + hm(x.start)).join("、")) : null,
+        weekRank.length ? h("div", { "data-wk": "liverank", style: { marginBottom: 14, padding: "10px 14px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "本周礼物榜"),
+          weekRank.map((x, i) => { const c = whoOf(x.id) || {};
+            return h("div", { "data-wk": "liverankrow", key: x.id, className: "flex items-center", style: { gap: 8, padding: "4px 0", fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+              h("span", { style: { width: 18, color: i === 0 ? LIVE_RED : t.fog, fontFamily: F_DISPLAY } }, i + 1),
+              h("span", { className: "flex-1 min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name),
+              h("span", { style: { fontSize: 11.5, color: t.sub, flexShrink: 0 } }, "收了 ¥" + x.total + (x.mine ? " · 你送了 ¥" + x.mine : ""))); })) : null,
         h("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 6 } },
           characters.length ? door("去看 TA 播", "挑一个人，看 TA 在直播间里是什么样。可以用自己的号，也可以挂马甲。", () => setView("setup:watch")) : null,
           characters.length ? door("我来开播", "你开播，你的人混在观众里看着你。", () => setView("setup:host")) : null,

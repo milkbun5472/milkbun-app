@@ -3521,6 +3521,8 @@ function buildBundle(ctx, opts) {
   // 睡着/快睡了/刚醒 时的姿态（v64.66）。放在情绪底色后面：它比底色更硬——
   // 一个被吵醒的人，不管底色是暖是冷，反应都是慢的。
   if (!ctx.notRoleplay && ctx.sleepTone && ctx.sleepTone.trim()) parts.push(ctx.sleepTone.trim());
+  // 片刻上她最近点赞的那一类（app.js ctxFor 的 shuaTaste）：没有就是空串
+  if (!ctx.notRoleplay && ctx.shuaTaste && ctx.shuaTaste.trim()) parts.push("【片刻】" + ctx.shuaTaste.trim());
   if (!ctx.notRoleplay && ctx.gazeText && ctx.gazeText.trim()) parts.push(ctx.gazeText.trim());
   // 今天她敲过TA的手机屏（js/phone-watch.js 的 watchedNote）。没敲过就是空串，一个字不发。
   if (!ctx.notRoleplay && ctx.watchedNote && ctx.watchedNote.trim()) parts.push(ctx.watchedNote.trim());

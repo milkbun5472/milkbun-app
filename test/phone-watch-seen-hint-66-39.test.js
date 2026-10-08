@@ -31,7 +31,7 @@ test("⑧ 当天为界：昨天敲的今天不算", () => {
 });
 
 test("⑧ ctxFor 每一栏都得在房间那张白名单里登记（漏登记＝隔离房悄悄漏出去）", () => {
-  assert.match(rooms, /"dreamEcho", "watchedNote"\]/, "watchedNote 没登记——room-ctx-gate 会红");
+  assert.match(rooms, /"dreamEcho", "watchedNote"[,\]]/, "watchedNote 没登记——room-ctx-gate 会红");
   // 归在「这间房外面发生的事」那一档：跟朋友圈回声同一个道理
   const i = rooms.indexOf("otherScenes: [");
   assert.ok(i > 0 && rooms.slice(i, i + 200).indexOf("watchedNote") > 0, "登记到别的组里去了");

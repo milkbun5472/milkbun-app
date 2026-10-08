@@ -132,7 +132,9 @@
     return AC() + CB()
       + "【场景】今天是 " + date + "。「" + APP_NAME + "」这个短视频平台今天的热门话题。"
       + (world ? "\n这个平台在这样一个世界里，热门从这个世界正在发生的事、时节和大家的日常里长出来：\n" + world : "\n热门从时节、日常和这个世界正在发生的事里长出来。")
-      + "\n写 6~8 个 topics：title 话题名（不带井号，像平台上真会冒出来的那种）、heat 热度（数字）、about 一句话说这是怎么回事。大小事都有，别全是一个调子。";
+      + "\n写 6~8 个 topics：title 话题名（不带井号，像平台上真会冒出来的那种）、heat 热度（数字）、about 一句话说这是怎么回事。大小事都有，别全是一个调子。"
+      // 同款挑战（她 2026-10-08）：短视频平台上一天里总有一两个是大家照着拍的模板——只说有这么一类，拍什么不写
+      + "其中一两个是大家照着同一个模板拍同款的挑战（about 里说清模板是怎么拍的）。";
   }
   // 楼中楼：她回了TA在某条视频底下的那句
   function threadInstruction(v, mine, uName, text, alt) {
@@ -458,7 +460,7 @@
 
     // 今日热门（第 6 条）：一天一份，点了才刷（一次调用）。从这个世界里正在发生的事长出来
     const todayKey = () => { const d = new Date(); return d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate(); };
-    const hotToday = () => (db.hot && db.hot.day === todayKey() ? arr(db.hot.topics).map(x => x.title) : []);
+    const hotToday = () => (db.hot && db.hot.day === todayKey() ? arr(db.hot.topics).map(x => x.title + (x.about ? "（" + S(x.about).slice(0, 40) + "）" : "")) : []);
     const genHot = async () => {
       if (!props.ask) return;
       setBusy("hot");
@@ -684,7 +686,7 @@
       } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
       finally { setBusy(null); }
     };
-    const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked }));
+    const like = v => patchV(v.id, x => Object.assign({}, x, { liked: !x.liked, likedTs: x.liked ? 0 : Date.now() }));
     const fave = v => patchV(v.id, x => Object.assign({}, x, { faved: !x.faved }));
 
     // 两套各刷各的：没标皮的旧视频算竖屏那套
@@ -972,6 +974,16 @@
     + (snap.together ? (snap.dur ? "｜时长 " + snap.dur : "") + (snap.intro ? "｜简介：" + snap.intro : "") + (arr(snap.dms).length ? "｜弹幕里飘过：" + snap.dms.join(" / ") : "")
       + "｜她拉你一起看这条：你俩现在一块儿从头看着，边看边聊，看到哪段聊哪段" : "")
     + (toCharId && snap.by === "char" && snap.charId === toCharId ? "｜（这就是你自己发的那条）" : "");
+  // 刷什么他知道（她 2026-10-08）：只在本机数，不花调用。她这一周点赞过的路人视频里，同一个话题够三条，
+  //   就给在片刻上有号的 TA 一句（点赞在平台上别人看得见）；够不上就是空串，一个字不发。
+  const TASTE_MIN = 3, TASTE_DAYS = 7;
+  function tasteLine(db, charId) {
+    if (!db || !charId || !((db.accounts || {})[charId])) return "";
+    const since = Date.now() - TASTE_DAYS * 86400000, n = {};
+    arr(db.videos).filter(v => v.liked && v.by === "npc" && (v.likedTs || 0) >= since).forEach(v => arr(v.tags).concat(v.zone ? [v.zone] : []).forEach(t => { n[t] = (n[t] || 0) + 1; }));
+    const top = Object.keys(n).filter(k => n[k] >= TASTE_MIN).sort((a, b) => n[b] - n[a]).slice(0, 2);
+    return top.length ? "你在「" + APP_NAME + "」上看得见她点赞过什么：她这几天点赞了好几条「" + top.join("」「") + "」的视频。提不提照你这个人来。" : "";
+  }
   // 点聊天里那张视频卡 → 打开片刻、直接停在那一条（群友 2026-10-08：「能点到原视频里吗，不然都不知道是哪个视频了」）
   let pendingPage = null;
   window.__openShuaVideo = snap => { window.__shuaPending = snap; if (typeof window.__goScreen === "function") window.__goScreen("shua"); };
@@ -989,5 +1001,5 @@
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;
-  window.ShuaKit = { shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, vidSkin };
+  window.ShuaKit = { tasteLine, shareSnap, shareText, APP_NAME, PAL, charInstruction, npcSystem, replyInstruction, mineSystem, mkVideo, vidSkin };
 })();

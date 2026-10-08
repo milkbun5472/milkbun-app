@@ -51,3 +51,27 @@ test("拉 TA 一起看：只有横着看有；卡里带简介和弹幕，不额�
   assert.match(page, /vidSkin\(v\) === "b"/);
   assert.doesNotMatch(page, /callAI|runProbe|replyNow|props\.ask\(/);
 });
+
+test("刷什么他知道：本机数点赞，同一话题够三条才有一句，只给片刻上有号的", () => {
+  const K = new Function("window", "h", "loadJSON", "saveJSON", "uid", shua + "\nreturn window.ShuaKit;")({}, () => null, () => null, () => {}, p => p + "1");
+  const now = Date.now();
+  const vids = n => Array.from({ length: n }, (_, i) => ({ id: "v" + i, by: "npc", liked: true, likedTs: now, tags: ["猫"] }));
+  assert.equal(K.tasteLine({ videos: vids(5), accounts: {} }, "c1"), "", "没号看不见");
+  assert.equal(K.tasteLine({ videos: vids(2), accounts: { c1: { handle: "x" } } }, "c1"), "");
+  assert.match(K.tasteLine({ videos: vids(3), accounts: { c1: { handle: "x" } } }, "c1"), /猫/);
+  const old = vids(3).map(v => Object.assign(v, { likedTs: now - 30 * 86400000 }));
+  assert.equal(K.tasteLine({ videos: old, accounts: { c1: { handle: "x" } } }, "c1"), "", "一周以前的不算");
+  const app = fs.readFileSync(path.join(__dirname, "../js/app.js"), "utf8");
+  const eng = fs.readFileSync(path.join(__dirname, "../js/engine.js"), "utf8");
+  assert.match(app, /shuaTaste: \(\(\) =>/);
+  assert.match(eng, /ctx\.shuaTaste/);
+});
+
+test("本周礼物榜本机算；热门里有同款挑战、TA 发视频时读得到模板", () => {
+  const rank = between(live, "const weekRank =", "})();");
+  assert.match(rank, /7 \* 86400000/);
+  assert.doesNotMatch(rank, /probe|ask\(/);
+  assert.match(live, /data-wk": "liverank"/);
+  assert.match(shua, /同款的挑战/);
+  assert.match(between(shua, "const hotToday =", "\n"), /x\.about/);
+});
