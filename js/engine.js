@@ -9172,8 +9172,8 @@ async function generateDiaryComment(p, ctx, entryText, opts) {
   if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel);
   const prev = opts && Array.isArray(opts.prevSaid) ? opts.prevSaid.filter(Boolean) : [];
   if (prev.length) parts.push("【你最近评论 Ta 别的日记时说过】" + prev.map(s => "「" + String(s).slice(0, 50) + "」").join("、") + "——这次必须换新的说法和角度：开头、句式、梗都不许和之前重样，别活成复读机。");
-  parts.push("【" + (ctx.profile && ctx.userName(profile)) + " 刚写下的这篇日记】\n" + entryText);
-  const system = "你现在完全代入「" + ctx.char.name + "」。上面是 " + (ctx.profile && ctx.userName(profile)) + " 写的私人日记，Ta 给你看了。请以你的口吻写**一条评论**——就像在对方日记/朋友圈底下留言。\n要求：依据你此刻的心情、你和 Ta 的关系与好感度来决定语气（可以心疼/调侃/吃醋/欲言又止/敷衍，符合人设；好感高的更上心，好感低的可以淡）；口语、自然、简短（1~2 句，最多一小段）；不要复述日记内容，不要加旁白或动作括号，不要@别人。只输出评论正文。\n\n" + parts.join("\n\n");
+  parts.push("【" + userName(ctx.profile) + " 刚写下的这篇日记】\n" + entryText);
+  const system = "你现在完全代入「" + ctx.char.name + "」。上面是 " + userName(ctx.profile) + " 写的私人日记，Ta 给你看了。请以你的口吻写**一条评论**——就像在对方日记/朋友圈底下留言。\n要求：依据你此刻的心情、你和 Ta 的关系与好感度来决定语气（可以心疼/调侃/吃醋/欲言又止/敷衍，符合人设；好感高的更上心，好感低的可以淡）；口语、自然、简短（1~2 句，最多一小段）；不要复述日记内容，不要加旁白或动作括号，不要@别人。只输出评论正文。\n\n" + parts.join("\n\n");
   return (await callAI(p, system, [{ role: "user", content: "写评论。" }], { maxTokens: 8900 })).trim();
 }
 async function summarizeChat(p, ctx, olderMsgs) {
