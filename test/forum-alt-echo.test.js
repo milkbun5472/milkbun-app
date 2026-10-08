@@ -17,3 +17,12 @@ test("论坛近况：小号和匿名写的楼按陌生网名算，不算成她",
   assert.doesNotMatch(blk, /r\.authorType === "me" \? meName/, "楼中楼也不许直接按是不是她写的就报她的名字");
   assert.doesNotMatch(blk, /if \(f\.authorType === "me"\) myOn\.push/);
 });
+
+test("小号房（TA不该认出你）只能空白开始；那几样会带出你本人的开关开着时提醒", () => {
+  const comp = fs.readFileSync(path.join(__dirname, "../js/components.js"), "utf8");
+  assert.match(comp, /const altHideStart = !!\(Kit && draft && Kit\.altHidesMe && Kit\.altHidesMe\(draft\)\);/);
+  assert.match(comp, /Kit\.prepareStart\(character\.id, draft, sourceRoom, sourceRows, altHideStart \? "blank" : startMode, startIndex\)/);
+  assert.match(comp, /disabled: mode !== "blank" && \(!startChoices\.length \|\| altHideStart\)/);
+  assert.match(comp, /if \(altHideStart && startMode !== "blank"\) \{ setStartMode\("blank"\)/);
+  assert.match(comp, /\["mainDelta", "主聊天后来发生的"\]/);
+});
