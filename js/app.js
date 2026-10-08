@@ -7746,7 +7746,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return window.ChatRooms.get(personId, roomId);
   };
   const pOffline = (scopeKey, updater) => setOfflines(prev => {
-    const before = prev[scopeKey] || [];
+    // ⚠️内存里还没这个人的线下（这次开 App 还没进过他的线下）就先从存储读，绝不拿 [] 当底（2026-10-08 群友：
+    //   「往期只能看到最近一次的了」）。约会、旅行、扭蛋兑线下、地图上撞见这几条入口直接 startOffline，
+    //   不走 openOffline 那道先读存储的门——拿 [] 当底再存回去，往期就被「只有新这一场」整份盖掉了。
+    const before = prev[scopeKey] || offlinesRef.current[scopeKey] || loadJSON("x_offline:" + scopeKey, []) || [];
     const next = updater(before);
     saveJSON("x_offline:" + scopeKey, next);
     if (!offlineIsRoom(scopeKey) && window.ChatLedgerShadow) queueLedger("offline", scopeKey, window.ChatLedgerShadow.addedSessionMessages(before, next), null, scopeKey);
