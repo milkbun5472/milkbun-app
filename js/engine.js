@@ -3213,8 +3213,23 @@ function selectLore(entries, opts) {
 //   不会去做（她 2026-10-05：冰箱卡 Gemini 能出、Sonnet 怎么都不出）。所以这一类换个领句，
 //   说清是指令、被翻出来就照做；一整块 HTML 单独作为一条消息发，不受「一句一条」那条管。
 //   ⚠️领句写在这一处：八个去向都从 loreText 拿世界书，改一处全接上（one-public-mechanism）。
+// 常驻的排前面，按话题翻出来的排后面、中间夹一道分隔（她 2026-10-08：「世界书会不会太靠中了容易被跳过不读」）。
+//   单聊那份提示词（buildBundle）会顺着这道分隔把常驻那半挪到人设紧后面——常驻的多半是世界观和「他该怎么说话」，
+//   本来就是「这个人是谁」的一部分；而且每轮都一样，放在前面不碍缓存。按话题翻的每轮不同，留在近况那一段。
+//   别处拿到整串也照样能读：分隔本身就是一句人话。
+const LORE_TOPIC_MARK = "〔以下是这一轮聊到的话题翻出来的〕";
 function loreText(entries, opts) {
-  return selectLore(entries, opts).map(loreLine).join("\n\n");
+  const hit = selectLore(entries, opts);
+  const always = hit.filter(e => e.alwaysOn || !String(e.keyword || "").trim());
+  const topic = hit.filter(e => always.indexOf(e) < 0);
+  const a = always.map(loreLine).join("\n\n"), b = topic.map(loreLine).join("\n\n");
+  return a + (b ? (a ? "\n\n" : "") + LORE_TOPIC_MARK + "\n" + b : "");
+}
+// 拆回两半：{ always, topic }（没有分隔＝全是常驻）
+function loreSplit(text) {
+  const t = String(text || ""), i = t.indexOf(LORE_TOPIC_MARK);
+  if (i < 0) return { always: t.trim(), topic: "" };
+  return { always: t.slice(0, i).trim(), topic: t.slice(i + LORE_TOPIC_MARK.length).trim() };
 }
 // 画图时挑「生图」那几条：照样认绑定角色、常驻／关键词（关键词对的是这张图的画面描述）
 function loreImgText(entries, charIds, sceneText) {
@@ -3452,6 +3467,9 @@ function buildBundle(ctx, opts) {
   // Runtime v2 已在角色卡准则中定义根基、短期状态与长期成长的关系；
   // 不再为白名单角色重复注入旧版长篇成长教程，正式长出来的自我本身仍照常进入下文。
   if (ctx.personaGrown && ctx.personaGrown.trim()) parts.push(grownSelfBlock(ctx.personaGrown, ctx.personaEvolve));
+  // 常驻的世界书紧跟在人设后面（见 loreText 那段）；按话题翻的留在下面近况那一段
+  const _wb = loreSplit(worldbook);
+  if (_wb.always) parts.push("【世界书 · 常驻设定】\n" + _wb.always);
   parts.push(...herStableLines(ctx, uName));
   // ⭐时间块在此拼入：稳定的人设/关系之后、易变的心情/好感/记忆/近况之前——缓存切点(【当前真实时间】)落在这，
   //   前缀缓住上面全部稳定内容(反八股+守则+人设+关系网)，下面易变的不缓、每轮照旧。
@@ -3508,7 +3526,7 @@ function buildBundle(ctx, opts) {
   if (!ctx.notRoleplay && ctx.watchedNote && ctx.watchedNote.trim()) parts.push(ctx.watchedNote.trim());
   // 梦的余味（v61.48）：只在她真翻过那场梦、且三天之内才有；过期由 ctxFor 那头判。
   if (!ctx.notRoleplay && ctx.dreamEcho && ctx.dreamEcho.trim()) parts.push(ctx.dreamEcho.trim());
-  if (worldbook && worldbook.trim()) parts.push("【世界书】\n" + worldbook.trim());
+  if (_wb.topic) parts.push("【世界书 · 这一轮聊到的】\n" + _wb.topic);
   if (memory && memory.trim()) parts.push("【长期记忆摘要（过往对话浓缩）】\n" + memory.trim());
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
   if (memLibText && memLibText.trim()) parts.push("【记忆库·相关条目（你和 " + uName + " 之间沉淀的关键事实，请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是要你照演一遍的剧本：记住它们只为【前后连贯】，绝不是要你去【复刻】里头那些具体的事——别因为记忆里做过某道菜、说过某句话、有过某个举动，就每次都重复同一道菜／同一句招牌话／同一个动作。生活是往前走的，这一刻该有这一刻新的、具体的内容；记忆用来「不忘」、不是用来「重演」。");
@@ -8246,6 +8264,8 @@ async function generateOfflineGroup(p, ctx, session) {
     groupGrowthRule +
     timeBlock +
     "\n\n【在场角色】\n" + memberDesc +
+    // 常驻的世界书紧跟在场角色的人设后面，按话题翻的留在原位（跟单聊同一套，见 loreText）
+    (loreSplit(ctx.worldbook).always ? "\n\n【世界书 · 常驻设定】\n" + loreSplit(ctx.worldbook).always : "") +
     memberExampleText +
     (ctx.profile && (ctx.profile.name || ctx.profile.persona) ? "\n\n【用户「" + userName + "」的设定】\n" + (ctx.profile.persona || "（未填写）") : "") +
     // 她今天身上带着什么（四处一样喂）：跟单聊同一句，走公共那一份
@@ -8254,7 +8274,7 @@ async function generateOfflineGroup(p, ctx, session) {
     wishLine(ctx.wishLog, userName, { group: true, gift: false }) +
     "\n\n【在场角色间的关系（有方向）】\n" + relLines + (ctx.dramaRule || "") +
     (gDirs.length ? "\n\n【用户立下的长期规矩（高优先·在场所有角色务必遵守）】\n这些是用户明确要求的准则，优先级高于一般演绎习惯；在不违背各自核心人设的前提下务必遵守：\n" + gDirs.map((s, i) => (i + 1) + ". " + s.trim()).join("\n") : "") +
-    (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") +
+    (loreSplit(ctx.worldbook).topic ? "\n\n【世界书 · 这一轮聊到的】\n" + loreSplit(ctx.worldbook).topic : "") +
     (memLibText && memLibText.trim() ? "\n\n【记忆库·相关条目（请自然记住并保持一致）】\n" + memLibText.trim() + "\n⚠️这些是【背景】、不是照演的剧本：记住只为连贯，别复刻里头的具体事——别每次都做同一道菜／说同一句招牌话／重复同一个动作。生活往前走，这一刻要有新的具体。" : "") +
     (onlinePrelude ? "\n\n【刚刚在线上群聊的最后几句·入场衔接】\n" + onlinePrelude + "\n现在大家从线上转到线下面对面。上面的话真实发生过、所有在场成员都知道；从它自然接入当前场景，但不要逐句复述，也不要假装这些话刚在线下又说了一遍。" : "") +
     (session.priorSummary ? "\n\n【这场群线下的前情提要（早先发生的、已浓缩，接着往下演，别倒回去逐句重复复述）】\n" + session.priorSummary : "") +
