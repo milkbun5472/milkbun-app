@@ -184,3 +184,11 @@ test("字幕卡自己左右划；一碰就不再自动往下放，下一拍才�
   assert.match(live, /setCapIdx\(0\); setCapHand\(false\);/);
   assert.match(live, /"data-wk": "livecapcard", onTouchStart: capDown, onTouchEnd: capUp/);
 });
+
+test("错过的那场看昨天那张日程；播什么照日程写的来（她 2026-10-08：为啥都在播吃饭）", () => {
+  assert.match(app, /const liveSchedFor = \(char, at\) =>/);
+  assert.match(app, /return kind \? \{ start, end, kind \} : \{ start, end \};/);
+  const missed = live.slice(live.indexOf("const missed ="), live.indexOf(";\n", live.indexOf("const missed =")));
+  assert.match(missed, /props\.liveSched\(c, new Date\(now - 86400000\)\)/);
+  assert.doesNotMatch(missed, /, \(\) => null\)/);
+});
