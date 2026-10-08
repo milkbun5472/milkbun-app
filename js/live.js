@@ -100,6 +100,17 @@
     }).join("\n");
   }
 
+  // ── 错过的那一场（她 2026-10-08 选的「回放和高光」）──
+  //   TA 自己播完了、她没进去：落地页列出来，她点了才花一次调用剪一份高光；不点一个字都不生成。
+  const RECAP_SHAPE = '{"title":"","host":"","scene":"","flow":[{"who":"","text":""}],"noise":[""],"viewers":0}';
+  function recapInstruction(slot, uName) {
+    const d = new Date(slot.start), hm2 = x => x.getHours() + ":" + String(x.getMinutes()).padStart(2, "0");
+    return "你在一个直播平台上有自己的直播间。" + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日 " + hm2(d) + " 到 " + hm2(new Date(slot.end)) + "，你播了一场" + kindZh(slot.kind) + "。" + uName + "那会儿没来看。"
+      + "\n你在平台上是个什么样的主播——主播名、粉丝是一群什么人、对着镜头什么样——都从你这个人身上长出来。"
+      + "\n平台把这场剪成了一份高光回放，看回放的人看到的就是这几段。写：直播间标题 title、你的主播名 host、镜头里的样子 scene（一两句）、"
+      + "高光里按先后的 flow（8~14 项，每一项 who 写「主播」或某个观众的网名，text 写那一句；回谁的弹幕就把那条排在前面）、滚过去的路人弹幕 noise（6~10 条，很短）、这场最多时的在线人数 viewers（数字）。";
+  }
+
   // ── 看 TA 播 ────────────────────────────────────────────
   function watchInstruction(ses, uName, first) {
     const who = ses.as === "mask"
@@ -720,6 +731,27 @@
     };
     const enterSt = (st, as) => start({ mode: "watch", charId: st.id, charIds: [st.id], stranger: true, kind: st.kind || "free", topic: "", title: st.title || "", as, maskName: props.maskName || "路过的", slotId: "", midway: 0 });
     const stFan = (st, key) => { const total = listRef.current.filter(s2 => s2.stranger && s2.charId === st.id && tieKeyOf(s2.as, s2.maskName) === key).reduce((n, s2) => n + arr(s2.lines).filter(l => l.kind === "gift" && l.mine).reduce((m, l) => m + (Number(l.amount) || 0), 0), 0); return { total, lv: fanLevel(total) }; };
+    // 错过的那一场：剪一份高光，存成一场已经下播的回放（recap），点开就是回放间
+    const [recapBusy, setRecapBusy] = useState("");
+    const recap = async x => {
+      if (recapBusy) return;
+      const c = characters.find(cc => cc.id === x.charId), st = c ? null : stGet(x.charId);
+      if (!c && !st) return;
+      setRecapBusy(x.id);
+      try {
+        const ins = recapInstruction(x, uName);
+        const d = await (st ? props.probeStranger(st, tieBlock(st, "me", stFan(st, "me").lv, stFan(st, "me").total) + "\n\n" + ins, RECAP_SHAPE) : props.probeAs(c, ins, RECAP_SHAPE)) || {};
+        const host = st ? st.name : (S(d.host).slice(0, 20) || c.name);
+        const lines = arr(d.flow).map(y => y && { who: S(y.who).slice(0, 20), text: S(y.text).slice(0, 400) }).filter(y => y && y.text && y.who).slice(0, 16)
+          .map(y => (y.who === "主播" || y.who === host) ? { kind: "host", name: host, text: y.text, act: "", ts: x.start } : { kind: "reg", name: y.who, text: y.text, ts: x.start });
+        if (!lines.length) { toast("高光没剪出来，再点一次试试"); return; }
+        const ses = { id: uid("live"), mode: "watch", charId: x.charId, charIds: [x.charId], stranger: !!st, kind: x.kind, topic: "", title: S(d.title).slice(0, 40) || host + "的直播间",
+          host, scene: S(d.scene).slice(0, 200), lines, noise: normNoise(d.noise), viewers: Math.max(1, Math.round(Number(d.viewers) || 1)), startTs: x.start, endTs: x.end, board: {}, slotId: x.id, recap: true, regulars: [] };
+        save([ses].concat(listRef.current));
+        setCurId(ses.id); setView("room");
+      } catch (e) { toast("高光没剪出来：" + ((e && e.message) || "再试一次")); }
+      finally { setRecapBusy(""); }
+    };
     const sendDm = async (st, key, text) => {
       const t0 = Object.assign({ visits: 0, notes: [] }, (st.ties || {})[key]);
       const msgs = arr(((st.dms || {})[key])).concat([{ from: "me", text, ts: Date.now() }]);
@@ -809,7 +841,7 @@
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .85 } }, h(GlyphDot), "直播"),
       h("div", { "data-wk": "livedoortitle", style: { fontFamily: F_DISPLAY, fontSize: 19, marginTop: 6 } }, title),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4, lineHeight: 1.5 } }, sub));
-    const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || "") : uName;
+    const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || s.host || "") : uName;
     const cfg = props.liveCfg || {};
     const now = Date.now();
     const followedSt = arr(stDb.list).filter(x => x.followed && !x.promoted);
@@ -817,6 +849,9 @@
     const whoOf = id => characters.find(cc => cc.id === id) || followedSt.find(x => x.id === id) || null;
     const stFace = (st, size) => h("div", { style: { width: size, height: size, borderRadius: 999, flexShrink: 0, background: "linear-gradient(135deg," + LIVE_RED + ",#6a4fb0)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42 } }, S(st.name).slice(0, 1));
     const onAir = slots.filter(x => x.start <= now && now < x.end), later = slots.filter(x => x.start > now);
+    // 错过的：今天已经播完的 + 昨天那场（昨天按日子算），她没进去过、也还没剪过高光的
+    const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(characters.concat(followedSt), new Date(now - 86400000), () => null))
+      .filter(x => x.end <= now && now - x.end < 36 * 3600000 && whoOf(x.charId) && !list.some(s2 => s2.slotId === x.id));
     const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
     // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
     const joinSlot = (x, as) => {
@@ -924,12 +959,18 @@
           })()) : null,
         props.onLiveCfg ? h("button", { "data-wk": "liveselfcfg", onClick: () => props.onLiveCfg(Object.assign({}, cfg, { selfLive: cfg.selfLive === false })), className: "w-full text-left active:opacity-70", style: { marginTop: 16, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
           (cfg.selfLive === false ? "○ " : "● ") + "TA 们会自己开播（不进去看就不花调用）") : null,
+        missed.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "22px 0 8px" } }, "错过的") : null,
+        missed.map(x => h("div", { "data-wk": "livemissed", key: x.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, ((whoOf(x.charId) || {}).remark || (whoOf(x.charId) || {}).name) + " 播了" + kindZh(x.kind)),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, (dayKey(new Date(x.start)) === dayKey(new Date()) ? "今天 " : "昨天 ") + hm(x.start) + "–" + hm(x.end) + " · 你没去")),
+          h("button", { "data-wk": "liverecap", onClick: () => recap(x), disabled: !!recapBusy, className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_RED, color: LIVE_RED, fontFamily: F_BODY, fontSize: 12, opacity: recapBusy && recapBusy !== x.id ? .5 : 1 } }, recapBusy === x.id ? "剪着…" : "看高光"))),
         list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "24px 0 8px" } }, "回放") : null,
         list.map(s => h("div", { "data-wk": "livereplay", key: s.id, className: "flex items-center", style: { gap: 10, padding: "11px 0", borderBottom: "1px solid " + t.line } },
           h("button", { onClick: () => { setCurId(s.id); setView("room"); }, className: "flex-1 min-w-0 text-left active:opacity-70" },
             h("div", { "data-wk": "livereplaytitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (s.endTs ? "" : "● ") + (S(s.title) || "直播间")),
             h("div", { "data-wk": "livereplaytime", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
-              (s.mode === "watch" ? nameOf(s) + " 播的" : "我播的") + " · " + new Date(s.startTs).toLocaleDateString() + " · " + arr(s.lines).length + " 条")),
+              (s.mode === "watch" ? nameOf(s) + " 播的" + (s.recap ? " · 高光" : "") : "我播的") + " · " + new Date(s.startTs).toLocaleDateString() + " · " + arr(s.lines).length + " 条")),
           h("button", { "data-wk": "livereplaydel", onClick: () => save(listRef.current.filter(x => x.id !== s.id)), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minHeight: 36, padding: "0 6px" } }, "删")))));
   }
 
@@ -967,5 +1008,5 @@
   }
   window.LiveShareCard = LiveShareCard;
   window.LiveApp = LiveApp;
-  window.LiveKit = { slotsOf, fanLevel, LIVE_CUT,  shareSnap, shareText, watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS, NoiseLayer };
+  window.LiveKit = { slotsOf, fanLevel, LIVE_CUT, recapInstruction, RECAP_SHAPE,  shareSnap, shareText, watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS, NoiseLayer };
 })();

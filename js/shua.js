@@ -66,6 +66,9 @@
   const SERIES_ADD = ',"series":""';
   const ACC_ADD = ',"bio":"","niche":"","followers":0';
   const FRIENDS_ADD = ',"friends":[{"name":"","text":""}]';
+  // 评论区有后续（她 2026-10-08）：TA回了哪条网友评论、对方又回了什么，同一枪里写；有来有回的那一下记进TA的记忆，聊天里想起来自己会提
+  const THREAD_ADD = ',"thread":{"name":"","reply":"","back":""}';
+  const THREAD_FACT = "\n评论里要是有哪条你回了，写 thread：name 照抄那条评论的网名、reply 你回的那句、back 对方看到以后又回了你什么（没再回就空着）；一条都不回就整个空着。";
   const B_SHAPE_ADD = ',"title":"","intro":"","dur":"08:24","plays":0,"zone":"","dms":[""]';
   const CHAR_SHAPE = '{"handle":"","scene":"","who":"self","caption":"","tags":[""],"likes":0,"comments":[{"name":"","text":""}]}';
   // acc：这个号一贯的样子（第一次发时定下来，之后一直照着来——她 2026-10-07 要的第 5 条）
@@ -82,6 +85,7 @@
       + "\n写：账号名 handle（" + (handle ? "照旧填「" + handle + "」" : "你会给自己起的那个") + "）、视频里拍了什么 scene（镜头里看得见的画面，2~4 句，像在讲一段视频怎么走）、"
       + "画面里有没有你 who（self 本人出镜 / part 只露手或背影 / none 没有人）、文案 caption（" + CAPTION_FACT + "）、话题 tags（0~4 个，不带井号）、点赞数 likes（数字，照你这个号该有的热度）、"
       + "底下的评论 comments（3~6 条：name 是刷到这条的网友的网名，text 是他们说的话；各人各说各的，不是一个调子）。"
+      + THREAD_FACT
       + (skin === "b" ? B_EXTRA : V_FACT)
       // 熟人来评并进这一枪里（她 2026-10-07 嫌多调一次贵）：认识TA的那几个人评不评、评什么，TA这一枪顺手写
       + (friends && friends.length ? "\n认识你的人里，这几个也在刷「" + APP_NAME + "」，可能刷到这条：" + friends.map(f => f.name + (f.rel ? "（" + f.rel + "）" : "")).join("、")
@@ -222,7 +226,9 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 12 } },
         arr(v.comments).length ? arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
           h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
-          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text))) :
+          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
+          arr(c.replies).length ? h("div", { style: { marginTop: 6, paddingLeft: 10, borderLeft: "2px solid " + P.line } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: P.ink, padding: "2px 0" } },
+            h("span", { style: { color: r.by === "me" ? P.accent : r.by === "char" ? "#d89a2b" : P.dim } }, r.name + "："), r.text))) : null)) :
           h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "40px 0" } }, "还没有评论"),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, padding: "8px 0" } }, "……") : null),
       h("div", { "data-wk": "shuacompose", className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + P.line } },
@@ -447,7 +453,7 @@
     const cpId = /^cp:/.test(using) && cps[using.slice(3)] && togetherIds.indexOf(using.slice(3)) >= 0 ? using.slice(3) : "";
     const onCp = !!cpId;
     const myName = onCp ? cps[cpId].handle : onAlt ? altName : (S(db.me && db.me.handle) || uName);
-    const shapeChar = (sk, withFriends, newAcc) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + SERIES_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + (newAcc ? ACC_ADD : "") + "}");
+    const shapeChar = (sk, withFriends, newAcc) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + SERIES_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + (newAcc ? ACC_ADD : "") + THREAD_ADD + "}");
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
     // 今日热门（第 6 条）：一天一份，点了才刷（一次调用）。从这个世界里正在发生的事长出来
@@ -521,6 +527,13 @@
             const fr = f && friends.find(x => x.name === S(f.name));
             if (fr && S(f.text)) nv.comments.push({ id: uid("cm"), name: S(((dbRef.current.accounts || {})[fr.id] || {}).handle) || fr.name, text: S(f.text).slice(0, 300), by: "char", charId: fr.id, ts: Date.now() });
           });
+          const th = d.thread && typeof d.thread === "object" ? d.thread : null;
+          const thCm = th && S(th.reply) ? nv.comments.find(x => x.by === "npc" && x.name === S(th.name)) : null;
+          if (thCm) {
+            thCm.replies = [{ id: uid("rp"), name: nv.author, text: S(th.reply).slice(0, 300), by: "char", charId: c.id, ts: Date.now() }]
+              .concat(S(th.back) ? [{ id: uid("rp"), name: thCm.name, text: S(th.back).slice(0, 300), by: "npc", ts: Date.now() }] : []);
+            if (S(th.back) && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」发的视频（" + S(nv.scene).slice(0, 40) + "）底下，网友「" + thCm.name + "」说「" + S(thCm.text).slice(0, 60) + "」，你回了「" + S(th.reply).slice(0, 60) + "」，对方又回你「" + S(th.back).slice(0, 60) + "」。");
+          }
           save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
           names.push(c.name);
           if (realFr && friends.length && props.ask) {
@@ -736,10 +749,14 @@
     if (page && page.kind === "share") {
       const v = db.videos.find(x => x.id === page.id);
       const roomsOf = c => (window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []);
-      const done = (c, rid) => { props.onShare(v, c, rid); setPage(page.back || null); };
+      // 一起看（她 2026-10-08）：横着看的长视频可以拉 TA 一起看——卡里带着简介、时长、几条弹幕，TA 读到卡就知道你俩在一块儿看；不额外调用
+      const together = !!page.together && vidSkin(v || {}) === "b";
+      const done = (c, rid) => { props.onShare(together ? Object.assign({}, v, { together: true }) : v, c, rid); setPage(page.back || null); };
       if (v) return h("div", { "data-wk": "shuasharepage", className: "h-full flex flex-col", style: { background: P.bg } },
         h(Head, { zh: page.to ? "发到 " + page.to.name + " 的哪儿" : "分享给谁", bg: "transparent", ink: P.ink, onBack: () => page.to ? setPage(Object.assign({}, page, { to: null })) : setPage(page.back || null) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+          vidSkin(v) === "b" ? h("button", { "data-wk": "shuatogether", "data-on": together ? "1" : "0", onClick: () => setPage(Object.assign({}, page, { together: !page.together })), className: "w-full text-left active:opacity-70", style: { minHeight: 42, marginTop: 4, fontFamily: F_BODY, fontSize: 13, color: together ? P.accent : P.dim } },
+            (together ? "● " : "○ ") + "拉 TA 一起看（TA 会跟你边看边聊）") : null,
           page.to ? [{ id: "main", name: "主聊天" }].concat(roomsOf(page.to)).map(r => h("button", { "data-wk": "shuasharerow", key: r.id, onClick: () => done(page.to, r.id), className: "w-full text-left active:opacity-70",
             style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, fontFamily: F_BODY, fontSize: 14 } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
           // 一排四个（她 2026-10-07：「看起来够一排四个为什么只有三个」）：原来是定宽 + 换行，宽度一放大就掉成三个；改成四等分
@@ -946,11 +963,14 @@
   }
 
   // ── 分享卡：聊天里那一张（单聊、群聊走同一条 shareCardOf）──────────
-  const shareSnap = v => ({ id: v.id || null, author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 });
+  const shareSnap = v => Object.assign({ id: v.id || null, author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 },
+    v.together ? { together: true, intro: S(v.intro).slice(0, 200), dur: v.dur || "", dms: arr(v.dms).slice(0, 6) } : {});
   // TA读到的那一段：视频长什么样照抄；是TA自己的那条就说一声
   const shareText = (snap, toCharId, fromName) => "[" + (fromName ? fromName + "从「" + APP_NAME + "」甩来一条视频" : "转发了一条「" + APP_NAME + "」上的视频") + "]"
     + "作者 @" + snap.author + (snap.title ? "｜标题《" + snap.title + "》" : "") + "｜视频里拍的是：" + snap.scene + (snap.caption ? "｜文案：" + snap.caption : "")
     + (snap.tags.length ? "｜" + snap.tags.map(x => "#" + x).join(" ") : "") + "｜" + snap.likes + " 赞"
+    + (snap.together ? (snap.dur ? "｜时长 " + snap.dur : "") + (snap.intro ? "｜简介：" + snap.intro : "") + (arr(snap.dms).length ? "｜弹幕里飘过：" + snap.dms.join(" / ") : "")
+      + "｜她拉你一起看这条：你俩现在一块儿从头看着，边看边聊，看到哪段聊哪段" : "")
     + (toCharId && snap.by === "char" && snap.charId === toCharId ? "｜（这就是你自己发的那条）" : "");
   // 点聊天里那张视频卡 → 打开片刻、直接停在那一条（群友 2026-10-08：「能点到原视频里吗，不然都不知道是哪个视频了」）
   let pendingPage = null;
