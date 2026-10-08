@@ -16335,6 +16335,8 @@ function GroupThread({
   const send = (v) => {
     if (!v || sending) return;
     if (chatMode === "ooc") { onOOC && onOOC(v); return; }
+    // 旁白：跟单聊同一种消息（role narration），群里本来就会把它当【旁白】喂给大家
+    if (chatMode === "narr") { onSendRich && onSendRich({ role: "narration", kind: "narration", content: v, read: true }); return; }
     if (quoted) {
       const q = typeof quoted === "string" ? { text: quoted } : quoted;
       onSendRich && onSendRich({ role: "user", senderName: meName, content: v, replyTo: q.text, replyToId: q.id || null, replyToSenderId: q.senderId || null, replyToSenderName: q.senderName || null });
@@ -16493,7 +16495,7 @@ function GroupThread({
     }
   }, h("span", {
     style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }
-  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : ""), h(IChevD, { size: 14, color: t.fog, wk: "headdim" })), h("div", {
+  }, group.name, gs.spectate ? " · 旁观中" : "", chatMode === "ooc" ? " · OOC" : chatMode === "narr" ? " · 旁白" : ""), h(IChevD, { size: 14, color: t.fog, wk: "headdim" })), h("div", {
     // 出戏那一档是状态色，不交给皮肤（同单聊那处的理由）
     "data-wk": chatMode === "ooc" ? undefined : "headdim",
     style: {
@@ -16504,7 +16506,7 @@ function GroupThread({
       textOverflow: "ellipsis",
       whiteSpace: "nowrap"
     }
-  }, chatMode === "ooc" ? "出戏 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换" + (gHold ? " · 等我接话" : ""))),
+  }, chatMode === "ooc" ? "出戏 · 轻触切回群聊" : chatMode === "narr" ? "旁白 · 轻触切回群聊" : members.map(c => c.name).join("、") + " · 轻触切换" + (gHold ? " · 等我接话" : ""))),
   // 同处一室（她 2026-09-10：「群里也接共处一室吧」）：跟单聊顶栏同一颗小房子。
   // 旁观群不给——她根本不在场，「大家和你在一个屋里」那句话不成立。
   onToggleSameRoom && !gs.spectate && chatMode !== "ooc"
@@ -16921,7 +16923,7 @@ function GroupThread({
     color: t.fog
   })), h(DraftInput, {
     inputProps: { "data-wk": "chatinput" },
-    placeholder: chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
+    placeholder: chatMode === "ooc" ? "出戏说：跟演他们的那位说，可以让它改、也可以问状态…" : chatMode === "narr" ? "写一句旁白：下雨了、有人推门进来…" : gs.spectate ? "写一句旁白，推动剧情…" : "在群里发言…",
     inputStyle: {
       fontFamily: F_BODY,
       fontSize: 14,
@@ -17093,6 +17095,7 @@ function GroupThread({
   }, h(ModePicker, {
     modes: [
       ["chat", "群里说话", "照常发，谁接话看他们自己"],
+      ["narr", "旁白", "不是谁说的话——下雨了、有人推门进来。写完他们就当已经发生"],
       ["ooc", "出戏", "绕过所有人，直接跟演他们的那位说（OOC）"]
     ],
     elsewhere: [["offline", "见面", "一屋子人不隔着屏幕了"]],
