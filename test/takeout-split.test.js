@@ -13,7 +13,7 @@ function makeTakeout() {
   const src = grab(app, "  const GIFT_PRICE_HINT = [", "  // 代付：", "礼物/外卖那几个函数");
   const st = { w: { c1: { init: true, balance: 500, ledger: [] } }, chat: [], orders: [] };
   const ref = { current: st.w };
-  const api = new Function("charWalletRef", "characters", "profile", "setCharWallet", "saveJSON", "numClean", "r2", "pChat", "addOrder", "Date", "userName", "deliverMsForCat", "ordersRef", "loadJSON",
+  const api = new Function("charWalletRef", "characters", "profile", "setCharWallet", "saveJSON", "numClean", "r2", "pChat", "addOrder", "Date", "userName", "deliverMsForCat", "ordersRef", "loadJSON", "chatsRef",
     src + "\nreturn { postCharGift, postCharTakeout };")(
     ref, [{ id: "c1", name: "江识" }], { name: "Lisa" },
     fn => { const n = fn(ref.current); if (n) { ref.current = n; st.w = n; } },
@@ -25,7 +25,8 @@ function makeTakeout() {
     Date, userName,
     cat => (cat === "food" ? 10 * 60000 : 5 * 3600000),
     { get current() { return st.orders; } },
-    (k, d) => (k === "x_takeoutLog" ? st.log || [] : d));
+    (k, d) => (k === "x_takeoutLog" ? st.log || [] : d),
+    { get current() { return { c1: st.chat }; } });
   return { api, st };
 }
 
@@ -45,16 +46,28 @@ test("takeout 出外卖卡：店名、菜品、真扣钱，订单钉死 food、�
 });
 
 // v74.642（她 2026-10-03 转群友：「点了一次外卖会显示两次」）：重 roll／下一轮照抄同一单，只记一单、只扣一次
-test("同一单交两遍：卡照发，订单和钱只记一次", () => {
+test("同一单交两遍：重 roll（旧卡已删）补发卡，订单和钱只记一次", () => {
   const { api, st } = makeTakeout();
   const raw = { shop: "巷口粥铺", items: ["皮蛋瘦肉粥"], price: 32 };
   api.postCharTakeout("c1", raw);
   st.orders[0].ts = Date.now(); st.orders[0].name = "巷口粥铺 · 皮蛋瘦肉粥";
+  st.chat = [];   // 重 roll：上一轮连卡一起删了
   api.postCharTakeout("c1", raw);
-  assert.equal(st.chat.length, 2, "重 roll 后那张卡得在");
+  assert.equal(st.chat.length, 1, "重 roll 后那张卡得在");
   assert.equal(st.orders.length, 1, "记成了两单");
   assert.equal(st.w.c1.balance, 468, "扣了两次钱");
-  assert.equal(st.chat[1].arriveTs, st.orders[0].arriveTs, "第二张卡的倒计时跟那一单对不上");
+  assert.equal(st.chat[0].arriveTs, st.orders[0].arriveTs, "补发那张卡的倒计时跟那一单对不上");
+});
+
+// 2026-10-08 群友：「为什么给我重复点外卖」——旧卡还在聊天里，TA下一轮照抄一遍，不该再冒一张一模一样的
+test("旧卡还在、TA照抄同一单：不再多发一张卡", () => {
+  const { api, st } = makeTakeout();
+  const raw = { shop: "早安粥铺", items: ["皮蛋瘦肉粥", "小笼包"], price: 38 };
+  api.postCharTakeout("c1", raw);
+  st.orders[0].ts = Date.now(); st.orders[0].name = "早安粥铺 · 皮蛋瘦肉粥、小笼包";
+  api.postCharTakeout("c1", raw);
+  assert.equal(st.chat.length, 1, "聊天里又多了一张一模一样的卡");
+  assert.equal(st.orders.length, 1);
 });
 
 // 她 2026-10-03：「她说没有重roll过」——先点了「吃完了」（那单进了吃过的），TA下一轮照抄，也不该再记一单
