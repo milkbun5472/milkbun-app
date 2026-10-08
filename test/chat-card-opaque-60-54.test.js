@@ -58,7 +58,7 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
     assert.match(near(a), /\.\.\.plate\(/, "这一支还是裸字：" + name));
   assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 4,
     "单聊里该垫的正好四处（拍一拍/撤回/沉默/在忙）");
-  // v75.074：旁白那一行收进了单聊群聊共用的 NarrLine，垫子在它里面，判据由调用方传进去
+  // v75.075：旁白那一行收进了单聊群聊共用的 NarrLine，垫子在它里面，判据由调用方传进去
   assert.match(near('if (m.kind === "narration" || m.role === "narration")'), /return h\(NarrLine, [\s\S]*onBg: !!\(dsp\.chatBg \|\| _wkBg\)/, "这一支还是裸字：旁白");
   const nl = comp.slice(comp.indexOf("function NarrLine("), comp.indexOf("function SysNote("));
   assert.match(nl, /onBg \? \{ display: "inline-block", background: "rgba\(255,255,255,0\.62\)"/, "公共旁白行没垫");
@@ -83,7 +83,7 @@ test("群聊也有背景图，旁白同样要垫", () => {
   const nb = g.indexOf('m.role === "narration" || m.kind === "narration"');
   const narr = g.slice(nb, g.indexOf("\n    if (m.", nb + 40));
   assert.ok(narr.length > 100 && narr.length < 4000, "群旁白那一支切歪了：" + narr.length);
-  // v75.074：跟单聊走同一份 NarrLine，垫不垫由群这边的判据传进去
+  // v75.075：跟单聊走同一份 NarrLine，垫不垫由群这边的判据传进去
   assert.match(narr, /return h\(NarrLine, [\s\S]*onBg: !!\(gChatBg \|\| _gWkBg\)/);
   // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
   assert.match(g, /if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
