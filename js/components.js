@@ -17969,6 +17969,10 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const [creating, setCreating] = useState(false);
   const [startMode, setStartMode] = useState("blank");
   const [startIndex, setStartIndex] = useState(null);
+  // 你开小号、TA又不该认出你（群友 2026-10-08：「我都开小号了 char 还能认出我来」）：
+  //   进门带最近聊天＝把你本人跟TA的原话搬进房里，TA一读就认出来。这时只能空白开始。
+  const altHideStart = !!(Kit && draft && Kit.altHidesMe && Kit.altHidesMe(draft));
+  useEffect(() => { if (altHideStart && startMode !== "blank") { setStartMode("blank"); setStartIndex(null); } }, [altHideStart]);
   const [createBusy, setCreateBusy] = useState(false);
   const [summaryBusy, setSummaryBusy] = useState(false);
   const [clearBusy, setClearBusy] = useState(false);
@@ -18146,7 +18150,7 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const enterNewRoom = async () => {
     if (createBusy || !onCreateRoom) return;
     const sourceRoom = Kit.get(character.id, activeRoomId || "main");
-    const prepared = Kit.prepareStart(character.id, draft, sourceRoom, sourceRows, startMode, startIndex);
+    const prepared = Kit.prepareStart(character.id, draft, sourceRoom, sourceRows, altHideStart ? "blank" : startMode, startIndex);
     if (!prepared) return window.__toast && window.__toast(startMode === "until" ? "先选一句作为起点" : "这次没准备好，再试一下");
     setCreateBusy(true);
     try {
@@ -18259,10 +18263,20 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         h("div", { className: "grid grid-cols-3", style: { gap: 6, marginTop: 7 } }, [
           ["blank", "空白开始"], ["recent", "最近聊天"], ["until", "挑一句接起"]
         ].map(([mode, label]) => h("button", { key: mode, onClick: () => chooseStartMode(mode),
-          disabled: mode !== "blank" && !startChoices.length,
+          disabled: mode !== "blank" && (!startChoices.length || altHideStart),
           style: { padding: "8px 4px", borderRadius: 10, border: "1px solid " + (startMode === mode ? t.ink : t.line),
             background: startMode === mode ? t.ink : "transparent", color: startMode === mode ? t.bg2 : t.sub,
-            opacity: mode !== "blank" && !startChoices.length ? .4 : 1, fontFamily: F_BODY, fontSize: 10.5 } }, label))),
+            opacity: mode !== "blank" && (!startChoices.length || altHideStart) ? .4 : 1, fontFamily: F_BODY, fontSize: 10.5 } }, label))),
+        altHideStart ? h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10, color: "#9b5f6d", lineHeight: 1.55 } },
+          characterText(character, "你开小号、他又不该认出你时，只能空白开始：带进最近聊天，他读到的是自己刚跟你本人说过的话，一眼就认出来了。")) : null,
+        // 这几样开着，TA手里就有你本人的事——只提醒，不替她关（她可能就想要「隐约觉得像」那种）
+        altHideStart && (function () {
+          const cg = (draft && draft.cognition) || {};
+          const on = [["formalMemory", "你们一起经历过的事"], ["innerLife", "你们处到哪一步了"], ["mainDelta", "主聊天后来发生的"], ["otherScenes", "群里和见面时发生的"], ["worldbook", "世界书里写的事"]]
+            .filter(([k]) => k === "worldbook" ? cg.worldbook !== false : !!cg[k]).map(x => "「" + x[1] + "」");
+          return on.length ? h("div", { style: { marginTop: 4, fontFamily: F_BODY, fontSize: 10, color: "#9b5f6d", lineHeight: 1.55 } },
+            characterText(character, "这间房 " + on.join("") + " 开着：这些里写着你本人的事，他读到了也可能认出你。想让他完全当陌生人，就把它们关掉。")) : null;
+        })(),
         h("div", { style: { marginTop: 6, fontFamily: F_BODY, fontSize: 10, color: t.fog, lineHeight: 1.55 } },
           startMode === "blank" ? "房里不放旧消息，从第一句重新开始。" : startMode === "recent"
             ? characterText(character, "带入当前房间已载入的最近 20 条聊天；他还记得哪些主线经历，由这间房自己的开关决定。")
