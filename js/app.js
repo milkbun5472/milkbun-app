@@ -11313,7 +11313,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 她 2026-10-05 转群里：「角色突然不会发表情包了」——原来让它照「最近的聊天习惯」发，
         //   模型拿最近的记录当习惯：连着一段没发，就当他不爱发，越不发越不发。判据改成这个人本身。
         capState.push("emote：发多发少看你这个人——爱用表情的可以自然地常发、兴头上连甩几张；"
-          + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。可用关键词：" + emotes.map(e => e.keyword).join(" / "));
+          + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。" + (() => {
+            // 专属给他的包要单独标出来（群友 2026-10-08：传了他的专属表情包，叫他试，他一直发公用的，
+            //   报出包名也不认——原来所有包的词混成一串，模型根本不知道哪几张是他的）。
+            const own = (emotePacksRef.current || []).filter(pk => !pk.global && (pk.charIds || []).includes(charId) && (pk.emotes || []).length);
+            if (!own.length) return "可用关键词：" + emotes.map(e => e.keyword).join(" / ");
+            const ownIds = new Set(); own.forEach(pk => pk.emotes.forEach(e => ownIds.add(e.id)));
+            const rest = emotes.filter(e => !ownIds.has(e.id));
+            return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
+              + own.map(pk => "「" + (pk.name || "未命名") + "」：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
+              + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "");
+          })());
       }
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
