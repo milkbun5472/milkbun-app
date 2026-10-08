@@ -1249,7 +1249,7 @@
     const unit = units.find(function (u) { return u.id === cp.current_unit; }) || units[0];
     const gram = (unit.grammar || []).map(function (g) { return g.id + "(" + g.label + ")"; }).join("、");
     const conv = tail(session.transcript, 30).map(function (m) {
-      return (m.role === "user" ? (ctx.profile && ctx.userName(profile)) : m.name) + "：" + m.content;
+      return (m.role === "user" ? userName(ctx.profile) : m.name) + "：" + m.content;
     }).join("\n");
     const sys = "你在给一堂课的【结课小测】做证据式结算。当前单元「" + unit.title + "」，要点(用 id)：" + gram + "。" +
       "能做到清单：" + (unit.can_do || []).join("；") + "。" +

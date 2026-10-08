@@ -16321,7 +16321,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const prevSaid = (diariesRef.current.__me || []).filter(e => e.id !== entryId)
           .flatMap(e => (e.comments || []).filter(cm => cm.charId === cid).map(cm => cm.text)).filter(Boolean).slice(0, 2);
         let text;
-        try { text = await generateDiaryComment(offlineApiFor(char.id), leanWriteCtx(ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败"); continue; }
+        try { text = await generateDiaryComment(offlineApiFor(char.id), leanWriteCtx(ctx), entryText, { prevSaid }); } catch (e) { toast(char.name + " 评论失败：" + ((e && e.message) || e)); continue; }
         if (!text) continue;
         const comment = { id: "cm_" + Date.now() + "_" + cid, charId: cid, name: char.name, text, ts: Date.now() };
         setDiaries(p => {
