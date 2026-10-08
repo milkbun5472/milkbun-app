@@ -141,3 +141,10 @@ test("直播间标题不挤在顶栏：顶栏写主播名，标题单独一行�
   assert.match(live, /h\(Head, \{ zh: stageTitle \+ " 的直播间"/);
   assert.match(live, /"data-wk": "livetitle", onClick: \(\) => setTitleOpen/);
 });
+
+test("一拍里主播和常客的话按先后排（flow），回谁的弹幕那条就排在前面；模型没写 flow 才退回老排法", () => {
+  assert.match(live, /"flow":\[\{"who":"常客网名","text":""\},\{"who":"主播","text":""\}\]/);
+  assert.match(live, /你在回谁的弹幕，就把那条弹幕排在你那句前面/);
+  assert.match(live, /if \(!flowLines\.length\) flowLines = normLines\(d\.say\)/);
+  assert.match(live, /const add = flowLines/);
+});

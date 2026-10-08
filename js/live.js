@@ -128,13 +128,14 @@
       + "还有几个有名有姓的常客，各自带着对你的看法。屏幕上另有一大片路人弹幕滚过去，那些你看不清、也不必回。你说话的对象是镜头、是她、是这几个常客——挑着回，不必谁都回。"
       + "\n常客们这一拍要是送了礼物，写在 gifts（name 常客网名、gift 礼物名、amount 金额数字；没人送就空）。你要是想让" + me + "当房管，mod 写 true（不想就不写）。";
     const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "");
-    if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、你对着镜头说的话 say（数组，一个元素一句）、你此刻在镜头前做什么 act（一句，可以空）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍常客们发的弹幕 chat、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
+    if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
-      + "\n\n接着往下播。写：你对着镜头说的话 say（数组）、你此刻在做什么 act（没变就照旧写）、这一拍常客们发的弹幕 chat（可以没有）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
+      + "\n\n接着往下播。写：这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在做什么 act（没变就照旧写）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
   }
-  const WATCH_SHAPE_FIRST = '{"title":"","host":"","scene":"","say":["一句"],"act":"","regulars":[{"name":"","who":"","lean":""}],"chat":[{"name":"常客网名","text":""}],"gifts":[],"noise":["",""],"viewers":0}';
-  const WATCH_SHAPE = '{"say":["一句"],"act":"","chat":[{"name":"常客网名","text":""}],"gifts":[],"noise":["",""],"viewers":0,"end":false}';
+  // 一拍里主播和常客的话排成一条时间线（她 2026-10-08：「主播的话在上面然后才轮到评论，但他是在回复评论，对不上」）
+  const WATCH_SHAPE_FIRST = '{"title":"","host":"","scene":"","regulars":[{"name":"","who":"","lean":""}],"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","gifts":[],"noise":["",""],"viewers":0}';
+  const WATCH_SHAPE = '{"flow":[{"who":"常客网名","text":""},{"who":"主播","text":""}],"act":"","gifts":[],"noise":["",""],"viewers":0,"end":false}';
   // 这几样只在用得上的时候往形状里加，不然模型会觉得每拍都该填
   const watchShape = (ses, first) => (first ? WATCH_SHAPE_FIRST : WATCH_SHAPE).replace(/\}$/, ""
     + (first && ses.needClub ? "," + CLUB_SHAPE : "")
@@ -492,10 +493,16 @@
           : props.probeAs(char, watchInstruction(ses, uName, first), watchShape(ses, first))) || {};
         const regs = first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : ses.regulars;
         const hostName = first ? (st ? st.name : (S(d.host).slice(0, 20) || char.name)) : ses.host;
-        const say = normLines(d.say);
-        if (!say.length && !normChat(d.chat).length) { toast("这一拍没播出来，再发一次试试"); return; }
         const act = S(d.act).slice(0, 120);
         const regNames = arr(regs).map(r => r.name).filter(n => arr(ses.banned).indexOf(n) < 0);
+        // 按先后排好的那条；模型没写 flow（照旧格式）就退回「主播的话在前、弹幕在后」
+        let flowLines = arr(d.flow).map(x => x && { who: S(x.who), text: S(x.text).slice(0, 400) }).filter(x => x && x.text).map(x =>
+          (x.who === "主播" || x.who === hostName) ? { kind: "host", name: hostName, text: x.text, act: "", ts: Date.now() }
+            : regNames.indexOf(x.who) >= 0 ? { kind: "reg", name: x.who, text: x.text, ts: Date.now() } : null).filter(Boolean).slice(0, 16);
+        if (!flowLines.length) flowLines = normLines(d.say).map(x => ({ kind: "host", name: hostName, text: x, act: "", ts: Date.now() }))
+          .concat(normChat(d.chat, regNames).map(x => ({ kind: "reg", name: x.name, text: x.text, ts: Date.now() })));
+        if (!flowLines.length) { toast("这一拍没播出来，再发一次试试"); return; }
+        const firstHost = flowLines.find(l => l.kind === "host"); if (firstHost && act) firstHost.act = act;
         // 常客送的礼物：只上榜、不动谁的钱包（他们是这场里才有的人）
         const regGifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
           .filter(g => g && regNames.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 4);
@@ -503,9 +510,8 @@
         const rv = ses.rival && d.rival && typeof d.rival === "object" ? d.rival : null;
         const linkNow = ses.linkAsk && !ses.linked ? d.link === true : null;
         const item = ses.kind === "sell" && d.item && S(d.item.name) ? { name: S(d.item.name).slice(0, 40), price: Math.max(1, Math.min(100000, Math.round(Number(d.item.price) || 0))) } : null;
-        const add = say.map((x, i) => ({ kind: "host", name: hostName, text: x, act: i === 0 ? act : "", ts: Date.now() }))
+        const add = flowLines
           .concat(rv ? normLines(rv.say).slice(0, 4).map(x => ({ kind: "rival", name: ses.rival.host, text: x, ts: Date.now() })) : [])
-          .concat(normChat(d.chat, regNames).map(x => ({ kind: "reg", name: x.name, text: x.text, ts: Date.now() })))
           .concat(regGifts.map(g => ({ kind: "gift", name: g.name, gift: g.gift, amount: g.amount, ts: Date.now() })))
           .concat(linkNow === true ? [{ kind: "event", text: hostName + " 接了连麦，" + nm + " 上麦了", ts: Date.now() }] : linkNow === false ? [{ kind: "event", text: hostName + " 没接 " + nm + " 的连麦", ts: Date.now() }] : [])
           .concat(!ses.mod && d.mod === true ? [{ kind: "event", text: hostName + " 把 " + nm + " 设成了房管", ts: Date.now() }] : []);
