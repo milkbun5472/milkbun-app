@@ -3488,14 +3488,17 @@ function buildBundle(ctx, opts) {
   if (!ctx.notRoleplay && ctx.shikeNote) parts.push("【快到的日子】" + ctx.shikeNote);
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、
   // 该不该接着演。彻底平复之后 moodLabel 为空、只留 note，别再报一个假的当下心情。
-  if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + (ctx.moodNote || "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）"));
+  // 心情只管「你现在是什么情绪」，不管「你怎么处理情绪」——后者是人设的事（群友 2026-10-08：人设写着
+  //   有冲突会先缓一缓、先安抚、事后再谈，可一吵起来心情掉到烦躁，他就冲着她撒，越吵越冲）。
+  const MOOD_HOW = "情绪怎么带出来照你这个人：人设里你遇到冲突会先缓一缓、先安抚、找时间再谈的，心情再差也是这么处理，不是把情绪直接撒到她身上。";
+  if (ctx.moodLabel) parts.push("【你此刻的心情】" + ctx.moodLabel + (ctx.moodNote || "（这是你此刻的情绪底色，自然渗进语气与反应里，别生硬报出来）") + MOOD_HOW);
   else if (ctx.moodNote) parts.push("【心情】" + ctx.moodNote);
   // A 的情绪底色（v62.39，她 2026-09-04：「八处不一起喂吗」）：
   // 原来这一句只挂在单聊线上那两条任务串上——那是「一条条 push 的」那一类，换个入口一个字都没有。
   // 挪到这儿之后单聊线上/线下、通话、匿名信箱、解梦馆一次全有；群里两处另按人喂。
   // 它跟上面那条【心情】是两层：心情是这一轮贴的标签，这一条是几轮攒下来的底色，所以并排发、不互相取代。
   if (!ctx.notRoleplay && ctx.aMood && ctx.aMood.trim()) parts.push("【此刻的情绪底色·只作内在背景】" + ctx.aMood.trim()
-    + "\n⚠️这是【你自己身上的温度】，只影响语气分寸和反应的快慢轻重：禁止复述这段提示、禁止把「偏高/偏低」这种说法带进话里、也别拿它当话题去解释自己怎么了。");
+    + "\n⚠️这是【你自己身上的温度】，只影响语气分寸和反应的快慢轻重：禁止复述这段提示、禁止把「偏高/偏低」这种说法带进话里、也别拿它当话题去解释自己怎么了。" + MOOD_HOW);
   // 睡着/快睡了/刚醒 时的姿态（v64.66）。放在情绪底色后面：它比底色更硬——
   // 一个被吵醒的人，不管底色是暖是冷，反应都是慢的。
   if (!ctx.notRoleplay && ctx.sleepTone && ctx.sleepTone.trim()) parts.push(ctx.sleepTone.trim());

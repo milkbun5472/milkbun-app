@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.063";
+const APP_VERSION = "v75.065";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6328,7 +6328,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!period || !period.visibleTo || !period.visibleTo.includes(char.id)) return "";
       const ph = periodPhaseNow(period);
       if (!ph) return "";
-      return "用户此刻的生理期状态：" + ph.phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心、提醒注意事项，或选择不提；别生硬报数据、别越界。）";
+      // ⚠️原来写着「提醒注意事项」：群友 2026-10-08 发晚餐照片，他逐样点评「偏凉偏燥、你这几天不太合适」——给了这个口子，每顿饭都成了训话。
+      return "用户此刻的生理期状态：" + ph.phase + "。（这是用户允许你看到的私密信息。可依你的人设与关系自然地关心，或选择不提；别生硬报数据、别越界。她分享吃的喝的、做的事，先接住她分享的这件事本身，别借生理期去挑她吃得对不对、讲寒凉燥热的养生道理——那是说教，不是关心；真放心不下，照你这个人会的样子一句带过就够。）";
     })(),
     // 健康 app 的监督（v74.732）：只给她在「谁看着」里点了名的人，只在饭点前后/她刚记过一餐时出一行，别的时候空＝零 token。
     //   跟生理期那一栏同一档、走同几处（单聊线上/线下/通话都经 ctxFor）；群里不发——那是她跟某一个人之间的约定，不是端上台面的事。
@@ -11313,7 +11314,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 她 2026-10-05 转群里：「角色突然不会发表情包了」——原来让它照「最近的聊天习惯」发，
         //   模型拿最近的记录当习惯：连着一段没发，就当他不爱发，越不发越不发。判据改成这个人本身。
         capState.push("emote：发多发少看你这个人——爱用表情的可以自然地常发、兴头上连甩几张；"
-          + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。可用关键词：" + emotes.map(e => e.keyword).join(" / "));
+          + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。" + (() => {
+            // 专属给他的包要单独标出来（群友 2026-10-08：传了他的专属表情包，叫他试，他一直发公用的，
+            //   报出包名也不认——原来所有包的词混成一串，模型根本不知道哪几张是他的）。
+            const own = (emotePacksRef.current || []).filter(pk => !pk.global && (pk.charIds || []).includes(charId) && (pk.emotes || []).length);
+            if (!own.length) return "可用关键词：" + emotes.map(e => e.keyword).join(" / ");
+            const ownIds = new Set(); own.forEach(pk => pk.emotes.forEach(e => ownIds.add(e.id)));
+            const rest = emotes.filter(e => !ownIds.has(e.id));
+            return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
+              + own.map(pk => "「" + (pk.name || "未命名") + "」：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
+              + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "");
+          })());
       }
       if (_s.autoMoment) openCaps.push("moment");
       if (isCouple) openCaps.push("whisper");
