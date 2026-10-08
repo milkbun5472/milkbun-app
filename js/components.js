@@ -12754,7 +12754,7 @@ function ReasoningBlock({ m, off }) {
   const [showZh, setShowZh] = useState(false);
   const secs = m.reasonMs ? (m.reasonMs / 1000).toFixed(1) + "s" : "";
   // 思考链基本都是英文，给它一个译键（走和气泡同一条免费链，长文自动切块）
-  const rLang = typeof translatableLang === "function" ? translatableLang(m.reasoning) : "";
+  const rLang = typeof translatableLangLong === "function" ? translatableLangLong(m.reasoning) : (typeof translatableLang === "function" ? translatableLang(m.reasoning) : "");
   const doTrans = async () => {
     if (zh) { setShowZh(v => !v); return; }
     setTBusy(true); setTErr("");

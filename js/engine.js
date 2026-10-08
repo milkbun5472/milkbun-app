@@ -6527,6 +6527,18 @@ function translatableLang(text) {
   if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
   return "";
 }
+// 长文（思考链）用的判定（群里 2026-10-08「英文 cot 木有显示翻译按钮，就出现过一次」）：
+//   气泡那份要求【一个汉字都没有】，可英文思考链几乎每段都会夹着角色名、要说的那句中文台词——
+//   于是只有偶尔一段恰好没引中文的才有译键。长文按比例算：拉丁字母明显压过汉字，就是一段外文在思考。
+function translatableLangLong(text) {
+  const base = translatableLang(text);
+  if (base) return base;
+  try { if (typeof localStorage !== "undefined" && localStorage.getItem("x_noTranslate") === "1") return ""; } catch (e) {}
+  const t = String(text == null ? "" : text);
+  const han = (t.match(/[\u4e00-\u9fff]/g) || []).length;
+  const latin = (t.match(/[A-Za-z\u00c0-\u024f]/g) || []).length;
+  return latin >= 40 && latin > han * 3 ? "英文" : "";
+}
 // iOS 刘海（v56.63）：状态栏那一条归各个界面的顶栏自己吃——顶栏和状态栏是同一个
 // 元素、同一层底色/毛玻璃，中间没有交界，也就没有缝。
 // v56.61 试过「根节点垫一条空带、把它涂成顶栏的颜色」：不行。两个元素各挂一层
