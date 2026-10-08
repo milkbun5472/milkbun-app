@@ -115,8 +115,11 @@ test("路人主播：一次刷一批、关注上限 20、交情大号马甲分�
   const K = kit();
   assert.match(live, /const ST_FOLLOW_MAX = 20, ST_BATCH = 6;/);
   assert.match(live, /const tieKeyOf = \(as, maskName\) => as === "mask" \? "mask:"/);
-  assert.match(live, /const gateOk = \(g, fanLv, visits\) => !!g && \(\(g\.lv > 0 && fanLv >= g\.lv\) \|\| \(g\.visits > 0 && visits >= g\.visits\)\);/);
-  assert.match(live, /Date\.now\(\) - prev\.ts < 3 \* 86400000 && fan\.lv <= \(prev\.lv \|\| 0\)/);
+  // 统一门槛（她 2026-10-08）：4 级私信、7 级加好友；等级＝来一场 30 经验＋一块钱 1 经验；答不答应看他在乎什么
+  assert.match(live, /const ST_DM_LV = 4, ST_FRIEND_LV = 7;/);
+  assert.match(live, /const stExp = \(visits, total\) => \(Number\(visits\) \|\| 0\) \* 30 \+ \(Number\(total\) \|\| 0\);/);
+  assert.match(live, /VALUES_ZH\[st\.values\]/);
+  assert.match(live, /Date\.now\(\) - prev\.ts < 3 \* 86400000 && myLv <= \(prev\.lv \|\| 0\)/);
   assert.match(live, /判据：把他的人设拿掉名字，换个主播还成立，就是写坏了/);
   assert.match(live, /if \(props\.charPay && s\.charId && !s\.stranger\)/, "打赏路人主播不进任何角色钱包");
   assert.match(app, /promoteStranger: \(st, key, nm, fan\) =>/);
