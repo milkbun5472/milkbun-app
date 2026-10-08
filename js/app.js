@@ -9661,10 +9661,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pC(p => [...p, CharacterPronoun.newCharacter({ id, name: (parsed.name || "新角色").slice(0, 20), persona: parsed.persona || "", tagline: (parsed.tagline || "").slice(0, 40), color: "#5a6a7d" })]);
     if (parsed.longMem) setMemFor(id, parsed.longMem);
     (parsed.seeds || []).forEach(s => addMemEntry({ text: s.text, charIds: [id], knownBy: [id], pinned: s.pinned, source: "manual" }));
+    // 卡里自带的世界书落成真正的世界书词条，只绑这个角色、只进聊天与线下（跟手建一条的默认去向一样）
+    const _cardLore = (parsed.lore || []).map((e, i) => Object.assign({ id: "le_card_" + Date.now() + "_" + i, category: "世界观", regex: false, ensemble: false, ts: Date.now() + i,
+      scope: { chat: true, subjects: false, lifestyle: false, diary: false, study: false, creative: false, social: false, debate: false } }, e, { charIds: [id] }));
+    if (_cardLore.length) saveLore(_cardLore.concat(loreRef.current || []));
     // 卡里的开场白（酒馆的 first_mes）落成 TA 的第一句话——原来直接丢了
     if (parsed.greeting) pChat(id, () => [{ role: "assistant", content: parsed.greeting, ts: Date.now(), read: false }]);
     setCardImportOpen(false);
-    toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + (parsed.greeting ? "＋开场白" : "") + "，去人格档案馆点开补头像/线路吧");
+    toast("已导入「" + (parsed.name || "新角色") + "」：人设" + (parsed.longMem ? "＋长期记忆" : "") + ((parsed.seeds || []).length ? "＋" + parsed.seeds.length + " 条记忆种子" : "") + ((parsed.lore || []).length ? "＋" + parsed.lore.length + " 条世界书" : "") + (parsed.greeting ? "＋开场白" : "") + "，去人格档案馆点开补头像/线路吧");
   };
   // NPC：她填一句「要谁」，一次调用生成简介+双向关系，落成一个 npc:true 的角色。
   // 走后台线路（和记忆整理、翻译同一条），不占聊天线路。

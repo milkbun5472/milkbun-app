@@ -46,11 +46,12 @@ test("酒馆 v1 那种扁平 JSON 也认", () => {
   assert.equal(p.greeting, "……你也来看海？");
 });
 
-test("世界书收成记忆种子，constant 的那条置顶", () => {
+test("卡里的世界书落成世界书词条（不再塞进记忆种子），constant 的那条常驻", () => {
   const p = parseCharCard(V2, "Lisa");
-  assert.equal(p.seeds.length, 2);
-  assert.equal(p.seeds.filter(s => s.pinned).length, 1);
-  assert.match(p.seeds[0].text, /王府在城西/);
+  assert.equal(p.seeds.length, 0);
+  assert.equal(p.lore.length, 2);
+  assert.equal(p.lore.filter(e => e.alwaysOn).length, 2, "没关键词的条目也得常驻，不然永远翻不出来");
+  assert.match(p.lore[0].payload, /王府在城西/);
 });
 
 // 占位符原来要她自己手动换（codex 里还写着这条注意事项），现在导入时就换掉
