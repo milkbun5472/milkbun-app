@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.110";
+const APP_VERSION = "v75.111";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -13789,7 +13789,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   4 条起才是 A→B→A→B；上限照旧兜着，自发轮预算紧时也压得住。
       const nMin = Math.min(nMax, 4);
       // 「接彼此的话」这句只许有一份：她开口那一轮和她没出声那一轮都从这儿取。
-      // ⚠️v75.110 去掉了「补刀」、加上「关心一句」和后半句（她 2026-10-08 截图：私聊里会问她晚上吃什么的人，
+      // ⚠️v75.111 去掉了「补刀」、加上「关心一句」和后半句（她 2026-10-08 截图：私聊里会问她晚上吃什么的人，
       //   到群里只剩跟另一位比谁的梗更狠——程序员接「删库脚本」、古人接「黑火药」，人设成了道具）。
       //   怎么接是这几个人自己的事，不是「群聊该热闹」替他们定的。
       const G_EACH_OTHER = "接彼此的话、顺着跑题、拌嘴、关心一句、翻旧账、动手做下去都行——哪一种，看这几个人本来什么性子、彼此什么交情";
