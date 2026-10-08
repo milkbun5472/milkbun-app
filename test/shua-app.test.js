@@ -197,3 +197,20 @@ test("同城那排限宽能横滑；在同城打开刷新页，刷路人刷的�
   assert.match(src, /overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x"/);
   assert.match(src, /onNpc: \(\) => genNpc\(feed === "city" && cities\.length \? cityNow : ""\)/);
 });
+
+test("消息记着是哪条视频，点进去就是那条", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(src, /const note = \(text, vid\) =>/);
+  assert.equal((src.match(/note\([^;]*, v\.id\)/g) || []).length, 4, "四处提醒都带上视频");
+  assert.match(src, /const openNote = n =>/);
+  assert.match(src, /setPage\(vidSkin\(v\) === "b" \? \{ kind: "bdetail", id: v\.id \} : \{ kind: "one", id: v\.id \}\)/);
+});
+
+test("聊天里的视频卡点开就是片刻里那一条，返回回到聊天", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(src, /const shareSnap = v => \(\{ id: v\.id \|\| null,/);
+  assert.match(src, /onClick: \(\) => window\.__openShuaVideo\(v\)/);
+  assert.match(src, /vids\.find\(x => x\.author === sn\.author && x\.scene === sn\.scene\)/, "旧卡没 id 按作者＋画面认");
+  assert.match(src, /fromChat: true/);
+  assert.match(src, /page\.fromChat && window\.__goScreen \? window\.__goScreen\("thread"\)/);
+});

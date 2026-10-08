@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.074";
+const APP_VERSION = "v75.079";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5887,7 +5887,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const disp = schedDisplaySeqs(char, filled);
     const shift = schedTzShiftMin(char);
     const d0 = new Date(); const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
-    return disp.filter(x => /直播|开播/.test(String(x.title || "") + " " + String(x.location || "")) && x._myMin != null).map(x => {
+    // ⚠️只认【TA自己播】（群友 2026-10-08：「所有 char 都直播了」）：原来标题或地点带「直播」就算，
+    //   「刷手机看直播」「看球赛直播」「直播间里蹲人」这种看别人播的也被当成TA开播。地点不看，看的那几种排掉。
+    const selfLive = t => /开播|(开|做|搞|上|去)直播|直播(带货|唱歌|聊天|打游戏|游戏|陪|学习|做饭|户外|中)|^直播/.test(t)
+      && !/(看|刷|听|蹲|追|围观|守|陪.{0,4}看|进).{0,6}直播|直播间(里)?(看|蹲|刷)/.test(t);
+    return disp.filter(x => selfLive(String(x.title || "").trim()) && x._myMin != null).map(x => {
       const em = /(\d{1,2}):(\d{2})/.exec(String(x.end || ""));
       const endMy = em ? ((((+em[1]) * 60 + (+em[2]) - shift) % 1440) + 1440) % 1440 : null;
       const start = midnight + x._myMin * 60000;
