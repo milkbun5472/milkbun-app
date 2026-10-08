@@ -529,6 +529,7 @@ function App() {
   const schedRunRef = useRef(false); // 本次打开行程是否已跑过「当天给所有人生成」
   const schedulesRef = useRef({});
   const [rels, setRels] = useState({});
+  const [resetAsk, setResetAsk] = useState(null);   // { id, preset: "all" | "chat" }：重置选择页
   const [affinities, setAffinities] = useState({});
   const [moods, setMoods] = useState({});
   const [states, setStates] = useState({});
@@ -9746,10 +9747,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她 2026-10-05：「主动删除就是不要的」——TA的东西一起清，不留给「找回失联」（那条路是给意外丢数据的）。
   //   本机的按人存档、按人的表、带 charId 的记录都扫一遍（CharPurge），扫到的那几张表再从存档重读回界面；
   //   记忆库走 saveMemLib 才同步得上云；梦在 IndexedDB 里另清。
-  // keep：重置时留着的几张【设置】表（聊天设置、线下设置、币种、换头像）——那是她给 TA 调的样子，不是 TA 跟她的事
-  const purgeCharData = (doomed, keep) => {
+  // only：只清这几类（CharPurge.CATS 的 id）；不传＝全清（删卷宗）。重置时设置类永远不在 only 里，所以她给 TA 调的样子都留着。
+  const purgeCharData = (doomed, keep, only) => {
     const gone = Array.from(doomed);
-    const changed = window.CharPurge ? window.CharPurge.sweep(gone, null, keep) : [];
+    const want = c => !only || only.has(c);
+    const changed = window.CharPurge ? window.CharPurge.sweep(gone, null, keep, only) : [];
     const RELOAD = {
       x_ambientCount: v => typeof setAmbientCount === "function" && setAmbientCount(v),
       x_anon: v => typeof setAnon === "function" && setAnon(v),
@@ -9762,7 +9764,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_carryPins: v => typeof setCarryPins === "function" && setCarryPins(v),
       x_shopCart: v => typeof setCart === "function" && setCart(v),
       x_charTitle: v => typeof setCharTitle === "function" && setCharTitle(v),
-      x_charWallet: v => typeof setCharWallet === "function" && setCharWallet(v),
+      x_charWallet: v => { charWalletRef.current = v; setCharWallet(v); },
       x_chatArch: v => typeof setChatArch === "function" && setChatArch(v),
       x_chatSettings: v => typeof setChatSettings === "function" && setChatSettings(v),
       x_coupleBreakup: v => typeof setCoupleBreakup === "function" && setCoupleBreakup(v),
@@ -9818,8 +9820,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_roomStates: v => typeof setRoomStates === "function" && setRoomStates(v),
       x_shopFeed: v => typeof setShopFeed === "function" && setShopFeed(v),
       x_snoops: v => typeof setSnoops === "function" && setSnoops(v),
-      x_stateHist: v => typeof setStateHist === "function" && setStateHist(v),
-      x_states: v => typeof setStates === "function" && setStates(v),
+      x_stateHist: v => { stateHistRef.current = v; setStateHist(v); },
+      x_states: v => { statesRef.current = v; setStates(v); },
       x_studio: v => typeof setStudio === "function" && setStudio(v),
       x_takeoutFeed: v => typeof setTakeoutFeed === "function" && setTakeoutFeed(v),
       x_takeoutLog: v => typeof setTakeoutLog === "function" && setTakeoutLog(v),
@@ -9837,15 +9839,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     };
     changed.forEach(k => { const f = RELOAD[k]; if (f) { try { const d = loadJSON(k, null); f(d == null ? (Array.isArray(loadJSON(k, [])) ? [] : {}) : d); } catch (e) {} } });
     const mine = k => doomed.has(String(k).split("::room::")[0]);   // 侧房 chatKey 也算TA的
-    chatsRef.current = Object.fromEntries(Object.entries(chatsRef.current || {}).filter(([k]) => !mine(k)));
-    setChats(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
-    setOfflines(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
-    { const lib = memLibRef.current || [];
+    if (want("chat")) {
+      chatsRef.current = Object.fromEntries(Object.entries(chatsRef.current || {}).filter(([k]) => !mine(k)));
+      setChats(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
+      setOfflines(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
+      gone.forEach(x => { offlineTsRef.current = { ...offlineTsRef.current, [x]: 0 }; });
+    }
+    if (want("memory")) { const lib = memLibRef.current || [];
       const next = lib.filter(m => !((m.charIds || []).length && (m.charIds || []).every(x => doomed.has(x))))
         .map(m => (m.charIds || []).some(x => doomed.has(x)) ? { ...m, charIds: m.charIds.filter(x => !doomed.has(x)) } : m);
       if (next.length !== lib.length || next.some((m, i) => m !== lib[i])) saveMemLib(next); }
-    if (window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
-    // 关系那一格的键是「me->角色id」「角色id->别人」这种两头拼起来的，CharPurge 只认整键＝id，扫不到
+    if (want("life") && window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
+    if (want("bond")) // 关系那一格的键是「me->角色id」「角色id->别人」这种两头拼起来的，CharPurge 只认整键＝id，扫不到
     { const rels = loadJSON("x_rels", {}), keys = Object.keys(rels || {}).filter(k => k.split("->").some(x => doomed.has(x)));
       if (keys.length) { keys.forEach(k => delete rels[k]); saveJSON("x_rels", rels); if (typeof setRels === "function") setRels(rels); } }
   };
@@ -9854,19 +9859,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   「记忆库删了还记得」是因为 TA 记得的不只记忆库：聊天记录本身、前情浓缩、心情好感、日程、日记、印象、房间往事、
   //   云端聊天归档……都在喂 TA。所以这里跟删卷宗走同一份清扫，再把云端归档清空。
   //   不动：配角（是 TA 身边的人，不是 TA 和她的事）、群成员身份；群聊记录是一群人共有的，不在这里清。
-  const resetChar = id => {
+  // 两个入口共用：人格档案馆编辑页「完全重置」（默认全选）、聊天设置里「清除 / 重置」（默认只选聊天、记忆、心情）。
+  //   真正动手的是 resetCharData；这里只开选择页。
+  const resetChar = id => { if ((characters || []).some(x => x && x.id === id)) setResetAsk({ id, preset: "all" }); };
+  const resetCharData = async (id, cats) => {
     const c = (characters || []).find(x => x && x.id === id);
-    if (!c) return;
-    requestAppConfirm("完全重置「" + (c.name || c.remark || "这位角色") + "」？",
-      "卷宗（人设、外貌、头像、音色）留着；TA 跟你之间的一切都清掉：聊天和线下记录、记忆库里只属于 TA 的记忆、前情、心情和好感、日程、日记、印象、约定、收藏……像第一次见面。"
-      + "\n群聊记录是大家共有的，不会清。"
-      + "\n这一下撤不回来。要紧的话先去 设置 → 数据 → 导出全部数据，存一份在自己手上。",
-      async () => {
-        purgeCharData(new Set([id]), ["x_chatSettings", "x_offlineSettings", "x_charCurrency", "x_avatarSwap"]);
-        try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; }
-        toast("「" + (c.name || "TA") + "」重置好了，下次聊天就是第一次见面");
-      }, "完全重置");
+    const only = new Set(cats || []);
+    if (!c || !only.size) return;
+    purgeCharData(new Set([id]), null, only);
+    if (only.has("chat")) setChatSettings(p => { const n = { ...p, [id]: { ...(p[id] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
+    if (only.has("memory")) setMemFor(id, "");
+    if (only.has("chat")) { try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; } }
+    toast(only.size >= ((window.CharPurge && window.CharPurge.CATS.length) || 7) ? "「" + (c.name || "TA") + "」重置好了，下次聊天就是第一次见面" : "清好了");
   };
+
   const saveRemark = (id, remark) => pC(p => p.map(c => c.id === id ? {
     ...c,
     remark
@@ -29441,7 +29447,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       gazeReviewBusy: gazeReviewBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });
-  })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, // ⚠️不能只认 activeChar：从人格档案馆点进来的那个人未必是当前正在聊的人。
+  })(), resetAsk ? h(ResetChooser, { character: (characters || []).find(x => x && x.id === resetAsk.id), preset: resetAsk.preset,
+    onClose: () => setResetAsk(null), onRun: cats => { const id = resetAsk.id; setResetAsk(null); resetCharData(id, cats); } }) : null,
+  cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, // ⚠️不能只认 activeChar：从人格档案馆点进来的那个人未必是当前正在聊的人。
   //   heartChar 是档案馆那条路指定的；聊天资料卡那条路不指定，退回 activeChar。
   (() => { const hc = heartChar || activeChar; return desireBoxOpen && hc && window.HeartPage ? h(window.HeartPage, {
     char: hc,
@@ -29638,7 +29646,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setMemFor(activeChar.id, "");
       toast("已清空记忆");
     },
-    onClearChat: wipeMem => clearChat(activeChar.id, wipeMem),
+    // 聊天设置里的「清除 / 重置」开同一张选择页（她 2026-10-08：只想删聊天重新开始，不要跑去人格档案馆）
+    onClearChat: () => { setChatSettingsOpen(false); setResetAsk({ id: activeChar.id, preset: "chat" }); },
     iBlocked: !!(blocks[blockChatKey(activeChar.id)] && blocks[blockChatKey(activeChar.id)].iBlocked),
     onToggleBlock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
     memLibCount: memLib.filter(e => !e.charIds || e.charIds.length === 0 || e.charIds.includes(activeChar.id)).length,

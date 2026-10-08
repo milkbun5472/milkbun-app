@@ -15,16 +15,40 @@
   const SKIP = /^x_(characters|groups|memLib)$|cloud|ledger|outbox|sync|vault|cred|lsjournal/i;
   const owner = key => String(key).split("::room::")[0];
   const hit = (v, ids) => v && typeof v === "object" && (ids.has(v.charId) || ids.has(v.char_id) || ids.has(v.cid));
-  // keep：这几张表不碰（「完全重置」留着她给 TA 调的设置，删卷宗不传）
-  function sweep(idList, store, keep) {
+  // 重置时按类挑（她 2026-10-08「出一堆开关 show 哪些会被清除，可以自行选择哪些要留」）。
+  //   每张存档归到一类；没认领的都算「其他」。设置类永远不清（那是她给 TA 调的样子）。
+  const CATS = [
+    { id: "chat", zh: "聊天和线下记录", desc: "线上私聊、单人线下、侧房聊天，云端的旧聊天归档；未读和开场白" },
+    { id: "memory", zh: "记忆", desc: "记忆库里只属于 TA 的那些（共用的只把 TA 摘掉）、长期记忆" },
+    { id: "state", zh: "心情和状态", desc: "此刻心情、状态卡、心声、TA 自己的念头和你给的指令" },
+    { id: "bond", zh: "好感和关系", desc: "好感度、你们之间的关系设定、称呼、情侣空间、亲属卡、拉黑" },
+    { id: "life", zh: "日程、日记和梦", desc: "日程、日记、日历事件、时光胶囊、约会记录、平行线和梦" },
+    { id: "phone", zh: "手机和社交", desc: "查手机、朋友圈、论坛、偷看记录" },
+    { id: "things", zh: "其他", desc: "约定、收藏、礼物、钱包、随身物品、购物外卖、抽卡这些剩下的" }
+  ];
+  const SETTINGS = /^x_(chatSettings|offlineSettings|offlineStyles|charCurrency|avatarSwap|groupSettings|liveCfg|callAuto\w*|callStayAfterBye|phoneAuto|phoneKeep|phoneLang|phoneLooks|phoneTlKeep|voiceLib|makeup|musicCard)$/;
+  function catOf(key) {
+    const k = String(key);
+    if (SETTINGS.test(k)) return "settings";
+    if (/^x_(chat|offline):/.test(k) || /^x_(chatArch|unread|openers|greetLog|lastRoom|ambientCount|ambientTs|whispers|pinnedChats)$/.test(k)) return "chat";
+    if (/^x_(memories|rerollMemoryJournal)$/.test(k)) return "memory";
+    if (/^x_(states|stateHist|roomStates|roomStateHist|moods|thoughtCtr|desires|directives|jiwen|jiwenSeen|jiwenWhy)$/.test(k)) return "state";
+    if (/^x_(affinities|affBase|rels|couples|couple\w*|charTitle|loveLetter|tiesPos|friendGroups|blocks|kinshipCards|myKinCards)$/.test(k)) return "bond";
+    if (/^x_(schedules|diaries|calEvents|capsules|dateVisits|dateAskLast|ifLines|worlds|studio)$/.test(k)) return "life";
+    if (/^x_(phone\w*|moments\w*|forum\w*|snoops|peek\w*|eyesAlertLog|shua|wxReactDay|anon|anonPool)$/.test(k)) return "phone";
+    return "things";
+  }
+  // keep：这几张表不碰（删卷宗不传）；only：只清这几类（Set of CATS id，删卷宗不传＝全清）
+  function sweep(idList, store, keep, only) {
     const keepSet = new Set(keep || []);
+    const onlySet = only ? new Set(only) : null;
     const ids = new Set((idList || []).filter(Boolean).map(String));
     const ls = store || (typeof localStorage !== "undefined" ? localStorage : null);
     const changed = [];
     if (!ls || !ids.size) return changed;
     const keys = [];
     const seen = new Set();
-    const add = k => { if (k && k.indexOf("x_") === 0 && !SKIP.test(k) && !keepSet.has(k) && !seen.has(k)) { seen.add(k); keys.push(k); } };
+    const add = k => { if (k && k.indexOf("x_") === 0 && !SKIP.test(k) && !keepSet.has(k) && (!onlySet || onlySet.has(catOf(k))) && !seen.has(k)) { seen.add(k); keys.push(k); } };
     for (let i = 0; i < ls.length; i++) add(ls.key(i));
     // ⚠️大部分存档早就不在 localStorage 本体里了（2026-10-04 全搬进 IndexedDB，内存里有一份镜像 __txtMirror）。
     //   只数 localStorage 的键会一个都扫不到——读写照旧走 getItem/setItem，那一层会自己转进大仓库。
@@ -45,5 +69,5 @@
     });
     return changed;
   }
-  return { sweep, owner };
+  return { sweep, owner, CATS, catOf };
 });

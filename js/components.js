@@ -18433,6 +18433,38 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
 }
 window.ChatRoomSheet = ChatRoomSheet;
 
+// 清除 / 重置的选择页（她 2026-10-08「出一堆开关 show 哪些会被清除然后可以自行选择哪些要留」）。
+// 聊天设置和人格档案馆两个入口共用；类目来自 CharPurge.CATS，清法在 app.js resetCharData。整页，不用半窗。
+function ResetChooser({ character, preset, onClose, onRun }) {
+  const t = useTheme();
+  const CATS = (window.CharPurge && window.CharPurge.CATS) || [];
+  const [on, setOn] = useState(() => new Set(preset === "all" ? CATS.map(c => c.id) : ["chat", "memory", "state"]));
+  const [sure, setSure] = useState(false);
+  const nm = (character && (character.remark || character.name)) || "TA";
+  const all = on.size === CATS.length;
+  const flip = id => setOn(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  if (!character) return null;
+  return h("div", { "data-wk": "resetpage", style: { position: "fixed", inset: 0, zIndex: 160, background: t.bg, display: "flex", flexDirection: "column" } },
+    h(Head, { zh: "清除 / 重置", onBack: onClose }),
+    h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 20px 20px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 14 } },
+        "打开的会清掉，关着的留下。卷宗（人设、外貌、头像、音色）和 " + nm + " 的聊天设置、线下设置一直留着；群聊记录是大家共有的，不在这里清。"),
+      h("button", { onClick: () => setOn(all ? new Set() : new Set(CATS.map(c => c.id))), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, marginBottom: 6, minHeight: 40 } }, all ? "全部关掉" : "全部打开（像第一次见面）"),
+      CATS.map(c => h("div", { key: c.id, "data-reset-cat": c.id, className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line, gap: 12 } },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: on.has(c.id) ? t.ink : t.fog } }, c.zh + (on.has(c.id) ? " · 清掉" : " · 留着")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, c.desc)),
+        h(Toggle, { on: on.has(c.id), onChange: () => flip(c.id) }))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 14 } },
+        "清掉的撤不回来。要紧的话先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份在自己手上。")),
+    h("div", { style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + t.line } },
+      sure
+        ? h("div", { className: "flex gap-2" },
+            h("button", { onClick: () => setSure(false), className: "flex-1 rounded-lg py-3", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "再想想"),
+            h("button", { "data-wk": "resetgo", onClick: () => onRun(Array.from(on)), className: "flex-1 rounded-lg py-3", style: { background: "#c25a4a", color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } }, "确定清掉 " + on.size + " 样"))
+        : h("button", { disabled: !on.size, onClick: () => setSure(true), className: "w-full rounded-xl py-3 active:opacity-80", style: { minHeight: 46, background: on.size ? t.accent : t.line, color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+            on.size ? (all ? "完全重置 " + nm : "清掉选中的 " + on.size + " 样") : "至少打开一样")));
+}
 function ChatSettings({
   character,
   meProfile,
@@ -19532,18 +19564,9 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, iBlocked ? "点击解除拉黑。" : "拉黑后，按「回复」TA 会以被拉黑的方式反应（碎碎念/生气/申请解除），气泡旁带红色感叹号。")),
       h(Toggle, { on: !!iBlocked, onChange: onToggleBlock }))),
   onClearChat && h("div", { className: "pt-6" },
-    h(Eyebrow, { style: { marginBottom: 6 } }, "清除聊天记录"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "清空和 " + cNm + " 的线上私聊与全部单人线下记录；线下不会先总结，也不会调用模型。群线下是共享记录，不会从这里删除（此操作不可恢复）。"),
-    h("div", { className: "flex items-center justify-between mb-3" },
-      h("div", { className: "pr-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "同步忘却记忆库"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "连 TA 的长期记忆与记忆库归属一起清；共享条目只解除 TA 的归属。")),
-      h(Toggle, { on: wipeMemToo, onChange: () => setWipeMemToo(v => !v) })),
-    confirmClear
-      ? h("div", { className: "flex gap-2" },
-          h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
-          h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除线上线下+记忆" : "清除线上与线下"))
-      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), show("know", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
+    h(Eyebrow, { style: { marginBottom: 6 } }, "清除 / 重置"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "想跟 " + cNm + " 重新开始：点开挑要清哪几样——只清聊天，还是连记忆、好感、日程一起清，像第一次见面。卷宗和这页的设置都留着。"),
+    h("button", { "data-wk": "csreset", onClick: () => onClearChat(), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15, minHeight: 44 } }, "清除 / 重置…"))), show("know", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
     className: "pt-6"
   }, h(Eyebrow, {
     style: {
