@@ -24,7 +24,9 @@ test('群线上与群线下共用出口，空/被拒心声清旧快照，后续�
  assert.match(app,/writeGroupLiveState\(spk, \{ thought: item.thought/);
  // v72.06：配角那四样不看闭群那道闸（她 2026-09-20）——闭群里的好兄弟也该有情绪
  assert.match(app,/if \(!gOffSealed \|\| _bNpc\) writeGroupLiveState\(characters.find/);
- assert.match(app,/goTurnId, affinityBefore, _offThoughtOnce\)/);
+ // v75.106 整段小说：每个出场的人各自一个 turnId（一人一拍时就是 goTurnId）
+ assert.match(app,/a\.turnId, affinityBefore, _offThoughtOnce\)/);
+ assert.match(app,/for \(const a of \(novelCast \|\| \[\{ \.\.\.b, turnId: goTurnId \}\]\)\)/);
 });
 // v72.06（她 2026-09-20：「就心情想法穿着动作这四样放 npc 状态卡」）：
 // 心情从「填了就丢」改成真的存下来；好感仍旧不给配角（affinityBefore 不落）。
