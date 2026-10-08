@@ -414,7 +414,7 @@ function Cast({
     //   button 套 button 是非法 HTML（浏览器会把内层拆出去），所以外层换成 div。
     const hn = typeof heartCountOf === "function" ? (heartCountOf(c) || 0) : 0;
     return h("div", {
-      key: c.id,
+      key: c.id, "data-wk": "castcard", "data-id": c.id,
       role: "button", tabIndex: 0,
       onClick: () => { if (holdFired.current) { holdFired.current = false; return; } onOpenChar(c); },
       onTouchStart: () => holdStart(c), onTouchEnd: holdEnd, onTouchMove: holdEnd, onTouchCancel: holdEnd,
@@ -433,7 +433,7 @@ function Cast({
       }
     },
       // 卷宗的书脊：TA自己的颜色，右侧压一道暗线，让它看起来是「厚的」
-      h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 8, background: accent, boxShadow: "inset -1px 0 2px rgba(0,0,0,.22)" } }),
+      h("span", { "data-wk": "castspine", style: { position: "absolute", inset: "0 auto 0 0", width: 8, background: accent, boxShadow: "inset -1px 0 2px rgba(0,0,0,.22)" } }),
       // 书脊上打三个装订孔
       h("span", { style: { position: "absolute", left: 2.5, top: 0, bottom: 0, width: 3, display: "flex", flexDirection: "column", justifyContent: "space-evenly" } },
         [0, 1, 2].map(n => h("span", { key: n, style: { width: 3, height: 3, borderRadius: 999, background: "rgba(255,255,255,.55)", boxShadow: "inset 0 1px 1px rgba(0,0,0,.3)" } }))),
@@ -443,17 +443,17 @@ function Cast({
       h("span", { style: { position: "absolute", right: 18, top: 0, width: 34, height: 7, borderRadius: "0 0 4px 4px", background: accent, opacity: .8 } }),
       h("div", { className: "flex items-start gap-3.5", style: { position: "relative", padding: "16px 12px 13px 22px" } },
         // 头像做成【贴上去的照片】：白边、投影、歪一点点
-        h("div", { className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 6px rgba(46,38,29,.22)", transform: "rotate(-1.6deg)" } },
+        h("div", { "data-wk": "castavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 6px rgba(46,38,29,.22)", transform: "rotate(-1.6deg)" } },
           h(Avatar, { character: c, size: 58, radius: 3 })),
         h("div", { className: "flex-1 min-w-0", style: { paddingTop: 1 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: ".05em", color: t.fog } }, "卷宗"),
           h("div", { className: "flex items-baseline gap-2", style: { marginTop: 2 } },
-            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
+            h("div", { "data-wk": "castname", style: { fontFamily: F_DISPLAY, fontSize: 21, lineHeight: 1.15, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, c.name),
             c.remark ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, whiteSpace: "nowrap", flexShrink: 0 } }, "备注 " + c.remark) : null),
-          sum ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
+          sum ? h("div", { "data-wk": "castsum", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.sub, marginTop: 5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, sum)
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 5 } }, "还没写人设——点进去补一句"))),
       // 底部信息栏
-      h("div", { className: "flex items-stretch", style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.34)" } },
+      h("div", { "data-wk": "castinfo", className: "flex items-stretch", style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.34)" } },
         cell("时区", tz, !c.tz),
         h("span", { style: { width: 1, background: t.line, margin: "6px 0" } }),
         cell("生日", bd, !c.birthday && age == null),
@@ -464,6 +464,7 @@ function Cast({
       //   它单独一条，横过来正好放得下，点得着的高度也够（40px 那条线）。
       // ⚠️stopPropagation：不然点它会连带触发外层那次 onOpenChar，跳去人设表单。
       onOpenHeart ? h("button", {
+        "data-wk": "castheart",
         onClick: e => { e.stopPropagation(); onOpenHeart(c); },
         className: "w-full flex items-center gap-2 active:opacity-60",
         style: { position: "relative", marginLeft: 8, borderTop: "1px solid " + t.line, background: "rgba(255,255,255,.2)", padding: "10px 12px 10px 10px", textAlign: "left" }
@@ -473,7 +474,7 @@ function Cast({
           hn ? "TA 自己攒下 " + hn + " 条念想" : "还空着——聊得多了会自己长出来"),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, flexShrink: 0 } }, "›")) : null);
   });
-  return h("div", { className: "h-full flex flex-col", style: DESK(t.accent || t.tint) },
+  return h("div", { "data-wk": "castpage", className: "h-full flex flex-col", style: DESK(t.accent || t.tint) },
     // 紧凑标题栏（mobile-ui-layout.md）：返回 + 居中小标题 + 右侧等宽操作位。
     // 她 2026-08-30：「名字改了叫人格档案馆但是上面还是显示叫名录」——名字只有这一处，改就一起改。
     // ⚠️顶栏别再自己刷一档 t.bg：桌面铺在外壳上，这一条刷了平色就在顶上压出一条没盖住的带子
@@ -489,7 +490,7 @@ function Cast({
         : [
             // 大标题换成一条细的：一屏 844 高，28px 标题＋留白吃掉快 200px，
             // 只剩两张半卡看得见（mobile-ui-layout.md 也不许子页面放大标题）
-            h("div", { key: "cnt", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
+            h("div", { key: "cnt", "data-wk": "castcount", className: "flex items-baseline gap-2", style: { padding: "12px 2px 10px" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "共 " + characters.length + " 份卷宗"),
               // ⚠️长按这种手势【看不见】，不写一句就等于没有（说明书上写着能克隆，
               //   可她今天才发现从来点不出来——两头都得补上）

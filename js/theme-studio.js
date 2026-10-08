@@ -401,6 +401,8 @@
       ["mltabbar","底下那条四个标签的栏"],["mltab","每一个标签（data-tab=chats/contacts/moments/me；data-on=\"1\" 是当前那个）"]
     ])}),
     Object.freeze({zh:"朋友圈",pages:Object.freeze(["messages", "momprofile"]),hooks:Object.freeze([["mocompose", "朋友圈信息流顶上那个「发朋友圈」按钮"], ["mopost", "信息流里一条动态整块（data-me=\"1\" 是她自己发的）"], ["moname", "动态上的作者名字"], ["motext", "动态的正文文字"], ["mophoto", "动态配图（data-kind=\"img\" 真图，\"desc\" 是「点开看描述」的文字卡）"], ["motime", "动态下方的时间"], ["molike", "点赞按钮（data-on=\"1\" 是她点过赞）"], ["mompin", "动态下面那个「收进时刻」"], ["molikers", "点赞人名单那一行"], ["mocomments", "评论区整块浅底框"], ["mocomment", "评论区里的一条评论"], ["moprofile", "个人页封面下面的滚动正文区（data-me=\"1\" 是她自己的个人页）"], ["mocover", "个人页顶部封面整块（data-on=\"1\" 是设了封面图）"], ["moprofilehead", "封面右下角的名字＋大头像"], ["mosign", "封面下方的签名那一行"], ["moprofilepost", "个人页里的一条动态整块"]])}),
+    // 人格档案馆（她 2026-10-08：「那一页是不是没有挂点」）
+    Object.freeze({zh:"人格档案馆",pages:Object.freeze(["cast"]),hooks:Object.freeze([["castpage","整页最外层（桌面底纹铺在这儿）"],["castcount","顶上「共 N 份卷宗」那一行"],["castcard","一份卷宗卡（data-id＝角色 id）"],["castspine","卡左边那道带角色颜色的书脊"],["castavatar","贴在卡上的头像相框"],["castname","卡上的名字"],["castsum","名字下面那两行人设摘要"],["castinfo","卡底下时区／生日／人设字数那一栏"],["castheart","卡最底下「心上」那一条"]])}),
     Object.freeze({zh:"资料卡",pages:Object.freeze(["contact"]),hooks:Object.freeze([["cdpage", "整页最外层（带角色颜色的纸底）"], ["cdhead", "头部一行（头像、名字、简介）"], ["cdname", "角色名大字"], ["cdtagline", "名字下面那行简介"], ["cdage", "年龄和生日那一行"], ["cdaffinity", "好感度那一块"], ["cdrules", "「长期准则」整块"], ["cdrule", "单条准则卡片"], ["cdactions", "底部操作按钮那一组"], ["cdbtn", "单个操作按钮（data-kind=chat/state/desires；心上那颗 data-on=\"1\" 是有念想）"]])}),
     Object.freeze({zh:"设置",pages:Object.freeze(["config"]),hooks:Object.freeze([["cfhome", "设置首页那一列入口的容器"], ["cfrow", "首页的一行入口（data-page＝通往哪个子页，如 api/look/data）"], ["cfrowtitle", "首页一行的标题"], ["cfrowstate", "首页一行右下那行灰色状态小字"], ["cfnote", "首页底部那张说明卡"], ["cfmark", "方角汉字栏号牌（首页每行、子页每格都有）"], ["cfgrid", "子页里两列格子的网格"], ["cftile", "子页里的单个入口格子（data-wide=\"1\" 是占满一行的宽格）"], ["cfpanel", "子页内容外面那张卡片框（data-flush=\"1\" 没内边距）"]])}),
     Object.freeze({zh:"论坛",pages:Object.freeze(["forum"]),hooks:Object.freeze([["fochip", "版块切换的小标签（data-on=\"1\" 是当前那个）"], ["forow", "帖子流里的一张帖子卡（data-me=\"1\" 我发的，data-anon=\"1\" 匿名）"], ["fonotes", "论坛双列时那块瀑布流"], ["folayout", "论坛「我」页里「首页排版」那两颗（单列 / 双列，data-on=\"1\" 是选中的那颗）"], ["fonewhead", "「新帖在这里」「新回复在这里」那一行（点了展开，aria-expanded=\"true\" 是开着）"], ["fonote", "双列时的一张卡片"], ["foname", "帖子卡上的作者名"], ["fobody", "帖子卡正文预览"], ["foacts", "帖子卡底部操作栏"], ["fofloor", "帖子详情里的一层楼（data-me=\"1\" 我的，data-new=\"1\" 新楼）"], ["foreplies", "楼中楼回复框"], ["fosend", "详情页底部回复栏的发送键"], ["fofab", "右下角悬浮的发帖键"]])}),
@@ -926,7 +928,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.031", changed: "", none: "直播间加了几样东西，没加挂点和类名" };
+  const BRIEF_STAMP = { v: "v75.033", changed: "人格档案馆那一页新挂了 castpage、castcount、castcard、castspine、castavatar、castname、castsum、castinfo、castheart", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
