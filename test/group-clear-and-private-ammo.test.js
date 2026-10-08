@@ -21,7 +21,7 @@ test("群清除聊天记录：只清本群线上+群线下，不碰成员各自�
   assert.match(fn, /pGOffline\(groupId, \(\) => \[\]\)/);   // 群线下
   assert.match(fn, /lastSummarizedCount: 0/);               // 总结游标归零，不然清完立刻又去总结空记录
   assert.match(fn, /resetAutoChatCycle\(groupId/);          // 自发额度归零
-  assert.match(fn, /clearUnread\(groupId\)/);               // 未读角标不能停在旧数字上
+  assert.match(fn, /clearUnreadMap\(groupId\)/);               // 未读角标不能停在旧数字上
   // ⚠️铁律：绝不许连带删成员自己的单聊/单人线下
   assert.doesNotMatch(fn, /\bpChat\(/, "群清除不许动任何成员的单聊");
   assert.doesNotMatch(fn, /\bpOffline\(/, "群清除不许动任何成员的单人线下");
