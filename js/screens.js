@@ -513,6 +513,7 @@ function Cast({
           ]));
 }
 function CastForm({
+  onReset,
   onAskAssistant,
   initial,
   onBack,
@@ -716,6 +717,7 @@ function CastForm({
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "说话什么声气", tint: accent },
         h(LineField, { zh: "音色 · 语音消息用", en: "Voice" }, voiceFields)),
+      initial && onReset ? h("button", { "data-wk": "castfreset", onClick: () => onReset(initial.id), className: "mt-4 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 40 } }, "↺ 完全重置（留下卷宗，清掉跟 TA 的一切）") : null,
       initial ? h("button", { "data-wk": "castfdel", onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
 }
 

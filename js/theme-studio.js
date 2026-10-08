@@ -377,6 +377,7 @@
     ["app", "这一页的底（最外那层）"],
     ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["lookundo", "美化「回到上一版／换回来」那一行"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
+    ["csreset", "聊天设置里「清除 / 重置…」那颗按钮"], ["resetpage", "清除 / 重置选择页整页"], ["resetgo", "选择页最后那颗「确定清掉」"],
     ["empty", "空状态那一块（还没有内容时）"],
     ["sheet", "从底下掀起来的半窗"], ["pagesheet", "原来是半窗、现在铺满整页的那些（通话记录、查找记录、记忆库、备忘录编辑……）"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
     ["avatar", "头像（全 App 每一颗）"],
@@ -448,7 +449,7 @@
     // 人格档案馆（她 2026-10-08：「那一页是不是没有挂点」）
     Object.freeze({zh:"人格档案馆",pages:Object.freeze(["cast"]),hooks:Object.freeze([["castpage","整页最外层（桌面底纹铺在这儿）"],["castcount","顶上「共 N 份卷宗」那一行"],["castcard","一份卷宗卡（data-id＝角色 id）"],["castspine","卡左边那道带角色颜色的书脊"],["castavatar","贴在卡上的头像相框"],["castname","卡上的名字"],["castsum","名字下面那两行人设摘要"],["castinfo","卡底下时区／生日／人设字数那一栏"],["castheart","卡最底下「心上」那一条"]])}),
     // 编角色卡那一页（她 2026-10-08：「还有编角色卡那边也要」）
-    Object.freeze({zh:"编角色卡",pages:Object.freeze(["castForm"]),hooks:Object.freeze([["castfpage","整页最外层（桌面底色）"],["castfsave","右上角「存档」"],["castfcover","最上面那张卷宗封面卡"],["castfavatar","封面上的头像相框"],["castfname","名字那一栏"],["castftag","一句话标签那一栏"],["castfcolor","「这份卷宗什么颜色」那一排色块"],["castfsec","下面几大块（data-no＝01 人物底稿／02 时间坐标／03 视觉档案／04 声音档案；里面的输入框用 textarea、input 选）"],["castfdel","最底下删除按钮"]])}),
+    Object.freeze({zh:"编角色卡",pages:Object.freeze(["castForm"]),hooks:Object.freeze([["castfpage","整页最外层（桌面底色）"],["castfsave","右上角「存档」"],["castfcover","最上面那张卷宗封面卡"],["castfavatar","封面上的头像相框"],["castfname","名字那一栏"],["castftag","一句话标签那一栏"],["castfcolor","「这份卷宗什么颜色」那一排色块"],["castfsec","下面几大块（data-no＝01 人物底稿／02 时间坐标／03 视觉档案／04 声音档案；里面的输入框用 textarea、input 选）"],["castfdel","最底下删除按钮"],["castfreset","完全重置按钮"]])}),
     Object.freeze({zh:"资料卡",pages:Object.freeze(["contact"]),hooks:Object.freeze([["cdpage", "整页最外层（带角色颜色的纸底）"], ["cdhead", "头部一行（头像、名字、简介）"], ["cdname", "角色名大字"], ["cdtagline", "名字下面那行简介"], ["cdage", "年龄和生日那一行"], ["cdaffinity", "好感度那一块"], ["cdrules", "「长期准则」整块"], ["cdrule", "单条准则卡片"], ["cdactions", "底部操作按钮那一组"], ["cdbtn", "单个操作按钮（data-kind=chat/state/desires；心上那颗 data-on=\"1\" 是有念想）"]])}),
     Object.freeze({zh:"设置",pages:Object.freeze(["config"]),hooks:Object.freeze([["cfhome", "设置首页那一列入口的容器"], ["cfrow", "首页的一行入口（data-page＝通往哪个子页，如 api/look/data）"], ["cfrowtitle", "首页一行的标题"], ["cfrowstate", "首页一行右下那行灰色状态小字"], ["cfnote", "首页底部那张说明卡"], ["cfmark", "方角汉字栏号牌（首页每行、子页每格都有）"], ["cfgrid", "子页里两列格子的网格"], ["cftile", "子页里的单个入口格子（data-wide=\"1\" 是占满一行的宽格）"], ["cfpanel", "子页内容外面那张卡片框（data-flush=\"1\" 没内边距）"], ["composerlift", "外观与壁纸里「输入栏往上抬」那一格"]])}),
     Object.freeze({zh:"论坛",pages:Object.freeze(["forum"]),hooks:Object.freeze([["fochip", "版块切换的小标签（data-on=\"1\" 是当前那个）"], ["forow", "帖子流里的一张帖子卡（data-me=\"1\" 我发的，data-anon=\"1\" 匿名）"], ["fonotes", "论坛双列时那块瀑布流"], ["folayout", "论坛「我」页里「首页排版」那两颗（单列 / 双列，data-on=\"1\" 是选中的那颗）"], ["fonewhead", "「新帖在这里」「新回复在这里」那一行（点了展开，aria-expanded=\"true\" 是开着）"], ["fonote", "双列时的一张卡片"], ["foname", "帖子卡上的作者名"], ["fobody", "帖子卡正文预览"], ["foacts", "帖子卡底部操作栏"], ["fofloor", "帖子详情里的一层楼（data-me=\"1\" 我的，data-new=\"1\" 新楼）"], ["foreplies", "楼中楼回复框"], ["fosend", "详情页底部回复栏的发送键"], ["fofab", "右下角悬浮的发帖键"]])}),
@@ -980,7 +981,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.053", changed: "线下设置（单聊、群）那一页的底不再额外让顶部安全区，Head 自己让，顶栏往上收", none: "" };
+  const BRIEF_STAMP = { v: "v75.058", changed: "", none: "只改一起学的提示词，界面没动" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

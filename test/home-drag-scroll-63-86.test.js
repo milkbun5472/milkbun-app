@@ -71,7 +71,8 @@ test("放手、合并、退出整理，三条出口都把自动滚停掉", () =>
 
 test("拖起来那一刻，touch-action 也把纵向收回来（安卓靠这个）", () => {
   assert.match(comp, /style: \{ touchAction: dragKey \? "none" : "pan-y" \}/, "外壳还一直放行纵向");
-  assert.match(comp, /touchAction: dragKey \? "none" : undefined \} \},/, "那一页自己还能被浏览器滚");
+  // v75.057：不拖的时候从 undefined 改成 "pan-y"（安卓浏览器把横划拿去当返回，换不了页）；拖起来那一刻照旧收成 none
+  assert.match(comp, /touchAction: dragKey \? "none" : "pan-y" \} \},/, "那一页自己还能被浏览器滚");
   // 自动滚要找得到【当前这一页】那个滚动容器
   assert.match(comp, /"data-homepage": pi,/, "页面上没有标记，自动滚找不到该滚谁");
   assert.match(comp, /document\.querySelector\('\[data-homepage="' \+ pageRef\.current \+ '"\]'\)/);
