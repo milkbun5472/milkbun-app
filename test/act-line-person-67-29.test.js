@@ -152,7 +152,7 @@ test("单聊那一行按开关显示", () => {
     "人称得跟着角色性别走——charTa 那张表只有一份，别再各写一遍");
   assert.match(blk, /userPerson === "ta" \? \[\] : \["她", \(profile && profile\.name\) \|\| ""\]/, "「选你」那一头没接上");
   assert.match(blk, /userPerson === "ta" \? "她" : ""/, "「选她」那一头没接上——卡里写「你」时就转不过去了");
-  assert.match(blk, /: m\.content\)/, "没开开关时得原样显示");
+  assert.match(blk, /: m\.content \}\)/, "没开开关时得原样显示");
   // 她自己写的旁白（who 不是 char）一个字都不许动
   assert.match(C, /m\.who === "char" && window\.ActLine/, "没判 who＝把她自己的旁白也转了");
 });

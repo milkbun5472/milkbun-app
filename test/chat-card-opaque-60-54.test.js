@@ -51,14 +51,17 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
     return comp.slice(k, nx);
   };
   [['if (m.kind === "pat")', "拍一拍"],
-   ['if (m.kind === "narration" || m.role === "narration")', "旁白"],
    ['if (m.kind === "recalled")', "撤回"],
    ['if (m.kind === "silence")', "沉默"],
    ['if (m.kind === "busynote")', "在忙"],
   ].forEach(([a, name]) =>
     assert.match(near(a), /\.\.\.plate\(/, "这一支还是裸字：" + name));
-  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 5,
-    "单聊里该垫的正好五处（拍一拍/旁白/撤回/沉默/在忙）");
+  assert.equal((comp.match(/\.\.\.plate\(/g) || []).length, 4,
+    "单聊里该垫的正好四处（拍一拍/撤回/沉默/在忙）");
+  // v75.072：旁白那一行收进了单聊群聊共用的 NarrLine，垫子在它里面，判据由调用方传进去
+  assert.match(near('if (m.kind === "narration" || m.role === "narration")'), /return h\(NarrLine, [\s\S]*onBg: !!\(dsp\.chatBg \|\| _wkBg\)/, "这一支还是裸字：旁白");
+  const nl = comp.slice(comp.indexOf("function NarrLine("), comp.indexOf("function SysNote("));
+  assert.match(nl, /onBg \? \{ display: "inline-block", background: "rgba\(255,255,255,0\.62\)"/, "公共旁白行没垫");
   // v63.49：系统行和 OOC 收进 SysNote，它【自带一张纸】（近实心的 bg2），
   // 所以不再走 plate；但那张纸本身必须挡得住壁纸，不能是裸字。
   const note = comp.slice(comp.indexOf("function SysNote("), comp.indexOf("// 气泡角落贴纸"));
@@ -79,8 +82,9 @@ test("群聊也有背景图，旁白同样要垫", () => {
   // ⚠️同上：切到【下一支开头】为止，不许用固定字数（v66.01 群旁白那一支加了长按和署名）
   const nb = g.indexOf('m.role === "narration" || m.kind === "narration"');
   const narr = g.slice(nb, g.indexOf("\n    if (m.", nb + 40));
-  assert.ok(narr.length > 200 && narr.length < 4000, "群旁白那一支切歪了：" + narr.length);
-  assert.match(narr, /\(gChatBg \|\| _gWkBg\) \? \{ display: "inline-block", background: "rgba\(255,255,255,0\.62\)"/);
+  assert.ok(narr.length > 100 && narr.length < 4000, "群旁白那一支切歪了：" + narr.length);
+  // v75.072：跟单聊走同一份 NarrLine，垫不垫由群这边的判据传进去
+  assert.match(narr, /return h\(NarrLine, [\s\S]*onBg: !!\(gChatBg \|\| _gWkBg\)/);
   // v63.49：群里的系统行也收进 SysNote 了（自带一张纸），那颗小药丸退场
   assert.match(g, /if \(m\.kind === "system" \|\| m\.role === "system"\) return h\(SysNote, \{ key: i, label: "系统"/);
 });
