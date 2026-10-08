@@ -95,3 +95,10 @@ test("自动往下播：默认关、不记住，开着才自己走下一拍，�
   assert.match(live, /if \(!auto \|\| busy \|\| readOnly \|\| ses\.endTs\) return;/);
   assert.match(live, /document\.hidden\) return; onSay\(""\)/);
 });
+
+test("自动往下播的间隔：平时只露一个「N 秒」，点了才出拉条，10~120 秒，记在 x_liveCfg", () => {
+  assert.match(live, /auto && slider \? h\("div", \{ "data-wk": "liveautoslider"/);
+  assert.match(live, /type: "range", min: 10, max: 120, step: 5/);
+  assert.match(live, /autoSec: \(props\.liveCfg \|\| \{\}\)\.autoSec \|\| 25/);
+  assert.match(live, /const AUTO_MS = autoSec \* 1000;/);
+});
