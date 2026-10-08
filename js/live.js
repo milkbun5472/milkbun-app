@@ -34,15 +34,25 @@
   const hashOf = str => { let x = 2166136261; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
   const dayKey = d => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
   const SLOT_KINDS = ["chat", "game", "sing", "study", "cook", "outdoor", "sell"];
-  function slotsOf(chars, at) {
+  // ⚠️先看日程（群友 2026-10-08：「直播不读日程吗？日程写 10 点直播，char 现在就播了」）：
+  //   schedOf(c) 给的是今天日程里写着直播的那几段 [{start,end}]（毫秒）；
+  //   今天日程排好了却没写直播 → 给 []，今天不播；今天还没排日程 → 给 null，才按日子掷。
+  function slotsOf(chars, at, schedOf) {
     const now = at instanceof Date ? at : new Date();
-    return arr(chars).map(c => {
+    return arr(chars).flatMap(c => {
       const hs = hashOf(String(c.id) + "|" + dayKey(now));
+      const sch = typeof schedOf === "function" ? schedOf(c) : null;
+      if (Array.isArray(sch)) return sch.map((w, i) => ({ id: "slot_" + c.id + "_" + dayKey(now) + "_s" + i, charId: c.id, start: w.start, end: w.end, kind: w.kind || SLOT_KINDS[(hs >>> 16) % SLOT_KINDS.length], fromSchedule: true }));
+      return [slotByHash(c, now, hs)].filter(Boolean);
+    });
+  }
+  function slotByHash(c, now, hs) {
+    return (function () {
       if (hs % 100 >= 22) return null;               // 大概五天里播一回
       const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19 + ((hs >>> 7) % 4), ((hs >>> 10) % 4) * 15).getTime();
       const end = start + (60 + ((hs >>> 13) % 4) * 30) * 60000;
       return { id: "slot_" + c.id + "_" + dayKey(now), charId: c.id, start, end, kind: SLOT_KINDS[(hs >>> 16) % SLOT_KINDS.length] };
-    }).filter(Boolean);
+    })();
   }
 
   // 图标：一个镜头加两道往外走的信号
@@ -548,7 +558,7 @@
     const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || "") : uName;
     const cfg = props.liveCfg || {};
     const now = Date.now();
-    const slots = cfg.selfLive === false ? [] : slotsOf(characters, new Date());
+    const slots = cfg.selfLive === false ? [] : slotsOf(characters, new Date(), props.liveSched);
     const onAir = slots.filter(x => x.start <= now && now < x.end), later = slots.filter(x => x.start > now);
     const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
     // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
