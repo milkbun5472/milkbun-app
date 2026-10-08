@@ -181,7 +181,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出酒馆卡的 JSON（v1/v2，连世界书一起收成记忆种子），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出酒馆卡的 JSON（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
         className: "w-full active:opacity-70",
