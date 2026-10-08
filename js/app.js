@@ -6254,6 +6254,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const now = Date.now(), WINDOW = 3 * 86400000, FRESH = 8 * 3600000;
       const isCharPost = p => p.authorId === char.id && isForumCharAuthor(p);
       const myPub = p => p.authorType === "me" && !p.anon && !p.alt && p.board !== "匿名吧";
+      // ⚠️她用小号／匿名写的楼和楼中楼：在TA这儿就是一个陌生网名，不许写成她（群友 2026-10-08：
+      //   「我都开小号了 char 还能认出我来」——原来这里只看是不是她写的，小号评论一律报成她的名字）
+      const asMe = x => !!x && x.authorType === "me" && !x.alt && x.authorName !== "匿名者";
+      const who = x => asMe(x) ? meName : (x.authorName || "有人");
 
       // —— 触发闸 ——
       const said = typeof lastUserTurnText === "function" ? lastUserTurnText(chatsRef.current[char.id] || []) : "";
@@ -6275,8 +6279,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 她在TA帖子下说的话
         const myOn = [];
         fl.forEach(f => {
-          if (f.authorType === "me") myOn.push({ ts: f.ts, c: f.content });
-          (f.replies || []).forEach(r => { if (r.authorType === "me") myOn.push({ ts: r.ts, c: r.content }); });
+          if (asMe(f)) myOn.push({ ts: f.ts, c: f.content });
+          (f.replies || []).forEach(r => { if (asMe(r)) myOn.push({ ts: r.ts, c: r.content }); });
         });
         if (myOn.length) {
           const last = myOn[myOn.length - 1];
@@ -6288,7 +6292,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           const reps = f.replies || [];
           const worth = f.isOp || f.authorId === char.id || (f.likeCount || 0) >= 120;
           if (!reps.length || !worth) return;
-          const rs = reps.slice(-2).map(r => (r.authorType === "me" ? meName : (r.authorName || "有人")) + "：" + String(r.content).slice(0, 30));
+          const rs = reps.slice(-2).map(r => who(r) + "：" + String(r.content).slice(0, 30));
           push((reps[reps.length - 1] || {}).ts || f.ts,
             "你的帖「" + p.title + "」里你那条（“" + String(f.content || "").slice(0, 22) + "”）有人回：" + rs.join("；"));
         });
@@ -6300,7 +6304,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (f.authorId !== char.id) return;
           const reps = f.replies || [];
           if (!reps.length) return;   // 没人理的那一句嘴，她永远不会提，不占额度
-          const rs = reps.slice(-2).map(r => (r.authorType === "me" ? meName : (r.authorName || "有人")) + "：" + String(r.content).slice(0, 30));
+          const rs = reps.slice(-2).map(r => who(r) + "：" + String(r.content).slice(0, 30));
           push((reps[reps.length - 1] || {}).ts || f.ts,
             "你在「" + (p.authorName || "别人") + "」的帖「" + String(p.title || "").slice(0, 16) + "」下说过“"
             + String(f.content || "").slice(0, 26) + "”，有人回你：" + rs.join("；"));
