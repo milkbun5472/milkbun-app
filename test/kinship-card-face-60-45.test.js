@@ -44,7 +44,7 @@ test("这张卡换个角色就整个变样——搬不去别的 app", () => {
 test("三处共用同一张卡面，不许各画各的", () => {
   // 聊天里那张 / 钱包汇总页 / 单卡账单页
   assert.match(comp, /h\(KinshipCardFace, \{ character: c, limit: m\.limit/, "聊天里那张");
-  assert.equal((scr.match(/h\(KinshipCardFace, \{/g) || []).length, 2, "钱包两页都要用这一张");
+  assert.equal((scr.match(/h\(KinshipCardFace, \{/g) || []).length, 5, "钱包两页 + 她给TA的那张卡（卡包里、开卡页、账单页）都用这一张");
   // 老那张通用渐变银行卡一处不留
   assert.ok(!/亲属卡 · KINSHIP/.test(scr), "中英对照的通用银行卡还留着");
   assert.ok(!/linear-gradient\(135deg," \+ \(c\.color/.test(scr), "老卡面还在");
@@ -61,7 +61,7 @@ test("头像取图那段抽出来共用，别在卡面里再抄一份", () => {
 test("从亲属卡汇总点进某张卡，退回来还站在汇总页", () => {
   // mobile-ui-layout 第 3 条：进详情前记住位置，退回来恢复。
   // 原来 view 是 MyWallet 自己的 useState，进详情页组件卸载，退回来重挂成 main（钱包首页）。
-  assert.match(scr, /function MyWallet\(\{ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView \}\)/,
+  assert.match(scr, /function MyWallet\(\{ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView(, myCards, onOpenMyKin)? \}\)/,
     "这一层还锁在组件自己肚子里");
   assert.ok(!/const \[view, setView\] = useState\("main"\)/.test(scr), "本地 state 还留着");
   assert.match(app, /const \[walletView, setWalletView\] = useState\("main"\)/, "app 那头没接着");

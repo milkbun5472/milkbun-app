@@ -3175,7 +3175,9 @@ function selectLore(entries, opts) {
   const missed = []; // 过了 scope/绑定、但关键词没打中字面的——语义补捞候选（v48.29）
   const hit = (entries || []).filter(e => {
     if (!e || e.enabled === false || !((e.payload || "").trim())) return false;
-    if (!loreScopeOn(e, scope)) return false;
+    // 「生图」那一类只进画面要求、不进任何一处文字（她 2026-10-07）；画图那一口（scope "img"）也只认这一类
+    if ((e.category === "生图") !== (scope === "img")) return false;
+    if (scope !== "img" && !loreScopeOn(e, scope)) return false;
     const bind = e.charIds || []; // 全局(无绑定)对所有人可见；否则要与在场角色有交集
     if (bind.length && !bind.some(id => charIds.indexOf(id) >= 0)) return false;
     if (e.alwaysOn) return true; // 常驻：无视关键词强注
@@ -3211,6 +3213,18 @@ function selectLore(entries, opts) {
 //   ⚠️领句写在这一处：八个去向都从 loreText 拿世界书，改一处全接上（one-public-mechanism）。
 function loreText(entries, opts) {
   return selectLore(entries, opts).map(loreLine).join("\n\n");
+}
+// 画图时挑「生图」那几条：照样认绑定角色、常驻／关键词（关键词对的是这张图的画面描述）
+function loreImgText(entries, charIds, sceneText) {
+  return selectLore(entries, { scope: "img", charIds: charIds || [], text: String(sceneText || "") })
+    .map(e => (e.title ? "〔" + e.title + "〕" : "") + String(e.payload).trim()).join("\n");
+}
+// 两个拼画面要求的地方（人物照 buildPhotoPrompt、风景/局部 buildScenePrompt）共用这一句。
+//   世界书从 app 那头挂的 window.__loreImg 拿（engine 不碰 loreRef）；排在身份锁和未成年安全锁【后面】，改不动它们。
+function imgLorePart(charIds, sceneText) {
+  const g = typeof window !== "undefined" ? window : globalThis;
+  const txt = g && typeof g.__loreImg === "function" ? String(g.__loreImg(charIds, sceneText) || "").trim() : "";
+  return txt ? "【画面设定（世界书·生图）】下面是这张图要遵守的画风和视觉设定；跟上面的身份锁冲突时以身份锁为准：\n" + txt : "";
 }
 function loreLine(e) {
   const body = String(e.payload).trim();
@@ -3250,7 +3264,7 @@ function loreEntryState(e, opts) {
   if (loreKeywordHit(e, opts.text || "")) return { on: true, code: "keyword", label: "会注入 · 已触发" };
   return { on: false, code: "waiting", label: "等待关键词或语义召回" };
 }
-if (typeof window !== "undefined") window.WorldBookRouting = { loreScopeOn, loreKeywordHit, selectLore, loreText, loreDoNow, loreEntryState };
+if (typeof window !== "undefined") window.WorldBookRouting = { loreScopeOn, loreKeywordHit, selectLore, loreText, loreDoNow, loreImgText, imgLorePart, loreEntryState };
 // 情侣空间【我们的档案】那一块的领句与围栏。三条路共用（单聊 buildBundle、群线上、群线下）——
 // 一层只写一处，别再抄第二遍。围栏那句是必须的：不挡的话TA会每句话都把称呼和梗端出来演一遍，
 // 跟记忆库那条「记忆用来不忘、不是用来重演」是同一个病。
@@ -4700,7 +4714,9 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   const accessories = String(char.photoAccessories || "").trim();
   if (accessories) parts.push("【随身不摘的东西·每张都要有】" + (kind === "duo" || multi ? "「" + cName + "」" : "人物") + "身上始终带着：" + accessories + "。它们与换不换衣服无关,不因场景、季节或服装变化而消失或改动;戴的位置、数量、款式每张保持一致。");
   if (visualCanon) parts.push("【最高优先级·身份锁】" + visualCanon + "。年龄、性别、种族、体型与身体特征不得擅自补全、成熟化、女性化、男性化或随机改变。");
+  const _imgLore = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].concat((opts && opts.cast || []).map(c => c && c.id)).filter(Boolean), sceneDesc);
   if (isMinor) parts.push("【未成年人安全与解剖硬锁】这是儿童／未成年角色：必须呈现明确、自然、符合设定年龄的儿童身体比例和第二性征；穿着完整、姿态与镜头完全非性化，禁止成人化、性感化、胸部曲线、乳沟或夸张身体特征。" + (isBoy ? "该角色是男孩／男童：胸廓必须是自然平坦的男童胸廓，绝对不能生成女性乳房或胸部隆起。" : "") + "即使参考图或场景有歧义，也以儿童身份锁为准。");
+  if (_imgLore) parts.push(_imgLore);
   // —— 主体人物 ——
   // 合影点名单（v53.85）：opts.cast = [{name, appearance, outfit}]，顺序【必须】等于参考图顺序。
   // 给它就走多人分支，人数不写死——群合照是「在场角色 + 你」，以后「看看你俩合照」只是换一份名单，
@@ -4887,6 +4903,7 @@ function buildScenePrompt(char, sceneDesc, opts) {
   if (era) parts.push("【这个世界长什么样·必须对上】以下是这条线所属世界的设定，画面里的建筑、器物、材质、光源、"
     + (body ? "衣料" : "street furniture") + "都要跟它同一个年代和地域，"
     + "绝不许混进不属于这个世界的东西（古代场景里不许有电灯、汽车、玻璃幕墙、柏油路、现代招牌）：" + era + "。");
+  { const _sl = typeof imgLorePart !== "function" ? "" : imgLorePart([char && char.id].filter(Boolean), sceneDesc); if (_sl) parts.push(_sl); }
   // ⭐这是【谁拍的、画面里谁是谁】（她 2026-09-10 拍图指出来的）：
   //   相册里那张写着「她睡着时搭在我胸口的手」——画出来是一只手搭在一个胸口上，
   //   字面没错，可【那只手是谁的、那个胸口是谁的】全丢了，看着像TA自己搭着自己。
@@ -5799,7 +5816,7 @@ const lsRaw = (function () {
 })();
 const DURABLE_TEXT_KEYS = new Set([
   // 已有的大文本仓
-  "x_weekly_issues", "x_study_sessions", "x_read_books", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger",
+  "x_weekly_issues", "x_study_sessions", "x_read_books", "x_live", "x_shua", "x_debate_saves", "x_dream_saves", "x_tarot_saves", "x_ledger",
   // v58.83：这些内容会随着日常使用持续长大；继续留在 5MB localStorage 会反复写满。
   "x_phone", "x_phoneArch", "x_phoneVitals", "x_diaries", "x_schedules", "x_charWallet",
   // 情侣空间正文。只列 saveJSON 管理的键；仍由旧 UI 直读的小标记继续留在 localStorage。
@@ -9270,10 +9287,14 @@ function txtWrite(k, s) {
       if (needsLocalJournal) try { lsRaw.set(k, s); } catch (e) { console.error("local journal skipped (quota?):", k, s.length); }
       try {
         const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
+        // ⚠️连着两次保存同一键（片刻一轮里每个人写完存一次）：这一笔回读时读到的已经是后一笔——
+        //   不是写坏了，是被更新的一版接替了。后一笔自己会走完整条路，这一笔安静让路，不报错、不拿旧值去盖 IDB。
+        const SUPERSEDED = {};
         staged.then(ok => {
-          if (!ok) throw new Error("WAL read-back mismatch");
+          if (!ok) { if (_txtMirror().get(k) !== s) return SUPERSEDED; throw new Error("WAL read-back mismatch"); }
           return idbTxtPut(k, s).then(() => idbTxtGet(k));
         }).then(back => {
+          if (back === SUPERSEDED) return;
           const verifyWal = isDurableTextKey(k) ? walGetRaw(k) : Promise.resolve(s);
           return verifyWal.then(walBack => {
             if (back === s && (!needsLocalJournal || lsRaw.get(k) === s) && walBack === s) {

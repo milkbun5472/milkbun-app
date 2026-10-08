@@ -46,7 +46,7 @@ test("② 群成员表那一行跟着关系走，不只报户口", () => {
   // ⚠️v72.06 起它们读的是【外面那一层 npcGroupLine】（户口那一行 + 配角那四样），
   //   所以 npcRosterLine 本身只被调一次——四处共用这件事改由下面那条盯着。
   assert.equal((app.match(/npcRosterLine\(c, /g) || []).length, 1, "户口那一行只许有一个调用点（收在 npcGroupLine 里）");
-  assert.equal((app.match(/npcGroupLine\(c, /g) || []).length, 4, "四处少了一处：群线上 / 旁观群 / 群通话 / 群线下（递进 ctx 那一处）");
+  assert.equal((app.match(/npcGroupLine\(c, /g) || []).length, 5, "少了一处：群线上 / 旁观群 / 群通话 / 群线下（递进 ctx 那一处）/ 直播片刻多人那段（v75.018）");
   assert.match(app, /npcRoster: \(\(\) => \{/, "群线下那一路没把它递进 ctx");
   assert.match(engine, /\(ctx\.npcRoster && ctx\.npcRoster\[c\.id\]\) \? ctx\.npcRoster\[c\.id\]/);
 });

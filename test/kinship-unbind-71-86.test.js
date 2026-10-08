@@ -50,9 +50,9 @@ test("下一轮喂给模型时认得这件事", () => {
 });
 
 test("聊天里画得出这张卡", () => {
-  assert.ok(comps.includes('if (m.kind === "kinunbind") return h(KinshipUnbindCard'), "渲染没接上");
-  assert.ok(comps.includes("function KinshipUnbindCard({ m, character }) {"), "卡没写");
-  const i = comps.indexOf("function KinshipUnbindCard({ m, character }) {");
+  assert.ok(comps.includes('kinunbind: KinshipUnbindCard'), "渲染没接上");   // v75.019 改走 KIN_CARDS → cardRow
+  assert.ok(comps.includes("function KinshipUnbindCard({ m, character, inRow }) {"), "卡没写");
+  const i = comps.indexOf("function KinshipUnbindCard({ m, character, inRow }) {");
   const seg = comps.slice(i, i + 2200);
   assert.ok(/justify-end/.test(seg), "没摆在她那一侧——这是她按的一个键");
   assert.ok(/repeating-linear-gradient/.test(seg), "那一道颜色没断开，跟还能刷的卡看着一样");

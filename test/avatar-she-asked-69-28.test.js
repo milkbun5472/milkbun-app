@@ -20,7 +20,7 @@ const strip = t => t.split("\n").filter(l => !/^\s*(\/\/|\*|\/\*)/.test(l)).join
 
 // ── 「她开口要了没有」是公共那一份 ────────────────────────────
 test("askedRecently 抽成公共的，记账那处也搬过去了", () => {
-  const fi = app.indexOf("  const askedRecently = (history, re, turns) =>");
+  const fi = app.indexOf("  const askedRecently = (history, re, turns, stopAt) =>");
   const fj = app.indexOf("  const AVATAR_COOLDOWN_MS", fi);
   assert.ok(fi > 0 && fj > fi, "没有公共那一份");
   const askedRecently = new Function("return " + app.slice(fi, fj).replace("const askedRecently =", "").replace(/;\s*$/, ""))();
@@ -34,7 +34,7 @@ test("askedRecently 抽成公共的，记账那处也搬过去了", () => {
   assert.equal(askedRecently([], /头像/, 4), false);
   // 搬完原地不许留第二份
   assert.ok(!/const _askedRecord = \(function \(\) \{/.test(app), "记账那处的手写判据还留在原地");
-  assert.match(app, /const _askedRecord = askedRecently\(history, \//);
+  assert.match(app, /const _askedRecord = askedRecently\(_recRows, \//);   // v75.028 整份聊天（_recRows），碰到记录卡就停
 });
 
 // ── 她开口要：两道闸都让路 ────────────────────────────────

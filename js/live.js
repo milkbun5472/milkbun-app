@@ -1,0 +1,625 @@
+// ============================================================
+// 直播（live）—— 群友 2026-10-07 提的，她拍板「1c 2b」：
+//   · 两种都要：【看 TA 播】（TA 是主播，她进直播间）和【我来播】（她开播，她的人混在观众里）。
+//   · 弹幕是【背景】：屏幕上滚过去的路人弹幕只是氛围，不进上下文、TA 不回它们。
+//     TA 只理她、和几个有名有姓的常客（擂台 v60.41 那一课：网名刷屏＝借来的形状，没有活人）。
+// 看 TA 播：走 runProbe（voiceScene），料就是TA平时那一整份——播的时候TA还是TA。
+// 我来播：几个人一起看，一枪写完所有人的反应（每人一份短人设 + 最近几句聊天）。
+// 打赏走她的钱包；TA 们私下发来的消息落进各自的单聊。下播后记一条事实进记忆库。
+// 存 x_live（DURABLE_TEXT_KEYS，进 IDB）。
+// ============================================================
+(function () {
+  const KEY = "x_live";
+  const CAP = 40;             // 回放最多留几场
+  const LINES_CAP = 400;      // 一场里最多留几行
+  const CTX_LINES = 40;       // 每一拍给模型看最近几行
+  const LIVE_INK = "#f3eef7", LIVE_DIM = "rgba(243,238,247,.62)", LIVE_BG = "#141019", LIVE_RED = "#e2556b", LIVE_LINE = "rgba(255,255,255,.12)";
+
+  // 播什么：只给方向，不给答案。「TA 自己定」就一个字都不给。
+  const KINDS = [["free", "TA 自己定"], ["chat", "聊天"], ["game", "打游戏"], ["sing", "唱歌"], ["study", "陪学陪工作"], ["cook", "做饭吃饭"], ["outdoor", "户外"], ["sell", "带货"], ["spicy", "擦边"]];
+  const HOST_KINDS = KINDS.filter(k => k[0] !== "free" && k[0] !== "sell");
+  const GIFTS = [["小心心", 1], ["棒棒糖", 6], ["玫瑰", 20], ["告白气球", 99], ["跑车", 520], ["火箭", 1314]];
+  // 平台抽成（她 2026-10-08：「直播只有50%」）：打赏多少从送的人钱包里全额出，主播只拿到一半
+  const LIVE_CUT = 0.5;
+  const toHost = amount => Math.floor((Number(amount) || 0) * (1 - LIVE_CUT));
+  // 粉丝团：按【这个号】在这个主播直播间累计打赏的钱算（她 2026-10-08：「粉丝团等级按打赏的钱来」）
+  const FAN_LV = [1, 50, 200, 520, 1314, 3344, 5200, 13140, 33440, 52000];
+  const fanLevel = total => FAN_LV.filter(x => (Number(total) || 0) >= x).length;
+  const fanNext = total => FAN_LV.find(x => (Number(total) || 0) < x) || 0;
+  // 直播间里偶尔冒出来的事：本地掷，不花调用。只给「发生了什么」，怎么接是主播自己的事（bans-make-it-dumber：掷轴不掷答案）
+  const EVENTS = ["有人在弹幕里带节奏、阴阳怪气地骂你", "平台弹出一条提醒：直播内容被举报，请注意", "有人一直刷屏问你是不是有对象", "直播间突然涌进来一大波新人", "网络卡了一下，画面定住了几秒", "有个不认识的人刷了个大礼物，要你点他的名", "常客里有两个人在弹幕里吵起来了"];
+  const EVENT_P = 0.14;
+  // TA 自己开播（她 2026-10-08：「可以做本地算法吗，不看就不调用」）：
+  //   按「人 + 这一天」算出来，同一天永远同一个结果；只是一张时间表，她不点进去就一个字都不生成。
+  const hashOf = str => { let x = 2166136261; for (let i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); } return x >>> 0; };
+  const dayKey = d => d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+  const SLOT_KINDS = ["chat", "game", "sing", "study", "cook", "outdoor", "sell"];
+  function slotsOf(chars, at) {
+    const now = at instanceof Date ? at : new Date();
+    return arr(chars).map(c => {
+      const hs = hashOf(String(c.id) + "|" + dayKey(now));
+      if (hs % 100 >= 22) return null;               // 大概五天里播一回
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 19 + ((hs >>> 7) % 4), ((hs >>> 10) % 4) * 15).getTime();
+      const end = start + (60 + ((hs >>> 13) % 4) * 30) * 60000;
+      return { id: "slot_" + c.id + "_" + dayKey(now), charId: c.id, start, end, kind: SLOT_KINDS[(hs >>> 16) % SLOT_KINDS.length] };
+    }).filter(Boolean);
+  }
+
+  // 图标：一个镜头加两道往外走的信号
+  window.GLive = p => h(Svg, p,
+    h("rect", { x: 4, y: 8, width: 11, height: 9, rx: 2 }),
+    h("path", { d: "M15 11l4-2.4v7.8L15 14" }),
+    h("path", { d: "M7.5 5.2a6 6 0 0 1 4 0M6 3a9 9 0 0 1 7 0" }));
+
+  const S = v => String(v == null ? "" : v).trim();
+  const arr = v => Array.isArray(v) ? v : [];
+  const uid = p => p + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
+  const load = () => { try { const v = loadJSON(KEY, []); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
+  const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
+  // 外壳的底：顶上打下来一束暖红的灯，像演播间（不是平铺的米白）
+  const liveFloor = t => ({ background: "radial-gradient(130% 55% at 50% -12%,rgba(226,85,107,.16),rgba(226,85,107,0) 62%),repeating-linear-gradient(90deg,rgba(0,0,0,.018) 0 1px,transparent 1px 22px)," + t.bg });
+  const kindZh = k => (KINDS.find(x => x[0] === k) || [k, k])[1];
+
+  // 路人弹幕：只要几条短的字，一律不进下一拍的上下文
+  const normNoise = v => arr(v).map(S).filter(Boolean).map(x => x.slice(0, 30)).slice(0, 12);
+  const normChat = (v, names) => arr(v).map(x => x && typeof x === "object" ? { name: S(x.name).slice(0, 20), text: S(x.text).slice(0, 300) } : null)
+    .filter(x => x && x.name && x.text && (!names || names.indexOf(x.name) >= 0));
+  const normLines = v => (Array.isArray(v) ? v : (S(v) ? [S(v)] : [])).map(S).filter(Boolean).map(x => x.slice(0, 400)).slice(0, 10);
+
+  // 给模型看的那一段经过。⚠️路人弹幕不在里面——那是「2b」：只给眼睛看，不给TA看。
+  function transcript(ses) {
+    return arr(ses.lines).slice(-CTX_LINES).map(l => {
+      if (l.kind === "host") return (l.name || "主播") + "（主播）" + (l.act ? "【" + l.act + "】" : "") + "：" + l.text;
+      if (l.kind === "gift") return l.name + " 送出了「" + l.gift + "」×1（" + l.amount + " 元）";
+      if (l.kind === "enter" || l.kind === "event") return "〔" + l.text + "〕";
+      if (l.kind === "rival") return l.name + "（PK 对面的主播）：" + l.text;
+      if (l.kind === "me" && l.linked) return l.name + "（连麦中，在画面里开口说）：" + l.text;
+      return l.name + "（弹幕）：" + l.text;
+    }).join("\n");
+  }
+
+  // ── 看 TA 播 ────────────────────────────────────────────
+  function watchInstruction(ses, uName, first) {
+    const who = ses.as === "mask"
+      ? uName + "这次用的是一个马甲号「" + ses.maskName + "」进的直播间。你不知道这个号是她——除非她自己说破，或者她说的话让你认出来。"
+      : uName + "用的是自己的号进的直播间，名字就是「" + uName + "」，你一眼就知道是她。";
+    const kind = ses.kind && ses.kind !== "free" ? "这一场播的是：" + kindZh(ses.kind) + "。" : "这一场播什么由你自己定。";
+    const topic = S(ses.topic) ? "她希望看到的是：" + S(ses.topic) + "（要不要照这个播，看你这个人）。" : "";
+    const me = ses.as === "mask" ? "「" + ses.maskName + "」" : uName;
+    const facts = [];
+    if (first && ses.midway) facts.push("你这一场已经播了 " + ses.midway + " 分钟，" + me + "是半路进来的——前面发生过什么由你定，别从头再开一次场。");
+    if (ses.fanLv) facts.push(me + "在你直播间的粉丝团是 " + ses.fanLv + " 级（这个号在你这儿累计打赏过 " + (ses.fanTotal || 0) + " 元）。");
+    const board = Object.keys(ses.board || {}).map(k => [k, ses.board[k]]).sort((a, b) => b[1] - a[1]).slice(0, 4);
+    if (board.length) facts.push("这一场的打赏榜：" + board.map((x, i) => (i + 1) + ". " + x[0] + " " + x[1] + " 元").join("；") + "。");
+    facts.push("平台抽成一半：观众打赏多少，你实际到手一半。");
+    if (ses.mod) facts.push(me + "是你直播间的房管。" + (arr(ses.banned).length ? "被禁言、发不了弹幕的：" + ses.banned.join("、") + "。" : ""));
+    if (ses.linked) facts.push(me + "正在跟你连麦：她的声音和画面所有观众都看得到、听得到，她说的话是当着镜头说的。");
+    else if (ses.linkAsk) facts.push(me + "刚申请了跟你连麦。接不接看你这个人和你们的关系；写在 link（接就 true，不接 false）。");
+    if (ses.rival) facts.push("你正在跟另一个主播「" + ses.rival.host + "」连线 PK，两边观众比礼物，对面的画面和声音你这边也看得见。对面是这样一个人：\n" + ses.rival.brief + "\n对面这一拍说的话写在 rival.say（数组），对面观众这一拍刷的礼物总额写在 rival.gift（数字）。你俩什么关系，决定这是真打还是在演。");
+    if (ses.kind === "sell") facts.push("这是带货：你此刻手上在讲哪件商品写在 item（name 商品名、price 价格数字）；换了一件就写新的，还是这件就照旧写。");
+    if (ses.song) facts.push(me + "点了一首歌：《" + ses.song + "》。唱不唱、怎么唱看你。");
+    if (ses.event) facts.push("这一拍直播间里发生了：" + ses.event + "。怎么接看你。");
+    const base0 = "你在一个直播平台上有自己的直播间，此刻正在开播。你在平台上是个什么样的主播——主播名叫什么、平时播什么、粉丝是一群什么人、对着镜头和私下是不是一个样——都从你这个人身上长出来；设定里没写，就照你这个人真会怎么做来定。\n"
+      + kind + topic + "\n"
+      + "直播间里：" + who + "\n"
+      + "还有几个有名有姓的常客，各自带着对你的看法。屏幕上另有一大片路人弹幕滚过去，那些你看不清、也不必回。你说话的对象是镜头、是她、是这几个常客——挑着回，不必谁都回。"
+      + "\n常客们这一拍要是送了礼物，写在 gifts（name 常客网名、gift 礼物名、amount 金额数字；没人送就空）。你要是想让" + me + "当房管，mod 写 true（不想就不写）。";
+    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "");
+    if (first) return base + "\n\n现在刚开播。写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、你对着镜头说的话 say（数组，一个元素一句）、你此刻在镜头前做什么 act（一句，可以空）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍常客们发的弹幕 chat、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
+    return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
+      + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
+      + "\n\n接着往下播。写：你对着镜头说的话 say（数组）、你此刻在做什么 act（没变就照旧写）、这一拍常客们发的弹幕 chat（可以没有）、新滚过去的路人弹幕 noise、在线人数 viewers、你要不要下播 end（true/false；真想下播才下）。";
+  }
+  const WATCH_SHAPE_FIRST = '{"title":"","host":"","scene":"","say":["一句"],"act":"","regulars":[{"name":"","who":"","lean":""}],"chat":[{"name":"常客网名","text":""}],"gifts":[],"noise":["",""],"viewers":0}';
+  const WATCH_SHAPE = '{"say":["一句"],"act":"","chat":[{"name":"常客网名","text":""}],"gifts":[],"noise":["",""],"viewers":0,"end":false}';
+  // 这几样只在用得上的时候往形状里加，不然模型会觉得每拍都该填
+  const watchShape = (ses, first) => (first ? WATCH_SHAPE_FIRST : WATCH_SHAPE).replace(/\}$/, ""
+    + (ses.linkAsk && !ses.linked ? ',"link":false' : "") + (!ses.mod ? ',"mod":false' : "")
+    + (ses.rival ? ',"rival":{"say":[""],"gift":0}' : "") + (ses.kind === "sell" ? ',"item":{"name":"","price":0}' : "") + "}");
+
+  // ── 我来播 ──────────────────────────────────────────────
+  function hostInstruction(ses, uName, chars, briefs, first) {
+    const names = chars.map(c => c.name);
+    return AC() + CB()
+      + "【场景】" + uName + "开了一场直播。" + (ses.kind ? "她播的是：" + kindZh(ses.kind) + "。" : "") + (S(ses.title) ? "直播间标题：" + S(ses.title) + "。" : "")
+      + (S(ses.topic) ? "她自己说这一场：" + S(ses.topic) + "。" : "")
+      + "\n下面这几个人都认识她，此刻都在她的直播间里看着（她知道他们在）。直播间里还有一大片不认识的路人在刷弹幕。"
+      + "\n\n" + briefs.join("\n\n")
+      + "\n\n【刚才直播间里发生的】\n" + (transcript(ses) || "（刚开播）")
+      + "\n\n【这一次要写什么】" + (first ? "她刚开播。" : "她刚在镜头前说了、做了上面最后那几句。")
+      + "这几个人各自照自己的性子看她播：可以发弹幕（公开，所有人都看得见）、可以送礼物、可以私下给她发一条消息（只有她看得见，会落进你俩的聊天）、也可以什么都不做。谁跟她什么关系、此刻什么心情，决定他在别人面前怎么说、私下又怎么说。"
+      + "\n写：这几个人公开发的弹幕 chat（name 只能是：" + names.join("、") + "）、送的礼物 gifts（name、gift 礼物名、amount 金额数字；没人送就空）、私下发的消息 private（name、text；没有就空）、路人弹幕 noise（6~10 条，很短，只是氛围）、在线人数 viewers（数字）。";
+  }
+  const HOST_SHAPE = '{"chat":[{"name":"","text":""}],"gifts":[{"name":"","gift":"","amount":0}],"private":[{"name":"","text":""}],"noise":["",""],"viewers":0}';
+
+  // ── 弹幕飘过去的那一层（只给眼睛看）────────────────────────
+  let styleIn = false;
+  function ensureStyle() {
+    if (styleIn || typeof document === "undefined") return;
+    styleIn = true;
+    const st = document.createElement("style");
+    st.textContent = "@keyframes liveFly{from{transform:translateX(0)}to{transform:translateX(-160vw)}}";
+    document.head.appendChild(st);
+  }
+  function NoiseLayer({ noise, seed }) {
+    ensureStyle();
+    const list = arr(noise).slice(0, 10);
+    return h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" } },
+      list.map((t, i) => h("div", {
+        key: seed + "_" + i,
+        style: { position: "absolute", left: "100%", top: (8 + (i * 37) % 70) + "%", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12.5,
+          color: "rgba(255,255,255,.78)", textShadow: "0 1px 3px rgba(0,0,0,.6)",
+          animation: "liveFly " + (7 + (i % 4) * 1.6) + "s linear " + (i * 0.9) + "s 1 both" }
+      }, t)));
+  }
+
+  function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
+
+  // ── 直播间（两种共用一个房间）──────────────────────────
+  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom }) {
+    const [text, setText] = useState("");
+    const [giftOpen, setGiftOpen] = useState(false);
+    const [songOpen, setSongOpen] = useState(false);
+    const live = !readOnly && !ses.endTs;
+    const board = Object.keys(ses.board || {}).map(k => [k, ses.board[k]]).sort((a, b) => b[1] - a[1]);
+    const ours = board.reduce((n, x) => n + x[1], 0), theirs = Number(ses.rivalScore) || 0;
+    const tag = (txt, color) => h("span", { style: { display: "inline-block", fontFamily: F_BODY, fontSize: 10, color: color || LIVE_INK, border: "1px solid " + (color || LIVE_LINE), borderRadius: 6, padding: "1px 6px", marginLeft: 6, verticalAlign: "middle" } }, txt);
+    const listRef = useRef(null);
+    useEffect(function () { const el = listRef.current; if (el) el.scrollTop = el.scrollHeight; }, [arr(ses.lines).length, busy]);
+    const watching = ses.mode === "watch";
+    const host = watching ? chars.find(c => c.id === ses.charId) : null;
+    const uName = (profile && profile.name) || "我";
+    const lastHost = arr(ses.lines).filter(l => l.kind === (watching ? "host" : "me")).slice(-1)[0];
+    const lineEl = (l, i) => {
+      if (l.kind === "gift") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: "#f6c76b", padding: "3px 0" } }, l.name + " 送出了「" + l.gift + "」 ¥" + l.amount);
+      if (l.kind === "enter") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "3px 0" } }, l.text);
+      if (l.kind === "event") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: "#f6c76b", padding: "4px 0", opacity: .9 } }, "〔" + l.text + "〕");
+      if (l.kind === "private") return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, color: "#cdbdf0", padding: "4px 0" } }, "私信 · " + l.name + "：" + l.text);
+      const isHost = l.kind === "host";
+      const mine = l.kind === "me";
+      return h("div", { key: i, style: { padding: "4px 0", fontFamily: F_BODY, fontSize: isHost ? 14 : 13, lineHeight: 1.55, color: LIVE_INK } },
+        h("span", { style: { color: isHost ? LIVE_RED : l.kind === "rival" ? "#7fd6c2" : mine ? "#9fd2ff" : "#d6c7ff", marginRight: 6 } }, (isHost ? "主播 " : l.kind === "rival" ? "对面 " : mine && l.linked ? "连麦 " : "") + l.name),
+        mine && watching && ses.fanLv ? tag("粉丝团 " + ses.fanLv, "#f6c76b") : null,
+        l.kind === "reg" && ses.mod && live && onBan && arr(ses.banned).indexOf(l.name) < 0 ? h("button", { onClick: () => onBan(l.name), className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, minHeight: 24, padding: "0 4px" } }, "禁言") : null,
+        l.act ? h("span", { style: { color: LIVE_DIM, marginRight: 4 } }, "（" + l.act + "）") : null,
+        l.text);
+    };
+    const send = () => { const v = text.trim(); if (!v || busy) return; setText(""); onSay(v); };
+    const stageTitle = watching ? (ses.host || (host && host.name) || "主播") : uName;
+    return h("div", { className: "h-full flex flex-col", style: { background: LIVE_BG, position: "relative" } },
+      h(Head, { zh: S(ses.title) || "直播间", sub: (ses.endTs ? "已下播" : "直播中") + " · " + (Number(ses.viewers) || 0) + " 人在看", bg: "transparent", ink: LIVE_INK, onBack: onBack,
+        right: (ses.endTs || readOnly) ? (onShare ? h("button", { onClick: onShare, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_INK, padding: "0 6px", minHeight: 40 } }, "发给 TA") : null) : (!readOnly && !ses.endTs) ? h("button", { onClick: onEnd, disabled: !!busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_RED, padding: "0 6px", minHeight: 40 } }, watching ? "离开" : "下播") : null }),
+      // 镜头那一块：主播（或她自己）此刻的样子＋刚说的那句；路人弹幕从这儿飘过去
+      h("div", { className: "shrink-0", style: { position: "relative", height: 210, margin: "0 12px", borderRadius: 16, overflow: "hidden",
+        background: "radial-gradient(120% 90% at 30% 20%,rgba(226,85,107,.28),rgba(80,60,120,.25) 55%,rgba(20,16,25,1))", border: "1px solid " + LIVE_LINE } },
+        h("div", { style: { position: "absolute", left: 14, top: 12, display: "flex", alignItems: "center", gap: 8 } },
+          watching && host ? h(Avatar, { character: host, size: 34 }) : null,
+          h("div", null,
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: LIVE_INK } }, stageTitle),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM } }, ses.endTs ? "已下播" : h(Fragment, null, h(GlyphDot), "直播中")))),
+        h("div", { style: { position: "absolute", left: 14, right: 14, bottom: 12 } },
+          S(ses.scene) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, marginBottom: 6 } }, ses.scene) : null,
+          lastHost ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.6, color: LIVE_INK, textShadow: "0 1px 4px rgba(0,0,0,.5)", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+            (lastHost.act ? "（" + lastHost.act + "）" : "") + lastHost.text) : null),
+        ses.endTs ? null : h(NoiseLayer, { noise: ses.noise, seed: ses.noiseSeed || 0 }),
+        // PK：两边比礼物，一根条子从中间往两头挤
+        watching && ses.rival ? h("div", { style: { position: "absolute", left: 14, right: 14, top: 58 } },
+          h("div", { style: { display: "flex", height: 6, borderRadius: 3, overflow: "hidden", background: "rgba(255,255,255,.1)" } },
+            h("div", { style: { width: ((ours + 1) / (ours + theirs + 2) * 100) + "%", background: LIVE_RED } }),
+            h("div", { style: { flex: 1, background: "#7fd6c2" } })),
+          h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 10, color: LIVE_DIM, marginTop: 2 } },
+            h("span", null, "我方 " + ours), h("span", null, "对面 " + ses.rival.host + " " + theirs))) : null),
+      // 舞台下面一条小字：我的粉丝团、这一场榜一、房管、连麦——不压在画面上
+      watching && (ses.fanLv || board.length || ses.mod || (ses.linked && live)) ? h("div", { className: "shrink-0 flex flex-wrap items-center", style: { margin: "8px 14px 0", gap: "4px 12px", fontFamily: F_BODY, fontSize: 11 } },
+        ses.fanLv ? h("span", { style: { color: "#f6c76b" } }, "我的粉丝团 " + ses.fanLv + " 级" + (fanNext(ses.fanTotal) ? "（再 " + (fanNext(ses.fanTotal) - (ses.fanTotal || 0)) + " 元升级）" : "")) : null,
+        board.length ? h("span", { style: { color: LIVE_INK } }, "榜一 " + board[0][0] + " ¥" + board[0][1]) : null,
+        ses.mod ? h("span", { style: { color: "#9fd2ff" } }, "你是房管") : null,
+        ses.linked && live ? h("span", { style: { color: "#9fd2ff" } }, "● 连麦中") : null) : null,
+      // 带货：手上正在讲的那件，能买同款（订单进购物）
+      watching && ses.item ? h("div", { className: "shrink-0 flex items-center", style: { margin: "8px 12px 0", padding: "8px 12px", borderRadius: 12, background: "rgba(255,255,255,.06)", border: "1px solid " + LIVE_LINE, gap: 10 } },
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "正在讲：" + ses.item.name),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: "#f6c76b" } }, "¥" + ses.item.price),
+        live && onBuy ? h("button", { onClick: () => onBuy(ses.item), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, background: LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "买同款") : null) : null,
+      h("div", { ref: listRef, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingTop: 10, paddingBottom: 8 } },
+        arr(ses.lines).map(lineEl),
+        busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "6px 0" } }, watching ? "……" : "大家在看……") : null),
+      (readOnly || ses.endTs) ? null : h("div", { className: "shrink-0 px-3", style: { paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + LIVE_LINE } },
+        giftOpen && watching ? h(GiftPanel, { custom: customGifts, busy, onSend: (g, a) => { setGiftOpen(false); onGift(g, a); }, onSaveCustom, onDropCustom }) : null,
+        songOpen && onSong ? h("div", { style: { maxHeight: 150, overflowY: "auto", marginBottom: 8, borderRadius: 12, border: "1px solid " + LIVE_LINE } },
+          arr(songs).length ? songs.map(t2 => h("button", { key: t2, disabled: !!busy, onClick: () => { setSongOpen(false); onSong(t2); }, className: "w-full text-left active:opacity-60", style: { display: "block", minHeight: 38, padding: "0 12px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 12.5, borderBottom: "1px solid " + LIVE_LINE } }, "《" + t2 + "》"))
+            : h("div", { style: { padding: 12, fontFamily: F_BODY, fontSize: 12, color: LIVE_DIM } }, "一起听里还没有歌")) : null,
+        watching ? h("div", { className: "flex", style: { gap: 8, marginBottom: 8 } },
+          ses.linked ? h("button", { onClick: onUnlink, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: "#9fd2ff", fontFamily: F_BODY, fontSize: 12 } }, "下麦")
+            : h("button", { onClick: onLink, disabled: !!busy || ses.linkAsk, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12, opacity: ses.linkAsk ? .5 : 1 } }, ses.linkAsk ? "等 TA 接连麦…" : "申请连麦"),
+          ses.kind === "sing" && onSong ? h("button", { onClick: () => setSongOpen(v => !v), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "点歌") : null) : null,
+        h("div", { className: "flex items-end", style: { gap: 8 } },
+          watching ? h("button", { onClick: () => setGiftOpen(v => !v), "aria-label": "送礼物", className: "active:opacity-60 shrink-0",
+            style: { width: 42, height: 42, borderRadius: 12, border: "1px solid " + LIVE_LINE, color: "#f6c76b", fontFamily: F_BODY, fontSize: 12 } }, "礼物") : null,
+          h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1,
+            placeholder: watching ? (ses.linked ? "连麦中，直接说" : ses.as === "mask" ? "用「" + ses.maskName + "」发条弹幕" : "发条弹幕") : "对着镜头说点什么，或写你在做什么",
+            className: "flex-1 outline-none resize-none",
+            style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.34)", color: LIVE_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
+          h("button", { onClick: send, disabled: !!busy || !text.trim(), className: "active:opacity-70 shrink-0",
+            style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.08)" : LIVE_RED, color: (busy || !text.trim()) ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发送"))));
+  }
+
+  // ── 礼物面板（她 2026-10-08：「礼物也是胶囊，而且不能自定义」）──────────
+  //   照直播 app 真的礼物栏来：一格一样东西，上面一个小图、下面名字和价钱；点一格选中（抬起来、描红边），底下「送出」。
+  //   最后一格「自定义」：自己起名字、定金额，勾「存成常用」就留在栏里（右上角 × 删掉）。
+  const GIFT_ICON = {
+    "小心心": c => h("path", { fill: c, d: "M12 20s-7-4.4-7-9.6A4 4 0 0 1 12 8a4 4 0 0 1 7 2.4C19 15.6 12 20 12 20z" }),
+    "棒棒糖": c => [h("circle", { key: 1, cx: 12, cy: 9, r: 5.5 }), h("path", { key: 2, d: "M12 14.5V21M9 9a3 3 0 0 1 6 0" })],
+    "玫瑰": c => [h("path", { key: 1, d: "M12 13c-3 0-5-2-5-5 2 0 3 .5 5 2 2-1.5 3-2 5-2 0 3-2 5-5 5zM12 13v8M12 17c-2 0-3-1-4-2" })],
+    "告白气球": c => [h("path", { key: 1, d: "M12 3c3.3 0 5.5 2.6 5.5 5.6S15 15 12 15s-5.5-3.4-5.5-6.4S8.7 3 12 3z" }), h("path", { key: 2, d: "M12 15l-1 2h2l-1 2v2" })],
+    "跑车": c => [h("path", { key: 1, d: "M3 15l2-4.5h9l4 3 3 .5v3H3z" }), h("circle", { key: 2, cx: 7, cy: 17.5, r: 1.8 }), h("circle", { key: 3, cx: 17, cy: 17.5, r: 1.8 })],
+    "火箭": c => [h("path", { key: 1, d: "M12 3c3 2.5 4 6 4 10l-4 3-4-3c0-4 1-7.5 4-10zM8 13l-3 3 3 1M16 13l3 3-3 1M11 19.5l1 2 1-2" }), h("circle", { key: 2, cx: 12, cy: 9.5, r: 1.6 })]
+  };
+  const giftIcon = (name, c) => h(Svg, { size: 26, color: c, sw: 1.6 }, (GIFT_ICON[name] || (cc => [h("rect", { key: 1, x: 4, y: 9, width: 16, height: 11, rx: 1.5 }), h("path", { key: 2, d: "M3 9h18v-2.5H3zM12 6.5V20M12 6.5c-1.5-3-5-3-5-1s3 1 5 1c1.5-3 5-3 5-1s-3 1-5 1" })]))(c));
+  function GiftPanel({ custom, busy, onSend, onSaveCustom, onDropCustom }) {
+    const [pick, setPick] = useState(null);       // [名字, 金额]
+    const [making, setMaking] = useState(false);
+    const [nm, setNm] = useState(""), [amt, setAmt] = useState(""), [keep, setKeep] = useState(true);
+    const all = GIFTS.concat(arr(custom).map(g => [g.name, g.amount, true]));
+    const cell = (g, i) => { const on = pick && pick[0] === g[0] && pick[1] === g[1];
+      return h("div", { key: g[0] + "_" + i, style: { position: "relative" } },
+        h("button", { onClick: () => { setPick(g); setMaking(false); }, className: "w-full active:opacity-70 flex flex-col items-center",
+          style: { padding: "8px 2px 6px", borderRadius: 12, minHeight: 74, border: "1px solid " + (on ? LIVE_RED : "transparent"), background: on ? "rgba(226,85,107,.14)" : "transparent", transform: on ? "translateY(-2px)" : "none" } },
+          giftIcon(g[0], on ? LIVE_RED : "#f6c76b"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_INK, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g[0]),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: LIVE_DIM } }, "¥" + g[1])),
+        g[2] ? h("button", { onClick: () => { onDropCustom(g[0], g[1]); if (on) setPick(null); }, "aria-label": "删掉这个礼物", className: "active:opacity-60", style: { position: "absolute", right: 0, top: 0, width: 26, height: 26, color: LIVE_DIM, fontSize: 13 } }, "×") : null); };
+    const custOk = S(nm) && Number(amt) > 0;
+    return h("div", { style: { marginBottom: 8, padding: "8px 6px", borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid " + LIVE_LINE } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 4, maxHeight: 180, overflowY: "auto" } },
+        all.map(cell),
+        h("button", { key: "mk", onClick: () => { setMaking(m => !m); setPick(null); }, className: "active:opacity-70 flex flex-col items-center",
+          style: { padding: "8px 2px 6px", borderRadius: 12, minHeight: 74, border: "1px dashed " + (making ? LIVE_RED : LIVE_LINE) } },
+          h("span", { style: { fontSize: 22, lineHeight: "26px", color: LIVE_DIM } }, "＋"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_INK, marginTop: 4 } }, "自定义"))),
+      making ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 8, flexWrap: "wrap" } },
+        h("input", { value: nm, onChange: e => setNm(e.target.value), placeholder: "送什么", style: { flex: "1 1 90px", minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.3)", color: LIVE_INK, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
+        h("input", { value: amt, onChange: e => setAmt(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "多少钱", style: { width: 84, minHeight: 38, borderRadius: 10, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.3)", color: LIVE_INK, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
+        h("button", { onClick: () => setKeep(k => !k), className: "active:opacity-60", style: { minHeight: 38, padding: "0 4px", color: keep ? LIVE_INK : LIVE_DIM, fontFamily: F_BODY, fontSize: 11.5 } }, (keep ? "☑" : "☐") + " 存成常用")) : null,
+      h("div", { className: "flex items-center", style: { marginTop: 8, gap: 8 } },
+        h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM } }, making ? (custOk ? "「" + S(nm) + "」¥" + Number(amt) : "起个名字、填个金额") : pick ? "「" + pick[0] + "」¥" + pick[1] : "挑一样"),
+        h("button", { disabled: !!busy || (making ? !custOk : !pick), onClick: () => {
+            if (making) { const g = [S(nm).slice(0, 12), Math.min(999999, Math.round(Number(amt)))]; if (keep && onSaveCustom) onSaveCustom(g[0], g[1]); setNm(""); setAmt(""); setMaking(false); onSend(g[0], g[1]); return; }
+            onSend(pick[0], pick[1]); },
+          className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 18px", borderRadius: 10, background: (busy || (making ? !custOk : !pick)) ? "rgba(255,255,255,.08)" : LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 13 } }, "送出")));
+  }
+
+  // ── 开播前那一页 ────────────────────────────────────────
+  function Setup({ mode, characters, maskName, t, onStart, onBack }) {
+    const watching = mode === "watch";
+    const [pick, setPick] = useState(watching ? ((characters[0] || {}).id || null) : characters.slice(0, 3).map(c => c.id));
+    const [kind, setKind] = useState(watching ? "free" : "chat");
+    const [topic, setTopic] = useState("");
+    const [title, setTitle] = useState("");
+    const [as, setAs] = useState("me");
+    const [rival, setRival] = useState(null);   // 看 TA 播时可以让TA跟另一个人连线 PK
+    const toggle = id => setPick(p => watching ? id : (p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.concat([id]).slice(0, 5)));
+    const on = id => watching ? pick === id : pick.indexOf(id) >= 0;
+    const ok = watching ? !!pick : pick.length > 0;
+    const label = s => h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "18px 0 8px" } }, s);
+    const chip = (on2, txt, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60",
+      style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (on2 ? t.ink : t.line), background: on2 ? t.ink : "transparent", color: on2 ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, txt);
+    return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
+      h(Head, { zh: watching ? "去看 TA 播" : "我来开播", onBack: onBack, bg: "transparent", ink: t.__pal ? t.ink : undefined }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+        label(watching ? "看谁播" : "谁在直播间里看着（最多五个）"),
+        h("div", { className: "flex flex-wrap", style: { gap: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 58, opacity: on(c.id) ? 1 : 0.45 } },
+          h("div", { style: { borderRadius: 999, padding: 2, border: "2px solid " + (on(c.id) ? LIVE_RED : "transparent") } }, h(Avatar, { character: c, size: 46 })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))),
+        label(watching ? "播什么" : "你播什么"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } }, (watching ? KINDS : HOST_KINDS).map(k => chip(kind === k[0], k[1], () => setKind(k[0]), k[0]))),
+        !watching ? label("直播间标题") : null,
+        !watching ? h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "不写也行", className: "w-full outline-none",
+          style: { minHeight: 42, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "0 13px", fontFamily: F_BODY, fontSize: 13.5 } }) : null,
+        label(watching ? "想看什么（不写就随 TA）" : "这一场你打算干嘛（不写也行）"),
+        h("textarea", { value: topic, onChange: e => setTopic(e.target.value), rows: 2, className: "w-full outline-none resize-none",
+          style: { borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
+        watching ? label("用哪个号进去") : null,
+        watching ? h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+          chip(as === "me", "自己的号（TA 知道是你）", () => setAs("me"), "me"),
+          chip(as === "mask", "马甲「" + (maskName || "路过的") + "」（TA 不知道）", () => setAs("mask"), "mask")) : null,
+        watching && characters.length > 1 ? label("跟谁连线 PK（不选就不 PK）") : null,
+        watching && characters.length > 1 ? h("div", { className: "flex flex-wrap", style: { gap: 8 } },
+          chip(!rival, "不 PK", () => setRival(null), "none"),
+          characters.filter(c => c.id !== pick).map(c => chip(rival === c.id, c.remark || c.name, () => setRival(c.id), c.id))) : null,
+        h("button", { disabled: !ok, onClick: () => onStart({ mode, charId: watching ? pick : null, charIds: watching ? [pick] : pick, kind, topic: topic.trim(), title: title.trim(), as, maskName: maskName || "路过的", rivalId: watching && rival !== pick ? rival : null }),
+          className: "w-full active:opacity-80", style: { marginTop: 26, minHeight: 48, borderRadius: 14, background: ok ? LIVE_RED : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } },
+          watching ? "进直播间" : "开播")));
+  }
+
+  // ── 入口 ───────────────────────────────────────────────
+  function LiveApp(props) {
+    // 嵌在片刻里时跟着片刻那套皮走（她 2026-10-07：直播那一格还是米白底，跟黑底／白粉都不搭）
+    const t0 = useTheme();
+    const t = props.pal ? Object.assign({}, t0, props.pal, { __pal: true }) : t0;
+    const { characters, profile, toast } = props;
+    const [list, setList] = useState(load);
+    const [view, setView] = useState(props.startView || "home");   // home | setup:watch | setup:host | room
+    // 嵌在刷刷里当一格时（v74.99x）：落地页不摆返回键，底栏就是出口；从「＋ → 开播」进来直接落在开播那一页
+    const [curId, setCurId] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [shareTo, setShareTo] = useState(null);   // 发给谁：开过小房间的人，再挑主聊天还是哪一间
+    const roomsOf = c => (window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []);
+    const listRef = useRef(list); listRef.current = list;
+    const uName = (profile && profile.name) || "我";
+    const save = next => { const n = next.slice(0, CAP); listRef.current = n; setList(n); saveJSON(KEY, n); };
+    const patch = (id, fn) => save(listRef.current.map(s => s.id === id ? fn(s) : s));
+    const get = id => listRef.current.find(s => s.id === id);
+    const charsOf = ses => (ses.charIds || [ses.charId]).map(id => characters.find(c => c.id === id)).filter(Boolean);
+    const cur = curId ? list.find(s => s.id === curId) : null;
+    const fanTotalOf = (charId, as, maskName) => listRef.current.filter(s => s.mode === "watch" && s.charId === charId && (s.as || "me") === (as || "me") && (as !== "mask" || s.maskName === maskName))
+      .reduce((n, s) => n + arr(s.lines).filter(l => l.kind === "gift" && l.mine).reduce((m, l) => m + (Number(l.amount) || 0), 0), 0);
+
+    // 一拍：看 TA 播
+    const stepWatch = async (id, first) => {
+      let ses = get(id); const char = ses && characters.find(c => c.id === ses.charId);
+      if (!ses || !char) return;
+      // 突发：本地掷，这一拍才有；写进经过里，回放看得见
+      if (!first && !ses.event && Math.random() < EVENT_P) {
+        const ev = EVENTS[Math.floor(Math.random() * EVENTS.length)];
+        patch(id, s => ({ ...s, event: ev, lines: arr(s.lines).concat([{ kind: "event", text: ev, ts: Date.now() }]).slice(-LINES_CAP) }));
+        ses = get(id);
+      }
+      setBusy(true);
+      try {
+        const d = await props.probeAs(char, watchInstruction(ses, uName, first), watchShape(ses, first)) || {};
+        const regs = first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : ses.regulars;
+        const hostName = first ? (S(d.host).slice(0, 20) || char.name) : ses.host;
+        const say = normLines(d.say);
+        if (!say.length && !normChat(d.chat).length) { toast("这一拍没播出来，再发一次试试"); return; }
+        const act = S(d.act).slice(0, 120);
+        const regNames = arr(regs).map(r => r.name).filter(n => arr(ses.banned).indexOf(n) < 0);
+        // 常客送的礼物：只上榜、不动谁的钱包（他们是这场里才有的人）
+        const regGifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
+          .filter(g => g && regNames.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 4);
+        const nm = ses.as === "mask" ? ses.maskName : uName;
+        const rv = ses.rival && d.rival && typeof d.rival === "object" ? d.rival : null;
+        const linkNow = ses.linkAsk && !ses.linked ? d.link === true : null;
+        const item = ses.kind === "sell" && d.item && S(d.item.name) ? { name: S(d.item.name).slice(0, 40), price: Math.max(1, Math.min(100000, Math.round(Number(d.item.price) || 0))) } : null;
+        const add = say.map((x, i) => ({ kind: "host", name: hostName, text: x, act: i === 0 ? act : "", ts: Date.now() }))
+          .concat(rv ? normLines(rv.say).slice(0, 4).map(x => ({ kind: "rival", name: ses.rival.host, text: x, ts: Date.now() })) : [])
+          .concat(normChat(d.chat, regNames).map(x => ({ kind: "reg", name: x.name, text: x.text, ts: Date.now() })))
+          .concat(regGifts.map(g => ({ kind: "gift", name: g.name, gift: g.gift, amount: g.amount, ts: Date.now() })))
+          .concat(linkNow === true ? [{ kind: "event", text: hostName + " 接了连麦，" + nm + " 上麦了", ts: Date.now() }] : linkNow === false ? [{ kind: "event", text: hostName + " 没接 " + nm + " 的连麦", ts: Date.now() }] : [])
+          .concat(!ses.mod && d.mod === true ? [{ kind: "event", text: hostName + " 把 " + nm + " 设成了房管", ts: Date.now() }] : []);
+        patch(id, s => ({ ...s,
+          board: regGifts.reduce((b, g) => Object.assign({}, b, { [g.name]: (b[g.name] || 0) + g.amount }), s.board || {}),
+          rivalScore: (s.rivalScore || 0) + (rv ? Math.max(0, Math.min(100000, Math.round(Number(rv.gift) || 0))) : 0),
+          linked: linkNow === true ? true : s.linked, linkAsk: linkNow === null ? s.linkAsk : false,
+          mod: s.mod || d.mod === true, item: item || s.item, event: "", song: "",
+          title: first ? (S(d.title).slice(0, 40) || s.title || char.name + "的直播间") : s.title,
+          host: hostName, scene: first ? S(d.scene).slice(0, 200) : s.scene, regulars: regs,
+          lines: arr(s.lines).concat(add).slice(-LINES_CAP),
+          noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
+          viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)),
+          endTs: (!first && d.end === true) ? Date.now() : s.endTs }));
+        if (!first && d.end === true) wrapUp(id);
+      } catch (e) { toast("直播间没连上：" + ((e && e.message) || "再试一次")); }
+      finally { setBusy(false); }
+    };
+    // 一拍：我来播
+    const stepHost = async (id, first) => {
+      const ses = get(id); if (!ses) return;
+      const chars = charsOf(ses); if (!chars.length) return;
+      setBusy(true);
+      try {
+        const d = await props.probeMany(chars, hostInstruction(ses, uName, chars, chars.map(props.briefFor), first), HOST_SHAPE) || {};
+        const names = chars.map(c => c.name);
+        const chat = normChat(d.chat, names);
+        const gifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
+          .filter(g => g && names.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 5);
+        const priv = normChat(d.private, names).slice(0, 5);
+        const add = chat.map(x => ({ kind: "char", name: x.name, text: x.text, ts: Date.now() }))
+          .concat(gifts.map(g => ({ kind: "gift", name: g.name, gift: g.gift, amount: g.amount, ts: Date.now() })))
+          .concat(priv.map(x => ({ kind: "private", name: x.name, text: x.text, ts: Date.now() })));
+        gifts.forEach(g => {
+          props.pay(toHost(g.amount), "直播收到打赏 · " + g.name + " 的「" + g.gift + "」（平台抽走一半）");
+          // 送礼的钱是从TA自己钱包里出的（v75.010 补上：原来只进了她的钱包，TA那边没扣）
+          const gc = chars.find(c => c.name === g.name);
+          if (gc && props.charPay) props.charPay(gc.id, -g.amount, "直播打赏 · 送了「" + g.gift + "」");
+        });
+        priv.forEach(x => { const c = chars.find(cc => cc.name === x.name); if (c) props.onPrivate(c.id, x.text); });
+        patch(id, s => ({ ...s, lines: arr(s.lines).concat(add).slice(-LINES_CAP), noise: normNoise(d.noise), noiseSeed: (s.noiseSeed || 0) + 1,
+          viewers: Math.max(1, Math.round(Number(d.viewers) || s.viewers || 1)) }));
+      } catch (e) { toast("直播间没连上：" + ((e && e.message) || "再试一次")); }
+      finally { setBusy(false); }
+    };
+    // 下播：记一条事实进记忆库（不额外调模型）
+    const wrapUp = id => {
+      const s = get(id); if (!s) return;
+      const chars = charsOf(s); if (!chars.length) return;
+      const mine = arr(s.lines).filter(l => l.kind === "me").length;
+      const spent = arr(s.lines).filter(l => l.kind === "gift" && l.mine).reduce((n, l) => n + (Number(l.amount) || 0), 0);
+      let text;
+      if (s.mode === "watch") {
+        const c = chars[0];
+        text = s.as === "mask"
+          ? c.name + "开了一场直播《" + (s.title || "") + "》。直播间里有个叫「" + s.maskName + "」的观众" + (mine ? "发了 " + mine + " 条弹幕" : "一直在看") + (spent ? "，还打赏了 " + spent + " 元" : "") + "。" + c.name + "不知道那是谁。"
+          : c.name + "开了一场直播《" + (s.title || "") + "》，" + uName + "用自己的号来看了" + (mine ? "，发了 " + mine + " 条弹幕" : "") + (spent ? "，打赏了 " + spent + " 元" : "") + "。";
+        if (s.linked || arr(s.lines).some(l => l.kind === "me" && l.linked)) text += (s.as === "mask" ? "那个观众还跟" + c.name + "连了麦。" : uName + "还跟" + c.name + "连了麦，当着观众说了话。");
+        if (s.rival) text += "这一场" + c.name + "跟「" + s.rival.host + "」连线 PK 了。";
+        if (s.mod && s.as !== "mask") text += c.name + "让" + uName + "当了直播间的房管。";
+        props.remember([c.id], text);
+        if (s.rival) props.remember([s.rival.charId], s.rival.host + "跟" + (s.host || c.name) + "（" + c.name + "）连线 PK 了一场直播。");
+        // 切片（她 2026-10-08）：路人把这场剪成一条视频发到片刻，原话照搬，不花调用
+        const said = arr(s.lines).filter(l => l.kind === "host").map(l => l.text);
+        if (said.length >= 4 && props.onClip) {
+          const pick = Array.from(new Set(said)).slice(Math.max(0, Math.floor(new Set(said).size / 2) - 1)).slice(0, 3);
+          const clipper = (arr(s.regulars)[0] || {}).name || "路过的切片君";
+          props.onClip({ scene: "直播切片：" + (s.host || c.name) + "在直播间里说「" + pick.join("」「") + "」", caption: "《" + (s.title || "") + "》名场面", tags: ["直播切片", s.host || c.name], author: clipper + "的切片", charId: c.id });
+        }
+      } else {
+        const said = arr(s.lines).filter(l => l.kind === "char");
+        chars.forEach(c => {
+          const own = said.filter(l => l.name === c.name).slice(-1)[0];
+          props.remember([c.id], uName + "开了一场直播" + (s.title ? "《" + s.title + "》" : "") + "，" + c.name + "在直播间里看着" + (own ? "，在弹幕里说过「" + own.text.slice(0, 60) + "」" : "") + "。");
+        });
+      }
+    };
+
+    const start = cfg => {
+      const ses = { id: uid("live"), mode: cfg.mode, charId: cfg.charId, charIds: cfg.charIds, kind: cfg.kind, topic: cfg.topic, title: cfg.title,
+        as: cfg.as, maskName: cfg.maskName, lines: [], noise: [], viewers: 0, startTs: Date.now(), endTs: 0, board: {}, slotId: cfg.slotId || "", midway: cfg.midway || 0 };
+      if (cfg.mode === "watch") {
+        ses.fanTotal = fanTotalOf(cfg.charId, cfg.as, cfg.maskName); ses.fanLv = fanLevel(ses.fanTotal);
+        const rc = cfg.rivalId ? characters.find(c => c.id === cfg.rivalId) : null;
+        if (rc && rc.id !== cfg.charId) ses.rival = { charId: rc.id, host: rc.name, brief: "【" + rc.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(rc.persona, 3000) : String(rc.persona || "").slice(0, 3000)) };
+        // ⚠️不用 briefFor：那份里有「你自己住在…」这种写给本人看的第二人称，主播读到会当成在说自己
+      }
+      if (cfg.mode === "watch") ses.lines.push({ kind: "enter", text: (cfg.as === "mask" ? cfg.maskName : uName) + " 进入了直播间", ts: Date.now() });
+      save([ses].concat(listRef.current));
+      setCurId(ses.id); setView("room");
+      if (cfg.mode === "watch") stepWatch(ses.id, true); else stepHost(ses.id, true);
+    };
+    const say = v => {
+      const s = get(curId); if (!s) return;
+      const name = s.mode === "watch" ? (s.as === "mask" ? s.maskName : uName) : uName;
+      patch(curId, x => ({ ...x, lines: arr(x.lines).concat([{ kind: "me", name, text: v, linked: !!x.linked, ts: Date.now() }]).slice(-LINES_CAP) }));
+      if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false);
+    };
+    // 看 TA 播时的几样动作：都只是给下一拍添一件事实，下一拍跟着她下一句（或这一下）一起走
+    const addEvent = (fn, text, go) => { patch(curId, x => Object.assign({}, fn(x), { lines: arr(x.lines).concat([{ kind: "event", text, ts: Date.now() }]).slice(-LINES_CAP) })); if (go) stepWatch(curId, false); };
+    const askLink = () => { const s = get(curId); if (!s || s.linked || s.linkAsk) return; addEvent(x => ({ ...x, linkAsk: true }), (s.as === "mask" ? s.maskName : uName) + " 申请了连麦", true); };
+    const meName = () => { const s = get(curId) || {}; return s.as === "mask" ? s.maskName : uName; };
+    const unlink = () => addEvent(x => ({ ...x, linked: false, linkAsk: false }), meName() + " 下麦了", false);
+    const ban = n => addEvent(x => ({ ...x, banned: arr(x.banned).concat([n]) }), n + " 被房管禁言了", false);
+    const pickSong = t2 => addEvent(x => ({ ...x, song: t2 }), (get(curId).as === "mask" ? get(curId).maskName : uName) + " 点了一首《" + t2 + "》", true);
+    const buy = item => {
+      const s = get(curId); if (!s || !item || !props.buy) return;
+      if (typeof props.wallet === "number" && props.wallet < item.price) { toast("钱包余额不够"); return; }
+      props.buy(item, s.host || "主播");
+      addEvent(x => x, meName() + " 在直播间下单了「" + item.name + "」", false);
+    };
+    const gift = (g, amount) => {
+      const s = get(curId); if (!s) return;
+      if (typeof props.wallet === "number" && props.wallet < amount) { toast("钱包余额不够"); return; }
+      const name = s.as === "mask" ? s.maskName : uName;
+      props.pay(-amount, "直播打赏 · " + (s.host || "主播") + "「" + g + "」");
+      // 主播只到手一半（平台抽成）
+      if (props.charPay && s.charId) props.charPay(s.charId, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
+      const before = fanLevel(s.fanTotal || 0), total = (s.fanTotal || 0) + amount, after = fanLevel(total);
+      patch(curId, x => ({ ...x, fanTotal: total, fanLv: after, board: Object.assign({}, x.board, { [name]: ((x.board || {})[name] || 0) + amount }),
+        lines: arr(x.lines).concat([{ kind: "gift", mine: true, name, gift: g, amount, ts: Date.now() }])
+          .concat(after > before ? [{ kind: "event", text: name + " 的粉丝团升到了 " + after + " 级", ts: Date.now() }] : []).slice(-LINES_CAP) }));
+      stepWatch(curId, false);
+    };
+    const end = () => {
+      const s = get(curId); if (!s || s.endTs) return;
+      patch(curId, x => ({ ...x, endTs: Date.now(), linked: false, linkAsk: false }));
+      wrapUp(curId);
+      toast(s.mode === "watch" ? "离开了直播间" : "下播了");
+    };
+
+    if (view === "setup:watch" || view === "setup:host")
+      return h(Setup, { mode: view === "setup:watch" ? "watch" : "host", characters, maskName: props.maskName, t, onStart: start, onBack: () => setView("home") });
+    if (view === "room" && cur)
+      return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end,
+        customGifts: (props.liveCfg || {}).gifts || [],
+        onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
+        onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
+        onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
+        onShare: props.onShare ? () => setView("share") : null });
+    // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
+    if (view === "share" && cur)
+      return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
+        h(Head, { zh: "发给谁", sub: S(cur.title) || "直播回放", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: () => { if (shareTo) setShareTo(null); else setView("room"); } }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+          shareTo ? h("div", { style: { marginTop: 12 } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "发到 " + shareTo.name + " 的哪儿"),
+            [{ id: "main", name: "主聊天" }].concat(roomsOf(shareTo)).map(r => h("button", { key: r.id, onClick: () => { props.onShare(cur, shareTo, r.id); setShareTo(null); setView("room"); },
+              className: "w-full text-left active:opacity-70", style: { minHeight: 46, padding: "0 14px", marginBottom: 8, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 14 } },
+              r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))) :
+          h("div", { className: "flex flex-wrap", style: { gap: 14, marginTop: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => { if (roomsOf(c).length) { setShareTo(c); return; } props.onShare(cur, c, "main"); setView("room"); },
+            className: "active:opacity-70 flex flex-col items-center", style: { width: 60 } },
+            h(Avatar, { character: c, size: 48 }),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 4, maxWidth: 60, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
+
+    // 落地页：两扇门 + 回放
+    const door = (title, sub, fn) => h("button", { onClick: fn, className: "w-full text-left active:opacity-80",
+      style: { position: "relative", borderRadius: 18, padding: "18px 18px", minHeight: 96, overflow: "hidden", background: "radial-gradient(130% 120% at 0% 0%,rgba(226,85,107,.85),rgba(70,50,110,.95))", color: "#fff" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, opacity: .85 } }, h(GlyphDot), "直播"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, marginTop: 6 } }, title),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4, lineHeight: 1.5 } }, sub));
+    const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || "") : uName;
+    const cfg = props.liveCfg || {};
+    const now = Date.now();
+    const slots = cfg.selfLive === false ? [] : slotsOf(characters, new Date());
+    const onAir = slots.filter(x => x.start <= now && now < x.end), later = slots.filter(x => x.start > now);
+    const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
+    // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
+    const joinSlot = (x, as) => {
+      const had = listRef.current.find(s2 => s2.slotId === x.id && !s2.endTs);
+      if (had) { setCurId(had.id); setView("room"); return; }
+      start({ mode: "watch", charId: x.charId, charIds: [x.charId], kind: x.kind, topic: "", title: "", as, maskName: props.maskName || "路过的", slotId: x.id, midway: Math.max(1, Math.round((Date.now() - x.start) / 60000)) });
+    };
+    return h("div", { className: "h-full flex flex-col", style: liveFloor(t) },
+      h(Head, { zh: "直播", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: props.embedded ? undefined : props.onBack }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+        onAir.length ? h("div", { style: { marginTop: 6, marginBottom: 14 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, h(GlyphDot), "正在播"),
+          onAir.map(x => { const c = characters.find(cc => cc.id === x.charId); if (!c) return null;
+            return h("div", { key: x.id, className: "flex items-center", style: { gap: 10, padding: "10px 12px", marginBottom: 8, borderRadius: 14, border: "1px solid " + LIVE_RED, background: "rgba(226,85,107,.08)" } },
+              h(Avatar, { character: c, size: 38 }),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, (c.remark || c.name) + " 在播" + kindZh(x.kind)),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "已经播了 " + Math.max(1, Math.round((now - x.start) / 60000)) + " 分钟 · 到 " + hm(x.end))),
+              h("button", { onClick: () => joinSlot(x, "me"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 12px", borderRadius: 10, background: LIVE_RED, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "进去"),
+              h("button", { onClick: () => joinSlot(x, "mask"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 8px", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, "挂马甲")); })) : null,
+        later.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
+          "今晚还会播：" + later.map(x => ((characters.find(c => c.id === x.charId) || {}).name || "") + " " + hm(x.start)).join("、")) : null,
+        h("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 6 } },
+          characters.length ? door("去看 TA 播", "挑一个人，看 TA 在直播间里是什么样。可以用自己的号，也可以挂马甲。", () => setView("setup:watch")) : null,
+          characters.length ? door("我来开播", "你开播，你的人混在观众里看着你。", () => setView("setup:host")) : null,
+          !characters.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "30px 0", textAlign: "center" } }, "先去人格档案馆建一个角色") : null),
+        props.onLiveCfg ? h("button", { onClick: () => props.onLiveCfg(Object.assign({}, cfg, { selfLive: cfg.selfLive === false })), className: "w-full text-left active:opacity-70", style: { marginTop: 16, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+          (cfg.selfLive === false ? "○ " : "● ") + "TA 们会自己开播（不进去看就不花调用）") : null,
+        list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "24px 0 8px" } }, "回放") : null,
+        list.map(s => h("div", { key: s.id, className: "flex items-center", style: { gap: 10, padding: "11px 0", borderBottom: "1px solid " + t.line } },
+          h("button", { onClick: () => { setCurId(s.id); setView("room"); }, className: "flex-1 min-w-0 text-left active:opacity-70" },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (s.endTs ? "" : "● ") + (S(s.title) || "直播间")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } },
+              (s.mode === "watch" ? nameOf(s) + " 播的" : "我播的") + " · " + new Date(s.startTs).toLocaleDateString() + " · " + arr(s.lines).length + " 条")),
+          h("button", { onClick: () => save(listRef.current.filter(x => x.id !== s.id)), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minHeight: 36, padding: "0 6px" } }, "删")))));
+  }
+
+  // ── 回放卡：聊天里那一张 ─────────────────────────────────
+  // 卡上存的是【发的那一刻的快照】：标题、谁播的、几个人看、最后十来行。之后这场再怎么样，卡不跟着变。
+  function shareSnap(ses, hostName) {
+    return { title: S(ses.title) || "直播间", host: hostName, mode: ses.mode, as: ses.as, maskName: ses.maskName, viewers: Number(ses.viewers) || 0,
+      startTs: ses.startTs, lines: arr(ses.lines).slice(-14).map(l => ({ kind: l.kind, name: l.name, text: l.text, act: l.act, gift: l.gift, amount: l.amount })) };
+  }
+  // TA读到的那一段：经过照抄；她挂过马甲的，发给谁就等于对谁说破了
+  function shareText(snap, uName, toName) {
+    const who = snap.mode === "watch"
+      ? (snap.as === "mask" ? uName + "当时用马甲「" + snap.maskName + "」在直播间里——直播间里那个「" + snap.maskName + "」就是她" : uName + "用自己的号在直播间里")
+      : uName + "自己开的这场";
+    const rows = snap.lines.map(l => l.kind === "gift" ? l.name + " 送了「" + l.gift + "」" : l.kind === "enter" ? l.text : (l.kind === "host" ? "主播 " : "") + l.name + "：" + (l.act ? "（" + l.act + "）" : "") + l.text).join("\n");
+    return "[转发了一场直播回放]《" + snap.title + "》｜主播：" + snap.host + "｜" + who + "｜" + snap.viewers + " 人看过"
+      + (snap.host === toName ? "｜（这就是你自己播的那一场）" : "") + "\n最后那一段：\n" + rows;
+  }
+  function LiveShareCard({ m, isU }) {
+    const t = useTheme();
+    const [open, setOpen] = useState(false);
+    const v = m.live || {};
+    const rows = arr(v.lines);
+    return h("button", { onClick: () => setOpen(o => !o), className: "text-left active:opacity-90", style: { width: 250, maxWidth: "100%", borderRadius: 14, overflow: "hidden", background: LIVE_BG, border: "1px solid " + LIVE_LINE } },
+      h("div", { style: { padding: "11px 13px 9px", background: "radial-gradient(120% 120% at 0% 0%,rgba(226,85,107,.4),rgba(20,16,25,1))" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM } }, h(GlyphDot), "直播回放 · " + (v.viewers || 0) + " 人看过"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: LIVE_INK, marginTop: 4 } }, v.title || "直播间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, marginTop: 2 } }, "主播 " + (v.host || ""))),
+      h("div", { style: { padding: "8px 13px 10px" } },
+        (open ? rows : rows.slice(-3)).map((l, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.5, color: LIVE_INK, padding: "1px 0" } },
+          l.kind === "gift" ? h("span", { style: { color: "#f6c76b" } }, l.name + " 送了「" + l.gift + "」")
+            : l.kind === "enter" ? h("span", { style: { color: LIVE_DIM } }, l.text)
+            : h(Fragment, null, h("span", { style: { color: l.kind === "host" ? LIVE_RED : "#d6c7ff", marginRight: 5 } }, l.name), l.text))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM, marginTop: 6 } }, open ? "收起" : (rows.length > 3 ? "点开看最后 " + rows.length + " 行" : ""))));
+  }
+  window.LiveShareCard = LiveShareCard;
+  window.LiveApp = LiveApp;
+  window.LiveKit = { slotsOf, fanLevel, LIVE_CUT,  shareSnap, shareText, watchInstruction, hostInstruction, transcript, normNoise, normChat, KINDS, GIFTS, NoiseLayer };
+})();

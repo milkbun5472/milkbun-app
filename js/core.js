@@ -468,6 +468,8 @@ const APP_TONE_HUE = {
   takeout: 52,
   // 健康借去处那一档鼠尾草绿（跟健康页的墨绿同一家）；同样不往池子里加新值
   health: 108,
+  // 直播借购物那一档暖红（同上：不往池子里加新值）
+  live: 16, shua: 16,
   // 底部 dock 那四个也点名（它每一页都在，不能交给哈希）
   messages: 196, forum: 112, config: 352
 };
@@ -574,11 +576,11 @@ const SCREEN_ZH = {
   thread: "单聊", gthread: "群聊",
   contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
   phone: "查手机", shop: "购物", takeout: "外卖", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",
-  cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", ledger: "记账",
+  cwallet: "钱包", wallet: "我的钱包", kincard: "亲属卡账单", mykin: "给TA的亲属卡", ledger: "记账",
   calendar: "日历", memo: "备忘录", map: "好友地图",
   listen: "一起听", musiccard: "一起听那张卡的背面",
   diary: "日记", lore: "世界书", memlib: "记忆库", anon: "匿名问答", anonme: "我的匿名主页",
-  study: "一起学", fanfic: "同人文", read: "一起读", watch: "一起看", weekly: "周刊", debate: "擂台",
+  study: "一起学", fanfic: "同人文", read: "一起读", watch: "一起看", weekly: "周刊", debate: "擂台", live: "直播", shua: "片刻",
   dream: "梦境", dreamjournal: "解梦馆", tarot: "塔罗", astro: "星测", health: "健康", companion: "陪伴", pomodoro: "番茄钟",
   games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象", shike: "时刻",
   yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
@@ -824,16 +826,27 @@ async function extractPdfText(file, onProg, opts) {
   let total = 0;
   for (let p = 1; p <= lastPage; p++) {
     const tc = await (await pdf.getPage(p)).getTextContent();
-    let line = "", lastY = null;
+    let line = "", lastY = null, lastH = 0;
     const rows = [];
     tc.items.forEach(it => {
       if (typeof it.str !== "string") return;
       const y = it.transform ? it.transform[5] : null;
+      const hgt = Math.abs((it.transform && it.transform[3]) || it.height || 0);
+      // 上标／下标（群友 2026-10-07：单词右上角的考频数字读不出来）：字比这一行小、只挪了不到一行高。
+      //   原来 y 一跳就当换行，「deep¹³」被拆成「deep」「13」两行，后面半行又另起一行。
+      //   现在照原样贴在这个词后面，写成 deep^13 / x_2，不动这一行的基线。
+      const dy = lastY !== null && y !== null ? y - lastY : 0;
+      if (line && lastH && hgt && hgt < lastH * 0.85 && Math.abs(dy) > 0.5 && Math.abs(dy) < lastH * 0.8 && it.str.trim()) {
+        line += (dy > 0 ? "^" : "_") + it.str.trim();
+        if (it.hasEOL) { rows.push(line); line = ""; lastY = null; }
+        return;
+      }
       // 换行：pdf.js 给了 EOL，或 y 坐标跳了一行
-      if (lastY !== null && y !== null && Math.abs(y - lastY) > 2 && line) { rows.push(line); line = ""; }
+      if (lastY !== null && y !== null && Math.abs(dy) > 2 && line) { rows.push(line); line = ""; }
       line += it.str;
       if (it.hasEOL) { rows.push(line); line = ""; }
       lastY = y;
+      if (hgt && it.str.trim()) lastH = hgt;
     });
     if (line) rows.push(line);
     const body = rows.join("\n");

@@ -39,9 +39,14 @@ test("③ 真正发请求那两处都带上了", () => {
 });
 
 test("④ 她按下去的那几枪都标了", () => {
-  // 单聊线上两枪（正常 + 重试）、通话一枪
-  assert.equal((A.match(/use: "chat"/g) || []).length, 2, "单聊线上那两枪没都标");
-  assert.equal((A.match(/use: "call"/g) || []).length, 1, "通话那一枪没标");
+  // 单聊线上两枪（正常 + 重试）+ 群聊线上一枪 + 群投票一枪；单人通话一枪 + 群通话一枪
+  // ⚠️群聊和群通话原来漏了（2026-10-08 开闸当天群友报「群聊走的秋秋的礼物，生不出来」）。
+  //   按次数数不够——数对了也可能标在别处——所以下面按【那一枪本身】逐个钉。
+  assert.equal((A.match(/use: "chat"/g) || []).length, 4, "线上那几枪没都标（单聊两枪 + 群聊 + 群投票）");
+  assert.equal((A.match(/use: "call"/g) || []).length, 2, "通话那两枪没都标（单人 + 群）");
+  const gShoot = A.slice(A.indexOf("const _gShoot = uc => callAI("), A.indexOf("const _gShoot = uc => callAI(") + 900);
+  assert.match(gShoot, /use: "chat"/, "群聊线上那一枪没标——群里说话会被当成后台拒掉");
+  assert.match(A, /window\.CallCamera\.withFrame\(hist, cameraFrame\), \{ use: "call",/, "群通话那一枪没标");
   // 线下：单人两枪 + 群两枪
   assert.equal((E.match(/use: "offline"/g) || []).length, 4, "线下四枪没都标（单人正常/重试 + 群正常/重试）");
 });

@@ -83,14 +83,14 @@ test("触发词表：拆成几个气泡说也认得出，而且不误伤「我�
   // ⚠️v69.28：「她最近几轮开口要了没有」抽成了公共的 askedRecently
   //（换头像那一处是同一个形状的第二次出现，施工规则/one-public-mechanism.md）。
   // 钉的东西没变：还是把【真正在跑的那两段】抠出来跑，不在测试里另抄一份正则。
-  const fi = app.indexOf("  const askedRecently = (history, re, turns) =>");
+  const fi = app.indexOf("  const askedRecently = (history, re, turns, stopAt) =>");
   const fj = app.indexOf("  const AVATAR_COOLDOWN_MS", fi);
   assert.ok(fi > 0 && fj > fi, "抠不出 askedRecently");
-  const li = app.indexOf("      const _askedRecord = askedRecently(history, ");
+  const li = app.indexOf("      const _askedRecord = askedRecently(_recRows, ");
   const lj = app.indexOf("\n", li);
   assert.ok(li > 0 && lj > li, "抠不出触发判据");
   const gate = new Function("history",
-    app.slice(fi, fj) + app.slice(li, lj).replace("const _askedRecord =", "return"));
+    app.slice(fi, fj) + "const _recRows = history, _recDone = m => m && m.kind === 'recorded';" + app.slice(li, lj).replace("const _askedRecord =", "return"));
   const U = t => ({ role: "user", content: t });
   const A = t => ({ role: "assistant", content: t });
   // 她举的例子：关键那句在中间
@@ -112,8 +112,8 @@ test("触发词表：拆成几个气泡说也认得出，而且不误伤「我�
 
 test("按需开放：她没开口让人记的轮次，这两个字段一个字都不发", () => {
   // v69.28：判据搬进公共的 askedRecently，调用点传 6
-  assert.match(app, /const _askedRecord = askedRecently\(history, \//);
-  assert.match(app, /\/, 6\);/);
+  assert.match(app, /const _askedRecord = askedRecently\(_recRows, \//);
+  assert.match(app, /\/, 6, _recDone\);/);   // v75.028 记过就停
   // 只看最近六【轮】她说的话（他的回复不占额度）
   assert.match(app, /let seen = 0;/);
   assert.match(app, /i >= 0 && seen < \(turns \|\| 6\)/);
