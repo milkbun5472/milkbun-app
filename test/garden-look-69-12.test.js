@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const rd = f => fs.readFileSync(path.join(__dirname, '..', f), 'utf8');
-const host = rd('js/fairy-garden.js');
+const host = rd('js/fairy-garden.js').replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 const game = rd('apps/fairy-garden/game.mjs');
 const trav = rd('apps/fairy-garden/traveler.mjs');
 

@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const th = fs.readFileSync(path.join(__dirname, "..", "js/theater.js"), "utf8");
+const th = fs.readFileSync(path.join(__dirname, "..", "js/theater.js"), "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 
 // v54.46（她 2026-08-22）：封面点了没提示、画完看不到整张、也进不了图库。
 // 三件事一起治：说清楚在画什么 / 画完接管背景 / 归档进图库能存相册。

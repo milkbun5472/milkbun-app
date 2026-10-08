@@ -86,7 +86,7 @@ test("入口在【关系】的 + 里，跟另外两种并排；资料卡里那�
   // ⚠️v72.27 起这一栏的例子跟着【主人是谁】变（选了「我自己」就该举闺蜜同事的例子）
   assert.match(screens, /"陆闻 \/ TA的属下 \/ 她师姐"/);
   // NPC 那一支没有「关系」可存，右上角的勾要藏起来，别让她按了没反应
-  assert.match(screens, /c\.tab !== "npc" && h\("button", \{ onClick: onSave/);
+  assert.match(screens, /c\.tab !== "npc" && h\("button", \{ (?:"data-[a-z]+": "[a-z]+", )*onClick: onSave/);
   // 两个入口只留一个
   assert.equal(comp.indexOf("npcPanel"), -1, "资料卡那份没撤干净");
   assert.equal(app.indexOf("onOpenNpc"), -1);

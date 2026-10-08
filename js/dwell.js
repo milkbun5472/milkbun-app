@@ -62,16 +62,16 @@
   // 城市小地图：几条街、钉着她的那些地方。点一个钉弹出两个去法
   function CityMap(props) {
     const t = props.t, places = props.places, sel = props.sel;
-    return h("div", { style: { position: "relative", height: 210, borderRadius: 14, overflow: "hidden", border: "1px solid " + t.line, background: t.bg2 } },
+    return h("div", { style: { position: "relative", height: 210, borderRadius: 14, overflow: "hidden", border: "1px solid " + t.line, background: t.bg2 }, "data-wk": "dwellcitymap" },
       h("svg", { viewBox: "0 0 100 100", preserveAspectRatio: "none", style: { position: "absolute", inset: 0, width: "100%", height: "100%" } },
-        [18, 42, 67, 88].map(function (y, i) { return h("path", { key: "h" + i, d: "M0 " + y + " C30 " + (y - 4) + " 60 " + (y + 5) + " 100 " + (y - 2), stroke: t.line, strokeWidth: i % 2 ? 1.6 : 2.6, fill: "none" }); }),
-        [22, 51, 79].map(function (x, i) { return h("path", { key: "v" + i, d: "M" + x + " 0 C" + (x + 4) + " 40 " + (x - 5) + " 70 " + (x + 2) + " 100", stroke: t.line, strokeWidth: i === 1 ? 2.6 : 1.6, fill: "none" }); }),
+        [18, 42, 67, 88].map(function (y, i) { return h("path", { key: "h" + i, d: "M0 " + y + " C30 " + (y - 4) + " 60 " + (y + 5) + " 100 " + (y - 2), stroke: t.line, strokeWidth: i % 2 ? 1.6 : 2.6, fill: "none", "data-wk": "dwellcitymap", "data-part": "r2" }); }),
+        [22, 51, 79].map(function (x, i) { return h("path", { key: "v" + i, d: "M" + x + " 0 C" + (x + 4) + " 40 " + (x - 5) + " 70 " + (x + 2) + " 100", stroke: t.line, strokeWidth: i === 1 ? 2.6 : 1.6, fill: "none", "data-wk": "dwellcitymap", "data-part": "r3" }); }),
         h("ellipse", { cx: 66, cy: 30, rx: 9, ry: 6, fill: t.line, opacity: .5 })),
       places.map(function (p, i) {
         const q = pinPos(p.name, i), on = sel && sel.id === p.id;
         const n = DatePlaces.visits(p.name, props.charId).length, here = props.hereId === p.id, his = p.by && props.charId && p.by === props.charId;
         return h("button", { key: p.id, onClick: function () { props.onPick(on ? null : p); }, className: "active:opacity-70",
-          style: { position: "absolute", left: q.x + "%", top: q.y + "%", transform: "translate(-50%,-100%)", display: "flex", flexDirection: "column", alignItems: "center" } },
+          style: { position: "absolute", left: q.x + "%", top: q.y + "%", transform: "translate(-50%,-100%)", display: "flex", flexDirection: "column", alignItems: "center" }, "data-wk": "dwellcitymap", "data-part": "r4", "data-on": on ? "1" : "0" },
           // 他在这儿：钉上面冒一个小头像；他钉的：名字前一颗心；去过几次：名字后几颗星
           here && props.avatar ? h("span", { style: { marginBottom: 2, borderRadius: 999, boxShadow: "0 0 0 2px " + t.bg2, animation: "wkpop .4s ease both" } }, props.avatar) : null,
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? t.bg2 : t.ink, background: on ? t.ink : t.bg, border: "1px solid " + (his ? ACCENT : t.line), borderRadius: 999, padding: "2px 7px", whiteSpace: "nowrap", maxWidth: 120, overflow: "hidden", textOverflow: "ellipsis" } },
@@ -264,7 +264,7 @@
           h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.ink, wordBreak: "break-word" } },
             sum || (e.session ? "这一场没留下总结。" : "这一场的线下记录已经不在了。")),
           e.session ? h("button", { onClick: function (ev) { ev.stopPropagation(); onRead(e); }, className: "active:opacity-60",
-            style: { marginTop: 8, alignSelf: "flex-end", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, minHeight: 28 } }, "看完整经过 →") : null)));
+            style: { marginTop: 8, alignSelf: "flex-end", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, minHeight: 28 }, "data-wk": "dwelldatealbumcardbtn", "data-part": "1" }, "看完整经过 →") : null)));
   }
   function DwellApp(props) {
     const t = useTheme();
@@ -361,7 +361,7 @@
     // 全屏就该是【只有图】：没有渐变、没有标题、没有统计条，点一下就退出来。
     // portal 到 body——外面那几层有 transform，fixed 会锚到它们身上而不是屏幕。
     const fullShot = (shot && typeof ReactDOM !== "undefined") ? ReactDOM.createPortal(
-      h("div", { onClick: function () { setShot(""); }, style: { position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" } },
+      h("div", { onClick: function () { setShot(""); }, style: { position: "fixed", inset: 0, zIndex: 300, background: "#000", display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "dwellpagetap", "data-part": "1" },
         h("img", { src: shot, alt: "", style: { maxWidth: "100%", maxHeight: "100%", objectFit: "contain", display: "block" } }),
         h("div", { style: { position: "absolute", left: 0, right: 0, textAlign: "center", bottom: "calc(env(safe-area-inset-bottom) + 18px)", fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.5)" } }, "点一下退出")),
       document.body) : null;
@@ -369,7 +369,7 @@
     // 它不是装饰——进了区域、进了物件，人还得看得见自己在哪儿。没图就是一整块暗底加细网格。
     const backdrop = function (p) {
       const src = srcOf(p);
-      return h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, overflow: "hidden", background: "#0d1114" } },
+      return h("div", { "aria-hidden": "true", style: { position: "absolute", inset: 0, overflow: "hidden", background: "#0d1114" }, "data-wk": "dwellbackdrop" },
         src
           ? h("img", { src: src, alt: "", style: { position: "absolute", inset: -30, width: "calc(100% + 60px)", height: "calc(100% + 60px)", objectFit: "cover", filter: "blur(22px) brightness(.72) saturate(.95)" } })
           : h("div", { style: { position: "absolute", inset: 0, backgroundImage: "linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px)", backgroundSize: "34px 34px" } }),
@@ -378,7 +378,7 @@
     // 区域页顶上那条：这处地方【没糊过】的样子，点它看全屏
     const placePhoto = function (p, height) {
       const src = srcOf(p);
-      return h("button", { onClick: function () { if (src) setShot(src); }, className: "w-full block text-left active:opacity-90", style: { position: "relative", height: height || 210, overflow: "hidden", background: "rgba(255,255,255,.05)", borderBottom: "1px solid " + OVER_LINE } },
+      return h("button", { onClick: function () { if (src) setShot(src); }, className: "w-full block text-left active:opacity-90", style: { position: "relative", height: height || 210, overflow: "hidden", background: "rgba(255,255,255,.05)", borderBottom: "1px solid " + OVER_LINE }, "data-wk": "dwellpage" },
         src
           ? h("img", { src: src, alt: p.name || "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
           : h("div", { className: "h-full flex items-center justify-center", style: { backgroundImage: "linear-gradient(rgba(255,255,255,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.06) 1px,transparent 1px)", backgroundSize: "24px 24px" } },
@@ -391,8 +391,8 @@
     //   区域名压在图的下缘，一条一行、上面一道发丝线，看向哪儿就点哪一行。
     const placeHero = function (p, zs) {
       const src = srcOf(p);
-      return h("section", { style: { position: "relative", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", overflow: "hidden", color: OVER_INK } },
-        h("button", { onClick: function () { if (src) setShot(src); }, "aria-label": src ? "看全屏" : "还没画过这儿", className: "block active:opacity-95", style: { position: "absolute", inset: 0, width: "100%", padding: 0, border: "none", background: "none" } },
+      return h("section", { style: { position: "relative", minHeight: "calc(100dvh - env(safe-area-inset-top) - 58px)", overflow: "hidden", color: OVER_INK }, "data-wk": "dwellplacehero" },
+        h("button", { onClick: function () { if (src) setShot(src); }, "aria-label": src ? "看全屏" : "还没画过这儿", className: "block active:opacity-95", style: { position: "absolute", inset: 0, width: "100%", padding: 0, border: "none", background: "none" }, "data-wk": "dwellpagebtn", "data-part": "1" },
           src
             ? h("img", { src: src, alt: p.name || "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", display: "block" } })
             : h("div", { style: { position: "absolute", inset: 0, backgroundColor: "#171c20", backgroundImage: "linear-gradient(rgba(255,255,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.055) 1px,transparent 1px)", backgroundSize: "34px 34px" } }),
@@ -408,7 +408,7 @@
             ? h("div", { style: { pointerEvents: "auto", marginTop: 18 } },
                 zs.map(function (z, i) {
                   return h("button", { key: i, onClick: function () { setZoneIdx(i); }, className: "w-full text-left flex items-baseline active:opacity-60",
-                    style: { gap: 10, minHeight: 42, padding: "10px 0 9px", borderTop: "1px solid " + OVER_LINE, background: "none" } },
+                    style: { gap: 10, minHeight: 42, padding: "10px 0 9px", borderTop: "1px solid " + OVER_LINE, background: "none" }, "data-wk": "dwellpage", "data-part": "r2" },
                     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, lineHeight: 1.4, color: OVER_INK, textShadow: "0 1px 10px rgba(0,0,0,.6)", minWidth: 0 } }, z.name),
                     h("span", { style: { flex: 1 } }),
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: OVER_SUB, whiteSpace: "nowrap" } }, (z.items || []).length ? (z.items || []).length + " 样" : "空着"));
@@ -435,17 +435,17 @@
       for (var r = 0; r < items.length; r += per) rows.push(items.slice(r, r + per));
       // 台面压在图上，所以它是【亮的一条】，底下压一道暗影——反过来（暗线亮影）在图上就看不见了
       const ledge = h("div", { style: { height: 3, background: "rgba(244,241,233,.82)", borderRadius: 1, boxShadow: "0 7px 12px -6px rgba(0,0,0,.75)" } });
-      return h("div", { key: i, style: { marginTop: i ? 30 : 0 } },
+      return h("div", { key: i, style: { marginTop: i ? 30 : 0 }, "data-wk": "dwellsurface" },
         h("div", { className: "w-full text-left flex items-baseline", style: { gap: 9 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: o.big ? 24 : 17, lineHeight: 1.35, color: OVER_INK, minWidth: 0 } }, z.name),
           h("span", { style: { flex: 1 } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: OVER_SUB, whiteSpace: "nowrap" } }, items.length ? "摆着 " + items.length + " 样" : "空着")),
         rows.map(function (row, ri) {
-          return h("div", { key: ri, style: { marginTop: ri ? 14 : 11 } },
+          return h("div", { key: ri, style: { marginTop: ri ? 14 : 11 }, "data-wk": "dwellpage", "data-part": "r3" },
             h("div", { className: "flex", style: { alignItems: "flex-end", gap: 7 } },
               row.map(function (x, j) {
                 return h("button", { key: j, onClick: function () { setItem(x); }, className: "text-left active:opacity-70",
-                  style: { flex: "1 1 0", minWidth: 0, minHeight: 44, background: OVER_CARD, border: "1px solid " + OVER_LINE, borderBottom: "none", borderRadius: "6px 6px 0 0", padding: o.big ? "13px 14px 14px" : "10px 11px 12px", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" } },
+                  style: { flex: "1 1 0", minWidth: 0, minHeight: 44, background: OVER_CARD, border: "1px solid " + OVER_LINE, borderBottom: "none", borderRadius: "6px 6px 0 0", padding: o.big ? "13px 14px 14px" : "10px 11px 12px", backdropFilter: "blur(2px)", WebkitBackdropFilter: "blur(2px)" }, "data-wk": "dwellpage", "data-part": "r4" },
                   h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: o.big ? 16.5 : 13.5, lineHeight: 1.45, color: OVER_INK } }, x.name),
                   (o.big && x.note) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: OVER_SUB, marginTop: 5 } }, x.note) : null,
                   (o.big && x.thought) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(244,241,233,.9)", marginTop: 7 } }, characterText(char, "他心里有句话没说 ›")) : null);
@@ -459,7 +459,7 @@
     // ⚠️这一页只有一样东西是别处没有的：TA没说出口的那句。
     //   它得跟这一页的地皮【是相反的材质】才一眼分得开——地皮是那处地方糊开的图，
     //   所以那句话是压在图上的一张纸。看得见的写在图上，心里那句写在纸上。
-    if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK } },
+    if (view === "place" && open && item) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r5" },
       backdrop(open),
       h("div", { className: "relative flex flex-col h-full" },
         overBar(zone ? zone.name : open.name, open.name),
@@ -478,7 +478,7 @@
     // 跟上一页同一个形状（同一条台面、同样几样东西），只是每样摊开写着说明——
     // 这才是「走近了看」。换成另一种排版就成了另一个页面，人会以为自己换了个地方。
     // 底下仍是这处地方那张图：进了屋不该看不见屋。
-    if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK } },
+    if (view === "place" && open && zone) return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r6" },
       backdrop(open),
       h("div", { className: "relative flex flex-col h-full" },
         overBar(open.name, char ? char.name : ""),
@@ -491,12 +491,12 @@
       fullShot);
 
     // ── 门：推开才进去 ─────────────────────────────────────
-    if (view === "door" || !chars.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
+    if (view === "door" || !chars.length) return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }), "data-wk": "dwellpage", "data-part": "r7" },
       topBar("去处"),
       h("div", { className: "flex-1 min-h-0 flex flex-col items-center justify-center px-8" },
         h("button", {
           onClick: function () { if (!chars.length) return; setOpening(true); setTimeout(function () { setView("who"); }, 560); },
-          className: "active:opacity-90", style: { perspective: 900, background: "none", border: "none" }
+          className: "active:opacity-90", style: { perspective: 900, background: "none", border: "none" }, "data-wk": "dwellpagebtn", "data-part": "2"
         },
           h("div", { style: { position: "relative", width: 168, height: 258 } },
             // 门开了以后透出来的光
@@ -510,7 +510,7 @@
           chars.length ? "推开看看" : "还没有角色")));
 
     // ── 推开之后：想见谁 ──────────────────────────────────
-    if (view === "who") return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
+    if (view === "who") return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }), "data-wk": "dwellpage", "data-part": "r8" },
       topBar("去处"),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, textAlign: "center", margin: "18px 0 4px" } }, "想见谁"),
@@ -518,7 +518,7 @@
         h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,1fr)", rowGap: 22, columnGap: 14, justifyItems: "center" } },
           chars.map(function (c) {
             const n = placesOf(c.id).length;
-            return h("button", { key: c.id, onClick: function () { setSelId(c.id); setView("places"); }, className: "active:opacity-70 flex flex-col items-center" },
+            return h("button", { key: c.id, onClick: function () { setSelId(c.id); setView("places"); }, className: "active:opacity-70 flex flex-col items-center", "data-wk": "dwellpage", "data-part": "r9" },
               h(Avatar, { character: c, size: 68, radius: 999 }),
               h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, marginTop: 8, maxWidth: 92 } }, c.remark || c.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 2 } }, n ? n + " 处" : "还没去过"));
@@ -538,7 +538,7 @@
     }
     if (view === "place" && open) {
       const zs = (open.zones || []).slice(0, 6);
-      return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK } },
+      return h("div", { className: "h-full flex flex-col relative", style: { color: OVER_INK }, "data-wk": "dwellpage", "data-part": "r10" },
         backdrop(open),
         h("div", { className: "relative flex flex-col h-full" },
           overBar("去处", char ? char.name : ""),
@@ -553,11 +553,11 @@
               (open.zones || []).some(function (z) { return (z.items || []).length; }) && window.RoomView
                 ? h("button", { onClick: function () { setView("room"); }, className: "w-full active:opacity-70",
                     style: { minHeight: 46, borderRadius: 10, marginBottom: 9, background: OVER_INK, color: "#1b2126",
-                      fontFamily: F_DISPLAY, fontSize: 14 } }, "走进去看看") : null,
+                      fontFamily: F_DISPLAY, fontSize: 14 }, "data-wk": "dwellpagebtn", "data-part": "3" }, "走进去看看") : null,
               h("div", { className: "grid grid-cols-2", style: { gap: 9 } },
-                h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, background: OVER_INK, color: "#1b2126", fontFamily: F_BODY, fontSize: 12 } }, busy ? "正在再看一遍…" : "再去看一遍"),
-                h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, border: "1px solid " + OVER_LINE, background: OVER_CARD, color: OVER_INK, fontFamily: F_BODY, fontSize: 12 } }, drawing ? "正在画这儿…" : (open.img ? "重画这儿的样子" : "画一张这儿的样子"))),
-              h("button", { onClick: function () { del(open.id); }, className: "w-full active:opacity-60", style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 11, color: "#e0a49c" } }, "不留这个地方了")))),
+                h("button", { onClick: function () { gen(open.fromSched ? open.name : null, open); }, disabled: !!busy || drawing, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, background: OVER_INK, color: "#1b2126", fontFamily: F_BODY, fontSize: 12 }, "data-wk": "dwellpagebtn", "data-part": "4" }, busy ? "正在再看一遍…" : "再去看一遍"),
+                h("button", { onClick: function () { draw(open); }, disabled: drawing || !!busy, className: "active:opacity-70 disabled:opacity-40", style: { minHeight: 44, borderRadius: 8, border: "1px solid " + OVER_LINE, background: OVER_CARD, color: OVER_INK, fontFamily: F_BODY, fontSize: 12 }, "data-wk": "dwellpagebtn", "data-part": "5" }, drawing ? "正在画这儿…" : (open.img ? "重画这儿的样子" : "画一张这儿的样子"))),
+              h("button", { onClick: function () { del(open.id); }, className: "w-full active:opacity-60", style: { padding: "14px 0 4px", fontFamily: F_BODY, fontSize: 11, color: "#e0a49c" }, "data-wk": "dwellpagebtn", "data-part": "6" }, "不留这个地方了")))),
         fullShot);
     }
 
@@ -596,12 +596,12 @@
         const nm = String(v || "").trim().slice(0, 24); if (nm) gen(nm, null);
       }, "去看看");
     };
-    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }) },
+    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { word: "PLACES" }), "data-wk": "dwellpage", "data-part": "r11" },
       topBar(char ? (char.remark || char.name) : "去处", null,
         // 生成的时候要不要顺带出图：她按次付钱，这是第二次调用，所以放在明面上随时能关
         h("button", { onClick: function () { setCfg(saveCfg({ withImg: !cfg.withImg })); }, className: "active:opacity-60",
           style: { fontFamily: F_BODY, fontSize: 11, padding: "4px 9px", borderRadius: 999, whiteSpace: "nowrap",
-            color: cfg.withImg ? t.bg2 : t.sub, background: cfg.withImg ? t.ink : "transparent", border: "1px solid " + (cfg.withImg ? t.ink : t.line) } },
+            color: cfg.withImg ? t.bg2 : t.sub, background: cfg.withImg ? t.ink : "transparent", border: "1px solid " + (cfg.withImg ? t.ink : t.line) }, "data-wk": "dwellpagebtn", "data-part": "7" },
           cfg.withImg ? "出图 开" : "出图 关")),
       // 看完整经过：就是线下那个往期记录页，原样借来，盖一层在去处上面
       albumRead && albumRead.session && typeof OfflineSessionReader === "function" ? h("div", { style: { position: "fixed", inset: 0, zIndex: 160 } },
@@ -620,16 +620,16 @@
             [["draw", "手绘"], ["real", "现实"], ["story", "架空"]].map(function (x) {
               const on = mapKind === x[0];
               return h("button", { key: x[0], onClick: function () { pickMapKind(x[0]); }, className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", minHeight: 28, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" } }, x[1]);
+                style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 11px", minHeight: 28, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent" }, "data-wk": "dwellpage", "data-part": "r12", "data-on": on ? "1" : "0" }, x[1]);
             }))),
         (function () {
           const K = window.MapKit;
           if (mapKind === "real" && K && K.MapWidget && char) return h(K.MapWidget, { characters: [char], status: props.mapStatus, userGeo: props.userGeo, worlds: props.worlds, onOpen: props.onOpenMap });
           if (mapKind === "story" && K && K.WorldMapEmbed && char) {
             const r = K.charRealm ? K.charRealm(char, props.worlds || []) : null;
-            if (r && r.kind === "world") return h("div", { style: { height: 440, display: "flex", flexDirection: "column", border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg2 } },
+            if (r && r.kind === "world") return h("div", { style: { height: 440, display: "flex", flexDirection: "column", border: "1px solid " + t.line, borderRadius: 12, overflow: "hidden", background: t.bg2 }, "data-wk": "dwellpage", "data-part": "r13" },
               h(K.WorldMapEmbed, { world: r.world, characters: [char], status: props.mapStatus, me: props.profile, ops: props.worldOps }));
-            return h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8, textAlign: "center" } },
+            return h("div", { style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "18px 14px", fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.8, textAlign: "center" }, "data-wk": "dwellpage", "data-part": "r14" },
               characterText(char, "他还没住进哪个架空世界。去「好友地图 · 架空」开一个世界、把他钉进去，这里就能看那张图。"));
           }
           return h(CityMap, { t: t, places: dates, sel: dateSel, onPick: setDateSel, charId: char && char.id, hereId: herePin ? herePin.id : null,
@@ -640,7 +640,7 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, dateSel.name),
           dateSel.note ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, (dateSel.by ? characterText(char, "他钉的：") : "") + dateSel.note) : null,
           (function () { const vs = DatePlaces.visits(dateSel.name, char && char.id); if (!vs.length) return null; const last = vs[vs.length - 1], d = new Date(last.ts);
-            return h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 5, lineHeight: 1.6 } }, "★ 一起来过 " + vs.length + " 次 · 上次 " + (d.getMonth() + 1) + "月" + d.getDate() + "日" + (last.line ? "：" + last.line : "")); })(),
+            return h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 5, lineHeight: 1.6 }, "data-wk": "dwellpage", "data-part": "r15" }, "★ 一起来过 " + vs.length + " 次 · 上次 " + (d.getMonth() + 1) + "月" + d.getDate() + "日" + (last.line ? "：" + last.line : "")); })(),
           h("div", { className: "grid grid-cols-2", style: { gap: 8, marginTop: 10 } },
             h("button", { onClick: function () {
                 const p = dateSel; setDateSel(null);
@@ -648,12 +648,12 @@
                 if (herePin && herePin.id === p.id && props.onMeet && Math.random() < 0.7) { props.onMeet(char, p); return; }
                 gen(p.name, null);
               }, disabled: !!busy, className: "active:opacity-70 disabled:opacity-40",
-              style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "自己去转转"),
+              style: { minHeight: 42, borderRadius: 10, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink }, "data-wk": "dwellpagebtn", "data-part": "8" }, "自己去转转"),
             h("button", { onClick: function () { const p = dateSel; setDateSel(null); setCompose(p); }, className: "active:opacity-80",
-              style: { minHeight: 42, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "约" + (char ? (char.remark || char.name) : "TA") + "在这儿见")),
+              style: { minHeight: 42, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 }, "data-wk": "dwellpagebtn", "data-part": "9" }, "约" + (char ? (char.remark || char.name) : "TA") + "在这儿见")),
           h("button", { onClick: function () { const id = dateSel.id; requestAppConfirm("把「" + dateSel.name + "」从地图上拿掉？", "只是拿掉这个钉，去过的记录不动。", function () { setDates(DatePlaces.remove(id, char && char.id)); setDateSel(null); }); },
-            className: "w-full active:opacity-60", style: { paddingTop: 10, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉这个钉")) : null,
-        h("button", { onClick: function () { setPinPick(function (v) { return !v; }); }, className: "w-full text-left active:opacity-70", style: { marginTop: 10, marginBottom: pinPick ? 8 : 18, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, pinPick ? "收起" : "＋ 钉一个地方"),
+            className: "w-full active:opacity-60", style: { paddingTop: 10, fontFamily: F_BODY, fontSize: 11, color: t.fog }, "data-wk": "dwellpagebtn", "data-part": "10" }, "拿掉这个钉")) : null,
+        h("button", { onClick: function () { setPinPick(function (v) { return !v; }); }, className: "w-full text-left active:opacity-70", style: { marginTop: 10, marginBottom: pinPick ? 8 : 18, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub }, "data-wk": "dwellpagebtn", "data-part": "11" }, pinPick ? "收起" : "＋ 钉一个地方"),
         pinPick ? (function () {
           const pinned = new Set(dates.map(function (x) { return x.name; }));
           const seen = new Set();
@@ -671,19 +671,19 @@
               }, "好了"); }, 350);
             }, "下一步");
           };
-          return h("div", { style: { marginBottom: 18 } },
+          return h("div", { style: { marginBottom: 18 }, "data-wk": "dwellpage", "data-part": "r16" },
             cands.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "从下面现成的里挑一个钉上：") : null,
             cands.length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, cands.slice(0, 30).map(function (n) {
               return h("button", { key: n, onClick: function () { const u = DatePlaces.unclaimed().find(function (x) { return x.name === n; }); setDates(DatePlaces.add(n, u ? u.note : "", u ? u.by : "", char && char.id)); DatePlaces.dropUnclaimed(n); setPinPick(false); }, className: "active:opacity-70",
-                style: { minHeight: 38, padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2 } }, n);
+                style: { minHeight: 38, padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2 }, "data-wk": "dwellpage", "data-part": "r17" }, n);
             })) : null,
             h("button", { onClick: function () { setPinPick(false); writeOwn(); }, className: "w-full text-left active:opacity-70",
-              style: { marginTop: 10, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "自己写一个"));
+              style: { marginTop: 10, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub }, "data-wk": "dwellpagebtn", "data-part": "12" }, "自己写一个"));
         })() : null,
         (function () {
           const album = char && props.dateAlbumFor ? props.dateAlbumFor(char.id) : [];
           if (!album.length) return null;
-          return h("div", { style: { marginBottom: 22 } },
+          return h("div", { style: { marginBottom: 22 }, "data-wk": "dwellpage", "data-part": "r18" },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "0 0 8px" } }, "那天 · " + album.length + " 次"),
             h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 } },
               album.map(function (e) { return h(DateAlbumCard, { key: e.key, t: t, e: e, flipped: albumFlip === e.key,
@@ -695,7 +695,7 @@
           characterText(char, "还没看过他的地方。生成一次会写出几块区域，每块里几件东西。")) : null,
         places.map(function (p) {
           return h("button", { key: p.id, onClick: function () { setOpenId(p.id); setZoneIdx(-1); setView("place"); }, className: "w-full text-left active:opacity-80 mb-2.5",
-            style: { border: "1px solid " + t.line, borderRadius: 13, overflow: "hidden", background: t.bg2 } },
+            style: { border: "1px solid " + t.line, borderRadius: 13, overflow: "hidden", background: t.bg2 }, "data-wk": "dwellpage", "data-part": "r19" },
             // 有图就露一条窄的，让列表也看得出这处长什么样
             p.img ? h("div", { style: { height: 92, overflow: "hidden" } },
               h("img", { src: (typeof resolveImg === "function" ? resolveImg(p.img) : p.img), alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })) : null,
@@ -710,12 +710,12 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 0 8px" } }, "还可以看看"),
         !places.some(function (p) { return !p.fromSched; }) ? h("button", {
           onClick: function () { gen(null, null); }, disabled: !!busy, className: "w-full text-left active:opacity-70 mb-2",
-          style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink }
+          style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink }, "data-wk": "dwellpagebtn", "data-part": "13"
         }, characterText(char, "他住的地方")) : null,
         todo.map(function (f) {
           return h("button", { key: f.name, onClick: function () { gen(f.name, null); }, disabled: !!busy,
             className: "w-full text-left active:opacity-70 mb-2",
-            style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", display: "flex", alignItems: "center", gap: 8 } },
+            style: { border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", display: "flex", alignItems: "center", gap: 8 }, "data-wk": "dwellpage", "data-part": "r20" },
             h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, f.name),
             h("span", { style: { flex: 1 } }),
             h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "行程里去过 " + f.days + " 天"));
@@ -725,11 +725,11 @@
         mapPlaces.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "18px 0 8px" } }, "地图上的地方") : null,
         mapPlaces.length ? h("div", { className: "flex flex-wrap", style: { gap: 6 } }, mapPlaces.slice(0, 24).map(function (m) {
           return h("button", { key: m.name, onClick: function () { gen(m.name, null); }, disabled: !!busy, className: "active:opacity-70",
-            style: { minHeight: 40, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: "transparent" } },
+            style: { minHeight: 40, padding: "6px 12px", borderRadius: 999, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: "transparent" }, "data-wk": "dwellpage", "data-part": "r21" },
             m.name + (m.home ? " · 他在这儿" : ""));
         })) : null,
         h("button", { onClick: askPlace, disabled: !!busy, className: "w-full text-left active:opacity-70",
-          style: { marginTop: 14, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "＋ 自己写一个地方")));
+          style: { marginTop: 14, border: "1px dashed " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.sub }, "data-wk": "dwellpagebtn", "data-part": "14" }, "＋ 自己写一个地方")));
   }
 
   window.DwellApp = DwellApp;

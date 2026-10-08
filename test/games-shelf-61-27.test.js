@@ -112,7 +112,7 @@ test("架子摆在一个柜子里，不是浮在一片纯色上", () => {
   assert.match(shelf, /style: cab/, "配好了却没铺上");
   // 背景是【界面】不是画：必须从主题色兑出来，不许写死
   //（⚠️切片要从那道 hex6 校验开始，不是从 const cab —— 校验写在它上面一行）
-  const cabSeg = shelf.slice(shelf.indexOf("    // ⚠️这些叠层"), shelf.indexOf("return h(\"div\", { className: \"h-full"));
+  const cabSeg = shelf.slice(shelf.indexOf("    // ⚠️这些叠层"), shelf.indexOf("className: \"h-full flex flex-col\", style: cab"));
   assert.ok(cabSeg.length > 400, "抠不出背景那一段");
   // 板宽要不等，不然像条形码。真去数那条木纹里每块板有多宽。
   const grain = /repeating-linear-gradient\(90deg,([\s\S]*?)\)"/.exec(cabSeg);
@@ -140,7 +140,7 @@ test("柜子铺在外壳上、顶栏透明——不是铺在滚动区里", () =>
   // 铺在滚动区里的话，顶栏那一条还是平色，柜子从它下面才开始，
   // 顶上就横着一道没被盖住的带子。跟主屏壁纸同一条道理：
   // 底铺在外壳上，顶栏透明（home-screen-layout.md 里那句「这里透明让它透上来」）。
-  assert.match(shelf, /h\("div", \{ className: "h-full flex flex-col", style: cab \}/, "柜子没铺在外壳上");
+  assert.match(shelf, /h\("div", \{ (?:"data-[a-z]+": "[a-z]+", )*className: "h-full flex flex-col", style: cab \}/, "柜子没铺在外壳上");
   assert.match(shelf, /h\(Head, \{ zh: "小游戏", en: "Games", onBack: props\.onBack, bg: "transparent" \}\)/, "顶栏没透明");
   assert.doesNotMatch(shelf, /overflow-y-auto px-5 pb-8", style: cab/, "柜子还铺在滚动区里");
   // 柜子本来就该不动：盒子在架子上滚，柜子不跟着滚

@@ -94,7 +94,7 @@
       backgroundSize: "9px 9px, 13px 13px", backgroundPosition: "0 0, 4px 6px"
     };
     // 一句墙角的铅笔字（空墙、访客、没砌墙都用它）
-    const pencil = (lines) => h("div", { style: { padding: "56px 28px 0", textAlign: "center" } },
+    const pencil = (lines) => h("div", { "data-wk": "yqempty", style: { padding: "56px 28px 0", textAlign: "center" } },
       h("div", { style: { display: "inline-block", transform: "rotate(-1.5deg)", padding: "10px 14px", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 3px 10px rgba(0,0,0,.08)" } },
         h("div", { style: { display: "flex", justifyContent: "center", marginTop: -17, marginBottom: 4 } }, h(Pin, { color: t.ink, size: 12 })),
         lines.map((s, i) => h("div", { key: i, style: { fontFamily: SERIF, fontSize: 12, color: t.fog, lineHeight: 1.8 } }, s))));
@@ -103,48 +103,48 @@
       const tilt = TILTS[i % TILTS.length];
       const liked = !!m.lisa_liked;
       const cmts = m.comments || [];
-      return h("div", { key: m.id, style: { padding: "12px 4px 6px", transform: "rotate(" + tilt + "deg)", transformOrigin: "50% 0" } },
-        h("div", { style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(0,0,0,.09), 0 1px 0 rgba(255,255,255,.35) inset", padding: "16px 14px 12px", borderRadius: 2 } },
+      return h("div", { "data-wk": "yqcard", key: m.id, style: { padding: "12px 4px 6px", transform: "rotate(" + tilt + "deg)", transformOrigin: "50% 0" } },
+        h("div", { "data-wk": "yqnote", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(0,0,0,.09), 0 1px 0 rgba(255,255,255,.35) inset", padding: "16px 14px 12px", borderRadius: 2 } },
           // 图钉钉在纸顶正中
           h("div", { style: { position: "absolute", top: -7, left: "50%", marginLeft: -7 } }, h(Pin, { color: t.ink })),
           // 纸角的心情戳
-          m.mood ? h("div", { style: { position: "absolute", top: 9, right: 10, transform: "rotate(-7deg)", fontFamily: SERIF, fontSize: 10.5, letterSpacing: 1, color: tint, border: "1.5px solid " + tint, borderRadius: 3, padding: "1px 5px", opacity: .85 } }, m.mood) : null,
+          m.mood ? h("div", { "data-wk": "yqmood", style: { position: "absolute", top: 9, right: 10, transform: "rotate(-7deg)", fontFamily: SERIF, fontSize: 10.5, letterSpacing: 1, color: tint, border: "1.5px solid " + tint, borderRadius: 3, padding: "1px 5px", opacity: .85 } }, m.mood) : null,
           // 抬头：谁写的，铅笔小字
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.5, color: t.fog, marginBottom: 6 } }, "许言秋"),
+          h("div", { "data-wk": "yqauthor", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1.5, color: t.fog, marginBottom: 6 } }, "许言秋"),
           // 正文
-          h("div", { style: { fontFamily: SERIF, fontSize: 14, color: t.ink, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, m.content),
+          h("div", { "data-wk": "yqtext", style: { fontFamily: SERIF, fontSize: 14, color: t.ink, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, m.content),
           // 纸脚：左边是她压的叶（可点，热区 40），右边是铅笔日期
           h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 } },
-            h("button", { onClick: () => like(m), "aria-label": liked ? "取走这片叶" : "压一片叶", className: "active:opacity-60", style: { display: "flex", alignItems: "center", gap: 6, minHeight: 40, marginLeft: -6, padding: "0 6px", background: "transparent", border: "none" } },
+            h("button", { "data-wk": "yqlike", "data-on": liked ? "1" : "0", onClick: () => like(m), "aria-label": liked ? "取走这片叶" : "压一片叶", className: "active:opacity-60", style: { display: "flex", alignItems: "center", gap: 6, minHeight: 40, marginLeft: -6, padding: "0 6px", background: "transparent", border: "none" } },
               h("span", { style: { transform: liked ? "rotate(18deg) translateY(1px)" : "rotate(0deg)", transition: "transform .25s", display: "inline-flex" } },
                 h(window.GYanqiuLeaf, { size: 22, color: liked ? tint : t.fog, fill: liked ? tint : "none" })),
               h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: liked ? tint : t.fog } }, liked ? "压了片叶" : "压片叶")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, fontStyle: "italic" } }, fmtTime(m.created_at))),
+            h("div", { "data-wk": "yqdate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, fontStyle: "italic" } }, fmtTime(m.created_at))),
           // 纸边的批注：一道墨线引着，她的字和TA的回各一色
-          cmts.length ? h("div", { style: { marginTop: 8, paddingLeft: 10, borderLeft: "2px solid " + tint } },
-            cmts.map(c => h("div", { key: c.id, style: { fontFamily: SERIF, fontSize: 12.5, lineHeight: 1.75, padding: "2px 0", color: t.sub } },
+          cmts.length ? h("div", { "data-wk": "yqcomments", style: { marginTop: 8, paddingLeft: 10, borderLeft: "2px solid " + tint } },
+            cmts.map(c => h("div", { "data-wk": "yqcomment", "data-me": c.author === "yanqiu" ? "0" : "1", key: c.id, style: { fontFamily: SERIF, fontSize: 12.5, lineHeight: 1.75, padding: "2px 0", color: t.sub } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, marginRight: 6, color: c.author === "yanqiu" ? tint : t.ink } }, c.author === "yanqiu" ? "言秋" : "你"),
               c.content))) : null,
           // 搭一句：一条铅笔线，写了字才出现「钉上」
           h("div", { style: { display: "flex", alignItems: "flex-end", gap: 8, marginTop: 8 } },
-            h("input", { value: draft[m.id] || "", onChange: e => setDraft(p => ({ ...p, [m.id]: e.target.value })), placeholder: "在纸边搭一句…",
+            h("input", { "data-wk": "yqinput", value: draft[m.id] || "", onChange: e => setDraft(p => ({ ...p, [m.id]: e.target.value })), placeholder: "在纸边搭一句…",
               className: "flex-1 min-w-0 outline-none", style: { width: 0, fontFamily: SERIF, fontSize: 12.5, color: t.ink, background: "transparent", border: "none", borderBottom: "1px dashed " + t.line, padding: "6px 2px", borderRadius: 0 } }),
-            (draft[m.id] || "").trim() ? h("button", { onClick: () => comment(m), disabled: busyId === m.id, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 1, color: t.bg2, background: tint, border: "none", borderRadius: 3, padding: "7px 11px", minHeight: 32, flexShrink: 0, whiteSpace: "nowrap" } }, busyId === m.id ? "…" : "钉上") : null)));
+            (draft[m.id] || "").trim() ? h("button", { "data-wk": "yqsend", onClick: () => comment(m), disabled: busyId === m.id, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: 1, color: t.bg2, background: tint, border: "none", borderRadius: 3, padding: "7px 11px", minHeight: 32, flexShrink: 0, whiteSpace: "nowrap" } }, busyId === m.id ? "…" : "钉上") : null)));
     };
 
-    return h("div", { className: "h-full flex flex-col", style: wallStyle },
+    return h("div", { "data-wk": "yqpage", className: "h-full flex flex-col", style: wallStyle },
       // 紧凑顶栏：返回 · 居中小标题 · 右侧等宽操作位（照 mobile-ui-layout 铁律）
-      h("div", { className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: t.bg } },
-        h("button", { onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
+      h("div", { "data-wk": "yqhead", className: "shrink-0 flex items-center px-4 pb-2", style: { paddingTop: safeTop(10), borderBottom: "1px solid " + t.line, background: t.bg } },
+        h("button", { "data-wk": "yqback", onClick: onBack, "aria-label": "返回", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink })),
         h("div", { className: "flex-1 min-w-0 text-center px-1" },
-          h("div", { className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "秋声"),
-          h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "许言秋 · 钉在墙上的话")),
-        h("button", { onClick: load, "aria-label": "刷新", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } },
+          h("div", { "data-wk": "yqtitle", className: "truncate", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, lineHeight: 1.15 } }, "秋声"),
+          h("div", { "data-wk": "yqsub", className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "许言秋 · 钉在墙上的话")),
+        h("button", { "data-wk": "yqrefresh", onClick: load, "aria-label": "刷新", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginRight: -8 } },
           h("svg", { width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: t.ink, strokeWidth: 1.7, strokeLinecap: "round", strokeLinejoin: "round" },
             h("path", { d: "M20 12a8 8 0 1 1-2.6-5.9" }), h("path", { d: "M20 4v5h-5" })))),
-      h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 28px" } },
+      h("div", { "data-wk": "yqlist", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "10px 16px 28px" } },
         // 墙角的说明，铅笔小字
-        h("div", { style: { fontFamily: SERIF, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "4px 6px 10px", transform: "rotate(-0.6deg)", transformOrigin: "0 0" } },
+        h("div", { "data-wk": "yqintro", style: { fontFamily: SERIF, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "4px 6px 10px", transform: "rotate(-0.6deg)", transformOrigin: "0 0" } },
           "TA在电脑那边干活时路过这面墙，留一句话；你路过时刷到了。压不压叶、搭不搭话，都不欠。"),
         items === null ? pencil(["正在翻墙上的字…"]) :
         err === "guest" ? pencil(["这面墙在云端。", "登录后才看得到TA写了什么。"]) :

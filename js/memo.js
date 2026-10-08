@@ -226,20 +226,20 @@
     // ⚠必须 portal 挂 body：这层从「详情 Sheet」里打开，Sheet 的 fadeUp 动画(fill:both)保留了 transform，
     // fixed 会被劫持成相对 Sheet 定位+被其 overflow 裁头——就是她两次报「标题被顶没了」的根因
     // 结构铁律：头/尾 shrink-0、只有中间列表滚；容器 overflow hidden 兜底
-    return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "fadeUp .2s ease both" } },
+    return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose, "data-wk": "memocommentpickertap", "data-part": "close" },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "fadeUp .2s ease both" }, "data-wk": "memocommentpickertap", "data-part": "2" },
         h("div", { className: "flex items-center justify-between shrink-0", style: { marginBottom: 4 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "让谁来批注"),
-          avail.length > 1 && h("button", { onClick: () => setSel(allSel ? [] : avail.map(c => c.id)), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACCENT } }, allSel ? "全不选" : "全选")),
+          avail.length > 1 && h("button", { onClick: () => setSel(allSel ? [] : avail.map(c => c.id)), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: ACCENT }, "data-wk": "memocommentpickerbtn", "data-part": "1" }, allSel ? "全不选" : "全选")),
         h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "选中的角色会各说一句（一次生成，走便宜后台池）"),
         avail.length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "没有可批注的角色了。")
-          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", WebkitOverflowScrolling: "touch", flex: "1 1 auto", minHeight: 0, margin: "0 -4px", padding: "0 4px" } }, avail.map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70 shrink-0", style: { padding: "7px 4px", textAlign: "left" } },
+          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", WebkitOverflowScrolling: "touch", flex: "1 1 auto", minHeight: 0, margin: "0 -4px", padding: "0 4px" } }, avail.map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70 shrink-0", style: { padding: "7px 4px", textAlign: "left" }, "data-wk": "memocommentpickerbtn", "data-part": "2" },
             h(Avatar, { character: c, size: 34, radius: 999 }),
             h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
             h("span", { style: { width: 22, height: 22, borderRadius: 999, border: "2px solid " + (sel.includes(c.id) ? ACCENT : t.line), background: sel.includes(c.id) ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, flexShrink: 0 } }, sel.includes(c.id) ? "✓" : "")))),
         h("div", { className: "flex gap-2 shrink-0", style: { marginTop: 14 } },
-          h("button", { onClick: props.onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 0" } }, "取消"),
-          h("button", { onClick: () => sel.length && props.onPick(sel), disabled: !sel.length || props.busy, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: ACCENT, borderRadius: 14, padding: "11px 0" } }, props.busy ? "生成中…" : "让 TA 们说 (" + sel.length + ")")))), document.body);
+          h("button", { onClick: props.onClose, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 0" }, "data-wk": "memocommentpickerbtn", "data-part": "close" }, "取消"),
+          h("button", { onClick: () => sel.length && props.onPick(sel), disabled: !sel.length || props.busy, className: "flex-1 active:opacity-80 disabled:opacity-40", style: { fontFamily: F_DISPLAY, fontSize: 14, color: "#fff", background: ACCENT, borderRadius: 14, padding: "11px 0" }, "data-wk": "memocommentpickerbtn", "data-part": "4" }, props.busy ? "生成中…" : "让 TA 们说 (" + sel.length + ")")))), document.body);
   }
 
   // ---- 谁可以看到（可见角色）----
@@ -248,16 +248,16 @@
     const [sel, setSel] = useState((props.value || []).slice());
     const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
     // portal 挂 body：同 CommentPicker，躲开详情 Sheet 的 transform 劫持 fixed
-    return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose },
-      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "fadeUp .2s ease both" } },
+    return ReactDOM.createPortal(h("div", { className: "fixed inset-0 z-[90] flex items-end", style: { background: "rgba(20,19,15,0.4)" }, onClick: props.onClose, "data-wk": "memovisiblepickertap", "data-part": "close" },
+      h("div", { onClick: e => e.stopPropagation(), style: { width: "100%", background: t.bg2, borderTopLeftRadius: 22, borderTopRightRadius: 22, padding: "18px 18px 22px", maxHeight: "78vh", display: "flex", flexDirection: "column", overflow: "hidden", animation: "fadeUp .2s ease both" }, "data-wk": "memovisiblepickertap", "data-part": "2" },
         h("div", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到 / 提醒你"),
         h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "选中的角色：临近时会在聊天里自然提起；到期当天可能主动发消息提醒你。"),
         (props.characters || []).length === 0 ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "还没有角色。")
-          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", WebkitOverflowScrolling: "touch", flex: "1 1 auto", minHeight: 0, margin: "0 -4px", padding: "0 4px" } }, (props.characters || []).map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70 shrink-0", style: { padding: "7px 4px", textAlign: "left" } },
+          : h("div", { style: { display: "flex", flexDirection: "column", gap: 6, overflowY: "auto", WebkitOverflowScrolling: "touch", flex: "1 1 auto", minHeight: 0, margin: "0 -4px", padding: "0 4px" } }, (props.characters || []).map(c => h("button", { key: c.id, onClick: () => toggle(c.id), className: "w-full flex items-center gap-3 active:opacity-70 shrink-0", style: { padding: "7px 4px", textAlign: "left" }, "data-wk": "memovisiblepickerbtn", "data-part": "1" },
             h(Avatar, { character: c, size: 34, radius: 999 }),
             h("span", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
             h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: sel.includes(c.id) ? ACCENT : t.fog } }, sel.includes(c.id) ? "✓ 可见" : "不可见")))),
-        h("button", { onClick: () => props.onSave(sel), className: "w-full active:opacity-80 shrink-0", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#fff", background: t.ink, borderRadius: 14, padding: "12px 0" } }, "保存"))), document.body);
+        h("button", { onClick: () => props.onSave(sel), className: "w-full active:opacity-80 shrink-0", style: { marginTop: 14, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#fff", background: t.ink, borderRadius: 14, padding: "12px 0" }, "data-wk": "memovisiblepickerbtn", "data-part": "2" }, "保存"))), document.body);
   }
 
   // ---- 批注区块（备忘/提醒详情共用）----
@@ -278,19 +278,19 @@
       } catch (e) { props.toast && props.toast("批注失败：" + (e.message || e)); }
       finally { setBusy(false); setPick(false); }
     };
-    return h("div", { style: { marginTop: 18 } },
+    return h("div", { style: { marginTop: 18 }, "data-wk": "memocommentblock" },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 10 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, letterSpacing: "0.05em" } }, "角色批注" + (comments.length ? " · " + comments.length : "")),
-        h("button", { onClick: () => setPick(true), className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "4px 12px" } }, comments.length ? "再让 TA 们说说" : "让角色批注")),
+        h("button", { onClick: () => setPick(true), className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "4px 12px" }, "data-wk": "memocommentblockbtn", "data-part": "1" }, comments.length ? "再让 TA 们说说" : "让角色批注")),
       comments.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 12 } }, comments.map((cm, i) => {
         const c = (props.characters || []).find(x => x.id === cm.charId) || { name: cm.name, color: "#8a8a8a" };
-        return h("div", { key: i, className: "flex items-start gap-2.5" },
+        return h("div", { key: i, className: "flex items-start gap-2.5", "data-wk": "memocommentblock", "data-part": "r2" },
           h(Avatar, { character: c, size: 30, radius: 999 }),
           h("div", { style: { flex: 1, background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "9px 12px" } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.sub, marginBottom: 2, display: "flex", alignItems: "center", gap: 6 } }, c.remark || c.name || cm.name,
               cm.auto ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: ACCENT, border: "1px solid " + ACCENT + "55", borderRadius: 999, padding: "1px 7px" } }, "自己注意到 · 办完了") : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, lineHeight: 1.5 } }, cm.text),
-            h("button", { onClick: () => props.onDel(i), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "删除")));
+            h("button", { onClick: () => props.onDel(i), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 }, "data-wk": "memocommentblockbtn", "data-part": "2" }, "删除")));
       })) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有角色批注。"),
       pick && h(CommentPicker, { characters: props.characters, existing: comments.map(c => c.charId), busy: busy, onPick: doGen, onClose: () => !busy && setPick(false) }));
   }
@@ -316,7 +316,7 @@
       props.onSave(Object.assign(clean, { id: r.id || uid("r"), title: title.trim(), note: note.trim(), repeat: repeat, anchor: anchor, startTime: startTime || "", endTime: startTime ? (endTime || "") : "", done: !!r.done, visibleTo: r.visibleTo || [], comments: r.comments || [], createdTs: r.createdTs || Date.now() }));
     };
     const inp = { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 14.5, color: t.ink, outline: "none" };
-    const rchip = (v, lbl) => h("button", { onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) } }, lbl);
+    const rchip = (v, lbl) => h("button", { onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 999, background: repeat === v ? ACCENT : "transparent", color: repeat === v ? "#fff" : t.sub, border: "1px solid " + (repeat === v ? ACCENT : t.line) }, "data-wk": "memoreminderformbtn", "data-part": "1" }, lbl);
     // 选中日期 + 重复方式 → 一句人话解释这条会什么时候提醒
     const explain = !aDate ? "" : repeat === "none" ? "只在这一天提醒一次。"
       : repeat === "weekly" ? "每周" + WEEK[aDate.getDay()] + "提醒。"
@@ -327,20 +327,20 @@
     return h(PageSheet, { onClose: props.onClose, tall: true },
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑提醒" : "新提醒"),
-        h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT } }, "保存")),
-      h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "要提醒的事（如 交房租 / 妈妈生日 / 复诊）", style: Object.assign({}, inp, { marginBottom: 10 }) }),
-      h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可空）", style: Object.assign({}, inp, { marginBottom: 14 }) }),
+        h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT }, "data-wk": "memoreminderformbtn", "data-part": "2" }, "保存")),
+      h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "要提醒的事（如 交房租 / 妈妈生日 / 复诊）", style: Object.assign({}, inp, { marginBottom: 10 }), "data-wk": "memoreminderforminput", "data-part": "要提醒的事（如 交房租 " }),
+      h("input", { value: note, onChange: e => setNote(e.target.value), placeholder: "备注（可空）", style: Object.assign({}, inp, { marginBottom: 14 }), "data-wk": "memoreminderforminput", "data-part": "备注（可空）" }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, repeat === "monthlyEnd" ? "日期（月底模式下只用来定从哪个月起）" : "日期"),
-      h("input", { type: "date", value: anchor, onChange: e => setAnchor(e.target.value), style: Object.assign({}, inp, { marginBottom: 14 }) }),
+      h("input", { type: "date", value: anchor, onChange: e => setAnchor(e.target.value), style: Object.assign({}, inp, { marginBottom: 14 }), "data-wk": "memoreminderforminput", "data-part": "3" }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "时间（留空＝全天，只挂在日历顶部）"),
       h("div", { className: "flex gap-3", style: { marginBottom: 5 } },
-        h("input", { type: "time", value: startTime, onChange: e => setStartTime(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }) }),
-        h("input", { type: "time", value: endTime, disabled: !startTime, onChange: e => setEndTime(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }, startTime ? null : { opacity: 0.45 }) })),
+        h("input", { type: "time", value: startTime, onChange: e => setStartTime(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }), "data-wk": "memoreminderforminput", "data-part": "4" }),
+        h("input", { type: "time", value: endTime, disabled: !startTime, onChange: e => setEndTime(e.target.value), style: Object.assign({}, inp, { flex: 1, minWidth: 0 }, startTime ? null : { opacity: 0.45 }), "data-wk": "memoreminderforminput", "data-part": "5" })),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 14 } }, startTime ? "会画在日历那天的时间轴上" : "全天：画在日历顶部那一条"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "重复"),
       h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 10 } }, rchip("none", "不重复"), rchip("weekly", "每周"), rchip("biweekly", "每两周"), rchip("monthly", "每月"), rchip("monthlyEnd", "每月最后一天"), rchip("yearly", "每年")),
       explain && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, lineHeight: 1.5, background: ACCENT + "10", borderRadius: 10, padding: "8px 11px" } }, explain),
-      props.initial && h("button", { onClick: () => props.onDelete(r.id), className: "w-full active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" } }, "删除这条提醒"));
+      props.initial && h("button", { onClick: () => props.onDelete(r.id), className: "w-full active:opacity-70", style: { marginTop: 22, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" }, "data-wk": "memoreminderformbtn", "data-part": "3" }, "删除这条提醒"));
   }
 
   // ---- 备忘 编辑表单 ----
@@ -357,10 +357,10 @@
     return h(PageSheet, { onClose: props.onClose, tall: true },
       h("div", { className: "flex items-center justify-between mb-3" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, props.initial ? "编辑备忘" : "新备忘"),
-        h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT } }, "保存")),
-      h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "标题", style: Object.assign({}, inp, { fontSize: 16, marginBottom: 10 }) }),
-      h("textarea", { value: body, onChange: e => setBody(e.target.value), placeholder: "随手记点什么…", rows: 8, style: Object.assign({}, inp, { fontSize: 14.5, lineHeight: 1.6, resize: "none" }) }),
-      props.initial && h("button", { onClick: () => props.onDelete(n.id), className: "w-full active:opacity-70", style: { marginTop: 20, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" } }, "删除这条备忘"));
+        h("button", { onClick: save, className: "active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 14, color: ACCENT }, "data-wk": "memonoteformbtn", "data-part": "1" }, "保存")),
+      h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "标题", style: Object.assign({}, inp, { fontSize: 16, marginBottom: 10 }), "data-wk": "memonoteforminput", "data-part": "标题" }),
+      h("textarea", { value: body, onChange: e => setBody(e.target.value), placeholder: "随手记点什么…", rows: 8, style: Object.assign({}, inp, { fontSize: 14.5, lineHeight: 1.6, resize: "none" }), "data-wk": "memonoteformtext", "data-part": "随手记点什么…" }),
+      props.initial && h("button", { onClick: () => props.onDelete(n.id), className: "w-full active:opacity-70", style: { marginTop: 20, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a" }, "data-wk": "memonoteformbtn", "data-part": "2" }, "删除这条备忘"));
   }
 
   // ============================================================
@@ -463,7 +463,7 @@
         background: tab === k ? t.bg2 : "rgba(127,127,127,.10)",
         color: tab === k ? t.ink : t.sub,
         boxShadow: tab === k ? "none" : "inset 0 -1px 0 rgba(0,0,0,.06)"
-      }
+      }, "data-wk": "memopagebtn", "data-part": "1"
     }, lbl);
 
     // 日历里【我的】日程也在这儿露一面（她 2026-08-26：「在日历建的日程，备忘录那边也要体现出来」）。
@@ -473,11 +473,11 @@
     const calSection = () => calUpcoming.length ? h("div", { style: { marginBottom: 16 } },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 8 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.1em", color: t.fog } }, "日历里的日程 · 30 天内"),
-        h("button", { onClick: () => { typeof window.calOpenFromMemo === "function" && window.calOpenFromMemo(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: ACCENT } }, "去日历 ›")),
+        h("button", { onClick: () => { typeof window.calOpenFromMemo === "function" && window.calOpenFromMemo(); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: ACCENT }, "data-wk": "memopagebtn", "data-part": "2" }, "去日历 ›")),
       h("div", { className: "flex flex-col gap-2" }, calUpcoming.slice(0, 8).map(e => h("button", {
         key: e.id, onClick: () => { typeof window.calOpenFromMemo === "function" && window.calOpenFromMemo(); },
         className: "w-full active:opacity-70 flex items-center gap-2.5",
-        style: { textAlign: "left", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "9px 12px" }
+        style: { textAlign: "left", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "9px 12px" }, "data-wk": "memopagebtn", "data-part": "3"
       },
         // e.icon 是她/模型自己填的，照原样；没有的时候画一张小日历，别退回 emoji
         e.icon ? h("span", { className: "shrink-0", style: { fontSize: 15 } }, e.icon)
@@ -493,15 +493,15 @@
     const reminderRow = r => {
       const days = window.memoNextDays(r);
       const done = !!r.done;
-      return h("button", { key: r.id, onClick: () => setDetail({ kind: "reminder", id: r.id }), className: "w-full active:opacity-70 flex items-center gap-3", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", opacity: done ? 0.55 : 1 } },
-        h("button", { onClick: e => { e.stopPropagation(); autoReactDone(r); upReminder(r.id, { done: !r.done }); }, className: "shrink-0 active:opacity-60", style: { width: 24, height: 24, borderRadius: 999, border: "2px solid " + (done ? ACCENT : t.line), background: done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 } }, done ? "✓" : ""),
+      return h("button", { key: r.id, onClick: () => setDetail({ kind: "reminder", id: r.id }), className: "w-full active:opacity-70 flex items-center gap-3", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "12px 14px", opacity: done ? 0.55 : 1 }, "data-wk": "memopage" },
+        h("button", { onClick: e => { e.stopPropagation(); autoReactDone(r); upReminder(r.id, { done: !r.done }); }, className: "shrink-0 active:opacity-60", style: { width: 24, height: 24, borderRadius: 999, border: "2px solid " + (done ? ACCENT : t.line), background: done ? ACCENT : "transparent", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13 }, "data-wk": "memopagebtn", "data-part": "4" }, done ? "✓" : ""),
         h("div", { style: { flex: 1, minWidth: 0 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, textDecoration: done ? "line-through" : "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.title),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, reminderDateText(r) + (r.startTime ? " " + r.startTime + (r.endTime ? "–" + r.endTime : "") : "") + " · " + repeatLabel(r.repeat) + ((r.comments || []).length ? " · 批注 " + r.comments.length : "") + ((r.visibleTo || []).length ? " · 给 " + r.visibleTo.length + " 人看" : ""))),
         !done && days != null && h("span", { className: "shrink-0", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: cdColor(days, t), background: cdColor(days, t) + "18", borderRadius: 999, padding: "3px 10px" } }, cdLabel(days)));
     };
     // 备忘行
-    const noteRow = n => h("button", { key: n.id, onClick: () => setDetail({ kind: "note", id: n.id }), className: "w-full active:opacity-70", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px" } },
+    const noteRow = n => h("button", { key: n.id, onClick: () => setDetail({ kind: "note", id: n.id }), className: "w-full active:opacity-70", style: { textAlign: "left", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16, padding: "13px 15px" }, "data-wk": "memopagebtn", "data-part": "5" },
       h("div", { className: "flex items-center gap-2" },
         // 📌 在她机器上会渲成豆腐块（Unicode 当图标一律换成 SVG）
         n.pinned && h("svg", { width: 11, height: 12, viewBox: "0 0 11 12", "aria-hidden": "true", style: { flexShrink: 0 } },
@@ -517,9 +517,9 @@
 
     // 本子的纸：底铺在最外那层外壳上，顶栏透上来（mobile-ui-layout §3.5）
     const notebook = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .65 }) : { background: t.bg };
-    return h("div", { className: "h-full flex flex-col", style: notebook },
+    return h("div", { className: "h-full flex flex-col", style: notebook, "data-wk": "memopage", "data-part": "r2" },
       h(Head, { zh: "备忘录", onBack: backOut, bg: "transparent",
-        right: h("button", { onClick: () => setForm({ kind: tab === "notes" ? "note" : "reminder" }), className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 24, color: ACCENT, lineHeight: 1 } }, "＋") }),
+        right: h("button", { onClick: () => setForm({ kind: tab === "notes" ? "note" : "reminder" }), className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 24, color: ACCENT, lineHeight: 1 }, "data-wk": "memopagebtn", "data-part": "6" }, "＋") }),
       // 页签那一行底下压一道线：它是「本子的页边」，选中那张用纸色盖住自己那一段——
       // 线断在哪儿，就说明翻开的是哪一页。
       h("div", { className: "shrink-0 flex px-5", style: { gap: 3, alignItems: "stretch", background: "linear-gradient(to top," + t.line + " 0 2px,transparent 2px)" } },
@@ -542,11 +542,11 @@
           h("div", { style: { flex: 1 } },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, textDecoration: curReminder.done ? "line-through" : "none" } }, curReminder.title),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 3 } }, reminderDateText(curReminder) + " · " + repeatLabel(curReminder.repeat) + (window.memoNextDays(curReminder) != null && !curReminder.done ? " · " + cdLabel(window.memoNextDays(curReminder)) : ""))),
-          h("button", { onClick: () => { setForm({ kind: "reminder", item: curReminder }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "编辑")),
+          h("button", { onClick: () => { setForm({ kind: "reminder", item: curReminder }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint }, "data-wk": "memopagebtn", "data-part": "7" }, "编辑")),
         curReminder.note && h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, marginTop: 8, lineHeight: 1.6 } }, curReminder.note),
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          h("button", { onClick: () => { autoReactDone(curReminder); upReminder(curReminder.id, { done: !curReminder.done }); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curReminder.done ? t.sub : "#fff", background: curReminder.done ? t.bg2 : ACCENT, border: "1px solid " + (curReminder.done ? t.line : ACCENT), borderRadius: 12, padding: "10px 0" } }, curReminder.done ? "标为未完成" : "标为已完成"),
-          h("button", { onClick: () => setVisFor({ kind: "reminder", id: curReminder.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curReminder.visibleTo || []).length + ")")),
+          h("button", { onClick: () => { autoReactDone(curReminder); upReminder(curReminder.id, { done: !curReminder.done }); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curReminder.done ? t.sub : "#fff", background: curReminder.done ? t.bg2 : ACCENT, border: "1px solid " + (curReminder.done ? t.line : ACCENT), borderRadius: 12, padding: "10px 0" }, "data-wk": "memopagebtn", "data-part": "8" }, curReminder.done ? "标为未完成" : "标为已完成"),
+          h("button", { onClick: () => setVisFor({ kind: "reminder", id: curReminder.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" }, "data-wk": "memopagebtn", "data-part": "9" }, "谁能看 (" + (curReminder.visibleTo || []).length + ")")),
         h(CommentBlock, { comments: curReminder.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: uName, toast: props.toast, itemId: curReminder.id,
           itemDesc: "提醒 · " + curReminder.title + "（" + reminderDateText(curReminder) + "）" + (curReminder.note ? " · 备注：" + curReminder.note : ""),
           onAdd: cs => upReminder(curReminder.id, r => ({ comments: (r.comments || []).concat(cs) })),
@@ -556,11 +556,11 @@
       curNote && h(PageSheet, { onClose: () => setDetail(null), tall: true },
         h("div", { className: "flex items-start justify-between", style: { marginBottom: 6 } },
           h("div", { style: { flex: 1, fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, curNote.title || "（无标题）"),
-          h("button", { onClick: () => { setForm({ kind: "note", item: curNote }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "编辑")),
+          h("button", { onClick: () => { setForm({ kind: "note", item: curNote }); setDetail(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint }, "data-wk": "memopagebtn", "data-part": "10" }, "编辑")),
         curNote.body && h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.7, whiteSpace: "pre-wrap", marginTop: 4 } }, curNote.body),
         h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" } }, curNote.pinned ? "取消置顶" : "置顶"),
-          h("button", { onClick: () => setVisFor({ kind: "note", id: curNote.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, "谁能看 (" + (curNote.visibleTo || []).length + ")")),
+          h("button", { onClick: () => upNote(curNote.id, { pinned: !curNote.pinned }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: curNote.pinned ? "#fff" : t.sub, background: curNote.pinned ? ACCENT : t.bg2, border: "1px solid " + (curNote.pinned ? ACCENT : t.line), borderRadius: 12, padding: "10px 0" }, "data-wk": "memopagebtn", "data-part": "11" }, curNote.pinned ? "取消置顶" : "置顶"),
+          h("button", { onClick: () => setVisFor({ kind: "note", id: curNote.id }), className: "flex-1 active:opacity-70", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" }, "data-wk": "memopagebtn", "data-part": "12" }, "谁能看 (" + (curNote.visibleTo || []).length + ")")),
         h(CommentBlock, { comments: curNote.comments, characters: props.characters, moods: props.moods, affinities: props.affinities, active: props.active, worldbook: props.worldbook, worldbookFor: props.worldbookFor, uName: uName, toast: props.toast, itemId: curNote.id,
           itemDesc: "备忘 · " + (curNote.title || "") + (curNote.body ? "：" + curNote.body.slice(0, 120) : ""),
           onAdd: cs => upNote(curNote.id, n => ({ comments: (n.comments || []).concat(cs) })),

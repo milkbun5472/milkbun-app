@@ -76,7 +76,7 @@ test("续命只写在一处，而且不是每条消息都写盘", () => {
 test("界面：格子点得动，淡了看得出，带着的看得出", () => {
   assert.match(scr, /onClick: \(\) => setInvItem\(it\)/, "物品格子还是点不动");
   assert.match(scr, /opacity: st === "fading" \? \.45 : 1/, "淡了看不出来");
-  assert.match(scr, /it\.onMe \? h\("span"[\s\S]{0,220}"带着"/, "带在身上的看不出来");
+  assert.match(scr, /it\.onMe \? h\("span"[\s\S]{0,260}"带着"/, "带在身上的看不出来");
   // 那一层一直在起作用，只是她看不见——但不许说破它从哪儿来
   assert.match(scr, /TA见了会眼熟，但说不上在哪见过。放太久没人提起，它自己会淡掉。/, "没告诉她这一组有什么用");
   assert.ok(scr.indexOf("从TA梦里") < 0, "在界面上说破了它的来历——这个设定就没了");

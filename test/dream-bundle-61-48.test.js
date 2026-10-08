@@ -70,7 +70,7 @@ test("整页是夜色纸，梦是压在夜色上的一张张浅纸条", () => {
   assert.match(c, /const nightBg = \{/);
   assert.match(c, /const paperCard = \(extra\) =>/);
   // 底纹铺在最外面那个外壳上、顶栏透明（mobile-ui-layout.md §3.5）
-  assert.match(c, /h\("div", \{ className: "h-full flex flex-col", style: nightBg \}/);
+  assert.match(c, /h\("div", \{ (?:"data-[a-z]+": "[a-z]+", )*className: "h-full flex flex-col", style: nightBg \}/);
   assert.match(c, /bg: "transparent", ink: NINK/);
   // 星尘位置写死：随机的话每次重画都在动
   assert.ok(c.indexOf("Math.random()") < 0 || c.indexOf("Math.random().toString(36)") >= 0);

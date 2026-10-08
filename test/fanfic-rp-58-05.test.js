@@ -32,7 +32,7 @@ test("底栏只吃 0.4 条安全区，和主聊天输入栏、购物底栏同一
   // 原来吃的是【整条】，刘海机上比别处高出一截（mobile-ui-layout §2 点名不许）
   assert.doesNotMatch(fic, /paddingBottom: "env\(safe-area-inset-bottom\)"/, "还在吃整条安全区");
   const i = fic.indexOf("  function BottomNav(props) {");
-  const seg = fic.slice(i, i + 1600);
+  const seg = fic.slice(i, i + 2000);
   assert.match(seg, /paddingBottom: COMPOSER_PAD_BOTTOM/);
   // 图标/字号/间距也对齐购物那条
   assert.match(seg, /h\(it\.G, \{ size: 21,/);

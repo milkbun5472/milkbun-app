@@ -512,7 +512,7 @@
     };
     const corners = size => ["tl", "tr", "bl", "br"].map(x => corner(x, size));
     // 一张贴在卡纸上的相纸
-    const plate = (opts, inner) => h("div", { style: Object.assign({ position: "relative", background: PAPER,
+    const plate = (opts, inner) => h("div", { "data-wk": "impplate", style: Object.assign({ position: "relative", background: PAPER,
       padding: opts.edge == null ? 6 : opts.edge, boxShadow: "0 7px 18px rgba(0,0,0,.38)",
       transform: "rotate(" + (opts.deg || 0) + "deg)" }, opts.style || {}) },
       h("div", { style: { position: "relative", width: "100%", aspectRatio: opts.ratio || "3 / 4",
@@ -701,7 +701,7 @@
       // ⚠️backface-visibility 只管【看不看得见】，不保证【点不点得着】：Safari/iOS 里
       //   压在上面那一面即使已经转到背后，照样会把点击吃掉——她 2026-09-13 报「补写按钮点不了」
       //   就是这个。所以两面各自显式开关 pointerEvents，不靠引擎的隐藏行为。
-      const backFace = h("div", { style: { position: "absolute", inset: 0, background: PAPER,
+      const backFace = h("div", { "data-wk": "impback", style: { position: "absolute", inset: 0, background: PAPER,
         backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden", transform: "rotateY(180deg) translateZ(1px)",
         pointerEvents: flipped ? "auto" : "none",
         // ⚠️别把"翻过去看见的是背面"全押在 backface-visibility 上：iOS 上它失灵，
@@ -715,7 +715,7 @@
           color: pageColor("impression", "fog", "rgba(120,100,72,.68)"), marginBottom: 22 } },
           M.monthLabel(e.monthKey) + "　背面"),
         hasBack
-          ? backRows.map((r, i) => h("div", { key: i, style: { marginBottom: 24 } },
+          ? backRows.map((r, i) => h("div", { "data-wk": "impbackrow", key: i, style: { marginBottom: 24 } },
               h("div", { style: penHead }, "〔" + r[0] + "〕"),
               h("div", { style: penText }, r[1])))
           : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 2,
@@ -725,7 +725,7 @@
               "翻回正面，点下面那个「补写背面」。"),
         hasBack ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, textAlign: "right", marginTop: 4,
           color: pageColor("impression", "ink", "rgba(94,79,58,.75)") } }, "—— " + (c.name || "TA")) : null);
-      return h("div", { style: S.wrap }, header(M.monthLabel(e.monthKey)),
+      return h("div", { "data-wk": "impdetail", style: S.wrap }, header(M.monthLabel(e.monthKey)),
         h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "18px 18px 40px" } },
           // 这一张是【从册子上取下来的那张相纸】（v61.26，她 2026-09-03：「点进卡里面还是白的，
           // 卡片要不要也做点装饰」）。原来是一块 t.bg2 的白圆角——白得像个弹窗，
@@ -735,12 +735,12 @@
           // ⚠️不用淡入淡出：淡入淡出搬到别的功能上照样成立，翻相片不行——
           //   背面本来就是相片写字的地方，这个形状是它自己长出来的。
           h("div", { style: { perspective: 1400, marginTop: 12 } },
-          h("div", { onClick: () => setFlipId(flipped ? null : e.id),
+          h("div", { "data-wk": "impflip", "data-on": flipped ? "1" : "0", onClick: () => setFlipId(flipped ? null : e.id),
             style: { position: "relative", transformStyle: "preserve-3d", WebkitTransformStyle: "preserve-3d", cursor: "pointer",
               transition: "transform .42s cubic-bezier(.25,.85,.3,1)", willChange: "transform",
               transform: "rotate(-.5deg)" + (flipped ? " rotateY(180deg)" : "") } },
           backFace,
-          h("div", { style: { position: "relative", background: PAPER, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
+          h("div", { "data-wk": "impfront", style: { position: "relative", background: PAPER, backfaceVisibility: "hidden", WebkitBackfaceVisibility: "hidden",
             pointerEvents: flipped ? "none" : "auto", transform: "translateZ(1px)",
             visibility: flipped ? "hidden" : "visible", transition: "visibility 0s linear .21s",
             backgroundImage: "radial-gradient(120% 90% at 50% 0,rgba(255,255,255,.55),transparent 55%),"
@@ -763,39 +763,39 @@
                   const onLeft = i === 1;
                   const dot = h("div", { key: "d", style: { width: 9, height: 9, borderRadius: 999, background: "#fff", boxShadow: "0 0 0 7px rgba(255,255,255,.26)", flexShrink: 0 } });
                   const line = h("div", { key: "l", style: { width: 20, height: 1, background: pageColor("impression", "bg2", "rgba(255,255,255,.85)"), flexShrink: 0 } });
-                  const chip = h("div", { key: "c", style: { background: pageColor("impression", "bg2", "rgba(97,84,56,.86)"), border: "1px solid rgba(246,239,226,.55)",
+                  const chip = h("div", { "data-wk": "imptag", key: "c", style: { background: pageColor("impression", "bg2", "rgba(97,84,56,.86)"), border: "1px solid rgba(246,239,226,.55)",
                     color: pageColor("impression", "ink", "#f6efe2"), padding: "5px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5,
                     letterSpacing: ".06em", whiteSpace: "nowrap", backdropFilter: "blur(2px)" } }, tag);
                   return h("div", { key: i, style: { position: "absolute", top: [24, 49, 74][i] + "%", [onLeft ? "left" : "right"]: "5%",
                     display: "flex", alignItems: "center", gap: 7 } },
                     onLeft ? [chip, line, dot] : [dot, line, chip]);
                 }))),
-            h("div", { style: { padding: "16px 12px 14px", position: "relative" } },
+            h("div", { "data-wk": "impcaption", style: { padding: "16px 12px 14px", position: "relative" } },
               // 相纸下半张那道白边：左边铅笔写的编号和月份，右边这一册的名字
               // ⚠️两边都得 nowrap：这一行是相纸下沿【铅笔写的一行小字】，
               // 断成两行就不是一行小字了（她 2026-09-03 截图：右边那句折成了两行）。
               // 窄机上宁可字距收窄，也不许换行——所以右边这句字号和字距都压了一档。
               h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8,
                 paddingBottom: 11, marginBottom: 13, borderBottom: "1px solid rgba(120,100,72,.20)" } },
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
+                h("div", { "data-wk": "impcardname", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 13, color: pageColor("impression", "ink", "rgba(64,54,42,.86)"), letterSpacing: ".04em", whiteSpace: "nowrap", flexShrink: 0 } },
                   "No. " + String(idxOf + 1).padStart(2, "0") + "　" + M.monthLabel(e.monthKey)),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".22em", color: pageColor("impression", "fog", "rgba(120,100,72,.55)"), textIndent: ".22em", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "clip" } }, hasBack ? (e.firstShift ? "在这之前 →" : "印象变了哪儿 →") : "背面还空着 →")),
-              e.title ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
+              e.title ? h("div", { "data-wk": "impcardtitle", style: { fontFamily: F_DISPLAY, fontSize: 20, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", marginBottom: 14, letterSpacing: ".06em" } }, "{ " + e.title + " }") : null,
               h("div", { style: { position: "relative", padding: "2px 14px" } },
                 h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)") } }, "“"),
-                h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, e.quote),
+                h("div", { "data-wk": "impquote", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 2.1, color: pageColor("impression", "ink", "rgba(43,36,28,.95)"), textAlign: "center", padding: "0 6px" } }, e.quote),
                 h("div", { style: { fontFamily: "Georgia,'Noto Serif SC',serif", fontSize: 36, lineHeight: 1, color: pageColor("impression", "fog", "rgba(120,100,72,.5)"), textAlign: "right" } }, "”")),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "ink", "rgba(94,79,58,.8)"), textAlign: "right", marginTop: 10 } }, "—— " + (c.name || "TA") + " 眼里的 " + uName))))),
-          h("div", { style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
-            e.img ? h("button", { onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
-            h("button", { onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
-            h("button", { onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
+          h("div", { "data-wk": "impactions", style: { display: "flex", gap: 8, marginTop: 16, flexWrap: "wrap", justifyContent: "center" } },
+            e.img ? h("button", { "data-wk": "impbtn", "data-part": "save", onClick: () => saveToAlbum(e.img), style: S.btn(false) }, "保存到相册") : null,
+            h("button", { "data-wk": "impbtn", "data-part": "rewrite", onClick: () => rewriteText(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在写…" : "只重写文案"),
+            h("button", { "data-wk": "impbtn", "data-part": "redraw", onClick: () => redrawArt(curChar, e), disabled: !!busy, style: S.btn(false) }, busy ? "在画…" : (e.img ? "只重出剪影" : "补一张剪影")),
             // ⚠️这个按钮原来长在背面上（v67.89/67.90 跟 iOS 的 3D 命中测试较劲了两版，
             //   她两次都点不着）。动作本来就和上面两个同族——都是"只重来其中一块"——
             //   那就该待在同一排：不翻面也点得着，也不用赌哪一面在吃点击。
-            h("button", { onClick: () => writeBack(curChar, e), disabled: !!busy, style: S.btn(false) },
+            h("button", { "data-wk": "impbtn", "data-part": "writeback", onClick: () => writeBack(curChar, e), disabled: !!busy, style: S.btn(false) },
               busy ? "在写…" : (hasBack ? "重写背面" : "补写背面")),
-            h("button", { onClick: () => requestAppConfirm("删掉这个月的印象？", "删除后不能恢复。", () => { const next = Object.assign({}, book, { [curChar]: (book[curChar] || []).filter(x => x.id !== e.id) }); if (!M.save(next)) return props.toast("这次没删成功，原印象还在"); setBook(next); setCardId(null); }, "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
+            h("button", { "data-wk": "impbtn", "data-part": "del", onClick: () => requestAppConfirm("删掉这个月的印象？", "删除后不能恢复。", () => { const next = Object.assign({}, book, { [curChar]: (book[curChar] || []).filter(x => x.id !== e.id) }); if (!M.save(next)) return props.toast("这次没删成功，原印象还在"); setBook(next); setCardId(null); }, "删除"), style: Object.assign({}, S.btn(false), { color: "#a4442e" }) }, "删除"))));
     }
 
     // ---- 某个角色的珍藏册：一本按月贴的相册 ----
@@ -811,7 +811,7 @@
       // 空相角位：这个月还没贴上去的那一格。它长得就是「一张相片该在的地方」，
       // 不是一个虚线按钮——按钮换个功能照样成立，这一格不行。
       // 已经贴上去的月份不再多摆一个空位——那张相片就在这一页上，摆两次等于自己骗自己。
-      const emptySlot = hasThis ? null : h("div", { onClick: () => make(curChar, openMonth),
+      const emptySlot = hasThis ? null : h("div", { "data-wk": "impemptyslot", onClick: () => make(curChar, openMonth),
         style: { position: "relative", width: "calc((100% - 26px) / 2)", cursor: "pointer" } },
         h("div", { style: { position: "relative", width: "100%", aspectRatio: "3 / 4",
           border: "1px dashed rgba(243,236,224,.30)", display: "flex", alignItems: "center", justifyContent: "center",
@@ -821,30 +821,30 @@
           corners(15)),
         h("div", { style: Object.assign({}, handLabel, { marginTop: 8, color: pageColor("impression", "fog", "rgba(243,236,224,.55)") }) },
           M.monthLabel(openMonth)));
-      return h("div", { style: S.wrap },
+      return h("div", { "data-wk": "impcharpage", style: S.wrap },
         header((c.name || "?") + " 眼里的 " + uName,
           h("div", { style: { display: "flex", alignItems: "center", gap: 7 } },
-          h("button", { onClick: () => setWithArt(v => !v), style: S.btn(withArt) },
+          h("button", { "data-wk": "impbtn", "data-part": "withart", "data-on": withArt ? "1" : "0", onClick: () => setWithArt(v => !v), style: S.btn(withArt) },
             withArt ? "带剪影" : "只写字"),
-          h("button", { onClick: () => backfill(curChar), disabled: !!busy || !!backfillState, style: S.btn(false) },
+          h("button", { "data-wk": "impbtn", "data-part": "backfill", onClick: () => backfill(curChar), disabled: !!busy || !!backfillState, style: S.btn(false) },
             backfillState && backfillState.charId === curChar
               ? (backfillState.phase === "scan" ? "统计中…" : backfillState.phase === "confirm" ? "待确认…" : "补齐中…") : "补齐"))),
         h("div", { style: pageStyle },
-          h("div", { style: { display: "flex", flexWrap: "wrap", gap: "26px 26px", alignItems: "flex-start" } },
-            mine.map((e, i) => h("div", { key: e.id, onClick: () => setCardId(e.id),
+          h("div", { "data-wk": "impgrid", style: { display: "flex", flexWrap: "wrap", gap: "26px 26px", alignItems: "flex-start" } },
+            mine.map((e, i) => h("div", { "data-wk": "impmonth", key: e.id, onClick: () => setCardId(e.id),
               style: { width: "calc((100% - 26px) / 2)" } },
               plate({ deg: tilt(i), corner: 15 },
                 e.img ? h("img", { src: imgSrc(e.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })
                   : h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
                       fontFamily: F_BODY, fontSize: 11, color: pageColor("impression", "fog", "rgba(243,236,224,.55)") } }, "只有字")),
-              h("div", { style: Object.assign({}, handLabel, { marginTop: 9 }) }, M.monthLabel(e.monthKey)),
+              h("div", { "data-wk": "impmonthlabel", style: Object.assign({}, handLabel, { marginTop: 9 }) }, M.monthLabel(e.monthKey)),
               // 三个词写成相片底下那行铅笔小字，不是一排药丸
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("impression", "fog", "rgba(243,236,224,.55)"), marginTop: 2,
+              h("div", { "data-wk": "impmonthsub", style: { fontFamily: F_BODY, fontSize: 10.5, color: pageColor("impression", "fog", "rgba(243,236,224,.55)"), marginTop: 2,
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                 (e.tags || []).slice(0, 3).join(" · ") || e.title || ""))),
             emptySlot),
           // 页脚：本月为什么还不能写 + 素材数，压在页面最底下，像相册页边上的铅笔注记
-          h("div", { style: { marginTop: 26, paddingTop: 14, borderTop: "1px solid rgba(243,236,224,.14)" } },
+          h("div", { "data-wk": "impfoot", style: { marginTop: 26, paddingTop: 14, borderTop: "1px solid rgba(243,236,224,.14)" } },
             h("div", { style: footNote },
               "本月还在过，写不出这个月你是什么样。" + (openAt.getMonth() + 1) + " 月 1 日 0 点开写。"),
             (function () {
@@ -863,11 +863,11 @@
     }
 
     // ---- 头像墙：一摞一摞的相片，谁的厚就是谁攒得多 ----
-    return h("div", { style: S.wrap }, header("月度印象"),
+    return h("div", { "data-wk": "imppage", style: S.wrap }, header("月度印象"),
       h("div", { style: pageStyle },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "fog", "rgba(243,236,224,.62)"), lineHeight: 1.9, marginBottom: 20 } },
+        h("div", { "data-wk": "impintro", style: { fontFamily: F_BODY, fontSize: 11.5, color: pageColor("impression", "fog", "rgba(243,236,224,.62)"), lineHeight: 1.9, marginBottom: 20 } },
           "每个月，每个人眼里的你长得都不一样。", h("br"), "一张剪影、三个词、一句TA亲口说的话。"),
-        (props.characters || []).length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: "30px 22px", alignItems: "flex-start" } },
+        (props.characters || []).length ? h("div", { "data-wk": "impchars", style: { display: "flex", flexWrap: "wrap", gap: "30px 22px", alignItems: "flex-start" } },
           (props.characters || []).map((c, i) => {
             const n = (book[c.id] || []).length;
             // 珍藏册正文从旧到新铺；封面仍取最近那张，不能因为展示顺序改了就倒回最老月份。
@@ -880,7 +880,7 @@
               inset: 0, background: PAPER, opacity: .5 + .15 * (depth - k), borderRadius: 1,
               transform: "rotate(" + (k % 2 ? -1 : 1) * (2.4 + k * 2.2) + "deg) translateY(" + (k * 2.5) + "px)",
               boxShadow: "0 4px 12px rgba(0,0,0,.3)" } }));
-            return h("div", { key: c.id, onClick: () => setCurChar(c.id),
+            return h("div", { "data-wk": "impchar", key: c.id, onClick: () => setCurChar(c.id),
               style: { width: "calc((100% - 44px) / 3)", textAlign: "center" } },
               h("div", { style: { position: "relative" } },
                 back,
@@ -888,12 +888,12 @@
                   cover ? h("img", { src: imgSrc(cover.img), style: { width: "100%", height: "100%", objectFit: "cover", display: "block", opacity: .55 } }) : null,
                   h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" } },
                     avatarOf(c, 44)))),
-              h("div", { style: Object.assign({}, handLabel, { marginTop: 10, fontSize: 12, overflow: "hidden",
+              h("div", { "data-wk": "impcharname", style: Object.assign({}, handLabel, { marginTop: 10, fontSize: 12, overflow: "hidden",
                 textOverflow: "ellipsis", whiteSpace: "nowrap" }) }, c.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: pageColor("impression", "fog", "rgba(243,236,224,.5)"), marginTop: 1 } },
+              h("div", { "data-wk": "impcharsub", style: { fontFamily: F_BODY, fontSize: 10, color: pageColor("impression", "fog", "rgba(243,236,224,.5)"), marginTop: 1 } },
                 n ? n + " 个月" : "还没有"));
           }))
-          : h("div", { style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: pageColor("impression", "fog", "rgba(243,236,224,.6)") } }, "还没有角色。")));
+          : h("div", { "data-wk": "impempty", style: { textAlign: "center", marginTop: 70, fontFamily: F_BODY, fontSize: 13, color: pageColor("impression", "fog", "rgba(243,236,224,.6)") } }, "还没有角色。")));
   }
   window.ImpressionApp = ImpressionApp;
 })();

@@ -88,9 +88,9 @@
   // 上一条还在念的时候，warmAloud 把下一条先合成掉；按缓存钥匙合流，不会再花一次钱。
   // 列车设置里的开关：记在这台设备上（跟庭院「念出来」一个口径，存 '1'/'0'）
   function RailwayChoices({from,onChoose}){
-    return h('div',{'data-railway-choices':true,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:20,paddingBottom:COMPOSER_PAD_BOTTOM}},
+    return h('div',{ "data-wk": "fgrailway", 'data-railway-choices':true,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:20,paddingBottom:COMPOSER_PAD_BOTTOM}},
       h('p',{style:{fontSize:13,lineHeight:1.8,marginBottom:20}},from==='train'?'选择下车的站点，继续这一档的日子。':'选好目的地，列车就会沿铁轨驶进站台。'),
-      h('div',{style:{display:'grid',gap:12}},...WORLDS.filter(w=>w.id!==from).map(w=>h('button',{key:w.id,'data-railway-destination':w.id,'aria-label':'进入'+w.name,onClick:()=>onChoose(w.id),style:{...pickButtonStyle(),textAlign:'left',minHeight:72,padding:'14px 16px'}},h('strong',{style:{display:'block',fontSize:15,fontWeight:500}},'进入'+w.name),h('span',{style:{display:'block',fontSize:12,marginTop:5,color:G.soft}},w.id==='train'?'登上远行列车，留在车厢里看窗景':w.id==='pets'?'绒绒小镇车站 · 南边街道':'微光庭院南站 · 林边站台')))));
+      h('div',{style:{display:'grid',gap:12}},...WORLDS.filter(w=>w.id!==from).map(w=>h('button',{ "data-wk": "fgrailwaydest", key:w.id,'data-railway-destination':w.id,'aria-label':'进入'+w.name,onClick:()=>onChoose(w.id),style:{...pickButtonStyle(),textAlign:'left',minHeight:72,padding:'14px 16px'}},h('strong',{style:{display:'block',fontSize:15,fontWeight:500}},'进入'+w.name),h('span',{style:{display:'block',fontSize:12,marginTop:5,color:G.soft}},w.id==='train'?'登上远行列车，留在车厢里看窗景':w.id==='pets'?'绒绒小镇车站 · 南边街道':'微光庭院南站 · 林边站台')))));
   }
   function RailwayPage({from,onClose,onChoose}){
     return h('section',{'data-railway-page':from,className:'absolute inset-0 flex flex-col',style:{zIndex:30,background:G.paper,color:G.ink}},h(Head,{zh:from==='pets'?'绒绒小镇车站':'微光庭院南站',bg:'transparent',onBack:onClose}),h(RailwayChoices,{from,onChoose}));
@@ -101,7 +101,7 @@
     const flip=()=>{const next=!on;setOn(next);try{localStorage.setItem(storeKey,next?"1":"0");}catch(e){}onChange&&onChange(next);};
     return h("div",{style:{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,border:"1px solid "+G.line,background:"rgba(255,255,255,.5)"}},
       h("div",{style:{flex:1,minWidth:0}},h("div",{style:{fontFamily:F_BODY,fontSize:13.5,color:G.ink}},label),h("div",{style:{fontFamily:F_BODY,fontSize:11.5,color:G.soft,lineHeight:1.7,marginTop:3}},note)),
-      h("button",{type:"button",role:"switch","aria-checked":on,"aria-label":label,onClick:flip,style:{flexShrink:0,width:52,height:40,display:"flex",alignItems:"center",justifyContent:"center",background:"transparent"}},
+      h("button",{ "data-wk": "fgswitch", "data-on": on ? "1" : "0", type:"button",role:"switch","aria-checked":on,"aria-label":label,onClick:flip,style:{flexShrink:0,width:52,height:40,display:"flex",alignItems:"center",justifyContent:"center",background:"transparent"}},
         h("span",{style:{width:44,height:26,borderRadius:13,background:on?G.deep:"#cfd6c3",position:"relative",transition:"background .15s"}},h("span",{style:{position:"absolute",top:3,left:on?21:3,width:20,height:20,borderRadius:10,background:"#fff",transition:"left .15s"}}))));
   }
   function makeAloud(){
@@ -141,9 +141,9 @@
     const saved=(item.back&&item.back.you)||'',[draft,setDraft]=useState(saved),theirs=item.back&&item.back.companion;
     useEffect(()=>{setDraft(saved);},[item.id,saved]);
     const box={width:'100%',boxSizing:'border-box',padding:'10px 12px',borderRadius:10,border:'1px solid '+G.line,background:'#fffef8',fontFamily:F_BODY,fontSize:16,lineHeight:1.6,color:G.ink,resize:'vertical'};
-    return h('section',{'data-back-notes':true,'aria-label':'背面留言',style:{margin:'4px 0 16px',padding:'12px 14px',borderRadius:12,background:'rgba(233,223,199,.55)',border:'1px solid rgba(118,91,62,.18)'}},
+    return h('section',{ "data-wk": "fgbacknotes", 'data-back-notes':true,'aria-label':'背面留言',style:{margin:'4px 0 16px',padding:'12px 14px',borderRadius:12,background:'rgba(233,223,199,.55)',border:'1px solid rgba(118,91,62,.18)'}},
       h('div',{style:{fontFamily:F_BODY,fontSize:13,color:G.ink,marginBottom:8}},'在背面留一句'),
-      h('textarea',{rows:2,maxLength:200,value:draft,placeholder:'你想写的话（可以不写）',onChange:e=>setDraft(e.target.value),style:box}),
+      h('textarea',{ "data-wk": "fginput", "data-part": "backnote", rows:2,maxLength:200,value:draft,placeholder:'你想写的话（可以不写）',onChange:e=>setDraft(e.target.value),style:box}),
       h('button',{type:'button',disabled:busy||draft.trim()===saved.trim(),onClick:()=>onNote('you',draft),style:{...pickButtonStyle(),padding:'8px 12px',marginTop:8,fontSize:12.5,minHeight:40}},saved?'改成这句':'写上'),
       onAsk&&h('div',{style:{marginTop:14}},
         theirs&&h('p',{style:{fontFamily:F_BODY,fontSize:13,lineHeight:1.8,margin:'0 0 8px'}},h('span',{style:{fontSize:11.5,color:G.soft,marginRight:6}},(item.back.companionName||'TA')+' 写'),theirs),
@@ -152,7 +152,7 @@
   // 庭院里的旅行相框单独一页：点屋里挂着的那个、或花册里那一格都进这里
   function FrameSheet({thing,busy,onClose,onNote,onAsk}){
     const item={id:thing.sourceId,back:thing.back||null};
-    return h('div',{'data-frame-sheet':true,className:'absolute inset-0 flex flex-col',style:{background:G.paper,zIndex:30,color:G.ink}},
+    return h('div',{ "data-wk": "fgframesheet", 'data-frame-sheet':true,className:'absolute inset-0 flex flex-col',style:{background:G.paper,zIndex:30,color:G.ink}},
       h(Head,{zh:thing.name||'旅行相框',bg:'transparent',ink:G.ink,onBack:onClose}),
       h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
         h(TravelFramePreview,{src:thing.image,label:thing.name,memory:thing.memory,back:{back:thing.back}}),
@@ -167,7 +167,7 @@
     const archive=getArchive(),rows=kit?kit.albumRows(archive.worlds?.train):[],item=rows.find(x=>x.id===selected),garden=worldOf(archive,'garden'),carried=item&&[...(garden?.things||[]),...(garden?.collection||[])].some(t=>t.sourceId===item.id);
     const action=async fn=>{if(busy)return;setBusy(true);setMessage('');try{await fn();setRevision(n=>n+1);}catch(e){setMessage(e.message);}finally{setBusy(false);}};
     const button={...pickButtonStyle(),padding:'10px 12px'};
-    return h('div',{className:'absolute inset-0 flex flex-col',style:{background:G.paper,zIndex:20,color:G.ink}},
+    return h('div',{ "data-wk": "fgalbum", className:'absolute inset-0 flex flex-col',style:{background:G.paper,zIndex:20,color:G.ink}},
       h(Head,{zh:item?'旅行留影':'旅行相册',bg:'transparent',ink:G.ink,onBack:()=>{if(busy)return;if(item){setSelected(null);setConfirm(false);setMessage('');}else onClose();}}),
       h('div',{ref:scroll,className:'flex-1 min-h-0 overflow-y-auto',style:{padding:16}},
         !kit?h('p',null,'正在翻开相册…'):item?h(React.Fragment,null,
@@ -359,7 +359,7 @@
     const drawerControls={onPointerDown:e=>{if(e.button)return;e.preventDefault();dragSplit.current={id:e.pointerId,start:chatRatio};e.currentTarget.setPointerCapture(e.pointerId);},onPointerMove:splitMove,onPointerUp:e=>splitFinish(e),onPointerCancel:e=>splitFinish(e,true),onLostPointerCapture:e=>splitFinish(e,true),onKeyDown:splitKey,onDoubleClick:()=>commitSplit(.5)};
     const paperDrawer={top:split.scenePercent,ratio:chatRatio,controls:drawerControls,title:petProfileView.name+'的小日子',close:()=>{rememberScroll();setPanel('');setError('');}};
 
-    return h('div',{className:'pet-session h-full flex flex-col '+(panel?'pet-paper-open':''),'data-pet-world':true,style:{color:'var(--pet-ink)' }},
+    return h('div',{ "data-wk": "fgpetpage", className:'pet-session h-full flex flex-col '+(panel?'pet-paper-open':''),'data-pet-world':true,style:{color:'var(--pet-ink)' }},
       h('link',{rel:'stylesheet',href:'apps/pets/panels.css?v='+BUILD}),
       h(Head,{zh:panel==='domestic'?'家里的小日子':panel==='album'?(albumId?'这一张生活照':'小镇生活相册'):panel==='together'?(togetherMode==='walk'?'两人同行遛宠物':'结伴逛街'):panel==='journal'?'小镇周记':panel==='neighbors'?(neighborView?.neighbors.find(n=>n.id===neighborId)?.name||'街坊与小约定'):panel==='companion-dress'?'TA的外貌':panel==='view'?'镜头看谁':panel==='parcel'?'回家拆袋子':panel==='career'?'宠物职业生涯':panel==='care'?'看看它':panel==='pets'?'家里的宠物':panel==='pet'?(newPet?'迎接新宠物':'宠物预览'):panel==='travel'?'去哪里':'绒绒小镇',sub:loaded&&!panel?game()?.snapshot().profile.name:undefined,bg:'transparent',ink:'var(--pet-ink)',subInk:'var(--pet-soft)',lineInk:'rgba(117,97,91,.14)',onBack:panel==='domestic'?()=>{rememberScroll();setPanel(domesticReturn.current);}:panel==='album'?albumBack:['together','journal'].includes(panel)?paperBack:panel==='neighbors'?neighborBack:panel==='companion-dress'?finishDress:panel==='view'?()=>{rememberScroll();setPanel(viewReturn.current);viewReturn.current='';}:panel==='parcel'?()=>setPanel(''):panel==='chat'?closeChat:panel==='pets'?()=>{rememberScroll();setPanel(petsReturn.current);petsReturn.current='';}:panel==='career'||panel==='care'?()=>{rememberScroll();refreshPets();setPanel(panelReturn.current);panelReturn.current='';}:panel==='travel'?()=>setPanel(''):panel==='pet'?()=>{cancel();if(!newPet&&!current().worlds?.pets?.configured)leave(props.onBack);}:()=>loaded?leave(props.onBack):props.onBack(),right:loaded&&!panel?h('button',{onClick:()=>setPanel('travel'),style:{minHeight:40,padding:'8px 12px'}},'小镇菜单'):null}),
       h('div',{ref:splitBox,className:'flex-1 min-h-0',style:{position:'relative',marginBottom:panel==='chat'?kbLift:0}},
@@ -367,13 +367,13 @@
         !loaded&&h('p',{role:'status',style:{position:'absolute',top:10,left:20,right:20}},'正在打开宠物街区…'),
         error&&panel!=='chat'&&h('p',{role:'alert',style:{position:'absolute',left:10,right:10,bottom:panel==='pet'?'64%':70,zIndex:12,background:'#fff5e7',padding:10,color:'#994a36'}},error),
         panel==='chat'&&h(PetWindow,{page:'chat',drawer:{...paperDrawer,chat:true,title:'和'+(c?.remark||c?.name||'TA')+'说话',close:closeChat}},
-          h('div',{ref:chatScroll,className:'flex-1 min-h-0 overflow-y-auto',onScroll:rememberChat,style:{padding:'8px 14px'}},
+          h('div',{ "data-wk": "fgmsgs", "data-part": "pet", ref:chatScroll,className:'flex-1 min-h-0 overflow-y-auto',onScroll:rememberChat,style:{padding:'8px 14px'}},
             h('div',{className:'pet-chat-note'},h(PetSeal,{kind:'paw',size:24}),h('p',null,'场景继续活动，拖动上边的小把手调大小。'),h('button',{className:'pet-text-button',onClick:showTogether},'结伴安排'),h('details',null,h('summary',null,'关于这一档的对话'),h('p',null,'这里只显示这一档在绒绒小镇说过的话，手机房间仍能看全。记忆权限沿用本房间设置；照料会在上方场景实际进行。'))),
             h(LegacyWorldDialogs,{record:record(),archive:current(),cid:c?.id}),
-            ...chatRows.map((m,i)=>h('div',{key:i,className:'pet-chat-row '+(m.role==='user'?'pet-chat-you':'pet-chat-ta')},h('span',{className:'pet-chat-author'},m.role==='user'?'你':c?.remark||c?.name||'TA'),h('p',{className:'pet-chat-bubble'},m.content))),
+            ...chatRows.map((m,i)=>h('div',{ "data-wk": "fgmsg", "data-part": "pet", "data-me": m.role === "user" ? "1" : "0", key:i,className:'pet-chat-row '+(m.role==='user'?'pet-chat-you':'pet-chat-ta')},h('span',{className:'pet-chat-author'},m.role==='user'?'你':c?.remark||c?.name||'TA'),h('p',{className:'pet-chat-bubble'},m.content))),
             error&&h('p',{role:'alert',className:'pet-message'},error),chatBusy&&h('p',{role:'status'},'TA正在回复…'),chatNotice&&h('p',{role:'status',style:{fontSize:13,lineHeight:1.8}},chatNotice),
             h('div',{'aria-label':'请TA照料宠物',className:'pet-chat-care-actions'},...[['feed','请TA添粮'],['play','请TA陪玩'],['pet','请TA摸摸']].map(([action,label])=>h('button',{key:action,className:'pet-chat-care-action',onClick:()=>{const result=game()?.companionAction(action);setChatNotice(result?.text||'先回家吧。');}},label)))),
-          h('form',{className:'pet-chat-composer',onSubmit:sendChat,style:{display:'flex',gap:8,padding:'8px 12px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line,flexShrink:0}},h('input',{'aria-label':'对同行者说',value:draft,onChange:e=>setDraft(e.target.value),disabled:chatBusy||!c,maxLength:12000,placeholder:'和TA说句话…',style:{...field,flex:1,minWidth:0}}),h('button',{type:'submit',disabled:chatBusy||!c||!draft.trim(),style:{...field,width:'auto',background:G.deep,color:'#fffaf1'}},'发送'))),
+          h('form',{ "data-wk": "fgcompose", "data-part": "pet", className:'pet-chat-composer',onSubmit:sendChat,style:{display:'flex',gap:8,padding:'8px 12px',paddingBottom:COMPOSER_PAD_BOTTOM,minHeight:56,borderTop:'1px solid '+G.line,flexShrink:0}},h('input',{'aria-label':'对同行者说',value:draft,onChange:e=>setDraft(e.target.value),disabled:chatBusy||!c,maxLength:12000,placeholder:'和TA说句话…',style:{...field,flex:1,minWidth:0}}),h('button',{type:'submit',disabled:chatBusy||!c||!draft.trim(),style:{...field,width:'auto',background:G.deep,color:'#fffaf1'}},'发送'))),
         panel==='pet'&&h('div',{'data-pet-settings':true,className:'pet-edit-page flex flex-col',style:{position:'absolute',top:'38%',left:0,right:0,bottom:0}},
           h('div',{className:'flex-1 min-h-0 overflow-y-auto',style:{padding:'0 18px 12px'}},
             plate('宠物',h('div',{style:{display:'flex',gap:10}},[['cat','猫咪'],['dog','狗狗']].map(([species,label])=>h('button',{className:'pet-species-choice',key:species,'aria-label':'选择'+label,'aria-pressed':profile.species===species,onClick:()=>change(game().speciesProfile(profile,species)),style:{...field,borderBottom:'3px solid '+(profile.species===species?G.deep:G.line),transform:profile.species===species?'translateY(-2px)':'none'}},label)))),
@@ -599,17 +599,17 @@
     const noteBack=async(item,who,text)=>{const g=frame.current?.contentWindow.TrainGame;if(!g)throw Error("列车还没准备好");g.editAlbum({kind:'note',id:item.id,who,text});const m=await import('../apps/fairy-garden/world.mjs?v='+BUILD),d=current(),row=[...(d.worlds?.train?.artworks||[]),...(d.worlds?.train?.photos||[])].find(x=>x.id===item.id),old=worldOf(d,'garden');if(!row||!old)return;const garden=m.updateTravelBack(m.restoreState(old),item.id,row);write(key,{...d,world:garden,worlds:{...(d.worlds||{}),garden}});};
     const askBack=async item=>{const p=latest.current,d=current(),ch=(p.characters||[]).find(x=>String(x.id)===String(d.partnerId));if(!ch)throw Error("这一档还没有同行者。");const pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(ch.id):p.active,character:ch,profile:p.profile,mainline:worldMainline(p,key,current(),'train',ch.id),item,lines:pm.puzzleMemoryLines(item.memory),history:trainHistory().slice(-30)});await noteBack(item,'companion',line);};
     const small={...pickButtonStyle(),padding:"5px 10px",fontSize:12};
-    const page=(title,back,body)=>h("div",{className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
+    const page=(title,back,body)=>h("div",{ "data-wk": "fgtrainpanel", className:"absolute inset-0 flex flex-col",style:{background:"#e8e6d7",zIndex:10}},
       h(Head,{zh:title,bg:"transparent",ink:G.ink,onBack:back}),body);
-    return h("div",{className:"h-full flex flex-col",style:{background:"#e8e6d7",color:G.ink,position:"relative"}},
+    return h("div",{ "data-wk": "fgtrainpage", className:"h-full flex flex-col",style:{background:"#e8e6d7",color:G.ink,position:"relative"}},
       h("div",{"data-train-toolbar":true,style:{flexShrink:0}},h(Head,{zh:toolbar?toolbar.title:"远行列车",sub:toolbar?"":c?"与 "+(c.remark||c.name)+" 同行":"窗外的旅程",bg:"transparent",ink:G.ink,onBack:toolbar?toolbar.back:()=>loaded?leave():props.onBack(),
-        right:h("div",{style:{display:"flex",gap:6}},toolbar?toolbar.actions.map(a=>h("button",{key:a.id,id:a.id,onClick:a.run,style:small},a.label)):[h("button",{key:"settings",disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{key:"landing",disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车")])})),
+        right:h("div",{ "data-wk": "fgtrainactions", style:{display:"flex",gap:6}},toolbar?toolbar.actions.map(a=>h("button",{key:a.id,id:a.id,onClick:a.run,style:small},a.label)):[h("button",{key:"settings",disabled:!loaded,onClick:()=>setPanel("settings"),style:small},"设置"),h("button",{key:"landing",disabled:!loaded,onClick:()=>setPanel("landing"),style:small},"下车")])})),
       h("div",{className:"flex-1 min-h-0",style:{position:"relative"}},h("iframe",{ref:bind,title:"远行列车游戏",src:"apps/train/index.html?v="+TRAIN_BUILD,style:{width:"100%",height:"100%",border:0,display:"block"},onLoad:()=>setLoaded(!!frame.current?.contentWindow.TrainGame?.ready)}),
         error&&h("p",{role:"alert",style:{position:"absolute",top:50,left:16,right:16}},error),
         // 改外貌：上面留一截透明，车厢里的两个人就在那儿换上
       panel==="dress"&&h("div",{"data-train-dress":true,style:{position:"absolute",left:0,right:0,top:"36%" /* 和 apps/train/game.mjs 的 PREVIEW_BAND 同一个比例 */,bottom:0,zIndex:10,background:"#e9ecdd",display:"flex",flexDirection:"column",boxShadow:"0 -12px 30px #30442615"}},
         h("div",{style:{display:"flex",alignItems:"stretch",borderBottom:"1px solid "+G.line,background:"rgba(255,255,255,.4)",flexShrink:0}},
-          [["companion",c?(c.remark||c.name):"同行者"],["me","我"]].map(([k,label])=>h("button",{key:k,onClick:()=>setWho(k),className:"flex-1 active:opacity-70",
+          [["companion",c?(c.remark||c.name):"同行者"],["me","我"]].map(([k,label])=>h("button",{ "data-wk": "fgdresstab", "data-part": "train", "data-on": who === k ? "1" : "0", key:k,onClick:()=>setWho(k),className:"flex-1 active:opacity-70",
             style:{minHeight:44,fontFamily:F_BODY,fontSize:13.5,color:who===k?G.ink:"#93a188",borderBottom:"2px solid "+(who===k?G.deep:"transparent"),background:"transparent"}},label)),
           h("button",{"aria-label":"收起改外貌",onClick:()=>setPanel(""),style:{minWidth:56,minHeight:44,fontFamily:F_BODY,fontSize:13,color:G.deep,background:"transparent"}},"完成")),
         h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:"16px 16px 40px",WebkitOverflowScrolling:"touch"}},
@@ -1242,13 +1242,13 @@
     //   选了住在村里的那一位，那间屋就空出来——他现在跟你一起住了，
     //   不会再变成两个人（那一层在 world.mjs 里，界面怎么点都绕不过去）。
     const rows = (characters || []).slice().sort((a, b) => seated.indexOf(String(b.id)) - seated.indexOf(String(a.id)));
-    return h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
+    return h("div", { "data-wk": "fgpick", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: 20 } },
       h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, marginBottom: 20, color: G.soft } },
         // ⚠️一个角色都没有的时候「挑一位」没有对象，而下面那句「也可以先去…」
         //   还暗示着本来有别的选择——那条选择（示例同行者）已经撤掉了。空的时候换一句话说。
         rows.length ? note : "这个世界是和你手机里的角色一起过的。先去人格档案馆创建一位，再回来开一段。"),
       h("div", { style: { display: "grid", gap: 11 } },
-        rows.map(c => h("button", { key: c.id, style: pickButtonStyle(), onClick: () => onPick(c.id) },
+        rows.map(c => h("button", { "data-wk": "fgpickrow", key: c.id, style: pickButtonStyle(), onClick: () => onPick(c.id) },
           (c.remark || c.name) + (seated.includes(String(c.id)) ? " · 住在村里" : "")))),
 
       error && h("p", { role: "alert", style: { color: "#a34836", marginTop: 14, fontFamily: F_BODY, fontSize: 12.5 } }, error));
@@ -1742,7 +1742,7 @@
     useEffect(() => { if (messages.current) messages.current.scrollTop = messages.current.scrollHeight; }, [rows.length, chat, busy]);
     // ⚠️这个提前 return 必须排在【所有 hook 之后】：排前面的话下面的 hook 这一帧不跑，
     //   React #310 直接白屏（test/hooks-order.test.js 钉着这条）。
-    if (stalled.current) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
+    if (stalled.current) return h("div", { "data-wk": "fgstalled", className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: "等一下再进来", bg: "transparent", ink: "#344936", onBack: props.onBack }),
       h("div", { style: { padding: "22px 20px", fontFamily: F_BODY, fontSize: 13, lineHeight: 2 } }, stalled.current));
     async function send(retry) {
@@ -1799,41 +1799,41 @@
       background: "rgba(255,255,255,.55)", color: G.soft,
       fontFamily: F_BODY, fontSize: small ? 11 : 12.5, lineHeight: 1.4, whiteSpace: "nowrap"
     });
-    if ((!props.lockPartnerId || props.onNewGardenRoom) && (pick || (!char && !solo))) return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
+    if ((!props.lockPartnerId || props.onNewGardenRoom) && (pick || (!char && !solo))) return h("div", { "data-wk": "fgpickpage", className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936" } },
       h(Head, { zh: "微光庭院", sub: props.lockPartnerId ? "给谁新开一间" : "选一位同行者", bg: "transparent", ink: "#344936", onBack: props.lockPartnerId ? () => setPick(false) : props.onBack }),
       partnerPickBody({ characters: props.characters, live: ((crew && crew.rows) || []).map(n => n.charId), error,
         note: props.lockPartnerId ? "一间房＝一个庭院存档。挑一位，就给 TA 新开一间，这一间和这一档都留着不动。" : "一起种花、探索林地，也可以边玩边聊。这里有独立的时间与经历。",
         onPick: choose }));
-    return h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936", position: "relative" } },
+    return h("div", { "data-wk": "fggarden", className: "h-full flex flex-col", style: { background: "#e4e9d7", color: "#344936", position: "relative" } },
       // ⚠️浮在场景上面、不占位（见上面 headRef 那段注释）：薄纱往下化开，字还看得清，
       //   画面从屏幕最上边就开始。pointerEvents 只在栏本身上打开，别把场景的拖动吃掉。
-      h("div", { ref: headRef, style: { position: "absolute", left: 0, right: 0, top: 0, zIndex: 5,
+      h("div", { "data-wk": "fghead", ref: headRef, style: { position: "absolute", left: 0, right: 0, top: 0, zIndex: 5,
         background: "linear-gradient(180deg, rgba(228,233,215,.92), rgba(228,233,215,.62) 62%, rgba(228,233,215,0))" } },
       h(Head, { zh: "微光庭院", sub: char ? "与 " + (char.remark || char.name) + " 同行" : "自由试玩", bg: "transparent", ink: "#344936", onBack: back,
         // ⚠️开着花册/样貌时只留一个「回庭院」：三颗药丸并排会把标题挤扁
         right: (book || dress)
-          ? h("button", { style: pill(), onClick: () => { setBook(false); setDress(false); } }, "回庭院")
+          ? h("button", { "data-wk": "fgpill", "data-part": "back", style: pill(), onClick: () => { setBook(false); setDress(false); } }, "回庭院")
           : h("div", { style: { display: "flex", gap: 7 } },
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
-            h("button", { style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(chat ? false : "bar"), disabled: !loaded }, chat ? "收起" : "说话")) })),
+            h("button", { "data-wk": "fgpill", "data-part": "book", style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullGarden(); setBook(true); }, disabled: !loaded }, "花册"),
+            h("button", { "data-wk": "fgpill", "data-part": "dress", style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => { pullLook(); pullGarden(); setDress(true); }, disabled: !loaded }, "样貌"),
+            h("button", { "data-wk": "fgpill", "data-part": "chat", "data-on": chat ? "1" : "0", style: { ...pill(), opacity: loaded ? 1 : .45 }, onClick: () => openChat(chat ? false : "bar"), disabled: !loaded }, chat ? "收起" : "说话")) })),
       h("div", { className: "flex-1 min-h-0", style: { position: "relative" } },
         h("iframe", { ref: bind, title: "微光庭院游戏", src: "apps/fairy-garden/index.html?embedded=1&v=" + BUILD, style: { width: "100%", height: "100%", border: 0, display: "block" }, onLoad: () => { if (game()) setLoaded(true); } }),
-        !loaded && h("div", { style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
+        !loaded && h("div", { "data-wk": "fgloading", style: { position: "absolute", top: 25, left: 0, right: 0, textAlign: "center", fontSize: 12, pointerEvents: "none" } }, "正在推开庭院的门…"),
         // ⚠️整页盖住游戏，而不是新开一屏：iframe 一旦卸载，这一局的进度就没了。
         // ⚠️顶栏现在浮着：整页盖上来的册子要自己让开那条栏，不然第一排索引签压在它底下
         openFrameT&&h(FrameSheet,{thing:openFrameT,busy:frameBusy,onClose:()=>setFrame(null),
           onNote:(who,text)=>frameAct(async()=>{await gardenBack(openFrameT.sourceId,who,text);}),
           onAsk:partner()?(()=>frameAct(async()=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item:frameItem(openFrameT),lines:pm.puzzleMemoryLines(openFrameT.memory),history:doneHistory(current(),c.id).slice(-30)});await gardenBack(openFrameT.sourceId,'companion',line);})):null}),
         travelAlbum&&h(TravelAlbum,{onNote:(item,who,text)=>gardenBack(item.id,who,text),onAskNote:partner()?(async item=>{const c=partner(),p=propsRef.current,pm=await import('../apps/train/puzzle-memory.mjs?v='+BUILD);const line=await frameNote({active:p.apiFor?p.apiFor(c.id):p.active,character:c,profile:p.profile,mainline:mainlineNow(),item,lines:pm.puzzleMemoryLines(item.memory),history:doneHistory(current(),c.id).slice(-30)});await gardenBack(item.id,'companion',line);}):null,getArchive:current,onExchange:async()=>{const m=await import('../apps/train/photography.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.exchangePhotos(d.worlds?.train||{})}}));},onClose:()=>setTravelAlbum(false),onCarry:item=>{const g=game();if(!g?.receiveTravelArt)throw Error('庭院还没准备好');g.receiveTravelArt(item);pullGarden();},onDelete:async id=>{const m=await import('../apps/train/album.mjs?v='+BUILD);update(d=>({...d,worlds:{...(d.worlds||{}),train:m.removeAlbumItem(d.worlds?.train||{},id)}}));}}),
-        book && h("div", { style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
+        book && h("div", { "data-wk": "fgbook", style: { position: "absolute", inset: 0, paddingTop: headH, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch" } },
           h("button",{style:{...pickButtonStyle(),margin:"12px 16px",width:"calc(100% - 32px)"},onClick:()=>{try{flush();props.onTravel("pets");}catch(e){props.toast(e.message);}}},"进入绒绒小镇"),
           // ⚠️这一册在现实里就是一本【索引册】，所以 tab 长成册子右边伸出来的一列索引签（施工规则/tabs-not-plain-pills.md）：
           //   竖排字、每张一个色、贴着页边往下排；选中那张是纸色、跟页面连成一片、往外拉出来一截，
           //   没选的往边上缩进去、暗着，像压在后面几页。七张竖着排也放得下，不会像横排那样把最后一张挤出屏幕。
           //   选中态不只靠颜色：位置、宽度、纸色、连不连着页面四样一起变。可点区 48px 高。
           //   sticky＋height 0：跟着页面滚也钉在右上，不用把滚动容器拆成两层。
-          h("div", { style: { position: "sticky", top: headH + 10, height: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, margin: 0 } },
+          h("div", { "data-wk": "fgbooktabs", style: { position: "sticky", top: headH + 10, height: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5, margin: 0 } },
             [["notes", "花册", ((garden && garden.notes) || []).length, "#e6d6c3"],
              ["shards", "碎片盒", ((shardBox && shardBox.rows) || []).length, "#dfe3c9"],
              ["things", "屋里", ((things && things.rows) || []).length, "#e4d9df"],
@@ -1843,7 +1843,7 @@
              ["crew", "邻居", ((crew && crew.rows) || []).length, "#d9e5d7"],
              ["bond", "相处", bond ? bond.kinds.filter(k => k.count).length : 0, "#e6d4cf"]].map(([k, label, n, tint]) => {
               const on = bookTab === k;
-              return h("button", { key: k, onClick: () => k === "travel" ? setTravelAlbum(true) : setBookTab(k), className: "active:opacity-80", "aria-pressed": on,
+              return h("button", { "data-wk": "fgbooktab", "data-on": on ? "1" : "0", key: k, onClick: () => k === "travel" ? setTravelAlbum(true) : setBookTab(k), className: "active:opacity-80", "aria-pressed": on,
                 // ⚠️flexShrink:0 + nowrap 这两条【不许删】（她 2026-09-18 抓到：「你的字怎么是
                 //   从右往左读的」）。外面那个 flex 列是 height:0 的 sticky 壳，可用主轴尺寸＝0，
                 //   于是默认的 flex-shrink:1 会把每张签压到 min-content——竖排的 min-content
@@ -1858,13 +1858,13 @@
                   borderRadius: "10px 0 0 10px", transform: on ? "translateX(0)" : "translateX(7px)",
                   boxShadow: on ? "-2px 2px 5px rgba(52,73,54,.12)" : "none", position: "relative", zIndex: on ? 2 : 1, transition: "transform .15s ease" } },
                 label + (n ? " " + n : "")); })),
-          bookTab === "bond" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
+          bookTab === "bond" ? h("div", { "data-wk": "fgbookpage", "data-part": "bond", style: { padding: "16px 54px 40px 16px" } },
             // ── 相处册（她 2026-09-18：「做1和2」）。刻度按【一起做过几种事】走，不是分数。
             // ⚠️名单、档位、礼物的类别与态度都问 world.mjs 那一处要（getBond），这儿只画。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "你们一起做过的事都记在这儿。做过的事越多样，处得越熟；处熟了，他能陪你去的地方就更多。"),
             bond ? h("div", null,
-              h("div", { style: { borderRadius: 14, border: "1px solid " + G.deep, background: "rgba(255,255,255,.6)", padding: "12px 14px", marginBottom: 18 } },
+              h("div", { "data-wk": "fgbondcard", style: { borderRadius: 14, border: "1px solid " + G.deep, background: "rgba(255,255,255,.6)", padding: "12px 14px", marginBottom: 18 } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: G.ink } }, bond.label),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                   bond.next ? "再一起做 " + bond.next.need + " 种没做过的事，就是「" + bond.next.label + "」。" : "能一起做的事，都一起做过了。"),
@@ -1876,12 +1876,12 @@
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, "他带路"),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginTop: 2, lineHeight: 1.6 } },
                     bond.guide.on ? (bond.guide.step ? "现在带你：" + bond.guide.step.label : "这一圈带完了，换季那天他还会带你看一处") : "关着。开了他会先走到该去的地方等你。")),
-                h("button", { className: "active:opacity-70", onClick: () => { const g = game(); if (!g || !g.setGuide) return; g.setGuide(!bond.guide.on); pullGarden(); },
+                h("button", { "data-wk": "fgguide", "data-on": bond.guide.on ? "1" : "0", className: "active:opacity-70", onClick: () => { const g = game(); if (!g || !g.setGuide) return; g.setGuide(!bond.guide.on); pullGarden(); },
                   style: { ...pill(true), borderColor: bond.guide.on ? G.deep : G.line, color: bond.guide.on ? "#f7faf2" : G.soft, background: bond.guide.on ? G.deep : "rgba(255,255,255,.55)" } },
                   bond.guide.on ? "开着" : "关着")) : null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "一起做过的"),
               h("div", { style: { display: "grid", gap: 8, marginBottom: 20 } },
-                bond.kinds.map(k => h("div", { key: k.kind, style: { borderRadius: 12, border: "1px solid " + (k.count ? G.line : "rgba(209,218,194,.5)"), background: k.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: k.count ? 1 : .55 } },
+                bond.kinds.map(k => h("div", { "data-wk": "fgitem", "data-part": "kind", key: k.kind, style: { borderRadius: 12, border: "1px solid " + (k.count ? G.line : "rgba(209,218,194,.5)"), background: k.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: k.count ? 1 : .55 } },
                   h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                     h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, k.label),
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, k.count ? (k.count > 1 ? k.count + " 次 · " : "") + "第 " + k.day + " 天" : "还没有")),
@@ -1893,7 +1893,7 @@
               ((bond.gifts.fromHim || []).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "他递给你的：" + bond.gifts.fromHim.map(r => r.name + "（第 " + r.day + " 天）").join("、")) : null,
               h("div", { style: { display: "grid", gap: 8 } },
-                bond.gifts.families.map(f => h("div", { key: f.id, style: { borderRadius: 12, border: "1px solid " + (f.count ? G.line : "rgba(209,218,194,.5)"), background: f.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: f.count ? 1 : .6 } },
+                bond.gifts.families.map(f => h("div", { "data-wk": "fgitem", "data-part": "gift", key: f.id, style: { borderRadius: 12, border: "1px solid " + (f.count ? G.line : "rgba(209,218,194,.5)"), background: f.count ? "rgba(255,255,255,.6)" : "transparent", padding: "9px 12px", opacity: f.count ? 1 : .6 } },
                   h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                     h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, f.label),
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: f.stance === "love" || f.stance === "like" ? G.deep : "#93a188" } },
@@ -1902,7 +1902,7 @@
                   // ⚠️同一类里【一样一样】各自一行（她 2026-09-18：「每一档都单独吧」）：
                   //   一样是花，月光花和星铃花未必一个待遇；他说的话也各是各的。
                   (f.items || []).length ? h("div", { style: { display: "grid", gap: 6, marginTop: 7 } },
-                    f.items.map(it => h("div", { key: it.key, style: { borderTop: "1px solid rgba(209,218,194,.55)", paddingTop: 6 } },
+                    f.items.map(it => h("div", { "data-wk": "fgitemrow", key: it.key, style: { borderTop: "1px solid rgba(209,218,194,.55)", paddingTop: 6 } },
                       h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.name),
                         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it.stance === "love" || it.stance === "like" ? G.deep : "#93a188" } },
@@ -1917,13 +1917,13 @@
                   "篮子里：" + bond.food.pantry.map(p => p.label + (p.from === "him" ? "（他买的）" : p.from === "home" ? "（自己做的）" : "")).join("、")) : null,
                 bond.food.buffs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.deep, marginBottom: 10, lineHeight: 1.7 } }, bond.food.buffs.join("；")) : null,
                 h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } },
-                  bond.food.items.map(it => h("div", { key: it.id, style: { borderRadius: 12, border: "1px solid " + (it.tasted ? G.line : "rgba(209,218,194,.5)"), background: it.tasted ? "rgba(255,255,255,.6)" : "transparent", padding: "8px 10px", opacity: it.tasted ? 1 : .6 } },
+                  bond.food.items.map(it => h("div", { "data-wk": "fgitem", "data-part": "food", key: it.id, style: { borderRadius: 12, border: "1px solid " + (it.tasted ? G.line : "rgba(209,218,194,.5)"), background: it.tasted ? "rgba(255,255,255,.6)" : "transparent", padding: "8px 10px", opacity: it.tasted ? 1 : .6 } },
                     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.ink } }, it.tasted ? it.label : "？"),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188", marginTop: 3, lineHeight: 1.6 } },
                       (it.tasted ? it.note : it.season != null ? "只在一季的夜市有" : it.cook ? "夜市上有，也能自己做" : "夜市上有") + (it.cook ? (it.known ? " · 会做" : " · 还不会做") : "") + (it.tasted && it.buff ? " · " + it.buff : ""))))))
               : null)
             : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft } }, "还没读到这一册。"))
-          : bookTab === "crew" ? (invite ? h("div", { style: { padding: "16px 54px 40px 16px" } },
+          : bookTab === "crew" ? (invite ? h("div", { "data-wk": "fgbookpage", "data-part": "invite", style: { padding: "16px 54px 40px 16px" } },
             // ── 请 TA 搬进来之前先把话说清（她 2026-09-18：「邀请邻居进来是不是也能直接设置」）──
             // ⚠️开关那几条【不在这儿另写一份】：名字和措辞都问 ChatRooms.GROUPS.cognition，
             //   全库的房间用的就是那一份（施工规则/one-public-mechanism.md）。
@@ -1939,7 +1939,7 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, margin: "6px 0 14px" } },
                   "住进来之后 TA 在村里过自己的日子，你走在村里会碰见。这几条现在就能定，之后也随时能改。"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "村里叫 TA 什么"),
-                h("input", { value: invite.name, maxLength: 16,
+                h("input", { "data-wk": "fginput", "data-part": "invitename", value: invite.name, maxLength: 16,
                   onChange: e => setInvite(v => ({ ...v, name: e.target.value })),
                   style: { width: "100%", padding: "10px 11px", borderRadius: 11, border: "1px solid " + G.line,
                     background: "rgba(255,255,255,.7)", color: G.ink, fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
@@ -1948,18 +1948,18 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, margin: "18px 0 4px" } }, "TA 进这个村子时带着什么"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, lineHeight: 1.7, marginBottom: 6 } },
                   "默认什么都不带。TA 是你手机里的角色，带哪些进来由你一条条拨开。"),
-                rows.map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between",
+                rows.map(([k, label, note]) => h("div", { "data-wk": "fgdoorrow", key: k, className: "flex items-center justify-between",
                   style: { padding: "11px 0", borderBottom: "1px solid " + G.line, gap: 12 } },
                   h("div", null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.ink } }, label),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: G.soft, marginTop: 2, lineHeight: 1.45 } }, note)),
-                  h("button", { onClick: () => flip(k), className: "active:opacity-70", "aria-pressed": !!invite.door[k],
+                  h("button", { "data-wk": "fgdoor", "data-on": invite.door[k] ? "1" : "0", onClick: () => flip(k), className: "active:opacity-70", "aria-pressed": !!invite.door[k],
                     style: { flexShrink: 0, width: 46, height: 27, borderRadius: 999, border: "1px solid " + G.line,
                       background: invite.door[k] ? G.deep : "rgba(255,255,255,.6)", padding: 2, display: "flex",
                       justifyContent: invite.door[k] ? "flex-end" : "flex-start" } },
                     h("span", { style: { width: 21, height: 21, borderRadius: 999, background: invite.door[k] ? "#fffef5" : "#c6d0b8", display: "block" } })))),
                 h("div", { className: "flex", style: { gap: 9, marginTop: 20 } },
-                  h("button", { onClick: () => {
+                  h("button", { "data-wk": "fgbtn", "data-part": "invite", onClick: () => {
                       const g = game(); if (!g) return;
                       const err = invite.fresh
                         ? g.moveIn({ charId: invite.charId, name: invite.name, look: {}, door: invite.door })
@@ -1970,11 +1970,11 @@
                     style: { flex: 1, padding: "11px 0", borderRadius: 12, border: 0, background: G.deep,
                       color: "#f6f7ea", fontFamily: F_BODY, fontSize: 13 } },
                     invite.fresh ? "请 TA 搬进来" : "保存"),
-                  h("button", { onClick: () => setInvite(null),
+                  h("button", { "data-wk": "fgbtn", "data-part": "cancel", onClick: () => setInvite(null),
                     style: { padding: "11px 15px", borderRadius: 12, border: "1px solid " + G.line,
                       background: "transparent", color: G.soft, fontFamily: F_BODY, fontSize: 12.5 } }, "算了")));
             })())
-          : h("div", { style: { padding: "16px 54px 40px 16px" } },
+          : h("div", { "data-wk": "fgbookpage", "data-part": "crew", style: { padding: "16px 54px 40px 16px" } },
             // ── 邻居（她 2026-09-17：「更像邻居关系」）。三间屋就是三个名额。
             // ⚠️他们走路用的是【跟同行者同一套】控制器和布偶，只是各跑一份。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -1984,7 +1984,7 @@
               crew.pairs.map((p, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.7 } },
                 p.a + " 和 " + p.b + " 在村里碰过 " + p.n + " 次" + (p.day ? "，最近是第 " + p.day + " 天" : "")))) : null,
             ((crew && crew.rows) || []).length ? h("div", { style: { display: "grid", gap: 10, marginBottom: 18 } },
-              crew.rows.map(n => h("div", { key: n.charId, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+              crew.rows.map(n => h("div", { "data-wk": "fgitem", "data-part": "crew", key: n.charId, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, n.name),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, n.houseLabel)),
@@ -1995,37 +1995,37 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 4 } },
                   n.met ? "碰见过 " + n.met + " 次 · " + n.closeness : "还没在路上碰见过"),
                 h("div", { className: "flex items-center", style: { gap: 14, marginTop: 8 } },
-                  h("button", { onClick: () => setInvite({ charId: n.charId, name: n.name, door: { ...(n.door || {}) }, fresh: false }),
+                  h("button", { "data-wk": "fgbtn", "data-part": "editcrew", onClick: () => setInvite({ charId: n.charId, name: n.name, door: { ...(n.door || {}) }, fresh: false }),
                     className: "active:opacity-60",
                     style: { fontFamily: F_BODY, fontSize: 10.5, color: G.deep, background: "transparent", padding: 0 } },
                     "设定 ›"),
-                  h("button", { onClick: () => { const g = game(); if (!g || !g.moveOut) return;
+                  h("button", { "data-wk": "fgbtn", "data-part": "moveout", onClick: () => { const g = game(); if (!g || !g.moveOut) return;
                       const err = g.moveOut(n.charId);
                       if (err) { props.toast(err); return; } pullGarden(); props.toast(n.name + "搬走了。房间和聊天都留着。"); },
                     className: "active:opacity-60",
                     style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent", padding: 0 } },
                     "请 TA 搬走")))))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9, marginBottom: 16 } },
                   "三间屋都空着。"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 9 } },
               (crew && crew.free) ? "请谁搬进来" : "三间都住满了"),
             (crew && crew.free) ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7 } },
               (props.characters || []).filter(c => String(c.id) !== String(entry.partnerId)
                 && !((crew && crew.rows) || []).some(n => String(n.charId) === String(c.id)))
-                .slice(0, 40).map(c => h("button", { key: c.id, className: "active:opacity-70",
+                .slice(0, 40).map(c => h("button", { "data-wk": "fgcrewpick", key: c.id, className: "active:opacity-70",
                   onClick: () => setInvite({ charId: c.id, name: c.remark || c.name, door: {}, fresh: true }),
                   style: { ...pill(true), borderColor: G.line, color: G.soft, background: "rgba(255,255,255,.55)" } },
                   c.remark || c.name)))
               : null))
-          :           bookTab === "bottle" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
+          :           bookTab === "bottle" ? h("div", { "data-wk": "fgbookpage", "data-part": "bottle", style: { padding: "16px 54px 40px 16px" } },
             // 回信与原信沿用同一本漂流瓶记录。
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "写一句话封进瓶子里放下水，" + ((bottles && bottles.days) || 7) + " 个游戏日以后，可能捞到同行者的回信，也可能只有原信。到月湖栈桥捞，一天一只；读新回信会使用创作线路。"),
-            h("textarea", { value: bottleText, onChange: e => setBottleText(e.target.value), rows: 2, maxLength: 120,
+            h("textarea", { "data-wk": "fginput", "data-part": "bottle", value: bottleText, onChange: e => setBottleText(e.target.value), rows: 2, maxLength: 120,
               placeholder: "想放进瓶子里的那一句话……",
               style: { width: "100%", border: "1px solid " + G.line, background: G.paper, borderRadius: 14, padding: "10px 12px",
                 fontFamily: F_BODY, fontSize: 14, color: G.ink, outline: "none", resize: "none" } }),
-            h("button", { className: "w-full active:opacity-70",
+            h("button", { "data-wk": "fgbtn", "data-part": "bottle", className: "w-full active:opacity-70",
               onClick: () => { const g = game(); if (!g || !g.seal) return;
                 const err = g.seal(bottleText);
                 if (err) { props.toast(err); return; }
@@ -2035,11 +2035,11 @@
             ((bottles && bottles.waiting) || []).length ? h("div", { style: { marginTop: 20 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
                 bottles.ready ? "有 " + bottles.ready + " 只已到月湖，去栈桥捞捞看" : "还在水里的"),
-              bottles.waiting.map(b => h("div", { key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+              bottles.waiting.map(b => h("div", { "data-wk": "fgitem", "data-part": "bottlewait", key: b.id, style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.8, padding: "8px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
                 b.text + (b.backIn ? " · 还有 " + b.backIn + " 个游戏日" : " · 已到月湖，待捞")))) : null,
-            h("section", {ref:bottleArchive,"aria-label":"漂流信册",style:{marginTop:22}},
+            h("section", { "data-wk": "fgbottlebook", ref:bottleArchive,"aria-label":"漂流信册",style:{marginTop:22}},
               h("div", {style:{fontFamily:F_BODY,fontSize:12,color:G.ink,marginBottom:8}}, "捞上来过的 · 共 " + (bottles?.total||0) + " 封"),
-              h("input", {type:"search","aria-label":"搜索漂流信",placeholder:"搜原句、回信或署名",value:bottleView.current.query,
+              h("input", { "data-wk": "fginput", "data-part": "bottlesearch", type:"search","aria-label":"搜索漂流信",placeholder:"搜原句、回信或署名",value:bottleView.current.query,
                 onChange:e=>readBottleBook({query:e.target.value,page:0}),
                 style:{width:"100%",minHeight:44,border:"1px solid "+G.line,borderRadius:10,padding:"10px 12px",background:G.paper,color:G.ink,fontSize:14}}),
               h("label", {style:{display:"flex",alignItems:"center",gap:8,minHeight:44,fontSize:12,color:G.ink}},
@@ -2053,9 +2053,9 @@
                   d.original && h("div", {style:{fontSize:12,color:G.soft,marginTop:8}}, "你放下的：" + d.original),
                   h("div", {style:{fontFamily:F_BODY,fontSize:13.5,color:G.ink,marginTop:6,lineHeight:1.85,whiteSpace:"pre-wrap",overflowWrap:"anywhere"}},d.text)))),
               bottles?.pages>1 && h("div", {style:{display:"flex",justifyContent:"space-between",gap:12,marginTop:16}},
-                h("button", {disabled:bottles.page===0,onClick:()=>readBottleBook({page:bottles.page-1},true),style:{...pill(),minHeight:44}}, "上一页"),
-                h("button", {disabled:bottles.page>=bottles.pages-1,onClick:()=>readBottleBook({page:bottles.page+1},true),style:{...pill(),minHeight:44}}, "下一页"))))
-          :           bookTab === "museum" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
+                h("button", { "data-wk": "fgpagebtn", "data-part": "prev", disabled:bottles.page===0,onClick:()=>readBottleBook({page:bottles.page-1},true),style:{...pill(),minHeight:44}}, "上一页"),
+                h("button", { "data-wk": "fgpagebtn", "data-part": "next", disabled:bottles.page>=bottles.pages-1,onClick:()=>readBottleBook({page:bottles.page+1},true),style:{...pill(),minHeight:44}}, "下一页"))))
+          :           bookTab === "museum" ? h("div", { "data-wk": "fgbookpage", "data-part": "museum", style: { padding: "16px 54px 40px 16px" } },
             // ── 收藏馆：三个位置摆不下的那些的【出口】。捐进去的永不删除，
             //    炼金笔记的全表由 world.mjs 一处生成，这儿只负责显示（别再抄一份）
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
@@ -2065,15 +2065,15 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } },
               "馆里摆着的 " + ((museum && museum.rows) || []).length + " 件"),
             ((museum && museum.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
-              museum.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+              museum.rows.map(t => h("div", { "data-wk": "fgitem", "data-part": "museum", key: t.id, style: { borderRadius: 14, border: "1px solid " + G.line, background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } }, "第 " + t.gaveDay + " 天捐的")),
                 travelFramePreview(t),
-                t.image && h("button", { type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
+                t.image && h("button", { "data-wk": "fgframebtn", type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } }, t.note),
                 t.from ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 5, lineHeight: 1.6 } }, "用的那一片：" + t.from) : null)))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
                   "还空着。做好一样东西，走进收藏馆把它留在那儿。"),
             // 炼金笔记：做成过的写出名字，没做成过的只留一行材料——那是线索，不是清单
             h("div", { style: { marginTop: 24, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
@@ -2088,7 +2088,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#93a188", marginTop: 12, lineHeight: 1.9 } },
               "还没做出来的：" + ((museum && museum.recipes) || []).filter(r => (museum.made || []).indexOf(r.key) < 0)
                 .map(r => r.how).join("、")))
-          :           bookTab === "things" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
+          :           bookTab === "things" ? h("div", { "data-wk": "fgbookpage", "data-part": "things", style: { padding: "16px 54px 40px 16px" } },
             // ── 修好的地方（她 2026-09-17：「做④吧宝宝」）。
             // ⚠️「还差什么」问的是 world.mjs 那一处（workShort），这儿不另算一遍。
             ((things && things.works) || []).length ? h("div", { style: { marginBottom: 22 } },
@@ -2096,7 +2096,7 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: G.soft, marginBottom: 10, lineHeight: 1.7 } },
                 "弄好一处，村里就多一处能用的地方——下雨他会去那儿躲，午后他会去那儿坐。材料带齐了，走到那儿就能动手。"),
               h("div", { style: { display: "grid", gap: 9 } },
-                things.works.map(w => h("div", { key: w.id, style: { borderRadius: 14, border: "1px solid " + (w.done ? G.deep : G.line), background: "rgba(255,255,255,.55)", padding: "10px 13px" } },
+                things.works.map(w => h("div", { "data-wk": "fgitem", "data-part": "work", key: w.id, style: { borderRadius: 14, border: "1px solid " + (w.done ? G.deep : G.line), background: "rgba(255,255,255,.55)", padding: "10px 13px" } },
                   h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: G.ink } }, w.label),
                     h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: w.done ? G.deep : "#93a188" } },
@@ -2107,16 +2107,16 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "用碎片在锅里做出来的东西。能摆的摆出来——真下雨的时候，屋檐下的雨铃会响。屋里屋外每一件放得住东西的家具都摆得下：走过去点它就行。"),
             ((things && things.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
-              things.rows.map(t => h("div", { key: t.id, style: { borderRadius: 14, border: "1px solid " + (t.spot ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+              things.rows.map(t => h("div", { "data-wk": "fgitem", "data-part": "thing", key: t.id, style: { borderRadius: 14, border: "1px solid " + (t.spot ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                 h("div", { className: "flex items-baseline justify-between", style: { gap: 8 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: G.ink } }, t.name),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
                     (things.ways[t.way] ? things.ways[t.way].label : "") + " · 第 " + t.day + " 天")),
                 travelFramePreview(t),
-                t.image && h("button", { type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
+                t.image && h("button", { "data-wk": "fgframebtn", type: "button", onClick: () => setFrame(t), style: { ...pickButtonStyle(), padding: "7px 12px", fontSize: 12, minHeight: 40, marginBottom: 6 } }, "在背面写字"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, marginTop: 5, lineHeight: 1.7 } },
                   t.ready ? t.note : "还封着，第 " + t.openDay + " 天才能打开。"),
-                !t.ready ? h("button", { className: "active:opacity-70",
+                !t.ready ? h("button", { "data-wk": "fgbtn", "data-part": "ready", className: "active:opacity-70",
                   onClick: () => { const g = game(); if (!g || !g.hasten) return;
                     const err = g.hasten(t.id);
                     if (err) { props.toast(err); return; } pullGarden(); props.toast("倒了一滴月露，今天就能开。"); },
@@ -2131,35 +2131,35 @@
                   //   其余的都在世界里——走过去点那件家具就能摆。那才是「每一处都能交互」。
                   Object.entries(things.spots).filter(([k]) =>
                     ["eaves", "sill", "pond"].includes(k) || k === t.spot || k === things.here).map(([k, label]) =>
-                    h("button", { key: k, className: "active:opacity-70",
+                    h("button", { "data-wk": "fgbtn", "data-part": "thingact", key: k, className: "active:opacity-70",
                       onClick: () => { const g = game(); if (!g || !g.place) return;
                         const err = g.place(t.id, t.spot === k ? null : k);
                         if (err) { props.toast(err); return; } pullGarden(); },
                       style: { ...pill(true), borderColor: t.spot === k ? G.deep : G.line, color: t.spot === k ? G.ink : G.soft,
                         background: t.spot === k ? "rgba(85,112,79,.12)" : "rgba(255,255,255,.55)" } },
                       t.spot === k ? "已摆在" + label : "摆到" + label))) : null)))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
                   "还没有。下井刨一片碎片回来，走到炼药锅那儿做点东西。"))
-          : bookTab === "shards" ? h("div", { style: { padding: "16px 54px 40px 16px" } },
+          : bookTab === "shards" ? h("div", { "data-wk": "fgbookpage", "data-part": "shards", style: { padding: "16px 54px 40px 16px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "井潮带来的奇物，里面留着不同的片段。越深的只是越完整、越奇怪，不是越沉重。"),
             ((shardBox && shardBox.rows) || []).length ? h("div", { style: { display: "grid", gap: 10 } },
               shardBox.rows.slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(sh =>
-                h("div", { key: sh.id, style: { borderRadius: 14, border: "1px solid " + (sh.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { "data-wk": "fgitem", "data-part": "shard", "data-on": sh.pinned ? "1" : "0", key: sh.id, style: { borderRadius: 14, border: "1px solid " + (sh.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
                     "〔" + ((shardBox.curios && shardBox.curios[sh.curio] && shardBox.curios[sh.curio].name) || (shardBox.kinds && shardBox.kinds[sh.kind]) || "碎片") + "〕第 " + sh.depth + " 层 · 第 " + sh.day + " 天" + (sh.whole ? " · 完整的一片" : "")),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, sh.text),
-                  h("button", { onClick: () => { const g = game(); if (g && g.pinShard) { g.pinShard(sh.id); pullGarden(); } }, className: "active:opacity-60",
+                  h("button", { "data-wk": "fgpin", onClick: () => { const g = game(); if (g && g.pinShard) { g.pinShard(sh.id); pullGarden(); } }, className: "active:opacity-60",
                     style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: sh.pinned ? G.deep : "#93a188", background: "transparent" } },
                     sh.pinned ? "已钉住" : "钉住"))))
-              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
+              : h("div", { "data-wk": "fgempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: G.soft, lineHeight: 1.9 } },
                   "还没有。从屋边那口井下去，石头里有东西。"),
             shardBox && shardBox.busy ? h("div", { style: { marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, color: G.soft } }, "正在读这一层的石头…") : null,
             // ⚠️封出去的那几片【还读得到】——施法不烧掉碎片，这是它的另一半
             ((shardBox && shardBox.casts) || []).length ? h("div", { style: { marginTop: 22 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "封出去的"),
               h("div", { style: { display: "grid", gap: 10 } },
-                shardBox.casts.map((c, i) => h("div", { key: c.place + ":" + i, style: { borderRadius: 14, border: "1px dashed " + G.line, background: "rgba(255,255,255,.45)", padding: "11px 13px" } },
+                shardBox.casts.map((c, i) => h("div", { "data-wk": "fgitem", "data-part": "cast", key: c.place + ":" + i, style: { borderRadius: 14, border: "1px dashed " + G.line, background: "rgba(255,255,255,.45)", padding: "11px 13px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
                     "〔" + c.spell + "〕封在" + c.place + " · 第 " + c.day + " 天"),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: G.soft, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, c.text))))) : null,
@@ -2167,13 +2167,13 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 6 } }, "会念的咒"),
               shardBox.spells.map(sp => h("div", { key: sp.id, style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, padding: "5px 0" } },
                 sp.name + " · 要" + sp.need + " —— " + sp.note))) : null)
-          : h("div", { style: { padding: "16px 54px 40px 16px" } },
+          : h("div", { "data-wk": "fgbookpage", "data-part": "notes", style: { padding: "16px 54px 40px 16px" } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, lineHeight: 1.8, marginBottom: 14 } },
               "走到花圃那儿种一句下去，过三天开花。开好了再走过去收——" + (char ? (char.remark || char.name) : "同行者") + "会在花笺上回你一句。"),
             // 地里的
             ((garden && garden.seeds) || []).length ? h("div", { style: { marginTop: 20 } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: G.ink, marginBottom: 8 } }, "地里的"),
-              garden.seeds.map(sd => h("div", { key: sd.id, style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, lineHeight: 1.7, padding: "7px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
+              garden.seeds.map(sd => h("div", { "data-wk": "fgitem", "data-part": "seed", key: sd.id, style: { fontFamily: F_BODY, fontSize: 12, color: G.soft, lineHeight: 1.7, padding: "7px 0", borderBottom: "1px solid rgba(209,218,194,.6)" } },
                 "〔" + (sd.label || garden.kinds[sd.kind] || "今天") + "〕" + (sd.ask || "（只种了一个念头）") + " · " + (sd.bloomIn > 0 ? "还有 " + sd.bloomIn + " 天开" : "开好了，去花圃收")))) : null,
             // 花册
             h("div", { style: { marginTop: 22, display: "flex", alignItems: "baseline", justifyContent: "space-between" } },
@@ -2182,25 +2182,25 @@
                 ((garden && garden.notes) || []).length ? "共 " + garden.notes.length + " 张" : "还没有")),
             h("div", { style: { marginTop: 8, display: "grid", gap: 10 } },
               ((garden && garden.notes) || []).slice().sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0)).map(nt =>
-                h("div", { key: nt.id, style: { borderRadius: 14, border: "1px solid " + (nt.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
+                h("div", { "data-wk": "fgitem", "data-part": "note", "data-on": nt.pinned ? "1" : "0", key: nt.id, style: { borderRadius: 14, border: "1px solid " + (nt.pinned ? G.deep : G.line), background: "rgba(255,255,255,.6)", padding: "11px 13px" } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#93a188" } },
                     "第 " + nt.day + " 天 ·〔" + ((garden.kinds && garden.kinds[nt.kind]) || "今天") + "〕"),
                   nt.ask ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 4, lineHeight: 1.6 } }, "你问：" + nt.ask) : null,
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: G.ink, marginTop: 6, lineHeight: 1.85, whiteSpace: "pre-wrap" } }, nt.reply),
-                  h("button", { onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
+                  h("button", { "data-wk": "fgpin", onClick: () => { const g = game(); if (g && g.pinNote) { g.pinNote(nt.id); pullGarden(); } }, className: "active:opacity-60",
                     style: { marginTop: 7, fontFamily: F_BODY, fontSize: 10.5, color: nt.pinned ? G.deep : "#93a188", background: "transparent" } },
                     nt.pinned ? "已钉住" : "钉住")))))),
-        dress && h("div", { style: { position: "absolute", inset: 0, background: "transparent", pointerEvents: "none" } },
+        dress && h("div", { "data-wk": "fgdress", style: { position: "absolute", inset: 0, background: "transparent", pointerEvents: "none" } },
           // ⚠️这条 30% 高的窗要【真的透明】：底下就是游戏，游戏往这儿渲要换的那个小人。
           //   高度必须和 game.mjs 的 PREVIEW_BAND 对上，改一处就得改两处——所以两边都写着对方。
           h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, height: "30%" } }),
-          h("div", { style: { position: "absolute", left: 0, right: 0, top: "30%", bottom: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch", pointerEvents: "auto", boxShadow: "0 -12px 30px #30442615" } },
+          h("div", { "data-wk": "fgdresspanel", style: { position: "absolute", left: 0, right: 0, top: "30%", bottom: 0, background: "#e9ecdd", overflowY: "auto", WebkitOverflowScrolling: "touch", pointerEvents: "auto", boxShadow: "0 -12px 30px #30442615" } },
           // 两个人：一排底线 tab，不是一排药丸（施工规则/tabs-not-plain-pills.md）
-          h("div", { style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
+          h("div", { "data-wk": "fgdresstabs", style: { display: "flex", borderBottom: "1px solid " + G.line, background: "rgba(255,255,255,.4)" } },
             // 住在村里的那几位也在这一排（她 2026-09-17：「邀请邻居的话改不了外貌」）
             [["companion", char ? (char.remark || char.name) : "同行者"], ["me", "我"],
               ...(((crew && crew.rows) || []).map(n => [String(n.charId), n.name]))].map(([k, label]) =>
-              h("button", { key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
+              h("button", { "data-wk": "fgdresstab", "data-on": who === k ? "1" : "0", key: k, onClick: () => setWho(k), className: "flex-1 active:opacity-70",
                 style: { padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: who === k ? G.ink : "#93a188",
                   borderBottom: "2px solid " + (who === k ? G.deep : "transparent"), background: "transparent" } }, label))),
           h("div", { style: { padding: "16px 54px 40px 16px" } },
@@ -2210,31 +2210,31 @@
                 : who === "me" ? "换的是你自己在这个庭院里的样子。"
                 : "换的是住在村里那一位在这个庭院里的样子。"),
             h(DressControls, { who, look, styles, game, pushLook })))),
-        chat && !dress && !book && h("section", { ref: chatRef, "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
+        chat && !dress && !book && h("section", { "data-wk": "fgchat", "data-on": chat === "tall" ? "1" : "0", ref: chatRef, "aria-label": "庭院聊天", style: { position: "absolute", left: 8, right: 8, bottom: 0, maxHeight: "52%", display: "flex", flexDirection: "column", background: "rgba(250,250,238,.97)", border: "1px solid " + G.line, borderTop: "1px solid " + G.line, borderRadius: "22px 22px 0 0", boxShadow: "0 -10px 34px #3044261f" } },
           // 抓手：一眼看出这层是能收起来的，也把面板和游戏画面隔开
           h("div", { style: { width: 34, height: 4, borderRadius: 999, background: G.line, margin: "8px auto 0" } }),
           // ⚠️那个小箭头就是【要不要看记录】：平时只留一条输入，点开才长高
           h("div", { style: { padding: "6px 10px 6px 16px", display: "flex", alignItems: "center", gap: 8 } },
             h("span", { style: { flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: F_BODY, fontSize: 12, color: G.soft } },
               char ? "和 " + (char.remark || char.name) + " 说话" : "选一位角色，开始聊天"),
-            chat === "tall" ? h("button", { onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间") : null,
-            h("button", { "aria-label": chat === "tall" ? "收起聊天记录" : "看看聊天记录", onClick: () => openChat(chat === "tall" ? "bar" : "tall"),
+            chat === "tall" ? h("button", { "data-wk": "fgpill", "data-part": "newroom", onClick: changePartner, disabled: busy, style: { ...pill(true), opacity: busy ? .45 : 1 } }, "另开一间") : null,
+            h("button", { "data-wk": "fgchattoggle", "aria-label": chat === "tall" ? "收起聊天记录" : "看看聊天记录", onClick: () => openChat(chat === "tall" ? "bar" : "tall"),
               style: { border: 0, background: "transparent", color: G.soft, fontSize: 15, minWidth: 40, minHeight: 34, lineHeight: 1 } },
               chat === "tall" ? "⌄" : "⌃")),
-          chat === "tall" ? h("div", { ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
+          chat === "tall" ? h("div", { "data-wk": "fgmsgs", ref: messages, className: "min-h-0 overflow-y-auto", style: { padding: "2px 16px 4px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.85, minHeight: 64, maxHeight: "34vh" } },
             h(LegacyWorldDialogs,{record,archive:entry,cid:entry.partnerId}),
-            rows.map(m => h("div", { key: m.id, style: { margin: "0 0 13px" } },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
-              h("div", { style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),
-            !rows.length && h("p", { style: { margin: "6px 0 12px", color: "#93a188" } }, "想聊什么，或者想一起去哪里？"),
+            rows.map(m => h("div", { "data-wk": "fgmsg", "data-me": m.role === "user" ? "1" : "0", key: m.id, style: { margin: "0 0 13px" } },
+              h("div", { "data-wk": "fgmsgname", style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".06em", color: "#93a188", marginBottom: 2 } }, m.role === "user" ? "你" : (char && (char.remark || char.name) || "同行者")),
+              h("div", { "data-wk": "fgbubble", "data-me": m.role === "user" ? "1" : "0", style: { whiteSpace: "pre-wrap", color: m.role === "user" ? G.soft : G.ink } }, m.content))),
+            !rows.length && h("p", { "data-wk": "fgempty", style: { margin: "6px 0 12px", color: "#93a188" } }, "想聊什么，或者想一起去哪里？"),
             busy && h("p", { role: "status", style: { margin: "0 0 12px", color: "#93a188" } }, "正在回应…"),
             error && h("p", { role: "alert", style: { margin: "0 0 10px", color: "#a34836" } }, error),
             detail && h("details", { style: { marginBottom: 10 } }, h("summary", { style: { fontSize: 11, color: G.soft } }, "查看原始回复"), h("pre", { style: { whiteSpace: "pre-wrap", fontSize: 10, marginTop: 6 } }, detail))) : null,
-          chat === "tall" && !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { style: { padding: "0 16px 8px" } },
+          chat === "tall" && !busy && rows.some(m => m.role === "user" && m.status !== "done") && h("div", { "data-wk": "fgretry", style: { padding: "0 16px 8px" } },
             h("button", { style: pill(true), onClick: () => send(true) }, "重试上次未完成的回复")),
-          h("form", { onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
-            h("input", { "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
-            h("button", { type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5, opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
+          h("form", { "data-wk": "fgcompose", onSubmit: e => { e.preventDefault(); send(false); }, style: { display: "flex", alignItems: "center", gap: 9, padding: "9px 12px 11px", paddingBottom: COMPOSER_PAD_BOTTOM, borderTop: "1px solid rgba(209,218,194,.7)" } },
+            h("input", { "data-wk": "fginput", "data-part": "chat", "aria-label": "对同行者说", value: draft, onChange: e => setDraft(e.target.value), disabled: busy || !char, maxLength: 12000, placeholder: char ? "和同行者说句话…" : "先选择角色", style: { flex: 1, minWidth: 0, border: "1px solid " + G.line, background: G.paper, borderRadius: 999, padding: "11px 15px", fontFamily: F_BODY, fontSize: 16, color: G.ink, outline: "none" } }),
+            h("button", { "data-wk": "fgsend", type: "submit", disabled: busy || !char || !draft.trim(), style: { flexShrink: 0, border: 0, borderRadius: 999, padding: "11px 17px", background: G.deep, color: "#f7faf2", fontFamily: F_BODY, fontSize: 13.5, opacity: (busy || !char || !draft.trim()) ? .38 : 1 } }, "发送")))));
   }
 
   // ── 进门那两页（她 2026-09-16：「先做个进入页面…再来到存档…新建或者开启已有」）──
@@ -2365,7 +2365,7 @@
       onChooseSave: () => { setOpenId(null); setOpenSolo(false); refresh(); },
       onBack: () => { setOpenId(null); setOpenSolo(false); refresh(); }
     }));
-    const card = (onClick, children) => h("button", {
+    const card = (onClick, children) => h("button", { "data-wk": "fgcard",
       onClick: onClick, className: "w-full text-left active:opacity-70",
       style: { padding: "15px 16px", borderRadius: 16, border: "1px solid " + G.line,
         background: "rgba(255,255,255,.62)" }
@@ -2373,9 +2373,9 @@
     // ⚠️只有【壳】叫小世界（她 2026-09-18 定的）：它装着好几个世界，再叫「微光庭院」
     //   就成了「一个叫微光庭院的地方，进去挑世界，第一个世界也叫微光庭院」。
     //   进了某个世界以后那几处 Head 仍旧是那个世界自己的名字（GardenSession 里那三处别动）。
-    const shell = (sub, onBack, body) => h("div", { className: "h-full flex flex-col", style: { background: "#e4e9d7", color: G.ink } },
+    const shell = (sub, onBack, body) => h("div", { "data-wk": "fgpage", className: "h-full flex flex-col", style: { background: "#e4e9d7", color: G.ink } },
       h(Head, { zh: "小世界", sub: sub, bg: "transparent", ink: G.ink, onBack: onBack }),
-      h("div", { ref:scrollNode,onScroll:e=>{scrolls.current[world?.id||"worlds"]=e.currentTarget.scrollTop;},className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
+      h("div", { "data-wk": "fgbody", ref:scrollNode,onScroll:e=>{scrolls.current[world?.id||"worlds"]=e.currentTarget.scrollTop;},className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "6px 18px 36px" } }, body));
 
     // 仓没打开时名册也读不全：这时候让她建新档，会把一份残缺的名册写回去（名字、时间都没了）。
     const stall = vaultStalled(INDEX_KEY);
@@ -2387,7 +2387,7 @@
       const stop = (w, i) => {
         const left = i % 2 === 0;
         const label = h("div", { style: { flex: 1, minWidth: 0, textAlign: left ? "left" : "right" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: w ? 16.5 : 13.5, color: w ? G.ink : G.soft } },
+          h("div", { "data-wk": "fgworldname", style: { fontFamily: F_DISPLAY, fontSize: w ? 16.5 : 13.5, color: w ? G.ink : G.soft } },
             w ? w.name : "还没有下一个"),
           w ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.65 } }, w.note) : null,
           w ? h("span", { style: { display: "inline-block", marginTop: 10, padding: "3.5px 10px", borderRadius: 999,
@@ -2396,9 +2396,9 @@
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
           h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():worldHouse()) : worldSoon()), label);
         return w
-          ? h("button", { key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
+          ? h("button", { "data-wk": "fgworld", key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
-          : h("div", { key: "soon", style: { padding: "4px 2px" } }, inner);
+          : h("div", { "data-wk": "fgworld", "data-part": "soon", key: "soon", style: { padding: "4px 2px" } }, inner);
       };
       const path = [];
       stops.forEach((w, i) => {
@@ -2444,21 +2444,21 @@
     return shell("选一档 · " + world.name, () => setWorld(null), h(React.Fragment, null,
       h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 16px" } },
         world.id === "train" ? "选一个已有庭院存档，和这一档的同行者上车；也可以先选同行者、设置新房间，再开始一段旅程。" : "选一档接着过，或者从头开一段新的。"),
-      h("div", { style: { display: "grid", gap: 11 } },
+      h("div", { "data-wk": "fgsaves", style: { display: "grid", gap: 11 } },
         rows.map((row, i) => {
           const meta = saveMeta(row,world.id);
           const partner = (props.characters || []).find(c => String(c.id) === meta.partnerId);
-          return h("div", { key: row.id, style: { position: "relative" } },
+          return h("div", { "data-wk": "fgsave", key: row.id, style: { position: "relative" } },
             // ⚠️以前开的示例档没有同行者：直接进去接着玩，别摆一张【它逃不掉的】选人页
             //   ——那一页现在只剩「挑一位」，一挑就跑去开新房间，这一档就被撂下了。
             card(() => { setOpenSolo(!meta.partnerId); setOpenId(saveKeyOf(row)); }, h(React.Fragment, null,
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
+              h("div", { "data-wk": "fgsavename", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: G.ink } }, row.name || (row.id === "legacy" ? "原来那一档" : "第 " + (rows.length - i) + " 档")),
+              h("div", { "data-wk": "fgsavesub", style: { fontFamily: F_BODY, fontSize: 11.5, color: G.soft, marginTop: 5, lineHeight: 1.6 } },
                 meta.fresh ? "还没开始" : "第 " + meta.day + " 天" + (partner ? " · 与 " + (partner.remark || partner.name) + " 同住" : "")))),
-            h("button", { onClick: () => drop(row), className: "active:opacity-60",
+            h("button", { "data-wk": "fgsavedel", onClick: () => drop(row), className: "active:opacity-60",
               style: { position: "absolute", right: 10, top: 10, padding: "4px 8px", fontFamily: F_BODY, fontSize: 10.5, color: "#a08d86", background: "transparent" } }, "删掉"));
         }),
-        h("button", { onClick: () => setPicking(true), className: "w-full active:opacity-70",
+        h("button", { "data-wk": "fgnewbtn", onClick: () => setPicking(true), className: "w-full active:opacity-70",
           style: { padding: "14px 16px", borderRadius: 16, border: "1px dashed " + G.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: G.deep } },
           world.id === "train" ? "＋ 选同行者，开新房间" : "＋ 新开一段"))));
   };

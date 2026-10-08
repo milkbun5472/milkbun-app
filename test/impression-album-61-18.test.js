@@ -5,7 +5,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const fs = require("node:fs");
-const src = fs.readFileSync("js/impression.js", "utf8");
+const src = fs.readFileSync("js/impression.js", "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 
 test("两页共用同一套相册零件，不是各画一套", () => {
   ["const plate =", "const corners =", "const pageStyle =", "const handLabel ="].forEach(k =>

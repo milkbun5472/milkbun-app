@@ -167,11 +167,11 @@
   function FolderTab({ name, count, on, dashed, small, onClick, P, onInk }) {
     const w = small ? 62 : 78, hb = small ? 36 : 48;
     const line = dashed ? "1.5px dashed " + P.line : "1.5px solid " + (on ? P.accent : P.line);
-    return h("button", { onClick, className: "active:opacity-70 shrink-0 flex flex-col", style: { width: w, paddingTop: on ? 0 : 6, minHeight: 44, transition: "padding .15s" } },
+    return h("button", { "data-wk": "shuafolder", "data-on": on ? "1" : "0", onClick, className: "active:opacity-70 shrink-0 flex flex-col", style: { width: w, paddingTop: on ? 0 : 6, minHeight: 44, transition: "padding .15s" } },
       h("span", { style: { display: "block", width: "42%", height: small ? 6 : 8, borderRadius: "5px 6px 0 0", border: line, borderBottom: "none", background: on ? P.accent : "transparent" } }),
       h("span", { style: { position: "relative", display: "flex", flexDirection: "column", justifyContent: "flex-end", width: "100%", height: hb, marginTop: -1, borderRadius: "0 8px 8px 8px", border: line, background: on ? P.accent : "transparent", padding: "0 7px " + (small ? 4 : 6) + "px", overflow: "hidden", textAlign: "left" } },
         on ? h("span", { style: { position: "absolute", left: 8, right: 8, top: -1, height: small ? 6 : 8, borderRadius: "0 0 3px 3px", background: onInk, opacity: .85 } }) : null,
-        h("span", { style: { position: "relative", fontFamily: F_BODY, fontSize: small ? 11.5 : 12.5, fontWeight: on ? 700 : 400, color: on ? onInk : dashed ? P.dim : P.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name),
+        h("span", { "data-wk": "shuafoldername", style: { position: "relative", fontFamily: F_BODY, fontSize: small ? 11.5 : 12.5, fontWeight: on ? 700 : 400, color: on ? onInk : dashed ? P.dim : P.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name),
         count != null ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? onInk : P.dim, opacity: on ? .85 : 1 } }, count + " 条") : null));
   }
 
@@ -181,20 +181,20 @@
     const [more, setMore] = useState(false);   // 「⋯」：扔掉、画出来收在这儿，右边那排才不会顶到状态栏
     const ch = v.charId ? charOf(v.charId) : null;
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
-    const railBtn = (icon, n, on, fn, key) => h("button", { key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, minHeight: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
+    const railBtn = (icon, n, on, fn, key) => h("button", { "data-wk": "shuarailbtn", "data-on": on ? "1" : "0", key: key, onClick: fn, className: "active:opacity-60 flex flex-col items-center", style: { color: on ? RED : INK, minWidth: 44, minHeight: 44, filter: "drop-shadow(0 1px 3px rgba(0,0,0,.5))" } },
       icon(on ? RED : INK),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 2, color: INK, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, n));
-    return h("div", { style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
+    return h("div", { "data-wk": "shuavcard", style: { position: "relative", height: height, scrollSnapAlign: "start", scrollSnapStop: "always", overflow: "hidden", background: src ? "#000" : tint(v) } },
       src ? h("img", { src: src, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null,
       h("div", { style: { position: "absolute", inset: 0, background: "linear-gradient(180deg,rgba(0,0,0,.28) 0,rgba(0,0,0,0) 22%,rgba(0,0,0,0) 52%,rgba(0,0,0,.66) 100%)" } }),
       // 没画出来的时候，画面那几句摆在正中，当它就是这一段视频（她 2026-10-07：「做居中而不是居左上」）
-      !src ? h("div", { className: "flex items-center justify-center", style: { position: "absolute", left: 30, right: 66, top: 110, bottom: 200, pointerEvents: "none" } },
+      !src ? h("div", { "data-wk": "shuascene", className: "flex items-center justify-center", style: { position: "absolute", left: 30, right: 66, top: 110, bottom: 200, pointerEvents: "none" } },
         h("div", { onClick: () => setOpen(o => !o), style: { pointerEvents: "auto", maxHeight: "100%", overflowY: open ? "auto" : "hidden", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1.75, color: "rgba(255,255,255,.9)", textShadow: "0 1px 4px rgba(0,0,0,.4)" } },
           h("div", { style: open ? null : { display: "-webkit-box", WebkitLineClamp: 9, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene),
           !open && S(v.scene).length > 140 ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: DIM, marginTop: 6 } }, "展开") : null)) : null,
       // 右边那排压矮（她 2026-10-07：「右边状态栏太高了上面几个按不到」）：图标小一号、间距收紧，扔掉和画出来进「⋯」
       h("div", { className: "flex flex-col items-center", style: { position: "absolute", right: 8, bottom: 96, gap: 8 } },
-        h("button", { onClick: onAuthor, "aria-label": "看这个号", className: "active:opacity-70", style: { width: 46, height: 46, borderRadius: 99, border: "2px solid #fff", overflow: "hidden", background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY } },
+        h("button", { "data-wk": "shuaauthorbtn", onClick: onAuthor, "aria-label": "看这个号", className: "active:opacity-70", style: { width: 46, height: 46, borderRadius: 99, border: "2px solid #fff", overflow: "hidden", background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontFamily: F_DISPLAY } },
           ch ? h(Avatar, { character: ch, size: 42 }) : S(v.author).slice(0, 1)),
         railBtn(c => icon("like", c, 27), fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike, "l"),
         railBtn(c => icon("cm", c, 27), fmtN(arr(v.comments).length), false, onComments, "c"),
@@ -202,12 +202,12 @@
         onShare ? railBtn(c => icon("share", c, 27), "分享", false, onShare, "s") : null,
         onSame ? railBtn(c => icon("same", c, 25), "拍同款", false, onSame, "same") : null,
         (onDel || onDraw) ? h("div", { key: "more", style: { position: "relative" } },
-          h("button", { onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { minWidth: 44, minHeight: 40, color: INK, fontSize: 22, lineHeight: "40px", textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, drawing ? "…" : "⋯"),
-          more ? h("div", { style: { position: "absolute", right: 48, bottom: 0, minWidth: 120, borderRadius: 10, background: "rgba(28,28,34,.96)", padding: "4px 0", boxShadow: "0 6px 20px rgba(0,0,0,.4)" } },
-            onDraw ? h("button", { onClick: () => { setMore(false); if (!drawing) onDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, drawing ? "画着…" : (src ? "重画" : "画出来")) : null,
-            onDel ? h("button", { onClick: () => { setMore(false); onDel(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, "扔掉这条") : null) : null) : null),
-      h("div", { style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
+          h("button", { "data-wk": "shuamorebtn", onClick: () => setMore(m => !m), "aria-label": "更多", className: "active:opacity-60", style: { minWidth: 44, minHeight: 40, color: INK, fontSize: 22, lineHeight: "40px", textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, drawing ? "…" : "⋯"),
+          more ? h("div", { "data-wk": "shuamoremenu", style: { position: "absolute", right: 48, bottom: 0, minWidth: 120, borderRadius: 10, background: "rgba(28,28,34,.96)", padding: "4px 0", boxShadow: "0 6px 20px rgba(0,0,0,.4)" } },
+            onDraw ? h("button", { "data-wk": "shuamoreitem", "data-part": "draw", onClick: () => { setMore(false); if (!drawing) onDraw(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, drawing ? "画着…" : (src ? "重画" : "画出来")) : null,
+            onDel ? h("button", { "data-wk": "shuamoreitem", "data-part": "del", onClick: () => { setMore(false); onDel(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 14px", color: INK, fontFamily: F_BODY, fontSize: 13.5 } }, "扔掉这条") : null) : null) : null),
+      h("div", { "data-wk": "shuacaption", style: { position: "absolute", left: 14, right: 72, bottom: 22 } },
+        h("div", { "data-wk": "shuaauthor", style: { fontFamily: F_BODY, fontSize: 15, color: INK, fontWeight: 600, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, "@" + (v.author || "") + (v.withName ? "  与 @" + v.withName + " 合拍" : "")),
         src && v.scene ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: DIM, marginTop: 4, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
         (v.caption || arr(v.tags).length) ? h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: INK, marginTop: 6, lineHeight: 1.55, textShadow: "0 1px 3px rgba(0,0,0,.6)", display: "-webkit-box", WebkitLineClamp: 4, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || "",
           arr(v.tags).length ? h("span", { style: { fontWeight: 600 } }, (v.caption ? " " : "") + v.tags.map(x => "#" + x).join(" ")) : null) : null));
@@ -217,18 +217,18 @@
   function CommentsPage({ v, busy, onSend, onBack, t, P }) {
     const [text, setText] = useState("");
     const send = () => { const x = text.trim(); if (!x || busy) return; setText(""); onSend(x); };
-    return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+    return h("div", { "data-wk": "shuacmtpage", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: arr(v.comments).length + " 条评论", sub: "@" + v.author, bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 12 } },
-        arr(v.comments).length ? arr(v.comments).map(c => h("div", { key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text))) :
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "40px 0" } }, "还没有评论"),
+        arr(v.comments).length ? arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "10px 0", borderBottom: "1px solid " + P.line } },
+          h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 12, color: c.by === "me" ? P.accent : c.by === "char" ? "#d89a2b" : P.dim } }, c.name + (c.by === "char" && c.isAuthor ? " · 作者" : "")),
+          h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 14, color: P.ink, marginTop: 3, lineHeight: 1.55 } }, c.text))) :
+          h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "40px 0" } }, "还没有评论"),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, padding: "8px 0" } }, "……") : null),
-      h("div", { className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + P.line } },
-        h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
+      h("div", { "data-wk": "shuacompose", className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + P.line } },
+        h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: "善语结善缘，说点什么", className: "flex-1 outline-none resize-none",
           style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5 } }),
-        h("button", { onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
+        h("button", { "data-wk": "shuasend", onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
   }
 
   // ── 刷新那一页：两颗，跟论坛一样 ────────────────────────
@@ -236,21 +236,21 @@
     const [pick, setPick] = useState(characters.slice(0, 3).map(c => c.id));
     const toggle = id => setPick(p => p.indexOf(id) >= 0 ? p.filter(x => x !== id) : p.concat([id]).slice(0, PICK_MAX));
     // ⚠️按不了的时候字色跟着皮走（2026-10-07 群友截图：横着看那套底是白的，白字压白底，「正在刷…」整个看不见，像卡死了）
-    const big = (title, sub, fn, dis) => h("button", { onClick: fn, disabled: dis, className: "w-full text-left active:opacity-80", style: { borderRadius: 16, padding: "16px 18px", background: dis ? P.field : "linear-gradient(120deg,#fe2c55,#7a3cff)", color: dis ? P.ink : "#fff", border: "1px solid " + (dis ? P.line : "transparent"), opacity: dis ? .75 : 1 } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17 } }, title), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4 } }, sub));
-    return h("div", { className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
+    const big = (title, sub, fn, dis) => h("button", { "data-wk": "shuabig", onClick: fn, disabled: dis, className: "w-full text-left active:opacity-80", style: { borderRadius: 16, padding: "16px 18px", background: dis ? P.field : "linear-gradient(120deg,#fe2c55,#7a3cff)", color: dis ? P.ink : "#fff", border: "1px solid " + (dis ? P.line : "transparent"), opacity: dis ? .75 : 1 } },
+      h("div", { "data-wk": "shuabigtitle", style: { fontFamily: F_DISPLAY, fontSize: 17 } }, title), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 4 } }, sub));
+    return h("div", { "data-wk": "shuarefresh", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
       h(Head, { zh: "刷新", bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
         h("div", { style: { marginTop: 8 } }, big(busy === "npc" ? "正在刷…" : "刷几条路人的", "推荐流里互不认识的博主，一次 " + NPC_BATCH + " 条（调一次模型）", onNpc, busy === "npc" || busy === "chars")),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "22px 0 10px" } }, "请谁发（每人一条，最多 " + PICK_MAX + " 个）"),
         h("div", { className: "flex flex-wrap", style: { gap: 12 } }, characters.map(c => {
           const on = pick.indexOf(c.id) >= 0;
-          return h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 58, opacity: on ? 1 : .45 } },
+          return h("button", { "data-wk": "shuacharpick", "data-on": on ? "1" : "0", key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 58, opacity: on ? 1 : .45 } },
             h("div", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (on ? P.accent : "transparent") } }, h(Avatar, { character: c, size: 46 })),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name));
+            h("div", { "data-wk": "shuacharname", style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: 58, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name));
         })),
         h("div", { style: { marginTop: 14 } }, big(busy === "chars" ? "TA们在拍…" + (prog ? "（" + prog + "）" : "") : "请TA们发", busy === "chars" ? "可以先退出去刷，拍好一条就出一条" : "挑中的人各发一条，照TA此刻的生活来", () => onChars(pick), busy === "npc" || busy === "chars" || !pick.length),
-        onRealFriends ? h("button", { onClick: onRealFriends, className: "w-full text-left active:opacity-70 flex items-center", style: { gap: 10, marginTop: 10, minHeight: 40 } },
+        onRealFriends ? h("button", { "data-wk": "shuarealfriends", "data-on": realFriends ? "1" : "0", onClick: onRealFriends, className: "w-full text-left active:opacity-70 flex items-center", style: { gap: 10, marginTop: 10, minHeight: 40 } },
           h("span", { style: { width: 18, height: 18, borderRadius: 5, border: "1.5px solid " + (realFriends ? P.accent : P.line), background: realFriends ? P.accent : "transparent", flexShrink: 0 } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, lineHeight: 1.5 } }, "认识 TA 的人来评时，让他们用自己的口气写（每条多调一次；关着时是 TA 发视频那一次顺手写的）")) : null,
         onHot ? h("div", { style: { marginTop: 14 } }, big(busy === "hot" ? "正在看今天的热门…" : (hotDay ? "重刷今天的热门" : "看看今天的热门"), "这个世界今天在聊什么，一天一份（调一次模型）。TA 们发视频时知道，跟不跟看各人", onHot, busy === "npc" || busy === "chars" || busy === "hot")) : null)));
@@ -260,17 +260,17 @@
   function PostPage({ busy, onPost, onLive, onBack, P, skin, characters, onAlt, same }) {
     const [scene, setScene] = useState(""), [caption, setCaption] = useState(same ? "拍了 @" + same.author + " 的同款 " : ""), [who, setWho] = useState("self"), [title, setTitle] = useState("");
     const [withId, setWithId] = useState("");   // 和谁一起出镜（合拍，第 4 条）
-    const field = (val, set, ph, rows) => h("textarea", { value: val, onChange: e => set(e.target.value), rows: rows, placeholder: ph, className: "w-full outline-none resize-none",
+    const field = (val, set, ph, rows) => h("textarea", { "data-wk": "shuafield", value: val, onChange: e => set(e.target.value), rows: rows, placeholder: ph, className: "w-full outline-none resize-none",
       style: { borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, marginTop: 8 } });
-    const chip = (k, label) => h("button", { key: k, onClick: () => setWho(k), className: "active:opacity-60", style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (who === k ? P.ink : P.line), background: who === k ? P.ink : "transparent", color: who === k ? P.bg : P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, label);
-    return h("div", { className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
+    const chip = (k, label) => h("button", { "data-wk": "shuachip", "data-on": who === k ? "1" : "0", key: k, onClick: () => setWho(k), className: "active:opacity-60", style: { minHeight: 34, padding: "0 13px", borderRadius: 999, border: "1px solid " + (who === k ? P.ink : P.line), background: who === k ? P.ink : "transparent", color: who === k ? P.bg : P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, label);
+    return h("div", { "data-wk": "shuapost", className: "h-full flex flex-col", style: { background: "radial-gradient(120% 60% at 50% -10%," + P.glow + ",rgba(0,0,0,0) 60%)," + P.bg } },
       h(Head, { zh: same ? "拍同款" : "发一条", bg: "transparent", ink: P.ink, onBack: onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
         // 拍同款（她 2026-10-07 选的第 3 条）：上面摆着原视频，你照着拍一条自己的
-        same ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + P.line, background: P.field } },
+        same ? h("div", { "data-wk": "shuasameref", style: { marginTop: 6, padding: "10px 12px", borderRadius: 12, border: "1px solid " + P.line, background: P.field } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, "原视频 @" + same.author),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: P.ink, marginTop: 4, lineHeight: 1.55 } }, same.scene)) : null,
-        same ? null : h("button", { onClick: onLive, className: "w-full text-left active:opacity-80", style: { marginTop: 6, borderRadius: 16, padding: "14px 18px", background: "linear-gradient(120deg,#e2556b,#46326e)", color: "#fff" } },
+        same ? null : h("button", { "data-wk": "shualivedoor", onClick: onLive, className: "w-full text-left active:opacity-80", style: { marginTop: 6, borderRadius: 16, padding: "14px 18px", background: "linear-gradient(120deg,#e2556b,#46326e)", color: "#fff" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, "开直播"), h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .85, marginTop: 3 } }, "你开播，你的人混在观众里看着")),
         skin === "b" ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, marginTop: 22 } }, "标题") : null,
         skin === "b" ? field(title, setTitle, "这条视频叫什么", 1) : null,
@@ -282,10 +282,10 @@
         h("div", { className: "flex flex-wrap", style: { gap: 8 } }, chip("self", "我出镜"), chip("part", "只露手或背影"), chip("none", "没有人")),
         // 合拍：小号发的不给选（小号就是不想让人知道是她）
         !onAlt && (characters || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "16px 0 8px" } }, "和谁一起出镜（合拍，可不选）") : null,
-        !onAlt && (characters || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 10 } }, characters.map(c => h("button", { key: c.id, onClick: () => setWithId(w => w === c.id ? "" : c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 52, opacity: withId === c.id ? 1 : .5 } },
+        !onAlt && (characters || []).length ? h("div", { className: "flex flex-wrap", style: { gap: 10 } }, characters.map(c => h("button", { "data-wk": "shuawithpick", "data-on": withId === c.id ? "1" : "0", key: c.id, onClick: () => setWithId(w => w === c.id ? "" : c.id), className: "active:opacity-70 flex flex-col items-center", style: { width: 52, opacity: withId === c.id ? 1 : .5 } },
           h("div", { style: { borderRadius: 99, padding: 2, border: "2px solid " + (withId === c.id ? P.accent : "transparent") } }, h(Avatar, { character: c, size: 40 })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: P.ink, marginTop: 3, maxWidth: 52, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name)))) : null,
-        h("button", { disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null }),
+        h("button", { "data-wk": "shuapostbtn", disabled: !!busy || !scene.trim(), onClick: () => onPost({ scene: scene.trim(), caption: caption.trim(), who, title: title.trim(), withId: onAlt ? "" : withId, same: same || null }),
           className: "w-full active:opacity-80", style: { marginTop: 24, minHeight: 48, borderRadius: 14, background: (!scene.trim() || busy) ? "rgba(255,255,255,.1)" : P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } }, busy ? "发着…" : "发布")));
   }
 
@@ -294,31 +294,31 @@
   const imgOf = v => v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
   const coverBg = v => { const src = imgOf(v); return src ? "center/cover no-repeat url(\"" + src + "\")" : tint(v); };
   function BCard({ v, onOpen }) {
-    return h("button", { onClick: onOpen, className: "text-left active:opacity-80", style: { borderRadius: 8, overflow: "hidden", background: B.card, boxShadow: "0 1px 4px rgba(0,0,0,.05)", display: "flex", flexDirection: "column" } },
+    return h("button", { "data-wk": "shuabcard", onClick: onOpen, className: "text-left active:opacity-80", style: { borderRadius: 8, overflow: "hidden", background: B.card, boxShadow: "0 1px 4px rgba(0,0,0,.05)", display: "flex", flexDirection: "column" } },
       h("div", { style: { position: "relative", aspectRatio: "16 / 10", background: coverBg(v), padding: 7 } },
         !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.88)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
         h("div", { className: "flex items-center", style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 7px 4px", gap: 8, background: "linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.55))", fontFamily: F_BODY, fontSize: 10.5, color: "#fff" } },
           h("span", null, "▶ " + fmtN(v.plays)), h("span", null, "弹 " + fmtN(arr(v.dms).length + arr(v.comments).length)),
           v.dur ? h("span", { style: { marginLeft: "auto" } }, v.dur) : null)),
       h("div", { style: { padding: "7px 8px 9px" } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption || v.scene),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
+        h("div", { "data-wk": "shuabcardtitle", style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, lineHeight: 1.45, height: 36, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption || v.scene),
+        h("div", { "data-wk": "shuabcardsub", style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
   }
   // 横着看专属（她 2026-10-07 选的第 2 条）：投币、充电、你自己发弹幕、楼中楼
   // 充电（她 2026-10-08：胶囊、不能自定义）：一格一节电池，钱越多电越满；最后一格自己填
   function ChargePanel({ onCharge }) {
     const [own, setOwn] = useState("");
-    const cell = (n, bars) => h("button", { key: n, onClick: () => onCharge(n), className: "active:opacity-70 flex flex-col items-center", style: { padding: "8px 0 6px", borderRadius: 10, background: B.bg, minHeight: 64 } },
+    const cell = (n, bars) => h("button", { "data-wk": "shuacharge", key: n, onClick: () => onCharge(n), className: "active:opacity-70 flex flex-col items-center", style: { padding: "8px 0 6px", borderRadius: 10, background: B.bg, minHeight: 64 } },
       h("span", { style: { position: "relative", width: 34, height: 18, borderRadius: 4, border: "1.5px solid " + B.accent, display: "flex", gap: 2, padding: 2 } },
         [0, 1, 2, 3].map(i => h("span", { key: i, style: { flex: 1, borderRadius: 1, background: i < bars ? B.accent : "transparent" } })),
         h("span", { style: { position: "absolute", right: -5, top: 5, width: 3, height: 6, borderRadius: 1, background: B.accent } })),
       h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: B.ink, marginTop: 6 } }, "¥" + n));
     const ok = Number(own) > 0;
     return h("div", { style: { marginTop: 8 } },
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 } }, [[6, 1], [18, 2], [50, 3], [128, 4]].map(x => cell(x[0], x[1]))),
+      h("div", { "data-wk": "shuachargegrid", style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 } }, [[6, 1], [18, 2], [50, 3], [128, 4]].map(x => cell(x[0], x[1]))),
       h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
-        h("input", { value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
-        h("button", { disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
+        h("input", { "data-wk": "shuachargeinput", value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
+        h("button", { "data-wk": "shuachargebtn", disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
   }
   function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
     const [text, setText] = useState("");
@@ -334,10 +334,10 @@
       if (replyTo && onReply) { onReply(replyTo.id, x); setReplyTo(null); return; }
       onSend(x);
     };
-    const act = (k, n, on, fn) => h("button", { onClick: fn, className: "flex-1 active:opacity-60 flex flex-col items-center", style: { color: on ? B.accent : B.dim, minHeight: 50 } },
+    const act = (k, n, on, fn) => h("button", { "data-wk": "shuaact", "data-on": on ? "1" : "0", onClick: fn, className: "flex-1 active:opacity-60 flex flex-col items-center", style: { color: on ? B.accent : B.dim, minHeight: 50 } },
       icon(k, on ? B.accent : B.dim, 24, on), h("span", { style: { fontFamily: F_BODY, fontSize: 11, marginTop: 3, whiteSpace: "nowrap" } }, n));
-    const moreItem = (label, fn) => h("button", { onClick: () => { setMore(false); if (fn) fn(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 16px", fontFamily: F_BODY, fontSize: 13.5, color: B.ink } }, label);
-    return h("div", { className: "h-full flex flex-col", style: { background: B.bg } },
+    const moreItem = (label, fn) => h("button", { "data-wk": "shuamoreitem", onClick: () => { setMore(false); if (fn) fn(); }, className: "active:opacity-60 text-left", style: { display: "block", width: "100%", minHeight: 42, padding: "0 16px", fontFamily: F_BODY, fontSize: 13.5, color: B.ink } }, label);
+    return h("div", { "data-wk": "shuabdetail", className: "h-full flex flex-col", style: { background: B.bg } },
       // 播放器那一块：黑底，画面（或那几句）＋飘过去的弹幕
       h("div", { "data-wk": "head", className: "shrink-0", style: { position: "relative", background: "#000", paddingTop: safeTop(0) } },
         h("div", { style: { position: "relative", aspectRatio: "16 / 9", background: coverBg(v), overflow: "hidden" } },
@@ -351,15 +351,15 @@
             onDraw ? moreItem(drawing ? "画着…" : (imgOf(v) ? "重画封面" : "画出来"), drawing ? null : onDraw) : null,
             onDel ? moreItem("扔掉这条", onDel) : null) : null)),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: 10 } },
-        h("div", { style: { background: B.card, padding: "12px 14px" } },
-          h("button", { onClick: onAuthor, className: "flex items-center text-left active:opacity-70", style: { gap: 10 } },
+        h("div", { "data-wk": "shuabinfo", style: { background: B.card, padding: "12px 14px" } },
+          h("button", { "data-wk": "shuaauthorbtn", onClick: onAuthor, className: "flex items-center text-left active:opacity-70", style: { gap: 10 } },
             ch ? h(Avatar, { character: ch, size: 34 }) : h("div", { style: { width: 34, height: 34, borderRadius: 99, background: tint(v), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY } }, S(v.author).slice(0, 1)),
             h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: B.accent } }, v.author + (v.withName ? " · 与 " + v.withName + " 合拍" : "")), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim } }, fmtN(v.plays) + " 播放" + (v.zone ? " · " + v.zone : "")))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 15, color: B.ink, marginTop: 10, lineHeight: 1.5 } }, v.title || v.caption),
+          h("div", { "data-wk": "shuabtitle", style: { fontFamily: F_BODY, fontSize: 15, color: B.ink, marginTop: 10, lineHeight: 1.5 } }, v.title || v.caption),
           v.series ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: B.accent, marginTop: 4 } }, "系列《" + v.series + "》· 第 " + (v.ep || 1) + " 期") : null,
           (v.intro || (v.title && v.caption)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: B.dim, marginTop: 6, lineHeight: 1.6 } }, v.intro || v.caption) : null,
-          arr(v.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
-          h("div", { className: "flex", style: { marginTop: 10 } },
+          arr(v.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { "data-wk": "shuatag", key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
+          h("div", { "data-wk": "shuaactbar", className: "flex", style: { marginTop: 10 } },
             act("like", fmtN(v.likes + (v.liked ? 1 : 0)), v.liked, onLike),
             onCoin ? act("coin", v.myCoins ? "投过 " + v.myCoins : String(v.coins || "投币"), !!v.myCoins, onCoin) : null,
             act("fav", v.faved ? "已收藏" : "收藏", v.faved, onFave),
@@ -367,22 +367,22 @@
             onShare ? act("share", "分享", false, onShare) : null),
           onCoin ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 2, textAlign: "right" } }, "今天还剩 " + coinsLeft + " 枚硬币") : null,
           charging && onCharge ? h(ChargePanel, { onCharge: n => { setCharging(false); onCharge(n); } }) : null),
-        h("div", { style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
+        h("div", { "data-wk": "shuabcmts", style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
-          arr(v.comments).map(c => h("div", { key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
+          arr(v.comments).map(c => h("div", { "data-wk": "shuacmt", "data-me": c.by === "me" ? "1" : "0", key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },
+            h("div", { "data-wk": "shuacmtname", style: { fontFamily: F_BODY, fontSize: 11.5, color: c.by === "me" ? B.accent : c.by === "char" ? "#d89a2b" : B.dim } }, c.name + (c.isAuthor ? " · 作者" : "")),
+            h("div", { "data-wk": "shuacmttext", style: { fontFamily: F_BODY, fontSize: 13.5, color: B.ink, marginTop: 3, lineHeight: 1.55 } }, c.text),
             // 楼中楼：回复挂在这一条底下
-            arr(c.replies).length ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderRadius: 8, background: B.bg } }, c.replies.map(r => h("div", { key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: B.ink, padding: "2px 0" } },
+            arr(c.replies).length ? h("div", { style: { marginTop: 6, padding: "6px 10px", borderRadius: 8, background: B.bg } }, c.replies.map(r => h("div", { "data-wk": "shuareply", "data-me": r.by === "me" ? "1" : "0", key: r.id, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: B.ink, padding: "2px 0" } },
               h("span", { style: { color: r.by === "me" ? B.accent : r.by === "char" ? "#d89a2b" : B.dim } }, r.name + "："), r.text))) : null,
-            onReply ? h("button", { onClick: () => { setReplyTo(c); setMode("cm"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, marginTop: 4 } }, "回复") : null)),
+            onReply ? h("button", { "data-wk": "shuareplybtn", onClick: () => { setReplyTo(c); setMode("cm"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, marginTop: 4 } }, "回复") : null)),
           busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, padding: "8px 0" } }, "……") : null)),
-      h("div", { className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, background: B.card, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + B.line } },
-        onDm ? h("button", { onClick: () => { setMode(m => m === "dm" ? "cm" : "dm"); setReplyTo(null); }, className: "active:opacity-60 shrink-0",
+      h("div", { "data-wk": "shuacompose", className: "shrink-0 flex items-end px-3", style: { gap: 8, paddingTop: 8, background: B.card, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + B.line } },
+        onDm ? h("button", { "data-wk": "shuadmtoggle", "data-on": mode === "dm" ? "1" : "0", onClick: () => { setMode(m => m === "dm" ? "cm" : "dm"); setReplyTo(null); }, className: "active:opacity-60 shrink-0",
           style: { height: 40, padding: "0 10px", borderRadius: 20, background: mode === "dm" ? B.accent : B.bg, color: mode === "dm" ? "#fff" : B.dim, fontFamily: F_BODY, fontSize: 12 } }, "弹") : null,
-        h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: mode === "dm" ? "发个弹幕，飘在画面上" : replyTo ? "回复 @" + replyTo.name : "发一条友善的评论", className: "flex-1 outline-none resize-none",
+        h("textarea", { "data-wk": "shuainput", value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: mode === "dm" ? "发个弹幕，飘在画面上" : replyTo ? "回复 @" + replyTo.name : "发一条友善的评论", className: "flex-1 outline-none resize-none",
           style: { minHeight: 40, maxHeight: 100, borderRadius: 20, border: "none", background: B.bg, color: B.ink, padding: "10px 14px", fontFamily: F_BODY, fontSize: 13.5 } }),
-        h("button", { onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 40, borderRadius: 20, background: (busy || !text.trim()) ? B.line : B.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发布")));
+        h("button", { "data-wk": "shuasend", onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 52, height: 40, borderRadius: 20, background: (busy || !text.trim()) ? B.line : B.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发布")));
   }
 
   // ── 整个 app ─────────────────────────────────────────
@@ -668,9 +668,9 @@
     // ⚠️关注只放你的人发的，推荐只放路人（她 2026-10-07：「关注和推荐看到的都是一样的」——原来推荐是全部，只刷过你的人时两边一模一样）
     const hot = db.hot && db.hot.day === todayKey() ? arr(db.hot.topics) : [];
     // 热门那一条：横着一排，点一个只看沾这个话题的，再点一下放开
-    const hotStrip = (ink, dim, bg) => hot.length ? h("div", { className: "flex items-center", style: { gap: 8, overflowX: "auto", padding: "4px 12px 6px", whiteSpace: "nowrap", background: bg } },
+    const hotStrip = (ink, dim, bg) => hot.length ? h("div", { "data-wk": "shuahot", className: "flex items-center", style: { gap: 8, overflowX: "auto", padding: "4px 12px 6px", whiteSpace: "nowrap", background: bg } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.accent, flexShrink: 0 } }, "热门"),
-      hot.map(x => h("button", { key: x.title, onClick: () => setTopic(t2 => t2 === x.title ? "" : x.title), className: "active:opacity-60 shrink-0",
+      hot.map(x => h("button", { "data-wk": "shuahotchip", "data-on": topic === x.title ? "1" : "0", key: x.title, onClick: () => setTopic(t2 => t2 === x.title ? "" : x.title), className: "active:opacity-60 shrink-0",
         style: { fontFamily: F_BODY, fontSize: 12, color: topic === x.title ? P.accent : ink, fontWeight: topic === x.title ? 700 : 400, minHeight: 28, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.6)" : "none" } }, "#" + x.title))) : null;
     // 大号、小号、情侣号各看各的作品；情侣号里TA发的也算
     const mine = onCp ? ofSkin.filter(v => v.cp === cpId) : ofSkin.filter(v => v.by === "me" && !v.cp && !!v.alt === onAlt);
@@ -696,37 +696,37 @@
     if (page && page.kind === "acct") {
       const c = charOf(page.charId), acc = (db.accounts || {})[page.charId] || {};
       const vids = ofSkin.filter(v => v.by === "char" && v.charId === page.charId);
-      if (c) return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+      if (c) return h("div", { "data-wk": "shuaprofile", className: "h-full flex flex-col", style: { background: P.bg } },
         h(Head, { zh: acc.handle || c.name, bg: "transparent", ink: P.ink, onBack: () => setPage(page.back || null) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingBottom: 20 } },
-          h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
+          h("div", { "data-wk": "shuaprofilehead", className: "flex items-center", style: { gap: 14, marginTop: 6 } },
             h(Avatar, { character: c, size: 64 }),
             h("div", { className: "flex", style: { gap: 18 } },
               [[vids.length, "作品"], [vids.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [acc.followers || 0, "粉丝"]].map(x => h("div", { key: x[1] },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: P.ink } }, fmtN(x[0])),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, x[1]))))),
-          acc.bio ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.ink, marginTop: 12, lineHeight: 1.6 } }, acc.bio) : null,
+          acc.bio ? h("div", { "data-wk": "shuabio", style: { fontFamily: F_BODY, fontSize: 13, color: P.ink, marginTop: 12, lineHeight: 1.6 } }, acc.bio) : null,
           acc.niche ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim, marginTop: 4 } }, "平时发：" + acc.niche) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "18px 0 8px" } }, "作品"),
           vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: skin === "b" ? "1fr 1fr" : "repeat(3,1fr)", gap: skin === "b" ? 8 : 3 } }, vids.map(v => skin === "b"
             ? h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) })
-            : h("button", { key: v.id, onClick: () => setPage({ kind: "comments", id: v.id, back: page }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
+            : h("button", { "data-wk": "shuatile", key: v.id, onClick: () => setPage({ kind: "comments", id: v.id, back: page }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
               !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.85)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || v.scene) : null,
               h("div", { style: { position: "absolute", left: 6, bottom: 4, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)" } }, "赞 " + fmtN(v.likes))))) :
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "这套里还没发过")));
+            h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "这套里还没发过")));
     }
     // 分享给 TA（她 2026-10-07 选的第 3 条）：挑人，开过小房间的再挑发进哪间。落一张卡，不让TA当场开口
     if (page && page.kind === "share") {
       const v = db.videos.find(x => x.id === page.id);
       const roomsOf = c => (window.ChatRooms && c ? window.ChatRooms.list(c.id).filter(r => r && !r.main) : []);
       const done = (c, rid) => { props.onShare(v, c, rid); setPage(page.back || null); };
-      if (v) return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+      if (v) return h("div", { "data-wk": "shuasharepage", className: "h-full flex flex-col", style: { background: P.bg } },
         h(Head, { zh: page.to ? "发到 " + page.to.name + " 的哪儿" : "分享给谁", bg: "transparent", ink: P.ink, onBack: () => page.to ? setPage(Object.assign({}, page, { to: null })) : setPage(page.back || null) }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
-          page.to ? [{ id: "main", name: "主聊天" }].concat(roomsOf(page.to)).map(r => h("button", { key: r.id, onClick: () => done(page.to, r.id), className: "w-full text-left active:opacity-70",
+          page.to ? [{ id: "main", name: "主聊天" }].concat(roomsOf(page.to)).map(r => h("button", { "data-wk": "shuasharerow", key: r.id, onClick: () => done(page.to, r.id), className: "w-full text-left active:opacity-70",
             style: { minHeight: 46, padding: "0 14px", marginTop: 8, borderRadius: 12, border: "1px solid " + P.line, background: P.field, color: P.ink, fontFamily: F_BODY, fontSize: 14 } }, r.id === "main" ? "主聊天" : "小房间「" + (r.name || "没起名的房间") + "」"))
           // 一排四个（她 2026-10-07：「看起来够一排四个为什么只有三个」）：原来是定宽 + 换行，宽度一放大就掉成三个；改成四等分
-          : h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, characters.map(c => h("button", { key: c.id, onClick: () => roomsOf(c).length ? setPage(Object.assign({}, page, { to: c })) : done(c, "main"),
+          : h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", rowGap: 16, columnGap: 8, marginTop: 12 } }, characters.map(c => h("button", { "data-wk": "shuasharechar", key: c.id, onClick: () => roomsOf(c).length ? setPage(Object.assign({}, page, { to: c })) : done(c, "main"),
             className: "active:opacity-70 flex flex-col items-center", style: { minWidth: 0 } }, h(Avatar, { character: c, size: 48 }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.ink, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.remark || c.name))))));
     }
@@ -744,7 +744,7 @@
       const at = posRef.current[posKey] || 0;
       if (at) requestAnimationFrame(() => { el.scrollTop = unit ? at * unit : at; });
     };
-    const feedView = (vids, empty) => h("div", { ref: el => { feedRef.current = el; keepPos(el, paneH); },
+    const feedView = (vids, empty) => h("div", { "data-wk": "shuafeed", ref: el => { feedRef.current = el; keepPos(el, paneH); },
       onScroll: e => { posRef.current[posKey] = Math.round(e.currentTarget.scrollTop / (paneH || 1)); }, className: "flex-1 min-h-0", style: { overflowY: "auto", scrollSnapType: "y mandatory", background: BLACK } },
       vids.length ? vids.map(v => h(VideoPane, { key: v.id, v, height: paneH, charOf,
         onLike: () => like(v), onFave: () => fave(v),
@@ -754,22 +754,22 @@
         onDel: () => del(v),
         onSame: v.by !== "me" ? () => setPage({ kind: "post", same: v }) : null,
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id })) : empty);
-    const gridView = (vids, empty) => h("div", { ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
+    const gridView = (vids, empty) => h("div", { "data-wk": "shuagrid", ref: el => keepPos(el, 0), onScroll: e => { posRef.current[posKey] = e.currentTarget.scrollTop; }, className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 8px 14px", background: B.bg } },
       vids.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, vids.map(v => h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id, back: page }) }))) : empty);
-    const emptyFeed = h("div", { style: { height: "100%", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 30px" } },
+    const emptyFeed = h("div", { "data-wk": "shuaempty", style: { height: "100%", minHeight: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "0 30px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: P.dim, textAlign: "center", lineHeight: 1.6 } }, feed === "follow" ? "你关注的人还没发过视频" : feed === "rec" ? "推荐里是路人博主，点刷新 → 刷几条路人的" : feed === "city" && cities.length ? "「" + cityNow + "」还没刷过，点右上角「刷新」" : "还什么都没有"),
-      h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-70", style: { minHeight: 42, padding: "0 22px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "刷一刷"));
+      h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-70", style: { minHeight: 42, padding: "0 22px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "刷一刷"));
 
     // 「我」那一格点进收藏：同一个竖着刷的样子，只放收藏的
-    if (page && page.kind === "favs") return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+    if (page && page.kind === "favs") return h("div", { "data-wk": "shuafavs", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的收藏", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
       feedView(page.folder && page.folder !== "all" ? favAll.filter(v => page.folder === "none" ? !arr(db.folders).some(f => f.id === v.folder) : v.folder === page.folder) : favAll, null));
     // 「我」那一格点进自己的作品
-    if (page && page.kind === "mine") return h("div", { className: "h-full flex flex-col", style: { background: P.bg } },
+    if (page && page.kind === "mine") return h("div", { "data-wk": "shuamine", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的作品", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
       skin === "b" ? gridView(mine, null) : feedView(mine, null));
 
-    const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
+    const feedTabs = (ink, dim, bar) => [["follow", "关注"], ["rec", "推荐"]].concat(cities.length ? [["city", "同城"]] : []).map(f => h("button", { "data-wk": "shuafeedtab", "data-on": feed === f[0] ? "1" : "0", key: f[0], onClick: () => setFeed(f[0]), className: "active:opacity-60 flex flex-col items-center", style: { minHeight: 36 } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 16, color: feed === f[0] ? ink : dim, fontWeight: feed === f[0] ? 700 : 400, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.5)" : "none" } }, f[1]),
       h("span", { style: { width: 18, height: 2.5, borderRadius: 2, marginTop: 4, background: feed === f[0] ? bar : "transparent" } })));
     let body;
@@ -778,18 +778,18 @@
       h("div", { "data-wk": "head", className: "flex items-center justify-center", style: { position: "absolute", top: 0, left: 0, right: 0, zIndex: 3, paddingTop: safeTop(8), paddingBottom: 6, gap: 26 } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 10, bottom: 2, width: 40, height: 40, color: INK } }, h(IArrow, { size: 20, color: INK })) : null,
         h("div", { className: "flex flex-col items-center" }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(INK, DIM, INK)), feed === "city" ? h("div", { className: "flex items-center", style: { gap: 10, overflowX: "auto", padding: "4px 12px 6px", whiteSpace: "nowrap" } },
-          cities.map(c => h("button", { key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c))) : hotStrip(INK, DIM, "transparent")),
+          cities.map(c => h("button", { "data-wk": "shuacity", "data-on": c === cityNow ? "1" : "0", key: c, onClick: () => setCityPick(c), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 12, color: c === cityNow ? RED : INK, fontWeight: c === cityNow ? 700 : 400, minHeight: 28, textShadow: "0 1px 3px rgba(0,0,0,.6)" } }, c))) : hotStrip(INK, DIM, "transparent")),
         // 同城那一格，右上角「刷新」就是刷这座城（她 2026-10-07：「刷新一下这座城的跟刷新是不是重复了」）
-        h("button", { onClick: () => feed === "city" && cities.length ? genNpc(cityNow) : setPage({ kind: "refresh" }), disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: 12.5 } }, busy === "npc" && feed === "city" ? "刷着…" : "刷新")),
+        h("button", { "data-wk": "shuarefreshbtn", onClick: () => feed === "city" && cities.length ? genNpc(cityNow) : setPage({ kind: "refresh" }), disabled: busy === "npc", className: "active:opacity-60", style: { position: "absolute", right: 12, bottom: 6, minHeight: 32, padding: "0 10px", borderRadius: 999, background: "rgba(0,0,0,.28)", color: INK, fontFamily: F_BODY, fontSize: 12.5 } }, busy === "npc" && feed === "city" ? "刷着…" : "刷新")),
       feedView(list, emptyFeed));
     else if (tab === "home") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: B.bg } },
       // 横屏那套的顶栏：白底，左边返回、中间关注推荐、右边刷新——不浮在画面上
       h("div", { "data-wk": "head", className: "shrink-0 flex items-center justify-center", style: { position: "relative", background: B.card, paddingTop: safeTop(6), paddingBottom: 4, gap: 26, borderBottom: "1px solid " + B.line } },
         props.onBack ? h("button", { onClick: props.onBack, "aria-label": "返回", className: "active:opacity-50", style: { position: "absolute", left: 8, bottom: 0, width: 40, height: 40 } }, h(IArrow, { size: 20, color: B.ink })) : null,
         h("div", { className: "flex flex-col items-center", style: { maxWidth: "70%" } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(B.ink, B.dim, B.accent)), hotStrip(B.ink, B.dim, "transparent")),
-        h("button", { onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, bottom: 4, minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "刷新")),
+        h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, bottom: 4, minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "刷新")),
       gridView(list, emptyFeed));
-    else if (tab === "live") body = h("div", { className: "flex-1 min-h-0 flex flex-col" },
+    else if (tab === "live") body = h("div", { "data-wk": "shualive", className: "flex-1 min-h-0 flex flex-col" },
       window.LiveApp ? h(window.LiveApp, Object.assign({}, props.live, { key: "live_" + liveStart + "_" + skin, embedded: true, startView: liveStart || "home",
         // 直播切片（她 2026-10-08）：下播后路人剪的那条落进推荐流，竖着刷那套
         onClip: c => addVideos([mkVideo({ scene: c.scene, caption: c.caption, tags: c.tags, who: "self" }, { by: "npc", author: S(c.author).slice(0, 20), likes: 0, comments: [], skin: "v", clipOf: c.charId || null })]),
@@ -808,18 +808,18 @@
         const ask = "不要文件夹「" + f.name + "」了？";
         if (props.confirm) props.confirm(ask, "里面的视频还在收藏里，只是不再分到这一格。", go); else go(); };
       const cur = folders.find(f => f.id === folder);
-      return h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
+      return h("div", { "data-wk": "shuafavpage", className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
         h(Head, { zh: "收藏", bg: "transparent", ink: P.ink, right: cur ? h("button", { onClick: () => delFolder(cur), style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "删这个文件夹") : null }),
-        h("div", { className: "shrink-0 flex items-end", style: { gap: 10, overflowX: "auto", padding: "2px 14px 12px", whiteSpace: "nowrap" } },
+        h("div", { "data-wk": "shuafolderbar", className: "shrink-0 flex items-end", style: { gap: 10, overflowX: "auto", padding: "2px 14px 12px", whiteSpace: "nowrap" } },
           chip("all", "全部", favAll.length), folders.map(f => chip(f.id, f.name, favAll.filter(v => v.folder === f.id).length)), folders.length ? chip("none", "没分的", unsorted) : null,
           fName === null ? h(FolderTab, { name: "＋ 新建", dashed: true, onClick: () => setFName(""), P, onInk })
             : h("span", { className: "shrink-0 flex items-center", style: { gap: 6 } },
-              h("input", { autoFocus: true, value: fName, onChange: e => setFName(e.target.value), onKeyDown: e => { if (e.key === "Enter") newFolder(); }, placeholder: "叫什么", style: { width: 96, minHeight: 36, padding: "0 10px", borderRadius: 8, border: "1px solid " + P.line, background: "transparent", color: P.ink, fontFamily: F_BODY, fontSize: 16 } }),
-              h("button", { onClick: newFolder, className: "active:opacity-60", style: { minHeight: 32, padding: "0 10px", color: P.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "建"),
+              h("input", { "data-wk": "shuafolderinput", autoFocus: true, value: fName, onChange: e => setFName(e.target.value), onKeyDown: e => { if (e.key === "Enter") newFolder(); }, placeholder: "叫什么", style: { width: 96, minHeight: 36, padding: "0 10px", borderRadius: 8, border: "1px solid " + P.line, background: "transparent", color: P.ink, fontFamily: F_BODY, fontSize: 16 } }),
+              h("button", { "data-wk": "shuafolderok", onClick: newFolder, className: "active:opacity-60", style: { minHeight: 32, padding: "0 10px", color: P.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "建"),
               h("button", { onClick: () => setFName(null), className: "active:opacity-60", style: { minHeight: 32, padding: "0 6px", color: P.dim, fontFamily: F_BODY, fontSize: 12.5 } }, "算了"))),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "0 10px 16px" } },
           folders.length && inF.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim, padding: "0 4px 8px" } }, "长按一条视频，挑它放进哪个文件夹") : null,
-          inF.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, inF.map(v => h("div", { key: v.id, className: "flex flex-col", style: { gap: 6 },
+          inF.length ? h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 } }, inF.map(v => h("div", { "data-wk": "shuafavitem", key: v.id, className: "flex flex-col", style: { gap: 6 },
             // 长按（电脑上右键）一条，底下冒出一排文件夹点一下就放进去——不用系统那个下拉框
             onPointerDown: () => { clearTimeout(pressRef.current); pressRef.current = setTimeout(() => { pressRef.current = "fired"; setPicking(v.id); }, 450); },
             onPointerUp: () => { if (pressRef.current !== "fired") clearTimeout(pressRef.current); },
@@ -827,7 +827,7 @@
             onClickCapture: e => { if (pressRef.current === "fired") { pressRef.current = null; e.stopPropagation(); e.preventDefault(); } },
             onContextMenu: e => { e.preventDefault(); setPicking(v.id); } },
             skin === "b" ? h(BCard, { v, onOpen: () => setPage({ kind: "bdetail", id: v.id }) })
-              : h("button", { onClick: () => setPage({ kind: "favs", folder }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 8, borderRadius: 6, WebkitTouchCallout: "none", userSelect: "none" } },
+              : h("button", { "data-wk": "shuatile", onClick: () => setPage({ kind: "favs", folder }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 8, borderRadius: 6, WebkitTouchCallout: "none", userSelect: "none" } },
                 !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "rgba(255,255,255,.88)", lineHeight: 1.45, display: "-webkit-box", WebkitLineClamp: 8, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene || v.caption) : null,
                 h("div", { style: { position: "absolute", left: 8, bottom: 6, right: 8, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "@" + v.author)),
             (function () { const f = folders.find(x => x.id === v.folder); return f && folder === "all" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, "在「" + f.name + "」") : null; })(),
@@ -835,29 +835,29 @@
               folders.length ? folders.map(f => h(FolderTab, { key: f.id, small: true, name: f.name, on: v.folder === f.id, P, onInk, onClick: () => { patchV(v.id, x => Object.assign({}, x, { folder: x.folder === f.id ? "" : f.id })); setPicking(null); } }))
                 : h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim } }, "先在上面建个文件夹"),
               h("button", { onClick: () => setPicking(null), className: "active:opacity-60", style: { minHeight: 30, padding: "0 6px", color: P.dim, fontFamily: F_BODY, fontSize: 12 } }, "收起")) : null))) :
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 20px", lineHeight: 1.6 } }, favAll.length ? "这个文件夹还是空的。在「全部」里长按一条视频，就能把它放进来" : "还没收藏过，刷到喜欢的点星星")));
+            h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 20px", lineHeight: 1.6 } }, favAll.length ? "这个文件夹还是空的。在「全部」里长按一条视频，就能把它放进来" : "还没收藏过，刷到喜欢的点星星")));
     })();
-    else if (tab === "msg") body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
+    else if (tab === "msg") body = h("div", { "data-wk": "shuamsgpage", className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "消息", bg: "transparent", ink: P.ink, onBack: () => setTab("me"), right: unread ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { notes: dbRef.current.notes.map(n => Object.assign({}, n, { unread: false })) })), style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "全部已读") : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4" },
-        arr(db.notes).length ? arr(db.notes).map(n => h("div", { key: n.id, style: { padding: "12px 0", borderBottom: "1px solid " + P.line } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: n.unread ? P.ink : P.dim, lineHeight: 1.55 } }, (n.unread ? "● " : "") + n.text),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: P.dim, marginTop: 3 } }, new Date(n.ts).toLocaleString()))) :
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 0" } }, "还没有人找你")));
-    else body = h("div", { className: "flex-1 min-h-0 flex flex-col", style: { background: skin === "b" ? "linear-gradient(180deg,#ffe4ec 0," + B.bg + " 220px)" : "linear-gradient(180deg,#2a1d33 0,#0b0b0e 260px)" } },
+        arr(db.notes).length ? arr(db.notes).map(n => h("div", { "data-wk": "shuanote", "data-on": n.unread ? "1" : "0", key: n.id, style: { padding: "12px 0", borderBottom: "1px solid " + P.line } },
+          h("div", { "data-wk": "shuanotetext", style: { fontFamily: F_BODY, fontSize: 13.5, color: n.unread ? P.ink : P.dim, lineHeight: 1.55 } }, (n.unread ? "● " : "") + n.text),
+          h("div", { "data-wk": "shuanotetime", style: { fontFamily: F_BODY, fontSize: 10.5, color: P.dim, marginTop: 3 } }, new Date(n.ts).toLocaleString()))) :
+          h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 0" } }, "还没有人找你")));
+    else body = h("div", { "data-wk": "shuamepage", className: "flex-1 min-h-0 flex flex-col", style: { background: skin === "b" ? "linear-gradient(180deg,#ffe4ec 0," + B.bg + " 220px)" : "linear-gradient(180deg,#2a1d33 0,#0b0b0e 260px)" } },
       h(Head, { zh: myName, bg: "transparent", ink: P.ink, right: h("button", { onClick: () => setTab("msg"), style: { position: "relative", fontFamily: F_BODY, fontSize: 13, color: P.ink, minHeight: 40, padding: "0 4px" } }, "消息",
         unread ? h("span", { style: { position: "absolute", top: 4, right: -10, minWidth: 16, height: 16, borderRadius: 99, background: P.accent, color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center", padding: "0 4px" } }, unread > 99 ? "99+" : unread) : null) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 20 } },
-        h("div", { className: "flex items-center", style: { gap: 14, marginTop: 6 } },
+        h("div", { "data-wk": "shuaprofilehead", className: "flex items-center", style: { gap: 14, marginTop: 6 } },
           h(Avatar, { character: { name: uName, avatarImage: profile && profile.avatarImage }, size: 70 }),
           h("div", { className: "flex", style: { gap: 20 } },
             [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [onCp ? (cps[cpId].followers || 0) : onAlt ? 0 : characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: P.ink } }, fmtN(x[0])),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim } }, x[1]))))),
-        h("input", { key: "h_" + skin, defaultValue: S(db.me && db.me.handle), placeholder: "账号名（默认用你的名字）", onBlur: e => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { handle: e.target.value.trim().slice(0, 20) }) })),
+        h("input", { "data-wk": "shuahandle", key: "h_" + skin, defaultValue: S(db.me && db.me.handle), placeholder: "账号名（默认用你的名字）", onBlur: e => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { handle: e.target.value.trim().slice(0, 20) }) })),
           className: "w-full outline-none", style: { marginTop: 14, minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13 } }),
         h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
-          h("input", { key: "alt_" + skin, defaultValue: altName, placeholder: "小号叫什么（不填就没有小号）", onBlur: e => { const v = e.target.value.trim().slice(0, 20); save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { altHandle: v, using: v ? (dbRef.current.me || {}).using : "main" }) })); },
+          h("input", { "data-wk": "shuahandle", "data-part": "alt", key: "alt_" + skin, defaultValue: altName, placeholder: "小号叫什么（不填就没有小号）", onBlur: e => { const v = e.target.value.trim().slice(0, 20); save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { altHandle: v, using: v ? (dbRef.current.me || {}).using : "main" }) })); },
             className: "flex-1 outline-none", style: { minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13 } }),
           altName ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { using: onAlt ? "main" : "alt" }) })), className: "active:opacity-70 shrink-0",
             style: { minHeight: 38, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, onAlt ? "切回大号" : "切到小号") : null),
@@ -865,7 +865,7 @@
         togetherIds.length ? h("div", { style: { marginTop: 12 } }, togetherIds.map(id => {
           const c = charOf(id); if (!c) return null;
           const a = cps[id];
-          return h("div", { key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
+          return h("div", { "data-wk": "shuacprow", key: id, className: "flex items-center", style: { gap: 8, marginTop: 6 } },
             h(Avatar, { character: c, size: 26 }),
             a ? h("input", { key: "cp_" + id, defaultValue: a.handle, onBlur: e => { const v = e.target.value.trim().slice(0, 20); if (v) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [id]: Object.assign({}, a, { handle: v }) }) })); },
               className: "flex-1 outline-none", style: { minHeight: 36, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 12.5 } })
@@ -880,32 +880,32 @@
         onCp ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是情侣号「" + cps[cpId].handle + "」：发的视频是你俩的，画面默认你俩一起，" + (charOf(cpId) || {}).name + " 也会在自己号的评论区接。作品里也有 TA 发在这个号上的。") : null,
         onAlt ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: P.dim, marginTop: 6, lineHeight: 1.5 } }, "现在用的是小号「" + altName + "」：发的视频不会叫认识你的人来看，评 TA 的视频 TA 也不知道是你。") : null,
         // 首页样子：跟论坛「首页排版」同一个位置、同一个道理——两套视频，各刷各的
-        h("div", { className: "flex items-center justify-between", style: { marginTop: 14, padding: "10px 12px", borderRadius: 12, background: P.field, border: "1px solid " + P.line } },
+        h("div", { "data-wk": "shuaskinrow", className: "flex items-center justify-between", style: { marginTop: 14, padding: "10px 12px", borderRadius: 12, background: P.field, border: "1px solid " + P.line } },
           h("div", null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.ink } }, "首页样子"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: P.dim, marginTop: 2 } }, "两种是两套视频，切过去刷的是另一套")),
           h("div", { className: "flex", style: { borderRadius: 999, overflow: "hidden", border: "1px solid " + P.line } },
-            [["v", "竖着刷"], ["b", "横着看"]].map(o => h("button", { key: o[0], onClick: () => { save(Object.assign({}, dbRef.current, { skin: o[0] })); setFeed("rec"); }, className: "active:opacity-60",
+            [["v", "竖着刷"], ["b", "横着看"]].map(o => h("button", { "data-wk": "shuaskin", "data-on": skin === o[0] ? "1" : "0", key: o[0], onClick: () => { save(Object.assign({}, dbRef.current, { skin: o[0] })); setFeed("rec"); }, className: "active:opacity-60",
               style: { minHeight: 32, padding: "0 14px", fontFamily: F_BODY, fontSize: 12.5, background: skin === o[0] ? P.accent : "transparent", color: skin === o[0] ? "#fff" : P.dim } }, o[1])))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, margin: "20px 0 8px" } }, "作品"),
-        mine.length ? h("div", { style: { display: "grid", gridTemplateColumns: skin === "b" ? "1fr 1fr" : "repeat(3,1fr)", gap: skin === "b" ? 8 : 3 } }, mine.map(v => skin === "b"
+        mine.length ? h("div", { "data-wk": "shuaworks", style: { display: "grid", gridTemplateColumns: skin === "b" ? "1fr 1fr" : "repeat(3,1fr)", gap: skin === "b" ? 8 : 3 } }, mine.map(v => skin === "b"
           ? h(BCard, { key: v.id, v, onOpen: () => setPage({ kind: "bdetail", id: v.id }) })
-          : h("button", { key: v.id, onClick: () => setPage({ kind: "mine" }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
+          : h("button", { "data-wk": "shuatile", key: v.id, onClick: () => setPage({ kind: "mine" }), className: "active:opacity-80", style: { position: "relative", aspectRatio: "3 / 4", overflow: "hidden", background: coverBg(v), textAlign: "left", padding: 6 } },
             !imgOf(v) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.85)", lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 5, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.caption || v.scene) : null,
             h("div", { style: { position: "absolute", left: 6, bottom: 4, fontFamily: F_BODY, fontSize: 10.5, color: INK, textShadow: "0 1px 2px rgba(0,0,0,.6)" } }, "赞 " + fmtN(v.likes))))) :
-          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "还没发过，点底栏中间的 ＋"),
+          h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "30px 0" } }, "还没发过，点底栏中间的 ＋"),
         null));
 
     // 底栏：真的短视频 app 就是这么分的——中间那颗是「拍」，不是一个普通 tab
-    const tabBtn = (k, label) => h("button", { key: k, onClick: () => { setTab(k); if (k !== "live") setLiveStart(""); }, className: "flex-1 active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 48, position: "relative" } },
+    const tabBtn = (k, label) => h("button", { "data-wk": "shuatab", "data-on": tab === k ? "1" : "0", key: k, onClick: () => { setTab(k); if (k !== "live") setLiveStart(""); }, className: "flex-1 active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 48, position: "relative" } },
       h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: tab === k ? (skin === "b" ? P.accent : P.ink) : P.dim, fontWeight: tab === k ? 700 : 400 } }, label),
       k === "me" && unread ? h("span", { style: { position: "absolute", top: 8, right: "22%", minWidth: 16, height: 16, borderRadius: 99, background: P.accent, color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center", padding: "0 4px" } }, unread > 99 ? "99+" : unread) : null);
     const barBg = skin === "b" ? B.card : BLACK;
-    return h("div", { className: "h-full flex flex-col", style: { background: barBg } },
+    return h("div", { "data-wk": "shuapage", className: "h-full flex flex-col", style: { background: barBg } },
       body,
-      h("div", { className: "shrink-0 flex items-center", style: { background: barBg, borderTop: "1px solid " + P.line, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)" } },
+      h("div", { "data-wk": "shuatabbar", className: "shrink-0 flex items-center", style: { background: barBg, borderTop: "1px solid " + P.line, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4)" } },
         tabBtn("home", "首页"), tabBtn("live", "直播"),
-        h("button", { onClick: () => setPage({ kind: "post" }), "aria-label": "发一条", className: "active:opacity-70 flex items-center justify-center", style: { flex: 1, minHeight: 48 } },
+        h("button", { "data-wk": "shuapostfab", onClick: () => setPage({ kind: "post" }), "aria-label": "发一条", className: "active:opacity-70 flex items-center justify-center", style: { flex: 1, minHeight: 48 } },
           skin === "b"
             ? h("span", { style: { width: 40, height: 30, borderRadius: 10, background: B.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 20, lineHeight: "30px", textAlign: "center" } }, "+")
             : h("span", { style: { width: 42, height: 28, borderRadius: 8, background: "linear-gradient(90deg,#25f4ee 0 4px,#fff 4px calc(100% - 4px),#fe2c55 calc(100% - 4px))", color: BLACK, fontFamily: F_DISPLAY, fontSize: 20, lineHeight: "28px", textAlign: "center" } }, "+")),
@@ -922,12 +922,12 @@
   function ShuaShareCard({ m }) {
     const v = m.shua || {};
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
-    return h("div", { style: { width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
+    return h("div", { "data-wk": "shuashare", style: { width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
       // ⚠️比例和最高高度一起写时，高度被卡住、宽度就跟着缩，卡片右边空出一条（她 2026-10-07 截图）。宽度铺满，高度定死
       h("div", { style: { position: "relative", width: "100%", height: v.skin === "b" ? 138 : 260, background: src ? "center/cover no-repeat url(\"" + src + "\")" : "linear-gradient(160deg,#3b2a4a,#111)", padding: 10 } },
         !src ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,.9)", display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "18px 10px 8px", background: "linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7))" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
+          h("div", { "data-wk": "shuashareauthor", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
           (v.title || v.caption) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.88)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption) : null)),
       h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞"));
   }

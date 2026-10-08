@@ -8,7 +8,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const root = path.join(__dirname, "..");
-const imp = fs.readFileSync(path.join(root, "js/impression.js"), "utf8");
+const imp = fs.readFileSync(path.join(root, "js/impression.js"), "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 // 单张卡片那一段
 const card = imp.slice(imp.indexOf("// ---- 单张卡片 ----"), imp.indexOf("// ---- 某个角色的珍藏册"));
 

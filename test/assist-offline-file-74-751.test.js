@@ -36,7 +36,7 @@ test("她发文件：跟聊天发文件同一个 pickTextFile，收 CSS，内容
 });
 
 test("每条回复都能一键复制；输出给足 65535", () => {
-  assert.match(asst, /m\.text \? h\("button", \{ onClick: async \(\) => \{ const ok = typeof copyText === "function" && await copyText\(m\.text\);/);
+  assert.match(asst, /m\.text \? h\("button", \{ (?:"data-[a-z]+": "[a-z]+", )*onClick: async \(\) => \{ const ok = typeof copyText === "function" && await copyText\(m\.text\);/);
   assert.match(asst, /maxTokens: 65535, timeout: 600000/);   // v74.926 长人设：等 10 分钟、走流式
   assert.doesNotMatch(asst, /maxTokens: 12000/);
 });

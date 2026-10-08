@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const src = fs.readFileSync("js/fairy-garden.js", "utf8");
+const src = fs.readFileSync("js/fairy-garden.js", "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 
 const i = src.indexOf("root.FairyGardenApp = function FairyGardenApp(");
 assert.ok(i > 0, "抠不出 FairyGardenApp");
