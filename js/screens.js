@@ -181,7 +181,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
     h(Head, { zh: "导入角色卡", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "14px 0 10px", lineHeight: 1.65 } },
-        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出酒馆卡的 JSON（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
+        "整篇粘进来，或者直接选文件（.docx / .txt / .md / .json）。认得出常见 JSON 角色卡（v1/v2，卡里的世界书收成只给 TA 的世界书词条），也认「# / ## / **加粗** / 【】」这几种分节。{{char}}/{{user}} 会自动换掉，<START> 之后的对话示例不导入。拆得不对就在下面的预览里直接改。"),
       h("button", {
         onClick: () => fileRef.current && fileRef.current.click(), disabled: fileBusy,
         className: "w-full active:opacity-70",
@@ -191,7 +191,7 @@ function CardImportSheet({ onImport, onClose, userName }) {
       fileErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent || t.ink, marginBottom: 8 } }, fileErr) : null,
       h("textarea", { value: txt, onChange: e => { setTxt(e.target.value); setEdits({}); }, rows: 10, placeholder: "在这里粘贴整篇角色卡…", style: { width: "100%", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13, color: t.ink, resize: "none", lineHeight: 1.6 } }),
       p ? h("div", { style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
-        h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是酒馆卡 · 可直接改" : "解析预览 · 可直接改"),
+        h(Eyebrow, { style: { marginBottom: 7 } }, p.from === "json" ? "解析预览 · 认出是 JSON 角色卡 · 可直接改" : "解析预览 · 可直接改"),
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 5 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, width: 74, flexShrink: 0 } }, "名字"),
           h("input", {

@@ -283,7 +283,7 @@
             // 手写 / 导入
             h("div", { "data-wk": "slfree", style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "手写 ／ 导入" + (String(cur.free || "").trim() ? " · " + cnt(cur.free) + " 字" : "")),
-              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "整段贴进来就行，不用拆。你从酒馆搬的那种一整篇的文风放这儿最合适。"),
+              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "整段贴进来就行，不用拆。从别处搬来的那种一整篇的文风放这儿最合适。"),
               // 手写那一段是【一张稿子】，不是一个通用输入框：左边留出页边、竖一道红线
               h("div", { style: { position: "relative", border: "1px solid " + t.line, borderRadius: 3, background: t.bg2, overflow: "hidden" } },
                 h("span", { "aria-hidden": "true", style: { position: "absolute", left: 22, top: 0, bottom: 0, width: 1, background: "rgba(194,90,74,.30)" } }),
