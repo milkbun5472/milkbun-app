@@ -5930,7 +5930,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 关注的路人主播也提醒（他们没有日程，按日子算）
       let stFollowed = [];
       try { stFollowed = ((loadJSON("x_liveStrangers", null) || {}).list || []).filter(x => x && x.followed && !x.promoted); } catch (e) {}
-      K.slotsOf(liveChars.filter(c => c && !c.npc).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
+      K.slotsOf(liveChars.filter(c => c && !c.npc && !((liveCfg.selfOff || {})[c.id])).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
           const c = liveChars.find(cc => cc.id === x.charId) || stFollowed.find(cc => cc.id === x.charId);
