@@ -18448,7 +18448,7 @@ function ResetChooser({ character, preset, onClose, onRun }) {
     h(Head, { zh: "清除 / 重置", onBack: onClose }),
     h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 20px 20px" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 14 } },
-        "打开的会清掉，关着的留下。卷宗（人设、外貌、头像、音色）和 " + nm + " 的聊天设置、线下设置一直留着；群聊记录是大家共有的，不在这里清。"),
+        "打开的会清掉，关着的留下。卷宗（人设、外貌、头像、音色）和 " + nm + " 的聊天设置、线下设置一直留着。「聊天和线下记录」清的是线上私聊与全部单人线下记录，直接删、不先总结；群聊和群线下是共享记录，不会从这里删除。"),
       h("button", { onClick: () => setOn(all ? new Set() : new Set(CATS.map(c => c.id))), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, marginBottom: 6, minHeight: 40 } }, all ? "全部关掉" : "全部打开（像第一次见面）"),
       CATS.map(c => h("div", { key: c.id, "data-reset-cat": c.id, className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line, gap: 12 } },
         h("div", { style: { flex: 1, minWidth: 0 } },

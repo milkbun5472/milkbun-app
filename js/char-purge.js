@@ -32,7 +32,8 @@
     if (SETTINGS.test(k)) return "settings";
     if (/^x_(chat|offline):/.test(k) || /^x_(chatArch|unread|openers|greetLog|lastRoom|ambientCount|ambientTs|whispers|pinnedChats)$/.test(k)) return "chat";
     if (/^x_(memories|rerollMemoryJournal)$/.test(k)) return "memory";
-    if (/^x_(states|stateHist|roomStates|roomStateHist|moods|thoughtCtr|desires|directives|jiwen|jiwenSeen|jiwenWhy)$/.test(k)) return "state";
+    if (/^x_(states|stateHist|roomStates|roomStateHist|moods|thoughtCtr|desires|directives)$/.test(k)) return "state";
+    if (/^x_jiwen(Seen|Why)?$/.test(k)) return "state";   // 动念的存档键（键名沿用旧名，见 dongnian-rename 测试）
     if (/^x_(affinities|affBase|rels|couples|couple\w*|charTitle|loveLetter|tiesPos|friendGroups|blocks|kinshipCards|myKinCards)$/.test(k)) return "bond";
     if (/^x_(schedules|diaries|calEvents|capsules|dateVisits|dateAskLast|ifLines|worlds|studio)$/.test(k)) return "life";
     if (/^x_(phone\w*|moments\w*|forum\w*|snoops|peek\w*|eyesAlertLog|shua|wxReactDay|anon|anonPool)$/.test(k)) return "phone";
