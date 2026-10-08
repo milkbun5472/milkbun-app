@@ -149,7 +149,13 @@
     if (styleIn || typeof document === "undefined") return;
     styleIn = true;
     const st = document.createElement("style");
-    st.textContent = "@keyframes liveFly{from{transform:translateX(0)}to{transform:translateX(-160vw)}}";
+    st.textContent = "@keyframes liveFly{from{transform:translateX(0)}to{transform:translateX(-160vw)}}"
+      // 自动往下播那根拉条：一根细线＋一颗小红点，不要系统那根粗白条
+      + ".live-range{-webkit-appearance:none;appearance:none;background:transparent;height:24px}"
+      + ".live-range::-webkit-slider-runnable-track{height:2px;border-radius:1px;background:rgba(255,255,255,.22)}"
+      + ".live-range::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:" + LIVE_RED + ";margin-top:-6px;border:0}"
+      + ".live-range::-moz-range-track{height:2px;background:rgba(255,255,255,.22)}"
+      + ".live-range::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:" + LIVE_RED + ";border:0}";
     document.head.appendChild(st);
   }
   function NoiseLayer({ noise, seed }) {
@@ -167,10 +173,22 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom }) {
+  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
+    // 自动往下播（她 2026-10-08：「搞一个开关，默认关着，放直播间里面」）：开着时这一拍播完、你没动，过一会儿自己走下一拍。
+    //   每一拍照样花一次调用，所以默认关、不记住；退出直播间、切到后台、下播都停。
+    const [auto, setAuto] = useState(false);
+    // 隔多久走一拍（她 2026-10-08：「搞个隐蔽点的拉条，平时不会显示挡着屏幕」）：开着时按钮旁边一个小小的「25 秒」，点了才弹出拉条
+    const [slider, setSlider] = useState(false);
+    const autoSec = Math.max(10, Math.min(120, Number(props_autoSec) || 25));
+    const AUTO_MS = autoSec * 1000;
+    useEffect(function () {
+      if (!auto || busy || readOnly || ses.endTs) return;
+      const t = setTimeout(function () { if (typeof document !== "undefined" && document.hidden) return; onSay(""); }, AUTO_MS);
+      return function () { clearTimeout(t); };
+    }, [auto, busy, arr(ses.lines).length, ses.endTs, autoSec]);
     const live = !readOnly && !ses.endTs;
     const board = Object.keys(ses.board || {}).map(k => [k, ses.board[k]]).sort((a, b) => b[1] - a[1]);
     const ours = board.reduce((n, x) => n + x[1], 0), theirs = Number(ses.rivalScore) || 0;
@@ -195,7 +213,8 @@
         l.act ? h("span", { style: { color: LIVE_DIM, marginRight: 4 } }, "（" + l.act + "）") : null,
         l.text);
     };
-    const send = () => { const v = text.trim(); if (!v || busy) return; setText(""); onSay(v); };
+    // 空着按＝「接着看／接着播」（群友 2026-10-08：「直播的弹幕是你不发就不刷新吗」）：不说话也能往下播一拍
+    const send = () => { const v = text.trim(); if (busy) return; setText(""); onSay(v); };
     const stageTitle = watching ? (ses.host || (host && host.name) || "主播") : uName;
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { background: LIVE_BG, position: "relative" } },
       h(Head, { zh: S(ses.title) || "直播间", sub: (ses.endTs ? "已下播" : "直播中") + " · " + (Number(ses.viewers) || 0) + " 人在看", bg: "transparent", ink: LIVE_INK, onBack: onBack,
@@ -239,10 +258,16 @@
         songOpen && onSong ? h("div", { "data-wk": "livesonglist", style: { maxHeight: 150, overflowY: "auto", marginBottom: 8, borderRadius: 12, border: "1px solid " + LIVE_LINE } },
           arr(songs).length ? songs.map(t2 => h("button", { "data-wk": "livesong", key: t2, disabled: !!busy, onClick: () => { setSongOpen(false); onSong(t2); }, className: "w-full text-left active:opacity-60", style: { display: "block", minHeight: 38, padding: "0 12px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 12.5, borderBottom: "1px solid " + LIVE_LINE } }, "《" + t2 + "》"))
             : h("div", { style: { padding: 12, fontFamily: F_BODY, fontSize: 12, color: LIVE_DIM } }, "一起听里还没有歌")) : null,
-        watching ? h("div", { className: "flex", style: { gap: 8, marginBottom: 8 } },
-          ses.linked ? h("button", { "data-wk": "livelinkbtn", "data-on": "1", onClick: onUnlink, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: "#9fd2ff", fontFamily: F_BODY, fontSize: 12 } }, "下麦")
+        auto && slider ? h("div", { "data-wk": "liveautoslider", className: "flex items-center", style: { gap: 10, marginBottom: 6, padding: "0 4px" } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, flexShrink: 0 } }, "隔"),
+          h("input", { type: "range", min: 10, max: 120, step: 5, value: autoSec, onChange: e => onAutoSec && onAutoSec(Number(e.target.value)), onPointerUp: () => setTimeout(() => setSlider(false), 600), className: "live-range", style: { flex: 1 } }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_INK, width: 44, textAlign: "right", flexShrink: 0 } }, autoSec + " 秒")) : null,
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 8 } },
+          h("button", { "data-wk": "liveautobtn", "data-on": auto ? "1" : "0", onClick: () => setAuto(a => !a), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + (auto ? LIVE_RED : LIVE_LINE), background: auto ? "rgba(226,85,107,.16)" : "transparent", color: auto ? LIVE_INK : LIVE_DIM, fontFamily: F_BODY, fontSize: 12 } }, (auto ? "● " : "○ ") + "自动往下播"),
+          auto ? h("button", { "data-wk": "liveautosec", onClick: () => setSlider(v => !v), "aria-label": "调隔多久走一拍", className: "active:opacity-60", style: { minHeight: 32, padding: "0 6px", color: LIVE_DIM, fontFamily: F_BODY, fontSize: 11.5, textDecoration: "underline dotted" } }, autoSec + " 秒") : null,
+          !watching ? null : ses.linked ? h("button", { "data-wk": "livelinkbtn", "data-on": "1", onClick: onUnlink, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: "#9fd2ff", fontFamily: F_BODY, fontSize: 12 } }, "下麦")
             : h("button", { "data-wk": "livelinkbtn", "data-on": "0", onClick: onLink, disabled: !!busy || ses.linkAsk, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12, opacity: ses.linkAsk ? .5 : 1 } }, ses.linkAsk ? "等 TA 接连麦…" : "申请连麦"),
-          ses.kind === "sing" && onSong ? h("button", { "data-wk": "livesongbtn", onClick: () => setSongOpen(v => !v), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "点歌") : null) : null,
+          ses.kind === "sing" && onSong ? h("button", { "data-wk": "livesongbtn", onClick: () => setSongOpen(v => !v), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "点歌") : null),
         h("div", { className: "flex items-end", style: { gap: 8 } },
           watching ? h("button", { "data-wk": "livegiftbtn", onClick: () => setGiftOpen(v => !v), "aria-label": "送礼物", className: "active:opacity-60 shrink-0",
             style: { width: 42, height: 42, borderRadius: 12, border: "1px solid " + LIVE_LINE, color: "#f6c76b", fontFamily: F_BODY, fontSize: 12 } }, "礼物") : null,
@@ -250,8 +275,8 @@
             placeholder: watching ? (ses.linked ? "连麦中，直接说" : ses.as === "mask" ? "用「" + ses.maskName + "」发条弹幕" : "发条弹幕") : "对着镜头说点什么，或写你在做什么",
             className: "flex-1 outline-none resize-none",
             style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.34)", color: LIVE_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
-          h("button", { "data-wk": "livesend", onClick: send, disabled: !!busy || !text.trim(), className: "active:opacity-70 shrink-0",
-            style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.08)" : LIVE_RED, color: (busy || !text.trim()) ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发送"))));
+          h("button", { "data-wk": "livesend", onClick: send, disabled: !!busy, className: "active:opacity-70 shrink-0",
+            style: { minWidth: 52, height: 42, padding: "0 8px", borderRadius: 12, background: busy ? "rgba(255,255,255,.08)" : text.trim() ? LIVE_RED : "rgba(255,255,255,.14)", color: busy ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, busy ? "…" : text.trim() ? "发送" : watching ? "接着看" : "接着播"))));
   }
 
   // ── 礼物面板（她 2026-10-08：「礼物也是胶囊，而且不能自定义」）──────────
@@ -488,6 +513,7 @@
     };
     const say = v => {
       const s = get(curId); if (!s) return;
+      if (!v) { if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false); return; }
       const name = s.mode === "watch" ? (s.as === "mask" ? s.maskName : uName) : uName;
       patch(curId, x => ({ ...x, lines: arr(x.lines).concat([{ kind: "me", name, text: v, linked: !!x.linked, ts: Date.now() }]).slice(-LINES_CAP) }));
       if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false);
@@ -530,6 +556,8 @@
     if (view === "room" && cur)
       return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end,
         customGifts: (props.liveCfg || {}).gifts || [],
+        autoSec: (props.liveCfg || {}).autoSec || 25,
+        onAutoSec: n => { if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { autoSec: n })); },
         onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
         onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
         onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
