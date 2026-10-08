@@ -2436,7 +2436,13 @@ function App() {
     const g = Object.assign({}, gsFor(activeGroup.id), draft || {});
     const scope = 'html[data-lisa-screen="gthread"][data-lisa-group="' + String(activeGroup.id).replace(/[^A-Za-z0-9_:-]/g, "") + '"]';
     const one = css => { try { return css ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(css, scope)) : ""; } catch (e) { return ""; } };
-    applyGroupLook([one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
+    // 群自己的背景图也得走这一层（群友 2026-10-08：「群聊背景显示不出来」）：气泡皮肤那份全局底色带着
+    //   !important 和 background-image:none，行内样式的图输给它，挂上皮肤群背景就没了——单聊早在 v62 就这么修过（applyChatLook ⑤）。
+    const _gbRaw = g.chatBg ? (typeof resolveImg === "function" ? resolveImg(g.chatBg) : g.chatBg) : "";
+    const _gb = String(_gbRaw || "").replace(/["\\\r\n]/g, "");
+    const bgCSS = _gb ? scope + ' [data-wk="chat"]{background-image:url("' + _gb + '") !important;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important;background-color:transparent !important;}'
+      + scope + ' [data-wk="body"]{background:transparent !important;background-image:none !important;}' : "";
+    applyGroupLook([bgCSS, one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
   };
   useEffect(() => { paintGroupLook(null); }, [activeGroup && activeGroup.id, groupSettings, screen]);
   // 线下也给每个人单独一张皮（她 2026-10-03：「线下每个角色能不能单独做一个美化页面」）。
