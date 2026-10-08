@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.059";
+const APP_VERSION = "v75.060";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5876,13 +5876,33 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // TA 今天日程里写着直播的那几段 → [{start,end}]（我这边的毫秒）。
+  //   今天日程排好了但没写直播 → []（今天不播）；还没排 → null（直播那边才按日子掷）。
+  const liveSchedFor = char => {
+    if (!char) return null;
+    const plans = (schedulesRef.current || {})[char.id] || {};
+    const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
+    const filled = typeof schedFillEnds === "function" ? schedFillEnds(s0.seqs) : s0.seqs;
+    const disp = schedDisplaySeqs(char, filled);
+    const shift = schedTzShiftMin(char);
+    const d0 = new Date(); const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
+    return disp.filter(x => /直播|开播/.test(String(x.title || "") + " " + String(x.location || "")) && x._myMin != null).map(x => {
+      const em = /(\d{1,2}):(\d{2})/.exec(String(x.end || ""));
+      const endMy = em ? ((((+em[1]) * 60 + (+em[2]) - shift) % 1440) + 1440) % 1440 : null;
+      const start = midnight + x._myMin * 60000;
+      let end = endMy == null ? start + 120 * 60000 : midnight + endMy * 60000;
+      if (end <= start) end += 1440 * 60000;
+      return { start, end };
+    });
+  };
   // TA 自己开播的提醒（她 2026-10-08）：时间表是本地按日子算的，提醒也只是看一眼表，一个调用都不花
   const liveNotedRef = useRef({});
   useEffect(() => {
     const tick = () => {
       const K = window.LiveKit; if (!K || !K.slotsOf || liveCfg.selfLive === false) return;
       const now = Date.now();
-      K.slotsOf(liveChars.filter(c => c && !c.npc), new Date()).forEach(x => {
+      K.slotsOf(liveChars.filter(c => c && !c.npc), new Date(), liveSchedFor).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
           const c = liveChars.find(cc => cc.id === x.charId);
@@ -28225,7 +28245,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
-    liveCfg: liveCfg, onLiveCfg: saveLiveCfg,
+    liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
     onBack: () => setScreen("home")
   };
     const shuaCities = () => {

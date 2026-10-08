@@ -68,3 +68,18 @@ test("礼物栏是一格一样东西、能自定义；充电是电池格、能�
   assert.match(shua, /function ChargePanel\(/);
   assert.doesNotMatch(shua, /"充 ¥" \+ n/);
 });
+
+test("TA 自己开播先看日程：日程写了直播就照那个点；排了日程没写直播就不播；没排才按日子掷", () => {
+  const K = kit();
+  const d = new Date(2026, 9, 8, 12);
+  const at10 = new Date(2026, 9, 8, 22, 0).getTime();
+  const fromSched = K.slotsOf([{ id: "c_b" }], d, () => [{ start: at10, end: at10 + 3600000 }]);
+  assert.equal(fromSched.length, 1);
+  assert.equal(fromSched[0].start, at10, "日程写 10 点直播就是 10 点开");
+  assert.ok(fromSched[0].fromSchedule);
+  assert.deepEqual(K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d, () => []), [], "日程排好了却没写直播：今天不播");
+  assert.deepEqual(K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d, () => null), K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d), "没排日程才按日子掷");
+  assert.match(app, /K\.slotsOf\(liveChars\.filter\(c => c && !c\.npc\), new Date\(\), liveSchedFor\)/, "开播提醒也看日程");
+  assert.match(app, /liveSched: liveSchedFor/);
+  assert.match(live, /slotsOf\(characters, new Date\(\), props\.liveSched\)/);
+});
