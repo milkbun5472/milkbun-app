@@ -18,7 +18,7 @@ test("线上旁白以 narration 身份保存，不冒充 Lisa 发言", () => {
 test("新旧格式旁白都提供独立删除入口", () => {
   assert.match(components, /m\.kind === "narration" \|\| m\.role === "narration"/);
   assert.match(components, /m\.role === "narration" \|\| m\.kind === "narration"/);
-  // v75.073：两边共用 NarrLine，删除入口只写在那一份里，两边都把 onDelete 传进去
+  // v75.074：两边共用 NarrLine，删除入口只写在那一份里，两边都把 onDelete 传进去
   const nl = components.slice(components.indexOf("function NarrLine("), components.indexOf("function SysNote("));
   assert.match(nl, /删除这条旁白记录/);
   const calls = components.match(/return h\(NarrLine, [\s\S]{0,200}?onDelete: onDeleteMessages \? \(\) => onDeleteMessages\(\[i\]\) : null/g) || [];
