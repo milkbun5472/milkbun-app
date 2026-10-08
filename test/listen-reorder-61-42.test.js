@@ -19,7 +19,7 @@ const cut = (from, to, what) => {
   return src.slice(i, j);
 };
 const MINE = cut("  const mineTab = h(\"div\"", "  // ============ 云村", "我的 tab");
-const CLOUD = cut("  const cloudTab = h(\"div\"", "\n  return h(\"div\", { className: \"h-full flex flex-col relative\"", "发现 tab");
+const CLOUD = cut("  const cloudTab = h(\"div\"", "\n  return h(\"div\", { \"data-wk\": \"listenpage\"", "发现 tab");
 const NAVBAR = cut("    // 底部 tab。v61.42", "    h(\"input\", { ref: audioFileRef", "底 tab");
 
 test("四个 tab 的名字对得上它们装的东西", () => {

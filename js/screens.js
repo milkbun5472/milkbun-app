@@ -2074,7 +2074,7 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
     const people = (e.charIds || []).map(id => (characters || []).find(x => x.id === id)).filter(Boolean);
     const kw = String(e.keyword || "").trim();
     const always = e.alwaysOn || !kw;
-    return h("article", { key: e.id, style: { borderTop: "1px solid " + t.line, opacity: off ? .5 : 1 } },
+    return h("article", { key: e.id, "data-wk": "lorecard", "data-off": off ? "1" : "0", style: { borderTop: "1px solid " + t.line, opacity: off ? .5 : 1 } },
       h("div", { style: { display: "grid", gridTemplateColumns: "minmax(0,1fr) 42px", gap: 10, alignItems: "start", padding: "15px 0 16px" } },
         h("button", { onClick: () => setEditing(e), className: "text-left active:opacity-65", style: { minWidth: 0, background: "transparent", border: "none" } },
           // 这一条什么时候会翻出来：常驻是一枚夹在书里的签，关键词就把那个词本身写出来
@@ -2086,8 +2086,8 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
                   (e.regex ? "/" + kw + "/" : "「" + kw + "」") + " 才翻出来"),
             e.category && e.category !== "默认" ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, e.category) : null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginLeft: "auto" } }, "P" + (e.priority || 3))),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
+          h("div", { "data-wk": "loretitle", style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.25, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, e.title || "未命名设定"),
+          h("div", { "data-wk": "lorebody", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.sub, marginTop: 6, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" } }, String(e.payload || "内容为空")),
           // 给谁看：这个 app 里「谁」是有脸的，别写成一串名字
           h("div", { style: { display: "flex", alignItems: "center", gap: 7, marginTop: 10, flexWrap: "wrap" } },
             people.length
@@ -2095,29 +2095,29 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
                   people.length > 4 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginLeft: 4 } }, "+" + (people.length - 4)) : null)
               : h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "所有角色"),
             h("span", { style: { marginLeft: "auto" } }, stampRow(e)))),
-        h("button", { onClick: () => onSave({ ...e, enabled: off }), className: "active:opacity-65", "aria-label": off ? "启用词条" : "停用词条",
+        h("button", { "data-wk": "loreswitch", "data-on": off ? "0" : "1", onClick: () => onSave({ ...e, enabled: off }), className: "active:opacity-65", "aria-label": off ? "启用词条" : "停用词条",
           style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
           h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
   };
-  return h("div", { className: "h-full flex flex-col", style: binderSkin(t) },
+  return h("div", { "data-wk": "lorepage", className: "h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: "世界书", bg: "transparent", onBack,
       right: h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
       // 抬头不再是一句大标语 + 一行英文小字（那个排法换个后台照样成立）：
       // 只留一句说清这本书怎么用，和两个真的数
-      h("section", { style: { padding: "14px 0 13px", borderBottom: "1px solid " + t.line } },
+      h("section", { "data-wk": "loreintro", style: { padding: "14px 0 13px", borderBottom: "1px solid " + t.line } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.7 } },
           "一条设定要盖够章才送得出去：给谁看、什么时候翻出来、去哪几处，三样都对上才会进上下文。"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 7 } }, enabledN + " 条在用 · 其中 " + constantN + " 条常驻")),
       // 筛选就是那排章：顶上这一排既是筛选器，也是每一条身上那些字的对照表
-      h("section", { style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
+      h("section", { "data-wk": "lorefilter", style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
         h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
         h("div", { style: { display: "flex", gap: 9, overflowX: "auto", paddingTop: 12, WebkitOverflowScrolling: "touch" } },
           [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x => {
             const on = scopeFilter === x[0];
             const ch = x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?");
             const zh = x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]);
-            return h("button", { key: x[0], onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0",
+            return h("button", { key: x[0], "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0",
               style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
               h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
                 fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
@@ -7453,7 +7453,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
     talk ? h("div", { className: "w-full", style: { position: "sticky", top: 0, zIndex: 5 } }, talk.stage) : null,
     // 唱片 ↔ 歌词页（仿网易云：进词后点任意处回唱片）
     showLyric
-      ? h("div", { ref: lyricBoxRef, onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
+      ? h("div", { ref: lyricBoxRef, "data-wk": "listenlyric", onClick: () => setShowLyric(false), className: "w-full active:opacity-95", style: { height: 268, overflowY: "auto", marginTop: 14, padding: "100px 8px", textAlign: "center", WebkitMaskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)", maskImage: "linear-gradient(transparent, #000 16%, #000 84%, transparent)" } },
           lyricLines === undefined ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "找歌词中…")
             : !lyricLines ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 2 } }, now.source === "netease" ? "这首歌没有歌词（可能是纯音乐）" : "本地/外链歌曲拿不到歌词")
             : lyricLines.map((l, i) => h("div", { key: i, "data-lyric-active": i === lyricActive ? "1" : "0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: i === lyricActive ? 16.5 : 13.5, lineHeight: 2.1, color: i === lyricActive ? t.ink : t.sub, opacity: i === lyricActive ? 1 : .82, fontWeight: i === lyricActive ? 600 : 400, transition: "font-size .2s,color .2s,opacity .2s" } }, l.text)))
@@ -7464,9 +7464,9 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
           style: { height: talk ? 130 : 280, display: "flex", alignItems: "flex-end", justifyContent: "flex-end", padding: "0 0 10px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, background: t.bg2 + "", border: "1px solid " + t.line, borderRadius: 999, padding: "3px 9px", opacity: .85 } }, coverSrc ? "换封面" : "加封面")),
 
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
-    h("div", { className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
+    h("div", { "data-wk": "listentitle", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink, marginTop: 12, textAlign: "center", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.title),
+    h("div", { "data-wk": "listenartist", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.fog, marginTop: 5, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now.artist || (now.source === "netease" ? "网易云" : "本地")),
+    h("div", { "data-wk": "listenctrl", className: "flex items-center justify-center gap-3", style: { marginTop: 14 } },
       cbtn(ic("heart", now.fav ? "solid" : t.fog, 20), () => onToggleFav(now.id), { bg: t.bg2 }),
       // 加进本地歌单（复用底部选择层）
       cbtn(ic("plus", t.fog, 20), () => setPickFor({ song: now }), { bg: t.bg2 }),
@@ -7798,7 +7798,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
   // 选中态不只换个色（tabs-not-plain-pills 那两条不许牺牲的之二：色弱和阳光下只剩形状）：
   // 选中的那一格顶上落一枚针头——唱针停在哪一格，就是你在哪一格。
   const navBtn = (k, label, iconEl) => { const on = nav === k;
-    return h("button", { onClick: () => setNav(k), className: "flex-1 flex flex-col items-center gap-1 active:opacity-70 py-2",
+    return h("button", { "data-wk": "listentab", "data-tab": k, "data-on": on ? "1" : "0", onClick: () => setNav(k), className: "flex-1 flex flex-col items-center gap-1 active:opacity-70 py-2",
       style: { position: "relative", color: on ? t.ink : t.fog, transform: on ? "translateY(-1px)" : "none" } },
       on ? h("span", { "aria-hidden": "true", style: { position: "absolute", top: 0, left: "50%", marginLeft: -9, width: 18, height: 3, borderRadius: 2, background: t.accent || t.ink } }) : null,
       iconEl,
@@ -8036,7 +8036,7 @@ function ListenTogether({ profile, active, ctxFor, toast, onToChat, listen, char
     h("div", { style: { position: "absolute", left: 0, right: 0, top: 0, height: safeTop(96),
       background: hex6(t.bg) ? "linear-gradient(to bottom," + t.bg + "b8 0%," + t.bg + "6b 55%,transparent 100%)" : "none" } })) : null;
   const crate = { background: t.bg };
-  return h("div", { className: "h-full flex flex-col relative", style: crate },
+  return h("div", { "data-wk": "listenpage", "data-tab": nav, className: "h-full flex flex-col relative", style: crate },
     // ⚠️「3 / 12」走 sub 不走 en：v61.29「标题不留英文」把纯拉丁的 en 一律吃掉，
     //   而这一处的 en 是【数字】——从那版起第几首就再也没显示过（她还没发现）。
     //   数字不是英文装饰，它是这一页唯一说得清「放到哪了」的东西。
@@ -12145,7 +12145,7 @@ function MemoryLib({
     onClose: onClosePact, onSetDue: (mid, about, ts, via) => onSetPactDue(mid, pactChar.id, about, ts, via),
     onAdd: (txt, ts) => onAddPact(pactChar.id, txt, ts), onBack: () => setPactsFor(null) });
   return h("div", {
-    className: "h-full flex flex-col", style: boxSkin
+    "data-wk": "mempage", className: "h-full flex flex-col", style: boxSkin
   // 顶栏改用公共 Head（施工规则/mobile-ui-layout.md §1「别再自己写一条」），
   // 并传 bg:"transparent" 让盒底透上来——原来这一条自己刷 t.bg，顶上横着一道没盖住的带子。
   // ⚠️「MEMORY INDEX」那行英文眉标一并撤掉（no-english-titles）：换的时候没有硬翻，
@@ -12290,7 +12290,7 @@ function MemoryLib({
     h("div", { className: "flex items-end", style: { gap: 8, marginBottom: 11, paddingLeft: 2 } },
       [["all", "全部", activeTotal], ["open", "未了", visibleOpenTotal], ["pinned", "常驻", pinnedTotal]].map(([id, label, n]) => {
         const on = statusFilter === id;
-        return h("button", { key: id, onClick: () => setStatusFilter(id), className: "active:opacity-70",
+        return h("button", { key: id, "data-wk": "memtab", "data-on": on ? "1" : "0", "data-tab": id, onClick: () => setStatusFilter(id), className: "active:opacity-70",
           style: { position: "relative", width: 70, height: on ? 54 : 43, transition: "height .16s", textAlign: "center" } },
           // 底下那两层纸边：只有「全部」是一摞，另外两档是单张
           id === "all" ? h(Fragment, null,
@@ -12321,7 +12321,7 @@ function MemoryLib({
       [["all", null]].concat(characters.map(c => [c.id, c])).concat([["__open__", null]]).map(([id, c]) => {
         const on = filter === id;
         const sz = on ? 38 : 28;
-        return h("button", { key: id, onClick: () => setFilter(id), className: "shrink-0 active:opacity-70",
+        return h("button", { key: id, "data-wk": "memwho", "data-on": on ? "1" : "0", onClick: () => setFilter(id), className: "shrink-0 active:opacity-70",
           style: { textAlign: "center", paddingTop: on ? 0 : 5, transition: "padding .16s" } },
           h("div", { style: { width: sz, height: sz, borderRadius: 10, overflow: "hidden", margin: "0 auto", position: "relative",
             opacity: on ? 1 : 0.45, filter: on ? "none" : "grayscale(0.7)",
@@ -12351,7 +12351,7 @@ function MemoryLib({
     roomDoors.length ? h("div", { className: "flex items-end overflow-x-auto", style: { gap: 4, borderBottom: "1px solid " + t.line, marginBottom: 10 } },
       [{ id: "main", name: "主线", n: activeTotal }].concat(roomDoors).map(d => {
         const on = (d.id === "main" && !inRoom) || (inRoom && d.id === roomScope);
-        return h("button", { key: d.id, onClick: () => setRoomScope(d.id), className: "shrink-0 active:opacity-70",
+        return h("button", { key: d.id, "data-wk": "memroom", "data-on": on ? "1" : "0", onClick: () => setRoomScope(d.id), className: "shrink-0 active:opacity-70",
           style: { minHeight: on ? 42 : 34, padding: "6px 12px 5px", borderRadius: "7px 7px 0 0", marginBottom: -1,
             border: "1px solid " + (on ? t.line : "transparent"), borderBottom: "1px solid " + (on ? t.bg2 : t.line),
             background: on ? t.bg2 : "transparent", opacity: on ? 1 : 0.6, textAlign: "left" } },
@@ -12406,7 +12406,7 @@ function MemoryLib({
         className: "w-full text-left flex active:opacity-75",
         style: { gap: 10, marginBottom: 10 }
       },
-        h("div", { className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, position: "relative" } },
+        h("div", { "data-wk": "memdate", className: "shrink-0", style: { width: 38, textAlign: "center", paddingTop: 9, position: "relative" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: t.fog, letterSpacing: ".08em" } }, d.month + "/" + d.day),
           // 情绪不再报数字（原来写「情绪 +4 · 强度 2」——那是把内部记分板端上桌）。
           // 它就画在时间轴上那颗点里：颜色是当时的心情，大小是这件事有多重。
@@ -12428,13 +12428,13 @@ function MemoryLib({
         // 每一条就是盒里的一张索引卡（v62.71）：方角、顶边一条色标带（未了＝赭、常驻＝主色）、
         // 卡面印一条横线——跟上面那三张 tab 是同一样东西，不是另一种圆角卡。
         // 原来色标是【左边一道内阴影】：那是通用卡片的强调条，跟「索引卡」没关系。
-        h("div", { className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
+        h("div", { "data-wk": "memcard", "data-open": e.open ? "1" : "0", "data-pinned": e.pinned ? "1" : "0", className: "flex-1 min-w-0", style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3, padding: "13px 13px 10px", overflow: "hidden" } },
           h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 3, background: accent } }),
           h("span", { "aria-hidden": "true", style: { position: "absolute", left: 12, right: 12, top: 30, height: 1, background: t.line, opacity: .55 } }),
           h("div", { className: "flex items-center justify-between", style: { gap: 10, marginBottom: 7 } },
             h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, audienceOf(e) + " · " + sourceLabelOf(e)),
             states.length ? h("div", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 10, color: e.open ? "#a66550" : e.pinned ? t.tint : t.fog } }, states.join(" · ")) : null),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
+          h("div", { "data-wk": "memtext", style: { fontFamily: F_BODY, fontSize: 14.5, lineHeight: 1.68, color: t.ink, whiteSpace: "pre-wrap", overflowWrap: "anywhere" } }, e.text),
           (tags.length || trace) ? h("div", { className: "flex flex-wrap items-center", style: { gap: "3px 8px", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + t.line } },
             tags.map((tag, i) => h("span", { key: "tag_" + i, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub } }, "#" + tag)),
             (e.tags || []).length > 2 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "+" + ((e.tags || []).length - 2)) : null,
@@ -13329,21 +13329,21 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
     setAmt("");
   };
   if (view === "cards") {
-    return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
+    return h("div", { "data-wk": "walletpage", "data-view": "cards", className: "h-full flex flex-col", style: LEATHER(t) },
       h(Head, { zh: "亲属卡", sub: cardList.length ? cardList.length + " 张 · 刷他们的钱" : "角色给你的卡", bg: "transparent", onBack: () => setView("main") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10 pt-2" },
         cardList.length === 0 ? h("div", { className: "text-center mt-16", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, color: t.fog } }, "还没有收到亲属卡。\n想要就直接在聊天里问 TA 要，\n给不给、给多少看 TA 这个人。")
           // 一张张插在内衬上，不是一列按钮
           : cardList.map(cd => {
             const c = charById(cd.charId) || {};
-            return h("button", { key: cd.charId, onClick: () => onOpenCard && onOpenCard(cd.charId), className: "w-full text-left active:opacity-80" },
+            return h("button", { key: cd.charId, "data-wk": "walletkin", "data-mine": "0", onClick: () => onOpenCard && onOpenCard(cd.charId), className: "w-full text-left active:opacity-80" },
               cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
           }),
         // 她给出去的那几张（2026-10-07）：同一个卡包里的另一格，刷的是她的钱
         onOpenMyKin ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, margin: "26px 4px 10px" } }, "我给出去的 · 刷的是我的钱") : null,
         onOpenMyKin ? (myCards || []).map(cd => {
           const c = charById(cd.charId) || {};
-          return h("button", { key: "my_" + cd.charId, onClick: () => onOpenMyKin(cd.charId), className: "w-full text-left active:opacity-80", style: { opacity: cd.frozen ? .55 : 1 } },
+          return h("button", { key: "my_" + cd.charId, "data-wk": "walletkin", "data-mine": "1", onClick: () => onOpenMyKin(cd.charId), className: "w-full text-left active:opacity-80", style: { opacity: cd.frozen ? .55 : 1 } },
             cardSlot(t, h(KinshipCardFace, { character: c, limit: cd.limit || 0, used: cd.used || 0, note: cd.note || "" }), "0 4px 30px"));
         }) : null,
         onOpenMyKin ? h("button", { onClick: () => onOpenMyKin(null), className: "w-full active:opacity-70", style: { minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13, marginTop: 6 } }, "＋ 给 TA 开一张") : null));
@@ -13352,9 +13352,9 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
   const faceCard = noteStack([
     h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, "我的余额"),
     h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
-      h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, lineHeight: 1, color: NOTE_INK } }, "¥" + balance),
+      h("div", { "data-wk": "walletbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, lineHeight: 1, color: NOTE_INK } }, "¥" + balance),
       h("button", { onClick: () => { setAmt(String(balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额"))]);
-  return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
+  return h("div", { "data-wk": "walletpage", "data-view": "main", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
       right: h("button", { onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
@@ -13370,7 +13370,7 @@ function MyWallet({ balance, log, cards, characters, onBack, onSetBalance, onOpe
       h("div", { className: "px-5 pb-8" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"),
         (!log || log.length === 0) ? h("div", { className: "text-center mt-8", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "还没有流水。转账、红包、购物都会记在这里。")
-          : log.map(e => h("div", { key: e.id, className: "flex items-center justify-between px-4", style: Object.assign({ marginBottom: 10, paddingTop: 12, paddingBottom: 12, transform: "rotate(" + tiltById(e.id) + "deg)" }, receiptSkin(t)) },
+          : log.map(e => h("div", { key: e.id, "data-wk": "walletslip", "data-in": e.delta > 0 ? "1" : "0", className: "flex items-center justify-between px-4", style: Object.assign({ marginBottom: 10, paddingTop: 12, paddingBottom: 12, transform: "rotate(" + tiltById(e.id) + "deg)" }, receiptSkin(t)) },
             h("div", { className: "min-w-0 flex-1" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, e.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(e.ts))),
@@ -13483,13 +13483,13 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
   if (!chars.length) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, h(Head, { zh: "钱包", bg: "transparent", onBack }), h(Empty, { text: "还没有角色", sub: "先去人格档案馆录入一位" }));
 
   // —— 花名册（未选角色）——
-  if (!char) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) },
+  if (!char) return h("div", { "data-wk": "cwpage", "data-view": "list", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "钱包", sub: chars.length + " 位", bg: "transparent", onBack }),
     // 一人一张卡，一张张插在内衬上；还没开通的是个空卡位（虚线轮廓）
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10 pt-2" }, chars.map(c => {
       const rec = cw[c.id];
       const open = !!(rec && rec.init);
-      return h("button", { key: c.id, onClick: () => onSel(c.id), className: "w-full text-left active:opacity-70" },
+      return h("button", { key: c.id, "data-wk": "cwrow", "data-id": c.id, onClick: () => onSel(c.id), className: "w-full text-left active:opacity-70" },
         pocketRow(t, open, h("div", { className: "flex items-center gap-4" },
           h(Avatar, { character: c, size: 46, radius: 8 }),
           h("div", { className: "flex-1 min-w-0" },
@@ -13533,7 +13533,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
     setEditing(false); setAmt("");
   };
   const AV = ["#f2b134", "#3f6d8c", "#8a8f7a", "#c25a4a"];
-  const secTitle = s => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 10, paddingBottom: 7, borderBottom: "1px solid " + t.line } }, s);
+  const secTitle = s => h("div", { "data-wk": "cwsec", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink, marginBottom: 10, paddingBottom: 7, borderBottom: "1px solid " + t.line } }, s);
   const note = s => s ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, fontStyle: "italic", lineHeight: 1.7, marginTop: 10 } }, s) : null;
   // 每一块是从卷筒上撕下来的一张单据（顶边一排撕口），不是一张圆角卡
   const cardBox = kids => h("div", { className: "mx-5 mb-4", style: Object.assign({ borderRadius: 2, padding: "14px 16px 16px" }, slipSkin(t)) }, kids);
@@ -13580,7 +13580,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
 
   if (loading && (!rec || !rec.init)) return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, header, h("div", { className: "flex-1 flex items-center justify-center" }, h(Spinner, { label: "正在生成 " + char.name + " 的资产…" })));
 
-  return h("div", { className: "h-full flex flex-col", style: LEATHER(t) }, header,
+  return h("div", { "data-wk": "cwpage", "data-view": "char", className: "h-full flex flex-col", style: LEATHER(t) }, header,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto pb-10" },
       // TA手上那叠钱
       noteStack([
@@ -13590,7 +13590,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
             // 换成日元/韩元之后位数一下多出好几位（她 2026-09-18：「这个塞不下一行咋办」）。
             // 缩字号 + 不许换行：宁可小一号，也别让「円」自己掉到第二行去。
             const txt = fmtMoney(rec ? rec.balance : 0, char.id);
-            return h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(txt, 38, 9, 20), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap" } }, txt);
+            return h("div", { "data-wk": "cwbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(txt, 38, 9, 20), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap" } }, txt);
           })(),
           h("button", { onClick: () => { setAmt(String((typeof Money !== "undefined" && Money) ? Money.conv(rec ? rec.balance : 0, char.id) : (rec ? rec.balance : 0))); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额")),
         rec && rec.monthlyIncome ? h("div", { key: "m", style: { fontFamily: F_BODY, fontSize: 11, color: NOTE_FOG, marginTop: 8 } }, "月收入 " + fmtMoney(rec.monthlyIncome, char.id) + (rec.fixedMonthly ? " · 月固定支出 " + fmtMoney(rec.fixedMonthly, char.id) : "")) : null]),
@@ -13751,7 +13751,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
             ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "每天晚上按当日行程结算，暂时还没有记录")
             : visibleDailyEntries.length === 0
               ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "12px 0" } }, "这一天没有日常消费记录")
-              : visibleDailyEntries.map((e, i) => h("div", { key: e.id, className: "py-2.5", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
+              : visibleDailyEntries.map((e, i) => h("div", { key: e.id, "data-wk": "cwline", "data-kind": "daily", className: "py-2.5", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
                 h("div", { className: "flex items-baseline justify-between gap-3" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, schedDateParts(schedDayKey(new Date(e.ts))).md),
                   h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: e.delta > 0 ? "#3f8a54" : t.accent, whiteSpace: "nowrap" } }, (e.delta > 0 ? "+" : "−") + fmtMoney(Math.abs(e.delta), char.id))),
@@ -13770,7 +13770,7 @@ function CharWallet({ characters, charWallet, profile, selId, busyKey, hasApi, o
         secTitle("送礼与转账"),
         flowEntries.length === 0
           ? h("div", { key: "e", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, textAlign: "center", padding: "10px 0" } }, "还没有礼物和转账记录")
-          : flowEntries.map((e, i) => h("div", { key: e.id, className: "flex items-center justify-between py-3", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
+          : flowEntries.map((e, i) => h("div", { key: e.id, "data-wk": "cwline", "data-kind": "flow", className: "flex items-center justify-between py-3", style: i > 0 ? { borderTop: "1px solid " + t.line } : null },
             h("div", { className: "min-w-0 flex-1" },
               h("div", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, e.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, fmtStamp(e.ts) + " · 余 " + fmtMoney(e.after, char.id))),

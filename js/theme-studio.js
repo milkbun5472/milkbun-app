@@ -401,6 +401,13 @@
       ["mltabbar","底下那条四个标签的栏"],["mltab","每一个标签（data-tab=chats/contacts/moments/me；data-on=\"1\" 是当前那个）"]
     ])}),
     Object.freeze({zh:"朋友圈",pages:Object.freeze(["messages", "momprofile"]),hooks:Object.freeze([["mocompose", "朋友圈信息流顶上那个「发朋友圈」按钮"], ["mopost", "信息流里一条动态整块（data-me=\"1\" 是她自己发的）"], ["moname", "动态上的作者名字"], ["motext", "动态的正文文字"], ["mophoto", "动态配图（data-kind=\"img\" 真图，\"desc\" 是「点开看描述」的文字卡）"], ["motime", "动态下方的时间"], ["molike", "点赞按钮（data-on=\"1\" 是她点过赞）"], ["mompin", "动态下面那个「收进时刻」"], ["molikers", "点赞人名单那一行"], ["mocomments", "评论区整块浅底框"], ["mocomment", "评论区里的一条评论"], ["moprofile", "个人页封面下面的滚动正文区（data-me=\"1\" 是她自己的个人页）"], ["mocover", "个人页顶部封面整块（data-on=\"1\" 是设了封面图）"], ["moprofilehead", "封面右下角的名字＋大头像"], ["mosign", "封面下方的签名那一行"], ["moprofilepost", "个人页里的一条动态整块"]])}),
+    // 挂点补课第一批（她 2026-10-08：「审计一下还有哪些页面没有挂点」→「按你的顺序来」）
+    Object.freeze({zh:"查手机",pages:Object.freeze(["phone"]),hooks:Object.freeze([["phonepage","整页最外层（data-view=\"list\" 选人那页／\"desk\" 手机桌面）"],["phonerow","选人那页的一行（data-id＝角色 id）"],["phoneicon","桌面上一颗 app 图标（data-app＝哪个 app）"],["phonewidget","桌面上的组件卡（data-app＝点了去哪个 app）"]])}),
+    Object.freeze({zh:"一起听",pages:Object.freeze(["listen"]),hooks:Object.freeze([["listenpage","整页最外层（data-tab＝play/cloud/mine/home 当前在哪一栏）"],["listentitle","播放页的歌名"],["listenartist","歌名下面那行歌手"],["listenctrl","收藏／加歌单那排圆钮"],["listenlyric","歌词页（当前那句 data-lyric-active=\"1\"）"],["listentab","底下四个标签（data-tab＝哪一栏；data-on=\"1\" 是当前那个）"]])}),
+    Object.freeze({zh:"我的钱包",pages:Object.freeze(["wallet"]),hooks:Object.freeze([["walletpage","整页最外层（data-view=\"main\" 钱包／\"cards\" 亲属卡包）"],["walletbalance","余额那个大数字"],["walletslip","夹层里的一张小票（data-in=\"1\" 是进账）"],["walletkin","卡包里的一张亲属卡（data-mine=\"1\" 是你给出去的）"]])}),
+    Object.freeze({zh:"钱包",pages:Object.freeze(["cwallet"]),hooks:Object.freeze([["cwpage","整页最外层（data-view=\"list\" 选人／\"char\" 某个人的钱包）"],["cwrow","选人那页的一行（data-id＝角色 id）"],["cwbalance","TA的余额大数字"],["cwsec","「日常消费」「送礼与转账」这些小节标题"],["cwline","一笔记录（data-kind=\"daily\" 日常／\"flow\" 送礼转账）"]])}),
+    Object.freeze({zh:"世界书",pages:Object.freeze(["lore"]),hooks:Object.freeze([["lorepage","整页最外层（活页夹底）"],["loreintro","顶上那句说明和在用几条"],["lorefilter","搜索框和那排章那一块"],["lorestamp","一枚筛选章（data-on=\"1\" 是选中的）"],["lorecard","一条词条（data-off=\"1\" 是停用的）"],["loretitle","词条标题"],["lorebody","词条正文那两行"],["loreswitch","词条右边的启用开关（data-on=\"1\" 开着）"]])}),
+    Object.freeze({zh:"记忆库",pages:Object.freeze(["memlib"]),hooks:Object.freeze([["mempage","整页最外层（记忆盒底）"],["memtab","顶上全部／未了／常驻那三张索引签（data-tab；data-on=\"1\" 当前）"],["memwho","按角色筛的那排头像（data-on=\"1\" 当前）"],["memroom","主线／各个小房间那排页签（data-on=\"1\" 当前）"],["memdate","每张卡左边的日期和情绪点"],["memcard","一张记忆索引卡（data-open=\"1\" 未了；data-pinned=\"1\" 常驻）"],["memtext","卡上那段记忆正文"]])}),
     // 人格档案馆（她 2026-10-08：「那一页是不是没有挂点」）
     Object.freeze({zh:"人格档案馆",pages:Object.freeze(["cast"]),hooks:Object.freeze([["castpage","整页最外层（桌面底纹铺在这儿）"],["castcount","顶上「共 N 份卷宗」那一行"],["castcard","一份卷宗卡（data-id＝角色 id）"],["castspine","卡左边那道带角色颜色的书脊"],["castavatar","贴在卡上的头像相框"],["castname","卡上的名字"],["castsum","名字下面那两行人设摘要"],["castinfo","卡底下时区／生日／人设字数那一栏"],["castheart","卡最底下「心上」那一条"]])}),
     // 编角色卡那一页（她 2026-10-08：「还有编角色卡那边也要」）
@@ -930,7 +937,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.036", changed: "", none: "礼物栏和充电格，没加挂点和类名" };
+  const BRIEF_STAMP = { v: "v75.038", changed: "新挂了查手机（phonepage/phonerow/phoneicon/phonewidget）、一起听（listen*）、我的钱包（wallet*）、钱包（cw*）、世界书（lore*）、记忆库（mem*）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

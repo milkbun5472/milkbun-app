@@ -6744,7 +6744,7 @@ function PhoneCarry({
     const meAv = { name: p.name || "我", avatarImage: p.avatarImage, color: p.color || t.accent };
     // 这一页正中摆的是一块「手机屏」——手机是摆在【桌上】的，所以外壳该是张桌子，
     // 不是一片米白（顶栏跟着透上来，不然顶上横一条没盖住的带子）
-    return h("div", { className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
+    return h("div", { "data-wk": "phonepage", "data-view": "list", className: "h-full flex flex-col", style: pageSkin("wood", t, { corner: false }) },
       // 紧凑标题栏（施工规则/mobile-ui-layout.md §1），不再顶一块 30px 大标题
       h(Head, { zh: "查手机",
         bg: "transparent",
@@ -6771,7 +6771,7 @@ function PhoneCarry({
           // 角色列表：在手机屏内下滑
           h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 py-1" },
             characters.map(c => h("div", {
-              key: c.id, className: "w-full flex items-center gap-3", style: { borderBottom: "1px solid " + t.line }
+              key: c.id, "data-wk": "phonerow", "data-id": c.id, className: "w-full flex items-center gap-3", style: { borderBottom: "1px solid " + t.line }
             },
               h("button", {
                 onClick: () => { onSel(c.id); setOpen(null); setLocked(true); setInList(false); },
@@ -6987,7 +6987,7 @@ function PhoneCarry({
             : tone.wash;
     const glyph = preset === "own" ? phoneOwnInk(char && char.id) : preset === "mono" ? "#4d4b47" : tone.glyph;
     return h("button", {
-    key: a.key,
+    key: a.key, "data-wk": "phoneicon", "data-app": a.key,
     // 「看TA玩」的圆点要落在这上面。⚠️原来一个 app: 挂点都没有，于是【点开一个 app】
     //   这个最常见的动作永远不动圆点（她 2026-09-10：「整体光标都不会移动」）。
     "data-watch": "app:" + a.key,
@@ -7335,7 +7335,7 @@ function PhoneCarry({
     const label = decor ? { clock: "时间", frame: "相册", saying: T("他写过的") }[key] : app.zh;
     const tone = phoneTone(jump);
     return h("button", {
-      key,
+      key, "data-wk": "phonewidget", "data-app": jump,
       "data-watch": "app:" + jump,
       onClick: () => { if (key === "clock") return; const a = appByKey(jump); if (a) openApp(a); },
       className: "text-left active:opacity-70",
@@ -7374,6 +7374,7 @@ function PhoneCarry({
       // 只摆在最后一页，跟别的 app 一样是个图标——顶栏那一格还给搜索。
       .concat(pageIndex === layout.pages.length - 1 ? [lookIcon(), dataIcon()] : []))));
   return watchSkin(h("div", {
+    "data-wk": "phonepage", "data-view": "desk",
     className: "h-full flex flex-col overflow-hidden",
     style: homeSrc ? {
       backgroundImage: "linear-gradient(rgba(246,243,237,.13),rgba(246,243,237,.31)),url(\"" + homeSrc.replace(/\"/g, "%22") + "\")",
