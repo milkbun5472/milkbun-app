@@ -41,6 +41,6 @@ test("随身物门后早就有底了——柜内那一层走的是布纹", () =>
   const seg = scr.slice(i0, scr.indexOf("\nfunction ", i0 + 10));
   const skins = seg.match(/pageSkin\("cloth", t, \{ tint: CARRY_TINT\.bag, corner: false \}\)/g) || [];
   assert.ok(skins.length >= 2, "柜门那一页和柜内那一层没都铺上，实际 " + skins.length + " 处");
-  assert.match(scr, /if \(inBox\) return h\("div", \{ className: "h-full flex flex-col", style: pageSkin\("cloth", t/,
+  assert.match(scr, /if \(inBox\) return h\("div", \{ (?:"data-[a-z]+": "[a-z]+", )*className: "h-full flex flex-col", style: pageSkin\("cloth", t/,
     "拉开柜门之后那一层没铺底");
 });

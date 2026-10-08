@@ -119,7 +119,8 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
   assert.match(S, /function threadInstruction\(/);
   assert.match(S, /onSame: v\.by !== "me" \? \(\) => setPage\(\{ kind: "post", same: v \}\) : null/);
   assert.match(S, /const genNpc = async city =>/);
-  assert.match(S, /onNpc: \(\) => genNpc\(""\)/);
+  // 刷新页的「刷几条路人的」在同城那一格刷的是这座城（v75.043），别处还是推荐
+  assert.match(S, /onNpc: \(\) => genNpc\(feed === "city" && cities\.length \? cityNow : ""\)/);
 });
 
 test("关注和推荐不重样；底栏收藏格带文件夹；消息挪进「我」", () => {
@@ -188,4 +189,11 @@ test("聊天里的视频卡画面铺满卡宽", () => {
   const card = src.slice(src.indexOf("function ShuaShareCard"), src.indexOf("window.ShuaShareCard"));
   assert.doesNotMatch(card, /aspectRatio/);
   assert.match(card, /width: "100%", height: v\.skin === "b"/);
+});
+
+test("同城那排限宽能横滑；在同城打开刷新页，刷路人刷的是这座城", () => {
+  const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(src, /maxWidth: "calc\(100% - 120px\)", minWidth: 0/);
+  assert.match(src, /overflowX: "auto", maxWidth: "100%", padding: "4px 12px 6px", whiteSpace: "nowrap", touchAction: "pan-x"/);
+  assert.match(src, /onNpc: \(\) => genNpc\(feed === "city" && cities\.length \? cityNow : ""\)/);
 });

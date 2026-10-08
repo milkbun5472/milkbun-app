@@ -2,7 +2,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
+// v75.040 起到处挂了美化挂点（"data-wk"…）：比对前先剥掉，测的还是原来那件事
+const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8").replace(/"data-(?:wk|part|on|me|kind|today|id|tab|view|app|mine|in|off|open|pinned|late|from|answered|dead|done|period|no)": (?:"[^"]*"|[^,{}"]*?), /g, "");
 const grab = (a, b, cap) => {
   const i = comp.indexOf(a), j = comp.indexOf(b, i);
   assert.ok(i > 0 && j > i && (!cap || j - i < cap), "抠不出：" + a);

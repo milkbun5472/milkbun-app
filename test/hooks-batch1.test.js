@@ -6,10 +6,10 @@ const rd = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
 const scr = rd("screens.js"), phone = rd("phone.js"), ts = rd("theme-studio.js");
 const PAGES = {
   phone: [phone, ["phonepage", "phonerow", "phoneicon", "phonewidget"]],
-  listen: [scr, ["listenpage", "listentitle", "listenartist", "listenctrl", "listenlyric", "listentab"]],
+  listen: [scr, ["listenpage", "listentitle", "listenartist", "listenctrl", "listenlyric", "listentab", "listenbtn", "listenprogress", "listensong", "listenqueue", "listenchip", "listenplaylist"]],
   wallet: [scr, ["walletpage", "walletbalance", "walletslip", "walletkin"]],
   cwallet: [scr, ["cwpage", "cwrow", "cwbalance", "cwsec", "cwline"]],
-  lore: [scr, ["lorepage", "loreintro", "lorefilter", "lorestamp", "lorecard", "loretitle", "lorebody", "loreswitch"]],
+  lore: [scr, ["lorepage", "loreintro", "lorefilter", "lorestamp", "lorecard", "loretitle", "lorebody", "loreswitch", "loreedit", "loreedlabel", "lorecat", "loresave"]],
   memlib: [scr, ["mempage", "memtab", "memwho", "memroom", "memdate", "memcard", "memtext"]]
 };
 for (const [pg, [src, hooks]] of Object.entries(PAGES)) {

@@ -88,7 +88,7 @@ test("地点页是整页，不是半窗", () => {
 });
 
 test("好友地图这一页用紧凑标题栏，不用 40px 大标题", () => {
-  const cm = grab(map, "  function CharMap({", "    const t = useTheme();", 400) + grab(map, "    return h(\"div\", { className: \"h-full flex flex-col\" },", "      (mode || \"real\") === \"story\"", 2000);
+  const cm = grab(map, "  function CharMap({", "    const t = useTheme();", 400) + grab(map, "    return h(\"div\", { className: \"h-full flex flex-col\"", "      (mode || \"real\") === \"story\"", 2000);
   // ⚠️原来这一条写的是「不许用 Head」——那是 v61.27 之前的 Head（30px 大标题）。
   //   它早就是紧凑栏了，理由过期，删掉重写：v65.14 起这一页【就该用】共用 Head，
   //   顶栏那几个挂点跟着白得（原来这一页的主题 CSS 抓不到顶栏）。

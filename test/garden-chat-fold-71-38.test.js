@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
-const host = fs.readFileSync("js/fairy-garden.js", "utf8");
+const host = fs.readFileSync("js/fairy-garden.js", "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 const app = fs.readFileSync("js/app.js", "utf8");
 const world = fs.readFileSync("apps/fairy-garden/world.mjs", "utf8");
 const game = fs.readFileSync("apps/fairy-garden/game.mjs", "utf8");

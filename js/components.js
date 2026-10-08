@@ -2249,16 +2249,16 @@ function CalWidget({ now, calendar, onOpen, period }) {
     style: { height: "100%", display: "flex", flexDirection: "column", ...glassFill(onWall), border: "1px solid rgba(255,255,255,0.58)", borderRadius: 24, padding: "14px 16px", boxShadow: "0 8px 30px rgba(30,28,24,0.12), inset 0 1.2px 0.6px rgba(255,255,255,0.92)" }
   },
     h("div", { className: "flex items-baseline justify-between mb-2", style: { flexShrink: 0 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, (m + 1) + "月"),
-      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, y)),
+      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink } }, (m + 1) + "月"),
+      h("span", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, y)),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, flex: 1, alignContent: "space-between", minHeight: 0 } },
-      CAL_DOW.map((w, i) => h("div", { key: "h" + i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 2 } }, w)),
+      CAL_DOW.map((w, i) => h("div", { key: "h" + i, "data-wk": "wdow", style: { textAlign: "center", fontFamily: F_BODY, fontSize: 10, color: t.fog, marginBottom: 2 } }, w)),
       calCells(y, m).map((d, i) => {
         if (d === null) return h("div", { key: i });
         const pk = showPeriod ? pm[y + "-" + (m + 1) + "-" + d] : null;
         const pcol = pk ? PERIOD_COLORS[pk.t] : null;
         const isToday = d === today;
-        return h("div", { key: i, style: { position: "relative", textAlign: "center", padding: "2px 0" } },
+        return h("div", { key: i, "data-wk": "wcell", "data-today": isToday ? "1" : "0", style: { position: "relative", textAlign: "center", padding: "2px 0" } },
           h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 24, height: 24, borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: isToday ? "#fff" : (pcol || t.sub), background: isToday ? t.accent : (pcol ? pcol + "26" : "transparent"), border: pcol && !isToday ? "1px solid " + pcol + "66" : "none" } }, d),
           calAnyEvent(cal, y, m, d) && h("span", { style: { position: "absolute", bottom: 0, left: "50%", transform: "translateX(-50%)", width: 4, height: 4, borderRadius: 999, background: isToday ? "#fff" : t.tint } }));
       })));
@@ -2462,12 +2462,12 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
         // 天象也走 SVG（她 2026-09-04：主屏上最后几个 emoji 一起换）
-        h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(GWx, { kind: wmoKind(w.code), size: 22, color: t.ink })),
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1 } }, w.t + "°")),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4 } }, wmoZh(w.code) + " · " + w.lo + "~" + w.hi + "°"),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+        h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(GWx, { kind: wmoKind(w.code), size: 22, color: t.ink })),
+        h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, lineHeight: 1 } }, w.t + "°")),
+      h("div", { "data-wk": "wsub", "data-part": "cond", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.sub, marginTop: 4 } }, wmoZh(w.code) + " · " + w.lo + "~" + w.hi + "°"),
+      h("div", { "data-wk": "wsub", "data-part": "place", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
         place && place.key !== "me" ? (place.kind === "world" ? place.label + " · " + place.sub : place.label + " · " + place.sub) : (userGeo && userGeo.label ? String(userGeo.label).slice(0, 12) : "")))
-    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+    : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
         h("div", { className: "flex items-center", style: { gap: 5 } },
           h(GWx, { kind: "partly", size: 15, color: t.fog }), h("span", null, "天气")),
         h("div", null, userGeo ? "获取中…" : "设置里开定位后显示"))));
@@ -2479,12 +2479,12 @@ function LedgerWidget({ onOpen }) {
   const fmt = n => { const v = Math.round((Number(n) || 0) * 100) / 100; return v >= 10000 ? (Math.round(v / 100) / 100) + "w" : v.toLocaleString("en-US", { maximumFractionDigits: v >= 100 ? 0 : 2 }); };
   return h(GlassCard, { onClick: onOpen, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     rows.length ? h("div", null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: t.fog, marginBottom: 3 } }, "本月支出"),
-      rows.slice(0, 2).map(r => h("div", { key: r.code, className: "flex items-baseline gap-1", style: { minWidth: 0 } },
-        h("span", { style: { fontFamily: F_DISPLAY, fontSize: rows.length > 1 ? 16 : 20, color: t.ink, lineHeight: 1.25, whiteSpace: "nowrap" } }, r.symbol + fmt(r.exp)),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.code + (r.inc > 0 ? " · 入" + fmt(r.inc) : "")))),
-      rows[0] && rows[0].topCat ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "花最多：" + rows[0].topCat) : null)
-    : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
+      h("div", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.1em", color: t.fog, marginBottom: 3 } }, "本月支出"),
+      rows.slice(0, 2).map(r => h("div", { key: r.code, "data-wk": "wrow", className: "flex items-baseline gap-1", style: { minWidth: 0 } },
+        h("span", { "data-wk": "wnum", style: { fontFamily: F_DISPLAY, fontSize: rows.length > 1 ? 16 : 20, color: t.ink, lineHeight: 1.25, whiteSpace: "nowrap" } }, r.symbol + fmt(r.exp)),
+        h("span", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.code + (r.inc > 0 ? " · 入" + fmt(r.inc) : "")))),
+      rows[0] && rows[0].topCat ? h("div", { "data-wk": "wsub", "data-part": "topcat", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "花最多：" + rows[0].topCat) : null)
+    : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
         h("div", { className: "flex items-center", style: { gap: 5 } },
           h(GWallet, { size: 15, color: t.fog }), h("span", null, "记账")),
         h("div", null, "本月还没记账")));
@@ -2504,27 +2504,27 @@ function MemoWidget({ onOpen, homeSize }) {
     const first = items[0];
     return h(GlassCard, { onClick: onOpen, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
       // 图标走 SVG 那一套，不用 emoji（她 2026-09-04：「备忘录和情侣空间这里还是用的 emoji，不统一」）
-      h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(IPin, { size: 15, color: t.accent })),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, flexShrink: 0 } }, "备忘录"),
+      h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(IPin, { size: 15, color: t.accent })),
+      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, flexShrink: 0 } }, "备忘录"),
       first
-        ? h("span", { className: "flex items-baseline min-w-0", style: { flex: 1, gap: 6 } },
+        ? h("span", { "data-wk": "wrow", className: "flex items-baseline min-w-0", style: { flex: 1, gap: 6 } },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: dayColor(first), fontWeight: first.days <= 0 ? 700 : 400, flexShrink: 0 } }, lbl(first.days)),
             h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first.title || first.text || ""))
-        : h("span", { style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "没有待办提醒，记一条？"),
-      items.length > 1 ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (items.length - 1) + " 条") : null);
+        : h("span", { "data-wk": "wempty", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "没有待办提醒，记一条？"),
+      items.length > 1 ? h("span", { "data-wk": "wsub", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (items.length - 1) + " 条") : null);
   }
   return h(GlassCard, { onClick: onOpen, style: { padding: "12px 16px", cursor: "pointer", height: homeSize && homeSize !== "auto" ? "100%" : "auto", overflow: "hidden" } },
     h("div", { className: "flex items-center gap-2", style: { marginBottom: items.length ? 8 : 0 } },
-      h("span", { className: "flex items-center" }, h(IPin, { size: 15, color: t.accent })),
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "备忘录"),
+      h("span", { "data-wk": "wicon", className: "flex items-center" }, h(IPin, { size: 15, color: t.accent })),
+      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "备忘录"),
       h("span", { className: "flex-1" }),
-      items.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "最近提醒") : null),
+      items.length ? h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "最近提醒") : null),
     items.length
       ? h("div", { className: "flex flex-col", style: { gap: 4 } }, items.map((it, i) =>
-          h("div", { key: i, className: "flex items-center gap-2" },
+          h("div", { key: i, "data-wk": "wrow", "data-late": it.days < 0 ? "1" : "0", className: "flex items-center gap-2" },
             h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: it.days < 0 ? "#c25a4a" : (it.days === 0 ? t.accent : t.fog), fontWeight: it.days <= 0 ? 700 : 400, flexShrink: 0, minWidth: 52 } }, lbl(it.days)),
             h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.title))))
-      : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "没有待办提醒，记一条？"));
+      : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "没有待办提醒，记一条？"));
 }
 // 命运转盘（v47.81 全屏化）：主屏 2x2 小组件只是入口（静态小盘预览+上次结果），点开进全屏大转盘——
 // 点大盘开转，落定后随机一位在聊角色起哄（气泡完整显示不截断，带头像）。✎ 编辑主题/选项
@@ -2668,11 +2668,11 @@ function WheelWidget({ editMode, onReact }) {
   const lbl = glassLabelInk(onWall, t);
   return h("div", { onClick: () => { if (!editMode) setOpen(true); }, className: "w-full h-full flex flex-col items-center justify-center",
     style: { cursor: "pointer", position: "relative", overflow: "visible", padding: "2px 0" } },
-    data.title ? h("div", { className: "shrink-0", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, marginBottom: 2, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) }, data.title) : null,
-    h("div", { className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", filter: "drop-shadow(0 6px 16px rgba(30,26,22,.28))" } },
+    data.title ? h("div", { "data-wk": "wtitle", className: "shrink-0", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, marginBottom: 2, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) }, data.title) : null,
+    h("div", { "data-wk": "wicon", "data-part": "wheel", className: "flex-1 min-h-0", style: { position: "relative", aspectRatio: "1 / 1", maxWidth: "100%", maxHeight: "100%", display: "flex", alignItems: "center", justifyContent: "center", filter: "drop-shadow(0 6px 16px rgba(30,26,22,.28))" } },
       h(WheelDisc, { items: items, angle: 0, spinning: false, size: "100%", labels: true }),
       h("div", { style: { position: "absolute", top: "-3%", left: "50%", transform: "translateX(-50%)", width: "18%" } }, h(WheelNeedle, { size: "100%" }))),
-    h("div", { className: "shrink-0", style: Object.assign({ fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) },
+    h("div", { "data-wk": "wsub", className: "shrink-0", style: Object.assign({ fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, maxWidth: "96%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, lbl) },
       data.last && data.last.item ? "上次 → " + data.last.item : "点开 交给命运"),
     open ? h(WheelFull, { data: data, items: items, onSave: save, onReact: onReact, onClose: () => { setOpen(false); setData(loadJSON("x_wheel", data)); } }) : null);
 }
@@ -2714,7 +2714,7 @@ function MuyuWidget({ editMode, imageRef }) {
   // 保留 2x2 透明占位；内部用纸感托盘和暖木雕刻呼应主屏材质，不另造卡片层级。
   const shownTotal = total > 99999 ? Math.floor(total / 1000) + "k" : total;
   return h("div", { onClick: knock, className: "relative flex flex-col items-center justify-center h-full", style: { userSelect: "none", WebkitUserSelect: "none", cursor: "pointer", isolation: "isolate" } },
-    h("div", { style: { position: "relative", width: 116, height: 104, display: "flex", alignItems: "center", justifyContent: "center" } },
+    h("div", { "data-wk": "wbtn", "data-part": "muyu", style: { position: "relative", width: 116, height: 104, display: "flex", alignItems: "center", justifyContent: "center" } },
       // 木鱼底下垫的是【蒲团】，不是一块发白的玻璃碟（她 2026-09-05：「太普通了」）。
       // 原来那一层是 radial-gradient 的白晕——木鱼看着像贴在玻璃上的一枚贴纸，
       // 没有「它放在哪儿」这件事。换成绛色布垫：有绲边、有八道褶子往中间收。
@@ -2749,11 +2749,11 @@ function MuyuWidget({ editMode, imageRef }) {
             h("path", { d: "M70 17 82 56", stroke: "url(#muyuMallet)", strokeWidth: 5, strokeLinecap: "round" }),
             h("ellipse", { cx: 68, cy: 14, rx: 8, ry: 6, transform: "rotate(22 68 14)", fill: "#8d5a33", stroke: "rgba(82,49,25,.7)" }),
             h("path", { d: "M63 12c2-2 6-2 9 0", stroke: "rgba(255,232,199,.4)", strokeWidth: 1.3, strokeLinecap: "round" }))))),
-    pops.map(pid => h("span", { key: pid, style: { position: "absolute", left: "50%", top: 3, zIndex: 2, fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: ".04em", color: "#83552f", background: "rgba(250,246,238,.9)", border: "1px solid rgba(142,103,67,.2)", borderRadius: 999, padding: "3px 8px", boxShadow: "0 3px 10px rgba(70,48,28,.1)", pointerEvents: "none", whiteSpace: "nowrap", animation: "wk-pop .65s ease-out forwards" } }, "+1 功德")),
+    pops.map(pid => h("span", { key: pid, "data-wk": "wpop", style: { position: "absolute", left: "50%", top: 3, zIndex: 2, fontFamily: F_BODY, fontSize: 11, fontWeight: 700, letterSpacing: ".04em", color: "#83552f", background: "rgba(250,246,238,.9)", border: "1px solid rgba(142,103,67,.2)", borderRadius: 999, padding: "3px 8px", boxShadow: "0 3px 10px rgba(70,48,28,.1)", pointerEvents: "none", whiteSpace: "nowrap", animation: "wk-pop .65s ease-out forwards" } }, "+1 功德")),
     h("div", { style: { display: "flex", alignItems: "baseline", gap: 6, marginTop: 1 } },
-      h("span", { style: { fontFamily: F_DISPLAY, fontSize: total > 0 ? 18 : 15, lineHeight: 1, color: t.ink } }, total > 0 ? shownTotal : "敲一敲"),
-      total > 0 ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: t.fog } }, "功德") : null),
-    combo > 1 ? h("span", { style: { position: "absolute", right: 4, top: 9, zIndex: 2, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.72)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px", boxShadow: "0 3px 10px rgba(70,48,28,.08)" } }, combo + " COMBO") : null);
+      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: total > 0 ? 18 : 15, lineHeight: 1, color: t.ink } }, total > 0 ? shownTotal : "敲一敲"),
+      total > 0 ? h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: ".12em", color: t.fog } }, "功德") : null),
+    combo > 1 ? h("span", { "data-wk": "wnum", "data-part": "combo", style: { position: "absolute", right: 4, top: 9, zIndex: 2, fontFamily: "'Archivo',sans-serif", fontSize: 9.5, fontWeight: 700, letterSpacing: ".04em", color: "#91633d", background: "rgba(255,255,255,.72)", border: "1px solid rgba(145,99,61,.2)", borderRadius: 999, padding: "3px 6px", boxShadow: "0 3px 10px rgba(70,48,28,.08)" } }, combo + " COMBO") : null);
 }
 // 情侣空间轮播组件：多位正式在一起的 TA 轮流展示（每 6s 换一位），显示在一起天数+甜蜜值；点开进情侣空间
 function UsWidget({ characters, couples, sweet, onOpen, dot, homeSize }) {
@@ -2775,29 +2775,29 @@ function UsWidget({ characters, couples, sweet, onOpen, dot, homeSize }) {
   return h(GlassCard, { onClick: onOpen, style: { padding: forced ? "10px 16px" : "12px 16px", cursor: "pointer", position: "relative", height: forced ? "100%" : "auto", display: forced ? "flex" : "block", flexDirection: "column", justifyContent: "center", overflow: "hidden" } },
     dot ? h("span", { style: { position: "absolute", top: 10, right: 12, width: 8, height: 8, borderRadius: 999, background: "#e0524a" } }) : null,
     p ? h("div", { key: p.id, className: "flex items-center gap-3", style: { animation: "fadeUp .35s ease both" } },
-      h(Avatar, { character: p, size: 44, radius: 999 }),
+      h("span", { "data-wk": "wicon", style: { display: "contents" } }, h(Avatar, { character: p, size: 44, radius: 999 })),
       h("div", { className: "flex-1 min-w-0" },
         // 名字与纪念日共用一条弹性行：名字可收缩，天数紧贴在右侧；数字单独放大标粉。
         h("div", { className: "flex items-baseline min-w-0", style: { gap: 10, paddingRight: dot ? 12 : 0 } },
-          h("div", { className: "truncate", style: { flex: "1 1 auto", minWidth: 0, fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, whiteSpace: "nowrap" } }, p.remark || p.name),
+          h("div", { "data-wk": "wtitle", className: "truncate", style: { flex: "1 1 auto", minWidth: 0, fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, whiteSpace: "nowrap" } }, p.remark || p.name),
           days ? h("div", { className: "flex items-baseline", style: { flex: "0 0 auto", fontFamily: F_BODY, whiteSpace: "nowrap", lineHeight: 1 } },
             h("span", { style: { fontSize: 12.5, color: t.fog } }, "在一起第 "),
-            h("span", { style: { margin: "0 2px", fontFamily: F_DISPLAY, fontSize: 21, fontWeight: 700, color: "#e78fa1", lineHeight: 1 } }, String(days)),
+            h("span", { "data-wk": "wnum", style: { margin: "0 2px", fontFamily: F_DISPLAY, fontSize: 21, fontWeight: 700, color: "#e78fa1", lineHeight: 1 } }, String(days)),
             h("span", { style: { fontSize: 12.5, color: t.fog } }, " 天")) : null),
-        h("div", { className: "flex items-center", style: { gap: 5, paddingRight: partners.length > 1 ? 48 : 24, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 4 } },
+        h("div", { "data-wk": "wsub", className: "flex items-center", style: { gap: 5, paddingRight: partners.length > 1 ? 48 : 24, fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 4 } },
           sv != null ? h(React.Fragment, null,
             h(IHeart, { size: 12, color: "#e78fa1", filled: true }),
             h("span", null, "甜蜜值 " + sv)) : h("span", null, "点开去看看你们的小空间"))),
-      h("div", { className: "flex gap-1 items-center", style: { position: "absolute", right: 14, bottom: 9 } },
+      h("div", { "data-wk": "wdots", className: "flex gap-1 items-center", style: { position: "absolute", right: 14, bottom: 9 } },
         partners.length > 1
           ? partners.map((x, i) => h("span", { key: x.id, style: { width: i === ix % partners.length ? 10 : 4, height: 4, borderRadius: 999, background: i === ix % partners.length ? t.accent : t.line, transition: "all .3s" } }))
           : h(IHeart, { size: 13, color: "#e78fa1", filled: true })))
-    : h("div", { className: "flex items-center gap-3" },
-        h("div", { className: "flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 999, background: "rgba(255,255,255,0.6)" } },
+    : h("div", { "data-wk": "wempty", className: "flex items-center gap-3" },
+        h("div", { "data-wk": "wicon", className: "flex items-center justify-center", style: { width: 44, height: 44, borderRadius: 999, background: "rgba(255,255,255,0.6)" } },
           h(IHeart, { size: 20, color: "#e78fa1", filled: true })),
         h("div", { className: "flex-1" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "情侣空间"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "还没有正式在一起的 TA"))));
+          h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "情侣空间"),
+          h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, "还没有正式在一起的 TA"))));
 }
 // 一张【真的唱片】压在唱机上：整张黑胶（有纹路）、中间贴着封面照当标签、
 // 一根唱臂从右上压下来搭在盘面上——臂的角度就是进度（她 2026-09-05 给了参考图）。
@@ -2978,7 +2978,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
   const showStack = tall && cols >= 4;
   const stop = fn => function (e) { e.stopPropagation(); e.preventDefault(); if (fn) fn(); };
   const ctlBtn = (label, node, fn, big) => h("button", {
-    onClick: stop(fn), "aria-label": label, className: "active:opacity-60 flex items-center justify-center",
+    onClick: stop(fn), "aria-label": label, "data-wk": "wbtn", "data-part": label === "上一首" ? "prev" : label === "下一首" ? "next" : "play", className: "active:opacity-60 flex items-center justify-center",
     style: { width: big ? 30 : 26, height: big ? 30 : 26, borderRadius: 999, flexShrink: 0,
       background: big ? ink : "transparent", color: big ? (gr.bg || t.bg2) : ink }
   }, node);
@@ -2998,7 +2998,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     // 碟心那张照片可以自己换（她 2026-09-05：「唱片 cover 可以添加照片」）。
     // 在这之前只有【播放页】能换，而且得先有一首歌——没歌的时候那张碟是换不了的。
     // 这一小块只吃自己的点击（stopPropagation），不会顺手把一起听整个打开。
-    h("div", { style: { position: "relative", flexShrink: 0 } },
+    h("div", { "data-wk": "wicon", "data-part": "disc", style: { position: "relative", flexShrink: 0 } },
       h(VinylDisc, { size: discSize, cover: discImg, playing: playing, frac: frac }),
       onSetDisc && !editMode && discSize >= 72 ? h("span", {
         role: "button", tabIndex: 0,
@@ -3011,14 +3011,14 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
         onClick: function (e) { e.stopPropagation(); },
         onChange: function (e) { const f = e.target.files && e.target.files[0]; if (f) onSetDisc(f); e.target.value = ""; } }) : null),
     h("div", { ref: colRef, style: { flex: 1, minWidth: 0 } },
-      showEyebrow && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: sub, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: avail && avail < 62 ? 13 : square ? 14 : tall ? 17 : 15.5, textAlign: square ? "center" : "left", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
-      showArtist && h("div", { style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
+      showEyebrow && h("div", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.12em", color: sub, marginBottom: 2, textAlign: square ? "center" : "left" } }, playing ? "正在播放" : "一起听"),
+      h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: avail && avail < 62 ? 13 : square ? 14 : tall ? 17 : 15.5, textAlign: square ? "center" : "left", color: ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, now ? now.title : "还没有歌"),
+      showArtist && h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: square ? 10 : 11.5, textAlign: square ? "center" : "left", color: sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginTop: 1 } }, now ? (now.artist || "未知歌手") : "点这里添加你们在听的歌"),
       // 走了多久 / 一共多长，压在一根发丝细的轨上——参考图上就是这一行
       showProg && !square && h("div", { style: { marginTop: tall ? 5 : 5 } },
-        h("div", { style: { height: 2, borderRadius: 2, background: skinAlpha(ink, "1c"), position: "relative" } },
+        h("div", { "data-wk": "wbar", style: { height: 2, borderRadius: 2, background: skinAlpha(ink, "1c"), position: "relative" } },
           h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: (frac * 100) + "%", borderRadius: 2, background: t.accent } })),
-        h("div", { className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: sub, whiteSpace: "nowrap" } },
+        h("div", { "data-wk": "wsub", "data-part": "time", className: "flex", style: { justifyContent: "space-between", marginTop: 3, fontFamily: F_BODY, fontSize: 9, color: sub, whiteSpace: "nowrap" } },
           h("span", null, mmss(cur)), h("span", null, dur ? mmss(dur) : "--:--"))),
       // 四颗真的能按的键（不是画着好看的）：上一首 / 播停 / 下一首 / 进一起听
       // ⚠️她 2026-09-05：「下面的播放键也太低了」。键跟进度条本来就是一组
@@ -3033,7 +3033,7 @@ function MusicWidget({ listen, player, onOpen, homeSize, onSetDisc, editMode, on
     // 她 2026-09-05：「拍立得也放大点然后角度再往右侧一点，大到有点超出边界的迹象」。
     // 右边负 marginRight 把它推出卡外，卡自己的 overflow:hidden 会切掉一条——
     // 那一条切口就是「超出边界的迹象」，不是真的画到卡外面去（画出去会盖住旁边的格子）。
-    showStack ? h("div", { style: { marginRight: -22, flexShrink: 0 } },
+    showStack ? h("div", { "data-wk": "wicon", "data-part": "polaroid", style: { marginRight: -22, flexShrink: 0 } },
       h(PolaroidStack, { w: Math.max(58, Math.min(94, Math.round(Math.min((avail || 130) / 1.22, room * 0.27)))), photo: card.photo, note: card.note, lean: 9, onTap: editMode ? null : onEditCard })) : null);
 }
 // 一起听那张卡的【背面】：换拍立得上的照片、写那句花体、挑卡片的底。
@@ -3054,32 +3054,32 @@ function MusicCardEdit({ onClose }) {
   const onPhoto = !!card.bgPhoto;
   // 底纹铺在【外壳】上、顶栏透上来（mobile-ui-layout 3.5）；不铺的话顶上会横一道平色带，
   // 而且会踩到「全库不许再有拿 t.bg 当页面外壳的」那条。
-  return h("div", { className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
+  return h("div", { "data-wk": "mcardpage", className: "h-full flex flex-col", style: (typeof pageSkin === "function" ? pageSkin("paper", t) : { background: t.bg }) },
     h(Head, { zh: "唱片旁边那一摞", sub: "照片 · 写的字 · 卡片的底", bg: "transparent", onBack: onClose }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "14px 18px 30px" } },
-      h("div", { className: "flex items-start", style: { gap: 16, marginBottom: 20 } },
+      h("div", { "data-wk": "mcardtop", className: "flex items-start", style: { gap: 16, marginBottom: 20 } },
         h(PolaroidStack, { w: 104, photo: card.photo, note: card.note }),
         h("div", { className: "flex-1 min-w-0 flex flex-col", style: { gap: 8 } },
-          h("button", { onClick: function () { fileRef.current && fileRef.current.click(); }, className: "active:opacity-70",
+          h("button", { "data-wk": "mcardbtn", "data-part": "photo", onClick: function () { fileRef.current && fileRef.current.click(); }, className: "active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" } }, card.photo ? "换一张照片" : "放一张照片"),
-          card.photo ? h("button", { onClick: function () { put({ photo: null }); }, className: "active:opacity-70",
+          card.photo ? h("button", { "data-wk": "mcardbtn", "data-part": "removephoto", onClick: function () { put({ photo: null }); }, className: "active:opacity-70",
             style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent", border: "1px solid " + t.line, borderRadius: 12, padding: "8px 0" } }, "拿掉照片") : null,
-          h("input", { ref: fileRef, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }))),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "白边上写一句"),
-      h("textarea", { value: card.note || "", onChange: function (e) { put({ note: e.target.value.slice(0, 40) }); }, rows: 2,
+          h("input", { "data-wk": "mcardinput", "data-part": "photofile", ref: fileRef, type: "file", accept: "image/*", onChange: pick, style: { display: "none" } }))),
+      h("div", { "data-wk": "mcardsectitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, marginBottom: 6 } }, "白边上写一句"),
+      h("textarea", { "data-wk": "mcardinput", "data-part": "note", value: card.note || "", onChange: function (e) { put({ note: e.target.value.slice(0, 40) }); }, rows: 2,
         placeholder: "Good Music, Better Days.",
         style: { width: "100%", boxSizing: "border-box", fontFamily: F_SCRIPT, fontSize: 20, lineHeight: 1.4, color: t.ink,
           background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none" } }),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
+      h("div", { "data-wk": "mcardhint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.7 } },
         "这一行走的是花体（Dancing Script），只有拉丁字母有——写中文会落回衬线体，想要那个手写味就写英文。至多 40 字。"),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "22px 0 8px" } }, "卡片的底"),
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 } },
+      h("div", { "data-wk": "mcardsectitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, margin: "22px 0 8px" } }, "卡片的底"),
+      h("div", { "data-wk": "mcardgrounds", style: { display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 10 } },
         // 她自己的一张图排在最前面（她 2026-09-05：「封面底也加可以自定义图片吧」）
-        h("button", { key: "own", onClick: function () { bgRef.current && bgRef.current.click(); }, className: "active:opacity-80",
+        h("button", { "data-wk": "mcardground", "data-part": "own", "data-on": onPhoto ? "1" : "0", key: "own", onClick: function () { bgRef.current && bgRef.current.click(); }, className: "active:opacity-80",
           style: { borderRadius: 12, overflow: "hidden", border: onPhoto ? "2px solid " + t.ink : "1px solid " + t.line, padding: 0, textAlign: "left" } },
-          h("div", { style: { height: 46, background: card.bgPhoto ? "center/cover no-repeat url(" + card.bgPhoto + ")" : "repeating-linear-gradient(45deg," + skinAlpha(t.ink, "12") + " 0 5px,transparent 5px 10px)", backgroundColor: t.bg2 } }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: onPhoto ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (onPhoto ? "· " : "") + "我的图")),
-        h("input", { ref: bgRef, type: "file", accept: "image/*", style: { display: "none" },
+          h("div", { "data-wk": "mcardswatch", style: { height: 46, background: card.bgPhoto ? "center/cover no-repeat url(" + card.bgPhoto + ")" : "repeating-linear-gradient(45deg," + skinAlpha(t.ink, "12") + " 0 5px,transparent 5px 10px)", backgroundColor: t.bg2 } }),
+          h("div", { "data-wk": "mcardgroundname", style: { fontFamily: F_BODY, fontSize: 11, color: onPhoto ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (onPhoto ? "· " : "") + "我的图")),
+        h("input", { "data-wk": "mcardinput", "data-part": "bgfile", ref: bgRef, type: "file", accept: "image/*", style: { display: "none" },
           onChange: async function (e) {
             const f = e.target.files && e.target.files[0]; e.target.value = "";
             if (!f) return;
@@ -3088,22 +3088,22 @@ function MusicCardEdit({ onClose }) {
           } }),
         MUSIC_GROUNDS.map(function (g) {
           const on = !onPhoto && gr.id === g.id;
-          return h("button", { key: g.id, onClick: function () { put({ bg: g.id, bgPhoto: null }); }, className: "active:opacity-80",
+          return h("button", { "data-wk": "mcardground", "data-part": g.id, "data-on": on ? "1" : "0", key: g.id, onClick: function () { put({ bg: g.id, bgPhoto: null }); }, className: "active:opacity-80",
             style: { borderRadius: 12, overflow: "hidden", border: on ? "2px solid " + t.ink : "1px solid " + t.line, padding: 0, textAlign: "left" } },
-            h("div", { style: { height: 46, background: g.bg || "linear-gradient(160deg," + skinAlpha(t.ink, "08") + ",transparent 60%)", backgroundColor: g.bg ? undefined : t.bg2, boxShadow: g.bg ? "none" : "inset 0 0 0 1px " + t.line } }),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (on ? "· " : "") + g.zh));
+            h("div", { "data-wk": "mcardswatch", style: { height: 46, background: g.bg || "linear-gradient(160deg," + skinAlpha(t.ink, "08") + ",transparent 60%)", backgroundColor: g.bg ? undefined : t.bg2, boxShadow: g.bg ? "none" : "inset 0 0 0 1px " + t.line } }),
+            h("div", { "data-wk": "mcardgroundname", style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.ink : t.sub, padding: "6px 8px", background: t.bg2 } }, (on ? "· " : "") + g.zh));
         })),
       onPhoto ? h("div", { style: { marginTop: 14 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginBottom: 7 } },
+        h("div", { "data-wk": "mcardhint", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginBottom: 7 } },
           "照片的明暗事先不知道，所以字色由你定：图上会盖一层反方向的薄纱，字才有对比。"),
-        h("div", { className: "flex", style: { gap: 10 } },
+        h("div", { "data-wk": "mcardinks", className: "flex", style: { gap: 10 } },
           [["light", "浅字"], ["dark", "深字"]].map(function (o) {
             const on = (card.bgInk === "dark") === (o[0] === "dark");
-            return h("button", { key: o[0], onClick: function () { put({ bgInk: o[0] }); }, className: "flex-1 active:opacity-80",
+            return h("button", { "data-wk": "mcardink", "data-part": o[0], "data-on": on ? "1" : "0", key: o[0], onClick: function () { put({ bgInk: o[0] }); }, className: "flex-1 active:opacity-80",
               style: { fontFamily: F_BODY, fontSize: 12.5, color: on ? t.bg2 : t.ink, background: on ? t.ink : "transparent",
                 border: "1px solid " + (on ? t.ink : t.line), borderRadius: 12, padding: "9px 0" } }, (on ? "· " : "") + o[1]);
           })),
-        h("button", { onClick: function () { put({ bgPhoto: null }); }, className: "w-full active:opacity-70",
+        h("button", { "data-wk": "mcardbtn", "data-part": "removebg", onClick: function () { put({ bgPhoto: null }); }, className: "w-full active:opacity-70",
           style: { marginTop: 10, fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "transparent", border: "1px solid " + t.line, borderRadius: 12, padding: "8px 0" } }, "拿掉这张底图")) : null));
 }
 // 全局悬浮迷你播放器：所有界面（含主屏）都浮着；可拖动换位置（存 x_miniPos）；点一下跳回播放器
@@ -3669,20 +3669,20 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // 「日历 / CALENDAR」那个大标题占掉了整整一屏顶——删掉，头像条上移，
   // 格子改成【按剩下的高度平分】(gridAutoRows:1fr)，六行铺满一屏，日期和农历都放大。
   const cells = calCells(ym.y, ym.m);
-  const monthView = () => h("div", { className: "flex-1 flex flex-col min-h-0 px-3" },
-    h("div", { className: "shrink-0 flex items-center justify-between px-2 pt-1 pb-1" },
-      h("button", { onClick: () => shift(-1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "‹"),
+  const monthView = () => h("div", { "data-wk": "calmonth", className: "flex-1 flex flex-col min-h-0 px-3" },
+    h("div", { "data-wk": "calmonthbar", className: "shrink-0 flex items-center justify-between px-2 pt-1 pb-1" },
+      h("button", { "data-wk": "calbtn", "data-part": "prevmonth", onClick: () => shift(-1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "‹"),
       // 月名收成 20px：顶栏那行年份才 16px，34px 的月名压在底下是「顶上还有一大块」
       // 那个病（mobile-ui-layout §1）。格子和日期照旧放大——她要的大是格子，不是标题。
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, letterSpacing: "0.02em" } }, ["一","二","三","四","五","六","七","八","九","十","十一","十二"][ym.m] + "月"),
-      h("button", { onClick: () => shift(1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "›")),
-    view === "mine" ? h("div", { className: "shrink-0 flex items-center gap-3 px-2 pb-1 flex-wrap" },
-      ["period", "fertile", "ov", "safe"].map(k => h("span", { key: k, className: "flex items-center gap-1" },
+      h("div", { "data-wk": "calmonthtitle", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, letterSpacing: "0.02em" } }, ["一","二","三","四","五","六","七","八","九","十","十一","十二"][ym.m] + "月"),
+      h("button", { "data-wk": "calbtn", "data-part": "nextmonth", onClick: () => shift(1), className: "active:opacity-50 px-2 py-1", style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.fog } }, "›")),
+    view === "mine" ? h("div", { "data-wk": "calkey", className: "shrink-0 flex items-center gap-3 px-2 pb-1 flex-wrap" },
+      ["period", "fertile", "ov", "safe"].map(k => h("span", { "data-wk": "calkeyitem", "data-part": k, key: k, className: "flex items-center gap-1" },
         h("span", { style: { width: 9, height: 9, borderRadius: 999, background: PERIOD_COLORS[k] } }),
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, PERIOD_LABELS[k])))) : null,
     h("div", { className: "shrink-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)" } },
-      CAL_DOW.map((w, i) => h("div", { key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, paddingBottom: 5 } }, w))),
-    h("div", { className: "flex-1 min-h-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "1fr", paddingBottom: 6 } },
+      CAL_DOW.map((w, i) => h("div", { "data-wk": "caldow", key: i, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, paddingBottom: 5 } }, w))),
+    h("div", { "data-wk": "calgrid", className: "flex-1 min-h-0", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gridAutoRows: "1fr", paddingBottom: 6 } },
       cells.map((d, i) => {
         if (d === null) return h("div", { key: i });
         const dk = calPadKey(ym.y, ym.m, d);
@@ -3690,13 +3690,13 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         const lun = typeof calLunarCell === "function" ? calLunarCell(new Date(ym.y, ym.m, d)) : { text: "", hi: false };
         const pk = pmap[ym.y + "-" + (ym.m + 1) + "-" + d];
         const dots = dotsOn(dk);
-        return h("button", { key: i, onClick: () => { setDaySel(dk); setMode("day"); },
+        return h("button", { "data-wk": "calday", "data-today": isT ? "1" : "0", "data-period": pk ? pk.t : "", key: i, onClick: () => { setDaySel(dk); setMode("day"); },
           className: "active:opacity-60 flex flex-col items-center justify-center", style: { minHeight: 0, borderTop: "1px solid " + t.line } },
-          h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 999,
+          h("span", { "data-wk": "caldaynum", style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 36, height: 36, borderRadius: 999,
             background: isT ? "#c25a4a" : (pk ? PERIOD_COLORS[pk.t] + "33" : "transparent"),
             fontFamily: F_DISPLAY, fontSize: 19, color: isT ? "#fff" : t.ink } }, d),
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, lineHeight: 1.3, marginTop: 1, color: lun.hi ? "#c25a4a" : t.fog, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap" } }, lun.text),
-          h("span", { style: { display: "flex", gap: 2.5, height: 6, marginTop: 2 } },
+          h("span", { "data-wk": "caldaylunar", style: { fontFamily: F_BODY, fontSize: 10, lineHeight: 1.3, marginTop: 1, color: lun.hi ? "#c25a4a" : t.fog, maxWidth: "100%", overflow: "hidden", whiteSpace: "nowrap" } }, lun.text),
+          h("span", { "data-wk": "caldaydots", style: { display: "flex", gap: 2.5, height: 6, marginTop: 2 } },
             dots.map((c, j) => h("span", { key: j, style: { width: 5, height: 5, borderRadius: 999, background: c } }))));
       })));
   // ---- 日视图（两天并排 + 时间轴）----
@@ -3728,14 +3728,14 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
 
   const blockNode = (b, dk) => {
     const top = yOf(b.from), hgt = Math.max(26, (b.to - b.from) * CAL_PX_PER_MIN - 3);
-    return h("button", { key: b.key, onClick: () => { if (b.memo && typeof window.memoOpenReminder === "function") window.memoOpenReminder(b.memo.id); else setDayEv({ b, dk }); },
+    return h("button", { "data-wk": "calblock", "data-done": b.done ? "1" : "0", key: b.key, onClick: () => { if (b.memo && typeof window.memoOpenReminder === "function") window.memoOpenReminder(b.memo.id); else setDayEv({ b, dk }); },
       className: "absolute active:opacity-70 text-left",
       style: { left: 2, right: 2, top: top, height: hgt, background: b.color + (b.ai ? "88" : "cc"), borderLeft: "3px solid " + b.color,
         borderRadius: 7, padding: "4px 6px", overflow: "hidden", boxShadow: b.dev ? "0 0 0 1.5px #c25a4a inset" : "none" } },
-      h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } },
+      h("div", { "data-wk": "calblocktitle", className: "flex items-center", style: { gap: 5, fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, lineHeight: 1.25, textDecoration: b.done ? "line-through" : "none" } },
         b.glyph ? h("span", { className: "flex items-center", style: { flexShrink: 0 } }, h(b.glyph, { size: 14, color: t.ink })) : null,
         h("span", { className: "min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (b.icon ? b.icon + " " : "") + b.title)),
-      hgt > 40 && h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
+      hgt > 40 && h("div", { "data-wk": "calblocktime", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, marginTop: 1, lineHeight: 1.3 } },
         (b.charFrom ? b.charFrom + "–" + (b.charTo || "") : calHM(b.from) + "–" + (b.to >= 1440 ? "24:00" : calHM(b.to))) + (b.location ? " · " + b.location : "")));
   };
   // 表头和时间轴必须【分开两层】：刻度列和事件列共用同一个滚动内容的 y=0。
@@ -3746,28 +3746,28 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     const a = dk.split("-").map(Number);
     const ad = allDayOn(dk);
     const lun = typeof calLunarCell === "function" ? calLunarCell(new Date(a[0], a[1] - 1, a[2])) : { text: "" };
-    return h("div", { key: dk, className: "px-2 pt-2 pb-1.5", style: { flex: 1, minWidth: 0, borderLeft: "1px solid " + t.line } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: dk === todayKey ? "#c25a4a" : t.ink, textAlign: "center" } },
+    return h("div", { "data-wk": "caldayhead", "data-today": dk === todayKey ? "1" : "0", key: dk, className: "px-2 pt-2 pb-1.5", style: { flex: 1, minWidth: 0, borderLeft: "1px solid " + t.line } },
+      h("div", { "data-wk": "caldayheadtitle", style: { fontFamily: F_DISPLAY, fontSize: 14, color: dk === todayKey ? "#c25a4a" : t.ink, textAlign: "center" } },
         a[1] + "月" + a[2] + "日 · " + CAL_DOW[new Date(a[0], a[1] - 1, a[2]).getDay()]),
-      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "center" } }, lun.text),
+      h("div", { "data-wk": "caldaylunar", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "center" } }, lun.text),
       ad.length ? h("div", { style: { marginTop: 4, display: "flex", flexDirection: "column", gap: 2 } },
-        ad.slice(0, 3).map((x, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, background: t.bg2, borderRadius: 5, padding: "2px 5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text))) : null);
+        ad.slice(0, 3).map((x, i) => h("div", { "data-wk": "calallday", key: i, style: { fontFamily: F_BODY, fontSize: 9.5, color: t.sub, background: t.bg2, borderRadius: 5, padding: "2px 5px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.text))) : null);
   };
   const hourRows = (range.hi - range.lo) / 60 + 1;
   const gridH = (range.hi - range.lo) * CAL_PX_PER_MIN;
-  const dayColumn = dk => h("div", { key: dk, style: { flex: 1, minWidth: 0, position: "relative", height: gridH, borderLeft: "1px solid " + t.line } },
+  const dayColumn = dk => h("div", { "data-wk": "calcolumn", key: dk, style: { flex: 1, minWidth: 0, position: "relative", height: gridH, borderLeft: "1px solid " + t.line } },
     Array.from({ length: hourRows }, (_, i) => h("div", { key: i, style: { position: "absolute", left: 0, right: 0, top: i * 60 * CAL_PX_PER_MIN, height: 1, background: t.line, opacity: 0.55 } })),
     blocksOn(dk).map(b => blockNode(b, dk)),
     dk === todayKey && nowMin >= range.lo && nowMin <= range.hi
-      ? h("div", { style: { position: "absolute", left: 0, right: 0, top: yOf(nowMin), height: 2, background: "#c25a4a", zIndex: 5 } }) : null);
-  const dayView = () => h("div", { className: "flex-1 flex flex-col min-h-0" },
+      ? h("div", { "data-wk": "calnowline", style: { position: "absolute", left: 0, right: 0, top: yOf(nowMin), height: 2, background: "#c25a4a", zIndex: 5 } }) : null);
+  const dayView = () => h("div", { "data-wk": "calweek", className: "flex-1 flex flex-col min-h-0" },
     h("div", { className: "shrink-0 px-3 pb-2", style: { display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2 } },
-      weekStrip.map(d => h("button", { key: d.key, onClick: () => setDaySel(d.key), className: "flex flex-col items-center active:opacity-60", style: { padding: "3px 0" } },
+      weekStrip.map(d => h("button", { "data-wk": "calweekday", "data-on": d.key === daySel ? "1" : "0", key: d.key, onClick: () => setDaySel(d.key), className: "flex flex-col items-center active:opacity-60", style: { padding: "3px 0" } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, d.dow),
         h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 28, height: 28, borderRadius: 999, marginTop: 2,
           background: d.key === daySel ? t.ink : "transparent", color: d.key === daySel ? t.bg2 : (d.key === todayKey ? "#c25a4a" : t.ink),
           fontFamily: F_DISPLAY, fontSize: 15 } }, d.n)))),
-    tzShift ? h("div", { className: "shrink-0 px-4 pb-1", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } },
+    tzShift ? h("div", { "data-wk": "caltznote", className: "shrink-0 px-4 pb-1", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5 } },
       "TA 比你" + (tzShift > 0 ? "快 " : "慢 ") + (Math.abs(tzShift) % 60 ? (Math.abs(tzShift) / 60).toFixed(1) : Math.abs(tzShift) / 60) + " 小时 · 格子按你的时间，块上写的是 TA 当地时刻") : null,
     // 表头行（不滚）
     h("div", { className: "shrink-0 flex", style: { borderBottom: "1px solid " + t.line, background: t.bg } },
@@ -3782,23 +3782,23 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
     //   顶栏于是被推到刘海底下，而那儿点不着（html/body 是 overflow:hidden，没有滚回来的路）。
     h("div", { ref: scrollRef, className: "flex-1 min-h-0 overflow-y-auto", style: { display: "flex", alignItems: "flex-start" } },
       h("div", { className: "shrink-0", style: { width: 44, position: "relative", height: gridH + 90 } },
-        Array.from({ length: hourRows }, (_, i) => h("div", { key: i, style: { position: "absolute", right: 5, top: i * 60 * CAL_PX_PER_MIN - 6, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, calHM(range.lo + i * 60))),
+        Array.from({ length: hourRows }, (_, i) => h("div", { "data-wk": "calhour", key: i, style: { position: "absolute", right: 5, top: i * 60 * CAL_PX_PER_MIN - 6, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, calHM(range.lo + i * 60))),
         nowMin >= range.lo && nowMin <= range.hi && dayList.indexOf(todayKey) >= 0
-          ? h("div", { style: { position: "absolute", right: 3, top: yOf(nowMin) - 8, background: "#c25a4a", color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 4, padding: "1px 4px" } }, calHM(nowMin)) : null),
+          ? h("div", { "data-wk": "calnowtag", style: { position: "absolute", right: 3, top: yOf(nowMin) - 8, background: "#c25a4a", color: "#fff", fontFamily: F_BODY, fontSize: 9, borderRadius: 4, padding: "1px 4px" } }, calHM(nowMin)) : null),
       // 底下多留 90px：最后一格不会被右下角那个 ＋ 压住
       h("div", { style: { flex: 1, display: "flex", height: gridH + 90 } }, dayList.map(dayColumn))));
   // ---- 人物条 ----
-  const personRow = h("div", { className: "shrink-0 flex gap-3 px-4 pb-2 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
+  const personRow = h("div", { "data-wk": "calpeople", className: "shrink-0 flex gap-3 px-4 pb-2 overflow-x-auto", style: { WebkitOverflowScrolling: "touch" } },
     [{ id: "mine", name: "我", c: null }]
       .concat(chars.map(c => ({ id: c.id, name: c.remark || c.name, c })))
-      .map(v => h("button", { key: v.id, onClick: () => setView(v.id), className: "shrink-0 flex flex-col items-center gap-1 active:opacity-60", style: { width: 54 } },
+      .map(v => h("button", { "data-wk": "calperson", "data-on": view === v.id ? "1" : "0", key: v.id, onClick: () => setView(v.id), className: "shrink-0 flex flex-col items-center gap-1 active:opacity-60", style: { width: 54 } },
         h("span", { style: { display: "inline-flex", alignItems: "center", justifyContent: "center", width: 42, height: 42, borderRadius: 999,
           border: view === v.id ? "2px solid " + t.ink : "2px solid transparent", background: t.bg2, overflow: "hidden" } },
           // ⚠️她 2026-09-05：「我的头像没带进来」。profile 一直在这个组件的参数里，
           //   只是这一处从来没用过它——角色们都有脸，只有她自己是个「我」字。
           v.c ? h(Avatar, { character: v.c, size: 38, radius: 999 })
               : h(Avatar, { character: { name: (profile && profile.name) || "我", avatarImage: profile && profile.avatarImage, color: profile && profile.color }, size: 38, radius: 999 })),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: view === v.id ? t.ink : t.fog, maxWidth: 54, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.name))));
+        h("span", { "data-wk": "calpersonname", style: { fontFamily: F_BODY, fontSize: 10.5, color: view === v.id ? t.ink : t.fog, maxWidth: 54, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, v.name))));
 
   const visSet = per.visibleTo || [];
   const toggleVis = id => onSavePeriod({ visibleTo: visSet.includes(id) ? visSet.filter(x => x !== id) : [...visSet, id] });
@@ -3820,7 +3820,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   // ⚠️外壳 overflow-hidden 是第二道：日历这一页里有写死高度的格子和绝对定位的 FAB，
   //   哪天再有东西撑高，也只许它在自己那一格里出界，不许把整页顶出视口
   //   ——一旦顶出去，那一下滚动是【滚不回来的】（html/body overflow:hidden）。
-  return h("div", { className: "h-full flex flex-col overflow-hidden", style: Object.assign({ position: "relative" },
+  return h("div", { "data-wk": "calpage", className: "h-full flex flex-col overflow-hidden", style: Object.assign({ position: "relative" },
       typeof pageSkin === "function" ? pageSkin("paper", t, { base: t.bg2, strength: 1.2 }) : { background: t.bg2 }) },
     // 顶栏收成一行：返回 + 年份在左，经期/今天在右。原来那个「日历 / CALENDAR」大标题
     // 白占掉小半屏，删了（她 2026-08-26 对比 float：「TA的每一个比我们的大」）。
@@ -3832,22 +3832,22 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog, lineHeight: 1 } }, "‹"),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, mode === "day" ? (ym.m + 1) + "月" : ym.y + "年")),
       h("div", { "data-wk": "headink", className: "flex items-center gap-3" },
-        view === "mine" && h("button", { onClick: () => setPSet(true), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "经期"),
-        h("button", { onClick: () => { setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); setMode("month"); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "今天"))),
+        view === "mine" && h("button", { "data-wk": "calbtn", "data-part": "period", onClick: () => setPSet(true), className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "经期"),
+        h("button", { "data-wk": "calbtn", "data-part": "today", onClick: () => { setDaySel(todayKey); setYm({ y: today.getFullYear(), m: today.getMonth() }); setMode("month"); }, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.tint } }, "今天"))),
     personRow,
     mode === "month" ? monthView() : dayView(),
 
     // FAB
     h("div", { style: { position: "absolute", right: 18, bottom: 22, zIndex: 30 } },
-      fab && h("div", { style: { position: "absolute", right: 0, bottom: 62, width: 190, background: t.bg2, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
-        h("button", { onClick: () => { setFab(false); setForm({ owner: view, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
-        isCharView && h("button", { onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
+      fab && h("div", { "data-wk": "calfabmenu", style: { position: "absolute", right: 0, bottom: 62, width: 190, background: t.bg2, borderRadius: 16, boxShadow: "0 10px 30px rgba(0,0,0,0.16)", overflow: "hidden" } },
+        h("button", { "data-wk": "calfabitem", "data-part": "new", onClick: () => { setFab(false); setForm({ owner: view, startDate: daySel, endDate: daySel, startTime: "09:00", endTime: "10:00" }); }, className: "w-full text-left active:opacity-60", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px" } }, "＋　新增日程"),
+        isCharView && h("button", { "data-wk": "calfabitem", "data-part": "genweek", onClick: () => { setFab(false); onGenWeek && onGenWeek(curChar); }, disabled: genWeekBusy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } }, genWeekBusy ? "　　正在排…" : "✨　AI 排剩下这几天"),
         // 删掉这几天 AI 排的（她 2026-09-18）。算一下真有几天，按钮上写清删几天——
         // 「删除」两个字底下藏着多少东西，得让她在按之前就看见。
         isCharView && (() => {
           const keys = typeof schedWeekKeys === "function" ? (schedWeekKeys(curChar) || []) : [];
           const have = keys.filter(k => ((schedules || {})[curChar.id] || {})[k]).length;
-          return h("button", {
+          return h("button", { "data-wk": "calfabitem", "data-part": "delweek",
             onClick: () => {
               setFab(false);
               requestAppConfirm("删掉 " + (curChar.remark || curChar.name) + " 这 " + have + " 天 AI 排的日程？",
@@ -3862,9 +3862,9 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         // 角色那档不再给这个：他们的日子现在由「AI 排剩下这几天」整天整天地排出来，
         // 再来一层月度事件是重复的（她 2026-08-26）。手填照常，旧数据照常显示、照常喂给角色。
         // 世界大事是另一回事——所有角色都知道的公共事件，留在「我」这档。
-        view === "mine" && h("button", { onClick: () => { setFab(false); setGenOpen(true); }, disabled: busy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } },
+        view === "mine" && h("button", { "data-wk": "calfabitem", "data-part": "genmonth", onClick: () => { setFab(false); setGenOpen(true); }, disabled: busy, className: "w-full text-left active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "13px 16px", borderTop: "1px solid " + t.line } },
           "🌐　AI 生成本月世界大事")),
-      h("button", { onClick: () => setFab(v => !v), className: "active:opacity-70 flex items-center justify-center", style: { width: 52, height: 52, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 26, boxShadow: "0 8px 22px rgba(0,0,0,0.22)" } }, fab ? "×" : "＋")),
+      h("button", { "data-wk": "calfab", onClick: () => setFab(v => !v), className: "active:opacity-70 flex items-center justify-center", style: { width: 52, height: 52, borderRadius: 999, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 26, boxShadow: "0 8px 22px rgba(0,0,0,0.22)" } }, fab ? "×" : "＋")),
 
     form && h(CalEventForm, { initial: form, owner: view, ownerName: view === "mine" ? "我" : view === "world" ? "世界" : (curChar ? (curChar.remark || curChar.name) : ""), 
       onClose: () => setForm(null),
@@ -3873,11 +3873,11 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
 
     // 块详情
     dayEv && h(PageSheet, { onClose: () => setDayEv(null) },
-      h("div", { className: "px-1 pb-2" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, (dayEv.b.icon ? dayEv.b.icon + " " : "") + dayEv.b.title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4 } },
+      h("div", { "data-wk": "calevdetail", className: "px-1 pb-2" },
+        h("div", { "data-wk": "calevtitle", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, (dayEv.b.icon ? dayEv.b.icon + " " : "") + dayEv.b.title),
+        h("div", { "data-wk": "calevtime", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4 } },
           calHM(dayEv.b.from) + "–" + (dayEv.b.to >= 1440 ? "24:00" : calHM(dayEv.b.to)) + (dayEv.b.location ? " · " + dayEv.b.location : "") + (dayEv.b.ai ? " · AI 排的" : "")),
-        dayEv.b.dev && h("div", { style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#c25a4a11", border: "1px solid #c25a4a44", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } },
+        dayEv.b.dev && h("div", { "data-wk": "calevdev", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#c25a4a11", border: "1px solid #c25a4a44", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } },
           "原本要：" + (dayEv.b.dev.plan || "—") + "\n后来：" + (dayEv.b.dev.actual || "—") + "\n因为：" + (dayEv.b.dev.reason || "—")),
         (() => {
           const plan = isCharView ? ((schedules || {})[view] || {})[dayEv.dk] : null;
@@ -3885,13 +3885,13 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           const near = ms.filter(m => { const mm = calMinOf(m.time); return mm != null && mm >= dayEv.b.from - 30 && mm <= dayEv.b.to + 30; });
           return near.length ? h("div", { style: { marginTop: 10 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 4 } }, "这会儿的碎碎念"),
-            near.map((m, i) => h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, (m.time || "") + "　" + m.text))) : null;
+            near.map((m, i) => h("div", { "data-wk": "calevmurmur", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } }, (m.time || "") + "　" + m.text))) : null;
         })(),
         calPlanLoadLine(schedules, view, dayEv.dk, isCharView, t),
         // 两个粒度并排：左边只删这一段、右边整天清掉。
         // ⚠️「只删这一段」只在有 raw 时给——凌晨那条是【昨晚睡过来的】那一截（carry），
         //   它不是今天 seqs 里的一段，删它得回到昨天那一天去删。
-        dayEv.b.ai && isCharView && dayEv.b.raw && dayEv.b.raw.seq && h("button", {
+        dayEv.b.ai && isCharView && dayEv.b.raw && dayEv.b.raw.seq && h("button", { "data-wk": "calbtn", "data-part": "delseq",
           onClick: () => {
             requestAppConfirm("只删掉「" + (dayEv.b.title || "这一段") + "」？",
               "这一天别的安排都留着，时间线上会空出这一段。",
@@ -3899,7 +3899,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           },
           className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" }
         }, "只删这一段"),
-        dayEv.b.ai && isCharView && h("button", {
+        dayEv.b.ai && isCharView && h("button", { "data-wk": "calbtn", "data-part": "delday",
           onClick: () => {
             const dk = dayEv.dk, a = String(dk).split("-");
             requestAppConfirm("删掉 " + Number(a[1]) + "月" + Number(a[2]) + "日 AI 排的日程？",
@@ -3909,25 +3909,25 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           className: "w-full active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" }
         }, "删掉这天 AI 排的日程"),
         !dayEv.b.ai && h("div", { className: "flex gap-2", style: { marginTop: 14 } },
-          h("button", { onClick: () => { setForm(Object.assign({}, dayEv.b.ev)); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "编辑"),
-          h("button", { onClick: () => { onDelTimed && onDelTimed(dayEv.b.ev.id); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除")))),
+          h("button", { "data-wk": "calbtn", "data-part": "edit", onClick: () => { setForm(Object.assign({}, dayEv.b.ev)); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "编辑"),
+          h("button", { "data-wk": "calbtn", "data-part": "delete", onClick: () => { onDelTimed && onDelTimed(dayEv.b.ev.id); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除")))),
 
     visPick && h(Sheet, { onClose: () => setVisPick(false), tall: true },
-      h("div", { className: "px-1 pb-2" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到我的日历和经期"),
+      h("div", { "data-wk": "calvis", className: "px-1 pb-2" },
+        h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到我的日历和经期"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "选中的角色才知道你的生日、私人日历与经期"),
-        chars.map(c => h("button", { key: c.id, onClick: () => toggleVis(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
+        chars.map(c => h("button", { "data-wk": "calvisrow", "data-on": visSet.includes(c.id) ? "1" : "0", key: c.id, onClick: () => toggleVis(c.id), className: "w-full flex items-center gap-3 active:opacity-70", style: { padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h(Avatar, { character: c, size: 34, radius: 10 }),
           h("span", { style: { flex: 1, textAlign: "left", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: visSet.includes(c.id) ? t.tint : t.fog } }, visSet.includes(c.id) ? "可见" : "不可见"))))),
 
     // AI 生成本月（沿用旧的全天事件那一层）
     genOpen && h(PageSheet, { onClose: () => setGenOpen(false) },
-      h("div", { className: "px-1 pb-2" },
+      h("div", { "data-wk": "calgen", className: "px-1 pb-2" },
         h(Eyebrow, { style: { marginBottom: 8 } }, "AI 生成 " + (ym.m + 1) + " 月 · " + (view === "mine" ? "世界大事" : (curChar ? (curChar.remark || curChar.name) : ""))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.5 } }, view === "mine" ? "生成整月的公共大事（所有角色都知道的那种，会挂 🌐 显示）" : "生成这位角色这个月自己的事"),
-        h("input", { value: genPrompt, onChange: e => setGenPrompt(e.target.value), placeholder: "想要什么样的事件？（可留空）", className: "w-full outline-none", style: { padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, marginBottom: 10 } }),
-        h("button", { onClick: () => { onGenMonth(view === "mine" ? "world" : view, ym.y, ym.m, genPrompt); setGenOpen(false); setGenPrompt(""); }, disabled: busy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px 0" } }, busy ? "生成中…" : "生成"))),
+        h("input", { "data-wk": "calinput", "data-part": "genprompt", value: genPrompt, onChange: e => setGenPrompt(e.target.value), placeholder: "想要什么样的事件？（可留空）", className: "w-full outline-none", style: { padding: "10px 12px", borderRadius: 10, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, marginBottom: 10 } }),
+        h("button", { "data-wk": "calbtn", "data-part": "gen", onClick: () => { onGenMonth(view === "mine" ? "world" : view, ym.y, ym.m, genPrompt); setGenOpen(false); setGenPrompt(""); }, disabled: busy, className: "w-full active:opacity-80 disabled:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px 0" } }, busy ? "生成中…" : "生成"))),
     busy && h("div", { className: "absolute inset-x-0 bottom-6 flex justify-center" }, h(Spinner, { label: "AI 正在生成…" })));
 }
 // 负荷/工时那一行（只有角色视角、且当天有 AI 排的行程才显示）
@@ -3963,29 +3963,29 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
   const allDay = !stt;
   const rec = repeat !== "none";
   const inSt = { width: "100%", outline: "none", padding: "11px 13px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14.5, color: t.ink };
-  const lbl = s => h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 5 } }, s);
+  const lbl = s => h("div", { "data-wk": "calformlabel", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 5 } }, s);
   const save = () => {
     if (!title.trim() || !sd) return;
     // 重复的一律单日：跨天 + 重复叠在一起讲不清楚，备忘录那边也是单日
     onSave({ id: ini.id, owner: ini.owner || owner, startDate: sd, endDate: rec ? sd : (ed || sd), startTime: stt, endTime: stt ? ett : "", title: title.trim(), location: loc.trim(), icon, color, repeat, createdAt: ini.createdAt });
   };
   return h(PageSheet, { onClose, tall: true },
-    h("div", { className: "px-1 pb-3" },
+    h("div", { "data-wk": "calform", className: "px-1 pb-3" },
       h("div", { className: "flex items-center justify-between", style: { marginBottom: 14 } },
-        h("button", { onClick: onClose, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog } }, "‹"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, ini.id ? "编辑日程" : "新增日程"),
-        h("button", { onClick: save, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 20, color: title.trim() && sd ? t.ink : t.line } }, "✓")),
+        h("button", { "data-wk": "calbtn", "data-part": "formback", onClick: onClose, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.fog } }, "‹"),
+        h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, ini.id ? "编辑日程" : "新增日程"),
+        h("button", { "data-wk": "calbtn", "data-part": "formsave", onClick: save, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 20, color: title.trim() && sd ? t.ink : t.line } }, "✓")),
       ownerName && h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "记在「" + ownerName + "」名下"),
       h("div", { className: "flex gap-3", style: { marginBottom: 12 } },
-        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("开始日期"), h("input", { type: "date", value: sd, onChange: e => { setSd(e.target.value); if (!ed || ed < e.target.value) setEd(e.target.value); }, style: inSt })),
-        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束日期"), h("input", { type: "date", value: rec ? sd : ed, min: sd, disabled: rec, onChange: e => setEd(e.target.value), style: Object.assign({}, inSt, rec ? { opacity: 0.45 } : null) }))),
+        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("开始日期"), h("input", { "data-wk": "calinput", "data-part": "startdate", type: "date", value: sd, onChange: e => { setSd(e.target.value); if (!ed || ed < e.target.value) setEd(e.target.value); }, style: inSt })),
+        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束日期"), h("input", { "data-wk": "calinput", "data-part": "enddate", type: "date", value: rec ? sd : ed, min: sd, disabled: rec, onChange: e => setEd(e.target.value), style: Object.assign({}, inSt, rec ? { opacity: 0.45 } : null) }))),
       rec ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: -6, marginBottom: 12 } }, "重复的日程按单日算，日期这一栏只用来定从哪天起") : null,
       h("div", { className: "flex gap-3", style: { marginBottom: 12 } },
-        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("开始时间"), h("input", { type: "time", value: stt, onChange: e => setStt(e.target.value), style: inSt })),
-        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束时间"), h("input", { type: "time", value: ett, disabled: allDay, onChange: e => setEtt(e.target.value), style: Object.assign({}, inSt, allDay ? { opacity: 0.45 } : null) }))),
+        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("开始时间"), h("input", { "data-wk": "calinput", "data-part": "starttime", type: "time", value: stt, onChange: e => setStt(e.target.value), style: inSt })),
+        h("div", { style: { flex: 1, minWidth: 0 } }, lbl("结束时间"), h("input", { "data-wk": "calinput", "data-part": "endtime", type: "time", value: ett, disabled: allDay, onChange: e => setEtt(e.target.value), style: Object.assign({}, inSt, allDay ? { opacity: 0.45 } : null) }))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: -6, marginBottom: 12 } }, allDay ? "开始时间留空 = 全天事件（画在顶部那条）" : "留空开始时间就变回全天"),
-      h("div", { style: { marginBottom: 12 } }, lbl("事项"), h("input", { value: title, onChange: e => setTitle(e.target.value), placeholder: "例如：部门周会", style: inSt })),
-      h("div", { style: { marginBottom: 14 } }, lbl("地点"), h("input", { value: loc, onChange: e => setLoc(e.target.value), placeholder: "例如：公司会议室 / 家里 / 商场", style: inSt })),
+      h("div", { style: { marginBottom: 12 } }, lbl("事项"), h("input", { "data-wk": "calinput", "data-part": "title", value: title, onChange: e => setTitle(e.target.value), placeholder: "例如：部门周会", style: inSt })),
+      h("div", { style: { marginBottom: 14 } }, lbl("地点"), h("input", { "data-wk": "calinput", "data-part": "location", value: loc, onChange: e => setLoc(e.target.value), placeholder: "例如：公司会议室 / 家里 / 商场", style: inSt })),
       lbl("重复"),
       h("div", { className: "flex gap-2 flex-wrap", style: { marginBottom: 6 } },
         // ── 不是一排药丸（tabs-not-plain-pills）───────────────────────
@@ -3995,7 +3995,7 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
         //   不是只换个填色。
         (typeof CAL_REPEAT_OPTIONS !== "undefined" ? CAL_REPEAT_OPTIONS : [["none", "不重复"]]).map(([v, l]) => {
           const on = repeat === v;
-          return h("button", { key: v, onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0",
+          return h("button", { "data-wk": "calrepeat", "data-on": on ? "1" : "0", "data-part": v, key: v, onClick: () => setRepeat(v), className: "active:opacity-70 shrink-0",
             style: { position: "relative", fontFamily: F_BODY, fontSize: 12.5, padding: "9px 13px", minHeight: 40,
               borderRadius: 3, background: "transparent", color: on ? t.ink : t.sub,
               border: "1px solid " + (on ? "transparent" : t.line) } },
@@ -4016,15 +4016,15 @@ function CalEventForm({ initial, owner, ownerName, onClose, onSave, onDelete }) 
         })()) : h("div", { style: { marginBottom: 8 } }),
       lbl("图标（点选，再点一次取消）"),
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 7, marginBottom: 14 } },
-        CAL_EVENT_ICONS.map(ic => h("button", { key: ic, onClick: () => setIcon(icon === ic ? "" : ic), className: "active:opacity-60",
+        CAL_EVENT_ICONS.map(ic => h("button", { "data-wk": "caliconpick", "data-on": icon === ic ? "1" : "0", key: ic, onClick: () => setIcon(icon === ic ? "" : ic), className: "active:opacity-60",
           style: { aspectRatio: "1", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 19, borderRadius: 11,
             background: icon === ic ? t.ink : t.bg2, border: "1px solid " + (icon === ic ? t.ink : t.line) } }, ic))),
       lbl("颜色"),
       h("div", { style: { display: "flex", flexWrap: "wrap", gap: 9, alignItems: "center", marginBottom: 6 } },
-        h("button", { onClick: () => setColor(""), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 16px", borderRadius: 999, background: color ? t.bg2 : t.ink, color: color ? t.sub : t.bg2, border: "1px solid " + t.line } }, "自动"),
-        CAL_EVENT_COLORS.map(c => h("button", { key: c, onClick: () => setColor(c), className: "active:opacity-70",
+        h("button", { "data-wk": "calcolorpick", "data-part": "none", "data-on": color ? "0" : "1", onClick: () => setColor(""), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 16px", borderRadius: 999, background: color ? t.bg2 : t.ink, color: color ? t.sub : t.bg2, border: "1px solid " + t.line } }, "自动"),
+        CAL_EVENT_COLORS.map(c => h("button", { "data-wk": "calcolorpick", "data-on": color === c ? "1" : "0", key: c, onClick: () => setColor(c), className: "active:opacity-70",
           style: { width: 34, height: 34, borderRadius: 999, background: c, border: color === c ? "2.5px solid " + t.ink : "1px solid " + t.line } }))),
-      ini.id && h("button", { onClick: () => onDelete(ini.id), className: "w-full active:opacity-70", style: { marginTop: 16, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除这条日程")));
+      ini.id && h("button", { "data-wk": "calbtn", "data-part": "formdelete", onClick: () => onDelete(ini.id), className: "w-full active:opacity-70", style: { marginTop: 16, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除这条日程")));
 }
 // 主屏装饰组件共用的外观预设。预设不只换颜色，也同时规定圆角、边框、材质与留白。
 // 原生与贴合用于组件，无框用于装饰，其余预设两边共用。
@@ -4757,7 +4757,7 @@ function HomeDecorItem({ item, preset, now }) {
     var srcs = normalizeHomePhotoSlots(refs, frame).map(function (ref) { return ref && typeof resolveImg === "function" ? resolveImg(ref) : ref; });
     var caption = item.caption || item.text || "";
     var photo = function (src, i, style) {
-      return h("div", { key: i, style: Object.assign({ overflow: "hidden", background: dark ? "#0d0d0c" : t.bg2 }, style || {}, !src && gnd ? { background: "transparent" } : {}) },
+      return h("div", { key: i, "data-wk": "wicon", "data-part": "photo", style: Object.assign({ overflow: "hidden", background: dark ? "#0d0d0c" : t.bg2 }, style || {}, !src && gnd ? { background: "transparent" } : {}) },
         src ? h("img", { src: src, alt: caption || "桌面照片", draggable: false, style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } }) : h("div", { "aria-label": "空照片位", style: { width: "100%", height: "100%" } }));
     };
     var body;
@@ -5018,7 +5018,7 @@ function HomeDecorItem({ item, preset, now }) {
     if (gnd && body && body.props) body = React.cloneElement(body, { style: Object.assign({}, body.props.style, gnd) });
     else if (bareBoard && body && body.props) body = React.cloneElement(body, { style: unBoard(body.props.style) });
     return h("div", { style: { width: "100%", height: "100%", position: "relative", minWidth: 0, overflow: "hidden" } }, body,
-      caption && frame !== "magazine3" ? h("div", { style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
+      caption && frame !== "magazine3" ? h("div", { "data-wk": "wsub", "data-part": "caption", style: { position: "absolute", left: 8, right: 8, bottom: 7, color: "#fff", fontFamily: F_DISPLAY, fontSize: 12, textShadow: "0 1px 6px rgba(0,0,0,.75)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", zIndex: 4 } }, caption) : null);
   }
   var meta = homeDecorMeta(item.type);
   var title = item.text || meta.text;
@@ -5031,17 +5031,17 @@ function HomeDecorItem({ item, preset, now }) {
     var number = days == null ? "—" : item.type === "countdown" ? Math.max(0, days) : Math.max(0, -days);
     var unit = item.type === "countdown" ? (days < 0 ? "已经到了" : "天后") : "天";
     return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 62, padding: "8px 11px", color: ink, display: "flex", alignItems: "center", gap: 10, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)" }) },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, color: accent } }, number),
-      h("div", { style: { minWidth: 0 } }, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 3 } }, unit + (target ? " · " + detail : " · 填一个日期"))));
+      h("div", { "data-wk": "wnum", style: { fontFamily: F_DISPLAY, fontSize: 29, lineHeight: 1, color: accent } }, number),
+      h("div", { style: { minWidth: 0 } }, h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 9.5, color: sub, marginTop: 3 } }, unit + (target ? " · " + detail : " · 填一个日期"))));
   }
   if (item.type === "rotate") {
     var lines = String(detail || "").split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean);
     var dayNo = Math.floor((now instanceof Date ? now : new Date()).getTime() / 86400000);
     var dailyLine = lines.length ? lines[dayNo % lines.length] : title;
     return h("div", { style: onGnd({ width: "100%", height: "100%", minHeight: 62, padding: "10px 13px", color: ink, background: dark ? "rgba(255,255,255,.04)" : "rgba(255,250,241,.72)", display: "flex", flexDirection: "column", justifyContent: "center" }) },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginBottom: 4 } }, title),
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, dailyLine));
+      h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginBottom: 4 } }, title),
+      h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.45, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, dailyLine));
   }
   // 快捷入口（她 2026-09-28）：当成一枚【自己做的 app 图标】——默认是一块空白的面，
   //   样子全交给「什么样子」那一栏（底色、放一张图、边线、贴纸）；字可写可不写，写了才出现。
@@ -5049,14 +5049,14 @@ function HomeDecorItem({ item, preset, now }) {
   if (item.type === "shortcut") {
     const label = String(item.text || "").trim() === "打开一处" ? "" : String(item.text || "").trim();
     return h("div", { "data-home-shortcut": true, style: onGnd({ width: "100%", height: "100%", minHeight: 40, color: ink, background: dark ? "rgba(255,255,255,.06)" : "rgba(255,250,241,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 6, textAlign: "center" }) },
-      label ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" } }, label) : null);
+      label ? h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.3, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflowWrap: "anywhere" } }, label) : null);
   }
   if (item.type === "ticket") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 68, display: "flex", alignItems: "stretch", color: ink, overflow: "hidden", position: "relative" } },
       h("div", { style: onGnd({ flex: 1, minWidth: 0, padding: "8px 12px 8px 10px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderRight: "1px dashed " + (dark ? "rgba(255,255,255,.38)" : "rgba(89,68,46,.42)"), background: dark ? "rgba(255,255,255,.035)" : "rgba(199,156,91,.10)", clipPath: "polygon(0 0,100% 0,100% 42%,96% 50%,100% 58%,100% 100%,0 100%)" }) },
         h("div", { style: { fontFamily: "monospace", fontSize: 7, letterSpacing: ".18em", color: sub } }, "ADMIT ONE · " + String(new Date(item.createdAt || Date.now()).getFullYear())),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.22, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)),
+        h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.22, marginTop: 5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 9, color: sub, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)),
       h("div", { style: onGnd({ width: "25%", minWidth: 47, padding: "7px 5px", border: "1px solid " + (dark ? "rgba(255,255,255,.28)" : "rgba(89,68,46,.28)"), borderLeft: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "space-between", background: dark ? "rgba(255,255,255,.06)" : "rgba(184,119,66,.13)" }) },
         h("span", { style: { fontFamily: "monospace", fontSize: 6.5, color: sub, writingMode: "vertical-rl", letterSpacing: ".12em" } }, "NO. " + String((item.createdAt || 1) % 10000).padStart(4, "0")),
         h("span", { style: { width: "80%", height: 12, background: "repeating-linear-gradient(90deg," + ink + " 0 1px,transparent 1px 3px," + ink + " 3px 5px,transparent 5px 7px)", opacity: .6 } })));
@@ -5134,8 +5134,8 @@ function HomeDecorItem({ item, preset, now }) {
   if (item.type === "letter") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 130, position: "relative", color: ink, overflow: "hidden" } },
       h("div", { style: { position: "absolute", left: "12%", right: "12%", top: "5%", height: "60%", padding: "11px 10px", background: dark ? "#eee5d7" : "#fffaf0", color: "#4f4437", border: "1px solid rgba(87,65,42,.18)", transform: "rotate(-2deg)", boxShadow: "0 5px 13px rgba(45,33,23,.16)" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.45, color: "#877868", marginTop: 5 } }, detail)),
+        h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 8.5, lineHeight: 1.45, color: "#877868", marginTop: 5 } }, detail)),
       h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: "4%", height: "57%", background: dark ? "#38322b" : "#dbc9ab", border: "1px solid " + (dark ? "#554b40" : "#b9a17c"), clipPath: "polygon(0 0,50% 55%,100% 0,100% 100%,0 100%)", zIndex: 2 } }),
       h("div", { style: { position: "absolute", left: "3%", right: "3%", bottom: "4%", height: "55%", background: dark ? "#41392f" : "#ead9bb", clipPath: "polygon(0 100%,0 28%,50% 72%,100% 28%,100% 100%)", zIndex: 3 } }),
       h("div", { style: { position: "absolute", left: "50%", bottom: "17%", width: 28, height: 28, transform: "translateX(-50%)", borderRadius: 999, background: "#a64d45", color: "rgba(255,238,216,.78)", boxShadow: "inset 0 0 0 3px rgba(91,35,31,.20)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 4, fontFamily: "Georgia,serif", fontSize: 12 } }, "L"));
@@ -5144,7 +5144,7 @@ function HomeDecorItem({ item, preset, now }) {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 126, position: "relative", overflow: "hidden", color: gnd && dark ? "#f2ece0" : dark ? "#302b24" : "#4c4437" } },
       h("div", { style: onGnd({ position: "absolute", inset: "3% 4% 5% 3%", padding: "18px 14px 12px", background: dark ? "#d8c88a" : "#f3e3a2", transform: "rotate(-1.5deg)", boxShadow: "0 8px 18px rgba(48,39,24,.18)", clipPath: "polygon(0 0,100% 0,100% 82%,87% 100%,0 100%)" }) },
         h("span", { style: { position: "absolute", width: 44, height: 11, left: "50%", top: 4, transform: "translateX(-50%) rotate(2deg)", background: "rgba(255,255,255,.48)" } }),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.25 } }, title),
+        h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 16, lineHeight: 1.25 } }, title),
         h("div", { style: { display: "flex", alignItems: "flex-start", gap: 6, marginTop: 11, color: gnd && dark ? "rgba(242,236,224,.78)" : "#746650", fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.4 } }, h("span", { style: { width: 10, height: 10, border: "1px solid " + (gnd && dark ? "rgba(242,236,224,.6)" : "#8a795f"), flexShrink: 0, marginTop: 1 } }), h("span", null, detail)),
         h("div", { style: { position: "absolute", right: 0, bottom: 0, width: "13%", height: "18%", background: "linear-gradient(135deg,#d3bd70 0 49%,rgba(255,255,255,.45) 51% 100%)" } })));
   }
@@ -5156,9 +5156,9 @@ function HomeDecorItem({ item, preset, now }) {
           h("span", { style: { position: "absolute", left: "36%", right: "36%", height: 2, background: "#8c7e6e" } })),
         h("div", { style: { position: "absolute", left: "23%", right: "23%", bottom: 4, height: 13, clipPath: "polygon(11% 0,89% 0,100% 100%,0 100%)", border: "1px solid #897b6d", background: dark ? "#171614" : "#c9bcaa" } })),
       h("div", { style: { minWidth: 0, flex: 1 } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
         h("div", { style: { height: 14, display: "flex", alignItems: "center", gap: 2, marginTop: 6 } }, [5, 10, 7, 13, 8, 4, 11, 6, 9, 5].map(function (n, i) { return h("span", { key: i, style: { width: 2, height: n, borderRadius: 2, background: accent, opacity: .75 } }); })),
-        h("div", { style: { fontFamily: "monospace", fontSize: 8, color: sub, marginTop: 2 } }, detail)));
+        h("div", { "data-wk": "wsub", style: { fontFamily: "monospace", fontSize: 8, color: sub, marginTop: 2 } }, detail)));
   }
   if (item.type === "trinket") {
     return h("div", { style: { width: "100%", height: "100%", minHeight: 132, position: "relative", overflow: "hidden", color: ink, border: "1px solid " + (dark ? "rgba(255,255,255,.25)" : "rgba(85,70,52,.28)"), background: dark ? "linear-gradient(150deg,#262522,#111)" : "linear-gradient(150deg,rgba(255,255,255,.46),rgba(214,201,181,.38))", boxShadow: "inset 0 0 20px rgba(255,255,255,.20)" } },
@@ -5166,21 +5166,21 @@ function HomeDecorItem({ item, preset, now }) {
         h("span", { style: { position: "absolute", left: "50%", top: "34%", width: 20, height: 20, transform: "translate(-50%,-50%) rotate(45deg)", border: "2px solid " + (dark ? "#e6ca85" : "#a77b42"), background: dark ? "#31302c" : "#f5ead8" } })),
       h("div", { style: { position: "absolute", left: "9%", right: "9%", top: "59%", height: 1, background: dark ? "rgba(255,255,255,.18)" : "rgba(75,61,45,.2)" } }),
       h("div", { style: { position: "absolute", left: 10, right: 10, bottom: 9, textAlign: "center" } },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 7.5, color: sub, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)));
+        h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, title),
+        h("div", { "data-wk": "wsub", style: { fontFamily: F_BODY, fontSize: 7.5, color: sub, marginTop: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, detail)));
   }
   if (item.type === "date") {
     var d = now instanceof Date ? now : new Date();
     // 这两款自己没有纸——它们的纸就是外面那张卡。所以底套在根上；不挑照旧透明。
     return h("div", { style: onGnd({ width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink }) },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 36, lineHeight: .9, letterSpacing: "-.04em" } }, String(d.getDate()).padStart(2, "0")),
+      h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 36, lineHeight: .9, letterSpacing: "-.04em" } }, String(d.getDate()).padStart(2, "0")),
       h("div", { style: { minWidth: 0, borderLeft: "1px solid " + (dark ? "rgba(255,255,255,.24)" : t.line), paddingLeft: 10 } },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".18em", color: sub } }, d.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase()),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, item.text || d.toLocaleDateString("zh-CN", { weekday: "long" }))));
+        h("div", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".18em", color: sub } }, d.toLocaleDateString("en-US", { month: "short", year: "numeric" }).toUpperCase()),
+        h("div", { "data-wk": "wsub", style: { fontFamily: F_DISPLAY, fontSize: 12, marginTop: 3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, item.text || d.toLocaleDateString("zh-CN", { weekday: "long" }))));
   }
   return h("div", { style: onGnd({ width: "100%", height: "100%", display: "flex", alignItems: "center", gap: 10, color: ink, minWidth: 0 }) },
     h("div", { style: { fontFamily: "Georgia,serif", fontSize: 35, lineHeight: .7, color: accent, alignSelf: "flex-start", paddingTop: 7 } }, "“"),
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.45, minWidth: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, item.text || "把喜欢的日子，慢慢摆在桌面上。"));
+    h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13.5, lineHeight: 1.45, minWidth: 0, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, item.text || "把喜欢的日子，慢慢摆在桌面上。"));
 }
 function HomePresetGrid({ value, onChange, allowNative }) {
   const t = useTheme();
@@ -7176,7 +7176,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
         // 改法：左栏自己撑满这一行（self-stretch + flex 列），标签用 marginTop:auto
         // 沉到中部；那排数改成跟着标签走的小间距，两层连成一组。
         h("div", { className: "flex-1 min-w-0 self-stretch flex flex-col" },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: onCover ? ink : inkA(.92), textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
+          h("div", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1.05, color: onCover ? ink : inkA(.92), textShadow: shadow, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, name),
           // ⚠️这一栏的 marginTop/paddingTop 就是卡片长高的唯一来源（她 2026-09-03
           // 两次报「高度又被撑高了」）：左栏一旦比头像那一块（58）高，多出来的
           // 全部变成卡片高度——marginTop:"auto" 只能吸掉【还有富余】时的那点空，
@@ -7184,12 +7184,12 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
           // 签名是一小段话，不是一个副标题：给它整块【到头像为止】的宽度，
           // 自然折行、最多两行（超了才截）。原来 nowrap＋省略号，写长一点就只剩半句，
           // 而卡片中间那块空档正好是留给它的（她 2026-09-03 转的意见）。
-          h("div", { className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.25, color: onCover ? dim : inkA(.63), textShadow: shadow, marginTop: 5, whiteSpace: "normal", overflowWrap: "break-word" } },
+          h("div", { "data-wk": "wsub", className: "line-clamp-2", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.25, color: onCover ? dim : inkA(.63), textShadow: shadow, marginTop: 5, whiteSpace: "normal", overflowWrap: "break-word" } },
             sign ? sign.replace(/\s*\n\s*/g, " ") : "点铅笔写一句签名"),
           // 标签不做药丸：一行小字，用「/」隔开
           // ⚠️两个标签同一级，只有中间那道斜杠更淡——所以不能再 join 成一串，
           // 一串只能有一个颜色。仍然是一行小字，不是药丸也不是标签胶囊。
-          tags.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: "auto", paddingTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
+          tags.length ? h("div", { "data-wk": "wlabel", "data-part": "tags", style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: "0.06em", color: onCover ? dim : inkA(.62), textShadow: shadow, marginTop: "auto", paddingTop: 4, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } },
             tags.map(function (tg, i) {
               return h(React.Fragment, { key: i },
                 i ? h("span", { style: { color: onCover ? "rgba(255,255,255,.5)" : inkA(.34) } }, "　/　") : null, tg);
@@ -7201,7 +7201,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
         // 描边用【暖奶油色】不要纯白、影要很轻、再往左让 3px 免得贴着右边框。
         // ⚠️奶油色也从主题算：浅底＝把 bg2 提亮一档（保住色相），深底＝一圈淡墨，
         // 铺了封面图那一路仍走半透明白（那时候要的是能压住图的边）。
-        h("button", { onClick: onEditProfile, className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 999, padding: 2, marginRight: 3,
+        h("button", { onClick: onEditProfile, "data-wk": "wicon", "data-part": "avatar", className: "active:opacity-70", style: { flexShrink: 0, alignSelf: "center", borderRadius: 999, padding: 2, marginRight: 3,
             background: onCover ? "rgba(255,255,255,.72)" : (typeof skinIsDark === "function" && skinIsDark(t.bg) ? inkA(.34) : skinShade(t.bg2, .3)),
             boxShadow: onCover ? "0 2px 8px rgba(0,0,0,.36)" : "0 2px 6px rgba(30,28,24,.13)" } },
           // 名片头像跟聊天头像分开（她 2026-09-04：「把主页我的名片和我聊天头像分成俩不一样的」）。
@@ -7212,12 +7212,12 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
       // 收紧成【一行连续的 metadata】：三项之间不再靠一大段空隙分开，
       // 改成一颗小圆点断开（比空隙更明确、又比分隔线轻）。仍然不是三个格子、三个胶囊。
-      h("div", { className: "flex items-baseline", style: { marginTop: 5, paddingTop: 0, gap: 7, paddingRight: 78 } },
+      h("div", { "data-wk": "wrow", "data-part": "stats", className: "flex items-baseline", style: { marginTop: 5, paddingTop: 0, gap: 7, paddingRight: 78 } },
         stats.map((st, i) => h(React.Fragment, { key: i },
           i ? h("span", { style: { fontFamily: F_BODY, fontSize: 8, lineHeight: 1, color: onCover ? "rgba(255,255,255,.45)" : inkA(.26), textShadow: shadow } }, "•") : null,
           h("span", { className: "flex items-baseline", style: { gap: 3.5 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1, color: onCover ? ink : inkA(.76), textShadow: shadow } }, st[0]),
-            h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: "0.1em", color: onCover ? dim : inkA(.48), textShadow: shadow } }, st[1])))))));
+            h("span", { "data-wk": "wnum", style: { fontFamily: F_DISPLAY, fontSize: 14.5, lineHeight: 1, color: onCover ? ink : inkA(.76), textShadow: shadow } }, st[0]),
+            h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: "0.1em", color: onCover ? dim : inkA(.48), textShadow: shadow } }, st[1])))))));
 }
 // 编辑名片：昵称 / 签名 / 标签(逗号隔开)
 function HomeCardSheet({ card, profile, onSave, onClose }) {
@@ -11239,46 +11239,46 @@ function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, 
   // 一个 data-wk 挂点都没有，「匿名问答」这一页的主题 CSS 抓不到顶栏。
   // ⚠️外壳那条 paddingTop: env(safe-area-inset-top) 也一起撤掉——同一条规矩：
   //   刘海归顶栏自己吃，页面外壳不许另垫一条状态栏空带；两边都垫就是垫了两次。
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
+  return h("div", { "data-wk": "anonpage", className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
     h(Head, { zh: "匿名问答", onBack: onBack, ink: A.ink, lineInk: A.line, bg: "transparent" }),
-    h("div", { ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 12 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
-      h("div", { style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "11px 13px", borderRadius: 14, background: A.card, border: `1px solid ${A.line}` } },
+    h("div", { "data-wk": "anonbody", ref: scrollRef, onScroll: function (e) { sessionStorage.setItem("x_anonHubScroll", String(e.currentTarget.scrollTop || 0)); }, className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
+      h("div", { "data-wk": "anonintro", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.65, color: A.sub, marginBottom: 12 } }, "每个人都有自己的匿名马甲。挑一个人进去看回答，或匿名问 Ta 一句话。"),
+      h("div", { "data-wk": "anonpool", style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 16, padding: "11px 13px", borderRadius: 14, background: A.card, border: `1px solid ${A.line}` } },
         h("div", { className: "min-w-0 flex-1" },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: A.ink } }, "匿名题库 · 还剩 " + (poolCount || 0) + " 条"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10, lineHeight: 1.55, color: A.fog, marginTop: 2 } },
+          h("div", { "data-wk": "anonpooltitle", style: { fontFamily: F_BODY, fontSize: 12, color: A.ink } }, "匿名题库 · 还剩 " + (poolCount || 0) + " 条"),
+          h("div", { "data-wk": "anonpoolnote", style: { fontFamily: F_BODY, fontSize: 10, lineHeight: 1.55, color: A.fog, marginTop: 2 } },
             "写这些问题的人不知道会是谁收到——所以它问不出你的身份，也没法照着答案倒着编。抽空了会自己补。")),
-        h("button", { onClick: onBrew, disabled: busy, className: "shrink-0 active:opacity-70",
+        h("button", { "data-wk": "anonbtn", "data-part": "brew", onClick: onBrew, disabled: busy, className: "shrink-0 active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 11.5, color: A.ink, border: `1px solid ${A.line}`, borderRadius: 999, padding: "6px 13px", opacity: busy ? .5 : 1 } }, busy ? "…" : "攒一批")),
-      h("div", { className: "grid grid-cols-2 gap-3" },
+      h("div", { "data-wk": "anongrid", className: "grid grid-cols-2 gap-3" },
         // 她自己那一张：跟角色的卡同一个形状（同一种东西＝同一种卡面），
         // 只在眉标上写明这是「你的」——不另画一张，不然这一页会变成两种卡拼起来的。
-        h("button", { onClick: onOpenMe, className: "text-left active:opacity-70",
+        h("button", { "data-wk": "anoncard", "data-part": "me", onClick: onOpenMe, className: "text-left active:opacity-70",
           style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: "1px solid " + A.line, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
-          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
-            h("div", { style: { width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17 } }, "你"),
+          h("div", { "data-wk": "anoncardhead", style: { height: 58, flexShrink: 0, padding: "11px 12px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
+            h("div", { "data-wk": "anoncardicon", style: { width: 38, height: 38, borderRadius: 11, flexShrink: 0, background: "rgba(255,255,255,.18)", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: 17 } }, "你"),
             h("div", { style: { minWidth: 0 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (myMask && myMask.name) || "你的马甲"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, ((myBox && myBox.records) || []).length + " 则问答"))),
+              h("div", { "data-wk": "anoncardname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, (myMask && myMask.name) || "你的马甲"),
+              h("div", { "data-wk": "anoncardcount", style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, ((myBox && myBox.records) || []).length + " 则问答"))),
           h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+            h("div", { "data-wk": "anoncardbio", style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
               (myMask && myMask.bio) || "还没有马甲——点开生成一个，这是你在树洞里挂的身份"),
-            h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: "1px solid " + A.line, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
+            h("div", { "data-wk": "anoncardlatest", style: { marginTop: "auto", paddingTop: 9, borderTop: "1px solid " + A.line, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } },
               (((myBox && myBox.records) || [])[0] || {}).q || "这是你自己的匿名主页"))),
       rows.map(function (row) {
         const r = row.latest;
-        return h("button", { key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
-          h("div", { style: { height: 58, flexShrink: 0, padding: "11px 12px", background: anonBgSrc((data || {})[row.char.id], "linear-gradient(150deg,#7b6690,#3f6d8c)"), color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
+        return h("button", { "data-wk": "anoncard", "data-part": "char", key: row.char.id, onClick: function () { onOpen(row.char); }, className: "text-left active:opacity-70", style: { minHeight: 174, borderRadius: 18, overflow: "hidden", background: A.card, border: `1px solid ${A.line}`, boxShadow: "0 8px 24px rgba(35,31,27,.045)", display: "flex", flexDirection: "column" } },
+          h("div", { "data-wk": "anoncardhead", style: { height: 58, flexShrink: 0, padding: "11px 12px", background: anonBgSrc((data || {})[row.char.id], "linear-gradient(150deg,#7b6690,#3f6d8c)"), color: "#fff", display: "flex", alignItems: "center", gap: 9, boxShadow: "inset 0 1px 0 rgba(255,255,255,.16)" } },
             h(Avatar, { character: row.char, size: 38, radius: 11 }),
             h("div", { style: { minWidth: 0 } },
-              h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, row.d.netname || row.char.remark || row.char.name),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, row.records.length + " 则问答"))),
+              h("div", { "data-wk": "anoncardname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, row.d.netname || row.char.remark || row.char.name),
+              h("div", { "data-wk": "anoncardcount", style: { fontFamily: F_BODY, fontSize: 9.5, opacity: .76, marginTop: 2 } }, row.records.length + " 则问答"))),
           h("div", { style: { padding: "12px 12px 13px", flex: 1, display: "flex", flexDirection: "column" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
-            h("div", { style: { marginTop: "auto", paddingTop: 9, borderTop: `1px solid ${A.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? A.sub : A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
+            h("div", { "data-wk": "anoncardbio", style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.45, color: A.fog, minHeight: 31, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, row.d.bio || "点开生成 Ta 的匿名马甲"),
+            h("div", { "data-wk": "anoncardlatest", style: { marginTop: "auto", paddingTop: 9, borderTop: `1px solid ${A.line}`, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.45, color: r ? A.sub : A.fog, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, r ? r.q : busy ? "正在准备…" : "还没有人问过 Ta")));
       })),
       // 还没有角色时也不是空页——她自己那张卡一直在上面
-      rows.length ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: A.fog, textAlign: "center", padding: "16px 8px" } }, "还没有别人可以问")));
+      rows.length ? null : h("div", { "data-wk": "anonempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: A.fog, textAlign: "center", padding: "16px 8px" } }, "还没有别人可以问")));
 }
 
 // 她自己的匿名主页（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
@@ -11292,64 +11292,64 @@ function AnonMeBox({ mask, box, busy, characters, onGenMask, onAsk, onAnswer, on
   const [pick, setPick] = useState(false);     // 展开「指定谁来问」那一排
   const [draft, setDraft] = useState({});      // 每条各自的答案草稿
   const line = { fontFamily: F_BODY, fontSize: 11.5, color: A.fog };
-  return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
+  return h("div", { "data-wk": "anmepage", className: "absolute inset-0 z-20 flex flex-col", style: { background: anonNightBg() } },
     h(Head, { zh: "我的匿名主页", onBack: onBack, ink: A.ink, lineInk: A.line, bg: "transparent" }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
-      h("div", { style: { borderRadius: 16, overflow: "hidden", background: A.card, border: "1px solid " + A.line, marginBottom: 14 } },
-        h("div", { style: { padding: "16px 15px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19 } }, (mask && mask.name) || "还没有马甲"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .82, marginTop: 5, lineHeight: 1.6 } },
+    h("div", { "data-wk": "anmebody", className: "flex-1 min-h-0 overflow-y-auto px-5 pt-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 20px)" } },
+      h("div", { "data-wk": "anmemask", style: { borderRadius: 16, overflow: "hidden", background: A.card, border: "1px solid " + A.line, marginBottom: 14 } },
+        h("div", { "data-wk": "anmemaskhead", style: { padding: "16px 15px", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", color: "#fff" } },
+          h("div", { "data-wk": "anmemaskname", style: { fontFamily: F_DISPLAY, fontSize: 19 } }, (mask && mask.name) || "还没有马甲"),
+          h("div", { "data-wk": "anmemaskbio", style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .82, marginTop: 5, lineHeight: 1.6 } },
             (mask && mask.bio) || "这是你在树洞里挂的身份——别人只看得见这个网名和这句签名。")),
         h("div", { className: "flex items-center justify-between", style: { padding: "10px 13px" } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, "跟你匿名问别人时用的是同一张面具"),
-          h("button", { onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40",
+          h("div", { "data-wk": "anmenote", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, "跟你匿名问别人时用的是同一张面具"),
+          h("button", { "data-wk": "anmebtn", "data-part": "genmask", onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40",
             style: { fontFamily: F_BODY, fontSize: 11, color: A.cool, border: "1px solid " + A.line, borderRadius: 8, padding: "3px 11px" } },
             busy ? "…" : mask ? "换一个" : "生成"))),
       // ── 叫人来问（她 2026-09-19：「可以指定谁来问，也可以选随机」）──────────
       // ⚠️随机排在前面、而且是主按钮：随机才是这件事的默认玩法——
       //   指定了谁，那一问就少了「猜是谁」那一半。
-      h("div", { style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "11px 12px", marginBottom: 16 } },
+      h("div", { "data-wk": "anmeask", style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "11px 12px", marginBottom: 16 } },
         h("div", { className: "flex items-center", style: { gap: 8 } },
-          h("button", { onClick: () => onAsk && onAsk(), disabled: busy, className: "flex-1 active:opacity-70 disabled:opacity-40",
+          h("button", { "data-wk": "anmebtn", "data-part": "ask", onClick: () => onAsk && onAsk(), disabled: busy, className: "flex-1 active:opacity-70 disabled:opacity-40",
             style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "linear-gradient(150deg,#8c6b6b,#6d5a86)", borderRadius: 999, padding: "8px 0" } },
             busy ? "在想…" : "随便谁来问我一句"),
-          h("button", { onClick: () => setPick(v => !v), disabled: busy, className: "active:opacity-70 disabled:opacity-40",
+          h("button", { "data-wk": "anmebtn", "data-part": "pick", "data-on": pick ? "1" : "0", onClick: () => setPick(v => !v), disabled: busy, className: "active:opacity-70 disabled:opacity-40",
             style: { fontFamily: F_BODY, fontSize: 12, color: A.cool, border: "1px solid " + A.line, borderRadius: 999, padding: "8px 13px" } },
             pick ? "收起" : "指定谁")),
-        pick ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 10 } },
-          (characters || []).map(c => h("button", { key: c.id, onClick: () => { setPick(false); onAsk && onAsk(c.id); }, disabled: busy,
+        pick ? h("div", { "data-wk": "anmepicks", className: "flex flex-wrap", style: { gap: 6, marginTop: 10 } },
+          (characters || []).map(c => h("button", { "data-wk": "anmepick", key: c.id, onClick: () => { setPick(false); onAsk && onAsk(c.id); }, disabled: busy,
             className: "active:opacity-70 disabled:opacity-40",
             style: { fontFamily: F_BODY, fontSize: 12, color: A.ink, border: "1px solid " + A.line, borderRadius: 999, padding: "5px 12px" } },
             c.remark || c.name))) : null,
-        h("div", { style: { ...line, fontSize: 10, marginTop: 9, lineHeight: 1.6 } },
+        h("div", { "data-wk": "anmenote", style: { ...line, fontSize: 10, marginTop: 9, lineHeight: 1.6 } },
           "他不知道你会怎么答，你也看不见是谁问的——只有一张马甲。答完可以翻开看是谁。")),
       h(Eyebrow, { style: { marginBottom: 8 } }, "收到的提问"),
       records.length
-        ? h("div", { style: { display: "grid", gap: 10 } }, records.map(r => {
+        ? h("div", { "data-wk": "anmelist", style: { display: "grid", gap: 10 } }, records.map(r => {
             const who = (characters || []).find(c => c.id === r.charId);
-            return h("div", { key: r.id, style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "12px 13px" } },
+            return h("div", { "data-wk": "anmerow", "data-answered": r.a ? "1" : "0", key: r.id, style: { borderRadius: 14, background: A.card, border: "1px solid " + A.line, padding: "12px 13px" } },
               h("div", { className: "flex items-center justify-between", style: { gap: 8, marginBottom: 6 } },
-                h("div", { style: { ...line, fontSize: 10, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                h("div", { "data-wk": "anmemeta", style: { ...line, fontSize: 10, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                   r.revealed ? ((who && (who.remark || who.name)) || "已经不在了的谁") + " 问的" : (r.maskName || "一个陌生人")),
-                h("button", { onClick: () => onDrop && onDrop(r.id), className: "active:opacity-60 shrink-0",
+                h("button", { "data-wk": "anmebtn", "data-part": "drop", onClick: () => onDrop && onDrop(r.id), className: "active:opacity-60 shrink-0",
                   style: { ...line, fontSize: 11, padding: "0 2px" } }, "撕了")),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: A.ink, lineHeight: 1.75 } }, r.q),
+              h("div", { "data-wk": "anmeq", style: { fontFamily: F_BODY, fontSize: 13.5, color: A.ink, lineHeight: 1.75 } }, r.q),
               r.a
-                ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: A.sub, lineHeight: 1.8, marginTop: 9, paddingTop: 9, borderTop: "1px solid " + A.line, whiteSpace: "pre-wrap" } }, r.a)
+                ? h("div", { "data-wk": "anmea", style: { fontFamily: F_BODY, fontSize: 12.5, color: A.sub, lineHeight: 1.8, marginTop: 9, paddingTop: 9, borderTop: "1px solid " + A.line, whiteSpace: "pre-wrap" } }, r.a)
                 : h("div", { style: { marginTop: 9 } },
-                    h("textarea", { value: draft[r.id] || "", onChange: e => setDraft(p => ({ ...p, [r.id]: e.target.value })),
+                    h("textarea", { "data-wk": "anmeinput", value: draft[r.id] || "", onChange: e => setDraft(p => ({ ...p, [r.id]: e.target.value })),
                       placeholder: "答一句…", rows: 2,
                       style: { width: "100%", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: A.ink, background: "transparent",
                         border: "1px solid " + A.line, borderRadius: 10, padding: "8px 10px", outline: "none", resize: "none" } }),
-                    h("button", { onClick: () => { const v = (draft[r.id] || "").trim(); if (!v) return; onAnswer && onAnswer(r.id, v); setDraft(p => ({ ...p, [r.id]: "" })); },
+                    h("button", { "data-wk": "anmebtn", "data-part": "answer", onClick: () => { const v = (draft[r.id] || "").trim(); if (!v) return; onAnswer && onAnswer(r.id, v); setDraft(p => ({ ...p, [r.id]: "" })); },
                       className: "active:opacity-70",
                       style: { fontFamily: F_BODY, fontSize: 11.5, color: A.cool, border: "1px solid " + A.line, borderRadius: 999, padding: "5px 14px", marginTop: 7 } }, "答了")),
               // ⚠️翻开这一下只在【答完之后】给：先知道是谁再答，就成了照着人答，
               //   「猜是谁」那一半整个没了。
-              (r.a && !r.revealed) ? h("button", { onClick: () => onReveal && onReveal(r.id), className: "active:opacity-70",
+              (r.a && !r.revealed) ? h("button", { "data-wk": "anmebtn", "data-part": "reveal", onClick: () => onReveal && onReveal(r.id), className: "active:opacity-70",
                 style: { ...line, fontSize: 11, marginTop: 9, color: A.cool } }, "翻开看是谁问的") : null);
           }))
-        : h("div", { style: { borderRadius: 14, border: "1px dashed " + A.line, padding: "20px 16px", fontFamily: F_BODY, fontSize: 11.5, color: A.fog, lineHeight: 1.85, textAlign: "center" } },
+        : h("div", { "data-wk": "anmeempty", style: { borderRadius: 14, border: "1px dashed " + A.line, padding: "20px 16px", fontFamily: F_BODY, fontSize: 11.5, color: A.fog, lineHeight: 1.85, textAlign: "center" } },
             "还没有人问过你。", h("br"), "点上面那颗，让谁来问你一句。")));
 }
 // 匿名箱：仿 QQ 主页 + 匿名问答，记录永久保留
@@ -11391,40 +11391,40 @@ function AnonBox({
     }
   };
   const dayOf = ts => { const d = new Date(ts || 0); return (d.getMonth() + 1) + "月" + d.getDate() + "日"; };
-  return h("div", {
+  return h("div", { "data-wk": "anonboxpage",
     className: "absolute inset-0 z-[70] flex flex-col",
     style: {
       background: anonNightBg(),
       paddingTop: "env(safe-area-inset-top)"
     }
-  }, h("div", {
+  }, h("div", { "data-wk": "anonboxhead",
     className: "shrink-0 px-5 pt-5 pb-3 flex items-center gap-3",
     style: {
       borderBottom: `1px solid ${A.line}`
     }
-  }, h("button", {
+  }, h("button", { "data-wk": "anonbtn", "data-part": "back",
     onClick: onClose,
     className: "active:opacity-50"
   }, h(IArrow, {
     size: 19,
     color: A.ink
-  })), h("span", {
+  })), h("span", { "data-wk": "anonboxtitle",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 20,
       color: A.ink
     }
-  }, "匿名箱")), h("div", {
+  }, "匿名箱")), h("div", { "data-wk": "anonboxbody",
     ref: scrollRef,
     onScroll: e => setShowTop(e.target.scrollTop > 340),
     className: "flex-1 overflow-y-auto relative"
-  }, h("div", {
+  }, h("div", { "data-wk": "anonboxcover",
     style: {
       position: "relative",
       height: 120,
       background: anonBgSrc(data, "linear-gradient(135deg,#6d5a78,#3f6d8c)")
     }
-  }, h("div", {
+  }, h("div", { "data-wk": "anonboxid",
     className: "absolute flex items-end gap-3",
     style: {
       left: 20,
@@ -11434,37 +11434,37 @@ function AnonBox({
     character: char,
     size: 62,
     radius: 16
-  }), h("div", {
+  }), h("div", { "data-wk": "anonboxnamewrap",
     style: {
       paddingBottom: 6
     }
-  }, h("div", {
+  }, h("div", { "data-wk": "anonboxname",
     style: {
       fontFamily: F_DISPLAY,
       fontSize: 18,
       color: "#fff",
       textShadow: "0 1px 4px rgba(0,0,0,0.3)"
     }
-  }, data && data.netname || "…"))), h("button", {
+  }, data && data.netname || "…"))), h("button", { "data-wk": "anonbtn", "data-part": "refresh",
     onClick: onRefreshPersona,
     disabled: busy,
     title: "按此刻心情/成长刷新网名与签名",
     className: "absolute active:opacity-60 disabled:opacity-40",
     style: { right: 14, top: 12, width: 32, height: 32, borderRadius: 999, background: "rgba(255,255,255,0.18)", display: "flex", alignItems: "center", justifyContent: "center" }
-  }, h(IRefresh, { size: 16, color: "#fff" })), data && data.bgDesc && h("div", {
+  }, h(IRefresh, { size: 16, color: "#fff" })), data && data.bgDesc && h("div", { "data-wk": "anonboxbgdesc",
     className: "absolute",
     style: { left: 20, top: 12, right: 56, fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.4, color: "rgba(255,255,255,0.85)", textShadow: "0 1px 3px rgba(0,0,0,0.4)" }
-  }, bgDrawn ? "" : "🖼 主页背景 · " + data.bgDesc), onGenBg && data && data.bgDesc && h("button", {
+  }, bgDrawn ? "" : "🖼 主页背景 · " + data.bgDesc), onGenBg && data && data.bgDesc && h("button", { "data-wk": "anonbtn", "data-part": "genbg",
     onClick: onGenBg,
     disabled: busy,
     className: "absolute active:opacity-60 disabled:opacity-40",
     style: { right: 14, bottom: 10, minHeight: 32, padding: "0 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", color: "#fff", fontFamily: F_BODY, fontSize: 11.5 }
-  }, busy ? "正在画…" : bgDrawn ? "重画背景" : "把背景画出来")), h("div", {
+  }, busy ? "正在画…" : bgDrawn ? "重画背景" : "把背景画出来")), h("div", { "data-wk": "anonboxbiowrap",
     className: "px-5 pt-10 pb-4",
     style: {
       borderBottom: `1px solid ${A.line}`
     }
-  }, h("div", {
+  }, h("div", { "data-wk": "anonboxbio",
     style: {
       fontFamily: F_BODY,
       fontSize: 13,
@@ -11473,21 +11473,21 @@ function AnonBox({
     }
   }, data && data.bio || "（生成中…）")),
   // TA看完箱子之后心里冒出来的那句猜测（第 7 条：我也有马甲，TA会猜这马甲是谁）
-  data && data.guess ? h("div", { className: "mx-5 mt-3 px-3 py-2.5", style: { borderRadius: 10, background: "rgba(143,164,224,.12)", border: `1px dashed ${A.line}` } },
+  data && data.guess ? h("div", { "data-wk": "anonguess", className: "mx-5 mt-3 px-3 py-2.5", style: { borderRadius: 10, background: "rgba(143,164,224,.12)", border: `1px dashed ${A.line}` } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginBottom: 3 } }, "Ta 好像在猜你是谁"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, color: A.cool } }, data.guess)) : null,
   // 我的马甲：TA答的时候对着这个身份说话
   h("div", { className: "px-5 pt-4 pb-1 flex items-center gap-2" },
-    h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flexShrink: 0 } }, "你的马甲"),
-    h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: myMask ? A.ink : A.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask ? myMask.name : "还没有"),
-    myMask && myMask.bio ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask.bio) : h("span", { style: { flex: 1 } }),
-    h("button", { onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "2px 9px", flexShrink: 0 } }, myMask ? "换一个" : "生成")),
-  h("div", {
+    h("span", { "data-wk": "anonmasklabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flexShrink: 0 } }, "你的马甲"),
+    h("span", { "data-wk": "anonmaskname", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: myMask ? A.ink : A.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask ? myMask.name : "还没有"),
+    myMask && myMask.bio ? h("span", { "data-wk": "anonmaskbio", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask.bio) : h("span", { style: { flex: 1 } }),
+    h("button", { "data-wk": "anonbtn", "data-part": "genmask", onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "2px 9px", flexShrink: 0 } }, myMask ? "换一个" : "生成")),
+  h("div", { "data-wk": "anonactions",
     className: "px-5 py-3 flex gap-3",
     style: {
       borderBottom: `1px solid ${A.line}`
     }
-  }, h("button", {
+  }, h("button", { "data-wk": "anonbtn", "data-part": "netizen",
     onClick: onGenNetizen,
     disabled: busy,
     className: "flex-1 py-2.5 disabled:opacity-40 active:opacity-70",
@@ -11499,7 +11499,7 @@ function AnonBox({
       fontSize: 12.5,
       color: A.ink
     }
-  }, "网友匿名提问"), h("button", {
+  }, "网友匿名提问"), h("button", { "data-wk": "anonbtn", "data-part": "write",
     onClick: () => { setReplyTo(null); setAsking(v => !v); },
     disabled: busy,
     className: "flex-1 py-2.5 disabled:opacity-40 active:opacity-70",
@@ -11513,19 +11513,19 @@ function AnonBox({
     }
   }, "写一条放进箱子")),
   // 箱子里积着几条没看的 → 一次调用全答完
-  pending.length ? h("div", { className: "px-5 pb-3" },
-    h("button", { onClick: onOpenBox, disabled: busy, className: "w-full py-2.5 disabled:opacity-40 active:opacity-70", style: { borderRadius: 8, background: A.ink, color: A.bg, fontFamily: F_BODY, fontSize: 12.5 } },
+  pending.length ? h("div", { "data-wk": "anonpending", className: "px-5 pb-3" },
+    h("button", { "data-wk": "anonbtn", "data-part": "openbox", onClick: onOpenBox, disabled: busy, className: "w-full py-2.5 disabled:opacity-40 active:opacity-70", style: { borderRadius: 8, background: A.ink, color: A.bg, fontFamily: F_BODY, fontSize: 12.5 } },
       "让 Ta 打开箱子（" + pending.length + " 条等着）"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginTop: 5, lineHeight: 1.6 } }, characterText(char, "一次看完，一次答完——他不一定每条都答。"))) : null,
-  asking && h("div", {
+    h("div", { "data-wk": "anonnote", style: { fontFamily: F_BODY, fontSize: 10, color: A.fog, marginTop: 5, lineHeight: 1.6 } }, characterText(char, "一次看完，一次答完——他不一定每条都答。"))) : null,
+  asking && h("div", { "data-wk": "anonasker",
     className: "px-5 py-3",
     style: {
       borderBottom: `1px solid ${A.line}`
     }
   },
-    replyTo && byId[replyTo] ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, marginBottom: 6, lineHeight: 1.55 } }, "追问 · 针对 Ta 那句「" + String(byId[replyTo].a || "").slice(0, 28) + "…」") : null,
+    replyTo && byId[replyTo] ? h("div", { "data-wk": "anonreplyto", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, marginBottom: 6, lineHeight: 1.55 } }, "追问 · 针对 Ta 那句「" + String(byId[replyTo].a || "").slice(0, 28) + "…」") : null,
     h("div", { className: "flex gap-2" },
-      h("input", {
+      h("input", { "data-wk": "anoninput",
         value: q,
         onChange: e => setQ(e.target.value),
         onKeyDown: e => e.key === "Enter" && submitAsk(),
@@ -11539,7 +11539,7 @@ function AnonBox({
           color: A.ink,
           border: `1px solid ${A.line}`
         }
-      }), h("button", {
+      }), h("button", { "data-wk": "anonbtn", "data-part": "submit",
         onClick: submitAsk,
         className: "px-4 rounded-lg",
         style: {
@@ -11552,7 +11552,7 @@ function AnonBox({
     label: "匿名箱处理中…"
   }),
   // 我问的 / 网友问的分开看（她 2026-08-30 点名）
-  records.length ? h("div", { className: "px-5 pt-3 pb-1 flex gap-2" },
+  records.length ? h("div", { "data-wk": "anontabs", className: "px-5 pt-3 pb-1 flex gap-2" },
     [["all", "全部", records.length], ["me", "我问的", records.filter(function (r) { return r.from === "me"; }).length], ["netizen", "网友问的", records.filter(function (r) { return r.from !== "me"; }).length]]
       .map(function (x) {
         // ── 三个筛选＝三枚邮戳（tabs-not-plain-pills）──────────────────
@@ -11560,7 +11560,7 @@ function AnonBox({
         //   盖上去的戳不一样：方角、双线边、盖歪一点。没盖的是空的虚线框。
         //   形状、边、歪不歪三样一起变，不是只换个填色。
         var on = tab === x[0];
-        return h("button", { key: x[0], onClick: function () { setTab(x[0]); }, className: "active:opacity-70",
+        return h("button", { "data-wk": "anontab", "data-part": x[0], "data-on": on ? "1" : "0", key: x[0], onClick: function () { setTab(x[0]); }, className: "active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 11.5, padding: "8px 12px", minHeight: 40, borderRadius: 3,
             border: (on ? 1.5 : 1) + "px " + (on ? "solid" : "dashed") + " " + (on ? A.hot : A.line),
             boxShadow: on ? "inset 0 0 0 1px " + A.bg + ", inset 0 0 0 2.5px " + A.hot : "none",
@@ -11576,28 +11576,28 @@ function AnonBox({
     const src = r.re && byId[r.re];
     // 「看TA玩」的圆点要落得住：匿名信箱没有详情页，整串就摊在这一屏上，
     // 所以挂点直接长在每一条上（她 2026-09-10：「匿名信箱也是可以点开看到然后想想」）。
-    return h("div", { key: r.id || i, className: "px-5 py-4", "data-watch": "item:" + String(r.q || "").slice(0, 24), style: { borderBottom: `1px solid ${A.line}` } },
+    return h("div", { "data-wk": "anonrow", "data-from": r.from || "", key: r.id || i, className: "px-5 py-4", "data-watch": "item:" + String(r.q || "").slice(0, 24), style: { borderBottom: `1px solid ${A.line}` } },
       h("div", { className: "flex items-center gap-1.5 mb-1.5" },
-        h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: A.bg, background: r.from === "me" ? A.hot : A.cool, borderRadius: 999, padding: "1px 8px", flexShrink: 0 } },
+        h("span", { "data-wk": "anonfrom", style: { fontFamily: F_BODY, fontSize: 11, color: A.bg, background: r.from === "me" ? A.hot : A.cool, borderRadius: 999, padding: "1px 8px", flexShrink: 0 } },
           r.from === "me" ? "我问的" : "网友问的"),
         // 日期 + 相对时间：她 2026-08-30「每个带日期」
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, dayOf(r.ts) + " · " + timeAgo(r.ts)),
-        onDelRecord && h("button", { onClick: () => onDelRecord(r.id || r.ts), className: "active:opacity-50", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: A.hot } }, "删除")),
-      src ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, marginBottom: 4, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "追问 · 「" + String(src.a || src.q || "").slice(0, 30) + "…」") : null,
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: A.ink, marginBottom: 6 } }, r.q),
+        h("span", { "data-wk": "anontime", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, dayOf(r.ts) + " · " + timeAgo(r.ts)),
+        onDelRecord && h("button", { "data-wk": "anonbtn", "data-part": "delete", onClick: () => onDelRecord(r.id || r.ts), className: "active:opacity-50", style: { marginLeft: "auto", fontFamily: F_BODY, fontSize: 11, color: A.hot } }, "删除")),
+      src ? h("div", { "data-wk": "anonfollowsrc", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, marginBottom: 4, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "追问 · 「" + String(src.a || src.q || "").slice(0, 30) + "…」") : null,
+      h("div", { "data-wk": "anonq", style: { fontFamily: F_DISPLAY, fontSize: 15, color: A.ink, marginBottom: 6 } }, r.q),
       // 三种收场：还没看 / 看了不答 / 答了
       r.pending
-        ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: A.fog, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "还在箱子里，等 Ta 打开")
+        ? h("div", { "data-wk": "anona", "data-part": "pending", style: { fontFamily: F_BODY, fontSize: 12, color: A.fog, paddingLeft: 10, borderLeft: `2px dashed ${A.line}` } }, "还在箱子里，等 Ta 打开")
         : r.skip
-          ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? "（" + r.note + "）" : "（Ta 看见了，没答）")
-          : h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: A.sub, paddingLeft: 10, borderLeft: `2px solid ${A.line}` } }, r.a),
+          ? h("div", { "data-wk": "anona", "data-part": "skip", style: { fontFamily: F_BODY, fontSize: 12.5, color: A.fog, paddingLeft: 10, borderLeft: `2px solid ${A.hot}66`, fontStyle: "italic" } }, r.note ? "（" + r.note + "）" : "（Ta 看见了，没答）")
+          : h("div", { "data-wk": "anona", style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: A.sub, paddingLeft: 10, borderLeft: `2px solid ${A.line}` } }, r.a),
       // 追问：接着这一条再问一句，同样先放进箱子
-      (!r.pending && !r.skip && r.a) ? h("button", {
+      (!r.pending && !r.skip && r.a) ? h("button", { "data-wk": "anonbtn", "data-part": "followup",
         onClick: () => { setReplyTo(r.id); setQ(""); setAsking(true); if (scrollRef.current) scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }); },
         className: "active:opacity-60",
         style: { marginTop: 8, marginLeft: 10, fontFamily: F_BODY, fontSize: 11, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "3px 10px" }
       }, "追问一句") : null);
-  })), showTop && h("button", {
+  })), showTop && h("button", { "data-wk": "anonbtn", "data-part": "top",
     onClick: () => scrollRef.current && scrollRef.current.scrollTo({ top: 0, behavior: "smooth" }),
     className: "active:opacity-60",
     style: { position: "absolute", right: 16, bottom: 22, width: 42, height: 42, borderRadius: 999, background: A.ink, color: A.bg, display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 2px 10px rgba(0,0,0,0.25)", zIndex: 20 }
@@ -13763,18 +13763,28 @@ function KinshipRaiseCard({ m, character, inRow }) {
 // 「让TA回复」要把草稿带走，所以它们必须住在这一格里一起重画；格子外的世界不动。
 // 通话屏（CallScreen）没搬：口述识别要从外面往草稿里回填文字，而且一通电话的
 // 字幕列表本来就短，重画不疼——搬它换不来收益，只换来一条反向写入的口子。
+// 聊天输入框（单聊、群聊共用）。
+// ⚠️原来是单行 <input>（群里有人报 2026-10-08：「键盘弹上来之后我想编辑一下输入框，完全看不到输入框里的文字了」）：
+//   一长就只能横着滚，前面写了什么看不见、也挪不回去改。现在是会自己长高的多行框：
+//   最多长到 6 行左右（130px），再多就在框里上下滚。回车照旧是发送，Shift+回车换行；
+//   中文输入法选词时按的回车（isComposing）不算发送。
+const DRAFT_MAX_H = 130;
 function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after }) {
   const [draft, setDraft] = useState("");
+  const ref = useRef(null);
+  const fit = () => { const el = ref.current; if (!el) return; el.style.height = "auto"; el.style.height = Math.min(DRAFT_MAX_H, el.scrollHeight) + "px"; };
+  useEffect(fit, [draft]);
   const clear = () => setDraft("");
   const fire = () => { const v = draft.trim(); if (!v) return; setDraft(""); onSubmit && onSubmit(v); };
   return h(React.Fragment, null,
-    h("input", Object.assign({
+    h("textarea", Object.assign({
+      ref, rows: 1,
       value: draft,
       onChange: e => setDraft(e.target.value),
-      onKeyDown: e => e.key === "Enter" && fire(),
+      onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); fire(); } },
       placeholder,
-      className: "flex-1 outline-none px-4 py-2.5 rounded-full",
-      style: inputStyle
+      className: "flex-1 outline-none px-4 py-2.5",
+      style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
     }, inputProps || {})),
     after ? after(draft, fire, clear) : null);
 }

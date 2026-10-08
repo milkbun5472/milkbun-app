@@ -159,7 +159,7 @@
   function Bubble({ text, style, onHold }) {
     if (!text) return null;
     const stop = e => { e.stopPropagation(); if (onHold) onHold(); };
-    return h("div", { onPointerDown: stop, onPointerMove: e => e.stopPropagation(), onPointerUp: e => e.stopPropagation(), onTouchStart: stop, onScroll: stop,
+    return h("div", { "data-wk": "compbubble", onPointerDown: stop, onPointerMove: e => e.stopPropagation(), onPointerUp: e => e.stopPropagation(), onTouchStart: stop, onScroll: stop,
       style: Object.assign({ position: "absolute", left: "50%", transform: "translateX(-50%)", maxWidth: 220, width: "max-content", maxHeight: "7.6em", overflowY: "auto",
       WebkitOverflowScrolling: "touch", overscrollBehavior: "contain", touchAction: "pan-y", whiteSpace: "pre-wrap", wordBreak: "break-word", padding: "6px 10px", borderRadius: 12,
       background: "rgba(255,250,240,.96)", boxShadow: "0 2px 10px rgba(75,60,38,.2)", fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.5, color: "#4a3a2a", pointerEvents: "auto", zIndex: 2 }, style) }, text);
@@ -221,40 +221,40 @@
       const extra = patch && patch.face ? { autoFace: false } : {};   // 在面板里点了表情＝我来选
       set(Object.assign({ looks: Object.assign({}, load().looks || {}, { [char.id]: next }) }, extra)); };
     const Dress = window.GardenDressControls;
-    const chip = (on, label, onClick, key) => h("button", { key, onClick, className: "active:opacity-70",
+    const chip = (on, label, onClick, key) => h("button", { "data-wk": "compchip", "data-on": on ? "1" : "0", key, onClick, className: "active:opacity-70",
       style: { flexShrink: 0, padding: "7px 14px", borderRadius: 16, fontFamily: F_BODY, fontSize: 13,
         border: "1px solid " + (on ? "#8a6a4b" : "rgba(138,106,75,.25)"), background: on ? "#8a6a4b" : "rgba(255,255,255,.6)", color: on ? "#fff" : "#6b5440" } }, label);
-    return h("div", { className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#f6efe4,#ece2d2)" } },
+    return h("div", { "data-wk": "comppage", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#f6efe4,#ece2d2)" } },
       h(Head, { zh: "陪伴", onBack: props.onBack, bg: "transparent" }),
-      h("div", { style: { display: "flex", gap: 8, overflowX: "auto", padding: "4px 16px 8px", flexShrink: 0 } },
+      h("div", { "data-wk": "compcharbar", style: { display: "flex", gap: 8, overflowX: "auto", padding: "4px 16px 8px", flexShrink: 0 } },
         chars.map(c => chip(char && c.id === char.id, c.remark || c.name, () => set({ charId: c.id }), c.id))),
-      !char ? h("div", { style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
+      !char ? h("div", { "data-wk": "compempty", style: { padding: 24, fontFamily: F_BODY, color: "#8a7a5e" } }, "还没有角色。先去建一个，再回来让他陪着你。") :
       h(React.Fragment, null,
-        h("div", { style: { height: "42vh", flexShrink: 0, position: "relative" } },
+        h("div", { "data-wk": "compstage", style: { height: "42vh", flexShrink: 0, position: "relative" } },
           h(Bubble, { text: say, onHold: holdSay, style: { top: 8 } }),
           h(PetFrame, { mode: "full", frameRef: frame, onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: "companion", music: !!props.music, idle },
             onStatus: setPetState, onAct: setActNow, reloadKey: retry, style: { width: "100%", height: "100%" } }),
           // 他还没画出来的时候屏幕是空的：第一次要下 5MB 的小人，网差就更久。
           // 原来这里什么都不说，卡住和正在下一个样（2026-09-26 发公共版前补的）。
-          petState.state !== "ready" ? h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column",
+          petState.state !== "ready" ? h("div", { "data-wk": "compstatus", style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column",
             alignItems: "center", justifyContent: "center", gap: 10, fontFamily: F_BODY, color: "#8a7a5e", textAlign: "center", padding: 20 } },
             petState.state === "failed"
               ? h(React.Fragment, null,
                   h("div", { style: { fontSize: 13 } }, "小人没能来 · 网络不太好的时候会这样"),
-                  h("button", { onClick: () => { setPetState({ state: "loading", pct: 0 }); setRetry(n => n + 1); }, className: "active:opacity-70",
+                  h("button", { "data-wk": "compretry", onClick: () => { setPetState({ state: "loading", pct: 0 }); setRetry(n => n + 1); }, className: "active:opacity-70",
                     style: { minHeight: 40, padding: "0 20px", borderRadius: 12, background: "#8a6a4b", color: "#fff", border: "none", fontFamily: F_BODY, fontSize: 13 } }, "再试一次"))
               : h(React.Fragment, null,
                   h("div", { style: { fontSize: 13 } }, "小人在来的路上… " + (petState.pct || 0) + "%"),
                   h("div", { style: { width: 140, height: 4, borderRadius: 2, background: "rgba(138,106,75,.18)", overflow: "hidden" } },
                     h("div", { style: { width: (petState.pct || 0) + "%", height: "100%", background: "#8a6a4b", transition: "width .25s" } })),
                   h("div", { style: { fontSize: 11, color: "#a89a80" } }, "第一次要把他整个人下下来，之后就快了"))) : null),
-        h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
-          h("div", { style: { fontSize: 12.5, color: "#6b5440", lineHeight: 1.8 } },
+        h("div", { "data-wk": "comppanel", className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 20px", paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 24px)", fontFamily: F_BODY } },
+          h("div", { "data-wk": "compmood", style: { fontSize: 12.5, color: "#6b5440", lineHeight: 1.8 } },
             (char.remark || char.name) + " 现在" + (mood ? "的心情是「" + mood + "」" : "没有记下心情") + "，脸上是「" + FACE_ZH[face] + "」。"
             + (ACT_ZH[actNow] ? "他" + ACT_ZH[actNow] + "。" : "")),
           h("div", { style: { display: "flex", gap: 8, margin: "8px 0 12px" } },
             chip(auto, "表情跟着心情", () => set({ autoFace: true }), "a"), chip(!auto, "我来选表情", () => set({ autoFace: false }), "b")),
-          h("button", { onClick: () => set({ float: !cfg.float }), className: "active:opacity-70",
+          h("button", { "data-wk": "compfloat", "data-on": cfg.float ? "1" : "0", onClick: () => set({ float: !cfg.float }), className: "active:opacity-70",
             style: { width: "100%", minHeight: 46, borderRadius: 14, fontSize: 14, marginBottom: 18,
               background: cfg.float ? "#8a6a4b" : "rgba(255,255,255,.7)", color: cfg.float ? "#fff" : "#6b5440", border: "1px solid rgba(138,106,75,.35)" } },
             cfg.float ? "正在屏幕上陪着你 · 点这里收起来" : "让他悬浮在屏幕上"),
@@ -304,16 +304,16 @@
     const onUp = e => { const d = drag.current; if (!d) return; drag.current = null;
       if (Math.hypot(e.clientX - d.sx, e.clientY - d.sy) < 6) { if (props.onOpen) props.onOpen(); return; }
       const n = Object.assign(load(), { pos }); save(n); };
-    return h("div", { onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
+    return h("div", { "data-wk": "compfloatpet", onContextMenu: e => e.preventDefault(), style: { position: "fixed", left: pos.x, top: pos.y, width: W, height: H, zIndex: 60, touchAction: "none", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none", WebkitTapHighlightColor: "transparent",
       opacity: typing ? .2 : 1, pointerEvents: typing ? "none" : "auto", transition: "opacity .18s" } },
       h(Bubble, { text: say, onHold: holdSay, style: { bottom: "100%", marginBottom: 4 } }),
       h(PetFrame, { mode: "float", onPoke, msg: petMessage(char, props.moods, cfg), ctx: { screen: props.screen || "", music: !!props.music, idle },
         onStatus: st => { if (st && st.state === "failed") setFailed(true); }, style: { width: W, height: H - 18, pointerEvents: "auto" } }),
       // 这一条是把手：拖动挪位置，轻点打开陪伴页（iframe 里的点击留给小人自己的反应）
-      h("div", { onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
+      h("div", { "data-wk": "compdrag", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, "aria-label": "拖动陪伴小人",
         style: { height: 18, margin: "0 22px", borderRadius: 9, background: "rgba(138,106,75,.28)", cursor: "grab" } }),
       // 右下角的小圆点：往外拖变大、往里拖变小
-      h("div", { "aria-label": "调整陪伴小人大小",
+      h("div", { "data-wk": "compresize", "aria-label": "调整陪伴小人大小",
         onPointerDown: e => { e.stopPropagation(); rs.current = { sx: e.clientX, sy: e.clientY, s0: sc }; try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {} },
         onPointerMove: e => { const r = rs.current; if (!r) return; const d = ((e.clientX - r.sx) + (e.clientY - r.sy)) / 2; const ns = Math.max(.6, Math.min(2.2, r.s0 + d / 110)); setCfg(c => Object.assign({}, c, { scale: ns })); },
         onPointerUp: () => { if (!rs.current) return; rs.current = null; setCfg(c => { const n = Object.assign(load(), { scale: c.scale }); save(n); return c; }); },

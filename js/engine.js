@@ -6538,7 +6538,14 @@ function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(
 // （iPhone 上 34px 的安全区，两者差二十多像素），群线下是 0.4 条加 4px。
 // 别的都一样（px-3 py-2.5、输入框 px-4 py-2.5、按钮 40×40），所以统一成一个常量，
 // 免得以后又各自漂走。⚠️主屏那条空带不归这里管，见 施工规则/home-screen-layout.md。
-const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4)";
+// 「输入栏往上抬」（群里有人报 2026-10-08：「太底下了有时候会点不到」）：设置 → 外观与壁纸 那根拉条写 --composer-lift。
+//   全 App 四十几个输入栏都吃这一个常量，所以只在这儿加一项，处处跟着抬。
+const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4 + var(--composer-lift, 0px))";
+function setComposerLift(px) {
+  const n = Math.max(0, Math.min(80, Math.round(Number(px) || 0)));
+  try { document.documentElement.style.setProperty("--composer-lift", n + "px"); } catch (e) {}
+  return n;
+}
 // 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
 // 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
 // 它把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。

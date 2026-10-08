@@ -129,7 +129,7 @@
 
     // 一块版长什么样，只画在这一处：搭预设那一排和测试台「印哪几块」共用。
     // ⚠️各画一份的话，哪天改版边的颜色就得记得改两处（施工规则/one-public-mechanism.md）。
-    const plate = (o) => h("button", { key: o.key, onClick: o.onClick, "aria-pressed": o.on ? "true" : "false",
+    const plate = (o) => h("button", { "data-wk": "slplate", "data-on": o.on ? "1" : "0", key: o.key, onClick: o.onClick, "aria-pressed": o.on ? "true" : "false",
       className: "active:opacity-80",
       style: {
         display: "flex", alignItems: "stretch", minHeight: 44, padding: 0,
@@ -145,29 +145,29 @@
         o.sub ? h("span", { style: { display: "block", fontFamily: "monospace", fontSize: 10, color: t.fog, marginTop: 1 } }, o.sub) : null));
 
     // ---- 搭预设 ----
-    const buildTab = h("div", { style: { padding: "14px 14px 28px" } },
+    const buildTab = h("div", { "data-wk": "slbuild", style: { padding: "14px 14px 28px" } },
       // ── 台边搁着的那几块版（v65.10）───────────────────────────────
       // 一条预设在现实里就是【排好的一块版】：选中那块压在台面上——纸色、往下沉一格、
       // 左边那道版边上了墨；没选的还搁在架子上，抬着、暗一档、版边是灰的。
       // ⚠️原来这里是一排填色药丸：药丸搬到哪个 app 都成立，等于没设计
       //   （施工规则/tabs-not-plain-pills.md）。选中态同时变【底色、位置、版边、投影】，
       //   不只靠一个色差；整块可点区 44 高。
-      presets.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 } },
+      presets.length ? h("div", { "data-wk": "slpresets", style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 10 } },
         presets.map(p => plate({ key: p.id, on: p.id === curId, onClick: () => setCurId(p.id), name: p.name,
           sub: ((p.mods || []).length + (String(p.free || "").trim() ? 1 : 0)) + " 块" }))) : null,
       // 台边的小工具：跟「版」分开摆，不混进同一排里——它们不是版，是家伙什
-      h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14,
+      h("div", { "data-wk": "sltools", style: { display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14,
           paddingTop: presets.length ? 9 : 0, borderTop: presets.length ? "1px dashed " + t.line : "none" } },
         [["＋ 新建", () => addPreset()],
          ["⇧ 导入文件", () => fileRef.current && fileRef.current.click()],
          ["粘贴模块包", pasteBundle],
-         ["搬旧文风", importOldStyle]].map(pair => h("button", { key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
+         ["搬旧文风", importOldStyle]].map(pair => h("button", { "data-wk": "sltool", key: pair[0], onClick: pair[1], style: S.tool }, pair[0])),
         h("input", { key: "__f", ref: fileRef, type: "file", accept: ".docx,.txt,.md,.json,text/plain,application/json,*/*", style: { display: "none" }, onChange: importFile })),
 
       // 空台：台上一个空版位（虚线的），底下三步。原来是一整段灰字糊在那儿——
       // 这是她点开这一页看见的第一屏，得让人一眼知道该先按哪个。
       !cur
-        ? h("div", null,
+        ? h("div", { "data-wk": "slempty" },
             h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center",
                 minHeight: 88, borderRadius: "3px 5px 5px 3px", border: "1px dashed " + t.line,
                 background: "rgba(127,127,127,.04)", marginBottom: 14 } },
@@ -177,13 +177,13 @@
                ["2", "在字盘里挑几根字条，它们会按顺序卡进槽里——越往下模型看得越重。"],
                ["3", "去线下／小剧场／同人文的设置里打开「吃入文风预设」并选中它。不打开＝三处行为和以前完全一样。"]]
                 .map(function (row) {
-                  return h("div", { key: row[0], style: { display: "flex", gap: 9, alignItems: "flex-start" } },
+                  return h("div", { "data-wk": "slrow", key: row[0], style: { display: "flex", gap: 9, alignItems: "flex-start" } },
                     h("span", { style: { width: 18, height: 18, flexShrink: 0, borderRadius: 2, background: t.ink, color: t.bg2,
                       fontFamily: "monospace", fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center" } }, row[0]),
                     h("span", { style: Object.assign({}, S.hint, { flex: 1, lineHeight: 1.75 }) }, row[1]));
                 })))
         : h("div", null,
-            h("input", { value: cur.name, onChange: e => patchCur({ name: e.target.value }), placeholder: "预设名字", style: Object.assign({}, S.input, { marginBottom: 14 }) }),
+            h("input", { "data-wk": "slname", value: cur.name, onChange: e => patchCur({ name: e.target.value }), placeholder: "预设名字", style: Object.assign({}, S.input, { marginBottom: 14 }) }),
 
             // ── 已选＝排字槽（v65.10）────────────────────────────────
             // 顺序就是喂进去的顺序，所以它现实里是【一条排字槽】：几根字条挨着卡在槽里，
@@ -193,7 +193,7 @@
             h("div", { style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "已选 · 按这个顺序喂进去"),
               h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "把最容易被违反的那条放最后。"),
-              h("div", { style: { border: "1px solid " + t.line, borderRadius: 4, overflow: "hidden", background: t.bg } },
+              h("div", { "data-wk": "slslot", style: { border: "1px solid " + t.line, borderRadius: 4, overflow: "hidden", background: t.bg } },
                 (cur.mods || []).length === 0
                   ? h("div", { style: { display: "flex", alignItems: "stretch", minHeight: 46 } },
                       h("span", { style: { width: 26, flexShrink: 0, background: t.line } }),
@@ -201,18 +201,18 @@
                         margin: 6, border: "1px dashed " + t.line, borderRadius: 3 }, S.hint) }, "槽是空的。下面按分类勾，勾上的会卡进这里。"))
                   : h("div", null, (cur.mods || []).map((id, i) => {
                       const m = SP.moduleById(id);
-                      return h("div", { key: id, style: { display: "flex", alignItems: "stretch",
+                      return h("div", { "data-wk": "slslotmod", key: id, style: { display: "flex", alignItems: "stretch",
                         borderTop: i ? "1px solid " + t.line : "none" } },
                         // 轨：一根从头连到尾的墨条，号码印在它上面
                         h("span", { style: { width: 26, flexShrink: 0, background: t.ink, color: t.bg2,
                           fontFamily: "monospace", fontSize: 10.5, display: "flex", alignItems: "center", justifyContent: "center" } }, String(i + 1)),
                         h("div", { style: { flex: 1, minWidth: 0, padding: "9px 4px 9px 11px", display: "flex", alignItems: "center", gap: 6 } },
                           h("div", { style: { flex: 1, minWidth: 0 } },
-                            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
+                            h("div", { "data-wk": "slslotname", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m ? m.name : "（已失效：" + id + "）"),
                             m && m.builtinIn ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginTop: 1 }) }, "小剧场本来就有这条，在那边会自动跳过") : null),
-                          h("button", { onClick: () => moveMod(id, -1), "aria-label": "往前挪一格", style: S.tapIcon(t.fog) }, "↑"),
-                          h("button", { onClick: () => moveMod(id, 1), "aria-label": "往后挪一格", style: S.tapIcon(t.fog) }, "↓"),
-                          h("button", { onClick: () => toggleMod(id), "aria-label": "从槽里取出来", style: S.tapIcon(t.accent) }, "×")));
+                          h("button", { "data-wk": "slmove", "data-part": "up", onClick: () => moveMod(id, -1), "aria-label": "往前挪一格", style: S.tapIcon(t.fog) }, "↑"),
+                          h("button", { "data-wk": "slmove", "data-part": "down", onClick: () => moveMod(id, 1), "aria-label": "往后挪一格", style: S.tapIcon(t.fog) }, "↓"),
+                          h("button", { "data-wk": "slremove", onClick: () => toggleMod(id), "aria-label": "从槽里取出来", style: S.tapIcon(t.accent) }, "×")));
                     })),
                 // 槽底那一行：方向感在这儿，不在标题里
                 (cur.mods || []).length > 1
@@ -228,14 +228,14 @@
             // 因为它已经卡进上面那条槽里了。
             // ⚠️原来是「○ / ✓」加一圈圆角灰卡：那是任何 app 都能用的复选框
             //   （施工规则/tabs-not-plain-pills.md 那句判据对这一栏同样成立）。
-            h("div", { style: { marginBottom: 16 } },
-              h("div", { style: S.h2 }, "模块库"),
+            h("div", { "data-wk": "sllib", style: { marginBottom: 16 } },
+              h("div", { "data-wk": "slsectitle", style: S.h2 }, "模块库"),
               h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "点一格拉开。挑中的字条会卡进上面那条槽里，再去那儿调顺序。"),
               SP.allCats().map(c => {
                 const open = !!openCat[c.id];
                 const picked = c.mods.filter(m => (cur.mods || []).indexOf(m.id) >= 0).length;
-                return h("div", { key: c.id, style: { marginBottom: open ? 10 : 6 } },
-                  h("button", { onClick: () => setOpenCat(o => Object.assign({}, o, { [c.id]: !o[c.id] })),
+                return h("div", { "data-wk": "slcat", key: c.id, style: { marginBottom: open ? 10 : 6 } },
+                  h("button", { "data-wk": "slcatbtn", "data-on": open ? "1" : "0", onClick: () => setOpenCat(o => Object.assign({}, o, { [c.id]: !o[c.id] })),
                     "aria-expanded": open ? "true" : "false",
                     style: { width: "100%", minHeight: 44, textAlign: "left", padding: "0 11px 0 0",
                       borderRadius: open ? "6px 6px 0 0" : 6,
@@ -252,13 +252,13 @@
                       border: "1px solid " + (picked ? t.ink : t.line), borderRadius: 3, padding: "1px 4px" } },
                       picked + "/" + c.mods.length)),
                   open
-                    ? h("div", { style: { border: "1px solid " + t.line, borderTop: "none", borderRadius: "0 0 6px 6px",
+                    ? h("div", { "data-wk": "slcatbody", style: { border: "1px solid " + t.line, borderTop: "none", borderRadius: "0 0 6px 6px",
                         background: t.bg, padding: "7px 8px 8px", display: "flex", flexDirection: "column", gap: 5 } },
                         // 「删」是独立按钮、不是套在模块按钮里的 span——按钮套按钮在 iOS 上点谁很看运气
                         c.mods.map(m => {
                           const on = (cur.mods || []).indexOf(m.id) >= 0;
-                          return h("div", { key: m.id, style: { display: "flex", alignItems: "stretch", gap: 4 } },
-                            h("button", { onClick: () => toggleMod(m.id), "aria-pressed": on ? "true" : "false",
+                          return h("div", { "data-wk": "slmod", key: m.id, style: { display: "flex", alignItems: "stretch", gap: 4 } },
+                            h("button", { "data-wk": "slmodbtn", "data-on": on ? "1" : "0", onClick: () => toggleMod(m.id), "aria-pressed": on ? "true" : "false",
                               style: { flex: 1, minWidth: 0, minHeight: 44, textAlign: "left", padding: "9px 10px 9px 8px",
                                 borderRadius: 3, border: "1px solid " + (on ? t.ink : t.line),
                                 background: on ? t.bg2 : "transparent",
@@ -271,7 +271,7 @@
                               h("span", { style: { flex: 1, minWidth: 0 } },
                                 h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
                                 h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint))),
-                            m.user ? h("button", { onClick: () => {
+                            m.user ? h("button", { "data-wk": "slmoddel", onClick: () => {
                                 if (armed !== m.id) { setArmed(m.id); return; }
                                 SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },
                               style: Object.assign({}, S.tapIcon(armed === m.id ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 3, border: "1px solid " + (armed === m.id ? t.accent : t.line) }) },
@@ -281,13 +281,13 @@
               })),
 
             // 手写 / 导入
-            h("div", { style: { marginBottom: 16 } },
+            h("div", { "data-wk": "slfree", style: { marginBottom: 16 } },
               h("div", { style: S.h2 }, "手写 ／ 导入" + (String(cur.free || "").trim() ? " · " + cnt(cur.free) + " 字" : "")),
               h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "整段贴进来就行，不用拆。你从酒馆搬的那种一整篇的文风放这儿最合适。"),
               // 手写那一段是【一张稿子】，不是一个通用输入框：左边留出页边、竖一道红线
               h("div", { style: { position: "relative", border: "1px solid " + t.line, borderRadius: 3, background: t.bg2, overflow: "hidden" } },
                 h("span", { "aria-hidden": "true", style: { position: "absolute", left: 22, top: 0, bottom: 0, width: 1, background: "rgba(194,90,74,.30)" } }),
-                h("textarea", { value: cur.free || "", onChange: e => patchCur({ free: e.target.value }), rows: 6,
+                h("textarea", { "data-wk": "slfreeinput", value: cur.free || "", onChange: e => patchCur({ free: e.target.value }), rows: 6,
                   placeholder: "粘贴一整篇文风说明…",
                   style: { width: "100%", border: "none", outline: "none", background: "transparent", resize: "vertical",
                     padding: "10px 11px 10px 30px", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.7, color: t.ink } })),
@@ -310,7 +310,7 @@
                   [0, 1, 2].map(i => h("span", { key: i, style: { width: 4, height: 11, borderRadius: 1, background: t.ink, opacity: .75 } })));
                 const one = (val, label) => {
                   const on = val === "before" ? cur.freePos === "before" : cur.freePos !== "before";
-                  return h("button", { key: val, onClick: () => patchCur({ freePos: val }), "aria-pressed": on ? "true" : "false",
+                  return h("button", { "data-wk": "slfreepos", "data-on": on ? "1" : "0", key: val, onClick: () => patchCur({ freePos: val }), "aria-pressed": on ? "true" : "false",
                     style: { minHeight: 44, padding: "7px 10px", borderRadius: 4, border: "1px solid " + (on ? t.ink : t.line),
                       background: on ? t.bg2 : "transparent", display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 4 } },
                     h("span", { style: { display: "flex", alignItems: "center", gap: 4, opacity: on ? 1 : .45 } },
@@ -323,16 +323,16 @@
               })()),
 
             // 预览
-            h("div", { style: { marginBottom: 16 } },
+            h("div", { "data-wk": "slpreview", style: { marginBottom: 16 } },
               h("div", { style: { display: "flex", alignItems: "baseline", gap: 8 } },
                 h("div", { style: S.h2 }, "组装出来长这样"),
                 h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog } }, cnt(assembled) + " 字"),
-                h("button", { onClick: () => setShowFull(v => !v), style: Object.assign({}, S.tapGhost(t.tint), { marginLeft: "auto", border: "none" }) }, showFull ? "收起" : "看全文")),
+                h("button", { "data-wk": "slfullbtn", "data-on": showFull ? "1" : "0", onClick: () => setShowFull(v => !v), style: Object.assign({}, S.tapGhost(t.tint), { marginLeft: "auto", border: "none" }) }, showFull ? "收起" : "看全文")),
               // 样张：一张印出来的纸。收起时下缘【褪下去】而不是被硬切一刀——
               // 硬切看着像内容没加载完，褪下去才读得出「后面还有」。
               h("div", { style: { position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 3,
                   padding: "11px 12px", maxHeight: showFull ? "none" : 150, overflow: "hidden" } },
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } },
+                h("div", { "data-wk": "slpreviewtext", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } },
                   assembled || "（空的——挑几根字条，或者贴一段进去）"),
                 !showFull && assembled
                   ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 34,
@@ -340,9 +340,9 @@
                   : null)),
 
             // 台脚那几颗跟台边的家伙什长一个样（都是工具，不是版）
-            h("div", { style: { display: "flex", gap: 6, alignItems: "center", paddingTop: 9, borderTop: "1px dashed " + t.line } },
-              h("button", { onClick: dupPreset, style: Object.assign({}, S.tool, { color: t.tint }) }, "复制一份"),
-              h("button", { onClick: delPreset, style: Object.assign({}, S.tool, { color: t.accent },
+            h("div", { "data-wk": "slactions", style: { display: "flex", gap: 6, alignItems: "center", paddingTop: 9, borderTop: "1px dashed " + t.line } },
+              h("button", { "data-wk": "slactbtn", "data-part": "dup", onClick: dupPreset, style: Object.assign({}, S.tool, { color: t.tint }) }, "复制一份"),
+              h("button", { "data-wk": "slactbtn", "data-part": "del", onClick: delPreset, style: Object.assign({}, S.tool, { color: t.accent },
                 armed === cur.id ? { background: t.accent, color: "#fff", borderColor: t.accent } : null) },
                 armed === cur.id ? "真删？再点一下" : "删掉这块版"),
               armed === cur.id
@@ -391,7 +391,7 @@
       setBusy("");
     };
 
-    const testTab = h("div", { style: { padding: "14px 14px 28px" } },
+    const testTab = h("div", { "data-wk": "sltest", style: { padding: "14px 14px 28px" } },
       h("div", { style: Object.assign({}, S.hint, { marginBottom: 14, lineHeight: 1.8 }) },
         "同一个人设、同一个场景、只有预设不同——这样比出来的差别才真的是预设的差别。\n剧本是固定的，别改，改了就没法比。"),
 
@@ -402,7 +402,7 @@
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 6 } },
           chars.map(c => {
             const on = c.id === tChar;
-            return h("button", { key: c.id, onClick: () => setTChar(c.id), "aria-pressed": on ? "true" : "false",
+            return h("button", { "data-wk": "slcharpick", "data-on": on ? "1" : "0", key: c.id, onClick: () => setTChar(c.id), "aria-pressed": on ? "true" : "false",
               style: { display: "flex", alignItems: "center", gap: 7, minHeight: 44, padding: "5px 11px 5px 6px",
                 borderRadius: 3, border: "1px solid " + (on ? t.ink : t.line),
                 background: on ? t.bg2 : "transparent",
@@ -418,12 +418,12 @@
         // 哪一折就摊开——底下直接接着那一折的场面和她的第一句。
         // ⚠️不做成一排标签：四折的名字排不进一行，一换行「选中那张接着底下那页」
         //   就断了（标签在第一行、页在第二行下面），形状当场不成立。
-        h("div", { style: { border: "1px solid " + t.line, borderRadius: 3, overflow: "hidden",
+        h("div", { "data-wk": "slscenes", style: { border: "1px solid " + t.line, borderRadius: 3, overflow: "hidden",
             background: t.bg2, marginTop: 6 } },
           SP.TEST_SCENES.map((sc, i) => {
             const on = sc.id === tScene;
-            return h("div", { key: sc.id, style: { borderTop: i ? "1px solid " + t.line : "none" } },
-              h("button", { onClick: () => setTScene(sc.id), "aria-pressed": on ? "true" : "false",
+            return h("div", { "data-wk": "slscene", key: sc.id, style: { borderTop: i ? "1px solid " + t.line : "none" } },
+              h("button", { "data-wk": "slscenebtn", "data-on": on ? "1" : "0", onClick: () => setTScene(sc.id), "aria-pressed": on ? "true" : "false",
                 style: { width: "100%", minHeight: 44, textAlign: "left", padding: "0 12px 0 0",
                   background: on ? "transparent" : "rgba(127,127,127,.045)",
                   display: "flex", alignItems: "center", gap: 9 } },
@@ -474,7 +474,7 @@
             + "· 想一次写长：换一条 openai 方言的线路，能流式之后这个天花板就没了。\n"
             + "· 先将就：最低字数调到 800 上下，一次调用能在 60 秒内写完。"));
       })(),
-      h("button", { onClick: doRun, disabled: !!busy,
+      h("button", { "data-wk": "slrun", onClick: doRun, disabled: !!busy,
         style: { width: "100%", minHeight: 48, padding: "13px", borderRadius: 3, border: "none",
           background: busy ? t.line : t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 14,
           letterSpacing: ".04em", marginBottom: 18,
@@ -482,7 +482,7 @@
         busy ? "在写 " + busy + "…" : "印一张"),
 
       runs.length
-        ? h("div", null,
+        ? h("div", { "data-wk": "slruns" },
             h("div", { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
               h("div", { style: S.h2 }, "结果 · 最近 " + runs.length + " 次"),
               h("button", { onClick: () => { if (armed !== "__runs") { setArmed("__runs"); return; } setArmed(""); setRuns(SP.clearRuns()); },
@@ -492,34 +492,34 @@
             h("div", { style: { display: "flex", flexDirection: "column", gap: 11 } },
               runs.map(r => {
                 const bad = !!r.err, thin = !bad && r.want && r.chars < r.want;
-                return h("div", { key: r.id, style: { background: t.bg2, border: "1px solid " + (bad ? t.accent : t.line),
+                return h("div", { "data-wk": "slresult", key: r.id, style: { background: t.bg2, border: "1px solid " + (bad ? t.accent : t.line),
                     borderRadius: 3, overflow: "hidden", boxShadow: "0 3px 9px -8px rgba(0,0,0,.7)" } },
                   h("div", { style: { padding: "11px 12px 10px" } },
                     (r.notes || []).length ? h("div", { style: Object.assign({}, S.hint, { fontSize: 10.5, marginBottom: 6, color: t.tint }) }, (r.notes || []).join("　·　")) : null,
                     bad
                       ? h("div", { style: Object.assign({}, S.hint, { color: t.accent }) }, r.err)
                       : h("div", { style: { position: "relative", maxHeight: openRun[r.id] ? "none" : 132, overflow: "hidden" } },
-                          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap" } }, r.text),
+                          h("div", { "data-wk": "slresulttext", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.85, color: t.sub, whiteSpace: "pre-wrap" } }, r.text),
                           !openRun[r.id]
                             ? h("span", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, bottom: 0, height: 30,
                                 background: "linear-gradient(180deg, rgba(255,255,255,0) 0%, " + t.bg2 + " 92%)" } })
                             : null)),
                   // 纸脚
-                  h("div", { style: { display: "flex", alignItems: "center", gap: 8, padding: "0 6px 0 12px",
+                  h("div", { "data-wk": "slresultfoot", style: { display: "flex", alignItems: "center", gap: 8, padding: "0 6px 0 12px",
                       borderTop: "1px solid " + (bad ? t.accent : t.line),
                       background: bad ? "rgba(194,90,74,.10)" : "rgba(127,127,127,.05)" } },
                     h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: bad ? t.accent : t.ink } }, r.presetName),
                     h("span", { style: Object.assign({}, S.hint, { fontSize: 10.5, flex: 1, minWidth: 0 }) }, r.charName + " · " + r.sceneName),
                     h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: bad || thin ? t.accent : t.fog } },
                       bad ? "印坏了" : r.chars + " 字" + (r.want ? " / " + r.want : "")),
-                    bad ? null : h("button", { onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })),
+                    bad ? null : h("button", { "data-wk": "slexpand", onClick: () => setOpenRun(o => Object.assign({}, o, { [r.id]: !o[r.id] })),
                       style: Object.assign({}, S.tapIcon(t.tint), { fontSize: 11.5, minWidth: 52 }) }, openRun[r.id] ? "收起" : "全文")));
               })))
         : null);
 
     // 打样台也铺一张纸（v62.73 审美审计：这一页整个是 t.bg 平色）
     const benchPaper = (typeof pageSkin === "function") ? pageSkin("paper", t, { strength: .5 }) : { background: t.bg };
-    return h("div", { style: Object.assign({ position: "relative", height: "100%", display: "flex", flexDirection: "column" }, benchPaper) },
+    return h("div", { "data-wk": "slpage", style: Object.assign({ position: "relative", height: "100%", display: "flex", flexDirection: "column" }, benchPaper) },
       // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1：「那条紧凑栏就是 Head，别再自己写一条」）。
       // ⚠️v65.09 才换过来。之前这一页自己手写了一条，于是它身上【一个 data-wk 挂点都没有】：
       //   她让秋秋给文风台写主题 CSS，[data-wk="head"]/headink/headdim 那几条全落空，
@@ -534,10 +534,10 @@
       // 所以两栏就是台上叠着的两张样张：翻到哪一张，哪一张压在上面、纸色、往下探出一截；
       // 底下那张只露出一个角，暗着、缩着。
       // ⚠️选中态同时变【高度、位置、底色、阴影】，不只靠色差。
-      h("div", { style: { display: "flex", gap: 0, padding: "0 14px" } },
+      h("div", { "data-wk": "sltabs", style: { display: "flex", gap: 0, padding: "0 14px" } },
         [["build", "搭预设"], ["test", "测试台"]].map(([k, label], i) => {
           const on = tab === k;
-          return h("button", { key: k, onClick: () => setTab(k), "aria-pressed": on ? "true" : "false",
+          return h("button", { "data-wk": "sltab", "data-on": on ? "1" : "0", key: k, onClick: () => setTab(k), "aria-pressed": on ? "true" : "false",
             className: "active:opacity-80",
             style: {
               flex: 1, minHeight: 40,
@@ -554,7 +554,7 @@
             }
           }, label);
         })),
-      h("div", { style: { flex: 1, overflowY: "auto", background: t.bg2, borderTop: "1px solid " + t.line, marginTop: -1 } }, tab === "build" ? buildTab : testTab));
+      h("div", { "data-wk": "slbody", style: { flex: 1, overflowY: "auto", background: t.bg2, borderTop: "1px solid " + t.line, marginTop: -1 } }, tab === "build" ? buildTab : testTab));
   }
   window.StyleLabApp = StyleLabApp;
 })();

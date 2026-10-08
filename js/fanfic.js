@@ -184,7 +184,7 @@
         background: pp.bg, borderRadius: 11, padding: "9px 10px 8px", overflow: "hidden",
         border: "2px solid " + (on ? pp.accent : "rgba(128,128,128,0.28)"),
         boxShadow: on ? "0 0 0 2px " + pp.accent + "44" : "0 1px 3px rgba(0,0,0,0.10)"
-      }
+      }, "data-wk": "ficpaperswatch", "data-on": on ? "1" : "0"
     },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: pp.ink, lineHeight: 1.2 } }, pp.label),
       h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: pp.fog, marginTop: 2 } }, pp.hint),
@@ -2796,7 +2796,7 @@
     const all = characters || [];
     const live = all.filter(function (c) { return c && !c.npc; });
     const npcs = all.filter(function (c) { return c && c.npc; });
-    const one = function (c, suffix) { return h("option", { key: c.id, value: c.id }, c.name + (suffix || "")); };
+    const one = function (c, suffix) { return h("option", { key: c.id, value: c.id, "data-wk": "ficpaperswatchone" }, c.name + (suffix || "")); };
     const out = [h("option", { key: "_orig", value: "" }, "原创角色"),
       h("option", { key: "_me", value: "me" }, "我（" + (userName || "我") + "）")];
     live.forEach(function (c) { out.push(one(c)); });
@@ -2822,12 +2822,12 @@
     const list = [{ id: "me", name: (props.userName || "我") + "（我）" }]
       .concat(all.filter(function (c) { return c && !c.npc; }))
       .concat(all.filter(function (c) { return c && c.npc; }).map(function (c) { return { id: c.id, name: c.name, npc: true }; }));
-    return h("div", null, list.map(function (c) {
+    return h("div", { "data-wk": "ficcastpicker" }, list.map(function (c) {
       const at = cast.indexOf(c.id), on = at >= 0;
       const mark = cast.length === 2 ? (at === 0 ? "左位" : "右位") : String(at + 1);
       return h("button", { key: c.id, className: "w-full text-left active:opacity-70",
         onClick: function () { props.onChange(on ? cast.filter(function (x) { return x !== c.id; }) : (cast.length >= CAST_MAX ? cast : cast.concat([c.id]))); },
-        style: { display: "flex", gap: 10, alignItems: "center", padding: "10px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+        style: { display: "flex", gap: 10, alignItems: "center", padding: "10px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line }, "data-wk": "ficcastpicker", "data-part": "r2", "data-on": on ? "1" : "0" },
         h("span", { style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
         h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
           c.name + (c.npc ? "（配角）" : "")),
@@ -2843,7 +2843,7 @@
       style: { minHeight: 40, padding: "0 13px", display: "flex", alignItems: "center", gap: 5,
         fontFamily: F_BODY, fontSize: 12.5, borderRadius: 3,
         color: on ? (t.bg2 || t.bg) : st.color, background: on ? st.color : st.background,
-        border: on ? "1px solid " + st.color : st.border, fontWeight: on ? 600 : 400 } },
+        border: on ? "1px solid " + st.color : st.border, fontWeight: on ? 600 : 400 }, "data-wk": "ficwaytag", "data-on": on ? "1" : "0" },
       on ? h("span", { style: { fontSize: 11 } }, "✓") : null, props.tag);
   }
   // 这一篇里谁一次都没露面。⚠️规则只降概率，这一道是【看得见】：
@@ -2901,7 +2901,7 @@
     const isLead = idx === 0 && !props.noLead;
     const no = String(idx + 1).padStart(2, "0");
     const summary = (((f.chapters || [])[0] || {}).content || f.body || "").slice(0, 110);
-    const dot = function (txt, key) { return h("span", { key: key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, txt); };
+    const dot = function (txt, key) { return h("span", { key: key, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog }, "data-wk": "ficficcarddot" }, txt); };
     // 目录页的引导点：篇名之后一路点到右边那格字数。这是目录独有的东西，
     // 换个 app 就不成立——别处的列表右边不是页码。
     const leader = h("span", { style: { flex: 1, minWidth: 14, alignSelf: "flex-end", marginBottom: 5, borderBottom: "1px dotted " + t.line } });
@@ -2911,12 +2911,12 @@
         (f.tags || []).slice(0, 5).map(function (tag, i) { return h(FicTag, { key: i, tag: tag, onClick: props.onTag }); })) : null;
     };
     const statRow = function (mt) {
-      return h("div", { className: "flex items-center flex-wrap", style: { gap: 8, marginTop: mt } },
+      return h("div", { className: "flex items-center flex-wrap", style: { gap: 8, marginTop: mt }, "data-wk": "ficficcardstatrow" },
         dot(chCount + " 章", "c"),
         h("span", {
           onClick: function (e) { e.stopPropagation(); props.onLike && props.onLike(); },
           className: "active:opacity-60 flex items-center gap-1",
-          style: { fontFamily: F_BODY, fontSize: 10.5, color: f.liked ? t.accent : t.fog }
+          style: { fontFamily: F_BODY, fontSize: 10.5, color: f.liked ? t.accent : t.fog }, "data-wk": "ficficcardtap", "data-part": "1"
         }, h(IHeart, { size: 11, color: f.liked ? t.accent : t.fog, filled: f.liked }), fmtNum(heat.kudos + (f.liked ? 1 : 0))),
         (f.reviews || []).length ? dot("评 " + (f.reviews || []).length, "r") : null,
         h("span", { style: { flex: 1 } }),
@@ -2930,7 +2930,7 @@
         props.onDelete ? h("span", {
           onClick: function (e) { e.stopPropagation(); props.onDelete(); },
           role: "button", title: "删掉这一篇", className: "active:opacity-50",
-          style: { flexShrink: 0, marginLeft: 2, padding: "0 5px", fontFamily: F_BODY, fontSize: 12, lineHeight: "18px", color: t.fog }
+          style: { flexShrink: 0, marginLeft: 2, padding: "0 5px", fontFamily: F_BODY, fontSize: 12, lineHeight: "18px", color: t.fog }, "data-wk": "ficficcardtap", "data-part": "2"
         }, "✕") : null);
     };
     // ⚠️v61.19：目录行是对的，但它【平在纸上】（她 2026-09-03：「还是一块平的」）。
@@ -2957,7 +2957,7 @@
     });
     // 装订边：靠左那一条压深的纸 + 两枚订书钉（同人本就是这么订起来的）
     const staple = function (top) {
-      return h("div", { key: "s" + top, style: { position: "absolute", left: 8, top: top, width: 2, height: 9, borderRadius: 1, background: hexA(t.ink, .42) } });
+      return h("div", { key: "s" + top, style: { position: "absolute", left: 8, top: top, width: 2, height: 9, borderRadius: 1, background: hexA(t.ink, .42) }, "data-wk": "ficficcardstaple" });
     };
     const binding = h("div", { style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 19, background: "linear-gradient(90deg," + hexA(t.ink, .11) + "," + hexA(t.ink, .02) + ")" } });
     // 「写我们的」那几篇：从册子上口垂下来的一根红书签带
@@ -2974,7 +2974,7 @@
       style: {
         background: paper, borderRadius: 2, boxShadow: stack,
         padding: "14px 20px 13px 30px", marginBottom: 16
-      }
+      }, "data-wk": "ficficcardstaple", "data-part": "r2"
     },
       binding, staple("28%"), staple("62%"), foreEdge, ribbon,
       h("div", { className: "flex items-center", style: { gap: 8, paddingBottom: 8, marginBottom: 9, borderBottom: "1px solid " + hexA(t.ink, .12) } },
@@ -2994,7 +2994,7 @@
       style: {
         background: paper, borderRadius: 2, boxShadow: stack,
         gap: 9, padding: "11px 17px 11px 26px", marginBottom: 13
-      }
+      }, "data-wk": "ficficcardstaple", "data-part": "r3"
     },
       binding, staple("26%"), staple("64%"), foreEdge, ribbon,
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 12, lineHeight: 1.6, color: hasMe ? t.accent : t.fog, width: 20, flexShrink: 0 } }, no),
@@ -3017,7 +3017,7 @@
   // 绕左边书脊那条边转进来（transform-origin:left），带一道从中缝扫过去的高光。
   // ⚠️开了「减少动态效果」的人一律不放（无障碍设置，别硬演）。
   function FicMotionStyles() {
-    return h("style", null,
+    return h("style", { "data-wk": "ficficmotionstyles" },
       "@keyframes ficOpenBook{0%{opacity:.35;transform:perspective(1400px) rotateY(-72deg)}"
       + "62%{opacity:1}100%{opacity:1;transform:perspective(1400px) rotateY(0)}}"
       + "@keyframes ficOpenGlare{0%{opacity:.5}100%{opacity:0}}"
@@ -3064,9 +3064,9 @@
     const t = useTheme();
     const SPINE_H = 66, OFF_H = 52;
     const rule = function (pos, color) {
-      return h("div", { style: Object.assign({ position: "absolute", left: 3, right: 3, height: 1, background: color }, pos) });
+      return h("div", { style: Object.assign({ position: "absolute", left: 3, right: 3, height: 1, background: color }, pos), "data-wk": "fictabbarrule" });
     };
-    return h("div", { className: "shrink-0 px-5 pb-2", style: { overflowX: "auto", WebkitOverflowScrolling: "touch" } },
+    return h("div", { className: "shrink-0 px-5 pb-2", style: { overflowX: "auto", WebkitOverflowScrolling: "touch" }, "data-wk": "fictabbarrule", "data-part": "r2" },
       h("div", { style: { width: "max-content", minWidth: "100%" } },
         h("div", { style: { display: "flex", flexWrap: "nowrap", alignItems: "flex-end", gap: 3, paddingTop: 8 } },
           props.tabs.map(function (tab) {
@@ -3094,7 +3094,7 @@
                 fontFamily: F_DISPLAY, fontSize: on ? 13 : 12.5, fontWeight: on ? 600 : 500,
                 writingMode: "vertical-rl", textOrientation: "upright",
                 letterSpacing: "0.05em", lineHeight: 1, whiteSpace: "nowrap"
-              }
+              }, "data-wk": "fictabbar", "data-on": on ? "1" : "0"
             },
               // 上下两道烫金压线——书脊上那两条，认书脊全靠它
               rule({ top: 5 }, on ? t.line : sp.foil),
@@ -3110,7 +3110,7 @@
               height: OFF_H - 6, width: 29, borderRadius: "4px 4px 0 0", marginLeft: 4,
               border: "1px dashed " + t.line, borderBottom: "none",
               color: t.fog, fontFamily: F_BODY, fontSize: 15, background: "transparent"
-            }
+            }, "data-wk": "fictabbarbtn", "data-part": "新建世界观"
           }, "+"),
           h("div", { style: { flex: 1, minWidth: 10 } })),
         // 搁板：一排书立在它上面，板面朝上收一道暗（书压出来的影），板底一道厚边
@@ -3181,9 +3181,9 @@
     function sec(id, title, summary) {
       const body = Array.prototype.slice.call(arguments, 3);
       const on = secOpen === id;
-      return h("div", { key: id, style: { borderRadius: 14, border: "1px solid " + (on ? t.ink : t.line), background: t.bg2, marginBottom: 8, overflow: "hidden" } },
+      return h("div", { key: id, style: { borderRadius: 14, border: "1px solid " + (on ? t.ink : t.line), background: t.bg2, marginBottom: 8, overflow: "hidden" }, "data-wk": "ficgensheetsec", "data-on": on ? "1" : "0" },
         h("button", { onClick: function () { setSecOpen(on ? "" : id); }, className: "w-full text-left active:opacity-70",
-          style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48, padding: "0 13px", background: "transparent", border: "none" } },
+          style: { display: "flex", alignItems: "center", gap: 10, minHeight: 48, padding: "0 13px", background: "transparent", border: "none" }, "data-wk": "ficgensheetbtn", "data-part": "1", "data-on": on ? "1" : "0" },
           h("span", { style: { flex: 1, minWidth: 0 } },
             h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, title),
             h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, summary)),
@@ -3194,7 +3194,7 @@
     //   这一层要填的是四格设置，压根不需要同时看见底下那一屏 feed；
     //   而半窗的代价是固定的——不管里面装多少，先扣掉一半屏幕。
     //   （v64.63 之前它是半窗，一屏装不下、也看不出自己填到哪儿了。）
-    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }), "data-wk": "ficgensheet" },
       h(Head, { bg: "transparent", zh: "生成配置", sub: "【" + props.tab.name + "】世界观 × 选中 CP × 篇数 → 往本版 feed 出文", onBack: props.onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pt-1 pb-4" },
 
@@ -3206,7 +3206,7 @@
         //   等于把设置藏起来了，比长条还难用。
         sec("n", "写几篇 · 每篇写什么", n + " 篇 · " + (briefN ? briefN + " 篇写了梗" : "都自由发挥"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, marginBottom: 8 } }, "生成篇数　" + n + " 篇"),
-          h("input", { type: "range", min: 1, max: 8, value: n, onChange: function (e) { setN(Number(e.target.value)); }, className: "w-full mb-4" }),
+          h("input", { type: "range", min: 1, max: 8, value: n, onChange: function (e) { setN(Number(e.target.value)); }, className: "w-full mb-4", "data-wk": "ficgensheetinput", "data-part": "1" }),
 
           // 每篇一个框：想好了就写，没写的那篇自由发挥。
           // ⚠️框数跟着篇数走，但 briefs 不随之截断——她把篇数调小再调回来，
@@ -3215,12 +3215,12 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "留空的那篇自由发挥；写了的会当成那一篇的地基，不是结尾提一句"),
           h("div", { className: "mb-6", style: { display: "flex", flexDirection: "column", gap: 6 } },
             Array.from({ length: n }, function (_, i) {
-              return h("div", { key: i, className: "flex items-start", style: { gap: 8 } },
+              return h("div", { key: i, className: "flex items-start", style: { gap: 8 }, "data-wk": "ficgensheet", "data-part": "r2" },
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, paddingTop: 8, width: 26, flexShrink: 0 } }, "第" + (i + 1)),
                 h("textarea", {
                   value: briefs[i] || "", onChange: function (e) { setBrief(i, e.target.value); },
                   rows: 1, placeholder: "自由发挥",
-                  style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "6px 10px", outline: "none", resize: "vertical" }
+                  style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.55, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "6px 10px", outline: "none", resize: "vertical" }, "data-wk": "ficgensheettext", "data-part": "自由发挥"
                 }));
             })),
         ),
@@ -3232,23 +3232,23 @@
               const on = JSON.stringify(chosenCP()) === JSON.stringify(cp.cp);
               return h("button", {
                 key: cp.id, onClick: function () { setPickA(""); setPickB(""); setCast([]); setSel(on ? [] : cp.cp); },
-                style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) }
+                style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) }, "data-wk": "ficgensheet", "data-part": "r3", "data-on": on ? "1" : "0"
               }, cp.label || cpLabel(cp.cp, characters, props.userName));
             })
           ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "还没有 CP 预设，可在「我的」页添加，或下面本次手动设置一对："),
 
           // 本次手动设置一对（不进预设）：原创 / 我（面具人设）/ 角色
           h("div", { className: "flex items-center gap-2 mb-2" },
-            h("select", { value: pickA, onChange: function (e) { setSel([]); setCast([]); setPickA(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
+            h("select", { value: pickA, onChange: function (e) { setSel([]); setCast([]); setPickA(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2), "data-wk": "ficgensheetselect", "data-part": "1" },
               cpOptions(characters, props.userName)),
             h("span", { style: { fontFamily: F_BODY, color: t.fog, flexShrink: 0 } }, "×"),
-            h("select", { value: pickB, onChange: function (e) { setSel([]); setCast([]); setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
+            h("select", { value: pickB, onChange: function (e) { setSel([]); setCast([]); setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2), "data-wk": "ficgensheetselect", "data-part": "2" },
               cpOptions(characters, props.userName))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "选「我」时按你在设置里的面具人设来写，没填则自由发挥"),
 
           // 俩角色 CP：带不带上「我」（否则默认只写他俩，即便设定里写了 TA 是我男朋友也不把我带进去）
           (!isGroup && twoRealChars()) ? h("button", { onClick: function () { setIncludeMe(function (v) { return !v; }); }, className: "w-full active:opacity-80",
-            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 } },
+            style: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "10px 12px", background: includeMe ? "rgba(0,0,0,0.04)" : t.bg2, border: "1px solid " + (includeMe ? t.ink : t.line), borderRadius: 12, marginTop: 4, marginBottom: 14 }, "data-wk": "ficgensheetbtn", "data-part": "2" },
             h("div", { style: { textAlign: "left" } },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, includeMe ? "带上我（他俩 × 我 的三人）" : "只写他俩的 CP"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, includeMe ? "把「我」作为第三方写进文里" : "只聚焦这两个角色，就算设定写了 TA 是我男朋友也不把我带进去")),
@@ -3270,7 +3270,7 @@
             h("input", { value: way, onChange: function (e) { setWay(e.target.value.slice(0, 120)); },
               placeholder: "或者自己写：同门、一个乐队、互相看不顺眼的同事…",
               className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "9px 0 8px", marginTop: 10,
-                background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line } }),
+                background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line }, "data-wk": "ficgensheetinput", "data-part": "或者自己写：同门、一个乐" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } },
               "空着就让她自己定一种。不是每个人都要出场——谁是重心交给写的人。")) : null,
         ),
@@ -3280,7 +3280,7 @@
           styles.length ? h("div", { className: "flex flex-wrap gap-2 mb-6" },
             styles.map(function (s) {
               const on = styleIds.indexOf(s.id) >= 0;
-              return h("button", { key: s.id, onClick: function () { toggleStyle(s.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) } }, s.label);
+              return h("button", { key: s.id, onClick: function () { toggleStyle(s.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, padding: "5px 12px", borderRadius: 999, background: on ? t.accent : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.accent : t.line) }, "data-wk": "ficgensheet", "data-part": "r4", "data-on": on ? "1" : "0" }, s.label);
             })
           ) : h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 18 } }, "还没有文风预设，去「我的 → 生成设置」新建或导入，之后每次在这里勾选。"),
         ),
@@ -3292,7 +3292,7 @@
             [{ id: "", name: "随缘（谁写都行）", style: "模型自己起个笔名，写完收进作者库" }].concat(authors).map(function (a) {
               const on = (byId || "") === a.id;
               return h("button", { key: a.id || "_any", onClick: function () { setById(a.id); }, className: "w-full text-left active:opacity-70",
-                style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "7px 2px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+                style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "7px 2px", background: "transparent", border: "none", borderBottom: "1px solid " + t.line }, "data-wk": "ficgensheet", "data-part": "r5" },
                 h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 6, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
                 h("span", { style: { minWidth: 0 } },
                   h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
@@ -3304,8 +3304,8 @@
       // 页脚固定在底下：四格再怎么展开，「确定生成」永远在手边（底部只吃 0.4 条
       // 安全区，跟主聊天输入栏同一把尺子——mobile-ui-layout.md §2）
       h("div", { className: "shrink-0 flex items-center gap-3 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
-        h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line } }, "重置"),
-        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : ""); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "确定生成")));
+        h("button", { onClick: function () { setN(3); setSel([]); setPickA(""); setPickB(""); setIncludeMe(false); setBriefs([]); setById(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, padding: "10px 18px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "ficgensheetbtn", "data-part": "3" }, "重置"),
+        h("button", { onClick: function () { props.onConfirm(n, chosenCP(), styleIds, !isGroup && twoRealChars() && includeMe, briefs.slice(0, n), authors.filter(function (a) { return a.id === byId; })[0] || null, isGroup ? way.trim() : ""); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "ficgensheetbtn", "data-part": "4" }, "确定生成")));
   }
 
   // ---------- 新建/编辑自定义世界观 tab ----------
@@ -3314,20 +3314,20 @@
     const editing = props.tab;
     const [name, setName] = useState(editing ? editing.name : "");
     const [desc, setDesc] = useState(editing ? editing.desc : "");
-    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose },
+    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose, "data-wk": "fictabsheet" },
       // 掀起来那块该是同一张纸——父页铺的就是 pageSkin("paper")，退回平色就等于
       // 从纸上掀起一块塑料板（no-half-sheet.md 的 skin 那一节）
-      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: pageSkin("paper", t, { strength: .6, corner: false }) },
+      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: pageSkin("paper", t, { strength: .6, corner: false }), "data-wk": "fictabsheettap", "data-part": "1" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 21, color: t.ink, marginBottom: 14 } }, editing ? "编辑世界观" : "新世界观"),
-        h("input", { value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "世界观名（如『民国』『星际』）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 14, padding: "10px 12px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("textarea", { value: desc, onChange: function (e) { setDesc(e.target.value); }, placeholder: "世界观描述（= 生成时的设定层 / world book，越具体越好：背景、基调、这个世界的规则）", rows: 5, className: "w-full outline-none mb-4 resize-none", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+        h("input", { value: name, onChange: function (e) { setName(e.target.value); }, placeholder: "世界观名（如『民国』『星际』）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 14, padding: "10px 12px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "fictabsheetinput", "data-part": "世界观名（如『民国』『星" }),
+        h("textarea", { value: desc, onChange: function (e) { setDesc(e.target.value); }, placeholder: "世界观描述（= 生成时的设定层 / world book，越具体越好：背景、基调、这个世界的规则）", rows: 5, className: "w-full outline-none mb-4 resize-none", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, padding: "10px 12px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "fictabsheettext", "data-part": "世界观描述（= 生成时的" }),
         h("div", { className: "flex items-center gap-3" },
-          editing && !editing.seed ? h("button", { onClick: function () { props.onDelete(editing.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, padding: "10px 16px", borderRadius: 12, border: "1px solid " + t.line } }, "删除") : null,
-          h("button", { onClick: function () { if (name.trim()) props.onSave(editing ? editing.id : null, name.trim(), desc.trim()); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 } }, "保存"))));
+          editing && !editing.seed ? h("button", { onClick: function () { props.onDelete(editing.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.accent, padding: "10px 16px", borderRadius: 12, border: "1px solid " + t.line }, "data-wk": "fictabsheetbtn", "data-part": "1" }, "删除") : null,
+          h("button", { onClick: function () { if (name.trim()) props.onSave(editing ? editing.id : null, name.trim(), desc.trim()); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "11px", borderRadius: 12 }, "data-wk": "fictabsheetbtn", "data-part": "2" }, "保存"))));
   }
 
   // 作者署名 badge
-  function authorTag(t) { return h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.bg2, background: t.tint, borderRadius: 5, padding: "0px 5px", marginLeft: 5 } }, "作者"); }
+  function authorTag(t) { return h("span", { style: { fontFamily: F_BODY, fontSize: 9, color: t.bg2, background: t.tint, borderRadius: 5, padding: "0px 5px", marginLeft: 5 }, "data-wk": "fictabsheetauthortag" }, "作者"); }
 
   // ---------- 阅读页（含追更 + 书评）----------
   function Reader(props) {
@@ -3589,21 +3589,21 @@
     // AO3 的 work header：标题 by 作者 / 关系 / 一整块标签 / 底下那行统计。
     // 原先这里是 Head 那块 30px 大标题「阅读」，标题本身反而排在下面（v58.02）。
     const metaRow = function (label, node) {
-      return h("div", { className: "flex", style: { gap: 9, marginTop: 6 } },
+      return h("div", { className: "flex", style: { gap: 9, marginTop: 6 }, "data-wk": "ficreadermetarow" },
         h("span", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 8.5, letterSpacing: "0.14em", color: t.fog, width: 58, flexShrink: 0, paddingTop: 3 } }, label),
         h("div", { className: "flex-1 min-w-0" }, node));
     };
     // 阅读页的皮肤压到六成：这一页要读几千字，纹理不能跟正文抢。
-    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { strength: .6 }) },
+    return h("div", { className: "h-full flex flex-col", style: pageSkin("paper", t, { strength: .6 }), "data-wk": "ficreadermetarow", "data-part": "r2" },
       // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）：手写那条身上一个挂点都没有，
       // 「同人文」这一页的主题 CSS 因此抓不到顶栏。纸底铺在外壳上，所以 bg 传 transparent。
       h(Head, { zh: f.title, sub: props.tab.name, onBack: props.onBack, bg: "transparent", noLine: true,
         right: h("div", { className: "flex items-center justify-end shrink-0", style: { gap: 10 } },
           // 换这一篇的纸。⚠️只改这一篇，别的篇和默认那张都不动。
           h("button", { onClick: function () { setPaperOpen(true); }, className: "active:opacity-60", "aria-label": "换书页",
-            style: { width: 20, height: 20, borderRadius: 5, background: _paper.bg, border: "1.5px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } },
+            style: { width: 20, height: 20, borderRadius: 5, background: _paper.bg, border: "1.5px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" }, "data-wk": "ficreaderbtn", "data-part": "换书页" },
             h("span", { style: { width: 8, height: 1.5, background: _paper.ink, borderRadius: 1 } })),
-          h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog } }, f.onShelf ? "★" : "☆")) }),
+          h("button", { onClick: function () { props.onToggleShelf(f.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: f.onShelf ? t.accent : t.fog }, "data-wk": "ficreaderbtn", "data-part": "2" }, f.onShelf ? "★" : "☆")) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { className: "flex items-start", style: { gap: 9 } },
           h("div", { style: { width: 3.5, alignSelf: "stretch", borderRadius: 2, background: _hasMe ? t.accent : t.line, marginTop: 5 } }),
@@ -3629,16 +3629,16 @@
         h("div", { style: { height: 1, background: t.line, margin: "14px 0 4px" } }),
         // 点赞 / 转发
         h("div", { className: "flex items-center gap-4 mb-5" },
-          h("button", { onClick: function () { props.onLike(f.id); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: f.liked ? t.accent : t.sub } },
+          h("button", { onClick: function () { props.onLike(f.id); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: f.liked ? t.accent : t.sub }, "data-wk": "ficreaderbtn", "data-part": "3" },
             h(IHeart, { size: 16, color: f.liked ? t.accent : t.sub, filled: f.liked }), f.liked ? "已赞" : "点赞"),
-          h("button", { onClick: function () { setFwdOpen(true); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
+          h("button", { onClick: function () { setFwdOpen(true); }, className: "active:opacity-60 flex items-center gap-1.5", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub }, "data-wk": "ficreaderbtn", "data-part": "4" },
             h(IRepeat, { size: 16, color: t.sub }), "转发")),
         // 章节（翻页，不再一路下滑；顶部+底部箭头 + 左右滑动）
         (function () {
           const chs = f.chapters || [];
           const idx = Math.min(Math.max(0, chapIdx), Math.max(0, chs.length - 1));
           const ch = chs[idx] || {};
-          const btn = function (label, to, disabled) { return h("button", { onClick: function () { goChap(to); }, disabled: disabled, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: disabled ? t.line : t.sub, padding: "2px 4px" } }, label); };
+          const btn = function (label, to, disabled) { return h("button", { onClick: function () { goChap(to); }, disabled: disabled, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: disabled ? t.line : t.sub, padding: "2px 4px" }, "data-wk": "ficreaderbtn", "data-part": "r5" }, label); };
           const pager = function (top) { return chs.length > 1 ? h("div", { className: "flex items-center justify-between " + (top ? "mb-4 pb-2" : "mt-5 pt-3"), style: (top ? { borderBottom: "1px solid " + t.line } : { borderTop: "1px solid " + t.line }) },
             btn("‹ 上一章", idx - 1, idx <= 0),
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.35 } },
@@ -3655,7 +3655,7 @@
             // 翻页手势必须「横向显著大于纵向」：之前只看 dx，下滑读文时手指稍斜就被当成翻上一章，
             // 一路卡回第一章还跳章首（她报的 bug 根因）
             onTouchStart: function (e) { swipeRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }; },
-            onTouchEnd: function (e) { const s = swipeRef.current || { x: 0, y: 0 }; const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y; if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return; if (dx < 0) goChap(idx + 1); else goChap(idx - 1); }
+            onTouchEnd: function (e) { const s = swipeRef.current || { x: 0, y: 0 }; const dx = e.changedTouches[0].clientX - s.x, dy = e.changedTouches[0].clientY - s.y; if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.4) return; if (dx < 0) goChap(idx + 1); else goChap(idx - 1); }, "data-wk": "ficreaderpager"
           },
             pager(true),
             // 正文按【读小说】排：字大一档、行距松开、段与段之间留白。
@@ -3670,9 +3670,9 @@
             (function () {
               const notes = (f.reviews || []).filter(function (r) { return r && r.chapterIdx === idx; });
               if (!notes.length) return null;
-              return h("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px solid " + t.line } },
+              return h("div", { style: { marginTop: 16, paddingTop: 12, borderTop: "1px solid " + t.line }, "data-wk": "ficreader", "data-part": "r2" },
                 notes.map(function (r) {
-                  return h("div", { key: r.id, style: { marginBottom: 6 } },
+                  return h("div", { key: r.id, style: { marginBottom: 6 }, "data-wk": "ficreader", "data-part": "r3" },
                     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint, marginBottom: 3 } }, r.author, authorTag(t)),
                     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub } }, r.content));
                 }));
@@ -3681,7 +3681,7 @@
             //（自动往主线记忆库写那一版是错的，撤掉了）。这一步一分钱不花。
             h("div", { style: { marginTop: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" } },
               h("button", { onClick: function () { setFileIdx(idx); }, className: "active:opacity-60",
-                style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 } },
+                style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 }, "data-wk": "ficreaderbtn", "data-part": "6" },
                 ch.byCharId ? "记进房间" : "拿给TA看"),
               filedNote ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, filedNote) : null),
             // 偷懒的那一章不许悄无声息地落盘（她 2026-09-11）。
@@ -3689,11 +3689,11 @@
             (function () {
               const miss = window.Fanfic.shortBy(ch.content, minChars);
               if (!miss) return null;
-              return h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" } },
+              return h("div", { style: { marginTop: 14, paddingTop: 10, borderTop: "1px dashed " + t.line, display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }, "data-wk": "ficreader", "data-part": "r4" },
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
                   "这章只有 " + window.Fanfic.countChars(ch.content) + " 字，你要的是 " + minChars + " 字"),
                 h("button", { onClick: function () { moreChapter(idx); }, disabled: busyMore, className: "active:opacity-60",
-                  style: { fontFamily: F_BODY, fontSize: 11.5, color: busyMore ? t.fog : t.accent, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 } },
+                  style: { fontFamily: F_BODY, fontSize: 11.5, color: busyMore ? t.fog : t.accent, background: "transparent", border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 34 }, "data-wk": "ficreaderbtn", "data-part": "7" },
                   busyMore ? "接着写…" : "让TA接着写"));
             })(),
             pager(false));
@@ -3706,18 +3706,18 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 7 } }, "第 " + ((f.chapters || []).length + 1) + " 章 · 你自己写"),
           h("textarea", { value: myChap, onChange: function (e) { setMyChap(e.target.value); }, placeholder: "接着往下写…",
             className: "w-full outline-none", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.95, padding: "13px 14px", borderRadius: 12,
-              background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 260, resize: "vertical" } }),
+              background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 260, resize: "vertical" }, "data-wk": "ficreadertext", "data-part": "接着往下写…" }),
           h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
             h("button", { onClick: function () { setMyWrite(false); setMyChap(""); }, className: "active:opacity-70",
-              style: { minHeight: 44, padding: "0 16px", borderRadius: 12, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "算了"),
+              style: { minHeight: 44, padding: "0 16px", borderRadius: 12, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.sub }, "data-wk": "ficreaderbtn", "data-part": "8" }, "算了"),
             h("button", { onClick: saveMyChapter, className: "flex-1 active:opacity-80",
-              style: { minHeight: 44, borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, "写好了，接上去"))) : null,
+              style: { minHeight: 44, borderRadius: 12, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 }, "data-wk": "ficreaderbtn", "data-part": "9" }, "写好了，接上去"))) : null,
         !myWrite ? h("div", { className: "flex", style: { gap: 8, marginBottom: 32 } },
           h("button", { onClick: function () { setMyWrite(true); }, className: "flex-1 active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, minHeight: 46, borderRadius: 12, border: "1px solid " + t.ink, background: "transparent" } },
+            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, minHeight: 46, borderRadius: 12, border: "1px solid " + t.ink, background: "transparent" }, "data-wk": "ficreaderbtn", "data-part": "10" },
             "我来写下一章"),
           h("button", { onClick: function () { setGhostOpen(true); }, disabled: busyChap, className: "flex-1 active:opacity-70",
-            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, minHeight: 46, borderRadius: 12, border: "1px dashed " + t.line, background: "transparent", opacity: busyChap ? 0.5 : 1 } },
+            style: { fontFamily: F_BODY, fontSize: 13.5, color: t.sub, minHeight: 46, borderRadius: 12, border: "1px dashed " + t.line, background: "transparent", opacity: busyChap ? 0.5 : 1 }, "data-wk": "ficreaderbtn", "data-part": "11" },
             busyChap ? "枪手写着呢…" : "请枪手接着写")) : null,
 
         // 书评区
@@ -3725,41 +3725,41 @@
           // ⚠️数的是【这儿显示的】那些：挂在某一章上的留言在那一章底下，不在这儿——
           //   把它也数进来，就会出现「书评 · 2」底下只有一条的怪事
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "书评 · " + (f.reviews || []).filter(function (r) { return r && r.chapterIdx == null; }).length),
-          h("button", { onClick: loadReviews, disabled: busyRev, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, busyRev ? "召唤读者中…" : "刷出书评")),
+          h("button", { onClick: loadReviews, disabled: busyRev, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficreaderbtn", "data-part": "12" }, busyRev ? "召唤读者中…" : "刷出书评")),
         // 我直接写书评
         h("div", { className: "flex items-center gap-2 mb-4" },
-          h("input", { value: newComment, onChange: function (e) { setNewComment(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") postComment(); }, placeholder: "写条书评…", className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-          h("button", { onClick: postComment, disabled: busy === "myrev", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "0 4px" } }, busy === "myrev" ? "…" : "发表")),
+          h("input", { value: newComment, onChange: function (e) { setNewComment(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") postComment(); }, placeholder: "写条书评…", className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "8px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficreaderinput", "data-part": "写条书评…" }),
+          h("button", { onClick: postComment, disabled: busy === "myrev", className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "0 4px" }, "data-wk": "ficreaderbtn", "data-part": "13" }, busy === "myrev" ? "…" : "发表")),
         (function () {
           // ⚠️这颗按钮只此一份：楼主那一行和楼中楼那一行都是它。
           //   各写一份的结果就是「楼主点得进、回复里点不进」——同一件事写在两处的老毛病。
           const penName = function (r, size) {
             return (r.pen && props.onOpenAuthor)
               ? h("button", { onClick: function () { props.onOpenAuthor(r.pen); }, className: "active:opacity-60",
-                  style: { fontFamily: F_BODY, fontSize: size, color: "inherit", background: "transparent", border: "none", padding: 0, textDecoration: "underline", textUnderlineOffset: 3 } }, r.author)
+                  style: { fontFamily: F_BODY, fontSize: size, color: "inherit", background: "transparent", border: "none", padding: 0, textDecoration: "underline", textUnderlineOffset: 3 }, "data-wk": "ficreaderbtn", "data-part": "14" }, r.author)
               : r.author;
           };
           const rs = (f.reviews || []).filter(function (r) { return r && r.chapterIdx == null; }); return rs.length ? rs.map(function (r) {
-          return h("div", { key: r.id, className: "mb-3 pb-3", style: { borderBottom: "1px solid " + t.line } },
+          return h("div", { key: r.id, className: "mb-3 pb-3", style: { borderBottom: "1px solid " + t.line }, "data-wk": "ficreader", "data-part": "r5" },
             // 名册里那几位：名字点得进她的主页（路人读者没有主页，照旧是死的）
             h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: r.me ? t.accent : (r.isAuthor ? t.tint : t.fog), marginBottom: 3 } },
               penName(r, 12),
               r.isAuthor ? authorTag(t) : null),
             h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, color: t.ink } }, r.content),
             (r.replies || []).map(function (rp) {
-              return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line } },
+              return h("div", { key: rp.id, className: "mt-2 ml-3 pl-3", style: { borderLeft: "2px solid " + t.line }, "data-wk": "ficreader", "data-part": "r6" },
                 h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: rp.me ? t.accent : (rp.isAuthor ? t.tint : t.fog) } }, penName(rp, 11.5), "：", rp.isAuthor ? authorTag(t) : null),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, rp.content));
             }),
             replyTo === r.id
               ? h("div", { className: "flex items-center gap-2 mt-2" },
-                  h("input", { value: replyText, autoFocus: true, onChange: function (e) { setReplyText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendReply(r.id); }, placeholder: "回复…", className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 10px", borderRadius: 8, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-                  h("button", { onClick: function () { sendReply(r.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "发送"))
-              : h("button", { onClick: function () { setReplyTo(r.id); setReplyText(""); }, className: "mt-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "回复"));
+                  h("input", { value: replyText, autoFocus: true, onChange: function (e) { setReplyText(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendReply(r.id); }, placeholder: "回复…", className: "flex-1 outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 10px", borderRadius: 8, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficreaderinput", "data-part": "回复…" }),
+                  h("button", { onClick: function () { sendReply(r.id); }, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent }, "data-wk": "ficreaderbtn", "data-part": "15" }, "发送"))
+              : h("button", { onClick: function () { setReplyTo(r.id); setReplyText(""); }, className: "mt-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }, "data-wk": "ficreaderbtn", "data-part": "16" }, "回复"));
         }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "还没有书评，写一条或点「刷出书评」召唤一批读者。"); })()),
       // 只给这一篇换纸（她 2026-08-30：「每一篇可以单独设置」）
-      paperOpen ? h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: function () { setPaperOpen(false); } },
-        h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "72vh", overflowY: "auto" } },
+      paperOpen ? h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: function () { setPaperOpen(false); }, "data-wk": "ficreadertap", "data-part": "1" },
+        h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "72vh", overflowY: "auto" }, "data-wk": "ficreadertap", "data-part": "2" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink } }, "这一篇的书页"),
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 14px", lineHeight: 1.5 } },
             "只换《" + f.title + "》这一篇；别的篇和默认那张都不动。"),
@@ -3773,7 +3773,7 @@
           // 跟着默认走＝把这一篇的单独设置撤掉，不是再选一张
           f.paper ? h("button", {
             onClick: function () { props.onSetPaper && props.onSetPaper(""); setPaperOpen(false); },
-            className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "12px 0 2px" }
+            className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "12px 0 2px" }, "data-wk": "ficreaderbtn", "data-part": "17"
           }, "跟着默认书页走") : null)) : null,
       fwdOpen ? h(FwdSheet, { characters: props.fwdChars || props.characters, groups: props.groups, onClose: function () { setFwdOpen(false); },
         onPickChar: function (c) { setFwdOpen(false); props.onForwardToChat && props.onForwardToChat(f, c); },
@@ -3877,7 +3877,7 @@
           border: "1px solid " + t.line, borderBottom: on ? "none" : "1px solid " + t.line,
           borderRadius: "10px 10px 0 0", background: on ? t.bg : "transparent", marginBottom: on ? -1 : 3,
           fontFamily: F_BODY, fontSize: on ? 13 : 12, fontWeight: on ? 600 : 400, color: on ? t.ink : t.fog,
-          position: "relative", zIndex: on ? 2 : 1 } },
+          position: "relative", zIndex: on ? 2 : 1 }, "data-wk": "ficghostpage", "data-on": on ? "1" : "0" },
         label + (n ? " · " + n : ""));
     };
     const ghostPicked = !!picked.id;
@@ -3885,14 +3885,14 @@
     //   所以它长成单子上那两行勾选项——方框、打勾、底下一道格线。换个 app 就不成立了。
     const optRow = function (on, title, note, onPick) {
       return h("button", { onClick: onPick, className: "w-full text-left active:opacity-70",
-        style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px dashed " + t.line } },
+        style: { display: "flex", gap: 9, alignItems: "flex-start", padding: "9px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px dashed " + t.line }, "data-wk": "ficghostpageoptrow" },
         h("span", { style: { width: 14, height: 14, marginTop: 3, flexShrink: 0, borderRadius: 2, border: "1px solid " + (on ? t.ink : t.line), display: "flex", alignItems: "center", justifyContent: "center" } },
           on ? h(ICheck, { size: 10, color: t.ink }) : null),
         h("span", { style: { minWidth: 0 } },
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, title),
           h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.55 } }, note)));
     };
-    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }), "data-wk": "ficghostpageoptrow", "data-part": "r2" },
       h(Head, { bg: "transparent", zh: "请谁接着写", sub: "《" + f.title + "》第 " + ((f.chapters || []).length + 1) + " 章", onBack: props.onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
         h("div", { style: { display: "flex", gap: 6, marginTop: 8, alignItems: "flex-end" } },
@@ -3903,7 +3903,7 @@
         rows.map(function (a) {
           const on = (a.id || "") === (picked.id || "");
           return h("button", { key: a.id || "_own", disabled: !!a.quit, onClick: function () { props.onPick(a.id || ""); }, className: "w-full text-left active:opacity-70",
-            style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line, opacity: a.quit ? .55 : 1 } },
+            style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line, opacity: a.quit ? .55 : 1 }, "data-wk": "ficghostpage", "data-part": "r2" },
             h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 7, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
             h("span", { style: { minWidth: 0 } },
               h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } }, a.name),
@@ -3917,7 +3917,7 @@
         // 能翻脸就得能和好：不然作者库单向枯竭，攒三十位太太最后一个都不肯写
         quit ? h("button", { onClick: props.onAskBack, disabled: !!props.backBusy, className: "w-full active:opacity-70",
           style: { marginTop: 12, minHeight: 44, borderRadius: 12, border: "1px dashed " + t.line, background: "transparent",
-            fontFamily: F_BODY, fontSize: 12.5, color: props.backBusy ? t.fog : t.accent } },
+            fontFamily: F_BODY, fontSize: 12.5, color: props.backBusy ? t.fog : t.accent }, "data-wk": "ficghostpagebtn", "data-part": "askback" },
           props.backBusy ? "去问她…" : "去请「" + own + "」回来") : null,
 
         // ── 点单 ──
@@ -3926,9 +3926,9 @@
           "空着就让她自己写。"),
         h("textarea", { value: want, onChange: function (e) { setWant(e.target.value); }, placeholder: "想看的走向、想让谁出场、想在哪儿收…",
           className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, padding: "11px 12px", borderRadius: 10,
-            background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 84, resize: "vertical" } }),
+            background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 84, resize: "vertical" }, "data-wk": "ficghostpagetext", "data-part": "想看的走向、想让谁出场、" }),
         (lastWant && !want.trim()) ? h("button", { onClick: function () { setWant(lastWant); }, className: "active:opacity-60",
-          style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, background: "transparent", border: "none", padding: "7px 2px", minHeight: 34, textAlign: "left" } },
+          style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, background: "transparent", border: "none", padding: "7px 2px", minHeight: 34, textAlign: "left" }, "data-wk": "ficghostpagebtn", "data-part": "2" },
           "填回上次那条：" + lastWant.slice(0, 22) + (lastWant.length > 22 ? "…" : "")) : null,
         want.trim() ? h("div", { style: { marginTop: 6 } },
           optRow(!hard, "许个愿", ghostPicked
@@ -3940,7 +3940,7 @@
       h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         h("button", { onClick: function () { if (!picked.quit) props.onGo(picked.id ? picked : null, want.trim(), hard); },
           disabled: !!picked.quit, className: "w-full active:opacity-80",
-          style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: picked.quit ? t.line : t.ink, minHeight: 46, borderRadius: 12, border: "none" } },
+          style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: picked.quit ? t.line : t.ink, minHeight: 46, borderRadius: 12, border: "none" }, "data-wk": "ficghostpagebtn", "data-part": "3" },
           picked.quit ? "得先请她回来，或者另找一位" : (picked.id ? "就请「" + picked.name + "」写" : "开始写"))));
   }
 
@@ -3978,9 +3978,9 @@
     const btn = function (label, primary, onClick) {
       return h("button", { onClick: onClick, disabled: !picked, className: "w-full active:opacity-80",
         style: { fontFamily: F_BODY, fontSize: primary ? 14 : 13, minHeight: primary ? 46 : 42, borderRadius: 12, marginTop: primary ? 0 : 8,
-          border: primary ? "none" : "1px solid " + t.line, background: primary ? t.ink : "transparent", color: primary ? t.bg2 : t.sub } }, label);
+          border: primary ? "none" : "1px solid " + t.line, background: primary ? t.ink : "transparent", color: primary ? t.bg2 : t.sub }, "data-wk": "ficfilepagebtn" }, label);
     };
-    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }) },
+    return h("div", { className: "fixed inset-0 z-50 h-full flex flex-col", style: pageSkin("paper", t, { corner: true }), "data-wk": "ficfilepagebtn", "data-part": "r2" },
       h(Head, { bg: "transparent", zh: "拿给谁看", sub: "《" + f.title + "》第 " + (idx + 1) + " 章", onBack: props.onClose }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-4" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.75, margin: "2px 0 10px" } },
@@ -3994,7 +3994,7 @@
         rows.map(function (c) {
           const on = c.id === pick;
           return h("button", { key: c.id, onClick: function () { pickChar(c.id); }, className: "w-full text-left active:opacity-70",
-            style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+            style: { display: "flex", gap: 10, alignItems: "flex-start", padding: "11px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line }, "data-wk": "ficfilepage" },
             h("span", { style: { width: 7, height: 7, borderRadius: 999, marginTop: 7, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
             h("span", { style: { minWidth: 0 } },
               h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 13.5, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub } },
@@ -4017,14 +4017,14 @@
             .map(function (o) {
               const on = roomId === o.id;
               return h("button", { key: o.id || "_auto", onClick: function () { setRoomId(o.id); }, className: "w-full text-left active:opacity-70",
-                style: { display: "flex", gap: 10, alignItems: "center", padding: "10px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line } },
+                style: { display: "flex", gap: 10, alignItems: "center", padding: "10px 2px", minHeight: 44, background: "transparent", border: "none", borderBottom: "1px solid " + t.line }, "data-wk": "ficfilepage", "data-part": "r2" },
                 h("span", { style: { width: 7, height: 7, borderRadius: 999, flexShrink: 0, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }),
                 h("span", { style: { minWidth: 0, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400, color: on ? t.ink : t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, o.name));
             }),
           roomId === "__new" ? h("input", { value: newName, autoFocus: true, onChange: function (e) { setNewName(e.target.value); },
             placeholder: "这间房叫什么", className: "w-full outline-none",
             style: { fontFamily: F_BODY, fontSize: 12.5, padding: "9px 0 8px", marginTop: 8, background: "transparent",
-              color: t.ink, border: "none", borderBottom: "1px solid " + t.line } }) : null) : null),
+              color: t.ink, border: "none", borderBottom: "1px solid " + t.line }, "data-wk": "ficfilepageinput", "data-part": "这间房叫什么" }) : null) : null),
       h("div", { className: "shrink-0 px-6 pt-2", style: { paddingBottom: "calc(" + COMPOSER_PAD_BOTTOM + " + 12px)" } },
         btn(mine ? characterText(picked, "记进他那间房") : characterText(picked, "拿给他看"), true, function () { props.onFile(picked, false, roomTarget()); }),
         btn(noteRoom ? "只记一笔（记在「" + noteRoom.name + "」里）" : "只记一笔（进你的记忆库）",
@@ -4034,20 +4034,20 @@
   // ---------- 转发选人 sheet ----------
   function FwdSheet(props) {
     const t = useTheme();
-    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose },
-      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "70vh", overflowY: "auto" } },
+    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose, "data-wk": "ficfwdsheet" },
+      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "70vh", overflowY: "auto" }, "data-wk": "ficfwdsheettap", "data-part": "1" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 14 } }, "转发给…"),
         // ⚠️只列真人角色：配角（npc）能被写进 CP，但没有自己的聊天窗口，转不过去。
         // 现在传进来的本来就是真人那份，这道滤是把规则留在本地——
         // 不必指望三个文件外的调用方永远记得传对。
         (props.characters || []).filter(function (c) { return c && !c.npc; }).map(function (c) {
-          return h("button", { key: c.id, onClick: function () { props.onPickChar(c); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+          return h("button", { key: c.id, onClick: function () { props.onPickChar(c); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60", "data-wk": "ficfwdsheet", "data-part": "r2" },
             h(Avatar, { character: c, size: 34 }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, c.remark || c.name));
         }),
         (props.groups || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "10px 0 4px" } }, "群聊") : null,
         (props.groups || []).map(function (g) {
-          return h("button", { key: g.id, onClick: function () { props.onPickGroup(g); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" },
+          return h("button", { key: g.id, onClick: function () { props.onPickGroup(g); }, className: "w-full flex items-center gap-3 py-2.5 active:opacity-60", "data-wk": "ficfwdsheet", "data-part": "r3" },
             h("div", { style: { width: 34, height: 34, borderRadius: 10, background: t.line, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub } }, "群"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, g.name));
         })));
@@ -4064,33 +4064,33 @@
     const [tabId, setTabId] = useState(props.tabs[0] && props.tabs[0].id);
     const characters = props.characters;
     function finalCP() { return [pickA, pickB].filter(function (x) { return x; }); }
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficpublishfinalcp" },
       h(Head, { bg: "transparent", zh: "发布同人文", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 flex flex-col px-6 pb-8" },
         // 上面这一截固定不动（shrink-0），下面正文那格才吃得到剩下的高度
         h("div", { className: "shrink-0" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "发到世界观"),
-          h("select", { value: tabId, onChange: function (e) { setTabId(e.target.value); }, className: "w-full mb-4", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } },
-            props.tabs.map(function (tb) { return h("option", { key: tb.id, value: tb.id }, tb.name); })),
-          h("input", { value: title, onChange: function (e) { setTitle(e.target.value); }, placeholder: "标题", className: "w-full outline-none mb-3", style: { fontFamily: F_DISPLAY, fontSize: 17, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("select", { value: tabId, onChange: function (e) { setTabId(e.target.value); }, className: "w-full mb-4", style: { fontFamily: F_BODY, fontSize: 13.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficpublishselect", "data-part": "1" },
+            props.tabs.map(function (tb) { return h("option", { key: tb.id, value: tb.id, "data-wk": "ficpublish" }, tb.name); })),
+          h("input", { value: title, onChange: function (e) { setTitle(e.target.value); }, placeholder: "标题", className: "w-full outline-none mb-3", style: { fontFamily: F_DISPLAY, fontSize: 17, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficpublishinput", "data-part": "标题" }),
           h("div", { className: "flex items-center gap-2 mb-3" },
-            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
+            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2), "data-wk": "ficpublishselect", "data-part": "2" },
               cpOptions(characters, props.userName)),
             h("span", { style: { color: t.fog, flexShrink: 0 } }, "×"),
-            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2) },
+            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: cpSelectStyle(t, 10, t.bg2), "data-wk": "ficpublishselect", "data-part": "3" },
               cpOptions(characters, props.userName))),
-          h("input", { value: tags, onChange: function (e) { setTags(e.target.value); }, placeholder: "标签，用空格或逗号分隔（如 HE 破镜重圆）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } })
+          h("input", { value: tags, onChange: function (e) { setTags(e.target.value); }, placeholder: "标签，用空格或逗号分隔（如 HE 破镜重圆）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficpublishinput", "data-part": "标签，用空格或逗号分隔（" })
         ),
         // ⚠️正文那格【撑满剩下的整页】（v64.63，她 2026-09-06：「正文部分太小了」）。
         //   原来是写死的 rows:12 + resize-none：上面五个字段占掉大半屏，
         //   真正要写字的地方只剩十来行，还不许拉。
         //   现在外壳是 h-full flex flex-col、上面那截 shrink-0、这一格 flex-1 min-h-0，
         //   屏幕多高它就有多高（跟主聊天正文区同一套层级，mobile-ui-layout §3）。
-        h("textarea", { value: body, onChange: function (e) { setBody(e.target.value); }, placeholder: "正文…", className: "w-full outline-none flex-1 min-h-0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.9, padding: "13px 14px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 200, resize: "none" } }),
+        h("textarea", { value: body, onChange: function (e) { setBody(e.target.value); }, placeholder: "正文…", className: "w-full outline-none flex-1 min-h-0", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 1.9, padding: "13px 14px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minHeight: 200, resize: "none" }, "data-wk": "ficpublishtext", "data-part": "正文…" }),
         h("button", { onClick: function () {
           if (!title.trim() || !body.trim()) { props.toast && props.toast("标题和正文都要填"); return; }
           props.onPublish(tabId, title.trim(), finalCP(), tags.split(/[\s,，、]+/).filter(Boolean), body.trim());
-        }, className: "w-full active:opacity-80 shrink-0", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "13px", borderRadius: 12, marginTop: 10 } }, "发布")));
+        }, className: "w-full active:opacity-80 shrink-0", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "13px", borderRadius: 12, marginTop: 10 }, "data-wk": "ficpublishbtn", "data-part": "1" }, "发布")));
   }
 
   // ---------- 我的页 hub（作者主页 + 我发布的 + CP管理 + 设置）----------
@@ -4109,19 +4109,19 @@
     if (sub === "settings") return h(MineSettings, { active: props.active, toast: props.toast, onPaper: props.onPaper, onBack: function () { setSub(null); } });
 
     const row = function (label, desc, onClick) {
-      return h("button", { onClick: onClick, className: "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-2.5 active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line } },
+      return h("button", { onClick: onClick, className: "w-full flex items-center justify-between rounded-2xl px-4 py-3.5 mb-2.5 active:opacity-70", style: { background: t.bg2, border: "1px solid " + t.line }, "data-wk": "ficminerow" },
         h("div", { className: "text-left" },
           h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, label),
           desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, desc) : null),
         h(IChevR, { size: 16, color: t.fog }));
     };
     const stat = function (num, lab) {
-      return h("div", { className: "text-center" },
+      return h("div", { className: "text-center", "data-wk": "ficminestat" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, fmtNum(num)),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, lab));
     };
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { bg: "transparent", zh: "我的", onBack: props.onBack, right: h("button", { onClick: function () { setMeEdit(true); }, className: "active:opacity-60" }, h(IPencil, { size: 17, color: t.ink })) }),
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficminestat", "data-part": "r2" },
+      h(Head, { bg: "transparent", zh: "我的", onBack: props.onBack, right: h("button", { onClick: function () { setMeEdit(true); }, className: "active:opacity-60", "data-wk": "ficminebtn", "data-part": "1" }, h(IPencil, { size: 17, color: t.ink })) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         // 作者主页卡：背景图 + 头像 + 昵称 + id + 简介 + 三个统计
         h("div", { className: "rounded-2xl overflow-hidden mb-5", style: { border: "1px solid " + t.line } },
@@ -4145,7 +4145,7 @@
   // 我发布的（列表 → 点开进 Reader）
   function MinePublished(props) {
     const t = useTheme();
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficminepublished" },
       h(Head, { bg: "transparent", zh: "我发布的", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-8" },
         props.fics.length ? props.fics.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); }).map(function (f, i) {
@@ -4179,23 +4179,23 @@
       props.onAddCP(obj); reset();
     }
     const picks = cpOptions(characters, props.userName);
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { bg: "transparent", zh: "磕 CP 管理", onBack: props.onBack, right: h("button", { onClick: function () { adding ? reset() : open(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 加 CP") }),
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficminecp" },
+      h(Head, { bg: "transparent", zh: "磕 CP 管理", onBack: props.onBack, right: h("button", { onClick: function () { adding ? reset() : open(null); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent }, "data-wk": "ficminecpbtn", "data-part": "1" }, adding ? "取消" : "＋ 加 CP") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         adding ? h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
-          h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "备注名（可空，默认用名字）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+          h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "备注名（可空，默认用名字）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminecpinput", "data-part": "备注名（可空，默认用名字" }),
           h("div", { className: "flex items-center gap-2 mb-3" },
-            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: cpSelectStyle(t, 8, t.bg) }, picks),
+            h("select", { value: pickA, onChange: function (e) { setPickA(e.target.value); }, style: cpSelectStyle(t, 8, t.bg), "data-wk": "ficminecpselect", "data-part": "1" }, picks),
             h("span", { style: { color: t.fog, flexShrink: 0 } }, "×"),
-            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: cpSelectStyle(t, 8, t.bg) }, picks)),
-          h("button", { onClick: save, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "9px", borderRadius: 10 } }, editId ? "保存修改" : "保存 CP")) : null,
+            h("select", { value: pickB, onChange: function (e) { setPickB(e.target.value); }, style: cpSelectStyle(t, 8, t.bg), "data-wk": "ficminecpselect", "data-part": "2" }, picks)),
+          h("button", { onClick: save, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "9px", borderRadius: 10 }, "data-wk": "ficminecpbtn", "data-part": "2" }, editId ? "保存修改" : "保存 CP")) : null,
         cps.length ? cps.map(function (cp) {
-          return h("div", { key: cp.id, className: "flex items-center justify-between rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-            h("button", { onClick: function () { open(cp); }, className: "text-left flex-1 active:opacity-60" },
+          return h("div", { key: cp.id, className: "flex items-center justify-between rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line }, "data-wk": "ficminecp", "data-part": "r2" },
+            h("button", { onClick: function () { open(cp); }, className: "text-left flex-1 active:opacity-60", "data-wk": "ficminecpbtn", "data-part": "3" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, cp.label),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, cpLabel(cp.cp, characters, props.userName))),
-            h("button", { onClick: function () { setEditId(cp.id); open(cp); }, className: "active:opacity-60 mr-3", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "编辑"),
-            h("button", { onClick: function () { props.onDelCP(cp.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
+            h("button", { onClick: function () { setEditId(cp.id); open(cp); }, className: "active:opacity-60 mr-3", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub }, "data-wk": "ficminecpbtn", "data-part": "4" }, "编辑"),
+            h("button", { onClick: function () { props.onDelCP(cp.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficminecpbtn", "data-part": "5" }, "删除"));
         }) : h(Empty, { text: "还没有 CP 预设", sub: "加几对，生成时一键选" })));
   }
 
@@ -4297,42 +4297,42 @@
       };
       inp.click();
     }
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficminesettings" },
       h(Head, { bg: "transparent", zh: "生成设置", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         h("div", { className: "flex items-center justify-between mb-2" },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "预设文风"),
           h("div", { className: "flex items-center gap-3" },
-            h("button", { onClick: importStyleFile, disabled: importing, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, opacity: importing ? 0.5 : 1 } }, importing ? "解析中…" : "导入文件"),
-            h("button", { onClick: function () { setAdding(!adding); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, adding ? "取消" : "＋ 新建"))),
+            h("button", { onClick: importStyleFile, disabled: importing, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, opacity: importing ? 0.5 : 1 }, "data-wk": "ficminesettingsbtn", "data-part": "1" }, importing ? "解析中…" : "导入文件"),
+            h("button", { onClick: function () { setAdding(!adding); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent }, "data-wk": "ficminesettingsbtn", "data-part": "2" }, adding ? "取消" : "＋ 新建"))),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 10 } }, "版块只管世界背景；文风在这里单独选择。可导入 DOCX / TXT / MD，和线下共用同一份本地文风库，不上传原文件。"),
         h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
-          h("button", { onClick: function () { setLabOpen(!labOpen); }, className: "w-full flex items-center justify-between text-left active:opacity-70" },
+          h("button", { onClick: function () { setLabOpen(!labOpen); }, className: "w-full flex items-center justify-between text-left active:opacity-70", "data-wk": "ficminesettingsbtn", "data-part": "3" },
             h("div", null,
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, "文风实验室"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.8, color: t.fog, marginTop: 2 } }, "拆骨架 · 放短样例 · 预览后保存")),
             h("span", { style: { color: t.accent, fontSize: 13 } }, labOpen ? "收起" : "打开")),
           labOpen ? h("div", { style: { marginTop: 13 } },
-            h("button", { onClick: useCloseNarrativeRecipe, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "6px 10px", marginBottom: 11 } }, "一键填入 · 贴身叙事骨架"),
-            h("input", { value: labName, onChange: function (e) { setLabName(e.target.value); }, placeholder: "给这套实验取名", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "8px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-            h("input", { value: labSource, onChange: function (e) { setLabSource(e.target.value); }, placeholder: "来源备注（作者 / 链接 / 自己的样稿，可留空）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 12, padding: "8px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+            h("button", { onClick: useCloseNarrativeRecipe, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "6px 10px", marginBottom: 11 }, "data-wk": "ficminesettingsbtn", "data-part": "4" }, "一键填入 · 贴身叙事骨架"),
+            h("input", { value: labName, onChange: function (e) { setLabName(e.target.value); }, placeholder: "给这套实验取名", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "8px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminesettingsinput", "data-part": "给这套实验取名" }),
+            h("input", { value: labSource, onChange: function (e) { setLabSource(e.target.value); }, placeholder: "来源备注（作者 / 链接 / 自己的样稿，可留空）", className: "w-full outline-none mb-3", style: { fontFamily: F_BODY, fontSize: 12, padding: "8px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminesettingsinput", "data-part": "来源备注（作者 / 链接" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 7 } }, "选择真正想借的骨架"),
             h("div", { className: "flex flex-wrap gap-2 mb-3" }, STYLE_LAB_AXES.map(function (a) {
               const on = labAxes.indexOf(a.id) >= 0;
-              return h("button", { key: a.id, onClick: function () { toggleLabAxis(a.id); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 9px" } }, a.label);
+              return h("button", { key: a.id, onClick: function () { toggleLabAxis(a.id); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.bg2 : t.sub, background: on ? t.ink : t.bg, border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 9px" }, "data-wk": "ficminesettings", "data-part": "r2", "data-on": on ? "1" : "0" }, a.label);
             })),
-            h("textarea", { value: labNotes, onChange: function (e) { setLabNotes(e.target.value); }, rows: 3, placeholder: "额外说明：例如少写全知判断、允许人物想错、对白别太完整……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
+            h("textarea", { value: labNotes, onChange: function (e) { setLabNotes(e.target.value); }, rows: 3, placeholder: "额外说明：例如少写全知判断、允许人物想错、对白别太完整……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminesettingstext", "data-part": "额外说明：例如少写全知判" }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, marginBottom: 3 } }, "短样例（可选，1～3 段）"),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.5, marginBottom: 8 } }, "只贴你有权使用的短段落。系统会明确要求借句法、不借人名情节和原句。"),
             labSamples.map(function (sample, i) {
-              return h("textarea", { key: i, value: sample, onChange: function (e) { const next = labSamples.slice(); next[i] = e.target.value; setLabSamples(next); }, rows: 3, maxLength: 1600, placeholder: "样例 " + (i + 1) + (i ? "（可留空）" : ""), className: "w-full outline-none resize-y mb-2", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.65, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } });
+              return h("textarea", { key: i, value: sample, onChange: function (e) { const next = labSamples.slice(); next[i] = e.target.value; setLabSamples(next); }, rows: 3, maxLength: 1600, placeholder: "样例 " + (i + 1) + (i ? "（可留空）" : ""), className: "w-full outline-none resize-y mb-2", style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.65, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminesettings", "data-part": "r3" });
             }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, margin: "10px 0 6px" } }, "同场景 A/B 试写"),
-            h("textarea", { value: labScene, onChange: function (e) { setLabScene(e.target.value); }, rows: 3, placeholder: "例如：分别多年后在医院走廊重逢，其中一人先认出了对方，却装作没有。", className: "w-full outline-none resize-y mb-2", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-            h("button", { onClick: testLabStyle, disabled: labTesting, className: "w-full active:opacity-75", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "9px", borderRadius: 10, opacity: labTesting ? 0.5 : 1, marginBottom: 9 } }, labTesting ? "正在生成两份…" : "试写 A/B（会调用模型 2 次）"),
+            h("textarea", { value: labScene, onChange: function (e) { setLabScene(e.target.value); }, rows: 3, placeholder: "例如：分别多年后在医院走廊重逢，其中一人先认出了对方，却装作没有。", className: "w-full outline-none resize-y mb-2", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.6, padding: "9px 10px", borderRadius: 9, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminesettingstext", "data-part": "例如：分别多年后在医院走" }),
+            h("button", { onClick: testLabStyle, disabled: labTesting, className: "w-full active:opacity-75", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "9px", borderRadius: 10, opacity: labTesting ? 0.5 : 1, marginBottom: 9 }, "data-wk": "ficminesettingsbtn", "data-part": "5" }, labTesting ? "正在生成两份…" : "试写 A/B（会调用模型 2 次）"),
             labAB ? h("div", { className: "grid grid-cols-1 gap-2 mb-3" },
               [["A · 不带文风", labAB.base], ["B · 实验文风", labAB.styled]].map(function (it) {
-                return h("div", { key: it[0], style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: 10 } },
+                return h("div", { key: it[0], style: { background: t.bg, border: "1px solid " + t.line, borderRadius: 10, padding: 10 }, "data-wk": "ficminesettings", "data-part": "r4" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: it[0][0] === "B" ? t.accent : t.fog, marginBottom: 5 } }, it[0]),
                   h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap", maxHeight: 260, overflowY: "auto" } }, it[1] || "（模型返回为空）"),
                   (it[0][0] === "A" ? labAB.baseShort : labAB.styledShort) ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, marginTop: 7 } }, "⚠ 正文不足 280 字，上游可能提前停止；这份不适合拿来比较，请重试。") : null);
@@ -4340,27 +4340,27 @@
             h("details", { style: { marginTop: 5, marginBottom: 10 } },
               h("summary", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.accent, cursor: "pointer" } }, "预览最终提示词"),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, whiteSpace: "pre-wrap", color: t.sub, background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: 10, marginTop: 7, maxHeight: 260, overflowY: "auto" } }, buildStyleLabPrompt(labName, labSource, labAxes, labNotes, labSamples))),
-            h("button", { onClick: saveLabStyle, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px", borderRadius: 10 } }, "保存实验稿（暂不启用）")) : null),
+            h("button", { onClick: saveLabStyle, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px", borderRadius: 10 }, "data-wk": "ficminesettingsbtn", "data-part": "6" }, "保存实验稿（暂不启用）")) : null),
         adding ? h("div", { className: "rounded-2xl px-4 py-3 mb-4", style: { background: t.bg2, border: "1px solid " + t.line } },
-          h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "文风名（如 冷冽白描 / 治愈慢热 / 港风）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
-          h("textarea", { value: text, onChange: function (e) { setText(e.target.value); }, rows: 7, placeholder: "文风描述，越具体越好，想写多长写多长（无字数限制）：多用短句白描、冷色调意象、情绪藏在动作里、少直白抒情、禁用某些词……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, padding: "9px 11px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line, minHeight: 120 } }),
-          h("button", { onClick: addStyle, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "9px", borderRadius: 10 } }, "保存文风")) : null,
+          h("input", { value: label, onChange: function (e) { setLabel(e.target.value); }, placeholder: "文风名（如 冷冽白描 / 治愈慢热 / 港风）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "7px 10px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficminesettingsinput", "data-part": "文风名（如 冷冽白描 /" }),
+          h("textarea", { value: text, onChange: function (e) { setText(e.target.value); }, rows: 7, placeholder: "文风描述，越具体越好，想写多长写多长（无字数限制）：多用短句白描、冷色调意象、情绪藏在动作里、少直白抒情、禁用某些词……", className: "w-full outline-none resize-y mb-3", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.6, padding: "9px 11px", borderRadius: 8, background: t.bg, color: t.ink, border: "1px solid " + t.line, minHeight: 120 }, "data-wk": "ficminesettingstext", "data-part": "文风描述，越具体越好，想" }),
+          h("button", { onClick: addStyle, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "9px", borderRadius: 10 }, "data-wk": "ficminesettingsbtn", "data-part": "7" }, "保存文风")) : null,
         (cfg.styles || []).length ? (cfg.styles || []).map(function (s) {
-          return h("div", { key: s.id, className: "rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+          return h("div", { key: s.id, className: "rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line }, "data-wk": "ficminesettings", "data-part": "r5" },
             h("div", { className: "flex items-center justify-between" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, s.label),
-              h("button", { onClick: function () { del(s.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除")),
+              h("button", { onClick: function () { del(s.id); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficminesettingsbtn", "data-part": "8" }, "删除")),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, s.text));
         }) : (adding ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "还没有文风预设。")),
 
         (function () {
           const labs = labStylePresets();
           if (!labs.length) return null;
-          return h("div", { style: { marginTop: 14 } },
+          return h("div", { style: { marginTop: 14 }, "data-wk": "ficminesettings", "data-part": "r6" },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "文风预设台 · 线下／小剧场／同人文共用"),
             labs.map(function (s) {
               const on = (cfg.activeStyleIds || []).indexOf(s.id) >= 0;
-              return h("button", { key: s.id, onClick: function () { toggle(s.id); }, className: "w-full text-left rounded-xl px-4 py-3 mb-2 active:opacity-75", style: { background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.accent : t.line) } },
+              return h("button", { key: s.id, onClick: function () { toggle(s.id); }, className: "w-full text-left rounded-xl px-4 py-3 mb-2 active:opacity-75", style: { background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.accent : t.line) }, "data-wk": "ficminesettings", "data-part": "r7", "data-on": on ? "1" : "0" },
                 h("div", { className: "flex items-center justify-between" },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, s.label),
                   h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.accent : t.fog } }, on ? "本次默认启用" : "点按启用")),
@@ -4372,7 +4372,7 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 7 } }, "共享本地文风 · 线下与同人文都可用"),
           sharedStyles.map(function (s) {
             const id = "shared:" + s.key, on = (cfg.activeStyleIds || []).indexOf(id) >= 0;
-            return h("button", { key: s.key, onClick: function () { toggle(id); }, className: "w-full text-left rounded-xl px-4 py-3 mb-2 active:opacity-75", style: { background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.accent : t.line) } },
+            return h("button", { key: s.key, onClick: function () { toggle(id); }, className: "w-full text-left rounded-xl px-4 py-3 mb-2 active:opacity-75", style: { background: on ? t.bg2 : "transparent", border: "1px solid " + (on ? t.accent : t.line) }, "data-wk": "ficminesettings", "data-part": "r8", "data-on": on ? "1" : "0" },
               h("div", { className: "flex items-center justify-between" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, s.name || "共享文风"),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: on ? t.accent : t.fog } }, on ? "本次默认启用" : "点按启用")),
@@ -4388,7 +4388,7 @@
           value: cfg.perFic == null ? "" : cfg.perFic,
           onChange: function (e) { patch({ perFic: e.target.value === "" ? "" : Number(e.target.value) }); },
           onBlur: function (e) { patch({ perFic: clampPerFic(e.target.value) }); },
-          style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px", outline: "none" }
+          style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 12px", outline: "none" }, "data-wk": "ficminesettingsinput", "data-part": "4"
         }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.5 } },
           "范围 500–" + FIC_TOKEN_MAX + "。设太高的话，一次请求会很久，也更容易撞上模型自己的上限或超时。"),
@@ -4432,23 +4432,23 @@
       inp.onchange = function () { const f = inp.files[0]; if (!f) return; resizeImageFile(f, key === "bg" ? 1080 : 480, 0.82).then(function (d) { set(key, d); }); };
       inp.click();
     }
-    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose },
-      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "86vh", overflowY: "auto" } },
+    return h("div", { className: "fixed inset-0 z-50 flex items-end", style: { background: "rgba(0,0,0,0.35)" }, onClick: props.onClose, "data-wk": "ficmeeditsheet" },
+      h("div", { onClick: function (e) { e.stopPropagation(); }, className: "w-full rounded-t-3xl px-6 pt-5 pb-8", style: { background: t.bg, maxHeight: "86vh", overflowY: "auto" }, "data-wk": "ficmeeditsheettap", "data-part": "1" },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 20, color: t.ink, marginBottom: 14 } }, "编辑作者主页"),
         h("div", { className: "flex items-center gap-4 mb-4" },
-          h("button", { onClick: function () { pickImg("avatar"); }, className: "active:opacity-70" }, h(Avatar, { character: { name: m.name, avatarImage: m.avatar, color: t.tint }, size: 56, radius: 16 })),
-          h("button", { onClick: function () { pickImg("bg"); }, className: "flex-1 active:opacity-70", style: { height: 56, borderRadius: 12, background: m.bg ? "center/cover no-repeat url(\"" + m.bg + "\")" : t.bg2, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, m.bg ? "换背景图" : "＋ 背景图")),
-        h("input", { value: m.name, onChange: function (e) { set("name", e.target.value); }, placeholder: "昵称", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 14, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("input", { value: m.handle, onChange: function (e) { set("handle", e.target.value.replace(/^@/, "")); }, placeholder: "id（@handle，不带 @）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
-        h("textarea", { value: m.bio, onChange: function (e) { set("bio", e.target.value); }, rows: 2, placeholder: "个人简介 / 太太的一句话", className: "w-full outline-none resize-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }),
+          h("button", { onClick: function () { pickImg("avatar"); }, className: "active:opacity-70", "data-wk": "ficmeeditsheetbtn", "data-part": "1" }, h(Avatar, { character: { name: m.name, avatarImage: m.avatar, color: t.tint }, size: 56, radius: 16 })),
+          h("button", { onClick: function () { pickImg("bg"); }, className: "flex-1 active:opacity-70", style: { height: 56, borderRadius: 12, background: m.bg ? "center/cover no-repeat url(\"" + m.bg + "\")" : t.bg2, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 11.5, color: t.fog }, "data-wk": "ficmeeditsheetbtn", "data-part": "2" }, m.bg ? "换背景图" : "＋ 背景图")),
+        h("input", { value: m.name, onChange: function (e) { set("name", e.target.value); }, placeholder: "昵称", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 14, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficmeeditsheetinput", "data-part": "昵称" }),
+        h("input", { value: m.handle, onChange: function (e) { set("handle", e.target.value.replace(/^@/, "")); }, placeholder: "id（@handle，不带 @）", className: "w-full outline-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficmeeditsheetinput", "data-part": "id（@handle，不" }),
+        h("textarea", { value: m.bio, onChange: function (e) { set("bio", e.target.value); }, rows: 2, placeholder: "个人简介 / 太太的一句话", className: "w-full outline-none resize-none mb-2", style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, padding: "9px 11px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficmeeditsheettext", "data-part": "个人简介 / 太太的一句" }),
         h("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 } },
           [["heat", "热度"], ["fans", "粉丝"], ["following", "关注"]].map(function (fld) {
-            return h("div", { key: fld[0] },
+            return h("div", { key: fld[0], "data-wk": "ficmeeditsheet", "data-part": "r2" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 3 } }, fld[1]),
-              h("input", { type: "number", value: m[fld[0]] || 0, onChange: function (e) { set(fld[0], Number(e.target.value) || 0); }, className: "outline-none", style: { width: "100%", minWidth: 0, boxSizing: "border-box", fontFamily: F_BODY, fontSize: 13, padding: "8px 9px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line } }));
+              h("input", { type: "number", value: m[fld[0]] || 0, onChange: function (e) { set(fld[0], Number(e.target.value) || 0); }, className: "outline-none", style: { width: "100%", minWidth: 0, boxSizing: "border-box", fontFamily: F_BODY, fontSize: 13, padding: "8px 9px", borderRadius: 10, background: t.bg2, color: t.ink, border: "1px solid " + t.line }, "data-wk": "ficmeeditsheetinput", "data-part": "3" }));
           })),
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 14, marginTop: -6 } }, "热度留 0 则按你发布的篇目自动统计"),
-        h("button", { onClick: function () { props.onSave(m); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 } }, "保存")));
+        h("button", { onClick: function () { props.onSave(m); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12 }, "data-wk": "ficmeeditsheetbtn", "data-part": "3" }, "保存")));
   }
 
   // ---------- 穿书（互动叙事 RP）----------
@@ -4507,11 +4507,11 @@
         const pa = window.Fanfic.protectedFic(a) ? 1 : 0, pb = window.Fanfic.protectedFic(b) ? 1 : 0;
         return pb - pa || (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0);
       });
-      return h("div", { className: "h-full flex flex-col" },
+      return h("div", { className: "h-full flex flex-col", "data-wk": "ficrpapp" },
         h(Head, { bg: "transparent", zh: "挑一篇下笔", sub: "在她写好的文上动笔", onBack: function () { setView("list"); } }),
         h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
           pickable.length ? pickable.map(function (f) {
-            return h("button", { key: f.id, onClick: function () { startSession(f); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
+            return h("button", { key: f.id, onClick: function () { startSession(f); }, className: "w-full text-left active:opacity-80 rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line }, "data-wk": "ficrpapp", "data-part": "r2" },
               h("div", { className: "flex items-center", style: { gap: 6 } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
                 f.onShelf ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "在书架") : null),
@@ -4521,26 +4521,26 @@
 
     // 存档列表
     const sorted = sessions.slice().sort(function (a, b) { return (b.updatedAt || 0) - (a.updatedAt || 0); });
-    return h("div", { className: "h-full flex flex-col" },
-      h(Head, { bg: "transparent", zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "＋ 新一篇") }),
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficrpapp", "data-part": "r3" },
+      h(Head, { bg: "transparent", zh: "加笔", sub: "在别人写好的文上动笔", onBack: props.onBack, right: h("button", { onClick: function () { setView("pick"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent }, "data-wk": "ficrpappbtn", "data-part": "1" }, "＋ 新一篇") }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
         // 她 2026-09-07：「加笔里灰字的解释太啰嗦了」。原来这儿是一整段说明书
         // （怎么动手＋作者会怎么反应＋原稿剩余是什么＋收尾去哪儿），全在进门口挡着。
         // 那几件事在里面都看得见，不用在门口先讲一遍。
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 14 } }, "点住原文里的一句，从那句起就归你写；作者在旁边接招。"),
         sorted.length ? sorted.map(function (s) {
-          return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line } },
-            h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70" },
+          return h("div", { key: s.id, className: "flex items-center rounded-xl px-4 py-3 mb-2", style: { background: t.bg2, border: "1px solid " + t.line }, "data-wk": "ficrpapp", "data-part": "r4" },
+            h("button", { onClick: function () { setOpenId(s.id); setView("thread"); }, className: "text-left flex-1 active:opacity-70", "data-wk": "ficrpappbtn", "data-part": "2" },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, s.ficTitle),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, [window.Fanfic.rpKnowLabel(s.know), ((s.transcript || []).filter(function (e) { return e.who === "me"; }).length) + " 步"].filter(Boolean).join(" · ")),
               (function () {
                 const bs = s.beats || [], br = bs.filter(function (b) { return b.state === "broken"; }).length, kp = bs.filter(function (b) { return b.state === "kept" || b.state === "bent"; }).length;
                 if (!bs.length) return null;
-                return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: br ? t.accent : t.fog, marginTop: 2 } },
+                return h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: br ? t.accent : t.fog, marginTop: 2 }, "data-wk": "ficrpapp", "data-part": "r5" },
                   s.done ? (br ? "已定稿 · 改了 " + br + " 处" : "已定稿 · 一页也没改")
                     : (br ? "拦下 " + br + " 页" : "还没拦下任何一页") + " · 发生了 " + kp + " 页 · 还剩 " + (bs.length - br - kp) + " 页没走到");
               })()),
-            h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "删除"));
+            h("button", { onClick: function () { const list = window.Fanfic.loadRP().filter(function (x) { return x.id !== s.id; }); persist(list); }, className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficrpappbtn", "data-part": "3" }, "删除"));
         }) : h(Empty, { text: "还没在谁的文上动过笔", sub: "点右上「＋ 新一篇」开始" })));
   }
 
@@ -4552,14 +4552,14 @@
   function RPSpine(props) {
     const t = props.t, bs = props.beats || [];
     if (!bs.length) return null;
-    const cap = function (k) { return h("div", { key: k, style: { width: 3, height: 20, borderRadius: 1, background: t.ink, opacity: 0.5, marginTop: 2, flexShrink: 0 } }); };
-    return h("div", { style: { padding: "2px 2px 6px" } },
+    const cap = function (k) { return h("div", { key: k, style: { width: 3, height: 20, borderRadius: 1, background: t.ink, opacity: 0.5, marginTop: 2, flexShrink: 0 }, "data-wk": "ficrpspinecap" }); };
+    return h("div", { style: { padding: "2px 2px 6px" }, "data-wk": "ficrpspinecap", "data-part": "r2" },
       h("div", { className: "flex items-start", style: { position: "relative" } },
         h("div", { style: { position: "absolute", left: 4, right: 4, top: 11, height: 1, background: t.line } }),
         cap("l"),
         h("div", { className: "flex-1 flex" }, bs.map(function (bt) {
           const st = bt.state || "pending", on = props.sel === bt.id, lit = st !== "pending";
-          return h("button", { key: bt.id, onClick: function () { props.onPick(on ? null : bt.id); }, className: "flex-1 flex flex-col items-center active:opacity-60", style: { minWidth: 0, padding: "0 2px 2px", background: "transparent" } },
+          return h("button", { key: bt.id, onClick: function () { props.onPick(on ? null : bt.id); }, className: "flex-1 flex flex-col items-center active:opacity-60", style: { minWidth: 0, padding: "0 2px 2px", background: "transparent" }, "data-wk": "ficrpspine", "data-on": on ? "1" : "0" },
             h("div", { style: { position: "relative", width: 15, height: 15, marginTop: 4, borderRadius: 999, boxSizing: "border-box",
                 border: "1px " + (st === "pending" ? "dashed " + t.fog : "solid " + (st === "broken" ? t.accent : t.ink)),
                 background: (st === "kept" || st === "bent") ? t.ink : t.bg, boxShadow: "0 0 0 3px " + t.bg } },
@@ -4794,19 +4794,19 @@
       const last = !dead && e.i === (Number.isFinite(s.paraIdx) ? s.paraIdx - 1 : -1);
       return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 14.5, lineHeight: 2.15, color: dead ? t.fog : t.sub,
           margin: "0 0 16px", paddingLeft: 12, borderLeft: "1px solid " + (dead ? "transparent" : t.line),
-          textDecoration: dead ? "line-through" : "none", opacity: dead ? .55 : 1 } },
+          textDecoration: dead ? "line-through" : "none", opacity: dead ? .55 : 1 }, "data-wk": "ficrpthreadsrcpara" },
         sentences.map(function (sn, j) {
           // 只有【还没读过头】的那一段能下笔：往回改早就翻过去的段落会把整条时间线拧乱
-          if (dead || !last || s.done || busy) return h("span", { key: j }, sn);
+          if (dead || !last || s.done || busy) return h("span", { key: j, "data-wk": "ficrpthread" }, sn);
           const on = cut && cut.i === e.i && cut.sentence === sn;
           return h("span", { key: j, onClick: function () { setCut(on ? null : { i: e.i, sentence: sn, rest: sentences.slice(j + 1).join("") }); setWriting(!on); },
-            style: { cursor: "pointer", borderBottom: on ? "2px solid " + t.accent : "1px dotted " + hexA(t.ink, .28), background: on ? hexA(t.accent, .12) : "transparent", color: on ? t.ink : "inherit" } }, sn);
+            style: { cursor: "pointer", borderBottom: on ? "2px solid " + t.accent : "1px dotted " + hexA(t.ink, .28), background: on ? hexA(t.accent, .12) : "transparent", color: on ? t.ink : "inherit" }, "data-wk": "ficrpthread", "data-part": "r2", "data-on": on ? "1" : "0" }, sn);
         }));
     }
     // 一段叙事正文
-    function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" } }, txt); }
+    function para(txt, key) { return h("p", { key: key, style: { fontFamily: "'Noto Serif SC',serif", fontSize: 15, lineHeight: 1.95, color: t.ink, whiteSpace: "pre-wrap", margin: "0 0 14px" }, "data-wk": "ficrpthreadpara" }, txt); }
 
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficrpthreadpara", "data-part": "r2" },
       // ⚠️v61.27：这里原来自己写了一条紧凑标题栏，因为当时 Head 还是「30px 大标题」。
       //   Head 已经改成紧凑栏了（components.js），这一份就撤掉——
       //   同一层东西不许有两个实现，不然下次只会改到其中一处。
@@ -4819,7 +4819,7 @@
         onBack: props.onBack,
         right: (props.fic && !s.done && trans.length >= 4)
           ? h("button", { onClick: function () { endAsk ? finish() : setEndAsk(true); }, className: "active:opacity-60",
-              style: { fontFamily: F_BODY, fontSize: 11, color: endAsk ? t.accent : t.fog, lineHeight: 1.15, padding: "2px 0" } }, endAsk ? "确定？" : "收尾")
+              style: { fontFamily: F_BODY, fontSize: 11, color: endAsk ? t.accent : t.fog, lineHeight: 1.15, padding: "2px 0" }, "data-wk": "ficrpthreadbtn", "data-part": "1" }, endAsk ? "确定？" : "收尾")
           : null
       }),
       !props.fic ? h("div", { className: "flex-1 flex items-center justify-center px-8 text-center", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "原篇已不在（可能取消了收藏被清理），此存档无法继续。") :
@@ -4854,11 +4854,11 @@
         // 正文（叙事段落 + 我写进去的行动 + 结算掉的页 + 作者的页边批注）
         trans.map(function (e, i) {
           if (e.who === "src") return srcPara(e, i);
-          if (e.who === "me") return h("div", { key: i, className: "my-5", style: { borderLeft: "2px solid " + t.accent, paddingLeft: 12 } },
+          if (e.who === "me") return h("div", { key: i, className: "my-5", style: { borderLeft: "2px solid " + t.accent, paddingLeft: 12 }, "data-wk": "ficrpthread", "data-part": "r3" },
             h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: "0.14em", color: t.accent, marginBottom: 3 } },
               e.from ? "✒ 从「" + String(e.from).slice(0, 12) + "…」这句起，你写下" : "✒ 你写下"),
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 14.5, lineHeight: 1.85, color: t.accent, whiteSpace: "pre-wrap", wordBreak: "break-word", overflowWrap: "anywhere" } }, e.text));
-          if (e.who === "page") return h("div", { key: i, className: "my-4 flex items-center gap-2" },
+          if (e.who === "page") return h("div", { key: i, className: "my-4 flex items-center gap-2", "data-wk": "ficrpthread", "data-part": "r4" },
             h("div", { style: { flex: 1, height: 1, background: e.keep ? t.line : t.accent, opacity: e.keep ? 1 : 0.5 } }),
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: "0.08em", color: e.keep ? t.fog : t.accent, whiteSpace: "nowrap" } },
               e.bend ? "原著这一页「" + e.label + "」顺着改过的发生" : e.keep ? "原著这一页「" + e.label + "」照原样发生" : "原著这一页「" + e.label + "」被你拦下"),
@@ -4867,14 +4867,14 @@
           // 所以不是气泡也不是段落，是压在正文和批注之间的一行细字，带一道从右边伸过来的横线
           if (e.who === "pull") {
             if (i > lastNarIdx && moreToReveal) return null;
-            return h("div", { key: i, className: "flex items-center gap-2 my-3" },
+            return h("div", { key: i, className: "flex items-center gap-2 my-3", "data-wk": "ficrpthread", "data-part": "r5" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.accent, whiteSpace: "nowrap" } }, "✍ " + authorName + " 伸手：" + e.text),
               h("div", { style: { flex: 1, height: 1, background: t.accent, opacity: .35 } }));
           }
           if (e.who === "note") {
             // 作者趴在稿子边上写的一句：不是正文，所以歪着、挤在页边、字比正文小
             if (i > lastNarIdx && moreToReveal) return null;   // 那一拍还没读完，别提前剧透她的反应
-            return h("div", { key: i, className: "flex justify-end my-4" },
+            return h("div", { key: i, className: "flex justify-end my-4", "data-wk": "ficrpthread", "data-part": "r6" },
               h("div", { style: { maxWidth: "80%", transform: "rotate(-1.1deg)", borderLeft: "2px solid " + t.fog, paddingLeft: 9, paddingRight: 2 } },
                 h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 12.5, lineHeight: 1.75, color: t.sub, whiteSpace: "pre-wrap" } }, e.text),
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, marginTop: 3, textAlign: "right" } }, "—— " + authorName + (e.last ? " · 看完这一版" : " · 写在页边"))));
@@ -4884,7 +4884,7 @@
           const fullyShown = showN >= paras.length;
           // 只念台词：抠出这拍里引号内的对白，纯旁白就不出 ▶
           const say = typeof extractSpeech === "function" ? extractSpeech(e.text) : e.text;
-          return h("div", { key: i },
+          return h("div", { key: i, "data-wk": "ficrpthread", "data-part": "r7" },
             (showN ? paras.slice(0, showN) : [e.text]).map(function (p, j) { return para(p, j); }),
             // 这一拍的创作小稿（读完这一拍才出现，否则等于提前剧透这一段要写什么）
             (fullyShown && (e.cot || e.cotRequested) && typeof CotReveal === "function")
@@ -4894,16 +4894,16 @@
         }),
         busy ? h(Spinner, { label: trans.length ? "剧情推进中…" : "开场中…" }) : null,
         // 逐段展开
-        moreToReveal ? h("button", { onClick: function () { setReveal(reveal + 1); }, className: "w-full active:opacity-60 mt-1 mb-2", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px" } }, "▾ 显示下一段（" + reveal + "/" + lastParas.length + "）") : null,
+        moreToReveal ? h("button", { onClick: function () { setReveal(reveal + 1); }, className: "w-full active:opacity-60 mt-1 mb-2", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "10px" }, "data-wk": "ficrpthreadbtn", "data-part": "2" }, "▾ 显示下一段（" + reveal + "/" + lastParas.length + "）") : null,
         // 往下读一段她写的字（一分钱不花：这几段本来就在那儿）
         (!s.done && !busy && !moreToReveal && moreSrc) ? h("button", { onClick: readOn, className: "w-full active:opacity-60 mt-1 mb-3",
-          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, padding: "11px", border: "1px dashed " + t.line, borderRadius: 10, background: "transparent" } },
+          style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, padding: "11px", border: "1px dashed " + t.line, borderRadius: 10, background: "transparent" }, "data-wk": "ficrpthreadbtn", "data-part": "3" },
           "▾ 接着读她写的（还剩 " + (paras.length - s.paraIdx) + " 段）") : null,
         (!s.done && !moreSrc && paras.length) ? h("div", { className: "text-center", style: { padding: "6px 0 12px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "—— 她写的到这儿就没了 ——"),
           // 没写完的文：让她自己往下写一章，写完你接着改
           (!busy && props.onExtendFic) ? h("button", { onClick: writeOn, className: "active:opacity-60 mt-2",
-            style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "9px 16px", border: "1px solid " + hexA(t.accent, .5), borderRadius: 999, background: "transparent" } },
+            style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, padding: "9px 16px", border: "1px solid " + hexA(t.accent, .5), borderRadius: 999, background: "transparent" }, "data-wk": "ficrpthreadbtn", "data-part": "4" },
             "催她写下去（她再写一章，你接着改）") : null) : null,
         s.done ? h("div", { className: "text-center py-6", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.8 } },
           "—— 这一版到此为止 ——", h("br"), brokenN ? "这本书被你改了 " + brokenN + " 处，已经放回书架" : "你一页也没改，这一版已经放回书架") : null),
@@ -4915,10 +4915,10 @@
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, marginBottom: 4 } }, hitBeat.label),
             h("div", { style: { fontFamily: "'Noto Serif SC',serif", fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginBottom: 11 } }, hitBeat.page),
             h("div", { className: "flex gap-2" },
-              h("button", { onClick: function () { resolve(hitBeat, true); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px 4px", borderRadius: 10, minHeight: 40 } }, "照原样发生"),
+              h("button", { onClick: function () { resolve(hitBeat, true); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.bg2, background: t.ink, padding: "10px 4px", borderRadius: 10, minHeight: 40 }, "data-wk": "ficrpthreadbtn", "data-part": "5" }, "照原样发生"),
               // 第三条路（她 2026-09-27）：事还是成，但顺着她改出来的局面变个样子
-              h("button", { onClick: function () { resolve(hitBeat, "bend"); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "transparent", border: "1px solid " + t.ink, padding: "10px 4px", borderRadius: 10, minHeight: 40 } }, "顺着改"),
-              h("button", { onClick: function () { resolve(hitBeat, false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "10px", borderRadius: 10 } }, "拦下")))
+              h("button", { onClick: function () { resolve(hitBeat, "bend"); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: "transparent", border: "1px solid " + t.ink, padding: "10px 4px", borderRadius: 10, minHeight: 40 }, "data-wk": "ficrpthreadbtn", "data-part": "6" }, "顺着改"),
+              h("button", { onClick: function () { resolve(hitBeat, false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: "transparent", border: "1px solid " + t.accent, padding: "10px", borderRadius: 10 }, "data-wk": "ficrpthreadbtn", "data-part": "7" }, "拦下")))
         : props.fic && canAct ? h("div", { className: "shrink-0" },
           writing
             ? h("div", { className: "px-4 py-3", style: { background: t.bg2, borderTop: "1px solid " + t.line } },
@@ -4927,9 +4927,9 @@
                 : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 6 } }, "没点句子＝接着往下写，她写的那些留着"),
               h("div", { className: "flex items-end gap-2" },
                 h("span", { style: { color: t.accent, fontSize: 16, paddingBottom: 5 } }, "✒"),
-                h("textarea", { ref: taRef, value: input, autoFocus: true, rows: 1, onChange: function (e) { setInput(e.target.value); autoGrow(); }, onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(cut); } }, placeholder: "写下你的行动 / 说的话…（Enter 发送，Shift+Enter 换行）", className: "flex-1 outline-none resize-none", style: { minWidth: 0, fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: "transparent", borderBottom: "1px solid " + t.line, padding: "4px 2px", maxHeight: 130, overflowY: "auto", wordBreak: "break-word" } }),
-                h("button", { onClick: function () { send(cut); }, disabled: !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 38, height: 38, borderRadius: 999, background: t.accent } }, h(ISend, { size: 15, color: "#fff" }))))
-            : h("button", { onClick: function () { setWriting(true); }, className: "w-full active:opacity-70 px-4 mb-1 mt-1", style: { background: "transparent" } },
+                h("textarea", { ref: taRef, value: input, autoFocus: true, rows: 1, onChange: function (e) { setInput(e.target.value); autoGrow(); }, onKeyDown: function (e) { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(cut); } }, placeholder: "写下你的行动 / 说的话…（Enter 发送，Shift+Enter 换行）", className: "flex-1 outline-none resize-none", style: { minWidth: 0, fontFamily: "'Noto Serif SC',serif", fontStyle: "italic", fontSize: 14.5, lineHeight: 1.6, color: t.ink, background: "transparent", borderBottom: "1px solid " + t.line, padding: "4px 2px", maxHeight: 130, overflowY: "auto", wordBreak: "break-word" }, "data-wk": "ficrpthreadtext", "data-part": "写下你的行动 / 说的话" }),
+                h("button", { onClick: function () { send(cut); }, disabled: !input.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 38, height: 38, borderRadius: 999, background: t.accent }, "data-wk": "ficrpthreadbtn", "data-part": "8" }, h(ISend, { size: 15, color: "#fff" }))))
+            : h("button", { onClick: function () { setWriting(true); }, className: "w-full active:opacity-70 px-4 mb-1 mt-1", style: { background: "transparent" }, "data-wk": "ficrpthreadbtn", "data-part": "9" },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.bg2, background: t.ink, padding: "12px", borderRadius: 12, textAlign: "center" } },
                   moreSrc ? "✒ 点住上面那一句，从那儿动笔" : "✒ 写下你的行动")),
           // 收尾挪到顶栏右侧那个等宽位了（这一步不可逆，所以照旧要点两下）
@@ -4947,7 +4947,7 @@
     const b = window.Fanfic.heatBand(v);
     const red = "#a8392f";
     const on = b.key !== "calm";
-    return h("span", { className: "flex items-center", style: { gap: 6, marginTop: 5 } },
+    return h("span", { className: "flex items-center", style: { gap: 6, marginTop: 5 }, "data-wk": "ficrpthreadheatmark" },
       h("span", { style: { width: 44, height: 3, background: t.line, flexShrink: 0, overflow: "hidden" } },
         h("span", { style: { display: "block", height: "100%", width: Math.max(3, b.v) + "%", background: on ? red : t.fog } })),
       h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: on ? red : t.fog } }, b.zh),
@@ -4999,9 +4999,9 @@
         props.toast && props.toast("「" + nm + "」已请出名册（她的文留着）");
       } });
     // 一行一位：左边名字立着，右边是她的产出
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficauthorspage" },
       h(Head, { bg: "transparent", zh: "作者", sub: list.length ? list.length + " 位常驻" : "这个圈子还没人", onBack: props.onBack,
-        right: h("button", { onClick: function () { if (!busy) setAsking(!asking); }, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent } },
+        right: h("button", { onClick: function () { if (!busy) setAsking(!asking); }, disabled: busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: busy ? t.fog : t.accent }, "data-wk": "ficauthorspagebtn", "data-part": "1" },
           busy ? "请人中…" : (asking ? "算了" : "＋ 请人")) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, padding: "10px 2px 8px" } },
@@ -5012,15 +5012,15 @@
           h("textarea", { value: want, onChange: function (e) { setWantSaved(e.target.value); }, rows: 3, autoFocus: true,
             placeholder: "写什么类型、什么文风、磕哪对…空着就随缘",
             className: "w-full outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, padding: "8px 0 10px",
-              background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line, resize: "vertical" } }),
+              background: "transparent", color: t.ink, border: "none", borderBottom: "1px solid " + t.line, resize: "vertical" }, "data-wk": "ficauthorspagetext", "data-part": "写什么类型、什么文风、磕" }),
           h("button", { onClick: invite, disabled: busy, className: "w-full active:opacity-75",
             style: { marginTop: 12, minHeight: 44, border: "none", background: t.ink, color: t.bg2,
-              fontFamily: F_BODY, fontSize: 13, letterSpacing: ".08em" } }, busy ? "去问了…" : "请 4 位进来")) : null,
+              fontFamily: F_BODY, fontSize: 13, letterSpacing: ".08em" }, "data-wk": "ficauthorspagebtn", "data-part": "2" }, busy ? "去问了…" : "请 4 位进来")) : null,
         list.length ? list.map(function (a, i) {
           const mine = window.Fanfic.authorFics(a.name, fics);
           const cps = window.Fanfic.authorCPStats(a.name, fics, props.characters, props.userName);
           return h("button", { key: a.id, onClick: function () { setOpen(a.id); }, className: "w-full text-left active:opacity-70",
-            style: { display: "flex", gap: 12, alignItems: "flex-start", padding: "13px 2px", borderTop: i ? "1px solid " + t.line : "none", background: "transparent", border: "none" } },
+            style: { display: "flex", gap: 12, alignItems: "flex-start", padding: "13px 2px", borderTop: i ? "1px solid " + t.line : "none", background: "transparent", border: "none" }, "data-wk": "ficauthorspage", "data-part": "r2" },
             // 名次：署名表上的序号，用等宽的老式数字
             h("span", { style: { fontFamily: "monospace", fontSize: 11, color: t.fog, width: 20, flexShrink: 0, paddingTop: 3 } }, String(i + 1).padStart(2, "0")),
             h("span", { style: { flex: 1, minWidth: 0 } },
@@ -5051,7 +5051,7 @@
         display: "flex", alignItems: "center", justifyContent: "center",
         color: "rgba(255,253,247,.95)", fontFamily: "'Noto Serif SC',serif", fontSize: Math.round(size * 0.44),
         boxShadow: "inset 0 0 0 1px rgba(255,255,255,.4)"
-      }
+      }, "data-wk": "ficauthorspageauthorface"
     }, ch);
   }
   // 同人站上作者页那一行数：篇数和字数是【真的】（从她的文现算），
@@ -5085,11 +5085,11 @@
     for (let k = 0; k < full; k++) boxes.push(5);
     if (rest) boxes.push(rest);
     if (!boxes.length) boxes.push(0);
-    return h("span", { className: "flex items-center", style: { gap: 3, flexWrap: "wrap" } },
+    return h("span", { className: "flex items-center", style: { gap: 3, flexWrap: "wrap" }, "data-wk": "ficauthorspagezhengtally" },
       boxes.map(function (cnt, bi) {
-        return h("svg", { key: bi, width: size, height: size, viewBox: "0 0 20 20", "aria-hidden": true, style: { display: "block", flexShrink: 0 } },
+        return h("svg", { key: bi, width: size, height: size, viewBox: "0 0 20 20", "aria-hidden": true, style: { display: "block", flexShrink: 0 }, "data-wk": "ficauthorspage", "data-part": "r3" },
           ZHENG_STROKES.slice(0, cnt).map(function (d, si) {
-            return h("path", { key: si, d: d, stroke: color, strokeWidth: 1.9, strokeLinecap: "round", fill: "none" });
+            return h("path", { key: si, d: d, stroke: color, strokeWidth: 1.9, strokeLinecap: "round", fill: "none", "data-wk": "ficauthorspage", "data-part": "r4" });
           }));
       }));
   }
@@ -5113,7 +5113,7 @@
         color: "rgba(255,246,238,.95)", fontFamily: "'Noto Serif SC',serif",
         fontSize: Math.round(size * 0.56), lineHeight: 1,
         boxShadow: "inset 0 0 0 1.5px rgba(255,246,238,.5)"
-      }
+      }, "data-wk": "ficauthorspageauthorseal"
     }, ch);
   }
   // ⚠️这一页不是「一张个人资料卡」——那种东西换到任何 app 里都成立（她 2026-09-05：
@@ -5127,16 +5127,16 @@
     const st = window.Fanfic.authorStats(a.name, props.fics);
     const [ask, setAsk] = useState(false);
     const stat = function (k, v) {
-      return h("span", { key: k, className: "flex items-baseline", style: { gap: 3, whiteSpace: "nowrap" } },
+      return h("span", { key: k, className: "flex items-baseline", style: { gap: 3, whiteSpace: "nowrap" }, "data-wk": "ficauthorhomestat" },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, k),
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, fmtNum(v)));
     };
     const sec = function (zh) {
-      return h("div", { className: "flex items-center", style: { gap: 8, margin: "20px 0 9px" } },
+      return h("div", { className: "flex items-center", style: { gap: 8, margin: "20px 0 9px" }, "data-wk": "ficauthorhomesec" },
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: t.ink, letterSpacing: ".22em", whiteSpace: "nowrap" } }, zh),
         h("span", { style: { flex: 1, height: 1, background: t.line } }));
     };
-    return h("div", { className: "h-full flex flex-col" },
+    return h("div", { className: "h-full flex flex-col", "data-wk": "ficauthorhomesec", "data-part": "r2" },
       h(Head, { bg: "transparent", zh: a.name, sub: st.works + " 篇", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
         // ── 扉页：双线框 + 头像 + 笔名 + 落款闲章 ──
@@ -5175,7 +5175,7 @@
         // ── 写了谁：正字计数 ──
         cps.length ? h("div", null, sec("写了谁"),
           cps.map(function (c) {
-            return h("div", { key: c.key, className: "flex items-center", style: { gap: 9, marginBottom: 7 } },
+            return h("div", { key: c.key, className: "flex items-center", style: { gap: 9, marginBottom: 7 }, "data-wk": "ficauthorhome" },
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, width: 92, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.label),
               window.Fanfic.zhengTally(c.n, t.ink, 17),
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, c.n + " 篇"));
@@ -5185,20 +5185,20 @@
         mine.length ? mine.map(function (f, ix) {
           const hh = f.stats || ficHeat(f.id);
           const w = ficWords(f);   // ⚠️同上：章节那一栏叫 content
-          return h("div", { key: f.id, style: { padding: "9px 0 10px", borderBottom: "1px dotted " + t.line } },
+          return h("div", { key: f.id, style: { padding: "9px 0 10px", borderBottom: "1px dotted " + t.line }, "data-wk": "ficauthorhome", "data-part": "r2" },
             h("div", { className: "flex items-baseline", style: { gap: 8 } },
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: t.fog, width: 20, flexShrink: 0, textAlign: "center" } }, cnIndex(ix + 1)),
-              h("button", { onClick: function () { props.onOpenFic && props.onOpenFic(f.id); }, className: "text-left active:opacity-70", style: { minWidth: 0, background: "transparent", border: "none", padding: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, f.title),
+              h("button", { onClick: function () { props.onOpenFic && props.onOpenFic(f.id); }, className: "text-left active:opacity-70", style: { minWidth: 0, background: "transparent", border: "none", padding: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }, "data-wk": "ficauthorhomebtn", "data-part": "1" }, f.title),
               h("span", { style: { flex: 1, minWidth: 12, borderBottom: "1px dotted " + t.line, transform: "translateY(-3px)" } }),
               h("span", { style: { fontFamily: "monospace", fontSize: 10.5, color: t.fog, flexShrink: 0 } }, fmtNum(w))),
             h("div", { className: "flex items-center", style: { gap: 6, marginTop: 5, paddingLeft: 28, flexWrap: "wrap" } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, cpLabel(f.cp, props.characters, props.userName) + " · " + (f.chapters || []).length + " 章 · ♡ " + fmtNum(hh.kudos)),
               (f.tags || []).slice(0, 3).map(function (tg, k) {
-                return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, border: "1px solid " + t.line, borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap" } }, tg);
+                return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 10, color: t.sub, border: "1px solid " + t.line, borderRadius: 3, padding: "1px 6px", whiteSpace: "nowrap" }, "data-wk": "ficauthorhome", "data-part": "r3" }, tg);
               }),
               h("span", { style: { flex: 1 } }),
               h("button", { onClick: function () { props.onAddOn && props.onAddOn(f.id); }, className: "shrink-0 active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "3px 10px" } }, "加笔")));
+                style: { fontFamily: F_BODY, fontSize: 11, color: t.accent, border: "1px solid " + t.accent, borderRadius: 999, padding: "3px 10px" }, "data-wk": "ficauthorhomebtn", "data-part": "2" }, "加笔")));
         }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, "她还没在这儿写过——生成同人文时点名让她写一批。"),
         // ── 请她离开（她 2026-09-05 要的）──
         props.onDelete ? h("div", { style: { marginTop: 26 } },
@@ -5209,9 +5209,9 @@
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, lineHeight: 1.7, color: t.fog, marginTop: 5 } },
                 mine.length ? "她写过的 " + mine.length + " 篇文【留着】，只是往后不再点得到她了。" : "她还没写过文，删掉不影响任何东西。"),
               h("div", { className: "flex", style: { gap: 9, marginTop: 12 } },
-                h("button", { onClick: function () { setAsk(false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 0", background: "transparent" } }, "算了"),
-                h("button", { onClick: function () { props.onDelete(a.name); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#a8392f", border: "1px solid #a8392f", borderRadius: 10, padding: "9px 0" } }, "请走")))
-            : h("button", { onClick: function () { setAsk(true); }, className: "w-full active:opacity-65", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a8392f", border: "1px solid rgba(168,57,47,.4)", borderRadius: 10, padding: "11px 0", background: "transparent" } }, "把这位请出名册")) : null));
+                h("button", { onClick: function () { setAsk(false); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 0", background: "transparent" }, "data-wk": "ficauthorhomebtn", "data-part": "3" }, "算了"),
+                h("button", { onClick: function () { props.onDelete(a.name); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "#a8392f", border: "1px solid #a8392f", borderRadius: 10, padding: "9px 0" }, "data-wk": "ficauthorhomebtn", "data-part": "4" }, "请走")))
+            : h("button", { onClick: function () { setAsk(true); }, className: "w-full active:opacity-65", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#a8392f", border: "1px solid rgba(168,57,47,.4)", borderRadius: 10, padding: "11px 0", background: "transparent" }, "data-wk": "ficauthorhomebtn", "data-part": "5" }, "把这位请出名册")) : null));
   }
 
   // ---------- 底 nav ----------
@@ -5228,12 +5228,12 @@
     // env(safe-area-inset-bottom)，在刘海机上比别处高出一截，
     // 正是 施工规则/mobile-ui-layout.md §2 点名不许干的事。
     // 图标 21 / 字号 10 / gap-0.5 也一并对齐购物那条底栏。
-    return h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + t.line, background: t.bg, paddingBottom: COMPOSER_PAD_BOTTOM } },
+    return h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + t.line, background: t.bg, paddingBottom: COMPOSER_PAD_BOTTOM }, "data-wk": "ficbottomnav" },
       items.map(function (it) {
         const on = props.view === it.key;
-        if (it.center) return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex items-center justify-center" },
+        if (it.center) return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex items-center justify-center", "data-wk": "ficbottomnav", "data-part": "r2" },
           h("div", { className: "flex items-center justify-center", style: { width: 36, height: 36, borderRadius: 999, background: on ? t.accent : t.ink } }, h(IQuill, { size: 19, color: t.bg2 })));
-        return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60", style: { color: on ? t.ink : t.fog } },
+        return h("button", { key: it.key, onClick: function () { props.onNav(it.key); }, className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60", style: { color: on ? t.ink : t.fog }, "data-wk": "ficbottomnav", "data-part": "r3", "data-on": on ? "1" : "0" },
           h(it.G, { size: 21, color: on ? t.ink : t.fog }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, fontWeight: on ? 600 : 400 } }, it.label));
       }));
@@ -5559,10 +5559,10 @@
           sub: view === "shelf" ? "收进来的那些" : "别人都在写什么",
           onBack: props.onBack, bg: "transparent", noLine: true,
           right: h("div", { className: "flex items-center justify-end", style: { gap: 10 } },
-            view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent } }, "导出")
+            view === "shelf" ? h("button", { onClick: function () { const n = exportFanficAudit(tabs, loadFics(), loadCfg()); props.toast && props.toast("已导出 " + n + " 篇同人文诊断稿"); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.accent }, "data-wk": "ficpagebtn", "data-part": "1" }, "导出")
               : view === "feed" ? h(React.Fragment, null,
-                  h("button", { onClick: clearTab, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "清空"),
-                  h("button", { onClick: function () { setGearOpen(true); }, disabled: busy, className: "active:opacity-60", title: "生成配置" }, h(GConfig, { size: 19, color: t.ink })))
+                  h("button", { onClick: clearTab, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog }, "data-wk": "ficpagebtn", "data-part": "2" }, "清空"),
+                  h("button", { onClick: function () { setGearOpen(true); }, disabled: busy, className: "active:opacity-60", title: "生成配置", "data-wk": "ficpagebtn", "data-part": "3" }, h(GConfig, { size: 19, color: t.ink })))
               : null) }),
         view === "feed" ? h(TabBar, {
           tabs: tabs, activeId: activeTab, onPick: setActiveTab,
@@ -5573,18 +5573,18 @@
           h("input", {
             value: q, onChange: function (e) { setQ(e.target.value); },
             placeholder: "搜标题、笔名、CP 里的人、标签…",
-            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", outline: "none" }
+            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", outline: "none" }, "data-wk": "ficpageinput", "data-part": "搜标题、笔名、CP 里的"
           }),
-          q ? h("button", { onClick: function () { setQ(""); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent } }, "清除") : null,
+          q ? h("button", { onClick: function () { setQ(""); }, className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent }, "data-wk": "ficpagebtn", "data-part": "4" }, "清除") : null,
           h("button", {
             onClick: function () { setMeOnly(function (v) { return !v; }); }, className: "active:opacity-70 shrink-0",
-            style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, background: meOnly ? t.accent : "transparent", color: meOnly ? t.bg2 : t.sub, border: "1px solid " + (meOnly ? t.accent : t.line) }
+            style: { fontFamily: F_BODY, fontSize: 11.5, padding: "5px 11px", borderRadius: 999, background: meOnly ? t.accent : "transparent", color: meOnly ? t.bg2 : t.sub, border: "1px solid " + (meOnly ? t.accent : t.line) }, "data-wk": "ficpagebtn", "data-part": "5"
           }, "有我")),
         // 正在按标签筛：得看得见、且随手能取消，不然点进去就出不来了
         tagFilter ? h("div", { className: "px-5 pb-2 flex items-center", style: { gap: 8 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "只看"),
           h(FicTag, { tag: tagFilter }),
-          h("button", { onClick: function () { setTagFilter(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent } }, "取消")) : null,
+          h("button", { onClick: function () { setTagFilter(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: t.accent }, "data-wk": "ficpagebtn", "data-part": "6" }, "取消")) : null,
         q ? h("div", { className: "px-5 pb-2" },
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "跨版搜「" + q.trim() + "」· " + list.length + " 篇")) : null,
         // 板块简介收进固定高度的滚动框（简介写长后曾占掉三分之一屏挡文）：默认露两三行，框内下滑看全部

@@ -63,17 +63,17 @@ function manualSkin(t) {
         const td = (txt, j, th) => h(th ? "th" : "td", { key: j, style: { textAlign: "left", verticalAlign: "top", padding: "6px 8px", borderBottom: "1px solid " + t.line,
           fontFamily: F_BODY, fontSize: 12, lineHeight: 1.6, color: th ? t.ink : t.sub, fontWeight: th ? 600 : 400, minWidth: j === 0 ? 92 : 110 } }, inline(txt, t, onJump, M));
         return h("div", { key: bi, style: { overflowX: "auto", WebkitOverflowScrolling: "touch", marginTop: 10 } },
-          h("table", { style: { borderCollapse: "collapse", width: "100%" } },
+          h("table", { "data-wk": "cxtable", style: { borderCollapse: "collapse", width: "100%" } },
             h("thead", null, h("tr", null, head.map((c, j) => td(c, j, true)))),
             h("tbody", null, rows.map((r, ri) => h("tr", { key: ri }, r.map((c, j) => td(c, j, false)))))));
       }
-      if (/^\s*- /.test(lines[0])) return h("div", { key: bi, style: { marginTop: 6 } }, lines.map((ln, j) => {
+      if (/^\s*- /.test(lines[0])) return h("div", { "data-wk": "cxlist", key: bi, style: { marginTop: 6 } }, lines.map((ln, j) => {
         const sub = /^\s{2,}- /.test(ln);
-        return h("div", { key: j, className: "flex", style: { gap: 7, marginTop: 5, paddingLeft: sub ? 16 : 0 } },
+        return h("div", { "data-wk": "cxli", key: j, className: "flex", style: { gap: 7, marginTop: 5, paddingLeft: sub ? 16 : 0 } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, flexShrink: 0 } }, sub ? "◦" : "·"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.9, color: t.sub } }, inline(ln.replace(/^\s*- /, ""), t, onJump, M)));
       }));
-      return h("div", { key: bi, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: t.ink, marginTop: 8 } }, inline(b, t, onJump, M));
+      return h("div", { "data-wk": "cxpara", key: bi, style: { fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.95, color: t.ink, marginTop: 8 } }, inline(b, t, onJump, M));
     });
   }
 
@@ -93,7 +93,7 @@ function manualSkin(t) {
     }, [open, jumpTo]);
     if (!M) return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
       h(Head, { zh: "攻略", sub: "这台手机的说明书", bg: "transparent", onBack: props.onBack }),
-      h("div", { style: { padding: "40px 24px", fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.9 } },
+      h("div", { "data-wk": "cxempty", style: { padding: "40px 24px", fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", lineHeight: 1.9 } },
         "说明书没加载出来。\n退出去再进一次。"));
 
     const qq = q.trim().toLowerCase();
@@ -111,19 +111,19 @@ function manualSkin(t) {
     if (open) {
       const app = M.APPS.find(a => a.id === open);
       const list = app ? M.appEntries(app.id) : [];
-      const sec = (e, i) => h("div", { key: e.id, "data-entry": e.id, style: { marginTop: i ? 26 : 14 } },
+      const sec = (e, i) => h("div", { "data-wk": "cxsec", key: e.id, "data-entry": e.id, style: { marginTop: i ? 26 : 14 } },
         h("div", { className: "flex items-baseline", style: { gap: 9 } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, width: 22, flexShrink: 0 } }, no2(i)),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.zh)),
+          h("span", { "data-wk": "cxsectitle", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, e.zh)),
         h("div", { style: { height: 1, background: t.ink, opacity: .13, margin: "7px 0 0 22px" } }),
         h("div", { style: { paddingLeft: 22 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "9px 0 2px" } }, "在哪儿：" + e.where),
+          h("div", { "data-wk": "cxwhere", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "9px 0 2px" } }, "在哪儿：" + e.where),
           h(DocView, { doc: e.doc || e.what, t, onJump, M })));
-      return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
+      return h("div", { "data-wk": "cxdetail", className: "h-full flex flex-col", style: manualSkin(t) },
         h(Head, { zh: (app && app.zh) || "攻略", sub: app ? app.cat + " · 共 " + list.length + " 节" : "", bg: "transparent", onBack: () => { setOpen(null); setJumpTo(null); } }),
         h("div", { ref: pageRef, className: "flex-1 min-h-0 overflow-y-auto px-5 pb-12", style: { WebkitOverflowScrolling: "touch" } },
           list.map(sec),
-          h("button", {
+          h("button", { "data-wk": "cxask", "data-part": "detail",
             onClick: () => props.onAskAssistant && props.onAskAssistant(),
             className: "w-full text-left active:opacity-80",
             style: { display: "flex", alignItems: "center", gap: 10, marginTop: 26, padding: "12px 13px", borderRadius: 14,
@@ -140,26 +140,26 @@ function manualSkin(t) {
     const row = (a, ci, i) => {
       const first = M.appEntries(a.id)[0];
       const n = M.appEntries(a.id).length;
-      return h("div", { key: a.id },
-        h("button", {
+      return h("div", { "data-wk": "cxrow", key: a.id },
+        h("button", { "data-wk": "cxrowbtn",
           onClick: () => setOpen(a.id), className: "w-full text-left active:opacity-70",
           style: { display: "flex", alignItems: "baseline", gap: 10, padding: "11px 2px 11px 0", width: "100%", minHeight: 44 }
         },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 11, color: t.fog, width: 30, flexShrink: 0 } }, no2(ci) + "." + no2(i)),
           h("span", { className: "flex-1 min-w-0" },
-            h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
+            h("span", { "data-wk": "cxrowname", style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } },
               a.zh, n > 1 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginLeft: 7 } }, n + " 节") : null),
-            first ? h("span", { className: "truncate", style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } },
+            first ? h("span", { "data-wk": "cxrowsub", className: "truncate", style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3 } },
               M.teaser(first)) : null),
           h("span", { style: { fontFamily: F_BODY, fontSize: 15, lineHeight: 1, color: t.line, flexShrink: 0 } }, "›")),
         h("div", { style: { height: 1, background: t.line, opacity: .7 } }));
     };
 
-    return h("div", { className: "h-full flex flex-col", style: manualSkin(t) },
+    return h("div", { "data-wk": "cxpage", className: "h-full flex flex-col", style: manualSkin(t) },
       h(Head, { zh: "攻略", sub: "这台手机的说明书", bg: "transparent", onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10", style: { WebkitOverflowScrolling: "touch" } },
         // 最上面这一条：不会就问秋秋（她 2026-09-04 点名）。点得进去，不是一句摆设。
-        h("button", {
+        h("button", { "data-wk": "cxask", "data-part": "top",
           onClick: () => props.onAskAssistant && props.onAskAssistant(),
           className: "w-full text-left active:opacity-80",
           style: {
@@ -177,7 +177,7 @@ function manualSkin(t) {
               "找不到东西、看不懂哪个按钮，跟它说一声")),
           h("span", { style: { fontFamily: F_BODY, fontSize: 15, color: t.accent, flexShrink: 0 } }, "›")),
 
-        h("input", {
+        h("input", { "data-wk": "cxsearch",
           value: q, onChange: e => setQ(e.target.value),
           placeholder: "搜功能：自拍 / 备份 / 组件 / 加笔 / 抽卡…",
           style: { width: "100%", outline: "none", padding: "10px 13px", borderRadius: 12, marginBottom: 6,
@@ -185,15 +185,15 @@ function manualSkin(t) {
         }),
 
         apps.length === 0
-          ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 40, lineHeight: 1.9, whiteSpace: "pre-wrap" } },
+          ? h("div", { "data-wk": "cxempty", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, textAlign: "center", marginTop: 40, lineHeight: 1.9, whiteSpace: "pre-wrap" } },
               "没搜到这个词。\n换个说法，或者上去问秋秋。")
           : cats.map((cat, ci) => {
               const items = apps.filter(a => a.cat === cat);
-              return h("div", { key: cat, style: { marginTop: 18 } },
+              return h("div", { "data-wk": "cxcat", key: cat, style: { marginTop: 18 } },
                 // 章头：大号章节数 + 章名，底下一条实一条虚——像说明书的分章页
                 h("div", { className: "flex items-baseline", style: { gap: 9 } },
                   h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, lineHeight: 1, color: hexA(t.ink, .18) } }, no2(ci)),
-                  h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, letterSpacing: ".08em" } }, cat),
+                  h("span", { "data-wk": "cxcattitle", style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, letterSpacing: ".08em" } }, cat),
                   h("span", { style: { flex: 1 } }),
                   h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, items.length + " 个")),
                 h("div", { style: { height: 2, background: t.ink, opacity: .16, marginTop: 6 } }),

@@ -20,9 +20,9 @@ test("购物页有自己的一套配色，不跟主题的米白走", () => {
 
 // 她截图里最明显的浪费：120px 高的图位里，把商品名用斜体又写了一遍
 test("商品图位不再把商品名印第二遍", () => {
-  const i = screens.indexOf('h("div", { className: "grid grid-cols-2 gap-2.5" }');
+  const i = screens.indexOf('className: "grid grid-cols-2 gap-2.5" }');
   assert.ok(i > 0, "找不到商品流");
-  const seg = screens.slice(i, screens.indexOf('h("button", { onClick: () => doGen(true)', i));
+  const seg = screens.slice(i, screens.indexOf('onClick: () => doGen(true), disabled: busy', i));
   assert.equal((seg.match(/it\.name/g) || []).length, 1, "商品名在一张卡里只该出现一次");
   assert.doesNotMatch(seg, /fontStyle: "italic"[^}]*\}\s*\}, it\.name\)/, "旧的斜体名字图位还在");
   // 图位改成从名字认出来的品类色
@@ -143,7 +143,7 @@ test("商品卡和详情都点得到「想要」", () => {
 // 她 2026-08-29：「购物里我的物品和随身物里他们收到的礼物还是纯文字，
 // 这俩也给我弄好看点归纳方便看吧」
 test("我的物品按【怎么来的】归组", () => {
-  const i = screens.indexOf('h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · "');
+  const i = screens.indexOf('style: { fontFamily: F_BODY, fontSize: 11.5, color: MSHOP.sub, marginBottom: 8, paddingLeft: 2 } }, "我的物品 · "');
   assert.ok(i > 0, "找不到我的物品");
   const seg = screens.slice(i, screens.indexOf("  // ---------- 商品详情", i));
   assert.match(seg, /const dreamy = it\.source === "dream";/);
