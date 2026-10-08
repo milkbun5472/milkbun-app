@@ -89,3 +89,9 @@ test("直播输入框空着按＝接着看／接着播，不用非得发弹幕�
   assert.match(live, /"接着看" : "接着播"/);
   assert.match(live, /if \(!v\) \{ if \(s\.mode === "watch"\) stepWatch\(curId, false\); else stepHost\(curId, false\); return; \}/);
 });
+
+test("自动往下播：默认关、不记住，开着才自己走下一拍，后台和下播不走", () => {
+  assert.match(live, /const \[auto, setAuto\] = useState\(false\);/);
+  assert.match(live, /if \(!auto \|\| busy \|\| readOnly \|\| ses\.endTs\) return;/);
+  assert.match(live, /document\.hidden\) return; onSay\(""\)/);
+});

@@ -171,6 +171,15 @@
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
+    // 自动往下播（她 2026-10-08：「搞一个开关，默认关着，放直播间里面」）：开着时这一拍播完、你没动，过一会儿自己走下一拍。
+    //   每一拍照样花一次调用，所以默认关、不记住；退出直播间、切到后台、下播都停。
+    const [auto, setAuto] = useState(false);
+    const AUTO_MS = 25000;
+    useEffect(function () {
+      if (!auto || busy || readOnly || ses.endTs) return;
+      const t = setTimeout(function () { if (typeof document !== "undefined" && document.hidden) return; onSay(""); }, AUTO_MS);
+      return function () { clearTimeout(t); };
+    }, [auto, busy, arr(ses.lines).length, ses.endTs]);
     const live = !readOnly && !ses.endTs;
     const board = Object.keys(ses.board || {}).map(k => [k, ses.board[k]]).sort((a, b) => b[1] - a[1]);
     const ours = board.reduce((n, x) => n + x[1], 0), theirs = Number(ses.rivalScore) || 0;
@@ -240,10 +249,11 @@
         songOpen && onSong ? h("div", { "data-wk": "livesonglist", style: { maxHeight: 150, overflowY: "auto", marginBottom: 8, borderRadius: 12, border: "1px solid " + LIVE_LINE } },
           arr(songs).length ? songs.map(t2 => h("button", { "data-wk": "livesong", key: t2, disabled: !!busy, onClick: () => { setSongOpen(false); onSong(t2); }, className: "w-full text-left active:opacity-60", style: { display: "block", minHeight: 38, padding: "0 12px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 12.5, borderBottom: "1px solid " + LIVE_LINE } }, "《" + t2 + "》"))
             : h("div", { style: { padding: 12, fontFamily: F_BODY, fontSize: 12, color: LIVE_DIM } }, "一起听里还没有歌")) : null,
-        watching ? h("div", { className: "flex", style: { gap: 8, marginBottom: 8 } },
-          ses.linked ? h("button", { "data-wk": "livelinkbtn", "data-on": "1", onClick: onUnlink, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: "#9fd2ff", fontFamily: F_BODY, fontSize: 12 } }, "下麦")
+        h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 8 } },
+          h("button", { "data-wk": "liveautobtn", "data-on": auto ? "1" : "0", onClick: () => setAuto(a => !a), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + (auto ? LIVE_RED : LIVE_LINE), background: auto ? "rgba(226,85,107,.16)" : "transparent", color: auto ? LIVE_INK : LIVE_DIM, fontFamily: F_BODY, fontSize: 12 } }, (auto ? "● " : "○ ") + "自动往下播"),
+          !watching ? null : ses.linked ? h("button", { "data-wk": "livelinkbtn", "data-on": "1", onClick: onUnlink, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: "#9fd2ff", fontFamily: F_BODY, fontSize: 12 } }, "下麦")
             : h("button", { "data-wk": "livelinkbtn", "data-on": "0", onClick: onLink, disabled: !!busy || ses.linkAsk, className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12, opacity: ses.linkAsk ? .5 : 1 } }, ses.linkAsk ? "等 TA 接连麦…" : "申请连麦"),
-          ses.kind === "sing" && onSong ? h("button", { "data-wk": "livesongbtn", onClick: () => setSongOpen(v => !v), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "点歌") : null) : null,
+          ses.kind === "sing" && onSong ? h("button", { "data-wk": "livesongbtn", onClick: () => setSongOpen(v => !v), className: "active:opacity-60", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_LINE, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "点歌") : null),
         h("div", { className: "flex items-end", style: { gap: 8 } },
           watching ? h("button", { "data-wk": "livegiftbtn", onClick: () => setGiftOpen(v => !v), "aria-label": "送礼物", className: "active:opacity-60 shrink-0",
             style: { width: 42, height: 42, borderRadius: 12, border: "1px solid " + LIVE_LINE, color: "#f6c76b", fontFamily: F_BODY, fontSize: 12 } }, "礼物") : null,
