@@ -232,6 +232,7 @@
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
+    const [titleOpen, setTitleOpen] = useState(false);
     // 自动往下播（她 2026-10-08：「搞一个开关，默认关着，放直播间里面」）：开着时这一拍播完、你没动，过一会儿自己走下一拍。
     //   每一拍照样花一次调用，所以默认关、不记住；退出直播间、切到后台、下播都停。
     const [auto, setAuto] = useState(false);
@@ -272,8 +273,11 @@
     const send = () => { const v = text.trim(); if (busy) return; setText(""); onSay(v); };
     const stageTitle = watching ? (ses.host || (host && host.name) || "主播") : uName;
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { background: LIVE_BG, position: "relative" } },
-      h(Head, { zh: S(ses.title) || "直播间", sub: (ses.endTs ? "已下播" : "直播中") + " · " + (Number(ses.viewers) || 0) + " 人在看", bg: "transparent", ink: LIVE_INK, onBack: onBack,
+      // 顶栏只放主播名；标题挪到下面单独一行（她 2026-10-08：「名字太长看不完」——标题挤在顶栏一行里被截掉）
+      h(Head, { zh: stageTitle + " 的直播间", sub: (ses.endTs ? "已下播" : "直播中") + " · " + (Number(ses.viewers) || 0) + " 人在看", bg: "transparent", ink: LIVE_INK, onBack: onBack,
         right: (ses.endTs || readOnly) ? (onShare ? h("button", { "data-wk": "liveshare", onClick: onShare, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_INK, padding: "0 6px", minHeight: 40 } }, "发给 TA") : null) : (!readOnly && !ses.endTs) ? h("button", { onClick: onEnd, disabled: !!busy, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: LIVE_RED, padding: "0 6px", minHeight: 40 } }, watching ? "离开" : "下播") : null }),
+      S(ses.title) ? h("div", { "data-wk": "livetitle", onClick: () => setTitleOpen(o => !o), className: "shrink-0", style: { margin: "0 14px 8px", fontFamily: F_DISPLAY, fontSize: 14, lineHeight: 1.5, color: LIVE_INK, cursor: "pointer",
+        ...(titleOpen ? {} : { display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }) } }, "《" + S(ses.title) + "》") : null,
       // 镜头那一块：主播（或她自己）此刻的样子＋刚说的那句；路人弹幕从这儿飘过去
       h("div", { "data-wk": "livestage", className: "shrink-0", style: { position: "relative", height: 210, margin: "0 12px", borderRadius: 16, overflow: "hidden",
         background: "radial-gradient(120% 90% at 30% 20%,rgba(226,85,107,.28),rgba(80,60,120,.25) 55%,rgba(20,16,25,1))", border: "1px solid " + LIVE_LINE } },

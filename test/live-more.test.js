@@ -136,3 +136,8 @@ test("粉丝团名字主播自己起：路人主播生成时顺手起、能重�
   assert.match(live, /"data-wk": "livestclub"/);
   const K = kit();
 });
+
+test("直播间标题不挤在顶栏：顶栏写主播名，标题单独一行、两行收起、点开看全", () => {
+  assert.match(live, /h\(Head, \{ zh: stageTitle \+ " 的直播间"/);
+  assert.match(live, /"data-wk": "livetitle", onClick: \(\) => setTitleOpen/);
+});
