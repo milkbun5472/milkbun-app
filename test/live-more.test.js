@@ -57,3 +57,14 @@ test("攻略文件本身能被解析（多行字符串写成真换行会让整�
   const src = fs.readFileSync(path.join(__dirname, "../js/assistant-manual.js"), "utf8");
   assert.doesNotThrow(() => new Function(src));
 });
+
+test("礼物栏是一格一样东西、能自定义；充电是电池格、能自己填（不是一排胶囊）", () => {
+  const shua = fs.readFileSync(path.join(__dirname, "../js/shua.js"), "utf8");
+  assert.match(live, /function GiftPanel\(/);
+  assert.match(live, /"自定义"/);
+  assert.match(live, /onSaveCustom/);
+  const room = live.slice(live.indexOf("function LiveRoom"), live.indexOf("function GiftPanel"));
+  assert.doesNotMatch(room, /GIFTS\.map/);
+  assert.match(shua, /function ChargePanel\(/);
+  assert.doesNotMatch(shua, /"充 ¥" \+ n/);
+});

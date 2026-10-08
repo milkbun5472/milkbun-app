@@ -305,6 +305,21 @@
         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 5, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (v.by === "char" ? "作者 · " : "") + v.author)));
   }
   // 横着看专属（她 2026-10-07 选的第 2 条）：投币、充电、你自己发弹幕、楼中楼
+  // 充电（她 2026-10-08：胶囊、不能自定义）：一格一节电池，钱越多电越满；最后一格自己填
+  function ChargePanel({ onCharge }) {
+    const [own, setOwn] = useState("");
+    const cell = (n, bars) => h("button", { key: n, onClick: () => onCharge(n), className: "active:opacity-70 flex flex-col items-center", style: { padding: "8px 0 6px", borderRadius: 10, background: B.bg, minHeight: 64 } },
+      h("span", { style: { position: "relative", width: 34, height: 18, borderRadius: 4, border: "1.5px solid " + B.accent, display: "flex", gap: 2, padding: 2 } },
+        [0, 1, 2, 3].map(i => h("span", { key: i, style: { flex: 1, borderRadius: 1, background: i < bars ? B.accent : "transparent" } })),
+        h("span", { style: { position: "absolute", right: -5, top: 5, width: 3, height: 6, borderRadius: 1, background: B.accent } })),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: B.ink, marginTop: 6 } }, "¥" + n));
+    const ok = Number(own) > 0;
+    return h("div", { style: { marginTop: 8 } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 6 } }, [[6, 1], [18, 2], [50, 3], [128, 4]].map(x => cell(x[0], x[1]))),
+      h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
+        h("input", { value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
+        h("button", { disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
+  }
   function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
     const [text, setText] = useState("");
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
@@ -351,8 +366,7 @@
             onCharge ? act("charge", v.charged ? "¥" + v.charged : "充电", !!v.charged, () => setCharging(c => !c)) : null,
             onShare ? act("share", "分享", false, onShare) : null),
           onCoin ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim, marginTop: 2, textAlign: "right" } }, "今天还剩 " + coinsLeft + " 枚硬币") : null,
-          charging && onCharge ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 8 } }, [6, 18, 50, 128].map(n => h("button", { key: n, onClick: () => { setCharging(false); onCharge(n); }, className: "active:opacity-60",
-            style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + B.accent, color: B.accent, fontFamily: F_BODY, fontSize: 12 } }, "充 ¥" + n))) : null),
+          charging && onCharge ? h(ChargePanel, { onCharge: n => { setCharging(false); onCharge(n); } }) : null),
         h("div", { style: { background: B.card, marginTop: 8, padding: "6px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: B.ink, padding: "8px 0" } }, "评论 " + arr(v.comments).length),
           arr(v.comments).map(c => h("div", { key: c.id, style: { padding: "9px 0", borderTop: "1px solid " + B.line } },

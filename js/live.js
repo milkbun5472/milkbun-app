@@ -157,7 +157,7 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy }) {
+  function LiveRoom({ ses, chars, profile, busy, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
@@ -225,9 +225,7 @@
         arr(ses.lines).map(lineEl),
         busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "6px 0" } }, watching ? "……" : "大家在看……") : null),
       (readOnly || ses.endTs) ? null : h("div", { className: "shrink-0 px-3", style: { paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + LIVE_LINE } },
-        giftOpen && watching ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginBottom: 8 } },
-          GIFTS.map(g => h("button", { key: g[0], disabled: !!busy, onClick: () => { setGiftOpen(false); onGift(g[0], g[1]); }, className: "active:opacity-60",
-            style: { minHeight: 34, padding: "0 12px", borderRadius: 999, border: "1px solid " + LIVE_LINE, background: "rgba(255,255,255,.06)", color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, g[0] + " ¥" + g[1]))) : null,
+        giftOpen && watching ? h(GiftPanel, { custom: customGifts, busy, onSend: (g, a) => { setGiftOpen(false); onGift(g, a); }, onSaveCustom, onDropCustom }) : null,
         songOpen && onSong ? h("div", { style: { maxHeight: 150, overflowY: "auto", marginBottom: 8, borderRadius: 12, border: "1px solid " + LIVE_LINE } },
           arr(songs).length ? songs.map(t2 => h("button", { key: t2, disabled: !!busy, onClick: () => { setSongOpen(false); onSong(t2); }, className: "w-full text-left active:opacity-60", style: { display: "block", minHeight: 38, padding: "0 12px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 12.5, borderBottom: "1px solid " + LIVE_LINE } }, "《" + t2 + "》"))
             : h("div", { style: { padding: 12, fontFamily: F_BODY, fontSize: 12, color: LIVE_DIM } }, "一起听里还没有歌")) : null,
@@ -244,6 +242,51 @@
             style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.34)", color: LIVE_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
           h("button", { onClick: send, disabled: !!busy || !text.trim(), className: "active:opacity-70 shrink-0",
             style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.08)" : LIVE_RED, color: (busy || !text.trim()) ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发送"))));
+  }
+
+  // ── 礼物面板（她 2026-10-08：「礼物也是胶囊，而且不能自定义」）──────────
+  //   照直播 app 真的礼物栏来：一格一样东西，上面一个小图、下面名字和价钱；点一格选中（抬起来、描红边），底下「送出」。
+  //   最后一格「自定义」：自己起名字、定金额，勾「存成常用」就留在栏里（右上角 × 删掉）。
+  const GIFT_ICON = {
+    "小心心": c => h("path", { fill: c, d: "M12 20s-7-4.4-7-9.6A4 4 0 0 1 12 8a4 4 0 0 1 7 2.4C19 15.6 12 20 12 20z" }),
+    "棒棒糖": c => [h("circle", { key: 1, cx: 12, cy: 9, r: 5.5 }), h("path", { key: 2, d: "M12 14.5V21M9 9a3 3 0 0 1 6 0" })],
+    "玫瑰": c => [h("path", { key: 1, d: "M12 13c-3 0-5-2-5-5 2 0 3 .5 5 2 2-1.5 3-2 5-2 0 3-2 5-5 5zM12 13v8M12 17c-2 0-3-1-4-2" })],
+    "告白气球": c => [h("path", { key: 1, d: "M12 3c3.3 0 5.5 2.6 5.5 5.6S15 15 12 15s-5.5-3.4-5.5-6.4S8.7 3 12 3z" }), h("path", { key: 2, d: "M12 15l-1 2h2l-1 2v2" })],
+    "跑车": c => [h("path", { key: 1, d: "M3 15l2-4.5h9l4 3 3 .5v3H3z" }), h("circle", { key: 2, cx: 7, cy: 17.5, r: 1.8 }), h("circle", { key: 3, cx: 17, cy: 17.5, r: 1.8 })],
+    "火箭": c => [h("path", { key: 1, d: "M12 3c3 2.5 4 6 4 10l-4 3-4-3c0-4 1-7.5 4-10zM8 13l-3 3 3 1M16 13l3 3-3 1M11 19.5l1 2 1-2" }), h("circle", { key: 2, cx: 12, cy: 9.5, r: 1.6 })]
+  };
+  const giftIcon = (name, c) => h(Svg, { size: 26, color: c, sw: 1.6 }, (GIFT_ICON[name] || (cc => [h("rect", { key: 1, x: 4, y: 9, width: 16, height: 11, rx: 1.5 }), h("path", { key: 2, d: "M3 9h18v-2.5H3zM12 6.5V20M12 6.5c-1.5-3-5-3-5-1s3 1 5 1c1.5-3 5-3 5-1s-3 1-5 1" })]))(c));
+  function GiftPanel({ custom, busy, onSend, onSaveCustom, onDropCustom }) {
+    const [pick, setPick] = useState(null);       // [名字, 金额]
+    const [making, setMaking] = useState(false);
+    const [nm, setNm] = useState(""), [amt, setAmt] = useState(""), [keep, setKeep] = useState(true);
+    const all = GIFTS.concat(arr(custom).map(g => [g.name, g.amount, true]));
+    const cell = (g, i) => { const on = pick && pick[0] === g[0] && pick[1] === g[1];
+      return h("div", { key: g[0] + "_" + i, style: { position: "relative" } },
+        h("button", { onClick: () => { setPick(g); setMaking(false); }, className: "w-full active:opacity-70 flex flex-col items-center",
+          style: { padding: "8px 2px 6px", borderRadius: 12, minHeight: 74, border: "1px solid " + (on ? LIVE_RED : "transparent"), background: on ? "rgba(226,85,107,.14)" : "transparent", transform: on ? "translateY(-2px)" : "none" } },
+          giftIcon(g[0], on ? LIVE_RED : "#f6c76b"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_INK, marginTop: 4, maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g[0]),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: LIVE_DIM } }, "¥" + g[1])),
+        g[2] ? h("button", { onClick: () => { onDropCustom(g[0], g[1]); if (on) setPick(null); }, "aria-label": "删掉这个礼物", className: "active:opacity-60", style: { position: "absolute", right: 0, top: 0, width: 26, height: 26, color: LIVE_DIM, fontSize: 13 } }, "×") : null); };
+    const custOk = S(nm) && Number(amt) > 0;
+    return h("div", { style: { marginBottom: 8, padding: "8px 6px", borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid " + LIVE_LINE } },
+      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 4, maxHeight: 180, overflowY: "auto" } },
+        all.map(cell),
+        h("button", { key: "mk", onClick: () => { setMaking(m => !m); setPick(null); }, className: "active:opacity-70 flex flex-col items-center",
+          style: { padding: "8px 2px 6px", borderRadius: 12, minHeight: 74, border: "1px dashed " + (making ? LIVE_RED : LIVE_LINE) } },
+          h("span", { style: { fontSize: 22, lineHeight: "26px", color: LIVE_DIM } }, "＋"),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_INK, marginTop: 4 } }, "自定义"))),
+      making ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 8, flexWrap: "wrap" } },
+        h("input", { value: nm, onChange: e => setNm(e.target.value), placeholder: "送什么", style: { flex: "1 1 90px", minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.3)", color: LIVE_INK, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
+        h("input", { value: amt, onChange: e => setAmt(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "多少钱", style: { width: 84, minHeight: 38, borderRadius: 10, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.3)", color: LIVE_INK, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
+        h("button", { onClick: () => setKeep(k => !k), className: "active:opacity-60", style: { minHeight: 38, padding: "0 4px", color: keep ? LIVE_INK : LIVE_DIM, fontFamily: F_BODY, fontSize: 11.5 } }, (keep ? "☑" : "☐") + " 存成常用")) : null,
+      h("div", { className: "flex items-center", style: { marginTop: 8, gap: 8 } },
+        h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM } }, making ? (custOk ? "「" + S(nm) + "」¥" + Number(amt) : "起个名字、填个金额") : pick ? "「" + pick[0] + "」¥" + pick[1] : "挑一样"),
+        h("button", { disabled: !!busy || (making ? !custOk : !pick), onClick: () => {
+            if (making) { const g = [S(nm).slice(0, 12), Math.min(999999, Math.round(Number(amt)))]; if (keep && onSaveCustom) onSaveCustom(g[0], g[1]); setNm(""); setAmt(""); setMaking(false); onSend(g[0], g[1]); return; }
+            onSend(pick[0], pick[1]); },
+          className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 18px", borderRadius: 10, background: (busy || (making ? !custOk : !pick)) ? "rgba(255,255,255,.08)" : LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 13 } }, "送出")));
   }
 
   // ── 开播前那一页 ────────────────────────────────────────
@@ -476,6 +519,9 @@
       return h(Setup, { mode: view === "setup:watch" ? "watch" : "host", characters, maskName: props.maskName, t, onStart: start, onBack: () => setView("home") });
     if (view === "room" && cur)
       return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end,
+        customGifts: (props.liveCfg || {}).gifts || [],
+        onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
+        onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
         onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
         onShare: props.onShare ? () => setView("share") : null });
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
