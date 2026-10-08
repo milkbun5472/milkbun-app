@@ -15,14 +15,16 @@
   const SKIP = /^x_(characters|groups|memLib)$|cloud|ledger|outbox|sync|vault|cred|lsjournal/i;
   const owner = key => String(key).split("::room::")[0];
   const hit = (v, ids) => v && typeof v === "object" && (ids.has(v.charId) || ids.has(v.char_id) || ids.has(v.cid));
-  function sweep(idList, store) {
+  // keep：这几张表不碰（「完全重置」留着她给 TA 调的设置，删卷宗不传）
+  function sweep(idList, store, keep) {
+    const keepSet = new Set(keep || []);
     const ids = new Set((idList || []).filter(Boolean).map(String));
     const ls = store || (typeof localStorage !== "undefined" ? localStorage : null);
     const changed = [];
     if (!ls || !ids.size) return changed;
     const keys = [];
     const seen = new Set();
-    const add = k => { if (k && k.indexOf("x_") === 0 && !SKIP.test(k) && !seen.has(k)) { seen.add(k); keys.push(k); } };
+    const add = k => { if (k && k.indexOf("x_") === 0 && !SKIP.test(k) && !keepSet.has(k) && !seen.has(k)) { seen.add(k); keys.push(k); } };
     for (let i = 0; i < ls.length; i++) add(ls.key(i));
     // ⚠️大部分存档早就不在 localStorage 本体里了（2026-10-04 全搬进 IndexedDB，内存里有一份镜像 __txtMirror）。
     //   只数 localStorage 的键会一个都扫不到——读写照旧走 getItem/setItem，那一层会自己转进大仓库。

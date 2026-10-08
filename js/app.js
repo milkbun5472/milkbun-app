@@ -9738,11 +9738,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_groups", n);
       return n;
     });
-    // 她 2026-10-05：「主动删除就是不要的」——TA的东西一起清，不留给「找回失联」（那条路是给意外丢数据的）。
-    //   本机的按人存档、按人的表、带 charId 的记录都扫一遍（CharPurge），扫到的那几张表再从存档重读回界面；
-    //   记忆库走 saveMemLib 才同步得上云；梦在 IndexedDB 里另清。
+    purgeCharData(doomed);
+    setScreen("cast");
+    setEditingChar(null);
+  };
+  // 清掉【属于这几个人的一切】——删卷宗和「完全重置」共用这一份（施工规则/one-public-mechanism.md）。
+  // 她 2026-10-05：「主动删除就是不要的」——TA的东西一起清，不留给「找回失联」（那条路是给意外丢数据的）。
+  //   本机的按人存档、按人的表、带 charId 的记录都扫一遍（CharPurge），扫到的那几张表再从存档重读回界面；
+  //   记忆库走 saveMemLib 才同步得上云；梦在 IndexedDB 里另清。
+  // keep：重置时留着的几张【设置】表（聊天设置、线下设置、币种、换头像）——那是她给 TA 调的样子，不是 TA 跟她的事
+  const purgeCharData = (doomed, keep) => {
     const gone = Array.from(doomed);
-    const changed = window.CharPurge ? window.CharPurge.sweep(gone) : [];
+    const changed = window.CharPurge ? window.CharPurge.sweep(gone, null, keep) : [];
     const RELOAD = {
       x_ambientCount: v => typeof setAmbientCount === "function" && setAmbientCount(v),
       x_anon: v => typeof setAnon === "function" && setAnon(v),
@@ -9820,7 +9827,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
       x_shopWish: v => typeof setWish === "function" && setWish(v),
-      x_worlds: v => typeof setWorlds === "function" && setWorlds(v)
+      x_worlds: v => typeof setWorlds === "function" && setWorlds(v),
+      // 下面这几张在界面里另有一份状态，不跟着重读，重置后旧的好感、日程、日记会被写回去
+      x_affinities: v => setAffinities(v),
+      x_schedules: v => { schedulesRef.current = v; setSchedules(v); },
+      x_diaries: v => setDiaries(v),
+      x_couples: v => setCouples(v),
+      x_thoughtCtr: v => { thoughtCtrRef.current = v; }
     };
     changed.forEach(k => { const f = RELOAD[k]; if (f) { try { const d = loadJSON(k, null); f(d == null ? (Array.isArray(loadJSON(k, [])) ? [] : {}) : d); } catch (e) {} } });
     const mine = k => doomed.has(String(k).split("::room::")[0]);   // 侧房 chatKey 也算TA的
@@ -9832,8 +9845,27 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(m => (m.charIds || []).some(x => doomed.has(x)) ? { ...m, charIds: m.charIds.filter(x => !doomed.has(x)) } : m);
       if (next.length !== lib.length || next.some((m, i) => m !== lib[i])) saveMemLib(next); }
     if (window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
-    setScreen("cast");
-    setEditingChar(null);
+    // 关系那一格的键是「me->角色id」「角色id->别人」这种两头拼起来的，CharPurge 只认整键＝id，扫不到
+    { const rels = loadJSON("x_rels", {}), keys = Object.keys(rels || {}).filter(k => k.split("->").some(x => doomed.has(x)));
+      if (keys.length) { keys.forEach(k => delete rels[k]); saveJSON("x_rels", rels); if (typeof setRels === "function") setRels(rels); } }
+  };
+  // 完全重置（群里 2026-10-08「想让角色完全清除记忆，是不是要把角色删了重置才行」「记忆库删了好像还是记得之前的」）：
+  //   卷宗原样留着（人设、外貌、头像、音色、聊天设置之外的卡上东西），TA 跟她之间发生过的一切清掉，像第一次见面。
+  //   「记忆库删了还记得」是因为 TA 记得的不只记忆库：聊天记录本身、前情浓缩、心情好感、日程、日记、印象、房间往事、
+  //   云端聊天归档……都在喂 TA。所以这里跟删卷宗走同一份清扫，再把云端归档清空。
+  //   不动：配角（是 TA 身边的人，不是 TA 和她的事）、群成员身份；群聊记录是一群人共有的，不在这里清。
+  const resetChar = id => {
+    const c = (characters || []).find(x => x && x.id === id);
+    if (!c) return;
+    requestAppConfirm("完全重置「" + (c.name || c.remark || "这位角色") + "」？",
+      "卷宗（人设、外貌、头像、音色）留着；TA 跟你之间的一切都清掉：聊天和线下记录、记忆库里只属于 TA 的记忆、前情、心情和好感、日程、日记、印象、约定、收藏……像第一次见面。"
+      + "\n群聊记录是大家共有的，不会清。"
+      + "\n这一下撤不回来。要紧的话先去 设置 → 数据 → 导出全部数据，存一份在自己手上。",
+      async () => {
+        purgeCharData(new Set([id]), ["x_chatSettings", "x_offlineSettings", "x_charCurrency", "x_avatarSwap"]);
+        try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; }
+        toast("「" + (c.name || "TA") + "」重置好了，下次聊天就是第一次见面");
+      }, "完全重置");
   };
   const saveRemark = (id, remark) => pC(p => p.map(c => c.id === id ? {
     ...c,
@@ -27186,6 +27218,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("cast"),
     onSave: saveChar,
     onDelete: delChar,
+    onReset: resetChar,
     // 生成头像（她 2026-08-25：「为啥别的小手机能生成真的像头像的图，我们只有 emoji」）。
     // 图像 API 早就在跑自拍/合照/剧照，只是从来没接过头像这个字段。有参考照就拿它锁脸
     //（走 images/edits），没有就按【外貌】那栏画。方图 1024，存进图库只留一个 iv_ 键。
