@@ -917,8 +917,8 @@
       }));
       return Object.keys(n).filter(k => n[k] > 0).sort((a, b) => n[b] - n[a]).slice(0, 5).map(k => ({ id: k, total: n[k], mine: mine[k] || 0 }));
     })();
-    // 错过的：今天已经播完的 + 昨天那场（昨天按日子算），她没进去过、也还没剪过高光的
-    const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(characters.concat(followedSt), new Date(now - 86400000), () => null))
+    // 错过的：今天已经播完的 + 昨天那场（昨天也先看昨天那张日程，没排日程才按日子算），她没进去过、也还没剪过高光的
+    const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(characters.concat(followedSt), new Date(now - 86400000), c => followedSt.some(x => x.id === c.id) ? null : (props.liveSched ? props.liveSched(c, new Date(now - 86400000)) : null)))
       .filter(x => x.end <= now && now - x.end < 36 * 3600000 && whoOf(x.charId) && !list.some(s2 => s2.slotId === x.id));
     const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
     // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
