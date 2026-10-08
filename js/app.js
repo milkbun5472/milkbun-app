@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.106";
+const APP_VERSION = "v75.107";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -9100,19 +9100,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gDuo = _gShooters.filter(c => c.refPhoto && profile && profile.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
-        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
         const goTurnId = "got_" + Date.now() + "_" + i;
-        const affinityBefore = b.senderId ? affOf(b.senderId) : null;
+        // 整段小说那一拍没有单个说话人：在场出场的每个人各算一份（心声、心情、好感、状态卡），各自一个 turnId 好回滚
+        const novelCast = b.kind === "novel" ? (b.cast || []).map((x, k) => ({ ...x, turnId: goTurnId + "_" + k })) : null;
         if (b.senderId) _spoke.add(b.senderId);
+        if (novelCast) novelCast.forEach(x => _spoke.add(x.senderId));
         if (i > 0) await new Promise(r => setTimeout(r, 420));
         pushGOffMsg(group.id, {
           id: "gc_" + Date.now() + "_" + i,
           role: b.role,
+          ...(novelCast ? { kind: "novel", cast: novelCast.map(x => ({ senderId: x.senderId, senderName: x.senderName, thought: x.thought, turnId: x.turnId })) } : {}),
           senderId: b.senderId,
           senderName: b.senderName,
           content: b.scene,
@@ -9142,18 +9145,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
         // 转头回单聊TA还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
-        const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有好感、没有印象卡
+        for (const a of (novelCast || [{ ...b, turnId: goTurnId }])) {
+        const affinityBefore = a.senderId ? affOf(a.senderId) : null;
+        const _bNpc = !!(characters.find(x => x.id === a.senderId) || {}).npc;   // 配角没有好感、没有印象卡
         // ⚠️配角那四样（心情／想法／穿着／动作）不看闭群那道闸（她 2026-09-20，同群线上）：
         //   他不回流主线，状态卡只活在群里。好感和印象卡照旧只给主角色、且闭群封死。
-        if (!gOffSealed && !_bNpc && b.senderId) bumpAff(b.senderId, b.affinityDelta);
-        if ((!gOffSealed || _bNpc) && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        if (!gOffSealed && !_bNpc && a.senderId) bumpAff(a.senderId, a.affinityDelta);
+        if ((!gOffSealed || _bNpc) && a.senderId && a.mood && a.mood.label) setMoodFor(a.senderId, { ...a.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
-        if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
-          try { window.Gaze.applyParsed(b.senderId, b.impression); } catch (e) {}
+        if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !settingsFor(a.senderId).engineerEyes) {
+          try { window.Gaze.applyParsed(a.senderId, a.impression); } catch (e) {}
         }
-        if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === b.senderId), {
-          thought: b.thought, mood: b.mood && b.mood.label
-        }, goTurnId, affinityBefore, _offThoughtOnce);
+        if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === a.senderId), {
+          thought: a.thought, mood: a.mood && a.mood.label
+        }, a.turnId, affinityBefore, _offThoughtOnce);
+        }
       }
       // 短期导演便签只在成功生成后消耗；失败/超时不扣。新建/消耗/提示语都在 directorNote* 那一处。
       const _gDn = directorNotesConsume(effectiveSess.customNotes, effectiveSess.startTs);
@@ -9164,7 +9170,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 封闭群不驱动朋友圈/论坛/悄悄话这些对外的东西（线上那处 v55.79 已堵，群线下漏了）
       if (!groupClosed(group.id)) _spoke.forEach(id => tickAmbient(id, {}));
       // 群线下成员自己冒泡时，若你没在看这个群的线下，挂未读红点+顶上来
-      const _gCharBeats = (beats || []).filter(b => b && b.senderId).length;
+      const _gCharBeats = (beats || []).filter(b => b && (b.senderId || b.kind === "novel")).length;
       if (_gCharBeats && !(offlineGroup && offlineGroup.id === group.id) && viewRef.current.charId !== group.id) bumpUnread(group.id, _gCharBeats);
       setTimeout(() => maybeSummarizeGroupOffline(group.id), 120); // 群线下防失忆：攒够就滚动总结
       setTimeout(() => maybeAutoExtractGroupOffline(group.id), 240); // 群线下多发言人离散抽取（各点按 who 归属）
@@ -9252,6 +9258,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const y = ledgerYanqiu(); if (y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group_offline", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
     const byChar = new Map();
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
+    // 整段小说那一拍：每个出场的人各自一个 turnId
+    removed.filter(m => m && m.kind === "novel").forEach(m => (m.cast || []).forEach(x => { if (!x || !x.senderId) return; const a = byChar.get(x.senderId) || []; if (x.turnId) a.push(x.turnId); byChar.set(x.senderId, a); }));
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
     // 互通群的记忆才进过全局库；闭群只有本场提要（只进不出）。

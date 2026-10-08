@@ -535,7 +535,7 @@
         // 线下（单人、群都走这一套，她 2026-09-30：「整体美化都要」）
         ["offline", "线下整页（最外那层）"], ["offbody", "线下正文滚动区"], ["offcomposer", "线下底部输入栏"],
         ["offmsg", "线下一段（data-me=\"1\" 是她写的）"], ["offcard", "线下那张卡片本体"], ["offhead", "卡片顶上那行（头像·名字·时间）"],
-        ["offname", "卡片上的名字"], ["offtext", "线下正文"], ["offsay", "正文里引号那几句台词"], ["offthought", "线下的心声那块"],
+        ["offname", "卡片上的名字"], ["offtext", "线下正文"], ["offsay", "正文里引号那几句台词"], ["offthought", "线下的心声那块"], ["offcastfaces", "群线下整段小说那一拍左上角叠着的头像，点开选看谁的心声"], ["offcastpick", "选看谁的心声那一排；里面每个按钮 data-on=1 是选中的"], ["goffwritemode", "群线下设置「写法」两个按钮；data-on=1 是当前选中"],
         ["offnarr", "线下旁白（data-short=\"1\" 是居中那种短的）"],
         // 通话
         ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
@@ -984,7 +984,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.106", changed: "", none: "这一版没加新钩子（字幕卡能左右划）" };
+  const BRIEF_STAMP = { v: "v75.107", changed: "群线下加了 offcastfaces（整段小说那一拍叠着的头像）、offcastpick（选看谁的心声那一排）、goffwritemode（设置里写法两个按钮）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

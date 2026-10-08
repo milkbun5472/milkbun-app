@@ -8181,6 +8181,12 @@ async function generateOfflineGroup(p, ctx, session) {
   //   （见下面 gBudget 的默认值），不在这句话上。
   //   这儿掷的仍然是【镜头给谁】，不是【谁必须开口】（施工规则/bans-make-it-dumber）。
   const gBeatMax = Math.max(5, Math.min(10, members.length + 2));
+  // 写法＝整段小说（她 2026-10-08）：一次写一整段、在场的人一起出场；心声／心情／好感照旧逐人给，
+  //   挂在这一段上（界面上点头像框选看谁的）。规矩层、人设、她那个「描写我」开关全跟一人一拍同一份，只换输出形状。
+  const novel = session.writeMode === "novel";
+  const castNames = members.map(c => "『" + memberLabel(members, c) + "』").join("、");
+  const novelOut = "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一轮的整段小说正文（第三人称；在场的人自然穿插出场、互相接话，动作/神态/对话/环境写在一起，分段用换行）\",\"cast\":[{\"name\":\"这一段里出场的角色名\",\"thought\":\"（可选）TA 此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"}]}\n"
+    + "scene 是一整段连着读的小说，不按人切块；cast 里列这一段真正出场的人，一人一项，name 必须逐字填写以下名字之一：" + castNames + "。没出场的人不列。";
   // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
   const gRotateLine = rotateSpeakersNote(members, session.msgs);
   const userName = (ctx.profile && ctx.profile.name) || "用户";
@@ -8308,7 +8314,7 @@ async function generateOfflineGroup(p, ctx, session) {
         + "整轮最多一个 beat 带 photo，别每个人都拍。"
       : "") +
     cotSystemBlock(cotT) +
-    "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。" + sameNameNote(members);
+    (novel ? novelOut : "\n【输出】只输出一个 JSON，不要代码块：\n{\"beats\":[{\"name\":\"这一段里行动或说话的角色名；纯环境旁白填『旁白』\",\"scene\":\"这一段叙事正文（第三人称，含动作/神态/对话）\",\"thought\":\"（仅角色 beat，可选）该角色此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"（仅角色 beat）" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（仅角色 beat，可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"" + ((session.photoMembers || []).length ? ",\"photo\":\"（仅角色 beat，可选）这一拍真拍了照片才填 {'kind':'self|other" + ((session.photoDuoMembers || []).length ? "|duo" : "") + (session.photoGroupOk ? "|group" : "") + "','scene':'这一格拍到了什么'}，没拍就整个省略\"" : "") + "}]}\n一次产出 2~" + gBeatMax + " 个 beat（在场 " + members.length + " 个人），让在场角色轮流有戏、互相有来有往；name 必须逐字填写以下名字之一：" + members.map(c => "『" + memberLabel(members, c) + "』").join("、") + "；只有不属于任何人的纯环境段才填『旁白』，不许把整篇都塞进一个旁白 beat。") + sameNameNote(members);
   const hist = offlineGroupHistory(session.msgs, userName, ctx.timeAware !== false);
   // 尾部重申（同单人线下）：治长对话后段八股回潮 + cot 丢失
   const gWantLong = session.minWords && session.minWords >= 150;
@@ -8355,6 +8361,27 @@ async function generateOfflineGroup(p, ctx, session) {
   }
   const sp = splitCot(raw, usedCot);
   let parsed = extractJSON(sp.clean);
+  if (novel) {
+    const nScene = String((parsed && (parsed.scene || parsed.text || parsed.content)) || (parsed ? "" : (sp.clean || raw || "").replace(/```(?:json)?/gi, ""))).trim();
+    const seen = new Set();
+    const nCast = (parsed && Array.isArray(parsed.cast) ? parsed.cast : []).map(x => {
+      const spk = x && offlineGroupSpeaker(members, String(x.name || "").trim(), "");
+      if (!spk || seen.has(spk.id)) return null;
+      seen.add(spk.id);
+      return { senderId: spk.id, senderName: spk.name,
+        thought: x.thought && String(x.thought).toLowerCase() !== "null" ? String(x.thought).trim() : null,
+        mood: x.mood && x.mood.label ? x.mood : null,
+        impression: (x.impression && typeof x.impression === "object") ? x.impression : null,
+        affinityDelta: typeof x.affinityDelta === "number" ? x.affinityDelta : 0 };
+    }).filter(Boolean);
+    const gSaid = lastUserTurnText(session.msgs);
+    const nOut = nScene ? [{ role: "char", kind: "novel", senderId: null, senderName: nCast.map(x => x.senderName).join("、") || null, scene: gSaid ? stripEchoQuestionScene(nScene, gSaid) : nScene, cast: nCast, thought: null, mood: null, impression: null, affinityDelta: 0, photo: null }] : [];
+    if (nOut.length && sp.cot) nOut[0].cot = sp.cot;
+    if (nOut.length && cotT) nOut[0].cotRequested = true;
+    if (_wantReason && !_reasonMeta.reasoning) { const _fb = reasoningFromBody(raw); if (_fb) { _reasonMeta.reasoning = _fb; _reasonMeta.from = "正文 <thinking>"; } }
+    if (nOut.length && _reasonMeta.reasoning) Object.assign(nOut[0], { reasoning: _reasonMeta.reasoning, reasonMs: _reasonMeta.ms || 0, reasonModel: _reasonMeta.model || "", reasonFrom: _reasonMeta.from || "" });
+    return nOut;
+  }
   let beats = offlineGroupBeatList(parsed);
   if (!beats || !beats.length) {
     const repairSystem = "你是格式修复器。把输入原文原字重排成合法 JSON，不续写、不润色、不删内容。只输出 {\"beats\":[{\"name\":\"角色名或旁白\",\"scene\":\"对应原文段落\"}]}。角色名只能逐字选自：" + members.map(c => memberLabel(members, c)).join("、") + "；纯环境才用旁白。按原文中行动/说话的归属拆成 2~5 张卡，禁止整篇塞进一张旁白卡。";
