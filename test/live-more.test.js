@@ -83,3 +83,9 @@ test("TA 自己开播先看日程：日程写了直播就照那个点；排了�
   assert.match(app, /liveSched: liveSchedFor/);
   assert.match(live, /slotsOf\(characters, new Date\(\), props\.liveSched\)/);
 });
+
+test("直播输入框空着按＝接着看／接着播，不用非得发弹幕才往下走", () => {
+  assert.match(live, /const send = \(\) => \{ const v = text\.trim\(\); if \(busy\) return;/);
+  assert.match(live, /"接着看" : "接着播"/);
+  assert.match(live, /if \(!v\) \{ if \(s\.mode === "watch"\) stepWatch\(curId, false\); else stepHost\(curId, false\); return; \}/);
+});

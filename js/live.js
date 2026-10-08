@@ -195,7 +195,8 @@
         l.act ? h("span", { style: { color: LIVE_DIM, marginRight: 4 } }, "（" + l.act + "）") : null,
         l.text);
     };
-    const send = () => { const v = text.trim(); if (!v || busy) return; setText(""); onSay(v); };
+    // 空着按＝「接着看／接着播」（群友 2026-10-08：「直播的弹幕是你不发就不刷新吗」）：不说话也能往下播一拍
+    const send = () => { const v = text.trim(); if (busy) return; setText(""); onSay(v); };
     const stageTitle = watching ? (ses.host || (host && host.name) || "主播") : uName;
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { background: LIVE_BG, position: "relative" } },
       h(Head, { zh: S(ses.title) || "直播间", sub: (ses.endTs ? "已下播" : "直播中") + " · " + (Number(ses.viewers) || 0) + " 人在看", bg: "transparent", ink: LIVE_INK, onBack: onBack,
@@ -250,8 +251,8 @@
             placeholder: watching ? (ses.linked ? "连麦中，直接说" : ses.as === "mask" ? "用「" + ses.maskName + "」发条弹幕" : "发条弹幕") : "对着镜头说点什么，或写你在做什么",
             className: "flex-1 outline-none resize-none",
             style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + LIVE_LINE, background: "rgba(0,0,0,.34)", color: LIVE_INK, padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
-          h("button", { "data-wk": "livesend", onClick: send, disabled: !!busy || !text.trim(), className: "active:opacity-70 shrink-0",
-            style: { width: 52, height: 42, borderRadius: 12, background: (busy || !text.trim()) ? "rgba(255,255,255,.08)" : LIVE_RED, color: (busy || !text.trim()) ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13 } }, busy ? "…" : "发送"))));
+          h("button", { "data-wk": "livesend", onClick: send, disabled: !!busy, className: "active:opacity-70 shrink-0",
+            style: { minWidth: 52, height: 42, padding: "0 8px", borderRadius: 12, background: busy ? "rgba(255,255,255,.08)" : text.trim() ? LIVE_RED : "rgba(255,255,255,.14)", color: busy ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, busy ? "…" : text.trim() ? "发送" : watching ? "接着看" : "接着播"))));
   }
 
   // ── 礼物面板（她 2026-10-08：「礼物也是胶囊，而且不能自定义」）──────────
@@ -488,6 +489,7 @@
     };
     const say = v => {
       const s = get(curId); if (!s) return;
+      if (!v) { if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false); return; }
       const name = s.mode === "watch" ? (s.as === "mask" ? s.maskName : uName) : uName;
       patch(curId, x => ({ ...x, lines: arr(x.lines).concat([{ kind: "me", name, text: v, linked: !!x.linked, ts: Date.now() }]).slice(-LINES_CAP) }));
       if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false);
