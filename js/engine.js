@@ -9287,10 +9287,14 @@ function txtWrite(k, s) {
       if (needsLocalJournal) try { lsRaw.set(k, s); } catch (e) { console.error("local journal skipped (quota?):", k, s.length); }
       try {
         const staged = isDurableTextKey(k) ? walPutVerified(k, s) : Promise.resolve(true);
+        // ⚠️连着两次保存同一键（片刻一轮里每个人写完存一次）：这一笔回读时读到的已经是后一笔——
+        //   不是写坏了，是被更新的一版接替了。后一笔自己会走完整条路，这一笔安静让路，不报错、不拿旧值去盖 IDB。
+        const SUPERSEDED = {};
         staged.then(ok => {
-          if (!ok) throw new Error("WAL read-back mismatch");
+          if (!ok) { if (_txtMirror().get(k) !== s) return SUPERSEDED; throw new Error("WAL read-back mismatch"); }
           return idbTxtPut(k, s).then(() => idbTxtGet(k));
         }).then(back => {
+          if (back === SUPERSEDED) return;
           const verifyWal = isDurableTextKey(k) ? walGetRaw(k) : Promise.resolve(s);
           return verifyWal.then(walBack => {
             if (back === s && (!needsLocalJournal || lsRaw.get(k) === s) && walBack === s) {
