@@ -137,8 +137,8 @@ test("粉丝团名字主播自己起：路人主播生成时顺手起、能重�
   const K = kit();
 });
 
-test("直播间标题不挤在顶栏：顶栏写主播名，标题单独一行、两行收起、点开看全", () => {
-  assert.match(live, /h\(Head, \{ zh: stageTitle \+ " 的直播间"/);
+test("全屏直播间：顶上浮一条主播信息（不走 Head、安全区走 safeTop），标题单独一行、收起、点开看全", () => {
+  assert.match(live, /"data-wk": "livestage", className: "shrink-0", style: \{ position: "relative", zIndex: 2, paddingTop: safeTop\(/);
   assert.match(live, /"data-wk": "livetitle", onClick: \(\) => setTitleOpen/);
 });
 
@@ -158,9 +158,22 @@ test("画面跟着每一拍：此刻在干嘛每拍换、镜头里的样子变�
   assert.match(live, /"回 " \+ capNow\.reply\.name/);
 });
 
-test("直播画面不写死高度（字多了不盖头像）；回谁那条两行；礼物栏开着时收起按钮那排、画面变矮；起伏要有来由", () => {
-  assert.match(live, /"data-wk": "livestage", className: "shrink-0 flex flex-col", style: \{ position: "relative", minHeight: giftOpen \|\| songOpen \? 150 : 200/);
-  assert.doesNotMatch(live, /position: "relative", height: 210/);
-  assert.match(live, /\(giftOpen \|\| songOpen\) \? null : h\("div", \{ className: "flex flex-wrap"/);
+test("全屏直播间：字幕卡、礼物横幅、弹幕区面板开着时变矮、按钮收进 ⋯ 但自动往下播留在外面；起伏要有来由", () => {
+  assert.match(live, /"data-wk": "livecapcard"/);
+  assert.match(live, /"data-wk": "livegiftbanner"/);
+  assert.match(live, /height: panelOpen \? "18vh" : "30vh"/);
+  assert.match(live, /"data-wk": "livemoremenu"/);
+  const menu = live.slice(live.indexOf('"data-wk": "livemoremenu"'), live.indexOf('"data-wk": "liveautoslider"'));
+  assert.match(menu, /livelinkbtn/);
+  assert.doesNotMatch(menu, /liveautobtn/, "自动往下播不收进 ⋯");
+  assert.match(live, /\(giftOpen \|\| songOpen\) \? null : h\("div", \{ className: "flex items-center"/);
   assert.match(live, /情绪起伏得有来由/);
+});
+
+test("镜头和动作不截行：中间那块自己能滚（她 2026-10-08：看不完全上面的动作）", () => {
+  assert.match(live, /"data-wk": "livemid", className: "flex-1 min-h-0 flex flex-col overflow-y-auto"/);
+  for (const k of ["livescene", "liveact"]) {
+    const i = live.indexOf('"data-wk": "' + k + '"');
+    assert.doesNotMatch(live.slice(i, live.indexOf("}", live.indexOf("style: {", i))), /WebkitLineClamp/, k);
+  }
 });

@@ -110,7 +110,7 @@ test("两套皮只说事实不给内容；扔掉要先问；收藏的不会被�
 });
 
 test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同款/同城", () => {
-  assert.match(S, /function BDetail\(\{ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply \}\)/);
+  assert.match(S, /function BDetail\(\{[^}]*\bcoinsLeft, onCoin, onCharge, onDm, onReply\b/);
   assert.match(S, /const SERIES_ADD = ',"series":""';/);
   assert.match(S, /if \(\(v\.myCoins \|\| 0\) >= 2\) \{ toast\("一条最多投两枚"\)/);
   assert.match(S, /props\.charPay\(c\.id, Math\.floor\(amt \* \(1 - CHARGE_CUT\)\), "片刻收到充电/);
@@ -208,7 +208,7 @@ test("消息记着是哪条视频，点进去就是那条", () => {
 
 test("聊天里的视频卡点开就是片刻里那一条，返回回到聊天", () => {
   const src = require("fs").readFileSync(require("path").join(__dirname, "../js/shua.js"), "utf8");
-  assert.match(src, /const shareSnap = v => \(\{ id: v\.id \|\| null,/);
+  assert.match(src, /const shareSnap = v => Object\.assign\(\{ id: v\.id \|\| null,/);
   assert.match(src, /onClick: \(\) => window\.__openShuaVideo\(v\)/);
   assert.match(src, /vids\.find\(x => x\.author === sn\.author && x\.scene === sn\.scene\)/, "旧卡没 id 按作者＋画面认");
   assert.match(src, /fromChat: true/);
