@@ -10252,6 +10252,8 @@ function ThemeConfig({
   const [lift, setLift] = useState(() => { try { return Number(loadJSON("x_composerLift", 0)) || 0; } catch (e) { return 0; } });
   const moveLift = v => setLift(setComposerLift(v));
   const saveLift = () => { try { saveJSON("x_composerLift", lift); } catch (e) {} };
+  const [liftAuto, setLiftAuto] = useState(() => { try { return loadJSON("x_composerAuto", true) !== false; } catch (e) { return true; } });
+  const flipLiftAuto = () => { const v = setComposerAuto(!liftAuto); setLiftAuto(v); try { saveJSON("x_composerAuto", v); } catch (e) {} };
   const commitFx = next => { const n = next || fx; onSaveWallFx && onSaveWallFx(n); };
   const fxRow = (k, zh, max, hint) => h("div", { style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
@@ -10349,7 +10351,13 @@ function ThemeConfig({
       onChange: e => moveLift(e.target.value), onMouseUp: saveLift, onTouchEnd: saveLift,
       style: { width: "100%", accentColor: t.ink } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
-      "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。")),
+      "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。"),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 12, gap: 12 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "自动适配底边"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+          "有些安卓手机在浏览器里打开时，底部被挡了一截却不告诉网页。开着的话遇到这种手机会自动多抬 12px，跟上面拉的数加在一起；不挡的手机不受影响。")),
+      h(Toggle, { on: liftAuto, onChange: flipLiftAuto }))),
   /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",

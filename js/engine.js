@@ -6541,11 +6541,32 @@ function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(
 // 「输入栏往上抬」（群里有人报 2026-10-08：「太底下了有时候会点不到」）：设置 → 外观与壁纸 那根拉条写 --composer-lift。
 //   全 App 四十几个输入栏都吃这一个常量，所以只在这儿加一项，处处跟着抬。
 const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4 + var(--composer-lift, 0px))";
-function setComposerLift(px) {
-  const n = Math.max(0, Math.min(80, Math.round(Number(px) || 0)));
-  try { document.documentElement.style.setProperty("--composer-lift", n + "px"); } catch (e) {}
-  return n;
+// 「自动适配底边」开关（她 2026-10-08：「没办法做适配她手机本身吗」→「搞个开关吧」）：
+//   不少安卓手机在浏览器里打开时，底部手势条／工具栏挡了一截，却报给网页 safe-area = 0，
+//   网页自己算不出来。开着时遇到「安卓 + 报 0」就自动多抬 COMPOSER_AUTO_LIFT，跟手动拉条的数加在一起。
+const COMPOSER_AUTO_LIFT = 12;
+let _composerManual = 0, _composerAuto = true;
+function composerNeedsAuto() {
+  try {
+    if (!/Android/i.test(navigator.userAgent || "")) return false;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-bottom);";
+    document.body.appendChild(probe);
+    const pad = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+    probe.remove();
+    return pad === 0;
+  } catch (e) { return false; }
 }
+function applyComposerLift() {
+  const n = _composerManual + (_composerAuto && composerNeedsAuto() ? COMPOSER_AUTO_LIFT : 0);
+  try { document.documentElement.style.setProperty("--composer-lift", n + "px"); } catch (e) {}
+}
+function setComposerLift(px) {
+  _composerManual = Math.max(0, Math.min(80, Math.round(Number(px) || 0)));
+  applyComposerLift();
+  return _composerManual;
+}
+function setComposerAuto(on) { _composerAuto = on !== false; applyComposerLift(); return _composerAuto; }
 // 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
 // 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
 // 它把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。

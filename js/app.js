@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.046";
+const APP_VERSION = "v75.048";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1980,7 +1980,7 @@ function App() {
     const ms = (loadJSON("x_masks", []) || []).filter(m => m && m.id);
     masksRef.current = ms; setMasks(ms);
     setMaskPrimary(String(loadJSON("x_maskPrimary", "") || ""));
-    try { setComposerLift(loadJSON("x_composerLift", 0)); } catch (e) {}   // 输入栏往上抬（设置 → 外观与壁纸）
+    try { setComposerAuto(loadJSON("x_composerAuto", true) !== false); setComposerLift(loadJSON("x_composerLift", 0)); } catch (e) {}   // 输入栏往上抬＋自动适配底边（设置 → 外观与壁纸）
     // 名片的出厂预设（她 2026-09-06：「名片预设改一下就用我那张名片的签名和 tag，
     // 名字从 lisa 改成秋秋，默认图像塞秋秋那张胖鸟 png」）。
     // 原来是三个空值——新装的人第一眼看到的是「点此设置昵称／点铅笔写一句签名」，
@@ -7746,7 +7746,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return window.ChatRooms.get(personId, roomId);
   };
   const pOffline = (scopeKey, updater) => setOfflines(prev => {
-    const before = prev[scopeKey] || [];
+    // ⚠️内存里还没这个人的线下（这次开 App 还没进过他的线下）就先从存储读，绝不拿 [] 当底（2026-10-08 群友：
+    //   「往期只能看到最近一次的了」）。约会、旅行、扭蛋兑线下、地图上撞见这几条入口直接 startOffline，
+    //   不走 openOffline 那道先读存储的门——拿 [] 当底再存回去，往期就被「只有新这一场」整份盖掉了。
+    const before = prev[scopeKey] || offlinesRef.current[scopeKey] || loadJSON("x_offline:" + scopeKey, []) || [];
     const next = updater(before);
     saveJSON("x_offline:" + scopeKey, next);
     if (!offlineIsRoom(scopeKey) && window.ChatLedgerShadow) queueLedger("offline", scopeKey, window.ChatLedgerShadow.addedSessionMessages(before, next), null, scopeKey);
