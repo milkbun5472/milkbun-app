@@ -980,7 +980,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.042", changed: "几乎所有页面都挂上了细到组件的挂点：主屏各组件内部、查手机每个小 app、日历、匿名问答、关系、购物、外卖、随身物、衣柜、亲属卡、收藏、表情包、记账、备忘录、去处、地图、同人文、一起读、一起看、周刊、擂台、直播、片刻、梦境、解梦馆、塔罗、陪伴、小游戏、小世界、跑团、小剧场、月度印象、秋声、文风台、秋秋、攻略", none: "" };
+  const BRIEF_STAMP = { v: "v75.043", changed: "", none: "同城那排限宽能横滑，挂点没变" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
