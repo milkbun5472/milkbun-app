@@ -11088,7 +11088,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
-      const peekMemo = (opts.peekPhone ? "" : peekMemoFor(charId)) + remarkHint;
+      // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
+      //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
+      const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint;
       const dongnianHint = peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
