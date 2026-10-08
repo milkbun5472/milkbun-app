@@ -9,7 +9,7 @@
 (function () {
   const h = React.createElement, useState = React.useState, useEffect = React.useEffect, useRef = React.useRef;
   const KEY = "x_listenTalk";   // { [charId]: { talk:[{role,content,ts,song}] } }
-  const KEEP = 40, FEED = 12, SHOW = 3, AUTO_GAP_S = 90, BUBBLE_MS = 9000;
+  const KEEP = 40, FEED = 12, SHOW = 3, AUTO_GAP_S = 90, BUBBLE_MS = 9000, STEP_MS = 2600;
 
   function load() { const v = loadJSON(KEY, {}); return v && typeof v === "object" ? v : {}; }
   function talkOf(charId) { const r = load()[charId]; return (r && Array.isArray(r.talk)) ? r.talk : []; }
@@ -89,7 +89,9 @@
       try {
         const lw = lyricWindow(props.lyricLines, props.lyricActive, props.player && props.player.t);
         const say = await askListen(props, partner, song, lw, mode, text);
-        if (say.length) add(say.map(s => ({ role: "assistant", content: s, ts: Date.now(), song: song.title || "" })));
+        // 一次说了好几句：一句接一句冒出来（showAt 错开），不然同一刻挤上去，只看得到最后三泡
+        const t0 = Date.now();
+        if (say.length) add(say.map((s, i) => ({ role: "assistant", content: s, ts: t0, showAt: t0 + i * STEP_MS, song: song.title || "" })));
         else if (mode !== "auto") props.toast && props.toast((partner.remark || partner.name) + " 听得入神，没出声");
       } catch (e) { if (mode !== "auto") props.toast && props.toast("没接上：" + ((e && e.message) || "重试一下")); }
       finally { busyRef.current = false; setBusy(false); }
@@ -119,11 +121,11 @@
     //   她那句的钟从【TA接上她的那一刻】起算——就是她后面第一条TA的话；
     //   还在等TA（busy）时一直挂着，不开始淡。TA的气泡照旧从自己冒出来那刻算。
     const clockOf = r => {
-      if (r.role !== "user") return r.ts || 0;
+      if (r.role !== "user") return r.showAt || r.ts || 0;
       const k = rows.indexOf(r), reply = rows.slice(k + 1).find(x => x.role !== "user");
       return reply ? (reply.ts || 0) : busy ? now : (r.ts || 0);
     };
-    const live = rows.filter(r => now - clockOf(r) < BUBBLE_MS).slice(-SHOW);
+    const live = rows.filter(r => clockOf(r) <= now && now - clockOf(r) < BUBBLE_MS).slice(-SHOW);
     const mine = live.filter(r => r.role === "user"), theirs = live.filter(r => r.role !== "user");
     const bubble = (r, i, side) => h("div", { key: (r.ts || 0) + "_" + i, style: {
         maxWidth: 150, padding: "7px 11px", borderRadius: 14, marginTop: 6, background: "rgba(255,255,255,.88)", color: "#2d2a26",
