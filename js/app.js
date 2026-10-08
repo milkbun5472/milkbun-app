@@ -9358,6 +9358,43 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     });
     return best ? best.s : null;
   };
+  // 从聊天里那张「线下经过」卡把那一场放回往期（她 2026-10-08：「之前邀约会覆盖线下往期记录，但实际聊天记录里
+  //   还能找到，有没有办法在那里面加一个按钮强行给他放回去」）。v75.046 修了盖掉的那个口子，这里补丢掉的那几场。
+  // ⚠️卡上存的是这一场的总结＋原话转录（太长的只留后半截），场景标题、文风那些元数据没存——
+  //   放回来的是「能从头读一遍」的那一份，不是原样复活；所以只在往期里没有这一场时才放，有就不动。
+  const restoreOfflineFromCard = (kind, ownerId, threadKey, msgIndex) => {
+    const isG = kind === "group";
+    const log = ((isG ? groupChatsRef.current[ownerId] : chatsRef.current[threadKey]) || [])[msgIndex];
+    if (!log || log.kind !== "offlinelog") return;
+    const list = isG ? (groupOfflinesRef.current[ownerId] || loadJSON("x_goffline:" + ownerId, []) || [])
+      : (offlinesRef.current[ownerId] || loadJSON("x_offline:" + ownerId, []) || []);
+    if (offlineLogSessionFor(list, log)) { toast("这一场还在往期里，不用放"); return; }
+    const raw = String(log.transcript || "").trim();
+    if (!raw) { toast("这张卡上没存原话，放不回去"); return; }
+    const char = isG ? null : characters.find(c => String(c.id) === String(ownerId));
+    const uName = userName(profile);
+    // 一行一句：〔时间〕谁：话。话里自己带换行的，接到上一句后面
+    //   带时间戳的转录只认带戳那几行起新的一句——不然话里一行「……：……」也会被当成换人说话
+    const rows = [], stamped = /^〔[^〕]*〕/.test(raw);
+    raw.split("\n").forEach(line => {
+      const mm = (stamped ? /^〔[^〕]*〕([^：\n]{1,24})：([\s\S]*)$/ : /^([^：\n]{1,24})：([\s\S]*)$/).exec(line);
+      if (mm) rows.push({ who: mm[1].trim(), text: mm[2] });
+      else if (rows.length) rows[rows.length - 1].text += "\n" + line;
+    });
+    if (!rows.length) { toast("这张卡上的原话认不出来，放不回去"); return; }
+    const endTs = Number(log.ts) || Date.now(), startTs = endTs - rows.length * 1000;
+    const msgs = rows.map((r, k) => {
+      const ts = startTs + k * 1000, content = String(r.text || "").trim();
+      if (r.who === "【场景】") return { role: "narration", content, ts };
+      if (r.who === uName) return { role: "user", content, ts };
+      return isG ? { role: "assistant", senderName: r.who, content, ts } : { role: "assistant", content, ts };
+    }).filter(m => m.content);
+    const sess = { id: log.ofs || ("off_card_" + endTs), startTs, endTs, styleKey: "default", stylePrompt: "", taste: "", customNotes: [],
+      summary: String(log.content || ""), cardRestored: true, msgs };
+    const put = l => [...l, sess].sort((x, y) => (y.startTs || 0) - (x.startTs || 0));
+    if (isG) pGOffline(ownerId, l => put(l)); else pOffline(ownerId, l => put(l));
+    toast("放回往期了" + (raw.length >= TRANSCRIPT_KEEP_MAX - 20 ? "：这一场太长，卡上只留了后半截" : ""));
+  };
   const resummarizeOffline = async (kind, ownerId, threadKey, msgIndex) => {
     const isG = kind === "group";
     const log = ((isG ? groupChatsRef.current[ownerId] : chatsRef.current[threadKey]) || [])[msgIndex];
@@ -27103,6 +27140,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
+    onRestoreOffline: i => restoreOfflineFromCard("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
     onPinShike: indices => {
@@ -27464,6 +27502,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onContinue: () => replyGroup(activeGroup.id),
     onOOC: txt => oocGroup(activeGroup.id, txt),
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
+    onRestoreOffline: i => restoreOfflineFromCard("group", activeGroup.id, activeGroup.id, i),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     // 群里圈一段收进时刻（她 2026-10-03 点的第 8 条）：收成一张【多人的】卡，这一段里说过话的每个角色名下都有
