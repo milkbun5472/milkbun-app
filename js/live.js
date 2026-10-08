@@ -246,7 +246,7 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onInvite, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
+  function LiveRoom({ ses, chars, profile, busy, onInvite, onDraw, drawing, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
@@ -335,8 +335,11 @@
     const shadowTx = "0 1px 3px rgba(0,0,0,.7)";
     const moreItem = (label, fn, dis) => h("button", { "data-wk": "livemoreitem", key: label, onClick: () => { setMoreOpen(false); fn(); }, disabled: !!dis, className: "w-full text-left active:opacity-60",
       style: { display: "block", minHeight: 44, padding: "0 14px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 13.5, borderBottom: "1px solid " + LIVE_LINE, opacity: dis ? .5 : 1 } }, label);
+    // 画出来的那张铺在最底下（她 2026-10-08）
+    const bgSrc = ses.img ? (typeof resolveImg === "function" ? resolveImg(ses.img) : ses.img) : "";
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { position: "relative", overflow: "hidden",
         background: "radial-gradient(130% 80% at 30% 18%,rgba(226,85,107,.42),rgba(80,60,120,.38) 50%,rgba(20,16,25,1) 100%)" } },
+      bgSrc ? h("img", { "data-wk": "livebg", src: bgSrc, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" } }) : null,
       // 画面上飘过去的路人弹幕
       ses.endTs ? null : h("div", { style: { position: "absolute", left: 0, right: 0, top: "14%", height: "34%", pointerEvents: "none" } }, h(NoiseLayer, { noise: ses.noise, seed: ses.noiseSeed || 0 })),
       // 底下那层压暗：字压在画面上要看得清
@@ -414,7 +417,8 @@
         moreOpen ? h("div", { "data-wk": "livemoremenu", style: { marginBottom: 8, borderRadius: 14, overflow: "hidden", background: "rgba(20,16,25,.9)", border: "1px solid " + LIVE_LINE } },
           !watching ? null : ses.linked ? h("div", { "data-wk": "livelinkbtn", "data-on": "1", key: "lk" }, moreItem("下麦", onUnlink)) : h("div", { "data-wk": "livelinkbtn", "data-on": "0", key: "lk" }, moreItem(ses.linkAsk ? "等 TA 接连麦…" : "申请连麦", onLink, busy || ses.linkAsk)),
           watching && onInvite && !ses.buddy && live ? h("div", { "data-wk": "liveinvitebtn", key: "iv" }, moreItem("叫 TA 一起看", () => setInviteOpen(true))) : null,
-          ses.kind === "sing" && onSong ? h("div", { "data-wk": "livesongbtn", key: "sg" }, moreItem("点歌", () => setSongOpen(true))) : null) : null,
+          ses.kind === "sing" && onSong ? h("div", { "data-wk": "livesongbtn", key: "sg" }, moreItem("点歌", () => setSongOpen(true))) : null,
+          onDraw ? h("div", { "data-wk": "livedrawbtn", key: "dr" }, moreItem(drawing ? "画着…" : ses.img ? "照现在的镜头重画" : "画出来", onDraw, drawing)) : null) : null,
         auto && slider ? h("div", { "data-wk": "liveautoslider", className: "flex items-center", style: { gap: 10, marginBottom: 6, padding: "0 4px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, flexShrink: 0 } }, "隔"),
           h("input", { type: "range", min: 10, max: 120, step: 5, value: autoSec, onChange: e => onAutoSec && onAutoSec(Number(e.target.value)), onPointerUp: () => setTimeout(() => setSlider(false), 600), className: "live-range", style: { flex: 1 } }),
@@ -430,7 +434,7 @@
             style: { minHeight: 42, maxHeight: 104, borderRadius: 21, border: "1px solid rgba(255,255,255,.14)", background: "rgba(0,0,0,.4)", color: LIVE_INK, padding: "11px 15px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
           watching ? h("button", { "data-wk": "livegiftbtn", onClick: () => { setGiftOpen(v => !v); setMoreOpen(false); setSongOpen(false); }, "aria-label": "送礼物", className: "active:opacity-60 shrink-0 flex items-center justify-center",
             style: { width: 42, height: 42, borderRadius: 99, background: giftOpen ? "rgba(226,85,107,.35)" : "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.14)" } }, giftIcon("礼物", "#f6c76b")) : null,
-          watching ? h("button", { "data-wk": "livemorebtn", "data-on": moreOpen ? "1" : "0", onClick: () => { setMoreOpen(v => !v); setGiftOpen(false); setSongOpen(false); setInviteOpen(false); }, "aria-label": "更多", className: "active:opacity-60 shrink-0",
+          (watching || onDraw) ? h("button", { "data-wk": "livemorebtn", "data-on": moreOpen ? "1" : "0", onClick: () => { setMoreOpen(v => !v); setGiftOpen(false); setSongOpen(false); setInviteOpen(false); }, "aria-label": "更多", className: "active:opacity-60 shrink-0",
             style: { width: 42, height: 42, borderRadius: 99, background: moreOpen ? "rgba(255,255,255,.18)" : "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.14)", color: LIVE_INK, fontSize: 18, letterSpacing: 1 } }, "⋯") : null,
           h("button", { "data-wk": "livesend", onClick: send, disabled: !!busy, className: "active:opacity-70 shrink-0",
             style: { minWidth: 52, height: 42, padding: "0 10px", borderRadius: 21, background: busy ? "rgba(255,255,255,.08)" : text.trim() ? LIVE_RED : "rgba(255,255,255,.16)", color: busy ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, busy ? "…" : text.trim() ? "发送" : watching ? "接着看" : "接着播"))));
@@ -736,6 +740,16 @@
     const meName = () => { const s = get(curId) || {}; return s.as === "mask" ? s.maskName : uName; };
     const unlink = () => addEvent(x => ({ ...x, linked: false, linkAsk: false }), meName() + " 下麦了", false);
     const ban = n => addEvent(x => ({ ...x, banned: arr(x.banned).concat([n]) }), n + " 被房管禁言了", false);
+    // 画出来：照镜头里那一行（加上此刻在干嘛）画一张，存在这一场上；场景变了不自己换，想换再点
+    const [drawingId, setDrawingId] = useState("");
+    const drawStage = async () => {
+      const s = get(curId); if (!s || drawingId || !props.draw) return;
+      const desc = "直播镜头里的画面：" + (S(s.scene) || "主播坐在镜头前") + (S(s.act) ? "；" + S(s.act) : "");
+      const id = s.id; setDrawingId(id);
+      try { const ref = await props.draw(s.mode === "watch" && !s.stranger ? s.charId : null, desc); if (ref) patch(id, x => ({ ...x, img: ref })); }
+      catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
+      finally { setDrawingId(""); }
+    };
     const invite = c => { const s = get(curId); if (!s || s.buddy || !c) return; addEvent(x => ({ ...x, buddy: { charId: c.id, name: c.name, brief: "【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 2000) : String(c.persona || "").slice(0, 2000)) } }), c.name + " 跟着 " + meName() + " 进了直播间", true); };
     const pickSong = t2 => addEvent(x => ({ ...x, song: t2 }), (get(curId).as === "mask" ? get(curId).maskName : uName) + " 点了一首《" + t2 + "》", true);
     const buy = item => {
@@ -877,7 +891,7 @@
         onAutoSec: n => { if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { autoSec: n })); },
         onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
         onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
-        onInvite: cur.stranger ? invite : null, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
+        onInvite: cur.stranger ? invite : null, onDraw: props.draw ? drawStage : null, drawing: drawingId === cur.id, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
         onShare: props.onShare ? () => setView("share") : null });
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
     if (view === "share" && cur)

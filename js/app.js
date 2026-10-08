@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.109";
+const APP_VERSION = "v75.111";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28356,6 +28356,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
     liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
+    // 直播间「画出来」（她 2026-10-08）：照镜头里那一行画一张，铺成全屏直播间的底图；跟片刻「画出来」同一个出图口
+    draw: (charId, desc) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, charId ? "self" : "none"),
     // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
     askStranger: async (system, schemaHint) => {
       if (!active) throw new Error("请先到设置配置 API");
