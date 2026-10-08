@@ -80,6 +80,6 @@ test("⑤ 返回要分两级：在某一类里就退回目录，不是直接关�
 test("⑥ 保存那颗 ✓ 还在，存的东西一样没少", () => {
   assert.match(SINGLE, /onSaveSettings\(\{ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc/,
     "单人线下保存少存了字段");
-  assert.match(GROUP, /onSaveSettings\(\{ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc/,
+  assert.match(GROUP, /onSaveSettings\(\{ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc/,
     "群线下保存少存了字段");
 });
