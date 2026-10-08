@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.081";
+const APP_VERSION = "v75.082";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5920,10 +5920,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const tick = () => {
       const K = window.LiveKit; if (!K || !K.slotsOf || liveCfg.selfLive === false) return;
       const now = Date.now();
-      K.slotsOf(liveChars.filter(c => c && !c.npc), new Date(), liveSchedFor).forEach(x => {
+      // 关注的路人主播也提醒（他们没有日程，按日子算）
+      let stFollowed = [];
+      try { stFollowed = ((loadJSON("x_liveStrangers", null) || {}).list || []).filter(x => x && x.followed && !x.promoted); } catch (e) {}
+      K.slotsOf(liveChars.filter(c => c && !c.npc).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
-          const c = liveChars.find(cc => cc.id === x.charId);
+          const c = liveChars.find(cc => cc.id === x.charId) || stFollowed.find(cc => cc.id === x.charId);
           if (c) toast((c.remark || c.name) + " 开播了 · 去片刻的直播里看");
         }
       });
@@ -28324,6 +28327,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
     liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
+    // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
+    askStranger: async (system, schemaHint) => {
+      if (!active) throw new Error("请先到设置配置 API");
+      const route = (routePicked(bgApiId) && bgActive) ? bgActive : active;
+      const raw = await callAI(route, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
+      const d = extractJSON(raw); if (!d) throw new Error("这一批没写出来"); return d;
+    },
+    probeStranger: async (st, instruction, schemaHint) => {
+      if (!active) throw new Error("请先到设置配置 API");
+      const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + (window.ContentBoundaries && window.ContentBoundaries.prompt ? window.ContentBoundaries.prompt + "\n\n" : "")
+        + "【你是谁】你是直播平台上的主播「" + st.name + "」，一个真实的人，不是谁的角色。" + (st.bio ? "主页简介：" + st.bio + "。" : "") + "现在有 " + (st.fans || 0) + " 个粉丝。\n" + st.persona
+        + (st.look ? "\n镜头里的你：" + st.look : "") + "\n\n" + instruction;
+      const raw = await callAI(active, sys + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
+      const d = extractJSON(raw); if (!d) throw new Error("这一拍没写出来，再发一次"); return d;
+    },
+    // 加好友同意了：进人格档案馆变成正式角色。私信记录成你们聊天的开头，他记得的那几场进他的记忆
+    promoteStranger: (st, key, nm, fan) => {
+      if (!st) return null;
+      const viaMask = key !== "me";
+      const id = createCharFromAssistant({ name: st.name, tagline: (st.bio || "").slice(0, 40),
+        persona: st.persona + "\n\n" + "他在直播平台上播" + (st.bio ? "，主页简介「" + st.bio + "」" : "") + "，有 " + (st.fans || 0) + " 个粉丝。"
+          + (viaMask ? "他是在直播间里认识「" + nm + "」这个号的，后来加了好友；这个号背后是谁，他只知道这个号给他看到的那些。" : "他是在直播间里认识她的：她常来看他播，后来加了好友。") });
+      const tie = (st.ties || {})[key] || {};
+      (tie.notes || []).slice(-10).forEach(tx => addMemEntry({ text: st.name + "的直播间：" + nm + " " + tx, tags: ["直播"], charIds: [id], knownBy: [id], source: "auto" }));
+      if (fan && fan.total) addMemEntry({ text: nm + "在" + st.name + "的直播间一共打赏过 " + fan.total + " 元，粉丝团 " + fan.lv + " 级。", tags: ["直播"], charIds: [id], knownBy: [id], source: "auto" });
+      const dms = ((st.dms || {})[key] || []).filter(m => m && m.text);
+      if (dms.length) pChat(id, p => [...p, ...dms.map(m => ({ role: m.from === "me" ? "user" : "assistant", content: String(m.text), ts: m.ts || Date.now(), read: true }))]);
+      return id;
+    },
+    hot: () => { try { const d = loadJSON("x_shua", null) || {}; const k = new Date(); const day = k.getFullYear() + "-" + (k.getMonth() + 1) + "-" + k.getDate(); return d.hot && d.hot.day === day ? (d.hot.topics || []).map(x => x.title) : []; } catch (e) { return []; } },
+    confirm: (title, body, fn) => requestAppConfirm(title, body, fn),
     onBack: () => setScreen("home")
   };
     const shuaCities = () => {
