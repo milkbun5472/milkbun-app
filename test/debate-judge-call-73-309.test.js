@@ -8,5 +8,5 @@ assert(/直接冲TA说/.test(src));
 assert(/跟不跟台下/.test(src), "台下的票要有回应");
 console.log("debate-judge-call ok");
 // 她 2026-10-08：「裁判还是人机」——那几条是可挑的，不是挨个交的清单
-assert(/每轮只交给TA一个角度/.test(src) && /function judgeAngle\(/.test(src) && /只说这一样/.test(src));
+assert(/每轮只交给TA一个角度/.test(src) && /function judgeAngle\(/.test(src) && !/别顺手再补上/.test(src));
 assert(!/逼TA下一轮把那处答上/.test(src));
