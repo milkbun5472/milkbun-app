@@ -389,11 +389,27 @@
   function ShuaApp(props) {
     const t = useTheme();
     const { characters, profile, toast } = props;
-    const [db, setDb] = useState(load);
+    // 从聊天里点视频卡过来的（群友 2026-10-08：「能点到原视频里吗」）：读存档这一步顺手找到那一条——
+    //   旧卡没记 id 就按作者＋画面认；已经被刷掉了就照卡上的样子补回去。补的那条要跟着这一次的 db 一起进来，所以写在这儿
+    const [db, setDb] = useState(() => {
+      const d0 = load(), sn = window.__shuaPending;
+      if (!sn) return d0;
+      window.__shuaPending = null;
+      const vids = arr(d0.videos);
+      let v = (sn.id && vids.find(x => x.id === sn.id)) || vids.find(x => x.author === sn.author && x.scene === sn.scene);
+      let out = d0;
+      if (!v) {
+        v = mkVideo(sn, { by: sn.by === "char" ? "char" : sn.by === "me" ? "me" : "npc", author: S(sn.author).slice(0, 20) || "某个博主", charId: sn.charId || null, skin: sn.skin === "b" ? "b" : "v", img: sn.img || "" });
+        out = Object.assign({}, d0, { videos: [v].concat(vids) }); saveJSON(KEY, out);
+      }
+      pendingPage = vidSkin(v) === "b" ? { kind: "bdetail", id: v.id, fromChat: true } : { kind: "one", id: v.id, fromChat: true };
+      return out;
+    });
     const dbRef = useRef(db); dbRef.current = db;
     const [tab, setTab] = useState("home");          // home | live | msg | me
     const [feed, setFeed] = useState("rec");          // follow | rec
-    const [page, setPage] = useState(null);           // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
+    const [page, setPage] = useState(() => { const p0 = pendingPage; pendingPage = null; return p0; });
+    // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
     const [busy, setBusy] = useState(null);
     const [topic, setTopic] = useState("");   // 首页只看沾这个热门话题的
@@ -684,7 +700,7 @@
     }
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
-      if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
+      if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
@@ -771,7 +787,7 @@
     };
     if (page && page.kind === "one") { const ov = arr(db.videos).find(x => x.id === page.id);
       return h("div", { "data-wk": "shuaone", className: "h-full flex flex-col", style: { background: BLACK } },
-        h(Head, { zh: "视频", bg: "transparent", ink: INK, onBack: () => setPage(null) }),
+        h(Head, { zh: "视频", bg: "transparent", ink: INK, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(null) }),
         ov ? feedView([ov], null) : null); }
     if (page && page.kind === "favs") return h("div", { "data-wk": "shuafavs", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的收藏", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
@@ -930,23 +946,26 @@
   }
 
   // ── 分享卡：聊天里那一张（单聊、群聊走同一条 shareCardOf）──────────
-  const shareSnap = v => ({ author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 });
+  const shareSnap = v => ({ id: v.id || null, author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 });
   // TA读到的那一段：视频长什么样照抄；是TA自己的那条就说一声
   const shareText = (snap, toCharId, fromName) => "[" + (fromName ? fromName + "从「" + APP_NAME + "」甩来一条视频" : "转发了一条「" + APP_NAME + "」上的视频") + "]"
     + "作者 @" + snap.author + (snap.title ? "｜标题《" + snap.title + "》" : "") + "｜视频里拍的是：" + snap.scene + (snap.caption ? "｜文案：" + snap.caption : "")
     + (snap.tags.length ? "｜" + snap.tags.map(x => "#" + x).join(" ") : "") + "｜" + snap.likes + " 赞"
     + (toCharId && snap.by === "char" && snap.charId === toCharId ? "｜（这就是你自己发的那条）" : "");
+  // 点聊天里那张视频卡 → 打开片刻、直接停在那一条（群友 2026-10-08：「能点到原视频里吗，不然都不知道是哪个视频了」）
+  let pendingPage = null;
+  window.__openShuaVideo = snap => { window.__shuaPending = snap; if (typeof window.__goScreen === "function") window.__goScreen("shua"); };
   function ShuaShareCard({ m }) {
     const v = m.shua || {};
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
-    return h("div", { "data-wk": "shuashare", style: { width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
+    return h("div", { "data-wk": "shuashare", role: "button", onClick: () => window.__openShuaVideo(v), className: "active:opacity-80", style: { cursor: "pointer", width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
       // ⚠️比例和最高高度一起写时，高度被卡住、宽度就跟着缩，卡片右边空出一条（她 2026-10-07 截图）。宽度铺满，高度定死
       h("div", { style: { position: "relative", width: "100%", height: v.skin === "b" ? 138 : 260, background: src ? "center/cover no-repeat url(\"" + src + "\")" : "linear-gradient(160deg,#3b2a4a,#111)", padding: 10 } },
         !src ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,.9)", display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "18px 10px 8px", background: "linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7))" } },
           h("div", { "data-wk": "shuashareauthor", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
           (v.title || v.caption) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.88)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption) : null)),
-      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞"));
+      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞 · 点开看"));
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;
