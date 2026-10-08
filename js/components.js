@@ -8606,6 +8606,9 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
   const coverRef = useRef(null);
+  const [adj, setAdj] = useState(null); // { x, y } 百分比；null＝不在调
+  const coverBoxRef = useRef(null);
+  const dragRef = useRef(null);
   if (!isMe && !character) return null;
   const author = isMe ? { name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color } : character;
   const name = isMe ? (profile.name || "我") : (character.remark || character.name);
@@ -8614,9 +8617,6 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
   // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
   //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
-  const [adj, setAdj] = useState(null); // { x, y } 百分比；null＝不在调
-  const coverBoxRef = useRef(null);
-  const dragRef = useRef(null);
   const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
   const startAdj = () => { const m = /^([\d.]+)% ([\d.]+)%$/.exec(coverPos || ""); setAdj(m ? { x: +m[1], y: +m[2] } : { x: 50, y: 50 }); };
   const adjDown = e => {
