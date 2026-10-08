@@ -11570,7 +11570,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const myChaps = (roomFic.chapters || []).map((x, i2) => (x && x.byCharId === charId) ? (i2 + 1) : 0).filter(Boolean);
         capState.push("ficNext：她把《" + String(roomFic.title || "").slice(0, 40) + "》放进了这间房，现在写到第 "
           + ((roomFic.chapters || []).length) + " 章"
-          + (myChaps.length ? "，其中第 " + myChaps.join("、") + " 章是你自己写的" : "") + "。只有你此刻真的想接着往下写一章才填写，"
+          + (myChaps.length ? "，其中第 " + myChaps.join("、") + " 章是你自己写的" : "") + "。她这一轮开口叫你写、续写、接下一章，就一定要填（群友 2026-10-08：「一起写不出续写卡」——叫了也只在嘴上答应）；她没叫的时候，只有你此刻真的想接着往下写一章才填写，"
           + "格式 {say:\"你想写下一章的时候会说的那一句——为什么想写、想从哪儿接\"}。"
           + "⚠️不能声称已经写好了，最终由她点卡片你才真的动笔；不想写就省略这一栏。");
       }
