@@ -177,3 +177,10 @@ test("镜头和动作不截行：中间那块自己能滚（她 2026-10-08：看
     assert.doesNotMatch(live.slice(i, live.indexOf("}", live.indexOf("style: {", i))), /WebkitLineClamp/, k);
   }
 });
+
+test("字幕卡自己左右划；一碰就不再自动往下放，下一拍才恢复", () => {
+  assert.match(live, /const \[capHand, setCapHand\] = useState\(false\)/);
+  assert.match(live, /if \(capHand \|\| capIdx >= caps\.length - 1\) return;/);
+  assert.match(live, /setCapIdx\(0\); setCapHand\(false\);/);
+  assert.match(live, /"data-wk": "livecapcard", onTouchStart: capDown, onTouchEnd: capUp/);
+});
