@@ -115,10 +115,45 @@ test("路人主播：一次刷一批、关注上限 20、交情大号马甲分�
   const K = kit();
   assert.match(live, /const ST_FOLLOW_MAX = 20, ST_BATCH = 6;/);
   assert.match(live, /const tieKeyOf = \(as, maskName\) => as === "mask" \? "mask:"/);
-  assert.match(live, /const gateOk = \(g, fanLv, visits\) => !!g && \(\(g\.lv > 0 && fanLv >= g\.lv\) \|\| \(g\.visits > 0 && visits >= g\.visits\)\);/);
-  assert.match(live, /Date\.now\(\) - prev\.ts < 3 \* 86400000 && fan\.lv <= \(prev\.lv \|\| 0\)/);
+  // 统一门槛（她 2026-10-08）：4 级私信、7 级加好友；等级＝来一场 30 经验＋一块钱 1 经验；答不答应看他在乎什么
+  assert.match(live, /const ST_DM_LV = 4, ST_FRIEND_LV = 7;/);
+  assert.match(live, /const stExp = \(visits, total\) => \(Number\(visits\) \|\| 0\) \* 30 \+ \(Number\(total\) \|\| 0\);/);
+  assert.match(live, /VALUES_ZH\[st\.values\]/);
+  assert.match(live, /Date\.now\(\) - prev\.ts < 3 \* 86400000 && myLv <= \(prev\.lv \|\| 0\)/);
   assert.match(live, /判据：把他的人设拿掉名字，换个主播还成立，就是写坏了/);
   assert.match(live, /if \(props\.charPay && s\.charId && !s\.stranger\)/, "打赏路人主播不进任何角色钱包");
   assert.match(app, /promoteStranger: \(st, key, nm, fan\) =>/);
   assert.match(app, /createCharFromAssistant\(\{ name: st\.name/);
+});
+
+test("粉丝团名字主播自己起：路人主播生成时顺手起、能重新起名；你的角色第一次开播时起；显示成两套（小数字等级＋展开的粉丝团）", () => {
+  assert.match(live, /const normClub = c =>/);
+  assert.match(live, /club: normClub\(x\.club\)/, "路人主播生成时顺手起");
+  assert.match(live, /const rerollClub = async st =>/);
+  assert.match(live, /if \(!ses\.club && !cfg\.stranger\) ses\.needClub = true;/, "你的角色第一次开播时起");
+  assert.match(live, /clubs: Object\.assign\(\{\}, c0\.clubs, \{ \[ses\.charId\]: newClub \}\)/);
+  assert.match(live, /"data-wk": "livestlv"/);
+  assert.match(live, /"data-wk": "livestclub"/);
+  const K = kit();
+});
+
+test("直播间标题不挤在顶栏：顶栏写主播名，标题单独一行、两行收起、点开看全", () => {
+  assert.match(live, /h\(Head, \{ zh: stageTitle \+ " 的直播间"/);
+  assert.match(live, /"data-wk": "livetitle", onClick: \(\) => setTitleOpen/);
+});
+
+test("一拍里主播和常客的话按先后排（flow），回谁的弹幕那条就排在前面；模型没写 flow 才退回老排法", () => {
+  assert.match(live, /"flow":\[\{"who":"常客网名","text":""\},\{"who":"主播","text":""\}\]/);
+  assert.match(live, /你在回谁的弹幕，就把那条弹幕排在你那句前面/);
+  assert.match(live, /if \(!flowLines\.length\) flowLines = normLines\(d\.say\)/);
+  assert.match(live, /const add = flowLines/);
+});
+
+test("画面跟着每一拍：此刻在干嘛每拍换、镜头里的样子变了才换；字幕把这一拍主播的话一句句放，回谁的带在上面", () => {
+  assert.match(live, /act: act \|\| s\.act \|\| "", beat: \(s\.beat \|\| 0\) \+ 1,/);
+  assert.match(live, /scene: S\(d\.scene\) \? S\(d\.scene\)\.slice\(0, 200\) : s\.scene/);
+  assert.match(live, /"data-wk": "liveact"/);
+  assert.match(live, /if \(l\.beat !== ses\.beat \|\| l\.kind !== "host"\) return;/);
+  assert.match(live, /setTimeout\(function \(\) \{ setCapIdx\(i => i \+ 1\); \}, 2800\)/);
+  assert.match(live, /"回 " \+ capNow\.reply\.name/);
 });

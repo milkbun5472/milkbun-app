@@ -1122,10 +1122,15 @@
       "只输出 JSON：{\"canTeach\":true或false,\"level\":\"入门/进阶/精通/无\",\"posture\":\"若不会，一句话态度\"}";
     const u = "【要学的】" + subject + "\n【角色人设】" + (char.persona || "（空）") + (worldbook ? "\n【世界书】" + worldbook : "");
     try {
+      // ⚠️原来判不出来（调用失败、输出被截、JSON 没认出来）一律当「教不了」——人设写得越长越容易撞上，
+      //   于是一个通篇写着「极度精通考研英语」的老师被判成教不了英文（群友 2026-10-08）。
+      //   判据本来就是「拿不准时倾向 true」，判不出来更该放行；真教不了才问她。
       const raw = await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: TOK.small });
-      const d = extractJSON(raw) || {};
-      return { canTeach: !!d.canTeach, level: d.level || "", posture: d.posture || "" };
-    } catch (e) { return { canTeach: false, level: "", posture: "" }; }
+      const d = extractJSON(raw);
+      if (!d || d.canTeach == null) return { canTeach: true, level: "", posture: "" };
+      const no = d.canTeach === false || String(d.canTeach).trim().toLowerCase() === "false";
+      return { canTeach: !no, level: d.level || "", posture: d.posture || "" };
+    } catch (e) { return { canTeach: true, level: "", posture: "" }; }
   }
 
   // ---- 起草【本节 session】的小大纲：承接这门课之前的进度，设计合适的下一步 --------

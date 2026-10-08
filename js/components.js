@@ -16193,6 +16193,8 @@ function GroupOfflineMode({
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
+  openUnread,
+  onOpenUnreadDone,
   onStopGen,
   group,
   groups,
@@ -16333,6 +16335,15 @@ function GroupThread({
   const gs = settings || {};
   // 跟单聊共用那一份窗口（施工规则/one-public-mechanism.md）：群聊更容易攒到上千条
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, group && group.id);
+  const atBottomRef = useRef(true), seenLenRef = useRef(messages.length);
+  const [newBelow, setNewBelow] = useState(0);
+  // 她在不在底部：另挂一个滚动监听记着（列表那条 onScroll 只管往上补，别往里塞）
+  useEffect(() => {
+    const el = ref.current; if (!el) return;
+    const on = () => { atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 120; if (atBottomRef.current) setNewBelow(0); };
+    el.addEventListener("scroll", on, { passive: true });
+    return () => el.removeEventListener("scroll", on);
+  }, [group && group.id]);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -16341,6 +16352,13 @@ function GroupThread({
       return pinToBottom(el); // 首次进入群聊：同上
     }
     if (growing()) return;   // 她正在往上翻，别把她甩回最新的
+    // 她停在上面看的时候，他们新说的话不许把她拽到底（群友 2026-10-08：「对面在发，我没法先看上面的问题」）——
+    //   只在她本来就在底部、或者这条是她自己发的时候才跟到底；不然底下挂一颗「↓ N 条新消息」，她看完自己点
+    const added = messages.length - (seenLenRef.current || 0);
+    seenLenRef.current = messages.length;
+    const last = messages[messages.length - 1];
+    if (!atBottomRef.current && added > 0 && !(last && last.role === "user")) { setNewBelow(n => n + added); return; }
+    setNewBelow(0);
     el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
   }, [messages.length, sending]);
   const send = (v) => {
@@ -16548,7 +16566,16 @@ function GroupThread({
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     "data-wk": "body",
     className: "flex-1 overflow-y-auto px-4 py-4 space-y-2"
-  }, winStart > 0 ? h("button", {
+  }, (openUnread > 0 && messages.length - openUnread >= 0) ? h("div", { style: { position: "sticky", top: 0, zIndex: 6, height: 0, display: "flex", justifyContent: "flex-end" } },
+    h("button", { "data-wk": "gunreadjump", onClick: () => {
+        const idx = Math.max(0, messages.length - openUnread);
+        revealMsg(idx);
+        setTimeout(() => locateMsgIn(ref.current, idx, messages, archCount > 0, { start: winStartRef.current }), 160);
+        onOpenUnreadDone && onOpenUnreadDone();
+      }, className: "active:opacity-70",
+      style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 32, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
+      "↑ " + openUnread + " 条新消息")) : null,
+  winStart > 0 ? h("button", {
     onClick: growMore, className: "w-full active:opacity-70",
     style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0", marginBottom: 2 }
   }, "↑ 上面还有 " + winStart + " 条 · 点开或往上翻") : null,
@@ -16884,6 +16911,11 @@ function GroupThread({
     h("div", { className: "space-y-1 max-h-72 overflow-y-auto" },
       (characters || []).map(c => h("button", { key: c.id, onClick: () => doForward({ type: "chat", id: c.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h(Avatar, { character: c, size: 34, radius: 7 }), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name))),
       (groups || []).filter(g => g.id !== group.id).map(g => h("button", { key: "g_" + g.id, onClick: () => doForward({ type: "group", id: g.id }), className: "w-full flex items-center gap-3 py-2.5 active:opacity-60" }, h("div", { style: { width: 34, height: 34, borderRadius: 7, background: t.bg2, border: "1px solid " + t.line, display: "flex", alignItems: "center", justifyContent: "center" } }, "👥"), h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name))))),
+  newBelow > 0 && h("div", { style: { position: "relative", height: 0, zIndex: 6 } },
+    h("button", { "data-wk": "gnewbelow", onClick: () => { const el = ref.current; if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" }); setNewBelow(0); },
+      className: "active:opacity-70",
+      style: { position: "absolute", right: 14, bottom: 8, fontFamily: F_BODY, fontSize: 12, color: t.accent, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 12px", minHeight: 32, boxShadow: "0 2px 8px rgba(0,0,0,.08)" } },
+      "↓ " + newBelow + " 条新消息")),
   !selMode && quoted && h(QuoteDraftBar, { text: (window.GroupQuote ? window.GroupQuote.label(quoted) : "❝ " + (typeof quoted === "string" ? quoted : quoted.text)).replace(/^❝\s*/, ""), onClear: () => setQuoted(null) }),
   !selMode && h("div", {
     "data-wk": "composer",

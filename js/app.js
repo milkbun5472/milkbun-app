@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.083";
+const APP_VERSION = "v75.093";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -4534,7 +4534,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!c) return;
     setActiveChar(c); clearUnread(id); setScreen("thread");
   };
-  const clearUnread = id => setUnreadMap(p => {
+  // 进群那一下记住这个群攒了几条没看，群里顶上挂一颗「↑ N 条新消息」，点了跳到第一条没看的
+  //   （群友 2026-10-08：「群聊他们聊新的几十条，可以直接跳转到我未读的地方吗，翻了老半天辨认哪些看过哪些没看过」）
+  const [gOpenUnread, setGOpenUnread] = useState(null);
+  const clearUnread = id => {
+    const was = (unreadMap && unreadMap[id]) || 0;
+    if ((groups || []).some(g => g && g.id === id)) setGOpenUnread(was > 0 ? { id: id, n: was } : null);
+    clearUnreadMap(id);
+  };
+  const clearUnreadMap = id => setUnreadMap(p => {
     const n = {
       ...p,
       [id]: 0
@@ -11080,7 +11088,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
       const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
-      const peekMemo = (opts.peekPhone ? "" : peekMemoFor(charId)) + remarkHint;
+      // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
+      //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
+      const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint;
       const dongnianHint = peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
@@ -15602,7 +15612,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 自发额度也一起归零，否则清完记录它还记着「这一轮已经自发过 N 条」，
     // 新起的第一句就可能直接撞上限、或者反过来立刻自发一串。
     resetAutoChatCycle(groupId, Date.now());
-    clearUnread(groupId);
+    clearUnreadMap(groupId); setGOpenUnread(null);
     if (wipeMem) {
       const gName = (groups.find(x => x.id === groupId) || {}).name || "";
       const next = memLibRef.current.filter(e => {
@@ -27471,6 +27481,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    openUnread: gOpenUnread && gOpenUnread.id === activeGroup.id ? gOpenUnread.n : 0,
+    onOpenUnreadDone: () => setGOpenUnread(null),
     onPatMember: cid => patGroupMember(activeGroup.id, cid),
     // 群里谁的开关都算数——和请求那一头（gCtx.wantReasoning）同一条判据
     showReason: (activeGroup.memberIds || []).some(id => !!settingsFor(id).showReasoning),
