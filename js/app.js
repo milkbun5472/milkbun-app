@@ -27276,6 +27276,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     gen: gen.moment,
     friendGroups: friendGroups,
     onSetCover: uri => setMomentCover(momTarget && momTarget.isMe ? "me" : (momTarget && momTarget.id), uri),
+    // 位置跟图存在同一份 x_momentsCover 里，键是「谁@pos」，值是 "x% y%"（不是图，迁移图库那一步不碰它）
+    coverPos: (momentsCover[((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos"]) || "",
+    onSetCoverPos: pos => setMomentCover(((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos", pos),
     onDelMoment: delMoment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
