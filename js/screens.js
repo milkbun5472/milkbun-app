@@ -10246,6 +10246,10 @@ function ThemeConfig({
   // 每挪一格就 saveJSON 一次的话，拖一趟能写上百次。
   const [fx, setFx] = useState(() => ({ veil: (wallFx && wallFx.veil) || 0, blur: (wallFx && wallFx.blur) || 0 }));
   const putFx = (k, v) => setFx(p => Object.assign({}, p, { [k]: Number(v) }));
+  // 输入栏往上抬（群里有人报 2026-10-08：「太底下了有时候会点不到」）：拖的时候当场抬，松手才存
+  const [lift, setLift] = useState(() => { try { return Number(loadJSON("x_composerLift", 0)) || 0; } catch (e) { return 0; } });
+  const moveLift = v => setLift(setComposerLift(v));
+  const saveLift = () => { try { saveJSON("x_composerLift", lift); } catch (e) {} };
   const commitFx = next => { const n = next || fx; onSaveWallFx && onSaveWallFx(n); };
   const fxRow = (k, zh, max, hint) => h("div", { style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
@@ -10335,6 +10339,15 @@ function ThemeConfig({
     fxRow("blur", "虚化", 20, "把背景虚掉，图标会立刻跳出来。0 就是照片原样。"),
     h("button", { onClick: () => { const n = { veil: 22, blur: 0 }; setFx(n); commitFx(n); },
       className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "恢复推荐值")) : null,
+  h("div", { "data-wk": "composerlift", style: { marginTop: 18 } },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "输入栏往上抬"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, lift + " px")),
+    h("input", { type: "range", min: 0, max: 80, step: 2, value: lift,
+      onChange: e => moveLift(e.target.value), onMouseUp: saveLift, onTouchEnd: saveLift,
+      style: { width: "100%", accentColor: t.ink } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+      "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。")),
   /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",

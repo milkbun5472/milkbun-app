@@ -13763,18 +13763,28 @@ function KinshipRaiseCard({ m, character, inRow }) {
 // 「让TA回复」要把草稿带走，所以它们必须住在这一格里一起重画；格子外的世界不动。
 // 通话屏（CallScreen）没搬：口述识别要从外面往草稿里回填文字，而且一通电话的
 // 字幕列表本来就短，重画不疼——搬它换不来收益，只换来一条反向写入的口子。
+// 聊天输入框（单聊、群聊共用）。
+// ⚠️原来是单行 <input>（群里有人报 2026-10-08：「键盘弹上来之后我想编辑一下输入框，完全看不到输入框里的文字了」）：
+//   一长就只能横着滚，前面写了什么看不见、也挪不回去改。现在是会自己长高的多行框：
+//   最多长到 6 行左右（130px），再多就在框里上下滚。回车照旧是发送，Shift+回车换行；
+//   中文输入法选词时按的回车（isComposing）不算发送。
+const DRAFT_MAX_H = 130;
 function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after }) {
   const [draft, setDraft] = useState("");
+  const ref = useRef(null);
+  const fit = () => { const el = ref.current; if (!el) return; el.style.height = "auto"; el.style.height = Math.min(DRAFT_MAX_H, el.scrollHeight) + "px"; };
+  useEffect(fit, [draft]);
   const clear = () => setDraft("");
   const fire = () => { const v = draft.trim(); if (!v) return; setDraft(""); onSubmit && onSubmit(v); };
   return h(React.Fragment, null,
-    h("input", Object.assign({
+    h("textarea", Object.assign({
+      ref, rows: 1,
       value: draft,
       onChange: e => setDraft(e.target.value),
-      onKeyDown: e => e.key === "Enter" && fire(),
+      onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); fire(); } },
       placeholder,
-      className: "flex-1 outline-none px-4 py-2.5 rounded-full",
-      style: inputStyle
+      className: "flex-1 outline-none px-4 py-2.5",
+      style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
     }, inputProps || {})),
     after ? after(draft, fire, clear) : null);
 }
