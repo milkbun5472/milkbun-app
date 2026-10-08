@@ -984,7 +984,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.105", changed: "全屏直播间中间那块加了 livemid（镜头、动作不截行，字多了能滚）", none: "" };
+  const BRIEF_STAMP = { v: "v75.106", changed: "群线下加了 offcastfaces（整段小说那一拍叠着的头像）、offcastpick（选看谁的心声那一排）、goffwritemode（设置里写法两个按钮）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
