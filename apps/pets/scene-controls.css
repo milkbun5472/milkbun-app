@@ -47,8 +47,5 @@
 .pet-game .home-actions button.is-blocked{opacity:.48}
 .pet-game .door-label.is-edge{white-space:nowrap;background:var(--town-sheet);border:1px solid var(--town-line);border-radius:8px;color:var(--town-pencil)}
 
-/* A short chat view keeps the pet clear; closing chat restores the full camera bar. */
-@media(max-height:340px){.pet-game.pet-chat-open .pet-view-tools{display:none}.pet-game.pet-chat-open .scene-foot{min-height:26px;padding:3px 12px}.pet-game.pet-chat-open .scene-foot strong{display:none}.pet-game.pet-chat-open .scene-foot span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}}
-@media(max-height:200px){.pet-game.pet-chat-open .pet-town-line,.pet-game.pet-chat-open .home-actions{display:none!important}}
 
 .pet-game .walk-actions::before{max-width:calc(100% - 24px);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}

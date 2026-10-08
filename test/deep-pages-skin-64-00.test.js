@@ -13,17 +13,17 @@ const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("线下那几层子页共用一份底，不是各写各的", () => {
   // 两处赴约设置与公共往期详情都复用同一底纹。
-  assert.match(code, /function offlineSubSkin\(t\) \{/);
+  assert.match(code, /function offlineSubSkin\(t, withHead\) \{/);
   // 3 → 5（v74.713）：单人线下和群线下的设置都从半窗改成了整页
   //   （施工规则/no-half-sheet），两层都是线下子页，照样铺这一份底，
   //   不许自己写一块平色。
-  assert.equal((code.match(/style: offlineSubSkin\(t\)/g) || []).length, 5);
+  assert.equal((code.match(/style: offlineSubSkin\(t(, true)?\)/g) || []).length, 5);
   assert.equal((code.match(/h\(OfflineSessionReader, /g) || []).length, 2, "两处往期都接公共详情");
   assert.ok(!/absolute inset-0 z-20 flex flex-col", style: \{ background: t\.bg, paddingTop/.test(code),
     "还有子页留着平色的老写法");
-  const fn = code.slice(code.indexOf("function offlineSubSkin(t)"), code.indexOf("function SettingSection("));
+  const fn = code.slice(code.indexOf("function offlineSubSkin(t, withHead)"), code.indexOf("function SettingSection("));
   assert.match(fn, /pageSkin\("lined", t, \{ corner: false, strength: \.8 \}\)/, "挑的不是信纸");
-  assert.match(fn, /paddingTop: safeTop\(0\)/, "顶部安全区丢了，会顶到刘海");
+  assert.match(fn, /paddingTop: withHead \? 0 : safeTop\(0\)/, "顶部安全区丢了，会顶到刘海");
   assert.match(fn, /typeof pageSkin === "function" \? .* : \{ background: t\.bg \}/s, "没有兜底：pageSkin 没加载就整页透明");
 });
 

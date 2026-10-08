@@ -6538,7 +6538,35 @@ function safeTop(px) { return "calc(env(safe-area-inset-top, 0px) + " + (Number(
 // （iPhone 上 34px 的安全区，两者差二十多像素），群线下是 0.4 条加 4px。
 // 别的都一样（px-3 py-2.5、输入框 px-4 py-2.5、按钮 40×40），所以统一成一个常量，
 // 免得以后又各自漂走。⚠️主屏那条空带不归这里管，见 施工规则/home-screen-layout.md。
-const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4)";
+// 「输入栏往上抬」（群里有人报 2026-10-08：「太底下了有时候会点不到」）：设置 → 外观与壁纸 那根拉条写 --composer-lift。
+//   全 App 四十几个输入栏都吃这一个常量，所以只在这儿加一项，处处跟着抬。
+const COMPOSER_PAD_BOTTOM = "calc(env(safe-area-inset-bottom) * 0.4 + var(--composer-lift, 0px))";
+// 「自动适配底边」开关（她 2026-10-08：「没办法做适配她手机本身吗」→「搞个开关吧」）：
+//   不少安卓手机在浏览器里打开时，底部手势条／工具栏挡了一截，却报给网页 safe-area = 0，
+//   网页自己算不出来。开着时遇到「安卓 + 报 0」就自动多抬 COMPOSER_AUTO_LIFT，跟手动拉条的数加在一起。
+const COMPOSER_AUTO_LIFT = 12;
+let _composerManual = 0, _composerAuto = true;
+function composerNeedsAuto() {
+  try {
+    if (!/Android/i.test(navigator.userAgent || "")) return false;
+    const probe = document.createElement("div");
+    probe.style.cssText = "position:fixed;visibility:hidden;padding-bottom:env(safe-area-inset-bottom);";
+    document.body.appendChild(probe);
+    const pad = parseFloat(getComputedStyle(probe).paddingBottom) || 0;
+    probe.remove();
+    return pad === 0;
+  } catch (e) { return false; }
+}
+function applyComposerLift() {
+  const n = _composerManual + (_composerAuto && composerNeedsAuto() ? COMPOSER_AUTO_LIFT : 0);
+  try { document.documentElement.style.setProperty("--composer-lift", n + "px"); } catch (e) {}
+}
+function setComposerLift(px) {
+  _composerManual = Math.max(0, Math.min(80, Math.round(Number(px) || 0)));
+  applyComposerLift();
+  return _composerManual;
+}
+function setComposerAuto(on) { _composerAuto = on !== false; applyComposerLift(); return _composerAuto; }
 // 每轮再提醒一次（v56.77）：一条规则只在系统提示里声明一次，模型隔几轮就忘。
 // 这做法是从 mingruis-miya 看来的（AGPL，只读了它的提示词编排、没取用代码）——
 // 它把翻译规则发两遍：系统里一段硬性规则，每轮末尾再补一句短的。
@@ -7373,6 +7401,16 @@ function offlineCharacterSupplyLine(group) {
   return "\n\n〔本轮人物连续〕当前互动不会把叙述者替换成一个只处理身体动作的通用角色。继续从这个具体的人对眼前这个具体的人如何注意、判断、选择和回应来生成：承接对方刚刚实际说过或做过的内容，以及两人已经形成的关系和相处方式。共享细节、现实目标或未完事务只有在此刻确实影响其反应时才自然出现，不为证明人设而硬提，也不按清单配额打卡。台词应由此刻的具体回应产生，不用任何角色都能说的通用场面话。身体事实仍按实际发生直接写清；首稿不承担去除渲染或自我审查，后续编辑另行处理。";
 }
 
+// 亲密戏的节奏（她 2026-10-08「改了线下让他不要那么快结束一拍还是没用，开车的时候还是两轮结束」）：
+//   「往这一刻里写深、不往后快进」早就写在 OFFLINE_AGENCY_RULE 里，可那条在系统提示中段，
+//   离生成太远、又被后面几千字压住，到了明确场景里就被冲掉了。所以场景正在进行时，在尾部再说一次——
+//   只在 registerTransition.active 时发，平常的线下一个字都不多。单人和群线下共用这一句（one-public-mechanism）。
+function offlineIntimatePaceLine(group) {
+  return "\n\n〔这一场的节奏〕" + (group ? "在场的人" : "你们") + "此刻正在亲密场景当中。这一拍只把它往前推一小步：写细眼前这一下怎么发生、"
+    + (group ? "每个人" : "TA") + "怎么回应她刚才那一下，然后停在她要回应的地方。"
+    + "这一场走到哪一步、什么时候到顶、什么时候结束，由她的输入带着走——她写到了那一步，或者明确说要收了，才写到那里；"
+    + "她没写到之前，不在这一拍里一路写到结束、也不跳到事后。";
+}
 function offlineRegisterTransition(session) {
   const rows = (session && Array.isArray(session.msgs) ? session.msgs : [])
     .filter(m => m && m.kind !== "ooc" && m.content);
@@ -7576,7 +7614,8 @@ async function generateOffline(p, ctx, session) {
   // ⚠️文风仍旧排在【最末】（v55.41 那条：它和通用叙事准则冲突时以它为准，所以离生成最近）。
   //   导演便签插在它前面——比原来那个「system 中段」近了几万字，已经够压住了，
   //   不必为了抢最后一格把文风那条挤走（那是两件事，不是一件事的两种写法）。
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + flashbackTail + directorTail + styleTail;
+  const intimatePaceTail = !isDigital && !!registerTransition.active ? offlineIntimatePaceLine(false) : "";
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
@@ -8249,7 +8288,7 @@ async function generateOfflineGroup(p, ctx, session) {
     (session.msgs || []).filter(m => m && m.role === "char" && m.kind !== "ooc").map(m => m.content));
   // 场面进了身体戏就补人物连续那一句（和单人线下同一份）。群里「继续」是常态，
   //   所以不像单人那样只在她刚说完话时才补：场面还在，就每轮都补。
-  const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) : "";
+  const gCharacterTail = offlineRegisterTransition(session).active ? offlineCharacterSupplyLine(true) + offlineIntimatePaceLine(true) : "";
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + gFlashbackTail + gCharacterTail + gTail };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {

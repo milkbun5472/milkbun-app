@@ -3877,7 +3877,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
         h("div", { "data-wk": "calevtitle", style: { fontFamily: F_DISPLAY, fontSize: 19, color: t.ink } }, (dayEv.b.icon ? dayEv.b.icon + " " : "") + dayEv.b.title),
         h("div", { "data-wk": "calevtime", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, marginTop: 4 } },
           calHM(dayEv.b.from) + "–" + (dayEv.b.to >= 1440 ? "24:00" : calHM(dayEv.b.to)) + (dayEv.b.location ? " · " + dayEv.b.location : "") + (dayEv.b.ai ? " · AI 排的" : "")),
-        dayEv.b.dev && h("div", { "data-wk": "calevdev", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#c25a4a11", border: "1px solid #c25a4a44", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7 } },
+        dayEv.b.dev && h("div", { "data-wk": "calevdev", style: { marginTop: 10, padding: "10px 12px", borderRadius: 10, background: "#c25a4a11", border: "1px solid #c25a4a44", fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } },
           "原本要：" + (dayEv.b.dev.plan || "—") + "\n后来：" + (dayEv.b.dev.actual || "—") + "\n因为：" + (dayEv.b.dev.reason || "—")),
         (() => {
           const plan = isCharView ? ((schedules || {})[view] || {})[dayEv.dk] : null;
@@ -8596,7 +8596,7 @@ function AutoImgSwitch({ storeKey, color }) {
 }
 function MomentAutoImgSwitch() { return h(AutoImgSwitch, { storeKey: "x_momentAutoImg" }); }
 // 朋友圈个人页（仿微信「我的相册/TA 的朋友圈」）：封面 + 头像 + 签名 + 此人所有动态；me 可发/删/换封面
-function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
+function MomentsProfile({ isMe, character, profile, characters, moments, cover, coverPos, onSetCoverPos, coverText, gen, friendGroups, signature, onSetCover, onDelMoment, onLikeMoment, onCommentMoment, onPostMoment, onBack }) {
   const t = useTheme();
   const [compose, setCompose] = useState(false);
   const [commenting, setCommenting] = useState(null);
@@ -8606,13 +8606,37 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   const [imgMid, setImgMid] = useState(null);
   const [delId, setDelId] = useState(null);
   const coverRef = useRef(null);
+  const [adj, setAdj] = useState(null); // { x, y } 百分比；null＝不在调
+  const coverBoxRef = useRef(null);
+  const dragRef = useRef(null);
   if (!isMe && !character) return null;
   const author = isMe ? { name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color } : character;
   const name = isMe ? (profile.name || "我") : (character.remark || character.name);
   // 签名：优先用传进来的（角色页＝查手机·微信里那句朋友圈签名），否则回落到 motto/tagline
   const sign = (signature != null && String(signature).trim()) ? signature : (isMe ? (profile.tagline || "") : (character.motto || character.tagline || ""));
   const list = (moments || []).filter(m => isMe ? m.mine : (m.characterId === character.id && !m.mine)).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
-  const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => onSetCover(d)); e.target.value = ""; };
+  // 封面拖着调位置（群友 2026-10-08：「朋友圈壁纸要是能自己调位置就好了」）：
+  //   选完图直接进调整，或者点「调位置」；在封面上拖，松手不存，点「好了」才存。
+  const posNow = adj ? (adj.x + "% " + adj.y + "%") : (coverPos || "center");
+  const startAdj = () => { const m = /^([\d.]+)% ([\d.]+)%$/.exec(coverPos || ""); setAdj(m ? { x: +m[1], y: +m[2] } : { x: 50, y: 50 }); };
+  const adjDown = e => {
+    if (!adj || !cover) return;
+    const box = coverBoxRef.current; if (!box) return;
+    const W = box.clientWidth, H = box.clientHeight;
+    const d = { sx: e.clientX, sy: e.clientY, x0: adj.x, y0: adj.y, ox: 0, oy: 0 };
+    dragRef.current = d;
+    const img = new Image();
+    img.onload = () => { const sc = Math.max(W / img.width, H / img.height); d.ox = img.width * sc - W; d.oy = img.height * sc - H; };
+    img.src = resolveImg(cover);
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  };
+  const adjMove = e => {
+    const d = dragRef.current; if (!d || !adj) return;
+    const cl = v => Math.max(0, Math.min(100, Math.round(v * 10) / 10));
+    setAdj({ x: d.ox > 1 ? cl(d.x0 - (e.clientX - d.sx) / d.ox * 100) : 50, y: d.oy > 1 ? cl(d.y0 - (e.clientY - d.sy) / d.oy * 100) : 50 });
+  };
+  const adjUp = () => { dragRef.current = null; };
+  const pickCover = e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1400, 0.82).then(d => { onSetCover(d); if (onSetCoverPos) { onSetCoverPos(""); setAdj({ x: 50, y: 50 }); } }); e.target.value = ""; };
   const sendC = m => { if (cText.trim()) { onCommentMoment(m.id, cText.trim(), cReply || undefined); setCommenting(null); setCReply(null); setCText(""); } };
 
   const momentRow = m => h("div", { key: m.id, "data-wk": "moprofilepost", className: "px-5 py-4", style: { borderBottom: "1px solid " + t.line } },
@@ -8638,13 +8662,19 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
   //   地是灰的、格子是白的」。所以这一页要的不是铺一张纸，而是别在同一个 app 里出现两种底：
   //   这儿原来是 t.bg2（偏白）、消息那一页是 t.bg（灰），进出一趟颜色会跳一下。
   return h("div", { className: "h-full flex flex-col", style: msgAppBg(t) },
-    h("div", { "data-wk": "mocover", "data-on": cover ? "1" : undefined, style: { position: "relative", height: 210, flexShrink: 0, background: cover ? ("center/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
+    h("div", { ref: coverBoxRef, "data-wk": "mocover", "data-on": cover ? "1" : undefined, onPointerDown: adjDown, onPointerMove: adjMove, onPointerUp: adjUp, onPointerCancel: adjUp, style: { position: "relative", height: 210, flexShrink: 0, touchAction: adj ? "none" : undefined, cursor: adj ? "grab" : undefined, background: cover ? (posNow + "/cover no-repeat url(\"" + resolveImg(cover) + "\")") : "linear-gradient(135deg,#8a8577,#5f5b50)" } },
+      adj && cover ? h("div", { "data-wk": "mocoveradj", style: { position: "absolute", inset: 0, zIndex: 3, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", padding: "0 16px 14px", gap: 8, pointerEvents: "none", boxShadow: "inset 0 0 0 2px rgba(255,255,255,.7)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "4px 12px" } }, "拖动封面调位置"),
+        h("div", { className: "flex", style: { gap: 8, pointerEvents: "auto" } },
+          h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => setAdj(null), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#fff", background: "rgba(0,0,0,.42)", borderRadius: 999, padding: "6px 16px", minHeight: 32 } }, "取消"),
+          h("button", { onPointerDown: e => e.stopPropagation(), onClick: () => { onSetCoverPos && onSetCoverPos(adj.x + "% " + adj.y + "%"); setAdj(null); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: "#1a1a1a", background: "#fff", borderRadius: 999, padding: "6px 16px", minHeight: 32 } }, "好了"))) : null,
       // 没自己设过图时，把查手机里生成的那句【封面描述】当封面：一张TA挑的图，
       // 我们只有那句描述，那就把描述本身摆上去，别拿一块灰渐变糊弄过去
       (!cover && coverText) ? h("div", { style: { position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 18px 44px" } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: "rgba(255,255,255,.88)", textShadow: "0 1px 5px rgba(0,0,0,.5)", maxWidth: 250 } }, coverText)) : null,
       h("button", { onClick: onBack, className: "active:opacity-60", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 10px)", left: 14, width: 34, height: 34, borderRadius: 999, background: "rgba(0,0,0,0.32)", display: "flex", alignItems: "center", justifyContent: "center" } }, h(IArrow, { size: 19, color: "#fff" })),
       h("button", { onClick: () => coverRef.current && coverRef.current.click(), className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 14, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: 11.5, color: "#fff" } }, cover ? "换封面" : "设封面"),
+      cover && onSetCoverPos && !adj && h("button", { onClick: startAdj, className: "active:opacity-70", style: { position: "absolute", top: "calc(env(safe-area-inset-top) + 12px)", right: 86, padding: "6px 12px", borderRadius: 999, background: "rgba(0,0,0,0.32)", fontFamily: F_BODY, fontSize: 11.5, color: "#fff" } }, "调位置"),
       h("input", { ref: coverRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: pickCover }),
       h("div", { "data-wk": "moprofilehead", style: { position: "absolute", right: 16, bottom: -30, display: "flex", alignItems: "flex-start", gap: 12 } },
         h("div", { style: { textAlign: "right", maxWidth: 190, paddingTop: 2 } },
@@ -13763,18 +13793,28 @@ function KinshipRaiseCard({ m, character, inRow }) {
 // 「让TA回复」要把草稿带走，所以它们必须住在这一格里一起重画；格子外的世界不动。
 // 通话屏（CallScreen）没搬：口述识别要从外面往草稿里回填文字，而且一通电话的
 // 字幕列表本来就短，重画不疼——搬它换不来收益，只换来一条反向写入的口子。
+// 聊天输入框（单聊、群聊共用）。
+// ⚠️原来是单行 <input>（群里有人报 2026-10-08：「键盘弹上来之后我想编辑一下输入框，完全看不到输入框里的文字了」）：
+//   一长就只能横着滚，前面写了什么看不见、也挪不回去改。现在是会自己长高的多行框：
+//   最多长到 6 行左右（130px），再多就在框里上下滚。回车照旧是发送，Shift+回车换行；
+//   中文输入法选词时按的回车（isComposing）不算发送。
+const DRAFT_MAX_H = 130;
 function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after }) {
   const [draft, setDraft] = useState("");
+  const ref = useRef(null);
+  const fit = () => { const el = ref.current; if (!el) return; el.style.height = "auto"; el.style.height = Math.min(DRAFT_MAX_H, el.scrollHeight) + "px"; };
+  useEffect(fit, [draft]);
   const clear = () => setDraft("");
   const fire = () => { const v = draft.trim(); if (!v) return; setDraft(""); onSubmit && onSubmit(v); };
   return h(React.Fragment, null,
-    h("input", Object.assign({
+    h("textarea", Object.assign({
+      ref, rows: 1,
       value: draft,
       onChange: e => setDraft(e.target.value),
-      onKeyDown: e => e.key === "Enter" && fire(),
+      onKeyDown: e => { if (e.key === "Enter" && !e.shiftKey && !e.isComposing && e.keyCode !== 229) { e.preventDefault(); fire(); } },
       placeholder,
-      className: "flex-1 outline-none px-4 py-2.5 rounded-full",
-      style: inputStyle
+      className: "flex-1 outline-none px-4 py-2.5",
+      style: Object.assign({ borderRadius: 20, resize: "none", lineHeight: 1.45, maxHeight: DRAFT_MAX_H, overflowY: "auto", display: "block" }, inputStyle)
     }, inputProps || {})),
     after ? after(draft, fire, clear) : null);
 }
@@ -15176,7 +15216,7 @@ function OfflineMode({
     { key: "debug", char: "诊", title: "上一轮到底发生了什么", tint: "#7a8fa8",
       state: () => registerTelemetry ? "有本轮记录" : "还没有本轮记录" }
   ];
-  const offlineSetSheet = () => setOpen && onSaveSettings && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t) },
+  const offlineSetSheet = () => setOpen && onSaveSettings && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t, true) },
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
@@ -15978,7 +16018,7 @@ function GroupOfflineMode({
   const gShow = (tab, key, title, ...kids) => gSetTab === tab
     ? h(SettingSection, { title, open: gSec === key, onToggle: () => setGSec(v => v === key ? "" : key) }, ...kids)
     : null;
-  const gBgSheet = setOpen && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t) },
+  const gBgSheet = setOpen && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t, true) },
     h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
@@ -17854,8 +17894,10 @@ function ContactDetail({
 // ⚠️单人线下和群线下是【两份代码】，各写一份迟早只改一处——这个仓库最常犯的病。
 //   挑 lined（信纸）：这两页一个是回头读当时那一场、一个是动手写开场，
 //   两件事都是「在纸上写字」，不是「在设置里拨开关」。
-function offlineSubSkin(t) {
-  return Object.assign({ paddingTop: safeTop(0) },
+// withHead：这一页顶上用的是 Head，Head 自己已经让过刘海了——底再让一次就是两条安全区，
+//   顶栏掉下去一大截（她 2026-10-08 截图：线下设置「顶部太下了」）。手写顶栏的往期那几页才要这里让。
+function offlineSubSkin(t, withHead) {
+  return Object.assign({ paddingTop: withHead ? 0 : safeTop(0) },
     typeof pageSkin === "function" ? pageSkin("lined", t, { corner: false, strength: .8 }) : { background: t.bg });
 }
 // 设置分类目录：一行一类，左边一个汉字索引牌，右边写着【现在是什么状态】。
@@ -18391,6 +18433,38 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
 }
 window.ChatRoomSheet = ChatRoomSheet;
 
+// 清除 / 重置的选择页（她 2026-10-08「出一堆开关 show 哪些会被清除然后可以自行选择哪些要留」）。
+// 聊天设置和人格档案馆两个入口共用；类目来自 CharPurge.CATS，清法在 app.js resetCharData。整页，不用半窗。
+function ResetChooser({ character, preset, onClose, onRun }) {
+  const t = useTheme();
+  const CATS = (window.CharPurge && window.CharPurge.CATS) || [];
+  const [on, setOn] = useState(() => new Set(preset === "all" ? CATS.map(c => c.id) : ["chat", "memory", "state"]));
+  const [sure, setSure] = useState(false);
+  const nm = (character && (character.remark || character.name)) || "TA";
+  const all = on.size === CATS.length;
+  const flip = id => setOn(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  if (!character) return null;
+  return h("div", { "data-wk": "resetpage", style: { position: "fixed", inset: 0, zIndex: 160, background: t.bg, display: "flex", flexDirection: "column" } },
+    h(Head, { zh: "清除 / 重置", onBack: onClose }),
+    h("div", { style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "8px 20px 20px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.7, marginBottom: 14 } },
+        "打开的会清掉，关着的留下。卷宗（人设、外貌、头像、音色）和 " + nm + " 的聊天设置、线下设置一直留着。「聊天和线下记录」清的是线上私聊与全部单人线下记录，直接删、不先总结；群聊和群线下是共享记录，不会从这里删除。"),
+      h("button", { onClick: () => setOn(all ? new Set() : new Set(CATS.map(c => c.id))), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent, marginBottom: 6, minHeight: 40 } }, all ? "全部关掉" : "全部打开（像第一次见面）"),
+      CATS.map(c => h("div", { key: c.id, "data-reset-cat": c.id, className: "flex items-center justify-between", style: { padding: "12px 0", borderTop: "1px solid " + t.line, gap: 12 } },
+        h("div", { style: { flex: 1, minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: on.has(c.id) ? t.ink : t.fog } }, c.zh + (on.has(c.id) ? " · 清掉" : " · 留着")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.5 } }, c.desc)),
+        h(Toggle, { on: on.has(c.id), onChange: () => flip(c.id) }))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 14 } },
+        "清掉的撤不回来。要紧的话先去 设置 → 数据 → 导入与导出 → 导出全部数据，存一份在自己手上。")),
+    h("div", { style: { padding: "10px 20px calc(env(safe-area-inset-bottom, 0px) + 14px)", borderTop: "1px solid " + t.line } },
+      sure
+        ? h("div", { className: "flex gap-2" },
+            h("button", { onClick: () => setSure(false), className: "flex-1 rounded-lg py-3", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.sub } }, "再想想"),
+            h("button", { "data-wk": "resetgo", onClick: () => onRun(Array.from(on)), className: "flex-1 rounded-lg py-3", style: { background: "#c25a4a", color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } }, "确定清掉 " + on.size + " 样"))
+        : h("button", { disabled: !on.size, onClick: () => setSure(true), className: "w-full rounded-xl py-3 active:opacity-80", style: { minHeight: 46, background: on.size ? t.accent : t.line, color: "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+            on.size ? (all ? "完全重置 " + nm : "清掉选中的 " + on.size + " 样") : "至少打开一样")));
+}
 function ChatSettings({
   character,
   meProfile,
@@ -19490,18 +19564,9 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, iBlocked ? "点击解除拉黑。" : "拉黑后，按「回复」TA 会以被拉黑的方式反应（碎碎念/生气/申请解除），气泡旁带红色感叹号。")),
       h(Toggle, { on: !!iBlocked, onChange: onToggleBlock }))),
   onClearChat && h("div", { className: "pt-6" },
-    h(Eyebrow, { style: { marginBottom: 6 } }, "清除聊天记录"),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "清空和 " + cNm + " 的线上私聊与全部单人线下记录；线下不会先总结，也不会调用模型。群线下是共享记录，不会从这里删除（此操作不可恢复）。"),
-    h("div", { className: "flex items-center justify-between mb-3" },
-      h("div", { className: "pr-3" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "同步忘却记忆库"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "连 TA 的长期记忆与记忆库归属一起清；共享条目只解除 TA 的归属。")),
-      h(Toggle, { on: wipeMemToo, onChange: () => setWipeMemToo(v => !v) })),
-    confirmClear
-      ? h("div", { className: "flex gap-2" },
-          h("button", { onClick: () => setConfirmClear(false), className: "flex-1 rounded-lg py-2.5", style: { border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "取消"),
-          h("button", { onClick: () => { onClearChat(wipeMemToo); setConfirmClear(false); }, className: "flex-1 rounded-lg py-2.5", style: { background: t.accent, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14 } }, wipeMemToo ? "清除线上线下+记忆" : "清除线上与线下"))
-      : h("button", { onClick: () => setConfirmClear(true), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15 } }, "清除线上与线下记录"))), show("know", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
+    h(Eyebrow, { style: { marginBottom: 6 } }, "清除 / 重置"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.5 } }, "想跟 " + cNm + " 重新开始：点开挑要清哪几样——只清聊天，还是连记忆、好感、日程一起清，像第一次见面。卷宗和这页的设置都留着。"),
+    h("button", { "data-wk": "csreset", onClick: () => onClearChat(), className: "w-full rounded-xl py-3 active:opacity-70", style: { border: "1px solid " + t.line, color: t.accent, fontFamily: F_DISPLAY, fontSize: 15, minHeight: 44 } }, "清除 / 重置…"))), show("know", { title: "记忆库", ...sec("lib") }, onOpenMemLib && h("div", {
     className: "pt-6"
   }, h(Eyebrow, {
     style: {

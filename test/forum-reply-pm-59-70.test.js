@@ -15,7 +15,7 @@ const genMe = cut(ap, "const genRepliesToMe = async (", "\n  const genForumPost"
 test("楼中楼里每一条都能回，不只是楼层那一行", () => {
   // 原来只有楼层有「回复」，楼里的人回了我之后就再也接不上话
   const inReplies = cut(floorRow, "(cm.replies || []).map((r, j)", "(gen && gen.forumReplyMe === cm.id)");
-  assert.match(inReplies, /setReplyTo\(\{ floorId: cm\.id, name: \(r\.authorType === "me" \? \(r\.alt \? r\.authorName : meChar\.name\) : r\.authorName\), toName:/,
+  assert.match(inReplies, /setReplyTo\(\{ floorId: cm\.id, name: \(r\.authorType === "me" \? \(r\.alt \|\| r\.anon \? r\.authorName : meChar\.name\) : r\.authorName\), toName:/,
     "楼中楼那一条没有自己的「回复」");
   // 回的是谁要看得出来
   assert.match(inReplies, /r\.toName && h\("span"[\s\S]{0,120}" 回复 @" \+ r\.toName/, "楼里谁在跟谁说话看不出来");

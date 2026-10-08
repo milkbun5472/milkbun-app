@@ -513,6 +513,7 @@ function Cast({
           ]));
 }
 function CastForm({
+  onReset,
   onAskAssistant,
   initial,
   onBack,
@@ -716,6 +717,7 @@ function CastForm({
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "说话什么声气", tint: accent },
         h(LineField, { zh: "音色 · 语音消息用", en: "Voice" }, voiceFields)),
+      initial && onReset ? h("button", { "data-wk": "castfreset", onClick: () => onReset(initial.id), className: "mt-4 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 40 } }, "↺ 完全重置（留下卷宗，清掉跟 TA 的一切）") : null,
       initial ? h("button", { "data-wk": "castfdel", onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
 }
 
@@ -1893,10 +1895,12 @@ function schedDateParts(k) {
 //   只动【此刻到 until】这一截：此刻之前的原样留着，被盖住那段切掉中间、两头留下；
 //   新插的那段带 deviation，日程页和下一轮提示词都认得出它是临时改的。
 //   change = {title, location, until:"HH:MM", reason}；nowMin 是 TA 当地此刻的分钟数。
+// 字数放开（她 2026-10-08「改日程会截断，直接把日程和改日程的字数放开」）：原来 title 40 / reason 60 字一刀切，
+//   改日程的原因稍长一点就被砍成半句；现在只留一个防止整段正文被塞进来的大上限。
 function schedSpliceNow(seqs, nowMin, change) {
   const min = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
   const hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
-  const title = String((change && change.title) || "").trim().slice(0, 40);
+  const title = String((change && change.title) || "").trim().slice(0, 300);
   if (!title || !Number.isFinite(nowMin)) return null;
   const full = schedFillEnds(Array.isArray(seqs) ? seqs : []);
   const n = Math.max(0, Math.min(1439, Math.floor(nowMin)));
@@ -1911,8 +1915,8 @@ function schedSpliceNow(seqs, nowMin, change) {
     if (st < n) out.push({ ...s, end: hm(n) });
     if (en != null && en > u) out.push({ ...s, time: hm(u) });
   }
-  out.push({ time: hm(n), end: hm(u), title: title, location: String(change.location || "").slice(0, 40), place: "", type: "other",
-    deviation: { plan: hit.filter(Boolean).join("、") || "原本没排事", reason: String(change.reason || "跟你在一起，临时改了").slice(0, 60), actual: title } });
+  out.push({ time: hm(n), end: hm(u), title: title, location: String(change.location || "").slice(0, 200), place: "", type: "other",
+    deviation: { plan: hit.filter(Boolean).join("、") || "原本没排事", reason: String(change.reason || "跟你在一起，临时改了").slice(0, 600), actual: title } });
   out.sort((a, b) => (min(a.time) ?? 9999) - (min(b.time) ?? 9999));
   return out.map((s, i) => ({ ...s, seq: i + 1 }));
 }
@@ -2947,7 +2951,7 @@ function Forum({
   function floorRow(post, cm, i) {
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
-    const nm = cm.authorType === "me" ? (cm.alt ? cm.authorName : meChar.name) : (c ? c.name : cm.authorName);
+    const nm = cm.authorType === "me" ? (cm.alt || cm.anon ? cm.authorName : meChar.name) : (c ? c.name : cm.authorName);
     const fresh = isFreshFloor(cm);
     return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), "data-wk": "fofloor", "data-me": cm.authorType === "me" ? "1" : "0", "data-new": fresh ? "1" : "0", style: { margin: "8px 13px 0", padding: "12px 13px", borderRadius: 15, border: "1px solid " + (fresh ? FORUM_SKIN.accent + "55" : FORUM_SKIN.line), borderLeft: (fresh ? "3px solid " + FORUM_SKIN.accent : "1px solid " + FORUM_SKIN.line), background: fresh ? "rgba(255,252,246,.95)" : "rgba(251,252,247,.82)" } },
       h("div", { className: "flex gap-2.5" },
@@ -2976,7 +2980,7 @@ function Forum({
             // 深度仍然只有两层：回楼中楼落在同一层里，用「回复 @某某」标出对象。
             //   （贴吧/微博就是这么做的；真做三层嵌套在手机上没法读，老数据也要迁。）
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
-              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt ? r.authorName : meChar.name) : r.authorName)),
+              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
@@ -2984,7 +2988,7 @@ function Forum({
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
               h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, atClean(r.content)),
               h("button", {
-                onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt ? r.authorName : meChar.name) : r.authorName) }),
+                onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName) }),
                 className: "active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 7 }
               }, "回复"))),
@@ -10246,6 +10250,12 @@ function ThemeConfig({
   // 每挪一格就 saveJSON 一次的话，拖一趟能写上百次。
   const [fx, setFx] = useState(() => ({ veil: (wallFx && wallFx.veil) || 0, blur: (wallFx && wallFx.blur) || 0 }));
   const putFx = (k, v) => setFx(p => Object.assign({}, p, { [k]: Number(v) }));
+  // 输入栏往上抬（群里有人报 2026-10-08：「太底下了有时候会点不到」）：拖的时候当场抬，松手才存
+  const [lift, setLift] = useState(() => { try { return Number(loadJSON("x_composerLift", 0)) || 0; } catch (e) { return 0; } });
+  const moveLift = v => setLift(setComposerLift(v));
+  const saveLift = () => { try { saveJSON("x_composerLift", lift); } catch (e) {} };
+  const [liftAuto, setLiftAuto] = useState(() => { try { return loadJSON("x_composerAuto", true) !== false; } catch (e) { return true; } });
+  const flipLiftAuto = () => { const v = setComposerAuto(!liftAuto); setLiftAuto(v); try { saveJSON("x_composerAuto", v); } catch (e) {} };
   const commitFx = next => { const n = next || fx; onSaveWallFx && onSaveWallFx(n); };
   const fxRow = (k, zh, max, hint) => h("div", { style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
@@ -10335,6 +10345,21 @@ function ThemeConfig({
     fxRow("blur", "虚化", 20, "把背景虚掉，图标会立刻跳出来。0 就是照片原样。"),
     h("button", { onClick: () => { const n = { veil: 22, blur: 0 }; setFx(n); commitFx(n); },
       className: "active:opacity-70", style: { marginTop: 10, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "恢复推荐值")) : null,
+  h("div", { "data-wk": "composerlift", style: { marginTop: 18 } },
+    h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "输入栏往上抬"),
+      h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, lift + " px")),
+    h("input", { type: "range", min: 0, max: 80, step: 2, value: lift,
+      onChange: e => moveLift(e.target.value), onMouseUp: saveLift, onTouchEnd: saveLift,
+      style: { width: "100%", accentColor: t.ink } }),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+      "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。"),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 12, gap: 12 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "自动适配底边"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+          "有些安卓手机在浏览器里打开时，底部被挡了一截却不告诉网页。开着的话遇到这种手机会自动多抬 12px，跟上面拉的数加在一起；不挡的手机不受影响。")),
+      h(Toggle, { on: liftAuto, onChange: flipLiftAuto }))),
   /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",

@@ -551,6 +551,15 @@
       return merged.length;
     },
 
+    // 完全重置某个角色时把 TA 的云端归档清空（日记、月度印象会去翻它，不清 TA 还会「想起」旧事）
+    async chatArchiveClear(charId) {
+      if (!client) return 0;
+      const user = await this.getUser();
+      if (!user) return 0;
+      const { error } = await client.from("chat_archive").upsert({ user_id: user.id, char_id: String(charId), msgs: [], updated_at: new Date().toISOString() });
+      if (error) throw error;
+      return 0;
+    },
     // ---- App → CC 共享聊天账本（第 3 步 shadow）：只追加，不回读 ----
     // message_key 在客户端已按来源/线程/原消息确定；冲突时 DO NOTHING，重试不会造双份。
     async chatMessagesUpsert(rows) {

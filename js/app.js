@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.043";
+const APP_VERSION = "v75.056";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -529,6 +529,7 @@ function App() {
   const schedRunRef = useRef(false); // 本次打开行程是否已跑过「当天给所有人生成」
   const schedulesRef = useRef({});
   const [rels, setRels] = useState({});
+  const [resetAsk, setResetAsk] = useState(null);   // { id, preset: "all" | "chat" }：重置选择页
   const [affinities, setAffinities] = useState({});
   const [moods, setMoods] = useState({});
   const [states, setStates] = useState({});
@@ -1980,6 +1981,7 @@ function App() {
     const ms = (loadJSON("x_masks", []) || []).filter(m => m && m.id);
     masksRef.current = ms; setMasks(ms);
     setMaskPrimary(String(loadJSON("x_maskPrimary", "") || ""));
+    try { setComposerAuto(loadJSON("x_composerAuto", true) !== false); setComposerLift(loadJSON("x_composerLift", 0)); } catch (e) {}   // 输入栏往上抬＋自动适配底边（设置 → 外观与壁纸）
     // 名片的出厂预设（她 2026-09-06：「名片预设改一下就用我那张名片的签名和 tag，
     // 名字从 lisa 改成秋秋，默认图像塞秋秋那张胖鸟 png」）。
     // 原来是三个空值——新装的人第一眼看到的是「点此设置昵称／点铅笔写一句签名」，
@@ -7745,7 +7747,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return window.ChatRooms.get(personId, roomId);
   };
   const pOffline = (scopeKey, updater) => setOfflines(prev => {
-    const before = prev[scopeKey] || [];
+    // ⚠️内存里还没这个人的线下（这次开 App 还没进过他的线下）就先从存储读，绝不拿 [] 当底（2026-10-08 群友：
+    //   「往期只能看到最近一次的了」）。约会、旅行、扭蛋兑线下、地图上撞见这几条入口直接 startOffline，
+    //   不走 openOffline 那道先读存储的门——拿 [] 当底再存回去，往期就被「只有新这一场」整份盖掉了。
+    const before = prev[scopeKey] || offlinesRef.current[scopeKey] || loadJSON("x_offline:" + scopeKey, []) || [];
     const next = updater(before);
     saveJSON("x_offline:" + scopeKey, next);
     if (!offlineIsRoom(scopeKey) && window.ChatLedgerShadow) queueLedger("offline", scopeKey, window.ChatLedgerShadow.addedSessionMessages(before, next), null, scopeKey);
@@ -9734,11 +9739,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_groups", n);
       return n;
     });
-    // 她 2026-10-05：「主动删除就是不要的」——TA的东西一起清，不留给「找回失联」（那条路是给意外丢数据的）。
-    //   本机的按人存档、按人的表、带 charId 的记录都扫一遍（CharPurge），扫到的那几张表再从存档重读回界面；
-    //   记忆库走 saveMemLib 才同步得上云；梦在 IndexedDB 里另清。
+    purgeCharData(doomed);
+    setScreen("cast");
+    setEditingChar(null);
+  };
+  // 清掉【属于这几个人的一切】——删卷宗和「完全重置」共用这一份（施工规则/one-public-mechanism.md）。
+  // 她 2026-10-05：「主动删除就是不要的」——TA的东西一起清，不留给「找回失联」（那条路是给意外丢数据的）。
+  //   本机的按人存档、按人的表、带 charId 的记录都扫一遍（CharPurge），扫到的那几张表再从存档重读回界面；
+  //   记忆库走 saveMemLib 才同步得上云；梦在 IndexedDB 里另清。
+  // only：只清这几类（CharPurge.CATS 的 id）；不传＝全清（删卷宗）。重置时设置类永远不在 only 里，所以她给 TA 调的样子都留着。
+  const purgeCharData = (doomed, keep, only) => {
     const gone = Array.from(doomed);
-    const changed = window.CharPurge ? window.CharPurge.sweep(gone) : [];
+    const want = c => !only || only.has(c);
+    const changed = window.CharPurge ? window.CharPurge.sweep(gone, null, keep, only) : [];
     const RELOAD = {
       x_ambientCount: v => typeof setAmbientCount === "function" && setAmbientCount(v),
       x_anon: v => typeof setAnon === "function" && setAnon(v),
@@ -9751,7 +9764,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_carryPins: v => typeof setCarryPins === "function" && setCarryPins(v),
       x_shopCart: v => typeof setCart === "function" && setCart(v),
       x_charTitle: v => typeof setCharTitle === "function" && setCharTitle(v),
-      x_charWallet: v => typeof setCharWallet === "function" && setCharWallet(v),
+      x_charWallet: v => { charWalletRef.current = v; setCharWallet(v); },
       x_chatArch: v => typeof setChatArch === "function" && setChatArch(v),
       x_chatSettings: v => typeof setChatSettings === "function" && setChatSettings(v),
       x_coupleBreakup: v => typeof setCoupleBreakup === "function" && setCoupleBreakup(v),
@@ -9807,8 +9820,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_roomStates: v => typeof setRoomStates === "function" && setRoomStates(v),
       x_shopFeed: v => typeof setShopFeed === "function" && setShopFeed(v),
       x_snoops: v => typeof setSnoops === "function" && setSnoops(v),
-      x_stateHist: v => typeof setStateHist === "function" && setStateHist(v),
-      x_states: v => typeof setStates === "function" && setStates(v),
+      x_stateHist: v => { stateHistRef.current = v; setStateHist(v); },
+      x_states: v => { statesRef.current = v; setStates(v); },
       x_studio: v => typeof setStudio === "function" && setStudio(v),
       x_takeoutFeed: v => typeof setTakeoutFeed === "function" && setTakeoutFeed(v),
       x_takeoutLog: v => typeof setTakeoutLog === "function" && setTakeoutLog(v),
@@ -9816,21 +9829,50 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
       x_shopWish: v => typeof setWish === "function" && setWish(v),
-      x_worlds: v => typeof setWorlds === "function" && setWorlds(v)
+      x_worlds: v => typeof setWorlds === "function" && setWorlds(v),
+      // 下面这几张在界面里另有一份状态，不跟着重读，重置后旧的好感、日程、日记会被写回去
+      x_affinities: v => setAffinities(v),
+      x_schedules: v => { schedulesRef.current = v; setSchedules(v); },
+      x_diaries: v => setDiaries(v),
+      x_couples: v => setCouples(v),
+      x_thoughtCtr: v => { thoughtCtrRef.current = v; }
     };
     changed.forEach(k => { const f = RELOAD[k]; if (f) { try { const d = loadJSON(k, null); f(d == null ? (Array.isArray(loadJSON(k, [])) ? [] : {}) : d); } catch (e) {} } });
     const mine = k => doomed.has(String(k).split("::room::")[0]);   // 侧房 chatKey 也算TA的
-    chatsRef.current = Object.fromEntries(Object.entries(chatsRef.current || {}).filter(([k]) => !mine(k)));
-    setChats(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
-    setOfflines(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
-    { const lib = memLibRef.current || [];
+    if (want("chat")) {
+      chatsRef.current = Object.fromEntries(Object.entries(chatsRef.current || {}).filter(([k]) => !mine(k)));
+      setChats(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
+      setOfflines(p => Object.fromEntries(Object.entries(p).filter(([k]) => !mine(k))));
+      gone.forEach(x => { offlineTsRef.current = { ...offlineTsRef.current, [x]: 0 }; });
+    }
+    if (want("memory")) { const lib = memLibRef.current || [];
       const next = lib.filter(m => !((m.charIds || []).length && (m.charIds || []).every(x => doomed.has(x))))
         .map(m => (m.charIds || []).some(x => doomed.has(x)) ? { ...m, charIds: m.charIds.filter(x => !doomed.has(x)) } : m);
       if (next.length !== lib.length || next.some((m, i) => m !== lib[i])) saveMemLib(next); }
-    if (window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
-    setScreen("cast");
-    setEditingChar(null);
+    if (want("life") && window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
+    if (want("bond")) // 关系那一格的键是「me->角色id」「角色id->别人」这种两头拼起来的，CharPurge 只认整键＝id，扫不到
+    { const rels = loadJSON("x_rels", {}), keys = Object.keys(rels || {}).filter(k => k.split("->").some(x => doomed.has(x)));
+      if (keys.length) { keys.forEach(k => delete rels[k]); saveJSON("x_rels", rels); if (typeof setRels === "function") setRels(rels); } }
   };
+  // 完全重置（群里 2026-10-08「想让角色完全清除记忆，是不是要把角色删了重置才行」「记忆库删了好像还是记得之前的」）：
+  //   卷宗原样留着（人设、外貌、头像、音色、聊天设置之外的卡上东西），TA 跟她之间发生过的一切清掉，像第一次见面。
+  //   「记忆库删了还记得」是因为 TA 记得的不只记忆库：聊天记录本身、前情浓缩、心情好感、日程、日记、印象、房间往事、
+  //   云端聊天归档……都在喂 TA。所以这里跟删卷宗走同一份清扫，再把云端归档清空。
+  //   不动：配角（是 TA 身边的人，不是 TA 和她的事）、群成员身份；群聊记录是一群人共有的，不在这里清。
+  // 两个入口共用：人格档案馆编辑页「完全重置」（默认全选）、聊天设置里「清除 / 重置」（默认只选聊天、记忆、心情）。
+  //   真正动手的是 resetCharData；这里只开选择页。
+  const resetChar = id => { if ((characters || []).some(x => x && x.id === id)) setResetAsk({ id, preset: "all" }); };
+  const resetCharData = async (id, cats) => {
+    const c = (characters || []).find(x => x && x.id === id);
+    const only = new Set(cats || []);
+    if (!c || !only.size) return;
+    purgeCharData(new Set([id]), null, only);
+    if (only.has("chat")) setChatSettings(p => { const n = { ...p, [id]: { ...(p[id] || {}), lastSummarizedCount: 0 } }; saveJSON("x_chatSettings", n); return n; });
+    if (only.has("memory")) setMemFor(id, "");
+    if (only.has("chat")) { try { if (window.Cloud && window.Cloud.chatArchiveClear) await window.Cloud.chatArchiveClear(id); } catch (e) { toast("本机清好了，云端旧聊天归档没清掉：" + ((e && e.message) || e)); return; } }
+    toast(only.size >= ((window.CharPurge && window.CharPurge.CATS.length) || 7) ? "「" + (c.name || "TA") + "」重置好了，下次聊天就是第一次见面" : "清好了");
+  };
+
   const saveRemark = (id, remark) => pC(p => p.map(c => c.id === id ? {
     ...c,
     remark
@@ -27182,6 +27224,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("cast"),
     onSave: saveChar,
     onDelete: delChar,
+    onReset: resetChar,
     // 生成头像（她 2026-08-25：「为啥别的小手机能生成真的像头像的图，我们只有 emoji」）。
     // 图像 API 早就在跑自拍/合照/剧照，只是从来没接过头像这个字段。有参考照就拿它锁脸
     //（走 images/edits），没有就按【外貌】那栏画。方图 1024，存进图库只留一个 iv_ 键。
@@ -27272,6 +27315,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     gen: gen.moment,
     friendGroups: friendGroups,
     onSetCover: uri => setMomentCover(momTarget && momTarget.isMe ? "me" : (momTarget && momTarget.id), uri),
+    // 位置跟图存在同一份 x_momentsCover 里，键是「谁@pos」，值是 "x% y%"（不是图，迁移图库那一步不碰它）
+    coverPos: (momentsCover[((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos"]) || "",
+    onSetCoverPos: pos => setMomentCover(((momTarget && momTarget.isMe) ? "me" : (momTarget && momTarget.id)) + "@pos", pos),
     onDelMoment: delMoment,
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
@@ -29401,7 +29447,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       gazeReviewBusy: gazeReviewBusy,
       onClose: () => { setStateCardOpen(false); setStateCardChar(null); setStateCardGroup(false); setStateCardRoomKey(null); }
     });
-  })(), cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, // ⚠️不能只认 activeChar：从人格档案馆点进来的那个人未必是当前正在聊的人。
+  })(), resetAsk ? h(ResetChooser, { character: (characters || []).find(x => x && x.id === resetAsk.id), preset: resetAsk.preset,
+    onClose: () => setResetAsk(null), onRun: cats => { const id = resetAsk.id; setResetAsk(null); resetCharData(id, cats); } }) : null,
+  cardImportOpen ? h(CardImportSheet, { onImport: importCharCard, onClose: () => setCardImportOpen(false), userName: (profile && profile.name) || "你" }) : null, // ⚠️不能只认 activeChar：从人格档案馆点进来的那个人未必是当前正在聊的人。
   //   heartChar 是档案馆那条路指定的；聊天资料卡那条路不指定，退回 activeChar。
   (() => { const hc = heartChar || activeChar; return desireBoxOpen && hc && window.HeartPage ? h(window.HeartPage, {
     char: hc,
@@ -29598,7 +29646,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setMemFor(activeChar.id, "");
       toast("已清空记忆");
     },
-    onClearChat: wipeMem => clearChat(activeChar.id, wipeMem),
+    // 聊天设置里的「清除 / 重置」开同一张选择页（她 2026-10-08：只想删聊天重新开始，不要跑去人格档案馆）
+    onClearChat: () => { setChatSettingsOpen(false); setResetAsk({ id: activeChar.id, preset: "chat" }); },
     iBlocked: !!(blocks[blockChatKey(activeChar.id)] && blocks[blockChatKey(activeChar.id)].iBlocked),
     onToggleBlock: () => toggleBlock(activeChar.id, blockChatKey(activeChar.id)),
     memLibCount: memLib.filter(e => !e.charIds || e.charIds.length === 0 || e.charIds.includes(activeChar.id)).length,
