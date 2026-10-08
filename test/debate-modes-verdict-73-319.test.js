@@ -5,7 +5,7 @@ const vm = require("vm");
 const src = fs.readFileSync(__dirname + "/../js/debate.js", "utf8");
 assert(/【随便吵 · 这是一场吵架，不是辩论】/.test(src) && /每人一段 1~4 句/.test(src));
 assert(/【讲道理 · 这是一场正经辩论】/.test(src) && /每段都要有一个清楚的论点，并且真的碰到对面/.test(src));
-assert(/casual \? "这一局看的是谁更会损、更好笑、更有戏，不看道理；/.test(src), "裁判每轮看的也分局");
+assert(/casual \? "（这一局比的是谁更会损、更好笑、更有戏）"/.test(src), "裁判每轮看的也分局");
 assert(/台下打平，我来拍板/.test(src));
 assert(/【判词说人话】/.test(src));
 const i = src.indexOf("function tallyTied(");

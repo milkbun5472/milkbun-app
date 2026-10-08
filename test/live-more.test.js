@@ -192,3 +192,12 @@ test("错过的那场看昨天那张日程；播什么照日程写的来（她 2
   assert.match(missed, /props\.liveSched\(c, new Date\(now - 86400000\)\)/);
   assert.doesNotMatch(missed, /, \(\) => null\)/);
 });
+
+test("直播间画出来：⋯ 里点了才画，存在这一场上铺成底图", () => {
+  assert.match(app, /draw: \(charId, desc\) => drawFromDesc\(/);
+  const fn = live.slice(live.indexOf("const drawStage = async"), live.indexOf("const invite = c =>"));
+  assert.match(fn, /props\.draw\(/);
+  assert.match(fn, /img: ref/);
+  assert.match(live, /"data-wk": "livebg"/);
+  assert.match(live, /"data-wk": "livedrawbtn"/);
+});
