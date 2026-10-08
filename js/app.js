@@ -25322,6 +25322,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   她先点了「吃完了」，TA下一轮再照抄一遍，就又是一单（她 2026-10-03：「她说没有重roll过」）。两处都查。
     const dup = (ordersRef.current || []).concat(loadJSON("x_takeoutLog", []) || []).find(o => o && o.fromCharId === charId && o.name === orderName && (o.kind === "takeout" || o.takeout) && Date.now() - (o.ts || 0) < 6 * 3600000);
     const arriveTs = dup ? (dup.arriveTs || Date.now()) : Date.now() + deliverMsForCat("food", label);
+    // 卡也不重复（2026-10-08 群友：「为什么给我重复点外卖」）：TA下一轮照着聊天里那张卡又写一遍 takeout，
+    //   钱和订单上面已经挡住了，可卡照发，聊天里就是一模一样的两张，看着像点了两次。
+    //   聊天里六小时内已经有同一单的卡＝不再发。重 roll 时旧卡跟着那一轮删掉了，这儿找不到，照样补发。
+    const sameCard = (chatsRef.current[charId] || []).some(m => m && m.kind === "takeout" && !m.recalled && m.takeout && (m.takeout.shop || "") === shop
+      && (m.takeout.items || []).join("、") === label && Date.now() - (m.ts || 0) < 6 * 3600000);
+    if (sameCard) return true;
     if (!dup) walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
     pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
       content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now() }]);
