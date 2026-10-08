@@ -49,18 +49,27 @@ function cardFromJSON(text) {
   if (d.description) parts.push(String(d.description).trim());
   if (d.personality) parts.push("【性格】\n" + String(d.personality).trim());
   if (d.scenario) parts.push("【当下处境】\n" + String(d.scenario).trim());
-  // 世界书（character_book）正好就是记忆库种子该装的东西
+  // 卡里自带的世界书（character_book）原来塞进记忆种子：记忆是按相关度挑几条的，大半条目这一轮根本到不了他面前，
+  //   关键词、常驻全丢了，看着就是「人设不读世界书」（群友 2026-10-08）。现在原样落成世界书词条，绑这个角色：
+  //   常驻的照常驻，带关键词的照关键词翻，停用的照停用。
   const book = (d.character_book && Array.isArray(d.character_book.entries)) ? d.character_book.entries : [];
-  const seeds = book.map(e => ({
-    text: String((e && (e.content || e.text)) || "").replace(/\s+/g, " ").trim(),
-    pinned: !!(e && (e.constant || e.enabled === true && e.constant))
-  })).filter(x => x.text.length > 4);
+  const seeds = [];
+  const lore = book.map((e, i) => {
+    const body = String((e && (e.content || e.text)) || "").trim();
+    const keys = [].concat((e && (e.keys || e.key)) || []).map(k => String(k || "").trim()).filter(Boolean);
+    return {
+      title: String((e && (e.comment || e.name)) || "").trim().slice(0, 40) || ("卡内设定 " + (i + 1)),
+      payload: body, keyword: keys.join(","), alwaysOn: !!(e && e.constant) || !keys.length,
+      enabled: !(e && e.enabled === false), priority: 3
+    };
+  }).filter(x => x.payload.length > 4);
   return {
     name: String(d.name || "").trim(),
     tagline: String(d.creator_notes || "").split("\n")[0].trim().slice(0, 40),
     persona: parts.join("\n\n"),
     longMem: "",
     seeds: seeds,
+    lore: lore,
     greeting: String(d.first_mes || "").trim(),
     hadExample: !!String(d.mes_example || "").trim(),
     from: "json"
@@ -124,6 +133,7 @@ function parseCharCard(raw, userName) {
   out.greeting = cardFillNames(cardStripScaffold(out.greeting), nm, userName);
   out.tagline = cardFillNames(out.tagline, nm, userName);
   out.seeds = (out.seeds || []).map(x => ({ text: cardFillNames(x.text, nm, userName), pinned: x.pinned })).filter(x => x.text);
+  out.lore = (out.lore || []).map(x => Object.assign({}, x, { payload: cardFillNames(x.payload, nm, userName) }));
   return out;
 }
 // 整页，不是半窗（no-half-sheet.md）：这一页要装一大块粘贴框 + 解析预览 + 一串提醒，
