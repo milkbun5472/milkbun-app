@@ -6393,6 +6393,14 @@ function Home({
       if (!e.cancelable) return;
       if (dragKeyRef.current) { e.preventDefault(); return; }   // 手里拿着东西：纵横都锁死
       var r = dragRef.current;
+      // ⚠️方向要在【这里】就判出来（群里 2026-10-08 安卓浏览器「换不了页」）：这个原生监听挂在 shell 上，
+      //   比 React 根上的 onTM 先跑——第一下 touchmove 时 r.dir 还是空的，没拦住，安卓浏览器就把这一划
+      //   接走了（当成它自己的横划/返回手势），之后这一串 touchmove 都不可取消，onTM 再判成 "h" 也晚了。
+      //   iOS 靠 touch-action 就挡住了，所以一直没暴露。跟 onTM 用同一个阈值，判出来的结果它直接接着用。
+      if (r && r.dir == null && e.touches && e.touches[0]) {
+        var dx = e.touches[0].clientX - r.x, dy = e.touches[0].clientY - r.y;
+        if (Math.abs(dx) > 6 || Math.abs(dy) > 6) r.dir = Math.abs(dx) > Math.abs(dy) ? "h" : "v";
+      }
       if (r && r.dir === "h") e.preventDefault();               // 横滑翻页：这才是真正拦住浏览器的那一道
     };
     el.addEventListener("touchmove", block, { passive: false });
@@ -6806,7 +6814,9 @@ function Home({
     return h("div", { key: pi, "data-homepage": pi, style: { width: "100%", flexShrink: 0, height: "100%", paddingLeft: HOME_PAD_X, paddingRight: HOME_PAD_X,
       overflowY: "auto", overscrollBehaviorY: "contain", WebkitOverflowScrolling: "touch",
       // 拖着东西时这一页不许再自己滚（要够屏幕外那几行，靠 edgeScroll 一帧一步地送）
-      touchAction: dragKey ? "none" : undefined } },
+      // 平常也写明 pan-y：这一页自己是个滚动容器，touch-action 是从它这层往上算的，
+      //   写 undefined（auto）等于把横划也交给浏览器——安卓上横划就被浏览器拿去当返回 / 切标签了
+      touchAction: dragKey ? "none" : "pan-y" } },
       // 时钟跟图标下面那行字同一条规矩：铺了壁纸就翻白压深影，不然墨字加白晕（尺寸一个没动）
       pi === 0 && h("div", { className: "text-center mb-3", "data-homeclock": "1", "data-wk": "homeclock" },
         h("div", { "data-wk": "homeclockink", style: Object.assign({ fontFamily: F_DISPLAY, fontWeight: 300, fontSize: 62, lineHeight: 1, letterSpacing: "0.01em" },
