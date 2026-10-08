@@ -328,7 +328,7 @@
         h("input", { "data-wk": "shuachargeinput", value: own, onChange: e => setOwn(e.target.value.replace(/[^\d]/g, "").slice(0, 6)), inputMode: "numeric", placeholder: "自己填多少", style: { flex: 1, minWidth: 0, minHeight: 38, borderRadius: 10, border: "1px solid " + B.line, background: B.card, color: B.ink, padding: "0 10px", fontFamily: F_BODY, fontSize: 16 } }),
         h("button", { "data-wk": "shuachargebtn", disabled: !ok, onClick: () => { onCharge(Math.round(Number(own))); setOwn(""); }, className: "active:opacity-70", style: { minHeight: 38, padding: "0 16px", borderRadius: 10, background: ok ? B.accent : B.line, color: B.card, fontFamily: F_BODY, fontSize: 13 } }, "充")));
   }
-  function BDetail({ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
+  function BDetail({ v, charOf, busy, onFollowSeries, seriesOn, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply }) {
     const [text, setText] = useState("");
     const [mode, setMode] = useState("cm");          // cm 评论 / dm 弹幕
     const [replyTo, setReplyTo] = useState(null);    // 回复哪一条评论（楼中楼）
@@ -364,7 +364,8 @@
             ch ? h(Avatar, { character: ch, size: 34 }) : h("div", { style: { width: 34, height: 34, borderRadius: 99, background: tint(v), color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY } }, S(v.author).slice(0, 1)),
             h("div", { className: "min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: B.accent } }, v.author + (v.withName ? " · 与 " + v.withName + " 合拍" : "")), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: B.dim } }, fmtN(v.plays) + " 播放" + (v.zone ? " · " + v.zone : "")))),
           h("div", { "data-wk": "shuabtitle", style: { fontFamily: F_BODY, fontSize: 15, color: B.ink, marginTop: 10, lineHeight: 1.5 } }, v.title || v.caption),
-          v.series ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: B.accent, marginTop: 4 } }, "系列《" + v.series + "》· 第 " + (v.ep || 1) + " 期") : null,
+          v.series ? h("div", { className: "flex items-center", style: { gap: 8, fontFamily: F_BODY, fontSize: 11.5, color: B.accent, marginTop: 4 } }, "系列《" + v.series + "》· 第 " + (v.ep || 1) + " 期",
+            onFollowSeries ? h("button", { "data-wk": "shuaseriesfollow", "data-on": seriesOn ? "1" : "0", onClick: onFollowSeries, className: "active:opacity-70", style: { minHeight: 26, padding: "0 10px", borderRadius: 8, border: "1px solid " + B.accent, background: seriesOn ? "transparent" : B.accent, color: seriesOn ? B.accent : "#fff", fontSize: 11 } }, seriesOn ? "已追更" : "追更") : null) : null,
           (v.intro || (v.title && v.caption)) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: B.dim, marginTop: 6, lineHeight: 1.6 } }, v.intro || v.caption) : null,
           arr(v.tags).length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } }, v.tags.map(x => h("span", { "data-wk": "shuatag", key: x, style: { fontFamily: F_BODY, fontSize: 11, color: B.dim, background: B.bg, borderRadius: 99, padding: "3px 9px" } }, x))) : null,
           h("div", { "data-wk": "shuaactbar", className: "flex", style: { marginTop: 10 } },
@@ -537,6 +538,8 @@
             if (S(th.back) && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」发的视频（" + S(nv.scene).slice(0, 40) + "）底下，网友「" + thCm.name + "」说「" + S(thCm.text).slice(0, 60) + "」，你回了「" + S(th.reply).slice(0, 60) + "」，对方又回你「" + S(th.back).slice(0, 60) + "」。");
           }
           save(Object.assign({}, dbRef.current, { accounts, videos: [nv].concat(dbRef.current.videos) }));
+          // 追更（她 2026-10-08）：她追着的系列出了新一期，消息里落一条，点进去就是这一期
+          if (nv.series && ((dbRef.current.me || {}).series || {})[c.id + "|" + nv.series]) note((accounts[c.id] || {}).handle + " 的《" + nv.series + "》更新到第 " + nv.ep + " 期", nv.id);
           names.push(c.name);
           if (realFr && friends.length && props.ask) {
             const frs = friends.map(f => Object.assign({}, charOf(f.id) || {}, { rel: f.rel })).filter(f => f.id);
@@ -715,7 +718,8 @@
     }
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
-      if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
+      if (v) return h(BDetail, { v, charOf, seriesOn: !!(v.series && v.charId && ((dbRef.current.me || {}).series || {})[v.charId + "|" + v.series]),
+        onFollowSeries: v.series && v.charId && v.by === "char" ? () => { const k = v.charId + "|" + v.series, me = dbRef.current.me || {}, sr = Object.assign({}, me.series); if (sr[k]) delete sr[k]; else sr[k] = true; save(Object.assign({}, dbRef.current, { me: Object.assign({}, me, { series: sr }) })); toast(sr[k] ? "追更了，出新一期会在消息里提醒你" : "不追了"); } : null, busy: busy === "reply", onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
