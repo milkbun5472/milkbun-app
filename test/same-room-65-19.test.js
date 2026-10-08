@@ -152,10 +152,12 @@ test("她自己打的括号一律留在气泡里，那条改道整个撤掉了",
 
 test("他那一行是【消息】不是系统字：长按有菜单、没有那颗叉", () => {
   // 她 2026-09-09：「他的居中不要那个叉，然后可以编辑重roll刷掉之类的」
-  const i = comp.indexOf('"data-wk": "narr"');
-  const row = comp.slice(i, i + 1400);
+  // v75.075：单聊群聊共用 NarrLine
+  const i = comp.indexOf("function NarrLine("), i2 = comp.indexOf("function SysNote(", i);
+  assert.ok(i > 0 && i2 > i, "抠不出 NarrLine");
+  const row = comp.slice(i, i2);
   assert.match(row, /onTouchStart: selMode \? undefined : \(\) => startPress\(i\)/, "他那一行长按不出菜单");
-  assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "他那一行还挂着那颗 ✕");
+  assert.match(row, /\(onDelete && m\.who !== "char"\) \?/, "他那一行还挂着那颗 ✕");
   // 菜单里真的有编辑和重 Roll
   assert.match(comp, /\? \[\["copy", "fav"\], \["edit", "reroll"\], \["multi", "recall", "del"\]\]/);
   // 重 Roll 那道门要放他这一行过（原来只认 role==="assistant"）
@@ -208,10 +210,9 @@ test("群聊也接上了：谁变了谁那几泡前面出一行，没变的不�
   // 群里那一行也能重 Roll
   assert.match(app, /if \(m\.role !== "assistant" && m\.who !== "char"\) \{ toast\("只能重Roll成员的消息"\)/);
   // 群渲染：跟单聊同一个待遇，且写出是谁做的
-  const j = comp.indexOf('"data-wk": "narr"', comp.indexOf('"data-wk": "narr"') + 10);
-  const row = comp.slice(j - 400, j + 1400);
-  assert.match(row, /m\.who === "char" \? groupActText\(m\)/);
-  assert.match(row, /\(onDeleteMessages && m\.who !== "char"\) \?/, "群里那一行还挂着 ✕");
+  // v75.075：群里也走 NarrLine，✕ 的判据（他那一行不挂）在 NarrLine 里只有一份
+  const g = comp.slice(comp.indexOf("const gChatBg = settings && settings.chatBg"));
+  assert.match(g, /return h\(NarrLine, [\s\S]{0,300}?text: m\.who === "char" \? groupActText\(m\)/);
   // 群设置里那个开关（群设置是整份 patch 存的，不像单聊那头逐项手抄）
   assert.match(comp, /const \[gActDesc, setGActDesc\] = useState\(!!gs\.actDesc\);/);
   assert.match(comp, /defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName(, avatarImage: gAvatar)?(, layout: gLayout, customCSS: gCss)? \}\);/);

@@ -874,6 +874,33 @@ function QuoteDraftBar({ text, onClear }) {
 // 拉黑／解除那几张：新的带 sub:"block"，老记录按字认
 const sysNoteKind = m => (m && (m.sub === "block" || /拉黑/.test(String(m.content || "")))) ? "block" : "system";
 // 挂点（她 2026-10-03：「拉黑那个系统小纸条也要挂点」）：sysnote 带 data-kind（block＝拉黑/解除那几张，其余 system）
+// 旁白／动描那一行：单聊、群聊共用这一份（她 2026-10-08：「按单聊的来」）
+//   垫子判据跟单聊 plate 同一条：底下有聊天背景图或气泡皮肤底色，就铺一层白垫子，字跟着变深。
+function NarrLine({ i, m, text, selMode, selected, onBg, startPress, endPress, toggleSel, onDelete }) {
+  const t = useTheme();
+  return h("div", {
+    "data-wk": "narr",
+    "data-me": m.who === "char" ? "0" : "1",
+    onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
+    onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+    onClick: selMode ? () => toggleSel(i) : undefined,
+    className: "flex items-start justify-center gap-2 my-3 px-6"
+  }, h("span", {
+    "data-wk": "narrink",
+    style: Object.assign({
+      fontFamily: F_BODY,
+      fontSize: 12.5,
+      fontStyle: "italic",
+      lineHeight: 1.7,
+      color: selected ? t.ink : (onBg ? "#5a5550" : t.fog)
+    }, onBg ? { display: "inline-block", background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
+  }, text), (onDelete && m.who !== "char") ? h("button", {
+    onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", onDelete, "删除"),
+    className: "active:opacity-50 shrink-0",
+    style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "1px 2px" },
+    title: "删除旁白"
+  }, "✕") : null);
+}
 function SysNote({ label, text, tone, onClose, title, kind }) {
   const t = useTheme();
   const col = tone === "warn" ? t.accent : t.fog;
@@ -9612,36 +9639,15 @@ function ChatThread({
     // ⚠️她 2026-09-09：「TA的居中不要那个叉，然后可以编辑重roll刷掉之类的
     //   而不完全只是像系统的字」——所以TA那一行【长按出菜单】，跟气泡一个待遇；
     //   那颗 ✕ 只留给她自己写的旁白（她一直是一点就删的，别给她换掉）。
-    if (m.kind === "narration" || m.role === "narration") return h("div", {
-      key: i,
-      "data-wk": "narr",
-      "data-me": m.who === "char" ? "0" : "1",
-      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
-      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-      onClick: selMode ? () => toggleSel(i) : undefined,
-      className: "flex items-start justify-center gap-2 my-3 px-6"
-    }, h("span", {
-      "data-wk": "narrink",
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 12.5,
-        fontStyle: "italic",
-        lineHeight: 1.7,
-        // 垫子铺上了字就得跟着变深：浅灰压在白垫子上还是一片淡（同上那条病历）
-        color: (selMode && selIds.includes(i)) ? t.ink : ((dsp.chatBg || _wkBg) ? "#5a5550" : t.fog),
-        ...plate("5px 12px")
-      }
-    }, m.who === "char" && window.ActLine
+    if (m.kind === "narration" || m.role === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
+      onBg: !!(dsp.chatBg || _wkBg), startPress, endPress, toggleSel,
+      onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
+      text: m.who === "char" && window.ActLine
         ? window.ActLine.as(m.content,
             actPerson === "ta" ? (window.PhonePronoun ? window.PhonePronoun.ta(character) : "TA") : "",
             userPerson === "ta" ? [] : ["她", (profile && profile.name) || ""],
             userPerson === "ta" ? "她" : "")
-        : m.content), (onDeleteMessages && m.who !== "char") ? h("button", {
-      onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
-      className: "active:opacity-50 shrink-0",
-      style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "1px 2px" },
-      title: "删除旁白"
-    }, "✕") : null);
+        : m.content });
     // 系统提示这一族全走 SysNote（v63.49）：单聊 / 群聊 / 线下同一个长相，右上角都能 ✕ 掉
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
@@ -16575,35 +16581,10 @@ function GroupThread({
     // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
     // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
     //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
-    if (m.role === "narration" || m.kind === "narration") return h("div", {
-      key: i,
-      "data-wk": "narr",
-      "data-me": m.who === "char" ? "0" : "1",
-      onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress,
-      onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
-      onClick: selMode ? () => toggleSel(i) : undefined,
-      className: "flex justify-center items-start gap-2 py-1"
-    }, h("span", {
-      "data-wk": "narrink",
-      style: {
-        fontFamily: F_BODY,
-        fontSize: 12,
-        fontStyle: "italic",
-        // ⚠️跟单聊那一处同一条（见那儿的病历）：垫子原来只认【她设过的背景图】，
-        //   气泡皮肤刷的那层底色不算——底色一深，t.fog 那行动描就整个看不见。
-        color: (selMode && selIds.includes(i)) ? t.ink : ((gChatBg || _gWkBg) ? "#5a5550" : t.fog),
-        textAlign: "center",
-        maxWidth: "82%",
-        lineHeight: 1.5
-        , ...((gChatBg || _gWkBg) ? { display: "inline-block", background: "rgba(255,255,255,0.62)", backdropFilter: "blur(7px)", WebkitBackdropFilter: "blur(7px)", borderRadius: 10, padding: "5px 12px" } : {})
-      }
-    }, m.who === "char" ? groupActText(m) : "— " + m.content + " —"),
-      (onDeleteMessages && m.who !== "char") ? h("button", {
-      onClick: () => requestAppConfirm("删除这条旁白记录？", "删除后不能恢复。", () => onDeleteMessages([i]), "删除"),
-      className: "active:opacity-50 shrink-0",
-      style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, opacity: 0.6, padding: "0 2px" },
-      title: "删除旁白"
-    }, "✕") : null);
+    if (m.role === "narration" || m.kind === "narration") return h(NarrLine, { key: i, i, m, selMode, selected: selIds.includes(i),
+      onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
+      onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
+      text: m.who === "char" ? groupActText(m) : m.content });
     if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
     // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
     //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
