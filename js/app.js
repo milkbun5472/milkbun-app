@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.094";
+const APP_VERSION = "v75.098";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11093,7 +11093,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
       //   隔离房里TA也知道（群友 2026-10-08）。跟 watchedNote 同一档（别处发生的事），房里关了就不带
       const peekMemo = (opts.peekPhone || !roomReads("otherScenes") ? "" : peekMemoFor(charId)) + remarkHint;
-      const dongnianHint = peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      // 补时间戳的那一条（她关着 app 时「本该发出」的那会儿）：气泡上显示的是那会儿，可提示词里的钟是现在——
+      //   于是落款 14:36 的那条里写着「下午三点零七分」（她 2026-10-08 截图）。把那会儿告诉TA，话里报钟点照那会儿说。
+      const _bdTs = Number(opts.backdateTs) || 0;
+      const backdateHint = _bdTs && _bdTs < Date.now() - 5 * 60000
+        ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说，别按现在的钟。" : "";
+      const dongnianHint = backdateHint + peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");

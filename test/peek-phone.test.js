@@ -23,7 +23,7 @@ test("聊天加号里有「给TA看手机」，单子能把几样藏起来再递
 
 test("递过去：只摆她手机上真有的、藏了什么；主动开关和防连发闸都不拦", () => {
   assert.match(a, /const peekHint = opts\.peekPhone \?/);
-  assert.match(a, /const dongnianHint = peekHint \+ letterHint \+ refuseHint \+ caughtHint \+ peekMemo \+ \(/, "递手机那段喂进这一轮");
+  assert.match(a, /const dongnianHint = backdateHint \+ peekHint \+ letterHint \+ refuseHint \+ caughtHint \+ peekMemo \+ \(/, "递手机那段喂进这一轮");
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: false \};/);
   assert.match(a, /if \(_peekTurn\) opts = \{ \.\.\.opts, proactive: true \};/);
   assert.ok(a.indexOf("proactive: false };") < a.indexOf("!opts.phoneAs && history.length") && a.indexOf("!opts.phoneAs && history.length") < a.indexOf("if (_peekTurn) opts = { ...opts, proactive: true };"), "摘掉→过闸→挂回 的顺序");

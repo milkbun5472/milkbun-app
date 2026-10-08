@@ -157,3 +157,10 @@ test("画面跟着每一拍：此刻在干嘛每拍换、镜头里的样子变�
   assert.match(live, /setTimeout\(function \(\) \{ setCapIdx\(i => i \+ 1\); \}, 2800\)/);
   assert.match(live, /"回 " \+ capNow\.reply\.name/);
 });
+
+test("直播画面不写死高度（字多了不盖头像）；回谁那条两行；礼物栏开着时收起按钮那排、画面变矮；起伏要有来由", () => {
+  assert.match(live, /"data-wk": "livestage", className: "shrink-0 flex flex-col", style: \{ position: "relative", minHeight: giftOpen \|\| songOpen \? 150 : 200/);
+  assert.doesNotMatch(live, /position: "relative", height: 210/);
+  assert.match(live, /\(giftOpen \|\| songOpen\) \? null : h\("div", \{ className: "flex flex-wrap"/);
+  assert.match(live, /情绪起伏得有来由/);
+});

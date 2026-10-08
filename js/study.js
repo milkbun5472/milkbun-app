@@ -469,6 +469,8 @@
       const asked = (session.transcript || []).filter(function (m) { return m.role === "user"; }).slice(-2).map(function (m) { return m.content; }).join(" ");
       const mats = materialText(cur, [session.subject, unit && unit.title, unit && (unit.grammar || []).map(function (g) { return g.label; }).join(" "), asked].filter(Boolean).join(" "));
       if (mats) parts.push(mats);
+      const numF = numFilterText(cur, numFilterAsk(asked));
+      if (numF) parts.push(numF);
       // 对话式推进：老师这轮把当前小节讲透、用户也跟上了，就在 JSON 里标 done 让进度条自己前进
       if (mode === "teach" || mode === "nv1-teacher") parts.push(STUDY_PROGRESS_FMT);
     }
@@ -1013,6 +1015,51 @@
       + picked.map(function (c) { const head = c.name !== last ? "〔" + c.name + "〕\n" : ""; last = c.name; return head + c.text; }).join(total <= cap ? "\n\n" : "\n…\n")
       + "\n这是她正在学的那份东西：讲法、术语、例题尽量跟着它走；它没讲到的，你照自己会的补，顺口说一句这是资料外的。"
       + (picked.some(function (c) { return c.page; }) ? "\n〔PDF 第 N 页〕是文件里的第几页。她说「第几页」多半指书上印的页码，可能跟它差几页——对不上时先在那几页正文里找印着的页码再对；资料里真没有那一页，就直说没看到，别编那页上有什么。" : "");
+  }
+  // 按数字筛（群友 2026-10-08：「让他找词频大于等于 8 的，他一直漏掉单词，换了模型也一样」）。
+  //   漏的根子不在模型：资料一长，他每轮只拿到挑出来的那 6000 来字，筛的时候大半本根本不在他面前；
+  //   就算在，一长串「词＋小数字」逐个比对也是模型最容易跳的活。所以她一开口要按数字筛，
+  //   这一下由代码把【全文】里每个「词^数字」都过一遍，筛好的名单整份交给他——他负责讲，不负责数。
+  function numFilterAsk(text) {
+    const t = String(text || "");
+    if (!/词频|频率|考频|频次|次数|上标|小数字|出现/.test(t)) return null;
+    const m = /(大于等于|不少于|不低于|至少|>=|≥|大于|超过|多于|>)\s*(\d{1,4})|(\d{1,4})\s*(?:次)?\s*(及以上|以上|或以上|往上)/.exec(t);
+    if (!m) return null;
+    // 「没标数字的也算」：词表里没挂小数字的那些她也要（她的书里不标＝高频）
+    const bare = /(没有?标|没带|不标|不带|没挂)[^，。,.]{0,8}(数字|小数字|上标|词频|频率)?[^，。,.]{0,6}(也算|也要|算进|也包括|都算)/.test(t);
+    if (m[2]) return { n: +m[2], strict: /^(大于|超过|多于|>)$/.test(m[1]), bare: bare };
+    return { n: +m[3], strict: false, bare: bare };
+  }
+  function numFilterText(cur, ask) {
+    const list = (cur && cur.materials) || [];
+    if (!ask || !list.length) return "";
+    const seen = {}, out = [];
+    list.forEach(function (mt) {
+      const txt = String(MAT_CACHE[mt.id] || ""), re = /([A-Za-z][A-Za-z'\-]*)\s*\^\s*(\d{1,4})/g;
+      let x;
+      while ((x = re.exec(txt))) {
+        const w = x[1], v = +x[2], k = w.toLowerCase();
+        if ((ask.strict ? v > ask.n : v >= ask.n) && !seen[k]) { seen[k] = 1; out.push(w + "(" + v + ")"); }
+      }
+    });
+    // 没挂数字的：只认【一行打头】的那个英文词（词表一行一个词），例句里的英文不算
+    const bareOut = [];
+    if (ask.bare) list.forEach(function (mt) {
+      String(MAT_CACHE[mt.id] || "").split(/\n/).forEach(function (line) {
+        //   词后面跟的得是释义／音标／词性／行尾，不能还是英文——不然「The apple is red.」这种例句也会被收进来
+        const y = /^\s*(?:\d{1,4}\s*[.、)）]\s*)?([A-Za-z][A-Za-z'\-]*)(?=\s*(?:$|[^A-Za-z\s^]|(?:n|v|vt|vi|adj|adv|prep|conj|pron|num|art|int|aux)\.))/.exec(line);
+        if (!y) return;
+        const k = y[1].toLowerCase();
+        if (k.length < 2 || seen[k]) return;
+        seen[k] = 1; bareOut.push(y[1]);
+      });
+    });
+    if (!out.length && !bareOut.length) return "";
+    return "【从她资料全文里按数字筛出来的（app 逐个数过全文，一个不漏）】条件：上标数字" + (ask.strict ? "大于 " : "大于等于 ") + ask.n
+      + (ask.bare ? "，外加没标数字的" : "") + "，共 " + (out.length + bareOut.length) + " 个，按资料里出现的先后：\n"
+      + (out.length ? (ask.bare ? "标了数字的 " + out.length + " 个：" : "") + out.join("、") : "")
+      + (bareOut.length ? "\n没标数字的 " + bareOut.length + " 个（每行打头那个词）：" + bareOut.join("、") : "")
+      + "\n她要的就是这份：照这份给她，别自己再从上面那几段资料里重数（那几段只是挑出来的一部分，数出来一定少），也别删别添；要分组、讲用法、出题都从这份里来。";
   }
   // 读她选的那个文件：txt/md 自己认编码，pdf 抽文字层
   async function readMaterialFile(f, onProg) {
