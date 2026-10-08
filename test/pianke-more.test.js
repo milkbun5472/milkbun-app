@@ -75,3 +75,14 @@ test("本周礼物榜本机算；热门里有同款挑战、TA 发视频时读�
   assert.match(shua, /同款的挑战/);
   assert.match(between(shua, "const hotToday =", "\n"), /x\.about/);
 });
+
+test("追更：系列出新一期落一条消息；串门：叫自己的人一起看路人主播", () => {
+  const post = between(shua, "// 追更（她 2026-10-08）", "names.push");
+  assert.match(post, /me \|\| \{\}\)\.series/);
+  assert.match(post, /note\(/);
+  assert.match(shua, /data-wk": "shuaseriesfollow"/);
+  assert.match(live, /const invite = c =>/);
+  assert.match(live, /onInvite: cur\.stranger \? invite : null/);
+  assert.match(live, /ses\.buddy && x\.who === ses\.buddy\.name/);
+  assert.match(between(live, "if (s.buddy) {", "stPatch("), /props\.remember\(\[s\.buddy\.charId\]/);
+});

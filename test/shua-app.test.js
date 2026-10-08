@@ -110,7 +110,7 @@ test("两套皮只说事实不给内容；扔掉要先问；收藏的不会被�
 });
 
 test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同款/同城", () => {
-  assert.match(S, /function BDetail\(\{ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply \}\)/);
+  assert.match(S, /function BDetail\(\{[^}]*\bcoinsLeft, onCoin, onCharge, onDm, onReply\b/);
   assert.match(S, /const SERIES_ADD = ',"series":""';/);
   assert.match(S, /if \(\(v\.myCoins \|\| 0\) >= 2\) \{ toast\("一条最多投两枚"\)/);
   assert.match(S, /props\.charPay\(c\.id, Math\.floor\(amt \* \(1 - CHARGE_CUT\)\), "片刻收到充电/);
