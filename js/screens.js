@@ -1893,10 +1893,12 @@ function schedDateParts(k) {
 //   只动【此刻到 until】这一截：此刻之前的原样留着，被盖住那段切掉中间、两头留下；
 //   新插的那段带 deviation，日程页和下一轮提示词都认得出它是临时改的。
 //   change = {title, location, until:"HH:MM", reason}；nowMin 是 TA 当地此刻的分钟数。
+// 字数放开（她 2026-10-08「改日程会截断，直接把日程和改日程的字数放开」）：原来 title 40 / reason 60 字一刀切，
+//   改日程的原因稍长一点就被砍成半句；现在只留一个防止整段正文被塞进来的大上限。
 function schedSpliceNow(seqs, nowMin, change) {
   const min = t => { const m = /(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? (+m[1]) * 60 + (+m[2]) : null; };
   const hm = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
-  const title = String((change && change.title) || "").trim().slice(0, 40);
+  const title = String((change && change.title) || "").trim().slice(0, 300);
   if (!title || !Number.isFinite(nowMin)) return null;
   const full = schedFillEnds(Array.isArray(seqs) ? seqs : []);
   const n = Math.max(0, Math.min(1439, Math.floor(nowMin)));
@@ -1911,8 +1913,8 @@ function schedSpliceNow(seqs, nowMin, change) {
     if (st < n) out.push({ ...s, end: hm(n) });
     if (en != null && en > u) out.push({ ...s, time: hm(u) });
   }
-  out.push({ time: hm(n), end: hm(u), title: title, location: String(change.location || "").slice(0, 40), place: "", type: "other",
-    deviation: { plan: hit.filter(Boolean).join("、") || "原本没排事", reason: String(change.reason || "跟你在一起，临时改了").slice(0, 60), actual: title } });
+  out.push({ time: hm(n), end: hm(u), title: title, location: String(change.location || "").slice(0, 200), place: "", type: "other",
+    deviation: { plan: hit.filter(Boolean).join("、") || "原本没排事", reason: String(change.reason || "跟你在一起，临时改了").slice(0, 600), actual: title } });
   out.sort((a, b) => (min(a.time) ?? 9999) - (min(b.time) ?? 9999));
   return out.map((s, i) => ({ ...s, seq: i + 1 }));
 }
@@ -10250,6 +10252,8 @@ function ThemeConfig({
   const [lift, setLift] = useState(() => { try { return Number(loadJSON("x_composerLift", 0)) || 0; } catch (e) { return 0; } });
   const moveLift = v => setLift(setComposerLift(v));
   const saveLift = () => { try { saveJSON("x_composerLift", lift); } catch (e) {} };
+  const [liftAuto, setLiftAuto] = useState(() => { try { return loadJSON("x_composerAuto", true) !== false; } catch (e) { return true; } });
+  const flipLiftAuto = () => { const v = setComposerAuto(!liftAuto); setLiftAuto(v); try { saveJSON("x_composerAuto", v); } catch (e) {} };
   const commitFx = next => { const n = next || fx; onSaveWallFx && onSaveWallFx(n); };
   const fxRow = (k, zh, max, hint) => h("div", { style: { marginTop: 12 } },
     h("div", { className: "flex items-baseline justify-between", style: { marginBottom: 5 } },
@@ -10347,7 +10351,13 @@ function ThemeConfig({
       onChange: e => moveLift(e.target.value), onMouseUp: saveLift, onTouchEnd: saveLift,
       style: { width: "100%", accentColor: t.ink } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
-      "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。")),
+      "聊天、群聊、通话这些页底下的输入栏，离屏幕底边留多少。有的手机底边那一条点不准，就往上抬一点；全 App 的输入栏一起动。"),
+    h("div", { className: "flex items-center justify-between", style: { marginTop: 12, gap: 12 } },
+      h("div", null,
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, "自动适配底边"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+          "有些安卓手机在浏览器里打开时，底部被挡了一截却不告诉网页。开着的话遇到这种手机会自动多抬 12px，跟上面拉的数加在一起；不挡的手机不受影响。")),
+      h(Toggle, { on: liftAuto, onChange: flipLiftAuto }))),
   /*#__PURE__*/React.createElement("input", {
     ref: fileRef,
     type: "file",

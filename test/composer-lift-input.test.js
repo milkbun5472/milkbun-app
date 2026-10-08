@@ -19,3 +19,11 @@ test("输入栏往上抬：一个常量管全 App，开机读、设置里拖", (
   assert.match(scr, /"输入栏往上抬"/);
   assert.match(scr, /saveJSON\("x_composerLift", lift\)/);
 });
+
+test("自动适配底边：开关默认开，只在安卓＋手机报 0 时多抬，跟手动拉条相加", () => {
+  assert.match(eng, /if \(!\/Android\/i\.test\(navigator\.userAgent \|\| ""\)\) return false;/);
+  assert.match(eng, /return pad === 0;/);
+  assert.match(eng, /const n = _composerManual \+ \(_composerAuto && composerNeedsAuto\(\) \? COMPOSER_AUTO_LIFT : 0\);/);
+  assert.match(app, /setComposerAuto\(loadJSON\("x_composerAuto", true\) !== false\)/);
+  assert.match(scr, /"自动适配底边"/);
+});
