@@ -322,6 +322,7 @@ function CastSection({ no, title, en, tint, children }) {
   const t = useTheme();
   const accent = tint || t.tint;
   return h("section", {
+    "data-wk": "castfsec", "data-no": no,
     className: "mb-4 overflow-hidden",
     style: {
       position: "relative", background: t.bg2, border: "1px solid " + t.line, borderRadius: 16,
@@ -667,13 +668,13 @@ function CastForm({
     ttsProv === "minimax" && h("div", { className: "flex flex-wrap gap-1.5 mb-2" }, (typeof TTS_VOICES !== "undefined" ? TTS_VOICES : []).map(v => h("button", { key: v.id, onClick: () => setVoiceId(voiceId === v.id ? "" : v.id), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 11.5, padding: "4px 10px", borderRadius: 999, background: voiceId === v.id ? t.ink : t.bg, color: voiceId === v.id ? t.bg2 : t.sub, border: "1px solid " + t.line } }, v.name))),
     h("input", { value: voiceId, onChange: e => setVoiceId(e.target.value), placeholder: ttsProv === "minimax" ? "或直接填 voice_id（含克隆音色）" : (ttsProv === "fish" ? "填 Fish Audio 的声音 ID" : "填 ElevenLabs 的 Voice ID"), className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 12.5, background: t.bg, color: t.ink, border: "1px solid " + t.line } }),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 5, lineHeight: 1.5 } }, "接好语音 API 并选音色后，Ta 的语音消息才能真听。"));
-  return h("div", { className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
+  return h("div", { "data-wk": "castfpage", className: "h-full flex flex-col", style: { background: dossierDeskBg(accent) } },
     h(Head, { zh: initial ? "编辑档案" : "新建档案", onBack,
       bg: "rgba(255,255,255,.32)", barStyle: { backdropFilter: "blur(10px)", WebkitBackdropFilter: "blur(10px)" },
-      right: h("button", { onClick: save, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档") }),
+      right: h("button", { "data-wk": "castfsave", onClick: save, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13.5, color: name.trim() ? t.ink : t.fog, padding: "10px 0 10px 10px" } }, "存档") }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pb-10" },
       // 抬头这张跟列表里那张卷宗卡说同一种话：书脊、装订孔、纸纹、贴上去的照片
-      h("section", { style: { position: "relative", margin: "18px 0 16px", borderRadius: 17, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 12px 26px -10px rgba(46,38,29,.2), inset 0 1px 0 rgba(255,255,255,.9)" } },
+      h("section", { "data-wk": "castfcover", style: { position: "relative", margin: "18px 0 16px", borderRadius: 17, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden", boxShadow: "0 1px 2px rgba(46,38,29,.07), 0 12px 26px -10px rgba(46,38,29,.2), inset 0 1px 0 rgba(255,255,255,.9)" } },
         h("span", { style: { position: "absolute", inset: "0 auto 0 0", width: 8, background: accent, boxShadow: "inset -1px 0 2px rgba(0,0,0,.22)" } }),
         h("span", { style: { position: "absolute", left: 2.5, top: 0, bottom: 0, width: 3, display: "flex", flexDirection: "column", justifyContent: "space-evenly" } },
           [0, 1, 2, 3].map(n => h("span", { key: n, style: { width: 3, height: 3, borderRadius: 999, background: "rgba(255,255,255,.55)", boxShadow: "inset 0 1px 1px rgba(0,0,0,.3)" } }))),
@@ -685,16 +686,16 @@ function CastForm({
             // 「在册」谁都是在册，那是句废话；只有还没存下来的这一档才值得说
             initial ? null : h("span", { style: { fontFamily: F_BODY, fontSize: 8.5, letterSpacing: ".05em", color: accent, border: "1px solid " + accent, borderRadius: 999, padding: "3px 8px" } }, "待归档")),
           h("div", { className: "flex items-center gap-4" },
-            h("div", { className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
+            h("div", { "data-wk": "castfavatar", className: "shrink-0", style: { padding: 3, background: "#fffdf9", borderRadius: 4, boxShadow: "0 2px 7px rgba(46,38,29,.24)", transform: "rotate(-1.6deg)" } },
               h(AvatarPicker, { character: { name, avatarEmoji: emoji, color, avatarImage }, size: 80, radius: 3, onPick: setAvatarImage, onClear: () => setAvatarImage(null), genBusy: avBusy, onGenerate: genAvatar }),
               chatAvatarOn && h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
                 h("img", { src: typeof resolveImg === "function" ? resolveImg(initial.chatAvatar) : initial.chatAvatar, alt: "", style: { width: 22, height: 22, borderRadius: 4, objectFit: "cover" } }),
                 h("button", { onClick: () => setChatAvatarOn(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, textAlign: "left", lineHeight: 1.35 } }, "聊天里用的是TA自己换的\n点这里用回档案这张"))),
             h("div", { className: "flex-1 min-w-0" },
-              h("input", { value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
+              h("input", { "data-wk": "castfname", value: name, onChange: e => setName(e.target.value), placeholder: "姓名", className: "w-full bg-transparent outline-none", style: { fontFamily: F_DISPLAY, fontSize: 24, color: t.ink } }),
               h("span", { style: { display: "block", height: 1, background: t.line, margin: "5px 0 7px" } }),
-              h("input", { value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }))),
-          h("div", { style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
+              h("input", { "data-wk": "castftag", value: tagline, onChange: e => setTagline(e.target.value), placeholder: "一句话标签", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }))),
+          h("div", { "data-wk": "castfcolor", style: { marginTop: 16, paddingTop: 13, borderTop: "1px solid " + t.line } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".08em", color: t.fog, marginBottom: 9 } }, "这份卷宗什么颜色"),
             palette))),
       h(CastSection, { no: "01", title: "人物底稿", en: characterText({ gender }, "他是谁、从哪儿来"), tint: accent },
@@ -715,7 +716,7 @@ function CastForm({
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "说话什么声气", tint: accent },
         h(LineField, { zh: "音色 · 语音消息用", en: "Voice" }, voiceFields)),
-      initial ? h("button", { onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
+      initial ? h("button", { "data-wk": "castfdel", onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));
 }
 
 // ============================================================
