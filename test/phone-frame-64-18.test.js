@@ -36,7 +36,8 @@ test("查手机那块底衬起了名字，不再是一行看不出用意的裸�
 
 test("随身物门后早就有底了——柜内那一层走的是布纹", () => {
   // 工单上那一行是过期的：门是做过的，门【后】那一层也是做过的
-  const i0 = scr.indexOf("function Carry({ characters, carry,");
+  // 只钉函数名：参数表会被加东西（2026-10-08 加了 onOpenMine，原来钉的「characters, carry,」当场断）
+  const i0 = scr.indexOf("function Carry({");
   assert.ok(i0 > 0, "找不到随身物");
   const seg = scr.slice(i0, scr.indexOf("\nfunction ", i0 + 10));
   const skins = seg.match(/pageSkin\("cloth", t, \{ tint: CARRY_TINT\.bag, corner: false \}\)/g) || [];
