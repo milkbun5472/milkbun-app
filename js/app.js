@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.106";
+const APP_VERSION = "v75.110";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5894,15 +5894,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const liveChars = characters.filter(c => c && !c.npc);
   // TA 今天日程里写着直播的那几段 → [{start,end}]（我这边的毫秒）。
   //   今天日程排好了但没写直播 → []（今天不播）；还没排 → null（直播那边才按日子掷）。
-  const liveSchedFor = char => {
+  // at：看哪一天（不给就是今天）。「错过的」要看昨天那张日程，不能拿今天的表、更不能按日子瞎掷（她 2026-10-08：「为啥都在播吃饭」）
+  const liveSchedFor = (char, at) => {
     if (!char) return null;
     const plans = (schedulesRef.current || {})[char.id] || {};
-    const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    const atD = at instanceof Date ? at : new Date();
+    const s0 = plans[schedLocalDayKey(char, atD.getTime())] || plans[schedDayKey(atD)];
     if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const filled = typeof schedFillEnds === "function" ? schedFillEnds(s0.seqs) : s0.seqs;
     const disp = schedDisplaySeqs(char, filled);
     const shift = schedTzShiftMin(char);
-    const d0 = new Date(); const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
+    const d0 = atD; const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
     // ⚠️只认【TA自己播】（群友 2026-10-08：「所有 char 都直播了」）：原来标题或地点带「直播」就算，
     //   「刷手机看直播」「看球赛直播」「直播间里蹲人」这种看别人播的也被当成TA开播。地点不看，看的那几种排掉。
     const selfLive = t => /开播|(开|做|搞|上|去)直播|直播(带货|唱歌|聊天|打游戏|游戏|陪|学习|做饭|户外|中)|^直播/.test(t)
@@ -5913,7 +5915,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const start = midnight + x._myMin * 60000;
       let end = endMy == null ? start + 120 * 60000 : midnight + endMy * 60000;
       if (end <= start) end += 1440 * 60000;
-      return { start, end };
+      // 播什么照日程那条写的来，日程没说才由直播那边按日子定
+      const tt = String(x.title || "");
+      const kind = /带货|卖/.test(tt) ? "sell" : /游戏|开黑|上分|打/.test(tt) ? "game" : /唱|歌/.test(tt) ? "sing" : /学习|自习|看书|写/.test(tt) ? "study" : /做饭|吃|烤|煮|厨/.test(tt) ? "cook" : /户外|散步|逛|旅/.test(tt) ? "outdoor" : /聊/.test(tt) ? "chat" : "";
+      return kind ? { start, end, kind } : { start, end };
     });
   };
   // TA 自己开播的提醒（她 2026-10-08）：时间表是本地按日子算的，提醒也只是看一眼表，一个调用都不花
