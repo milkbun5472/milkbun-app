@@ -15772,7 +15772,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
   //   放在最前面：它是最无害的一个，不该排在「删除」旁边等着误触。
   const copyOne = () => copyText(String(m.content || "").trim())
     .then(ok => window.__toast && window.__toast(ok ? "已复制" : "复制不了，长按那段自己选"));
-  const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },
+  const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0", style: { marginLeft: "auto" } },
     h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })),
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
     onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
@@ -15808,11 +15808,13 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     // 她 2026-08-27 看别家线下也有，问怎么弄的——线下以前压根没要过这个字段（v56.75）。
     (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m, off: showReason === false }) : null,
     h("div", { "data-wk": "offcard", "data-me": isUser ? "1" : "0", style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
-      h("div", { "data-wk": "offhead", className: "flex items-center gap-2.5 mb-2.5" },
+      // ⚠️排不下就让右边那组按钮整体换到第二行（她 2026-10-08 截图：字号大一点，删除键冲出卡片）——
+      //   名字至少留 5 个字宽，不然它缩到 0、一排永远「装得下」、按钮就往外冲
+      h("div", { "data-wk": "offhead", className: "flex items-center flex-wrap mb-2.5", style: { columnGap: 10, rowGap: 6 } },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
         // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
-        h("span", { "data-wk": "offname", className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
+        h("span", { "data-wk": "offname", style: { flex: "1 1 5em", fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
         (!isUser && spk && offSpeech) ? h(TtsDot, { k: "off" + (m.id || ""), text: offSpeech, spk, tp }) : null,
         timeEl,
         actions),

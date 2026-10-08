@@ -35,7 +35,8 @@ test("线下卡头上的名字不许再堆成两行", () => {
   // ⚠结尾那个锚点必须在 OffCard【后面】：CotReveal 定义在它前面，
   // 拿它当结尾会切出一段空的，然后这条测试永远说不清是真绿还是切飞了
   const off = slice("function OffCard(", "\nfunction GroupOfflineMode(");
-  const nameLines = off.split("\n").filter(l => l.indexOf('className: "flex-1"') >= 0 && l.indexOf("F_DISPLAY") >= 0);
+  // v75.077 正文卡那一处改成 flex: "1 1 5em"（留底宽，让右边按钮排不下时整组换行），也算
+  const nameLines = off.split("\n").filter(l => (l.indexOf('className: "flex-1"') >= 0 || l.indexOf('flex: "1 1 5em"') >= 0) && l.indexOf("F_DISPLAY") >= 0);
   assert.ok(nameLines.length >= 2, "线下卡上的名字有两处（正文卡 + 自拍卡），都要治");
   nameLines.forEach(l => {
     assert.ok(/minWidth: 0/.test(l), "少了 minWidth:0：" + l.trim().slice(0, 60));
