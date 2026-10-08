@@ -2949,7 +2949,7 @@ function Forum({
   function floorRow(post, cm, i) {
     const c = cm.authorType === "character" ? charOf(cm.authorId) : null;
     const isL = liked.has(cm.id);
-    const nm = cm.authorType === "me" ? (cm.alt ? cm.authorName : meChar.name) : (c ? c.name : cm.authorName);
+    const nm = cm.authorType === "me" ? (cm.alt || cm.anon ? cm.authorName : meChar.name) : (c ? c.name : cm.authorName);
     const fresh = isFreshFloor(cm);
     return h("div", { key: cm.id || i, id: "forum-floor-" + (cm.id || i), "data-wk": "fofloor", "data-me": cm.authorType === "me" ? "1" : "0", "data-new": fresh ? "1" : "0", style: { margin: "8px 13px 0", padding: "12px 13px", borderRadius: 15, border: "1px solid " + (fresh ? FORUM_SKIN.accent + "55" : FORUM_SKIN.line), borderLeft: (fresh ? "3px solid " + FORUM_SKIN.accent : "1px solid " + FORUM_SKIN.line), background: fresh ? "rgba(255,252,246,.95)" : "rgba(251,252,247,.82)" } },
       h("div", { className: "flex gap-2.5" },
@@ -2978,7 +2978,7 @@ function Forum({
             // 深度仍然只有两层：回楼中楼落在同一层里，用「回复 @某某」标出对象。
             //   （贴吧/微博就是这么做的；真做三层嵌套在手机上没法读，老数据也要迁。）
             (cm.replies || []).map((r, j) => h("div", { key: j, style: { padding: "3px 0" } },
-              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt ? r.authorName : meChar.name) : r.authorName)),
+              h("button", { onClick: () => { if(r.authorType==="character")goProfile(r.authorId);else if(isAlt(r))goAltProfile(r);else goNpcProfile(r); }, className: "active:opacity-60", style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName)),
               accountBadge(r),
               r.isOp && h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.bg2, background: t.tint, borderRadius: 4, padding: "0 4px", marginLeft: 4 } }, "楼主"),
               r.toName && h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, " 回复 @" + r.toName),
@@ -2986,7 +2986,7 @@ function Forum({
               h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12, color: r.authorType === "me" ? t.accent : (r.authorType === "character" ? t.tint : t.ink) } }, "："),
               h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, atClean(r.content)),
               h("button", {
-                onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt ? r.authorName : meChar.name) : r.authorName) }),
+                onClick: () => setReplyTo({ floorId: cm.id, name: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName), toName: (r.authorType === "me" ? (r.alt || r.anon ? r.authorName : meChar.name) : r.authorName) }),
                 className: "active:opacity-60",
                 style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginLeft: 7 }
               }, "回复"))),
