@@ -85,6 +85,6 @@ test("日历那一页别再把整页顶高：min-h-0 和外壳的 overflow-hidde
   // 这里头是写死高度的一张格子——正是「不肯缩」时会把整页顶高的那种东西
   assert.match(comp, /style: \{ flex: 1, display: "flex", height: gridH \+ 90 \}/);
   // 外壳自己兜住
-  const shell = comp.slice(comp.indexOf('return h("div", { className: "h-full flex flex-col overflow-hidden"'), comp.indexOf('"data-wk": "head", className: "shrink-0 flex items-center justify-between px-4 pb-2"'));
+  const shell = comp.slice(comp.indexOf('"data-wk": "calpage", className: "h-full flex flex-col overflow-hidden"'), comp.indexOf('"data-wk": "head", className: "shrink-0 flex items-center justify-between px-4 pb-2"'));
   assert.ok(shell.length > 0, "日历外壳没有 overflow-hidden");
 });

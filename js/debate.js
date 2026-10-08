@@ -497,7 +497,7 @@
     // 跟台上那条同一个做法），方角、纸色，「胜」章照旧歪着盖上去。
     const arenaFloor = (typeof pageSkin === "function")
       ? pageSkin("cloth", t, { strength: .55, corner: false }) : { background: t.bg };
-    return h("div", { className: "h-full flex flex-col", style: arenaFloor },
+    return h("div", { className: "h-full flex flex-col", style: arenaFloor, "data-wk": "debpage" },
       h(Head, { zh: "擂台", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-8" },
         // 「摆一场擂台」＝在场地上支起一块空台面：上面那道线是台面，下面是台裙。
@@ -511,7 +511,7 @@
             borderTop: "3px solid " + t.fog, borderRadius: 0,
             background: "linear-gradient(180deg,rgba(38,34,28,.05),transparent 78%)",
             fontFamily: F_BODY, fontSize: 13.5, letterSpacing: ".08em", color: t.sub
-          }
+          }, "data-wk": "debpagebtn", "data-part": "1"
         }, "摆一场擂台"),
         saves.length === 0
           ? h("div", { style: { textAlign: "center", color: t.fog, fontFamily: F_BODY, fontSize: 13, lineHeight: 1.8, paddingTop: 40, whiteSpace: "pre-line" } }, "台子还空着。\n挑两三个人，给一句话，看他们怎么吵。")
@@ -530,7 +530,7 @@
                 // 台面线在顶上（3px，模式色），线下是台裙那一片渐深——跟台上同一个做法
                 style: { position: "relative", cursor: "pointer", borderRadius: 0,
                   borderTop: "3px solid " + modeInk, padding: "12px 13px 15px",
-                  background: "linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,.20) 62%,transparent)" }
+                  background: "linear-gradient(180deg,rgba(255,255,255,.52),rgba(255,255,255,.20) 62%,transparent)" }, "data-wk": "debpage", "data-part": "r2"
               },
                 h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 2, color: modeInk, marginBottom: 5 } }, s.mode === "free" ? "随便吵" : "讲道理"),
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, lineHeight: 1.35, color: t.ink, marginBottom: 6, paddingRight: ended ? 74 : 0 } }, s.topic),
@@ -622,12 +622,12 @@
     const label = { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, marginBottom: 8, letterSpacing: .3,
       borderTop: "3px solid " + t.line, paddingTop: 9, marginTop: 4 };
 
-    return h("div", { className: "h-full flex flex-col", style: arenaFloor },
+    return h("div", { className: "h-full flex flex-col", style: arenaFloor, "data-wk": "debsetup" },
       h(Head, { zh: "摆台子", onBack: props.onCancel, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         // 题目
         h("div", { style: label }, "今天台上吵什么"),
-        h("textarea", { value: topic, onChange: e => setTopic(e.target.value), placeholder: "例：该不该为爱情放弃事业 / 咖啡还是茶 / 先有鸡还是先有蛋…", rows: 2, style: Object.assign({}, field, { resize: "none", marginBottom: 20 }) }),
+        h("textarea", { value: topic, onChange: e => setTopic(e.target.value), placeholder: "例：该不该为爱情放弃事业 / 咖啡还是茶 / 先有鸡还是先有蛋…", rows: 2, style: Object.assign({}, field, { resize: "none", marginBottom: 20 }), "data-wk": "debsetuptext", "data-part": "例：该不该为爱情放弃事业" }),
         // 选角色
         h("div", { style: label }, "上台的人（选 1 个＝和你 1v1；2~3 个＝一台子人一起吵）"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
@@ -635,7 +635,7 @@
             props.characters.map(c => {
               const on = picked.includes(c.id);
               return h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70",
-                style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 11px 6px 6px", borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 } },
+                style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 11px 6px 6px", borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 }, "data-wk": "debsetup", "data-part": "r2", "data-on": on ? "1" : "0" },
                 h(Avatar, { character: c, size: 22, radius: 999 }),
                 h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
             })),
@@ -645,7 +645,7 @@
           [{ id: "", name: "不请人" }].concat(judgePool).map(c => {
             const on = judgeId === c.id;
             return h("button", { key: c.id || "none", onClick: () => setJudgeId(c.id), className: "active:opacity-70",
-              style: { display: "flex", alignItems: "center", gap: 6, padding: c.id ? "6px 11px 6px 6px" : "6px 12px", minHeight: 36, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 } },
+              style: { display: "flex", alignItems: "center", gap: 6, padding: c.id ? "6px 11px 6px 6px" : "6px 12px", minHeight: 36, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 }, "data-wk": "debsetup", "data-part": "r3", "data-on": on ? "1" : "0" },
               c.id ? h(Avatar, { character: c, size: 22, radius: 999 }) : null,
               h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
           })) : null,
@@ -655,22 +655,22 @@
           [[0, "不拉"], [2, "2 个"], [4, "4 个"]].map(o =>
             h("button", { key: o[0], onClick: () => setCrowdN(o[0]), className: "active:opacity-70 flex-1",
               style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, fontWeight: crowdN === o[0] ? 700 : 400, color: crowdN === o[0] ? t.accent : t.ink,
-                borderRadius: 11, border: "1.5px solid " + (crowdN === o[0] ? t.accent : t.line), background: crowdN === o[0] ? t.accent + "12" : t.bg2 } }, o[1]))),
+                borderRadius: 11, border: "1.5px solid " + (crowdN === o[0] ? t.accent : t.line), background: crowdN === o[0] ? t.accent + "12" : t.bg2 }, "data-wk": "debsetupbtn", "data-part": "1" }, o[1]))),
         // 模式
         h("div", { style: label }, "模式"),
         h("div", { style: { display: "flex", gap: 8, marginBottom: mode === "free" ? 14 : 20 } },
           [["serious", "讲道理", "维持人设，正经论辩"], ["free", "随便吵", "允许按人设跑题发散"]].map(m =>
             h("button", { key: m[0], onClick: () => setMode(m[0]), className: "active:opacity-70 flex-1",
-              style: { textAlign: "left", padding: "11px 13px", borderRadius: 11, border: "1.5px solid " + (mode === m[0] ? t.accent : t.line), background: mode === m[0] ? t.accent + "12" : t.bg2 } },
+              style: { textAlign: "left", padding: "11px 13px", borderRadius: 11, border: "1.5px solid " + (mode === m[0] ? t.accent : t.line), background: mode === m[0] ? t.accent + "12" : t.bg2 }, "data-wk": "debsetupbtn", "data-part": "2" },
               h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: mode === m[0] ? t.accent : t.ink } }, m[1]),
               h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } }, m[2])))),
         // 放飞：获胜条件（可自定；留空则结算时系统临场定，不额外花 API）
         mode === "free" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: label }, "怎么算赢（可自定，留空＝收台时临场定）"),
-          h("textarea", { value: winCond, onChange: e => setWinCond(e.target.value), placeholder: "例：谁先把对方逗笑 / 谁成功把话题带跑偏…（不填也行，结算时系统会定标准）", rows: 2, style: Object.assign({}, field, { resize: "none" }) })) : null,
+          h("textarea", { value: winCond, onChange: e => setWinCond(e.target.value), placeholder: "例：谁先把对方逗笑 / 谁成功把话题带跑偏…（不填也行，结算时系统会定标准）", rows: 2, style: Object.assign({}, field, { resize: "none" }), "data-wk": "debsetuptext", "data-part": "例：谁先把对方逗笑 / " })) : null,
         // 我上不上台
         h("button", { onClick: () => setWatchOnly(v => !v), className: "active:opacity-70",
-          style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, marginBottom: 10 } },
+          style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, marginBottom: 10 }, "data-wk": "debsetupbtn", "data-part": "3" },
           h("div", { style: { width: 38, height: 22, borderRadius: 999, background: watchOnly ? t.accent : t.line, position: "relative", transition: "background .15s", flexShrink: 0 } },
             h("div", { style: { width: 18, height: 18, borderRadius: 999, background: "#fff", position: "absolute", top: 2, left: watchOnly ? 18 : 2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } })),
           h("div", { style: { textAlign: "left" } },
@@ -678,7 +678,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 1 } }, "开了就不用你先开口，台上至少要两个人"))),
         // 注入聊天
         h("button", { onClick: () => setInject(v => !v), className: "active:opacity-70",
-          style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, marginBottom: 4 } },
+          style: { display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "11px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, marginBottom: 4 }, "data-wk": "debsetupbtn", "data-part": "4" },
           h("div", { style: { width: 38, height: 22, borderRadius: 999, background: inject ? t.accent : t.line, position: "relative", transition: "background .15s", flexShrink: 0 } },
             h("div", { style: { width: 18, height: 18, borderRadius: 999, background: "#fff", position: "absolute", top: 2, left: inject ? 18 : 2, transition: "left .15s", boxShadow: "0 1px 3px rgba(0,0,0,.25)" } })),
           h("div", { style: { textAlign: "left" } },
@@ -688,7 +688,7 @@
       // 底部开始
       h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "12px 20px calc(12px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 70%,transparent)" } },
         h("button", { onClick: start, disabled: starting, className: "w-full active:opacity-80",
-          style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: starting ? t.fog : t.accent, borderRadius: 13, padding: "13px 0" } },
+          style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#fff", background: starting ? t.fog : t.accent, borderRadius: 13, padding: "13px 0" }, "data-wk": "debsetupbtn", "data-part": "5" },
           starting ? "正在给各人排立场…" : "上台")));
   }
 
@@ -871,7 +871,7 @@
         h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: HEAD_H, bottom: 0, background: "linear-gradient(180deg,rgba(38,34,28,.13),rgba(38,34,28,.03))", borderTop: "3px solid " + t.ink, boxShadow: "0 5px 9px -6px rgba(38,34,28,.85)" } }),
         h("div", { className: "flex justify-center items-start", style: { position: "relative", gap: 6 } },
           s.parts.map(function (p) {
-            return h("div", { key: p.kind === "me" ? "me" : p.id, style: { flex: "1 1 0", minWidth: 0, maxWidth: 104, display: "flex", flexDirection: "column", alignItems: "center" } },
+            return h("div", { key: p.kind === "me" ? "me" : p.id, style: { flex: "1 1 0", minWidth: 0, maxWidth: 104, display: "flex", flexDirection: "column", alignItems: "center" }, "data-wk": "debarena" },
               h("div", { style: { height: HEAD_H, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end" } },
                 p.kind === "char"
                   ? h(Avatar, { character: props.characters.find(function (c) { return c.id === p.id; }) || { name: p.name }, size: AV, radius: 999 })
@@ -889,7 +889,7 @@
           }))),
       // 台沿上那个把手：牌子放下来 / 收上去
       h("button", { onClick: function () { stageTouched.current = true; setStageOpen(function (v) { return !v; }); }, className: "w-full active:opacity-60",
-        style: { minHeight: 26, padding: "5px 0 7px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } },
+        style: { minHeight: 26, padding: "5px 0 7px", background: "transparent", border: "none", fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog }, "data-wk": "debarenabtn", "data-part": "1" },
         stageOpen ? "把牌子收上去 ▲" : "各人站哪边 ▼"));
 
     // ── 发言：台上那个人面前那块名牌，话写在牌子后面 ──────────
@@ -897,9 +897,9 @@
     // ⚠️卡片里【不许再套一层 maxHeight 滚动】：一页里嵌一个 300px 的小滚动区，
     //   在手机上会跟整页抢手势（mobile-ui-layout §3 只允许一个主滚动容器）。长就让它长。
     const turnCard = function (tn, k) {
-      if (tn.skipped) return h("div", { key: k, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "5px 0 11px" } }, "—— " + tn.name + " 没接这一句 ——");
+      if (tn.skipped) return h("div", { key: k, style: { textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "5px 0 11px" }, "data-wk": "debarenaturncard" }, "—— " + tn.name + " 没接这一句 ——");
       const av = tn.who === "char" ? (props.characters.find(function (c) { return c.id === tn.id; }) || { name: tn.name }) : meAv;
-      return h("div", { key: k, style: { marginBottom: 13 } },
+      return h("div", { key: k, style: { marginBottom: 13 }, "data-wk": "debarena", "data-part": "r2" },
         h("div", { className: "flex items-center", style: { gap: 6 } },
           h("span", { className: "flex items-center", style: { gap: 5, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12, fontWeight: 700, padding: "5px 10px 4px", borderRadius: "5px 5px 0 0", borderBottom: "3px solid " + tn.color } },
             h(Avatar, { character: av, size: 15, radius: 999 }), tn.name),
@@ -917,9 +917,9 @@
     const sideBlock = function (side, k) {
       const list = (side || []).filter(function (x) { return x && x.text; });
       if (!list.length) return null;
-      return h("div", { key: "side" + k, style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line } },
+      return h("div", { key: "side" + k, style: { margin: "2px 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line }, "data-wk": "debarena", "data-part": "r3" },
         list.map(function (x, i2) {
-          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 } },
+          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: i2 ? 5 : 0 }, "data-wk": "debarena", "data-part": "r4" },
             h("span", { style: { color: t.fog } }, "台边 · "),
             h("span", { style: { fontWeight: 700, color: t.ink } }, x.name),
             // 冲着谁（v63.61）：台上不止一个人，看不见这一条就分不清TA在接谁的话
@@ -937,15 +937,15 @@
       const count = {};
       list.forEach(function (v) { count[v.for] = (count[v.for] || 0) + 1; });
       const partOf = function (n) { return (s.parts || []).find(function (p) { return p.name === n; }); };
-      return h("div", { key: "vote" + k, style: { margin: "0 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line } },
+      return h("div", { key: "vote" + k, style: { margin: "0 2px 14px", paddingLeft: 12, borderLeft: "2px solid " + t.line }, "data-wk": "debarenapartof" },
         h("div", { style: { display: "flex", flexWrap: "wrap", alignItems: "baseline", gap: "4px 10px", marginBottom: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } },
           h("span", { style: { letterSpacing: 1 } }, "台下这一轮"),
           Object.keys(count).sort(function (a, b) { return count[b] - count[a]; }).map(function (n) {
             const pp = partOf(n);
-            return h("span", { key: n, style: { color: (pp && pp.color) || t.ink, fontWeight: 700 } }, n + " " + count[n] + " 票");
+            return h("span", { key: n, style: { color: (pp && pp.color) || t.ink, fontWeight: 700 }, "data-wk": "debarena", "data-part": "r5" }, n + " " + count[n] + " 票");
           })),
         list.map(function (v, i2) {
-          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: i2 ? 3 : 0 } },
+          return h("div", { key: i2, style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.7, color: t.sub, marginTop: i2 ? 3 : 0 }, "data-wk": "debarena", "data-part": "r6" },
             h("span", { style: { fontWeight: 700, color: t.ink } }, v.name),
             h("span", { style: { color: t.fog } }, " 投 "),
             h("span", { style: { fontWeight: 700, color: ((partOf(v.for) || {}).color) || t.ink } }, v.for),
@@ -979,13 +979,13 @@
         h("div", { className: "flex flex-wrap", style: { gap: 6 } }, names.map(function (n) {
           const on = mine && mine.for === n;
           return h("button", { key: n, onClick: function () { cast(n); }, className: "active:opacity-60",
-            style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 30, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink } }, n);
+            style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 30, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink }, "data-wk": "debarena", "data-part": "r7", "data-on": on ? "1" : "0" }, n);
         })));
     };
     const callBlock = function (call, k) {
       if (!call || !s.judge) return null;
       const jc = (props.characters || []).find(function (c) { return c.id === s.judge.id; }) || { name: s.judge.name };
-      return h("div", { key: "call" + k, style: { display: "flex", gap: 8, alignItems: "flex-start", margin: "0 2px 14px", padding: "8px 10px", background: t.bg2, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 8px 8px" } },
+      return h("div", { key: "call" + k, style: { display: "flex", gap: 8, alignItems: "flex-start", margin: "0 2px 14px", padding: "8px 10px", background: t.bg2, border: "1px solid " + t.line, borderTop: "3px solid " + t.ink, borderRadius: "0 0 8px 8px" }, "data-wk": "debarena", "data-part": "r8" },
         h(Avatar, { character: jc, size: 20, radius: 999 }),
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink } },
           h("span", { style: { fontSize: 10, letterSpacing: 2, color: t.fog, marginRight: 6 } }, "裁判"),
@@ -998,17 +998,17 @@
     const focusBlock = function (focus, k) {
       const issue = focus && focus.issue;
       if (!issue) return null;
-      return h("div", { key: "focus" + k, style: { margin: "0 2px 16px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog } },
+      return h("div", { key: "focus" + k, style: { margin: "0 2px 16px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: t.fog }, "data-wk": "debarenafocusblock" },
         h("span", { style: { letterSpacing: 1 } }, "还没吵拢的是——"), issue);
     };
 
     // 旧存档不删数据：原来的台下弹幕默认折叠，不再占据新玩法的主流程。
     const legacyAudience = function (crowd, k) {
       if (!crowd || !crowd.length) return null;
-      return h("details", { key: "legacy" + k, style: { margin: "2px 2px 16px", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line, padding: "8px 4px" } },
+      return h("details", { key: "legacy" + k, style: { margin: "2px 2px 16px", borderTop: "1px solid " + t.line, borderBottom: "1px solid " + t.line, padding: "8px 4px" }, "data-wk": "debarenalegacyaudience" },
         h("summary", { style: { cursor: "pointer", fontFamily: F_BODY, fontSize: 10.5, color: t.fog, letterSpacing: 1 } }, "旧看台记录 · " + crowd.length + " 条"),
         h("div", { style: { padding: "8px 4px 2px" } }, crowd.map(function (c, i) {
-          return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.sub, marginBottom: 5 } },
+          return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.sub, marginBottom: 5 }, "data-wk": "debarena", "data-part": "r9" },
             h("span", { style: { fontWeight: 700 } }, c.name + "："), c.text);
         })));
     };
@@ -1028,14 +1028,14 @@
       h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "8px 12px 16px" } },
         (props.characters || []).filter(function (c) { return c && !c.npc; }).map(function (c) {
           return h("button", { key: c.id, onClick: function () { setShareOpen(false); props.onShareToChat && props.onShareToChat(s, c); },
-            className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 5px", minHeight: 46 } },
+            className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 5px", minHeight: 46 }, "data-wk": "debarena", "data-part": "r10" },
             h(Avatar, { character: c, size: 32, radius: 999 }),
             h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, c.remark || c.name));
         }),
         (props.groups || []).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, color: t.fog, margin: "12px 5px 4px" } }, "群 聊") : null,
         (props.groups || []).map(function (g) {
           return h("button", { key: g.id, onClick: function () { setShareOpen(false); props.onShareToGroup && props.onShareToGroup(s, g); },
-            className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 5px", minHeight: 46 } },
+            className: "w-full flex items-center gap-3 active:opacity-60", style: { padding: "9px 5px", minHeight: 46 }, "data-wk": "debarena", "data-part": "r11" },
             h("div", { style: { width: 32, height: 32, borderRadius: 10, background: t.line, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_BODY, fontSize: 11, color: t.sub, flexShrink: 0 } }, String((g.memberIds || []).length || "群")),
             h("span", { className: "truncate", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, g.name));
         }),
@@ -1045,7 +1045,7 @@
     // 台子以外那一片也得是场地（v62.65 审计：「页底仍是米白，台子以外没有场地」）
     const arenaFloor2 = (typeof pageSkin === "function")
       ? pageSkin("cloth", t, { strength: .55, corner: false }) : { background: t.bg };
-    return h("div", { className: "h-full flex flex-col", style: arenaFloor2 },
+    return h("div", { "data-wk": "debarena", "data-part": "r12", className: "h-full flex flex-col", style: arenaFloor2 },
       // 头
       // ⚠️底铺在外壳上了，顶栏就不能再自己刷一档平色——那样顶上会横着一条
       //   没盖住的带子（mobile-ui-layout.md §3.5）。
@@ -1060,7 +1060,7 @@
           h("button", { onClick: props.onBack, "aria-label": "返回", "data-wk": "headink", className: "active:opacity-50 flex items-center justify-center", style: { width: 40, height: 40, marginLeft: -8 } }, h(IArrow, { size: 19, color: t.ink, wk: "headink" })),
           h("div", { "data-wk": "headdim", style: { display: "flex", alignItems: "center", gap: 7 } },
             hasSomething ? h("button", { onClick: function () { setShareOpen(true); }, className: "active:opacity-60",
-              style: { fontFamily: F_BODY, fontSize: 11, minHeight: 26, color: t.sub, border: "1px solid " + t.line, borderRadius: 7, padding: "3px 9px" } }, "分享") : null,
+              style: { fontFamily: F_BODY, fontSize: 11, minHeight: 26, color: t.sub, border: "1px solid " + t.line, borderRadius: 7, padding: "3px 9px" }, "data-wk": "debarenabtn", "data-part": "2" }, "分享") : null,
             h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, fontWeight: 700, color: "#fff", background: s.mode === "free" ? "#8a6d3b" : t.tint, padding: "3px 9px", borderRadius: 4 } }, s.mode === "free" ? "随便吵" : "讲道理"),
             !ended ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub } }, "第 " + roundNo + " 回合") : h("span", { style: { fontFamily: F_BODY, fontSize: 11, fontWeight: 700, color: "#fff", background: t.accent, padding: "2px 9px", borderRadius: 7 } }, "已收台"))),
         stage),
@@ -1104,7 +1104,7 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: t.fog, marginBottom: 11 } }, "下 台 之 后"),
             s.closings.filter(c => c.name !== uName).map((c, i) => {
               const cp = s.parts.find(p => p.name === c.name && p.kind === "char");
-              return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 } },
+              return h("div", { key: i, style: { display: "flex", gap: 8, marginBottom: 10 }, "data-wk": "debarena", "data-part": "r13" },
                 cp ? h(Avatar, { character: props.characters.find(x => x.id === cp.id) || { name: c.name }, size: 26, radius: 999 }) : h("div", { style: { width: 26 } }),
                 h("div", { style: { flex: 1 } },
                   h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: cp ? cp.color : t.ink, marginBottom: 2 } }, c.name),
@@ -1113,7 +1113,7 @@
       // 底部操作
       ended ? null : h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
         busy
-          ? h("button", { disabled: true, className: "w-full", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.fog, borderRadius: 11, padding: "12px 0" } }, phaseMsg || "生成中…")
+          ? h("button", { disabled: true, className: "w-full", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.fog, borderRadius: 11, padding: "12px 0" }, "data-wk": "debarenabtn", "data-part": "3" }, phaseMsg || "生成中…")
           // 我的立场未定 → 先选边
           : !s.mySet ? (sideDraft !== null
             // ⚠️自定义立场原来走 window.prompt——和 confirm 一样会被 iOS/PWA 永久吞掉，
@@ -1122,46 +1122,46 @@
               h("input", { value: sideDraft, autoFocus: true, onChange: e => setSideDraft(e.target.value),
                 onKeyDown: e => { if (e.key === "Enter" && sideDraft.trim()) setMySide(sideDraft.trim()); },
                 placeholder: "你要站的那一边…",
-                style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 12px", outline: "none" } }),
+                style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 12px", outline: "none" }, "data-wk": "debarenainput", "data-part": "你要站的那一边…" }),
               h("button", { onClick: () => setSideDraft(null), className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 13px" } }, "取消"),
+                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 13px" }, "data-wk": "debarenabtn", "data-part": "4" }, "取消"),
               h("button", { onClick: () => { if (sideDraft.trim()) setMySide(sideDraft.trim()); }, className: "active:opacity-80",
-                style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 15px" } }, "站这边"))
+                style: { fontFamily: F_BODY, fontSize: 13.5, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 15px" }, "data-wk": "debarenabtn", "data-part": "5" }, "站这边"))
             : h("div", null,
               h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8, textAlign: "center" } }, "你站哪边？（你每回合第一个开口）"),
               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, justifyContent: "center" } },
                 (s.myOptions || ["支持", "反对"]).map((op, i) => h("button", { key: i, onClick: () => setMySide(op), className: "active:opacity-70",
-                  style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: "#fff", background: ME_COLOR, borderRadius: 999, padding: "8px 15px" } }, op)),
+                  style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: "#fff", background: ME_COLOR, borderRadius: 999, padding: "8px 15px" }, "data-wk": "debarenabtn", "data-part": "6" }, op)),
                 h("button", { onClick: () => setSideDraft(""), className: "active:opacity-70",
-                  style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" } }, "自己写一个"))))
+                  style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 999, padding: "8px 15px" }, "data-wk": "debarenabtn", "data-part": "7" }, "自己写一个"))))
           // 我先发言（含跳过）
           // 旁观局：不用你先开口，一按就让台上吵下去
           : (watch && needGen) ? h("div", { style: { display: "flex", gap: 8 } },
             h("button", { onClick: endDebate, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "收台判胜负"),
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" }, "data-wk": "debarenabtn", "data-part": "8" }, "收台判胜负"),
             h("button", { onClick: () => runGen("", true), className: "flex-1 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } },
+              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" }, "data-wk": "debarenabtn", "data-part": "9" },
               roundNo === 1 ? "开吵 →" : "让他们接着吵 →"))
           : myTurnNow ? h("div", { style: { display: "flex", flexDirection: "column", gap: 8 } },
             h("textarea", { value: draft, onChange: e => setDraft(e.target.value), placeholder: roundNo === 1 ? "你先开口，把话头抛出去…" : "轮到你先说，接着吵…", rows: 2,
-              style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none", outline: "none" } }),
+              style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 12px", resize: "none", outline: "none" }, "data-wk": "debarenatext", "data-part": "1" }),
             h("div", { style: { display: "flex", gap: 8 } },
               h("button", { onClick: () => submitRound(true), className: "active:opacity-70",
-                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 16px" } }, "这轮不说"),
+                style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 11, padding: "10px 16px" }, "data-wk": "debarenabtn", "data-part": "10" }, "这轮不说"),
               h("button", { onClick: () => submitRound(false), className: "flex-1 active:opacity-80",
-                style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 0" } }, "说完，看他们接")))
+                style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: ME_COLOR, borderRadius: 11, padding: "10px 0" }, "data-wk": "debarenabtn", "data-part": "11" }, "说完，看他们接")))
           // 生成失败兜底：重试
           : needGen ? h("div", { style: { display: "flex", gap: 8 } },
             h("button", { onClick: endDebate, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "收台判胜负"),
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" }, "data-wk": "debarenabtn", "data-part": "12" }, "收台判胜负"),
             h("button", { onClick: retryGen, className: "flex-1 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "↻ 台上没接上，再来一次"))
+              style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" }, "data-wk": "debarenabtn", "data-part": "13" }, "↻ 台上没接上，再来一次"))
           // 本轮已完成 → 结束 / 下一轮
           : h("div", { style: { display: "flex", gap: 8 } },
             h("button", { onClick: endDebate, className: "active:opacity-70",
-              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" } }, "收台判胜负"),
+              style: { fontFamily: F_BODY, fontSize: 13, color: t.accent, background: t.bg2, border: "1px solid " + t.accent, borderRadius: 11, padding: "11px 14px" }, "data-wk": "debarenabtn", "data-part": "14" }, "收台判胜负"),
             h("button", { onClick: nextRound, className: "flex-1 active:opacity-80",
-              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" } }, "下一回合 →"))),
+              style: { fontFamily: F_BODY, fontSize: 14.5, fontWeight: 700, color: "#fff", background: t.ink, borderRadius: 11, padding: "11px 0" }, "data-wk": "debarenabtn", "data-part": "15" }, "下一回合 →"))),
       sharePanel);
   }
 

@@ -9,8 +9,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), "utf8");
-const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8");
-const memo = fs.readFileSync(path.join(__dirname, "..", "js", "memo.js"), "utf8");
+// v75.040 起到处挂了美化挂点（"data-wk"…）：比对前先剥掉，测的还是原来那件事
+const scr = fs.readFileSync(path.join(__dirname, "..", "js", "screens.js"), "utf8").replace(/"data-(?:wk|part|on|me|kind|today|id|tab|view|app|mine|in|off|open|pinned|late|from|answered|dead|done|period|no)": (?:"[^"]*"|[^,{}"]*?), /g, "");
+const memo = fs.readFileSync(path.join(__dirname, "..", "js", "memo.js"), "utf8").replace(/"data-(?:wk|part|on)": (?:"[^"]*"|[^,{}"]*?), /g, "").replace(/, "data-(?:wk|part|on)": (?:"[^"]*"|[^,{}"]*?)(?= })/g, "").replace(/\{ "data-(?:wk|part)": "[^"]*" \}/g, "null");
 const code = comp.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
 
 test("资料卡是【他的】卡：底掺进他自己那个色，换个人就是另一张", () => {

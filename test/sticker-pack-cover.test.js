@@ -16,7 +16,7 @@ test("封面：挑过用挑的、挑的那张揭掉了退回第一张；底栏�
 test("「挑几张」和「设成封面」包在 note 右边那一格里，不许把挑几张挤掉", () => {
   const i = scr.indexOf('note("这一版上贴着的"');
   const seg = scr.slice(i, scr.indexOf('"挑几张"', i) + 10);
-  assert.ok(seg.includes('h("span", { className: "flex items-center shrink-0" }'));
+  assert.ok(seg.includes('className: "flex items-center shrink-0" }'));
 });
 
 // ⚠️她 2026-09-30 拿两张截图来问：「为啥设了表情包封面实际不会变」「这两处都要」。

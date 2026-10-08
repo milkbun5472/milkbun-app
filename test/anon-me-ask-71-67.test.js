@@ -8,7 +8,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
+// v75.040 起到处挂了美化挂点（"data-wk"…）：比对前先剥掉，测的还是原来那件事
+const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8").replace(/"data-(?:wk|part|on|me|kind|today|id|tab|view|app|mine|in|off|open|pinned|late|from|answered|dead|done|period|no)": (?:"[^"]*"|[^,{}"]*?), /g, "");
 const chr34 = String.fromCharCode(34);
 const app = P("js/app.js"), comp = P("js/components.js");
 

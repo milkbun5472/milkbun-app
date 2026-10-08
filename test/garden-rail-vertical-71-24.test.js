@@ -11,7 +11,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 
-const src = fs.readFileSync(path.join(__dirname, "..", "js/fairy-garden.js"), "utf8");
+const src = fs.readFileSync(path.join(__dirname, "..", "js/fairy-garden.js"), "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 const rail = () => {
   const i = src.indexOf('writingMode: "vertical-rl"');
   assert.ok(i > 0, "竖排索引签没了");

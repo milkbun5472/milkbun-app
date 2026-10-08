@@ -204,7 +204,7 @@ test("窄格子里碟也不许顶破：宽度一样参与，竖排不上播放�
   // 拍立得只在四格宽那一档露：三格宽时它一挂上去中间那列只剩三十来 px
   // v63.59：这一条不许再看【量出来的宽】，见下面那条测试
   assert.match(mw, /const showStack = tall && cols >= 4;/);
-  assert.match(mw, /showStack \? h\("div", \{ style: \{ marginRight: -22/);
+  assert.match(mw, /showStack \? h\("div", \{ (?:"data-wk"[^{]*?)?style: \{ marginRight: -22/);
 });
 
 // v63.53（她 2026-09-05：「它看起来占两格的时候剪掉空的边，然后可以选在这两格是

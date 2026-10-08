@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
-const src = fs.readFileSync(path.join(__dirname, "..", "js", "trpg.js"), "utf8");
+const src = fs.readFileSync(path.join(__dirname, "..", "js", "trpg.js"), "utf8").replace(/"data-(?:wk|on|part|me|kind|dead)": [^,]*, /g, "");  // 主题挂点不算布局，切片前剥掉
 const { itemsFix } = require("../js/trpg.js");
 const grab = (a, b, cap) => {
   const i = src.indexOf(a), j = src.indexOf(b, i);
