@@ -102,3 +102,10 @@ test("自动往下播的间隔：平时只露一个「N 秒」，点了才出拉
   assert.match(live, /autoSec: \(props\.liveCfg \|\| \{\}\)\.autoSec \|\| 25/);
   assert.match(live, /const AUTO_MS = autoSec \* 1000;/);
 });
+
+test("日程里只认 TA 自己播，看别人直播不算开播", () => {
+  const src = app.match(/const selfLive = t => [^\n]+\n[^\n]+/)[0].replace(/^const selfLive = /, "").replace(/;\s*$/, "");
+  const selfLive = new Function("return (" + src + ")")();
+  ["开直播陪粉丝聊天", "直播带货", "晚上开播", "上直播打游戏"].forEach(t => assert.ok(selfLive(t), t));
+  ["刷手机看直播", "窝在沙发看球赛直播", "在直播间里蹲人", "陪妹妹看直播", "睡前刷会儿直播"].forEach(t => assert.ok(!selfLive(t), t));
+});
