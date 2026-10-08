@@ -169,3 +169,11 @@ test("全屏直播间：字幕卡、礼物横幅、弹幕区面板开着时变�
   assert.match(live, /\(giftOpen \|\| songOpen\) \? null : h\("div", \{ className: "flex items-center"/);
   assert.match(live, /情绪起伏得有来由/);
 });
+
+test("镜头和动作不截行：中间那块自己能滚（她 2026-10-08：看不完全上面的动作）", () => {
+  assert.match(live, /"data-wk": "livemid", className: "flex-1 min-h-0 flex flex-col overflow-y-auto"/);
+  for (const k of ["livescene", "liveact"]) {
+    const i = live.indexOf('"data-wk": "' + k + '"');
+    assert.doesNotMatch(live.slice(i, live.indexOf("}", live.indexOf("style: {", i))), /WebkitLineClamp/, k);
+  }
+});

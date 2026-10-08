@@ -360,9 +360,11 @@
           h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 10, color: LIVE_INK, marginTop: 2, textShadow: shadowTx } },
             h("span", null, "我方 " + ours), h("span", null, "对面 " + ses.rival.host + " " + theirs))) : null),
       // ── 画面中间：镜头里的样子、此刻在干嘛 ──
-      h("div", { className: "flex-1 min-h-0 flex flex-col justify-end", style: { position: "relative", zIndex: 1, padding: "0 16px", minHeight: 40 } },
-        S(ses.scene) ? h("div", { "data-wk": "livescene", key: "sc_" + S(ses.scene).slice(0, 12), style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, textShadow: shadowTx, animation: "liveFade .5s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, ses.scene) : null,
-        watching && S(ses.act) ? h("div", { "data-wk": "liveact", key: "act_" + (ses.beat || 0), style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(243,238,247,.9)", lineHeight: 1.5, marginTop: 4, textShadow: shadowTx, animation: "liveFade .5s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "（" + ses.act + "）") : null),
+      // 镜头和动作不截行（她 2026-10-08：「看不完全上面的动作」）：中间这块空着的地方都给它，字多了这块自己能往上划
+      h("div", { "data-wk": "livemid", className: "flex-1 min-h-0 flex flex-col overflow-y-auto", style: { position: "relative", zIndex: 1, padding: "0 16px", minHeight: 40 } },
+        h("div", { style: { marginTop: "auto" } },
+        S(ses.scene) ? h("div", { "data-wk": "livescene", key: "sc_" + S(ses.scene).slice(0, 12), style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, textShadow: shadowTx, animation: "liveFade .5s ease" } }, ses.scene) : null,
+        watching && S(ses.act) ? h("div", { "data-wk": "liveact", key: "act_" + (ses.beat || 0), style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(243,238,247,.9)", lineHeight: 1.5, marginTop: 4, textShadow: shadowTx, animation: "liveFade .5s ease" } }, "（" + ses.act + "）") : null)),
       // ── 字幕卡：这一拍主播说的几句，一句一句放；他在回谁，那条弹幕小字带在上面 ──
       capNow ? h("div", { "data-wk": "livecapcard", onClick: () => setCapIdx(i => Math.min(i + 1, Math.max(0, caps.length - 1))), className: "shrink-0",
         style: { position: "relative", zIndex: 1, margin: "8px 12px 0", padding: "9px 12px 10px", borderRadius: 14, background: "rgba(20,16,25,.55)", border: "1px solid rgba(255,255,255,.1)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", cursor: caps.length > 1 ? "pointer" : "default" } },
