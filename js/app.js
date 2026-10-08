@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.030";
+const APP_VERSION = "v75.031";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -625,6 +625,9 @@ function App() {
   const autoLetterBusyRef = useRef(false); // 情书后台自发防重入
   // 一起听：曲库、歌单、当前队列与音乐源偏好统一存 x_listen。
   const [listen, setListen] = useState({ disc: null, songs: [] });
+  // 直播的开关（TA 们会不会自己开播）。存 x_liveCfg
+  const [liveCfg, setLiveCfg] = useState(() => loadJSON("x_liveCfg", {}) || {});
+  const saveLiveCfg = v => { setLiveCfg(v); saveJSON("x_liveCfg", v); };
   const [neteaseApi, setNeteaseApi] = useState("");
   const musicProvider = listen.musicProvider === "gd" ? "gd" : "netease";
   const musicReady = musicProvider === "gd" || !!neteaseApi;
@@ -5871,6 +5874,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 这样「不显示 NPC」是默认行为——漏掉哪一处，最坏也只是某个列表少显示了 NPC，
   // 而不是 NPC 漏进通讯录、聊天列表、朋友圈、日程。**让遗漏往安全那边掉。**
   const liveChars = characters.filter(c => c && !c.npc);
+  // TA 自己开播的提醒（她 2026-10-08）：时间表是本地按日子算的，提醒也只是看一眼表，一个调用都不花
+  const liveNotedRef = useRef({});
+  useEffect(() => {
+    const tick = () => {
+      const K = window.LiveKit; if (!K || !K.slotsOf || liveCfg.selfLive === false) return;
+      const now = Date.now();
+      K.slotsOf(liveChars.filter(c => c && !c.npc), new Date()).forEach(x => {
+        if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
+          liveNotedRef.current[x.id] = 1;
+          const c = liveChars.find(cc => cc.id === x.charId);
+          if (c) toast((c.remark || c.name) + " 开播了 · 去片刻的直播里看");
+        }
+      });
+    };
+    tick();
+    const t = setInterval(tick, 60000);
+    return () => clearInterval(t);
+  }, [liveCfg.selfLive, liveChars.length]);
   // 去年今天（时刻）：开机落到主屏时算一次，零调用；今天收起过（x_shikeOTD）就不再冒
   useEffect(() => {
     if (!loaded || screen !== "home" || !window.ShikeKit || !window.ShikeKit.onThisDay) return;
@@ -28139,6 +28160,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(key, p => [...p, { role: "user", kind: "liveshare", live: snap, content: K.shareText(snap, userName(profile), c.name), ts: Date.now(), read: true }]);
       toast("已发给 " + (c.remark || c.name) + (key !== c.id ? "（小房间里）" : ""));
     },
+    // 带货买同款：订单进购物，钱从她钱包出
+    buy: (item, host) => {
+      changeWallet(-item.price, "直播间下单 · " + host + "「" + item.name + "」", "live");
+      addOrder({ name: item.name, price: item.price, payLabel: "直播间 · " + host });
+      toast("下单了「" + item.name + "」，去购物里看物流");
+    },
+    // 点歌：一起听里有的歌
+    songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
+    liveCfg: liveCfg, onLiveCfg: saveLiveCfg,
     onBack: () => setScreen("home")
   };
     const shuaCities = () => {

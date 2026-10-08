@@ -58,6 +58,7 @@
   // 文案和画面是两样东西（她 2026-10-07：「除了图片描述你没写抖音文案」）：只写「文案 caption」四个字，模型常常空着或者塞进 scene
   const CAPTION_FACT = "caption 是作者发布时自己配在视频底下的那段话，不是画面描述——看视频的人在画面下面读到的就是它；话题标签另写在 tags 里，这里不用再带。";
   // 今天几号（她 2026-10-07：「十月份为什么能刷出暴雪」）：不给日子，模型拍的季节是随手挑的
+  const CHARGE_CUT = 0.25;   // 横着看充电：作者到手 75%
   const DATE_FACT = () => { const d = new Date(); return "\n今天是 " + d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月 " + d.getDate() + " 日。"; };
   const V_FACT = "\n这个平台是竖屏的：一条通常十几秒到一两分钟。人是一条接一条往上划着看的，不喜欢一秒就划走了。推荐流会把你的视频推给不认识你的人，他们不知道你是谁，只看这一条。";
   const B_FACT = "\n这个平台是横屏的：一条几分钟到几十分钟都有。人多半是点进来从头看下去，很多是冲着这个号来的。视频有标题、有简介、放在某个分区里，看的人会在画面上发弹幕。";
@@ -615,7 +616,8 @@
       const c = charOf(v.charId); if (!c || !props.pay) return;
       if (typeof props.wallet === "number" && props.wallet < amt) { toast("钱包余额不够"); return; }
       props.pay(-amt, "片刻充电 · " + v.author);
-      if (props.charPay) props.charPay(c.id, amt, "片刻收到充电");
+      // 平台抽成（她 2026-10-08：「b站我打赏他只能收到75%」）
+      if (props.charPay) props.charPay(c.id, Math.floor(amt * (1 - CHARGE_CUT)), "片刻收到充电（平台抽走 " + Math.round(CHARGE_CUT * 100) + "%）");
       patchV(v.id, x => Object.assign({}, x, { charged: (x.charged || 0) + amt }));
       if (props.remember) props.remember([c.id], onAlt ? "有个叫「" + altName + "」的账号在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电，你不知道是谁。" : uName + "在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电。");
       toast("充了 ¥" + amt);
@@ -775,6 +777,8 @@
       gridView(list, emptyFeed));
     else if (tab === "live") body = h("div", { className: "flex-1 min-h-0 flex flex-col" },
       window.LiveApp ? h(window.LiveApp, Object.assign({}, props.live, { key: "live_" + liveStart + "_" + skin, embedded: true, startView: liveStart || "home",
+        // 直播切片（她 2026-10-08）：下播后路人剪的那条落进推荐流，竖着刷那套
+        onClip: c => addVideos([mkVideo({ scene: c.scene, caption: c.caption, tags: c.tags, who: "self" }, { by: "npc", author: S(c.author).slice(0, 20), likes: 0, comments: [], skin: "v", clipOf: c.charId || null })]),
         // 直播那一格也穿这套皮（直播间本身是黑的演播台，两套都不动）
         pal: skin === "b" ? { bg: B.bg, bg2: "#fff", ink: B.ink, sub: B.dim, fog: B.dim, line: B.line, accent: B.accent, tint: B.accent }
           : { bg: BLACK, bg2: "#1b1b21", ink: INK, sub: DIM, fog: DIM, line: LINE, accent: RED, tint: RED } })) : null);

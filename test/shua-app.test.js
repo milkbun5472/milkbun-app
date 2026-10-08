@@ -113,7 +113,8 @@ test("23：横着看的系列/投币/充电/弹幕/楼中楼，竖着刷的同�
   assert.match(S, /function BDetail\(\{ v, charOf, busy, onBack, onLike, onFave, onDraw, drawing, onSend, onShare, onAuthor, onDel, coinsLeft, onCoin, onCharge, onDm, onReply \}\)/);
   assert.match(S, /const SERIES_ADD = ',"series":""';/);
   assert.match(S, /if \(\(v\.myCoins \|\| 0\) >= 2\) \{ toast\("一条最多投两枚"\)/);
-  assert.match(S, /props\.charPay\(c\.id, amt, "片刻收到充电"\)/);
+  assert.match(S, /props\.charPay\(c\.id, Math\.floor\(amt \* \(1 - CHARGE_CUT\)\), "片刻收到充电/);
+  assert.match(S, /const CHARGE_CUT = 0\.25;/, "充电作者到手 75%");
   assert.match(S, /const heard = mineB\.slice\(0, 3\)\.flatMap/);
   assert.match(S, /function threadInstruction\(/);
   assert.match(S, /onSame: v\.by !== "me" \? \(\) => setPage\(\{ kind: "post", same: v \}\) : null/);
