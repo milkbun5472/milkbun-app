@@ -1414,7 +1414,9 @@ function App() {
   const groupAutoCallEpochRef = useRef({});
   const groupCallActive = gid => !!(callRef.current && callRef.current.groupId === gid);
   const [takeoutNav, setTakeoutNav] = useState("near");     // 外卖 app 落在哪一页（聊天里点外卖卡进来＝订单）
-  const [takeoutBack, setTakeoutBack] = useState(null);     // 从哪一页进来的，返回键就回哪
+  const [takeoutBack, setTakeoutBack] = useState(null);
+  // 随身物里点「我的物品」直接进购物的「我的」那一页（同一页、同一份数据）；返回回随身物（她 2026-10-08）
+  const [shopBack, setShopBack] = useState(null);     // 从哪一页进来的，返回键就回哪
   const [offlineChar, setOfflineChar] = useState(null);
   const [offlineRoomId, setOfflineRoomId] = useState("main");
   const [offlines, setOfflines] = useState({}); // main charId 或 room chatKey -> [session,...] newest-first
@@ -27773,6 +27775,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => setScreen("home")
   });else if (screen === "carry") body = h(Carry, {
     characters: liveChars,
+    onOpenMine: () => { setShopBack("carry"); setScreen("shop"); },
     carry: carry,
     carryGifts: carryGifts,
     carryPins: carryPins,
@@ -27879,7 +27882,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     kinshipCards: kinshipCards,
     feed: shopFeed,
     busy: shopBusy,
-    onBack: goHome,
+    key: shopBack ? "shop-mine" : "shop",
+    initialNav: shopBack ? "my" : "home",
+    onBack: () => { if (shopBack) { const b = shopBack; setShopBack(null); setScreen(b); } else goHome(); },
     onGen: genShop,
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),

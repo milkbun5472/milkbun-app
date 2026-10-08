@@ -3601,9 +3601,9 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
+function Shop({ initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
   const t = useTheme();
-  const [nav, setNav] = useState("home"); // home | cart | my
+  const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
   const [search, setSearch] = useState("");
   const [sel, setSel] = useState([]); // 选中的购物车 uid
@@ -15191,7 +15191,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -15212,7 +15212,9 @@ function Carry({ characters, carry, carryGifts, carryPins, selId, busyKey, giftB
       + "linear-gradient(152deg,rgba(74,58,40,.32) 0%,rgba(74,58,40,.54) 46%,rgba(74,58,40,.38) 100%)"
   };
   if (inBox) return h("div", { "data-wk": "carrypage", "data-part": "box", className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
-    h(Head, { zh: "随身物", bg: "transparent", noLine: true, onBack }),
+    h(Head, { zh: "随身物", bg: "transparent", noLine: true, onBack,
+      // 她自己的东西住在购物「我的」里，太难找；这里开个口，进的就是那一页
+      right: onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0 10px 10px" } }, "我的物品") : null }),
     h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-4" },
       h("div", { "data-wk": "carryboxframe",
         className: "flex-1 min-h-0 relative",
