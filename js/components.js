@@ -8820,7 +8820,7 @@ function VoiceEarComposer({ onSend, onClose, senderName, ownerKey, toast }) {
 // ⚠️「重新总结」这个按钮是给【收尾那一枪失败过】的场次补的（她 2026-09-16）：
 //   逐字记录一直存的是全的，缺的只有总结那三样，所以拿存着的记录再打一枪就能补回来。
 //   按钮常驻、不只在没总结时出现——她也可能就是觉得这条总结写得不像话。
-function OfflineLogCard({ m, t, sel, onResummarize }) {
+function OfflineLogCard({ m, t, sel, onResummarize, onRestore }) {
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const redo = e => {
@@ -8834,6 +8834,7 @@ function OfflineLogCard({ m, t, sel, onResummarize }) {
     h(TransText, { text: m.content, zhReady: m.zh }),
     m.transcript ? h("button", { onClick: e => { e.stopPropagation(); setOpen(o => !o); }, className: "active:opacity-60", style: { display: "block", marginTop: 8, fontFamily: F_BODY, fontSize: 11, color: t.tint } }, open ? "▾ 收起完整经过" : "▸ 看完整经过（" + Math.round(String(m.transcript).length / 100) / 10 + "k 字）") : null,
     onResummarize ? h("button", { onClick: redo, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, busy ? "正在重新总结…" : "⟳ 重新总结这一场") : null,
+    (onRestore && m.transcript) ? h("button", { "data-wk": "offlogrestore", onClick: e => { e.stopPropagation(); onRestore(); }, className: "active:opacity-60", style: { display: "block", marginTop: 6, fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "往期里找不到这一场？放回往期") : null,
     (open && m.transcript) ? h("div", { style: { marginTop: 8, paddingTop: 8, borderTop: "1px dashed " + t.line, fontSize: 12, color: t.fog, whiteSpace: "pre-wrap", lineHeight: 1.75 } }, m.transcript) : null);
 }
 // ── 照片：一张卡，四处共用（她 2026-09-07）─────────────────────────────
@@ -9012,6 +9013,7 @@ function ChatThread({
   onDeleteMessages,
   onPinShike,
   onResummarizeOffline,
+  onRestoreOffline,
   onSendRich,
   onPat,
   onStartCall,
@@ -9665,7 +9667,7 @@ function ChatThread({
       onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
       onClick: selMode ? () => toggleSel(i) : undefined,
       className: "my-4 mx-6"
-    }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
+    }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null, onRestore: onRestoreOffline ? () => onRestoreOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
     if (m.kind === "ledgershare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
@@ -15772,7 +15774,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
   //   放在最前面：它是最无害的一个，不该排在「删除」旁边等着误触。
   const copyOne = () => copyText(String(m.content || "").trim())
     .then(ok => window.__toast && window.__toast(ok ? "已复制" : "复制不了，长按那段自己选"));
-  const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0" },
+  const actions = editable && !editing && h("div", { className: "flex items-center gap-3 shrink-0", style: { marginLeft: "auto" } },
     h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })),
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
     onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
@@ -15808,11 +15810,13 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     // 她 2026-08-27 看别家线下也有，问怎么弄的——线下以前压根没要过这个字段（v56.75）。
     (!isUser && m.reasoning) ? h(ReasoningBlock, { m: m, off: showReason === false }) : null,
     h("div", { "data-wk": "offcard", "data-me": isUser ? "1" : "0", style: offCardSkin(t, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint)) },
-      h("div", { "data-wk": "offhead", className: "flex items-center gap-2.5 mb-2.5" },
+      // ⚠️排不下就让右边那组按钮整体换到第二行（她 2026-10-08 截图：字号大一点，删除键冲出卡片）——
+      //   名字至少留 5 个字宽，不然它缩到 0、一排永远「装得下」、按钮就往外冲
+      h("div", { "data-wk": "offhead", className: "flex items-center flex-wrap mb-2.5", style: { columnGap: 10, rowGap: 6 } },
         isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
         // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
-        h("span", { "data-wk": "offname", className: "flex-1", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
+        h("span", { "data-wk": "offname", style: { flex: "1 1 5em", fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
         (!isUser && spk && offSpeech) ? h(TtsDot, { k: "off" + (m.id || ""), text: offSpeech, spk, tp }) : null,
         timeEl,
         actions),
@@ -16213,6 +16217,7 @@ function GroupThread({
   onDeleteMessages,
   onPinShike,
   onResummarizeOffline,
+  onRestoreOffline,
   onForward,
   onSaveSettings,
   onGroupDateInvite, onGroupDateGo, invitePlaces,   // 群里的邀约（她 2026-10-02）：挑地方、挑请谁；人齐了点出发进群线下
@@ -16577,7 +16582,7 @@ function GroupThread({
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "offlinelog") return h("div", {
       key: i, className: "my-3 mx-6"
-    }, h(OfflineLogCard, { m: m, t: t, onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null }));
+    }, h(OfflineLogCard, { m: m, t: t, onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null, onRestore: onRestoreOffline ? () => onRestoreOffline(i) : null }));
     // 居中那一行：她写的群旁白，和某个成员那一格动作（who:"char"，带 senderId）。
     // ⚠️跟单聊那一处同一个待遇（她 2026-09-09）：成员那一行长按出菜单、不挂 ✕；
     //   ✕ 只留给她自己写的旁白。谁做的要写出来——群里三个人，光一句动作认不出是谁。
@@ -17541,7 +17546,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "群聊背景"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, chatBg ? "已设置 · 可更换或清除" : "从相册选一张图当这个群的背景")),
       h("div", { className: "flex items-center gap-2 shrink-0" },
-        chatBg ? h("div", { style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + chatBg + "\")", border: "1px solid " + t.line } }) : null,
+        chatBg ? h("div", { style: { width: 38, height: 38, borderRadius: 8, background: "center/cover no-repeat url(\"" + resolveImg(chatBg) + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),
@@ -19205,7 +19210,7 @@ function ChatSettings({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "聊天背景"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, chatBg ? "已设置 · 点右侧可换/清除" : "从相册选一张图当这个聊天的背景")),
       h("div", { className: "flex items-center gap-2 shrink-0" },
-        chatBg ? h("div", { style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(" + chatBg + ")", border: "1px solid " + t.line } }) : null,
+        chatBg ? h("div", { style: { width: 40, height: 40, borderRadius: 8, background: "center/cover no-repeat url(\"" + resolveImg(chatBg) + "\")", border: "1px solid " + t.line } }) : null,
         h("button", { onClick: () => bgFileRef.current && bgFileRef.current.click(), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, border: "1px solid " + t.line, borderRadius: 8, padding: "7px 12px" } }, chatBg ? "更换" : "选择"),
         chatBg ? h("button", { onClick: () => setChatBg(""), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.accent } }, "清除") : null,
         h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => setChatBg(d)); e.target.value = ""; } }))),

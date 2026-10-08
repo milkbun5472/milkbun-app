@@ -79,9 +79,10 @@ test("TA 自己开播先看日程：日程写了直播就照那个点；排了�
   assert.ok(fromSched[0].fromSchedule);
   assert.deepEqual(K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d, () => []), [], "日程排好了却没写直播：今天不播");
   assert.deepEqual(K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d, () => null), K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d), "没排日程才按日子掷");
-  assert.match(app, /K\.slotsOf\(liveChars\.filter\(c => c && !c\.npc\), new Date\(\), liveSchedFor\)/, "开播提醒也看日程");
+  // v75.080 起关注的路人主播也一起算（他们没有日程，走按日子掷），角色照旧先看日程
+  assert.match(app, /K\.slotsOf\(liveChars\.filter\(c => c && !c\.npc\)\.concat\(stFollowed\), new Date\(\), c => stFollowed\.some\(x => x\.id === c\.id\) \? null : liveSchedFor\(c\)\)/, "开播提醒也看日程");
   assert.match(app, /liveSched: liveSchedFor/);
-  assert.match(live, /slotsOf\(characters, new Date\(\), props\.liveSched\)/);
+  assert.match(live, /slotsOf\(characters\.concat\(followedSt\), new Date\(\), c => followedSt\.some\(x => x\.id === c\.id\) \? null : \(props\.liveSched \? props\.liveSched\(c\) : null\)\)/);
 });
 
 test("直播输入框空着按＝接着看／接着播，不用非得发弹幕才往下走", () => {
@@ -101,4 +102,23 @@ test("自动往下播的间隔：平时只露一个「N 秒」，点了才出拉
   assert.match(live, /type: "range", min: 10, max: 120, step: 5/);
   assert.match(live, /autoSec: \(props\.liveCfg \|\| \{\}\)\.autoSec \|\| 25/);
   assert.match(live, /const AUTO_MS = autoSec \* 1000;/);
+});
+
+test("日程里只认 TA 自己播，看别人直播不算开播", () => {
+  const src = app.match(/const selfLive = t => [^\n]+\n[^\n]+/)[0].replace(/^const selfLive = /, "").replace(/;\s*$/, "");
+  const selfLive = new Function("return (" + src + ")")();
+  ["开直播陪粉丝聊天", "直播带货", "晚上开播", "上直播打游戏"].forEach(t => assert.ok(selfLive(t), t));
+  ["刷手机看直播", "窝在沙发看球赛直播", "在直播间里蹲人", "陪妹妹看直播", "睡前刷会儿直播"].forEach(t => assert.ok(!selfLive(t), t));
+});
+
+test("路人主播：一次刷一批、关注上限 20、交情大号马甲分开、门槛跟人设走、加好友拒了三天或升一级", () => {
+  const K = kit();
+  assert.match(live, /const ST_FOLLOW_MAX = 20, ST_BATCH = 6;/);
+  assert.match(live, /const tieKeyOf = \(as, maskName\) => as === "mask" \? "mask:"/);
+  assert.match(live, /const gateOk = \(g, fanLv, visits\) => !!g && \(\(g\.lv > 0 && fanLv >= g\.lv\) \|\| \(g\.visits > 0 && visits >= g\.visits\)\);/);
+  assert.match(live, /Date\.now\(\) - prev\.ts < 3 \* 86400000 && fan\.lv <= \(prev\.lv \|\| 0\)/);
+  assert.match(live, /判据：把他的人设拿掉名字，换个主播还成立，就是写坏了/);
+  assert.match(live, /if \(props\.charPay && s\.charId && !s\.stranger\)/, "打赏路人主播不进任何角色钱包");
+  assert.match(app, /promoteStranger: \(st, key, nm, fan\) =>/);
+  assert.match(app, /createCharFromAssistant\(\{ name: st\.name/);
 });

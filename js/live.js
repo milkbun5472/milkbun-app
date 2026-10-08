@@ -143,6 +143,52 @@
   }
   const HOST_SHAPE = '{"chat":[{"name":"","text":""}],"gifts":[{"name":"","gift":"","amount":0}],"private":[{"name":"","text":""}],"noise":["",""],"viewers":0}';
 
+  // ── 路人主播（她 2026-10-08）────────────────────────────────
+  //   随便逛逛一次刷一批不认识的主播；喜欢的关注（最多 20 个），他也按日子自己开播；
+  //   来得多了他记得你；到他看重的那道门槛（有人看钱、有人看眼熟——跟人设走）就能私信，再往上能申请加好友，
+  //   他同意了就进人格档案馆变成正式角色。大号和马甲各算各的交情。存 x_liveStrangers。
+  const ST_KEY = "x_liveStrangers";
+  const ST_FOLLOW_MAX = 20, ST_BATCH = 6;
+  const stLoad = () => { try { const v = loadJSON(ST_KEY, null); return v && Array.isArray(v.list) ? v : { list: [] }; } catch (e) { return { list: [] }; } };
+  const tieKeyOf = (as, maskName) => as === "mask" ? "mask:" + (maskName || "路过的") : "me";
+  const gateOk = (g, fanLv, visits) => !!g && ((g.lv > 0 && fanLv >= g.lv) || (g.visits > 0 && visits >= g.visits));
+  const gateText = (g, fanLv, visits) => {
+    if (!g) return "";
+    const a = [];
+    if (g.lv > 0) a.push("粉丝团到 " + g.lv + " 级（现在 " + fanLv + " 级）");
+    if (g.visits > 0) a.push("来过 " + g.visits + " 场（现在 " + visits + " 场）");
+    return a.join("，或者");
+  };
+  const normGate = (g, floorV) => {
+    const lv = Math.max(0, Math.min(9, Math.round(Number(g && g.lv) || 0)));
+    const visits = Math.max(0, Math.min(40, Math.round(Number(g && g.visits) || 0)));
+    return lv || visits ? { lv, visits } : { lv: 0, visits: floorV };
+  };
+  // 掷轴不掷答案（bans-make-it-dumber）：一批里每个人先掷几样【事实】，免得六个人一个样；人长什么样由模型从这些事实里长出来
+  const ST_AGE = ["十八九岁", "二十出头", "二十五六", "快三十", "三十多", "四十上下"];
+  const ST_RUN = ["刚开播没几天", "播了小半年", "播了一两年", "播了好几年的老主播"];
+  const ST_SCALE = ["几十个粉丝", "几百个粉丝", "几千粉丝", "几万粉丝", "几十万粉丝"];
+  const ST_DAY = ["白天有正经工作，晚上下班才播", "全职在播，靠这个吃饭", "还在上学", "刚辞职在家", "家里开店，店里忙完了播"];
+  const pick = a => a[Math.floor(Math.random() * a.length)];
+  function strangerSystem(n, hot, date, kinds) {
+    const rolls = Array.from({ length: n }, (_, i) => (i + 1) + ". 播的是「" + kindZh(kinds[i]) + "」，" + pick(ST_AGE) + "，" + pick(ST_RUN) + "，" + pick(ST_SCALE) + "，" + pick(ST_DAY));
+    return AC() + CB()
+      + (date ? "今天是 " + date + "。" : "") + (hot && hot.length ? "今天平台上的热门：" + hot.join("、") + "。" : "")
+      + "\n【场景】她在直播平台上随便逛，刷到 " + n + " 个正在开播、互不认识的主播。下面每个人先定了几样事实，人照这些事实长出来：\n" + rolls.join("\n")
+      + "\n\n每个人写成一个具体的活人，不是一个类型：哪儿人、平时过什么日子、为什么开始播、镜头前和镜头外差在哪、在意什么、怕什么、说话什么样。"
+      + "判据：把他的人设拿掉名字，换个主播还成立，就是写坏了。他播什么、怎么播，跟他这个人对得上。"
+      + "\n每人写：name 主播名、title 这一场的直播间标题、bio 主页简介一句（他自己写的那种）、persona 人设（150~300 字，第三人称写他这个人）、look 镜头里看得见的样子（一句）、fans 粉丝数（数字）、viewers 此刻在线（数字）、"
+      + "dm 他什么时候愿意私下跟一个观众聊、friend 他什么时候愿意加一个观众好友——各写 lv（粉丝团至少几级，1~9；看重观众花钱的人才写，不看这个写 0）和 visits（至少来过几场，1~30；看重眼熟、来得勤的人才写，不看这个写 0），照他这个人来；friend 要比 dm 难。";
+  }
+  const ST_SHAPE = '{"streamers":[{"name":"","title":"","bio":"","persona":"","look":"","fans":0,"viewers":0,"dm":{"lv":0,"visits":0},"friend":{"lv":0,"visits":0}}]}';
+  // 他记得你：这个号来过几场、每场留一句发生了什么（本地写，不花调用）
+  const tieBlock = (st, key, fanLv, fanTotal) => {
+    const t = ((st.ties || {})[key]) || {};
+    const who = key === "me" ? "她用自己的号" : "她用一个叫「" + key.slice(5) + "」的号";
+    if (!t.visits) return "【这个观众】" + who + "，第一次来你的直播间。";
+    return "【这个观众】" + who + "，在你直播间来过 " + t.visits + " 场" + (fanTotal ? "，粉丝团 " + fanLv + " 级（累计打赏 " + fanTotal + " 元）" : "") + "。你对这个号的印象：\n" + arr(t.notes).slice(-8).map(x => "· " + x).join("\n");
+  };
+
   // ── 弹幕飘过去的那一层（只给眼睛看）────────────────────────
   let styleIn = false;
   function ensureStyle() {
@@ -324,6 +370,24 @@
           className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 18px", borderRadius: 10, background: (busy || (making ? !custOk : !pick)) ? "rgba(255,255,255,.08)" : LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 13 } }, "送出")));
   }
 
+  // ── 跟路人主播的私信页（跟论坛私信一个样子：一来一回的气泡）──
+  function StDmPage({ st, msgs, busy, t, title, onBack, onSend }) {
+    const [text, setText] = useState("");
+    const ref = useRef(null);
+    useEffect(function () { const el = ref.current; if (el) el.scrollTop = el.scrollHeight; }, [msgs.length, busy]);
+    const send = () => { const v = text.trim(); if (!v || busy) return; setText(""); onSend(v); };
+    return h("div", { "data-wk": "livestdm", className: "h-full flex flex-col", style: liveFloor(t) },
+      h(Head, { zh: title, sub: "私信", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack }),
+      h("div", { ref, className: "flex-1 min-h-0 overflow-y-auto px-4", style: { paddingTop: 8, paddingBottom: 10 } },
+        msgs.length ? msgs.map((m, i) => h("div", { key: i, className: "flex", style: { justifyContent: m.from === "me" ? "flex-end" : "flex-start", margin: "6px 0" } },
+          h("div", { style: { maxWidth: "78%", padding: "9px 12px", borderRadius: 14, background: m.from === "me" ? LIVE_RED : t.bg2, color: m.from === "me" ? "#fff" : t.ink, border: m.from === "me" ? "none" : "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }, m.text)))
+          : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center", padding: "40px 0" } }, "跟他说第一句"),
+        busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, padding: "6px 0" } }, "对方正在输入…") : null),
+      h("div", { className: "shrink-0 px-3 flex items-end", style: { gap: 8, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)", borderTop: "1px solid " + t.line } },
+        h("textarea", { value: text, onChange: e => setText(e.target.value), rows: 1, placeholder: "发私信", className: "flex-1 outline-none resize-none", style: { minHeight: 42, maxHeight: 104, borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, color: t.ink, padding: "11px 13px", fontFamily: F_BODY, fontSize: 16, lineHeight: 1.5 } }),
+        h("button", { onClick: send, disabled: busy || !text.trim(), className: "active:opacity-70 shrink-0", style: { width: 56, height: 42, borderRadius: 12, background: busy || !text.trim() ? t.line : LIVE_RED, color: "#fff", fontFamily: F_BODY, fontSize: 13 } }, "发送")));
+  }
+
   // ── 开播前那一页 ────────────────────────────────────────
   function Setup({ mode, characters, maskName, t, onStart, onBack }) {
     const watching = mode === "watch";
@@ -387,12 +451,20 @@
     const get = id => listRef.current.find(s => s.id === id);
     const charsOf = ses => (ses.charIds || [ses.charId]).map(id => characters.find(c => c.id === id)).filter(Boolean);
     const cur = curId ? list.find(s => s.id === curId) : null;
+    // 路人主播
+    const [stDb, setStDb] = useState(stLoad);
+    const stRef = useRef(stDb); stRef.current = stDb;
+    const stSave = n => { stRef.current = n; setStDb(n); saveJSON(ST_KEY, n); };
+    const stGet = id => arr(stRef.current.list).find(x => x.id === id);
+    const stPatch = (id, fn) => stSave(Object.assign({}, stRef.current, { list: arr(stRef.current.list).map(x => x.id === id ? fn(x) : x) }));
     const fanTotalOf = (charId, as, maskName) => listRef.current.filter(s => s.mode === "watch" && s.charId === charId && (s.as || "me") === (as || "me") && (as !== "mask" || s.maskName === maskName))
       .reduce((n, s) => n + arr(s.lines).filter(l => l.kind === "gift" && l.mine).reduce((m, l) => m + (Number(l.amount) || 0), 0), 0);
 
     // 一拍：看 TA 播
     const stepWatch = async (id, first) => {
-      let ses = get(id); const char = ses && characters.find(c => c.id === ses.charId);
+      let ses = get(id);
+      const st = ses && ses.stranger ? stGet(ses.charId) : null;
+      const char = ses && (st ? { id: st.id, name: st.name } : characters.find(c => c.id === ses.charId));
       if (!ses || !char) return;
       // 突发：本地掷，这一拍才有；写进经过里，回放看得见
       if (!first && !ses.event && Math.random() < EVENT_P) {
@@ -402,9 +474,11 @@
       }
       setBusy(true);
       try {
-        const d = await props.probeAs(char, watchInstruction(ses, uName, first), watchShape(ses, first)) || {};
+        const d = await (st
+          ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, uName, first), watchShape(ses, first))
+          : props.probeAs(char, watchInstruction(ses, uName, first), watchShape(ses, first))) || {};
         const regs = first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : ses.regulars;
-        const hostName = first ? (S(d.host).slice(0, 20) || char.name) : ses.host;
+        const hostName = first ? (st ? st.name : (S(d.host).slice(0, 20) || char.name)) : ses.host;
         const say = normLines(d.say);
         if (!say.length && !normChat(d.chat).length) { toast("这一拍没播出来，再发一次试试"); return; }
         const act = S(d.act).slice(0, 120);
@@ -467,6 +541,17 @@
     // 下播：记一条事实进记忆库（不额外调模型）
     const wrapUp = id => {
       const s = get(id); if (!s) return;
+      // 路人主播：给他记一笔「这个号来过」，不进角色记忆库（他不是你的角色）
+      if (s.stranger) {
+        const key = tieKeyOf(s.as, s.maskName);
+        const mineL = arr(s.lines).filter(l => l.kind === "me");
+        const spent = arr(s.lines).filter(l => l.kind === "gift" && l.mine).reduce((n, l) => n + (Number(l.amount) || 0), 0);
+        const d0 = new Date(s.startTs || Date.now());
+        const noteTx = (d0.getMonth() + 1) + "月" + d0.getDate() + "日那场《" + (s.title || "") + "》" + (mineL.length ? "发了 " + mineL.length + " 条弹幕，说过「" + S(mineL[mineL.length - 1].text).slice(0, 40) + "」" : "一直在看没说话")
+          + (spent ? "，打赏了 " + spent + " 元" : "") + (arr(s.lines).some(l => l.kind === "me" && l.linked) ? "，还跟你连过麦" : "") + (s.mod ? "，你让这个号当了房管" : "") + "。";
+        stPatch(s.charId, x => { const t = Object.assign({ visits: 0, notes: [] }, (x.ties || {})[key]); return Object.assign({}, x, { lastSeen: Date.now(), ties: Object.assign({}, x.ties, { [key]: Object.assign({}, t, { visits: (t.visits || 0) + 1, notes: arr(t.notes).concat([noteTx]).slice(-20) }) }) }); });
+        return;
+      }
       const chars = charsOf(s); if (!chars.length) return;
       const mine = arr(s.lines).filter(l => l.kind === "me").length;
       const spent = arr(s.lines).filter(l => l.kind === "gift" && l.mine).reduce((n, l) => n + (Number(l.amount) || 0), 0);
@@ -498,7 +583,7 @@
     };
 
     const start = cfg => {
-      const ses = { id: uid("live"), mode: cfg.mode, charId: cfg.charId, charIds: cfg.charIds, kind: cfg.kind, topic: cfg.topic, title: cfg.title,
+      const ses = { id: uid("live"), mode: cfg.mode, charId: cfg.charId, charIds: cfg.charIds, stranger: !!cfg.stranger, kind: cfg.kind, topic: cfg.topic, title: cfg.title,
         as: cfg.as, maskName: cfg.maskName, lines: [], noise: [], viewers: 0, startTs: Date.now(), endTs: 0, board: {}, slotId: cfg.slotId || "", midway: cfg.midway || 0 };
       if (cfg.mode === "watch") {
         ses.fanTotal = fanTotalOf(cfg.charId, cfg.as, cfg.maskName); ses.fanLv = fanLevel(ses.fanTotal);
@@ -537,7 +622,7 @@
       const name = s.as === "mask" ? s.maskName : uName;
       props.pay(-amount, "直播打赏 · " + (s.host || "主播") + "「" + g + "」");
       // 主播只到手一半（平台抽成）
-      if (props.charPay && s.charId) props.charPay(s.charId, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
+      if (props.charPay && s.charId && !s.stranger) props.charPay(s.charId, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");
       const before = fanLevel(s.fanTotal || 0), total = (s.fanTotal || 0) + amount, after = fanLevel(total);
       patch(curId, x => ({ ...x, fanTotal: total, fanLv: after, board: Object.assign({}, x.board, { [name]: ((x.board || {})[name] || 0) + amount }),
         lines: arr(x.lines).concat([{ kind: "gift", mine: true, name, gift: g, amount, ts: Date.now() }])
@@ -550,6 +635,78 @@
       wrapUp(curId);
       toast(s.mode === "watch" ? "离开了直播间" : "下播了");
     };
+
+    // ── 路人主播的几样动作 ──
+    const [stBusy, setStBusy] = useState("");
+    const browse = async () => {
+      if (!props.askStranger || stBusy) return;
+      setStBusy("browse");
+      try {
+        const d0 = new Date();
+        const kinds = Array.from({ length: ST_BATCH }, () => pick(SLOT_KINDS.concat(["spicy"])));
+        const r = await props.askStranger(strangerSystem(ST_BATCH, props.hot ? props.hot() : [], d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日", kinds), ST_SHAPE);
+        const fresh = arr(r && r.streamers).slice(0, ST_BATCH).map((x, i) => x && S(x.name) && S(x.persona) ? Object.assign({}, x, { kind: kinds[i] }) : null).filter(Boolean).map(x => {
+          const dm = normGate(x.dm, 3), fr = normGate(x.friend, 8);
+          // 加好友一定比私信难：两样都比私信那道高一点
+          const friend = { lv: fr.lv ? Math.max(fr.lv, dm.lv + 1) : 0, visits: fr.visits ? Math.max(fr.visits, dm.visits + 2) : 0 };
+          return { id: uid("st"), name: S(x.name).slice(0, 20), title: S(x.title).slice(0, 40), bio: S(x.bio).slice(0, 80), persona: S(x.persona).slice(0, 1200), look: S(x.look).slice(0, 120),
+            fans: Math.max(0, Math.round(Number(x.fans) || 0)), viewers: Math.max(1, Math.round(Number(x.viewers) || 1)), kind: KINDS.some(k => k[0] === x.kind) ? x.kind : "free",
+            dm, friend: friend.lv || friend.visits ? friend : { lv: 0, visits: dm.visits + 5 }, ts: Date.now(), liveUntil: Date.now() + (90 + Math.floor(Math.random() * 90)) * 60000, followed: false, ties: {} };
+        });
+        if (!fresh.length) { toast("这一批没刷出来，再点一次"); return; }
+        // 没关注的那批换掉，关注过的、加成好友的留着
+        stSave(Object.assign({}, stRef.current, { list: fresh.concat(arr(stRef.current.list).filter(x => x.followed || x.promoted)) }));
+      } catch (e) { toast("没刷出来：" + ((e && e.message) || "再试一次")); }
+      finally { setStBusy(""); }
+    };
+    const follow = st => {
+      if (!st.followed && arr(stRef.current.list).filter(x => x.followed).length >= ST_FOLLOW_MAX) { toast("最多关注 " + ST_FOLLOW_MAX + " 个，先取关一个"); return; }
+      stPatch(st.id, x => Object.assign({}, x, { followed: !x.followed }));
+    };
+    const enterSt = (st, as) => start({ mode: "watch", charId: st.id, charIds: [st.id], stranger: true, kind: st.kind || "free", topic: "", title: st.title || "", as, maskName: props.maskName || "路过的", slotId: "", midway: 0 });
+    const stFan = (st, key) => { const total = listRef.current.filter(s2 => s2.stranger && s2.charId === st.id && tieKeyOf(s2.as, s2.maskName) === key).reduce((n, s2) => n + arr(s2.lines).filter(l => l.kind === "gift" && l.mine).reduce((m, l) => m + (Number(l.amount) || 0), 0), 0); return { total, lv: fanLevel(total) }; };
+    const sendDm = async (st, key, text) => {
+      const t0 = Object.assign({ visits: 0, notes: [] }, (st.ties || {})[key]);
+      const msgs = arr(((st.dms || {})[key])).concat([{ from: "me", text, ts: Date.now() }]);
+      stPatch(st.id, x => Object.assign({}, x, { dms: Object.assign({}, x.dms, { [key]: msgs }) }));
+      setStBusy("dm");
+      try {
+        const fan = stFan(st, key);
+        const nm = key === "me" ? uName : key.slice(5);
+        const d = await props.probeStranger(st, tieBlock(st, key, fan.lv, fan.total)
+          + "\n\n【这一轮发生在直播平台的私信里】你的观众「" + nm + "」私信了你。这是打字，不是当面：只有你打出去的那几行字，别写动作。"
+          + "\n这是你们在私信里说过的：\n" + msgs.slice(-30).map(m => (m.from === "me" ? nm : "你") + "：" + m.text).join("\n") + "\n\n回最新这句（1~3 条，一条一个气泡）。回不回、回多热络，照你这个人和你们的交情来。", '{"say":["气泡1"]}');
+        const say = (Array.isArray(d && d.say) ? d.say : (d && d.say ? [d.say] : [])).map(S).filter(Boolean).slice(0, 4);
+        if (say.length) stPatch(st.id, x => Object.assign({}, x, { dms: Object.assign({}, x.dms, { [key]: arr((x.dms || {})[key]).concat(say.map((y, i) => ({ from: "st", text: y.slice(0, 400), ts: Date.now() + i }))) }) }));
+      } catch (e) { toast("没回上：" + ((e && e.message) || "再试一次")); }
+      finally { setStBusy(""); }
+    };
+    // 申请加好友：他照人设和交情决定；被拒了三天后、或者粉丝团又升了一级才能再申请
+    const askFriend = async (st, key) => {
+      const fan = stFan(st, key);
+      const prev = ((st.friendAsk || {})[key]) || null;
+      if (prev && !prev.ok && Date.now() - prev.ts < 3 * 86400000 && fan.lv <= (prev.lv || 0)) { toast("他刚拒过，三天后或者粉丝团再升一级再试"); return; }
+      const nm = key === "me" ? uName : key.slice(5);
+      setStBusy("friend");
+      try {
+        const d = await props.probeStranger(st, tieBlock(st, key, fan.lv, fan.total)
+          + "\n\n【这一轮】你的观众「" + nm + "」申请加你的私人好友——加了以后你们就不只是主播和观众，是能私下随时联系的人。"
+          + (arr((st.dms || {})[key]).length ? "\n你们私信里聊过的：\n" + arr((st.dms || {})[key]).slice(-16).map(m => (m.from === "me" ? nm : "你") + "：" + m.text).join("\n") : "")
+          + "\n同不同意照你这个人来：你有多看重她花的钱、多看重眼熟、你对这个号的印象。写 accept（true/false）和 say（你回她的那一句，私信里打的字）。", '{"accept":false,"say":""}');
+        const ok = !!(d && d.accept === true);
+        const say = S(d && d.say).slice(0, 300);
+        stPatch(st.id, x => Object.assign({}, x, { friendAsk: Object.assign({}, x.friendAsk, { [key]: { ts: Date.now(), lv: fan.lv, ok } }),
+          dms: Object.assign({}, x.dms, { [key]: arr((x.dms || {})[key]).concat([{ from: "me", text: "（申请加你好友）", ts: Date.now() }]).concat(say ? [{ from: "st", text: say, ts: Date.now() + 1 }] : []) }) }));
+        if (ok && props.promoteStranger) {
+          const cid = props.promoteStranger(stGet(st.id), key, nm, fan);
+          stPatch(st.id, x => Object.assign({}, x, { promoted: cid || true, followed: true }));
+        } else if (!ok) toast("他没同意");
+      } catch (e) { toast("没问成：" + ((e && e.message) || "再试一次")); }
+      finally { setStBusy(""); }
+    };
+    const askDropSt = st => { const go = () => { dropSt(st); setView("home"); };
+      if (props.confirm) props.confirm("不要这个主播了？", "跟他的交情和私信一起不要了。", go); else go(); };
+    const dropSt = st => stSave(Object.assign({}, stRef.current, { list: arr(stRef.current.list).filter(x => x.id !== st.id) }));
 
     if (view === "setup:watch" || view === "setup:host")
       return h(Setup, { mode: view === "setup:watch" ? "watch" : "host", characters, maskName: props.maskName, t, onStart: start, onBack: () => setView("home") });
@@ -586,34 +743,105 @@
     const nameOf = s => s.mode === "watch" ? ((characters.find(c => c.id === s.charId) || {}).name || "") : uName;
     const cfg = props.liveCfg || {};
     const now = Date.now();
-    const slots = cfg.selfLive === false ? [] : slotsOf(characters, new Date(), props.liveSched);
+    const followedSt = arr(stDb.list).filter(x => x.followed && !x.promoted);
+    const slots = cfg.selfLive === false ? [] : slotsOf(characters.concat(followedSt), new Date(), c => followedSt.some(x => x.id === c.id) ? null : (props.liveSched ? props.liveSched(c) : null));
+    const whoOf = id => characters.find(cc => cc.id === id) || followedSt.find(x => x.id === id) || null;
+    const stFace = (st, size) => h("div", { style: { width: size, height: size, borderRadius: 999, flexShrink: 0, background: "linear-gradient(135deg," + LIVE_RED + ",#6a4fb0)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42 } }, S(st.name).slice(0, 1));
     const onAir = slots.filter(x => x.start <= now && now < x.end), later = slots.filter(x => x.start > now);
     const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
     // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
     const joinSlot = (x, as) => {
       const had = listRef.current.find(s2 => s2.slotId === x.id && !s2.endTs);
       if (had) { setCurId(had.id); setView("room"); return; }
-      start({ mode: "watch", charId: x.charId, charIds: [x.charId], kind: x.kind, topic: "", title: "", as, maskName: props.maskName || "路过的", slotId: x.id, midway: Math.max(1, Math.round((Date.now() - x.start) / 60000)) });
+      start({ mode: "watch", charId: x.charId, charIds: [x.charId], stranger: !characters.some(c => c.id === x.charId), kind: x.kind, topic: "", title: "", as, maskName: props.maskName || "路过的", slotId: x.id, midway: Math.max(1, Math.round((Date.now() - x.start) / 60000)) });
     };
+    // ── 路人主播的主页 ──
+    if (view.indexOf("st:") === 0) {
+      const st = stGet(view.slice(3));
+      if (!st) { setTimeout(() => setView("home"), 0); return null; }
+      // 刷到的那一场播到 liveUntil 为止（关不关注都不影响）；之后按日子算的开播时间
+      const onAirNow = Date.now() < (st.liveUntil || 0) || slots.some(x => x.charId === st.id && x.start <= Date.now() && Date.now() < x.end);
+      const nextSlot = slots.find(x => x.charId === st.id && x.start > Date.now());
+      const keys = ["me"].concat(props.maskName ? ["mask:" + props.maskName] : []);
+      const row = (k) => {
+        const tie = (st.ties || {})[k] || {}, fan = stFan(st, k), visits = tie.visits || 0;
+        const dmOk = gateOk(st.dm, fan.lv, visits), frOk = gateOk(st.friend, fan.lv, visits);
+        const asked = (st.friendAsk || {})[k];
+        const btn = (txt, on, fn, key) => h("button", { key, "data-wk": "livestbtn", onClick: fn, disabled: !on || !!stBusy, className: "active:opacity-70", style: { minHeight: 36, padding: "0 14px", borderRadius: 10, background: on ? LIVE_RED : "transparent", border: "1px solid " + (on ? LIVE_RED : t.line), color: on ? "#fff" : t.fog, fontFamily: F_BODY, fontSize: 12.5, opacity: stBusy ? .6 : 1 } }, txt);
+        return h("div", { key: k, "data-wk": "livesttie", style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, k === "me" ? "用自己的号" : "用马甲「" + k.slice(5) + "」"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, visits ? "来过 " + visits + " 场 · 粉丝团 " + fan.lv + " 级（打赏过 ¥" + fan.total + "）" : "还没来过"),
+          arr(tie.notes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 6, lineHeight: 1.6 } }, "他记得：" + arr(tie.notes).slice(-2).join(" ")) : null,
+          h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
+            btn(dmOk ? "私信" : "私信 · 没解锁", dmOk, () => setView("dm:" + st.id + "|" + k), "dm"),
+            st.promoted ? h("span", { key: "pr", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, alignSelf: "center" } }, "已经是好友了，在人格档案馆里")
+              : btn(stBusy === "friend" ? "问着…" : frOk ? (asked && !asked.ok ? "再申请一次" : "申请加好友") : "加好友 · 没解锁", frOk, () => askFriend(st, k), "fr")),
+          !dmOk ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "私信要：" + gateText(st.dm, fan.lv, visits)) : null,
+          dmOk && !frOk && !st.promoted ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "加好友要：" + gateText(st.friend, fan.lv, visits)) : null,
+          asked && !asked.ok && !st.promoted ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "上次被拒了：三天后、或者粉丝团再升一级才能再申请") : null);
+      };
+      return h("div", { "data-wk": "livestpage", className: "h-full flex flex-col", style: liveFloor(t) },
+        h(Head, { zh: st.name, sub: (st.fans || 0) + " 粉丝", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: () => setView("home"),
+          right: h("button", { onClick: () => askDropSt(st), style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minHeight: 40 } }, "不要了") }),
+        h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
+          h("div", { className: "flex items-center", style: { gap: 12, marginTop: 6 } }, stFace(st, 52),
+            h("div", { className: "flex-1 min-w-0" },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, lineHeight: 1.55 } }, st.bio || "（没写简介）"),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3 } }, "播" + kindZh(st.kind) + (onAirNow ? " · 正在播" : nextSlot ? " · 今晚 " + hm(nextSlot.start) + " 播" : ""))),
+            h("button", { "data-wk": "livestfollow", onClick: () => follow(st), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 14px", borderRadius: 10, border: "1px solid " + LIVE_RED, background: st.followed ? "transparent" : LIVE_RED, color: st.followed ? LIVE_RED : "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, st.followed ? "已关注" : "关注")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "18px 0 6px" } }, "关于他"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.75 } }, st.persona),
+          onAirNow ? h("div", { className: "flex", style: { gap: 8, marginTop: 16 } },
+            h("button", { onClick: () => enterSt(st, "me"), className: "active:opacity-70", style: { flex: 1, minHeight: 44, borderRadius: 12, background: LIVE_RED, color: "#fff", fontFamily: F_BODY, fontSize: 14 } }, "进直播间"),
+            h("button", { onClick: () => enterSt(st, "mask"), className: "active:opacity-70", style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "挂马甲"))
+            : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 16 } }, st.followed ? (nextSlot ? "今晚 " + hm(nextSlot.start) + " 开播，到点会提醒你" : "今天不播；关注着，他开播会提醒你") : "这会儿没在播"),
+          keys.map(row)));
+    }
+    // ── 跟路人主播的私信 ──
+    if (view.indexOf("dm:") === 0) {
+      const [sid, key] = view.slice(3).split("|");
+      const st = stGet(sid);
+      if (!st) { setTimeout(() => setView("home"), 0); return null; }
+      const msgs = arr((st.dms || {})[key]);
+      return h(StDmPage, { st, msgs, busy: stBusy === "dm", t, title: st.name + (key === "me" ? "" : " · 马甲「" + key.slice(5) + "」"), onBack: () => setView("st:" + sid), onSend: tx => sendDm(st, key, tx) });
+    }
     return h("div", { "data-wk": "livepage", className: "h-full flex flex-col", style: liveFloor(t) },
       h(Head, { zh: "直播", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: props.embedded ? undefined : props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 30 } },
         onAir.length ? h("div", { style: { marginTop: 6, marginBottom: 14 } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8 } }, h(GlyphDot), "正在播"),
-          onAir.map(x => { const c = characters.find(cc => cc.id === x.charId); if (!c) return null;
+          onAir.map(x => { const c = whoOf(x.charId); if (!c) return null; const isSt = !characters.some(cc => cc.id === x.charId);
             return h("div", { "data-wk": "liveonair", key: x.id, className: "flex items-center", style: { gap: 10, padding: "10px 12px", marginBottom: 8, borderRadius: 14, border: "1px solid " + LIVE_RED, background: "rgba(226,85,107,.08)" } },
-              h(Avatar, { character: c, size: 38 }),
+              isSt ? stFace(c, 38) : h(Avatar, { character: c, size: 38 }),
               h("div", { className: "flex-1 min-w-0" },
                 h("div", { "data-wk": "liveonairtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, (c.remark || c.name) + " 在播" + kindZh(x.kind)),
                 h("div", { "data-wk": "liveonairtime", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "已经播了 " + Math.max(1, Math.round((now - x.start) / 60000)) + " 分钟 · 到 " + hm(x.end))),
               h("button", { "data-wk": "livejoin", "data-part": "me", onClick: () => joinSlot(x, "me"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 12px", borderRadius: 10, background: LIVE_RED, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, "进去"),
               h("button", { "data-wk": "livejoin", "data-part": "mask", onClick: () => joinSlot(x, "mask"), className: "active:opacity-70 shrink-0", style: { minHeight: 34, padding: "0 8px", color: t.sub, fontFamily: F_BODY, fontSize: 12 } }, "挂马甲")); })) : null,
         later.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12, lineHeight: 1.7 } },
-          "今晚还会播：" + later.map(x => ((characters.find(c => c.id === x.charId) || {}).name || "") + " " + hm(x.start)).join("、")) : null,
+          "今晚还会播：" + later.map(x => ((whoOf(x.charId) || {}).name || "") + " " + hm(x.start)).join("、")) : null,
         h("div", { style: { display: "flex", flexDirection: "column", gap: 12, marginTop: 6 } },
           characters.length ? door("去看 TA 播", "挑一个人，看 TA 在直播间里是什么样。可以用自己的号，也可以挂马甲。", () => setView("setup:watch")) : null,
           characters.length ? door("我来开播", "你开播，你的人混在观众里看着你。", () => setView("setup:host")) : null,
           !characters.length ? h("div", { "data-wk": "liveempty", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "30px 0", textAlign: "center" } }, "先去人格档案馆建一个角色") : null),
+        // 路人主播：随便逛逛一次刷一批；关注的留着
+        props.askStranger ? h("div", { "data-wk": "livestrangers", style: { marginTop: 22 } },
+          h("div", { className: "flex items-center", style: { marginBottom: 8 } },
+            h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "路人主播"),
+            h("button", { "data-wk": "livebrowse", onClick: browse, disabled: !!stBusy, className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, border: "1px solid " + LIVE_RED, color: LIVE_RED, fontFamily: F_BODY, fontSize: 12 } }, stBusy === "browse" ? "逛着…" : "随便逛逛（刷 " + ST_BATCH + " 个）")),
+          (function () {
+            const fresh = arr(stDb.list).filter(x => !x.followed && !x.promoted);
+            const card = x => h("button", { key: x.id, "data-wk": "livestcard", onClick: () => setView("st:" + x.id), className: "w-full text-left active:opacity-70 flex items-center", style: { gap: 10, padding: "10px 12px", marginBottom: 8, borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
+              stFace(x, 38),
+              h("div", { className: "flex-1 min-w-0" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.name + (x.title ? " ·《" + x.title + "》" : "")),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "播" + kindZh(x.kind) + " · " + (Date.now() < (x.liveUntil || 0) ? (x.viewers || 0) + " 人在看" : (x.fans || 0) + " 粉丝") + (x.bio ? " · " + x.bio : ""))),
+              Date.now() < (x.liveUntil || 0) || slots.some(y => y.charId === x.id && y.start <= Date.now() && Date.now() < y.end) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_RED, flexShrink: 0 } }, "● 直播中") : null);
+            return h("div", null,
+              fresh.length ? fresh.map(card) : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "6px 0 10px", lineHeight: 1.6 } }, "点「随便逛逛」刷一批不认识的主播，一次花一次调用。"),
+              followedSt.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "12px 0 8px" } }, "我关注的（" + followedSt.length + "/" + ST_FOLLOW_MAX + "）") : null,
+              followedSt.map(card));
+          })()) : null,
         props.onLiveCfg ? h("button", { "data-wk": "liveselfcfg", onClick: () => props.onLiveCfg(Object.assign({}, cfg, { selfLive: cfg.selfLive === false })), className: "w-full text-left active:opacity-70", style: { marginTop: 16, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
           (cfg.selfLive === false ? "○ " : "● ") + "TA 们会自己开播（不进去看就不花调用）") : null,
         list.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "24px 0 8px" } }, "回放") : null,

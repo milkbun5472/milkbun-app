@@ -389,11 +389,27 @@
   function ShuaApp(props) {
     const t = useTheme();
     const { characters, profile, toast } = props;
-    const [db, setDb] = useState(load);
+    // 从聊天里点视频卡过来的（群友 2026-10-08：「能点到原视频里吗」）：读存档这一步顺手找到那一条——
+    //   旧卡没记 id 就按作者＋画面认；已经被刷掉了就照卡上的样子补回去。补的那条要跟着这一次的 db 一起进来，所以写在这儿
+    const [db, setDb] = useState(() => {
+      const d0 = load(), sn = window.__shuaPending;
+      if (!sn) return d0;
+      window.__shuaPending = null;
+      const vids = arr(d0.videos);
+      let v = (sn.id && vids.find(x => x.id === sn.id)) || vids.find(x => x.author === sn.author && x.scene === sn.scene);
+      let out = d0;
+      if (!v) {
+        v = mkVideo(sn, { by: sn.by === "char" ? "char" : sn.by === "me" ? "me" : "npc", author: S(sn.author).slice(0, 20) || "某个博主", charId: sn.charId || null, skin: sn.skin === "b" ? "b" : "v", img: sn.img || "" });
+        out = Object.assign({}, d0, { videos: [v].concat(vids) }); saveJSON(KEY, out);
+      }
+      pendingPage = vidSkin(v) === "b" ? { kind: "bdetail", id: v.id, fromChat: true } : { kind: "one", id: v.id, fromChat: true };
+      return out;
+    });
     const dbRef = useRef(db); dbRef.current = db;
     const [tab, setTab] = useState("home");          // home | live | msg | me
     const [feed, setFeed] = useState("rec");          // follow | rec
-    const [page, setPage] = useState(null);           // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
+    const [page, setPage] = useState(() => { const p0 = pendingPage; pendingPage = null; return p0; });
+    // null | {kind:"comments"|"bdetail",id} | {kind:"refresh"} | {kind:"post"} | {kind:"mine"}
     const [liveStart, setLiveStart] = useState("");   // 从「＋ → 开直播」进直播那一格
     const [busy, setBusy] = useState(null);
     const [topic, setTopic] = useState("");   // 首页只看沾这个热门话题的
@@ -416,7 +432,8 @@
     const save = next => { const n = Object.assign({}, next, { videos: capVideos(next.videos), notes: arr(next.notes).slice(0, 100) }); dbRef.current = n; setDb(n); saveJSON(KEY, n); };
     const patchV = (id, fn) => save(Object.assign({}, dbRef.current, { videos: dbRef.current.videos.map(v => v.id === id ? fn(v) : v) }));
     const addVideos = list => save(Object.assign({}, dbRef.current, { videos: list.concat(dbRef.current.videos) }));
-    const note = text => save(Object.assign({}, dbRef.current, { notes: [{ id: uid("n"), text, ts: Date.now(), unread: true }].concat(dbRef.current.notes) }));
+    // 记下是哪条视频（群友 2026-10-08：「消息能点到原视频里吗，不然都不知道是哪个视频了」）
+    const note = (text, vid) => save(Object.assign({}, dbRef.current, { notes: [{ id: uid("n"), text, vid: vid || null, ts: Date.now(), unread: true }].concat(dbRef.current.notes) }));
     const charOf = id => characters.find(c => c.id === id);
     // 小号（她 2026-10-07：「片刻能不能也搞小号，跟论坛一样」）：在「我」里起名、切换。
     //   用小号时：发的视频、评论都挂小号的名；小号发的视频悄悄的——认识她的人不会被叫来评论；
@@ -549,7 +566,7 @@
       try {
         const d = await props.probeAs(c, replyInstruction(v, uName, text, asAlt), REPLY_SHAPE);
         const r = S(d && d.reply).slice(0, 300);
-        if (r) { patchV(id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: v.author, text: r, by: "char", isAuthor: true, ts: Date.now() }]) })); note(v.author + " 回复了你：" + r); }
+        if (r) { patchV(id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: v.author, text: r, by: "char", isAuthor: true, ts: Date.now() }]) })); note(v.author + " 回复了你：" + r, v.id); }
       } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
       finally { setBusy(null); }
     };
@@ -564,7 +581,7 @@
           const c = d && pool.find(x => x.name === S(d.name)); if (!c) return;
           const cm = S(d.comment).slice(0, 300);
           const handle = S(((dbRef.current.accounts || {})[c.id] || {}).handle) || c.name;
-          if (cm) { patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: handle, text: cm, by: "char", charId: c.id, ts: Date.now() }]) })); note(handle + " 评论了你小号的视频：" + cm); }
+          if (cm) { patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).concat([{ id: uid("cm"), name: handle, text: cm, by: "char", charId: c.id, ts: Date.now() }]) })); note(handle + " 评论了你小号的视频：" + cm, v.id); }
           if (d.recognized === true && props.remember) props.remember([c.id], "你在「" + APP_NAME + "」上刷到一个叫「" + alt + "」的小号发的视频（拍的是：" + S(v.scene).slice(0, 60) + "），你觉得那是 " + uName + " 的小号" + (S(d.why) ? "——" + S(d.why).slice(0, 80) : "") + "。她不知道你认出来了。");
         });
       } catch (e) {}
@@ -598,7 +615,7 @@
         const crowd = (co || cpChar) ? normComments(r && r.crowd) : [];
         if (cpChar) save(Object.assign({}, dbRef.current, { cps: Object.assign({}, dbRef.current.cps, { [cpId]: Object.assign({}, (dbRef.current.cps || {})[cpId], { followers: ((((dbRef.current.cps || {})[cpId] || {}).followers) || 0) + Math.round(Math.max(0, Number(r && r.likes) || 0) * 0.02) }) }) }));
         patchV(v.id, x => Object.assign({}, x, { likes, plays: Math.max(likes * 8, likes), comments: cms.concat(crowd) }));
-        cms.forEach(c => note(c.name + " 评论了你的视频：" + c.text));
+        cms.forEach(c => note(c.name + " 评论了你的视频：" + c.text, v.id));
       } catch (e) { toast("评论区还空着：" + ((e && e.message) || "")); }
       finally { setBusy(null); }
     };
@@ -650,7 +667,7 @@
       try {
         const d = await props.probeAs(who, threadInstruction(v, target.text, uName, text, asAlt), REPLY_SHAPE);
         const r = S(d && d.reply).slice(0, 300);
-        if (r) { add({ id: uid("rp"), name: target.name, text: r, by: "char", ts: Date.now() }); note(target.name + " 在楼里回了你：" + r); }
+        if (r) { add({ id: uid("rp"), name: target.name, text: r, by: "char", ts: Date.now() }); note(target.name + " 在楼里回了你：" + r, v.id); }
       } catch (e) { toast("TA没回上：" + ((e && e.message) || "")); }
       finally { setBusy(null); }
     };
@@ -683,7 +700,7 @@
     }
     if (page && page.kind === "bdetail") {
       const v = db.videos.find(x => x.id === page.id);
-      if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
+      if (v) return h(BDetail, { v, charOf, busy: busy === "reply", onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(page.back || null), onLike: () => like(v), onFave: () => fave(v),
         onDraw: props.canDraw ? () => draw(v) : null, drawing: drawing === v.id, onSend: x => comment(v.id, x),
         onShare: props.onShare ? () => setPage({ kind: "share", id: v.id, back: page }) : null,
         onAuthor: v.by === "char" ? () => setPage({ kind: "acct", charId: v.charId, back: page }) : null,
@@ -761,6 +778,17 @@
       h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-70", style: { minHeight: 42, padding: "0 22px", borderRadius: 999, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "刷一刷"));
 
     // 「我」那一格点进收藏：同一个竖着刷的样子，只放收藏的
+    // 从消息点进来的那一条：竖着刷那套就整屏放这一条（评论、点赞照常），横着看那套直接进播放页
+    const openNote = n => {
+      save(Object.assign({}, dbRef.current, { notes: arr(dbRef.current.notes).map(x => x.id === n.id ? Object.assign({}, x, { unread: false }) : x) }));
+      const v = arr(dbRef.current.videos).find(x => x.id === n.vid);
+      if (!v) { toast("那条视频已经不在了"); return; }
+      setPage(vidSkin(v) === "b" ? { kind: "bdetail", id: v.id } : { kind: "one", id: v.id });
+    };
+    if (page && page.kind === "one") { const ov = arr(db.videos).find(x => x.id === page.id);
+      return h("div", { "data-wk": "shuaone", className: "h-full flex flex-col", style: { background: BLACK } },
+        h(Head, { zh: "视频", bg: "transparent", ink: INK, onBack: () => page.fromChat && window.__goScreen ? window.__goScreen("thread") : setPage(null) }),
+        ov ? feedView([ov], null) : null); }
     if (page && page.kind === "favs") return h("div", { "data-wk": "shuafavs", className: "h-full flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "我的收藏", bg: "transparent", ink: P.ink, onBack: () => setPage(null) }),
       feedView(page.folder && page.folder !== "all" ? favAll.filter(v => page.folder === "none" ? !arr(db.folders).some(f => f.id === v.folder) : v.folder === page.folder) : favAll, null));
@@ -841,9 +869,13 @@
     else if (tab === "msg") body = h("div", { "data-wk": "shuamsgpage", className: "flex-1 min-h-0 flex flex-col", style: { background: P.bg } },
       h(Head, { zh: "消息", bg: "transparent", ink: P.ink, onBack: () => setTab("me"), right: unread ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { notes: dbRef.current.notes.map(n => Object.assign({}, n, { unread: false })) })), style: { fontFamily: F_BODY, fontSize: 12, color: P.dim, minHeight: 40 } }, "全部已读") : null }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4" },
-        arr(db.notes).length ? arr(db.notes).map(n => h("div", { "data-wk": "shuanote", "data-on": n.unread ? "1" : "0", key: n.id, style: { padding: "12px 0", borderBottom: "1px solid " + P.line } },
+        arr(db.notes).length ? arr(db.notes).map(n => { const nv = n.vid ? arr(db.videos).find(x => x.id === n.vid) : null;
+          return h(n.vid ? "button" : "div", { "data-wk": "shuanote", "data-on": n.unread ? "1" : "0", key: n.id, onClick: n.vid ? () => openNote(n) : undefined, className: n.vid ? "w-full text-left active:opacity-70" : undefined, style: { display: "block", padding: "12px 0", borderBottom: "1px solid " + P.line } },
           h("div", { "data-wk": "shuanotetext", style: { fontFamily: F_BODY, fontSize: 13.5, color: n.unread ? P.ink : P.dim, lineHeight: 1.55 } }, (n.unread ? "● " : "") + n.text),
-          h("div", { "data-wk": "shuanotetime", style: { fontFamily: F_BODY, fontSize: 10.5, color: P.dim, marginTop: 3 } }, new Date(n.ts).toLocaleString()))) :
+          // 是哪一条：标题／文案／画面的头几个字，点进去就是那条
+          n.vid ? h("div", { "data-wk": "shuanotevid", style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim, marginTop: 4, padding: "5px 8px", borderRadius: 6, background: P.line, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+            nv ? "▶ " + S(nv.title || nv.caption || nv.scene).slice(0, 40) + " ›" : "那条视频已经不在了") : null,
+          h("div", { "data-wk": "shuanotetime", style: { fontFamily: F_BODY, fontSize: 10.5, color: P.dim, marginTop: 3 } }, new Date(n.ts).toLocaleString())); }) :
           h("div", { "data-wk": "shuaempty", style: { fontFamily: F_BODY, fontSize: 13, color: P.dim, textAlign: "center", padding: "50px 0" } }, "还没有人找你")));
     else body = h("div", { "data-wk": "shuamepage", className: "flex-1 min-h-0 flex flex-col", style: { background: skin === "b" ? "linear-gradient(180deg,#ffe4ec 0," + B.bg + " 220px)" : "linear-gradient(180deg,#2a1d33 0,#0b0b0e 260px)" } },
       h(Head, { zh: myName, bg: "transparent", ink: P.ink, right: h("button", { onClick: () => setTab("msg"), style: { position: "relative", fontFamily: F_BODY, fontSize: 13, color: P.ink, minHeight: 40, padding: "0 4px" } }, "消息",
@@ -914,23 +946,26 @@
   }
 
   // ── 分享卡：聊天里那一张（单聊、群聊走同一条 shareCardOf）──────────
-  const shareSnap = v => ({ author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 });
+  const shareSnap = v => ({ id: v.id || null, author: v.author, title: v.title || "", scene: v.scene, caption: v.caption, tags: arr(v.tags), img: v.img || "", skin: vidSkin(v), by: v.by, charId: v.charId || null, likes: v.likes || 0 });
   // TA读到的那一段：视频长什么样照抄；是TA自己的那条就说一声
   const shareText = (snap, toCharId, fromName) => "[" + (fromName ? fromName + "从「" + APP_NAME + "」甩来一条视频" : "转发了一条「" + APP_NAME + "」上的视频") + "]"
     + "作者 @" + snap.author + (snap.title ? "｜标题《" + snap.title + "》" : "") + "｜视频里拍的是：" + snap.scene + (snap.caption ? "｜文案：" + snap.caption : "")
     + (snap.tags.length ? "｜" + snap.tags.map(x => "#" + x).join(" ") : "") + "｜" + snap.likes + " 赞"
     + (toCharId && snap.by === "char" && snap.charId === toCharId ? "｜（这就是你自己发的那条）" : "");
+  // 点聊天里那张视频卡 → 打开片刻、直接停在那一条（群友 2026-10-08：「能点到原视频里吗，不然都不知道是哪个视频了」）
+  let pendingPage = null;
+  window.__openShuaVideo = snap => { window.__shuaPending = snap; if (typeof window.__goScreen === "function") window.__goScreen("shua"); };
   function ShuaShareCard({ m }) {
     const v = m.shua || {};
     const src = v.img ? (typeof resolveImg === "function" ? resolveImg(v.img) : v.img) : "";
-    return h("div", { "data-wk": "shuashare", style: { width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
+    return h("div", { "data-wk": "shuashare", role: "button", onClick: () => window.__openShuaVideo(v), className: "active:opacity-80", style: { cursor: "pointer", width: 220, maxWidth: "100%", borderRadius: 12, overflow: "hidden", background: "#111", border: "1px solid rgba(0,0,0,.08)" } },
       // ⚠️比例和最高高度一起写时，高度被卡住、宽度就跟着缩，卡片右边空出一条（她 2026-10-07 截图）。宽度铺满，高度定死
       h("div", { style: { position: "relative", width: "100%", height: v.skin === "b" ? 138 : 260, background: src ? "center/cover no-repeat url(\"" + src + "\")" : "linear-gradient(160deg,#3b2a4a,#111)", padding: 10 } },
         !src ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, lineHeight: 1.6, color: "rgba(255,255,255,.9)", display: "-webkit-box", WebkitLineClamp: 6, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.scene) : null,
         h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "18px 10px 8px", background: "linear-gradient(180deg,rgba(0,0,0,0),rgba(0,0,0,.7))" } },
           h("div", { "data-wk": "shuashareauthor", style: { fontFamily: F_BODY, fontSize: 12, color: "#fff", fontWeight: 600 } }, "@" + (v.author || "")),
           (v.title || v.caption) ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "rgba(255,255,255,.88)", marginTop: 2, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, v.title || v.caption) : null)),
-      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞"));
+      h("div", { style: { padding: "5px 10px", fontFamily: F_BODY, fontSize: 10.5, color: "rgba(255,255,255,.6)", background: "#111" } }, APP_NAME + " · " + fmtN(v.likes) + " 赞 · 点开看"));
   }
   window.ShuaShareCard = ShuaShareCard;
   window.ShuaApp = ShuaApp;

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.075";
+const APP_VERSION = "v75.082";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2436,7 +2436,13 @@ function App() {
     const g = Object.assign({}, gsFor(activeGroup.id), draft || {});
     const scope = 'html[data-lisa-screen="gthread"][data-lisa-group="' + String(activeGroup.id).replace(/[^A-Za-z0-9_:-]/g, "") + '"]';
     const one = css => { try { return css ? window.ThemeStudio.resolveCSSImages(window.ThemeStudio.scopeCSS(css, scope)) : ""; } catch (e) { return ""; } };
-    applyGroupLook([one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
+    // 群自己的背景图也得走这一层（群友 2026-10-08：「群聊背景显示不出来」）：气泡皮肤那份全局底色带着
+    //   !important 和 background-image:none，行内样式的图输给它，挂上皮肤群背景就没了——单聊早在 v62 就这么修过（applyChatLook ⑤）。
+    const _gbRaw = g.chatBg ? (typeof resolveImg === "function" ? resolveImg(g.chatBg) : g.chatBg) : "";
+    const _gb = String(_gbRaw || "").replace(/["\\\r\n]/g, "");
+    const bgCSS = _gb ? scope + ' [data-wk="chat"]{background-image:url("' + _gb + '") !important;background-size:cover !important;background-position:center !important;background-repeat:no-repeat !important;background-color:transparent !important;}'
+      + scope + ' [data-wk="body"]{background:transparent !important;background-image:none !important;}' : "";
+    applyGroupLook([bgCSS, one(typeof chatLayoutCSS === "function" ? chatLayoutCSS(g.layout) : ""), one(g.customCSS || "")].filter(Boolean).join("\n"));
   };
   useEffect(() => { paintGroupLook(null); }, [activeGroup && activeGroup.id, groupSettings, screen]);
   // 线下也给每个人单独一张皮（她 2026-10-03：「线下每个角色能不能单独做一个美化页面」）。
@@ -5887,7 +5893,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const disp = schedDisplaySeqs(char, filled);
     const shift = schedTzShiftMin(char);
     const d0 = new Date(); const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
-    return disp.filter(x => /直播|开播/.test(String(x.title || "") + " " + String(x.location || "")) && x._myMin != null).map(x => {
+    // ⚠️只认【TA自己播】（群友 2026-10-08：「所有 char 都直播了」）：原来标题或地点带「直播」就算，
+    //   「刷手机看直播」「看球赛直播」「直播间里蹲人」这种看别人播的也被当成TA开播。地点不看，看的那几种排掉。
+    const selfLive = t => /开播|(开|做|搞|上|去)直播|直播(带货|唱歌|聊天|打游戏|游戏|陪|学习|做饭|户外|中)|^直播/.test(t)
+      && !/(看|刷|听|蹲|追|围观|守|陪.{0,4}看|进).{0,6}直播|直播间(里)?(看|蹲|刷)/.test(t);
+    return disp.filter(x => selfLive(String(x.title || "").trim()) && x._myMin != null).map(x => {
       const em = /(\d{1,2}):(\d{2})/.exec(String(x.end || ""));
       const endMy = em ? ((((+em[1]) * 60 + (+em[2]) - shift) % 1440) + 1440) % 1440 : null;
       const start = midnight + x._myMin * 60000;
@@ -5902,10 +5912,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const tick = () => {
       const K = window.LiveKit; if (!K || !K.slotsOf || liveCfg.selfLive === false) return;
       const now = Date.now();
-      K.slotsOf(liveChars.filter(c => c && !c.npc), new Date(), liveSchedFor).forEach(x => {
+      // 关注的路人主播也提醒（他们没有日程，按日子算）
+      let stFollowed = [];
+      try { stFollowed = ((loadJSON("x_liveStrangers", null) || {}).list || []).filter(x => x && x.followed && !x.promoted); } catch (e) {}
+      K.slotsOf(liveChars.filter(c => c && !c.npc).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
-          const c = liveChars.find(cc => cc.id === x.charId);
+          const c = liveChars.find(cc => cc.id === x.charId) || stFollowed.find(cc => cc.id === x.charId);
           if (c) toast((c.remark || c.name) + " 开播了 · 去片刻的直播里看");
         }
       });
@@ -9347,6 +9360,43 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (d <= 10 * 60000 && (!best || d < best.d)) best = { s: s, d: d };
     });
     return best ? best.s : null;
+  };
+  // 从聊天里那张「线下经过」卡把那一场放回往期（她 2026-10-08：「之前邀约会覆盖线下往期记录，但实际聊天记录里
+  //   还能找到，有没有办法在那里面加一个按钮强行给他放回去」）。v75.046 修了盖掉的那个口子，这里补丢掉的那几场。
+  // ⚠️卡上存的是这一场的总结＋原话转录（太长的只留后半截），场景标题、文风那些元数据没存——
+  //   放回来的是「能从头读一遍」的那一份，不是原样复活；所以只在往期里没有这一场时才放，有就不动。
+  const restoreOfflineFromCard = (kind, ownerId, threadKey, msgIndex) => {
+    const isG = kind === "group";
+    const log = ((isG ? groupChatsRef.current[ownerId] : chatsRef.current[threadKey]) || [])[msgIndex];
+    if (!log || log.kind !== "offlinelog") return;
+    const list = isG ? (groupOfflinesRef.current[ownerId] || loadJSON("x_goffline:" + ownerId, []) || [])
+      : (offlinesRef.current[ownerId] || loadJSON("x_offline:" + ownerId, []) || []);
+    if (offlineLogSessionFor(list, log)) { toast("这一场还在往期里，不用放"); return; }
+    const raw = String(log.transcript || "").trim();
+    if (!raw) { toast("这张卡上没存原话，放不回去"); return; }
+    const char = isG ? null : characters.find(c => String(c.id) === String(ownerId));
+    const uName = userName(profile);
+    // 一行一句：〔时间〕谁：话。话里自己带换行的，接到上一句后面
+    //   带时间戳的转录只认带戳那几行起新的一句——不然话里一行「……：……」也会被当成换人说话
+    const rows = [], stamped = /^〔[^〕]*〕/.test(raw);
+    raw.split("\n").forEach(line => {
+      const mm = (stamped ? /^〔[^〕]*〕([^：\n]{1,24})：([\s\S]*)$/ : /^([^：\n]{1,24})：([\s\S]*)$/).exec(line);
+      if (mm) rows.push({ who: mm[1].trim(), text: mm[2] });
+      else if (rows.length) rows[rows.length - 1].text += "\n" + line;
+    });
+    if (!rows.length) { toast("这张卡上的原话认不出来，放不回去"); return; }
+    const endTs = Number(log.ts) || Date.now(), startTs = endTs - rows.length * 1000;
+    const msgs = rows.map((r, k) => {
+      const ts = startTs + k * 1000, content = String(r.text || "").trim();
+      if (r.who === "【场景】") return { role: "narration", content, ts };
+      if (r.who === uName) return { role: "user", content, ts };
+      return isG ? { role: "assistant", senderName: r.who, content, ts } : { role: "assistant", content, ts };
+    }).filter(m => m.content);
+    const sess = { id: log.ofs || ("off_card_" + endTs), startTs, endTs, styleKey: "default", stylePrompt: "", taste: "", customNotes: [],
+      summary: String(log.content || ""), cardRestored: true, msgs };
+    const put = l => [...l, sess].sort((x, y) => (y.startTs || 0) - (x.startTs || 0));
+    if (isG) pGOffline(ownerId, l => put(l)); else pOffline(ownerId, l => put(l));
+    toast("放回往期了" + (raw.length >= TRANSCRIPT_KEEP_MAX - 20 ? "：这一场太长，卡上只留了后半截" : ""));
   };
   const resummarizeOffline = async (kind, ownerId, threadKey, msgIndex) => {
     const isG = kind === "group";
@@ -27093,6 +27143,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),
     onOOC: text => oocReply(activeChar.id, text, blockChatKey(activeChar.id)),
+    onRestoreOffline: i => restoreOfflineFromCard("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     onResummarizeOffline: i => resummarizeOffline("char", activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, i),
     // 多选 / 首尾圈出一段 → 收进时刻（她 2026-10-03）
     onPinShike: indices => {
@@ -27454,6 +27505,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onContinue: () => replyGroup(activeGroup.id),
     onOOC: txt => oocGroup(activeGroup.id, txt),
     onMsgAction: (act, idx) => handleGroupMsgAction(activeGroup.id, act, idx),
+    onRestoreOffline: i => restoreOfflineFromCard("group", activeGroup.id, activeGroup.id, i),
     onResummarizeOffline: i => resummarizeOffline("group", activeGroup.id, activeGroup.id, i),
     onDeleteMessages: indices => deleteGroupMsgs(activeGroup.id, indices),
     // 群里圈一段收进时刻（她 2026-10-03 点的第 8 条）：收成一张【多人的】卡，这一段里说过话的每个角色名下都有
@@ -28265,6 +28317,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
     liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
+    // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
+    askStranger: async (system, schemaHint) => {
+      if (!active) throw new Error("请先到设置配置 API");
+      const route = (routePicked(bgApiId) && bgActive) ? bgActive : active;
+      const raw = await callAI(route, system + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
+      const d = extractJSON(raw); if (!d) throw new Error("这一批没写出来"); return d;
+    },
+    probeStranger: async (st, instruction, schemaHint) => {
+      if (!active) throw new Error("请先到设置配置 API");
+      const sys = (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "") + (window.ContentBoundaries && window.ContentBoundaries.prompt ? window.ContentBoundaries.prompt + "\n\n" : "")
+        + "【你是谁】你是直播平台上的主播「" + st.name + "」，一个真实的人，不是谁的角色。" + (st.bio ? "主页简介：" + st.bio + "。" : "") + "现在有 " + (st.fans || 0) + " 个粉丝。\n" + st.persona
+        + (st.look ? "\n镜头里的你：" + st.look : "") + "\n\n" + instruction;
+      const raw = await callAI(active, sys + "\n\n【输出】只输出合法 JSON，无 markdown：\n" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 12000, tag: "live" });
+      const d = extractJSON(raw); if (!d) throw new Error("这一拍没写出来，再发一次"); return d;
+    },
+    // 加好友同意了：进人格档案馆变成正式角色。私信记录成你们聊天的开头，他记得的那几场进他的记忆
+    promoteStranger: (st, key, nm, fan) => {
+      if (!st) return null;
+      const viaMask = key !== "me";
+      const id = createCharFromAssistant({ name: st.name, tagline: (st.bio || "").slice(0, 40),
+        persona: st.persona + "\n\n" + "他在直播平台上播" + (st.bio ? "，主页简介「" + st.bio + "」" : "") + "，有 " + (st.fans || 0) + " 个粉丝。"
+          + (viaMask ? "他是在直播间里认识「" + nm + "」这个号的，后来加了好友；这个号背后是谁，他只知道这个号给他看到的那些。" : "他是在直播间里认识她的：她常来看他播，后来加了好友。") });
+      const tie = (st.ties || {})[key] || {};
+      (tie.notes || []).slice(-10).forEach(tx => addMemEntry({ text: st.name + "的直播间：" + nm + " " + tx, tags: ["直播"], charIds: [id], knownBy: [id], source: "auto" }));
+      if (fan && fan.total) addMemEntry({ text: nm + "在" + st.name + "的直播间一共打赏过 " + fan.total + " 元，粉丝团 " + fan.lv + " 级。", tags: ["直播"], charIds: [id], knownBy: [id], source: "auto" });
+      const dms = ((st.dms || {})[key] || []).filter(m => m && m.text);
+      if (dms.length) pChat(id, p => [...p, ...dms.map(m => ({ role: m.from === "me" ? "user" : "assistant", content: String(m.text), ts: m.ts || Date.now(), read: true }))]);
+      return id;
+    },
+    hot: () => { try { const d = loadJSON("x_shua", null) || {}; const k = new Date(); const day = k.getFullYear() + "-" + (k.getMonth() + 1) + "-" + k.getDate(); return d.hot && d.hot.day === day ? (d.hot.topics || []).map(x => x.title) : []; } catch (e) { return []; } },
+    confirm: (title, body, fn) => requestAppConfirm(title, body, fn),
     onBack: () => setScreen("home")
   };
     const shuaCities = () => {
