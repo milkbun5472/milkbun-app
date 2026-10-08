@@ -15216,7 +15216,7 @@ function OfflineMode({
     { key: "debug", char: "诊", title: "上一轮到底发生了什么", tint: "#7a8fa8",
       state: () => registerTelemetry ? "有本轮记录" : "还没有本轮记录" }
   ];
-  const offlineSetSheet = () => setOpen && onSaveSettings && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t) },
+  const offlineSetSheet = () => setOpen && onSaveSettings && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t, true) },
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
@@ -16018,7 +16018,7 @@ function GroupOfflineMode({
   const gShow = (tab, key, title, ...kids) => gSetTab === tab
     ? h(SettingSection, { title, open: gSec === key, onToggle: () => setGSec(v => v === key ? "" : key) }, ...kids)
     : null;
-  const gBgSheet = setOpen && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t) },
+  const gBgSheet = setOpen && h("div", { className: "absolute inset-0 z-30 flex flex-col", style: offlineSubSkin(t, true) },
     h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
@@ -17894,8 +17894,10 @@ function ContactDetail({
 // ⚠️单人线下和群线下是【两份代码】，各写一份迟早只改一处——这个仓库最常犯的病。
 //   挑 lined（信纸）：这两页一个是回头读当时那一场、一个是动手写开场，
 //   两件事都是「在纸上写字」，不是「在设置里拨开关」。
-function offlineSubSkin(t) {
-  return Object.assign({ paddingTop: safeTop(0) },
+// withHead：这一页顶上用的是 Head，Head 自己已经让过刘海了——底再让一次就是两条安全区，
+//   顶栏掉下去一大截（她 2026-10-08 截图：线下设置「顶部太下了」）。手写顶栏的往期那几页才要这里让。
+function offlineSubSkin(t, withHead) {
+  return Object.assign({ paddingTop: withHead ? 0 : safeTop(0) },
     typeof pageSkin === "function" ? pageSkin("lined", t, { corner: false, strength: .8 }) : { background: t.bg });
 }
 // 设置分类目录：一行一类，左边一个汉字索引牌，右边写着【现在是什么状态】。

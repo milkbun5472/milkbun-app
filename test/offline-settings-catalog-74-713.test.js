@@ -26,7 +26,7 @@ test("① 两边都是整页，不是半窗了", () => {
     assert.match(src, /absolute inset-0 z-30 flex flex-col/, zh + "不是整页外壳");
     // 顶栏走公共 Head、底纹铺外壳（施工规则/mobile-ui-layout 3.5：顶栏透上来）
     assert.match(src, /h\(Head, \{/, zh + "自己写了顶栏，没用公共 Head");
-    assert.match(src, /style: offlineSubSkin\(t\)/, zh + "没铺线下那层公共底");
+    assert.match(src, /style: offlineSubSkin\(t, true\)/, zh + "没铺线下那层公共底");
     assert.match(src, /bg: "transparent"/, zh + "顶栏不透，底纹会在顶上断一条带子");
     // 正文一个主滚动容器
     assert.match(src, /className: "flex-1 min-h-0 overflow-y-auto"/, zh + "正文不是那套滚动层级");
