@@ -151,19 +151,14 @@
   const ST_FOLLOW_MAX = 20, ST_BATCH = 6;
   const stLoad = () => { try { const v = loadJSON(ST_KEY, null); return v && Array.isArray(v.list) ? v : { list: [] }; } catch (e) { return { list: [] }; } };
   const tieKeyOf = (as, maskName) => as === "mask" ? "mask:" + (maskName || "路过的") : "me";
-  const gateOk = (g, fanLv, visits) => !!g && ((g.lv > 0 && fanLv >= g.lv) || (g.visits > 0 && visits >= g.visits));
-  const gateText = (g, fanLv, visits) => {
-    if (!g) return "";
-    const a = [];
-    if (g.lv > 0) a.push("粉丝团到 " + g.lv + " 级（现在 " + fanLv + " 级）");
-    if (g.visits > 0) a.push("来过 " + g.visits + " 场（现在 " + visits + " 场）");
-    return a.join("，或者");
-  };
-  const normGate = (g, floorV) => {
-    const lv = Math.max(0, Math.min(9, Math.round(Number(g && g.lv) || 0)));
-    const visits = Math.max(0, Math.min(40, Math.round(Number(g && g.visits) || 0)));
-    return lv || visits ? { lv, visits } : { lv: 0, visits: floorV };
-  };
+  // 跟路人主播的等级（她 2026-10-08：「比如七级才能开加好友，然后再看钱或者眼熟度或者两者」）：
+  //   门槛是统一的，他同不同意才看他这个人在乎什么（values：钱／眼熟／两样都看）
+  const ST_EXP = [30, 80, 150, 250, 380, 550, 800, 1100, 1500];
+  const ST_DM_LV = 4, ST_FRIEND_LV = 7;
+  const stExp = (visits, total) => (Number(visits) || 0) * 30 + (Number(total) || 0);
+  const stLevel = exp => ST_EXP.filter(x => exp >= x).length;
+  const stNext = exp => ST_EXP.find(x => exp < x) || 0;
+  const VALUES_ZH = { money: "你更看重观众舍不舍得为你花钱", familiar: "你更看重眼熟——来得勤、一直在的人", both: "钱和眼熟你都看" };
   // 掷轴不掷答案（bans-make-it-dumber）：一批里每个人先掷几样【事实】，免得六个人一个样；人长什么样由模型从这些事实里长出来
   const ST_AGE = ["十八九岁", "二十出头", "二十五六", "快三十", "三十多", "四十上下"];
   const ST_RUN = ["刚开播没几天", "播了小半年", "播了一两年", "播了好几年的老主播"];
@@ -178,9 +173,9 @@
       + "\n\n每个人写成一个具体的活人，不是一个类型：哪儿人、平时过什么日子、为什么开始播、镜头前和镜头外差在哪、在意什么、怕什么、说话什么样。"
       + "判据：把他的人设拿掉名字，换个主播还成立，就是写坏了。他播什么、怎么播，跟他这个人对得上。"
       + "\n每人写：name 主播名、title 这一场的直播间标题、bio 主页简介一句（他自己写的那种）、persona 人设（150~300 字，第三人称写他这个人）、look 镜头里看得见的样子（一句）、fans 粉丝数（数字）、viewers 此刻在线（数字）、"
-      + "dm 他什么时候愿意私下跟一个观众聊、friend 他什么时候愿意加一个观众好友——各写 lv（粉丝团至少几级，1~9；看重观众花钱的人才写，不看这个写 0）和 visits（至少来过几场，1~30；看重眼熟、来得勤的人才写，不看这个写 0），照他这个人来；friend 要比 dm 难。";
+      + "values 他对观众更看重什么：money（舍不舍得花钱）／familiar（眼不眼熟、来得勤不勤）／both（两样都看），照他这个人来。";
   }
-  const ST_SHAPE = '{"streamers":[{"name":"","title":"","bio":"","persona":"","look":"","fans":0,"viewers":0,"dm":{"lv":0,"visits":0},"friend":{"lv":0,"visits":0}}]}';
+  const ST_SHAPE = '{"streamers":[{"name":"","title":"","bio":"","persona":"","look":"","fans":0,"viewers":0,"values":"both"}]}';
   // 他记得你：这个号来过几场、每场留一句发生了什么（本地写，不花调用）
   const tieBlock = (st, key, fanLv, fanTotal) => {
     const t = ((st.ties || {})[key]) || {};
@@ -646,12 +641,9 @@
         const kinds = Array.from({ length: ST_BATCH }, () => pick(SLOT_KINDS.concat(["spicy"])));
         const r = await props.askStranger(strangerSystem(ST_BATCH, props.hot ? props.hot() : [], d0.getFullYear() + " 年 " + (d0.getMonth() + 1) + " 月 " + d0.getDate() + " 日", kinds), ST_SHAPE);
         const fresh = arr(r && r.streamers).slice(0, ST_BATCH).map((x, i) => x && S(x.name) && S(x.persona) ? Object.assign({}, x, { kind: kinds[i] }) : null).filter(Boolean).map(x => {
-          const dm = normGate(x.dm, 3), fr = normGate(x.friend, 8);
-          // 加好友一定比私信难：两样都比私信那道高一点
-          const friend = { lv: fr.lv ? Math.max(fr.lv, dm.lv + 1) : 0, visits: fr.visits ? Math.max(fr.visits, dm.visits + 2) : 0 };
           return { id: uid("st"), name: S(x.name).slice(0, 20), title: S(x.title).slice(0, 40), bio: S(x.bio).slice(0, 80), persona: S(x.persona).slice(0, 1200), look: S(x.look).slice(0, 120),
             fans: Math.max(0, Math.round(Number(x.fans) || 0)), viewers: Math.max(1, Math.round(Number(x.viewers) || 1)), kind: KINDS.some(k => k[0] === x.kind) ? x.kind : "free",
-            dm, friend: friend.lv || friend.visits ? friend : { lv: 0, visits: dm.visits + 5 }, ts: Date.now(), liveUntil: Date.now() + (90 + Math.floor(Math.random() * 90)) * 60000, followed: false, ties: {} };
+            values: ["money", "familiar", "both"].indexOf(x.values) >= 0 ? x.values : "both", ts: Date.now(), liveUntil: Date.now() + (90 + Math.floor(Math.random() * 90)) * 60000, followed: false, ties: {} };
         });
         if (!fresh.length) { toast("这一批没刷出来，再点一次"); return; }
         // 没关注的那批换掉，关注过的、加成好友的留着
@@ -684,18 +676,20 @@
     // 申请加好友：他照人设和交情决定；被拒了三天后、或者粉丝团又升了一级才能再申请
     const askFriend = async (st, key) => {
       const fan = stFan(st, key);
+      const myLv = stLevel(stExp(((st.ties || {})[key] || {}).visits, fan.total));
+      if (myLv < ST_FRIEND_LV) { toast(ST_FRIEND_LV + " 级才能申请加好友"); return; }
       const prev = ((st.friendAsk || {})[key]) || null;
-      if (prev && !prev.ok && Date.now() - prev.ts < 3 * 86400000 && fan.lv <= (prev.lv || 0)) { toast("他刚拒过，三天后或者粉丝团再升一级再试"); return; }
+      if (prev && !prev.ok && Date.now() - prev.ts < 3 * 86400000 && myLv <= (prev.lv || 0)) { toast("他刚拒过，三天后或者再升一级再试"); return; }
       const nm = key === "me" ? uName : key.slice(5);
       setStBusy("friend");
       try {
         const d = await props.probeStranger(st, tieBlock(st, key, fan.lv, fan.total)
           + "\n\n【这一轮】你的观众「" + nm + "」申请加你的私人好友——加了以后你们就不只是主播和观众，是能私下随时联系的人。"
           + (arr((st.dms || {})[key]).length ? "\n你们私信里聊过的：\n" + arr((st.dms || {})[key]).slice(-16).map(m => (m.from === "me" ? nm : "你") + "：" + m.text).join("\n") : "")
-          + "\n同不同意照你这个人来：你有多看重她花的钱、多看重眼熟、你对这个号的印象。写 accept（true/false）和 say（你回她的那一句，私信里打的字）。", '{"accept":false,"say":""}');
+          + "\n" + (VALUES_ZH[st.values] || VALUES_ZH.both) + "。同不同意照你这个人和你对这个号的印象来，不是到了等级就一定答应。写 accept（true/false）和 say（你回她的那一句，私信里打的字）。", '{"accept":false,"say":""}');
         const ok = !!(d && d.accept === true);
         const say = S(d && d.say).slice(0, 300);
-        stPatch(st.id, x => Object.assign({}, x, { friendAsk: Object.assign({}, x.friendAsk, { [key]: { ts: Date.now(), lv: fan.lv, ok } }),
+        stPatch(st.id, x => Object.assign({}, x, { friendAsk: Object.assign({}, x.friendAsk, { [key]: { ts: Date.now(), lv: myLv, ok } }),
           dms: Object.assign({}, x.dms, { [key]: arr((x.dms || {})[key]).concat([{ from: "me", text: "（申请加你好友）", ts: Date.now() }]).concat(say ? [{ from: "st", text: say, ts: Date.now() + 1 }] : []) }) }));
         if (ok && props.promoteStranger) {
           const cid = props.promoteStranger(stGet(st.id), key, nm, fan);
@@ -765,20 +759,21 @@
       const keys = ["me"].concat(props.maskName ? ["mask:" + props.maskName] : []);
       const row = (k) => {
         const tie = (st.ties || {})[k] || {}, fan = stFan(st, k), visits = tie.visits || 0;
-        const dmOk = gateOk(st.dm, fan.lv, visits), frOk = gateOk(st.friend, fan.lv, visits);
+        const exp = stExp(visits, fan.total), lv = stLevel(exp);
+        const dmOk = lv >= ST_DM_LV, frOk = lv >= ST_FRIEND_LV;
         const asked = (st.friendAsk || {})[k];
         const btn = (txt, on, fn, key) => h("button", { key, "data-wk": "livestbtn", onClick: fn, disabled: !on || !!stBusy, className: "active:opacity-70", style: { minHeight: 36, padding: "0 14px", borderRadius: 10, background: on ? LIVE_RED : "transparent", border: "1px solid " + (on ? LIVE_RED : t.line), color: on ? "#fff" : t.fog, fontFamily: F_BODY, fontSize: 12.5, opacity: stBusy ? .6 : 1 } }, txt);
         return h("div", { key: k, "data-wk": "livesttie", style: { marginTop: 12, padding: "12px 14px", borderRadius: 14, border: "1px solid " + t.line, background: t.bg2 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink } }, k === "me" ? "用自己的号" : "用马甲「" + k.slice(5) + "」"),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, visits ? "来过 " + visits + " 场 · 粉丝团 " + fan.lv + " 级（打赏过 ¥" + fan.total + "）" : "还没来过"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "等级 " + lv + (stNext(exp) ? "（" + exp + "/" + stNext(exp) + " 经验）" : "（满级）") + " · 来过 " + visits + " 场 · 打赏过 ¥" + fan.total),
           arr(tie.notes).length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.sub, marginTop: 6, lineHeight: 1.6 } }, "他记得：" + arr(tie.notes).slice(-2).join(" ")) : null,
           h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
             btn(dmOk ? "私信" : "私信 · 没解锁", dmOk, () => setView("dm:" + st.id + "|" + k), "dm"),
             st.promoted ? h("span", { key: "pr", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, alignSelf: "center" } }, "已经是好友了，在人格档案馆里")
               : btn(stBusy === "friend" ? "问着…" : frOk ? (asked && !asked.ok ? "再申请一次" : "申请加好友") : "加好友 · 没解锁", frOk, () => askFriend(st, k), "fr")),
-          !dmOk ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "私信要：" + gateText(st.dm, fan.lv, visits)) : null,
-          dmOk && !frOk && !st.promoted ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, "加好友要：" + gateText(st.friend, fan.lv, visits)) : null,
-          asked && !asked.ok && !st.promoted ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "上次被拒了：三天后、或者粉丝团再升一级才能再申请") : null);
+          !st.promoted ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.55 } }, (!dmOk ? ST_DM_LV + " 级开私信，" : "") + (!frOk ? ST_FRIEND_LV + " 级开加好友。" : "")
+            + "来一场 +30 经验，打赏一块钱 +1。" + (frOk ? "申请以后他答不答应，看他这个人更在乎什么。" : "")) : null,
+          asked && !asked.ok && !st.promoted ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }, "上次被拒了：三天后、或者再升一级才能再申请") : null);
       };
       return h("div", { "data-wk": "livestpage", className: "h-full flex flex-col", style: liveFloor(t) },
         h(Head, { zh: st.name, sub: (st.fans || 0) + " 粉丝", bg: "transparent", ink: t.__pal ? t.ink : undefined, onBack: () => setView("home"),
