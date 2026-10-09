@@ -21,6 +21,9 @@
 
   // 一台服务器一个会话：initialize 之后服务端可能发回 Mcp-Session-Id，后续每一发都要带上
   const sessions = {};
+  // 握过手的记在这儿，不跟会话号混在一张表：原来没发会话号的服务端被塞一个 "-" 占位，
+  //   后面每一发都把 "-" 当会话号带出去，认会话的服务端就回 400/404「会话无效」（她 2026-10-09 一起查出来的）。
+  const shook = {};
 
   function rpcBody(method, params, id) {
     const b = { jsonrpc: "2.0", method: method };
@@ -55,7 +58,7 @@
       "Accept": "application/json, text/event-stream"
     };
     if (srv.token) headers["Authorization"] = /^bearer /i.test(srv.token) ? srv.token : "Bearer " + srv.token;
-    if (sessions[srv.url]) headers["Mcp-Session-Id"] = sessions[srv.url];
+    if (sessions[srv.url]) headers["Mcp-Session-Id"] = sessions[srv.url];   // 只带服务端真发过来的那个
     let r;
     try {
       r = await fetch(srv.url, { method: "POST", headers: headers, body: rpcBody(method, params, notify ? null : ++_id) });
@@ -66,6 +69,10 @@
     }
     const sid = r.headers.get("Mcp-Session-Id");
     if (sid) sessions[srv.url] = sid;
+    if (r.status === 404 && sessions[srv.url] && method !== "initialize") {
+      // 会话过期（服务端重启过）：协议规定回 404，客户端该重新握手。清掉，下一发自己会重握。
+      delete sessions[srv.url]; delete shook[srv.url];
+    }
     if (!r.ok) throw new Error("这台 MCP 回了 HTTP " + r.status + (r.status === 405 ? "（这个地址多半是旧的 /sse 那一档，浏览器直连不了，要换成 Streamable HTTP 的 /mcp）" : ""));
     if (notify) return null;
     const j = await readRpc(r);
@@ -74,9 +81,9 @@
   }
 
   async function handshake(srv) {
-    if (sessions[srv.url]) return;
+    if (shook[srv.url]) return;
     await send(srv, "initialize", { protocolVersion: PROTO, capabilities: {}, clientInfo: { name: "milkbun", version: "1" } });
-    sessions[srv.url] = sessions[srv.url] || "-";   // 有的服务端不发会话号，占个位免得每次重握手
+    shook[srv.url] = true;   // 有的服务端不发会话号：记「握过了」，免得每次重握手，但不编一个假会话号
     try { await send(srv, "notifications/initialized", {}, true); } catch (e) {}
   }
 
@@ -133,7 +140,7 @@
 
   // 试一台：设置页那颗「测一下」按钮用，让她当场看得见通没通、有几件工具
   async function probe(srv) {
-    delete sessions[srv.url];
+    delete sessions[srv.url]; delete shook[srv.url];
     await handshake(srv);
     const res = await send(srv, "tools/list", {});
     return ((res && res.tools) || []).map(t => t.name);
@@ -141,7 +148,7 @@
 
   if (typeof window !== "undefined") window.MCP = {
     servers: servers, enabled: enabled, listTools: listTools, callTool: callTool, probe: probe,
-    forget: () => { save(CACHE_KEY, {}); Object.keys(sessions).forEach(k => delete sessions[k]); },
+    forget: () => { save(CACHE_KEY, {}); Object.keys(sessions).forEach(k => delete sessions[k]); Object.keys(shook).forEach(k => delete shook[k]); },
     qualify: qualify, unqualify: unqualify, PROTO: PROTO
   };
   if (typeof module === "object" && module.exports) module.exports = { qualify: qualify, unqualify: unqualify };

@@ -66,7 +66,7 @@ test("接进两条链，而且只对开了开关的角色发", () => {
   assert.match(app, /if \(_wantWeb && window\.MCP && window\.MCP\.enabled\(\)\.length\)/, "单聊那条链没接,或者没按开关发");
   assert.match(app, /if \(_gWantWeb && window\.MCP && window\.MCP\.enabled\(\)\.length\)/, "群聊那条链没接");
   // 列工具失败不该拦住这一轮说话
-  assert.match(app, /catch \(e\) \{ console\.warn\("\[mcp\] 列工具失败：", e\); \}/, "列工具失败会把整轮聊天拦掉");
+  assert.match(app, /_mcpT = await window\.MCP\.listTools\(\); \} catch \(e\) \{ mcpListFailed\(e\); \}/, "列工具失败会把整轮聊天拦掉（现在是弹一句、照常聊）");
   assert.match(app, /tools: _mcpT, runTool: \(n, ar\) => window\.MCP\.callTool\(n, ar\)/, "单聊没把工具和跑工具的手递进去");
   assert.match(app, /tools: _gMcpT,\n        runTool: \(n, ar\) => window\.MCP\.callTool\(n, ar\),/, "群聊没递");
   const html = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");

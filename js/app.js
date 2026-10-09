@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.164";
+const APP_VERSION = "v75.166";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1569,6 +1569,17 @@ function App() {
   const [loaded, setLoaded] = useState(false);
   // 第二参数可选：接口原话这类需要读完的提示要停久一点，默认仍是 2.2 秒
   const lastToastAtRef = useRef(0);
+  // MCP 列工具失败：原来只往控制台记一句，手机上看不见，TA就悄悄不带工具聊（她 2026-10-09）。
+  //   这一轮照常说话，但要说出来；同一句话十分钟内只说一次，别每轮刷屏。
+  const mcpWarnRef = useRef({});
+  const mcpListFailed = e => {
+    const msg = String((e && e.message) || e || "");
+    console.warn("[mcp] 列工具失败：", e);
+    const now = Date.now();
+    if (now - (mcpWarnRef.current[msg] || 0) < 600000) return;
+    mcpWarnRef.current[msg] = now;
+    toast("MCP 没连上，这一轮先不带工具聊：" + msg, 9000);
+  };
   const toast = (m, ms) => {
     lastToastAtRef.current = Date.now();
     setToastMsg(m);
@@ -12126,7 +12137,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 不该为「工具从哪儿来」再多一个开关。列工具失败不拦这一轮，照常说话。
       let _mcpT = null;
       if (_wantWeb && window.MCP && window.MCP.enabled().length) {
-        try { _mcpT = await window.MCP.listTools(); } catch (e) { console.warn("[mcp] 列工具失败：", e); }
+        try { _mcpT = await window.MCP.listTools(); } catch (e) { mcpListFailed(e); }
       }
       const _callMeta = {};
       try {
@@ -14223,7 +14234,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       let _gMcpT = null;
       if (_gWantWeb && window.MCP && window.MCP.enabled().length) {
-        try { _gMcpT = await window.MCP.listTools(); } catch (e2) { console.warn("[mcp] 列工具失败：", e2); }
+        try { _gMcpT = await window.MCP.listTools(); } catch (e2) { mcpListFailed(e2); }
       }
       checkAutoCall();
       // ⚠️原来抽成一支是为了「查出漏了才重打一次」，那一套已经撤掉（v69.03）。
