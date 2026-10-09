@@ -53,6 +53,8 @@ function wire(env) {
   // v70.61 起钱都过 moneyText（一人一个币种，js/money.js）。桩按【没设过币种】那一档来，
   // 也就是人民币原样——这些用例验的不是钱怎么写，是那几段有没有拼进去。
   if (!env.moneyText) env.moneyText = (n, id) => "¥" + n;
+  // 常用语言（v75.159）：人设串后面接的那一句，接 engine 里真的那一份
+  if (!env.charLangLine) env.charLangLine = new Function(cut(engine, 'function charLangLine(', 'function groupPersonaText(') + '\nreturn charLangLine;')();
   // v72.85：人设抬头那个名字现在过 memberLabel（重名时才加标签）。跟别的一样接真的那一份。
   env.memberLabel = evaluate(cut(engine, 'function memberLabel(members, c) {', 'function pickMember('), env, 'memberLabel');
   // 重名提醒也挨着名单发（v72.86），同样接真的那一份

@@ -16,7 +16,7 @@ function setup() {
     pGChat:(id,fn)=>{b.groupChatsRef.current[id]=fn(b.groupChatsRef.current[id]||[])},
     memLibRef:{current:[]},memCfgRef:{current:{}},memories:{a:'甲私密长期记忆',b:'乙私密长期记忆'},
     splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:x=>x.map(v=>v.text).join('\n'),
-    groupPersonaText:p=>p,groupPersonaBudget:()=>1000,NPC_PERSONA_CAP:1000,
+    groupPersonaText:p=>p,charLangLine:()=>'',groupPersonaBudget:()=>1000,NPC_PERSONA_CAP:1000,
     groupNowSegs:()=>({mdSeg:'心情层'}),memberPrivLines:()=>{throw Error('封闭群不能读实时私聊')},
     groupBans:()=>'',loreForContext:()=>'',parseJSONLoose:JSON.parse,
     callAI:async(api,sys,hist,opts)=>{requests.push({sys,hist,opts});return JSON.stringify([{name:'甲',choice:'1',say:'选择第二项'}])}
