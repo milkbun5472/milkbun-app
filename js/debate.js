@@ -530,7 +530,7 @@
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
     const startLP = id => { lpFired.current = false; cancelLP(); lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 500); };
 
-    // 上台那一栏和台上查头像／人设用的名单：她自己的人＋配角（stageNpcs）。场边 crowdChars 不动，配角不当看客
+    // 上台那一栏和台上查头像／人设用的名单：她自己的人＋配角（stageNpcs）。场边那份名单不动，配角不当看客
     const stageChars = (props.characters || []).concat((props.stageNpcs || []).filter(n => !(props.characters || []).some(c => c.id === n.id)));
     if (view === "setup") {
       return h(Setup, {
