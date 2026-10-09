@@ -24,7 +24,7 @@ assert.ok(!/addMemEntry|saveJSON\("x_chat/.test(d), "擂台不许往主线写东
 console.log("debate fun ok");
 // 裁判人设整张喂（她 2026-10-09：「这裁判还是不对啊 没有自己的角色口吻」——原来只切前 500 字）
 assert.ok(!/judge\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 500\)/.test(d), "裁判人设又被切成 500 字");
-assert.match(d, /personaFor\(String\(o\.judge\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
+assert.match(d, /personaFor\(String\(J\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
 assert.match(d, /personaFor\(String\(J\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
 console.log("judge persona ok");
 assert.match(d, /实录里有你前几轮的判语，那是说过的话/);
@@ -34,3 +34,11 @@ assert.match(d, /if \(Array\.isArray\(s\.benchIds\) && !s\.benchIds\.some/);
 assert.ok(!/String\(c\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 500\)\n?\s*\+ \(c\.injection/.test(d), "台下人设又被切成 500 字");
 assert.match(d, /personaFor\(String\(c\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ \(o\.bench \|\| \[\]\)\.length\)/);
 console.log("bench ok");
+// 她 2026-10-09：争点说人话、票理由收起、她当裁判、换边再战
+assert.match(d, /连最后那句「还没吵拢的分歧」都照这条/);
+assert.match(d, /"data-wk": "debvotemore"/);
+assert.match(d, /const meJudge = !!\(o\.judge && o\.judge\.me\);/);
+assert.match(d, /const MV = session\.judge && session\.judge\.me && myVerdict && myVerdict\.winner \? myVerdict : null;/);
+assert.match(d, /winner: MV \? MV\.winner :/, "她判的赢家被模型改掉了");
+assert.match(d, /stance: st\[\(i \+ st\.length - 1\) % st\.length\]/);
+console.log("arena extras ok");
