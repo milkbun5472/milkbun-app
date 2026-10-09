@@ -189,3 +189,7 @@ test("路数要说人话：读者安利口吻，不许对仗金句（她 2026-10
   const ax = M.AUTHOR_ANGLE_AXES.filter(x => x.key === "sfrom")[0];
   ax.opts.forEach(o => assert.ok(!/断在哪儿|一笔带过/.test(o), "还在掷写作技巧：" + o));
 });
+
+test("作者关注数不会是负的：哈希右移用无符号（她 2026-10-09）", () => {
+  assert.ok(!/seed >> \d/.test(code), "还有带符号右移，大哈希会变负数");
+});

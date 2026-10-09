@@ -3051,7 +3051,7 @@
   // 换主题整架子跟着换，但同一版永远还是那个色（她认色找版）。
   function ficSpineTone(name, t) {
     const seed = ficHash("spine:" + String(name || ""));
-    const base = skinRGB((seed >> 4) % 3 === 0 ? t.ink : t.accent);
+    const base = skinRGB((seed >>> 4) % 3 === 0 ? t.ink : t.accent);
     const cloth = shadeRGB(base, [-0.45, -0.3, -0.16, 0.04, 0.17, 0.29][seed % 6]);
     const dark = rgbLum(cloth) < 128;
     return {
@@ -3061,7 +3061,7 @@
       // 烫金压线：布色提亮/压深一档
       foil: rgbStr(shadeRGB(cloth, dark ? 0.5 : -0.34), 0.75),
       // 高矮不齐：一架子书本来就不是切齐的
-      lift: [0, -5, 3, -2, 6, -3][(seed >> 7) % 6]
+      lift: [0, -5, 3, -2, 6, -3][(seed >>> 7) % 6]
     };
   }
   function TabBar(props) {
@@ -5077,7 +5077,7 @@
       words: words,
       kudos: kudos,
       fans: 120 + seed % 48000 + mine.length * 260,
-      following: 8 + (seed >> 7) % 190
+      following: 8 + (seed >>> 7) % 190
     };
   }
   // 正字计数：写了几篇就划几笔。同人圈里数产出本来就是这么数的，
