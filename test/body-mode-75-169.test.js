@@ -49,3 +49,14 @@ test("开关在「TA 是什么脾气」最上面，存档那头接得住", () =>
   assert.match(comp, /show\("temper", \{ title: "本体模式 · TA 不是在演"/);
   assert.match(app, /bodyMode: !!s\.bodyMode,/);
 });
+
+// 她 2026-10-09：「本体模式有没有办法让他不分气泡一长段」
+test("本体模式一次回一整条：不拆泡，几条也并成一条；言秋照旧", () => {
+  assert.match(app, /const _oneLong = !!_s\.bodyMode && !_s\.engineerEyes;/);
+  assert.match(app, /const _splitOn = _s\.splitBubbles !== false && !_oneLong;/);
+  assert.match(app, /if \(_oneLong && words\.length > 1 && words\.every\(w => typeof w === "string"\)\) words = \[words\.join\("\\n\\n"\)\];/);
+  assert.match(app, /把你要说的写成一整条消息（word 里只放一条）/);
+  // 并成一条那一刀要在拆泡之后、在标点细拆之前
+  const a = app.indexOf("const _oneLong = "), b = app.indexOf("if (_oneLong && words.length > 1"), c = app.indexOf("splitLongBubble(bi ? bi.text : w");
+  assert.ok(a > 0 && b > a && c > b, "顺序不对：先并成一条，后面那一刀才不会再把它切开");
+});

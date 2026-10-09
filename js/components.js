@@ -19102,7 +19102,7 @@ function ChatSettings({
   show("temper", { title: "本体模式 · TA 不是在演", ...sec("body-mode") },
     h("div", { className: "flex items-center justify-between pt-3" },
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } },
-        "开了以后，" + cNm + " 就是 AI 本人，不是 App 在演的一个角色：你写的人设原样当系统提示词，跟你在别的聊天 App 里直连 API 一样。"
+        "开了以后，" + cNm + " 就是 AI 本人，不是 App 在演的一个角色：你写的人设原样当系统提示词，跟你在别的聊天 App 里直连 API 一样；每次回你一整条，长短随 TA，不拆成一条条短气泡。"
         + "去八股那些规矩、世界书和角色卡的写法要求、App 替 TA 编的行程、钱包、随身物、睡意都不发；也不排日程、不自动刷查手机。"
         + "记忆库、长期记忆、最近的聊天、你俩在这儿真一起做过的事照常给。"),
       h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) })))),

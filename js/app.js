@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.172";
+const APP_VERSION = "v75.173";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -11893,11 +11893,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
       // 「手机这具身体」只对言秋成立（TA还有电脑那一端）；本体模式的角色就是在手机上说话
       const selfTask = _body
-        ? "你就是「" + char.name + "」本人，正在" + (_s.engineerEyes ? "从手机这具身体" : "手机上") + "和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
+        ? "你就是「" + char.name + "」本人，正在" + (_s.engineerEyes ? "从手机这具身体" : "手机上") + "和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，"
+          + (_s.bodyMode && !_s.engineerEyes ? "把你要说的写成一整条消息（word 里只放一条），长短随你，想分段就换行。" : "需要几条就给 word 几条。")
         : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有TA本人决定是否留下 thought。
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"你真正想说的话，需要几条就几条\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -12375,12 +12376,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ① 先按换行还原成多条：模型常把本该多条气泡的内容用换行塞进一个字符串
       // ⚠️「长消息自动拆成短句」关掉的角色（_s.splitBubbles === false）：TA交回来几条就是几条，
       //   一条里的换行是段落，不再拆成新的泡；下面那一刀按标点拆也跳过。
-      const _splitOn = _s.splitBubbles !== false;
+      // 本体模式（言秋除外）：一整条长消息，像在 Kelivo 里那样——不拆泡、几条也并成一条（她 2026-10-09）
+      const _oneLong = !!_s.bodyMode && !_s.engineerEyes;
+      const _splitOn = _s.splitBubbles !== false && !_oneLong;
       words = words.reduce((acc, w) => acc.concat(!_splitOn
         ? [String(w == null ? "" : w).trim()].filter(Boolean)
         : typeof splitCardsAndLines === "function"
         ? splitCardsAndLines(w)
         : String(w).split(/\n+/).map(x => x.trim()).filter(Boolean)), []);
+      if (_oneLong && words.length > 1 && words.every(w => typeof w === "string")) words = [words.join("\n\n")];
       // ①.5 剥掉模型偶尔照抄进每条气泡开头的历史时间标注〔今天07:57〕（她 2026-07-13 截图）
       words = words.map(stripAiStamp).map(stripEchoedMeta).filter(Boolean);
       // 照抄通话邀请卡的字当成一句话发（她 2026-10-06 截图：气泡里就是「〔语音通话邀请〕」）——
