@@ -35,7 +35,7 @@ test("闸：已在一起／邀请挂着／关了／刚分手／再想想不到 3
 });
 
 test("能力只在闸开着时给，落地时再过一遍闸；侧房、言秋、查手机那几轮都不给", () => {
-  assert.match(app, /!_peekTurn && !\(room && !room\.main\) && !_s\.engineerEyes && !\(opts && opts\.loveLetterAnswer\) && loveLetterReady\(charId\)\) \{\n\s*openCaps\.push\("loveLetter"\);/);
+  assert.match(app, /!_peekTurn && !\(room && !room\.main\) && !_body && !\(opts && opts\.loveLetterAnswer\) && loveLetterReady\(charId\)\) \{\n\s*openCaps\.push\("loveLetter"\);/);
   assert.match(app, /loveLetter:"信的全文"=写给她的情侣申请信；/);
   assert.match(app, /if \(_letter && _letter\.toLowerCase\(\) !== "null" && !_peekTurn && !\(room && !room\.main\) && loveLetterReady\(charId\)\)/);
   assert.match(app, /kind: "loveletter", content: _letter\.slice\(0, 6000\), state: "sealed"/);

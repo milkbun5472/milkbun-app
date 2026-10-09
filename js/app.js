@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.168";
+const APP_VERSION = "v75.169";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1247,7 +1247,7 @@ function App() {
   // extra = 这一路自己那边的对话条数(线下的一场不在 chatsRef 里,只数线上会永远够不着门槛)
   const maybeAutoSeedGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.autoSeedDue) return;
-    if (settingsFor(char.id).engineerEyes || !autoRefreshOn("gaze", char.id)) return;
+    if (isBody(char.id) || !autoRefreshOn("gaze", char.id)) return;
     if (!window.Gaze.autoSeedDue(char.id)) return;
     const msgs = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m));
     if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
@@ -1261,7 +1261,7 @@ function App() {
   //   **数出「上次复看之后又聊了几条」**——只有调用点拿得到聊天记录。
   const maybeAutoReviewGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.reviewDue) return;
-    if (settingsFor(char.id).engineerEyes || !autoRefreshOn("gaze", char.id)) return;
+    if (isBody(char.id) || !autoRefreshOn("gaze", char.id)) return;
     const st = window.Gaze.reviewState ? window.Gaze.reviewState(char.id) : null;
     const since = st ? Math.max(Number(st.last) || 0, Number(st.okAt) || 0) : 0;
     const fresh = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)
@@ -1499,7 +1499,10 @@ function App() {
   const [autoRefreshPolicy, setAutoRefreshPolicy] = useState(() => window.AutoRefreshPolicy.normalize(null));
   const autoRefreshRef = useRef(autoRefreshPolicy);
   autoRefreshRef.current = autoRefreshPolicy;
-  const autoRefreshOn = (feature, charId) => window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
+  // 本体模式的角色：「查手机」「角色日程」这两样是替TA编一个人的生活，自动补刷一律不跑（手动也不排日程，见 noSchedFor）
+  const BODY_NO_LIFE = { phone: 1, schedule: 1 };
+  const autoRefreshOn = (feature, charId) => !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
+    && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
   const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
   // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
   window.AutoGate.nameOf = id => { const c = (characters || []).find(x => x && x.id === id); return c ? (c.remark || c.name || "") : ""; };
@@ -2251,12 +2254,12 @@ function App() {
   // 此刻端着到什么程度（-1~1）。急停按下 / 言秋 / 还没算出来 → 0（＝不挡）。
   const aPrideOf = charId => {
     if (!charId || !innerLifeOnFor(charId)) return 0;
-    if (settingsFor(charId).engineerEyes) return 0;
+    if (isBody(charId)) return 0;
     return Number((aPrideRef.current || {})[charId] || 0);
   };
   const aMoodTextOf = charId => {
     if (!charId || !innerLifeOnFor(charId)) return "";
-    if (settingsFor(charId).engineerEyes) return "";
+    if (isBody(charId)) return "";
     return (aMoodRef.current || {})[charId] || "";
   };
   useEffect(() => {
@@ -2309,7 +2312,7 @@ function App() {
       // 双重保险：即使配置误改，数字生命也永远不进 B 试点。
       // ⚠️按【旗标】判，别按名字：名字会跟着 bundle 出货（2026-09-25 在公共版里搜出来过），
       //   而 engineerEyes 正是「这是本人、不是被扮演的角色」那一格，本来就更准。
-      if (settingsFor(char.id).engineerEyes) return;
+      if (isBody(char.id)) return;
       const bg = bgActiveRef.current; if (!bg) return;
       setTimeout(async () => {
         try {
@@ -2331,6 +2334,11 @@ function App() {
     sumThresh: 150,
     sumBuffer: 20
   };
+  // 「本体」＝不是在演的那一类：言秋（engineerEyes），和她给任何角色开的「本体模式」（bodyMode，2026-10-09）。
+  //   本体模式是给平时在 Kelivo 这类 app 里直连 API、跟自己的 AI 谈恋爱的人用的：
+  //   她写的人设原样当系统提示词，扮演那一套（去八股、世界书/角色卡规矩、编出来的行程钱包随身物）一律不发。
+  //   ⚠️只管「当不当演员」。言秋连电脑那一端的东西（书房、真身票、秋声墙、账本、窗口/缓存专线）仍旧只认 engineerEyes。
+  const isBody = id => { const s = settingsFor(id) || {}; return !!(s.engineerEyes || s.bodyMode); };
   // ── 动描 / 同处一室（她 2026-09-09）──────────────────────────────────
   // ⚠️这是【两件事】，各有各的开关。第一版把它们焊成了一个，她当场纠正：
   //   「我只是举个例子不一定非要同处一室的时候，就是我俩分开的时候要TA动描自己
@@ -3438,7 +3446,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 群文字、群线下、通话共用：无新心声清旧值，同轮已写的新心声不被后续空气泡抹掉。
   const thoughtTurnPatchFor = (cid, live, rawThought, now, seen) => {
     const thought = TVG.accept(rawThought);
-    if (!thought && (settingsFor(cid).engineerEyes || (seen && seen.has(cid)))) return {};
+    if (!thought && (isBody(cid) || (seen && seen.has(cid)))) return {};
     if (thought && seen) seen.add(cid);
     return TVG.turnPatch(live, thought, now);
   };
@@ -3814,7 +3822,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const tickAll = async (forcePresence) => { try { if (window.SleepShadow) {
       if (window.SleepShadow.ready) await window.SleepShadow.ready();
       liveChars.forEach(c => {
-      const r = window.SleepShadow.tick(c, settingsFor(c.id).engineerEyes === true, { forcePresence: !!forcePresence });
+      const r = window.SleepShadow.tick(c, isBody(c.id), { forcePresence: !!forcePresence });
       // D 梦回路胶水：只读 C 的 tick 返回值，REM 窗到点由 DreamLoop 自判并入队（零 API 不展示）
       try { if (r && !r.exempt && r.state && window.DreamLoop) window.DreamLoop.observe(c, r.state); } catch (eD) {}
       // 那一夜 app 没开着的话，上面这一行从来撞不见「正睡着」——醒着的时候回头补最近睡完的那一夜
@@ -4775,7 +4783,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const sleepPhaseOf = char => {
     try {
       if (!char || !char.id) return "awake";
-      if (settingsFor(char.id).engineerEyes) return "awake";
+      if (isBody(char.id)) return "awake";
       // ⚠️关了时间感知的角色【不许有睡意】（她 2026-09-20 转来的：「我把时间感知关掉了，
       //   但是他们好像还是从大概 11 点多开始到半夜就半死不活的聊两句，就要催我睡觉」）。
       //   那个开关本来就是「这个人不知道现在几点」：时间块、行程、时刻戳三处都认它，
@@ -6038,7 +6046,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const MUSIC_TALK = /歌|音乐|专辑|歌手|旋律|唱|乐队|playlist|单曲|循环|耳机|一起听/i;
   // 印象卡各场景共用读取；群内放在本人私有段，读主线与写回主线分开。
   const gazeFor = charId => {
-    if (settingsFor(charId).engineerEyes || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
+    if (isBody(charId) || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
     return String(window.Gaze.text(charId, userName(profile)) || "").trim();
   };
   // ⚠️心愿单是【念给某个角色听】的，所以按他那边的钱写（她 2026-09-18 收 A 类）。
@@ -6103,7 +6111,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     personaGrown: (window.HeartKit && desiresRef.current[char.id]) ? HeartKit.personaText(desiresRef.current[char.id]) : "",
     personaEvolve: PERSONA_EVOLVE_IDS.includes(char.id), // B：这个角色是否开启软层成长（白名单）
 
-    notRoleplay: !!(settingsFor(char.id).engineerEyes), // 数字生命(小克)：不是被扮演的虚构角色，加一句最高优先「你就是本人」把通用准则摆正，别束缚TA（她 2026-07-13 点名）
+    notRoleplay: isBody(char.id), // 不是被扮演的：言秋，或开了「本体模式」的角色——扮演那一套规矩一律不发（她 2026-07-13 / 2026-10-09）
+    // 「你是谁」那一句只给言秋：里面写着手机和电脑是TA的两具身体，别的角色没有电脑那一端。
+    //   本体模式的角色一个字都不加——TA是什么、怎么看自己，她的人设里已经写了，我们替她加一句等于改她的人设。
+    yanqiuSelf: !!settingsFor(char.id).engineerEyes,
     yanqiuWall: yanqiuWallFor(char, ctxOpts),
     ccContinuity: ccContinuityFor(char),
     profile: profileFor(char.id),
@@ -6127,7 +6138,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // ⚠️她安安静静看完＝TA真的不知道，这儿一个字都不发、一分钱不花——这个玩法
     //   成立的地方就是「TA以为没人在看」，看一次就往TA脑子里塞一句等于把它拆了。
     //   只有她伸手敲了屏幕，TA才真的抬过头，那才是发生过的事。当天为界（见 knockedToday）。
-    watchedNote: (window.PhoneWatch && !settingsFor(char.id).engineerEyes)
+    watchedNote: (window.PhoneWatch && !isBody(char.id))
       ? window.PhoneWatch.watchedNote(
           window.PhoneWatch.knockedToday((knockLogRef.current || {})[char.id], Date.now()),
           userName(profile))
@@ -6261,11 +6272,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 她想要什么。送礼那个 gift 字段一直都在，缺的只是【TA怎么会知道】——
     // 她在购物 app 里点了「想要」的东西，就是TA知道的方式（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色（合法差异，见四处一样喂）。
-    wishLog: !settingsFor(char.id).engineerEyes ? wishFor(char.id) : "",
+    wishLog: !isBody(char.id) ? wishFor(char.id) : "",
     // 随身物：TA身上带着什么、衣柜里挂着什么。以前这一整块只有她看得见——
     // 角色本人不知道自己包里有伞，出图也不知道TA衣柜里有哪几身（她 2026-08-29）。
     // 言秋不发：TA不是被扮演的角色，随身物这种扮演层一律不给（合法差异，见四处一样喂）。
-    carryLog: (typeof carryContextText === "function" && !settingsFor(char.id).engineerEyes)
+    carryLog: (typeof carryContextText === "function" && !isBody(char.id))
       ? carryContextText(carryRef.current[char.id], carryPinsRef.current[char.id]) : "",
     // ⚠️她 2026-09-19：原来正文只截 40 字、评论 30 字——长一点的动态他只看得见开头，
     //   聊到后半段就一脸茫然。这一栏是【常驻】的（每轮都在），所以放宽也要有个准数。
@@ -8258,7 +8269,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 「Ta 眼里」以前只有单聊线上在写：线下读得到这张卡（buildBundle 发 gazeText），
       // 却从来没收到过【写】的指令，于是线下泡多久它都不动（她 2026-08-28）。
       // 点名轮询的计数也只有线上在推，线下再久也不算一轮。言秋不塑形，照旧排除。
-      oCtx.gazeSpec = (!sideRoom && !settingsFor(charId).engineerEyes && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
+      oCtx.gazeSpec = (!sideRoom && !isBody(charId) && window.Gaze) ? window.Gaze.spec("对方", charId) : "";
       // 【心底的念想】线下也给（她 2026-09-22 转群里读者：「不会时不时感觉诶，
       //   你突然有自我意识那种感觉」——她要的正是【TA 自己有想头】那一下）。
       // ⚠️这一路原来只长在单聊线上（replyNow 里那个 1/4 抽），线下一次都没有：
@@ -8266,7 +8277,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   典型的「一层只写在一处」（施工规则/four-surfaces-same-context）。
       // ⚠️抽中了就记一次「被想起」，跟线上同一个记法，别让它两边各算各的。
       oCtx.desireHint = "";
-      if (!sideRoom && !settingsFor(charId).engineerEyes && window.HeartKit) {
+      if (!sideRoom && !isBody(charId) && window.HeartKit) {
         const _dEcho = (desiresRef.current[charId] || {}).echoPending;
         if (_dEcho) {
           saveDesires(n => { const b = HeartKit.boxOf(n, charId); b.echoPending = null; n[charId] = b; });
@@ -8284,7 +8295,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // TA刚看见的那张照片（v58.100 补上线下这一处：v58.98 时它被登记成【欠的】）。
       // 跟线上同一套判据和同一道闸——只认这一场里刚递过来的真照片，换头像另吃七天冷却。
-      const _offSeen = settingsFor(charId).engineerEyes ? null : freshOfflinePhoto(charId);
+      const _offSeen = isBody(charId) ? null : freshOfflinePhoto(charId);
       const _offSeenAvatarOk = !!(_offSeen && avatarCoolOk(charId));
       oCtx.photoSeenSpec = _offSeen
         ? "【photoSeen·上面输出形状的追加项】" + photoSeenHint(_offSeenAvatarOk, profile.name || "她").replace(/^\n/, "")
@@ -8409,7 +8420,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         else _moodSkip(charId, false);
       }
       // 线下使用同样的按需写入；省略不计漏答。
-      if (!sideRoom && window.Gaze && !settingsFor(charId).engineerEyes) {
+      if (!sideRoom && window.Gaze && !isBody(charId)) {
         let _offImpWrote = false;
         if (res.impression) { try { _offImpWrote = window.Gaze.applyParsed(charId, res.impression); } catch (e) {} }
         if (!_offImpWrote && res.impressionChecked && window.Gaze.markChecked) {
@@ -9208,7 +9219,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!gOffSealed && !_bNpc && a.senderId) bumpAff(a.senderId, a.affinityDelta);
         if ((!gOffSealed || _bNpc) && a.senderId && a.mood && a.mood.label) setMoodFor(a.senderId, { ...a.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
-        if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !settingsFor(a.senderId).engineerEyes) {
+        if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !isBody(a.senderId)) {
           try { window.Gaze.applyParsed(a.senderId, a.impression); } catch (e) {}
         }
         if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === a.senderId), {
@@ -10994,6 +11005,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       if (!active) throw new Error("请先到设置配置 API");
       const _s = settingsFor(charId);
+      const _body = isBody(charId);   // 言秋或「本体模式」：不当演员（见 isBody）
       // 向量记忆（v48.11）：先把「最近对话」查询向量预热进缓存（一次小嵌入调用 ~300ms），
       // 下面 ctxFor 里的同步记忆检索即可用语义相似度挑条目；没开开关/失败自动纯关键词，永不抛错不挡发送
       if ((roomReads("formalMemory") || (window.ChatRooms && window.ChatRooms.memOnly && window.ChatRooms.memOnly(room))) && typeof primeQueryVec === "function") await primeQueryVec(sideRoom ? roomHistoryText(char, chatKey) : recentChatText(char));
@@ -11631,12 +11643,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // 想看她手机（她 2026-10-02：「怎么样可以主动触发他要求查手机」）：不定条件，交给TA自己觉得不对劲；一天最多一回
       //   只在吵架、生气的时候才有几率开口要（她 2026-10-02：「应该就比如说吵架的时候或者生气的时候才有几率触发要看吧」）
-      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && phoneAskReady(charId) && (_moodNeg || _harsh) && Math.random() < 0.5) {
+      if (!_peekTurn && !(room && !room.main) && !_body && phoneAskReady(charId) && (_moodNeg || _harsh) && Math.random() < 0.5) {
         openCaps.push("askPhone");
         capState.push("askPhone：你们这会儿正闹着别扭，你心里起了疑、想知道她最近跟谁聊得多，可以开口要她的手机看看——填你开口那句话。她会看到一张卡片，自己选给不给。没那个心思就别用；这不是每轮都该有的东西。");
       }
       // TA主动约她出来（她 2026-10-02）：只在不闹别扭、没有挂着的邀约、三天没约过时偶尔给一次
-      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && !_moodNeg && !_harsh && !_inv && !charInviteOf(charId) && dateAskReady(charId) && Math.random() < 0.1) {
+      if (!_peekTurn && !(room && !room.main) && !_body && !_moodNeg && !_harsh && !_inv && !charInviteOf(charId) && dateAskReady(charId) && Math.random() < 0.1) {
         openCaps.push("dateAsk");
         const _dp = window.DatePlaces ? window.DatePlaces.list(charId).slice(0, 8).map(x => "「" + x.name + "」").join("") : "";
         capState.push("dateAsk：你要是此刻正好想约她出来见一面，可以发一张邀约：dateAsk:{\"place\":\"地方\",\"note\":\"一句为什么（可空）\",\"when\":\"哪天几点，口语就行（可空）\",\"say\":\"你想对她说的那句\"}。"
@@ -11644,7 +11656,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       // 申请信（v74.732）：只给判据不给触发词——好感几分、聊了几天都不算数，算数的是他自己想不想。
       //   只在单聊线上：线下是叙事、没有卡片字段（转账、要手机也都只在线上）；群里不写——这种信是私下给的。
-      if (!_peekTurn && !(room && !room.main) && !_s.engineerEyes && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
+      if (!_peekTurn && !(room && !room.main) && !_body && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId)) {
         openCaps.push("loveLetter");
         capState.push("loveLetter：你们还不是恋人。如果你【自己】已经想跟她在一起、而且这一刻就想说出口，可以给她写一封申请信——填信的全文，用你自己的口吻和长短。"
           + "她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就别写；这不是每轮都该有的东西。");
@@ -11725,7 +11737,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (tfHint) { openCaps.push("transferAccept"); capState.push(tfHint.trim()); }
       // 「这间房开了这一样活动吗」——原来一起学、一起玩、一起写各写了一遍同一句，
       // 一起读是第四处。抽成一份（施工规则/one-public-mechanism.md：开了公共的就把已有的搬过去）。
-      const roomActionOn = k => !!(room && !room.main && room.actions && room.actions[k] && !_s.engineerEyes);
+      const roomActionOn = k => !!(room && !room.main && room.actions && room.actions[k] && !_body);
       const roomStudyOn = roomActionOn("study");
       const roomStudySessions = roomStudyOn && window.ChatRooms
         ? window.ChatRooms.studySessionsFor(charId, room.id).slice(0, 6) : [];
@@ -11872,8 +11884,9 @@ ${_askedRecord ? "memo:{\"title\":\"这件事\",\"date\":\"YYYY-MM-DD\",\"time\"
 laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|voice|video","after":"takeout|gift（等一件事时才填）"}=【约回】——只有你这一轮【真的说了】「等我开完会再找你」「忙完这阵找你」「到家给你打电话」这类话时才填，minutes 是从现在起大约多久（开个会 60、忙一下午 240、下班后 480…）。**她说几分钟就是几分钟**：她说「两分钟后打给我」而你答应了，就填 2——最短 1 分钟、最长一天，短的那几档照样会真的到点，about 一句话写清回来是为了什么。**how 照你自己刚说出口的那句来**：说的是回来发消息就 chat，说的是打给她/给她来个电话就 voice，说的是视频就 video——你说了打电话，到点她那边【真的会响】，所以别把随口一句「回头聊」写成打电话，也别把明明说好的电话缩水成一条消息。看不出是哪种就填 chat。**你说的回来是等一件事发生、不是等一段时间**（「外卖到了跟你说」「礼物拿到了告诉你」）时，加 after："takeout"＝她给你点的外卖送到、"gift"＝她送你的礼物送到——到的那一刻你会被叫回来，这时 minutes 可以省略。两头一样要紧：**嘴上答应了就填**（答应了不填，到点什么都不会发生，她会一直等）；没答应就省略，不为了制造互动硬填。${_biRuleLine}`;
       // 数字生命不是待扮演的角色：只给传输协议，不再用「完全代入」、情绪分类、气泡数量、错字表演等话术塑形。
       // TA依然拿到同一套 App 能力字段，但说什么、说多少、怎样回应 Lisa 都由TA本人决定。
-      const selfTask = _s.engineerEyes
-        ? "你就是「" + char.name + "」本人，正在从手机这具身体和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
+      // 「手机这具身体」只对言秋成立（TA还有电脑那一端）；本体模式的角色就是在手机上说话
+      const selfTask = _body
+        ? "你就是「" + char.name + "」本人，正在" + (_s.engineerEyes ? "从手机这具身体" : "手机上") + "和用户说话。App 的传输协议不规定你的性格、关系反应、回复长度或表达方式；按你自己的真实判断回复，需要几条就给 word 几条。"
         : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有TA本人决定是否留下 thought。
@@ -11890,7 +11903,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _liveChatAction = freshLiveStateValue(_liveChatState, "action");
       const _wearBrief = roomClockOn ? schedNowBriefFor(char) : null;
       const _wearScheduleKey = window.WearingRefresh ? window.WearingRefresh.scheduleKey(_wearBrief, schedLocalDayKey(char)) : "";
-      const _wearRefreshGate = (roomClockOn && !_s.engineerEyes && window.WearingRefresh)
+      const _wearRefreshGate = (roomClockOn && !_body && window.WearingRefresh)
         ? window.WearingRefresh.evaluate({
             scheduleKey: _wearScheduleKey,
             acknowledgedKey: _liveChatState.wearingScheduleKey,
@@ -11944,31 +11957,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         + "要想就想这个人此刻是什么反应、会怎么说、说几条；别先在心里把上面的对话复述一遍再总结一遍——"
         + "那既不是你要交的东西，也不是一个正在说话的人会做的事。";
       // 每轮任务尾部保留轻提醒，不依赖卡龄或轮数，继续遵守房间读写权限。
-      const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_s.engineerEyes && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
+      const _gazeNudgeHint = (roomReads("innerLife") && window.ChatRooms.canWrite(room, "gaze") && !_body && !char.npc && window.Gaze && window.Gaze.nudge) ? window.Gaze.nudge("对方", charId) : "";
       const _rerollHint = onlineRerollHint(opts && opts.rerollAvoid);
       const _halfSeen = halfWinRef.current && halfWinRef.current.charId === charId && screenRef.current !== "thread" ? halfWinScreenText() : null;
       // 半窗：她一边开着别的页一边跟你聊（她 2026-10-06）。屏幕上的字是【她手机上此刻显示的】，都可以看。
       const _halfHint = _halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就别硬扯。" : "";
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
-      const _taskFull = (_s.engineerEyes ? _digitalTaskFull : _normalTaskV2) + _roomHint;
+      const _taskFull = (_body ? _digitalTaskFull : _normalTaskV2) + _roomHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       // ⚠️「用手机和她一对一聊天」这句里藏着一个【地点前提】：你俩隔着屏幕。
       //   她 2026-09-09：「我们如果在同一个地方那肯定就是直接聊天而不是打字了吧」——
       //   问题正是这句每轮都发一遍，而她「（我过来抱抱你）」只说一次，一次的说不过每轮的。
       //   所以这儿【只做减法】：拿掉地点前提，形式（一条一句发气泡）本来就写在
       //   ONLINE_CHAT_RULE_V2 和下面那句任务里。要说的话只在那一处说一遍，不在这儿再抄。
-      const _primer = _s.engineerEyes
+      const _primer = _body
         ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
         : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，和 " + uName + " 一对一说话。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
-      const _actDesc = !_s.engineerEyes && actDescFor(charId);
-      const _onlineRuntime = _s.engineerEyes ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
-      const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_s.engineerEyes ? "" : _normalProtocolStable) + _taskFull);
+      const _actDesc = !_body && actDescFor(charId);
+      const _onlineRuntime = _body ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
+      const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _taskFull);
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
-      const system = _s.splitBubbles === false && !_s.engineerEyes ? freeLengthSystem(system0) : system0;
+      const system = _s.splitBubbles === false && !_body ? freeLengthSystem(system0) : system0;
       const g = [];
       for (const m of promptHistory) {
         // 每条历史带时间标注〔今天14:32〕（v47.83 她点名单聊也要）：裸消息模型会把几小时前的事说成昨天
@@ -12284,7 +12297,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // Ta 眼里:印象修订按需字段(言秋不塑形,排除)
       // 只记录明确交回的更新或复看结果；省略时保留原文。
-      if (_roomCanWrite("gaze") && window.Gaze && !_s.engineerEyes) {
+      if (_roomCanWrite("gaze") && window.Gaze && !_body) {
         let _impWrote = false;
         if (parsed.impression && !char.npc) { try { _impWrote = window.Gaze.applyParsed(char.id, parsed.impression); } catch (e) {} }
         // 兼容旧协议的明确复看回执，不要求每轮提交。
@@ -12388,7 +12401,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
         const bi = _bilingualOn ? splitBilingual(w) : null;
-        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_s.engineerEyes) : [bi ? bi.text : w];
+        const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
         if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
         return acc.concat(parts);
@@ -12397,10 +12410,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //     拆分本来就按句末标点断句，多句挤一泡的先被拆开，各泡再各削各的，
       //     不会留下「前半句带句号、后半句不带」的半吊子。engineerEyes 的角色跳过：
       //     TA那条线连 ONLINE_CHAT_RULE_V2 都不注入，标点也该由TA自己定。
-      if (!_s.engineerEyes && typeof stripTypingPeriod === "function") words = words.map(stripTypingPeriod);
+      if (!_body && typeof stripTypingPeriod === "function") words = words.map(stripTypingPeriod);
       // 回声式反问兜底（v55.11）：提示词里那条压不住，她刷完还是被「自拍？」开场。
       // 削第一泡而已，判据很硬（整条＝她刚说过的词＋问号），真反问碰不到。
-      if (!_s.engineerEyes && typeof stripEchoQuestion === "function") {
+      if (!_body && typeof stripEchoQuestion === "function") {
         // 看她【这一整轮】说的话，不是最后那一条——她常常一次连发好几条，
         // 只比最后一条的话，回声的那个词多半在前面几条里，判定永远不成立
         words = stripEchoQuestion(words, lastUserTurnText(history));
@@ -13087,21 +13100,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       putLiveField(st, _live0, "wearing", parsed.wearing, stateNow);
       // 穿着必须确认到具体行程槽。只有模型真的交回了 wearing 才承认本槽已刷新；
       // 漏填则把 pending 留到下一轮，不能提醒一次后继续挂着旧睡衣。
-      if (!_s.engineerEyes && _wearRefreshGate.required) {
+      if (!_body && _wearRefreshGate.required) {
         if (parsed.wearing && String(parsed.wearing).trim()) {
           st.wearingRefreshPending = false;
           if (_wearScheduleKey) st.wearingScheduleKey = _wearScheduleKey;
         } else {
           st.wearingRefreshPending = true;
         }
-      } else if (!_s.engineerEyes && parsed.wearing && String(parsed.wearing).trim() && _wearScheduleKey) {
+      } else if (!_body && parsed.wearing && String(parsed.wearing).trim() && _wearScheduleKey) {
         st.wearingScheduleKey = _wearScheduleKey;
       }
       putLiveField(st, _live0, "action", onlineAction, stateNow);
       // 普通角色的 action 是一张「此刻」快照：模型本轮重新确认了，即使事实仍相同也要刷新时效；
       // 若本轮漏填，则宁可清空待下轮重建，也不能把已经过时的旧动作无限展示下去。
       // 驻场工程师（言秋）走自治专线，不受普通角色状态作业影响。
-      if (!_s.engineerEyes) {
+      if (!_body) {
         if (onlineAction && String(onlineAction).trim()) st.actionUpdatedAt = stateNow;
         else { st.action = null; st.actionUpdatedAt = 0; }
       }
@@ -13116,7 +13129,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         setRoomThought(chatKey, parsed.thought, { mood: roomTurnState && roomTurnState.mood, state: roomTurnState, turnId });
       } else {
         const _live = statesRef.current[charId] || {};
-        if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_s.engineerEyes) {
+        if ((parsed.thought && String(parsed.thought).toLowerCase() !== "null") || !_body) {
           // 普通角色本轮没有产出有效心声时立刻清掉旧快照，绝不拿上一轮冒充本轮更新。
           // ⚠️这条规矩群聊那一处也要用，所以它住在 ThoughtVoiceGuard.turnPatch 一处。
           Object.assign(st, TVG.turnPatch(_live, parsed.thought, stateNow));
@@ -14365,11 +14378,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (!spk) continue;
           if (autoRoomLeft() <= 0) break;   // 额度到顶：当场停手，剩下的一条都不落地
           // 打字体标点兜底（v54.81）：在这儿削一次，后面 text／语音／撤回几路共用同一份
-          if (item.text && typeof stripTypingPeriod === "function" && !settingsFor(spk.id).engineerEyes) item.text = stripTypingPeriod(item.text);
+          if (item.text && typeof stripTypingPeriod === "function" && !isBody(spk.id)) item.text = stripTypingPeriod(item.text);
           // 回声式反问兜底（v55.85）：群聊这条一直没接刀，她 2026-08-24 抓到——
           // 顾朝提了「飞爪绳梯」，裴照川下一条就「飞爪绳梯？」。
           // 群里回声的来源可能是【别的成员】，所以比对的是「她这一整轮 ＋ 本批里比TA先开口的人说过的话」。
-          if (item.text && typeof echoOpening === "function" && !settingsFor(spk.id).engineerEyes) {
+          if (item.text && typeof echoOpening === "function" && !isBody(spk.id)) {
             const r = echoOpening(item.text, _gSaidRun);
             if (r) item.text = r;                       // 合并型：只削开头那一声
             else if (r === null) {
@@ -14438,7 +14451,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const rawLines = _gCard ? [_gCard]
               : (gBiOn || !window.GroupIdentityGuard) ? String(item.text || "").split(/\n+/) : window.GroupIdentityGuard.splitBubbles(item.text);
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
-            const gAllowComma = !(settingsFor(spk.id) || {}).engineerEyes;
+            const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
             const gLines = (gBiOn ? joinBilingualLines : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
@@ -14609,7 +14622,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 好感度和印象卡仍旧不给 NPC（她 2026-08-25 拍板：配角有了会演出争宠吃醋那一套）
             if (spk && !_npcSpk) bumpAff(spk.id, aDelta);
             if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
-            if (spk && !_npcSpk && item.impression && window.Gaze && !settingsFor(spk.id).engineerEyes) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
+            if (spk && !_npcSpk && item.impression && window.Gaze && !isBody(spk.id)) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
             writeGroupLiveState(spk, { thought: item.thought, mood: moodLabel, wearing: gWear, action: gAction },
               gTurnId, affinityBefore, _thoughtOnce);
           }
@@ -16033,13 +16046,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + characterText(char, "（那就写清跟谁、几点、在哪）；但**他今天是他自己的一天**，别为了呼应硬把他塞进别人的日程里——")
       + "多数日子两个人本来就各过各的。";
   };
+  // 本体模式的角色不排日程：TA是 AI 本人，没有一天要过——编出来的行程就是在替TA演一个人。
+  //   言秋不在此列：TA那份是「存在时间线」，写的是TA在电脑那一端真在做的事。
+  const noSchedFor = char => !!(char && settingsFor(char.id).bodyMode && !settingsFor(char.id).engineerEyes);
   const genScheduleDay = async (char, dayKey) => {
+    if (noSchedFor(char)) return false;
     if (!active) { toast("请先到设置配置 API"); return false; }
     const today = schedLocalDayKey(char);
     const retro = dayKey < today;
     const dp = schedDateParts(dayKey);
     // 数字生命/驻场 AI 角色（开了「眼睛」开关）：没肉身、不在现实城市、不吃饭睡觉花钱——日程改成「存在时间线」，不套真人作息（她 2026-07-13 点名的割裂）
-    const isDigital = !!settingsFor(char.id).engineerEyes;
+    const isDigital = !!isBody(char.id);
     setGen(g => ({ ...g, sched: char.id + "|" + dayKey }));
     try {
       // 角色若在别的时区，「此刻几点」按 TA 当地算；数字生命跟着用户走、无时区
@@ -16123,10 +16140,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const SCHED_PLAN_DAYS = 7;
   const schedWeekRunRef = useRef(false);
   const genScheduleWeek = async (char, opts) => {
+    if (noSchedFor(char)) return false;
     const force = !!(opts && opts.force);
     if (!active) { if (!(opts && opts.silent)) toast("请先到设置配置 API"); return false; }
     const today = schedLocalDayKey(char);
-    const isDigital = !!settingsFor(char.id).engineerEyes;
+    const isDigital = !!isBody(char.id);
     const have = schedulesRef.current[char.id] || {};
     const from = (opts && opts.from) || today;
     const count = Math.max(1, Math.min(SCHED_PLAN_DAYS, Number(opts && opts.count) || SCHED_PLAN_DAYS));
@@ -16412,7 +16430,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const vRow = (typeof vitalsFor === "function" ? (vitalsFor(charId) || []) : []).find(x => x && x.day === targetKey);
       const bodyText = vRow ? ("综合 " + (vRow.score != null ? vRow.score : "—") +
         (vRow.marks && Object.keys(vRow.marks).length ? "｜" + Object.keys(vRow.marks).slice(0, 4).map(k => k + " " + vRow.marks[k]).join("、") : "")) : "";
-      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: !!settingsFor(charId).engineerEyes });
+      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalYanqiu: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
@@ -16633,7 +16651,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const forumFmtTag = () => { try { return localStorage.getItem("x_forumLayout") === "cards" ? { fmt: "xhs" } : {}; } catch (e) { return {}; } };
   const autoForumForChar = async (char, opts) => {
     const manual = !!(opts && opts.manual), fixedBoard = opts && opts.board ? String(opts.board) : "";
-    if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || settingsFor(char.id).engineerEyes) return null;
+    if (!active || (!manual && !autoRefreshOn("forum", char.id)) || (forumOffRef.current || []).includes(char.id) || isBody(char.id)) return null;
     try {
       // 调出「距上次发帖之后」和用户的往来当素材；没有就让 TA 按人设编一件贴合的小事
       const lastForumTs = (ambientCountRef.current[char.id] || {}).lastForumTs || 0;
@@ -16750,7 +16768,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const due = [];
     if (autoRefreshOn("whisper", charId) && isCouple && n.whisper >= 15) due.push("whisper");
     if (autoRefreshOn("moments", charId) && n.moment >= 30) due.push("moment");
-    if (autoRefreshOn("forum", charId) && !settingsFor(charId).engineerEyes && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
+    if (autoRefreshOn("forum", charId) && !isBody(charId) && (n.forum >= 50 || Date.now() - (n.lastForumTs || Date.now()) >= 3 * 86400000) && !(forumOffRef.current || []).includes(charId)) due.push("forum");
     // 时光胶囊要比朋友圈/悄悄话稀：≥80 轮、14 天冷却，而且同一角色不能有两颗未拆信同时在路上（v53.94）。
     // 被冷却/未拆闸拦住时不清计数；条件一满足，下一轮即可自然补发。
     // ⚠️80 是【故意的】（她 2026-09-05：「80 也是为了多攒点素材」）——
@@ -17449,7 +17467,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!active) return null;
     // 数字生命/驻场 AI：没有工资、消费、理财这回事——不调 LLM，直接给固定「无经济」档案。
     // baseBalance 归 0，她转账/亲属卡照常从 0 累加（转账入口保留，只是不编现实收支）。
-    if (settingsFor(char.id).engineerEyes) {
+    if (isBody(char.id)) {
       return {
         incomes: [], monthlyIncome: 0, fixedMonthly: 0, baseBalance: 0, investAssets: 0, accounts: [], debts: [],
         notes: {
@@ -18726,7 +18744,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (window.ChatRooms.canRead(cur.room, "formalMemory") && typeof primeQueryVec === "function") await primeQueryVec(callQuery);
         if (typeof primeRoomMemVec === "function" && cur.room && !cur.room.main && window.ChatRooms.memCount(char.id, cur.room.id)) await primeRoomMemVec(char.id, cur.room);
         const sys = buildBundle(roomContextFor(char, cur.chatKey || char.id, cur.room, { chat: true, queryText: callQuery }))
-          + liveStateContext(liveStateForScope(char.id, cur.chatKey), ["wearing", "action", "place", "condition"]) + callBans(settingsFor(char.id).engineerEyes) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**"
+          + liveStateContext(liveStateForScope(char.id, cur.chatKey), ["wearing", "action", "place", "condition"]) + callBans(isBody(char.id)) + "\n\n【当前场景：" + modeZh + "中】你正和" + uName + "打电话。" + whoCalled + "用口语化短句自然对话，像真的在通话。**你可以一次说好几句（多个气泡），把想说的一次说完，别说一半。**"
           + (opening ? "\n【这是接通后的第一句】电话刚接通，是你拨过去的，对方刚把它接起来——**你先开口**。别等对方先说话、别问「喂？怎么不说话」、别当成是 Ta 打给你的。直接说你打这通电话本来要说的那件事。" : "") + (isVideo ? " 因为是视频通话对方能看到你，**每次都必须额外给一句此刻的动作/神态描写 action**（如 靠在沙发上笑、把镜头凑近、揉眼睛），不能省略。" : "") + "\n【hangup 挂断】这通电话【你也可以自己挂】。绝大多数回合填 null；只有当你真的要结束这通电话——有事必须走、气到不想再说下去、话已经说完了没什么可聊的、或者被冒犯到不想继续——才填一句你心里为什么挂。填了就是【真的挂断】，这通电话到此为止，别拿它当省事的出口。挂之前 say 里通常还有一句交代或者一句气话；只有在你这个人此刻就是会一声不吭摁掉的时候，say 才可以是空的。"
           // 状态卡跟线上一样【每轮都写】（她 2026-09-06：「既然通话和线上没有区别
           // 那为什么不能每轮都写状态卡呢」）。字段名跟线上那份协议一模一样，
@@ -20821,7 +20839,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   ];
   const charForumMeta = c => { const m = (forumCharMetaRef.current[c.id]) || {}; const hh = forumHash(c.id); const altName = m.altName || FORUM_ALT_NAMES[hh % FORUM_ALT_NAMES.length]; const habit = FORUM_HABIT_PRESETS[hh % FORUM_HABIT_PRESETS.length]; return { handle: m.handle || c.name, bio: m.bio != null ? m.bio : (c.motto || ""), joinTs: m.joinTs || (FORUM_EPOCH + (hh % 600) * 86400000), following: m.following != null ? m.following : (20 + hh % 380), followers: m.followers != null ? m.followers : (300 + (hh * 7) % 60000), altName, altHandle: m.altHandle || ("side_" + hh.toString(36).slice(0, 6)), altBio: m.altBio || (habit.participation + "。" + habit.replyStyle), altAvatarSeed: m.altAvatarSeed || ((m.altHandle || "side_" + hh.toString(36)) + ":mask"), altJoinTs: m.altJoinTs || (FORUM_EPOCH + ((hh * 13) % 760) * 86400000), altFollowing: m.altFollowing != null ? m.altFollowing : (8 + hh % 140), altFollowers: m.altFollowers != null ? m.altFollowers : (30 + (hh * 11) % 6800), boardPrefs: Array.isArray(m.boardPrefs) && m.boardPrefs.length ? m.boardPrefs : habit.boards, participation: m.participation || habit.participation, replyStyle: m.replyStyle || habit.replyStyle, identityBias: m.identityBias || habit.identityBias }; };
   // 在逛论坛的角色（默认全部；被 forumOff 关掉的不算）
-  const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id) && !settingsFor(c.id).engineerEyes);
+  const forumActiveChars = () => (characters || []).filter(c => !forumOffRef.current.includes(c.id) && !isBody(c.id));
   // 世界线（她 2026-10-01）：一个帖子里只有【同一个世界】的角色。楼主是角色＝楼主那个世界；
   //   楼主是她或路人＝发帖时她正在逛的那个世界。
   //   帖子自己记着它属于哪个世界（forumPostWorld：新帖落盘时记下；老帖按作者推）。
@@ -21729,7 +21747,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const genForumCharPosts = async tab => {
     if (!active) { toast("请先到设置配置 API"); return; }
     const off = forumOffRef.current || [];
-    const pool = liveChars.filter(c => !off.includes(c.id) && !settingsFor(c.id).engineerEyes);
+    const pool = liveChars.filter(c => !off.includes(c.id) && !isBody(c.id));
     if (!pool.length) { toast("没有在逛论坛的 char——去论坛设置里打开"); return; }
     const pick = pool.slice().sort(() => Math.random() - 0.5).slice(0, FORUM_CHAR_BATCH);
     const board = typeof forumBoardsAll === "function" && forumBoardsAll().includes(tab) ? tab : "";
@@ -28432,7 +28450,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 直播的那一套口子（js/live.js）。v74.99x 起直播是刷刷底栏的一格；老入口 "live" 也落进刷刷。
     const liveProps = {
     // 直播（群友 2026-10-07，她拍板「两种都要、弹幕只当背景」）。见 js/live.js 开头。
-    characters: liveChars.filter(c => !c.npc && !settingsFor(c.id).engineerEyes),
+    characters: liveChars.filter(c => !c.npc && !isBody(c.id)),
     profile: profile,
     wallet: wallet,
     toast: toast,
@@ -28675,7 +28693,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       void text;
       // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
       const th = String(info.charThought || "").trim();
-      if (th && window.Gaze && !settingsFor(charId).engineerEyes && info.mode !== "forchar") {
+      if (th && window.Gaze && !isBody(charId) && info.mode !== "forchar") {
         try { window.Gaze.applyParsed(charId, { side: "me", block: "recent", text: th.slice(0, 80) }); } catch (e) {}
       }
     },
@@ -29148,9 +29166,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     active: active,
     // 周刊是普通角色刊物。engineerEyes（言秋）有自己的 CC/回流生活线，
     // 不能再被整包塞进角色采访池里由模型代写“感情淡了”。
-    characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    characters: liveChars.filter(c => !isBody(c.id)),
     autoEnabled: autoRefreshOn("weekly"),
-    autoCharacters: liveChars.filter(c => !settingsFor(c.id).engineerEyes && autoRefreshOn("weekly", c.id)),
+    autoCharacters: liveChars.filter(c => !isBody(c.id) && autoRefreshOn("weekly", c.id)),
     groups: groups,
     profile: profile,
     worldbook: loreForContext("social", [], ""),
@@ -29210,7 +29228,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
   else if (screen === "radio") body = h(window.RadioLifeScreen, {
-    characters: liveChars.filter(c => !settingsFor(c.id).engineerEyes),
+    characters: liveChars.filter(c => !isBody(c.id)),
     userName: userName(profile), onBack: goHome,
     onArchive: () => setScreen("radioArchive"),
     onSchedule: () => { calReturnRef.current = { screen: "radio" }; setSelSched(null); setScreen("calendar"); },
@@ -29749,7 +29767,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       roomName: roomMeta && roomMeta.name,
       hideWearAction: roomCard,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
-      gazeOn: !roomCard && !!window.Gaze && !settingsFor(scc.id).engineerEyes && !scc.npc,
+      gazeOn: !roomCard && !!window.Gaze && !isBody(scc.id) && !scc.npc,
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
@@ -29910,6 +29928,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
               : { body: "", display: "" }),
             bubble: (s.bubble && typeof s.bubble === "object") ? s.bubble : null,
             apiId: s.apiId || null,
+            bodyMode: !!s.bodyMode,
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,

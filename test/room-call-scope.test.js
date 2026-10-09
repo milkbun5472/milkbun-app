@@ -24,7 +24,7 @@ function setup(overrides={}) {
     buildBundle:ctx=>JSON.stringify(ctx), userName:p=>p.name,
     setCall:v=>{box.callRef.current=typeof v==='function'?v(box.callRef.current):v},
     toast:()=>{},laneBusy:()=>false,startLane:()=>{},endLane:()=>{},active:{},apiFor:()=>({}),
-    settingsFor:()=>({}), ECHO_QUESTION_BAN:'',REGISTER_FOLLOWS_SCENE:'',
+    settingsFor:()=>({}), isBody:()=>false, ECHO_QUESTION_BAN:'',REGISTER_FOLLOWS_SCENE:'',
     noteTidalUser:()=>stateWrites.push('tidal'),setStateFor:()=>stateWrites.push('state'),pushStateHist:()=>{},setMoodFor:()=>stateWrites.push('mood'),
     setRoomThought:(...args)=>thoughts.push(args),extractJSON:JSON.parse,bgActiveRef:{current:{}},
     setDirectives:fn=>{box.directives=fn(box.directives)}, saveJSON:()=>{},isOocMsg:m=>m.kind==='ooc'||String(m.turnId||'').startsWith('ooc_'),

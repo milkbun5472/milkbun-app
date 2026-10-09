@@ -11,7 +11,7 @@ const realTVG = guard => {
 function fixture(opts={}){
  let now=1000000;const session={sessionId:'call1',...opts},states={},moods=[],history=[],local=[];
  const box={Date:{now:()=>now},cur:session,callRef:{current:session},window:{ChatRooms:Rooms,ThoughtVoiceGuard:Guard},TVG:realTVG(Guard),
-  gsFor:()=>({memoryInterop:opts.interop!==false}),settingsFor:()=>({engineerEyes:!!opts.engineer}),statesRef:{current:states},
+  gsFor:()=>({memoryInterop:opts.interop!==false}),settingsFor:()=>({engineerEyes:!!opts.engineer}),isBody:()=>!!opts.engineer,statesRef:{current:states},
   setStateFor:(id,v)=>states[id]=v,setMoodFor:(id,v)=>moods.push(v),pushStateHist:(id,v)=>{if(v.thought)history.push(v);},setRoomThought:(...a)=>local.push(a)};
  vm.createContext(box);
  vm.runInContext(cut('const LIVE_STATE_TTL =','  // 心声历史：')+cut('  const callCanWriteMain =','  const callSend =')+cut('      const callThoughtDone =','      const uName =')+';this.put=callPutState;this.can=callCanWriteMain;this.fresh=freshLiveStateValue;',box);

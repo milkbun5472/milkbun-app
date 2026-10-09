@@ -25,7 +25,7 @@ test("关了时间感知的角色不许有睡意", () => {
   assert.ok(fn.indexOf('!timeAwareFor(char.id)') < fn.indexOf('charAwakeState(char) === "asleep"'),
     "闸挡晚了——排了作息的角色会先被 charAwakeState 判睡着");
   // 言秋那条豁免别被顺手删了
-  assert.match(fn, /engineerEyes\) return "awake";/, "言秋不睡觉那条没了");
+  assert.match(fn, /if \(isBody\(char\.id\)\) return "awake";/, "言秋（和本体模式）不睡觉那条没了");
 });
 
 test("收在一处就够：睡意那一段和主动开口那道闸都只问它", () => {

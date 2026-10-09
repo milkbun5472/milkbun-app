@@ -38,7 +38,7 @@ test("⑧ ctxFor 每一栏都得在房间那张白名单里登记（漏登记＝
   // ⚠️ctxFor 会在异步回调里被调到，直接闭包读 state 会读到旧的
   assert.match(app, /const knockLogRef = useRef\(knockLog\); knockLogRef\.current = knockLog;/, "读的是旧的 knockLog，刚敲完就说话那一行会漏");
   // 言秋不发（跟 gazeText 同一条判据）
-  assert.match(app, /\(window\.PhoneWatch && !settingsFor\(char\.id\)\.engineerEyes\)/);
+  assert.match(app, /\(window\.PhoneWatch && !isBody\(char\.id\)\)/);
 });
 
 test("⑩ 冷却关着，所以节奏得由提示自己兜", () => {

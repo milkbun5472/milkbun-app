@@ -22,7 +22,7 @@ const grp = send.slice(send.indexOf("// 群通话"));
 //     （v55.87 群聊变霸总那次是 200 字，这里砍得更狠）。
 
 test("单人通话把 buildBundle 漏掉的那三层补上", () => {
-  assert.match(one, /callBans\(settingsFor\(char\.id\)\.engineerEyes\)/, "没接上；言秋那条线也得排除");
+  assert.match(one, /callBans\(isBody\(char\.id\)\)/, "没接上；言秋那条线也得排除");
   const f = send.slice(send.indexOf("const callBans"), send.indexOf("if (people.length <= 1)"));
   assert.match(f, /ECHO_QUESTION_BAN/, "回声式反问在电话里最刺耳，反而没挡");
   assert.match(f, /REGISTER_FOLLOWS_SCENE/, "语域没跟着此刻的场面走");

@@ -51,19 +51,19 @@ test("收尾引号括号原样接回去，不许把气泡削空", () => {
 });
 
 test("单聊接在拆泡之后，群聊在取出每条时就地削", () => {
-  assert.match(app, /if \(!_s\.engineerEyes && typeof stripTypingPeriod === "function"\) words = words\.map\(stripTypingPeriod\);/);
+  assert.match(app, /if \(!_body && typeof stripTypingPeriod === "function"\) words = words\.map\(stripTypingPeriod\);/);
   // 顺序要紧：必须排在按句末标点拆泡【之后】，否则拆分找不到断句点
   const splitAt = app.indexOf("再把仍塞了一大段（多句）的按句末标点拆成一句一泡");
   const stripAt = app.indexOf("words = words.map(stripTypingPeriod)");
   assert.ok(splitAt > 0 && stripAt > splitAt, "削早了会毁掉拆泡");
-  assert.match(app, /if \(item\.text && typeof stripTypingPeriod === "function" && !settingsFor\(spk\.id\)\.engineerEyes\) item\.text = stripTypingPeriod\(item\.text\);/, "群聊");
+  assert.match(app, /if \(item\.text && typeof stripTypingPeriod === "function" && !isBody\(spk\.id\)\) item\.text = stripTypingPeriod\(item\.text\);/, "群聊");
 });
 
 test("engineerEyes 的角色两条线路都跳过——他那条线连聊天规则都不注入", () => {
-  assert.match(app, /!_s\.engineerEyes && typeof stripTypingPeriod/, "单聊要跳过");
-  assert.match(app, /!settingsFor\(spk\.id\)\.engineerEyes\) item\.text = stripTypingPeriod/, "群聊要跳过");
+  assert.match(app, /!_body && typeof stripTypingPeriod/, "单聊要跳过");
+  assert.match(app, /!isBody\(spk\.id\)\) item\.text = stripTypingPeriod/, "群聊要跳过");
   // 提示词那边本来就放过他，兜底不能反过来管得更宽
-  assert.match(app, /_onlineRuntime = _s\.engineerEyes \? "" :/);
+  assert.match(app, /_onlineRuntime = _body \? "" :/);
 });
 
 test("只管线上气泡：线下正文是叙事散文，标点该好好打", () => {

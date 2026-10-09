@@ -41,7 +41,7 @@ test("普通单聊实际发送的动作协议允许事实未变时原样填写",
   assert.match(ACT_MEANING, /当前事实未变且原表述仍准确时，可以原样填写/);
   assert.match(ACT_MEANING, /事实变化时再更新/);
   assert.doesNotMatch(protocol, /必须根据此刻重新表述/);
-  assert.match(app, /_s\.engineerEyes \? "" : _normalProtocolStable/);
+  assert.match(app, /_body \? "" : _normalProtocolStable/);
 });
 
 test("四处都要真的拼进去，不能再只是声明", () => {

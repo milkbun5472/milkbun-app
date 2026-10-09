@@ -26,7 +26,7 @@ test('实际单聊调用不再把用户动作交给穿着门控，角色换装�
   const start = app.indexOf('const _wearRefreshGate =');
   const gate = app.slice(start, app.indexOf('const _missingStateFields', start));
   assert.doesNotMatch(gate, /latestUserText/);
-  assert.match(gate, /roomClockOn && !_s.engineerEyes/);
+  assert.match(gate, /roomClockOn && !_body/);
   assert.match(app, /若你在 word 里明确决定/);
   assert.match(app, /本轮 wearing 必须同时填写/);
 });

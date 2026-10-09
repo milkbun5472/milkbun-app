@@ -27,7 +27,7 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
   Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
     groupPersonaBudget:()=>6000,directedRelationLines:()=>'',loreText:()=>'',gsFor:()=>({memoryInterop:false,privateCtxN:0}),
     primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
-    memories:{},settingsFor:()=>({}),memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',crossRecentFor:id=>'线下_'+id,groupContextRows:()=>[],
+    memories:{},settingsFor:()=>({}),isBody:()=>false,memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',crossRecentFor:id=>'线下_'+id,groupContextRows:()=>[],
     PERSONA_EVOLVE_IDS:[],groupGrowthLine:()=>'',groupBans:()=>'',callerIsChar:false,callerName:'',
     PRIVATE_IS_BACKGROUND_NOT_AMMO:'',active:{},callBiHint:'',cameraHint:'',cameraFrame:null,callAI:async(_api,sys)=>{sent=sys;return '[]';}});
   evaluate(require('node:fs').readFileSync('js/call-camera.js','utf8'),env,'window.CallCamera');
@@ -56,7 +56,7 @@ for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发�
 test('群文字只发送一次完整印象卡，保留各人的私有围栏和工程师例外',()=>{
   const env=wire(fixture());
   Object.assign(env,{memories:{},gSplit:{perChar:{}},formatMemLib:()=>'',hist:'',
-    memberPrivLines:()=>'',crossRecentFor:()=>'',settingsFor:id=>({engineerEyes:id==='b'})});
+    memberPrivLines:()=>'',crossRecentFor:()=>'',settingsFor:id=>({engineerEyes:id==='b'}),isBody:id=>id==='b'});
   env.window.Gaze={text:id=>'唯一卡片_'+id+'_'+ '内容'.repeat(500)+'_末尾守则'};
   const members=evaluate(require('./_group-background-fixture.cjs').sections.online,env,'memberDesc');
   // ⚠️收尾这一句原来是 `privBlob += memLines;`——v69.03 撤掉「查漏后重打一枪」时

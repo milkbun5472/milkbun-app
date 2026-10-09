@@ -87,7 +87,7 @@ test("她发的那张，画面记成文字留在历史行里", () => {
 // photoSeen 没写进去，于是提示词发出去了、回来的答案被原样丢掉。
 test("线下也接上了：发得出去，也接得回来", () => {
   const eng = R("engine.js");
-  assert.match(app, /const _offSeen = settingsFor\(charId\)\.engineerEyes \? null : freshOfflinePhoto\(charId\);/, "线下没算这一场里那张照片");
+  assert.match(app, /const _offSeen = isBody\(charId\) \? null : freshOfflinePhoto\(charId\);/, "线下没算这一场里那张照片");
   assert.match(app, /oCtx\.photoSeenSpec = _offSeen/, "没挂进线下的输出形状");
   assert.match(eng, /\(\(!isDigital && ctx\.photoSeenSpec\) \? "\\n\\n" \+ ctx\.photoSeenSpec\.trim\(\) : ""\)/, "engine 那头没接");
   assert.match(eng, /photoSeen: \(parsed\.photoSeen && typeof parsed\.photoSeen === "object"\) \? parsed\.photoSeen : null,/,

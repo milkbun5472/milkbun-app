@@ -44,7 +44,7 @@ test("B 影子那两道闸按旗标判，不按名字", () => {
   const i = app.indexOf("const observeRelationshipBShadow = ");
   assert.ok(i > 0, "找不到 observeRelationshipBShadow");
   const seg = app.slice(i, i + 600);
-  assert.match(seg, /settingsFor\(char\.id\)\.engineerEyes\) return;/, "那道双重保险不是按旗标判的");
+  assert.match(seg, /isBody\(char\.id\)\) return;/, "那道双重保险不是按旗标判的");
   const mod = fs.readFileSync(path.join(__dirname, "..", "js", "inner-life-b-shadow.js"), "utf8");
   assert.match(mod, /const DENY_NAMES=Object\.freeze\(\[\]\)/, "DENY_NAMES 又写回了具体名字");
 });

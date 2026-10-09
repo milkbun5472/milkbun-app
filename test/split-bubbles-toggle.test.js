@@ -21,9 +21,9 @@ test("关掉：「一条＝一句」整行换成「一口气」的判据，不�
   assert.doesNotMatch(free, /除非/);
 });
 test("单聊按这个角色的开关走：关掉就不按换行、不按标点切", () => {
-  assert.match(app, /const system = _s\.splitBubbles === false && !_s\.engineerEyes \? freeLengthSystem\(system0\) : system0;/);
+  assert.match(app, /const system = _s\.splitBubbles === false && !_body \? freeLengthSystem\(system0\) : system0;/);
   assert.match(app, /const _splitOn = _s\.splitBubbles !== false;/);
-  assert.match(app, /const parts = _splitOn \? splitLongBubble\(bi \? bi\.text : w, !_s\.engineerEyes\) : \[bi \? bi\.text : w\];/);
+  assert.match(app, /const parts = _splitOn \? splitLongBubble\(bi \? bi\.text : w, !_body\) : \[bi \? bi\.text : w\];/);
 });
 test("聊天设置里有这个开关，默认开着，保存时带上", () => {
   assert.match(comps, /const \[splitBubbles, setSplitBubbles\] = useState\(settings\.splitBubbles !== false\);/);

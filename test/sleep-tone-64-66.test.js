@@ -18,7 +18,7 @@ function load(ctx) {
   const seg = cut(app, "  const sleepPhaseOf = char =>", "  // 过了 0 点那一截");
   // ⚠️v72.20 起 sleepPhaseOf 还要问一句【这个角色开着时间感知吗】——关了就一律 awake
   //   （见 sleep-respects-clock-off-72-20）。默认开着，不然这几条测的就不是原来那件事了。
-  const sandbox = Object.assign({ window: {}, settingsFor: () => ({}), charAwakeState: () => "awake",
+  const sandbox = Object.assign({ window: {}, settingsFor: () => ({}), isBody: id => !!(sandbox.settingsFor(id) || {}).engineerEyes, charAwakeState: () => "awake",
     timeAwareFor: () => true }, ctx);
   vm.createContext(sandbox);
   vm.runInContext(seg + "\nthis.phase = sleepPhaseOf; this.tone = sleepToneOf; this.TONE = SLEEP_TONE;", sandbox);

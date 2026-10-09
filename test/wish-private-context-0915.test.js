@@ -10,13 +10,13 @@ test('心愿清单所有入口共用最新八条；单人措辞、旁观身份�
  assert.match(env.wishLine(text,'我',{group:true,gift:true}),/填 gift/);
  assert.doesNotMatch(env.wishLine(text,'我',{group:true,gift:false}),/填 gift/);
  env.wishRef.current=[];assert.equal(env.wishLine(env.wishFor(),'我',{group:true}),'');
- assert.match(app,/wishLog: !settingsFor\(char.id\).engineerEyes \? wishFor\(char\.id\) : ""/);
+ assert.match(app,/wishLog: !isBody\(char\.id\) \? wishFor\(char\.id\) : ""/);
  assert.match(app,/wishLog: wishFor\(\)/);
  assert.match(engine,/wishLine\(ctx.wishLog, userName, \{ group: true, gift: false \}\)/);
 });
 test('共用私有背景保持记忆三层；封闭群/零窗口无实时近况，NPC无主线私事',()=>{
  const env=wire(fixture());
- Object.assign(env,{memories:{a:'甲的长期记忆'},settingsFor:()=>({}),formatMemLib:rows=>rows.map(x=>x.text).join('\n'),
+ Object.assign(env,{memories:{a:'甲的长期记忆'},settingsFor:()=>({}),isBody:()=>false,formatMemLib:rows=>rows.map(x=>x.text).join('\n'),
  memberPrivLines:(c,n)=>Number(n)>0?'甲的私聊':'',crossRecentFor:(id,opts)=>{assert.deepEqual(opts,{surfaces:['offline']});return '甲的线下';}});
  env.window.Gaze={text:()=> '甲的印象卡'};
  // retrieve/split 的输出保留原条目；knownBy 与 charIds 使用落库真实字段。

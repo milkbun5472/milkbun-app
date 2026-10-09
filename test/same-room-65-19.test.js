@@ -90,7 +90,7 @@ test("动描和同处一室是两件事，各挂各的开关", () => {
   assert.match(app, /const sameRoomFor = id => !!\(settingsFor\(id\) \|\| \{\}\)\.sameRoom;/);
   assert.match(app, /const actDescFor = id => !!\(settingsFor\(id\) \|\| \{\}\)\.actDesc;/);
   // ⚠️动描【不许】再看同处一室：她分开的时候也要他写自己在干嘛
-  assert.match(app, /const _actDesc = !_s\.engineerEyes && actDescFor\(charId\);/);
+  assert.match(app, /const _actDesc = !_body && actDescFor\(charId\);/);
   assert.ok(!/_sameRoom/.test(app), "动描那条路上还留着同处一室的判断，两件事又焊回去了");
   // v66.65：动描开着时那一行【就是描写】，所以管描写的那一族（INTIMATE_ACT_CLICHE）
   //   也跟着这同一个开关走——没开动描一个字都不发（线上只有台词，发过去是白发）。

@@ -15,7 +15,7 @@ const singleOffline = engine.match(/async function generateOffline\([\s\S]*?asyn
 const groupOffline = engine.match(/async function generateOfflineGroup\([\s\S]*?async function summarizeOfflineGroup/)[0];
 
 test("单聊线下要发【写】指令，而且是和线上同一份 Gaze.spec", () => {
-  assert.match(app, /oCtx\.gazeSpec = \(!sideRoom && !settingsFor\(charId\)\.engineerEyes && window\.Gaze\) \? window\.Gaze\.spec\("对方", charId\) : ""/,
+  assert.match(app, /oCtx\.gazeSpec = \(!sideRoom && !isBody\(charId\) && window\.Gaze\) \? window\.Gaze\.spec\("对方", charId\) : ""/,
     "主线线下继续写同一份 Gaze，侧房必须隔离人格成长");
   assert.match(singleOffline, /const gazeSpecBlock = \(!isDigital && ctx\.gazeSpec/, "数字生命不发扮演类规则");
   assert.match(singleOffline, /outputSpec \+ stateBootstrapHint \+ gazeSpecBlock/, "拼进去了才算发，声明一次不算");
@@ -29,7 +29,7 @@ test("单聊线下要把 impression / impressionChecked 带回来", () => {
 
 test("单聊线下按需写入，省略不计漏答", () => {
   const blk = app.slice(app.indexOf("// 线下使用同样的按需写入"), app.indexOf("// 线下也更新状态卡的动作/穿着"));
-  assert.match(blk, /window\.Gaze && !settingsFor\(charId\)\.engineerEyes/, "言秋不塑形");
+  assert.match(blk, /window\.Gaze && !isBody\(charId\)/, "言秋不塑形");
   assert.match(blk, /window\.Gaze\.applyParsed\(charId, res\.impression\)/);
   assert.match(blk, /window\.Gaze\.markChecked\(charId, _offCk\)/);
   assert.doesNotMatch(blk, /Gaze\.tick/);
@@ -38,5 +38,5 @@ test("单聊线下按需写入，省略不计漏答", () => {
 test("群线下也接上，但闭群只进不出、配角没有印象卡", () => {
   assert.match(groupOffline, /\\"impression\\":\\"（仅角色 beat，可选）/, "beat 形状里要有这一格");
   assert.match(groupOffline, /impression: \(spk && b\.impression && typeof b\.impression === "object"\) \? b\.impression : null/);
-  assert.match(app, /if \(!gOffSealed && !_bNpc && a\.senderId && a\.impression && window\.Gaze && !settingsFor\(a\.senderId\)\.engineerEyes\)/);
+  assert.match(app, /if \(!gOffSealed && !_bNpc && a\.senderId && a\.impression && window\.Gaze && !isBody\(a\.senderId\)\)/);
 });

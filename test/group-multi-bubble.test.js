@@ -48,7 +48,7 @@ test("言秋那条线不受影响", () => {
   const i = app.indexOf("const groupOnlineRuntime");
   const seg = app.slice(i, app.indexOf("const system =", i));
   assert.ok(!seg.includes("engineerEyes"), "群线上这一段本来就不分言秋，别在这儿引入");
-  assert.match(app, /const _onlineRuntime = _s\.engineerEyes \? ""/, "单聊那边的言秋豁免还在");
+  assert.match(app, /const _onlineRuntime = _body \? ""/, "单聊那边的言秋豁免还在");
 });
 
 // 渲染早就支持连发，缺的只是这句话——顺手钉住，免得哪天被当成死代码删了

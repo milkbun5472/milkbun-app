@@ -46,8 +46,8 @@ test("四条写入路径共用轻量标准，保留隔离闸",()=>{
   assert.match(app,/window\.Gaze && gs\.memoryInterop \?/);
   assert.match(app,/window\.Gaze\.updateRule\(userName\(profile\)\)/);
   assert.match(engine,/window\.Gaze\.updateRule\(userName\)/);
-  assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
-  assert.match(app,/if \(!sideRoom && window\.Gaze && !settingsFor\(charId\)\.engineerEyes\)/);
+  assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_body\)/);
+  assert.match(app,/if \(!sideRoom && window\.Gaze && !isBody\(charId\)\)/);
   assert.doesNotMatch(app,/Gaze\.tick\(/);
   assert.doesNotMatch(engine,/impression 与 impressionChecked 必须二选一/);
 });
@@ -82,7 +82,7 @@ test("接线：先记标记再打调用；线上线下两路都接上，且都�
   assert.match(app, /maybeAutoSeedGaze\(char, \(\(workSess && workSess\.msgs\) \|\| \[\]\)\.length\)/);
   // 言秋和 NPC 不参与
   assert.match(app, /if \(!char \|\| char\.npc \|\| !window\.Gaze \|\| !window\.Gaze\.autoSeedDue\) return/);
-  assert.match(app, /if \(settingsFor\(char\.id\)\.engineerEyes\) return/);
+  assert.match(app, /if \(isBody\(char\.id\)\) return/);
   // 自动那一路失败不吵她（她没按过任何按钮），但必须留下败因——
   // v59.80 那版是「不吵也不记」，于是一次网络抖动就静悄悄烧掉这个角色仅有的机会
   // （她 2026-09-02：「另一个死活不填」）。重试上限由 Gaze.autoSeedDue 兜。

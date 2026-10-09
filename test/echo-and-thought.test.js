@@ -54,7 +54,7 @@ test("绝不把话削光：只有一泡时宁可留着回声", () => {
 });
 
 test("接在单聊气泡流水线上，engineerEyes 照旧跳过", () => {
-  assert.match(app, /if \(!_s\.engineerEyes && typeof stripEchoQuestion === "function"\) \{/);
+  assert.match(app, /if \(!_body && typeof stripEchoQuestion === "function"\) \{/);
   // v55.76：改成比【她这一整轮】说的话，不是最后那一条（她连发消息时旧写法整个失效）
   assert.match(app, /words = stripEchoQuestion\(words, lastUserTurnText\(history\)\);/);
   // 要拿【她最近一条】来比，不是整段历史
@@ -68,7 +68,7 @@ test("普通角色每轮强制刷新，言秋仍由自己的协议决定", () =>
   assert.match(app, /【本轮心声·普通角色必填】/);
   assert.match(app, /每轮必须写一句，禁止 null、空串或省略/);
   // v68.48 起普通角色那一支走公共的 ThoughtVoiceGuard.turnPatch（群聊也要用同一份）
-  assert.match(app, /\|\| !_s\.engineerEyes\) \{/);
+  assert.match(app, /\|\| !_body\) \{/);
   // v68.88：十一处调用收成公共的 TVG（守卫没加载时原样放行，不再整轮抛异常）
   assert.match(app, /TVG\.turnPatch\(_live, parsed\.thought, stateNow\)/);
   assert.match(app, /言秋由自己的协议决定是否写心声/);

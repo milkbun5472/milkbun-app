@@ -12,7 +12,7 @@ test("ordinary private-chat action is re-observed every turn", () => {
 });
 
 test("missing ordinary action clears stale snapshot without touching engineer autonomy", () => {
-  assert.match(app, /if \(!_s\.engineerEyes\) \{\s*if \(onlineAction/);
+  assert.match(app, /if \(!_body\) \{\s*if \(onlineAction/);
   assert.match(app, /else \{ st\.action = null; st\.actionUpdatedAt = 0; \}/);
   assert.match(app, /言秋自治边界：engineerEyes 是本人专线/);
 });
