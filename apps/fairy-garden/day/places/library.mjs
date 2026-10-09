@@ -1,4 +1,4 @@
-import {createRoomKit} from './room-kit.mjs?v=fg-2d8fc4dc9e35a469';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-5c481c2e3871a814';
 
 const FLOOR=.08,SEAT=.45,DESK=.85;
 const COLORS={wood:'#bd9b73',darkWood:'#a88864',wall:'#e9e3d2',sage:'#829b8a',paper:'#f1e8d6',blue:'#8fa6b0',ink:'#697c71'};
@@ -20,27 +20,17 @@ const FURNITURE=[
   {id:'window-plant',kind:'plant',x:4.43,z:-3.29,w:.55,d:.55}
 ];
 const PIECES=Object.fromEntries(FURNITURE.map(p=>[p.id,p]));
-const STRUCTURE=[
-  {id:'back-wall',x:0,z:-4.50,w:10.20,d:.18},
-  {id:'left-wall',x:-5,z:0,w:.18,d:9},
-  {id:'door-post-left',x:-.95,z:4.42,w:.16,d:.26},
-  {id:'door-post-right',x:.95,z:4.42,w:.16,d:.26}
-];
-const chairSeat=(id,approach)=>{
-  const p=PIECES[id];
-  return {x:p.x,z:p.z,rise:SEAT,heading:p.heading,approach,piece:id};
-};
 const SEATS={
-  desk:chairSeat('reading-chair-north',{x:.01,z:-1.09}),
-  study:chairSeat('reading-chair-south',{x:-2.44,z:1.28}),
-  extra:chairSeat('reading-chair-extra',{x:.73,z:1.28}),
-  window:chairSeat('window-chair',{x:2.24,z:-1.54})
+  desk:roomSeat(FURNITURE,'reading-chair-north',{x:.01,z:-1.09}),
+  study:roomSeat(FURNITURE,'reading-chair-south',{x:-2.44,z:1.28}),
+  extra:roomSeat(FURNITURE,'reading-chair-extra',{x:.73,z:1.28}),
+  window:roomSeat(FURNITURE,'window-chair',{x:2.24,z:-1.54})
 };
 
 export const libraryMap={
   label:'图书馆／阅览室',renderer:'dayLibrary',radius:9,bounds:{w:10,d:9},floor:FLOOR,
   spawn:{x:0,z:4},view:{x:0,z:0},
-  obstacles:[...STRUCTURE,...FURNITURE.map(({id,x,z,w,d})=>({id,x,z,w,d}))],
+  obstacles:roomObstacles(FURNITURE),
   seats:SEATS,
   spots:[
     {id:'choose-book',label:'书架前挑书',description:'站在文学书架前挑选书本、查找资料。',action:'read',gesture:'read',target:{x:PIECES['literature-shelf'].x,z:-3.15},heading:Math.PI,furniture:'literature-shelf'},
@@ -48,7 +38,7 @@ export const libraryMap={
     {id:'study-notes',label:'自习与备考',description:'坐在阅读桌另一侧整理笔记、做题或备考。',action:'work',gesture:'read',target:SEATS.study.approach,heading:SEATS.study.heading,seat:SEATS.study,furniture:'reading-table'},
     {id:'window-reading',label:'窗边独自阅读',description:'在窗边单人座安静阅读，桌边留有笔记和台灯。',action:'read',gesture:'read',target:SEATS.window.approach,heading:SEATS.window.heading,seat:SEATS.window,furniture:'window-desk'},
     {id:'return-book',label:'借阅台归还',description:'站在借阅台前归还书本，或整理要借走的资料。',action:'work',gesture:'read',target:{x:PIECES['loan-counter'].x,z:3.12},heading:Math.PI,furniture:'loan-counter'},
-    {id:'exit',label:'入口与离开',description:'从南侧门口进入阅览室，阅读结束后沿通道离开。',action:'rest',gesture:'rest',target:{x:0,z:4},heading:0,furniture:'door-post-left'}
+    {id:'exit',label:'入口与离开',description:'从南侧门口进入阅览室，阅读结束后沿通道离开。',action:'rest',gesture:'rest',target:{x:0,z:4},heading:0,furniture:'DoorPostWest'}
   ],
   tour:['choose-book','desk-reading','study-notes','window-reading','return-book','exit']
 };

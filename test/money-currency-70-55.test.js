@@ -96,7 +96,7 @@ test("只有一份：fmtMoney 转交给 Money，页面里不许再自己拼 ¥",
 });
 
 test("设置入口在钱包右上角、跟刷新并排，而且是整页不是半窗", () => {
-  assert.match(screens, /h\("button", \{ onClick: \(\) => setCurOpen\(true\)/);
+  assert.match(screens, /h\("button", \{[^}\n]*onClick: \(\) => setCurOpen\(true\)/);
   assert.match(screens, /onClick: \(\) => onRefresh\(char\), disabled: loading/);
   assert.match(screens, /if \(curOpen\) return h\(CurrencyBook, \{/, "做成半窗了（施工规则/no-half-sheet.md）");
   assert.ok(!/curOpen && h\(Sheet/.test(screens));

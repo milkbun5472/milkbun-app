@@ -1,5 +1,5 @@
-import {createRoomKit} from './places/room-kit.mjs?v=fg-2d8fc4dc9e35a469';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-2d8fc4dc9e35a469';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-5c481c2e3871a814';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-5c481c2e3871a814';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
