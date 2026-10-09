@@ -13818,10 +13818,37 @@ function KinshipRaiseCard({ m, character, inRow }) {
 //   最多长到 6 行左右（130px），再多就在框里上下滚。回车照旧是发送，Shift+回车换行；
 //   中文输入法选词时按的回车（isComposing）不算发送。
 const DRAFT_MAX_H = 130;
+// 替身框：跟真框同宽同字体，只用来量「这段字要多高」，量完不留任何痕迹在真框上。
+let _draftMirror = null;
+function draftMeasure(el) {
+  try {
+    if (!_draftMirror) {
+      _draftMirror = document.createElement("textarea");
+      _draftMirror.setAttribute("aria-hidden", "true"); _draftMirror.tabIndex = -1;
+      _draftMirror.style.cssText = "position:fixed;left:-9999px;top:0;visibility:hidden;height:0;overflow:hidden;";
+      document.body.appendChild(_draftMirror);
+    }
+    const cs = getComputedStyle(el), m = _draftMirror;
+    ["fontFamily", "fontSize", "fontWeight", "letterSpacing", "lineHeight", "paddingTop", "paddingBottom",
+      "paddingLeft", "paddingRight", "borderTopWidth", "borderBottomWidth", "boxSizing", "wordBreak", "whiteSpace"]
+      .forEach(k => { m.style[k] = cs[k]; });
+    m.style.width = el.getBoundingClientRect().width + "px";
+    m.rows = 1; m.value = el.value || " ";
+    const extra = cs.boxSizing === "border-box" ? (parseFloat(cs.borderTopWidth) || 0) + (parseFloat(cs.borderBottomWidth) || 0) : -((parseFloat(cs.paddingTop) || 0) + (parseFloat(cs.paddingBottom) || 0));
+    return m.scrollHeight + extra;
+  } catch (e) { return el.scrollHeight; }
+}
 function DraftInput({ placeholder, inputStyle, inputProps, onSubmit, after }) {
   const [draft, setDraft] = useState("");
   const ref = useRef(null);
-  const fit = () => { const el = ref.current; if (!el) return; el.style.height = "auto"; el.style.height = Math.min(DRAFT_MAX_H, el.scrollHeight) + "px"; };
+  // ⚠️量高度不许动真框（群里 2026-10-09 报：「一直反反复复弹上去弹下来」「修改对话很难」）：
+  //   原来每打一个字都先把真框设成 auto 缩回一行再量，iOS 看见输入框忽高忽低，
+  //   就跟着把整页推上推下、光标也跳——所以在看不见的替身框里量，高度真变了才写回去。
+  const fit = () => {
+    const el = ref.current; if (!el) return;
+    const want = Math.min(DRAFT_MAX_H, draftMeasure(el)) + "px";
+    if (el.style.height !== want) el.style.height = want;
+  };
   useEffect(fit, [draft]);
   const clear = () => setDraft("");
   const fire = () => { const v = draft.trim(); if (!v) return; setDraft(""); onSubmit && onSubmit(v); };
