@@ -1332,14 +1332,17 @@
           h("div", { style: { maxWidth: "78%", display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 5 } },
             m.pic ? h("img", { src: m.pic, alt: "", style: { maxWidth: sm ? 120 : 170, maxHeight: sm ? 120 : 170, borderRadius: 10, border: "1px solid " + t.line, objectFit: "cover", display: "block" } }) : null,
             m.file && typeof FileCard === "function" ? h(FileCard, { m: m.file }) : null,
-            m.text ? h("div", { "data-wk": "qqbubble", "data-me": "1", style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null),
+            m.text ? h("div", { "data-wk": "qqbubble", "data-me": "1", style: { padding: sm ? "6px 10px" : "8px 12px", borderRadius: 12, background: t.accent, color: "#fff", fontFamily: F_BODY, fontSize: sm ? 12 : 13, lineHeight: 1.7, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.text) : null,
+            // 她这侧也给一颗（群里 2026-10-09：「退出去截断了想把我的指令再发一遍，得自己重打」）
+            m.text ? h("button", { "data-wk": "qqcopy", "data-me": "1", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上"); },
+              style: { background: "none", border: "none", padding: "0 0 2px", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "复制") : null),
           h(MeFace, { profile: props.profile, size: av, radius: 9 }))
       : h("div", { "data-wk": "qqmsg", "data-me": "0", key: i, style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14 } },
           h(QiuFace, { cfg: props.cfg, size: av, radius: 9 }),
           h("div", { style: { flex: 1, minWidth: 0 } },
             h("div", { "data-wk": "qqbubble", "data-me": "0", style: { fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word", userSelect: "text", WebkitUserSelect: "text" } }, m.text),
             // 她 2026-10-05：「复制不了」——手机上在气泡里滑选太难，每条都给一颗复制
-            m.text ? h("button", { "data-wk": "qqcopy", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
+            m.text ? h("button", { "data-wk": "qqcopy", "data-me": "0", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
               style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "复制") : null,
             m.outFile && typeof FileCard === "function" ? h("div", { style: { marginTop: 6 } }, h(FileCard, {
               m: { name: m.outFile.name, text: m.outFile.text, chars: m.outFile.text.length, size: new Blob([m.outFile.text]).size },
