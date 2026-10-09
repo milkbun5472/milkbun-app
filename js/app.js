@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.137";
+const APP_VERSION = "v75.138";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8111,7 +8111,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
       if (out.blob) {
-        const key = "img_" + char.id + "_" + sid;
+        // 重拍换一把新键：同一把键的旧图在界面缓存里，换了像素也还是显示旧的（群友 2026-10-09：「编辑之后不变」）
+        const key = "img_" + char.id + "_" + sid + (reuse ? "_" + Date.now().toString(36) : "");
         await idbImgPut(key, out.blob);
         const back = await idbImgGet(key).catch(() => null);
         if (!back || !back.size) throw new Error("图生成好了，但没能存进本机图库（iOS 存储偶发抽风，重拍一张多半就好）");
@@ -8121,10 +8122,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       } else { throw new Error("没拿到图"); }
       return true;
     } catch (e) {
-      patch({ pending: false, failed: true });
+      // 重拍没成：原来那张放回去，不能拍坏一次就把旧照片弄没了（群友 2026-10-09：「一重拍就会把照片删掉」）
+      const keep = arg && arg.keep && (arg.keep.imgKey || arg.keep.imgUrl) ? arg.keep : null;
+      patch(keep ? { pending: false, failed: false, imgKey: keep.imgKey || null, imgUrl: keep.imgUrl || null, desc: keep.desc != null ? keep.desc : scene } : { pending: false, failed: true });
       const em = String((e && e.message) || "");
       const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
-      toast("这张没拍成：" + (isSafety
+      toast((keep ? "重拍没成，原来那张还在：" : "这张没拍成：") + (isSafety
         ? "上游审核拒了（换措辞、只拍人像都试过了）。多半是这一格的画面里有它敏感的词——换个平静点的时刻，或者直接说「拍张脸就行」。原始报错：" + em
         : /quota|available|not\s*found|额度|配额|无可用|不存在|无权限|permission|model_not|invalid_model/i.test(em)
         ? "图像模型没配额或名字不对——去 设置·图像API 点「拉取模型」换一个你中转站真有货的。原始报错：" + em
@@ -8137,16 +8140,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const list = groupId ? (groupOfflinesRef.current[groupId] || []) : (offlinesRef.current[scopeKey] || []);
     const sess = list.find(x => !x.endTs);
     const m = sess && (sess.msgs || []).find(x => x && x.id === mid);
-    if (!m || m.kind !== "selfie" || m.pending || !m.sid) return false;
+    if (!m || m.kind !== "selfie") return false;
+    // ⚠️照片卡从这儿起一律返回 true：返回 false 会掉进「重写这一轮文字」「改这一轮的话」那两条路，
+    //   照片那一格会被当成一轮话重写掉（群友 2026-10-09：「一重拍就会把照片删掉」「编辑之后不变」）。
+    //   拍到一半关了 app 的那种，pending 会一直挂着——跟照片卡同一条线（六分钟）就当它没在拍了。
+    const stuck = m.pending && Date.now() - (Number(m.pendingSince || m.ts) || 0) > 360000;
+    if (m.pending && !stuck) { toast("这张还在拍，等它出来再改"); return true; }
+    if (!m.sid) { toast("这张是老格式，改不了也重拍不了"); return true; }
     const char = groupId ? characters.find(c => String(c.id) === String(m.senderId)) : characters.find(c => String(c.id) === String(offlinePersonId(scopeKey)));
     if (!char) return false;
     const scene = String(desc == null ? m.desc || "" : desc).trim();
     if (!scene) return true;
     // 先问拍不拍得了：先挂「拍照中」再发现拍不了，这一格就永远转圈了。
     if (!offlinePhotoCan(char)) { toast("现在拍不了：去 设置·图像API 配好出图，再回来点重拍", 6000); return true; }
-    const q = { desc: scene, pending: true, failed: false, imgKey: null, imgUrl: null, pendingSince: Date.now() };
+    const q = { desc: scene, pending: true, failed: false, pendingSince: Date.now() };
     if (groupId) patchGOffMsg(groupId, m.sid, q); else patchOffMsg(scopeKey, m.sid, q);
-    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid });
+    runOfflineShot({ char, scopeKey, groupId, kind: m.photoKind, scene, cast: m.cast, reuseSid: m.sid, keep: { imgKey: m.imgKey || null, imgUrl: m.imgUrl || null, desc: m.desc } });
     return true;
   };
   // 群线下当场拍一张合影：点名单＝在场有参考照的成员（第一位当拍照的那个）+ 用户。
