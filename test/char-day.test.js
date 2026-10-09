@@ -57,3 +57,11 @@ test('新世界入口独立于三游戏旅程，移动外壳沿公共Head和单�
   assert.ok(html.indexOf('js/char-day.js')<html.indexOf('js/fairy-garden.js'));
   assert.doesNotMatch(source,/callAI\(|runProbe\(|saveJSON\(|localStorage\.setItem/);
 });
+
+test('睡眠场景沿真实床位helper传入完整位置，得到可用躺姿而非只标成sleep',async()=>{
+  const {MAPS,sleepPose}=await import('../apps/fairy-garden/world.mjs');
+  const source=read('apps/fairy-garden/day/scene.mjs');
+  const run=new Function('MAPS','sleepPose',"let seat,bed;"+cut(source,'function destination(p)','function go(')+"const target=destination({action:'sleep'});return {target,bed};");
+  const {target,bed}=run(MAPS,sleepPose);assert.ok(bed);assert.ok(bed.y>0);
+  assert.deepEqual(target,MAPS.home.beds[Object.keys(MAPS.home.beds)[0]].approach.companion);
+});
