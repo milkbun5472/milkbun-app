@@ -72,7 +72,7 @@ test("先落库再打枪：这一枪失败、她中途退出，她说过的话�
   const put = seg.indexOf("props.onPatch(talkPatch(partner.id");
   const shot = seg.indexOf("await discussReply(");
   assert.ok(put > 0 && shot > put, "先打枪后落库＝这一枪炸了她刚说的话就没了");
-  assert.match(seg, /const mine = \{ role: "user", content: v, ts: now \}/);
+  assert.match(seg, /const mine = \{ role: "user", content: \(q \? "〔回你批的那句「" \+ .* : ""\) \+ v, ts: now \}/);
 });
 
 test("「收进这本书」只折进这本书，一个字都不进记忆库", () => {

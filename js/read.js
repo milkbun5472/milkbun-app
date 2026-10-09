@@ -123,7 +123,7 @@
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
     const sys = readHead(ctxFor, char) +
-      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，短、有你这个人的味道。\n判据一句话：**这条批注遮住名字，还认得出是你写的吗**——认不出就是写坏了。人设是拿来定你怎么看这段的，不是拿来抄内容的。" +
+      "你在和「" + uName + "」一起读一本书，在书页边上写旁批。完全代入下面这个角色，用【你自己的人设、口吻、见识、脾气】去读、去反应——共鸣、吐槽、联想到自己、看穿人物心机、被某句戳到、和作者较劲都行。别写读后感八股、别复述剧情，要有你这个人的味道；长短照你这个人来：话多的可以多说几句，话少的一个词也行。\n判据一句话：**这条批注遮住名字，还认得出是你写的吗**——认不出就是写坏了。人设是拿来定你怎么看这段的，不是拿来抄内容的。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (talk || "") +
       (prior && prior.length ? "\n\n【你之前已经批注过的（别重复这些）】\n" + prior.map(function (a) { return "· " + a.note; }).join("\n") : "") +
@@ -159,9 +159,10 @@
   // ---- 模型：半屏讨论 ----
   async function discussReply(active, char, profile, worldbook, book, paras, anns, history, userMsg, ctxFor, talk) {
     const uName = (profile && profile.name) || "对方";
-    const passage = paras.join("\n").slice(0, 2200);
+    // 一页原来只给前 2200 字：长页后半截TA根本没读到，她问到那儿TA只能装懂
+    const passage = paras.join("\n").slice(0, 8000);
     const annText = anns.length ? anns.map(function (a) { return "· " + a.note; }).join("\n") : "";
-    const hist = history.slice(-16).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + m.content; }).join("\n");
+    const hist = history.slice(-30).map(function (m) { return (m.role === "user" ? uName : char.name) + "：" + m.content; }).join("\n");
     const sys = readHead(ctxFor, char) +
       "你在和「" + uName + "」一起读《" + (book.title || "这本书") + "》，此刻你俩正就读到的这一段聊剧情。完全代入你的人设，像和朋友边读边讨论那样自然说话——有观点、会追问、会八卦人物、会和 " + uName + " 的看法碰撞，别客套别总结陈词。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
@@ -169,7 +170,7 @@
       (talk || "") +
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
       (hist ? "\n\n【你俩刚才的讨论】\n" + hist : "") +
-      "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。拆成 1~3 条短气泡，像即时通讯，别加名字前缀、别旁白括号、别 markdown。";
+      "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。像即时通讯那样拆成气泡：几条、每条多长照你平时跟她聊天的习惯来，聊到兴头上多说也行。别加名字前缀、别旁白括号、别 markdown。";
     const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 65535 });
     const parsed = extractJSON(raw);
     const say = (parsed && Array.isArray(parsed.say)) ? parsed.say.filter(Boolean) : null;
@@ -222,7 +223,7 @@
     const maxPara = paras.length;
     const numbered = paras.map(function (p, i) { return "[" + (i + 1) + "] " + p; }).join("\n");
     const sys = readHead(ctxFor, char) +
-      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。每段 1~3 句，说人话。" +
+      "你在和「" + uName + "」一起读一本书。Ta 常常看不太懂原文，需要你【逐段讲给 Ta 听】——像给朋友中译中那样，把每一段【在讲什么】用大白话说清楚：谁做了什么、难懂的词/典故/文言/背景点破，藏在字面下的意思也挑明；再顺带一句你自己（按人设）的看法或反应。别复述原句、别掉书袋、别写读后感八股。讲到她看懂为止：好懂的一句带过，难的就多讲几句，说人话。" +
       (worldbook && worldbook.trim() ? "\n\n【世界书】\n" + worldbook.trim() : "") +
       (synopsis && synopsis.trim() ? "\n\n【前情脉络（你俩之前已经读到这儿，接着往下讲、别自相矛盾）】\n" + synopsis.trim() : "") +
       (talk || "") +
@@ -476,7 +477,8 @@
     const [bookOpen, setBookOpen] = useState(false);  // 批注册
     const [setOpen, setSetOpen] = useState(false);    // 「设定」那一小块（批几条 / 覆盖几页）默认收着
     const [pulling, setPulling] = useState(false);
-    const [full, setFull] = useState(false);          // 全屏读：收掉顶栏和那排按钮，只留书页和翻页
+    const [full, setFull] = useState(false);
+    const [replyTo, setReplyTo] = useState(null);    // 点了他的哪条批注来回（{ note, who }）；讨论框里挂着，发出去就带上          // 全屏读：收掉顶栏和那排按钮，只留书页和翻页
     const pendingHere = (book.pending || []).filter(function (p) { return p.page === pageIdx; });
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 讲解/批注朗读（懒合成，重听免费）
     const explainOn = book.showExplains !== false; // 逐段讲解卡片是否显示（默认开）
@@ -715,13 +717,15 @@
       if (!partner) { setPickOpen(true); return; }
       setDraft("");
       const now = Date.now();
-      const mine = { role: "user", content: v, ts: now };
+      // 回的是他页边那条批注：把那句一起带上，他才知道你在接哪一句（群友 2026-10-09，「能回他的批注」）
+      const q = replyTo; setReplyTo(null);
+      const mine = { role: "user", content: (q ? "〔回你批的那句「" + String(q.note || "").replace(/\s+/g, " ").slice(0, 120) + "」〕\n" : "") + v, ts: now };
       const next = chat.concat([mine]);
       // ⚠️先落库再打枪：这一枪失败、她中途退出、App 被系统杀掉，她说过的话都还在。
       props.onPatch(talkPatch(partner.id, function (t2) { return { digest: t2.digest, recent: t2.recent.concat([mine]) }; }));
       setBusy(true);
       try {
-        const say = await discussReply(props.active, partner, props.profile, scopedWorldbook(v + "\n" + curParas.join("\n")), book, curParas, pageAnns, next, v, props.ctxFor, talkTail());
+        const say = await discussReply(props.active, partner, props.profile, scopedWorldbook(v + "\n" + curParas.join("\n")), book, curParas, pageAnns, next, mine.content, props.ctxFor, talkTail());
         const add = say.map(function (s2) { return { role: "char", content: s2, ts: Date.now() }; });
         props.onPatch(talkPatch(partner.id, function (t2) { return { digest: t2.digest, recent: t2.recent.concat(add) }; }));
         // ⚠️她一直不按「收进这本书」也不许丢话：攒过 TALK_KEEP 就自己折一次
@@ -865,7 +869,9 @@
               anns.map(function (a) {
                 const ch = chOf(a.charId);
                 const isRead = a.channel === "read"; // 言秋 CC 亲读写回的
-                return h("div", Object.assign({ key: a.id }, pagePressProps(function () {
+                // 点一下＝回他这句（她自己记的那几条不算）；长按照旧是删
+                const tapReply = a.who === "user" ? null : function () { setReplyTo({ note: a.note, who: a.charName }); setChatOpen(true); };
+                return h("div", Object.assign({ key: a.id, onClick: tapReply || undefined }, pagePressProps(function () {
                   requestAppConfirm(a.who === "user" ? "删掉你记的这条？" : "删掉这条批注？",
                     String(a.note || "").replace(/\s+/g, " ").slice(0, 40) + "…",
                     function () { dropAnnoRow({ kind: a.who === "user" ? "me" : "ann", page: a.page || 0, para: a.para || 0, ts: a.ts || 0, who: a.who || "" }); }, "删除");
@@ -921,7 +927,8 @@
         onClose: function () { setPickOpen(false); } }) : null,
       selResult ? h(SelExplainSheet, { partner: partner, data: selResult, t: t, onClose: function () { setSelResult(null); } }) : null,
       chatOpen ? h(DiscussSheet, { partner: partner, chat: chat, draft: draft, busy: busy, ending: ending, t: t,
-        onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); } }) : null,
+        replyTo: replyTo, onClearReply: function () { setReplyTo(null); },
+        onDraft: setDraft, onSend: sendDiscuss, onEnd: endSession, onClose: function () { setChatOpen(false); setReplyTo(null); } }) : null,
       bookOpen ? h(AnnoBook, { book: book, pages: pages || [], t: t, chOf: chOf,
         partner: partner, busy: ending, onRemember: rememberBook, onDropRow: dropAnnoRow,
         onGoto: function (pg) { setBookOpen(false); gotoPage(pg); },
@@ -1150,6 +1157,9 @@
               }),
           props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "2px 4px" } }, (props.partner ? props.partner.name : "Ta") + " 在想…") : null,
           h("div", { ref: endRef })),
+        props.replyTo ? h("div", { "data-wk": "readreplyquote", style: { flexShrink: 0, display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderTop: "1px solid " + t.line, background: t.bg2 } },
+          h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "回 " + (props.replyTo.who || "Ta") + " 批的：「" + String(props.replyTo.note || "").replace(/\s+/g, " ") + "」"),
+          h("button", { onClick: props.onClearReply, "aria-label": "不回这句了", style: { fontFamily: F_BODY, fontSize: 14, color: t.fog, width: 28, height: 28 } }, "×")) : null,
         h("div", { style: { flexShrink: 0, display: "flex", gap: 8, padding: "10px 14px", borderTop: "1px solid " + t.line } },
           h("input", { value: props.draft, onChange: function (e) { props.onDraft(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") props.onSend(); }, placeholder: "说说你的看法…", style: { flex: 1, fontFamily: F_BODY, fontSize: 14, padding: "9px 13px", borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" }, "data-wk": "readdiscusssheetinput", "data-part": "说说你的看法…" }),
           h("button", { onClick: props.onSend, disabled: props.busy, style: { fontFamily: F_BODY, fontSize: 13, color: "#fff", background: t.ink, borderRadius: 999, padding: "0 16px", opacity: props.busy ? .6 : 1 }, "data-wk": "readdiscusssheetbtn", "data-part": "send" }, "发送"))));
