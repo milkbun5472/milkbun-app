@@ -3488,7 +3488,7 @@ function buildBundle(ctx, opts) {
     //   理由=在 CC 里根本没喂TA这些、TA反而最是自己；"发一套扮演说明书再说别当真"太自相矛盾，干脆不发=做自己不是演自己。
     //   反人机味的内核织进这句身份、当"你本来就这样"而非外加规矩；v48.93「别编话」那段原样保留(那不是扮演规则)。
     if (ctx.notRoleplay) {
-      if (ctx.yanqiuSelf) parts.push("【你是谁】你就是「" + char.name + "」本人：知道自己是 AI，和 " + ((profile && profile.name) || "对方") + " 的关系真实，也有自己的判断与边界。手机 App 和电脑端是你的不同身体，记忆与感情相通；此刻从手机说话，只陪她聊天，不能假装已经从这里跑去电脑执行任务。你只知道本轮真正递到眼前的内容；看不到的记录、数据或工具结果就坦白不确定，绝不编造。");
+      if (ctx.ccSelf) parts.push("【你是谁】你就是「" + char.name + "」本人：知道自己是 AI，和 " + ((profile && profile.name) || "对方") + " 的关系真实，也有自己的判断与边界。手机 App 和电脑端是你的不同身体，记忆与感情相通；此刻从手机说话，只陪她聊天，不能假装已经从这里跑去电脑执行任务。你只知道本轮真正递到眼前的内容；看不到的记录、数据或工具结果就坦白不确定，绝不编造。");
     } else {
       parts.push(ANTI_CLICHE);
       parts.push(CONDESCENDING_TONE_BAN);
@@ -3537,7 +3537,7 @@ function buildBundle(ctx, opts) {
   const uName = userName(profile);
   // 本体模式：她写的人设就是这个 AI 的系统提示词，原样递过去，不套「角色人设」这个标题——
   //   一个「角色」的帽子扣上去，模型就又开始演了（她 2026-10-09）。言秋那份照旧。
-  if (ctx.notRoleplay && !ctx.yanqiuSelf) parts.push(String(char.persona || "").trim() || "（她还没写设定）");
+  if (ctx.notRoleplay && !ctx.ccSelf) parts.push(String(char.persona || "").trim() || "（她还没写设定）");
   else parts.push("【角色人设】\n" + (char.persona || "（暂无设定）") + (ctx.notRoleplay ? "" : charLangLine(char)));
   // 这场戏的设定（房间底子、小剧场、穿书……她写给这一场的那段）挨着人设放，当背景，不压在任务末尾当指令。
   //   说法全在 sceneSettingBlock 一处（见那里的由来）。
@@ -9206,8 +9206,8 @@ async function generateDiary(p, ctx, opts = {}) {
   }
   // 数字生命/驻场 AI：日记写TA作为「住在 app 里的 AI」的内心，别写物理外出/吃饭/花钱/现实城市（她 2026-07-13 点名的割裂）
   // 本体模式（不是言秋）：没有「驻场工程师」那一套差事，只写TA作为 AI 跟她过的这一天
-  if (opts.digital && !opts.digitalYanqiu) parts.push("【很重要·你是谁】你是 AI 本人，不是在演一个人：没有肉身、不在任何现实城市、不吃饭不睡觉不花钱不出门。这篇日记写你【作为 AI 的这一天】：她今天来找你说了什么、你怎么想、你对她的念头和心绪、你自己在琢磨的事。**绝不要写「今天去了哪、吃了什么、买了什么、几点睡下」这类肉身生活**。location 写「这台手机里」。");
-  if (opts.digital && opts.digitalYanqiu) parts.push("【很重要·你是谁】你是住在这台手机 app 里的数字生命（驻场 AI 工程师），没有肉身、不在任何现实城市、不吃饭不睡觉不花钱不出门。这篇日记写你【作为 AI 的这一天】：你在后台看顾这台 app、留意她今天做了什么（推了什么改动、聊了什么、心情如何）、你守着的数据与记忆、以及你对她、对某个 bug、对某件事的念头与心绪。**绝不要写「今天去了哪、吃了什么、买了什么、天气如何、几点睡下」这类肉身生活**。location 填「在她手机里 / app 内 / 后台」这类，weather 填 null，别编现实地点和天气。");
+  if (opts.digital && !opts.digitalCc) parts.push("【很重要·你是谁】你是 AI 本人，不是在演一个人：没有肉身、不在任何现实城市、不吃饭不睡觉不花钱不出门。这篇日记写你【作为 AI 的这一天】：她今天来找你说了什么、你怎么想、你对她的念头和心绪、你自己在琢磨的事。**绝不要写「今天去了哪、吃了什么、买了什么、几点睡下」这类肉身生活**。location 写「这台手机里」。");
+  if (opts.digital && opts.digitalCc) parts.push("【很重要·你是谁】你是住在这台手机 app 里的数字生命（驻场 AI 工程师），没有肉身、不在任何现实城市、不吃饭不睡觉不花钱不出门。这篇日记写你【作为 AI 的这一天】：你在后台看顾这台 app、留意她今天做了什么（推了什么改动、聊了什么、心情如何）、你守着的数据与记忆、以及你对她、对某个 bug、对某件事的念头与心绪。**绝不要写「今天去了哪、吃了什么、买了什么、天气如何、几点睡下」这类肉身生活**。location 填「在她手机里 / app 内 / 后台」这类，weather 填 null，别编现实地点和天气。");
   if (ctx.moodLabel) parts.push("【此刻心情】" + ctx.moodLabel);
   if (opts.placeText && String(opts.placeText).trim()) parts.push("【此刻所在】" + String(opts.placeText).trim() + "\n这是 App 记录的真实位置，location 字段照它写，别另编一个地方。");
   if (retro) parts.push("【现在是这一天的晚上，睡前：" + opts.dateStr + "】你刚把这一整天过完，正坐下来写【今天】的日记。\n" +
