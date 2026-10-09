@@ -88,7 +88,7 @@ test("裁判是个活人：没上台的人里挑、TA不投票、每轮说一句
   assert.match(dbt, /&& !\(s\.judge && String\(s\.judge\.id\) === String\(c\.id\)\)/, "裁判又在场边投票了");
   assert.match(dbt, /有TA自己的偏心和私心，不用装公正/);
   assert.match(dbt, /觉得TA偏心，可以直接冲TA去/);
-  assert.match(dbt, /const call = o\.judge \? String\(p\.call \|\| ""\)\.trim\(\) : "";/);
+  assert.match(dbt, /const call = J \? String\(p\.call \|\| ""\)\.trim\(\) : "";/, "裁判那一句（J＝请来的裁判；她自己当裁判时没有这一句）");
   // 收台
   const i = dbt.indexOf("async function genResult(");
   const gr = dbt.slice(i, dbt.indexOf("function Debate(", i));
