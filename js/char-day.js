@@ -113,7 +113,7 @@
         h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent", color: follow ? "#57734b" : ink }, "aria-pressed": follow, onClick: () => { setFollow(true); try { iframe.current.contentWindow.CharDayScene?.focus(); } catch (_) {} } }, "跟着TA"),
         h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick: () => { setFollow(false); try { iframe.current.contentWindow.CharDayScene?.overview(); } catch (_) {} } }, "看全景"),
         showcase ? h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>{const next=places[(places.findIndex(p=>p.id===showcase)+1)%places.length];if(next){setShowcase(next.id);setSpotId("");setFollow(false);}} }, "换场景") : h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick: () => setBook(true) }, "今天的日程"),
-        showcase ? h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>{setShowcase("");setSpotId("");setFollow(true);} }, "回到日程") : h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:visitPlaces }, "新场景"),
+        showcase ? h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>{setShowcase("");setSpotId("");setFollow(true);} }, "回到日程") : !demo && h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:visitPlaces }, "新场景"),
         !showcase && demo && h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>setDemoIndex(i=>(i+1)%DEMO_ROWS.length) }, "下一段"))));
   };
 })(window);

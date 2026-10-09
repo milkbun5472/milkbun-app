@@ -17,6 +17,20 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       window.dayPlacesRoot=ReactDOM.createRoot(el);dayPlacesRoot.render(React.createElement(CharDayApp,{characters:dayPlacesChars,plansFor:c=>dayPlacesRef.current[c.id]||{},lookFor:()=>({outfit:'academy',hair:'korean',hairColor:'#43352e',wardrobe:{academy:{cloth:'#a8be83',trim:'#ebcedf',bottom:'#766956',boots:'#163541'}}}),taFor:()=> '他',onBack:()=>{},build:'places-browser'}));
     },writer);
     const root=page.locator('#day-places-root'),shot=name=>page.screenshot({path:path.join(out,name+'.png')}),ready=async()=>{await page.waitForFunction(()=>document.querySelector('#day-places-root iframe')?.contentWindow.CharDayScene?.inspect().ready);frame=page.frames().find(f=>f.url().includes('/fairy-garden/day/'));},state=()=>frame.evaluate(()=>CharDayScene.inspect());
+    const demoLayout=async()=>{
+      const widths=[];
+      for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
+        await page.setViewportSize({width:w,height:h});await page.waitForTimeout(100);
+        const box=await root.locator('[data-wk=cdaytools]').evaluate(el=>({height:el.getBoundingClientRect().height,width:el.clientWidth,scrollWidth:el.scrollWidth,buttons:[...el.children].map(b=>b.getBoundingClientRect().toJSON())}));
+        assert.ok(box.height>=54&&box.height<=65,'示例五键底栏保持移动端标准高度');assert.ok(box.scrollWidth<=box.width);assert.ok(box.buttons.every(b=>b.right<=w+1&&b.x>=0&&b.height>=40));
+        await shot('demo-controls-'+w+'x'+h);widths.push({w,h,...box});
+      }
+      await page.setViewportSize({width:390,height:844});return widths;
+    };
+    if(process.env.DAY_LAYOUT_ONLY){
+      await root.getByRole('button',{name:'先看一段示例',exact:true}).click();await ready();await frame.waitForFunction(()=>CharDayScene.inspect().map&&!CharDayScene.inspect().changing);
+      const report={engine,ok:true,demoWidths:await demoLayout(),errors};assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'demo-layout-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));return;
+    }
     const baseline=await page.evaluate(()=>({plans:JSON.stringify(dayPlacesRef.current),writes:dayPlacesWrites.length,games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
     const noWrites=async()=>{assert.equal(await page.evaluate(()=>JSON.stringify(dayPlacesRef.current)),baseline.plans);assert.equal(await page.evaluate(()=>dayPlacesWrites.length),baseline.writes);assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),baseline.games);assert.equal(await page.evaluate(()=>dayPlacesModels),0);};
     await root.getByRole('button',{name:'新场景摆位试玩',exact:true}).click();await ready();
@@ -76,6 +90,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     assert.equal(sceneRequests.filter(url=>/public-hall|home-interior|hall-dormitory|village|neighbor.+-interior/.test(url)).length,0,'独立摆位期间没有加载庭院/公共厅/家里的场景');
     result.independentSceneAssets=sceneRequests;result.showcaseReadOnly=true;
     await root.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='home'&&!CharDayScene.inspect().changing);
+    result.demoWidths=await demoLayout();
     await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='hall'&&!CharDayScene.inspect().changing);result.oldDemoNext=true;
     await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试研究员'}).click();await ready();
     await frame.waitForFunction(()=>CharDayScene.inspect().map==='hall'&&!CharDayScene.inspect().changing);const original=await state();assert.equal(original.charId,'places-a');assert.match(original.look,/#a8be83/);
