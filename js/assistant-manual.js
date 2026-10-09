@@ -31,7 +31,7 @@
   // v 必须等于 app.js 的 APP_VERSION，否则测试 manual-stamp 红。
   // 这一版改了哪几条就把 id 写进 entries；这一版她用起来什么都没变（纯修内部、纯测试），
   // entries 留空、在 none 里写一句为什么——不许光改号不写理由。
-  const STAMP = { v: "v75.119", entries: [], none: "这一版只改了说话的规矩（反八股），没有新功能" };
+  const STAMP = { v: "v75.120", entries: [], none: "擂台裁判读整张人设，用法没变" };
   const E = [
     { id: "chat", app: "chat", zh: "说话 · 单聊", where: "消息列表里点开一个人",
       what: "开始前在「人格档案馆」创建角色，聊天框就能自动出现在聊天的最下面啦。",
