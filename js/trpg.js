@@ -1221,6 +1221,16 @@
     else parts = lines;
     return parts.map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean);
   };
+  // 事件池一行一件;行首写「第2章:」就只在第二章掷骰时才抽得到,不写章号的随时都能抽
+  //   (剧本的主线是有先后的,第三章才该发生的事不能第一章就被骰子掀出来)
+  const CN_NUM = { 一: 1, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6, 七: 7, 八: 8, 九: 9, 十: 10 };
+  const scriptEvent = line => {
+    const raw = String(line || "").trim();
+    const m = raw.match(/^第\s*([0-9]+|[一二三四五六七八九十])\s*章\s*[:：、.．\-—]?\s*/);
+    const stage = m ? (CN_NUM[m[1]] || parseInt(m[1], 10) || 0) : 0;
+    return { text: m ? raw.slice(m[0].length).trim() : raw, stage: stage || 0, used: false };
+  };
+  const eventLine = e => (e.stage ? "第" + e.stage + "章:" : "") + e.text;
   const parseTrpgScript = (raw, split) => {
     const text = String(raw || "").replace(/\r/g, "");
     const out = { title: "", world: "", hook: "", opening: "", stages: [], heroes: [], events: [], truth: "", limits: "" };
@@ -1546,7 +1556,7 @@
                   // 模组保台本(世界/章节/秘典/种子),crew 相关(私念/行头/专长/暗线)是空的——
                   // 预览里点「补幕后」按当前队伍现配;backstage 只补空不覆盖,台本动不了
                   const modStages = mod.stages.map(stageOf).filter(x => x.goal);
-                  setDraft({ squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: modStages, dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), hero: Array.isArray(mod.heroes) && mod.heroes.length ? pick(mod.heroes) : "", heroes: Array.isArray(mod.heroes) ? mod.heroes.slice() : [], eventPool: (Array.isArray(mod.events) ? mod.events : []).map(x => ({ text: String(x), used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), sceneMeta: normSceneMeta(mod.sceneMeta || {}, { stages: modStages, stageIdx: 0 }), siteActions: normSiteActions(mod.siteActions), choices: normChoices(mod.choices, party), bgm: (Array.isArray(mod.bgm) ? mod.bgm : []).slice(0, 6), party });
+                  setDraft({ squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: modStages, dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), hero: Array.isArray(mod.heroes) && mod.heroes.length ? pick(mod.heroes) : "", heroes: Array.isArray(mod.heroes) ? mod.heroes.slice() : [], eventPool: (Array.isArray(mod.events) ? mod.events : []).map(scriptEvent).filter(e => e.text), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), sceneMeta: normSceneMeta(mod.sceneMeta || {}, { stages: modStages, stageIdx: 0 }), siteActions: normSiteActions(mod.siteActions), choices: normChoices(mod.choices, party), bgm: (Array.isArray(mod.bgm) ? mod.bgm : []).slice(0, 6), party });
                   if (mod.limits) setLimitsTxt(String(mod.limits));
                   setView("create");
                   props.toast("模组已装载——预览里点「补幕后」给这批队友配私念/行头/专长", 7000);
@@ -1604,7 +1614,7 @@
         let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(stageOf), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, sceneMeta: normSceneMeta(p, { stages, stageIdx: 0 }), siteActions: normSiteActions(p.siteActions), choices: normChoices(p.choices, party), bgm: (Array.isArray(p.bgm) ? p.bgm : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6), party };
         if (script) {
           // 作者写的世界、名字、真相一字不改;事件池留给剧情骰抽
-          d = Object.assign(d, { world: script.world.trim() || d.world, title: script.title || d.title, hero: hero, heroes: script.heroes.slice(), eventPool: script.events.map(x => ({ text: x, used: false })), script: script,
+          d = Object.assign(d, { world: script.world.trim() || d.world, title: script.title || d.title, hero: hero, heroes: script.heroes.slice(), eventPool: script.events.map(scriptEvent).filter(e => e.text), script: script,
             dossier: Object.assign({}, d.dossier, { truth: script.truth || "" }) });
           if (script.limits) setLimitsTxt(script.limits);
         }
@@ -1969,7 +1979,7 @@
         const siteAction = mode && mode.siteAction;
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
         // 剧本带了事件池:剧情骰先从池里抽(抽过的不再抽),池子空了才回到掷类型
-        const evLeft = dice ? (camp.eventPool || []).filter(e => !e.used) : [];
+        const evLeft = dice ? (camp.eventPool || []).filter(e => !e.used && (!e.stage || e.stage === camp.stageIdx + 1)) : [];
         const scriptEv = evLeft.length ? pick(evLeft) : null;
         if (scriptEv) update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { eventPool: (c.eventPool || []).map(e => e.text === scriptEv.text ? Object.assign({}, e, { used: true }) : e) })));
         const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (camp.table && (extra || []).some(x => x && x.role === "roll") ? "\n〔行动表结算〕上一拍排了行动表,这一拍每人各动一下,按表上的先后写:队友的检定已经在上面掷过,照各自的等级写TA那一下的结果(失败就真失败,别替TA圆);" + uName + " 的那一下按 Ta 的选择" + ((extra || []).some(x => x && x.role === "roll" && x.who === uName) ? "与检定" : "") + "写。" : "") + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? (scriptEv ? "\n〔剧情骰·剧本事件〕本回合必须自然引入剧本里的这件事:【" + scriptEv.text + "】——照它的本意落到眼下这个场景里,落在具体行动上,并实际搅动局面。" : "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。") : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone 也不报 stepDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15)。\n【夜谈】歇下来的时候人才会说话:在场、还站得住的每位队友各开【一个话头】,写进 night 字段(who 用队友名,open 是TA开口的那句原话,≤50字)。话头不是对下一步的看法,是这个人在这种时候真会说出口的一句——从TA的私念、TA跟 " + uName + " 的羁绊、今天发生的某件事里长出来:可以是问 " + uName + " 一句,可以是说漏一句,可以是没头没尾的一句;羁绊高的往前一步,羁绊低的别扭或者只是搭一句。判据:这句话换个人说就不对了,才算TA的。正文里只写到TA开口为止、不替 " + uName + " 接——那些话头留给玩家挑一个接着聊。结尾的选项给 2-3 个休整后动身的方向。" : "")
@@ -2748,7 +2758,7 @@
           h("button", { onClick: () => {
             // 打包模组:台前+底牌+种子,不带存档与队伍——换队友重开时「补幕后」会重配 crew
             const openingPlace = camp.stages.length && camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.place : camp.place;
-            const mod = { v: 2, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", steps: normSteps(x.steps).map(st => st.text) })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), heroes: (camp.heroes || []).slice(), events: (camp.eventPool || []).map(x => x.text), style: camp.style || "classic", limits: camp.limits || "", bgm: (camp.bgm || []).slice(), opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: openingPlace, sceneMeta: camp.msgs[0] && camp.msgs[0].snap && camp.msgs[0].snap.sceneMeta ? camp.msgs[0].snap.sceneMeta : camp.sceneMeta, siteActions: normSiteActions((camp.siteActions || {})[openingPlace]), choices: camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.choices : [] };
+            const mod = { v: 2, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", steps: normSteps(x.steps).map(st => st.text) })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), heroes: (camp.heroes || []).slice(), events: (camp.eventPool || []).map(eventLine), style: camp.style || "classic", limits: camp.limits || "", bgm: (camp.bgm || []).slice(), opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: openingPlace, sceneMeta: camp.msgs[0] && camp.msgs[0].snap && camp.msgs[0].snap.sceneMeta ? camp.msgs[0].snap.sceneMeta : camp.sceneMeta, siteActions: normSiteActions((camp.siteActions || {})[openingPlace]), choices: camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.choices : [] };
             const txt = JSON.stringify(mod);
             copyText(txt).then(ok => ok ? props.toast("模组已复制:世界/章节/秘典/种子都在里面,开团页「导入模组」可重开或分享", 7000) : props.toast("复制失败,再试一次"));
           }, style: S.btn(false) }, "📦 打包模组"),
@@ -3266,7 +3276,7 @@
             lbl("开场"), box("opening", 3, "空着=守密人按剧本写"),
             lbl("主线", "stages"), box("stages", 4, "一行一章,按顺序;空着=守密人按世界编"),
             lbl("主角池", "heroes"), box("heroes", 4, "一行一个可选主角;开团随机抽一个当这一局的你;空着=你就是你自己"),
-            lbl("事件池", "events"), box("events", 4, "一行一件事;剧情骰掷中时从里面随机抽,抽过的不再抽;空着=照旧随机意外"),
+            lbl("事件池", "events"), box("events", 4, "一行一件事;行首写「第2章:」就只在第二章抽得到,不写随时能抽;抽过的不再抽;空着=照旧随机意外"),
             lbl("真相(只给守密人看,落幕才揭晓)"), box("truth", 2, "空着=守密人自己写"),
             lbl("安全线"), box("limits", 1, "绝不想出现的内容"),
             h("button", { onClick: go, disabled: busy, style: Object.assign({}, S.btn(true), { width: "100%", minHeight: 40, marginTop: 12 }) }, busy ? "在搭…" : "照这个剧本开团"),
@@ -3395,5 +3405,5 @@
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
   if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { parseTrpgScript, scriptList, bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normOrder, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
+  if (typeof module === "object" && module.exports) module.exports = { parseTrpgScript, scriptList, scriptEvent, eventLine, bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normOrder, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
 })();

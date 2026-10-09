@@ -42,7 +42,7 @@ test("主角由程序随机抽,写进守密人提示词", () => {
 });
 
 test("剧情骰先从事件池抽,抽过的记 used", () => {
-  assert.match(src, /const evLeft = dice \? \(camp\.eventPool \|\| \[\]\)\.filter\(e => !e\.used\)/);
+  assert.match(src, /const evLeft = dice \? \(camp\.eventPool \|\| \[\]\)\.filter\(e => !e\.used && \(!e\.stage \|\| e\.stage === camp\.stageIdx \+ 1\)\)/);
   assert.match(src, /scriptEv \? "\\n〔剧情骰·剧本事件〕/);
 });
 
@@ -50,4 +50,11 @@ test("剧本页是整页,读文件走共用的 readOfflineStyleDocument,模组�
   assert.match(src, /if \(view === "script"\) \{/);
   assert.match(src, /readOfflineStyleDocument\(file\)/);
   assert.match(src, /heroes: \(camp\.heroes \|\| \[\]\)\.slice\(\), events: \(camp\.eventPool/);
+});
+
+test("事件行首的章号认得出,导出时原样写回", () => {
+  assert.deepStrictEqual(T.scriptEvent("第2章:桥塌了"), { text: "桥塌了", stage: 2, used: false });
+  assert.deepStrictEqual(T.scriptEvent("第三章 船长失踪"), { text: "船长失踪", stage: 3, used: false });
+  assert.deepStrictEqual(T.scriptEvent("下雨"), { text: "下雨", stage: 0, used: false });
+  assert.strictEqual(T.eventLine(T.scriptEvent("第2章：桥塌了")), "第2章:桥塌了");
 });
