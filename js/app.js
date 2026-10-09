@@ -12255,22 +12255,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         try { _mcpT = await window.MCP.listTools(); } catch (e) { mcpListFailed(e); }
       }
       const _callMeta = {};
-      try {
+      // 有些推理线路偶尔整次预算都花在思考上、不给正文：不再静默补打第二枪（她 2026-10-09：失败了不许再试第二次）
         // 这一轮有〔照做〕（多半是一整块 HTML 卡片）：回复会长得多。原来 180 秒一刀、不走流式，
         //   Claude 走中转写一张大卡常常写不完就被掐成「超时」（她 2026-10-06：「要么很快回复文字，要么卡住 time out」）。
         //   这一轮改走流式（边写边收，连接不会因为久没动静被断），总时限给 10 分钟，篇幅上限给满。
         raw = await callAI(_route, system, aiMessages, { use: "chat", logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天", ...(_doTail ? { maxTokens: 65535, stream: true, timeout: 600000 } : {}) });
-      } catch (firstErr) {
-        // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
-        // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
-        if (!/模型返回为空/.test(String(firstErr && firstErr.message || ""))) throw firstErr;
-        const retryMessages = aiMessages.map(m => ({ ...m }));
-        for (let i = retryMessages.length - 1; i >= 0; i--) if (retryMessages[i].role === "user") {
-          retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
-          break;
-        }
-        raw = await callAI(_route, system, retryMessages, { use: "chat", logRetry: true, logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
-      }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
         const s = String(raw || "");
@@ -15615,11 +15604,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const _hasAccept = d => !!d && d.accept !== undefined && d.accept !== null;
   const askYesNo = async (route, system, messages, opts) => {
     let d = extractJSON(await callAI(route, system, messages, opts));
-    if (!_hasAccept(d)) {
-      d = extractJSON(await callAI(route, system
-        + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、"
-        + "不要前后多说一个字、所有括号引号都要闭合，accept 必须是 true 或 false。", messages, opts));
-    }
+    // 读不出来就当没表态，不再补打第二枪（她 2026-10-09：失败了不许再试第二次）
     if (!_hasAccept(d)) return { ok: false };
     return { ok: true, accept: _yesVal(d.accept), say: Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []), d: d };
   };
@@ -21289,7 +21274,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return { items: out.slice(0, 160) };
   };
   // runProbe 简单重试：单次结构化内容偶尔截断/解析失败，重试一次
-  const runProbeRetry = async (p, ctx, probe) => { try { return await runProbe(p, ctx, probe); } catch (e) { return await runProbe(p, ctx, probe); } };
+  // 原来失败了整枪再打一次；停了（她 2026-10-09），名字留着免得十处调用点一起改
+  const runProbeRetry = (p, ctx, probe) => runProbe(p, ctx, probe);
   // 写入帖子并对该版块做 NPC 硬上限清理（删最旧 NPC 帖，角色帖免疫）
   // 全库 NPC 帖总封顶（v62.42，审计 P1）：按版块的 30 条封不住「搜索吧」——
   // 每次搜索 board 都是新名字，永远轮不到那道闸，十次搜索就是十个永不清理的版块。

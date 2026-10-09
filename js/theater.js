@@ -359,18 +359,9 @@
     // 只在消息数或换线时滚到底;无依赖数组会让每次打字/点按钮都把滚动条按回底部,想往上翻都翻不了
     useEffect(() => { if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight; }, [msgCount, playId]);
 
-    // 「模型没吐出 JSON」= 连键名都抠不出来，说明它压根没按格式写(直接写成了散文)。
-    // 内容其实已经生成出来、也已经付过钱了，所以再花一次小调用把它【原样归类】进 JSON，
-    // 而不是让她重点一次按钮从头烧。整理不回来才认输。
-    const reformatSetting = async (raw, shape, keys) => {
-      const text = String(raw || "").trim();
-      if (!text) return null;
-      const sys = "下面是一段已经写好的内容,但它没有按要求输出 JSON。把它【原样整理】成这个形状:\n" + shape
-        + "\n【铁律】只做搬运和归类:内容一个字都不许改写、不许润色、不许自己另编;原文里确实没写的字段就留空字符串。只输出 JSON,不要代码块。";
-      try {
-        return parseSettingPayload(await callAI(props.active, sys, [{ role: "user", content: text.slice(0, 8000) }], { maxTokens: 11200, timeout: 120000 }), keys);
-      } catch (e) { return null; }
-    };
+    // 「模型没吐出 JSON」= 连键名都抠不出来：原来再花一枪请它原样整理，停了（她 2026-10-09：失败了不许再试第二次）。
+    //   名字留着免得四处调用点一起改；直接认输，下面会把它回了什么带出来。
+    const reformatSetting = async () => null;
     // 认输时把模型到底回了什么带出来一小段——不然「没吐出 JSON」是个查不下去的死胡同。
     const rawHint = raw => {
       const t = String(raw || "").replace(/\s+/g, " ").trim();

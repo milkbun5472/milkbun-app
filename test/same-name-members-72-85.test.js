@@ -55,9 +55,8 @@ test("四处认人都走这一份，没人再自己 find(name)", () => {
 });
 
 test("名单那头也得给标签，不然模型根本说不出第二个人是谁", () => {
-  // 群线下：输出规格里那份名单 + 格式修复器那份
+  // 群线下：输出规格里那份名单（格式修复器那一枪 2026-10-09 停了）
   assert.match(eng, /members\.map\(c => "『" \+ memberLabel\(members, c\) \+ "』"\)/);
-  assert.match(eng, /角色名只能逐字选自：" \+ members\.map\(c => memberLabel\(members, c\)\)/);
   // 三处人设抬头（群线下、群线上、群通话）
   assert.ok((eng.match(/"【" \+ memberLabel\(members, c\) \+ "】"/g) || []).length >= 2, "群线下人设抬头没给标签");
   assert.ok((app.match(/"【" \+ memberLabel\((members|people), c\) \+ "】"/g) || []).length >= 4, "群线上／投票／群通话的人设抬头没给标签");

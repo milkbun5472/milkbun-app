@@ -27,10 +27,10 @@ test("不像的不硬捡：完全不是 JSON、捡不到一半的栏、带列表
   assert.equal(F.flatSchemaKeys('{"items":[{"a":1}]}'), null);
   assert.equal(F.flatSchemaKeys('{"cover":{"shop":""},"x":""}'), null);
 });
-test("runProbe 里排在「重来一次」之前，自带捡救的（陪伴）不走这一道", () => {
+test("runProbe 解析不出来先捡救，捡不回来就报错，不再补打第二枪；自带捡救的（陪伴）不走这一道", () => {
   const i = src.indexOf("async function runProbeInner(");
   const body = src.slice(i, src.indexOf("\n}\n", i));
-  const flat = body.indexOf("flatSchemaSalvage("), retry = body.indexOf("【⚠️上一次的输出没能解析】");
-  assert.ok(flat > 0 && retry > flat, "捡救得排在补打那一枪前面");
+  assert.ok(body.indexOf("flatSchemaSalvage(") > 0);
+  assert.doesNotMatch(body, /上一次的输出没能解析/, "失败了不许再试第二次（她 2026-10-09）");
   assert.match(body, /if \(!parsed && typeof probe\.salvage !== "function"\) \{/);
 });

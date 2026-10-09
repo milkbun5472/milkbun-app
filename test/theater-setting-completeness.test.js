@@ -55,13 +55,11 @@ test("设定解析走和 scene 同一套抢救梯队，不再是裸 extractJSON"
   // 唯一允许留着裸 extractJSON 的是账本压缩：形状不同（四个数组），且失败是静默的、下一轮自愈
   const bare = (theater.match(/const \w+ = extractJSON\(raw\)[^\n]*/g) || []);
   assert.deepEqual(bare, ["const p2 = extractJSON(raw) || {};"], "设定/开局/目标这几支必须全部走 parseSettingPayload");
-  assert.equal((theater.match(/parseSettingPayload\(/g) || []).length, 6, "六处调用：四支生成 + 截断补写 + 散文整理");
+  assert.equal((theater.match(/parseSettingPayload\(/g) || []).length, 5, "五处调用：四支生成 + 截断补写（散文整理那一枪停了）");
 });
 
-test("整理不回来才认输，且要说出模型到底回了什么", () => {
-  assert.match(theater, /const reformatSetting = async \(raw, shape, keys\)/);
-  assert.match(theater, /内容一个字都不许改写、不许润色、不许自己另编/, "整理只能搬运，不许趁机另编一份");
-  assert.match(theater, /\} catch \(e\) \{ return null; \}/, "整理失败要静默返回 null，不许把它变成新的抛错");
+test("没吐出 JSON 直接认输，不再花一枪整理，且要说出模型到底回了什么", () => {
+  assert.match(theater, /const reformatSetting = async \(\) => null;/, "失败了不许再试第二次（她 2026-10-09）");
   assert.match(theater, /const rawHint = raw =>/);
   assert.equal((theater.match(/rawHint\(raw\)/g) || []).length, 4, "四处生成的认输文案都要带上原文片段");
   assert.doesNotMatch(theater, /throw new Error\("模型没吐出 JSON/, "这句已经换成能查下去的版本");

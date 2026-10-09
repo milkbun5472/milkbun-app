@@ -13,7 +13,7 @@ test("normal single offline requests no creation-note COT; digital keeps the leg
   assert.match(single, /const singleCotBlock = isDigital \? cotSystemBlock\(cotT\) : ""/);
   assert.doesNotMatch(engine, /offlineSingleCotSystemBlock\(/);
   assert.match(single, /先完成正文 JSON，再写既定的创作旁注标记块/);
-  assert.match(single, /system\.replace\(singleCotBlock, ""\)/);
+  assert.doesNotMatch(single, /system\.replace\(singleCotBlock, ""\)/, "空正文不再无 cot 补打第二枪");
   assert.match(engine, /OFFLINE_SINGLE_NO_COT_V2_KEY/);
   assert.match(single, /loadOfflineSingleNoCotV2Models\(\)/);
   assert.match(single, /rememberOfflineSingleNoCotV2Model\(cotModelKey\)/);

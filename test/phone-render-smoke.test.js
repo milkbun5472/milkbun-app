@@ -594,11 +594,10 @@ test("B站详情页的返回键点得动——铺满的播放按钮不许吃掉�
   assert.match(SRC, /position: "absolute", zIndex: 2, left: 6, top: safeTop\(6\)/);
 });
 
-test("解析失败会自动重来一次，不用她自己点第二遍", () => {
+test("解析失败直接报错，不自动重来第二枪（她 2026-10-09）", () => {
   const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
-  assert.match(eng, /上一次的输出没能解析/);
-  assert.match(eng, /parsed = extractJSON\(again\)/);
-  // 重试仍失败才报错，且报的是原文
+  assert.doesNotMatch(eng, /上一次的输出没能解析/);
+  // 报的是原文
   assert.match(eng, /if \(!parsed\) throw new Error\("解析失败：/);
 });
 
