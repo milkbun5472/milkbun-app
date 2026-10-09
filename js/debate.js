@@ -264,6 +264,7 @@
     const meJudge = !!(o.judge && o.judge.me);
     const rosterBlocks = chars.map(function (c, i) {
       return "【第" + (i + 1) + "位 · " + c.name + "】\n· 立场：" + (c.stance || "自行把握") + "\n· 人设：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length) +
+        (c.npcOf ? "\n· TA是" + (c.npcOf === "她" ? uName : "「" + c.npcOf + "」") + "身边的人" + (c.knowsUser === false ? "，本来不认识 " + uName + "，今天是头一回跟她打交道——别装熟" : "") : "") +
         (c.injection ? "\n· （Ta 和 " + uName + " 最近的聊天，仅用来拿捏关系/近况/语气，别照搬别复述）\n" + c.injection : "");
     }).join("\n\n");
     // 场边（v60.41）：只有【她自己的、没上台的角色】，没有路人、没有昵称、不是弹幕。
@@ -529,9 +530,11 @@
     const cancelLP = () => { if (lpTimer.current) { clearTimeout(lpTimer.current); lpTimer.current = null; } };
     const startLP = id => { lpFired.current = false; cancelLP(); lpTimer.current = setTimeout(() => { lpFired.current = true; delSession(id); }, 500); };
 
+    // 上台那一栏和台上查头像／人设用的名单：她自己的人＋配角（stageNpcs）。场边 crowdChars 不动，配角不当看客
+    const stageChars = (props.characters || []).concat((props.stageNpcs || []).filter(n => !(props.characters || []).some(c => c.id === n.id)));
     if (view === "setup") {
       return h(Setup, {
-        active: props.active, characters: props.characters, crowdChars: props.crowdChars, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        active: props.active, characters: stageChars, crowdChars: props.crowdChars, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -540,7 +543,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: props.characters, crowdChars: props.crowdChars, npcFor: props.npcFor, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: s, active: props.active, characters: stageChars, crowdChars: props.crowdChars, npcFor: props.npcFor, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch),
@@ -672,6 +675,8 @@
         // 参赛者结构（含我）
         const parts = chars.map((c, i) => ({
           kind: "char", id: c.id, name: c.name, persona: c.persona || "",
+          // 配角上台：记下TA是谁身边的人、认不认识她——配角不像她自己的人那样天然认识她
+          npcOf: c.npc ? (((props.characters || []).find(x => x.id === c.ownerId) || {}).name || (c.ownerId === "me" ? "她" : "")) : "", knowsUser: c.npc ? !!(c.knowsUser || c.ownerId === "me") : true,
           stance: assigned.byName[c.name] || "自行把握", color: SIDE_COLORS[i % SIDE_COLORS.length],
           injection: inject ? recentChatSnippet(c.id, uName, c.name) : ""
         }));
@@ -728,7 +733,8 @@
               return h("button", { key: c.id, onClick: () => toggle(c.id), className: "active:opacity-70",
                 style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 11px 6px 6px", borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 }, "data-wk": "debsetup", "data-part": "r2", "data-on": on ? "1" : "0" },
                 h(Avatar, { character: c, size: 22, radius: 999 }),
-                h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
+                h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name),
+                c.npc ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "配角") : null);
             })),
         // 裁判（她 2026-09-23）：请一位没上台的人来判——TA有偏心，台上的人可以冲TA去
         judgePool.length ? h("div", { style: label }, "谁来当裁判") : null,

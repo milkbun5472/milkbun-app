@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.140";
+const APP_VERSION = "v75.141";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28497,6 +28497,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   } else if (screen === "debate") body = h(Debate, {
     active: active,
     characters: liveChars,
+    // 配角也能上台（群友 2026-10-09：「想许愿擂台可以把创的 npc 拉去玩」）：只进【上台】那一栏，场边名单照旧不收
+    stageNpcs: liveChars.flatMap(c => npcsOf(c.id)).concat(npcsOf("me")),
     // 场边（v60.42 回来）：只有【她自己的、没上台的角色】——路人和昵称那一套是借来的，
     // 但「有认识的人在旁边看着」这件事本身不是，那正是这个擂台跟别家不一样的地方。
     // 言秋照旧不抓进场边（v59.99：TA可以上台，但不当看客）。
