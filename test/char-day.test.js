@@ -35,9 +35,19 @@ test('凌晨沿原跨午夜睡眠helper承接昨天，醒来与今天新安排�
   const s=f.K.dayState(f.c,f.plans().c1,Date.parse('2026-10-08T18:00:00Z'));assert.equal(s.day,'2026-10-09');assert.equal(s.slot.carry,true);assert.equal(s.slot.type,'sleep');
   assert.equal(f.K.dayState(f.c,f.plans().c1,Date.parse('2026-10-09T00:00:00Z')).slot.title,'用早饭');
 });
-test('具体职业内容保留，未支持的专业动作只站在案边，不捏造翻书或吃饭',()=>{
+test('具体职业内容保留，通用工作姿态不捏造翻书或吃饭',()=>{
   const f=setup();assert.equal(f.K.presentation({type:'work',title:'核对军报'}).gesture,'rest');assert.equal(f.K.presentation({type:'create',title:'雕刻石像'}).gesture,'rest');
   assert.equal(f.K.presentation({type:'work',title:'翻书找资料'}).gesture,'read');assert.equal(f.K.presentation({type:'out'}).map,'garden');assert.equal(f.K.presentation({type:'sleep'}).action,'sleep');
+});
+
+test('同一工作段持续有托腮和抬眼动作，休息有舒展，睡眠吃饭阅读沿原动作',async()=>{
+  const {activityPose}=await import('../apps/fairy-garden/day/activity.mjs');
+  const work={action:'work',gesture:'rest'};
+  assert.equal(activityPose(work,2).emotion,'chin');assert.equal(activityPose(work,9).emotion,'peek');
+  assert.equal(activityPose(work,18).emotion,'chin');assert.equal(activityPose(work,2).gesture,'rest');
+  assert.equal(activityPose({action:'rest',gesture:'rest'},2).gesture,'stretch');
+  assert.equal(activityPose({action:'rest',gesture:'rest'},7).gesture,'rest');
+  for(const gesture of ['read','eat','tea','sleep'])assert.equal(activityPose({action:gesture,gesture},9).gesture,gesture);
 });
 test('示例单独提供全部基础动作，不调用writer或替角色排事情',()=>{
   const f=setup(),n=f.writes.length;assert.equal(f.K.DEMO.id,'__char_day_demo');assert.equal(f.K.DEMO_ROWS.length,5);

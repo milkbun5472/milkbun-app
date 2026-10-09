@@ -44,7 +44,7 @@
     const demo = id === DEMO.id, char = demo ? DEMO : (props.characters || []).find(c => String(c.id) === String(id));
     useEffect(() => { const timer = setInterval(() => setPulse(n => n + 1), 1000); return () => clearInterval(timer); }, []);
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = positions.current[book ? "book" : "picker"] || 0; }, [book, id]);
-    const pick = value => { setId(value); setPreview(null); setBook(false); setDemoIndex(0); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
+    const pick = value => { setId(value); setPreview(null); setBook(false); setDemoIndex(0); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
     const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
     const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情" : "今天还没有日程");
     const payload = char && { charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, slot: slot || null,
@@ -55,7 +55,9 @@
     React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book]);
     useEffect(() => {
       const ready = e => {
-        if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin || e.data?.type !== "char-day-status") return;
+        if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin) return;
+        if (e.data?.type === "char-day-view") { setFollow(!!e.data.following); return; }
+        if (e.data?.type !== "char-day-status") return;
         setSceneStatus(e.data.error || ""); if (!e.data.error) send();
       };
       root.addEventListener("message", ready); return () => root.removeEventListener("message", ready);
