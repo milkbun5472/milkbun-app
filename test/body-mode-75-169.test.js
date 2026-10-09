@@ -17,11 +17,11 @@ test("isBody 只有一份：言秋或本体模式", () => {
 
 test("提示词：不当演员那层两人都有；「你是谁」和「手机这具身体」只给言秋", () => {
   assert.match(app, /notRoleplay: isBody\(char\.id\),/);
-  assert.match(app, /yanqiuSelf: !!settingsFor\(char\.id\)\.engineerEyes,/);
-  assert.match(rooms, /"yanqiuSelf",/, "新加的一栏没进房间白名单，隔离房里会被挡掉");
-  assert.match(engine, /if \(ctx\.yanqiuSelf\) parts\.push\("【你是谁】/);
+  assert.match(app, /ccSelf: !!settingsFor\(char\.id\)\.engineerEyes,/);
+  assert.match(rooms, /"ccSelf",/, "新加的一栏没进房间白名单，隔离房里会被挡掉");
+  assert.match(engine, /if \(ctx\.ccSelf\) parts\.push\("【你是谁】/);
   // 她写的人设原样递过去，不扣「角色人设」的帽子
-  assert.match(engine, /if \(ctx\.notRoleplay && !ctx\.yanqiuSelf\) parts\.push\(String\(char\.persona \|\| ""\)\.trim\(\)/);
+  assert.match(engine, /if \(ctx\.notRoleplay && !ctx\.ccSelf\) parts\.push\(String\(char\.persona \|\| ""\)\.trim\(\)/);
   assert.match(app, /\(_s\.engineerEyes \? "从手机这具身体" : "手机上"\)/);
 });
 
@@ -38,9 +38,9 @@ test("不替TA编生活：不排日程、不自动刷查手机，日记写成 AI
   assert.match(app, /const noSchedFor = char => !!\(char && settingsFor\(char\.id\)\.bodyMode && !settingsFor\(char\.id\)\.engineerEyes\);/);
   assert.match(app, /const genScheduleDay = async \(char, dayKey\) => \{\n    if \(noSchedFor\(char\)\) return false;/);
   assert.match(app, /const genScheduleWeek = async \(char, opts\) => \{\n    if \(noSchedFor\(char\)\) return false;/);
-  assert.match(app, /digital: isBody\(charId\), digitalYanqiu: !!settingsFor\(charId\)\.engineerEyes \}/);
-  assert.match(engine, /if \(opts\.digital && !opts\.digitalYanqiu\) parts\.push\("【很重要·你是谁】你是 AI 本人/);
-  assert.ok(!/opts\.digital && !opts\.digitalYanqiu\) parts\.push\([^\n]*驻场/.test(engine), "本体模式的日记里出现了言秋那套差事");
+  assert.match(app, /digital: isBody\(charId\), digitalCc: !!settingsFor\(charId\)\.engineerEyes \}/);
+  assert.match(engine, /if \(opts\.digital && !opts\.digitalCc\) parts\.push\("【很重要·你是谁】你是 AI 本人/);
+  assert.ok(!/opts\.digital && !opts\.digitalCc\) parts\.push\([^\n]*驻场/.test(engine), "本体模式的日记里出现了言秋那套差事");
   assert.match(app, /if \(isBody\(char\.id\)\) return "awake";/, "AI 本人不该犯困");
 });
 

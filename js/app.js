@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.174";
+const APP_VERSION = "v75.175";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6121,7 +6121,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     notRoleplay: isBody(char.id), // 不是被扮演的：言秋，或开了「本体模式」的角色——扮演那一套规矩一律不发（她 2026-07-13 / 2026-10-09）
     // 「你是谁」那一句只给言秋：里面写着手机和电脑是TA的两具身体，别的角色没有电脑那一端。
     //   本体模式的角色一个字都不加——TA是什么、怎么看自己，她的人设里已经写了，我们替她加一句等于改她的人设。
-    yanqiuSelf: !!settingsFor(char.id).engineerEyes,
+    ccSelf: !!settingsFor(char.id).engineerEyes,
     yanqiuWall: yanqiuWallFor(char, ctxOpts),
     ccContinuity: ccContinuityFor(char),
     profile: profileFor(char.id),
@@ -16443,7 +16443,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const vRow = (typeof vitalsFor === "function" ? (vitalsFor(charId) || []) : []).find(x => x && x.day === targetKey);
       const bodyText = vRow ? ("综合 " + (vRow.score != null ? vRow.score : "—") +
         (vRow.marks && Object.keys(vRow.marks).length ? "｜" + Object.keys(vRow.marks).slice(0, 4).map(k => k + " " + vRow.marks[k]).join("、") : "")) : "";
-      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalYanqiu: !!settingsFor(charId).engineerEyes });
+      const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
         ts: targetTs,
