@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.104";
+const APP_VERSION = "v75.121";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5894,15 +5894,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const liveChars = characters.filter(c => c && !c.npc);
   // TA 今天日程里写着直播的那几段 → [{start,end}]（我这边的毫秒）。
   //   今天日程排好了但没写直播 → []（今天不播）；还没排 → null（直播那边才按日子掷）。
-  const liveSchedFor = char => {
+  // at：看哪一天（不给就是今天）。「错过的」要看昨天那张日程，不能拿今天的表、更不能按日子瞎掷（她 2026-10-08：「为啥都在播吃饭」）
+  const liveSchedFor = (char, at) => {
     if (!char) return null;
     const plans = (schedulesRef.current || {})[char.id] || {};
-    const s0 = plans[schedLocalDayKey(char)] || plans[schedDayKey(new Date())];
+    const atD = at instanceof Date ? at : new Date();
+    const s0 = plans[schedLocalDayKey(char, atD.getTime())] || plans[schedDayKey(atD)];
     if (!s0 || !Array.isArray(s0.seqs) || !s0.seqs.length) return null;
     const filled = typeof schedFillEnds === "function" ? schedFillEnds(s0.seqs) : s0.seqs;
     const disp = schedDisplaySeqs(char, filled);
     const shift = schedTzShiftMin(char);
-    const d0 = new Date(); const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
+    const d0 = atD; const midnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
     // ⚠️只认【TA自己播】（群友 2026-10-08：「所有 char 都直播了」）：原来标题或地点带「直播」就算，
     //   「刷手机看直播」「看球赛直播」「直播间里蹲人」这种看别人播的也被当成TA开播。地点不看，看的那几种排掉。
     const selfLive = t => /开播|(开|做|搞|上|去)直播|直播(带货|唱歌|聊天|打游戏|游戏|陪|学习|做饭|户外|中)|^直播/.test(t)
@@ -5913,7 +5915,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const start = midnight + x._myMin * 60000;
       let end = endMy == null ? start + 120 * 60000 : midnight + endMy * 60000;
       if (end <= start) end += 1440 * 60000;
-      return { start, end };
+      // 播什么照日程那条写的来，日程没说才由直播那边按日子定
+      const tt = String(x.title || "");
+      const kind = /带货|卖/.test(tt) ? "sell" : /游戏|开黑|上分|打/.test(tt) ? "game" : /唱|歌/.test(tt) ? "sing" : /学习|自习|看书|写/.test(tt) ? "study" : /做饭|吃|烤|煮|厨/.test(tt) ? "cook" : /户外|散步|逛|旅/.test(tt) ? "outdoor" : /聊/.test(tt) ? "chat" : "";
+      return kind ? { start, end, kind } : { start, end };
     });
   };
   // TA 自己开播的提醒（她 2026-10-08）：时间表是本地按日子算的，提醒也只是看一眼表，一个调用都不花
@@ -5925,7 +5930,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 关注的路人主播也提醒（他们没有日程，按日子算）
       let stFollowed = [];
       try { stFollowed = ((loadJSON("x_liveStrangers", null) || {}).list || []).filter(x => x && x.followed && !x.promoted); } catch (e) {}
-      K.slotsOf(liveChars.filter(c => c && !c.npc).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
+      K.slotsOf(liveChars.filter(c => c && !c.npc && !((liveCfg.selfOff || {})[c.id])).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
           const c = liveChars.find(cc => cc.id === x.charId) || stFollowed.find(cc => cc.id === x.charId);
@@ -9100,19 +9105,22 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gDuo = _gShooters.filter(c => c.refPhoto && profile && profile.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
-        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
       for (let i = 0; i < beats.length; i++) {
         const b = beats[i];
         const goTurnId = "got_" + Date.now() + "_" + i;
-        const affinityBefore = b.senderId ? affOf(b.senderId) : null;
+        // 整段小说那一拍没有单个说话人：在场出场的每个人各算一份（心声、心情、好感、状态卡），各自一个 turnId 好回滚
+        const novelCast = b.kind === "novel" ? (b.cast || []).map((x, k) => ({ ...x, turnId: goTurnId + "_" + k })) : null;
         if (b.senderId) _spoke.add(b.senderId);
+        if (novelCast) novelCast.forEach(x => _spoke.add(x.senderId));
         if (i > 0) await new Promise(r => setTimeout(r, 420));
         pushGOffMsg(group.id, {
           id: "gc_" + Date.now() + "_" + i,
           role: b.role,
+          ...(novelCast ? { kind: "novel", cast: novelCast.map(x => ({ senderId: x.senderId, senderName: x.senderName, thought: x.thought, turnId: x.turnId })) } : {}),
           senderId: b.senderId,
           senderName: b.senderName,
           content: b.scene,
@@ -9142,18 +9150,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         // 这三处以前一道闸都没有：闭群里演什么，好感、心情、状态卡就跟着变，
         // 转头回单聊TA还带着闭群里的情绪，等于沙盒漏了。
         const gOffSealed = groupClosed(group.id);
-        const _bNpc = !!(characters.find(x => x.id === b.senderId) || {}).npc;   // 配角没有好感、没有印象卡
+        for (const a of (novelCast || [{ ...b, turnId: goTurnId }])) {
+        const affinityBefore = a.senderId ? affOf(a.senderId) : null;
+        const _bNpc = !!(characters.find(x => x.id === a.senderId) || {}).npc;   // 配角没有好感、没有印象卡
         // ⚠️配角那四样（心情／想法／穿着／动作）不看闭群那道闸（她 2026-09-20，同群线上）：
         //   他不回流主线，状态卡只活在群里。好感和印象卡照旧只给主角色、且闭群封死。
-        if (!gOffSealed && !_bNpc && b.senderId) bumpAff(b.senderId, b.affinityDelta);
-        if ((!gOffSealed || _bNpc) && b.senderId && b.mood && b.mood.label) setMoodFor(b.senderId, { ...b.mood, ts: Date.now() });
+        if (!gOffSealed && !_bNpc && a.senderId) bumpAff(a.senderId, a.affinityDelta);
+        if ((!gOffSealed || _bNpc) && a.senderId && a.mood && a.mood.label) setMoodFor(a.senderId, { ...a.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
-        if (!gOffSealed && !_bNpc && b.senderId && b.impression && window.Gaze && !settingsFor(b.senderId).engineerEyes) {
-          try { window.Gaze.applyParsed(b.senderId, b.impression); } catch (e) {}
+        if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !settingsFor(a.senderId).engineerEyes) {
+          try { window.Gaze.applyParsed(a.senderId, a.impression); } catch (e) {}
         }
-        if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === b.senderId), {
-          thought: b.thought, mood: b.mood && b.mood.label
-        }, goTurnId, affinityBefore, _offThoughtOnce);
+        if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === a.senderId), {
+          thought: a.thought, mood: a.mood && a.mood.label
+        }, a.turnId, affinityBefore, _offThoughtOnce);
+        }
       }
       // 短期导演便签只在成功生成后消耗；失败/超时不扣。新建/消耗/提示语都在 directorNote* 那一处。
       const _gDn = directorNotesConsume(effectiveSess.customNotes, effectiveSess.startTs);
@@ -9164,7 +9175,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 封闭群不驱动朋友圈/论坛/悄悄话这些对外的东西（线上那处 v55.79 已堵，群线下漏了）
       if (!groupClosed(group.id)) _spoke.forEach(id => tickAmbient(id, {}));
       // 群线下成员自己冒泡时，若你没在看这个群的线下，挂未读红点+顶上来
-      const _gCharBeats = (beats || []).filter(b => b && b.senderId).length;
+      const _gCharBeats = (beats || []).filter(b => b && (b.senderId || b.kind === "novel")).length;
       if (_gCharBeats && !(offlineGroup && offlineGroup.id === group.id) && viewRef.current.charId !== group.id) bumpUnread(group.id, _gCharBeats);
       setTimeout(() => maybeSummarizeGroupOffline(group.id), 120); // 群线下防失忆：攒够就滚动总结
       setTimeout(() => maybeAutoExtractGroupOffline(group.id), 240); // 群线下多发言人离散抽取（各点按 who 归属）
@@ -9252,6 +9263,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const y = ledgerYanqiu(); if (y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group_offline", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
     const byChar = new Map();
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
+    // 整段小说那一拍：每个出场的人各自一个 turnId
+    removed.filter(m => m && m.kind === "novel").forEach(m => (m.cast || []).forEach(x => { if (!x || !x.senderId) return; const a = byChar.get(x.senderId) || []; if (x.turnId) a.push(x.turnId); byChar.set(x.senderId, a); }));
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
     // 互通群的记忆才进过全局库；闭群只有本场提要（只进不出）。
@@ -13776,12 +13789,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   4 条起才是 A→B→A→B；上限照旧兜着，自发轮预算紧时也压得住。
       const nMin = Math.min(nMax, 4);
       // 「接彼此的话」这句只许有一份：她开口那一轮和她没出声那一轮都从这儿取。
-      const G_EACH_OTHER = "接彼此的话、顺着跑题、拌嘴、补刀、翻旧账、动手做下去都行";
+      // ⚠️v75.111 去掉了「补刀」、加上「关心一句」和后半句（她 2026-10-08 截图：私聊里会问她晚上吃什么的人，
+      //   到群里只剩跟另一位比谁的梗更狠——程序员接「删库脚本」、古人接「黑火药」，人设成了道具）。
+      //   怎么接是这几个人自己的事，不是「群聊该热闹」替他们定的。
+      const G_EACH_OTHER = "接彼此的话、顺着跑题、拌嘴、关心一句、翻旧账、动手做下去都行——哪一种，看这几个人本来什么性子、彼此什么交情";
       // ⚠️两个人的旁观群就是他俩的私聊（她 2026-09-26：「两个人的旁观群相当于私聊啊」）。
       //   下面那段群聊通用话里写着「这一轮里有人一句话都没说是正常的、别为了凑齐人头硬给每个人塞一句」——
       //   群里人多时那是对的；可只有两个人时，它等于告诉模型「另一个可以不说话」，于是整屏只剩一个人在自说自话。
       //   所以两个人的那一路换成对话本来的样子：两个人都在，你一句我一句地接。
-      const common = "\n\n【很重要】角色不是轮流回答用户的话，而是会顺着彼此刚说的话发散、接梗、跑题、互相调侃或反驳，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言；同一个人一轮里也可以说好几次——B 接了 A 的话，A 再回 B，B 又接一句，话头就这么来回过手，一轮里来回好几趟才像真的在聊天。一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回、别三两句就收场。"
+      const common = "\n\n【很重要】角色不是轮流回答用户的话。每个人在群里还是他私聊里那个人：同一个温度、同样在意的东西，对她也还是私下那个态度；他开口是因为他真有话要说，用的是他平时说话的样子，不是来给这个话题配一句漂亮台词——身份和职业是他的生活，不是他每句话的梗。他接谁的话、怎么接，由他这个人和他跟对方的交情决定，像真实群聊那样你一言我一语。不是每人每轮都要说话，按情境选合适的人发言；同一个人一轮里也可以说好几次——B 接了 A 的话，A 再回 B，B 又接一句，话头就这么来回过手，一轮里来回好几趟才像真的在聊天。一次产出 " + nMin + "~" + nMax + " 条；" + (nMax >= 5 ? "现在群里在场 " + members.length + " 人，人多就多聊几个来回、别三两句就收场。"
           + "⚠️「多聊几个来回」不等于「点名每个人」：这一轮里有人一句话都没说是正常的（在忙、没看到、懒得接、没什么想说的），"
           + "别为了凑齐人头硬给每个人塞一句——真实群聊从来是几个人在说、几个人在看。" : "**这一轮的额度只剩这么多，说到就停，别硬凑也别多写——多出来的会被丢掉。**") + "\n【对话连贯·别否认自己说过的话】每个成员都要认清【自己在上文里说过什么、提过什么要求】——别把自己说过的话当成别人凭空冒出来的，更别反问『什么X？』装不知道（那是自己说的）；用户或别的成员顺着你上一句接话时，先认账、别打自己脸。";
       // 只换开头那一段（「不是每人每轮都要说话…几个人在看」），后面连贯、别否认自己说过的话这些照旧
@@ -28343,6 +28359,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
     liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
+    // 直播间「画出来」（她 2026-10-08）：照镜头里那一行画一张，铺成全屏直播间的底图；跟片刻「画出来」同一个出图口
+    draw: (charId, desc) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, charId ? "self" : "none"),
     // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
     askStranger: async (system, schemaHint) => {
       if (!active) throw new Error("请先到设置配置 API");

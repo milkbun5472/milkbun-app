@@ -264,7 +264,7 @@ test("字数：人设不许再按固定字数砍，照群聊那套按在场人�
   assert.match(dbt, /const personaFor = \(persona, n\) => \(typeof groupPersonaBudget === "function" && typeof groupPersonaText === "function"\)\s*\? groupPersonaText\(persona, groupPersonaBudget\(n\)\)/,
     "没有复用群聊那份预算表，又自己拍了一个数");
   // 三处吃人设的都要走它：分立场、上台发言、赛后感言
-  assert.equal((dbt.match(/personaFor\(/g) || []).length, 3, "吃人设的三处（分立场／上台发言／赛后感言）没都走它");
+  assert.equal((dbt.match(/personaFor\(/g) || []).length, 4, "吃人设的四处（抽题／分立场／上台发言／赛后感言）没都走它");
   assert.ok(!/persona \|\| "（无设定）"\)\.slice\(0, 400\)/.test(dbt), "分立场那一处还在砍到 400 字");
   assert.ok(!/\.slice\(0, 500\) \+/.test(dbt), "上台发言那一处还在砍到 500 字");
   assert.ok(!/\.slice\(0, 120\) \+ "）"/.test(dbt), "赛后感言那一处还在砍到 120 字");

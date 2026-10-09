@@ -15735,6 +15735,9 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
   const [editing, setEditing] = useState(false);
   const [txt, setTxt] = useState(m.content || "");
   const [photoView, setPhotoView] = useState(null);   // 点开那张照片：大图／描述／存到手机
+  // 整段小说那一拍（群线下「写法」选整段小说）：点头像框选看谁的心声
+  const [castOpen, setCastOpen] = useState(false);
+  const [castWho, setCastWho] = useState(null);
   const tp = useTtsPlayer(); // 整段 beat 朗读（懒合成，最多 800 字）
   useEffect(() => { setTxt(m.content || ""); }, [m.content]);
   // 系统提示这一族全走 SysNote（v63.49）：线下和单聊、群聊同一个长相
@@ -15745,6 +15748,9 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
   const isUser = m.role === "user";
   const isNarr = m.role === "narration";
   const spk = isNarr || isUser ? null : (members && m.senderId ? members.find(x => x.id === m.senderId) : char);
+  const isNovel = m.kind === "novel";
+  const cast = isNovel ? (m.cast || []).map(x => ({ x, c: (members || []).find(mm => mm.id === x.senderId) })).filter(o => o.c) : [];
+  const castPick = isNovel ? cast.find(o => o.c.id === castWho) || null : null;
   // 线下语音只念台词：从这段叙事里抠出引号内的话，纯旁白（没引号台词）就不给 ▶
   const offSpeech = typeof extractSpeech === "function" ? extractSpeech(m.content) : m.content;
   const timeEl = m.ts ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, opacity: 0.7, letterSpacing: 0.3, flexShrink: 0 } }, fmtStamp(m.ts)) : null;
@@ -15779,7 +15785,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     h("button", { onClick: copyOne, className: "active:opacity-50", title: "复制这一轮" }, h(CGlyph, { k: "copy", size: 15, color: t.fog })),
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
     onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
-    (!isUser && !isNarr && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
+    (!isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
     (!isUser && !isNarr && onReroll) ? iconBtn(IRefresh, () => onReroll(m.id), "重写", sending) : null,
     onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null);
@@ -15814,10 +15820,12 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
       // ⚠️排不下就让右边那组按钮整体换到第二行（她 2026-10-08 截图：字号大一点，删除键冲出卡片）——
       //   名字至少留 5 个字宽，不然它缩到 0、一排永远「装得下」、按钮就往外冲
       h("div", { "data-wk": "offhead", className: "flex items-center flex-wrap mb-2.5", style: { columnGap: 10, rowGap: 6 } },
-        isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
+        isNovel ? (cast.length ? h("button", { "data-wk": "offcastfaces", onClick: () => setCastOpen(v => !v), className: "active:opacity-60 shrink-0 flex items-center", style: { minHeight: 40, minWidth: 40 }, title: "选看谁的心声" },
+          cast.slice(0, 4).map((o, k) => h("span", { key: o.c.id, style: { marginLeft: k ? -9 : 0, borderRadius: 999, boxShadow: "0 0 0 2px " + t.bg2, display: "inline-flex" } }, h(Avatar, { character: o.c, size: 28, radius: 14 })))) : null)
+        : isUser ? h(Avatar, { character: meChar, size: 28, radius: 14 }) : (spk ? ((onOpenState && (!canOpenState || canOpenState(spk))) ? h("button", { onClick: () => onOpenState(spk), className: "active:opacity-60 shrink-0", title: "看 " + (spk.name || "TA") + " 的心声/状态" }, h(Avatar, { character: spk, size: 28, radius: 14 })) : h(Avatar, { character: spk, size: 28, radius: 14 })) : null),
         // ⚠名字必须 minWidth:0 + nowrap：flex 项默认 min-width:auto，右边图标一多
         // 它不会变省略号，会【换行堆成两行】（「沈屿／白」）。她报过两次了
-        h("span", { "data-wk": "offname", style: { flex: "1 1 5em", fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : (m.senderName || (spk && spk.name) || "")),
+        h("span", { "data-wk": "offname", style: { flex: "1 1 5em", fontFamily: F_DISPLAY, fontSize: 13.5, color: isUser ? t.accent : t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, isUser ? meChar.name : isNovel ? cast.map(o => o.c.name).join("、") : (m.senderName || (spk && spk.name) || "")),
         (!isUser && spk && offSpeech) ? h(TtsDot, { k: "off" + (m.id || ""), text: offSpeech, spk, tp }) : null,
         timeEl,
         actions),
@@ -15828,6 +15836,16 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
         ? h("div", { style: { maxWidth: 300 } }, h(PhotoCard, { m: m, mine: isUser, max: 300, onOpen: () => setPhotoView(m) }))
         : offBody(t, m.content, isUser ? (t.accent || meChar.color) : ((spk && spk.color) || t.tint))),
       photoView ? h(PhotoSheet, { m: photoView, toast: window.__toast, onClose: () => setPhotoView(null) }) : null,
+      // 整段小说：头像框点开是一排在场的人，点谁就在下面露出谁的心声
+      (isNovel && castOpen && cast.length) ? h("div", { "data-wk": "offcastpick", className: "flex flex-wrap gap-2 mt-3" },
+        cast.map(o => h("button", { key: o.c.id, "data-on": castWho === o.c.id ? "1" : "0", onClick: () => setCastWho(w => w === o.c.id ? null : o.c.id),
+          className: "active:opacity-60 flex items-center gap-1.5", style: { minHeight: 40, padding: "4px 10px 4px 4px", borderRadius: 999, border: "1px solid " + (castWho === o.c.id ? t.ink : t.line) } },
+          h(Avatar, { character: o.c, size: 28, radius: 14 }),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: castWho === o.c.id ? t.ink : t.sub } }, o.c.name)))) : null,
+      castPick ? h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, castPick.c.name + " · 心声 "),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, castPick.x.thought || "这一段没在心里多想什么"),
+        (onOpenState && (!canOpenState || canOpenState(castPick.c))) ? h("button", { onClick: () => onOpenState(castPick.c), className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, textDecoration: "underline", minHeight: 40 } }, "状态卡") : null) : null,
       (!isUser && m.thought) && h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
         h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
@@ -15929,6 +15947,8 @@ function GroupOfflineMode({
   const [sMinW, setSMinW] = useState(os.minWords || 0);
   // 篇幅模式（她 2026-09-26：单聊有的给群聊也加上），存档键和单聊同名 lengthMode
   const [sLengthMode, setSLengthMode] = useState(os.lengthMode === "immersive" ? "immersive" : "natural");
+  // 写法（她 2026-10-08）：一人一拍＝原来那样；整段小说＝一次一整段、全员一起写，各人心声照常挂在这一段上
+  const [sWriteMode, setSWriteMode] = useState(os.writeMode === "novel" ? "novel" : "beats");
   const [sMemN, setSMemN] = useState(os.memN != null ? os.memN : 6);
   const [sOnlineN, setSOnlineN] = useState(os.onlineCtxN != null ? os.onlineCtxN : 10);
   const [sDesc, setSDesc] = useState(!!os.describeMe);
@@ -16024,7 +16044,7 @@ function GroupOfflineMode({
     { key: "scene", char: "场", title: "这一场长什么样", tint: "#687f73",
       state: () => (sBg ? "有背景图" : "没有背景图") + " · " + gTasteBrief },
     { key: "write", char: "写", title: "他们每一轮写多长", tint: "#c0904f",
-      state: () => gLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 下限 " + sMinW + " 字" : "") },
+      state: () => (sWriteMode === "novel" ? "整段小说" : "一人一拍") + " · " + gLenBrief + " · 上限 " + sMax + " tok" + (sMinW ? " · 下限 " + sMinW + " 字" : "") },
     { key: "bring", char: "带", title: "他们带着什么进这一场", tint: "#477f88",
       state: () => "群聊 " + sOnlineN + " 条 · 记忆 " + sMemN + " 条" },
     { key: "style", char: "风", title: "文风 · 写不写我的动作", tint: "#9b7bc4",
@@ -16043,7 +16063,7 @@ function GroupOfflineMode({
     h(Head, { zh: gSetTab ? (gSetPages.find(x => x.key === gSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (gSetTab) { setGSetTab(""); setGSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings && onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, writeMode: sWriteMode, memN: sMemN, onlineCtxN: sOnlineN, bg: sBg, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); }, className: "active:opacity-60" }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !gSetTab && h(SettingCatalog, { pages: gSetPages, onOpen: k => { setGSetTab(k); setGSec(""); },
         note: "保存后下次开场生效" }),
@@ -16057,6 +16077,17 @@ function GroupOfflineMode({
       h("input", { ref: bgFileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1200, 0.82).then(d => { setSBg(d); onSaveSettings && onSaveSettings({ bg: d }); }); e.target.value = ""; } }))),
       gShow("scene", "taste", "本场口味",
     h(OfflineTastePanel, { t, pace: sTastePace, setPace: setSTastePace, focus: sTasteFocus, setFocus: setSTasteFocus, density: sTasteDensity, setDensity: setSTasteDensity })),
+      gShow("write", "mode", "写法",
+    h("div", { className: "pt-5" },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 8, lineHeight: 1.55 } },
+        sWriteMode === "novel"
+          ? "一次写一整段，在场的人一起出场、互相穿插，像读小说。每个人的心声照常有：点这一段左上角的头像，选看谁的。"
+          : "一个人一拍，各自一张卡，心声挂在各自那一拍上。"),
+      h("div", { className: "flex gap-2" },
+        [{ v: "beats", t: "一人一拍" }, { v: "novel", t: "整段小说" }].map(o => h("button", {
+          key: o.v, "data-wk": "goffwritemode", "data-on": sWriteMode === o.v ? "1" : "0", onClick: () => setSWriteMode(o.v),
+          style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, padding: "7px 13px", borderRadius: 999, background: sWriteMode === o.v ? t.ink : "transparent", color: sWriteMode === o.v ? t.bg2 : t.fog, border: "1px solid " + (sWriteMode === o.v ? t.ink : t.line) }
+        }, o.t))))),
       gShow("write", "len", "他们每一轮写多长",
     h(OfflineLengthModeSection, { value: sLengthMode, onChange: setSLengthMode })),
       gShow("write", "max", "单次输出上限",

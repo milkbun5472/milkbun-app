@@ -246,7 +246,7 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onInvite, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
+  function LiveRoom({ ses, chars, profile, busy, onInvite, onDraw, drawing, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
@@ -288,12 +288,22 @@
     })();
     const [capIdx, setCapIdx] = useState(0);
     const capKey = (ses.beat || 0) + "_" + capIdx;
-    useEffect(function () { setCapIdx(0); }, [ses.beat]);
+    // 自己左右划（她 2026-10-08：「能不能我自己左右划，我操作的时候不会被自动滑动 override」）：
+    //   她一碰字幕卡，这一拍就不再自己往下放，直到下一拍来了才恢复
+    const [capHand, setCapHand] = useState(false);
+    const capX = useRef(null);
+    useEffect(function () { setCapIdx(0); setCapHand(false); }, [ses.beat]);
     useEffect(function () {
-      if (capIdx >= caps.length - 1) return;
+      if (capHand || capIdx >= caps.length - 1) return;
       const tm = setTimeout(function () { setCapIdx(i => i + 1); }, 2800);
       return function () { clearTimeout(tm); };
-    }, [capIdx, ses.beat, caps.length]);
+    }, [capIdx, ses.beat, caps.length, capHand]);
+    const capGo = d => { setCapHand(true); setCapIdx(i => Math.max(0, Math.min(Math.max(0, caps.length - 1), i + d))); };
+    // 手机上碰一下会先来 touch、再补一对 mouse：补的那对不算，不然一划跳两句
+    const capTouchAt = useRef(0);
+    const capDown = e => { if (e.touches) capTouchAt.current = Date.now(); else if (Date.now() - capTouchAt.current < 800) return; const p = e.touches ? e.touches[0] : e; capX.current = p.clientX; };
+    const capUp = e => { if (!e.changedTouches && Date.now() - capTouchAt.current < 800) return; if (capX.current == null) return; const p = e.changedTouches ? e.changedTouches[0] : e; const dx = p.clientX - capX.current; capX.current = null;
+      if (Math.abs(dx) > 36) capGo(dx < 0 ? 1 : -1); else capGo(1); };
     const capNow = caps[Math.min(capIdx, Math.max(0, caps.length - 1))] || null;
     const lineEl = (l, i) => {
       if (l.kind === "gift") return h("div", { "data-wk": "livemsg", "data-kind": "gift", key: i, style: { fontFamily: F_BODY, fontSize: 12, color: "#f6c76b", padding: "3px 0" } }, l.name + " 送出了「" + l.gift + "」 ¥" + l.amount);
@@ -325,8 +335,11 @@
     const shadowTx = "0 1px 3px rgba(0,0,0,.7)";
     const moreItem = (label, fn, dis) => h("button", { "data-wk": "livemoreitem", key: label, onClick: () => { setMoreOpen(false); fn(); }, disabled: !!dis, className: "w-full text-left active:opacity-60",
       style: { display: "block", minHeight: 44, padding: "0 14px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 13.5, borderBottom: "1px solid " + LIVE_LINE, opacity: dis ? .5 : 1 } }, label);
+    // 画出来的那张铺在最底下（她 2026-10-08）
+    const bgSrc = ses.img ? (typeof resolveImg === "function" ? resolveImg(ses.img) : ses.img) : "";
     return h("div", { "data-wk": "liveroom", className: "h-full flex flex-col", style: { position: "relative", overflow: "hidden",
         background: "radial-gradient(130% 80% at 30% 18%,rgba(226,85,107,.42),rgba(80,60,120,.38) 50%,rgba(20,16,25,1) 100%)" } },
+      bgSrc ? h("img", { "data-wk": "livebg", src: bgSrc, alt: "", style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover", pointerEvents: "none" } }) : null,
       // 画面上飘过去的路人弹幕
       ses.endTs ? null : h("div", { style: { position: "absolute", left: 0, right: 0, top: "14%", height: "34%", pointerEvents: "none" } }, h(NoiseLayer, { noise: ses.noise, seed: ses.noiseSeed || 0 })),
       // 底下那层压暗：字压在画面上要看得清
@@ -360,12 +373,14 @@
           h("div", { style: { display: "flex", justifyContent: "space-between", fontFamily: F_BODY, fontSize: 10, color: LIVE_INK, marginTop: 2, textShadow: shadowTx } },
             h("span", null, "我方 " + ours), h("span", null, "对面 " + ses.rival.host + " " + theirs))) : null),
       // ── 画面中间：镜头里的样子、此刻在干嘛 ──
-      h("div", { className: "flex-1 min-h-0 flex flex-col justify-end", style: { position: "relative", zIndex: 1, padding: "0 16px", minHeight: 40 } },
-        S(ses.scene) ? h("div", { "data-wk": "livescene", key: "sc_" + S(ses.scene).slice(0, 12), style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, textShadow: shadowTx, animation: "liveFade .5s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, ses.scene) : null,
-        watching && S(ses.act) ? h("div", { "data-wk": "liveact", key: "act_" + (ses.beat || 0), style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(243,238,247,.9)", lineHeight: 1.5, marginTop: 4, textShadow: shadowTx, animation: "liveFade .5s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "（" + ses.act + "）") : null),
+      // 镜头和动作不截行（她 2026-10-08：「看不完全上面的动作」）：中间这块空着的地方都给它，字多了这块自己能往上划
+      h("div", { "data-wk": "livemid", className: "flex-1 min-h-0 flex flex-col overflow-y-auto", style: { position: "relative", zIndex: 1, padding: "0 16px", minHeight: 40 } },
+        h("div", { style: { marginTop: "auto" } },
+        S(ses.scene) ? h("div", { "data-wk": "livescene", key: "sc_" + S(ses.scene).slice(0, 12), style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM, lineHeight: 1.5, textShadow: shadowTx, animation: "liveFade .5s ease" } }, ses.scene) : null,
+        watching && S(ses.act) ? h("div", { "data-wk": "liveact", key: "act_" + (ses.beat || 0), style: { fontFamily: F_BODY, fontSize: 12.5, color: "rgba(243,238,247,.9)", lineHeight: 1.5, marginTop: 4, textShadow: shadowTx, animation: "liveFade .5s ease" } }, "（" + ses.act + "）") : null)),
       // ── 字幕卡：这一拍主播说的几句，一句一句放；他在回谁，那条弹幕小字带在上面 ──
-      capNow ? h("div", { "data-wk": "livecapcard", onClick: () => setCapIdx(i => Math.min(i + 1, Math.max(0, caps.length - 1))), className: "shrink-0",
-        style: { position: "relative", zIndex: 1, margin: "8px 12px 0", padding: "9px 12px 10px", borderRadius: 14, background: "rgba(20,16,25,.55)", border: "1px solid rgba(255,255,255,.1)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", cursor: caps.length > 1 ? "pointer" : "default" } },
+      capNow ? h("div", { "data-wk": "livecapcard", onTouchStart: capDown, onTouchEnd: capUp, onMouseDown: capDown, onMouseUp: capUp, className: "shrink-0",
+        style: { position: "relative", zIndex: 1, margin: "8px 12px 0", padding: "9px 12px 10px", borderRadius: 14, background: "rgba(20,16,25,.55)", border: "1px solid rgba(255,255,255,.1)", backdropFilter: "blur(6px)", WebkitBackdropFilter: "blur(6px)", cursor: caps.length > 1 ? "pointer" : "default", touchAction: "pan-y", userSelect: "none", WebkitUserSelect: "none" } },
         capNow.reply ? h("div", { key: "rp_" + capKey, style: { fontFamily: F_BODY, fontSize: 11, color: "#d6c7ff", marginBottom: 3, lineHeight: 1.5, animation: "liveFade .4s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "回 " + capNow.reply.name + "：" + capNow.reply.text)
           : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM, marginBottom: 2 } }, stageTitle),
         h("div", { "data-wk": "livehostline", key: "cap_" + capKey, style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.6, color: LIVE_INK, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", animation: "liveFade .4s ease" } },
@@ -402,15 +417,15 @@
         moreOpen ? h("div", { "data-wk": "livemoremenu", style: { marginBottom: 8, borderRadius: 14, overflow: "hidden", background: "rgba(20,16,25,.9)", border: "1px solid " + LIVE_LINE } },
           !watching ? null : ses.linked ? h("div", { "data-wk": "livelinkbtn", "data-on": "1", key: "lk" }, moreItem("下麦", onUnlink)) : h("div", { "data-wk": "livelinkbtn", "data-on": "0", key: "lk" }, moreItem(ses.linkAsk ? "等 TA 接连麦…" : "申请连麦", onLink, busy || ses.linkAsk)),
           watching && onInvite && !ses.buddy && live ? h("div", { "data-wk": "liveinvitebtn", key: "iv" }, moreItem("叫 TA 一起看", () => setInviteOpen(true))) : null,
-          ses.kind === "sing" && onSong ? h("div", { "data-wk": "livesongbtn", key: "sg" }, moreItem("点歌", () => setSongOpen(true))) : null) : null,
+          ses.kind === "sing" && onSong ? h("div", { "data-wk": "livesongbtn", key: "sg" }, moreItem("点歌", () => setSongOpen(true))) : null,
+          live ? h("div", { "data-wk": "liveautobtn", "data-on": auto ? "1" : "0", key: "au" }, moreItem("自动往下播：" + (auto ? "开着（再点关掉）" : "关着"), () => setAuto(a => !a))) : null,
+          live && auto ? h("div", { "data-wk": "liveautosec", key: "as" }, moreItem("隔多久走一拍：" + autoSec + " 秒", () => setSlider(true))) : null,
+          onDraw ? h("div", { "data-wk": "livedrawbtn", key: "dr" }, moreItem(drawing ? "画着…" : ses.img ? "照现在的镜头重画" : "画出来", onDraw, drawing)) : null) : null,
         auto && slider ? h("div", { "data-wk": "liveautoslider", className: "flex items-center", style: { gap: 10, marginBottom: 6, padding: "0 4px" } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, flexShrink: 0 } }, "隔"),
           h("input", { type: "range", min: 10, max: 120, step: 5, value: autoSec, onChange: e => onAutoSec && onAutoSec(Number(e.target.value)), onPointerUp: () => setTimeout(() => setSlider(false), 600), className: "live-range", style: { flex: 1 } }),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_INK, width: 44, textAlign: "right", flexShrink: 0 } }, autoSec + " 秒")) : null,
-        // 自动往下播留在外面（她 2026-10-08：「自动往下播先留在外面」）
-        (giftOpen || songOpen) ? null : h("div", { className: "flex items-center", style: { gap: 6, marginBottom: 8 } },
-          h("button", { "data-wk": "liveautobtn", "data-on": auto ? "1" : "0", onClick: () => setAuto(a => !a), className: "active:opacity-60", style: Object.assign({}, chip, { border: "1px solid " + (auto ? LIVE_RED : "rgba(255,255,255,.14)"), background: auto ? "rgba(226,85,107,.3)" : chip.background, color: auto ? LIVE_INK : LIVE_DIM }) }, (auto ? "● " : "○ ") + "自动往下播"),
-          auto ? h("button", { "data-wk": "liveautosec", onClick: () => setSlider(v => !v), "aria-label": "调隔多久走一拍", className: "active:opacity-60", style: { minHeight: 30, padding: "0 6px", color: LIVE_DIM, fontFamily: F_BODY, fontSize: 11.5, textDecoration: "underline dotted" } }, autoSec + " 秒") : null),
+        // 自动往下播收进 ⋯（她 2026-10-08：「放外面有点丑，收起来」）；开着时 ⋯ 上亮一个小红点
         h("div", { className: "flex items-end", style: { gap: 8 } },
           h("textarea", { "data-wk": "liveinput", value: text, onChange: e => setText(e.target.value), rows: 1,
             placeholder: watching ? (ses.linked ? "连麦中，直接说" : ses.as === "mask" ? "用「" + ses.maskName + "」发条弹幕" : "说点什么…") : "对着镜头说点什么，或写你在做什么",
@@ -418,8 +433,9 @@
             style: { minHeight: 42, maxHeight: 104, borderRadius: 21, border: "1px solid rgba(255,255,255,.14)", background: "rgba(0,0,0,.4)", color: LIVE_INK, padding: "11px 15px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55 } }),
           watching ? h("button", { "data-wk": "livegiftbtn", onClick: () => { setGiftOpen(v => !v); setMoreOpen(false); setSongOpen(false); }, "aria-label": "送礼物", className: "active:opacity-60 shrink-0 flex items-center justify-center",
             style: { width: 42, height: 42, borderRadius: 99, background: giftOpen ? "rgba(226,85,107,.35)" : "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.14)" } }, giftIcon("礼物", "#f6c76b")) : null,
-          watching ? h("button", { "data-wk": "livemorebtn", "data-on": moreOpen ? "1" : "0", onClick: () => { setMoreOpen(v => !v); setGiftOpen(false); setSongOpen(false); setInviteOpen(false); }, "aria-label": "更多", className: "active:opacity-60 shrink-0",
-            style: { width: 42, height: 42, borderRadius: 99, background: moreOpen ? "rgba(255,255,255,.18)" : "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.14)", color: LIVE_INK, fontSize: 18, letterSpacing: 1 } }, "⋯") : null,
+          h("button", { "data-wk": "livemorebtn", "data-on": moreOpen ? "1" : "0", onClick: () => { setMoreOpen(v => !v); setGiftOpen(false); setSongOpen(false); setInviteOpen(false); }, "aria-label": "更多", className: "active:opacity-60 shrink-0",
+            style: { position: "relative", width: 42, height: 42, borderRadius: 99, background: moreOpen ? "rgba(255,255,255,.18)" : "rgba(0,0,0,.4)", border: "1px solid rgba(255,255,255,.14)", color: LIVE_INK, fontSize: 18, letterSpacing: 1 } }, "⋯",
+            auto ? h("span", { "data-wk": "liveautodot", style: { position: "absolute", top: 4, right: 4, width: 7, height: 7, borderRadius: 99, background: LIVE_RED } }) : null),
           h("button", { "data-wk": "livesend", onClick: send, disabled: !!busy, className: "active:opacity-70 shrink-0",
             style: { minWidth: 52, height: 42, padding: "0 10px", borderRadius: 21, background: busy ? "rgba(255,255,255,.08)" : text.trim() ? LIVE_RED : "rgba(255,255,255,.16)", color: busy ? LIVE_DIM : "#fff", fontFamily: F_BODY, fontSize: 13, whiteSpace: "nowrap" } }, busy ? "…" : text.trim() ? "发送" : watching ? "接着看" : "接着播"))));
   }
@@ -724,6 +740,16 @@
     const meName = () => { const s = get(curId) || {}; return s.as === "mask" ? s.maskName : uName; };
     const unlink = () => addEvent(x => ({ ...x, linked: false, linkAsk: false }), meName() + " 下麦了", false);
     const ban = n => addEvent(x => ({ ...x, banned: arr(x.banned).concat([n]) }), n + " 被房管禁言了", false);
+    // 画出来：照镜头里那一行（加上此刻在干嘛）画一张，存在这一场上；场景变了不自己换，想换再点
+    const [drawingId, setDrawingId] = useState("");
+    const drawStage = async () => {
+      const s = get(curId); if (!s || drawingId || !props.draw) return;
+      const desc = "直播镜头里的画面：" + (S(s.scene) || "主播坐在镜头前") + (S(s.act) ? "；" + S(s.act) : "");
+      const id = s.id; setDrawingId(id);
+      try { const ref = await props.draw(s.mode === "watch" && !s.stranger ? s.charId : null, desc); if (ref) patch(id, x => ({ ...x, img: ref })); }
+      catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
+      finally { setDrawingId(""); }
+    };
     const invite = c => { const s = get(curId); if (!s || s.buddy || !c) return; addEvent(x => ({ ...x, buddy: { charId: c.id, name: c.name, brief: "【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 2000) : String(c.persona || "").slice(0, 2000)) } }), c.name + " 跟着 " + meName() + " 进了直播间", true); };
     const pickSong = t2 => addEvent(x => ({ ...x, song: t2 }), (get(curId).as === "mask" ? get(curId).maskName : uName) + " 点了一首《" + t2 + "》", true);
     const buy = item => {
@@ -865,7 +891,7 @@
         onAutoSec: n => { if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { autoSec: n })); },
         onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
         onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
-        onInvite: cur.stranger ? invite : null, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
+        onInvite: cur.stranger ? invite : null, onDraw: props.draw ? drawStage : null, drawing: drawingId === cur.id, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
         onShare: props.onShare ? () => setView("share") : null });
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
     if (view === "share" && cur)
@@ -892,7 +918,9 @@
     const cfg = props.liveCfg || {};
     const now = Date.now();
     const followedSt = arr(stDb.list).filter(x => x.followed && !x.promoted);
-    const slots = cfg.selfLive === false ? [] : slotsOf(characters.concat(followedSt), new Date(), c => followedSt.some(x => x.id === c.id) ? null : (props.liveSched ? props.liveSched(c) : null));
+    // 谁会自己开播（她 2026-10-08：「搞个开关选择谁会自动开播，没开的本地就不看」）：点掉的人连时间表都不算
+    const selfOn = characters.filter(c => !((cfg.selfOff || {})[c.id]));
+    const slots = cfg.selfLive === false ? [] : slotsOf(selfOn.concat(followedSt), new Date(), c => followedSt.some(x => x.id === c.id) ? null : (props.liveSched ? props.liveSched(c) : null));
     const whoOf = id => characters.find(cc => cc.id === id) || followedSt.find(x => x.id === id) || null;
     const stFace = (st, size) => h("div", { style: { width: size, height: size, borderRadius: 999, flexShrink: 0, background: "linear-gradient(135deg," + LIVE_RED + ",#6a4fb0)", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: F_DISPLAY, fontSize: size * 0.42 } }, S(st.name).slice(0, 1));
     const onAir = slots.filter(x => x.start <= now && now < x.end), later = slots.filter(x => x.start > now);
@@ -905,8 +933,8 @@
       }));
       return Object.keys(n).filter(k => n[k] > 0).sort((a, b) => n[b] - n[a]).slice(0, 5).map(k => ({ id: k, total: n[k], mine: mine[k] || 0 }));
     })();
-    // 错过的：今天已经播完的 + 昨天那场（昨天按日子算），她没进去过、也还没剪过高光的
-    const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(characters.concat(followedSt), new Date(now - 86400000), () => null))
+    // 错过的：今天已经播完的 + 昨天那场（昨天也先看昨天那张日程，没排日程才按日子算），她没进去过、也还没剪过高光的
+    const missed = cfg.selfLive === false ? [] : slots.concat(slotsOf(selfOn.concat(followedSt), new Date(now - 86400000), c => followedSt.some(x => x.id === c.id) ? null : (props.liveSched ? props.liveSched(c, new Date(now - 86400000)) : null)))
       .filter(x => x.end <= now && now - x.end < 36 * 3600000 && whoOf(x.charId) && !list.some(s2 => s2.slotId === x.id));
     const hm = ts => { const d = new Date(ts); return d.getHours() + ":" + String(d.getMinutes()).padStart(2, "0"); };
     // 点进 TA 正在播的那一场：中途进场，前面播了多久写进去；同一场进过就接着那一场
@@ -1022,6 +1050,11 @@
           })()) : null,
         props.onLiveCfg ? h("button", { "data-wk": "liveselfcfg", onClick: () => props.onLiveCfg(Object.assign({}, cfg, { selfLive: cfg.selfLive === false })), className: "w-full text-left active:opacity-70", style: { marginTop: 16, minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } },
           (cfg.selfLive === false ? "○ " : "● ") + "TA 们会自己开播（不进去看就不花调用）") : null,
+        props.onLiveCfg && cfg.selfLive !== false && characters.length ? h("div", { "data-wk": "liveselfpick", className: "flex flex-wrap", style: { gap: 8, marginTop: 4 } },
+          characters.map(c => { const on = !((cfg.selfOff || {})[c.id]);
+            return h("button", { key: c.id, "data-wk": "liveselfchip", "data-on": on ? "1" : "0", onClick: () => { const off = Object.assign({}, cfg.selfOff); if (on) off[c.id] = true; else delete off[c.id]; props.onLiveCfg(Object.assign({}, cfg, { selfOff: off })); },
+              className: "active:opacity-70 flex items-center", style: { gap: 6, minHeight: 34, padding: "0 10px 0 4px", borderRadius: 10, border: "1px solid " + (on ? LIVE_RED : t.line), background: on ? "rgba(226,85,107,.1)" : "transparent", opacity: on ? 1 : .6 } },
+              h(Avatar, { character: c, size: 26 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.ink : t.fog } }, c.remark || c.name)); })) : null,
         missed.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, margin: "22px 0 8px" } }, "错过的") : null,
         missed.map(x => h("div", { "data-wk": "livemissed", key: x.id, className: "flex items-center", style: { gap: 10, padding: "10px 0", borderBottom: "1px solid " + t.line } },
           h("div", { className: "flex-1 min-w-0" },

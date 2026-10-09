@@ -27,7 +27,7 @@ test("只有那四样：好感、印象卡、年龄生日、行程一律不给�
 test("不看记忆互通那个开关：闭群里的好兄弟也有情绪", () => {
   // 写：群线上 / 群线下 / 群通话三处都不被闭群那道闸挡住
   assert.match(app, /if \(gs\.memoryInterop \|\| _npcSpk\) \{/, "群线上");
-  assert.match(app, /if \(\(!gOffSealed \|\| _bNpc\) && b\.senderId && b\.mood/, "群线下·心情");
+  assert.match(app, /if \(\(!gOffSealed \|\| _bNpc\) && a\.senderId && a\.mood/, "群线下·心情");
   assert.match(app, /if \(!gOffSealed \|\| _bNpc\) writeGroupLiveState/, "群线下·状态卡");
   assert.match(app, /callCanWriteMain\(cur, "state"\) \|\| !!isNpc/, "群通话");
   // 要：闭群里有配角时，输出契约里得真的问他要这四样
