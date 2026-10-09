@@ -27,3 +27,4 @@ assert.ok(!/judge\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 500\
 assert.match(d, /personaFor\(String\(o\.judge\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
 assert.match(d, /personaFor\(String\(J\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
 console.log("judge persona ok");
+assert.match(d, /实录里有你前几轮的判语，那是说过的话/);
