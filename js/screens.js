@@ -12622,7 +12622,7 @@ function MemoryLib({
 // 召回设置：自动抽取开关 + top-k + 抽取间隔 + 短期窗天数（消死区）
 function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onDowngradeRoutineOpen, routineOpenCount, openTotal }) {
   const t = useTheme();
-  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 }, cfg || {}));
+  const [c, setC] = useState(Object.assign({ topK: 5, autoExtract: false, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 }, cfg || {}));
   const [confirmPurge, setConfirmPurge] = useState(false);
   const [confirmRoutine, setConfirmRoutine] = useState(false);
   const set = patch => setC(p => Object.assign({}, p, patch));
@@ -12641,7 +12641,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
   return h(PageSheet, { onClose: onClose, tall: true },
     h(Eyebrow, { style: { marginBottom: 2 } }, "召回设置"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "每轮往上下文塞几条 + 自动抽取的节拍 — token 封顶的旋钮"),
-    toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）", c.autoExtract !== false, () => set({ autoExtract: c.autoExtract === false })),
+    toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）；默认关，开了每轮多花一次后台调用", !!c.autoExtract, () => set({ autoExtract: !c.autoExtract })),
     slider("每轮召回条数 (top-k)", c.topK || 5, 2, 12, 1, " 条", v => set({ topK: v }), "不管库里存多少，每轮只取这么多 → token 恒定。"),
     slider("自动抽取间隔", c.extractInterval || 1, 1, 5, 1, " 轮", v => set({ extractInterval: v }), (c.extractInterval || 1) > 1 ? "每 " + c.extractInterval + " 轮抽一次，省抽取 API。" : "每轮都抽，记得最全、最费 API。日常设 2~3 轮够用。"),
     slider("短期窗覆盖天数", c.recentDays || 3, 1, 7, 1, " 天", v => set({ recentDays: v }), "最近这些天说的话一定带进上下文（消死区，不忘最近几天）。"),

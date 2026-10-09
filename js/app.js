@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.188";
+const APP_VERSION = "v75.190";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -565,7 +565,8 @@ function App() {
   // 线上那半全是拉条，线下那半一根都没有。跨情境那两根同样是「防挤占」的闸，照样给了她，
   // 所以这两根也该给（施工规则/one-public-mechanism.md 的形状：同一层规矩别两处两副面孔）。
   // ⚠️只放这两根：70 字摘录和「线下最多占三成」留在代码里——那是【怎么压】的手艺，不是旋钮。
-  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: true, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 };
+  // ⚠️autoExtract 默认关（她 2026-10-09：「网页设置本身关了，这样新来的不会自动开着」）——每轮后台多花一次调用；已经存过设置的人照旧按自己存的。
+  const MEM_CFG_DEFAULT = { topK: 5, autoExtract: false, extractInterval: 1, recentDays: 3, recentBudget: 8000, crossHours: 72, crossBudget: 800, offBeats: 40, offVerbatim: 3 };
   const [memCfg, setMemCfg] = useState(MEM_CFG_DEFAULT);
   const memCfgRef = useRef(memCfg); memCfgRef.current = memCfg;
   const memExtractCtrRef = useRef({}); // 每角色自动抽取轮次计数
@@ -1778,7 +1779,10 @@ function App() {
     setDesires(loadJSON("x_desires", {}));
     setMemories(loadJSON("x_memories", {}));
     setMemLib(loadJSON("x_memLib", []));
-    setMemCfg(Object.assign({}, MEM_CFG_DEFAULT, loadJSON("x_memCfg", {})));
+    // 老用户（已经有角色、但从没存过召回设置）原来一直是自动抽取开着的——默认改成关之后别悄悄替她们关掉，钉住原样。
+    { let mc = loadJSON("x_memCfg", null);
+      if (!mc && (loadJSON("x_characters", []) || []).length) { mc = { autoExtract: true }; saveJSON("x_memCfg", mc); }
+      setMemCfg(Object.assign({}, MEM_CFG_DEFAULT, mc || {})); }
     setChatSettings(loadJSON("x_chatSettings", {}));
     setChatArch(loadJSON("x_chatArch", {}));
     // 线下末条时间种子：扫 x_offline:*/x_goffline:* 各取所有场次里最新一条 ts，供聊天列表重开后仍按线下时间排
