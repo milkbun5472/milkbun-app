@@ -1412,15 +1412,21 @@ function directedRelationLines(char, rels, chars, profile) {
   return lines.length ? lines.join("\n") : "（暂无已设定的关系）";
 }
 // 叙事人称/代入方式指令（单聊/群聊/线下共用）：selfP/userP = "first|second|third"，describeMe = 是否让角色描写并推动用户的动作
-function narrativeDirective(s) {
+// 人称那两句只有这一份：叙事准则里一份、线下第一拍的尾巴里再说一遍，都从这儿取
+function narrPersonParts(s) {
   s = s || {};
-  // describeMe=false 也是一条明确指令，不能被当成「没设置」吞掉；否则界面关着，模型仍可能顺手代写用户动作。
-  if (!s.selfP && !s.userP && !Object.prototype.hasOwnProperty.call(s, "describeMe")) return "";
   const selfMap = { first: "用第一人称『我』称呼你自己", second: "用第二人称『你』称呼你自己", third: "用第三人称称呼你自己（按你的性别用『她』或『他』，或直接用你的名字）" };
   const userMap = { first: "用第一人称『我』称呼对方", second: "用第二人称『你』称呼对方", third: "用第三人称称呼对方（按对方性别用『她』或『他』，或直接用对方名字）" };
   const parts = [];
   if (s.selfP) parts.push(selfMap[s.selfP] || selfMap.first);
   if (s.userP) parts.push(userMap[s.userP] || userMap.second);
+  return parts;
+}
+function narrativeDirective(s) {
+  s = s || {};
+  // describeMe=false 也是一条明确指令，不能被当成「没设置」吞掉；否则界面关着，模型仍可能顺手代写用户动作。
+  if (!s.selfP && !s.userP && !Object.prototype.hasOwnProperty.call(s, "describeMe")) return "";
+  const parts = narrPersonParts(s);
   // ⚠️她 2026-09-22 转群里读者，并当场把要的形状说死了：
   //   「就是希望角色推进剧情而不是让她做决定，角色可以推进重大事件，
   //     但是最后可以留主动权给她（就算开了角色替我行动也一样）」。
@@ -7659,7 +7665,14 @@ async function generateOffline(p, ctx, session) {
   //   导演便签插在它前面——比原来那个「system 中段」近了几万字，已经够压住了，
   //   不必为了抢最后一格把文风那条挤走（那是两件事，不是一件事的两种写法）。
   const intimatePaceTail = !isDigital && !!registerTransition.active ? offlineIntimatePaceLine(false) : "";
-  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + directorTail + styleTail;
+  // 第一拍的人称（群友 2026-10-09：「每次进线下的第一段都是第一人称，设置里明明是角色第三」）：
+  //   人称只写在 system 中段，而第一拍离生成最近的是线上聊天——那边的动作行是「我半靠在……」，第一拍就照抄了；
+  //   从第二拍起前面已经有线下正文作样子，自己就对了。所以只在这一场还没有TA的正文时，在尾巴上再说一遍。
+  const _personParts = narrPersonParts(session.narr);
+  const personTail = !isDigital && _personParts.length && !(session.msgs || []).some(m => m && m.role === "char" && !isOocMsg(m))
+    ? "\n\n〔这一场的人称〕" + _personParts.join("；") + "。从这一段的第一句就照这个写——线上聊天里那些用「我」写的动作是聊天的写法，不是这一场的。"
+    : "";
+  const finalNudge = tailNudge + (isDigital ? "" : userActionTail) + characterSupplyTail + intimatePaceTail + flashbackTail + personTail + directorTail + styleTail;
   if (hist.length && hist[hist.length - 1].role === "user") hist[hist.length - 1] = { role: "user", content: hist[hist.length - 1].content + finalNudge };
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
