@@ -1629,6 +1629,33 @@ function requestAppPrompt(title, body, defaultValue, onOk, okLabel, opts) {
     onOk: onOk, okLabel: okLabel || "好", placeholder: o.placeholder || "", multiline: !!o.multiline, maxLength: o.maxLength || 0 });
   return true;
 }
+// 「重写」的点和长按（群友 2026-10-09：「许愿一个重回要求」；她定的：点一下跟原来一样，长按才给方向）。
+//   单聊/群聊长按菜单里那一行、线下卡片右上那颗 ↻ 都走这一个，三处一个说法。
+//   go：真去重写的那一下。方向放在 engine 的 setRerollDir 里，这一次重写的提示词尾巴来取。
+function rerollPress(go) {
+  let timer = null, held = false;
+  const hold = () => {
+    held = true;
+    requestAppPrompt("这次往哪儿写", "写一句方向，只管这一次重写；空着就跟平常一样重写。", "", v => {
+      if (typeof setRerollDir === "function") setRerollDir(v);
+      go();
+    }, "照这个重写", { placeholder: "比如：别安慰我，直接怼回来 / 短一点 / 他其实很生气" });
+  };
+  const tap = () => {
+    if (typeof setRerollDir === "function") setRerollDir("");
+    // 头一回点重写时说一声长按能给方向，只说这一次
+    try { if (!loadJSON("x_tipRerollDir", false)) { saveJSON("x_tipRerollDir", true); if (window.__toast) window.__toast("长按「重写」可以给这一次一个方向"); } } catch (e) {}
+    go();
+  };
+  return {
+    onPointerDown: () => { held = false; clearTimeout(timer); timer = setTimeout(hold, 520); },
+    onPointerUp: () => clearTimeout(timer),
+    onPointerLeave: () => clearTimeout(timer),
+    onPointerCancel: () => clearTimeout(timer),
+    onContextMenu: e => { e.preventDefault(); },
+    onClick: e => { if (held) { held = false; return; } tap(); }
+  };
+}
 // 风格统一的输入弹窗。⚠️空字符串是【合法的取消】：点取消不回调；点确定但没填，
 //   由调用点自己决定要不要拦——这一层不替它做主。
 const APP_OVERLAY_LAYERS = Object.freeze({ dialog: 1200, feedback: 1210, banner: 1220 });
@@ -14487,13 +14514,13 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
     const d = MSG_MENU[k];
     if (!d) return null;
     const kill = k === "recall" || k === "del";
-    return h("button", {
+    return h("button", Object.assign({
       key: k,
       onClick: () => onAction(k),
       className: "w-full flex items-center active:bg-black/5",
       style: { gap: 12, padding: "12px 18px", background: "transparent", border: "none",
-        borderTop: ri ? "1px solid " + t.line : "none", textAlign: "left" }
-    },
+        borderTop: ri ? "1px solid " + t.line : "none", textAlign: "left", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }
+    }, k === "reroll" ? Object.assign({ "data-wk": "rerollpress" }, rerollPress(() => onAction(k))) : {}),
       h(CGlyph, { k: d[1], size: 17, color: kill ? t.accent : t.fog }),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, letterSpacing: 1, color: kill ? t.accent : t.ink } }, d[0]));
   };
@@ -15837,7 +15864,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
     onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
     (!isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
-    (!isUser && !isNarr && onReroll) ? iconBtn(IRefresh, () => onReroll(m.id), "重写", sending) : null,
+    (!isUser && !isNarr && onReroll) ? h("button", Object.assign({ "data-wk": "rerollpress", disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重写（长按给方向）", style: { WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, rerollPress(() => onReroll(m.id))), h(IRefresh, { size: 15, color: t.fog })) : null,
     onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null);
   const editBox = h("div", { className: "mt-1" },
