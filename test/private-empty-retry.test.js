@@ -4,8 +4,10 @@ const fs = require("node:fs");
 
 const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8");
 
-test("私聊空正文不再静默补打第二枪，不吞隐藏思考", () => {
-  assert.doesNotMatch(app, /【空正文重试】/, "失败了不许再试第二次（她 2026-10-09）");
+test("私聊只为空正文静默补试一次，不吞隐藏思考", () => {
+  assert.match(app, /if \(!\/模型返回为空\/\.test/);
+  assert.match(app, /【空正文重试】/);
+  assert.match(app, /不要输出分析过程/);
   assert.doesNotMatch(app, /reasoning_content/);
 });
 

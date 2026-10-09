@@ -21,7 +21,7 @@ test("记录存自己的 IDB 小库，不进存档不上云", () => {
 
 test("聊天、线下、群聊、群线下、通话都写清是谁在干嘛", () => {
   assert.match(app, /use: "chat", logWho: \(char && char\.name\) \|\| "",/);
-  assert.doesNotMatch(app, /use: "chat", logRetry: true,/, "聊天失败不许再补打第二枪");
+  assert.match(app, /use: "chat", logRetry: true,/);
   assert.match(app, /use: "chat", logLabel: "群聊", logWho: \(group && group\.name\) \|\| "",/);
   assert.match(app, /use: "call", logWho: char\.name \|\| "",/);
   assert.match(eng, /use: "offline", logLabel: "群线下"/);
@@ -48,7 +48,7 @@ test("认不出用途时按调用栈认：先认函数名，再认文件；Chrom
 
 test("runProbe 进门就把是谁叫的记下来，往下传给 callAI", () => {
   assert.match(eng, /async function runProbe\(p, ctx, probe\) \{\n  let _from = ""; try \{ _from = callerLabelOf\(new Error\(\)\.stack\); \}/);
-  assert.equal((eng.match(/tag: _tag, logFrom: probe\.logFrom/g) || []).length, 2);
+  assert.equal((eng.match(/tag: _tag, logFrom: probe\.logFrom/g) || []).length, 3);
 });
 
 test("tag 当用途：中文照用，英文翻成中文，认不出的不摆英文", () => {

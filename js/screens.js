@@ -8557,6 +8557,18 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
 }
 // 模型调用记录（她 2026-10-09）：读 engine.js 的 CallLog——那是所有模型调用的唯一出口记下来的。
 //   今日请求＝今天所有调用；回合＝她按一下换来的那一枪（聊天／线下／通话，不含兜底重发）。
+// 失败自动重试的总开关（她 2026-10-09）：默认开。读写的那一把键只认 engine.js 的 failRetryOn。
+function FailRetryCard() {
+  const t = useTheme();
+  const [on, setOn] = useState(() => loadJSON("x_failRetry", true) !== false);
+  return h("div", { "data-wk": "failretry", className: "flex items-center justify-between", style: { gap: 12, paddingBottom: 14, marginBottom: 14, borderBottom: "1px solid " + t.line } },
+    h("div", { style: { minWidth: 0 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "失败了自动再试一次"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginTop: 2 } },
+        on ? "模型回来的格式坏了、空着、没表态，自动再要一次——省得你再点，但这一次会多扣一次。"
+          : "失败一次算一次，不多扣钱；想要就自己再点。网络没连上那种不扣钱的照旧会自动重发。")),
+    h(Toggle, { on, onChange: v => { setOn(v); saveJSON("x_failRetry", v); } }));
+}
 function CallLogCard() {
   const t = useTheme();
   const [rows, setRows] = useState(() => (window.CallLog ? window.CallLog.list() : []));
@@ -9585,7 +9597,7 @@ function Config(props) {
       page === "apiEmbed" && section(h(EmbedApiConfig, { toast: props.toast })),
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
-      page === "apiCache" && section(h(React.Fragment, null, h(CallLogCard, null), h(CacheStatCard, null))),
+      page === "apiCache" && section(h(React.Fragment, null, h(FailRetryCard, null), h(CallLogCard, null), h(CacheStatCard, null))),
       page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, onSetGeoPoint: props.onSetGeoPoint, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),

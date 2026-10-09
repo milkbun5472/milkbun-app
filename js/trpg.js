@@ -1596,8 +1596,12 @@
             : (prior ? "\n\n【已经开过的团(务必避开,换皮重来也算重复)】" + prior : ""));
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 });
         let p = parseObj(raw);
-        // 没按 JSON 就直接报,不再花第二枪去整理(她 2026-10-09:失败了不许再试第二次)
-        if (!p) throw new Error("模型没按 JSON 输出" + rawHint(raw));
+        if (!p && (typeof failRetryOn !== "function" || failRetryOn())) {
+          // 内容多半已经写出来了,只是没按 JSON——花一次小调用原样归类,不整局重烧
+          const sys2 = "下面是一段已写好的内容,但没按要求输出 JSON。把它【原样整理】成这个形状:\n" + SHAPE_A + "\n【铁律】只搬运归类,一个字不改写;原文没有的字段留空。只输出 JSON,不要代码块。";
+          try { p = parseObj(await callAI(props.active, sys2, [{ role: "user", content: String(raw || "").slice(0, 10000) }], { maxTokens: TOK_MAX, timeout: 150000 })); } catch (e) { p = null; }
+        }
+        if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
         const stages = (Array.isArray(p.stages) ? p.stages : []).map(s => typeof s === "string" ? { goal: s, hint: "" } : s && s.goal ? { goal: String(s.goal), hint: String(s.hint || ""), place: String(s.place || "").trim() } : null).filter(Boolean).slice(0, 6);
         if (!String(p.world || "").trim() || !String(p.opening || "").trim() || stages.length < 2) throw new Error("设定缺了关键部分(世界/开场/章节),再试一次");
         // 地图骨架:坏了/缺了不整局报废——这场团就退化成没有地图的纯叙事团,别的照玩

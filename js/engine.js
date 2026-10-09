@@ -7776,7 +7776,7 @@ async function generateOffline(p, ctx, session) {
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚展示了真实照片，图像已附在本轮视觉输入中；请直接看图并把反应自然写进当前场景。】", imageDataUrls: session.imageDataUrls.slice(-2) };
   }
   let raw;
-  const usedCot = !!cotT;
+  let usedCot = !!cotT;
   // 单次自修会同时输出 draftScene 与 scene，所需容量约为普通生成的两倍；
   // 不能让 4000 tok 默认上限先把“最低 1500 字”截断。
   // ⭐max_tokens 是【天花板】不是预付款：给大了不多花一分钱，给小了才要命——
@@ -7839,9 +7839,14 @@ async function generateOffline(p, ctx, session) {
     });
   } catch (e) {
     if (!cotT || !isOfflineEmptyStop(e)) throw e;
-    // 这条线以后不再挂 cot（记住了），但这一次不当场补打——失败就是失败（她 2026-10-09）
     rememberOfflineSingleNoCotV2Model(cotModelKey);
-    throw e;
+    if (!failRetryOn()) throw e;
+    const plainSystem = system.replace(singleCotBlock, "");
+    const plainHist = hist.map((m, i) => i === hist.length - 1
+      ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
+      : m);
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logWho: (ctx.char && ctx.char.name) || "", maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
+    usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
   // 解析失败兜底：绝不把整坨 ```json 灌进气泡——先剥栅栏，再尽量抠出 scene 字段值，实在不行才用剥净的文本
@@ -8455,7 +8460,7 @@ async function generateOfflineGroup(p, ctx, session) {
     if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-2) };
   }
   let raw;
-  const usedCot = !!cotT;
+  let usedCot = !!cotT;
   // 思考链（v56.75）：和单人线下同一套 meta 出参；整批只想一次，挂在第一个 beat 上
   const _reasonMeta = {};
   const _wantReason = !!ctx.wantReasoning;
@@ -8466,7 +8471,13 @@ async function generateOfflineGroup(p, ctx, session) {
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
     if (!cotT || !isOfflineEmptyStop(e)) throw e;
     rememberOfflineNoCotModel(cotModelKey);
-    throw e;
+    if (!failRetryOn()) throw e;
+    const plainSystem = system.replace(cotSystemBlock(cotT), "");
+    const plainHist = hist.map((m, i) => i === hist.length - 1
+      ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
+      : m);
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
   let parsed = extractJSON(sp.clean);
@@ -8492,7 +8503,14 @@ async function generateOfflineGroup(p, ctx, session) {
     return nOut;
   }
   let beats = offlineGroupBeatList(parsed);
-  // 没拆出卡就在本地按段落捡，不再花一枪请「格式修复器」重排（她 2026-10-09：失败了不许再试第二次）
+  if ((!beats || !beats.length) && failRetryOn()) {
+    const repairSystem = "你是格式修复器。把输入原文原字重排成合法 JSON，不续写、不润色、不删内容。只输出 {\"beats\":[{\"name\":\"角色名或旁白\",\"scene\":\"对应原文段落\"}]}。角色名只能逐字选自：" + members.map(c => memberLabel(members, c)).join("、") + "；纯环境才用旁白。按原文中行动/说话的归属拆成 2~5 张卡，禁止整篇塞进一张旁白卡。";
+    try {
+      const repairedRaw = await callAI(p, repairSystem, [{ role: "user", content: String(sp.clean || raw || "").slice(0, 12000) }], { maxTokens: Math.min(session.maxTokens || 2200, 2200), timeout: 180000 });
+      parsed = extractJSON(repairedRaw);
+      beats = offlineGroupBeatList(parsed);
+    } catch (e) {}
+  }
   if (!beats || !beats.length) beats = salvageOfflineGroupProse(sp.clean || raw, members);
   const out = beats.map(b => {
     const nm = String(b.name || "").trim();
@@ -9109,8 +9127,16 @@ async function runProbeInner(p, ctx, probe) {
   if (!parsed && typeof probe.salvage === "function") {
     try { const got = probe.salvage(String(raw || "")); if (got) return got; } catch (_) {}
   }
-  // 解析不出来就直接报，不再补打第二枪（她 2026-10-09：「全部失败会试第二次的给我通通停了」）——
-  //   按次计费，第二枪是实打实再扣一次；捡得回来的上面 salvage／按栏切已经捡过了。
+  // probe.once：只要一枪的那种——没解析出来就直接报，不再补打
+  if (!parsed && !probe.once && failRetryOn()) {
+    try {
+      const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
+        [{ role: "user", content: "重来一次。" }], { maxTokens: want, tag: _tag, logFrom: probe.logFrom });
+      parsed = extractJSON(again);
+      if (parsed) return parsed;
+      raw = again;
+    } catch (e) {/* 用第一次的原文报错，信息更接近病因 */}
+  }
   if (!parsed) throw new Error("解析失败：" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 90));
   return parsed;
 }
@@ -9442,6 +9468,10 @@ const LookHist = (() => {
   };
   return { note, step, count, scopes, noteStore, KEY: LOOK_HIST_KEY, MAX: LOOK_HIST_MAX };
 })();
+// 失败自动重试（她 2026-10-09）：设置 → API 那一页一个开关，默认开。
+//   开着：格式坏了／空正文／没表态这几种，自动再打一枪（会多扣一次）；关了：失败一次算一次，想要自己再点。
+//   网络没到模型那儿、线路不认参数那几种重发不扣钱，不归这个开关管。
+function failRetryOn() { try { return loadJSON("x_failRetry", true) !== false; } catch (e) { return true; } }
 function loadJSON(k, fb) {
   try {
     txtEarlyTouch(k);

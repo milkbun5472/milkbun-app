@@ -31,19 +31,29 @@ test("一次写对就不重问——别白花一次", async () => {
   assert.equal(calls.length, 1);
 });
 
-// 她 2026-10-09：「全部失败会试第二次的给我通通停了」——读不出来就是读不出来，不重问
-test("第一次没写好 → 不重问，明说读不出来，绝不替他判成拒绝", async () => {
+test("第一次没写好 → 重问一次，拿第二次的答案", async () => {
   const { ask, calls } = mk(["我觉得吧……", '{"accept":true,"say":["好"]}']);
+  const r = await ask(null, "S", [], {});
+  assert.equal(r.ok, true);
+  assert.equal(r.accept, true);
+  assert.equal(calls.length, 2, "该重问一次");
+  assert.match(calls[1], /上一次的输出没能解析/, "重问那次要把话说明白");
+});
+
+test("两次都读不出来 → 明说读不出来，绝不替他判成拒绝", async () => {
+  const { ask, calls } = mk(["我觉得吧……", "还是没写好"]);
   assert.deepEqual(await ask(null, "S", [], {}), { ok: false });
-  assert.equal(calls.length, 1, "失败了不许再试第二次");
+  assert.equal(calls.length, 2, "只重问一次，不许无限重试");
 });
 
 test("能解析但没有 accept 也算没表态", async () => {
   // 「能解析」≠「他表了态」：{say:[...]} 里没有 accept，原来会被当成 false
-  const { ask } = mk(['{"say":["嗯"]}']);
+  const { ask } = mk(['{"say":["嗯"]}', '{"say":["嗯"]}']);
   assert.deepEqual(await ask(null, "S", [], {}), { ok: false });
-  const { ask: a2 } = mk(['{"accept":null}']);
-  assert.deepEqual(await a2(null, "S", [], {}), { ok: false });
+  const { ask: a2 } = mk(['{"accept":null}', '{"accept":false,"say":["不"]}']);
+  const r = await a2(null, "S", [], {});
+  assert.equal(r.ok, true);
+  assert.equal(r.accept, false, "第二次真说了 false，那才是拒绝");
 });
 
 test("accept 写成字符串/数字也认", async () => {
