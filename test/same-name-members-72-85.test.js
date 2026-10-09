@@ -91,7 +91,7 @@ test("重名时当面告诉模型：必须连括号一起写", () => {
 
 test("五处群里的名单后面都跟着那句提醒", () => {
   // 群线下（engine）＋ 群线上／投票／群通话／代付（app）
-  assert.match(eng, /旁白 beat。" \+ sameNameNote\(members\)/, "群线下没接");
+  assert.match(eng, /旁白 beat。"\) \+ sameNameNote\(members\)/, "群线下没接");
   assert.equal((app.match(/sameNameNote\(/g) || []).length, 4, "app 那四处有漏的");
   assert.match(app, /memberDesc \+ sameNameNote\(members\)/, "群线上／投票没接");
   assert.match(app, /memberDesc \+ sameNameNote\(people\)/, "群通话没接");
