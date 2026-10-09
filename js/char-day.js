@@ -35,13 +35,19 @@
       [homes, setHomes] = useState(() => typeof loadJSON === "function" ? loadJSON("x_charDayHomes", {}) || {} : {}),
       [styleBusy, setStyleBusy] = useState(false), [styleNotice, setStyleNotice] = useState(""),
       [editor, setEditor] = useState(null), [furniture, setFurniture] = useState([]), [layoutBusy, setLayoutBusy] = useState(false), [layoutNotice, setLayoutNotice] = useState(""), [demoLayout, setDemoLayout] = useState({}),
-      [showcase, setShowcase] = useState(""), [spotId, setSpotId] = useState(""), [places, setPlaces] = useState([]);
+      [showcase, setShowcase] = useState(""), [spotId, setSpotId] = useState(""), [places, setPlaces] = useState([]),
+      [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false);
+    const kbLift = useKbLift();
     const now = Date.now();
     const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null);
     const demo = id === DEMO.id, char = demo ? DEMO : (props.characters || []).find(c => String(c.id) === String(id));
+    useEffect(() => {
+      props.onChatVisibility?.(char, chatOpen && !editor && !demo && !showcase && !book && !homeOptions);
+      return () => props.onChatVisibility?.(null, false);
+    }, [id, chatOpen, showcase, book, homeOptions, editor]);
     useEffect(() => { const timer = setInterval(() => setPulse(n => n + 1), 1000); return () => clearInterval(timer); }, []);
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = positions.current[book ? "book" : "picker"] || 0; }, [book, id]);
-    const pick = value => { setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setEditor(null); setLayoutNotice(""); setStyleNotice(""); setShowcase(""); setSpotId(""); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
+    const pick = value => { setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setEditor(null); setLayoutNotice(""); setStyleNotice(""); setShowcase(""); setSpotId(""); setChatOpen(false); setChatMounted(false); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
     const room=places.find(p=>p.id===showcase), spot=room?.spots.find(s=>s.id===spotId)||room?.spots[0];
     const visitPlaces=()=>{if(!char)pick(DEMO.id);setShowcase("dayLaboratory");setSpotId("");setFollow(false);};
     const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
@@ -67,7 +73,7 @@
     }, []);
     const ink = "#4a493c", soft = "#827d69", paper = "#eeeadf";
     const btn = { minHeight: 44, padding: "9px 12px", border: "1px solid #cfc5ae", borderRadius: 10, background: "#f9f5e9", color: ink, fontSize: 12 };
-    const outer = body => h("div", { "data-wk": "cdaypage", className: "h-full flex flex-col", style: { background: paper, color: ink } }, body);
+    const outer = body => h("div", { "data-wk": "cdaypage", className: "h-full flex flex-col", style: { position: "relative", background: paper, color: ink } }, body);
     const head = (back, right) => h(Head, { zh: "TA的一天", sub: char ? char.remark || char.name : "跟着TA看看今天", bg: "transparent", ink, onBack: back, right });
     const body = content => h("div", { ref: scroll, "data-wk": "cdaybody", className: "flex-1 min-h-0 overflow-y-auto", onScroll: e => { positions.current[book ? "book" : "picker"] = e.currentTarget.scrollTop; }, style: { padding: "12px 16px 24px" } }, content);
     if (!char) return outer(h(React.Fragment, null, head(props.onBack), body(h(React.Fragment, null,
@@ -141,6 +147,7 @@
           !showcase && slot?.location && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, slot.location),
           !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了")),
         !editor && payload.presentation.map === "dayHome" && h("button", { "data-wk": "cdayhomestyle", style: { ...btn, position: "absolute", right: 12, bottom: preview || !state.hasPlan && !demo ? 92 : 40 }, onClick: () => setHomeOptions(true) }, "小家样式"),
+        !editor && !demo && !showcase && props.renderChat && h("button", { "data-wk": "cdaychatopen", style: { ...btn, position: "absolute", left: 12, bottom: 40 }, onClick: () => { setChatMounted(true); setChatOpen(true); props.onChatOpen?.(char); } }, "聊聊"),
         !editor && showcase && room && h("select", { "data-wk":"cdayplacepoint", "aria-label":"选择动作位置", value:spot?.id||"", onChange:e=>{setSpotId(e.target.value);}, style:{...btn,position:"absolute",left:12,right:12,bottom:40,width:"calc(100% - 24px)",height:44,fontSize:13} }, ...room.spots.map(s=>h("option",{key:s.id,value:s.id},s.number+" · "+s.label))),
         !editor && !showcase && preview && h("button", { style: { ...btn, position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)" }, onClick: () => setPreview(null) }, "回到此刻"),
         !editor && !showcase && !state.hasPlan && !demo && h("button", { style: { ...btn, position: "absolute", bottom: 44, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }, onClick: () => props.onSchedule?.(char) }, "去日历排今天"),
@@ -157,6 +164,13 @@
         h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick: () => { setFollow(false); try { iframe.current.contentWindow.CharDayScene?.overview(); } catch (_) {} } }, "看全景"),
         showcase ? h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>{const next=places[(places.findIndex(p=>p.id===showcase)+1)%places.length];if(next){setShowcase(next.id);setSpotId("");setFollow(false);}} }, "换场景") : h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick: () => setBook(true) }, "今天的日程"),
         showcase ? h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>{setShowcase("");setSpotId("");setFollow(true);} }, "回到日程") : !demo && h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:visitPlaces }, "新场景"),
-        !showcase && demo && h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>setDemoIndex(i=>(i+1)%DEMO_ROWS.length) }, "下一段"))));
+        !showcase && demo && h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick:()=>setDemoIndex(i=>(i+1)%DEMO_ROWS.length) }, "下一段")),
+      chatMounted && !editor && !demo && !showcase && h("section", { "data-wk": "cdaychat", "aria-label": "和" + (char.remark || char.name) + "聊天", hidden: !chatOpen,
+        className: "absolute left-0 right-0 flex flex-col", style: { display: chatOpen ? "flex" : "none", top: kbLift ? "15%" : "50%", bottom: kbLift, zIndex: 8, background: paper, borderTop: "1px solid #cfc5ae", boxShadow: "0 -4px 18px #6d5b3020" } },
+        h("div", { "data-wk": "cdaychatbar", className: "shrink-0 flex items-center", style: { gap: 8, padding: "2px 12px", minHeight: 44, borderBottom: "1px solid #cfc5ae" } },
+          h("span", { style: { flex: 1, minWidth: 0, fontSize: 11, color: soft } }, "主聊天 · 最近20条"),
+          h("button", { style: { ...btn, border: 0, background: "transparent" }, onClick: () => props.onMainChat?.(char) }, "完整聊天"),
+          h("button", { "aria-label": "收起聊天", style: { ...btn, border: 0, background: "transparent" }, onClick: () => setChatOpen(false) }, "收起")),
+        h("div", { className: "flex-1 min-h-0 relative" }, props.renderChat?.(char, { visible: chatOpen, close: () => setChatOpen(false) })))));
   };
 })(window);

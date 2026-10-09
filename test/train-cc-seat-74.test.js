@@ -24,7 +24,7 @@ assert.strictEqual((fg.match(/engineer:\s*!!\(/g) || []).length + (fg.match(/eng
 
 const app = read("js/app.js");
 const iGarden = app.indexOf("initialWorld: gardenEntryWorld");
-const gardenWin = app.slice(iGarden, iGarden + 2000);
+const gardenWin = app.slice(iGarden, app.indexOf("screen ===", iGarden));
 assert.ok(iGarden > 0 && !gardenWin.includes("filter(c => !settingsFor(c.id).engineerEyes)"), "小世界不再拒载言秋");
 assert.ok(gardenWin.includes("characters: liveChars"), "小世界乘客名单是全员");
 assert.strictEqual((app.match(/isEngineer: charId => !!settingsFor\(charId\)\.engineerEyes/g) || []).length >= 2, true, "两条进法都传 isEngineer");

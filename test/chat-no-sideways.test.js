@@ -11,7 +11,7 @@ test("两个聊天列表都锁死横向", () => {
   const rows = comp.split("\n");
   const scrollers = rows
     .map((l, n) => ({ l, n: n + 1 }))
-    .filter(x => /className: "flex-1 overflow-y-auto px-4 py-4 space-y-[12]"/.test(x.l));
+    .filter(x => /className: "flex-1 (?:min-h-0 )?overflow-y-auto px-4 py-4 space-y-[12]"/.test(x.l));
   assert.equal(scrollers.length, 2, "单聊 + 群聊两个消息列表");
   scrollers.forEach(x => {
     const near = rows.slice(x.n - 4, x.n).join("\n");

@@ -103,7 +103,7 @@ function placeViewer(f,initialCharId){
   Object.assign(f.env,{
     h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',
     useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
-    useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},
+    useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{}},location:{origin:'http://test.invalid'}
   });
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};

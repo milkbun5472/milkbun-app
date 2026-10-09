@@ -12,10 +12,25 @@
     if (row.deviation) next.deviation = { ...row.deviation, world: validate(source?.deviation?.world) };
     return next;
   }
+  // Only the day renderer consumes visual links. Human-facing readers get a projection.
+  function publicRow(row) {
+    if (!row || typeof row !== "object") return row;
+    const { world, ...text } = row;
+    if (text.deviation && typeof text.deviation === "object") {
+      const { world: changedWorld, ...changedText } = text.deviation;
+      text.deviation = changedText;
+    }
+    return text;
+  }
+  function publicSchedules(schedules) {
+    return Object.fromEntries(Object.entries(schedules || {}).map(([id, plans]) => [id,
+      Object.fromEntries(Object.entries(plans || {}).map(([day, plan]) => [day,
+        plan && typeof plan === "object" ? { ...plan, seqs: Array.isArray(plan.seqs) ? plan.seqs.map(publicRow) : plan.seqs } : plan]))]));
+  }
   function instruction(digital = false) {
     if (digital) return "\n【小世界显示字段】seqs 每段 world 填 null，deviation 内 world 也填 null；存在时间线仍按数字生命的事实写。";
     const choices = catalog().map(s => s.id + "（" + s.label + "）：" + s.spots.map(p => p.id + "=" + (p.label || p.action)).join("；")).join("\n");
-    return "\n【TA的一天·场景连接】先按角色身份、真实安排和世界观写完整日程，再为每段添加可选的 world:{\"scene\":\"场景编号\",\"spot\":\"位置编号\"}。以下编号是小世界已有的视觉布景与位置，选最贴合这一段所做之事的一个；没有贴合的位置填 null。它只控制画面，title/location/place 继续写角色世界里原本的具体事情和地名，按需要安排生活，不为凑齐场景添日程。\n"
+    return "\n【TA的一天·场景连接】先按角色身份、真实安排和世界观写完整日程，再为每段添加可选的 world:{\"scene\":\"场景编号\",\"spot\":\"位置编号\"}。以下编号只写进 world，专供「TA的一天」计算画面位置。日历的 title/location/place、碎碎念和临时变更的 plan/reason/actual 都写角色世界里原本的具体事情和地名，保留自然语言。选最贴合所做之事的位置，没有贴合的位置填 null；按需要安排生活，不为凑齐场景添日程。\n"
       + choices + "\n就寝对应 dayHome/sleep。工作与学习可按实际事情去专业房或普通工作空间；在家做事留在小家。deviation 有实际改动时，其 world 标注实际正在做的事对应的位置，原计划的 world 留在该段外层。";
   }
   function schema(value, digital = false) {
@@ -60,5 +75,5 @@
     const link = validate(source.world);
     return (link && at(link.scene, link.spot)) || infer(source);
   }
-  root.CharDayLink = { validate, bindRow, instruction, schema, presentation };
+  root.CharDayLink = { validate, bindRow, publicRow, publicSchedules, instruction, schema, presentation };
 })(globalThis);

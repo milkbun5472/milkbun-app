@@ -84,3 +84,17 @@ test('陪伴手选脸覆盖自动心情，换角色不继承别人的未设置�
  assert.equal(f.api.lookFor(f.c,f.moods()).face,'proud');assert.equal(f.api.lookFor({id:'c2'},f.moods()).face,'sad');assert.equal(f.api.lookFor({id:'c3'},f.moods()).hairColor,undefined);assert.equal(f.api.lookFor({id:'c3'},f.moods()).face,'default');
  f.setCfg({...f.cfg(),autoFace:true});assert.equal(f.api.lookFor(f.c,f.moods()).face,'happy');
 });
+
+test('日历只收到文字投影，视觉编号留给TA一天，不改变真实writer的原档',async()=>{
+ const raw=row();raw.deviation={plan:'整理资料',reason:'临时换去诊室',actual:'核对病历',world:{scene:'dayClinic',spot:'casework'}};
+ const f=envFor({seqs:[raw]});await f.e.generateDay(f.c,'2026-10-09');
+ const stored=f.e.schedulesRef.current,before=JSON.stringify(stored),visible=f.L.publicSchedules(stored),s=visible.c1['2026-10-09'].seqs[0];
+ assert.equal(s.title,raw.title);assert.equal(s.location,raw.location);assert.equal(s.deviation.actual,raw.deviation.actual);
+ assert.equal('world' in s,false);assert.equal('world' in s.deviation,false);assert.doesNotMatch(JSON.stringify(visible),/dayLaboratory|computer|dayClinic|casework|"world"/);
+ assert.equal(JSON.stringify(stored),before);assert.equal(stored.c1['2026-10-09'].seqs[0].world.scene,'dayLaboratory');
+ assert.equal(f.L.presentation(stored.c1['2026-10-09'].seqs[0]).map,'dayClinic');assert.match(f.calls[0].spec.instruction,/编号只写进 world/);
+});
+test('文字投影兼容旧日程、空档和异常seqs，不把日历变成另一个writer',()=>{
+ const f=envFor({}),input={c1:{old:{seqs:[{seq:1,title:'自己的事情'}]},none:{},bad:{seqs:null}},c2:{day:{seqs:[]}}};
+ assert.deepEqual(plain(f.L.publicSchedules(input)),input);assert.deepEqual(plain(f.L.publicSchedules(null)),{});assert.equal(f.writes.length,0);
+});

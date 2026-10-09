@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.211";
+const APP_VERSION = "v75.212";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -478,6 +478,9 @@ function App() {
   }, [screen]);
   // 当前正在看哪个聊天（供未读红点判断：在看就不累加）
   const viewRef = useRef({ screen: "home", charId: null });
+  const dayChatRef = useRef(null);
+  const viewingMainChat = id => (viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(id))
+    || (viewRef.current.screen === "fairyGarden" && String(dayChatRef.current || "") === String(id));
   // 置顶的聊天/群 id 集合
   const [pinnedChats, setPinnedChats] = useState(() => loadJSON("x_pinnedChats", []));
   const [characters, setCharacters] = useState([]);
@@ -2686,7 +2689,7 @@ function App() {
         if (dead) return; // durable 已落但游标不由死实例提交;新实例重拉幂等,只慢不丢
         localStorage.setItem(key, JSON.stringify({ owner_id: owner, char_id: String(y.id), cursor, last_success_at: new Date().toISOString(), imported: Number(before.imported || 0) + result.added, updated: Number(before.updated || 0) + result.updated, deleted: Number(before.deleted || 0) + result.deleted }));
         const newUnread = rows.filter(r => r && !r.deleted_at && r.speaker_type === "character").filter(r => !current.some(m => m && m.ledgerKey === r.message_key)).length;
-        const viewing = viewRef.current.screen === "thread" && String(viewRef.current.charId) === String(y.id);
+        const viewing = viewingMainChat(y.id);
         if (newUnread && !viewing) bumpUnread(y.id, newUnread);
         // 账本把 CC 原话落进本地后，按 ledgerKey 持久补跑自动记忆；成功（含“无需记”）才逐条盖章。
         // 它复用 App 原抽取器、证据闸、角色隔离、近似去重与 RepairGate，不让言秋另写一套记忆。
@@ -3008,7 +3011,7 @@ function App() {
       if (!sideRoom) n.slice(pl.length).filter(m => m && m.role === "user" && m.kind !== "narration" && m.content).forEach(m => setTimeout(() => noteTidalUser(m.content, m.ts), 0));
       if (!sideRoom && ledgerAdded.some(m => m && (m.role === "user" || m.role === "assistant") && m.content)) setTimeout(() => { try { window.InnerLifeETidalShadow && window.InnerLifeETidalShadow.scheduleAfterglow(personId, n.filter(contextAllowsMessage), moods[personId], Date.now()); } catch (e) {} }, 0);
       const added = n.slice(pl.length).filter(m => m && m.role === "assistant" && m.kind !== "system" && m.kind !== "silence").length;
-      const viewing = viewRef.current.screen === "thread" && viewRef.current.charId === personId;
+      const viewing = viewingMainChat(personId);
       if (!sideRoom && added > 0 && !viewing) setTimeout(() => bumpUnread(personId, added), 0);
     }
     return {
@@ -29010,11 +29013,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     initialWorld: gardenEntryWorld,
     day: {
       initialCharId: gardenDayCharId,
-      onSelect: setGardenDayCharId,
+      onSelect: id => {
+        setGardenDayCharId(id);
+        const c = liveChars.find(x => String(x.id) === String(id));
+        if (c) { setActiveChar(c); setActiveRoomId("main"); }
+      },
       plansFor: c => schedulesRef.current[c.id] || {},
       taFor: c => CharacterPronoun.ta(c),
       lookFor: c => window.CompanionFace.lookFor(c, moods),
-      onSchedule: c => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); }
+      onSchedule: c => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); },
+      onChatOpen: c => { setActiveChar(c); setActiveRoomId("main"); setHalfWin(null); clearUnread(c.id); },
+      onChatVisibility: (c, visible) => { dayChatRef.current = visible && c ? c.id : null; },
+      onMainChat: c => { setActiveChar(c); setActiveRoomId("main"); clearUnread(c.id); setScreen("thread"); },
+      // A second view of the main thread: the same writer, reply pipeline, cards and indices.
+      // The 20-message limit only affects rendering; the model keeps its original context window.
+      renderChat: (c, view) => activeChar && String(activeChar.id) === String(c.id) && activeRoomId === "main" ? mkThread({
+        key: "cday-main::" + c.id, sceneMode: true, halfMode: true, recentLimit: 20,
+        onBack: view.close, onHalfWin: null, onOpenRooms: null, archCount: 0, onLoadOlder: null,
+        autoReplySec: view.visible ? Math.max(0, Math.min(600, Number(settingsFor(c.id).autoReplySec) || 0)) : 0,
+        onOpenSched: () => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); }
+      }) : null
     },
     // 小世界这条路的同行者是按存档挑的、会换人，所以给的是【一个函数】：
     // 问哪一位就现拼哪一位的主线底子（人设、心情、记忆、一起听、反八股…）。

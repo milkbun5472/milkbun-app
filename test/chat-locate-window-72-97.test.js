@@ -39,7 +39,7 @@ test("群聊没有思考格，不许多数", () => {
 });
 
 test("两处都先把窗口撑到目标，再按重画后的起点去数", () => {
-  assert.match(src, /const reveal = i => \{ if \(i < winStart\)/);
+  assert.match(src, /const reveal = i => \{ if \((?:!limit && )?i < winStart\)/);
   const calls = src.match(/onLocate: i => \{ setSearchOpen\(false\); revealMsg\(i\); setTimeout\(\(\) => locateMsgIn\(ref\.current, i, messages, archCount > 0, \{ start: winStartRef\.current/g) || [];
   assert.equal(calls.length, 2, "单聊和群聊得都接上");
 });

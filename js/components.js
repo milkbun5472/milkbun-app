@@ -1485,17 +1485,18 @@ function useKbLift() {
 // 单聊的列表和「定位」那一头都问它——两处各写一遍，一边改了另一边就数错格子。
 const hasReasonRow = m => !!(m && (m.reasoning || (m.searched || []).length || (m.usedTools || []).length));
 const CHAT_WINDOW = 200;
-function useChatWindow(ref, total, resetKey) {
+function useChatWindow(ref, total, resetKey, recentLimit = 0) {
+  const limit = Math.max(0, Math.floor(Number(recentLimit) || 0));
   const [winN, setWinN] = useState(CHAT_WINDOW);
   // 换个人／换个房间／换个群：窗口收回去，别把上一处翻开的那一大段带过来
   useEffect(() => { setWinN(CHAT_WINDOW); }, [resetKey]);
-  const winStart = Math.max(0, total - winN);
+  const winStart = Math.max(0, total - (limit || winN));
   // 往上补一段。⚠️补完要把滚动位置顶回原处：DOM 前面凭空多出几百条，
   //   不补这一下，她正在看的那一段会当场往下窜掉一大截。
   const growRef = useRef(0);
   const growMore = () => {
     const el = ref.current;
-    if (!el || winStart <= 0) return;
+    if (!el || winStart <= 0 || limit) return;
     growRef.current = el.scrollHeight - el.scrollTop;
     setWinN(n => n + CHAT_WINDOW);
   };
@@ -1511,7 +1512,7 @@ function useChatWindow(ref, total, resetKey) {
   // startRef：定位那一拍是在【重画之后】才去数 DOM 的，闭包里的 winStart 已经是旧的。
   const startRef = useRef(winStart);
   startRef.current = winStart;
-  const reveal = i => { if (i < winStart) setWinN(Math.max(CHAT_WINDOW, total - i + 20)); };
+  const reveal = i => { if (!limit && i < winStart) setWinN(Math.max(CHAT_WINDOW, total - i + 20)); };
   // growing()＝这一拍是【她在往上翻】，不是来了新消息：滚到底那一下要躲开它
   return { winStart, growMore, growing: () => !!growRef.current, reveal, startRef };
 }
@@ -3595,6 +3596,7 @@ const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
 function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq }) {
+  schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
   const today = new Date();
   const todayKey = calPadKey(today.getFullYear(), today.getMonth(), today.getDate());
@@ -9026,6 +9028,8 @@ function ChatThread({
   onLocated,
   onHalfWin,
   halfMode,
+  sceneMode,
+  recentLimit,
   onOpenTakeout,  // 点 TA 给你点的外卖卡 → 外卖 app 的订单页
   autoReplySec,   // 停手几秒自己回：她最后发出的那条之后，键盘收起、输入框空着，过这么久就当按了一次叶子；0＝关
   unreadOther,
@@ -9325,7 +9329,7 @@ function ChatThread({
     if (picked.length) onForward(picked, destination);
     exitSel();
   };
-  const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""));
+  const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""), recentLimit);
   useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
   useEffect(() => {
     const el = ref.current;
@@ -9410,7 +9414,7 @@ function ChatThread({
     } : {
       background: BUBBLE_SKIN.chatBg || t.bg // 皮肤的全局聊天背景；单聊自己设过图的优先
     }
-  }, /*#__PURE__*/React.createElement("div", {
+  }, !sceneMode && /*#__PURE__*/React.createElement("div", {
     className: "shrink-0 px-4 pb-3 flex items-center gap-3",
     "data-wk": "chathead",
     style: {
@@ -9615,12 +9619,12 @@ function ChatThread({
     // 翻到顶上那一小段就自动补下一批（她手指还在滑的时候就补好，不用等她撞到头）
     onScroll: e => { if (e.target.scrollTop < 320) growMore(); },
     style: { overflowX: "hidden", touchAction: "pan-y pinch-zoom" },
-    className: "flex-1 overflow-y-auto px-4 py-4 space-y-1"
-  }, winStart > 0 ? h("button", {
+    className: "flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-1"
+  }, winStart > 0 && !recentLimit ? h("button", {
     onClick: growMore, className: "w-full active:opacity-70",
     style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0", marginBottom: 2 }
   }, "↑ 上面还有 " + winStart + " 条 · 点开或往上翻") : null,
-  archCount > 0 ? h("button", {
+  archCount > 0 && !recentLimit ? h("button", {
     onClick: async () => { if (archView === "loading") return; setArchView("loading"); const arr = onLoadOlder ? await onLoadOlder(character.id) : null; setArchView(Array.isArray(arr) ? arr : []); },
     className: "w-full active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint, padding: "6px 0", marginBottom: 4 }
   }, archView === "loading" ? "加载中…" : ("☁ 更早的 " + archCount + " 条聊天在云端 · 点开查看")) : null,
