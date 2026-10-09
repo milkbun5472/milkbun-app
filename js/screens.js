@@ -558,6 +558,10 @@ function CastForm({
   // 旧档空性别沿用“他”，新建默认TA；显示和保存使用同一个称呼规则。
   const [gender, setGender] = useState(() => CharacterPronoun.ta(initial));
   const [voiceId, setVoiceId] = useState(initial && initial.voiceId || "");
+  // 常用语言（群友 2026-10-09）：留空＝中文。几种常用的点一下，少见的点「其他」自己填
+  const LANG_OPTS = ["日语", "韩语", "英语", "粤语"];
+  const [lang, setLang] = useState(initial && initial.lang || "");
+  const [langOther, setLangOther] = useState(!!(initial && initial.lang && LANG_OPTS.indexOf(initial.lang) < 0));
   const save = () => {
     if (!name.trim()) return;
     onSave(Object.assign({}, initial || {}, {
@@ -585,6 +589,7 @@ function CastForm({
       ageFrozen: !!ageFrozen,
       gender: gender,
       voiceId: voiceId.trim(),
+      lang: String(lang || "").trim().slice(0, 20),
       remark: initial && initial.remark || ""
     }));
   };
@@ -726,6 +731,14 @@ function CastForm({
       h(CastSection, { no: "03", title: "视觉档案", en: "长什么样、出图照着谁", tint: accent },
         h(LineField, { zh: "外貌 · 发自拍用", en: "Appearance" }, appearanceFields)),
       h(CastSection, { no: "04", title: "声音档案", en: "说话什么声气", tint: accent },
+        h(LineField, { zh: "常用语言", en: "Language" }, h("div", null,
+          h("div", { "data-wk": "castflang", style: { display: "flex", flexWrap: "wrap", gap: 7 } },
+            [["", "中文"]].concat(LANG_OPTS.map(x => [x, x])).concat([["__other", "其他…"]]).map(o => { const on = o[0] === "__other" ? langOther : (!langOther && lang === o[0]);
+              return h("button", { key: o[0] || "zh", "data-on": on ? "1" : "0", onClick: () => { if (o[0] === "__other") { setLangOther(true); if (LANG_OPTS.indexOf(lang) >= 0) setLang(""); } else { setLangOther(false); setLang(o[0]); } },
+                style: { fontFamily: F_BODY, fontSize: 13, color: on ? "#fff" : t.ink, background: on ? t.tint : "transparent", border: "1px solid " + (on ? t.tint : t.line), borderRadius: 999, padding: "6px 14px" } }, o[1]); })),
+          langOther ? h(LineInput, { value: lang, onChange: e => setLang(e.target.value), placeholder: "比如 法语、俄语、上海话", style: { fontSize: 15, fontFamily: F_BODY, marginTop: 8 } }) : null,
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.6 } },
+            "TA 平时主要说什么话，跟你说话、发朋友圈都用它。什么时候冒别的话写在人设里。选了中文以外的，这个人的「外语消息自带中译」会帮你打开。"))),
         h(LineField, { zh: "音色 · 语音消息用", en: "Voice" }, voiceFields)),
       initial && onReset ? h("button", { "data-wk": "castfreset", onClick: () => onReset(initial.id), className: "mt-4 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 40 } }, "↺ 完全重置（留下卷宗，清掉跟 TA 的一切）") : null,
       initial ? h("button", { "data-wk": "castfdel", onClick: () => onDelete(initial.id), className: "mt-2 w-full flex items-center justify-center gap-2 py-3 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, h(ITrash, { size: 14 }), " 删除这位角色") : null));

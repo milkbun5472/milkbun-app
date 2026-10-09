@@ -769,7 +769,7 @@
         ses.club = stC ? (stC.club || null) : ((((props.liveCfg || {}).clubs) || {})[cfg.charId] || null);
         if (!ses.club && !cfg.stranger) ses.needClub = true;
         const rc = cfg.rivalId ? characters.find(c => c.id === cfg.rivalId) : null;
-        if (rc && rc.id !== cfg.charId) ses.rival = { charId: rc.id, host: rc.name, brief: "【" + rc.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(rc.persona, 3000) : String(rc.persona || "").slice(0, 3000)) };
+        if (rc && rc.id !== cfg.charId) ses.rival = { charId: rc.id, host: rc.name, brief: "【" + rc.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(rc.persona, 3000) : String(rc.persona || "").slice(0, 3000)) + (typeof charLangLine === "function" ? charLangLine(rc) : "") };
         // ⚠️不用 briefFor：那份里有「你自己住在…」这种写给本人看的第二人称，主播读到会当成在说自己
       }
       if (cfg.mode === "watch") ses.lines.push({ kind: "enter", text: (cfg.as === "mask" ? cfg.maskName : uName) + " 进入了直播间", ts: Date.now() });
@@ -800,7 +800,7 @@
       catch (e) { toast("没画出来：" + ((e && e.message) || "")); }
       finally { setDrawingId(""); }
     };
-    const invite = c => { const s = get(curId); if (!s || s.buddy || !c) return; addEvent(x => ({ ...x, buddy: { charId: c.id, name: c.name, brief: "【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 2000) : String(c.persona || "").slice(0, 2000)) } }), c.name + " 跟着 " + meName() + " 进了直播间", true); };
+    const invite = c => { const s = get(curId); if (!s || s.buddy || !c) return; addEvent(x => ({ ...x, buddy: { charId: c.id, name: c.name, brief: "【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 2000) : String(c.persona || "").slice(0, 2000)) + (typeof charLangLine === "function" ? charLangLine(c) : "") } }), c.name + " 跟着 " + meName() + " 进了直播间", true); };
     const pickSong = t2 => addEvent(x => ({ ...x, song: t2 }), (get(curId).as === "mask" ? get(curId).maskName : uName) + " 点了一首《" + t2 + "》", true);
     const buy = item => {
       const s = get(curId); if (!s || !item || !props.buy) return;

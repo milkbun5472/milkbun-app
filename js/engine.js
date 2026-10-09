@@ -3456,7 +3456,7 @@ function buildBundle(ctx, opts) {
     }
   }
   const uName = userName(profile);
-  parts.push("【角色人设】\n" + (char.persona || "（暂无设定）"));
+  parts.push("【角色人设】\n" + (char.persona || "（暂无设定）") + (ctx.notRoleplay ? "" : charLangLine(char)));
   // 这场戏的设定（房间底子、小剧场、穿书……她写给这一场的那段）挨着人设放，当背景，不压在任务末尾当指令。
   //   说法全在 sceneSettingBlock 一处（见那里的由来）。
   if (ctx.sceneSetting) parts.push(ctx.sceneSetting);
@@ -7239,6 +7239,14 @@ function groupBackgroundSegments(c, background, uName, opts) {
   };
 }
 
+// 常用语言（群友 2026-10-09：「建人物时能不能选这个人的常用语言，韩语就选韩语，日语就选日语」）：
+//   人物卷宗里选的那一项，留空＝中文、一个字都不发。只说「主要说什么」，什么时候冒别的话交给人设。
+//   单聊走 bundle（buildBundle 人设后面），群里、通话、直播的人设串挨着 groupPersonaText 接上——同一个函数，一处说法。
+function charLangLine(c) {
+  const l = String((c && c.lang) || "").trim();
+  if (!l || /^(中文|汉语|普通话|chinese|zh)$/i.test(l)) return "";
+  return "\n【平时说的话】" + c.name + "平时说" + l + "：跟她说话、跟别人说话、发朋友圈，用的都是" + l + "。人设里写了什么时候换别的话（急了冒一句、对谁说什么），照人设来。";
+}
 function groupPersonaText(persona, budget) {
   const t = String(persona == null ? "" : persona).trim();
   if (!t) return "（暂无设定）";
@@ -8232,12 +8240,12 @@ async function generateOfflineGroup(p, ctx, session) {
       finance: ctx.memberFinance && ctx.memberFinance[c.id]
     }, userName, { narrative: true });
     return c.npc
-    ? "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
+    ? "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c)
       // 配角那一行由 app 的 npcRosterLine 算好递过来（在场的谁跟 TA 有边、认不认识用户，
       // 四处一样喂）。旧的 npcOwnerName 留作兜底：老存档/别的调用方没递 npcRoster 时照旧。
       + ((ctx.npcRoster && ctx.npcRoster[c.id]) ? ctx.npcRoster[c.id]
         : (ctx.npcOwnerName && ctx.npcOwnerName[c.id]) ? "\n〔这是 " + ctx.npcOwnerName[c.id] + " 身边的人，只在群里出场〕" : "")
-    : "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap)
+    : "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + charLangLine(c)
     + bg.grownSeg
     // 「四处一样喂」：心情/好感单聊一直有，群线下以前一层都没有
     + ((ctx.memberMood && ctx.memberMood[c.id]) ? "\n〔此刻心情〕" + ctx.memberMood[c.id] : "")
@@ -8933,7 +8941,7 @@ async function oocAskGroup(p, ctx, question) {
   // 人设额度必须和正戏走同一套：曾出现「正戏通、OOC 拦」的诡异 case——
   // 触发词恰好埋在人设第 200~220 字，只有 OOC 递出去（v48.19 她的 prohibited content 排查）
   // 分母排掉配角，跟群线上／线下／通话同一个口径
-  const memberDesc = members.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length))).join("\n\n");
+  const memberDesc = members.map(c => "【" + c.name + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length)) + charLangLine(c)).join("\n\n");
   const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
   const existing = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const system = "你现在跳出角色扮演，作为幕后的 AI 助手，用简体中文直接回答用户（OOC，越过群里所有角色）。你了解这个群里每个角色的人设、彼此关系与当前对话进展。语气是助手而非角色，简洁直接、不扮演。\n\n用户这句 OOC 通常是两类之一：\n(A) 问某角色/群里此刻的状态动机心理、关系张力、剧情走向——冷静说明。\n(B) 要求你调整接下来这些角色的演绎方式，或立一条【群里的长期规矩】（如「别再纠结那件事了」「都对我随和点」「少斗嘴」）——在 reply 里简短确认会照做，并把它凝练成【一句、祈使句、对全群成员今后都生效的长期准则】填进 directive（例：『别再揪着那件已经翻篇的旧事、往前聊』）。⚠️例子里的措辞只是示范格式，绝不许把示范里的任何具体事物（食物/地点/物件）照抄进你的回复或当成真发生过的事。若这条会严重崩掉某个角色的核心人设，refused 填 true、directive 填 null，并在 reply 里说明。只是 A 类提问就 directive 一律 null、refused 一律 false。\n\n【群成员】\n" + memberDesc + "\n\n【成员间关系】\n" + relLines + (ctx.worldbook && ctx.worldbook.trim() ? "\n\n【世界书】\n" + ctx.worldbook.trim() : "") + (ctx.historyText && ctx.historyText.trim() ? "\n\n【近期对话】\n" + ctx.historyText.trim() : "") + (existing.length ? "\n\n【当前群里已生效的准则】\n" + existing.map((s, i) => (i + 1) + ". " + s).join("\n") + "\n" + OOC_REPLACE_RULE + "" : "") + "\n\n【输出】只输出一个 JSON，不要代码块：\n{\"reply\":\"给用户看的话（简洁直接）\",\"directive\":\"要新增/更新的一句群规矩，或 null\",\"replaces\":[被替换或取消的旧规矩序号],\"refused\":false}";

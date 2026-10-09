@@ -9758,6 +9758,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return st;
   };
   const saveChar = c => {
+    // 选了中文以外的常用语言：这个人的「外语消息自带中译」没动过的话，帮她打开（不然看不懂）；她自己关过的不碰
+    try {
+      const prev = characters.find(x => x.id === c.id);
+      if (charLangLine(c) && !(prev && charLangLine(prev)) && (chatSettings[c.id] || {}).bilingual === undefined) patchChatSetting(c.id, { bilingual: true });
+    } catch (e) {}
     pC(p => p.some(x => x.id === c.id) ? p.map(x => x.id === c.id ? c : x) : [...p, CharacterPronoun.newCharacter(c)]);
     setScreen("cast");
     setEditingChar(null);
@@ -13743,7 +13748,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 「这个主角色是谁」的层，配角没有，给了反而会演出争宠吃醋那一套。
         // 人设额度另算：群预算是按人数平分的，配角挤进去会把主角色的额度吃掉。
         if (c.npc) {
-          return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP)
+          return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c)
             + npcGroupLine(c, members.map(x => x.id));
         }
             // 别的群里刚说过的话：只给 TA 本人这一段，别的成员看不到（同隐私铁律的落法）
@@ -13751,7 +13756,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const said = crossChannelSaid(c.id, groupId);
           return said ? "\n〔你刚在别的群里说过这些（是你本人说的，这儿别说岔了：时间、安排、答应过的事都要接得上。别的成员不一定知道，别替他们知道，也别复述『我刚在群里说过』）〕\n" + said : "";
         })();
-        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
+        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, gPersonaCap) + charLangLine(c) + pn + live + grownSeg + mdSeg + afSeg + aSeg + zSeg + hcSeg + ageSeg + sbSeg + cySeg + cpSeg + caSeg + xgSeg;
       }).join("\n\n");
       // B（v50.80）：线上群聊里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余照旧贴原卡。
       const gEvolveNames = members.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name);
@@ -14849,12 +14854,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const split = splitGroupMemories(memLibRef.current, members.map(c => c.id), hist, { limit: memCfgRef.current.topK || 5 });
       const memberDesc = members.map(c => {
         // 配角那一行走公共的 npcRosterLine：在场的谁跟 TA 有边，四处都该看得见（不止群线上）
-        if (c.npc) return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, members.map(x => x.id));
+        if (c.npc) return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, members.map(x => x.id));
         const now = groupNowSegs(c, { interop: gsp.memoryInterop });
         const privateText = [memories[c.id], formatMemLib(split.perChar[String(c.id)] || []), gsp.memoryInterop ? memberPrivLines(c, gsp.privateCtxN) : ""].filter(Boolean).join("\n");
         // ⚠️分母跟别处一样排掉配角：配角走 NPC_PERSONA_CAP 那 3000 字，不参与平分
         //   （群线上／群线下／群通话三处都是 filter(!npc)，只有投票这处漏了）。
-        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length)) + Object.values(now).join("")
+        return "【" + memberLabel(members, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(members.filter(x => !x.npc).length)) + charLangLine(c) + Object.values(now).join("")
           + (privateText ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + privateText : "");
       }).join("\n");
       const system = groupBans({ echo: false }) + "\n群里发起了投票。\n" + groupPollText(poll) + "\n每个成员按自己的人设、当前心情、关系与上下文决定投向或弃权；choice 为从 0 起的选项序号，-1 为弃权。say 可省略，填写时必须与实际 choice 一致。每位成员最多输出一个决定。只凭自己知道的事投票，不许从其他成员的私密段得知或泄露他人的私事。匿名投票不公开任何人的投向，say 不得透露自己的选择。\n【成员】\n" + memberDesc + sameNameNote(members) + "\n【群内共享记忆】\n" + formatMemLib(split.shared) + "\n【世界书】\n" + loreForContext("chat", members.map(c => c.id), hist) + "\n【近期群聊】\n" + hist + "\n【输出】只输出 JSON 数组：[{\"name\":\"成员名\",\"choice\":选项序号,\"say\":\"可选的评论\"}]";
@@ -18788,9 +18793,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         //（她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」）。
         const gcInterop = !cur.groupId || !cgs || cgs.memoryInterop !== false;
         const memberDesc = people.map(c => {
-          if (c.npc) return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, people.map(x => x.id));
+          if (c.npc) return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, people.map(x => x.id));
           const n = groupNowSegs(c, { interop: gcInterop });
-          return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, gCallCap) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
+          return "【" + memberLabel(people, c) + "】" + groupPersonaText(c.persona, gCallCap) + charLangLine(c) + n.live + n.grownSeg + n.mdSeg + n.afSeg + n.aSeg + n.zSeg + n.hcSeg + n.ageSeg + n.sbSeg + n.cySeg + n.cpSeg + n.caSeg;
         }).join("\n\n");
         // 实时私聊窗口：只落在本人那一段，围栏照抄群聊那一份，一个字都不放松
         // ⚠️条数照这个群自己的设置来，不许在这儿自作主张给个默认值：
@@ -28403,11 +28408,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     briefFor: (c, _i, all) => {
       const uN = userName(profile);
       const present = Array.isArray(all) && all.length ? all : [c];
-      if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + npcGroupLine(c, present.map(x => x.id));
+      if (c.npc) return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, NPC_PERSONA_CAP) + charLangLine(c) + npcGroupLine(c, present.map(x => x.id));
       const cp = (couplesRef.current || {})[c.id] || {};
       const rows = ((chatsRef.current || {})[c.id] || []).filter(m => m && m.content && (m.role === "user" || m.role === "assistant") && !m.kind)
         .slice(-6).map(m => (m.role === "user" ? uN : c.name) + "：" + String(m.content).slice(0, 120)).join("\n");
-      return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length))
+      return "【" + memberLabel(present, c) + "】" + groupPersonaText(c.persona, groupPersonaBudget(present.filter(x => !x.npc).length)) + charLangLine(c)
         + Object.values(groupNowSegs(c, { interop: true })).join("")
         + "\n和" + uN + "：" + (cp.status === "together" ? "在一起的恋人" : "还没在一起")
         + (rows ? "\n〔以下只有 " + c.name + " 本人知道，别的人并不知情〕\n你俩最近私聊：\n" + rows : "");
