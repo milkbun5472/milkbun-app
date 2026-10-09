@@ -75,3 +75,45 @@ test('睡眠场景沿真实床位helper传入完整位置，得到可用躺姿�
   const {target,bed}=run(MAPS,sleepPose);assert.ok(bed);assert.ok(bed.y>0);
   assert.deepEqual(target,MAPS.home.beds[Object.keys(MAPS.home.beds)[0]].approach.companion);
 });
+
+function placeViewer(f,initialCharId){
+  const states=[],refs=[],snapshots=[];let cursor=0,refCursor=0;
+  Object.assign(f.env,{
+    h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',
+    useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
+    useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},
+    React:{Fragment:'Fragment',useLayoutEffect:()=>{}},location:{origin:'http://test.invalid'}
+  });
+  f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
+  const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test'};
+  const render=()=>{cursor=refCursor=0;const tree=f.env.CharDayApp(props);if(refs[0])refs[0].current={contentWindow:{CharDayScene:{setSnapshot:p=>snapshots.push(JSON.parse(JSON.stringify(p)))}}};return tree;};
+  const all=tree=>tree&&typeof tree==='object'?[tree,...tree.children.flatMap(all)]:[];
+  const text=node=>node.children.map(c=>typeof c==='string'?c:typeof c==='object'?text(c):'').join('');
+  const click=(tree,label)=>{const node=all(tree).find(n=>n.tag==='button'&&text(n)===label);assert.ok(node,label+'可用');node.props.onClick();};
+  const send=tree=>{const frame=all(tree).find(n=>n.tag==='iframe');assert.ok(frame);frame.props.onLoad();return snapshots.at(-1);};
+  return {render,click,send,all,states};
+}
+
+test('新场景从选人页独立试玩，原五段示例与日程映射继续可用',()=>{
+  const f=setup(),viewer=placeViewer(f,''),before=JSON.stringify(f.plans()),writes=f.writes.length;
+  let tree=viewer.render();viewer.click(tree,'新场景摆位试玩');tree=viewer.render();
+  const payload=viewer.send(tree);
+  assert.equal(payload.charId,f.K.DEMO.id);assert.equal(payload.presentation.map,'dayLaboratory');
+  assert.equal(payload.slot,null);assert.equal(payload.follow,false);assert.match(payload.key,/^place:/);
+  viewer.click(tree,'回到日程');tree=viewer.render();const back=viewer.send(tree);
+  assert.equal(back.charId,f.K.DEMO.id);assert.equal(back.presentation.map,'home');
+  viewer.click(tree,'下一段');const next=viewer.send(viewer.render());assert.equal(next.presentation.map,'hall');
+  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'hall');
+  assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'hall');
+  assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
+test('已有角色进入摆位保留真实样貌，返回恢复同角色原日程且不写档',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
+  let tree=viewer.render();const first=viewer.send(tree);assert.equal(first.slot.title,'核对军报');
+  viewer.click(tree,'新场景');tree=viewer.render();const stage=viewer.send(tree);
+  assert.equal(stage.charId,'c1');assert.deepEqual(stage.look,first.look);assert.equal(stage.slot,null);
+  viewer.click(tree,'回到日程');const back=viewer.send(viewer.render());
+  assert.equal(back.charId,'c1');assert.deepEqual(back.look,first.look);assert.deepEqual(back.presentation,first.presentation);
+  assert.equal(back.slot.title,'核对军报');assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});

@@ -1,13 +1,15 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-b6947a335b534082';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-b6947a335b534082';
-import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-b6947a335b534082';
-import {seatLook} from '../wardrobe.mjs?v=fg-b6947a335b534082';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-b6947a335b534082';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-b6947a335b534082';
-import {stepRoute} from '../locomotion.mjs?v=fg-b6947a335b534082';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-b6947a335b534082';
-import {activityPose} from './activity.mjs?v=fg-b6947a335b534082';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-504734d19f7543b2';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-504734d19f7543b2';
+import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-504734d19f7543b2';
+import {seatLook} from '../wardrobe.mjs?v=fg-504734d19f7543b2';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-504734d19f7543b2';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-504734d19f7543b2';
+import {stepRoute} from '../locomotion.mjs?v=fg-504734d19f7543b2';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-504734d19f7543b2';
+import {activityPose} from './activity.mjs?v=fg-504734d19f7543b2';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-504734d19f7543b2';
+registerDayPlaces(MAPS);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=T.SRGBColorSpace;
@@ -19,12 +21,12 @@ const draco=new DRACOLoader();draco.setDecoderPath(new URL('../vendor/draco/',im
 const cover=document.querySelector('#cover'),place=document.querySelector('#place'),pan={x:0,z:0};
 let avatar=null,ready=false,disposed=false,map=null,snapshot=null,pending=null,signature='',lookKey='',epoch=0,route=[],position={x:0,z:0},speed=0,yaw=0,target=null,seat=null,bed=null,walkTarget=0,dwell=0,onArrive=null,following=true,span=10,frame=0,changing=false,failure='';
 const tell=error=>{failure=error||'';if(parent!==window)parent.postMessage({type:'char-day-status',error},location.origin);};
-const mapLoader=createMapLoader({maps:MAPS,loadAsset:async asset=>{const url=new URL('../'+asset.replace(/^\.\//,''),import.meta.url).href,root=(await loader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;}});return root;},factories:{},attach:o=>scene.add(o),detach:o=>scene.remove(o)});
+const mapLoader=createMapLoader({maps:MAPS,loadAsset:async asset=>{const url=new URL('../'+asset.replace(/^\.\//,''),import.meta.url).href,root=(await loader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;}});return root;},factories:DAY_FACTORIES,attach:o=>scene.add(o),detach:o=>scene.remove(o)});
 function cameraPose(){const p=orthographicCameraPose(pan,span,camera.zoom,0);camera.position.set(p.position.x,p.position.y,p.position.z);camera.lookAt(p.target.x,p.target.y,p.target.z);camera.far=p.far;camera.updateProjectionMatrix();}
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.left=-span*w/h/2;camera.right=span*w/h/2;camera.top=span/2;camera.bottom=-span/2;cameraPose();}
 function setFollowing(value){if(following===value)return;following=value;if(parent!==window)parent.postMessage({type:'char-day-view',following},location.origin);}
 function center(){setFollowing(true);pan.x=position.x;pan.z=position.z;gesture.setZoom(1.6);cameraPose();}
-function overview(){setFollowing(false);pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;gesture.setZoom(map==='garden'?.65:.62);cameraPose();}
+function overview(){setFollowing(false);pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;gesture.setZoom(DAY_PLACES[map]?Math.min(.85,innerWidth/innerHeight*.77):map==='garden'?.65:.62);cameraPose();}
 const gesture=createMapGesture({initial:1.6,onZoom:v=>{camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
   setFollowing(false);const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);
   const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=Math.max(-50,Math.min(50,pan.x+q.x));pan.z=Math.max(-50,Math.min(50,pan.z+q.z));cameraPose();}
@@ -40,6 +42,7 @@ addEventListener('resize',resize);addEventListener('blur',()=>gesture.cancel());
 function availableSeat(kind){return Object.values(seatsOf(map)).find(s=>s.piece?.includes(':'+kind+':'))||Object.values(seatsOf(map))[0];}
 function destination(p){
   seat=null;bed=null;
+  if(p.spot){const spot=DAY_PLACES[map]?.spots.find(s=>s.id===p.spot);if(spot){seat=spot.seat||null;return {...spot.target};}}
   if(p.action==='sleep'){
     const id=Object.keys(MAPS.home.beds)[0],approach=MAPS.home.beds[id].approach.companion;
     bed=sleepPose({map:'home',position:MAPS.home.spawn,companion:{map:'home',position:approach},sleep:{companion:id}},'companion');
@@ -63,9 +66,9 @@ async function enter(next,token,initial=false){
   changing=true;cover.classList.add('on');avatar.root.visible=false;
   try{
     const view=await mapLoader.ensure(next,MAPS[next].spawn);if(token!==epoch||disposed)return;
-    mapLoader.keep(next);map=next;view.root.visible=true;for(const o of view.stream?.roots()||[])o.visible=true;
+    mapLoader.keep(next);map=next;if(DAY_PLACES[map]&&!view.markers){view.markers=createPlaceMarkers(map);view.root.add(view.markers);}view.root.visible=true;for(const o of view.stream?.roots()||[])o.visible=true;
     position={...MAPS[map].spawn};avatar.root.position.set(position.x,floorHeight(map,position),position.z);avatar.root.visible=true;
-    span=map==='garden'?12:11;resize();place.textContent=map==='garden'?'街边 · 借用庭院场景':map==='hall'?'案边 · 借用公共厅场景':'住处 · 借用小屋场景';
+    span=DAY_PLACES[map]?14:map==='garden'?12:11;resize();place.hidden=!!DAY_PLACES[map];place.textContent=DAY_PLACES[map]?.label||(map==='garden'?'街边 · 借用庭院场景':map==='hall'?'案边 · 借用公共厅场景':'住处 · 借用小屋场景');
     target=destination(snapshot.presentation);yaw=0;walkTarget=0;dwell=0;
     if(initial&&snapshot.presentation.action==='sleep'&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
     if(snapshot.presentation.action==='walk'&&!route.length)wander();
@@ -101,7 +104,8 @@ function tick(dt,time){
     const step=stepRoute(position,route,dt,{speed,walkSpeed:1.6,clear:(a,b)=>segmentClear(a,b,map)});position=step.position;speed=step.speed;if(step.heading!=null)yaw=step.heading;
     if(!route.length){dwell=0;const done=onArrive;onArrive=null;done?.();}
   }else dwell+=dt;
-  const pose=activityPose(snapshot.presentation,dwell,{hasSlot:!!snapshot.slot,seated:!!seat});
+  const pose=snapshot.presentation.spot?{gesture:snapshot.presentation.gesture||'rest',progress:dwell/4%1}:activityPose(snapshot.presentation,dwell,{hasSlot:!!snapshot.slot,seated:!!seat});
+  if(!moving&&snapshot.presentation.spot){const spot=DAY_PLACES[map]?.spots.find(s=>s.id===snapshot.presentation.spot);if(spot)yaw=spot.heading||0;}
   avatar.root.position.set(position.x,0,position.z);avatar.root.rotation.y=yaw;
   if(!moving&&bed){avatar.animate(time,{sleepPose:bed});}
   else if(!moving&&seat){avatar.root.position.set(seat.x,0,seat.z);avatar.root.rotation.y=seat.heading||0;avatar.animate(time,{...pose,seated:true,height:floorHeight(map,seat)+(seat.rise||0)+.05});}
@@ -113,7 +117,7 @@ function tick(dt,time){
 }
 let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
 function chinContact(){const head=avatar?.root.getObjectByName('HeadAnchor'),hand=avatar?.root.getObjectByName('Right_hand');return head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null;}
-window.CharDayScene={setSnapshot:apply,focus:center,overview,inspect:()=>({ready,map,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
+window.CharDayScene={setSnapshot:apply,listPlaces:placeList,focus:center,overview,inspect:()=>({ready,map,error:failure,bed:bed?{...bed}:null,seat:seat?{...seat}:null,spot:snapshot?.presentation.spot,visible:avatar?.root.visible,avatarPosition:avatar?.root.position.toArray(),visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);for(const v of Object.values(mapLoader.views)){v.stream?.close();disposeMap(v.root);}if(avatar)disposeMap(avatar.root);draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{avatar=createTraveler(await loadTravelerSource(),true);scene.add(avatar.root);await avatar.ready();ready=true;tell('');if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}
