@@ -2948,6 +2948,12 @@ function App() {
         setTimeout(() => setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, ...lines] } : c), 0);
       }
     }
+    // 被她拉黑期间TA发出来的每一条都挂红色感叹号——不管是她按「回复」逼出来的，还是TA自己主动找来的
+    //   （群友 Nyx 2026-10-08：「拉黑后，角色主动发消息时不显示感叹号」——原来只有 queueUnblockSpeech 那一路挂，
+    //   主动私聊走的是普通回复那条路，一颗都没有）。收在落盘这一处，以后哪条新路都跑不掉。
+    const _bk = blocksRef.current && blocksRef.current[id];
+    if (_bk && _bk.iBlocked && n.length > pl.length)
+      n = n.slice(0, pl.length).concat(n.slice(pl.length).map(m => m && m.role === "assistant" && m.kind !== "system" && !m.blocked ? { ...m, blocked: true } : m));
     saveJSON("x_chat:" + id, n);
     // x_chat 已归 IDB 文字仓管理；saveJSON 内部先写 WAL、逐字验真后落 IDB 并销账。
     chatsRef.current = { ...p, [id]: n };
