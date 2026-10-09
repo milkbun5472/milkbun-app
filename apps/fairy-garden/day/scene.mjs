@@ -1,0 +1,109 @@
+import * as T from 'three';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-8e92d657ad09bbcc';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-8e92d657ad09bbcc';
+import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-8e92d657ad09bbcc';
+import {seatLook} from '../wardrobe.mjs?v=fg-8e92d657ad09bbcc';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-8e92d657ad09bbcc';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-8e92d657ad09bbcc';
+import {stepRoute} from '../locomotion.mjs?v=fg-8e92d657ad09bbcc';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-8e92d657ad09bbcc';
+
+const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=T.SRGBColorSpace;
+renderer.shadowMap.enabled=true;renderer.shadowMap.type=T.PCFSoftShadowMap;renderer.setClearColor('#e4dece');document.body.prepend(renderer.domElement);
+const hemi=new T.HemisphereLight('#fff4dd','#958267',2.2);scene.add(hemi);
+const sun=new T.DirectionalLight('#fff4de',3);sun.position.set(-8,16,10);sun.castShadow=true;sun.shadow.mapSize.set(1024,1024);Object.assign(sun.shadow.camera,{left:-18,right:18,top:18,bottom:-18,near:1,far:65});sun.shadow.normalBias=.035;scene.add(sun);
+const fill=new T.DirectionalLight('#d4e5ee',1);fill.position.set(8,6,-9);scene.add(fill);
+const draco=new DRACOLoader();draco.setDecoderPath(new URL('../vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);
+const cover=document.querySelector('#cover'),place=document.querySelector('#place'),pan={x:0,z:0};
+let avatar=null,ready=false,disposed=false,map=null,snapshot=null,pending=null,signature='',lookKey='',epoch=0,route=[],position={x:0,z:0},speed=0,yaw=0,target=null,seat=null,bed=null,walkTarget=0,dwell=0,onArrive=null,following=true,span=10,frame=0,changing=false;
+const tell=error=>{if(parent!==window)parent.postMessage({type:'char-day-status',error},location.origin);};
+const mapLoader=createMapLoader({maps:MAPS,loadAsset:async asset=>{const url=new URL('../'+asset.replace(/^\.\//,''),import.meta.url).href,root=(await loader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;}});return root;},factories:{},attach:o=>scene.add(o),detach:o=>scene.remove(o)});
+function cameraPose(){const p=orthographicCameraPose(pan,span,camera.zoom,0);camera.position.set(p.position.x,p.position.y,p.position.z);camera.lookAt(p.target.x,p.target.y,p.target.z);camera.far=p.far;camera.updateProjectionMatrix();}
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.left=-span*w/h/2;camera.right=span*w/h/2;camera.top=span/2;camera.bottom=-span/2;cameraPose();}
+function center(){following=true;pan.x=position.x;pan.z=position.z;gesture.setZoom(1.18);cameraPose();}
+function overview(){following=false;pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;gesture.setZoom(map==='garden'?.65:.62);cameraPose();}
+const gesture=createMapGesture({initial:1.18,onZoom:v=>{camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
+  following=false;const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);
+  const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=Math.max(-50,Math.min(50,pan.x+q.x));pan.z=Math.max(-50,Math.min(50,pan.z+q.z));cameraPose();}
+},onTap:()=>center()});
+const canvas=renderer.domElement;
+canvas.addEventListener('pointerdown',e=>{gesture.down(e.pointerId,e.clientX,e.clientY);canvas.setPointerCapture(e.pointerId);});
+canvas.addEventListener('pointermove',e=>gesture.move(e.pointerId,e.clientX,e.clientY));
+canvas.addEventListener('pointerup',e=>gesture.up(e.pointerId,e.clientX,e.clientY));
+for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>gesture.up(e.pointerId,e.clientX,e.clientY,true));
+canvas.addEventListener('wheel',e=>{e.preventDefault();gesture.setZoom(gesture.getZoom()*Math.exp(-Math.max(-240,Math.min(240,e.deltaY))*.002));},{passive:false});
+addEventListener('resize',resize);addEventListener('blur',()=>gesture.cancel());
+
+function availableSeat(kind){return Object.values(seatsOf(map)).find(s=>s.piece?.includes(':'+kind+':'))||Object.values(seatsOf(map))[0];}
+function destination(p){
+  seat=null;bed=null;
+  if(p.action==='sleep'){
+    const id=Object.keys(MAPS.home.beds)[0];bed=sleepPose({map:'home',position:MAPS.home.spawn,companion:{map:'home'},sleep:{companion:id}},'companion');
+    return {...MAPS.home.beds[id].approach.companion};
+  }
+  if(['meal','tea','rest'].includes(p.action)){
+    seat=availableSeat(p.action==='meal'?'chair':map==='home'?'sofa':'bench');
+    if(seat)return {...(seat.approach||seat)};
+  }
+  if(['read','work'].includes(p.action)){
+    const spots=areaSpots(map,MAPS[map].spawn,50),spot=spots.find(s=>s.gesture==='read');if(spot)return {...spot.target};
+  }
+  return {...MAPS[map].spawn};
+}
+function go(to,done){
+  route=findPath(position,to,map)||[];speed=0;onArrive=done||null;
+  if(!route.length&&Math.hypot(position.x-to.x,position.z-to.z)<.3){const fn=onArrive;onArrive=null;fn?.();}
+  else if(!route.length){target={...position};seat=bed=null;onArrive=null;}
+}
+async function enter(next,token,initial=false){
+  changing=true;cover.classList.add('on');avatar.root.visible=false;
+  try{
+    const view=await mapLoader.ensure(next,MAPS[next].spawn);if(token!==epoch||disposed)return;
+    mapLoader.keep(next);map=next;view.root.visible=true;for(const o of view.stream?.roots()||[])o.visible=true;
+    position={...MAPS[map].spawn};avatar.root.position.set(position.x,floorHeight(map,position),position.z);avatar.root.visible=true;
+    span=map==='garden'?12:11;resize();place.textContent=map==='garden'?'街边 · 借用庭院场景':map==='hall'?'案边 · 借用公共厅场景':'住处 · 借用小屋场景';
+    target=destination(snapshot.presentation);yaw=0;walkTarget=0;dwell=0;
+    if(initial&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
+    if(snapshot.follow)center();else overview();tell('');
+  }catch(e){if(token===epoch)tell('画面加载失败：'+e.message);}finally{if(token===epoch){changing=false;cover.classList.remove('on');}}
+}
+function apply(data){
+  if(!ready){pending=data;return;}
+  if(!data)return;snapshot=data;
+  const newLook=JSON.stringify([data.charId,data.ta,data.look]);if(newLook!==lookKey){avatar.setLook(seatLook('companion',data.look,data.ta),true);lookKey=newLook;}
+  const next=JSON.stringify([data.charId,data.key,data.presentation]);
+  if(next===signature)return;signature=next;const token=++epoch;route=[];onArrive=null;seat=bed=null;
+  const needed=data.presentation.map;
+  if(map&&map!==needed&&!changing){
+    target={...MAPS[map].spawn};go(target,()=>enter(needed,token));
+    if(!route.length&&!changing)enter(needed,token);
+  }else if(!map||changing)enter(needed,token,!map);
+  else{target=destination(data.presentation);go(target);}
+}
+function wander(){
+  const m=MAPS[map],step=walkTarget++%3,base=m.spawn,candidates=[{x:base.x+2.4,z:base.z+1.4},{x:base.x-2,z:base.z+.8},base];
+  const to=candidates[step];if(walkable(to.x,to.z,map))go(to);
+}
+function tick(dt,time){
+  if(!ready||!map||changing||!avatar.root.visible)return;
+  const moving=route.length>0;
+  if(moving){
+    const step=stepRoute(position,route,dt,{speed,walkSpeed:1.6,clear:(a,b)=>segmentClear(a,b,map)});position=step.position;speed=step.speed;if(step.heading!=null)yaw=step.heading;
+    if(!route.length){dwell=0;const done=onArrive;onArrive=null;done?.();}
+  }else dwell+=dt;
+  const idleGesture=!snapshot.slot?'rest':snapshot.presentation.gesture;
+  avatar.root.position.set(position.x,0,position.z);avatar.root.rotation.y=yaw;
+  if(!moving&&bed){avatar.animate(time,{sleepPose:bed});}
+  else if(!moving&&seat){avatar.root.position.set(seat.x,0,seat.z);avatar.root.rotation.y=seat.heading||0;avatar.animate(time,{gesture:idleGesture,seated:true,height:floorHeight(map,seat)+(seat.rise||0)+.05,progress:time/4%1});}
+  else avatar.animate(time,{moving,gesture:moving?'rest':idleGesture,height:floorHeight(map,position),progress:time/4%1});
+  if(!moving&&snapshot.slot&&snapshot.presentation.action==='walk'&&dwell>4){dwell=0;wander();}
+  if(following){pan.x+=(position.x-pan.x)*Math.min(1,dt*6);pan.z+=(position.z-pan.z)*Math.min(1,dt*6);cameraPose();}
+  if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
+  const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
+}
+let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
+window.CharDayScene={setSnapshot:apply,focus:center,overview,inspect:()=>({ready,map,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
+addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);for(const v of Object.values(mapLoader.views)){v.stream?.close();disposeMap(v.root);}if(avatar)disposeMap(avatar.root);draco.dispose();renderer.dispose();});
+resize();frame=requestAnimationFrame(loop);
+try{avatar=createTraveler(await loadTravelerSource(),true);scene.add(avatar.root);await avatar.ready();ready=true;tell('');if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}

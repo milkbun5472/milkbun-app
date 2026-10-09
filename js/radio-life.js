@@ -20,32 +20,10 @@
   };
   // 钟点选择和自动补结束时间沿用现有日程的公共算法；日期属于角色当地。
   function slot(char, plans, now, deviceOffset) {
-    if (!char || !root.ScheduleClock) return null;
-    const clock = root.ScheduleClock, at = now || Date.now();
-    const off = deviceOffset == null ? -new Date().getTimezoneOffset() : deviceOffset;
-    const day = clock.dayKey(char, at, off), plan = (plans || {})[day];
-    if (!plan || !Array.isArray(plan.seqs)) return null;
-    const seqs = typeof schedFillEnds === "function" ? schedFillEnds(plan.seqs) : plan.seqs;
-    const minute = clock.localMinute(char, at, off), index = clock.currentSeqIdx(seqs, minute);
-    const cur = seqs[index];
-    if (!cur || !text(cur.title) || cur.type === "sleep") return null;
-    const toMin = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || "")); return m ? +m[1] * 60 + +m[2] : NaN; };
-    const startMin = toMin(cur.time), endMin = toMin(cur.end);
-    if (!Number.isFinite(startMin) || !Number.isFinite(endMin)) return null;
-    const date = day.split("-").map(Number);
-    const midnight = Date.UTC(date[0], date[1] - 1, date[2]) - clock.offsetMinutes(char, off) * 60000;
-    let wraps = 0, prev = -1;
-    for (let i = 0; i <= index; i++) { const m = toMin(seqs[i].time); if (prev >= 0 && prev - m > 720) wraps++; prev = m; }
-    let startAt = midnight + (startMin + wraps * 1440) * 60000;
-    // 凌晨属于昨天跨午夜的尾段时，公共索引给出的 wrap 要回到真实日期。
-    if (startAt > at && wraps && minute < 720) startAt -= 86400000;
-    const duration = ((endMin <= startMin ? endMin + 1440 : endMin) - startMin) * 60000;
-    const endAt = startAt + duration;
-    if (at < startAt || at >= endAt) return null;
-    const scene = { charId: String(char.id), name: char.name, day, time: cur.time, end: cur.end,
-      title: cur.title, location: cur.location || "", type: cur.type || "other", deviation: cur.deviation || null, startAt, endAt };
-    scene.key = JSON.stringify([scene.charId, day, startAt, endAt, scene.title, scene.location, scene.deviation]);
-    return scene;
+    const scene = root.ScheduleClock?.currentSlot(char, plans, now, deviceOffset, {
+      fillEnds: typeof schedFillEnds === "function" ? schedFillEnds : x => x
+    });
+    return scene && scene.type !== "sleep" ? scene : null;
   }
   function accept(raw, scene, actors, ordinal) {
     const allowed = new Map((actors || []).map(c => [String(c.id), c]));

@@ -34,7 +34,7 @@ test("入口页是一条左右交替的小路", () => {
   assert.match(src, /const worldHouse = \(\) =>/, "房子没了");
   assert.match(src, /const worldSoon = \(\) =>/, "占位的空圈没了");
   assert.match(src, /const footTrail = \(toRight, key\) =>/, "脚印没了");
-  assert.match(appFn, /const stops = WORLDS\.concat\(\[null\]\);/, "路的末尾不再留空圈");
+  assert.match(appFn, /const stops = WORLDS\.concat\(\[DAY_WORLD, null\]\);/, "路的末尾不再留空圈");
   assert.match(appFn, /const left = i % 2 === 0;/, "站在哪一侧不再只看排第几");
   assert.match(appFn, /path\.push\(footTrail\(i % 2 === 1,/, "两站之间不再连脚印");
 });
@@ -42,7 +42,7 @@ test("入口页是一条左右交替的小路", () => {
 // ⚠️她 2026-09-18 把三个占位世界删了：「许的是三件谁都没在做的事」。
 // 空圈可以留（是她要的），但它不许有名字、介绍，也不许点得进去。
 test("占位那一站不许变成又一张空头支票", () => {
-  const w = src.slice(src.indexOf("const WORLDS = ["), src.indexOf("const INDEX_KEY"));
+  const w = src.slice(src.indexOf("const WORLDS = ["), src.indexOf("const DAY_WORLD"));
   assert.equal((w.match(/\{ id:/g) || []).length, 3, "这里只开放已经接入的庭院、列车和宠物");
   const stop = appFn.slice(appFn.indexOf("const stop = (w, i) =>"), appFn.indexOf("const path = []"));
   assert.ok(stop.length > 200, "抠不出 stop");

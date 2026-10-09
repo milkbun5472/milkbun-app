@@ -50,5 +50,35 @@
     });
     return idx;
   };
-  return { formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, shiftDayKey, currentSeqIdx };
+  // One current interval for schedule scenes. Readers supply the existing end/sleep helpers.
+  const currentSlot = (char, plans, now, deviceOffset, { fillEnds = x => x, sleepCarry } = {}) => {
+    if (!char) return null;
+    const at = now == null ? Date.now() : Number(now), day = dayKey(char, at, deviceOffset);
+    const plan = (plans || {})[day], seqs = fillEnds(Array.isArray(plan?.seqs) ? plan.seqs : []);
+    const minute = localMinute(char, at, deviceOffset), index = currentSeqIdx(seqs, minute);
+    const toMin = value => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(value || "")); return m && +m[1] <= 24 && +m[2] < 60 && (+m[1] < 24 || +m[2] === 0) ? +m[1] * 60 + +m[2] : NaN; };
+    const date = day.split("-").map(Number), midnight = Date.UTC(date[0], date[1] - 1, date[2]) - offsetMinutes(char, deviceOffset) * 60000;
+    let cur = seqs[index], wraps = 0, previous = -1, startAt, endAt;
+    if (cur) {
+      for (let i = 0; i <= index; i++) { const m = toMin(seqs[i]?.time); if (previous >= 0 && previous - m > 720) wraps++; previous = m; }
+      const start = toMin(cur.time), end = toMin(cur.end);
+      if (Number.isFinite(start) && Number.isFinite(end)) {
+        startAt = midnight + (start + wraps * 1440) * 60000;
+        if (startAt > at && wraps && minute < 720) startAt -= 86400000;
+        endAt = startAt + ((end <= start ? end + 1440 : end) - start) * 60000;
+      }
+    }
+    if (!(at >= startAt && at < endAt)) {
+      const carry = sleepCarry?.((plans || {})[shiftDayKey(day, -1)], plan);
+      if (!carry || minute < carry.from || minute >= carry.to) return null;
+      cur = { ...carry, time: pad2(Math.floor(carry.from / 60)) + ":" + pad2(carry.from % 60), end: pad2(Math.floor(carry.to / 60)) + ":" + pad2(carry.to % 60) };
+      startAt = midnight + carry.from * 60000; endAt = midnight + carry.to * 60000;
+    }
+    if (!String(cur?.title || "").trim()) return null;
+    const scene = { charId: String(char.id), name: char.name, day, time: cur.time, end: cur.end, title: cur.title,
+      location: cur.location || "", place: cur.place || "", type: cur.type || "other", deviation: cur.deviation || null, startAt, endAt, carry: !!cur.carry };
+    scene.key = JSON.stringify([scene.charId, day, startAt, endAt, scene.title, scene.location, scene.deviation]);
+    return scene;
+  };
+  return { formatDayParts, deviceDayKey, parseDayKey, offsetMinutes, dayKey, localMinute, shiftDayKey, currentSeqIdx, currentSlot };
 });

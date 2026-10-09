@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-23b0743c09072f06", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-8e92d657ad09bbcc", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -2249,6 +2249,7 @@
     { id: "train", name: "远行列车", label: "列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" },
     { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子", cognition: "【绒绒小镇】这里是你和对方共同生活、一起养宠的日常。家、街区、店铺和家里的猫狗都是这个生活场景的一部分；照料、家务、职业与带回家的东西会成为你们共同的小日子。以眼前的状态和已经完成的记录承接经历，尚在路上或准备做的事按当前阶段理解。你怎样看待宠物、愿不愿照料、如何相处，沿你完整的人设、喜好与实际经历自然生发；两人可以商量、分工，也会有不同意见。其他往事沿这间房准许的上下文承接。" }
   ];
+  const DAY_WORLD = { id: "day", name: "TA的一天", note: "跟着TA看看今天 · 现有日程与基础动作" };
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
   // 这一档里某个世界那一份进度。⚠️只有这一处答案：老档把庭院存在 `world` 上，
@@ -2351,7 +2352,7 @@
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
     if (props.storeKey || props.lockPartnerId) return h(WorldSession, props);
-    const [world, setWorld] = useState(() => WORLDS.find(w=>w.id===props.initialWorld)||null);
+    const [world, setWorld] = useState(() => props.initialWorld === "day" ? DAY_WORLD : WORLDS.find(w=>w.id===props.initialWorld)||null);
     const [saves, setSaves] = useState(() => readSaves());
     const [openId, setOpenId] = useState(null);
     const [picking, setPicking] = useState(false);
@@ -2361,6 +2362,8 @@
     useEffect(()=>{if(scrollNode.current)scrollNode.current.scrollTop=scrolls.current[world?.id||"worlds"]||0;},[openId,world,picking]);
     const refresh = () => setSaves(readSaves());
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
+    // The mainline schedule viewer has no journey archive and never boards the game railway.
+    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), characters: props.characters, build: BUILD, onBack: () => setWorld(null) });
     if (openId) return h(WorldSession, Object.assign({}, props, {
       key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
       onChooseSave: () => { setOpenId(null); setOpenSolo(false); refresh(); },
@@ -2384,7 +2387,7 @@
       h("p", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 2, color: G.soft, margin: "10px 0" } }, stall));
     if (!world) {
       // 路上的站：先是已经能进的那几个世界，末尾留一个空圈——路还没走完。
-      const stops = WORLDS.concat([null]);
+      const stops = WORLDS.concat([DAY_WORLD, null]);
       const stop = (w, i) => {
         const left = i % 2 === 0;
         const label = h("div", { style: { flex: 1, minWidth: 0, textAlign: left ? "left" : "right" } },
@@ -2395,7 +2398,7 @@
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
             fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
-          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():worldHouse()) : worldSoon()), label);
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?h(root.GCompanion,{width:NODE,height:NODE,stroke:"#74866b",strokeWidth:1}):worldHouse()) : worldSoon()), label);
         return w
           ? h("button", { "data-wk": "fgworld", key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
@@ -2408,7 +2411,7 @@
       });
       return shell("挑一个世界", props.onBack, h(React.Fragment, null,
         h("p", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.9, color: G.soft, margin: "6px 0 22px" } },
-          "庭院、列车与绒绒小镇共用同一档旅程。选一个世界，和同行者接着走。"),
+          "庭院、列车与绒绒小镇共用旅程。也可以去「TA的一天」，看看TA此刻的日程。"),
         h("div", null, path)));
     }
 
