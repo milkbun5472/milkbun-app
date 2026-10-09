@@ -80,6 +80,24 @@ function cardFromJSON(text) {
 const CARD_SEC_RE = /^[ \t]*(?:#{1,6}[ \t]*(.+?)[ \t]*[:：]?[ \t]*|\*\*(.+?)\*\*[ \t]*[:：]?[ \t]*(.*?)[ \t]*|[【\[〔](.+?)[】\]〕][ \t]*[:：]?[ \t]*(.*?)[ \t]*|([一-龥A-Za-z][一-龥A-Za-z0-9_ ]{0,13})[ \t]*[:：][ \t]*(.*?)[ \t]*)$/gm;
 // 带冒号那一种太宽（正文里随便一行「TA说：」也像），所以只认这些词
 const CARD_SEC_KWS = ["人设", "设定", "简介", "描述", "长期记忆", "初始记忆", "记忆库种子", "记忆种子", "种子", "记忆库", "开场白", "问候语", "第一句", "一句话", "标签", "外貌", "persona", "description", "memory", "greeting"];
+// 把一篇文档按分节标题切开：角色卡导入和跑团剧本导入共用这一把刀（one-public-mechanism）。
+// colonKws：带冒号那一支只认这些词，别把正文里的「TA说：」当成分节
+function splitDocSections(text, colonKws) {
+  const secs = [];
+  let last = null, mm;
+  const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until).trim() });
+  CARD_SEC_RE.lastIndex = 0;
+  while ((mm = CARD_SEC_RE.exec(text))) {
+    const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim();
+    const pre = (mm[3] || mm[5] || mm[7] || "").trim();
+    if (mm[6] && !(colonKws || []).some(k => title.toLowerCase().includes(k))) continue;
+    if (!title) continue;
+    if (last) push(last, mm.index);
+    last = { title: title, pre: pre, end: mm.index + mm[0].length };
+  }
+  if (last) push(last, text.length);
+  return secs;
+}
 function parseCharCard(raw, userName) {
   const text0 = String(raw || "").replace(/\r/g, "");
   const asJson = cardFromJSON(text0);
@@ -92,20 +110,7 @@ function parseCharCard(raw, userName) {
       || text.match(/名字[「"']([^」"']+)[」"']/)
       || text.match(/^#[ \t]*([^\n#]{1,20})[ \t]*$/m);
     if (m) out.name = m[1].trim().replace(/[*_`]/g, "");
-    const secs = [];
-    let last = null, mm;
-    const push = (sec, until) => secs.push({ title: sec.title, body: (sec.pre ? sec.pre + "\n" : "") + text.slice(sec.end, until) .trim() });
-    CARD_SEC_RE.lastIndex = 0;
-    while ((mm = CARD_SEC_RE.exec(text))) {
-      const title = (mm[1] || mm[2] || mm[4] || mm[6] || "").trim();
-      const pre = (mm[3] || mm[5] || mm[7] || "").trim();
-      // 带冒号那一支只认名单里的词，别把正文里的「TA说：」当成分节
-      if (mm[6] && !CARD_SEC_KWS.some(k => title.toLowerCase().includes(k))) continue;
-      if (!title) continue;
-      if (last) push(last, mm.index);
-      last = { title: title, pre: pre, end: mm.index + mm[0].length };
-    }
-    if (last) push(last, text.length);
+    const secs = splitDocSections(text, CARD_SEC_KWS);
     const find = kws => secs.find(s => kws.some(k => s.title.toLowerCase().includes(k)));
     // 先挑种子再挑长期记忆：「记忆库种子」里也含着「记忆」两个字
     const sSec = find(["记忆库种子", "记忆种子", "记忆库", "种子"]);

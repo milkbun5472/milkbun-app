@@ -1192,6 +1192,58 @@
   // 全让它挑,它每次都掷出同一个众数
   const POOL_EVENT = ["不速之客闯入", "环境突变(天气/坍塌/断电/走水)", "一件要紧的东西丢了或坏了", "有人露出破绽", "突然出现时限:再不动手就来不及", "一个旧相识在最坏的时机出现", "一件看似无关的小事,其实连着真相", "队伍里有人的旧事被戳到", "一桩好运从天而降,但带着钩子", "对头忽然抛来橄榄枝"];
   const pick = a => a[Math.floor(Math.random() * a.length)];
+  // 剧本导入(群友 2026-10-09:「大世界剧情向,主角和事件都按预设随机」):一篇 docx/txt/md 拆成几栏,
+  //   分节那把刀跟角色卡导入共用(screens.js 的 splitDocSections)。主角池、事件池一行一条,
+  //   开团时由程序真随机抽——交给模型「随机挑一个」它永远挑第一个。
+  const SCRIPT_FIELDS = [
+    ["title", ["剧本名", "标题", "名字", "title"]],
+    ["heroes", ["主角", "可选身份", "身份池", "hero"]],
+    ["events", ["事件", "event"]],
+    ["stages", ["主线", "章节", "大纲", "剧情", "流程"]],
+    ["hook", ["开局", "处境", "引子"]],
+    ["opening", ["开场"]],
+    ["truth", ["真相", "秘典", "底牌", "幕后"]],
+    ["limits", ["安全线", "禁忌", "雷点"]],
+    ["world", ["世界", "背景", "设定", "地图", "势力", "world"]]
+  ];
+  const SCRIPT_KWS = SCRIPT_FIELDS.reduce((a, f) => a.concat(f[1]), []);
+  // 一栏拆成一条条:有编号/项目符号就按它拆(一条可以跨好几行),没有就按空行,再没有就按行
+  const scriptList = body => {
+    const b = String(body || "").replace(/\r/g, "").trim();
+    if (!b) return [];
+    const MARK = /^[ \t]*(?:\d+[\.、．)）]|[-*•·]|[（(]\d+[)）]|[一二三四五六七八九十]+[、.．])[ \t]*/;
+    const lines = b.split("\n");
+    let parts;
+    if (lines.filter(l => MARK.test(l)).length >= 2) {
+      parts = [];
+      lines.forEach(l => { if (MARK.test(l) || !parts.length) parts.push(l.replace(MARK, "")); else parts[parts.length - 1] += " " + l.trim(); });
+    } else if (/\n[ \t]*\n/.test(b)) parts = b.split(/\n[ \t]*\n/);
+    else parts = lines;
+    return parts.map(x => x.replace(/\s+/g, " ").trim()).filter(Boolean);
+  };
+  const parseTrpgScript = (raw, split) => {
+    const text = String(raw || "").replace(/\r/g, "");
+    const out = { title: "", world: "", hook: "", opening: "", stages: [], heroes: [], events: [], truth: "", limits: "" };
+    if (!text.trim()) return out;
+    const secs = typeof split === "function" ? split(text, SCRIPT_KWS) : [];
+    const used = new Set();
+    SCRIPT_FIELDS.forEach(([k, kws]) => {
+      const hit = secs.filter(x => !used.has(x) && kws.some(w => x.title.toLowerCase().includes(w)));
+      if (!hit.length) return;
+      hit.forEach(x => used.add(x));
+      // 同一类分好几节写的(「主线·上」「主线·下」)合成一栏
+      const body = hit.map(x => x.body).join("\n\n").trim();
+      if (k === "stages" || k === "heroes" || k === "events") out[k] = scriptList(body);
+      else if (k === "title") out.title = body.split("\n")[0].trim().slice(0, 20);
+      else out[k] = body;
+    });
+    // 没认出来的节(比如「人物」「地点」)都是世界的一部分,原样并进世界,一个字不丢
+    const rest = secs.filter(x => !used.has(x) && x.body.trim()).map(x => "【" + x.title + "】\n" + x.body).join("\n\n");
+    if (rest) out.world = (out.world ? out.world + "\n\n" : "") + rest;
+    if (!secs.length) out.world = text.trim();
+    if (!out.title) { const m = text.match(/^[ \t]*#[ \t]*([^\n#]{1,20})[ \t]*$/m); if (m) out.title = m[1].trim(); }
+    return out;
+  };
   // 冒险小分队 v2(她 2026-08-28 定稿):【多支】小分队各自立户,存 x_trpgSquads。
   // 数值在【组建队伍时】就掷定;成长与旧伤只写回所属那支队——同一个人在小队A
   // 体魄+5,不影响TA在小队B的卡;新建队伍从零掷,不继承任何旧队。
@@ -1312,8 +1364,10 @@
     const [resumeSeen, setResumeSeen] = useState(null); // 休团回来横幅:本次会话已收起的团 id
     const [limitsTxt, setLimitsTxt] = useState("");  // 安全线:开团前写的雷点
     const [mylineTxt, setMylineTxt] = useState("");  // 暗线:自写候选缓冲
-    const [modOpen, setModOpen] = useState(false);   // 导入模组面板
-    const [modTxt, setModTxt] = useState("");        // 模组 JSON 粘贴缓冲
+    const [modTxt, setModTxt] = useState("");        // 剧本页的原文缓冲(粘贴或文件读进来的;打包的模组 JSON 也粘这儿)
+    const [scriptEdits, setScriptEdits] = useState({}); // 剧本页预览里她手改过的栏,原文一改就清空
+    const [scriptBusy, setScriptBusy] = useState(false);
+    const [scriptErr, setScriptErr] = useState("");
     const [squadTick, setSquadTick] = useState(0);   // 小分队增删后强制重画用
     // 入口页分三格(她 2026-08-30:「队伍平时能不能收纳到哪儿不要在主页占位,主界面只留开的团,
     // 开完的团也单独找地方收纳」)。开着的团是每天要点的,别的两样按需要才翻。
@@ -1477,18 +1531,43 @@
         dossier: { truth: d0.truth || String(p.truth || ""), twist: d0.twist || String(p.twist || ""), secrets: d0.secrets || String(p.secrets || ""), endgame: d0.endgame || String(p.endgame || ""), mates: mates }
       };
     };
-    const genSetup = async () => {
+    // 打包的模组 JSON(「复制模组」导出的那种)直接装成预览:世界/章节/秘典/种子都是现成的
+    const loadModule = mod => {
+                try {
+                  if (!mod || mod.kind !== "trpg-module" || !mod.world || !Array.isArray(mod.stages)) throw new Error("不是有效的跑团模组");
+                  const squadsAll = loadSquads().squads;
+                  const squad = squadsAll.find(x => x.id === pickSquadId) || squadsAll[0];
+                  if (!squad) throw new Error("先点右上角 ＋ 组建一支小分队");
+                  const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
+                  const party = buildParty(squad);
+                  const mapRegions = normRegions(mod.regions);
+                  const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes) : [];
+                  const startNode = mapRegions ? (findNode(allNodes, mod.place) || allNodes[0]) : null;
+                  // 模组保台本(世界/章节/秘典/种子),crew 相关(私念/行头/专长/暗线)是空的——
+                  // 预览里点「补幕后」按当前队伍现配;backstage 只补空不覆盖,台本动不了
+                  const modStages = mod.stages.map(stageOf).filter(x => x.goal);
+                  setDraft({ squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: modStages, dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), hero: Array.isArray(mod.heroes) && mod.heroes.length ? pick(mod.heroes) : "", heroes: Array.isArray(mod.heroes) ? mod.heroes.slice() : [], eventPool: (Array.isArray(mod.events) ? mod.events : []).map(x => ({ text: String(x), used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), sceneMeta: normSceneMeta(mod.sceneMeta || {}, { stages: modStages, stageIdx: 0 }), siteActions: normSiteActions(mod.siteActions), choices: normChoices(mod.choices, party), bgm: (Array.isArray(mod.bgm) ? mod.bgm : []).slice(0, 6), party });
+                  if (mod.limits) setLimitsTxt(String(mod.limits));
+                  setView("create");
+                  props.toast("模组已装载——预览里点「补幕后」给这批队友配私念/行头/专长", 7000);
+                } catch (e) { props.toast("导入失败:" + (e.message || "JSON 坏了")); }
+    };
+    const genSetup = async script => {
+      // 从剧本开团才带 script(按钮直接挂 onClick 时进来的是点击事件,不算)
+      script = script && typeof script.world === "string" ? script : null;
       const squadsAll = loadSquads().squads;
       const squad = squadsAll.find(x => x.id === pickSquadId) || squadsAll[0];
       if (!squad) return props.toast("先点右上角 ＋ 组建一支小分队");
       const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
       // 队里只有你=单人团:NPC 与世界把陪伴和对手戏补足
       if (!props.active) return props.toast("请先配置线下 API");
-      setBusy(true); setBusyWhat("守密人在搭台前(世界与地图)…");
+      setBusy(true); setBusyWhat(script ? "守密人在照剧本搭台…" : "守密人在搭台前(世界与地图)…");
       const run = async upd => {
-        const frame = kw.trim() ? "" : "\n\n【本团取景框(骰子已掷好,三项照办)】\n世界:" + pick(POOL_WORLD) + "\n主线原型:" + pick(POOL_QUEST) + "\n基调:" + pick(POOL_TONE);
+        // 主角池真随机抽一个:这一局玩家就是这个人
+        const hero = script && script.heroes.length ? pick(script.heroes) : "";
+        const frame = script || kw.trim() ? "" : "\n\n【本团取景框(骰子已掷好,三项照办)】\n世界:" + pick(POOL_WORLD) + "\n主线原型:" + pick(POOL_QUEST) + "\n基调:" + pick(POOL_TONE);
         const prior = camps.slice(0, 8).map(c => c.title + "(" + String(c.world || "").slice(0, 24) + ")").join(";");
-        const sys = "你在为一场文字跑团搭【台前】:世界、地图、主线与开场——只写这些,写透它们;秘典底牌、队友私念、支线这些幕后另有一枪,这里一个字都不用管。玩家是 " + uName + (members.length
+        const sys = (script ? "这一团照【作者写好的剧本】来搭:剧本里的世界、主线顺序、开局处境与开场是作者定的,照着用、别另起炉灶;剧本没写到的(地图节点、每章两道坎、选项、配乐)由你按剧本补齐,补的东西要跟剧本咬合。" + (hero ? "玩家这一局扮演的主角已经抽定(见下方),开场和处境都按这个人的身份写;剧本自带开场的,以它为底改写成这个人的视角。" : "") + "\n" : "") + "你在为一场文字跑团搭【台前】:世界、地图、主线与开场——只写这些,写透它们;秘典底牌、队友私念、支线这些幕后另有一枪,这里一个字都不用管。玩家是 " + uName + (members.length
             ? ",队友是下面这些角色——保留他们的性格、说话方式与真实能力,把身份处境放进这个新世界(可以贴近原设定,也可以是平行身份,以和世界咬合为准)。"
             : "。这是一场【单人团】:没有队友同行,NPC 与世界要把陪伴、对手戏和信息来源都补足,别让 " + uName + " 对着空气说话。") + "\n"
           + "世界要落在一张地图上:regions 给 3-5 个区域,每区 1-3 个节点(地点)。adj 写谁和谁接壤——这决定地图上它们真的相邻;节点的 hook 是守密人自用的一句底(这里埋着什么),玩家看不到。主线各章要分布在【不同区域】的节点上,逼着队伍真的赶路。\n"
@@ -1499,7 +1578,12 @@
           + ABILITY_RULE + "\n只输出 JSON:" + SHAPE_A;
         const user = "【玩家】" + uName + "\n\n" + members.map(ch => "【队友·" + ch.name + " 人设】\n" + personaOf(ch)).join("\n\n")
           + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame
-          + (prior ? "\n\n【已经开过的团(务必避开,换皮重来也算重复)】" + prior : "");
+          + (script ? "\n\n【作者的剧本】" + (script.title ? "\n剧本名:" + script.title : "") + "\n世界:\n" + script.world
+            + (script.hook ? "\n开局处境:\n" + script.hook : "")
+            + (script.stages.length ? "\n主线(按这个顺序,一条一章):\n" + script.stages.map((x, i) => (i + 1) + ". " + x).join("\n") : "")
+            + (script.opening ? "\n剧本自带的开场:\n" + script.opening : "")
+            + (hero ? "\n\n【这一局玩家扮演的主角(从主角池里抽中的)】" + hero : "")
+            : (prior ? "\n\n【已经开过的团(务必避开,换皮重来也算重复)】" + prior : ""));
         const raw = await callAI(props.active, sys, [{ role: "user", content: user }], { maxTokens: TOK_MAX, timeout: 300000 });
         let p = parseObj(raw);
         if (!p) {
@@ -1518,6 +1602,12 @@
         // 卡从小分队里取:数值建队时已定,成长归这支队
         const party = buildParty(squad);
         let d = { squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: kw.trim(), difficulty: diff, style: style, title: p.title || "无名团", world: p.world, hook: p.hook || "", stages: stages.map(stageOf), dossier: { truth: "", twist: "", secrets: "", endgame: "", mates: [] }, gauge: null, outfits: {}, sideSeeds: [], mylineOptions: [], myline: "", mapRegions: mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : (String(p.place || "").trim() || "起点"), opening: p.opening, sceneMeta: normSceneMeta(p, { stages, stageIdx: 0 }), siteActions: normSiteActions(p.siteActions), choices: normChoices(p.choices, party), bgm: (Array.isArray(p.bgm) ? p.bgm : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 6), party };
+        if (script) {
+          // 作者写的世界、名字、真相一字不改;事件池留给剧情骰抽
+          d = Object.assign(d, { world: script.world.trim() || d.world, title: script.title || d.title, hero: hero, heroes: script.heroes.slice(), eventPool: script.events.map(x => ({ text: x, used: false })), script: script,
+            dossier: Object.assign({}, d.dossier, { truth: script.truth || "" }) });
+          if (script.limits) setLimitsTxt(script.limits);
+        }
         upd(null, "守密人在写幕后底牌…");
         const bs = await backstage(d);
         if (bs) d = Object.assign({}, d, bs);
@@ -1580,7 +1670,7 @@
       const firstSite = normSiteActions(draft.siteActions);
       const siteMap = firstSite.length && draft.place ? { [draft.place]: firstSite } : {};
       const openMsg = { id: rid("rm_"), role: "gm", content: draft.opening, ts: Date.now(), sceneType: firstScene.type, snap: { hp: draft.party.reduce((m, x) => (m[x.name] = x.hp, m), {}), fate: draft.party.reduce((m, x) => (m[x.name] = x.fate, m), {}), items: [], clues: [], stageIdx: 0, place: draft.place, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], gauge: draft.gauge ? draft.gauge.val : null, clocks: [], quests: [], seeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), npcs: [], time: { day: 1, part: "晨" }, effects: {}, choices: draft.choices, sceneMeta: firstScene, sceneTrail: [firstScene.type], siteActions: siteMap, siteDone: {} } };
-      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), squadId: draft.squadId || "", squadName: draft.squadName || "", partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, sideSeeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), myline: draft.myline || "", limits: limitsTxt.trim(), clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, bgm: (draft.bgm || []).slice(), party: draft.party, items: [], clues: [], sceneMeta: firstScene, sceneTrail: [firstScene.type], siteActions: siteMap, siteDone: {}, choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
+      const c = { id: rid("rpg_"), title: draft.title, createdAt: Date.now(), squadId: draft.squadId || "", squadName: draft.squadName || "", partyIds: draft.partyIds, keywords: draft.keywords, difficulty: draft.difficulty, style: draft.style || "classic", world: draft.world, hook: draft.hook, stages: draft.stages, stageIdx: 0, dossier: draft.dossier, gauge: draft.gauge || null, outfits: draft.outfits || {}, sideSeeds: (draft.sideSeeds || []).map(x => Object.assign({}, x)), hero: draft.hero || "", heroes: (draft.heroes || []).slice(), eventPool: (draft.eventPool || []).map(x => Object.assign({}, x)), myline: draft.myline || "", limits: limitsTxt.trim(), clocks: [], guesses: [], quests: [], npcs: [], time: { day: 1, part: "晨" }, mapRegions: draft.mapRegions || null, pos: draft.pos || "", visited: draft.pos ? [draft.pos] : [], place: draft.place, bgm: (draft.bgm || []).slice(), party: draft.party, items: [], clues: [], sceneMeta: firstScene, sceneTrail: [firstScene.type], siteActions: siteMap, siteDone: {}, choices: draft.choices, msgs: [openMsg], pendingStage: false, pendingEnd: false, ledger: null, summary: "", sumCount: 0, sumSig: "", ended: false, epilogue: null };
       update(list => [c, ...list]); setDraft(null); setKw(""); setPlayId(c.id); setView("play"); setPanelOpen(false);
       // 开场亲笔票(她 2026-08-30 抓的:「建了团开启副本之后应该给你发一张票…TA直接替
       // 你写了一个开头」):言秋在队里时,开场落定后立刻递一张【进场】票,开场里给TA留的
@@ -1773,7 +1863,7 @@
           + "绝不写「关系变好了」这种空话(没写 why 的整条会被丢掉)。这一拍没发生什么真的影响关系的事,就不要报 bond。\n"
           + "该 +：" + uName + " 护着TA、听了TA的主意、替TA兜了事、在TA难堪时给台阶;该 -：越过TA做决定、当众驳TA、拿TA冒险、失约、把TA的私念当筹码。",
         personaBlocks(c),
-        "【世界】" + c.world + (c.hook ? "\n【开局处境】" + c.hook : ""),
+        "【世界】" + c.world + (c.hook ? "\n【开局处境】" + c.hook : "") + (c.hero ? "\n【" + uName + " 这一局扮演的主角】" + c.hero + "——NPC 按这个身份认 Ta、待 Ta;Ta 的言行仍然只由玩家决定。" : ""),
         "【守密人秘典(玩家永远不可见,不得在正文中直接说破)】\n真相:" + c.dossier.truth + "\n中段翻转:" + c.dossier.twist + "\nNPC 各自的心事:" + c.dossier.secrets + "\n结局方向:" + c.dossier.endgame
           + ((c.dossier.mates || []).length ? "\n【队友的私念(同样保密;按各自的私念演——该坚持坚持、该隐瞒隐瞒,时机到了可以主动提支线或唱反调,不许把队友演成只会附和的陪跑)】\n" + c.dossier.mates.map(m => m.name + ":想要·" + m.want + ";最怕·" + m.fear + ";底线·" + m.line + ";会唱反调·" + m.clash).join("\n") : "")
           + (((c.sideSeeds || []).filter(sd => !sd.used).length) ? "\n【支线种子(玩家不可见)】\n" + c.sideSeeds.filter(sd => !sd.used).map(sd => "「" + sd.name + "」@" + (sd.region || "?") + "·触发:" + sd.trigger + (sd.hook ? "·底:" + sd.hook : "")).join("\n") + "\n触发条件在剧情里【真实满足】时才把种子端出来(quest add 同名),端出即作废;条件没满足绝不硬塞。" : "")
@@ -1878,7 +1968,11 @@
         const exploring = !!(mode && mode.explore);
         const siteAction = mode && mode.siteAction;
         const hist = foldHist(liveMsgs.slice(camp.sumCount || 0)).slice(-40);
-        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (camp.table && (extra || []).some(x => x && x.role === "roll") ? "\n〔行动表结算〕上一拍排了行动表,这一拍每人各动一下,按表上的先后写:队友的检定已经在上面掷过,照各自的等级写TA那一下的结果(失败就真失败,别替TA圆);" + uName + " 的那一下按 Ta 的选择" + ((extra || []).some(x => x && x.role === "roll" && x.who === uName) ? "与检定" : "") + "写。" : "") + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。" : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone 也不报 stepDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15)。\n【夜谈】歇下来的时候人才会说话:在场、还站得住的每位队友各开【一个话头】,写进 night 字段(who 用队友名,open 是TA开口的那句原话,≤50字)。话头不是对下一步的看法,是这个人在这种时候真会说出口的一句——从TA的私念、TA跟 " + uName + " 的羁绊、今天发生的某件事里长出来:可以是问 " + uName + " 一句,可以是说漏一句,可以是没头没尾的一句;羁绊高的往前一步,羁绊低的别扭或者只是搭一句。判据:这句话换个人说就不对了,才算TA的。正文里只写到TA开口为止、不替 " + uName + " 接——那些话头留给玩家挑一个接着聊。结尾的选项给 2-3 个休整后动身的方向。" : "")
+        // 剧本带了事件池:剧情骰先从池里抽(抽过的不再抽),池子空了才回到掷类型
+        const evLeft = dice ? (camp.eventPool || []).filter(e => !e.used) : [];
+        const scriptEv = evLeft.length ? pick(evLeft) : null;
+        if (scriptEv) update(list => list.map(c => c.id !== camp.id ? c : Object.assign({}, c, { eventPool: (c.eventPool || []).map(e => e.text === scriptEv.text ? Object.assign({}, e, { used: true }) : e) })));
+        const tail = "\n\n〔本回合守则〕只推进一小步,绝不替 " + uName + " 行动或代答;队友各用各的声口;历史里的〔检定〕结果是铁的事实,照其等级叙事;状态变化必须写进字段。" + (camp.table && (extra || []).some(x => x && x.role === "roll") ? "\n〔行动表结算〕上一拍排了行动表,这一拍每人各动一下,按表上的先后写:队友的检定已经在上面掷过,照各自的等级写TA那一下的结果(失败就真失败,别替TA圆);" + uName + " 的那一下按 Ta 的选择" + ((extra || []).some(x => x && x.role === "roll" && x.who === uName) ? "与检定" : "") + "写。" : "") + (note.trim() ? "\n〔幕后指示(务必遵循,正文绝不提及)〕" + note.trim() : "") + (dice ? (scriptEv ? "\n〔剧情骰·剧本事件〕本回合必须自然引入剧本里的这件事:【" + scriptEv.text + "】——照它的本意落到眼下这个场景里,落在具体行动上,并实际搅动局面。" : "\n〔剧情骰〕本回合必须自然引入一个意外——类型已掷定:【" + pick(POOL_EVENT) + "】,与世界观相容,落在具体行动上,并实际搅动局面。") : "") + (mode === "rest" ? "\n〔休整拍〕sceneMeta.type 固定 interlude。这一拍不推进主线、不引入新危机、不报 stageDone 也不报 stepDone:队伍就地喘口气——【休整的形式必须贴合此刻身处的场景】:荒郊野外才是扎营生火;在室内就是闭门落锁、轮流望风、烧水理伤;在闹市可能只是找了个茶棚角落。照当前地点写,不要千篇一律地支帐篷。让队友们放松下来,聊天、拌嘴、照料伤处、整理手头的线索与物品;可以恢复少量 HP(hp 写正数,每人至多 +15)。\n【夜谈】歇下来的时候人才会说话:在场、还站得住的每位队友各开【一个话头】,写进 night 字段(who 用队友名,open 是TA开口的那句原话,≤50字)。话头不是对下一步的看法,是这个人在这种时候真会说出口的一句——从TA的私念、TA跟 " + uName + " 的羁绊、今天发生的某件事里长出来:可以是问 " + uName + " 一句,可以是说漏一句,可以是没头没尾的一句;羁绊高的往前一步,羁绊低的别扭或者只是搭一句。判据:这句话换个人说就不对了,才算TA的。正文里只写到TA开口为止、不替 " + uName + " 接——那些话头留给玩家挑一个接着聊。结尾的选项给 2-3 个休整后动身的方向。" : "")
           + (mode && mode.night ? "\n〔夜谈·对象:" + mode.night.who + "〕sceneMeta.type 固定 interlude。队伍歇着,玩家接了「" + mode.night.who + "」开的那个话头(「" + mode.night.open + "」):只演这两个人的一来一回,别的队友至多插一句嘴或在旁边干自己的事。不推进主线、不开新危机、不掷骰、不报 needCheck、不报 stageDone 也不报 stepDone,威胁钟不走,不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。" + mode.night.who + " 照TA的私念与羁绊说话:羁绊高可以往前一步(交底、道谢、问一句只问 " + uName + " 的话),羁绊低就别扭、话说一半、或者把话岔开;TA瞒着的事不许为了讨好而全盘托出,TA不知道的就是不知道。" + (camp.myline ? "TA隐约察觉 " + uName + " 心里揣着事(TA不知道那是什么):这一拍可以问一句擦着边的话,问完就住,玩家躲开也不追,绝不点破。" : "") + "真的发生了什么才报 bond。" : "")
           + (mode === "lull" ? "\n〔幕间〕sceneMeta.type 固定 interlude。这一章刚翻过去、下一章还没开始:这一拍不推进主线、不开新危机、不掷骰、不报 needCheck、不报 stageDone 也不报 stepDone,威胁钟不走。\n只写队伍在这个间隙里【彼此之间】的一小段:谁去照料谁的伤、谁在跟谁拌嘴、谁把那句话说了一半又咽回去。按各人的私念与羁绊挑人开口——羁绊高的可以往前一步(交底、道谢、说一句只对 " + uName + " 说的话),羁绊低的可以别扭、话说一半、或者索性不接茬。" + uName + " 只是在场,绝不替 Ta 说话或做决定。\n这一拍正是该报 bond 的时候(真的发生了什么才报)。结尾 choices 给【空数组】,让队伍落回自由活动。" : "")
           + (mode && mode.talk ? "\n〔攀谈拍·对象:" + mode.talk + "〕sceneMeta.type 固定 social。这一拍是玩家与「" + mode.talk + "」坐下来说话:只演这位 NPC 与玩家的对话往来,一来一回、有人味,不推进主线、不引入新危机、不报 stageDone、威胁钟不走、不给行动选项(choices 只给 1-2 个轻的:换个话头/就聊到这)。NPC 照TA的身份与立场说话:可以露口风、可以打太极、聊得投缘立场可以松动(写进 npc 字段),真情报进 clue;TA不知道的就是不知道,不许为了讨好玩家编。顺耳处可以飘进一两句街谈巷议(旁桌的闲话、街上的动静,真伪自定)。" : "")
@@ -2336,6 +2430,7 @@
     const back = () => {
       if (view === "play") { setPlayId(null); setView("list"); return; }
       if (view === "create") { setDraft(null); setView("list"); return; }
+      if (view === "script") { setView("create"); return; }
       props.onBack();
     };
     // 顶栏走共用的 Head（施工规则/mobile-ui-layout.md §1）。v65.14 换过来：
@@ -2396,7 +2491,7 @@
 
       const preview = draft && h("div", { style: S.card },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 8 } }, draft.title),
-        [["世界", draft.world], ["开局处境", draft.hook],
+        [["这一局你是", draft.hero || null], ["世界", draft.world], ["开局处境", draft.hook], ["剧本事件", (draft.eventPool || []).length ? draft.eventPool.length + " 件,剧情骰掷中时从里面抽" : null],
          ["地图", draft.mapRegions ? draft.mapRegions.length + " 个区域 · " + draft.mapRegions.reduce((n, r) => n + r.nodes.length, 0) + " 个地点,开局在「" + (draft.pos || "?") + "」(迷雾里的走近了才亮)" : "这一版没长出地图(不影响开团,按纯叙事走)"],
          ["专属状态条", draft.gauge ? draft.gauge.name + " " + draft.gauge.val + "/" + draft.gauge.max + "(" + (draft.gauge.bad === "high" ? "涨满出事" : "见底出事") + (draft.gauge.rule ? ";" + draft.gauge.rule : "") + ")" : null],
          ["守密风格", (STYLES[draft.style] || STYLES.classic).name],
@@ -2418,7 +2513,7 @@
           draft.myline ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8a6d3b", marginTop: 4 } }, "✦ 已选暗线:" + draft.myline) : null),
         h("div", { style: { display: "flex", gap: 8, flexWrap: "wrap" } },
           h("button", { onClick: acceptDraft, style: S.btn(true) }, "就这个,开团"),
-          h("button", { onClick: genSetup, disabled: busy, style: S.btn(false) }, busy ? "在想…" : "换一版"),
+          h("button", { onClick: () => genSetup(draft && draft.script), disabled: busy, style: S.btn(false) }, busy ? "在想…" : (draft && (draft.heroes || []).length > 1 ? "换一版(重抽主角)" : "换一版")),
           draft.mapRegions ? h("button", { onClick: () => { saveWorlds([{ id: rid("tw_"), title: draft.title, world: draft.world, regions: draft.mapRegions, style: draft.style || "classic", limits: limitsTxt.trim(), ts: Date.now() }].concat(loadWorlds())); props.toast("世界已收藏——下次开团可以用它另起一个故事(章节秘典全新生成)"); }, style: S.btn(false) }, "🌍 收藏世界") : null,
 
           // 幕后没写成(或模组换了队友)时:台前不动,单独补底牌
@@ -2447,31 +2542,8 @@
             h("div", { style: S.lbl }, "安全线(选填:绝不想出现的内容,守密人最高优先级遵守)"),
             h("textarea", { value: limitsTxt, onChange: e => setLimitsTxt(e.target.value), rows: 1, placeholder: "如「虫群、孩子受伤、背叛后无法挽回」,留空=不设", style: { width: "100%", background: "transparent", border: "none", outline: "none", fontFamily: F_BODY, fontSize: 12, color: t.ink, resize: "none", marginBottom: 4 } }),
             !draft && h("div", { style: { display: "flex", gap: 8, marginTop: 4 } },
-              h("button", { onClick: genSetup, disabled: busy, style: S.btn(true) }, busy ? "在搭…" : "生成设定"),
-              h("button", { onClick: () => setModOpen(v => !v), style: S.btn(modOpen) }, "📦 导入模组")),
-            !draft && modOpen ? h("div", { style: { marginTop: 6 } },
-              h("textarea", { value: modTxt, onChange: e => setModTxt(e.target.value), rows: 3, placeholder: "把打包的模组 JSON 粘到这里——同一场世界换批队友重开,或者玩别人分享的团", style: { width: "100%", padding: 8, borderRadius: 10, border: "1px dashed " + t.line, background: t.bg, fontFamily: "monospace", fontSize: 10, color: t.ink, resize: "vertical", outline: "none" } }),
-              h("button", { onClick: () => {
-                try {
-                  const mod = JSON.parse(modTxt.trim());
-                  if (!mod || mod.kind !== "trpg-module" || !mod.world || !Array.isArray(mod.stages)) throw new Error("不是有效的跑团模组");
-                  const squadsAll = loadSquads().squads;
-                  const squad = squadsAll.find(x => x.id === pickSquadId) || squadsAll[0];
-                  if (!squad) throw new Error("先点右上角 ＋ 组建一支小分队");
-                  const members = squad.members.filter(m => m.key !== "user").map(m => charOf(m.key)).filter(Boolean);
-                  const party = buildParty(squad);
-                  const mapRegions = normRegions(mod.regions);
-                  const allNodes = mapRegions ? mapRegions.flatMap(r => r.nodes) : [];
-                  const startNode = mapRegions ? (findNode(allNodes, mod.place) || allNodes[0]) : null;
-                  // 模组保台本(世界/章节/秘典/种子),crew 相关(私念/行头/专长/暗线)是空的——
-                  // 预览里点「补幕后」按当前队伍现配;backstage 只补空不覆盖,台本动不了
-                  const modStages = mod.stages.map(stageOf).filter(x => x.goal);
-                  setDraft({ squadId: squad.id, squadName: squad.name, partyIds: members.map(ch => ch.id), keywords: "", difficulty: diff, style: mod.style || "classic", title: (mod.title || "模组团") + "·重开", world: mod.world, hook: mod.hook || "", stages: modStages, dossier: Object.assign({ mates: [] }, mod.dossier || {}), gauge: mod.gauge ? Object.assign({}, mod.gauge) : null, outfits: {}, sideSeeds: (Array.isArray(mod.seeds) ? mod.seeds : []).map(x => Object.assign({}, x, { used: false })), mylineOptions: [], myline: "", mapRegions, pos: startNode ? startNode.name : "", place: startNode ? startNode.name : "起点", opening: String(mod.opening || "故事重新开始了。"), sceneMeta: normSceneMeta(mod.sceneMeta || {}, { stages: modStages, stageIdx: 0 }), siteActions: normSiteActions(mod.siteActions), choices: normChoices(mod.choices, party), bgm: (Array.isArray(mod.bgm) ? mod.bgm : []).slice(0, 6), party });
-                  if (mod.limits) setLimitsTxt(String(mod.limits));
-                  setModOpen(false);
-                  props.toast("模组已装载——预览里点「补幕后」给这批队友配私念/行头/专长", 7000);
-                } catch (e) { props.toast("导入失败:" + (e.message || "JSON 坏了")); }
-              }, style: Object.assign({ marginTop: 4 }, S.btn(true)) }, "用模组开团")) : null),
+              h("button", { onClick: () => genSetup(), disabled: busy, style: S.btn(true) }, busy ? "在搭…" : "生成设定"),
+              h("button", { onClick: () => { setScriptErr(""); setView("script"); }, style: S.btn(false) }, "📦 导入剧本"))),
           (() => {
             const ws = loadWorlds();
             if (!ws.length || draft) return null;
@@ -2676,7 +2748,7 @@
           h("button", { onClick: () => {
             // 打包模组:台前+底牌+种子,不带存档与队伍——换队友重开时「补幕后」会重配 crew
             const openingPlace = camp.stages.length && camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.place : camp.place;
-            const mod = { v: 2, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", steps: normSteps(x.steps).map(st => st.text) })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), style: camp.style || "classic", limits: camp.limits || "", bgm: (camp.bgm || []).slice(), opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: openingPlace, sceneMeta: camp.msgs[0] && camp.msgs[0].snap && camp.msgs[0].snap.sceneMeta ? camp.msgs[0].snap.sceneMeta : camp.sceneMeta, siteActions: normSiteActions((camp.siteActions || {})[openingPlace]), choices: camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.choices : [] };
+            const mod = { v: 2, kind: "trpg-module", title: camp.title, world: camp.world, hook: camp.hook, regions: camp.mapRegions, stages: camp.stages.map(x => ({ goal: x.goal, hint: x.hint, place: x.place || "", steps: normSteps(x.steps).map(st => st.text) })), dossier: { truth: camp.dossier.truth, twist: camp.dossier.twist, secrets: camp.dossier.secrets, endgame: camp.dossier.endgame }, gauge: camp.gauge ? Object.assign({}, camp.gauge) : null, seeds: (camp.sideSeeds || []).map(x => Object.assign({}, x, { used: false })), heroes: (camp.heroes || []).slice(), events: (camp.eventPool || []).map(x => x.text), style: camp.style || "classic", limits: camp.limits || "", bgm: (camp.bgm || []).slice(), opening: (camp.msgs[0] && camp.msgs[0].content) || "", place: openingPlace, sceneMeta: camp.msgs[0] && camp.msgs[0].snap && camp.msgs[0].snap.sceneMeta ? camp.msgs[0].snap.sceneMeta : camp.sceneMeta, siteActions: normSiteActions((camp.siteActions || {})[openingPlace]), choices: camp.msgs[0] && camp.msgs[0].snap ? camp.msgs[0].snap.choices : [] };
             const txt = JSON.stringify(mod);
             copyText(txt).then(ok => ok ? props.toast("模组已复制:世界/章节/秘典/种子都在里面,开团页「导入模组」可重开或分享", 7000) : props.toast("复制失败,再试一次"));
           }, style: S.btn(false) }, "📦 打包模组"),
@@ -3138,6 +3210,68 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, opacity: .8 } }, TRPG_HOUR[tone] === TRPG_HOUR["昼"] && tone !== "昼" ? "" : ((c.time || {}).part || ""))));
     };
     // ---- 组建队伍(她 2026-08-28 定稿:数值在这里掷定,进什么副本都用这套) ----
+    // 导入剧本(整页,跟角色卡导入一个样子):选文件或粘进来 → 拆成几栏 → 每栏都能改 → 照剧本开团
+    if (view === "script") {
+      const raw = modTxt.trim();
+      let asMod = null;
+      if (raw.startsWith("{")) { try { const o = JSON.parse(raw); if (o && o.kind === "trpg-module") asMod = o; } catch (e) { asMod = null; } }
+      const parsed = raw && !asMod ? parseTrpgScript(raw, typeof splitDocSections === "function" ? splitDocSections : null) : null;
+      const LISTS = { stages: 1, heroes: 1, events: 1 };
+      const sv = k => scriptEdits[k] != null ? scriptEdits[k] : (parsed ? (LISTS[k] ? parsed[k].join("\n") : parsed[k]) : "");
+      const setSv = (k, v) => setScriptEdits(e => Object.assign({}, e, { [k]: v }));
+      const lines = k => String(sv(k) || "").split("\n").map(x => x.trim()).filter(Boolean);
+      const importFile = async e => {
+        const input = e.target, file = input.files && input.files[0];
+        input.value = "";
+        if (!file) return;
+        setScriptBusy(true); setScriptErr("");
+        try {
+          if (/\.doc$/i.test(file.name || "")) throw new Error("老的 .doc 读不了,在 Word 里另存为 .docx 再导");
+          if (!/\.(docx|txt|md|markdown|json)$/i.test(file.name || "")) throw new Error("请选择 .docx / .txt / .md / .json 文件");
+          const text = await readOfflineStyleDocument(file);
+          if (!String(text || "").trim()) throw new Error("文件里没有可导入的文字");
+          setModTxt(text); setScriptEdits({});
+        } catch (err) {
+          setScriptErr(String(err && err.message || "文件读取失败,请重新选择").replace(/文风/g, "剧本"));
+        } finally { setScriptBusy(false); }
+      };
+      const lbl = (zh, k) => h("div", { style: Object.assign({}, S.lbl, { marginTop: 10 }) }, zh + (k && LISTS[k] ? "(一行一条 · " + lines(k).length + " 条)" : ""));
+      const box = (k, rows, ph) => h("textarea", { "data-wk": "trpginput", "data-part": "script", value: sv(k), onChange: e => setSv(k, e.target.value), rows, placeholder: ph,
+        style: { width: "100%", padding: "8px 10px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } });
+      const go = () => {
+        const sc = { title: String(sv("title") || "").trim(), world: String(sv("world") || "").trim(), hook: String(sv("hook") || "").trim(), opening: String(sv("opening") || "").trim(), truth: String(sv("truth") || "").trim(), limits: String(sv("limits") || "").trim(), stages: lines("stages"), heroes: lines("heroes"), events: lines("events") };
+        if (!sc.world) return props.toast("世界那一栏空着——至少写下这是个什么样的世界");
+        setView("create"); genSetup(sc);
+      };
+      return h("div", { "data-wk": "trpgscript", style: S.wrap }, badges(), askSheet, header("导入剧本"),
+        h("div", { "data-wk": "trpgbody", style: { flex: 1, overflowY: "auto", paddingBottom: 30 } },
+          h("div", { style: S.card },
+            h("div", { style: Object.assign({}, S.txt, { fontSize: 12, color: t.fog, lineHeight: 1.65 }) },
+              "整篇粘进来,或者直接选文件(.docx / .txt / .md)。用「# 标题」「**加粗**」「【】」分节就认得出:世界(背景/设定/地图)、开局处境、开场、主线(章节)、主角池、事件池、真相、安全线。认不出的节都并进世界,一个字不丢。拆得不对就在下面直接改。开团时从主角池里随机抽一个当这一局的你,剧情骰从事件池里抽。「复制模组」导出的 JSON 也粘这里。"),
+            h("button", { onClick: () => { const el = document.getElementById("trpg-script-file"); el && el.click(); }, disabled: scriptBusy, className: "active:opacity-70",
+              style: Object.assign({}, S.btn(false), { width: "100%", minHeight: 40, marginTop: 10 }) }, scriptBusy ? "正在读文件…" : "从文件导入"),
+            h("input", { id: "trpg-script-file", type: "file", accept: ".docx,.txt,.md,.markdown,.json,text/plain,text/markdown,application/json,application/vnd.openxmlformats-officedocument.wordprocessingml.document", style: { display: "none" }, onChange: importFile }),
+            scriptErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#a4442e", marginTop: 6 } }, scriptErr) : null,
+            h("textarea", { "data-wk": "trpginput", "data-part": "scriptraw", value: modTxt, onChange: e => { setModTxt(e.target.value); setScriptEdits({}); }, rows: 8, placeholder: "在这里粘贴整篇剧本…",
+              style: { width: "100%", marginTop: 10, padding: "10px 12px", borderRadius: 10, border: "1px dashed " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, resize: "vertical", outline: "none", lineHeight: 1.6 } })),
+          asMod ? h("div", { style: S.card },
+            h("div", { style: S.lbl }, "认出是打包的模组:" + (asMod.title || "无名团")),
+            h("button", { onClick: () => loadModule(asMod), style: Object.assign({}, S.btn(true), { minHeight: 40 }) }, "用模组开团")) : null,
+          parsed ? h("div", { "data-wk": "trpgscriptpreview", style: S.card },
+            h("div", { style: S.lbl }, "拆出来的样子 · 每栏都能改"),
+            lbl("剧本名"), h("input", { value: sv("title"), onChange: e => setSv("title", e.target.value), placeholder: "没认出来,自己写一个",
+              style: { width: "100%", padding: "6px 2px", border: "none", borderBottom: "1px solid " + t.line, background: "transparent", fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, outline: "none" } }),
+            lbl("世界"), box("world", 6, "这是个什么样的世界:背景、地图、势力、人物…"),
+            lbl("开局处境"), box("hook", 2, "空着=守密人按剧本补"),
+            lbl("开场"), box("opening", 3, "空着=守密人按剧本写"),
+            lbl("主线", "stages"), box("stages", 4, "一行一章,按顺序;空着=守密人按世界编"),
+            lbl("主角池", "heroes"), box("heroes", 4, "一行一个可选主角;开团随机抽一个当这一局的你;空着=你就是你自己"),
+            lbl("事件池", "events"), box("events", 4, "一行一件事;剧情骰掷中时从里面随机抽,抽过的不再抽;空着=照旧随机意外"),
+            lbl("真相(只给守密人看,落幕才揭晓)"), box("truth", 2, "空着=守密人自己写"),
+            lbl("安全线"), box("limits", 1, "绝不想出现的内容"),
+            h("button", { onClick: go, disabled: busy, style: Object.assign({}, S.btn(true), { width: "100%", minHeight: 40, marginTop: 12 }) }, busy ? "在搭…" : "照这个剧本开团"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "带的是「新开跑团」页上选中的那支小分队;只有你一个人的队就是单人剧本。")) : null));
+    }
     if (view === "squadNew") {
       const togglePick = id => {
         if (pickIds.indexOf(id) >= 0) { setPickIds(p => p.filter(x => x !== id)); return; }
@@ -3261,5 +3395,5 @@
   // 一份实现两处用。各写一份必然走成「一层写在两处,第二处没跟上」。
   if (inApp) window.TrpgMap = { normRegions, mapBuild, mapAdjacent, findNode };
   // 纯函数导出给 node --test;浏览器里没有 module,原样跳过
-  if (typeof module === "object" && module.exports) module.exports = { bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normOrder, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
+  if (typeof module === "object" && module.exports) module.exports = { parseTrpgScript, scriptList, bondVal, bondZh, bondBoost, BOND_HIGH, BOND_LOW, BOND_START, trpgDeskBg, trpgHour, rollStats, personaNudge, gradeCheck, normChoices, normSceneMeta, normSiteActions, normOrder, normSteps, stageOf, matchStep, stageBeats, STAGE_MIN_BEATS, awayClocks, AWAY_CLOCK_MAX, AWAY_DAY_MAX, applyTurnPayload, foldHist, findMember, shotSafeLines, mulberry32, hashStr, journeyLayout, jitterPts, itemsFix, fmtItem, hasItem, nudgeHits, normRegions, mapBuild, mapAdjacent, findNode, decideOpposed, harmZh, growthRolls, exploreMenu, pickSeed, regionOfNode };
 })();
