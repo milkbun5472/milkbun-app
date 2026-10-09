@@ -19,9 +19,13 @@ test("节奏提示明写：分量和性格定节奏，短消息不许把角色�
   assert.match(p, /一个意思说一遍就往下走/, "反注水的刹车还在");
 });
 
-test("自主续说保持一到两泡", () => {
+test("自主续说保持一到两泡；隔一阵主动找她，说多少归这个人", () => {
   assert.match(Pacing.pacing([], { continueMode: true }), /一两条短气泡/);
-  assert.match(Pacing.pacing([], { proactive: true }), /一两条短气泡/);
+  // v75.126：主动那一档不再钉死一两条（她 2026-10-09：主动来的永远两条）
+  const p = Pacing.pacing([], { proactive: true });
+  assert.doesNotMatch(p, /一两条短气泡说清想说的就够/);
+  assert.match(p, /有话就连着几条说完，没什么就一两句/);
+  assert.match(p, /一个意思说一遍就往下走/, "反注水的刹车还在");
 });
 
 test("整体提示用通用交际目的与情绪重量原则，不堆具体案例", () => {
