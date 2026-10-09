@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.115";
+const APP_VERSION = "v75.116";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -5930,7 +5930,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 关注的路人主播也提醒（他们没有日程，按日子算）
       let stFollowed = [];
       try { stFollowed = ((loadJSON("x_liveStrangers", null) || {}).list || []).filter(x => x && x.followed && !x.promoted); } catch (e) {}
-      K.slotsOf(liveChars.filter(c => c && !c.npc).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
+      K.slotsOf(liveChars.filter(c => c && !c.npc && !((liveCfg.selfOff || {})[c.id])).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
           const c = liveChars.find(cc => cc.id === x.charId) || stFollowed.find(cc => cc.id === x.charId);

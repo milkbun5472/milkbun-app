@@ -80,9 +80,9 @@ test("TA 自己开播先看日程：日程写了直播就照那个点；排了�
   assert.deepEqual(K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d, () => []), [], "日程排好了却没写直播：今天不播");
   assert.deepEqual(K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d, () => null), K.slotsOf([{ id: "c_b" }, { id: "c_c" }], d), "没排日程才按日子掷");
   // v75.080 起关注的路人主播也一起算（他们没有日程，走按日子掷），角色照旧先看日程
-  assert.match(app, /K\.slotsOf\(liveChars\.filter\(c => c && !c\.npc\)\.concat\(stFollowed\), new Date\(\), c => stFollowed\.some\(x => x\.id === c\.id\) \? null : liveSchedFor\(c\)\)/, "开播提醒也看日程");
+  assert.match(app, /K\.slotsOf\(liveChars\.filter\([^\n]*?new Date\(\), c => stFollowed\.some\(x => x\.id === c\.id\) \? null : liveSchedFor\(c\)\)/, "开播提醒也看日程");
   assert.match(app, /liveSched: liveSchedFor/);
-  assert.match(live, /slotsOf\(characters\.concat\(followedSt\), new Date\(\), c => followedSt\.some\(x => x\.id === c\.id\) \? null : \(props\.liveSched \? props\.liveSched\(c\) : null\)\)/);
+  assert.match(live, /slotsOf\(selfOn\.concat\(followedSt\), new Date\(\), c => followedSt\.some\(x => x\.id === c\.id\) \? null : \(props\.liveSched \? props\.liveSched\(c\) : null\)\)/);
 });
 
 test("直播输入框空着按＝接着看／接着播，不用非得发弹幕才往下走", () => {
@@ -165,8 +165,8 @@ test("全屏直播间：字幕卡、礼物横幅、弹幕区面板开着时变�
   assert.match(live, /"data-wk": "livemoremenu"/);
   const menu = live.slice(live.indexOf('"data-wk": "livemoremenu"'), live.indexOf('"data-wk": "liveautoslider"'));
   assert.match(menu, /livelinkbtn/);
-  assert.doesNotMatch(menu, /liveautobtn/, "自动往下播不收进 ⋯");
-  assert.match(live, /\(giftOpen \|\| songOpen\) \? null : h\("div", \{ className: "flex items-center"/);
+  assert.match(menu, /liveautobtn/, "自动往下播也收进 ⋯（她 2026-10-08：放外面丑）");
+  assert.match(live, /"data-wk": "liveautodot"/, "开着时 ⋯ 上一个小红点");
   assert.match(live, /情绪起伏得有来由/);
 });
 
@@ -200,4 +200,12 @@ test("直播间画出来：⋯ 里点了才画，存在这一场上铺成底图"
   assert.match(fn, /img: ref/);
   assert.match(live, /"data-wk": "livebg"/);
   assert.match(live, /"data-wk": "livedrawbtn"/);
+});
+
+test("谁会自己开播一个个选；点掉的人连时间表都不算（直播首页和开播提醒两处）", () => {
+  assert.match(live, /const selfOn = characters\.filter\(c => !\(\(cfg\.selfOff \|\| \{\}\)\[c\.id\]\)\)/);
+  assert.match(live, /slotsOf\(selfOn\.concat\(followedSt\), new Date\(\),/);
+  assert.match(live, /slotsOf\(selfOn\.concat\(followedSt\), new Date\(now - 86400000\)/);
+  assert.match(app, /!\(\(liveCfg\.selfOff \|\| \{\}\)\[c\.id\]\)/);
+  assert.match(live, /"data-wk": "liveselfchip"/);
 });
