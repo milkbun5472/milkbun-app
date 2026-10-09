@@ -100,7 +100,7 @@ test("设置入口在钱包右上角、跟刷新并排，而且是整页不是�
   assert.match(screens, /onClick: \(\) => onRefresh\(char\), disabled: loading/);
   assert.match(screens, /if \(curOpen\) return h\(CurrencyBook, \{/, "做成半窗了（施工规则/no-half-sheet.md）");
   assert.ok(!/curOpen && h\(Sheet/.test(screens));
-  assert.match(screens, /function CurrencyBook\(\{ char, cur, onSave, onBack \}\)/);
+  assert.match(screens, /function CurrencyBook\(\{ char, cur, onSave, onBack(, mine)? \}\)/);
   // 符号是她自己填的，不是只能从列表里挑（她点名要这个）
   assert.match(screens, /field\("符号", input\(sym, v => setSym\(String\(v\)\.slice\(0, 4\)\)\)/);
 });

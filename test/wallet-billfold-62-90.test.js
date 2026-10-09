@@ -90,7 +90,7 @@ test("每块是撕下来的单据、每笔流水是一张小票，两种撕口�
   assert.match(rcpt, /circle at 4px 100%/, "小票底边那排撕口没了");
   // 圆角卡一处不留：单据和小票都是方角
   assert.ok(!/borderRadius: 16, border: "1px solid " \+ t\.line \} \}, kids\)/.test(seg), "旧那张圆角卡还在");
-  assert.equal((seg.match(/slipSkin\(t\)/g) || []).length, 3);
+  assert.equal((seg.match(/slipSkin\(t\)/g) || []).length, 4);   // v75.207 起多了「本月进出」那两格单据
   assert.match(seg, /transform: "rotate\(" \+ tiltById\(e\.id\) \+ "deg\)" \}, receiptSkin\(t\)\)/, "小票一张都不歪");
 });
 

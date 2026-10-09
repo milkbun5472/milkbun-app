@@ -9005,7 +9005,25 @@ function GameChatSource({ m }) {
   return source ? h("div", { "data-wk": "messagesource", "data-world": m.gameWorld || "legacy",
     style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.sub, margin: "0 4px 3px", overflowWrap: "anywhere" } }, source) : null;
 }
+// 从聊天外面带一个时刻进来定位（我的钱包每一笔「看来源」用；她 2026-10-09：每笔都能追溯到来源）。
+//   按时刻找：那一刻之后的第一条（转账卡、红包、礼物都是记账那一下落进聊天的），找不到就停在最后。
+//   定位本身走查找记录那一套（locateMsgIn），不另写一份。
+function useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, single) {
+  useEffect(() => {
+    if (!locateAt || !locateAt.ts) return;
+    const list = messages || [];
+    let i = list.findIndex(m => m && (m.ts || 0) >= locateAt.ts - 3000);
+    if (i < 0) i = list.length - 1;
+    if (i >= 0) {
+      revealMsg(i);
+      setTimeout(() => locateMsgIn(ref.current, i, list, archCount > 0, { start: winStartRef.current, single: single }), 260);
+    }
+    onLocated && onLocated();
+  }, [locateAt && locateAt.key]);
+}
 function ChatThread({
+  locateAt,       // 从别处点「看来源」带进来的 {ts,key}：打开后滚到那个时刻的那条并闪一下（我的钱包·凭证，她 2026-10-09）
+  onLocated,
   onHalfWin,
   halfMode,
   onOpenTakeout,  // 点 TA 给你点的外卖卡 → 外卖 app 的订单页
@@ -9308,6 +9326,7 @@ function ChatThread({
     exitSel();
   };
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, (character && character.id) + "|" + (room && room.id || ""));
+  useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, true);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -16341,6 +16360,8 @@ function GroupOfflineMode({
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
+  locateAt,
+  onLocated,
   openUnread,
   onOpenUnreadDone,
   onStopGen,
@@ -16483,6 +16504,7 @@ function GroupThread({
   const gs = settings || {};
   // 跟单聊共用那一份窗口（施工规则/one-public-mechanism.md）：群聊更容易攒到上千条
   const { winStart, growMore, growing, reveal: revealMsg, startRef: winStartRef } = useChatWindow(ref, messages.length, group && group.id);
+  useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, false);
   const atBottomRef = useRef(true), seenLenRef = useRef(messages.length);
   const [newBelow, setNewBelow] = useState(0);
   // 她在不在底部：另挂一个滚动监听记着（列表那条 onScroll 只管往上补，别往里塞）

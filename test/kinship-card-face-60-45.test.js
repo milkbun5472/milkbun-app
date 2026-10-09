@@ -61,7 +61,7 @@ test("头像取图那段抽出来共用，别在卡面里再抄一份", () => {
 test("从亲属卡汇总点进某张卡，退回来还站在汇总页", () => {
   // mobile-ui-layout 第 3 条：进详情前记住位置，退回来恢复。
   // 原来 view 是 MyWallet 自己的 useState，进详情页组件卸载，退回来重挂成 main（钱包首页）。
-  assert.match(scr, /function MyWallet\(\{ balance, log, cards, characters, onBack, onSetBalance, onOpenCard, view, onView(, myCards, onOpenMyKin)? \}\)/,
+  assert.match(scr, /function MyWallet\(\{ balance, log, cards, characters,[^}]*onOpenCard, view, onView[^}]*\}\)/,
     "这一层还锁在组件自己肚子里");
   assert.ok(!/const \[view, setView\] = useState\("main"\)/.test(scr), "本地 state 还留着");
   assert.match(app, /const \[walletView, setWalletView\] = useState\("main"\)/, "app 那头没接着");
