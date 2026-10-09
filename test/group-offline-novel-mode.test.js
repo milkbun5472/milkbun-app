@@ -40,3 +40,7 @@ test("界面：设置里能选写法；那一段点头像框选看谁的心声",
   assert.match(card, /"data-wk": "offcastpick"/);
   assert.match(card, /castPick\.x\.thought/);
 });
+
+test("userName 先声明再拼 novelOut：不然一进群线下就报「before initialization」", () => {
+  assert.ok(fn.indexOf("const userName =") > 0 && fn.indexOf("const userName =") < fn.indexOf("const novelOut ="));
+});
