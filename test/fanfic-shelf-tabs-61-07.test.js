@@ -45,7 +45,7 @@ test("真的画成一架子书：布面有色、上下两道烫金压线、高�
 test("布色和字色都从主题算，同一版永远同一色", () => {
   const tone = src.slice(src.indexOf("  function ficSpineTone(name, t) {"), src.indexOf("  function TabBar(props) {"));
   assert.match(tone, /ficHash\("spine:"/, "布色不是从版名算的，换个顺序颜色就跳");
-  assert.match(tone, /skinRGB\(\(seed >> 4\) % 3 === 0 \? t\.ink : t\.accent\)/, "布色没从主题派生");
+  assert.match(tone, /skinRGB\(\(seed >>> 4\) % 3 === 0 \? t\.ink : t\.accent\)/, "布色没从主题派生");
   assert.match(tone, /ink: rgbStr\(shadeRGB\(cloth, dark \? 0\.84 : -0\.7\)\)/, "字色不是从布色本身推的（深布浅字/浅布深字）");
   assert.ok(!/#fff|#000/i.test(tone), "写死了黑白");
 });
