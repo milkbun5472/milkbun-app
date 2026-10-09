@@ -476,6 +476,7 @@
     const [bookOpen, setBookOpen] = useState(false);  // 批注册
     const [setOpen, setSetOpen] = useState(false);    // 「设定」那一小块（批几条 / 覆盖几页）默认收着
     const [pulling, setPulling] = useState(false);
+    const [full, setFull] = useState(false);          // 全屏读：收掉顶栏和那排按钮，只留书页和翻页
     const pendingHere = (book.pending || []).filter(function (p) { return p.page === pageIdx; });
     const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null; // 讲解/批注朗读（懒合成，重听免费）
     const explainOn = book.showExplains !== false; // 逐段讲解卡片是否显示（默认开）
@@ -883,10 +884,13 @@
     // ---- 底部翻页 + 动作条 ----
     const footer = h("div", { className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "8px 14px", display: "flex", alignItems: "center", gap: 8 } },
       h("button", { onClick: function () { gotoPage(pageIdx - 1); }, disabled: pageIdx <= 0, style: { fontFamily: F_BODY, fontSize: 13, color: pageIdx <= 0 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "7" }, "‹ 上一页"),
-      h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (pageIdx + 1) + " / " + totalPages),
+      h("div", { style: { flex: 1, textAlign: "center", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, (pageIdx + 1) + " / " + totalPages,
+        h("button", { onClick: function () { setFull(function (v) { return !v; }); }, style: { marginLeft: 10, fontFamily: F_BODY, fontSize: 11, color: t.sub, border: "1px solid " + t.line, borderRadius: 999, padding: "3px 10px", minHeight: 26 }, "data-wk": "readfull" }, full ? "退出全屏" : "全屏")),
       h("button", { onClick: function () { gotoPage(pageIdx + 1); }, disabled: pageIdx >= totalPages - 1, style: { fontFamily: F_BODY, fontSize: 13, color: pageIdx >= totalPages - 1 ? t.line : t.sub, padding: "6px 8px" }, "data-wk": "readreaderbtn", "data-part": "8" }, "下一页 ›"));
 
-    const actionBar = h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 54, display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, padding: "0 10px", pointerEvents: "none" } },
+    // 那排按钮原来浮在书页上、压着正文（群友 2026-10-09：「一起读能不能设置一个全屏，它有点挡着」）——
+    //   现在自己占一行、排在翻页条上面，不再盖字；要更干净就点翻页条上的「全屏」。
+    const actionBar = h("div", { className: "shrink-0", style: { display: "flex", flexWrap: "wrap", justifyContent: "center", gap: 8, padding: "8px 10px 2px", borderTop: "1px solid " + t.line } },
       h("button", { onClick: doExplainPage, disabled: busy, style: { pointerEvents: "auto", fontFamily: F_BODY, fontSize: 13, color: "#f3efe6", background: t.tint, borderRadius: 999, padding: "9px 15px", boxShadow: "0 3px 12px rgba(0,0,0,.22)", opacity: busy ? .6 : 1 }, "data-wk": "readreaderbtn", "data-part": "9" }, busy ? "讲解中…" : "📖 讲这页"),
       isYanqiu
         ? h(Fragment, null,
@@ -905,8 +909,8 @@
       pendingHere.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#3f6ea8", marginBottom: pageUserNotes.length ? 6 : 0 } }, characterText(partner, "📨 这页已送给言秋 · 去 CC 戳他，他写回后点「📥 取批注」")) : null,
       pageUserNotes.map(function (a) { return h("div", { key: a.id, style: { fontFamily: F_BODY, fontSize: 12, color: "#c96a94", lineHeight: 1.5, marginTop: 4 }, "data-wk": "readreader" }, "✎ " + (a.anchor ? "「" + a.anchor.slice(0, 20) + "…」 " : "") + a.note); })) : null;
     return h("div", { className: "h-full flex flex-col", style: { position: "relative" }, "data-wk": "readreader", "data-part": "r2" },
-      h(Head, { zh: book.title, sub: partner ? "和 " + partner.name + " 一起读" : "还没邀人", onBack: props.onBack }),
-      topbar, yqHead, reader, selBar, actionBar, footer,
+      full ? h("div", { className: "shrink-0", style: { height: "env(safe-area-inset-top)" } }) : h(Head, { zh: book.title, sub: partner ? "和 " + partner.name + " 一起读" : "还没邀人", onBack: props.onBack }),
+      full ? null : topbar, full ? null : yqHead, reader, selBar, full ? null : actionBar, footer,
       noteSheet ? h(NoteSheet, { anchor: noteSheet.anchor, t: t, onSave: function (v) { saveNoteForYanqiu(noteSheet.anchor, v); }, onClose: function () { setNoteSheet(null); } }) : null,
       pickOpen ? h(PartnerPicker, { characters: props.characters, currentId: book.partnerId, t: t,
         roomId: book.roomId || "main",
