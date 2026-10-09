@@ -621,6 +621,10 @@
       const key = String(k).replace(/[^a-zA-Z0-9_-]/g, "");
       if (!key) return;
       const n = Math.round(Number(obj[k]) * 100) / 100;
+      // ⚠️主屏不放大（群友 2026-10-09：拉了「全 App 多大」以后，主屏最底下那排连设置一起被挤出屏幕，
+      //   再也点不到设置改回来）。主屏是按一屏高度排死的（home-screen-layout），它也是唯一的出口——
+      //   「全 App」那一条跳过主屏，单给主屏的那一条直接不收。
+      if (key === "home") return;
       if (okZoom(n) && n !== 1) out[key] = n;   // 1 就是没调过，不必存
     });
     return out;
@@ -824,7 +828,7 @@
     // 大小排在她自己写的 CSS 【前面】：她想在 CSS 里再压一道，照样压得住。
     Object.entries(cleanZoom(p.pageZoom)).forEach(([page, z]) => {
       blocks.push("/* zoom " + page + " */\n"
-        + (page === "all" ? "body" : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";}");
+        + (page === "all" ? 'html:not([data-lisa-screen="home"]) body' : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";}");
     });
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
       if (!css || page === "all") return;

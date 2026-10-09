@@ -413,6 +413,8 @@
         //   样式表压不过它；zoom 是唯一能按比例压住内联 px 的那一个。
         // 「全 App」这一档也能调：它是底数，某一页再单独调就盖过它。
         (function () {
+          // 主屏不放大：它是按一屏高度排死的，放大就把底下那排连设置一起挤出屏幕（cleanZoom 那儿写了由来）
+          if (page === "home") return h("div", { style: { marginBottom: 14, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 } }, "主屏不跟着放大：它是按一屏排好的，放大了最底下那排（连设置）会被挤出屏幕。");
           const z = ((draft.pageZoom || {})[page]) || 1;
           const setZ = v => {
             const one = Object.assign({}, draft.pageZoom || {});

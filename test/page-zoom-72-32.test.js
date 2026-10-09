@@ -34,8 +34,8 @@ test("编出来的是整页缩放，全 App 那一档是底数", () => {
   const i = studioSrc.indexOf("    Object.entries(cleanZoom(p.pageZoom)).forEach");
   assert.ok(i > 0, "compile 没编 zoom");
   const seg = studioSrc.slice(i, i + 400);
-  assert.ok(/page === "all" \? "body" : 'html\[data-lisa-screen="' \+ page \+ '"\] body'/.test(seg),
-    "作用域不对：全 App 该是 body，单页该挂在那一页的 html 上");
+  assert.ok(/page === "all" \? 'html:not\(\[data-lisa-screen="home"\]\) body' : 'html\[data-lisa-screen="' \+ page \+ '"\] body'/.test(seg),
+    "作用域不对：全 App 该是除主屏以外的 body（主屏放大会把设置挤出屏幕），单页该挂在那一页的 html 上");
   assert.ok(/"\{zoom:" \+ z \+ ";\}"/.test(seg), "编的不是 zoom");
   // ⚠️排在她自己写的 CSS 前面，她想再压一道照样压得住
   assert.ok(i < studioSrc.indexOf("    Object.entries(p.pageCSS || {}).forEach"), "排在她的 CSS 后面了，她就盖不过它");
