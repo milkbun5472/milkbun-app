@@ -1,11 +1,11 @@
-import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-b6947a335b534082';
-import {validImage} from '../train/album.mjs?v=fg-b6947a335b534082';
-import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-b6947a335b534082';
-import {brewError,brewResult} from './brewing.mjs?v=fg-b6947a335b534082';
-import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-b6947a335b534082';
-import './rules.js?v=fg-b6947a335b534082';
+import {restorePuzzleMemory,restoreBack} from '../train/puzzle-memory.mjs?v=fg-2d8fc4dc9e35a469';
+import {validImage} from '../train/album.mjs?v=fg-2d8fc4dc9e35a469';
+import {KNOWN_OUTFITS,HAIR_MODES,restoreWardrobe} from './wardrobe.mjs?v=fg-2d8fc4dc9e35a469';
+import {brewError,brewResult} from './brewing.mjs?v=fg-2d8fc4dc9e35a469';
+import {restoreWorkshop,restoreWaterLights,activeWaterLights,gameMinute,waterLightError,releaseWaterLight,millError,startMill,collectMill,helpMill,MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-2d8fc4dc9e35a469';
+import './rules.js?v=fg-2d8fc4dc9e35a469';
 export const {COMPANION_DESTINATIONS,GIFT_FAMILIES,GIFT_STANCES,GIFT_ORDER,giftQuota,stanceByRank,WELL_CURIOS,WELL_TIDES,WELL_KITS,wellTide,wellContext,wellWeights,wellFind,VILLAGE_ZONES,villagePoint,migrateVillagePosition,START,TREES,NODES,MAPS,ACTIVITIES,SEASONS,DEPTH_MAX,DEPTH_BASE,depthNodes,seasonOf,weather,normalizePlan,hitInteraction,nearInteraction}=globalThis.FairyGardenRules;
-import {createNavigator} from './navigation.mjs?v=fg-b6947a335b534082';
+import {createNavigator} from './navigation.mjs?v=fg-2d8fc4dc9e35a469';
 // Polygon water follows the same sampled shoreline as the exported lake mesh.
 const polygonBounds=new WeakMap();
 export function inPolygon(x,z,points,padding=0){let box=polygonBounds.get(points);if(!box){box={minX:Math.min(...points.map(p=>p.x)),maxX:Math.max(...points.map(p=>p.x)),minZ:Math.min(...points.map(p=>p.z)),maxZ:Math.max(...points.map(p=>p.z))};polygonBounds.set(points,box);}if(x<box.minX-padding||x>box.maxX+padding||z<box.minZ-padding||z>box.maxZ+padding)return false;
@@ -2235,7 +2235,7 @@ export function restoreSleep(raw,map,position){const valid=id=>typeof id==='stri
 export function wakeSleeper(s,who='player'){return {...s,sleep:{...(s.sleep||{player:null,companion:null}),[who]:null}};}
 // 一起睡时两个人之间留的距离；各睡各的是床位本来的 1.2 米。
 export const SLEEP_HUG_GAP=.66;
-function bedSlot(s,who){const id=s.sleep?.[who],b=Object.hasOwn(MAPS.home.beds,id||'')?MAPS.home.beds[id]:null,person=who==='player'?s:s.companion;if(!b||person.map!=='home'||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return {slot:b.slots[who],bed:b};}
+function bedSlot(s,who){const id=s.sleep?.[who],person=who==='player'?s:s.companion,beds=MAPS[person?.map]?.beds||{},b=Object.hasOwn(beds,id||'')?beds[id]:null;if(!b||!person?.position||Math.hypot(person.position.x-b.approach[who].x,person.position.z-b.approach[who].z)>.14)return null;return {slot:b.slots[who],bed:b};}
 // 相拥而眠（她 2026-09-18：「然后在床上能不能搞个相拥而眠的动作」）：
 // 只有【同一张床】而且【两个人都已经躺下】才算——他还没上床时抱着空气最难看。
 // 躺姿这一份是她和他共用的，所以靠哪一侧、往哪边侧身都从这里算，渲染那边不再自己猜。
