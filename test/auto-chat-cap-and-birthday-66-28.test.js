@@ -41,7 +41,7 @@ test("额度紧的时候，提示词别再喊「别三两句就收场」", () =>
 
 test("他生日那天，说清今天【不是】她的生日", () => {
   const seg = app.slice(app.indexOf("      // —— 角色自己的生日 ——"), app.indexOf("      // —— 纪念日：和这个角色在一起满几周年 ——"));
-  assert.match(seg, /const _uBdDu = daysUntilBirthday\(profile && profile\.birthday, today\);/, "没去算今天是不是她生日");
+  assert.match(seg, /const _uBdDu = myBdayFor\(char\.id\) \? daysUntilBirthday\(myBdayFor\(char\.id\), today\) : null;/, "没去算今天是不是她生日");
   assert.match(seg, /别祝 Ta 生日快乐、别叫 Ta 寿星/, "只说了是谁的，没说不是谁的");
   // 真同一天的时候不许说反
   assert.match(seg, /_uBdDu === 0[\s\S]{0,80}你俩同一天/, "同一天生日会被说成不是她的");

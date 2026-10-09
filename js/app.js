@@ -6086,6 +6086,54 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const m = (masksRef.current || []).find(x => x && x.id === id);
     return m || profile;                            // 那张被删了也别炸：回主面具
   };
+  // 她的生日跟着面具走（她 2026-10-09：「面具写了就默认用那个面具的都知道」）：TA认的那张面具上填了生日，TA就知道
+  const myBdayFor = charId => String(((profileFor(charId) || {}).birthday) || "").trim();
+  // 生日零点那封信：TA本人亲笔，走跟TA说话同一条（专线 → 线上）；落成聊天里一张信封，点开读全文
+  const writeBdayLetter = async c => {
+    const p = apiFor(c.id); if (!p) return false;
+    const me = profileFor(c.id) || profile, uN = (me && me.name) || userName(profile);
+    const d = await runProbe(p, ctxFor(c), { voice: true,
+      instruction: "今天是 " + uN + " 的生日，刚过零点。你给 Ta 写一封生日信——不是聊天里那句「生日快乐」，是一封真的信。"
+        + "照你这个人写信的样子写：长短、称呼、落款、语气都是你自己的；从你们真实发生过的事、你对 Ta 真实的看法里写，不编没发生过的。"
+        + "写给 Ta 一个人看的，别写成群发祝福，别堆排比和形容词。",
+      schemaHint: "{\"title\":\"信的标题（可空）\",\"body\":\"信的正文，可以分段\"}", maxTokens: 65535 });
+    const body = String((d && d.body) || "").trim();
+    if (!body) return false;
+    pChat(c.id, l => [...l, { role: "assistant", kind: "bdayletter", title: String((d && d.title) || "").trim().slice(0, 40), content: body, ts: Date.now(), read: false }]);
+    bumpUnread(c.id, 1);
+    return true;
+  };
+  // 生日前三天：被挑中的那一位来说一声，聊天里跟一个封好的信封，生日那天才能拆
+  const sendBdayPrep = async (c, year) => {
+    const ok = await replyNow(c.id, "", null, { proactive: true, bdayPrep: true });
+    if (!ok) return false;
+    pChat(c.id, l => [...l, { role: "assistant", kind: "bdayplan", year: year, content: "到你生日那天再拆", ts: Date.now(), read: false }]);
+    saveJSON("x_bdayPlan", { year: year, charId: c.id, ts: Date.now(), opened: false });
+    return true;
+  };
+  // 生日那天拆信封：揭晓TA准备的事，直接进一场线下
+  const openBdayPlan = async (c, m) => {
+    if (!c || !m) return;
+    const bd = myBdayFor(c.id);
+    if (!bd || daysUntilBirthday(bd, new Date()) !== 0) { toast("还没到你生日呢，到那天再拆"); return; }
+    if (m.opened) { openOffline(c); return; }
+    const p = apiFor(c.id); if (!p) { toast("请先到设置配置 API"); return; }
+    setGen(g => ({ ...g, bdayPlan: c.id }));
+    try {
+      const uN = ((profileFor(c.id) || profile) || {}).name || userName(profile);
+      const d = await runProbe(p, ctxFor(c), { voice: true,
+        instruction: "今天是 " + uN + " 的生日。这几天你一直在偷偷为今天准备一件事，现在 Ta 拆开了你给的信封——揭晓。"
+          + "你准备的是什么、在哪儿、要做什么，照你这个人、你们的关系、你对 Ta 的了解和你此刻真实的处境来定，别套生日模板。写揭晓那一刻的开场：Ta 看到了什么。",
+        schemaHint: "{\"title\":\"这一天叫什么\",\"body\":\"揭晓那一刻的开场旁白\"}", maxTokens: 65535 });
+      const body = String((d && d.body) || "").trim();
+      if (!body) { toast("这次没拆开，信封还封着，再拆一次"); return; }
+      pChat(c.id, l => l.map(x => x === m || (x.kind === "bdayplan" && x.ts === m.ts) ? { ...x, opened: true, title: String((d && d.title) || "").trim().slice(0, 30) } : x));
+      try { const bp = loadJSON("x_bdayPlan", null); if (bp) saveJSON("x_bdayPlan", { ...bp, opened: true }); } catch (e) {}
+      await startOffline(c.id, { autoGen: true, opening: body });
+      setOfflineChar(c);
+    } catch (e) { toast("没拆开：" + (e.message || "重试")); }
+    finally { setGen(g => ({ ...g, bdayPlan: null })); }
+  };
   const ctxFor = (char, ctxOpts) => ({
     char,
     chars: characters,
@@ -6442,12 +6490,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const canSeeMine = !!(period && period.visibleTo && period.visibleTo.includes(char.id));
       const evTitles = arr => (arr || []).map(e => e && e.title).filter(Boolean).slice(0, 4).join("、");
       const lines = [];
-      // —— 用户生日（仅对可见角色）——
-      if (canSeeMine) {
-        const du = daysUntilBirthday(profile && profile.birthday, today);
+      // —— 用户生日：TA认的那张面具上写了生日，TA就知道 ——
+      if (myBdayFor(char.id)) {
+        const du = daysUntilBirthday(myBdayFor(char.id), today);
         if (du === 0) lines.push("🎂 今天是 " + uName + " 的生日。若合你的人设和你俩的关系，可以自然地记得、表达心意，别硬邦邦报日期、别客服腔。");
         else if (du != null && du <= 7) lines.push("再过 " + du + " 天就是 " + uName + " 的生日，你心里记着（想的话可提前张罗、准备点小惊喜，但别每句念叨）。");
       }
+      // 她生日前那几天，被挑中偷偷准备的那一位记着这件事（只在这几天出现）
+      try {
+        const _bp = loadJSON("x_bdayPlan", null);
+        if (_bp && _bp.charId === char.id && !_bp.opened && myBdayFor(char.id) && daysUntilBirthday(myBdayFor(char.id), today) <= 3)
+          lines.push("你在偷偷为 " + uName + " 的生日准备一件事——你已经给了 Ta 一个封好的信封，写着到那天才能拆。是什么你心里有数，别说破；露一点马脚可以。");
+      } catch (e) {}
       // —— 角色自己的生日 ——
       // 农历生日以前从来不触发提醒：parseMonthDay 认不出「腊月廿三」这种写法（她 2026-08-24）
       const cdu = daysUntilBirthday(char && char.birthday, today);
@@ -6457,7 +6511,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       //   还是总是觉得是我生日说我是寿星」）。陪伴类对话的训练先验里，过生日的默认是用户。
       //   原来只写「今天是你自己的生日」——【是谁的】说清了，【不是谁的】一个字没说，
       //   而模型塌的正是没说的那一半。今天是不是她生日这件事这儿本来就算得出来，直接说死。
-      const _uBdDu = daysUntilBirthday(profile && profile.birthday, today);
+      const _uBdDu = myBdayFor(char.id) ? daysUntilBirthday(myBdayFor(char.id), today) : null;
       const _bdIsMine = _uBdDu === 0
         ? "（今天也正好是 " + uName + " 的生日，你俩同一天。）"
         : "⚠️今天【不是】" + uName + " 的生日：别祝 Ta 生日快乐、别叫 Ta 寿星、别说「今天是你的日子」、别问 Ta 想怎么过。今天要被记得的人是【你】。";
@@ -7119,15 +7173,47 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const pSkip = k => Date.now() - (pFail[k] || 0) < 30 * 60000;
       const pOnce = (k, key, send, commit) => { pFail[k] = Date.now(); Promise.resolve(window.DeliveryCommit.once(key, send, commit)).then(ok => { if (ok) delete pFail[k]; }); };
       // —— 生日主动祝福：今天是用户生日 → 能看到你日历、真在聊的角色主动祝一次（每年每人一次，只白天发）——
-      const ubd = parseMonthDay((profileRef.current || {}).birthday);
       const nowD = new Date();
-      if (ubd && ubd.mo === nowD.getMonth() + 1 && ubd.d === nowD.getDate()) {
+      const isMyBdayFor = cid => { const b = parseMonthDay(myBdayFor(cid)); return !!(b && b.mo === nowD.getMonth() + 1 && b.d === nowD.getDate()); };
+      // —— 生日零点的信（她 2026-10-09：「3 不能全部都写吗」）：生日那天一过零点，认这张面具的每一位各写一封，一人一年一封 ——
+      {
         const year = String(nowD.getFullYear());
-        const vis = (periodRef.current && periodRef.current.visibleTo) || [];
+        for (const c of characters) {
+          if (c.npc || !isMyBdayFor(c.id)) continue;
+          const cid = c.id;
+          if (laneBusy("c:" + cid) || hist(c).length < 2) continue;
+          if ((greetLogRef.current[cid] || {}).bl === year) continue;
+          if (pSkip("bdayletter:" + cid)) continue;
+          pOnce("bdayletter:" + cid, "bdayletter:" + cid + ":" + year, () => writeBdayLetter(c), () => markGreet(cid, "bl", year));
+          return;
+        }
+      }
+      // —— 生日前三天：挑一位偷偷准备（一年一位）：正式在一起的那位优先，否则好感最高的 ——
+      try {
+        const year = String(nowD.getFullYear());
+        const plan = loadJSON("x_bdayPlan", null);
+        if (!plan || plan.year !== year) {
+          const cands = characters.filter(c => c && !c.npc && hist(c).length >= 2 && myBdayFor(c.id)
+            && (d => d != null && d >= 1 && d <= 3)(daysUntilBirthday(myBdayFor(c.id), nowD)));
+          if (cands.length) {
+            const couple = cands.find(c => ((couplesRef.current || {})[c.id] || {}).status === "together");
+            const pick = couple || cands.slice().sort((a, b) => affOf(b.id) - affOf(a.id))[0];
+            const hr = Math.floor(charLocalMin(pick) / 60);
+            if (hr >= 9 && hr <= 22 && !laneBusy("c:" + pick.id) && viewRef.current.charId !== pick.id && !pSkip("bdayprep:" + pick.id)) {
+              pOnce("bdayprep:" + pick.id, "bdayprep:" + year, () => sendBdayPrep(pick, year), () => {});
+              return;
+            }
+          }
+        }
+      } catch (e) {}
+      const ubd = parseMonthDay((profileRef.current || {}).birthday);
+      if (characters.some(c => !c.npc && isMyBdayFor(c.id))) {
+        const year = String(nowD.getFullYear());
         for (const c of characters) {
           if (c.npc) continue;   // 配角私聊只在她找TA时才说话，后台一律不碰（她 2026-10-03）
           const cid = c.id;
-          if (!vis.includes(cid)) continue;                          // 只有你允许看日历的角色才知道你生日
+          if (!isMyBdayFor(cid)) continue;                          // TA认的那张面具上写了生日、今天就是
+
           if (laneBusy("c:" + cid)) continue;
           if (viewRef.current.charId === cid) continue;              // 正在看这个聊天就不用主动
           if (hist(c).length < 2) continue;                          // 真在聊的
@@ -11072,6 +11158,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
         // ⚠️不写「她催你」：写了模型一开口就是「催什么催」。只给事实——你还在忙、抽空看了一眼
         : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），这会儿抽空看了一眼手机，看到 " + uName + " 发来的消息。照你自己的性子来。" : "";
+      const bdayPrepHint = opts.bdayPrep ? "\n\n【此刻·" + uName + " 的生日快到了】再过几天就是 " + uName + " 的生日，你在偷偷为那天准备一件事。你【主动】找 Ta 说两句——这条消息后面会跟一个封好的信封给 Ta，写着生日那天才能拆。"
+        + "照你这个人的样子开口：卖关子、装没事、憋不住露一点马脚都行；就是别说破准备的是什么。" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道，别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
       const remindHint = opts.remind ? (opts.remind.overdue
         ? "\n\n【此刻·惦记 " + uName + " 拖着的事】" + uName + " 之前在备忘录里记了要「" + opts.remind.title + "」" + (opts.remind.note ? "（" + opts.remind.note + "）" : "") + "，" + opts.remind.overdue + " 天前就该做了、到现在还没勾掉。你【主动】发消息问问 Ta 弄了没——催一催、打趣 Ta 拖延、或关心是不是遇到困难了，按你的性格和你俩的关系来，别说教、别指责式翻旧账、别粘人。"
@@ -11186,7 +11274,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "也可以完全无关，那是你的事；但**别当那段没发生过**，更别开口就报备行程。";
         } catch (e) { return ""; }
       })();
-      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
           // ⚠️这一段原来写的是「**不要默认续接聊天记录最后一句**」——一刀切。
@@ -12107,6 +12195,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 只有描述、没有像素的那一张（没配图像通道时走的那条路）：跟真发过一样记着，
             // 不然他下一轮会说「我还没拍」或者把同一张再发一遍。
             : (m.kind === "photo" && m.descOnly) ? "【你在这里已经实际发出一张照片；这是你亲手做过的事，不得说自己没发过或马上重复发】\n照片内容：" + (m.desc || "")
+            : m.kind === "bdayletter" ? "【你在 " + uName + " 生日零点写给 Ta 的生日信，Ta 收到了】" + (m.title ? "《" + m.title + "》" : "") + "\n" + (m.content || "")
+            : m.kind === "bdayplan" ? "【你给了 " + uName + " 一个封好的信封，写着生日那天才能拆——里面是你在偷偷准备的事】" + (m.opened ? "（Ta 已经拆开了）" : "")
             : m.kind === "takeout" ? "[你给 " + uName + " 点了外卖：" + ((m.takeout && m.takeout.shop) ? "「" + m.takeout.shop + "」的" : "") + ((m.takeout && m.takeout.items) || []).join("、")
               + ((m.takeout && m.takeout.note) ? "（你在单子上写给 Ta 的那句：「" + m.takeout.note + "」）" : "")
               + (m.arriveTs && m.arriveTs > Date.now() ? "（骑手还在路上，大约还有 " + gapPhrase(m.arriveTs - Date.now()) + "到）" : "（已经送到了）") + "]"
@@ -27338,6 +27428,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLoveLetter: (m, yes) => answerLoveLetter(activeChar.id, m, yes),
     onSneak: (m, how) => answerSneak(activeChar.id, m, how),
     onDateGo: m => dateGo(activeChar.id, m),
+    onBdayPlanOpen: m => openBdayPlan(activeChar, m),
     onDateAnswer: (m, yes) => answerDateAsk(activeChar.id, m, yes),
     peekSneakOn: !!peekSneakOk[activeChar.id], onToggleSneak: () => togglePeekSneak(activeChar.id),
     onOffline: () => openOffline(activeChar, window.ChatRooms ? window.ChatRooms.get(activeChar.id, activeRoomId) : null),

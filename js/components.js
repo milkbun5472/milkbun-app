@@ -9073,6 +9073,7 @@ function ChatThread({
   onLoveLetterOpen, onLoveLetter,   // TA写的申请信：拆开／答应·再想想
   onSneak,       // 「你发现TA偷偷翻过你的手机」那张卡：回放／当面问／装没看见
   onDateGo,      // 约会回执上的「出发」：点开才进见面
+  onBdayPlanOpen, // 生日暗中准备的信封：生日当天拆开进线下
   onDateAnswer,  // TA约她的那张卡：好／改天
   onMyKin,   // ＋面板「亲属卡」（她 2026-10-07）：给TA开一张，开过了就是那张卡的账单页
   onDateInvite, invitePlaces,   // ＋面板「邀约」（她 2026-10-02 转群友）：挑地方、定时间，发一张约会卡
@@ -9715,6 +9716,8 @@ function ChatThread({
       avatar: h(Avatar, { character: character, size: 40, radius: 10 }),
       myAvatar: dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }) });
     if (m.kind === "datememory") return h(DateMemoryCard, { key: i, m: m, character: character });
+    if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
+    if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
@@ -13479,6 +13482,32 @@ function DateMemoryCard({ m, character, fill }) {
       h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: fill ? 9.5 : 10, color: t.fog, marginTop: 8, lineHeight: 1.7, wordBreak: "break-word" }, clamp(3)) },
         (character.remark || character.name || "TA"), h("br"), pl.how === "meet" ? "碰巧遇上的那天" : "一起去过的那天"));
   return fill ? card : h("div", { className: "py-2 flex justify-center" }, card);
+}
+// 生日那天零点，知道你生日的每个人各写一封信（她 2026-10-09）：信封卡，点开看全文
+function BdayLetterCard({ m, character }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  useEffect(() => { dateHandFont(); }, []);
+  return h("div", { className: "py-2 flex justify-center" },
+    h("div", { "data-wk": "bdayletter", role: "button", onClick: () => setOpen(o => !o), className: "active:opacity-90",
+      style: { width: open ? "86%" : 230, minHeight: 40, padding: "16px 16px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, boxShadow: "0 6px 16px rgba(0,0,0,.07)", cursor: "pointer", textAlign: open ? "left" : "center" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog, textAlign: "center" } }, "HAPPY BIRTHDAY"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word", textAlign: "center" } }, m.title || "生日信"),
+      open ? h("div", { style: { fontFamily: F_HAND, fontSize: 14, lineHeight: 1.75, color: t.sub, marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.content || "")
+        : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginTop: 10, letterSpacing: ".15em" } }, "点开看信"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 10, textAlign: open ? "right" : "center" } }, "—— " + (character.remark || character.name || "TA"))));
+}
+// 生日前几天 Ta 偷偷准备的那份：封着的信封，生日当天才能拆，拆开进线下
+function BdayPlanCard({ m, character, onOpen }) {
+  const t = useTheme();
+  useEffect(() => { dateHandFont(); }, []);
+  return h("div", { className: "py-2 flex justify-center" },
+    h("div", { "data-wk": "bdayplan", style: { width: 220, padding: "16px 16px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, boxShadow: "0 6px 16px rgba(0,0,0,.07)", textAlign: "center" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog } }, m.opened ? "OPENED" : "SEALED"),
+      h("div", { style: { fontFamily: F_HAND, fontSize: 15, color: t.sub, marginTop: 10, lineHeight: 1.5, wordBreak: "break-word" } }, m.opened ? (m.title || "已拆开") : "到你生日那天再拆"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, character.remark || character.name || "TA"),
+      h("button", { onClick: () => onOpen && onOpen(m), className: "active:opacity-70",
+        style: { marginTop: 12, minHeight: 40, padding: "0 18px", border: "1px solid " + t.line, borderRadius: 20, background: "transparent", color: t.tint, fontFamily: F_BODY, fontSize: 12.5, letterSpacing: ".15em" } }, m.opened ? "已拆开 · 再去看看" : "拆开")));
 }
 // 约到点了，盖在整个页面上那一层：赴约卡从中间浮出来，点卡就出发（她 2026-10-02）
 function DateArrivePop({ m, character, onGo, onLater }) {
