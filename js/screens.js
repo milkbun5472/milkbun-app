@@ -12658,7 +12658,7 @@ function MemCfgSheet({ cfg, onSave, onClose, onPurgeWithered, witheredCount, onD
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, "每轮往上下文塞几条 + 自动抽取的节拍 — token 封顶的旋钮"),
     toggle("自动抽取", "每轮聊天后后台静默把值得记的事拆成记忆入库（自带去重）；默认关，开了每轮多花一次后台调用", !!c.autoExtract, () => set({ autoExtract: !c.autoExtract })),
     // 抽取间隔只跟着自动抽取走：挪到开关正下面，关着就收起来（她 2026-10-09）
-    c.autoExtract ? slider("自动抽取间隔", c.extractInterval || 1, 1, 5, 1, " 轮", v => set({ extractInterval: v }), (c.extractInterval || 1) > 1 ? "每 " + c.extractInterval + " 轮抽一次，省抽取 API。" : "每轮都抽，记得最全、最费 API。日常设 2~3 轮够用。") : null,
+    c.autoExtract ? slider("自动抽取间隔", c.extractInterval || 1, 1, 10, 1, " 轮", v => set({ extractInterval: v }), (c.extractInterval || 1) > 1 ? "每 " + c.extractInterval + " 轮抽一次，省抽取 API。" : "每轮都抽，记得最全、最费 API。日常设 2~3 轮够用。") : null,
     slider("每轮召回条数 (top-k)", c.topK || 5, 2, 12, 1, " 条", v => set({ topK: v }), "不管库里存多少，每轮只取这么多 → token 恒定。"),
     slider("短期窗覆盖天数", c.recentDays || 3, 1, 7, 1, " 天", v => set({ recentDays: v }), "最近这些天说的话一定带进上下文（消死区，不忘最近几天）。"),
     // 上限从 16000 放开到 60000（她 2026-09-17 要的）：拉到 16000 那会儿，
