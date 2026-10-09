@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.145";
+const APP_VERSION = "v75.153";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3486,6 +3486,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       saveJSON("x_stateHist", n);
       return n;
     });
+  };
+  // 删心声（群里 2026-10-09 许愿）：what = 下标（旧的那条）／"now"（此刻那条）／"all"（旧的全清）。
+  //   room=true 时 key 是房间键，走 roomStates/roomStateHist；否则 key 是角色 id。
+  //   删「此刻」时同一句在旧的里也一起拿掉——不然翻旧的还在，等于没删。只动心声，别的一格不碰。
+  const delThought = (room, key, what) => {
+    if (!key) return;
+    const SR = room ? roomStatesRef : statesRef, HR = room ? roomStateHistRef : stateHistRef;
+    const setS = room ? setRoomStates : setStates, setH = room ? setRoomStateHist : setStateHist;
+    const sKey = room ? "x_roomStates" : "x_states", hKey = room ? "x_roomStateHist" : "x_stateHist";
+    let hist = HR.current[key] || [];
+    if (what === "now") {
+      const cur = SR.current[key];
+      if (cur && cur.thought) {
+        const gone = cur.thought;
+        const nx = { ...cur, thought: null }; delete nx.thoughtUpdatedAt;   // 时效一并抹掉（清空那句规则只许 TVG 一处写，这里用删键）
+        const sNext = { ...SR.current, [key]: nx };
+        SR.current = sNext; setS(sNext); saveJSON(sKey, sNext);
+        hist = hist.filter(x => x && x.thought !== gone);
+      }
+    } else if (what === "all") hist = [];
+    else if (typeof what === "number") hist = hist.filter((_, i) => i !== what);
+    const hNext = { ...HR.current, [key]: hist };
+    HR.current = hNext; setH(hNext); saveJSON(hKey, hNext);
   };
   const setRoomThought = (roomKey, thought, meta) => {
     if (!roomKey || !window.ChatRooms || !window.ChatRooms.isSideKey(roomKey)) return;
@@ -29705,6 +29728,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 心声过了时效就不再展示:宁可空着,也别把两小时前的念头当成「此刻在想」
       state: roomCard ? (roomStates[stateCardRoomKey] || null) : (() => { const s0 = states[scc.id]; if (!s0 || !s0.thought) return s0; return freshLiveStateValue(s0, "thought") ? s0 : { ...s0, thought: null }; })(),
       history: roomCard ? (roomStateHist[stateCardRoomKey] || []) : (stateHist[scc.id] || []),
+      onDelThought: what => delThought(!!roomCard, roomCard ? stateCardRoomKey : scc.id, what),
       roomName: roomMeta && roomMeta.name,
       hideWearAction: roomCard,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)

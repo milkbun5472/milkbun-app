@@ -6653,7 +6653,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     const A = 62, RING = 3, GAP = 2, OVER = 18;
     const D = A + 2 * (RING + GAP);
     const ringA = t.accent || "#c26b7a", ringB = t.tint || "#6f7fb0";
-    const ringed = (ch, ring, ml) => h("div", { style: { marginLeft: ml || 0, width: D, height: D, borderRadius: 999, background: ring, boxShadow: "0 3px 12px rgba(0,0,0,.26)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
+    // 挂点（她 2026-10-09）：美化时能把两枚拉开——拉开了就是两个整圆；我那枚的左边距写在行内，CSS 要加 !important。
+    const ringed = (ch, ring, ml, who) => h("div", { "data-wk": "usavatar", "data-who": who, style: { marginLeft: ml || 0, width: D, height: D, borderRadius: 999, background: ring, boxShadow: "0 3px 12px rgba(0,0,0,.26)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 } },
       // 环和照片之间留一圈极浅的缝：封面再花，这两张脸也分得开
       h("div", { style: { width: A + 2 * GAP, height: A + 2 * GAP, borderRadius: 999, background: "rgba(255,255,255,.92)", display: "flex", alignItems: "center", justifyContent: "center" } },
         h("div", { style: { borderRadius: 999, overflow: "hidden", lineHeight: 0 } }, h(Avatar, { character: ch, size: A, radius: 999 }))));
@@ -6669,9 +6670,9 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       h("div", { ref: bodyRef, className: "flex-1 min-h-0 overflow-y-auto", style: { position: "relative", zIndex: 1, overscrollBehavior: "contain" } },
         // 这一块只是留出封面的位置（背景在下面那一层，不跟着滚）
         h("div", { style: { position: "relative", height: 150 } },
-          h("div", { style: { position: "absolute", left: 22, bottom: -30, zIndex: 2, display: "flex", alignItems: "flex-end" } },
-            ringed(paChar, ringA),
-            ringed(myChar, ringB, -OVER))),
+          h("div", { "data-wk": "uspair", style: { position: "absolute", left: 22, bottom: -30, zIndex: 2, display: "flex", alignItems: "flex-end" } },
+            ringed(paChar, ringA, 0, "ta"),
+            ringed(myChar, ringB, -OVER, "me"))),
             // 原来这儿还画了一道「两枚扣住」的交叠弧；她 2026-10-07 转来截图说串了（那道弧压在右边那张脸上），拿掉，两枚就是并排压着
         // ⭐这就是那条边界：一张有上沿的纸，从封面带底下探出来、盖着往上滚。
         //   paddingTop 让正文避开压在沿上的那两枚头像；纸是半透明的，封面照样透着。
