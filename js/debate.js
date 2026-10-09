@@ -177,6 +177,20 @@
     return lines.join("\n").slice(-12000);
   }
 
+  // ---- 模型：从这几个人跟她最近的事里现编几道题（她 2026-10-09：抽题）----
+  //   读的是跟「注入最近聊天」同一份 recentChatSnippet，只在擂台这一次调用里用，什么都不写回。
+  async function drawTopics(active, chars, uName) {
+    const blocks = chars.map(c => "「" + c.name + "」" + personaFor(c.persona, chars.length).slice(0, 1200)
+      + (recentChatSnippet(c.id, uName, c.name) ? "\n（TA跟 " + uName + " 最近的聊天）\n" + recentChatSnippet(c.id, uName, c.name) : "")).join("\n\n");
+    const sys = AC() + CB() + "下面是要上擂台的几个人，和他们跟 " + uName + " 最近聊过的东西。给这一场现编 3 道吵得起来的题。\n"
+      + "判据：题从【这几个人和 " + uName + " 之间真发生过、真在意的事】里长出来——最近聊天里的一件事、两人之间没说开的一个分歧、某个人的习惯或选择；"
+      + "得是两边都站得住、这几个人一听就有话要说的；一句话，说人话，不要辩论赛腔。三道题从不同的事里出，别是同一件事换个说法。\n\n" + blocks
+      + "\n\n【输出】只输出 JSON：{\"topics\":[\"题目\",\"题目\",\"题目\"]}";
+    const raw = await callAI(active, sys, [{ role: "user", content: "出题。" }], { maxTokens: 8000 });
+    const p = extractJSON(raw) || {};
+    return (Array.isArray(p.topics) ? p.topics : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
+  }
+
   // ---- 模型：按人设给每个角色分配立场 + 给我几个可选立场 ----
   async function assignStances(active, worldbook, topic, chars, isFree, crowdN) {
     const roster = chars.map((c, i) => "角色" + (i + 1) + "「" + c.name + "」的人设：" + personaFor(c.persona, chars.length)).join("\n\n");
@@ -325,6 +339,11 @@
         : "\n\n【" + uName + "（你们的对手，本轮已先开口）刚说】\n" + (o.myText ? o.myText : "（" + uName + " 这一轮跳过没说话，你们自己往下推进/开场）")) +
       (o.transcript ? "\n\n【前几轮实录】\n" + o.transcript : "") +
       (o.focus && o.focus.issue ? "\n\n【上一轮没吵拢的那个分歧】\n" + o.focus.issue + "\n这一轮要真正碰到它，但不必机械复述。" : "") +
+      // 临时规矩（她 2026-10-09）：上一轮末尾现编的，只管这一轮
+      (o.rule ? "\n\n【这一轮的临时规矩】" + o.rule + "\n台上每个人这一轮都得守着它吵；在规矩里怎么吵出自己的样子，各凭本事。谁没守住，裁判和台下可以当场抓。" : "") +
+      // 纸条（她 2026-10-09）：她私下递给台上某一位，只有TA看得到
+      (o.slip && o.slip.to && o.slip.text ? "\n\n【只有「" + o.slip.to + "」看得到的纸条】" + uName + " 私下递给 " + o.slip.to + " 一张纸条：「" + o.slip.text + "」\n"
+        + "用不用、怎么用、要不要当场说破有人递纸条，照 " + o.slip.to + " 的性子和TA跟 " + uName + " 的关系来。别的人都不知道有这张纸条，不许替他们知道。" : "") +
       (benchBlock ? "\n\n【台下看着的人】没注明的都是认识台上这几位、也认识 " + uName + " 的熟人；配角和路人的名字后面写着TA认识谁——不认识的人就按不认识来。\n" + benchBlock : "") +
       (o.judge ? "\n\n【裁判】" + o.judge.name + " 当这一场的裁判。" + String(o.judge.persona || "").replace(/\s+/g, " ").slice(0, 500)
         + (o.judge.injection ? "\n（" + o.judge.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(o.judge.injection).replace(/\s+/g, " ").slice(-300) : "")
@@ -359,7 +378,13 @@
         // ⚠️别在这儿再写「别顺手补上 X、Y、Z」：点名不许做的那几样，等于把清单又念了一遍（她 2026-10-08）。
         + "  · 用TA自己的口气和偏心说：TA认识台上的人，护短、看不惯、憋笑都可以露出来，用TA平时跟这几个人说话的那张嘴，落在台上真说过的话上。\n" : "") +
       (2 + (benchBlock ? 2 : 0) + (o.judge ? 1 : 0)) + "）最后摘一句这一轮【还没吵拢的那个分歧】，用大白话说：不复述题目、不判输赢、不替 " + uName + " 想下一句该问什么——她要问什么是她自己的事。\n\n" +
-      "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\"}]" +
+      // 松口／倒戈（她 2026-10-09）：台下会被说动，台上的人原来只会嘴硬到底
+      "\n【被说动】台上的人也是会被说动的：对面这一轮真有一句戳中了TA在意的东西，TA可以当场认下那一点（yield，用TA的口气一句）；"
+      + "极少数时候是真被说服、整个换了边（switch=true，newStance 写TA现在站的那一边）。没被戳中就照常吵，不为了有戏硬松口——嘴硬到底也是一种性子。\n" +
+      (o.ruleAsk ? "【下一轮的临时规矩】这一轮收尾时，由" + (o.judge ? "裁判 " + o.judge.name : "主持") + "给下一轮现编一条临时规矩（nextRule）：只管下一轮，台上每个人都得守；"
+        + "要扣着这一场正在吵的东西、当场做得到、一句话说清；不定输赢、不改题目。\n" : "") +
+      "【输出】只输出 JSON：{\"turns\":[{\"name\":\"角色名\",\"say\":\"发言\",\"at\":\"主要回应谁(没有留空)\",\"yield\":\"（可选）认下的那一点\",\"switch\":\"（可选）true＝换边\",\"newStance\":\"（switch 时）现在的立场\"}]" +
+      (o.ruleAsk ? ",\"nextRule\":\"下一轮的临时规矩，一句\"" : "") +
       (benchBlock ? ",\"side\":[{\"name\":\"场边那位的本名\",\"at\":\"这一声冲着台上谁（本名）\",\"text\":\"忍不住的那一句\"}]" : "") +
       (benchBlock ? ",\"edge\":{\"name\":\"这一轮更胜一筹的那位（本名）\",\"why\":\"凭哪一下，一句\"}" : "") +
       (benchBlock ? ",\"votes\":[{\"name\":\"场边那位的本名\",\"for\":\"投给台上谁（本名）\",\"why\":\"round|moved|friend|random\",\"reason\":\"TA自己的一句理由\"}]" : "") +
@@ -375,7 +400,10 @@
       let hit = rawTurns.find(function (x) { return x && x.name && String(x.name).trim() === c.name; });
       if (!hit) hit = rawTurns[i];
       const text = hit && hit.say ? String(hit.say).trim() : (hit && hit.text ? String(hit.text).trim() : "……");
-      return { name: c.name, id: c.id, stance: c.stance, color: c.color, text: text || "……", at: hit && hit.at ? String(hit.at).trim() : "" };
+      const yl = hit && hit.yield ? String(hit.yield).trim() : "";
+      const sw = !!(hit && (hit.switch === true || hit.switch === "true") && String(hit.newStance || "").trim());
+      return { name: c.name, id: c.id, stance: c.stance, color: c.color, text: text || "……", at: hit && hit.at ? String(hit.at).trim() : "",
+        yield: yl, newStance: sw ? String(hit.newStance).trim() : "" };
     });
     const f = p.focus && typeof p.focus === "object" ? p.focus : {};
     // question 删掉了：「下一轮该问什么」是她的活，模型替她想好递过去＝把玩家的位置也占了
@@ -400,7 +428,7 @@
       const v = votes.find(function (vv) { return vv && vv.name === x.name; });
       if (v && x.at && v.for === x.at) x.ally = true;
     });
-    return { turns: turns, focus: focus, side: side, votes: votes, call: call };
+    return { turns: turns, focus: focus, side: side, votes: votes, call: call, nextRule: o.ruleAsk ? String(p.nextRule || "").trim() : "" };
   }
 
   // ---- 模型：结束结算 —— 一次调用出【胜负判定 + 各角色赛后感言】（省一次 API；玩家不生成感言）----
@@ -588,6 +616,20 @@
     // 台下拉几个路人（0＝不拉，照旧只有她自己的人）
     const [crowdN, setCrowdN] = useState(0);
     const [starting, setStarting] = useState(false);
+    // 抽题（她 2026-10-09）：从上台这几个人跟她最近的事里现编三道
+    const [drawn, setDrawn] = useState([]);
+    const [drawing, setDrawing] = useState(false);
+    const draw = async () => {
+      if (drawing) return;
+      if (!picked.length) { props.toast && props.toast("先挑上台的人，题从你们的事里出"); return; }
+      setDrawing(true);
+      try {
+        const chars = picked.map(id => props.characters.find(c => c.id === id)).filter(Boolean);
+        const list = await drawTopics(props.active, chars, (props.profile && props.profile.name) || "我");
+        if (!list.length) props.toast && props.toast("这次没抽出来，再抽一次"); else setDrawn(list);
+      } catch (e) { props.toast && props.toast("抽题失败：" + (e.message || "重试")); }
+      setDrawing(false);
+    };
     // 能当裁判的：场边那批人里没被拉上台的（言秋不当看客，也就不当裁判——场边名单已经把TA滤掉了）
     const judgePool = (props.crowdChars || props.characters || []).filter(c => c && !picked.includes(c.id));
     useEffect(() => { if (judgeId && picked.includes(judgeId)) setJudgeId(""); }, [picked, judgeId]);
@@ -645,7 +687,14 @@
       h("div", { className: "flex-1 overflow-y-auto px-5 pb-32" },
         // 题目
         h("div", { style: label }, "今天台上吵什么"),
-        h("textarea", { value: topic, onChange: e => setTopic(e.target.value), placeholder: "例：该不该为爱情放弃事业 / 咖啡还是茶 / 先有鸡还是先有蛋…", rows: 2, style: Object.assign({}, field, { resize: "none", marginBottom: 20 }), "data-wk": "debsetuptext", "data-part": "例：该不该为爱情放弃事业" }),
+        h("textarea", { value: topic, onChange: e => setTopic(e.target.value), placeholder: "例：该不该为爱情放弃事业 / 咖啡还是茶 / 先有鸡还是先有蛋…", rows: 2, style: Object.assign({}, field, { resize: "none", marginBottom: 8 }), "data-wk": "debsetuptext", "data-part": "例：该不该为爱情放弃事业" }),
+        h("div", { "data-wk": "debdraw", style: { marginBottom: 20 } },
+          h("button", { onClick: draw, disabled: drawing, className: "active:opacity-60", "data-wk": "debdrawbtn",
+            style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 999, padding: "6px 14px" } },
+            drawing ? "正在从你们的事里找…" : (drawn.length ? "再抽一次" : "从你们的事里抽一题")),
+          drawn.length ? h("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 8 } }, drawn.map((x, i) =>
+            h("button", { key: i, onClick: () => setTopic(x), className: "active:opacity-60 text-left", "data-wk": "debdrawpick", "data-on": topic === x ? "1" : "0",
+              style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.55, minHeight: 40, color: t.ink, background: topic === x ? t.accent + "18" : t.bg2, border: "1px solid " + (topic === x ? t.accent : t.line), borderRadius: 10, padding: "8px 12px" } }, x))) : null),
         // 选角色
         h("div", { style: label }, "上台的人（选 1 个＝和你 1v1；2~3 个＝一台子人一起吵）"),
         h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
@@ -724,6 +773,9 @@
     const [draft, setDraft] = useState("");
     const [sideDraft, setSideDraft] = useState(null); // 自定义立场的就地输入（原生 prompt 同样会被 PWA 吞掉）
     const [shareOpen, setShareOpen] = useState(false); // 把这一场发给谁
+    // 纸条：这一轮开吵前递给台上某一位，只有TA看得到（null＝没在写）
+    const [slipTo, setSlipTo] = useState(null);
+    const [slipText, setSlipText] = useState("");
     // 台上有没有人开过口——「牌子要不要收上去」和「有没有东西可分享」问的是同一件事，别写两遍
     const spoke = function (sess) {
       return (((sess && sess.rounds) || [])).some(function (r) { return (r.turns || []).some(function (x) { return x && !x.skipped && x.text; }); });
@@ -777,9 +829,13 @@
         const charParts = s.parts.filter(p => p.kind === "char");
         const orderedChars = (s.order || []).map(o => charParts.find(c => c.id === o.id)).filter(Boolean);
         const prior = (s.rounds || []).length > 1 ? s.rounds[s.rounds.length - 2] : null;
+        const slip = slipTo && slipText.trim() ? { to: slipTo, text: slipText.trim() } : null;
+        // 临时规矩：由代码掷要不要（大约三轮一次，上一轮刚立过就不立），内容由模型照这一场现编
+        const ruleAsk = !(prior && prior.rule) && Math.random() < 0.35;
         const r = await genRound(props.active, { mode: s.mode, topic: s.topic }, uName, scopedWorldbook(myText), {
           chars: orderedChars.map(c => ({ name: c.name, id: c.id, persona: c.persona, stance: c.stance, color: c.color, injection: c.injection })),
           myText: skip ? "" : myText, transcript: prevTranscript(s), focus: prior && prior.focus, watch: watch,
+          rule: prior && prior.rule, slip: slip, ruleAsk: ruleAsk,
           // 她是谁：整场只发一次，台上台下都看得到（身份不是往事，跟「记忆不互通」不冲突）
           mePersona: String((props.profile && props.profile.persona) || "").replace(/\s+/g, " ").slice(0, 900),
           // 场边＝她的角色里【没上台的那些】。至多摆 6 个进上下文（她按次计费）；
@@ -803,7 +859,9 @@
         patch(prev => {
           const rounds = prev.rounds.slice();
           const last = Object.assign({}, rounds[rounds.length - 1]);
-          last.turns = last.turns.concat(r.turns.map(tn => ({ who: "char", id: tn.id, name: tn.name, stance: tn.stance, color: tn.color, text: tn.text, at: tn.at })));
+          last.turns = last.turns.concat(r.turns.map(tn => ({ who: "char", id: tn.id, name: tn.name, stance: tn.stance, color: tn.color, text: tn.text, at: tn.at, yield: tn.yield || "", newStance: tn.newStance || "" })));
+          if (slip) last.slip = slip;
+          if (r.nextRule) last.rule = r.nextRule;
           last.focus = r.focus;
           last.side = r.side || [];
           last.votes = r.votes || [];
@@ -811,8 +869,12 @@
           last.audience = []; // 旧的台下弹幕字段：只为旧存档兼容，新局不再往里写
           last.gen = true;
           rounds[rounds.length - 1] = last;
-          return { rounds: rounds };
+          // 换了边的人：台前那块立场牌跟着换
+          const sw = r.turns.filter(tn => tn.newStance);
+          const parts = sw.length ? prev.parts.map(pp => { const x = sw.find(tn => tn.id === pp.id); return x ? Object.assign({}, pp, { stance: x.newStance }) : pp; }) : prev.parts;
+          return { rounds: rounds, parts: parts };
         });
+        if (slip) { setSlipTo(null); setSlipText(""); }
       } catch (e) { props.toast && props.toast("生成失败：" + (e.message || "重试")); }
       setBusy(false); setPhaseMsg("");
     };
@@ -923,7 +985,11 @@
             h(Avatar, { character: av, size: 15, radius: 999 }), tn.name),
           tn.at ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, "冲着 " + tn.at) : null,
           (tn.who === "char" && dtp && typeof TtsDot === "function") ? h(TtsDot, { k: "dbt" + k, text: tn.text, spk: props.characters.find(function (c) { return c.id === tn.id; }), tp: dtp }) : null),
-        h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text));
+        h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderTop: "1px solid " + tn.color + "55", borderRadius: "0 11px 11px 11px", padding: "11px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.75, color: t.ink, whiteSpace: "pre-wrap" } }, tn.text),
+        // 被说动：松口认下一点／整个换了边——整场最值得看的那一下，挂在TA这段话下面
+        (tn.yield || tn.newStance) ? h("div", { "data-wk": "debyield", "data-on": tn.newStance ? "1" : "0", style: { marginTop: 5, paddingLeft: 10, borderLeft: "2px solid " + tn.color, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub } },
+          tn.newStance ? h("span", { style: { fontWeight: 700, color: tn.color } }, "换边了 → " + tn.newStance + (tn.yield ? "　" : "")) : h("span", { style: { color: t.fog } }, "松口："),
+          tn.yield || null) : null);
     };
 
     // ── 回合落点：未决争点 ──────────────────────────────────
@@ -1020,6 +1086,34 @@
         h("span", { style: { letterSpacing: 1 } }, "还没吵拢的是——"), issue);
     };
 
+    // 临时规矩：这一轮末尾立的，只管下一轮
+    const ruleBlock = function (rule, k) {
+      if (!rule) return null;
+      return h("div", { key: "rule" + k, "data-wk": "debrule", style: { margin: "0 2px 16px", padding: "9px 12px", border: "1.5px dashed " + t.ink, borderRadius: 10, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink } },
+        h("div", { style: { fontSize: 10, letterSpacing: 2, color: t.fog, marginBottom: 3 } }, (s.judge ? s.judge.name + " 立的" : "") + "下一轮的临时规矩"), rule);
+    };
+    // 她递过的纸条：只有她和收纸条的那位知道，记在这一轮底下
+    const slipBlock = function (slip, k) {
+      if (!slip || !slip.text) return null;
+      return h("div", { key: "slip" + k, "data-wk": "debslip", style: { margin: "0 2px 14px", fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog } },
+        "你这一轮递给 " + slip.to + " 的纸条：", h("span", { style: { color: t.sub } }, slip.text));
+    };
+    // 递纸条：开吵前写给台上某一位
+    const stageNames = (s.parts || []).filter(function (p) { return p.kind === "char"; }).map(function (p) { return p.name; });
+    const slipBar = (!ended && !busy && (myTurnNow || (watch && needGen))) ? (slipTo === null
+      ? h("div", { style: { display: "flex", justifyContent: "flex-end", marginBottom: 8 } },
+          h("button", { onClick: function () { setSlipTo(stageNames[0] || ""); }, className: "active:opacity-60", "data-wk": "debslipbtn",
+            style: { fontFamily: F_BODY, fontSize: 12, minHeight: 40, color: t.sub, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 999, padding: "6px 14px" } }, "递纸条"))
+      : h("div", { "data-wk": "debslipedit", style: { marginBottom: 8, padding: "9px 10px", background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12 } },
+          h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginBottom: 7 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "偷偷递给"),
+            stageNames.map(function (n) { const on = slipTo === n; return h("button", { key: n, onClick: function () { setSlipTo(n); }, className: "active:opacity-60",
+              style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, padding: "4px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg : t.ink } }, n); })),
+          h("div", { style: { display: "flex", gap: 6 } },
+            h("input", { value: slipText, onChange: function (e) { setSlipText(e.target.value); }, placeholder: "只有TA看得到，别人不知道", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg, border: "1px solid " + t.line, borderRadius: 9, padding: "8px 10px", outline: "none" } }),
+            h("button", { onClick: function () { setSlipTo(null); setSlipText(""); }, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, minHeight: 40, color: t.sub, padding: "0 10px" } }, "不递了")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 5 } }, slipText.trim() ? "这一轮开吵时递过去" : "写好就行，开吵时一起递过去"))) : null;
+
     // 旧存档不删数据：原来的台下弹幕默认折叠，不再占据新玩法的主流程。
     const legacyAudience = function (crowd, k) {
       if (!crowd || !crowd.length) return null;
@@ -1092,8 +1186,10 @@
           sideBlock(r.side, ri2),
           voteBlock(r.votes, ri2),
           myVoteBlock(r, ri2),
+          slipBlock(r.slip, ri2),
           callBlock(r.call, ri2),
           focusBlock(r.focus, ri2),
+          ruleBlock(r.rule, ri2),
           legacyAudience(r.audience, ri2))),
         busy ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0" } }, phaseMsg || "…") : null,
         // 结束态：判定 + 感言
@@ -1130,6 +1226,7 @@
             })) : null) : null),
       // 底部操作
       ended ? null : h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, padding: "10px 16px calc(10px + env(safe-area-inset-bottom) * 0.4)", background: "linear-gradient(to top," + t.bg + " 78%,transparent)" } },
+        slipBar,
         busy
           ? h("button", { disabled: true, className: "w-full", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#fff", background: t.fog, borderRadius: 11, padding: "12px 0" }, "data-wk": "debarenabtn", "data-part": "3" }, phaseMsg || "生成中…")
           // 我的立场未定 → 先选边
