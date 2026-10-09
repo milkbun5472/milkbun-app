@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-d1e14d4d1c374656", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-ad8f601d80f4734b", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -1590,6 +1590,10 @@
         ready: () => {
           if (!alive.current) return;
           setLoaded(true);
+          // 顶栏让位要在游戏【每次】就绪时都报一遍（群友 2026-10-09 截图：天气、缩放压在顶栏底下）：
+          //   loaded 已经是 true 的时候（游戏页自己重载过一次），上面那个跟着 [headH, loaded] 走的 effect 不会再跑，
+          //   新的那一页就一直以为顶栏高 0
+          try { const g = game(); if (g && g.setHeadClear) g.setHeadClear(headHRef.current); } catch (e) {}
           ensureLooks();
         }
       });
@@ -1620,6 +1624,7 @@
     //   那边只有 --head-clear 这一个变量在用（不在两处各写一个数）。
     const headRef = useRef(null);
     const [headH, setHeadH] = useState(0);
+    const headHRef = useRef(0); headHRef.current = headH;
     const [dress, setDress] = useState(false);
     // 花册（她 2026-09-16 定的种花那条）：写字和翻册子在手机这一侧，走过去收在游戏那一侧
     const [book, setBook] = useState(false);
