@@ -30132,6 +30132,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         window.CcLane.post(txt, { threadType: "offline" }).then(ok => { if (!ok) toast("书房没接到，检查网络或钥匙"); });
       }
     },
+    // 旁白（群友 2026-10-09）：跟线上「旁白」同一种消息，线下卡片、提示词里本来就认它（【场景】）
+    onNarr: txt => pushOffMsg(activeOfflineScopeKey, { id: "n_" + Date.now(), role: "narration", kind: "narration", content: txt, ts: Date.now() }),
     onSendPhoto: photo => offlineSendPhoto(activeOfflineScopeKey, photo),
     // 当场拍一张（她 2026-08-29 要的线下生图）。零模型调用，只花一次出图。
     onShoot: kind => offlineShotNow(activeOfflineScopeKey, kind),
@@ -30197,6 +30199,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     matchBusy: !!gen.myMatch,
     canShoot: groupOfflineCanShoot(offlineGroup),
     onReply: txt => groupOfflineReply(offlineGroup.id, txt),
+    onNarr: txt => pushGOffMsg(offlineGroup.id, { id: "gn_" + Date.now(), role: "narration", kind: "narration", content: txt, ts: Date.now() }),
     onAddNote: (n, long) => groupOfflineAddNote(offlineGroup.id, n, long),
     onDeleteNote: id => groupOfflineDeleteNote(offlineGroup.id, id),
     onEditNote: (id, text) => groupOfflineEditNote(offlineGroup.id, id, text),

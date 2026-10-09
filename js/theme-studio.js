@@ -538,7 +538,7 @@
         ["lettercover", "封着时底下那行「XX给你写了一封信 · 轻点拆开」"],
         ["letterbody", "拆开后信的正文"], ["letterbtns", "「再想想／答应」那一排"],
         // 线下（单人、群都走这一套，她 2026-09-30：「整体美化都要」）
-        ["offline", "线下整页（最外那层）"], ["offbody", "线下正文滚动区"], ["offcomposer", "线下底部输入栏"],
+        ["offline", "线下整页（最外那层）"], ["offbody", "线下正文滚动区"], ["offnarrpill","线下输入框旁「旁白 ✕」（正在写旁白）"],["offnarrbtn","线下幕后面板「切到旁白」"],["offcomposer", "线下底部输入栏"],
         ["offmsg", "线下一段（data-me=\"1\" 是她写的）"], ["offcard", "线下那张卡片本体"], ["offhead", "卡片顶上那行（头像·名字·时间）"],
         ["offname", "卡片上的名字"], ["offtext", "线下正文"], ["offsay", "正文里引号那几句台词"], ["offthought", "线下的心声那块"], ["offcastfaces", "群线下整段小说那一拍左上角叠着的头像，点开选看谁的心声"], ["offcastpick", "选看谁的心声那一排；里面每个按钮 data-on=1 是选中的"], ["goffwritemode", "群线下设置「写法」两个按钮；data-on=1 是当前选中"],
         ["offnarr", "线下旁白（data-short=\"1\" 是居中那种短的）"],

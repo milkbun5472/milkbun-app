@@ -15172,6 +15172,7 @@ function OfflineMode({
   canShootDuo,
   onReply,
   onOOC,
+  onNarr,
   onAddNote,
   onDeleteNote,
   onEditNote,
@@ -15207,6 +15208,8 @@ function OfflineMode({
   const [photoDesc, setPhotoDesc] = useState("");
   const photoFileRef = useRef(null);
   const [oocMode, setOocMode] = useState(false);
+  // 旁白（群友 2026-10-09：「许愿一个线下有旁白」）：写的不是我说的话，是这一刻发生了什么——跟线上「旁白」同一种消息
+  const [narrMode, setNarrMode] = useState(false);
   const [noteOpen, setNoteOpen] = useState(false);
   const [note, setNote] = useState("");
   const [endConfirm, setEndConfirm] = useState(false);
@@ -15417,6 +15420,7 @@ function OfflineMode({
   const send = (v) => {
     if (!v || sending) return;
     if (oocMode) { onOOC && onOOC(v); return; }
+    if (narrMode && onNarr) { onNarr(v); return; }
     onSend(v);
   };
   const reply = (v) => {
@@ -15523,14 +15527,15 @@ function OfflineMode({
       // 同一类事：都是绕过戏、只有你和模型看得见。留在这儿的只有【正在出戏】时的退出口，
       // 否则进去了就出不来。
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.10)" } }, "出戏中 ✕") : null,
+      narrMode && !oocMode ? h("button", { "data-wk": "offnarrpill", onClick: () => setNarrMode(false), title: "退出旁白", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, background: "transparent" } }, "旁白 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给 Ta 看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h(DraftInput, {
-        placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : "说话，或写你的动作…",
+        placeholder: oocMode ? "OOC：肘击模型 / 问状态 / 立规矩…" : narrMode ? "旁白：写这一刻发生了什么（下雨了、门被推开、过了三个小时）" : "说话，或写你的动作…",
         inputStyle: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 },
         onSubmit: send,
         after: (draft, fire, clear) => h(React.Fragment, null,
           h("button", { onClick: fire, disabled: sending || !draft.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: oocMode ? t.accent : BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: oocMode ? "#fff" : BUBBLE_SKIN.myText })),
-          !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: () => { const v = draft.trim(); clear(); reply(v); } }))
+          !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让 Ta 演绎", onClick: () => { const v = draft.trim(); clear(); if (narrMode && v && onNarr) { onNarr(v); setTimeout(() => reply(""), 80); } else reply(v); } }))
       })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张：你俩此刻真的在同一个地方，这一格是现拍的。零模型调用——
@@ -15562,6 +15567,10 @@ function OfflineMode({
       h("div", { className: "flex gap-2" },
         h("button", { onClick: () => saveNote(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "只管这两轮"),
         h("button", { onClick: () => saveNote(true), className: "flex-1 py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, "整场都算")),
+      onNarr ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        h(Eyebrow, { style: { marginBottom: 7 } }, "旁白"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "写的不是你说的话，是这一刻发生了什么：下雨了、灯灭了、过了三个小时。发出去是一张旁白卡，接下来照这个演。"),
+        h("button", { "data-wk": "offnarrbtn", onClick: () => { setNoteOpen(false); setOocMode(false); setNarrMode(true); }, className: "w-full py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, narrMode ? "已经在写旁白了" : "切到旁白")) : null,
       onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过 " + cName + "，直接跟演 Ta 的那位说：让它改写这一拍、问问状态，或者立一条以后都算数的规矩。"),
@@ -15955,6 +15964,7 @@ function GroupOfflineMode({
   onDelMsg,
   onDelSession,
   onOOC,
+  onNarr,
   onEnd,
   onClose,
   onExit,
@@ -15998,6 +16008,8 @@ function GroupOfflineMode({
   const [sTasteFocus, setSTasteFocus] = useState(activeSession && activeSession.taste && activeSession.taste.focus || os.tasteFocus || "auto");
   const [sTasteDensity, setSTasteDensity] = useState(activeSession && activeSession.taste && activeSession.taste.density || os.tasteDensity || "auto");
   const [oocMode, setOocMode] = useState(false);
+  // 旁白（群友 2026-10-09：「许愿一个线下有旁白」）：写的不是我说的话，是这一刻发生了什么——跟线上「旁白」同一种消息
+  const [narrMode, setNarrMode] = useState(false);
   const bgFileRef = useRef(null);
   const [view, setView] = useState(activeSession ? "live" : "setup");
   const [opening, setOpening] = useState("");
@@ -16036,6 +16048,7 @@ function GroupOfflineMode({
   const send = (v) => {
     if (!v || sending) return;
     if (oocMode) { onOOC && onOOC(v); return; }
+    if (narrMode && onNarr) { onNarr(v); return; }
     onSend(v);
   };
   const reply = (v) => {
@@ -16218,14 +16231,15 @@ function GroupOfflineMode({
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
       oocMode ? h("button", { onClick: () => setOocMode(false), title: "退出出戏说", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "6px 9px", borderRadius: 999, border: "1px solid " + t.accent, color: t.accent, background: "rgba(194,90,74,0.08)" } }, "出戏中 ✕") : null,
+      narrMode && !oocMode ? h("button", { "data-wk": "offnarrpill", onClick: () => setNarrMode(false), title: "退出旁白", className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: 0.5, padding: "8px 10px", borderRadius: 999, border: "1px solid " + t.ink, color: t.ink, background: "transparent" } }, "旁白 ✕") : null,
       !oocMode && onSendPhoto && h("button", { onClick: () => setPhotoOpen(true), title: "给大家看真实照片", className: "active:opacity-60 shrink-0", style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, color: t.fog, background: "transparent", fontSize: 16 } }, "＋"),
       h(DraftInput, {
-        placeholder: oocMode ? "出戏说：跟演TA的那位说，可以让它改、也可以问状态…" : "说话，或写你的动作…",
+        placeholder: oocMode ? "出戏说：跟演TA的那位说，可以让它改、也可以问状态…" : narrMode ? "旁白：写这一刻发生了什么（下雨了、门被推开、过了三个小时）" : "说话，或写你的动作…",
         inputStyle: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: "#fff", border: `1px solid ${oocMode ? t.accent : t.line}`, minWidth: 0 },
         onSubmit: send,
         after: (draft, fire, clear) => h(React.Fragment, null,
           h("button", { onClick: fire, disabled: sending || !draft.trim(), className: "active:opacity-70 disabled:opacity-30 flex items-center justify-center shrink-0", style: { width: 40, height: 40, borderRadius: 999, background: BUBBLE_SKIN.myBg } }, h(ISend, { size: 16, color: BUBBLE_SKIN.myText })),
-          !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: () => { const v = draft.trim(); clear(); reply(v); } }))
+          !oocMode && h(ReplyKey, { sending: sending, disabled: sending, title: "让他们演绎", onClick: () => { const v = draft.trim(); clear(); if (narrMode && v && onNarr) { onNarr(v); setTimeout(() => reply(""), 80); } else reply(v); } }))
       })),
     photoOpen && sheet("照片", h("div", null,
       // 当场拍一张合影：大家此刻真在同一个地方。零模型调用，只花一次出图。
@@ -16250,6 +16264,10 @@ function GroupOfflineMode({
       h("div", { className: "flex gap-2" },
         h("button", { onClick: () => saveNote(false), className: "flex-1 py-3", style: { fontFamily: F_BODY, fontSize: 13.5, background: t.ink, color: t.bg2, borderRadius: 8 } }, "只管这两轮"),
         h("button", { onClick: () => saveNote(true), className: "flex-1 py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, "整场都算")),
+      onNarr ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        h(Eyebrow, { style: { marginBottom: 7 } }, "旁白"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "写的不是你说的话，是这一刻发生了什么：下雨了、灯灭了、过了三个小时。发出去是一张旁白卡，接下来照这个演。"),
+        h("button", { "data-wk": "offnarrbtn", onClick: () => { setNoteOpen(false); setOocMode(false); setNarrMode(true); }, className: "w-full py-3 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, border: "1px solid " + t.ink, borderRadius: 8 } }, narrMode ? "已经在写旁白了" : "切到旁白")) : null,
       onOOC ? h("div", { style: { marginTop: 16, paddingTop: 15, borderTop: "1px solid " + t.line } },
         h(Eyebrow, { style: { marginBottom: 7 } }, "出戏说 · OOC"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, marginBottom: 9 } }, "绕过在场所有人，直接跟演他们的那位说：让它改写这一拍，或者问问状态。"),
