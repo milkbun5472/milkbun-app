@@ -8547,6 +8547,44 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
         h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
 }
+// 模型调用记录（她 2026-10-09）：读 engine.js 的 CallLog——那是所有模型调用的唯一出口记下来的。
+//   今日请求＝今天所有调用；回合＝她按一下换来的那一枪（聊天／线下／通话，不含兜底重发）。
+function CallLogCard() {
+  const t = useTheme();
+  const [rows, setRows] = useState(() => (window.CallLog ? window.CallLog.list() : []));
+  const [show, setShow] = useState(40);
+  useEffect(() => {
+    if (!window.CallLog) return;
+    const pull = () => setRows(window.CallLog.list());
+    window.CallLog.load().then(pull);
+    window.addEventListener("calllog", pull);
+    return () => window.removeEventListener("calllog", pull);
+  }, []);
+  const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+  const today = rows.filter(r => r.ts >= d0.getTime());
+  const p2 = n => String(n).padStart(2, "0");
+  const when = ts => { const d = new Date(ts); return (d.getMonth() + 1) + "/" + d.getDate() + " " + p2(d.getHours()) + ":" + p2(d.getMinutes()) + ":" + p2(d.getSeconds()); };
+  const small = { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6 };
+  const clear = () => requestAppConfirm("清空调用记录？", "只清这一页的记录，聊天和设置都不动。", () => window.CallLog && window.CallLog.clear(), "清空", null, { danger: false });
+  return h("div", { "data-wk": "calllog" },
+    h("div", { className: "flex items-center justify-between" },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "模型调用记录"),
+      rows.length ? h("button", { onClick: clear, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "none", border: "none", minHeight: 32 } }, "清空") : null),
+    h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "今日 " + today.length + " 次请求 · " + today.filter(r => r.turn).length + " 个回合"),
+    h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "只记在这台手机上，最近 " + ((window.CallLog && window.CallLog.MAX) || 300) + " 条；不上云，也不多花调用。"),
+    !rows.length ? h("div", { style: Object.assign({}, small, { marginTop: 16 }) }, "还没有记录。聊几句再回来看。") : null,
+    rows.slice(0, show).map((r, i) => h("div", { key: r.ts + "_" + i, "data-wk": "calllogrow", "data-ok": r.ok ? "1" : "0", style: { padding: "13px 0", borderBottom: "1px solid " + t.line } },
+      h("div", { className: "flex items-center gap-2" },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, when(r.ts)),
+        r.who ? h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: t.sub, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, r.who) : null,
+        h("span", { style: { flex: 1 } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: r.ok ? t.tint : r.cut ? t.fog : "#c25a4a", flexShrink: 0 } }, r.ok ? "成功" : r.cut ? "断开" : "失败")),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 4 } }, r.label),
+      h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, r.turn ? "一个回合" : "单次调用"),
+      h("div", { style: Object.assign({}, small, { wordBreak: "break-all" }) }, [r.route, r.model].filter(Boolean).join(" · ") + " · " + (r.stream ? "流式" : "一次给完") + " · " + (r.ms / 1000).toFixed(1) + " s"),
+      !r.ok && r.err ? h("div", { style: Object.assign({}, small, { color: "#c25a4a", wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: 2 }) }, r.err) : null)),
+    rows.length > show ? h("button", { onClick: () => setShow(n => n + 40), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "none", border: "none", padding: "14px 0", minHeight: 44 } }, "再往前看 40 条") : null);
+}
 // 缓存命中读数（手机看不了 console，就在设置里给个看得见的）：读 window.__usage(callAI anthropic 分支记的)
 function CacheStatCard() {
   const t = useTheme();
@@ -9528,7 +9566,7 @@ function Config(props) {
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
         h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
         h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),
-        h(ConfigTile, { icon: "量", tint: "#8a8378", title: "额度与缓存", sub: "缓存命中与调用读数", onClick: () => setPage("apiCache"), wide: true })),
+        h(ConfigTile, { icon: "量", tint: "#8a8378", title: "调用记录与缓存", sub: "每一次叫模型的记录、缓存命中", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
       page === "apiImage" && section(h(React.Fragment, null, h(ImageApiConfig, { toast: props.toast }), h(AvatarPoolConfig, { toast: props.toast }))),
       page === "apiVideo" && section(h(VideoApiConfig, { toast: props.toast })),
@@ -9536,7 +9574,7 @@ function Config(props) {
       page === "apiEmbed" && section(h(EmbedApiConfig, { toast: props.toast })),
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
-      page === "apiCache" && section(h(CacheStatCard, null)),
+      page === "apiCache" && section(h(React.Fragment, null, h(CallLogCard, null), h(CacheStatCard, null))),
       page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, onSetGeoPoint: props.onSetGeoPoint, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),

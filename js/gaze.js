@@ -63,6 +63,7 @@
     if (!t) return false;
     if (PLACEHOLDER[t.replace(/[·、，。\s]/g, "")]) return false;   // 把说明抄回来了，不算写
     const d = load(); const box = boxOf(d, charId);
+    if ((box.locks || {})[k]) return false;                         // 她锁住的这一块：谁都不改（复看、整份重写也一样）
     const old = box.blocks[k];
     if (old && old.text === t) return false;
     if (old && old.text) box.hist = [{ k, old: old.text, ts: old.ts || Date.now() }, ...(box.hist || [])].slice(0, 120);
@@ -75,6 +76,59 @@
       if (mine && mine[k] != null) { delete mine[k]; sd[charId] = mine; persistSeen(sd); }
     } catch (e) {}
     return true;
+  }
+  // 她自己动手的三样（群里 2026-10-09 许愿：「有一版非常喜欢，但已经改过一次了」）：
+  //   锁住一块（往后自动改写、复看、整份重写都碰不到它）；把某一版旧的换回来当现在这版；删掉某一版。
+  //   旧版用 ts＋原文认（hist 里没有 id）。
+  const isLocked = (charId, k) => !!(boxOf(load(), charId).locks || {})[k];
+  function setLock(charId, k, on) {
+    if (!KEYS[k]) return false;
+    const d = load(); const box = boxOf(d, charId);
+    box.locks = Object.assign({}, box.locks); if (on) box.locks[k] = 1; else delete box.locks[k];
+    d[charId] = box; persist(d, charId); return true;
+  }
+  const histAt = (box, k, ts, text) => (box.hist || []).findIndex(x => x.k === k && (Number(x.ts) || 0) === (Number(ts) || 0) && x.old === text);
+  function useVersion(charId, k, ts, text) {
+    const d = load(); const box = boxOf(d, charId), i = histAt(box, k, ts, text);
+    if (i < 0) return false;
+    const cur = box.blocks[k];
+    box.hist = box.hist.slice(); box.hist.splice(i, 1);
+    if (cur && cur.text) box.hist = [{ k, old: cur.text, ts: cur.ts || Date.now() }, ...box.hist].slice(0, 120);
+    box.blocks[k] = { text, ts: Number(ts) || Date.now() };
+    d[charId] = box; persist(d, charId); return true;
+  }
+  // now＝删现在这版：最近的那版旧的顶上来；一版旧的都没有，这一块就空着
+  function delVersion(charId, k, ts, text, now) {
+    const d = load(); const box = boxOf(d, charId);
+    if (now) {
+      const i = (box.hist || []).findIndex(x => x.k === k);
+      if (i >= 0) { const x = box.hist[i]; box.hist = box.hist.slice(); box.hist.splice(i, 1); box.blocks[k] = { text: x.old, ts: Number(x.ts) || Date.now() }; }
+      else delete box.blocks[k];
+    } else {
+      const i = histAt(box, k, ts, text);
+      if (i < 0) return false;
+      box.hist = box.hist.slice(); box.hist.splice(i, 1);
+    }
+    d[charId] = box; persist(d, charId); return true;
+  }
+  // 重 roll 掉的那一轮顺手改过的块，跟着撤回（群里 2026-10-09：「重 roll 就会立刻重新叠加了之前的那版」）。
+  //   那一轮的 turnId 是 "t_"+时间，和回复里的 impression 落地在同一段同步代码里，前后差几毫秒——
+  //   所以认「那一刻前 3 秒内写的」。撤回＝把这块的上一版放回来；没有上一版就清空。
+  function rollbackTurns(charId, turnIds) {
+    const at = (turnIds || []).map(t => { const m = /^t_(\d+)/.exec(String(t || "")); return m ? +m[1] : 0; }).filter(Boolean);
+    if (!at.length) return 0;
+    const d = load(); const box = boxOf(d, charId);
+    let n = 0;
+    Object.keys(box.blocks || {}).forEach(k => {
+      const b = box.blocks[k], ts = Number(b && b.ts) || 0;
+      if ((box.locks || {})[k] || !at.some(t => ts <= t && ts > t - 3000)) return;
+      const i = (box.hist || []).findIndex(x => x.k === k);
+      if (i >= 0) { const x = box.hist[i]; box.hist = box.hist.slice(); box.hist.splice(i, 1); box.blocks[k] = { text: x.old, ts: Number(x.ts) || 0 }; }
+      else delete box.blocks[k];
+      n++;
+    });
+    if (n) { d[charId] = box; persist(d, charId); }
+    return n;
   }
   // 协议里塞回的 impression 字段(单聊/群聊共用解析)
   // 模型偶尔把块名写成中文名(「她是个什么样的人」)、或把 side 一起塞进 block(「me.person」)。
@@ -463,6 +517,8 @@
     const dot = extra => h("span", { style: Object.assign({ display: "inline-block", width: 7, height: 7, borderRadius: 999, background: "#c2705a", boxShadow: "0 0 0 2px rgba(255,253,248,.9)" }, extra || {}) });
     const defs = side === "me" ? ME : US;
     // Sheet 容器带 transform,fixed 会锚到 Sheet 而非屏幕 → 信纸必须 portal 到 body 才能居中
+    const locked = !!(openK && (box.locks || {})[openK]);
+    const vBtn = on => ({ minHeight: 30, padding: "3px 11px", borderRadius: 999, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: 1, border: "1px solid " + (on ? GOLD : "rgba(172,138,91,.45)"), background: on ? GOLD : "transparent", color: on ? "#fff" : GOLD });
     const full = openK && ReactDOM.createPortal(
       h("div", { onClick: () => setOpenK(null), style: { position: "fixed", inset: 0, zIndex: 260, background: "rgba(43,38,30,.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 } },
         h("div", { "data-wk": "gazeletter", onClick: e => e.stopPropagation(), style: { position: "relative", maxHeight: "74vh", overflowY: "auto", width: "100%", maxWidth: 400, backgroundColor: PAPER, backgroundImage: "repeating-linear-gradient(transparent, transparent 29px, rgba(120,100,70,.07) 29px, rgba(120,100,70,.07) 30px), linear-gradient(" + PAPER + "," + PAPER + " 60%, #f7efdf)", borderRadius: 4, padding: "34px 26px 24px", boxShadow: "0 22px 60px rgba(0,0,0,.32)" } },
@@ -470,10 +526,20 @@
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, color: INKSOFT, marginBottom: 16, letterSpacing: 2 } }, KEYS[openK]),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, lineHeight: "30px", whiteSpace: "pre-wrap" } }, (box.blocks[openK] || {}).text || say("他还没往这想过。")),
           box.blocks[openK] && h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: GOLD, marginTop: 18, textAlign: "right" } }, "—— 写于 " + new Date(box.blocks[openK].ts).toLocaleDateString("zh-CN")),
+          // 锁住／删掉这版（群里 2026-10-09：「重 roll 也会覆盖，想把重 roll 的删除」）——删了，上一版顶回来
+          box.blocks[openK] && h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, justifyContent: "flex-end" } },
+            h("button", { "data-wk": "gazelock", "data-on": locked ? "1" : "0", onClick: () => { setLock(charId, openK, !locked); setSeenTick(x => x + 1); },
+              style: vBtn(locked) }, locked ? "已锁住 · 点开锁" : "锁住这块"),
+            h("button", { "data-wk": "gazedelver", "data-part": "now", onClick: () => { delVersion(charId, openK, 0, "", true); setSeenTick(x => x + 1); }, style: vBtn(false) },
+              (box.hist || []).some(x => x.k === openK) ? "删掉这版 · 换回上一版" : "删掉这版")),
+          locked ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: GOLD, marginTop: 6, textAlign: "right" } }, say("锁着的时候，他往后再想、整份重写都不会改这一块")) : null,
           (box.hist || []).filter(x => x.k === openK).length ? h("div", { style: { marginTop: 20, borderTop: "1px dashed rgba(120,100,70,.25)", paddingTop: 12 } },
             h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: 3, color: GOLD, marginBottom: 8 } },
               say("他从前是这么想的") + " · 改过 " + box.hist.filter(x => x.k === openK).length + " 次"),
-            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN"))))) : null)),
+            box.hist.filter(x => x.k === openK).map((x, i) => h("div", { key: i, style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: "rgba(92,82,68,.62)", lineHeight: 2, marginBottom: 10 } }, x.old, h("div", { style: { fontFamily: F_BODY, color: GOLD, fontSize: 9, opacity: .8 } }, new Date(x.ts).toLocaleDateString("zh-CN")),
+              h("div", { className: "flex", style: { gap: 8, marginTop: 4 } },
+                h("button", { "data-wk": "gazeusever", onClick: () => { useVersion(charId, openK, x.ts, x.old); setSeenTick(n => n + 1); }, style: vBtn(false) }, "用这版"),
+                h("button", { "data-wk": "gazedelver", "data-part": "old", onClick: () => { delVersion(charId, openK, x.ts, x.old, false); setSeenTick(n => n + 1); }, style: vBtn(false) }, "删掉"))))) : null)),
       document.body);
     // 「收纳」那一档(她 2026-08-27):以前每一块的旧版只埋在自己那张信纸最底下,
     // 想回看「TA从前都怎么写我的」得一块一块点开。这里把十块的现行版和全部旧版
@@ -591,6 +657,7 @@
         return h("div", { key: fk, "data-wk": "gazecard", "data-k": fk, "data-empty": b ? "0" : "1", onClick: () => openBlock(fk), style: { position: "relative", background: "#fffdf8", borderRadius: 3, padding: "16px 15px 13px", margin: (i ? "18px" : "10px") + " " + (i % 2 ? "4px 0 0 14px" : "14px 0 0 4px"), cursor: "pointer", transform: "rotate(" + (i % 2 ? 0.9 : -0.9) + "deg)", boxShadow: "0 5px 16px rgba(96,78,52,.13)" } },
           tape({ transform: "rotate(" + (i % 2 ? 2 : -2) + "deg)" }),
           unseen.has(fk) ? dot({ position: "absolute", top: 9, right: 10 }) : null,
+          (box.locks || {})[fk] ? h("span", { "data-wk": "gazelockmark", style: { position: "absolute", top: 7, right: 22, fontFamily: F_BODY, fontSize: 9, color: GOLD } }, "已锁") : null,
           h("div", { "data-wk": "gazecardname", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: INKSOFT, letterSpacing: 1.5, marginBottom: 6 } }, name),
           h("div", { "data-wk": "gazecardtext", style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: b ? "rgba(92,82,68,.85)" : "rgba(92,82,68,.4)", lineHeight: 2, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical" } }, b ? b.text : say("他还没往这想过。")),
           (function () {
@@ -626,6 +693,6 @@
         say("他从前都怎么写的") + " · 共 " + revs.length + " 版") : null,
       full, allSheet);
   }
-  window.Gaze = { ME, US, KEYS, ASK, apply, applyParsed, normKey, text, spec, nudge, updateRule, seedSpec, seed, hasAny, unseenKeys, unseenCount, markSeen, revisions, markChecked, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, reviewDue, REVIEW_FRESH, REVIEW_FLOOR_DAYS, REVIEW_FLOOR_MIN, REVIEW_RETRY_DAYS, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, acceptReview, plainWhy };
+  window.Gaze = { ME, US, KEYS, ASK, apply, isLocked, setLock, useVersion, delVersion, rollbackTurns, applyParsed, normKey, text, spec, nudge, updateRule, seedSpec, seed, hasAny, unseenKeys, unseenCount, markSeen, revisions, markChecked, checkedAt, autoSeedDue, markAutoSeed, markAutoSeedFail, autoSeedState, reviewDue, REVIEW_FRESH, REVIEW_FLOOR_DAYS, REVIEW_FLOOR_MIN, REVIEW_RETRY_DAYS, markReview, markReviewFail, markReviewNoChange, reviewState, reviewSpec, review, acceptReview, plainWhy };
   window.GazePage = GazePage;
 })();

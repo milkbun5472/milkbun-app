@@ -26,7 +26,7 @@ test("没说出来要告诉她，不再静默吞掉", () => {
   assert.doesNotMatch(fire, /说不出来就只做动作，不打扰她/);
 });
 test("生成失败兜底网：runProbe 失败时广播，app 接住弹提示；调用方自己弹过就不重复，同一类一分钟一次", () => {
-  assert.match(engine, /async function runProbe\(p, ctx, probe\) \{\n  try \{ return await runProbeInner\(p, ctx, probe\); \}/);
+  assert.match(engine, /async function runProbe\(p, ctx, probe\) \{\n[\s\S]{0,400}?  try \{ return await runProbeInner\(p, ctx, probe\); \}/);   // 中间可以先记下是谁叫的（调用记录）
   assert.match(engine, /new CustomEvent\("gen-failed"/);
   assert.match(app, /window\.addEventListener\("gen-failed", on\);/);
   assert.match(app, /if \(lastToastAtRef\.current >= at\) return;/);

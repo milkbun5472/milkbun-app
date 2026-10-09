@@ -10,7 +10,7 @@ test("能翻的几样是一张表，记账（现实的钱）不在里面", () =>
   const m = a.match(/const PEEK_PHONE_SECTIONS = (\[[\s\S]*?\]\]);/);
   assert.ok(m);
   const list = new Function("return " + m[1])();
-  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "money", "shop", "pics"]);
+  assert.deepStrictEqual(list.map(x => x[0]), ["chats", "offline", "calendar", "money", "shop", "pics"]);
   assert.ok(!list.some(x => /记账/.test(x[1])));
 });
 
@@ -356,4 +356,11 @@ test("翻手机：递手机单子分三格折叠（能翻的几样／单独藏�
   assert.match(c, /h\(FoldRow, \{ title: "单独藏起几个人"/);
   assert.match(c, /h\(FoldRow, \{ title: "更多"/);
   assert.match(sc, /const fold = \(key, title, state, kids\) => h\(FoldRow,/);
+});
+
+test("线下往期和日历也翻得到：藏起来、换面具的人不在里面，回放时点开那个人", () => {
+  assert.match(a, /if \(on\("offline"\)\) \{[\s\S]*?shownId\(c\.id\)[\s\S]*?不是和你的/);
+  assert.match(a, /if \(on\("calendar"\)\) \{[\s\S]*?!maskTrace\(x\)/);
+  assert.match(a, /offline: \["offline"\], calendar: \["calendar"\]/);
+  assert.match(a, /if \(app === "offline"\) app = "chat";/);
 });

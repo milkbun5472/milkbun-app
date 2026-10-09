@@ -452,7 +452,7 @@
     // 编角色卡那一页（她 2026-10-08：「还有编角色卡那边也要」）
     Object.freeze({zh:"编角色卡",pages:Object.freeze(["castForm"]),hooks:Object.freeze([["castfpage","整页最外层（桌面底色）"],["castfsave","右上角「存档」"],["castfcover","最上面那张卷宗封面卡"],["castfavatar","封面上的头像相框"],["castflang","人物卷宗「常用语言」那一排；每颗 data-on=1 选中"],["castfname","名字那一栏"],["castftag","一句话标签那一栏"],["castfcolor","「这份卷宗什么颜色」那一排色块"],["castfsec","下面几大块（data-no＝01 人物底稿／02 时间坐标／03 视觉档案／04 声音档案；里面的输入框用 textarea、input 选）"],["castfdel","最底下删除按钮"],["castfreset","完全重置按钮"]])}),
     Object.freeze({zh:"资料卡",pages:Object.freeze(["contact"]),hooks:Object.freeze([["cdpage", "整页最外层（带角色颜色的纸底）"], ["cdhead", "头部一行（头像、名字、简介）"], ["cdname", "角色名大字"], ["cdtagline", "名字下面那行简介"], ["cdage", "年龄和生日那一行"], ["cdaffinity", "好感度那一块"], ["cdrules", "「长期准则」整块"], ["cdrule", "单条准则卡片"], ["cdactions", "底部操作按钮那一组"], ["cdbtn", "单个操作按钮（data-kind=chat/state/desires；心上那颗 data-on=\"1\" 是有念想）"]])}),
-    Object.freeze({zh:"设置",pages:Object.freeze(["config"]),hooks:Object.freeze([["cfhome", "设置首页那一列入口的容器"], ["cfrow", "首页的一行入口（data-page＝通往哪个子页，如 api/look/data）"], ["cfrowtitle", "首页一行的标题"], ["cfrowstate", "首页一行右下那行灰色状态小字"], ["cfnote", "首页底部那张说明卡"], ["cfmark", "方角汉字栏号牌（首页每行、子页每格都有）"], ["cfgrid", "子页里两列格子的网格"], ["cftile", "子页里的单个入口格子（data-wide=\"1\" 是占满一行的宽格）"], ["cfpanel", "子页内容外面那张卡片框（data-flush=\"1\" 没内边距）"], ["composerlift", "外观与壁纸里「输入栏往上抬」那一格"]])}),
+    Object.freeze({zh:"设置",pages:Object.freeze(["config"]),hooks:Object.freeze([["cfhome", "设置首页那一列入口的容器"], ["calllog", "设置 · 调用记录与缓存 里的「模型调用记录」整块"], ["calllogrow", "调用记录的一行（data-ok=\"1\" 成功，\"0\" 失败或断开）"], ["cfrow", "首页的一行入口（data-page＝通往哪个子页，如 api/look/data）"], ["cfrowtitle", "首页一行的标题"], ["cfrowstate", "首页一行右下那行灰色状态小字"], ["cfnote", "首页底部那张说明卡"], ["cfmark", "方角汉字栏号牌（首页每行、子页每格都有）"], ["cfgrid", "子页里两列格子的网格"], ["cftile", "子页里的单个入口格子（data-wide=\"1\" 是占满一行的宽格）"], ["cfpanel", "子页内容外面那张卡片框（data-flush=\"1\" 没内边距）"], ["composerlift", "外观与壁纸里「输入栏往上抬」那一格"]])}),
     Object.freeze({zh:"论坛",pages:Object.freeze(["forum"]),hooks:Object.freeze([["fochip", "版块切换的小标签（data-on=\"1\" 是当前那个）"], ["forow", "帖子流里的一张帖子卡（data-me=\"1\" 我发的，data-anon=\"1\" 匿名）"], ["fonotes", "论坛双列时那块瀑布流"], ["folayout", "论坛「我」页里「首页排版」那两颗（单列 / 双列，data-on=\"1\" 是选中的那颗）"], ["fonewhead", "「新帖在这里」「新回复在这里」那一行（点了展开，aria-expanded=\"true\" 是开着）"], ["fonote", "双列时的一张卡片"], ["foname", "帖子卡上的作者名"], ["fobody", "帖子卡正文预览"], ["foacts", "帖子卡底部操作栏"], ["fofloor", "帖子详情里的一层楼（data-me=\"1\" 我的，data-new=\"1\" 新楼）"], ["foreplies", "楼中楼回复框"], ["fosend", "详情页底部回复栏的发送键"], ["fofab", "右下角悬浮的发帖键"]])}),
     Object.freeze({zh:"日记",pages:Object.freeze(["diary"]),hooks:Object.freeze([["diauthor", "日记本列表里每个人的一行（data-on=\"1\" 当前那本，data-me=\"1\" 我自己）"], ["diname", "那一行里的名字"], ["dirow", "一篇日记（data-me=\"1\" 我写的）"], ["didate", "日记左侧的日期块"], ["dititle", "日记标题"], ["dibody", "日记正文预览"], ["dimarks", "条目下方的小标记行（划掉/秘密/贴纸、几人看过）"], ["dipen", "右上角写日记的铅笔键"], ["dipage", "翻页阅读时的单页日记"]])}),
     Object.freeze({zh:"情侣空间",pages:Object.freeze(["us"]),hooks:Object.freeze([["uscouple", "情侣列表的一行（data-on=\"1\" 在一起，否则邀请中；data-new=\"1\" 有新东西）"], ["usname", "列表行里的角色名"], ["uspair", "空间内页封面上那两枚头像的外框（整组挪位置）"], ["usavatar", "空间内页封面上的一枚头像（带环；data-who=\"ta\" 是他、\"me\" 是我）。默认我那枚往左压 18px 叠着，想拉开成两个整圆：[data-wk=\"usavatar\"][data-who=\"me\"]{margin-left:12px !important}"], ["uscount", "列表行里「在一起 N 天」的天数大字"], ["usdays", "空间内页「在一起 N 天」那一组"], ["usnow", "「TA 此刻」那张便签"], ["uspaper", "往上滚时盖住封面的那张底纸（颜色、透明度、磨砂都在它身上，写的时候要加 !important）"], ["uswall", "墙上的功能卡片（data-kind＝模块）"], ["usspine", "「收着的」那一列书脊入口（data-kind＝letters/exdiary/qa/capsule…；data-new=\"1\" 有新内容）"], ["useyebrow", "各区块的小眉标标题"]])}),
@@ -475,6 +475,10 @@
         ["gazetab","两条布书签（data-on=\"1\" 是选中的）"],["gazestatus","书签下面那行复看说明小字"],
         ["gazecard","每一块便签（data-k＝me.person 这类块名；data-empty=\"1\" 还没写）"],["gazecardname","便签标题"],["gazecardtext","便签正文"],["gazecardtime","便签底下「N 天前写的」"],
         ["gazebtn","底下的按钮（data-kind＝review 再看一遍 / redo 整份重写 / history 从前那几版 / seed 第一次写）"],
+        ["gazelock","信纸里「锁住这块」（data-on＝1 已锁）"],
+        ["gazedelver","信纸里删掉一版（data-part＝now 现在这版 / old 旧的那版）"],
+        ["gazeusever","信纸里旧版底下的「用这版」"],
+        ["gazelockmark","卡片右上「已锁」小字"],
         ["gazeletter","点开一块后的那张信纸"],["gazehistory","「从前都怎么写的」那张总表"],
         ["chathead", "顶栏整条"], ["headink", "顶栏主字与图标"], ["headdim", "顶栏次要小字"],
         ["headme", "顶栏里她自己的头像（单聊；默认 display:none，写 display:inline-flex 打开就是双人头像）"],
@@ -988,7 +992,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.152", changed: "一起学资料页加了 studymatpiles / studymatpile（全部／我传的／老师给的 那排隔板）；秋秋聊天里我自己的气泡也有 qqcopy 了（data-me 分两侧）", none: "" };
+  const BRIEF_STAMP = { v: "v75.158", changed: "", none: "这一版没有新挂点" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
