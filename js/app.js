@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.122";
+const APP_VERSION = "v75.123";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -28802,6 +28802,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onAddLore: list => saveLore((list || []).concat(loreRef.current || [])),
     onAddChar: o => { createCharFromAssistant(o); },
     onOpenThemeStudio: () => { setConfigPage("themeStudio"); setScreen("config"); },
+    // CSS 只放进一处：读写都走聊天设置／群设置／线下设置自己那一格（秋秋改 CSS 用的也是这三个入口）
+    groups: groups,
+    cssSlotOf: (where, id) => ((where === "chat" ? chatSettings[id] : where === "group" ? gsFor(id) : offlineSettings[id]) || {}).customCSS || "",
+    onPatchCssSlot: (where, id, css) => where === "chat" ? patchChatSetting(id, { customCSS: css })
+      : where === "group" ? saveGroupSettings(id, { customCSS: css }) : saveOfflineSettings(id, { customCSS: css }),
     onBack: () => setScreen("home")
   });else if (screen === "assistant") body = h(AssistantApp, {
     // 秋秋：答功能、查毛病、出改动稿（文风/人设/外貌/档案/装修/记忆库）。

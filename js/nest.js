@@ -102,6 +102,19 @@
     throw new Error("不认得的类别");
   }
 
+  // CSS 放进某一个人／某一个群自己那一格（她 2026-10-08：「想要 css 应用在单一个聊天怎么弄」）。
+  //   接在那一格原有内容的后面，不顶掉；写入口就是聊天设置自己用的那几个（app.js 递进来），不另开一条路。
+  //   这三格都记着「↶ 回到上一版」（engine.js 的 LookHist 在落盘那一刻自己记），不满意在那一页退回去。
+  const CSS_SLOTS = { chat: "这个人的聊天窗", group: "这个群", offline: "这个人的线下" };
+  function cssInto(where, id, css, title, props) {
+    const TS = window.ThemeStudio;
+    const bad = TS && TS.unsafeReason ? TS.unsafeReason(css) : "";
+    if (bad) throw new Error("这段 CSS 放不进去：" + bad);
+    const cur = String((props.cssSlotOf(where, id)) || "");
+    const next = (cur.trim() ? cur.replace(/\s+$/, "") + "\n\n" : "") + "/* 小窝：" + String(title || "").replace(/\*\//g, "") + " */\n" + css;
+    props.onPatchCssSlot(where, id, next);
+  }
+
   const ago = ts => {
     const s = (Date.now() - ts) / 1000;
     if (s < 3600) return Math.max(1, Math.round(s / 60)) + " 分钟前";
@@ -123,22 +136,23 @@
 
   // ── 那一排分类：小窝是一面格子柜，每一格是一类东西 ─────────────
   //   选中的那一格是「拉开了的」：往里陷、底下压一道深色的边；没选的是关着的格门。
-  function Cubbies({ t, kind, onPick, noAll }) {
-    // 传的时候得挑一类，「全部」那一格只在逛的时候有
-    const all = (noAll ? [] : [{ key: "", zh: "全部" }]).concat(KINDS);
-    return h("div", { "data-wk": "nestcubbies", className: "shrink-0 px-4 pt-3 pb-2" },
-      h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0, border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
+  function Cubbies({ t, kind, onPick, noAll, items, cols, flush }) {
+    // 传的时候得挑一类，「全部」那一格只在逛的时候有；CSS「放哪儿」那三格也是这面柜子（items 传进来）
+    const all = items || (noAll ? [] : [{ key: "", zh: "全部" }]).concat(KINDS);
+    const n = cols || 4;
+    const grid = h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + n + ", 1fr)", gap: 0, border: "1px solid " + t.line, borderRadius: 10, overflow: "hidden", background: t.bg2 } },
         all.map((k, i) => {
           const on = k.key === kind;
           return h("button", { key: k.key || "all", "data-wk": "nestcubby", "data-on": on ? "1" : "0", onClick: () => onPick(k.key),
             className: "active:opacity-70",
             style: { minHeight: 46, padding: "6px 2px", fontFamily: F_BODY, fontSize: 12.5, letterSpacing: 1,
               color: on ? t.ink : t.fog, fontWeight: on ? 600 : 400,
-              borderRight: i % 4 === 3 || i === all.length - 1 ? "none" : "1px solid " + t.line, borderBottom: i < 4 ? "1px solid " + t.line : "none",
+              borderRight: i % n === n - 1 || i === all.length - 1 ? "none" : "1px solid " + t.line, borderBottom: i < all.length - ((all.length - 1) % n + 1) ? "1px solid " + t.line : "none",
               background: on ? t.bg : "transparent",
               boxShadow: on ? "inset 0 3px 6px rgba(0,0,0,.10), inset 0 -3px 0 " + t.ink : "none" } },
             k.zh);
-        })));
+        }));
+    return flush ? grid : h("div", { "data-wk": "nestcubbies", className: "shrink-0 px-4 pt-3 pb-2" }, grid);
   }
 
   const Btn = ({ t, onClick, children, solid, disabled, wk }) => h("button", { onClick, disabled, "data-wk": wk || "nestbtn",
@@ -146,13 +160,37 @@
     style: { minHeight: 40, padding: "0 16px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13,
       border: "1px solid " + t.ink, background: solid ? t.ink : "transparent", color: solid ? t.bg : t.ink } }, children);
 
+  // ── CSS 放哪儿：全 App，或者某一个人的聊天窗／某一个群／某一个人的线下 ─────
+  function CssPlace({ t, props, busy, onPick, onAll, onCancel }) {
+    const [tab, setTab] = useState("chat");
+    const chars = (props.characters || []).filter(c => c && !c.npc);
+    const list = tab === "group" ? (props.groups || []).map(g => ({ id: g.id, name: g.name || "未命名的群" })) : chars.map(c => ({ id: c.id, name: c.name }));
+    const head = (txt, sub) => h("div", { style: { marginTop: 18, fontFamily: F_BODY } },
+      h("div", { style: { fontSize: 14, color: t.ink } }, txt), sub ? h("div", { style: { fontSize: 12, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, sub) : null);
+    return h("div", { "data-wk": "nestplace" },
+      head("放哪儿", "放进全 App 会接在全局 CSS 草稿后面，预览满意再保存；放进某一个人或某一个群，就只管那一处，直接生效。"),
+      h("div", { className: "flex flex-wrap", style: { gap: 10, marginTop: 12 } },
+        h(Btn, { t, solid: true, disabled: busy, onClick: onAll, wk: "nestplaceall" }, "全 App"),
+        h(Btn, { t, disabled: busy, onClick: onCancel }, "先不放")),
+      head("或者只给一处"),
+      // 三格是三种地方：同一个人的聊天窗和线下是两张不同的皮
+      h("div", { "data-wk": "nestplacetabs", style: { marginTop: 10, marginBottom: 4 } },
+        h(Cubbies, { t, kind: tab, onPick: setTab, cols: 3, flush: true, items: [{ key: "chat", zh: "聊天窗" }, { key: "group", zh: "群聊" }, { key: "offline", zh: "线下" }] })),
+      list.length ? list.map(x => h("button", { key: x.id, "data-wk": "nestplacerow", disabled: busy, onClick: () => onPick(tab, x.id, x.name), className: "w-full flex items-center justify-between active:opacity-70 disabled:opacity-40",
+        style: { minHeight: 46, padding: "0 2px", borderBottom: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14, color: t.ink, textAlign: "left" } },
+        h("span", { className: "truncate" }, x.name), h("span", { style: { color: t.fog, fontSize: 12, flexShrink: 0 } }, "放这儿 ›")))
+      : h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "14px 0" } }, tab === "group" ? "还没有群" : "还没有角色"));
+  }
+
   // ── 一条东西点进去 ─────────────────────────────────────────
   function Detail({ t, id, props, onClose, onGone }) {
     const [it, setIt] = useState(null), [err, setErr] = useState(""), [busy, setBusy] = useState(false);
     const [armed, setArmed] = useState(false);
+    const [placing, setPlacing] = useState(false);   // CSS：先问放哪儿
     useEffect(() => { let live = true; api("/item/" + id).then(d => { if (live) setIt(d); }).catch(e => { if (live) setErr(e.message); }); return () => { live = false; }; }, [id]);
     const admin = !!adminToken();
     const doImport = async () => {
+      if (it && it.kind === "css" && !placing) { setPlacing(true); return; }
       setBusy(true);
       try {
         const d = await api("/item/" + id + "?import=1");
@@ -160,6 +198,21 @@
         if (msg) props.toast(msg);
       } catch (e) { props.toast("导入失败：" + e.message); }
       setBusy(false);
+    };
+    // 放进某一个人／群：照样记一次导入
+    const placeCss = async (where, id, name) => {
+      setBusy(true);
+      try {
+        const d = await api("/item/" + it.id + "?import=1");
+        cssInto(where, id, d.payload, d.title, props);
+        props.toast("已放进「" + name + "」" + (where === "group" ? "这个群" : where === "offline" ? "的线下" : "的聊天窗") + "的 CSS，去那儿看看；不满意在那一页的设置里点「↶ 回到上一版」");
+        setPlacing(false);
+      } catch (e) { props.toast("没放进去：" + e.message); }
+      setBusy(false);
+    };
+    const doCopy = async () => {
+      const ok = await copyText(it.payload);
+      props.toast(ok ? (it.kind === "css" ? "CSS 已复制" : "已复制，可以贴进对应那一页的导入框") : "这台手机不让复制，长按预览里的字试试");
     };
     const doDelete = async () => {
       if (!armed) { setArmed(true); return; }
@@ -192,8 +245,10 @@
           it.intro ? h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, lineHeight: 1.7, marginBottom: 14, whiteSpace: "pre-wrap" } }, it.intro) : null,
           preview ? h("div", { "data-wk": "nestpreview", style: { fontFamily: it.kind === "css" ? "ui-monospace,Menlo,monospace" : F_BODY, fontSize: 12.5, color: t.ink, lineHeight: 1.65,
             whiteSpace: "pre-wrap", wordBreak: "break-word", padding: 12, borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, maxHeight: "48vh", overflowY: "auto" } }, preview.slice(0, 6000)) : null,
+          placing ? h(CssPlace, { t, props, busy, onPick: placeCss, onAll: doImport, onCancel: () => setPlacing(false) }) :
           h("div", { className: "flex flex-wrap", style: { gap: 10, marginTop: 18 } },
             h(Btn, { t, solid: true, disabled: busy, onClick: doImport, wk: "nestimport" }, busy ? "……" : "导进我的手机"),
+            h(Btn, { t, disabled: busy, onClick: doCopy, wk: "nestcopy" }, "复制"),
             (it.mine || admin) ? h(Btn, { t, disabled: busy, onClick: doDelete, wk: "nestdelete" }, armed ? "再点一下就删" : (it.mine ? "删掉我传的这个" : "删掉这一条")) : null))));
   }
 
@@ -343,5 +398,5 @@
   }
 
   window.NestApp = NestApp;
-  window.Nest = { KINDS, importInto, packLore, packStyle, packPreset, packPersona };
+  window.Nest = { KINDS, importInto, cssInto, CSS_SLOTS, packLore, packStyle, packPreset, packPersona };
 })();

@@ -104,3 +104,26 @@ test("人设：只带名字、简介、正文；导进来是新建一个角色",
   assert.deepEqual(made, { name: "沈", tagline: "医生", persona: "正文" });
   assert.match(app, /onAddChar: o => \{ createCharFromAssistant\(o\); \}/);
 });
+
+// 她 2026-10-08：「如果想要 css 应用在单一个聊天怎么弄」——CSS 导入先问放哪儿，能只放给一个人／一个群／一个人的线下
+test("CSS 只放一处：接在那一格后面，不顶掉原来的；写入口是设置自己那三个", () => {
+  const { N, g } = loadNest({});
+  const slots = { "chat:c1": "a{color:red}" }, wrote = [];
+  const props = { cssSlotOf: (w, id) => slots[w + ":" + id] || "", onPatchCssSlot: (w, id, css) => { wrote.push([w, id]); slots[w + ":" + id] = css; } };
+  N.cssInto("chat", "c1", "b{color:blue}", "蓝", props);
+  assert.match(slots["chat:c1"], /^a\{color:red\}\n\n\/\* 小窝：蓝 \*\/\nb\{color:blue\}$/, "把她原来那格顶掉了");
+  N.cssInto("group", "g1", "c{}", "x", props);
+  assert.equal(slots["group:g1"], "/* 小窝：x */\nc{}");
+  g.ThemeStudio = { unsafeReason: () => "花括号不配对" };
+  assert.throws(() => N.cssInto("offline", "c1", "d{", "坏", props), /放不进去/);
+  assert.deepEqual(wrote, [["chat", "c1"], ["group", "g1"]], "不安全的也落盘了");
+  assert.deepEqual(Object.keys(N.CSS_SLOTS), ["chat", "group", "offline"]);
+  assert.match(app, /onPatchCssSlot: \(where, id, css\) => where === "chat" \? patchChatSetting\(id, \{ customCSS: css \}\)/);
+  assert.match(app, /saveGroupSettings\(id, \{ customCSS: css \}\) : saveOfflineSettings\(id, \{ customCSS: css \}\)/);
+});
+
+test("详情页有复制；CSS 点导入先问放哪儿", () => {
+  assert.match(nest, /const ok = await copyText\(it\.payload\);/);
+  assert.match(nest, /if \(it && it\.kind === "css" && !placing\) \{ setPlacing\(true\); return; \}/);
+  assert.match(nest, /placing \? h\(CssPlace, \{/);
+});
