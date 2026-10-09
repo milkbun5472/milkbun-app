@@ -82,8 +82,9 @@ test("默认关，一个一个角色自己开", () => {
   assert.match(comp, /const \[webSearch, setWebSearch\] = useState\(!!settings\.webSearch\);/, "开关没存在角色设置里");
   assert.match(comp, /h\(Toggle, \{ on: webSearch, onChange: \(\) => setWebSearch\(v => !v\) \}\)/, "界面上没有这个开关");
   assert.match(comp, /"让 Ta 能上网"/, "开关没有名字");
-  assert.match(comp, /仍然只花一次调用/, "没跟她讲清楚这个要花多少");
-  assert.match(comp, /古代\/架空角色不建议开/, "没提醒扮演上的代价");
+  // 她 2026-10-09：anthropic 那句和「古代/架空不建议开」都删了（「这些话也都删了没用」）——只留花多少钱那句
+  assert.match(comp, /用上工具的那一轮至少多花一次调用，花了几次会写在气泡上/, "没跟她讲清楚这个要花多少");
+  assert.ok(!/古代\/架空角色不建议开/.test(comp), "她删掉的那句又回来了");
   // 工程师那条线不掺和：他不是被扮演的角色（four-surfaces 里写着的合法差异）
   assert.match(app, /!_engineerChat && !!_s\.webSearch/, "工程师那条线也被带上了");
 });

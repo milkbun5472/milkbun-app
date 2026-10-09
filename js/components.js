@@ -19192,7 +19192,7 @@ function ChatSettings({
     h("div", { className: "flex items-center justify-between" },
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。两条路：anthropic 线路走内置搜索，仍然只花一次调用；接了 MCP 服务器的话（设置·文字模型里加），任何线路都能用，但那一档是「模型说要调→去调→再问一遍」，用上工具的那一轮至少两次调用。花了几次会写在气泡上。古代/架空角色不建议开——Ta 会真的去搜。")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。要接什么工具，在「设置 · 文字模型」里加 MCP 服务器；用上工具的那一轮至少多花一次调用，花了几次会写在气泡上。")),
       h("div", { className: "shrink-0" }, h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))))),
   show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
