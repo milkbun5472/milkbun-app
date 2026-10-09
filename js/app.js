@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.190";
+const APP_VERSION = "v75.192";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1779,10 +1779,7 @@ function App() {
     setDesires(loadJSON("x_desires", {}));
     setMemories(loadJSON("x_memories", {}));
     setMemLib(loadJSON("x_memLib", []));
-    // 老用户（已经有角色、但从没存过召回设置）原来一直是自动抽取开着的——默认改成关之后别悄悄替她们关掉，钉住原样。
-    { let mc = loadJSON("x_memCfg", null);
-      if (!mc && (loadJSON("x_characters", []) || []).length) { mc = { autoExtract: true }; saveJSON("x_memCfg", mc); }
-      setMemCfg(Object.assign({}, MEM_CFG_DEFAULT, mc || {})); }
+    setMemCfg(Object.assign({}, MEM_CFG_DEFAULT, loadJSON("x_memCfg", {})));   // 没存过设置的一律按默认（关）——她 2026-10-09：「未存过设置的也给我关了」
     setChatSettings(loadJSON("x_chatSettings", {}));
     setChatArch(loadJSON("x_chatArch", {}));
     // 线下末条时间种子：扫 x_offline:*/x_goffline:* 各取所有场次里最新一条 ts，供聊天列表重开后仍按线下时间排
