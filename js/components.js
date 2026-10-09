@@ -14579,7 +14579,7 @@ function CenterCard({ children, onClose, maxWidth, wk }) {
 }
 function StateCard({
   character, affinity, isNpc, mood, state, history, hideWearAction,
-  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName
+  onClose, gazeOn, uName, onGazeSeed, gazeSeedBusy, onGazeReview, gazeReviewBusy, roomName, onDelThought
 }) {
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
@@ -14662,14 +14662,21 @@ function StateCard({
       padding: back ? "0 0 11px" : "12px 0 2px", margin: back ? "0 0 13px" : "4px 0 0"
     }
   }, back ? "← 回此刻" : "底下还有 " + hist.length + " 条旧的 · 翻旧的") : null;
+  // 心声能删（群里 2026-10-09 许愿）：旧的一条条删、或一次清空；此刻那条删了就不再当「TA刚才在想的」喂回下一轮。
+  //   只动心声这一格——聊天记录、心情、好感一个都不碰。
+  const delBtn = (txt, fn, clear) => onDelThought ? h("button", { "data-wk": clear ? "statevoiceclear" : "statevoicedel", onClick: fn, className: "active:opacity-60 shrink-0",
+    style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, background: "transparent", border: "none", padding: "2px 0 2px 8px", minHeight: 24 } }, txt) : null;
+  const askClear = () => requestAppConfirm("清空" + scTa + "的旧心声？", "只删这些心声，聊天记录、心情和好感都不动。", () => { onDelThought("all"); setShowHist(false); }, "清空");
   const body = showHist
     ? h("div", { style: { padding: "13px 17px 18px" } },
       histBtn(true),
-      label(scTa + "心里闪过的那些 · " + hist.length + " 条"),
+      h("div", { className: "flex items-center justify-between" }, label(scTa + "心里闪过的那些 · " + hist.length + " 条"), delBtn("清空", askClear, true)),
       h("div", { style: { marginTop: 10 } }, hist.map((s2, i) => h("div", { key: i, style: { paddingBottom: 11, marginBottom: 11, borderBottom: i === hist.length - 1 ? "none" : "1px solid " + t.line } },
         h("div", { className: "flex items-center gap-2", style: { marginBottom: 4 } },
           (window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.accent } }, window.MoodLabel ? window.MoodLabel.localize(s2.mood) : s2.mood) : null,
-          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : "")),
+          h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : ""),
+          h("span", { style: { flex: 1 } }),
+          delBtn("删", () => { onDelThought(i); if (hist.length <= 1) setShowHist(false); })),
         h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }) : null))))
     : h(Fragment, null,
@@ -14694,7 +14701,7 @@ function StateCard({
       (state && S(state.thought)) ? h("div", { "data-wk": "statevoice", style: { position: "relative", margin: "0 13px 15px", padding: "14px 15px 15px", borderRadius: 14, background: t.bg, border: "1px solid " + t.line, overflow: "hidden" } },
         // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
-        label("心里想的", t.accent),
+        h("div", { className: "flex items-center justify-between", style: { position: "relative" } }, label("心里想的", t.accent), delBtn("删", () => onDelThought("now"))),
         h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
       h("div", { style: { padding: "0 15px" } }, histBtn(false)));
   return h(CenterCard, { onClose: onClose, wk: "statecard" }, head, tabs,
