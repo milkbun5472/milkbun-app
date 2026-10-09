@@ -67,7 +67,7 @@ test("① 有心情，但没有好感度", () => {
   assert.match(app, /if \(spk && !_npcSpk\) bumpAff/, "群线上：好感仍旧不给配角");
   assert.match(app, /if \(spk && moodLabel\) setMoodFor/, "群线上：心情现在也给配角");
   assert.match(app, /const _bNpc = .*\.npc;/, "群线下");
-  assert.match(app, /if \(\(!gOffSealed \|\| _bNpc\) && b\.senderId && b\.mood/, "群线下：配角的心情不看闭群那道闸");
+  assert.match(app, /if \(\(!gOffSealed \|\| _bNpc\) && a\.senderId && a\.mood/, "群线下：配角的心情不看闭群那道闸");
   // 上下文也别喂：配角没有好感/印象卡/年龄/行程/情侣状态这些层
   ["配角没有好感度", "配角没有印象卡", "配角没有年龄这一层", "配角跟用户没有关系线"]
     .forEach(x => assert.ok(app.indexOf(x) > 0, "群线下 ctx 少挡了一层：" + x));

@@ -40,7 +40,7 @@ test("四条路共用这一份，没有谁自己又写了一版", () => {
   assert.match(app, /affinityDelta: \$\{AFFINITY_DELTA_SPEC\}/, "单聊线上");
   assert.match(engine, /affinityDelta: \$\{AFFINITY_DELTA_SPEC\}/, "单人线下");
   assert.equal((app.match(/AFFINITY_DELTA_SPEC/g) || []).length, 3, "群那两处也要吃到");
-  assert.equal((engine.match(/AFFINITY_DELTA_SPEC/g) || []).length, 3, "1 处定义 + 单人线下 + 群线下");
+  assert.equal((engine.match(/AFFINITY_DELTA_SPEC/g) || []).length, 4, "1 处定义 + 单人线下 + 群线下（逐拍 beats 与小说 cast 各一处）");
   // 旧的三种各写一版的写法不许回来
   assert.equal(SENT.indexOf("通常小幅、没波动就 0"), -1);
   assert.equal(SENT.indexOf("通常小幅、没波动就0"), -1);

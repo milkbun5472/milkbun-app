@@ -23,7 +23,7 @@ test("读成数这一步只有一份，五个调用点都问它", () => {
 
 test("五个入口都还在（别把闸一起拆了）", () => {
   assert.match(app, /if \(!sideRoom\) bumpAff\(charId, res\.affinityDelta\);/, "单人线下");
-  assert.match(app, /if \(!gOffSealed && !_bNpc && b\.senderId\) bumpAff\(b\.senderId, b\.affinityDelta\);/, "群线下·闭群仍封死");
+  assert.match(app, /if \(!gOffSealed && !_bNpc && a\.senderId\) bumpAff\(a\.senderId, a\.affinityDelta\);/, "群线下·闭群仍封死");
   assert.match(app, /const _affD = affDelta\(parsed\.affinityDelta\);\s*\n\s*bumpAff\(charId, _affD\);/, "单聊线上");
   assert.match(app, /const aDelta = affDelta\(item\.affinityDelta\);/, "群线上");
   // v72.06 配角有了心情，好感这一层【照旧没有】——判据从 spk.npc 换成同一轮算好的 _npcSpk

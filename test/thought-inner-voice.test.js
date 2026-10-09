@@ -14,7 +14,7 @@ test("四条心声写入路径全部过 ThoughtVoiceGuard，群线下不留旁�
   assert.match(app, /parsed\.thought = guardedThought/);
   assert.match(app, /const offlineThought = TVG\.accept\(res\.thought\)/);
   assert.match(app, /const thought = TVG\.accept\(rawThought\)/);
-  assert.match(app, /thought: b\.thought, mood: b\.mood/);
+  assert.match(app, /thought: a\.thought, mood: a\.mood/);
 });
 
 test("旧导演稿不再作为下一轮心声范文回喂", () => {
