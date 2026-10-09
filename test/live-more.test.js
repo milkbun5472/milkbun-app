@@ -180,7 +180,7 @@ test("镜头和动作不截行：中间那块自己能滚（她 2026-10-08：看
 
 test("字幕卡自己左右划；一碰就不再自动往下放，下一拍才恢复", () => {
   assert.match(live, /const \[capHand, setCapHand\] = useState\(false\)/);
-  assert.match(live, /if \(capHand \|\| capIdx >= caps\.length - 1\) return;/);
+  assert.match(live, /if \(capHand \|\| [^\n]*capIdx >= caps\.length - 1\) return;/);
   assert.match(live, /setCapIdx\(0\); setCapHand\(false\);/);
   assert.match(live, /"data-wk": "livecapcard", onTouchStart: capDown, onTouchEnd: capUp/);
 });
@@ -208,4 +208,15 @@ test("谁会自己开播一个个选；点掉的人连时间表都不算（直�
   assert.match(live, /slotsOf\(selfOn\.concat\(followedSt\), new Date\(now - 86400000\)/);
   assert.match(app, /!\(\(liveCfg\.selfOff \|\| \{\}\)\[c\.id\]\)/);
   assert.match(live, /"data-wk": "liveselfchip"/);
+});
+
+test("直播开声音：只有角色有声音；照聊天语音那套写；念完一句翻下一句，自动往下播等念完", () => {
+  assert.match(live, /const canVoice = c => !!\(c && c\.voiceId && ttsReady\(\)\)/);
+  assert.match(live, /if \(ses\.voice\) facts\.push\([^\n]*VOICE_PAUSE_MARK/);
+  assert.match(live, /!ses\.stranger \? arr\(chars\)\.find/, "路人主播不念");
+  assert.match(live, /if \(capHand \|\| voiceC \|\| capIdx >= caps\.length - 1\) return;/, "开了声音不按定时翻");
+  assert.match(live, /if \(!capHandRef\.current && idx < total - 1\) setCapIdx/);
+  assert.match(live, /if \(voiceC && speaking\) return;/);
+  assert.match(live, /"data-wk": "livevoicepick"/);
+  assert.match(live, /capText\(ses, capNow\.line\.text\)/, "画面上的字剥掉停顿和声音标记");
 });
