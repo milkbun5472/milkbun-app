@@ -183,6 +183,9 @@
   //   老那条回完之后接在后面，顺序全乱。
   // 所以 busy 也提到模块上，谁挂着都看得见；而且它一忙，两处都发不出第二句。
   let inflight = 0;
+  // 卡住了能叉掉（她 2026-10-09）：这一问的放手开关，整页和悬浮屏共用一份——在哪边点叉都断的是同一问
+  let curAbort = null, lastPic = null;
+  function cancelAsk() { try { curAbort && curAbort.abort(); } catch (e) {} }
   const busySubs = new Set();
   function onBusy(fn) { busySubs.add(fn); return () => busySubs.delete(fn); }
   function isBusy() { return inflight > 0; }
@@ -903,7 +906,7 @@
       + "【输出】只输出 JSON，不要代码块：\n" + SHAPE;
   }
 
-  async function ask(active, ctx, history, text, pic) {
+  async function ask(active, ctx, history, text, pic, signal) {
     // 门在最前面：命中就当场回绝，一次调用都不花
     if (codeQuestion(text)) return { reply: CODE_REPLY, patches: [], refused: true };
     // 她发的图（她 2026-09-30）：只跟着【这一句】发给模型；历史里只留一张小缩略图给她看，不再回传——一张图每轮重发太贵
@@ -916,7 +919,7 @@
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
-    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65535, timeout: 600000, stream: true });
+    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65535, timeout: 600000, stream: true, signal: signal || undefined });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       .slice(0, 3)
@@ -1165,7 +1168,7 @@
   }
 
   window.Assistant = { ask, apply, before, labelOf, snapshot, TARGETS, CARD_FIELDS, codeQuestion, scrubCode, CODE_REPLY,
-    previewText, loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_MAN, snippetEdit, shownLen };
+    previewText, cancelAsk, setAbort: ac => { curAbort = ac; }, setLastPic: p => { lastPic = p; }, lastPic: () => lastPic, loadCfg, saveCfg, DEFAULT_PROMPT, LEGACY_PROMPTS, DEFAULT_NAME, loadChat, saveChat, onChat, chatWindow, onBusy, isBusy, bumpBusy, markPatch, undo, undoable, loadUndo, onUndo, UNDO_KEEP, markAsking, clearAsking, staleAsking, ASK_KEY, CHAT_KEEP, CTX_CHARS, CTX_MIN, activeFor, focusIds, buildSystem, pageOf, pageLine, SCREEN_MAN, snippetEdit, shownLen };
 })();
 
 // ============================================================
@@ -1275,16 +1278,29 @@
       const act = A.activeFor(ctx);
       if (!act && !A.codeQuestion(q)) { toast && toast("请先到设置配置 API"); return; }
       A.bumpBusy(1); A.markAsking(q);
+      const ac = typeof AbortController === "function" ? new AbortController() : null;
+      A.setAbort(ac); A.setLastPic(pic || null);
       const before = A.loadChat();
       const isFile = pic && pic.kind === "file";
       put(before.concat([{ role: "me", text: q, pic: pic && !isFile ? pic.thumb : undefined,
         file: isFile ? { name: pic.name, size: pic.size, chars: pic.chars, cut: pic.cut, max: pic.max, text: pic.text } : undefined, ts: Date.now() }]));
       try {
-        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? pic.full : null));
+        const r = await A.ask(act, ctx, before, q, isFile ? pic : (pic ? pic.full : null), ac && ac.signal);
         put(A.loadChat().concat([{ role: "it", text: r.reply, patches: r.patches, outFile: r.file || undefined, ts: Date.now() }]));
       } catch (e) {
-        put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
-      } finally { A.clearAsking(); A.bumpBusy(-1); }
+        // 她自己叉掉的：不算「没答上来」，留一颗重新生成（已经发出去的那一枪收不回来，回来的结果直接丢掉）
+        if ((e && e.userAbort) || (ac && ac.signal.aborted)) put(A.loadChat().concat([{ role: "it", text: "这一句取消了。", cancelled: true, q: q, ts: Date.now() }]));
+        else put(A.loadChat().concat([{ role: "it", text: "没答上来：" + (e.message || "重试"), patches: [], ts: Date.now() }]));
+      } finally { A.setAbort(null); A.clearAsking(); A.bumpBusy(-1); }
+    };
+    // 重新生成：把那句问话和「取消了」一起收掉，原样再问一次（带过图／文件的照样带上）
+    const regen = m => {
+      if (A.isBusy()) return;
+      const list = A.loadChat(), i = list.indexOf(list.find(x => x && x.ts === m.ts && x.cancelled));
+      if (i < 0) return;
+      const keep = list.slice(0, i).filter((x, j) => !(j === i - 1 && x.role === "me"));
+      put(keep);
+      send(m.q, A.lastPic());
     };
     const applyOne = p => {
       if (p.done === "已应用") return;           // 记忆库会加两遍、改一小段会找不到原文
@@ -1305,7 +1321,7 @@
     };
     const skip = p => A.markPatch(p.pid, "跳过了");
     const clear = () => { A.clearAsking(); put([]); };
-    return { msgs, busy, send, applyOne, undoOne, skip, clear };
+    return { msgs, busy, send, regen, cancel: A.cancelAsk, applyOne, undoOne, skip, clear };
   }
 
   // 上一次问到一半 App 被系统收走了：明说出来，并给一个重问的入口。
@@ -1324,6 +1340,14 @@
         style: { marginTop: 5, marginLeft: 12, background: "none", border: "none", padding: 0, fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.fog } }, "算了"));
   }
 
+  // 「在想…」＋ 一颗叉（整页和悬浮屏共用）：卡住了点叉就放手，不用干等
+  function Thinking(props) {
+    const t = useTheme(), C = props.C;
+    return h("div", { "data-wk": "qqthinking", className: "flex items-center", style: { gap: 8 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.fog } }, "在想…"),
+      h("button", { "data-wk": "qqcancel", onClick: C.cancel, "aria-label": "取消这一问", className: "active:opacity-60",
+        style: { minWidth: 40, minHeight: 40, background: "none", border: "none", fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.tint } }, "✕ 取消"));
+  }
   // 一串气泡（整页和悬浮屏共用；只有尺寸不同）
   function Bubbles(props) {
     const t = useTheme(), sm = !!props.compact, C = props.C, av = sm ? 24 : 30;
@@ -1344,6 +1368,8 @@
             // 她 2026-10-05：「复制不了」——手机上在气泡里滑选太难，每条都给一颗复制
             m.text ? h("button", { "data-wk": "qqcopy", "data-me": "0", onClick: async () => { const ok = typeof copyText === "function" && await copyText(m.text); props.toast && props.toast(ok ? "复制好了" : "没复制上，长按文字试试"); },
               style: { marginTop: 3, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "复制") : null,
+            m.cancelled && m.q ? h("button", { "data-wk": "qqregen", onClick: () => C.regen(m), disabled: C.busy, className: "active:opacity-60 disabled:opacity-40",
+              style: { marginLeft: 14, minHeight: 40, background: "none", border: "none", padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "重新生成") : null,
             m.outFile && typeof FileCard === "function" ? h("div", { style: { marginTop: 6 } }, h(FileCard, {
               m: { name: m.outFile.name, text: m.outFile.text, chars: m.outFile.text.length, size: new Blob([m.outFile.text]).size },
               actions: [
@@ -1548,7 +1574,7 @@
               "这个 App 整体是做什么的、某一页或一个概念是什么意思、不同玩法有什么区别，以及现在有哪些角色、文风和设置，都可以问我。找不到入口、哪儿不对劲或没生效，也一并问。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, toast: props.toast }),
-        C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "在想…") : null,
+        C.busy ? h(Thinking, { C, big: true }) : null,
         h(StaleAsk, { C: C, big: true }),
         !C.busy && C.msgs.length === 0
           ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 7, marginTop: 16 } },
@@ -1711,7 +1737,7 @@
                   h("button", { "data-wk": "qqquick", "data-part": "dock", key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, compact: true, toast: props.toast }),
-        C.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "在想…") : null,
+        C.busy ? h(Thinking, { C }) : null,
         h(StaleAsk, { C: C })),
       h("div", { "data-wk": "qqcompose", "data-part": "dock", style: { display: "flex", gap: 6, alignItems: "center", padding: "7px 9px 8px", borderTop: "1px solid " + t.line, flexShrink: 0 } },
         h(AssistAttach, { pic: pic, setPic: setPic, small: true, toast: props.toast }),
