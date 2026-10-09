@@ -969,7 +969,7 @@
     games: "games", fairyGarden: "fairyGarden", trpg: "trpg", theater: "theater", impression: "impression", shike: "shike",
     yanqiu: "yanqiu", loungeapp: "lounge", rescue: "rescue", vpscodex: "vpscodex",
     forum: "forum", momprofile: "moments", us: "couple",
-    favorites: "favorites", emotes: "emotes", stylelab: "stylelab",
+    favorites: "favorites", emotes: "emotes", stylelab: "stylelab", nest: "nest",
     config: "config", assistant: "assistant", codex: "codex"
   };
   function pageOf(pg) {

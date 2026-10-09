@@ -5729,7 +5729,8 @@ function Home({
     shike: { kind: "app", zh: "时刻", G: window.GShike || GDream },
     assistant: { kind: "app", zh: "秋秋", G: window.GAssist || GDuty },
     stylelab: { kind: "app", zh: "文风台", G: window.GStyleLab || GDuty },
-    radio: { kind: "app", zh: "电台", G: window.GRadio || GDuty }
+    radio: { kind: "app", zh: "电台", G: window.GRadio || GDuty },
+    nest: { kind: "app", zh: "小窝", G: window.GNest || GDuty }
   };
   // 装饰也是主屏注册项，但不进入安全网：用户删掉后不会被系统当成“丢失组件”补回来。
   decorations.forEach(function (d) { if (d && d.id) REG[d.id] = { kind: "decor", which: d.type, decor: d }; });
@@ -5757,7 +5758,7 @@ function Home({
       "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
-    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion"]
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;

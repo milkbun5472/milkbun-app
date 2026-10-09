@@ -28776,6 +28776,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     toast: toast,
     onBack: backFromStyleLab
+  });else if (screen === "nest") body = h(window.NestApp, {
+    // 秋秋小窝：大家传、大家导。导进来的东西各回各的库，这儿不另存一份。
+    toast: toast,
+    characters: liveChars,
+    loreEntries: loreEntries,
+    onAddLore: list => saveLore((list || []).concat(loreRef.current || [])),
+    onAddChar: o => { createCharFromAssistant(o); },
+    onOpenThemeStudio: () => { setConfigPage("themeStudio"); setScreen("config"); },
+    onBack: () => setScreen("home")
   });else if (screen === "assistant") body = h(AssistantApp, {
     // 秋秋：答功能、查毛病、出改动稿（文风/人设/外貌/档案/装修/记忆库）。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。
