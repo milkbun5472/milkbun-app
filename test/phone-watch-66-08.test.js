@@ -146,7 +146,7 @@ test("界面：三处 return 套同一个罩子，hook 在所有早返回上面"
   assert.match(phone, /不另做一份「TA的微信」/);
   assert.match(phone, /drive: ctx\.drive/);
   // 「看他玩」开着时不许顺手再生成一次（那是另一枪，还会把正在演的那份盖掉）
-  assert.match(phone, /if \(drive \|\| isLive \|\| charData\[appKey\]\) return;/);
+  assert.doesNotMatch(phone, /Promise\.resolve\(onGen\(char, appKey\)\)/, "点开就不生成了，看他玩更不会");
 });
 
 test("光标靠挂点量出来，不猜坐标", () => {

@@ -38,7 +38,7 @@ test("全刷跳过接真数据的那几个，少几次调用", () => {
 test("接真数据的 app 不自动生成、也不给重刷按钮", () => {
   assert.match(phoneSrc, /const isLive = PHONE_LIVE_KEYS\.indexOf\(appKey\) >= 0/);
   // v57.54 起视频不再是带子版块的特例，这里只剩接真数据的判断
-  assert.match(phoneSrc, /if \(drive \|\| isLive \|\| charData\[appKey\]\) return;/);   // v66.08 多了「看他玩」那道闸
+  assert.match(phoneSrc, /const notYet = !data && !isLive && !spinning;/);   // 接真数据的不给「生成」页
   assert.match(phoneSrc, /const refreshKey = isLive \? null : appKey;/);
 });
 

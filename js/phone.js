@@ -6074,17 +6074,8 @@ function PhoneApp({
   const loading = busyKey === appKey;
   const isLive = PHONE_LIVE_KEYS.indexOf(appKey) >= 0;
   const [forumTab, setForumTab] = useState("main");
-  // 打开非视频版块：直接生成，失败退回上一级（不再显示中间的「生成」页）
-  useEffect(() => {
-    // ⚠️「看TA玩」开着的时候不许顺手再生成一次：那是另一枪，而且会把正在演的这一份盖掉
-    if (drive || isLive || charData[appKey]) return;
-    // 走开再回来时这一份还在生成：不许再发一枪（那是第二次真钱）
-    if (busyKey === appKey) return;
-    let alive = true;
-    Promise.resolve(onGen(char, appKey)).then(ok => { if (alive && ok === false) onBack(); });
-    return () => { alive = false; };
-    // eslint-disable-next-line
-  }, [appKey]);
+  // 点开不再自己生成（群友 2026-10-09：「我只是想进去看看软件，进去就需要生成了」）：
+  //   还没内容的 app 先摆一页「还没生成」，她按了那颗键才去调模型——点开一个 app 不该悄悄花一次钱。
   // 视频子版块：点击 tab 时直接生成，失败退回上一级
   let content;
   // ⚠️别写「读取」：这一步是真去调模型现编的，一次一刀（她按次计费）。
@@ -6099,8 +6090,15 @@ function PhoneApp({
   // 不管怎么走的（箭头、回主屏、去别的 app）：离开这一屏时还在生成，就记一笔，好了弹一句
   const stillGen = useRef(false); stillGen.current = busyKey === appKey && !data;
   useEffect(() => () => { if (stillGen.current) markLeft(); }, []);
-  const spinning = (loading && !data) || (!data && !isLive);
-  if (spinning) content = h(Spinner, { label: "正在生成 " + zh + "…（这一步会调一次模型）" });else content = renderPhoneModule(appKey, data, {
+  const spinning = (loading && !data) || (!data && !isLive && !!drive);
+  const notYet = !data && !isLive && !spinning;
+  if (spinning) content = h(Spinner, { label: "正在生成 " + zh + "…（这一步会调一次模型）" });
+  else if (notYet) content = h("div", { "data-wk": "phonenotyet", className: "flex flex-col items-center justify-center text-center", style: { padding: "80px 24px", gap: 10 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, zh + "里还没有东西"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7 } }, "要看就生成一份，这一步会调一次模型。"),
+    h("button", { onClick: () => onGen(char, appKey), disabled: !!busyKey, className: "active:opacity-70 disabled:opacity-40",
+      style: { marginTop: 6, minHeight: 40, padding: "0 22px", borderRadius: 20, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "生成 " + zh));
+  else content = renderPhoneModule(appKey, data, {
     t,
     char,
     setSheet,
@@ -6157,7 +6155,7 @@ function PhoneApp({
   },
   respin,
   // 满屏出血的 app 转圈时没有自己的顶栏：给一条只有返回箭头的，回查手机，生成在后台接着跑
-  FULL_BLEED_KEYS.indexOf(appKey) >= 0 && spinning && h(Head, { zh, bg: t.bg, noLine: true, onBack: leaveWhileGen }),
+  FULL_BLEED_KEYS.indexOf(appKey) >= 0 && (spinning || notYet) && h(Head, { zh, bg: t.bg, noLine: true, onBack: spinning ? leaveWhileGen : onBack }),
   FULL_BLEED_KEYS.indexOf(appKey) < 0 && h(Head, {
     zh: isLive ? liveTitle : zh, bg: t.bg, noLine: true, onBack: spinning ? leaveWhileGen : onBack,
     right: refreshKey ? h("button", {
@@ -7006,7 +7004,11 @@ function PhoneCarry({
       overflow: "hidden"
     }
   }, custom ? h("img", { src: custom, alt: "", style: { width: "100%", height: "100%", objectFit: "cover" } })
-    : h(PGlyph, { k: a.key, size: compact ? 22 : 27, color: glyph }), hasData(a) && !isSeen(char.id, a.key) && h("span", {
+    : h(PGlyph, { k: a.key, size: compact ? 22 : 27, color: glyph }),
+    // 还没生成过的 app 右下角一个空心圈：点进去不会自己生成，要按了才调模型（群友 2026-10-09）
+    PHONE_LIVE_KEYS.indexOf(a.key) < 0 && !data[a.key] && h("span", { "data-wk": "phonenotyetdot", "aria-label": "还没生成",
+      style: { position: "absolute", bottom: 3, right: 3, width: 9, height: 9, borderRadius: 9, border: "1.5px dashed rgba(60,55,48,.55)", background: "rgba(255,255,255,.8)" } }),
+    hasData(a) && !isSeen(char.id, a.key) && h("span", {
     style: {
       position: "absolute", top: -3, right: -3, width: 10, height: 10,
       borderRadius: 9, background: "#78bd58", border: "2px solid rgba(255,255,255,.95)"
