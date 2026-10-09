@@ -108,22 +108,68 @@ test("人设：只带名字、简介、正文；导进来是新建一个角色",
 // 她 2026-10-08：「如果想要 css 应用在单一个聊天怎么弄」——CSS 导入先问放哪儿，能只放给一个人／一个群／一个人的线下
 test("CSS 只放一处：接在那一格后面，不顶掉原来的；写入口是设置自己那三个", () => {
   const { N, g } = loadNest({});
-  const slots = { "chat:c1": "a{color:red}" }, wrote = [];
-  const props = { cssSlotOf: (w, id) => slots[w + ":" + id] || "", onPatchCssSlot: (w, id, css) => { wrote.push([w, id]); slots[w + ":" + id] = css; } };
+  const slots = { "chat:c1": { customCSS: "a{color:red}" } }, wrote = [];
+  const props = { lookOf: (w, id) => slots[w + ":" + id] || {}, onPatchLook: (w, id, patch) => { wrote.push([w, id]); slots[w + ":" + id] = Object.assign({}, slots[w + ":" + id], patch); } };
   N.cssInto("chat", "c1", "b{color:blue}", "蓝", props);
-  assert.match(slots["chat:c1"], /^a\{color:red\}\n\n\/\* 小窝：蓝 \*\/\nb\{color:blue\}$/, "把她原来那格顶掉了");
+  assert.match(slots["chat:c1"].customCSS, /^a\{color:red\}\n\n\/\* 小窝：蓝 \*\/\nb\{color:blue\}$/, "把她原来那格顶掉了");
   N.cssInto("group", "g1", "c{}", "x", props);
-  assert.equal(slots["group:g1"], "/* 小窝：x */\nc{}");
+  assert.equal(slots["group:g1"].customCSS, "/* 小窝：x */\nc{}");
   g.ThemeStudio = { unsafeReason: () => "花括号不配对" };
   assert.throws(() => N.cssInto("offline", "c1", "d{", "坏", props), /放不进去/);
   assert.deepEqual(wrote, [["chat", "c1"], ["group", "g1"]], "不安全的也落盘了");
   assert.deepEqual(Object.keys(N.CSS_SLOTS), ["chat", "group", "offline"]);
-  assert.match(app, /onPatchCssSlot: \(where, id, css\) => where === "chat" \? patchChatSetting\(id, \{ customCSS: css \}\)/);
-  assert.match(app, /saveGroupSettings\(id, \{ customCSS: css \}\) : saveOfflineSettings\(id, \{ customCSS: css \}\)/);
+  assert.match(app, /onPatchLook: \(where, id, patch\) => where === "chat" \? patchChatSetting\(id, patch\)/);
+  assert.match(app, /saveGroupSettings\(id, patch\) : saveOfflineSettings\(id, patch\)/);
 });
 
-test("详情页有复制；CSS 点导入先问放哪儿", () => {
+test("整套聊天美化放给一个群：只吃背景、排版、CSS，皮肤气泡字跳过", async () => {
+  const look = { skin: "s", bubble: {}, font: {}, chatBg: "bg", layout: { a: 1 }, customCSS: "x{}" };
+  const { N } = (() => { const r = loadNest({}); return r; })();
+  // importChatLook 是 components.js 里聊天设置自己那份拆包，这儿换成桩
+  global.importChatLook = async () => Object.assign({}, look);
+  const got = {};
+  const props = { onPatchLook: (w, id, patch) => { got[w] = patch; } };
+  await N.lookInto("group", "g1", "{}", props);
+  await N.lookInto("chat", "c1", "{}", props);
+  delete global.importChatLook;
+  assert.deepEqual(Object.keys(got.group).sort(), ["chatBg", "customCSS", "layout"]);
+  assert.deepEqual(Object.keys(got.chat).sort(), Object.keys(look).sort());
+  assert.match(comp, /async function importChatLook\(text\)/, "聊天设置那份拆包改名了，这边要跟着改");
+});
+
+test("详情页有复制；CSS 和整套美化点导入先问放哪儿", () => {
   assert.match(nest, /const ok = await copyText\(it\.payload\);/);
-  assert.match(nest, /if \(it && it\.kind === "css" && !placing\) \{ setPlacing\(true\); return; \}/);
-  assert.match(nest, /placing \? h\(CssPlace, \{/);
+  assert.match(nest, /const needsPlace = !!\(it && \(it\.kind === "css" \|\| isChatLook\)\);/);
+  assert.match(nest, /if \(needsPlace && !placing\) \{ setPlacing\(true\); return; \}/);
+  assert.match(nest, /placing \? h\(Place, \{/);
+});
+
+// 她 2026-10-08：「为啥不能全部直接从自己手机的文件里面选」
+test("每一类都能从手机文件里选，认 app 自己导出的那种", () => {
+  const { N } = loadNest({});
+  N.KINDS.forEach(k => assert.match(nest, new RegExp("    " + k.key + ": \"\\."), k.key + " 没有能选的文件类型"));
+  assert.match(N.fromFile("theme", JSON.stringify({ kind: "qq-theme", profile: {} }), "a.json").note, /主题包/);
+  assert.match(N.fromFile("theme", JSON.stringify({ kind: ["lis", "a-theme"].join(""), profile: {} }), "a.json").note, /主题包/, "老名字的主题包选不进来");
+  assert.throws(() => N.fromFile("theme", JSON.stringify({ kind: "qq-theme", assets: { iv_1: "x" } }), "a.json"), /带着图/);
+  assert.match(N.fromFile("look", JSON.stringify({ kind: "chat-look", look: {} }), "b.json").note, /整套/);
+  const lore = JSON.parse(N.fromFile("lore", "港口终年起雾", "雾港.txt").payload);
+  assert.equal(lore.entries[0].title, "雾港");
+  const st = JSON.parse(N.fromFile("style", "短句，冷", "冷调.md").payload);
+  assert.deepEqual(st, { kind: "qq-style", name: "冷调", prompt: "短句，冷" });
+  const pe = JSON.parse(N.fromFile("persona", "他是个医生", "沈.txt").payload);
+  assert.equal(pe.name, "沈"); assert.equal(pe.persona, "他是个医生");
+  assert.throws(() => N.fromFile("preset", "{}", "p.json"), /预设/);
+});
+
+test("Word 里的 CSS：弯引号、长破折号、全角标点改回来，别的不动", () => {
+  const { N } = loadNest({});
+  assert.equal(N.unWord("[data-wk=“bubble”] ｛ color：red； --x: 1 ｝"), '[data-wk="bubble"] { color:red; --x: 1 }');
+  assert.equal(N.unWord("a{ —w: 1 }"), "a{ --w: 1 }");
+  assert.equal(N.fromFile("css", "a{ —w: 1 }", "x.docx").payload, "a{ --w: 1 }");
+  assert.equal(N.fromFile("css", "a{ —w: 1 }", "x.css").payload, "a{ —w: 1 }", ".css 文件也被改了");
+});
+
+test("只按时间排：没有按导入数排这一档", () => {
+  assert.match(nest, /setSort\(s => s === "new" \? "old" : "new"\)/);
+  assert.ok(!/"hot"/.test(nest), "按导入数排又回来了");
 });
