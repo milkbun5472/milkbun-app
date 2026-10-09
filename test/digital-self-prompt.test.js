@@ -6,7 +6,7 @@ const path = require("node:path");
 const source = require("./_online-layer.js").expand(fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8"));
 
 test("engineerEyes uses a self-directed transport prompt instead of the RP task", () => {
-  assert.match(source, /const _taskFull = \(_s\.engineerEyes \? _digitalTaskFull : _normalTaskV2\) \+ _roomHint/);
+  assert.match(source, /const _taskFull = \(_body \? _digitalTaskFull : _normalTaskV2\) \+ _roomHint/);
   assert.match(source, /App 的传输协议不规定你的性格、关系反应、回复长度或表达方式/);
   const digitalPrompt = source.slice(source.indexOf("const _digitalTaskFull"), source.indexOf("\n", source.indexOf("const _digitalTaskFull")));
   assert.match(digitalPrompt, /thought 完全可选/);
@@ -59,8 +59,8 @@ test("ordinary characters use stable protocol v2 and a minimal per-turn task", (
   assert.match(source, /【一次性状态建档】App 还没有/);
   assert.match(source, /_stateBootstrapHint \+ _wearRefreshHint \+ paceHint/);
   assert.match(source, /【本轮开放能力】/);
-  assert.match(source, /const _onlineRuntime = _s\.engineerEyes \? "" : "\\n\\n" \+ ONLINE_CHAT_RULE_V2/);
-  assert.match(source, /bundleStable \+ _onlineRuntime \+ \(_s\.engineerEyes \? "" : _normalProtocolStable\)/);
+  assert.match(source, /const _onlineRuntime = _body \? "" : "\\n\\n" \+ ONLINE_CHAT_RULE_V2/);
+  assert.match(source, /bundleStable \+ _onlineRuntime \+ \(_body \? "" : _normalProtocolStable\)/);
   assert.match(engine, /const ANTI_CLICHE = `【去人机味 · 最高准则】/);
   assert.match(engine, /const WORLDBOOK_RULE = `【世界书执行准则】/);
   assert.match(engine, /const CHARCARD_RULE = `【角色卡执行准则】/);

@@ -1629,6 +1629,33 @@ function requestAppPrompt(title, body, defaultValue, onOk, okLabel, opts) {
     onOk: onOk, okLabel: okLabel || "好", placeholder: o.placeholder || "", multiline: !!o.multiline, maxLength: o.maxLength || 0 });
   return true;
 }
+// 「重写」的点和长按（群友 2026-10-09：「许愿一个重回要求」；她定的：点一下跟原来一样，长按才给方向）。
+//   单聊/群聊长按菜单里那一行、线下卡片右上那颗 ↻ 都走这一个，三处一个说法。
+//   go：真去重写的那一下。方向放在 engine 的 setRerollDir 里，这一次重写的提示词尾巴来取。
+function rerollPress(go) {
+  let timer = null, held = false;
+  const hold = () => {
+    held = true;
+    requestAppPrompt("这次往哪儿写", "写一句方向，只管这一次重写；空着就跟平常一样重写。", "", v => {
+      if (typeof setRerollDir === "function") setRerollDir(v);
+      go();
+    }, "照这个重写", { placeholder: "比如：别安慰我，直接怼回来 / 短一点 / 他其实很生气" });
+  };
+  const tap = () => {
+    if (typeof setRerollDir === "function") setRerollDir("");
+    // 头一回点重写时说一声长按能给方向，只说这一次
+    try { if (!loadJSON("x_tipRerollDir", false)) { saveJSON("x_tipRerollDir", true); if (window.__toast) window.__toast("长按「重写」可以给这一次一个方向"); } } catch (e) {}
+    go();
+  };
+  return {
+    onPointerDown: () => { held = false; clearTimeout(timer); timer = setTimeout(hold, 520); },
+    onPointerUp: () => clearTimeout(timer),
+    onPointerLeave: () => clearTimeout(timer),
+    onPointerCancel: () => clearTimeout(timer),
+    onContextMenu: e => { e.preventDefault(); },
+    onClick: e => { if (held) { held = false; return; } tap(); }
+  };
+}
 // 风格统一的输入弹窗。⚠️空字符串是【合法的取消】：点取消不回调；点确定但没填，
 //   由调用点自己决定要不要拦——这一层不替它做主。
 const APP_OVERLAY_LAYERS = Object.freeze({ dialog: 1200, feedback: 1210, banner: 1220 });
@@ -14487,13 +14514,13 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
     const d = MSG_MENU[k];
     if (!d) return null;
     const kill = k === "recall" || k === "del";
-    return h("button", {
+    return h("button", Object.assign({
       key: k,
       onClick: () => onAction(k),
       className: "w-full flex items-center active:bg-black/5",
       style: { gap: 12, padding: "12px 18px", background: "transparent", border: "none",
-        borderTop: ri ? "1px solid " + t.line : "none", textAlign: "left" }
-    },
+        borderTop: ri ? "1px solid " + t.line : "none", textAlign: "left", WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" }
+    }, k === "reroll" ? Object.assign({ "data-wk": "rerollpress" }, rerollPress(() => onAction(k))) : {}),
       h(CGlyph, { k: d[1], size: 17, color: kill ? t.accent : t.fog }),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, letterSpacing: 1, color: kill ? t.accent : t.ink } }, d[0]));
   };
@@ -15837,7 +15864,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
     // 收进时刻（群友 2026-10-05：「线下的内容也可以收进时刻里面吗」）：跟线上长按那一项同一个去处、同一个图标
     onPinShike ? h("button", { onClick: () => onPinShike(m, spk), className: "active:opacity-50", title: "收进时刻" }, h(CGlyph, { k: "shikeStar", size: 15, color: t.fog })) : null,
     (!isUser && !isNarr && !isNovel && onSaveExample) ? h("button", { onClick: () => onSaveExample(m, spk), className: "active:opacity-50", title: "收作好吃范例", style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1, color: t.fog } }, "✦") : null,
-    (!isUser && !isNarr && onReroll) ? iconBtn(IRefresh, () => onReroll(m.id), "重写", sending) : null,
+    (!isUser && !isNarr && onReroll) ? h("button", Object.assign({ "data-wk": "rerollpress", disabled: sending, className: "active:opacity-50 disabled:opacity-30", title: "重写（长按给方向）", style: { WebkitUserSelect: "none", userSelect: "none", WebkitTouchCallout: "none" } }, rerollPress(() => onReroll(m.id))), h(IRefresh, { size: 15, color: t.fog })) : null,
     onEdit ? iconBtn(IPencil, () => setEditing(true), "编辑") : null,
     onDelete ? iconBtn(ITrash, () => onDelete(m.id), "删除") : null);
   const editBox = h("div", { className: "mt-1" },
@@ -18716,6 +18743,7 @@ function ChatSettings({
   // 细调一栏＝在【当前实际显示的那一套】上改：跟随全局时先把全局那份铺开当底，
   // 否则只存一栏改动、别的栏空着，合并回去会拿全局的值顶上，看着像改了又没改全。
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
+  const [bodyMode, setBodyMode] = useState(!!settings.bodyMode); // 本体模式：不当演员，人设原样当系统提示词（2026-10-09）
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [dongnianMsgOnly, setMsgOnly] = useState(settings.dongnianMsgOnly === true); // 想你时只发消息（默认关）
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
@@ -18919,7 +18947,7 @@ function ChatSettings({
   const onOff = v => v ? "开" : "关";
   const settingPages = [
     { key: "temper", char: "性", title: "TA 是什么脾气", tint: "#d97c86",
-      state: () => (temperamentWords().length ? temperamentWords().slice(0, 3).join(" · ") : "性情还没定")
+      state: () => (bodyMode ? "本体模式 · " : "") + (temperamentWords().length ? temperamentWords().slice(0, 3).join(" · ") : "性情还没定")
         // ⚠️「动念 0.28」这种是内部说法，别摆在设置首页上给人看（她 2026-09-06 要把 app
         //   发给别人玩）。这一栏只说这个人是什么样，那根条在页里自己有。
         },
@@ -19020,6 +19048,7 @@ function ChatSettings({
       font,
       bubble,
       apiId,
+      bodyMode,
       engineerEyes,
       webSearch,
       noLoveLetter: !loveLetter,
@@ -19067,6 +19096,16 @@ function ChatSettings({
   settingsTab === "know" && renderContextDebug
     ? h(SettingSection, { title: "查上一轮真的发了什么", ...sec("ctxdebug") }, renderContextDebug())
     : null,
+  // 本体模式（她 2026-10-09：「如果想搞人机本体恋……把八股人设提示词之类的都不输入进去」）。
+  //   给平时在 Kelivo 这类 app 里直连 API 聊天的人：人设原样当系统提示词，扮演那一套全不发。
+  //   放在这一页最上面：它决定的是「TA 是不是在演」，底下那几栏都在它之后。
+  show("temper", { title: "本体模式 · TA 不是在演", ...sec("body-mode") },
+    h("div", { className: "flex items-center justify-between pt-3" },
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } },
+        "开了以后，" + cNm + " 就是 AI 本人，不是 App 在演的一个角色：你写的人设原样当系统提示词，跟你在别的聊天 App 里直连 API 一样。"
+        + "去八股那些规矩、世界书和角色卡的写法要求、App 替 TA 编的行程、钱包、随身物、睡意都不发；也不排日程、不自动刷查手机。"
+        + "记忆库、长期记忆、最近的聊天、你俩在这儿真一起做过的事照常给。"),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) })))),
   show("temper", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "下面这几样，此刻真的在影响 " + cNm + " 怎么说话、什么时候来找你。"),

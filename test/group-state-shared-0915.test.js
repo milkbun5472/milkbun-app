@@ -9,7 +9,7 @@ const realTVG = guard => {
 };
 function fixture(){
  let now=1000000;const states={},hist=[],seen=new Set();
- const box={window:{ThoughtVoiceGuard:require('../js/thought-voice-guard')},TVG:realTVG(require('../js/thought-voice-guard')),Date:{now:()=>now},settingsFor:id=>({engineerEyes:id==='engineer'}),statesRef:{current:states},setStateFor:(id,s)=>states[id]=s,pushStateHist:(id,s)=>{if(s.thought)hist.push({id,thought:s.thought});}};
+ const box={window:{ThoughtVoiceGuard:require('../js/thought-voice-guard')},TVG:realTVG(require('../js/thought-voice-guard')),Date:{now:()=>now},settingsFor:id=>({engineerEyes:id==='engineer'}),isBody:id=>id==='engineer',statesRef:{current:states},setStateFor:(id,s)=>states[id]=s,pushStateHist:(id,s)=>{if(s.thought)hist.push({id,thought:s.thought});}};
  vm.createContext(box);const i=app.indexOf('  const sameStateValue ='),j=app.indexOf('  const freshLiveStateValue =',i);
  vm.runInContext(app.slice(i,j)+';this.write=writeGroupLiveState;',box);
  return {states,hist,seen,tick:()=>now+=1000,write:(c,data)=>box.write(c,data,'turn',50,seen)};

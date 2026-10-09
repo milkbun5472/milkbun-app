@@ -207,7 +207,7 @@ test("整条是回声时，只有他后面还有别的话才敢丢", () => {
   assert.match(app, /if \(hasMore\) continue;/);
   assert.match(app, /否则TA这一轮就等于没开口/);
   // 言秋那条专线不参与
-  assert.match(app, /typeof echoOpening === "function" && !settingsFor\(spk\.id\)\.engineerEyes/);
+  assert.match(app, /typeof echoOpening === "function" && !isBody\(spk\.id\)/);
 });
 
 // 她 2026-08-25：她说「有没有人邀请我」，陆闻第一条就是「邀请你？」——刀没切到。

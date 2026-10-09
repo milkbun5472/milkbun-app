@@ -39,7 +39,7 @@ test("随身物真的进了上下文，四处都进（四处一样喂）", () =>
   assert.match(app, /memberCarry: backgroundMap\("carry"\)/, "群线下没接");
   assert.match(engine, /ctx\.memberCarry && ctx\.memberCarry\[c\.id\]/, "群线下那一段没读");
   // 言秋不发：扮演类的层一律不给他（合法差异）
-  assert.match(app, /!settingsFor\(char\.id\)\.engineerEyes\)\s*\n?\s*\? carryContextText/, "言秋那条线没排除");
+  assert.match(app, /!isBody\(char\.id\)\)\s*\n?\s*\? carryContextText/, "言秋那条线没排除");
   assert.match(engine, /!ctx\.notRoleplay && ctx\.carryLog/, "buildBundle 里没挡住数字生命");
 });
 

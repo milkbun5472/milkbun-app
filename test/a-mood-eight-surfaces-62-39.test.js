@@ -33,7 +33,7 @@ test("ctxFor 把它填进去了，三道闸收在同一处", () => {
   const m = app.match(/const aMoodTextOf = charId => \{[\s\S]{0,400}?\n  \};/);
   assert.ok(m, "aMoodTextOf 不见了");
   assert.match(m[0], /innerLifeOnFor\(charId\)/, "急停那道闸没接");
-  assert.match(m[0], /settingsFor\(charId\)\.engineerEyes/, "言秋那道闸没接");
+  assert.match(m[0], /isBody\(charId\)/, "言秋那道闸没接");
   // 收在一处才不会「一层写在三处、第三处没跟上」。
   // ⚠️这里【不数出现次数】：v62.42 群通话也接上了这一层（那是对的，八处一样喂），
   //   次数一变，一条正确的扩展就会把测试判红。所以逐个点名要它的地方——

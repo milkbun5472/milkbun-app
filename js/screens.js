@@ -9596,6 +9596,28 @@ function McpConfig({ toast }) {
   const [list, setList] = useState(() => { try { return JSON.parse(localStorage.getItem("x_mcp") || "[]") || []; } catch (e) { return []; } });
   const [busy, setBusy] = useState("");
   const [seen, setSeen] = useState({});
+  // 转接（她 2026-10-09 定的 B 路）：谁用谁在自己的 Cloudflare 搭，代码在 tools/mcp-relay-worker.js
+  const [rl, setRl] = useState(() => (window.MCP && window.MCP.relay()) || { url: "", key: "" });
+  const [guide, setGuide] = useState(false);
+  const saveRl = next => { setRl(next); if (window.MCP) { window.MCP.setRelay(next); window.MCP.forget(); } };
+  const testRelay = async () => {
+    if (!rl.url) return;
+    setBusy("relay");
+    try {
+      const r = await fetch(String(rl.url).trim());
+      const j = await r.json().catch(() => null);
+      toast && toast(j && j.ok ? "转接通了 ✓ 下面每台 MCP 都会走它" : "这个地址回的不是转接：多半是代码没贴进去、或者贴完没按「部署」");
+    } catch (e) { toast && toast("连不上这个转接：地址对不对？在浏览器里直接打开它，应该看得到「转接在线 ✓」"); }
+    finally { setBusy(""); }
+  };
+  const copyRelayCode = async () => {
+    try {
+      const code = await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text();
+      if (!/export default/.test(code)) throw new Error("取回来的不是代码");
+      const ok = typeof copyText === "function" && await copyText(code);
+      toast && toast(ok ? "转接代码复制好了，去 Cloudflare 粘进去" : "没复制上");
+    } catch (e) { toast && toast("取不到转接代码：联网后再点一次"); }
+  };
   const persist = next => { setList(next); try { localStorage.setItem("x_mcp", JSON.stringify(next)); } catch (e) {} if (window.MCP) window.MCP.forget(); };
   const upd = (id, patch) => persist(list.map(x => x.id === id ? { ...x, ...patch } : x));
   const inSt = { fontFamily: F_BODY, fontSize: 13, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10, padding: "9px 11px", width: "100%", outline: "none" };
@@ -9615,6 +9637,26 @@ function McpConfig({ toast }) {
       "给角色接外部工具：联网搜索、抓网页之类。填公网地址就行；本机跑的要么让它放行跨域(CORS)，要么先用 cloudflared / ngrok 转成公网 HTTPS。地址要用 Streamable HTTP 那一档（通常以 /mcp 结尾），旧的 /sse 浏览器直连不了。"),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#a4442e", lineHeight: 1.7, marginTop: 6 } },
       "⚠ 这一档跟内置的「让 Ta 能上网」不一样：模型说要调工具、我们去调、再问模型一遍——所以真用上工具的那一轮至少花两次调用。"),
+    // ── 转接 ──
+    h("div", { "data-wk": "mcprelay", style: { marginTop: 14, padding: "13px 13px 12px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, "转接（连不上时用）"),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.7, marginTop: 4 } },
+        "大多数 MCP 不放行网页直连（报「跨域」「Load failed」），旧的 /sse 那种网页也接不住。在你自己的 Cloudflare 上搭一个免费的小转接，填在这里，下面每台 MCP 就都经它去连。不填就照旧直连。"),
+      h("input", { value: rl.url || "", onChange: e => saveRl({ ...rl, url: e.target.value.trim() }), placeholder: "https://名字.你的账号.workers.dev", style: { ...inSt, marginTop: 10 } }),
+      h("input", { value: rl.key || "", onChange: e => saveRl({ ...rl, key: e.target.value.trim() }), placeholder: "转接口令（选填，跟 Worker 里的 RELAY_KEY 一样）", style: { ...inSt, marginTop: 8 } }),
+      h("div", { className: "flex items-center flex-wrap", style: { gap: 10, marginTop: 10 } },
+        h("button", { onClick: testRelay, disabled: busy === "relay" || !rl.url, className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", opacity: (busy === "relay" || !rl.url) ? 0.5 : 1 } }, busy === "relay" ? "测着…" : "测一下转接"),
+        h("button", { onClick: copyRelayCode, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px" } }, "复制转接代码"),
+        h("button", { onClick: () => setGuide(v => !v), className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, guide ? "收起教程" : "怎么搭？")),
+      guide ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.85, marginTop: 10, whiteSpace: "pre-wrap" } },
+        "① 打开 dash.cloudflare.com，用邮箱注册一个免费账号（不用绑卡）。\n"
+        + "② 左边菜单「计算」（Compute）→「Workers 和 Pages」→「创建」→「创建 Worker」（Hello World 那个）→ 名字随便起 → 部署。\n"
+        + "③ 部署好点「编辑代码」，把里面原来的代码全删掉，粘上这里「复制转接代码」复制的那一整段 → 右上角「部署」。\n"
+        + "④ 页面上方那个 https://名字.你的账号.workers.dev 就是转接地址。浏览器直接打开它，看到「秋秋机 MCP 转接在线 ✓」就是好了。\n"
+        + "⑤ 填进上面「转接地址」，点「测一下转接」，再去下面每台 MCP 点「测一下」。\n"
+        + "⑥（选做）怕别人拿你的地址转发：Worker 页面「设置」→「变量和机密」→ 添加变量，名字填 RELAY_KEY，值随便一串；上面「转接口令」填同一串。\n"
+        + "免费额度每天十万次，聊天用不完；它只替你转发，不存任何东西。") : null),
     list.map(srv => h("div", { key: srv.id, style: { marginTop: 12, padding: "13px 13px 11px", borderRadius: 16, background: t.bg2, border: "1px solid " + t.line } },
       h("div", { className: "flex items-center", style: { gap: 8, marginBottom: 8 } },
         h("input", { value: srv.name || "", onChange: e => upd(srv.id, { name: e.target.value }), placeholder: "起个名字", style: { ...inSt, flex: 1 } }),

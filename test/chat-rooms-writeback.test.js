@@ -60,7 +60,7 @@ test("两道闸都要在代码里，解析后一次、salvage 之后再一次", 
   assert.match(app, /const _roomCanWrite = kind =>/);
   assert.match(app, /if \(!_roomCanWrite\("mood"\)\) parsed\.mood = null;/, "salvage 会把 mood 再捞回来，之后要再封一次");
   assert.match(app, /if \(!_roomCanWrite\("gaze"\)\) \{ parsed\.impression = null; parsed\.impressionChecked = null; \}/);
-  assert.match(app, /if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_s\.engineerEyes\)/);
+  assert.match(app, /if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_body\)/);
 });
 
 test("主房交接要有上限，而且是可调的", () => {

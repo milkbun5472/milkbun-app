@@ -18,7 +18,7 @@ const seg = (() => {
 })();
 
 test("线下也会冒出「心底的念想」，闸跟线上一样", () => {
-  assert.match(seg, /!sideRoom && !settingsFor\(charId\)\.engineerEyes && window\.HeartKit/,
+  assert.match(seg, /!sideRoom && !isBody\(charId\) && window\.HeartKit/,
     "侧房/数字生命那两道闸没跟线上对齐");
   assert.match(seg, /Math\.random\(\) < 0\.25/, "概率跟线上那一路对不上");
   assert.match(seg, /HeartKit\.pickEpiphany/, "没去欲望盒里挑");

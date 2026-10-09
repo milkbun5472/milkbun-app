@@ -70,12 +70,12 @@ test("房里在读哪几本：照存档里真有的那几栏筛（partnerId／ro
 });
 
 test("四样活动共用一道闸，一起读是第四样", () => {
-  assert.match(app, /const roomActionOn = k => !!\(room && !room\.main && room\.actions && room\.actions\[k\] && !_s\.engineerEyes\);/);
+  assert.match(app, /const roomActionOn = k => !!\(room && !room\.main && room\.actions && room\.actions\[k\] && !_body\);/);
   [["roomStudyOn", "study"], ["roomGamesOn", "games"], ["roomFicOn", "fanfic"]].forEach(([v, k]) =>
     assert.match(app, new RegExp("const " + v + " = roomActionOn\\(\"" + k + "\"\\);"), k + " 那一处没搬过来"));
   assert.match(app, /roomActionOn\("read"\)/);
   // 老拼法一处都不许剩（留一份就是又开了一处要同步的地方）
-  assert.ok(!/room\.actions\.(study|games|fanfic|read) && !_s\.engineerEyes/.test(app), "还有人自己又判了一遍");
+  assert.ok(!/room\.actions\.(study|games|fanfic|read) && !_body/.test(app), "还有人自己又判了一遍");
 });
 
 test("他只能拉你接着读【房里已经有的那本】，没有书就不给这一格", () => {

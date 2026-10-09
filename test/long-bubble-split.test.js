@@ -66,9 +66,9 @@ test("言秋不吃逗号那一档", () => {
 // 两处必须是同一个函数——单聊有、群聊没有，正是 v56.27 之前那个形状
 test("单聊和群聊走的是同一个函数", () => {
   // v56.56 起两处都先过一道 splitBilingual（把「原文 | 中文」劈开），再交给同一个 splitLongBubble
-  assert.match(app, /splitLongBubble\(bi \? bi\.text : w, !_s\.engineerEyes\)/, "单聊线上");
+  assert.match(app, /splitLongBubble\(bi \? bi\.text : w, !_body\)/, "单聊线上");
   assert.match(app, /splitLongBubble\(bi \? bi\.text : x, gAllowComma\)/, "群聊线上");
-  assert.match(app, /const gAllowComma = !\(settingsFor\(spk\.id\) \|\| \{\}\)\.engineerEyes/, "群里也按发言人豁免言秋");
+  assert.match(app, /const gAllowComma = !isBody\(spk\.id\)/, "群里也按发言人豁免言秋");
   assert.equal((app.match(/splitLongBubble\(/g) || []).length, 2, "只该有这两处调用");
 });
 

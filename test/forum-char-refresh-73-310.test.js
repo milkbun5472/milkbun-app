@@ -18,7 +18,7 @@ test("一次刷新前三帖立刻出来（原来第三帖要等二十分钟，�
 
 test("请角色来发帖：挑逛论坛的角色、言秋不算；在某个吧上按就发到这个吧", () => {
   const g = seg("const genForumCharPosts = async tab => {", "\n  };\n");
-  assert.match(g, /liveChars\.filter\(c => !off\.includes\(c\.id\) && !settingsFor\(c\.id\)\.engineerEyes\)/);
+  assert.match(g, /liveChars\.filter\(c => !off\.includes\(c\.id\) && !isBody\(c\.id\)\)/);
   assert.match(g, /\.slice\(0, FORUM_CHAR_BATCH\)/, "一按不封顶，按次计费会一下扣一大笔");
   assert.match(g, /forumBoardsAll\(\)\.includes\(tab\) \? tab : ""/, "在「关注」上按也硬塞进一个吧了");
   assert.match(g, /autoForumForChar\(c, \{ manual: true, board: board \}\)/, "又自己写了一份角色发帖");
