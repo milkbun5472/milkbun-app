@@ -2200,7 +2200,12 @@
     const [peek, setPeek] = useState("");
     const fileRef = useRef(null);
     const fresh = findCurriculum(cur.id) || cur;
-    const list = (fresh.materials || []).slice().reverse();
+    const all = (fresh.materials || []).slice().reverse();
+    // 分两摞（群友 2026-10-09：「老师写的和导入的资料混在一起一下子不好找」）：她传的、老师给的。
+    //   形状照资料柜里的隔板：一排索引卡竖在资料上头，选中的那张抬高、纸色，跟底下的资料连成一片
+    const [pile, setPile] = useState("all");
+    const mine = all.filter(function (m) { return m.kind !== "handout"; }), given = all.filter(function (m) { return m.kind === "handout"; });
+    const list = pile === "mine" ? mine : pile === "given" ? given : all;
     useEffect(function () { loadMaterials(fresh).then(function () { bump(function (n) { return n + 1; }); }); }, [cur.id]);
     async function onFile(e) {
       const f = e.target.files && e.target.files[0];
@@ -2223,8 +2228,16 @@
     return h("div", { className: "h-full flex flex-col", style: { background: STUDY_SKIN.desk } },
       h(StudyHead, { zh: "资料", en: cur.subject, mode: cur.mode, onBack: props.onBack }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-6" },
+        mine.length && given.length ? h("div", { "data-wk": "studymatpiles", className: "flex items-end", style: { gap: 4, marginTop: 12, borderBottom: "2px solid " + accent } },
+          [["all", "全部", all.length], ["mine", "我传的", mine.length], ["given", "老师给的", given.length]].map(function (x) {
+            const on = pile === x[0];
+            return h("button", { key: x[0], "data-wk": "studymatpile", "data-on": on ? "1" : "0", onClick: function () { setPile(x[0]); setPeek(""); }, className: "active:opacity-80",
+              style: { minHeight: on ? 40 : 34, padding: "0 14px", borderRadius: "9px 9px 0 0", border: "1px solid " + (on ? accent : STUDY_SKIN.line), borderBottom: "none",
+                background: on ? STUDY_SKIN.paper : "transparent", color: on ? STUDY_SKIN.ink : STUDY_SKIN.fog, fontFamily: on ? F_DISPLAY : F_BODY, fontSize: on ? 14 : 13, boxShadow: on ? "0 -3px 8px " + STUDY_SKIN.shadow : "none" } },
+              x[1], h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: on ? accent : STUDY_SKIN.fog, marginLeft: 5 } }, x[2]));
+          })) : null,
         h("div", { style: Object.assign({}, small, { margin: "12px 2px 12px" }) },
-          list.length ? "老师讲课、起这节的大纲、做闪卡都会翻这些；每次挑跟这一节有关的几段看，不会整本塞进去。"
+          all.length ? "老师讲课、起这节的大纲、做闪卡都会翻这些；每次挑跟这一节有关的几段看，不会整本塞进去。"
             : "把课本章节、讲义、自己的笔记传上来，老师就照着你真正要学的那份来教。能读 .txt、.md 和带文字层的 .pdf。"),
         list.map(function (m) {
           const open = peek === m.id, body = MAT_CACHE[m.id];
