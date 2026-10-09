@@ -679,7 +679,7 @@
           judge: judge,
           crowd: assigned.crowd || [],
           inject: inject,   // 场边那几位也要照这个开关决定给不给「平时怎么说话」（老存档没有＝不给）
-          benchIds: benchIds.length ? benchIds.slice() : null,
+          benchIds: benchIds.slice(),   // 空＝台下不坐自己人（只有路人，或者谁都没有）
           parts: watch ? parts : [me].concat(parts), order: order,
           myOptions: watch ? [] : assigned.myOptions, mySet: watch,
           rounds: [{ turns: [], audience: [], myDone: false, gen: false }],
@@ -729,7 +729,7 @@
               c.id ? h(Avatar, { character: c, size: 22, radius: 999 }) : null,
               h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
           })) : null,
-        benchPool.length ? h("div", { style: label }, "台下坐谁（不挑＝自动拉没上台的几位）") : null,
+        benchPool.length ? h("div", { style: label }, "台下坐谁（不挑＝不坐自己人）") : null,
         benchPool.length ? h("div", { "data-wk": "debbench", style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
           benchPool.map(c => {
             const on = benchIds.includes(c.id);
@@ -867,7 +867,8 @@
           // 「角色的 npc 也可以当台下，当他们的联系角色上场的时候」）＋开场捏好的路人。
           bench: (props.crowdChars || []).filter(function (c) {
             // 她在摆台子时挑过台下坐谁，就只坐她挑的
-            if (Array.isArray(s.benchIds) && s.benchIds.length && !s.benchIds.some(function (id) { return String(id) === String(c.id); })) return false;
+            // 新局一律只坐她挑的（不挑＝一个都不坐，她 2026-10-09：「不选的话就不能纯路人吗」）；老存档没有这一栏，照旧自动拉
+            if (Array.isArray(s.benchIds) && !s.benchIds.some(function (id) { return String(id) === String(c.id); })) return false;
             return !orderedChars.some(function (x) { return String(x.id) === String(c.id); })
               && !(s.judge && String(s.judge.id) === String(c.id));
           }).slice(0, 6).map(function (c) {

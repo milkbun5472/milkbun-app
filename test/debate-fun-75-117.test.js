@@ -29,8 +29,8 @@ assert.match(d, /personaFor\(String\(J\.persona \|\| ""\)\.replace\(\/\\s\+\/g, 
 console.log("judge persona ok");
 assert.match(d, /实录里有你前几轮的判语，那是说过的话/);
 // 台下坐谁可以挑；台下人设整张喂（她 2026-10-09：「台下的也都一个样」）
-assert.match(d, /benchIds: benchIds\.length \? benchIds\.slice\(\) : null,/);
-assert.match(d, /if \(Array\.isArray\(s\.benchIds\) && s\.benchIds\.length && !s\.benchIds\.some/);
+assert.match(d, /benchIds: benchIds\.slice\(\),/);
+assert.match(d, /if \(Array\.isArray\(s\.benchIds\) && !s\.benchIds\.some/);
 assert.ok(!/String\(c\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 500\)\n?\s*\+ \(c\.injection/.test(d), "台下人设又被切成 500 字");
 assert.match(d, /personaFor\(String\(c\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ \(o\.bench \|\| \[\]\)\.length\)/);
 console.log("bench ok");
