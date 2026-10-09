@@ -80,7 +80,7 @@ test("整套 + 自带底：归一化认得、随主题包一起走", () => {
   assert.equal(s.packIcon("__nope__"), "");
   // 导出的 profile 走 normalize，所以 iconPack / iconBare 一定在里面
   // v72.52 起导出能只挑几样，baseTheme/wallpaper 跟着勾选走；profile 仍是整份（挑剩的那几格退回出厂空值）
-  assert.match(ts, /kind: "lisa-theme", format: 1, exportedAt: new Date\(\)\.toISOString\(\), profile,/, "exportPackage 不再整份带 profile 了？");
+  assert.match(ts, /kind: PACK_KIND, format: 1, exportedAt: new Date\(\)\.toISOString\(\), profile,/, "exportPackage 不再整份带 profile 了？");
   assert.match(ts, /iconPack: sel\.icons \? p\.iconPack : blank\.iconPack/, "整套图标没跟着「图标」那一格走");
 });
 

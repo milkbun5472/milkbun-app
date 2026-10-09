@@ -462,7 +462,7 @@ const APP_TONE_HUE = {
   read: 158, watch: 262, debate: 8, dream: 248, tarot: 296, astro: 262,
   pomodoro: 4, fairyGarden: 112, companion: 206, games: 190, trpg: 134, dreamjournal: 224,
   yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
-  assistant: 174, stylelab: 316, radio: 20,
+  assistant: 174, stylelab: 316, radio: 20, nest: 52,
   diary: 226, memo: 52, ledger: 136,
   // 外卖借便签那一档暖黄（跟外卖页同一种黄）；同样不往池子里加新值
   takeout: 52,
@@ -585,7 +585,7 @@ const SCREEN_ZH = {
   games: "小游戏", fairyGarden: "小世界", trpg: "跑团", theater: "小剧场", impression: "月度印象", shike: "时刻",
   yanqiu: "秋声", loungeapp: "三席会客", rescue: "互救台", vpscodex: "值班室",
   forum: "论坛", momprofile: "朋友圈个人页", us: "情侣空间",
-  favorites: "收藏", emotes: "表情包", stylelab: "文风台",
+  favorites: "收藏", emotes: "表情包", stylelab: "文风台", nest: "秋秋小窝",
   config: "设置", assistant: "秋秋", codex: "攻略"
 };
 function pageSkin(kind, t, opts) {

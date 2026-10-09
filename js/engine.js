@@ -684,15 +684,21 @@ function giftHeaders(p, opts) {
   //   ⚠️不按 IP 卡：国内手机流量很多人共用同一个出口 IP，按 IP 等于一栋楼的陌生人共用 4 次。
   //   编号是第一次用时随手生成的一串随机字，跟人、跟账号、跟存档都没关系；
   //   存在 qq_ 键里不跟云同步——同步了的话，一个人的两台设备会共用一个份额。
+  const d = qqDeviceId(); if (d) h["x-qq-device"] = d;
+  return h;
+}
+// 这台设备的编号：礼物线限流、秋秋小窝认「这条是不是我传的」都用它，只此一份。
+//   键名还叫 qq_giftDevice，是因为礼物线先用上的——改名的话老设备会换一个新编号，
+//   小窝里她传过的东西就认不回来了。
+function qqDeviceId() {
   try {
     let d = localStorage.getItem("qq_giftDevice");
     if (!d) {
       d = (crypto && crypto.randomUUID) ? crypto.randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
       localStorage.setItem("qq_giftDevice", d);
     }
-    h["x-qq-device"] = d;
-  } catch (e) {}
-  return h;
+    return d;
+  } catch (e) { return ""; }
 }
 async function callAI(p, system, messages, opts) {
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）

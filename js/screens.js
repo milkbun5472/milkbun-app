@@ -10189,7 +10189,7 @@ function BubbleSkinConfig({ toast }) {
   const save = () => { writeBubbleSkin(s); toast && toast("皮肤已保存，聊天页立即生效"); };
   const reset = () => { const d = Object.assign({}, BUBBLE_SKIN_DEFAULTS); setS(d); writeBubbleSkin(d); try { localStorage.removeItem("x_bubbleSkin"); localStorage.removeItem("x_bubbleSkinPreset"); } catch (e) {} toast && toast("已恢复出厂皮肤"); };
   // ── 这一套气泡单独收发（她 2026-09-22：「单独的聊天界面美化也没有导入导出」）──
-  // ⚠️不另造一种文件：发出去的还是主题包（kind:"lisa-theme"），只是只装了气泡这一样。
+  // ⚠️不另造一种文件：发出去的还是主题包（kind:"qq-theme"），只是只装了气泡这一样。
   //   另造一种的话，主题工作台那头收不了它，她手上就有两种长得像的 json（one-public-mechanism）。
   const skinFile = useRef(null);
   const studio = () => (typeof window !== "undefined" && window.ThemeStudio) || null;
@@ -10197,7 +10197,7 @@ function BubbleSkinConfig({ toast }) {
     const st = studio(); if (!st) { toast && toast("主题模块还没加载好，过一下再试"); return; }
     try {
       const text = await st.exportPackage({ profile: st.load(), bubbleSkin: s, pick: { bubble: true } });
-      const via = await window.saveTextFile("lisa-bubble-" + new Date().toISOString().slice(0, 10) + ".json", text, "application/json");
+      const via = await window.saveTextFile("qq-bubble-" + new Date().toISOString().slice(0, 10) + ".json", text, "application/json");
       toast && toast(via === "cancel" ? "导出取消了" : via === "share" ? "这套气泡已交给分享面板，在里面选「存储到文件」" : "这套气泡已导出");
     } catch (e) { toast && toast("导出失败：" + (e.message || e)); }
   };
