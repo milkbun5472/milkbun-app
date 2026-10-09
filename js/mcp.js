@@ -121,7 +121,7 @@
 
   async function handshake(srv) {
     if (shook[srv.url] || isSse(srv.url)) return;   // /sse 每一发都由转接自己握手
-    await send(srv, "initialize", { protocolVersion: PROTO, capabilities: {}, clientInfo: { name: "milkbun", version: "1" } });
+    await send(srv, "initialize", { protocolVersion: PROTO, capabilities: {}, clientInfo: { name: "qiuqiu", version: "1" } });
     shook[srv.url] = true;   // 有的服务端不发会话号：记「握过了」，免得每次重握手，但不编一个假会话号
     try { await send(srv, "notifications/initialized", {}, true); } catch (e) {}
   }

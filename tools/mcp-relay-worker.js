@@ -84,7 +84,7 @@ async function sseCall(b) {
       try { const j = JSON.parse(t); if (j && j.id === id) return j; } catch (e) {}
       return Promise.race([answer, late]);
     };
-    await ask(1, "initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "milkbun-relay", version: "1" } });
+    await ask(1, "initialize", { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "qiuqiu-relay", version: "1" } });
     await post({ jsonrpc: "2.0", method: "notifications/initialized" }).catch(() => {});
     return await ask(2, b.method, b.params);
   } finally {
