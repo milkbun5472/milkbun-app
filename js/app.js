@@ -3551,6 +3551,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const stateMap = { ...statesRef.current }; if (current) stateMap[charId] = current; else delete stateMap[charId]; statesRef.current = stateMap; setStates(stateMap); saveJSON("x_states", stateMap);
     setMoods(p => { const n = { ...p }; if (current && current.mood) n[charId] = { label: current.mood, ts: Date.now() }; else delete n[charId]; saveJSON("x_moods", n); return n; });
     if (typeof affinityRestore === "number") setAff(charId, affinityRestore);
+    try { window.Gaze && window.Gaze.rollbackTurns && window.Gaze.rollbackTurns(charId, ordered); } catch (e) {}
   };
   // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、dongnian 思念和断档提示共用这一只钟。
   // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
