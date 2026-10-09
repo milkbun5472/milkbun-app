@@ -272,7 +272,9 @@
       if (c.kind === "npc") return "· " + c.name + "（" + c.note + "）：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500);
       // 也给一小段TA平时跟她怎么说话（比台上那份短得多：TA是配角，不值当占那么多）。
       // 不给的话TA只知道一个名字，开口就成了「人家小姑娘」——她 2026-09-02 抓到的正是这个。
-      return "· " + c.name + "：" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 500)
+      // ⚠️原来只切前 500 字（她 2026-10-09：「台下的也都一个样」）——跟裁判那次同一个病：前 500 字是名字生日长相，
+      //   TA怎么说话全在后面。整张喂，按台上台下一共几个人分额度。
+      return "· " + c.name + "：" + personaFor(String(c.persona || "").replace(/\s+/g, " "), chars.length + (o.bench || []).length)
         + (c.injection ? "\n  （" + c.name + " 平时跟 " + uName + " 是这么说话的，照这个口气来）" + String(c.injection).replace(/\s+/g, " ").slice(-300) : "");
     }).join("\n");
     // 台下投票那一段（只有场边有人时才有）。⚠️只写判据和来路，不举例句（prompt-no-content-samples）。
@@ -295,7 +297,7 @@
         + "· moved＝被说动、立场改观：TA心里站的那边这一轮变了——reason 里点出是哪句话的意思，哪怕说这句的人跟TA不是一边；\n"
         + "· friend＝交情：TA跟这个人本来就近，护着TA——但这层关系得是真的（人设或平时相处里看得出来），不是临时认亲；路人谁也不认识，没有这一条；\n"
         + "· random＝随手投：TA对这场没什么偏好，随便挑一个。\n"
-        + "reason 是TA自己的一句理由，用TA的口气、说人话，得站得住。\n"
+        + "reason 是TA自己的一句理由，用TA的口气、说人话，得站得住。判据：遮住名字，看得出是谁投的——每个人的理由都长成同一种评析腔，就是没在用TA自己的嘴。\n"
         + "【立场改观】TA心里站的那边也可以变，但要慢：得是台上有一句话真戳到了TA在意的东西。真变了，就在 reason 里用TA的口气说出来，这是整场最值得看的一刻；没到那一步，就只是这一轮给对面一票，心里还站原处。"
         // ⚠️不再把「TA之前依次投给：A → A → A」喂回去：那一行是最强的抄写信号，模型照着接（她 2026-09-23：
         //   「连着三轮继续平票也不动」）。改票判断改成先定 edge（这一轮谁更胜一筹），再照它投。
@@ -618,6 +620,11 @@
     const [watchOnly, setWatchOnly] = useState(false);
     // 裁判：没上台的某一位（不请人＝照旧是没有脸的那位）
     const [judgeId, setJudgeId] = useState("");
+    // 台下坐谁（她 2026-10-09）：没挑＝照旧自动拉没上台的那几位（至多 6）；挑了就只坐她挑的
+    const [benchIds, setBenchIds] = useState([]);
+    const benchPool = (props.crowdChars || []).filter(c => c && !picked.includes(c.id) && c.id !== judgeId);
+    useEffect(() => { setBenchIds(b => b.filter(id => !picked.includes(id) && id !== judgeId)); }, [picked, judgeId]);
+    const toggleBench = id => setBenchIds(b => b.includes(id) ? b.filter(x => x !== id) : (b.length >= 6 ? (props.toast && props.toast("台下最多坐 6 个"), b) : b.concat(id)));
     // 台下拉几个路人（0＝不拉，照旧只有她自己的人）
     const [crowdN, setCrowdN] = useState(0);
     const [starting, setStarting] = useState(false);
@@ -672,6 +679,7 @@
           judge: judge,
           crowd: assigned.crowd || [],
           inject: inject,   // 场边那几位也要照这个开关决定给不给「平时怎么说话」（老存档没有＝不给）
+          benchIds: benchIds.length ? benchIds.slice() : null,
           parts: watch ? parts : [me].concat(parts), order: order,
           myOptions: watch ? [] : assigned.myOptions, mySet: watch,
           rounds: [{ turns: [], audience: [], myDone: false, gen: false }],
@@ -719,6 +727,15 @@
             return h("button", { key: c.id || "none", onClick: () => setJudgeId(c.id), className: "active:opacity-70",
               style: { display: "flex", alignItems: "center", gap: 6, padding: c.id ? "6px 11px 6px 6px" : "6px 12px", minHeight: 36, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 }, "data-wk": "debsetup", "data-part": "r3", "data-on": on ? "1" : "0" },
               c.id ? h(Avatar, { character: c, size: 22, radius: 999 }) : null,
+              h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
+          })) : null,
+        benchPool.length ? h("div", { style: label }, "台下坐谁（不挑＝自动拉没上台的几位）") : null,
+        benchPool.length ? h("div", { "data-wk": "debbench", style: { display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 20 } },
+          benchPool.map(c => {
+            const on = benchIds.includes(c.id);
+            return h("button", { key: c.id, onClick: () => toggleBench(c.id), className: "active:opacity-70", "data-wk": "debbenchpick", "data-on": on ? "1" : "0",
+              style: { display: "flex", alignItems: "center", gap: 6, padding: "6px 11px 6px 6px", minHeight: 40, borderRadius: 999, border: "1.5px solid " + (on ? t.accent : t.line), background: on ? t.accent + "18" : t.bg2 } },
+              h(Avatar, { character: c, size: 22, radius: 999 }),
               h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: on ? t.accent : t.ink, fontWeight: on ? 700 : 400 } }, c.name));
           })) : null,
         // 路人（她 2026-09-23）：几个这个世界里的普通人站在台下，各带一个看法、会投票
@@ -849,6 +866,8 @@
           // 台下三拨人：她自己的人（至多 6）＋台上那几位身边的配角（至多 3，她 2026-09-23：
           // 「角色的 npc 也可以当台下，当他们的联系角色上场的时候」）＋开场捏好的路人。
           bench: (props.crowdChars || []).filter(function (c) {
+            // 她在摆台子时挑过台下坐谁，就只坐她挑的
+            if (Array.isArray(s.benchIds) && s.benchIds.length && !s.benchIds.some(function (id) { return String(id) === String(c.id); })) return false;
             return !orderedChars.some(function (x) { return String(x.id) === String(c.id); })
               && !(s.judge && String(s.judge.id) === String(c.id));
           }).slice(0, 6).map(function (c) {
