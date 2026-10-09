@@ -700,6 +700,34 @@ function qqDeviceId() {
     return d;
   } catch (e) { return ""; }
 }
+// ── 模型调用记录（她 2026-10-09 转来别家的截图：「这种能做吗」）──────────────
+//   所有模型调用都走 callAI 这一个出口，所以只在这儿记一笔：时间、谁、干嘛、线路、流式、几秒、成没成。
+//   只存本机自己的 IDB 小库（x_calllog），不进存档、不上云、不导出；只留最近 MAX 条。不多花一次调用。
+const CallLog = (() => {
+  const MAX = 300;
+  let rows = [], loaded = null, saveT = null;
+  const open = () => new Promise((res, rej) => {
+    const r = indexedDB.open("x_calllog", 1);
+    r.onupgradeneeded = () => { if (!r.result.objectStoreNames.contains("log")) r.result.createObjectStore("log"); };
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  const load = () => loaded || (loaded = (typeof indexedDB === "undefined" ? Promise.resolve([]) : open().then(db => new Promise(res => {
+    const q = db.transaction("log", "readonly").objectStore("log").get("rows");
+    q.onsuccess = () => res(Array.isArray(q.result) ? q.result : []); q.onerror = () => res([]);
+  })).catch(() => [])).then(old => { rows = rows.concat(old).slice(0, MAX); return rows; }));
+  const save = () => {
+    if (typeof indexedDB === "undefined") return;
+    clearTimeout(saveT);
+    saveT = setTimeout(() => { load().then(() => open()).then(db => { db.transaction("log", "readwrite").objectStore("log").put(rows, "rows"); }).catch(() => {}); }, 800);
+  };
+  const add = r => {
+    rows.unshift(r); if (rows.length > MAX) rows.length = MAX; save();
+    try { window.dispatchEvent(new CustomEvent("calllog")); } catch (e) {}
+  };
+  const clear = () => { rows = []; save(); try { window.dispatchEvent(new CustomEvent("calllog")); } catch (e) {} };
+  return { add, load, clear, list: () => rows.slice(), MAX };
+})();
+if (typeof window !== "undefined") window.CallLog = CallLog;
 async function callAI(p, system, messages, opts) {
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
@@ -725,6 +753,16 @@ async function callAI(p, system, messages, opts) {
   const bgShow = typeof window !== "undefined" && window.AutoGate && window.AutoGate.currentShow ? window.AutoGate.currentShow() : "";
   const bgRoute = (p && (p.name || p.model)) || "";
   const bgSay = (ok, msg) => { if (!bgShow) return; try { window.dispatchEvent(new CustomEvent("bg-call", { detail: { show: bgShow, route: bgRoute, ok: ok, msg: msg || "" } })); } catch (e) {} };
+  // 调用记录：干嘛＝调用点自己写的 logLabel → 三种她按下去的（use）→ 后台活的名字 → tag → 其他。
+  //   回合＝她按一下换来的那一枪（use 是 chat/offline/call，且不是兜底重发 logRetry）。⚠️这张表也写在函数里面，理由同上。
+  const LOG_USE = { chat: "聊天回复", offline: "线下", call: "通话" };
+  const logIt = (ok, msg) => {
+    if (typeof CallLog === "undefined") return;
+    const o0 = opts || {}, use = String(o0.use || "");
+    try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
+      label: o0.logLabel || LOG_USE[use] || bgShow || o0.tag || "其他", who: o0.logWho || "",
+      turn: !!LOG_USE[use] && !o0.logRetry, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
+  };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
   let streamed = false;
   const o = Object.assign({}, opts || {});
@@ -747,12 +785,12 @@ async function callAI(p, system, messages, opts) {
   try {
     const first = await once();
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
-    bgSay(true);
+    bgSay(true); logIt(true);
     return first;
   } catch (e) {
     const msg = String((e && e.message) || e || "");
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
-    if (userAborted()) throw abortErr();          // 自己断的不算失败：不重试、不弹「没生成出来」
+    if (userAborted()) { logIt("cut", "她自己断掉了"); throw abortErr(); }          // 自己断的不算失败：不重试、不弹「没生成出来」
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!bgDrop && !streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
@@ -760,7 +798,7 @@ async function callAI(p, system, messages, opts) {
       for (const wait of waits) {
         await new Promise(r => setTimeout(r, wait));
         if (o.signal && o.signal.aborted) break;    // 等的这几秒里她按了停止，就别再发
-        try { const again = await once(); bgSay(true); return again; }
+        try { const again = await once(); bgSay(true); logIt(true); return again; }
         catch (e2) { e = e2; if (!CAPACITY_ERR.test(String((e2 && e2.message) || e2 || ""))) break; }
       }
     }
@@ -770,7 +808,7 @@ async function callAI(p, system, messages, opts) {
     }
     // 直接调 callAI 的地方也要能弹「没生成出来」（runProbe 那一层也会报，app 那头按类别一分钟只说一次，不会重）
     const m2 = String((e && e.message) || e || "");
-    bgSay(false, m2);
+    bgSay(false, m2); logIt(e && e.userAbort ? "cut" : false, m2);
     if (!CONFIG_ERR.test(m2)) {
       try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (opts && opts.tag) || "", msg: m2, route: bgRoute } })); } catch (_) {}
     }
@@ -7709,7 +7747,7 @@ async function generateOffline(p, ctx, session) {
   const _wantReason = !isDigital && !!ctx.wantReasoning;
   try {
     raw = await callAI(p, system, hist, {
-      use: "offline",
+      use: "offline", logWho: (ctx.char && ctx.char.name) || "",
       maxTokens: generationBudget,
       stream: wantStreamOffline,
       timeout: 180000,
@@ -7748,7 +7786,7 @@ async function generateOffline(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace("先完成正文 JSON，再写既定的创作旁注标记块。", "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { use: "offline", maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logWho: (ctx.char && ctx.char.name) || "", maxTokens: generationBudget, stream: wantStreamOffline, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, wireScope: "offline", wireMeta: { charId: char.id, sessionId: session.id || null, cotFallback: true }, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
@@ -8368,7 +8406,7 @@ async function generateOfflineGroup(p, ctx, session) {
   const _reasonMeta = {};
   const _wantReason = !!ctx.wantReasoning;
   try {
-    raw = await callAI(p, system, hist, { use: "offline", maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, system, hist, { use: "offline", logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
   } catch (e) {
     // 部分原生推理模型会把整次输出留在隐藏/显式思考区，随后 stop 却不给正文。
     // 仅在「启用了显式 cot + 正常 stop 空正文」这个窄条件下，无 cot 重试一次并按模型记忆；以后不再白付第一次。
@@ -8378,7 +8416,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const plainHist = hist.map((m, i) => i === hist.length - 1
       ? { ...m, content: String(m.content || "").replace(/；[④⑤](?:cot 字段必填，先想后写|先写创作小稿标记块，再写正文 JSON)。/g, "；") }
       : m);
-    raw = await callAI(p, plainSystem, plainHist, { use: "offline", maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
+    raw = await callAI(p, plainSystem, plainHist, { use: "offline", logRetry: true, logLabel: "群线下", logWho: castNames.replace(/[『』]/g, ""), maxTokens: gBudget, timeout: 180000, wantReasoning: _wantReason, meta: _reasonMeta, signal: session.signal });
     usedCot = false;
   }
   const sp = splitCot(raw, usedCot);
