@@ -76,6 +76,10 @@
   const arr = v => Array.isArray(v) ? v : [];
   const uid = p => p + "_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 6);
   const load = () => { try { const v = loadJSON(KEY, []); return Array.isArray(v) ? v : []; } catch (e) { return []; } };
+  // 直播开声音（她 2026-10-09：「只有角色有声音」）：路人主播没声音；TA 设了声音、语音线路开着才念
+  const ttsReady = () => { try { const a = typeof loadTtsApi === "function" ? loadTtsApi() : null; return !!(a && a.enabled) && typeof ttsSpeak === "function"; } catch (e) { return false; } };
+  const canVoice = c => !!(c && c.voiceId && ttsReady());
+  const capText = (ses, tx) => ses && ses.voice && typeof ttsMarkStrip === "function" ? ttsMarkStrip(tx) : tx;
   const AC = () => (typeof ANTI_CLICHE !== "undefined" ? ANTI_CLICHE + "\n\n" : "");
   const CB = () => (typeof ContentBoundaries !== "undefined" && ContentBoundaries.prompt ? ContentBoundaries.prompt + "\n\n" : "");
   // 外壳的底：顶上打下来一束暖红的灯，像演播间（不是平铺的米白）
@@ -135,6 +139,8 @@
     if (ses.buddy) facts.push("直播间里有个观众「" + ses.buddy.name + "」是跟" + me + "一起来看的，你不认识TA。TA 是这样一个人：\n" + ses.buddy.brief + "\nTA 这一拍要是发了弹幕，写进 flow（who 写「" + ses.buddy.name + "」），说什么、对你什么态度照TA这个人和TA跟" + me + "的关系来；理不理TA看你。");
     if (ses.song) facts.push(me + "点了一首歌：《" + ses.song + "》。唱不唱、怎么唱看你。");
     if (ses.event) facts.push("这一拍直播间里发生了：" + ses.event + "。怎么接看你。");
+    // 开了声音：主播的话是念出来的，照聊天里语音条那套写法（停顿、声音标签），画面上的字会剥掉这些标记
+    if (ses.voice) facts.push("这一场开着声音：你说的话（flow 里「主播」那几句）会用你的声音念出来，观众是听着的。写的时候照说话来写。" + (typeof VOICE_PAUSE_MARK === "string" ? VOICE_PAUSE_MARK : "") + (typeof voiceSoundHint === "function" ? voiceSoundHint() : ""));
     const base0 = "你在一个直播平台上有自己的直播间，此刻正在开播。你在平台上是个什么样的主播——主播名叫什么、平时播什么、粉丝是一群什么人、对着镜头和私下是不是一个样——都从你这个人身上长出来；设定里没写，就照你这个人真会怎么做来定。\n"
       + kind + topic + "\n"
       + "直播间里：" + who + "\n"
@@ -246,7 +252,7 @@
   function GlyphDot() { return h("span", { style: { display: "inline-block", width: 7, height: 7, borderRadius: 99, background: LIVE_RED, marginRight: 5, verticalAlign: "1px" } }); }
 
   // ── 直播间（两种共用一个房间）──────────────────────────
-  function LiveRoom({ ses, chars, profile, busy, onInvite, onDraw, drawing, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
+  function LiveRoom({ ses, chars, profile, busy, onInvite, onDraw, drawing, onVoice, onSay, onGift, onEnd, onBack, readOnly, onShare, onLink, onUnlink, onBan, onSong, songs, onBuy, customGifts, onSaveCustom, onDropCustom, autoSec: props_autoSec, onAutoSec }) {
     const [text, setText] = useState("");
     const [giftOpen, setGiftOpen] = useState(false);
     const [songOpen, setSongOpen] = useState(false);
@@ -259,11 +265,16 @@
     const [slider, setSlider] = useState(false);
     const autoSec = Math.max(10, Math.min(120, Number(props_autoSec) || 25));
     const AUTO_MS = autoSec * 1000;
+    // 开了声音（她 2026-10-09）：只念角色主播的话；念完一句接下一句，自动往下播等这一拍念完再走
+    const voiceHost = ses.mode === "watch" && ses.voice && !readOnly && !ses.endTs && !ses.stranger ? arr(chars).find(c => c.id === ses.charId) : null;
+    const voiceC = canVoice(voiceHost) ? voiceHost : null;
+    const [speaking, setSpeaking] = useState(false);
     useEffect(function () {
       if (!auto || busy || readOnly || ses.endTs) return;
-      const t = setTimeout(function () { if (typeof document !== "undefined" && document.hidden) return; onSay(""); }, AUTO_MS);
+      if (voiceC && speaking) return;
+      const t = setTimeout(function () { if (typeof document !== "undefined" && document.hidden) return; onSay(""); }, voiceC ? 1500 : AUTO_MS);
       return function () { clearTimeout(t); };
-    }, [auto, busy, arr(ses.lines).length, ses.endTs, autoSec]);
+    }, [auto, busy, arr(ses.lines).length, ses.endTs, autoSec, !!voiceC, speaking]);
     const live = !readOnly && !ses.endTs;
     const board = Object.keys(ses.board || {}).map(k => [k, ses.board[k]]).sort((a, b) => b[1] - a[1]);
     const ours = board.reduce((n, x) => n + x[1], 0), theirs = Number(ses.rivalScore) || 0;
@@ -294,7 +305,7 @@
     const capX = useRef(null);
     useEffect(function () { setCapIdx(0); setCapHand(false); }, [ses.beat]);
     useEffect(function () {
-      if (capHand || capIdx >= caps.length - 1) return;
+      if (capHand || voiceC || capIdx >= caps.length - 1) return;
       const tm = setTimeout(function () { setCapIdx(i => i + 1); }, 2800);
       return function () { clearTimeout(tm); };
     }, [capIdx, ses.beat, caps.length, capHand]);
@@ -305,6 +316,38 @@
     const capUp = e => { if (!e.changedTouches && Date.now() - capTouchAt.current < 800) return; if (capX.current == null) return; const p = e.changedTouches ? e.changedTouches[0] : e; const dx = p.clientX - capX.current; capX.current = null;
       if (Math.abs(dx) > 36) capGo(dx < 0 ? 1 : -1); else capGo(1); };
     const capNow = caps[Math.min(capIdx, Math.max(0, caps.length - 1))] || null;
+    // 念这一句；念完了、她没碰过，就翻到下一句。顺手先把下一句合成好，两句之间不空一大截
+    const audioRef = useRef(null), capHandRef = useRef(false);
+    capHandRef.current = capHand;
+    const stopVoice = () => { const a = audioRef.current; audioRef.current = null; if (a) { try { a.pause(); } catch (e) {} } };
+    useEffect(function () { return stopVoice; }, []);
+    useEffect(function () {
+      const hide = () => { if (document.hidden) { stopVoice(); setSpeaking(false); } };
+      document.addEventListener("visibilitychange", hide);
+      return function () { document.removeEventListener("visibilitychange", hide); };
+    }, []);
+    useEffect(function () {
+      stopVoice();
+      if (!voiceC || !capNow || capNow.line.kind !== "host") { setSpeaking(false); return; }
+      let dead = false;
+      const synth = tx => typeof ttsMarkForSynth === "function" ? ttsMarkForSynth(tx) : tx;
+      const idx = capIdx, total = caps.length;
+      setSpeaking(true);
+      ttsSpeak(synth(capNow.line.text), voiceC.voiceId).then(function (blob) {
+        if (dead) return;
+        const url = URL.createObjectURL(blob), a = new Audio(url);
+        audioRef.current = a;
+        a.onended = function () {
+          try { URL.revokeObjectURL(url); } catch (e) {}
+          if (dead) return;
+          if (!capHandRef.current && idx < total - 1) setCapIdx(i => Math.min(i + 1, total - 1)); else setSpeaking(false);
+        };
+        a.play().catch(function () { if (!dead) setSpeaking(false); });
+        const nx = caps[idx + 1];
+        if (nx && nx.line && nx.line.text) ttsSpeak(synth(nx.line.text), voiceC.voiceId).catch(function () {});
+      }).catch(function () { if (!dead) setSpeaking(false); });
+      return function () { dead = true; };
+    }, [capKey, voiceC ? voiceC.voiceId : ""]);
     const lineEl = (l, i) => {
       if (l.kind === "gift") return h("div", { "data-wk": "livemsg", "data-kind": "gift", key: i, style: { fontFamily: F_BODY, fontSize: 12, color: "#f6c76b", padding: "3px 0" } }, l.name + " 送出了「" + l.gift + "」 ¥" + l.amount);
       if (l.kind === "enter") return h("div", { "data-wk": "livemsg", "data-kind": "enter", key: i, style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "3px 0" } }, l.text);
@@ -317,7 +360,7 @@
         mine && watching && ses.fanLv ? tag(ses.club ? (clubLv(ses.club, ses.fanLv) || ses.club.name) + " " + ses.fanLv : "粉丝团 " + ses.fanLv, "#f6c76b") : null,
         l.kind === "reg" && ses.mod && live && onBan && arr(ses.banned).indexOf(l.name) < 0 ? h("button", { "data-wk": "liveban", onClick: () => onBan(l.name), className: "active:opacity-60", style: { float: "right", fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, minHeight: 24, padding: "0 4px" } }, "禁言") : null,
         l.act ? h("span", { style: { color: LIVE_DIM, marginRight: 4 } }, "（" + l.act + "）") : null,
-        l.text);
+        isHost ? capText(ses, l.text) : l.text);
     };
     // 空着按＝「接着看／接着播」（群友 2026-10-08：「直播的弹幕是你不发就不刷新吗」）：不说话也能往下播一拍
     const send = () => { const v = text.trim(); if (busy) return; setText(""); onSay(v); };
@@ -384,7 +427,7 @@
         capNow.reply ? h("div", { key: "rp_" + capKey, style: { fontFamily: F_BODY, fontSize: 11, color: "#d6c7ff", marginBottom: 3, lineHeight: 1.5, animation: "liveFade .4s ease", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, "回 " + capNow.reply.name + "：" + capNow.reply.text)
           : h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: LIVE_DIM, marginBottom: 2 } }, stageTitle),
         h("div", { "data-wk": "livehostline", key: "cap_" + capKey, style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.6, color: LIVE_INK, display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden", animation: "liveFade .4s ease" } },
-          (!watching && capNow.line.act ? "（" + capNow.line.act + "）" : "") + capNow.line.text),
+          (!watching && capNow.line.act ? "（" + capNow.line.act + "）" : "") + capText(ses, capNow.line.text)),
         caps.length > 1 ? h("div", { "data-wk": "livecapdots", className: "flex", style: { gap: 4, marginTop: 6 } }, caps.map((_, i) => h("span", { key: i, style: { width: i === capIdx ? 12 : 5, height: 3, borderRadius: 2, background: i === capIdx ? LIVE_INK : "rgba(243,238,247,.3)", transition: "width .3s" } }))) : null) : null,
       // ── 礼物横幅：从左边滑出来，几秒后收 ──
       giftsNow.length ? h("div", { className: "shrink-0", style: { position: "relative", zIndex: 1, margin: "8px 0 0 12px", display: "flex", flexDirection: "column", gap: 6, alignItems: "flex-start" } },
@@ -418,6 +461,7 @@
           !watching ? null : ses.linked ? h("div", { "data-wk": "livelinkbtn", "data-on": "1", key: "lk" }, moreItem("下麦", onUnlink)) : h("div", { "data-wk": "livelinkbtn", "data-on": "0", key: "lk" }, moreItem(ses.linkAsk ? "等 TA 接连麦…" : "申请连麦", onLink, busy || ses.linkAsk)),
           watching && onInvite && !ses.buddy && live ? h("div", { "data-wk": "liveinvitebtn", key: "iv" }, moreItem("叫 TA 一起看", () => setInviteOpen(true))) : null,
           ses.kind === "sing" && onSong ? h("div", { "data-wk": "livesongbtn", key: "sg" }, moreItem("点歌", () => setSongOpen(true))) : null,
+          live && onVoice && watching && !ses.stranger ? h("div", { "data-wk": "livevoicebtn", "data-on": ses.voice ? "1" : "0", key: "vo" }, moreItem("声音：" + (ses.voice ? "开着（再点关掉）" : canVoice(arr(chars).find(c => c.id === ses.charId)) ? "关着" : "关着（TA 没设声音或语音没配好）"), () => { if (ses.voice) stopVoice(); onVoice(!ses.voice); }, !ses.voice && !canVoice(arr(chars).find(c => c.id === ses.charId)))) : null,
           live ? h("div", { "data-wk": "liveautobtn", "data-on": auto ? "1" : "0", key: "au" }, moreItem("自动往下播：" + (auto ? "开着（再点关掉）" : "关着"), () => setAuto(a => !a))) : null,
           live && auto ? h("div", { "data-wk": "liveautosec", key: "as" }, moreItem("隔多久走一拍：" + autoSec + " 秒", () => setSlider(true))) : null,
           onDraw ? h("div", { "data-wk": "livedrawbtn", key: "dr" }, moreItem(drawing ? "画着…" : ses.img ? "照现在的镜头重画" : "画出来", onDraw, drawing)) : null) : null,
@@ -504,8 +548,9 @@
   }
 
   // ── 开播前那一页 ────────────────────────────────────────
-  function Setup({ mode, characters, maskName, t, onStart, onBack }) {
+  function Setup({ mode, characters, maskName, t, onStart, onBack, voicePref, onVoicePref }) {
     const watching = mode === "watch";
+    const [voice, setVoice] = useState(!!voicePref);
     const [pick, setPick] = useState(watching ? ((characters[0] || {}).id || null) : characters.slice(0, 3).map(c => c.id));
     const [kind, setKind] = useState(watching ? "free" : "chat");
     const [topic, setTopic] = useState("");
@@ -541,7 +586,12 @@
         watching && characters.length > 1 ? h("div", { className: "flex flex-wrap", style: { gap: 8 } },
           chip(!rival, "不 PK", () => setRival(null), "none"),
           characters.filter(c => c.id !== pick).map(c => chip(rival === c.id, c.remark || c.name, () => setRival(c.id), c.id))) : null,
-        h("button", { "data-wk": "livestart", disabled: !ok, onClick: () => onStart({ mode, charId: watching ? pick : null, charIds: watching ? [pick] : pick, kind, topic: topic.trim(), title: title.trim(), as, maskName: maskName || "路过的", rivalId: watching && rival !== pick ? rival : null }),
+        watching ? label("声音") : null,
+        watching ? (function () { const pc = characters.find(c => c.id === pick); const can = canVoice(pc);
+          return h("button", { "data-wk": "livevoicepick", "data-on": can && voice ? "1" : "0", disabled: !can, onClick: () => { setVoice(v => !v); if (onVoicePref) onVoicePref(!voice); }, className: "w-full text-left active:opacity-70",
+            style: { minHeight: 40, fontFamily: F_BODY, fontSize: 13, color: can ? (voice ? LIVE_RED : t.sub) : t.fog, lineHeight: 1.6 } },
+            !can ? "○ 开声音（" + (!ttsReady() ? "先去 设置 里配好语音" : "先给 TA 设一个声音") + "）" : (voice ? "● " : "○ ") + "开声音：TA 说的话念出来，念完一句接下一句（每句花一次合成）"); })() : null,
+        h("button", { "data-wk": "livestart", disabled: !ok, onClick: () => onStart({ mode, voice: watching && voice && canVoice(characters.find(c => c.id === pick)), charId: watching ? pick : null, charIds: watching ? [pick] : pick, kind, topic: topic.trim(), title: title.trim(), as, maskName: maskName || "路过的", rivalId: watching && rival !== pick ? rival : null }),
           className: "w-full active:opacity-80", style: { marginTop: 26, minHeight: 48, borderRadius: 14, background: ok ? LIVE_RED : t.line, color: "#fff", fontFamily: F_BODY, fontSize: 14.5 } },
           watching ? "进直播间" : "开播")));
   }
@@ -712,7 +762,7 @@
 
     const start = cfg => {
       const ses = { id: uid("live"), mode: cfg.mode, charId: cfg.charId, charIds: cfg.charIds, stranger: !!cfg.stranger, kind: cfg.kind, topic: cfg.topic, title: cfg.title,
-        as: cfg.as, maskName: cfg.maskName, lines: [], noise: [], viewers: 0, startTs: Date.now(), endTs: 0, board: {}, slotId: cfg.slotId || "", midway: cfg.midway || 0 };
+        as: cfg.as, maskName: cfg.maskName, lines: [], noise: [], viewers: 0, startTs: Date.now(), endTs: 0, board: {}, slotId: cfg.slotId || "", midway: cfg.midway || 0, voice: !!cfg.voice };
       if (cfg.mode === "watch") {
         ses.fanTotal = fanTotalOf(cfg.charId, cfg.as, cfg.maskName); ses.fanLv = fanLevel(ses.fanTotal);
         const stC = cfg.stranger ? stGet(cfg.charId) : null;
@@ -883,7 +933,8 @@
     const dropSt = st => stSave(Object.assign({}, stRef.current, { list: arr(stRef.current.list).filter(x => x.id !== st.id) }));
 
     if (view === "setup:watch" || view === "setup:host")
-      return h(Setup, { mode: view === "setup:watch" ? "watch" : "host", characters, maskName: props.maskName, t, onStart: start, onBack: () => setView("home") });
+      return h(Setup, { mode: view === "setup:watch" ? "watch" : "host", characters, maskName: props.maskName, t, onStart: start, onBack: () => setView("home"),
+        voicePref: !!(props.liveCfg || {}).voice, onVoicePref: v => props.onLiveCfg && props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { voice: !!v })) });
     if (view === "room" && cur)
       return h(LiveRoom, { ses: cur, chars: characters, profile, busy, onSay: say, onGift: gift, onEnd: end,
         customGifts: (props.liveCfg || {}).gifts || [],
@@ -891,7 +942,7 @@
         onAutoSec: n => { if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, props.liveCfg || {}, { autoSec: n })); },
         onSaveCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)).concat([{ name: n, amount: a }]).slice(-12) })); },
         onDropCustom: (n, a) => { const c0 = props.liveCfg || {}; if (props.onLiveCfg) props.onLiveCfg(Object.assign({}, c0, { gifts: arr(c0.gifts).filter(g => !(g.name === n && g.amount === a)) })); },
-        onInvite: cur.stranger ? invite : null, onDraw: props.draw ? drawStage : null, drawing: drawingId === cur.id, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
+        onVoice: v => patch(cur.id, x => ({ ...x, voice: !!v })), onInvite: cur.stranger ? invite : null, onDraw: props.draw ? drawStage : null, drawing: drawingId === cur.id, onLink: askLink, onUnlink: unlink, onBan: ban, onSong: props.songs ? pickSong : null, songs: props.songs ? props.songs() : [], onBuy: props.buy ? buy : null, onBack: () => { setView("home"); setCurId(null); },
         onShare: props.onShare ? () => setView("share") : null });
     // 发给 TA：挑一个人。落进聊天的是一张回放卡，不让TA马上开口（等她说完按回复，wait-for-her）
     if (view === "share" && cur)
@@ -941,7 +992,7 @@
     const joinSlot = (x, as) => {
       const had = listRef.current.find(s2 => s2.slotId === x.id && !s2.endTs);
       if (had) { setCurId(had.id); setView("room"); return; }
-      start({ mode: "watch", charId: x.charId, charIds: [x.charId], stranger: !characters.some(c => c.id === x.charId), kind: x.kind, topic: "", title: "", as, maskName: props.maskName || "路过的", slotId: x.id, midway: Math.max(1, Math.round((Date.now() - x.start) / 60000)) });
+      start({ mode: "watch", charId: x.charId, charIds: [x.charId], stranger: !characters.some(c => c.id === x.charId), kind: x.kind, topic: "", title: "", as, maskName: props.maskName || "路过的", slotId: x.id, midway: Math.max(1, Math.round((Date.now() - x.start) / 60000)), voice: !!(props.liveCfg || {}).voice && canVoice(characters.find(c => c.id === x.charId)) });
     };
     // ── 路人主播的主页 ──
     if (view.indexOf("st:") === 0) {

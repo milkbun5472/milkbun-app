@@ -43,7 +43,7 @@ test("存到手机走公共那一条 saveImgOriginal，不另写一条下载", (
   assert.match(selfie, /e\.stopPropagation\(\);/);
   // 自拍存的确实是 img_ 开头的键（照着写存档那段：app.js 的 idbImgPut）
   const app = fs.readFileSync("js/app.js", "utf8");
-  assert.match(app, /const key = "img_" \+ char\.id \+ "_" \+ sid;/);
+  assert.match(app, /const key = "img_" \+ char\.id \+ "_" \+ sid\b/);
   assert.match(app, /await idbImgPut\(key, out\.blob\);/);
   // 而 saveImgOriginal 认这个前缀
   assert.match(fs.readFileSync("js/engine.js", "utf8"), /ref\.indexOf\("img_"\) === 0\) blob = await idbImgGet\(ref\)/);

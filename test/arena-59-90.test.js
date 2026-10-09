@@ -64,7 +64,7 @@ test("赛后感言：名字对不上也要按顺序兜底，别整栏空着", ()
 test("不许再用原生 confirm / prompt——PWA 会把它们永久吞掉", () => {
   assert.equal(live.indexOf("window.confirm"), -1, "收台那颗键会在 PWA 里变成死键");
   assert.equal(live.indexOf("window.prompt"), -1, "自定义立场那颗键会在 PWA 里变成死键");
-  assert.match(dbt, /const endDebate = \(\) => requestAppConfirm\("收台，判胜负？"/);
+  assert.match(dbt, /const endDebate = \(\) => [\s\S]{0,120}requestAppConfirm\("收台，判胜负？"/, "收台要走 app 自己的确认框（她自己当裁判时先出判词框）");
   // 自定义立场改成就地输入
   assert.match(dbt, /const \[sideDraft, setSideDraft\] = useState\(null\)/);
   assert.match(dbt, /onClick: \(\) => setSideDraft\(""\)/, "「自己写一个」点了不出输入框");
@@ -72,7 +72,7 @@ test("不许再用原生 confirm / prompt——PWA 会把它们永久吞掉", ()
 });
 
 test("连点两下不许白花两次钱（她按次计费）", () => {
-  ["const runGen = async (myText, skip) => {", "const submitRound = async skip => {", "const runEnd = async () => {"].forEach(function (k) {
+  ["const runGen = async (myText, skip) => {", "const submitRound = async skip => {", "const runEnd = async (myVerdict) => {"].forEach(function (k) {
     const i = dbt.indexOf(k);
     assert.ok(i > 0, "找不到：" + k);
     assert.match(dbt.slice(i, i + 260), /if \(busy\) return;/, k + " 没挡住连点");
@@ -87,7 +87,7 @@ test("发言卡里不许再套一层滚动（mobile-ui-layout §3：一个区域
 });
 
 test("底栏只吃 0.4 条安全区（mobile-ui-layout §2：不许 env + Npx 垫高一截）", () => {
-  assert.equal((dbt.match(/env\(safe-area-inset-bottom\) \* 0\.4/g) || []).length, 2, "两条底栏没都按标尺来");
+  assert.equal((dbt.match(/env\(safe-area-inset-bottom\) \* 0\.4/g) || []).length, 3, "三条底栏（开台／台上／收台后）没都按标尺来");
   assert.ok(!/calc\(1[02]px \+ env\(safe-area-inset-bottom\)\)/.test(dbt), "又把底栏整条垫高了");
 });
 
@@ -264,7 +264,7 @@ test("字数：人设不许再按固定字数砍，照群聊那套按在场人�
   assert.match(dbt, /const personaFor = \(persona, n\) => \(typeof groupPersonaBudget === "function" && typeof groupPersonaText === "function"\)\s*\? groupPersonaText\(persona, groupPersonaBudget\(n\)\)/,
     "没有复用群聊那份预算表，又自己拍了一个数");
   // 三处吃人设的都要走它：分立场、上台发言、赛后感言
-  assert.equal((dbt.match(/personaFor\(/g) || []).length, 4, "吃人设的四处（抽题／分立场／上台发言／赛后感言）没都走它");
+  assert.equal((dbt.match(/personaFor\(/g) || []).length, 7, "吃人设的七处（抽题／分立场／上台发言／场边／裁判×2／赛后感言）没都走它");
   assert.ok(!/persona \|\| "（无设定）"\)\.slice\(0, 400\)/.test(dbt), "分立场那一处还在砍到 400 字");
   assert.ok(!/\.slice\(0, 500\) \+/.test(dbt), "上台发言那一处还在砍到 500 字");
   assert.ok(!/\.slice\(0, 120\) \+ "）"/.test(dbt), "赛后感言那一处还在砍到 120 字");
@@ -440,8 +440,9 @@ test("上台的人只认她亲手挑的名单，不再另抓角色去台下编�
   //   出现在上台名单或分享名单里就说明它又被当成「自动抓人」用了。
   // v73.xx（她 2026-09-23）：Setup 也用上了——挑裁判就是从这批人里挑（言秋不当看客，也不当裁判）。
   //   所以是：往 Arena 传一次 + 算 bench 一处 + 往 Setup 传一次 + 算裁判候选一处。
-  assert.equal((dbt.match(/crowdChars/g) || []).length, 6,
-    "只该出现在【往 Arena/Setup 各传一次】【算 bench】【算裁判候选】这几处");
+  // 开台那页也能先挑场边的人（benchPool）——同样只从没上台、不是裁判的人里挑。
+  assert.equal((dbt.match(/crowdChars/g) || []).length, 7,
+    "只该出现在【往 Arena/Setup 各传一次】【算 bench】【开台挑场边】【算裁判候选】这几处");
   assert.match(dbt, /const judgePool = \(props\.crowdChars \|\| props\.characters \|\| \[\]\)\.filter\(c => c && !picked\.includes\(c\.id\)\)/,
     "裁判得从没上台的人里挑");
   assert.match(dbt, /bench: \(props\.crowdChars \|\| \[\]\)\.filter/, "场边名单没接上");
