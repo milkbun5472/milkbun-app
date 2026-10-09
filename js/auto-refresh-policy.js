@@ -11,7 +11,11 @@
         { id: "week", zh: "每周一次", x: 1, note: "周日过完，下次打开时一枪把周一到周日七天一起补上，一个人一周只调用一次；这周你在钱包里自己生成过的那天会跳过" }],
       rateDefault: "day" },
     { id: "schedule", group: "content", title: "角色日程", sub: "每周补排与白天临时改计划", globalDefault: true, charDefault: true },
-    { id: "desire", group: "content", title: "心上", sub: "每日灵光与周期整理", globalDefault: true, charDefault: true },
+    // 走哪条线路（群友 2026-10-09）：发呆、盘一盘这两枪原来写死走专线→线上；观察和性格那两样本来就走后台
+    { id: "desire", group: "content", title: "心上", sub: "每日灵光与周期整理", globalDefault: true, charDefault: true,
+      rates: [{ id: "online", zh: "走线上", note: "发呆和盘一盘照 TA 本人说话那条走：挑过专线走专线，没挑走线上。旁观的那几样本来就走后台" },
+        { id: "bg", zh: "走后台", note: "发呆和盘一盘也走你配的后台线路，省钱；没配后台就照旧落回线上" }],
+      rateDefault: "online" },
     { id: "impression", group: "content", title: "月度印象", sub: "每月 1 号后自动写上个月的印象卡", globalDefault: true, charDefault: true },
     { id: "moments", group: "social", title: "朋友圈", sub: "低频主动发动态", globalDefault: true, charDefault: true },
     { id: "forum", group: "social", title: "论坛", sub: "低频主动发帖", globalDefault: true, charDefault: true },

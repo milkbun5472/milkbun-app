@@ -2893,6 +2893,13 @@ function App() {
   const offlineApiFor = id => pickRoute((chatSettings[id] || {}).apiId, offlineActive);
   // 本体文本不是机械活：有角色专线走专线，否则仍由线上主池本人落笔，绝不交给 cheap_required 代写。
   const bgApiFor = id => apiFor(id);
+  // 心上那两枪（发呆、盘一盘）走哪条（群友 2026-10-09：「后台心上好像走的线上 api，不是配的后台 api」）：
+  //   原来写死成本体亲笔＝专线→线上；现在在「谁会自己动」心上那一行由她挑。挑了后台但没配后台线路，就照旧落回线上。
+  const desireApiFor = id => {
+    let onBg = false;
+    try { onBg = window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.desire.rate === "bg"; } catch (e) {}
+    return onBg ? sumRoute(apiFor(id)) : apiFor(id);
+  };
   // 只算【还存在的角色/群】的未读——防幽灵红点（未读挂在已删角色/群等列表里看不到的 key 上，加进总数却清不掉，她 2026-07-23 报）
   const unreadTotal = Object.entries(unreadMap).reduce((a, kv) => a + ((characters.some(c => c.id === kv[0]) || groups.some(g => g.id === kv[0])) ? (kv[1] || 0) : 0), 0);
   // 顺手把孤儿未读 key 从存档里清掉（角色/群删了但未读残留），让幽灵红点彻底消失
@@ -16770,7 +16777,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!active || !window.HeartKit) return false;
     try {
       const box = HeartKit.housekeep(HeartKit.boxOf(desiresRef.current, char.id));
-      const d = await runProbe(bgApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, HeartKit.museSpec(char, box, { together: togetherLines(char) }))); // 发呆=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+      const d = await runProbe(desireApiFor(char.id), leanWriteCtx(ctxFor(char)), Object.assign({ voice: true }, HeartKit.museSpec(char, box, { together: togetherLines(char) }))); // 发呆=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
       HeartKit.applyMuse(box, d, schedDayKey(new Date()));
       saveDesires(n => { n[char.id] = box; });
       return true;
@@ -16840,7 +16847,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (!r.due) continue;
         try {
           const spec = r.due === "solstice" ? HeartKit.solsticeSpec(c, box) : HeartKit.mellowSpec(c, box);
-          const d = await runProbe(bgApiFor(c.id), leanWriteCtx(ctxFor(c)), Object.assign({ voice: true }, spec)); // 盘一盘盘点/回头看自述/毕业出师那句/长出来的自我落笔=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
+          const d = await runProbe(desireApiFor(c.id), leanWriteCtx(ctxFor(c)), Object.assign({ voice: true }, spec)); // 盘一盘盘点/回头看自述/毕业出师那句/长出来的自我落笔=本体亲笔（v48.37）：专线用专线，否则便宜池；瘦身省贵线（v48.94）
           if (r.due === "solstice") HeartKit.applySolstice(box, d, today); else HeartKit.applyMellow(box, d, today);
           saveDesires(n => { n[c.id] = box; });
         } catch (e) {}
