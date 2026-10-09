@@ -1674,7 +1674,8 @@ function RelComposer({ comp, setComp, characters, profile, me, nameOf, valid, on
   // id 可以是 "me"（她自己）——她在关系图里本来就是这个节点，头像走 profile 那张
   const pickCard = (id, selected, onClick) => {
     // ⚠️me 是一个名字字符串，不是一张卡：头像得读 profile，名字读 me
-    const ch = id === "me" ? profile : characters.find(x => x.id === id);
+    // 配角不在 characters 里（她 2026-10-09 转群友：「配角也能连」那一组全是问号）——也到 npcList 里找
+    const ch = id === "me" ? profile : (characters.find(x => x.id === id) || (npcList || []).find(x => x.id === id));
     return h("button", { "data-wk": "tiespick", "data-on": selected ? "1" : "0",
       key: id, onClick, className: "flex items-center gap-2.5 active:opacity-70",
       style: {
