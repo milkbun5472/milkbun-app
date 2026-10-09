@@ -33,3 +33,8 @@ test("跳回聊天：单聊和群聊都会按那一刻定位", () => {
   assert.equal((comp.match(/useLocateAt\(locateAt, onLocated, messages, revealMsg, ref, archCount, winStartRef, (true|false)\);/g) || []).length, 2);
   assert.match(app, /setWalletTrace\(\{ type: type, id: id, ts: r\.ts, key: Date\.now\(\) \}\)/);
 });
+
+test("余额长了不许把整页撑出屏幕：缩字号、不换行，两颗键在下一行", () => {
+  assert.match(wallet, /"data-wk": "walletbalance", style: \{[^}]*fontSize: fitFont\(money\(balance\), 40, 9, 18\)[^}]*whiteSpace: "nowrap"/);
+  assert.match(wallet, /h\("div", \{ key: "b", className: "flex items-center gap-2 mt-3" \},\s*\n\s*h\("button", \{ "data-wk": "walletedit"/);
+});

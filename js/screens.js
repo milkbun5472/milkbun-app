@@ -13527,10 +13527,13 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   // 余额不是一张卡，是夹层里的那叠钱
   const faceCard = noteStack([
     h("div", { key: "l", style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: "0.16em", color: NOTE_FOG } }, "我的余额"),
-    h("div", { key: "v", className: "flex items-end gap-3 mt-1" },
-      h("div", { "data-wk": "walletbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 40, lineHeight: 1, color: NOTE_INK } }, money(balance)),
-      h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "改余额"),
-      onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px" } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
+    // 余额一长（千分位＋两位小数，或换成日元韩元）就会把整张单据撑出屏幕（她 2026-10-09 截图「余额飞了」）：
+    //   跟角色钱包同一招——缩字号、不许换行；两颗键挪到下面一行，不跟数字抢宽度。
+    h("div", { key: "v", className: "mt-1", style: { minWidth: 0 } },
+      h("div", { "data-wk": "walletbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(money(balance), 40, 9, 18), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, money(balance))),
+    h("div", { key: "b", className: "flex items-center gap-2 mt-3" },
+      h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
+      onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
   const KIND_GROUPS = [["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
@@ -13585,7 +13588,7 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   return h("div", { "data-wk": "walletpage", "data-view": "main", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
       right: h("button", { "data-wk": "walletcardsbtn", onClick: () => setView("cards"), className: "active:opacity-60 flex items-center gap-1", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, "亲属卡", cardList.length ? h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.bg, background: t.tint, borderRadius: 999, padding: "0 6px" } }, String(cardList.length)) : null) }),
-    h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { overflowX: "hidden" } },
       faceCard,
       // 手动改余额
       editing && h("div", { "data-wk": "walleteditor", className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },
