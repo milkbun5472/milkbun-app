@@ -1063,7 +1063,9 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
       //   浏览器于是根本不产生 click——「编辑」按下去纹丝不动（她 2026-09-19 报，
       //   截图是 Lisa → 沈屿白 那一段）。旁边的关系牌子早就写了同一句，只有这儿漏了。
       //   ⚠️鼠标和 .click() 都试不出来：合成事件不走指针捕获那条路，只有真手指才复现。
-      selLink ? h("div", { "data-wk": "tiespanel", onPointerDown: ev => ev.stopPropagation(), style: { position: "absolute", left: 12, right: 12, bottom: 12,
+      // ⚠️松手那一下也得拦（她 2026-10-09：「编辑键要点好几次才有反应」）：只拦了按下，pointerup 照样冒到板子上，
+      //   板子当成「点了空白处」把选中收掉——面板当场卸载，浏览器随后要派的 click 落了空。
+      selLink ? h("div", { "data-wk": "tiespanel", onPointerDown: ev => ev.stopPropagation(), onPointerUp: ev => ev.stopPropagation(), onPointerCancel: ev => ev.stopPropagation(), style: { position: "absolute", left: 12, right: 12, bottom: 12,
         background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "11px 13px",
         boxShadow: "0 3px 14px rgba(0,0,0,.12)" } },
         h("div", { className: "flex items-center", style: { gap: 8 } },
@@ -1071,9 +1073,9 @@ function TiesBoard({ centerId, me, profile, allChars, rels, savedPos, onSavePos,
             nameOf(centerId) + (selLink.both ? " ⇄ " : selLink.out ? " → " : " ← ") + nameOf(selLink.other)),
           // 光秃秃 12px 两个字几乎点不中（她 2026-09-29：「编辑键有点难点动」）——给足 36px 高的一颗胶囊
           h("button", { "data-wk": "tiespanelbtn", "data-part": "edit", onClick: () => onEditEdge(centerId, selLink.other), className: "active:opacity-60 shrink-0",
-            style: { minHeight: 36, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.tint, fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "编辑"),
+            style: { minHeight: 40, padding: "0 16px", borderRadius: 999, border: "1px solid " + t.tint, fontFamily: F_BODY, fontSize: 13, color: t.tint } }, "编辑"),
           h("button", { "data-wk": "tiespanelbtn", "data-part": "close", onClick: () => setSel(null), className: "active:opacity-60 shrink-0",
-            style: { minHeight: 36, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "收起")),
+            style: { minHeight: 40, padding: "0 10px", fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "收起")),
         selLink.label ? h("div", { "data-wk": "tiespanellabel", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 14, lineHeight: 1.6, color: t.ink, marginTop: 6 } }, selLink.label) : null,
         selLink.note ? h("div", { "data-wk": "tiespanelnote", style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.65, color: t.sub, marginTop: 4, whiteSpace: "pre-wrap" } }, selLink.note) : null,
         // 对方那一头写得不一样时，也摆出来——一段关系两边看法不同本来就是内容
