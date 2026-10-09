@@ -4,7 +4,7 @@
 
 入口：小世界 → TA的一天 → 新场景摆位试玩；已有角色画面底栏点「新场景」保留该角色样貌。下拉选择标号位置，沿原 world/navigation/locomotion 实际寻路，坐位沿原 traveler 坐姿。「换场景」依次切四房，「回到日程」恢复原角色当前段。
 
-此批交付房间、碰撞、路线、基础站坐阅读与明确摆位；日程自动匹配、拿取／归还／实验／电脑操作随后统一接入。专业场景目前保留独立摆位试玩；日程的基础活动已由下述四个日常场景承接。
+房间、碰撞、路线、基础站坐阅读与明确摆位已连接日程；拿取／归还／实验／电脑操作等专业动作仍待细化。专业场景保留独立摆位试玩，同时承接对应的实际日程；日常活动继续使用下述四个日常场景。
 
 公共 room-kit 提供哑光软边家具并按材质合批。地板高 .08，椅面相对地板 .45，阅读／电脑桌 .85，站立实验台 1.0。所有家具和碰撞使用各场景同一份数据。地图定义中的 spots/tour 可供后续联动使用。
 
@@ -77,3 +77,11 @@
 原三游戏床位与日常小家共用 sleepPose，按正在睡的那个人所在地图读床；玩家在别处时，同伴仍可在原房间睡。TA的一天的全景允许较低缩放以容纳宽房型，原游戏缩放范围保持原默认值。
 
 验证：`node --test apps/fairy-garden/day/spaces.test.mjs test/char-day.test.js apps/fairy-garden/home.test.mjs apps/fairy-garden/sleep-hug.test.mjs apps/fairy-garden/view-controls.test.mjs`。浏览器日程、保存失败与跨角色/重开：`scripts/checks/char-day-browser.cjs`；专业摆位往返沿原 `char-day-places-browser.cjs`。本次实图和证据：`/Users/lisa/.codex/visualizations/2026/10/09/char-day-four-spaces/`。
+
+## 日程与陪伴连接
+
+日程的可选 `world: {scene, spot}` 由当天、一周和临时改计划三条原生成路径保存；`deviation.world` 对应实际改动。有效编号从真实地图生成到 `day/catalog.js`，生成提示与读取验证共用 `js/char-day-link.js`。修改房间后运行 `node scripts/build-fairy-garden.mjs` 会刷新目录和指纹；没有合适位置时允许 null。
+
+新字段只控制画面，不改 title/location/place 的原世界事情与地名。旧日程按原文识别专业场景；实际安排优先，未知编号回到原文判定。在家事项保留小家，睡眠仍绑定真实双人床。正式日程自动走到工位并站定或坐下，数字标记只在摆位试玩显示；绘画/手作保持基础站坐姿，不以读书动作冒充专业操作，精细专业动作后续接入。
+
+外貌与表情调用陪伴原 `CompanionFace.lookFor`，按角色读取 x_companion 和当前 x_moods：自动脸按同一心情词典与衰减，手选脸按陪伴开关。服装、染色、发型、眼睛、体型保留同角色整份设置，换人重置默认以避免串外貌。实际脸贴图也使用陪伴目录。

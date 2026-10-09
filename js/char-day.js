@@ -19,22 +19,7 @@
     });
     return { day, minute, time: clockText(minute), rows, slot, hasPlan: !!rows.length };
   }
-  function presentation(slot) {
-    const type = slot?.type || "other", words = String(slot?.deviation?.actual || slot?.title || ""),
-      place = String(slot?.location || ""), outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆/.test(place + " " + words),
-      atHome = /家里|家中|在家|回家|住处|府中|寝室|卧室/.test(place);
-    const dining = outside && !atHome ? "dayCafe" : "dayHome";
-    if (type === "sleep") return { map: "dayHome", action: "sleep", gesture: "sleep" };
-    if (type === "meal") return { map: dining, action: "meal", gesture: "eat" };
-    if (type === "coffee") return { map: dining, action: "tea", gesture: "tea" };
-    if (/喝茶|饮茶|品茶|喝咖啡/.test(words)) return { map: dining, action: "tea", gesture: "tea" };
-    if (/吃饭|用膳|早餐|午餐|晚餐/.test(words)) return { map: dining, action: "meal", gesture: "eat" };
-    if (type === "out" || /散步|走走|逛街/.test(words)) return { map: "dayStreet", action: "walk", gesture: "rest" };
-    if (/读|阅读|翻书|看书/.test(words)) return { map: atHome || !["work", "create"].includes(type) ? "dayHome" : "dayWork", action: "read", gesture: "read" };
-    if (["work", "create"].includes(type)) return { map: atHome ? "dayHome" : "dayWork", action: "work", gesture: "rest" };
-    if (type === "social" && outside) return { map: "dayCafe", action: "rest", gesture: "rest" };
-    return { map: "dayHome", action: "rest", gesture: "rest" };
-  }
+  function presentation(slot) { return root.CharDayLink.presentation(slot); }
   root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
@@ -55,7 +40,7 @@
     const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
     const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情" : "今天还没有日程");
     const payload = char && { charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, slot: slot || null,
-      homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm",
+      homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase,
       presentation: showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow,
       key: showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
     if(payload&&showcase)payload.slot=null;
@@ -85,7 +70,7 @@
           h("span", { style: { display: "block", marginTop: 5, lineHeight: 1.7, color: soft } }, st.slot?.title || (st.hasPlan ? "这会儿没排事情" : "今天还没有日程")));
       }), h("button", { onClick: () => pick(DEMO.id), style: { ...btn, width: "100%", marginTop: 12, background: "transparent", borderStyle: "dashed" } }, "先看一段示例"),
       h("button", { onClick: visitPlaces, "data-wk":"cdayplaces", style: { ...btn, width: "100%", marginTop: 10 } }, "新场景摆位试玩"),
-      h("p", { style: { fontSize: 11, color: soft, lineHeight: 1.8 } }, "跟着日程走进小家、工作空间、小店和街道；专业场景另有摆位试玩。")))));
+      h("p", { style: { fontSize: 11, color: soft, lineHeight: 1.8 } }, "跟着日程走进小家、工作空间、小店和街道；专业日程也会走进实验室、图书馆、诊室和创作室。")))));
     const changeStyle = async value => {
       if (styleBusy) return;
       if (demo) { setDemoStyle(value); setStyleNotice("示例小家已换样式"); return; }
@@ -135,7 +120,7 @@
         !showcase && !state.hasPlan && !demo && h("button", { style: { ...btn, position: "absolute", bottom: 44, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }, onClick: () => props.onSchedule?.(char) }, "去日历排今天"),
         sceneStatus && h("div", { role: "status", style: { position: "absolute", top: "48%", left: 16, right: 16, textAlign: "center", padding: 16, background: "#eeeadfe8", borderRadius: 12, fontSize: 12 } }, sceneStatus,
           sceneStatus.includes("失败") && h("button", { style: { ...btn, display: "block", margin: "12px auto 0" }, onClick: () => { setSceneStatus("正在准备画面…"); setRetry(x => x + 1); } }, "重新载入画面")),
-        h("div", { style: { position: "absolute", bottom: 8, left: 10, right: 10, textAlign: "center", fontSize: 10, color: "#655e50", background: "#eeeadfb8", borderRadius: 8, padding: "3px 8px", pointerEvents: "none" } }, showcase ? "数字对应动作位置 · 日程与专业动作随后接入" : demo ? "示例不写入角色日程 · 拖动看四周，双指缩放" : "场景与动作是简化示意 · 拖动看四周，双指缩放")),
+        h("div", { style: { position: "absolute", bottom: 8, left: 10, right: 10, textAlign: "center", fontSize: 10, color: "#655e50", background: "#eeeadfb8", borderRadius: 8, padding: "3px 8px", pointerEvents: "none" } }, showcase ? "数字对应动作位置 · 已接日程，专业动作继续细化" : demo ? "示例不写入角色日程 · 拖动看四周，双指缩放" : "场景与动作是简化示意 · 拖动看四周，双指缩放")),
       h("div", { "data-wk": "cdaytools", className: "shrink-0", style: { display: "flex", gap: 4, padding: "3px 6px", paddingBottom: "calc(3px + env(safe-area-inset-bottom) * 0.4)", borderTop: "1px solid #cfc5ae", minHeight: 56, background: "#eeeadf" } },
         h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent", color: follow ? "#57734b" : ink }, "aria-pressed": follow, onClick: () => { setFollow(true); try { iframe.current.contentWindow.CharDayScene?.focus(); } catch (_) {} } }, "跟着TA"),
         h("button", { style: { ...btn, flex: 1, border: 0, background: "transparent" }, onClick: () => { setFollow(false); try { iframe.current.contentWindow.CharDayScene?.overview(); } catch (_) {} } }, "看全景"),

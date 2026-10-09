@@ -1,18 +1,19 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-5c481c2e3871a814';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-5c481c2e3871a814';
-import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-5c481c2e3871a814';
-import {seatLook} from '../wardrobe.mjs?v=fg-5c481c2e3871a814';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-5c481c2e3871a814';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-5c481c2e3871a814';
-import {stepRoute} from '../locomotion.mjs?v=fg-5c481c2e3871a814';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-5c481c2e3871a814';
-import {activityPose} from './activity.mjs?v=fg-5c481c2e3871a814';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-5c481c2e3871a814';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-02c90601f4c121f4';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-02c90601f4c121f4';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-02c90601f4c121f4';
+import {seatLook} from '../wardrobe.mjs?v=fg-02c90601f4c121f4';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-02c90601f4c121f4';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-02c90601f4c121f4';
+import {stepRoute} from '../locomotion.mjs?v=fg-02c90601f4c121f4';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-02c90601f4c121f4';
+import {activityPose} from './activity.mjs?v=fg-02c90601f4c121f4';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-02c90601f4c121f4';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot} from './spaces.mjs?v=fg-5c481c2e3871a814';
-import {createSpaceView} from './space-view.mjs?v=fg-5c481c2e3871a814';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot} from './spaces.mjs?v=fg-02c90601f4c121f4';
+import {createSpaceView} from './space-view.mjs?v=fg-02c90601f4c121f4';
 registerCoreSpaces(MAPS);
+setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=T.SRGBColorSpace;
@@ -45,7 +46,7 @@ addEventListener('resize',resize);addEventListener('blur',()=>gesture.cancel());
 function availableSeat(kind){return Object.values(seatsOf(map)).find(s=>s.piece?.includes(':'+kind+':'))||Object.values(seatsOf(map))[0];}
 function destination(p){
   seat=null;bed=null;
-  if(p.spot){const spot=DAY_PLACES[map]?.spots.find(s=>s.id===p.spot);if(spot){seat=spot.seat||null;return {...spot.target};}}
+  if(p.spot){const spot=(DAY_PLACES[map]||CORE_SPACES[map])?.spots.find(s=>s.id===p.spot);if(spot){seat=spot.seat||null;if(spot.sleep)bed=sleepPose({map,position:MAPS[map].spawn,companion:{map,position:spot.target},sleep:{companion:spot.id}},'companion');yaw=spot.heading||0;return {...spot.target};}}
   if(CORE_SPACES[map]){
     const spot=activitySpot(MAPS[map],p.action);
     if(spot){seat=spot.seat||null;if(spot.sleep)bed=sleepPose({map,position:MAPS[map].spawn,companion:{map,position:spot.target},sleep:{companion:spot.id}},'companion');yaw=spot.heading||0;return {...spot.target};}
@@ -74,7 +75,7 @@ async function enter(next,token,initial=false){
   changing=true;cover.classList.add('on');avatar.root.visible=false;
   try{
     const view=await mapLoader.ensure(next,MAPS[next].spawn);if(token!==epoch||disposed)return;
-    mapLoader.keep(next);map=next;if(DAY_PLACES[map]&&!view.markers){view.markers=createPlaceMarkers(map);view.root.add(view.markers);}view.root.visible=true;for(const o of view.stream?.roots()||[])o.visible=true;
+    mapLoader.keep(next);map=next;if(DAY_PLACES[map]&&!view.markers){view.markers=createPlaceMarkers(map);view.root.add(view.markers);}if(view.markers)view.markers.visible=!!snapshot.showcase;view.root.visible=true;for(const o of view.stream?.roots()||[])o.visible=true;
     position={...MAPS[map].spawn};avatar.root.position.set(position.x,floorHeight(map,position),position.z);avatar.root.visible=true;
     span=CORE_SPACES[map]||DAY_PLACES[map]?14:map==='garden'?12:11;spaceStyle=map==='dayHome'?snapshot.homeStyle||'warm':'';resize();place.hidden=!!DAY_PLACES[map];place.textContent=CORE_SPACES[map]?.label||DAY_PLACES[map]?.label||(map==='garden'?'街边 · 借用庭院场景':map==='hall'?'案边 · 借用公共厅场景':'住处 · 借用小屋场景');
     yaw=0;target=destination(snapshot.presentation);walkTarget=0;dwell=0;
@@ -85,7 +86,7 @@ async function enter(next,token,initial=false){
 }
 function apply(data){
   if(!ready){pending=data;return;}
-  if(!data)return;snapshot=data;
+  if(!data)return;snapshot=data;if(mapLoader.views[map]?.markers)mapLoader.views[map].markers.visible=!!data.showcase;
   const newLook=JSON.stringify([data.charId,data.ta,data.look]);if(newLook!==lookKey){avatar.setLook(seatLook('companion',data.look,data.ta),true);lookKey=newLook;}
   const next=JSON.stringify([data.charId,data.key,data.presentation,data.homeStyle]);
   if(next===signature)return;signature=next;const token=++epoch;route=[];onArrive=null;seat=bed=null;dwell=0;
@@ -113,9 +114,9 @@ function tick(dt,time){
     const step=stepRoute(position,route,dt,{speed,walkSpeed:1.6,clear:(a,b)=>segmentClear(a,b,map)});position=step.position;speed=step.speed;if(step.heading!=null)yaw=step.heading;
     if(!route.length){dwell=0;const done=onArrive;onArrive=null;done?.();}
   }else dwell+=dt;
-  if(!moving&&CORE_SPACES[map])yaw=activitySpot(MAPS[map],snapshot.presentation.action)?.heading||0;
-  const pose=snapshot.presentation.spot?{gesture:snapshot.presentation.gesture||'rest',progress:dwell/4%1}:activityPose(snapshot.presentation,dwell,{hasSlot:!!snapshot.slot,seated:!!seat});
-  if(!moving&&snapshot.presentation.spot){const spot=DAY_PLACES[map]?.spots.find(s=>s.id===snapshot.presentation.spot);if(spot)yaw=spot.heading||0;}
+  if(!moving&&CORE_SPACES[map]&&!snapshot.presentation.spot)yaw=activitySpot(MAPS[map],snapshot.presentation.action)?.heading||0;
+  const pose=activityPose(snapshot.presentation,dwell,{hasSlot:!!snapshot.slot,seated:!!seat});
+  if(!moving&&snapshot.presentation.spot){const spot=(DAY_PLACES[map]||CORE_SPACES[map])?.spots.find(s=>s.id===snapshot.presentation.spot);if(spot)yaw=spot.heading||0;}
   avatar.root.position.set(position.x,0,position.z);avatar.root.rotation.y=yaw;
   if(!moving&&bed){avatar.animate(time,{sleepPose:bed});}
   else if(!moving&&seat){avatar.root.position.set(seat.x,0,seat.z);avatar.root.rotation.y=seat.heading||0;avatar.animate(time,{...pose,seated:true,height:floorHeight(map,seat)+(seat.rise||0)+.05});}
@@ -126,8 +127,9 @@ function tick(dt,time){
   const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
 }
 let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
+function appearanceTextures(){const urls=[];avatar?.root.traverse(o=>{const src=o.material?.map?.image?.src;if(src&&/\/faces\//.test(src))urls.push(src);});return [...new Set(urls)];}
 function chinContact(){const head=avatar?.root.getObjectByName('HeadAnchor'),hand=avatar?.root.getObjectByName('Right_hand');return head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null;}
-window.CharDayScene={setSnapshot:apply,listPlaces:placeList,listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,inspect:()=>({ready,map,spaceStyle,spot:snapshot?.presentation.spot,avatarPosition:avatar?.root.position.toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
+window.CharDayScene={setSnapshot:apply,listPlaces:placeList,listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,inspect:()=>({ready,map,spaceStyle,spot:snapshot?.presentation.spot,avatarPosition:avatar?.root.position.toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);for(const v of Object.values(mapLoader.views)){v.stream?.close();disposeMap(v.root);}if(avatar)disposeMap(avatar.root);draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{avatar=createTraveler(await loadTravelerSource(),true);scene.add(avatar.root);await avatar.ready();ready=true;tell('');if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}

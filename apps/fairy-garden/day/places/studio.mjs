@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-5c481c2e3871a814';
+import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-02c90601f4c121f4';
 
 const {floor:FLOOR,seat:SEAT,desk:DESK}=ROOM_SCALE;
 const C={wood:'#bd9b73',darkWood:'#a88864',paper:'#f0e6d2',sage:'#8b9e89',blue:'#8da5ae',clay:'#ba9687',cream:'#ded3bb',ink:'#71837a'};
@@ -34,8 +34,8 @@ export const studioMap={
   spots:[
     {id:'entrance',label:'工作室入口',description:'从南侧进入工作室，沿中央通路走向画架、工作桌和展示区。',action:'rest',gesture:'rest',target:{x:0,z:3.30},heading:Math.PI,furniture:'Threshold'},
     {id:'easel',label:'画架前站位',description:'适合站着观察画面、构思与调整作品的位置；绘画动作随后接入。',action:'work',gesture:'rest',target:{x:piece('studio-easel').x,z:-1.70},heading:Math.PI,furniture:'studio-easel'},
-    {id:'drawing',label:'画桌坐位',description:'适合坐着绘画、设计和整理草图的位置；专项动作随后接入。',action:'work',gesture:'read',target:seats.drawing.approach,heading:seats.drawing.heading,seat:seats.drawing,furniture:'work-table'},
-    {id:'handcraft',label:'手作坐位',description:'适合坐着做手工、裁剪和整理作品的位置，桌面材料可按创作方向替换。',action:'work',gesture:'read',target:seats.handcraft.approach,heading:seats.handcraft.heading,seat:seats.handcraft,furniture:'work-table'},
+    {id:'drawing',label:'画桌坐位',description:'适合坐着绘画、设计和整理草图的位置；专项动作随后接入。',action:'work',gesture:'rest',target:seats.drawing.approach,heading:seats.drawing.heading,seat:seats.drawing,furniture:'work-table'},
+    {id:'handcraft',label:'手作坐位',description:'适合坐着做手工、裁剪和整理作品的位置，桌面材料可按创作方向替换。',action:'work',gesture:'rest',target:seats.handcraft.approach,heading:seats.handcraft.heading,seat:seats.handcraft,furniture:'work-table'},
     {id:'materials',label:'材料架前',description:'在架前挑选颜料、布料或手工材料的位置；拿取动作随后接入。',action:'work',gesture:'rest',target:{x:-3.42,z:piece('materials-rack').z},heading:-Math.PI/2,furniture:'materials-rack'},
     {id:'storage',label:'收纳柜前',description:'在柜前整理备用材料、工具和作品资料的位置；开柜取放随后接入。',action:'work',gesture:'rest',target:{x:-3.37,z:piece('materials-cabinet').z},heading:-Math.PI/2,furniture:'materials-cabinet'},
     {id:'gallery',label:'站着看作品',description:'留出退后观察作品、比对颜色和挑选展示内容的距离。',action:'rest',gesture:'rest',target:{x:piece('gallery-wall').x,z:-2.65},heading:Math.PI,furniture:'gallery-wall'},

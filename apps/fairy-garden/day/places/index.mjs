@@ -1,7 +1,7 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-5c481c2e3871a814';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-5c481c2e3871a814';
-import {clinicMap,createClinic} from './clinic.mjs?v=fg-5c481c2e3871a814';
-import {studioMap,createStudio} from './studio.mjs?v=fg-5c481c2e3871a814';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-02c90601f4c121f4';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-02c90601f4c121f4';
+import {clinicMap,createClinic} from './clinic.mjs?v=fg-02c90601f4c121f4';
+import {studioMap,createStudio} from './studio.mjs?v=fg-02c90601f4c121f4';
 import * as T from 'three';
 export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap};
 export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio};
