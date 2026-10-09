@@ -181,7 +181,7 @@
       if (!studio.PACK_KEYS.some(k => xPick[k])) { toast("至少挑一样再导出"); return; }
       try { const text = await studio.exportPackage({ profile: draft, baseTheme: theme, wallpaper,
           bubbleSkin: typeof bubbleSkinSnapshot === "function" ? bubbleSkinSnapshot() : null, pick: xPick });
-        const via = await window.saveTextFile("lisa-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
+        const via = await window.saveTextFile("qq-theme-" + new Date().toISOString().slice(0,10) + ".json", text, "application/json");
         toast(via === "cancel" ? "导出取消了" : via === "share" ? "主题包已交给分享面板（含真实图标素材），在里面选「存储到文件」" : "主题包已导出（含真实图标素材）"); }
       catch (e) { toast("导出失败：" + e.message); }
     };
@@ -225,6 +225,19 @@
         return true;
       } catch (err) { toast("导入失败：" + (err.message || err)); return false; }
     };
+    // 秋秋小窝点了「导进我的手机」（js/nest.js）：那边把那一份放在 window.__nestHandoff，跳过来由这儿接。
+    //   主题、聊天美化走的是跟手动导入同一条路（先预览、挑几样、确认才落盘）；
+    //   CSS 接在全局 CSS 草稿的末尾，也是改草稿、不落盘。接过就清掉，免得下次进来又导一遍。
+    useEffect(() => {
+      const ho = g.__nestHandoff; if (!ho) return;
+      g.__nestHandoff = null;
+      if (ho.kind === "css") {
+        setSection("css"); setPage("all");
+        const cur = studio.normalize(draft).globalCSS || "";
+        patchDraft({ globalCSS: (cur.trim() ? cur.replace(/\s+$/, "") + "\n\n" : "") + "/* 小窝：" + String(ho.title || "").replace(/\*\//g, "") + " */\n" + ho.text });
+        toast("已接在全局 CSS 草稿后面，预览看看，满意了再保存");
+      } else { setSection("package"); applyPack(ho.text); }
+    }, []);
     const togglePick = k => { const sel = Object.assign({}, pick, { [k]: !pick[k] }); setPick(sel); if (incoming) livePick(incoming, sel); };
     // 「挑哪几样」那一排：导出和导入共用这一份（方块、禁用态、「这份包里没有」都只画在这儿）。
     // parts 来自 studio.packParts()，名字和有没有都是它说了算。

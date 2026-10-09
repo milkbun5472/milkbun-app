@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.114";
+const APP_VERSION = "v75.128";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -2948,6 +2948,12 @@ function App() {
         setTimeout(() => setCall(c => c && c.sessionId === sid ? { ...c, msgs: [...c.msgs, ...lines] } : c), 0);
       }
     }
+    // 被她拉黑期间TA发出来的每一条都挂红色感叹号——不管是她按「回复」逼出来的，还是TA自己主动找来的
+    //   （群友 Nyx 2026-10-08：「拉黑后，角色主动发消息时不显示感叹号」——原来只有 queueUnblockSpeech 那一路挂，
+    //   主动私聊走的是普通回复那条路，一颗都没有）。收在落盘这一处，以后哪条新路都跑不掉。
+    const _bk = blocksRef.current && blocksRef.current[id];
+    if (_bk && _bk.iBlocked && n.length > pl.length)
+      n = n.slice(0, pl.length).concat(n.slice(pl.length).map(m => m && m.role === "assistant" && m.kind !== "system" && !m.blocked ? { ...m, blocked: true } : m));
     saveJSON("x_chat:" + id, n);
     // x_chat 已归 IDB 文字仓管理；saveJSON 内部先写 WAL、逐字验真后落 IDB 并销账。
     chatsRef.current = { ...p, [id]: n };
@@ -5930,7 +5936,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 关注的路人主播也提醒（他们没有日程，按日子算）
       let stFollowed = [];
       try { stFollowed = ((loadJSON("x_liveStrangers", null) || {}).list || []).filter(x => x && x.followed && !x.promoted); } catch (e) {}
-      K.slotsOf(liveChars.filter(c => c && !c.npc).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
+      K.slotsOf(liveChars.filter(c => c && !c.npc && !((liveCfg.selfOff || {})[c.id])).concat(stFollowed), new Date(), c => stFollowed.some(x => x.id === c.id) ? null : liveSchedFor(c)).forEach(x => {
         if (x.start <= now && now < x.start + 20 * 60000 && !liveNotedRef.current[x.id]) {
           liveNotedRef.current[x.id] = 1;
           const c = liveChars.find(cc => cc.id === x.charId) || stFollowed.find(cc => cc.id === x.charId);
@@ -11082,14 +11088,17 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           //   而且**不只线下**——纯线上的人撞上的是同一句话）。
           //   现在把两件事拆开：**不许续演的是情绪**，不是话题。
           ? "\n\n【此刻·隔了一阵后主动开口】用户还没发新消息，是你过了一段真实生活后忽然想主动找 Ta。这是一段新的聊天开场。\n"
-            + "按你与当前收件人的关系和此刻来意开口，允许普通、简短，不必每次有新鲜事或独特表达。不要机械套用报备、关心、安排的固定流程。\n"
+            // ⚠️「简短」两个字撤了（她 2026-10-09 截图：主动来的永远两条——「在干嘛」「到家没」＋翻一句旧话）。
+            //   「允许普通」治的是硬编新鲜事，「简短」却被读成了「主动就该短」。长短归这个人自己。
+            + "按你与当前收件人的关系和此刻来意开口，允许普通，不必每次有新鲜事或独特表达。"
+            + "说多少照你此刻想说多少、照你这个人平时发消息的习惯：有话就连着几条说完，真没什么就一两句。不要机械套用报备、关心、安排的固定流程。\n"
             + "**不许续演的是【情绪】**：上一轮的委屈、焦虑、兴奋、争执，隔了这一阵都该落下去了，别接着那个劲儿说话，也别质问 Ta 为什么没回。\n"
             + "**但你俩上次聊到哪儿、一起干了什么、有没有说了一半的事，你是记得的**——顺着它开口完全可以，那正是真人隔一阵回来最常说的第一句（「后来那个怎么样了」「我想起你说的那件事」）。\n"
             + "当然也可以完全换一件事说：普通旧话题已经过去了就让它过去。怎么选是你的事，别硬找由头，也别装作那段没发生过。\n"
             + "像真人隔一阵重新来敲门，别整段复述旧话。"
           : firstWord
             ? "\n\n【此刻·聊天框里的第一句】你们在这儿还一句话都没说过，Ta 在等你先开口。照你此刻的处境、你俩是什么关系、你对 Ta 知道多少，自然地说第一句；别自我介绍成一张名片。"
-            : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然补一句、追问、调侃或换个小话题。别复述之前说过的话，别干等。")
+            : "\n\n【此刻】用户还没发新消息" + (opts.proactive ? "，是你主动找 Ta" : "，你想接着自己刚才那几句继续说") + "。这仍是紧挨着上一轮的同一段聊天，可自然接着说、追问、调侃或换个小话题，说多说少照你此刻想说多少。别复述之前说过的话，别干等。")
         : "";
       // ⚠️并进 proactiveHint 本身，不另起一个变量：多一个变量就多一处会忘记接上
       // 的地方（「一层写在两处，第二处没跟上」在这份文件里已经犯过太多次）。
@@ -28798,6 +28807,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     profile: profile,
     toast: toast,
     onBack: backFromStyleLab
+  });else if (screen === "nest") body = h(window.NestApp, {
+    // 秋秋小窝：大家传、大家导。导进来的东西各回各的库，这儿不另存一份。
+    toast: toast,
+    characters: liveChars,
+    loreEntries: loreEntries,
+    onAddLore: list => saveLore((list || []).concat(loreRef.current || [])),
+    onAddChar: o => { createCharFromAssistant(o); },
+    onOpenThemeStudio: () => { setConfigPage("themeStudio"); setScreen("config"); },
+    // CSS／整套聊天美化只放进一处：读写都走聊天设置／群设置／线下设置自己那一份（秋秋改 CSS 用的也是这三个入口）
+    groups: groups,
+    lookOf: (where, id) => (where === "chat" ? chatSettings[id] : where === "group" ? gsFor(id) : offlineSettings[id]) || {},
+    onPatchLook: (where, id, patch) => where === "chat" ? patchChatSetting(id, patch)
+      : where === "group" ? saveGroupSettings(id, patch) : saveOfflineSettings(id, patch),
+    onBack: () => setScreen("home")
   });else if (screen === "assistant") body = h(AssistantApp, {
     // 秋秋：答功能、查毛病、出改动稿（文风/人设/外貌/档案/装修/记忆库）。
     // ⚠️写入口只给这两个，而且它永远先出改动稿、由她逐条点「应用」才真的落库。

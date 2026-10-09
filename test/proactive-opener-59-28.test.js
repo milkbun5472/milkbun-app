@@ -11,7 +11,10 @@ const hint = cut(app, "【此刻·隔了一阵后主动开口】", "\n      : \"
 test("主动开场允许普通，撤掉逐句独特性与强制新鲜事", () => {
   // ⚠️清单本身就是模板：给了它就会在里头挑，而且总挑第一项
   assert.ok(hint.indexOf("优先从你此刻正在做的事、刚遇到的小事") < 0, "那张清单还在");
-  assert.match(hint, /允许普通、简短/);
+  assert.match(hint, /允许普通/);
+  // v75.126：「简短」撤了——被读成「主动就该短」，永远两条（她 2026-10-09）
+  assert.doesNotMatch(hint, /允许普通、简短/);
+  assert.match(hint, /有话就连着几条说完，真没什么就一两句/);
   assert.match(hint, /不要机械套用报备、关心、安排的固定流程/);
   assert.doesNotMatch(hint, /只有你、只有今天|就是没开口|这两种开口一律不许用/);
 });

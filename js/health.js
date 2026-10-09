@@ -258,6 +258,11 @@
     return out;
   }
 
+  // 这几个数怎么读、拿来干嘛：常驻那一行和饭点来问那一行共用这一句（她 2026-10-08 截图：开了健康关心，
+  //   他一口气五条「健康记录上一整天光秃秃的零」「仙女靠吸暖气过活」「晚上到底吃什么」——把没记读成了没吃，
+  //   把「让你知道」读成了「派你来查岗」）。
+  const HEALTH_READ = "这些数是她顺手记的，【没记不等于没吃没喝】，多半只是没顺手点。她开这个是让你多知道一点她今天过得怎样，不是派你来查岗："
+    + "你还是你平时那个人，平时怎么惦记她，这会儿就怎么惦记——想问就照你自己会问的样子问一句，问过了等她回，不用连着追问、也不用拿数字说事。";
   // noteFor：只给她点了名的人；只在饭点前后、或她两小时内刚记过一餐时出一行，其余时候空字符串＝零 token
   // 跟这个人立着的约：不看「谁看着」开没开——约是她跟他两个人定的，他本来就该知道
   function pactLine(d, charId, t) {
@@ -284,7 +289,7 @@
     return "今天到现在记了约 " + tot.kcal + " 千卡（她给自己定的是 " + d.goal.kcal + "），" + got
       + (ate ? "；最近记的是" + ate : "") + "；水喝了 " + tot.water + "/" + d.goal.water + " 杯"
       + (tot.sportMin ? "；今天动了 " + tot.sportMin + " 分钟" : "") + (tot.sleep ? "；昨晚睡了 " + hrs(tot.sleep) : "") + "。"
-      + env + "这是她自己开的，让你帮着看着她" + (env ? "吃饭喝水、也知道她此刻在哪" : "吃饭喝水") + "——管不管、怎么管，照你自己的性子和你们现在的关系来。";
+      + env + HEALTH_READ;
   }
   // 主动来问：开了「饭点会来问」、在午饭/晚饭窗口里、那一顿还没记、今天这一顿还没问过、一天最多两次
   // 饭点那两次和手机报上来的那两种（电量低、下雨还在外面）各算各的：饭点一天最多两次，后两种各一天一次
@@ -332,7 +337,7 @@
     if (today.filter(k => k === "lunch" || k === "dinner").length >= 2 || today.includes(meal)) return null;
     const tot = dayTotals(d, day);
     return { meal, label: mealName(meal) + "的点", ids, day,
-      line: "她在健康 app 里开了让你帮着盯吃饭。她今天记到现在约 " + tot.kcal + " 千卡、水 " + tot.water + "/" + d.goal.water + " 杯，" + mealName(meal) + "还没记。"
+      line: HEALTH_READ + "她今天记到现在约 " + tot.kcal + " 千卡、水 " + tot.water + "/" + d.goal.water + " 杯，" + mealName(meal) + "还没记。"
         + (d.watch.env ? envLine(d, t) : "") };
   }
   function markNudged(day, meal) {

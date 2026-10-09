@@ -3,7 +3,7 @@
 //
 // 查下来：导入那头 v72.26 已经是勾选了，导出那头一直是【整套或没有】；
 // 聊天气泡那一页压根没有自己的口子（只能从主题工作台整套带走）。
-// 三处共用同一份名单（ThemeStudio.PACK_PARTS）和同一种文件（kind:"lisa-theme"）——
+// 三处共用同一份名单（ThemeStudio.PACK_PARTS）和同一种文件（kind:"qq-theme"）——
 // 另造一种「气泡专用格式」的话，主题工作台那头收不了它。
 const test = require("node:test");
 const assert = require("node:assert/strict");
@@ -46,7 +46,7 @@ test("这一样到底有没有，只有一处说了算", () => {
 test("只挑图标导出，包里就只有图标", async () => {
   const s = loadStudio();
   const pkg = JSON.parse(await s.exportPackage(Object.assign({}, full(s), { pick: { icons: true } })));
-  assert.equal(pkg.kind, "lisa-theme", "换了一种文件——那头就收不了了");
+  assert.equal(pkg.kind, "qq-theme", "换了一种文件——那头就收不了了");
   assert.equal(pkg.profile.icons.cast, "iv_icon");
   assert.equal(pkg.profile.globalCSS, "", "没挑的 CSS 也跟着装走了");
   assert.equal(pkg.profile.fonts.body, "", "没挑的字体也跟着装走了");
