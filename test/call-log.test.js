@@ -60,3 +60,9 @@ test("tag 当用途：中文照用，英文翻成中文，认不出的不摆英�
   assert.equal(env.f("wh-c_12"), "悄悄话");
   assert.equal(env.f("zzz"), "");
 });
+
+test("每一行带上这次的输入／输出 token：线路回了才记，不编数", () => {
+  assert.equal((eng.match(/if \(d\.usage\) opts\._tok = /g) || []).length, 2, "anthropic 和 openai 两条都要交回 token");
+  assert.match(eng, /tok: o\._tok \|\| null,/);
+  assert.match(scr, /r\.tok \? h\("div", \{ "data-wk": "calllogtok"/);
+});

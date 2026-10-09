@@ -792,7 +792,7 @@ async function callAI(p, system, messages, opts) {
     const o0 = opts || {}, use = String(o0.use || "");
     try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
       label: o0.logLabel || LOG_USE[use] || bgShow || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
-      turn: !!LOG_USE[use] && !o0.logRetry, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
+      turn: !!LOG_USE[use] && !o0.logRetry, tok: o._tok || null, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
   };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
   let streamed = false;
@@ -1088,6 +1088,8 @@ async function callAIOnce(p, system, messages, opts) {
         historyBreakpoint: _hasAssistantBreakpoint,
         usageReported: _usageReported
       };
+      // 调用记录那一行要显示的 token（她 2026-10-09）：交回 callAI 那头记账。线路没回 usage 就不填，不编数
+      if (d.usage) opts._tok = { in: rec.in + rec.cr + rec.cw, out: rec.out, cr: rec.cr };
       // 前缀指纹（诊断「连着聊也不命中」，她 2026-07-13 抓的）：缓存的稳定前缀每轮该完全一样；
       // 指纹每轮都变=前缀被某处每轮污染了，那才是没命中的真因（而非有效期/线路）。plen=前缀字符数。
       // ⭐只诊断【主聊天(cacheHist)】那类调用：日记/交换日记等后台生成 prompt 完全不同，若也参与就会污染指纹种类，
@@ -1272,6 +1274,8 @@ async function callAIOnce(p, system, messages, opts) {
       cacheRequested: false, systemBreakpoint: false, historyBreakpoint: false,
       usageReported: !!d.usage
     };
+    // prompt_tokens 本来就含着缓存命中那部分，不用再加
+    if (d.usage) opts._tok = { in: rec2.in, out: rec2.out, cr: rec2.cr };
     if (typeof window !== "undefined") { (window.__usage = window.__usage || []).push(rec2); if (window.__usage.length > 30) window.__usage.shift(); }
   } catch (e) {}
   _served(d.model);

@@ -8578,7 +8578,8 @@ function CallLogCard() {
     h("div", { className: "flex items-center justify-between" },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, "模型调用记录"),
       rows.length ? h("button", { onClick: clear, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, background: "none", border: "none", minHeight: 32 } }, "清空") : null),
-    h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "今日 " + today.length + " 次请求 · " + today.filter(r => r.turn).length + " 个回合"),
+    h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "今日 " + today.length + " 次请求 · " + today.filter(r => r.turn).length + " 个回合"
+      + (today.some(r => r.tok) ? " · 输入 " + today.reduce((n, r) => n + (r.tok ? r.tok.in : 0), 0).toLocaleString() + " / 输出 " + today.reduce((n, r) => n + (r.tok ? r.tok.out : 0), 0).toLocaleString() + " tokens" : "")),
     h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, "只记在这台手机上，最近 " + ((window.CallLog && window.CallLog.MAX) || 300) + " 条；不上云，也不多花调用。"),
     !rows.length ? h("div", { style: Object.assign({}, small, { marginTop: 16 }) }, "还没有记录。聊几句再回来看。") : null,
     rows.slice(0, show).map((r, i) => h("div", { key: r.ts + "_" + i, "data-wk": "calllogrow", "data-ok": r.ok ? "1" : "0", style: { padding: "13px 0", borderBottom: "1px solid " + t.line } },
@@ -8590,6 +8591,8 @@ function CallLogCard() {
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 4 } }, r.label),
       h("div", { style: Object.assign({}, small, { marginTop: 2 }) }, r.turn ? "一个回合" : "单次调用"),
       h("div", { style: Object.assign({}, small, { wordBreak: "break-all" }) }, [r.route, r.model].filter(Boolean).join(" · ") + " · " + (r.stream ? "流式" : "一次给完") + " · " + (r.ms / 1000).toFixed(1) + " s"),
+      // token：线路回了才有；没回的（部分中转、失败的那次）这一行不出现，不编数
+      r.tok ? h("div", { "data-wk": "calllogtok", style: small }, "输入 " + r.tok.in.toLocaleString() + " · 输出 " + r.tok.out.toLocaleString() + " tokens" + (r.tok.cr ? "（其中缓存命中 " + r.tok.cr.toLocaleString() + "）" : "")) : null,
       !r.ok && r.err ? h("div", { style: Object.assign({}, small, { color: "#c25a4a", wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", marginTop: 2 }) }, r.err) : null)),
     rows.length > show ? h("button", { onClick: () => setShow(n => n + 40), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, background: "none", border: "none", padding: "14px 0", minHeight: 44 } }, "再往前看 40 条") : null);
 }
