@@ -728,7 +728,38 @@ const CallLog = (() => {
   return { add, load, clear, list: () => rows.slice(), MAX };
 })();
 if (typeof window !== "undefined") window.CallLog = CallLog;
+// 「在干嘛」认不出来时按【是谁叫的】认（她 2026-10-09：「其他的也来慢慢补吧」）：
+//   一百多处调用不一处处手写，在进 callAI／runProbe 那一刻看一眼调用栈——先认函数名，再认文件。
+//   新加一处调用、表里没有，就显示「其他」；看见哪个常出现就往这两张表里补一行。
+const CALL_FN_LABEL = Object.freeze({"gachaRedeem": "抽卡兑换", "mkThread": "查手机·聊天记录", "desireTendAllToday": "念头", "sendForumPM": "论坛私信", "openAnon": "匿名提问", "makeupOpen": "和好间", "callSend": "通话", "askYesNo": "问TA答不答应", "askAnonMe": "匿名提问", "_replyTurn": "聊天回复", "wearMatch": "穿搭", "watchKnock": "一起看", "unlinkCouple": "解除情侣", "tripPlanGen": "旅行行程", "summarizeChatRoom": "小房间小结", "schedMaybeSelfRevise": "日程自己改", "runProbeRetry": "重试", "routeWorld": "地图路线", "rerollCoupleQA": "情侣问答", "requestKinshipRaise": "亲属卡加额度", "replyGroup": "群聊", "refreshAnonPersona": "匿名主页", "reactToUserMoment": "回你的朋友圈", "radioAsk": "电台", "pinWishAsChar": "愿望板", "openAnonBox": "匿名箱", "observeRelationshipBShadow": "关系观察", "notifyChapterToChars": "同人文通知", "myClosetGen": "我的衣柜", "momentReplies": "朋友圈评论", "makeupSay": "和好间", "leaveInCoupleSpace": "情侣空间留言", "leaveAtHis": "去TA那儿留言", "ifOpen": "另一种我们", "ifAdvance": "另一种我们", "handPhoneTo": "给TA看手机", "generateTemperamentDraft": "写性格", "genWorldNodes": "地图", "genWorld": "地图", "genWhisper": "悄悄话", "genWeekSpend": "一周消费", "genWatchSession": "一起看", "genWalletProfile": "钱包档案", "genTimelineMusing": "时光轴感慨", "genTakeout": "外卖", "genSnoop": "查手机", "genShop": "购物", "genScheduleWeek": "一周日程", "genScheduleDay": "日程", "genPollVotes": "群投票", "genPhoneApp": "查手机", "genPhoneAll": "查手机", "genNetizenQ": "网友提问", "genMoment": "朋友圈", "genLetterReply": "情书回信", "genGiftThought": "礼物心声", "genExDiaryReply": "交换日记", "genDwellPlace": "住处", "genDateOutfits": "约会穿搭", "genDailySpend": "每日消费", "genCoupleRecall": "情侣回忆", "genCoupleLetter": "情书", "genCoupleDisc": "情侣唱片", "genClosetMore": "衣柜", "genCharPlaylist": "TA的歌单", "genCarrySection": "随身物品", "genCarryAll": "随身物品", "genCalMonth": "日历", "genAnonMe": "匿名主页", "gazeCall": "印象卡", "gardenPlantGen": "种花", "ensureCharForumMeta": "论坛主页", "endCall": "通话小结", "desireMuseFor": "念头", "decidePayLater": "代付", "decideGroupPayLater": "群代付", "charReceiveGiftReact": "收到礼物", "brewAnonPool": "匿名箱", "blockedReaction": "拉黑反应", "backfillMemEmotion": "记忆补情绪", "autoForumForChar": "论坛发帖", "autoBuryCapsuleForChar": "时光胶囊", "astroSignSweep": "星盘", "askAnon": "匿名提问", "answerCoupleQA": "情侣问答", "_pageTheme": "页面配色", "summarizeGroup": "总结群聊", "summarizeChatBlock": "总结聊天", "summarizeChat": "总结聊天", "scenePhotoBrief": "线下照片", "offlineSummaryCall": "线下小结", "offlineRewriteScene": "线下改写", "naiTagsFor": "生图标签", "jpKanaReading": "日文注音", "generateDiaryComment": "日记评论", "_transModel": "翻译", "probeAs": "直播", "probeMany": "直播", "askStranger": "刷视频", "probeStranger": "刷视频", "onSummarizePin": "回忆卡", "onRecall": "回忆卡", "onConnect": "电台", "onStudio": "电台", "onWheelReact": "转盘", "phoneCalendarFor": "查手机·日历", "genForumBoard": "论坛", "loadForumComments": "论坛评论", "genMoreComments": "论坛评论", "refreshForumPMs": "论坛私信", "startForumPM": "论坛私信", "forumMineTick": "论坛", "genRepliesToMe": "论坛回复", "genForumSearch": "论坛搜索"});
+const CALL_FILE_LABEL = Object.freeze({"assistant": "秋秋", "astro": "星盘", "capsule": "时光胶囊", "companion": "桌宠", "debate": "擂台", "dream": "梦境", "dreamjournal": "梦境日记", "fairy-garden": "小世界", "fanfic": "同人文", "games": "小游戏", "health": "健康", "impression": "月度印象", "ledger": "记账", "listen-talk": "一起听", "memo": "备忘录", "pomodoro": "番茄钟", "read": "一起读", "study": "一起学", "style-presets": "文风预设", "tarot": "塔罗", "theater": "小剧场", "trpg": "跑团", "watch": "一起看", "weekly": "周刊"});
+// tag 是调用点自己起的名字：中文直接用；英文那几个翻一下，认不出的不显示（落到「其他」），别把英文摆到她眼前
+const CALL_TAG_LABEL = Object.freeze({ live: "直播", shua: "刷视频", phoneWatch: "查手机", "notif-test": "测试通知", astro: "星盘", tarot: "塔罗", "wh-": "悄悄话", "mom-": "朋友圈", health: "健康" });
+function callTagLabel(tag) {
+  const t = String(tag || "");
+  if (!t) return "";
+  if (!/^[\x00-\x7f]+$/.test(t)) return t;
+  if (CALL_TAG_LABEL[t]) return CALL_TAG_LABEL[t];
+  const k = Object.keys(CALL_TAG_LABEL).find(x => x.endsWith("-") && t.indexOf(x) === 0);
+  return k ? CALL_TAG_LABEL[k] : "";
+}
+const CALL_SKIP_FN = { callAI: 1, callAIOnce: 1, once: 1, logIt: 1, runProbe: 1, runProbeInner: 1, runProbeRetry: 1 };
+function callerLabelOf(stack) {
+  const lines = String(stack || "").split("\n").slice(1, 14);
+  for (const ln of lines) {
+    const m = ln.match(/at\s+(?:async\s+)?([\w$.<>/]+)\s+\(.*?\/js\/([\w-]+)\.js/) || ln.match(/^\s*([\w$.<>/]*)@.*?\/js\/([\w-]+)\.js/) || ln.match(/at\s+.*?\/js\/([\w-]+)\.js()/);
+    if (!m) continue;
+    const fn = String(m[1] || "").split(/[./]/).pop().replace(/[^\w$]/g, ""), file = m[2] || m[1];
+    if (CALL_SKIP_FN[fn]) continue;
+    if (CALL_FN_LABEL[fn]) return CALL_FN_LABEL[fn];
+    if (CALL_FILE_LABEL[file]) return CALL_FILE_LABEL[file];
+  }
+  return "";
+}
 async function callAI(p, system, messages, opts) {
+  // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
+  let logFrom = (opts && opts.logFrom) || "";
+  if (!logFrom && !(opts && (opts.logLabel || opts.use)) && typeof callerLabelOf === "function") { try { logFrom = callerLabelOf(new Error().stack); } catch (e) {} }
   // 没有线路就当场报，不进重试那一层（跟 callAIOnce 头一句同一个说法）
   if (!p) throw new Error("没有可用的文字模型，请到设置检查主模型或已选择的后台模型");
   // ⚠️这两张表写在函数里面：好几条测试会把 callAI 单独抠出来跑，放外面就抠不到
@@ -760,7 +791,7 @@ async function callAI(p, system, messages, opts) {
     if (typeof CallLog === "undefined") return;
     const o0 = opts || {}, use = String(o0.use || "");
     try { CallLog.add({ ts: t0, ms: Date.now() - t0, ok: ok === true, cut: ok === "cut", err: ok === true ? "" : String(msg || "").slice(0, 300),
-      label: o0.logLabel || LOG_USE[use] || bgShow || o0.tag || "其他", who: o0.logWho || "",
+      label: o0.logLabel || LOG_USE[use] || bgShow || logFrom || (typeof callTagLabel === "function" ? callTagLabel(o0.tag) : "") || "其他", who: o0.logWho || "",
       turn: !!LOG_USE[use] && !o0.logRetry, route: (p && p.name) || "", model: (p && p.model) || "", stream: !!(o0.stream || o0.onDelta) }); } catch (e) {}
   };
   // 流式已经吐出字的那一次不重试：再发一遍，她屏幕上同一句话会冒两遍
@@ -9009,6 +9040,8 @@ function flatSchemaSalvage(raw, hint) {
 // 生成失败广播：app.js 接住弹提示（调用方自己弹过就不重复）。runProbe 这一口收了大多数生成，
 // 在这里挂一张网，比去 600 多个 catch 里一处处补可靠（她 2026-09-29 要「失败都要有 toast」）。
 async function runProbe(p, ctx, probe) {
+  let _from = ""; try { _from = callerLabelOf(new Error().stack); } catch (e) {}
+  if (_from && probe && typeof probe === "object" && !probe.logFrom) probe = Object.assign({}, probe, { logFrom: _from });
   try { return await runProbeInner(p, ctx, probe); }
   catch (e) {
     try { if (typeof window !== "undefined" && window.dispatchEvent) window.dispatchEvent(new CustomEvent("gen-failed", { detail: { tag: (probe && probe.tag) || "", msg: String((e && e.message) || e || "") } })); } catch (_) {}
@@ -9043,10 +9076,10 @@ async function runProbeInner(p, ctx, probe) {
   // tag 只为记账：probe 上写了就带下去，没写就落进「其它」（见 ApiMeter）
   const _tag = probe.tag || "";
   try {
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want, tag: _tag });
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: want, tag: _tag, logFrom: probe.logFrom });
   } catch (e) {
     if (!tooBig(e) || want <= 8000) throw e;
-    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000, tag: _tag });
+    raw = await callAI(p, system, [{ role: "user", content: "开始。" }], { maxTokens: 8000, tag: _tag, logFrom: probe.logFrom });
   }
   let parsed = extractJSON(raw);
   // 她 2026-08-29 报「深夜台第一次解析失败了第二次好了」——这类失败多半是这一次
@@ -9069,7 +9102,7 @@ async function runProbeInner(p, ctx, probe) {
   if (!parsed && !probe.once) {
     try {
       const again = await callAI(p, system + "\n\n【⚠️上一次的输出没能解析】只输出一个合法 JSON 对象：不要 markdown 代码块、不要前后多说一个字、所有括号引号都要闭合。",
-        [{ role: "user", content: "重来一次。" }], { maxTokens: want, tag: _tag });
+        [{ role: "user", content: "重来一次。" }], { maxTokens: want, tag: _tag, logFrom: probe.logFrom });
       parsed = extractJSON(again);
       if (parsed) return parsed;
       raw = again;
