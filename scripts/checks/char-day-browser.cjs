@@ -13,14 +13,14 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
       {seq:5,time:'23:00',end:'24:00',title:'夜里歇下',location:'寝室',type:'sleep'}]});
     window.dayWriteCount=0;window.dayOriginalSave=saveJSON;window.saveJSON=(...args)=>{dayWriteCount++;return dayOriginalSave(...args);};window.dayModelCount=0;window.callAI=()=>{dayModelCount++;throw Error('Unexpected model call');};
     window.dayNavigation=[];const el=document.createElement('div');el.id='char-day-root';el.style.cssText='position:fixed;inset:0;z-index:999999;height:100dvh';document.body.append(el);
-    window.dayRoot=ReactDOM.createRoot(el);dayRoot.render(React.createElement(FairyGardenApp,{characters:dayChars,day:{plansFor:c=>dayRef.current[c.id]||{},taFor:()=> '他',lookFor:c=>c.id==='day-a'?{outfit:'ranger',hair:'korean',hairColor:'#43352e'}:{outfit:'garden',hair:'bob',hairColor:'#935f43'},onSchedule:c=>dayNavigation.push(c.id)},toast:()=>{},onBack:()=>{}}));
+    window.dayRoot=ReactDOM.createRoot(el);dayRoot.render(React.createElement(FairyGardenApp,{characters:dayChars,day:{plansFor:c=>dayRef.current[c.id]||{},taFor:()=> '他',lookFor:c=>c.id==='day-a'?{outfit:'academy',hair:'korean',hairColor:'#43352e',wardrobe:{academy:{cloth:'#a8be83',trim:'#ebcedf',bottom:'#766956',boots:'#163541'}}}:{outfit:'garden',hair:'bob',hairColor:'#935f43'},onSchedule:c=>dayNavigation.push(c.id)},toast:()=>{},onBack:()=>{}}));
   },writer);
   const root=p.locator('#char-day-root'),shot=name=>p.screenshot({path:path.join(out,name+'.png')}),ready=async()=>{await p.waitForFunction(()=>document.querySelector('#char-day-root iframe')?.contentWindow.CharDayScene?.inspect().ready);frame=p.frames().find(f=>f.url().includes('/fairy-garden/day/'));};
   const state=()=>frame.evaluate(()=>CharDayScene.inspect()),settle=async()=>{await frame.waitForFunction(()=>CharDayScene.inspect().map&&CharDayScene.inspect().gesture&&!CharDayScene.inspect().changing);};
   if(!process.env.DAY_ROUTE_ONLY){
   await root.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await shot('picker');await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色甲'}).click();await ready();await settle();assert.equal((await state()).map,'hall');assert.equal((await state()).gesture,'rest');assert.match(await root.locator('[data-wk=cdaynow]').innerText(),/核对军报/);
   const entry=(await state()).position;await frame.waitForFunction(({x,z})=>{const s=CharDayScene.inspect();return s.route.length&&Math.hypot(s.position.x-x,s.position.z-z)>.6;},entry);result.entryWalking=true;await shot('entry-walking');
-  await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return !s.route.length&&s.emotion==='chin';});
+  await frame.waitForFunction(()=>{const s=CharDayScene.inspect(),v=s.chinContact;return !s.route.length&&s.emotion==='chin'&&v&&v[1]<-.7&&v[2]>.75;});result.handOutsideFace=true;
   const joint=(await state()).arm;assert.ok(joint?.length===4);await frame.waitForFunction(a=>{const s=CharDayScene.inspect();return s.arm?.some((n,i)=>Math.abs(n-a[i])>.08);},joint);
   assert.equal((await state()).dailyAction.book,false);result.continuousWorkMovement=true;await shot('work');
   for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){

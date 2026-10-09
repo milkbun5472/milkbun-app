@@ -6,7 +6,7 @@ export function emotionPose(face,p){
  switch(face){
  case 'chin': { // 收手托住下巴，歪头听一会儿，再轻轻点头收势
   const hold=beat(p,0,.24,.72,1),nod=beat(p,.58,.64,.68,.76);
-  q.right=[-.48*hold,0,-.48*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-2.35*hold;q.chinHold=hold;
+  q.right=[-.32*hold,0,.35*hold];q.left=[-.12*hold,0,-.08*hold];q.rightElbow=-1.65*hold;q.chinHold=hold;
   q.roll=-.055*hold;q.tilt=.025*hold+.025*nod;q.yaw=-.045*hold;break;}
  case 'headpat': { // 先低头靠近手心，停留后抬起来
   const lean=beat(p,0,.24,.5,.88),look=beat(p,.62,.76,.84,1);

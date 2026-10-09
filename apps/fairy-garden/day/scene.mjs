@@ -1,13 +1,13 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-f8e964649a135eb5';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-f8e964649a135eb5';
-import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-f8e964649a135eb5';
-import {seatLook} from '../wardrobe.mjs?v=fg-f8e964649a135eb5';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-f8e964649a135eb5';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-f8e964649a135eb5';
-import {stepRoute} from '../locomotion.mjs?v=fg-f8e964649a135eb5';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-f8e964649a135eb5';
-import {activityPose} from './activity.mjs?v=fg-f8e964649a135eb5';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-b6947a335b534082';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-b6947a335b534082';
+import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-b6947a335b534082';
+import {seatLook} from '../wardrobe.mjs?v=fg-b6947a335b534082';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-b6947a335b534082';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-b6947a335b534082';
+import {stepRoute} from '../locomotion.mjs?v=fg-b6947a335b534082';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-b6947a335b534082';
+import {activityPose} from './activity.mjs?v=fg-b6947a335b534082';
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=T.SRGBColorSpace;
@@ -112,7 +112,8 @@ function tick(dt,time){
   const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
 }
 let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
-window.CharDayScene={setSnapshot:apply,focus:center,overview,inspect:()=>({ready,map,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
+function chinContact(){const head=avatar?.root.getObjectByName('HeadAnchor'),hand=avatar?.root.getObjectByName('Right_hand');return head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null;}
+window.CharDayScene={setSnapshot:apply,focus:center,overview,inspect:()=>({ready,map,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);for(const v of Object.values(mapLoader.views)){v.stream?.close();disposeMap(v.root);}if(avatar)disposeMap(avatar.root);draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{avatar=createTraveler(await loadTravelerSource(),true);scene.add(avatar.root);await avatar.ready();ready=true;tell('');if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}
