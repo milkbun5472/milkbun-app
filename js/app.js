@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.153";
+const APP_VERSION = "v75.155";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12127,7 +12127,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 这一轮有〔照做〕（多半是一整块 HTML 卡片）：回复会长得多。原来 180 秒一刀、不走流式，
         //   Claude 走中转写一张大卡常常写不完就被掐成「超时」（她 2026-10-06：「要么很快回复文字，要么卡住 time out」）。
         //   这一轮改走流式（边写边收，连接不会因为久没动静被断），总时限给 10 分钟，篇幅上限给满。
-        raw = await callAI(_route, system, aiMessages, { use: "chat", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天", ...(_doTail ? { maxTokens: 65535, stream: true, timeout: 600000 } : {}) });
+        raw = await callAI(_route, system, aiMessages, { use: "chat", logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天", ...(_doTail ? { maxTokens: 65535, stream: true, timeout: 600000 } : {}) });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -12137,7 +12137,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { use: "chat", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
+        raw = await callAI(_route, system, retryMessages, { use: "chat", logRetry: true, logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -14230,7 +14230,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 秋秋的礼物那条线只放行【她按下去的那一下】（engine.js giftHeaders，没写明用途的一律当后台）。
         //   ⚠️这一枪原来漏标了：2026-10-08 开闸当天群友报「群聊走的秋秋的礼物，生不出来」——
         //   群里说话被当成后台活儿拒了。单聊、线下、单人通话都标了，就群聊这儿和群通话没跟上。
-        use: "chat",
+        use: "chat", logLabel: "群聊", logWho: (group && group.name) || "",
         // 多人回复给足思考与正文预算。
         signal: _abort.signal,
         maxTokens: 65535,
@@ -14899,7 +14899,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         role: "user",
         content: "开始投票，按上面的规则决定每个人投什么。"
       }], {
-        use: "chat",   // 投票是她在群里发起的，算她按下去的那一下
+        use: "chat", logLabel: "群投票", logWho: (group && group.name) || "",   // 投票是她在群里发起的，算她按下去的那一下
         maxTokens: 65535
       });
       const arr = parseJSONLoose(raw);
@@ -18769,7 +18769,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         })();
         const callSystem = sys + roomPromptFor(char.id, cur.room, true) + callBiHint + cameraHint;
         const callMessages = window.CallCamera.withFrame(hist, cameraFrame);
-        const raw = await callAI(apiFor(char.id), callSystem, callMessages, { use: "call", maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
+        const raw = await callAI(apiFor(char.id), callSystem, callMessages, { use: "call", logWho: char.name || "", maxTokens: 65535, ...(isVideo ? {} : { stream: true, onDelta: sayStreamer }) });
         const d = extractJSON(raw) || {};
         let says = Array.isArray(d.say) ? d.say : (d.say ? [d.say] : []);
         says = says.map(stripName).filter(Boolean);
@@ -18862,7 +18862,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + gcGrowth
           + wishLine(wishFor(), uName, { group: true, gift: false })
           + "\n\n这是一个多人" + modeZh + "，用户" + uName + "和以下角色都在通话里。角色们用口语化短句自然对话，会顺着彼此和用户的话接梗、插话、跑题，像真的多人语音那样。每个角色想多说几句就多给几条，把话说完。" + (callerIsChar && callerName ? "\n【谁发起的这通电话】是【" + callerName + "】主动拨给 " + uName + " 的、Ta 接了——" + callerName + " 清楚是自己打过去的，别搞反成 " + uName + " 打来的、别问『不是你打给我的吗』。" : "") + "\n\n【在场角色】\n" + memberDesc + sameNameNote(people) + (profile && (profile.name || profile.persona) ? "\n\n【和大家通话的人 · 「" + userName(profile) + "」的设定】\n" + (profile.persona || "（未填写）") : "") + "\n\n【角色间关系】\n" + relLines + (cDirs.length ? "\n\n【用户立下的群规矩（高优先·务必遵守）】\n" + cDirs.map((x, ii) => (ii + 1) + ". " + x.trim()).join("\n") : "") + (cMem && cMem.trim() ? "\n\n【记忆库·相关条目（自然记得，别生硬复述）】\n" + cMem.trim() : "") + (cWorld ? "\n\n【世界书】\n" + cWorld : "") + gcHistBlock + gcTime + gcPrivBlock + "\n\n【挂断】谁真的要结束这通电话，就在自己那一条上加 \"hangup\":\"心里为什么挂\"——填了这通电话就到此为止，绝大多数回合谁都不该填。\n\n【状态卡】跟群里平时聊天一样：谁开口就在TA自己那一条上带上 mood（此刻中文心情词）和 thought（TA心里那一句，第一人称、TA自己的话）。\n\n【输出】只输出 JSON 数组，按发言先后：[{\"name\":\"角色名\",\"text\":\"这句话\",\"action\":\"此刻动作神态\",\"mood\":\"心情词\",\"thought\":\"心里那句\"}]，text 不要带名字前缀，一次 3~" + Math.min(30, Math.max(7, people.length * 3)) + " 条，name 必须是在场角色之一。";
-        const raw = await callAI(active, sys + callBiHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", maxTokens: 65535 });
+        const raw = await callAI(active, sys + callBiHint + cameraHint, window.CallCamera.withFrame(hist, cameraFrame), { use: "call", logLabel: "群通话", maxTokens: 65535 });
         const arr = extractJSON(raw);
         if (Array.isArray(arr)) {
           for (let i = 0; i < arr.length; i++) {
