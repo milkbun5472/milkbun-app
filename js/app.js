@@ -20573,6 +20573,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setGen(g => ({ ...g, momentMore: g.momentMore === id ? null : g.momentMore }));
     }
   };
+  // 「换一批评论」（群友 2026-10-09：「朋友圈评论能不能重新跑，有的好气人」）：撤掉别人的评论再来一轮，她自己写的留着
+  const regenMomentComments = async id => {
+    const mom = moments.find(m => m.id === id);
+    if (!mom || momentMoreInflight.current[id]) return;
+    const meName0 = profile.name || "我";
+    const kept = (mom.comments || []).filter(c => c && (c.author === meName0 || c.author === "我"));
+    pMom(p => p.map(m => m.id === id ? { ...m, comments: kept } : m));
+    momentMoreInflight.current[id] = true;
+    setGen(g => ({ ...g, momentMore: id }));
+    try { await momentReplies({ ...mom, comments: kept }, { more: true }); }
+    finally {
+      momentMoreInflight.current[id] = false;
+      setGen(g => ({ ...g, momentMore: g.momentMore === id ? null : g.momentMore }));
+    }
+  };
   // 我发一条朋友圈（可带图描述、可选可见范围）
   const postUserMoment = ({
     content,
@@ -20783,6 +20798,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const next = { ...cur, [postId]: list.filter(f => !f || f.id !== floorId) };
     saveForumComments(next); setForumComments(next);
     toast("删了这一楼");
+  };
+  // 「换一批」（群友 2026-10-09：「论坛能许愿一个重新生成功能吗，有些话很人机没有活人感」）：
+  //   把这帖底下 AI 写的楼都撤掉、再刷一轮。她自己写的楼、她插过话的楼原样留着——那里面有她的话，撤了就回不来。
+  const regenForumFloors = async post => {
+    if (!post || forumCInflightRef.current[post.id]) return;
+    const cur = forumCommentsRef.current || {};
+    const kept = (cur[post.id] || []).filter(f => f && (f.authorType === "me" || (f.replies || []).some(r => r && r.authorType === "me")));
+    const next = { ...cur, [post.id]: forumFloorOrder(kept) };
+    forumCommentsRef.current = next; saveForumComments(next); setForumComments(next);
+    await genMoreComments(post);
   };
   const deleteForumPost = id => {
     const p0 = (forumPostsRef.current || []).find(x => x.id === id);
@@ -27433,6 +27458,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLikeMoment: likeMoment,
     onCommentMoment: commentMoment,
     onMoreMomentComments: genMoreMomentComments,
+    onRegenMomentComments: regenMomentComments,
     momentMoreBusy: gen.momentMore || null,
     onDelMoment: delMoment,
     onPinMoment: pinMomentToShike,
@@ -27894,6 +27920,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenSearch: genForumSearch,
     onLoadComments: loadForumComments,
     onMoreComments: genMoreComments,
+    onRegenFloors: regenForumFloors,
     onReplyFloor: addForumFloor,
     onReplySub: addForumSubReply,
     onPostMine: postMyForum,

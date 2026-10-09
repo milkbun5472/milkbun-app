@@ -7504,6 +7504,7 @@ function Messages({
   onLikeMoment,
   onCommentMoment,
   onMoreMomentComments,
+  onRegenMomentComments,
   momentMoreBusy,
   onDelMoment,
   onOpenMomProfile,
@@ -7736,6 +7737,7 @@ function Messages({
     onLike: onLikeMoment,
     onComment: onCommentMoment,
     onMore: onMoreMomentComments,
+    onRegen: onRegenMomentComments,
     moreBusy: momentMoreBusy,
     onDelete: onDelMoment,
     onPin: onPinMoment,
@@ -8280,6 +8282,7 @@ function MomentsFeed({
   onLike,
   onComment,
   onMore,
+  onRegen,
   moreBusy,
   onDelete,
   onPin,
@@ -8537,7 +8540,12 @@ function MomentsFeed({
         fontSize: 11.5,
         color: moreBusy === m.id ? t.fog : t.tint
       }
-    }, moreBusy === m.id ? "更多评论生成中…" : "↻ 更多评论"), commenting === m.id && /*#__PURE__*/React.createElement("div", {
+    }, moreBusy === m.id ? "更多评论生成中…" : "↻ 更多评论"),
+    // 换一批：撤掉别人的评论重来一轮，她自己写的留着（群友 2026-10-09）
+    onRegen && moreBusy !== m.id && (m.comments || []).length > 0 && h("button", {
+      "data-wk": "moregen", onClick: () => requestAppConfirm("这条换一批评论？", "别人的评论会撤掉、重新来一轮；你自己写的评论留着。", () => onRegen(m.id), "换一批"), className: "mt-2 ml-3 active:opacity-60",
+      style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog }
+    }, "换一批"), commenting === m.id && /*#__PURE__*/React.createElement("div", {
       className: "mt-2 flex gap-2"
     }, /*#__PURE__*/React.createElement("input", {
       value: cText,

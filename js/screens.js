@@ -2550,7 +2550,7 @@ function ForumAnonWrap(props) {
 }
 function Forum({
   characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
-  onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onReplyFloor, onReplySub,
+  onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
   onRefreshPMs, onSendPM, onMarkPMRead, onEditMe, onEnsureCharMeta, onToggleForumChar,
@@ -3059,6 +3059,8 @@ function Forum({
           alt && h("button", { onClick: () => toggleNpcFollow(altFollowKey(p)), className: "mt-3 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, background: npcFollowSet.has(altFollowKey(p)) ? t.ink : "transparent", fontFamily: F_BODY, fontSize: 12, color: npcFollowSet.has(altFollowKey(p)) ? t.bg2 : t.ink } }, npcFollowSet.has(altFollowKey(p)) ? "已关注小号" : "关注小号")),
         h("div", { className: "px-4 pt-3 pb-1 flex items-center justify-between" },
           h(Eyebrow, null, "全部回复 · " + (p.replyCount || 0)),
+          // 换一批（群友 2026-10-09）：AI 写的楼撤掉重刷，她写的、她插过话的楼留着
+          onRegenFloors && list.length > 0 && !moreC && !loadingC && h("button", { "data-wk": "foregen", onClick: () => requestAppConfirm("这帖底下换一批回复？", "别人写的楼会撤掉、重新刷一轮；你自己写的楼和你回过话的楼都留着。", () => onRegenFloors(p), "换一批"), className: "active:opacity-60 ml-auto mr-3", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "换一批"),
           h("button", { onClick: () => onMoreComments(p), disabled: moreC || loadingC, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint } }, moreC ? "旧楼已放出 · 生成中…" : (loadingC ? "首批正在生成…" : (waitingFloors > 0 ? "↻ 放出旧楼并生成" : "↻ 更多回复")))),
         loadingC && h(Spinner, { label: "楼里的人正在赶来…" }),
         !loadingC && waitingFloors > 0 && h("div", { className: "mx-4 my-2 px-3 py-2", style: { borderRadius: 10, background: t.bg2, border: `1px dashed ${t.line}`, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还有 " + waitingFloors + " 条回帖会随着时间陆续出现"),
