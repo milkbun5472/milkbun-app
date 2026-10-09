@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.128";
+const APP_VERSION = "v75.129";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -20730,7 +20730,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 「全部」（大杂烩）里不分世界：谁都能去谁的帖下面说话（她 2026-10-01：「在全部的时候古代角色也可以评论现代的，
   //   vice versa」）。切到某个世界才按世界分——想让两条线的人别碰面，就切过去逛。
   const forumInWorld = (c, post) => !!c && (forumCurWorld() === "*" || forumThreadWorld(post) === "*" || charWorldOf(c.id) === forumThreadWorld(post));
-  const forumCharList = post => forumActiveChars().filter(c => !post || forumInWorld(c, post)).map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").slice(0, 36) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；");
+  // 同 persona1 那条：36 个字只够一个职业标签，楼里的角色就成了那一行的黑话机（她 2026-10-08）
+  const forumCharList = post => { const _cs = forumActiveChars().filter(c => !post || forumInWorld(c, post)); const _b = Math.max(400, Math.min(2000, Math.floor(8000 / Math.max(1, _cs.length)))); return _cs.map(c => { const m = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, _b) + "｜常逛" + m.boardPrefs.join("/") + "｜" + m.participation + "｜回帖：" + m.replyStyle + "｜平时用大号，需要遮一下时习惯用" + (m.identityBias === "alt" ? "固定小号" : "匿名") + "）"; }).join("；"); };
   const toggleForumChar = charId => setAutoRefreshChar("forum", charId, (forumOffRef.current || []).includes(charId));
   // NPC 主帖不绑定具体角色，用一个「论坛网友」合成 ctx（仍带世界书 + 去人机味总则）
   // 楼层落盘失败不许静默（照 commitEmotePacks 那一处的写法：
@@ -21372,7 +21373,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const opName = opChar ? opChar.name : (post.authorType === "me" ? (post.alt ? post.authorName : (forumMe.handle || profile.name || "我")) : (post.authorName || "楼主"));
     // 逛论坛的角色池要排除楼主本人——楼主不会在自己帖下冒泡回复自己
     const poolChars = forumActiveChars().filter(c => (!opChar || c.id !== opChar.id) && forumInWorld(c, post));
-    const persona1 = c => { const fm = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, 80) + (moods[c.id] && moods[c.id].label ? "｜此刻心情：" + moods[c.id].label : "") + "｜论坛习惯：常逛" + fm.boardPrefs.join("/") + "，" + fm.participation + "，" + fm.replyStyle + "，偏向" + (fm.identityBias === "alt" ? "小号" : "大号") + "）"; };
+    // 人设原来只给前 80 个字：剩下的往往就是一个职业标签（「程序员」「医生」），模型拿标签演人，
+    //   于是到了论坛一开口全是那一行的黑话（她 2026-10-08：「他到了论坛还在 bugbug 的」）。按在场人数分一份额度，跟群聊同一个思路。
+    const _fpBudget = Math.max(400, Math.min(2000, Math.floor(8000 / Math.max(1, poolChars.length))));
+    const persona1 = c => { const fm = charForumMeta(c); return "「" + c.name + "」（" + String(c.persona || "").replace(/\s+/g, " ").slice(0, _fpBudget) + (moods[c.id] && moods[c.id].label ? "｜此刻心情：" + moods[c.id].label : "") + "｜论坛习惯：常逛" + fm.boardPrefs.join("/") + "，" + fm.participation + "，" + fm.replyStyle + "，偏向" + (fm.identityBias === "alt" ? "小号" : "大号") + "）"; };
     const poolStr = poolChars.map(persona1).join("；");
     // 在场角色间关系（搜索吧是陌生话题、不注入关系）
     const relLines = isSearch ? [] : forumRelLines(poolChars, opChar);
