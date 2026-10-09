@@ -4,7 +4,7 @@
 
 入口：小世界 → TA的一天 → 新场景摆位试玩；已有角色画面底栏点「新场景」保留该角色样貌。下拉选择标号位置，沿原 world/navigation/locomotion 实际寻路，坐位沿原 traveler 坐姿。「换场景」切两房，「回到日程」恢复原角色当前段。
 
-此批交付房间、碰撞、路线、基础站坐阅读与明确摆位；日程自动匹配、拿取／归还／实验／电脑操作随后统一接入。当前日程映射保持原逻辑。
+此批交付房间、碰撞、路线、基础站坐阅读与明确摆位；日程自动匹配、拿取／归还／实验／电脑操作随后统一接入。专业场景目前保留独立摆位试玩；日程的基础活动已由下述四个日常场景承接。
 
 公共 room-kit 提供哑光软边家具并按材质合批。地板高 .08，椅面相对地板 .45，阅读／电脑桌 .85，站立实验台 1.0。所有家具和碰撞使用各场景同一份数据。地图定义中的 spots/tour 可供后续联动使用。
 
@@ -35,3 +35,16 @@
 实验器材统一在 `LaboratoryEquipment` 命名组；`createLaboratory({equipment:"none"})` 保留工位和碰撞、移除专业摆件，未来可替换整组研究方向器材。家具与器材不使用网络贴图。
 
 验证：`node --test apps/fairy-garden/day/places/places.test.mjs test/char-day.test.js`；手机实景和原角色往返：`scripts/checks/char-day-places-browser.cjs`，用 `DAY_URL`、`DAY_ENGINE`、`DAY_EVIDENCE` 与 `PLAYWRIGHT_MODULE` 指定隔离浏览器。实际截图及证据：`/Users/lisa/.codex/visualizations/2026/10/09/char-day-places/`。
+
+
+## 四个日常场景与双人小家
+
+`../spaces.mjs` 集中定义 dayHome/dayWork/dayCafe/dayStreet 的房间、家具、碰撞与家具局部动作点，`../space-view.mjs` 用同一布局绘制。小家为14×11的共同住处，包含卧室、起居区、厨房餐区与预留布置区；日程仍保留角色真实事情、地点与当地时间，视觉住处不反写现实人设。明确的外食与咖啡店地点进入小店，在家吃饭喝茶仍在小家。
+
+`SPACE_STYLES` 分别定义暖木、浅色、深木材质配色。选择存在 `x_charDayHomes` 的 `styles[charId]`，由宿主现有 IndexedDB durable writer 保存；示例只留组件状态。没有新增模型请求或主线经历。
+
+房间结构在 RoomShell 内；每件家具保留自己的命名组、placement 与材质批次，公共 room-kit 同时用于专业房间。`buildSpace(id, placements)` 由摆位重算家具足迹、接近点、坐位与床位，可供后续装修编辑器接入。实际拖摆、摆放校验、导航更新与装修界面属于下一步，当前提供三种样式选择。
+
+原三游戏床位与日常小家共用 sleepPose，按正在睡的那个人所在地图读床；玩家在别处时，同伴仍可在原房间睡。TA的一天的全景允许较低缩放以容纳宽房型，原游戏缩放范围保持原默认值。
+
+验证：`node --test apps/fairy-garden/day/spaces.test.mjs test/char-day.test.js apps/fairy-garden/home.test.mjs apps/fairy-garden/sleep-hug.test.mjs apps/fairy-garden/view-controls.test.mjs`。浏览器日程、保存失败与跨角色/重开：`scripts/checks/char-day-browser.cjs`；专业摆位往返沿原 `char-day-places-browser.cjs`。本次实图和证据：`/Users/lisa/.codex/visualizations/2026/10/09/char-day-four-spaces/`。

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-504734d19f7543b2';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-2d8fc4dc9e35a469';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};
@@ -14,6 +14,7 @@ export function createRoomKit(){
     const mesh=new T.Mesh(geometry,material(color));mesh.name=name;mesh.position.set(x,y,z);mesh.rotation.y=heading;mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;
   }
   function cylinder(name,{x=0,y=0,z=0,r=.1,h=.2,color='#dbc9ac',rotation},parent=root){const mesh=new T.Mesh(new T.CylinderGeometry(r,r,h,16),material(color));mesh.name=name;mesh.position.set(x,y,z);if(rotation)mesh.rotation.set(...rotation);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;}
+  function sphere(name,{x=0,y=0,z=0,r=.5,color='#91a586'},parent=root){const mesh=new T.Mesh(new T.SphereGeometry(r,16,12),material(color));mesh.name=name;mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;}
   function table({id,x,z,w,d,top=.85,color='#ba986e'}){const p=group(id,{x,z});box(id+'-top',{y:.08+top-.055,w,h:.11,d,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*(w/2-.15),z:b*(d/2-.15),y:.08+(top-.11)/2,w:.1,h:top-.11,d:.1,color:'#ad8b62'},p);return p;}
   function chair({id,x,z,heading=0,color='#789887',seat=.45}){const p=group(id,{x,z,heading});box(id+'-seat',{y:.08+seat-.045,w:.56,h:.09,d:.57,color},p);box(id+'-back',{y:.08+seat+.3,z:-.245,w:.56,h:.54,d:.075,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*.2,y:.08+(seat-.09)/2,w:.065,h:seat-.09,d:.065,color:'#b49978'},p);return p;}
   function book(name,{x=0,y=0,z=0,w=.16,h=.46,d=.3,color='#879d83',flat=false},parent=root){const p=group(name,{x,y,z},parent);if(flat){box(name+'-pages',{w,h:.065,d,color:'#eee6d4',radius:.005},p);for(const a of [-1,1])box(name+'-cover',{y:a*.038,w:w+.035,h:.012,d:d+.035,color,radius:.005},p);}else{box(name+'-spine',{w,h,d,color,radius:.007},p);for(const a of [-1,1])box(name+'-band',{y:a*h*.31,z:d/2+.004,w:w*.75,h:.015,d:.008,color:'#e3d4af',radius:0},p);}return p;}
@@ -31,10 +32,10 @@ export function createRoomKit(){
     root.updateMatrixWorld(true);const meshes=[];
     root.traverse(o=>{if(o.isMesh)meshes.push(o);});
     // Keep replaceable equipment as a named group; merge within each material/owner.
-    const ownerOf=o=>{let n=o;while(n.parent&&n.parent!==root){if(n.name==='LaboratoryEquipment')return n;n=n.parent;}return root;};
+    const ownerOf=o=>{let n=o;while(n.parent&&n.parent!==root){if(n.name==='LaboratoryEquipment'||n.userData.furnitureId||n.userData.shellPart)return n;n=n.parent;}return root;};
     const owners=new Map();for(const o of meshes){const owner=ownerOf(o);if(!owners.has(owner))owners.set(owner,new Map());const byMat=owners.get(owner);if(!byMat.has(o.material))byMat.set(o.material,[]);const inverse=owner.matrixWorld.clone().invert(),geometry=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();byMat.get(o.material).push(geometry.applyMatrix4(inverse.multiply(o.matrixWorld)));}
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
     for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
   }
-  return {root,box,cylinder,group,table,chair,book,plant,room,finish,material};
+  return {root,box,cylinder,sphere,group,table,chair,book,plant,room,finish,material};
 }

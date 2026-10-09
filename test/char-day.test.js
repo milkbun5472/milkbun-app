@@ -37,7 +37,7 @@ test('凌晨沿原跨午夜睡眠helper承接昨天，醒来与今天新安排�
 });
 test('具体职业内容保留，通用工作姿态不捏造翻书或吃饭',()=>{
   const f=setup();assert.equal(f.K.presentation({type:'work',title:'核对军报'}).gesture,'rest');assert.equal(f.K.presentation({type:'create',title:'雕刻石像'}).gesture,'rest');
-  assert.equal(f.K.presentation({type:'work',title:'翻书找资料'}).gesture,'read');assert.equal(f.K.presentation({type:'out'}).map,'garden');assert.equal(f.K.presentation({type:'sleep'}).action,'sleep');
+  assert.equal(f.K.presentation({type:'work',title:'翻书找资料'}).gesture,'read');assert.equal(f.K.presentation({type:'out'}).map,'dayStreet');assert.equal(f.K.presentation({type:'sleep'}).action,'sleep');
 });
 
 test('同一工作段持续有托腮和抬眼动作，休息有舒展，睡眠吃饭阅读沿原动作',async()=>{
@@ -65,15 +65,26 @@ test('新世界入口独立于三游戏旅程，移动外壳沿公共Head和单�
   assert.match(host,/WORLDS\.concat\(\[DAY_WORLD, null\]\)/);assert.match(host,/world\?\.id === "day"/);
   assert.match(source,/h\(Head,/);assert.match(source,/flex-1 min-h-0 overflow-y-auto/);assert.match(source,/safe-area-inset-bottom\) \* 0\.4/);
   assert.ok(html.indexOf('js/char-day.js')<html.indexOf('js/fairy-garden.js'));
-  assert.doesNotMatch(source,/callAI\(|runProbe\(|saveJSON\(|localStorage\.setItem/);
+  assert.doesNotMatch(source,/callAI\(|runProbe\(|localStorage\.setItem/);assert.match(source,/saveJSONDurable\("x_charDayHomes", next\)/);
 });
 
-test('睡眠场景沿真实床位helper传入完整位置，得到可用躺姿而非只标成sleep',async()=>{
+test('新小家睡眠沿共用床位helper，床位随家具布局而非原庭院小屋',async()=>{
   const {MAPS,sleepPose}=await import('../apps/fairy-garden/world.mjs');
-  const source=read('apps/fairy-garden/day/scene.mjs');
-  const run=new Function('MAPS','sleepPose',"let seat,bed;"+cut(source,'function destination(p)','function go(')+"const target=destination({action:'sleep'});return {target,bed};");
-  const {target,bed}=run(MAPS,sleepPose);assert.ok(bed);assert.ok(bed.y>0);
-  assert.deepEqual(target,MAPS.home.beds[Object.keys(MAPS.home.beds)[0]].approach.companion);
+  const {CORE_SPACES,registerCoreSpaces}=await import('../apps/fairy-garden/day/spaces.mjs');
+  registerCoreSpaces(MAPS);const map=CORE_SPACES.dayHome,spot=map.spots.find(s=>s.action==='sleep');
+  const bed=sleepPose({map:'dayHome',companion:{map:'dayHome',position:spot.target},sleep:{companion:spot.id}},'companion');
+  assert.ok(bed);assert.ok(bed.y>.5);assert.deepEqual(bed,map.beds.sleep.slots.companion);
+  assert.equal(sleepPose({map:'dayHome',companion:{map:'dayHome',position:map.spawn},sleep:{companion:spot.id}},'companion'),null);
+});
+
+test('明确在家与外食分别去新小家或小店，日程原文决定位置',()=>{
+  const f=setup();
+  assert.equal(f.K.presentation({type:'meal',title:'吃午饭',location:'街角餐馆'}).map,'dayCafe');
+  assert.equal(f.K.presentation({type:'coffee',title:'喝咖啡',location:'家里的餐桌'}).map,'dayHome');
+  assert.equal(f.K.presentation({type:'coffee',title:'等朋友',location:'咖啡馆'}).map,'dayCafe');
+  assert.equal(f.K.presentation({type:'work',title:'整理报告',location:'家里书桌'}).map,'dayHome');
+  assert.equal(f.K.presentation({type:'work',title:'整理报告',location:'工位'}).map,'dayWork');
+  assert.equal(f.K.presentation({type:'social',title:'聊聊天',location:'咖啡店'}).map,'dayCafe');
 });
 
 function placeViewer(f,initialCharId){
@@ -101,10 +112,10 @@ test('新场景从选人页独立试玩，原五段示例与日程映射继续�
   assert.equal(payload.charId,f.K.DEMO.id);assert.equal(payload.presentation.map,'dayLaboratory');
   assert.equal(payload.slot,null);assert.equal(payload.follow,false);assert.match(payload.key,/^place:/);
   viewer.click(tree,'回到日程');tree=viewer.render();const back=viewer.send(tree);
-  assert.equal(back.charId,f.K.DEMO.id);assert.equal(back.presentation.map,'home');
-  viewer.click(tree,'下一段');const next=viewer.send(viewer.render());assert.equal(next.presentation.map,'hall');
-  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'hall');
-  assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'hall');
+  assert.equal(back.charId,f.K.DEMO.id);assert.equal(back.presentation.map,'dayHome');
+  viewer.click(tree,'下一段');const next=viewer.send(viewer.render());assert.equal(next.presentation.map,'dayWork');
+  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayWork');
+  assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'dayWork');
   assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });
 

@@ -89,15 +89,15 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     const sceneRequests=requests.filter(url=>/\.glb(?:\?|$)/.test(url));assert.ok(sceneRequests.length,'实际加载原小人');
     assert.equal(sceneRequests.filter(url=>/public-hall|home-interior|hall-dormitory|village|neighbor.+-interior/.test(url)).length,0,'独立摆位期间没有加载庭院/公共厅/家里的场景');
     result.independentSceneAssets=sceneRequests;result.showcaseReadOnly=true;
-    await root.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='home'&&!CharDayScene.inspect().changing);
+    await root.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayHome'&&!CharDayScene.inspect().changing);
     result.demoWidths=await demoLayout();
-    await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='hall'&&!CharDayScene.inspect().changing);result.oldDemoNext=true;
+    await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);result.oldDemoNext=true;
     await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试研究员'}).click();await ready();
-    await frame.waitForFunction(()=>CharDayScene.inspect().map==='hall'&&!CharDayScene.inspect().changing);const original=await state();assert.equal(original.charId,'places-a');assert.match(original.look,/#a8be83/);
+    await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);const original=await state();assert.equal(original.charId,'places-a');assert.match(original.look,/#a8be83/);
     await root.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayLaboratory'&&!CharDayScene.inspect().changing);
     const stage=await state();assert.equal(stage.charId,original.charId);assert.equal(stage.look,original.look);
     await visitSpot('dayLaboratory',placeData.dayLaboratory.spots.find(s=>s.id==='computer'));await shot('character-laboratory');
-    await root.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='hall'&&!CharDayScene.inspect().changing);
+    await root.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);
     const back=await state();assert.equal(back.charId,original.charId);assert.equal(back.look,original.look);assert.match(await root.locator('[data-wk=cdaynow]').innerText(),/核对当天资料/);assert.equal(back.key,original.key);
     await noWrites();result.characterReturn=true;
     // Persist only fictional fixture data in this fresh browser context, then enter through the real App.
@@ -110,7 +110,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     await page.evaluate(()=>{window.dayRealWrites=[];const original=saveJSON;window.saveJSON=(key,...args)=>{dayRealWrites.push(key);return original(key,...args);};window.dayRealModels=0;window.callAI=()=>{dayRealModels++;throw Error('Unexpected model call');};});
     await page.locator('[data-appkey=fairyGarden]').click();await page.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();
     await page.locator('[data-wk=cdaypick]').filter({hasText:'测试研究员'}).click();
-    await page.waitForFunction(()=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect();return s?.ready&&s.map==='hall'&&!s.changing;});
+    await page.waitForFunction(()=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect();return s?.ready&&s.map==='dayWork'&&!s.changing;});
     frame=page.frames().find(f=>f.url().includes('/fairy-garden/day/'));const realOriginal=await state();
     const realBaseline=await page.evaluate(()=>({writes:dayRealWrites.length,plans:JSON.stringify(loadJSON('x_schedules',{})),games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
     await page.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayLaboratory'&&!CharDayScene.inspect().changing);
@@ -118,7 +118,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     await page.locator('select[data-wk=cdayplacepoint]').selectOption('computer');
     await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.spot==='computer'&&!s.route.length&&s.dailyAction?.book&&s.avatarPosition[1]>.2&&s.avatarPosition[1]<.3;});
     await shot('real-app-laboratory');
-    await page.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='hall'&&!CharDayScene.inspect().changing);
+    await page.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);
     assert.equal((await state()).look,realOriginal.look);assert.equal((await state()).charId,'places-a');assert.equal((await state()).key,realOriginal.key);
     assert.match(await page.locator('[data-wk=cdaynow]').innerText(),/核对当天资料/);
     assert.equal(await page.evaluate(()=>dayRealWrites.length),realBaseline.writes);assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_schedules',{}))),realBaseline.plans);assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),realBaseline.games);assert.equal(await page.evaluate(()=>dayRealModels),0);

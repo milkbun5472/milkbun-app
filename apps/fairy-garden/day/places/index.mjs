@@ -1,5 +1,5 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-504734d19f7543b2';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-504734d19f7543b2';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-2d8fc4dc9e35a469';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-2d8fc4dc9e35a469';
 import * as T from 'three';
 export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap};
 export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary};

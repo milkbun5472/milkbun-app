@@ -1,4 +1,4 @@
-// Schedule viewer: no new narrative, model calls, memories or game saves.
+// Schedule viewer and cosmetic home styles; narrative and game saves stay with their owners.
 (function (root) {
   "use strict";
   const DEMO = { id: "__char_day_demo", name: "示例小人", tz: "0" };
@@ -20,49 +20,54 @@
     return { day, minute, time: clockText(minute), rows, slot, hasPlan: !!rows.length };
   }
   function presentation(slot) {
-    const type = slot?.type || "other", words = String(slot?.deviation?.actual || slot?.title || "");
-    // These are available visual gestures, not invented occupational activities.
-    if (type === "sleep") return { map: "home", action: "sleep", gesture: "sleep" };
-    if (type === "meal") return { map: "home", action: "meal", gesture: "eat" };
-    if (type === "coffee") return { map: "home", action: "tea", gesture: "tea" };
-    if (type === "out") return { map: "garden", action: "walk", gesture: "rest" };
-    if (/喝茶|饮茶|品茶/.test(words)) return { map: "home", action: "tea", gesture: "tea" };
-    if (/吃饭|用膳|早餐|午餐|晚餐/.test(words)) return { map: "home", action: "meal", gesture: "eat" };
-    if (/散步|走走|逛街/.test(words)) return { map: "garden", action: "walk", gesture: "rest" };
-    if (/读|阅读|翻书|看书/.test(words)) return { map: ["work", "create"].includes(type) ? "hall" : "home", action: "read", gesture: "read" };
-    if (["work", "create"].includes(type)) return { map: "hall", action: "work", gesture: "rest" };
-    if (type === "social") return { map: "hall", action: "rest", gesture: "rest" };
-    return { map: "home", action: "rest", gesture: "rest" };
+    const type = slot?.type || "other", words = String(slot?.deviation?.actual || slot?.title || ""),
+      place = String(slot?.location || ""), outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆/.test(place + " " + words),
+      atHome = /家里|家中|在家|回家|住处|府中|寝室|卧室/.test(place);
+    const dining = outside && !atHome ? "dayCafe" : "dayHome";
+    if (type === "sleep") return { map: "dayHome", action: "sleep", gesture: "sleep" };
+    if (type === "meal") return { map: dining, action: "meal", gesture: "eat" };
+    if (type === "coffee") return { map: dining, action: "tea", gesture: "tea" };
+    if (/喝茶|饮茶|品茶|喝咖啡/.test(words)) return { map: dining, action: "tea", gesture: "tea" };
+    if (/吃饭|用膳|早餐|午餐|晚餐/.test(words)) return { map: dining, action: "meal", gesture: "eat" };
+    if (type === "out" || /散步|走走|逛街/.test(words)) return { map: "dayStreet", action: "walk", gesture: "rest" };
+    if (/读|阅读|翻书|看书/.test(words)) return { map: atHome || !["work", "create"].includes(type) ? "dayHome" : "dayWork", action: "read", gesture: "read" };
+    if (["work", "create"].includes(type)) return { map: atHome ? "dayHome" : "dayWork", action: "work", gesture: "rest" };
+    if (type === "social" && outside) return { map: "dayCafe", action: "rest", gesture: "rest" };
+    return { map: "dayHome", action: "rest", gesture: "rest" };
   }
   root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
       [book, setBook] = useState(false), [preview, setPreview] = useState(null), [demoIndex, setDemoIndex] = useState(0),
       [follow, setFollow] = useState(true), [sceneStatus, setSceneStatus] = useState("正在准备画面…"), [retry, setRetry] = useState(0),
+      [homeOptions, setHomeOptions] = useState(false), [styles, setStyles] = useState([]), [demoStyle, setDemoStyle] = useState("warm"),
+      [homes, setHomes] = useState(() => typeof loadJSON === "function" ? loadJSON("x_charDayHomes", {}) || {} : {}),
+      [styleBusy, setStyleBusy] = useState(false), [styleNotice, setStyleNotice] = useState(""),
       [showcase, setShowcase] = useState(""), [spotId, setSpotId] = useState(""), [places, setPlaces] = useState([]);
     const now = Date.now();
     const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null);
     const demo = id === DEMO.id, char = demo ? DEMO : (props.characters || []).find(c => String(c.id) === String(id));
     useEffect(() => { const timer = setInterval(() => setPulse(n => n + 1), 1000); return () => clearInterval(timer); }, []);
     useEffect(() => { if (scroll.current) scroll.current.scrollTop = positions.current[book ? "book" : "picker"] || 0; }, [book, id]);
-    const pick = value => { setId(value); setPreview(null); setBook(false); setDemoIndex(0); setShowcase(""); setSpotId(""); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
+    const pick = value => { setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setStyleNotice(""); setShowcase(""); setSpotId(""); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
     const room=places.find(p=>p.id===showcase), spot=room?.spots.find(s=>s.id===spotId)||room?.spots[0];
     const visitPlaces=()=>{if(!char)pick(DEMO.id);setShowcase("dayLaboratory");setSpotId("");setFollow(false);};
     const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
     const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情" : "今天还没有日程");
     const payload = char && { charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, slot: slot || null,
+      homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm",
       presentation: showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow,
       key: showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
     if(payload&&showcase)payload.slot=null;
     stateRef.current = payload;
     const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot(stateRef.current); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
-    React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book]);
+    React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book, homeOptions]);
     useEffect(() => {
       const ready = e => {
         if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin) return;
         if (e.data?.type === "char-day-view") { setFollow(!!e.data.following); return; }
         if (e.data?.type !== "char-day-status") return;
-        setSceneStatus(e.data.error || ""); if (!e.data.error) { const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
+        setSceneStatus(e.data.error || ""); if (!e.data.error) { const options = iframe.current?.contentWindow?.CharDayScene?.listStyles?.(); if (options) setStyles(options); const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
       };
       root.addEventListener("message", ready); return () => root.removeEventListener("message", ready);
     }, []);
@@ -80,7 +85,27 @@
           h("span", { style: { display: "block", marginTop: 5, lineHeight: 1.7, color: soft } }, st.slot?.title || (st.hasPlan ? "这会儿没排事情" : "今天还没有日程")));
       }), h("button", { onClick: () => pick(DEMO.id), style: { ...btn, width: "100%", marginTop: 12, background: "transparent", borderStyle: "dashed" } }, "先看一段示例"),
       h("button", { onClick: visitPlaces, "data-wk":"cdayplaces", style: { ...btn, width: "100%", marginTop: 10 } }, "新场景摆位试玩"),
-      h("p", { style: { fontSize: 11, color: soft, lineHeight: 1.8 } }, "简单试玩版 · 用现有场景和基础动作表现日程。")))));
+      h("p", { style: { fontSize: 11, color: soft, lineHeight: 1.8 } }, "四处新场景 · 跟着日程走进小家、工作空间、小店和街道。")))));
+    const changeStyle = async value => {
+      if (styleBusy) return;
+      if (demo) { setDemoStyle(value); setStyleNotice("示例小家已换样式"); return; }
+      setStyleBusy(true); setStyleNotice("");
+      try {
+        const previous = loadJSON("x_charDayHomes", {}) || {}, next = { ...previous, version: 1, styles: { ...previous.styles, [String(char.id)]: value } };
+        if (!await saveJSONDurable("x_charDayHomes", next)) throw Error("save");
+        setHomes(next); setStyleNotice("已记住这位角色的小家样式");
+      } catch (_) { setStyleNotice("这次没能保存，原样式还在，可以再试一次。"); }
+      finally { setStyleBusy(false); }
+    };
+    if (homeOptions) return outer(h(React.Fragment, null, head(() => setHomeOptions(false)), body(h(React.Fragment, null,
+      h("p", { style: { fontSize: 14, lineHeight: 1.9, marginTop: 0 } }, "你们的小家"),
+      h("p", { style: { fontSize: 12, color: soft, lineHeight: 1.9 } }, "这是小世界里的共同住处。挑喜欢的样式，角色原本的住址和经历照旧。卧室、起居室和厨房餐区之外，也留了以后添家具的位置。"),
+      ...styles.map(option => h("button", { key: option.id, "data-wk": "cdaystyle", "aria-pressed": payload.homeStyle === option.id, disabled: styleBusy,
+        onClick: () => changeStyle(option.id), style: { ...btn, display: "flex", alignItems: "center", gap: 14, width: "100%", textAlign: "left", marginBottom: 12, padding: 14, borderColor: payload.homeStyle === option.id ? "#7c9269" : "#cfc5ae" } },
+        h("span", { style: { display: "flex" } }, ...option.colors.map((color, i) => h("span", { key: i, style: { display: "block", width: 22, height: 32, background: color } }))),
+        h("span", null, option.label, payload.homeStyle === option.id ? " · 正在用" : ""))),
+      styleNotice && h("p", { role: "status", style: { fontSize: 12, lineHeight: 1.8 } }, styleNotice),
+      h("button", { style: { ...btn, width: "100%" }, onClick: () => setHomeOptions(false) }, "回去看看")))));
     if (book) return outer(h(React.Fragment, null, head(() => setBook(false)), body(h(React.Fragment, null,
       h("p", { style: { fontSize: 12, color: soft, lineHeight: 1.8, marginTop: 0 } }, demo ? "示例安排，仅用于试玩。" : state.day + " · TA当地 " + state.time),
       !state.rows.length && h("p", { style: { fontSize: 13, lineHeight: 1.9 } }, "还没有今天的安排，可以到日历里排好再来看。"),
@@ -92,6 +117,7 @@
         h("div", { style: { fontSize: 14, lineHeight: 1.8, marginTop: 4 } }, row.title),
         row.location && h("div", { style: { color: soft, fontSize: 12, lineHeight: 1.8 } }, row.location),
         row.deviation && h("div", { style: { color: "#9b674d", fontSize: 12, lineHeight: 1.8 } }, "临时改了：" + (row.deviation.actual || row.deviation.reason || "安排有变化")))),
+      h("button", { style: { ...btn, width: "100%", marginTop: 12 }, onClick: () => setHomeOptions(true) }, "小家样式"),
       !demo && h("button", { style: { ...btn, width: "100%", marginTop: 12 }, onClick: () => props.onSchedule?.(char) }, "去日历看完整安排")))));
     return outer(h(React.Fragment, null, head(() => pick(""), h("button", { style: { ...btn, border: 0, background: "transparent" }, onClick: () => pick("") }, "换人")),
       h("div", { "data-wk": "cdayscene", className: "flex-1 min-h-0 relative", style: { overflow: "hidden" } },
@@ -103,6 +129,7 @@
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           !showcase && slot?.location && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, slot.location),
           !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了")),
+        payload.presentation.map === "dayHome" && h("button", { "data-wk": "cdayhomestyle", style: { ...btn, position: "absolute", right: 12, bottom: preview || !state.hasPlan && !demo ? 92 : 40 }, onClick: () => setHomeOptions(true) }, "小家样式"),
         showcase && room && h("select", { "data-wk":"cdayplacepoint", "aria-label":"选择动作位置", value:spot?.id||"", onChange:e=>{setSpotId(e.target.value);}, style:{...btn,position:"absolute",left:12,right:12,bottom:40,width:"calc(100% - 24px)",fontSize:13} }, ...room.spots.map(s=>h("option",{key:s.id,value:s.id},s.number+" · "+s.label))),
         !showcase && preview && h("button", { style: { ...btn, position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)" }, onClick: () => setPreview(null) }, "回到此刻"),
         !showcase && !state.hasPlan && !demo && h("button", { style: { ...btn, position: "absolute", bottom: 44, left: "50%", transform: "translateX(-50%)", whiteSpace: "nowrap" }, onClick: () => props.onSchedule?.(char) }, "去日历排今天"),
