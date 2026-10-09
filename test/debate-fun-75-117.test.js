@@ -22,3 +22,8 @@ assert.match(d, /x \? Object\.assign\(\{\}, pp, \{ stance: x\.newStance \}\) : p
 // 主线一个字都不写
 assert.ok(!/addMemEntry|saveJSON\("x_chat/.test(d), "擂台不许往主线写东西");
 console.log("debate fun ok");
+// 裁判人设整张喂（她 2026-10-09：「这裁判还是不对啊 没有自己的角色口吻」——原来只切前 500 字）
+assert.ok(!/judge\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\)\.slice\(0, 500\)/.test(d), "裁判人设又被切成 500 字");
+assert.match(d, /personaFor\(String\(o\.judge\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
+assert.match(d, /personaFor\(String\(J\.persona \|\| ""\)\.replace\(\/\\s\+\/g, " "\), chars\.length \+ 1\)/);
+console.log("judge persona ok");
