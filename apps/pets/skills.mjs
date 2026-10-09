@@ -1,4 +1,4 @@
-import {homePoint} from './initiative.mjs?v=fg-d1e14d4d1c374656';
+import {homePoint} from './initiative.mjs?v=fg-ad8f601d80f4734b';
 export const PET_SKILLS={come:{label:'听名字过来',cue:'叫它过来',duration:3},stay:{label:'坐好等一等',cue:'请它等一等',duration:6},fetch:{label:'把玩具叼回来',cue:'请它叼回来',duration:1.2}};
 const known=id=>Object.hasOwn(PET_SKILLS,id);
 const count=v=>Number.isFinite(v)?Math.max(0,Math.min(10000,Math.floor(v))):0;

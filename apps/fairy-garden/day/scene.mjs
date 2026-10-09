@@ -1,12 +1,12 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-d1e14d4d1c374656';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-d1e14d4d1c374656';
-import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-d1e14d4d1c374656';
-import {seatLook} from '../wardrobe.mjs?v=fg-d1e14d4d1c374656';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-d1e14d4d1c374656';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-d1e14d4d1c374656';
-import {stepRoute} from '../locomotion.mjs?v=fg-d1e14d4d1c374656';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-d1e14d4d1c374656';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-ad8f601d80f4734b';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-ad8f601d80f4734b';
+import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-ad8f601d80f4734b';
+import {seatLook} from '../wardrobe.mjs?v=fg-ad8f601d80f4734b';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-ad8f601d80f4734b';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-ad8f601d80f4734b';
+import {stepRoute} from '../locomotion.mjs?v=fg-ad8f601d80f4734b';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-ad8f601d80f4734b';
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=T.SRGBColorSpace;
