@@ -1,4 +1,4 @@
-import {PET_HOME_GOODS} from './furnishings.mjs?v=fg-ad8f601d80f4734b';
+import {PET_HOME_GOODS} from './furnishings.mjs?v=fg-b6947a335b534082';
 // One catalogue and one purchase policy for gifts chosen by you and by the pet.
 export const SHOPPING_CAPS=[8,12,24,40];
 export const PET_SHOP=[

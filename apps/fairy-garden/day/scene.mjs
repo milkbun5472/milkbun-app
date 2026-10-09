@@ -1,12 +1,13 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-ad8f601d80f4734b';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-ad8f601d80f4734b';
-import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-ad8f601d80f4734b';
-import {seatLook} from '../wardrobe.mjs?v=fg-ad8f601d80f4734b';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-ad8f601d80f4734b';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-ad8f601d80f4734b';
-import {stepRoute} from '../locomotion.mjs?v=fg-ad8f601d80f4734b';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-ad8f601d80f4734b';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-b6947a335b534082';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-b6947a335b534082';
+import {createTraveler,loadTravelerSource} from '../traveler.mjs?v=fg-b6947a335b534082';
+import {seatLook} from '../wardrobe.mjs?v=fg-b6947a335b534082';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-b6947a335b534082';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-b6947a335b534082';
+import {stepRoute} from '../locomotion.mjs?v=fg-b6947a335b534082';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-b6947a335b534082';
+import {activityPose} from './activity.mjs?v=fg-b6947a335b534082';
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
 renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));renderer.outputColorSpace=T.SRGBColorSpace;
@@ -21,10 +22,11 @@ const tell=error=>{failure=error||'';if(parent!==window)parent.postMessage({type
 const mapLoader=createMapLoader({maps:MAPS,loadAsset:async asset=>{const url=new URL('../'+asset.replace(/^\.\//,''),import.meta.url).href,root=(await loader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;}});return root;},factories:{},attach:o=>scene.add(o),detach:o=>scene.remove(o)});
 function cameraPose(){const p=orthographicCameraPose(pan,span,camera.zoom,0);camera.position.set(p.position.x,p.position.y,p.position.z);camera.lookAt(p.target.x,p.target.y,p.target.z);camera.far=p.far;camera.updateProjectionMatrix();}
 function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.left=-span*w/h/2;camera.right=span*w/h/2;camera.top=span/2;camera.bottom=-span/2;cameraPose();}
-function center(){following=true;pan.x=position.x;pan.z=position.z;gesture.setZoom(1.18);cameraPose();}
-function overview(){following=false;pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;gesture.setZoom(map==='garden'?.65:.62);cameraPose();}
-const gesture=createMapGesture({initial:1.18,onZoom:v=>{camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
-  following=false;const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);
+function setFollowing(value){if(following===value)return;following=value;if(parent!==window)parent.postMessage({type:'char-day-view',following},location.origin);}
+function center(){setFollowing(true);pan.x=position.x;pan.z=position.z;gesture.setZoom(1.6);cameraPose();}
+function overview(){setFollowing(false);pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;gesture.setZoom(map==='garden'?.65:.62);cameraPose();}
+const gesture=createMapGesture({initial:1.6,onZoom:v=>{camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
+  setFollowing(false);const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);
   const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=Math.max(-50,Math.min(50,pan.x+q.x));pan.z=Math.max(-50,Math.min(50,pan.z+q.z));cameraPose();}
 },onTap:()=>center()});
 const canvas=renderer.domElement;
@@ -65,7 +67,8 @@ async function enter(next,token,initial=false){
     position={...MAPS[map].spawn};avatar.root.position.set(position.x,floorHeight(map,position),position.z);avatar.root.visible=true;
     span=map==='garden'?12:11;resize();place.textContent=map==='garden'?'街边 · 借用庭院场景':map==='hall'?'案边 · 借用公共厅场景':'住处 · 借用小屋场景';
     target=destination(snapshot.presentation);yaw=0;walkTarget=0;dwell=0;
-    if(initial&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
+    if(initial&&snapshot.presentation.action==='sleep'&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
+    if(snapshot.presentation.action==='walk'&&!route.length)wander();
     if(snapshot.follow)center();else overview();tell('');
   }catch(e){if(token===epoch)tell('画面加载失败：'+e.message);}finally{if(token===epoch){changing=false;cover.classList.remove('on');}}
 }
@@ -74,7 +77,7 @@ function apply(data){
   if(!data)return;snapshot=data;
   const newLook=JSON.stringify([data.charId,data.ta,data.look]);if(newLook!==lookKey){avatar.setLook(seatLook('companion',data.look,data.ta),true);lookKey=newLook;}
   const next=JSON.stringify([data.charId,data.key,data.presentation]);
-  if(next===signature)return;signature=next;const token=++epoch;route=[];onArrive=null;seat=bed=null;
+  if(next===signature)return;signature=next;const token=++epoch;route=[];onArrive=null;seat=bed=null;dwell=0;
   const needed=data.presentation.map;
   if(map&&map!==needed&&!changing){
     target={...MAPS[map].spawn};go(target,()=>enter(needed,token));
@@ -83,8 +86,13 @@ function apply(data){
   else{target=destination(data.presentation);go(target);}
 }
 function wander(){
-  const m=MAPS[map],step=walkTarget++%3,base=m.spawn,candidates=[{x:base.x+2.4,z:base.z+1.4},{x:base.x-2,z:base.z+.8},base];
-  const to=candidates[step];if(walkable(to.x,to.z,map))go(to);
+  const base=MAPS[map].spawn,candidates=[{x:base.x+2.4,z:base.z+1.4},{x:base.x-2,z:base.z+.8},base];
+  for(let i=0;i<candidates.length;i++){
+    const to=candidates[walkTarget++%candidates.length];
+    if(Math.hypot(position.x-to.x,position.z-to.z)<.5||!walkable(to.x,to.z,map))continue;
+    const next=findPath(position,to,map);if(!next?.length)continue;
+    route=next;speed=0;onArrive=null;target={...to};return;
+  }
 }
 function tick(dt,time){
   if(!ready||!map||changing||!avatar.root.visible)return;
@@ -93,18 +101,19 @@ function tick(dt,time){
     const step=stepRoute(position,route,dt,{speed,walkSpeed:1.6,clear:(a,b)=>segmentClear(a,b,map)});position=step.position;speed=step.speed;if(step.heading!=null)yaw=step.heading;
     if(!route.length){dwell=0;const done=onArrive;onArrive=null;done?.();}
   }else dwell+=dt;
-  const idleGesture=!snapshot.slot?'rest':snapshot.presentation.gesture;
+  const pose=activityPose(snapshot.presentation,dwell,{hasSlot:!!snapshot.slot,seated:!!seat});
   avatar.root.position.set(position.x,0,position.z);avatar.root.rotation.y=yaw;
   if(!moving&&bed){avatar.animate(time,{sleepPose:bed});}
-  else if(!moving&&seat){avatar.root.position.set(seat.x,0,seat.z);avatar.root.rotation.y=seat.heading||0;avatar.animate(time,{gesture:idleGesture,seated:true,height:floorHeight(map,seat)+(seat.rise||0)+.05,progress:time/4%1});}
-  else avatar.animate(time,{moving,gesture:moving?'rest':idleGesture,height:floorHeight(map,position),progress:time/4%1});
-  if(!moving&&snapshot.slot&&snapshot.presentation.action==='walk'&&dwell>4){dwell=0;wander();}
+  else if(!moving&&seat){avatar.root.position.set(seat.x,0,seat.z);avatar.root.rotation.y=seat.heading||0;avatar.animate(time,{...pose,seated:true,height:floorHeight(map,seat)+(seat.rise||0)+.05});}
+  else avatar.animate(time,{...pose,moving,gesture:moving?'rest':pose.gesture,emotion:moving?null:pose.emotion,height:floorHeight(map,position)});
+  if(!moving&&snapshot.slot&&snapshot.presentation.action==='walk'&&dwell>1.5){dwell=0;wander();}
   if(following){pan.x+=(position.x-pan.x)*Math.min(1,dt*6);pan.z+=(position.z-pan.z)*Math.min(1,dt*6);cameraPose();}
   if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
   const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
 }
 let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
-window.CharDayScene={setSnapshot:apply,focus:center,overview,inspect:()=>({ready,map,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
+function chinContact(){const head=avatar?.root.getObjectByName('HeadAnchor'),hand=avatar?.root.getObjectByName('Right_hand');return head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null;}
+window.CharDayScene={setSnapshot:apply,focus:center,overview,inspect:()=>({ready,map,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);for(const v of Object.values(mapLoader.views)){v.stream?.close();disposeMap(v.root);}if(avatar)disposeMap(avatar.root);draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{avatar=createTraveler(await loadTravelerSource(),true);scene.add(avatar.root);await avatar.ready();ready=true;tell('');if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}
