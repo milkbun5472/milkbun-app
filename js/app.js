@@ -9710,7 +9710,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const radioAsk = async (instruction, schemaHint) => {
     const sys = instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + schemaHint;
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535, tag: "电台" });
+    // 电台是机械活，照攻略走后台（没配后台就是线上）
+    const raw = await callAI(bgActive || active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535, tag: "电台" });
     const d = extractJSON(raw);
     // 报错里必须带着我没看懂的那个东西本身（prompt-send-shape.md 第二条）
     if (!d) throw new Error("电台这一枪没解析出东西。它回的是：\n" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 260));
@@ -10186,7 +10187,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (toSummarize.length > 0) {
         try {
           // 止漂移：只浓缩这段新对话成一段带日期的记忆，【追加】到旧记忆末尾，不重炼整团（避免老细节被反复压糊）。封顶 8000 字，超了从头截、保最近。
-          const block = await summarizeChatBlock(sumRoute(active), ctxFor(char), toSummarize);
+          // 跟手动总结同一条路：后台 → 专线 → 线上（攻略那张表；原来没配后台时直接落线上、跳过了专线）
+          const block = await summarizeChatBlock(sumRoute(apiFor(charId)), ctxFor(char), toSummarize);
           if (block && block.trim()) {
             // ⚠️日期写的是【这一段覆盖到哪几天】，不是【今天】（她 2026-09-01：
             //「有几天是断层的但是明明每天都在聊」）。浓缩是【攒够 sumThresh 条消息】
@@ -23675,7 +23677,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     setGen(g => ({ ...g, makeup: char.id }));
     const startedAt = Date.now();
     try {
-      const d = await runProbe(bgActive || active, ctxFor(char), {
+      // TA 回她那几句是TA本人在说话：照攻略走专线 → 线上（开头那一段旁白照旧走后台）
+      const d = await runProbe(apiFor(char.id) || active, ctxFor(char), {
         instruction: K.replyPrompt(char.name, profile.name || "我", cur.why, makeupGist(char.id), cur.his, my),
         schemaHint: K.REPLY_SHAPE
       }) || {};
@@ -27227,7 +27230,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       const f = (K.loadFics() || []).filter(x => x && x.id === String(m.ficId || ""))[0];
       if (!f) { toast("那一篇找不到了"); return; }
-      const p = bgActiveRef.current || active;
+      // 写下一章照攻略走线下（同人文那一行：写走线下）
+      const p = offlineActive || active;
       if (!p) { toast("先去 设置·API 配一条线路"); return; }
       if (laneBusy("ficroom:" + cid)) return;
       startLane("ficroom:" + cid);

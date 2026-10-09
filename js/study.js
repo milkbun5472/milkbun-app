@@ -3991,7 +3991,7 @@
     const tbCtx = { worldbookFor: props.worldbookFor, relFor: props.relFor, profileFor: props.profileFor, besideFor: props.besideFor, uName: (props.profile && props.profile.name) || "老师" };
     if (view === "tbNew") return h(TbNew, { characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
       onBack: function () { setView("home"); restoreHome(); }, onCreated: function (id) { setOpenId(id); setView("tbThread"); } });
-    if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, toast: props.toast, ctx: tbCtx,
+    if (view === "tbThread") return h(TbThread, { id: openId, characters: props.characters, active: props.active, bgActive: props.bgActive, toast: props.toast, ctx: tbCtx,
       onBack: function () { refresh(); setView("home"); restoreHome(); } });
     if (view === "newCostudy") {
       return h(NewCostudy, {
@@ -4385,7 +4385,7 @@
         h("div", { className: "flex gap-2", style: { marginTop: 8 } },
           h("button", { onClick: function () { const qs = quizText.split(/\n+/).map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 8); if (qs.length) startQuiz(qs); }, className: "flex-1 active:opacity-70",
             style: { padding: "9px 0", borderRadius: 10, background: skin.accent, color: STUDY_SKIN.paper, fontFamily: F_BODY, fontSize: 13, opacity: quizText.trim() ? 1 : .45 } }, "用我出的题"),
-          h("button", { onClick: function () { run("正在按这节课出题…", async function () { const qs = await tbAutoQuiz(props.active, s, stus); if (!qs.length) throw new Error("没出出题来"); startQuiz(qs); }); }, className: "flex-1 active:opacity-70",
+          h("button", { onClick: function () { run("正在按这节课出题…", async function () { const qs = await tbAutoQuiz(props.bgActive || props.active, s, stus); if (!qs.length) throw new Error("没出出题来"); startQuiz(qs); }); }, className: "flex-1 active:opacity-70",
             style: { padding: "9px 0", borderRadius: 10, border: "1px solid " + skin.accent, color: skin.accent, fontFamily: F_BODY, fontSize: 13 } }, "让系统出题")))
       : h("div", null,
         (s.quiz || []).map(function (x, i) {

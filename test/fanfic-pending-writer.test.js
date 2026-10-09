@@ -85,7 +85,7 @@ test('真实交稿入口读取按下时的新讨论，保存失败不消耗邀�
   let fics=[{id:'a',title:'测试',cp:['c1'],chapters:[]}], canSave=false, busy=false;
   K.loadFics=()=>fics;K.saveFics=next=>{if(canSave)fics=next;return canSave;};
   const box={characterText:require('../js/character-pronoun.js').text,window:{Fanfic:K,ChatRooms:Rooms},activeChar:writer,activeRoomId:'r1',chatsRef,
-    characters:[writer],profile:{name:'测试用户'},bgActiveRef:{current:{}},active:{},
+    characters:[writer],profile:{name:'测试用户'},bgActiveRef:{current:{}},active:{},offlineActive:{},
     toast:()=>{},laneBusy:()=>busy,startLane:()=>{busy=true;},endLane:()=>{busy=false;},
     relOfChar:()=>({}),loreForContext:()=>'',roomFicPick:()=>null,isOocMsg:m=>m.kind==='ooc',
     pChat:(k,fn)=>{chatsRef.current[k]=fn(chatsRef.current[k]||[]);}};
