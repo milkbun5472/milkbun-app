@@ -7,9 +7,9 @@
 export function createNavigator(maps,walkable,segmentClear,gridWalkable=walkable,{step=.24}={}){
  const grids=new Map(),STEP=step;
  const avoids=(p,avoid)=>avoid.every(o=>Math.hypot(p.x-o.x,p.z-o.z)>=o.r);
- function grid(map){if(grids.has(map))return grids.get(map);const m=maps[map],extent=m.walkRegions?m.walkRegions.flatMap(a=>a.polygon||[{x:a.x-a.r,z:a.z-a.r},{x:a.x+a.r,z:a.z+a.r}]):[{x:-m.radius,z:-m.radius},{x:m.radius,z:m.radius}];
+ function grid(map){const m=maps[map];if(grids.get(map)?.source===m)return grids.get(map);const extent=m.walkRegions?m.walkRegions.flatMap(a=>a.polygon||[{x:a.x-a.r,z:a.z-a.r},{x:a.x+a.r,z:a.z+a.r}]):[{x:-m.radius,z:-m.radius},{x:m.radius,z:m.radius}];
   const minX=Math.floor(Math.min(...extent.map(p=>p.x))/STEP),maxX=Math.ceil(Math.max(...extent.map(p=>p.x))/STEP),minZ=Math.floor(Math.min(...extent.map(p=>p.z))/STEP),maxZ=Math.ceil(Math.max(...extent.map(p=>p.z))/STEP),rows=maxX-minX+1,N=maxZ-minZ+1;
-  const points=Array.from({length:rows*N},(_,k)=>({x:(Math.floor(k/N)+minX)*STEP,z:(k%N+minZ)*STEP})),free=points.map(p=>gridWalkable(p.x,p.z,map));const g={N,rows,minX,minZ,points,free};grids.set(map,g);return g;}
+  const points=Array.from({length:rows*N},(_,k)=>({x:(Math.floor(k/N)+minX)*STEP,z:(k%N+minZ)*STEP})),free=points.map(p=>gridWalkable(p.x,p.z,map));const g={source:m,N,rows,minX,minZ,points,free};grids.set(map,g);return g;}
 
  function nearest(p,map,g,avoid,s){const i=Math.round(p.x/STEP)-g.minX,j=Math.round(p.z/STEP)-g.minZ;for(let r=0;r<=Math.ceil(1.2/STEP);r++){const candidates=[];for(let di=-r;di<=r;di++)for(let dj=-r;dj<=r;dj++){if(r&&Math.max(Math.abs(di),Math.abs(dj))!==r)continue;const x=i+di,y=j+dj;if(x<0||y<0||x>=g.rows||y>=g.N)continue;const k=x*g.N+y,q=g.points[k];if(g.free[k]&&avoids(q,avoid))candidates.push(k);}candidates.sort((a,b)=>Math.hypot(p.x-g.points[a].x,p.z-g.points[a].z)-Math.hypot(p.x-g.points[b].x,p.z-g.points[b].z));for(const k of candidates)if(segmentClear(p,g.points[k],map,avoid,s))return k;}return null;}
  return function findPath(start,target,map='garden',avoid=[],s=null){

@@ -1,5 +1,5 @@
-import {weatherLook} from '../fairy-garden/weather-look.mjs?v=fg-02c90601f4c121f4';
-import {SEASONS,seasonOf} from '../fairy-garden/world.mjs?v=fg-02c90601f4c121f4';
+import {weatherLook} from '../fairy-garden/weather-look.mjs?v=fg-83edfa27f119ba5e';
+import {SEASONS,seasonOf} from '../fairy-garden/world.mjs?v=fg-83edfa27f119ba5e';
 const clamp=x=>Math.max(0,Math.min(1,x));
 // The town alone supplies real calendar dates. Visual weather stays seeded by its archive.
 export function townEnvironment(time,epoch){

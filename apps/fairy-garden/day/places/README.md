@@ -72,11 +72,22 @@
 
 `SPACE_STYLES` 分别定义暖木、浅色、深木材质配色。选择存在 `x_charDayHomes` 的 `styles[charId]`，由宿主现有 IndexedDB durable writer 保存；示例只留组件状态。没有新增模型请求或主线经历。
 
-房间结构在 RoomShell 内；每件家具保留自己的命名组、placement 与材质批次，公共 room-kit 同时用于专业房间。`buildSpace(id, placements)` 由摆位重算家具足迹、接近点、坐位与床位，可供后续装修编辑器接入。实际拖摆、摆放校验、导航更新与装修界面属于下一步，当前提供三种样式选择。
+房间结构在 RoomShell 内；每件家具保留自己的命名组、placement 与材质批次，公共 room-kit 同时用于专业房间。`buildSpace(id, placements)` 由摆位重算家具足迹、接近点、坐位与床位，可供后续装修编辑器接入。拖摆、摆放校验、导航更新与装修界面已接入，三种样式继续保留。
 
 原三游戏床位与日常小家共用 sleepPose，按正在睡的那个人所在地图读床；玩家在别处时，同伴仍可在原房间睡。TA的一天的全景允许较低缩放以容纳宽房型，原游戏缩放范围保持原默认值。
 
 验证：`node --test apps/fairy-garden/day/spaces.test.mjs test/char-day.test.js apps/fairy-garden/home.test.mjs apps/fairy-garden/sleep-hug.test.mjs apps/fairy-garden/view-controls.test.mjs`。浏览器日程、保存失败与跨角色/重开：`scripts/checks/char-day-browser.cjs`；专业摆位往返沿原 `char-day-places-browser.cjs`。本次实图和证据：`/Users/lisa/.codex/visualizations/2026/10/09/char-day-four-spaces/`。
+
+
+## 小家第一版装修
+
+从今天的日程或小家样式进入「布置小家」。现有12件家具支持拖动、九十度旋转、收纳、摆回与最近30步撤销。保存前仅试摆，返回取消恢复原布局；示例不落库。正式角色沿 `x_charDayHomes.layouts[charId]` 的原子 commitJSONDurable writer 保存（校验 durable/live 回执），与同桶 styles 共存并保留其他字段。保存失败保留草稿供重试。
+
+`home-layout.mjs` 统一恢复、家具名称和摆放校验；`spaces.mjs` 由同一摆位重算渲染布局、障碍、床椅及接近点。检查边界、重叠、固定隔墙、门口，以及共享 world/navigation 的实际路线，不另造寻路算法。导航格子按地图对象身份更新；渲染器读取实际新地图，每件家具仍独立成组。拖动时显示候选，释放才校验完整路线并提交草稿，失败回原位。双指切换相机时取消单家具拖动。
+
+床位包含朝向，共用 traveler 睡姿把世界偏移换到床的局部坐标；移床旋转后实际躺姿与床一致。收纳移除几何/障碍/动作点，缺床或对应座位时就近休息。地毯、墙窗、隔墙仍为固定房型；新家具/墙纸/地板未做。
+
+验证：`home-layout.test.mjs`、`scripts/checks/char-day-decoration-browser.cjs`，以及原日程、专业房、home/sleep-hug 与公共相机回归。
 
 ## 日程与陪伴连接
 

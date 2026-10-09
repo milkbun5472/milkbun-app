@@ -67,7 +67,7 @@ test('新世界入口独立于三游戏旅程，移动外壳沿公共Head和单�
   assert.match(host,/WORLDS\.concat\(\[DAY_WORLD, null\]\)/);assert.match(host,/world\?\.id === "day"/);
   assert.match(source,/h\(Head,/);assert.match(source,/flex-1 min-h-0 overflow-y-auto/);assert.match(source,/safe-area-inset-bottom\) \* 0\.4/);
   assert.ok(html.indexOf('js/char-day.js')<html.indexOf('js/fairy-garden.js'));
-  assert.doesNotMatch(source,/callAI\(|runProbe\(|localStorage\.setItem/);assert.match(source,/saveJSONDurable\("x_charDayHomes", next\)/);
+  assert.doesNotMatch(source,/callAI\(|runProbe\(|localStorage\.setItem/);assert.match(source,/commitJSONDurable\("x_charDayHomes",next\)/);
 });
 
 test('新小家睡眠沿共用床位helper，床位随家具布局而非原庭院小屋',async()=>{
@@ -77,6 +77,15 @@ test('新小家睡眠沿共用床位helper，床位随家具布局而非原庭�
   const bed=sleepPose({map:'dayHome',companion:{map:'dayHome',position:spot.target},sleep:{companion:spot.id}},'companion');
   assert.ok(bed);assert.ok(bed.y>.5);assert.deepEqual(bed,map.beds.sleep.slots.companion);
   assert.equal(sleepPose({map:'dayHome',companion:{map:'dayHome',position:map.spawn},sleep:{companion:spot.id}},'companion'),null);
+});
+
+test('样式与装修沿真实原子writer的durable/live回执；失败保留旧档，各角色与其他字段并存',async()=>{
+ const f=setup();let stored={version:1,styles:{c1:'warm',c2:'dusk'},layouts:{c2:{sofa:{x:1,z:2}}},keep:'旧字段'},verified=false,writes=0;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>verified;f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;writes++;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const before=JSON.stringify(stored);await assert.rejects(f.K.saveHomeChange('c1','layouts',{sofa:{stored:true}}));assert.equal(JSON.stringify(stored),before);assert.equal(writes,0);
+ verified=true;await f.K.saveHomeChange('c1','layouts',{sofa:{stored:true}});assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.layouts.c2.sofa.x,1);assert.equal(stored.styles.c2,'dusk');assert.equal(stored.keep,'旧字段');
+ await f.K.saveHomeChange('c1','styles','light');assert.equal(stored.styles.c1,'light');assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.version,2);
 });
 
 test('明确在家与外食分别去新小家或小店，日程原文决定位置',()=>{

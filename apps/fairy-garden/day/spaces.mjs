@@ -64,20 +64,20 @@ export const SPACE_DEFS={
 function localPoint(p,q={x:0,z:0}){const h=p.heading||0,c=Math.cos(h),s=Math.sin(h);return {x:p.x+q.x*c+q.z*s,z:p.z-q.x*s+q.z*c};}
 export function buildSpace(id,placements={}){
  const d=SPACE_DEFS[id];if(!d)throw Error('未知日常场景');
- const furniture=d.pieces.map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
+ const furniture=d.pieces.filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
  const pieces=Object.fromEntries(furniture.map(p=>[p.id,p]));
  const walls=d.outdoor?[]:[{id:'back-wall',x:0,z:-d.d/2,w:d.w+.2,d:.18},{id:'left-wall',x:-d.w/2,z:0,w:.18,d:d.d}];
  const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.map(p=>{const c=Math.abs(Math.cos(p.heading)),s=Math.abs(Math.sin(p.heading));return {id:p.id,x:p.x,z:p.z,w:p.w*c+p.d*s,d:p.d*c+p.w*s};})];
- const spots=d.anchors.map(a=>{
+ const spots=d.anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{
   const p=pieces[a.piece],target=a.target?{...a.target}:localPoint(p,a.approach);
   const spot={...a,target,heading:(p?.heading||0)+(a.heading||0)};
   if(a.seat){const point=localPoint(p,a.offset);spot.seat={...point,rise:.45,heading:p.heading,approach:target,piece:p.id};}
-  if(a.bed)spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94};
+  if(a.bed){spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94,heading:p.heading};spot.playerSleep={...localPoint(p,{x:-.55,z:.65}),y:.94,heading:p.heading};}
   return spot;
  });
  return {id,label:d.label,renderer:id,radius:Math.hypot(d.w/2,d.d/2)+.5,bounds:{w:d.w,d:d.d},floor:.08,spawn:{...d.spawn},view:{x:0,z:0},furniture,structure,obstacles,spots,
   seats:Object.fromEntries(spots.filter(s=>s.seat).map(s=>[s.id,s.seat])),
-  beds:Object.fromEntries(spots.filter(s=>s.sleep).map(s=>[s.id,{approach:{companion:s.target,player:{...s.target}},slots:{companion:s.sleep,player:{...s.sleep,x:s.sleep.x-1.1}}}])),
+  beds:Object.fromEntries(spots.filter(s=>s.sleep).map(s=>[s.id,{approach:{companion:s.target,player:{...s.target}},slots:{companion:s.sleep,player:s.playerSleep}}])),
   wander:d.wander?.map(p=>({...p})),zones:d.zones||[],outdoor:!!d.outdoor};
 }
 export const CORE_SPACES=Object.fromEntries(Object.keys(SPACE_DEFS).map(id=>[id,buildSpace(id)]));
