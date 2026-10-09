@@ -8203,13 +8203,15 @@ async function generateOfflineGroup(p, ctx, session) {
   const gBeatMax = Math.max(5, Math.min(10, members.length + 2));
   // 写法＝整段小说（她 2026-10-08）：一次写一整段、在场的人一起出场；心声／心情／好感照旧逐人给，
   //   挂在这一段上（界面上点头像框选看谁的）。规矩层、人设、她那个「描写我」开关全跟一人一拍同一份，只换输出形状。
+  // ⚠️userName 必须排在 novelOut 前面：novelOut 一上来就拼好（不管选没选小说），里面用到 userName——
+  //   排在后面就是「Cannot access before initialization」，整个群线下一轮都生成不出来（她 2026-10-09 截图）。
+  const userName = (ctx.profile && ctx.profile.name) || "用户";
   const novel = session.writeMode === "novel";
   const castNames = members.map(c => "『" + memberLabel(members, c) + "』").join("、");
   const novelOut = "\n【输出】只输出一个 JSON，不要代码块：\n{\"scene\":\"这一轮的整段小说正文（第三人称；在场的人自然穿插出场、互相接话，动作/神态/对话/环境写在一起，分段用换行）\",\"cast\":[{\"name\":\"这一段里出场的角色名\",\"thought\":\"（可选）TA 此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词（禁止英文内部标签）\"},\"affinityDelta\":\"" + AFFINITY_DELTA_SPEC + "\",\"impression\":\"（可选）{'side':'me|us','block':'me侧:person/soft/like/recent/unread；us侧:what/how/marks/elephant/want','text':'整块重写≤80字'}——" + (window.Gaze ? window.Gaze.updateRule(userName) : "没有新认识可省略") + "\"}]}\n"
     + "scene 是一整段连着读的小说，不按人切块；cast 里列这一段真正出场的人，一人一项，name 必须逐字填写以下名字之一：" + castNames + "。没出场的人不列。";
   // 上一轮出过声的是谁 → 这一轮优先给还没出声的（线上线下共用同一份）
   const gRotateLine = rotateSpeakersNote(members, session.msgs);
-  const userName = (ctx.profile && ctx.profile.name) || "用户";
   const styleText = offlineResolveStyleText(session, { uName: userName, charName: (members[0] && members[0].name) || "在场角色" });
   const notes = (session.customNotes || []).map(n => typeof n === "string" ? n : (n && (n.long || Number(n.remaining) > 0) ? n.text : "")).filter(Boolean);
   const cotModelKey = offlineCotModelKey(p);
