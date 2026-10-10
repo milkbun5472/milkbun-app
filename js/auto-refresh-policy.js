@@ -26,7 +26,9 @@
     //   现在两边都读写这一份；旧存档开机时由 app.js 把 s.proactive 搬进来（默认关照旧）。
     { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: false,
       // 中频＝原来那套算法本身；低频、高频是把整套【时间】乘一个倍数——想念攒得慢一些（×0.75）／快一倍，冷却跟着拉长／缩短
-      rates: [{ id: "low", zh: "低频", x: 0.75 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 }] },
+      rates: [{ id: "low", zh: "低频", x: 0.75 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 },
+        // 很高频（她 2026-10-11 转群友「开了高频还是要等很久」）：快四倍，聊停了一两个小时就来找
+        { id: "max", zh: "很高频", x: 4, note: "想念攒得快四倍，聊停了一两个小时就会来找你；刚找过你之后再找的间隔也缩到四分之一" }] },
     { id: "letter", group: "social", title: "情书", sub: "恋人按你定的频率自己提笔", globalDefault: true, charDefault: true },
     // 今日签（她 2026-10-05）：TA 每天早上按你的星座替你抽一张签发到私聊。默认关，想要的自己开、自己挑谁
     { id: "astroSign", group: "social", title: "今日签", sub: "TA 每天替你抽一张签发到私聊（按你的星座和当天）", globalDefault: false, charDefault: false },
