@@ -114,7 +114,7 @@
       finally{setStyleBusy(false);}
     };
     const motionChoice=(section,label)=>h("label",{style:{display:"block",marginBottom:14,fontSize:12,lineHeight:1.8}},label,
-      h("select",{"data-wk":"cdaymotion","data-part":section,"aria-label":label,disabled:styleBusy,value:demo?(section==='motions'?demoMotion:demoVisitorMotion):homes[section]?.[String(char.id)]||"auto",onChange:e=>changeMotion(section,e.target.value),style:{...btn,display:"block",width:"100%",marginTop:6}},
+      h("select",{"data-wk":"cdaymotion","data-part":section,"aria-label":label,disabled:styleBusy,value:demo?(section==='motions'?demoMotion:demoVisitorMotion):homes[section]?.[String(char.id)]||"auto",onChange:e=>changeMotion(section,e.target.value),style:{...btn,height:44,display:"block",width:"100%",marginTop:6}},
         h("option",{value:"auto"},"自动参考人设"),...motionOptions.map(p=>h("option",{key:p.id,value:p.id},p.label+" · "+p.description))));
     const startEditor = () => { setDecorPanel(""); setHomeOptions(false);setBook(false);setLayoutNotice("");setEditor({placements:JSON.parse(JSON.stringify(demo?demoLayout:homes.layouts?.[String(char.id)]||{})),selected:"double-bed",dragging:false}); };
     const cancelEditor = () => { if(layoutBusy||editor?.busy)return;setEditor(null);setDecorPanel("");setLayoutNotice(""); };
@@ -192,7 +192,7 @@
         row.location && h("div", { style: { color: soft, fontSize: 12, lineHeight: 1.8 } }, row.location),
         row.deviation && h("div", { style: { color: "#9b674d", fontSize: 12, lineHeight: 1.8 } }, "临时改了：" + (row.deviation.actual || row.deviation.reason || "安排有变化")))),
       h("button", { "data-wk":"cdaydecorate", style:{...btn,width:"100%",marginTop:12}, onClick:startEditor }, "布置小家"),
-      h("button", { style: { ...btn, width: "100%", marginTop: 12 }, onClick: () => {setVisitStatus(null);setHomeOptions(true);} }, "小家样式"),
+      h("button", { style: { ...btn, width: "100%", marginTop: 12 }, onClick: () => {setBook(false);setVisitStatus(null);setHomeOptions(true);} }, "小家样式"),
       !demo && h("button", { style: { ...btn, width: "100%", marginTop: 12 }, onClick: () => props.onSchedule?.(char) }, "去日历看完整安排")))));
     return outer(h(React.Fragment, null, editor ? h(Head,{zh:decorPanel==="catalog"?"添家具":decorPanel==="piece"?"家具配色":decorPanel==="room"?"墙面地板":"布置小家",sub:char.remark||char.name,bg:"transparent",ink,onBack:decorPanel?closeDecorPanel:cancelEditor,right:h("button",{"data-wk":"cdaysavelayout",disabled:layoutBusy||editor.dragging||editor.busy,style:{...btn,border:0,background:"transparent"},onClick:saveLayout},layoutBusy?"保存中":"保存")}) : head(() => pick(""), h("button", { style: { ...btn, border: 0, background: "transparent" }, onClick: () => pick("") }, "换人")),
       h("div", { "data-wk": "cdayscene", className: "flex-1 min-h-0 relative", style: { overflow: "hidden" } },
@@ -207,7 +207,7 @@
           !demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&visitStatus.notice&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},visitStatus.notice)),
         !editor&&!demo&&!preview&&!showcase&&payload.presentation.map==="dayHome"&&!visiting&&h("button",{"data-wk":"cdayvisitopen",disabled:visitStatus?.busy,style:{...btn,position:"absolute",right:12,bottom:92},onClick:()=>iframe.current?.contentWindow?.CharDayScene?.joinVisit?.()},visitStatus?.busy?"准备中…":"进小屋"),
         visiting&&!editor&&h("select",{"data-wk":"cdayvisitactivity","aria-label":"你在小家做什么",value:visitStatus.activity||"",disabled:visitStatus.busy||visitStatus.leaving,style:{...btn,position:"absolute",right:12,bottom:92,maxWidth:"calc(100% - 24px)",height:44},onChange:e=>visitAction(e.target.value)},h("option",{value:"",disabled:true},"做点什么"),...[["read","看会书"],["drink","喝口水"],["eat","在餐桌吃点东西"],["rest","坐着歇会"]].map(([kind,label])=>h("option",{key:kind,value:kind},label))),
-        !editor && payload.presentation.map === "dayHome" && h("button", { "data-wk": "cdayhomestyle", style: { ...btn, position: "absolute", right: 12, bottom: preview || !state.hasPlan && !demo ? 92 : 40 }, onClick: () => {setVisitStatus(null);setHomeOptions(true);} }, "小家样式"),
+        !editor && payload.presentation.map === "dayHome" && h("button", { "data-wk": "cdayhomestyle", style: { ...btn, position: "absolute", right: 12, bottom: preview || !state.hasPlan && !demo ? 92 : 40 }, onClick: () => {setBook(false);setVisitStatus(null);setHomeOptions(true);} }, "小家样式"),
         !editor && !demo && !showcase && props.renderChat && h("button", { "data-wk": "cdaychatopen", style: { ...btn, position: "absolute", left: 12, bottom: 40 }, onClick: () => { setChatMounted(true); setChatOpen(true); props.onChatOpen?.(char); } }, "聊聊"),
         !editor && showcase && room && h("select", { "data-wk":"cdayplacepoint", "aria-label":"选择动作位置", value:spot?.id||"", onChange:e=>{setSpotId(e.target.value);}, style:{...btn,position:"absolute",left:12,right:12,bottom:40,width:"calc(100% - 24px)",height:44,fontSize:13} }, ...room.spots.map(s=>h("option",{key:s.id,value:s.id},s.number+" · "+s.label))),
         !editor && !showcase && preview && h("button", { style: { ...btn, position: "absolute", bottom: 40, left: "50%", transform: "translateX(-50%)" }, onClick: () => setPreview(null) }, "回到此刻"),
