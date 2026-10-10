@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.277";
+const APP_VERSION = "v75.279";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -23804,13 +23804,86 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { toast("失败：" + (e.message || "重试")); }
     finally { setTripGen(null); }
   };
+  // ── 订票订房（群友 2026-10-10 许愿「类携程可以买机票订酒店」，她定的：接进旅行，不另开 App）──
+  //   一次调用把航班、酒店和「TA 会挑哪个」一起要回来；挑、付都是零调用。
+  //   trip.booking = { from, nights, flights:[{no,from,to,dep,arr,price,note}], hotels:[{name,area,room,price,note}],
+  //                    taPick:{flight,hotel,why}, pick:{flight,hotel}, paid:{by:"me"|"ta", total, ts} }
+  const tripBookSearch = async char => {
+    if (!active) { toast("请先到设置配置 API"); return; }
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    if (!trip) return;
+    if (trip.booking && trip.booking.paid) { toast("这一趟已经订好了"); return; }
+    setTripGen(char.id);
+    try {
+      const g = geoForPrompt(char.id);
+      const from = g ? String(g.label || g.world || "") : "";
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        voice: true,
+        instruction: "你们是恋人，要一起去「" + trip.dest + "」" + (from ? "，从「" + from + "」出发" : "") + "。现在在订机票和酒店。"
+          + "按你们所在的世界和这个目的地，列出 3 班去程交通（飞机为主；这个世界或这段路没有飞机就换成火车、船、马车这类当地真会有的）和 3 家酒店，"
+          + "价格用人民币、按这个世界的物价写实在的数，三档要拉开（便宜的、适中的、贵的），各带一句实话短评。"
+          + (trip.plan && trip.plan.legs && trip.plan.legs.length ? "已经排好的行程：" + trip.plan.legs.map(l => l.where).join("、") + "——酒店离这些地方远近要说得出。" : "")
+          + "\n再以「" + char.name + "」的身份说你会挑哪一班、哪一家，why 是说给 Ta 听的一句，按你的人设和你们之间的事来，不是比价报告。"
+          + "nights 是住几晚。",
+        schemaHint: "{\"nights\":2,\"flights\":[{\"no\":\"班次号\",\"from\":\"出发地\",\"to\":\"到达地\",\"dep\":\"几点出发\",\"arr\":\"几点到\",\"price\":0,\"note\":\"一句短评\"}],\"hotels\":[{\"name\":\"酒店名\",\"area\":\"在哪一带\",\"room\":\"房型\",\"price\":0,\"note\":\"一句短评\"}],\"taPick\":{\"flight\":0,\"hotel\":0,\"why\":\"你为什么挑这两个\"}}",
+        maxTokens: 12000
+      });
+      const num = v => Math.max(0, Math.round(Number(String(v == null ? "" : v).replace(/[^\d.]/g, "")) || 0));
+      const flights = (Array.isArray(d && d.flights) ? d.flights : []).map(f => ({
+        no: String((f && f.no) || "").slice(0, 16), from: String((f && f.from) || from || "").slice(0, 20), to: String((f && f.to) || trip.dest).slice(0, 20),
+        dep: String((f && f.dep) || "").slice(0, 16), arr: String((f && f.arr) || "").slice(0, 16), price: num(f && f.price),
+        note: String((f && f.note) || "").replace(/\s+/g, " ").trim().slice(0, 40) })).filter(f => f.price > 0).slice(0, 3);
+      const hotels = (Array.isArray(d && d.hotels) ? d.hotels : []).map(x => ({
+        name: String((x && x.name) || "").slice(0, 24), area: String((x && x.area) || "").slice(0, 24), room: String((x && x.room) || "").slice(0, 20),
+        price: num(x && x.price), note: String((x && x.note) || "").replace(/\s+/g, " ").trim().slice(0, 40) })).filter(x => x.name && x.price > 0).slice(0, 3);
+      if (!flights.length || !hotels.length) throw new Error("没查出票和房，重试下");
+      const ix = (v, n) => { const k = Math.round(Number(v)); return k >= 0 && k < n ? k : 0; };
+      const tp = d && d.taPick || {};
+      const booking = { from, nights: Math.max(1, Math.min(14, Math.round(Number(d && d.nights) || 2))), flights, hotels,
+        taPick: { flight: ix(tp.flight, flights.length), hotel: ix(tp.hotel, hotels.length), why: String(tp.why || "").replace(/\s+/g, " ").trim().slice(0, 80) },
+        pick: null, paid: null };
+      saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking } : t));
+    } catch (e) { toast("失败：" + (e.message || "重试")); }
+    finally { setTripGen(null); }
+  };
+  // 两个人的票 + 住几晚的房
+  const tripBookTotal = b => b && b.pick ? (b.flights[b.pick.flight] ? b.flights[b.pick.flight].price * 2 : 0) + (b.hotels[b.pick.hotel] ? b.hotels[b.pick.hotel].price * (b.nights || 1) : 0) : 0;
+  const tripBookPick = (char, pick) => {
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    if (!trip || !trip.booking || trip.booking.paid) return;
+    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking: { ...t.booking, pick: { ...(t.booking.pick || { flight: t.booking.taPick.flight, hotel: t.booking.taPick.hotel }), ...pick } } } : t));
+  };
+  // who：me＝我的钱包付；ta＝TA 请客（从 TA 钱包扣，记成为你花的）
+  const tripBookPay = (char, who) => {
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    const b = trip && trip.booking;
+    if (!b || b.paid) return;
+    const pick = b.pick || { flight: b.taPick.flight, hotel: b.taPick.hotel };
+    const fl = b.flights[pick.flight], ho = b.hotels[pick.hotel];
+    const total = tripBookTotal({ ...b, pick });
+    if (!fl || !ho || !(total > 0)) return;
+    const label = "「" + trip.dest + "」机票酒店 · " + (fl.no || "去程") + " + " + ho.name + " " + b.nights + " 晚";
+    if (who === "ta") {
+      if (!walletSpend(char.id, total, label, "gift")) { toast(characterText(char, "他的钱包还没开通，先去钱包里点开他")); return; }
+    } else {
+      const have = Number(walletRef.current) || 0;
+      if (have < total) { toast("钱包余额不够，还差 ¥" + Math.ceil(total - have)); return; }
+      changeWallet(-total, label, "travel", { where: "旅行", charId: char.id, ts: Date.now() });
+    }
+    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking: { ...t.booking, pick, paid: { by: who === "ta" ? "ta" : "me", total, ts: Date.now() } } } : t));
+    coupleKeep(char.id, (who === "ta" ? char.name + "请客，" : (profile.name || "她") + "付的钱，") + "订好了去「" + trip.dest + "」的" + (fl.no || "票") + "（" + [fl.dep, fl.arr].filter(Boolean).join("→") + "），住「" + ho.name + "」" + ho.room + b.nights + "晚，一共 ¥" + total, "旅行");
+    toast("订好了 · ¥" + total);
+  };
   const tripDepart = async char => {
     const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
     if (!trip) return;
     const legs = ((trip.plan && trip.plan.legs) || []).map(l => "· " + [l.when, l.where].filter(Boolean).join("，") + (l.note ? "——" + l.note : "")).join("\n");
     const opening = "你和 " + char.name + " 的「" + trip.dest + "」之行开始了"
       + (trip.plan && trip.plan.title ? "（" + char.name + " 给这趟起的名字：" + trip.plan.title + "）" : "")
-      + "。此刻你们刚到。" + (legs ? "\n" + char.name + " 排的行程：\n" + legs : "");
+      + "。此刻你们刚到。" + (legs ? "\n" + char.name + " 排的行程：\n" + legs : "")
+      + (trip.booking && trip.booking.paid ? (() => { const b = trip.booking, fl = b.flights[b.pick.flight], ho = b.hotels[b.pick.hotel];
+        return "\n订好的：" + [fl && ((fl.no ? fl.no + " " : "") + [fl.from, fl.to].filter(Boolean).join("→") + (fl.dep ? "，" + fl.dep + " 出发" : "")), ho && ("住「" + ho.name + "」" + (ho.area ? "（" + ho.area + "）" : "") + ho.room + " " + b.nights + " 晚")].filter(Boolean).join("；")
+          + "（" + (b.paid.by === "ta" ? char.name + " 请的客" : "你付的钱") + "）。可以从路上或者酒店开始。"; })() : "");
     // ⚠️照抽卡兑线下那条的先例走：开场之后只把线下那层掀起来——那条会从存储重读一遍的路不许走，它会把刚开的这场盖掉
     await startOffline(char.id, { autoGen: true, opening: opening });
     setOfflineChar(char);
@@ -28615,6 +28688,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     gardenGen: gardenGen,
     onTripStart: tripStart,
     onTripPlan: tripPlanGen,
+    onTripBook: tripBookSearch, onTripBookPick: tripBookPick, onTripBookPay: tripBookPay,
     onTripDepart: tripDepart,
     onTripDone: tripDone,
     tripGen: tripGen,

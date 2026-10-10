@@ -496,6 +496,7 @@
         ["sameroom", "顶栏那个「同处一室」键（data-on=\"1\" 是开着）"],
         ["card", "气泡里的卡片（照片、转发、语音）"],
         ["maskworld", "我的面具里「在哪个世界」那一栏（选项 data-on=\"1\" 选中）"],
+        ["tripbook", "旅行里「订机票和酒店」那一块和它的按钮（data-part=search/me/ta/again）"], ["tripbookopt", "一班票或一家酒店（data-on=\"1\" 选中）"], ["tripbookpaid", "订好以后那张订单票根"],
         ["bdayletter", "生日零点那封信（信封卡）"],
         ["bdayplan", "生日暗中准备的封口信封"],
         ["offlogrestore", "「线下经过」卡上那颗「放回往期」"],
@@ -1001,7 +1002,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.277", changed: "rerollnav 挂点现在群聊、单人线下、群线下也有（同一颗）。", none: "" };
+  const BRIEF_STAMP = { v: "v75.279", changed: "tripbookpaid 现在是订好之后那张订单票根整张", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
