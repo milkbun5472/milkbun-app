@@ -10,7 +10,8 @@ test("论坛近况：小号和匿名写的楼按陌生网名算，不算成她",
   const blk = app.slice(app.indexOf("forumEcho: (() => {"), app.indexOf("// 她自己公开发的帖（只给公开的；匿名吧和小号一个字都不许漏）"));
   assert.ok(blk.length > 200);
   const asMeSrc = blk.match(/const asMe = x => [^\n]+/)[0];
-  const asMe = new Function("return (" + asMeSrc.replace(/^const asMe = /, "").replace(/;\s*$/, "") + ")")();
+  // forumKnows：按面具认人（v75.230）。这里测的是小号和匿名，桩照「同一张面具」那一档
+  const asMe = new Function("forumKnows", "char", "return (" + asMeSrc.replace(/^const asMe = /, "").replace(/;\s*$/, "") + ")")(() => true, { id: "c1" });
   assert.equal(asMe({ authorType: "me" }), true);
   assert.equal(asMe({ authorType: "me", alt: true, authorName: "一只鱼" }), false, "小号楼不是她");
   assert.equal(asMe({ authorType: "me", authorName: "匿名者" }), false, "匿名楼不是她");

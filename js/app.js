@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.229";
+const APP_VERSION = "v75.230";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6407,10 +6407,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const meName = profile.name || "对方";
       const now = Date.now(), WINDOW = 3 * 86400000, FRESH = 8 * 3600000;
       const isCharPost = p => p.authorId === char.id && isForumCharAuthor(p);
-      const myPub = p => p.authorType === "me" && !p.anon && !p.alt && p.board !== "匿名吧";
+      const myPub = p => p.authorType === "me" && !p.anon && !p.alt && p.board !== "匿名吧" && forumKnows(char.id, p);
       // ⚠️她用小号／匿名写的楼和楼中楼：在TA这儿就是一个陌生网名，不许写成她（群友 2026-10-08：
       //   「我都开小号了 char 还能认出我来」——原来这里只看是不是她写的，小号评论一律报成她的名字）
-      const asMe = x => !!x && x.authorType === "me" && !x.alt && x.authorName !== "匿名者";
+      const asMe = x => !!x && x.authorType === "me" && !x.alt && x.authorName !== "匿名者" && forumKnows(char.id, x);
       const who = x => asMe(x) ? meName : (x.authorName || "有人");
 
       // —— 触发闸 ——
@@ -10542,7 +10542,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("forum")) {
       const seenT = new Set(last.taps || []);
-      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me" && !maskTrace(p.title) && !maskTrace(p.body)).sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
+      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me" && !maskTrace(p.title) && !maskTrace(p.body) && (!maskSet.size || p.alt || p.anon || p.board === "匿名吧" || String(p.mask || "") === maskKeyOf(viewerId))).sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
       // 评论区也写上：谁在底下说了什么、她回了谁（她 2026-10-01：「论坛也还是只是看正文不看评论区」）
       const cms = forumCommentsRef.current || {};
       // 别的面具那几个人在底下的评论、提到他们的帖，一起不在（他们根本不认识这个「她」）
@@ -10666,6 +10666,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
   const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  // 论坛按面具发（她 2026-10-09）：大号跟着「现在用哪张面具」走。帖子、楼、楼中楼都记着是哪张面具（mask，主面具不记）。
+  //   认不认得出是她：只有跟她用【同一张面具】聊的那几个角色认得出；别的角色当陌生网友（跟小号同一套）。
+  const forumMaskNow = () => { const id = String((forumMe && forumMe.maskUse) || ""); return id && id !== maskPrimary && (masks || []).some(m => m && m.id === id) ? id : ""; };
+  const forumMaskName = id => { const m = id ? (masks || []).find(x => x && x.id === id) : null; return (m && String(m.name || "").trim()) || (forumMe.handle || profile.name || "我"); };
+  const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
+  // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
+  const forumMaskNote = (x, pool) => {
+    const mk = String((x && x.mask) || ""), cs = (pool || []).filter(Boolean);
+    const strangers = cs.filter(c => maskKeyOf(c.id) !== mk);
+    if (!strangers.length) return "";
+    const knowers = cs.filter(c => maskKeyOf(c.id) === mk);
+    return "\n⚠️这个号背后的人，" + (knowers.length ? "只有" + knowers.map(c => "「" + c.name + "」").join("、") + "认得出是她；" : "在场的角色都不认识；")
+      + strangers.map(c => "「" + c.name + "」").join("、") + "认识的她用的是另一个身份，对他们来说这就是一个陌生网友，照陌生人来。";
+  };
   const peekMaskOthers = viewerId => {
     const mine = maskKeyOf(viewerId);
     return (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id)
@@ -21667,7 +21681,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "")
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
@@ -22665,12 +22679,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 回帖用哪个号【只看她现在切的是哪个】（2026-10-07 群友：「主页已经切了大号，去评论小号的帖子，还都显示小号」）——
   //   原来在自己小号的帖下一律强制小号，她切回大号也没用。
   const usingAlt = post => !(post && (post.board === "匿名吧" || post.anon)) && forumMe.using === "alt";
-  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : (forumMe.handle || profile.name || "我");
+  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : forumMaskNow() ? forumMaskName(forumMaskNow()) : (forumMe.handle || profile.name || "我");
+  const myMaskTag = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && forumMaskNow() ? { mask: forumMaskNow() } : {};
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
-    const floor = { id: fid, authorId: "me", authorType: "me", ...(usingAlt(post) ? { alt: true } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
+    const floor = { id: fid, authorId: "me", authorType: "me", ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
@@ -22686,7 +22701,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId, "mine");
     const to = String(toName || "").trim();
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(usingAlt(post) ? { alt: true } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
@@ -22751,7 +22766,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
-          + "「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           (respIsMe
             ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
             : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
@@ -22823,7 +22838,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const altB = !anonB && (as ? as === "alt" : forumMe.using === "alt");
     const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), authorName: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
+    const maskB = !anonB && !altB ? forumMaskNow() : "";
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
@@ -28158,6 +28174,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     groups: groups,
     gen: gen,
     forumMe: forumMe,
+    // 按面具发帖：主面具＋别的面具，挑哪张就用哪张的名字头像发
+    forumMasks: [{ id: "", name: forumMe.handle || profile.name || "主面具", avatarImage: profile.avatarImage, label: "主面具" }]
+      .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, label: m.label || "" }))),
+    forumMaskNow: forumMaskNow(),
     charMetaOf: charForumMeta,
     forumOff: forumOff,
     onToggleForumChar: toggleForumChar,

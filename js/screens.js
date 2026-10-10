@@ -2570,7 +2570,7 @@ function ForumAnonWrap(props) {
   return h(Forum, Object.assign({}, props, { posts: _av.posts, comments: _av.comments }));
 }
 function Forum({
-  characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff,
+  characters, profile, posts, comments, follows, pms, groups, gen, forumMe, charMetaOf, forumOff, forumMasks, forumMaskNow,
   onBack, onGenBoard, onGenSearch, onLoadComments, onMoreComments, onRegenFloors, onReplyFloor, onReplySub,
   onStartPM, onStartCharPM, onDelPM, onClearPMs,
   onPostMine, onGenCharPost, onToggleFollow, onForwardToChat, onForwardToGroup,
@@ -2807,7 +2807,9 @@ function Forum({
       if (replyInputRef.current) replyInputRef.current.focus();
     }, 200);
   };
-  const meChar = { name: (forumMe && forumMe.handle) || profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || "#7a6cf0" };
+  // 按面具发帖（她 2026-10-09）：大号显示的是「现在用的那张面具」
+  const maskCur = (forumMasks || []).find(m => m.id === (forumMaskNow || "")) || null;
+  const meChar = { name: (forumMaskNow && maskCur ? maskCur.name : ((forumMe && forumMe.handle) || profile.name || "我")), avatarImage: (maskCur && maskCur.avatarImage) || profile.avatarImage, color: profile.color || "#7a6cf0" };
   useEffect(() => { if (profileId && profileId !== "me" && onEnsureCharMeta) { const c = charOf(profileId); if (c) onEnsureCharMeta(c); } }, [profileId]);
   useEffect(() => { if (altProfile && altProfile.authorId && onEnsureCharMeta) { const c = charOf(altProfile.authorId); if (c) onEnsureCharMeta(c); } }, [altProfile && altProfile.authorId]);
   useEffect(() => {
@@ -3107,11 +3109,11 @@ function Forum({
     // 她现在挂着小号：这一页就是小号的主页（名字、头像、帖子都是小号那份）
     const onAlt = isMe && forumMe && forumMe.using === "alt";
     const altNm = ((forumMe && forumMe.altName) || "").trim() || "一只不说话的鱼";
-    const meta = isMe ? { handle: onAlt ? altNm : ((forumMe && forumMe.handle) || profile.name || "我"), bio: onAlt ? ((forumMe && forumMe.altBio) || "") : ((forumMe && forumMe.bio) || ""), joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
+    const meta = isMe ? { handle: onAlt ? altNm : maskCur && forumMaskNow ? maskCur.name : ((forumMe && forumMe.handle) || profile.name || "我"), bio: onAlt ? ((forumMe && forumMe.altBio) || "") : ((forumMe && forumMe.bio) || ""), joinTs: forumMe && forumMe.joinTs, following: followedChars.length + npcFollows.length, followers: (forumMe && forumMe.followers) || 0 } : (charMetaOf ? charMetaOf(c) : { handle: c.name, bio: c.motto || "", joinTs: 0, following: 0, followers: 0 });
     const av = onAlt ? h(AltAvatar, { seed: altNm, size: 62 }) : h(Avatar, { character: isMe ? meChar : c, size: 62, radius: 31 });
     // 她自己的主页连匿名发的也列出来（她 2026-10-01：「我匿名的帖子能不能放进我的主页」）——
     //   这一页只有她自己看得到（还有她递手机时的那个人）；别人的主页照旧不露匿名帖
-    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? (p.authorType === "me" && !!p.alt === !!onAlt) : (p.authorId === profileId && p.authorType === "character" && !p.anon))).sort((a, b) => b.ts - a.ts);
+    const mine = (posts || []).filter(p => forumVisible(p) && (isMe ? (p.authorType === "me" && !!p.alt === !!onAlt && (onAlt || p.anon || p.board === "匿名吧" || String(p.mask || "") === String(forumMaskNow || ""))) : (p.authorId === profileId && p.authorType === "character" && !p.anon))).sort((a, b) => b.ts - a.ts);
     return h("div", { className: "flex-1 overflow-y-auto" },
       h("div", { className: "px-4 pt-5 pb-4", style: { borderBottom: `1px solid ${t.line}` } },
         h("div", { className: "flex items-start gap-3" },
@@ -3122,6 +3124,13 @@ function Forum({
             isMe ? h("button", { onClick: () => { onEditMe({ using: onAlt ? "main" : "alt" }); toast && toast(onAlt ? "切回大号了" : "切到小号「" + altNm + "」了，发帖、回楼、私信都用它"); },
               className: "active:opacity-70", style: { marginTop: 6, minHeight: 30, padding: "0 11px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 11.5, color: t.sub } },
               onAlt ? "切回大号" : "切到小号「" + altNm + "」") : null,
+            // 用哪张面具发：只有跟这张面具聊的角色认得出是你，别的角色当陌生网友
+            isMe && !onAlt && (forumMasks || []).length > 1 ? h("div", { "data-wk": "forummaskrow", className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 8 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "用哪张面具发："),
+              forumMasks.map(m => { const on = (forumMaskNow || "") === m.id;
+                return h("button", { key: m.id || "main", "data-wk": "forummask", "data-on": on ? "1" : "0", onClick: () => { onEditMe({ maskUse: m.id }); toast && toast("现在用「" + m.name + "」发帖、回楼；只有跟这张面具聊的角色认得出是你"); },
+                  className: "active:opacity-70", style: { minHeight: 28, padding: "0 10px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 11.5 } },
+                  m.name + (m.label ? "（" + m.label + "）" : "")); })) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "@" + meta.handle)),
           isMe
             ? h("button", { onClick: () => { setEmHandle(meta.handle); setEmBio(meta.bio); setEmAlt((forumMe && forumMe.altName) || ""); setEditMe(true); }, className: "shrink-0 px-3.5 py-1.5 active:opacity-70", style: { borderRadius: 999, border: `1px solid ${t.line}`, fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "编辑资料")
