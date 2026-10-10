@@ -55,8 +55,9 @@
     const outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆/.test(text);
     const dining = outside && !home ? "dayCafe" : "dayHome";
     if (type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(words)) return at("dayHome", "sleep");
+    if (/做饭|做菜|下厨|烹饪|煮饭|煮粥|煮汤|炒菜|备菜|做[早午晚]餐/.test(words) && !outside) return at("dayHome", "cook");
     if (type === "meal" || /吃饭|用膳|用餐|进餐|早餐|午餐|晚餐|早饭|午饭|晚饭/.test(words)) return at(dining, "meal");
-    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡/.test(words)) return at(dining, "tea");
+    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水/.test(words)) return at(dining, "tea");
     if (!home) {
       if (/图书馆|阅览室/.test(text)) return at("dayLibrary", /归还|还书|借阅/.test(words) ? "return-book" : /挑书|找书|选书/.test(words) ? "choose-book" : /备考|自习|做题|复习|笔记/.test(words) ? "study-notes" : /窗边/.test(text) ? "window-reading" : "desk-reading");
       if (/实验室|实验台|实验数据|做实验|观测样品|观察样品/.test(text)) return at("dayLaboratory", /数据|分析|电脑/.test(words) ? "computer" : /记录|笔记/.test(words) ? "records" : /观察|观测|测量/.test(words) ? "observation" : /资料柜/.test(text) ? "archive" : "bench");

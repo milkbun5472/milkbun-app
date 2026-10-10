@@ -26,7 +26,9 @@ export const HOME_NAMES=Object.fromEntries(BASE_HOME.map(p=>[p.id,p.label]));
 const hex=x=>typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x)?x.toLowerCase():'';
 export function furniturePrimary(p,palette){const field=['bed','sofa','chair','plant','light'].includes(p.kind)?'fabric':'wood';return {field,color:p.color||palette[field]};}
 export const HOME_LIMIT=48;
-export function homeRoom(raw){const q=raw?.$room||{};return {wall:Object.hasOwn(HOME_WALLS,q.wall)?q.wall:'auto',floor:Object.hasOwn(HOME_FLOORS,q.floor)?q.floor:'auto',wallColor:hex(q.wallColor),floorColor:hex(q.floorColor),uses:Object.fromEntries(Object.entries(q.uses||{}).filter(([k,v])=>['sleep','meal','tea','rest','read'].includes(k)&&typeof v==='string'))};}
+// The renderer and the activity anchor own the same pot and preparation surface.
+export const HOME_COOK={x:1.08,z:.22,y:1.09,r:.13,gripY:1.30,contactY:1.16};
+export function homeRoom(raw){const q=raw?.$room||{};return {wall:Object.hasOwn(HOME_WALLS,q.wall)?q.wall:'auto',floor:Object.hasOwn(HOME_FLOORS,q.floor)?q.floor:'auto',wallColor:hex(q.wallColor),floorColor:hex(q.floorColor),uses:Object.fromEntries(Object.entries(q.uses||{}).filter(([k,v])=>['sleep','meal','tea','rest','read','cook'].includes(k)&&typeof v==='string'))};}
 function record(q={},p){q=q&&typeof q==='object'?q:{};return {catalogId:p.catalogId||p.id,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?((Math.round(q.heading/(Math.PI/2))%4+4)%4)*Math.PI/2:p.heading||0,stored:q.stored===true,color:hex(q.color),material:Object.hasOwn(HOME_MATERIALS,q.material)?q.material:'auto'};}
 export function homePlacements(raw={}){
  const result=Object.fromEntries(BASE_HOME.map(p=>[p.id,record(raw?.[p.id],p)]));
@@ -34,10 +36,10 @@ export function homePlacements(raw={}){
  result.$room=homeRoom(raw);return result;
 }
 export function homeFurniture(raw){const placements=homePlacements(raw),counts={};return Object.entries(placements).filter(([id])=>id!=='$room').map(([id,q])=>{const p=HOME_CATALOG.find(p=>p.id===q.catalogId),n=counts[p.id]=(counts[p.id]||0)+1;return {...p,...q,id,label:HOME_NAMES[id]||p.label+' · '+n};});}
-export const usesFor=p=>p?.kind==='bed'?['sleep']:p?.kind==='chair'?['meal']:p?.kind==='sofa'?['tea','rest','read']:[];
+export const usesFor=p=>p?.kind==='bed'?['sleep']:p?.kind==='chair'?['meal']:p?.kind==='sofa'?['tea','rest','read']:p?.kind==='kitchen'?['cook']:[];
 export function homeAnchors(furniture,room){
- const defaults={sleep:'double-bed',meal:'dining-chair',tea:'sofa',rest:'sofa',read:'sofa'};
- const anchor=(p,action,id)=>p.kind==='bed'?{id,action,piece:p.id,approach:{x:p.w/2+.55,z:.8},bed:true}:p.kind==='chair'?{id,action,piece:p.id,approach:{x:-.85,z:0},seat:true}:{id,action,piece:p.id,approach:{x:p.w/2+.6,z:.25},seat:true,offset:{x:action==='read'?.6:-.6,z:.05}};
+ const defaults={sleep:'double-bed',meal:'dining-chair',tea:'sofa',rest:'sofa',read:'sofa',cook:'kitchen'};
+ const anchor=(p,action,id)=>p.kind==='kitchen'?{id,action,label:'厨房料理',piece:p.id,approach:{x:HOME_COOK.x,z:p.d/2+.35},heading:Math.PI}:p.kind==='bed'?{id,action,piece:p.id,approach:{x:p.w/2+.55,z:.8},bed:true}:p.kind==='chair'?{id,action,piece:p.id,approach:{x:-.85,z:0},seat:true}:{id,action,piece:p.id,approach:{x:p.w/2+.6,z:.25},seat:true,offset:{x:action==='read'?.6:-.6,z:.05}};
  const selected=Object.entries(defaults).flatMap(([action,id])=>{const candidates=furniture.filter(p=>usesFor(p).includes(action));const p=candidates.find(p=>p.id===room.uses[action])||candidates.find(p=>p.id===id)||candidates.find(p=>/^furniture-/.test(p.id))||candidates[0];return p?[anchor(p,action,action)]:[];});
  // Additional furniture's own approach must stay reachable even before choosing it.
  return [...selected,...furniture.filter(p=>/^furniture-/.test(p.id)).flatMap(p=>usesFor(p).map(action=>anchor(p,action,'use:'+p.id+':'+action)))];

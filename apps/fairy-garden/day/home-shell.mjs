@@ -1,5 +1,5 @@
-import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-3d4a02824fdd16a8';
-import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-3d4a02824fdd16a8';
+import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-5ee68d467e4124cc';
+import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-5ee68d467e4124cc';
 
 // All raised pieces sit on the boundary or the partition footprint. The actual
 // walking plane, furniture positions and doorway remain the saved map's .08.

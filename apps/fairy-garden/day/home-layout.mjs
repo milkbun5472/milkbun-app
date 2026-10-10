@@ -1,7 +1,7 @@
-import {buildSpace} from './spaces.mjs?v=fg-3d4a02824fdd16a8';
-import {MAPS,walkable,findPath} from '../world.mjs?v=fg-3d4a02824fdd16a8';
+import {buildSpace} from './spaces.mjs?v=fg-5ee68d467e4124cc';
+import {MAPS,walkable,findPath} from '../world.mjs?v=fg-5ee68d467e4124cc';
 
-import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor} from './home-catalog.mjs?v=fg-3d4a02824fdd16a8';
+import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor} from './home-catalog.mjs?v=fg-5ee68d467e4124cc';
 export {HOME_NAMES,homePlacements,homeFurniture};
 const overlaps=(a,b,gap=.035)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+gap-1e-6&&Math.abs(a.z-b.z)<(a.d+b.d)/2+gap-1e-6;
 export function checkHomeLayout(raw,{routes=true}={}){
@@ -17,7 +17,9 @@ export function checkHomeLayout(raw,{routes=true}={}){
   // Map identity invalidates the common navigator grid after any placement change.
   const previous=MAPS.dayHome;MAPS.dayHome=map;
   try{
-   for(const s of map.spots){if(!walkable(s.target.x,s.target.z,'dayHome')||!findPath(map.spawn,s.target,'dayHome')?.length)return {ok:false,reason:names[s.piece]+'旁边走不过去，给TA留条路。'};}
+   const unavailableCooking=new Set();
+   for(const s of map.spots){if(!walkable(s.target.x,s.target.z,'dayHome')||!findPath(map.spawn,s.target,'dayHome')?.length){if(s.action==='cook'){unavailableCooking.add(s.id);continue;}return {ok:false,reason:names[s.piece]+'旁边走不过去，给TA留条路。'};}}
+   map.spots=map.spots.filter(s=>!unavailableCooking.has(s.id));
    for(const a of f){const points=[{x:a.x+a.w/2+.4,z:a.z},{x:a.x-a.w/2-.4,z:a.z},{x:a.x,z:a.z+a.d/2+.4},{x:a.x,z:a.z-a.d/2-.4}];if(!points.some(p=>walkable(p.x,p.z,'dayHome')&&findPath(map.spawn,p,'dayHome')?.length))return {ok:false,reason:names[a.id]+'周围走不过去，留一点通道。'};}
   }finally{if(previous)MAPS.dayHome=previous;else delete MAPS.dayHome;}
  }

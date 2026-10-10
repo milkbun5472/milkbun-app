@@ -1,4 +1,5 @@
-import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-3d4a02824fdd16a8';
+import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-5ee68d467e4124cc';
+import {HOME_COOK} from './home-catalog.mjs?v=fg-5ee68d467e4124cc';
 
 // Movable meshes use the catalogue footprint and the traveler's original bed /
 // chair surfaces. Details belong to their instance, including the thumbnail.
@@ -74,8 +75,9 @@ export function createHomeFurniture(k,a,p){
   const count=Math.max(2,Math.floor(a.w/.76)),unit=(a.w-.13)/count;for(let i=0;i<count;i++){const x=-a.w/2+.065+unit*(i+.5);upright('InsetCounterDoor',rounded(unit-.035,.56,.09),{x,y:.51,z:a.d/2-.015,depth:.027,color:p.wood});k.ellipsoid('CounterKnob',{x,y:.65,z:a.d/2+.012,w:.095,h:.028,d:.026,color:p.dark},g);}
   if(a.kind==='kitchen'){
    flat('SinkRim',rounded(.72,.45,.13),{x:-.8,y:.982,depth:.012,color:p.dark});flat('SinkBowl',rounded(.57,.32,.11),{x:-.8,y:.99,depth:.005,color:p.glass});k.tube('GooseneckTap',{points:[[-.8,.98,-.29],[-.8,1.23,-.29],[-.8,1.3,-.15],[-.8,1.21,-.06]],r:.023,color:p.dark},g);
-   flat('Cooktop',rounded(.86,.49,.09),{x:.85,y:.982,depth:.018,color:p.dark});for(const x of [.65,1.08])k.cylinder('CookingRing',{x,y:1.001,r:.13,h:.013,color:p.wood},g);
-   k.cylinder('SoupPot',{x:1.08,y:1.09,r:.13,h:.16,color:p.accent},g);k.ellipsoid('PotLid',{x:1.08,y:1.183,w:.26,h:.045,d:.26,color:p.paper},g);k.sphere('LidKnob',{x:1.08,y:1.22,r:.026,color:p.dark},g);
+   flat('Cooktop',rounded(.86,.49,.09),{x:.85,y:.982,depth:.018,color:p.dark});for(const x of [.65,1.08])k.cylinder('CookingRing',{x,z:x===1.08?HOME_COOK.z:0,y:1.001,r:.13,h:.013,color:p.wood},g);
+   k.cylinder('SoupPot',{x:HOME_COOK.x,z:HOME_COOK.z,y:HOME_COOK.y,r:HOME_COOK.r,h:.16,color:p.accent},g);k.cylinder('SoupSurface',{x:HOME_COOK.x,z:HOME_COOK.z,y:HOME_COOK.contactY-.003,r:.11,h:.008,color:p.fabric},g);
+   const lid=k.replaceableGroup('CookingPotLid',{},g);k.ellipsoid('PotLid',{x:HOME_COOK.x,z:HOME_COOK.z,y:1.183,w:.26,h:.045,d:.26,color:p.paper},lid);k.sphere('LidKnob',{x:HOME_COOK.x,z:HOME_COOK.z,y:1.22,r:.026,color:p.dark},lid);
    flat('CuttingBoard',rounded(.4,.32,.06),{x:1.8,y:.994,depth:.025,color:p.wood});ceramicCup(k,g,p,{x:-1.8,z:0,y:1.06});
   }else {flat('CuttingBoard',pebble(.7,.46),{x:-.3,y:.995,depth:.035,color:p.wood});ceramicCup(k,g,p,{x:.53,y:1.06});k.ellipsoid('BreadLoaf',{x:-.34,y:1.08,w:.32,h:.13,d:.2,color:p.accent},g);}
  }else if(a.kind==='plant'){

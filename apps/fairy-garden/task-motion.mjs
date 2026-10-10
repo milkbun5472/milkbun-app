@@ -1,11 +1,14 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-3d4a02824fdd16a8';
+import {emotionPose} from './emotion-pose.mjs?v=fg-5ee68d467e4124cc';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-5ee68d467e4124cc';
+import {pointToolAt} from './reach-hand.mjs?v=fg-5ee68d467e4124cc';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
 // Optional work gestures share the original traveler's rig and real hand anchors.
 export function taskPose(task,time){
   if(!task)return null;
+  if(task.daily)return dailyTaskPose(task);
   const kind=task.kind,p=Math.max(0,Math.min(1,task.progress||0)),pulse=Math.sin(time*5);
   if(kind==='read'||['wait','look-sign'].includes(kind))return kind==='look-sign'?{left:[0,0,0],right:[0,0,0],tilt:-.035,yaw:Math.sin(time*.7)*.025}:null;
   if(kind==='dance'||kind==='rehearse'){
@@ -46,7 +49,7 @@ export function makeTaskProps(root,model,handPoint){
     step.visible=!moving&&(task?.rise||0)>.001;if(step.visible){step.scale.y=task.rise;step.position.set(0,task.floor-root.position.y+task.rise/2,0);}
     pen.visible=!moving&&task?.kind==='write';pipette.visible=!moving&&task?.kind==='experiment';
     book.visible=!!task?.carry&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
-    const aim=(tool,length)=>{place(tool,'right');if(task.contact){const point=group.worldToLocal(new T.Vector3(task.contact.x,task.contact.y,task.contact.z)),to=point.sub(tool.position);tool.quaternion.setFromUnitVectors(new T.Vector3(0,-1,0),to.clone().normalize());tool.scale.y=to.length()/length;}};
+    const aim=(tool,length)=>pointToolAt(tool,group,handPoint('right'),task.contact,length);
     brush.visible=!moving&&task?.kind==='paint';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
     if(brush.visible)aim(brush,.22);
     if(clipboard.visible){place(clipboard,'right');if(task.kind==='clipboard')clipboard.position.lerp(group.worldToLocal(handPoint('left')),.5);clipboard.position.y-=.015;clipboard.rotation.x=.25;}

@@ -1,23 +1,23 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-3d4a02824fdd16a8';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-3d4a02824fdd16a8';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-3d4a02824fdd16a8';
-import {seatLook} from '../wardrobe.mjs?v=fg-3d4a02824fdd16a8';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-3d4a02824fdd16a8';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-3d4a02824fdd16a8';
-import {stepRoute} from '../locomotion.mjs?v=fg-3d4a02824fdd16a8';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-3d4a02824fdd16a8';
-import {updateWorkScene} from './work-scene.mjs?v=fg-3d4a02824fdd16a8';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-3d4a02824fdd16a8';
-import {activityPose} from './activity.mjs?v=fg-3d4a02824fdd16a8';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-3d4a02824fdd16a8';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-5ee68d467e4124cc';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-5ee68d467e4124cc';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-5ee68d467e4124cc';
+import {seatLook} from '../wardrobe.mjs?v=fg-5ee68d467e4124cc';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-5ee68d467e4124cc';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-5ee68d467e4124cc';
+import {stepRoute} from '../locomotion.mjs?v=fg-5ee68d467e4124cc';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-5ee68d467e4124cc';
+import {updateWorkScene} from './work-scene.mjs?v=fg-5ee68d467e4124cc';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-5ee68d467e4124cc';
+import {activityPose} from './activity.mjs?v=fg-5ee68d467e4124cc';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-5ee68d467e4124cc';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,buildSpace,styleOf} from './spaces.mjs?v=fg-3d4a02824fdd16a8';
-import {createSpaceView} from './space-view.mjs?v=fg-3d4a02824fdd16a8';
-import {setHomeClock} from './home-shell.mjs?v=fg-3d4a02824fdd16a8';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-5ee68d467e4124cc';
+import {createSpaceView} from './space-view.mjs?v=fg-5ee68d467e4124cc';
+import {setHomeClock} from './home-shell.mjs?v=fg-5ee68d467e4124cc';
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-3d4a02824fdd16a8';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-3d4a02824fdd16a8';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-5ee68d467e4124cc';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-5ee68d467e4124cc';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -142,7 +142,7 @@ function apply(data,local=false){
   if(input!==homeInput)homeRecord=restoreHomeLayout(data.homePlacements);
   homeInput=input;snapshot.homePlacements=homeRecord;
   const nextHome=JSON.stringify(homeRecord),layoutChanged=nextHome!==homeKey;
-  if(layoutChanged){MAPS.dayHome=buildSpace('dayHome',homeRecord);homeKey=nextHome;}
+  if(layoutChanged){MAPS.dayHome=checkHomeLayout(homeRecord).map;homeKey=nextHome;}
   if(data.editing&&!wasEditing){history.length=0;selected='double-bed';lastEditNotice='';}
   if(data.editing&&selected&&!Object.hasOwn(homeRecord,selected))selected='';
   if(!data.editing&&wasEditing){cancelDrag();history.length=0;selection.visible=false;}
@@ -185,7 +185,7 @@ function tick(dt,time){
   if(!moving&&spot)yaw=spot.heading||0;
   // During departure the avatar still walks through the previous room.
   taskState=activity?.map===map?taskAt(stage,spot,MAPS[map],dwell,{moving,position,heading:yaw}):null;
-  if(taskState&&taskState.kind!=='read'){pose.gesture='rest';pose.emotion=null;}
+  if(taskState){if(taskState.daily)pose.gesture={read:'read',drink:'tea',eat:'eat',cook:'stir'}[taskState.kind];else if(taskState.kind!=='read')pose.gesture='rest';pose.emotion=null;}
   if(['enter','exit','break'].includes(stage.phase)&&!moving){pose.gesture='rest';pose.emotion=null;}
   avatar.root.position.set(position.x,0,position.z);avatar.root.rotation.y=yaw;
   if(!moving&&bed){avatar.animate(time,{sleepPose:bed});}

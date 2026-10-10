@@ -52,7 +52,8 @@ test('同一工作段持续有托腮和抬眼动作，休息有舒展，睡眠�
   for(const gesture of ['read','eat','tea','sleep'])assert.equal(activityPose({action:gesture,gesture},9).gesture,gesture);
 });
 test('示例单独提供全部基础动作，不调用writer或替角色排事情',()=>{
-  const f=setup(),n=f.writes.length;assert.equal(f.K.DEMO.id,'__char_day_demo');assert.equal(f.K.DEMO_ROWS.length,5);
+  const f=setup(),n=f.writes.length;assert.equal(f.K.DEMO.id,'__char_day_demo');assert.equal(f.K.DEMO_ROWS.length,6);
+  const actions=f.K.DEMO_ROWS.map(row=>f.K.presentation(row).action);for(const kind of ['meal','read','cook','tea','walk','sleep'])assert.ok(actions.includes(kind));
   for(const row of f.K.DEMO_ROWS)assert.ok(f.K.presentation(row).gesture);assert.equal(f.writes.length,n);
 });
 test('主App接真实日程与已有陪伴样貌，日历使用现有角色入口并正确返回小世界',()=>{
@@ -116,7 +117,7 @@ function placeViewer(f,initialCharId){
   return {render,click,send,all,states};
 }
 
-test('新场景从选人页独立试玩，原五段示例与日程映射继续可用',()=>{
+test('新场景从选人页独立试玩，生活示例与日程映射继续可用',()=>{
   const f=setup(),viewer=placeViewer(f,''),before=JSON.stringify(f.plans()),writes=f.writes.length;
   let tree=viewer.render();viewer.click(tree,'新场景摆位试玩');tree=viewer.render();
   const payload=viewer.send(tree);
@@ -125,7 +126,7 @@ test('新场景从选人页独立试玩，原五段示例与日程映射继续�
   viewer.click(tree,'回到日程');tree=viewer.render();const back=viewer.send(tree);
   assert.equal(back.charId,f.K.DEMO.id);assert.equal(back.presentation.map,'dayHome');
   viewer.click(tree,'下一段');const next=viewer.send(viewer.render());assert.equal(next.presentation.map,'dayWork');
-  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayLaboratory');
+  assert.equal(f.K.DEMO_ROWS.length,6);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayLaboratory');
   assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'dayLibrary');
   assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });
