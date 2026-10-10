@@ -890,6 +890,9 @@
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
     const descArgs = useRef(null);   // 最近一次 AI 描述的参数，失败后原样重跑
+    // 重说这一轮（她 2026-10-11）：AI 这一轮描述说砸了（直接把词说出来、像在写百科），投票前可以让他们重说一遍。
+    //   记下这一批入账前日志和全场描述各有多长，重说时切回那儿再跑同一组参数；你自己那句不动。
+    const redoRef = useRef(null);
     const started = useRef(false);
     // CC 工具用 turn_id 做幂等。每局必须有自己的命名空间；否则每个新局的第 1 轮
     // 都叫 spy:1，云端会把第一局的旧回答原样取回来。
@@ -960,6 +963,7 @@
 
     // ---- 描述阶段（你每轮随机排最先或最后，不再永远第一个）----
     const startRound = function (plist, rnd) {
+      redoRef.current = null;
       setRoundClues([]); setUserClue("");
       const meA = plist.find(function (p) { return p.isUser; });
       if (!(meA && meA.alive)) { setPhase("describe"); aiDescribeWith(plist, [], rnd, false); return; }
@@ -987,17 +991,29 @@
         const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: gameRunId.current + ":round:" + rnd });
         const norm = speakers.map(function (s) { const hit = clues.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……" }; });
         setRoundClues(prior.concat(norm));
-        setAllClues(function (A) { return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
-        pushLog((prior.length ? [] : [{ type: "round", n: rnd }]).concat(norm.map(function (c) { return { type: "clue", name: c.name, text: c.text }; })));
+        const redo = { args: { plist: plist, prior: prior, rnd: rnd, waitUser: waitUser }, logLen: 0, allLen: 0 };
+        setAllClues(function (A) { redo.allLen = A.length; return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
+        const batch = (prior.length ? [] : [{ type: "round", n: rnd }]).concat(norm.map(function (c) { return { type: "clue", name: c.name, text: c.text }; }));
+        setLog(function (L) { redo.logLen = L.length; return L.concat(batch); });
+        redoRef.current = redo;
         if (!waitUser) { setPhase("vote"); setUserVote(null); }
       } catch (e) { setDescFail(true); props.toast && props.toast("描述失败：" + ((e && e.message) || "点「重试这一轮」")); }
       finally { setBusy(false); }
+    };
+    const redoDescribe = function () {
+      const r = redoRef.current; if (!r || busy) return;
+      redoRef.current = null;
+      setLog(function (L) { return L.slice(0, r.logLen); });
+      setAllClues(function (A) { return A.slice(0, r.allLen); });
+      setRoundClues(r.args.prior); setUserVote(null); setPhase("describe");
+      aiDescribeWith(r.args.plist, r.args.prior, r.args.rnd, r.args.waitUser);
     };
     const retryDescribe = function () {
       const a = descArgs.current; if (!a || busy) return;
       aiDescribeWith(a.plist, a.prior, a.rnd, a.waitUser);
     };
     const submitUserClue = function () {
+      redoRef.current = null;   // 你补了这句，前面那批就定了
       const v = userClue.trim(); if (!v || busy) return;
       setUserClue("");
       const mineClue = { name: me.name, text: v };
@@ -1130,6 +1146,7 @@
       settleAfterOut(next);
     };
     const runVote = async function (userTarget) {
+      redoRef.current = null;   // 投了票，这一轮就定了
       setBusy(true);
       try {
         // 投票也要保留 CC 工牌；否则描述轮由言秋亲说，投票轮却又被 Gemini 抢走。
@@ -1256,6 +1273,10 @@
     }
 
     // 台下插嘴：观战、或你已出局（猜词那一步除外——那一步你手里是另一件事）
+    // 重说这一轮：这一轮 AI 刚说完、还没投票时，底下一颗小字键
+    if (redoRef.current && !busy && !descFail && (phase === "vote" || phase === "describe") && action) action = h("div", null, action,
+      h("button", { "data-wk": "gameredo", onClick: redoDescribe, className: "w-full active:opacity-60",
+        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
     const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "reveal" || phase === "describe" || phase === "vote");
     const sendHeckle = async function () {
       const v = heckleText.trim(); if (!v || busy) return;
@@ -1748,6 +1769,9 @@
     const seerKnowRef = useRef({});                 // { seerName: [{name,isWolf}] }
     const stanceRef = useRef({});                   // { name: {claim,reads,plan} } 立场纪要(模型自写)，防前后矛盾，不显示
     const claimsRef = useRef([]);                    // [{day,name,text}] 全场公开声明台账，跨天累积防集体失忆
+    // 重说这一轮（她 2026-10-11）：AI 这一批白天发言说砸了，投票前让他们重说。记下这一批之前的日志、本日发言、
+    //   立场纪要和公开声明台账，重说时全部切回那儿，再用同一组参数跑一遍；你自己说的不动。
+    const wolfRedoRef = useRef(null);
     const witchPotRef = useRef({ heal: true, poison: true }); // 女巫药剂状态（全程一份）
     const wolfChatRef = useRef([]);                 // 狼队各夜密谈，终局复盘时才公开
     const chatRevealed = useRef(false);
@@ -2089,6 +2113,7 @@
       return alive.map(function (x) { return x.p; });
     };
     const startDay = function (list, n) {
+      wolfRedoRef.current = null;
       setPhase("day"); setDaySpeeches([]); setUserSpeech(""); setUserVote(null); setBoomPick(false);
       // AI 白狼王：从第 2 天起，天亮先决定要不要自爆搅局（自爆则跳过整个白天直接进夜）
       const aiWW = list.find(function (p) { return p.alive && p.role === "whitewolf" && !p.isUser; });
@@ -2131,6 +2156,8 @@
       const ai = group.filter(function (p) { return !p.isUser; });
       if (!ai.length) { if (final) { setPhase("dayvote"); setUserVote(null); } return; }
       setBusy(true);
+      const snap = { args: [list, group, prior, n, final], logLen: logDataRef.current.length, dayLen: 0,
+        stance: JSON.parse(JSON.stringify(stanceRef.current || {})), claims: (claimsRef.current || []).slice() };
       try {
         // 这里是夜间玩家快照进入白天发言管线的窄桥。key / engineer 任何一个漏掉，
         // genSpeeches 里的 ccCarve 都认不出本人座位，夜票正常而白天票凭空消失。
@@ -2147,11 +2174,21 @@
         // 新增的硬公开声明入台账（跨天累积）
         (res.claims || []).forEach(function (c) { if (c && c.name && c.text && String(c.text).trim()) { const hit = speakers.find(function (x) { return c.name.indexOf(x.name) >= 0 || x.name.indexOf(c.name) >= 0; }); if (hit) claimsRef.current = claimsRef.current.concat([{ day: n, name: hit.name, text: String(c.text).trim() }]); } });
         const norm = speakers.map(function (s) { const hit = sp.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……（沉默了一下，没多说）" }; });
-        setDaySpeeches(function (D) { return D.concat(norm); });
+        setDaySpeeches(function (D) { snap.dayLen = D.length; return D.concat(norm); });
         pushLog(norm.map(function (c) { return { type: "speech", name: c.name, text: c.text }; }));
+        wolfRedoRef.current = snap;
         if (final) { setPhase("dayvote"); setUserVote(null); }
       } catch (e) { props.toast && props.toast("发言失败：" + ((e && e.message) || "重试")); }
       finally { setBusy(false); }
+    };
+    const redoSpeeches = function () {
+      const r = wolfRedoRef.current; if (!r || busy) return;
+      wolfRedoRef.current = null;
+      logDataRef.current = logDataRef.current.slice(0, r.logLen); setLog(logDataRef.current.slice());
+      setDaySpeeches(function (D) { return D.slice(0, r.dayLen); });
+      stanceRef.current = r.stance; claimsRef.current = r.claims;
+      setUserVote(null); setPhase("day");
+      aiSpeakSeq.apply(null, r.args);
     };
     // 出局遗言：AI 合一笔调用；言秋座位单独 CC 票亲笔（失败缺席、不代笔、不挡牌局）。
     // 遗言按 speech 入日志（shortLog 收得到），硬声明照样入台账——它是真发言，不是装饰。
@@ -2191,6 +2228,7 @@
       })();
     };
     const submitUserSpeech = function () {
+      wolfRedoRef.current = null;   // 你说过了，前面那批就不能再重说（会把你这句一起切掉）
       const v = userSpeech.trim(); if (!v || !me) return;
       pushLog([{ type: "speech", name: me.name, text: v, mine: true }]);
       // 真人的硬公开声明不会经过模型返回的 claims，必须在本地同步入台账，夜狼才能听见真人跳预言家/报验人。
@@ -2209,6 +2247,7 @@
     };
     // ---- 投票 ----
     const runDayVote = async function (userTarget) {
+      wolfRedoRef.current = null;
       setBusy(true);
       try {
         const al = players.filter(function (p) { return p.alive; });
@@ -2412,6 +2451,9 @@
         ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "在弹框里选择 · 也可先关掉回看发言")
         : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里做选择"))
       : inline;
+    if (wolfRedoRef.current && !busy && (phase === "day" || phase === "dayvote") && action) action = h("div", null, action,
+      h("button", { "data-wk": "gameredo", onClick: redoSpeeches, className: "w-full active:opacity-60",
+        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
     const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "day" || phase === "dayvote" || phase === "reveal");
     const sendHeckle = async function () {
       const v = heckleText.trim(); if (!v || busy) return;
