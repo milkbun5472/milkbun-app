@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-83edfa27f119ba5e';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-d6accb47bee17220';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};
@@ -14,7 +14,7 @@ export function roomStructure({w=10,d=9}={}){
 export function roomObstacles(furniture,size){return [...roomStructure(size),...furniture.map(({id,x,z,w,d})=>({id,x,z,w,d}))];}
 export function roomSeat(furniture,id,approach){
   const p=furniture.find(p=>p.id===id);
-  if(p?.kind!=='chair')throw new Error('Seat requires a constructed chair: '+id);
+  if(!['chair','bench'].includes(p?.kind))throw new Error('Seat requires a constructed chair or bench: '+id);
   return {x:p.x,z:p.z,rise:p.seat??ROOM_SCALE.seat,heading:p.heading??0,piece:id,approach};
 }
 export function createRoomKit(){
@@ -32,11 +32,33 @@ export function createRoomKit(){
   function sphere(name,{x=0,y=0,z=0,r=.5,color='#91a586'},parent=root){const mesh=new T.Mesh(new T.SphereGeometry(r,16,12),material(color));mesh.name=name;mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;}
   function table({id,x,z,w,d,top=.85,color='#ba986e'}){const p=group(id,{x,z});box(id+'-top',{y:.08+top-.055,w,h:.11,d,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*(w/2-.15),z:b*(d/2-.15),y:.08+(top-.11)/2,w:.1,h:top-.11,d:.1,color:'#ad8b62'},p);return p;}
   function chair({id,x,z,heading=0,color='#789887',seat=.45}){const p=group(id,{x,z,heading});box(id+'-seat',{y:.08+seat-.045,w:.56,h:.09,d:.57,color},p);box(id+'-back',{y:.08+seat+.3,z:-.245,w:.56,h:.54,d:.075,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*.2,y:.08+(seat-.09)/2,w:.065,h:seat-.09,d:.065,color:'#b49978'},p);return p;}
+  function bench({id,x,z,w=2.8,d=.65,heading=0,color='#789887',seat=.45,legColor='#a58b70',solid=false}){
+    const p=group(id,{x,z,heading});
+    if(solid){
+      box('SeatBase',{y:.35,w,h:.3,d,color},p);box('SeatCushion',{y:.49,w:w-.09,h:.09,d:d-.03,color},p);
+      box('SeatBack',{y:.79,z:-d/2+.1,w,h:.75,d:.16,color},p);
+      for(const s of [-1,1])box('SeatLeg',{x:s*(w/2-.22),y:.19,w:.11,h:.24,d:d-.2,color:legColor},p);
+      return p;
+    }
+    box(id+'-seat',{y:ROOM_SCALE.floor+seat-.045,w,h:.09,d,color},p);
+    box(id+'-back',{y:.08+seat+.28,z:-d/2+.04,w,h:.5,d:.08,color},p);
+    for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*(w/2-.22),z:b*(d/2-.1),y:ROOM_SCALE.floor+(seat-.09)/2,w:.075,h:seat-.09,d:.075,color:legColor},p);
+    return p;
+  }
+  function sign(name,{text,x=0,y=0,z=0,w=1.8,h=.4,heading=0,color='#eee7d7',ink='#516b61'},parent=root){
+    let mat=new T.MeshBasicMaterial({color,side:T.DoubleSide});
+    if(typeof document!=='undefined'){
+      const canvas=document.createElement('canvas');canvas.width=512;canvas.height=Math.round(512*h/w);const c=canvas.getContext('2d');
+      c.fillStyle=color;c.fillRect(0,0,canvas.width,canvas.height);c.fillStyle=ink;c.font='500 '+Math.floor(canvas.height*.55)+'px system-ui';c.textAlign='center';c.textBaseline='middle';c.fillText(text,canvas.width/2,canvas.height/2,canvas.width*.9);
+      const texture=new T.CanvasTexture(canvas);texture.colorSpace=T.SRGBColorSpace;mat.dispose();mat=new T.MeshBasicMaterial({map:texture,side:T.DoubleSide});
+    }
+    const mesh=new T.Mesh(new T.PlaneGeometry(w,h),mat);mesh.name=name;mesh.userData.label=text;mesh.position.set(x,y,z);mesh.rotation.y=heading;parent.add(mesh);return mesh;
+  }
   function book(name,{x=0,y=0,z=0,w=.16,h=.46,d=.3,color='#879d83',flat=false},parent=root){const p=group(name,{x,y,z},parent);if(flat){box(name+'-pages',{w,h:.065,d,color:'#eee6d4',radius:.005},p);for(const a of [-1,1])box(name+'-cover',{y:a*.038,w:w+.035,h:.012,d:d+.035,color,radius:.005},p);}else{box(name+'-spine',{w,h,d,color,radius:.007},p);for(const a of [-1,1])box(name+'-band',{y:a*h*.31,z:d/2+.004,w:w*.75,h:.015,d:.008,color:'#e3d4af',radius:0},p);}return p;}
   function plant(x,z){const p=group('Plant',{x,z});cylinder('pot',{y:.24,r:.19,h:.32,color:'#c6a689'},p);for(let i=0;i<7;i++){const a=i*2.4;const leaf=box('leaf',{x:Math.sin(a)*.16,y:.57+i*.025,z:Math.cos(a)*.16,w:.12,h:.4,d:.075,color:i%2?'#799476':'#91a586'},p);leaf.rotation.z=Math.sin(a)*.5;}return p;}
-  function room({w=10,d=9,floorColor='#cbb697',wallColor='#e6dfcb',accent='#7b9585'}){
+  function room({w=10,d=9,floorColor='#cbb697',wallColor='#e6dfcb',accent='#7b9585',joins=true}){
     root.name='DayRoom';box('Floor',{y:-.07,w:w+.3,h:.3,d:d+.3,color:floorColor,radius:.05});
-    for(let i=0;i<Math.round(w/.5);i++)box('floor-join',{x:-w/2+i*.5,y:.084,w:.008,h:.002,d,color:'#bfa88a',radius:0});
+    if(joins)for(let i=0;i<Math.round(w/.5);i++)box('floor-join',{x:-w/2+i*.5,y:.084,w:.008,h:.002,d,color:'#bfa88a',radius:0});
     const structure=roomStructure({w,d});
     for(const p of structure.slice(0,2))box(p.id,{...p,y:1.65,h:3.3,color:wallColor});
     box('back-trim',{z:-d/2+.12,y:.22,w,h:.26,d:.075,color:accent});box('left-trim',{x:-w/2+.12,y:.22,w:.075,h:.26,d,color:accent});
@@ -53,5 +75,5 @@ export function createRoomKit(){
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
     for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
   }
-  return {root,box,cylinder,sphere,group,replaceableGroup,table,chair,book,plant,room,finish,material};
+  return {root,box,cylinder,sphere,group,replaceableGroup,table,chair,bench,sign,book,plant,room,finish,material};
 }

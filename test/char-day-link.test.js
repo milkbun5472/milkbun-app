@@ -68,6 +68,22 @@ test('旧聊天和线下临时改日程沿真正splice writer，实际画面不�
 test('数字生命生成连接字段为null，不因视觉场景硬排现实职业',async()=>{
  const f=envFor({seqs:[{time:'10:00',title:'维护记忆',type:'work',world:null}]});f.e.isBody=()=>true;assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.match(f.calls[0].spec.instruction,/存在时间线/);assert.doesNotMatch(f.calls[0].spec.instruction,/dayClinic/);assert.match(f.calls[0].spec.schemaHint,/"world":null/);
 });
+test('新排练室与候车区从真实日程writer接入，原文字不变，日历投影继续隐藏视觉字段',async()=>{
+ for(const [scene,spot]of [['dayRehearsal','practice'],['dayRehearsal','piano'],['dayStation','waiting'],['dayStation','departure']]){
+  const seq={...row(scene,spot),title:scene==='dayRehearsal'?'排练当天曲目':'等车准备出发',location:scene==='dayRehearsal'?'北街排练室':'城南车站'};
+  const f=envFor({seqs:[seq]});assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.equal(f.L.presentation(saved).map,scene);assert.equal(f.L.presentation(saved).spot,spot);
+  assert.equal(saved.title,seq.title);assert.equal(saved.location,seq.location);const publicPlan=f.L.publicSchedules(f.e.schedulesRef.current);
+  assert.equal(publicPlan.c1['2026-10-09'].seqs[0].world,undefined);assert.equal(publicPlan.c1['2026-10-09'].seqs[0].title,seq.title);
+ }
+});
+test('旧日程按排练/出行实际文字分到新场景，在家练琴与实际改动仍按原世界事情',()=>{
+ const {L}=envFor({});
+ for(const [title,location,map,spot]of [['练琴','琴房','dayRehearsal','piano'],['练舞','排练室','dayRehearsal','practice'],['翻看台词','排练室','dayRehearsal','score'],['休息一下','排练室','dayRehearsal','rest'],['坐着候车','城南车站','dayStation','waiting'],['候车时看书','车站','dayStation','reading'],['放好行李','候车厅','dayStation','luggage'],['查看站牌','车站','dayStation','information'],['通勤出发','城南车站','dayStation','departure'],['离开候车厅','车站','dayStation','exit']]){const p=L.presentation({title,location,type:'work'});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);}
+ assert.equal(L.presentation({title:'在家练琴',location:'家里',type:'work'}).map,'dayHome');
+ assert.equal(L.presentation({...row('dayRehearsal','piano'),deviation:{actual:'在车站坐着候车'}}).map,'dayStation');
+ assert.equal(L.presentation({title:'就寝',type:'sleep',world:{scene:'dayStation',spot:'waiting'}}).map,'dayHome');
+});
 function looks(){
  const f=envFor({});let cfg={charId:'c1',autoFace:true,looks:{c1:{outfit:'academy',hair:'korean',hairColor:'#43352e',skin:'#ead3ba',eye:'#827565',dims:{head:1.15,height:.95},wardrobe:{academy:{cloth:'#a8be83'}}},c2:{face:'sad',hair:'bob',hairColor:'#a95f43'}}};
  Object.assign(f.e,{addEventListener:()=>{},loadJSON:()=>cfg});vm.runInContext(read('js/mood-label.js'),f.e);vm.runInContext(read('js/companion.js'),f.e);let moods={};

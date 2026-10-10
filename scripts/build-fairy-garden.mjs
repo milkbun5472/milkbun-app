@@ -16,6 +16,6 @@ writeFileSync(host,readFileSync(host,'utf8').replace(/BUILD = "(?:__GARDEN_BUILD
 writeFileSync('js/companion.js',readFileSync('js/companion.js','utf8').replace(/BUILD = "(?:cp-[^"]+|fg-[a-f0-9]+)"/,'BUILD = "'+build+'"'));
 writeFileSync(root+'/build.json',JSON.stringify({build},null,2)+'\n');console.log(build);
 
-const phoneIndex=readFileSync('index.html','utf8');writeFileSync('index.html',phoneIndex.replace(/apps\/fairy-garden\/rules\.js\?v=[^"']+/,'apps/fairy-garden/rules.js?v='+build).replace(/apps\/fairy-garden\/clock\.js(?:\?v=[^"']+)?/,'apps/fairy-garden/clock.js?v='+build));
+const phoneIndex=readFileSync('index.html','utf8');writeFileSync('index.html',phoneIndex.replace(/apps\/fairy-garden\/rules\.js(?:\?v=[^"']+)?/,'apps/fairy-garden/rules.js?v='+build).replace(/apps\/fairy-garden\/clock\.js(?:\?v=[^"']+)?/,'apps/fairy-garden/clock.js?v='+build));
 
 writeFileSync('index.html',readFileSync('index.html','utf8').replace(/apps\/fairy-garden\/day\/catalog\.js(?:\?v=[^\"']+)?/,'apps/fairy-garden/day/catalog.js?v='+build));

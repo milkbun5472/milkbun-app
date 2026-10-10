@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.214";
+const APP_VERSION = "v75.218";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12876,6 +12876,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _pairDone = !!(_pairPick && parsed.pairAvatar && typeof parsed.pairAvatar === "object"
         && applyPairAvatar(charId, _pairPick, parsed.pairAvatar.yours));
       if (_pairDone && parsed.photoSeen && typeof parsed.photoSeen === "object") parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
+      // 情头那一轮填错了格（她 2026-10-10：「给两张只换他自己的」）：没填 pairAvatar，却在单张那格 photoSeen.avatar=true。
+      //   单张那格指的就是他挑的那张——认得出是这一对里的第几张，就照这一对补齐：他用那张，另一张换给她。
+      if (!_pairDone && _pairPick && _avatarMsg && parsed.photoSeen && typeof parsed.photoSeen === "object" && parsed.photoSeen.avatar === true) {
+        const _k = _pairPick.findIndex(m => m === _avatarMsg || (m.imageRef && m.imageRef === _avatarMsg.imageRef));
+        if (_k >= 0 && applyPairAvatar(charId, _pairPick, _k + 1)) parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
+      }
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换

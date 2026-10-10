@@ -85,7 +85,7 @@ test('样式与装修沿真实原子writer的durable/live回执；失败保留�
  vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
  const before=JSON.stringify(stored);await assert.rejects(f.K.saveHomeChange('c1','layouts',{sofa:{stored:true}}));assert.equal(JSON.stringify(stored),before);assert.equal(writes,0);
  verified=true;await f.K.saveHomeChange('c1','layouts',{sofa:{stored:true}});assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.layouts.c2.sofa.x,1);assert.equal(stored.styles.c2,'dusk');assert.equal(stored.keep,'旧字段');
- await f.K.saveHomeChange('c1','styles','light');assert.equal(stored.styles.c1,'light');assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.version,2);
+ await f.K.saveHomeChange('c1','styles','light');assert.equal(stored.styles.c1,'light');assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.version,3);
 });
 
 test('明确在家与外食分别去新小家或小店，日程原文决定位置',()=>{
