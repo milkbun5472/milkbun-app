@@ -176,3 +176,11 @@ test('更多归拢样貌装修场景，整页返回不改变人物或场景快�
  viewer.click(tree,'回到小世界');tree=viewer.render();assert.equal(viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore'),undefined);assert.deepEqual(viewer.send(tree),before);
  viewer.click(tree,'今天的日程');tree=viewer.render();assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdaydecorate').length,0);
 });
+
+
+test('空日程也保留日程入口，页面只展示安排与原日历入口',()=>{
+ const f=setup();f.save('c1','2026-10-09',{seqs:[]});const viewer=placeViewer(f,'c1');let tree=viewer.render();
+ assert.ok(viewer.all(tree).find(n=>n.props['data-wk']==='cdayscheduleopen'));viewer.click(tree,'今天的日程');tree=viewer.render();
+ assert.ok(viewer.all(tree).find(n=>n.tag==='Head'&&n.props.zh==='今天的日程'));
+ assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdayrow').length,0);assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdaydecorate').length,0);
+});

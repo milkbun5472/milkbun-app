@@ -68,11 +68,21 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
 
   await p.clock.setFixedTime(new Date('2026-10-09T12:05:00Z'));await root.getByText('这会儿没排事情',{exact:true}).waitFor();result.gap=true;
   // Yesterday's sleep survives local midnight and never turns into a daytime task.
+  if(process.env.DAY_ROUTE_ONLY){
+    await root.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();
+    await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByText('还没有今天的安排，可以到日历里排好再来看。',{exact:true}).waitFor();await root.getByRole('button',{name:'去日历看完整安排',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await ready();await settle();assert.equal((await state()).charId,'day-b');assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);result.noSchedule=true;
+    await p.evaluate(()=>CharDayKit.saveHomeChange('day-a','styles','dusk'));
+  }
   await p.clock.setFixedTime(new Date('2026-10-10T02:00:00Z'));await root.getByText('夜里歇下',{exact:true}).waitFor();await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.map==='dayHome'&&s.gesture==='sleep'&&s.bed&&s.visualTilt < -1.4&&s.visible&&!s.error;});await shot('midnight-sleep');result.sleepCarry=true;
-  await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();assert.match((await state()).look,/#935f43/);assert.equal((await state()).spaceStyle,'warm');await root.getByRole('button',{name:'去日历排今天',exact:true}).click();assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);assert.equal((await state()).charId,'day-b');result.noSchedule=true;result.characterIsolation=true;
+  await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();assert.match((await state()).look,/#935f43/);assert.equal((await state()).spaceStyle,'warm');await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByText('还没有今天的安排，可以到日历里排好再来看。',{exact:true}).waitFor();await root.getByRole('button',{name:'去日历看完整安排',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await ready();await settle();assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);assert.equal((await state()).charId,'day-b');result.noSchedule=true;result.characterIsolation=true;
   await root.getByRole('button',{name:'换人',exact:true}).click();await root.getByRole('button',{name:'先看一段示例',exact:true}).click();await ready();await settle();await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);await frame.waitForFunction(()=>CharDayScene.inspect().gesture==='read');await shot('demo-read');assert.match(await root.locator('[data-wk=cdaynow]').innerText(),/示例试玩/);result.demo=true;
   await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await root.locator('[data-wk=fgworld]').filter({hasText:'微光庭院'}).waitFor();result.back=true;
   assert.equal(await p.evaluate(()=>dayModelCount),0);
+  }
+  if(process.env.DAY_ROUTE_ONLY){
+    await root.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();
+    await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByText('还没有今天的安排，可以到日历里排好再来看。',{exact:true}).waitFor();await root.getByRole('button',{name:'去日历看完整安排',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await ready();await settle();assert.equal((await state()).charId,'day-b');assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);result.noSchedule=true;
+    await p.evaluate(()=>CharDayKit.saveHomeChange('day-a','styles','dusk'));
   }
   await p.clock.setFixedTime(new Date('2026-10-10T02:00:00Z'));
   // The real App starts from persisted fixture data and owns the calendar return path.
