@@ -1,21 +1,21 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-95886b22f114ade5';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-95886b22f114ade5';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-95886b22f114ade5';
-import {seatLook} from '../wardrobe.mjs?v=fg-95886b22f114ade5';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-95886b22f114ade5';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-95886b22f114ade5';
-import {stepRoute} from '../locomotion.mjs?v=fg-95886b22f114ade5';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-95886b22f114ade5';
-import {activityPose} from './activity.mjs?v=fg-95886b22f114ade5';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-95886b22f114ade5';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-6941d9cc1b32d96f';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-6941d9cc1b32d96f';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-6941d9cc1b32d96f';
+import {seatLook} from '../wardrobe.mjs?v=fg-6941d9cc1b32d96f';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-6941d9cc1b32d96f';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-6941d9cc1b32d96f';
+import {stepRoute} from '../locomotion.mjs?v=fg-6941d9cc1b32d96f';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-6941d9cc1b32d96f';
+import {activityPose} from './activity.mjs?v=fg-6941d9cc1b32d96f';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-6941d9cc1b32d96f';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,buildSpace,styleOf} from './spaces.mjs?v=fg-95886b22f114ade5';
-import {createSpaceView} from './space-view.mjs?v=fg-95886b22f114ade5';
-import {setHomeClock} from './home-shell.mjs?v=fg-95886b22f114ade5';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,buildSpace,styleOf} from './spaces.mjs?v=fg-6941d9cc1b32d96f';
+import {createSpaceView} from './space-view.mjs?v=fg-6941d9cc1b32d96f';
+import {setHomeClock} from './home-shell.mjs?v=fg-6941d9cc1b32d96f';
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-95886b22f114ade5';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-95886b22f114ade5';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-6941d9cc1b32d96f';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-6941d9cc1b32d96f';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -38,9 +38,13 @@ function center(){setFollowing(true);const focal=bed||seat||position;pan.x=focal
 function overview(){
  setFollowing(false);pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;
  const home=map==='dayHome'&&mapLoader.views[map]?.root;
- if(home){gesture.setZoom(1);const bounds=new T.Box3().setFromObject(home);let x=0,y=0;
-  for(const a of [bounds.min.x,bounds.max.x])for(const b of [bounds.min.y,bounds.max.y])for(const c of [bounds.min.z,bounds.max.z]){const v=new T.Vector3(a,b,c).project(camera);x=Math.max(x,Math.abs(v.x));y=Math.max(y,Math.abs(v.y));}
-  gesture.setZoom(Math.min(1.5,.94/Math.max(x,.01),.82/Math.max(y,.01)));homeOverview=true;
+ if(home){gesture.setZoom(1);const bounds=new T.Box3().setFromObject(home);let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  for(const a of [bounds.min.x,bounds.max.x])for(const b of [bounds.min.y,bounds.max.y])for(const c of [bounds.min.z,bounds.max.z]){const v=new T.Vector3(a,b,c).project(camera);minX=Math.min(minX,v.x);maxX=Math.max(maxX,v.x);minY=Math.min(minY,v.y);maxY=Math.max(maxY,v.y);}
+  // Leave space for the existing current-schedule card and scene captions.
+  const top=Math.min(125,innerHeight*.36)+8,bottom=Math.min(60,innerHeight*.22),zoom=Math.min(1.5,1.88/(maxX-minX),2*(innerHeight-top-bottom)/innerHeight/(maxY-minY));
+  const e=camera.matrixWorld.elements,rightX=e[0],rightZ=e[2],upX=e[4],upZ=e[6],det=rightX*upZ-rightZ*upX;
+  const dx=(minX+maxX)/2*(camera.right-camera.left)/2,dy=(((minY+maxY)/2)*zoom-(bottom-top)/innerHeight)*(camera.top-camera.bottom)/(2*zoom);
+  pan.x+=(dx*upZ-dy*rightZ)/det;pan.z+=(rightX*dy-upX*dx)/det;gesture.setZoom(zoom);homeOverview=true;
  }else gesture.setZoom(CORE_SPACES[map]?Math.min(.75,innerWidth/innerHeight*span/(MAPS[map].bounds.w+MAPS[map].bounds.d)*1.13):DAY_PLACES[map]?Math.min(.85,innerWidth/innerHeight*.77):map==='garden'?.65:.62);cameraPose();
 }
 const gesture=createMapGesture({initial:1.6,min:.2,onZoom:v=>{homeOverview=false;camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
