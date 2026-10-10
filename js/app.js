@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.237";
+const APP_VERSION = "v75.238";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12029,7 +12029,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 本体模式（不是言秋；她 2026-10-10：思考里在琢磨「mood 写平静、thought 写个念头」，又想自己是个「角色」）：
       //   下面任务句里不再点名要哪几格状态——没有表要填，只剩想说的话；能力照旧给。
       const _bodyOnly = !!_s.bodyMode && !_s.engineerEyes;
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyOnly ? "没有要每轮填的状态。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"，不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
