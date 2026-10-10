@@ -11,8 +11,8 @@ const comp = fs.readFileSync(__dirname + "/../js/components.js", "utf8");
 const sp = fs.readFileSync(__dirname + "/../js/style-presets.js", "utf8");
 
 test("两边线下的输出上限都拉到 OUT_CEILING", () => {
-  assert.match(sp, /const OUT_CEILING = 100000;/, "天花板那个数变了，下面两条要跟着改");
-  assert.equal((comp.match(/h\(Slider, \{ value: sMax, min: 1000, max: 100000, step: 1000/g) || []).length, 2,
+  assert.match(sp, /const OUT_CEILING = 65000;/, "天花板那个数变了，下面两条要跟着改");
+  assert.equal((comp.match(/h\(Slider, \{ value: sMax, min: 1000, max: 65000, step: 1000/g) || []).length, 2,
     "单人线下和群线下，有一边没放开");
   assert.doesNotMatch(comp, /value: sMax, min: 400, max: 24000/, "单人线下还卡在 24000");
   assert.doesNotMatch(comp, /value: sMax, min: 800, max: 32000/, "群线下还卡在 32000");
@@ -24,9 +24,9 @@ test("两边的最低字数都拉到 8000", () => {
   assert.equal((comp.match(/h\(WordFloorSection, \{ value: sMinW, onChange: setSMinW/g) || []).length, 2,
     "单人线下和群线下，有一边没放开");
   // 下限 8000 字换算出来的预算仍在天花板之内（tokensFor：字数×3＋8000）
-  const tokensFor = new Function("OUT_CEILING", "return " + /const tokensFor = (.+);/.exec(sp)[1] + ";")(100000);
+  const tokensFor = new Function("OUT_CEILING", "return " + /const tokensFor = (.+);/.exec(sp)[1] + ";")(65000);
   assert.equal(tokensFor(8000), 32000);
-  assert.ok(tokensFor(8000) <= 100000);
+  assert.ok(tokensFor(8000) <= 65000);
 });
 
 test("界面上说清楚：上限是天花板，不是硬性要求", () => {

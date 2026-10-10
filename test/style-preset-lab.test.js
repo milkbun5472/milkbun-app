@@ -450,7 +450,7 @@ test("max_tokens 是天花板不是预付款——按酒馆的量给", async () 
   await h.SP.runTest({ name: "A" }, { char: { name: "x" }, minWords: 1500 });
   assert.ok(h.calls[0].opt.maxTokens >= 16000,
     "只给了 " + h.calls[0].opt.maxTokens + "——思考模型的推理也算在里面，给小了正文就只剩两百字");
-  assert.match(sp, /OUT_CEILING = 100000/);
+  assert.match(sp, /OUT_CEILING = 65000/);
   assert.ok(sp.indexOf("它是【天花板】不是预付款") > 0, "为什么给这么大，写在代码里");
 });
 

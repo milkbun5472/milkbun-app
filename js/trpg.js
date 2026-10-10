@@ -1284,7 +1284,7 @@
   const galTomb = img => { const g = loadGalGone(); if (g.indexOf(img) < 0) lsWrite("x_trpgGalleryGone", g.concat([img]).slice(-400), "图库"); };
   // 输出天花板:她按次计费,上限不省钱只会截断——统一给满(同 StylePresets.OUT_CEILING,
   // 中转会自行 clamp 到模型上限;思考型模型的推理也从这里扣,给大不多花一分钱)
-  const TOK_MAX = 100000;
+  const TOK_MAX = 65000;
   // 暗线那句的长度上限。原来是 44 —— 而模型要的是「一句话的秘密目标」,
   // 中文一句话四五十字太常见了,于是每一条都在半句上被切断
   //(她 2026-09-06 截图:「必须在此行中查明当年先辈全军覆没的真正死因,并亲手」,

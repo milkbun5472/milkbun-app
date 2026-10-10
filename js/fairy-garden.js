@@ -781,7 +781,7 @@
       "你决定这一季想怎样生活，各天如何变化、哪些日子想独处或一起待着。活动的想法、动机与观察可以自由写；活动标识使用上述清单。涉及尚未建成的事物时把它作为愿望，眼下的安排仍落在已有地点。已经过去的季内日期只列计划，不把计划当已发生的回忆。",
       '【输出格式】只输出 JSON：{"title":"你为这一季取的短标题","days":[{"day":1,"note":"这天想怎样过","activities":[{"id":"活动标识","note":"这个活动里你想做什么"}]}]}。days 完整包含第 1 到第 14 天，每天恰好三个 activities。'
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{role:"user",content:"安排这一季。"}], {maxTokens:100000,timeout:180000,tag:"微光庭院季节"});
+    const raw = await callAI(active, sys, [{role:"user",content:"安排这一季。"}], {maxTokens:65000,timeout:180000,tag:"微光庭院季节"});
     try { return rules.normalizePlan(extractJSON(raw), world.day); } catch(e) { e.detail=String(raw||"").slice(0,1600);throw e; }
   }
   async function generatePetCase({active,world}){
@@ -830,7 +830,7 @@
       + "想说几条由你，短就一条；动作描写跟着它所属的那一句走，别单独攒成一条。"
       + "本轮只选择一个能落实的动作，其余内容可以继续聊天。"
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 100000, timeout: 180000, tag: "微光庭院" });
+    const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65000, timeout: 180000, tag: "微光庭院" });
     const out = normalizeReply(raw);
     if(pets){const a=extractJSON(raw)?.action;out.workChoice=petWorkChoice(a,world);out.petAction=["feed","play","pet","snack"].includes(a?.kind)?a.kind:null;out.petId=typeof a?.petId==="string"?a.petId:null;}
     if (train) { const o = extractJSON(raw), a = o && o.action; if (a && a.kind === "move" && ["seat", "stand", "rack", "berth"].includes(a.target)) out.move = a.target; }
@@ -853,7 +853,7 @@
       history&&history.length?"【你们最近在列车上的对话】\n"+history.map(m=>(m.role==="user"?userName(profile):character.name)+"："+m.content).join("\n"):"",
       "这幅要挂起来留着。你在它背面亲手写一句留给她的话：写你自己此刻真想留下的，长短、语气由你。共同经历以提供的事实为依据。署名和日期由程序填入。",
       '只输出 JSON：{"line":"写在背面的话"}。'].filter(Boolean).join("\n\n");
-    const raw=await callAI(active,sys,[{role:"user",content:"在背面写下这一句。"}],{maxTokens:100000,timeout:180000,tag:"旅行相框背面"});
+    const raw=await callAI(active,sys,[{role:"user",content:"在背面写下这一句。"}],{maxTokens:65000,timeout:180000,tag:"旅行相框背面"});
     const r=extractJSON(raw);
     if(!r||typeof r.line!=="string"||!r.line.trim()){const e=new Error("这次没写成，可以再请 TA 写一次。");e.detail=String(raw||"").slice(0,1200);throw e;}
     return r.line.trim().slice(0,200);
@@ -865,7 +865,7 @@
       "【数日前放下水的原信】\n"+JSON.stringify({text:bottle.original,day:bottle.from}),
       "你在这个架空庭院里捡到了这封漂流瓶，隔了几天才把回应封回瓶里。以自己的口吻写一小段回信，回应原句；可从庭院日常生发具体感受。共同经历以提供的事实为依据，想象就以想象表达。署名由程序填入。",
       '只输出 JSON：{"reply":"回信正文"}。'].join("\n\n");
-    const raw=await callAI(active,sys,[{role:"user",content:"写这封回信。"}],{maxTokens:100000,timeout:180000,tag:"庭院漂流瓶回信"});
+    const raw=await callAI(active,sys,[{role:"user",content:"写这封回信。"}],{maxTokens:65000,timeout:180000,tag:"庭院漂流瓶回信"});
     const result=extractJSON(raw);
     if(!result||typeof result.reply!=="string"||!result.reply.trim()){
       const e=new Error("这次没读懂回信，瓶子还留着，可以再试。");e.detail=String(raw||"").slice(0,1200);throw e;
@@ -1003,7 +1003,7 @@
       "【要紧的】每一站只写你站在那儿、她走过来时说出口的那一句（可以两句）：说清这儿能做什么、为什么值得做，用你自己的口气。不编你们没发生过的往事，不替她安排接下来做什么。十句得看得出是同一个人说的。",
       '【输出格式】只输出 JSON：{"lines":[{"step":"站的标识","text":"你说的那句"}]}，十站都要有。'
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "带路。" }], { maxTokens: 100000, timeout: 180000, tag: "微光庭院带路" });
+    const raw = await callAI(active, sys, [{ role: "user", content: "带路。" }], { maxTokens: 65000, timeout: 180000, tag: "微光庭院带路" });
     return normalizeGuide(raw);
   }
   async function tastes({ active, character, profile, mainline, world, catalogue }) {
@@ -1024,7 +1024,7 @@
       '【输出格式】只输出 JSON：{"items":[{"key":"东西的标识","words":["接过时说的话"]}]}。'
         + "items 的【顺序就是你的先后】，从最想要排到最不想要，共 " + catalogue.length + " 条。words 没有就留空数组。"
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "排下来。" }], { maxTokens: 100000, timeout: 180000, tag: "微光庭院喜好" });
+    const raw = await callAI(active, sys, [{ role: "user", content: "排下来。" }], { maxTokens: 65000, timeout: 180000, tag: "微光庭院喜好" });
     void quota;
     return normalizeTastes(raw, catalogue);
   }
@@ -1049,7 +1049,7 @@
       "【要写的】你接过它那一刻说出口的一两句。⚠️只写这一刻：不编你们没发生过的往事，也不替她安排接下来做什么。",
       '【输出格式】只输出 JSON：{"words":["第一句","要是还有第二句"]}。'
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "说一句。" }], { maxTokens: 100000, timeout: 180000, tag: "微光庭院喜好一样" });
+    const raw = await callAI(active, sys, [{ role: "user", content: "说一句。" }], { maxTokens: 65000, timeout: 180000, tag: "微光庭院喜好一样" });
     const obj = extractJSON(raw), words = replyParts(obj && obj.words).slice(0, 2);
     if (!words.length) { const e = new Error("这次没听清他说什么。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return words;
@@ -1074,7 +1074,7 @@
         + "⚠️只写你此刻应的那一句：不编你们没发生过的往事，也不替她安排接下来做什么。三句得看得出是同一个人在三种熟络程度下说的。",
       '【输出格式】只输出 JSON：{"lines":[{"tier":"刚搬来","text":"你应的那句"},{"tier":"脸熟了","text":"…"},{"tier":"处熟了","text":"…"}]}。'
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "应一句。" }], { maxTokens: 100000, timeout: 180000, tag: "微光庭院邻居" });
+    const raw = await callAI(active, sys, [{ role: "user", content: "应一句。" }], { maxTokens: 65000, timeout: 180000, tag: "微光庭院邻居" });
     return normalizeHello(raw);
   }
   // ── 走近了跟邻居说句话（她 2026-09-18：「Ab 都做吧」的 a）──────────────
@@ -1105,7 +1105,7 @@
         + "一条一个意思，她那头是一个一个气泡冒出来的；一句说得完就一条，最多三条。"
     ].filter(Boolean).join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "说句话。" }],
-      { maxTokens: 100000, timeout: 180000, tag: "微光庭院邻居" });
+      { maxTokens: 65000, timeout: 180000, tag: "微光庭院邻居" });
     const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
     const out = rows.map(x => String(x || "").trim()).filter(Boolean).slice(0, 3);
     if (!out.length) { const e = new Error("这次没听清 TA 说什么，明天再找 TA 聊。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
@@ -1143,7 +1143,7 @@
       '【输出格式】只输出 JSON：{"lines":[{"band":"档位标识","text":"你喊的那句"}]}，四种都要有。'
     ].join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "报方向。" }],
-      { maxTokens: 100000, timeout: 180000, tag: "微光庭院对星" });
+      { maxTokens: 65000, timeout: 180000, tag: "微光庭院对星" });
     return normalizeStar(raw);
   }
   // ── 路上撞见：两位邻居站住说两句（她 2026-09-18 的 ②）──────────────────
@@ -1170,7 +1170,7 @@
       '【输出格式】只输出 JSON：{"lines":[{"who":"' + a.name + '","text":"第一句"},{"who":"' + b.name + '","text":"接的那句"}]}。'
     ].join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "他们说了什么。" }],
-      { maxTokens: 100000, timeout: 180000, tag: "微光庭院邻里" });
+      { maxTokens: 65000, timeout: 180000, tag: "微光庭院邻里" });
     const obj = extractJSON(raw), rows = obj && Array.isArray(obj.lines) ? obj.lines : [];
     const out = rows.map(x => ({ who: String((x && x.who) || "").trim(), text: String((x && x.text) || "").trim() }))
       .filter(x => x.text).slice(0, 2);

@@ -22,7 +22,7 @@ function service(callAI) {
 }
 
 test('漂流瓶回信用共同角色上下文，原信放 system，只发一次',async()=>{
- let calls=0;const svc=service(async(p,sys,messages,opts)=>{calls++;assert.match(sys,/原信内容/);assert.match(sys,/角色人设内容/);assert.match(sys,/共同文风/);assert.equal(messages[0].content,'写这封回信。');assert.equal(opts.maxTokens,100000);return '{"reply":"回应内容"}';});
+ let calls=0;const svc=service(async(p,sys,messages,opts)=>{calls++;assert.match(sys,/原信内容/);assert.match(sys,/角色人设内容/);assert.match(sys,/共同文风/);assert.equal(messages[0].content,'写这封回信。');assert.equal(opts.maxTokens,65000);return '{"reply":"回应内容"}';});
  const out=await svc.bottleReply({active:{},character:{name:'甲',persona:'角色人设内容'},profile:{name:'我'},world:{day:8},bottle:{original:'原信内容',from:1}});assert.equal(out.reply,'回应内容');assert.equal(out.sender,'甲');assert.equal(calls,1);
 });
 test('坏返回保留原文诊断，没配置线路不调用',async()=>{

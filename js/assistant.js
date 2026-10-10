@@ -962,7 +962,7 @@
     // 给足（max-tokens-floor）：一份完整的 CSS 文件放进 file 很长，12000 会写到一半断掉
     // 写长人设（她 2026-10-06：「可以写完整长文人设，边写边改」）：一篇几千字的人设 180 秒常常写不完——
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
-    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 100000, timeout: 600000, stream: true, signal: signal || undefined });
+    const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条

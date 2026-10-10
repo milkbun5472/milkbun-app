@@ -94,7 +94,7 @@ test("挂上了：主屏、每日看、路由、页名、手册；点评走 runP
   assert.match(man, /\{ id: "astro", app: "astro", zh: "星测"/);
   assert.match(html, /<script src="js\/astro\.js\?v=[\d.]+"><\/script>/);
   assert.match(src, /runProbe\(p, ctx, \{ voice: true, instruction: instruction \+ (?:reroll \+ )?voiceTail\(\)/);
-  assert.match(src, /maxTokens: 100000/);
+  assert.match(src, /maxTokens: 65000/);
   assert.match(src, /h\(Head, \{ zh: "星测"/, "顶栏走共用 Head");
 });
 

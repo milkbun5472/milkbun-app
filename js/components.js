@@ -15497,7 +15497,7 @@ function OfflineMode({
       // 上限也不是硬性规定，给他们多点输出的机会」——拉到 OUT_CEILING（65535，
       // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
       // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
-      h(Slider, { value: sMax, min: 1000, max: 100000, step: 1000, onChange: setSMax }))),
+      h(Slider, { value: sMax, min: 1000, max: 65000, step: 1000, onChange: setSMax }))),
       offShow("write", "floor", "高级 · 最低字数目标",
     h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
       note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" })),
@@ -16337,7 +16337,7 @@ function GroupOfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
-      h(Slider, { value: sMax, min: 1000, max: 100000, step: 1000, onChange: setSMax }))),
+      h(Slider, { value: sMax, min: 1000, max: 65000, step: 1000, onChange: setSMax }))),
       gShow("write", "floor", "输出下限（约字数）",
     h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "输出下限（约字数）",
       note: "让每次至少写这么多字（>0 生效）。" })),

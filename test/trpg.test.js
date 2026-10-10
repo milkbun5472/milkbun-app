@@ -701,7 +701,7 @@ test("骰子账与模组包", () => {
 });
 
 test("输出天花板统一给满:按次计费,上限不省钱只会截断", () => {
-  assert.match(src, /const TOK_MAX = 100000/);
+  assert.match(src, /const TOK_MAX = 65000/);
   assert.ok(!/maxTokens: \d/.test(src), "不再有零散的小上限");
   assert.ok((src.match(/maxTokens: TOK_MAX/g) || []).length >= 8, "所有调用全走天花板");
 });

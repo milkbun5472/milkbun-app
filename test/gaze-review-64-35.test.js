@@ -160,14 +160,14 @@ test("③ 真败因留一份原文：人话给她看，原文点开才看", () =
   const { G, store } = boot();
   seedBox(store);
   // 这就是 engine 在「上游把请求打回来」时真正抛的那句
-  const REAL = "模型返回为空（停止原因：max_tokens）\n〔claude-x｜提示词约 6k 字｜输出上限 100000 tok｜等了 1.2 秒＝上游直接打回来了（拦截／格式／配额），不是超时〕";
+  const REAL = "模型返回为空（停止原因：max_tokens）\n〔claude-x｜提示词约 6k 字｜输出上限 65000 tok｜等了 1.2 秒＝上游直接打回来了（拦截／格式／配额），不是超时〕";
   G.markReviewFail("c1", REAL);
   const st = G.reviewState("c1");
   assert.equal(st.raw, REAL, "原文被扔了——那她和我都不知道到底什么坏了");
   assert.notEqual(st.err, "这一次没成", "还是那句什么都没说的兜底");
   assert.match(st.err, /上游把这次请求打回来了/);
   // 原文里的关键数字得留着：一眼能看出是不是 65535 被上游拒了
-  assert.match(st.raw, /输出上限 100000 tok/);
+  assert.match(st.raw, /输出上限 65000 tok/);
   assert.match(st.raw, /等了 1\.2 秒/);
 });
 
@@ -227,9 +227,9 @@ test("界面上那两句：「没变」不许再说成「都没成」", () => {
 test("建卡那一路同病同治：原文也留着", () => {
   const { G, store } = boot();
   store.x_gaze = JSON.stringify({ c1: { seeded: false, blocks: {}, hist: [] } });
-  G.markAutoSeedFail("c1", "模型返回为空（停止原因：max_tokens）〔输出上限 100000 tok〕");
+  G.markAutoSeedFail("c1", "模型返回为空（停止原因：max_tokens）〔输出上限 65000 tok〕");
   const st = G.autoSeedState("c1");
-  assert.match(st.raw, /输出上限 100000 tok/, "建卡那一路的原文还在被扔");
+  assert.match(st.raw, /输出上限 65000 tok/, "建卡那一路的原文还在被扔");
   // 这一句里没有 callDiag 那个「上游直接打回来了」的结论，所以只说到「一个字都没吐出来」——
   // 那正是对的：认得多少说多少，剩下的靠原文那一份。
   assert.equal(st.err, "模型一个字都没吐出来");

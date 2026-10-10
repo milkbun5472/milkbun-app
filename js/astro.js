@@ -735,7 +735,7 @@
       setBusy(key);
       try {
         const prev = signs[key];
-        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 100000 });
+        const d = await runProbe(p, ctx, { voice: true, tag: "astro", instruction: signInstruction(meName, facts) + (prev ? "\n〔重抽〕上一张写的是「" + prev.title + "：" + prev.text + "」，这张换一个。" : "") + voiceTail(), schemaHint: SIGN_SCHEMA, maxTokens: 65000 });
         if (!d || !String(d.title || d.text || "").trim()) throw new Error("TA 这回没抽出来，再点一次");
         const next = Object.assign({}, signs, { [key]: { title: String(d.title || "").trim().slice(0, 12), text: String(d.text || "").trim().slice(0, 120), by: c.remark || c.name, ts: Date.now() } });
         const ks = Object.keys(next).sort((a, b) => (next[b].ts || 0) - (next[a].ts || 0)); ks.slice(60).forEach(k => delete next[k]);
@@ -765,7 +765,7 @@
         // 「再看看」＝重 Roll：把上一回的话给 TA，别换个说法再说一遍（她 2026-10-03 问配对能不能重 roll）
         const prev = notes[key] && notes[key].text;
         const reroll = prev ? "\n〔重看〕你上一回看完说的是：『" + String(prev).slice(0, 300) + "』。这回重新看一遍，别把同一番话换个说法再说，换个你在意的点，或者干脆改主意。" : "";
-        const d = await runProbe(p, ctx, { voice: true, instruction: instruction + reroll + voiceTail(), schemaHint: "{\"text\":\"你想对她说的话\"}", maxTokens: 100000, tag: "astro" });
+        const d = await runProbe(p, ctx, { voice: true, instruction: instruction + reroll + voiceTail(), schemaHint: "{\"text\":\"你想对她说的话\"}", maxTokens: 65000, tag: "astro" });
         const txt = String((d && d.text) || "").trim();
         if (!txt) throw new Error("TA 这回没说出话来，再点一次");
         setNotes(saveNote(key, txt));

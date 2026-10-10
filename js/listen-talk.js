@@ -50,7 +50,7 @@
         : "")
       + "一条就是一个气泡，短一点，像凑在耳边说的话。只输出 JSON：{\"say\":[\"你说的话\"]}";
     const msg = mode === "auto" ? "（歌放着）" : text;
-    const raw = await callAI(p.active, sys, [{ role: "user", content: msg }], { maxTokens: 100000 });
+    const raw = await callAI(p.active, sys, [{ role: "user", content: msg }], { maxTokens: 65000 });
     return parseSay(raw);
   }
 

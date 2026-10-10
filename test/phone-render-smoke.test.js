@@ -344,10 +344,10 @@ test("购物里非默认地址走 hidden 档——那不是购物信息，是他
 test("查手机所有推演的输出天花板统一给满，不再一个 app 一个数", () => {
   const P = loadPhone();
   const keys = P.PHONE_APPS.map(x => x.key).filter(k => P.PHONE_LIVE_KEYS.indexOf(k) < 0);
-  keys.forEach(k => assert.equal(P.phoneProbeSpec(k, char, [], "", []).maxTokens, 100000, k + " 的天花板不是给满的"));
+  keys.forEach(k => assert.equal(P.phoneProbeSpec(k, char, [], "", []).maxTokens, 65000, k + " 的天花板不是给满的"));
   // 各 app 自己那行 maxTokens 必须是删掉，不是留着被覆盖
   assert.doesNotMatch(SRC, /maxTokens: \d+\n/);
-  assert.match(SRC, /const PHONE_OUT_CEILING = 100000;/);
+  assert.match(SRC, /const PHONE_OUT_CEILING = 65000;/);
 });
 
 test("外卖：三页、脏数据、无 onPeek 都能渲", () => {
@@ -583,7 +583,7 @@ test("日历接的是 App 里那三份真的：他自己那格、带时刻的日
 test("token 全放开：runProbe 的默认也不再是 2600", () => {
   const eng = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "engine.js"), "utf8");
   assert.doesNotMatch(eng, /probe\.maxTokens \|\| 2600/);
-  assert.match(eng, /probe\.maxTokens \|\| \(window\.StylePresets && window\.StylePresets\.OUT_CEILING\) \|\| 100000/);
+  assert.match(eng, /probe\.maxTokens \|\| \(window\.StylePresets && window\.StylePresets\.OUT_CEILING\) \|\| 65000/);
   const app = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
   assert.doesNotMatch(app, /maxTokens: 3600/);
 });

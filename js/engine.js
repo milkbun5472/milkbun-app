@@ -822,12 +822,6 @@ async function callAI(p, system, messages, opts) {
     const msg = String((e && e.message) || e || "");
     if (hasDoc) document.removeEventListener("visibilitychange", onVis);
     if (userAborted()) { logIt("cut", "她自己断掉了"); throw abortErr(); }          // 自己断的不算失败：不重试、不弹「没生成出来」
-    // 天花板 10 万（她 2026-10-10：「反正是上限不是要求」）。少数中转不 clamp、直接报超模型上限：
-    //   只为这一种错退回 65535 再发一次（这个数用了很久，各家都收）
-    const OUT_FALLBACK = 65535;
-    if (!streamed && (Number(o.maxTokens) || 0) > OUT_FALLBACK && /max_tokens|max output|maximum.*token|too large|invalid.*token/i.test(msg)) {
-      return await callAI(p, system, messages, Object.assign({}, opts, { maxTokens: OUT_FALLBACK }));
-    }
     const bgDrop = wentHidden && /连接中断|load failed|failed to fetch|network|aborted|中止/i.test(msg);
     const quickDrop = Date.now() - t0 < 5000 && /连接中断|load failed|failed to fetch|network/i.test(msg);
     if (!bgDrop && !streamed && !o.noNetRetry && !(o.signal && o.signal.aborted) && (quickDrop || TRANSIENT_ERR.test(msg))) {
@@ -4154,7 +4148,7 @@ function gameChatSummaryContext(msgs) {
 async function summarizeGroup(p, ctx, msgs) {
   const text = msgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + gameChatText(m)).join("\n");
   const system = "把下面这段群聊浓缩成一句到几句第三人称的记忆，抓住关键事件、谁和谁的互动、达成的约定或情绪转折。简洁、具体、可复用。只输出正文。";
-  return await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【群聊】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 100000 });
+  return await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【群聊】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
 }
 // 从一段对话里抽取结构化记忆条目（自动生成，用户可再编辑/删除）
 async function extractMemories(p, ctx, msgs, opts = {}) {
@@ -4177,7 +4171,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。候选还会由本机逐字核验，通过后才软关闭旧条；正文和审计记录永远保留。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
-  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 100000 });
+  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
   const parsed = extractJSON(raw);
   // resolveOpen 没有 text；必须保留给 RepairGate 做逐字证据核验与软闭环。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
@@ -4203,7 +4197,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
       ? "\n【当前还没了结的约定/心事】若本段记录逐字证明某条已经兑现/实质解决/明确放弃，另加 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。道歉、暂时安静、时间过去或情绪缓和不算解决。本机还会逐字核验，通过后只软关闭、绝不删旧条：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n") + "\n"
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
-  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【多人线下记录】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 100000 });
+  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【多人线下记录】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
@@ -9116,7 +9110,7 @@ async function runProbeInner(p, ctx, probe) {
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。
-  const want = probe.maxTokens || (window.StylePresets && window.StylePresets.OUT_CEILING) || 100000;
+  const want = probe.maxTokens || (window.StylePresets && window.StylePresets.OUT_CEILING) || 65000;
   // 天花板给满是对的（给大了不多花钱，给小了会截断正文），但少数中转不 clamp、
   // 而是直接报 max_tokens 超模型上限。只为这一种错退一档重试，别为它给所有人降配
   //（形状照抄 StylePresets 里那个 tooBig）。
@@ -9374,7 +9368,7 @@ async function summarizeChat(p, ctx, olderMsgs) {
   const system = "把下面这段对话融进第三人称的长期记忆里。抓住关键事件、情绪变化、承诺、约定、身份/背景信息、未完成的事、以及你俩关系的推进——**宁可写长一些、保留细节，也别丢掉任何重要的人、事、约定或情感转折**。已有记忆在前，请把新内容自然融合进去，输出一份完整的新记忆（保留旧记忆里仍然重要的部分，别为了简短而删掉过往）。可以分段。只输出记忆正文。\n\n【已有记忆】\n" + (ctx.memory || "（无）");
   return await callAI(p, system + gameChatSummaryContext(olderMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], {
     // 累积记忆保留旧正文，并给思考与输出留足空间。
-    maxTokens: 100000
+    maxTokens: 65000
   });
 }
 // 止摘要漂移：只浓缩【这段新对话】成一小段，不重炼旧记忆（旧记忆由调用方原样保留、追加这段带日期的新段）
@@ -9382,7 +9376,7 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
   const text = newMsgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : ctx.char.name) + ": " + gameChatText(m)).join("\n");
   // 七要素清单（v47.77 借 LNPhone conclusion 规范）：让浓缩段不只记事件、还留住氛围和悬着的事
   const system = "把下面这【一段新对话】浓缩成一小段第三人称记忆。这段要覆盖到（有则写、无则跳，别硬凑）：①发生的关键事件 ②聊的主题 ③两人此刻的关系氛围（如刚吵完在冷战/正在暧昧/和好如初）④用户显露的情绪与需求 ⑤角色的情绪与态度 ⑥未完成的事（答应了没做的、约好的、话说一半的）⑦红包转账礼物照片等功能事件。具体可回看、信息密度高。这是要【追加】到长期记忆末尾的一段，别逐字复述对话、别复述早前已知的旧事、别升华总结。只输出这一段正文，别加标题。";
-  return (await callAI(p, system + gameChatSummaryContext(newMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 100000 })).trim();
+  return (await callAI(p, system + gameChatSummaryContext(newMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 })).trim();
 }
 // ============================================================
 // storage / utils / geo / mood

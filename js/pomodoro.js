@@ -113,10 +113,10 @@
     const bundle = ctx.bundle || { char: { name: ctx.charName, persona: ctx.persona }, profile: { name: ctx.uName }, moodLabel: ctx.mood, worldbook: ctx.worldbook, recentChat: ctx.chatRef };
     // 开场和手动续句共用角色上下文；一次输出不写回聊天、记忆或关系。
     if (typeof runProbe === "function") return runProbe(active, bundle, {
-      voice: true, voiceScene: true, once: true, tag: "番茄钟", maxTokens: 100000,
+      voice: true, voiceScene: true, once: true, tag: "番茄钟", maxTokens: 65000,
       instruction: instruction + (typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? "\n" + REGISTER_FOLLOWS_SCENE : "") + (typeof ECHO_QUESTION_BAN !== "undefined" ? "\n" + ECHO_QUESTION_BAN : ""), schemaHint
     });
-    const raw = await callAI(active, AC() + CB() + "【人设】" + (ctx.persona || "") + "\n【最近聊天】" + (ctx.chatRef || "") + "\n【世界书】" + (ctx.worldbook || "") + "\n" + instruction + "\n【输出】" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 100000, tag: "番茄钟" });
+    const raw = await callAI(active, AC() + CB() + "【人设】" + (ctx.persona || "") + "\n【最近聊天】" + (ctx.chatRef || "") + "\n【世界书】" + (ctx.worldbook || "") + "\n" + instruction + "\n【输出】" + schemaHint, [{ role: "user", content: "开始。" }], { maxTokens: 65000, tag: "番茄钟" });
     const result = extractJSON(raw);
     if (!result) throw new Error("没有读懂这次回应：" + String(raw || "").slice(0, 300));
     return result;

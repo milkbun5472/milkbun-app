@@ -26,7 +26,7 @@ test('rolling, cumulative, group and memory summaries receive every source, pres
  const c=setup(),rows=c.chats.room,ctx={char:{name:'同行者'},profile:{name:'你'},memory:'原记忆'};
  await c.summarizeChatBlock({},ctx,rows);await c.summarizeChat({},ctx,rows);await c.summarizeGroup({},ctx,rows);await c.extractMemories({},ctx,rows);await c.extractGroupMemories({},ctx,rows,[ctx.char]);
  assert.equal(c.calls.length,5);
- for(const call of c.calls){for(const w of c.window.FairyWorlds)assert.ok(call.sys.includes('【小世界 · '+w.name+'】'));assert.ok(call.sys.includes('【小世界 · 来源未记录】旧话'));assert.ok(call.sys.includes('普通聊天'));assert.ok(call.sys.includes('保留对应世界名'));assert.equal(call.msg.length,1);assert.equal(call.msg[0].content,'整理这段记录。');assert.equal(call.opts.maxTokens,100000);}
+ for(const call of c.calls){for(const w of c.window.FairyWorlds)assert.ok(call.sys.includes('【小世界 · '+w.name+'】'));assert.ok(call.sys.includes('【小世界 · 来源未记录】旧话'));assert.ok(call.sys.includes('普通聊天'));assert.ok(call.sys.includes('保留对应世界名'));assert.equal(call.msg.length,1);assert.equal(call.msg[0].content,'整理这段记录。');assert.equal(call.opts.maxTokens,65000);}
  assert.ok(c.calls[3].sys.includes('[消息ID ts_'+rows[0].ts+']'));assert.ok(c.calls[1].sys.includes('原记忆'));
 });
 test('real room handoff source formatting respects its cursor/recalled gate and writes the existing summary record',async()=>{

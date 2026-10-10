@@ -142,7 +142,7 @@ test("邻居那句话：一位邻居一枪、三档各一句、之后查表；�
   const [, sys, messages, opts] = args;
   assert.match(sys, /全文人设/); assert.match(sys, /邻居/);
   assert.equal(messages.length, 1); assert.ok(messages[0].content.length <= 8);
-  assert.equal(opts.maxTokens, 100000);
+  assert.equal(opts.maxTokens, 65000);
   await assert.rejects(() => service(async () => "{}").hello({ active: {}, character: { name: "x" }, profile: {}, world: {} }), /没读出/);
   assert.match(host, /hellos: \{ \.\.\.\(old\.hellos \|\| \{\}\), \[cid\]: \{ status: "ready", at: Date\.now\(\), rows \} \}/);
   assert.match(host, /if \(have && have\.status === "ready"\) return have\.rows;/);

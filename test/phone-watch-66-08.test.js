@@ -128,7 +128,7 @@ test("这一处也接上了公共那几层，maxTokens 给足", () => {
   assert.match(seg, /voice: true/);
   assert.match(seg, /instruction: WK\.watchInstruction/);
   // ⚠️她按【次】计费，token 给足不多花钱；两万在一段一百来个动作时会写到一半就收着写
-  assert.match(seg, /maxTokens: 100000/);
+  assert.match(seg, /maxTokens: 65000/);
   // 料全在 system、user 只留一句触发——runProbe 本来就是这个形状（prompt-send-shape.md）
   assert.match(fs.readFileSync("js/engine.js", "utf8"), /\[\{ role: "user", content: "开始。" \}\]/);
   // 报错要带着模型真回的那个东西本身
@@ -969,7 +969,7 @@ test("每个 app 都得有一条能落新东西的路（她 2026-09-10 逐个点
 test("一段里能干的事得够多：动作上限和 token 都给足", () => {
   // 她 2026-09-10：「现在只有四十几还是包括了点进来和后退，真正能干的动作没几个」
   assert.equal(W.ACT_CAP, 120);
-  assert.match(app, /maxTokens: 100000/);
+  assert.match(app, /maxTokens: 65000/);
 });
 
 test("账本能记一笔了（她 2026-09-10：「开账本吧」）", () => {
