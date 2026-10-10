@@ -1981,7 +1981,7 @@ function App() {
     setCouples(cps);
     setWallet(loadJSON("x_wallet", 200));
     setWalletLog(loadJSON("x_walletLog", []));
-    { const ms = loadJSON("x_mySalary", null); mySalaryRef.current = ms; setMySalaryState(ms); }
+    { const rl = recurFromOld(); myRecurRef.current = rl; setMyRecurState(rl); if (!Array.isArray(loadJSON("x_myRecur", null)) && rl.length) saveJSON("x_myRecur", rl); }
     setCharWallet(loadJSON("x_charWallet", {}));
     { const cc = loadJSON("x_charCurrency", {}); setCharCur(cc); if (window.Money) window.Money.setBook(cc); }
     // 迁移：旧版内置 SVG 表情的 url 没写 width/height→聊天里 0×0 看不见。按 id 把 em_def_* 的 url 换成修好的，保留用户自建/删改
@@ -10125,7 +10125,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_tiesPos: v => typeof setTiePos === "function" && setTiePos(v),
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
-      x_mySalary: v => { mySalaryRef.current = v; setMySalaryState(v); },
+      x_myRecur: v => { const l = Array.isArray(v) ? v : []; myRecurRef.current = l; setMyRecurState(l); },
       x_shopWish: v => typeof setWish === "function" && setWish(v),
       x_worlds: v => typeof setWorlds === "function" && setWorlds(v),
       // 下面这几张在界面里另有一份状态，不跟着重读，重置后旧的好感、日程、日记会被写回去
@@ -17554,36 +17554,73 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return n;
     });
   };
-  // 我的工资（她 2026-10-10：「给自己设置工资每个月自动到账，跟角色的工资一样本地算」）：
-  //   x_mySalary = { amount, day(1–28), since, paid:{ "2026-10":1 } }。纯本地算术，一枪都不打。
-  //   从设好之后的下一个发薪日起算，不往回补设之前的月份；没开 App 的那几个月下次打开补上（一个月只许一笔，认 paid）。
-  const [mySalary, setMySalaryState] = useState(null);   // 开机灌库以后跟钱包一起读（见 setWalletLog 那一处）
-  const mySalaryRef = useRef(mySalary); mySalaryRef.current = mySalary;
-  const setMySalary = v => {
-    const prev = mySalaryRef.current || {};
-    const n = v && v.amount > 0 ? { amount: v.amount, day: Math.max(1, Math.min(28, Number(v.day) || 1)), since: prev.amount > 0 ? prev.since : Date.now(), paid: prev.paid || {} } : null;
-    mySalaryRef.current = n; setMySalaryState(n); saveJSON("x_mySalary", n);
-    toast(n ? "设好了：每月 " + n.day + " 号到账" : "工资停发了");
+  // 固定进出（她 2026-10-10：「给自己设置工资每个月自动到账」→「不止工资，多加几种进账；也能加固定支出；频率加每年」）：
+  //   x_myRecur = [{ id, name, amount, dir:"in"|"out", freq:"month"|"week"|"year", day, month, since, paid:{ "2026-10-15":1 } }]
+  //   month：每月 day 号（1–28）；week：每周 day（0=周日…6=周六）；year：每年 month 月 day 号。
+  //   纯本地算术，一枪都不打。从设好之后的下一次起算，不往回补；没开 App 的那几次下次打开补上（认 paid，一次只记一笔）。
+  //   老的 x_mySalary（只有工资那一格）开机时并进来，变成单子里的第一条。
+  const [myRecur, setMyRecurState] = useState([]);   // 开机灌库以后跟钱包一起读（见 setWalletLog 那一处）
+  const myRecurRef = useRef(myRecur); myRecurRef.current = myRecur;
+  const saveMyRecur = list => { myRecurRef.current = list; setMyRecurState(list); saveJSON("x_myRecur", list); };
+  const recurFromOld = () => {
+    const list = loadJSON("x_myRecur", null);
+    if (Array.isArray(list)) return list;
+    const old = loadJSON("x_mySalary", null);
+    return old && old.amount > 0 ? [{ id: "rc_salary", name: "工资", amount: old.amount, dir: "in", freq: "month", day: old.day || 1, since: old.since || Date.now(), paid: Object.keys(old.paid || {}).reduce((o, k) => { const [y, m] = k.split("-"); o[y + "-" + m + "-" + (old.day || 1)] = 1; return o; }, {}) }] : [];
   };
-  const payMySalary = () => {
-    const sal = mySalaryRef.current;
-    if (!sal || !(sal.amount > 0) || !sal.since) return;
-    const paid = Object.assign({}, sal.paid), now = Date.now();
-    const cur = new Date(sal.since); cur.setDate(1); cur.setHours(0, 0, 0, 0);
-    let n = 0;
-    for (let i = 0; i < 36 && cur.getTime() <= now; i++) {
-      const pay = new Date(cur.getFullYear(), cur.getMonth(), sal.day, 9, 0, 0).getTime();
-      const mk = cur.getFullYear() + "-" + (cur.getMonth() + 1);
-      if (pay > sal.since && pay <= now && !paid[mk]) { paid[mk] = 1; n++; changeWallet(sal.amount, "工资到账 · " + (cur.getMonth() + 1) + "月", "salary", { where: "工资" }); }
-      cur.setMonth(cur.getMonth() + 1);
+  const upsertMyRecur = item => {
+    const list = myRecurRef.current || [];
+    if (!item || !item.id) return;
+    if (item.del) { saveMyRecur(list.filter(x => x.id !== item.id)); toast("「" + (item.name || "这一条") + "」不再自动记了"); return; }
+    const prev = list.find(x => x.id === item.id);
+    const n = { id: item.id, name: String(item.name || "").trim().slice(0, 20) || (item.dir === "out" ? "固定支出" : "固定进账"), amount: Math.round(Math.abs(Number(item.amount) || 0) * 100) / 100,
+      dir: item.dir === "out" ? "out" : "in", freq: ["month", "week", "year"].indexOf(item.freq) >= 0 ? item.freq : "month",
+      day: Number(item.day) || 0, month: Math.max(1, Math.min(12, Number(item.month) || 1)),
+      since: prev ? prev.since : Date.now(), paid: prev ? prev.paid || {} : {} };
+    if (n.freq === "week") n.day = Math.max(0, Math.min(6, n.day)); else n.day = Math.max(1, Math.min(28, n.day || 1));
+    if (!(n.amount > 0)) return;
+    saveMyRecur(prev ? list.map(x => x.id === n.id ? n : x) : list.concat([n]));
+    toast("设好了：" + recurWhen(n) + (n.dir === "out" ? "扣 " : "到账 ") + n.amount);
+  };
+  const WEEK_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const recurWhen = r => r.freq === "week" ? "每" + WEEK_ZH[r.day] : r.freq === "year" ? "每年 " + r.month + " 月 " + r.day + " 号" : "每月 " + r.day + " 号";
+  // 某一条从 since 到 now 之间该记的那几次（最多 60 次，坏数据别成死循环）
+  const recurDue = (r, now) => {
+    const out = [], since = Number(r.since) || now;
+    const d0 = new Date(since); d0.setHours(0, 0, 0, 0);
+    if (r.freq === "week") {
+      const d = new Date(d0); d.setDate(d.getDate() + ((r.day - d.getDay() + 7) % 7));
+      for (let i = 0; i < 60; i++, d.setDate(d.getDate() + 7)) { const ts = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 9).getTime(); if (ts > now) break; if (ts > since) out.push(ts); }
+    } else if (r.freq === "year") {
+      for (let y = d0.getFullYear(), i = 0; i < 60; i++, y++) { const ts = new Date(y, r.month - 1, r.day, 9).getTime(); if (ts > now) break; if (ts > since) out.push(ts); }
+    } else {
+      const d = new Date(d0.getFullYear(), d0.getMonth(), 1);
+      for (let i = 0; i < 60; i++, d.setMonth(d.getMonth() + 1)) { const ts = new Date(d.getFullYear(), d.getMonth(), r.day, 9).getTime(); if (ts > now) break; if (ts > since) out.push(ts); }
     }
-    if (!n) return;
-    const next = { ...sal, paid }; mySalaryRef.current = next; setMySalaryState(next); saveJSON("x_mySalary", next);
+    return out;
+  };
+  const payMyRecur = () => {
+    const list = myRecurRef.current || [], now = Date.now();
+    let changed = false;
+    const next = list.map(r => {
+      if (!r || !(r.amount > 0)) return r;
+      const paid = Object.assign({}, r.paid); let hit = false;
+      recurDue(r, now).forEach(ts => {
+        const d = new Date(ts), key = d.getFullYear() + "-" + (d.getMonth() + 1) + "-" + d.getDate();
+        if (paid[key]) return;
+        paid[key] = 1; hit = true;
+        const when = r.freq === "year" ? d.getFullYear() + "年" : r.freq === "week" ? (d.getMonth() + 1) + "月" + d.getDate() + "日" : (d.getMonth() + 1) + "月";
+        changeWallet(r.dir === "out" ? -r.amount : r.amount, r.name + (r.dir === "out" ? " · " : "到账 · ") + when, r.dir === "out" ? "recur_out" : "salary", { where: r.dir === "out" ? "固定支出" : "固定进账" });
+      });
+      if (!hit) return r;
+      changed = true; return { ...r, paid };
+    });
+    if (changed) saveMyRecur(next);
   };
   useEffect(() => {
     if (!loaded) return;
-    const t0 = setTimeout(payMySalary, 4000);
-    const iv = setInterval(payMySalary, 10 * 60000);
+    const t0 = setTimeout(payMyRecur, 4000);
+    const iv = setInterval(payMyRecur, 10 * 60000);
     return () => { clearTimeout(t0); clearInterval(iv); };
   }, [loaded]);
   // 手动改余额到指定值（记一条调整流水）
@@ -27834,7 +27871,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPostMoment: postUserMoment,
     onBack: () => { setMomTarget(null); setScreen("messages"); }
   });else if (screen === "wallet") body = h(MyWallet, {
-    salary: mySalary, onSetSalary: setMySalary,
+    recur: myRecur, onSaveRecur: upsertMyRecur,
     balance: wallet,
     log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, w.charId)) : walletLog,
     cards: kinshipCards,

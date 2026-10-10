@@ -13487,7 +13487,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, salary, onSetSalary }) {
+function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -13495,10 +13495,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   // 所以这一层提到 app.js 去拿着：详情页只是盖在上面，退回来还站在原地。
   const setView = onView || (() => {});
   view = view || "main"; // main | cards
-  // 我的工资（她 2026-10-10：「给自己设置工资每个月自动到账，跟角色的工资一样本地算」）
-  const [salOpen, setSalOpen] = useState(false);
-  const [salAmt, setSalAmt] = useState("");
-  const [salDay, setSalDay] = useState(1);
+  // 固定进出（她 2026-10-10）：工资、零花钱、房租……正在改的那一条
+  const [rcEdit, setRcEdit] = useState(null);
+  const recurWhenZh = r => r.freq === "week" ? "每" + ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][r.day] : r.freq === "year" ? "每年 " + (r.month || 1) + " 月 " + r.day + " 号" : "每月 " + r.day + " 号";
   const [editing, setEditing] = useState(false);
   const [amt, setAmt] = useState("");
   const cardList = Array.isArray(cards) ? cards : [];
@@ -13550,7 +13549,7 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
       onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
-  const KIND_GROUPS = [["salary", "工资"], ["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
+  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
   const whoOf = r => {
     if (!r) return "";
@@ -13612,25 +13611,39 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
           h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
           h("button", { onClick: saveEdit, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
           h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
-      // 我的工资：每月几号、多少，到日子本地自己记一笔，不花调用
-      onSetSalary ? h("div", { "data-wk": "walletsalary", className: "px-5", style: { marginBottom: 14 } },
-        !salOpen ? h("button", { onClick: () => { setSalAmt(salary && salary.amount ? String(M ? M.conv(salary.amount, "__me__") : salary.amount) : ""); setSalDay((salary && salary.day) || 1); setSalOpen(true); }, className: "w-full text-left active:opacity-70 flex items-center",
-            style: Object.assign({ gap: 10, padding: "12px 14px" }, slipSkin(t)) },
-            h("div", { className: "flex-1 min-w-0" },
-              h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, salary && salary.amount > 0 ? "每月工资 " + money(salary.amount) : "设个工资"),
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, salary && salary.amount > 0 ? "每月 " + salary.day + " 号自动到账" : "每个月到日子自动进钱包，跟角色发工资一样")),
-            h("span", { style: { color: t.fog } }, "›"))
-          : h("div", { style: Object.assign({ padding: "12px 14px" }, slipSkin(t)) },
-            h("div", { className: "flex items-center", style: { gap: 8 } },
-              h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, flexShrink: 0 } }, "每月"),
-              h("input", { "data-wk": "walletsalaryamt", value: salAmt, onChange: e => setSalAmt(e.target.value), type: "number", inputMode: "decimal", placeholder: "多少", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { minWidth: 0, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }),
-              h("select", { "data-wk": "walletsalaryday", value: salDay, onChange: e => setSalDay(Number(e.target.value)), style: { padding: "8px 6px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } },
-                Array.from({ length: 28 }, (_, i) => h("option", { key: i, value: i + 1 }, (i + 1) + " 号")))),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, "从下一个发薪日开始，到日子自动记一笔「工资到账」；没打开 App 的那几个月，下次打开会补上。不会往回补设之前的月份。"),
+      // 固定进出：工资、零花钱、房租、会员费……每条自己起名、定多少、多久一次；到日子本地自己记一笔，不花调用
+      onSaveRecur ? h("div", { "data-wk": "walletrecur", className: "px-5", style: { marginBottom: 14 } },
+        rcEdit ? (function () {
+          const e = rcEdit, set = p => setRcEdit(Object.assign({}, e, p));
+          const chip = (on, label, fn, key) => h("button", { key, onClick: fn, className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, label);
+          const sel = (val, opts, fn) => h("select", { value: val, onChange: ev => fn(Number(ev.target.value)), style: { padding: "8px 6px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, opts.map(o => h("option", { key: o[0], value: o[0] }, o[1])));
+          const days = Array.from({ length: 28 }, (_, i) => [i + 1, (i + 1) + " 号"]);
+          return h("div", { "data-wk": "walletrecuredit", style: Object.assign({ padding: "12px 14px" }, slipSkin(t)) },
+            h("div", { className: "flex", style: { gap: 6 } }, chip(e.dir !== "out", "进账", () => set({ dir: "in" }), "in"), chip(e.dir === "out", "支出", () => set({ dir: "out" }), "out")),
+            h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
+              h("input", { "data-wk": "walletrecurname", value: e.name, onChange: ev => set({ name: ev.target.value }), placeholder: e.dir === "out" ? "叫什么（房租、会员费…）" : "叫什么（工资、零花钱…）", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { minWidth: 0, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }),
+              h("input", { "data-wk": "walletrecuramt", value: e.amt, onChange: ev => set({ amt: ev.target.value }), type: "number", inputMode: "decimal", placeholder: "多少", className: "outline-none px-3 py-2 rounded-lg", style: { width: 96, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } })),
+            h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 10 } },
+              chip(e.freq === "month", "每月", () => set({ freq: "month", day: Math.max(1, e.day || 1) }), "m"), chip(e.freq === "week", "每周", () => set({ freq: "week", day: Math.min(6, e.day || 1) }), "w"), chip(e.freq === "year", "每年", () => set({ freq: "year", day: Math.max(1, e.day || 1) }), "y"),
+              e.freq === "week" ? sel(e.day, ["周日", "周一", "周二", "周三", "周四", "周五", "周六"].map((x, i) => [i, x]), v => set({ day: v }))
+                : e.freq === "year" ? h(React.Fragment, null, sel(e.month || 1, Array.from({ length: 12 }, (_, i) => [i + 1, (i + 1) + " 月"]), v => set({ month: v })), sel(e.day || 1, days, v => set({ day: v })))
+                : sel(e.day || 1, days, v => set({ day: v }))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "从下一次开始，到日子自动记一笔；没打开 App 的那几次，下次打开补上。不往回补以前的。"),
             h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
-              h("button", { onClick: () => { const v = M ? M.parse(salAmt, "__me__") : Number(salAmt); onSetSalary(v > 0 ? { amount: Math.round(v * 100) / 100, day: salDay } : null); setSalOpen(false); }, className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存"),
-              salary && salary.amount > 0 ? h("button", { onClick: () => { onSetSalary(null); setSalOpen(false); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "停发") : null,
-              h("button", { onClick: () => setSalOpen(false), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "取消")))) : null,
+              h("button", { "data-wk": "walletrecursave", onClick: () => { const v = M ? M.parse(e.amt, "__me__") : Number(e.amt); if (!(v > 0)) return; onSaveRecur({ id: e.id, name: e.name, amount: v, dir: e.dir, freq: e.freq, day: e.day, month: e.month }); setRcEdit(null); }, className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存"),
+              e.isOld ? h("button", { onClick: () => { onSaveRecur({ id: e.id, name: e.name, del: true }); setRcEdit(null); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "不要了") : null,
+              h("button", { onClick: () => setRcEdit(null), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "取消")));
+        })() : h("div", { style: Object.assign({ padding: "6px 0" }, slipSkin(t)) },
+          ["in", "out"].map(dir => {
+            const rows = (recur || []).filter(r => r && (r.dir === "out" ? "out" : "in") === dir);
+            return h("div", { key: dir, style: { padding: "6px 14px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0" } }, dir === "in" ? "固定进账" : "固定支出"),
+              rows.map(r => h("button", { key: r.id, "data-wk": "walletrecurrow", "data-dir": dir, onClick: () => setRcEdit({ id: r.id, isOld: true, name: r.name, amt: String(M ? M.conv(r.amount, "__me__") : r.amount), dir: r.dir, freq: r.freq, day: r.day, month: r.month || 1 }), className: "w-full text-left flex items-center active:opacity-70", style: { gap: 8, minHeight: 38 } },
+                h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, r.name),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, recurWhenZh(r)),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: dir === "in" ? "#3f8a54" : t.ink, flexShrink: 0, minWidth: 70, textAlign: "right" } }, (dir === "in" ? "+" : "−") + money(r.amount)))),
+              h("button", { "data-wk": "walletrecuradd", "data-dir": dir, onClick: () => setRcEdit({ id: "rc_" + Date.now().toString(36), name: "", amt: "", dir, freq: "month", day: 1, month: 1 }), className: "active:opacity-70", style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, dir === "in" ? "＋ 加一条进账（工资、零花钱…）" : "＋ 加一条支出（房租、会员…）"));
+          }))) : null,
       // 收在夹层里的那叠小票——按类分开放（她 2026-10-09：跟角色钱包一样的格式；每一笔都能追溯到来源）
       h("div", { className: "px-5 pb-8" }, walletLedger())));
 }

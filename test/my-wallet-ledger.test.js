@@ -15,7 +15,7 @@ test("每一笔记账都带出处（凭证）", () => {
 });
 
 test("钱包页：按类分开、本月进出、点开是凭证、能跳回聊天", () => {
-  assert.match(wallet, /const KIND_GROUPS = \[\["salary", "工资"\], \["transfer", "转账"\]/);
+  assert.match(wallet, /const KIND_GROUPS = \[\["salary", "固定进账"\], \["recur_out", "固定支出"\], \["transfer", "转账"\]/);
   assert.match(wallet, /"data-wk": "walletmonth"/);
   assert.match(wallet, /"data-wk": "walletproof"/);
   assert.match(wallet, /"data-wk": "wallettrace", onClick: \(\) => onTrace\(r\)/);
