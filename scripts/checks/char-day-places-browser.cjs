@@ -22,24 +22,61 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
         await page.setViewportSize({width:w,height:h});await page.waitForTimeout(100);
         const box=await root.locator('[data-wk=cdaytools]').evaluate(el=>({height:el.getBoundingClientRect().height,width:el.clientWidth,scrollWidth:el.scrollWidth,buttons:[...el.children].map(b=>b.getBoundingClientRect().toJSON())}));
-        assert.ok(box.height>=54&&box.height<=65,'示例五键底栏保持移动端标准高度');assert.ok(box.scrollWidth<=box.width);assert.ok(box.buttons.every(b=>b.right<=w+1&&b.x>=0&&b.height>=40));
+        assert.equal(box.buttons.length,4,'原示例保留四个底键');assert.ok(box.height>=54&&box.height<=65,'示例四键底栏保持移动端标准高度');assert.ok(box.scrollWidth<=box.width);assert.ok(box.buttons.every(b=>b.right<=w+1&&b.x>=0&&b.height>=40));
         await shot('demo-controls-'+w+'x'+h);widths.push({w,h,...box});
       }
       await page.setViewportSize({width:390,height:844});return widths;
     };
-    if(process.env.DAY_LAYOUT_ONLY){
+    if(process.env.DAY_LAYOUT_ONLY&&process.env.DAY_LAYOUT_ONLY!=='places'){
       await root.getByRole('button',{name:'先看一段示例',exact:true}).click();await ready();await frame.waitForFunction(()=>CharDayScene.inspect().map&&!CharDayScene.inspect().changing);
       const report={engine,ok:true,demoWidths:await demoLayout(),errors};assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'demo-layout-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));return;
     }
     const baseline=await page.evaluate(()=>({plans:JSON.stringify(dayPlacesRef.current),writes:dayPlacesWrites.length,games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
     const noWrites=async()=>{assert.equal(await page.evaluate(()=>JSON.stringify(dayPlacesRef.current)),baseline.plans);assert.equal(await page.evaluate(()=>dayPlacesWrites.length),baseline.writes);assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),baseline.games);assert.equal(await page.evaluate(()=>dayPlacesModels),0);};
     await root.getByRole('button',{name:'新场景摆位试玩',exact:true}).click();await ready();
-    await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayLaboratory'&&!CharDayScene.inspect().changing);
+    await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
     await root.locator('select[data-wk=cdayplacepoint]').waitFor();assert.equal((await state()).charId,'__char_day_demo');
     result.pickerDemo=true;await shot('picker-place-entry');
     const placeData=await frame.evaluate(async url=>{const {DAY_PLACES}=await import(url);return DAY_PLACES;},placeUrls.get(frame));
-    const visitSpot=async(map,spot)=>{
-      await root.locator('select[data-wk=cdayplacepoint]').selectOption(spot.id);
+    const places=await frame.evaluate(()=>CharDayScene.listPlaces());
+    assert.deepEqual(places.map(p=>p.id),Object.keys(placeData),'场景选择器沿实际注册顺序');
+    const requested=process.env.DAY_PLACES_FILTER?.split(',').map(s=>s.trim()).filter(Boolean),ids=requested||places.map(p=>p.id);
+    for(const id of ids)assert.ok(placeData[id],'指定场景存在：'+id);
+    result.registeredPlaces=places.map(p=>({id:p.id,label:p.label}));result.filtered=!!requested;
+    const slug=id=>id.replace(/^day/,'').toLowerCase();
+    const choosePlace=async(id,host=root)=>{
+      for(let turn=0;turn<=places.length;turn++){
+        const before=await state();if(before.map===id&&!before.changing)return;
+        await host.getByRole('button',{name:'换场景',exact:true}).click();
+        await frame.waitForFunction(previous=>{const s=CharDayScene.inspect();return s.map!==previous&&!s.changing;},before.map);
+      }
+      throw Error('场景循环未到达：'+id);
+    };
+    const placeLayouts=async id=>{
+      for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
+        await page.setViewportSize({width:w,height:h});await page.waitForTimeout(150);
+        const boxes=await root.evaluate(el=>{const page=el.querySelector('[data-wk=cdaypage]'),get=selector=>page.querySelector(selector).getBoundingClientRect().toJSON(),tools=page.querySelector('[data-wk=cdaytools]');return {overflow:page.scrollWidth>page.clientWidth,head:get('[data-wk=head]'),scene:get('[data-wk=cdayscene]'),selector:get('[data-wk=cdayplacepoint]'),tools:get('[data-wk=cdaytools]'),bottomFormula:tools.style.paddingBottom,buttons:[...tools.querySelectorAll('button')].map(b=>b.getBoundingClientRect().toJSON())};});
+        assert.equal(boxes.overflow,false);assert.ok(boxes.tools.height>=54&&boxes.tools.height<=65);assert.ok(Math.abs(boxes.tools.bottom-h)<2);assert.ok(boxes.scene.height>170);
+        assert.ok(boxes.selector.height>=40,'动作位置选择器触区至少40px');assert.ok(boxes.selector.x>=0&&boxes.selector.right<=w+1);assert.ok(boxes.selector.top>=boxes.scene.top&&boxes.selector.bottom<=boxes.scene.bottom);assert.match(boxes.bottomFormula,/safe-area-inset-bottom.*0\.4/);
+        assert.equal(boxes.buttons.length,4,'摆位试玩保留四个底键');assert.ok(boxes.buttons.every(b=>b.x>=0&&b.right<=w+1&&b.height>=40));
+        await root.getByRole('button',{name:'看全景',exact:true}).click();assert.equal((await state()).following,false);
+        await shot(slug(id)+'-overview-'+w+'x'+h);result.widths.push({id,w,h,...boxes});
+      }
+      await page.setViewportSize({width:390,height:844});
+    };
+    if(process.env.DAY_LAYOUT_ONLY==='places'){
+      for(const id of ids){await choosePlace(id);await placeLayouts(id);result.places.push({id,label:placeData[id].label});}
+      await noWrites();assert.deepEqual(errors,[]);result.layoutOnly=true;result.zeroModelCalls=true;result.zeroSceneWrites=true;result.errors=errors;result.ok=true;
+      fs.writeFileSync(path.join(out,'places-layout-result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));return;
+    }
+    const closeSpots=(id,map)=>{
+      const preserved={dayLaboratory:['computer'],dayLibrary:['window-reading','desk-reading']}[id];
+      if(preserved)return preserved.map(key=>map.spots.find(s=>s.id===key));
+      return [map.spots.find(s=>s.seat),map.spots.find(s=>!s.seat&&!/入口|离开/.test(s.label+s.description))].filter(Boolean);
+    };
+    const visitSpot=async(map,spot,host=root)=>{
+      assert.ok(spot,'存在要验证的动作位置');
+      await host.locator('select[data-wk=cdayplacepoint]').selectOption(spot.id);
       assert.ok(worldUrls.get(frame),'找到当前iframe实际请求的导航模块');
       const observed=await frame.evaluate(async({id,spot,worldUrl})=>{
         const {walkable,segmentClear}=await import(worldUrl);
@@ -63,27 +100,20 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
         assert.equal((await state()).seat.rise,.45);
       }else assert.equal((await state()).seat,null);
       if(spot.gesture==='read'){await frame.waitForFunction(()=>CharDayScene.inspect().dailyAction?.book===true);}
-      const text=await root.locator('[data-wk=cdaynow]').innerText();assert.ok(text.includes(spot.label));assert.ok(text.includes(spot.description));
+      const text=await host.locator('[data-wk=cdaynow]').innerText();assert.ok(text.includes(spot.label));assert.ok(text.includes(spot.description));
       return {id:spot.id,...observed};
     };
-    for(const id of ['dayLaboratory','dayLibrary']){
-      if((await state()).map!==id){await root.getByRole('button',{name:'换场景',exact:true}).click();await frame.waitForFunction(id=>CharDayScene.inspect().map===id&&!CharDayScene.inspect().changing,id);}
+    for(const id of ids){
+      await choosePlace(id);
       const map=placeData[id],report={id,label:map.label,spots:[]};
       for(const spot of map.spots)report.spots.push(await visitSpot(id,spot));
-      for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
-        await page.setViewportSize({width:w,height:h});await page.waitForTimeout(150);
-        const boxes=await root.evaluate(el=>{const page=el.querySelector('[data-wk=cdaypage]'),get=selector=>page.querySelector(selector).getBoundingClientRect().toJSON(),tools=page.querySelector('[data-wk=cdaytools]');return {overflow:page.scrollWidth>page.clientWidth,head:get('[data-wk=head]'),scene:get('[data-wk=cdayscene]'),selector:get('[data-wk=cdayplacepoint]'),tools:get('[data-wk=cdaytools]'),bottomFormula:tools.style.paddingBottom,buttons:[...tools.querySelectorAll('button')].map(b=>b.getBoundingClientRect().toJSON())};});
-        assert.equal(boxes.overflow,false);assert.ok(boxes.tools.height>=54&&boxes.tools.height<=65);assert.ok(Math.abs(boxes.tools.bottom-h)<2);assert.ok(boxes.scene.height>170);
-        assert.ok(boxes.selector.x>=0&&boxes.selector.right<=w+1);assert.ok(boxes.selector.top>=boxes.scene.top&&boxes.selector.bottom<=boxes.scene.bottom);assert.match(boxes.bottomFormula,/safe-area-inset-bottom.*0\.4/);
-        assert.ok(boxes.buttons.every(b=>b.x>=0&&b.right<=w+1&&b.height>=40));
-        await root.getByRole('button',{name:'看全景',exact:true}).click();assert.equal((await state()).following,false);
-        await shot((id==='dayLaboratory'?'laboratory':'library')+'-overview-'+w+'x'+h);result.widths.push({id,w,h,...boxes});
+      await placeLayouts(id);
+      report.nearSpots=[];
+      for(const near of closeSpots(id,map)){
+        await visitSpot(id,near);await root.getByRole('button',{name:'跟着TA',exact:true}).click();assert.equal((await state()).following,true);await page.waitForTimeout(300);
+        const filename=id==='dayLibrary'?(near.id==='window-reading'?'library-window-close':'library-reading-close'):slug(id)+'-'+near.id+'-close';
+        await shot(filename);report.nearSpots.push({id:near.id,screenshot:filename+'.png'});
       }
-      await page.setViewportSize({width:390,height:844});
-      const near=map.spots.find(s=>s.id===(id==='dayLaboratory'?'computer':'window-reading'));await visitSpot(id,near);
-      await root.getByRole('button',{name:'跟着TA',exact:true}).click();assert.equal((await state()).following,true);await page.waitForTimeout(300);
-      await shot(id==='dayLaboratory'?'laboratory-computer-close':'library-window-close');
-      if(id==='dayLibrary'){await visitSpot(id,map.spots.find(s=>s.id==='desk-reading'));await root.getByRole('button',{name:'跟着TA',exact:true}).click();await page.waitForTimeout(300);await shot('library-reading-close');}
       result.places.push(report);await noWrites();
     }
     const sceneRequests=requests.filter(url=>/\.glb(?:\?|$)/.test(url));assert.ok(sceneRequests.length,'实际加载原小人');
@@ -94,9 +124,12 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);result.oldDemoNext=true;
     await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试研究员'}).click();await ready();
     await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);const original=await state();assert.equal(original.charId,'places-a');assert.match(original.look,/#a8be83/);
-    await root.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayLaboratory'&&!CharDayScene.inspect().changing);
-    const stage=await state();assert.equal(stage.charId,original.charId);assert.equal(stage.look,original.look);
-    await visitSpot('dayLaboratory',placeData.dayLaboratory.spots.find(s=>s.id==='computer'));await shot('character-laboratory');
+    await root.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
+    result.characterPlaces=[];
+    for(const id of ids){
+      await choosePlace(id);const stage=await state();assert.equal(stage.charId,original.charId);assert.equal(stage.look,original.look);
+      const near=placeData[id].spots.find(s=>s.seat)||placeData[id].spots[0];await visitSpot(id,near);await shot('character-'+slug(id));result.characterPlaces.push(id);
+    }
     await root.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);
     const back=await state();assert.equal(back.charId,original.charId);assert.equal(back.look,original.look);assert.match(await root.locator('[data-wk=cdaynow]').innerText(),/核对当天资料/);assert.equal(back.key,original.key);
     await noWrites();result.characterReturn=true;
@@ -113,11 +146,12 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     await page.waitForFunction(()=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect();return s?.ready&&s.map==='dayWork'&&!s.changing;});
     frame=page.frames().find(f=>f.url().includes('/fairy-garden/day/'));const realOriginal=await state();
     const realBaseline=await page.evaluate(()=>({writes:dayRealWrites.length,plans:JSON.stringify(loadJSON('x_schedules',{})),games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
-    await page.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayLaboratory'&&!CharDayScene.inspect().changing);
-    assert.equal((await state()).look,realOriginal.look);assert.equal((await state()).charId,'places-a');
-    await page.locator('select[data-wk=cdayplacepoint]').selectOption('computer');
-    await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.spot==='computer'&&!s.route.length&&s.dailyAction?.book&&s.avatarPosition[1]>.2&&s.avatarPosition[1]<.3;});
-    await shot('real-app-laboratory');
+    await page.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
+    result.actualAppPlaces=[];
+    for(const id of ids){
+      await choosePlace(id,page);assert.equal((await state()).look,realOriginal.look);assert.equal((await state()).charId,'places-a');
+      const near=placeData[id].spots.find(s=>s.seat)||placeData[id].spots[0];await visitSpot(id,near,page);await shot('real-app-'+slug(id));result.actualAppPlaces.push(id);
+    }
     await page.getByRole('button',{name:'回到日程',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);
     assert.equal((await state()).look,realOriginal.look);assert.equal((await state()).charId,'places-a');assert.equal((await state()).key,realOriginal.key);
     assert.match(await page.locator('[data-wk=cdaynow]').innerText(),/核对当天资料/);

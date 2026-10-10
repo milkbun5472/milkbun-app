@@ -9,12 +9,51 @@ registerHooks({resolve(specifier,context,nextResolve){
   return specifier==='three'?{url:new URL('../../vendor/three.module.js',import.meta.url).href,shortCircuit:true}:nextResolve(specifier,context);
 }});
 const {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList}=await import('./index.mjs');
+const {createRoomKit,roomStructure,roomObstacles,roomSeat}=await import('./room-kit.mjs');
 const T=await import('three');
 const persistentMaps=Object.keys(MAPS);
 registerDayPlaces(MAPS);
 
+test('公共空房的真实墙柱与碰撞结构一致，座位拒绝无实体椅子的绑定',()=>{
+  const size={w:11.2,d:8.4},kit=createRoomKit();kit.room(size);kit.root.updateMatrixWorld(true);
+  const structure=roomStructure(size);
+  for(const piece of structure){
+    const mesh=kit.root.getObjectByName(piece.id);assert.ok(mesh,piece.id+'实际建造');
+    const box=new T.Box3().setFromObject(mesh),center=box.getCenter(new T.Vector3()),extent=box.getSize(new T.Vector3());
+    assert.ok(Math.abs(center.x-piece.x)<1e-6&&Math.abs(center.z-piece.z)<1e-6);
+    assert.ok(Math.abs(extent.x-piece.w)<1e-6&&Math.abs(extent.z-piece.d)<1e-6);
+  }
+  assert.deepEqual(roomObstacles([],size),structure);
+  const chairs=[{id:'valid-chair',kind:'chair',x:1,z:2,w:.56,d:.57}];
+  const seat=roomSeat(chairs,'valid-chair',{x:2,z:2});assert.equal(seat.rise,.45);assert.equal(seat.heading,0);
+  assert.throws(()=>roomSeat(chairs,'missing',{}),/constructed chair/);
+});
+
+test('多组可替换摆件合批后保留各自父级与世界位置，可独立移除而不带走另一组',()=>{
+  const kit=createRoomKit();kit.root.position.set(.7,.2,-.5);
+  const fixture=kit.group('RotatedFixture',{x:2.1,y:.08,z:-1.7,heading:.7});
+  const first=kit.replaceableGroup('TestPropsA',{x:.65,y:.85,z:-.1,heading:.25},fixture);
+  const second=kit.replaceableGroup('TestPropsB',{x:-.6,y:.85,z:.2,heading:-.4},fixture);
+  const direct=kit.replaceableGroup('TestPropsRoot',{x:-2.2,y:.6,z:2.7,heading:.3});
+  kit.box('FirstProp',{y:.12,w:.2,h:.24,d:.2,color:'#aabb99'},first);
+  kit.box('SecondProp',{y:.17,w:.3,h:.34,d:.2,color:'#aabb99'},second);
+  kit.box('DirectRootProp',{y:.1,w:.2,h:.2,d:.2,color:'#aabb99'},direct);
+  kit.box('FixedFurniture',{y:.4,w:.5,h:.8,d:.5,color:'#aabb99'});
+  kit.root.updateMatrixWorld(true);
+  const groups=[first,second,direct],expected=groups.map(g=>new T.Box3().setFromObject(g));kit.finish();kit.root.updateMatrixWorld(true);
+  for(const [i,group]of groups.entries()){
+    assert.equal(group.userData.replaceable,true);assert.equal(group.parent,group===direct?kit.root:fixture);
+    assert.ok(group.children.some(o=>o.isMesh));
+    const actual=new T.Box3().setFromObject(group);
+    assert.ok(actual.min.distanceTo(expected[i].min)<1e-6&&actual.max.distanceTo(expected[i].max)<1e-6,'合批保持完整父级变换');
+  }
+  fixture.remove(first);assert.equal(kit.root.getObjectByName('TestPropsA'),undefined);
+  assert.equal(kit.root.getObjectByName('TestPropsB'),second);assert.ok(kit.root.children.some(o=>o.isMesh));
+});
+
 test('独立场景注册保留原地图，展示名单按真实动作点编号',()=>{
-  assert.deepEqual(Object.keys(DAY_PLACES),['dayLaboratory','dayLibrary']);
+  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio']));
+  assert.deepEqual(Object.keys(DAY_FACTORIES),Object.keys(DAY_PLACES));
   for(const id of persistentMaps)assert.ok(MAPS[id]);
   const list=placeList();
   for(const p of list){
@@ -48,7 +87,8 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
         const prev=position,step=stepRoute(position,pending,.05,{speed,walkSpeed:1.6,clear:(x,y)=>segmentClear(x,y,id)});
         position=step.position;speed=step.speed;
         assert.equal(step.blocked,false,`${a.id} → ${b.id}实际步进不中断`);
-        assert.ok(walkable(position.x,position.z,id));assert.ok(segmentClear(prev,position,id));
+        assert.ok(walkable(position.x,position.z,id),`${a.id} → ${b.id}第${frames}帧落脚${JSON.stringify(position)}`);
+        assert.ok(segmentClear(prev,position,id),`${a.id} → ${b.id}第${frames}帧${JSON.stringify(prev)} → ${JSON.stringify(position)}实际角切`);
       }
       assert.equal(pending.length,0,`${a.id} → ${b.id}抵达`);
       assert.ok(Math.hypot(position.x-b.target.x,position.z-b.target.z)<.01);
@@ -58,16 +98,17 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
   test(map.label+'：家具实际中心与障碍一致，坐位落在真椅子上，桌椅高度沿原小人',()=>{
     const {root}=DAY_FACTORIES[id]();root.updateMatrixWorld(true);
     const furniture=root.userData.furniture;
-    assert.ok(furniture?.length>=10,'家具元数据来自真正建造的那张表');
+    assert.ok(furniture?.length,'家具元数据来自真正建造的那张表');
+    for(const structure of roomStructure(map.bounds))assert.deepEqual(map.obstacles.find(o=>o.id===structure.id),structure,'墙柱沿实际空房尺寸');
     for(const p of furniture){
       const obstacle=map.obstacles.find(o=>o.id===p.id);assert.ok(obstacle,p.id+'有碰撞');
       for(const k of ['x','z','w','d'])assert.equal(obstacle[k],p[k],p.id+'的'+k);
       assert.equal(walkable(p.x,p.z,id),false,p.id+'实体不允许穿过');
-      if(['chair','table','counter','cabinet','shelf'].includes(p.kind)){
+      if(['chair','table','counter','cabinet','shelf','examBed','step','easel'].includes(p.kind)){
         const group=root.getObjectByName(p.id);assert.ok(group,p.id+'真家具组仍在');
         assert.equal(group.position.x,p.x);assert.equal(group.position.z,p.z);
       }
-      if(['table','counter'].includes(p.kind))assert.ok([.58,.85,1].includes(p.top),p.id+'台面高度适合现有体型');
+      if(['table','counter'].includes(p.kind))assert.ok(p.top>=.45&&p.top<=1.05,p.id+'台面高度适合现有体型');
     }
     const ray=new T.Raycaster();
     for(const seat of Object.values(map.seats)){
@@ -90,9 +131,18 @@ test('实验室专业器材可整组替换，关闭器材仍保留工位与导�
   const full=DAY_FACTORIES.dayLaboratory(),empty=DAY_FACTORIES.dayLaboratory({equipment:'none'});
   const props=full.root.getObjectByName('LaboratoryEquipment'),blank=empty.root.getObjectByName('LaboratoryEquipment');
   assert.ok(props&&blank);assert.ok(props.children.length);assert.equal(blank.children.length,0);
+  assert.equal(props.userData.replaceable,true,'可替换器材沿公共分组机制');
+  const vertices=root=>{let count=0;root.traverse(o=>{if(o.isMesh)count+=o.geometry.attributes.position.count;});return count;};
+  const specializedVertices=vertices(props);assert.ok(specializedVertices>0,'组内确有合批后的器材网格，不能只保空锚点');
   assert.deepEqual(full.root.userData.furniture,empty.root.userData.furniture);
   assert.equal(full.root.getObjectByName('computer-desk').position.x,empty.root.getObjectByName('computer-desk').position.x);
+  full.root.updateMatrixWorld(true);const instrument=props.getObjectByName('Microscope');assert.ok(instrument);
+  const point=instrument.getWorldPosition(new T.Vector3()),ray=new T.Raycaster(new T.Vector3(point.x,point.y+2,point.z),new T.Vector3(0,-1,0));
+  const before=ray.intersectObject(full.root,true)[0];assert.ok(before);
+  const countBefore=vertices(full.root);
   const parent=props.parent;parent.remove(props);assert.equal(full.root.getObjectByName('LaboratoryEquipment'),undefined);
+  assert.equal(vertices(full.root),countBefore-specializedVertices,'移除器材确实带走对应几何');
+  const after=ray.intersectObject(full.root,true)[0];assert.ok(after);assert.ok(before.point.y-after.point.y>.1,'显微镜实际射线命中随整组移除消失');
   parent.add(blank);assert.equal(full.root.getObjectByName('LaboratoryEquipment'),blank);
 });
 
@@ -119,4 +169,57 @@ test('图书馆书本按实际书架与借阅台的父级摆放，局部坐标�
   const deskBook=root.getObjectByName('ReadingBook'),windowBook=root.getObjectByName('WindowBook');
   assert.ok(Math.abs(deskBook.position.x+.85)<1.5&&Math.abs(deskBook.position.z-.05)<.675);
   assert.ok(Math.abs(windowBook.position.x-3.02)<.925&&Math.abs(windowBook.position.z+2.47)<.41);
+});
+
+test('诊室保留真实诊查床与床旁站位，专业器材整组关闭而不变家具与坐位',()=>{
+  const map=DAY_PLACES.dayClinic,full=DAY_FACTORIES.dayClinic(),empty=DAY_FACTORIES.dayClinic({equipment:'none'});
+  assert.equal(map.beds,undefined,'空诊查床不作为日程睡床');
+  const bed=full.root.userData.furniture.find(p=>p.kind==='examBed');assert.ok(bed);
+  assert.equal(Object.values(map.seats).some(s=>s.piece===bed.id),false);
+  const bedside=map.spots.find(s=>s.furniture===bed.id);assert.ok(bedside&&!bedside.seat&&bedside.action!=='sleep');
+  assert.ok(walkable(bedside.target.x,bedside.target.z,'dayClinic'));
+  full.root.updateMatrixWorld(true);const ray=new T.Raycaster(new T.Vector3(bed.x,2,bed.z),new T.Vector3(0,-1,0));
+  const hit=ray.intersectObject(full.root,true)[0];assert.ok(hit&&Math.abs(hit.point.y-(map.floor+bed.top))<.003,'实际诊查床面高度对齐家具表');
+  const equipment=full.root.getObjectByName('ClinicEquipment'),blank=empty.root.getObjectByName('ClinicEquipment');
+  assert.equal(equipment.userData.replaceable,true);let meshes=0;equipment.traverse(o=>{if(o.isMesh)meshes++;});assert.ok(meshes>0);
+  assert.equal(blank.children.length,0);assert.deepEqual(full.root.userData.furniture,empty.root.userData.furniture);
+  const parent=equipment.parent;parent.remove(equipment);assert.equal(full.root.getObjectByName('ClinicEquipment'),undefined);
+  assert.ok(full.root.getObjectByName(bed.id));assert.ok(full.root.getObjectByName(Object.values(map.seats)[0].piece));
+});
+
+test('创作室颜料、布料与手工材料整组可换，实际台面和架上摆件保持父级高度与支持面',()=>{
+  const variants=['paint','fabric','craft','none'],views=variants.map(materials=>DAY_FACTORIES.dayStudio({materials}));
+  const empty=views.at(-1).root,counts=[];empty.updateMatrixWorld(true);
+  const navigation=JSON.stringify(DAY_PLACES.dayStudio),furniture=empty.userData.furniture;
+  for(const [index,{root}]of views.entries()){
+    root.updateMatrixWorld(true);assert.deepEqual(root.userData.furniture,furniture);assert.equal(root.userData.materials,variants[index]);
+    assert.equal(JSON.stringify(DAY_PLACES.dayStudio),navigation,'换材料不变动作点或导航');
+    const props=root.getObjectByName('StudioMaterials');assert.equal(props.userData.replaceable,true);
+    let vertices=0;props.traverse(o=>{if(o.isMesh)vertices+=o.geometry.attributes.position.count;});counts.push(vertices);
+    if(variants[index]==='none'){assert.equal(vertices,0);assert.equal(props.children.length,0);continue;}
+    assert.ok(vertices>0,'专业材料确有可拆卸网格');
+    for(const anchor of root.userData.materialAnchors){
+      const group=props.getObjectByName('StudioSurface:'+anchor.furniture),piece=furniture.find(p=>p.id===anchor.furniture);
+      assert.ok(group&&piece);assert.equal(group.userData.furniture,piece.id);assert.equal(group.parent,props);
+      const center=group.getWorldPosition(new T.Vector3());assert.equal(center.x,piece.x);assert.equal(center.z,piece.z);
+      if(anchor.surface!=null){assert.equal(group.userData.surface,anchor.surface);assert.equal(center.y,anchor.surface);assert.equal(anchor.surface,DAY_PLACES.dayStudio.floor+piece.top);}
+      const levels=anchor.surface!=null?[anchor.surface]:anchor.surfaces.slice(1);
+      for(const surface of levels){
+        let supported=0;const ray=new T.Raycaster();
+        for(let x=0;x<=10;x++)for(let z=0;z<=10;z++){
+          const px=anchor.x+(x/10-.5)*anchor.w*.9,pz=anchor.z+(z/10-.5)*anchor.d*.9;
+          ray.set(new T.Vector3(px,surface+.49,pz),new T.Vector3(0,-1,0));ray.near=0;ray.far=.5;
+          const hit=ray.intersectObject(props,true)[0];if(!hit||hit.point.y<=surface+.005)continue;
+          // Start below the actual prop roof so an upper shelf cannot hide its support.
+          const supportRay=new T.Raycaster(new T.Vector3(px,hit.point.y-.0001,pz),new T.Vector3(0,-1,0),0,hit.point.y-surface+.01);
+          const base=supportRay.intersectObject(empty,true)[0];
+          if(base&&Math.abs(base.point.y-surface)<.005)supported++;
+        }
+        assert.ok(supported>0,`${variants[index]}的${anchor.furniture}在实际${surface}台面上有材料`);
+      }
+    }
+    const before=root.children.filter(o=>o.isMesh).length;props.parent.remove(props);assert.equal(root.getObjectByName('StudioMaterials'),undefined);
+    assert.equal(root.children.filter(o=>o.isMesh).length,before,'取走材料保留独立家具合批');
+  }
+  assert.ok(new Set(counts.slice(0,-1)).size>1,'三种方向确实替换不同材料几何');
 });

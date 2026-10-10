@@ -7,7 +7,7 @@
 // 设置存 x_companion：{ charId, float, pos, scale, autoFace, looks: { [charId]: look } }
 // ============================================================
 (function () {
-  const KEY = "x_companion", BUILD = "fg-2d8fc4dc9e35a469";
+  const KEY = "x_companion", BUILD = "fg-83edfa27f119ba5e";
   const load = () => Object.assign({ charId: "", float: false, pos: null, scale: 1, autoFace: true, looks: {} }, loadJSON(KEY, {}) || {});
   const save = v => saveJSON(KEY, v);
   // 心情 → 表情。心情是模型写的自由中文（x_moods[charId].label），按字认；认不出就是「平常」。
@@ -39,11 +39,14 @@
     return String(mo.label);
   }
   const taOf = c => (typeof CharacterPronoun !== "undefined" && c) ? CharacterPronoun.ta(c) : "TA";
-  function petMessage(char, moods, cfg) {
-    if (!char) return null;
+  function lookFor(char, moods, cfg = load()) {
+    if (!char) return {};
     const own = (cfg.looks || {})[char.id] || {};
     const face = cfg.autoFace === false ? (own.face || "default") : faceForMood(moodLabel(moods, char.id));
-    return { type: "pet-look", characterId: String(char.id), ta: taOf(char), look: Object.assign({}, own, { face }) };
+    return Object.assign({}, own, { face });
+  }
+  function petMessage(char, moods, cfg) {
+    return char ? { type: "pet-look", characterId: String(char.id), ta: taOf(char), look: lookFor(char, moods, cfg) } : null;
   }
   // 一只 iframe 画面：加载完成（pet-ready）或样貌变了，就把消息再送一次
   // 你在干嘛（她 2026-09-26「点他有反应／跟着时间／看你在哪个页面」）：哪一页、有没有放歌、多久没碰手机。
@@ -264,7 +267,7 @@
             chip(!voiceOn(), "只冒字", () => { try { localStorage.setItem("x_fairyGardenVoice", "0"); } catch (e) {} bump(n => n + 1); }, "va"),
             chip(voiceOn(), "念出来", () => { try { localStorage.setItem("x_fairyGardenVoice", "1"); } catch (e) {} bump(n => n + 1); }, "vb")) : null,
           h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 14 } }, "开了以后，戳他、拎他时他会按自己的性子和此刻的心情回一句。每一句都会调用一次 API；连着戳只算一次，两句之间至少隔 15 秒。" + (char.voiceId ? "「念出来」和庭院、列车是同一个开关。" : "给他在角色资料里选一个声音，就能念出来。")),
-          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "这一身只在陪伴里算数，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
+          h("div", { style: { fontSize: 11, color: "#9a8a70", lineHeight: 1.7, marginBottom: 12 } }, "陪伴与「TA的一天」共用这一身，和庭院那一身分开。悬浮的小人拖右下角的小圆点能调大小；点他会有反应，按住能拎起来；点他底下那条把手打开这一页。"),
           Dress && pet() ? h(Dress, { who: "me", look: { me: Object.assign({}, own, auto ? {} : {}) }, styles, game: pet, pushLook }) :
             h("div", { style: { fontSize: 12, color: "#9a8a70" } }, "小人还在来的路上…"))));
   }
@@ -325,5 +328,5 @@
   window.Companion = Companion;
   window.CompanionPreview = PetFrame;
   window.CompanionFloat = CompanionFloat;
-  window.CompanionFace = { faceForMood, FACE_ZH };
+  window.CompanionFace = { faceForMood, FACE_ZH, lookFor };
 })();

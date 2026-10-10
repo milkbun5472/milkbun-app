@@ -1,4 +1,4 @@
-import {createRoomKit} from './room-kit.mjs?v=fg-2d8fc4dc9e35a469';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-83edfa27f119ba5e';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.
@@ -16,23 +16,15 @@ const furniture=[
   {id:'laboratory-plant',kind:'plant',x:4.35,z:3.05,w:.5,d:.5}
 ];
 const piece=id=>furniture.find(p=>p.id===id);
-const seatAt=(id,approach)=>{const p=piece(id);return {x:p.x,z:p.z,rise:p.seat,heading:p.heading,piece:id,approach};};
 const seats={
-  computer:seatAt('computer-chair',{x:3.18,z:-.86}),
-  records:seatAt('records-chair',{x:3.15,z:2.65}),
-  break:seatAt('break-chair',{x:-2.7,z:2.55})
+  computer:roomSeat(furniture,'computer-chair',{x:3.18,z:-.86}),
+  records:roomSeat(furniture,'records-chair',{x:3.15,z:2.65}),
+  break:roomSeat(furniture,'break-chair',{x:-2.7,z:2.55})
 };
-const structure=[
-  {id:'BackWall',x:0,z:-4.5,w:10.2,d:.18},
-  {id:'LeftWall',x:-5,z:0,w:.18,d:9},
-  {id:'DoorPostWest',x:-.95,z:4.42,w:.16,d:.26},
-  {id:'DoorPostEast',x:.95,z:4.42,w:.16,d:.26}
-];
-
 export const laboratoryMap={
   label:'实验室',renderer:'dayLaboratory',radius:9,bounds:{w:10,d:9},floor:FLOOR,
   spawn:{x:0,z:4},view:{x:0,z:0},
-  obstacles:[...structure,...furniture.map(({id,x,z,w,d})=>({id,x,z,w,d}))],
+  obstacles:roomObstacles(furniture),
   seats,
   spots:[
     {id:'entrance',label:'入口',description:'从南侧进入或离开实验室；这里也适合短暂停步，随后走向各工位。',action:'rest',gesture:'rest',target:{x:0,z:3.25},heading:Math.PI,furniture:'Threshold'},
@@ -124,7 +116,7 @@ function recordWorkstation(kit,p){
 }
 function generalEquipment(kit){
   // All specialized props live under this group and can be swapped as one unit.
-  const equipment=kit.group('LaboratoryEquipment');
+  const equipment=kit.replaceableGroup('LaboratoryEquipment');
   const bench=piece('laboratory-bench'),benchTop=FLOOR+bench.top;
   const microscope=kit.group('Microscope',{x:bench.x-.9,y:benchTop,z:bench.z+.02},equipment);
   kit.box('microscope-base',{y:.045,w:.52,h:.09,d:.39,color:'#7b948c'},microscope);
@@ -185,6 +177,6 @@ export function createLaboratory({equipment='general'}={}){
   kit.book('bench-checklist',{x:-2.52,y:FLOOR+1.06,z:-3.45,w:.36,d:.44,color:'#d4d9bd',flat:true});
   kit.book('observation-notes',{x:-1.16,y:FLOOR+1.058,z:-.28,w:.37,d:.3,color:'#bbcbb8',flat:true});
   if(equipment!=='none')generalEquipment(kit);
-  else kit.group('LaboratoryEquipment');
+  else kit.replaceableGroup('LaboratoryEquipment');
   return kit.finish();
 }

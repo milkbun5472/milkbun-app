@@ -44,11 +44,11 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
   await shot('home-style-options');
   for(const [w,h]of [[320,568],[430,932],[844,390]]){await p.setViewportSize({width:w,height:h});const layout=await root.locator('[data-wk=cdaypage]').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,scrolls:el.querySelectorAll('[data-wk=cdaybody]').length}));assert.equal(layout.overflow,false);assert.equal(layout.scrolls,1);await shot('style-options-'+w+'x'+h);}await p.setViewportSize({width:390,height:844});
 
-  await p.evaluate(()=>{window.styleWriter=saveJSONDurable;window.saveJSONDurable=async()=>false;});
+  await p.evaluate(()=>{window.styleWriter=walPutVerified;window.walPutVerified=async()=>false;});
   await root.locator('[data-wk=cdaystyle]').filter({hasText:'清爽浅色'}).click();await root.getByText('这次没能保存，原样式还在，可以再试一次。',{exact:true}).waitFor();
   assert.equal(await root.locator('[data-wk=cdaystyle][aria-pressed=true]').innerText(),'深木安静 · 正在用');
   assert.equal(await p.evaluate(()=>loadJSON('x_charDayHomes',{}).styles['day-a']),'dusk');
-  await p.evaluate(()=>{window.saveJSONDurable=styleWriter;});await root.getByRole('button',{name:'回去看看',exact:true}).click();await ready();await settle();
+  await p.evaluate(()=>{window.walPutVerified=styleWriter;});await root.getByRole('button',{name:'回去看看',exact:true}).click();await ready();await settle();
   assert.equal((await state()).spaceStyle,'dusk');await shot('home-dark-style');result.perCharacterStyle=true;result.styleFailureRollback=true;
   assert.equal(await p.evaluate(()=>JSON.stringify(dayRef.current)),baseline.plans);
 

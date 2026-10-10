@@ -1,8 +1,10 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-2d8fc4dc9e35a469';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-2d8fc4dc9e35a469';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-83edfa27f119ba5e';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-83edfa27f119ba5e';
+import {clinicMap,createClinic} from './clinic.mjs?v=fg-83edfa27f119ba5e';
+import {studioMap,createStudio} from './studio.mjs?v=fg-83edfa27f119ba5e';
 import * as T from 'three';
-export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap};
-export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary};
+export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap};
+export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio};
 // Only the read-only day viewer installs these maps. Persistent game worlds keep their own registry.
 export function registerDayPlaces(maps){Object.assign(maps,DAY_PLACES);}
 export function placeList(){return Object.entries(DAY_PLACES).map(([id,m])=>({id,label:m.label,spots:m.spots.map(({id,label,description,action,gesture},index)=>({id,label,description,action,gesture,number:index+1}))}));}

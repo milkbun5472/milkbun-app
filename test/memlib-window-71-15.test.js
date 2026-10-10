@@ -80,9 +80,9 @@ test("剩下多少要说出来，哨子就挂在那句话上", () => {
 test("两支窗口住在一起，但没有硬合成一支", () => {
   // 聊天往上长（补完要把滚动位置顶回去），记忆库往下长（前面没多东西，不用补）。
   // 合成一支就得同时表达两种补法，而补错方向那一下是屏幕上当场看得出来的。
-  assert.ok(comp.includes("function useChatWindow(ref, total, resetKey)"), "聊天那支没了");
+  assert.ok(comp.includes("function useChatWindow("), "聊天那支没了");
   const i = comp.indexOf("function useListWindow(total, resetKey)");
-  const j = comp.indexOf("function useChatWindow(ref, total, resetKey)");
+  const j = comp.indexOf("function useChatWindow(");
   assert.ok(i > 0 && j > 0 && Math.abs(i - j) < 3000, "两支离散了——下次改一支会漏掉另一支");
   const hook = comp.slice(i, comp.indexOf("const mTight =", i));
   assert.ok(!/scrollTop/.test(hook), "往下长的那支不该有滚动补偿——它前面什么都没多");

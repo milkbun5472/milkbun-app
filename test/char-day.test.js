@@ -5,6 +5,8 @@ function setup(){
   const env={Date,JSON,Math,window:{}};env.window=env;vm.createContext(env);
   vm.runInContext(read('js/schedule-clock.js'),env);
   vm.runInContext(cut(read('js/screens.js'),'function schedFillEnds(', 'function schedTzShiftMin('),env);
+  vm.runInContext(read('apps/fairy-garden/day/catalog.js'),env);
+  vm.runInContext(read('js/char-day-link.js'),env);
   vm.runInContext(read('js/char-day.js'),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));
@@ -55,7 +57,7 @@ test('示例单独提供全部基础动作，不调用writer或替角色排事�
 });
 test('主App接真实日程与已有陪伴样貌，日历使用现有角色入口并正确返回小世界',()=>{
   const route=cut(app,'  });else if (screen === "fairyGarden")','  });else if (screen === "trpg")'),calls=[];
-  const env={screen:'fairyGarden',window:{FairyGardenApp:'garden'},h:(_,p)=>p,body:null,gardenEntryWorld:'day',gardenDayCharId:'c1',setGardenDayCharId:id=>calls.push(['select',id]),schedulesRef:{current:{c1:{today:123}}},CharacterPronoun:{ta:()=> '他'},loadJSON:()=>({looks:{c1:{hairColor:'#111111'}}}),setGardenEntryWorld:v=>calls.push(['world',v]),calReturnRef:{current:null},setSelSched:v=>calls.push(['sched',v]),setScreen:v=>calls.push(['screen',v]),characters:[],liveChars:[],offlineApiFor:()=>{},offlineActive:{},isBody:()=>false,settingsFor:()=>({}),profile:{},toast:()=>{},openGardenRoomFor:()=>{},neighborBundleFor:()=>{},gardenRecordFor:()=>{},buildBundle:()=>'',ctxFor:()=>({})};
+  const env={screen:'fairyGarden',window:{FairyGardenApp:'garden',CompanionFace:{lookFor:()=>({hairColor:'#111111',face:'happy'})}},moods:{c1:{label:'开心'}},h:(_,p)=>p,body:null,gardenEntryWorld:'day',gardenDayCharId:'c1',setGardenDayCharId:id=>calls.push(['select',id]),schedulesRef:{current:{c1:{today:123}}},CharacterPronoun:{ta:()=> '他'},loadJSON:()=>({looks:{c1:{hairColor:'#111111'}}}),setGardenEntryWorld:v=>calls.push(['world',v]),calReturnRef:{current:null},setSelSched:v=>calls.push(['sched',v]),setScreen:v=>calls.push(['screen',v]),characters:[],liveChars:[],offlineApiFor:()=>{},offlineActive:{},isBody:()=>false,settingsFor:()=>({}),profile:{},toast:()=>{},openGardenRoomFor:()=>{},neighborBundleFor:()=>{},gardenRecordFor:()=>{},buildBundle:()=>'',ctxFor:()=>({})};
   const p=new Function('env','with(env){'+route.replace('  });else if','  if')+'});return body;}')(env);
   assert.equal(p.day.plansFor({id:'c1'}).today,123);assert.equal(p.day.lookFor({id:'c1'}).hairColor,'#111111');p.day.onSchedule({id:'c1'});
   assert.deepEqual(calls,[['world','day'],['sched','c1'],['screen','calendar']]);assert.equal(env.calReturnRef.current.screen,'fairyGarden');
@@ -65,7 +67,7 @@ test('新世界入口独立于三游戏旅程，移动外壳沿公共Head和单�
   assert.match(host,/WORLDS\.concat\(\[DAY_WORLD, null\]\)/);assert.match(host,/world\?\.id === "day"/);
   assert.match(source,/h\(Head,/);assert.match(source,/flex-1 min-h-0 overflow-y-auto/);assert.match(source,/safe-area-inset-bottom\) \* 0\.4/);
   assert.ok(html.indexOf('js/char-day.js')<html.indexOf('js/fairy-garden.js'));
-  assert.doesNotMatch(source,/callAI\(|runProbe\(|localStorage\.setItem/);assert.match(source,/saveJSONDurable\("x_charDayHomes", next\)/);
+  assert.doesNotMatch(source,/callAI\(|runProbe\(|localStorage\.setItem/);assert.match(source,/commitJSONDurable\("x_charDayHomes",next\)/);
 });
 
 test('新小家睡眠沿共用床位helper，床位随家具布局而非原庭院小屋',async()=>{
@@ -75,6 +77,15 @@ test('新小家睡眠沿共用床位helper，床位随家具布局而非原庭�
   const bed=sleepPose({map:'dayHome',companion:{map:'dayHome',position:spot.target},sleep:{companion:spot.id}},'companion');
   assert.ok(bed);assert.ok(bed.y>.5);assert.deepEqual(bed,map.beds.sleep.slots.companion);
   assert.equal(sleepPose({map:'dayHome',companion:{map:'dayHome',position:map.spawn},sleep:{companion:spot.id}},'companion'),null);
+});
+
+test('样式与装修沿真实原子writer的durable/live回执；失败保留旧档，各角色与其他字段并存',async()=>{
+ const f=setup();let stored={version:1,styles:{c1:'warm',c2:'dusk'},layouts:{c2:{sofa:{x:1,z:2}}},keep:'旧字段'},verified=false,writes=0;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>verified;f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;writes++;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const before=JSON.stringify(stored);await assert.rejects(f.K.saveHomeChange('c1','layouts',{sofa:{stored:true}}));assert.equal(JSON.stringify(stored),before);assert.equal(writes,0);
+ verified=true;await f.K.saveHomeChange('c1','layouts',{sofa:{stored:true}});assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.layouts.c2.sofa.x,1);assert.equal(stored.styles.c2,'dusk');assert.equal(stored.keep,'旧字段');
+ await f.K.saveHomeChange('c1','styles','light');assert.equal(stored.styles.c1,'light');assert.equal(stored.layouts.c1.sofa.stored,true);assert.equal(stored.version,2);
 });
 
 test('明确在家与外食分别去新小家或小店，日程原文决定位置',()=>{
@@ -92,7 +103,7 @@ function placeViewer(f,initialCharId){
   Object.assign(f.env,{
     h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',
     useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
-    useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},
+    useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{}},location:{origin:'http://test.invalid'}
   });
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
@@ -114,8 +125,8 @@ test('新场景从选人页独立试玩，原五段示例与日程映射继续�
   viewer.click(tree,'回到日程');tree=viewer.render();const back=viewer.send(tree);
   assert.equal(back.charId,f.K.DEMO.id);assert.equal(back.presentation.map,'dayHome');
   viewer.click(tree,'下一段');const next=viewer.send(viewer.render());assert.equal(next.presentation.map,'dayWork');
-  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayWork');
-  assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'dayWork');
+  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayLaboratory');
+  assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'dayLibrary');
   assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });
 

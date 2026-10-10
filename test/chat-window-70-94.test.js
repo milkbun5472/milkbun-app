@@ -10,7 +10,7 @@ const comp = fs.readFileSync(path.join(__dirname, "..", "js", "components.js"), 
 const cut = (a, b) => { const i = comp.indexOf(a), j = comp.indexOf(b, i); assert.ok(i > 0 && j > i, "抠不出 " + a); return comp.slice(i, j); };
 const ONE = cut("function ChatThread({", "function GroupThread({");
 const GRP = cut("function GroupThread({", "function GroupSettingsSheet(");
-const HOOK = cut("function useChatWindow(ref, total, resetKey) {", "function ChatThread({");
+const HOOK = cut("function useChatWindow(", "function ChatThread({");
 
 test("她定的是 200", () => {
   assert.match(comp, /const CHAT_WINDOW = 200;/);
@@ -35,7 +35,7 @@ test("往上翻要能一路翻回第一条，而且看得见还剩多少", () =>
   [["单聊", ONE], ["群聊", GRP]].forEach(([zh, seg]) => {
     assert.match(seg, /onScroll: e => \{ if \(e\.target\.scrollTop < 320\) growMore\(\); \}/, zh + " 翻到顶不会自动补");
     assert.match(seg, /"↑ 上面还有 " \+ winStart \+ " 条 · 点开或往上翻"/, zh + " 没告诉她上面还有多少");
-    assert.match(seg, /winStart > 0 \? h\("button", \{\n\s*onClick: growMore/, zh + " 那颗按钮点不动");
+    assert.match(seg, /winStart > 0(?: && !recentLimit)? \? h\("button", \{\n\s*onClick: growMore/, zh + " 那颗按钮点不动");
   });
 });
 
@@ -62,7 +62,7 @@ test("她正在往上翻的时候，来了新消息也别把她甩回最新的",
 
 test("换个人／换个群，窗口收回去", () => {
   assert.match(HOOK, /useEffect\(\(\) => \{ setWinN\(CHAT_WINDOW\); \}, \[resetKey\]\);/);
-  assert.match(ONE, /useChatWindow\(ref, messages\.length, \(character && character\.id\) \+ "\|" \+ \(room && room\.id \|\| ""\)\)/);
+  assert.match(ONE, /useChatWindow\(ref, messages\.length, \(character && character\.id\) \+ "\|" \+ \(room && room\.id \|\| ""\)(?:, recentLimit)?\)/);
   assert.match(GRP, /useChatWindow\(ref, messages\.length, group && group\.id\)/);
 });
 
@@ -72,7 +72,7 @@ test("这一层只有一份，单聊群聊都问它要", () => {
   assert.equal((comp.match(/useChatWindow\(ref, messages\.length/g) || []).length, 2, "有一处没搬过来，或者又多写了一份");
   // v71.15 旁边多了一支 useListWindow（记忆库那种往【下】长的名单），它自己也有 winN。
   // 所以这儿改成只看聊天那一支的身体里有没有第二份——原来数全文，加个兄弟就误伤。
-  const i = comp.indexOf("function useChatWindow(ref, total, resetKey)");
+  const i = comp.indexOf("function useChatWindow(");
   const j = comp.indexOf("const LIST_WINDOW =", i);
   assert.ok(i > 0 && j > i, "抠不出 useChatWindow");
   assert.equal((comp.slice(i, j).match(/const \[winN, setWinN\] = useState/g) || []).length, 1, "窗口状态被抄了第二份");

@@ -12,7 +12,7 @@
     const seqs = (Array.isArray(src.seqs) ? src.seqs : []).map(s => {
       const d = s && s.deviation;
       const bad = hasTobacco(s && s.title) || hasTobacco(s && s.location) || hasTobacco(d && d.plan) || hasTobacco(d && d.reason) || hasTobacco(d && d.actual);
-      return bad ? { ...s, title: "短暂休息，整理思绪", location: hasTobacco(s && s.location) ? "室内" : (s.location || "室内"), type: "rest", deviation: null } : s;
+      return bad ? { ...s, title: "短暂休息，整理思绪", location: hasTobacco(s && s.location) ? "室内" : (s.location || "室内"), type: "rest", deviation: null, world: null } : s;
     });
     const clean = key => (Array.isArray(src[key]) ? src[key] : []).filter(x => x && !hasTobacco(x.text));
     return { ...src, seqs, murmurs: clean("murmurs"), yesterdayMurmurs: clean("yesterdayMurmurs") };

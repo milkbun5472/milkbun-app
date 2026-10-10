@@ -1,10 +1,10 @@
-import {createRoomKit} from './places/room-kit.mjs?v=fg-2d8fc4dc9e35a469';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-2d8fc4dc9e35a469';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-83edfa27f119ba5e';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-83edfa27f119ba5e';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
-export function createSpaceView(id,style='warm'){
- const map=CORE_SPACES[id],p=styleOf(style),k=createRoomKit(),F=.08;
+export function createSpaceView(id,style='warm',layout=CORE_SPACES[id]){
+ const map=layout,p=styleOf(style),k=createRoomKit(),F=.08;
  const b=(name,v,g)=>k.box(name,{color:p.wood,...v},g);
  function window(x,z,w=2.3){
   b('WindowFrame',{x,y:1.95,z,w,h:1.7,d:.09});b('WindowGlass',{x,y:1.95,z:z+.058,w:w-.18,h:1.51,d:.025,color:p.glass});
