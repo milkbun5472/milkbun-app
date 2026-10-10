@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-dcb7068d4ae7c310';
-import {stepRoute} from '../locomotion.mjs?v=fg-dcb7068d4ae7c310';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-dcb7068d4ae7c310';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-dcb7068d4ae7c310';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-bc35c5341d4847ae';
+import {stepRoute} from '../locomotion.mjs?v=fg-bc35c5341d4847ae';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-bc35c5341d4847ae';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-bc35c5341d4847ae';
 
 export const TOGETHER_LABELS={hand:'牵手',hug:'拥抱',shoulder:'靠肩',read:'一起看书',meal:'一起吃饭',cook:'一起做饭'};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),avoid=(p,r=.72)=>[{...p,r}];
@@ -23,12 +23,12 @@ export function togetherPlans(map,kind,from){
   }
  }else if(kind==='cook'){
   const spot=map.spots.find(p=>p.action==='cook'),piece=map.furniture.find(p=>p.id===spot?.piece);
-  if(spot&&piece){const b=furniturePoint(piece,{x:-1.05,z:piece.d/2+.35});choices.push({a:spot.target,b,heading:spot.heading,spot,piece});}
+  if(spot&&piece){const b=furniturePoint(piece,{x:HOME_PREP.x-.19,z:piece.d/2+.25});choices.push({a:spot.target,b,heading:spot.heading,spot,piece});}
  }else{
   const center={x:(from.a.x+from.b.x)/2,z:(from.a.z+from.b.z)/2};
   for(const r of [0,1,2,3])for(let n=0;n<16;n++){
    const angle=n*Math.PI/8,c={x:center.x+Math.cos(angle)*r,z:center.z+Math.sin(angle)*r};
-   const heading=kind==='hug'?angle:angle-Math.PI/2,s=Math.sin(angle),v=Math.cos(angle),distance=kind==='hug'?.34:.86;
+   const heading=kind==='hug'?angle:angle-Math.PI/2,s=Math.sin(angle),v=Math.cos(angle),distance=kind==='hug'?.34:.78;
    choices.push({a:{x:c.x-s*distance/2,z:c.z-v*distance/2},b:{x:c.x+s*distance/2,z:c.z+v*distance/2},heading});
   }
  }
@@ -65,7 +65,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),onUpdate=()=>{},onS
   const daily=(who,kind)=>({daily:true,kind,elapsed:s.elapsed,progress:((s.elapsed*(motion()[who]?.tempo||1)+(motion()[who]?.phase||0))/(kind==='read'?9:kind==='eat'?5.5:7))%1});
   let at=null,bt=null;
   if(active&&['read','meal'].includes(s.kind)){at=daily('a',s.kind==='meal'?'eat':'read');bt=daily('b',s.kind==='meal'?'eat':'read');}
-  if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion().a});const target={...furniturePoint(p.piece,{x:-1.05,z:.22}),y:1.30},contact={...target,y:1.15};bt={...daily('b','prep'),target,contact};}
+  if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion().a});const target={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY};bt={...daily('b','prep'),target,contact};}
   s.aTask=at;s.bTask=bt;
   pose(a,aa,aSeated,ah,time,s.phase==='walking-ta',at,motion().a);pose(b,bb,bSeated,bh,time,s.phase==='walking-you',bt,motion().b);
   if(active&&s.kind==='hand'){
@@ -80,7 +80,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),onUpdate=()=>{},onS
    const targets=actor=>{const q=chest(actor),axis=new T.Vector3(.17,0,0).applyAxisAngle(new T.Vector3(0,1,0),actor.root.rotation.y);return {left:q.clone().add(axis),right:q.clone().sub(axis)};};
    a.contactPose(targets(b));b.contactPose(targets(a));
   }
-  if(active&&s.kind==='shoulder'){const sign=Math.sign(bb.x-aa.x)||1;a.contactPose({lean:-sign*.10});b.contactPose({lean:sign*.22});}
+  if(active&&s.kind==='shoulder'){const sign=Math.sign((bb.x-aa.x)*Math.cos(ah)-(bb.z-aa.z)*Math.sin(ah))||1;a.contactPose({lean:-sign*.10});b.contactPose({lean:sign*.22});}
   onUpdate({...inspect(),bSeat:bSeated,moving:s.phase!=='active'});return true;
  }
  return {start,stop,tick,inspect};

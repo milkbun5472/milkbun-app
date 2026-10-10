@@ -1,4 +1,4 @@
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-dcb7068d4ae7c310';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-bc35c5341d4847ae';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation';
 const RECIPES={
@@ -48,6 +48,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
   const duration=recipe.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
   for(const [id,length,phaseOverride] of recipe){if(cycle<length){spot=id;phase=phaseOverride||'work';motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
  }
+ if(p.map===LAB&&['records','computer','break'].includes(spot))carry=false;
  return {...p,spot,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':LABELS[phase],motion,carry,carryType};
 }
 // Keep the visible suitcase inside available floor space, including when seated.

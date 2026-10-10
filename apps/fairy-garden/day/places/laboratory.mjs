@@ -1,9 +1,9 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-dcb7068d4ae7c310';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-bc35c5341d4847ae';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.
 const furniture=[
-  {id:'laboratory-bench',kind:'table',x:-.55,z:-3.52,w:4.8,d:1.05,top:.70,color:'#adbfb2'},
+  {id:'laboratory-bench',kind:'table',x:-.55,z:-3.52,w:4.8,d:1.05,top:.70,work:{bench:{x:-.15,y:.74,z:.47}},color:'#adbfb2'},
   {id:'observation-island',kind:'table',x:-1,z:-.6,w:2.65,d:1.15,top:.70,color:'#c2cabc'},
   {id:'computer-desk',kind:'table',x:3.18,z:-2.8,w:2.15,d:1.1,top:.85,color:'#bba68a'},
   {id:'records-desk',kind:'table',x:3.15,z:.7,w:2.2,d:1.05,top:.85,color:'#bba68a'},
@@ -29,7 +29,7 @@ export const laboratoryMap={
   seats,
   spots:[
     {id:'entrance',label:'入口',description:'从南侧进入或离开实验室；这里也适合短暂停步，随后走向各工位。',action:'rest',gesture:'rest',target:{x:0,z:3.25},heading:Math.PI,furniture:'Threshold'},
-    {id:'bench',label:'实验台前',description:'站着观察与操作台面的位置；右手拿取小工具，在样品杯上方操作，之后可去观察台与记录工位。',action:'work',gesture:'rest',target:{x:-.55,z:-2.68},heading:Math.PI,furniture:'laboratory-bench'},
+    {id:'bench',label:'实验台前',description:'站着观察与操作台面的位置；右手拿取小工具，在样品杯上方操作，之后可去观察台与记录工位。',action:'work',gesture:'rest',target:{x:-.55,z:-2.73},heading:Math.PI,furniture:'laboratory-bench'},
     {id:'observation',label:'观察台前',description:'站在中央台前看样品与仪器；低头查看样品，再到记录工位记下观察。',action:'work',gesture:'rest',target:{x:-1,z:.29},heading:Math.PI,furniture:'observation-island'},
     {id:'computer',label:'电脑工位',description:'坐着查看资料、整理数据与分析结果的位置；双手在键盘前整理数据，随后可核对记录。',action:'work',gesture:'read',target:{...seats.computer.approach},heading:seats.computer.heading,seat:seats.computer,furniture:'computer-desk'},
     {id:'records',label:'记录工位',description:'坐着阅读实验记录、整理纸笔和写观察笔记的位置。',action:'read',gesture:'read',target:{...seats.records.approach},heading:seats.records.heading,seat:seats.records,furniture:'records-desk'},
@@ -120,7 +120,7 @@ function generalEquipment(kit){
   // All specialized props live under this group and can be swapped as one unit.
   const equipment=kit.replaceableGroup('LaboratoryEquipment');
   const bench=piece('laboratory-bench'),benchTop=FLOOR+bench.top;
-  const active=kit.replaceableGroup('ActiveSample',{x:-.70,y:benchTop,z:-3.05},equipment);
+  const sample=bench.work.bench;const active=kit.replaceableGroup('ActiveSample',{x:bench.x+sample.x,y:FLOOR+sample.y-.04,z:bench.z+sample.z},equipment);
   kit.cylinder('active-sample-cup',{y:.019,r:.045,h:.038,color:'#d9e5d9'},active);kit.cylinder('active-sample-liquid',{y:.04,r:.032,h:.008,color:'#9db6a0'},active);
   const microscope=kit.replaceableGroup('Microscope',{x:bench.x-.9,y:benchTop,z:bench.z+.02},equipment);
   kit.box('microscope-base',{y:.045,w:.52,h:.09,d:.39,color:'#7b948c'},microscope);

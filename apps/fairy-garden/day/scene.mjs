@@ -1,30 +1,30 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-dcb7068d4ae7c310';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-dcb7068d4ae7c310';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-dcb7068d4ae7c310';
-import {seatLook} from '../wardrobe.mjs?v=fg-dcb7068d4ae7c310';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-dcb7068d4ae7c310';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-dcb7068d4ae7c310';
-import {stepRoute} from '../locomotion.mjs?v=fg-dcb7068d4ae7c310';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-dcb7068d4ae7c310';
-import {updateWorkScene} from './work-scene.mjs?v=fg-dcb7068d4ae7c310';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-dcb7068d4ae7c310';
-import {activityPose} from './activity.mjs?v=fg-dcb7068d4ae7c310';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-dcb7068d4ae7c310';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-bc35c5341d4847ae';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-bc35c5341d4847ae';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-bc35c5341d4847ae';
+import {seatLook} from '../wardrobe.mjs?v=fg-bc35c5341d4847ae';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-bc35c5341d4847ae';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-bc35c5341d4847ae';
+import {stepRoute} from '../locomotion.mjs?v=fg-bc35c5341d4847ae';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-bc35c5341d4847ae';
+import {updateWorkScene} from './work-scene.mjs?v=fg-bc35c5341d4847ae';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-bc35c5341d4847ae';
+import {activityPose} from './activity.mjs?v=fg-bc35c5341d4847ae';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-bc35c5341d4847ae';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-dcb7068d4ae7c310';
-import {createSpaceView} from './space-view.mjs?v=fg-dcb7068d4ae7c310';
-import {setHomeClock} from './home-shell.mjs?v=fg-dcb7068d4ae7c310';
-import {PROFESSIONAL_OPTIONS,professionalOptions} from './professional.mjs?v=fg-dcb7068d4ae7c310';
-import {createTogether} from './together.mjs?v=fg-dcb7068d4ae7c310';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-dcb7068d4ae7c310';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-dcb7068d4ae7c310';
-import {createHomeVisit} from './visit.mjs?v=fg-dcb7068d4ae7c310';
-import {MOTION_STYLES,motionProfile} from './motion-profile.mjs?v=fg-dcb7068d4ae7c310';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-bc35c5341d4847ae';
+import {createSpaceView} from './space-view.mjs?v=fg-bc35c5341d4847ae';
+import {setHomeClock} from './home-shell.mjs?v=fg-bc35c5341d4847ae';
+import {PROFESSIONAL_OPTIONS,professionalOptions} from './professional.mjs?v=fg-bc35c5341d4847ae';
+import {createTogether} from './together.mjs?v=fg-bc35c5341d4847ae';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-bc35c5341d4847ae';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-bc35c5341d4847ae';
+import {createHomeVisit} from './visit.mjs?v=fg-bc35c5341d4847ae';
+import {MOTION_STYLES,motionProfile} from './motion-profile.mjs?v=fg-bc35c5341d4847ae';
 let hostMotion=null,guestMotion=null,motionKey='';
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-dcb7068d4ae7c310';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-dcb7068d4ae7c310';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-bc35c5341d4847ae';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-bc35c5341d4847ae';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -247,7 +247,10 @@ function tick(dt,time){
   if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
   const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
 }
-let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
+function previewVisitor(time){
+ if(!snapshot?.visitorPreview||!visitorAvatar?.root.visible)return;const v=visitor?.inspect(),at=v?.present?(v.seat||v.position):{x:0,z:3.2},seated=v?.present&&v.seat;visitorAvatar.root.position.set(at.x,0,at.z);visitorAvatar.root.rotation.y=Math.atan2(camera.position.x-at.x,camera.position.z-at.z);visitorAvatar.animate(time,{seated:!!seated,height:floorHeight(map,at)+(seated?seated.rise+.05:0),gesture:'rest'});
+}
+let last=performance.now();function loop(t){if(disposed)return;const dt=Math.min(.05,(t-last)/1000);last=t;if(!document.hidden){tick(dt,t/1000);previewVisitor(t/1000);renderer.render(scene,camera);}frame=requestAnimationFrame(loop);}
 function appearanceTextures(){const urls=[];avatar?.root.traverse(o=>{const src=o.material?.map?.image?.src;if(src&&/\/faces\//.test(src))urls.push(src);});return [...new Set(urls)];}
 function chinContact(){const head=avatar?.root.getObjectByName('HeadAnchor'),hand=avatar?.root.getObjectByName('Right_hand');return head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null;}
 let catalogCache=null;

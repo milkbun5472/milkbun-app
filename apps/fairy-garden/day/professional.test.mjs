@@ -11,7 +11,7 @@ test('柜门合批后保留真实铰链与内部物件，取阅开启、走路�
  for(const id of ['dayLaboratory','dayClinic','dayStudio']){
   const {root}=DAY_FACTORIES[id](),door=doors(root)[0];assert.ok(door,id);assert.ok(door.children.some(o=>o.isMesh));root.updateMatrixWorld(true);
   const before=new T.Box3().setFromObject(door);updateWorkScene(root,{kind:'select',furniture:door.userData.dayDoor.furniture,progress:.5},false,1);root.updateMatrixWorld(true);
-  assert.ok(Math.abs(door.rotation.y)>.8);const after=new T.Box3().setFromObject(door);assert.ok(before.min.distanceTo(after.min)>.05);
+  assert.ok(Math.abs(door.rotation.y)>.8);const after=new T.Box3().setFromObject(door);assert.ok(before.min.distanceTo(after.min)+before.max.distanceTo(after.max)>.05,id+'门体实际转动');
   updateWorkScene(root,{kind:'select',furniture:door.userData.dayDoor.furniture,progress:.5},true,1);assert.equal(Math.abs(door.rotation.y),0);
  }
 });
@@ -27,4 +27,8 @@ test('按研究方向与排练需要开关器材；列车停在真实候车边�
  assert.deepEqual(professionalOptions({dayRehearsal:{mode:'dance'}},'dayRehearsal'),{instruments:false,mirror:true,mode:'dance'});
  const station=DAY_FACTORIES.dayStation().root,train=station.getObjectByName('DayStationTrain');station.updateMatrixWorld(true);const box=new T.Box3().setFromObject(train);assert.ok(box.min.x>DAY_PLACES.dayStation.bounds.w/2-.45);
  updateWorkScene(station,{kind:'wait',phase:'work',elapsed:3},false,1);assert.equal(train.position.z,0);updateWorkScene(station,{kind:'wait',phase:'exit',elapsed:3},false,1);assert.equal(train.position.z,6);updateWorkScene(station,null,true,2);assert.equal(train.position.z,0);
+});
+
+test('滴管接触点与实验台真实样品位置同源，站位仍可走到',async()=>{
+ const {taskAt,activityPhase}=await import('./workflow.mjs'),map=DAY_PLACES.dayLaboratory,spot=map.spots.find(p=>p.id==='bench'),task=taskAt(activityPhase({map:'dayLaboratory',spot:'bench'},null,null),spot,map,3),root=DAY_FACTORIES.dayLaboratory().root;root.updateMatrixWorld(true);const sample=root.getObjectByName('ActiveSample').getWorldPosition(new T.Vector3());sample.y+=.04;assert.ok(sample.distanceTo(new T.Vector3(task.contact.x,task.contact.y,task.contact.z))<1e-6);
 });

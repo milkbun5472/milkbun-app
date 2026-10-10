@@ -27,6 +27,7 @@ const hex=x=>typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x)?x.toLowerCase():'';
 export function furniturePrimary(p,palette){const field=['bed','sofa','chair','plant','light'].includes(p.kind)?'fabric':'wood';return {field,color:p.color||palette[field]};}
 export const HOME_LIMIT=48;
 // The renderer and the activity anchor own the same pot and preparation surface.
+export const HOME_PREP={x:-1.05,z:.22,y:.995,contactZ:.30,contactY:1.04,handZ:.44,handY:1.19};
 export const HOME_COOK={x:1.08,z:.22,y:1.09,r:.13,gripY:1.30,contactY:1.16};
 export function homeRoom(raw){const q=raw?.$room||{};return {wall:Object.hasOwn(HOME_WALLS,q.wall)?q.wall:'auto',floor:Object.hasOwn(HOME_FLOORS,q.floor)?q.floor:'auto',wallColor:hex(q.wallColor),floorColor:hex(q.floorColor),uses:Object.fromEntries(Object.entries(q.uses||{}).filter(([k,v])=>['sleep','meal','tea','rest','read','cook'].includes(k)&&typeof v==='string'))};}
 function record(q={},p){q=q&&typeof q==='object'?q:{};return {catalogId:p.catalogId||p.id,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?((Math.round(q.heading/(Math.PI/2))%4+4)%4)*Math.PI/2:p.heading||0,stored:q.stored===true,color:hex(q.color),material:Object.hasOwn(HOME_MATERIALS,q.material)?q.material:'auto'};}
