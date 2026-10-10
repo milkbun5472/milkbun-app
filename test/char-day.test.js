@@ -195,3 +195,28 @@ test('空日程也保留日程入口，页面只展示安排与原日历入口',
  assert.ok(viewer.all(tree).find(n=>n.tag==='Head'&&n.props.zh==='今天的日程'));
  assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdayrow').length,0);assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdaydecorate').length,0);
 });
+
+test('TA外出时保存装修留在小屋，失败不退出，连续保存后返回保留最近成功的布置',async()=>{
+ const f=setup(),viewer=placeViewer(f,'c1'),{checkHomeLayout}=await import('../apps/fairy-garden/day/home-layout.mjs');
+ let stored={version:3,layouts:{c2:{$room:{wall:'rose'}}},future:{keep:true}},verified=false;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>verified;f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const plans=JSON.stringify(f.plans()),writes=f.writes.length;
+ let tree=viewer.render();const outside=viewer.send(tree);assert.notEqual(outside.presentation.map,'dayHome');
+ viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();
+ const save=async placements=>{const checked=checkHomeLayout(placements);assert.equal(checked.ok,true);Object.assign(viewer.refs[0].current.contentWindow.CharDayScene,{editLayout:()=>checked});await viewer.all(tree).find(n=>n.tag==='Head').props.right.props.onClick();tree=viewer.render();return viewer.send(tree);};
+ let snap=await save({$room:{wall:'stripe'}});assert.equal(snap.editing,true);assert.equal(stored.layouts.c1,undefined);
+ verified=true;snap=await save({$room:{wall:'stripe'}});assert.equal(snap.editing,true);assert.equal(snap.presentation.map,'dayHome');assert.equal(stored.layouts.c1.$room.wall,'stripe');
+ snap=await save({$room:{wall:'sage'}});assert.equal(snap.editing,true);assert.equal(stored.layouts.c1.$room.wall,'sage');
+ viewer.all(tree).find(n=>n.tag==='Head').props.onBack();snap=viewer.send(viewer.render());assert.equal(snap.editing,false);assert.deepEqual(snap.presentation,outside.presentation);assert.equal(snap.homePlacements.$room.wall,'sage');
+ assert.equal(stored.layouts.c2.$room.wall,'rose');assert.equal(stored.future.keep,true);assert.equal(JSON.stringify(f.plans()),plans);assert.equal(f.writes.length,writes);
+});
+
+test('TA在家时保存装修继续沿原退出恢复，装修里的保存不另改日程',async()=>{
+ const f=setup();f.save('c1','2026-10-09',{seqs:[{seq:1,time:'10:00',end:'12:00',title:'在家读书',location:'小家',type:'home',world:{scene:'dayHome',spot:'read'}}]});
+ let stored={};f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>true;f.env.saveJSON=(key,value)=>{stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const viewer=placeViewer(f,'c1'),{checkHomeLayout}=await import('../apps/fairy-garden/day/home-layout.mjs');let tree=viewer.render();const before=viewer.send(tree);assert.equal(before.presentation.map,'dayHome');
+ viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();Object.assign(viewer.refs[0].current.contentWindow.CharDayScene,{editLayout:()=>checkHomeLayout({$room:{wall:'stripe'}})});
+ await viewer.all(tree).find(n=>n.tag==='Head').props.right.props.onClick();const after=viewer.send(viewer.render());assert.equal(after.editing,false);assert.deepEqual(after.presentation,before.presentation);assert.equal(stored.layouts.c1.$room.wall,'stripe');
+});
