@@ -9619,6 +9619,8 @@ function McpConfig({ toast }) {
   const [busy, setBusy] = useState("");
   const [seen, setSeen] = useState({});
   // 转接（她 2026-10-09 定的 B 路）：谁用谁在自己的 Cloudflare 搭，代码在 tools/mcp-relay-worker.js
+  // ⚠️那份文件是原样复制给用户的：文件里的注释只写给贴代码的人看的使用说明，
+  //   开发记录（谁定的、哪天、为什么这么改）一律写在这儿或 js/mcp.js，别写进那份文件（她 2026-10-10 抓到过一次）。
   const [rl, setRl] = useState(() => (window.MCP && window.MCP.relay()) || { url: "", key: "" });
   const [guide, setGuide] = useState(false);
   const saveRl = next => { setRl(next); if (window.MCP) { window.MCP.setRelay(next); window.MCP.forget(); } };

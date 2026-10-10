@@ -93,3 +93,11 @@ test("转接加了口令：口令不对就拒", async () => {
   assert.equal(r.status, 403);
   assert.equal(r.headers.get("Access-Control-Allow-Origin"), "*", "拒的时候也得带跨域头，不然网页那头只看得到 Load failed");
 });
+
+// 「复制转接代码」是原样复制出去的（她 2026-10-10：「怎么把我们讨论的也发上去了」）——
+//   文件里只许有给贴代码的人看的使用说明，不许出现开发记录
+test("转接代码里没有开发记录", () => {
+  // 只查注释：代码里的协议版本号（2024-11-05）本来就长得像日期
+  const comments = (workerSrc.match(/\/\/[^\n]*/g) || []).join("\n");
+  assert.doesNotMatch(comments, /她|\d{4}-\d{2}-\d{2}|js\/mcp\.js|B 路/);
+});
