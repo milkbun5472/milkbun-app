@@ -332,7 +332,7 @@ test("小字按钮都给够热区，别再是一条 15px 高的字", () => {
 });
 
 test("导入模块的「删」是独立按钮，不是套在模块按钮里的 span", () => {
-  const seg = lab.slice(lab.indexOf("c.mods.map(m =>"), lab.indexOf("c.mods.map(m =>") + 1800);
+  const seg = lab.slice(lab.indexOf("c.mods.map(m =>"), lab.indexOf("c.mods.map(m =>") + 3200);   // 前面多了一颗「改」，窗口放宽
   assert.ok(seg.indexOf('m.user ? h("button"') > 0, "按钮套按钮在 iOS 上点谁看运气");
   assert.ok(seg.indexOf('m.user ? h("span"') < 0);
   assert.ok(lab.indexOf("按钮套按钮在 iOS 上点谁很看运气") > 0);
