@@ -125,7 +125,7 @@ test('运动走路不原地跑步或举重，只有拿到哑铃才携带；结�
 });
 
 test('实际场景与小人共用任务：跑带只在到位时转动，哑铃与商品拿取后在原架隐藏，离开复原',async()=>{
- const {DAY_FACTORIES}=await import('./places/index.mjs'),{updateWorkScene}=await import('./work-scene.mjs');
+ const {DAY_FACTORIES}=await import('./places/factories.mjs'),{updateWorkScene}=await import('./work-scene.mjs');
  const gym=DAY_FACTORIES.dayGym().root,run=activityPhase({map:'dayGym',spot:'treadmill'},null,null),gymMap=DAY_PLACES.dayGym,runTask=taskAt(run,gymMap.spots.find(s=>s.id==='treadmill'),gymMap,2),stripe=gym.getObjectByName('BeltStripe:0');
  updateWorkScene(gym,runTask,false,1);const z=stripe.position.z;updateWorkScene(gym,runTask,false,2);assert.notEqual(stripe.position.z,z);assert.equal(gym.userData.sceneAction.beltRunning,true);updateWorkScene(gym,runTask,true,3);assert.equal(gym.userData.sceneAction.beltRunning,false);
  const lift=activityPhase({map:'dayGym',spot:'weights'},null,null),weights=taskAt(lift,gymMap.spots.find(s=>s.id==='weights'),gymMap,2),pair=[];gym.traverse(o=>{if(o.userData.dayWeights)pair.push(o);});assert.equal(pair.length,2);updateWorkScene(gym,weights,false,3);assert.ok(pair.every(o=>!o.visible));updateWorkScene(gym,null,false,4);assert.ok(pair.every(o=>o.visible));
