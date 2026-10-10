@@ -86,7 +86,7 @@
         if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin) return;
         if(e.data?.type === "char-day-kitchen"){handleKitchen(e.data);return;}
         if(e.data?.type === "char-day-activity"){setActivityStatus(e.data);return;}
-        if(e.data?.type === "char-day-visit"){setVisitStatus(current=>({...e.data,saveNotice:current&&current.charId===e.data.charId?current.saveNotice:""}));rememberVisit(e.data);return;}
+        if(e.data?.type === "char-day-visit"){setVisitStatus(current=>({...e.data,saveNotice:current&&current.charId===e.data.charId?current.saveNotice:"",homeSaveNotice:current&&current.charId===e.data.charId?current.homeSaveNotice:""}));rememberVisit(e.data);return;}
         if (e.data?.type === "char-day-layout") { setEditor(current => current ? {placements:e.data.placements,selected:e.data.selected,dragging:e.data.dragging,busy:e.data.busy} : null); setLayoutNotice(e.data.notice || ""); const list=iframe.current?.contentWindow?.CharDayScene?.listFurniture?.(); if(list)setFurniture(list); return; }
         if (e.data?.type === "char-day-view") { setFollow(!!e.data.following);setCameraMode(e.data.mode|| (e.data.following?'ta':'free')); return; }
         if (e.data?.type !== "char-day-status") return;
@@ -116,7 +116,7 @@
     function rememberHomeChoice(choice){
       if(demo||payload.presentation.map!=='dayHome')return;
       const charId=String(char.id);setHomeChoices(current=>({...current,[charId]:choice}));
-      saveHomeChange(charId,'presence',choice).then(setHomes).catch(()=>setVisitStatus(v=>v?.charId===charId?{...v,saveNotice:'这次没能记住进出选择，当前仍按你的选择；再选一次可以重试。'}:v));
+      saveHomeChange(charId,'presence',choice).then(next=>{setHomes(next);setVisitStatus(v=>v?.charId===charId?{...v,homeSaveNotice:''}:v);}).catch(()=>setVisitStatus(v=>v?.charId===charId?{...v,homeSaveNotice:'这次没能记住进出选择，当前仍按你的选择；再选一次可以重试。'}:v));
     }
     const joinVisit=()=>{rememberHomeChoice('with');return iframe.current?.contentWindow?.CharDayScene?.joinVisit?.();};
     const visitAction=kind=>{setTogetherPanel(false);if(kind==='leave')rememberHomeChoice('away');const scene=iframe.current?.contentWindow?.CharDayScene,ok=scene?.visitAction?.(kind),info=scene?.inspect?.().visitor;if(info)rememberVisit(info,true);return ok;};
@@ -289,7 +289,7 @@
           !showcase && slot?.location && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, slot.location + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? " · "+activityStatus.label+" · "+activityStatus.spotLabel : "")),
           !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
           pendingJob&&h("div",{"data-wk":"cdaykitchenprogress",style:{fontSize:11,color:soft,marginTop:3}},L.recipe(pendingJob.recipeId)?.name+" · "+(pendingJob.ready?"做好了，到生活里的厨房收好":({paused:"这份先放着，去厨房继续",preparing:"一起备菜",stirring:"锅边搅拌",serving:"准备盛出来",eating:"一起吃饭",ready:"做好了，到厨房收好"})[kitchenStatus?.phase]||"去厨房继续")),
-          !demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&(visitStatus.notice||visitStatus.saveNotice)&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},[visitStatus.notice,visitStatus.saveNotice].filter(Boolean).join(" · "))),
+          !demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&(visitStatus.notice||visitStatus.saveNotice||visitStatus.homeSaveNotice)&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},[visitStatus.notice,visitStatus.saveNotice,visitStatus.homeSaveNotice].filter(Boolean).join(" · "))),
         sceneStatus && h("div", { role: "status", style: { position: "absolute", top: "48%", left: 16, right: 16, textAlign: "center", padding: 16, background: "#eeeadfe8", borderRadius: 12, fontSize: 12 } }, sceneStatus,
           sceneStatus.includes("失败") && h("button", { style: { ...btn, display: "block", margin: "12px auto 0" }, onClick: () => { setSceneStatus("正在准备画面…");setVisitStatus(null); setRetry(x => x + 1); } }, "重新载入画面")),
         editor&&!decorPanel&&h("div",{"data-wk":"cdaydecoractions",style:{position:"absolute",top:12,left:12,right:12,display:"flex",gap:6}},...[["catalog","添家具"],["piece","单件搭配"],["room","房间墙地"]].map(([key,label])=>h("button",{key,"data-part":key,style:{...btn,flex:1},disabled:layoutBusy||editor.dragging||editor.busy,onClick:()=>openDecorPanel(key)},label))),
@@ -335,7 +335,7 @@
         menuBody(h(React.Fragment,null,
           lifePage==='album'&&(photo?h(React.Fragment,null,
             h('img',{"data-wk":"cdayphoto",src:photo.src,alt:photo.taName+'和'+photo.meName+'在小家的同框',style:{display:'block',width:'100%',borderRadius:8}}),
-            h('p',{style:{fontSize:12,lineHeight:1.9}},photo.day+' · TA当地 '+photo.time+'\n'+photo.taName+'和'+photo.meName+' · '+photo.activity),
+            h('p',{style:{fontSize:12,lineHeight:1.9}},photo.day+' · TA当地 '+photo.time+(photo.place?' · '+photo.place:'')+'\n'+photo.taName+'和'+photo.meName+' · '+photo.activity),
             h('label',{style:{display:'block',fontSize:12}},'给这一刻留一句',h('textarea',{"data-wk":"cdayphotonote",maxLength:200,value:photoNote,disabled:lifeBusy,onChange:e=>setPhotoNote(e.target.value),style:{...btn,width:'100%',display:'block',marginTop:8,minHeight:84,resize:'vertical'}})),
             h('button',{"data-wk":"cdayphotonotesave",style:{...btn,width:'100%',marginTop:10},disabled:lifeBusy,onClick:()=>lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'note',id:photo.id,note:photoNote}))).then(next=>{if(next)setLifeNotice('这句话已留在照片里。');})},'保存这句话'),
             h('a',{href:photo.src,download:'小家-'+photo.day+'-'+photo.id+'.jpg',style:{...btn,display:'block',textAlign:'center',marginTop:10,textDecoration:'none'}},'导出照片'),
