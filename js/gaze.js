@@ -466,29 +466,26 @@
   // ---- 红点(她 2026-08-27 要的)----
   // 这张卡是角色自己慢慢改的,不改则已、一改就是TA对她的看法变了——那正是她想被叫住的时刻。
   // 存一份「她上次看这一块是什么时候」,块的 ts 比它新就是没看过。
-  // 已读只存本机:它是「这台设备上她看没看过」,不是印象卡的内容。
-  // ⚠️不能用 x_ 前缀——那个前缀会被云同步捡走(见 cloud.js),
-  //   另一台设备的旧已读表推上来会把红点乱清一气。同 lisa_group_auto_cycle_v1 的处理。
-  const SEEN_KEY = "lisa_gaze_seen_v1";
-  // ⚠️她 2026-10-10：「ta眼里的红点看完了还是有」「点进去出来还是有」——小仓库（localStorage）满了的时候，
-  //   这一笔写进去就静悄悄失败（外面包着 try），下一刻再读还是「没看过」，红点永远灭不掉。
-  //   现在：已读先记在内存里（当场就灭）；小仓库写不进去，改存大仓库那把 x_gazeSeen 兜底（重开也记得）。
-  //   x_ 会跟云同步——那只在小仓库满了的那台设备上才会用到，比红点永远灭不掉轻得多。
-  const SEEN_FALLBACK = "x_gazeSeen";
+  // 住大仓库 x_gazeSeen（她 2026-10-04：「以后做东西不准放小仓库！全给我搬过去」；2026-10-10：「为什么不直接移到 indexstorage」）。
+  //   原来住小仓库 lisa_gaze_seen_v1：满了就静悄悄写不进去，红点看完也灭不掉。
+  //   x_ 会跟云同步：手机上看过，别的设备上也算看过——这正是她要的样子。
+  //   老的那份第一次读到时并进来，然后从小仓库删掉。
+  const SEEN_KEY = "x_gazeSeen", OLD_SEEN_KEY = "lisa_gaze_seen_v1";
   let seenMem = null;
   const loadSeen = () => {
     if (seenMem) return seenMem;
     let d = null;
-    try { d = JSON.parse(localStorage.getItem(SEEN_KEY) || "null"); } catch (e) {}
-    if (!d && typeof loadJSON === "function") { try { d = loadJSON(SEEN_FALLBACK, null); } catch (e) {} }
+    try { d = typeof loadJSON === "function" ? loadJSON(SEEN_KEY, null) : null; } catch (e) {}
+    let old = null;
+    try { old = JSON.parse(localStorage.getItem(OLD_SEEN_KEY) || "null"); } catch (e) {}
     seenMem = d && typeof d === "object" ? d : {};
+    if (old && typeof old === "object") {
+      Object.keys(old).forEach(cid => { seenMem[cid] = Object.assign({}, old[cid] || {}, seenMem[cid] || {}); });
+      try { if (typeof saveJSON === "function") saveJSON(SEEN_KEY, seenMem); localStorage.removeItem(OLD_SEEN_KEY); } catch (e) {}
+    }
     return seenMem;
   };
-  const persistSeen = d => {
-    seenMem = d;
-    try { localStorage.setItem(SEEN_KEY, JSON.stringify(d)); return; } catch (e) {}
-    try { if (typeof saveJSON === "function") saveJSON(SEEN_FALLBACK, d); } catch (e) {}
-  };
+  const persistSeen = d => { seenMem = d; try { if (typeof saveJSON === "function") saveJSON(SEEN_KEY, d); } catch (e) {} };
   function unseenKeys(charId) {
     const box = boxOf(load(), charId), seen = (loadSeen() || {})[charId] || {};
     return Object.keys(KEYS).filter(k => {

@@ -45,12 +45,13 @@ test("只亮改过的那一块，别的块不受连累", () => {
   assert.equal(G.unseenKeys("c2").join(","), "us.what");
 });
 
-test("已读只存本机：不进印象卡，也不许用会云同步的 x_ 前缀", () => {
+// 她 2026-10-10 改了主意：「为什么不直接移到 indexstorage」——已读住大仓库 x_gazeSeen，跟着云走（手机看过，别处也算看过）
+test("已读有自己的一份 x_gazeSeen，不进印象卡，也不再写小仓库", () => {
   const { G, store } = loadGaze();
   G.apply("c3", "me", "soft", "怕被丢下");
   G.markSeen("c3", "me.soft");
-  assert.ok(store.lisa_gaze_seen_v1, "该有自己的一份");
-  assert.ok(!Object.keys(store).some(k => /^x_.*[sS]een/.test(k)), "别用 x_ 前缀——那个会被云同步捡走");
+  assert.equal(G.unseenCount("c3"), 0);
+  assert.ok(!store.lisa_gaze_seen_v1, "不许再写小仓库那把老键");
   assert.ok(!/seen/i.test(store.x_gaze || ""), "印象卡里不该出现已读字段");
 });
 
@@ -161,4 +162,22 @@ test("小仓库写不进去：已读照样当场生效，还会落到大仓库�
   assert.ok(big.x_gazeSeen, "落进大仓库兜底");
   const G2 = mk();   // 重开
   assert.equal(G2.unseenCount("c1"), 0, "重开以后还记得看过");
+});
+
+// 她 2026-10-10：「为什么不直接移到 indexstorage」——已读住大仓库，老的小仓库那份并进来就删
+test("已读住大仓库 x_gazeSeen；老的小仓库那份第一次读时并进来、从小仓库删掉", () => {
+  const store = { lisa_gaze_seen_v1: JSON.stringify({ c1: { "me.person": 1 } }) }, big = {};
+  const ctx = {
+    React: { useState: () => [null, () => {}] }, ReactDOM: { createPortal: () => null }, document: { body: {} }, F_BODY: "", F_DISPLAY: "",
+    localStorage: { getItem: k => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: k => { delete store[k]; } },
+    loadJSON: (k, f) => (k in big ? JSON.parse(big[k]) : f), saveJSON: (k, v) => { big[k] = JSON.stringify(v); },
+    dispatchEvent: () => {}, CustomEvent: function () {}
+  };
+  ctx.window = ctx; vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", "gaze.js"), "utf8"), ctx);
+  ctx.Gaze.unseenCount("c1");
+  assert.equal(JSON.parse(big.x_gazeSeen).c1["me.person"], 1, "老的并进来了");
+  assert.ok(!("lisa_gaze_seen_v1" in store), "小仓库那份删掉了");
+  const src = fs.readFileSync(path.join(__dirname, "..", "js", "gaze.js"), "utf8");
+  assert.doesNotMatch(src.replace(/\/\/[^\n]*/g, ""), /localStorage\.setItem\((?:SEEN_KEY|OLD_SEEN_KEY|"lisa_gaze_seen_v1")/, "已读不许再往小仓库写");
 });
