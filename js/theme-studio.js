@@ -506,7 +506,7 @@
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
         ["photocard", "照片卡整张（相纸的底、边、影）"], ["photocap", "照片底下那行配文"],
         ["photoface", "没真图的照片卡里那块相面（米色渐变那块，改色写 background）"], ["phototext", "相面上那句描述的字"], ["photohint", "照片卡右下「点开看这张」"],
-        ["composer", "底部输入栏整条"], ["chatback", "返回键"], ["chatmore", "右上角更多/设置键"],
+        ["composer", "底部输入栏整条"], ["chatback", "返回键"], ["wxcard", "聊天里的天气小卡片整张（data-kind＝sun/partly/cloud/fog/rain/storm/snow）"], ["wxcardsky", "天气卡上半截那块天"], ["wxcardtemp", "天气卡上的大字气温"], ["wxcardrain", "天气卡上的降雨概率小签"], ["wxcardsay", "天气卡下半截TA那一句叮嘱"], ["chatmore", "右上角更多/设置键"],
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
         ["chatpanel", "点＋弹出来的那整块面板（底色、上边线、内边距；群友 2026-10-06 要的）"],
         ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"],
@@ -585,7 +585,7 @@
         ["wtitle", "组件里的标题／大字（月份、温度、歌名、备忘录、名字、功德数）"], ["wsub", "次要小字（年份、天气描述、地点、歌手、签名、说明；data-part 区分）"],
         ["wlabel", "小眉标（本月支出、最近提醒、正在播放、功德、单位字、标签行）"], ["wnum", "醒目的数字或金额（支出、在一起天数、统计数、连击、倒数日）"],
         ["wrow", "组件里列表的一行（备忘条目 data-late=\"1\" 是逾期）"], ["wcell", "日历组件里的一个日子格（data-today=\"1\" 是今天）"], ["wdow", "日历组件顶上的星期格"],
-        ["wbtn", "组件里的按钮（data-part＝prev/next/play/muyu）"], ["wicon", "组件里的装饰图标、唱片、头像、转盘、照片（data-part 区分）"],
+        ["wbtn", "组件里的按钮（data-part＝prev/next/play/muyu）"], ["wxshare", "天气页底下「让他们知道我这边的天气」整块"], ["wxshareon", "那块里的总开关（data-on＝1 开着）"], ["wxsharenudge", "「会主动提醒」开关"], ["wxsharewho", "谁知道：一个人的小签（data-on＝1 勾上了）"], ["wicon", "组件里的装饰图标、唱片、头像、转盘、照片（data-part 区分）"],
         ["wbar", "音乐组件的进度条"], ["wempty", "组件没内容时那句提示"], ["wpop", "木鱼飘起来的「+1 功德」"], ["wdots", "情侣空间组件轮播的小圆点"]
       ])
     })

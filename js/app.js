@@ -965,6 +965,20 @@ function App() {
   // geoForPrompt=喂给角色的那一句（架空世界时是世界名·地点，不带任何现实城市）。
   const myRealm = () => (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(prefs, geo, worlds) : (prefs.geoAware && geo ? { kind: "real", geo: geo } : null);
   const realGeo = () => { const r = myRealm(); return r && r.kind === "real" && typeof r.geo.lat === "number" ? r.geo : null; };
+  // 她这边的真实天气给谁看（群友 2026-10-10 许愿：问他天气、他发天气小卡片提醒带伞穿衣）。
+  // ⚠️她 2026-10-10：「就算我把自己放进架空世界、填了真实世界，还是要按真实的来」——
+  //   所以这里不走 myRealm（那边选了架空世界就没有坐标），直接用她填的／定位到的那个真实位置 x_geo。
+  //   开关和名单在天气页底下（x_wxShare：{on, who:[]＝全部, nudge}）。
+  const wxShareCfg = () => loadJSON("x_wxShare", {}) || {};
+  const wxShareOn = (charId, cfg) => { const c = cfg || wxShareCfg(); return !!c.on && (!Array.isArray(c.who) || !c.who.length || c.who.includes(charId)); };
+  const userWxFor = charId => {
+    if (!wxShareOn(charId)) return null;
+    const g = loadJSON("x_geo", null) || geo;
+    if (!g || typeof g.lat !== "number" || typeof weatherCached !== "function") return null;
+    const w = weatherCached(g.lat, g.lng);
+    if (!w) { try { weatherFor(g.lat, g.lng); } catch (e) {} return null; }
+    return { w, place: String(g.label || "").slice(0, 16), line: weatherLine(w) + (w.pp != null ? "，今天降雨概率 " + w.pp + "%" : "") };
+  };
   const geoForPrompt = () => { const r = myRealm(); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
   const [worldBusy, setWorldBusy] = useState(false);
   const [anonPool, setAnonPool] = useState([]);   // 匿名题库(x_anonPool):全院共用的一总库,网友出题和角色作答彻底隔开
@@ -7448,6 +7462,26 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           }
         }
       } catch (e) {}
+      // —— 她那边变天：开了「会主动提醒」的话，名单里一位在聊的人来叮嘱一句、附天气卡（每天最多一次）——
+      try {
+        const _wc = wxShareCfg();
+        if (_wc.on && _wc.nudge && loadJSON("x_wxNudgeDay", "") !== dayKey) {
+          const ug = loadJSON("x_geo", null);
+          const uw = ug && typeof ug.lat === "number" ? weatherCached(ug.lat, ug.lng) : null;
+          const usp = uw ? (wxSpecial(uw) || (uw.pp != null && uw.pp >= 60 ? "可能下雨" : null)) : null;
+          const nowHr = new Date().getHours();
+          if (usp && nowHr >= 7 && nowHr <= 21) {
+            const npool = liveChars.filter(c => hist(c).length >= 2 && wxShareOn(c.id, _wc) && !laneBusy("c:" + c.id) && viewRef.current.charId !== c.id);
+            const c = npool.length ? npool.slice().sort((a2, b2) => (affinities[b2.id] || 50) - (affinities[a2.id] || 50))[0] : null;
+            if (c && !pSkip("wxu:" + c.id)) {
+              pOnce("wxu:" + c.id, "weatheru:" + dayKey,
+                () => replyNow(c.id, "", null, { proactive: true, wx: { kind: usp, line: weatherLine(uw), forUser: true } }),
+                () => saveJSON("x_wxNudgeDay", dayKey));
+              return;
+            }
+          }
+        }
+      } catch (e) {}
       // —— 交换日记到期回页：TA 三天内挑个时候写回页（一次一页错峰；只在白天写；失败退避在生成函数里）——
       try {
         const cps = loadJSON("x_couples", {});
@@ -7894,6 +7928,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (geo && geo.manual) return;
     (async () => { try { const g = await requestGeo(); if (g && !g.error && typeof g.lat === "number") { setGeo(g); saveJSON("x_geo", g); } } catch (e) {} })();
   }, [screen]);
+  // 开了「让他们知道我这边的天气」：开机拉一次、之后每小时拉一次（weatherFor 自己两小时内不重取）
+  useEffect(() => {
+    const tick = () => { try { const c = wxShareCfg(), g = loadJSON("x_geo", null); if (c.on && g && typeof g.lat === "number" && typeof weatherFor === "function") weatherFor(g.lat, g.lng).catch(() => {}); } catch (e) {} };
+    const k = setTimeout(tick, 5000), id = setInterval(tick, 3600000);
+    return () => { clearTimeout(k); clearInterval(id); };
+  }, []);
   // ---- 线下模式（赴约）----
   // 结束线下回到线上：界面仍只展示 summary，但给模型另存一份逐字尾段用于真实衔接。
   // 从后往前按完整消息取，最多 6000 字；不截半句、不含 OOC，也不改变线下档案原文。
@@ -11216,7 +11256,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "它是靠你们真实的相处一点点长到开花的——这一茬里你们真的一起过了些日子。"
         + (opts.bloom.why ? "当初挑它的时候你说过「" + opts.bloom.why + "」，现在它真开了。" : "")
         + "从这盆花说到你们，别写成植物播报、也别硬煽情。" : "";
-      const wxHint = opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
+      const wxHint = opts.wx && opts.wx.forUser ? "\n\n【此刻·她那边的天气】" + uName + " 那边今天" + opts.wx.kind + "（" + opts.wx.line + "）。你【主动】给 Ta 发消息叮嘱一句——带伞、加衣、防晒、路上小心，照你平时的口吻和你们的关系来，别像天气预报。"
+        + "这一轮请填 weatherCard 发一张天气小卡片（卡上的数字系统会照实填，你只写 say 那一句）。" : opts.wx ? "\n\n【此刻·天气有感】你那边今天" + opts.wx.kind + "（" + opts.wx.line + "），你正被这天气实际影响着——出门计划、身上的冷热、心情。你【主动】给 " + uName + " 发消息，从你此刻真实的处境出发（被雨困住、看雪、热得不想动、冷得缩着都行），可以顺嘴问问 Ta 那边天气怎么样、提醒带伞添衣，也可以就单纯抱怨或分享。像随手发的微信，别播报天气数据、别客套、别粘人。" : "";
       // 转账盲盒演出：第一条气泡=还没点开（不知金额），点开后才谈钱
       // 她转过来、还挂着没点的那一笔（v56.88）：以前是转完 1.6 秒随机收下、再自己触发一轮主动播报，
       // 所以「一转完TA就回话了」，而且收不收是 Math.random() < 0.85 掷骰子。
@@ -11961,6 +12002,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "看图挑：通常男生那张给男生、女生那张给女生，或者按两张图里谁像谁来。"
           + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
           + "\n· 不想换就省略 pairAvatar，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
+      }
+      const _userWx = userWxFor(charId);
+      if (_userWx) {
+        openCaps.push("weatherCard");
+        capState.push("weatherCard：她那边此刻的真实天气（" + (_userWx.place || "她所在地") + "）：" + _userWx.line + "。"
+          + "她问起天气、说要出门，或者你觉得该叮嘱她（下雨带伞、降温加衣、太热防晒）时，可以填 weatherCard 发一张天气小卡片给她。格式 {say:\"附在卡片上的那一句叮嘱，用你自己的口吻\"}。"
+          + "卡上的地点、天气、气温由系统照实填，say 里别再报一遍数字，也别说跟上面不一样的天。用不上就省略。");
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
       for (let i = capState.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, capState[i].split(/[：:]/)[0])) capState.splice(i, 1);
@@ -13210,6 +13258,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             title: _mo.title, sub: (_mo.anchor || "") + (_mo.startTime ? " " + _mo.startTime : "")
               + (_mo.repeat && _mo.repeat !== "none" ? " · 重复" : ""),
             note: _mo.note || "", ts: Date.now(), turnId }]);
+          delivered = true;
+        }
+      }
+      // 天气小卡片：数字一律从缓存里照实填，模型只给那一句叮嘱
+      if (parsed.weatherCard && typeof parsed.weatherCard === "object") {
+        const _uw = userWxFor(charId);
+        if (_uw) {
+          const _w = _uw.w;
+          pChat(chatKey, p => [...p, { role: "assistant", kind: "weathercard", ts: Date.now(), turnId,
+            content: "〔天气卡片〕" + (_uw.place ? _uw.place + " " : "") + weatherLine(_w),
+            wx: { place: _uw.place, t: _w.t, code: wxNowCode(_w), dayCode: _w.dayCode, hi: _w.hi, lo: _w.lo, pp: _w.pp != null ? _w.pp : null },
+            say: String(parsed.weatherCard.say || "").trim().slice(0, 120) }]);
           delivered = true;
         }
       }
