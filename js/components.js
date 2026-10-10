@@ -2416,6 +2416,31 @@ function WeatherSubRail({ places, value, onPick }) {
           on && p.terrain ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: t.fog, marginTop: 1, whiteSpace: "nowrap" } }, p.terrain) : null));
     }));
 }
+// 天气页底下：让他们知道我这边的天气（x_wxShare）。只认真实位置 x_geo，选了架空世界也照真实的走。
+function WxShareBox({ userGeo, characters }) {
+  const t = useTheme();
+  const [cfg, setCfg] = useState(function () { try { return JSON.parse(localStorage.getItem("x_wxShare") || "{}") || {}; } catch (e) { return {}; } });
+  const save = function (patch) { const n = Object.assign({}, cfg, patch); setCfg(n); try { localStorage.setItem("x_wxShare", JSON.stringify(n)); } catch (e) {} };
+  const who = Array.isArray(cfg.who) ? cfg.who : [];
+  const cs = (characters || []).filter(function (c) { return c && !c.npc; });
+  const sw = function (on, fn, hook) { return h("button", Object.assign({ "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70 shrink-0",
+    style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", border: "none" } }, hook),
+    h("span", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .15s" } })); };
+  const row = function (title, sub, on, fn, wk) { return h("div", { className: "flex items-center", style: { gap: 12, padding: "11px 0" } },
+    h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
+    sw(on, fn, wk)); };
+  return h("div", { "data-wk": "wxshare", style: { marginTop: 22, paddingTop: 6, borderTop: "1px solid " + t.line } },
+    row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。问他天气，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { "data-wk": "wxshareon" }),
+    cfg.on ? h("div", null,
+      row("会主动提醒", "下雨、降温、特别热这种天，名单里有人会来叮嘱你一句，附一张卡片。一天最多一次", !!cfg.nudge, function () { save({ nudge: !cfg.nudge }); }, { "data-wk": "wxsharenudge" }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 8px" } }, who.length ? "只有勾了的人知道" : "现在是所有人都知道；勾几个就只有他们知道"),
+      h("div", { className: "flex flex-wrap", style: { gap: 8 } }, cs.map(function (c) {
+        const on = who.includes(c.id);
+        return h("button", { key: c.id, "data-wk": "wxsharewho", "data-on": on ? "1" : "0", onClick: function () { save({ who: on ? who.filter(function (x) { return x !== c.id; }) : who.concat([c.id]) }); },
+          className: "flex items-center active:opacity-70", style: { gap: 6, padding: "4px 10px 4px 4px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? "rgba(0,0,0,.04)" : "transparent" } },
+          h(Avatar, { character: c, size: 22, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, c.remark || c.name));
+      }))) : null);
+}
 function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const t = useTheme();
   const places = weatherPlaceList(userGeo, characters, worlds);
@@ -2512,7 +2537,8 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1 } }, wmoZh(x.code)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
-      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"))), document.body) : null;
+      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
+    h(WxShareBox, { userGeo, characters }))), document.body) : null;
   return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
@@ -7948,6 +7974,42 @@ function Messages({
   }, zh)))));
 }
 // 我发朋友圈：正文 + 可选配图(文字描述) + 可见范围
+// 天气小卡片（群友 2026-10-10 许愿；她：「卡片做好看点」）。
+//   上半截是一小块天：底色照现在的天象走（晴＝暖、雨＝灰蓝、雪＝冷白、阴＝雾灰、雷＝深靛），
+//   大字气温 + 天象图标 + 地点；下半截是一张白纸，TA 那一句叮嘱手写在上面。
+//   数字全是代码照缓存填的，模型只给那一句（engine 的 weatherFor 那一份）。
+const WX_SKY = {
+  sun:    ["#ffd79a", "#ffb37a", "#f39a74", "#7a3f1f"],
+  partly: ["#cfe4f7", "#9fc6ea", "#7fa9d6", "#25415f"],
+  cloud:  ["#dfe3e8", "#b9c1cb", "#98a3b0", "#2f3a46"],
+  fog:    ["#e9e6e1", "#cfcac2", "#b3ada4", "#3d3832"],
+  rain:   ["#a9bfd3", "#7d98b3", "#5d7895", "#f3f7fb"],
+  storm:  ["#6f6a93", "#4c4775", "#2f2b52", "#f2f0ff"],
+  snow:   ["#f4f8fc", "#dbe7f2", "#bfd2e4", "#2c4458"]
+};
+function WeatherChatCard({ m, character }) {
+  const t = useTheme();
+  const x = m.wx || {}, kind = typeof wmoKind === "function" ? wmoKind(x.code) : "partly";
+  const sky = WX_SKY[kind] || WX_SKY.partly, ink = sky[3];
+  const zh = typeof wmoZh === "function" ? wmoZh(x.code) : "";
+  return h("div", { "data-wk": "wxcard", "data-kind": kind, style: { width: 232, borderRadius: 18, overflow: "hidden", boxShadow: "0 6px 18px -8px rgba(40,50,70,.35)", background: "#fffdf9" } },
+    h("div", { "data-wk": "wxcardsky", style: { position: "relative", padding: "14px 16px 16px", background: "linear-gradient(160deg," + sky[0] + " 0%," + sky[1] + " 55%," + sky[2] + " 100%)", color: ink } },
+      // 天上一圈淡淡的光晕：晴天是太阳，别的天是一团云影
+      h("div", { style: { position: "absolute", right: -26, top: -30, width: 120, height: 120, borderRadius: 999, background: "radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 70%)" } }),
+      h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 11.5, opacity: .85, position: "relative" } },
+        h("span", null, x.place || "你那边"), h("span", { style: { opacity: .6 } }, "· 现在")),
+      h("div", { className: "flex items-end justify-between", style: { marginTop: 6, position: "relative" } },
+        h("div", null,
+          h("div", { "data-wk": "wxcardtemp", style: { fontFamily: F_DISPLAY, fontSize: 46, lineHeight: 1, letterSpacing: "-0.02em" } }, (x.t != null ? x.t : "--") + "°"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, marginTop: 6 } }, zh)),
+        h("div", { style: { paddingBottom: 4 } }, h(GWx, { kind: kind, size: 52, color: ink }))),
+      h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, position: "relative" } },
+        h("span", { style: { padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.28)" } }, "↑" + x.hi + "°  ↓" + x.lo + "°"),
+        x.pp != null ? h("span", { "data-wk": "wxcardrain", style: { padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.28)" } }, "降雨 " + x.pp + "%") : null)),
+    m.say ? h("div", { "data-wk": "wxcardsay", style: { padding: "11px 15px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#3b3631", borderTop: "1px dashed rgba(120,110,95,.25)" } },
+      h("div", { style: { fontSize: 10, letterSpacing: ".12em", color: "#a39a8d", marginBottom: 3 } }, (character ? (character.remark || character.name) : "TA") + " 说"),
+      m.say) : null);
+}
 // 朋友圈投票：每个选项一条，条有多长＝几票，底下写谁投的
 function MomentPoll({ poll, characters }) {
   const t = useTheme();
@@ -9771,6 +9833,11 @@ function ChatThread({
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null, onRestore: onRestoreOffline ? () => onRestoreOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
     if (m.kind === "ledgershare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
+    if (m.kind === "weathercard" && m.wx) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start",
+        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+        onClick: selMode ? () => toggleSel(i) : undefined },
+      h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(WeatherChatCard, { m: m, character: character }));
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
