@@ -160,3 +160,11 @@ world / deviation.world 是 TA 的一天内部视觉字段；日历通过 CharDa
 TA的一天在真实当前日程的小家且TA到位后，可明确点进小屋。第二个小人复用同一traveler源模型与女生默认外貌，独立动画；空地点击、靠近、并排坐、起身、走到门口离开沿world寻路和locomotion，拖动/双指不触发行走。坐位从实际家具与空位计算，和TA共用furniturePoint/furnitureSeat坐高及旋转；单人椅不共享，无空位提示。当前会话无存档、模型请求或聊天/记忆写入，TA日程或布局改变便退出；主聊天仍沿原入口，双人聊天归档未定。
 
 验证：day/visit.test.mjs、test/char-day-visit.test.js、scripts/checks/char-day-visit-browser.cjs（完整App、实际路线、并排坐、主聊天开合、320/390/430/横屏、日程切换和刷新隔离）。
+
+## 四组职业日程空间
+
+新增办案室／值勤区、后厨／操作吧台、拍摄棚／妆造区、录音／直播间。现有14个专业或外出地图，加4个日常地图，共18组／151默认点。几何、碰撞、坐面与工具锚点均来自各自实际家具表；目录继续由build-char-day-catalog生成。四组布局分别是线索墙与档案交接、后厨和贯通操作吧台、无缝背景和妆造候场、吸音区和混音直播工位。
+
+occupation-workflow只读原currentSlot，用同一阶段机制处理准备、操作、短歇、收拾和离开。厨师与咖啡师、演员与掌镜、配音与录歌／混音／直播分开；游戏直播按原事项使用键盘。home-furniture的汤锅与切配台迁入公共kitchen-kit，保原尺寸和接触点；摄影与直播镜头共用media-kit。新工具沿原弯肘求解和真实掌心，不增加骨架或GLB。妆刷随角色头身比，后厨沿原短刀与汤勺；镜头、咖啡流、调音器和指示灯随当前任务，停下／行走时复位。
+
+CharDayLink只按具体地点和操作匹配，合法已存world优先；在家事项留家，顾客吃喝保原小店，排练保原排练室，巡逻／外景保户外。没有新AI调用、职业存档、录音或聊天／日历写入。新专业地图没有添加约会加入入口；原6处约会及手动无条件优先沿原机制。测试：workflow.test、places.test、test/char-day-link，scripts/checks/char-day-occupations-browser（原writer真实App日程／7衣3体型接触），原places与posture浏览器回归。

@@ -1,11 +1,11 @@
 import * as T from 'three';
-import './social.js?v=fg-03615deb8e6d070f';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-03615deb8e6d070f';
-import {stepRoute} from '../locomotion.mjs?v=fg-03615deb8e6d070f';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-03615deb8e6d070f';
-import {pairProgress} from './motion-profile.mjs?v=fg-03615deb8e6d070f';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-03615deb8e6d070f';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-03615deb8e6d070f';
+import './social.js?v=fg-b8fac1ac2a1bdca7';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-b8fac1ac2a1bdca7';
+import {stepRoute} from '../locomotion.mjs?v=fg-b8fac1ac2a1bdca7';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-b8fac1ac2a1bdca7';
+import {pairProgress} from './motion-profile.mjs?v=fg-b8fac1ac2a1bdca7';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-b8fac1ac2a1bdca7';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-b8fac1ac2a1bdca7';
 
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;

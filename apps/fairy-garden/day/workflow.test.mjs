@@ -12,6 +12,30 @@ const app=fs.readFileSync('js/app.js','utf8'),a=app.indexOf('  const saveSchedDa
 let plans={},writes=0;const ref={current:plans},save=new Function('setSchedules','schedulesRef','saveJSON',app.slice(a,b)+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,()=>writes++);
 const start=Date.parse('2026-10-09T10:00:00Z'),char={id:'workflow-test',name:'测试角色',tz:0};
 function fixture(scene,spot,minutes=60){save(char.id,'2026-10-09',{seqs:[{time:'10:00',end:minutes===60?'11:00':'10:02',title:'整理当天资料',location:'测试工作地点',type:'work',world:{scene,spot}}]});return env.ScheduleClock.currentSlot(char,ref.current[char.id],start+1000);}
+
+for(const [scene,key,forbidden]of [
+ ['dayInvestigation','clues',[]],['dayInvestigation','duty',['briefing']],
+ ['dayService','prep',['coffee','mix']],['dayService','cook',['coffee','mix']],['dayService','coffee',['prep','cook','mix']],['dayService','mix',['prep','cook','coffee']],
+ ['dayFilm','perform',['camera','lighting','review']],['dayFilm','camera',['perform','pose','makeup']],['dayFilm','pose',['camera','perform']],
+ ['dayBroadcast','voice',['sing','stream','mix']],['dayBroadcast','sing',['voice','stream','mix']],['dayBroadcast','mix',['voice','sing','stream']],['dayBroadcast','stream',['voice','sing','mix']],['dayBroadcast','edit',['voice','sing','stream']]
+])test(scene+'/'+key+'真实writer时间流程与角色操作分开，全程可达且不写回原日程',()=>{
+ const slot=fixture(scene,key),p=env.CharDayLink.presentation(slot),map=DAY_PLACES[scene],before=JSON.stringify(ref.current),count=writes,phases=new Set();let previous=map.spawn;
+ for(let sec=0;sec<3600;sec+=15){const stage=activityPhase(p,slot,start+sec*1000),spot=map.spots.find(s=>s.id===stage.spot);assert.ok(spot);phases.add(stage.phase);
+  if(stage.phase==='work')assert.ok(!forbidden.includes(stage.spot),'不把另一个职业的事项放进当前工作');
+  const path=findPath(previous,spot.target,scene);assert.ok(path);let from=previous;for(const to of path){assert.ok(segmentClear(from,to,scene));from=to;}previous=spot.target;
+  const task=taskAt(stage,spot,map,3);if(task){assert.equal(task.spot===undefined||task.spot===spot.id,true);assert.ok(Number.isFinite(task.progress));}
+ }
+ assert.deepEqual([...phases].sort(),['break','enter','exit','prepare','tidy','work']);assert.equal(JSON.stringify(ref.current),before);assert.equal(writes,count);assert.equal(env.CharDayLink.publicRow(slot).world,undefined);
+});
+test('后厨沿原短刀与汤勺机制，职业工具锚点来自实际工位，游戏直播保留键盘操作',()=>{
+ for(const [id,key,kind]of [['dayService','prep','prep'],['dayService','cook','cook'],['dayService','coffee','barista'],['dayService','serve','serve'],['dayFilm','camera','camera'],['dayInvestigation','clues','investigate'],['dayBroadcast','mix','console']]){
+  const map=DAY_PLACES[id],spot=map.spots.find(s=>s.id===key),stage=activityPhase({map:id,spot:key,action:spot.action},null,null),task=taskAt(stage,spot,map,3),p=map.furniture.find(p=>p.id===spot.furniture),anchor=p.work[key];
+  assert.equal(task.kind,kind);assert.ok(Math.abs(task.contact.x-(p.x+anchor.x))<1e-9);assert.ok(Math.abs(task.contact.y-(map.floor+anchor.y))<1e-9);assert.ok(Math.abs(task.contact.z-(p.z+anchor.z))<1e-9);assert.equal(taskAt(stage,spot,map,3,{moving:true}),null);
+  if(['prep','cook'].includes(kind))assert.equal(task.daily,true);
+ }
+ const p={map:'dayBroadcast',spot:'stream',action:'work'},slot=fixture(p.map,p.spot);
+ assert.equal(activityPhase(p,{...slot,title:'游戏实况直播'},start+4*60000).motion,'type');assert.equal(activityPhase(p,{...slot,title:'聊天直播'},start+4*60000).motion,'stream');
+});
 test('长日程内日常活动会停歇再继续，起身在家具前，睡眠及短日程连续且只读',()=>{
  for(const [map,spot,action]of [['dayHome','read','read'],['dayCafe','tea','tea'],['dayHome','meal','meal'],['dayHome','cook','cook'],['dayWork','work','work']]){
   const slot=fixture(map,spot),p={...env.CharDayLink.presentation(slot),action},before=JSON.stringify(ref.current),count=writes,phases=new Set();

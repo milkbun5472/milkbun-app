@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {createStarChart} from './starchart.mjs?v=fg-03615deb8e6d070f';
+import {createStarChart} from './starchart.mjs?v=fg-b8fac1ac2a1bdca7';
 // 星图那一夜的画面：桌上一圈六个空位，六片碎图散着，拖到位就亮一角；拼齐了整张图升起来。
 // ⚠️照画咒那套外壳长（scene-activity + 屏幕坐标映射），资格与结算都不在这儿。
 export function makeStarChartView({scene,camera,onClose}){
