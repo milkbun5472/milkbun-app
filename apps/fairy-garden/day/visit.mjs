@@ -1,8 +1,8 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-3d4a02824fdd16a8';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-3d4a02824fdd16a8';
-import {stepRoute} from '../locomotion.mjs?v=fg-3d4a02824fdd16a8';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-3d4a02824fdd16a8';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-bb00e9e166d5c29c';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-bb00e9e166d5c29c';
+import {stepRoute} from '../locomotion.mjs?v=fg-bb00e9e166d5c29c';
+import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-bb00e9e166d5c29c';
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
 export const visitorAvoid=ta=>ta?[{x:ta.x,z:ta.z,r:clearance}]:[];
@@ -29,7 +29,7 @@ export function visitNear(from,ta){
 }
 export function createHomeVisit({avatar,ta,onChange=()=>{}}){
  let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,leaving=false,notice='',last='';
- const inspect=()=>({present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:route.length>0,leaving,notice,visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),look:avatar.root.userData.look});
+ const inspect=()=>({present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:route.length>0,leaving,notice,visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
  function tell(text){if(text!==undefined)notice=text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,leaving,notice]);if(key!==last){last=key;onChange(info);}}
  function go(to,nextSeat=null){
   const next=reachable(position,to,ta());if(!next){tell('这里暂时走不过去，换个空位试试。');return false;}
@@ -55,11 +55,12 @@ export function createHomeVisit({avatar,ta,onChange=()=>{}}){
  function close(text=''){present=false;leaving=false;route=[];seat=pendingSeat=null;avatar.root.visible=false;tell(text);}
  function tick(dt,time){
   if(!present)return;
-  const moving=route.length>0;
+  let moving=route.length>0;
   if(moving){const step=stepRoute(position,route,dt,{speed,walkSpeed:1.45,clear:(a,b)=>segmentClear(a,b,'dayHome',visitorAvoid(ta()))});position=step.position;speed=step.speed;if(step.heading!==null)yaw=step.heading;
    if(step.blocked){pendingSeat=null;leaving=false;tell('路线被挡住了，点另一块空地再走。');}
    else if(!route.length){if(leaving){close('已离开小屋，继续看看TA的一天。');return;}seat=pendingSeat;pendingSeat=null;tell(seat?'已坐到空位上，可以聊聊。':'已走到位置，点空地可以走动。');}
   }
+  moving=route.length>0;
   const at=seat||position;avatar.root.position.set(at.x,0,at.z);avatar.root.rotation.y=seat?.heading??yaw;
   if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=Math.atan2(other.x-at.x,other.z-at.z);}
   avatar.animate(time,{moving,seated:!!seat,gesture:'rest',height:floorHeight('dayHome',at)+(seat?seat.rise+.05:0)});
