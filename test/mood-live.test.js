@@ -36,7 +36,7 @@ test("还是不回就得数出来，别再变成静默失败", () => {
   assert.match(app, /const _moodSkip = \(id, got\) => \{/);
   assert.equal((app.match(/_moodSkip\(charId, true\)/g) || []).length, 2, "线上线下各一处");
   assert.equal((app.match(/_moodSkip\(charId, false\)/g) || []).length, 2);
-  assert.match(app, /连着 12 轮没按协议返回心情/);
+  assert.ok(!/toast\("这个角色连着 12 轮没按协议返回心情/.test(app), "她 2026-10-10：这类提示去掉了，计数照留");
   assert.match(app, /不数一下就分不出来/, "为什么要这只计数器，写在代码里");
 });
 

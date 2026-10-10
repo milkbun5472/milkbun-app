@@ -47,7 +47,7 @@ test("小号：TA只当陌生人；小号发的不叫熟人；作品各列各的
   assert.match(S, /const onAlt = !!\(altName && db\.me && db\.me\.using === "alt"\);/);
   assert.match(S, /底下一个你不认识的账号「" \+ alt \+ "」评论了你/);
   assert.match(S, /if \(onAlt\) \{ spotAlt\(v, altName\); return; \}   \/\/ 小号发的/);
-  assert.match(S, /ofSkin\.filter\(v => v\.by === "me" && !v\.cp && !!v\.alt === onAlt\)/);
+  assert.match(S, /ofSkin\.filter\(v => v\.by === "me" && !v\.cp && !!v\.alt === onAlt[ &)]/);
 });
 
 test("分享进聊天 + TA甩来 + 刷到彼此", () => {

@@ -7948,6 +7948,22 @@ function Messages({
   }, zh)))));
 }
 // 我发朋友圈：正文 + 可选配图(文字描述) + 可见范围
+// 朋友圈投票：每个选项一条，条有多长＝几票，底下写谁投的
+function MomentPoll({ poll, characters }) {
+  const t = useTheme();
+  const votes = poll.votes || {}, names = Object.keys(votes), total = names.length;
+  return h("div", { "data-wk": "mopoll", className: "mt-2", style: { padding: "10px 12px", borderRadius: 10, background: t.bg, border: `1px solid ${t.line}` } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, total ? "投票 · " + total + " 人投了" : "投票 · 还没人投"),
+    (poll.options || []).map((o, i) => {
+      const who = names.filter(n => votes[n] === i), pct = total ? Math.round(who.length / total * 100) : 0;
+      return h("div", { key: i, "data-wk": "mopollrow", style: { marginBottom: 7 } },
+        h("div", { className: "flex items-center justify-between", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+          h("span", null, o), h("span", { style: { fontSize: 11.5, color: t.sub } }, who.length + " 票")),
+        h("div", { style: { height: 6, borderRadius: 999, background: t.line, marginTop: 4, overflow: "hidden" } },
+          h("div", { "data-wk": "mopollbar", style: { width: pct + "%", height: "100%", borderRadius: 999, background: t.accent } })),
+        who.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginTop: 3 } }, who.map(n => momentDisplayName(characters, n)).join("、")) : null);
+    }));
+}
 function MomentCompose({
   friendGroups,
   characters,
@@ -7960,6 +7976,9 @@ function MomentCompose({
   const [img, setImg] = useState("");
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
+  // 投票（群里 2026-10-09 许愿：「犹豫不决的事让角色们在朋友圈投票」）：2~4 个选项
+  const [withPoll, setWithPoll] = useState(false);
+  const [pollOpts, setPollOpts] = useState(["", ""]);
   const fileRef = useRef(null);
   const bgRef = useRef(null);
   const toggle = id => setSel(s => s.includes(id) ? s.filter(x => x !== id) : [...s, id]);
@@ -7970,6 +7989,7 @@ function MomentCompose({
   const post = () => {
     const body = text.trim();
     const image = withImg && img.trim() ? img.trim() : null;
+    const opts = withPoll ? pollOpts.map(x => x.trim()).filter(Boolean).slice(0, 4) : [];
     if (!body && !image) {
       onClose();
       return;
@@ -7977,7 +7997,8 @@ function MomentCompose({
     onPost({
       content: body,
       image,
-      visibleTo: vis === "all" ? null : sel
+      visibleTo: vis === "all" ? null : sel,
+      poll: opts.length >= 2 ? { options: opts, votes: {} } : null
     });
     onClose();
   };
@@ -8031,6 +8052,8 @@ function MomentCompose({
     size: 14,
     color: withImg ? t.ink : t.fog
   }), withImg ? "已配图" : "配图"),
+    h("button", { "data-wk": "mopollbtn", "data-on": withPoll ? "1" : "0", onClick: () => setWithPoll(v => !v), className: "px-3 py-1.5 active:opacity-70",
+      style: { borderRadius: 8, border: `1px solid ${withPoll ? t.ink : t.line}`, fontFamily: F_BODY, fontSize: 12, color: withPoll ? t.ink : t.fog } }, withPoll ? "已加投票" : "投票"),
     withImg && h("button", { onClick: () => fileRef.current && fileRef.current.click(), className: "px-3 py-1.5 flex items-center gap-1.5 active:opacity-70", style: { borderRadius: 8, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "📷 从相册选真图"),
     h("input", { ref: fileRef, type: "file", accept: "image/*", style: { display: "none" }, onChange: e => { const f = e.target.files && e.target.files[0]; if (f) resizeImageFile(f, 1080, 0.82).then(d => setImg(d)); } })),
     withImg && (String(img).startsWith("data:")
@@ -8049,7 +8072,15 @@ function MomentCompose({
       color: t.ink,
       border: `1px solid ${t.line}`
     }
-  })), h(Eyebrow, {
+  })),
+  withPoll && h("div", { "data-wk": "mopollopts", className: "mb-2" },
+    pollOpts.map((v, i) => h("div", { key: i, className: "flex items-center gap-2 mb-2" },
+      h("input", { value: v, onChange: e => { const x = e.target.value; setPollOpts(p => p.map((y, j) => j === i ? x : y)); }, placeholder: "选项 " + (i + 1),
+        className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 13, background: t.bg, color: t.ink, border: `1px solid ${t.line}` } }),
+      pollOpts.length > 2 ? h("button", { onClick: () => setPollOpts(p => p.filter((_, j) => j !== i)), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minWidth: 28, minHeight: 32 } }, "✕") : null)),
+    pollOpts.length < 4 ? h("button", { onClick: () => setPollOpts(p => [...p, ""]), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 32 } }, "＋ 再加一个选项") : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "能看到这条的人会照自己的性子投一票，也可能不投。")),
+  h(Eyebrow, {
     style: {
       margin: "6px 0 8px"
     }
@@ -8520,7 +8551,7 @@ function MomentsFeed({
     }, "收进时刻"), onDelete && h("button", {
       onClick: () => setDelId(m.id),
       style: { fontFamily: F_BODY, fontSize: 11, color: t.fog }
-    }, "删除")), m.likers && m.likers.length > 0 && h("div", {
+    }, "删除")), m.poll && h(MomentPoll, { poll: m.poll, characters }), m.likers && m.likers.length > 0 && h("div", {
       className: "flex items-center gap-1.5 mt-2",
       "data-wk": "molikers"
     }, h(IHeart, {
@@ -8724,6 +8755,7 @@ function MomentsProfile({ isMe, character, profile, characters, moments, cover, 
       h("button", { onClick: () => onLikeMoment(m.id), className: "active:opacity-60 flex items-center gap-1" }, h(IHeart, { size: 13, color: m.liked ? t.accent : t.fog, filled: m.liked }), (m.likeCount || 0) > 0 && h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, m.likeCount)),
       h("button", { onClick: () => { setCommenting(m.id); setCReply(null); setCText(""); }, style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "评论"),
       onDelMoment && h("button", { onClick: () => setDelId(m.id), style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "删除")),
+    m.poll ? h(MomentPoll, { poll: m.poll, characters }) : null,
     (m.likers && m.likers.length) ? h("div", { className: "flex items-center gap-1.5 mt-2" }, h(IHeart, { size: 12, color: t.accent, filled: true }), h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.tint } }, m.likers.map(x => momentDisplayName(characters, x)).join("、"))) : null,
     (m.comments && m.comments.length) ? h("div", { className: "mt-2.5 rounded-xl px-3 py-2", style: { background: t.bg } }, m.comments.map((cm, i) => h("div", { key: i, className: "active:opacity-60", onClick: () => { const me = (profile && profile.name) || "我"; if (cm.author && cm.author !== me && cm.author !== "我") { setCommenting(m.id); setCReply(cm.author); setCText(""); } }, style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7 } }, h("span", { style: { color: t.tint, fontWeight: 500 } }, momentDisplayName(characters, cm.author)), h("span", { style: { color: t.ink } }, "：", h(MomentCommentText, { cm: cm }))))) : null,
     commenting === m.id ? h("div", { className: "flex gap-2 mt-2" },
@@ -12199,6 +12231,8 @@ function useLongPressMenu(onFire, opts) {
 }
 function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size, noModel }) {
   const t = useTheme();
+  // 随消息来的译文要是繁体（模型没照「右边写简体」办），显示前换成简体（js/t2s.js）
+  if (zhReady && typeof toSimplified === "function") zhReady = toSimplified(zhReady);
   const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)
     : typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准

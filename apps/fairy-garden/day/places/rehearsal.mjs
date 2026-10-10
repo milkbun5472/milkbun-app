@@ -1,10 +1,10 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-6941d9cc1b32d96f';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-3d4a02824fdd16a8';
 
 const FLOOR=.08;
 const furniture=[
   {id:'RehearsalMirror',kind:'mirror',x:-4.85,z:-.02,w:.52,d:4.45,h:2.48},
-  {id:'piano-table',kind:'table',x:3.25,z:-3.1,w:2.4,d:1,top:.85,color:'#ab947b'},
-  {id:'piano-chair',kind:'chair',x:3.25,z:-1.92,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#899e93'},
+  {id:'piano-table',kind:'table',x:3.25,z:-3.1,w:2.4,d:1.2,top:.85,work:{piano:{x:-.12,y:.921,z:.50}},color:'#ab947b'},
+  {id:'piano-chair',kind:'chair',x:3.25,z:-2.37,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#899e93'},
   {id:'instrument-rack',kind:'cabinet',x:4.28,z:.18,w:.85,d:1.55,h:.52},
   {id:'score-stand',kind:'stand',x:.72,z:-.6,w:.6,d:.6,h:1.2},
   {id:'rest-bench',kind:'bench',x:-2.6,z:-3.68,w:3.4,d:.65,seat:.45,heading:0,color:'#a4b3a6'},
@@ -12,17 +12,17 @@ const furniture=[
   {id:'score-cabinet',kind:'cabinet',x:3.05,z:2.66,w:1.9,d:.7,h:.95},
   {id:'entry-plant',kind:'plant',x:-3.85,z:3.08,w:.55,d:.55}
 ];
-const seats={piano:roomSeat(furniture,'piano-chair',{x:2.39,z:-1.92}),rest:roomSeat(furniture,'rest-bench',{x:-2.6,z:-2.79})};
+const seats={piano:roomSeat(furniture,'piano-chair',{x:2.39,z:-2.10}),rest:roomSeat(furniture,'rest-bench',{x:-2.6,z:-2.79})};
 export const rehearsalMap={
   label:'排练室',renderer:'dayRehearsal',radius:9,bounds:{w:10,d:9},floor:FLOOR,
-  spawn:{x:0,z:4},view:{x:0,z:0},obstacles:roomObstacles(furniture),seats,
+  spawn:{x:0,z:4},view:{x:0,z:0},furniture,obstacles:roomObstacles(furniture),seats,
   spots:[
     {id:'entrance',label:'进入排练室',description:'从南侧入口走入，沿开阔通路去练习区、乐器角或休息长椅。',action:'rest',gesture:'rest',target:{x:0,z:3.2},heading:Math.PI,furniture:'Threshold'},
-    {id:'practice',label:'开阔练习区',description:'留给练舞、排戏与排练的站位；全身练习和表演动作后续接入。',action:'practice',gesture:'rest',target:{x:-.9,z:1.08},heading:Math.PI,furniture:'PracticeFloor'},
+    {id:'practice',label:'开阔练习区',description:'按日程做轻量舞蹈或排戏练习，留出全身活动的空地。',action:'practice',gesture:'rest',target:{x:-.9,z:1.08},heading:Math.PI,furniture:'PracticeFloor'},
     {id:'mirror',label:'镜墙前站位',description:'在镜前检查站姿、动作与演出准备，左侧留有退后观察的距离。',action:'practice',gesture:'rest',target:{x:-3.48,z:.05},heading:-Math.PI/2,furniture:'RehearsalMirror'},
     {id:'score',label:'乐谱架前',description:'站着阅读乐谱或台词、熟悉排练内容；沿现有翻书基础动作。',action:'read',gesture:'read',target:{x:.72,z:.47},heading:Math.PI,furniture:'score-stand'},
-    {id:'piano',label:'乐器前坐位',description:'在电钢琴前坐下，预留练琴与演出准备；弹奏手部动作后续接入。',action:'practice',gesture:'rest',target:seats.piano.approach,heading:seats.piano.heading,seat:seats.piano,furniture:'piano-table'},
-    {id:'instruments',label:'乐器架前',description:'查看与取放乐器的站位，取物动作后续接入；摆件可整组关闭或替换。',action:'practice',gesture:'rest',target:{x:3.22,z:.18},heading:Math.PI/2,furniture:'instrument-rack'},
+    {id:'piano',label:'乐器前坐位',description:'坐在电钢琴前双手弹奏，手与琴键对齐；弹奏后可去看谱休息。',action:'practice',gesture:'rest',target:seats.piano.approach,heading:seats.piano.heading,seat:seats.piano,furniture:'piano-table'},
+    {id:'instruments',label:'乐器架前',description:'持吉他做拨弦练习，放回后恢复乐器架摆件；乐器可整组关闭或替换。',action:'practice',gesture:'rest',target:{x:3.22,z:.18},heading:Math.PI/2,furniture:'instrument-rack'},
     {id:'rest',label:'排练间隙休息',description:'坐在长椅上歇一会儿，旁边的小桌留有水杯和谱本。',action:'rest',gesture:'rest',target:seats.rest.approach,heading:seats.rest.heading,seat:seats.rest,furniture:'rest-bench'},
     {id:'exit',label:'准备结束后离开',description:'整理排练内容后沿中央通道回到南侧出口。',action:'rest',gesture:'rest',target:{x:0,z:4},heading:0,furniture:'Threshold'}
   ],tour:['entrance','practice','mirror','score','piano','instruments','rest','exit']
@@ -62,13 +62,15 @@ function cabinets(kit,p){
 function instruments(kit){
   const g=kit.replaceableGroup('RehearsalInstruments');
   const piano=kit.group('ElectricPiano',{x:3.25,y:FLOOR+.85,z:-3.06},g);
-  kit.box('piano-case',{y:.055,w:2.03,h:.11,d:.62,color:'#6e8077'},piano);
-  kit.box('piano-keybed',{y:.116,z:.1,w:1.82,h:.018,d:.31,color:'#eee9da',radius:.003},piano);
-  for(let i=0;i<21;i++)kit.box('white-key-seam',{x:-.86+i*.086,y:.127,z:.1,w:.005,h:.003,d:.3,color:'#adb6a4',radius:0},piano);
-  for(let i=0;i<20;i++)if(![2,6].includes(i%7))kit.box('black-key',{x:-.819+i*.086,y:.148,z:.005,w:.047,h:.045,d:.18,color:'#53655c',radius:.004},piano);
+  kit.box('piano-case',{y:.027,w:2.03,h:.054,d:.98,color:'#6e8077'},piano);
+  for(let i=0;i<21;i++){
+    const key=kit.replaceableGroup('PianoKey-'+i,{x:-.86+i*.086,y:.071,z:.22},piano);
+    key.userData.key=i;kit.box('white-key',{z:.16,w:.080,h:.018,d:.31,color:'#eee9da',radius:.002},key);
+    if(i<20&&![2,6].includes(i%7))kit.box('black-key',{x:.041,y:.022,z:.045,w:.047,h:.035,d:.18,color:'#53655c',radius:.004},key);
+  }
   kit.box('piano-music-rest',{y:.3,z:-.19,w:.7,h:.37,d:.035,color:'#7c9285'},piano);
   kit.box('piano-score',{y:.3,z:-.165,w:.6,h:.29,d:.008,color:'#ede6d3',radius:.002},piano);
-  const guitar=kit.group('AcousticGuitar',{x:4.28,y:FLOOR+.55,z:.18},g);
+  const guitar=kit.replaceableGroup('AcousticGuitar',{x:4.28,y:FLOOR+.55,z:.18},g);
   for(const [y,r]of [[.26,.225],[.5,.17]])kit.sphere('guitar-body',{y,r,color:'#c3a276'},guitar).scale.set(1,1,.32);
   kit.box('guitar-neck',{y:.91,w:.07,h:.66,d:.04,color:'#ac8b66'},guitar);
   kit.box('guitar-head',{y:1.26,w:.115,h:.16,d:.06,color:'#ba9871'},guitar);

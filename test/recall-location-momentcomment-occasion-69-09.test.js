@@ -52,7 +52,7 @@ test("留格式示范、删内容示范（施工规则/prompt-no-content-samples
 
 test("评论朋友圈：没有她发的动态就不给这一格", () => {
   // 一格开着却无处可评＝回执是个承诺，承诺不了的别让TA开口
-  assert.match(app, /if \(\(moments \|\| \[\]\)\.some\(m => m && m\.mine\)\) \{\s*\n\s*capState\.push\("momentComment：/);
+  assert.match(app, /if \(\(moments \|\| \[\]\)\.some\(m => momSeen\(m, charId\)\)\) \{\s*\n\s*capState\.push\("momentComment：/);
 });
 
 test("评论朋友圈带公开围栏：那条底下别人也刷得到", () => {

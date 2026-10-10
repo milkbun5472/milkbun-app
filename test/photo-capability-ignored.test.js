@@ -10,8 +10,8 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
 
 test("要了却没拍时会说出来，并指向真正的病根", () => {
   assert.match(app, /if \(!photoScene && canSelfie && !photoCooldown\.cooling\) \{/);
-  assert.match(app, /不是他不肯，是这个聊天模型没吐 photo 字段/);
-  assert.match(app, /去 设置·API 换一个模型多半立刻就发/, "要给出下一步，不然说了也没用");
+  // 她 2026-10-10：「两次没拍」这类提示去掉了，计数照留
+  assert.ok(!/你要了两次他都没拍/.test(app), "这句提示她不要了");
 });
 
 test("只在她真的开口要过时才提示", () => {

@@ -455,7 +455,13 @@
     const using = (db.me && db.me.using) || "main";
     const cpId = /^cp:/.test(using) && cps[using.slice(3)] && togetherIds.indexOf(using.slice(3)) >= 0 ? using.slice(3) : "";
     const onCp = !!cpId;
-    const myName = onCp ? cps[cpId].handle : onAlt ? altName : (S(db.me && db.me.handle) || uName);
+    // 按面具发（她 2026-10-09，跟论坛同一套）：大号跟着「现在用哪张面具」走。
+    //   只有跟她用同一张面具聊的人认得出是她；别的人刷到当陌生博主、看她评论当陌生网友。小号、情侣号不分面具。
+    const maskList = props.masks ? props.masks() : [];
+    const maskUse = !onAlt && !onCp && db.me && db.me.mask && maskList.some(m => m.id === db.me.mask) ? db.me.mask : "";
+    const maskName = maskUse ? (maskList.find(m => m.id === maskUse) || {}).name : "";
+    const knows = c => !c || onAlt || onCp || !props.maskKeyOf || props.maskKeyOf(c.id) === maskUse;
+    const myName = onCp ? cps[cpId].handle : onAlt ? altName : maskUse ? maskName : (S(db.me && db.me.handle) || uName);
     const shapeChar = (sk, withFriends, newAcc) => (sk === "b" ? CHAR_SHAPE.replace(/\}$/, B_SHAPE_ADD + SERIES_ADD + "}") : CHAR_SHAPE).replace(/\}$/, (withFriends ? FRIENDS_ADD : "") + (newAcc ? ACC_ADD : "") + THREAD_ADD + "}");
     const shapeNpc = sk => sk === "b" ? NPC_SHAPE.replace('"comments":[{"name":"","text":""}]}]}', '"comments":[{"name":"","text":""}]' + B_SHAPE_ADD + '}]}') : NPC_SHAPE;
 
@@ -575,8 +581,11 @@
     };
     // 她评论：TA的视频，TA当着大家的面回不回
     const comment = async (id, text) => {
-      const asAlt = onAlt ? altName : "";
-      patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([{ id: uid("cm"), name: myName, text, by: "me", alt: !!asAlt, ts: Date.now() }]) }));
+      const v0 = dbRef.current.videos.find(x => x.id === id);
+      const c0 = v0 && v0.by === "char" ? charOf(v0.charId) : null;
+      // 不认识这张面具的人：照「陌生账号」那条来（跟小号同一个说法）
+      const asAlt = onAlt ? altName : (c0 && !knows(c0) ? myName : "");
+      patchV(id, v => Object.assign({}, v, { comments: arr(v.comments).concat([{ id: uid("cm"), name: myName, text, by: "me", alt: !!onAlt, ...(maskUse ? { mask: maskUse } : {}), ts: Date.now() }]) }));
       const v = dbRef.current.videos.find(x => x.id === id);
       const c = v && v.by === "char" ? charOf(v.charId) : null;
       if (!c) return;
@@ -611,7 +620,9 @@
       const co = d.withId ? charOf(d.withId) : null;
       if (co) { v.withCharId = co.id; v.withName = S(((dbRef.current.accounts || {})[co.id] || {}).handle) || co.name; }
       if (onAlt) v.alt = true;
-      const sameChar = d.same && d.same.by === "char" ? charOf(d.same.charId) : null;
+      if (maskUse) v.mask = maskUse;
+      const sameChar0 = d.same && d.same.by === "char" ? charOf(d.same.charId) : null;
+      const sameChar = sameChar0 && knows(sameChar0) ? sameChar0 : null;
       if (d.same) { v.sameOf = d.same.id; v.sameAuthor = d.same.author; }
       // 发在情侣号上：TA也是这个号的主人，画面默认你俩（画出来锁两张脸），TA当然会看到
       const cpChar = onCp ? charOf(cpId) : null;
@@ -619,8 +630,9 @@
       addVideos([v]); setPage(null); setTab("me");
       if (onAlt) { spotAlt(v, altName); return; }   // 小号发的：悄悄的，不叫认识她的人来；但TA们自己刷到了另说
       // 合拍的那一位一定在（TA就在画面里），其余随缘两个
+      // 刷到、来评论的只叫认得出这张面具的人（合拍的那一位本来就在画面里，照旧来）
       const lead = cpChar || co || sameChar;
-      const pool = (lead ? [lead] : []).concat(characters.filter(c => !lead || c.id !== lead.id).sort(() => Math.random() - 0.5).slice(0, lead ? 2 : 3));
+      const pool = (lead ? [lead] : []).concat(characters.filter(c => (!lead || c.id !== lead.id) && knows(c)).sort(() => Math.random() - 0.5).slice(0, lead ? 2 : 3));
       if (!pool.length) return;
       setBusy("post");
       try {
@@ -668,14 +680,16 @@
       // 平台抽成（她 2026-10-08：「b站我打赏他只能收到75%」）
       if (props.charPay) props.charPay(c.id, Math.floor(amt * (1 - CHARGE_CUT)), "片刻收到充电（平台抽走 " + Math.round(CHARGE_CUT * 100) + "%）");
       patchV(v.id, x => Object.assign({}, x, { charged: (x.charged || 0) + amt }));
-      if (props.remember) props.remember([c.id], onAlt ? "有个叫「" + altName + "」的账号在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电，你不知道是谁。" : uName + "在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电。");
+      if (props.remember) props.remember([c.id], onAlt || !knows(c) ? "有个叫「" + myName + "」的账号在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电，你不知道是谁。" : uName + "在「" + APP_NAME + "」上给你的视频充了 " + amt + " 元电。");
       toast("充了 ¥" + amt);
     };
     // 她自己发的弹幕：飘在画面上；TA下次在横着看那套发视频时会看到（不知道是谁）
     const dm = (v, text) => { patchV(v.id, x => Object.assign({}, x, { myDms: arr(x.myDms).concat([{ text: text.slice(0, 30), ts: Date.now() }]).slice(-20) })); toast("弹幕发出去了"); };
     // 楼中楼：她回了某一条评论；那条要是TA写的，TA来接
     const reply = async (v, cid, text) => {
-      const asAlt = onAlt ? altName : "";
+      const tgt0 = arr(v.comments).find(x => x.id === cid);
+      const who0 = tgt0 && (tgt0.charId ? charOf(tgt0.charId) : (tgt0.isAuthor && v.charId ? charOf(v.charId) : null));
+      const asAlt = onAlt ? altName : (who0 && !knows(who0) ? myName : "");
       const target = arr(v.comments).find(x => x.id === cid); if (!target) return;
       const add = r => patchV(v.id, x => Object.assign({}, x, { comments: arr(x.comments).map(cm => cm.id === cid ? Object.assign({}, cm, { replies: arr(cm.replies).concat([r]) }) : cm) }));
       add({ id: uid("rp"), name: myName, text, by: "me", ts: Date.now() });
@@ -708,7 +722,7 @@
       hot.map(x => h("button", { "data-wk": "shuahotchip", "data-on": topic === x.title ? "1" : "0", key: x.title, onClick: () => setTopic(t2 => t2 === x.title ? "" : x.title), className: "active:opacity-60 shrink-0",
         style: { fontFamily: F_BODY, fontSize: 12, color: topic === x.title ? P.accent : ink, fontWeight: topic === x.title ? 700 : 400, minHeight: 28, textShadow: skin === "v" ? "0 1px 3px rgba(0,0,0,.6)" : "none" } }, "#" + x.title))) : null;
     // 大号、小号、情侣号各看各的作品；情侣号里TA发的也算
-    const mine = onCp ? ofSkin.filter(v => v.cp === cpId) : ofSkin.filter(v => v.by === "me" && !v.cp && !!v.alt === onAlt);
+    const mine = onCp ? ofSkin.filter(v => v.cp === cpId) : ofSkin.filter(v => v.by === "me" && !v.cp && !!v.alt === onAlt && (onAlt || String(v.mask || "") === maskUse));
     const unread = arr(db.notes).filter(n => n.unread).length;
 
     // 全屏的那几页
@@ -905,7 +919,7 @@
         unread ? h("span", { style: { position: "absolute", top: 4, right: -10, minWidth: 16, height: 16, borderRadius: 99, background: P.accent, color: "#fff", fontSize: 10, lineHeight: "16px", textAlign: "center", padding: "0 4px" } }, unread > 99 ? "99+" : unread) : null) }),
       h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: 20 } },
         h("div", { "data-wk": "shuaprofilehead", className: "flex items-center", style: { gap: 14, marginTop: 6 } },
-          h(Avatar, { character: { name: uName, avatarImage: profile && profile.avatarImage }, size: 70 }),
+          h(Avatar, { character: { name: maskUse ? maskName : uName, avatarImage: (maskUse && (maskList.find(m => m.id === maskUse) || {}).avatarImage) || (profile && profile.avatarImage) }, size: 70 }),
           h("div", { className: "flex", style: { gap: 20 } },
             [[mine.length, "作品"], [mine.reduce((n, v) => n + (Number(v.likes) || 0), 0), "获赞"], [onCp ? (cps[cpId].followers || 0) : onAlt ? 0 : characters.length, "粉丝"]].map(x => h("div", { key: x[1] },
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: P.ink } }, fmtN(x[0])),
@@ -917,6 +931,12 @@
             className: "flex-1 outline-none", style: { minHeight: 38, borderRadius: 10, border: "1px solid " + P.line, background: P.field, color: P.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13 } }),
           altName ? h("button", { onClick: () => save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { using: onAlt ? "main" : "alt" }) })), className: "active:opacity-70 shrink-0",
             style: { minHeight: 38, padding: "0 12px", borderRadius: 10, background: P.accent, color: "#fff", fontFamily: F_BODY, fontSize: 12.5 } }, onAlt ? "切回大号" : "切到小号") : null),
+        // 用哪张面具发（跟论坛同一套）
+        !onAlt && !onCp && maskList.length > 1 ? h("div", { "data-wk": "shuamaskrow", className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 10 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: P.dim } }, "用哪张面具发："),
+          maskList.map(m => { const on = maskUse === m.id;
+            return h("button", { key: m.id || "main", "data-wk": "shuamask", "data-on": on ? "1" : "0", onClick: () => { save(Object.assign({}, dbRef.current, { me: Object.assign({}, dbRef.current.me, { mask: m.id }) })); toast("现在用「" + m.name + "」发；只有跟这张面具聊的人认得出是你"); },
+              className: "active:opacity-70", style: { minHeight: 30, padding: "0 11px", borderRadius: 10, border: "1px solid " + (on ? P.accent : P.line), background: on ? P.accent : "transparent", color: on ? "#fff" : P.dim, fontFamily: F_BODY, fontSize: 12 } }, m.name); })) : null,
         // 情侣号：在一起的那几位各一行。没开过就「开一个」，开过就「切过去」；正用着时一颗「切回大号」
         togetherIds.length ? h("div", { style: { marginTop: 12 } }, togetherIds.map(id => {
           const c = charOf(id); if (!c) return null;

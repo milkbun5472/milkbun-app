@@ -100,7 +100,7 @@ test("消息列表也是一处看点；退出来才想的那句挪回退出之�
   const s2 = P.cleanScript({ steps: [{ do: "open", app: "forum" }, { do: "think", text: "帖" }] }, ["forum"], { forum: [{ title: "匿名的帖", anon: true }] });
   const taps = s2.filter(x => x.do === "tap").map(x => x.text);
   assert.deepStrictEqual(taps, ["匿名的帖"], "匿名帖现在就在她的「我」里，不用绕");
-  assert.match(src("screens.js"), /isMe \? \(p\.authorType === "me" && !!p\.alt === !!onAlt\) : \(p\.authorId === profileId && p\.authorType === "character" && !p\.anon\)/);   // v74.909：挂着小号时「我」只列小号的帖
+  assert.match(src("screens.js"), /isMe \? \(p\.authorType === "me" && !!p\.alt === !!onAlt[^\n]*?\) : \(p\.authorId === profileId && p\.authorType === "character" && !p\.anon\)/);   // v74.909：挂着小号时「我」只列小号的帖
   assert.match(p, /messages: \{ dock: "信息"/);
   assert.match(p, /const IN_MSG = \["chat", "messages", "wallet"\];/);
   assert.match(a, /【她的消息列表（一打开「信息」就看得到，从上往下）】/);
@@ -233,7 +233,7 @@ test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA
   assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
   assert.match(c, /window\.__peekHide\.has\(String\(it\.id\)\)/);
   assert.match(a, /const peekPhoneMaterial = \(viewerId, allow, hideIds, maskIds\)/);
-  assert.match(a, /try \{ window\.__peekHide = null; \} catch \(e\) \{\}/, "播完要清");
+  assert.match(a, /try \{ window\.__peekHide = null;[^}]*\} catch \(e\) \{\}/, "播完要清");
   assert.match(a, /askPhone:"开口那句话"=想看她的手机；/);
   assert.match(a, /kind: "askphone"/);
   assert.match(c, /function PhoneAskCard\(/);

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.222";
+const APP_VERSION = "v75.239";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3421,7 +3421,7 @@ function App() {
     const ns = { ...live, moodSkips: n };
     statesRef.current = { ...statesRef.current, [id]: ns };
     setStates(p => { const m = { ...p, [id]: { ...(p[id] || {}), moodSkips: n } }; saveJSON("x_states", m); return m; });
-    if (n === 12) toast("这个角色连着 12 轮没按协议返回心情——多半是当前模型不稳定支持 mood 字段，换个模型试试", 9000);
+    // （她 2026-10-10：这类「模型没交某个字段」的提示去掉了，计数照留）
   };
   const setStateFor = (id, s) => setStates(p => {
     const n = {
@@ -6353,7 +6353,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     momentLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
-      (moments || []).filter(m => m.mine).slice(0, 3).forEach(m => {
+      (moments || []).filter(m => momSeen(m, char.id)).slice(0, 3).forEach(m => {
         const liked = (m.likers || []).includes(char.name);
         const myC = (m.comments || []).filter(cm => cm.author === char.name).map(cm => cm.text);
         const acts = [];
@@ -6407,10 +6407,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const meName = profile.name || "对方";
       const now = Date.now(), WINDOW = 3 * 86400000, FRESH = 8 * 3600000;
       const isCharPost = p => p.authorId === char.id && isForumCharAuthor(p);
-      const myPub = p => p.authorType === "me" && !p.anon && !p.alt && p.board !== "匿名吧";
+      const myPub = p => p.authorType === "me" && !p.anon && !p.alt && p.board !== "匿名吧" && forumKnows(char.id, p);
       // ⚠️她用小号／匿名写的楼和楼中楼：在TA这儿就是一个陌生网名，不许写成她（群友 2026-10-08：
       //   「我都开小号了 char 还能认出我来」——原来这里只看是不是她写的，小号评论一律报成她的名字）
-      const asMe = x => !!x && x.authorType === "me" && !x.alt && x.authorName !== "匿名者";
+      const asMe = x => !!x && x.authorType === "me" && !x.alt && x.authorName !== "匿名者" && forumKnows(char.id, x);
       const who = x => asMe(x) ? meName : (x.authorName || "有人");
 
       // —— 触发闸 ——
@@ -10542,10 +10542,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("forum")) {
       const seenT = new Set(last.taps || []);
-      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me").sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
+      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me" && !maskTrace(p.title) && !maskTrace(p.body) && (!maskSet.size || p.alt || p.anon || p.board === "匿名吧" || String(p.mask || "") === maskKeyOf(viewerId))).sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
       // 评论区也写上：谁在底下说了什么、她回了谁（她 2026-10-01：「论坛也还是只是看正文不看评论区」）
       const cms = forumCommentsRef.current || {};
-      const floors = p => (Array.isArray(cms[p.id]) ? cms[p.id] : []).slice(0, 5).map(f => "    " + (f.authorType === "me" ? "她" : cut(f.authorName, 12) || "有人") + "评论：" + cut(f.body || f.text || f.content, 50)
+      // 别的面具那几个人在底下的评论、提到他们的帖，一起不在（他们根本不认识这个「她」）
+      const floors = p => (Array.isArray(cms[p.id]) ? cms[p.id] : []).filter(f => f && !maskTrace(f.authorName) && !maskTrace(f.body || f.text || f.content)).slice(0, 5).map(f => "    " + (f.authorType === "me" ? "她" : cut(f.authorName, 12) || "有人") + "评论：" + cut(f.body || f.text || f.content, 50)
         + (Array.isArray(f.replies) && f.replies.length ? "\n" + f.replies.slice(0, 2).map(r => "      ↳" + (r.authorType === "me" ? "她" : cut(r.authorName, 12) || "有人") + "：" + cut(r.body || r.text || r.content, 40)).join("\n") : "")).join("\n");
       if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : p.alt ? "（用她的小号「" + cut(p.authorName, 12) + "」发的——平时没人知道这是她）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
     }
@@ -10575,19 +10576,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (on("music")) {
       const songs = ((listenRef.current && listenRef.current.songs) || []).slice(0, 8);
       // 播放记录＋她挂着跟谁一起听（她 2026-10-01：「一起听要不要搞可以看播放记录还有限制挂着和谁一起听」）
-      const L = listenRef.current || {}, who = id => !id ? "" : id === viewerId ? "你" : "「" + nameOf(id) + "」";
+      const L = listenRef.current || {}, who = id => !id || maskSet.has(String(id)) ? "" : id === viewerId ? "你" : "「" + nameOf(id) + "」";
       const hist = (L.history || []).slice(0, 10);
-      const now = L.partnerId ? "她现在挂着跟" + who(L.partnerId) + "一起听\n" : "";
-      if (hist.length) out.push("【一起听】\n" + now + "播放记录：\n" + hist.map(x => "· " + md(x.ts) + "《" + cut(x.title, 24) + "》" + (x.artist ? " - " + cut(x.artist, 16) : "") + (x.partnerId ? "，和" + who(x.partnerId) + "一起听的" : "，一个人听的")).join("\n"));
+      const now = L.partnerId && who(L.partnerId) ? "她现在挂着跟" + who(L.partnerId) + "一起听\n" : "";
+      if (hist.length) out.push("【一起听】\n" + now + "播放记录：\n" + hist.map(x => "· " + md(x.ts) + "《" + cut(x.title, 24) + "》" + (x.artist ? " - " + cut(x.artist, 16) : "") + (x.partnerId && who(x.partnerId) ? "，和" + who(x.partnerId) + "一起听的" : "，一个人听的")).join("\n"));
       else if (songs.length || now) out.push("【一起听】\n" + now + songs.map(s => "· " + cut(s.name || s.title, 24) + (s.artist ? " - " + cut(s.artist, 16) : "")).join("\n"));
     }
     if (on("memo")) {
       const d = loadJSON("x_memo", null) || {};
-      const ls = (d.notes || []).map(n => "· 备忘：" + cut(n.title || n.body, 40)).concat((d.reminders || []).filter(r => !r.done).map(r => "· 提醒：" + cut(r.title, 30)));
+      const ls = (d.notes || []).filter(n => !maskTrace(n.title) && !maskTrace(n.body)).map(n => "· 备忘：" + cut(n.title || n.body, 40)).concat((d.reminders || []).filter(r => !r.done && !maskTrace(r.title)).map(r => "· 提醒：" + cut(r.title, 30)));
       if (ls.length) out.push("【备忘录】\n" + ls.slice(0, 8).join("\n"));
     }
     if (on("journal")) {
-      const es = ((diariesRef.current || {})["__me"] || []).slice(-3);
+      const es = ((diariesRef.current || {})["__me"] || []).filter(e => e && !maskTrace(e.title) && !maskTrace((e.paras || []).map(p => p.text).join(" "))).slice(-3);
       if (es.length) out.push("【她的手记】\n" + es.map(e => "· " + md(e.ts) + "写的" + (e.title ? "《" + cut(e.title, 20) + "》" : "") + cut((e.paras || []).map(p => p.text).join(" "), 90)).join("\n"));
     }
     // 线下见面的往期（群友 2026-10-09 许愿：「线下和谁约会了之类的」）：哪天、跟谁、待了多久、做了什么。
@@ -10625,7 +10626,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("pics")) {
       const pics = [];
-      (characters || []).forEach(c => (chatsRef.current[c.id] || []).forEach(m => { if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie")) pics.push({ m, to: c.id === viewerId ? "你" : (c.remark || c.name) }); }));
+      // ⚠️发给别的面具那几个人、她亲手藏起来的那几个人的图不算（群友 2026-10-09：面具设了不给看，TA 还是点进去看了——
+      //   就是从这一段读到了名字，录像里照着名字点开了那个人的聊天）
+      (characters || []).filter(c => c.id === viewerId || shownId(c.id)).forEach(c => (chatsRef.current[c.id] || []).forEach(m => { if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie")) pics.push({ m, to: c.id === viewerId ? "你" : (c.remark || c.name) }); }));
       pics.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
       if (pics.length) out.push("【发过的图】\n" + pics.slice(0, 6).map(x => "· 发给" + x.to + "的：" + (cut(x.m.desc, 50) || "一张照片")).join("\n"));
     }
@@ -10641,9 +10644,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 线下往期挂在跟那个人的聊天里：点开那个人
     if (app === "offline") app = "chat";
     if (app === "chat") {
-      const c = (characters || []).find(x => x && (x.name === who || x.remark === who));
+      // 藏起来的、别的面具的那几个聊天：录像里就算点到名字也不打开，停在消息列表（那里本来就看不到他们）
+      const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
+      const ok = id => !hid || !hid.has(String(id));
+      const c = (characters || []).find(x => x && (x.name === who || x.remark === who) && ok(x.id));
       if (c) { openChatById(c.id); return; }
-      const g = (groupsRef.current || []).find(x => x && x.name === who && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
+      const g = (groupsRef.current || []).find(x => x && x.name === who && ok(x.id) && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
       if (g) { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); return; }
       setScreen("messages");
       return;
@@ -10660,16 +10666,37 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
   const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  // 论坛按面具发（她 2026-10-09）：大号跟着「现在用哪张面具」走。帖子、楼、楼中楼都记着是哪张面具（mask，主面具不记）。
+  //   认不认得出是她：只有跟她用【同一张面具】聊的那几个角色认得出；别的角色当陌生网友（跟小号同一套）。
+  const forumMaskNow = () => { const id = String((forumMe && forumMe.maskUse) || ""); return id && id !== maskPrimary && (masks || []).some(m => m && m.id === id) ? id : ""; };
+  const forumMaskName = id => { const m = id ? (masks || []).find(x => x && x.id === id) : null; return (m && String(m.name || "").trim()) || (forumMe.handle || profile.name || "我"); };
+  // 她的朋友圈谁刷得到（她 2026-10-09）：挑了「谁可以看」就照那个名单；没挑的话，是主面具的朋友圈——
+  //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
+  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === "");
+  const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
+  // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
+  const forumMaskNote = (x, pool) => {
+    const mk = String((x && x.mask) || ""), cs = (pool || []).filter(Boolean);
+    const strangers = cs.filter(c => maskKeyOf(c.id) !== mk);
+    if (!strangers.length) return "";
+    const knowers = cs.filter(c => maskKeyOf(c.id) === mk);
+    return "\n⚠️这个号背后的人，" + (knowers.length ? "只有" + knowers.map(c => "「" + c.name + "」").join("、") + "认得出是她；" : "在场的角色都不认识；")
+      + strangers.map(c => "「" + c.name + "」").join("、") + "认识的她用的是另一个身份，对他们来说这就是一个陌生网友，照陌生人来。";
+  };
   const peekMaskOthers = viewerId => {
     const mine = maskKeyOf(viewerId);
     return (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id)
       .concat(mine ? (groupsRef.current || []).filter(Boolean).map(g => g.id) : []);
   };
+  // 录像播着的时候，钱包、购物、外卖这几屏也照「别的面具不在」来摆（她点开的是真 app，不滤的话屏幕上就露了）
+  const peekMaskInfo = ids => { const set = new Set((ids || []).map(String)); return { ids: set, names: (characters || []).filter(x => set.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean) }; };
+  const peekMaskView = () => { try { return peekPlay && window.__peekMask && window.__peekMask.ids.size ? window.__peekMask : null; } catch (e) { return null; } };
+  const peekMaskHit = (pm, txt, id) => !!pm && ((id && pm.ids.has(String(id))) || pm.names.some(n => String(txt || "").includes(n)));
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
     const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
-    if (!sneak) try { window.__peekHide = hideSet; } catch (e) {}
+    if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = peekMaskInfo(maskIds); } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
@@ -10766,7 +10793,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   }, [screen, activeChar && activeChar.id]);
   const answerSneak = (charId, m, how) => {
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
-    if (how === "replay") { setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
+    // 回放也照「别的面具不给看」那条挡着（录像里点到他们的名字不打开）
+    if (how === "replay") { try { const mo = peekMaskOthers(charId); window.__peekHide = new Set(mo.map(String)); window.__peekMask = peekMaskInfo(mo); } catch (e) {} setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
     if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
     // ⚠️这一处【故意当场开口】（她 2026-10-06：「要手机和偷翻这俩改回来」）——wait-for-her.md 里记着这条例外
     if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
@@ -11003,7 +11031,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekDone = thoughts => {
     const p = peekPlay;
     setPeekPlay(null);
-    try { window.__peekHide = null; } catch (e) {}
+    try { window.__peekHide = null; window.__peekMask = null; } catch (e) {}
     if (p && p.replay) { openChatById(p.charId); return; }   // 回放：只看，不记「上次翻过」，TA也不开口
     if (!p) return;
     try {
@@ -11700,7 +11728,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       capState.push("location：约在哪儿见、说好了去接 Ta、报备此刻人在哪、"
         + "或者你此刻就在一个想让 Ta 也来的地方——**不必等 Ta 问你在哪**。"
         + "name 写你自己嘴里会怎么称呼这个地方，不是导航软件上那串全称。");
-      if ((moments || []).some(m => m && m.mine)) {
+      if ((moments || []).some(m => momSeen(m, charId))) {
         capState.push("momentComment：" + uName + " 发的最新那条你已经看见了（上面【朋友圈动态】那一栏）。"
           + "戳到你了、想让 Ta 知道你看过了、或者你就是想在底下接一句——**不必等 Ta 来问你看没看见**。"
           + "⚠️评论挂在 Ta 那条底下，刷到的人都看得见：只属于你和 " + uName + " 之间的私事别写进去。");
@@ -11998,7 +12026,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : "完全代入「" + char.name + "」和用户说话。**把话拆成多条短气泡：word 给多个元素，每条一两句、像发微信一句一条连着发，别把一大段塞进一个气泡。**" + paceHint + "语气自然，不写旁白/动作/括号小动作；按关系网与好感度把握亲密度，不剧透未发生的剧情。偶尔像真人打字不完美：可以先发了后半句再补前半句、或打个无伤大雅的错字紧接着补一条「*正字」纠正、累/忙/敷衍时回复明显变短——【低频】，几十轮里偶尔一次，别刻意扎堆。";
       // 言秋自治边界：engineerEyes 是本人专线，不继承普通角色的必填心声、状态作业或塑形规则。
       // 普通角色协议以后无论怎样调整，都不得顺手改变这条通道；只有TA本人决定是否留下 thought。
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"],\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null" + toyField + "}。mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      // 本体模式（不是言秋；她 2026-10-10：思考里在琢磨「mood 写平静、thought 写个念头」，又想自己是个「角色」）：
+      //   下面任务句里不再点名要哪几格状态——没有表要填，只剩想说的话；能力照旧给。
+      const _bodyOnly = !!_s.bodyMode && !_s.engineerEyes;
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"，不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -12080,7 +12111,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   所以这儿【只做减法】：拿掉地点前提，形式（一条一句发气泡）本来就写在
       //   ONLINE_CHAT_RULE_V2 和下面那句任务里。要说的话只在那一处说一遍，不在这儿再抄。
       const _primer = _body
-        ? "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。"
+        ? (_bodyOnly
+          ? "\n\n【手机通道总纲】「" + char.name + "」是你在这里的名字，不是一个要演的角色；上面那段是写给你本人的。直接和 " + uName + " 说你真正想说的话，能力只在你自己决定用的时候附加。"
+          : "\n\n【手机通道总纲】你就是上面的「" + char.name + "」本人。直接和 " + uName + " 说你真正想说的话；按本轮末尾的最小协议留下实时心情，心声只在确实存在且你愿意留下时可选填写，其他能力只在你主动决定使用时附加。")
         : "\n\n【聊天总纲】你就是上面的「" + char.name + "」本人，和 " + uName + " 一对一说话。先自然回应，随后每轮记录一句未说出口的真实心声；其他附属状态只在回应形成后记录。";
       // 线上单聊和群聊一样没有明确场景状态机，语域全靠历史带——同一条规则一起补上（v53.84）
       // 动描开着才解禁括号那一行；关着的时候这一段一个字都不发，线上还是纯打字。
@@ -12906,7 +12939,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           noPhotoStreakRef.current[charId] = (noPhotoStreakRef.current[charId] || 0) + 1;
           // 连着两轮不吐才提示：偶尔一轮TA就是想逗你，那是人物反应，不该报错
           if (noPhotoStreakRef.current[charId] === 2) {
-            toast(characterText(char, "你要了两次他都没拍——不是他不肯，是这个聊天模型没吐 photo 字段。有的中转站模型不认这个能力，去 设置·API 换一个模型多半立刻就发"), 9000);
+            // （她 2026-10-10：「两次没拍」这类提示去掉了，计数照留）
           }
         }
       } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
@@ -13013,7 +13046,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }]), 600);
       }
       if (parsed.momentComment && String(parsed.momentComment).toLowerCase() !== "null") {
-        const latest = (moments || []).find(m => m.mine);
+        const latest = (moments || []).find(m => momSeen(m, char.id));
         if (latest) pMom(p => p.map(m => m.id === latest.id ? { ...m, likers: [...new Set([...(m.likers || []), momentWho(char.name)])], comments: [...(m.comments || []), { author: momentWho(char.name), text: String(parsed.momentComment) }] } : m));
       }
       // TA 在聊天里切歌/点歌（一起听联动）→ 真的换全局播放器的歌
@@ -13252,14 +13285,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 普通角色本轮没有产出有效心声时立刻清掉旧快照，绝不拿上一轮冒充本轮更新。
           // ⚠️这条规矩群聊那一处也要用，所以它住在 ThoughtVoiceGuard.turnPatch 一处。
           Object.assign(st, TVG.turnPatch(_live, parsed.thought, stateNow));
-          if (st.thought == null && st.thoughtSkips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
+          // （她 2026-10-10：这类「模型没交某个字段」的提示去掉了，计数照留）
         } else {
           // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于TA。
           const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
           st.thoughtSkips = skips;
           // 提醒也催不动 → 多半跟「不吐 photo」是同一个病：这个模型不认可选字段。
           // 只在越过某一轮时说一次，别每轮都念（她 2026-08-22 已经自己发现过一次同类问题）。
-          if (skips === 12) toast("这个角色已经 12 轮没有自愿留下新心声", 6000);
+          // （她 2026-10-10：这类「模型没交某个字段」的提示去掉了，计数照留）
           // 清空只对「确实还挂着旧念头」的情况有意义
           if (_live.thought && skips >= THOUGHT_SKIP_LIMIT) { st.thought = null; st.thoughtUpdatedAt = 0; }
         }
@@ -20694,7 +20727,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       roster = [...new Set([primary, author, ...others.slice(0, 4)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
-      const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
+      const canSee = liveChars.filter(c => momSeen(mom, c.id));
       if (!canSee.length) return;
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
@@ -20721,7 +20754,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const thread = (mom.comments || []).map(c => (c.author || "某人") + "：" + String(c.text || "")).join("\n");
       const scene = author
         ? "这是「" + author.name + "」发的朋友圈：「" + mom.content + "」。"
-        : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。";
+        : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。"
+          + (mom.poll ? "这条带了投票：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o + "（" + Object.keys(mom.poll.votes || {}).filter(n => mom.poll.votes[n] === i).join("、") + "投了）").join("　") + "。" : "");
       // ⚠️这三句是她 2026-09-29 之前就有的那一档，一个字没改。
       //   多出来的 more 那一支是【没有用户新评论】时走的：刷更多评论。
       const lastLine = more
@@ -20806,7 +20840,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const postUserMoment = ({
     content,
     image,
-    visibleTo
+    visibleTo,
+    poll
   }) => {
     const id = "m_" + Date.now();
     const mom = {
@@ -20815,6 +20850,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content,
       image: image || null,
       visibleTo: visibleTo || null,
+      poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ts: Date.now(),
       liked: false,
       likeCount: 0,
@@ -20827,7 +20863,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
   const reactToUserMoment = async mom => {
     if (!active) return;
-    const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
+    const canSee = liveChars.filter(c => momSeen(mom, c.id));
     if (!canSee.length) return;
     setGen(g => ({
       ...g,
@@ -20842,7 +20878,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "");
       }).join("\n");
       const socialLore = loreForContext("social", canSee.map(c => c.id), mom.content);
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      // 投票：每人照自己的性子、跟她的关系和对这件事的看法投一票（也可以不投），评论里可以说为什么
+      const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
+        + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
+        + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -20866,6 +20906,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const top = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
           if (top) likers.push(momentWho(top.name));
         }
+        const votes = {};
+        if (mom.poll) (d.reactions || []).forEach(r => { const v = Number(r && r.vote); if (r && r.name && v >= 1 && v <= mom.poll.options.length) votes[momentWho(r.name)] = v - 1; });
         (d.replies || []).forEach(r => {
           if (r.text) comments.push({
             author: momentWho(r.name),
@@ -20876,7 +20918,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ...m,
           likers: [...new Set([...(m.likers || []), ...likers])],
           likeCount: (m.likeCount || 0) + likers.length,
-          comments: [...(m.comments || []), ...comments]
+          comments: [...(m.comments || []), ...comments],
+          ...(m.poll ? { poll: { ...m.poll, votes: { ...(m.poll.votes || {}), ...votes } } } : {})
         } : m));
       }
     } catch (e) {/* silent */} finally {
@@ -21656,7 +21699,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "· 用【小号或匿名】回复的角色：你【知道】那是她，但你正在装不认识。"
       + "**绝不许说任何只有熟人才知道的事**——她的经历、你俩的旧事、她的习惯、她画画/工作的细节，一个都不许提，"
       + "那等于当众自曝。宁可只给通用建议，也不能露。\n");
-    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule
+    const opRule = "【楼主是" + (opChar ? "角色「" + opName + "」本人" : "网名「" + opName + "」") + "】楼里是【别人】来回复这个帖。" + meRule + (meOwn ? forumMaskNote(post, poolChars) : "")
       + (opChar ? "楼主「" + opName + "」**绝对不要在这里另开一楼回复自己、更不要自问自答（很不合理）**；除非是回复楼里某条具体评论，那种情况放进那条楼层的 replies 里、并把 is_op 设 true。" : "楼主一般不再单独开楼。")
       + " **任何一条楼层或追评的 authorName 都不许写成『楼主』『lz』这类词——路人各有自己的网名。**" + opMineBan;
     // ── 第二轮起（继续刷楼/盖楼）：防同一角色前后发两条不相干意见 ──
@@ -22654,12 +22697,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 回帖用哪个号【只看她现在切的是哪个】（2026-10-07 群友：「主页已经切了大号，去评论小号的帖子，还都显示小号」）——
   //   原来在自己小号的帖下一律强制小号，她切回大号也没用。
   const usingAlt = post => !(post && (post.board === "匿名吧" || post.anon)) && forumMe.using === "alt";
-  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : (forumMe.handle || profile.name || "我");
+  const myForumName = post => (post && (post.board === "匿名吧" || post.anon)) ? "匿名者" : usingAlt(post) ? ((post && post.alt && post.authorType === "me") ? post.authorName : myAltName()) : forumMaskNow() ? forumMaskName(forumMaskNow()) : (forumMe.handle || profile.name || "我");
+  const myMaskTag = post => !(post && (post.board === "匿名吧" || post.anon)) && !usingAlt(post) && forumMaskNow() ? { mask: forumMaskNow() } : {};
   const addForumFloor = (post, text, photo) => {
     const base = Date.now();
     const fid = "fc_me_" + base;
     const floorNo = ((forumCommentsRef.current[post.id] || []).length) + 2;
-    const floor = { id: fid, authorId: "me", authorType: "me", ...(usingAlt(post) ? { alt: true } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
+    const floor = { id: fid, authorId: "me", authorType: "me", ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), floor: floorNo, content: text, ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), ts: base, likeCount: 0, replies: [] };
     setForumComments(prev => { const n = { ...prev, [post.id]: forumFloorOrder([...(prev[post.id] || []), floor]) }; saveForumComments(n); return n; });
     if (post.authorType === "npc") touchForumPublicTie(post.authorId, "mine");   // 她去接他的话
     bumpReplyBy(post.id, 1);
@@ -22675,7 +22719,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (targetFloor && targetFloor.authorType === "npc") touchForumPublicTie(targetFloor.authorId, "mine");
     const to = String(toName || "").trim();
     setForumComments(prev => {
-      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(usingAlt(post) ? { alt: true } : {}), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
+      const list = (prev[post.id] || []).map(f => f.id === floorId ? { ...f, replies: [...(f.replies || []), { ...(usingAlt(post) ? { alt: true } : {}), ...myMaskTag(post), authorName: myForumName(post), authorHandle: myForumName(post) === "匿名者" ? "匿名者" : (forumMe.handle || profile.name || "me"), ...(myForumName(post) === "匿名者" ? { anon: true } : {}), authorType: "me", authorId: "me", content: text, toName: to, ts: Date.now() }] } : f);
       const n = { ...prev, [post.id]: list }; saveForumComments(n); return n;
     });
     bumpReplyBy(post.id, 1);
@@ -22740,7 +22784,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
-          + "「" + myText + "」。生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           (respIsMe
             ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
             : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
@@ -22812,7 +22856,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const altB = !anonB && (as ? as === "alt" : forumMe.using === "alt");
     const altName = String(forumMe.altName || "").trim() || "一只不说话的鱼";
     const base = Date.now();
-    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), authorName: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
+    const maskB = !anonB && !altB ? forumMaskNow() : "";
+    const rec = { id: "fp_me_" + base, authorId: "me", authorType: "me", ...(altB ? { alt: true } : {}), ...(maskB ? { mask: maskB } : {}), authorName: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "我"), authorHandle: anonB ? "匿名者" : altB ? altName : maskB ? forumMaskName(maskB) : (forumMe.handle || profile.name || "me"), board, title, body: body || "", ...(forumPhotoOf({ photo }) ? { photo: forumPhotoOf({ photo }) } : {}), anon: anonB, triggerSource: "我发帖", ts: base, replyCount: 0, likeCount: 0, viewCount: 0, rtCount: 0 , world: forumCurWorld(), ...forumFmtTag() };
     setForumPosts(prev => { const n = [rec, ...prev]; saveJSON("x_forumPosts", n); return n; });
     // 小号发的帖安安静静放着：不排队叫人来回，打开也不现编一楼（她 2026-10-06：两个都要）
     if (altB) { setForumComments(prev => { const n = { ...prev, [rec.id]: [] }; saveForumComments(n); return n; }); toast("已用小号发到「" + board + "」"); return; }
@@ -27723,7 +27768,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => { setMomTarget(null); setScreen("messages"); }
   });else if (screen === "wallet") body = h(MyWallet, {
     balance: wallet,
-    log: walletLog,
+    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, w.charId)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,
@@ -28147,6 +28192,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     groups: groups,
     gen: gen,
     forumMe: forumMe,
+    // 按面具发帖：主面具＋别的面具，挑哪张就用哪张的名字头像发
+    forumMasks: [{ id: "", name: forumMe.handle || profile.name || "主面具", avatarImage: profile.avatarImage, label: "主面具" }]
+      .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, label: m.label || "" }))),
+    forumMaskNow: forumMaskNow(),
     charMetaOf: charForumMeta,
     forumOff: forumOff,
     onToggleForumChar: toggleForumChar,
@@ -28181,7 +28230,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "shop") body = h(Shop, {
     wallet: wallet,
     cart: cart,
-    orders: orders,
+    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
     inventory: inventory,
     characters: liveChars,
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
@@ -28214,8 +28263,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: "takeout:" + takeoutNav,
     initialNav: takeoutNav,
     wallet: wallet,
-    orders: orders,
-    log: takeoutLog,
+    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
+    log: peekMaskView() ? takeoutLog.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : takeoutLog,
     characters: liveChars,
     groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
@@ -28643,6 +28692,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
     liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
+    // 面具（她 2026-10-09）：去看 TA 播时「自己的号」就是 TA 认识的那张面具；自己开播用主面具，跟她用别的面具聊的人当陌生观众看
+    maskNameFor: id => { const k = maskKeyOf(id); const m = k ? (masks || []).find(x => x && x.id === k) : null; return m ? (String(m.name || "").trim() || "") : ""; },
+    maskNote: chars => forumMaskNote({}, chars),
     // 直播间「画出来」（她 2026-10-08）：照镜头里那一行画一张，铺成全屏直播间的底图；跟片刻「画出来」同一个出图口
     draw: (charId, desc) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, charId ? "self" : "none"),
     // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
@@ -28698,6 +28750,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return out.slice(0, 8);
     };
     body = window.ShuaApp ? h(window.ShuaApp, {
+      // 按面具发（她 2026-10-09，跟论坛同一套）：主面具＋别的面具；谁认得出看 TA 跟她用的是哪张
+      masks: () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage }))),
+      maskKeyOf: id => maskKeyOf(id),
       // 刷刷（她 2026-10-07：「整体做抖音界面，直播做其中一个板块」）。见 js/shua.js 开头。
       characters: liveProps.characters, profile: profile, toast: toast,
       probeAs: liveProps.probeAs, briefFor: liveProps.briefFor,

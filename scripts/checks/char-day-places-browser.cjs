@@ -86,7 +86,8 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       assert.ok(spot,'存在要验证的动作位置');
       await host.locator('select[data-wk=cdayplacepoint]').selectOption(spot.id);
       assert.ok(worldUrls.get(frame),'找到当前iframe实际请求的导航模块');
-      const observed=await frame.evaluate(async({id,spot,worldUrl})=>{
+      const motion=await frame.evaluate(async({id,spot,url})=>(await import(new URL('../workflow.mjs',url).href)).workMotion(id,spot),{id:map,spot:spot.id,url:placeUrls.get(frame)});
+      const observed=await frame.evaluate(async({id,spot,worldUrl,motion})=>{
         const {walkable,segmentClear}=await import(worldUrl);
         return new Promise((resolve,reject)=>{const began=performance.now();let previous=null,frames=0,moved=false;
           function sample(){
@@ -96,18 +97,18 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
               if(!walkable(s.position.x,s.position.z,id))return reject(Error('动作位置或真实脚步进入障碍：'+spot.id));
               if(previous){if(!segmentClear(previous,s.position,id))return reject(Error('真实脚步跨越家具：'+spot.id));moved||=Math.hypot(s.position.x-previous.x,s.position.z-previous.z)>.001;}
               previous=s.position;
-              if(!s.route.length&&s.gesture===spot.gesture&&Math.hypot(s.position.x-spot.target.x,s.position.z-spot.target.z)<.08)return resolve({frames,moved,position:s.position,seat:s.seat,gesture:s.gesture,avatarPosition:s.avatarPosition});
+              if(!s.route.length&&(motion?s.workAction?.kind===motion:s.gesture===spot.gesture)&&Math.hypot(s.position.x-spot.target.x,s.position.z-spot.target.z)<.08)return resolve({frames,moved,position:s.position,seat:s.seat,workAction:s.workAction,gesture:s.gesture,avatarPosition:s.avatarPosition});
             }
             if(performance.now()-began>25000)return reject(Error('动作位置未抵达：'+spot.id));requestAnimationFrame(sample);
           }sample();
         });
-      },{id:map,spot,worldUrl:worldUrls.get(frame)});
-      assert.equal(observed.gesture,spot.gesture);assert.ok(observed.frames>0);
+      },{id:map,spot,worldUrl:worldUrls.get(frame),motion});
+      if(motion)assert.equal(observed.workAction?.kind,motion);else assert.equal(observed.gesture,spot.gesture);assert.ok(observed.frames>0);
       if(spot.seat){
         await frame.waitForFunction(({x,z})=>{const s=CharDayScene.inspect();return s.seat&&Math.abs(s.avatarPosition[0]-x)<.01&&Math.abs(s.avatarPosition[2]-z)<.01&&s.avatarPosition[1]>.2&&s.avatarPosition[1]<.3;},spot.seat);
         assert.equal((await state()).seat.rise,.45);
       }else assert.equal((await state()).seat,null);
-      if(spot.gesture==='read'){await frame.waitForFunction(()=>CharDayScene.inspect().dailyAction?.book===true);}
+      if(spot.gesture==='read'&&(!motion||motion==='read')){await frame.waitForFunction(()=>CharDayScene.inspect().dailyAction?.book===true);}
       const text=await host.locator('[data-wk=cdaynow]').innerText();assert.ok(text.includes(spot.label));assert.ok(text.includes(spot.description));
       return {id:spot.id,...observed};
     };

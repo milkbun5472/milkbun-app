@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-6941d9cc1b32d96f';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-3d4a02824fdd16a8';
 
 const FLOOR=.08,SEAT=.45,DESK=.85;
 const COLORS={wood:'#bd9b73',darkWood:'#a88864',wall:'#e9e3d2',sage:'#829b8a',paper:'#f1e8d6',blue:'#8fa6b0',ink:'#697c71'};
@@ -10,34 +10,35 @@ const FURNITURE=[
   {id:'reference-shelf',kind:'shelf',x:-.46,z:-4.03,w:2.45,d:.58,h:2.32},
   {id:'periodical-cabinet',kind:'cabinet',x:-4.48,z:-1.18,w:.68,d:1.65,h:.78},
   {id:'reading-table',kind:'table',x:-.85,z:.05,w:3.10,d:1.35,top:DESK,color:COLORS.wood},
-  {id:'reading-chair-north',kind:'chair',x:-.85,z:-1.09,w:.56,d:.57,heading:0,color:COLORS.sage},
-  {id:'reading-chair-south',kind:'chair',x:-1.66,z:1.28,w:.56,d:.57,heading:Math.PI,color:COLORS.sage},
-  {id:'reading-chair-extra',kind:'chair',x:-.05,z:1.28,w:.56,d:.57,heading:Math.PI,color:COLORS.sage},
+  {id:'reading-chair-north',kind:'chair',x:-.85,z:-.88,w:.56,d:.57,heading:0,color:COLORS.sage},
+  {id:'reading-chair-south',kind:'chair',x:-1.66,z:.98,w:.56,d:.57,heading:Math.PI,color:COLORS.sage},
+  {id:'reading-chair-extra',kind:'chair',x:-.05,z:.98,w:.56,d:.57,heading:Math.PI,color:COLORS.sage},
   {id:'window-desk',kind:'table',x:3.02,z:-2.47,w:1.85,d:.82,top:DESK,color:COLORS.wood},
-  {id:'window-chair',kind:'chair',x:3.02,z:-1.54,w:.56,d:.57,heading:Math.PI,color:COLORS.blue},
+  {id:'window-chair',kind:'chair',x:3.02,z:-1.80,w:.56,d:.57,heading:Math.PI,color:COLORS.blue},
   {id:'loan-counter',kind:'counter',x:3.03,z:2.02,w:2.40,d:.94,top:DESK,color:COLORS.wood},
   {id:'entrance-plant',kind:'plant',x:-4.34,z:2.91,w:.55,d:.55},
   {id:'window-plant',kind:'plant',x:4.43,z:-3.29,w:.55,d:.55}
 ];
 const PIECES=Object.fromEntries(FURNITURE.map(p=>[p.id,p]));
 const SEATS={
-  desk:roomSeat(FURNITURE,'reading-chair-north',{x:.01,z:-1.09}),
-  study:roomSeat(FURNITURE,'reading-chair-south',{x:-2.44,z:1.28}),
-  extra:roomSeat(FURNITURE,'reading-chair-extra',{x:.73,z:1.28}),
-  window:roomSeat(FURNITURE,'window-chair',{x:2.24,z:-1.54})
+  desk:roomSeat(FURNITURE,'reading-chair-north',{x:.01,z:-.88}),
+  study:roomSeat(FURNITURE,'reading-chair-south',{x:-2.44,z:.98}),
+  extra:roomSeat(FURNITURE,'reading-chair-extra',{x:.73,z:.98}),
+  window:roomSeat(FURNITURE,'window-chair',{x:2.24,z:-1.80})
 };
 
 export const libraryMap={
   label:'图书馆／阅览室',renderer:'dayLibrary',radius:9,bounds:{w:10,d:9},floor:FLOOR,
   spawn:{x:0,z:4},view:{x:0,z:0},
+  furniture:FURNITURE,
   obstacles:roomObstacles(FURNITURE),
   seats:SEATS,
   spots:[
-    {id:'choose-book',label:'书架前挑书',description:'站在文学书架前挑选书本、查找资料。',action:'read',gesture:'read',target:{x:PIECES['literature-shelf'].x,z:-3.15},heading:Math.PI,furniture:'literature-shelf'},
+    {id:'choose-book',label:'书架前挑书',description:'站在文学书架前挑选书本、查找资料。',action:'read',gesture:'read',target:{x:PIECES['literature-shelf'].x,z:-3.40},heading:Math.PI,furniture:'literature-shelf'},
     {id:'desk-reading',label:'桌前坐着阅读',description:'坐在阅读桌前看书、查资料，桌面留有书本和笔记。',action:'read',gesture:'read',target:SEATS.desk.approach,heading:SEATS.desk.heading,seat:SEATS.desk,furniture:'reading-table'},
     {id:'study-notes',label:'自习与备考',description:'坐在阅读桌另一侧整理笔记、做题或备考。',action:'work',gesture:'read',target:SEATS.study.approach,heading:SEATS.study.heading,seat:SEATS.study,furniture:'reading-table'},
     {id:'window-reading',label:'窗边独自阅读',description:'在窗边单人座安静阅读，桌边留有笔记和台灯。',action:'read',gesture:'read',target:SEATS.window.approach,heading:SEATS.window.heading,seat:SEATS.window,furniture:'window-desk'},
-    {id:'return-book',label:'借阅台归还',description:'站在借阅台前归还书本，或整理要借走的资料。',action:'work',gesture:'read',target:{x:PIECES['loan-counter'].x,z:3.12},heading:Math.PI,furniture:'loan-counter'},
+    {id:'return-book',label:'借阅台归还',description:'站在借阅台前归还书本，或整理要借走的资料。',action:'work',gesture:'read',target:{x:PIECES['loan-counter'].x,z:2.80},heading:Math.PI,furniture:'loan-counter'},
     {id:'exit',label:'入口与离开',description:'从南侧门口进入阅览室，阅读结束后沿通道离开。',action:'rest',gesture:'rest',target:{x:0,z:4},heading:0,furniture:'DoorPostWest'}
   ],
   tour:['choose-book','desk-reading','study-notes','window-reading','return-book','exit']
@@ -79,9 +80,9 @@ function openBook(kit,name,x,z,heading=0){
 
 function notebook(kit,name,x,z,heading=0){
   const g=kit.group(name,{x,y:FLOOR+DESK+.044,z,heading});
-  kit.box(name+'-cover',{y:-.013,w:.35,h:.025,d:.43,color:COLORS.blue,radius:.012},g);
-  kit.box(name+'-paper',{y:.005,w:.315,h:.014,d:.40,color:COLORS.paper,radius:.005},g);
-  for(let n=0;n<5;n++)kit.box(name+'-line',{y:.014,z:-.135+n*.052,w:.225,h:.002,d:.004,color:'#beb8a8',radius:0},g);
+  kit.box(name+'-cover',{y:-.013,w:.35,h:.025,d:.34,color:COLORS.blue,radius:.012},g);
+  kit.box(name+'-paper',{y:.005,w:.315,h:.014,d:.31,color:COLORS.paper,radius:.005},g);
+  for(let n=0;n<5;n++)kit.box(name+'-line',{y:.014,z:-.11+n*.044,w:.225,h:.002,d:.004,color:'#beb8a8',radius:0},g);
   kit.box(name+'-pencil',{x:.26,y:.008,z:.025,w:.031,h:.031,d:.34,color:'#b79564',heading:.24,radius:.006},g);
 }
 
@@ -134,7 +135,7 @@ export function createLibrary(){
     else if(p.kind==='plant'){const g=kit.plant(p.x,p.z);g.name=p.id;}
   }
   openBook(kit,'ReadingBook',-1.46,-.12,.08);
-  notebook(kit,'StudyNotes',-.31,.24,-.06);
+  notebook(kit,'StudyNotes',-1.78,.55,-.06);
   kit.book('DeskClosedBook',{x:-1.60,y:FLOOR+DESK+.062,z:.43,w:.34,d:.43,color:BOOK_COLORS[3],flat:true});
   openBook(kit,'WindowBook',3.02,-2.44,-.08);
   notebook(kit,'WindowNotes',3.53,-2.49,.03);
