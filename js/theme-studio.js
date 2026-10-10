@@ -1002,7 +1002,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.281", changed: "TA的一天固定四格底栏，生活与更多用整页单滚动目录；新增菜单/生活/导航挂点，场景常规按钮归拢，试玩选择独占控件行。", none: "" };
+  const BRIEF_STAMP = { v: "v75.282", changed: "", none: "TA的一天新增健身房与超市三维场景、动作和日程连接，保留原更多/一起生活目录，复用原场景选择，没有新增样式挂点。" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

@@ -3,7 +3,7 @@ const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('no
 const base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-places-browser';fs.mkdirSync(out,{recursive:true});
 const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=app.indexOf('  const saveSchedDay ='),end=app.indexOf('  const applySchedChange =',start);assert.ok(start>0&&end>start);const writer=app.slice(start,end);
 (async()=>{
-  const browser=await pw[engine].launch(engine==='webkit'?{headless:true}:{channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:390,height:844},timezoneId:'America/Winnipeg'}),errors=[],requests=[],worldUrls=new Map(),placeUrls=new Map(),result={engine,places:[],widths:[]};let frame;
+  const browser=await pw[engine].launch(engine==='webkit'?{headless:true}:{channel:'chrome',headless:true}),page=await browser.newPage({viewport:{width:390,height:844},timezoneId:'America/Winnipeg'}),errors=[],requests=[],worldUrls=new Map(),placeUrls=new Map(),result={engine,places:[],widths:[],spotFilter:process.env.DAY_SPOTS_FILTER||null};let frame;
   try{
     page.setDefaultTimeout(45000);page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>{requests.push(r.url());if(/\/fairy-garden\/world\.mjs\?/.test(r.url()))worldUrls.set(r.frame(),r.url());if(/\/day\/places\/index\.mjs/.test(r.url()))placeUrls.set(r.frame(),r.url());});
     await page.clock.setFixedTime(new Date('2026-10-09T10:10:00Z'));await page.goto(base);
@@ -66,7 +66,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
         await page.setViewportSize({width:w,height:h});await page.waitForTimeout(150);
         const boxes=await root.evaluate(el=>{const page=el.querySelector('[data-wk=cdaypage]'),get=selector=>page.querySelector(selector).getBoundingClientRect().toJSON(),tools=page.querySelector('[data-wk=cdaytools]');return {overflow:page.scrollWidth>page.clientWidth,head:get('[data-wk=head]'),scene:get('[data-wk=cdayscene]'),selector:get('[data-wk=cdayplacepoint]'),tools:get('[data-wk=cdaytools]'),bottomFormula:tools.style.paddingBottom,buttons:[...tools.querySelectorAll('button')].map(b=>b.getBoundingClientRect().toJSON())};});
         assert.equal(boxes.overflow,false);assert.ok(boxes.tools.height>=54&&boxes.tools.height<=65);assert.ok(Math.abs(boxes.tools.bottom-h)<2);assert.ok(boxes.scene.height>170);
-        assert.ok(boxes.selector.height>=40,'动作位置选择器触区至少40px');assert.ok(boxes.selector.x>=0&&boxes.selector.right<=w+1);assert.ok(boxes.selector.top>=boxes.scene.top&&boxes.selector.bottom<=boxes.scene.bottom);assert.match(boxes.bottomFormula,/safe-area-inset-bottom.*0\.4/);
+        assert.ok(boxes.selector.height>=40,'动作位置选择器触区至少40px');assert.ok(boxes.selector.x>=0&&boxes.selector.right<=w+1);assert.ok(boxes.selector.top>=boxes.scene.bottom&&boxes.selector.bottom<=boxes.tools.top,'独立动作选择行位于场景下方和固定底栏上方');assert.match(boxes.bottomFormula,/safe-area-inset-bottom.*0\.4/);
         assert.equal(boxes.buttons.length,4,'摆位试玩保留四个底键');assert.ok(boxes.buttons.every(b=>b.x>=0&&b.right<=w+1&&b.height>=40));
         await cameraView(root,true);assert.equal((await state()).following,false);
         await shot(slug(id)+'-overview-'+w+'x'+h);result.widths.push({id,w,h,...boxes});
@@ -79,6 +79,8 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       fs.writeFileSync(path.join(out,'places-layout-result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify(result));return;
     }
     const closeSpots=(id,map)=>{
+      if(id==='dayGym')return ['treadmill','weights','stretch','rest'].map(key=>map.spots.find(s=>s.id===key));
+      if(id==='dayMarket')return ['produce','groceries','cold','checkout','packing'].map(key=>map.spots.find(s=>s.id===key));
       const preserved={dayLaboratory:['computer'],dayLibrary:['window-reading','desk-reading']}[id];
       if(preserved)return preserved.map(key=>map.spots.find(s=>s.id===key));
       return [map.spots.find(s=>s.seat),map.spots.find(s=>!s.seat&&!/入口|离开/.test(s.label+s.description))].filter(Boolean);
@@ -116,10 +118,10 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     for(const id of ids){
       await choosePlace(id);
       const map=placeData[id],report={id,label:map.label,spots:[]};
-      for(const spot of map.spots)report.spots.push(await visitSpot(id,spot));
+      for(const spot of map.spots.filter(s=>!process.env.DAY_SPOTS_FILTER||process.env.DAY_SPOTS_FILTER.split(',').includes(s.id)))report.spots.push(await visitSpot(id,spot));
       await placeLayouts(id);
       report.nearSpots=[];
-      for(const near of closeSpots(id,map)){
+      for(const near of closeSpots(id,map).filter(s=>!process.env.DAY_SPOTS_FILTER||process.env.DAY_SPOTS_FILTER.split(',').includes(s.id))){
         await visitSpot(id,near);await cameraView(root,false);assert.equal((await state()).following,true);await page.waitForTimeout(300);
         const filename=id==='dayLibrary'?(near.id==='window-reading'?'library-window-close':'library-reading-close'):slug(id)+'-'+near.id+'-close';
         await shot(filename);report.nearSpots.push({id:near.id,screenshot:filename+'.png'});

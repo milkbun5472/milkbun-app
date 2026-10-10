@@ -57,8 +57,10 @@
     if (type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(words)) return at("dayHome", "sleep");
     if (/做饭|做菜|下厨|烹饪|煮饭|煮粥|煮汤|炒菜|备菜|做[早午晚]餐/.test(words) && !outside) return at("dayHome", "cook");
     if (type === "meal" || /吃饭|用膳|用餐|进餐|早餐|午餐|晚餐|早饭|午饭|晚饭/.test(words)) return at(dining, "meal");
-    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水/.test(words)) return at(dining, "tea");
+    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水/.test(words)) return at(!home && /健身房|运动馆|健身中心/.test(text) ? "dayGym" : dining, !home && /健身房|运动馆|健身中心/.test(text) ? "water" : "tea");
     if (!home) {
+      if (/健身房|运动馆|健身中心/.test(text)) return at("dayGym", /离开|结束/.test(words) ? "exit" : /喝水|补水/.test(words) ? "water" : /休息|歇会/.test(words) ? "rest" : /储物|换衣|存包/.test(words) ? "storage" : /哑铃|力量|举铁/.test(words) ? "weights" : /拉伸|热身|舒展/.test(words) ? "stretch" : "treadmill");
+      if (/超市|便利店|生鲜店/.test(text)) return at("dayMarket", /离开|走出/.test(words) ? "exit" : /收银|值班|上班|工作/.test(words) ? "cashier" : /装袋|整理.*袋/.test(words) ? "packing" : /结账|付款/.test(words) ? "checkout" : /购物篮|拿篮/.test(words) ? "basket" : /冷藏|冷柜|牛奶|酸奶/.test(words) ? "cold" : /日用品|货架|洗漱|纸巾/.test(words) ? "groceries" : "produce");
       if (/图书馆|阅览室/.test(text)) return at("dayLibrary", /归还|还书|借阅/.test(words) ? "return-book" : /挑书|找书|选书/.test(words) ? "choose-book" : /备考|自习|做题|复习|笔记/.test(words) ? "study-notes" : /窗边/.test(text) ? "window-reading" : "desk-reading");
       if (/实验室|实验台|实验数据|做实验|观测样品|观察样品/.test(text)) return at("dayLaboratory", /数据|分析|电脑/.test(words) ? "computer" : /记录|笔记/.test(words) ? "records" : /观察|观测|测量/.test(words) ? "observation" : /资料柜/.test(text) ? "archive" : "bench");
       if (/诊室|值班室|病历|接诊|查房|诊查/.test(text)) return at("dayClinic", /休息|歇会/.test(words) ? "rest" : /交班|交接/.test(words) ? "handoff" : /接诊|查房|诊查/.test(words) ? "bedside" : /器材|取物/.test(words) ? "equipment" : /值班/.test(words) ? "duty" : "casework");
