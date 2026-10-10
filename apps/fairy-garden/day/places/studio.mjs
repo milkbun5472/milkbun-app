@@ -1,13 +1,13 @@
-import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-562bc471e8a6c8b7';
+import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-3d4a02824fdd16a8';
 
 const {floor:FLOOR,seat:SEAT,desk:DESK}=ROOM_SCALE;
 const C={wood:'#bd9b73',darkWood:'#a88864',paper:'#f0e6d2',sage:'#8b9e89',blue:'#8da5ae',clay:'#ba9687',cream:'#ded3bb',ink:'#71837a'};
 const furniture=[
-  {id:'studio-easel',kind:'easel',x:-2.42,z:-2.53,w:1.26,d:1.10,h:2.12},
+  {id:'studio-easel',kind:'easel',x:-2.42,z:-2.53,w:1.26,d:1.10,h:2.12,work:{easel:{x:-.12,y:.88,z:.418}}},
   {id:'work-table',kind:'table',x:-.40,z:-.20,w:3.30,d:1.55,top:DESK,color:C.wood},
-  {id:'drawing-chair',kind:'chair',x:-.40,z:-1.65,w:.56,d:.57,seat:SEAT,heading:0,color:C.sage},
-  {id:'handcraft-chair',kind:'chair',x:-.95,z:1.33,w:.56,d:.57,seat:SEAT,heading:Math.PI,color:C.clay},
-  {id:'spare-chair',kind:'chair',x:.65,z:1.33,w:.56,d:.57,seat:SEAT,heading:Math.PI,color:C.sage},
+  {id:'drawing-chair',kind:'chair',x:-.40,z:-1.25,w:.56,d:.57,seat:SEAT,heading:0,color:C.sage},
+  {id:'handcraft-chair',kind:'chair',x:-.95,z:.85,w:.56,d:.57,seat:SEAT,heading:Math.PI,color:C.clay},
+  {id:'spare-chair',kind:'chair',x:.65,z:.85,w:.56,d:.57,seat:SEAT,heading:Math.PI,color:C.sage},
   {id:'materials-rack',kind:'materials',x:-4.40,z:-2.30,w:.74,d:2.20,h:2.16,levels:[.18,.69,1.20,1.71]},
   {id:'materials-cabinet',kind:'cabinet',x:-4.42,z:.55,w:.76,d:1.50,h:.82},
   {id:'paint-cart',kind:'cart',x:-1.78,z:-3.97,w:1.22,d:.61,top:.68},
@@ -22,24 +22,24 @@ const furniture=[
 ];
 const piece=id=>furniture.find(p=>p.id===id);
 const seats={
-  drawing:roomSeat(furniture,'drawing-chair',{x:.40,z:-1.65}),
-  handcraft:roomSeat(furniture,'handcraft-chair',{x:-1.78,z:1.33}),
-  spare:roomSeat(furniture,'spare-chair',{x:1.46,z:1.33}),
+  drawing:roomSeat(furniture,'drawing-chair',{x:.40,z:-1.25}),
+  handcraft:roomSeat(furniture,'handcraft-chair',{x:-1.78,z:.85}),
+  spare:roomSeat(furniture,'spare-chair',{x:1.46,z:.85}),
   rest:roomSeat(furniture,'rest-chair',{x:2.60,z:2.55})
 };
 
 export const studioMap={
   label:'创作工作室',renderer:'dayStudio',radius:9,bounds:{w:10,d:9},floor:FLOOR,
-  spawn:{x:0,z:4},view:{x:0,z:0},obstacles:roomObstacles(furniture),seats,
+  spawn:{x:0,z:4},view:{x:0,z:0},furniture,obstacles:roomObstacles(furniture),seats,
   spots:[
     {id:'entrance',label:'工作室入口',description:'从南侧进入工作室，沿中央通路走向画架、工作桌和展示区。',action:'rest',gesture:'rest',target:{x:0,z:3.30},heading:Math.PI,furniture:'Threshold'},
-    {id:'easel',label:'画架前站位',description:'适合站着观察画面、构思与调整作品的位置；绘画动作随后接入。',action:'work',gesture:'rest',target:{x:piece('studio-easel').x,z:-1.70},heading:Math.PI,furniture:'studio-easel'},
-    {id:'drawing',label:'画桌坐位',description:'适合坐着绘画、设计和整理草图的位置；专项动作随后接入。',action:'work',gesture:'rest',target:seats.drawing.approach,heading:seats.drawing.heading,seat:seats.drawing,furniture:'work-table'},
+    {id:'easel',label:'画架前站位',description:'站着持画笔在画布上作画，再退后查看作品。',action:'work',gesture:'rest',target:{x:piece('studio-easel').x,z:-1.70},heading:Math.PI,furniture:'studio-easel'},
+    {id:'drawing',label:'画桌坐位',description:'坐着持笔绘画、设计和整理草图，笔尖落在桌面纸上。',action:'work',gesture:'rest',target:seats.drawing.approach,heading:seats.drawing.heading,seat:seats.drawing,furniture:'work-table'},
     {id:'handcraft',label:'手作坐位',description:'适合坐着做手工、裁剪和整理作品的位置，桌面材料可按创作方向替换。',action:'work',gesture:'rest',target:seats.handcraft.approach,heading:seats.handcraft.heading,seat:seats.handcraft,furniture:'work-table'},
-    {id:'materials',label:'材料架前',description:'在架前挑选颜料、布料或手工材料的位置；拿取动作随后接入。',action:'work',gesture:'rest',target:{x:-3.42,z:piece('materials-rack').z},heading:-Math.PI/2,furniture:'materials-rack'},
-    {id:'storage',label:'收纳柜前',description:'在柜前整理备用材料、工具和作品资料的位置；开柜取放随后接入。',action:'work',gesture:'rest',target:{x:-3.37,z:piece('materials-cabinet').z},heading:-Math.PI/2,furniture:'materials-cabinet'},
+    {id:'materials',label:'材料架前',description:'在架前挑选颜料、布料或手工材料，随后走向画架或工作桌。',action:'work',gesture:'rest',target:{x:-3.42,z:piece('materials-rack').z},heading:-Math.PI/2,furniture:'materials-rack'},
+    {id:'storage',label:'收纳柜前',description:'在柜前伸手整理备用材料、工具和作品资料；柜门仍为固定造型。',action:'work',gesture:'rest',target:{x:-3.37,z:piece('materials-cabinet').z},heading:-Math.PI/2,furniture:'materials-cabinet'},
     {id:'gallery',label:'站着看作品',description:'留出退后观察作品、比对颜色和挑选展示内容的距离。',action:'rest',gesture:'rest',target:{x:piece('gallery-wall').x,z:-2.65},heading:Math.PI,furniture:'gallery-wall'},
-    {id:'drying',label:'整理与晾放作品',description:'在架前整理画纸、半成品与完成作品的位置；取放动作随后接入。',action:'work',gesture:'rest',target:{x:piece('drying-rack').x,z:.68},heading:Math.PI,furniture:'drying-rack'},
+    {id:'drying',label:'整理与晾放作品',description:'创作结束后走到架前整理画纸、半成品与完成作品。',action:'work',gesture:'rest',target:{x:piece('drying-rack').x,z:.68},heading:Math.PI,furniture:'drying-rack'},
     {id:'rest',label:'创作间隙休息',description:'坐着休息、翻看草图或思考下一件作品的位置。',action:'rest',gesture:'rest',target:seats.rest.approach,heading:seats.rest.heading,seat:seats.rest,furniture:'rest-chair'},
     {id:'exit',label:'整理后离开',description:'结束创作后沿通路走回南侧出口。',action:'rest',gesture:'rest',target:{x:0,z:4},heading:0,furniture:'Threshold'}
   ],
@@ -64,9 +64,9 @@ function easel(kit,p){
   }
   const rear=kit.box(p.id+'-rear-leg',{y:FLOOR+.90,z:-.25,w:.085,h:1.80,d:.085,color:C.darkWood},g);rear.rotation.x=.15;
   kit.box(p.id+'-mast',{y:FLOOR+1.06,z:.045,w:.095,h:p.h,d:.085,color:C.wood},g);
-  kit.box(p.id+'-canvas-tray',{y:FLOOR+.77,z:.14,w:1.04,h:.085,d:.44,color:C.wood},g);
-  const canvas=artPanel(kit,'EaselCanvas',{y:FLOOR+1.37,z:.045,w:.98,h:1.10},g);canvas.rotation.x=-.08;
-  kit.box(p.id+'-canvas-clip',{y:FLOOR+1.96,z:.045,w:.20,h:.08,d:.11,color:C.darkWood},g);
+  kit.box(p.id+'-canvas-tray',{y:FLOOR+.57,z:.36,w:1.04,h:.085,d:.44,color:C.wood},g);
+  const canvas=artPanel(kit,'EaselCanvas',{y:FLOOR+.95,z:.35,w:.98,h:.90},g);canvas.rotation.x=0;
+  kit.box(p.id+'-canvas-clip',{y:FLOOR+1.46,z:.35,w:.20,h:.08,d:.11,color:C.darkWood},g);
 }
 
 function materialsRack(kit,p){
@@ -234,10 +234,12 @@ export function createStudio({materials='paint'}={}){
     else if(p.kind==='canvasStorage')canvasStorage(kit,p);
     else if(p.kind==='plant'){const g=kit.plant(p.x,p.z);g.name=p.id;}
   }
-  const p=piece('work-table'),top=FLOOR+p.top,sketch=kit.group('StudioSketchbook',{x:p.x+.48,y:top+.045,z:p.z-.48});
+  const p=piece('work-table'),top=FLOOR+p.top,sketch=kit.group('StudioSketchbook',{x:p.x+.12,y:top+.045,z:p.z-.60});
   kit.box('SketchbookCover',{w:.65,h:.045,d:.47,color:C.cream,radius:.015},sketch);
   kit.box('SketchbookPaper',{y:.028,w:.60,h:.012,d:.43,color:C.paper,radius:.005},sketch);
   kit.box('SketchbookDrawing',{x:-.10,y:.036,z:.005,w:.19,h:.002,d:.26,color:C.sage,radius:0},sketch);
+  kit.box('HandcraftMat',{x:-1.07,y:top+.025,z:.48,w:.58,h:.045,d:.28,color:C.cream,radius:.01});
+  kit.box('HandcraftFabric',{x:-1.07,y:top+.055,z:.48,w:.38,h:.018,d:.23,color:C.clay,radius:.01});
   const rest=piece('rest-side-table');
   kit.book('RestArtBook',{x:rest.x,y:FLOOR+rest.top+.055,z:rest.z-.035,w:.30,d:.36,color:C.blue,flat:true});
   const group=kit.replaceableGroup('StudioMaterials');group.userData.materials=mode;

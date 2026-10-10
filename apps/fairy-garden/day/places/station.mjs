@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-562bc471e8a6c8b7';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-3d4a02824fdd16a8';
 
 const FLOOR=.08;
 const furniture=[
@@ -13,12 +13,12 @@ const furniture=[
 const seats={waiting:roomSeat(furniture,'waiting-bench',{x:-1.46,z:-1.28}),reading:roomSeat(furniture,'reading-bench',{x:-1.46,z:1.33})};
 export const stationMap={
   label:'车站／候车区',renderer:'dayStation',radius:10,bounds:{w:12,d:9},floor:FLOOR,
-  spawn:{x:0,z:4},view:{x:0,z:-.2},obstacles:roomObstacles(furniture,{w:12,d:9}),seats,
+  spawn:{x:0,z:4},view:{x:0,z:-.2},furniture,obstacles:roomObstacles(furniture,{w:12,d:9}),seats,
   spots:[
     {id:'entrance',label:'进入候车厅',description:'从南侧入口走入，沿中间通道去候车长椅、行李架或站台。',action:'rest',gesture:'rest',target:{x:0,z:3.28},heading:Math.PI,furniture:'Threshold'},
     {id:'information',label:'站牌前看信息',description:'在站牌前查看方向和候车信息，预留看站牌与出发准备的位置。',action:'wait',gesture:'rest',target:{x:3.76,z:-2.75},heading:Math.PI,furniture:'platform-sign'},
     {id:'service',label:'服务台前',description:'站在服务台前核对出行资料，预留问询与整理车票的站位。',action:'wait',gesture:'rest',target:{x:-4.25,z:-2.27},heading:Math.PI,furniture:'service-counter'},
-    {id:'luggage',label:'行李放置处',description:'在行李架前放置或取回行李；当前先摆好箱包，拿放动作后续接入。',action:'wait',gesture:'rest',target:{x:1.56,z:-1.96},heading:Math.PI,furniture:'luggage-shelf'},
+    {id:'luggage',label:'行李放置处',description:'将随身行李放上架板，候车时留在这里，离开前取回。',action:'wait',gesture:'rest',target:{x:1.56,z:-2.32},heading:Math.PI,furniture:'luggage-shelf'},
     {id:'waiting',label:'坐着候车',description:'坐在候车长椅上等待，可从入口走来、坐下，再起身去站台或出口。',action:'wait',gesture:'rest',target:seats.waiting.approach,heading:seats.waiting.heading,seat:seats.waiting,furniture:'waiting-bench'},
     {id:'reading',label:'候车时阅读',description:'在另一排长椅上坐着翻看随身资料，保留走回站台和出口的通道。',action:'read',gesture:'read',target:seats.reading.approach,heading:seats.reading.heading,seat:seats.reading,furniture:'reading-bench'},
     {id:'platform',label:'站台内侧等候',description:'站在安全线内侧等候；这一版先做短站台，交通工具之后再补。',action:'wait',gesture:'rest',target:{x:4.24,z:.95},heading:Math.PI/2,furniture:'platform-edge'},
@@ -31,7 +31,7 @@ function luggageRack(kit,p){
   const g=kit.group(p.id,{x:p.x,z:p.z});
   for(const x of [-p.w/2+.04,p.w/2-.04])kit.box('rack-side',{x,y:FLOOR+p.top/2,w:.08,h:p.top,d:p.d,color:'#94aaa0'},g);
   for(const y of [.12,p.top-.025])kit.box('rack-board',{y:FLOOR+y,w:p.w,h:.05,d:p.d,color:'#c4cfbf'},g);
-  for(let i=0;i<2;i++){
+  for(let i=0;i<1;i++){
     const x=-.36+i*.7,bag=kit.group('Luggage-'+i,{x,y:FLOOR+p.top,z:0},g);
     kit.box('suitcase',{y:.31,w:.5,h:.55,d:.36,color:i?'#b8ac91':'#8ca49a'},bag);
     kit.box('case-stripe',{y:.31,z:.187,w:.035,h:.47,d:.014,color:'#d0d8c6'},bag);

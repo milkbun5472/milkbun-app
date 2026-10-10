@@ -1,4 +1,4 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors} from './home-catalog.mjs?v=fg-562bc471e8a6c8b7';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors} from './home-catalog.mjs?v=fg-3d4a02824fdd16a8';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});

@@ -1,10 +1,10 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-562bc471e8a6c8b7';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-3d4a02824fdd16a8';
 
 const FLOOR=.08;
 // The new room, furniture construction and collision share these footprints.
 const furniture=[
-  {id:'clinic-desk',kind:'table',x:-1.4,z:-2.5,w:2.4,d:1.1,top:.85,color:'#c5b89e'},
-  {id:'clinic-desk-chair',kind:'chair',x:-1.4,z:-1.28,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#84a89e'},
+  {id:'clinic-desk',kind:'table',x:-1.4,z:-2.5,w:2.4,d:1.1,top:.85,work:{casework:{x:-.12,y:.902,z:.37}},color:'#c5b89e'},
+  {id:'clinic-desk-chair',kind:'chair',x:-1.4,z:-1.67,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#84a89e'},
   {id:'case-cabinet',kind:'cabinet',x:-4.38,z:-3.1,w:.76,d:1.65,h:1.94,heading:Math.PI/2,color:'#c3d1c7'},
   {id:'equipment-cabinet',kind:'cabinet',x:.94,z:-3.94,w:1.25,d:.7,h:1.85,heading:0,color:'#c3d1c7'},
   {id:'examination-bed',kind:'examBed',x:2.6,z:-2.15,w:1.25,d:2.7,top:.74,color:'#c8dcd9'},
@@ -22,21 +22,21 @@ const furniture=[
 ];
 const piece=id=>furniture.find(p=>p.id===id);
 const seats={
-  desk:roomSeat(furniture,'clinic-desk-chair',{x:-1.4,z:-.5}),
+  desk:roomSeat(furniture,'clinic-desk-chair',{x:-1.4,z:-.90}),
   duty:roomSeat(furniture,'duty-chair',{x:2.43,z:1.1}),
   rest:roomSeat(furniture,'rest-chair',{x:2.43,z:2.55})
 };
 
 export const clinicMap={
   label:'诊室／值班室',renderer:'dayClinic',radius:9,bounds:{w:10,d:9},floor:FLOOR,
-  spawn:{x:0,z:4},view:{x:0,z:0},obstacles:roomObstacles(furniture),seats,
+  spawn:{x:0,z:4},view:{x:0,z:0},furniture,obstacles:roomObstacles(furniture),seats,
   spots:[
     {id:'entrance',label:'入口与离开',description:'从南侧进出诊室，走入后可去桌边整理资料。',action:'rest',gesture:'rest',target:{x:0,z:3.2},heading:Math.PI,furniture:'Threshold'},
-    {id:'casework',label:'桌前整理病历',description:'坐着阅读病历、查看电脑资料，适合独自整理记录与接诊准备。',action:'work',gesture:'read',target:{...seats.desk.approach},heading:seats.desk.heading,seat:seats.desk,furniture:'clinic-desk'},
+    {id:'casework',label:'桌前整理病历',description:'坐着用纸笔整理病历与记录，适合独自核对资料及接诊准备。',action:'work',gesture:'read',target:{...seats.desk.approach},heading:seats.desk.heading,seat:seats.desk,furniture:'clinic-desk'},
     {id:'bedside',label:'诊查床旁',description:'站在诊查床旁查看器材，为以后诊查和准备工作预留；当前为空床。',action:'work',gesture:'rest',target:{x:1.25,z:-2.05},heading:Math.PI/2,furniture:'examination-bed'},
     {id:'equipment',label:'器材柜前',description:'站在器材柜前查看或准备取用器材，预留开柜和拿取动作。',action:'work',gesture:'rest',target:{x:.94,z:-2.97},heading:Math.PI,furniture:'equipment-cabinet'},
     {id:'casefiles',label:'病历柜前',description:'查看病历目录，适合取出与归还纸质资料。',action:'read',gesture:'rest',target:{x:-3.28,z:-3.1},heading:-Math.PI/2,furniture:'case-cabinet'},
-    {id:'handoff',label:'交班资料台',description:'站着阅读交班清单、整理资料，预留以后交班的位置。',action:'read',gesture:'read',target:{x:-2.9,z:1.77},heading:Math.PI,furniture:'handoff-counter'},
+    {id:'handoff',label:'交班资料台',description:'站着持清单核对交班资料，结束后归还病历柜。',action:'read',gesture:'read',target:{x:-2.9,z:1.77},heading:Math.PI,furniture:'handoff-counter'},
     {id:'preparation',label:'器材车前',description:'在器材车旁做准备，预留拿取、推车和专业操作的位置。',action:'work',gesture:'rest',target:{x:3.15,z:-.2},heading:Math.atan2(.92,-.49),furniture:'instrument-trolley'},
     {id:'duty',label:'值班阅读座',description:'坐着翻看值班笔记或阅读资料，邻边小桌放水杯与书。',action:'read',gesture:'read',target:{...seats.duty.approach},heading:seats.duty.heading,seat:seats.duty,furniture:'duty-chair'},
     {id:'rest',label:'小休息角',description:'坐着稍作休息，仍保留走回办公桌与离开诊室的路线。',action:'rest',gesture:'rest',target:{...seats.rest.approach},heading:seats.rest.heading,seat:seats.rest,furniture:'rest-chair'}
@@ -106,8 +106,8 @@ function desktop(kit,p){
   kit.box('clinic-mouse',{x:.95,y:top+.043,z:.23,w:.1,h:.055,d:.15,color:'#86a395'},g);
   kit.book('case-file-lower',{x:-.62,y:top+.055,z:-.21,w:.53,d:.56,color:'#bacbb6',flat:true},g);
   kit.book('case-file-upper',{x:-.6,y:top+.153,z:-.24,w:.49,d:.51,color:'#95b5a6',flat:true},g);
-  kit.box('case-notebook',{x:-.44,y:top+.023,z:.23,w:.73,h:.039,d:.29,color:'#efe9d8',radius:.009},g);
-  for(let i=0;i<3;i++)kit.box('case-note-line',{x:-.45,y:top+.046,z:.16+i*.06,w:.44,h:.005,d:.008,color:'#b4c2ad',radius:0},g);
+  kit.box('case-notebook',{x:-.12,y:top+.023,z:.37,w:.73,h:.039,d:.29,color:'#efe9d8',radius:.009},g);
+  for(let i=0;i<3;i++)kit.box('case-note-line',{x:-.12,y:top+.046,z:.29+i*.06,w:.44,h:.005,d:.008,color:'#b4c2ad',radius:0},g);
   kit.box('clinic-pencil',{x:-.91,y:top+.039,z:.23,w:.025,h:.025,d:.31,color:'#8ba999',heading:.18,radius:.002},g);
 }
 function handoffNotes(kit,p){

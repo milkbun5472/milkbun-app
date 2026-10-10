@@ -1,9 +1,9 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-562bc471e8a6c8b7';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-562bc471e8a6c8b7';
-import {clinicMap,createClinic} from './clinic.mjs?v=fg-562bc471e8a6c8b7';
-import {studioMap,createStudio} from './studio.mjs?v=fg-562bc471e8a6c8b7';
-import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-562bc471e8a6c8b7';
-import {stationMap,createStation} from './station.mjs?v=fg-562bc471e8a6c8b7';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-3d4a02824fdd16a8';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-3d4a02824fdd16a8';
+import {clinicMap,createClinic} from './clinic.mjs?v=fg-3d4a02824fdd16a8';
+import {studioMap,createStudio} from './studio.mjs?v=fg-3d4a02824fdd16a8';
+import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-3d4a02824fdd16a8';
+import {stationMap,createStation} from './station.mjs?v=fg-3d4a02824fdd16a8';
 import * as T from 'three';
 export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap};
 export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation};
