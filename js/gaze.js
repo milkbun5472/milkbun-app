@@ -486,6 +486,8 @@
     const d = loadSeen(); const mine = d[charId] || {};
     mine[k] = Number(b.ts) || Date.now();
     d[charId] = mine; persistSeen(d);
+    // 状态卡顶上「Ta 眼里」那颗红点在信纸外面，自己不知道这边看过了——喊它一声（她 2026-10-10：点光了还有）
+    try { window.dispatchEvent(new CustomEvent("gaze-seen", { detail: { charId } })); } catch (e) {}
   }
   // 全部改写记录:合并当前块和旧版快照,按时间倒序——「收纳」那一档就是这张表
   function revisions(charId) {

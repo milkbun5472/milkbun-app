@@ -14787,6 +14787,9 @@ function StateCard({
   const t = useTheme();
   const [showHist, setShowHist] = useState(false);
   const [page, setPage] = useState("now"); // 此刻 | Ta 眼里
+  // 信纸里点开一块就记已读；顶上这颗红点要跟着重画，不然得关掉卡再开才灭（她 2026-10-10）
+  const [, setGazeSeenTick] = useState(0);
+  useEffect(() => { const f = () => setGazeSeenTick(x => x + 1); window.addEventListener("gaze-seen", f); return () => window.removeEventListener("gaze-seen", f); }, []);
   const hist = history || [];
   const dmRaw = decayMood(mood) || (roomName ? null : { label: "平静", def: true });
   const dm = window.MoodLabel ? window.MoodLabel.normalizeMood(dmRaw) : dmRaw;
