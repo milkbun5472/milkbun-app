@@ -17,6 +17,8 @@ export const PROFESSIONAL_OPTIONS={
  dayLegal:{label:'律所／法庭',field:'display',values:{standard:'原有法律陈设',consultation:'咨询案卷与名片盒',hearing:'庭审索引与笔录'}},
  dayTraining:{label:'训练基地',field:'display',values:{standard:'原有基地陈设',field:'外勤地图与无线电',physical:'体能记录与补给'}},
  dayWorkshop:{label:'工坊／维修间',field:'display',values:{repair:'机械检修陈设',craft:'手作陶艺材料',woodwork:'木作色样与木料'}},
+ dayFarm:{label:'农场／田边记录处',field:'display',values:{standard:'原有田边陈设',fresh:'种子与作物样品',research:'钓鱼与田间记录'}},
+ dayFleaMarket:{label:'复古市集／旧货摊',field:'display',values:{standard:'原有市集陈设',literature:'旧书与藏书札记',craft:'陶艺与手作材料'}},
  dayStudy:{label:'古风书房／议事厅',field:'display',values:{literature:'文人书斋',strategy:'军务图卷',art:'书画色样与印章'}}
 };
 const matches={

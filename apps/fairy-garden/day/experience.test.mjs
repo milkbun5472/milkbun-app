@@ -19,8 +19,8 @@ test('只请求选中的职业场景，同一请求合并、失败后可以重�
 test('生成的轻量地图沿真实建造方，座位引用和197个活动锚点保留',async()=>{
  for(const [id,p]of Object.entries(PLACE_MODULES)){const actual=(await placeModules.load(id))[p.map];assert.deepEqual(DAY_PLACES[id],actual,id);for(const spot of DAY_PLACES[id].spots)if(spot.seat)assert.ok(Object.values(DAY_PLACES[id].seats).includes(spot.seat),id);}
 });
-test('十八个职业场景都能选配色，明确手选优先并保留旧器材选择',()=>{
- assert.equal(Object.keys(PROFESSIONAL_OPTIONS).length,18);
+test('全部职业场景都能选配色，明确手选优先并保留旧器材选择',()=>{
+ assert.equal(Object.keys(PROFESSIONAL_OPTIONS).length,Object.keys(DAY_PLACES).length);
  const raw={dayLaboratory:{equipment:'none',style:'original'},dayWorkshop:{display:'repair',style:'clean'}};
  assert.deepEqual(professionalOptions(raw,'dayLaboratory','喜欢暖木，做显微细胞研究'),{equipment:'none'});
  assert.deepEqual(professionalOptions(raw,'dayWorkshop','喜欢复古深木，是木工'),{display:'repair',style:'clean'});

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {environmentAt} from './environment.mjs?v=fg-3f18410459027dc9';
+import {environmentAt} from './environment.mjs?v=fg-04aacebb1f1f98c4';
 
 const vertexShader=`varying vec2 surface;void main(){surface=position.xy;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`;
 const fragmentShader=`varying vec2 surface;uniform float time;uniform float rain;uniform float night;
@@ -58,7 +58,7 @@ export function createDayEnvironment({scene,renderer,hemi,sun,fill}){
    for(const m of glows)m.emissiveIntensity=.04+state.daylight*.15;
   }
   for(const g of windows){g.visible=state.wet;g.traverse(o=>{if(o.material?.uniforms?.rain){o.material.uniforms.time.value=time;o.material.uniforms.rain.value=state.wet?1:0;o.material.uniforms.night.value=state.lamp;}});}
-  const outside=['dayStreet','dayTraining','dayStation'].includes(map?.renderer||map?.id),count=Math.min(max,quality.particles||max);
+  const outside=map?.outdoor||['dayStreet','dayTraining','dayStation'].includes(map?.renderer||map?.id),count=Math.min(max,quality.particles||max);
   rain.visible=outside&&state.kind==='rain';snow.visible=outside&&state.kind==='snow';
   root.visible=rain.visible||snow.visible;
   if(root.visible){

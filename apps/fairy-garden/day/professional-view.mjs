@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-3f18410459027dc9';
-import {DAY_PLACES} from './places/maps.mjs?v=fg-3f18410459027dc9';
-import {PROFESSIONAL_OPTIONS} from './professional.mjs?v=fg-3f18410459027dc9';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-04aacebb1f1f98c4';
+import {DAY_PLACES} from './places/maps.mjs?v=fg-04aacebb1f1f98c4';
+import {PROFESSIONAL_OPTIONS} from './professional.mjs?v=fg-04aacebb1f1f98c4';
 
 const palettes={
  warm:{floor:'#c6aa86',paper:'#efe4cf',wood:'#b79168',accent:'#8eaa86',dark:'#5c5343'},
@@ -17,7 +17,7 @@ export function applyProfessionalView(view,id,options={}){
  const palette=palettes[options?.style],root=view.root;
  if(palette){
   const done=new Set();root.traverse(o=>{for(const mat of Array.isArray(o.material)?o.material:[o.material]){
-   if(!mat?.color||mat.map||done.has(mat))continue;done.add(mat);
+   if(!mat?.color||mat.map||mat.userData.dayTone==='landscape'||done.has(mat))continue;done.add(mat);
    const hsl=mat.color.getHSL({},T.SRGBColorSpace),tone=mat.userData.dayTone||(hsl.l<.28?'dark':hsl.l>.79?'paper':hsl.s<.13?'paper':hsl.h>.18&&hsl.h<.65?'accent':'wood');
    mat.color.set(palette[tone]);mat.color.offsetHSL(0,0,Math.max(-.12,Math.min(.1,(hsl.l-.55)*.24)));
   }});
