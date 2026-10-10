@@ -80,11 +80,5 @@
     const link = validate(source.world);
     return (link && at(link.scene, link.spot)) || infer(source);
   }
-  const live = new Map();
-  function setPresence(id,value){if(!id)return;if(!value?.present){live.delete(String(id));return;}live.set(String(id),{...value,at:Date.now()});}
-  function presenceFor(id){const v=live.get(String(id));if(!v||Date.now()-v.at>15000)return "";
-    const state=v.interaction?(v.interactionPhase==="active"?v.interactionLabel+"中":"正在走到"+v.interactionLabel+"的位置"):v.busy?"对方正在屋里走动":v.seated?"对方已坐下":"对方站在屋里";
-    return "【TA的一天·此刻的小世界画面】对方已主动进入共同小屋。"+state+"；你当前画面位置："+(v.taActivity||"在家")+"。这是当前3D互动画面的会话状态，现实日程、住址和经历仍沿原资料理解。回应由你的人设与当前话题决定。";
-  }
-  root.CharDayLink = { validate, bindRow, publicRow, publicSchedules, instruction, schema, presentation, setPresence, presenceFor };
+  root.CharDayLink = { validate, bindRow, publicRow, publicSchedules, instruction, schema, presentation };
 })(globalThis);
