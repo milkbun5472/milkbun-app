@@ -20754,7 +20754,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const thread = (mom.comments || []).map(c => (c.author || "某人") + "：" + String(c.text || "")).join("\n");
       const scene = author
         ? "这是「" + author.name + "」发的朋友圈：「" + mom.content + "」。"
-        : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。";
+        : "这是用户「" + meName + "」自己发的朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "。"
+          + (mom.poll ? "这条带了投票：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o + "（" + Object.keys(mom.poll.votes || {}).filter(n => mom.poll.votes[n] === i).join("、") + "投了）").join("　") + "。" : "");
       // ⚠️这三句是她 2026-09-29 之前就有的那一档，一个字没改。
       //   多出来的 more 那一支是【没有用户新评论】时走的：刷更多评论。
       const lastLine = more
@@ -20839,7 +20840,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const postUserMoment = ({
     content,
     image,
-    visibleTo
+    visibleTo,
+    poll
   }) => {
     const id = "m_" + Date.now();
     const mom = {
@@ -20848,6 +20850,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content,
       image: image || null,
       visibleTo: visibleTo || null,
+      poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ts: Date.now(),
       liked: false,
       likeCount: 0,
@@ -20875,7 +20878,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         return "- " + c.name + "：人设[" + String(c.persona || "").slice(0, 70) + "] 好感度" + aff + "/100 心情" + md + (rel ? " 对我关系[" + rel + "]" : "");
       }).join("\n");
       const socialLore = loreForContext("social", canSee.map(c => c.id), mom.content);
-      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
+      // 投票：每人照自己的性子、跟她的关系和对这件事的看法投一票（也可以不投），评论里可以说为什么
+      const pollAsk = mom.poll ? "\n\n【这条朋友圈带了投票】她拿不定主意，让大家选：" + mom.poll.options.map((o, i) => (i + 1) + ". " + o).join("　")
+        + "\n每个人想投就在 vote 里填选项编号（只能一个），不想投就填 null。投哪个要从 TA 自己出发：TA 的喜好、TA 对她的了解、TA 心里希望她怎么选；不必大家都投同一个，也不必故意分散。"
+        + "投了的人可以在评论里顺口说一句为什么，也可以一声不吭只投票。" : "";
+      const system = "你在模拟朋友圈互动。「" + meName + "」发了一条朋友圈：「" + mom.content + "」" + (mom.image ? (typeof isImgRef === "function" && isImgRef(mom.image) ? "（配了一张图片）" : "（配图：" + mom.image + "）") : "") + "\n\n能看到的好友及其状态：\n" + lines + (socialLore ? "\n\n【世界书 · 公开世界】" + socialLore.slice(0, 1400) : "") + "\n\n请根据每个人的性格、心情、好感度和这条内容，真实地决定 Ta 的反应：可能只点赞、只评论、又赞又评、或已读不理——不要所有人都反应，也不要千篇一律。**保底：至少要有一位好友留下评论互动（通常是好感度较高的那位），不要出现全部已读不理、无人评论的情况。**评论要符合各自人设与关系。有的人还会顺手回复别的好友的评论（replyTo 填被回复者名）。" + pollAsk + "\n只输出 JSON：{\"reactions\":[{\"name\":\"名字\",\"liked\":true或false,\"comment\":\"评论或null\"" + (mom.poll ? ",\"vote\":选项编号或null" : "") + "}],\"replies\":[{\"name\":\"名字\",\"replyTo\":\"被回复的评论者\",\"text\":\"回复\"}]}";
       const raw = await callAI(active, system, [{
         role: "user",
         content: "开始"
@@ -20899,6 +20906,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const top = canSee.slice().sort((a, b) => (affinities[b.id] || 50) - (affinities[a.id] || 50))[0];
           if (top) likers.push(momentWho(top.name));
         }
+        const votes = {};
+        if (mom.poll) (d.reactions || []).forEach(r => { const v = Number(r && r.vote); if (r && r.name && v >= 1 && v <= mom.poll.options.length) votes[momentWho(r.name)] = v - 1; });
         (d.replies || []).forEach(r => {
           if (r.text) comments.push({
             author: momentWho(r.name),
@@ -20909,7 +20918,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           ...m,
           likers: [...new Set([...(m.likers || []), ...likers])],
           likeCount: (m.likeCount || 0) + likers.length,
-          comments: [...(m.comments || []), ...comments]
+          comments: [...(m.comments || []), ...comments],
+          ...(m.poll ? { poll: { ...m.poll, votes: { ...(m.poll.votes || {}), ...votes } } } : {})
         } : m));
       }
     } catch (e) {/* silent */} finally {
