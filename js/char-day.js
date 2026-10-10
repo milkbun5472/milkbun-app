@@ -35,7 +35,23 @@
     return saveHomeUpdate(previous=>({...previous,version:3,[section]:{...previous[section],[String(charId)]:typeof value==='function'?value(previous[section]?.[String(charId)]):value}}));
   }
   const visitChoice=info=>info.control==="auto"?"auto":["read","drink","eat","rest"].includes(info.manualAction)?info.manualAction:"manual";
-  root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
+  // Read the existing weather owner; this viewer never fetches or invents real weather.
+  function sceneWeather(char,at=Date.now(),preview=false,minute=null){
+    try{
+      const worlds=loadJSON("x_worlds",[])||[],realm=root.MapKit?.charRealm?.(char,worlds);
+      if(realm?.kind==='world'&&root.WorldWeather){
+        const date=root.ScheduleClock.dayKey(char,at),local=root.ScheduleClock.localMinute(char,at),m=minute==null?local:minute;
+        const parts=date.split('-').map(Number),sample=new Date(parts[0],parts[1]-1,parts[2],Math.floor(m/60),m%60);
+        const weather=root.WorldWeather.hours(realm.world.id+'|'+realm.node,realm.terrain,sample,1)?.[0];
+        return weather?.code!=null?{code:weather.code,source:'world',place:realm.node}:null;
+      }
+      if(preview)return null;
+      const home=char?.home;if(typeof home?.lat!=='number'||typeof home?.lng!=='number'||typeof weatherCached!=='function')return null;
+      const weather=weatherCached(home.lat,home.lng);if(weather?.code==null||!Number.isFinite(weather.ts)||at-weather.ts>2*3600000||weather.ts>at+60000)return null;
+      return {code:weather.code,source:'real',place:home.label||''};
+    }catch{return null;}
+  }
+  root.CharDayKit = { dayState, presentation, sceneWeather, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
       [book, setBook] = useState(false), [preview, setPreview] = useState(null), [demoIndex, setDemoIndex] = useState(0),
@@ -47,7 +63,7 @@
       [decorPanel,setDecorPanel]=useState(""),[catalog,setCatalog]=useState([]),[decorOptions,setDecorOptions]=useState(null),
       [editor, setEditor] = useState(null), [furniture, setFurniture] = useState([]), [layoutBusy, setLayoutBusy] = useState(false), [layoutNotice, setLayoutNotice] = useState(""), [demoLayout, setDemoLayout] = useState({}),
       [showcase, setShowcase] = useState(""), [spotId, setSpotId] = useState(""), [places, setPlaces] = useState([]),
-      [activityStatus,setActivityStatus]=useState(null), [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false), [visitStatus,setVisitStatus]=useState(null),[togetherPanel,setTogetherPanel]=useState(false),[mePanel,setMePanel]=useState(false),[meStyles,setMeStyles]=useState(null),[meDraft,setMeDraft]=useState(null),[meBusy,setMeBusy]=useState(false),[meNotice,setMeNotice]=useState(""),[moreOpen,setMoreOpen]=useState(false),[professionalPanel,setProfessionalPanel]=useState(false),[professionalChoices,setProfessionalChoices]=useState({}),[professionalBusy,setProfessionalBusy]=useState(false),[professionalNotice,setProfessionalNotice]=useState(""),[demoProfessional,setDemoProfessional]=useState({});
+      [activityStatus,setActivityStatus]=useState(null), [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false), [visitStatus,setVisitStatus]=useState(null),[togetherPanel,setTogetherPanel]=useState(false),[mePanel,setMePanel]=useState(false),[meStyles,setMeStyles]=useState(null),[meDraft,setMeDraft]=useState(null),[meBusy,setMeBusy]=useState(false),[meNotice,setMeNotice]=useState(""),[moreOpen,setMoreOpen]=useState(false),[professionalPanel,setProfessionalPanel]=useState(false),[professionalChoices,setProfessionalChoices]=useState({}),[professionalStyles,setProfessionalStyles]=useState({}),[professionalScene,setProfessionalScene]=useState('dayLaboratory'),[professionalBusy,setProfessionalBusy]=useState(false),[professionalNotice,setProfessionalNotice]=useState(""),[demoProfessional,setDemoProfessional]=useState({});
     const [cameraMode,setCameraMode]=useState('ta'),[lifePage,setLifePage]=useState(''),[lifeBusy,setLifeBusy]=useState(false),[lifeNotice,setLifeNotice]=useState(''),[photoId,setPhotoId]=useState(''),[photoNote,setPhotoNote]=useState(''),[deletePhoto,setDeletePhoto]=useState(false),[kitchenStatus,setKitchenStatus]=useState(null),[wish,setWish]=useState(''),[catalogLabels,setCatalogLabels]=useState({}),[recommendedFurniture,setRecommendedFurniture]=useState([]);
     const L=root.CharDayLife,S=root.CharDaySocial;
     const [homeChoices,setHomeChoices]=useState({});
@@ -55,7 +71,7 @@
     const kbLift = useKbLift();
     const now = Date.now();
     const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null),decorScroll=useRef(null),decorPositions=useRef({}),visitSave=useRef({}),scenePause=useRef(null),menuScroll=useRef(null),menuPositions=useRef({}),kitchenReady=useRef({});
-    const menuKey=lifePage?(lifePage==='album'&&photoId?'photo:'+photoId:lifePage):moreOpen?'more':'life';
+    const menuKey=professionalPanel?'professional:'+professionalScene:lifePage?(lifePage==='album'&&photoId?'photo:'+photoId:lifePage):moreOpen?'more':'life';
     // Keep temporary scene progress across both subpages and the whole app's
     // unmount. This is view state; it never writes a schedule or calendar.
     const bindScene=React.useCallback(node=>{if(!node&&iframe.current){try{const paused=iframe.current.contentWindow?.CharDayScene?.pauseState?.();if(paused){scenePause.current=paused;if(!stateRef.current?.preview&&!stateRef.current?.showcase)sceneContinuity.set(paused.charId,paused);}}catch{}}iframe.current=node;},[]);
@@ -67,7 +83,7 @@
     useEffect(() => { const timer = setInterval(() => setPulse(n => n + 1), 1000); return () => clearInterval(timer); }, []);
     React.useLayoutEffect(() => { if (scroll.current) scroll.current.scrollTop = positions.current[homeOptions ? "style" : book ? "book" : "picker"] || 0; }, [book, homeOptions, id]);
     React.useLayoutEffect(()=>{if(decorScroll.current)decorScroll.current.scrollTop=decorPositions.current[decorPanel]||0;},[decorPanel]);
-    React.useLayoutEffect(()=>{if(menuScroll.current)menuScroll.current.scrollTop=menuPositions.current[menuKey]||0;},[moreOpen,togetherPanel,mePanel,professionalPanel,book,homeOptions,id,lifePage,photoId]);
+    React.useLayoutEffect(()=>{if(menuScroll.current)menuScroll.current.scrollTop=menuPositions.current[menuKey]||0;},[moreOpen,togetherPanel,mePanel,professionalPanel,professionalScene,book,homeOptions,id,lifePage,photoId]);
     const pick = value => { setLifePage('');setPhotoId('');setLifeNotice('');setKitchenStatus(null);setCameraMode('ta'); setMoreOpen(false);setTogetherPanel(false);setMePanel(false);setProfessionalPanel(false);setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setEditor(null); setDecorPanel(""); setLayoutNotice(""); setStyleNotice(""); setShowcase(""); setSpotId(""); setChatOpen(false); setChatMounted(false); setVisitStatus(null); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
     const room=places.find(p=>p.id===showcase), spot=room?.spots.find(s=>s.id===spotId)||room?.spots[0];
     const visitPlaces=()=>{setMoreOpen(false);if(!char)pick(DEMO.id);setShowcase("dayLaboratory");setSpotId("");setFollow(false);};
@@ -80,6 +96,7 @@
       presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), cameraMode,kitchenJob:demo?null:homes.kitchens?.[String(char.id)]?.pending||null, minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
       key: showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
     if(payload&&(showcase||editor))payload.slot=null;
+    if(payload)payload.weather=demo||showcase?null:sceneWeather(char,now,!!preview,payload.minute);
     stateRef.current = payload;
     const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot({...stateRef.current,viewInsets:(()=>{const el=iframe.current?.parentElement,box=el?.getBoundingClientRect(),card=el?.querySelector('[data-wk=cdaynow]')?.getBoundingClientRect(),chat=el?.parentElement?.parentElement?.querySelector('[data-wk=cdaychat]');return {top:card&&box?Math.max(24,card.bottom-box.top+14):130,bottom:chat&&!chat.hidden&&box?Math.max(30,box.bottom-chat.getBoundingClientRect().top+14):30,left:18,right:18};})()}); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
     React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book, homeOptions]);
@@ -92,7 +109,7 @@
         if (e.data?.type === "char-day-layout") { setEditor(current => current ? {...current,placements:e.data.placements,selected:e.data.selected,dragging:e.data.dragging,busy:e.data.busy} : null); setLayoutNotice(e.data.notice || ""); const list=iframe.current?.contentWindow?.CharDayScene?.listFurniture?.(); if(list)setFurniture(list); return; }
         if (e.data?.type === "char-day-view") { setFollow(!!e.data.following);setCameraMode(e.data.mode|| (e.data.following?'ta':'free')); return; }
         if (e.data?.type !== "char-day-status") return;
-        setSceneStatus(e.data.error || ""); if (!e.data.error) {setCatalogLabels(iframe.current?.contentWindow?.CharDayScene?.catalogLabels?.()||{}); const motions=iframe.current?.contentWindow?.CharDayScene?.listMotions?.();if(motions)setMotionOptions(motions);setPairOptions(iframe.current?.contentWindow?.CharDayScene?.listPairStyles?.()||[]); const options = iframe.current?.contentWindow?.CharDayScene?.listStyles?.(); if (options) setStyles(options);setProfessionalChoices(iframe.current?.contentWindow?.CharDayScene?.professionalChoices?.()||{}); const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
+        setSceneStatus(e.data.error || ""); if (!e.data.error) {setCatalogLabels(iframe.current?.contentWindow?.CharDayScene?.catalogLabels?.()||{}); const motions=iframe.current?.contentWindow?.CharDayScene?.listMotions?.();if(motions)setMotionOptions(motions);setPairOptions(iframe.current?.contentWindow?.CharDayScene?.listPairStyles?.()||[]); const options = iframe.current?.contentWindow?.CharDayScene?.listStyles?.(); if (options) setStyles(options);setProfessionalChoices(iframe.current?.contentWindow?.CharDayScene?.professionalChoices?.()||{});setProfessionalStyles(iframe.current?.contentWindow?.CharDayScene?.professionalStyles?.()||{}); const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
       };
       root.addEventListener("message", ready); return () => root.removeEventListener("message", ready);
     }, []);
@@ -122,6 +139,13 @@
     }
     const joinVisit=()=>{rememberHomeChoice('with');return iframe.current?.contentWindow?.CharDayScene?.joinVisit?.();};
     const visitAction=(kind,options)=>{setTogetherPanel(false);if(kind==='leave')rememberHomeChoice('away');const scene=iframe.current?.contentWindow?.CharDayScene,ok=scene?.visitAction?.(kind,options),info=scene?.inspect?.().visitor;if(info)rememberVisit(info,true);return ok;};
+    async function changeProfessional(field,value){
+      const scene=professionalScene;setProfessionalBusy(true);setProfessionalNotice('');
+      try{
+        if(demo)setDemoProfessional(old=>({...old,[scene]:{...old[scene],[field]:value}}));
+        else setHomes(await saveHomeChange(char.id,'professional',old=>({...old,[scene]:{...old?.[scene],[field]:value}})));
+      }catch{setProfessionalNotice('没能保存，原陈设和配色还在，可以再试。');}finally{setProfessionalBusy(false);}
+    }
     async function changeSocial(field,value){
       const charId=String(char.id),next={...payload.socialPreferences,[field]:value};setSocialDraft(raw=>({...raw,[charId]:next}));setSocialBusy(true);setSocialNotice('');
       try{setHomes(await saveHomeChange(charId,'socialPreferences',old=>({...old,[field]:value})));}
@@ -339,10 +363,17 @@
           menuRow({"data-wk":"cdayhomestyle"},"小家样式","房间配色与两人的动作气质",()=>{setBook(false);setHomeOptions(true);},IHome),
           menuRow({"data-wk":"cdaydecorate"},"布置小家","添家具、挪位置、搭配墙面和地板",startEditor,IPencil))),
         menuSection("场景",h(React.Fragment,null,
-          Object.keys(professionalChoices).length>0&&menuRow({"data-wk":"cdayprofessionalopen"},"场景摆件","研究器材、创作材料和排练摆件",()=>setProfessionalPanel(true),GConfig),
+          Object.keys(professionalChoices).length>0&&menuRow({"data-wk":"cdayprofessionalopen"},"场景摆件","每位角色的职业空间、陈设与配色",()=>{setProfessionalScene(Object.hasOwn(professionalChoices,payload.presentation.map)?payload.presentation.map:professionalScene);setProfessionalPanel(true);},GConfig),
           menuRow({"data-wk":"cdayplaces"},"新场景","办案、餐饮、拍摄与录音等日程地点",visitPlaces,ICamera))))),
         h("div",{className:"shrink-0",style:{...footerStyle,paddingLeft:16,paddingRight:16}},h("button",{style:{...btn,width:"100%",border:0,background:"transparent"},onClick:()=>setMoreOpen(false)},"回到小世界"))),
-      professionalPanel&&h("div",{"data-wk":"cdayprofessional",className:"absolute inset-0 flex flex-col",style:{background:paper,zIndex:20}},h(Head,{zh:"场景摆件",bg:"transparent",ink,onBack:()=>setProfessionalPanel(false)}),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:16}},h("p",{style:{fontSize:12,lineHeight:1.8}},"为这位角色选研究器材、创作材料和排练摆件。只改变小世界的画面。"),...Object.entries(professionalChoices).map(([scene,option])=>h("label",{key:scene,style:{display:"block",marginBottom:18,fontSize:13}},option.label,h("select",{"data-professional":scene,disabled:professionalBusy,style:{...btn,width:"100%",marginTop:8},value:payload.professional[scene]?.[option.field]||Object.keys(option.values)[0],onChange:async e=>{const value=e.target.value,next={...payload.professional,[scene]:{[option.field]:value}};setProfessionalBusy(true);setProfessionalNotice("");try{if(demo){setDemoProfessional(next);}else setHomes(await saveHomeChange(char.id,"professional",next));}catch{setProfessionalNotice("没能保存，原摆件还在，可以再试。");}finally{setProfessionalBusy(false);}}},...Object.entries(option.values).map(([value,label])=>h("option",{key:value,value},label))))),professionalNotice&&h("p",{role:"status"},professionalNotice))),
+      professionalPanel&&h("section",{"data-wk":"cdayprofessional",className:"absolute inset-0 flex flex-col",style:{background:paper,zIndex:20}},h(Head,{zh:"场景摆件",sub:char.remark||char.name,bg:"transparent",ink,onBack:()=>setProfessionalPanel(false)}),menuBody(h(React.Fragment,null,
+        h("p",{style:{fontSize:12,lineHeight:1.8,color:soft}},"各地点分别记住这位角色的选择。自动参考明确人设，手动陈设和配色始终优先。"),
+        h("label",{style:{display:"block",fontSize:13,marginBottom:18}},"先选地点",h("select",{"aria-label":"场景地点",value:professionalScene,style:{...btn,width:"100%",height:44,marginTop:8},onChange:e=>setProfessionalScene(e.target.value)},...Object.entries(professionalChoices).map(([id,p])=>h("option",{key:id,value:id},p.label)))),
+        professionalChoices[professionalScene]&&h(React.Fragment,null,
+          h("label",{style:{display:"block",fontSize:13,marginBottom:18}},"陈设",h("select",{"data-professional":professionalScene,"aria-label":"职业场景陈设",disabled:professionalBusy,value:payload.professional[professionalScene]?.[professionalChoices[professionalScene].field]||'auto',style:{...btn,width:"100%",height:44,marginTop:8},onChange:e=>changeProfessional(professionalChoices[professionalScene].field,e.target.value)},h("option",{value:"auto"},"自动参考人设"),...Object.entries(professionalChoices[professionalScene].values).map(([value,label])=>h("option",{key:value,value},label)))),
+          h("label",{style:{display:"block",fontSize:13,marginBottom:18}},"配色",h("select",{"data-professional-style":professionalScene,"aria-label":"职业场景配色",disabled:professionalBusy,value:payload.professional[professionalScene]?.style||'auto',style:{...btn,width:"100%",height:44,marginTop:8},onChange:e=>changeProfessional('style',e.target.value)},h("option",{value:"auto"},"自动参考人设"),...Object.entries(professionalStyles).map(([value,label])=>h("option",{key:value,value},label))))),
+        professionalNotice&&h("p",{role:"status",style:{fontSize:12,color:soft}},professionalNotice)))),
+
       togetherPanel&&visiting&&h("section",{"data-wk":"cdayinteraction",className:"absolute inset-0 flex flex-col",style:{background:paper,zIndex:20}},h(Head,{zh:socialSetting?.home?"一起生活":"一起约会",sub:char.remark||char.name,bg:"transparent",ink,onBack:()=>setTogetherPanel(false)}),menuBody(h(React.Fragment,null,
         menuSection("我的活动",h(React.Fragment,null,h("p",{style:{fontSize:11,color:soft,lineHeight:1.8,margin:"0 0 10px"}},socialSetting?.home?"手动选择会一直优先；想让小人自己安排，再选自动活动。":"约会开启时会自动跟随TA；手动选择后，选自动跟随TA恢复同行。"),
           h("select",{"data-wk":"cdayvisitactivity","aria-label":socialSetting?.home?"你在小家做什么":"你在这里做什么",value:!socialSetting?.home&&S.chores[visitChoice(visitStatus)]?"manual":visitChoice(visitStatus),style:{...btn,width:"100%",height:44},onChange:e=>visitAction(e.target.value)},h("option",{value:"auto"},socialSetting?.home?"自动活动":"自动跟随TA"),h("option",{value:"manual"},"手动控制 · 停下来"),...[["read","手动 · 看会书"],["drink","手动 · 喝口水"],["eat","手动 · 在餐桌吃点东西"],["rest","手动 · 坐着歇会"],...(socialSetting?.home?Object.entries(S.chores).map(([kind,p])=>[kind,'手动 · '+p.label]):[])].map(([kind,label])=>h("option",{key:kind,value:kind},label))),

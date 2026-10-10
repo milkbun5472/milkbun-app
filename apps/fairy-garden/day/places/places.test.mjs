@@ -8,7 +8,7 @@ import {stepRoute} from '../../locomotion.mjs';
 registerHooks({resolve(specifier,context,nextResolve){
   return specifier==='three'?{url:new URL('../../vendor/three.module.js',import.meta.url).href,shortCircuit:true}:nextResolve(specifier,context);
 }});
-const {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList}=await import('./index.mjs');
+const {DAY_FACTORIES}=await import('./factories.mjs'),{DAY_PLACES,registerDayPlaces,placeList}=await import('./index.mjs');
 const {createRoomKit,roomStructure,roomObstacles,roomSeat}=await import('./room-kit.mjs');
 const T=await import('three');
 const persistentMaps=Object.keys(MAPS);
