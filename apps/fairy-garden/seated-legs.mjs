@@ -43,7 +43,7 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
   const candidates=[],cloth=new Float32Array(positions.count*3),footwear=/_footwear|_shoes/.test(mesh.name);
   for(let i=0;i<positions.count;i++){
    const point=new T.Vector3().fromBufferAttribute(positions,i).applyMatrix4(frame),row=[];
-   
+
    for(let k=0;k<4;k++){
     const index=indices.getComponent(i,k),weight=weights.getComponent(i,k);if(!weight)continue;
     const joint=joints.find(j=>j.hip===bones[index]);

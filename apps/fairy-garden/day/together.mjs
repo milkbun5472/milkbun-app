@@ -1,10 +1,10 @@
 import * as T from 'three';
-import './social.js?v=fg-fb6c3a7df3ec4fb8';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {stepRoute} from '../locomotion.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {pairProgress} from './motion-profile.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-fb6c3a7df3ec4fb8';
+import './social.js?v=fg-163c7f71112cb39b';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-163c7f71112cb39b';
+import {stepRoute} from '../locomotion.mjs?v=fg-163c7f71112cb39b';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-163c7f71112cb39b';
+import {pairProgress} from './motion-profile.mjs?v=fg-163c7f71112cb39b';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-163c7f71112cb39b';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
