@@ -1,11 +1,13 @@
-import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-8aa89b39bf44a9c5';
-import {HOME_COOK,HOME_PREP} from './home-catalog.mjs?v=fg-8aa89b39bf44a9c5';
-import {createCollectionFurniture} from './home-collections.mjs?v=fg-8aa89b39bf44a9c5';
+import {createHomeDecor} from './home-decor.mjs?v=fg-b80ee10be1013554';
+import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-b80ee10be1013554';
+import {HOME_COOK,HOME_PREP} from './home-catalog.mjs?v=fg-b80ee10be1013554';
+import {createCollectionFurniture} from './home-collections.mjs?v=fg-b80ee10be1013554';
 
 // Movable meshes use the catalogue footprint and the traveler's original bed /
 // chair surfaces. Details belong to their instance, including the thumbnail.
 export function createHomeFurniture(k,a,p){
- const g=k.group(a.id,{x:a.x,z:a.z,heading:a.heading}),F=.08;
+ const g=k.group(a.id,{x:a.x,y:a.mount?a.y:0,z:a.z,heading:a.heading}),F=.08;
+ if(createHomeDecor(k,a,p,g))return g;
  if(createCollectionFurniture(k,a,p,g))return g;
  const b=(name,v,parent=g)=>k.box(name,{color:p.wood,...v},parent);
  const upright=(name,shape,v,parent=g)=>k.profile(name,{shape,...v},parent);

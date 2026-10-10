@@ -1,9 +1,9 @@
 import * as T from 'three';
-import './social.js?v=fg-8aa89b39bf44a9c5';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-8aa89b39bf44a9c5';
-import {stepRoute} from '../locomotion.mjs?v=fg-8aa89b39bf44a9c5';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-8aa89b39bf44a9c5';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-8aa89b39bf44a9c5';
+import './social.js?v=fg-b80ee10be1013554';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-b80ee10be1013554';
+import {stepRoute} from '../locomotion.mjs?v=fg-b80ee10be1013554';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-b80ee10be1013554';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-b80ee10be1013554';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
