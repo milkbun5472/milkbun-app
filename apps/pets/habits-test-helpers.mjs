@@ -1,5 +1,5 @@
 // Test fixtures use the public career/care/town writers, never a fabricated job or habit.
-import{createPetCareer}from'./career.mjs?v=fg-eef50c4ec2251efc';import{createPetCare}from'./care.mjs?v=fg-eef50c4ec2251efc';import{createTownLife,newTownLife}from'./town-life.mjs?v=fg-eef50c4ec2251efc';import{workRoom}from'./workplaces.mjs?v=fg-eef50c4ec2251efc';
+import{createPetCareer}from'./career.mjs?v=fg-87e36a9d89c69f3f';import{createPetCare}from'./care.mjs?v=fg-87e36a9d89c69f3f';import{createTownLife,newTownLife}from'./town-life.mjs?v=fg-87e36a9d89c69f3f';import{workRoom}from'./workplaces.mjs?v=fg-87e36a9d89c69f3f';
 export function writeHabitShift(id,world,{seed=1,keep=true}={}){
  let body,career,town;for(let rng=seed;rng<seed+100;rng++){body=createPetCare({energy:100,mood:100,satiety:80},{real:true});career=createPetCareer({rng,selected:id,balance:100});town=createTownLife(newTownLife(workRoom(id),{x:-.28,z:.55},1),{world});const ctx={care:body.state,room:town.state.place,position:town.state.position};if(id==='stall'){career.request('stall-pack',{item:'snack',delta:1},ctx);career.request('stall-pack',{item:'snack',delta:1},ctx);}if(career.request('invite',{},ctx).accepted)break;}
  const ctx=()=>({care:body.state,room:town.state.place,position:town.state.position});let rounds=0;

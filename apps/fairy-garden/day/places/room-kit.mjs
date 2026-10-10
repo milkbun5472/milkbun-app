@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-eef50c4ec2251efc';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-eef50c4ec2251efc';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-87e36a9d89c69f3f';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-87e36a9d89c69f3f';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
@@ -94,4 +94,10 @@ export function createRoomKit(){
     for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
   }
   return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,hingedDoor,finish,material};
+}
+
+export function finishRoom(k,map,name){
+ k.root.userData.furniture=map.furniture.map(p=>({...p}));
+ for(const p of map.furniture){const g=k.root.getObjectByName(p.id);if(g)g.userData.furnitureId=p.id;}
+ const result=k.finish();result.root.name=name;return result;
 }

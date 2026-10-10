@@ -1,20 +1,24 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-eef50c4ec2251efc';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-eef50c4ec2251efc';
-import {clinicMap,createClinic} from './clinic.mjs?v=fg-eef50c4ec2251efc';
-import {studioMap,createStudio} from './studio.mjs?v=fg-eef50c4ec2251efc';
-import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-eef50c4ec2251efc';
-import {stationMap,createStation} from './station.mjs?v=fg-eef50c4ec2251efc';
-import {gymMap,createGym} from './gym.mjs?v=fg-eef50c4ec2251efc';
-import {marketMap,createMarket} from './market.mjs?v=fg-eef50c4ec2251efc';
-import {officeMap,createOffice} from './office.mjs?v=fg-eef50c4ec2251efc';
-import {campusMap,createCampus} from './campus.mjs?v=fg-eef50c4ec2251efc';
-import {investigationMap,createInvestigation} from './investigation.mjs?v=fg-eef50c4ec2251efc';
-import {serviceMap,createService} from './service.mjs?v=fg-eef50c4ec2251efc';
-import {filmMap,createFilm} from './film.mjs?v=fg-eef50c4ec2251efc';
-import {broadcastMap,createBroadcast} from './broadcast.mjs?v=fg-eef50c4ec2251efc';
+import {legalMap,createLegal} from './legal.mjs?v=fg-87e36a9d89c69f3f';
+import {trainingMap,createTraining} from './training.mjs?v=fg-87e36a9d89c69f3f';
+import {workshopMap,createWorkshop} from './workshop.mjs?v=fg-87e36a9d89c69f3f';
+import {studyMap,createStudy} from './study.mjs?v=fg-87e36a9d89c69f3f';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-87e36a9d89c69f3f';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-87e36a9d89c69f3f';
+import {clinicMap,createClinic} from './clinic.mjs?v=fg-87e36a9d89c69f3f';
+import {studioMap,createStudio} from './studio.mjs?v=fg-87e36a9d89c69f3f';
+import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-87e36a9d89c69f3f';
+import {stationMap,createStation} from './station.mjs?v=fg-87e36a9d89c69f3f';
+import {gymMap,createGym} from './gym.mjs?v=fg-87e36a9d89c69f3f';
+import {marketMap,createMarket} from './market.mjs?v=fg-87e36a9d89c69f3f';
+import {officeMap,createOffice} from './office.mjs?v=fg-87e36a9d89c69f3f';
+import {campusMap,createCampus} from './campus.mjs?v=fg-87e36a9d89c69f3f';
+import {investigationMap,createInvestigation} from './investigation.mjs?v=fg-87e36a9d89c69f3f';
+import {serviceMap,createService} from './service.mjs?v=fg-87e36a9d89c69f3f';
+import {filmMap,createFilm} from './film.mjs?v=fg-87e36a9d89c69f3f';
+import {broadcastMap,createBroadcast} from './broadcast.mjs?v=fg-87e36a9d89c69f3f';
 import * as T from 'three';
-export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap,dayOffice:officeMap,dayCampus:campusMap,dayInvestigation:investigationMap,dayService:serviceMap,dayFilm:filmMap,dayBroadcast:broadcastMap};
-export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket,dayOffice:createOffice,dayCampus:createCampus,dayInvestigation:createInvestigation,dayService:createService,dayFilm:createFilm,dayBroadcast:createBroadcast};
+export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap,dayOffice:officeMap,dayCampus:campusMap,dayInvestigation:investigationMap,dayService:serviceMap,dayFilm:filmMap,dayBroadcast:broadcastMap,dayLegal:legalMap,dayTraining:trainingMap,dayWorkshop:workshopMap,dayStudy:studyMap};
+export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket,dayOffice:createOffice,dayCampus:createCampus,dayInvestigation:createInvestigation,dayService:createService,dayFilm:createFilm,dayBroadcast:createBroadcast,dayLegal:createLegal,dayTraining:createTraining,dayWorkshop:createWorkshop,dayStudy:createStudy};
 // Only the read-only day viewer installs these maps. Persistent game worlds keep their own registry.
 export function registerDayPlaces(maps){Object.assign(maps,DAY_PLACES);}
 export function placeList(){return Object.entries(DAY_PLACES).map(([id,m])=>({id,label:m.label,spots:m.spots.map(({id,label,description,action,gesture},index)=>({id,label,description,action,gesture,number:index+1}))}));}

@@ -51,6 +51,19 @@
   }
   function occupationLink(words, place, type) {
     const preparingMeal = /制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨/.test(words);
+    if (type === "meal" && !preparingMeal || /吃饭|用膳|用餐|进餐/.test(words) || /早餐|午餐|晚餐/.test(words) && !preparingMeal) return null;
+    if (/古风书房|府邸书房|王府书房|宫中书房|御书房|议事厅|朝堂|金銮殿|中军帐/.test(place)) {
+      return at("dayStudy", /离开|退下|退朝/.test(words) ? "exit" : /饮茶|品茶|喝茶/.test(words) ? "tea" : /休息|小憩/.test(words) ? "rest" : /取.*书卷|取.*卷轴|归还|卷轴架/.test(words) ? "scrolls" : /记录议事|记录要点/.test(words) ? "records" : /书写|写信|批阅|批复|写字|练字|奏折|誊写/.test(words) && !/阅读|翻阅/.test(words) ? "write" : /陈述|汇报|主持|说明安排/.test(words) ? "address" : /议事|朝议|商议|听取|早朝/.test(words) ? "council" : "read");
+    }
+    if (/训练基地|军营|营地岗亭|训练场|营区|操场值勤/.test(place)) {
+      return at("dayTraining", /喝水|補水|补水|喝茶|饮茶|喝咖啡/.test(words) ? "water" : /离开|归营结束/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /巡查|巡逻/.test(words) ? "patrol" : /岗亭|登记|交接|值勤|值班/.test(words) ? "duty" : /简报|任务说明|部署|汇报|路线图/.test(words) ? "briefing" : /敬礼|集合|列队|报到|立正/.test(words) ? "report" : /热身|拉伸/.test(words) ? "stretch" : /装备|取.*用品|归还/.test(words) ? "gear" : "run");
+    }
+    if (/律所|律师事务所|法庭|法院|审判庭|法律咨询室/.test(place)) {
+      return at("dayLegal", /喝水|補水|补水|喝茶|饮茶|喝咖啡/.test(words) ? "water" : /离开|下班/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /取.*案卷|归还|案卷柜/.test(words) ? "files" : /法槌|敲槌/.test(words) ? "judge" : /书记员|庭审笔录|庭审记录/.test(words) ? "record" : /旁听|听审/.test(words) && !/法官|审判席/.test(words) ? "audience" : /法官|审判席|主持庭审|审案/.test(words) ? "hearing" : /辩论|辩护|陈述|出庭|庭上/.test(words) ? "argue" : /咨询|会谈|接待|听取情况/.test(words) ? "consult" : /文书|起草|手写|校阅/.test(words) ? "draft" : "research");
+    }
+    if (/维修间|维修工坊|修理厂|修理间|机械工坊|制作工坊|木工坊|工坊/.test(place)) {
+      return at("dayWorkshop", /喝水|補水|补水|喝茶|饮茶|喝咖啡/.test(words) ? "water" : /离开|下班/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /记录|写.*进度/.test(words) ? "records" : /零件|耗材/.test(words) && /取|归还/.test(words) ? "parts" : /工具/.test(words) && /取|归还|准备/.test(words) ? "tools" : /电脑|图纸|诊断/.test(words) ? "diagnose" : /调试|测试|校准/.test(words) ? "test" : /制作|手工|打磨|木工|装配手工/.test(words) ? "craft" : "repair");
+    }
     if (/吃饭|用餐|喝水|喝茶|喝咖啡|观看直播|收看直播|看直播|听录音/.test(words) || /早餐|午餐|晚餐/.test(words) && !preparingMeal) return null;
     if (["meal", "coffee"].includes(type) && !/制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨|出餐|冲煮|制作咖啡|做咖啡|调酒|调制/.test(words)) return null;
     if (/候车|等车|乘车|通勤|坐车|赶车/.test(words)) return null;
@@ -78,7 +91,8 @@
   }
   function infer(slot) {
     const type = slot.type || "other", words = String(slot.title || ""), place = String(slot.location || ""), text = place + " " + words;
-    const home = /家里|家中|在家|回家|住处|府中|寝室|卧室/.test(text);
+    const historical = /古风书房|府邸书房|王府书房|宫中书房|御书房|议事厅|朝堂|金銮殿|中军帐/.test(place);
+    const home = !historical && /家里|家中|在家|回家|住处|公寓|出租屋|府中|寝室|卧室/.test(text);
     const outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆/.test(text);
     const office = !home && !outside && (/办公室|办公区|公司|会议室|会议厅|部门工位|办公楼/.test(text) || /开会|例会|组会|项目汇报|部门会议/.test(words));
     const campus = !home && (!office || /教室|校园|学校|教学楼/.test(place)) && (!outside || /食堂/.test(place)) && /教室|课堂|校园|学校|教学楼|讲台|黑板|上课|听课|授课|讲课|备课|教案|课间|下课/.test(text);

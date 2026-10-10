@@ -984,5 +984,305 @@
         "gesture": "rest"
       }
     ]
+  },
+  {
+    "id": "dayLegal",
+    "label": "律所／法庭",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "律所与庭审区入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "files",
+        "label": "案卷柜取放材料",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "research",
+        "label": "电脑检索法条",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "draft",
+        "label": "起草文书",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "consult",
+        "label": "会谈与法律咨询",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "argue",
+        "label": "庭上陈述与辩论",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "hearing",
+        "label": "法官席听审",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "judge",
+        "label": "审判席敲槌",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "record",
+        "label": "书记员庭审记录",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "audience",
+        "label": "旁听席听审",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "庭审间隙休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "water",
+        "label": "庭审间隙喝水",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "exit",
+        "label": "收卷离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayTraining",
+    "label": "训练基地",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "训练基地入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "gear",
+        "label": "装备柜前准备",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "briefing",
+        "label": "沙盘图前听取简报",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "report",
+        "label": "集合与敬礼",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "stretch",
+        "label": "训练前热身",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "run",
+        "label": "操场体能训练",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "patrol",
+        "label": "北侧巡查点",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "checkpoint",
+        "label": "东侧巡查点",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "duty",
+        "label": "岗亭登记与交接",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "训练间隙休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "water",
+        "label": "训练后补水",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "exit",
+        "label": "归还用品离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayWorkshop",
+    "label": "工坊／维修间",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "工坊卷帘门入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "tools",
+        "label": "工具架前准备",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "parts",
+        "label": "零件柜前取放",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "diagnose",
+        "label": "电脑诊断与查图纸",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "repair",
+        "label": "台前拆装与检修",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "craft",
+        "label": "工台手工制作",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "test",
+        "label": "测试台调试",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "records",
+        "label": "记录维修与制作进度",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "工坊间隙休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "water",
+        "label": "工坊间隙喝水",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "exit",
+        "label": "收工具离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayStudy",
+    "label": "古风书房／议事厅",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "书房与议事厅入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "scrolls",
+        "label": "卷轴架前取放",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "read",
+        "label": "窗下读卷",
+        "action": "read",
+        "gesture": "read"
+      },
+      {
+        "id": "write",
+        "label": "笔墨桌前书写",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "council",
+        "label": "议事席听取商议",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "address",
+        "label": "厅内陈述与议事",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "records",
+        "label": "记录议事要点",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "tea",
+        "label": "茶席小歇",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "rest",
+        "label": "窗边长椅休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "收卷离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
   }
 ];})(globalThis);

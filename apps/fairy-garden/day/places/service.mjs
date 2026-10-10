@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-eef50c4ec2251efc';
-import {cabinet} from './work-room-kit.mjs?v=fg-eef50c4ec2251efc';
-import {soupPot,preparationSurface} from './kitchen-kit.mjs?v=fg-eef50c4ec2251efc';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-87e36a9d89c69f3f';
+import {cabinet} from './work-room-kit.mjs?v=fg-87e36a9d89c69f3f';
+import {soupPot,preparationSurface} from './kitchen-kit.mjs?v=fg-87e36a9d89c69f3f';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'prep-counter',kind:'counter',x:-4.8,z:-3.83,w:2.7,d:1,top:.85,work:{prep:{x:.12,y:.93,z:.30}}},
@@ -56,6 +56,5 @@ export function createService(){
  for(let i=0;i<4;i++){k.cylinder('MixBottle',{x:-.40+i*.25,y:1.14,z:.24,r:.056,h:.40,color:['#a3b5a0','#c9a377','#819ba8','#b7ad98'][i]},bar);k.cylinder('BottleNeck',{x:-.40+i*.25,y:1.37,z:.24,r:.027,h:.10,color:'#dde0cc'},bar);}
  const till=k.root.getObjectByName('cash-counter');k.box('TillScreen',{x:.12,y:1.10,z:-.08,w:.50,h:.30,d:.06,color:'#688e88'},till);k.box('TillDisplay',{x:.12,y:1.10,z:-.115,w:.42,h:.22,d:.015,color:'#d8e3d0'},till);
  k.sign('MenuBoard',{text:'今日出餐',x:-4.6,y:2.43,z:-5.36,w:2.12,h:.52,color:'#6a8c81',ink:'#eee7d5'});k.sign('ServiceSign',{text:'从备料到出餐',x:-6.87,y:2.0,z:1.72,w:2.6,h:.38,heading:Math.PI/2,color:'#f0e2ca',ink:'#a16c54'});
- k.root.userData.furniture=furniture.map(p=>({...p}));for(const p of furniture){const g=k.root.getObjectByName(p.id);if(g)g.userData.furnitureId=p.id;}
- const result=k.finish();result.root.name='DayService';return result;
+ return finishRoom(k,serviceMap,'DayService');
 }
