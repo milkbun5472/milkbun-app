@@ -10183,6 +10183,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_tiesPos: v => typeof setTiePos === "function" && setTiePos(v),
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
+      x_inventory: v => typeof setInventory === "function" && setInventory(v),
       x_myRecur: v => { const l = Array.isArray(v) ? v : []; myRecurRef.current = l; setMyRecurState(l); },
       x_shopWish: v => typeof setWish === "function" && setWish(v),
       x_worlds: v => typeof setWorlds === "function" && setWorlds(v),
@@ -10206,6 +10207,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(m => (m.charIds || []).some(x => doomed.has(x)) ? { ...m, charIds: m.charIds.filter(x => !doomed.has(x)) } : m);
       if (next.length !== lib.length || next.some((m, i) => m !== lib[i])) saveMemLib(next); }
     if (want("life") && window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
+    // 老流水没存出处（ref），只有一行「转账给 某某」——按名字再扫一遍，只扫我自己的钱包流水
+    if (want("money")) {
+      const names = (characters || []).filter(c => c && doomed.has(c.id)).flatMap(c => [c.name, c.remark]).map(x => String(x || "").trim()).filter(x => x.length >= 2);
+      if (names.length) { const wl = loadJSON("x_walletLog", []) || [];
+        const n = wl.filter(w => !(w && !w.ref && names.some(nm => String(w.label || "").includes(nm))));
+        if (n.length !== wl.length) { saveJSON("x_walletLog", n); if (typeof setWalletLog === "function") setWalletLog(n); } }
+    }
     if (want("bond")) // 关系那一格的键是「me->角色id」「角色id->别人」这种两头拼起来的，CharPurge 只认整键＝id，扫不到
     { const rels = loadJSON("x_rels", {}), keys = Object.keys(rels || {}).filter(k => k.split("->").some(x => doomed.has(x)));
       if (keys.length) { keys.forEach(k => delete rels[k]); saveJSON("x_rels", rels); if (typeof setRels === "function") setRels(rels); } }
