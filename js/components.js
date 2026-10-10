@@ -13823,7 +13823,7 @@ function BdayLetterCard({ m, character }) {
   return h("div", { className: "py-2 flex justify-center" },
     h("div", { "data-wk": "bdayletter", role: "button", onClick: () => setOpen(o => !o), className: "active:opacity-90",
       style: { width: open ? "86%" : 230, minHeight: 40, padding: "16px 16px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, boxShadow: "0 6px 16px rgba(0,0,0,.07)", cursor: "pointer", textAlign: open ? "left" : "center" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog, textAlign: "center" } }, "HAPPY BIRTHDAY"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog, textAlign: "center" } }, "生日快乐"),
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginTop: 8, lineHeight: 1.35, wordBreak: "break-word", textAlign: "center" } }, m.title || "生日信"),
       open ? h("div", { style: { fontFamily: F_HAND, fontSize: 14, lineHeight: 1.75, color: t.sub, marginTop: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, m.content || "")
         : h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, marginTop: 10, letterSpacing: ".15em" } }, "点开看信"),
@@ -13835,7 +13835,7 @@ function BdayPlanCard({ m, character, onOpen }) {
   useEffect(() => { dateHandFont(); }, []);
   return h("div", { className: "py-2 flex justify-center" },
     h("div", { "data-wk": "bdayplan", style: { width: 220, padding: "16px 16px 14px", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, boxShadow: "0 6px 16px rgba(0,0,0,.07)", textAlign: "center" } },
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog } }, m.opened ? "OPENED" : "SEALED"),
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 8.5, letterSpacing: ".28em", color: t.fog } }, m.opened ? "拆过了" : "还封着"),
       h("div", { style: { fontFamily: F_HAND, fontSize: 15, color: t.sub, marginTop: 10, lineHeight: 1.5, wordBreak: "break-word" } }, m.opened ? (m.title || "已拆开") : "到你生日那天再拆"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog, marginTop: 6 } }, character.remark || character.name || "TA"),
       h("button", { onClick: () => onOpen && onOpen(m), className: "active:opacity-70",
