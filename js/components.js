@@ -2112,6 +2112,15 @@ const APP_BUILTIN_ICON = { assistant: "img/qiu-icon.png" };
 // ⚠️每次调用都返回一份新的：直接导出一个常量对象的话，App 里一改就把这份
 //   「出厂快照」也改了，下次「恢复默认」拿到的是被改过的那份。
 const QIU_AVATAR = "img/qiu-avatar.png";
+// 名片头像（群友 2026-10-10：「这只鸡点进去是面具设定，我反复上传照片保存，退出来为什么依旧是鸡」）：
+//   名片默认自带小鸡，而显示时名片那张优先——于是面具里换多少次都还是鸡，偏偏点小鸡打开的正是面具。
+//   改成：名片头像还是出厂那只小鸡（没在名片编辑里亲手换过）时，跟着面具头像走；亲手换过才用名片自己那张。
+//   ⚠️认小鸡按文件名认：公共版出炉会把图换成别的格式，旧存档里存的还是原来那个地址。
+const isQiuDefaultAvatar = src => /(^|\/)qiu-avatar\.(png|webp|jpe?g)(\?|$)/.test(String(src || ""));
+const homeCardAvatar = (card, profile) => {
+  const own = card && card.avatar, mine = profile && profile.avatarImage;
+  return own && !(isQiuDefaultAvatar(own) && mine) ? own : (mine || own || "");
+};
 function HOME_CARD_PRESET() {
   return {
     name: "秋秋",
@@ -7347,7 +7356,7 @@ function HomeCard({ card, profile, characters, onEditCard, onEditProfile, onOpen
             boxShadow: onCover ? "0 2px 8px rgba(0,0,0,.36)" : "0 2px 6px rgba(30,28,24,.13)" } },
           // 名片头像跟聊天头像分开（她 2026-09-04：「把主页我的名片和我聊天头像分成俩不一样的」）。
           // 没单独设就还是跟着「我的面具」那张——原来只有这一张，改名片就等于改聊天。
-          h(Avatar, { character: { name: c.name || profile.name, avatarImage: c.avatar || profile.avatarImage, color: accent }, size: 58, radius: 999 }))),
+          h(Avatar, { character: { name: c.name || profile.name, avatarImage: homeCardAvatar(c, profile), color: accent }, size: 58, radius: 999 }))),
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子
       // 底下那排数：左对齐、没有分隔线，不是社交资料页那种三等分格子。
       // 权重压到第三眼——数字比名字小一大截、也不用满墨；单位字更小更淡。
