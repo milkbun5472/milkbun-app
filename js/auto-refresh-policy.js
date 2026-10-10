@@ -50,7 +50,9 @@
       const migrateWeeklyOn = f.id === "weekly" && src.version === 1;
       features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars,
         // 频率档（她 2026-10-03：「整套乘以几倍速」）：只有带 rates 的那几样有，缺省就是中频＝原来那套
-        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : (f.rateDefault || "mid") } : {}) };
+        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : (f.rateDefault || "mid"),
+          // 每人自己的档（她 2026-10-11：「角色里面也搞一个，默认跟总开关一样，可以单独选」）：没挑过＝跟总的走
+          charRates: Object.fromEntries(Object.entries(v.charRates && typeof v.charRates === "object" ? v.charRates : {}).filter(([, r]) => f.rates.some(x => x.id === r))) } : {}) };
     });
     return { version: 2, features, legacyMerged: !!src.legacyMerged };
   }
@@ -101,16 +103,30 @@
     if (!f || !f.rates || !f.rates.some(r => r.id === rate)) return n;
     n.features[id] = { ...n.features[id], rate }; return n;
   }
-  // 这一样此刻的倍数（没有档位的一律 1）
-  function rateX(policy, id) {
+  // 这个人单独挑的档；rate 给空＝不单独挑了，回去跟总的
+  function setCharRate(policy, id, charId, rate) {
+    const n = normalize(policy), f = byId[id];
+    if (!f || !f.rates || !charId) return n;
+    const cr = { ...(n.features[id].charRates || {}) };
+    if (f.rates.some(r => r.id === rate)) cr[charId] = rate; else delete cr[charId];
+    n.features[id] = { ...n.features[id], charRates: cr }; return n;
+  }
+  // 这个人此刻用哪一档：自己挑过用自己的，没挑过跟总的
+  function rateOf(policy, id, charId) {
+    const f = byId[id]; if (!f || !f.rates) return "";
+    const p = normalize(policy).features[id];
+    return (charId && p.charRates && p.charRates[charId]) || p.rate;
+  }
+  // 这一样此刻的倍数（没有档位的一律 1）；给了 charId 就按这个人的档
+  function rateX(policy, id, charId) {
     const f = byId[id]; if (!f || !f.rates) return 1;
-    const cur = normalize(policy).features[id].rate;
+    const cur = rateOf(policy, id, charId);
     return (f.rates.find(r => r.id === cur) || { x: 1 }).x;
   }
   function setChar(policy, id, charId, on) {
     const n = normalize(policy), cur = n.features[id];
     n.features[id] = { ...cur, chars: { ...cur.chars, [charId]: !!on } }; return n;
   }
-  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setRate, rateX, setChar, absorbLegacy, turnOnFor, charOn };
+  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setRate, setCharRate, rateOf, rateX, setChar, absorbLegacy, turnOnFor, charOn };
   if (typeof module !== "undefined" && module.exports) module.exports = root.AutoRefreshPolicy;
 })(typeof window !== "undefined" ? window : globalThis);

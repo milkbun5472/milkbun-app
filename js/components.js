@@ -19051,6 +19051,7 @@ function ChatSettings({
   // 双语（v56.56）：让模型生成的时候顺手把中译一起给出来，替掉事后调免费接口那条路
   const [bilingual, setBilingual] = useState(!!settings.bilingual);
   const [proactive, setProactive] = useState(!!settings.proactive);
+  const [proactiveRate, setProactiveRate] = useState(settings.proactiveRate || "");
   const [defaultOffline, setDefaultOffline] = useState(!!settings.defaultOffline);
   const [enterRoom, setEnterRoom] = useState(typeof settings.enterRoom === "string" && settings.enterRoom ? settings.enterRoom : "main");
   // 通话连续播报 & 流式字幕：分角色（她 2026-09-12）。
@@ -19404,6 +19405,7 @@ function ChatSettings({
       showReasoning,
       bilingual,
       proactive,
+      proactiveRate,
       proactiveMin: proactiveHr * 60,
       showMyAvatar,
       showTime,
@@ -19905,6 +19907,20 @@ function ChatSettings({
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub } }, "想你时只发消息"),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "你们在一起之后，" + cNm + " 想你想到忍不住时，有时不发消息，而是去愿望板钉一条、或往情侣空间留一样东西。开了这个就一律来发消息。")),
     h("div", { className: "shrink-0" }, h(Toggle, { on: dongnianMsgOnly, onChange: () => setMsgOnly(v => !v) }))) : null,
+  // 这个人找你多勤（她 2026-10-11）：默认跟设置里总的那一档，也可以单独挑
+  proactive ? (function () {
+    const R = ((window.AutoRefreshPolicy.FEATURES.find(function (f) { return f.id === "proactive"; }) || {}).rates) || [];
+    const gz = (R.find(function (r) { return r.id === settings.proactiveRateGlobal; }) || {}).zh || "中频";
+    const opts = [["", "跟总的（" + gz + "）"]].concat(R.map(function (r) { return [r.id, r.zh]; }));
+    return h("div", { "data-wk": "proactiverate", className: "pt-3", style: { paddingLeft: 14 } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.sub } }, "多久来找你一次"),
+      h("div", { className: "flex flex-wrap gap-2", style: { marginTop: 8 } }, opts.map(function (o) {
+        const on = proactiveRate === o[0];
+        return h("button", { key: o[0] || "follow", "data-on": on ? "1" : "0", onClick: function () { setProactiveRate(o[0]); }, className: "active:opacity-60",
+          style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", minHeight: 40, borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line),
+            background: on ? t.ink : "transparent", color: on ? t.bg2 : t.fog } }, o[1]);
+      })));
+  })() : null,
   proactive && h("div", {
     className: "pt-3"
   }, h("div", {

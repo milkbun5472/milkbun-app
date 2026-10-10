@@ -1565,7 +1565,8 @@ function App() {
   const setAutoRefreshRate = (feature, rate) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setRate(autoRefreshRef.current, feature, rate));
   // 主动私聊的倍速（低 ×0.5／中 ×1／高 ×2）：想念的钟走多快、刚试过一次后等多久，都按它缩放
   const walletWeekly = () => { try { return window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.wallet.rate === "week"; } catch (e) { return false; } };
-  const proactiveX = () => (window.AutoRefreshPolicy.rateX ? window.AutoRefreshPolicy.rateX(autoRefreshRef.current, "proactive") : 1) || 1;
+  // 给了 charId 就看这个人自己挑的档（聊天设置里单独挑过的），没挑过跟总的
+  const proactiveX = charId => (window.AutoRefreshPolicy.rateX ? window.AutoRefreshPolicy.rateX(autoRefreshRef.current, "proactive", charId) : 1) || 1;
   const setAutoRefreshGlobal = (feature, on) => saveAutoRefreshPolicy(window.AutoRefreshPolicy.setGlobal(autoRefreshRef.current, feature, on));
   const setAutoRefreshChar = (feature, charId, on) => {
     saveAutoRefreshPolicy(window.AutoRefreshPolicy.setChar(autoRefreshRef.current, feature, charId, on));
@@ -7711,7 +7712,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           if (Date.now() - lastInteract < floorMin * 60000) continue;
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) pWhy(cid, "还没想到要找你（条子没过线）");
           if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) continue; // dongnian 说「还没想到要联系」→ 不动
-          const _cool = 25 * 60000 / proactiveX();   // 刚试过一次的冷却也跟着倍速走
+          const _cool = 25 * 60000 / proactiveX(cid);   // 刚试过一次的冷却也跟着倍速走
           if (Date.now() - (dongnianFiredRef.current[cid] || 0) < _cool) pWhy(cid, Math.round(_cool / 60000) + " 分钟内刚试过一次，等下一轮");
           if (Date.now() - (dongnianFiredRef.current[cid] || 0) < _cool) continue;
           // 醒着就发；睡着时只留一条窄缝：思念真的很重（forced 触发）才有 12% 概率半夜发一句。
@@ -7821,7 +7822,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const left = Math.ceil((floorMin * 60000 - (Date.now() - lastInteract)) / 60000);
     if (left > 0) return "离你们上次说话还不满 " + floorMin + " 分钟（还差 " + left + " 分钟）";
     if (jw && jw.triggers && !jw.triggers.some(t => t.action === "contact")) return "还没想到要找你（条子没过线）";
-    const fired = Math.ceil((25 * 60000 / proactiveX() - (Date.now() - (dongnianFiredRef.current[cid] || 0))) / 60000);
+    const fired = Math.ceil((25 * 60000 / proactiveX(cid) - (Date.now() - (dongnianFiredRef.current[cid] || 0))) / 60000);
     if (fired > 0) return "刚试过一次，" + fired + " 分钟后再试";
     if (sleepPhaseOf(c) === "asleep") return "TA 在睡觉——睡着时只有很想的时候才偶尔发一句，醒了再来";
     if (aPrideOf(cid) >= (window.DongnianEmotionA ? window.DongnianEmotionA.prideBlock : .5)) return "TA 还端着、拉不下脸";
@@ -7972,7 +7973,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let baseTs = dongnianTickRef.current[dnKey];
     if (baseTs == null) { try { const s0 = await eng.getState(); baseTs = s0.lastTick ? new Date(s0.lastTick).getTime() : now; } catch (e) { baseTs = now; } }
     // ×倍速：高频＝同样过一小时，想念按两小时攒；低频按半小时攒。阈值、算法一个字不动
-    const _px = proactiveX();
+    const _px = proactiveX(char.id);
     const mins = (now - baseTs) / 60000 * _px;
     dongnianTickRef.current[dnKey] = now;
     try {
@@ -30593,7 +30594,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: activeChar,
     // 「我在这儿的头像」那一格要显示我现在用的是哪张：跟聊天页同一个来源（这个人认的那张面具）
     meProfile: profileFor(activeChar.id),
-    settings: Object.assign({}, settingsFor(activeChar.id), { proactive: autoRefreshOn("proactive", activeChar.id) }),
+    settings: Object.assign({}, settingsFor(activeChar.id), { proactive: autoRefreshOn("proactive", activeChar.id),
+      // 主动私聊的档：这个人自己挑的（空＝跟总的），和总的那一档叫什么
+      proactiveRate: ((window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.proactive.charRates || {})[activeChar.id]) || "",
+      proactiveRateGlobal: window.AutoRefreshPolicy.normalize(autoRefreshRef.current).features.proactive.rate }),
     // 面具库只读地递进去：那儿只挑，不建、不改（建改在「信息 → 我 → 我的面具」）
     myMasks: masks,
     apiProfiles: apiProfiles,
@@ -30661,6 +30665,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       saveRemark(activeChar.id, s.remark);
       if (!!s.proactive !== autoRefreshOn("proactive", activeChar.id)) setAutoFromPage("proactive", activeChar.id, !!s.proactive);
+      if (s.proactiveRate !== undefined) saveAutoRefreshPolicy(window.AutoRefreshPolicy.setCharRate(autoRefreshRef.current, "proactive", activeChar.id, s.proactiveRate));
       pC(p => p.map(c => c.id === activeChar.id ? {
         ...c,
         patSig: s.patSig,
