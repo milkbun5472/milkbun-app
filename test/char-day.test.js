@@ -98,6 +98,14 @@ test('明确在家与外食分别去新小家或小店，日程原文决定位�
   assert.equal(f.K.presentation({type:'work',title:'整理报告',location:'工位'}).map,'dayWork');
   assert.equal(f.K.presentation({type:'social',title:'聊聊天',location:'咖啡店'}).map,'dayCafe');
 });
+test('生活控制与气质装修共用串行writer，快速手动自动切换保留最后选择和他人的存档',async()=>{
+ const f=setup();let stored={styles:{c2:'dusk'},visitorActivities:{c2:'drink'},future:{keep:true}},inFlight=0,maximum=0;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>{maximum=Math.max(maximum,++inFlight);await new Promise(r=>setTimeout(r,4));inFlight--;return true;};
+ f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ await Promise.all([f.K.saveHomeChange('c1','visitorActivities','read'),f.K.saveHomeChange('c1','motions','calm'),f.K.saveHomeChange('c1','visitorActivities','auto')]);
+ assert.equal(maximum,1);assert.equal(stored.visitorActivities.c1,'auto');assert.equal(stored.visitorActivities.c2,'drink');assert.equal(stored.motions.c1,'calm');assert.equal(stored.styles.c2,'dusk');assert.equal(stored.future.keep,true);
+});
 
 function placeViewer(f,initialCharId){
   const states=[],refs=[],snapshots=[];let cursor=0,refCursor=0;

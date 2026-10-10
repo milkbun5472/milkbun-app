@@ -1,12 +1,13 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-6e803a8b66fac295';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-6e803a8b66fac295';
-import {stepRoute} from '../locomotion.mjs?v=fg-6e803a8b66fac295';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-6e803a8b66fac295';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-6e803a8b66fac295';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-bc35c5341d4847ae';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-bc35c5341d4847ae';
+import {stepRoute} from '../locomotion.mjs?v=fg-bc35c5341d4847ae';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-bc35c5341d4847ae';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-bc35c5341d4847ae';
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'}};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
+const automaticActivities=['read','walk','drink','rest'];
 export const visitorAvoid=ta=>ta?[{x:ta.x,z:ta.z,r:clearance}]:[];
 function reachable(from,to,ta){const avoid=visitorAvoid(ta);return walkable(to.x,to.z,'dayHome')&&(!ta||gap(to,ta)>=clearance)&&findPath(from,to,'dayHome',avoid);}
 export function visitSeats(map,occupied){
@@ -36,10 +37,11 @@ export function visitNear(from,ta){
  const choices=[];for(const distance of [1.05,1.4,1.8])for(let n=0;n<16;n++){const a=n*Math.PI/8,to={x:ta.x+Math.cos(a)*distance,z:ta.z+Math.sin(a)*distance},route=reachable(from,to,ta);if(route)choices.push({to,route});}
  return choices.sort((a,b)=>gap(from,a.to)-gap(from,b.to))[0]||null;
 }
-export function createHomeVisit({avatar,ta,motion=()=>null,onChange=()=>{}}){
- let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,leaving=false,notice='',last='',activity=null,pendingActivity=null,dwell=0,task=null;
- const inspect=()=>({present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:route.length>0,leaving,notice,activity,task,dailyAction:avatar.root.userData.dailyAction,motion:motion(),visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
- function tell(text){if(text!==undefined)notice=text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,leaving,notice,activity]);if(key!==last){last=key;onChange(info);}}
+export function createHomeVisit({avatar,ta,motion=()=>null,onChange=()=>{},choice='auto'}){
+ let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,leaving=false,notice='',last='',activity=null,pendingActivity=null,dwell=0,task=null,control=choice==='manual'||Object.hasOwn(activities,choice)?'manual':'auto',manualAction=Object.hasOwn(activities,choice)?choice:'manual',autoWait=8,autoIndex=0;
+ const inspect=()=>({present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:route.length>0,leaving,notice,activity,pendingActivity,control,manualAction,task,dailyAction:avatar.root.userData.dailyAction,motion:motion(),visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
+ function tell(text){if(text!==undefined)notice=present&&control==='auto'?'自动 · '+text:text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,leaving,notice,activity,pendingActivity,control,manualAction]);if(key!==last){last=key;onChange(info);}}
+ function halt(){route=[];speed=0;leaving=false;seat=pendingSeat=null;activity=pendingActivity=task=null;dwell=0;}
  function go(to,nextSeat=null,nextActivity=null){
   const next=reachable(position,to,ta());if(!next){tell('这里暂时走不过去，换个空位试试。');return false;}
   seat=null;activity=null;task=null;dwell=0;pendingSeat=nextSeat;pendingActivity=nextActivity;route=next;speed=0;
@@ -49,12 +51,13 @@ export function createHomeVisit({avatar,ta,motion=()=>null,onChange=()=>{}}){
   present=true;leaving=false;seat=pendingSeat=null;activity=pendingActivity=task=null;dwell=0;position={...MAPS.dayHome.spawn};avatar.root.visible=true;
   // An arriving visitor uses the existing doorway, then gives it back.
   avatar.root.position.set(position.x,floorHeight('dayHome',position),position.z);
-  const free=visitNear(position,ta());if(free)go(free.to);else tell('已进小屋，点空地可以走动。');return true;
+  autoWait=8;autoIndex=Math.floor(motion()?.phase||0);
+  if(control==='manual'){if(activities[manualAction])perform(manualAction);else tell('手动控制中，点空地或选动作。');}
+  else{const free=visitNear(position,ta());if(free)go(free.to);else tell('已进小屋，点空地可以走动。');}return true;
  }
- function stand(){if(!present||leaving)return false;seat=pendingSeat=null;activity=pendingActivity=task=null;dwell=0;route=[];tell('已起身，点空地可以走动。');return true;}
- function act(kind,point){
-  if(!present||leaving)return false;
-  if(kind==='stand')return stand();
+ function stand(){halt();tell('手动控制中，点空地或选动作。');return true;}
+ function perform(kind,point){
+  if(kind==='stand'||kind==='manual')return stand();
   if(kind==='walk')return point&&Number.isFinite(point.x)&&Number.isFinite(point.z)?go(point):false;
   if(kind==='sit'){const q=chooseVisitSeat(MAPS.dayHome,position,ta()?.seat,ta());if(!q){tell('没有能走到的空座位，可以站着陪一会儿。');return false;}return go(q.seat.approach,q.seat);}
   if(activities[kind]){
@@ -64,14 +67,41 @@ export function createHomeVisit({avatar,ta,motion=()=>null,onChange=()=>{}}){
    const ok=go(q.seat.approach,q.seat,kind);if(ok)tell('正在走去'+activities[kind].label+'的位置…');return ok;
   }
   if(kind==='near'){const q=visitNear(position,ta());if(!q){tell('TA旁边暂时没有能走到的空位。');return false;}return go(q.to);}
-  if(kind==='leave'){if(!go(MAPS.dayHome.spawn))return false;leaving=true;tell('正在走到门口…');return true;}
+  if(kind==='leave'){if(!go(MAPS.dayHome.spawn))return false;if(!route.length){close('已离开小屋，继续看看TA的一天。');return true;}leaving=true;tell('正在走到门口…');return true;}
   return false;
+ }
+ function act(kind,point){
+  if(!present||!['auto','manual','stand','walk','sit','near','leave',...Object.keys(activities)].includes(kind))return false;
+  if(kind==='walk'&&(!point||!Number.isFinite(point.x)||!Number.isFinite(point.z)))return false;
+  // The user's command revokes every pending automatic decision immediately,
+  // including an unavailable destination. Only an explicit auto command re-arms it.
+  if(kind==='auto'){control='auto';manualAction='manual';halt();autoWait=0;tell('会自己找空位活动，随时可以手动接管。');return true;}
+  control='manual';manualAction=kind==='leave'?'manual':kind;
+  leaving=false;route=[];pendingSeat=pendingActivity=null;speed=0;
+  // Keep a usable current seat when switching its activity; failed commands stop
+  // the old activity rather than allowing the automatic plan to finish later.
+  const ok=perform(kind,point);if(!ok){halt();tell();}else tell();return ok;
+ }
+ function stroll(){
+  for(const radius of [1.6,2.4])for(let n=0;n<16;n++){
+   const angle=(n+autoIndex*3)*Math.PI/8,to={x:position.x+Math.cos(angle)*radius,z:position.z+Math.sin(angle)*radius};
+   if(reachable(position,to,ta())&&go(to)){tell('在小家走一走。');return true;}
+  }return false;
+ }
+ function automatic(){
+  autoWait=32+(motion()?.habit||12)*1.5+(motion()?.phase||0)*3;
+  for(let n=0;n<automaticActivities.length;n++){
+   const kind=automaticActivities[autoIndex++%automaticActivities.length];
+   if(kind==='walk'?stroll():perform(kind))return;
+  }
+  tell('暂时没有能走到的空位，先歇一会儿。');
  }
  function close(text=''){present=false;leaving=false;route=[];seat=pendingSeat=null;activity=pendingActivity=task=null;avatar.root.visible=false;tell(text);}
  function tick(dt,time){
   if(!present)return;
   let moving=route.length>0;
   const profile=motion();
+  if(control==='auto'&&!moving){autoWait-=Math.max(0,dt);if(autoWait<=0){automatic();moving=route.length>0;}}
   if(moving){const step=stepRoute(position,route,dt,{speed,walkSpeed:1.45*(profile?.walk||1),clear:(a,b)=>segmentClear(a,b,'dayHome',visitorAvoid(ta()))});position=step.position;speed=step.speed;if(step.heading!==null)yaw=step.heading;
    if(step.blocked){pendingSeat=pendingActivity=null;leaving=false;tell('路线被挡住了，点另一块空地再走。');}
    else if(!route.length){if(leaving){close('已离开小屋，继续看看TA的一天。');return;}seat=pendingSeat;activity=pendingActivity;pendingSeat=pendingActivity=null;dwell=0;tell(activity?'你在'+activities[activity].label+'，TA继续自己的安排。':seat?'已坐到空位上，可以聊聊。':'已走到位置，点空地可以走动。');}

@@ -21,13 +21,18 @@
     return { day, minute, time: clockText(minute), rows, slot, hasPlan: !!rows.length };
   }
   function presentation(slot) { return root.CharDayLink.presentation(slot); }
-  async function saveHomeChange(charId,section,value){
-    const previous=loadJSON("x_charDayHomes",{})||{},next={...previous,version:3,[section]:{...previous[section],[String(charId)]:value}};
-    const result=await commitJSONDurable("x_charDayHomes",next);
-    if(!result?.durable||!result?.live)throw Error("save");
-    return next;
+  let homeWrite=Promise.resolve();
+  function saveHomeChange(charId,section,value){
+    const write=homeWrite.catch(()=>{}).then(async()=>{
+      const previous=loadJSON("x_charDayHomes",{})||{},next={...previous,version:3,[section]:{...previous[section],[String(charId)]:value}};
+      const result=await commitJSONDurable("x_charDayHomes",next);
+      if(!result?.durable||!result?.live)throw Error("save");
+      return next;
+    });
+    homeWrite=write;return write;
   }
-  root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS, saveHomeChange };
+  const visitChoice=info=>info.control==="auto"?"auto":["read","drink","eat","rest"].includes(info.manualAction)?info.manualAction:"manual";
+  root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS, saveHomeChange, visitChoice };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
       [book, setBook] = useState(false), [preview, setPreview] = useState(null), [demoIndex, setDemoIndex] = useState(0),
@@ -42,7 +47,7 @@
       [activityStatus,setActivityStatus]=useState(null), [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false), [visitStatus,setVisitStatus]=useState(null);
     const kbLift = useKbLift();
     const now = Date.now();
-    const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null),decorScroll=useRef(null),decorPositions=useRef({});
+    const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null),decorScroll=useRef(null),decorPositions=useRef({}),visitSave=useRef({});
     const demo = id === DEMO.id, char = demo ? DEMO : (props.characters || []).find(c => String(c.id) === String(id));
     useEffect(() => {
       props.onChatVisibility?.(char, chatOpen && !editor && !demo && !showcase && !book && !homeOptions);
@@ -57,7 +62,7 @@
     const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
     const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情" : "今天还没有日程");
     const visitorData=props.visitorFor?.(char)||{};
-    const payload = char && { persona:char.persona||"",motionStyle:demo?demoMotion:homes.motions?.[String(char.id)]||"auto",visitorData:{...visitorData,motionStyle:demo?demoVisitorMotion:homes.visitorMotions?.[String(char.id)]||"auto"},charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, slot: slot || null,
+    const payload = char && { persona:char.persona||"",motionStyle:demo?demoMotion:homes.motions?.[String(char.id)]||"auto",visitorData:{...visitorData,activityChoice:demo?"auto":homes.visitorActivities?.[String(char.id)]||"auto",motionStyle:demo?demoVisitorMotion:homes.visitorMotions?.[String(char.id)]||"auto"},charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, slot: slot || null,
       at: preview || demo ? null : now, preview: !!preview || demo, editing: !!editor, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
       homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase && !editor,
       presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
@@ -70,7 +75,7 @@
       const ready = e => {
         if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin) return;
         if(e.data?.type === "char-day-activity"){setActivityStatus(e.data);return;}
-        if(e.data?.type === "char-day-visit"){setVisitStatus(e.data);return;}
+        if(e.data?.type === "char-day-visit"){setVisitStatus(current=>({...e.data,saveNotice:current&&current.charId===e.data.charId?current.saveNotice:""}));rememberVisit(e.data);return;}
         if (e.data?.type === "char-day-layout") { setEditor(current => current ? {placements:e.data.placements,selected:e.data.selected,dragging:e.data.dragging,busy:e.data.busy} : null); setLayoutNotice(e.data.notice || ""); const list=iframe.current?.contentWindow?.CharDayScene?.listFurniture?.(); if(list)setFurniture(list); return; }
         if (e.data?.type === "char-day-view") { setFollow(!!e.data.following); return; }
         if (e.data?.type !== "char-day-status") return;
@@ -80,7 +85,20 @@
     }, []);
     const ink = "#4a493c", soft = "#827d69", paper = "#eeeadf";
     const visiting=visitStatus?.charId===String(char?.id)&&visitStatus.present;
-    const visitAction=kind=>iframe.current?.contentWindow?.CharDayScene?.visitAction?.(kind);
+    function rememberVisit(info,explicit=false){
+      const current=stateRef.current,charId=String(info.charId||current?.charId||"");
+      if(!info.present&&!explicit||!['auto','manual'].includes(info.control)||charId!==current?.charId||current.preview)return;
+      const choice=visitChoice(info),before=visitSave.current[charId];
+      if(before?.choice===choice&&!(explicit&&before.failed))return;
+      const record=visitSave.current[charId]={choice,failed:false};
+      if(!before&&choice===current.visitorData.activityChoice)return;
+      saveHomeChange(charId,"visitorActivities",choice).then(next=>{
+        setHomes(next);if(visitSave.current[charId]===record)setVisitStatus(v=>v?.charId===charId?{...v,saveNotice:""}:v);
+      }).catch(()=>{
+        record.failed=true;if(visitSave.current[charId]===record)setVisitStatus(v=>v?.charId===charId?{...v,saveNotice:"这次没能记住选择，当前仍按你的选择活动；重新选一次可以再保存。"}:v);
+      });
+    }
+    const visitAction=kind=>{const scene=iframe.current?.contentWindow?.CharDayScene,ok=scene?.visitAction?.(kind),info=scene?.inspect?.().visitor;if(info)rememberVisit(info,true);return ok;};
     const btn = { minHeight: 44, padding: "9px 12px", border: "1px solid #cfc5ae", borderRadius: 10, background: "#f9f5e9", color: ink, fontSize: 12 };
     const outer = body => h("div", { "data-wk": "cdaypage", className: "h-full flex flex-col", style: { position: "relative", background: paper, color: ink } }, body);
     const head = (back, right) => h(Head, { zh: "TA的一天", sub: char ? char.remark || char.name : "跟着TA看看今天", bg: "transparent", ink, onBack: back, right });
@@ -204,9 +222,9 @@
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           !showcase && slot?.location && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, slot.location + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? " · "+activityStatus.label+" · "+activityStatus.spotLabel : "")),
           !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
-          !demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&visitStatus.notice&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},visitStatus.notice)),
+          !demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&(visitStatus.notice||visitStatus.saveNotice)&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},[visitStatus.notice,visitStatus.saveNotice].filter(Boolean).join(" · "))),
         !editor&&!demo&&!preview&&!showcase&&payload.presentation.map==="dayHome"&&!visiting&&h("button",{"data-wk":"cdayvisitopen",disabled:visitStatus?.busy,style:{...btn,position:"absolute",right:12,bottom:92},onClick:()=>iframe.current?.contentWindow?.CharDayScene?.joinVisit?.()},visitStatus?.busy?"准备中…":"进小屋"),
-        visiting&&!editor&&h("select",{"data-wk":"cdayvisitactivity","aria-label":"你在小家做什么",value:visitStatus.activity||"",disabled:visitStatus.busy||visitStatus.leaving,style:{...btn,position:"absolute",right:12,bottom:92,maxWidth:"calc(100% - 24px)",height:44},onChange:e=>visitAction(e.target.value)},h("option",{value:"",disabled:true},"做点什么"),...[["read","看会书"],["drink","喝口水"],["eat","在餐桌吃点东西"],["rest","坐着歇会"]].map(([kind,label])=>h("option",{key:kind,value:kind},label))),
+        visiting&&!editor&&h("select",{"data-wk":"cdayvisitactivity","aria-label":"你在小家做什么",value:visitChoice(visitStatus),style:{...btn,position:"absolute",right:12,bottom:92,maxWidth:"calc(100% - 24px)",height:44},onChange:e=>visitAction(e.target.value)},h("option",{value:"auto"},"自动活动"),h("option",{value:"manual"},"手动控制 · 停下来"),...[["read","手动 · 看会书"],["drink","手动 · 喝口水"],["eat","手动 · 在餐桌吃点东西"],["rest","手动 · 坐着歇会"]].map(([kind,label])=>h("option",{key:kind,value:kind},label))),
         !editor && payload.presentation.map === "dayHome" && h("button", { "data-wk": "cdayhomestyle", style: { ...btn, position: "absolute", right: 12, bottom: preview || !state.hasPlan && !demo ? 92 : 40 }, onClick: () => {setBook(false);setVisitStatus(null);setHomeOptions(true);} }, "小家样式"),
         !editor && !demo && !showcase && props.renderChat && h("button", { "data-wk": "cdaychatopen", style: { ...btn, position: "absolute", left: 12, bottom: 40 }, onClick: () => { setChatMounted(true); setChatOpen(true); props.onChatOpen?.(char); } }, "聊聊"),
         !editor && showcase && room && h("select", { "data-wk":"cdayplacepoint", "aria-label":"选择动作位置", value:spot?.id||"", onChange:e=>{setSpotId(e.target.value);}, style:{...btn,position:"absolute",left:12,right:12,bottom:40,width:"calc(100% - 24px)",height:44,fontSize:13} }, ...room.spots.map(s=>h("option",{key:s.id,value:s.id},s.number+" · "+s.label))),
@@ -219,7 +237,7 @@
         editor&&!decorPanel && h("select",{"data-wk":"cdayfurniture","aria-label":"选择家具",disabled:layoutBusy||editor.dragging||editor.busy,value:editor.selected,onChange:e=>iframe.current?.contentWindow?.CharDayScene?.selectFurniture(e.target.value),style:{...btn,position:"absolute",left:12,right:12,bottom:12,width:"calc(100% - 24px)",height:44,fontSize:13}},h("option",{value:""},"选择家具"),...furniture.map(p=>h("option",{key:p.id,value:p.id},p.label+(p.stored?" · 已收纳":"")))),
         !editor && h("div", { style: { position: "absolute", bottom: 8, left: 10, right: 10, textAlign: "center", fontSize: 10, color: "#655e50", background: "#eeeadfb8", borderRadius: 8, padding: "3px 8px", pointerEvents: "none" } }, showcase ? "数字对应动作位置 · 已接日程，专业动作继续细化" : demo ? "示例不写入角色日程 · 拖动看四周，双指缩放" : "场景与动作是简化示意 · 拖动看四周，双指缩放")),
       visiting ? h("div",{"data-wk":"cdaytools",className:"shrink-0",style:{display:"flex",gap:4,padding:"3px 6px",paddingBottom:"calc(3px + env(safe-area-inset-bottom) * 0.4)",borderTop:"1px solid #cfc5ae",minHeight:56,background:paper}},
-        ...[["near","靠近TA"],[visitStatus.seated?"stand":"sit",visitStatus.seated?"起身":"坐旁边"],["overview","看全景"],["leave","离开"]].map(([kind,label])=>h("button",{key:kind,"data-action":kind,disabled:kind!=="overview"&&(visitStatus.busy||visitStatus.leaving),style:{...btn,flex:1,padding:"9px 4px",border:0,background:"transparent"},onClick:()=>kind==="overview"?iframe.current?.contentWindow?.CharDayScene?.overview?.():visitAction(kind)},label))) :
+        ...[["near","靠近TA"],[visitStatus.seated?"stand":"sit",visitStatus.seated?"起身":"坐旁边"],["overview","看全景"],["leave","离开"]].map(([kind,label])=>h("button",{key:kind,"data-action":kind,style:{...btn,flex:1,padding:"9px 4px",border:0,background:"transparent"},onClick:()=>kind==="overview"?iframe.current?.contentWindow?.CharDayScene?.overview?.():visitAction(kind)},label))) :
       editor ? h("div",{"data-wk":"cdayedittools",className:"shrink-0",style:{display:"flex",gap:4,padding:"3px 6px",paddingBottom:"calc(3px + env(safe-area-inset-bottom) * 0.4)",borderTop:"1px solid #cfc5ae",minHeight:56,background:paper}},
         decorPanel?h("button",{style:{...btn,flex:1,border:0,background:"transparent"},disabled:layoutBusy||editor?.busy,onClick:closeDecorPanel},"回去摆放"):h(React.Fragment,null,
         h("button",{style:{...btn,flex:1,border:0,background:"transparent"},disabled:layoutBusy||editor.dragging||editor.busy||!chosen||chosen.stored,onClick:()=>editorAction("rotate")},"旋转"),

@@ -35,3 +35,36 @@ test('同屋各自看书喝水用餐，餐椅和道具不抢TA，离开动作清
  v.act('stand');v.tick(1/60,101);assert.equal(lastPose.task,null);assert.equal(v.inspect().activity,null);v.close();assert.equal(v.inspect().task,null);
  MAPS.dayHome=buildSpace('dayHome',{'dining-table':{stored:true}});v.join();settle();assert.equal(v.act('eat'),false);assert.match(v.inspect().notice,/餐桌/);
 });
+function controlledVisit(layout={},choice='auto'){
+ MAPS.dayHome=buildSpace('dayHome',layout);const host=MAPS.dayHome.seats.read?{...MAPS.dayHome.seats.read,seat:MAPS.dayHome.seats.read}:{x:-3,z:-1};let profile=motionProfile({id:'__me:me',persona:'性格活泼好动'}),pose,time=0;
+ const avatar={root:{visible:false,position:{set(x,y,z){this.x=x;this.y=y;this.z=z;},toArray(){return [this.x,this.y,this.z];}},rotation:{},userData:{}},animate(t,p){pose=p;}};
+ const visit=createHomeVisit({avatar,ta:()=>host,motion:()=>profile,choice});
+ const tick=(n=1)=>{for(let i=0;i<n;i++){const previous=visit.inspect().position;visit.tick(.1,time+=.1);assert.ok(segmentClear(previous,visit.inspect().position,'dayHome',visitorAvoid(host)));}};
+ const settle=()=>{for(let i=0;i<400&&visit.inspect().busy;i++)tick();tick();assert.equal(visit.inspect().busy,false);};
+ return {visit,tick,settle,pose:()=>pose,changePersona:()=>{profile=motionProfile({id:'__me:me',persona:'性格沉稳寡言'});}};
+}
+test('自动活动沿真实空位轮换且避让，手动中途接管后长期保持；明确切回自动才继续',()=>{
+ const f=controlledVisit(),v=f.visit,seen=new Set();v.join();
+ for(let i=0;i<2600;i++){f.tick();const s=v.inspect();if(s.activity)seen.add(s.activity);assert.equal(s.control,'auto');}
+ for(const kind of ['read','drink','rest'])assert.ok(seen.has(kind),kind+'自动发生');
+ v.act('auto');f.tick(100);assert.equal(v.inspect().control,'auto');
+ assert.equal(v.act('read'),true);assert.equal(v.inspect().control,'manual');f.settle();const held=v.inspect().position;
+ f.changePersona();f.tick(6000);assert.equal(v.inspect().activity,'read');assert.deepEqual(v.inspect().position,held);assert.equal(v.inspect().control,'manual');assert.equal(f.pose().task.kind,'read');
+ assert.equal(v.act('leave'),true);assert.equal(v.inspect().leaving,true);assert.equal(v.act('drink'),true);assert.equal(v.inspect().leaving,false);f.settle();assert.equal(v.inspect().activity,'drink');
+ v.act('auto');const resumed=new Set();for(let i=0;i<1500;i++){f.tick();if(v.inspect().activity)resumed.add(v.inspect().activity);}assert.equal(v.inspect().control,'auto');assert.ok(resumed.size>=2);
+});
+test('被拒绝的手动命令也撤销自动路线；停下、重进、门口离开都不暗自恢复自动',()=>{
+ const f=controlledVisit(empty()),v=f.visit;v.join();assert.equal(v.inspect().busy,true);
+ assert.equal(v.act('eat'),false);assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().busy,false);const stopped=v.inspect().position;
+ f.tick(3000);assert.deepEqual(v.inspect().position,stopped);assert.equal(f.pose().task,null);
+ v.close();v.join();assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().busy,false);
+ assert.equal(v.act('manual'),true);assert.equal(v.act('leave'),true);f.settle();assert.equal(v.inspect().present,false);
+ v.join();const before=v.inspect().position;v.act('auto');f.tick(20);assert.equal(v.inspect().control,'auto');assert.ok(Math.hypot(v.inspect().position.x-before.x,v.inspect().position.z-before.z)>.3);
+ v.act('manual');assert.equal(v.inspect().busy,false);f.tick(1500);assert.equal(v.inspect().control,'manual');
+});
+test('重新创建现场沿保存的手动选择开始，人设和等待都不能恢复自动',()=>{
+ for(const choice of ['manual','read','drink','eat','rest']){
+  const f=controlledVisit({},choice),v=f.visit;assert.equal(v.inspect().control,'manual');v.join();f.settle();f.changePersona();f.tick(2000);
+  assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().manualAction,choice);assert.equal(v.inspect().activity,choice==='manual'?null:choice);
+ }
+});

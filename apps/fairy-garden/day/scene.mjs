@@ -1,26 +1,26 @@
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-6e803a8b66fac295';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-6e803a8b66fac295';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-6e803a8b66fac295';
-import {seatLook} from '../wardrobe.mjs?v=fg-6e803a8b66fac295';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-6e803a8b66fac295';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-6e803a8b66fac295';
-import {stepRoute} from '../locomotion.mjs?v=fg-6e803a8b66fac295';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-6e803a8b66fac295';
-import {updateWorkScene} from './work-scene.mjs?v=fg-6e803a8b66fac295';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-6e803a8b66fac295';
-import {activityPose} from './activity.mjs?v=fg-6e803a8b66fac295';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-6e803a8b66fac295';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-bc35c5341d4847ae';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-bc35c5341d4847ae';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-bc35c5341d4847ae';
+import {seatLook} from '../wardrobe.mjs?v=fg-bc35c5341d4847ae';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-bc35c5341d4847ae';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-bc35c5341d4847ae';
+import {stepRoute} from '../locomotion.mjs?v=fg-bc35c5341d4847ae';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-bc35c5341d4847ae';
+import {updateWorkScene} from './work-scene.mjs?v=fg-bc35c5341d4847ae';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-bc35c5341d4847ae';
+import {activityPose} from './activity.mjs?v=fg-bc35c5341d4847ae';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-bc35c5341d4847ae';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-6e803a8b66fac295';
-import {createSpaceView} from './space-view.mjs?v=fg-6e803a8b66fac295';
-import {setHomeClock} from './home-shell.mjs?v=fg-6e803a8b66fac295';
-import {createHomeVisit} from './visit.mjs?v=fg-6e803a8b66fac295';
-import {MOTION_STYLES,motionProfile} from './motion-profile.mjs?v=fg-6e803a8b66fac295';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-bc35c5341d4847ae';
+import {createSpaceView} from './space-view.mjs?v=fg-bc35c5341d4847ae';
+import {setHomeClock} from './home-shell.mjs?v=fg-bc35c5341d4847ae';
+import {createHomeVisit} from './visit.mjs?v=fg-bc35c5341d4847ae';
+import {MOTION_STYLES,motionProfile} from './motion-profile.mjs?v=fg-bc35c5341d4847ae';
 let hostMotion=null,guestMotion=null,motionKey='';
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-6e803a8b66fac295';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-6e803a8b66fac295';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-bc35c5341d4847ae';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-bc35c5341d4847ae';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -38,7 +38,7 @@ function closeVisit(notice=''){visitEpoch++;visitLoading=false;visitor?.close(no
 function prepareVisitor(){
  if(!visitorReady)visitorReady=(async()=>{
   visitorAvatar=createTraveler(travelerSource,false);visitorAvatar.root.visible=false;scene.add(visitorAvatar.root);await visitorAvatar.ready();
-  visitor=createHomeVisit({avatar:visitorAvatar,ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat:route.length?null:seat}),motion:()=>guestMotion,onChange:visitNotice});
+  visitor=createHomeVisit({avatar:visitorAvatar,ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat:route.length?null:seat}),motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice});
  })().catch(e=>{if(visitorAvatar){disposeMap(visitorAvatar.root);visitorAvatar.root.removeFromParent();}visitorAvatar=null;visitorReady=null;throw e;});
  return visitorReady;
 }
