@@ -20,7 +20,7 @@ import {PROFESSIONAL_OPTIONS,professionalOptions} from './professional.mjs?v=fg-
 import {createTogether} from './together.mjs?v=fg-8aa89b39bf44a9c5';
 import {HAIR_STYLES} from '../traveler.mjs?v=fg-8aa89b39bf44a9c5';
 import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-8aa89b39bf44a9c5';
-import {createHomeVisit} from './visit.mjs?v=fg-8aa89b39bf44a9c5';
+import {createSceneVisit} from './visit.mjs?v=fg-8aa89b39bf44a9c5';
 import {MOTION_STYLES,motionProfile} from './motion-profile.mjs?v=fg-8aa89b39bf44a9c5';
 let hostMotion=null,guestMotion=null,motionKey='';
 registerCoreSpaces(MAPS);
@@ -36,29 +36,31 @@ const sun=new T.DirectionalLight('#fff4de',3);sun.position.set(-8,16,10);sun.cas
 const fill=new T.DirectionalLight('#d4e5ee',1);fill.position.set(8,6,-9);scene.add(fill);
 const draco=new DRACOLoader();draco.setDecoderPath(new URL('../vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);
 const cover=document.querySelector('#cover'),place=document.querySelector('#place'),pan={x:0,z:0};
-let activity=null,taskState=null;
+const social=globalThis.CharDaySocial;
+let activity=null,taskState=null,homeAutoSuppressed=false,autoJoinFailed=false;
+const visitSetting=()=>snapshot?.presentation?.map===map?social.setting(snapshot):null;
 let visitor=null,visitorAvatar=null,visitorReady=null,travelerSource=null,visitLoading=false,visitEpoch=0,together=null,helloUntil=0,visitorLookKey='';
 function visitNotice(info){if(parent!==window)parent.postMessage({type:'char-day-visit',charId:snapshot?.charId,...info},location.origin);}
 function closeVisit(notice=''){together?.stop(notice);helloUntil=0;visitEpoch++;visitLoading=false;visitor?.close(notice);if(!visitor)visitNotice({present:false,busy:false,notice});}
 function prepareVisitor(){
  if(!visitorReady)visitorReady=(async()=>{
   visitorAvatar=createTraveler(travelerSource,false);visitorAvatar.root.visible=false;scene.add(visitorAvatar.root);await visitorAvatar.ready();
-  visitor=createHomeVisit({avatar:visitorAvatar,ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat:route.length?null:seat}),motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice});
-  together=createTogether({a:avatar,b:visitorAvatar,motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS.dayHome,from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info)visitor.control(info);},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
+  visitor=createSceneVisit({avatar:visitorAvatar,ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat}),motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
+  together=createTogether({a:avatar,b:visitorAvatar,motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info)visitor.control(info);},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
  })().catch(e=>{if(visitorAvatar){disposeMap(visitorAvatar.root);visitorAvatar.root.removeFromParent();}visitorAvatar=null;visitorReady=null;throw e;});
  return visitorReady;
 }
-async function joinVisit(){
- if(!ready||changing||route.length||map!=='dayHome'||snapshot.editing||snapshot.showcase||snapshot.preview||snapshot.presentation.action==='walk'){visitNotice({present:false,busy:false,notice:'等TA在家走到位置后，再进小屋。'});return false;}
+async function joinVisit({automatic=false}={}){
+ if(!ready||changing||!visitSetting()){visitNotice({present:false,busy:false,notice:'等TA到可以一起活动的地点，再走进来。'});return false;}
  if(visitor?.inspect().present||visitLoading)return false;
- const token=++visitEpoch;visitLoading=true;visitNotice({present:false,busy:true,notice:'正在准备你的小人…'});
+ const token=++visitEpoch,placeId=map;visitLoading=true;visitNotice({present:false,busy:true,notice:'正在准备你的小人…'});
  try{
   await prepareVisitor();
-  if(token!==visitEpoch||disposed)return false;
+  if(token!==visitEpoch||disposed||map!==placeId||!visitSetting())return false;
   visitorAvatar.setLook(seatLook('me',snapshot?.visitorLook||{},'她'),true);visitorLookKey=JSON.stringify(snapshot?.visitorLook||{});await visitorAvatar.ready();
-  if(token!==visitEpoch||disposed)return false;
-  visitLoading=false;visitor.join();helloUntil=performance.now()/1000+5;setCameraMode('both');return true;
- }catch(e){if(token===visitEpoch){visitLoading=false;visitNotice({present:false,busy:false,notice:'你的小人还没准备好，可以再试一次。'});}return false;}
+  if(token!==visitEpoch||disposed||map!==placeId||!visitSetting())return false;
+  visitLoading=false;const joined=visitor.join({automatic});if(!joined){autoJoinFailed=automatic;return false;}homeAutoSuppressed=false;helloUntil=automatic?0:performance.now()/1000+5;if(following)setCameraMode('both');return true;
+ }catch(e){if(token===visitEpoch){visitLoading=false;autoJoinFailed=automatic;visitNotice({present:false,busy:false,notice:'你的小人还没准备好，可以再试一次。'});}return false;}
 }
 let avatar=null,ready=false,disposed=false,map=null,snapshot=null,pending=null,signature='',lookKey='',epoch=0,route=[],position={x:0,z:0},speed=0,yaw=0,target=null,seat=null,bed=null,walkTarget=0,dwell=0,onArrive=null,following=true,span=10,frame=0,changing=false,failure='',spaceStyle='',homeKey='',homeInput='',homeRecord=homePlacements(),selected='',drag=null,lastEditNotice='',homeOverview=false;
 let cameraMode='ta',framing=false,kitchenProgress=null;
@@ -189,6 +191,7 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
 function apply(data,local=false){
   if(!ready){pending=data;return;}
   if(!data)return;const first=!snapshot,wasEditing=snapshot?.editing,wasVisitorPreview=snapshot?.visitorPreview;
+  if(snapshot?.charId!==data.charId||snapshot?.presentation?.map!==data.presentation.map){homeAutoSuppressed=false;autoJoinFailed=false;}
   if(data.editing&&!wasEditing)editResume=first?data.resume:pauseState();
   const resume=!data.editing?(wasEditing?editResume:first?data.resume:null):null;
   if(!data.editing)editResume=null;
@@ -219,7 +222,9 @@ function apply(data,local=false){
   }).catch(()=>{});}else if(visitorAvatar&&!visitor?.inspect().present)visitorAvatar.root.visible=false;
   if(wasVisitorPreview&&!data.visitorPreview)center();
   if(next===signature)return;signature=next;
-  if(visitor?.inspect().present||visitLoading)closeVisit('TA的安排或小家布置变了，已回到跟随查看。');
+  const keepVisitor=visitor?.inspect().present&&visitor.inspect().map===data.presentation.map&&social.setting(data)&&!layoutChanged&&(map!=='dayHome'||spaceStyle===(data.homeStyle||'warm'));
+  if(!keepVisitor&&(visitor?.inspect().present||visitLoading))closeVisit('TA换了地点，继续看看TA的一天。');
+  else if(keepVisitor)together?.stop();
   if(parent!==window)parent.postMessage({type:'char-day-activity',charId:data.charId,key:data.key,phase:activity.phase,label:activity.motion||activity.phase!=='work'?activity.phaseLabel:'',spotLabel:DAY_PLACES[activity.map]?.spots.find(s=>s.id===activity.spot)?.label||''},location.origin);const token=++epoch;route=[];onArrive=null;seat=bed=null;dwell=0;
   const needed=data.presentation.map;
   if(resume?.charId===data.charId&&resume.map===needed){
@@ -248,6 +253,7 @@ function tick(dt,time){
   if(map==='dayHome')setHomeClock(mapLoader.views[map]?.root,snapshot?.minute);
   if(snapshot?.visitorPreview&&visitorAvatar&&!visitor?.inspect().present){visitorAvatar.animate(time,{height:.08});}
   if(!ready||!map||changing||snapshot?.editing||!avatar.root.visible)return;
+  if(map==='dayHome'&&visitSetting()&&!snapshot.visitorPreview&&snapshot.visitorData?.homePresence!=='away'&&!homeAutoSuppressed&&!autoJoinFailed&&!visitor?.inspect().present&&!visitLoading)joinVisit({automatic:true});
   if(together?.inspect()){together.tick(dt,time);if(together.inspect()){taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);trackCamera(Math.min(1,dt*8));updateKitchen(dt);return;}}
   const moving=route.length>0;
   if(moving){
@@ -271,7 +277,7 @@ function tick(dt,time){
   if(!moving&&snapshot.slot&&snapshot.presentation.action==='walk'&&dwell>1.5){dwell=0;wander();}
   if(time<helloUntil&&!moving&&!bed){const v=visitor?.inspect();if(v?.present){avatar.root.rotation.y=Math.atan2(v.position.x-avatar.root.position.x,v.position.z-avatar.root.position.z);taskState=null;avatar.animate(time,{seated:!!seat,height:floorHeight(map,seat||position)+(seat?seat.rise+.05:0),gesture:'wave',progress:(time-(helloUntil-5))/5});}}
   updateWorkScene(mapLoader.views[map]?.root,taskState,moving,time);
-  if(map==='dayHome')visitor?.tick(dt,time);
+  visitor?.tick(dt,time);
   trackCamera(Math.min(1,dt*8));updateKitchen(dt);
   if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
   const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
@@ -296,18 +302,20 @@ function listCatalog(){
  });return catalogCache;}finally{renderer.render(scene,camera);}
 }
 function visitAction(kind,point){
+ if(kind==='leave'&&map==='dayHome')homeAutoSuppressed=true;
  if(kind==='end'){return together?.stop();}
  const shared=kind.startsWith('together:');if(shared)kind=kind.slice(9);
  if(shared||['hand','hug','shoulder','meal','cook'].includes(kind)){
   visitor?.act('manual');
-  if(!visitor?.inspect().present||map!=='dayHome'||bed||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
+  if(!visitor?.inspect().present||!visitSetting()||bed||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
+  if(!visitSetting().actions.some(action=>action.kind===kind)){visitNotice({...visitor.inspect(),notice:'这个地点没有对应的双人活动位置。'});return false;}
   const result=together.start(kind);if(result.ok){route=[];onArrive=null;}if(!result.ok)visitNotice({...visitor.inspect(),notice:result.reason});else if(following)trackCamera();return result.ok;
  }
  together?.stop();const ok=visitor?.act(kind,point)||false;if(ok&&kind!=='leave'&&following)trackCamera();return ok;
 }
 // Time advances only after BOTH rigs have reached their actual shared anchors.
 function updateKitchen(dt){
- const job=snapshot?.kitchenJob,shared=together?.inspect(),active=!!job&&!snapshot.preview&&!snapshot.editing&&visitor?.inspect().present&&shared?.kind===job.kind&&shared.phase==='active';
+ const job=snapshot?.kitchenJob,shared=together?.inspect(),active=!!job&&map==='dayHome'&&!snapshot.preview&&!snapshot.editing&&visitor?.inspect().present&&shared?.kind===job.kind&&shared.phase==='active';
  if(!job){kitchenProgress=null;return;}
  if(kitchenProgress?.id!==job.id)kitchenProgress={id:job.id,elapsed:0,reported:-1,ready:!!job.ready};
  const k=kitchenProgress;k.sinceNotice=(k.sinceNotice||0)+dt;if(active&&!k.ready){k.elapsed+=dt;if(k.elapsed>=(job.kind==='cook'?12:6))k.ready=true;}
@@ -315,12 +323,12 @@ function updateKitchen(dt){
  if(k.reported!==step||k.phase!==phase||(k.ready&&!job.ready&&k.sinceNotice>=1)){k.sinceNotice=0;k.reported=step;k.phase=phase;if(parent!==window)parent.postMessage({type:'char-day-kitchen',charId:snapshot.charId,id:k.id,phase,elapsed:k.elapsed,ready:k.ready},location.origin);}
 }
 function capturePhoto(){
- if(!ready||changing||map!=='dayHome'||snapshot?.preview||snapshot?.editing||snapshot?.showcase||!avatar?.root.visible||!visitor?.inspect().present||!visitorAvatar?.root.visible)throw Error('先和TA一起进小家，再拍同框照片。');
+ if(!ready||changing||!visitSetting()||snapshot?.preview||snapshot?.editing||snapshot?.showcase||!avatar?.root.visible||!visitor?.inspect().present||!visitorAvatar?.root.visible)throw Error('先和TA走到一起，再拍同框照片。');
  const bounds=actorBounds('both'),center=bounds.getCenter(new T.Vector3()),view=camera.clone(),height=Math.max(1.8,bounds.getSize(new T.Vector3()).y+.5),width=height*4/3;
  Object.assign(view,{left:-width/2,right:width/2,top:height/2,bottom:-height/2,zoom:1,far:200});view.position.copy(center).add(new T.Vector3(10,11.5,16));view.lookAt(center);view.updateProjectionMatrix();view.updateMatrixWorld();
  const b=projectedBounds(bounds,view);view.zoom=Math.min(6,1.7/(b.maxX-b.minX),1.7/(b.maxY-b.minY));view.updateProjectionMatrix();
  const src=renderPhoto(T,renderer,scene,view,{width:800,height:600,quality:.84});renderer.render(scene,camera);
- return {src,map,charId:snapshot.charId,activity:sharedActivity(),minute:snapshot.minute};
+ return {src,map,place:MAPS[map]?.label,charId:snapshot.charId,activity:sharedActivity(),minute:snapshot.minute};
 }
 function sharedActivity(){return together?.inspect()?.label||(snapshot?.slot?.deviation?.actual||snapshot?.slot?.title||'在小家待一会儿');}
 function visitorWardrobe(){const look=seatLook('me',snapshot?.visitorLook||{},'她');return {getDyes:()=>dyesOf(look),getOutfit:()=>({id:outfitId(look),colors:outfitColors(look)}),getHair:()=>hairId(look.hair),hairModes:HAIR_MODES};}

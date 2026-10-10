@@ -5,8 +5,8 @@ export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook'};
 export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理'};
 // A missing/stored kitchen or seat has no physical action. This is a projection,
 // not another schedule: the original currentSlot still owns the activity.
-export function dailyTaskAt(stage,spot,map,elapsed,{moving=false,motion=null}={}){
- if(moving||!['dayHome','dayCafe','dayWork'].includes(map.id))return null;
+export function dailyTaskAt(stage,spot,map,elapsed,{moving=false,motion=null,personal=false}={}){
+ if(moving||(!personal&&!['dayHome','dayCafe','dayWork'].includes(map.id)))return null;
  spot=spot||map.spots.find(s=>s.action===stage.action);
  const kind=DAILY_MOTIONS[stage.action];
  if(!kind||!spot||spot.action!==stage.action||(['eat','drink'].includes(kind)&&!spot.seat))return null;
