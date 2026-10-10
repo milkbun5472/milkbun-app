@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-d6accb47bee17220';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-6941d9cc1b32d96f';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};
@@ -30,6 +30,17 @@ export function createRoomKit(){
   }
   function cylinder(name,{x=0,y=0,z=0,r=.1,h=.2,color='#dbc9ac',rotation},parent=root){const mesh=new T.Mesh(new T.CylinderGeometry(r,r,h,16),material(color));mesh.name=name;mesh.position.set(x,y,z);if(rotation)mesh.rotation.set(...rotation);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;}
   function sphere(name,{x=0,y=0,z=0,r=.5,color='#91a586'},parent=root){const mesh=new T.Mesh(new T.SphereGeometry(r,16,12),material(color));mesh.name=name;mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;}
+  function ellipsoid(name,{w=1,h=1,d=1,...v},parent=root){const mesh=sphere(name,{...v,r:.5},parent);mesh.scale.set(w,h,d);return mesh;}
+  // Profile coordinates are local XY. Horizontal profiles turn Y into -Z.
+  function profile(name,{shape,x=0,y=0,z=0,depth=.1,color='#dbc9ac',horizontal=false,bevel=.015},parent=root){
+    const r=Math.min(bevel,depth/3),geometry=new T.ExtrudeGeometry(shape,{depth:depth-2*r,bevelEnabled:r>0,bevelSize:r,bevelThickness:r,bevelSegments:2,curveSegments:12,steps:1});
+    geometry.translate(0,0,-(depth-2*r)/2);if(horizontal)geometry.rotateX(-Math.PI/2);
+    const mesh=new T.Mesh(geometry,material(color));mesh.name=name;mesh.position.set(x,y,z);mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;
+  }
+  function tube(name,{points,r=.025,color='#dbc9ac',closed=false},parent=root){
+    const curve=new T.CatmullRomCurve3(points.map(p=>new T.Vector3(...p)),closed,'centripetal'),geometry=new T.TubeGeometry(curve,Math.max(8,points.length*4),r,8,closed),mesh=new T.Mesh(geometry,material(color));
+    mesh.name=name;mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;
+  }
   function table({id,x,z,w,d,top=.85,color='#ba986e'}){const p=group(id,{x,z});box(id+'-top',{y:.08+top-.055,w,h:.11,d,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*(w/2-.15),z:b*(d/2-.15),y:.08+(top-.11)/2,w:.1,h:top-.11,d:.1,color:'#ad8b62'},p);return p;}
   function chair({id,x,z,heading=0,color='#789887',seat=.45}){const p=group(id,{x,z,heading});box(id+'-seat',{y:.08+seat-.045,w:.56,h:.09,d:.57,color},p);box(id+'-back',{y:.08+seat+.3,z:-.245,w:.56,h:.54,d:.075,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*.2,y:.08+(seat-.09)/2,w:.065,h:seat-.09,d:.065,color:'#b49978'},p);return p;}
   function bench({id,x,z,w=2.8,d=.65,heading=0,color='#789887',seat=.45,legColor='#a58b70',solid=false}){
@@ -75,5 +86,5 @@ export function createRoomKit(){
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
     for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
   }
-  return {root,box,cylinder,sphere,group,replaceableGroup,table,chair,bench,sign,book,plant,room,finish,material};
+  return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,finish,material};
 }
