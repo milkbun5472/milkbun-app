@@ -85,6 +85,20 @@
     return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
   }
 
+  // 台词念出来（她 2026-10-11）：配了音色的角色，台词旁边一颗小 ▶，跟通话转录那颗是同一个（TtsDot + useTtsPlayer）。
+  //   一桌只许一个人在说话：点下一句先停掉上一句（每颗各有自己的播放器，用一个全局的「谁在念」接力）。
+  function GameVoiceDot(props) {
+    const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
+    const spk = props.p && !props.p.isNpc && !props.p.isUser ? props.p.char : null;
+    if (!tp || !spk || typeof TtsDot !== "function") return null;
+    const relay = { play: tp.play, toggle: function (k, text, voiceId) {
+      if (window.__gameTtsStop && window.__gameTtsStop !== tp.stop) { try { window.__gameTtsStop(); } catch (e) {} }
+      window.__gameTtsStop = tp.stop; tp.toggle(k, text, voiceId);
+    } };
+    return h("span", { "data-wk": "gamevoice", style: { display: "inline-flex", verticalAlign: "middle", marginLeft: 6, color: "#8a8378" } },
+      h(TtsDot, { k: props.k, text: props.text, spk: spk, tp: relay }));
+  }
+
   // ---- 通用：分段控件 ----
   function Segmented(props) {
     const t = props.t;
@@ -472,11 +486,26 @@
   // ============================================================
   // 开局配置：模式 + 选人（含人数上下限）+ NPC凑数 + 注入最近聊天
   // ============================================================
+  // 牌技钉住（她 2026-10-11）：TA 打得多好原来全靠开局时模型从人设里估，估错了改不了。
+  //   她在开局页给某个人钉一档，就用她定的，不再看估的那句；没钉＝照旧估。只管玩得多好，不改说话的样子。
+  const SKILL_PIN_KEY = "x_gameSkillPins";
+  const SKILL_PINS = [
+    { k: "", zh: "让它估" },
+    { k: "pro", zh: "高手", text: "高手：这类桌游心里门儿清，记得住每个人说过什么，推理、读人、藏身份都很强，很少被带节奏。" },
+    { k: "mid", zh: "普通", text: "普通玩家：规则都懂，会推理但偶尔漏看信息，有时会被别人说动。" },
+    { k: "rookie", zh: "新手", text: "新手：常看漏信息、容易被带节奏，藏身份时容易露馅，但玩得很投入。" }];
+  function loadSkillPins() { try { return (typeof loadJSON === "function" ? loadJSON(SKILL_PIN_KEY, {}) : {}) || {}; } catch (e) { return {}; } }
+  function pinnedSkill(charId, guessed) {
+    const k = loadSkillPins()[charId], o = SKILL_PINS.find(function (x) { return x.k && x.k === k; });
+    return o ? o.text : guessed;
+  }
   // 上次那桌（她 2026-10-11）：每个游戏最后一次开局的配置，开局页一键照搬
   const LAST_CFG_KEY = "x_gameLastCfg";
   function GameSetup(props) {
     const t = props.t, game = props.game;
     const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
+    const [skillPins, setSkillPins] = useState(loadSkillPins);
+    const setSkillPin = function (id, v) { const n = Object.assign({}, skillPins); if (v) n[id] = v; else delete n[id]; setSkillPins(n); try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} };
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
@@ -597,6 +626,17 @@
                 return firstNpc ? h(React.Fragment, { key: c.id }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 0" } }, "认识的配角"), btn) : btn;
               })),
 
+        // 牌技：给选上的人钉一档（全局记着，下次也是这档）
+        picked.length ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "牌技"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。"),
+          picked.map(function (id) {
+            const c = chars.find(function (x) { return x.id === id; }); if (!c) return null;
+            const cur = skillPins[id] || "";
+            return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 7 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, width: 64, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: cur, options: SKILL_PINS.map(function (o) { return { key: o.k, zh: o.zh }; }), onChange: function (v) { setSkillPin(id, v); } })));
+          })) : null,
         // 选项
         h("div", { style: { marginTop: 14, borderTop: "1px solid " + t.line } },
           h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
@@ -899,7 +939,7 @@
           (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           // 组装玩家
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "", engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: pinnedSkill(p.id, skillOf[p.name] || ""), engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) {
@@ -1152,7 +1192,7 @@
             pAvatar(p, 30),
             h("div", { style: { flex: 1 } },
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text)));
+              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i })));
         }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
@@ -1826,7 +1866,7 @@
           const data = await setupWolf(api, realPlayers, npcNeed);
           const skillOf = {}; (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "", engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: pinnedSkill(p.id, skillOf[p.name] || ""), engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) { const n = npcs[i] || {}; list.push({ key: "npc_" + i, name: n.name || ("玩家" + (i + 1)), char: null, isNpc: true, skill: n.skill || "普通", persona: n.persona || "" }); }
@@ -2257,7 +2297,7 @@
         if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: 13, color: "#c0553f" } }, it.text);
         if (it.type === "speech") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } }, pAvatar(p, 30),
           h("div", { style: { flex: 1 } }, h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text))); }
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         // 台下起哄：斜体细字，不做成气泡——它不是正式发言（shortLog 也不收它）
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
@@ -2399,7 +2439,7 @@
     const chars = (cfg.charIds || []).map(function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); }).filter(Boolean);
     const skillOf = {}; (skillData || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
     const list = [];
-    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: skillOf[c.name] || "", alive: true }); });
+    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: pinnedSkill(c.id, skillOf[c.name] || ""), alive: true }); });
     if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "", alive: true }); }
     const npcNeed = cfg.npcCount || 0;
     const npcs = (npcData || []).slice(0, npcNeed);
@@ -2883,7 +2923,7 @@
           return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0 2px" } }, pAvatar(p, 28),
             h("div", { style: { flex: 1 } },
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null,
+              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }) : null,
               it.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.question) : null));
         }
         if (it.type === "a") {
@@ -3475,7 +3515,7 @@
         if (it.type === "chat") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
           h("div", { style: { maxWidth: "78%" } },
             h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text))); }
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
         if (it.type === "star") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "gamestar", key: i, style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 14, padding: "12px 14px", margin: "12px 18px" } },
