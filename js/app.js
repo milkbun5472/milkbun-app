@@ -29250,6 +29250,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       plansFor: c => schedulesRef.current[c.id] || {},
       taFor: c => CharacterPronoun.ta(c),
       lookFor: c => window.CompanionFace.lookFor(c, moods),
+      visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),
       onSchedule: c => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); },
       onChatOpen: c => { setActiveChar(c); setActiveRoomId("main"); setHalfWin(null); clearUnread(c.id); },
       onChatVisibility: (c, visible) => { dayChatRef.current = visible && c ? c.id : null; },

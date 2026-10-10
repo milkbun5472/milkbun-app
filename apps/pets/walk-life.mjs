@@ -1,4 +1,4 @@
-import {planWalkPair} from './walk-play.mjs?v=fg-4ea3c2dd79f75cae';
+import {planWalkPair} from './walk-play.mjs?v=fg-6e803a8b66fac295';
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.abs(p.x)<100&&Math.abs(p.z)<100?{x:p.x,z:p.z}:null;
 const count=n=>Number.isFinite(n)?Math.max(0,Math.min(1e6,n)):0;
 export const WALK_KINDS={sniff:'闻闻路边',leaf:'看看落叶',flower:'看看小花',friend:'遇见朋友',shelter:'屋檐下避雨',shade:'阴凉处歇歇',wipe:'回家擦爪'};

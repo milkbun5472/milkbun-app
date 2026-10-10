@@ -19,7 +19,7 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
   async function settle(scene,kind){await frame.waitForFunction(({scene,kind})=>{const s=CharDayScene.inspect();return s.map===scene&&!s.changing&&!s.route.length&&s.task?.kind===kind;},{scene,kind});}
   async function observe(scene,spot,kind,title){
    await p.evaluate(({scene,spot,title})=>dailyPlan(scene,spot,title),{scene,spot,title});await frame.waitForFunction(scene=>CharDayScene.inspect().map===scene&&!CharDayScene.inspect().changing,scene);
-   const route=await frame.evaluate(async url=>{const {walkable,segmentClear}=await import(url);return new Promise((resolve,reject)=>{let previous=null,frames=0;const started=performance.now();function sample(){const s=CharDayScene.inspect();frames++;if(!walkable(s.position.x,s.position.z,s.map))return reject(Error('Entered furniture'));if(previous&&!segmentClear(previous,s.position,s.map))return reject(Error('Crossed furniture'));if(s.route.length&&s.dailyAction&&(s.dailyAction.cup||s.dailyAction.bowl||s.dailyAction.book||s.dailyAction.ladle))return reject(Error('Working while walking'));previous=s.position;if(!s.route.length&&!s.changing)return resolve(frames);if(performance.now()-started>30000)return reject(Error('No arrival'));requestAnimationFrame(sample);}sample();});},urls.get(frame));
+   const route=await frame.evaluate(async url=>{const {walkable,segmentClear}=await import(url);return new Promise((resolve,reject)=>{let previous=null,frames=0;const started=performance.now();function sample(){const s=CharDayScene.inspect();frames++;if(!walkable(s.position.x,s.position.z,s.map))return reject(Error('Entered furniture'));if(previous&&!segmentClear(previous,s.position,s.map))return reject(Error('Crossed furniture'));if(s.route.length&&s.dailyAction&&(s.dailyAction.cup||s.dailyAction.bowl||s.dailyAction.book||s.dailyAction.ladle))return reject(Error('Working while walking'));previous=s.position;if(!s.route.length&&!s.changing)return resolve(frames);if(performance.now()-started>30000)return reject(Error('No arrival'));requestAnimationFrame(sample);}requestAnimationFrame(sample);});},urls.get(frame));
    await settle(scene,kind);await p.waitForTimeout(500);await root.getByRole('button',{name:'跟着TA',exact:true}).click();
    const samples=await frame.evaluate(async()=>{const data=[],until=performance.now()+9200;return new Promise(resolve=>{function sample(){const s=CharDayScene.inspect();data.push({task:s.task,action:s.dailyAction,probe:CharDayScene.probeAction(),heading:s.avatarHeading});if(performance.now()>=until)return resolve(data);setTimeout(sample,80);}sample();});});
    let maxGrip=0,maxTip=0,minHead=Infinity,sip=false,bite=false,turn=false;const angles=new Set();
@@ -49,6 +49,19 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
     }
    }doll.root.traverse(o=>{if(o.isMesh)for(const m of Array.isArray(o.material)?o.material:[o.material])m.dispose();});return reports;
   },urls.get(frame));
+  result.motionRig=await frame.evaluate(async worldUrl=>{
+   const base=new URL('./',worldUrl),{createTraveler,loadTravelerSource}=await import(new URL('traveler.mjs',base)),{buildSpace}=await import(new URL('day/spaces.mjs',base)),{dailyTaskAt}=await import(new URL('day/daily-workflow.mjs',base)),{MOTION_STYLES,motionProfile}=await import(new URL('day/motion-profile.mjs',base)),T=await import('three');
+   const doll=createTraveler(await loadTravelerSource(),true),map=buildSpace('dayHome'),reports=[];let time=100;await doll.ready();
+   for(const style of Object.keys(MOTION_STYLES))for(const dims of [{height:.88,build:.82,head:1.12},{height:1,build:1,head:1},{height:1.12,build:1.18,head:.9}]){
+    doll.setLook({outfit:'academy',dims},true);await doll.ready();const motion=motionProfile({id:'rig:ta',style});
+    for(const action of ['read','tea','meal','cook']){const spot=map.spots.find(s=>s.action===action),position=spot.seat||spot.target;doll.root.position.set(position.x,0,position.z);doll.root.rotation.y=spot.heading;let minHead=Infinity,maxTip=0,maxGrip=0,maxLength=0;
+     for(let i=0;i<120;i++){time+=.08;const task=dailyTaskAt({action},spot,map,i*.08,{motion});doll.animate(time,{task,motion,gesture:{read:'read',tea:'tea',meal:'eat',cook:'stir'}[action],seated:!!spot.seat,height:.08+(spot.seat?.rise||0)+(spot.seat?.rise?.05:0)});doll.root.updateMatrixWorld(true);const d=doll.root.userData.dailyAction,head=doll.root.getObjectByName('HeadAnchor');if(i<=20)continue;
+      for(const hand of ['Right_hand','Left_hand'])minHead=Math.min(minHead,head.worldToLocal(doll.root.getObjectByName(hand).getWorldPosition(new T.Vector3())).length());
+      const distance=(a,b)=>new T.Vector3(...a).distanceTo(new T.Vector3(...b));if(d.cupGrip)maxGrip=Math.max(maxGrip,distance(d.cupGrip,d.rightGrip));if(d.toolGrip)maxGrip=Math.max(maxGrip,distance(d.toolGrip,d.rightGrip));if(d.sip>.98)maxTip=Math.max(maxTip,distance(d.cupRim,d.mouth));if(d.bite>.98)maxTip=Math.max(maxTip,distance(d.toolTip,d.mouth));if(action==='cook'&&!d.ladle)throw Error('Motion style lost pot reach: '+style);maxLength=Math.max(maxLength,d.toolLength||0);
+     }if(minHead<1.08||maxGrip>.005||maxTip>.06||maxLength>.46)throw Error('Motion contact: '+JSON.stringify({style,dims,action,minHead,maxGrip,maxTip,maxLength}));reports.push({style,dims,action,minHead,maxGrip,maxTip,maxLength,frames:120});
+    }
+   }return reports;
+  },urls.get(frame));
   if(!process.env.DAY_RIG_ONLY){
    // Move and rotate the real kitchen through the same furniture draft + save UI.
    await p.evaluate(()=>dailyPlan('dayHome','cook','下厨煮汤'));await settle('dayHome','cook');await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByRole('button',{name:'布置小家',exact:true}).click();
@@ -64,6 +77,6 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
    assert.equal(await p.evaluate(()=>dailyModels),0);assert.equal(await p.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),await p.evaluate(()=>dailyGames));
    const writes=await p.evaluate(()=>dailyWrites.filter(k=>/^x_(?:fairyGardenSaves|chat(?::|$))/.test(k)));assert.deepEqual(writes,[]);
   }
-  assert.deepEqual(errors,[]);result.errors=errors;result.ok=true;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({ok:true,engine,actions:result.actions.length,rig:result.rig.length,frames:result.rig.reduce((n,x)=>n+x.frames,0)}));
+  assert.deepEqual(errors,[]);result.errors=errors;result.ok=true;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({ok:true,engine,actions:result.actions.length,rig:result.rig.length,frames:result.rig.reduce((n,x)=>n+x.frames,0),motionRig:result.motionRig.length}));
  }catch(e){await p.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure.json'),JSON.stringify({message:e.message,errors,state:frame?await frame.evaluate(()=>CharDayScene.inspect()).catch(()=>null):null},null,2));throw e;}finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exit(1);});
