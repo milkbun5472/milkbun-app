@@ -13,7 +13,7 @@ test("共用一条 VOICE_RULE 和 voiceBrief，开口的那几处都接上了", 
   assert.doesNotMatch(g, /好的口气示例/);
 });
 test("狼人杀拼座位时把人设带上，不然 voiceBrief 拿不到", () => {
-  assert.match(g, /skill: p\.skill, persona: p\.persona, char: p\.char, engineer: engineer, alive: p\.alive, priv: privateFor\(p, list\)/);
+  assert.match(g, /priv: privateFor\(p, list\), persona: p\.persona, char: p\.char/);
   assert.match(g, /skill: d\.skill, persona: d\.persona, char: d\.char, priv: privateFor\(d, list\)/);
-  assert.match(g, /skill: p\.skill, persona: p\.persona, char: p\.char, engineer: engineer, alive: p\.alive, priv: privateFor\(p, players\)/);
+  assert.match(g, /priv: privateFor\(p, players\), persona: p\.persona, char: p\.char/);
 });

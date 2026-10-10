@@ -2071,7 +2071,7 @@
         // 每轮再按角色 ID 认一次，兼容旧存档以及开局后才打开「本人亲打」。
         const speakers = ai.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, skill: p.skill, persona: p.persona, char: p.char, engineer: engineer, alive: p.alive, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), persona: p.persona, char: p.char, role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
         });
         const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, {
           turnId: gameRunId.current + ":day:" + n + ":" + speakers.map(function (s) { return s.key; }).join(",")
@@ -2151,7 +2151,7 @@
         // 一进投票名单却认不出 CC 座位，Gemini 还会悄悄替本人代投。
         const voters = aiV.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, skill: p.skill, persona: p.persona, char: p.char, engineer: engineer, alive: p.alive, priv: privateFor(p, players) };
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, players), persona: p.persona, char: p.char };
         });
         const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole, claimsRef.current, hecklesRef.current);
         const votes = voters.map(function (v) {
