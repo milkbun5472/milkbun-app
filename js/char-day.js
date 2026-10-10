@@ -22,6 +22,7 @@
   }
   function presentation(slot) { return root.CharDayLink.presentation(slot); }
   let homeWrite=Promise.resolve();
+  const sceneContinuity=new Map();
   function saveHomeUpdate(update){
     const write=homeWrite.catch(()=>{}).then(async()=>{
       const previous=loadJSON("x_charDayHomes",{})||{},next=update(previous);
@@ -55,9 +56,9 @@
     const now = Date.now();
     const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null),decorScroll=useRef(null),decorPositions=useRef({}),visitSave=useRef({}),scenePause=useRef(null),menuScroll=useRef(null),menuPositions=useRef({}),kitchenReady=useRef({});
     const menuKey=lifePage?(lifePage==='album'&&photoId?'photo:'+photoId:lifePage):moreOpen?'more':'life';
-    // The schedule/style pages unmount the iframe. Keep only this view's live
-    // position in memory so returning or entering the editor can resume it.
-    const bindScene=React.useCallback(node=>{if(!node&&iframe.current){try{scenePause.current=iframe.current.contentWindow?.CharDayScene?.pauseState?.()||null;}catch{scenePause.current=null;}}iframe.current=node;},[]);
+    // Keep temporary scene progress across both subpages and the whole app's
+    // unmount. This is view state; it never writes a schedule or calendar.
+    const bindScene=React.useCallback(node=>{if(!node&&iframe.current){try{const paused=iframe.current.contentWindow?.CharDayScene?.pauseState?.();if(paused){scenePause.current=paused;if(!stateRef.current?.preview&&!stateRef.current?.showcase)sceneContinuity.set(paused.charId,paused);}}catch{}}iframe.current=node;},[]);
     const demo = id === DEMO.id, char = demo ? DEMO : (props.characters || []).find(c => String(c.id) === String(id));
     useEffect(() => {
       props.onChatVisibility?.(char, chatOpen && !editor && !demo && !showcase && !book && !homeOptions && !moreOpen && !togetherPanel && !professionalPanel && !mePanel && !lifePage);
@@ -74,7 +75,7 @@
     const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情" : "今天还没有日程");
     const visitorData=props.visitorFor?.(char)||{};
     const payload = char && { socialPreferences:socialDraft[String(char.id)]||homes.socialPreferences?.[String(char.id)]||{},pairStyle:pairDraft[String(char.id)]?.ta||homes.pairStyles?.[String(char.id)]||'auto',persona:char.persona||"",motionStyle:demo?demoMotion:homes.motions?.[String(char.id)]||"auto",visitorData:{...visitorData,pairStyle:pairDraft[String(char.id)]?.me||homes.visitorPairStyles?.[String(char.id)]||'auto',homePresence:homeChoices[String(char.id)]||homes.presence?.[String(char.id)]||'with',activityChoice:demo?"auto":homes.visitorActivities?.[String(char.id)]||"auto",motionStyle:demo?demoVisitorMotion:homes.visitorMotions?.[String(char.id)]||"auto"},charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, visitorLook:meDraft||homes.looks?.me||visitorData.look||{},visitorPreview:mePanel,professional:demo?demoProfessional:homes.professional?.[String(char.id)]||{},slot: slot || null,
-      at: preview || demo ? null : now, preview: !!preview || demo, editing: !!editor, resume:scenePause.current, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
+      at: preview || demo ? null : now, preview: !!preview || demo, editing: !!editor, resume:scenePause.current?.charId===String(char.id)?scenePause.current:!preview&&!demo&&!showcase?sceneContinuity.get(String(char.id))||null:null, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
       homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase && !editor,
       presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), cameraMode,kitchenJob:demo?null:homes.kitchens?.[String(char.id)]?.pending||null, minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
       key: showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
