@@ -12,7 +12,8 @@ const engine=process.env.DAY_ENGINE||'webkit',base=process.env.DAY_URL||'http://
  ['在集市旁的面包房买肉桂卷并与热红茶歇脚','红河岸边法式烘焙店','dayCafe','tea','drink','coffee',{scene:'dayHome',spot:'tea'}],
  ['挑选古董杂货','旧货市场','dayFleaMarket','antiques','market-pick','out',null],
  ['整理作物和钓鱼笔记','田间小农场','dayFarm','records','write','work',null],
- ['整理观察笔记','实验室','dayLaboratory','records','write','work',null]
+ ['整理观察笔记','实验室','dayLaboratory','records','write','work',null],
+ ['实验间隙坐着歇一会儿','实验室','dayLaboratory','break',null,'work',{scene:'dayLaboratory',spot:'break'}]
  ];
  await p.setViewportSize({width:390,height:844});await p.unroute('**/pet.mjs*');await p.clock.setFixedTime(new Date('2026-10-09T00:04:00Z'));await p.goto(base);await p.waitForFunction(()=>window.CharDayLink&&typeof txtVaultState==='function'&&txtVaultState().ok);
  await p.evaluate(async({writer,cases})=>{
@@ -29,6 +30,7 @@ const engine=process.env.DAY_ENGINE||'webkit',base=process.env.DAY_URL||'http://
   const now=new Date('2026-10-09T00:00:00Z');now.setUTCMinutes(hour*30+4);await p.clock.setFixedTime(now);
   await p.waitForFunction(({title,location})=>{const text=document.querySelector('[data-wk=cdaynow]')?.textContent||'';return text.includes(title)&&text.includes(location);},{title,location});
   await frame.waitForFunction(({map,spot,kind})=>{const s=CharDayScene.inspect();return s.map===map&&!s.changing&&!s.route.length&&(!spot||s.activity?.spot===spot)&&(!kind||s.workAction?.kind===kind);},{map,spot,kind});
+  if(kind==='write')await frame.waitForFunction(()=>CharDayScene.inspect().workAction?.pen);
   if(kind==='market-pick')await frame.waitForFunction(()=>CharDayScene.inspect().workAction?.product);
   const state=await frame.evaluate(()=>CharDayScene.inspect());assert.match(await p.locator('[data-wk=cdaynow]').innerText(),new RegExp(title));assert.match(await p.locator('[data-wk=cdaynow]').innerText(),new RegExp(location));
   await p.screenshot({path:path.join(out,'schedule-'+hour+'-'+map+'.png')});if(map==='dayFleaMarket')assert.equal(state.workAction.productKind,spot==='fabric'?'fabric':'antique');if(map==='dayFarm'||map==='dayLaboratory')assert.equal(state.seat.pose,'deep');assert.equal(state.markersVisible,false);report.schedules.push({hour,title,location,map,spot,kind,actual:state.activity,workAction:state.workAction,dailyAction:state.dailyAction,sceneAction:state.sceneAction});
