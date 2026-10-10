@@ -16,3 +16,10 @@ test("TA 读到的是「她推荐了谁」，不是一句话", () => {
   const a = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
   assert.match(a, /m\.kind === "namecard" \? "【" \+ uName \+ "把「"/);
 });
+
+test("点名片去通讯录页、返回回原聊天；发名片时两人没关系才落一条「经她介绍认识」", () => {
+  const a = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.match(a, /onOpenNameCard: id => \{[^}]*setContactBack\(activeChar\.id\); setActiveChar\(c\); setScreen\("contact"\);/);
+  assert.match(a, /if \(!cur\[a2 \+ "->" \+ b2\] && !cur\[b2 \+ "->" \+ a2\]\)/);
+  assert.match(c, /onOpen: onOpenNameCard \? \(\) => onOpenNameCard\(m\.cardId\) : null/);
+});
