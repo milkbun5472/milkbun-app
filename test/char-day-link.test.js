@@ -196,8 +196,8 @@ test('法律、基地、工坊与古风按日程动作连接，旁听者与律�
   ['读卷','王府书房','dayStudy','read'],['批阅奏折','御书房','dayStudy','write'],['议事商议','议事厅','dayStudy','council'],['汇报安排','朝堂','dayStudy','address'],['记录议事要点','中军帐','dayStudy','records'],['品茶','古风书房','dayStudy','tea']
  ]){const p=L.presentation({title,location,type:'work'});assert.equal(p.map,scene,title);assert.equal(p.spot,spot,title);}
  for(const [title,location,map]of [['在家修理收音机','家里','dayHome'],['阅读','现代公寓书房','dayHome'],['处理邮件','公司办公室','dayOffice'],['巡逻','城区街道','dayStreet'],['午餐','法庭旁餐厅','dayCafe']])assert.equal(L.presentation({title,location,type:title==='午餐'?'meal':'work'}).map,map,title);
- 
- 
+
+
  assert.equal(L.presentation({title:'午餐',location:'军营食堂',type:'meal'}).map,'dayCafe');assert.equal(L.presentation({title:'用膳',location:'王府书房',type:'meal'}).map,'dayHome');
  for(const [location,scene]of [['训练基地','dayTraining'],['律所','dayLegal'],['维修工坊','dayWorkshop']]){const p=L.presentation({title:'喝水',location,type:'coffee'});assert.equal(p.map,scene);assert.equal(p.spot,'water');}
  const manual={scene:'dayLibrary',spot:'desk-reading'};assert.equal(L.presentation({title:'读卷',location:'王府书房',type:'work',world:manual}).map,'dayLibrary');
