@@ -2368,7 +2368,7 @@
     const refresh = () => setSaves(readSaves());
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
     // The mainline schedule viewer has no journey archive and never boards the game railway.
-    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), characters: props.characters, build: BUILD, onBack: () => setWorld(null) });
+    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), characters: props.characters, build: BUILD, appearanceSaves:readSaves().map(row=>({id:row.id,name:row.name,key:saveKeyOf(row)})), readAppearance:key=>worldOf(loadJSON(key,null)||{},"garden")?.look||null, onBack: () => setWorld(null) });
     if (openId) return h(WorldSession, Object.assign({}, props, {
       key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
       onChooseSave: () => { setOpenId(null); setOpenSolo(false); refresh(); },

@@ -6179,6 +6179,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
+    charDayPresence: window.CharDayLink?.presenceFor(char.id) || "",
     radioLife: window.RadioLife ? window.RadioLife.contextFor(char.id) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
@@ -8993,6 +8994,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       carry: typeof carryContextText === "function"
         ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
       archive: coupleArchiveFor(c.id),
+      charDayPresence: window.CharDayLink?.presenceFor(c.id) || "",
       radioLife: window.RadioLife ? window.RadioLife.contextFor(c.id) : "",
       finance: typeof window.ledgerNoteFor === "function" ? window.ledgerNoteFor(c.id) : ""
     };
@@ -9016,6 +9018,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
     memberFinance: backgroundMap("finance"),
+    memberCharDayPresence: backgroundMap("charDayPresence"),
     memberRadioLife: backgroundMap("radioLife"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),

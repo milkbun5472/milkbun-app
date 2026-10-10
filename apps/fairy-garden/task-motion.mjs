@@ -38,6 +38,7 @@ export function makeTaskProps(root,model,handPoint){
   const pen=new T.Group();pen.name='WorkPencil';group.add(pen);mesh(pen,new T.CylinderGeometry(.012,.012,.19,8),wood,0,-.085,0);mesh(pen,new T.ConeGeometry(.012,.03,8),green,0,-.195,0).rotation.z=Math.PI;
   const pipette=new T.Group();pipette.name='WorkPipette';group.add(pipette);mesh(pipette,new T.CylinderGeometry(.022,.016,.15,10),cream,0,-.055,0);mesh(pipette,new T.CylinderGeometry(.008,.006,.1,8),green,0,-.18,0);mesh(pipette,new T.CylinderGeometry(.025,.025,.025,10),green,0,.03,0);
   const book=new T.Group();book.name='CarriedWorkBook';group.add(book);mesh(book,new T.BoxGeometry(.26,.07,.32),cream);for(const y of [-.043,.043])mesh(book,new T.BoxGeometry(.28,.014,.34),green,0,y,0);
+  const sample=new T.Group();sample.name='CarriedWorkSample';group.add(sample);mesh(sample,new T.CylinderGeometry(.04,.04,.15,10),cream,0,-.04,0);mesh(sample,new T.CylinderGeometry(.045,.045,.035,10),green,0,.055,0);
   const brush=new T.Group();brush.name='WorkBrush';group.add(brush);mesh(brush,new T.CylinderGeometry(.009,.009,.19,8),wood,0,-.085,0);mesh(brush,new T.BoxGeometry(.024,.04,.014),green,0,-.20,0);
   const clipboard=new T.Group();clipboard.name='WorkClipboard';group.add(clipboard);mesh(clipboard,new T.BoxGeometry(.30,.025,.34),green);mesh(clipboard,new T.BoxGeometry(.27,.007,.29),cream,0,.017,0);mesh(clipboard,new T.BoxGeometry(.09,.017,.025),wood,0,.025,-.13);
   const ticket=mesh(group,new T.BoxGeometry(.17,.008,.09),cream);ticket.name='WorkTicket';
@@ -48,9 +49,10 @@ export function makeTaskProps(root,model,handPoint){
   return {update(task,moving=false){
     step.visible=!moving&&(task?.rise||0)>.001;if(step.visible){step.scale.y=task.rise;step.position.set(0,task.floor-root.position.y+task.rise/2,0);}
     pen.visible=!moving&&task?.kind==='write';pipette.visible=!moving&&task?.kind==='experiment';
-    book.visible=!!task?.carry&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
+    book.visible=!!task?.carry&&task.carryType!=='sample'&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
     const aim=(tool,length)=>pointToolAt(tool,group,handPoint('right'),task.contact,length);
     brush.visible=!moving&&task?.kind==='paint';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
+    sample.visible=!!task?.carry&&task.carryType==='sample'&&!(task.kind==='tidy'&&task.progress>.8);if(sample.visible)place(sample,task.kind==='experiment'?'left':'right');
     if(brush.visible)aim(brush,.22);
     if(clipboard.visible){place(clipboard,'right');if(task.kind==='clipboard')clipboard.position.lerp(group.worldToLocal(handPoint('left')),.5);clipboard.position.y-=.015;clipboard.rotation.x=.25;}
     if(ticket.visible){place(ticket,'right');ticket.position.z+=.04;ticket.rotation.x=.3;}

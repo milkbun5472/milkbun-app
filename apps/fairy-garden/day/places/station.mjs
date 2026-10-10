@@ -21,8 +21,8 @@ export const stationMap={
     {id:'luggage',label:'行李放置处',description:'将随身行李放上架板，候车时留在这里，离开前取回。',action:'wait',gesture:'rest',target:{x:1.56,z:-2.32},heading:Math.PI,furniture:'luggage-shelf'},
     {id:'waiting',label:'坐着候车',description:'坐在候车长椅上等待，可从入口走来、坐下，再起身去站台或出口。',action:'wait',gesture:'rest',target:seats.waiting.approach,heading:seats.waiting.heading,seat:seats.waiting,furniture:'waiting-bench'},
     {id:'reading',label:'候车时阅读',description:'在另一排长椅上坐着翻看随身资料，保留走回站台和出口的通道。',action:'read',gesture:'read',target:seats.reading.approach,heading:seats.reading.heading,seat:seats.reading,furniture:'reading-bench'},
-    {id:'platform',label:'站台内侧等候',description:'站在安全线内侧等候；这一版先做短站台，交通工具之后再补。',action:'wait',gesture:'rest',target:{x:4.24,z:.95},heading:Math.PI/2,furniture:'platform-edge'},
-    {id:'departure',label:'出发准备位置',description:'从候车座起身后走到站台内侧准备出发，当前不会上车或跳到轨道。',action:'wait',gesture:'rest',target:{x:4.24,z:-1.73},heading:Math.PI/2,furniture:'platform-edge'},
+    {id:'platform',label:'站台内侧等候',description:'站在安全线内侧等候；列车停靠在黄线外，保留安全候车位置。',action:'wait',gesture:'rest',target:{x:4.24,z:.95},heading:Math.PI/2,furniture:'platform-edge'},
+    {id:'departure',label:'出发准备位置',description:'从候车座起身后走到站台内侧准备出发，列车在轨道上停靠、离开，小人留在安全线内。',action:'wait',gesture:'rest',target:{x:4.24,z:-1.73},heading:Math.PI/2,furniture:'platform-edge'},
     {id:'exit',label:'起身离开候车区',description:'等待结束后沿中央通道离开，供通勤、出差和旅行日程使用。',action:'rest',gesture:'rest',target:{x:0,z:4},heading:0,furniture:'Threshold'}
   ],tour:['entrance','information','service','luggage','waiting','reading','platform','departure','exit']
 };
@@ -68,10 +68,21 @@ function wallAndPlatform(kit){
   kit.box('clock-hand-short',{x:.065,z:.063,w:.14,h:.018,d:.008,color:'#708b7e',radius:0},clock);
   kit.sign('StationSafety',{text:'请留在黄线内',x:4.08,y:2.58,z:-4.35,w:2.1,h:.35});
 }
+function stationTrain(kit){
+ const train=kit.replaceableGroup('DayStationTrain',{x:6.7});train.userData.vehicle='tram';
+ kit.box('TramBody',{y:.91,w:1.1,h:1.52,d:5.6,color:'#92b7aa',radius:.12},train);
+ kit.box('TramRoof',{y:1.72,w:1.15,h:.18,d:5.5,color:'#e5e6d5',radius:.08},train);
+ kit.box('TramStripe',{x:-.559,y:.58,w:.014,h:.14,d:5.3,color:'#eadbbb',radius:0},train);
+ for(const z of [-1.95,-.9,.9,1.95])kit.box('TramWindow',{x:-.566,y:1.22,z,w:.012,h:.53,d:.76,color:'#c4dbe0',radius:.035},train);
+ const door=kit.replaceableGroup('TramDoor',{x:-.575,y:.98,z:0},train);kit.box('TramDoorPanel',{w:.025,h:1.21,d:.79,color:'#d2ddcc'},door);
+ for(const sign of [-1,1]){kit.box('TramFrontWindow',{y:1.23,z:sign*2.807,w:.72,h:.46,d:.013,color:'#b7d2d8'},train);kit.box('TramLamp',{x:-.34,y:.56,z:sign*2.81,w:.15,h:.12,d:.015,color:'#f0deb1'},train);}
+ for(const x of [-.4,.4])for(const z of [-1.85,1.85])kit.cylinder('TramWheel',{x,y:.2,z,r:.19,h:.12,color:'#71877e',rotation:[0,0,Math.PI/2]},train);
+ kit.sign('TramName',{text:'小世界列车',x:-.586,y:.75,z:-1.6,w:1.1,h:.18,heading:-Math.PI/2,color:'#92b7aa',ink:'#f8f0dc'},train);
+}
 export function createStation(){
   const kit=createRoomKit();kit.room({w:12,d:9,floorColor:'#cbc3af',wallColor:'#e7e2d4',accent:'#96aa9e'});
   kit.root.name='DayStation';kit.root.userData.furniture=furniture;
-  wallAndPlatform(kit);
+  wallAndPlatform(kit);stationTrain(kit);
   for(const p of furniture){
     if(p.kind==='bench')kit.bench(p);
     else if(p.kind==='counter'){const g=kit.table(p);kit.box('counter-front',{y:FLOOR+.48,z:p.d/2-.04,w:p.w-.13,h:.82,d:.075,color:'#cfc6ab'},g);kit.sign('ServiceName',{text:'服务台',x:p.x,y:.66,z:p.z+p.d/2+.005,w:1.52,h:.23,color:'#cfc6ab'});}

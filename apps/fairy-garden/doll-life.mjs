@@ -20,6 +20,7 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  const bowl=new T.Group();bowl.name='FoodBowl';group.add(bowl);mesh(bowl,new T.CylinderGeometry(.075,.05,.06,16),cream,0,0,0);mesh(bowl,new T.CircleGeometry(.066,16),tea,0,.031,0).rotation.x=-Math.PI/2;const chop=mesh(bowl,new T.CylinderGeometry(.006,.006,.2,6),mat('#b89661'),.03,.09,0);chop.rotation.z=.4;
  const eatingTool=new T.Group();eatingTool.name='EatingChopsticks';group.add(eatingTool);for(const x of [-.008,.008])mesh(eatingTool,new T.CylinderGeometry(.005,.004,.20,8),cream,x,-.10,0);const bite=mesh(eatingTool,new T.SphereGeometry(.018,8,6),tea,0,-.2,0);eatingTool.visible=false;
  const ladle=new T.Group();ladle.name='CookingLadle';group.add(ladle);mesh(ladle,new T.CylinderGeometry(.009,.009,.22,8),cream,0,-.11,0);mesh(ladle,new T.SphereGeometry(.038,12,8),metal,0,-.24,0).scale.set(1,.35,1);ladle.visible=false;
+ const prepKnife=new T.Group();prepKnife.name='PreparationKnife';group.add(prepKnife);mesh(prepKnife,new T.BoxGeometry(.035,.20,.035),cream,0,-.005,0);mesh(prepKnife,new T.BoxGeometry(.055,.13,.012),metal,0,-.14,0);prepKnife.visible=false;
  // Add a visible binding and print to the existing reading prop, shared by all rooms.
  book.name='ReadingBook';mesh(book,new T.BoxGeometry(.012,.005,.21),tea,0,.026,0);for(const x of [-.09,.09])for(let n=0;n<4;n++)mesh(book,new T.BoxGeometry(.09,.001,.002),metal,x,.027,-.065+n*.035);
  const packet=new T.Group();packet.name='SeedPacket';group.add(packet);mesh(packet,new T.BoxGeometry(.11,.14,.045),cream);mesh(packet,new T.SphereGeometry(.028,8,6),metal,0,.01,.03);
@@ -36,10 +37,11 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  function atHand(prop,side='right'){prop.position.copy(model.worldToLocal(handPoint(side)));}
  let taskPropsActive=false;
  return {handPoint,updateTask(time,task,pose){
-  eatingTool.visible=task?.kind==='eat';ladle.visible=task?.kind==='cook';
+  prepKnife.visible=task?.kind==='prep';eatingTool.visible=task?.kind==='eat';ladle.visible=task?.kind==='cook';
   if(!task){if(taskPropsActive){cup.visible=bowl.visible=book.visible=false;}taskPropsActive=false;chop.visible=true;return;}
   taskPropsActive=true;cup.visible=task.kind==='drink';bowl.visible=task.kind==='eat';book.visible=task.kind==='read';chop.visible=false;
   const right=handPoint(),left=handPoint('left');
+  if(prepKnife.visible){const d=pointToolAt(prepKnife,group,right,{...task.contact,y:task.contact.y+(pose?.dy||0)},.21,{scale:false});prepKnife.visible=d>=.12&&d<=.30;if(prepKnife.visible)prepKnife.translateY(.21-d);}
   if(cup.visible){cup.rotation.set(-(pose?.sip||0)*.3,0,0);const grip=new T.Vector3(.056,0,0).applyEuler(cup.rotation);cup.position.copy(model.worldToLocal(right.clone()).sub(grip));}
   if(bowl.visible){bowl.rotation.set(0,0,0);bowl.position.copy(model.worldToLocal(left.clone()));bowl.position.y-=.015;
    const forward=new T.Vector3(0,0,-1).applyQuaternion(model.getWorldQuaternion(new T.Quaternion())),length=.20*model.getWorldScale(new T.Vector3()).z;

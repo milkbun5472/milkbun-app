@@ -9,7 +9,7 @@ const FURNITURE=[
   {id:'literature-shelf',kind:'shelf',x:-3.20,z:-4.03,w:2.50,d:.58,h:2.32},
   {id:'reference-shelf',kind:'shelf',x:-.46,z:-4.03,w:2.45,d:.58,h:2.32},
   {id:'periodical-cabinet',kind:'cabinet',x:-4.48,z:-1.18,w:.68,d:1.65,h:.78},
-  {id:'reading-table',kind:'table',x:-.85,z:.05,w:3.10,d:1.35,top:DESK,color:COLORS.wood},
+  {id:'reading-table',kind:'table',x:-.85,z:.05,w:3.10,d:1.35,top:DESK,work:{'study-notes':{x:-.93,y:DESK+.059,z:.63}},color:COLORS.wood},
   {id:'reading-chair-north',kind:'chair',x:-.85,z:-.88,w:.56,d:.57,heading:0,color:COLORS.sage},
   {id:'reading-chair-south',kind:'chair',x:-1.66,z:.98,w:.56,d:.57,heading:Math.PI,color:COLORS.sage},
   {id:'reading-chair-extra',kind:'chair',x:-.05,z:.98,w:.56,d:.57,heading:Math.PI,color:COLORS.sage},
