@@ -32,6 +32,8 @@ const engine=process.env.DAY_ENGINE||'webkit',base=process.env.DAY_URL||'http://
   await frame.waitForFunction(({map,spot,kind})=>{const s=CharDayScene.inspect();return s.map===map&&!s.changing&&!s.route.length&&(!spot||s.activity?.spot===spot)&&(!kind||s.workAction?.kind===kind);},{map,spot,kind});
   if(kind==='write')await frame.waitForFunction(()=>CharDayScene.inspect().workAction?.pen);
   if(kind==='market-pick')await frame.waitForFunction(()=>CharDayScene.inspect().workAction?.product);
+  // Allow the physical seat transition to settle before capturing the actual pose.
+  await p.waitForTimeout(1200);
   const state=await frame.evaluate(()=>CharDayScene.inspect());assert.match(await p.locator('[data-wk=cdaynow]').innerText(),new RegExp(title));assert.match(await p.locator('[data-wk=cdaynow]').innerText(),new RegExp(location));
   await p.screenshot({path:path.join(out,'schedule-'+hour+'-'+map+'.png')});if(map==='dayFleaMarket')assert.equal(state.workAction.productKind,spot==='fabric'?'fabric':'antique');if(map==='dayFarm'||map==='dayLaboratory')assert.equal(state.seat.pose,'deep');assert.equal(state.markersVisible,false);report.schedules.push({hour,title,location,map,spot,kind,actual:state.activity,workAction:state.workAction,dailyAction:state.dailyAction,sceneAction:state.sceneAction});
  }
