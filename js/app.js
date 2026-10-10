@@ -12508,7 +12508,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
-        const bi = _bilingualOn ? splitBilingual(w) : null;
+        const bi = _bilingualOn ? splitBilingual(w, hanLangOf(char)) : null;
         const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
         if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
@@ -14564,7 +14564,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             const gLines = (gBiOn ? joinBilingualLines : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
-                const bi = gBiOn ? splitBilingual(x) : null;
+                const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
                 const parts = splitLongBubble(bi ? bi.text : x, gAllowComma);
                 if (bi && parts.length) gBiZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
                 return acc.concat(parts);
@@ -18821,7 +18821,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const uName = userName(profile);
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
       const callBiHint = callBilingualRule(people, settingsFor);
-      const callLines = (text, char) => callBilingualLines(text, !!(settingsFor(char.id) || {}).bilingual && !(settingsFor(char.id) || {}).engineerEyes, splitSayLine);
+      const callLines = (text, char) => callBilingualLines(text, !!(settingsFor(char.id) || {}).bilingual && !(settingsFor(char.id) || {}).engineerEyes, splitSayLine, hanLangOf(char));
       const callerName = callerIsChar ? ((people.find(p => p.id === cur.caller) || {}).name || "") : "";
       // 【通话是第五处】(v60.27 她 2026-09-02:「感觉语音视频没喂八股禁令进去」——是真的)
       // 见 施工规则/four-surfaces-same-context.md：那条规矩当初只列了

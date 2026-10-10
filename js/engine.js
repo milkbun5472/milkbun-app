@@ -6723,7 +6723,12 @@ function bilingualTurnHint(who) {
 //   ⑤ 左边必须【看得出是外语】——有假名/谚文/西里尔/拉丁字母都行，
 //      唯独「有汉字、又一个外文字符都没有」的那种是正常中文，不许劈：
 //      「价格 3|5 元」是她随手打的一句话，不是双语。
-function splitBilingual(text) {
+// hanLang：这个人平时说的是粤语、上海话这类【本来就用汉字写】的话（她 2026-10-10 截图：
+//   粤语那几条「早啲休息 | 早點休息」整条原样挂在气泡里——左边一个外文字母都没有，被第⑤条当成普通中文放过去了）。
+//   这种人开着双语时左边全是汉字也算原文；不知道是谁说的，就再认一遍粤语专用字兜底。
+const HAN_LANG_RE = /粤|粵|广东|廣東|cantonese|上海|吴语|吳語|闽南|閩南|台语|台語|客家|潮汕|文言/i;
+function hanLangOf(c) { return HAN_LANG_RE.test(String((c && c.lang) || "")); }
+function splitBilingual(text, hanLang) {
   const t = String(text == null ? "" : text);
   const i = t.indexOf("|");
   if (i <= 0 || i !== t.lastIndexOf("|")) return null;
@@ -6732,7 +6737,7 @@ function splitBilingual(text) {
   if (!/[\u4e00-\u9fff]/.test(zh)) return null;
   if (orig === zh) return null;
   const foreign = /[\u3040-\u30ff\uac00-\ud7af\u1100-\u11ff\u3130-\u318f\u0400-\u04ffA-Za-z\u00c0-\u024f]/.test(orig);
-  if (/[\u4e00-\u9fff]/.test(orig) && !foreign) return null;
+  if (/[\u4e00-\u9fff]/.test(orig) && !foreign && !hanLang && !/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮晒噃咪嘥]/.test(orig)) return null;
   return { text: orig, zh: zh };
 }
 // 模型把中译另起了一行（「ん？なに？」换行「|……嗯？什么？」）：拆泡是先按换行切的，
@@ -6754,8 +6759,8 @@ function bilingualKey(s) {
   return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
 }
 // 通话先拆字幕，再拆动作，避免中文括号被误认成视频动作；流式与全文对账共用。
-function callBilingualLines(text, enabled, splitLine) {
-  const bi = enabled ? splitBilingual(text) : null;
+function callBilingualLines(text, enabled, splitLine, hanLang) {
+  const bi = enabled ? splitBilingual(text, hanLang) : null;
   const lines = splitLine(bi ? bi.text : text);
   if (bi) {
     const spoken = lines.filter(line => line.speech);
@@ -6777,7 +6782,8 @@ function bilingualRule(who) {
     + "\u2014\u2014\u4e00\u6839\u7ad6\u7ebf\uff08|\uff09\u9694\u5f00\uff0c\u5de6\u8fb9\u539f\u539f\u672c\u672c\u5c31\u662f TA \u8981\u8bf4\u7684\u90a3\u53e5\u5916\u8bed\uff08\u522b\u6539\u5199\u3001\u522b\u52a0\u6ce8\u97f3\uff09\uff0c\u53f3\u8fb9\u662f\u5b83\u7684\u4e2d\u6587\u610f\u601d\u3002"
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
     + "\u8bf4\u4e2d\u6587\u7684\u90a3\u4e9b\u6761\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
-    + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002";
+    + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
+    + "右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。";
 }
 const TRANS_CACHE_KEY = "x_transCache";
 const TRANS_CACHE_MAX = 400;
