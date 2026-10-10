@@ -46,7 +46,7 @@ export function shoulderPose(holder,leaner,progress,{embrace=false,holderProgres
 export function hugPose(a,b,pa,pb){
  const contacts=[];
  for(const [giver,receiver,p] of [[a,b,pa],[b,a,pb]]){
-  giver.contactPose({tilt:.06*p});
+  const headSide=giver.root.worldToLocal(receiver.root.position.clone()).x<0?-1:1;giver.contactPose({tilt:.06*p,neckLean:headSide*.20*p});
   const side=receiver.root.worldToLocal(giver.root.position.clone()).x<0?-1:1,back=torsoPoint(receiver,side*.85,.94,-.025),waist=torsoPoint(receiver,side*.85,.60,.10),inner=nearHand(giver,receiver.root.position),outer=inner==='left'?'right':'left',shoulder=bonePoint(giver,inner+'Arm');
   if(shoulder){back.y=Math.min(back.y,shoulder.y-.02);waist.y=Math.min(waist.y,shoulder.y-.12);}
   pairContact(giver,{[inner]:back,[outer]:waist},p,contacts);

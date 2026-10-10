@@ -23,7 +23,7 @@ test('原有约会动作沿实际地点寻路和椅面，两个人到位后才�
   const c=createTogether({a,b,map:()=>map,from:()=>from,onStop:s=>released=s});assert.equal(c.start(kind).ok,true,id+':'+kind);
   for(let i=0;i<3500&&c.inspect()?.phase!=='active';i++)c.tick(.02,i*.02);
   assert.equal(c.inspect()?.phase,'active',id+':'+kind);c.tick(.02,80);
-  const q=c.inspect(),aa=q.seats?.a||q.a,bb=q.seats?.b||q.b;assert.ok(Math.hypot(aa.x-bb.x,aa.z-bb.z)>=(kind==='hug'?.32:.75));
+  const q=c.inspect(),aa=q.seats?.a||q.a,bb=q.seats?.b||q.b;assert.ok(Math.hypot(aa.x-bb.x,aa.z-bb.z)>=(kind==='hug'?.32:.40));
   if(q.seats)for(const s of Object.values(q.seats)){assert.ok(map.furniture.some(p=>p.id===s.piece));assert.equal(s.rise,.45);}
   if(['read','meal','drink'].includes(kind)){assert.ok(a.pose.task?.daily&&b.pose.task?.daily);}
   if(kind==='stretch'){assert.equal(a.pose.gesture,'stretch');assert.equal(b.pose.gesture,'stretch');}

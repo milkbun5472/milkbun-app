@@ -1,14 +1,14 @@
 import * as T from 'three';
-import './social.js?v=fg-3f18410459027dc9';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-3f18410459027dc9';
-import {stepRoute} from '../locomotion.mjs?v=fg-3f18410459027dc9';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-3f18410459027dc9';
-import {pairProgress} from './motion-profile.mjs?v=fg-3f18410459027dc9';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-3f18410459027dc9';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-3f18410459027dc9';
+import './social.js?v=fg-2c643c105f739741';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-2c643c105f739741';
+import {stepRoute} from '../locomotion.mjs?v=fg-2c643c105f739741';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-2c643c105f739741';
+import {pairProgress} from './motion-profile.mjs?v=fg-2c643c105f739741';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-2c643c105f739741';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-2c643c105f739741';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-3f18410459027dc9';
+import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-2c643c105f739741';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -47,7 +47,7 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
   const center={x:(from.a.x+from.b.x)/2,z:(from.a.z+from.b.z)/2};
   for(const r of [0,1,2,3])for(let n=0;n<16;n++){
    const angle=n*Math.PI/8,c={x:center.x+Math.cos(angle)*r,z:center.z+Math.sin(angle)*r};
-   const heading=['hug','back-hug','dance'].includes(kind)?angle:angle-Math.PI/2,s=Math.sin(angle),v=Math.cos(angle),spacing=distance||INTIMATE[kind]?.distance||(kind==='hug'?.34:kind==='stretch'?1.8:kind==='walk'?.61:kind==='hand'?.61:.78);
+   const heading=['hug','back-hug','dance'].includes(kind)?angle:angle-Math.PI/2,s=Math.sin(angle),v=Math.cos(angle),spacing=distance||INTIMATE[kind]?.distance||(kind==='hug'?.29:kind==='stretch'?1.8:kind==='walk'?.61:kind==='hand'?.61:.78);
    const plan={a:{x:c.x-s*spacing/2,z:c.z-v*spacing/2},b:{x:c.x+s*spacing/2,z:c.z+v*spacing/2},heading};
    if(kind==='back-hug'&&initiator==='b')plan.heading+=Math.PI;
    if(['hug','back-hug'].includes(kind)){const lateral=kind==='hug'?.22:.20;plan.a.x-=Math.cos(plan.heading)*lateral/2;plan.a.z+=Math.sin(plan.heading)*lateral/2;plan.b.x+=Math.cos(plan.heading)*lateral/2;plan.b.z-=Math.sin(plan.heading)*lateral/2;}
