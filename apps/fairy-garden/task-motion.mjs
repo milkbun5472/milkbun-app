@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-15cba47296d70fc5';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-15cba47296d70fc5';
-import {pointToolAt} from './reach-hand.mjs?v=fg-15cba47296d70fc5';
+import {emotionPose} from './emotion-pose.mjs?v=fg-6a186babf51cdda8';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-6a186babf51cdda8';
+import {pointToolAt} from './reach-hand.mjs?v=fg-6a186babf51cdda8';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -61,7 +61,12 @@ export function makeTaskProps(root,model,handPoint){
     step.visible=!moving&&(task?.rise||0)>.001;if(step.visible){step.scale.y=task.rise;step.position.set(0,task.floor-root.position.y+task.rise/2,0);}
     pen.visible=!moving&&task?.kind==='write';pipette.visible=!moving&&task?.kind==='experiment';
     book.visible=!!task?.carry&&task.carryType!=='sample'&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&task.carryType!=='basket'&&task.carryType!=='weights'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
-    const aim=(tool,length)=>pointToolAt(tool,group,handPoint('right'),task.contact,length);
+    const aim=(tool,length)=>{
+      const reach=pointToolAt(tool,group,handPoint('right'),task.contact,length);
+      // Finish reaching the work surface before showing a working tool. During
+      // a pose transition it must not grow into a long rod to bridge the gap.
+      if(reach>.40)tool.visible=false;
+    };
     brush.visible=!moving&&task?.kind==='paint';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
     sample.visible=!!task?.carry&&task.carryType==='sample'&&!(task.kind==='tidy'&&task.progress>.8);if(sample.visible)place(sample,task.kind==='experiment'?'left':'right');
     if(brush.visible)aim(brush,.22);
