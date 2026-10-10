@@ -3637,6 +3637,7 @@ function buildBundle(ctx, opts) {
   if (ctx.groupOfflineEcho && ctx.groupOfflineEcho.trim()) parts.push("【你和大家最近的多人线下相处·带时间戳（真实发生过，你在场、都记得）】\n下面是你参加过的群线下（大家面对面相处）最近的片段，你亲历、记得。里头那个『" + uName + "』就是此刻跟你单聊的这个人。按方括号里的真实时间理解它和现在的先后顺序，聊到相关自然接得上、别自相矛盾（比如刚一起吃过饭、你却问 TA 吃了没）。\n" + ctx.groupOfflineEcho.trim());
   if (!ctx.notRoleplay && ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】" + SCHEDULE_CONTEXT_RULE + "\n" + ctx.schedNow.trim());
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
+  if (ctx.charDayPresence) parts.push(ctx.charDayPresence);
   if (ctx.offlineNow && ctx.offlineNow.trim()) parts.push(ctx.offlineNow.trim());
   // 她从你梦里带出来的东西（v63.05）：你只觉得眼熟——它来自你自己的梦，你不知道，永远别说破
   if (ctx.dreamKeep && String(ctx.dreamKeep).trim()) parts.push("【她身上带着的一样东西：" + String(ctx.dreamKeep).trim() + "】你说不上在哪见过它，可一眼就眼熟，心里会莫名一动。" +
@@ -7336,6 +7337,7 @@ function groupBackgroundSegments(c, background, uName, opts) {
     hcSeg: b.home ? "\n〔你自己住在" + b.home + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "",
     cySeg: b.carry ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + b.carry : "",
     caSeg: (b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : "")
+      + (b.charDayPresence ? "\n〔此状态仅 " + c.name + " 与对方在该小世界会话内可见；其他成员未在场。〕\n" + b.charDayPresence : "")
       + (b.radioLife ? "\n〔以下事件属于 " + c.name + " 本人经历；其他成员只知道自己实际在场的部分，现场未通知用户是否在收听。〕\n" + b.radioLife : "")
       + (b.finance ? "\n〔以下账单仅 " + c.name + " 知道；其他成员各自以自己的授权为准。这是私下得知的生活线索，由本人决定是否适合在当前场合提起。〕\n" + ledgerContextBlock(b.finance, uName) : "")
   };
@@ -8339,6 +8341,7 @@ async function generateOfflineGroup(p, ctx, session) {
       home: ctx.memberHome && ctx.memberHome[c.id],
       carry: ctx.memberCarry && ctx.memberCarry[c.id],
       archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id],
+      charDayPresence: ctx.memberCharDayPresence && ctx.memberCharDayPresence[c.id],
       radioLife: ctx.memberRadioLife && ctx.memberRadioLife[c.id],
       finance: ctx.memberFinance && ctx.memberFinance[c.id]
     }, userName, { narrative: true });

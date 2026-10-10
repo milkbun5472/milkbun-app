@@ -6,13 +6,14 @@ export function dailyTaskPose(task){
  if(task.kind==='read')return {left:[-.8,0,.1],right:[-.8,0,-.1],leftElbow:-.6,rightElbow:-.6,tilt:.035,turn:ease((p-.48)/.25),daily:true};
  if(task.kind==='drink')return {left:[-.25,0,0],right:[-.9,0,-.12],rightElbow:-.9,tilt:-.012,sip:ease(p/.19)*ease((.57-p)/.16),daily:true};
  if(task.kind==='eat')return {left:[-.9,0,.1],right:[-.8,0,-.1],leftElbow:-.65,rightElbow:-.8,tilt:.035,bite:ease(p/.22)*ease((.64-p)/.22),daily:true};
+ if(task.kind==='prep')return {left:[-.35,0,.08],right:[-.65,0,-.1],rightElbow:-.85,tilt:.035,reach:1,dx:Math.sin(task.elapsed*2)*.018,dy:Math.max(0,Math.sin(task.elapsed*4))*.055,daily:true};
  if(task.kind==='cook')return {left:[-.25,0,0],right:[-.65,0,-.1],rightElbow:-.85,tilt:.035,reach:1,dx:Math.sin(task.elapsed*1.8)*.045,dz:Math.cos(task.elapsed*1.8)*.045,dy:Math.sin(task.elapsed*.9)*.009,daily:true};
  return null;
 }
 // Drink/eat/read contacts follow the morphed head; cooking receives the actual
 // moved furniture surface. Both use the original traveler's shared hand solver.
 export function dailyHandTargets(model,head,task,pose){
- if(!pose?.daily||!head||task.kind==='cook')return {};
+ if(!pose?.daily||!head||['cook','prep'].includes(task.kind))return {};
  model.updateWorldMatrix(true,true);
  const point=(x,y,z)=>head.localToWorld(new T.Vector3(x,y,z));
  const front=new T.Vector3(0,0,1).applyQuaternion(model.getWorldQuaternion(new T.Quaternion()));

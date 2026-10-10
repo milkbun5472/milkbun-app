@@ -13,6 +13,6 @@ test('现场底栏复用原尺寸和安全区，空地点击使用原手势，�
  const page=read('js/char-day.js'),scene=read('apps/fairy-garden/day/scene.mjs');
  const a=page.indexOf('      visiting ? h('),b=page.indexOf('      editor ? h(',a);assert.ok(a>0&&b>a);const tools=page.slice(a,b);
  assert.match(tools,/minHeight:56/);assert.match(tools,/safe-area-inset-bottom\) \* 0\.4/);assert.match(tools,/data-wk":"cdaytools/);
- assert.match(scene,/onTap:\(x,y\)=>/);assert.match(scene,/visitor\.act\('walk'/);assert.match(scene,/createTraveler\(travelerSource,false\)/);
+ assert.match(scene,/onTap:\(x,y\)=>/);assert.match(scene,/visitAction\('walk'/);assert.match(scene,/createTraveler\(travelerSource,false\)/);
  assert.match(scene,/if\(visitorAvatar\)disposeMap\(visitorAvatar\.root\)/);assert.match(page,/key: char\.id \+ ":" \+ retry/);
 });

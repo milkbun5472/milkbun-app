@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-4ea3c2dd79f75cae';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-59e15e1dd85eba7b';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.
@@ -33,21 +33,20 @@ export const laboratoryMap={
     {id:'observation',label:'观察台前',description:'站在中央台前看样品与仪器；低头查看样品，再到记录工位记下观察。',action:'work',gesture:'rest',target:{x:-1,z:.29},heading:Math.PI,furniture:'observation-island'},
     {id:'computer',label:'电脑工位',description:'坐着查看资料、整理数据与分析结果的位置；双手在键盘前整理数据，随后可核对记录。',action:'work',gesture:'read',target:{...seats.computer.approach},heading:seats.computer.heading,seat:seats.computer,furniture:'computer-desk'},
     {id:'records',label:'记录工位',description:'坐着阅读实验记录、整理纸笔和写观察笔记的位置。',action:'read',gesture:'read',target:{...seats.records.approach},heading:seats.records.heading,seat:seats.records,furniture:'records-desk'},
-    {id:'archive',label:'资料柜前',description:'从柜前取阅或归还资料的位置；取物和开柜动作随后接入。',action:'read',gesture:'rest',target:{x:-3.35,z:-2.68},heading:-Math.PI/2,furniture:'archive-cabinet'},
-    {id:'materials',label:'材料架前',description:'在架前挑选耗材与整理物品的位置；拿取动作随后接入。',action:'work',gesture:'rest',target:{x:-3.35,z:.58},heading:-Math.PI/2,furniture:'materials-shelf'},
+    {id:'archive',label:'资料柜前',description:'从柜前取阅或归还资料的位置；到位后打开柜门，取阅并归还资料。',action:'read',gesture:'rest',target:{x:-3.35,z:-2.68},heading:-Math.PI/2,furniture:'archive-cabinet'},
+    {id:'materials',label:'材料架前',description:'在架前挑选耗材与整理物品的位置；到位后取用耗材，收拾时归还。',action:'work',gesture:'rest',target:{x:-3.35,z:.58},heading:-Math.PI/2,furniture:'materials-shelf'},
     {id:'break',label:'休息座位',description:'坐着稍作休息或翻看资料的位置，邻边小桌可以放杯子和笔记。',action:'rest',gesture:'rest',target:{...seats.break.approach},heading:seats.break.heading,seat:seats.break,furniture:'break-chair'}
   ],
   tour:['entrance','archive','bench','observation','computer','records','materials','break','entrance']
 };
 
 function cabinet(kit,p){
-  const g=kit.group(p.id,{x:p.x,z:p.z});
-  kit.box('cabinet-body',{y:FLOOR+p.h/2,w:p.w,h:p.h,d:p.d,color:'#b4c2b4'},g);
-  for(const z of [-p.d/4,p.d/4]){
-    kit.box('cabinet-door',{x:p.w/2+.014,y:FLOOR+p.h/2+.015,z,w:.035,h:p.h-.12,d:p.d/2-.065,color:'#d0d7c9',radius:.012},g);
-    kit.box('cabinet-handle',{x:p.w/2+.055,y:FLOOR+p.h*.56,z:z>0?.075:-.075,w:.055,h:.27,d:.045,color:'#789488',radius:.008},g);
-    kit.box('cabinet-label',{x:p.w/2+.037,y:FLOOR+p.h*.78,z,w:.012,h:.15,d:.25,color:'#ece9d8',radius:.002},g);
-  }
+ const g=kit.group(p.id,{x:p.x,z:p.z});
+ kit.box('cabinet-back',{x:-p.w/2+.04,y:FLOOR+p.h/2,w:.08,h:p.h,d:p.d,color:'#b4c2b4'},g);
+ for(const z of [-p.d/2+.03,p.d/2-.03])kit.box('cabinet-side',{y:FLOOR+p.h/2,z,w:p.w,h:p.h,d:.06,color:'#b4c2b4'},g);
+ for(const y of [.1,.7,1.3,p.h-.03])kit.box('cabinet-shelf',{y:FLOOR+y,w:p.w,h:.06,d:p.d,color:'#b4c2b4'},g);
+ for(const sign of [-1,1])kit.hingedDoor('cabinet-door',{x:p.w/2+.014,y:FLOOR+p.h/2+.015,z:sign*p.d/4,w:.035,h:p.h-.12,d:p.d/2-.065,color:'#d0d7c9',axis:'x',sign,furniture:p.id},g);
+ for(let n=0;n<4;n++)kit.book('CabinetReference',{x:0,y:FLOOR+.92,z:-.65+n*.4,w:.12,h:.36,d:.3,color:'#9cb4a2'},g);
 }
 function materialsShelf(kit,p){
   const g=kit.group(p.id,{x:p.x,z:p.z});
@@ -56,8 +55,9 @@ function materialsShelf(kit,p){
   for(const y of [.1,.48,.86,p.h])kit.box('shelf-board',{y:FLOOR+y-.035,w:p.w,h:.07,d:p.d,color:'#cbd1bf'},g);
   for(let i=0;i<4;i++){
     const z=-.62+i*.4;
-    kit.cylinder('supply-bottle',{x:.035,y:FLOOR+.63,z,r:.095,h:.23,color:i%2?'#d1d9cf':'#e2ddc7'},g);
-    kit.cylinder('bottle-cap',{x:.035,y:FLOOR+.758,z,r:.1,h:.035,color:'#829b8f'},g);
+    const stock=kit.replaceableGroup('LabConsumableStock:'+i,{},g);stock.userData.daySupply=true;
+    kit.cylinder('supply-bottle',{x:.035,y:FLOOR+.63,z,r:.095,h:.23,color:i%2?'#d1d9cf':'#e2ddc7'},stock);
+    kit.cylinder('bottle-cap',{x:.035,y:FLOOR+.758,z,r:.1,h:.035,color:'#829b8f'},stock);
     kit.box('supply-box',{x:.015,y:FLOOR+.98,z,w:.53,h:.16,d:.29,color:i%2?'#bdc9bc':'#d8ccb1'},g);
   }
   for(let i=0;i<4;i++){
@@ -120,9 +120,9 @@ function generalEquipment(kit){
   // All specialized props live under this group and can be swapped as one unit.
   const equipment=kit.replaceableGroup('LaboratoryEquipment');
   const bench=piece('laboratory-bench'),benchTop=FLOOR+bench.top;
-  const active=kit.group('ActiveSample',{x:-.70,y:benchTop,z:-3.05},equipment);
+  const active=kit.replaceableGroup('ActiveSample',{x:-.70,y:benchTop,z:-3.05},equipment);
   kit.cylinder('active-sample-cup',{y:.019,r:.045,h:.038,color:'#d9e5d9'},active);kit.cylinder('active-sample-liquid',{y:.04,r:.032,h:.008,color:'#9db6a0'},active);
-  const microscope=kit.group('Microscope',{x:bench.x-.9,y:benchTop,z:bench.z+.02},equipment);
+  const microscope=kit.replaceableGroup('Microscope',{x:bench.x-.9,y:benchTop,z:bench.z+.02},equipment);
   kit.box('microscope-base',{y:.045,w:.52,h:.09,d:.39,color:'#7b948c'},microscope);
   kit.box('microscope-body',{x:-.13,y:.32,z:-.075,w:.14,h:.57,d:.16,color:'#dde1d6',heading:.12},microscope);
   kit.box('microscope-stage',{y:.22,z:.045,w:.35,h:.055,d:.26,color:'#859d93'},microscope);
@@ -130,7 +130,7 @@ function generalEquipment(kit){
   kit.cylinder('microscope-tube',{x:-.04,y:.5,z:.105,r:.057,h:.29,color:'#b6c7bb',rotation:[.3,0,-.25]},microscope);
   kit.cylinder('microscope-eyepiece',{x:0,y:.637,z:.148,r:.067,h:.073,color:'#6b827b',rotation:[.3,0,-.25]},microscope);
   kit.cylinder('microscope-focus',{x:-.24,y:.36,z:-.075,r:.065,h:.095,color:'#8da297',rotation:[0,0,Math.PI/2]},microscope);
-  const rack=kit.group('TestTubeRack',{x:bench.x+.37,y:benchTop,z:bench.z+.02},equipment);
+  const rack=kit.replaceableGroup('TestTubeRack',{x:bench.x+.37,y:benchTop,z:bench.z+.02},equipment);
   kit.box('tube-rack-base',{y:.04,w:.7,h:.07,d:.28,color:'#abbbab'},rack);
   for(const x of [-.3,.3])kit.box('tube-rack-side',{x,y:.155,w:.045,h:.3,d:.28,color:'#abbbab'},rack);
   kit.box('tube-rack-top',{y:.245,w:.66,h:.035,d:.18,color:'#b6c9b8'},rack);
@@ -140,7 +140,7 @@ function generalEquipment(kit){
     kit.cylinder('tube-content',{x,y:.144,r:.044,h:.14,color:i%2?'#a6c2b3':'#bacdc8'},rack);
     kit.cylinder('tube-rim',{x,y:.398,r:.047,h:.023,color:'#e3e8dd'},rack);
   }
-  const instrument=kit.group('BenchAnalyzer',{x:bench.x+1.62,y:benchTop,z:bench.z},equipment);
+  const instrument=kit.replaceableGroup('BenchAnalyzer',{x:bench.x+1.62,y:benchTop,z:bench.z},equipment);
   kit.box('analyzer-body',{y:.23,w:.69,h:.46,d:.61,color:'#d6dccf'},instrument);
   kit.box('analyzer-panel',{y:.295,z:.314,w:.49,h:.25,d:.02,color:'#92afa3'},instrument);
   kit.box('analyzer-display',{x:-.085,y:.325,z:.327,w:.25,h:.11,d:.012,color:'#cce1d7',radius:.007},instrument);
@@ -152,7 +152,7 @@ function generalEquipment(kit){
     kit.cylinder('sample-dish',{x:-.22+i*.22,y:.085,r:.082,h:.038,color:'#d9e5d9'},tray);
     kit.cylinder('sample-mark',{x:-.22+i*.22,y:.109,r:.038,h:.01,color:['#c2c88f','#9db6a0','#c6b697'][i]},tray);
   }
-  const viewer=kit.group('ObservationInstrument',{x:island.x-.75,y:islandTop,z:island.z-.08},equipment);
+  const viewer=kit.replaceableGroup('ObservationInstrument',{x:island.x-.75,y:islandTop,z:island.z-.08},equipment);
   kit.box('viewer-base',{y:.035,w:.4,h:.065,d:.35,color:'#a3b7ad'},viewer);
   kit.box('viewer-body',{y:.19,w:.3,h:.29,d:.31,color:'#d6dccf'},viewer);
   kit.box('viewer-lens-frame',{y:.23,z:.166,w:.17,h:.17,d:.025,color:'#8aaba0'},viewer);
@@ -180,7 +180,7 @@ export function createLaboratory({equipment='general'}={}){
   kit.cylinder('water-cup',{x:side.x+.14,y:FLOOR+side.top+.11,z:side.z+.12,r:.065,h:.2,color:'#e3e8d7'});
   kit.book('bench-checklist',{x:-2.52,y:FLOOR+piece('laboratory-bench').top+.06,z:-3.45,w:.36,d:.44,color:'#d4d9bd',flat:true});
   kit.book('observation-notes',{x:-1.16,y:FLOOR+piece('observation-island').top+.058,z:-.28,w:.37,d:.3,color:'#bbcbb8',flat:true});
-  if(equipment!=='none')generalEquipment(kit);
+  if(equipment!=='none'){generalEquipment(kit);if(equipment==='microscope'){kit.root.getObjectByName('TestTubeRack').visible=false;kit.root.getObjectByName('BenchAnalyzer').visible=false;}if(equipment==='chemistry'){kit.root.getObjectByName('Microscope').visible=false;kit.root.getObjectByName('ObservationInstrument').visible=false;}}
   else kit.replaceableGroup('LaboratoryEquipment');
   return kit.finish();
 }

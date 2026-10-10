@@ -1,12 +1,12 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-4ea3c2dd79f75cae';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-4ea3c2dd79f75cae';
-import {stepRoute} from '../locomotion.mjs?v=fg-4ea3c2dd79f75cae';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-4ea3c2dd79f75cae';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-59e15e1dd85eba7b';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-59e15e1dd85eba7b';
+import {stepRoute} from '../locomotion.mjs?v=fg-59e15e1dd85eba7b';
+import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-59e15e1dd85eba7b';
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
 export const visitorAvoid=ta=>ta?[{x:ta.x,z:ta.z,r:clearance}]:[];
-function reachable(from,to,ta){const avoid=visitorAvoid(ta);return walkable(to.x,to.z,'dayHome')&&(!ta||gap(to,ta)>=clearance)&&findPath(from,to,'dayHome',avoid);}
+function reachable(from,to,ta){const avoid=ta?[{x:ta.x,z:ta.z,r:Math.min(clearance,gap(from,ta)*.85)}]:[];return walkable(to.x,to.z,'dayHome')&&(!ta||gap(to,ta)>=clearance)&&findPath(from,to,'dayHome',avoid);}
 export function visitSeats(map,occupied){
  const pieces=map.furniture.filter(p=>['sofa','chair'].includes(p.kind));
  return pieces.flatMap(p=>{
@@ -28,9 +28,9 @@ export function visitNear(from,ta){
  return choices.sort((a,b)=>gap(from,a.to)-gap(from,b.to))[0]||null;
 }
 export function createHomeVisit({avatar,ta,onChange=()=>{}}){
- let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,leaving=false,notice='',last='';
- const inspect=()=>({present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:route.length>0,leaving,notice,visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
- function tell(text){if(text!==undefined)notice=text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,leaving,notice]);if(key!==last){last=key;onChange(info);}}
+ let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,leaving=false,controlled=null,notice='',last='';
+ const inspect=()=>({present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:controlled?controlled.moving:route.length>0,interaction:controlled?.kind||null,interactionPhase:controlled?.phase||null,leaving,notice,visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
+ function tell(text){if(text!==undefined)notice=text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,info.interaction,info.interactionPhase,leaving,notice]);if(key!==last){last=key;onChange(info);}}
  function go(to,nextSeat=null){
   const next=reachable(position,to,ta());if(!next){tell('这里暂时走不过去，换个空位试试。');return false;}
   seat=null;pendingSeat=nextSeat;route=next;speed=0;
@@ -52,11 +52,11 @@ export function createHomeVisit({avatar,ta,onChange=()=>{}}){
   if(kind==='leave'){if(!go(MAPS.dayHome.spawn))return false;leaving=true;tell('正在走到门口…');return true;}
   return false;
  }
- function close(text=''){present=false;leaving=false;route=[];seat=pendingSeat=null;avatar.root.visible=false;tell(text);}
+ function close(text=''){present=false;leaving=false;controlled=null;route=[];seat=pendingSeat=null;avatar.root.visible=false;tell(text);}
  function tick(dt,time){
-  if(!present)return;
+  if(!present||controlled)return;
   let moving=route.length>0;
-  if(moving){const step=stepRoute(position,route,dt,{speed,walkSpeed:1.45,clear:(a,b)=>segmentClear(a,b,'dayHome',visitorAvoid(ta()))});position=step.position;speed=step.speed;if(step.heading!==null)yaw=step.heading;
+  if(moving){const step=stepRoute(position,route,dt,{speed,walkSpeed:1.45,clear:(a,b)=>segmentClear(a,b,'dayHome',ta()?[{...ta(),r:Math.min(clearance,gap(position,ta())*.85)}]:[])});position=step.position;speed=step.speed;if(step.heading!==null)yaw=step.heading;
    if(step.blocked){pendingSeat=null;leaving=false;tell('路线被挡住了，点另一块空地再走。');}
    else if(!route.length){if(leaving){close('已离开小屋，继续看看TA的一天。');return;}seat=pendingSeat;pendingSeat=null;tell(seat?'已坐到空位上，可以聊聊。':'已走到位置，点空地可以走动。');}
   }
@@ -65,5 +65,8 @@ export function createHomeVisit({avatar,ta,onChange=()=>{}}){
   if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=Math.atan2(other.x-at.x,other.z-at.z);}
   avatar.animate(time,{moving,seated:!!seat,gesture:'rest',height:floorHeight('dayHome',at)+(seat?seat.rise+.05:0)});
  }
- avatar.root.visible=false;return {join,act,close,tick,inspect};
+ avatar.root.visible=false;return {join,act,close,tick,inspect,
+  control(info){controlled=info;position={...info.b};seat=info.bSeat||null;route=[];tell(info.moving?'正在走到互动位置…':info.label+'中，可以随时结束。');},
+  release(info){controlled=null;if(info){position={...info.b};seat=info.seats?.b||null;}tell(info?.reason||'继续在小屋里走动。');}
+ };
 }

@@ -1,4 +1,4 @@
-import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-4ea3c2dd79f75cae';
+import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-59e15e1dd85eba7b';
 
 export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook'};
 export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理'};

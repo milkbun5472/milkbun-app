@@ -1,4 +1,4 @@
-import {chorePlaces,HOME_CHORES} from './home-chores.mjs?v=fg-4ea3c2dd79f75cae';
+import {chorePlaces,HOME_CHORES} from './home-chores.mjs?v=fg-59e15e1dd85eba7b';
 export function createChoreView(T,{scene,getRows,getTask,getPlace,getHand}){
  const root=new T.Group();scene.add(root);const spots=new Map(),tools=new T.Group();root.add(tools);
  const mat=color=>new T.MeshStandardMaterial({color,roughness:.85});

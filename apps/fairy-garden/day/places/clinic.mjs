@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-4ea3c2dd79f75cae';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-59e15e1dd85eba7b';
 
 const FLOOR=.08;
 // The new room, furniture construction and collision share these footprints.
@@ -48,16 +48,18 @@ function cabinet(kit,p){
   const turned=Math.abs(Math.sin(p.heading||0))>.5;
   const w=turned?p.d:p.w,d=turned?p.w:p.d;
   const g=kit.group(p.id,{x:p.x,z:p.z,heading:p.heading||0});
-  kit.box(p.id+'-body',{y:FLOOR+p.h/2,w,h:p.h,d,color:p.color},g);
+  kit.box(p.id+'-back',{y:FLOOR+p.h/2,z:-d/2+.03,w,h:p.h,d:.06,color:p.color},g);
+  for(const side of [-1,1])kit.box(p.id+'-side',{x:side*(w/2-.03),y:FLOOR+p.h/2,w:.06,h:p.h,d,color:p.color},g);
+  for(const y of [.1,p.h*.35,p.h*.65,p.h-.03])kit.box(p.id+'-shelf',{y:FLOOR+y,w,h:.06,d,color:p.color},g);
   const doors=p.id==='duty-locker'?1:2;
   for(let i=0;i<doors;i++){
     const x=doors===1?0:(i-.5)*w/2;
-    kit.box(p.id+'-door',{x,y:FLOOR+p.h/2+.014,z:d/2+.012,w:w/doors-.055,h:p.h-.1,d:.025,color:'#e0e5d7',radius:.012},g);
-    kit.box(p.id+'-handle',{x:doors===1?-.23:x+(i===0?.16:-.16),y:FLOOR+p.h*.55,z:d/2+.046,w:.035,h:.24,d:.035,color:'#8ba69a',radius:.007},g);
-    if(p.id==='case-cabinet')kit.box('case-label',{x,y:FLOOR+p.h*.77,z:d/2+.028,w:.26,h:.15,d:.012,color:'#b7cabb',radius:.002},g);
+    const door=kit.hingedDoor(p.id+'-door',{x,y:FLOOR+p.h/2+.014,z:d/2+.012,w:w/doors-.055,h:p.h-.1,d:.025,color:'#e0e5d7',sign:i===0?-1:1,furniture:p.id},g);
+
+    if(p.id==='case-cabinet')kit.box('case-label',{x:(i===0?-1:1)*(w/doors-.055)/2,y:p.h*.27,z:.027,w:.26,h:.15,d:.012,color:'#b7cabb',radius:.002},door);
     if(p.id==='equipment-cabinet'){
-      kit.box('cabinet-window-frame',{x,y:FLOOR+p.h*.72,z:d/2+.028,w:.45,h:.62,d:.018,color:'#99b8ad',radius:.014},g);
-      kit.box('cabinet-window',{x,y:FLOOR+p.h*.72,z:d/2+.04,w:.38,h:.54,d:.008,color:'#c9ddd3',radius:.01},g);
+      kit.box('cabinet-window-frame',{x:(i===0?-1:1)*(w/doors-.055)/2,y:p.h*.22,z:.028,w:.45,h:.62,d:.018,color:'#99b8ad',radius:.014},door);
+      kit.box('cabinet-window',{x:(i===0?-1:1)*(w/doors-.055)/2,y:p.h*.22,z:.04,w:.38,h:.54,d:.008,color:'#c9ddd3',radius:.01},door);
     }
   }
   if(p.id==='duty-locker')for(let i=0;i<4;i++)kit.box('locker-vent',{x:0,y:FLOOR+p.h-.19-i*.055,z:d/2+.032,w:.4,h:.011,d:.012,color:'#a7baac',radius:.002},g);

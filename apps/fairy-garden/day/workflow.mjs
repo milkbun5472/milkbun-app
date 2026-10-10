@@ -1,4 +1,4 @@
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-4ea3c2dd79f75cae';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-59e15e1dd85eba7b';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation';
 const RECIPES={
@@ -10,7 +10,7 @@ const RECIPES={
  [STATION]:{waiting:[['waiting',12],['reading',2],['information',1]],reading:[['reading',12],['waiting',2],['information',1]],platform:[['platform',12],['waiting',2]],departure:[['waiting',8],['information',2],['departure',3]],luggage:[['waiting',12],['information',2]]}
 };
 const CONFIG={
- [LAB]:{entry:'entrance',prepare:p=>['bench','observation'].includes(p.spot)?'materials':'archive',tidy:p=>p.spot,exit:'entrance'},
+ [LAB]:{carry:'sample',entry:'entrance',prepare:p=>['bench','observation'].includes(p.spot)?'materials':'archive',tidy:p=>p.spot,exit:'entrance'},
  [LIB]:{entry:'exit',prepare:()=> 'choose-book',tidy:()=> 'return-book',exit:'exit',carry:'book'},
  [CLINIC]:{entry:'entrance',prepare:()=> 'casefiles',tidy:()=> 'casefiles',exit:'entrance',carry:'clipboard'},
  [STUDIO]:{entry:'entrance',prepare:()=> 'materials',tidy:p=>p.spot==='easel'?'drying':'storage',exit:'exit'},
@@ -68,7 +68,7 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading}={}
  let contact={x:origin.x+localX*c+.37*s,y:top+.04,z:origin.z-localX*s+.37*c};
  const work=p?.work?.[stage.spot];
  if(work){contact={x:p.x+work.x,y:map.floor+work.y,z:p.z+work.z};if(kind==='paint')target={x:contact.x,y:contact.y-.04,z:origin.z-.18};if(kind==='piano')target={...contact};}
- const task={kind,carry:!!stage.carry||kind==='select'&&[LIB,CLINIC].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
+ const task={kind,elapsed,furniture:spot?.furniture,spot:stage.spot,phase:stage.phase,carry:!!stage.carry||kind==='select'&&[LAB,LIB,CLINIC,STUDIO].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
  if(kind==='paint'){const dx=Math.sin(elapsed*2)*.03,dy=Math.cos(elapsed*1.7)*.025;task.contact.x+=dx;task.contact.y+=dy;task.target.x+=dx;task.target.y+=dy;}
  if(kind==='piano')task.leftTarget={...target,x:p.x+.12};
  if(kind==='paint')task.tool='brush';

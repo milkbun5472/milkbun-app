@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-4ea3c2dd79f75cae';
+import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-59e15e1dd85eba7b';
 
 const {floor:FLOOR,seat:SEAT,desk:DESK}=ROOM_SCALE;
 const C={wood:'#bd9b73',darkWood:'#a88864',paper:'#f0e6d2',sage:'#8b9e89',blue:'#8da5ae',clay:'#ba9687',cream:'#ded3bb',ink:'#71837a'};
@@ -37,7 +37,7 @@ export const studioMap={
     {id:'drawing',label:'画桌坐位',description:'坐着持笔绘画、设计和整理草图，笔尖落在桌面纸上。',action:'work',gesture:'rest',target:seats.drawing.approach,heading:seats.drawing.heading,seat:seats.drawing,furniture:'work-table'},
     {id:'handcraft',label:'手作坐位',description:'适合坐着做手工、裁剪和整理作品的位置，桌面材料可按创作方向替换。',action:'work',gesture:'rest',target:seats.handcraft.approach,heading:seats.handcraft.heading,seat:seats.handcraft,furniture:'work-table'},
     {id:'materials',label:'材料架前',description:'在架前挑选颜料、布料或手工材料，随后走向画架或工作桌。',action:'work',gesture:'rest',target:{x:-3.42,z:piece('materials-rack').z},heading:-Math.PI/2,furniture:'materials-rack'},
-    {id:'storage',label:'收纳柜前',description:'在柜前伸手整理备用材料、工具和作品资料；柜门仍为固定造型。',action:'work',gesture:'rest',target:{x:-3.37,z:piece('materials-cabinet').z},heading:-Math.PI/2,furniture:'materials-cabinet'},
+    {id:'storage',label:'收纳柜前',description:'在柜前打开柜门，整理备用材料、工具和作品资料。',action:'work',gesture:'rest',target:{x:-3.37,z:piece('materials-cabinet').z},heading:-Math.PI/2,furniture:'materials-cabinet'},
     {id:'gallery',label:'站着看作品',description:'留出退后观察作品、比对颜色和挑选展示内容的距离。',action:'rest',gesture:'rest',target:{x:piece('gallery-wall').x,z:-2.65},heading:Math.PI,furniture:'gallery-wall'},
     {id:'drying',label:'整理与晾放作品',description:'创作结束后走到架前整理画纸、半成品与完成作品。',action:'work',gesture:'rest',target:{x:piece('drying-rack').x,z:.68},heading:Math.PI,furniture:'drying-rack'},
     {id:'rest',label:'创作间隙休息',description:'坐着休息、翻看草图或思考下一件作品的位置。',action:'rest',gesture:'rest',target:seats.rest.approach,heading:seats.rest.heading,seat:seats.rest,furniture:'rest-chair'},
@@ -82,11 +82,13 @@ function materialsRack(kit,p){
 
 function cabinet(kit,p){
   const g=kit.group(p.id,{x:p.x,z:p.z});
-  kit.box(p.id+'-body',{y:FLOOR+p.h/2,w:p.w-.06,h:p.h,d:p.d-.04,color:C.darkWood},g);
+  kit.box(p.id+'-back',{x:-p.w/2+.035,y:FLOOR+p.h/2,w:.07,h:p.h,d:p.d-.04,color:C.darkWood},g);
+  for(const side of [-1,1])kit.box(p.id+'-side',{y:FLOOR+p.h/2,z:side*(p.d/2-.035),w:p.w,h:p.h,d:.07,color:C.wood},g);
+  for(const level of [.06,.4])kit.box(p.id+'-shelf',{y:FLOOR+level,w:p.w,h:.06,d:p.d-.10,color:C.wood},g);
+  for(const z of [-.42,.35])kit.box(p.id+'-supplies',{x:-.08,y:FLOOR+.18,z,w:.44,h:.20,d:.36,color:C.cream,radius:.014},g);
   kit.box(p.id+'-top',{y:FLOOR+p.h-.04,w:p.w,h:.08,d:p.d,color:C.wood},g);
   for(const z of [-p.d/4,p.d/4]){
-    kit.box(p.id+'-door',{x:p.w/2-.025,y:FLOOR+p.h/2,z,w:.04,h:p.h-.12,d:p.d/2-.065,color:C.sage},g);
-    kit.box(p.id+'-pull',{x:p.w/2-.008,y:FLOOR+p.h*.56,z,w:.015,h:.13,d:.045,color:C.ink,radius:.003},g);
+    kit.hingedDoor(p.id+'-door',{x:p.w/2-.025,y:FLOOR+p.h/2,z,w:.04,h:p.h-.12,d:p.d/2-.065,color:C.sage,axis:'x',sign:z<0?-1:1,furniture:p.id},g);
   }
   kit.box('StoragePortfolio',{y:FLOOR+p.h+.052,z:.35,w:.51,h:.09,d:.54,color:C.blue,radius:.015},g);
 }
@@ -250,5 +252,12 @@ export function createStudio({materials='paint'}={}){
   kit.root.userData.materials=mode;
   kit.root.userData.materialAnchors=['work-table','paint-cart'].map(id=>{const p=piece(id);return {furniture:id,x:p.x,z:p.z,w:p.w,d:p.d,surface:FLOOR+p.top};});
   const rack=piece('materials-rack');kit.root.userData.materialAnchors.push({furniture:rack.id,x:rack.x,z:rack.z,w:rack.w,d:rack.d,surfaces:rack.levels.map(level=>FLOOR+level)});
+  const work=kit.replaceableGroup('DayWorkProgress');work.userData.dayWork=true;
+  const easelPiece=piece('studio-easel');
+  for(let n=0;n<12;n++){const stroke=kit.replaceableGroup('WorkStroke:'+n,{x:easelPiece.x-.28+(n%4)*.17,y:FLOOR+.76+Math.floor(n/4)*.09,z:easelPiece.z+.434},work);stroke.userData.workStroke=n;kit.box('PaintStroke',{w:.13,h:.025,d:.012,color:[C.sage,C.clay,C.blue][n%3]},stroke);stroke.visible=false;}
+  const completed=kit.replaceableGroup('WorkCraftResult',{x:p.x+.35,y:top+.04,z:p.z+.05});completed.userData.workStroke=10;
+  if(mode==='fabric'){kit.box('FinishedFabric',{w:.65,h:.055,d:.38,color:C.blue},completed);for(let n=0;n<6;n++)kit.box('FinishedSeam',{x:-.26+n*.105,y:.03,w:.005,h:.003,d:.29,color:C.paper},completed);}
+  else{kit.cylinder('ClayWork',{y:.12,r:.12,h:.24,color:C.clay},completed);kit.cylinder('ClayRim',{y:.245,r:.13,h:.025,color:C.cream},completed);}
+  completed.visible=false;
   const result=kit.finish();result.root.name='DayStudio';return result;
 }
