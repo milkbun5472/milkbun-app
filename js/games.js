@@ -106,23 +106,34 @@
       btn("+", function () { props.onChange(Math.min(props.max, props.value + 1)); }, props.value >= props.max));
   }
 
-  // ---- 存档（非 x_ 前缀 → 不进云同步，对局是临时的）----
-  const WOLF_SAVE = "wolf_save";
-  function loadWolfSave() { try { return JSON.parse(localStorage.getItem(WOLF_SAVE) || "null"); } catch (e) { return null; } }
-  function saveWolf(s) { try { localStorage.setItem(WOLF_SAVE, JSON.stringify(s)); } catch (e) {} }
-  function clearWolf() { try { localStorage.removeItem(WOLF_SAVE); } catch (e) {} }
+  // ---- 存档：住大仓库（她 2026-10-10：「还有什么在小仓库一起搬了」）----
+  //   原来住小仓库（wolf_save / games_save / tod_prompt_history_v1），她那台常年贴着 5MB，
+  //   存档写不进去还不报错，退出来再进就是空的。老的那份第一次读到时搬过来、从小仓库删掉。
+  function bigGet(key, oldKey, fallback) {
+    let v = null;
+    try { v = typeof loadJSON === "function" ? loadJSON(key, null) : null; } catch (e) {}
+    if (v == null && oldKey) {
+      try { const raw = localStorage.getItem(oldKey); if (raw != null) { v = JSON.parse(raw); if (typeof saveJSON === "function") saveJSON(key, v); localStorage.removeItem(oldKey); } } catch (e) {}
+    }
+    return v == null ? fallback : v;
+  }
+  function bigSet(key, v) { try { if (typeof saveJSON === "function") saveJSON(key, v); } catch (e) {} }
+  const WOLF_SAVE = "x_wolfSave";
+  function loadWolfSave() { return bigGet(WOLF_SAVE, "wolf_save", null); }
+  function saveWolf(s) { bigSet(WOLF_SAVE, s); }
+  function clearWolf() { bigSet(WOLF_SAVE, null); try { localStorage.removeItem("wolf_save"); } catch (e) {} }
 
   // ---- 通用对局存档（每种游戏一个槽；退出即存、打完即清；狼人杀走上面自己那套）----
-  const GS_SAVE = "games_save";  // { [gameKey]: snapshot }
-  function loadGamesSaves() { try { return JSON.parse(localStorage.getItem(GS_SAVE) || "{}") || {}; } catch (e) { return {}; } }
+  const GS_SAVE = "x_gamesSave";  // { [gameKey]: snapshot }
+  function loadGamesSaves() { const v = bigGet(GS_SAVE, "games_save", {}); return v && typeof v === "object" ? v : {}; }
   function loadGameSave(k) { return loadGamesSaves()[k] || null; }
-  function saveGameSnap(k, snap) { try { const all = loadGamesSaves(); all[k] = snap; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  function saveGameSnap(k, snap) { const all = loadGamesSaves(); all[k] = snap; bigSet(GS_SAVE, all); }
   // CC 回执按 turn_id 幂等领取。仅用 day/round 或裸毫秒都可能在新局、时钟回拨、
   // 同毫秒连续出票时撞上旧回执；所有没有稳定局号的临时票统一加随机尾巴。
   function freshCCTurn(prefix) {
     return String(prefix || "game") + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
   }
-  function clearGameSave(k) { try { const all = loadGamesSaves(); delete all[k]; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  function clearGameSave(k) { const all = loadGamesSaves(); delete all[k]; bigSet(GS_SAVE, all); }
   // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
   function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive, engineer: !!p.engineer }; }); }
   function hydPlayers(saved, props, t) {
@@ -2870,14 +2881,14 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 11500 });
     return extractJSON(raw) || { npcs: [] };
   }
-  const TD_PROMPT_HISTORY = "tod_prompt_history_v1"; // 跨新局保留题目去重，不随「弃掉本局」清空
+  const TD_PROMPT_HISTORY = "x_todPromptHistory"; // 跨新局保留题目去重，不随「弃掉本局」清空
   const TD_THEMES = ["现场互动", "荒诞脑洞", "限时二选一", "价值冲突", "即兴表演", "模仿挑战", "消息任务", "反向角色扮演", "观察力挑战", "创意表达", "临场社交", "小型技能挑战"];
-  function loadTDPromptHistory() { try { const x = JSON.parse(localStorage.getItem(TD_PROMPT_HISTORY) || "[]"); return Array.isArray(x) ? x : []; } catch (e) { return []; } }
+  function loadTDPromptHistory() { const x = bigGet(TD_PROMPT_HISTORY, "tod_prompt_history_v1", []); return Array.isArray(x) ? x : []; }
   function rememberTDPrompt(choice, prompt) {
     const p = String(prompt || "").trim(); if (!p) return;
     const all = loadTDPromptHistory().filter(function (x) { return x && x.prompt !== p; });
     all.push({ choice: choice, prompt: p.slice(0, 300), ts: Date.now() });
-    try { localStorage.setItem(TD_PROMPT_HISTORY, JSON.stringify(all.slice(-120))); } catch (e) {}
+    bigSet(TD_PROMPT_HISTORY, all.slice(-120));
   }
   function tdRoundPlan(log, targetName, forcedChoice) {
     const rounds = (log || []).filter(function (x) { return x && x.type === "td"; });

@@ -221,7 +221,9 @@
     const t = useTheme();
     const chars = (props.characters || []).filter(c => c && !c.npc);
     const uName = (props.profile && props.profile.name) || "你";
-    const [openId, setOpenId] = useState(null);
+    // 从聊天里那张时刻卡点「去时刻里看」进来：直接翻到这个人、停在那一张（props.focus：{ charId, key, title, ts }）
+    const [openId, setOpenId] = useState(() => (props.focus && props.focus.charId) || null);
+    const focusRef = React.useRef(props.focus || null);
     const [covers, setCovers] = useState(loadCovers);
     const [busy, setBusy] = useState("");
     const [mIdx, setMIdx] = useState(0);
@@ -238,7 +240,17 @@
     React.useEffect(() => {
       if (!openId) return;
       const n = (all[openId] || []).length; if (!n) return;
-      const go = () => { const el = mRef.current; if (!el) return; el.scrollLeft = el.scrollWidth; setMIdx(n - 1); };
+      const f = focusRef.current && focusRef.current.charId === openId ? focusRef.current : null;
+      focusRef.current = null;
+      let at = -1;
+      if (f) {
+        const list = all[openId] || [];
+        at = f.key ? list.findIndex(x => x && x.key === f.key) : -1;
+        if (at < 0 && f.title) list.forEach((x, k) => { if (x && x.title === f.title && (at < 0 || Math.abs((x.ts || 0) - (f.ts || 0)) < Math.abs((list[at].ts || 0) - (f.ts || 0)))) at = k; });
+      }
+      const go = () => { const el = mRef.current; if (!el) return;
+        if (at >= 0) { const w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth; el.scrollLeft = at * w; setMIdx(at); return; }
+        el.scrollLeft = el.scrollWidth; setMIdx(n - 1); };
       const t1 = setTimeout(go, 0); return () => clearTimeout(t1);
     }, [openId]);
     const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
@@ -609,7 +621,7 @@
   //   ① 点一下展开看全（原来正文写死两行、后面直接截掉，点了也没用）；
   //   ② 长相是一张夹进本子里的纪念签：左边一条丝带、右上一枚日期圆戳、标题下一道细线、
   //      底边一排撕口——全用主题的颜色，换皮肤也跟着变。
-  function ShikeShareCard({ m, isU }) {
+  function ShikeShareCard({ m, isU, charId }) {
     const t = useTheme(), sk = (m && m.shike) || {}, d = new Date(sk.ts || m.ts);
     const [open, setOpen] = useState(false);
     const lines = (sk.lines || []).filter(Boolean);
@@ -662,8 +674,13 @@
         h("div", { style: { position: "relative", borderTop: "1.5px dashed " + t.line, padding: "8px 16px 9px 18px",
             display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
           notch("left"), notch("right"),
-          h("span", { style: { letterSpacing: 1 } }, sk.byChar ? "TA 记下的这一刻" : "你们的一刻 · 收好了"),
-          long ? h("span", { style: { color: ribbon } }, open ? "收起" : "展开看全 ›") : null)));
+          h("span", { style: { letterSpacing: 1 } }, sk.byChar ? "TA 记下的这一刻" : "你们的一刻"),
+          h("span", { style: { display: "flex", gap: 12, alignItems: "center" } },
+            long ? h("span", { style: { color: ribbon } }, open ? "收起" : "展开 ›") : null,
+            // 去时刻里看（她 2026-10-11：「角色写的时刻卡不能跳转」）：翻到时刻里这个人、停在这一张
+            charId && typeof window !== "undefined" && window.__openShike ? h("button", { "data-wk": "shikesharego",
+              onClick: e => { e.stopPropagation(); window.__openShike(charId, { key: m.shikeKey || "", title: sk.title || "", ts: sk.ts || m.ts }); },
+              className: "active:opacity-60", style: { minHeight: 32, padding: "0 2px", fontFamily: F_BODY, fontSize: 10.5, color: ribbon, background: "transparent", border: "none" } }, "去时刻里看 ›") : null))));
   }
   g.ShikeShareCard = ShikeShareCard;
 

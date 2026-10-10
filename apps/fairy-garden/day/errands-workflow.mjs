@@ -1,7 +1,7 @@
 // These tasks are a visual projection of the current schedule, never a workout or purchase ledger.
 export function errandsTaskAt(stage,spot,map,elapsed,{moving=false}={}){
- if(!['dayGym','dayMarket'].includes(stage.map))return undefined;
- if(!stage.motion&&!stage.carry)return null;
+ if(!['dayGym','dayMarket','dayFleaMarket'].includes(stage.map))return undefined;
+ if(stage.phase==='break'||!stage.motion&&!stage.carry)return null;
  const kind=moving?'carry':stage.motion||'carry',progress=['weight-pick','weight-return','basket-pick','market-pack'].includes(kind)?Math.min(1,elapsed/4):(elapsed/4)%1;
  const task={kind,elapsed,progress,furniture:spot?.furniture,spot:stage.spot,phase:stage.phase,carryType:stage.carryType,carry:!!stage.carry};
  if(stage.map==='dayGym'){
@@ -10,10 +10,12 @@ export function errandsTaskAt(stage,spot,map,elapsed,{moving=false}={}){
   if(!moving&&['weight-pick','weight-return'].includes(kind)){const p=map.furniture.find(f=>f.id===spot?.furniture),w=p?.work?.[spot.id];if(w){task.contact={x:p.x+w.x,y:map.floor+w.y,z:p.z+w.z};task.target={...task.contact};task.leftTarget={...task.target,x:p.x-w.x};}}
   return task;
  }
+ const flea=stage.map==='dayFleaMarket';
  const p=map.furniture.find(f=>f.id===spot?.furniture),work=p?.work?.[stage.spot];
- task.basket=stage.carryType==='basket'&&(kind==='basket-pick'?progress>.55:!['enter','prepare'].includes(stage.phase)&&kind!=='market-pack'&&stage.spot!=='exit');
+ task.basket=!flea&&stage.carryType==='basket'&&(kind==='basket-pick'?progress>.55:!['enter','prepare'].includes(stage.phase)&&kind!=='market-pack'&&stage.spot!=='exit');
  task.bag=stage.carryType==='basket'&&(kind==='market-pack'&&progress>.55||stage.spot==='exit');
  if(work){task.contact={x:p.x+work.x,y:map.floor+work.y,z:p.z+work.z};if(kind==='basket-pick')task.leftTarget={...task.contact};else task.target={...task.contact};}
+ if(flea){task.productKind=stage.spot==='fabric'?'fabric':'antique';task.bag=stage.spot==='exit'||moving&&stage.phase==='tidy';}
  task.product=!moving&&['market-pick','checkout','market-pack'].includes(kind)&&progress>.38&&progress<.82;
  return task;
 }

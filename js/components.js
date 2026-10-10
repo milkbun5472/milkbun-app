@@ -10009,7 +10009,7 @@ function ChatThread({
     const _oldKeep = (m.kind === "system" || m.role === "system") && window.ShikeShareCard ? oldKeepMoment(m, character) : null;
     if (_oldKeep) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(window.ShikeShareCard, { m: _oldKeep, isU: false }));
+      h(window.ShikeShareCard, { m: _oldKeep, isU: false, charId: character && character.id }));
     if (m.kind === "system" || m.role === "system") return h(SysNote, { key: i, label: "系统", text: m.content, tone: "warn",
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
     if (m.kind === "transfer") return h("div", {
@@ -10088,7 +10088,7 @@ function ChatThread({
     const _Share = shareCardOf(m.kind);
     if (_Share) return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && h(Avatar, { character: character, size: 40, radius: 10 }),
-      h(_Share, { m: m, isU: m.role === "user" }),
+      h(_Share, { m: m, isU: m.role === "user", charId: character && character.id }),
       m.role === "user" && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     // 逛购物 app 时拿给TA看的那件东西（v57.98）
     if (m.kind === "shopask") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-end" },
@@ -17197,7 +17197,7 @@ function GroupThread({
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
       h("div", { className: "flex flex-col " + (m.role === "user" ? "items-end" : "items-start") },
         m.senderName && h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "0 4px 2px" } }, m.senderName),
-        h(_GShare, { m: m, isU: m.role === "user" })),
+        h(_GShare, { m: m, isU: m.role === "user", charId: m.role !== "user" ? m.senderId : null })),
       m.role === "user" && gsp.showMyAvatar && h(Avatar, { character: meAv, size: 34, radius: 8 }));
     if (m.kind === "voice") return h("div", { key: i, className: "py-1 flex items-start gap-2 " + (m.role === "user" ? "justify-end" : "justify-start") },
       m.role !== "user" && mAvatar(memberById(m.senderId) || { name: m.senderName, color: t.tint }),
