@@ -1,7 +1,7 @@
 // One scene policy for the host menu and the actual two-person renderer.
 (function(root){
   const intimate={
-    pat:{label:'摸头顺顺发',distance:.80},
+    pat:{label:'摸头顺顺发',distance:.62},
     'kiss-forehead':{label:'亲亲额头',distance:.84},
     'kiss-cheek':{label:'亲亲脸颊',distance:.58},
     kiss:{label:'轻轻亲一下',distance:.48},

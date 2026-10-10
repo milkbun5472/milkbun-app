@@ -42,6 +42,7 @@ def add_elbows():
     rig['elbowRig'] = {'version': 2, 'hands': {'left': [-.275, .40, 0], 'right': [.275, .40, 0]}}
     runpy.run_path(str(Path(__file__).with_name('restore_cardigan_surface.py')))['restore_cardigan_surface']()
     runpy.run_path(str(Path(__file__).with_name('restore_other_outfits.py')))['restore_other_outfits']()
+    runpy.run_path(str(Path(__file__).with_name('fit_cloth_sides.py')))['fit_cloth_sides']()
 
 
 def resample_sleeves(mesh, body):
