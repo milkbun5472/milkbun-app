@@ -23,6 +23,10 @@ for(const [scene,key]of [['dayFarm','records'],['dayFarm','crops'],['dayFarm','d
 });
 
 for(const [scene,key,forbidden]of [
+ ['dayLegal','draft',['judge','hearing','argue']],['dayLegal','argue',['judge','hearing','record']],['dayLegal','hearing',['argue','judge']],['dayLegal','judge',['argue']],['dayLegal','audience',['hearing','judge','argue']],
+ ['dayTraining','run',['duty','patrol']],['dayTraining','patrol',['run','stretch']],['dayTraining','report',['patrol','run']],
+ ['dayWorkshop','repair',['craft']],['dayWorkshop','craft',['repair','diagnose']],['dayWorkshop','diagnose',['repair','craft']],
+ ['dayStudy','write',['address','council']],['dayStudy','read',['write','address']],['dayStudy','council',['write','address']],
  ['dayInvestigation','clues',[]],['dayInvestigation','duty',['briefing']],
  ['dayService','prep',['coffee','mix']],['dayService','cook',['coffee','mix']],['dayService','coffee',['prep','cook','mix']],['dayService','mix',['prep','cook','coffee']],
  ['dayFilm','perform',['camera','lighting','review']],['dayFilm','camera',['perform','pose','makeup']],['dayFilm','pose',['camera','perform']],
@@ -156,4 +160,13 @@ test('板书粉笔与记笔记接触各自实体，听课和汇报不拿笔，�
   if(['listen','present'].includes(kind))assert.equal(task.tool,undefined);
  }
  for(const [scene,key,kind]of [['dayCampus','meal','eat'],['dayOffice','tea','drink']]){const map=DAY_PLACES[scene],spot=map.spots.find(s=>s.id===key);const stage=activityPhase({map:scene,spot:key,action:spot.action},null,null);const task=taskAt(stage,spot,map,3);assert.equal(task.kind,kind);assert.equal(task.daily,true);assert.equal(taskAt(stage,spot,map,3,{moving:true}),null);}
+});
+
+test('古风纸笔与检修工具沿实际接触面，敬礼不伸向虚构桌面，巡查依次经过两站',()=>{
+ for(const [id,key,kind,tool]of [['dayLegal','judge','gavel',undefined],['dayWorkshop','repair','repair','screwdriver'],['dayStudy','write','write','inkbrush'],['dayStudy','records','write','inkbrush'],['dayTraining','report','salute',undefined]]){
+  const map=DAY_PLACES[id],spot=map.spots.find(s=>s.id===key),task=taskAt(activityPhase({map:id,spot:key},null,null),spot,map,3);assert.equal(task.kind,kind);assert.equal(task.tool,tool);
+  if(kind==='salute')assert.equal(task.target,null);else{const piece=map.furniture.find(p=>p.id===spot.furniture),a=piece.work[key];assert.deepEqual(task.contact,{x:piece.x+a.x,y:map.floor+a.y,z:piece.z+a.z});}
+  assert.equal(taskAt(activityPhase({map:id,spot:key},null,null),spot,map,3,{moving:true}),null);
+ }
+ const slot=fixture('dayTraining','patrol'),p={map:'dayTraining',spot:'patrol'},seen=new Set();for(let sec=100;sec<3400;sec+=15)seen.add(activityPhase(p,slot,start+sec*1000).spot);assert.ok(seen.has('patrol')&&seen.has('checkpoint'));assert.ok(!seen.has('run'));
 });

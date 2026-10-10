@@ -1,5 +1,5 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-81bec85526a50316';
-import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-81bec85526a50316';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-f9a3c901abadb37b';
+import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-f9a3c901abadb37b';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'clue-wall',kind:'panel',x:-3.9,z:-5.18,w:4.9,d:.17,work:{clues:{x:.03,y:1.08,z:.12}}},
@@ -47,6 +47,5 @@ export function createInvestigation(){
  const labels=k.group('FileLabels',{x:3.7,z:-4.48});for(let i=0;i<8;i++)k.sign('FileIndex',{text:String(i+1).padStart(2,'0'),x:-1.39+(i%4)*.93,y:.59+Math.floor(i/4)*.67,z:.015,w:.25,h:.14,color:'#d6ded4',ink:'#5b777a'},labels);
  const locker=k.group('SealedCases',{x:-4.6,y:1.49,z:1.1});for(let i=0;i<3;i++){k.box('ArchiveBox',{x:-.75+i*.73,y:.13,w:.60,h:.24,d:.45,color:['#c4bfa4','#aabdb3','#cdb89a'][i]},locker);k.box('SealLabel',{x:-.75+i*.73,y:.13,z:.231,w:.18,h:.09,d:.006,color:'#eee7d6',radius:.001},locker);}
  k.sign('DutySign',{text:'值勤交接',x:3.67,y:2.53,z:-5.36,w:2.05,h:.29,color:'#dedbd0',ink:'#526c72'});
- k.root.userData.furniture=furniture.map(p=>({...p}));for(const p of furniture){const g=k.root.getObjectByName(p.id);if(g)g.userData.furnitureId=p.id;}
- const result=k.finish();result.root.name='DayInvestigation';return result;
+ return finishRoom(k,investigationMap,'DayInvestigation');
 }

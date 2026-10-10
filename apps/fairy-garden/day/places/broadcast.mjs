@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-81bec85526a50316';
-import {computer,cabinet} from './work-room-kit.mjs?v=fg-81bec85526a50316';
-import {cameraRig,microphone} from './media-kit.mjs?v=fg-81bec85526a50316';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-f9a3c901abadb37b';
+import {computer,cabinet} from './work-room-kit.mjs?v=fg-f9a3c901abadb37b';
+import {cameraRig,microphone} from './media-kit.mjs?v=fg-f9a3c901abadb37b';
 const FLOOR=.08,SIZE={w:14,d:12};
 const furniture=[
  {id:'record-mic',kind:'equipment',x:-4.65,z:-4.26,w:.47,d:.47},
@@ -44,6 +44,5 @@ export function createBroadcast(){
  const camera={id:'stream-camera',x:3.38,z:.15};cameraRig(k,camera,{name:'StreamCamera',small:true,heading:Math.PI,tableY:.94,workFurniture:'stream-desk'});
  const ring=k.group('StreamRingLight',{x:3.38,y:1.77,z:.15});for(let i=0;i<24;i++){const a=i/24*Math.PI*2;k.sphere('RingLightBead',{x:Math.cos(a)*.27,y:Math.sin(a)*.27,r:.027,color:'#eee4ca'},ring);}
  k.book('RecordingScript',{x:-4.4,y:.98,z:-.91,w:.43,d:.52,flat:true,color:'#a8b1bf'});k.sign('RecordDoorSign',{text:'录音中',x:-4.33,y:2.86,z:-5.84,w:1.64,h:.28,color:'#d2d9d6',ink:'#587476'});k.sign('BroadcastWallSign',{text:'试音 · 录制 · 直播',x:3.20,y:2.70,z:-5.84,w:3.12,h:.31,color:'#d2d9d6',ink:'#6b7890'});
- k.root.userData.furniture=furniture.map(p=>({...p}));for(const p of furniture){const g=k.root.getObjectByName(p.id);if(g)g.userData.furnitureId=p.id;}
- const result=k.finish();result.root.name='DayBroadcast';return result;
+ return finishRoom(k,broadcastMap,'DayBroadcast');
 }

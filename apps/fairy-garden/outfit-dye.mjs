@@ -1,7 +1,7 @@
 // Dye ownership is resolved per fragment in undeformed garment coordinates.
 // It follows the source fabric boundary, never an interpolated triangle label.
 import * as T from 'three';
-import {OUTFITS} from './wardrobe.mjs?v=fg-81bec85526a50316';
+import {OUTFITS} from './wardrobe.mjs?v=fg-f9a3c901abadb37b';
 export const DYE_SLOTS=['cloth','trim','bottom','accent','boots','bag','socks','detail'];
 export function regionShader(o){
  const id=o.userData.outfit,name=o.name;if(!OUTFITS[id])return null;

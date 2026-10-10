@@ -1,10 +1,10 @@
-import {restState} from './rest.mjs?v=fg-81bec85526a50316';
-import {currentPromise,matchesTheme} from './photo-promise.mjs?v=fg-81bec85526a50316';
-import {travelContext,travelEnvironment,ROUTE_LENGTH} from './travel.mjs?v=fg-81bec85526a50316';
-import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-81bec85526a50316';
-import {cropRect} from './album.mjs?v=fg-81bec85526a50316';
+import {restState} from './rest.mjs?v=fg-f9a3c901abadb37b';
+import {currentPromise,matchesTheme} from './photo-promise.mjs?v=fg-f9a3c901abadb37b';
+import {travelContext,travelEnvironment,ROUTE_LENGTH} from './travel.mjs?v=fg-f9a3c901abadb37b';
+import {visibleJourney} from '../../art/train-carriage/journey.mjs?v=fg-f9a3c901abadb37b';
+import {cropRect} from './album.mjs?v=fg-f9a3c901abadb37b';
 const hash=s=>{let h=2166136261;for(const c of String(s))h=Math.imul(h^c.charCodeAt(0),16777619);return h>>>0;};
-import {FILM_LIMIT,WAITING_FILM_LIMIT} from './photo-limits.mjs?v=fg-81bec85526a50316';
+import {FILM_LIMIT,WAITING_FILM_LIMIT} from './photo-limits.mjs?v=fg-f9a3c901abadb37b';
 export {FILM_LIMIT};
 export function photoPlan(s,companion,width,height){
  if(restState(s).companion||!companion?.id||(s.companionPhotos||[]).length>=WAITING_FILM_LIMIT)return null;

@@ -52,7 +52,7 @@ test('多组可替换摆件合批后保留各自父级与世界位置，可独�
 });
 
 test('独立场景注册保留原地图，展示名单按真实动作点编号',()=>{
-  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket','dayOffice','dayCampus','dayInvestigation','dayService','dayFilm','dayBroadcast','dayFarm','dayFleaMarket']));
+  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket','dayOffice','dayCampus','dayInvestigation','dayService','dayFilm','dayBroadcast','dayLegal','dayTraining','dayWorkshop','dayStudy','dayFarm','dayFleaMarket']));
   assert.deepEqual(Object.keys(DAY_FACTORIES),Object.keys(DAY_PLACES));
   for(const id of persistentMaps)assert.ok(MAPS[id]);
   const list=placeList();
@@ -101,7 +101,9 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
     assert.ok(furniture?.length,'家具元数据来自真正建造的那张表');
     for(const structure of map.outdoor?[]:roomStructure(map.bounds))assert.deepEqual(map.obstacles.find(o=>o.id===structure.id),structure,'墙柱沿实际空房尺寸');
     for(const p of furniture){
-      const obstacle=map.obstacles.find(o=>o.id===p.id);assert.ok(obstacle,p.id+'有碰撞');
+      const obstacle=map.obstacles.find(o=>o.id===p.id);
+      if(p.walkable){assert.equal(obstacle,undefined,'地面软垫与集合标线不阻挡走路');assert.equal(walkable(p.x,p.z,id),true);continue;}
+      assert.ok(obstacle,p.id+'有碰撞');
       for(const k of ['x','z','w','d'])assert.equal(obstacle[k],p[k],p.id+'的'+k);
       assert.equal(walkable(p.x,p.z,id),false,p.id+'实体不允许穿过');
       if(['chair','bench','table','counter','cabinet','shelf','examBed','step','easel'].includes(p.kind)){
