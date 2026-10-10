@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.276";
+const APP_VERSION = "v75.277";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3665,19 +3665,31 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (alts.length < 2 || list.slice(L + 1).some(x => x && x.role === "user")) return null;
     return { at: L, pos: alts.indexOf(null), n: alts.length };
   };
-  const rerollFlip = (threadKey, cid, dir) => {
-    const list = chatsRef.current[threadKey] || [];
+  // 翻版：一份写法，单聊、群聊、线下各自递进来「读哪份、写哪份、拍谁的状态」
+  const rerollFlipIn = (list, write, snap, restore, dir) => {
     const nav = rerollNavOf(list);
     if (!nav) return;
     const j = nav.pos + dir;
     if (j < 0 || j >= nav.n) return;
     const a = list[nav.at], alts = a.rerollAlts.slice(), target = alts[j];
     if (!target) return;
-    alts[nav.pos] = { msgs: list.slice(nav.at + 1), st: charStateSnap(cid) };
+    alts[nav.pos] = { msgs: list.slice(nav.at + 1), st: snap() };
     alts[j] = null;
-    pChat(threadKey, p => p.slice(0, nav.at).concat([{ ...a, rerollAlts: alts }], target.msgs));
-    charStateRestore(cid, target.st);
+    write(p => p.slice(0, nav.at).concat([{ ...a, rerollAlts: alts }], target.msgs));
+    restore(target.st);
   };
+  const rerollFlip = (threadKey, cid, dir) => rerollFlipIn(chatsRef.current[threadKey] || [], u => pChat(threadKey, u), () => charStateSnap(cid), st => charStateRestore(cid, st), dir);
+  // 群里一轮好几个人说话：拍下全体成员（新一版里可能换了人开口，翻回去时他也得退回那一刻）
+  const statesSnapMany = ids => { const o = {}; [...new Set(ids || [])].forEach(id => { o[id] = charStateSnap(id); }); return { many: o }; };
+  const statesRestoreMany = st => { if (st && st.many) Object.keys(st.many).forEach(id => charStateRestore(id, st.many[id])); };
+  const groupStateIds = groupId => { const g = (groups || []).find(x => x.id === groupId); return ((g && g.memberIds) || []).filter(id => !((characters || []).find(c => c.id === id) || {}).npc); };
+  const rerollFlipGroup = (groupId, dir) => rerollFlipIn(groupChatsRef.current[groupId] || [], u => pGChat(groupId, u), () => statesSnapMany(groupStateIds(groupId)), statesRestoreMany, dir);
+  // 线下：一拍正文（群线下还有整段小说那一拍 novel）也算轻的；她自己说的话夹在中间就不留
+  const offRerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && x.role !== "user" && (!x.kind || REROLL_LIGHT_KIND[x.kind] || x.kind === "novel"));
+  const offLiveMsgs = sessions => ((sessions || []).find(x => !x.endTs) || {}).msgs || [];
+  const offWrite = (setter, key) => u => setter(key, list => list.map(x => !x.endTs ? { ...x, msgs: u(x.msgs || []) } : x));
+  const rerollFlipOffline = (scopeKey, dir) => { const cid = offlinePersonId(scopeKey); rerollFlipIn(offLiveMsgs(offlinesRef.current[scopeKey]), offWrite(pOffline, scopeKey), () => charStateSnap(cid), st => charStateRestore(cid, st), dir); };
+  const rerollFlipGroupOffline = (groupId, dir) => rerollFlipIn(offLiveMsgs(groupOfflinesRef.current[groupId]), offWrite(pGOffline, groupId), () => statesSnapMany(groupStateIds(groupId)), statesRestoreMany, dir);
   // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、dongnian 思念和断档提示共用这一只钟。
   // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
   //（她 2026-08-27：顾暮在两个群里几乎同时给了两套说法，一边说六点半到家、一边另说一套）。
@@ -8801,15 +8813,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sess) return;
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
-    const truncated = sess.msgs.slice(0, idx); // 去掉这条及之后，重新生成
+    let truncated = sess.msgs.slice(0, idx); // 去掉这条及之后，重新生成
     const removed = sess.msgs.slice(idx), turns = removed.map(m => m && m.turnId).filter(Boolean);
     const y = ledgerYanqiu(); if (!sideRoom && y && String(y.id) === String(charId) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "offline", threadId: y.id }, removed);
     const legacyLatest = !turns.length && idx === sess.msgs.map(m => m.role === "char" ? 1 : 0).lastIndexOf(1)
       && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
+    // 留版：回滚之前拍下这一版的状态（侧房不留）
+    const _offKeep = !sideRoom && settingsFor(charId).keepRerolls === true && offRerollKeepable(removed) ? { msgs: removed, st: charStateSnap(charId) } : null;
     if (!sideRoom) rollbackCharTurns(charId, turns, legacyLatest);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll",surface:"offline", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
     const cutPatch = offlineRerollPatch(sess, idx, !sideRoom);
-    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
+    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: _offKeep ? rerollStash(truncated, _offKeep) : truncated } : s));
+    if (_offKeep) truncated = rerollStash(truncated, _offKeep);   // 往下生成接的也是收好的这一份，不然新一拍落下来会把旧版冲掉
     if (sideRoom) {
       const prior = truncated.slice().reverse().find(m => m && m.role === "char" && m.thought);
       setRoomThought(scopeKey, prior && prior.thought || "", { mood: prior && prior.mood || "", turnId: prior && prior.turnId || null });
@@ -9553,18 +9568,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!group || !sess) return;
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
-    const truncated = sess.msgs.slice(0, idx);
+    let truncated = sess.msgs.slice(0, idx);
     const removed = sess.msgs.slice(idx);
     const y = ledgerYanqiu(); if (y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group_offline", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
     const byChar = new Map();
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
     // 整段小说那一拍：每个出场的人各自一个 turnId
     removed.filter(m => m && m.kind === "novel").forEach(m => (m.cast || []).forEach(x => { if (!x || !x.senderId) return; const a = byChar.get(x.senderId) || []; if (x.turnId) a.push(x.turnId); byChar.set(x.senderId, a); }));
+    const _gOffKeep = gsFor(groupId).keepRerolls === true && offRerollKeepable(removed) ? { msgs: removed, st: statesSnapMany(groupStateIds(groupId)) } : null;
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
     // 互通群的记忆才进过全局库；闭群只有本场提要（只进不出）。
     const cutPatch = offlineRerollPatch(sess, idx, !!gsFor(groupId).memoryInterop);
-    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
+    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: _gOffKeep ? rerollStash(truncated, _gOffKeep) : truncated } : s));
+    if (_gOffKeep) truncated = rerollStash(truncated, _gOffKeep);
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
     const rerollAvoid = removed.filter(m => m && (m.role === "char" || m.senderId) && m.content).map(m => (m.senderName ? m.senderName + "：" : "") + String(m.content)).join("\n---\n");
@@ -15111,8 +15128,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const y = ledgerYanqiu(); if (group && y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
       const byChar = new Map();
       removed.filter(x => x && x.senderId).forEach(x => { const rec = byChar.get(x.senderId) || { turns: [], legacyThoughts: [] }; if (x.turnId) rec.turns.push(x.turnId); if (!x.turnId && x.thought) rec.legacyThoughts.push(x.thought); byChar.set(x.senderId, rec); });
+      // 留版：回滚之前拍下全体成员此刻的状态
+      const _gKeep = gsFor(groupId).keepRerolls === true && rerollKeepable(removed) ? { msgs: removed, st: statesSnapMany(groupStateIds(groupId)) } : null;
       byChar.forEach((rec, charId) => rollbackCharTurns(charId, rec.turns, !rec.turns.length && !!(statesRef.current[charId] && rec.legacyThoughts.includes(statesRef.current[charId].thought))));
-      pGChat(groupId,p=>{const next=p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
+      pGChat(groupId,p=>{const next=_gKeep?rerollStash(p.slice(0,start),_gKeep):p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
       const rerollAvoid = removed.filter(x => x && x.senderId && x.content && !x.recalled).map(x => (x.senderName ? x.senderName + "：" : "") + String(x.content)).join("\n");
       setTimeout(() => replyGroup(groupId, { rerollAvoid }), 200);
     }
@@ -28092,6 +28111,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    rerollNav: gsFor(activeGroup.id).keepRerolls === true ? rerollNavOf(groupChats[activeGroup.id] || []) : null,
+    onRerollFlip: dir => rerollFlipGroup(activeGroup.id, dir),
     locateAt: walletTrace && walletTrace.type === "group" && String(walletTrace.id) === String(activeGroup.id) ? walletTrace : null,
     onLocated: () => setWalletTrace(null),
     openUnread: gOpenUnread && gOpenUnread.id === activeGroup.id ? gOpenUnread.n : 0,
@@ -30674,6 +30695,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
     onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),
+    rerollNav: !offlineIsRoom(activeOfflineScopeKey) && settingsFor(offlineChar.id).keepRerolls === true ? rerollNavOf(offLiveMsgs(offlines[activeOfflineScopeKey])) : null,
+    onRerollFlip: dir => rerollFlipOffline(activeOfflineScopeKey, dir),
     onDelMsg: (mid, idx) => offlineDelMsg(activeOfflineScopeKey, mid, idx),
     onDelSession: (sid, idx) => offlineDelSession(activeOfflineScopeKey, sid, idx),
     onEnd: () => endOffline(activeOfflineScopeKey),
@@ -30719,6 +30742,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPinShike: ms => pinGroupToShike(offlineGroup, ms),
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
+    rerollNav: gsFor(offlineGroup.id).keepRerolls === true ? rerollNavOf(offLiveMsgs(groupOfflines[offlineGroup.id])) : null,
+    onRerollFlip: dir => rerollFlipGroupOffline(offlineGroup.id, dir),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
     onDelSession: (sid, idx) => groupOfflineDelSession(offlineGroup.id, sid, idx),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),

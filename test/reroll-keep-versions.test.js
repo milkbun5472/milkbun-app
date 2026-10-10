@@ -57,3 +57,27 @@ test("接线：设置开关默认关、状态在回滚前拍下、只在主线�
   assert.match(comp, /"data-wk": "rerollnav"/);
   assert.match(ts, /\["rerollnav", /);
 });
+
+// 下一轮（她 2026-10-10：「继续继续」）：群聊、单人线下、群线下都接上，同一个翻版器、同一颗 RerollNav
+test("群聊和线下：同一份翻版、群里拍全体成员、线下接着生成也不冲掉旧版", () => {
+  assert.match(app, /const rerollFlipIn = \(list, write, snap, restore, dir\) => \{/);
+  assert.equal((app.match(/alts\[nav\.pos\] = \{ msgs: list\.slice\(nav\.at \+ 1\), st: snap\(\) \}/g) || []).length, 1, "翻版只许一份");
+  assert.match(app, /const _gKeep = gsFor\(groupId\)\.keepRerolls === true && rerollKeepable\(removed\) \? \{ msgs: removed, st: statesSnapMany\(groupStateIds\(groupId\)\) \}/);
+  assert.match(app, /const _offKeep = !sideRoom && settingsFor\(charId\)\.keepRerolls === true && offRerollKeepable\(removed\)/);
+  assert.match(app, /const _gOffKeep = gsFor\(groupId\)\.keepRerolls === true && offRerollKeepable\(removed\)/);
+  assert.match(app, /if \(_offKeep\) truncated = rerollStash\(truncated, _offKeep\);/);
+  // 四处界面都用公共那颗
+  assert.match(comp, /function RerollNav\(\{ nav, onFlip, pad \}\)/);
+  assert.equal((comp.match(/h\(RerollNav, \{ (?:key: "grnav", )?nav: rerollNav, onFlip: onRerollFlip/g) || []).length, 4);
+  assert.equal((comp.match(/"data-wk": "rerollnav"/g) || []).length, 1);
+  assert.match(comp, /onSave\(\{ actLong: gActLong, keepRerolls: gKeepRerolls, /);
+});
+
+test("线下留版：一拍正文、整段小说算轻的；她的话夹在中间不留", () => {
+  const k = app.indexOf("  const offRerollKeepable = "), e = app.indexOf("\n", k);
+  const offRerollKeepable = new Function("REROLL_LIGHT_KIND", app.slice(k, e) + "\nreturn offRerollKeepable;")({ text: 1, voice: 1, emote: 1, silence: 1, narration: 1 });
+  assert.equal(offRerollKeepable([{ role: "char", content: "x" }, { role: "narration", content: "风" }]), true);
+  assert.equal(offRerollKeepable([{ role: "char", kind: "novel", content: "x" }]), true);
+  assert.equal(offRerollKeepable([{ role: "char", content: "x" }, { role: "user", content: "嗯" }, { role: "char", content: "y" }]), false);
+  assert.equal(offRerollKeepable([{ role: "char", kind: "offshot" }]), false);
+});

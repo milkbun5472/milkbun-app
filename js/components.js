@@ -9134,6 +9134,16 @@ function useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, w
     onLocated && onLocated();
   }, [locateAt && locateAt.key]);
 }
+// 重 Roll 留下的几版（她 2026-10-10）：贴着最后那条回复底下左右翻。单聊、群聊、线下共用这一颗
+function RerollNav({ nav, onFlip, pad }) {
+  const t = useTheme();
+  const btn = (dir, off, label, ch) => h("button", { onClick: () => onFlip(dir), disabled: off, "aria-label": label, className: "active:opacity-50",
+    style: { minWidth: 32, height: 28, background: "transparent", border: "none", color: off ? t.line : t.sub, fontSize: 15 } }, ch);
+  return h("div", { "data-wk": "rerollnav", className: "flex items-center", style: { gap: 2, padding: pad != null ? pad : "0 0 6px 52px", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
+    btn(-1, nav.pos <= 0, "上一版", "‹"),
+    h("span", { style: { letterSpacing: 1 } }, (nav.pos + 1) + " / " + nav.n),
+    btn(1, nav.pos >= nav.n - 1, "下一版", "›"));
+}
 function ChatThread({
   dirNotes,       // 线上导演便签（她 2026-10-10）：跟旁白放一起，旁白模式里切「往后的方向」
   onAddDirNote,
@@ -10207,10 +10217,7 @@ function ChatThread({
     }, "!")));
   })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })),
   // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
-  !sending && !selMode && rerollNav && onRerollFlip ? h("div", { "data-wk": "rerollnav", className: "flex items-center", style: { gap: 2, padding: "0 0 6px 52px", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
-    h("button", { onClick: () => onRerollFlip(-1), disabled: rerollNav.pos <= 0, "aria-label": "上一版", className: "active:opacity-50", style: { minWidth: 32, height: 28, background: "transparent", border: "none", color: rerollNav.pos <= 0 ? t.line : t.sub, fontSize: 15 } }, "‹"),
-    h("span", { style: { letterSpacing: 1 } }, (rerollNav.pos + 1) + " / " + rerollNav.n),
-    h("button", { onClick: () => onRerollFlip(1), disabled: rerollNav.pos >= rerollNav.n - 1, "aria-label": "下一版", className: "active:opacity-50", style: { minWidth: 32, height: 28, background: "transparent", border: "none", color: rerollNav.pos >= rerollNav.n - 1 ? t.line : t.sub, fontSize: 15 } }, "›")) : null, sending && /*#__PURE__*/React.createElement("div", {
+  !sending && !selMode && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip }) : null, sending && /*#__PURE__*/React.createElement("div", {
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
@@ -15418,6 +15425,8 @@ function OfflineMode({
   onDeleteExample,
   onEditMsg,
   onRerollMsg,
+  rerollNav,      // 重 Roll 留版（她 2026-10-10）
+  onRerollFlip,
   onDelMsg,
   onDelSession,
   onEnd,
@@ -15756,6 +15765,7 @@ function OfflineMode({
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
+      !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: oocMode ? "rgba(194,90,74,0.06)" : t.bg2, borderTop: `1px solid ${oocMode ? t.accent : t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // OOC 从输入栏搬进了顶栏那个「幕后」里（她 2026-09-03：「ooc 在这下面有点拥挤了，
@@ -16197,6 +16207,8 @@ function GroupOfflineMode({
   onPinShike,
   onEditMsg,
   onRerollMsg,
+  rerollNav,      // 重 Roll 留版（她 2026-10-10）
+  onRerollFlip,
   onDelMsg,
   onDelSession,
   onOOC,
@@ -16463,6 +16475,7 @@ function GroupOfflineMode({
     h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让他们先开口。"),
       msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, members: members, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: offOpenState, canOpenState: offCanPeek }), i, pick, setPick, t)),
+      !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
       sending && h("div", { className: "flex mt-3 justify-center items-center gap-2" }, h(TypingDots, { color: t.fog }), onStopGen && h(GenStopX, { onStop: onStopGen }))),
     pick ? h(OffPickBar, { t, pick, setPick, onPin: idx => onPinShike(idx.map(k => msgs[k])) }) : h("div", { "data-wk": "offcomposer", className: "flex items-center gap-2 px-3 py-2.5 shrink-0", style: { background: t.bg2, borderTop: `1px solid ${t.line}`, paddingBottom: COMPOSER_PAD_BOTTOM, marginBottom: kbLift, transition: "margin-bottom .18s ease" } },
       // 同单人线下：OOC 搬进顶栏那个「幕后」，输入栏只留出戏时的退出口
@@ -16521,6 +16534,8 @@ function GroupOfflineMode({
 //   可 v61.15 只在单聊里挂了点——群聊这边一个都没有，那五套在群里是死的：
 //   点下去什么都不会变。又是「一层写在两处，第二处没跟上」。
 function GroupThread({
+  rerollNav,      // 重 Roll 留版（她 2026-10-10）：{pos, n}，跟单聊同一个形状
+  onRerollFlip,
   locateAt,
   onLocated,
   openUnread,
@@ -17215,7 +17230,9 @@ function GroupThread({
     // 群聊一次调用写完所有人，所以它挂在这一轮最先冒出来的那条上（v56.75）。
     const _m = messages[i];
     row = cardPressRow(row, _m, i, { selMode, startPress, endPress, toggleSel });
-    return (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
+    const _rows = (_m && _m.reasoning && _m.role !== "user") ? [h(ReasoningBlock, { key: "grz" + i, m: _m, off: showReason === false }), row] : [row];
+    // 重 Roll 留下的几版：贴在最后一条底下
+    return (i === messages.length - 1 && !sending && !selMode && rerollNav && onRerollFlip) ? _rows.concat([h(RerollNav, { key: "grnav", nav: rerollNav, onFlip: onRerollFlip })]) : _rows;
   }), sending && h("div", {
     "data-wk": "row",
     className: "flex items-center gap-2"
@@ -17716,6 +17733,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   const [gDrama, setGDrama] = useState(!!gs.drama);
   // 动描（她 2026-09-09：「群聊也接上动作吧」）：按群存，跟单聊那个开关同名同义。
   const [gActDesc, setGActDesc] = useState(!!gs.actDesc);
+  const [gKeepRerolls, setGKeepRerolls] = useState(gs.keepRerolls === true); // 重 Roll 留着旧的（她 2026-10-10），跟单聊那颗同义
   const [gActLong, setGActLong] = useState(!!gs.actLong);   // 动描写多长，跟单聊那颗同义
   // 动描那一行的人称（她 2026-10-05：「群里不能改动描人称」）——跟单聊那两颗同义，按群存。
   //   群里一行前面本来就挂着说话人的名字，所以「TA 自己叫什么」第二档不是「他/她」（一群人分不清谁），是名字本身。
@@ -17807,7 +17825,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -17917,6 +17935,9 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
     dispRow("显示时间戳", showTime, setShowTime),
     showTime && dispRow("精确到秒", timeSec, setTimeSec, true),
     dispRow("显示已读", showRead, setShowRead),
+    dispRow("重 Roll 留着旧的", gKeepRerolls, setGKeepRerolls),
+    gKeepRerolls ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "-2px 0 6px", lineHeight: 1.7 } },
+      "重 Roll 不扔上一轮，最后一条底下左右翻着挑，最多留 5 版；每个人的心情、心声、动作、穿着、好感跟着那一版走。有转账、红包、照片这类真落了东西的那一版不留。") : null,
     dispRow("外语气泡显示「译」键（所有聊天通用）", transOn, v => { setTransOn(v); setTransKeyOn(v); }),
     h("div", { style: { marginTop: 18, paddingTop: 10, borderTop: "1px dashed " + t.line, fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "排版 · 气泡怎么摆"),
     h(ChatLayoutFields, { layout: gLayout, setLayout: setGLayout, taName: "群成员", group: true, meNote: "（上面要打开「显示我的头像」才看得见）", onPeek: gPeekGo }),
@@ -19492,7 +19513,7 @@ function ChatSettings({
     // 重 Roll 留着旧的（她 2026-10-10 转群友：「重 roll 后保留前面的回复然后选最喜欢的那个」）——默认关
     dispRow("重 Roll 留着旧的", keepRerolls, setKeepRerolls),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
-      "开着：线上重 Roll 不扔上一版，最后一条回复底下出「‹ 2/3 ›」左右翻着挑，最多留 5 版。心情、心声、动作、穿着、好感跟着那一版走；翻不花钱，你一发新消息就定在眼前这版。"
+      "开着：重 Roll 不扔上一版（线上和线下都是），最后一条回复底下出「‹ 2/3 ›」左右翻着挑，最多留 5 版。心情、心声、动作、穿着、好感跟着那一版走；翻不花钱，你一发新消息就定在眼前这版。"
       + "那一版里有转账、礼物、照片、记账这类真落了东西的，照老样子整版换掉不留。"),
     "")),
   show("hear", { title: "思考链 · 外语中译 · 语音", ...sec("look-extra") }, h("div", { className: "pt-2" },
