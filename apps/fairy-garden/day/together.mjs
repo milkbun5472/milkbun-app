@@ -1,10 +1,10 @@
 import * as T from 'three';
-import './social.js?v=fg-163c7f71112cb39b';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-163c7f71112cb39b';
-import {stepRoute} from '../locomotion.mjs?v=fg-163c7f71112cb39b';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-163c7f71112cb39b';
-import {pairProgress} from './motion-profile.mjs?v=fg-163c7f71112cb39b';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-163c7f71112cb39b';
+import './social.js?v=fg-81061b22e300c17f';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-81061b22e300c17f';
+import {stepRoute} from '../locomotion.mjs?v=fg-81061b22e300c17f';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-81061b22e300c17f';
+import {pairProgress} from './motion-profile.mjs?v=fg-81061b22e300c17f';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-81061b22e300c17f';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;

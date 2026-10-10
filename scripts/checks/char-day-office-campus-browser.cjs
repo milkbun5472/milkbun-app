@@ -15,7 +15,7 @@ const engine=process.env.DAY_ENGINE||'webkit',base=process.env.DAY_URL||'http://
     contacts.push({outfit,dims,id,key,error:tip.distanceTo(contact),distance,headClearance:headHand.length()});
    }
   }
-  const fixtures=[];for(const id of ['dayOffice','dayCampus']){const map=DAY_PLACES[id],root=DAY_FACTORIES[id]().root;root.updateMatrixWorld(true);for(const s of map.spots.filter(s=>s.seat)){const ray=new T.Raycaster(new T.Vector3(s.seat.x,2,s.seat.z),new T.Vector3(0,-1,0));const hit=ray.intersectObject(root,true)[0];if(Math.abs(hit.point.y-.53)>.003)throw Error('Seat surface '+s.id);fixtures.push({id,key:s.id,y:hit.point.y});}}
+  const fixtures=[];for(const id of ['dayOffice','dayCampus']){const map=DAY_PLACES[id],root=DAY_FACTORIES[id]().root;root.updateMatrixWorld(true);for(const s of map.spots.filter(s=>s.seat)){const piece=map.furniture.find(p=>p.id===s.seat.piece);if(s.seat.pose!=='chair')throw Error('Missing natural chair pose '+s.id);const ray=new T.Raycaster(new T.Vector3(piece.x,2,piece.z),new T.Vector3(0,-1,0));const hit=ray.intersectObject(root,true)[0];if(Math.abs(hit.point.y-.53)>.003)throw Error('Seat surface '+s.id);fixtures.push({id,key:s.id,y:hit.point.y});}}
   return {contacts,fixtures};
  });
  // The real App reads natural-language schedules saved by its original writer.

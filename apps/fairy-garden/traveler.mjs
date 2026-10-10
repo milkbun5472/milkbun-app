@@ -1,15 +1,15 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-163c7f71112cb39b';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-163c7f71112cb39b';
-import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-163c7f71112cb39b';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-163c7f71112cb39b';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-163c7f71112cb39b';
-import {emotionPose} from './emotion-pose.mjs?v=fg-163c7f71112cb39b';
-import {makeDollLife} from './doll-life.mjs?v=fg-163c7f71112cb39b';
-import {makeSeatedLegs} from './seated-legs.mjs?v=fg-163c7f71112cb39b';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-163c7f71112cb39b';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-81061b22e300c17f';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-81061b22e300c17f';
+import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-81061b22e300c17f';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-81061b22e300c17f';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-81061b22e300c17f';
+import {emotionPose} from './emotion-pose.mjs?v=fg-81061b22e300c17f';
+import {makeDollLife} from './doll-life.mjs?v=fg-81061b22e300c17f';
+import {makeSeatedLegs} from './seated-legs.mjs?v=fg-81061b22e300c17f';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-81061b22e300c17f';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-163c7f71112cb39b';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-163c7f71112cb39b';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-81061b22e300c17f';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-81061b22e300c17f';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -365,6 +365,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-163c7f71112cb39b'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-81061b22e300c17f'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
