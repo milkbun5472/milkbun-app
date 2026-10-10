@@ -9961,7 +9961,7 @@ function ChatThread({
     // 系统提示这一族全走 SysNote（v63.49）：单聊 / 群聊 / 线下同一个长相，右上角都能 ✕ 掉
     if (m.kind === "ooc") return h(SysNote, { key: i, label: m.role === "user" ? "OOC · 我问" : "OOC · 回", text: m.content,
       onClose: onDeleteMessages ? function () { onDeleteMessages([i]); } : null });
-    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: [character], onBg: !!dsp.chatBg });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: [character], onBg: !!dsp.chatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
     // 一起看回来的交接（她 2026-09-25）：一行小条，跟别的系统提示同一个长相，能 ✕ 掉
     if (m.kind === "listenlog") return h(SysNote, { key: i, label: "一起听",
       text: (m.content || "一起听了一会儿歌") + ((m.lines || []).length ? " · 边听边说了 " + m.lines.length + " 句" : ""),
@@ -12783,7 +12783,9 @@ function TtsDot({ k, text, spk, tp, dark }) {
   }, me ? (tp.play.st === "gen" ? "…" : "⏸") : "▶");
 }
 // 通话结束气泡：点开回看整通转录（log 由 endCall 存进消息；老消息没 log 就是纯提示条）；sum=挂断后生成的摘要
-function CallEndPill({ m, chars, onBg }) {
+// 长按跟旁白那一行同一个待遇（群友 2026-10-11：「群聊通话记录怎么删，记录那里删不掉」）：
+//   长按出菜单、多选里能勾，删掉的这一通不再带进以后的上下文
+function CallEndPill({ m, chars, onBg, i, selMode, selected, startPress, endPress, toggleSel }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   const tp = useTtsPlayer();
@@ -12791,7 +12793,12 @@ function CallEndPill({ m, chars, onBg }) {
   const log = Array.isArray(m.log) ? m.log : [];
   // 「TA挂了」和「聊完了」在她这儿完全是两件事，这条回执要认出来(v60.24)
   const label = m.dur ? (m.callMode === "video" ? "视频通话" : "语音通话") + (m.endedBy ? " · " + m.endedBy + "挂断了 · 时长 " : " 已结束 · 时长 ") + m.dur : String(m.content || "").split("\n")[0];
-  return h("div", { className: "flex flex-col items-center my-2" },
+  const press = startPress && i != null;
+  return h("div", { className: "flex flex-col items-center my-2", "data-wk": "callpill", "data-on": selected ? "1" : "0",
+      onTouchStart: press && !selMode ? () => startPress(i) : undefined, onTouchEnd: press ? endPress : undefined,
+      onMouseDown: press && !selMode ? () => startPress(i) : undefined, onMouseUp: press ? endPress : undefined, onMouseLeave: press ? endPress : undefined,
+      onClickCapture: selMode && toggleSel ? e => { e.stopPropagation(); toggleSel(i); } : undefined,
+      style: selected ? { outline: "1.5px solid " + t.ink, outlineOffset: 3, borderRadius: 14 } : undefined },
     h("span", {
       // 挂断回执和它下面那句小结都飘在聊天底上：换了皮肤，底是皮肤的、字还是主题的灰
       // ——她 2026-09-04：「语音挂断后的 summary 也是灰的在 line 皮肤看不见」。
@@ -14813,6 +14820,8 @@ function menuItemsForKind(m, canSpeak) {
   // 居中那一行也是消息，不是系统字（她 2026-09-09）：TA那一格动作能编辑、能重 Roll
   //   （跟同一轮的气泡带同一个 turnId，重 Roll 会退到这一轮的头一泡）；
   //   她自己写的旁白没什么可 roll 的，只给编辑。两边都不给「引用」——引用一行动作没有意义。
+  // 通话回执：只给多选和删除（删了这一通就不再带进以后的上下文）
+  if (k === "callend") return [[], [], ["multi", "del"]];
   if (k === "pat") return m && m.role === "user" ? [[], [], ["recall", "del"]] : [[], [], ["del"]];
   if (k === "narration" || (m && m.role === "narration")) {
     return m && m.who === "char"
@@ -17098,7 +17107,7 @@ function GroupThread({
       onBg: !!(gChatBg || _gWkBg), startPress, endPress, toggleSel,
       onDelete: onDeleteMessages ? () => onDeleteMessages([i]) : null,
       text: m.who === "char" ? groupActText(m) : m.content });
-    if (m.kind === "callend") return h(CallEndPill, { key: i, m, chars: characters, onBg: !!gChatBg });
+    if (m.kind === "callend") return h(CallEndPill, { key: i, i, m, chars: characters, onBg: !!gChatBg, selMode, selected: selIds.includes(i), startPress, endPress, toggleSel });
     // ⚠️判据跟单聊那一处同一条（kind 或 role）：失败提示是 UI 诊断，不是谁说的话，
     //   所以它该是一条能叉掉的系统提示，不是一个气泡（她 2026-09-14）。
     // ⚠️排在系统提示那条之前：它 role 也是 system，晚了就被当成一行系统字吞掉
