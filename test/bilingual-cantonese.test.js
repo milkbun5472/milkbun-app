@@ -30,3 +30,14 @@ test("单聊、群聊、通话三处都把这个人的语言带进去；规则�
   assert.match(app, /splitSayLine, hanLangOf\(char\)\)/);
   assert.match(eng, /右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语/);
 });
+
+// 心声里整段粤语也要有译键（她 2026-10-10 截图）：译键认语种走 translatableLang
+test("整段粤语认得出，普通中文和只沾一个字的不算", () => {
+  const a = eng.indexOf("function _transStrip("), b = eng.indexOf("// 长文（思考链）用的判定");
+  const e2 = {};
+  new Function("env", eng.slice(a, b) + "\nenv.f = translatableLang;")(e2);
+  assert.equal(e2.f("隔了這麼耐先覆，一開口就話自己接受度高。後搖冇歌詞又長，佢頂唔頂得順真係難講。"), "粤语");
+  assert.equal(e2.f("今天好累，想早点睡"), "");
+  assert.equal(e2.f("他叫阿佢"), "");
+  assert.match(eng, /"粤语": "yue"/);
+});

@@ -6647,6 +6647,9 @@ function translatableLang(text) {
   // 挂个译键只是碍眼。但长度从 8 放到 6：Bonjour(7)、Merci beaucoup 都该给，
   // OK(2)/Over(4)/Sorry(5) 仍然不给。
   if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
+  // 粤语（她 2026-10-10 截图：心声整段粤语，没有译键）：全是汉字，上面哪一条都认不出。
+  //   靠粤语专用字认——嘅咗唔啲佢瞓这些普通话里不会出现，见到两个就是粤语（一个怕是人名、引用）。
+  if (count(/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/g) >= 2) return "粤语";
   return "";
 }
 // 长文（思考链）用的判定（群里 2026-10-08「英文 cot 木有显示翻译按钮，就出现过一次」）：
@@ -6820,7 +6823,7 @@ function transCachePut(text, zh, by) {
   } catch (e) {}
 }
 // translatableLang 已经判出语种了，直接给免费接口用（它们的 auto 检测都不太靠谱）
-const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "外语": "auto" };
+const TRANS_LANG_CODE = { "日文": "ja", "韩文": "ko", "俄文": "ru", "英文": "en", "粤语": "yue", "外语": "auto" };
 async function _fetchJSON(url, ms) {
   const ctrl = new AbortController();
   const to = setTimeout(() => ctrl.abort(), ms || 8000);
