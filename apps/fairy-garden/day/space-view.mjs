@@ -1,7 +1,9 @@
-import {HOME_WALLS,HOME_FLOORS,furniturePrimary} from './home-catalog.mjs?v=fg-d6accb47bee17220';
-import {furnitureFinish} from './home-finish.mjs?v=fg-d6accb47bee17220';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-d6accb47bee17220';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-d6accb47bee17220';
+import {HOME_WALLS,HOME_FLOORS,furniturePrimary} from './home-catalog.mjs?v=fg-95886b22f114ade5';
+import {furnitureFinish} from './home-finish.mjs?v=fg-95886b22f114ade5';
+import {createHomeShell} from './home-shell.mjs?v=fg-95886b22f114ade5';
+import {createHomeFurniture} from './home-furniture.mjs?v=fg-95886b22f114ade5';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-95886b22f114ade5';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-95886b22f114ade5';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
@@ -27,7 +29,8 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
  function furniture(a){
   const finish=furniturePrimary(a,base),primary=finish.color;p={...base,...(a.color?{[finish.field]:a.color}:{})};
   let g;
-  if(a.kind==='table'){g=k.table({...a,color:p.wood});g.rotation.y=a.heading;
+  if(id==='dayHome')g=createHomeFurniture(k,a,p);
+  else if(a.kind==='table'){g=k.table({...a,color:p.wood});g.rotation.y=a.heading;
    if(a.variant==='round'){const top=g.children.find(o=>o.name===a.id+'-top');top.parent.remove(top);top.geometry.dispose();k.cylinder('RoundTableTop',{y:F+(a.top||.85)-.055,r:a.w/2,h:.11,color:p.wood},g);}
    if(a.dining||/dining|cafe-table|window-table/.test(a.id)){b('TableRunner',{y:.941,w:a.w*.42,h:.01,d:a.d+.02,color:p.fabric},g);k.cylinder('Plate',{x:-a.w*.2,y:.959,r:.21,h:.025,color:p.paper},g);for(const x of [-a.w*.2-.08,-a.w*.2+.08])k.sphere('Fruit',{x,y:1.015,r:.07,color:p.accent},g);}
    else notebook(g,-a.w*.25,0,a.top||.85);
@@ -84,22 +87,15 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
  if(map.outdoor){
   b('StreetGround',{y:-.07,w:16.3,h:.3,d:11.3,color:p.floor});b('WalkingLane',{y:.086,z:1.7,w:15.8,h:.012,d:4.9,color:p.paper,radius:.08});
   for(let n=0;n<18;n++)b('PavingJoint',{x:-7.8+n*.9,y:.094,z:1.7,w:.012,h:.002,d:4.9,color:p.floor,radius:0});
- }else{
+ }else if(id==='dayHome')createHomeShell(k,map,p);
+ else{
   const wall=HOME_WALLS[map.room?.wall]||{},floor=HOME_FLOORS[map.room?.floor]||{},wallColor=map.room?.wallColor||wall.color||p.wall,floorColor=map.room?.floorColor||floor.color||p.floor;
   k.room({w:map.bounds.w,d:map.bounds.d,floorColor,wallColor,accent:p.dark,joins:!floor.pattern});
   if(floor.pattern){const gap=floor.pattern==='wood'?.55:1;for(let x=-map.bounds.w/2+gap;x<map.bounds.w/2;x+=gap)b('CustomFloorJoint',{x,y:.084,w:.014,h:.002,d:map.bounds.d,color:p.dark,radius:0});if(floor.pattern!=='wood')for(let z=-map.bounds.d/2+gap;z<map.bounds.d/2;z+=gap)b('CustomFloorJoint',{z,y:.084,w:map.bounds.w,h:.002,d:.014,color:p.dark,radius:0});}
   if(wall.pattern){const gap=wall.pattern==='stripe'?.3:.7,line=wall.pattern==='stripe'?.025:.018;for(let x=-map.bounds.w/2+gap;x<map.bounds.w/2;x+=gap)b('WallpaperLine',{x,y:wall.pattern==='panel'?.77:1.66,z:-map.bounds.d/2+.105,w:line,h:wall.pattern==='panel'?1.3:3.2,d:.012,color:wall.pattern==='stripe'?p.paper:p.dark,radius:0});for(let z=-map.bounds.d/2+gap;z<map.bounds.d/2;z+=gap)b('WallpaperLine',{x:-map.bounds.w/2+.105,y:wall.pattern==='panel'?.77:1.66,z,w:.012,h:wall.pattern==='panel'?1.3:3.2,d:line,color:wall.pattern==='stripe'?p.paper:p.dark,radius:0});}
   for(const a of map.structure)b(a.id,{x:a.x,z:a.z,y:a.h/2,w:a.w,h:a.h,d:a.d,color:wallColor});
   window(map.id==='dayHome'?3.4:map.id==='dayWork'?2.8:2.5,-map.bounds.d/2+.14, map.id==='dayHome'?3.1:2.5);
-  if(id==='dayHome'){
-   b('BedroomRug',{x:-4,y:.093,z:-2.8,w:4.65,h:.02,d:4.5,color:p.accent,radius:.12});
-   b('LivingRug',{x:-3,y:.095,z:2.2,w:4.8,h:.025,d:3.2,color:p.fabric,radius:.12});
-   if(!floor.pattern){b('KitchenTiles',{x:3.4,y:.09,z:-3.15,w:5.4,h:.02,d:3.75,color:p.paper,radius:.02});
-   for(let n=0;n<6;n++)b('TileJoint',{x:.9+n*.9,y:.102,z:-3.15,w:.009,h:.002,d:3.75,color:p.floor,radius:0});}
-   b('FutureRug',{x:3.7,y:.092,z:3.35,w:3.5,h:.02,d:2.6,color:p.paper,radius:.15});
-   b('BedroomPicture',{x:-4,y:2.1,z:-5.32,w:1.4,h:.87,d:.05,color:p.dark});b('PictureCanvas',{x:-4,y:2.1,z:-5.285,w:1.2,h:.7,d:.02,color:p.paper});
-   for(const [x,y]of [[-4.25,2.05],[-3.8,2.2]])b('PictureLeaf',{x,y,z:-5.27,w:.35,h:.24,d:.02,color:p.fabric,radius:.08});
-  }else if(id==='dayWork'){
+  if(id==='dayWork'){
    b('DeskRug',{x:-2.5,y:.094,z:-.4,w:3.8,h:.02,d:3,color:p.paper,radius:.1});
    b('BoardFrame',{x:-2.6,y:2.65,z:-4.35,w:2.9,h:.78,d:.07,color:p.wood});b('Board',{x:-2.6,y:2.65,z:-4.3,w:2.73,h:.61,d:.02,color:p.fabric});
    for(let n=0;n<4;n++)b('PinnedNote',{x:-3.4+n*.54,y:2.66,z:-4.28,w:.32,h:.34,d:.012,color:p.paper,heading:(n%2?1:-1)*.08});

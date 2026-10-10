@@ -1,11 +1,11 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors} from './home-catalog.mjs?v=fg-d6accb47bee17220';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors} from './home-catalog.mjs?v=fg-95886b22f114ade5';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
 export const SPACE_STYLES={
-  warm:{label:'暖木生活',floor:'#cfb79b',wall:'#eee3d1',wood:'#b89572',dark:'#886e56',fabric:'#a4b195',accent:'#c99680',paper:'#f8efdc',glass:'#c4d9d3'},
-  light:{label:'清爽浅色',floor:'#d7d2c4',wall:'#edf0e7',wood:'#bac3b7',dark:'#7b9090',fabric:'#a9c3c4',accent:'#b5bf98',paper:'#faf7ec',glass:'#c1dce4'},
-  dusk:{label:'深木安静',floor:'#a79079',wall:'#ddd6c9',wood:'#806b59',dark:'#554e48',fabric:'#8b9995',accent:'#ad8a7e',paper:'#e8deca',glass:'#a9c1c7'}
+  warm:{label:'暖木生活',floor:'#c5aa85',wall:'#e4d2b4',wood:'#a57450',dark:'#594c40',fabric:'#547b6d',accent:'#c57f68',paper:'#f4e8cf',glass:'#c2d5cc'},
+  light:{label:'清爽浅色',floor:'#d0d4c9',wall:'#e6ece3',wood:'#a9b5a2',dark:'#57757a',fabric:'#7daab4',accent:'#d3a26e',paper:'#f6f2e1',glass:'#c8e2df'},
+  dusk:{label:'深木安静',floor:'#a08a73',wall:'#d7cbb9',wood:'#765544',dark:'#403f40',fabric:'#576d79',accent:'#b98277',paper:'#e6d9c3',glass:'#adbfc8'}
 };
 export const DEFAULT_STYLE='warm';
 export const styleOf=id=>SPACE_STYLES[id]||SPACE_STYLES[DEFAULT_STYLE];
