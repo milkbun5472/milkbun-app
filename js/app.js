@@ -2960,7 +2960,8 @@ function App() {
   //   会把原来走角色专线/线下线路的那几处悄悄换掉——那不是修，那是偷偷改行为。
   // ⚠️异步回调里读 ref，不读渲染期那份（跟记忆抽取那两枪同一个写法）。
   const sumRoute = fallback => (routePicked(bgApiId) && bgActiveRef.current) || fallback || null;
-  const offlineApiFor = id => pickRoute((chatSettings[id] || {}).apiId, offlineActive);
+  // 线下可以单独挑一条（聊天设置「线下见面单独走」）：挑了走那条，没挑照旧——专线优先，再落回全局线下线路
+  const offlineApiFor = id => pickRoute((chatSettings[id] || {}).offlineApiId || (chatSettings[id] || {}).apiId, offlineActive);
   // 本体文本不是机械活：有角色专线走专线，否则仍由线上主池本人落笔，绝不交给 cheap_required 代写。
   const bgApiFor = id => apiFor(id);
   // 心上那两枪（发呆、盘一盘）走哪条（群友 2026-10-09：「后台心上好像走的线上 api，不是配的后台 api」）：

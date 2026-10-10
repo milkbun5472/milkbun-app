@@ -48,7 +48,7 @@ test("三处线路合到同一份，别再各写各的（one-public-mechanism）
   ["const offlineActive = pickRoute(offlineApiId, active);",
    "const bgActive = pickRoute(bgApiId, active);",
    "const apiFor = id => pickRoute((chatSettings[id] || {}).apiId, active);",
-   "const offlineApiFor = id => pickRoute((chatSettings[id] || {}).apiId, offlineActive);"]
+   "const offlineApiFor = id => pickRoute((chatSettings[id] || {}).offlineApiId || (chatSettings[id] || {}).apiId, offlineActive);"]
     .forEach(l => assert.ok(app.indexOf(l) >= 0, "没走公共那份：" + l));
   // 旧那个「找不到就 null」的写法不许回来
   assert.doesNotMatch(app, /bgApiId \? \(apiProfiles\.find/);
