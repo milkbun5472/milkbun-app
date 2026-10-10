@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-70e2d2e8f5d2a7e4';
-import {computer} from './work-room-kit.mjs?v=fg-70e2d2e8f5d2a7e4';
-import {cameraRig,softbox} from './media-kit.mjs?v=fg-70e2d2e8f5d2a7e4';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-d339e63510e3c2ab';
+import {computer} from './work-room-kit.mjs?v=fg-d339e63510e3c2ab';
+import {cameraRig,softbox} from './media-kit.mjs?v=fg-d339e63510e3c2ab';
 const FLOOR=.08,SIZE={w:16,d:12};
 const furniture=[
  {id:'film-backdrop',kind:'panel',x:-3.64,z:-5.24,w:7.45,d:.45},

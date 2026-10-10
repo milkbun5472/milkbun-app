@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-70e2d2e8f5d2a7e4';
-import {computer,notebook,cabinet,board} from './work-room-kit.mjs?v=fg-70e2d2e8f5d2a7e4';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-d339e63510e3c2ab';
+import {computer,notebook,cabinet,board} from './work-room-kit.mjs?v=fg-d339e63510e3c2ab';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'window-workstation',kind:'table',x:-4.6,z:-3.1,w:2.05,d:1.05,top:.85,color:'#d0c0a4'},
