@@ -5,6 +5,8 @@ export const HOME_SIZES={
  loft:{label:'开阔大屋',w:22,d:17,detail:'多出约143%的布置空间'}
 };
 export const HOME_MOUNT_WALLS={back:'后墙',left:'左墙'};
+export const HOME_BEDROOM_WALL={x:-3.8,w:6.25,h:4.15,base:.08};
+export const HOME_LEFT_WALL={split:3.1,h:2.56,base:.08,low:.96};
 export const HOME_WINDOW={x:3.3,w:4.5,h:2.95,base:1.08};
 export const homeSize=room=>HOME_SIZES[room?.size]||HOME_SIZES.compact;
 export function wallFurniturePosition(p,room){
@@ -13,10 +15,11 @@ export function wallFurniturePosition(p,room){
 }
 export function wallSpan(wall,room){const {w,d}=homeSize(room);return (wall==='left'?d:w)/2-.25;}
 export function wallTop(wall,along){
- if(wall==='left')return along>3.1?1.04:2.64;
+ const left=HOME_LEFT_WALL,bed=HOME_BEDROOM_WALL,r=bed.w/2;
+ if(wall==='left')return left.base+(along>left.split?left.low:left.h);
  // The original curved bedroom shoulder is retained when the room grows.
- if(along<-.675&&along>=-6.925)return 1.105+Math.sqrt(Math.max(0,3.125**2-(along+3.8)**2));
- return along<-6.925?2.64:4.13;
+ if(along<bed.x+r&&along>=bed.x-r)return bed.base+bed.h-r+Math.sqrt(Math.max(0,r*r-(along-bed.x)**2));
+ return along<bed.x-r?left.base+left.h:4.13;
 }
 export function furnitureHeight(p){
  if(p.height)return p.height+.08;

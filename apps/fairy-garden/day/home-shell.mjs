@@ -1,26 +1,26 @@
-import {HOME_WINDOW} from './home-architecture.mjs';
-import {homeSurface} from './home-surfaces.mjs';
-import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-e3f68dca93b2b897';
-import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-e3f68dca93b2b897';
+import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-c27bf8a6a71ea07b';
+import {homeSurface} from './home-surfaces.mjs?v=fg-c27bf8a6a71ea07b';
+import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-c27bf8a6a71ea07b';
+import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-c27bf8a6a71ea07b';
 
 // All raised pieces sit on the boundary or the partition footprint. The actual
 // walking plane, furniture positions and doorway remain the saved map's .08.
 export function createHomeShell(k,map,p){
  const wall=HOME_WALLS[map.room.wall]||{},floor=HOME_FLOORS[map.room.floor]||{},wallColor=map.room.wallColor||wall.color||p.wall,floorColor=map.room.floorColor||floor.color||p.floor;
- const w=map.bounds.w,d=map.bounds.d,back=-d/2,edge=-w/2;
+ const w=map.bounds.w,d=map.bounds.d,back=-d/2,edge=-w/2,bed=HOME_BEDROOM_WALL,left=HOME_LEFT_WALL,bedEdge=bed.x-bed.w/2;
  const b=(name,v,g)=>k.box(name,{color:p.wood,...v},g),flat=(name,shape,v,g)=>k.profile(name,{shape,horizontal:true,...v},g);
  const shell=k.group('WindowHome');shell.userData.architecture='arched-window-home';
  flat('Foundation',rounded(w+.42,d+.42,.18),{y:-.155,depth:.31,color:p.dark},shell);
  homeSurface(flat('WalkingFloor',rounded(w+.28,d+.28,.12),{y:.025,depth:.11,color:floorColor,bevel:.005},shell),floor.pattern||'wood','floor');
  // Bedroom wall has a gently rising shoulder. Window wall is actually open.
- homeSurface(k.profile('BedroomWall',{shape:arch(6.25,4.15),x:-3.8,y:.08,z:back,depth:.18,color:wallColor,bevel:.008},shell),wall.pattern,'back');
- if(edge<-6.925)homeSurface(b('ExtendedBedroomWall',{x:(edge-6.925)/2,y:1.36,z:back,w:-6.925-edge+.12,h:2.56,d:.18,color:wallColor,radius:.04},shell),wall.pattern,'back');
+ homeSurface(k.profile('BedroomWall',{shape:arch(bed.w,bed.h),x:bed.x,y:bed.base,z:back,depth:.18,color:wallColor,bevel:.008},shell),wall.pattern,'back');
+ if(edge<bedEdge)homeSurface(b('ExtendedBedroomWall',{x:(edge+bedEdge)/2,y:1.36,z:back,w:bedEdge-edge+.12,h:2.56,d:.18,color:wallColor,radius:.04},shell),wall.pattern,'back');
  const {x:windowX,w:windowW,h:windowH,base:windowBase}=HOME_WINDOW,rightWidth=w/2+.9,rightX=(w/2-.9)/2;
  const rightWall=rounded(rightWidth,4.05,.2),opening=shift(arch(windowW,windowH),windowX-rightX,windowBase-(.08+4.05/2));
  homeSurface(k.profile('WindowWall',{shape:rimShape(rightWall,opening),x:rightX,y:.08+4.05/2,z:back,depth:.18,color:wallColor,bevel:.005},shell),wall.pattern,'back');
  // Lower front corner opens the dollhouse; the room still has one level floor.
- homeSurface(b('LeftWall',{x:edge,y:1.36,z:(back+3.1)/2,w:.18,h:2.56,d:3.1-back,color:wallColor,radius:.07},shell),wall.pattern,'left');
- homeSurface(b('LowCornerWall',{x:edge,y:.56,z:(3.1+d/2)/2,w:.18,h:.96,d:d/2-3.1,color:wallColor,radius:.08},shell),wall.pattern,'left');
+ homeSurface(b('LeftWall',{x:edge,y:left.base+left.h/2,z:(back+left.split)/2,w:.18,h:left.h,d:left.split-back,color:wallColor,radius:.07},shell),wall.pattern,'left');
+ homeSurface(b('LowCornerWall',{x:edge,y:left.base+left.low/2,z:(left.split+d/2)/2,w:.18,h:left.low,d:d/2-left.split,color:wallColor,radius:.08},shell),wall.pattern,'left');
  k.tube('WallCoping',{points:[[edge,2.68,back],[edge,2.68,-.7],[edge,2.46,1.2],[edge,1.36,2.4],[edge,1.07,3.1],[edge,1.07,d/2]],r:.065,color:p.paper},shell);
  b('BackSkirting',{y:.28,z:back+.115,w,h:.36,d:.075,color:p.dark,radius:.01},shell);b('LeftSkirting',{x:edge+.115,y:.28,w:.075,h:.36,d,color:p.dark,radius:.01},shell);
  const win=k.group('ArchedWindow',{x:windowX,y:windowBase,z:back},shell);
