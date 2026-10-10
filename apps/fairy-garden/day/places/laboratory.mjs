@@ -1,36 +1,37 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-6941d9cc1b32d96f';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-562bc471e8a6c8b7';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.
 const furniture=[
-  {id:'laboratory-bench',kind:'table',x:-.55,z:-3.52,w:4.8,d:1.05,top:1,color:'#adbfb2'},
-  {id:'observation-island',kind:'table',x:-1,z:-.6,w:2.65,d:1.15,top:1,color:'#c2cabc'},
+  {id:'laboratory-bench',kind:'table',x:-.55,z:-3.52,w:4.8,d:1.05,top:.70,color:'#adbfb2'},
+  {id:'observation-island',kind:'table',x:-1,z:-.6,w:2.65,d:1.15,top:.70,color:'#c2cabc'},
   {id:'computer-desk',kind:'table',x:3.18,z:-2.8,w:2.15,d:1.1,top:.85,color:'#bba68a'},
   {id:'records-desk',kind:'table',x:3.15,z:.7,w:2.2,d:1.05,top:.85,color:'#bba68a'},
   {id:'archive-cabinet',kind:'cabinet',x:-4.4,z:-2.68,w:.84,d:2.1,h:2.05},
   {id:'materials-shelf',kind:'shelf',x:-4.4,z:.58,w:.88,d:1.8,h:1.2},
-  {id:'computer-chair',kind:'chair',x:3.18,z:-1.63,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#71968b'},
-  {id:'records-chair',kind:'chair',x:3.15,z:1.87,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#819987'},
+  {id:'computer-chair',kind:'chair',x:3.18,z:-2.13,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#71968b'},
+  {id:'records-chair',kind:'chair',x:3.15,z:1.48,w:.6,d:.6,seat:.45,heading:Math.PI,color:'#819987'},
   {id:'break-chair',kind:'chair',x:-3.5,z:2.55,w:.6,d:.6,seat:.45,heading:Math.PI/2,color:'#a6b59a'},
   {id:'break-side-table',kind:'table',x:-4.42,z:2.78,w:.58,d:.6,top:.58,color:'#bba68a'},
   {id:'laboratory-plant',kind:'plant',x:4.35,z:3.05,w:.5,d:.5}
 ];
 const piece=id=>furniture.find(p=>p.id===id);
 const seats={
-  computer:roomSeat(furniture,'computer-chair',{x:3.18,z:-.86}),
-  records:roomSeat(furniture,'records-chair',{x:3.15,z:2.65}),
+  computer:roomSeat(furniture,'computer-chair',{x:3.18,z:-1.22}),
+  records:roomSeat(furniture,'records-chair',{x:3.15,z:2.26}),
   break:roomSeat(furniture,'break-chair',{x:-2.7,z:2.55})
 };
 export const laboratoryMap={
   label:'实验室',renderer:'dayLaboratory',radius:9,bounds:{w:10,d:9},floor:FLOOR,
   spawn:{x:0,z:4},view:{x:0,z:0},
+  furniture:furniture,
   obstacles:roomObstacles(furniture),
   seats,
   spots:[
     {id:'entrance',label:'入口',description:'从南侧进入或离开实验室；这里也适合短暂停步，随后走向各工位。',action:'rest',gesture:'rest',target:{x:0,z:3.25},heading:Math.PI,furniture:'Threshold'},
-    {id:'bench',label:'实验台前',description:'站着观察与操作台面的位置；为以后拿放器材、实验和记录动作预留。',action:'work',gesture:'rest',target:{x:-.55,z:-2.42},heading:Math.PI,furniture:'laboratory-bench'},
-    {id:'observation',label:'观察台前',description:'站在中央台前看样品与仪器；为以后观察、调整和测量动作预留。',action:'work',gesture:'rest',target:{x:-1,z:.55},heading:Math.PI,furniture:'observation-island'},
-    {id:'computer',label:'电脑工位',description:'坐着查看资料、整理数据与分析结果的位置；专业操作随后接入。',action:'work',gesture:'read',target:{...seats.computer.approach},heading:seats.computer.heading,seat:seats.computer,furniture:'computer-desk'},
+    {id:'bench',label:'实验台前',description:'站着观察与操作台面的位置；右手拿取小工具，在样品杯上方操作，之后可去观察台与记录工位。',action:'work',gesture:'rest',target:{x:-.55,z:-2.68},heading:Math.PI,furniture:'laboratory-bench'},
+    {id:'observation',label:'观察台前',description:'站在中央台前看样品与仪器；低头查看样品，再到记录工位记下观察。',action:'work',gesture:'rest',target:{x:-1,z:.29},heading:Math.PI,furniture:'observation-island'},
+    {id:'computer',label:'电脑工位',description:'坐着查看资料、整理数据与分析结果的位置；双手在键盘前整理数据，随后可核对记录。',action:'work',gesture:'read',target:{...seats.computer.approach},heading:seats.computer.heading,seat:seats.computer,furniture:'computer-desk'},
     {id:'records',label:'记录工位',description:'坐着阅读实验记录、整理纸笔和写观察笔记的位置。',action:'read',gesture:'read',target:{...seats.records.approach},heading:seats.records.heading,seat:seats.records,furniture:'records-desk'},
     {id:'archive',label:'资料柜前',description:'从柜前取阅或归还资料的位置；取物和开柜动作随后接入。',action:'read',gesture:'rest',target:{x:-3.35,z:-2.68},heading:-Math.PI/2,furniture:'archive-cabinet'},
     {id:'materials',label:'材料架前',description:'在架前挑选耗材与整理物品的位置；拿取动作随后接入。',action:'work',gesture:'rest',target:{x:-3.35,z:.58},heading:-Math.PI/2,furniture:'materials-shelf'},
@@ -79,10 +80,11 @@ function wallDetails(kit){
 }
 function benchStorage(kit,p){
   const g=kit.group('LaboratoryBenchStorage',{x:p.x,z:p.z});
+  const h=p.top-.16;
   for(const x of [-p.w/2+.79,p.w/2-.79]){
-    kit.box('bench-storage',{x,y:FLOOR+.48,w:1.16,h:.76,d:p.d-.2,color:'#c3cebd'},g);
-    for(const y of [.3,.61]){
-      kit.box('bench-drawer',{x,y:FLOOR+y,z:p.d/2-.084,w:1.055,h:.275,d:.04,color:'#d6dccb',radius:.013},g);
+    kit.box('bench-storage',{x,y:FLOOR+h/2,w:1.16,h,d:p.d-.2,color:'#c3cebd'},g);
+    for(const y of [h*.32,h*.74]){
+      kit.box('bench-drawer',{x,y:FLOOR+y,z:p.d/2-.084,w:1.055,h:h*.40,d:.04,color:'#d6dccb',radius:.013},g);
       kit.box('bench-drawer-pull',{x,y:FLOOR+y+.04,z:p.d/2-.045,w:.28,h:.027,d:.025,color:'#88a394',radius:.005},g);
     }
   }
@@ -95,16 +97,16 @@ function computerWorkstation(kit,p){
   kit.box('monitor',{y:top+.47,z:-.29,w:.9,h:.57,d:.095,color:'#778e84'},g);
   kit.box('screen',{y:top+.47,z:-.235,w:.79,h:.45,d:.012,color:'#c9dddb',radius:.009},g);
   for(let i=0;i<4;i++)kit.box('screen-data-bar',{x:-.27+i*.16,y:top+.365+i*.045,z:-.225,w:.065,h:.13+i*.09,d:.005,color:'#7ca294',radius:0},g);
-  kit.box('keyboard',{y:top+.025,z:.21,w:.63,h:.04,d:.23,color:'#e1e3d7',radius:.01},g);
-  for(let i=0;i<7;i++)kit.box('keyboard-key',{x:-.25+i*.083,y:top+.049,z:.21,w:.045,h:.008,d:.12,color:'#aab9ac',radius:.002},g);
+  kit.box('keyboard',{y:top+.025,z:.41,w:.63,h:.04,d:.23,color:'#e1e3d7',radius:.01},g);
+  for(let i=0;i<7;i++)kit.box('keyboard-key',{x:-.25+i*.083,y:top+.049,z:.45,w:.045,h:.008,d:.12,color:'#aab9ac',radius:.002},g);
   kit.box('mouse',{x:.53,y:top+.047,z:.22,w:.105,h:.07,d:.16,color:'#7f998a'},g);
   kit.book('reference-book',{x:-.76,y:top+.058,z:-.03,w:.3,d:.42,color:'#9dad90',flat:true},g);
 }
 function recordWorkstation(kit,p){
   const top=FLOOR+p.top,g=kit.group('RecordingItems',{x:p.x,z:p.z});
-  kit.box('open-notebook',{x:-.12,y:top+.028,z:.12,w:.62,h:.045,d:.41,color:'#eee7d4',radius:.008},g);
-  kit.box('notebook-spine',{x:-.12,y:top+.054,z:.12,w:.018,h:.008,d:.4,color:'#c8c0aa',radius:0},g);
-  for(let i=0;i<4;i++)kit.box('notebook-line',{x:.06,y:top+.056,z:.005+i*.065,w:.21,h:.004,d:.008,color:'#acbbad',radius:0},g);
+  kit.box('open-notebook',{x:-.12,y:top+.028,z:.32,w:.62,h:.045,d:.31,color:'#eee7d4',radius:.008},g);
+  kit.box('notebook-spine',{x:-.12,y:top+.054,z:.32,w:.018,h:.008,d:.3,color:'#c8c0aa',radius:0},g);
+  for(let i=0;i<4;i++)kit.box('notebook-line',{x:.06,y:top+.056,z:.245+i*.04,w:.21,h:.004,d:.008,color:'#acbbad',radius:0},g);
   kit.box('pencil',{x:.36,y:top+.041,z:.13,w:.025,h:.025,d:.39,color:'#a79871',heading:-.23,radius:.002},g);
   kit.book('record-folder',{x:.65,y:top+.16,z:-.2,w:.42,d:.52,color:'#97b2a2',flat:true},g);
   kit.book('record-folder-under',{x:.67,y:top+.06,z:-.19,w:.44,d:.54,color:'#c0c8b1',flat:true},g);
@@ -118,6 +120,8 @@ function generalEquipment(kit){
   // All specialized props live under this group and can be swapped as one unit.
   const equipment=kit.replaceableGroup('LaboratoryEquipment');
   const bench=piece('laboratory-bench'),benchTop=FLOOR+bench.top;
+  const active=kit.group('ActiveSample',{x:-.70,y:benchTop,z:-3.05},equipment);
+  kit.cylinder('active-sample-cup',{y:.019,r:.045,h:.038,color:'#d9e5d9'},active);kit.cylinder('active-sample-liquid',{y:.04,r:.032,h:.008,color:'#9db6a0'},active);
   const microscope=kit.group('Microscope',{x:bench.x-.9,y:benchTop,z:bench.z+.02},equipment);
   kit.box('microscope-base',{y:.045,w:.52,h:.09,d:.39,color:'#7b948c'},microscope);
   kit.box('microscope-body',{x:-.13,y:.32,z:-.075,w:.14,h:.57,d:.16,color:'#dde1d6',heading:.12},microscope);
@@ -174,8 +178,8 @@ export function createLaboratory({equipment='general'}={}){
   const side=piece('break-side-table');
   kit.book('break-notebook',{x:side.x,y:FLOOR+side.top+.055,z:side.z-.055,w:.31,d:.34,color:'#a8bb9a',flat:true});
   kit.cylinder('water-cup',{x:side.x+.14,y:FLOOR+side.top+.11,z:side.z+.12,r:.065,h:.2,color:'#e3e8d7'});
-  kit.book('bench-checklist',{x:-2.52,y:FLOOR+1.06,z:-3.45,w:.36,d:.44,color:'#d4d9bd',flat:true});
-  kit.book('observation-notes',{x:-1.16,y:FLOOR+1.058,z:-.28,w:.37,d:.3,color:'#bbcbb8',flat:true});
+  kit.book('bench-checklist',{x:-2.52,y:FLOOR+piece('laboratory-bench').top+.06,z:-3.45,w:.36,d:.44,color:'#d4d9bd',flat:true});
+  kit.book('observation-notes',{x:-1.16,y:FLOOR+piece('observation-island').top+.058,z:-.28,w:.37,d:.3,color:'#bbcbb8',flat:true});
   if(equipment!=='none')generalEquipment(kit);
   else kit.replaceableGroup('LaboratoryEquipment');
   return kit.finish();

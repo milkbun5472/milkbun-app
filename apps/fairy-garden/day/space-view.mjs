@@ -1,9 +1,9 @@
-import {HOME_WALLS,HOME_FLOORS,furniturePrimary} from './home-catalog.mjs?v=fg-6941d9cc1b32d96f';
-import {furnitureFinish} from './home-finish.mjs?v=fg-6941d9cc1b32d96f';
-import {createHomeShell} from './home-shell.mjs?v=fg-6941d9cc1b32d96f';
-import {createHomeFurniture} from './home-furniture.mjs?v=fg-6941d9cc1b32d96f';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-6941d9cc1b32d96f';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-6941d9cc1b32d96f';
+import {HOME_WALLS,HOME_FLOORS,furniturePrimary} from './home-catalog.mjs?v=fg-562bc471e8a6c8b7';
+import {furnitureFinish} from './home-finish.mjs?v=fg-562bc471e8a6c8b7';
+import {createHomeShell} from './home-shell.mjs?v=fg-562bc471e8a6c8b7';
+import {createHomeFurniture} from './home-furniture.mjs?v=fg-562bc471e8a6c8b7';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-562bc471e8a6c8b7';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-562bc471e8a6c8b7';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
