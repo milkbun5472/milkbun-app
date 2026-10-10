@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.227";
+const APP_VERSION = "v75.228";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10625,7 +10625,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("pics")) {
       const pics = [];
-      (characters || []).forEach(c => (chatsRef.current[c.id] || []).forEach(m => { if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie")) pics.push({ m, to: c.id === viewerId ? "你" : (c.remark || c.name) }); }));
+      // ⚠️发给别的面具那几个人、她亲手藏起来的那几个人的图不算（群友 2026-10-09：面具设了不给看，TA 还是点进去看了——
+      //   就是从这一段读到了名字，录像里照着名字点开了那个人的聊天）
+      (characters || []).filter(c => c.id === viewerId || shownId(c.id)).forEach(c => (chatsRef.current[c.id] || []).forEach(m => { if (m && m.role === "user" && (m.kind === "photo" || m.kind === "selfie")) pics.push({ m, to: c.id === viewerId ? "你" : (c.remark || c.name) }); }));
       pics.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
       if (pics.length) out.push("【发过的图】\n" + pics.slice(0, 6).map(x => "· 发给" + x.to + "的：" + (cut(x.m.desc, 50) || "一张照片")).join("\n"));
     }
@@ -10641,9 +10643,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 线下往期挂在跟那个人的聊天里：点开那个人
     if (app === "offline") app = "chat";
     if (app === "chat") {
-      const c = (characters || []).find(x => x && (x.name === who || x.remark === who));
+      // 藏起来的、别的面具的那几个聊天：录像里就算点到名字也不打开，停在消息列表（那里本来就看不到他们）
+      const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
+      const ok = id => !hid || !hid.has(String(id));
+      const c = (characters || []).find(x => x && (x.name === who || x.remark === who) && ok(x.id));
       if (c) { openChatById(c.id); return; }
-      const g = (groupsRef.current || []).find(x => x && x.name === who && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
+      const g = (groupsRef.current || []).find(x => x && x.name === who && ok(x.id) && !(x.roomKind === "spectate" || (gsFor(x.id) || {}).spectate));
       if (g) { setActiveGroup(g); clearUnread(g.id); setScreen("gthread"); return; }
       setScreen("messages");
       return;
@@ -10766,7 +10771,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   }, [screen, activeChar && activeChar.id]);
   const answerSneak = (charId, m, how) => {
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
-    if (how === "replay") { setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
+    // 回放也照「别的面具不给看」那条挡着（录像里点到他们的名字不打开）
+    if (how === "replay") { try { window.__peekHide = new Set(peekMaskOthers(charId).map(String)); } catch (e) {} setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
     if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
     // ⚠️这一处【故意当场开口】（她 2026-10-06：「要手机和偷翻这俩改回来」）——wait-for-her.md 里记着这条例外
     if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
