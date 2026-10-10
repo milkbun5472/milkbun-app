@@ -16,7 +16,7 @@ test('只请求选中的职业场景，同一请求合并、失败后可以重�
  let tries=0;const retry=createPlaceModules(async()=>{if(++tries===1)throw Error('offline');return 'ready';});
  await assert.rejects(retry.load('dayWorkshop'),/offline/);assert.equal(await retry.load('dayWorkshop'),'ready');assert.equal(tries,2);
 });
-test('生成的轻量地图沿真实建造方，座位引用和197个活动锚点保留',async()=>{
+test('生成的轻量地图沿真实建造方，座位引用和全部活动锚点保留',async()=>{
  for(const [id,p]of Object.entries(PLACE_MODULES)){const actual=(await placeModules.load(id))[p.map];assert.deepEqual(DAY_PLACES[id],actual,id);for(const spot of DAY_PLACES[id].spots)if(spot.seat)assert.ok(Object.values(DAY_PLACES[id].seats).includes(spot.seat),id);}
 });
 test('全部职业场景都能选配色，明确手选优先并保留旧器材选择',()=>{
@@ -56,4 +56,11 @@ test('切换与关闭时尚未到达的异步场景也释放，没有迟到的�
  const loader=createMapLoader({maps:{a:{renderer:'a'},b:{renderer:'b'}},loadAsset:()=>{},factories:{a:()=>new Promise(r=>{resolve=()=>r({root:root('a')});}),b:()=>({root:root('b')})},attach:g=>attached.push(g.name),detach:g=>{}});
  const old=loader.ensure('a');await Promise.resolve();await loader.ensure('b');loader.keep('b');resolve();await old;
  assert.deepEqual(Object.keys(loader.views),['b']);assert.deepEqual(attached,['b']);assert.ok(disposed.includes('a'));loader.close();assert.ok(disposed.includes('b'));assert.deepEqual(Object.keys(loader.views),[]);
+});
+
+test('同地点加载期间连续手选，迟到的旧陈设不能盖掉最后选择',async()=>{
+ let complete,version=1;const attached=[];
+ const makeRoot=n=>{const g=new T.Group();g.name='room-'+n;g.add(new T.Mesh(new T.BoxGeometry(),new T.MeshStandardMaterial()));return g;};
+ const loader=createMapLoader({maps:{a:{renderer:'a'}},loadAsset:()=>{},factories:{a:()=>{const n=version;return n===1?new Promise(r=>{complete=()=>r({root:makeRoot(n),version:n});}):{root:makeRoot(n),version:n};}},attach:g=>attached.push(g.name),detach:()=>{}});
+ const first=loader.ensure('a');await Promise.resolve();loader.keep(null);version=2;const last=loader.ensure('a');complete();assert.equal((await first).stale,true);assert.equal((await last).version,2);assert.deepEqual(attached,['room-2']);loader.close();
 });

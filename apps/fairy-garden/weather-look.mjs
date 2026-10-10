@@ -1,4 +1,4 @@
-import {MAPS,SEASONS,seasonOf,weather,walkable,floorHeight,inPolygon} from './world.mjs?v=fg-04aacebb1f1f98c4';
+import {MAPS,SEASONS,seasonOf,weather,walkable,floorHeight,inPolygon} from './world.mjs?v=fg-2c643c105f739741';
 // Visual profiles consume the existing seeded weather; they never draw new weather or change saves.
 const PALETTES=[
  {leaf:'#acd69a',ground:'#a8bd83',water:'#80b9ae',sky:'#d9e7cf',fog:'#dce5cf',rainSky:'#abbeb7',drift:'#f5c6d2',sun:'#fff0cd'},

@@ -1,4 +1,4 @@
-import {normalizeCase} from './case-schema.mjs?v=fg-04aacebb1f1f98c4';
+import {normalizeCase} from './case-schema.mjs?v=fg-2c643c105f739741';
 // This is a town-fiction author, not the companion's reply: only this pet's public game facts enter.
 export function modelCaseContext(world){const pet=world?.pet||{},career=world?.career||{};return {pet:{name:pet.name,species:pet.species,traits:pet.traits},day:career.day,completed:career.detective?.completed||0,avoid:career.detective?.avoid||[],places:['家里','公园',...(career.workplaces||[]).map(x=>x.title)]};}
 export function casePrompt(context){

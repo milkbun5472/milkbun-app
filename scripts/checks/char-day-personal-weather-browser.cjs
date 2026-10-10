@@ -11,6 +11,8 @@ const engine=process.env.DAY_ENGINE||'webkit',result={engine,scenes:[],widths:[]
  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
  try{
   await page.clock.setFixedTime(new Date('2026-10-10T14:05:00Z'));await page.goto(base);await page.waitForFunction(()=>window.CharDayApp&&window.ReactDOM&&typeof txtVaultState==='function'&&txtVaultState().ok);
+  // The phone mounts only after both vaults hydrate; wait for its real startup writer to finish before recording scene writes.
+  await page.waitForFunction(()=>document.querySelector('#root')?.childElementCount&&Array.isArray(loadJSON('x_loreEntries',null))&&loadJSON('x_forumMe',{})?.joinTs&&loadJSON('x_forumNpcs',{})?.version===1&&loadJSON('x_autoRefreshPolicy_v1',null));
   await page.evaluate(writer=>{
    window.personalChars=[{id:'personal-a',name:'木作师',persona:'木作手艺人，偏好暖木配色。',tz:'0',home:{lat:49,lng:-97}},{id:'personal-b',name:'另一位角色',persona:'机械维修师，喜欢清爽浅色。',tz:'0',home:{lat:49,lng:-97}}];
    let plans={};window.personalPlans={current:plans};const save=new Function('setSchedules','schedulesRef','saveJSON',writer+'return saveSchedDay;');window.personalSave=save(fn=>{plans=fn(plans);},personalPlans,saveJSON);
@@ -52,6 +54,9 @@ const engine=process.env.DAY_ENGINE||'webkit',result={engine,scenes:[],widths:[]
    if(scene==='dayTraining'||scene==='dayStreet')assert.equal(s.environment.outsideRain,true);
    await cameraView(page,true);await page.screenshot({path:path.join(out,scene+'-rain.png')});
   }
+  await choose('dayStreet','walk',845,85);result.snow=(await state()).environment;assert.equal(result.snow.kind,'snow');assert.equal(result.snow.outsideSnow,true);assert.equal(result.snow.outsideRain,false);await cameraView(page,true);await page.screenshot({path:path.join(out,'street-snow.png')});
+  await choose('dayHome','read',845,85);assert.equal((await state()).environment.outsideSnow,false);
+  await choose('dayHome','read',845,null);assert.equal((await state()).environment.known,false);assert.equal((await state()).environment.kind,'unknown');
   result.daylight=[];for(const minute of [360,720,1110,1320]){await choose('dayHome','read',minute,63);const s=await state();result.daylight.push({minute,...s.environment});await cameraView(page,true);await page.screenshot({path:path.join(out,'home-'+minute+'.png')});}
   assert.ok(result.daylight.at(-1).lamps>0);assert.equal(result.daylight.at(-1).night,true);
   await page.evaluate(()=>{personalWeatherCode=0;});await page.waitForTimeout(1200);assert.equal((await state()).environment.kind,'clear');

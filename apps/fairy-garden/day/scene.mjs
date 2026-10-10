@@ -1,39 +1,39 @@
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-04aacebb1f1f98c4';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-04aacebb1f1f98c4';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-04aacebb1f1f98c4';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-2c643c105f739741';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-2c643c105f739741';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-2c643c105f739741';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-04aacebb1f1f98c4';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-04aacebb1f1f98c4';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-04aacebb1f1f98c4';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-04aacebb1f1f98c4';
-import {seatLook} from '../wardrobe.mjs?v=fg-04aacebb1f1f98c4';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-04aacebb1f1f98c4';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-04aacebb1f1f98c4';
-import {stepRoute} from '../locomotion.mjs?v=fg-04aacebb1f1f98c4';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-04aacebb1f1f98c4';
-import {updateWorkScene} from './work-scene.mjs?v=fg-04aacebb1f1f98c4';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-04aacebb1f1f98c4';
-import {activityPose} from './activity.mjs?v=fg-04aacebb1f1f98c4';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-04aacebb1f1f98c4';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-2c643c105f739741';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-2c643c105f739741';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-2c643c105f739741';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-2c643c105f739741';
+import {seatLook} from '../wardrobe.mjs?v=fg-2c643c105f739741';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-2c643c105f739741';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-2c643c105f739741';
+import {stepRoute} from '../locomotion.mjs?v=fg-2c643c105f739741';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-2c643c105f739741';
+import {updateWorkScene} from './work-scene.mjs?v=fg-2c643c105f739741';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-2c643c105f739741';
+import {activityPose} from './activity.mjs?v=fg-2c643c105f739741';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-2c643c105f739741';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-04aacebb1f1f98c4';
-import {createSpaceView} from './space-view.mjs?v=fg-04aacebb1f1f98c4';
-import {setHomeClock} from './home-shell.mjs?v=fg-04aacebb1f1f98c4';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-04aacebb1f1f98c4';
-import {createTogether} from './together.mjs?v=fg-04aacebb1f1f98c4';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-04aacebb1f1f98c4';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-04aacebb1f1f98c4';
-import {CHORES,chorePlans,choreIntent} from './chores.mjs?v=fg-04aacebb1f1f98c4';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-04aacebb1f1f98c4';
-import {createSceneVisit} from './visit.mjs?v=fg-04aacebb1f1f98c4';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-04aacebb1f1f98c4';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-04aacebb1f1f98c4';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-04aacebb1f1f98c4';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-2c643c105f739741';
+import {createSpaceView} from './space-view.mjs?v=fg-2c643c105f739741';
+import {setHomeClock} from './home-shell.mjs?v=fg-2c643c105f739741';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-2c643c105f739741';
+import {createTogether} from './together.mjs?v=fg-2c643c105f739741';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-2c643c105f739741';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-2c643c105f739741';
+import {CHORES,chorePlans,choreIntent} from './chores.mjs?v=fg-2c643c105f739741';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-2c643c105f739741';
+import {createSceneVisit} from './visit.mjs?v=fg-2c643c105f739741';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-2c643c105f739741';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-2c643c105f739741';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-2c643c105f739741';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-04aacebb1f1f98c4';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-04aacebb1f1f98c4';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-2c643c105f739741';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-2c643c105f739741';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -292,7 +292,7 @@ function apply(data,local=false){
     if(map==='dayHome'&&(spaceStyle!==(data.homeStyle||'warm')||layoutChanged||wasEditing))mapLoader.keep(null);
     enter(needed,token,false,false,resume);return;
   }
-  if(DAY_PLACES[map]&&map===needed&&JSON.stringify(mapLoader.views[map]?.root.userData.professional||{})!==JSON.stringify(professionalOptions(data.professional,map,data.persona))){mapLoader.keep(null);enter(needed,token);return;}
+  if(DAY_PLACES[map]&&map===needed&&JSON.stringify(mapLoader.views[map]?.root.userData.professional||{})!==JSON.stringify(professionalOptions(data.professional,map,data.persona))){mapLoader.keep(null);enter(needed,token,false,true,previousPause);return;}
   if(data.editing&&map!==needed){enter(needed,token);}
   else if(map==='dayHome'&&needed===map&&(spaceStyle!==(data.homeStyle||'warm')||layoutChanged||!!wasEditing!==!!data.editing)){mapLoader.keep(null);enter(needed,token,false,!!wasEditing&&!!data.editing);}
   else if(map&&map!==needed&&!changing){
