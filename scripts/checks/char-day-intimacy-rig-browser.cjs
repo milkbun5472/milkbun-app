@@ -1,0 +1,34 @@
+// Actual Draco doll, wardrobe and both rigs; no hand/face stubs.
+const pw=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const base=process.env.DAY_URL||'http://127.0.0.1:18987',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-intimacy-rig';fs.mkdirSync(out,{recursive:true});
+(async()=>{const browser=await pw[engine].launch(engine==='webkit'?{headless:true}:{headless:true,channel:'chrome'}),p=await browser.newPage(),errors=[];try{
+ p.on('pageerror',e=>errors.push(e.message));await p.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));await p.goto(base+'/apps/companion/');
+ const result=await p.evaluate(async opts=>{
+  const {build}=await(await fetch('../fairy-garden/build.json')).json(),load=name=>import('../fairy-garden/'+name+'?v='+build),T=await import('three'),{GLTFLoader}=await load('vendor/GLTFLoader.js'),{DRACOLoader}=await load('vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await load('traveler.mjs'),{createTogether}=await load('day/together.mjs'),{buildSpace,registerCoreSpaces}=await load('day/spaces.mjs'),{registerDayPlaces}=await load('day/places/index.mjs'),{MAPS,walkable}=await load('world.mjs'),{PAIR_STYLES}=await load('day/motion-profile.mjs');
+  const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');const loader=new GLTFLoader();loader.setDRACOLoader(draco);const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene;await preloadOutfits();const catalog=await(await fetch('../fairy-garden/doll.json')).json();
+  const a=createTraveler(source),b=createTraveler(source,true),scene=new T.Scene();scene.add(a.root,b.root);const report={cases:[],failures:[],frames:0};
+  registerCoreSpaces(MAPS);registerDayPlaces(MAPS);const sceneId=opts.scene||'dayHome',chosen=MAPS[sceneId];
+  const low=Object.fromEntries(catalog.dims.map(d=>[d.key,d.min])),high=Object.fromEntries(catalog.dims.map(d=>[d.key,d.max])),variants=[{},low,high,low],kinds=CharDaySocial.scenes[sceneId].actions.filter(k=>CharDaySocial.intimate[k]),outfits=Object.keys(catalog.outfits),origin=sceneId==='dayHome'?{a:{x:0,z:3.3},b:{x:0,z:4.8}}:{a:{x:chosen.spawn.x,z:chosen.spawn.z-1.4},b:{...chosen.spawn}};let time=0;
+  for(const outfit of outfits.filter(o=>!opts.outfit||o===opts.outfit))for(let v=0;v<variants.length;v++){if(opts.variant!=null&&v!==opts.variant)continue;
+   const before=[a,b].map(d=>[d.root.rotation.toArray(),d.root.getObjectByName('TravelerVisual').rotation.toArray()]);
+   a.setLook({outfit,hair:'korean',dims:variants[v]},true);b.setLook({outfit,hair:'bob',dims:v===3?high:variants[v]},true);await Promise.all([a.ready(),b.ready()]);if(JSON.stringify(before)!==JSON.stringify([a,b].map(d=>[d.root.rotation.toArray(),d.root.getObjectByName('TravelerVisual').rotation.toArray()])))throw Error('Body change altered the original pose/heading');
+   for(const who of ['a','b'])for(const kind of kinds){
+    if(sceneId==='dayHome')MAPS.dayHome=buildSpace('dayHome');let stopped;const style=Object.values(PAIR_STYLES)[(v+kinds.indexOf(kind))%4];const controller=createTogether({a,b,map:()=>MAPS[sceneId],from:()=>origin,pair:()=>({a:style,b:style}),onStop:s=>{stopped={...s,heads:[a,b].map(d=>d.root.getObjectByName('HeadAnchor').getWorldPosition(new T.Vector3()).toArray())};}}),started=controller.start(kind,{initiator:who});let row={outfit,variant:v,who,kind,started:started.ok,maxHandError:0,minHeadDistance:Infinity,minSpoonDistance:Infinity,activeFrames:0,walked:0};
+    if(!started.ok){report.failures.push({...row,reason:started.reason});continue;}
+    for(let f=0;f<1800&&controller.inspect()?.phase!=='active';f++){controller.tick(.025,time+=.025);report.frames++;}
+    const previous=controller.inspect();if(previous?.phase!=='active'){report.failures.push({...row,reason:'did not reach position'});controller.stop();continue;}
+    for(let f=0;f<360&&controller.inspect();f++){
+     controller.tick(.025,time+=.025);report.frames++;const s=controller.inspect(),q=s?.intimate;if(!q||q.progress<.98)continue;row.activeFrames++;
+     for(const c of q.contacts||[])if(kind!=='feed'||q.spoonDistance<.08){if(c.error>row.maxHandError)row.worst={q,actors:[a,b].map(d=>({foot:d.root.position.toArray(),rotation:d.root.rotation.toArray(),world:d.root.getWorldQuaternion(new T.Quaternion()).toArray(),parents:['HeadAnchor','DollRig','TravelerVisual'].map(n=>{const o=d.root.getObjectByName(n);return [n,o.rotation.toArray(),o.quaternion.toArray(),o.position.toArray(),o.matrixAutoUpdate];}),model:d.root.getObjectByName('TravelerVisual').rotation.toArray(),head:d.root.getObjectByName('HeadAnchor').getWorldPosition(new T.Vector3()).toArray(),scale:d.root.getObjectByName('HeadAnchor').getWorldScale(new T.Vector3()).toArray(),shoulder:d.root.getObjectByName(c.side+'Arm').getWorldPosition(new T.Vector3()).toArray(),hand:d.root.getObjectByName(c.side==='left'?'Left_hand':'Right_hand').getWorldPosition(new T.Vector3()).toArray()}))};row.maxHandError=Math.max(row.maxHandError,c.error);}
+     if(q.headDistance!=null)row.minHeadDistance=Math.min(row.minHeadDistance,q.headDistance);
+     if(q.spoonDistance!=null)row.minSpoonDistance=Math.min(row.minSpoonDistance,q.spoonDistance);
+     if(!s.seats)for(const actor of [a,b])if(!walkable(actor.root.position.x,actor.root.position.z,sceneId))throw Error('Feet crossed furniture '+kind);
+    }
+    const after=controller.inspect();row.stopped=stopped;row.walked=after?.tour?.round||0;row.ok=!!after&&row.activeFrames>0&&row.maxHandError<.13&&(!['kiss','kiss-cheek','kiss-forehead','forehead'].includes(kind)||row.minHeadDistance<.13)&&(kind!=='feed'||row.minSpoonDistance<.1)&&(kind!=='arm-walk'||row.walked>0);
+    if(!row.ok)report.failures.push(row);report.cases.push(row);controller.stop();const spoon=scene.getObjectByName('TogetherSpoon'),snack=scene.getObjectByName('TogetherSnack');if(spoon?.visible||snack?.visible)throw Error('Prop survived cancellation');scene.children.filter(o=>['TogetherSpoon','TogetherSnack'].includes(o.name)).forEach(o=>{o.traverse(n=>{n.geometry?.dispose();if(n.material)for(const m of [].concat(n.material))m.dispose();});scene.remove(o);});
+   }
+  }
+  draco.dispose();return report;
+ },{outfit:process.env.RIG_OUTFIT,scene:process.env.RIG_SCENE,variant:process.env.RIG_VARIANT==null?null:Number(process.env.RIG_VARIANT)});
+ fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({...result,errors,ok:result.failures.length===0&&errors.length===0},null,2));console.log(JSON.stringify({engine,cases:result.cases.length,frames:result.frames,failures:result.failures.slice(0,25),failureCount:result.failures.length}));assert.deepEqual(errors,[]);assert.equal(result.failures.length,0,'Real rig contact failures');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

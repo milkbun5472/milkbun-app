@@ -1,16 +1,16 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-f607296e23d1060e';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-f607296e23d1060e';
-import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-f607296e23d1060e';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-f607296e23d1060e';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-f607296e23d1060e';
-import {emotionPose} from './emotion-pose.mjs?v=fg-f607296e23d1060e';
-import {makeDollLife} from './doll-life.mjs?v=fg-f607296e23d1060e';
-import {makeSeatedLegs} from './seated-legs.mjs?v=fg-f607296e23d1060e';
-import {makeBentArms} from './bent-arms.mjs?v=fg-f607296e23d1060e';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-f607296e23d1060e';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-03615deb8e6d070f';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-03615deb8e6d070f';
+import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-03615deb8e6d070f';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-03615deb8e6d070f';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-03615deb8e6d070f';
+import {emotionPose} from './emotion-pose.mjs?v=fg-03615deb8e6d070f';
+import {makeDollLife} from './doll-life.mjs?v=fg-03615deb8e6d070f';
+import {makeSeatedLegs} from './seated-legs.mjs?v=fg-03615deb8e6d070f';
+import {makeBentArms} from './bent-arms.mjs?v=fg-03615deb8e6d070f';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-03615deb8e6d070f';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-f607296e23d1060e';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-f607296e23d1060e';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-03615deb8e6d070f';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-03615deb8e6d070f';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -251,7 +251,9 @@ export function createTraveler(source,companion=false,look={}){
  if(skinned.length){for(const b of skinned[0].skeleton.bones)boneBind.set(b,b.position.clone());if(anchor)boneBind.set(anchor,anchor.position.clone()),anchor.userData.bindScale=anchor.scale.clone();}
  const rebindBones=dims=>{if(!rigMorphs||!skinned.length)return;
   // Bind in the authored standing frame, even when a look change arrives mid-gesture.
-  const poseObjects=[root,model,...rig.map(({p})=>p)],transforms=poseObjects.map(o=>[o.position.clone(),o.quaternion.clone()]);
+  // Keep the original Euler branch: restoring only a quaternion at PI can turn
+  // a later yaw-only update into a flipped X/Z pose after a body change.
+  const poseObjects=[root,model,...rig.map(({p})=>p)],transforms=poseObjects.map(o=>[o.position.clone(),o.rotation.clone()]);
   poseObjects.forEach((o,i)=>{if(i<2)o.position.set(0,0,0);o.quaternion.identity();});
   for(const [obj,pos] of boneBind){const next=pos.clone(),m=rigMorphs[obj.name]||{};
    for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&m[key])next.addScaledVector(new T.Vector3(...m[key]),delta);}obj.position.copy(next);
@@ -259,7 +261,7 @@ export function createTraveler(source,companion=false,look={}){
   const driven=[...rig.flatMap(({p})=>[[p.userData.bone,p.userData.rest],[p.userData.forearm,p.userData.forearmRest]]),...seatedLegs.rests].filter(([b])=>b);
   const saved=driven.map(([b])=>[b,b.quaternion.clone()]);
   for(const [b,rest]of driven)b.quaternion.copy(rest);
-  root.updateWorldMatrix(true,true);for(const m of skinned)m.bind(m.skeleton);seatedLegs.fit();for(const [b,q]of saved)b.quaternion.copy(q);poseObjects.forEach((o,i)=>{o.position.copy(transforms[i][0]);o.quaternion.copy(transforms[i][1]);});root.updateWorldMatrix(true,true);};
+  root.updateWorldMatrix(true,true);for(const m of skinned)m.bind(m.skeleton);seatedLegs.fit();for(const [b,q]of saved)b.quaternion.copy(q);poseObjects.forEach((o,i)=>{o.position.copy(transforms[i][0]);o.rotation.copy(transforms[i][1]);});root.updateWorldMatrix(true,true);};
  const fitRig=dims=>{rebindBones(dims);if(!rigMorphs)return;for(const {p,label}of rig){const next=new T.Vector3(...authoredRig[label]);for(const key of DIMS){const delta=Number(dims?.[key]??1)-1;if(Number.isFinite(delta)&&rigMorphs[label]?.[key])next.addScaledVector(new T.Vector3(...rigMorphs[label][key]),delta);}const shift=next.clone().sub(p.position);p.position.copy(next);for(const child of p.children)if(!child.userData.follow)child.position.sub(shift);}};
  fitRig(want.dims);
  // Skate blades are shared by both avatars, attached to the same leg rig as their boots.
@@ -326,8 +328,8 @@ export function createTraveler(source,companion=false,look={}){
  };
  let sitBlend=0,kneeBlend=0,seatHeight=null,taskRiseBlend=0,lastPoseTime=null,taskProps=null;built=true;
  return {root,handPoint:life.handPoint,
-  contactPose({left,right,lean=0}={}){
-   model.rotation.z+=lean;root.updateMatrixWorld(true);
+  contactPose({left,right,lean=0,tilt=0,turn=0}={}){
+   model.rotation.z+=lean;model.rotation.x+=tilt;model.rotation.y+=turn;root.updateMatrixWorld(true);
    for(const [side,target] of [['left',left],['right',right]]){if(!target)continue;const part=rig.find(r=>r.label===side+'Arm')?.p,hand=model.getObjectByName(side==='left'?'Left_hand':'Right_hand');
     if(part?.userData.bone&&hand)reachHand(root,part.userData.bone,part.userData.forearm,hand,target.clone());
    }root.updateMatrixWorld(true);root.userData.contacts={left:left?model.getObjectByName('Left_hand').getWorldPosition(new T.Vector3()).distanceTo(left):null,right:right?model.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()).distanceTo(right):null};
@@ -367,6 +369,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-f607296e23d1060e'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-03615deb8e6d070f'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }

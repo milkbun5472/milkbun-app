@@ -17,8 +17,8 @@ test('七个生活地点共用一份动作规则，外出手选且工作/预览�
  assert.equal(S.setting({presentation:{map:'dayMarket',spot:'cashier'}}),null);
  assert.ok(S.setting({presentation:{map:'dayCafe'},slot:{type:'work',title:'上班',deviation:{actual:'和她喝咖啡',type:'social'}}}));
 });
-test('每个约会动作沿实际地点寻路和椅面，两个人到位后才开始，取消交还当前位置',()=>{
- for(const [id,scene]of Object.entries(S.scenes))for(const kind of scene.actions){
+test('原有约会动作沿实际地点寻路和椅面，两个人到位后才开始，取消交还当前位置',()=>{
+ for(const [id,scene]of Object.entries(S.scenes))for(const kind of scene.actions.filter(k=>!S.intimate[k])){
   const map=MAPS[id],a=actor(),b=actor(),from={a:{x:map.spawn.x,z:map.spawn.z-1.4},b:{...map.spawn}};let released;
   const c=createTogether({a,b,map:()=>map,from:()=>from,onStop:s=>released=s});assert.equal(c.start(kind).ok,true,id+':'+kind);
   for(let i=0;i<3500&&c.inspect()?.phase!=='active';i++)c.tick(.02,i*.02);
