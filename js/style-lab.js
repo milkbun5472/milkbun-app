@@ -27,6 +27,7 @@
     // 删除一律「点一下问一句、再点一下才删」。以前用 confirm()，装成 PWA 之后不一定弹得出来，
     // 弹不出来时代码会当成「取消」——表现就是「按了没反应」，跟按钮太小的症状一模一样，
     // 查起来会绕远路。行内确认还有个好处：第一下就有可见反馈，按没按到一眼就知道。
+    const [modEdit, setModEdit] = useState(null);  // 正在改的那一条：{ id（"__new"＝新写）, name, hint, text }
     const [armed, setArmed] = useState("");        // 非空=这个 id 的删除已经问过一次，再点就真删
     const fileRef = useRef(null);
 
@@ -230,7 +231,26 @@
             //   （施工规则/tabs-not-plain-pills.md 那句判据对这一栏同样成立）。
             h("div", { "data-wk": "sllib", style: { marginBottom: 16 } },
               h("div", { "data-wk": "slsectitle", style: S.h2 }, "模块库"),
-              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "点一格拉开。挑中的字条会卡进上面那条槽里，再去那儿调顺序。"),
+              h("div", { style: Object.assign({}, S.hint, { marginBottom: 8 }) }, "点一格拉开。挑中的字条会卡进上面那条槽里，再去那儿调顺序。每一条都能「改」，内置的改坏了能恢复原样。"),
+              // 改一条／新写一条：就地一张稿子，不另开半窗
+              modEdit ? h("div", { "data-wk": "slmodedit", style: { border: "1px solid " + t.ink, borderRadius: 6, background: t.bg2, padding: 10, marginBottom: 10 } },
+                h("div", { style: Object.assign({}, S.hint, { marginBottom: 6, color: t.ink }) }, modEdit.id === "__new" ? "自己写一个模块" : "改这一条"),
+                h("input", { value: modEdit.name, onChange: e => setModEdit(x => Object.assign({}, x, { name: e.target.value })), placeholder: "名字",
+                  style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none", marginBottom: 6 } }),
+                h("input", { value: modEdit.hint, onChange: e => setModEdit(x => Object.assign({}, x, { hint: e.target.value })), placeholder: "一句话说它管什么（可空）",
+                  style: { width: "100%", minHeight: 40, padding: "0 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12, color: t.ink, outline: "none", marginBottom: 6 } }),
+                h("textarea", { value: modEdit.text, onChange: e => setModEdit(x => Object.assign({}, x, { text: e.target.value })), rows: 7, placeholder: "写给模型看的那段要求…",
+                  style: { width: "100%", padding: "8px 10px", borderRadius: 4, border: "1px solid " + t.line, background: t.bg, fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, outline: "none", resize: "vertical" } }),
+                h("div", { style: { display: "flex", gap: 8, marginTop: 8, alignItems: "center" } },
+                  h("button", { "data-wk": "slmodsave", onClick: () => {
+                      try { if (modEdit.id === "__new") SP.addUserModule(modEdit); else SP.saveModuleEdit(modEdit.id, modEdit); setModEdit(null); setPresets(SP.list().slice()); }
+                      catch (e) { props.toast && props.toast(e.message || "没存上"); } },
+                    style: { minHeight: 40, padding: "0 16px", borderRadius: 4, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13, border: "none" } }, "存好"),
+                  h("button", { onClick: () => setModEdit(null), style: { minHeight: 40, padding: "0 12px", background: "none", border: "none", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "算了"),
+                  SP.MODULES[modEdit.id] && SP.moduleById(modEdit.id).edited ? h("button", { "data-wk": "slmodreset", onClick: () => { SP.resetModule(modEdit.id); setModEdit(null); setPresets(SP.list().slice()); },
+                    style: { marginLeft: "auto", minHeight: 40, padding: "0 10px", background: "none", border: "none", color: t.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "恢复原样") : null))
+              : h("button", { "data-wk": "slmodnew", onClick: () => setModEdit({ id: "__new", name: "", hint: "", text: "" }),
+                  style: { width: "100%", minHeight: 44, marginBottom: 8, borderRadius: 6, border: "1px dashed " + t.line, background: "transparent", color: t.tint, fontFamily: F_BODY, fontSize: 13 } }, "＋ 自己写一个模块"),
               SP.allCats().map(c => {
                 const open = !!openCat[c.id];
                 const picked = c.mods.filter(m => (cur.mods || []).indexOf(m.id) >= 0).length;
@@ -271,6 +291,11 @@
                               h("span", { style: { flex: 1, minWidth: 0 } },
                                 h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, m.name),
                                 h("span", { style: Object.assign({ display: "block", marginTop: 2 }, S.hint) }, m.hint))),
+                            SP.canEditModule(m.id) ? h("button", { "data-wk": "slmodedit", "data-part": "open", onClick: () => {
+                                const full = SP.moduleById(m.id) || m;
+                                setModEdit({ id: m.id, name: full.name || "", hint: full.hint || "", text: typeof full.text === "string" ? full.text : "" }); },
+                              style: Object.assign({}, S.tapIcon(m.edited ? t.accent : t.fog), { fontSize: 11.5, borderRadius: 3, border: "1px solid " + t.line }) },
+                              m.edited ? "改过" : "改") : null,
                             m.user ? h("button", { "data-wk": "slmoddel", onClick: () => {
                                 if (armed !== m.id) { setArmed(m.id); return; }
                                 SP.removeUserModule(m.id); setArmed(""); setPresets(SP.list().slice()); },

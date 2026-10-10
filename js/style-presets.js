@@ -13,7 +13,8 @@
 // ============================================================
 (function () {
   const KEY = "x_stylePresets";
-  const MKEY = "x_styleModules";   // 她自己导入的模块（酒馆预设拆出来的那种）
+  const MKEY = "x_styleModules";
+  const OKEY = "x_styleModEdits";  // 她改过的内置模块（群友 2026-10-10 许愿：「内置的那些内容加上可以自定义」）：{ id: {name, hint, text} }   // 她自己导入的模块（酒馆预设拆出来的那种）
   const RUNS = "x_styleLabRuns";
 
   // ---- 从 theater.js 原样抽出来的三条（它现在引用这里，字面量只此一份）----
@@ -105,13 +106,45 @@
   }
   function saveUserModules(next) { saveJ(MKEY, next || []); return next || []; }
   function removeUserModule(id) { return saveUserModules(userModules().filter(m => m.id !== id)); }
+  // 内置模块改过的话，读到的就是改后的那一份；内置原文一个字不动，「恢复原样」就是删掉这一条改动。
+  //   text 是函数的那几条（按字数／场景现算的）不让改——改成死字就把那份「现算」弄没了。
+  function modEdits() { const o = loadJ(OKEY, {}); return o && typeof o === "object" ? o : {}; }
+  function withEdit(m, edits) {
+    const e = (edits || modEdits())[m.id];
+    if (!e || typeof m.text === "function") return m;
+    return Object.assign({}, m, { name: e.name || m.name, hint: e.hint != null ? e.hint : m.hint, text: e.text || m.text, edited: true });
+  }
   function moduleById(id) {
-    if (MODULES[id]) return MODULES[id];
+    if (MODULES[id]) return withEdit(MODULES[id]);
     return userModules().find(m => m.id === id) || null;
+  }
+  function canEditModule(id) { return !!(MODULES[id] ? typeof MODULES[id].text !== "function" : userModules().some(m => m.id === id)); }
+  // 改一条：内置的存成改动，自己写的／导入的原地改
+  function saveModuleEdit(id, patch) {
+    const name = String((patch && patch.name) || "").trim(), text = String((patch && patch.text) || "").trim();
+    if (!name || !text) throw new Error("名字和内容都要有");
+    const hint = String((patch && patch.hint) || "").trim();
+    if (MODULES[id]) {
+      if (typeof MODULES[id].text === "function") throw new Error("这一条是按场景现算的，不能改");
+      const o = modEdits(); o[id] = { name, hint, text }; saveJ(OKEY, o); return;
+    }
+    const cur = userModules();
+    if (!cur.some(m => m.id === id)) throw new Error("找不到这一条了");
+    saveUserModules(cur.map(m => m.id === id ? Object.assign({}, m, { name, hint: hint || m.hint, text }) : m));
+  }
+  function resetModule(id) { const o = modEdits(); if (o[id]) { delete o[id]; saveJ(OKEY, o); } }
+  // 自己从头写一条：跟导入的模块住在一起，单独一格「我写的」
+  function addUserModule(patch) {
+    const name = String((patch && patch.name) || "").trim(), text = String((patch && patch.text) || "").trim();
+    if (!name || !text) throw new Error("名字和内容都要有");
+    const m = { id: "um_" + Date.now(), cat: "mine", catZh: "我写的", catHint: "你自己写的模块", name, hint: String((patch && patch.hint) || "").trim() || "我写的", text, user: true };
+    saveUserModules(userModules().concat([m]));
+    return m;
   }
   // 内置分类 + 导入分类（按 cat 归堆，顺序按第一次出现）
   function allCats() {
-    const out = CATS.slice();
+    const edits = modEdits();
+    const out = CATS.map(c => Object.assign({}, c, { mods: c.mods.map(m => withEdit(Object.assign({ cat: c.id }, m), edits)) }));
     const seen = {};
     userModules().forEach(m => {
       const id = m.cat || "imported";
@@ -366,6 +399,7 @@
   window.StylePresets = {
     CATS: CATS, MODULES: MODULES, TEST_SCENES: TEST_SCENES,
     allCats: allCats, moduleById: moduleById, userModules: userModules,
+    canEditModule: canEditModule, saveModuleEdit: saveModuleEdit, resetModule: resetModule, addUserModule: addUserModule,
     removeUserModule: removeUserModule, importBundle: importBundle,
     list: list, save: save, byId: byId, upsert: upsert, remove: remove,
     textFor: textFor, blockFor: blockFor, wrap: wrap,
