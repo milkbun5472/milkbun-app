@@ -43,7 +43,7 @@ function drive(opts) {
     laneBusy: () => false,
     groupCallActive: () => !!opts.inCall,
     // 这套测的是轮数和额度，不是作息：人一律醒着，睡没睡那道闸另有测试（group-auto-night）
-    charAwakeState: () => opts.asleep ? "asleep" : "awake",
+    sleepPhaseOf: () => opts.asleep ? "asleep" : "awake",
     offlineGroup: null,
     contextAllowsMessage: () => true,
     groupChatsRef: { current: { [G]: chat } },
