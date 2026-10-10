@@ -29127,6 +29127,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars,
     profile: profile,
     onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
+    loreList: () => loreRef.current || [],
+    onSaveLore: list => saveLore(list),
     onAddMemories: (charId, items) => (items || []).forEach(txt =>
       addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
     // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
@@ -29865,7 +29867,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       characters: liveChars,
       profile: profile,
       onPatchCharacter: (id, patch) => pC(list => list.map(c => c.id === id ? { ...c, ...patch } : c)),
-      onAddMemories: (charId, items) => (items || []).forEach(txt =>
+      loreList: () => loreRef.current || [],
+    onSaveLore: list => saveLore(list),
+    onAddMemories: (charId, items) => (items || []).forEach(txt =>
         addMemEntry({ text: txt, charIds: charId ? [charId] : [], source: "assistant" })),
       // 秋秋看最近聊天（她 2026-10-07）：主聊天那一份，带时间、谁说的；系统条不算，出戏的标出来
       recentChatFor: (charId, n) => {

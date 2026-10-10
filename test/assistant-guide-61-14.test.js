@@ -671,3 +671,28 @@ test("秋秋的 app 图标用她给的那张画；线稿那只留着当兜底", 
   // 该有的几样：胖身子、呆毛、两只脚
   assert.match(g, /呆毛/); assert.match(g, /两只小脚/);
 });
+
+// 秋秋能导入和改世界书（她 2026-10-10）：新建、改正文、关键词／绑谁跟着走；快照里看得见
+test("秋秋改世界书：新建一条、改一条，关键词和绑谁照 patch 写", () => {
+  let lore = [{ id: "le_1", title: "王都", payload: "王都在北边。", keyword: "", alwaysOn: true, enabled: true }];
+  const ctx = { characters: [{ id: "c1", name: "陆衍", persona: "" }], loreList: () => lore, onSaveLore: l => { lore = l; } };
+  A.api.apply({ target: "lore", id: "new", name: "黑市", text: "黑市在码头。", keyword: "黑市，码头", bind: "陆衍" }, ctx);
+  const added = lore.find(e => e.title === "黑市");
+  assert.ok(added && added.payload === "黑市在码头。");
+  assert.equal(added.keyword, "黑市,码头");
+  assert.equal(added.alwaysOn, false, "填了关键词就不常驻");
+  assert.deepEqual(added.charIds, ["c1"]);
+  A.api.apply({ target: "lore", id: "le_1", text: "王都在北边，冬天很长。" }, ctx);
+  const w = lore.find(e => e.id === "le_1");
+  assert.equal(w.payload, "王都在北边，冬天很长。");
+  assert.equal(w.alwaysOn, true, "没说改关键词就保持原样");
+  assert.throws(() => A.api.apply({ target: "lore", id: "le_404", text: "x" }, ctx), /找不到/);
+});
+test("快照里有世界书，提示词里讲了 lore 怎么写", async () => {
+  const src2 = fs.readFileSync(path.join(__dirname, "..", "js", "assistant.js"), "utf8");
+  assert.match(src2, /世界书: lore\.length \? lore/);
+  assert.match(src2, /· lore 世界书词条/);
+  assert.match(src2, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory\|lore\|/);
+  const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
+  assert.equal((app.match(/loreList: \(\) => loreRef\.current \|\| \[\],\n    onSaveLore: list => saveLore\(list\),/g) || []).length, 2, "整页和小球两处都要接上");
+});
