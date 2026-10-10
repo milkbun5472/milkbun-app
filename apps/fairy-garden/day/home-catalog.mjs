@@ -1,6 +1,14 @@
 // One catalogue supplies the editor, saved instances, geometry and activity anchors.
 const item=(id,label,category,kind,w,d,extra={})=>({id,label,category,kind,w,d,...extra});
-export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房'};
+export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',rug:'地毯',screen:'屏风',decor:'装饰摆件'};
+export const HOME_COLLECTIONS={
+ craft:{label:'原木藤编',wood:'#c29c6b',dark:'#785c3b',fabric:'#c6b88b',paper:'#f0e8d7',accent:'#8a9672'},
+ vintage:{label:'复古深木',wood:'#765041',dark:'#493a33',fabric:'#a07669',paper:'#e5d9be',accent:'#bb9759'},
+ soft:{label:'圆润现代',wood:'#dbcfbd',dark:'#8d8578',fabric:'#ded6c9',paper:'#f4f0e7',accent:'#9cab9a'},
+ studio:{label:'金属玻璃',wood:'#997858',dark:'#50585c',fabric:'#8c9da3',paper:'#e7e7df',accent:'#af9773',metal:'#a4afb2',glass:'#c5dee0'}
+};
+export function furniturePalette(a,base){return {...base,...HOME_COLLECTIONS[a.collection]};}
+const collectionItem=(collection,id,label,category,kind,w,d,extra={})=>item(id,label,category,kind,w,d,{collection,...extra});
 export const HOME_CATALOG=[
  item('wood-bed','木框双人床','bed','bed',3,3.35),item('soft-bed','软包双人床','bed','bed',3,3.35,{variant:'soft'}),
  item('sofa','双人沙发','sofa','sofa',3.4,1),item('loveseat','小双人沙发','sofa','sofa',2.3,1.05,{variant:'soft'}),
@@ -10,7 +18,39 @@ export const HOME_CATALOG=[
  item('dresser','矮斗柜','storage','cabinet',1.5,.65,{variant:'drawers'}),item('pantry','窄储物柜','storage','wardrobe',.75,1.15),
  item('floor-lamp','落地灯','light','light',.5,.5,{variant:'floor'}),item('table-lamp','矮台灯架','light','light',.55,.55,{variant:'short'}),
  item('plant','小盆栽','plant','plant',.5,.5),item('tall-plant','高绿植','plant','plant',.65,.65,{variant:'tall'}),
- item('kitchen','厨房台面','kitchen','kitchen',4.6,.8),item('bar','小料理台','kitchen','counter',2,.8,{variant:'home'})
+ item('kitchen','厨房台面','kitchen','kitchen',4.6,.8),item('bar','小料理台','kitchen','counter',2,.8,{variant:'home'}),
+ collectionItem('craft','canopy-bed','四柱纱幔床','bed','bed',3,3.35),
+ collectionItem('craft','rattan-sofa','藤编双人沙发','sofa','sofa',3.1,1.15),
+ collectionItem('craft','trestle-table','横梁原木餐桌','dining','table',2.1,1.1,{dining:true}),
+ collectionItem('craft','woven-chair','藤编圈背椅','dining','chair',.62,.65),
+ collectionItem('craft','basket-shelf','藤篮开放架','storage','shelf',1.45,.48),
+ collectionItem('craft','paper-lantern','竹脚纸灯笼','light','light',.65,.65,{primaryField:'paper'}),
+ collectionItem('craft','braided-rug','编织椭圆毯','rug','rug',2.5,1.8,{walkThrough:true}),
+ collectionItem('craft','lattice-screen','三扇藤格屏风','screen','screen',1.65,.45,{primaryField:'wood'}),
+ collectionItem('vintage','spindle-bed','车木柱复古床','bed','bed',3,3.35),
+ collectionItem('vintage','rolled-sofa','卷扶手绒布沙发','sofa','sofa',3.1,1.15),
+ collectionItem('vintage','claw-table','雕脚圆餐桌','dining','table',1.5,1.5,{dining:true,variant:'round'}),
+ collectionItem('vintage','windsor-chair','温莎木椅','dining','chair',.62,.65,{primaryField:'wood'}),
+ collectionItem('vintage','apothecary','多抽屉药柜','storage','cabinet',1.45,.5),
+ collectionItem('vintage','stained-lamp','彩玻璃花罩灯','light','light',.65,.65),
+ collectionItem('vintage','medallion-rug','菱花边框地毯','rug','rug',2.5,1.8,{walkThrough:true}),
+ collectionItem('vintage','record-console','唱片留声机柜','decor','decor',1.25,.6),
+ collectionItem('soft','panel-bed','弧片软包床','bed','bed',3,3.35),
+ collectionItem('soft','cloud-sofa','云团组合沙发','sofa','sofa',3.1,1.15),
+ collectionItem('soft','pill-table','胶囊双柱餐桌','dining','table',2.1,1.1,{dining:true}),
+ collectionItem('soft','shell-chair','贝壳一体椅','dining','chair',.62,.65),
+ collectionItem('soft','cube-shelf','错格展示柜','storage','shelf',1.45,.48),
+ collectionItem('soft','mushroom-lamp','蘑菇圆顶灯','light','light',.65,.65),
+ collectionItem('soft','pebble-rug','拼块鹅卵石毯','rug','rug',2.5,1.8,{walkThrough:true}),
+ collectionItem('soft','wave-screen','波浪曲面屏风','screen','screen',1.65,.45),
+ collectionItem('studio','steel-bed','管架金属床','bed','bed',3,3.35),
+ collectionItem('studio','tube-sofa','钢管皮垫沙发','sofa','sofa',3.1,1.15),
+ collectionItem('studio','glass-table','玻璃交叉架餐桌','dining','table',2.1,1.1,{dining:true,primaryField:'glass'}),
+ collectionItem('studio','cantilever-chair','悬臂钢管椅','dining','chair',.62,.65),
+ collectionItem('studio','metal-rack','金属网格置物架','storage','shelf',1.45,.48,{primaryField:'dark'}),
+ collectionItem('studio','arc-lamp','弯臂圆盘落地灯','light','light',.95,.75,{primaryField:'dark'}),
+ collectionItem('studio','stripe-rug','条纹平织地毯','rug','rug',2.5,1.8,{walkThrough:true}),
+ collectionItem('studio','terrarium','玻璃植物箱','decor','decor',1.05,.65)
 ];
 export const HOME_MATERIALS={auto:'随小家',wood:'木纹',fabric:'织物',plain:'哑光',metal:'金属'};
 export const HOME_COLORS=[{label:'奶油',color:'#e9dcc7'},{label:'浅木',color:'#cba77f'},{label:'深木',color:'#715749'},{label:'苔绿',color:'#8ca18b'},{label:'雾蓝',color:'#9fb9c6'},{label:'藕粉',color:'#cfa59b'}];
@@ -24,7 +64,8 @@ export const BASE_HOME=[
 ].map(([id,catalogId,x,z,heading=0,label])=>({...HOME_CATALOG.find(p=>p.id===catalogId),id,catalogId,x,z,heading,label:label||HOME_CATALOG.find(p=>p.id===catalogId).label}));
 export const HOME_NAMES=Object.fromEntries(BASE_HOME.map(p=>[p.id,p.label]));
 const hex=x=>typeof x==='string'&&/^#[0-9a-f]{6}$/i.test(x)?x.toLowerCase():'';
-export function furniturePrimary(p,palette){const field=['bed','sofa','chair','plant','light'].includes(p.kind)?'fabric':'wood';return {field,color:p.color||palette[field]};}
+export function furniturePrimary(p,palette){const field=p.primaryField||(['bed','sofa','chair','plant','light','rug','screen'].includes(p.kind)?'fabric':'wood');return {field,color:p.color||furniturePalette(p,palette)[field]};}
+export function furnitureFootprint(p){const c=Math.abs(Math.cos(p.heading||0)),s=Math.abs(Math.sin(p.heading||0));return {id:p.id,x:p.x,z:p.z,w:p.w*c+p.d*s,d:p.d*c+p.w*s};}
 export const HOME_LIMIT=48;
 // The renderer and the activity anchor own the same pot and preparation surface.
 export const HOME_PREP={x:-1.05,z:.22,y:.995,contactZ:.30,contactY:1.04,handZ:.44,handY:1.19};

@@ -137,9 +137,11 @@ world / deviation.world 是 TA 的一天内部视觉字段；日历通过 CharDa
 
 ### 小家家具库与饰面
 
-`home-catalog.mjs` 是小家款式、默认实例、名字、尺寸、饰面选项与使用点的唯一来源。20款可同款多实例，原12件ID不变。`x_charDayHomes.version=3` 仍沿原桶：`layouts[charId]` 的原实例键保留，新增 `furniture-N` 记录 `catalogId/x/z/heading/stored/color/material`，`$room` 记录 `wall/floor/wallColor/floorColor/uses`。目录ID校验、有限坐标、四向朝向与48件总数（含收纳）在同一归一层；旧布局懒读兼容，不因打开页面写回。失效新物件可收纳修复，保留款式和饰面。
+`home-catalog.mjs` 是小家款式、默认实例、名字、尺寸、饰面选项与使用点的唯一来源。52款、10类可同款多实例，原12件ID不变。`x_charDayHomes.version=3` 仍沿原桶：`layouts[charId]` 的原实例键保留，新增 `furniture-N` 记录 `catalogId/x/z/heading/stored/color/material`，`$room` 记录 `wall/floor/wallColor/floorColor/uses`。目录ID校验、有限坐标、四向朝向与48件总数（含收纳）在同一归一层；旧布局懒读兼容，不因打开页面写回。失效新物件可收纳修复，保留款式和饰面。
 
 新增、移动、旋转、收纳摆回、单件颜色材质、墙地面与使用偏好共用30步撤销及原子保存/取消。空位不足时新增进收纳，摆回沿真实路线找空位。`homeAnchors` 从实际实例生成动作点；sleep/meal/tea/rest/read保留日程目录稳定ID，用户偏好→原家具→可用同类回退。新增可用家具自身接近点也参与通道校验。渲染与碰撞继续使用同一 `buildSpace`；颜色不动几何路径。
+
+`home-collections.mjs` 提供原木藤编、复古深木、圆润现代、金属玻璃四组共32款独立几何：不同床架/靠背/椅架/支腿/收纳结构与灯罩；金属和玻璃保留物理材质，单件主色与饰面仍可自选。地毯有实际边界与墙体校验，可叠在家具下且不进入导航障碍；屏风仍有实体碰撞。所有新床床垫顶面=.71，新椅和沙发座面=.53，沿原睡姿/座高。新造型与四向边界、12款实际坐睡检查在 `scripts/checks/char-day-collections-browser.cjs`，存档/地毯/屏风在 `home-collections.test.mjs`。
 
 `space-view` 使用原代码模型增加软床、短沙发、圆桌、木背椅、斗柜、灯与高绿植；`home-finish` 在这件物件主材上独立克隆饰面，木纹/织物程序纹理与金属参数随物件释放。家具库图由同一几何与灯光实际离屏渲染（非示意替图），复用当前WebGL上下文，渲染目标释放；不写缩略图到存档。墙地程序条纹/板缝/砖缝只影响视觉，不改房型、门与隔墙。
 
