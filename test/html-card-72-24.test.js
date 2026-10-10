@@ -88,7 +88,7 @@ test("卡片自己报身高，且只认自己那张的 token", () => {
 });
 
 test("行内引用那几处传了 inline，不出卡片", () => {
-  const i = comp.indexOf("function TransText({ text, isU, zhReady, ink, inline })");
+  const i = comp.indexOf("function TransText({ text, isU, zhReady, ink, inline");
   assert.ok(i > 0, "TransText 没收 inline");
   const head = comp.slice(i, i + 700);
   assert.match(head, /inline \? null : /);

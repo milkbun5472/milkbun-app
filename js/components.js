@@ -12069,7 +12069,8 @@ function MomentCommentText({ cm }) {
   if (!m || !m[2].trim()) return h(TransText, { text: raw, zhReady: cm && cm.zh });
   return h(Fragment, null, m[1], h(TransText, { text: m[2], zhReady: cm.zh }));
 }
-function TransText({ text, isU, zhReady, ink, inline }) {
+// long：长文（思考链）按「英文为主、夹着中文也算」认语种；size：译文字号跟着那一处正文走
+function TransText({ text, isU, zhReady, ink, inline, long, size }) {
   const [autoShow] = useOnlineTranslationAuto();
   // 世界书卡片走这儿分流：TransText 是全库【唯一】那条正文渲染路（单聊/群聊/通话/
   // 线下引用/查手机都用它），所以闸开在这一处，八处一起合规。
@@ -12078,7 +12079,7 @@ function TransText({ text, isU, zhReady, ink, inline }) {
   if (_card) return h(HtmlCard, { html: _card });
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
-  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow });
+  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size });
 }
 // ── 长按出菜单：一份公共的（她 2026-09-17 立）─────────────────────────
 // 她原话：**「上下滑的时候很容易误触让那一堆状态栏跳出来然后误触到撤回」**。
@@ -12195,9 +12196,10 @@ function useLongPressMenu(onFire, opts) {
   const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
   return { startPress: startPress, endPress: endPress };
 }
-function TransTextState({ text, isU, zhReady, ink, autoShow = false }) {
+function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size }) {
   const t = useTheme();
-  const _lang = typeof translatableLang === "function" ? translatableLang(text) : "";
+  const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)
+    : typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
   const lang = zhReady ? (_lang || "外语") : _lang;
   const [open, setOpen] = useState(!!autoShow);
@@ -12232,7 +12234,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false }) {
     }, open ? "收起" : "译"),
     open && h("span", { "data-wk": "translatebody", style: { display: "block", marginTop: 8, paddingTop: 7, borderTop: "1px solid " + (isU ? "rgba(0,0,0,0.13)" : t.line) } },
       h("span", { style: { display: "block", fontFamily: MONO, fontSize: 8.5, letterSpacing: "0.25em", color: fg, opacity: 0.45, marginBottom: 4 } }, "译自" + lang + (by ? " · " + by : "")),
-      h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1 } },
+      h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: size || 14, lineHeight: 1.55, color: fg, opacity: err ? 0.75 : 1, whiteSpace: "pre-wrap" } },
         busy ? "翻译中…" : err ? "翻译失败：" + err : (zh || "（没有译文）"))));
 }
 // 语音消息（v60.17 她 2026-09-02：「这个语音也是参考别人的，也改成我们自己的吧」）
@@ -12818,20 +12820,8 @@ function CallReceipt({ m, isU, who, avatar, onCallBack }) {
 function ReasoningBlock({ m, off }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
-  const [zh, setZh] = useState("");
-  const [tBusy, setTBusy] = useState(false);
-  const [tErr, setTErr] = useState("");
-  const [showZh, setShowZh] = useState(false);
   const secs = m.reasonMs ? (m.reasonMs / 1000).toFixed(1) + "s" : "";
-  // 思考链基本都是英文，给它一个译键（走和气泡同一条免费链，长文自动切块）
-  const rLang = typeof translatableLangLong === "function" ? translatableLangLong(m.reasoning) : (typeof translatableLang === "function" ? translatableLang(m.reasoning) : "");
-  const doTrans = async () => {
-    if (zh) { setShowZh(v => !v); return; }
-    setTBusy(true); setTErr("");
-    try { const r = await translateLongToZh(m.reasoning, rLang); setZh(r.zh); setShowZh(true); }
-    catch (e) { setTErr(String((e && e.message) || e)); }
-    finally { setTBusy(false); }
-  };
+  // 译键走全库那一份 TransText（她 2026-10-10：「翻译键抽出来公共的，不要自己另起形状」）
   // v56.45：她说别飘在屏幕中间，要贴左边。左边距归零＝和头像那一列对齐，
   // 整块顶到消息区最左侧；模型名 flex:1 + 省略号，箭头 shrink-0，长名字也压不出第二行。
   // 上网（v58.74）：TA这一轮去查了什么。跟思考链同一条线上，但各自独立——
@@ -12862,13 +12852,8 @@ function ReasoningBlock({ m, off }) {
       m.reasonModel ? h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.line, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "· " + m.reasonModel) : h("span", { style: { flex: 1 } }),
       h("span", { className: "shrink-0", style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, transform: open ? "rotate(180deg)" : "none", transition: "transform .18s" } }, "˅")),
     open ? h("div", { style: { borderLeft: "2px solid " + t.line, paddingLeft: 9, margin: "3px 0 5px" } },
-      h("div", { className: "flex items-center gap-2", style: { marginBottom: 3 } },
-        m.reasonFrom ? h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line } }, "来自字段 " + m.reasonFrom) : null,
-        rLang ? h("button", { onClick: doTrans, disabled: tBusy, className: "active:opacity-60 disabled:opacity-50",
-          style: { fontFamily: F_BODY, fontSize: 9.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 5, padding: "0 5px" } },
-          tBusy ? "翻译中…" : zh ? (showZh ? "看原文" : "看译文") : "译") : null),
-      tErr ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#c25a4a", marginBottom: 3 } }, tErr) : null,
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap" } }, showZh && zh ? zh : m.reasoning)) : null);
+      m.reasonFrom ? h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, color: t.line, marginBottom: 3 } }, "来自字段 " + m.reasonFrom) : null,
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.75, color: t.fog, whiteSpace: "pre-wrap" } }, h(TransText, { text: m.reasoning, ink: t.fog, inline: true, long: true, size: 12 }))) : null);
 }
 // 转发的聊天记录（v56.38）。原来是把整段原话直接塞进一个气泡里——十条八条的
 // 转过去就是一堵墙（她 2026-08-26 截图）。改成微信那种卡片：标题 + 两行预览 + 「聊天记录」，
@@ -14756,7 +14741,7 @@ function StateCard({
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : ""),
           h("span", { style: { flex: 1 } }),
           delBtn("删", () => { onDelThought(i); if (hist.length <= 1) setShowHist(false); })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“" + (s2.thought || "") + "”"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5 }), "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }) : null))))
     : h(Fragment, null,
       (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? "这间房还没有心声" : "还没有状态", sub: roomName ? "在这里聊过或赴约后，会只为本房留下" : "和" + scTa + "聊几句，状态会自动生成" }) : null,
@@ -14781,7 +14766,7 @@ function StateCard({
         // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
         h("div", { className: "flex items-center justify-between", style: { position: "relative" } }, label("心里想的", t.accent), delBtn("删", () => onDelThought("now"))),
-        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“" + S(state.thought) + "”")) : null,
+        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“", h(TransText, { text: S(state.thought), ink: t.ink, inline: true, size: 15 }), "”")) : null,
       h("div", { style: { padding: "0 15px" } }, histBtn(false)));
   return h(CenterCard, { onClose: onClose, wk: "statecard" }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
@@ -15974,11 +15959,11 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: castWho === o.c.id ? t.ink : t.sub } }, o.c.name)))) : null,
       castPick ? h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, castPick.c.name + " · 心声 "),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, castPick.x.thought || "这一段没在心里多想什么"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, castPick.x.thought ? h(TransText, { text: castPick.x.thought, ink: t.fog, inline: true, size: 12.5 }) : "这一段没在心里多想什么"),
         (onOpenState && (!canOpenState || canOpenState(castPick.c))) ? h("button", { onClick: () => onOpenState(castPick.c), className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, textDecoration: "underline", minHeight: 40 } }, "状态卡") : null) : null,
       (!isUser && m.thought) && h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, m.thought)),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, h(TransText, { text: m.thought, ink: t.fog, inline: true, size: 12.5 }))),
       (!isUser && (m.cot || m.cotRequested)) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null));
 }
 // ---- 群聊线下模式（多角色同处一地）----

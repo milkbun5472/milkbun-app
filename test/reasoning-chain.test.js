@@ -116,10 +116,13 @@ test("长文翻译按段落切块，每块不超过 900 字，内容不丢", asy
   assert.equal(norm(oneLong.zh), norm(("A".repeat(50) + ". ").repeat(60)));
 });
 
-test("译键走免费链，长了自动切块", () => {
+// 她 2026-10-10：「翻译键这块抽出来公共的不要自己另起形状」——思考链的译键走全库那一份 TransText
+test("译键走公共那一份：免费链、长文切块、长文按英文为主认语种", () => {
   const i2 = comp.indexOf("function ReasoningBlock(");
   const seg = comp.slice(i2, comp.indexOf("// 转发的聊天记录（v56.38）"));
-  assert.match(seg, /translateLongToZh\(m\.reasoning, rLang\)/);
-  assert.match(seg, /translatableLang\(m\.reasoning\)/, "不是外文就别显示译键");
-  assert.match(seg, /showZh && zh \? zh : m\.reasoning/, "译文和原文可以来回切");
+  assert.match(seg, /h\(TransText, \{ text: m\.reasoning, ink: t\.fog, inline: true, long: true, size: 12 \}\)/);
+  assert.doesNotMatch(seg, /translateLongToZh\(/, "不许再自己另写一套翻译");
+  const st = comp.slice(comp.indexOf("function TransTextState("), comp.indexOf("function TransTextState(") + 1600);
+  assert.match(st, /long && typeof translatableLangLong === "function" \? translatableLangLong\(text\)/);
+  assert.match(st, /translateLongToZh\(text, lang\)/);
 });
