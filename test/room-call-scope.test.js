@@ -41,7 +41,7 @@ function setup(overrides={}) {
   const audioPref = components.indexOf('function callAutoVoice(');
   vm.runInContext(components.slice(audioPref, components.indexOf('\n}\n', audioPref) + 3), box);
   const engine = fs.readFileSync('js/engine.js', 'utf8');
-  vm.runInContext(engine.slice(engine.indexOf('function splitBilingual('), engine.indexOf('const TRANS_CACHE_KEY')), box);
+  vm.runInContext(engine.slice(engine.indexOf('const HAN_LANG_RE ='), engine.indexOf('const TRANS_CACHE_KEY')), box);
   vm.runInContext(cut('  const blockLineFor =','  const relationshipLineFor =') + cut('  const roomHistoryText =','  const blockBundleFor =') +
     cut('  const addDirective =','  // 规矩不该只有') + cut('  const oocReply =','  // v61.80 撤走了 reactToMyRecall') +
     cut('  const markCallBye =','  // 随机坐标（位置 stamp 用）')+

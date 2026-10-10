@@ -62,6 +62,8 @@
       if (/实验室|实验台|实验数据|做实验|观测样品|观察样品/.test(text)) return at("dayLaboratory", /数据|分析|电脑/.test(words) ? "computer" : /记录|笔记/.test(words) ? "records" : /观察|观测|测量/.test(words) ? "observation" : /资料柜/.test(text) ? "archive" : "bench");
       if (/诊室|值班室|病历|接诊|查房|诊查/.test(text)) return at("dayClinic", /休息|歇会/.test(words) ? "rest" : /交班|交接/.test(words) ? "handoff" : /接诊|查房|诊查/.test(words) ? "bedside" : /器材|取物/.test(words) ? "equipment" : /值班/.test(words) ? "duty" : "casework");
       if (/创作工作室|画室|手作|绘画|画画|画稿|画架|画布|缝制|织布|雕刻/.test(text)) return at("dayStudio", /材料|取物/.test(words) ? "materials" : /作品|展示|看画/.test(words) ? "gallery" : /晾|晾干/.test(words) ? "drying" : /画架|画布/.test(text) ? "easel" : /手作|缝|织|雕刻/.test(words) ? "handcraft" : "drawing");
+      if (/排练室|琴房|练功房|练舞|练琴|排练|排戏|练习乐器/.test(text)) return at("dayRehearsal", /离开|结束/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /乐器.*取|取.*乐器|整理乐器|乐器架/.test(words) ? "instruments" : /乐谱|看谱|读谱|台词|背词/.test(words) ? "score" : /练琴|钢琴|电钢琴/.test(words) ? "piano" : /镜前|镜墙|看镜|检查站姿/.test(words) ? "mirror" : "practice");
+      if (/车站|候车|站台|公交站|地铁站|客运站/.test(place) || /候车|等车|乘车|赶车|坐车|通勤|出差出发|旅行出发|旅途出发/.test(words)) return at("dayStation", /离开|走出/.test(words) ? "exit" : /进站|走进|进入/.test(words) ? "entrance" : /行李/.test(words) ? "luggage" : /站牌|时刻|路线|信息/.test(words) ? "information" : /问询|服务台|车票/.test(words) ? "service" : /读|看书|翻书/.test(words) ? "reading" : /等车|候车|等待/.test(words) ? "waiting" : /出发|乘车|赶车|通勤|上车/.test(words) ? "departure" : "platform");
     }
     if (type === "out" || /散步|走走|逛街/.test(words)) return at("dayStreet", "walk");
     if (/读|阅读|翻书|看书/.test(words)) return at(home || !["work", "create"].includes(type) ? "dayHome" : "dayWork", "read");

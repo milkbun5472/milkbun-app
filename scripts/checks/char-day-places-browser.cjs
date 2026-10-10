@@ -32,7 +32,15 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       const report={engine,ok:true,demoWidths:await demoLayout(),errors};assert.deepEqual(errors,[]);fs.writeFileSync(path.join(out,'demo-layout-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify(report));return;
     }
     const baseline=await page.evaluate(()=>({plans:JSON.stringify(dayPlacesRef.current),writes:dayPlacesWrites.length,games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
-    const noWrites=async()=>{assert.equal(await page.evaluate(()=>JSON.stringify(dayPlacesRef.current)),baseline.plans);assert.equal(await page.evaluate(()=>dayPlacesWrites.length),baseline.writes);assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),baseline.games);assert.equal(await page.evaluate(()=>dayPlacesModels),0);};
+    const noWrites=async()=>{
+      assert.equal(await page.evaluate(()=>JSON.stringify(dayPlacesRef.current)),baseline.plans);
+      // The real App remains mounted behind this isolated viewer. Its startup migrations
+      // are recorded separately; scene/schedule/chat/game writes must still remain zero.
+      const writes=await page.evaluate(n=>dayPlacesWrites.slice(n),baseline.writes);
+      assert.deepEqual(writes.filter(k=>/^x_(?:charDay|schedules|fairyGardenSaves|chat(?::|$))/.test(k)),[]);
+      result.ambientAppWrites=[...new Set(writes)];
+      assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),baseline.games);assert.equal(await page.evaluate(()=>dayPlacesModels),0);
+    };
     await root.getByRole('button',{name:'新场景摆位试玩',exact:true}).click();await ready();
     await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
     await root.locator('select[data-wk=cdayplacepoint]').waitFor();assert.equal((await state()).charId,'__char_day_demo');

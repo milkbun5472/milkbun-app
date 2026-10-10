@@ -1,5 +1,5 @@
-import {createRoomKit} from './places/room-kit.mjs?v=fg-83edfa27f119ba5e';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-83edfa27f119ba5e';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-aa215f3b04f25467';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-aa215f3b04f25467';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
@@ -30,6 +30,7 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id]){
    cup(g,a.w*.25,0,F+(a.top||.85)+.075);}
 
   else if(a.kind==='chair')g=k.chair({...a,color:p.fabric});
+  else if(a.kind==='bench')g=k.bench({...a,color:p.wood,legColor:p.dark,solid:true});
   else if(a.kind==='plant'){g=k.plant(a.x,a.z);g.rotation.y=a.heading;}
   else {
    g=k.group(a.id,{x:a.x,z:a.z,heading:a.heading});
@@ -40,12 +41,12 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id]){
     b('Duvet',{y:.745,z:.53,w:a.w-.17,h:.12,d:a.d-1.0,color:p.fabric,radius:.08},g);
     b('DuvetFold',{y:.79,z:-.55,w:a.w-.15,h:.08,d:.24,color:p.accent},g);
     for(const x of [-.7,.7])b('Pillow',{x,y:.79,z:-1.05,w:1.05,h:.19,d:.58,color:p.paper,radius:.08},g);
-   }else if(a.kind==='sofa'||a.kind==='bench'){
-    const sofa=a.kind==='sofa';b('SeatBase',{y:.35,w:a.w,h:.3,d:a.d,color:sofa?p.fabric:p.wood},g);
-    b('SeatCushion',{y:.49,w:a.w-.09,h:.09,d:a.d-.03,color:sofa?p.fabric:p.wood},g);
-    b('SeatBack',{y:.79,z:-a.d/2+.1,w:a.w,h:.75,d:.16,color:sofa?p.fabric:p.wood},g);
-    for(const s of [-1,1]){b('SeatLeg',{x:s*(a.w/2-.22),y:.19,w:.11,h:.24,d:a.d-.2,color:p.dark},g);if(sofa)b('SofaArm',{x:s*(a.w/2-.12),y:.6,w:.23,h:.49,d:a.d},g);}
-    if(sofa)for(const x of [-a.w*.3,a.w*.3])b('SofaPillow',{x,y:.79,z:-.1,w:.48,h:.47,d:.15,color:p.accent,radius:.08},g);
+   }else if(a.kind==='sofa'){
+    b('SeatBase',{y:.35,w:a.w,h:.3,d:a.d,color:p.fabric},g);
+    b('SeatCushion',{y:.49,w:a.w-.09,h:.09,d:a.d-.03,color:p.fabric},g);
+    b('SeatBack',{y:.79,z:-a.d/2+.1,w:a.w,h:.75,d:.16,color:p.fabric},g);
+    for(const s of [-1,1]){b('SeatLeg',{x:s*(a.w/2-.22),y:.19,w:.11,h:.24,d:a.d-.2,color:p.dark},g);b('SofaArm',{x:s*(a.w/2-.12),y:.6,w:.23,h:.49,d:a.d},g);}
+    for(const x of [-a.w*.3,a.w*.3])b('SofaPillow',{x,y:.79,z:-.1,w:.48,h:.47,d:.15,color:p.accent,radius:.08},g);
    }else if(a.kind==='shelf'){if(a.w<a.d){g.rotation.y+=Math.PI/2;books(g,{...a,w:a.d,d:a.w});}else books(g,a);}
    else if(a.kind==='wardrobe'||a.kind==='cabinet'){
     const h=a.kind==='wardrobe'?2.25:.75;b('Cabinet',{y:F+h/2,w:a.w,h,d:a.d,color:p.wood},g);

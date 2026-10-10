@@ -1,9 +1,9 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-83edfa27f119ba5e';
-import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-83edfa27f119ba5e';
-import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-83edfa27f119ba5e';
-import {careSummary} from './care.mjs?v=fg-83edfa27f119ba5e';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-aa215f3b04f25467';
+import {PET_NEIGHBORS,restoreNeighborBonds,restorePetMeeting,createPetFriends,syncFriendWork} from './pet-friends.mjs?v=fg-aa215f3b04f25467';
+import {createTownLife,newTownLife,restoreTownLife,createTownNavigation,roomDoor} from './town-life.mjs?v=fg-aa215f3b04f25467';
+import {careSummary} from './care.mjs?v=fg-aa215f3b04f25467';
 
-import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-83edfa27f119ba5e';
+import {createPetVisits,restorePetVisit} from './pet-visits.mjs?v=fg-aa215f3b04f25467';
 
 export const NEIGHBORS=[
  {id:'baker',name:'阿棉',role:'面包师',shop:'bakery',spot:{x:-14,z:-.5},to:'florist',item:'给花店的面包袋',detail:'总惦记着街坊有没有好好吃饭。',look:{hair:'bob',hairColor:'#684b35',outfit:'cardigan',wardrobe:{cardigan:{cloth:'#c49667'}}}},

@@ -1,5 +1,5 @@
-import {SPACE_DEFS,buildSpace} from './spaces.mjs?v=fg-83edfa27f119ba5e';
-import {MAPS,walkable,findPath} from '../world.mjs?v=fg-83edfa27f119ba5e';
+import {SPACE_DEFS,buildSpace} from './spaces.mjs?v=fg-aa215f3b04f25467';
+import {MAPS,walkable,findPath} from '../world.mjs?v=fg-aa215f3b04f25467';
 
 // The editor and schedule viewer consume the same placement record and map.
 export const HOME_NAMES={'double-bed':'双人床',wardrobe:'衣柜',bedside:'床头柜',sofa:'沙发','coffee-table':'茶几','dining-table':'餐桌','dining-chair':'餐椅','partner-chair':'另一把餐椅',kitchen:'厨房台面',pantry:'储物柜','home-plant':'盆栽',bookcase:'书柜'};

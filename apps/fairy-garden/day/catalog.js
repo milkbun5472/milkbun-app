@@ -301,5 +301,119 @@
         "gesture": "rest"
       }
     ]
+  },
+  {
+    "id": "dayRehearsal",
+    "label": "排练室",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "进入排练室",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "practice",
+        "label": "开阔练习区",
+        "action": "practice",
+        "gesture": "rest"
+      },
+      {
+        "id": "mirror",
+        "label": "镜墙前站位",
+        "action": "practice",
+        "gesture": "rest"
+      },
+      {
+        "id": "score",
+        "label": "乐谱架前",
+        "action": "read",
+        "gesture": "read"
+      },
+      {
+        "id": "piano",
+        "label": "乐器前坐位",
+        "action": "practice",
+        "gesture": "rest"
+      },
+      {
+        "id": "instruments",
+        "label": "乐器架前",
+        "action": "practice",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "排练间隙休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "准备结束后离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayStation",
+    "label": "车站／候车区",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "进入候车厅",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "information",
+        "label": "站牌前看信息",
+        "action": "wait",
+        "gesture": "rest"
+      },
+      {
+        "id": "service",
+        "label": "服务台前",
+        "action": "wait",
+        "gesture": "rest"
+      },
+      {
+        "id": "luggage",
+        "label": "行李放置处",
+        "action": "wait",
+        "gesture": "rest"
+      },
+      {
+        "id": "waiting",
+        "label": "坐着候车",
+        "action": "wait",
+        "gesture": "rest"
+      },
+      {
+        "id": "reading",
+        "label": "候车时阅读",
+        "action": "read",
+        "gesture": "read"
+      },
+      {
+        "id": "platform",
+        "label": "站台内侧等候",
+        "action": "wait",
+        "gesture": "rest"
+      },
+      {
+        "id": "departure",
+        "label": "出发准备位置",
+        "action": "wait",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "起身离开候车区",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
   }
 ];})(globalThis);

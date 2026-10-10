@@ -52,7 +52,7 @@ test('多组可替换摆件合批后保留各自父级与世界位置，可独�
 });
 
 test('独立场景注册保留原地图，展示名单按真实动作点编号',()=>{
-  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio']));
+  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation']));
   assert.deepEqual(Object.keys(DAY_FACTORIES),Object.keys(DAY_PLACES));
   for(const id of persistentMaps)assert.ok(MAPS[id]);
   const list=placeList();
@@ -104,7 +104,7 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
       const obstacle=map.obstacles.find(o=>o.id===p.id);assert.ok(obstacle,p.id+'有碰撞');
       for(const k of ['x','z','w','d'])assert.equal(obstacle[k],p[k],p.id+'的'+k);
       assert.equal(walkable(p.x,p.z,id),false,p.id+'实体不允许穿过');
-      if(['chair','table','counter','cabinet','shelf','examBed','step','easel'].includes(p.kind)){
+      if(['chair','bench','table','counter','cabinet','shelf','examBed','step','easel'].includes(p.kind)){
         const group=root.getObjectByName(p.id);assert.ok(group,p.id+'真家具组仍在');
         assert.equal(group.position.x,p.x);assert.equal(group.position.z,p.z);
       }
@@ -112,7 +112,7 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
     }
     const ray=new T.Raycaster();
     for(const seat of Object.values(map.seats)){
-      const p=furniture.find(p=>p.id===seat.piece);assert.equal(p?.kind,'chair');
+      const p=furniture.find(p=>p.id===seat.piece);assert.ok(['chair','bench'].includes(p?.kind));
       assert.equal(seat.x,p.x);assert.equal(seat.z,p.z);assert.equal(seat.rise,.45);
       assert.equal(seat.heading,p.heading);
       assert.ok(walkable(seat.approach.x,seat.approach.z,id));
@@ -144,6 +144,47 @@ test('实验室专业器材可整组替换，关闭器材仍保留工位与导�
   assert.equal(vertices(full.root),countBefore-specializedVertices,'移除器材确实带走对应几何');
   const after=ray.intersectObject(full.root,true)[0];assert.ok(after);assert.ok(before.point.y-after.point.y>.1,'显微镜实际射线命中随整组移除消失');
   parent.add(blank);assert.equal(full.root.getObjectByName('LaboratoryEquipment'),blank);
+});
+
+test('排练室保留开阔练习区，真实电钢琴/吉他和镜墙可分别关闭，桌椅及导航不变',()=>{
+  const full=DAY_FACTORIES.dayRehearsal(),noInstruments=DAY_FACTORIES.dayRehearsal({instruments:false}),noMirror=DAY_FACTORIES.dayRehearsal({mirror:false});
+  const vertices=o=>{let n=0;o.traverse(x=>{if(x.isMesh)n+=x.geometry.attributes.position.count;});return n;};
+  assert.ok(vertices(full.root.getObjectByName('RehearsalInstruments'))>0);
+  assert.equal(vertices(noInstruments.root.getObjectByName('RehearsalInstruments')),0);
+  assert.ok(vertices(noInstruments.root.getObjectByName('RehearsalMirror'))>0);
+  assert.equal(vertices(noMirror.root.getObjectByName('RehearsalMirror')),0);
+  assert.ok(vertices(noMirror.root.getObjectByName('RehearsalInstruments'))>0);
+  assert.ok(full.root.getObjectByName('ElectricPiano'));assert.ok(full.root.getObjectByName('AcousticGuitar'));
+  for(const variant of [noInstruments,noMirror])assert.deepEqual(variant.root.userData.furniture,full.root.userData.furniture);
+  const m=DAY_PLACES.dayRehearsal;
+  for(let x=-3.2;x<=-.8;x+=.2)for(let z=-1.6;z<=2.4;z+=.2)assert.ok(walkable(x,z,'dayRehearsal'),'练习区无家具占位');
+  assert.equal(m.spots.find(s=>s.id==='piano').gesture,'rest','未实现弹奏时保留中性坐姿');
+  assert.equal(m.spots.find(s=>s.id==='practice').action,'practice','不把托腮等通用工作动作冒充舞蹈');
+});
+
+test('候车长椅真实宽面可坐，站台黄线内侧可达，轨道外侧无法行走且没有交通工具',()=>{
+  const m=DAY_PLACES.dayStation,{root}=DAY_FACTORIES.dayStation();root.updateMatrixWorld(true);
+  for(const seat of Object.values(m.seats)){
+    const p=root.userData.furniture.find(p=>p.id===seat.piece);assert.equal(p.kind,'bench');assert.ok(p.w>3);
+    for(const dx of [-1.2,0,1.2]){
+      const ray=new T.Raycaster(new T.Vector3(seat.x+dx,2,seat.z),new T.Vector3(0,-1,0));
+      assert.ok(Math.abs(ray.intersectObject(root,true)[0].point.y-(m.floor+seat.rise))<.003,'整条长椅实际椅面同高');
+    }
+  }
+  const platform=m.spots.find(s=>s.id==='platform'),exit=m.spots.find(s=>s.id==='exit');
+  assert.ok(walkable(platform.target.x,platform.target.z,'dayStation'));assert.ok(findPath(m.seats.waiting.approach,platform.target,'dayStation')?.length);
+  assert.ok(findPath(platform.target,exit.target,'dayStation')?.length);assert.equal(walkable(5.55,.95,'dayStation'),false,'实际平台边缘阻挡');assert.equal(walkable(6.67,.95,'dayStation'),false,'短轨道在可走区域外');
+  assert.ok(root.getObjectByName('StationClock'));assert.ok(root.getObjectByName('DepartureBoard'));assert.ok(root.getObjectByName('Luggage-0'));assert.ok(root.getObjectByName('platform-sign'));
+  assert.equal(root.getObjectByName('Train'),undefined);assert.equal(root.getObjectByName('Bus'),undefined);
+});
+
+test('原小街长椅迁入公共构造后保留原实体尺寸、材质和坐面高度',async()=>{
+  const {createSpaceView}=await import('../space-view.mjs'),{CORE_SPACES,styleOf}=await import('../spaces.mjs');
+  const map=CORE_SPACES.dayStreet,p=map.furniture.find(p=>p.id==='street-bench'),palette=styleOf('warm'),{root}=createSpaceView('dayStreet');root.updateMatrixWorld(true);
+  const bench=root.getObjectByName(p.id);assert.equal(bench.userData.furnitureId,p.id);assert.equal(bench.position.x,p.x);assert.equal(bench.position.z,p.z);
+  const box=new T.Box3().setFromObject(bench),size=box.getSize(new T.Vector3());assert.ok(Math.abs(size.x-p.w)<.001);assert.ok(Math.abs(size.z-p.d)<.001);
+  const ray=new T.Raycaster(new T.Vector3(p.x,2,p.z),new T.Vector3(0,-1,0));assert.ok(Math.abs(ray.intersectObject(bench,true)[0].point.y-.535)<.001);
+  const colors=new Set();bench.traverse(o=>{if(o.isMesh)colors.add('#'+o.material.color.getHexString());});assert.deepEqual(colors,new Set([palette.wood,palette.dark]));
 });
 
 test('图书馆书本按实际书架与借阅台的父级摆放，局部坐标不误落在房中央',()=>{
