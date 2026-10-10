@@ -2074,6 +2074,12 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
   const [query, setQuery] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
+  // 三种翻法（她 2026-10-10：「想看按角色分」「世界观、共同经历这种也要 filter」）：
+  //   去向＝那排章；角色＝一排脸（「共用」＝没绑人的）；分类＝一排分类。搜索和启停在三种下都管用。
+  const [view, setView] = useState("scope");
+  const [charFilter, setCharFilter] = useState("all");
+  const [catFilter, setCatFilter] = useState("all");
+  const [pubOpen, setPubOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const list = entries || [];
   const enabledN = list.filter(e => e.enabled !== false && String(e.payload || "").trim()).length;
@@ -2081,13 +2087,24 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   const openNew = charIds => setEditing({ __new: true, charIds: charIds || [] });
   const charNames = ids => (ids || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean);
   const q = query.trim().toLowerCase();
-  const shown = list.filter(e => {
+  const catOf = e => LORE_CATEGORIES.includes(e.category) ? e.category : "其他";
+  const isPub = e => !(e.charIds || []).length;
+  const pickedChar = view === "char" && charFilter !== "all" && charFilter !== "pub" ? charFilter : "";
+  const base = list.filter(e => {
     if (statusFilter === "on" && e.enabled === false) return false;
     if (statusFilter === "off" && e.enabled !== false) return false;
-    if (scopeFilter !== "all" && !loreScopeEnabled(e, scopeFilter)) return false;
     if (!q) return true;
     return [e.title, e.payload, e.keyword, e.category, charNames(e.charIds).join(" ")].join(" ").toLowerCase().includes(q);
+  });
+  const shown = base.filter(e => {
+    if (view === "scope" && scopeFilter !== "all" && !loreScopeEnabled(e, scopeFilter)) return false;
+    if (view === "cat" && catFilter !== "all" && catOf(e) !== catFilter) return false;
+    if (view === "char" && charFilter === "pub" && !isPub(e)) return false;
+    if (pickedChar && !(e.charIds || []).includes(pickedChar)) return false;
+    return true;
   }).sort((a, b) => (b.priority || 3) - (a.priority || 3) || (b.ts || 0) - (a.ts || 0));
+  // 选了一个角色：只绑给 TA 的在上面，TA 也看得到的共用那几条收在底下
+  const pubShown = pickedChar ? base.filter(isPub).sort((a, b) => (b.priority || 3) - (a.priority || 3) || (b.ts || 0) - (a.ts || 0)) : [];
   // 一排章：去的那几处盖上，没去的留着空格。全没盖＝这条根本发不出去，整排转红
   const stampRow = e => {
     const none = !LORE_SCOPE_UI.some(x => loreScopeEnabled(e, x[0]));
@@ -2134,9 +2151,26 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
           style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
           h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
   };
+  // 一枚筛选章：三种翻法共用这一个形状（角色那排章面换成脸）
+  const stampChip = (key, on, glyph, zh, onClick, face) => h("button", { key: key, "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: onClick, className: "active:opacity-65 shrink-0",
+    style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
+    face ? h("span", { style: { borderRadius: 6, padding: 1, border: "1.5px solid " + (on ? t.ink : "transparent"), display: "flex" } }, glyph)
+      : h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
+        background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, glyph),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", color: on ? t.ink : t.fog } }, zh));
+  // 翻法＝活页夹的分隔页标签：一排从纸边伸出来的小舌头，翻到的那张满高、跟底下那页连成一张纸
+  const loreViewTabs = () => h("div", { style: { display: "flex", gap: 4, marginTop: 12, borderBottom: "1px solid " + t.ink, alignItems: "flex-end" } },
+    [["scope", "按去向"], ["char", "按角色"], ["cat", "按分类"]].map(x => {
+      const on = view === x[0];
+      return h("button", { key: x[0], "data-wk": "loreview", "data-on": on ? "1" : "0", onClick: () => setView(x[0]), className: "active:opacity-65",
+        style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.ink : t.fog, background: on ? t.bg2 : "transparent",
+          border: "1px solid " + (on ? t.ink : t.line), borderBottom: "none", borderRadius: "7px 7px 0 0",
+          padding: on ? "7px 14px 7px" : "4px 12px 4px", marginBottom: on ? -1 : 0, position: "relative" } }, x[1]);
+    }));
   return h("div", { "data-wk": "lorepage", className: "h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: "世界书", bg: "transparent", onBack,
-      right: h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) }),
+      right: h("button", { onClick: () => openNew(pickedChar ? [pickedChar] : []), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
       // 抬头不再是一句大标语 + 一行英文小字（那个排法换个后台照样成立）：
       // 只留一句说清这本书怎么用，和两个真的数
@@ -2147,23 +2181,25 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
       // 筛选就是那排章：顶上这一排既是筛选器，也是每一条身上那些字的对照表
       h("section", { "data-wk": "lorefilter", style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
         h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
+        loreViewTabs(),
         h("div", { style: { display: "flex", gap: 9, overflowX: "auto", paddingTop: 12, WebkitOverflowScrolling: "touch" } },
-          [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x => {
-            const on = scopeFilter === x[0];
-            const ch = x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?");
-            const zh = x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]);
-            return h("button", { key: x[0], "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0",
-              style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
-              h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
-                background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, ch),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", color: on ? t.ink : t.fog } }, zh));
-          })),
+          view === "scope" ? [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x =>
+            stampChip(x[0], scopeFilter === x[0], x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?"), x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]), () => setScopeFilter(x[0])))
+          : view === "cat" ? ["all"].concat(LORE_CATEGORIES).map(c =>
+            stampChip(c, catFilter === c, c === "all" ? "全" : c.slice(0, 1), c === "all" ? "全部" : c + " " + list.filter(e => catOf(e) === c).length, () => setCatFilter(c)))
+          : [["all", "全部", "全"], ["pub", "共用", "众"]].map(x => stampChip(x[0], charFilter === x[0], x[2], x[1], () => setCharFilter(x[0])))
+            .concat((characters || []).filter(c => list.some(e => (e.charIds || []).includes(c.id))).map(c =>
+              stampChip(c.id, charFilter === c.id, h(Avatar, { character: c, size: 26, radius: 5 }), c.remark || c.name, () => setCharFilter(c.id), true)))),
         h("div", { style: { display: "flex", gap: 14, marginTop: 12 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 10.5, color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
       h("div", { style: { paddingBottom: 12 } },
-        shown.length ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
+        pickedChar && !shown.length ? h("div", { style: { padding: "22px 0", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有只绑给 TA 的词条") : null,
+        (shown.length || pickedChar) ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
           h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条"))),
+        pickedChar && pubShown.length ? h("section", { key: "pub" },
+          h("button", { onClick: () => setPubOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: "14px 0", fontFamily: F_BODY, fontSize: 12, color: t.sub, borderTop: "1px solid " + t.line, width: "100%", textAlign: "left" } },
+            (pubOpen ? "▾ " : "▸ ") + "TA 也看得到的共用词条 · " + pubShown.length + " 条"),
+          pubOpen ? pubShown.map(card) : null) : null,
       (trash && trash.length) ? h("section", { style: { borderTop: "1px solid " + t.line, padding: "14px 0 6px" } },
         h("button", { onClick: () => setTrashOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
           (trashOpen ? "▾ " : "▸ ") + "最近删除 · " + trash.length + " 条（留 30 天）"),

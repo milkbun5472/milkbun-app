@@ -35,9 +35,11 @@ test("一处也没盖＝这条根本发不出去，整排转红并写明白", ()
 });
 
 test("筛选就是那排章：顶上那一排既是筛选器，也是这些字的对照表", () => {
-  const filt = wb.slice(wb.indexOf('[["all", "全部"]]'), wb.indexOf('"全部状态"'));
+  const i = wb.indexOf("const stampChip = ("), j = wb.indexOf("const loreViewTabs = (", i);
+  assert.ok(i > 0 && j > i, "抠不出 stampChip");
+  const filt = wb.slice(i, j);
   assert.equal(filt.indexOf("borderRadius: 999"), -1, "又摆回一排药丸了");
-  assert.match(filt, /const ch = x\[0\] === "all" \? "全" : \(LORE_STAMP\[x\[0\]\] \|\| "\?"\)/, "筛选上印的就是词条上那个字");
+  assert.match(wb, /x\[0\] === "all" \? "全" : \(LORE_STAMP\[x\[0\]\] \|\| "\?"\)/, "筛选上印的就是词条上那个字");
   assert.match(filt, /background: on \? t\.ink : "transparent", border: "1px solid " \+ \(on \? t\.ink : t\.line\)/, "选中是盖了章，不是换个填色");
   assert.match(filt, /whiteSpace: "nowrap"/, "名字要一行放得下，换行会把整排顶歪");
   assert.match(src, /const LORE_STAMP_ZH = \{ chat: "聊天线下"/);
@@ -62,4 +64,21 @@ test("顶上那块大标语也撤了（子页面用紧凑标题栏）", () => {
   assert.equal(codeOnly.indexOf('"LORE INDEX"'), -1);
   assert.match(wb, /h\(Head, \{ zh: "世界书", bg: "transparent", onBack,/, "顶栏没走共用 Head");
   assert.match(wb, /一条设定要盖够章才送得出去/, "该说的那句话要留着，只是不再当大标语");
+});
+
+// 她 2026-10-10：「想看按角色分」「世界观、共同经历这种也要 filter」——三种翻法，共用一个章的形状
+test("世界书三种翻法：去向／角色／分类，搜索和启停三种下都管用", () => {
+  assert.match(wb, /\[\["scope", "按去向"\], \["char", "按角色"\], \["cat", "按分类"\]\]/);
+  assert.match(wb, /"data-wk": "loreview"/);
+  // 三排都走同一个 stampChip，没有第二份章的样子
+  assert.equal((wb.match(/"data-wk": "lorestamp"/g) || []).length, 1, "章只许有一份");
+  assert.match(wb, /view === "cat" && catFilter !== "all" && catOf\(e\) !== catFilter/);
+  assert.match(wb, /const catOf = e => LORE_CATEGORIES\.includes\(e\.category\) \? e\.category : "其他"/, "旧词条没分类或写着默认的算「其他」");
+  // 选了一个角色：绑给 TA 的在上面，共用的收在下面；新建默认绑给 TA
+  assert.match(wb, /pickedChar && !\(e\.charIds \|\| \[\]\)\.includes\(pickedChar\)/);
+  assert.match(wb, /const pubShown = pickedChar \? base\.filter\(isPub\)/);
+  assert.match(wb, /TA 也看得到的共用词条/);
+  assert.match(wb, /openNew\(pickedChar \? \[pickedChar\] : \[\]\)/);
+  // 搜索和启停只筛一次，三种翻法都从 base 里再挑
+  assert.match(wb, /const shown = base\.filter\(e => \{/);
 });
