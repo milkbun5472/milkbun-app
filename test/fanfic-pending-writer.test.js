@@ -65,7 +65,7 @@ test('角色与作者的实发请求分流：笔法/立场先于正文，不套�
   assert.ok(!sys.includes('他不写文，也不混同人圈'));
   assert.ok(sys.indexOf('"writerBrief":')<sys.indexOf('"content":'));
   assert.equal(ch.writerBrief.voice,'执笔测试笔法');
-  assert.equal(calls[0].opts.maxTokens,65535);
+  assert.equal(calls[0].opts.maxTokens,65000);
   await K.genNextChapter({},f,{name:'世界'},[writer],'用户','',{style:'统一文风标记'});
   assert.ok(calls[1].sys.includes('统一文风标记'));
   assert.ok(calls[1].sys.includes('你是一位很会写的同人文作者'));

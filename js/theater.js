@@ -386,7 +386,7 @@
         + (hint || "") + "\n只输出 JSON:{" + lack.map(k => "\"" + k + "\":\"…\"").join(",") + "}";
       let fix = null;
       try {
-        fix = parseSettingPayload(await callAI(props.active, sys + "\n\n【已经写好的部分】\n" + String(raw || "").slice(0, 6000), [{ role: "user", content: "补齐缺项。" }], { maxTokens: 65535, timeout: 90000 }), lack);
+        fix = parseSettingPayload(await callAI(props.active, sys + "\n\n【已经写好的部分】\n" + String(raw || "").slice(0, 6000), [{ role: "user", content: "补齐缺项。" }], { maxTokens: 65000, timeout: 90000 }), lack);
       } catch (e) { return partial; }
       if (!fix) return partial;
       const out = Object.assign({}, partial || {});
@@ -407,7 +407,7 @@
         // 演过的线一并喂进去:模型看不见上一局,不给它就会反复抽到同一个众数
         const prior = lines.slice(0, 10).map(l => l.title + "(" + String(l.setting || "").slice(0, 30) + ")").join(";");
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【关键词(可空,空则按取景框来)】" + (kw.trim() || "无") + frame + (DIFF[diff].goal ? "\n\n【难度要求】" + DIFF[diff].goal : "") + (prior ? "\n\n【已经演过的线(务必避开,换皮重来也算重复)】" + prior : "") + "\n\n【对方名字】" + uName;
-        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["title", "charRole", "userRole", "world", "hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_SETTING, KEYS);
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
@@ -443,7 +443,7 @@
           + newSituation(true, past)
           + "\nhook:此刻正在发生什么(1-3句,这一局专属)。\nopening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进这个新处境里一个正在进行、可以回应的时刻,不替 Ta 做任何决定。\ngoal:" + GOAL_RULE + "\n只输出 JSON:" + SHAPE_PRESET + "";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定的身份与世界】\nTa 的身份:" + ps.charRole + "\n" + uName + " 的身份:" + ps.userRole + "\n世界与长期张力:" + (ps.world || ps.setting);
-        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const KEYS = ["hook", "charOutfit", "userOutfit", "goal", "opening"];
         let p = parseSettingPayload(raw, KEYS) || await reformatSetting(raw, SHAPE_PRESET, KEYS);
         if (!p) throw new Error("模型没按 JSON 输出,也整理不回来" + rawHint(raw));
@@ -607,7 +607,7 @@
           + "" + GOAL_RULE + "不重复已经达成过的目标。只输出 JSON:{\"goal\":\"一句话目标\"}";
         const user = "【设定】" + line.setting + "\n【角色身份】" + line.charRole + "\n【各轮目标】" + line.rounds.map(r => r.goal + (r.goalDone ? "(✓)" : r.failed ? "(✗失败)" : "")).join(";") + "\n【最近剧情】\n" + recent;
         // 思考型模型的思考也从 maxTokens 里扣,给窄了 JSON 会被写一半截断
-        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 120000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 120000 });
         const p = parseSettingPayload(raw, ["goal"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\"}", ["goal"]);
         if (!p || !p.goal) throw new Error("目标没生成出来" + rawHint(raw));
         update(list => list.map(l => l.id !== line.id ? l : mode === "redo"
@@ -629,7 +629,7 @@
         const char = charOf(line);
         const sys = settingStyle() + diffOf(line).goal + "\n" + "基于下面这套【固定的 if 线设定】重开一局:设定一个字不许改,只生成新的开场与本轮目标。opening:第二人称『你』写给 " + uName + " 的开场正文(5-9句),把 Ta 放进一个可以回应的具体时刻。goal:" + GOAL_RULE + "只输出 JSON:{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}";
         const user = "【角色人设】\n" + (char.persona || char.name) + "\n\n【固定设定】\nTa 的身份:" + line.charRole + "\n" + uName + " 的身份:" + line.userRole + "\n世界与张力:" + line.setting;
-        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65535, timeout: 150000 });
+        const raw = await callAI(props.active, sys + "\n\n" + user, [{ role: "user", content: "开始。" }], { maxTokens: 65000, timeout: 150000 });
         const p = parseSettingPayload(raw, ["goal", "opening"]) || await reformatSetting(raw, "{\"goal\":\"一句话目标\",\"opening\":\"开场正文\"}", ["goal", "opening"]);
         if (!p || !p.goal) throw new Error("重开没生成出目标" + rawHint(raw));
         update(list => list.map(l => l.id !== line.id ? l : { ...l, ended: false, summary: "", sumCount: 0, ledger: null, sumSig: "",

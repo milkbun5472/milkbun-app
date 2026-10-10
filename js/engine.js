@@ -3603,7 +3603,8 @@ function buildBundle(ctx, opts) {
       + "\nTA的生活都发生在这儿：认识的人、去的地方、收到的信、买东西的渠道、用的货币和地址格式，都按这里来。"
       + "\n⚠️别把这一条挂在嘴上报地名，它只是让你写出来的东西落在真地方，而不是一个谁都能套的通用城市。");
   }
-  if (!ctx.notRoleplay && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
+  // 本体模式也看得到（她 2026-10-10：它现在线上线下都能报好感往哪边动，得知道现在是多少）；只有言秋照旧不给
+  if ((!ctx.notRoleplay || !ctx.ccSelf) && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
   // 快到的日子（时刻 · 往前看）：三天内有纪念日/生日才有这一句，没有就一个字不发
   if (!ctx.notRoleplay && ctx.shikeNote) parts.push("【快到的日子】" + ctx.shikeNote);
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、
@@ -3637,6 +3638,7 @@ function buildBundle(ctx, opts) {
   if (ctx.groupOfflineEcho && ctx.groupOfflineEcho.trim()) parts.push("【你和大家最近的多人线下相处·带时间戳（真实发生过，你在场、都记得）】\n下面是你参加过的群线下（大家面对面相处）最近的片段，你亲历、记得。里头那个『" + uName + "』就是此刻跟你单聊的这个人。按方括号里的真实时间理解它和现在的先后顺序，聊到相关自然接得上、别自相矛盾（比如刚一起吃过饭、你却问 TA 吃了没）。\n" + ctx.groupOfflineEcho.trim());
   if (!ctx.notRoleplay && ctx.schedNow && ctx.schedNow.trim()) parts.push("【" + char.name + " 今天的行程 / 此刻在做什么】" + SCHEDULE_CONTEXT_RULE + "\n" + ctx.schedNow.trim());
   // 有一场没散的线下（按需注入：没有就零 token）——不然主动问候会把正在进行的线下当没开始
+  if (ctx.charDayPresence) parts.push(ctx.charDayPresence);
   if (ctx.offlineNow && ctx.offlineNow.trim()) parts.push(ctx.offlineNow.trim());
   // 她从你梦里带出来的东西（v63.05）：你只觉得眼熟——它来自你自己的梦，你不知道，永远别说破
   if (ctx.dreamKeep && String(ctx.dreamKeep).trim()) parts.push("【她身上带着的一样东西：" + String(ctx.dreamKeep).trim() + "】你说不上在哪见过它，可一眼就眼熟，心里会莫名一动。" +
@@ -4148,7 +4150,7 @@ function gameChatSummaryContext(msgs) {
 async function summarizeGroup(p, ctx, msgs) {
   const text = msgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : m.role === "narration" ? "【旁白】" : m.senderName || "某人") + ": " + gameChatText(m)).join("\n");
   const system = "把下面这段群聊浓缩成一句到几句第三人称的记忆，抓住关键事件、谁和谁的互动、达成的约定或情绪转折。简洁、具体、可复用。只输出正文。";
-  return await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【群聊】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 });
+  return await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【群聊】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
 }
 // 从一段对话里抽取结构化记忆条目（自动生成，用户可再编辑/删除）
 async function extractMemories(p, ctx, msgs, opts = {}) {
@@ -4171,7 +4173,7 @@ async function extractMemories(p, ctx, msgs, opts = {}) {
       ? "\n\n【当前还没了结的约定/心事（下面每条前有编号）】若下面对话显示某条确实【已经兑现/完成、问题得到实质解决、或双方明确决定不再继续】，就在输出数组里加一个 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。只道歉、暂时安静、时间过去、情绪缓和都不算修复；证据 ID/原话规则与上面相同。候选还会由本机逐字核验，通过后才软关闭旧条；正文和审计记录永远保留。能确定哪几条就各加一个，没完成的别加：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n")
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（开头带主语真名）\",\"tags\":[\"标签1\"],\"v\":0,\"a\":1,\"open\":false,\"kind\":\"fact\",\"confidence\":0.9,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"],\"proposed_action\":\"accept\"}]\n没有值得记的、或全都已记过，就输出 []。";
-  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 });
+  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
   const parsed = extractJSON(raw);
   // resolveOpen 没有 text；必须保留给 RepairGate 做逐字证据核验与软闭环。
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
@@ -4197,7 +4199,7 @@ async function extractGroupMemories(p, ctx, msgs, members, opts = {}) {
       ? "\n【当前还没了结的约定/心事】若本段记录逐字证明某条已经兑现/实质解决/明确放弃，另加 RepairGate 候选：{\"resolveOpen\":编号,\"repair_kind\":\"fulfilled|resolved|abandoned\",\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}。道歉、暂时安静、时间过去或情绪缓和不算解决。本机还会逐字核验，通过后只软关闭、绝不删旧条：\n" + opts.openList.slice(0, 30).map((s, i) => (i + 1) + ". " + s).join("\n") + "\n"
       : "") +
     "【输出】只输出合法 JSON 数组，无 markdown：\n[{\"text\":\"一句话事实（带主语真名）\",\"who\":[\"名字\"],\"tags\":[\"标签\"],\"v\":0,\"a\":1,\"open\":false,\"evidence_message_ids\":[\"消息ID\"],\"evidence_quotes\":[\"逐字短引文\"]}]\n没有值得记的、或都已记过，就输出 []。";
-  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【多人线下记录】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 });
+  const raw = await callAI(p, system + gameChatSummaryContext(msgs) + "\n\n【多人线下记录】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 });
   const parsed = extractJSON(raw);
   return Array.isArray(parsed) ? parsed.filter(x => x && (x.text || x.resolveOpen != null)) : [];
 }
@@ -7184,11 +7186,11 @@ async function weatherFor(lat, lng) {
   const ctrl = new AbortController(); const to = setTimeout(() => ctrl.abort(), 10000);
   let d;
   try {
-    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=auto&forecast_days=1", { signal: ctrl.signal });
+    const r = await fetch("https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lng + "&current=temperature_2m,weather_code&daily=temperature_2m_max,temperature_2m_min,weather_code,precipitation_probability_max&timezone=auto&forecast_days=1", { signal: ctrl.signal });
     d = await r.json();
   } catch (e) { return hit || null; } finally { clearTimeout(to); }
   if (!d || !d.current) return hit || null;
-  const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(d.current.temperature_2m), code: d.current.weather_code, hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]), dayCode: d.daily.weather_code[0] };
+  const out = { day: new Date().toDateString(), ts: Date.now(), t: Math.round(d.current.temperature_2m), code: d.current.weather_code, hi: Math.round(d.daily.temperature_2m_max[0]), lo: Math.round(d.daily.temperature_2m_min[0]), dayCode: d.daily.weather_code[0], pp: d.daily.precipitation_probability_max && d.daily.precipitation_probability_max[0] != null ? Math.round(d.daily.precipitation_probability_max[0]) : null };
   try { const c = JSON.parse(localStorage.getItem("wx_cache") || "{}"); c[weatherCacheKey(lat, lng)] = out; const ks = Object.keys(c); if (ks.length > 24) ks.slice(0, ks.length - 24).forEach(k => delete c[k]); localStorage.setItem("wx_cache", JSON.stringify(c)); } catch (e) {}
   return out;
 }
@@ -7336,6 +7338,7 @@ function groupBackgroundSegments(c, background, uName, opts) {
     hcSeg: b.home ? "\n〔你自己住在" + b.home + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "",
     cySeg: b.carry ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + b.carry : "",
     caSeg: (b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : "")
+      + (b.charDayPresence ? "\n〔此状态仅 " + c.name + " 与对方在该小世界会话内可见；其他成员未在场。〕\n" + b.charDayPresence : "")
       + (b.radioLife ? "\n〔以下事件属于 " + c.name + " 本人经历；其他成员只知道自己实际在场的部分，现场未通知用户是否在收听。〕\n" + b.radioLife : "")
       + (b.finance ? "\n〔以下账单仅 " + c.name + " 知道；其他成员各自以自己的授权为准。这是私下得知的生活线索，由本人决定是否适合在当前场合提起。〕\n" + ledgerContextBlock(b.finance, uName) : "")
   };
@@ -8339,6 +8342,7 @@ async function generateOfflineGroup(p, ctx, session) {
       home: ctx.memberHome && ctx.memberHome[c.id],
       carry: ctx.memberCarry && ctx.memberCarry[c.id],
       archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id],
+      charDayPresence: ctx.memberCharDayPresence && ctx.memberCharDayPresence[c.id],
       radioLife: ctx.memberRadioLife && ctx.memberRadioLife[c.id],
       finance: ctx.memberFinance && ctx.memberFinance[c.id]
     }, userName, { narrative: true });
@@ -9110,7 +9114,7 @@ async function runProbeInner(p, ctx, probe) {
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。
-  const want = probe.maxTokens || (window.StylePresets && window.StylePresets.OUT_CEILING) || 65535;
+  const want = probe.maxTokens || (window.StylePresets && window.StylePresets.OUT_CEILING) || 65000;
   // 天花板给满是对的（给大了不多花钱，给小了会截断正文），但少数中转不 clamp、
   // 而是直接报 max_tokens 超模型上限。只为这一种错退一档重试，别为它给所有人降配
   //（形状照抄 StylePresets 里那个 tooBig）。
@@ -9368,7 +9372,7 @@ async function summarizeChat(p, ctx, olderMsgs) {
   const system = "把下面这段对话融进第三人称的长期记忆里。抓住关键事件、情绪变化、承诺、约定、身份/背景信息、未完成的事、以及你俩关系的推进——**宁可写长一些、保留细节，也别丢掉任何重要的人、事、约定或情感转折**。已有记忆在前，请把新内容自然融合进去，输出一份完整的新记忆（保留旧记忆里仍然重要的部分，别为了简短而删掉过往）。可以分段。只输出记忆正文。\n\n【已有记忆】\n" + (ctx.memory || "（无）");
   return await callAI(p, system + gameChatSummaryContext(olderMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], {
     // 累积记忆保留旧正文，并给思考与输出留足空间。
-    maxTokens: 65535
+    maxTokens: 65000
   });
 }
 // 止摘要漂移：只浓缩【这段新对话】成一小段，不重炼旧记忆（旧记忆由调用方原样保留、追加这段带日期的新段）
@@ -9376,7 +9380,7 @@ async function summarizeChatBlock(p, ctx, newMsgs) {
   const text = newMsgs.map(m => (m.role === "user" ? ((ctx.profile && ctx.profile.name) || "用户") : ctx.char.name) + ": " + gameChatText(m)).join("\n");
   // 七要素清单（v47.77 借 LNPhone conclusion 规范）：让浓缩段不只记事件、还留住氛围和悬着的事
   const system = "把下面这【一段新对话】浓缩成一小段第三人称记忆。这段要覆盖到（有则写、无则跳，别硬凑）：①发生的关键事件 ②聊的主题 ③两人此刻的关系氛围（如刚吵完在冷战/正在暧昧/和好如初）④用户显露的情绪与需求 ⑤角色的情绪与态度 ⑥未完成的事（答应了没做的、约好的、话说一半的）⑦红包转账礼物照片等功能事件。具体可回看、信息密度高。这是要【追加】到长期记忆末尾的一段，别逐字复述对话、别复述早前已知的旧事、别升华总结。只输出这一段正文，别加标题。";
-  return (await callAI(p, system + gameChatSummaryContext(newMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65535 })).trim();
+  return (await callAI(p, system + gameChatSummaryContext(newMsgs) + "\n\n【新对话】\n" + text, [{ role: "user", content: "整理这段记录。" }], { maxTokens: 65000 })).trim();
 }
 // ============================================================
 // storage / utils / geo / mood

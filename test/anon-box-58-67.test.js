@@ -74,7 +74,7 @@ test("出题那一枪不认识任何人——连网名签名都不给,它没有�
   assert.ok(!/runProbe|ctxFor\(|buildBundle|persona/.test(body), "出题混进了角色上下文");
   assert.ok(!/\bchar\b|characters|profile|netname|\.bio/.test(body), "把某个角色/他的网名签名递给出题那一枪了");
   assert.match(brew, /await callAI\(active, sys/, "出题不是裸调用");
-  assert.match(brew, /maxTokens: 65535/, "天花板没给满");
+  assert.match(brew, /maxTokens: 65000/, "天花板没给满");
 });
 
 test("提示词里把「不许猜身份」「不许从答案倒推」都写死", () => {

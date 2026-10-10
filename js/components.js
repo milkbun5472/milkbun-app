@@ -2416,6 +2416,31 @@ function WeatherSubRail({ places, value, onPick }) {
           on && p.terrain ? h("div", { style: { fontFamily: F_BODY, fontSize: 8.5, color: t.fog, marginTop: 1, whiteSpace: "nowrap" } }, p.terrain) : null));
     }));
 }
+// 天气页底下：让他们知道我这边的天气（x_wxShare）。只认真实位置 x_geo，选了架空世界也照真实的走。
+function WxShareBox({ userGeo, characters }) {
+  const t = useTheme();
+  const [cfg, setCfg] = useState(function () { try { return JSON.parse(localStorage.getItem("x_wxShare") || "{}") || {}; } catch (e) { return {}; } });
+  const save = function (patch) { const n = Object.assign({}, cfg, patch); setCfg(n); try { localStorage.setItem("x_wxShare", JSON.stringify(n)); } catch (e) {} };
+  const who = Array.isArray(cfg.who) ? cfg.who : [];
+  const cs = (characters || []).filter(function (c) { return c && !c.npc; });
+  const sw = function (on, fn, hook) { return h("button", Object.assign({ "data-on": on ? "1" : "0", onClick: fn, className: "active:opacity-70 shrink-0",
+    style: { width: 44, height: 26, borderRadius: 999, background: on ? t.ink : t.line, position: "relative", border: "none" } }, hook),
+    h("span", { style: { position: "absolute", top: 3, left: on ? 21 : 3, width: 20, height: 20, borderRadius: 999, background: "#fff", transition: "left .15s" } })); };
+  const row = function (title, sub, on, fn, wk) { return h("div", { className: "flex items-center", style: { gap: 12, padding: "11px 0" } },
+    h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
+    sw(on, fn, wk)); };
+  return h("div", { "data-wk": "wxshare", style: { marginTop: 22, paddingTop: 6, borderTop: "1px solid " + t.line } },
+    row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。问他天气，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { "data-wk": "wxshareon" }),
+    cfg.on ? h("div", null,
+      row("会主动提醒", "下雨、降温、特别热这种天，名单里有人会来叮嘱你一句，附一张卡片。一天最多一次", !!cfg.nudge, function () { save({ nudge: !cfg.nudge }); }, { "data-wk": "wxsharenudge" }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 8px" } }, who.length ? "只有勾了的人知道" : "现在是所有人都知道；勾几个就只有他们知道"),
+      h("div", { className: "flex flex-wrap", style: { gap: 8 } }, cs.map(function (c) {
+        const on = who.includes(c.id);
+        return h("button", { key: c.id, "data-wk": "wxsharewho", "data-on": on ? "1" : "0", onClick: function () { save({ who: on ? who.filter(function (x) { return x !== c.id; }) : who.concat([c.id]) }); },
+          className: "flex items-center active:opacity-70", style: { gap: 6, padding: "4px 10px 4px 4px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? "rgba(0,0,0,.04)" : "transparent" } },
+          h(Avatar, { character: c, size: 22, radius: 999 }), h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, c.remark || c.name));
+      }))) : null);
+}
 function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   const t = useTheme();
   const places = weatherPlaceList(userGeo, characters, worlds);
@@ -2512,7 +2537,8 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, flex: 1 } }, wmoZh(x.code)),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, x.lo + "°"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, x.hi + "°"));
-      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"))), document.body) : null;
+      }))) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, padding: "24px 0", textAlign: "center" } }, "拉预报中…"),
+    h(WxShareBox, { userGeo, characters }))), document.body) : null;
   return h(React.Fragment, null, detail, h(GlassCard, { onClick: openDetail, style: { padding: "10px 12px", cursor: "pointer", height: "100%", display: "flex", flexDirection: "column", justifyContent: "center" } },
     w ? h("div", null,
       h("div", { className: "flex items-center gap-1.5" },
@@ -7965,6 +7991,42 @@ function Messages({
   }, zh)))));
 }
 // 我发朋友圈：正文 + 可选配图(文字描述) + 可见范围
+// 天气小卡片（群友 2026-10-10 许愿；她：「卡片做好看点」）。
+//   上半截是一小块天：底色照现在的天象走（晴＝暖、雨＝灰蓝、雪＝冷白、阴＝雾灰、雷＝深靛），
+//   大字气温 + 天象图标 + 地点；下半截是一张白纸，TA 那一句叮嘱手写在上面。
+//   数字全是代码照缓存填的，模型只给那一句（engine 的 weatherFor 那一份）。
+const WX_SKY = {
+  sun:    ["#ffd79a", "#ffb37a", "#f39a74", "#7a3f1f"],
+  partly: ["#cfe4f7", "#9fc6ea", "#7fa9d6", "#25415f"],
+  cloud:  ["#dfe3e8", "#b9c1cb", "#98a3b0", "#2f3a46"],
+  fog:    ["#e9e6e1", "#cfcac2", "#b3ada4", "#3d3832"],
+  rain:   ["#a9bfd3", "#7d98b3", "#5d7895", "#f3f7fb"],
+  storm:  ["#6f6a93", "#4c4775", "#2f2b52", "#f2f0ff"],
+  snow:   ["#f4f8fc", "#dbe7f2", "#bfd2e4", "#2c4458"]
+};
+function WeatherChatCard({ m, character }) {
+  const t = useTheme();
+  const x = m.wx || {}, kind = typeof wmoKind === "function" ? wmoKind(x.code) : "partly";
+  const sky = WX_SKY[kind] || WX_SKY.partly, ink = sky[3];
+  const zh = typeof wmoZh === "function" ? wmoZh(x.code) : "";
+  return h("div", { "data-wk": "wxcard", "data-kind": kind, style: { width: 232, borderRadius: 18, overflow: "hidden", boxShadow: "0 6px 18px -8px rgba(40,50,70,.35)", background: "#fffdf9" } },
+    h("div", { "data-wk": "wxcardsky", style: { position: "relative", padding: "14px 16px 16px", background: "linear-gradient(160deg," + sky[0] + " 0%," + sky[1] + " 55%," + sky[2] + " 100%)", color: ink } },
+      // 天上一圈淡淡的光晕：晴天是太阳，别的天是一团云影
+      h("div", { style: { position: "absolute", right: -26, top: -30, width: 120, height: 120, borderRadius: 999, background: "radial-gradient(circle, rgba(255,255,255,.55), rgba(255,255,255,0) 70%)" } }),
+      h("div", { className: "flex items-center", style: { gap: 5, fontFamily: F_BODY, fontSize: 11.5, opacity: .85, position: "relative" } },
+        h("span", null, x.place || "你那边"), h("span", { style: { opacity: .6 } }, "· 现在")),
+      h("div", { className: "flex items-end justify-between", style: { marginTop: 6, position: "relative" } },
+        h("div", null,
+          h("div", { "data-wk": "wxcardtemp", style: { fontFamily: F_DISPLAY, fontSize: 46, lineHeight: 1, letterSpacing: "-0.02em" } }, (x.t != null ? x.t : "--") + "°"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13, marginTop: 6 } }, zh)),
+        h("div", { style: { paddingBottom: 4 } }, h(GWx, { kind: kind, size: 52, color: ink }))),
+      h("div", { className: "flex items-center", style: { gap: 8, marginTop: 12, fontFamily: F_BODY, fontSize: 11.5, position: "relative" } },
+        h("span", { style: { padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.28)" } }, "↑" + x.hi + "°  ↓" + x.lo + "°"),
+        x.pp != null ? h("span", { "data-wk": "wxcardrain", style: { padding: "3px 9px", borderRadius: 999, background: "rgba(255,255,255,.28)" } }, "降雨 " + x.pp + "%") : null)),
+    m.say ? h("div", { "data-wk": "wxcardsay", style: { padding: "11px 15px 13px", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.6, color: "#3b3631", borderTop: "1px dashed rgba(120,110,95,.25)" } },
+      h("div", { style: { fontSize: 10, letterSpacing: ".12em", color: "#a39a8d", marginBottom: 3 } }, (character ? (character.remark || character.name) : "TA") + " 说"),
+      m.say) : null);
+}
 // 朋友圈投票：每个选项一条，条有多长＝几票，底下写谁投的
 function MomentPoll({ poll, characters }) {
   const t = useTheme();
@@ -9073,6 +9135,9 @@ function useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, w
   }, [locateAt && locateAt.key]);
 }
 function ChatThread({
+  dirNotes,       // 线上导演便签（她 2026-10-10）：跟旁白放一起，旁白模式里切「往后的方向」
+  onAddDirNote,
+  onDelDirNote,
   locateAt,       // 从别处点「看来源」带进来的 {ts,key}：打开后滚到那个时刻的那条并闪一下（我的钱包·凭证，她 2026-10-09）
   onLocated,
   onHalfWin,
@@ -9179,6 +9244,10 @@ function ChatThread({
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
+  // 旁白模式里分两档：此刻发生了什么（旁白卡）／往后的大概方向（导演便签，只给模型看，管两轮或整场）
+  const [narrKind, setNarrKind] = useState("event");
+  const [dirLong, setDirLong] = useState(false);
+  const dirMode = chatMode === "narr" && narrKind === "dir" && !!onAddDirNote;
   const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
@@ -9394,6 +9463,7 @@ function ChatThread({
   // 送信：对话=入队消息；旁白注入=注入一段旁白；OOC=直接问模型
   const send = (v) => {
     if (!v || sending) return;
+    if (dirMode) { onAddDirNote(v, dirLong); return; }
     if (chatMode === "narr") sendRich({
       role: "narration",
       kind: "narration",
@@ -9406,6 +9476,7 @@ function ChatThread({
   // 让 TA 回复：对话/旁白模式都触发一次生成；旁白模式先把输入当旁白注入
   const reply = (pending) => {
     if (sending) return;
+    if (dirMode) { if (pending) onAddDirNote(pending, dirLong); onReply(""); return; }
     if (chatMode === "narr") {
       if (pending) sendRich({
         role: "narration",
@@ -9779,6 +9850,11 @@ function ChatThread({
     }, h(OfflineLogCard, { m: m, t: t, sel: selMode && selIds.includes(i), onResummarize: onResummarizeOffline ? () => onResummarizeOffline(i) : null, onRestore: onRestoreOffline ? () => onRestoreOffline(i) : null }));
     // ⚠️TA 替她记的备忘录/账本卡也是 role:"system"（kind:"recorded"）——不许被这里吞成一个空的「系统」小框（她 2026-09-29「不行啊宝宝」）
     if (m.kind === "ledgershare") return cardRow(i, m, h("div", { className: "flex justify-end" }, h(RecordedCard, { m })));
+    if (m.kind === "weathercard" && m.wx) return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start",
+        onTouchStart: selMode ? undefined : () => startPress(i), onTouchEnd: endPress, onMouseDown: selMode ? undefined : () => startPress(i), onMouseUp: endPress, onMouseLeave: endPress,
+        onClick: selMode ? () => toggleSel(i) : undefined },
+      h(Avatar, { character: character, size: 40, radius: 10 }),
+      h(WeatherChatCard, { m: m, character: character }));
     if (m.kind === "recorded") return h("div", { key: i, className: "py-1 flex items-start gap-2 justify-start" },
       h(Avatar, { character: character, size: 40, radius: 10 }),
       h(RecordedCard, { m: m }));
@@ -10207,6 +10283,17 @@ function ChatThread({
     "《" + (pendingFic.subject || "这一篇") + "》"),
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
   quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
+  // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
+  chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
+    h("div", { className: "flex items-center gap-2 flex-wrap" },
+      [["event", "此刻发生了什么"], ["dir", "往后的方向"]].map(([k, lb]) => h("button", { key: k, "data-wk": "narrkind", "data-on": narrKind === k ? "1" : "0", onClick: () => setNarrKind(k), className: "active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 12, minHeight: 30, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (narrKind === k ? t.ink : t.line), color: narrKind === k ? t.ink : t.fog, background: narrKind === k ? t.bg : "transparent" } }, lb)),
+      dirMode ? h("button", { "data-wk": "dirlong", onClick: () => setDirLong(v => !v), className: "active:opacity-70 ml-auto",
+        style: { fontFamily: F_BODY, fontSize: 11.5, minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } }, dirLong ? "整场有效 · 轻触改两轮" : "管接下来两轮 · 轻触改整场") : null),
+    (dirNotes || []).filter(n => n && (n.long || Number(n.remaining) > 0)).map(n => h("div", { key: n.id, "data-wk": "dirnote", className: "flex items-center gap-2", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.5 } },
+      h("span", { style: { flexShrink: 0, color: t.fog, fontSize: 11 } }, n.long ? "整场" : "还剩 " + n.remaining + " 轮"),
+      h("span", { className: "flex-1 min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.text),
+      onDelDirNote ? h("button", { onClick: () => onDelDirNote(n.id), "aria-label": "删掉这条", className: "active:opacity-60 shrink-0", style: { width: 28, height: 28, color: t.fog, background: "none", border: "none", fontSize: 14 } }, "×") : null))) : null,
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     "data-wk": "composer",
@@ -10243,7 +10330,7 @@ function ChatThread({
     }
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     inputProps: { "data-wk": "chatinput" },
-    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
+    placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
       fontFamily: F_BODY,
       fontSize: 14,
@@ -10407,7 +10494,7 @@ function ChatThread({
   }, h(ModePicker, {
     modes: [
       ["chat", "说话", characterText(character, "一条一条发过去，他在那头看手机")],
-      ["narr", "旁白", characterText(character, "不是你说的话——下雨了、灯灭了、三天后。写完他就当已经发生")],
+      ["narr", "旁白", characterText(character, "不是你说的话——下雨了、灯灭了、三天后，写完他就当已经发生；也能写往后的大概方向，让他顺着聊过去")],
       ["ooc", "出戏", characterText(character, "绕过他，直接跟演他的那位说（OOC）")]
     ],
     elsewhere: [["offline", "见面", "不隔着屏幕了，写你人在场做什么"]],
@@ -15427,7 +15514,7 @@ function OfflineMode({
       // 上限也不是硬性规定，给他们多点输出的机会」——拉到 OUT_CEILING（65535，
       // 中转会自行 clamp 到模型上限）。这是天花板不是花销：按次计费，
       // 给宽了一分钱也多花不到，给窄了才会写一半停住（施工规则/max-tokens-floor）。
-      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax }))),
+      h(Slider, { value: sMax, min: 1000, max: 65000, step: 1000, onChange: setSMax }))),
       offShow("write", "floor", "高级 · 最低字数目标",
     h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "高级 · 最低字数目标",
       note: "只有明确需要字数时再开；固定下限可能增加扩写感，0 为关闭。" })),
@@ -16267,7 +16354,7 @@ function GroupOfflineMode({
         h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "单次输出上限"),
         h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sMax + " tok")),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10 } }, "多人线下一次要写好几个人的戏，容易被截断——比单聊调高些（模型也要支持）。这是天花板不是硬性要求：给宽了不会逼着把简单场景写长，给窄了才会写一半停住。"),
-      h(Slider, { value: sMax, min: 1000, max: 65535, step: 1000, onChange: setSMax }))),
+      h(Slider, { value: sMax, min: 1000, max: 65000, step: 1000, onChange: setSMax }))),
       gShow("write", "floor", "输出下限（约字数）",
     h(WordFloorSection, { value: sMinW, onChange: setSMinW, title: "输出下限（约字数）",
       note: "让每次至少写这么多字（>0 生效）。" })),

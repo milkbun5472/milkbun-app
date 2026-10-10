@@ -17,3 +17,13 @@ export function headSafeTarget(head,target,margin=1.1){
   if(local.length()<margin){local.y=Math.min(local.y,-margin);return head.localToWorld(local);}
   return target;
 }
+
+// A held tool shares one grip-to-contact transform in every activity.
+export function pointToolAt(tool,parent,grip,contact,length,{scale=true}={}){
+ tool.position.copy(parent.worldToLocal(grip.clone()));tool.rotation.set(0,0,0);tool.scale.set(1,1,1);
+ if(!contact)return;
+ const point=parent.worldToLocal(new T.Vector3(contact.x,contact.y,contact.z)),to=point.sub(tool.position);
+ if(to.lengthSq()<1e-8)return;
+ tool.quaternion.setFromUnitVectors(new T.Vector3(0,-1,0),to.clone().normalize());if(scale)tool.scale.y=to.length()/length;
+ return to.length();
+}

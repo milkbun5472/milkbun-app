@@ -22,6 +22,6 @@ test("长人设：先建档，再一段一段 append 接在最后；秋秋那一
   assert.match(asst, /append: x\.append === true \|\| x\.append === "true",/);
   assert.match(asst, /if \(p\.append && !p\.find\) \{/);
   assert.match(asst, /text: \(cur \? cur \+ "\\n\\n" : ""\) \+ String\(p\.text \|\| ""\)/);
-  assert.match(asst, /maxTokens: 65535, timeout: 600000, stream: true/);
+  assert.match(asst, /maxTokens: 65000, timeout: 600000, stream: true/);
   assert.match(asst, /【长人设边写边改】/);
 });

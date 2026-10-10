@@ -167,7 +167,7 @@
       : mode === "auto-ask" ? "（她转过头来，想听你说两句看到这儿的想法）"
       : mode === "frame" ? ((text ? text + "\n" : "") + "（她把这一帧画面给你看）")
       : text;
-    const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { maxTokens: 65535 });
+    const raw = await callAI(p.active, sys, [{ role: "user", content: msg, imageDataUrls: frameUrl ? [frameUrl] : undefined }], { maxTokens: 65000 });
     return parseSay(raw);
   }
   // 把最早那一截折进这部片子自己的记录。⚠️它不是记忆：折完还是只活在这张票上，出门只有「记住」那一条路（同一起读）
@@ -180,7 +180,7 @@
       + "收成一小段【你自己会记住的记录】（第一人称，两三句）：你俩各自怎么看那一段、在哪儿意见不合、她提起的事、你们之间的小默契。别复述剧情，别写影评，别替她总结。"
       + (film.talkDigest ? "\n\n【之前已经记下的（不要重写它，只写这一次新添的）】\n" + film.talkDigest : "")
       + "\n\n只输出这一小段本身。";
-    const seg = String(await callAI(p.active, sys, [{ role: "user", content: text }], { maxTokens: 65535 }) || "").trim();
+    const seg = String(await callAI(p.active, sys, [{ role: "user", content: text }], { maxTokens: 65000 }) || "").trim();
     if (!seg) return String(film.talkDigest || "");
     return (window.ChatRooms && window.ChatRooms.digestMerge)
       ? window.ChatRooms.digestMerge(film.talkDigest || "", seg)
@@ -200,7 +200,7 @@
       + (since ? "【你之前已经把这部片子记过一次了】上面那段里你当时记过的部分别再写一遍，只写那之后新发生的——看到了哪儿、新聊出来的看法和你俩的新默契。\n\n" : "")
       + "把下面这次「你和 " + uName + " 一起看《" + (film.title || "一部电影") + "》」的经历，浓缩成 1~3 句会长期记住的事实（你的第一人称）："
       + "你们看了什么、看到哪儿、你对片子的关键看法、你俩看的时候碰出的话或默契、Ta 让你印象深的反应。只写沉淀下来的东西，别流水账、别复述剧情。只输出这几句话本身。";
-    return String(await callAI(p.active, sys, [{ role: "user", content: talk || "（这次新聊的都已经收进上面那段记录里了）" }], { maxTokens: 65535 }) || "").trim();
+    return String(await callAI(p.active, sys, [{ role: "user", content: talk || "（这次新聊的都已经收进上面那段记录里了）" }], { maxTokens: 65000 }) || "").trim();
   }
 
 

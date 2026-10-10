@@ -111,7 +111,7 @@ test("新开的四枪 maxTokens 都开满（施工规则/max-tokens-floor.md）"
   ["drop", "dual", "seed", "flow"].forEach(actName => {
     const i = app.indexOf('if (card.act === "' + actName + '")');
     assert.ok(i > 0, actName);
-    assert.match(app.slice(i, i + 2400), /maxTokens: 65535/, actName);
+    assert.match(app.slice(i, i + 2400), /maxTokens: 65000/, actName);
   });
 });
 

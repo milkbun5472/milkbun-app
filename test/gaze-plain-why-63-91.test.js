@@ -78,7 +78,7 @@ test("界面那两行说人话，而且说清还试不试", () => {
 
 // 这一枪一次要写十块，窄上限里还要扣掉思考预算——想完就没配额写正文＝空返回，
 // 界面上就是那句「模型没按格式答」。她 2026-09-05 亲口点名这一处开满。
-test("建卡和复看那两枪开满 65535", () => {
+test("建卡和复看那两枪开满 65000", () => {
   // v64.47：这两枪都改走 gazeCall 了（被线路拦下来时会去掉聊天记录再打一次），
   // 于是 maxTokens 从两个调用点搬进了那一处——要钉的还是同一件事，钉的地方换了。
   const seed = cut(app, "  const seedGazeFor = async (char, auto)", "  const maybeAutoSeedGaze");
@@ -97,5 +97,5 @@ test("建卡和复看那两枪开满 65535", () => {
   //   缩的是【料】，不是【写多少】：每一级都拿同一个上限。
   const call = cut(app, "  const gazeCall = async (p, levels, onFallback)", "  const [gazeReviewBusy");
   const all = [...call.matchAll(/maxTokens:\s*(\d+)/g)].map(m => m[1]);
-  assert.deepEqual(all, ["65535"], "那两枪的 maxTokens 被往下压了：" + all.join(","));
+  assert.deepEqual(all, ["65000"], "那两枪的 maxTokens 被往下压了：" + all.join(","));
 });

@@ -23,6 +23,11 @@
       {
         "id": "read",
         "action": "read"
+      },
+      {
+        "id": "cook",
+        "label": "厨房料理",
+        "action": "cook"
       }
     ]
   },

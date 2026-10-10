@@ -52,7 +52,8 @@ test('同一工作段持续有托腮和抬眼动作，休息有舒展，睡眠�
   for(const gesture of ['read','eat','tea','sleep'])assert.equal(activityPose({action:gesture,gesture},9).gesture,gesture);
 });
 test('示例单独提供全部基础动作，不调用writer或替角色排事情',()=>{
-  const f=setup(),n=f.writes.length;assert.equal(f.K.DEMO.id,'__char_day_demo');assert.equal(f.K.DEMO_ROWS.length,5);
+  const f=setup(),n=f.writes.length;assert.equal(f.K.DEMO.id,'__char_day_demo');assert.equal(f.K.DEMO_ROWS.length,6);
+  const actions=f.K.DEMO_ROWS.map(row=>f.K.presentation(row).action);for(const kind of ['meal','read','cook','tea','walk','sleep'])assert.ok(actions.includes(kind));
   for(const row of f.K.DEMO_ROWS)assert.ok(f.K.presentation(row).gesture);assert.equal(f.writes.length,n);
 });
 test('主App接真实日程与已有陪伴样貌，日历使用现有角色入口并正确返回小世界',()=>{
@@ -97,6 +98,14 @@ test('明确在家与外食分别去新小家或小店，日程原文决定位�
   assert.equal(f.K.presentation({type:'work',title:'整理报告',location:'工位'}).map,'dayWork');
   assert.equal(f.K.presentation({type:'social',title:'聊聊天',location:'咖啡店'}).map,'dayCafe');
 });
+test('生活控制与气质装修共用串行writer，快速手动自动切换保留最后选择和他人的存档',async()=>{
+ const f=setup();let stored={styles:{c2:'dusk'},visitorActivities:{c2:'drink'},future:{keep:true}},inFlight=0,maximum=0;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>{maximum=Math.max(maximum,++inFlight);await new Promise(r=>setTimeout(r,4));inFlight--;return true;};
+ f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ await Promise.all([f.K.saveHomeChange('c1','visitorActivities','read'),f.K.saveHomeChange('c1','motions','calm'),f.K.saveHomeChange('c1','visitorActivities','auto')]);
+ assert.equal(maximum,1);assert.equal(stored.visitorActivities.c1,'auto');assert.equal(stored.visitorActivities.c2,'drink');assert.equal(stored.motions.c1,'calm');assert.equal(stored.styles.c2,'dusk');assert.equal(stored.future.keep,true);
+});
 
 function placeViewer(f,initialCharId){
   const states=[],refs=[],snapshots=[];let cursor=0,refCursor=0;
@@ -104,7 +113,7 @@ function placeViewer(f,initialCharId){
     h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',
     useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
-    React:{Fragment:'Fragment',useLayoutEffect:()=>{}},location:{origin:'http://test.invalid'}
+    React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
   });
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
   const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test'};
@@ -113,10 +122,16 @@ function placeViewer(f,initialCharId){
   const text=node=>node.children.map(c=>typeof c==='string'?c:typeof c==='object'?text(c):'').join('');
   const click=(tree,label)=>{const node=all(tree).find(n=>n.tag==='button'&&text(n)===label);assert.ok(node,label+'可用');node.props.onClick();};
   const send=tree=>{const frame=all(tree).find(n=>n.tag==='iframe');assert.ok(frame);frame.props.onLoad();return snapshots.at(-1);};
-  return {render,click,send,all,states};
+  return {render,click,send,all,states,refs};
 }
 
-test('新场景从选人页独立试玩，原五段示例与日程映射继续可用',()=>{
+test('场景尚未同步角色时的首条到访消息可安全接收，不把小世界打进错误页',()=>{
+ const f=setup(),viewer=placeViewer(f,'c1');let receive;
+ Object.assign(f.env,{useEffect:fn=>fn(),setInterval:()=>1,clearInterval:()=>{},addEventListener:(kind,fn)=>{if(kind==='message')receive=fn;},removeEventListener:()=>{}});
+ viewer.render();assert.equal(typeof receive,'function');assert.doesNotThrow(()=>receive({source:viewer.refs[0].current.contentWindow,origin:'http://test.invalid',data:{type:'char-day-visit',present:false,busy:false}}));assert.doesNotThrow(()=>viewer.render());
+});
+
+test('新场景从选人页独立试玩，生活示例与日程映射继续可用',()=>{
   const f=setup(),viewer=placeViewer(f,''),before=JSON.stringify(f.plans()),writes=f.writes.length;
   let tree=viewer.render();viewer.click(tree,'新场景摆位试玩');tree=viewer.render();
   const payload=viewer.send(tree);
@@ -125,7 +140,7 @@ test('新场景从选人页独立试玩，原五段示例与日程映射继续�
   viewer.click(tree,'回到日程');tree=viewer.render();const back=viewer.send(tree);
   assert.equal(back.charId,f.K.DEMO.id);assert.equal(back.presentation.map,'dayHome');
   viewer.click(tree,'下一段');const next=viewer.send(viewer.render());assert.equal(next.presentation.map,'dayWork');
-  assert.equal(f.K.DEMO_ROWS.length,5);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayLaboratory');
+  assert.equal(f.K.DEMO_ROWS.length,6);assert.equal(f.K.presentation({type:'work',title:'分析实验数据'}).map,'dayLaboratory');
   assert.equal(f.K.presentation({type:'work',title:'在图书馆看书'}).map,'dayLibrary');
   assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });
@@ -138,4 +153,15 @@ test('已有角色进入摆位保留真实样貌，返回恢复同角色原日�
   viewer.click(tree,'回到日程');const back=viewer.send(viewer.render());
   assert.equal(back.charId,'c1');assert.deepEqual(back.look,first.look);assert.deepEqual(back.presentation,first.presentation);
   assert.equal(back.slot.title,'核对军报');assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
+test('日程页卸载画面前接住临时位置，装修沿同一现场继续且不写日程或游戏存档',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
+  let tree=viewer.render();const first=viewer.send(tree),frame=viewer.all(tree).find(n=>n.tag==='iframe');
+  // Shape comes from CharDayScene.pauseState's runtime writer, never a save key.
+  const paused={charId:'c1',map:first.presentation.map,key:'current-phase',position:{x:1,z:2},target:{x:1,z:2},moving:false,yaw:.4,speed:0,dwell:12,walkTarget:0};
+  frame.props.ref({contentWindow:{CharDayScene:{pauseState:()=>paused}}});frame.props.ref(null);
+  viewer.click(tree,'今天的日程');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();
+  const edit=viewer.send(tree);assert.equal(edit.editing,true);assert.deepEqual(edit.resume,paused);
+  assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });

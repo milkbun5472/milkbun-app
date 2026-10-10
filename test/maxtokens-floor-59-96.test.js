@@ -69,7 +69,7 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
   const scr = fs.readFileSync(path.join(root, "js", "screens.js"), "utf8");
   assert.match(app, /maxTokens: Math\.min\(20000, 8500 \+ batch\.length \* 60\)/);
   const groupReply = app.slice(app.indexOf('const replyGroup ='), app.indexOf('const oocGroup ='));
-  assert.match(groupReply, /maxTokens: 65535/);
+  assert.match(groupReply, /maxTokens: 65000/);
   assert.match(eng, /maxTokens: Math\.min\(20000, 8800 \+ \(entries \|\| \[\]\)\.length \* 40\)/);
   // ⚠️同人文这两处别冻公式的【长相】。规矩只说了「不许往下调」，
   // 而冻住字面量的话，往上抬也会红——v60.97 穿书那一次正是这样：
@@ -87,7 +87,7 @@ test("算出来的那几个上限也抬过了，别留一个 min(4000, …) 在�
   //   上限是【天花板】不是【花销】——模型写多少就是多少，给宽了一分钱也多花不到。
   //   所以这里不再钉那个算式，改成钉「这个文件里没有一处低于开满值」。
   // v67.54 起多一枪：把讨论折进这本书自己的记录（foldTalk）
-  assert.equal((rd.match(/maxTokens: 65535/g) || []).length, 6, "一起读那六处没都开满");
+  assert.equal((rd.match(/maxTokens: 65000/g) || []).length, 6, "一起读那六处没都开满");
   //   （注释里写着那个被换掉的老算式、就是为了说明它为什么坏，先把整行注释剥掉再搜）
   const rdCode = rd.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
   assert.ok(!/maxTokens: Math\.min\(/.test(rdCode), "一起读里又出现了算出来的预算");

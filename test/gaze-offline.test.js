@@ -38,5 +38,5 @@ test("单聊线下按需写入，省略不计漏答", () => {
 test("群线下也接上，但闭群只进不出、配角没有印象卡", () => {
   assert.match(groupOffline, /\\"impression\\":\\"（仅角色 beat，可选）/, "beat 形状里要有这一格");
   assert.match(groupOffline, /impression: \(spk && b\.impression && typeof b\.impression === "object"\) \? b\.impression : null/);
-  assert.match(app, /if \(!gOffSealed && !_bNpc && a\.senderId && a\.impression && window\.Gaze && !isBody\(a\.senderId\)\)/);
+  assert.match(app, /if \(!gOffSealed && !_bNpc && a\.senderId && a\.impression && window\.Gaze && !(isBody|noGaze)\(a\.senderId\)\)/);
 });

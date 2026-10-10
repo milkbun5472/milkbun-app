@@ -1839,7 +1839,7 @@
       // ⚠️天花板要跟着地板走：她把最少字数调到 5000 字，而天花板还按 perFic 算，
       //   就会写到一半被截断——那才是真多花一次调用（施工规则/max-tokens-floor.md）。
       const raw = await callAI(active, sys + (extra || ""), [{ role: "user", content: userMsg }],
-        { maxTokens: 65535, timeout: 300000 });
+        { maxTokens: 65000, timeout: 300000 });
       const sp = (typeof splitCot === "function") ? splitCot(raw, !!cotT) : { cot: null, clean: raw };
       const d = parseJSONLoose(sp.clean);
       if (d && d.content) return { content: String(d.content).trim(), endHook: String(d.endHook || "").trim(),
@@ -1895,7 +1895,7 @@
       (!byChar && opts.style && opts.style.trim() ? fanficStyleTail(opts.style) : FANFIC_ANTI_CLICHE_TAIL)
       + (byChar ? charVoiceTail(byChar, opts.style) : "");
     const raw = await callAI(active, sys, [{ role: "user", content: "接着把这一章写完，至少再写 " + Math.max(200, missing) + " 字。" }],
-      { maxTokens: 65535, timeout: 300000 });
+      { maxTokens: 65000, timeout: 300000 });
     const d = parseJSONLoose(raw);
     let add = d && d.add ? String(d.add).trim() : "";
     if (!add) {

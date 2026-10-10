@@ -26,5 +26,5 @@ test('缺项补写实际请求继承文风，只补缺字段，完整时不调�
   assert.equal(result.opening, '新开场');
   assert.match(calls[0][1], /共享文风[\s\S]*轻松[\s\S]*已经写好的部分/);
   assert.deepEqual(calls[0][2], [{ role: 'user', content: '补齐缺项。' }]);
-  assert.equal(calls[0][3].maxTokens, 65535);
+  assert.equal(calls[0][3].maxTokens, 65000);
 });

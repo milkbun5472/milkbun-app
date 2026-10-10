@@ -67,8 +67,8 @@ test("闸问的是【真正会被拿去调的那条线路】", () => {
   assert.match(dis, /discussReply\(props\.active/);
 });
 
-test("这一处的 maxTokens 一律开满（她点名 65535）", () => {
+test("这一处的 maxTokens 一律开满（她点名 65000）", () => {
   // v67.54 起多一枪：foldTalk（把讨论折进这本书自己的记录）
-  assert.equal((code.match(/maxTokens: 65535/g) || []).length, 6);
+  assert.equal((code.match(/maxTokens: 65000/g) || []).length, 6);
   assert.ok(!/maxTokens: Math\.min\(/.test(code), "又出现了算出来的预算");
 });

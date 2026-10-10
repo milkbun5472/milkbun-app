@@ -20,7 +20,7 @@ test("老师说要给才出卡；kind 只认三种，没标题没内容不出", 
 
 test("正文另写一枪：料在 system、user 一句话、上限开满；题卡和出格式那几条不带进去", () => {
   const g = fn("genHandout");
-  assert.match(g, /callAI\(active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 65535 \}\)/);
+  assert.match(g, /callAI\(active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 65000 \}\)/);
   assert.match(g, /\.replace\(OUT_FMT, ""\)\.replace\(QUIZ_CARD_FMT, ""\)/);
   assert.match(g, /\.replace\(HANDOUT_FMT, ""\)/);
 });

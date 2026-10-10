@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-3d4a02824fdd16a8';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-127ffe874240ba15';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};
@@ -77,6 +77,12 @@ export function createRoomKit(){
     for(const p of structure.slice(2))box(p.id,{...p,y:.55,h:1.1,color:accent});
     box('Threshold',{z:d/2-.05,y:.1,w:1.8,h:.035,d:.22,color:'#a88b66'});
   }
+  function hingedDoor(name,{x=0,y=0,z=0,w=.5,h=1,d=.04,color='#c8d4c2',axis='z',sign=1,furniture},parent=root){
+    const pivot=replaceableGroup(name+':hinge',{x:x-(axis==='z'?sign*w/2:0),y,z:z+(axis==='x'?sign*d/2:0)},parent);
+    const door=box(name,{x:axis==='z'?sign*w/2:0,z:axis==='x'?-sign*d/2:0,w,h,d,color},pivot);
+    box(name+':handle',{x:axis==='z'?sign*(w-.08):.045,y:0,z:axis==='x'?-sign*(d-.08):.04,w:.045,h:.14,d:.045,color:'#7b9383'},pivot);
+    pivot.userData.dayDoor={furniture,swing:sign*(axis==='x'?1:-1)*.9};return pivot;
+  }
   function finish(){
     root.updateMatrixWorld(true);const meshes=[];
     root.traverse(o=>{if(o.isMesh)meshes.push(o);});
@@ -86,5 +92,5 @@ export function createRoomKit(){
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
     for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
   }
-  return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,finish,material};
+  return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,hingedDoor,finish,material};
 }

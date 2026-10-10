@@ -35,7 +35,7 @@ test('场景与位置目录从实际地图生成，所有保存位置都是已�
 test('当天实际生成调用把视觉字段发出并经原writer保存，原叙事/当地时间/角色隔离不改',async()=>{
  const source={load:'NORMAL',seqs:[row()]},f=envFor(source);f.e.saveDay('c2','2026-10-09',{seqs:[{title:'乙的私事'}]});
  assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);assert.equal(f.calls[0].api.id,'background');
- assert.match(f.calls[0].spec.instruction,/TA的一天·场景连接/);assert.match(f.calls[0].spec.schemaHint,/"world"/);assert.equal(f.calls[0].spec.maxTokens,65535);
+ assert.match(f.calls[0].spec.instruction,/TA的一天·场景连接/);assert.match(f.calls[0].spec.schemaHint,/"world"/);assert.equal(f.calls[0].spec.maxTokens,65000);
  const s=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.deepEqual(plain(s.world),source.seqs[0].world);assert.equal(s.location,'西院研究楼');assert.equal(s.place,'原世界城市');assert.equal(s.title,source.seqs[0].title);assert.equal(s.busy,2);const current=f.e.ScheduleClock.currentSlot(f.c,f.e.schedulesRef.current.c1,Date.parse('2026-10-09T10:30:00Z'));assert.deepEqual(plain(current.world),source.seqs[0].world);assert.equal(f.L.presentation(current).map,'dayLaboratory');
  assert.equal(f.writes.at(-1).key,'x_schedules');assert.equal(f.e.schedulesRef.current.c2['2026-10-09'].seqs[0].title,'乙的私事');assert.equal(source.seqs[0].seq,undefined);
 });
@@ -90,6 +90,15 @@ function looks(){
  const writer=new Function('setMoods','saveJSON','window',cut(app,'  const setMoodFor =','  const _moodSkip =')+'return setMoodFor;')(fn=>{moods=fn(moods);},(key,v)=>f.writes.push({key,value:plain(v)}),f.e);
  return {...f,api:f.e.CompanionFace,writer,moods:()=>moods,setCfg:value=>{cfg=value;},cfg:()=>cfg};
 }
+
+test('厨房料理与喝水按原日程文字进入家中实际动作点，外食与偏差保持各自地点',()=>{
+ const {L}=envFor({});
+ for(const title of ['在家做饭','下厨煮汤','做晚餐','炒菜'])assert.equal(L.presentation({title,location:'家里',type:'meal'}).spot,'cook');
+ assert.equal(L.presentation({title:'在家喝水',type:'home'}).spot,'tea');
+ assert.equal(L.presentation({title:'在餐馆吃午饭',location:'餐馆',type:'meal'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'整理资料',world:{scene:'dayWork',spot:'work'},deviation:{actual:'回家下厨煮汤'}}).spot,'cook');
+ assert.equal(L.presentation({title:'做晚餐',world:{scene:'dayHome',spot:'cook'}}).action,'cook');
+});
 test('表情由真实心情writer读入：自动脸与陪伴一致，完整颜色/体型/服饰不丢',()=>{
  const f=looks();f.writer('c1',{label:'眉开眼笑',ts:f.e.Date.now()});f.writer('c2',{label:'委屈',ts:f.e.Date.now()});
  const before=JSON.stringify(f.cfg()),l=f.api.lookFor(f.c,f.moods());assert.equal(l.face,'happy');assert.equal(l.hair,'korean');assert.equal(l.dims.head,1.15);assert.equal(l.wardrobe.academy.cloth,'#a8be83');assert.equal(f.api.lookFor({id:'c2'},f.moods()).face,'sad');assert.equal(JSON.stringify(f.cfg()),before);assert.equal(f.writes[0].key,'x_moods');

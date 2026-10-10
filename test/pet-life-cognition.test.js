@@ -7,7 +7,7 @@ test('manual and event pet replies share the living premise, full persona/permit
  const before=JSON.stringify(world),character={name:'甲',persona:'完整人设，不一定喜欢照料'},history=[{role:'user',content:'过去说过的原话'}];
  for(const event of [false,true]){await c.FairyGardenService.ask({active:{},character,profile:{name:'你'},world,history,text:'看看它',event});const sys=c.calls.at(-1)[1];assert.ok(sys.includes(c.FairyWorldDialogs.cognition('pets')));assert.ok(sys.includes(character.persona));assert.ok(sys.includes('尚在路上'));assert.ok(sys.includes('拒绝'));assert.ok(sys.includes('"wallet":42'));assert.ok(sys.includes('carrying'));assert.ok(sys.includes(history[0].content));for(const stale of ['宠物小游戏','一起生活在魔法庭院','刚发生的游戏事件','游戏中的生活按游戏经历'])assert.ok(!sys.includes(stale),stale);assert.ok(sys.includes(event?'刚发生的生活小事':'对方刚说'));}
  assert.equal(JSON.stringify(world),before);
- c.calls=[];await c.FairyGardenService.ask({active:{},character,profile:{name:'你'},world,history,text:'你好',mainline:'这间房准许的上下文'});assert.ok(c.calls[0][1].includes('这间房准许的上下文'));assert.equal(c.calls[0][3].maxTokens,65535);
+ c.calls=[];await c.FairyGardenService.ask({active:{},character,profile:{name:'你'},world,history,text:'你好',mainline:'这间房准许的上下文'});assert.ok(c.calls[0][1].includes('这间房准许的上下文'));assert.equal(c.calls[0][3].maxTokens,65000);
 });
 test('true seat receives the same factual life setting without changing the original world or action contract',async()=>{
  let ticket;const c=service({Cloud:{},CCSeat:{ask:async x=>{ticket=x;return {reply:['我来摸摸。'],action:{kind:'pet',petId:'active'}};}}}),world={map:'pet-home',activePetId:'active'},before=JSON.stringify(world);

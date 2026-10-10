@@ -84,7 +84,7 @@ const PHONE_LABEL = PHONE_APPS.reduce((o, a) => (o[a.key] = a.zh, o), {});
 // 音乐读「一起听」里归到TA名下的那张歌单（点开就能放）。
 // 以前这两个各自另生成一份，等于同一个人有两套互不相干的论坛痕迹和歌单，
 // 而且手机里那份点不动、也不会因为TA真去发帖而变。
-const PHONE_OUT_CEILING = 65535;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
+const PHONE_OUT_CEILING = 65000;   // 同 StylePresets.OUT_CEILING；中转会自行 clamp 到模型上限
 // 日历接的是 App 里那份真的（x_calendar 里TA自己的那格 + 带时刻的日程 + TA答应过她的事），
 // 不再另生成一份假的——翻到角色日历上真的写着某一天有事，比生成出来的任何一条都重。
 const PHONE_LIVE_KEYS = ["forum", "music", "calendar", "anon", "timeline", "astro"];

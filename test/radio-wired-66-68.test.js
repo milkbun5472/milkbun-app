@@ -57,7 +57,7 @@ test("扫过去的那几格不各花一次钱", () => {
 
 test("三张单子都是「料全放 system、user 只留一句触发」", () => {
   const seg = app.slice(app.indexOf("const radioAsk = async"), app.indexOf("const genRadioDrift"));
-  assert.match(seg, /callAI\(bgActive \|\| active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 65535, tag: "电台" \}\)/);
+  assert.match(seg, /callAI\(bgActive \|\| active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 65000, tag: "电台" \}\)/);
   assert.ok(seg.indexOf("maxTokens: 2600") < 0 && seg.indexOf("maxTokens: 8000") < 0, "天花板压低了会截断正文");
   assert.match(seg, /没解析出东西。它回的是：/, "只说「解析失败」是个死胡同，报错里得带着我没看懂的那个东西本身");
 });

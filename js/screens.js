@@ -2074,6 +2074,12 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   const [editing, setEditing] = useState(null); // null | {__new, charIds} | entry
   const [query, setQuery] = useState("");
   const [scopeFilter, setScopeFilter] = useState("all");
+  // 三种翻法（她 2026-10-10：「想看按角色分」「世界观、共同经历这种也要 filter」）：
+  //   去向＝那排章；角色＝一排脸（「共用」＝没绑人的）；分类＝一排分类。搜索和启停在三种下都管用。
+  const [view, setView] = useState("scope");
+  const [charFilter, setCharFilter] = useState("all");
+  const [catFilter, setCatFilter] = useState("all");
+  const [pubOpen, setPubOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState("all");
   const list = entries || [];
   const enabledN = list.filter(e => e.enabled !== false && String(e.payload || "").trim()).length;
@@ -2081,13 +2087,24 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
   const openNew = charIds => setEditing({ __new: true, charIds: charIds || [] });
   const charNames = ids => (ids || []).map(id => { const c = (characters || []).find(x => x.id === id); return c && (c.remark || c.name); }).filter(Boolean);
   const q = query.trim().toLowerCase();
-  const shown = list.filter(e => {
+  const catOf = e => LORE_CATEGORIES.includes(e.category) ? e.category : "其他";
+  const isPub = e => !(e.charIds || []).length;
+  const pickedChar = view === "char" && charFilter !== "all" && charFilter !== "pub" ? charFilter : "";
+  const base = list.filter(e => {
     if (statusFilter === "on" && e.enabled === false) return false;
     if (statusFilter === "off" && e.enabled !== false) return false;
-    if (scopeFilter !== "all" && !loreScopeEnabled(e, scopeFilter)) return false;
     if (!q) return true;
     return [e.title, e.payload, e.keyword, e.category, charNames(e.charIds).join(" ")].join(" ").toLowerCase().includes(q);
+  });
+  const shown = base.filter(e => {
+    if (view === "scope" && scopeFilter !== "all" && !loreScopeEnabled(e, scopeFilter)) return false;
+    if (view === "cat" && catFilter !== "all" && catOf(e) !== catFilter) return false;
+    if (view === "char" && charFilter === "pub" && !isPub(e)) return false;
+    if (pickedChar && !(e.charIds || []).includes(pickedChar)) return false;
+    return true;
   }).sort((a, b) => (b.priority || 3) - (a.priority || 3) || (b.ts || 0) - (a.ts || 0));
+  // 选了一个角色：只绑给 TA 的在上面，TA 也看得到的共用那几条收在底下
+  const pubShown = pickedChar ? base.filter(isPub).sort((a, b) => (b.priority || 3) - (a.priority || 3) || (b.ts || 0) - (a.ts || 0)) : [];
   // 一排章：去的那几处盖上，没去的留着空格。全没盖＝这条根本发不出去，整排转红
   const stampRow = e => {
     const none = !LORE_SCOPE_UI.some(x => loreScopeEnabled(e, x[0]));
@@ -2134,9 +2151,26 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
           style: { width: 40, height: 24, borderRadius: 999, border: "none", background: off ? t.line : t.ink, position: "relative", marginTop: 2 } },
           h("span", { style: { position: "absolute", width: 18, height: 18, borderRadius: 999, background: t.bg2, top: 3, left: off ? 3 : 19, transition: "left .18s" } }))));
   };
+  // 一枚筛选章：三种翻法共用这一个形状（角色那排章面换成脸）
+  const stampChip = (key, on, glyph, zh, onClick, face) => h("button", { key: key, "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: onClick, className: "active:opacity-65 shrink-0",
+    style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
+    face ? h("span", { style: { borderRadius: 6, padding: 1, border: "1.5px solid " + (on ? t.ink : "transparent"), display: "flex" } }, glyph)
+      : h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
+        background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, glyph),
+    h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", maxWidth: 64, overflow: "hidden", textOverflow: "ellipsis", color: on ? t.ink : t.fog } }, zh));
+  // 翻法＝活页夹的分隔页标签：一排从纸边伸出来的小舌头，翻到的那张满高、跟底下那页连成一张纸
+  const loreViewTabs = () => h("div", { style: { display: "flex", gap: 4, marginTop: 12, borderBottom: "1px solid " + t.ink, alignItems: "flex-end" } },
+    [["scope", "按去向"], ["char", "按角色"], ["cat", "按分类"]].map(x => {
+      const on = view === x[0];
+      return h("button", { key: x[0], "data-wk": "loreview", "data-on": on ? "1" : "0", onClick: () => setView(x[0]), className: "active:opacity-65",
+        style: { fontFamily: F_BODY, fontSize: 11.5, color: on ? t.ink : t.fog, background: on ? t.bg2 : "transparent",
+          border: "1px solid " + (on ? t.ink : t.line), borderBottom: "none", borderRadius: "7px 7px 0 0",
+          padding: on ? "7px 14px 7px" : "4px 12px 4px", marginBottom: on ? -1 : 0, position: "relative" } }, x[1]);
+    }));
   return h("div", { "data-wk": "lorepage", className: "h-full flex flex-col", style: binderSkin(t) },
     h(Head, { zh: "世界书", bg: "transparent", onBack,
-      right: h("button", { onClick: () => openNew([]), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) }),
+      right: h("button", { onClick: () => openNew(pickedChar ? [pickedChar] : []), className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 28px)" } },
       // 抬头不再是一句大标语 + 一行英文小字（那个排法换个后台照样成立）：
       // 只留一句说清这本书怎么用，和两个真的数
@@ -2147,23 +2181,25 @@ function WorldBook({ entries, characters, onBack, onSave, onDelete, trash, onRes
       // 筛选就是那排章：顶上这一排既是筛选器，也是每一条身上那些字的对照表
       h("section", { "data-wk": "lorefilter", style: { padding: "13px 0 12px", borderBottom: "1px solid " + t.line } },
         h("input", { value: query, onChange: e => setQuery(e.target.value), placeholder: "搜标题、正文、关键词或角色", style: { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 999, padding: "10px 14px", outline: "none", fontFamily: F_BODY, fontSize: 12.5 } }),
+        loreViewTabs(),
         h("div", { style: { display: "flex", gap: 9, overflowX: "auto", paddingTop: 12, WebkitOverflowScrolling: "touch" } },
-          [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x => {
-            const on = scopeFilter === x[0];
-            const ch = x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?");
-            const zh = x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]);
-            return h("button", { key: x[0], "data-wk": "lorestamp", "data-on": on ? "1" : "0", onClick: () => setScopeFilter(x[0]), className: "active:opacity-65 shrink-0",
-              style: { border: "none", background: "transparent", padding: 0, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 46 } },
-              h("span", { style: { width: 26, height: 26, borderRadius: 5, display: "flex", alignItems: "center", justifyContent: "center",
-                fontFamily: F_BODY, fontSize: 13, color: on ? t.bg : t.sub,
-                background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line) } }, ch),
-              h("span", { style: { fontFamily: F_BODY, fontSize: 9.5, lineHeight: 1.2, textAlign: "center", whiteSpace: "nowrap", color: on ? t.ink : t.fog } }, zh));
-          })),
+          view === "scope" ? [["all", "全部"]].concat(LORE_SCOPE_UI.map(x => [x[0], x[1]])).map(x =>
+            stampChip(x[0], scopeFilter === x[0], x[0] === "all" ? "全" : (LORE_STAMP[x[0]] || "?"), x[0] === "all" ? "全部" : (LORE_STAMP_ZH[x[0]] || x[1]), () => setScopeFilter(x[0])))
+          : view === "cat" ? ["all"].concat(LORE_CATEGORIES).map(c =>
+            stampChip(c, catFilter === c, c === "all" ? "全" : c.slice(0, 1), c === "all" ? "全部" : c + " " + list.filter(e => catOf(e) === c).length, () => setCatFilter(c)))
+          : [["all", "全部", "全"], ["pub", "共用", "众"]].map(x => stampChip(x[0], charFilter === x[0], x[2], x[1], () => setCharFilter(x[0])))
+            .concat((characters || []).filter(c => list.some(e => (e.charIds || []).includes(c.id))).map(c =>
+              stampChip(c.id, charFilter === c.id, h(Avatar, { character: c, size: 26, radius: 5 }), c.remark || c.name, () => setCharFilter(c.id), true)))),
         h("div", { style: { display: "flex", gap: 14, marginTop: 12 } }, [["all", "全部状态"], ["on", "只看启用"], ["off", "只看停用"]].map(x => h("button", { key: x[0], onClick: () => setStatusFilter(x[0]), className: "active:opacity-60", style: { border: "none", background: "transparent", fontFamily: F_BODY, fontSize: 10.5, color: statusFilter === x[0] ? t.ink : t.fog, borderBottom: statusFilter === x[0] ? "1px solid " + t.ink : "1px solid transparent", padding: "2px 0 4px" } }, x[1])))),
       h("div", { style: { paddingBottom: 12 } },
-        shown.length ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
+        pickedChar && !shown.length ? h("div", { style: { padding: "22px 0", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "还没有只绑给 TA 的词条") : null,
+        (shown.length || pickedChar) ? shown.map(card) : h("div", { style: { padding: "46px 0", textAlign: "center" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink } }, list.length ? "没有符合筛选的词条" : "这里还没有设定"),
           h("button", { onClick: () => openNew([]), className: "active:opacity-60", style: { marginTop: 12, background: "transparent", border: "none", borderBottom: "1px solid " + t.ink, padding: "4px 0", fontFamily: F_BODY, fontSize: 12, color: t.ink } }, "写第一条"))),
+        pickedChar && pubShown.length ? h("section", { key: "pub" },
+          h("button", { onClick: () => setPubOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: "14px 0", fontFamily: F_BODY, fontSize: 12, color: t.sub, borderTop: "1px solid " + t.line, width: "100%", textAlign: "left" } },
+            (pubOpen ? "▾ " : "▸ ") + "TA 也看得到的共用词条 · " + pubShown.length + " 条"),
+          pubOpen ? pubShown.map(card) : null) : null,
       (trash && trash.length) ? h("section", { style: { borderTop: "1px solid " + t.line, padding: "14px 0 6px" } },
         h("button", { onClick: () => setTrashOpen(v => !v), className: "active:opacity-65", style: { background: "transparent", border: "none", padding: 0, fontFamily: F_BODY, fontSize: 12, color: t.sub } },
           (trashOpen ? "▾ " : "▸ ") + "最近删除 · " + trash.length + " 条（留 30 天）"),
@@ -13487,7 +13523,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace }) {
+function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -13495,6 +13531,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   // 所以这一层提到 app.js 去拿着：详情页只是盖在上面，退回来还站在原地。
   const setView = onView || (() => {});
   view = view || "main"; // main | cards
+  // 固定进出（她 2026-10-10）：工资、零花钱、房租……正在改的那一条
+  const [rcEdit, setRcEdit] = useState(null);
+  const recurWhenZh = r => r.freq === "week" ? "每" + ["周日", "周一", "周二", "周三", "周四", "周五", "周六"][r.day] : r.freq === "year" ? "每年 " + (r.month || 1) + " 月 " + r.day + " 号" : "每月 " + r.day + " 号";
   const [editing, setEditing] = useState(false);
   const [amt, setAmt] = useState("");
   const cardList = Array.isArray(cards) ? cards : [];
@@ -13546,7 +13585,7 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
       onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
-  const KIND_GROUPS = [["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
+  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
   const whoOf = r => {
     if (!r) return "";
@@ -13580,7 +13619,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
           h("div", null, "类别：" + ((KIND_GROUPS.find(g => g[0] === groupOf(e.kind)) || [])[1] || "其他")),
           r && r.where ? h("div", null, "出处：" + r.where + (who ? " · " + who : "")) : h("div", { style: { color: t.fog } }, "这一笔记账时还没开始存出处，只有上面那行说明。"),
           h("div", null, "这一笔：" + signed(e.delta) + " → 余额 " + money(e.after)),
-          canGo ? h("button", { "data-wk": "wallettrace", onClick: () => onTrace(r), className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "去聊天里看这一笔") : null) : null);
+          canGo ? h("button", { "data-wk": "wallettrace", onClick: () => onTrace(r), className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "去聊天里看这一笔") : null,
+          // 删掉这一笔小票（群里 2026-10-10：「我把 char 所有记录都删了，钱包还留着曾经的购买记录」）——只删记录，余额不动
+          onDelLog ? h("button", { "data-wk": "walletdel", onClick: () => requestAppConfirm("删掉这一笔记录？", "只删这一行小票，余额不变。", () => onDelLog([e.id])), className: "active:opacity-70", style: { marginTop: 8, marginLeft: canGo ? 8 : 0, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "删掉这一笔") : null) : null);
     };
     const sections = KIND_GROUPS.map(([k, name]) => {
       const rows = L.filter(e => groupOf(e.kind) === k);
@@ -13594,7 +13635,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
         shown.map(slip),
         rows.length > 3 ? h("button", { onClick: () => setAllOf(p => ({ ...p, [k]: !p[k] })), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, padding: "6px 0", minHeight: 36 } }, allOf[k] ? "收起" : "还有 " + (rows.length - 3) + " 笔 · 展开") : null);
     });
-    return h(React.Fragment, null, sum, h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"), sections);
+    return h(React.Fragment, null, sum, h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"), sections,
+      onDelLog ? h("button", { "data-wk": "walletclear", onClick: () => requestAppConfirm("清空全部流水？", "一共 " + L.length + " 笔小票全删掉，余额不变。删了找不回来。", () => onDelLog(L.map(e => e.id))),
+        className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0 4px", minHeight: 40 } }, "清空全部流水") : null);
   };
   return h("div", { "data-wk": "walletpage", "data-view": "main", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
@@ -13608,6 +13651,39 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
           h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
           h("button", { onClick: saveEdit, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
           h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
+      // 固定进出：工资、零花钱、房租、会员费……每条自己起名、定多少、多久一次；到日子本地自己记一笔，不花调用
+      onSaveRecur ? h("div", { "data-wk": "walletrecur", className: "px-5", style: { marginBottom: 14 } },
+        rcEdit ? (function () {
+          const e = rcEdit, set = p => setRcEdit(Object.assign({}, e, p));
+          const chip = (on, label, fn, key) => h("button", { key, onClick: fn, className: "active:opacity-70", style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, label);
+          const sel = (val, opts, fn) => h("select", { value: val, onChange: ev => fn(Number(ev.target.value)), style: { padding: "8px 6px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, opts.map(o => h("option", { key: o[0], value: o[0] }, o[1])));
+          const days = Array.from({ length: 28 }, (_, i) => [i + 1, (i + 1) + " 号"]);
+          return h("div", { "data-wk": "walletrecuredit", style: Object.assign({ padding: "12px 14px" }, slipSkin(t)) },
+            h("div", { className: "flex", style: { gap: 6 } }, chip(e.dir !== "out", "进账", () => set({ dir: "in" }), "in"), chip(e.dir === "out", "支出", () => set({ dir: "out" }), "out")),
+            h("div", { className: "flex items-center", style: { gap: 8, marginTop: 10 } },
+              h("input", { "data-wk": "walletrecurname", value: e.name, onChange: ev => set({ name: ev.target.value }), placeholder: e.dir === "out" ? "叫什么（房租、会员费…）" : "叫什么（工资、零花钱…）", className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { minWidth: 0, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } }),
+              h("input", { "data-wk": "walletrecuramt", value: e.amt, onChange: ev => set({ amt: ev.target.value }), type: "number", inputMode: "decimal", placeholder: "多少", className: "outline-none px-3 py-2 rounded-lg", style: { width: 96, fontFamily: F_BODY, fontSize: 14, border: "1px solid " + t.line, background: t.bg2, color: t.ink } })),
+            h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 10 } },
+              chip(e.freq === "month", "每月", () => set({ freq: "month", day: Math.max(1, e.day || 1) }), "m"), chip(e.freq === "week", "每周", () => set({ freq: "week", day: Math.min(6, e.day || 1) }), "w"), chip(e.freq === "year", "每年", () => set({ freq: "year", day: Math.max(1, e.day || 1) }), "y"),
+              e.freq === "week" ? sel(e.day, ["周日", "周一", "周二", "周三", "周四", "周五", "周六"].map((x, i) => [i, x]), v => set({ day: v }))
+                : e.freq === "year" ? h(React.Fragment, null, sel(e.month || 1, Array.from({ length: 12 }, (_, i) => [i + 1, (i + 1) + " 月"]), v => set({ month: v })), sel(e.day || 1, days, v => set({ day: v })))
+                : sel(e.day || 1, days, v => set({ day: v }))),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "从下一次开始，到日子自动记一笔；没打开 App 的那几次，下次打开补上。不往回补以前的。"),
+            h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+              h("button", { "data-wk": "walletrecursave", onClick: () => { const v = M ? M.parse(e.amt, "__me__") : Number(e.amt); if (!(v > 0)) return; onSaveRecur({ id: e.id, name: e.name, amount: v, dir: e.dir, freq: e.freq, day: e.day, month: e.month }); setRcEdit(null); }, className: "flex-1 active:opacity-70", style: { minHeight: 40, borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13 } }, "保存"),
+              e.isOld ? h("button", { onClick: () => { onSaveRecur({ id: e.id, name: e.name, del: true }); setRcEdit(null); }, className: "active:opacity-70", style: { minHeight: 40, padding: "0 14px", borderRadius: 10, border: "1px solid " + t.line, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "不要了") : null,
+              h("button", { onClick: () => setRcEdit(null), className: "active:opacity-60", style: { minHeight: 40, padding: "0 10px", color: t.fog, fontFamily: F_BODY, fontSize: 13 } }, "取消")));
+        })() : h("div", { style: Object.assign({ padding: "6px 0" }, slipSkin(t)) },
+          ["in", "out"].map(dir => {
+            const rows = (recur || []).filter(r => r && (r.dir === "out" ? "out" : "in") === dir);
+            return h("div", { key: dir, style: { padding: "6px 14px" } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0" } }, dir === "in" ? "固定进账" : "固定支出"),
+              rows.map(r => h("button", { key: r.id, "data-wk": "walletrecurrow", "data-dir": dir, onClick: () => setRcEdit({ id: r.id, isOld: true, name: r.name, amt: String(M ? M.conv(r.amount, "__me__") : r.amount), dir: r.dir, freq: r.freq, day: r.day, month: r.month || 1 }), className: "w-full text-left flex items-center active:opacity-70", style: { gap: 8, minHeight: 38 } },
+                h("span", { className: "flex-1 min-w-0 truncate", style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink } }, r.name),
+                h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, flexShrink: 0 } }, recurWhenZh(r)),
+                h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: dir === "in" ? "#3f8a54" : t.ink, flexShrink: 0, minWidth: 70, textAlign: "right" } }, (dir === "in" ? "+" : "−") + money(r.amount)))),
+              h("button", { "data-wk": "walletrecuradd", "data-dir": dir, onClick: () => setRcEdit({ id: "rc_" + Date.now().toString(36), name: "", amt: "", dir, freq: "month", day: 1, month: 1 }), className: "active:opacity-70", style: { minHeight: 34, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, dir === "in" ? "＋ 加一条进账（工资、零花钱…）" : "＋ 加一条支出（房租、会员…）"));
+          }))) : null,
       // 收在夹层里的那叠小票——按类分开放（她 2026-10-09：跟角色钱包一样的格式；每一笔都能追溯到来源）
       h("div", { className: "px-5 pb-8" }, walletLedger())));
 }
@@ -14846,7 +14922,7 @@ function closetMoreSpec(char, known, room, material, elsewhere) {
   const list = have.map(g => "· 〔" + (g.occasion || "没写场合") + "〕" + g.sets.map(x => x.name).join("、")).join("\n");
   const want = Math.max(1, Math.min(5, room));
   return {
-    maxTokens: 65535,
+    maxTokens: 65000,
     schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}",
     instruction: "给「" + nm + "」的衣柜再添几身衣服，**只写新添的那几身**。"
       + (list ? "\n\n【柜子里已经挂着这些】\n" + list

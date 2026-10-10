@@ -553,7 +553,7 @@
       "\n" + (HANDOUT_CRAFT[spec.kind] || HANDOUT_CRAFT.讲义) +
       "\n开头可以用你自己的口吻写一两句递给她的话；正文是给她看的资料，用简单的排版：大标题用 #，分节用 ##，列表用 -，重点用 **…**。" +
       "直接输出这份东西本身，不要 JSON，不要写成聊天气泡。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
     const body = String(raw || "").replace(/^\s*```[a-z]*\s*\n?/i, "").replace(/\n?```\s*$/, "").trim();
     if (!body) throw new Error("没写出东西来");
     return body;
@@ -899,7 +899,7 @@
       "她错题本里还留着的、她卡过的那些，优先做进去。" +
       "aside 是你在卡背面顺手写给她的一句，用你自己说话的样子；没什么想说的就留空。" +
       "\n只输出 JSON：{\"cards\":[{\"pointId\":\"要点 id\",\"front\":\"正面\",\"back\":\"背面答案\",\"aside\":\"你的一句或空\"}]}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
     const cards = parseFlashcards(raw, points, taken);
     if (!cards.length) throw new Error("没做出能用的卡。老师这回写的是：\n" + String(raw || "").slice(0, 320));
     return cards;
@@ -1439,7 +1439,7 @@
       "每道题只考一个点，题干自己说得清，不依赖前一道。explanation 是做完以后给她看的一句解析。" +
       "\n只输出 JSON：{\"quizzes\":[{\"point_id\":\"要点 id\",\"type\":\"choice|true_false|fill_blank\",\"prompt\":\"题干\"," +
       "\"options\":[{\"id\":\"A\",\"label\":\"选项\"}],\"answer\":\"choice 填选项 id / true_false 填 true 或 false / fill_blank 填标准答案\",\"aliases\":[\"可接受的别的写法\"],\"explanation\":\"解析\"}]}";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
     const quizzes = parseUnitTest(raw, ids);
     if (quizzes.length < 3) throw new Error("没出成一套能用的题。老师这回写的是：\n" + String(raw || "").slice(0, 320));
     return quizzes;
@@ -1729,7 +1729,7 @@
       (report.exam && report.exam.days >= 0 ? "离「" + report.exam.name + "」还有 " + report.exam.days + " 天。" : "") +
       "\n\n写一段周报评语，两三句，用你自己说话的样子。说一件这周真的做到了的事，再说一件下周最该盯的事；数字只在有用时提。" +
       "这周要是几乎没学，就照你这个人会有的反应说，不用硬夸。只输出评语正文。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
     const text = String(raw || "").replace(/^["「\s]+|["」\s]+$/g, "").trim();
     if (!text) throw new Error("老师这回没写出来，再试一次");
     return text.slice(0, 600);
@@ -2460,8 +2460,8 @@
           "\n\n用你自己说话的样子跟她说一两句，只输出这一两句。";
         const api = props.bgActive || props.active;
         // 交给后台生成跑（2026-10-01「离开这页就白跑」）：走开再回来，老师那句话还在
-        if (BG) { BG.start(drillWordKey, { label: "老师在想…" }, async () => String((await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 })) || "").trim().slice(0, 300)).catch(() => {}); return; }
-        const raw = await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535 });
+        if (BG) { BG.start(drillWordKey, { label: "老师在想…" }, async () => String((await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 })) || "").trim().slice(0, 300)).catch(() => {}); return; }
+        const raw = await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000 });
         setWord(String(raw || "").trim().slice(0, 300));
       } catch (e) { props.toast && props.toast("老师这回没接上，稍后再试"); }
       finally { if (!BG) setWordBusy(false); }

@@ -1,7 +1,7 @@
 // Learned habits belong to this pet's existing care save. Toy/rest experience
 // remains in the original counters; only actual comfortable floor spots are new.
 const bound=(v,a,b,d=0)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):d;
-import {homePoint as point} from './room-layout.mjs?v=fg-3d4a02824fdd16a8';
+import {homePoint as point} from './room-layout.mjs?v=fg-127ffe874240ba15';
 const personKey=k=>k==='you'||typeof k==='string'&&/^companion:.{1,80}$/.test(k);
 export function restoreHabitMemory(raw){return {version:1,spots:Array.isArray(raw?.spots)?raw.spots.filter(x=>point(x?.position)&&['window','quiet'].includes(x.kind)).slice(-6).map(x=>({kind:x.kind,position:point(x.position),visits:bound(x.visits,1,24,1)})):[],greetings:Object.fromEntries(Object.entries(raw?.greetings||{}).filter(([k,v])=>personKey(k)&&Number.isFinite(v)).slice(-40).map(([k,v])=>[k,bound(v,0,1e15)]))};}
 function weighted(rows,random){let n=bound(random(),0,.999999,0)*rows.reduce((n,r)=>n+r.weight,0);for(const r of rows){n-=r.weight;if(n<0)return r.id;}return rows.at(-1)?.id;}

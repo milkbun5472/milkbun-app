@@ -1,3 +1,4 @@
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-127ffe874240ba15';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation';
 const RECIPES={
@@ -9,7 +10,7 @@ const RECIPES={
  [STATION]:{waiting:[['waiting',12],['reading',2],['information',1]],reading:[['reading',12],['waiting',2],['information',1]],platform:[['platform',12],['waiting',2]],departure:[['waiting',8],['information',2],['departure',3]],luggage:[['waiting',12],['information',2]]}
 };
 const CONFIG={
- [LAB]:{entry:'entrance',prepare:p=>['bench','observation'].includes(p.spot)?'materials':'archive',tidy:p=>p.spot,exit:'entrance'},
+ [LAB]:{carry:'sample',entry:'entrance',prepare:p=>['bench','observation'].includes(p.spot)?'materials':'archive',tidy:p=>p.spot,exit:'entrance'},
  [LIB]:{entry:'exit',prepare:()=> 'choose-book',tidy:()=> 'return-book',exit:'exit',carry:'book'},
  [CLINIC]:{entry:'entrance',prepare:()=> 'casefiles',tidy:()=> 'casefiles',exit:'entrance',carry:'clipboard'},
  [STUDIO]:{entry:'entrance',prepare:()=> 'materials',tidy:p=>p.spot==='easel'?'drying':'storage',exit:'exit'},
@@ -33,6 +34,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
  const text=slot?.row?.deviation?.actual||slot?.actual||slot?.title||slot?.row?.title||'';
  const motionFor=id=>p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id);
  plain.motion=motionFor(p.spot);
+ if(['dayHome','dayCafe','dayWork'].includes(p.map)&&DAILY_MOTIONS[p.action]){plain.motion=DAILY_MOTIONS[p.action];plain.phaseLabel=DAILY_LABELS[p.action];}
  if(!recipe||!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
  const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
  if(span<=0||elapsed<0||elapsed>=span)return {...p,motion:null,carry:false};
@@ -46,6 +48,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
   const duration=recipe.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
   for(const [id,length,phaseOverride] of recipe){if(cycle<length){spot=id;phase=phaseOverride||'work';motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
  }
+ if(p.map===LAB&&['records','computer','break'].includes(spot))carry=false;
  return {...p,spot,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':LABELS[phase],motion,carry,carryType};
 }
 // Keep the visible suitcase inside available floor space, including when seated.
@@ -54,7 +57,8 @@ export function luggagePosition(map,origin,heading=0){
  for(const [x,z]of [[.30,-.14],[.30,.34],[-.30,.34],[0,.42],[0,-.42]]){const q={x:origin.x+x*c+z*s,y:map.floor,z:origin.z-x*s+z*c};if(valid(q))return q;}
  return {x:origin.x,y:map.floor,z:origin.z};
 }
-export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading}={}){
+export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,motion=null}={}){
+ if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving,motion});
  if(!stage.motion&&!stage.carry)return null;
  const carryType=stage.carryType||null,kind=moving?'carry':stage.motion||'carry';
  const origin=spot?.seat||spot?.target||map.spawn,yaw=spot?.heading||0,s=Math.sin(yaw),c=Math.cos(yaw);
@@ -65,7 +69,7 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading}={}
  let contact={x:origin.x+localX*c+.37*s,y:top+.04,z:origin.z-localX*s+.37*c};
  const work=p?.work?.[stage.spot];
  if(work){contact={x:p.x+work.x,y:map.floor+work.y,z:p.z+work.z};if(kind==='paint')target={x:contact.x,y:contact.y-.04,z:origin.z-.18};if(kind==='piano')target={...contact};}
- const task={kind,carry:!!stage.carry||kind==='select'&&[LIB,CLINIC].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
+ const task={kind,elapsed,furniture:spot?.furniture,spot:stage.spot,phase:stage.phase,carry:!!stage.carry||kind==='select'&&[LAB,LIB,CLINIC,STUDIO].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
  if(kind==='paint'){const dx=Math.sin(elapsed*2)*.03,dy=Math.cos(elapsed*1.7)*.025;task.contact.x+=dx;task.contact.y+=dy;task.target.x+=dx;task.target.y+=dy;}
  if(kind==='piano')task.leftTarget={...target,x:p.x+.12};
  if(kind==='paint')task.tool='brush';

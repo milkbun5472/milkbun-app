@@ -520,7 +520,7 @@
     const sys = "她吃了下面这些，帮她估一下热量和三大营养素。按中国家常/外卖常见的一份量来估，说的是几份就算几份。\n"
       + "拆成一样一样的吃食，每样给：name（她说的那样东西）、kcal（千卡，整数）、p / c / f（蛋白质、碳水、脂肪，克，整数）。\n"
       + "只回 JSON：{\"items\":[{\"name\":\"吃食\",\"kcal\":0,\"p\":0,\"c\":0,\"f\":0}]}\n\n她写的：" + String(text || "").slice(0, 400);
-    const raw = await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65535, tag: "health" });
+    const raw = await callAI(api, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000, tag: "health" });
     const j = typeof extractJSON === "function" ? extractJSON(raw) : null;
     const items = (j && Array.isArray(j.items) ? j.items : [])
       .map(x => ({ name: String(x && x.name || "").slice(0, 30), kcal: Math.max(0, Math.round(Number(x && x.kcal) || 0)),
@@ -1044,7 +1044,7 @@
       try {
         // 靠调用点补的那三层走公共那一份（跟星测、塔罗同一个）
         const tail = typeof probeVoiceTail === "function" ? probeVoiceTail() : "";
-        const r = await runProbe(p, ctx, { voice: true, maxTokens: 65535, tag: "health",
+        const r = await runProbe(p, ctx, { voice: true, maxTokens: 65000, tag: "health",
           instruction: "她把这一周的健康记录拿给你看。下面是记下来的数：\n" + weekFactsNow + "\n用你自己的口吻跟她说几句。" + tail,
           schemaHint: "{\"text\":\"你想对她说的话\"}" });
         const text = String(r && r.text || "").trim();

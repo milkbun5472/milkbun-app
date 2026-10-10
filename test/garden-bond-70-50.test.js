@@ -229,7 +229,7 @@ test("喜好那一枪：一样一样地排，分布由代码切；一位角色�
   assert.match(sys, /从你最想要的排到你最不想要的/);
   assert.match(sys, /不用管每一档能站几个人/, "配额不许让他自己定");
   assert.equal(messages.length, 1); assert.ok(messages[0].content.length <= 8, "user 只留一句触发");
-  assert.equal(opts.maxTokens, 65535);
+  assert.equal(opts.maxTokens, 65000);
   // 一样都没排出来不算读到
   const bad = service(async () => JSON.stringify({ items: [] }));
   await assert.rejects(() => bad.tastes({ active: {}, character: { name: "他" }, profile: {}, world: {}, catalogue: cat }), /没读出/);

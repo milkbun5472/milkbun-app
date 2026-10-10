@@ -52,7 +52,7 @@ test("78 张真实牌面使用本地图片并兼容旧存档", () => {
 test("解牌输出包含高预算的占卜师综合总结", () => {
   assert.match(tarot, /readerSummary（220~520 字）/);
   // v74.596 起走 runProbe（公共 bundle），天花板开满在 tarotProbe 那一处
-  assert.match(tarot, /schemaHint: schemaHint, maxTokens: 65535, tag: "tarot"/);
+  assert.match(tarot, /schemaHint: schemaHint, maxTokens: 65000, tag: "tarot"/);
   // v63.01 no-english-titles：中英夹着的那半英文删掉
   assert.match(tarot, /"占卜师总结"/);
   assert.match(tarot, /readerSummary: out\.readerSummary/);

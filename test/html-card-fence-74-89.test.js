@@ -50,7 +50,7 @@ test("照做条目在这一轮最末尾再说一遍：单聊、群聊都接上�
 // 她 2026-10-06 第四次：「要么很快回复气泡文字，要么卡住 time out」——大卡写不完就被 180 秒掐断
 test("有照做的那一轮：走流式、给 10 分钟、篇幅给满（单聊、群聊）", () => {
   const app = require("fs").readFileSync(require("path").join(__dirname, "..", "js", "app.js"), "utf8");
-  assert.match(app, /tag: "聊天", \.\.\.\(_doTail \? \{ maxTokens: 65535, stream: true, timeout: 600000 \} : \{\}\) \}\);/);
+  assert.match(app, /tag: "聊天", \.\.\.\(_doTail \? \{ maxTokens: 65000, stream: true, timeout: 600000 \} : \{\}\) \}\);/);
   assert.match(app, /timeout: _gDoTail \? 600000 : 180000,\n\s*\.\.\.\(_gDoTail \? \{ stream: true \} : \{\}\),/);
 });
 

@@ -31,7 +31,7 @@ assert.strictEqual(ctx.clock(3725), "1:02:05");
 // 3. 给TA的头走公共那一份；她刚说的那句不在「说过的」里再发一遍；天花板开满
 assert.match(src, /const sys = companionHead\(p\.ctxFor, char\)/);
 assert.match(src, /if \(\(mode === "reply" \|\| mode === "frame"\) && past\.length && past\[past\.length - 1\]\.role === "user"\) past\.pop\(\);/);
-assert.ok((src.match(/maxTokens: 65535/g) || []).length >= 2);
+assert.ok((src.match(/maxTokens: 65000/g) || []).length >= 2);
 assert.match(src, /imageDataUrls: frameUrl \? \[frameUrl\] : undefined/, "截的那一帧没发出去");
 // 自己开口可以不开口（不强制）
 assert.match(src, /没什么想说的就给空数组/);

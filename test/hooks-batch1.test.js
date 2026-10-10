@@ -9,7 +9,7 @@ const PAGES = {
   listen: [scr, ["listenpage", "listentitle", "listenartist", "listenctrl", "listenlyric", "listentab", "listenbtn", "listenprogress", "listensong", "listenqueue", "listenchip", "listenplaylist"]],
   wallet: [scr, ["walletpage", "walletbalance", "walletslip", "walletkin"]],
   cwallet: [scr, ["cwpage", "cwrow", "cwbalance", "cwsec", "cwline"]],
-  lore: [scr, ["lorepage", "loreintro", "lorefilter", "lorestamp", "lorecard", "loretitle", "lorebody", "loreswitch", "loreedit", "loreedlabel", "lorecat", "loresave"]],
+  lore: [scr, ["lorepage", "loreintro", "lorefilter", "loreview", "lorestamp", "lorecard", "loretitle", "lorebody", "loreswitch", "loreedit", "loreedlabel", "lorecat", "loresave"]],
   memlib: [scr, ["mempage", "memtab", "memwho", "memroom", "memdate", "memcard", "memtext"]]
 };
 for (const [pg, [src, hooks]] of Object.entries(PAGES)) {
