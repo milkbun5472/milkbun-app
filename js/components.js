@@ -13262,7 +13262,11 @@ function GameShareCard({ m, isU }) {
       res ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13 } }, res) : null),
     h("div", { style: { padding: "11px 13px 12px" } },
       h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "「" + (g.zh || "小游戏") + "」"),
-      g.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 6, paddingTop: 7, borderTop: "1px dashed " + t.line } }, g.text) : null));
+      g.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 6, paddingTop: 7, borderTop: "1px dashed " + t.line } }, g.text) : null,
+      // 彩头：盖一枚章，写清谁欠谁
+      g.stake ? h("div", { style: { marginTop: 9, padding: "7px 10px", borderRadius: 10, border: "1.5px dashed " + (t.accent || t.tint), color: t.accent || t.tint } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 2, opacity: .85 } }, "彩头" + (g.owes === "ta" ? " · 你欠我的" : g.owes === "me" ? " · 我欠你的" : "")),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, marginTop: 2 } }, g.stake)) : null));
 }
 function shareCardOf(kind) {
   if (kind === "forumshare") return ForumShareCard;
