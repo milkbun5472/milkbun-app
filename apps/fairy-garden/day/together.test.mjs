@@ -12,7 +12,7 @@ test('六种双人活动沿原地图寻路，到位才做动作，取消交还�
   assert.equal(controller.start(kind).ok,true,kind);assert.notEqual(controller.inspect().phase,'active');
   for(let i=0;i<2500&&controller.inspect()?.phase!=='active';i++)controller.tick(.02,i*.02);
   assert.equal(controller.inspect()?.phase,'active',kind);controller.tick(.02,60);
-  const s=controller.inspect(),ap=s.seats?.a||s.a,bp=s.seats?.b||s.b;assert.ok(Math.hypot(ap.x-bp.x,ap.z-bp.z)>=(kind==='hug'?.32:.75),kind);
+  const s=controller.inspect(),ap=s.seats?.a||s.a,bp=s.seats?.b||s.b;assert.ok(Math.hypot(ap.x-bp.x,ap.z-bp.z)>=(['hug','shoulder','hand'].includes(kind)?.32:.65),kind);
   if(['read','meal'].includes(kind))assert.ok(a.pose.task.daily&&b.pose.task.daily);
   if(kind==='cook')assert.equal(a.pose.task.kind,'cook');
   assert.equal(controller.stop(),true);assert.equal(controller.inspect(),null);

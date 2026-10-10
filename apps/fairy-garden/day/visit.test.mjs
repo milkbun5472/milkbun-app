@@ -73,3 +73,18 @@ test('共处互动接管和结束都保持手动，自动活动不能抢走牵�
  v.control({b:point,moving:false,kind:'hug',phase:'hold',label:'拥抱'});f.tick(1500);assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().interaction,'hug');assert.deepEqual(v.inspect().position,point);
  v.release({b:point,reason:'已结束'});f.tick(1500);assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().interaction,null);assert.deepEqual(v.inspect().position,point);
 });
+
+test('约会自动沿TA的实际移动跟随，停下、手动接管、结束约会和重新开启都明确生效',()=>{
+ MAPS.dayHome=buildSpace('dayHome',empty());const map=MAPS.dayHome,host={x:0,z:2,heading:Math.PI/2,moving:false,walkSpeed:1.6};let dating=true,pose;
+ const avatar={root:{visible:false,position:{set(x,y,z){this.x=x;this.y=y;this.z=z;},toArray(){return [this.x,this.y,this.z];}},rotation:{},userData:{}},animate(t,p){pose=p;}};
+ const v=createHomeVisit({avatar,ta:()=>host,map:()=>map,following:()=>dating}),step=(n)=>{for(let i=0;i<n;i++){const before=v.inspect().position;v.tick(.025,i*.025);assert.ok(segmentClear(before,v.inspect().position,'dayHome',visitorAvoid(host)));}};
+ assert.equal(v.join({automatic:true}),true);step(80);const before=v.inspect().position;host.moving=true;
+ for(let i=0;i<120;i++){host.x+=.025*1.6;v.tick(.025,2+i*.025);assert.ok(walkable(v.inspect().position.x,v.inspect().position.z,'dayHome'));}
+ assert.equal(v.inspect().following,true);assert.ok(v.inspect().position.x-before.x>3,'没有点击也要跟着走');assert.ok(Math.hypot(v.inspect().position.x-host.x,v.inspect().position.z-host.z)<1.4,JSON.stringify({host,visitor:v.inspect()}));assert.equal(pose.moving,true);
+ host.moving=false;step(100);assert.equal(v.inspect().busy,false);assert.ok(Math.hypot(v.inspect().position.x-host.x,v.inspect().position.z-host.z)>=.72);
+ assert.equal(v.act('manual'),true);const stopped=v.inspect().position;host.x-=2;step(300);assert.deepEqual(v.inspect().position,stopped);assert.equal(v.inspect().following,false);
+ assert.equal(v.act('auto'),true);step(180);assert.equal(v.inspect().following,true);assert.ok(Math.hypot(v.inspect().position.x-host.x,v.inspect().position.z-host.z)<1.1);
+ dating=false;assert.equal(v.inspect().following,false);v.close();assert.equal(v.inspect().present,false);assert.equal(v.inspect().route.length,0);
+ // Explicit date start can re-arm a previously saved manual choice. Arrival restores preserve takeover.
+ v.setChoice('manual');assert.equal(v.join({restore:{control:'auto'}}),true);assert.equal(v.inspect().control,'auto');v.close();assert.equal(v.join({arrival:true,restore:{control:'manual'}}),true);assert.equal(v.inspect().control,'manual');
+});

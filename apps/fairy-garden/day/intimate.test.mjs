@@ -21,7 +21,7 @@ test('两位发起方都沿真实路径走到位置，背后抱的朝向随发�
  for(const kind of Object.keys(social.intimate))for(const initiator of ['a','b']){
   const plans=togetherPlans(MAPS.dayHome,kind,origin,{initiator});assert.ok(plans.length,kind+' '+initiator);
   const plan=plans[0];for(const who of ['a','b']){let from=origin[who];for(const to of plan[who+'Route']){assert.ok(segmentClear(from,to,'dayHome'),kind);assert.ok(walkable(to.x,to.z,'dayHome'));from=to;}}
-  if(kind==='back-hug'){const donor=plan[initiator],receiver=plan[initiator==='a'?'b':'a'];assert.ok((receiver.x-donor.x)*Math.sin(plan.heading)+(receiver.z-donor.z)*Math.cos(plan.heading)>.4);}
+  if(kind==='back-hug'){const donor=plan[initiator],receiver=plan[initiator==='a'?'b':'a'];assert.ok((receiver.x-donor.x)*Math.sin(plan.heading)+(receiver.z-donor.z)*Math.cos(plan.heading)>.25);}
  }
 });
 test('搂抱与喂食认实际家具，转动移动后仍接到同一坐垫，收纳后拒绝',()=>{

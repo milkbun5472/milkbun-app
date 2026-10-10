@@ -1,0 +1,43 @@
+// Actual doll meshes, elbow/neck joints and navigation. All 25 actions, both initiators.
+const pw=require('playwright'),fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const base=process.env.DAY_URL||'http://127.0.0.1:18987',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-pair-audit';fs.mkdirSync(out,{recursive:true});
+(async()=>{const browser=await pw[engine].launch({headless:true,...(engine==='webkit'?{}:{channel:'chrome'})});try{const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));await page.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));await page.goto(base+'/apps/companion/');
+ const result=await page.evaluate(async opts=>{
+  const {build}=await(await fetch('../fairy-garden/build.json')).json(),load=n=>import('../fairy-garden/'+n+'?v='+build),T=await import('three'),{GLTFLoader}=await load('vendor/GLTFLoader.js'),{DRACOLoader}=await load('vendor/DRACOLoader.js'),{createTraveler,preloadOutfits}=await load('traveler.mjs'),{createTogether}=await load('day/together.mjs'),{registerCoreSpaces}=await load('day/spaces.mjs'),{registerDayPlaces}=await load('day/places/index.mjs'),{MAPS,walkable}=await load('world.mjs'),{PAIR_STYLES}=await load('day/motion-profile.mjs');
+  const draco=new DRACOLoader();draco.setDecoderPath('../fairy-garden/vendor/draco/');const loader=new GLTFLoader();loader.setDRACOLoader(draco);const source=(await loader.loadAsync('../fairy-garden/doll.glb')).scene;await preloadOutfits();const catalog=await(await fetch('../fairy-garden/doll.json')).json(),a=createTraveler(source,true),b=createTraveler(source),scene=new T.Scene();scene.add(a.root,b.root);registerCoreSpaces(MAPS);registerDayPlaces(MAPS);
+  const low=Object.fromEntries(catalog.dims.map(d=>[d.key,d.min])),high=Object.fromEntries(catalog.dims.map(d=>[d.key,d.max])),variants=[[{},{}],[low,low],[high,high],[low,high]],kinds=Object.keys(CharDaySocial.labels).filter(k=>!opts.kinds||opts.kinds.includes(k)),outfits=Object.keys(catalog.outfits).filter(o=>!opts.outfit||o===opts.outfit),report={cases:[],failures:[],frames:0};let time=0;
+  const bone=(d,n)=>d.root.getObjectByName(n).getWorldPosition(new T.Vector3()),delta=(x,y)=>Math.atan2(Math.sin(x-y),Math.cos(x-y)),controllers={};
+  for(const outfit of outfits)for(let v=0;v<variants.length;v++){if(opts.variant!=null&&opts.variant!==v)continue;a.setLook({outfit,hair:'korean',dims:variants[v][0]},true);b.setLook({outfit,hair:'airbang',dims:variants[v][1]},true);await Promise.all([a.ready(),b.ready()]);
+   for(const initiator of ['a','b'])for(const kind of kinds){const id=opts.scene||({drink:'dayCafe',walk:'dayStreet',stretch:'dayGym',browse:'dayMarket',wait:'dayStation',rest:'dayGym'})[kind]||'dayHome';if(!CharDaySocial.scenes[id].actions.includes(kind))continue;const map=MAPS[id],origin=id==='dayHome'?{a:{x:0,z:3.3},b:{x:0,z:4.8}}:{a:{x:map.spawn.x,z:map.spawn.z-1.4},b:{...map.spawn}};
+    const style=Object.values(PAIR_STYLES)[(v+kinds.indexOf(kind))%4];let stopped;const ctl=createTogether({a,b,map:()=>map,from:()=>origin,pair:()=>({a:style,b:style}),onStop:s=>stopped=s}),row={outfit,variant:v,kind,id,initiator,activeFrames:0,maxTurn:0,winding:[0,0],maxContactError:0,minHeadDistance:Infinity,minSpoonDistance:Infinity,maxShoulderDistance:0,minReceiverFront:Infinity,maxReceiverWristY:-Infinity,minLateral:Infinity,maxForeAft:0,maxFootTilt:0,finite:true};
+    const start=ctl.start(kind,{initiator});if(!start.ok){report.failures.push({...row,reason:start.reason});continue;}
+    for(let f=0;f<3000&&ctl.inspect()?.phase!=='active';f++){ctl.tick(.025,time+=.025);report.frames++;}
+    if(ctl.inspect()?.phase!=='active'){report.failures.push({...row,reason:'never reached active'});ctl.stop();continue;}
+    let last=null;
+    for(let f=0;f<opts.frames&&ctl.inspect();f++){ctl.tick(.025,time+=.025);report.frames++;const s=ctl.inspect(),q=s?.intimate;if(!s)break;
+     // Finite matrices are mandatory even while reaching. A poisoned wrist can survive later actions.
+     for(const d of [a,b])for(const n of ['body','neck','HeadAnchor','leftArm','rightArm','leftForearm','rightForearm','Left_hand','Right_hand','leftLeg','rightLeg']){const o=d.root.getObjectByName(n);if(!o.matrixWorld.elements.every(Number.isFinite)){row.finite=false;row.badJoint=n;}}
+     if(f<160)continue;row.activeFrames++;if(last)[a,b].forEach((d,i)=>{const turn=delta(d.root.rotation.y,last[i]);row.maxTurn=Math.max(row.maxTurn,Math.abs(turn));row.winding[i]+=turn;});last=[a.root.rotation.y,b.root.rotation.y];
+     for(const c of q?.contacts||s.contact?.contacts||[])if(kind!=='feed'||q.spoonDistance<.08)row.maxContactError=Math.max(row.maxContactError,c.error);
+     if(q?.headDistance!=null)row.minHeadDistance=Math.min(row.minHeadDistance,q.headDistance);if(q?.spoonDistance!=null)row.minSpoonDistance=Math.min(row.minSpoonDistance,q.spoonDistance);
+     if((q||s.contact)?.shoulderDistance!=null)row.maxShoulderDistance=Math.max(row.maxShoulderDistance,(q||s.contact).shoulderDistance);
+     if(kind==='back-hug'){const r=initiator==='a'?b:a;for(const side of ['left','right']){const wrist=r.root.worldToLocal(bone(r,side==='left'?'Left_hand':'Right_hand')),shoulder=r.root.worldToLocal(bone(r,side+'Arm'));row.minReceiverFront=Math.min(row.minReceiverFront,wrist.z);row.maxReceiverWristY=Math.max(row.maxReceiverWristY,wrist.y-shoulder.y);}}
+     if(['walk','arm-walk'].includes(kind)){const dx=b.root.position.x-a.root.position.x,dz=b.root.position.z-a.root.position.z,h=a.root.rotation.y;row.minLateral=Math.min(row.minLateral,Math.abs(dx*Math.cos(h)-dz*Math.sin(h)));row.maxForeAft=Math.max(row.maxForeAft,Math.abs(dx*Math.sin(h)+dz*Math.cos(h)));if(Math.abs(delta(a.root.rotation.y,b.root.rotation.y))>.002)row.parallel=false;}
+     if(!s.seats&&!['cook','stretch','walk','arm-walk'].includes(kind))for(const d of [a,b]){if(!walkable(d.root.position.x,d.root.position.z,id))row.floor=false;for(const side of ['left','right'])row.maxFootTilt=Math.max(row.maxFootTilt,Math.abs(new T.Vector3(0,0,1).applyQuaternion(d.root.getObjectByName(side+'Leg').getWorldQuaternion(new T.Quaternion())).y));}
+    }
+    const after=ctl.inspect();row.tour=after?.tour;row.ok=!!after&&row.activeFrames>0&&row.finite&&row.floor!==false&&row.maxContactError<.13&&row.maxFootTilt<.10&&row.maxTurn<.055;
+    if(!['walk','arm-walk','dance'].includes(kind))row.ok&&=row.winding.every(n=>Math.abs(n)<.03);
+    if(['kiss','kiss-cheek','kiss-forehead','forehead'].includes(kind))row.ok&&=row.minHeadDistance<.13;
+    if(kind==='feed')row.ok&&=row.minSpoonDistance<.1;
+    if(['shoulder','cuddle'].includes(kind))row.ok&&=row.maxShoulderDistance<.18;
+    if(kind==='back-hug')row.ok&&=row.minReceiverFront>.01&&row.maxReceiverWristY<.04;
+    if(['walk','arm-walk'].includes(kind))row.ok&&=row.tour.round>0&&row.minLateral>.45&&row.maxForeAft<.035&&row.parallel!==false;
+    if(!row.ok)report.failures.push(row);report.cases.push(row);ctl.stop();if(scene.getObjectByName('TogetherSpoon')?.visible||scene.getObjectByName('TogetherSnack')?.visible)throw Error('Cancelled props visible');
+    // Each disposable controller owns these props; release them after each case.
+    for(const o of [...scene.children,...a.root.children].filter(o=>['TogetherSpoon','TogetherSnack','TogetherCup'].includes(o.name))){o.traverse(n=>{n.geometry?.dispose();if(n.material)[].concat(n.material).forEach(m=>m.dispose());});o.removeFromParent();}
+   }
+  }
+  draco.dispose();return report;
+ },{outfit:process.env.RIG_OUTFIT,kinds:process.env.DAY_KINDS?.split(','),scene:process.env.RIG_SCENE,variant:process.env.RIG_VARIANT==null?null:Number(process.env.RIG_VARIANT),frames:Number(process.env.AUDIT_FRAMES)||480});
+ fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({...result,errors,ok:!result.failures.length&&!errors.length},null,2));console.log(JSON.stringify({engine,cases:result.cases.length,frames:result.frames,failures:result.failures.slice(0,12),failureCount:result.failures.length}));assert.deepEqual(errors,[]);assert.equal(result.failures.length,0,'Pair posture audit');
+ }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

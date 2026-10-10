@@ -16,10 +16,10 @@ export function makeUpperBody(model,rig,meshes,morphs){
  }
  skin.geometry=geometry;skin.bind(new T.Skeleton(bones,inverses),skin.bindMatrix);
  const arms=rig.filter(r=>r.label.endsWith('Arm')).flatMap(({p})=>[p,p.userData.bone]).filter(Boolean),driven=[body,anchor,...arms];
- let saved=null,angles={lean:0,tilt:0,turn:0,nod:0};
- function reset(){if(!saved)return;for(const [o,pos,q]of saved){o.position.copy(pos);if(o===body||o===anchor)o.quaternion.copy(q);else o.quaternion.premultiply(saved.waist.clone().invert());}neck.quaternion.identity();saved=null;angles={lean:0,tilt:0,turn:0,nod:0};}
+ let saved=null,angles={lean:0,tilt:0,turn:0,nod:0,neckLean:0};
+ function reset(){if(!saved)return;for(const [o,pos,q]of saved){o.position.copy(pos);if(o===body||o===anchor)o.quaternion.copy(q);else o.quaternion.premultiply(saved.waist.clone().invert());}neck.quaternion.identity();saved=null;angles={lean:0,tilt:0,turn:0,nod:0,neckLean:0};}
  function apply(pose){const next={...angles};for(const key of Object.keys(next))if(pose[key]!=null)next[key]+=pose[key];reset();angles=next;if(!Object.values(next).some(x=>x))return;
-  saved=driven.map(o=>[o,o.position.clone(),o.quaternion.clone()]);const waist=new T.Quaternion().setFromEuler(new T.Euler(next.tilt,next.turn,next.lean)),nod=new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),next.nod),pivot=body.position.clone();saved.waist=waist;
+  saved=driven.map(o=>[o,o.position.clone(),o.quaternion.clone()]);const waist=new T.Quaternion().setFromEuler(new T.Euler(next.tilt,next.turn,next.lean)),nod=new T.Quaternion().setFromEuler(new T.Euler(next.nod,0,next.neckLean)),pivot=body.position.clone();saved.waist=waist;
   for(const o of driven){o.position.sub(pivot).applyQuaternion(waist).add(pivot);o.quaternion.premultiply(waist);}
   neck.quaternion.copy(nod);const original=saved.find(([o])=>o===anchor)[1],neckPoint=at.clone();neckPoint.y+=original.y-.94833;
   // Anchor is in DollRig space, neck is in the rotated body frame.
