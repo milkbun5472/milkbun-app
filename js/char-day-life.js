@@ -59,11 +59,11 @@
   throw Error('没有找到这个相册操作。');
  }
  const PREFERENCES=[
-  {id:'warm',label:'暖木与手作',words:/原木|暖木|木质|手作|田园|复古|温暖色/,wall:'cream',floor:'warm',furniture:['wood-bed','wood-chair','bookcase']},
-  {id:'light',label:'清浅与自然',words:/浅色|浅木|清爽|北欧|自然风|绿植|植物|雾蓝|苔绿/,wall:'sage',floor:'light',furniture:['loveseat','tall-plant','round-table']},
-  {id:'dusk',label:'深木与旧书',words:/深木|深色木|古典|旧书|书房|胡桃木|英伦/,wall:'panel',floor:'dark',furniture:['bookcase','dresser','floor-lamp']},
-  {id:'rose',label:'柔软与淡粉',words:/淡粉|粉色|藕粉|奶油风|柔软|浪漫|可爱风/,wall:'rose',floor:'light',furniture:['soft-bed','loveseat','table-lamp']},
-  {id:'ink',label:'灰石与利落',words:/工业风|极简|黑白|灰色|灰石|金属|冷色/,wall:'cream',floor:'stone',furniture:['wood-bed','dresser','bar']}
+  {id:'warm',label:'暖木与手作',words:/原木|暖木|木质|手作|田园|复古|温暖色/,wall:'cream',floor:'warm',furniture:['canopy-bed','rattan-sofa','paper-lantern']},
+  {id:'light',label:'清浅与自然',words:/浅色|浅木|清爽|北欧|自然风|绿植|植物|雾蓝|苔绿/,wall:'sage',floor:'light',furniture:['basket-shelf','tall-plant','braided-rug']},
+  {id:'dusk',label:'深木与旧书',words:/深木|深色木|古典|旧书|书房|胡桃木|英伦/,wall:'panel',floor:'dark',furniture:['spindle-bed','rolled-sofa','stained-lamp']},
+  {id:'rose',label:'柔软与淡粉',words:/淡粉|粉色|藕粉|奶油风|柔软|浪漫|可爱风/,wall:'rose',floor:'light',furniture:['panel-bed','cloud-sofa','mushroom-lamp']},
+  {id:'ink',label:'灰石与利落',words:/工业风|极简|黑白|灰色|灰石|金属|冷色/,wall:'cream',floor:'stone',furniture:['steel-bed','tube-sofa','glass-table']}
  ];
  function recommendation(persona,wish=''){
   const source=String(wish||'').trim()?String(wish):String(persona||'');
