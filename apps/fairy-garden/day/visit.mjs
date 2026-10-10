@@ -1,9 +1,9 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-c27bf8a6a71ea07b';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-c27bf8a6a71ea07b';
-import {stepRoute} from '../locomotion.mjs?v=fg-c27bf8a6a71ea07b';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-c27bf8a6a71ea07b';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-c27bf8a6a71ea07b';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-b80ee10be1013554';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-b80ee10be1013554';
+import {stepRoute} from '../locomotion.mjs?v=fg-b80ee10be1013554';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-b80ee10be1013554';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-b80ee10be1013554';
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'}};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
