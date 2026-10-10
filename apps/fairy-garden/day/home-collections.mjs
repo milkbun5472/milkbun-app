@@ -1,4 +1,5 @@
 import {rounded,arch,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-163c7f71112cb39b';
+import {furnitureSeatSurface} from './home-catalog.mjs?v=fg-163c7f71112cb39b';
 
 // Collections change construction as well as their default palette. All seats
 // end at .53 and all mattresses share the existing bed contact surface.
@@ -29,7 +30,8 @@ export function createCollectionFurniture(k,a,p,g){
   flat('CollectionFold',rounded(W-.27,.28,.07),{y:.809,z:-.52,depth:.055,color:p.accent},'fabric');
   for(const x of [-.67,.67])e('CollectionPillow',{x,y:.785,z:-1.03,w:1.05,h:.23,d:.58,color:p.paper});
  }
- function seat(){flat('CollectionSeat',rounded(W-.20,D-.22,.13),{y:.475,z:.035,depth:.11,color:p.fabric},'fabric');}
+ const seated=furnitureSeatSurface(a);
+ function seat(){flat('CollectionSeat',rounded(W-.20,seated.d,.13),{y:.475,z:seated.z,depth:.11,color:p.fabric},'fabric');}
  if(a.kind==='bed'){
   const z=-D/2+.11;
   if(style==='craft'){
@@ -69,7 +71,7 @@ export function createCollectionFurniture(k,a,p,g){
    for(let i=0;i<8;i++)for(const y of [.76,.98])e('UpholsteryButton',{x:-W/2+.4+i*(W-.8)/7,y,z:-D/2+.267,w:.042,h:.042,d:.018,color:p.accent});
   }else if(style==='soft'){
    b('CloudHiddenBase',{y:.23,w:W-.4,h:.29,d:D-.28,color:p.dark});
-   for(const x of [-.73,.73])flat('CloudSeatModule',rounded(1.48,D-.14,.25),{x,y:.455,z:.035,depth:.15,color:p.fabric},'fabric');
+   for(const x of [-.73,.73])flat('CloudSeatModule',rounded(1.48,seated.d,.25),{x,y:.455,z:seated.z,depth:.15,color:p.fabric},'fabric');
    for(const x of [-.91,0,.91])e('CloudBackLobe',{x,y:.91,z:-D/2+.15,w:1.17,h:.77,d:.31});
    for(const x of [-W/2+.13,W/2-.13])e('CloudSoftArm',{x,y:.67,z:.04,w:.26,h:.38,d:D-.06});
   }else{
@@ -94,7 +96,7 @@ export function createCollectionFurniture(k,a,p,g){
   }
   for(const side of [-1,1]){c('CollectionDinnerPlate',{x:side*W*.24,y:.943,r:.16,h:.025,color:p.paper});ceramicCup(k,g,p,{x:side*W*.24,z:side*.27,y:1.015});}
  }else if(a.kind==='chair'){
-  flat('CollectionChairSeat',rounded(W-.025,D-.035,.15),{y:.485,depth:.09,color:style==='vintage'?p.wood:p.fabric},style==='vintage'?'wood':'fabric');
+  flat('CollectionChairSeat',rounded(W-.025,seated.d,.15),{y:.485,z:seated.z,depth:.09,color:style==='vintage'?p.wood:p.fabric},style==='vintage'?'wood':'fabric');
   if(style==='studio'){
    for(const x of [-.245,.245])t('CantileverChairFrame',[[x,.11,-.27],[x,.11,.27],[x,.49,.27],[x,.51,-.25],[x,1.05,-.25]],.025,steel,'metal');
    up('CantileverBackPad',rounded(W-.06,.32,.04),{y:.91,z:-.25,depth:.055,color:p.fabric},'fabric');

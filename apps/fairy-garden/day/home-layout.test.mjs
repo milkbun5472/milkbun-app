@@ -31,7 +31,7 @@ test('收纳同时移除家具、碰撞、床椅动作点，摆回优先保留�
  const moved=changeHomeFurniture({},'dining-chair',{x:1,z:2,heading:0});assert.equal(moved.ok,true);
  const stored=changeHomeFurniture(moved.placements,'dining-chair','store');assert.equal(stored.ok,true);
  assert.equal(stored.map.seats.meal.piece,'partner-chair');assert.equal(stored.map.obstacles.some(p=>p.id==='dining-chair'),false);
- const back=changeHomeFurniture(stored.placements,'dining-chair','restore');assert.equal(back.ok,true);assert.equal(back.map.seats.meal.x,1);assert.equal(back.map.seats.meal.z,2);
+ const back=changeHomeFurniture(stored.placements,'dining-chair','restore');assert.equal(back.ok,true);assert.equal(back.map.seats.meal.x,1);assert.ok(Math.abs(back.map.seats.meal.z-(2+(.57-.018)/2+.05))<1e-10);assert.equal(back.map.seats.meal.pose,'chair');
  const noBed=changeHomeFurniture(back.placements,'double-bed','store');assert.equal(noBed.ok,true);assert.deepEqual(noBed.map.beds,{});
  assert.equal(buildSpace('dayHome',noBed.placements).furniture.length,11);
 });

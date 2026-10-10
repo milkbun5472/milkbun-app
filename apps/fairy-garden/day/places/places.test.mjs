@@ -113,11 +113,18 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
     const ray=new T.Raycaster();
     for(const seat of Object.values(map.seats)){
       const p=furniture.find(p=>p.id===seat.piece);assert.ok(['chair','bench'].includes(p?.kind));
-      assert.equal(seat.x,p.x);assert.equal(seat.z,p.z);assert.equal(seat.rise,.45);
+      const forward={x:Math.sin(p.heading||0),z:Math.cos(p.heading||0)},front=(p.kind==='chair'?.57:p.d)/2+.05;
+      assert.ok(Math.abs(seat.x-p.x-forward.x*front)<1e-9);
+      assert.ok(Math.abs(seat.z-p.z-forward.z*front)<1e-9);
+      assert.equal(seat.pose,'chair');assert.equal(seat.rise,.45);
       assert.equal(seat.heading,p.heading);
       assert.ok(walkable(seat.approach.x,seat.approach.z,id));
-      ray.set(new T.Vector3(seat.x,2,seat.z),new T.Vector3(0,-1,0));
-      const hit=ray.intersectObject(root,true)[0];assert.ok(hit);
+      // The hip pivot is at the front edge; the pelvis behind it rests on the
+      // actual chair while the bent shin hangs outside the seat.
+      ray.set(new T.Vector3(seat.x-forward.x*.1,2,seat.z-forward.z*.1),new T.Vector3(0,-1,0));
+      // Room meshes are merged. A desk may be above the pelvis; inspect the
+      // first supporting surface at or below the intended seat height.
+      const hit=ray.intersectObject(root,true).find(h=>h.point.y<=map.floor+seat.rise+.003);assert.ok(hit);
       assert.ok(Math.abs(hit.point.y-(map.floor+seat.rise))<.003,'真实椅面高度匹配动画坐姿');
     }
     for(const s of map.spots.filter(s=>s.seat)){
@@ -167,7 +174,7 @@ test('候车长椅真实宽面可坐，站台黄线内侧可达，轨道外侧�
   for(const seat of Object.values(m.seats)){
     const p=root.userData.furniture.find(p=>p.id===seat.piece);assert.equal(p.kind,'bench');assert.ok(p.w>3);
     for(const dx of [-1.2,0,1.2]){
-      const ray=new T.Raycaster(new T.Vector3(seat.x+dx,2,seat.z),new T.Vector3(0,-1,0));
+      const ray=new T.Raycaster(new T.Vector3(seat.x+dx,2,seat.z-.1),new T.Vector3(0,-1,0));
       assert.ok(Math.abs(ray.intersectObject(root,true)[0].point.y-(m.floor+seat.rise))<.003,'整条长椅实际椅面同高');
     }
   }

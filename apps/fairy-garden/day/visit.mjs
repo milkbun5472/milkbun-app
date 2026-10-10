@@ -17,7 +17,7 @@ export function visitSeats(map,occupied){
   const shared=occupied?.piece===p.id;if(shared&&!['sofa','bench'].includes(p.kind))return [];
   const offsets=['sofa','bench'].includes(p.kind)?[-.6,.6]:[0];
   return offsets.flatMap(x=>{
-   const at=furniturePoint(p,{x,z:p.kind==='sofa'?.05:0});if(occupied&&gap(at,occupied)<clearance)return [];
+   const at=furnitureSeat(p,null,{x,z:p.kind==='sofa'?.05:0});if(occupied&&gap(at,occupied)<clearance)return [];
    const approaches=[{x:-p.w/2-.6,z:.25},{x:p.w/2+.6,z:.25},{x,z:p.d/2+.7}].map(q=>furniturePoint(p,q));
    return approaches.map(approach=>({seat:{...furnitureSeat(p,approach,{x,z:p.kind==='sofa'?.05:0}),rise:p.seat??.45},shared}));
   });
@@ -128,7 +128,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   const at=seat||position;avatar.root.position.set(at.x,0,at.z);avatar.root.rotation.y=seat?.heading??yaw;
   if(!moving&&chore)avatar.root.rotation.y=chore.heading;
   else if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=Math.atan2(other.x-at.x,other.z-at.z);}
-  avatar.animate(time,{moving,seated:!!seat,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0)});
+  avatar.animate(time,{moving,seated:!!seat,seatPose:seat?.pose,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0)});
   choreVisual.update(chore,dwell,moving||!!chore&&gap(position,chore.at)>.22);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
  }
  avatar.root.visible=false;return {join,act,close,tick,inspect,
