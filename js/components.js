@@ -9056,6 +9056,9 @@ function useLocateAt(locateAt, onLocated, messages, revealMsg, ref, archCount, w
   }, [locateAt && locateAt.key]);
 }
 function ChatThread({
+  dirNotes,       // 线上导演便签（她 2026-10-10）：跟旁白放一起，旁白模式里切「往后的方向」
+  onAddDirNote,
+  onDelDirNote,
   locateAt,       // 从别处点「看来源」带进来的 {ts,key}：打开后滚到那个时刻的那条并闪一下（我的钱包·凭证，她 2026-10-09）
   onLocated,
   onHalfWin,
@@ -9162,6 +9165,10 @@ function ChatThread({
   const fmtT = ts => { const d = new Date(ts || Date.now()); const p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + (dsp.timeSec ? ":" + p(d.getSeconds()) : ""); };
   const subLine = m => { const parts = []; if (m.crossSource === "cc") parts.push("来自 CC"); else if (m.crossSource === "stackchan") parts.push("来自 Stack-chan"); if (dsp.read) parts.push(m.role === "user" ? (m.read ? "已读" : "已送达") : "已读"); if (dsp.time) parts.push(fmtT(m.ts)); return parts.join(" "); };
   const [chatMode, setChatMode] = useState("chat"); // chat | narr | ooc
+  // 旁白模式里分两档：此刻发生了什么（旁白卡）／往后的大概方向（导演便签，只给模型看，管两轮或整场）
+  const [narrKind, setNarrKind] = useState("event");
+  const [dirLong, setDirLong] = useState(false);
+  const dirMode = chatMode === "narr" && narrKind === "dir" && !!onAddDirNote;
   const [quoted, setQuoted] = useState(null); // { id, text, senderId, senderName }；旧字符串仍兼容
   const [unblockDraft, setUnblockDraft] = useState(null); // 点感叹号后的「求解除」草稿框：null=没开
   const [menu, setMenu] = useState(null);
@@ -9377,6 +9384,7 @@ function ChatThread({
   // 送信：对话=入队消息；旁白注入=注入一段旁白；OOC=直接问模型
   const send = (v) => {
     if (!v || sending) return;
+    if (dirMode) { onAddDirNote(v, dirLong); return; }
     if (chatMode === "narr") sendRich({
       role: "narration",
       kind: "narration",
@@ -9389,6 +9397,7 @@ function ChatThread({
   // 让 TA 回复：对话/旁白模式都触发一次生成；旁白模式先把输入当旁白注入
   const reply = (pending) => {
     if (sending) return;
+    if (dirMode) { if (pending) onAddDirNote(pending, dirLong); onReply(""); return; }
     if (chatMode === "narr") {
       if (pending) sendRich({
         role: "narration",
@@ -10190,6 +10199,17 @@ function ChatThread({
     "《" + (pendingFic.subject || "这一篇") + "》"),
     h("span", { style: { flexShrink: 0 } }, ficWriting ? "正在写…" : characterText(character, "商量好了，让他写")))) : null,
   quoted && h(QuoteDraftBar, { text: String(quoted), onClear: () => setQuoted(null) }),
+  // 旁白模式的两档 + 还在生效的导演便签（点 × 删掉）
+  chatMode === "narr" && onAddDirNote ? h("div", { "data-wk": "narrbar", className: "shrink-0 px-3", style: { background: t.bg2, borderTop: "1px solid " + t.line, paddingTop: 8, paddingBottom: 6 } },
+    h("div", { className: "flex items-center gap-2 flex-wrap" },
+      [["event", "此刻发生了什么"], ["dir", "往后的方向"]].map(([k, lb]) => h("button", { key: k, "data-wk": "narrkind", "data-on": narrKind === k ? "1" : "0", onClick: () => setNarrKind(k), className: "active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 12, minHeight: 30, padding: "4px 11px", borderRadius: 999, border: "1px solid " + (narrKind === k ? t.ink : t.line), color: narrKind === k ? t.ink : t.fog, background: narrKind === k ? t.bg : "transparent" } }, lb)),
+      dirMode ? h("button", { "data-wk": "dirlong", onClick: () => setDirLong(v => !v), className: "active:opacity-70 ml-auto",
+        style: { fontFamily: F_BODY, fontSize: 11.5, minHeight: 30, padding: "4px 10px", color: t.sub, background: "transparent", border: "none" } }, dirLong ? "整场有效 · 轻触改两轮" : "管接下来两轮 · 轻触改整场") : null),
+    (dirNotes || []).filter(n => n && (n.long || Number(n.remaining) > 0)).map(n => h("div", { key: n.id, "data-wk": "dirnote", className: "flex items-center gap-2", style: { marginTop: 6, fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.5 } },
+      h("span", { style: { flexShrink: 0, color: t.fog, fontSize: 11 } }, n.long ? "整场" : "还剩 " + n.remaining + " 轮"),
+      h("span", { className: "flex-1 min-w-0", style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, n.text),
+      onDelDirNote ? h("button", { onClick: () => onDelDirNote(n.id), "aria-label": "删掉这条", className: "active:opacity-60 shrink-0", style: { width: 28, height: 28, color: t.fog, background: "none", border: "none", fontSize: 14 } }, "×") : null))) : null,
   /*#__PURE__*/React.createElement("div", {
     className: "flex items-center gap-2 px-3 py-2.5 shrink-0",
     "data-wk": "composer",
@@ -10226,7 +10246,7 @@ function ChatThread({
     }
   }, ccLane.direct ? "直连" : "书房"), h(DraftInput, {
     inputProps: { "data-wk": "chatinput" },
-    placeholder: chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
+    placeholder: dirMode ? "写接下来的大概方向：比如慢慢聊到要不要一起搬家…" : chatMode === "narr" ? "写一段旁白：天气、灯、谁推门进来…" : chatMode === "ooc" ? characterText(character, "出戏说：跟演他的那位说，可以让它改、也可以问状态…") : "发一条消息…",
     inputStyle: {
       fontFamily: F_BODY,
       fontSize: 14,
@@ -10390,7 +10410,7 @@ function ChatThread({
   }, h(ModePicker, {
     modes: [
       ["chat", "说话", characterText(character, "一条一条发过去，他在那头看手机")],
-      ["narr", "旁白", characterText(character, "不是你说的话——下雨了、灯灭了、三天后。写完他就当已经发生")],
+      ["narr", "旁白", characterText(character, "不是你说的话——下雨了、灯灭了、三天后，写完他就当已经发生；也能写往后的大概方向，让他顺着聊过去")],
       ["ooc", "出戏", characterText(character, "绕过他，直接跟演他的那位说（OOC）")]
     ],
     elsewhere: [["offline", "见面", "不隔着屏幕了，写你人在场做什么"]],

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.240";
+const APP_VERSION = "v75.242";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -591,6 +591,11 @@ function App() {
   const groupChatsRef = useRef(groupChats);
   groupChatsRef.current = groupChats; // 群聊最新记录（投票/红包就地改）
   const [chatSettings, setChatSettings] = useState({});
+  // 线上的导演便签（她 2026-10-10：线下那一套搬到线上，入口跟旁白放一起）：{ [chatKey]: [便签] }。
+  //   新建、扣轮、提示语全走线下那几支（directorNoteNew / directorNotesConsume），不另写一份。
+  const [chatDirNotes, setChatDirNotes] = useState({});
+  const chatDirNotesRef = useRef({}); chatDirNotesRef.current = chatDirNotes;
+  const saveChatDirNotes = n => { chatDirNotesRef.current = n; setChatDirNotes(n); saveJSON("x_chatDirNotes", n); };
   // 论坛（仿贴吧）：帖子/评论/关注/私信 —— 全 localStorage，帖子只有一份，版块是筛选视图
   const [forumPosts, setForumPosts] = useState([]);
   const [forumComments, setForumComments] = useState({}); // { [postId]: [comment] }
@@ -1795,6 +1800,7 @@ function App() {
     setMemLib(loadJSON("x_memLib", []));
     setMemCfg(Object.assign({}, MEM_CFG_DEFAULT, loadJSON("x_memCfg", {})));   // 没存过设置的一律按默认（关）——她 2026-10-09：「未存过设置的也给我关了」
     setChatSettings(loadJSON("x_chatSettings", {}));
+    { const dn = loadJSON("x_chatDirNotes", {}) || {}; chatDirNotesRef.current = dn; setChatDirNotes(dn); }
     setChatArch(loadJSON("x_chatArch", {}));
     // 线下末条时间种子：扫 x_offline:*/x_goffline:* 各取所有场次里最新一条 ts，供聊天列表重开后仍按线下时间排
     (() => {
@@ -8735,6 +8741,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const left = Math.max(0, ...next.filter(n => usedIds.has(n.id)).map(n => Number(n.remaining) || 0));
     return { next: next, left: left };
   };
+  const chatDirNoteAdd = (chatKey, text, long) => {
+    const item = directorNoteNew(text, long);
+    if (!item || !chatKey) return;
+    const cur = chatDirNotesRef.current || {};
+    saveChatDirNotes({ ...cur, [chatKey]: [...(cur[chatKey] || []), item] });
+    directorNoteAddedToast(long);
+  };
+  const chatDirNoteDel = (chatKey, noteId) => {
+    const cur = chatDirNotesRef.current || {};
+    saveChatDirNotes({ ...cur, [chatKey]: (cur[chatKey] || []).filter(n => n && n.id !== noteId) });
+  };
+  // 还在生效的那几条（长期的、或者还剩轮数的）
+  const chatDirNotesLive = chatKey => ((chatDirNotesRef.current || {})[chatKey] || []).filter(n => n && (n.long || Number(n.remaining) > 0));
   const directorNoteToast = left => toast(left ? "导演便签已落实 · 还剩 " + left + " 轮" : "导演便签已结束 · 下轮不再注入");
   const offlineAddNote = (scopeKey, note, long) => {
     const item = directorNoteNew(note, long);
@@ -12103,7 +12122,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _halfHint = _halfSeen ? "\n\n【她此刻在看的屏幕】她把聊天缩成了半窗，上半屏开着「" + _halfSeen.zh + "」，你看得到她屏幕上这会儿显示的东西：\n" + _halfSeen.text + "\n——她说的「这个」「这篇」「这里」多半指的是这一页上的东西；想聊就顺着聊，没提到就别硬扯。" : "";
       const _normalTaskV2 = ("\n\n【本轮】你就是「" + char.name + "」。先想一下 TA 此刻怎么看她刚说的这句话，再从那个判断回过去；聊天先发生，状态随后记录。" + _halfHint + _stateBootstrapHint + _wearRefreshHint + paceHint + callHint + busyHint + proactiveHintAll + dongnianHint + gapHint + crossChannelHint + _saidElsewhereHint + eAfterglowHint + desireHint + _recallHint + _clockStampHint + capabilityHint + _normalThoughtTurnHint + "\n" + MOOD_TURN_RULE + _biTurnLine + _rerollHint + _turnClosing + _gazeNudgeHint).replace(/用户/g, uName);
       const _roomHint = roomPromptFor(charId, room, true);
-      const _taskFull = (_body ? _digitalTaskFull : _normalTaskV2) + _roomHint;
+      // 线上导演便签：只给模型看，不算她说的话；放在本轮任务末尾，离生成最近
+      const _dirLive = chatDirNotesLive(chatKey);
+      const _dirHint = _dirLive.length ? "\n\n〔幕后提醒，绝不出现在你说的话里〕" + uName + " 想让接下来的聊天往这个方向走：" + _dirLive.map(n => n.text).join("；") + "。顺着这个方向自然地聊过去，不用一下子说到。" : "";
+      const _taskFull = (_body ? _digitalTaskFull : _normalTaskV2) + _roomHint + _dirHint;
       // 历史缓存模式：system 只留【稳定前缀 + 一句稳定总纲】，详细任务串挪到用户消息末尾（见下）；非 anthropic 线路走老路(bundle+完整任务)
       // ⚠️「用手机和她一对一聊天」这句里藏着一个【地点前提】：你俩隔着屏幕。
       //   她 2026-09-09：「我们如果在同一个地方那肯定就是直接聊天而不是打字了吧」——
@@ -13236,6 +13258,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const affinityBefore = affOf(charId);
       const _affD = affDelta(parsed.affinityDelta);
       bumpAff(charId, _affD);   // 0 不落盘，这道判断在 bumpAff 里
+      // 线上导演便签：这一轮成功回了才扣一轮（失败不扣），跟线下同一支
+      { const _dn = directorNotesConsume((chatDirNotesRef.current || {})[chatKey], 0);
+        if (_dn) { saveChatDirNotes({ ...(chatDirNotesRef.current || {}), [chatKey]: _dn.next.filter(n => n && (n.long || Number(n.remaining) > 0)) }); directorNoteToast(_dn.left); } }
       // dongnian 阶段二（v48.80）：把这轮互动的好感增量反喂进动念——聊得好 valence 涨、聊崩了 valence 掉，情绪真的被聊天推动（不只自然回归）。封顶 ±0.25 防单轮暴冲。
       try { if (!sideRoom && _affD) { const eng = getDongnian(char); if (eng) eng.applyDelta({ valence: Math.max(-0.25, Math.min(0.25, _affD * 0.05)) }); } } catch (e) {}
       if (parsed.mood && parsed.mood.label) {
@@ -27203,6 +27228,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 单聊那一屏抽成一块：整屏和半窗用的是同一个 ChatThread、同一套 props，不各写一份
   const mkThread = xtra => /*#__PURE__*/React.createElement(ChatThread, Object.assign({
     key: activeChar.id + "::" + activeRoomId,
+    dirNotes: chatDirNotes[activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
+    onAddDirNote: (text, long) => chatDirNoteAdd(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, text, long),
+    onDelDirNote: id => chatDirNoteDel(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, id),
     locateAt: walletTrace && walletTrace.type === "char" && String(walletTrace.id) === String(activeChar.id) ? walletTrace : null,
     onLocated: () => setWalletTrace(null),
     // 返回键上那个圈：别处还剩几条没看（不含当前这一间——人已经在这儿了）
