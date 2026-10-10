@@ -54,5 +54,5 @@ test("TransText 的提前 return 排在所有 hook 之后", () => {
 test("长消息走切块版，别整段塞进 GET 的 query 里", () => {
   const i = comp.indexOf("function TransTextState(");
   const body = comp.slice(i, comp.indexOf("function VoiceMsg(", i));
-  assert.match(body, /translateLongToZh\(text, lang\)/);
+  assert.match(body, /translateLongToZh\(text, lang, noModel \? \{ noModel: true \} : undefined\)/);
 });

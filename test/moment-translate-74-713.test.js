@@ -58,5 +58,5 @@ test("④ 三处朋友圈正文都走 TransText，免费兜底跟着一起来", 
   // 兜底链本身还在：译不出来别只报最后一条原因
   const eng = fs.readFileSync("js/engine.js", "utf8");
   assert.match(eng, /\{ by: "免费", run: \(\) => _transGoogle/, "免费第一顺位没了");
-  assert.match(eng, /\{ by: "模型", run: \(\) => _transModel/, "最后那级兜底没了");
+  assert.match(eng, /\{ by: "模型", run: \(\) => opts && opts\.noModel \? Promise\.reject\(new Error\("[^"]*"\)\) : _transModel/, "最后那级兜底没了");
 });
