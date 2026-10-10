@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.245";
+const APP_VERSION = "v75.247";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1282,7 +1282,7 @@ function App() {
   // extra = 这一路自己那边的对话条数(线下的一场不在 chatsRef 里,只数线上会永远够不着门槛)
   const maybeAutoSeedGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.autoSeedDue) return;
-    if (isBody(char.id) || !autoRefreshOn("gaze", char.id)) return;
+    if (noGaze(char.id) || !autoRefreshOn("gaze", char.id)) return;
     if (!window.Gaze.autoSeedDue(char.id)) return;
     const msgs = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m));
     if (msgs.length + (Number(extra) || 0) < GAZE_AUTOSEED_MSGS) return;
@@ -1296,7 +1296,7 @@ function App() {
   //   **数出「上次复看之后又聊了几条」**——只有调用点拿得到聊天记录。
   const maybeAutoReviewGaze = (char, extra) => {
     if (!char || char.npc || !window.Gaze || !window.Gaze.reviewDue) return;
-    if (isBody(char.id) || !autoRefreshOn("gaze", char.id)) return;
+    if (noGaze(char.id) || !autoRefreshOn("gaze", char.id)) return;
     const st = window.Gaze.reviewState ? window.Gaze.reviewState(char.id) : null;
     const since = st ? Math.max(Number(st.last) || 0, Number(st.okAt) || 0) : 0;
     const fresh = (chatsRef.current[char.id] || []).filter(m => m && !m.recalled && m.content && !isOocMsg(m)
@@ -2376,6 +2376,9 @@ function App() {
   //   她写的人设原样当系统提示词，扮演那一套（去八股、世界书/角色卡规矩、编出来的行程钱包随身物）一律不发。
   //   ⚠️只管「当不当演员」。言秋连电脑那一端的东西（书房、真身票、秋声墙、账本、窗口/缓存专线）仍旧只认 engineerEyes。
   const isBody = id => { const s = settingsFor(id) || {}; return !!(s.engineerEyes || s.bodyMode); };
+  // 「Ta 眼里」只对言秋关（她 2026-10-10：本体模式也该有——那是记忆的一部分，跟演不演无关）。
+  //   本体模式不在聊天回复里填印象那一格（不给它表填），靠后台复看和她手动点来更新。
+  const noGaze = id => !!(settingsFor(id) || {}).engineerEyes;
   // ── 动描 / 同处一室（她 2026-09-09）──────────────────────────────────
   // ⚠️这是【两件事】，各有各的开关。第一版把它们焊成了一个，她当场纠正：
   //   「我只是举个例子不一定非要同处一室的时候，就是我俩分开的时候要TA动描自己
@@ -6089,7 +6092,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const MUSIC_TALK = /歌|音乐|专辑|歌手|旋律|唱|乐队|playlist|单曲|循环|耳机|一起听/i;
   // 印象卡各场景共用读取；群内放在本人私有段，读主线与写回主线分开。
   const gazeFor = charId => {
-    if (isBody(charId) || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
+    if (noGaze(charId) || (characters.find(c => c.id === charId) || {}).npc || !window.Gaze || !window.Gaze.text) return "";
     return String(window.Gaze.text(charId, userName(profile)) || "").trim();
   };
   // ⚠️心愿单是【念给某个角色听】的，所以按他那边的钱写（她 2026-09-18 收 A 类）。
@@ -9383,7 +9386,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (!gOffSealed && !_bNpc && a.senderId) bumpAff(a.senderId, a.affinityDelta);
         if ((!gOffSealed || _bNpc) && a.senderId && a.mood && a.mood.label) setMoodFor(a.senderId, { ...a.mood, ts: Date.now() });
         // Ta 眼里：群线下也写（闭群只进不出，照旧封死；配角没有印象卡；言秋不塑形）
-        if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !isBody(a.senderId)) {
+        if (!gOffSealed && !_bNpc && a.senderId && a.impression && window.Gaze && !noGaze(a.senderId)) {
           try { window.Gaze.applyParsed(a.senderId, a.impression); } catch (e) {}
         }
         if (!gOffSealed || _bNpc) writeGroupLiveState(characters.find(c => c.id === a.senderId), {
@@ -14861,7 +14864,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 好感度和印象卡仍旧不给 NPC（她 2026-08-25 拍板：配角有了会演出争宠吃醋那一套）
             if (spk && !_npcSpk) bumpAff(spk.id, aDelta);
             if (spk && moodLabel) setMoodFor(spk.id, { label: moodLabel, ts: Date.now() });
-            if (spk && !_npcSpk && item.impression && window.Gaze && !isBody(spk.id)) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
+            if (spk && !_npcSpk && item.impression && window.Gaze && !noGaze(spk.id)) { try { window.Gaze.applyParsed(spk.id, item.impression); } catch (e) {} }
             writeGroupLiveState(spk, { thought: item.thought, mood: moodLabel, wearing: gWear, action: gAction },
               gTurnId, affinityBefore, _thoughtOnce);
           }
@@ -29012,7 +29015,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       void text;
       // charThought 是「Ta 私心里对这几张牌的反应」——正是印象的原料,别再扔掉
       const th = String(info.charThought || "").trim();
-      if (th && window.Gaze && !isBody(charId) && info.mode !== "forchar") {
+      if (th && window.Gaze && !noGaze(charId) && info.mode !== "forchar") {
         try { window.Gaze.applyParsed(charId, { side: "me", block: "recent", text: th.slice(0, 80) }); } catch (e) {}
       }
     },
@@ -30113,7 +30116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       roomName: roomMeta && roomMeta.name,
       hideWearAction: roomCard,
       // 群聊也显示穿着/动作:它们本来就一直在更新,只是被这个开关挡住了(她 2026-08-18 要回)
-      gazeOn: !roomCard && !!window.Gaze && !isBody(scc.id) && !scc.npc,
+      gazeOn: !roomCard && !!window.Gaze && !noGaze(scc.id) && !scc.npc,
       uName: profile.name || "你",
       onGazeSeed: () => seedGazeFor(scc),
       gazeSeedBusy: gazeSeedBusy,
