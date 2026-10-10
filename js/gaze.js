@@ -470,8 +470,25 @@
   // ⚠️不能用 x_ 前缀——那个前缀会被云同步捡走(见 cloud.js),
   //   另一台设备的旧已读表推上来会把红点乱清一气。同 lisa_group_auto_cycle_v1 的处理。
   const SEEN_KEY = "lisa_gaze_seen_v1";
-  const loadSeen = () => { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || "{}"); } catch (e) { return {}; } };
-  const persistSeen = d => { try { localStorage.setItem(SEEN_KEY, JSON.stringify(d)); } catch (e) {} };
+  // ⚠️她 2026-10-10：「ta眼里的红点看完了还是有」「点进去出来还是有」——小仓库（localStorage）满了的时候，
+  //   这一笔写进去就静悄悄失败（外面包着 try），下一刻再读还是「没看过」，红点永远灭不掉。
+  //   现在：已读先记在内存里（当场就灭）；小仓库写不进去，改存大仓库那把 x_gazeSeen 兜底（重开也记得）。
+  //   x_ 会跟云同步——那只在小仓库满了的那台设备上才会用到，比红点永远灭不掉轻得多。
+  const SEEN_FALLBACK = "x_gazeSeen";
+  let seenMem = null;
+  const loadSeen = () => {
+    if (seenMem) return seenMem;
+    let d = null;
+    try { d = JSON.parse(localStorage.getItem(SEEN_KEY) || "null"); } catch (e) {}
+    if (!d && typeof loadJSON === "function") { try { d = loadJSON(SEEN_FALLBACK, null); } catch (e) {} }
+    seenMem = d && typeof d === "object" ? d : {};
+    return seenMem;
+  };
+  const persistSeen = d => {
+    seenMem = d;
+    try { localStorage.setItem(SEEN_KEY, JSON.stringify(d)); return; } catch (e) {}
+    try { if (typeof saveJSON === "function") saveJSON(SEEN_FALLBACK, d); } catch (e) {}
+  };
   function unseenKeys(charId) {
     const box = boxOf(load(), charId), seen = (loadSeen() || {})[charId] || {};
     return Object.keys(KEYS).filter(k => {
