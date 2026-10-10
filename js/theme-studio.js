@@ -496,6 +496,7 @@
         ["sameroom", "顶栏那个「同处一室」键（data-on=\"1\" 是开着）"],
         ["card", "气泡里的卡片（照片、转发、语音）"],
         ["maskworld", "我的面具里「在哪个世界」那一栏（选项 data-on=\"1\" 选中）"],
+        ["tripbook", "旅行里「订机票和酒店」那一块和它的按钮（data-part=search/me/ta/again）"], ["tripbookopt", "一班票或一家酒店（data-on=\"1\" 选中）"], ["tripbookpaid", "订好以后谁付的那一行"],
         ["bdayletter", "生日零点那封信（信封卡）"],
         ["bdayplan", "生日暗中准备的封口信封"],
         ["offlogrestore", "「线下经过」卡上那颗「放回往期」"],
