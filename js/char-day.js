@@ -87,11 +87,6 @@
       };
       root.addEventListener("message", ready); return () => root.removeEventListener("message", ready);
     }, []);
-    useEffect(()=>{
-      const current=stateRef.current,id=current?.charId;
-      if(id&&!book&&!homeOptions&&!current.preview&&!current.editing&&!current.showcase&&visitStatus?.charId===id){root.CharDayLink.setPresence(id,{...visitStatus,taActivity:title,interactionLabel:({hand:"牵手",hug:"拥抱",shoulder:"靠肩",read:"一起看书",meal:"一起吃饭",cook:"一起做饭"})[visitStatus.interaction]||""});}
-      return ()=>root.CharDayLink.setPresence(id,null);
-    },[pulse,visitStatus,id,preview,showcase,editor,book,homeOptions,mePanel]);
     useEffect(()=>{if(!visitStatus?.present)setTogetherPanel(false);},[visitStatus?.present]);
     const openMe=()=>{visitAction("end");setMeDraft(homes.looks?.me||{});setMeNotice("");setMePanel(true);if(!meStyles)fetch("apps/fairy-garden/doll.json?v="+props.build).then(r=>{if(!r.ok)throw Error();return r.json();}).then(setMeStyles).catch(()=>setMeNotice("衣柜还没打开，重新进入可以再试。"));};
     const saveMe=async()=>{if(meBusy)return;setMeBusy(true);try{const next=await saveHomeChange("me","looks",meDraft||{});setHomes(next);setMeDraft(null);setMePanel(false);setMoreOpen(false);}catch{setMeNotice("保存没成功，调整仍在这里，可以重试。");}finally{setMeBusy(false);}};
