@@ -46,7 +46,7 @@ test("四条写入路径共用轻量标准，保留隔离闸",()=>{
   assert.match(app,/window\.Gaze && gs\.memoryInterop \?/);
   assert.match(app,/window\.Gaze\.updateRule\(userName\(profile\)\)/);
   assert.match(engine,/window\.Gaze\.updateRule\(userName\)/);
-  assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !_body\)/);
+  assert.match(app,/if \(_roomCanWrite\("gaze"\) && window\.Gaze && !(_body|noGaze\(charId\))\)/);
   assert.match(app,/if \(!sideRoom && window\.Gaze && !isBody\(charId\)\)/);
   assert.doesNotMatch(app,/Gaze\.tick\(/);
   assert.doesNotMatch(engine,/impression 与 impressionChecked 必须二选一/);
