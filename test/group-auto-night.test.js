@@ -5,8 +5,9 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
 const a = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
-test("群自发聊天：醒着的凑不够两人就不起这一轮，钟跟单聊主动同一个", () => {
+test("群自发聊天：醒着的凑不够两人就不起这一轮，醒没醒照作息", () => {
   const i = a.indexOf("const scanAutoGroups"), seg = a.slice(i > 0 ? i : a.indexOf("BORROW_GAP_MS"), a.indexOf("const timer = setInterval(scanAutoGroups"));
-  assert.match(seg, /const awake = gm\.filter\(c => \{ const hr = Math\.floor\(charLocalMin\(c\) \/ 60\); return hr >= 8 && hr <= 23; \}\);/);
+  assert.match(seg, /const awake = gm\.filter\(c => charAwakeState\(c\) === "awake"\);/);
+  assert.ok(!/hr >= 8 && hr <= 23/.test(seg), "又拿钟点替人编作息了");
   assert.match(seg, /if \(awake\.length < Math\.min\(2, gm\.length\)\) continue;/);
 });

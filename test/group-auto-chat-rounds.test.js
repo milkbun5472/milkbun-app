@@ -42,8 +42,8 @@ function drive(opts) {
     gsFor: () => gs,
     laneBusy: () => false,
     groupCallActive: () => !!opts.inCall,
-    // 这套测的是轮数和额度，不是作息：钟钉在中午，半夜那道闸另有测试（group-auto-night）
-    charLocalMin: () => opts.localMin != null ? opts.localMin : 12 * 60,
+    // 这套测的是轮数和额度，不是作息：人一律醒着，睡没睡那道闸另有测试（group-auto-night）
+    charAwakeState: () => opts.asleep ? "asleep" : "awake",
     offlineGroup: null,
     contextAllowsMessage: () => true,
     groupChatsRef: { current: { [G]: chat } },
@@ -353,7 +353,7 @@ test("两次借之间要隔一阵——日闸挡不住「两次挤在一小时�
   assert.match(scan, /now - \(Number\(cycle\.borrowAt\) \|\| 0\) < BORROW_GAP_MS\) continue;/, "间隔没生效");
 });
 
-test("半夜（两人当地都过了 23 点）一轮都不自己起", () => {
-  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, localMin: 2 * 60 });
+test("两人照作息都睡着了，一轮都不自己起", () => {
+  const got = drive({ minutes: 3, rounds: 5, maxMsg: 50, asleep: true });
   assert.equal(got.length, 0, "半夜还起了 " + got.length + " 轮");
 });

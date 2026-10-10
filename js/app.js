@@ -7054,10 +7054,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         if (now - (last.ts || 0) < gap) continue;
         const gm = (group.memberIds || []).map(id => characters.find(c => c.id === id)).filter(Boolean);
         if (!gm.length) continue;
-        // 半夜别自己聊起来（她 2026-10-10：「太晚不发是不是没覆盖到群聊，她们大半夜还在说话」）——
-        //   跟单聊主动那几条同一个钟：各人按自己当地时间，8 点前、23 点后算睡了。
+        // 睡着的人别自己聊起来（她 2026-10-10：「她们大半夜还在说话」「不是应该按人设吗」）——
+        //   醒没醒只问 charAwakeState：排了作息的照作息，没排的算醒着（她 2026-09-20 拍过板：不拿 8-23 点替人编作息）。
         //   醒着的凑不够两个人（一个人的群就是那一个）就不起这一轮；她自己开口不受这道闸管。
-        const awake = gm.filter(c => { const hr = Math.floor(charLocalMin(c) / 60); return hr >= 8 && hr <= 23; });
+        const awake = gm.filter(c => charAwakeState(c) === "awake");
         if (awake.length < Math.min(2, gm.length)) continue;
         // ⭐人格/欲望只驱动【起聊】那一下（v56.64，她 2026-08-27：「主动发了一轮就不继续了，
         // 都没到设定的最大轮数」）。以前每一轮都要求有人此刻正想找她——可认领动念的同时会给
