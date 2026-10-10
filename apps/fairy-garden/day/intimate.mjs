@@ -1,7 +1,7 @@
 import * as T from 'three';
-import './social.js?v=fg-0ea83b85ae5ca55e';
-import {pairProgress} from './motion-profile.mjs?v=fg-0ea83b85ae5ca55e';
-import {walkable,segmentClear} from '../world.mjs?v=fg-0ea83b85ae5ca55e';
+import './social.js?v=fg-3f18410459027dc9';
+import {pairProgress} from './motion-profile.mjs?v=fg-3f18410459027dc9';
+import {walkable,segmentClear} from '../world.mjs?v=fg-3f18410459027dc9';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
 const head=actor=>actor.root.getObjectByName('HeadAnchor');
@@ -53,9 +53,14 @@ export function createIntimate({a,b,map,style}){
   diagnostics={initiator:initiator==='a'?'ta':'me',progress:p,stage:p<.98?'靠近':'相依',contacts};
   if(['kiss','kiss-cheek','kiss-forehead','forehead'].includes(s.kind)){
    const gp=s.kind==='forehead'?[0,.48,.9]:[0,-.42,.93],rp=s.kind==='kiss-forehead'?[0,.50,.91]:s.kind==='kiss-cheek'?[.75,-.18,.67]:s.kind==='forehead'?[0,.48,.9]:[0,-.42,.93];
-   posture(g,{tilt:.04*pg,lean:s.kind==='kiss-cheek'?.09*pg:0});posture(r,{tilt:(s.kind==='kiss-forehead'?.44:.04)*pr,turn:s.kind==='kiss-cheek'?.48*pr:0});
+   posture(g,{tilt:.06*pg,nod:.06*pg,lean:s.kind==='kiss-cheek'?.06*pg:0});posture(r,{tilt:(s.kind==='kiss-forehead'?.12:.06)*pr,nod:(s.kind==='kiss-forehead'?.32:.06)*pr,turn:s.kind==='kiss-cheek'?.32*pr:0});
    // Match the actual mouth/cheek/forehead heights, including both body sizes.
-   const bendTo=(actor,point,y,progress)=>{const q=actor.root.worldToLocal(headPoint(actor,point));const angle=Math.acos(T.MathUtils.clamp((y-actor.root.position.y)/Math.hypot(q.y,q.z),-1,1))-Math.atan2(q.z,q.y);posture(actor,{tilt:T.MathUtils.clamp(angle,0,.50)*progress});};
+   const bendTo=(actor,point,y,progress)=>{
+    const q=actor.root.worldToLocal(headPoint(actor,point)),joint=name=>actor.root.worldToLocal(actor.root.getObjectByName(name).getWorldPosition(new T.Vector3())),neck=joint('neck'),waist=joint('body');
+    const height=t=>q.clone().sub(neck).applyAxisAngle(new T.Vector3(1,0,0),t*.65).add(neck).sub(waist).applyAxisAngle(new T.Vector3(1,0,0),t*.32).add(waist).y+actor.root.position.y;
+    let low=0,high=1;for(let i=0;i<9;i++){const mid=(low+high)/2;if(height(mid)>y)low=mid;else high=mid;}
+    posture(actor,{tilt:high*.32*progress,nod:high*.65*progress});
+   };
    const gy=headPoint(g,gp).y,ry=headPoint(r,rp).y;if(gy>ry+.01)bendTo(g,gp,ry,pg);else if(ry>gy+.01)bendTo(r,rp,gy,pr);
    const distance=meet(g,r,gp,rp,p,!!s.plan.seats);if(distance==null)return {ok:false,reason:'这个角度没有能站稳的位置，换一处空地再靠近。'};
    diagnostics.headDistance=distance;diagnostics.points={giver:headPoint(g,gp).toArray(),receiver:headPoint(r,rp).toArray()};
@@ -64,7 +69,7 @@ export function createIntimate({a,b,map,style}){
    contact(g,{[gs]:held},pg,contacts);contact(r,{[rs]:held},pr,contacts);}
   }else if(s.kind==='pat'){
    // The receiver bows into the hand instead of lifting the giver off the floor.
-   posture(r,{tilt:(.42+Math.max(0,-heightDifference)*1.3)*pr});posture(g,{tilt:.05*pg});
+   posture(r,{tilt:(.18+Math.max(0,-heightDifference)*.6)*pr,nod:(.30+Math.max(0,-heightDifference))*pr});posture(g,{tilt:.08*pg,nod:.06*pg});
    const stroke=Math.sin(s.elapsed*1.3)*.15,point=headPoint(r,[.35+stroke,.55,.84]);
    contact(g,{[nearHand(g,point)]:point},pg,contacts);diagnostics.stroke=stroke;diagnostics.points={hair:point.toArray()};
   }else if(s.kind==='back-hug'){
