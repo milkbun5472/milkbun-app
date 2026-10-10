@@ -1,5 +1,5 @@
-import {EXTRA_WORKPLACES} from './temporary-work.mjs?v=fg-81061b22e300c17f';
-import {PET_CASES,DETECTIVE_EVENTS} from './detective.mjs?v=fg-81061b22e300c17f';
+import {EXTRA_WORKPLACES} from './temporary-work.mjs?v=fg-f607296e23d1060e';
+import {PET_CASES,DETECTIVE_EVENTS} from './detective.mjs?v=fg-f607296e23d1060e';
 export const BAKERY_EVENTS=[
  {id:'flour',title:'柜台旁落了一点面粉',text:'它凑近闻了闻，鼻尖差点碰到白白的一小堆。现在怎么安排？',options:[{id:'watch',label:'留在柜台等客人',note:'守住了自己的位置，来买面包的人多看了它几眼。',tip:4,bread:0,like:.04,trait:'social'},{id:'explore',label:'让它在安全的角落看看',note:'绕着面粉观察了一圈，发现柜台下面还有小纸袋。',tip:1,bread:1,like:.07,trait:'bold'},{id:'break',label:'陪它歇一小会儿',note:'休息以后又愿意回到柜台边，今天没那么累。',tip:0,bread:0,like:.08,energy:5}]},
  {id:'visitor',title:'门边来了一个小客人',text:'隔壁的小宠物停在店门口。它一边看着新朋友，一边听店里打包面包的声音。',options:[{id:'greet',label:'让它慢慢认识新朋友',note:'互相闻了闻，认识了附近的新朋友。',tip:2,bread:0,like:.08,trait:'social'},{id:'stay',label:'一起留在熟悉的柜台边',note:'没有勉强打招呼，它安安稳稳陪完了这一段。',tip:3,bread:0,like:.04},{id:'pause',label:'先给它一点独处时间',note:'在安静的角落缓了缓，没被店里的热闹吓着。',tip:0,bread:0,like:.06,energy:4}]},

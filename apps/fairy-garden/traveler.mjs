@@ -1,15 +1,16 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-81061b22e300c17f';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-81061b22e300c17f';
-import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-81061b22e300c17f';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-81061b22e300c17f';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-81061b22e300c17f';
-import {emotionPose} from './emotion-pose.mjs?v=fg-81061b22e300c17f';
-import {makeDollLife} from './doll-life.mjs?v=fg-81061b22e300c17f';
-import {makeSeatedLegs} from './seated-legs.mjs?v=fg-81061b22e300c17f';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-81061b22e300c17f';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-f607296e23d1060e';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-f607296e23d1060e';
+import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-f607296e23d1060e';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-f607296e23d1060e';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-f607296e23d1060e';
+import {emotionPose} from './emotion-pose.mjs?v=fg-f607296e23d1060e';
+import {makeDollLife} from './doll-life.mjs?v=fg-f607296e23d1060e';
+import {makeSeatedLegs} from './seated-legs.mjs?v=fg-f607296e23d1060e';
+import {makeBentArms} from './bent-arms.mjs?v=fg-f607296e23d1060e';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-f607296e23d1060e';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-81061b22e300c17f';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-81061b22e300c17f';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-f607296e23d1060e';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-f607296e23d1060e';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -180,7 +181,7 @@ export function createTraveler(source,companion=false,look={}){
   // 挂回同名的父节点（DollRig）：和整包模型里一模一样的位置
   for(const o of pieces)(model.getObjectByName(o.parent.name)||model).add(o);
   for(const o of pieces){adopt(o);coverOf(o);prep(o);}worn.add(id);
-  if(built){for(const o of pieces)o.traverse(m=>{if(m.isSkinnedMesh){seatedLegs.attach(m);skinned.push(m);}});applyDims(want.dims);rebindBones(want.dims);}
+  if(built){for(const o of pieces)o.traverse(m=>{if(m.isSkinnedMesh){bentArms.attach(m);seatedLegs.attach(m);skinned.push(m);}});applyDims(want.dims);rebindBones(want.dims);}
  };
  // 头发：接到这个人自己的 HeadAnchor 下（HeadAnchor 会跟着头身比缩放，头发跟着走）
  const hairOn=new Set(),hairFetching=new Set();let hairShown=null,combed=Promise.resolve();
@@ -244,6 +245,7 @@ export function createTraveler(source,companion=false,look={}){
  // v2：体型滑杆除了推形态键，还要把骨头（和 HeadAnchor）挪到新位置、在静止姿势下重新绑一次，
  // 否则手臂会绕着旧肩膀转。rigMorphs[label][key] 是滑杆＋1 时的位移，HeadAnchor 另有 scale（头身比）。
  const skinned=[];model.traverse(o=>{if(o.isSkinnedMesh)skinned.push(o);});
+ const bentArms=makeBentArms(model,rig,skinned);
  const seatedLegs=makeSeatedLegs(model,rig,skinned,rigMorphs);
  const anchor=model.getObjectByName('HeadAnchor'),boneBind=new Map();
  if(skinned.length){for(const b of skinned[0].skeleton.bones)boneBind.set(b,b.position.clone());if(anchor)boneBind.set(anchor,anchor.position.clone()),anchor.userData.bindScale=anchor.scale.clone();}
@@ -365,6 +367,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-81061b22e300c17f'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-f607296e23d1060e'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
