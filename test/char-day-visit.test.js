@@ -10,7 +10,7 @@ test('在家默认双人，外出按地点手选；手动离开、工作与预�
 });
 test('现场底栏复用原尺寸和安全区，空地点击使用原手势，聊天开合保持场景',()=>{
  const page=read('js/char-day.js'),scene=read('apps/fairy-garden/day/scene.mjs');
- const a=page.indexOf('    const navButton='),b=page.indexOf('    if (homeOptions)',a);assert.ok(a>0&&b>a);const tools=page.slice(a,b);
+ const a=page.indexOf('    const navButton='),b=page.indexOf('    const styleView=',a);assert.ok(a>0&&b>a);const tools=page.slice(a,b);
  assert.match(page,/minHeight: ?56/);assert.match(page,/safe-area-inset-bottom\) \* 0\.4/);assert.match(page,/data-wk": "cdaytools/);assert.match(tools,/minWidth:0/);
  assert.match(scene,/onTap:\(x,y\)=>/);assert.match(scene,/visitAction\('walk'/);assert.match(scene,/createTraveler\(travelerSource,false\)/);
  assert.match(scene,/if\(visitorAvatar\)disposeMap\(visitorAvatar\.root\)/);assert.match(page,/key: char\.id \+ ":" \+ retry/);

@@ -74,6 +74,17 @@
   // 能力≠性格：所有游戏共用的反刻板铁律，焊进每次生成
   const SKILL_RULE ="【能力与性格分开·非常重要】把「性格风格」和「真实水平」当成两件事：性格只决定 TA 怎么说话、什么语气；真实水平由 TA 的职业、背景、受过的训练、人生经历决定，和性格无关。绝不能因为性格开朗 / 单纯 / 憨 / 软就把 TA 演成脑子不好、推理拉垮——一个性格像小太阳但职业是程序员的人，逻辑和推理其实很强、玩推理游戏心里门儿清，只是嘴上仍旧暖乎乎的。按真实水平决定「玩得多好」，按性格决定「怎么表达」。";
 
+  // 说人话、是这个人在说（她 2026-10-11：「之前修过擂台说人话、一起学贴人设，小游戏也看看」）：
+  //   牌桌上那些让人开口的生成（描述、发言、投票理由、遗言、嘴仗、接话）原来只递「真实水平」，不递人设——
+  //   模型只能拿一个通用玩家的腔调替全桌说话，越说越像分析报告。跟擂台那条同一个判据，只给判据不给例句。
+  const VOICE_RULE = "【是这个人在说话 · 说人话】下面每一句台词都是那个人自己张嘴说的：用TA人设里那种说话的样子——TA的词、TA的脾气、TA跟在场的人的关系；遮住名字要认得出是谁说的，别全桌一个腔调。"
+    + "这是几个认识的人围桌玩，不是写复盘：一句里堆了两个以上的抽象名词、或者像在念攻略写分析，就是飘了，换成TA自己会说的大白话。判据：念给桌边一个没玩过这游戏的人听，TA听得懂、接得上话。水平高低只管TA玩得多好，不改TA说话的样子。\n\n";
+  // 每个开口的人后面挂一句「说话的样子」：真人角色读完整人设的开头，NPC 读生成的那一句
+  function voiceBrief(p) {
+    const s = String((p && (p.persona || (p.char && p.char.persona))) || "").replace(/\s+/g, " ").trim();
+    return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
+  }
+
   // ---- 通用：分段控件 ----
   function Segmented(props) {
     const t = props.t;
@@ -699,13 +710,12 @@
   }
   async function genCluesBatch(api, speakers, priorClues, roundNum, mode, preface) {
     const prior = priorClues.length ? priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（本轮你们最先描述，前面还没人说）";
-    const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通"); }).join("\n");
+    const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通") + voiceBrief(s); }).join("\n");
     const easy = mode === "easy" ? "\n【放水局】适当留点破绽、别一上来就把话说得滴水不漏，给真人玩家留机会。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
       "· 不能直接说出词本身，也别露骨到一句就被锁定。\n" +
       "· 一句只露【一个】日常印象、使用感受或亲身联想。不要下定义，不要解释原理/机械结构，不要罗列功能配件，不要写百科、产品评测或说明书。\n" +
       "· 别写成散文谜语：禁止为了显聪明硬造长比喻、宏大哲理和『其核心机制在于』『它的体积和重量提醒你』『新手总以为』这种分析腔。像饭桌上脱口而出的短话，不像准备过的演讲。\n" +
-      "· 好的口气示例：『小时候家里有一个』『我一般不会带它出门』『这个声音我挺熟』。示例只学松弛程度，不能照抄内容。\n" +
       "· 【具体程度严格按真实水平走·非常重要】高手点到即止、只给能【多向解读】的模糊线索，故意留白，让人一轮看不穿；只有低手才会说得太实把词几乎摊开。**绝不能所有人都描述得清清楚楚**——那样一轮就穿帮、毫无博弈，不好玩。整体要含蓄，信息一点点挤。\n" +
       "· 各人只知道自己的词、不知道谁跟自己不同。【高水平的少数派（卧底）】要善于从别人的描述里察觉『我的词好像和大家不是一路』，然后立刻把自己这句往大家的方向靠、含糊蒙混、绝不自曝；只有低水平的少数派才会照着自己的词直说而露馅。\n" +
       "· 先发言的人没有前文、只能凭自己的词说；后发言的人要顺着前面的风向调整措辞。" + easy +
@@ -740,9 +750,9 @@
   }
   async function genVotesBatch(api, voters, allClues, aliveNames, mode, userName, preface) {
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
-    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通"); }).join("\n");
+    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人，或「弃票」\",\"reason\":\"一句理由\"}]}";
@@ -763,7 +773,7 @@
   async function genSpyOutWords(api, out, allClues, votes) {
     const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const voteText = (votes || []).map(function (v) { return "· " + v.voter + (v.target ? "→" + v.target : "→弃票"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 8800 });
     const r = extractJSON(raw) || {};
     return String(r.say || "").trim().slice(0, 300);
@@ -781,7 +791,7 @@
       return { guess: "", say: "", missed: true };
     }
     const easy = mode === "easy" ? "\n【放水局】别拼尽全力：除非描述里已经把词摊开了，否则倾向猜个方向对但不精确的，把翻盘机会让一点出来。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
       "\n\n【全场描述】\n" + cluesText +
       "\n\n【输出】只输出 JSON：{\"guess\":\"TA 猜的平民词（一个词）\",\"say\":\"TA 亮出这个猜测时说的一句话（口语，贴水平）\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "TA 猜什么？" }], { maxTokens: 8900 });
@@ -1443,8 +1453,8 @@
   // 后面的发言和投票都看得见它。神职可以用这最后一句报出关键信息，也可以憋住；
   // 狼装无辜、平民点名怀疑。被枪带走 / 被自爆带走的来不及留（突然死亡无遗言）。
   async function genWolfLastWords(api, deads, how, log) {
-    const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv; }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
+    const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv + voiceBrief(d); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 9600 });
     const r = extractJSON(raw) || {};
     return Array.isArray(r.words) ? r.words : [];
@@ -1561,12 +1571,12 @@
     };
   }
   async function genSpeechesBatch(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, preface) {
-    const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv; }).join("\n");
+    const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv + voiceBrief(s); }).join("\n");
     const p = prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你们最先发言）";
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
     const peaceful = /平安夜|没人死|没人被/.test(deaths || "");
     const day1 = dayNum <= 1 ? "\n【第一天·信息极少·别当中间夜打】现在才第 1 天，几乎没有可靠信息。**别过度脑补**——" + (peaceful ? "尤其今天是【平安夜】，别去推演『是不是女巫救了预言家验的人、还是预言家自刀被救』这类没影的可能，本局神职有限，别硬套这些高级推理。" : "") + "别硬咬死谁是狼、别全场催『预言家快跳』。就简短说第一印象、初步站位或表个态就行。预言家要不要跳、什么时候跳，由真预言家自己决定，别逼 TA。" : "";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
@@ -1596,10 +1606,10 @@
     const ccVotes = (cc.seat && cc.done && cc.done.target) ? [{ name: cc.seat.name, target: String(cc.done.target), reason: String(cc.done.reason || "") }] : [];
     voters = cc.seat ? cc.rest : voters;
     if (!voters.length) return ccVotes;
-    const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通"); }).join("\n");
+    const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
     const fair = "\n【别无端集火·很重要】" + (userName ? "「" + userName + "」是真人玩家。**别只因为 TA 是真人、发言短、或你自己没头绪，就默认投 TA 或带节奏投 TA**——只在真有逻辑依据时才投 TA（被查杀、发言明显矛盾、狼味很重）。真人发言少≠划水。" : "") + "也别全场一窝蜂集火同一个人，除非证据确凿；没实锤就各投各的怀疑对象。";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
       heckleBlock(heckles) +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
@@ -2061,7 +2071,7 @@
         // 每轮再按角色 ID 认一次，兼容旧存档以及开局后才打开「本人亲打」。
         const speakers = ai.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), persona: p.persona, char: p.char, role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
         });
         const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, {
           turnId: gameRunId.current + ":day:" + n + ":" + speakers.map(function (s) { return s.key; }).join(",")
@@ -2102,7 +2112,7 @@
             }).catch(function () { /* 遗言可缺席，绝不代笔 */ });
           });
           if (ais.length) {
-            const rows = await genWolfLastWords(api, ais.map(function (d) { return { name: d.name, skill: d.skill, priv: privateFor(d, list) }; }), how, shortLog());
+            const rows = await genWolfLastWords(api, ais.map(function (d) { return { name: d.name, skill: d.skill, persona: d.persona, char: d.char, priv: privateFor(d, list) }; }), how, shortLog());
             const valid = {}; ais.forEach(function (d) { valid[d.name] = 1; });
             const words = rows.filter(function (w) { return w && valid[w.name] && String(w.text || "").trim(); });
             if (words.length) {
@@ -2141,7 +2151,7 @@
         // 一进投票名单却认不出 CC 座位，Gemini 还会悄悄替本人代投。
         const voters = aiV.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, players) };
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, players), persona: p.persona, char: p.char };
         });
         const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole, claimsRef.current, hecklesRef.current);
         const votes = voters.map(function (v) {
@@ -2399,8 +2409,8 @@
   // 只是台下起哄，不改任何牌局账面；投票类提示词把最近几句当「观众起哄」附带参考——
   // 这才兑现观战说明里那句「随时能插嘴吐槽、带节奏」（原来一个输入口都没有）。
   async function genHeckle(api, pool, gameZh, userName, line, recent) {
-    const who = pool.map(function (p) { return "■ " + p.name; }).join("\n");
-    const sys = AC + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
+    const who = pool.map(function (p) { return "■ " + p.name + voiceBrief(p); }).join("\n");
+    const sys = AC + VOICE_RULE + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "接话。" }], { maxTokens: 9200 });
     const r = extractJSON(raw) || {};
     const valid = {}; pool.forEach(function (p) { valid[p.name] = true; });
@@ -2543,11 +2553,11 @@
       : "verdict 只能是：是 / 不是 / 不好说。照实回答；实在无法用是否作答才用「不好说」。";
     const easy = mode === "easy" ? "\n【放水局】AI 玩家别问得太神，留点空间给真人；主持人答题该给的提示大方点给。" : "";
     const hist = history.length ? history.slice(-14).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
-    const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）"; }).join("\n");
+    const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + voiceBrief(s); }).join("\n");
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
       : "若某人的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西——【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问的那条也算】，别只盯着 AI。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
-    const sys = AC + SKILL_RULE + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
       "\n\n" + verdictRule + " note 是≤14 字的补充或引导，可空。" + easy +
       "\n\n【此前问过的（别让 AI 重复）】\n" + hist +
       (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
@@ -3782,8 +3792,8 @@
   }
   // ⚠️曾叫 genVotes——和卧底的 genVotes 顶层重名，后者被这个覆盖导致卧底投票错调（v47.49 修复改名）
   async function genAvVotes(api, voters, team, leaderName, players, qn, hist, heckles) {
-    const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
+    const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
     // 言秋座位先自己投（v54.43）
     const cc = await ccCarve("avalon", voters, {
@@ -3801,8 +3811,8 @@
   }
   // 组队后的圆桌讨论（阿瓦隆的灵魂：投票前的嘴仗）——一次调用出全桌发言
   async function genTableTalk(api, players, team, leaderName, reason, qn, hist, userName) {
-    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "；水平" + (p.skill || "普通"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "；水平" + (p.skill || "普通") + voiceBrief(p); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     // 言秋座位的那句嘴仗自己说；说不上话（离线/没话）就干脆缺席，不许模型代嘴（v54.43）
     const pool = players.filter(function (p) { return !p.isUser; });
     const cc = await ccCarve("avalon", pool, {
@@ -3818,8 +3828,8 @@
   }
   // 任务失败后的甩锅环节：队员自证/互咬，场下点名怀疑——一次调用
   async function genBlame(api, players, team, qn, fails, hist) {
-    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "（" + (team.indexOf(p.name) >= 0 ? "在这支队里" : "不在队里") + "）"; }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "（" + (team.indexOf(p.name) >= 0 ? "在这支队里" : "不在队里") + "）" + voiceBrief(p); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     const poolB = players.filter(function (p) { return !p.isUser; });
     const ccB = await ccCarve("avalon", poolB, {
       turnId: freshCCTurn("av-blame:" + qn + ":"),

@@ -181,7 +181,7 @@ test('整个TA一天卸载再挂载仍接到同角色进度，角色之间隔离
 test('更多归拢样貌装修场景，整页返回不改变人物或场景快照',()=>{
  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();const before=viewer.send(tree);
  const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)).length,0);
- viewer.click(tree,'更多');tree=viewer.render();const after=viewer.send(tree);assert.deepEqual(after,before);
+ viewer.click(tree,'更多');tree=viewer.render();const after=viewer.send(tree);assert.deepEqual(after,{...before,scenePaused:true});
  const panel=viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore');assert.ok(panel);assert.equal(viewer.all(panel).filter(n=>n.props['data-wk']==='cdaymenubody').length,1);
  for(const key of ['cdaymeopen','cdayhomestyle','cdaydecorate','cdayplaces'])assert.ok(viewer.all(panel).find(n=>n.props['data-wk']===key));
  viewer.click(tree,'回到小世界');tree=viewer.render();assert.equal(viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore'),undefined);assert.deepEqual(viewer.send(tree),before);

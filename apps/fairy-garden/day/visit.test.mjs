@@ -88,3 +88,12 @@ test('约会自动沿TA的实际移动跟随，停下、手动接管、结束约
  // Explicit date start can re-arm a previously saved manual choice. Arrival restores preserve takeover.
  v.setChoice('manual');assert.equal(v.join({restore:{control:'auto'}}),true);assert.equal(v.inspect().control,'auto');v.close();assert.equal(v.join({arrival:true,restore:{control:'manual'}}),true);assert.equal(v.inspect().control,'manual');
 });
+
+ test('临时现场快照保留我的坐位、动作和自动间隔，手动停下/行走重进不再从门口走',()=>{
+ for(const kind of ['read','drink','rest','manual']){
+  const f=controlledVisit(),v=f.visit;v.join();f.settle();v.act(kind);f.settle();f.tick(14);const before=v.inspect(),paused=v.pauseState();assert.equal(paused.manualAction,kind);assert.deepEqual(v.inspect(),before);
+  const fresh=controlledVisit().visit;assert.equal(fresh.restore(paused),true);assert.deepEqual(fresh.inspect().position,before.position);assert.deepEqual(fresh.inspect().seat,before.seat);assert.equal(fresh.inspect().activity,before.activity);assert.equal(fresh.inspect().control,'manual');for(let n=0;n<2000;n++)fresh.tick(.1,n*.1);assert.deepEqual(fresh.inspect().position,before.position);assert.equal(fresh.inspect().manualAction,kind);
+ }
+ const f=controlledVisit(),v=f.visit;v.join();f.settle();v.act('walk',{x:0,z:3});f.tick(2);const paused=v.pauseState(),fresh=controlledVisit().visit;assert.equal(fresh.restore(paused),true);assert.deepEqual(fresh.inspect().position,paused.position);assert.ok(fresh.inspect().route.length);assert.equal(fresh.inspect().control,'manual');assert.equal(fresh.restore({...paused,map:'dayStreet'}),false);
+ v.act('auto');f.tick(1);const automatic=v.pauseState(),auto=controlledVisit().visit;auto.restore(automatic);assert.equal(auto.pauseState().autoWait,automatic.autoWait);assert.equal(auto.inspect().control,'auto');
+});

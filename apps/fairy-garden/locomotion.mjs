@@ -7,7 +7,11 @@ export function stepRoute(position,route,dt,{speed=0,skating=false,walkSpeed=1.4
  while(route.length&&(budget>0||remaining<.008)){
   const q=route[0];if(!clear(p,q)){route.length=0;speed=0;blocked=true;break;}
   const dx=q.x-p.x,dz=q.z-p.z,d=Math.hypot(dx,dz);if(d>.0001)heading=Math.atan2(dx,dz);
-  if(d<=budget+.008){p={...q};route.shift();budget=Math.max(0,budget-d);}else{p.x+=dx/d*budget;p.z+=dz/d*budget;budget=0;}
+  const next=d<=budget+.008?{...q}:{x:p.x+dx/d*budget,z:p.z+dz/d*budget};
+  // A frame may cross several waypoints. Stop at the last clear corner if its
+  // final rendered displacement would cut through the intervening furniture.
+  if(!clear(position,next)){budget=0;break;}
+  p=next;if(d<=budget+.008){route.shift();budget=Math.max(0,budget-d);}else budget=0;
  }
  return {position:p,speed:route.length?speed:0,heading,blocked};
 }

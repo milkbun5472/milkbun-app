@@ -177,7 +177,7 @@ function activityKey(){return JSON.stringify([snapshot?.key,activity,!!snapshot?
 function pauseState(){
   if(snapshot?.editing)return editResume;
   if(!ready||!map||changing||!snapshot)return null;
-  return {charId:snapshot.charId,map,key:activityKey(),position:{...(together?.inspect()?.a||position)},target:target&&{...target},moving:!!route.length||!!together?.inspect()||hostChoreManual,yaw,speed,dwell,walkTarget};
+  return {charId:snapshot.charId,map,key:activityKey(),position:{...(together?.inspect()?.a||position)},target:target&&{...target},moving:!!route.length||!!together?.inspect()||hostChoreManual,yaw,speed,dwell,walkTarget,visitor:visitor?.pauseState()||null};
 }
 async function enter(next,token,initial=false,retainView=false,resume=null){
   changing=true;cover.classList.add('on');avatar.root.visible=false;
@@ -203,6 +203,11 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
     }
     else if(initial&&(snapshot.presentation.action==='sleep'||!snapshot.preview&&!snapshot.showcase&&snapshot.slot&&Number.isFinite(snapshot.at)&&snapshot.at>snapshot.slot.startAt+30000&&activity.phase!=='enter')&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
     if(snapshot.presentation.action==='walk'&&!route.length)wander();
+    if(resume?.visitor?.present&&visitSetting()&&snapshot.visitorData?.homePresence!=='away'){
+      await prepareVisitor();if(token!==epoch||disposed)return;
+      visitorAvatar.setLook(seatLook('me',snapshot.visitorLook||{},'她'),true);visitorLookKey=JSON.stringify(snapshot.visitorLook||{});await visitorAvatar.ready();
+      if(token!==epoch||disposed)return;visitor.restore(resume.visitor);
+    }
     if(!retainView){if(snapshot.follow)setCameraMode(snapshot.cameraMode&&snapshot.cameraMode!=='free'?snapshot.cameraMode:'ta');else overview();}tell('');markSelection();if(snapshot.editing)editorNotice();
   }catch(e){if(token===epoch)tell('画面加载失败：'+e.message);}finally{if(token===epoch){changing=false;
    // Apply the live seat/bed pose before exposing the completed scene. The
@@ -212,10 +217,10 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
 }
 function apply(data,local=false){
   if(!ready){pending=data;return;}
-  if(!data)return;const previous=snapshot,first=!snapshot,wasEditing=snapshot?.editing,wasVisitorPreview=snapshot?.visitorPreview,previousKey=snapshot?.key,previousChar=snapshot?.charId;
+  if(!data)return;const previous=snapshot,previousPause=pauseState(),first=!snapshot,wasEditing=snapshot?.editing,wasVisitorPreview=snapshot?.visitorPreview,previousKey=snapshot?.key,previousChar=snapshot?.charId;
   if(snapshot?.charId!==data.charId||snapshot?.presentation?.map!==data.presentation.map){homeAutoSuppressed=false;autoJoinFailed=false;}
   if(data.editing&&!wasEditing)editResume=first?data.resume:pauseState();
-  const resume=!data.editing?(wasEditing?editResume:first?data.resume:null):null;
+  let resume=!data.editing?(wasEditing?editResume:first?data.resume:null):null;
   if(!data.editing)editResume=null;
   // During an edit session this scene owns the draft. Host clock pulses only
   // mirror it; an older pulse cannot replace a just-released furniture drag.
@@ -230,6 +235,7 @@ function apply(data,local=false){
   if(input!==homeInput)homeRecord=restoreHomeLayout(data.homePlacements);
   homeInput=input;snapshot.homePlacements=homeRecord;
   const nextHome=JSON.stringify(homeRecord),layoutChanged=nextHome!==homeKey;
+  if(!resume&&!data.editing&&previous?.charId===data.charId&&map===data.presentation.map&&map==='dayHome'&&(layoutChanged||spaceStyle!==(data.homeStyle||'warm')))resume=previousPause;
   if(layoutChanged){MAPS.dayHome=checkHomeLayout(homeRecord).map;homeKey=nextHome;}
   if(data.editing&&!wasEditing){history.length=0;selected='double-bed';lastEditNotice='';}
   if(data.editing&&selected&&!Object.hasOwn(homeRecord,selected))selected='';
@@ -291,7 +297,7 @@ function wander(){
 function tick(dt,time){
   if(['dayHome','dayCampus'].includes(map))setHomeClock(mapLoader.views[map]?.root,snapshot?.minute);
   if(snapshot?.visitorPreview&&visitorAvatar&&!visitor?.inspect().present){visitorAvatar.animate(time,{height:.08});}
-  if(!ready||!map||changing||snapshot?.editing||!avatar.root.visible)return;
+  if(!ready||!map||changing||snapshot?.editing||snapshot?.scenePaused||snapshot?.visitorPreview||!avatar.root.visible)return;
   if(transfer?.inspect()){transfer.tick(dt,time);trackCamera(Math.min(1,dt*8));return;}
   if(map==='dayHome'&&visitSetting()&&!snapshot.visitorPreview&&snapshot.visitorData?.homePresence!=='away'&&!homeAutoSuppressed&&!autoJoinFailed&&!visitor?.inspect().present&&!visitLoading)joinVisit({automatic:true});
   if(together?.inspect()){if(together.inspect().automatic&&together.inspect().phase==='active'&&together.inspect().elapsed>=8){together.stop('小互动结束，继续各自活动。');autoInteraction.reset();}together.tick(dt,time);if(together.inspect()){taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);trackCamera(Math.min(1,dt*8));updateKitchen(dt);return;}}
