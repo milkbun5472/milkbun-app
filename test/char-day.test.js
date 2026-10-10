@@ -122,8 +122,14 @@ function placeViewer(f,initialCharId){
   const text=node=>node.children.map(c=>typeof c==='string'?c:typeof c==='object'?text(c):'').join('');
   const click=(tree,label)=>{const node=all(tree).find(n=>n.tag==='button'&&text(n)===label);assert.ok(node,label+'可用');node.props.onClick();};
   const send=tree=>{const frame=all(tree).find(n=>n.tag==='iframe');assert.ok(frame);frame.props.onLoad();return snapshots.at(-1);};
-  return {render,click,send,all,states};
+  return {render,click,send,all,states,refs};
 }
+
+test('场景尚未同步角色时的首条到访消息可安全接收，不把小世界打进错误页',()=>{
+ const f=setup(),viewer=placeViewer(f,'c1');let receive;
+ Object.assign(f.env,{useEffect:fn=>fn(),setInterval:()=>1,clearInterval:()=>{},addEventListener:(kind,fn)=>{if(kind==='message')receive=fn;},removeEventListener:()=>{}});
+ viewer.render();assert.equal(typeof receive,'function');assert.doesNotThrow(()=>receive({source:viewer.refs[0].current.contentWindow,origin:'http://test.invalid',data:{type:'char-day-visit',present:false,busy:false}}));assert.doesNotThrow(()=>viewer.render());
+});
 
 test('新场景从选人页独立试玩，生活示例与日程映射继续可用',()=>{
   const f=setup(),viewer=placeViewer(f,''),before=JSON.stringify(f.plans()),writes=f.writes.length;

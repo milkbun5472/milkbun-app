@@ -1,5 +1,5 @@
-import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-bc35c5341d4847ae';
-import {HOME_COOK,HOME_PREP} from './home-catalog.mjs?v=fg-bc35c5341d4847ae';
+import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-308f3b440eb00f09';
+import {HOME_COOK,HOME_PREP} from './home-catalog.mjs?v=fg-308f3b440eb00f09';
 
 // Movable meshes use the catalogue footprint and the traveler's original bed /
 // chair surfaces. Details belong to their instance, including the thumbnail.

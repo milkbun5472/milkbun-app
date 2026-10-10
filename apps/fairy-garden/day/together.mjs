@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-bc35c5341d4847ae';
-import {stepRoute} from '../locomotion.mjs?v=fg-bc35c5341d4847ae';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-bc35c5341d4847ae';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-bc35c5341d4847ae';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-308f3b440eb00f09';
+import {stepRoute} from '../locomotion.mjs?v=fg-308f3b440eb00f09';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-308f3b440eb00f09';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-308f3b440eb00f09';
 
 export const TOGETHER_LABELS={hand:'牵手',hug:'拥抱',shoulder:'靠肩',read:'一起看书',meal:'一起吃饭',cook:'一起做饭'};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),avoid=(p,r=.72)=>[{...p,r}];

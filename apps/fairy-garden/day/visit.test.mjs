@@ -68,3 +68,8 @@ test('重新创建现场沿保存的手动选择开始，人设和等待都不�
   assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().manualAction,choice);assert.equal(v.inspect().activity,choice==='manual'?null:choice);
  }
 });
+test('共处互动接管和结束都保持手动，自动活动不能抢走牵抱的控制',()=>{
+ const f=controlledVisit(),v=f.visit;v.join();f.settle();const point=v.inspect().position;
+ v.control({b:point,moving:false,kind:'hug',phase:'hold',label:'拥抱'});f.tick(1500);assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().interaction,'hug');assert.deepEqual(v.inspect().position,point);
+ v.release({b:point,reason:'已结束'});f.tick(1500);assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().interaction,null);assert.deepEqual(v.inspect().position,point);
+});
