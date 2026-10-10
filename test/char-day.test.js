@@ -168,6 +168,15 @@ test('日程页卸载画面前接住临时位置，装修沿同一现场继续�
   assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });
 
+test('整个TA一天卸载再挂载仍接到同角色进度，角色之间隔离且不写日程',()=>{
+ const f=setup(),v=placeViewer(f,'c1'),tree=v.render(),first=v.send(tree),writes=f.writes.length,before=JSON.stringify(f.plans());
+ const paused={charId:'c1',map:first.presentation.map,key:'current-phase',position:{x:1,z:2},target:{x:1,z:2},moving:false,yaw:.4,speed:0,dwell:12,walkTarget:0};
+ const frame=v.all(tree).find(n=>n.tag==='iframe');frame.props.ref({contentWindow:{CharDayScene:{pauseState:()=>paused}}});frame.props.ref(null);
+ const fresh=placeViewer(f,'c1');assert.deepEqual(fresh.send(fresh.render()).resume,paused);
+ f.c={...f.c,id:'c2'};const other=placeViewer(f,'c2');assert.equal(other.send(other.render()).resume,null);
+ assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
 
 test('更多归拢样貌装修场景，整页返回不改变人物或场景快照',()=>{
  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();const before=viewer.send(tree);
