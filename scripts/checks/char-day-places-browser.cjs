@@ -1,3 +1,4 @@
+const {cameraView,moreItem}=require('./char-day-ui-helpers.cjs');
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-places-browser';fs.mkdirSync(out,{recursive:true});
 const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=app.indexOf('  const saveSchedDay ='),end=app.indexOf('  const applySchedChange =',start);assert.ok(start>0&&end>start);const writer=app.slice(start,end);
@@ -67,7 +68,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
         assert.equal(boxes.overflow,false);assert.ok(boxes.tools.height>=54&&boxes.tools.height<=65);assert.ok(Math.abs(boxes.tools.bottom-h)<2);assert.ok(boxes.scene.height>170);
         assert.ok(boxes.selector.height>=40,'动作位置选择器触区至少40px');assert.ok(boxes.selector.x>=0&&boxes.selector.right<=w+1);assert.ok(boxes.selector.top>=boxes.scene.top&&boxes.selector.bottom<=boxes.scene.bottom);assert.match(boxes.bottomFormula,/safe-area-inset-bottom.*0\.4/);
         assert.equal(boxes.buttons.length,4,'摆位试玩保留四个底键');assert.ok(boxes.buttons.every(b=>b.x>=0&&b.right<=w+1&&b.height>=40));
-        await root.getByRole('button',{name:'看全景',exact:true}).click();assert.equal((await state()).following,false);
+        await cameraView(root,true);assert.equal((await state()).following,false);
         await shot(slug(id)+'-overview-'+w+'x'+h);result.widths.push({id,w,h,...boxes});
       }
       await page.setViewportSize({width:390,height:844});
@@ -119,7 +120,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       await placeLayouts(id);
       report.nearSpots=[];
       for(const near of closeSpots(id,map)){
-        await visitSpot(id,near);await root.getByRole('button',{name:'跟着TA',exact:true}).click();assert.equal((await state()).following,true);await page.waitForTimeout(300);
+        await visitSpot(id,near);await cameraView(root,false);assert.equal((await state()).following,true);await page.waitForTimeout(300);
         const filename=id==='dayLibrary'?(near.id==='window-reading'?'library-window-close':'library-reading-close'):slug(id)+'-'+near.id+'-close';
         await shot(filename);report.nearSpots.push({id:near.id,screenshot:filename+'.png'});
       }
@@ -133,7 +134,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);result.oldDemoNext=true;
     await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试研究员'}).click();await ready();
     await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);const original=await state();assert.equal(original.charId,'places-a');assert.match(original.look,/#a8be83/);
-    await root.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
+    await moreItem(root,'cdayplaces');await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
     result.characterPlaces=[];
     for(const id of ids){
       await choosePlace(id);const stage=await state();assert.equal(stage.charId,original.charId);assert.equal(stage.look,original.look);
@@ -155,7 +156,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
     await page.waitForFunction(()=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect();return s?.ready&&s.map==='dayWork'&&!s.changing;});
     frame=page.frames().find(f=>f.url().includes('/fairy-garden/day/'));const realOriginal=await state();
     const realBaseline=await page.evaluate(()=>({writes:dayRealWrites.length,plans:JSON.stringify(loadJSON('x_schedules',{})),games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
-    await page.getByRole('button',{name:'新场景',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
+    await moreItem(page,'cdayplaces');await frame.waitForFunction(()=>CharDayScene.inspect().map?.startsWith('day')&&!CharDayScene.inspect().changing);
     result.actualAppPlaces=[];
     for(const id of ids){
       await choosePlace(id,page);assert.equal((await state()).look,realOriginal.look);assert.equal((await state()).charId,'places-a');

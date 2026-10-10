@@ -1,3 +1,4 @@
+const {moreItem}=require('./char-day-ui-helpers.cjs');
 // Isolated fixtures exercise the real App, original writers and actual rendered furniture/faces.
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-link';fs.mkdirSync(out,{recursive:true});
@@ -31,7 +32,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
   }
   for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){await p.setViewportSize({width:w,height:h});await p.waitForTimeout(100);const box=await p.locator('[data-wk=cdaypage]').evaluate(el=>({overflow:el.scrollWidth>el.clientWidth,tools:el.querySelector('[data-wk=cdaytools]').getBoundingClientRect().toJSON()}));assert.equal(box.overflow,false);assert.ok(box.tools.height>=54&&box.tools.height<=65);assert.ok(Math.abs(box.tools.bottom-h)<2);result.layouts.push({w,h,...box});}
   await p.setViewportSize({width:390,height:844});await p.getByRole('button',{name:'回到此刻',exact:true}).click();await waitRoom('dayClinic','casework');
-  await p.getByRole('button',{name:'新场景',exact:true}).click();await p.waitForFunction(()=>document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect().markersVisible);await p.getByRole('button',{name:'回到日程',exact:true}).click();await waitRoom('dayClinic','casework');assert.equal((await state()).markersVisible,false);
+  await moreItem(p,'cdayplaces');await p.waitForFunction(()=>document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect().markersVisible);await p.getByRole('button',{name:'回到日程',exact:true}).click();await waitRoom('dayClinic','casework');assert.equal((await state()).markersVisible,false);
   // The original companion UI is the only writer of manual faces and outfit changes.
   await p.getByRole('button',{name:'换人',exact:true}).click();await back();await back();await p.locator('[data-appkey=companion]').click();await p.locator('[data-wk=compmood]').waitFor();
   await p.getByRole('button',{name:'我来选表情',exact:true}).click();await p.getByRole('button',{name:'得意',exact:true}).click();await p.waitForFunction(()=>loadJSON('x_companion',{}).looks?.['link-a']?.face==='proud');

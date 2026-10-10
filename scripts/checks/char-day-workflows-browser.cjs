@@ -1,3 +1,4 @@
+const {cameraView}=require('./char-day-ui-helpers.cjs');
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const batch=process.env.DAY_BATCH||'first',base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-workflows';fs.mkdirSync(out,{recursive:true});
 const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.indexOf('  const saveSchedDay ='),b=app.indexOf('  const applySchedChange =',a);assert.ok(a>0&&b>a);const writer=app.slice(a,b);
@@ -37,7 +38,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
    if(probe.headHand&&['experiment','write','type','observe','paint','piano','craft'].includes(kind))assert.ok(Math.hypot(...probe.headHand)>1.08,'Working hand outside face');
    if(kind==='piano'){assert.ok(Math.hypot(...probe.leftHeadHand)>1.08,'Left piano hand outside face');let pressed=false;for(let n=0;n<8;n++){pressed||=(await state()).sceneAction.pressedKeys.length>0;await page.waitForTimeout(150);}assert.ok(pressed,'Actual keyboard keys move');}
    const before=probe.hand;await page.waitForTimeout(500);const after=await frame.evaluate(()=>CharDayScene.probeAction());if(['write','type','experiment','paint','piano','guitar','craft','dance','rehearse'].includes(kind))assert.ok(before.some((n,i)=>Math.abs(n-after.hand[i])>.00001),'Continuous task movement');
-   await root.getByRole('button',{name:'跟着TA',exact:true}).click();await page.waitForTimeout(250);await shot(scene+'-'+phase+'-'+spot);
+   await cameraView(root,false);await page.waitForTimeout(250);await shot(scene+'-'+phase+'-'+spot);
    result.steps.push({scene,primary,time,phase,spot,kind,pathReport,state:s,probe});
   }
   if(!process.env.DAY_RIG_ONLY){
