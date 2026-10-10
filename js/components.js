@@ -12246,6 +12246,9 @@ function MomentCommentText({ cm }) {
 // noModel：免费翻译翻不成就停，不去叫模型（心声那几处）
 function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   const [autoShow] = useOnlineTranslationAuto();
+  // <#0.4#> 这种停顿记号是念给语音听的，屏幕上一律不摆（群里 2026-10-10 截图：通话里漏了一串）。
+  //   全库正文都从这一处画，剥在这儿，单聊、群聊、通话、引用一起管；原文照旧留着给 TTS。
+  if (typeof text === "string" && text.indexOf("<#") >= 0 && typeof stripPauseMarks === "function") text = stripPauseMarks(text);
   // 世界书卡片走这儿分流：TransText 是全库【唯一】那条正文渲染路（单聊/群聊/通话/
   // 线下引用/查手机都用它），所以闸开在这一处，八处一起合规。
   // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
@@ -15984,7 +15987,8 @@ function offSplit(text) {
   return out.filter(x => x.s !== "");
 }
 function offBody(t, text, accent) {
-  const segs = offSplit(text);
+  // <#0.5#> 停顿记号只给语音用，线下正文里不摆（群里 2026-10-10：「线下听说也会漏」）
+  const segs = offSplit(typeof stripPauseMarks === "function" ? stripPauseMarks(text) : text);
   const hasSay = segs.some(x => x.k === "say");
   const d = offDark(t);
   const sayInk = offReadable(accent || t.tint, t.bg2);
