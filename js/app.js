@@ -532,6 +532,7 @@ function App() {
   const schedRunRef = useRef(false); // 本次打开行程是否已跑过「当天给所有人生成」
   const schedulesRef = useRef({});
   const [rels, setRels] = useState({});
+  const [contactBack, setContactBack] = useState(null);   // 从名片点进通讯录页：返回时回到原来那个聊天
   const [resetAsk, setResetAsk] = useState(null);   // { id, preset: "all" | "chat" }：重置选择页
   const [affinities, setAffinities] = useState({});
   const [moods, setMoods] = useState({});
@@ -27868,7 +27869,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     },
     ficWriting: !!busyLanes["ficroom:" + activeChar.id],
     toast: toast,
-    onSendRich: msg => pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]),
+    onSendRich: msg => {
+      pChat(window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, p => [...p, msg]);
+      // 推荐名片＝她介绍他俩认识（她 2026-10-10「做吧」）：两人之间还一条关系都没有，才落一条「经她介绍认识」；已有的一个字不动
+      if (msg && msg.kind === "namecard" && msg.cardId && msg.cardId !== activeChar.id) {
+        const a2 = activeChar.id, b2 = msg.cardId, cur = loadJSON("x_rels", {}) || {};
+        if (!cur[a2 + "->" + b2] && !cur[b2 + "->" + a2]) {
+          const uN = userName(profile), aN = activeChar.remark || activeChar.name, bN = msg.cardName || "TA";
+          saveRel(a2 + "->" + b2, "经" + uN + "介绍认识", uN + "把「" + bN + "」的名片推给了你，你们是这么认识的，还不熟。");
+          saveRel(b2 + "->" + a2, "经" + uN + "介绍认识", uN + "把你的名片推给了「" + aN + "」，你们是这么认识的，还不熟。");
+        }
+      }
+    },
+    // 点名片：去那个人的通讯录页；返回回到这儿
+    onOpenNameCard: id => { const c = (characters || []).find(x => x && x.id === id); if (!c) return; setContactBack(activeChar.id); setActiveChar(c); setScreen("contact"); },
     onPat: () => patChar(activeChar.id, window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id),
     onStartCall: m => callCharGated(activeChar, m),
     // 半窗：只在主聊天里有（小房间是另一条线，先不跟出去）；开了就回主屏，上面随便翻
@@ -28232,6 +28246,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onTogglePin: togglePinChat,
     onNewGroup: () => setNewGroupOpen(true),
     onOpenContact: c => {
+      setContactBack(null);
       setActiveChar(c);
       setScreen("contact");
     },
@@ -28461,7 +28476,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "contact" && activeChar) body = /*#__PURE__*/React.createElement(ContactDetail, {
     character: activeChar,
     affinity: Math.round(affOf(activeChar.id)),
-    onBack: () => setScreen("messages"),
+    onBack: () => { const back = contactBack && (characters || []).find(x => x && x.id === contactBack); setContactBack(null); if (back) { setActiveChar(back); setScreen("thread"); } else setScreen("messages"); },
     onChat: () => {
       clearUnread(activeChar.id);
       setScreen("thread");

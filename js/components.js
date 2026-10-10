@@ -8078,10 +8078,12 @@ function WeatherChatCard({ m, character }) {
       m.say) : null);
 }
 // 推荐名片（群里 2026-10-10：「可以加个转发名片」）：微信「推荐给朋友」那张卡——头像、名字、一句话
-function NameCardMsg({ m, characters }) {
+function NameCardMsg({ m, characters, onOpen }) {
   const t = useTheme();
   const c = (characters || []).find(x => x && x.id === m.cardId) || { name: m.cardName, color: t.tint };
-  return h("div", { "data-wk": "namecard", style: { borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden" } },
+  // 点开＝去这个人的通讯录页（她 2026-10-10）；人已经删了就点不动
+  const live = (characters || []).some(x => x && x.id === m.cardId);
+  return h("div", { "data-wk": "namecard", role: onOpen && live ? "button" : undefined, onClick: onOpen && live ? onOpen : undefined, className: onOpen && live ? "active:opacity-80 cursor-pointer" : "", style: { borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden" } },
     h("div", { className: "flex items-center", style: { gap: 11, padding: "12px 13px" } },
       h(Avatar, { character: c, size: 44, radius: 10 }),
       h("div", { className: "min-w-0 flex-1" },
@@ -9253,6 +9255,7 @@ function RerollNav({ nav, onFlip, pad }) {
     btn(1, nav.pos >= nav.n - 1, "下一版", "›"));
 }
 function ChatThread({
+  onOpenNameCard,
   dirNotes,       // 线上导演便签（她 2026-10-10）：跟旁白放一起，旁白模式里切「往后的方向」
   onAddDirNote,
   onDelDirNote,
@@ -9925,7 +9928,7 @@ function ChatThread({
         h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
         isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     };
-    if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters }));
+    if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters, onOpen: onOpenNameCard ? () => onOpenNameCard(m.cardId) : null }));
     if (m.kind === "pat") return h("div", {
       key: i,
       // 长按出菜单（她 2026-10-02：拍一拍也要能撤回，跟别的消息撤回一样）
