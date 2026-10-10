@@ -393,6 +393,7 @@
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
       ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
+      ["npcnew", "通讯录 → 配角 → 右上角 + 新建配角那一整页（认识谁、在谁身边）"],
       ["mlpage","消息这一页的底（聊天／通讯录／朋友圈／我 四栏共用）"],
       ["mlsearch","聊天列表顶上的搜索框"],
       ["mlrow","聊天列表的一行（data-kind=\"char\"/\"group\"；data-pinned=\"1\" 是置顶；data-unread=\"1\" 有未读）"],
@@ -1002,7 +1003,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.288", changed: "", none: "只修通话、线下里漏出来的语音停顿记号，没有新的可换装部件" };
+  const BRIEF_STAMP = { v: "v75.289", changed: "新挂点 npcnew：通讯录 → 配角右上角 + 新建配角那一页。", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
