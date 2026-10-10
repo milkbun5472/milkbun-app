@@ -3,11 +3,12 @@ import * as T from 'three';
 import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-c27bf8a6a71ea07b';
 import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-c27bf8a6a71ea07b';
 import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-c27bf8a6a71ea07b';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-c27bf8a6a71ea07b';
 import {seatLook} from '../wardrobe.mjs?v=fg-c27bf8a6a71ea07b';
 import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-c27bf8a6a71ea07b';
 import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-c27bf8a6a71ea07b';
 import {stepRoute} from '../locomotion.mjs?v=fg-c27bf8a6a71ea07b';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose} from '../view-controls.mjs?v=fg-c27bf8a6a71ea07b';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-c27bf8a6a71ea07b';
 import {updateWorkScene} from './work-scene.mjs?v=fg-c27bf8a6a71ea07b';
 import {activityPhase,taskAt} from './workflow.mjs?v=fg-c27bf8a6a71ea07b';
 import {activityPose} from './activity.mjs?v=fg-c27bf8a6a71ea07b';
@@ -57,33 +58,37 @@ async function joinVisit(){
   if(token!==visitEpoch||disposed)return false;
   visitorAvatar.setLook(seatLook('me',snapshot?.visitorLook||{},'她'),true);visitorLookKey=JSON.stringify(snapshot?.visitorLook||{});await visitorAvatar.ready();
   if(token!==visitEpoch||disposed)return false;
-  visitLoading=false;visitor.join();helloUntil=performance.now()/1000+5;center();return true;
+  visitLoading=false;visitor.join();helloUntil=performance.now()/1000+5;setCameraMode('both');return true;
  }catch(e){if(token===visitEpoch){visitLoading=false;visitNotice({present:false,busy:false,notice:'你的小人还没准备好，可以再试一次。'});}return false;}
 }
 let avatar=null,ready=false,disposed=false,map=null,snapshot=null,pending=null,signature='',lookKey='',epoch=0,route=[],position={x:0,z:0},speed=0,yaw=0,target=null,seat=null,bed=null,walkTarget=0,dwell=0,onArrive=null,following=true,span=10,frame=0,changing=false,failure='',spaceStyle='',homeKey='',homeInput='',homeRecord=homePlacements(),selected='',drag=null,lastEditNotice='',homeOverview=false;
+let cameraMode='ta',framing=false,kitchenProgress=null;
 const editorPointers=new Map(),history=[];
 let editResume=null;
 const selection=new T.Mesh(new T.PlaneGeometry(1,1),new T.MeshBasicMaterial({color:'#88a773',transparent:true,opacity:.35,depthWrite:false,depthTest:false,side:T.DoubleSide}));selection.rotation.x=-Math.PI/2;selection.visible=false;selection.renderOrder=10;scene.add(selection);
 const tell=error=>{failure=error||'';if(parent!==window)parent.postMessage({type:'char-day-status',error},location.origin);};
 const mapLoader=createMapLoader({maps:MAPS,loadAsset:async asset=>{const url=new URL('../'+asset.replace(/^\.\//,''),import.meta.url).href,root=(await loader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;}});return root;},factories:{...Object.fromEntries(Object.entries(DAY_FACTORIES).map(([id,factory])=>[id,()=>factory(professionalOptions(snapshot?.professional,id))])),...Object.fromEntries(Object.keys(CORE_SPACES).map(id=>[id,()=>createSpaceView(id,id==='dayHome'?snapshot?.homeStyle:'warm',MAPS[id])]))},attach:o=>scene.add(o),detach:o=>scene.remove(o)});
 function cameraPose(){const p=orthographicCameraPose(pan,span,camera.zoom,0);camera.position.set(p.position.x,p.position.y,p.position.z);camera.lookAt(p.target.x,p.target.y,p.target.z);camera.far=p.far;camera.updateProjectionMatrix();camera.updateMatrixWorld();}
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.left=-span*w/h/2;camera.right=span*w/h/2;camera.top=span/2;camera.bottom=-span/2;cameraPose();if(homeOverview&&map==='dayHome')overview();}
-function setFollowing(value){if(following===value)return;following=value;if(parent!==window)parent.postMessage({type:'char-day-view',following},location.origin);}
-function visitFocus(focal){const v=visitor?.inspect();if(!v?.present)return focal;const at=v.seat||v.position;return {x:(focal.x+at.x)/2,z:(focal.z+at.z)/2};}
-function center(){setFollowing(true);const focal=visitFocus(bed||(!route.length&&seat)||position);pan.x=focal.x;pan.z=focal.z;gesture.setZoom(1.6);cameraPose();}
-function overview(){
- setFollowing(false);pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;
- const home=map==='dayHome'&&mapLoader.views[map]?.root;
- if(home){gesture.setZoom(1);const bounds=new T.Box3().setFromObject(home);let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
-  for(const a of [bounds.min.x,bounds.max.x])for(const b of [bounds.min.y,bounds.max.y])for(const c of [bounds.min.z,bounds.max.z]){const v=new T.Vector3(a,b,c).project(camera);minX=Math.min(minX,v.x);maxX=Math.max(maxX,v.x);minY=Math.min(minY,v.y);maxY=Math.max(maxY,v.y);}
-  // Leave space for the existing current-schedule card and scene captions.
-  const top=Math.min(125,innerHeight*.36)+8,bottom=Math.min(60,innerHeight*.22),zoom=Math.min(1.5,1.88/(maxX-minX),2*(innerHeight-top-bottom)/innerHeight/(maxY-minY));
-  const e=camera.matrixWorld.elements,rightX=e[0],rightZ=e[2],upX=e[4],upZ=e[6],det=rightX*upZ-rightZ*upX;
-  const dx=(minX+maxX)/2*(camera.right-camera.left)/2,dy=(((minY+maxY)/2)*zoom-(bottom-top)/innerHeight)*(camera.top-camera.bottom)/(2*zoom);
-  pan.x+=(dx*upZ-dy*rightZ)/det;pan.z+=(rightX*dy-upX*dx)/det;gesture.setZoom(zoom);homeOverview=true;
- }else gesture.setZoom(CORE_SPACES[map]?Math.min(.75,innerWidth/innerHeight*span/(MAPS[map].bounds.w+MAPS[map].bounds.d)*1.13):DAY_PLACES[map]?Math.min(.85,innerWidth/innerHeight*.77):map==='garden'?.65:.62);cameraPose();
+function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h);camera.left=-span*w/h/2;camera.right=span*w/h/2;camera.top=span/2;camera.bottom=-span/2;cameraPose();if(homeOverview&&map==='dayHome')overview();else if(ready)trackCamera(1);}
+function setFollowing(value,mode=value?'ta':'free'){const changed=following!==value||cameraMode!==mode;following=value;cameraMode=mode;if(changed&&parent!==window)parent.postMessage({type:'char-day-view',following,mode:cameraMode},location.origin);}
+function projectedBounds(box,view=camera){let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+ for(const a of [box.min.x,box.max.x])for(const b of [box.min.y,box.max.y])for(const c of [box.min.z,box.max.z]){const v=new T.Vector3(a,b,c).project(view);minX=Math.min(minX,v.x);maxX=Math.max(maxX,v.x);minY=Math.min(minY,v.y);maxY=Math.max(maxY,v.y);}
+ return {minX,maxX,minY,maxY};
 }
-const gesture=createMapGesture({initial:1.6,min:.2,onZoom:v=>{homeOverview=false;camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
+function frameBox(box,insets,maxZoom=2.2,smooth=1){cameraPose();const e=camera.matrixWorld.elements,fit=orthographicFrame({...projectedBounds(box),zoom:camera.zoom,halfWidth:(camera.right-camera.left)/2,halfHeight:span/2,width:innerWidth,height:innerHeight,rightX:e[0],rightZ:e[2],upX:e[4],upZ:e[6],insets,maxZoom});if(!fit)return;
+ pan.x+=fit.x*smooth;pan.z+=fit.z*smooth;framing=true;gesture.setZoom(camera.zoom+(fit.zoom-camera.zoom)*smooth);framing=false;cameraPose();
+}
+function actorBounds(who){const v=visitor?.inspect(),roots=who==='me'&&v?.present?[visitorAvatar?.root]:who==='both'&&v?.present?[avatar?.root,visitorAvatar?.root]:[avatar?.root],box=visibleBounds(T,roots);return box.isEmpty()?null:box.expandByScalar(.12);}
+function trackCamera(smooth=1){if(!following||snapshot?.visitorPreview||snapshot?.editing)return;if(['me','both'].includes(cameraMode)&&!visitor?.inspect().present)setFollowing(true,'ta');const box=actorBounds(cameraMode);if(box)frameBox(box,snapshot?.viewInsets||{top:130,bottom:30,left:18,right:18},cameraMode==='both'?5:5.5,smooth);}
+function setCameraMode(mode){if(mode==='overview'){overview();return true;}if(!['ta','me','both'].includes(mode))return false;if(mode!=='ta'&&!visitor?.inspect().present)return false;homeOverview=false;setFollowing(true,mode);trackCamera();return true;}
+function center(){return setCameraMode('ta');}
+function overview(){
+ setFollowing(false,'overview');pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;
+ const home=map==='dayHome'&&mapLoader.views[map]?.root;
+ if(home){framing=true;gesture.setZoom(1);framing=false;frameBox(new T.Box3().setFromObject(home),snapshot?.viewInsets||{top:133,bottom:60,left:12,right:12},1.5);homeOverview=true;}
+ else{framing=true;gesture.setZoom(CORE_SPACES[map]?Math.min(.75,innerWidth/innerHeight*span/(MAPS[map].bounds.w+MAPS[map].bounds.d)*1.13):DAY_PLACES[map]?Math.min(.85,innerWidth/innerHeight*.77):map==='garden'?.65:.62);framing=false;}cameraPose();
+}
+const gesture=createMapGesture({initial:1.6,min:.2,max:8,onZoom:v=>{homeOverview=false;if(!framing)setFollowing(false,'free');camera.zoom=v;cameraPose();},onPan:(dx,dy)=>{
   homeOverview=false;
   setFollowing(false);const a=new T.Raycaster(),b=new T.Raycaster();a.setFromCamera(new T.Vector2(0,0),camera);b.setFromCamera(new T.Vector2(dx/innerWidth*2,-dy/innerHeight*2),camera);
   const q=orthographicPanDelta(a.ray.origin,b.ray.origin,a.ray.direction);if(q){pan.x=Math.max(-50,Math.min(50,pan.x+q.x));pan.z=Math.max(-50,Math.min(50,pan.z+q.z));cameraPose();}
@@ -180,7 +185,7 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
     }
     else if(initial&&snapshot.presentation.action==='sleep'&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
     if(snapshot.presentation.action==='walk'&&!route.length)wander();
-    if(!retainView){if(snapshot.follow)center();else overview();}tell('');markSelection();if(snapshot.editing)editorNotice();
+    if(!retainView){if(snapshot.follow)setCameraMode(snapshot.cameraMode&&snapshot.cameraMode!=='free'?snapshot.cameraMode:'ta');else overview();}tell('');markSelection();if(snapshot.editing)editorNotice();
   }catch(e){if(token===epoch)tell('画面加载失败：'+e.message);}finally{if(token===epoch){changing=false;cover.classList.remove('on');if(snapshot.editing)editorNotice();}}
 }
 function apply(data,local=false){
@@ -245,7 +250,7 @@ function tick(dt,time){
   if(map==='dayHome')setHomeClock(mapLoader.views[map]?.root,snapshot?.minute);
   if(snapshot?.visitorPreview&&visitorAvatar&&!visitor?.inspect().present){visitorAvatar.animate(time,{height:.08});}
   if(!ready||!map||changing||snapshot?.editing||!avatar.root.visible)return;
-  if(together?.inspect()){together.tick(dt,time);if(together.inspect()){taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);if(following){const s=together.inspect(),aa=s.seats?.a||s.a,bb=s.seats?.b||s.b;pan.x+=( (aa.x+bb.x)/2-pan.x)*Math.min(1,dt*6);pan.z+=((aa.z+bb.z)/2-pan.z)*Math.min(1,dt*6);cameraPose();}return;}}
+  if(together?.inspect()){together.tick(dt,time);if(together.inspect()){taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);trackCamera(Math.min(1,dt*8));updateKitchen(dt);return;}}
   const moving=route.length>0;
   if(moving){
     const step=stepRoute(position,route,dt,{speed,walkSpeed:1.6*(hostMotion?.walk||1),clear:(a,b)=>segmentClear(a,b,map,companionAvoid())});position=step.position;speed=step.speed;if(step.heading!=null)yaw=step.heading;
@@ -269,7 +274,7 @@ function tick(dt,time){
   if(time<helloUntil&&!moving&&!bed){const v=visitor?.inspect();if(v?.present){avatar.root.rotation.y=Math.atan2(v.position.x-avatar.root.position.x,v.position.z-avatar.root.position.z);taskState=null;avatar.animate(time,{seated:!!seat,height:floorHeight(map,seat||position)+(seat?seat.rise+.05:0),gesture:'wave',progress:(time-(helloUntil-5))/5});}}
   updateWorkScene(mapLoader.views[map]?.root,taskState,moving,time);
   if(map==='dayHome')visitor?.tick(dt,time);
-  if(following&&!snapshot?.visitorPreview){const focal=visitFocus(bed||(!moving&&seat)||position);pan.x+=(focal.x-pan.x)*Math.min(1,dt*6);pan.z+=(focal.z-pan.z)*Math.min(1,dt*6);cameraPose();}
+  trackCamera(Math.min(1,dt*8));updateKitchen(dt);
   if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
   const minute=snapshot.minute,night=minute<360||minute>=1200;hemi.intensity=night?1.15:2.2;sun.intensity=night?1.2:3;
 }
@@ -282,31 +287,47 @@ function chinContact(){const head=avatar?.root.getObjectByName('HeadAnchor'),han
 let catalogCache=null;
 function listCatalog(){
  if(catalogCache)return catalogCache;
- const target=new T.WebGLRenderTarget(160,160);target.texture.colorSpace=T.SRGBColorSpace;
- const previous=renderer.getRenderTarget(),previewScene=new T.Scene(),previewCamera=new T.OrthographicCamera(-2,2,2,-2,.1,50);
+ const previewScene=new T.Scene(),previewCamera=new T.OrthographicCamera(-2,2,2,-2,.1,50);
  previewScene.background=new T.Color('#f2ecde');previewScene.add(new T.HemisphereLight('#fff4dd','#958267',2.2));const light=new T.DirectionalLight('#fff4de',3);light.position.set(-4,8,5);previewScene.add(light);
- const canvas=document.createElement('canvas');canvas.width=canvas.height=160;const ctx=canvas.getContext('2d'),pixels=new Uint8Array(160*160*4);
  try{catalogCache=HOME_CATALOG.map(p=>{
   const view=createSpaceView('dayHome','warm',{...CORE_SPACES.dayHome,furniture:[{...p,catalogId:p.id,x:0,z:0,heading:0}],structure:[]},{furnitureOnly:true});previewScene.add(view.root);
   const bounds=new T.Box3().setFromObject(view.root),center=bounds.getCenter(new T.Vector3()),size=bounds.getSize(new T.Vector3()),span=Math.max(size.x,size.y,size.z)*.85+.35;
   Object.assign(previewCamera,{left:-span,right:span,top:span,bottom:-span});previewCamera.position.copy(center).add(new T.Vector3(5,4,6));previewCamera.lookAt(center);previewCamera.updateProjectionMatrix();
-  try{renderer.setRenderTarget(target);renderer.render(previewScene,previewCamera);renderer.readRenderTargetPixels(target,0,0,160,160,pixels);const data=ctx.createImageData(160,160);for(let y=0;y<160;y++)data.data.set(pixels.subarray((159-y)*640,(160-y)*640),y*640);ctx.putImageData(data,0,0);return {...p,thumbnail:canvas.toDataURL('image/png')};}
+  try{return {...p,thumbnail:renderPhoto(T,renderer,previewScene,previewCamera,{width:160,height:160,format:'image/png'})};}
   finally{previewScene.remove(view.root);disposeMap(view.root);}
- });return catalogCache;}finally{renderer.setRenderTarget(previous);target.dispose();renderer.render(scene,camera);}
+ });return catalogCache;}finally{renderer.render(scene,camera);}
 }
 function visitAction(kind,point){
  if(kind==='end'){return together?.stop();}
  const shared=kind.startsWith('together:');if(shared)kind=kind.slice(9);
  if(shared||['hand','hug','shoulder','meal','cook'].includes(kind)){
   visitor?.act('manual');
-  if(!visitor?.inspect().present||map!=='dayHome'||route.length||bed||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
-  const result=together.start(kind);if(!result.ok)visitNotice({...visitor.inspect(),notice:result.reason});else center();return result.ok;
+  if(!visitor?.inspect().present||map!=='dayHome'||bed||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
+  const result=together.start(kind);if(result.ok){route=[];onArrive=null;}if(!result.ok)visitNotice({...visitor.inspect(),notice:result.reason});else if(following)trackCamera();return result.ok;
  }
- together?.stop();const ok=visitor?.act(kind,point)||false;if(ok&&kind!=='leave')center();return ok;
+ together?.stop();const ok=visitor?.act(kind,point)||false;if(ok&&kind!=='leave'&&following)trackCamera();return ok;
 }
+// Time advances only after BOTH rigs have reached their actual shared anchors.
+function updateKitchen(dt){
+ const job=snapshot?.kitchenJob,shared=together?.inspect(),active=!!job&&!snapshot.preview&&!snapshot.editing&&visitor?.inspect().present&&shared?.kind===job.kind&&shared.phase==='active';
+ if(!job){kitchenProgress=null;return;}
+ if(kitchenProgress?.id!==job.id)kitchenProgress={id:job.id,elapsed:0,reported:-1,ready:!!job.ready};
+ const k=kitchenProgress;k.sinceNotice=(k.sinceNotice||0)+dt;if(active&&!k.ready){k.elapsed+=dt;if(k.elapsed>=(job.kind==='cook'?12:6))k.ready=true;}
+ const phase=k.ready?'ready':!active?'paused':job.kind==='meal'?'eating':k.elapsed<4?'preparing':k.elapsed<9?'stirring':'serving',step=Math.floor(k.elapsed*2);
+ if(k.reported!==step||k.phase!==phase||(k.ready&&!job.ready&&k.sinceNotice>=1)){k.sinceNotice=0;k.reported=step;k.phase=phase;if(parent!==window)parent.postMessage({type:'char-day-kitchen',charId:snapshot.charId,id:k.id,phase,elapsed:k.elapsed,ready:k.ready},location.origin);}
+}
+function capturePhoto(){
+ if(!ready||changing||map!=='dayHome'||snapshot?.preview||snapshot?.editing||snapshot?.showcase||!avatar?.root.visible||!visitor?.inspect().present||!visitorAvatar?.root.visible)throw Error('先和TA一起进小家，再拍同框照片。');
+ const bounds=actorBounds('both'),center=bounds.getCenter(new T.Vector3()),view=camera.clone(),height=Math.max(1.8,bounds.getSize(new T.Vector3()).y+.5),width=height*4/3;
+ Object.assign(view,{left:-width/2,right:width/2,top:height/2,bottom:-height/2,zoom:1,far:200});view.position.copy(center).add(new T.Vector3(10,11.5,16));view.lookAt(center);view.updateProjectionMatrix();view.updateMatrixWorld();
+ const b=projectedBounds(bounds,view);view.zoom=Math.min(6,1.7/(b.maxX-b.minX),1.7/(b.maxY-b.minY));view.updateProjectionMatrix();
+ const src=renderPhoto(T,renderer,scene,view,{width:800,height:600,quality:.84});renderer.render(scene,camera);
+ return {src,map,charId:snapshot.charId,activity:sharedActivity(),minute:snapshot.minute};
+}
+function sharedActivity(){return together?.inspect()?.label||(snapshot?.slot?.deviation?.actual||snapshot?.slot?.title||'在小家待一会儿');}
 function visitorWardrobe(){const look=seatLook('me',snapshot?.visitorLook||{},'她');return {getDyes:()=>dyesOf(look),getOutfit:()=>({id:outfitId(look),colors:outfitColors(look)}),getHair:()=>hairId(look.hair),hairModes:HAIR_MODES};}
 const listFurniture=()=>homeFurniture(snapshot?.homePlacements).map(p=>({...p,primary:furniturePrimary(p,styleOf(snapshot?.homeStyle)).color,actions:usesFor(p),inUse:usesFor(p).some(action=>MAPS.dayHome.spots.find(s=>s.id===action)?.piece===p.id)}));
-window.CharDayScene={pauseState,professionalChoices:()=>PROFESSIONAL_OPTIONS,joinVisit,visitAction,visitorWardrobe,mergeVisitorLook:(patch,old)=>mergeLook(old||snapshot?.visitorLook||{},patch),setSnapshot:apply,listPlaces:placeList,listFurniture,listCatalog,decorationOptions:()=>({categories:HOME_CATEGORIES,collections:HOME_COLLECTIONS,colors:HOME_COLORS,materials:HOME_MATERIALS,walls:HOME_WALLS,floors:HOME_FLOORS,sizes:HOME_SIZES,mountWalls:HOME_MOUNT_WALLS}),addFurniture:id=>commitEdit(addHomeFurniture(snapshot?.homePlacements,id)),editRoom:change=>commitEdit(changeHomeRoom(snapshot?.homePlacements,change)),selectFurniture,editAction,editMove:(id,point)=>{selectFurniture(id);return commitEdit(changeHomeFurniture(snapshot?.homePlacements,id,point));},editLayout:()=>drag||changing?{ok:false,reason:'等家具放稳后再保存。'}:checkHomeLayout(snapshot?.homePlacements),projectGround,projectFurniture,listMotions:()=>Object.entries(MOTION_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,probeAction:()=>{const hand=avatar?.root.getObjectByName('Right_hand'),head=avatar?.root.getObjectByName('HeadAnchor'),tool=avatar?.root.getObjectByName(taskState?.kind==='write'?'WorkPencil':taskState?.kind==='paint'?'WorkBrush':'WorkPipette');return {leftHand:avatar?.root.getObjectByName('Left_hand')?.getWorldPosition(new T.Vector3()).toArray(),luggage:avatar?.root.getObjectByName('WorkSuitcase')?.getWorldPosition(new T.Vector3()).toArray(),luggageGrip:avatar?.root.getObjectByName('SuitcaseGrip')?.getWorldPosition(new T.Vector3()).toArray(),leftHeadHand:(()=>{const left=avatar?.root.getObjectByName('Left_hand');return head&&left?head.worldToLocal(left.getWorldPosition(new T.Vector3())).toArray():null;})(),bones:['rightArm','rightForearm'].map(n=>avatar?.root.getObjectByName(n)?.getWorldPosition(new T.Vector3()).toArray()),hand:hand?.getWorldPosition(new T.Vector3()).toArray(),headHand:head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null,tool:tool?.getWorldPosition(new T.Vector3()).toArray(),task:taskState};},inspect:()=>({motion:hostMotion,visitorMotion:guestMotion,professional:mapLoader.views[map]?.root.userData.professional,contacts:{ta:avatar?.root.userData.contacts,me:visitorAvatar?.root.userData.contacts},together:together?.inspect(),visitorLook:snapshot?.visitorLook||{},visitor:visitor?.inspect()||{present:false,visible:false},visitLoading,ready,map,spaceStyle,editing:!!snapshot?.editing,selected,dragging:!!drag,dragPreview:drag?.candidate,editHistory:history.length,homePlacements:homePlacements(snapshot?.homePlacements),spot:snapshot?.presentation.spot,activity:activity?{...activity}:null,task:taskState,workAction:avatar?.root.userData.workAction,avatarPosition:avatar?.root.position.toArray(),avatarHeading:avatar?.root.rotation.y,visualPosition:avatar?.root.getObjectByName('TravelerVisual')?.getWorldPosition(new T.Vector3()).toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,finishes:mapLoader.views[map]?.root.children.filter(g=>g.userData.furnitureId).map(g=>({id:g.name,finish:g.userData.finish,primary:g.userData.primary,materials:g.children.filter(o=>o.isMesh).map(o=>({color:'#'+o.material.color.getHexString(),roughness:o.material.roughness,metalness:o.material.metalness,textured:!!o.material.map}))})),seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),sceneAction:mapLoader.views[map]?.root.userData.sceneAction,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,zoom:camera.zoom,homeOverview}})};
+window.CharDayScene={catalogLabels:()=>Object.fromEntries(HOME_CATALOG.map(p=>[p.id,p.label])),pauseState,setCameraMode,capturePhoto,professionalChoices:()=>PROFESSIONAL_OPTIONS,joinVisit,visitAction,visitorWardrobe,mergeVisitorLook:(patch,old)=>mergeLook(old||snapshot?.visitorLook||{},patch),setSnapshot:apply,listPlaces:placeList,listFurniture,listCatalog,decorationOptions:()=>({categories:HOME_CATEGORIES,collections:HOME_COLLECTIONS,colors:HOME_COLORS,materials:HOME_MATERIALS,walls:HOME_WALLS,floors:HOME_FLOORS,sizes:HOME_SIZES,mountWalls:HOME_MOUNT_WALLS}),addFurniture:id=>commitEdit(addHomeFurniture(snapshot?.homePlacements,id)),editRoom:change=>commitEdit(changeHomeRoom(snapshot?.homePlacements,change)),selectFurniture,editAction,editMove:(id,point)=>{selectFurniture(id);return commitEdit(changeHomeFurniture(snapshot?.homePlacements,id,point));},editLayout:()=>drag||changing?{ok:false,reason:'等家具放稳后再保存。'}:checkHomeLayout(snapshot?.homePlacements),projectGround,projectFurniture,listMotions:()=>Object.entries(MOTION_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,probeAction:()=>{const hand=avatar?.root.getObjectByName('Right_hand'),head=avatar?.root.getObjectByName('HeadAnchor'),tool=avatar?.root.getObjectByName(taskState?.kind==='write'?'WorkPencil':taskState?.kind==='paint'?'WorkBrush':'WorkPipette');return {leftHand:avatar?.root.getObjectByName('Left_hand')?.getWorldPosition(new T.Vector3()).toArray(),luggage:avatar?.root.getObjectByName('WorkSuitcase')?.getWorldPosition(new T.Vector3()).toArray(),luggageGrip:avatar?.root.getObjectByName('SuitcaseGrip')?.getWorldPosition(new T.Vector3()).toArray(),leftHeadHand:(()=>{const left=avatar?.root.getObjectByName('Left_hand');return head&&left?head.worldToLocal(left.getWorldPosition(new T.Vector3())).toArray():null;})(),bones:['rightArm','rightForearm'].map(n=>avatar?.root.getObjectByName(n)?.getWorldPosition(new T.Vector3()).toArray()),hand:hand?.getWorldPosition(new T.Vector3()).toArray(),headHand:head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null,tool:tool?.getWorldPosition(new T.Vector3()).toArray(),task:taskState};},inspect:()=>({cameraMode,kitchenProgress,framedActors:(()=>{const roots=[avatar?.root,visitorAvatar?.root];return roots.filter(r=>r?.visible).map(r=>({...projectedBounds(visibleBounds(T,[r])),who:r===avatar.root?'ta':'me'}));})(),motion:hostMotion,visitorMotion:guestMotion,professional:mapLoader.views[map]?.root.userData.professional,contacts:{ta:avatar?.root.userData.contacts,me:visitorAvatar?.root.userData.contacts},together:together?.inspect(),visitorLook:snapshot?.visitorLook||{},visitor:visitor?.inspect()||{present:false,visible:false},visitLoading,ready,map,spaceStyle,editing:!!snapshot?.editing,selected,dragging:!!drag,dragPreview:drag?.candidate,editHistory:history.length,homePlacements:homePlacements(snapshot?.homePlacements),spot:snapshot?.presentation.spot,activity:activity?{...activity}:null,task:taskState,workAction:avatar?.root.userData.workAction,avatarPosition:avatar?.root.position.toArray(),avatarHeading:avatar?.root.rotation.y,visualPosition:avatar?.root.getObjectByName('TravelerVisual')?.getWorldPosition(new T.Vector3()).toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,finishes:mapLoader.views[map]?.root.children.filter(g=>g.userData.furnitureId).map(g=>({id:g.name,finish:g.userData.finish,primary:g.userData.primary,materials:g.children.filter(o=>o.isMesh).map(o=>({color:'#'+o.material.color.getHexString(),roughness:o.material.roughness,metalness:o.material.metalness,textured:!!o.material.map}))})),seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),sceneAction:mapLoader.views[map]?.root.userData.sceneAction,render:{calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,zoom:camera.zoom,homeOverview}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);for(const v of Object.values(mapLoader.views)){v.stream?.close();disposeMap(v.root);}closeVisit();if(visitorAvatar)disposeMap(visitorAvatar.root);if(avatar)disposeMap(avatar.root);selection.geometry.dispose();selection.material.dispose();draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{travelerSource=await loadTravelerSource();avatar=createTraveler(travelerSource,true);scene.add(avatar.root);await avatar.ready();ready=true;tell('');visitNotice({present:false,busy:false,notice:''});if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}

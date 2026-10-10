@@ -8,6 +8,6 @@ test('家具库与配色子页保留原iframe和试摆，沿公共顶栏单滚�
 });
 test('目录图从同一几何生成、复用渲染器且释放GPU资源，主材规则由公共目录提供',()=>{
  const scene=read('apps/fairy-garden/day/scene.mjs'),view=read('apps/fairy-garden/day/space-view.mjs'),finish=read('apps/fairy-garden/day/home-finish.mjs');
- assert.match(scene,/createSpaceView\('dayHome','warm'/);assert.match(scene,/furnitureOnly:true/);assert.match(scene,/readRenderTargetPixels/);assert.match(scene,/disposeMap\(view\.root\)/);assert.match(scene,/target\.dispose\(\)/);
+ assert.match(scene,/createSpaceView\('dayHome','warm'/);assert.match(scene,/furnitureOnly:true/);assert.match(scene,/renderPhoto\(T,renderer,previewScene,previewCamera/);assert.match(fs.readFileSync('apps/fairy-garden/photo-render.mjs','utf8'),/readRenderTargetPixels/);assert.match(scene,/disposeMap\(view\.root\)/);assert.match(read('apps/fairy-garden/photo-render.mjs'),/buffer\.dispose\(\)/);
  assert.match(scene,/furniturePrimary\(p,styleOf/);assert.match(view,/furniturePrimary\(a,base\)/);assert.match(view,/furnitureFinish\(result\.root\)/);assert.match(finish,/o\.material\.clone\(\)/);assert.match(finish,/new T\.CanvasTexture/);
 });

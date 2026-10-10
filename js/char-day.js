@@ -22,17 +22,19 @@
   }
   function presentation(slot) { return root.CharDayLink.presentation(slot); }
   let homeWrite=Promise.resolve();
-  function saveHomeChange(charId,section,value){
+  function saveHomeUpdate(update){
     const write=homeWrite.catch(()=>{}).then(async()=>{
-      const previous=loadJSON("x_charDayHomes",{})||{},next={...previous,version:3,[section]:{...previous[section],[String(charId)]:value}};
+      const previous=loadJSON("x_charDayHomes",{})||{},next=update(previous);
       const result=await commitJSONDurable("x_charDayHomes",next);
       if(!result?.durable||!result?.live)throw Error("save");
       return next;
-    });
-    homeWrite=write;return write;
+    });homeWrite=write;return write;
+  }
+  function saveHomeChange(charId,section,value){
+    return saveHomeUpdate(previous=>({...previous,version:3,[section]:{...previous[section],[String(charId)]:typeof value==='function'?value(previous[section]?.[String(charId)]):value}}));
   }
   const visitChoice=info=>info.control==="auto"?"auto":["read","drink","eat","rest"].includes(info.manualAction)?info.manualAction:"manual";
-  root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS, saveHomeChange, visitChoice };
+  root.CharDayKit = { dayState, presentation, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
       [book, setBook] = useState(false), [preview, setPreview] = useState(null), [demoIndex, setDemoIndex] = useState(0),
@@ -45,22 +47,25 @@
       [editor, setEditor] = useState(null), [furniture, setFurniture] = useState([]), [layoutBusy, setLayoutBusy] = useState(false), [layoutNotice, setLayoutNotice] = useState(""), [demoLayout, setDemoLayout] = useState({}),
       [showcase, setShowcase] = useState(""), [spotId, setSpotId] = useState(""), [places, setPlaces] = useState([]),
       [activityStatus,setActivityStatus]=useState(null), [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false), [visitStatus,setVisitStatus]=useState(null),[togetherPanel,setTogetherPanel]=useState(false),[mePanel,setMePanel]=useState(false),[meStyles,setMeStyles]=useState(null),[meDraft,setMeDraft]=useState(null),[meBusy,setMeBusy]=useState(false),[meNotice,setMeNotice]=useState(""),[moreOpen,setMoreOpen]=useState(false),[professionalPanel,setProfessionalPanel]=useState(false),[professionalChoices,setProfessionalChoices]=useState({}),[professionalBusy,setProfessionalBusy]=useState(false),[professionalNotice,setProfessionalNotice]=useState(""),[demoProfessional,setDemoProfessional]=useState({});
+    const [cameraMode,setCameraMode]=useState('ta'),[lifePage,setLifePage]=useState(''),[lifeBusy,setLifeBusy]=useState(false),[lifeNotice,setLifeNotice]=useState(''),[photoId,setPhotoId]=useState(''),[photoNote,setPhotoNote]=useState(''),[deletePhoto,setDeletePhoto]=useState(false),[kitchenStatus,setKitchenStatus]=useState(null),[wish,setWish]=useState(''),[catalogLabels,setCatalogLabels]=useState({}),[recommendedFurniture,setRecommendedFurniture]=useState([]);
+    const L=root.CharDayLife;
     const kbLift = useKbLift();
     const now = Date.now();
-    const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null),decorScroll=useRef(null),decorPositions=useRef({}),visitSave=useRef({}),scenePause=useRef(null),menuScroll=useRef(null),menuPositions=useRef({});
+    const iframe = useRef(null), scroll = useRef(null), positions = useRef({}), stateRef = useRef(null),decorScroll=useRef(null),decorPositions=useRef({}),visitSave=useRef({}),scenePause=useRef(null),menuScroll=useRef(null),menuPositions=useRef({}),kitchenReady=useRef({});
+    const menuKey=lifePage?(lifePage==='album'&&photoId?'photo:'+photoId:lifePage):moreOpen?'more':'life';
     // The schedule/style pages unmount the iframe. Keep only this view's live
     // position in memory so returning or entering the editor can resume it.
     const bindScene=React.useCallback(node=>{if(!node&&iframe.current){try{scenePause.current=iframe.current.contentWindow?.CharDayScene?.pauseState?.()||null;}catch{scenePause.current=null;}}iframe.current=node;},[]);
     const demo = id === DEMO.id, char = demo ? DEMO : (props.characters || []).find(c => String(c.id) === String(id));
     useEffect(() => {
-      props.onChatVisibility?.(char, chatOpen && !editor && !demo && !showcase && !book && !homeOptions && !moreOpen && !togetherPanel && !professionalPanel && !mePanel);
+      props.onChatVisibility?.(char, chatOpen && !editor && !demo && !showcase && !book && !homeOptions && !moreOpen && !togetherPanel && !professionalPanel && !mePanel && !lifePage);
       return () => props.onChatVisibility?.(null, false);
-    }, [id, chatOpen, showcase, book, homeOptions, editor, moreOpen, togetherPanel, professionalPanel, mePanel]);
+    }, [id, chatOpen, showcase, book, homeOptions, editor, moreOpen, togetherPanel, professionalPanel, mePanel, lifePage]);
     useEffect(() => { const timer = setInterval(() => setPulse(n => n + 1), 1000); return () => clearInterval(timer); }, []);
     React.useLayoutEffect(() => { if (scroll.current) scroll.current.scrollTop = positions.current[homeOptions ? "style" : book ? "book" : "picker"] || 0; }, [book, homeOptions, id]);
     React.useLayoutEffect(()=>{if(decorScroll.current)decorScroll.current.scrollTop=decorPositions.current[decorPanel]||0;},[decorPanel]);
-    React.useLayoutEffect(()=>{if(menuScroll.current)menuScroll.current.scrollTop=menuPositions.current[moreOpen?"more":"life"]||0;},[moreOpen,togetherPanel,mePanel,professionalPanel,book,homeOptions,id]);
-    const pick = value => { setMoreOpen(false);setTogetherPanel(false);setMePanel(false);setProfessionalPanel(false);setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setEditor(null); setDecorPanel(""); setLayoutNotice(""); setStyleNotice(""); setShowcase(""); setSpotId(""); setChatOpen(false); setChatMounted(false); setVisitStatus(null); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
+    React.useLayoutEffect(()=>{if(menuScroll.current)menuScroll.current.scrollTop=menuPositions.current[menuKey]||0;},[moreOpen,togetherPanel,mePanel,professionalPanel,book,homeOptions,id,lifePage,photoId]);
+    const pick = value => { setLifePage('');setPhotoId('');setLifeNotice('');setKitchenStatus(null);setCameraMode('ta'); setMoreOpen(false);setTogetherPanel(false);setMePanel(false);setProfessionalPanel(false);setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setEditor(null); setDecorPanel(""); setLayoutNotice(""); setStyleNotice(""); setShowcase(""); setSpotId(""); setChatOpen(false); setChatMounted(false); setVisitStatus(null); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
     const room=places.find(p=>p.id===showcase), spot=room?.spots.find(s=>s.id===spotId)||room?.spots[0];
     const visitPlaces=()=>{setMoreOpen(false);if(!char)pick(DEMO.id);setShowcase("dayLaboratory");setSpotId("");setFollow(false);};
     const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
@@ -69,21 +74,22 @@
     const payload = char && { persona:char.persona||"",motionStyle:demo?demoMotion:homes.motions?.[String(char.id)]||"auto",visitorData:{...visitorData,activityChoice:demo?"auto":homes.visitorActivities?.[String(char.id)]||"auto",motionStyle:demo?demoVisitorMotion:homes.visitorMotions?.[String(char.id)]||"auto"},charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, visitorLook:meDraft||homes.looks?.me||visitorData.look||{},visitorPreview:mePanel,professional:demo?demoProfessional:homes.professional?.[String(char.id)]||{},slot: slot || null,
       at: preview || demo ? null : now, preview: !!preview || demo, editing: !!editor, resume:scenePause.current, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
       homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase && !editor,
-      presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
+      presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : presentation(slot), cameraMode,kitchenJob:demo?null:homes.kitchens?.[String(char.id)]?.pending||null, minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
       key: showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
     if(payload&&(showcase||editor))payload.slot=null;
     stateRef.current = payload;
-    const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot(stateRef.current); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
+    const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot({...stateRef.current,viewInsets:(()=>{const el=iframe.current?.parentElement,box=el?.getBoundingClientRect(),card=el?.querySelector('[data-wk=cdaynow]')?.getBoundingClientRect(),chat=el?.parentElement?.parentElement?.querySelector('[data-wk=cdaychat]');return {top:card&&box?Math.max(24,card.bottom-box.top+14):130,bottom:chat&&!chat.hidden&&box?Math.max(30,box.bottom-chat.getBoundingClientRect().top+14):30,left:18,right:18};})()}); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
     React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book, homeOptions]);
     useEffect(() => {
       const ready = e => {
         if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin) return;
+        if(e.data?.type === "char-day-kitchen"){handleKitchen(e.data);return;}
         if(e.data?.type === "char-day-activity"){setActivityStatus(e.data);return;}
         if(e.data?.type === "char-day-visit"){setVisitStatus(current=>({...e.data,saveNotice:current&&current.charId===e.data.charId?current.saveNotice:""}));rememberVisit(e.data);return;}
         if (e.data?.type === "char-day-layout") { setEditor(current => current ? {placements:e.data.placements,selected:e.data.selected,dragging:e.data.dragging,busy:e.data.busy} : null); setLayoutNotice(e.data.notice || ""); const list=iframe.current?.contentWindow?.CharDayScene?.listFurniture?.(); if(list)setFurniture(list); return; }
-        if (e.data?.type === "char-day-view") { setFollow(!!e.data.following); return; }
+        if (e.data?.type === "char-day-view") { setFollow(!!e.data.following);setCameraMode(e.data.mode|| (e.data.following?'ta':'free')); return; }
         if (e.data?.type !== "char-day-status") return;
-        setSceneStatus(e.data.error || ""); if (!e.data.error) { const motions=iframe.current?.contentWindow?.CharDayScene?.listMotions?.();if(motions)setMotionOptions(motions); const options = iframe.current?.contentWindow?.CharDayScene?.listStyles?.(); if (options) setStyles(options);setProfessionalChoices(iframe.current?.contentWindow?.CharDayScene?.professionalChoices?.()||{}); const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
+        setSceneStatus(e.data.error || ""); if (!e.data.error) {setCatalogLabels(iframe.current?.contentWindow?.CharDayScene?.catalogLabels?.()||{}); const motions=iframe.current?.contentWindow?.CharDayScene?.listMotions?.();if(motions)setMotionOptions(motions); const options = iframe.current?.contentWindow?.CharDayScene?.listStyles?.(); if (options) setStyles(options);setProfessionalChoices(iframe.current?.contentWindow?.CharDayScene?.professionalChoices?.()||{}); const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
       };
       root.addEventListener("message", ready); return () => root.removeEventListener("message", ready);
     }, []);
@@ -106,6 +112,33 @@
       });
     }
     const visitAction=kind=>{setTogetherPanel(false);const scene=iframe.current?.contentWindow?.CharDayScene,ok=scene?.visitAction?.(kind),info=scene?.inspect?.().visitor;if(info)rememberVisit(info,true);return ok;};
+    function handleKitchen(info){
+      const current=stateRef.current,job=current?.kitchenJob;if(current?.charId!==info.charId||job?.id!==info.id)return;
+      setKitchenStatus(info);
+      if(!info.ready||job.ready||kitchenReady.current[info.id])return;
+      kitchenReady.current[info.id]=true;
+      saveHomeChange(info.charId,'kitchens',raw=>L.kitchenChange(raw,{kind:'ready',id:info.id})).then(setHomes).catch(()=>{delete kitchenReady.current[info.id];setLifeNotice('进度还没存好，回到现场后可以重试；食材还在。');});
+    }
+    const uniqueId=()=>root.crypto.randomUUID();
+    const openLifePage=page=>{setTogetherPanel(false);setLifePage(page);setPhotoId('');setLifeNotice('');setDeletePhoto(false);if(page==='preferences')setWish(homes.preferences?.[String(char.id)]?.wish||'');};
+    const lifeWrite=async write=>{if(lifeBusy)return null;setLifeBusy(true);setLifeNotice('');try{const next=await write();setHomes(next);return next;}catch(e){setLifeNotice(e.message==='save'?'没能保存，原来的记录和材料都还在，可以重试。':e.message);return null;}finally{setLifeBusy(false);}};
+    const takePhoto=async()=>{
+      if(lifeBusy)return;let shot;try{shot=iframe.current?.contentWindow?.CharDayScene?.capturePhoto();if(!shot)throw Error('画面还在准备。');}catch(e){setLifeNotice(e.message);return;}
+      const photo={id:uniqueId(),charId:String(char.id),src:shot.src,at:Date.now(),day:state.day,time:state.time,taName:char.remark||char.name,meName:visitorData.name||'我',activity:shot.activity,note:''};
+      const next=await lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'add',photo})));
+      if(next){setLifePage('album');setPhotoId(photo.id);setPhotoNote('');setLifeNotice('拍好了，已放进你们的小家相册。');}
+    };
+    const kitchen= L.kitchen(homes.kitchens?.[String(char?.id)]),photos=L.album(homes.albums?.[String(char?.id)],char?.id),photo=photos.find(p=>p.id===photoId),suggestion=L.recommendation(char?.persona,wish),pendingJob=kitchen.pending;
+    const kitchenAction=async action=>{
+      const next=await lifeWrite(()=>saveHomeChange(char.id,'kitchens',raw=>L.kitchenChange(raw,action)));
+      if(next&&['begin','serve'].includes(action.kind))runKitchen(next.kitchens[String(char.id)].pending);
+      if(next&&action.kind==='cancel'){visitAction('end');setKitchenStatus(null);setLifeNotice('收起了这次料理，食材保留。');}
+      if(next&&action.kind==='finish'){visitAction('end');setKitchenStatus(null);setLifeNotice(pendingJob?.kind==='meal'?'一起吃完了。':'做好两人份，已经收进餐盒。');}
+    };
+    const runKitchen=job=>{
+      if(!job)return;send();setKitchenStatus(null);
+      const ok=visitAction('together:'+job.kind);if(ok){setLifePage('');setMoreOpen(false);}else setLifeNotice('等TA在家走到位置、你也进屋后，再点继续。材料和餐盒保留。');
+    };
     const btn = { minHeight: 44, padding: "9px 12px", border: "1px solid #cfc5ae", borderRadius: 10, background: "#f9f5e9", color: ink, fontSize: 12 };
     const footerStyle={padding:"3px 6px",paddingBottom:"calc(3px + env(safe-area-inset-bottom) * 0.4)",borderTop:"1px solid #cfc5ae",minHeight:56,background:paper};
     const outer = body => h("div", { "data-wk": "cdaypage", className: "h-full flex flex-col", style: { position: "relative", background: paper, color: ink } }, body);
@@ -142,7 +175,7 @@
     const motionChoice=(section,label)=>h("label",{style:{display:"block",marginBottom:14,fontSize:12,lineHeight:1.8}},label,
       h("select",{"data-wk":"cdaymotion","data-part":section,"aria-label":label,disabled:styleBusy,value:demo?(section==='motions'?demoMotion:demoVisitorMotion):homes[section]?.[String(char.id)]||"auto",onChange:e=>changeMotion(section,e.target.value),style:{...btn,height:44,display:"block",width:"100%",marginTop:6}},
         h("option",{value:"auto"},"自动参考人设"),...motionOptions.map(p=>h("option",{key:p.id,value:p.id},p.label+" · "+p.description))));
-    const startEditor = () => { setMoreOpen(false);setTogetherPanel(false);setDecorPanel(""); setHomeOptions(false);setBook(false);setLayoutNotice("");setEditor({placements:JSON.parse(JSON.stringify(demo?demoLayout:homes.layouts?.[String(char.id)]||{})),selected:"double-bed",dragging:false}); };
+    const startEditor = (recommended=[]) => {setRecommendedFurniture(Array.isArray(recommended)?recommended:[]); setMoreOpen(false);setTogetherPanel(false);setDecorPanel(""); setHomeOptions(false);setBook(false);setLayoutNotice("");setEditor({placements:JSON.parse(JSON.stringify(demo?demoLayout:homes.layouts?.[String(char.id)]||{})),selected:"double-bed",dragging:false}); };
     const cancelEditor = () => { if(layoutBusy||editor?.busy)return;setEditor(null);setDecorPanel("");setLayoutNotice(""); };
     const saveLayout = async () => {
       if(layoutBusy||editor?.dragging||editor?.busy)return;
@@ -171,13 +204,16 @@
     const control=(label,element)=>h("div",{style:{display:"block",marginBottom:14,fontSize:12,lineHeight:1.8}},h("span",{style:{display:"block",marginBottom:6,color:soft}},label),element);
     const customColor=(hook,label,value,change)=>h("fieldset",{...hook,disabled:layoutBusy||editor?.busy,style:{border:0,padding:0,margin:0,minWidth:0}},h(ColorDot,{value,onChange:change,label,hexField:true,hexOnly:true,size:44,tone:{line:"#cfc5ae",ink,bg2:paper,field:"#f9f5e9",ink2:ink}}));
     const optionGrid=(options,selected,choose,attrs)=>h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8}},...Object.entries(options||{}).map(([key,value])=>h("button",{key,...attrs,"data-part":key,"aria-pressed":(selected||"auto")===key,disabled:layoutBusy||editor?.busy,onClick:()=>choose(key),style:{...btn,textAlign:"left",borderColor:(selected||"auto")===key?"#7c9269":"#cfc5ae"}},h("span",{style:{display:"inline-block",verticalAlign:"middle",marginRight:8,width:22,height:22,borderRadius:4,background:value.color||"#d6ccb9",backgroundImage:value.pattern==='stripe'?"repeating-linear-gradient(90deg,transparent 0 5px,#fff9 5px 6px)":(value.pattern==='tile'||value.pattern==='wainscot')?"linear-gradient(90deg,transparent 48%,#84756250 49%,#84756250 51%,transparent 52%),linear-gradient(transparent 48%,#84756250 49%,#84756250 51%,transparent 52%)":value.pattern==='dots'?"radial-gradient(#74836880 1.5px,transparent 2px)":value.pattern==='checker'?"conic-gradient(#68756566 25%,transparent 0 50%,#68756566 0 75%,transparent 0)":value.pattern==='herringbone'?"repeating-linear-gradient(45deg,transparent 0 5px,#725d4850 5px 6px)":value.pattern==='botanical'?"radial-gradient(ellipse at 35% 30%,#73876680 0 20%,transparent 22%)":value.pattern==='terrazzo'?"radial-gradient(#79695480 1px,transparent 2px)":"none",backgroundSize:"12px 12px",border:"1px solid #b6ad99"}},null),value.label,(selected||"auto")===key?" · 已选":"")));
+
+    const catalogItem=item=>h("button",{key:item.id,"data-wk":"cdaycatalogitem","data-part":item.id,"aria-label":item.label+" 添一件",disabled:layoutBusy||editor?.busy,onClick:()=>iframe.current?.contentWindow?.CharDayScene?.addFurniture(item.id),style:{...btn,minWidth:0,width:"calc((100% - 10px) / 2)",height:"auto",padding:"4px 8px 10px",textAlign:"left",borderRadius:7,boxShadow:"0 3px 0 #cfc5ae"}},h("div",{style:{position:"relative",width:"100%",aspectRatio:"1",marginBottom:4}},h("img",{src:item.thumbnail,alt:item.label,style:{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",display:"block",borderRadius:4}})),h("span",{style:{display:"block",fontSize:12}},item.label),h("span",{style:{display:"block",fontSize:11,color:soft,marginTop:4}},(decorOptions.collections?.[item.collection]?.label||"花窗手作")+" · 添一件"));
     const decorContents=decorPanel&&decorOptions&&h("section",{"data-wk":"cdaydecorpanel",className:"absolute inset-0 flex flex-col",style:{zIndex:5,background:paper}},
       h("div",{role:"status","data-wk":"cdaydecornotice",style:{padding:"8px 16px",fontSize:12,lineHeight:1.8,color:soft,borderBottom:"1px solid #cfc5ae"}},layoutNotice||"先试着搭配，回去看看，满意后点保存。"),
       h("div",{ref:decorScroll,"data-wk":"cdaydecorbody",className:"flex-1 min-h-0 overflow-y-auto",onScroll:e=>{decorPositions.current[decorPanel]=e.currentTarget.scrollTop;},style:{padding:"12px 16px 24px"}},
         decorPanel==='catalog'?h(React.Fragment,null,
           h("p",{style:{fontSize:12,color:soft,lineHeight:1.8,marginTop:0}},"四组家具之外，还有陶艺、小熊、花篮等摆件，以及画框、镜子、壁架和挂饰。点一件添进小家；墙饰挂到后墙或左墙，地毯能铺在桌椅下面。空间不够可以在“房间墙地”里扩建。"),
+          recommendedFurniture.length>0&&h('section',{style:{marginBottom:22}},h('h3',{style:{fontSize:14,fontWeight:500}},'这次推荐的几件'),h('div',{style:{display:'flex',flexWrap:'wrap',alignItems:'flex-start',gap:10}},...catalog.filter(item=>recommendedFurniture.includes(item.id)).map(catalogItem))),
           ...Object.entries(decorOptions.categories).map(([key,label])=>h("section",{key,style:{marginBottom:22}},h("h3",{style:{fontSize:14,fontWeight:500,borderBottom:"2px solid #cfc5ae",paddingBottom:7,margin:"0 0 10px"}},label),
-            h("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"flex-start",gap:10}},...catalog.filter(item=>item.category===key).map(item=>h("button",{key:item.id,"data-wk":"cdaycatalogitem","data-part":item.id,"aria-label":item.label+" 添一件",disabled:layoutBusy||editor?.busy,onClick:()=>iframe.current?.contentWindow?.CharDayScene?.addFurniture(item.id),style:{...btn,minWidth:0,width:"calc((100% - 10px) / 2)",height:"auto",padding:"4px 8px 10px",textAlign:"left",borderRadius:7,boxShadow:"0 3px 0 #cfc5ae"}},h("div",{style:{position:"relative",width:"100%",aspectRatio:"1",marginBottom:4}},h("img",{src:item.thumbnail,alt:item.label,style:{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"contain",display:"block",borderRadius:4}})),h("span",{style:{display:"block",fontSize:12}},item.label),h("span",{style:{display:"block",fontSize:11,color:soft,marginTop:4}},(decorOptions.collections?.[item.collection]?.label||"花窗手作")+" · 添一件"))))))):
+            h("div",{style:{display:"flex",flexWrap:"wrap",alignItems:"flex-start",gap:10}},...catalog.filter(item=>item.category===key&&!recommendedFurniture.includes(item.id)).map(catalogItem))))):
         decorPanel==='piece'?h(React.Fragment,null,
           control("选择要搭配的家具",h("select",{"data-wk":"cdaypiecepick","aria-label":"配色的家具",value:editor.selected,disabled:layoutBusy||editor?.busy,onChange:e=>iframe.current?.contentWindow?.CharDayScene?.selectFurniture(e.target.value),style:{...btn,width:"100%",height:44}},h("option",{value:""},"选择家具"),...furniture.map(p=>h("option",{key:p.id,value:p.id},p.label+(p.stored?" · 已收纳":""))))),
           chosen?h(React.Fragment,null,
@@ -202,10 +238,10 @@
           h("div",{style:{marginTop:14}},control("墙面自选颜色",customColor({"data-wk":"cdaywallcolor"},"墙面",roomDecor.wallColor||decorOptions.walls[roomDecor.wall]?.color||"#eee3d1",wallColor=>setRoom({wallColor})))),
           h("h3",{style:{fontSize:14,fontWeight:500,marginTop:22}},"地板"),optionGrid(decorOptions.floors,roomDecor.floor,key=>setRoom({floor:key,floorColor:""}),{"data-wk":"cdayfloor"}),
           h("div",{style:{marginTop:14}},control("地板自选颜色",customColor({"data-wk":"cdayfloorcolor"},"地板",roomDecor.floorColor||decorOptions.floors[roomDecor.floor]?.color||"#cfb79b",floorColor=>setRoom({floorColor})))))));
-    const camera=wide=>{setFollow(!wide);const api=iframe.current?.contentWindow?.CharDayScene;wide?api?.overview():api?.focus();setMoreOpen(false);setTogetherPanel(false);};
+    const camera=value=>{const mode=typeof value==='boolean'?(value?'overview':'ta'):value,api=iframe.current?.contentWindow?.CharDayScene;if(api?.setCameraMode?.(mode)===false)return;setFollow(mode!=='overview');setCameraMode(mode);setMoreOpen(false);setTogetherPanel(false);};
     const canVisit=!editor&&!demo&&!preview&&!showcase&&payload.presentation.map==="dayHome";
-    const controlsOpen=(moreOpen&&!mePanel)||togetherPanel||professionalPanel;
-    const menuBody=content=>h("div",{ref:menuScroll,"data-wk":"cdaymenubody",className:"flex-1 min-h-0 overflow-y-auto",onScroll:e=>{menuPositions.current[moreOpen?"more":"life"]=e.currentTarget.scrollTop;},style:{padding:"12px 16px 24px"}},content);
+    const controlsOpen=(moreOpen&&!mePanel)||togetherPanel||professionalPanel||!!lifePage;
+    const menuBody=content=>h("div",{ref:menuScroll,"data-wk":"cdaymenubody",className:"flex-1 min-h-0 overflow-y-auto",onScroll:e=>{menuPositions.current[menuKey]=e.currentTarget.scrollTop;},style:{padding:"12px 16px 24px"}},content);
     const menuSection=(label,content)=>h("section",{"data-wk":"cdaymenusection",style:{marginBottom:22}},h("h3",{style:{margin:"0 0 8px",fontSize:12,fontWeight:500,color:soft}},label),content);
     const menuRow=(attrs,label,detail,action,Icon)=>h("button",{...attrs,"aria-label":label,onClick:action,style:{...btn,display:"flex",alignItems:"center",gap:12,width:"100%",border:0,borderBottom:"1px solid #d5cebd",borderRadius:0,background:"transparent",textAlign:"left",padding:"13px 0"}},Icon&&h(Icon,{size:20,color:soft}),h("span",{style:{flex:1,minWidth:0}},h("span",{style:{display:"block",fontSize:14}},label),detail&&h("span",{style:{display:"block",marginTop:4,fontSize:11,lineHeight:1.7,color:soft}},detail)),h(IChevR,{size:16,color:soft}));
     const navButton=(attrs,label,Icon,action,extra={})=>h("button",{...attrs,...extra,onClick:action,style:{...btn,flex:1,minWidth:0,padding:"5px 2px",border:0,borderRadius:0,background:"transparent",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:3,fontSize:11,lineHeight:1.2}},h(Icon,{size:19,color:extra["aria-pressed"]?"#57734b":ink}),h("span",null,label));
@@ -244,6 +280,7 @@
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           !showcase && slot?.location && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, slot.location + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? " · "+activityStatus.label+" · "+activityStatus.spotLabel : "")),
           !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
+          pendingJob&&h("div",{"data-wk":"cdaykitchenprogress",style:{fontSize:11,color:soft,marginTop:3}},L.recipe(pendingJob.recipeId)?.name+" · "+(pendingJob.ready?"做好了，到生活里的厨房收好":({paused:"这份先放着，去厨房继续",preparing:"一起备菜",stirring:"锅边搅拌",serving:"准备盛出来",eating:"一起吃饭",ready:"做好了，到厨房收好"})[kitchenStatus?.phase]||"去厨房继续")),
           !demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&(visitStatus.notice||visitStatus.saveNotice)&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},[visitStatus.notice,visitStatus.saveNotice].filter(Boolean).join(" · "))),
         sceneStatus && h("div", { role: "status", style: { position: "absolute", top: "48%", left: 16, right: 16, textAlign: "center", padding: 16, background: "#eeeadfe8", borderRadius: 12, fontSize: 12 } }, sceneStatus,
           sceneStatus.includes("失败") && h("button", { style: { ...btn, display: "block", margin: "12px auto 0" }, onClick: () => { setSceneStatus("正在准备画面…");setVisitStatus(null); setRetry(x => x + 1); } }, "重新载入画面")),
@@ -262,10 +299,13 @@
         showcase?navButton({"data-wk":"cdaynextplace"},"换场景",IRepeat,()=>{const next=places[(places.findIndex(p=>p.id===showcase)+1)%places.length];if(next){setShowcase(next.id);setSpotId("");setFollow(false);}}):visiting?navButton({"data-wk":"cdaylifeopen"},"生活",IHome,()=>setTogetherPanel(true),{"data-action":"together"}):canVisit?navButton({"data-wk":"cdayvisitopen"},visitStatus?.busy?"准备中…":"进小屋",IHome,()=>iframe.current?.contentWindow?.CharDayScene?.joinVisit?.(),{disabled:visitStatus?.busy}):navButton({"data-wk":"cdayfollow"},"跟着TA",ICamera,()=>camera(false),{"aria-pressed":follow}),
         preview?navButton({"data-wk":"cdayreturn"},"回到此刻",IArrow,()=>setPreview(null)):navButton({"data-wk":"cdayscheduleopen"},"日程",GDiary,()=>setBook(true),{"aria-label":"今天的日程"}),
         navButton({"data-wk":"cdaymoreopen"},"更多",IDots,()=>setMoreOpen(true),{"aria-expanded":moreOpen}))),
-      moreOpen&&!mePanel&&!professionalPanel&&h("section",{"data-wk":"cdaymore",className:"absolute inset-0 flex flex-col",style:{background:paper,zIndex:18}},h(Head,{zh:"更多",sub:char.remark||char.name,bg:"transparent",ink,onBack:()=>setMoreOpen(false)}),menuBody(h(React.Fragment,null,
-        menuSection("看看四周",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[[false,"跟着TA"],[true,"看全景"]].map(([wide,label])=>h("button",{key:label,"aria-pressed":follow!==wide,style:{...btn,display:"flex",alignItems:"center",justifyContent:"center",gap:8},onClick:()=>camera(wide)},h(ICamera,{size:18,color:soft}),label)))),
+      moreOpen&&!mePanel&&!professionalPanel&&!lifePage&&h("section",{"data-wk":"cdaymore",className:"absolute inset-0 flex flex-col",style:{background:paper,zIndex:18}},h(Head,{zh:"更多",sub:char.remark||char.name,bg:"transparent",ink,onBack:()=>setMoreOpen(false)}),menuBody(h(React.Fragment,null,
+        menuSection("看看四周",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["ta","跟着TA"],["me","跟着我"],["both","看两个人"],["overview","看全景"]].map(([mode,label])=>h("button",{key:label,"data-wk":"cdaycamera","data-part":mode,"aria-pressed":cameraMode===mode,disabled:(mode==="me"||mode==="both")&&!visiting,style:{...btn,display:"flex",alignItems:"center",justifyContent:"center",gap:8,opacity:(mode==="me"||mode==="both")&&!visiting?.45:1},onClick:()=>camera(mode)},h(ICamera,{size:18,color:soft}),label)))),
         menuSection("你们的小家",h(React.Fragment,null,
           !demo&&!showcase&&menuRow({"data-wk":"cdaymeopen"},"我的样貌","头发、衣服和身形",openMe,GUser),
+          !demo&&menuRow({"data-wk":"cdayalbumopen"},"小家相册","留住真实同框和当时的活动",()=>openLifePage('album'),ICamera),
+          !demo&&menuRow({"data-wk":"cdaypreferencesopen"},"装修灵感","参考TA的偏好，也能写自己的想法",()=>openLifePage('preferences'),IPencil),
+          !demo&&menuRow({"data-wk":"cdaykitchenopen"},"小家厨房","食材、一起做饭和两人份餐盒",()=>openLifePage('kitchen'),IHome),
           menuRow({"data-wk":"cdayhomestyle"},"小家样式","房间配色与两人的动作气质",()=>{setBook(false);setVisitStatus(null);setHomeOptions(true);},IHome),
           menuRow({"data-wk":"cdaydecorate"},"布置小家","添家具、挪位置、搭配墙面和地板",startEditor,IPencil))),
         menuSection("场景",h(React.Fragment,null,
@@ -277,10 +317,44 @@
         menuSection("我的活动",h(React.Fragment,null,h("p",{style:{fontSize:11,color:soft,lineHeight:1.8,margin:"0 0 10px"}},"手动选择会一直优先；想让小人自己安排，再选自动活动。"),
           h("select",{"data-wk":"cdayvisitactivity","aria-label":"你在小家做什么",value:visitChoice(visitStatus),style:{...btn,width:"100%",height:44},onChange:e=>visitAction(e.target.value)},h("option",{value:"auto"},"自动活动"),h("option",{value:"manual"},"手动控制 · 停下来"),...[["read","手动 · 看会书"],["drink","手动 · 喝口水"],["eat","手动 · 在餐桌吃点东西"],["rest","手动 · 坐着歇会"]].map(([kind,label])=>h("option",{key:kind,value:kind},label))),
           h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10,marginTop:10}},...[["near","靠近TA"],[visitStatus.seated?"stand":"sit",visitStatus.seated?"起身":"坐旁边"]].map(([kind,label])=>h("button",{key:kind,"data-action":kind,style:btn,onClick:()=>visitAction(kind)},label))))),
-        menuSection("一起做什么",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["hand","牵手"],["hug","拥抱"],["shoulder","靠肩"],["read","一起看书"],["meal","一起吃饭"],["cook","一起做饭"]].map(([kind,label])=>h("button",{key:kind,"data-action":kind,style:btn,onClick:()=>visitAction("together:"+kind)},label)))),
+        menuSection("一起做什么",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["hand","牵手"],["hug","拥抱"],["shoulder","靠肩"],["read","一起看书"],["meal","一起吃饭"],["cook","锅边搭把手"]].map(([kind,label])=>h("button",{key:kind,"data-action":kind,style:btn,onClick:()=>visitAction("together:"+kind)},label)))),
+        menuSection("小家的日常",h(React.Fragment,null,menuRow({"data-wk":"cdaykitchenopen"},"小家厨房",pendingJob?"手头有一份料理，去看看":"补食材、做好两人份、端上桌",()=>openLifePage('kitchen'),IHome),menuRow({"data-wk":"cdayalbumopen"},"小家相册","拍下你们此刻的样子",()=>openLifePage('album'),ICamera))),
         menuSection("结束与离开",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["end","结束互动"],["leave","离开小屋"]].map(([kind,label])=>h("button",{key:kind,"data-action":kind,style:btn,onClick:()=>visitAction(kind)},label)))),
         h("p",{style:{fontSize:11,color:soft,lineHeight:1.8}},"TA照着自己的日程生活。点空地可以自由走动，坐下和互动会先走到实际的位置。"))),
         h("div",{className:"shrink-0",style:{...footerStyle,paddingLeft:16,paddingRight:16}},h("button",{style:{...btn,width:"100%",border:0,background:"transparent"},onClick:()=>setTogetherPanel(false)},"回到小世界"))),
+      lifePage&&h("section",{"data-wk":"cdaylifepage","data-part":lifePage,className:"absolute inset-0 flex flex-col",style:{background:paper,zIndex:22}},
+        h(Head,{zh:lifePage==='album'?(photo?'这一刻':'小家相册'):lifePage==='kitchen'?'小家厨房':'装修灵感',sub:char.remark||char.name,bg:'transparent',ink,onBack:()=>{if(lifeBusy)return;if(photo){setPhotoId('');setDeletePhoto(false);setLifeNotice('');}else{setLifePage('');if(!moreOpen&&visiting)setTogetherPanel(true);}}}),
+        menuBody(h(React.Fragment,null,
+          lifePage==='album'&&(photo?h(React.Fragment,null,
+            h('img',{"data-wk":"cdayphoto",src:photo.src,alt:photo.taName+'和'+photo.meName+'在小家的同框',style:{display:'block',width:'100%',borderRadius:8}}),
+            h('p',{style:{fontSize:12,lineHeight:1.9}},photo.day+' · TA当地 '+photo.time+'\n'+photo.taName+'和'+photo.meName+' · '+photo.activity),
+            h('label',{style:{display:'block',fontSize:12}},'给这一刻留一句',h('textarea',{"data-wk":"cdayphotonote",maxLength:200,value:photoNote,disabled:lifeBusy,onChange:e=>setPhotoNote(e.target.value),style:{...btn,width:'100%',display:'block',marginTop:8,minHeight:84,resize:'vertical'}})),
+            h('button',{"data-wk":"cdayphotonotesave",style:{...btn,width:'100%',marginTop:10},disabled:lifeBusy,onClick:()=>lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'note',id:photo.id,note:photoNote}))).then(next=>{if(next)setLifeNotice('这句话已留在照片里。');})},'保存这句话'),
+            h('a',{href:photo.src,download:'小家-'+photo.day+'-'+photo.id+'.jpg',style:{...btn,display:'block',textAlign:'center',marginTop:10,textDecoration:'none'}},'导出照片'),
+            h('button',{"data-wk":"cdayphotodelete",disabled:lifeBusy,style:{...btn,width:'100%',marginTop:10},onClick:()=>{if(!deletePhoto){setDeletePhoto(true);setLifeNotice('再点一次，删除相册里的这张照片。');return;}lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'delete',id:photo.id}))).then(next=>{if(next){setPhotoId('');setDeletePhoto(false);setLifeNotice('已删除这一张。');}});}},deletePhoto?'确认删除':'删除这张')):
+            h(React.Fragment,null,h('p',{style:{fontSize:12,lineHeight:1.9,color:soft,marginTop:0}},'留住小家里的真实同框，照片会记下TA当地的时间和当时在做什么。'),
+              h('button',{"data-wk":"cdayphotoshoot",style:{...btn,width:'100%',marginBottom:16},disabled:lifeBusy||!visiting||!!preview||!!showcase,onClick:takePhoto},visiting?'拍下此刻的两个人':'先和TA一起进小家，再拍同框'),
+              photos.length?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12}},...photos.slice().reverse().map(item=>h('button',{key:item.id,"data-wk":"cdayphotoitem",style:{...btn,padding:6,textAlign:'left'},onClick:()=>{setPhotoId(item.id);setPhotoNote(item.note||'');setLifeNotice('');setDeletePhoto(false);}},h('img',{src:item.src,alt:item.activity,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'4/3',objectFit:'cover',borderRadius:5}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.7,padding:'6px 3px'}},item.day+' '+item.time+' · '+item.activity)))):h('p',{style:{fontSize:12,color:soft}},'还没留过照片。进屋后拍下第一张吧。'))),
+          lifePage==='kitchen'&&h(React.Fragment,null,
+            h('p',{style:{fontSize:12,lineHeight:1.9,color:soft,marginTop:0}},'这是你们小家的食材篮。每次补三份。两人实际到厨房完成动作，收好成品时才用掉食材；中途停下材料保留。'),
+            pendingJob&&menuSection('手头这一份',h(React.Fragment,null,h('p',{style:{fontSize:14}},L.recipe(pendingJob.recipeId)?.name+' · '+(pendingJob.kind==='meal'?'一起吃':'一起做')),
+              h('p',{"data-wk":"cdaykitchenstate",role:'status',style:{fontSize:12,lineHeight:1.8}},pendingJob.ready?(pendingJob.kind==='meal'?'两个人已经在餐桌吃好，可以收拾了。':'两人份做好了，可以收进餐盒。'):({preparing:'两个人正在备菜。',stirring:'两个人正在锅边料理。',serving:'准备盛出两人份。',eating:'已经在餐桌坐好，正在一起吃。'})[kitchenStatus?.phase]||'等TA在家，进屋后点继续。'),
+              h('button',{"data-wk":"cdaykitchencontinue",disabled:lifeBusy||!visiting||pendingJob.ready,style:{...btn,width:'100%',marginBottom:8},onClick:()=>runKitchen(pendingJob)},'回到现场继续'),
+              h('button',{"data-wk":"cdaykitchenfinish",disabled:lifeBusy||!pendingJob.ready,style:{...btn,width:'100%',marginBottom:8},onClick:()=>kitchenAction({kind:'finish',id:pendingJob.id,at:Date.now()})},pendingJob.kind==='meal'?'吃好了，收拾餐桌':'收好两人份'),
+              h('button',{"data-wk":"cdaykitchencancel",disabled:lifeBusy,style:{...btn,width:'100%'},onClick:()=>kitchenAction({kind:'cancel'})},'先收起，保留材料'))),
+            menuSection('食材篮',h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:10}},...Object.entries(L.INGREDIENTS).map(([key,label])=>h('div',{key,style:{padding:10,border:'1px solid #cfc5ae',borderRadius:10}},h('span',{style:{fontSize:13,display:'block',marginBottom:8}},label+' ×'+kitchen.ingredients[key]),h('button',{"data-wk":"cdayingredient",'data-part':key,disabled:lifeBusy,style:{...btn,width:'100%'},onClick:()=>kitchenAction({kind:'stock',ingredient:key})},'补三份'))))),
+            menuSection('今天做什么',h(React.Fragment,null,...L.RECIPES.map(r=>h('div',{key:r.id,style:{padding:'12px 0',borderBottom:'1px solid #d5cebd'}},h('strong',{style:{fontSize:14,fontWeight:500}},r.name),h('p',{style:{fontSize:11,lineHeight:1.8,color:soft}},Object.entries(r.need).map(([id,n])=>L.INGREDIENTS[id]+' ×'+n).join('、')+' · 做出两人份'),h('p',{style:{fontSize:12,lineHeight:1.8}},r.note),h('button',{"data-wk":"cdayrecipe",'data-part':r.id,style:{...btn,width:'100%'},disabled:lifeBusy||!!pendingJob||!visiting,onClick:()=>kitchenAction({kind:'begin',id:uniqueId(),recipeId:r.id})},visiting?'一起做这份':'进小家后一起做'))))),
+            menuSection('已经做好的餐盒',h(React.Fragment,null,kitchen.dishes.length?kitchen.dishes.slice().reverse().map(d=>h('div',{key:d.id,style:{padding:'12px 0',borderBottom:'1px solid #d5cebd'}},h('p',{style:{fontSize:13}},L.recipe(d.recipeId).name+' · 两人份'),h('button',{"data-wk":"cdaydish",'data-part':d.id,style:{...btn,width:'100%'},disabled:lifeBusy||!!pendingJob||!visiting,onClick:()=>kitchenAction({kind:'serve',id:uniqueId(),dishId:d.id})},'端上桌一起吃'))):h('p',{style:{fontSize:12,color:soft}},'做好后收进这里，重进小家还在。')))),
+          lifePage==='preferences'&&h(React.Fragment,null,
+            h('p',{style:{fontSize:12,color:soft,lineHeight:1.9,marginTop:0}},'参考TA在人设里明确写出的家居偏好。先看看搭配，你挑的房间样式、家具配色和摆位始终优先。'),
+            h('label',{style:{fontSize:12}},'你想要怎样的小家',h('textarea',{"data-wk":"cdaydecorwish",value:wish,maxLength:600,onChange:e=>setWish(e.target.value),placeholder:'写下喜欢的颜色、材质或风格',style:{...btn,width:'100%',minHeight:92,display:'block',marginTop:8}})),
+            h('button',{"data-wk":"cdaydecorwishsave",style:{...btn,width:'100%',marginTop:10,marginBottom:18},disabled:lifeBusy,onClick:()=>lifeWrite(()=>saveHomeChange(char.id,'preferences',{wish:wish.trim()})).then(next=>{if(next)setLifeNotice(wish.trim()?'已记住你的想法，它会优先于自动参考。':'已回到参考TA的人设偏好。');})},'记住我的想法'),
+            suggestion?h(React.Fragment,null,menuSection(suggestion.label,h(React.Fragment,null,h('p',{style:{fontSize:12,color:soft,lineHeight:1.8}},suggestion.source+' · '+suggestion.evidence),h('p',{style:{fontSize:12,lineHeight:1.8}},'配色：'+(styles.find(x=>x.id===suggestion.id)?.label||suggestion.label)),h('div',{style:{display:'flex',gap:8,marginBottom:14}},...(styles.find(x=>x.id===suggestion.id)?.colors||[]).map(color=>h('span',{key:color,style:{width:48,height:40,borderRadius:5,background:color}}))),
+              h('button',{"data-wk":"cdaydecorapply",disabled:lifeBusy,style:{...btn,width:'100%'},onClick:()=>lifeWrite(()=>saveHomeUpdate(previous=>({...previous,version:3,styles:{...previous.styles,[String(char.id)]:suggestion.id},layouts:{...previous.layouts,[String(char.id)]:L.recommendLayout(previous.layouts?.[String(char.id)],suggestion)}}))).then(next=>{if(next)setLifeNotice('已选这套配色。你单独搭过的墙面、地板和家具都保留。');})},'选这套配色'))),
+              menuSection('可以搭的家具',h(React.Fragment,null,h('p',{style:{fontSize:12,lineHeight:1.8}},suggestion.furniture.map(key=>catalogLabels[key]||key).join('、')),h('button',{"data-wk":"cdaydecorchoose",style:{...btn,width:'100%'},disabled:lifeBusy,onClick:()=>{setLifePage('');startEditor(suggestion.furniture);}},'去布置，自己挑家具')))):
+              h('p',{style:{fontSize:12,color:soft,lineHeight:1.9}},'还没有找到明确的家居偏好。写下你的想法，或者到小家样式里直接选喜欢的搭配。')),
+          lifeNotice&&h('p',{"data-wk":"cdaylifenotice",role:'status',style:{fontSize:12,color:'#8d634e',lineHeight:1.9,whiteSpace:'pre-wrap'}},lifeNotice))),
+        h('div',{className:'shrink-0',style:footerStyle},h('button',{style:{...btn,width:'100%',border:0,background:'transparent'},disabled:lifeBusy,onClick:()=>{setLifePage('');setMoreOpen(false);setTogetherPanel(false);}},'回到小世界'))),
       mePanel&&h("div",{"data-wk":"cdaymelook",className:"absolute inset-0 flex flex-col",style:{zIndex:25,pointerEvents:"none"}},h("div",{style:{pointerEvents:"auto",background:paper}},h(Head,{zh:"我的样貌",bg:"transparent",ink,onBack:()=>{if(meBusy)return;setMeDraft(null);setMePanel(false);}})),h("div",{style:{height:"32%",minHeight:110,flexShrink:0}}),h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{pointerEvents:"auto",background:paper,padding:16}},h("p",{style:{fontSize:12,lineHeight:1.8,marginTop:0}},"这份样貌用于你在TA的一天里的小人，所有角色共用。也可以取用庭院存档里的你。"),h("select",{"aria-label":"取用庭院样貌",style:{...btn,width:"100%",marginBottom:16},defaultValue:"",onChange:e=>{const value=props.readAppearance?.(e.target.value);if(value){setMeDraft(value);setMeNotice("");}else setMeNotice("这份存档还没有保存你的样貌。");}},h("option",{value:""},"从庭院存档取用…"),...(props.appearanceSaves||[]).map(row=>h("option",{key:row.id,value:row.key},row.name||"庭院存档"))),meStyles&&root.GardenDressControls?h(root.GardenDressControls,{who:"me",look:{me:meDraft||{}},styles:meStyles,game:()=>iframe.current?.contentWindow?.CharDayScene?.visitorWardrobe?.(),pushLook:patch=>setMeDraft(current=>iframe.current?.contentWindow?.CharDayScene?.mergeVisitorLook?.(patch,current)||current)}):h("p",null,"正在打开衣柜…"),meNotice&&h("p",{role:"status"},meNotice)),h("div",{className:"shrink-0",style:{pointerEvents:"auto",background:paper,padding:6,paddingBottom:"calc(6px + env(safe-area-inset-bottom) * 0.4)"}},h("button",{style:{...btn,width:"100%"},disabled:meBusy,onClick:saveMe},meBusy?"保存中…":"保存样貌"))),
       chatMounted && !editor && !demo && !showcase && h("section", { "data-wk": "cdaychat", "aria-label": "和" + (char.remark || char.name) + "聊天", hidden: !chatOpen||controlsOpen||mePanel,
         className: "absolute left-0 right-0 flex flex-col", style: { display: chatOpen&&!controlsOpen&&!mePanel ? "flex" : "none", top: kbLift ? "15%" : "50%", bottom: kbLift, zIndex: 8, background: paper, borderTop: "1px solid #cfc5ae", boxShadow: "0 -4px 18px #6d5b3020" } },

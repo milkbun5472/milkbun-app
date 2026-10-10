@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.289";
+const APP_VERSION = "v75.290";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10087,25 +10087,36 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她这一支压根不需要编；共用的是【落成什么】，不是【怎么来的】，所以只共用下面这三行。
   // hostId 不是 "me" 时＝给某个角色手写一位身边的人（她 2026-10-03：生成老掉格式，加个自己写的）——
   //   跟 createNpc 生成出来的是同一种配角：挂在 TA 名下、不认识她，关系写成 TA 和这个人之间的
-  const addMyNpc = (name, brief, relLabel, hostId) => {
+  // 手写一位配角，一步连好【认识谁】（她 2026-10-10：「现在必须要设置在谁身边然后再把 npc 连到别的角色身上」）：
+  //   links＝[{id, label}]，id 可以是 "me"、角色、别的配角，各连一条双向的关系；ownerId 可以是 "me"、某个角色，或空着＝不挂在谁身边。
+  //   addMyNpc（关系页那两处老入口）和配角页的新建、秋秋建配角都落到这一处。
+  const addNpcLinked = ({ name, brief, ownerId, links }) => {
     const nm = String(name || "").trim().slice(0, 24);
-    if (!nm) { toast("先写个名字"); return false; }
-    const id = "c_" + Date.now() + "_npc";
+    if (!nm) { toast("先写个名字"); return null; }
+    const id = "c_" + Date.now() + "_" + Math.floor(Math.random() * 1000) + "_npc";
+    const ls = (links || []).filter(l => l && l.id && (l.id === "me" || characters.some(c => c.id === l.id)));
+    const meLink = ls.find(l => l.id === "me");
+    const owner = ownerId === "me" || (ownerId && characters.some(c => c.id === ownerId)) ? ownerId : "";
+    pC(prev => [...prev, CharacterPronoun.newCharacter(Object.assign({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: owner },
+      meLink ? { knowsUser: true, knowsUserNote: String(meLink.label || "").trim().slice(0, 60) } : {}))]);
+    ls.forEach(l => {
+      const note = String(l.label || "").trim().slice(0, 60);
+      if (!note) return;
+      saveRel(l.id + "->" + id, note, ""); saveRel(id + "->" + l.id, note, "");
+    });
+    toast("已加入「" + nm + "」，去群里拉上TA");
+    return id;
+  };
+  const addMyNpc = (name, brief, relLabel, hostId) => {
     const note = String(relLabel || "").trim().slice(0, 60);
     if (hostId && hostId !== "me") {
       if (!characters.some(c => c.id === hostId)) return false;
-      pC(prev => [...prev, CharacterPronoun.newCharacter({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: hostId })]);
-      if (note) saveRel(hostId + "->" + id, note, "");
-      toast("已加入「" + nm + "」，去群里拉上TA");
-      return true;
+      // 老入口：角色身边的人只写「主人 → 这个人」那一边、不认识她
+      const id = addNpcLinked({ name, brief, ownerId: hostId, links: [] });
+      if (id && note) saveRel(hostId + "->" + id, note, "");
+      return !!id;
     }
-    pC(prev => [...prev, CharacterPronoun.newCharacter({
-      id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000),
-      npc: true, ownerId: "me", knowsUser: true, knowsUserNote: note
-    })]);
-    if (note) { saveRel("me->" + id, note, ""); saveRel(id + "->me", note, ""); }
-    toast("已加入「" + nm + "」，去群里拉上TA");
-    return true;
+    return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
   };
   // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc（她自己写，零调用）。
   const createNpc = async (hostId, ask) => {
@@ -28090,6 +28101,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
+    onCreateNpc: data => !!addNpcLinked(data),
+    meName: userName(profile),
     onChatNpc: id => openChatById(id),
     onDeleteNpc: (id, wipeChat) => deleteNpc(id, wipeChat),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
