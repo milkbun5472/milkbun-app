@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.295";
+const APP_VERSION = "v75.296";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12054,6 +12054,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "或者你就是想让她别省着——想转就转，**不必等她开口要**，也不必非得是什么大事。"
         + "note 写你转这笔的那句话（「打车回去」「别省」），别只丢一个数字。"
         + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
+      // 存钱罐（她 2026-10-10）：只给正式在一起的、只在主聊天；钱是真钱，进出都过各自的钱包
+      if (isCouple && !sideRoom) {
+        openCaps.push("jar");
+        capState.push("jar：" + jarContext(charId) + "想往里放、要取出来用（你自己也能取）、想定个一起攒的目标、想改每月发工资时自己存几成，就填 "
+          + "jar:{\"op\":\"in或out或goal或auto\",\"amount\":数字,\"note\":\"你这一笔的那句话\",\"goal\":\"目标叫什么（op 是 goal 时）\",\"pct\":数字（op 是 auto 时，0 到 50）}。"
+          + "放多少、取不取按你自己的处境和你这个人来；不想动就别写。");
+      }
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       // 她给的那张卡：有就每轮把事实摆出来（额度、还剩、冻没冻、最近刷过什么）。刷不刷、花在哪，全看TA这个人。
       // 钱是真钱：只在主聊天里摆出来、让刷（她 2026-10-07：「小房间不准刷卡」）——哪一间小房间都不行。
@@ -12972,7 +12979,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
         words = []; emoteWordKws.length = 0; _inlineVoice = [];
-        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null; parsed.takeout = null;
+        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.jar = null; parsed.gift = null; parsed.takeout = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
@@ -13292,6 +13299,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      // 存钱罐：TA 的手。只认主聊天（上面 capState 也只在主聊天开）
+      if (parsed.jar && typeof parsed.jar === "object" && !sideRoom && jarOpen(charId)) {
+        const _j = parsed.jar, _op = String(_j.op || "").trim();
+        if (_op === "in" || _op === "out") { if (jarMove(charId, "char", (_op === "out" ? -1 : 1) * Math.abs(Number(_j.amount) || 0), _j.note || "")) delivered = true; }
+        else if (_op === "goal" && _j.goal && Number(_j.amount) > 0) { jarSetGoal(charId, _j.goal, _j.amount, "char"); delivered = true; }
+        else if (_op === "auto" && _j.pct != null) jarSetAuto(charId, _j.pct);
+      }
       if (parsed.pinPlace && typeof parsed.pinPlace === "object" && window.DatePlaces && !(room && !room.main)) {
         const nm = String(parsed.pinPlace.name || "").trim().slice(0, 24), nt = String(parsed.pinPlace.note || "").trim().slice(0, 60);
         if (nm && !window.DatePlaces.list(charId).some(x => x.name === nm)) {
@@ -18481,6 +18495,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       charWalletRef.current = n;
       return n;
     });
+    // 发工资那天顺手往存钱罐里存一笔（她 2026-10-10：「他会不会定期自己存」→「要」）：纯本地算术，一枪不打
+    const _paidN = inc ? rows.filter(r => r.delta > 0).length : 0;   // 正的那几笔就是工资（固定支出是负的）
+    if (_paidN && typeof jarOpen === "function" && jarOpen(char.id)) {
+      const pct = Number(jarOf(char.id).autoPct == null ? 10 : jarOf(char.id).autoPct) || 0;
+      const amt = Math.floor(inc * _paidN * pct / 100);
+      if (amt > 0) jarMove(char.id, "char", amt, "发工资那天存的", { auto: true });
+    }
     return rows.length;
   };
   const healWalletPay = char => {
@@ -23238,6 +23259,62 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_coupleHome", n);
     return n;
   });
+  // ── 我们的存钱罐（她 2026-10-10 转群友：「情侣空间能不能开个共同账户，那种互相往里放钱的」）──
+  //   只给正式在一起的。存在 x_coupleHome[charId].jar（跟档案、愿望板同一份）：
+  //   { balance, goal: { name, amount, hitTs } | null, autoPct, ledger: [{ id, ts, who:"me"|"char", delta, after, note, kind }] }
+  //   钱是真钱：她放＝扣她的钱包，TA 放＝扣 TA 的钱包；取出来回到取的那个人手里。两个人都能自己取（她定的）。
+  //   TA 每月发工资那天按 autoPct 自己存一笔（默认 10%，TA 在聊天里可以改）。攒到目标落一行灰字，两个人都看得见。
+  const JAR_LOG_KEEP = 400;
+  const jarOf = cid => (((coupleHomeRef.current || {})[cid] || {}).jar) || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+  const jarOpen = cid => !!(couples[cid] && couples[cid].status === "together");
+  // 唯一一处动罐子里的钱：who 是谁的手，delta 正＝放进去、负＝取出来。返回 false＝没动成（钱不够之类）
+  const jarMove = (cid, who, delta, note, extra) => {
+    const d = Math.round(Number(delta) * 100) / 100;
+    if (!d || !jarOpen(cid)) return false;
+    const j = jarOf(cid), c = characters.find(x => x.id === cid);
+    if (d < 0 && j.balance + d < -0.001) { if (who === "me") toast("罐子里没这么多"); return false; }
+    if (d > 0 && who === "me" && walletRef.current < d) { toast("钱包里没这么多"); return false; }
+    if (d > 0 && who === "char" && charBalanceOf(cid) < d) return false;
+    const nm = (c && c.name) || "TA", n2 = String(note || "").trim().slice(0, 60);
+    if (who === "me") changeWallet(-d, (d > 0 ? "存进和 " + nm + " 的存钱罐" : "从和 " + nm + " 的存钱罐取出") + (n2 ? " · " + n2 : ""), "jar", { where: "couple", charId: cid });
+    else adjustCharBalance(cid, -d, (d > 0 ? "存进和她的存钱罐" : "从和她的存钱罐取出") + (n2 ? " · " + n2 : ""), "jar");
+    const after = Math.round((j.balance + d) * 100) / 100;
+    const goal = j.goal;
+    const hit = goal && !goal.hitTs && Number(goal.amount) > 0 && after >= Number(goal.amount);
+    saveCoupleHome(cid, cur => {
+      const jj = cur.jar || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+      const row = Object.assign({ id: "jar_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), who: who, delta: d, after: after, note: n2, kind: d > 0 ? "in" : "out" }, extra || {});
+      return { ...cur, jar: { ...jj, balance: after, goal: hit ? { ...jj.goal, hitTs: Date.now() } : jj.goal, ledger: [row].concat(jj.ledger || []).slice(0, JAR_LOG_KEEP) } };
+    });
+    // 聊天里落一行灰字：TA 下一轮看得见是谁放的、放了多少（她偷偷放的那笔 TA 会发现）
+    const who2 = who === "me" ? userName(profile) : nm;
+    pChat(cid, p => [...p, { role: "system", kind: "system", jar: true, ts: Date.now(),
+      content: who2 + (d > 0 ? " 往你们的存钱罐里放了 " : " 从你们的存钱罐里取了 ") + Math.abs(d) + (n2 ? "（" + n2 + "）" : "") + "，罐子里现在 " + after }]);
+    if (hit) pChat(cid, p => [...p, { role: "system", kind: "system", jar: true, ts: Date.now() + 1, content: "存钱罐攒到目标了：「" + goal.name + "」" + goal.amount + "，现在有 " + after }]);
+    return true;
+  };
+  const jarSetGoal = (cid, name, amount, who) => {
+    const nm = String(name || "").trim().slice(0, 30), amt = Math.round(Number(amount) * 100) / 100;
+    saveCoupleHome(cid, cur => {
+      const jj = cur.jar || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+      const goal = nm && amt > 0 ? { name: nm, amount: amt, setBy: who || "me", ts: Date.now(), hitTs: jj.balance >= amt ? Date.now() : null } : null;
+      return { ...cur, jar: { ...jj, goal } };
+    });
+    if (nm && amt > 0) pChat(cid, p => [...p, { role: "system", kind: "system", jar: true, ts: Date.now(),
+      content: (who === "char" ? ((characters.find(x => x.id === cid) || {}).name || "TA") : userName(profile)) + " 给你们的存钱罐定了个目标：「" + nm + "」" + amt }]);
+  };
+  const jarSetAuto = (cid, pct) => {
+    const v = Math.max(0, Math.min(50, Math.round(Number(pct) || 0)));
+    saveCoupleHome(cid, cur => ({ ...cur, jar: { ...(cur.jar || { balance: 0, goal: null, ledger: [] }), autoPct: v } }));
+  };
+  // 给 TA 看的那一段：余额、目标、最近几笔
+  const jarContext = cid => {
+    if (!jarOpen(cid)) return "";
+    const j = jarOf(cid), c = characters.find(x => x.id === cid), uN = userName(profile);
+    const recent = (j.ledger || []).slice(0, 5).map(r => (r.who === "me" ? uN : "你") + (r.delta > 0 ? "放了 " : "取了 ") + Math.abs(r.delta) + (r.note ? "（" + r.note + "）" : "")).join("；");
+    return "你们的存钱罐：现在有 " + (j.balance || 0) + (j.goal ? "，目标「" + j.goal.name + "」" + j.goal.amount + (j.goal.hitTs ? "（已经攒到了）" : "") : "，还没定目标")
+      + "；你每月发工资那天会自己存 " + (j.autoPct == null ? 10 : j.autoPct) + "%" + (recent ? "。最近：" + recent : "。还没人往里放过") + "。";
+  };
   const setCoupleImg = async (charId, field, file) => {
     if (!file) { saveCoupleProfile(charId, { [field]: null }); return; }
     try { const url = await resizeImageFile(file, field === "bg" ? 900 : 400, 0.82); saveCoupleProfile(charId, { [field]: url }); }
@@ -28763,6 +28840,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     coupleProfile: coupleProfile,
     coupleHome: coupleHome,
     onSaveCoupleHome: saveCoupleHome,
+    // 存钱罐（她 2026-10-10）：她的钱包余额给页面看「放得起多少」；实现愿望的那一笔顺手把愿望勾掉
+    myWallet: wallet,
+    onJarMove: (cid, delta, note, wishId) => {
+      const ok = jarMove(cid, "me", delta, note, wishId ? { wishId } : null);
+      if (ok && wishId) saveCoupleHome(cid, cur => ({ ...cur, wishes: (cur.wishes || []).map(w => w && w.id === wishId ? { ...w, status: "done", updatedAt: Date.now() } : w) }));
+      return ok;
+    },
+    onJarGoal: (cid, name, amount) => jarSetGoal(cid, name, amount, "me"),
     onSetCoupleImg: setCoupleImg,
     coupleQA: coupleQA,
     onAnswerQA: answerCoupleQA,
