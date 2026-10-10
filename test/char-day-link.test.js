@@ -35,7 +35,7 @@ test('场景与位置目录从实际地图生成，所有保存位置都是已�
 test('当天实际生成调用把视觉字段发出并经原writer保存，原叙事/当地时间/角色隔离不改',async()=>{
  const source={load:'NORMAL',seqs:[row()]},f=envFor(source);f.e.saveDay('c2','2026-10-09',{seqs:[{title:'乙的私事'}]});
  assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);assert.equal(f.calls[0].api.id,'background');
- assert.match(f.calls[0].spec.instruction,/TA的一天·场景连接/);assert.match(f.calls[0].spec.schemaHint,/"world"/);assert.equal(f.calls[0].spec.maxTokens,65535);
+ assert.match(f.calls[0].spec.instruction,/TA的一天·场景连接/);assert.match(f.calls[0].spec.schemaHint,/"world"/);assert.equal(f.calls[0].spec.maxTokens,100000);
  const s=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.deepEqual(plain(s.world),source.seqs[0].world);assert.equal(s.location,'西院研究楼');assert.equal(s.place,'原世界城市');assert.equal(s.title,source.seqs[0].title);assert.equal(s.busy,2);const current=f.e.ScheduleClock.currentSlot(f.c,f.e.schedulesRef.current.c1,Date.parse('2026-10-09T10:30:00Z'));assert.deepEqual(plain(current.world),source.seqs[0].world);assert.equal(f.L.presentation(current).map,'dayLaboratory');
  assert.equal(f.writes.at(-1).key,'x_schedules');assert.equal(f.e.schedulesRef.current.c2['2026-10-09'].seqs[0].title,'乙的私事');assert.equal(source.seqs[0].seq,undefined);
 });

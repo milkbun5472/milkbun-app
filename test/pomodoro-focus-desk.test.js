@@ -89,7 +89,7 @@ test("补句沿共用角色上下文，携带已有纸条/类别/准确时间，
   assert.equal(requests.length, 1);
   assert.equal(requests[0].ctx, bundle);
   const { probe } = requests[0];
-  assert.equal(probe.once, true); assert.equal(probe.voiceScene, true); assert.equal(probe.maxTokens, 65535);
+  assert.equal(probe.once, true); assert.equal(probe.voiceScene, true); assert.equal(probe.maxTokens, 100000);
   for (const text of ["工作", "校稿", "稿件课", "05:00", "20:00", "已暂停", "旧纸条", "上一批的话", "尚未用的收桌话"]) assert.ok(probe.instruction.includes(text), text);
   assert.match(probe.instruction, /不能据此声称任务已经完成/);
 });

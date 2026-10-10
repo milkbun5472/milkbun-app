@@ -237,7 +237,7 @@
   //      只给下限，模型没有目标区间，写到哪算哪。
   //   ③ 字数锁 —— 明确让它自己数着写：没到下限就继续，不提示不收尾；到了就停。
   // 三样齐了就是一次调用的事，不需要补写阶梯。
-  const OUT_CEILING = 65535;    // 同酒馆。中转会自行 clamp 到模型上限
+  const OUT_CEILING = 100000;    // 同酒馆。中转会自行 clamp 到模型上限
   const tokensFor = chars => Math.min(OUT_CEILING, Math.max(16000, Math.ceil(Math.max(200, chars) * 3) + 8000));
 
   // 有的线路会因为 max_tokens 超过模型上限直接报错（多数中转是 clamp，少数不是）。

@@ -152,7 +152,7 @@ test("空柜子那一枪不发那段没用的清单", () => {
 });
 
 test("maxTokens 照 施工规则/max-tokens-floor.md 开满", () => {
-  assert.equal(F.closetMoreSpec({ name: "x" }, CLOSET, 9, null, null).maxTokens, 65535);
+  assert.equal(F.closetMoreSpec({ name: "x" }, CLOSET, 9, null, null).maxTokens, 100000);
 });
 
 // ── 接到界面和 app 上了没有 ────────────────────────────────────

@@ -46,7 +46,7 @@ test('用实际 startPoll 写入两张卡，自动投票分别投原卡，异步
   assert.match(f.requests[0].sys,/甲项/); assert.match(f.requests[0].sys,/乙项/);
   assert.match(f.requests[0].sys,/甲私密长期记忆/);
   assert.match(f.requests[0].sys,/只有 甲 本人知道/);
-  assert.equal(f.requests[0].opts.maxTokens,65535);
+  assert.equal(f.requests[0].opts.maxTokens,100000);
 });
 test('匿名历史只有票数；正常群聊和群通话使用相同窗口，回执读取实际归档 log',()=>{
   const {b}=setup(); b.ops.startPoll('g','匿名题',['选项一','选项二'],true);

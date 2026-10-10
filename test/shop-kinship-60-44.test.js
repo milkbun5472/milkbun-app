@@ -47,7 +47,7 @@ test("刷信息流那一处不许再叫模型去抄别人，占位值也不许�
   assert.match(g, /\\"name\\":\\"具体商品名\\"/, "占位值要写成说明");
   assert.match(g, /cat === "forhim" \?/, "给他买那一栏得知道自己是在替别人挑");
   // 她 2026-09-02 亲口定的上限；一次也从 6 件放开到 10~15 件
-  assert.match(g, /maxTokens: 65535/);
+  assert.match(g, /maxTokens: 100000/);
   assert.match(g, /给 10~15 件商品（items 数组至少 10 个元素）/);
   assert.ok(g.indexOf("正好 6 件") < 0, "还卡在六件");
 });

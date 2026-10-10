@@ -28,7 +28,7 @@ test("微信一次生成五个新会话、五个关系联系人和三条朋友�
   assert.match(phone, /contacts 正好 5 个/);
   assert.match(phone, /moments 正好 3 条/);
   // 输出天花板统一给满（PHONE_OUT_CEILING），不再一个 app 一个数
-  assert.match(phone, /const PHONE_OUT_CEILING = 65535;/);
+  assert.match(phone, /const PHONE_OUT_CEILING = 100000;/);
   assert.match(phone, /maxTokens: PHONE_OUT_CEILING/);
   assert.match(phone, /signature/);
   assert.match(phone, /accounts/);

@@ -134,7 +134,7 @@
     //   思考型模型光想就把它吃光，于是返回空、界面上写「Ta 没讲出来，换一页再试」。
     //   而【那道 maxTokens 地板闸没抓到它】：闸的正则要求冒号后面紧跟数字，
     //   `maxTokens: Math.min(...)` 这种写法整行都匹配不上。闸自己有盲区的时候，全绿什么都不证明。
-    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "写满 " + n + " 条，每行一条。" }], { maxTokens: 100000 });
     // 先把「段N：」标记前都断行——兼容弱模型把多条挤在一行/一段的情况
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
@@ -171,7 +171,7 @@
       (annText ? "\n\n【你刚在这页写下的批注】\n" + annText : "") +
       (hist ? "\n\n【你俩刚才的讨论】\n" + hist : "") +
       "\n\n【输出】只输出 JSON：{\"say\":[\"气泡1\",\"气泡2\"]}。像即时通讯那样拆成气泡：几条、每条多长照你平时跟她聊天的习惯来，聊到兴头上多说也行。别加名字前缀、别旁白括号、别 markdown。";
-    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: userMsg }], { maxTokens: 100000 });
     const parsed = extractJSON(raw);
     const say = (parsed && Array.isArray(parsed.say)) ? parsed.say.filter(Boolean) : null;
     return say && say.length ? say : [String(raw || "").replace(/^\{|\}$/g, "").trim() || "……"];
@@ -193,7 +193,7 @@
       + "她说漏嘴或提起的事、你们说好的下一步。别复述书里的情节，别写读后感，别替她总结。"
       + (prevDigest ? "\n\n【这本书之前已经记下的（不要重写它，只写这一次新添的）】\n" + prevDigest : "")
       + "\n\n只输出这一小段本身。";
-    const seg = String(await callAI(active, sys, [{ role: "user", content: text }], { maxTokens: 65535 }) || "").trim();
+    const seg = String(await callAI(active, sys, [{ role: "user", content: text }], { maxTokens: 100000 }) || "").trim();
     if (!seg) return String(prevDigest || "");
     return (window.ChatRooms && window.ChatRooms.digestMerge)
       ? window.ChatRooms.digestMerge(prevDigest, seg)
@@ -214,7 +214,7 @@
     const u = (annText ? "【你的批注】\n" + annText + "\n\n" : "") + (hist ? "【讨论】\n" + hist : "");
     // ⚠️「记住这本」那一下只有批注、没有 history；读过的讨论全在 talk 里，
     //   不灌回去的话她按下去得到的还是一份只看批注的读后感。
-    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 65535 })).trim();
+    return (await callAI(active, sys, [{ role: "user", content: u }], { maxTokens: 100000 })).trim();
   }
 
   // ---- 模型：中译中·逐段讲解（每段都给大白话解释 + 角色看法），并回一句本页梗概续到已读脉络 ----
@@ -229,7 +229,7 @@
       (talk || "") +
       "\n\n【本页正文（按段落编号）】\n" + numbered +
       "\n\n请给【每一段都写一条讲解】，从第 1 段到第 " + maxPara + " 段，一段都不能漏。\n【输出格式·务必严格遵守】先逐段输出，每行 `段<段号>：<讲解>`；最后单独一行 `梗概：<用一句话概括本页发生了什么，接前情往下>`（段号是上面正文里的方括号编号，一行一段，冒号后直接写讲解）。\n不要写 JSON、不要总起语、不要空行、别的话一句都别加。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "逐段讲，从段1讲到段" + maxPara + "，最后给一句梗概。" }], { maxTokens: 100000 });
     const norm = String(raw || "").replace(/```/g, "").replace(/\s*(段\s*\d+\s*[：:])/g, "\n$1").replace(/\s*(梗概\s*[：:])/g, "\n$1");
     const lines = norm.split(/\n+/).map(function (s) { return s.trim(); }).filter(Boolean);
     const explains = [];
@@ -256,7 +256,7 @@
       (talk || "") +
       (context && String(context).trim() ? "\n\n【这句所在的上下文】\n" + String(context).slice(0, 600) : "") +
       "\n\n只输出讲解本身，别加前缀、别加引号、别写「好的」之类。";
-    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 65535 });
+    const raw = await callAI(active, sys, [{ role: "user", content: "划线的是：「" + String(snippet).slice(0, 500) + "」\n讲讲这是什么意思。" }], { maxTokens: 100000 });
     return String(raw || "").replace(/```/g, "").trim();
   }
 

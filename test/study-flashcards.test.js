@@ -73,7 +73,7 @@ test("闪卡不混进课上的题卡；删一张连它的复习卡一起走", ()
 
 test("出卡：料在 system、user 一句话、上限开满、坏了带着原文", () => {
   const g = fn("genFlashcards");
-  assert.match(g, /callAI\(active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 65535 \}\)/);
+  assert.match(g, /callAI\(active, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 100000 \}\)/);
   assert.match(g, /老师这回写的是：\\n" \+ String\(raw \|\| ""\)\.slice\(0, 320\)/);
   assert.match(g, /curriculumMemoryText\(cur\)/, "老师做卡时看不见错题本");
 });

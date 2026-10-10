@@ -70,7 +70,7 @@ test("带路那十句：一位角色一枪，料在 system、user 一句触发�
   const [, sys, messages, opts] = args;
   assert.match(sys, /全文人设/); assert.match(sys, /十站/);
   assert.equal(messages.length, 1); assert.ok(messages[0].content.length <= 8);
-  assert.equal(opts.maxTokens, 65535);
+  assert.equal(opts.maxTokens, 100000);
   await assert.rejects(() => service(async () => JSON.stringify({ lines: [{ step: "well", text: "一句" }] })).guideLines({ active: {}, character: { name: "x" }, profile: {}, world: {} }), /没读出/);
   assert.match(host, /guides: \{ \.\.\.\(old\.guides \|\| \{\}\), \[cid\]: \{ status: "ready", at: Date\.now\(\), rows \} \}/);
   const seg = host.slice(host.indexOf("async function guideLines("), host.indexOf("return normalizeGuide(raw);"));

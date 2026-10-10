@@ -25,7 +25,7 @@ test("暗线那把尺子够一句中文话", () => {
 });
 
 test("这一支的 maxTokens 一处都没往下调", () => {
-  assert.match(src, /const TOK_MAX = 65535;/);
+  assert.match(src, /const TOK_MAX = 100000;/);
   const calls = src.match(/maxTokens: [A-Za-z_0-9]+/g) || [];
   assert.ok(calls.length > 0, "找不到任何调用");
   calls.forEach(c => assert.equal(c, "maxTokens: TOK_MAX", "有一处没走 TOK_MAX：" + c));

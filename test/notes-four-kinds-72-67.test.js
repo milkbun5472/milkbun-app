@@ -39,7 +39,7 @@ test("长的那几条允许真的很长，摆到 TA 面前也不再断在半句�
   assert.match(spec, /长的那几条是可以真的很长的/, "只说了长短差得开，没说长的那头能有多长");
   assert.match(spec, /不许为了收尾而收尾/);
   // 这一枪的预算本来就开满，问题从来不在 maxTokens
-  assert.match(phone, /const PHONE_OUT_CEILING = 65535;/, "查手机那一枪的上限被调下来了");
+  assert.match(phone, /const PHONE_OUT_CEILING = 100000;/, "查手机那一枪的上限被调下来了");
   const app = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
   const i = app.indexOf("const forwardPhonePeekToChat = (char, peek) => {");
   const j = app.indexOf("const genSceneFromAlbum", i) > i ? app.indexOf("const genSceneFromAlbum", i) : i + 2000;

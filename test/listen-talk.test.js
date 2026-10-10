@@ -9,7 +9,7 @@ const P = require("../js/auto-refresh-policy.js");
 
 test("上下文走 companionHead（整份 bundle），调用上限不压低", () => {
   assert.match(src, /const sys = companionHead\(p\.ctxFor, char\)/);
-  assert.match(src, /maxTokens: 65535/);
+  assert.match(src, /maxTokens: 100000/);
 });
 test("自己开口：一首最多一句、有间隔、受设置里同一格管", () => {
   assert.match(src, /if \(spokeForRef\.current\[song\.id\]\) return;/);

@@ -14882,7 +14882,7 @@ function closetMoreSpec(char, known, room, material, elsewhere) {
   const list = have.map(g => "· 〔" + (g.occasion || "没写场合") + "〕" + g.sets.map(x => x.name).join("、")).join("\n");
   const want = Math.max(1, Math.min(5, room));
   return {
-    maxTokens: 65535,
+    maxTokens: 100000,
     schemaHint: "{\"closet\":[{\"occasion\":\"场合\",\"sets\":[{\"name\":\"这一身穿的是什么衣服（主件+颜色或料子+怎么搭），不许写成场合名\",\"note\":\"由什么组成/料子颜色/什么时候穿/哪儿来的\",\"thought\":\"TA 对这一身的私人想法\"}]}]}",
     instruction: "给「" + nm + "」的衣柜再添几身衣服，**只写新添的那几身**。"
       + (list ? "\n\n【柜子里已经挂着这些】\n" + list

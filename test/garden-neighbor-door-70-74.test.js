@@ -66,6 +66,6 @@ test("这一枪照给文风地板，而且料全在 system", () => {
   assert.match(fn, /sharedStyle\(\)/);
   assert.match(fn, /【完整角色人设】/, "人设给全文，不许截断");
   assert.match(fn, /callAI\(active, sys, \[\{ role: "user", content: "说句话。" \}\]/, "料全放 system");
-  assert.match(fn, /maxTokens: 65535/);
+  assert.match(fn, /maxTokens: 100000/);
   assert.match(fn, /你不知道她和同住那位之间的事/, "围栏也要在提示词里说一遍");
 });

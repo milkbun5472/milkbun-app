@@ -66,10 +66,10 @@ test("一天的合计按份数乘；一周七天从今天往回数", () => {
   assert.equal(w.length, 7); assert.equal(w[0].day, "2026-09-27"); assert.equal(w[5].kcal, 95);
 });
 
-test("让模型估：料全在 system、user 只留一句；给足 65535；没估出来带上原文", () => {
-  assert.match(src, /callAI\(api, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 65535, tag: "health" \}\)/);
+test("让模型估：料全在 system、user 只留一句；给足 100000；没估出来带上原文", () => {
+  assert.match(src, /callAI\(api, sys, \[\{ role: "user", content: "开始。" \}\], \{ maxTokens: 100000, tag: "health" \}\)/);
   assert.match(src, /没估出来。模型回的是：\\n" \+ String\(raw \|\| ""\)\.slice\(0, 320\)/);
-  assert.match(src, /runProbe\(p, ctx, \{ voice: true, maxTokens: 65535, tag: "health",/);
+  assert.match(src, /runProbe\(p, ctx, \{ voice: true, maxTokens: 100000, tag: "health",/);
   assert.match(src, /probeVoiceTail\(\)/, "让 TA 看看那一枪也补上那三层");
 });
 
