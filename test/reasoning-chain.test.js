@@ -92,7 +92,7 @@ test("收起时就是一行字加一个箭头，没有框，紧贴气泡", () =>
 test("长文翻译按段落切块，每块不超过 900 字，内容不丢", async () => {
   const vm2 = require("node:vm");
   const i2 = engine.indexOf("async function translateLongToZh");
-  const seg = engine.slice(i2, engine.indexOf("async function translateToZh(text, lang) {"));
+  const seg = engine.slice(i2, engine.indexOf("async function translateToZh(text, lang, opts) {"));
   const run = async src => {
     const calls = [];
     const f = new Function("translateToZh", seg + "\nreturn translateLongToZh;")(async t => { calls.push(t); return { zh: t, by: "免费" }; });
@@ -124,5 +124,5 @@ test("译键走公共那一份：免费链、长文切块、长文按英文为�
   assert.doesNotMatch(seg, /translateLongToZh\(/, "不许再自己另写一套翻译");
   const st = comp.slice(comp.indexOf("function TransTextState("), comp.indexOf("function TransTextState(") + 1600);
   assert.match(st, /long && typeof translatableLangLong === "function" \? translatableLangLong\(text\)/);
-  assert.match(st, /translateLongToZh\(text, lang\)/);
+  assert.match(st, /translateLongToZh\(text, lang, noModel/);
 });

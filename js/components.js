@@ -12070,7 +12070,8 @@ function MomentCommentText({ cm }) {
   return h(Fragment, null, m[1], h(TransText, { text: m[2], zhReady: cm.zh }));
 }
 // long：长文（思考链）按「英文为主、夹着中文也算」认语种；size：译文字号跟着那一处正文走
-function TransText({ text, isU, zhReady, ink, inline, long, size }) {
+// noModel：免费翻译翻不成就停，不去叫模型（心声那几处）
+function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   const [autoShow] = useOnlineTranslationAuto();
   // 世界书卡片走这儿分流：TransText 是全库【唯一】那条正文渲染路（单聊/群聊/通话/
   // 线下引用/查手机都用它），所以闸开在这一处，八处一起合规。
@@ -12079,7 +12080,7 @@ function TransText({ text, isU, zhReady, ink, inline, long, size }) {
   if (_card) return h(HtmlCard, { html: _card });
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
-  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size });
+  return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel });
 }
 // ── 长按出菜单：一份公共的（她 2026-09-17 立）─────────────────────────
 // 她原话：**「上下滑的时候很容易误触让那一堆状态栏跳出来然后误触到撤回」**。
@@ -12196,7 +12197,7 @@ function useLongPressMenu(onFire, opts) {
   const endPress = () => { if (timer.current) { clearTimeout(timer.current); timer.current = null; } };
   return { startPress: startPress, endPress: endPress };
 }
-function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size }) {
+function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size, noModel }) {
   const t = useTheme();
   const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)
     : typeof translatableLang === "function" ? translatableLang(text) : "";
@@ -12214,7 +12215,7 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size 
     if (zh || busy) return;
     setBusy(true); setErr("");
     // 长消息走切块版：免费接口是 GET 带 query，整段太长会被截断或直接失败
-    try { const r = await translateLongToZh(text, lang); setZh(r.zh); setBy(r.by || ""); }
+    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); setZh(r.zh); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
@@ -14741,7 +14742,7 @@ function StateCard({
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: t.fog } }, s2.ts ? timeAgo(s2.ts) : ""),
           h("span", { style: { flex: 1 } }),
           delBtn("删", () => { onDelThought(i); if (hist.length <= 1) setShowHist(false); })),
-        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5 }), "”"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 13.5, lineHeight: 1.65, color: t.ink } }, "“", h(TransText, { text: s2.thought || "", ink: t.ink, inline: true, size: 13.5, noModel: true }), "”"),
         !hideWearAction && (s2.wearing || s2.action) ? h(ClampText, { lines: 2, text: [s2.action, s2.wearing].filter(Boolean).join(" · "), style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 4 } }) : null))))
     : h(Fragment, null,
       (!state || (!S(state.thought) && roomName)) ? h(Empty, { text: roomName ? "这间房还没有心声" : "还没有状态", sub: roomName ? "在这里聊过或赴约后，会只为本房留下" : "和" + scTa + "聊几句，状态会自动生成" }) : null,
@@ -14766,7 +14767,7 @@ function StateCard({
         // 压在底下的那个大引号：这一块是「TA心里那句」，得跟上面那半一眼分得开
         h("span", { "aria-hidden": "true", style: { position: "absolute", right: 6, bottom: -22, fontFamily: F_DISPLAY, fontSize: 92, lineHeight: 1, color: t.accent, opacity: .07, pointerEvents: "none" } }, "”"),
         h("div", { className: "flex items-center justify-between", style: { position: "relative" } }, label("心里想的", t.accent), delBtn("删", () => onDelThought("now"))),
-        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“", h(TransText, { text: S(state.thought), ink: t.ink, inline: true, size: 15 }), "”")) : null,
+        h("div", { style: { position: "relative", fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 15.5, lineHeight: 1.85, color: t.ink, marginTop: 8 } }, "“", h(TransText, { text: S(state.thought), ink: t.ink, inline: true, size: 15, noModel: true }), "”")) : null,
       h("div", { style: { padding: "0 15px" } }, histBtn(false)));
   return h(CenterCard, { onClose: onClose, wk: "statecard" }, head, tabs,
     h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
@@ -15959,11 +15960,11 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
           h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, color: castWho === o.c.id ? t.ink : t.sub } }, o.c.name)))) : null,
       castPick ? h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, castPick.c.name + " · 心声 "),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, castPick.x.thought ? h(TransText, { text: castPick.x.thought, ink: t.fog, inline: true, size: 12.5 }) : "这一段没在心里多想什么"),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, castPick.x.thought ? h(TransText, { text: castPick.x.thought, ink: t.fog, inline: true, size: 12.5, noModel: true }) : "这一段没在心里多想什么"),
         (onOpenState && (!canOpenState || canOpenState(castPick.c))) ? h("button", { onClick: () => onOpenState(castPick.c), className: "active:opacity-60 ml-2", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, textDecoration: "underline", minHeight: 40 } }, "状态卡") : null) : null,
       (!isUser && m.thought) && h("div", { "data-wk": "offthought", className: "mt-3 pl-3", style: { borderLeft: `2px solid ${t.line}` } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: t.fog } }, "心声 "),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, h(TransText, { text: m.thought, ink: t.fog, inline: true, size: 12.5 }))),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12.5, fontStyle: "italic", lineHeight: 1.6, color: t.fog } }, h(TransText, { text: m.thought, ink: t.fog, inline: true, size: 12.5, noModel: true }))),
       (!isUser && (m.cot || m.cotRequested)) ? h(CotReveal, { cot: m.cot, requested: m.cotRequested }) : null));
 }
 // ---- 群聊线下模式（多角色同处一地）----

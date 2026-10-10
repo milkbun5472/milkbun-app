@@ -6873,10 +6873,11 @@ async function _transModel(text) {
 // 长文翻译（v56.46，思考链用）：免费那两家都是 GET 带 query，整段几千字塞进 URL 会被
 // 截断或直接失败。按段落切成 ~900 字一块，逐块走 translateToZh（顺带每块各自进缓存，
 // 重开时基本瞬间出）。切块只在【空行/句末】切，不从句子中间劈开。
-async function translateLongToZh(text, lang) {
+// opts.noModel：免费的两家都翻不成就认输，不再去叫模型（心声那几处，她 2026-10-10：「心声失败不调用模型了」）
+async function translateLongToZh(text, lang, opts) {
   const src = String(text == null ? "" : text);
   const LIMIT = 900;
-  if (src.length <= LIMIT) return translateToZh(src, lang);
+  if (src.length <= LIMIT) return translateToZh(src, lang, opts);
   const chunks = [];
   let buf = "";
   src.split(/(\n{2,})/).forEach(seg => {
@@ -6899,7 +6900,7 @@ async function translateLongToZh(text, lang) {
   const outs = [];
   let by = "";
   for (const c of chunks) {
-    const r = await translateToZh(c.trim(), lang);
+    const r = await translateToZh(c.trim(), lang, opts);
     outs.push(r.zh); by = by || r.by;
   }
   return { zh: outs.join("\n\n"), by: by };
@@ -6917,7 +6918,7 @@ function _looksChinese(zh) {
   const latin = (t.match(/[A-Za-z]/g) || []).length;
   return han * 2 >= latin;                      // 夹几个英文单词没关系，整段是英文就不行
 }
-async function translateToZh(text, lang) {
+async function translateToZh(text, lang, opts) {
   const cached = transCacheGet(text);
   if (cached && cached.zh) return cached;
   const src = TRANS_LANG_CODE[lang] || "auto";
@@ -6926,7 +6927,7 @@ async function translateToZh(text, lang) {
   const chain = [
     { by: "免费", run: () => _transGoogle(text, src) },
     { by: "免费", run: () => myMemoryOk ? _transMyMemory(text, src) : Promise.reject(new Error("日/韩/俄这类源它要绕道英语，跳过")) },
-    { by: "模型", run: () => _transModel(text) }
+    { by: "模型", run: () => opts && opts.noModel ? Promise.reject(new Error("这一处只用免费翻译，不叫模型")) : _transModel(text) }
   ];
   const errs = [];
   const names = ["Google", "MyMemory", "模型"];
