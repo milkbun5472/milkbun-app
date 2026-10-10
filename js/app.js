@@ -27957,6 +27957,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       openChatById(id, type === "group" ? "group" : undefined);
       setWalletTrace({ type: type, id: id, ts: r.ts, key: Date.now() });
     },
+    // 删流水：只删小票，余额不动；挂着面具看时只删得到看得见的那几笔
+    onDelLog: ids => { const del = new Set((ids || []).map(String)); setWalletLog(p => { const n = (p || []).filter(w => !del.has(String(w.id))); saveJSON("x_walletLog", n); return n; }); toast("删掉了"); },
     onBack: () => setScreen("messages"),
     onSetBalance: setWalletTo,
     view: walletView,

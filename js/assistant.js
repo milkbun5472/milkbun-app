@@ -1309,12 +1309,18 @@
               state === "已应用" && A.undoable(p) && props.onUndo
                 ? h("button", { "data-wk": "qqpatchbtn", "data-part": "undo", onClick: props.onUndo, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, "撤回")
                 : null,
+              // 撤回了又想要回来、或者上次没应用成：再点一下（群里 2026-10-10：「应用了以后再撤回就没办法应用了」）
+              (state === "已撤回" || /^没应用/.test(state)) && props.onApply
+                ? h("button", { "data-wk": "qqpatchbtn", "data-part": "reapply", onClick: props.onApply, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.tint, padding: 0 } }, state === "已撤回" ? "重新应用" : "再试一次")
+                : null,
               state === "已应用" && !A.undoable(p)
                 ? h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, p.target === "memory" ? "（记忆库只进不出，退不了）" : p.target === "lookundo" ? "（退过头了就让我换回来）" : p.target === "undo" ? "" : "（新建的，退不了）")
                 : null)
           : h(React.Fragment, null,
               h("button", { "data-wk": "qqpatchbtn", "data-part": "apply", onClick: props.onApply, style: { padding: "6px 14px", borderRadius: 9, border: "none", background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12 } }, "应用这条"),
-              h("button", { "data-wk": "qqpatchbtn", "data-part": "skip", onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过"))));
+              h("button", { "data-wk": "qqpatchbtn", "data-part": "skip", onClick: props.onSkip, style: { background: "none", border: "none", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "跳过")),
+        // 不管应用没应用、撤没撤，原文都能拷走（她自己贴到别处、存一份都行）
+        p.text ? h("button", { "data-wk": "qqpatchbtn", "data-part": "copy", onClick: async () => { const ok = typeof copyText === "function" && await copyText(String(p.text)); props.toast && props.toast(ok ? "复制好了" : "没复制上"); }, style: { marginLeft: "auto", background: "none", border: "none", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: 0 } }, "复制") : null));
   }
 
   // ---- 一段对话的公共脑子：整页和悬浮屏共用同一段，落在存档里 ----
@@ -1432,7 +1438,7 @@
                 ["复制全部", async () => { const ok = typeof copyText === "function" && await copyText(m.outFile.text); props.toast && props.toast(ok ? "整份复制好了" : "没复制上"); }],
                 ["存成文件", async () => { try { await saveTextFile(m.outFile.name, m.outFile.text, /\.css$/i.test(m.outFile.name) ? "text/css" : /\.json$/i.test(m.outFile.name) ? "application/json" : "text/plain"); } catch (e) { props.toast && props.toast("没存成：" + (e.message || e)); } }]
               ] })) : null,
-            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: p.done, onApply: () => C.applyOne(p), onUndo: () => C.undoOne(p), onSkip: () => C.skip(p) }))))));
+            (m.patches || []).map(p => h(PatchCard, { key: p.pid, p: p, ctx: props.ctx, compact: sm, state: p.done, onApply: () => C.applyOne(p), onUndo: () => C.undoOne(p), onSkip: () => C.skip(p), toast: props.toast }))))));
   }
 
   // ============================================================

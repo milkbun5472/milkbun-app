@@ -13523,7 +13523,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur }) {
+function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -13619,7 +13619,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
           h("div", null, "类别：" + ((KIND_GROUPS.find(g => g[0] === groupOf(e.kind)) || [])[1] || "其他")),
           r && r.where ? h("div", null, "出处：" + r.where + (who ? " · " + who : "")) : h("div", { style: { color: t.fog } }, "这一笔记账时还没开始存出处，只有上面那行说明。"),
           h("div", null, "这一笔：" + signed(e.delta) + " → 余额 " + money(e.after)),
-          canGo ? h("button", { "data-wk": "wallettrace", onClick: () => onTrace(r), className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "去聊天里看这一笔") : null) : null);
+          canGo ? h("button", { "data-wk": "wallettrace", onClick: () => onTrace(r), className: "active:opacity-70", style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12.5, color: t.tint, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "去聊天里看这一笔") : null,
+          // 删掉这一笔小票（群里 2026-10-10：「我把 char 所有记录都删了，钱包还留着曾经的购买记录」）——只删记录，余额不动
+          onDelLog ? h("button", { "data-wk": "walletdel", onClick: () => requestAppConfirm("删掉这一笔记录？", "只删这一行小票，余额不变。", () => onDelLog([e.id])), className: "active:opacity-70", style: { marginTop: 8, marginLeft: canGo ? 8 : 0, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, border: "1px solid " + t.line, borderRadius: 999, padding: "6px 14px", minHeight: 34 } }, "删掉这一笔") : null) : null);
     };
     const sections = KIND_GROUPS.map(([k, name]) => {
       const rows = L.filter(e => groupOf(e.kind) === k);
@@ -13633,7 +13635,9 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
         shown.map(slip),
         rows.length > 3 ? h("button", { onClick: () => setAllOf(p => ({ ...p, [k]: !p[k] })), className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, padding: "6px 0", minHeight: 36 } }, allOf[k] ? "收起" : "还有 " + (rows.length - 3) + " 笔 · 展开") : null);
     });
-    return h(React.Fragment, null, sum, h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"), sections);
+    return h(React.Fragment, null, sum, h("div", { "data-wk": "walletsec", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 12 } }, "夹层里的小票"), sections,
+      onDelLog ? h("button", { "data-wk": "walletclear", onClick: () => requestAppConfirm("清空全部流水？", "一共 " + L.length + " 笔小票全删掉，余额不变。删了找不回来。", () => onDelLog(L.map(e => e.id))),
+        className: "w-full active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "10px 0 4px", minHeight: 40 } }, "清空全部流水") : null);
   };
   return h("div", { "data-wk": "walletpage", "data-view": "main", className: "h-full flex flex-col", style: LEATHER(t) },
     h(Head, { zh: "我的钱包", bg: "transparent", onBack,
