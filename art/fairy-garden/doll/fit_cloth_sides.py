@@ -42,16 +42,27 @@ def repair_academy(o):
  o['closedSideVersion']=1
  print('ACADEMY sewn side panels',len(vertices)*2)
 
+def smoothstep(x):
+ t=np.clip(x,0,1)
+ return t*t*(3-2*t)
+
+def cardigan_depth(P,protected,rounded=True):
+ factor=smoothstep((P[:,2]-.385)/.07)*(1-smoothstep((P[:,2]-.645)/.07))
+ weight=factor*smoothstep((P[:,1]+.11)/.065)*(1-protected)
+ # Keep the slim side seams but ease the knit around the spine. The old
+ # uniform depth scale flattened the back together with the underarms.
+ crown=smoothstep((P[:,1]-.015)/.08)*(1-smoothstep(abs(P[:,0])/.11)) if rounded else 0
+ return 1-weight*(.22-.18*crown)
+
 def fit_cardigan(o):
- if o.get('sideFitVersion'):return
+ version=o.get('sideFitVersion',0)
+ if version>=2:return
  # The cream rabbit bag and diagonal strap keep their original coordinates.
- # Front decoration is retained while the back and side knit lose excess depth.
+ # Front decoration is retained while only the side knit loses excess depth.
  keys=o.data.shape_keys.key_blocks
  basis=np.array([v.co[:] for v in keys['Basis'].data]);P=basis.copy()
- ss=lambda x:(lambda t:t*t*(3-2*t))(np.clip(x,0,1))
- factor=ss((P[:,2]-.385)/.07)*(1-ss((P[:,2]-.645)/.07))
- front=ss((P[:,1]+.11)/.065)
- weight=factor*front
+ ss=smoothstep
+ protected=np.zeros(len(P))
  # Protect the cream pouch, including its hip-facing wall; its geometry and
  # atlas samples remain intact while the surrounding pink knit gets thinner.
  image=next(n.image for n in o.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE' and n.image)
@@ -62,15 +73,41 @@ def fit_cardigan(o):
   colors=[tex[min(H-1,max(0,int(uv[li].uv.y*H))),min(W-1,max(0,int(uv[li].uv.x*W)))] for li in face.loop_indices]
   r,g,b=np.median(colors,axis=0)
   if (g-b)>max(r-g,.005)*.32:
-   weight[list(face.vertices)]=0
- depth=1-.22*weight
+   protected[list(face.vertices)]=1
+ # Upgrade deployed v1 meshes as well as the original authoring mesh. Undo
+ # v1's monotonic y mapping first; its basis factor was shared by all morphs.
+ previous=np.ones(len(P))
+ if version==1:
+  low=np.minimum(P[:,1]/.78,P[:,1]);high=np.maximum(P[:,1]/.78,P[:,1])
+  for _ in range(36):
+   middle=(low+high)/2;trial=P.copy();trial[:,1]=middle
+   below=middle*cardigan_depth(trial,protected,False)<basis[:,1]
+   low=np.where(below,middle,low);high=np.where(below,high,middle)
+  P[:,1]=(low+high)/2
+  previous=cardigan_depth(P,protected,False)
+ depth=cardigan_depth(P,protected)
+ # Transform the authored split normals with the surface's Jacobian. This
+ # keeps knit details and UV seam smoothing, while lighting follows the new
+ # curved back instead of retaining the pre-fit normals.
+ normals=np.array([n.vector[:] for n in o.data.corner_normals])
+ partial=[];epsilon=1e-5
+ for axis in range(3):
+  plus=P.copy();minus=P.copy();plus[:,axis]+=epsilon;minus[:,axis]-=epsilon
+  partial.append((plus[:,1]*cardigan_depth(plus,protected)-minus[:,1]*cardigan_depth(minus,protected))/(2*epsilon))
+ fx,fy,fz=[v[np.array([l.vertex_index for l in o.data.loops])] for v in partial]
+ assert np.all(fy>0),'Cardigan depth mapping must remain monotonic'
+ ny=normals[:,1]/fy
+ normals[:,0]-=ny*fx;normals[:,1]=ny;normals[:,2]-=ny*fz
+ normals/=np.linalg.norm(normals,axis=1)[:,None]
  for key in keys:
-  for i,v in enumerate(key.data):v.co.y*=float(depth[i])
- o['sideFitVersion']=1
+  for i,v in enumerate(key.data):v.co.y*=float(depth[i]/previous[i])
+ o.data.update();o.data.normals_split_custom_set(normals.tolist())
+ o['sideFitVersion']=2
  # Cuff and shoulder roots retain their placement; narrow the central sleeve
  # cross-section around the authored arm axis, easing to zero at both ends.
  for side,sign in [('left',-1),('right',1)]:
   s=bpy.data.objects['outfit_cardigan_'+side+'_sleeve']
+  if s.get('sideFitVersion'):continue
   axis=np.array([sign*.095,0,-.19]);axis/=np.linalg.norm(axis);start=np.array([sign*.153,0,.655])
   for key in s.data.shape_keys.key_blocks:
    for v in key.data:
