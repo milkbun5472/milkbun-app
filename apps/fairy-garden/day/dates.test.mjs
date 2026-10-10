@@ -27,8 +27,8 @@ test('原有约会动作沿实际地点寻路和椅面，两个人到位后才�
   if(q.seats)for(const s of Object.values(q.seats)){assert.ok(map.furniture.some(p=>p.id===s.piece));assert.equal(s.rise,.45);}
   if(['read','meal','drink'].includes(kind)){assert.ok(a.pose.task?.daily&&b.pose.task?.daily);}
   if(kind==='stretch'){assert.equal(a.pose.gesture,'stretch');assert.equal(b.pose.gesture,'stretch');}
-  if(kind==='browse'){assert.ok(a.contact.right&&b.contact.left);}
-  if(kind==='walk'){let previous=q,travel=0;for(let i=0;i<900;i++){c.tick(.02,80+i*.02);const next=c.inspect();assert.ok(next);for(const who of ['a','b']){assert.ok(segmentClear(previous[who],next[who],id));travel+=Math.hypot(previous[who].x-next[who].x,previous[who].z-next[who].z);}assert.ok(Math.hypot(next.a.x-next.b.x,next.a.z-next.b.z)>.72);previous=next;}assert.ok(travel>4);}
+  if(kind==='browse')for(const visitor of [a,b]){const hand=visitor.contact.right||visitor.contact.left;assert.ok(hand&&[hand.x,hand.y,hand.z].every(Number.isFinite),'取看沿实际货架朝向选近侧手');}
+  if(kind==='walk'){let previous=q,travel=0;for(let i=0;i<900;i++){c.tick(.02,80+i*.02);const next=c.inspect();assert.ok(next);for(const who of ['a','b']){assert.ok(segmentClear(previous[who],next[who],id));travel+=Math.hypot(previous[who].x-next[who].x,previous[who].z-next[who].z);}const gap=Math.hypot(next.a.x-next.b.x,next.a.z-next.b.z);assert.ok(gap>.45&&gap<.75,'并肩走路保持肩旁距离');previous=next;}assert.ok(travel>4);}
   assert.equal(c.stop(),true);assert.ok(released);assert.equal(c.inspect(),null);
  }
 });

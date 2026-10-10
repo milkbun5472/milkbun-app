@@ -1,14 +1,14 @@
 import * as T from 'three';
-import './social.js?v=fg-2c643c105f739741';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-2c643c105f739741';
-import {stepRoute} from '../locomotion.mjs?v=fg-2c643c105f739741';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-2c643c105f739741';
-import {pairProgress} from './motion-profile.mjs?v=fg-2c643c105f739741';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-2c643c105f739741';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-2c643c105f739741';
+import './social.js?v=fg-d63dd77027e87403';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-d63dd77027e87403';
+import {stepRoute} from '../locomotion.mjs?v=fg-d63dd77027e87403';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-d63dd77027e87403';
+import {pairProgress} from './motion-profile.mjs?v=fg-d63dd77027e87403';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-d63dd77027e87403';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-d63dd77027e87403';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-2c643c105f739741';
+import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-d63dd77027e87403';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -20,6 +20,21 @@ function sofaPair(map,offset=.6,leaner=null){
  }));
 }
 const clearance=(kind,distance)=>Math.min(INTIMATE[kind]?.48:.72,(distance||INTIMATE[kind]?.distance||(kind==='hug'?.34:.78))-.08);
+function pairFormation(center,heading,spacing){return {a:{x:center.x-Math.cos(heading)*spacing/2,z:center.z+Math.sin(heading)*spacing/2},b:{x:center.x+Math.cos(heading)*spacing/2,z:center.z-Math.sin(heading)*spacing/2}};}
+// Admission and continuing walks use the same actual feet paths and turn sweep.
+function pairWalkRoute(map,at,heading,spacing,round=0){
+ const id=mapId(map),center={x:(at.a.x+at.b.x)/2,z:(at.a.z+at.b.z)/2};
+ const directions=(map.wander||[]).map(q=>({x:q.x-center.x,z:q.z-center.z})).filter(q=>Math.hypot(q.x,q.z)>1);
+ for(let n=0;n<8;n++){const angle=(n+round)*Math.PI/4;directions.push({x:Math.sin(angle)*2.6,z:Math.cos(angle)*2.6});}
+ for(const dir of directions){
+  const length=Math.hypot(dir.x,dir.z),nextHeading=Math.atan2(dir.x,dir.z),placed=pairFormation(center,nextHeading,spacing),delta=Math.atan2(Math.sin(nextHeading-heading),Math.cos(nextHeading-heading));
+  if(!Array.from({length:17},(_,i)=>pairFormation(center,heading+delta*i/16,spacing)).every(q=>['a','b'].every(w=>walkable(q[w].x,q[w].z,id)))||!['a','b'].every(w=>segmentClear(at[w],placed[w],id)))continue;
+  for(const distance of [2.6,1.8,1,.6]){const step=Math.min(distance,length),goal={x:center.x+dir.x/length*step,z:center.z+dir.z/length*step},next=pairFormation(goal,nextHeading,spacing);
+   if(['a','b'].every(w=>segmentClear(placed[w],next[w],id)))return {heading:nextHeading,route:[goal]};
+  }
+ }
+ return null;
+}
 export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
  let choices=[];
  if(['shoulder','closer','wait','rest','cuddle'].includes(kind)||(['read','feed'].includes(kind)&&map.furniture.some(p=>['sofa','bench'].includes(p.kind))))choices=sofaPair(map,distance?distance/2:kind==='cuddle'||kind==='shoulder'?.32:kind==='feed'?.32:kind==='closer'?.345:.37,['shoulder','cuddle'].includes(kind)?initiator:null).map(q=>({a:q.a.approach,b:q.b.approach,seats:q}));
@@ -57,6 +72,7 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
  }
  return choices.map(p=>{
   if(!walkable(p.a.x,p.a.z,mapId(map))||!walkable(p.b.x,p.b.z,mapId(map))||gap(p.seats?.a||p.a,p.seats?.b||p.b)<(distance?distance-.03:kind==='hug'?.32:INTIMATE[kind]?.distance?INTIMATE[kind].distance-.02:(INTIMATE[kind]?.seated||kind==='feed')?.60:['shoulder','hand','walk'].includes(kind)?.58:.65))return null;
+  if((kind==='walk'||INTIMATE[kind]?.tour)&&!pairWalkRoute(map,p,p.heading,distance||INTIMATE[kind]?.distance||.61))return null;
   const aRoute=findPath(from.a,p.a,mapId(map),avoid(from.b));
   const bRoute=findPath(from.b,p.b,mapId(map),avoid(p.seats?.a||p.a,clearance(kind,distance)));
   return aRoute&&bRoute?{...p,aRoute,bRoute,cost:gap(from.a,p.a)+gap(from.b,p.b)}:null;
@@ -84,17 +100,12 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
  }
  function pose(actor,at,seated,heading,time,moving,task,profile,gesture='rest',progress=0,dt=.025){actor.root.position.set(at.x,0,at.z);const turn=Math.atan2(Math.sin(heading-actor.root.rotation.y),Math.cos(heading-actor.root.rotation.y));actor.root.rotation.y+=T.MathUtils.clamp(turn,-4*dt,4*dt);actor.animate(time,{moving,seated:!!seated,seatPose:seated?.pose,gesture,progress,task,motion:profile,height:floorHeight(mapId(map()),at)+(seated?seated.rise+.05:0)});}
  function walkTogether(s,dt){
-  const tour=s.tour,id=mapId(map()),center={x:(s.a.x+s.b.x)/2,z:(s.a.z+s.b.z)/2},spacing=pairSpacing(s.kind,a,b),formation=(c,h)=>({a:{x:c.x-Math.cos(h)*spacing/2,z:c.z+Math.sin(h)*spacing/2},b:{x:c.x+Math.cos(h)*spacing/2,z:c.z-Math.sin(h)*spacing/2}});
+  const tour=s.tour,id=mapId(map()),center={x:(s.a.x+s.b.x)/2,z:(s.a.z+s.b.z)/2},spacing=pairSpacing(s.kind,a,b),formation=(c,h)=>pairFormation(c,h,spacing);
   const clear=(next)=>['a','b'].every(w=>walkable(next[w].x,next[w].z,id)&&segmentClear(s[w],next[w],id));
   if(!tour.moving){tour.wait-=dt;if(tour.wait>0)return;
-   const directions=(map().wander||[]).map(q=>({x:q.x-center.x,z:q.z-center.z})).filter(q=>Math.hypot(q.x,q.z)>1);
-   for(let n=0;n<8;n++){const angle=(n+tour.round)*Math.PI/4;directions.push({x:Math.sin(angle)*2.6,z:Math.cos(angle)*2.6});}
-   for(const dir of directions){const length=Math.hypot(dir.x,dir.z),heading=Math.atan2(dir.x,dir.z),goal={x:center.x+dir.x/length*Math.min(2.6,length),z:center.z+dir.z/length*Math.min(2.6,length)},placed=formation(center,heading),next=formation(goal,heading);
-    // Check the entire turn sweep before asking either person to walk it.
-    const delta=Math.atan2(Math.sin(heading-(tour.heading??s.plan.heading)),Math.cos(heading-(tour.heading??s.plan.heading)));
-    if(!Array.from({length:17},(_,i)=>formation(center,(tour.heading??s.plan.heading)+delta*i/16)).every(q=>['a','b'].every(w=>walkable(q[w].x,q[w].z,id)))||!clear(placed)||!['a','b'].every(w=>segmentClear(placed[w],next[w],id)))continue;
-    tour.heading??=s.plan.heading;tour.targetHeading=heading;tour.route=[goal];tour.speed=0;tour.moving=true;tour.round++;break;
-   }if(!tour.moving){tour.wait=2;return;}
+   const next=pairWalkRoute(map(),s,tour.heading??s.plan.heading,spacing,tour.round);
+   if(!next){tour.wait=2;return;}
+   tour.heading??=s.plan.heading;tour.targetHeading=next.heading;tour.route=next.route;tour.speed=0;tour.moving=true;tour.round++;
   }
   const turn=Math.atan2(Math.sin(tour.targetHeading-tour.heading),Math.cos(tour.targetHeading-tour.heading));
   if(Math.abs(turn)>.001){const heading=tour.heading+T.MathUtils.clamp(turn,-1.8*dt,1.8*dt),next=formation(center,heading);if(!clear(next)){tour.moving=false;tour.wait=2;return;}tour.heading=heading;s.a={...next.a,heading};s.b={...next.b,heading};return;}

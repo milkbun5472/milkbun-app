@@ -30,3 +30,15 @@ test('互动路段被家具阻挡时中止，坐位和动作不提前提交',()=
  MAPS.dayHome=buildSpace('dayHome');const controller=createTogether({a:actor(),b:actor(),map:()=>MAPS.dayHome,from:()=>({a:{x:0,z:3.3},b:{x:0,z:4.8}})});
  assert.equal(controller.start('meal').ok,true);MAPS.dayHome.obstacles.push({x:0,z:3.3,w:3,d:3});controller.tick(.02,0);assert.equal(controller.inspect(),null);
 });
+
+test('街灯旁开始两种散步会走到可转身的空位，沿短路真实同行，脚步不穿灯座',()=>{
+ MAPS.dayStreet=buildSpace('dayStreet');
+ for(const kind of ['walk','arm-walk']){
+  const origin={a:{x:1.1453906063665442,z:3.9618967640335208},b:{x:1.1453906063665442,z:4.486216777146543}},controller=createTogether({a:actor(),b:actor(),map:()=>MAPS.dayStreet,from:()=>origin});
+  assert.equal(controller.start(kind).ok,true);
+  for(let i=0;i<3000&&controller.inspect()?.phase!=='active';i++)controller.tick(.02,i*.02);
+  assert.equal(controller.inspect()?.phase,'active');let previous=controller.inspect(),travel=0;
+  for(let i=0;i<900;i++){controller.tick(.02,70+i*.02);const next=controller.inspect();assert.ok(next);for(const who of ['a','b']){assert.ok(segmentClear(previous[who],next[who],'dayStreet'));travel+=Math.hypot(previous[who].x-next[who].x,previous[who].z-next[who].z);}const gap=Math.hypot(next.a.x-next.b.x,next.a.z-next.b.z);assert.ok(gap>.45&&gap<.75);previous=next;}
+  assert.ok(travel>2);assert.ok(previous.tour.round>0);controller.stop();
+ }
+});
