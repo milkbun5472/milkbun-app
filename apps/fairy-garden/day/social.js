@@ -5,7 +5,7 @@
     'kiss-forehead':{label:'亲亲额头',distance:.84},
     'kiss-cheek':{label:'亲亲脸颊',distance:.58},
     kiss:{label:'轻轻亲一下',distance:.48},
-    'back-hug':{label:'从背后抱抱',distance:.46},
+    'back-hug':{label:'从背后抱抱',distance:.28},
     'arm-walk':{label:'挽手散步',distance:.58,tour:true},
     cuddle:{label:'沙发搂抱',seated:true},
     forehead:{label:'额头贴贴',distance:.48},

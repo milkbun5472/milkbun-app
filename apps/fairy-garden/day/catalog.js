@@ -1220,72 +1220,6 @@
     ]
   },
   {
-    "id": "dayStudy",
-    "label": "古风书房／议事厅",
-    "spots": [
-      {
-        "id": "entrance",
-        "label": "书房与议事厅入口",
-        "action": "rest",
-        "gesture": "rest"
-      },
-      {
-        "id": "scrolls",
-        "label": "卷轴架前取放",
-        "action": "work",
-        "gesture": "rest"
-      },
-      {
-        "id": "read",
-        "label": "窗下读卷",
-        "action": "read",
-        "gesture": "read"
-      },
-      {
-        "id": "write",
-        "label": "笔墨桌前书写",
-        "action": "work",
-        "gesture": "rest"
-      },
-      {
-        "id": "council",
-        "label": "议事席听取商议",
-        "action": "work",
-        "gesture": "rest"
-      },
-      {
-        "id": "address",
-        "label": "厅内陈述与议事",
-        "action": "work",
-        "gesture": "rest"
-      },
-      {
-        "id": "records",
-        "label": "记录议事要点",
-        "action": "work",
-        "gesture": "rest"
-      },
-      {
-        "id": "tea",
-        "label": "茶席小歇",
-        "action": "tea",
-        "gesture": "tea"
-      },
-      {
-        "id": "rest",
-        "label": "窗边长椅休息",
-        "action": "rest",
-        "gesture": "rest"
-      },
-      {
-        "id": "exit",
-        "label": "收卷离开",
-        "action": "rest",
-        "gesture": "rest"
-      }
-    ]
-  },
-  {
     "id": "dayFarm",
     "label": "农场／田边记录处",
     "spots": [
@@ -1376,6 +1310,72 @@
       {
         "id": "exit",
         "label": "离开市集",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayStudy",
+    "label": "古风书房／议事厅",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "书房与议事厅入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "scrolls",
+        "label": "卷轴架前取放",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "read",
+        "label": "窗下读卷",
+        "action": "read",
+        "gesture": "read"
+      },
+      {
+        "id": "write",
+        "label": "笔墨桌前书写",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "council",
+        "label": "议事席听取商议",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "address",
+        "label": "厅内陈述与议事",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "records",
+        "label": "记录议事要点",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "tea",
+        "label": "茶席小歇",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "rest",
+        "label": "窗边长椅休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "收卷离开",
         "action": "rest",
         "gesture": "rest"
       }

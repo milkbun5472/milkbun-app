@@ -1,15 +1,12 @@
 import * as T from 'three';
-import './social.js?v=fg-3f18410459027dc9';
-import {pairProgress} from './motion-profile.mjs?v=fg-3f18410459027dc9';
-import {walkable,segmentClear} from '../world.mjs?v=fg-3f18410459027dc9';
+import './social.js?v=fg-d63dd77027e87403';
+import {pairProgress} from './motion-profile.mjs?v=fg-d63dd77027e87403';
+import {walkable,segmentClear} from '../world.mjs?v=fg-d63dd77027e87403';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-const head=actor=>actor.root.getObjectByName('HeadAnchor');
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose} from './pair-pose.mjs?v=fg-d63dd77027e87403';
+export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
-// These are points on the authored unit head, transformed by the actual look/pose.
-export function headPoint(actor,point){actor.root.updateWorldMatrix(true,true);return head(actor).localToWorld(new T.Vector3(...point));}
-const localPoint=(actor,point)=>actor.root.localToWorld(new T.Vector3(...point));
-const nearHand=(actor,target)=>['left','right'].sort((x,y)=>hand(actor,x).getWorldPosition(new T.Vector3()).distanceTo(target)-hand(actor,y).getWorldPosition(new T.Vector3()).distanceTo(target))[0];
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
 
 export function createIntimate({a,b,map,style}){
@@ -25,12 +22,7 @@ export function createIntimate({a,b,map,style}){
  const morsel=bite.clone();morsel.position.set(0,.038,0);snack.add(morsel);
  let diagnostics=null;
  function hide(){spoon.visible=snack.visible=false;diagnostics=null;}
- function contact(actor,targets,progress,record){
-  actor.root.updateWorldMatrix(true,true);const adjusted={};
-  for(const side of ['left','right'])if(targets[side])adjusted[side]=hand(actor,side).getWorldPosition(new T.Vector3()).lerp(targets[side],progress);
-  actor.contactPose(adjusted);
-  for(const side of ['left','right'])if(targets[side])record.push({who:actor===a?'ta':'me',side,error:hand(actor,side).getWorldPosition(new T.Vector3()).distanceTo(targets[side])});
- }
+ const contact=pairContact;
  function safeMove(actor,dx,dz,other){
   const old={x:actor.root.position.x,z:actor.root.position.z},next={x:old.x+dx,z:old.z+dz},m=map(),id=m.id||m.renderer;
   if(!walkable(next.x,next.z,id)||!segmentClear(old,next,id,[{x:other.root.position.x,z:other.root.position.z,r:.26}]))return false;
@@ -65,7 +57,7 @@ export function createIntimate({a,b,map,style}){
    const distance=meet(g,r,gp,rp,p,!!s.plan.seats);if(distance==null)return {ok:false,reason:'这个角度没有能站稳的位置，换一处空地再靠近。'};
    diagnostics.headDistance=distance;diagnostics.points={giver:headPoint(g,gp).toArray(),receiver:headPoint(r,rp).toArray()};
    if(s.kind!=='kiss-forehead'){const center=g.root.position.clone().add(r.root.position).multiplyScalar(.5),gs=nearHand(g,center),rs=nearHand(r,center),held=hand(g,gs).getWorldPosition(new T.Vector3()).add(hand(r,rs).getWorldPosition(new T.Vector3())).multiplyScalar(.5);
-   held.y=(g.root.getObjectByName(gs+'Arm').getWorldPosition(new T.Vector3()).y+r.root.getObjectByName(rs+'Arm').getWorldPosition(new T.Vector3()).y)/2-.04;
+   held.y=(g.root.getObjectByName(gs+'Arm').getWorldPosition(new T.Vector3()).y+r.root.getObjectByName(rs+'Arm').getWorldPosition(new T.Vector3()).y)/2-.18;
    contact(g,{[gs]:held},pg,contacts);contact(r,{[rs]:held},pr,contacts);}
   }else if(s.kind==='pat'){
    // The receiver bows into the hand instead of lifting the giver off the floor.
@@ -73,27 +65,25 @@ export function createIntimate({a,b,map,style}){
    const stroke=Math.sin(s.elapsed*1.3)*.15,point=headPoint(r,[.35+stroke,.55,.84]);
    contact(g,{[nearHand(g,point)]:point},pg,contacts);diagnostics.stroke=stroke;diagnostics.points={hair:point.toArray()};
   }else if(s.kind==='back-hug'){
-   posture(g,{tilt:.04*pg,lean:style(initiator).sway*Math.sin(s.elapsed*.8)});
-   const left=headPoint(r,[-.52,-1.50,-.42]),right=headPoint(r,[.52,-1.50,-.42]);
+   const side=r.root.worldToLocal(g.root.position.clone()).x<0?-1:1;
+   posture(g,{tilt:.28*pg,neckLean:-side*.70*pg,nod:-.35*pg});posture(r,{nod:.08*pr});
+   const left=torsoPoint(r,-.95,.90,.09),right=torsoPoint(r,.95,.90,.09);
    contact(g,{left,right},pg,contacts);
    contact(r,{left:hand(g,'left').getWorldPosition(new T.Vector3()),right:hand(g,'right').getWorldPosition(new T.Vector3())},pr,contacts);
   }else if(s.kind==='cuddle'){
-   const heading=s.plan.seats.a.heading,sign=Math.sign((r.root.position.x-g.root.position.x)*Math.cos(heading)-(r.root.position.z-g.root.position.z)*Math.sin(heading))||1;
-   posture(g,{lean:-sign*.12*pg});posture(r,{lean:sign*(.16+style(other).lean*.15)*pr,tilt:.025*pr});
-   const shoulder=headPoint(r,[-sign*.80,-1.21,-.32]),side=nearHand(g,shoulder);contact(g,{[side]:shoulder},pg,contacts);
-   const clasp=g.root.getObjectByName(side+'Forearm').getWorldPosition(new T.Vector3());contact(r,{[nearHand(r,clasp)]:clasp},pr,contacts);
-   diagnostics.piece=s.plan.seats.a.piece;
+   const pose=shoulderPose(g,r,pr,{embrace:true,holderProgress:pg});contacts.push(...pose.contacts);diagnostics.shoulderDistance=pose.shoulderDistance;diagnostics.piece=s.plan.seats.a.piece;
   }else if(s.kind==='arm-walk'){
    // Keep the same paired route and speed; clasp the adjacent forearms as they walk.
-   const gs=nearHand(g,r.root.position),rs=nearHand(r,g.root.position),target=(actor,side)=>{const bone=actor.root.getObjectByName(side+'Forearm');return bone?bone.getWorldPosition(new T.Vector3()):localPoint(actor,[0,.64,0]);};
+   const gs=nearHand(g,r.root.position),rs=nearHand(r,g.root.position),target=(actor,side)=>{const bone=actor.root.getObjectByName(side+'Forearm');return bone?bone.getWorldPosition(new T.Vector3()):actor.root.localToWorld(new T.Vector3(0,.64,0));};
    contact(g,{[gs]:target(r,rs)},pg,contacts);contact(r,{[rs]:target(g,gs)},pr,contacts);
   }else if(s.kind==='feed'){
-   posture(g,{tilt:.10*pg});posture(r,{tilt:Math.max(0,-heightDifference)*.8*pr});
-   const mouth=headPoint(r,[0,-.42,.99]),shoulder=g.root.getObjectByName('rightArm').getWorldPosition(new T.Vector3()),direction=mouth.clone().sub(shoulder).normalize(),grip=mouth.clone().addScaledVector(direction,-.17);
+   const turn=actor=>{const other=actor===g?r:g;return Math.sign(actor.root.worldToLocal(other.root.position.clone()).x)*.55;};
+   posture(g,{tilt:.10*pg,turn:s.plan.seats?turn(g)*pg:0});posture(r,{tilt:Math.max(0,-heightDifference)*.8*pr,turn:s.plan.seats?turn(r)*pr:0});
+   const mouth=headPoint(r,[0,-.42,.99]),serving=nearHand(g,mouth),holding=serving==='left'?'right':'left',shoulder=g.root.getObjectByName(serving+'Arm').getWorldPosition(new T.Vector3()),direction=mouth.clone().sub(shoulder).normalize(),grip=mouth.clone().addScaledVector(direction,-.17);
    const reach=smooth(((s.elapsed%(style(initiator).style==='clingy'?9:7))/7)*1.5);
-   contact(g,{right:grip},pg*reach,contacts);const wrist=hand(g,'right').getWorldPosition(new T.Vector3());
+   contact(g,{[serving]:grip},pg*reach,contacts);const wrist=hand(g,serving).getWorldPosition(new T.Vector3());
    spoon.visible=snack.visible=true;spoon.position.copy(wrist);spoon.quaternion.setFromUnitVectors(new T.Vector3(0,0,1),mouth.clone().sub(wrist).normalize());
-   snack.position.copy(hand(g,'left').getWorldPosition(new T.Vector3()));spoon.updateWorldMatrix(true,true);
+   snack.position.copy(hand(g,holding).getWorldPosition(new T.Vector3()));spoon.updateWorldMatrix(true,true);
    const distance=tip.getWorldPosition(new T.Vector3()).distanceTo(mouth);bite.visible=distance>.07;diagnostics.spoonDistance=distance;diagnostics.stage=distance<.07?'吃一口':'递过来';diagnostics.prop='spoon';
   }else if(s.kind==='dance'){
    const turn=Math.sin(s.elapsed*.32)*.55*p,center=new T.Vector3((s.plan.a.x+s.plan.b.x)/2,0,(s.plan.a.z+s.plan.b.z)/2);

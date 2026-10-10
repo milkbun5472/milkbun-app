@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {registerHooks} from 'node:module';
 registerHooks({resolve(s,c,n){return s==='three'?{url:new URL('../vendor/three.module.js',import.meta.url).href,shortCircuit:true}:n(s,c);}});
 const T=await import('three');
-const {DAY_FACTORIES,DAY_PLACES}=await import('./places/index.mjs');
+const {DAY_FACTORIES}=await import('./places/factories.mjs'),{DAY_PLACES}=await import('./places/index.mjs');
 const {updateWorkScene}=await import('./work-scene.mjs');
 const {professionalOptions}=await import('./professional.mjs');
 const doors=root=>{const all=[];root.traverse(o=>{if(o.userData.dayDoor)all.push(o);});return all;};

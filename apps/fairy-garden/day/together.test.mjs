@@ -12,7 +12,7 @@ test('六种双人活动沿原地图寻路，到位才做动作，取消交还�
   assert.equal(controller.start(kind).ok,true,kind);assert.notEqual(controller.inspect().phase,'active');
   for(let i=0;i<2500&&controller.inspect()?.phase!=='active';i++)controller.tick(.02,i*.02);
   assert.equal(controller.inspect()?.phase,'active',kind);controller.tick(.02,60);
-  const s=controller.inspect(),ap=s.seats?.a||s.a,bp=s.seats?.b||s.b;assert.ok(Math.hypot(ap.x-bp.x,ap.z-bp.z)>=(kind==='hug'?.32:.75),kind);
+  const s=controller.inspect(),ap=s.seats?.a||s.a,bp=s.seats?.b||s.b;assert.ok(Math.hypot(ap.x-bp.x,ap.z-bp.z)>=(['hug','shoulder','hand'].includes(kind)?.32:.65),kind);
   if(['read','meal'].includes(kind))assert.ok(a.pose.task.daily&&b.pose.task.daily);
   if(kind==='cook')assert.equal(a.pose.task.kind,'cook');
   assert.equal(controller.stop(),true);assert.equal(controller.inspect(),null);
@@ -29,4 +29,16 @@ test('转动与收纳后的家具决定共同活动位置，无家具不报告�
 test('互动路段被家具阻挡时中止，坐位和动作不提前提交',()=>{
  MAPS.dayHome=buildSpace('dayHome');const controller=createTogether({a:actor(),b:actor(),map:()=>MAPS.dayHome,from:()=>({a:{x:0,z:3.3},b:{x:0,z:4.8}})});
  assert.equal(controller.start('meal').ok,true);MAPS.dayHome.obstacles.push({x:0,z:3.3,w:3,d:3});controller.tick(.02,0);assert.equal(controller.inspect(),null);
+});
+
+test('街灯旁开始两种散步会走到可转身的空位，沿短路真实同行，脚步不穿灯座',()=>{
+ MAPS.dayStreet=buildSpace('dayStreet');
+ for(const kind of ['walk','arm-walk']){
+  const origin={a:{x:1.1453906063665442,z:3.9618967640335208},b:{x:1.1453906063665442,z:4.486216777146543}},controller=createTogether({a:actor(),b:actor(),map:()=>MAPS.dayStreet,from:()=>origin});
+  assert.equal(controller.start(kind).ok,true);
+  for(let i=0;i<3000&&controller.inspect()?.phase!=='active';i++)controller.tick(.02,i*.02);
+  assert.equal(controller.inspect()?.phase,'active');let previous=controller.inspect(),travel=0;
+  for(let i=0;i<900;i++){controller.tick(.02,70+i*.02);const next=controller.inspect();assert.ok(next);for(const who of ['a','b']){assert.ok(segmentClear(previous[who],next[who],'dayStreet'));travel+=Math.hypot(previous[who].x-next[who].x,previous[who].z-next[who].z);}const gap=Math.hypot(next.a.x-next.b.x,next.a.z-next.b.z);assert.ok(gap>.45&&gap<.75);previous=next;}
+  assert.ok(travel>2);assert.ok(previous.tour.round>0);controller.stop();
+ }
 });

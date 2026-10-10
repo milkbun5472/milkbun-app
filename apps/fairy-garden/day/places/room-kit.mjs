@@ -1,6 +1,8 @@
+import {tagRoomTones} from './room-tones.mjs?v=fg-d63dd77027e87403';
+import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-d63dd77027e87403';
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-3f18410459027dc9';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-3f18410459027dc9';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-d63dd77027e87403';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-d63dd77027e87403';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
@@ -94,13 +96,13 @@ export function createRoomKit(){
     pivot.userData.dayDoor={furniture,swing:sign*(axis==='x'?1:-1)*.9};return pivot;
   }
   function finish(){
-    root.updateMatrixWorld(true);const meshes=[];
+    tagRoomTones(root);prepareEnvironmentSurfaces(root);root.updateMatrixWorld(true);const meshes=[];
     root.traverse(o=>{if(o.isMesh)meshes.push(o);});
     // Keep replaceable equipment as a named group; merge within each material/owner.
     const ownerOf=o=>{let n=o;while(n&&n!==root){if(n.userData.replaceable||n.userData.furnitureId||n.userData.shellPart)return n;n=n.parent;}return root;};
     const owners=new Map();for(const o of meshes){const owner=ownerOf(o);if(!owners.has(owner))owners.set(owner,new Map());const byMat=owners.get(owner);if(!byMat.has(o.material))byMat.set(o.material,[]);const inverse=owner.matrixWorld.clone().invert(),geometry=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();byMat.get(o.material).push(geometry.applyMatrix4(inverse.multiply(o.matrixWorld)));}
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
-    for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
+    for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=!mat.isShaderMaterial;owner.add(m);}return {root};
   }
   return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,hingedDoor,finish,material};
 }
