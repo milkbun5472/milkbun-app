@@ -3603,7 +3603,8 @@ function buildBundle(ctx, opts) {
       + "\nTA的生活都发生在这儿：认识的人、去的地方、收到的信、买东西的渠道、用的货币和地址格式，都按这里来。"
       + "\n⚠️别把这一条挂在嘴上报地名，它只是让你写出来的东西落在真地方，而不是一个谁都能套的通用城市。");
   }
-  if (!ctx.notRoleplay && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
+  // 本体模式也看得到（她 2026-10-10：它现在线上线下都能报好感往哪边动，得知道现在是多少）；只有言秋照旧不给
+  if ((!ctx.notRoleplay || !ctx.ccSelf) && typeof affinity === "number") parts.push("【当前对 " + uName + " 的好感度】" + affinity + " / 100");
   // 快到的日子（时刻 · 往前看）：三天内有纪念日/生日才有这一句，没有就一个字不发
   if (!ctx.notRoleplay && ctx.shikeNote) parts.push("【快到的日子】" + ctx.shikeNote);
   // 隔久了的旧心情不该当成「此刻」注进来：moodNote 会说清它是多久以前的读数、

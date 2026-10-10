@@ -1,4 +1,4 @@
-import {walkRoute} from './movement.mjs?v=fg-59e15e1dd85eba7b';
+import {walkRoute} from './movement.mjs?v=fg-dcb7068d4ae7c310';
 
 // Physical bodies stay in the existing room/path system. Busy or sleeping
 // residents still occupy space; the off-screen player's hand has no body.

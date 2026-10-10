@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-59e15e1dd85eba7b';
+import {createRoomKit,roomObstacles,roomSeat,ROOM_SCALE} from './room-kit.mjs?v=fg-dcb7068d4ae7c310';
 
 const {floor:FLOOR,seat:SEAT,desk:DESK}=ROOM_SCALE;
 const C={wood:'#bd9b73',darkWood:'#a88864',paper:'#f0e6d2',sage:'#8b9e89',blue:'#8da5ae',clay:'#ba9687',cream:'#ded3bb',ink:'#71837a'};
@@ -254,8 +254,8 @@ export function createStudio({materials='paint'}={}){
   const rack=piece('materials-rack');kit.root.userData.materialAnchors.push({furniture:rack.id,x:rack.x,z:rack.z,w:rack.w,d:rack.d,surfaces:rack.levels.map(level=>FLOOR+level)});
   const work=kit.replaceableGroup('DayWorkProgress');work.userData.dayWork=true;
   const easelPiece=piece('studio-easel');
-  for(let n=0;n<12;n++){const stroke=kit.replaceableGroup('WorkStroke:'+n,{x:easelPiece.x-.28+(n%4)*.17,y:FLOOR+.76+Math.floor(n/4)*.09,z:easelPiece.z+.434},work);stroke.userData.workStroke=n;kit.box('PaintStroke',{w:.13,h:.025,d:.012,color:[C.sage,C.clay,C.blue][n%3]},stroke);stroke.visible=false;}
-  const completed=kit.replaceableGroup('WorkCraftResult',{x:p.x+.35,y:top+.04,z:p.z+.05});completed.userData.workStroke=10;
+  for(let n=0;n<12;n++){const stroke=kit.replaceableGroup('WorkStroke:'+n,{x:easelPiece.x-.28+(n%4)*.17,y:FLOOR+.76+Math.floor(n/4)*.09,z:easelPiece.z+.434},work);stroke.userData.workStroke=n;stroke.userData.workKind='paint';kit.box('PaintStroke',{w:.13,h:.025,d:.012,color:[C.sage,C.clay,C.blue][n%3]},stroke);stroke.visible=false;}
+  const completed=kit.replaceableGroup('WorkCraftResult',{x:p.x+.35,y:top+.04,z:p.z+.05});completed.userData.workStroke=10;completed.userData.workKind='craft';
   if(mode==='fabric'){kit.box('FinishedFabric',{w:.65,h:.055,d:.38,color:C.blue},completed);for(let n=0;n<6;n++)kit.box('FinishedSeam',{x:-.26+n*.105,y:.03,w:.005,h:.003,d:.29,color:C.paper},completed);}
   else{kit.cylinder('ClayWork',{y:.12,r:.12,h:.24,color:C.clay},completed);kit.cylinder('ClayRim',{y:.245,r:.13,h:.025,color:C.cream},completed);}
   completed.visible=false;

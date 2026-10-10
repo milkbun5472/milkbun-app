@@ -594,7 +594,7 @@
         }
         if (!list.some(e => String(e.id) === String(id))) throw new Error("世界书里找不到这一条了");
         ctx.onSaveLore(list.map(e => String(e.id) === String(id)
-          ? Object.assign({}, e, { payload: String(patch.text || ""), title: String(patch.name || "").trim() || e.title, ts: Date.now() }, extra(e)) : e));
+          ? Object.assign({}, e, { payload: String(patch.text || "").trim() ? String(patch.text) : e.payload, title: String(patch.name || "").trim() || e.title, ts: Date.now() }, extra(e)) : e));
         return 1;
       }
     },
@@ -893,7 +893,7 @@
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
       + "· lore 世界书词条（快照里【世界书】那一栏）：改一条＝id 照抄那一条的 id，text 是改完的正文（改一小段就用 find）；新建＝id 填 new，name 是标题。"
-      + "可选：keyword＝触发关键词（逗号分开；填了就是聊到这些词才翻出来，不填＝一直在）、always＝true 常驻、bind＝绑给谁（角色名或 id，逗号分开，不填＝所有人都看得到）。"
+      + "可选：keyword＝触发关键词（逗号分开；填了就是聊到这些词才翻出来，不填＝一直在）、always＝true 常驻、bind＝绑给谁（角色名或 id，逗号分开，不填＝所有人都看得到）。只改这几样、正文不动时 text 留空就行，正文原样留着。"
       + "她发来一份世界书文件要导进来，就按内容拆成几条，一条一个 patch（这种时候最多 12 条，超过就先导最要紧的、跟她说剩下的下一轮接着导）；"
       + "人物、地点、势力、规则这种分开写，每条只讲一件事，标题让人一眼看出讲什么。她的原文照搬，别替她改写设定。\n"      + "· bubble 这个人的聊天窗气泡（id＝角色 id；text 是一份 JSON，不是散文）\n"
       + "  可填的栏：myBg／charBg（底色，#hex 或一整段 linear-gradient(...)）、myText／charText（字色）、"
@@ -964,7 +964,12 @@
     //   走流式（边写边收，连接不会因为久没动静被断）、给 10 分钟
     const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65000, timeout: 600000, stream: true, signal: signal || undefined });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
-    const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
+    // 世界书只改关键词／常驻／绑谁的那种（她 2026-10-10 截图：「4 条常驻改成关键词」两次都没出卡）：
+    //   正文一个字不动，text 本来就该空着——原来这道筛子只认有正文的，四张卡被当成空的整批丢掉，回话却照样说「卡在下面」
+    const loreMetaOnly = x => x.target === "lore" && x.id && x.id !== "new" && !String(x.text || "").trim()
+      && (x.keyword != null || x.always != null || String(x.bind || "").trim());
+    const rawPatches = Array.isArray(d.patches) ? d.patches : [];
+    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x)))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
       .slice(0, (Array.isArray(d.patches) && d.patches.length && d.patches.every(x => x && x.target === "lore")) ? 12 : 3)
       .map((x, i) => ({
@@ -975,13 +980,15 @@
         append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续）
 
         title: clip(x.title, 60) || TARGETS[x.target].zh,
-        name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200),
+        name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
         ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
     // 她要拿走的那份文件：原样保留（不洗代码——那是交给她的东西，不是正文）
     const outFile = d.file && typeof d.file === "object" && String(d.file.text || "").trim()
       ? { name: (String(d.file.name || "秋秋给你的文件.txt").replace(/[\\/:*?"<>|\n]/g, "").trim().slice(0, 60) || "秋秋给你的文件.txt"), text: String(d.file.text).slice(0, 400000) } : null;
     let reply = scrubCode(String(d.reply || "").trim());
+    // 它说了有卡、一张都没留下：照实告诉她，别让她对着「快点应用」找半天
+    if (rawPatches.length && !patches.length) reply = (reply ? reply + "\n\n" : "") + "（这一轮的 " + rawPatches.length + " 张改动稿格式不对，没能做成卡片。再叫它一次就好。）";
     // 有些线路会无视 JSON 外壳，直接把已经写好的正文吐出来。纯问答没有 patch，
     // 这时保住正文比让她为同一个问题再付一次更重要；写入仍只认上面的结构化白名单。
     if (!reply && !patches.length) {
@@ -1166,7 +1173,7 @@
       return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);
     }
     // 整段替换：只看过半截就不许整段替换
-    if (p.target === "persona" || p.target === "appearance" || p.target === "profile" || (p.target === "lore" && p.id && p.id !== "new")) {
+    if (p.target === "persona" || p.target === "appearance" || p.target === "profile" || (p.target === "lore" && p.id && p.id !== "new" && String(p.text || "").trim())) {
       const cur = String(before(p, ctx) || "");
       const seen = shownLen[shownKey(p.target, p.id, p.field)];
       if (cur && seen != null && seen < cur.length)
@@ -1193,6 +1200,9 @@
   // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
   const previewText = patch => {
     if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");
+    if (patch && patch.target === "lore" && !String(patch.text || "").trim())
+      return ["（正文不动）", patch.keyword != null ? (String(patch.keyword).trim() ? "关键词：" + patch.keyword : "关键词：清空（一直在）") : "",
+        patch.always != null ? (patch.always ? "常驻" : "不常驻，聊到关键词才翻出来") : "", String(patch.bind || "").trim() ? "绑给：" + patch.bind : ""].filter(Boolean).join("\n");
     if (patch && patch.target === "newchar") {
       const o = newCharObj(patch.text);
       if (!o) return String(patch.text || "");

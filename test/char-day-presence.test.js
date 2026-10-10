@@ -10,3 +10,8 @@ test('共用上下文接现场状态，群中仍落在对应角色私有背景�
  assert.match(app,/charDayPresence: window\.CharDayLink\?\.presenceFor\(char\.id\)/);assert.match(app,/charDayPresence: window\.CharDayLink\?\.presenceFor\(c\.id\)/);assert.match(app,/memberCharDayPresence: backgroundMap\("charDayPresence"\)/);assert.match(engine,/if \(ctx\.charDayPresence\) parts\.push\(ctx\.charDayPresence\)/);assert.match(engine,/ctx\.memberCharDayPresence\[c\.id\]/);
  assert.doesNotMatch(scene,/saveJSON|localStorage|callAI|runProbe|pChat/);assert.match(page,/GardenDressControls/);assert.match(page,/saveHomeChange\("me","looks"/);assert.match(page,/cdayinteraction/);assert.match(page,/cdayprofessional/);assert.match(page,/safe-area-inset-bottom\) \* 0\.4/);
 });
+
+test('小屋现场沿原房间认知闸隔离，庭院样貌按实际小人writer读取',()=>{
+ const rooms=require('../js/chat-rooms.js'),ctx={charDayPresence:'拥抱中'};assert.equal(rooms.gateCtx(ctx,{cognition:{}}).charDayPresence,'');assert.equal(rooms.gateCtx(ctx,{cognition:{otherScenes:true}}).charDayPresence,'拥抱中');
+ const game=fs.readFileSync('apps/fairy-garden/game.mjs','utf8'),host=fs.readFileSync('js/fairy-garden.js','utf8'),page=fs.readFileSync('js/char-day.js','utf8');assert.match(game,/else data=\{\.\.\.data,look:merge\(data\.look\)\}/);assert.match(host,/worldOf\(loadJSON\(key,null\)\|\|\{\},"garden"\)\?\.look/);assert.match(page,/!book&&!homeOptions&&!current\.preview/);assert.match(page,/visibility:mePanel\?"hidden":"visible"/);
+});

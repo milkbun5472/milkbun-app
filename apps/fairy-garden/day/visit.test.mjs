@@ -4,6 +4,7 @@ import {MAPS,walkable,segmentClear} from '../world.mjs';
 import {buildSpace,registerCoreSpaces} from './spaces.mjs';
 import {BASE_HOME,furniturePoint} from './home-catalog.mjs';
 import {chooseVisitSeat,visitSeats,visitorAvoid,createHomeVisit} from './visit.mjs';
+import {motionProfile} from './motion-profile.mjs';
 registerCoreSpaces(MAPS);
 const empty=()=>Object.fromEntries(BASE_HOME.map(p=>[p.id,{stored:true}]));
 test('并排坐位读取实际家具，两侧和四种旋转都分开，路线不穿家具或TA',()=>{
@@ -25,4 +26,12 @@ test('实际路线到达后才坐下，拒绝障碍点，起身离开清理全�
  assert.equal(visit.act('sit'),true);assert.equal(visit.inspect().seated,false);settle();assert.equal(visit.inspect().seated,true);assert.equal(visit.inspect().seat.piece,'sofa');assert.equal(visit.act('stand'),true);assert.equal(visit.inspect().seat,null);
  visit.act('leave');settle();assert.equal(visit.inspect().present,false);assert.equal(visit.inspect().visible,false);assert.equal(visit.inspect().route.length,0);assert.ok(events.some(v=>v.seated));
  visit.join();settle();visit.close('安排变了');assert.equal(visit.inspect().present,false);assert.equal(visit.inspect().notice,'安排变了');
+});
+test('同屋各自看书喝水用餐，餐椅和道具不抢TA，离开动作清理；桌椅不存在时如实拒绝',()=>{
+ MAPS.dayHome=buildSpace('dayHome');let ta={...MAPS.dayHome.seats.read,seat:MAPS.dayHome.seats.read},lastPose;
+ const avatar={root:{visible:false,position:{set(x,y,z){this.x=x;this.y=y;this.z=z;},toArray(){return [this.x,this.y,this.z];}},rotation:{},userData:{}},animate(t,p){lastPose=p;}};
+ const profile=motionProfile({id:'__me',style:'lively'}),v=createHomeVisit({avatar,ta:()=>ta,motion:()=>profile}),settle=()=>{for(let i=0;i<2400&&v.inspect().busy;i++)v.tick(1/60,i/60);v.tick(1/60,100);assert.equal(v.inspect().busy,false);};
+ v.join();settle();for(const [kind,task]of [['read','read'],['drink','drink'],['eat','eat'],['rest',null]]){assert.equal(v.act(kind),true);settle();assert.equal(v.inspect().activity,kind);assert.equal(lastPose.task?.kind||null,task);assert.equal(lastPose.motion.style,'lively');assert.ok(Math.hypot(v.inspect().visualPosition[0]-ta.x,v.inspect().visualPosition[2]-ta.z)>.7);if(kind==='eat')assert.equal(v.inspect().seat.piece,'dining-chair');}
+ v.act('stand');v.tick(1/60,101);assert.equal(lastPose.task,null);assert.equal(v.inspect().activity,null);v.close();assert.equal(v.inspect().task,null);
+ MAPS.dayHome=buildSpace('dayHome',{'dining-table':{stored:true}});v.join();settle();assert.equal(v.act('eat'),false);assert.match(v.inspect().notice,/餐桌/);
 });

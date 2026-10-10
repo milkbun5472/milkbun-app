@@ -1,4 +1,4 @@
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-59e15e1dd85eba7b';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-dcb7068d4ae7c310';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation';
 const RECIPES={
@@ -56,8 +56,8 @@ export function luggagePosition(map,origin,heading=0){
  for(const [x,z]of [[.30,-.14],[.30,.34],[-.30,.34],[0,.42],[0,-.42]]){const q={x:origin.x+x*c+z*s,y:map.floor,z:origin.z-x*s+z*c};if(valid(q))return q;}
  return {x:origin.x,y:map.floor,z:origin.z};
 }
-export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading}={}){
- if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving});
+export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,motion=null}={}){
+ if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving,motion});
  if(!stage.motion&&!stage.carry)return null;
  const carryType=stage.carryType||null,kind=moving?'carry':stage.motion||'carry';
  const origin=spot?.seat||spot?.target||map.spawn,yaw=spot?.heading||0,s=Math.sin(yaw),c=Math.cos(yaw);

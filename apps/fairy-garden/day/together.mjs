@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-59e15e1dd85eba7b';
-import {stepRoute} from '../locomotion.mjs?v=fg-59e15e1dd85eba7b';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-59e15e1dd85eba7b';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-59e15e1dd85eba7b';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-dcb7068d4ae7c310';
+import {stepRoute} from '../locomotion.mjs?v=fg-dcb7068d4ae7c310';
+import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-dcb7068d4ae7c310';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-dcb7068d4ae7c310';
 
 export const TOGETHER_LABELS={hand:'牵手',hug:'拥抱',shoulder:'靠肩',read:'一起看书',meal:'一起吃饭',cook:'一起做饭'};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),avoid=(p,r=.72)=>[{...p,r}];
@@ -40,7 +40,7 @@ export function togetherPlans(map,kind,from){
  }).filter(Boolean).sort((a,b)=>a.cost-b.cost);
 }
 // Both participants use the existing navigation and original traveler rig. Nothing is saved.
-export function createTogether({a,b,map,from,onUpdate=()=>{},onStop=()=>{}}){
+export function createTogether({a,b,map,from,motion=()=>({}),onUpdate=()=>{},onStop=()=>{}}){
  let session=null,last='';
  const inspect=()=>session?{kind:session.kind,label:TOGETHER_LABELS[session.kind],phase:session.phase,a:{...session.a},b:{...session.b},seats:session.plan.seats||null,elapsed:session.elapsed,aTask:session.aTask,bTask:session.bTask}:null;
  function tell(){const s=inspect(),key=JSON.stringify(s&&[s.kind,s.phase]);if(key!==last){last=key;onUpdate(s);}}
@@ -50,11 +50,11 @@ export function createTogether({a,b,map,from,onUpdate=()=>{},onStop=()=>{}}){
   if(!plan)return {ok:false,reason:kind==='cook'?'厨房前没有两个人能走到的位置。':['read','shoulder'].includes(kind)?'先摆一张能走到的双人沙发。':kind==='meal'?'餐桌旁需要两把能走到的空椅子。':'附近没有两个人能站稳的空地。'};
   session={kind,plan,a:{...origins.a},b:{...origins.b},phase:'walking-ta',elapsed:0,speed:0};tell();return {ok:true};
  }
- function pose(actor,at,seated,heading,time,moving,task){actor.root.position.set(at.x,0,at.z);actor.root.rotation.y=heading;actor.animate(time,{moving,seated:!!seated,gesture:'rest',task,height:floorHeight('dayHome',at)+(seated?seated.rise+.05:0)});}
+ function pose(actor,at,seated,heading,time,moving,task,profile){actor.root.position.set(at.x,0,at.z);actor.root.rotation.y=heading;actor.animate(time,{moving,seated:!!seated,gesture:'rest',task,motion:profile,height:floorHeight('dayHome',at)+(seated?seated.rise+.05:0)});}
  function tick(dt,time){if(!session)return false;const s=session,p=s.plan;s.elapsed+=dt;
   const who=s.phase==='walking-ta'?'a':s.phase==='walking-you'?'b':null;
   if(who){const route=who==='a'?p.aRoute:p.bRoute,other=who==='a'?s.b:p.seats?.a||s.a;
-   const step=stepRoute(s[who],route,dt,{speed:s.speed,walkSpeed:1.45,clear:(u,v)=>segmentClear(u,v,'dayHome',avoid(other,s.kind==='hug'?.30:.72))});s[who]=step.position;s.speed=step.speed;if(step.heading!=null)s[who].heading=step.heading;
+   const step=stepRoute(s[who],route,dt,{speed:s.speed,walkSpeed:1.45*(motion()[who]?.walk||1),clear:(u,v)=>segmentClear(u,v,'dayHome',avoid(other,s.kind==='hug'?.30:.72))});s[who]=step.position;s.speed=step.speed;if(step.heading!=null)s[who].heading=step.heading;
    if(step.blocked){stop('两个人的路线被挡住了，可以换个位置再试。');return false;}
    if(!route.length){s.phase=who==='a'?'walking-you':'active';s.speed=0;s.elapsed=0;tell();}
   }
@@ -62,12 +62,12 @@ export function createTogether({a,b,map,from,onUpdate=()=>{},onStop=()=>{}}){
   const aa=aSeated||s.a,bb=bSeated||s.b;
   let ah=aSeated?.heading??(s.phase==='walking-ta'?s.a.heading||0:p.heading||0),bh=bSeated?.heading??(s.phase==='walking-you'?s.b.heading||0:p.heading||0);
   if(active&&s.kind==='hug'){ah=Math.atan2(bb.x-aa.x,bb.z-aa.z);bh=ah+Math.PI;}
-  const daily=(who,kind)=>({daily:true,kind,elapsed:s.elapsed,progress:s.elapsed/(kind==='read'?9:kind==='eat'?5.5:7)%1});
+  const daily=(who,kind)=>({daily:true,kind,elapsed:s.elapsed,progress:((s.elapsed*(motion()[who]?.tempo||1)+(motion()[who]?.phase||0))/(kind==='read'?9:kind==='eat'?5.5:7))%1});
   let at=null,bt=null;
   if(active&&['read','meal'].includes(s.kind)){at=daily('a',s.kind==='meal'?'eat':'read');bt=daily('b',s.kind==='meal'?'eat':'read');}
-  if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed);const target={...furniturePoint(p.piece,{x:-1.05,z:.22}),y:1.30},contact={...target,y:1.15};bt={...daily('b','prep'),target,contact};}
+  if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion().a});const target={...furniturePoint(p.piece,{x:-1.05,z:.22}),y:1.30},contact={...target,y:1.15};bt={...daily('b','prep'),target,contact};}
   s.aTask=at;s.bTask=bt;
-  pose(a,aa,aSeated,ah,time,s.phase==='walking-ta',at);pose(b,bb,bSeated,bh,time,s.phase==='walking-you',bt);
+  pose(a,aa,aSeated,ah,time,s.phase==='walking-ta',at,motion().a);pose(b,bb,bSeated,bh,time,s.phase==='walking-you',bt,motion().b);
   if(active&&s.kind==='hand'){
    a.root.updateMatrixWorld(true);b.root.updateMatrixWorld(true);
    const ap=a.root.getObjectByName('Right_hand').getWorldPosition(new T.Vector3()),bp=b.root.getObjectByName('Left_hand').getWorldPosition(new T.Vector3()),mid=ap.add(bp).multiplyScalar(.5);

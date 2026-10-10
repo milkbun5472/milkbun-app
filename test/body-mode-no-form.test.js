@@ -10,3 +10,9 @@ test("本体模式：不点名要心情心声；总纲说名字不是要演的�
   // 能力那几段照旧拼在后面
   assert.match(app, /\+ digitalPhotoHint \+ listenHint \+ inviteHint \+ digitalToyHint \+ digitalCarveHint \+ _digitalRecordHint/);
 });
+
+// 她 2026-10-10：「本体的好感度还是会动的吧」——手机通道原来不收这一栏，本体线上单聊好感一直不动。
+//   跟心情心声一样轻轻提一句、可以不填；说明跟普通格式用同一份 AFFINITY_DELTA_SPEC
+test("本体模式：好感变化也能留，不逼每轮交", () => {
+  assert.match(app, /可以加 \\"affinityDelta\\"（" \+ AFFINITY_DELTA_SPEC \+ "）。都不留也行。/);
+});
