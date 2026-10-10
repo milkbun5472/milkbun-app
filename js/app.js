@@ -1975,6 +1975,7 @@ function App() {
     setCouples(cps);
     setWallet(loadJSON("x_wallet", 200));
     setWalletLog(loadJSON("x_walletLog", []));
+    { const ms = loadJSON("x_mySalary", null); mySalaryRef.current = ms; setMySalaryState(ms); }
     setCharWallet(loadJSON("x_charWallet", {}));
     { const cc = loadJSON("x_charCurrency", {}); setCharCur(cc); if (window.Money) window.Money.setBook(cc); }
     // 迁移：旧版内置 SVG 表情的 url 没写 width/height→聊天里 0×0 看不见。按 id 把 em_def_* 的 url 换成修好的，保留用户自建/删改
@@ -10105,6 +10106,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_tiesPos: v => typeof setTiePos === "function" && setTiePos(v),
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
+      x_mySalary: v => { mySalaryRef.current = v; setMySalaryState(v); },
       x_shopWish: v => typeof setWish === "function" && setWish(v),
       x_worlds: v => typeof setWorlds === "function" && setWorlds(v),
       // 下面这几张在界面里另有一份状态，不跟着重读，重置后旧的好感、日程、日记会被写回去
@@ -17522,6 +17524,38 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return n;
     });
   };
+  // 我的工资（她 2026-10-10：「给自己设置工资每个月自动到账，跟角色的工资一样本地算」）：
+  //   x_mySalary = { amount, day(1–28), since, paid:{ "2026-10":1 } }。纯本地算术，一枪都不打。
+  //   从设好之后的下一个发薪日起算，不往回补设之前的月份；没开 App 的那几个月下次打开补上（一个月只许一笔，认 paid）。
+  const [mySalary, setMySalaryState] = useState(null);   // 开机灌库以后跟钱包一起读（见 setWalletLog 那一处）
+  const mySalaryRef = useRef(mySalary); mySalaryRef.current = mySalary;
+  const setMySalary = v => {
+    const prev = mySalaryRef.current || {};
+    const n = v && v.amount > 0 ? { amount: v.amount, day: Math.max(1, Math.min(28, Number(v.day) || 1)), since: prev.amount > 0 ? prev.since : Date.now(), paid: prev.paid || {} } : null;
+    mySalaryRef.current = n; setMySalaryState(n); saveJSON("x_mySalary", n);
+    toast(n ? "设好了：每月 " + n.day + " 号到账" : "工资停发了");
+  };
+  const payMySalary = () => {
+    const sal = mySalaryRef.current;
+    if (!sal || !(sal.amount > 0) || !sal.since) return;
+    const paid = Object.assign({}, sal.paid), now = Date.now();
+    const cur = new Date(sal.since); cur.setDate(1); cur.setHours(0, 0, 0, 0);
+    let n = 0;
+    for (let i = 0; i < 36 && cur.getTime() <= now; i++) {
+      const pay = new Date(cur.getFullYear(), cur.getMonth(), sal.day, 9, 0, 0).getTime();
+      const mk = cur.getFullYear() + "-" + (cur.getMonth() + 1);
+      if (pay > sal.since && pay <= now && !paid[mk]) { paid[mk] = 1; n++; changeWallet(sal.amount, "工资到账 · " + (cur.getMonth() + 1) + "月", "salary", { where: "工资" }); }
+      cur.setMonth(cur.getMonth() + 1);
+    }
+    if (!n) return;
+    const next = { ...sal, paid }; mySalaryRef.current = next; setMySalaryState(next); saveJSON("x_mySalary", next);
+  };
+  useEffect(() => {
+    if (!loaded) return;
+    const t0 = setTimeout(payMySalary, 4000);
+    const iv = setInterval(payMySalary, 10 * 60000);
+    return () => { clearTimeout(t0); clearInterval(iv); };
+  }, [loaded]);
   // 手动改余额到指定值（记一条调整流水）
   const setWalletTo = target => {
     const tv = Math.round(Number(target) * 100) / 100;
@@ -27767,6 +27801,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPostMoment: postUserMoment,
     onBack: () => { setMomTarget(null); setScreen("messages"); }
   });else if (screen === "wallet") body = h(MyWallet, {
+    salary: mySalary, onSetSalary: setMySalary,
     balance: wallet,
     log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, w.charId)) : walletLog,
     cards: kinshipCards,
