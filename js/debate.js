@@ -534,7 +534,7 @@
     const stageChars = (props.characters || []).concat((props.stageNpcs || []).filter(n => !(props.characters || []).some(c => c.id === n.id)));
     if (view === "setup") {
       return h(Setup, {
-        active: props.active, characters: stageChars, crowdChars: props.crowdChars, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        active: props.active, characters: stageChars, crowdChars: props.crowdChars, seatNpcs: props.stageNpcs, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onCancel: () => setView("home"),
         onCreate: session => { persist([session].concat(loadSaves())); setView(session.id); }
       });
@@ -543,7 +543,7 @@
       const s = saves.find(x => x.id === view);
       if (!s) { setView("home"); return null; }
       return h(Arena, {
-        session: s, active: props.active, characters: stageChars, crowdChars: props.crowdChars, npcFor: props.npcFor, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
+        session: s, active: props.active, characters: stageChars, crowdChars: props.crowdChars, seatNpcs: props.stageNpcs, npcFor: props.npcFor, groups: props.groups, profile: props.profile, worldbook: props.worldbook, worldbookFor: props.worldbookFor, toast: props.toast,
         onShareToChat: props.onShareToChat, onShareToGroup: props.onShareToGroup,
         onBack: () => { setSaves(loadSaves()); setView("home"); },
         onPatch: patch => patchSession(s.id, patch),
@@ -634,7 +634,9 @@
     const [judgeId, setJudgeId] = useState("");
     // 台下坐谁（她 2026-10-09）：没挑＝照旧自动拉没上台的那几位（至多 6）；挑了就只坐她挑的
     const [benchIds, setBenchIds] = useState([]);
-    const benchPool = (props.crowdChars || []).filter(c => c && !picked.includes(c.id) && c.id !== judgeId);
+    // 裁判和台下也能挑配角（她 2026-10-10）：她自己的人在前，配角接在后面；场边自动名单照旧不收配角，只有挑了才坐
+    const seatPool = (props.crowdChars || []).concat((props.seatNpcs || []).filter(n => !(props.crowdChars || []).some(c => c.id === n.id)));
+    const benchPool = seatPool.filter(c => c && !picked.includes(c.id) && c.id !== judgeId);
     useEffect(() => { setBenchIds(b => b.filter(id => !picked.includes(id) && id !== judgeId)); }, [picked, judgeId]);
     const toggleBench = id => setBenchIds(b => b.includes(id) ? b.filter(x => x !== id) : (b.length >= 6 ? (props.toast && props.toast("台下最多坐 6 个"), b) : b.concat(id)));
     // 台下拉几个路人（0＝不拉，照旧只有她自己的人）
@@ -655,7 +657,7 @@
       setDrawing(false);
     };
     // 能当裁判的：场边那批人里没被拉上台的（言秋不当看客，也就不当裁判——场边名单已经把TA滤掉了）
-    const judgePool = (props.crowdChars || props.characters || []).filter(c => c && !picked.includes(c.id));
+    const judgePool = (props.crowdChars ? seatPool : (props.characters || [])).filter(c => c && !picked.includes(c.id));
     useEffect(() => { if (judgeId && picked.includes(judgeId)) setJudgeId(""); }, [picked, judgeId]);
     useEffect(() => { if (judgeId === "__me__" && !watchOnly) setJudgeId(""); }, [watchOnly, judgeId]);
 
@@ -687,7 +689,7 @@
         const order = shuffle(chars).map(c => ({ kind: "char", id: c.id }));
         const jc = judgeId && judgeId !== "__me__" ? judgePool.find(c => c.id === judgeId) : null;
         // 「我自己」只在她不上台时能选：上了台又当裁判就是自己判自己
-        const judge = judgeId === "__me__" && watchOnly ? { id: "__me__", name: uName, me: true } : jc ? { id: jc.id, name: jc.name, persona: jc.persona || "" } : null;
+        const judge = judgeId === "__me__" && watchOnly ? { id: "__me__", name: uName, me: true } : jc ? { id: jc.id, name: jc.name, persona: (jc.persona || "") + (jc.npc && !(jc.knowsUser || jc.ownerId === "me") ? "\n（TA是配角，本来不认识 " + uName + "，今天头一回打交道——别装熟）" : "") } : null;
         const session = {
           id: "db_" + Date.now(), topic: topic.trim(), mode: mode,
           winCond: mode === "free" ? (winCond.trim() || "") : "",
@@ -884,15 +886,22 @@
           // 裁判不在场边：TA判，不投票（自己投自己判就不叫裁判了）
           // 台下三拨人：她自己的人（至多 6）＋台上那几位身边的配角（至多 3，她 2026-09-23：
           // 「角色的 npc 也可以当台下，当他们的联系角色上场的时候」）＋开场捏好的路人。
-          bench: (props.crowdChars || []).filter(function (c) {
+          // 配角只在她【挑过】台下坐谁的新局里才进得来（老存档没有 benchIds，照旧只自动拉她自己的人）
+          bench: (props.crowdChars || []).concat(Array.isArray(s.benchIds) ? (props.seatNpcs || []).filter(function (n) {
+            return !(props.crowdChars || []).some(function (c) { return String(c.id) === String(n.id); });
+          }) : []).filter(function (c) {
             // 她在摆台子时挑过台下坐谁，就只坐她挑的
             // 新局一律只坐她挑的（不挑＝一个都不坐，她 2026-10-09：「不选的话就不能纯路人吗」）；老存档没有这一栏，照旧自动拉
             if (Array.isArray(s.benchIds) && !s.benchIds.some(function (id) { return String(id) === String(c.id); })) return false;
             return !orderedChars.some(function (x) { return String(x.id) === String(c.id); })
               && !(s.judge && String(s.judge.id) === String(c.id));
           }).slice(0, 6).map(function (c) {
-            return { id: c.id, name: c.name, persona: c.persona, kind: "char", injection: s.inject ? recentChatSnippet(c.id, uName, c.name) : "" };
-          }).concat((props.npcFor ? props.npcFor(orderedChars.map(function (c) { return c.id; })) : []).slice(0, 3).map(function (c) {
+            return c.npc
+              ? { id: c.id, name: c.name, persona: c.persona, kind: "npc", note: "配角；" + (c.knowsUser || c.ownerId === "me" ? "认识 " + uName : "不认识 " + uName) }
+              : { id: c.id, name: c.name, persona: c.persona, kind: "char", injection: s.inject ? recentChatSnippet(c.id, uName, c.name) : "" };
+          }).concat((props.npcFor ? props.npcFor(orderedChars.map(function (c) { return c.id; })) : []).filter(function (c) {
+            return !(Array.isArray(s.benchIds) && s.benchIds.some(function (id) { return String(id) === String(c.id); }));
+          }).slice(0, 3).map(function (c) {
             return { id: c.id, name: c.name, persona: c.persona, kind: "npc", note: c.note || "" };
           })).concat((s.crowd || []).map(function (x) {
             return { id: x.id, name: x.name, persona: x.who, kind: "passer", note: "开场偏向：" + (x.lean || "中立") };
