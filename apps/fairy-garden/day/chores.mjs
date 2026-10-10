@@ -1,7 +1,7 @@
-import {findPath,walkable} from '../world.mjs?v=fg-b8fac1ac2a1bdca7';
-import {furniturePoint} from './home-catalog.mjs?v=fg-b8fac1ac2a1bdca7';
+import {findPath,walkable} from '../world.mjs?v=fg-e4b373131c1a533d';
+import {furniturePoint} from './home-catalog.mjs?v=fg-e4b373131c1a533d';
 
-import './social.js?v=fg-b8fac1ac2a1bdca7';
+import './social.js?v=fg-e4b373131c1a533d';
 export const CHORES=globalThis.CharDaySocial.chores;
 export function choreIntent(slot){
  const text=String(slot?.deviation?.actual||slot?.title||'');

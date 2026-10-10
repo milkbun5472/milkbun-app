@@ -1,16 +1,16 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-b8fac1ac2a1bdca7';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-b8fac1ac2a1bdca7';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-b8fac1ac2a1bdca7';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-b8fac1ac2a1bdca7';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-b8fac1ac2a1bdca7';
-import {emotionPose} from './emotion-pose.mjs?v=fg-b8fac1ac2a1bdca7';
-import {makeDollLife} from './doll-life.mjs?v=fg-b8fac1ac2a1bdca7';
-import {makeSeatedLegs} from './seated-legs.mjs?v=fg-b8fac1ac2a1bdca7';
-import {makeBentArms} from './bent-arms.mjs?v=fg-b8fac1ac2a1bdca7';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-b8fac1ac2a1bdca7';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-e4b373131c1a533d';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-e4b373131c1a533d';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-e4b373131c1a533d';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-e4b373131c1a533d';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-e4b373131c1a533d';
+import {emotionPose} from './emotion-pose.mjs?v=fg-e4b373131c1a533d';
+import {makeDollLife} from './doll-life.mjs?v=fg-e4b373131c1a533d';
+import {makeSeatedLegs} from './seated-legs.mjs?v=fg-e4b373131c1a533d';
+import {makeBentArms} from './bent-arms.mjs?v=fg-e4b373131c1a533d';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-e4b373131c1a533d';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-b8fac1ac2a1bdca7';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-b8fac1ac2a1bdca7';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-e4b373131c1a533d';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-e4b373131c1a533d';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -370,6 +370,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-b8fac1ac2a1bdca7'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-e4b373131c1a533d'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
