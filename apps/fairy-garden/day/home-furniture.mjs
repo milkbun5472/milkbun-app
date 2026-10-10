@@ -16,11 +16,11 @@ export function createHomeFurniture(k,a,p){
  const leg=(x,z,top=.39)=>k.cylinder('TurnedFoot',{x,z,y:F+top/2,r:.045,h:top,color:p.dark},g);
  const book=(x,z,y,color=p.accent)=>k.book('OpenLifeBook',{x,z,y,w:.31,d:.39,color,flat:true},g);
  function tableware(top){
-  const y=F+top;
+  const ware=k.replaceableGroup('DiningTableware',{},g),y=F+top;
   if(a.dining){const spread=a.variant==='round'?.27:a.w*.24;
-   for(const side of [-1,1]){const x=side*spread;k.cylinder('DinnerPlate',{x,y:y+.023,r:.17,h:.025,color:p.paper},g);k.cylinder('PlateWell',{x,y:y+.039,r:.12,h:.005,color:p.accent},g);ceramicCup(k,g,p,{x,z:side*.23,y:y+.09,color:side<0?p.fabric:p.paper,handle:side});b('Chopsticks',{x:x+.22,y:y+.016,z:0,w:.012,h:.012,d:.29,color:p.dark,radius:.005});}
-   k.cylinder('BudVase',{y:y+.15,r:.065,h:.29,color:p.fabric},g);k.tube('SingleStem',{points:[[0,y+.27,0],[.025,y+.43,0],[.075,y+.5,.035]],r:.009,color:p.dark},g);k.ellipsoid('VaseLeaf',{x:.06,y:y+.47,z:.02,w:.12,h:.15,d:.025,color:p.accent},g);
-  }else {book(-a.w*.22,0,y+.05);ceramicCup(k,g,p,{x:a.w*.24,z:-.02,y:y+.09});b('Bookmark',{x:-a.w*.25,y:y+.095,z:.19,w:.035,h:.006,d:.17,color:p.fabric,radius:0});}
+   for(const side of [-1,1]){const x=side*spread;k.cylinder('DinnerPlate',{x,y:y+.023,r:.17,h:.025,color:p.paper},ware);k.cylinder('PlateWell',{x,y:y+.039,r:.12,h:.005,color:p.accent},ware);ceramicCup(k,ware,p,{x,z:side*.23,y:y+.09,color:side<0?p.fabric:p.paper,handle:side});b('Chopsticks',{x:x+.22,y:y+.016,z:0,w:.012,h:.012,d:.29,color:p.dark,radius:.005});}
+   k.cylinder('BudVase',{y:y+.15,r:.065,h:.29,color:p.fabric},ware);k.tube('SingleStem',{points:[[0,y+.27,0],[.025,y+.43,0],[.075,y+.5,.035]],r:.009,color:p.dark},ware);k.ellipsoid('VaseLeaf',{x:.06,y:y+.47,z:.02,w:.12,h:.15,d:.025,color:p.accent},ware);
+  }else {book(-a.w*.22,0,y+.05);ceramicCup(k,ware,p,{x:a.w*.24,z:-.02,y:y+.09});b('Bookmark',{x:-a.w*.25,y:y+.095,z:.19,w:.035,h:.006,d:.17,color:p.fabric,radius:0});}
  }
  if(a.kind==='bed'){
   for(const x of [-a.w*.4,a.w*.4])for(const z of [-a.d*.42,a.d*.42]){leg(x,z,.3);k.sphere('FootCollar',{x,z,y:.31,r:.075,color:p.wood},g);}

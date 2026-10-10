@@ -79,7 +79,7 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
  }).filter(Boolean).sort((a,b)=>a.cost-b.cost);
 }
 // Both participants use the existing navigation and original traveler rig. Nothing is saved.
-export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visibility=()=>0,onUpdate=()=>{},onStop=()=>{}}){
+export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visibility=()=>0,kitchen=()=>null,onUpdate=()=>{},onStop=()=>{}}){
  let session=null,last='';
  const cup=new T.Group();cup.name='TogetherCup';cup.visible=false;a.root.add(cup);
  const material=new T.MeshStandardMaterial({color:'#d6e7df',roughness:.75});
@@ -129,6 +129,11 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   if(active&&['read','meal','drink'].includes(s.kind)){const kind={read:'read',meal:'eat',drink:'drink'}[s.kind];at=daily('a',kind);bt=daily('b',kind);}
 
   if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion().a});const target={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY};bt={...daily('b','prep'),target,contact};}
+  const cooking=kitchen(),job=cooking?.job;
+  if(active&&job?.kind===s.kind){const stage=globalThis.CharDayKitchen.cookingStage(job,cooking.elapsed);
+   if(s.kind==='meal'){const courses=job.courses||[{recipeId:job.recipeId}],course=courses[Math.min(courses.length-1,Math.floor(cooking.elapsed/2.7))],r=globalThis.CharDayKitchen.recipe(course.recipeId);at={...at,kind:r?.food==='drink'?'drink':'eat',recipeId:r?.id};bt={...bt,kind:at.kind,recipeId:r?.id};}
+   if(s.kind==='cook'){const method=stage.method,passive=stage.index===2||stage.index===1&&['bake','steam','brew'].includes(method);at=passive?null:{...at,recipeId:job.recipeId,method,stage:stage.index};bt=passive?null:{...bt,recipeId:job.recipeId,method,stage:stage.index};}
+  }
   s.aTask=at;s.bTask=bt;
   if(s.tour){ah=s.tour.heading??p.heading;bh=ah;}
   const gesture=active&&s.kind==='stretch'?'stretch':'rest',progress=(s.elapsed/4)%1;

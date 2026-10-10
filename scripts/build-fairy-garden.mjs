@@ -18,7 +18,7 @@ writeFileSync(root+'/build.json',JSON.stringify({build},null,2)+'\n');console.lo
 
 // The phone also consumes these shared game modules outside the iframe.
 let phoneIndex=readFileSync('index.html','utf8');
-for(const entry of ['rules.js','clock.js','day/catalog.js','day/social.js']){
+for(const entry of ['rules.js','clock.js','day/catalog.js','day/social.js','day/kitchen.js']){
   const path='apps/fairy-garden/'+entry;
   phoneIndex=phoneIndex.replace(new RegExp(path.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?:\\?v=[^"\']+)?'),path+'?v='+build);
 }
