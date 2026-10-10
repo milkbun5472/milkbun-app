@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-1a9beb797e87cb4b", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-d74ba995b6579beb", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -2254,7 +2254,7 @@
     { id: "train", name: "远行列车", label: "列车", note: "带上同一档的同行者，沿着山林、田野和海岸旅行" },
     { id: "pets", name: "绒绒小镇", label: "宠物", note: "跟着小尾巴，过自己的日子", cognition: "【绒绒小镇】这里是你和对方共同生活、一起养宠的日常。家、街区、店铺和家里的猫狗都是这个生活场景的一部分；照料、家务、职业与带回家的东西会成为你们共同的小日子。以眼前的状态和已经完成的记录承接经历，尚在路上或准备做的事按当前阶段理解。你怎样看待宠物、愿不愿照料、如何相处，沿你完整的人设、喜好与实际经历自然生发；两人可以商量、分工，也会有不同意见。其他往事沿这间房准许的上下文承接。" }
   ];
-  const DAY_WORLD = { id: "day", name: "TA的一天", note: "跟着TA看看今天 · 现有日程与基础动作" };
+  const DAY_WORLD = { id: "day", name: "TA的一天", note: "跟着TA看看今天" };
   const INDEX_KEY = "x_fairyGardenSaves";
   // legacy＝原来那一档，钥匙仍是原来那把；扫回来的房间存档 id 自带 ":" 开头
   // 这一档里某个世界那一份进度。⚠️只有这一处答案：老档把庭院存在 `world` 上，
@@ -2353,6 +2353,29 @@
 
   function worldPet(){return h('svg',{width:96,height:86,viewBox:'0 0 96 86','aria-hidden':true},h('path',{d:'M24 42L21 17L40 29M56 29L76 17L72 42',fill:'#a79a8e',stroke:'#796e62',strokeWidth:2}),h('ellipse',{cx:48,cy:48,rx:31,ry:27,fill:'#eee2cf',stroke:'#796e62',strokeWidth:2}),...[36,60].map(x=>h('ellipse',{key:x,cx:x,cy:45,rx:5,ry:7,fill:'#544b43'})),h('path',{d:'M44 57L48 61L52 57M48 61V66',fill:'#d7a59b',stroke:'#796e62',strokeWidth:1.5}));}
   function worldTrain(){return h("svg",{width:96,height:86,viewBox:"0 0 96 86","aria-hidden":true},h("path",{d:"M8 70H89M12 75H86",stroke:"#72866e",strokeWidth:3}),h("rect",{x:12,y:20,width:72,height:45,rx:9,fill:"#8aa48b",stroke:"#4f6953",strokeWidth:2}),...[23,43,63].map(x=>h("rect",{key:x,x,y:30,width:13,height:16,rx:3,fill:"#eee4c5"})),...[28,68].map(x=>h("circle",{key:x,cx:x,cy:65,r:7,fill:"#4f6953"})));}
+  function worldDay() {
+    return h("svg", { width: 96, height: 86, viewBox: "0 0 96 86", "aria-hidden": true, strokeLinecap: "round", strokeLinejoin: "round" },
+      h("circle", { cx: 79, cy: 15, r: 7, fill: "#e5c68e" }),
+      h("path", { d: "M79 3v2 M79 25v2 M67 15h2 M89 15h2", stroke: "#c8ad7c", strokeWidth: 2 }),
+      h("ellipse", { cx: 48, cy: 78, rx: 39, ry: 4, fill: "#cfd9bf" }),
+      h("path", { d: "M19 71v6 M77 71v6", stroke: "#796e62", strokeWidth: 4 }),
+      h("rect", { x: 10, y: 43, width: 76, height: 28, rx: 8, fill: "#8aa48b", stroke: "#4f6953", strokeWidth: 2 }),
+      h("rect", { x: 19, y: 56, width: 58, height: 16, rx: 5, fill: "#a5ba9a", stroke: "#4f6953", strokeWidth: 1.6 }),
+      h("path", { d: "M25 60l1 10h15l1-10 M54 60l1 10h15l1-10", fill: "#b3a48d", stroke: "#796e62", strokeWidth: 1.6 }),
+      h("path", { d: "M26 70v4h7v-4 M35 70v4h7v-4 M55 70v4h7v-4 M64 70v4h7v-4", fill: "#796e62" }),
+      h("path", { d: "M26 43Q34 39 42 43l4 13-8 4H25l-4-5Z", fill: "#eee4c5", stroke: "#a1947f", strokeWidth: 1.6 }),
+      h("path", { d: "M54 43Q63 39 70 44l5 12-6 4H54l-5-5Z", fill: "#d5aca1", stroke: "#a48578", strokeWidth: 1.6 }),
+      h("path", { d: "M41 53q5 5 10 0", fill: "none", stroke: "#eee2cf", strokeWidth: 6 }),
+      h("path", { d: "M22 34q-3-18 12-18t13 19l-4 8H25Z", fill: "#796e62", stroke: "#655b51", strokeWidth: 1.6 }),
+      h("ellipse", { cx: 34, cy: 32, rx: 10, ry: 11, fill: "#eee2cf" }),
+      h("path", { d: "M23 29q0-13 12-12 13 1 11 13l-9-7-4 5-2-4-5 6Z", fill: "#796e62" }),
+      h("path", { d: "M51 35q-2-18 12-18 15 0 13 18l-2 10H52Z", fill: "#a18b74", stroke: "#796e62", strokeWidth: 1.6 }),
+      h("ellipse", { cx: 63, cy: 33, rx: 10, ry: 11, fill: "#eee2cf" }),
+      h("path", { d: "M52 30q-1-13 12-12 12 2 11 13l-7-7-3 6-4-5-3 5Z", fill: "#a18b74" }),
+      [30, 38, 59, 67].map(x => h("circle", { key: x, cx: x, cy: x < 40 ? 33 : 34, r: 1.5, fill: "#544b43" })),
+      h("path", { d: "M32 38q2 2 4 0 M61 39q2 2 4 0", fill: "none", stroke: "#a48578", strokeWidth: 1.3 }),
+      [10, 77].map(x => h("rect", { key: x, x: x, y: 53, width: 9, height: 18, rx: 4, fill: "#8aa48b", stroke: "#4f6953", strokeWidth: 1.6 })));
+  }
   root.FairyGardenApp = function FairyGardenApp(props) {
     const t = useTheme();
     // 庭院房那条路：房间就是世界也是存档，不用选
@@ -2403,7 +2426,7 @@
             border: "1px solid " + G.line, background: "rgba(255,255,255,.55)",
             fontFamily: F_BODY, fontSize: 10.5, color: G.deep } }, "可以进") : null);
         const inner = h("div", { className: "flex items-center", style: { gap: 13, flexDirection: left ? "row" : "row-reverse" } },
-          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?h(root.GCompanion,{width:NODE,height:NODE,stroke:"#74866b",strokeWidth:1}):worldHouse()) : worldSoon()), label);
+          h("div", { style: { flexShrink: 0, lineHeight: 0 } }, w ? (w.id==="train"?worldTrain():w.id==="pets"?worldPet():w.id==="day"?worldDay():worldHouse()) : worldSoon()), label);
         return w
           ? h("button", { "data-wk": "fgworld", key: w.id, onClick: () => setWorld(w), className: "w-full text-left active:opacity-70",
               style: { padding: "4px 2px", background: "transparent", border: 0 } }, inner)
