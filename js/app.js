@@ -28233,6 +28233,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     myMask: anonMe,
     myBox: anonMeBox,
     onGenMask: genAnonMe,
+    onSaveMask: saveAnonMe,
     onOpenMe: () => setScreen("anonme"),
     onBrew: refillAnonPool,
     onOpen: openAnon,
@@ -28243,6 +28244,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     busy: anonBusy,
     characters: liveChars,
     onGenMask: genAnonMe,
+    onSaveMask: saveAnonMe,
     onAsk: askAnonMe,          // 不传 charId＝随机挑一个来问
     onAnswer: answerAnonMe,
     onReveal: revealAnonMe,
@@ -30558,6 +30560,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenBox: () => openAnonBox(anonChar),
     myMask: anonMe,
     onGenMask: genAnonMe,
+    onSaveMask: saveAnonMe,
     onClose: () => setAnonChar(null)
   }), offlineChar && h(OfflineMode, {
     showReason: !!settingsFor(offlineChar.id).showReasoning,

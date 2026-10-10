@@ -11468,7 +11468,27 @@ function anonBgSrc(d, fallback) {
 // ⚠️她自己那张卡也摆在这张九宫格里（她 2026-09-19：「匿名信箱我的也跟角色的一起放吧」）。
 //   原来她的马甲只藏在【进了某个角色之后】那一屏里——可这一页的意思是
 //   「每个人的匿名主页」，她也是这里面的一个人，不该只能从别人家门口看到自己。
-function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, onOpenMe, onBrew, onOpen, onBack }) {
+// 马甲自己填（群里 2026-10-10 许愿：「匿名身份可以不用生成自己填」）——整页，填网名和一句签名
+function AnonMaskFill({ mask, onSave, A }) {
+  const [open, setOpen] = useState(false);
+  const [nm, setNm] = useState(""), [bio, setBio] = useState("");
+  if (!onSave) return null;
+  const go = () => { setNm((mask && mask.name) || ""); setBio((mask && mask.bio) || ""); setOpen(true); };
+  const inp = { width: "100%", boxSizing: "border-box", fontFamily: F_BODY, fontSize: 14, padding: "10px 12px", borderRadius: 10, border: "1px solid " + A.line, background: A.card, color: A.ink, outline: "none" };
+  return h(React.Fragment, null,
+    h("button", { "data-wk": "anonbtn", "data-part": "fillmask", onClick: go, className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.cool, background: "none", border: "1px solid " + A.line, borderRadius: 8, padding: "2px 9px", flexShrink: 0 } }, "自己填"),
+    open ? ReactDOM.createPortal(h("div", { "data-wk": "anonmaskfill", style: { position: "fixed", inset: 0, zIndex: 300, background: anonNightBg(), display: "flex", flexDirection: "column" } },
+      h(Head, { zh: "你的马甲", onBack: () => setOpen(false), ink: A.ink, lineInk: A.line, bg: "transparent" }),
+      h("div", { style: { padding: "18px 20px" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: A.fog, marginBottom: 6 } }, "网名"),
+        h("input", { value: nm, onChange: e => setNm(e.target.value), maxLength: 16, placeholder: "别人在树洞里看到的名字", style: inp }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: A.fog, margin: "14px 0 6px" } }, "一句签名（可以不填）"),
+        h("input", { value: bio, onChange: e => setBio(e.target.value), maxLength: 40, placeholder: "挂在网名底下的那一句", style: inp }),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: A.fog, marginTop: 10, lineHeight: 1.6 } }, "匿名问别人、匿名连线也用这一张。别写真名，写了就不匿名了。"),
+        h("button", { "data-wk": "anonbtn", "data-part": "savemask", disabled: !nm.trim(), onClick: () => { onSave({ name: nm.trim().slice(0, 16), bio: bio.trim().slice(0, 40), ts: Date.now(), own: true }); setOpen(false); },
+          className: "w-full active:opacity-70 disabled:opacity-40", style: { marginTop: 18, padding: "12px 0", borderRadius: 12, border: "none", background: A.cool, color: "#fff", fontFamily: F_BODY, fontSize: 14 } }, "就用这个"))), document.body) : null);
+}
+function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, onSaveMask, onOpenMe, onBrew, onOpen, onBack }) {
   const t = useTheme();
   const A = ANON_INK;
   const scrollRef = useRef(null);
@@ -11532,7 +11552,7 @@ function AnonHub({ characters, data, busy, poolCount, myMask, myBox, onGenMask, 
 //   差别只有一个，而且是结构性的：角色那屏有「匿名问 Ta 一句」，她这屏没有——
 //   往她箱子里投问题的是【角色】，不是她自己。那条路还没做（她说「再想想咋弄题目」），
 //   所以这儿先把箱子和门立起来，空着也老实说清为什么空，不装成一个坏掉的页面。
-function AnonMeBox({ mask, box, busy, characters, onGenMask, onAsk, onAnswer, onReveal, onDrop, onBack }) {
+function AnonMeBox({ mask, box, busy, characters, onGenMask, onSaveMask, onAsk, onAnswer, onReveal, onDrop, onBack }) {
   const A = ANON_INK;
   const records = (box && box.records) || [];
   const [pick, setPick] = useState(false);     // 展开「指定谁来问」那一排
@@ -11550,7 +11570,8 @@ function AnonMeBox({ mask, box, busy, characters, onGenMask, onAsk, onAnswer, on
           h("div", { "data-wk": "anmenote", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog } }, "跟你匿名问别人时用的是同一张面具"),
           h("button", { "data-wk": "anmebtn", "data-part": "genmask", onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40",
             style: { fontFamily: F_BODY, fontSize: 11, color: A.cool, border: "1px solid " + A.line, borderRadius: 8, padding: "3px 11px" } },
-            busy ? "…" : mask ? "换一个" : "生成"))),
+            busy ? "…" : mask ? "换一个" : "生成"),
+          h(AnonMaskFill, { mask: mask, onSave: onSaveMask, A: A }))),
       // ── 叫人来问（她 2026-09-19：「可以指定谁来问，也可以选随机」）──────────
       // ⚠️随机排在前面、而且是主按钮：随机才是这件事的默认玩法——
       //   指定了谁，那一问就少了「猜是谁」那一半。
@@ -11609,6 +11630,7 @@ function AnonBox({
   onOpenBox,
   myMask,
   onGenMask,
+  onSaveMask,
   onDelRecord,
   onGenBg,
   onClose
@@ -11727,7 +11749,8 @@ function AnonBox({
     h("span", { "data-wk": "anonmasklabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flexShrink: 0 } }, "你的马甲"),
     h("span", { "data-wk": "anonmaskname", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: myMask ? A.ink : A.fog, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask ? myMask.name : "还没有"),
     myMask && myMask.bio ? h("span", { "data-wk": "anonmaskbio", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.fog, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, myMask.bio) : h("span", { style: { flex: 1 } }),
-    h("button", { "data-wk": "anonbtn", "data-part": "genmask", onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "2px 9px", flexShrink: 0 } }, myMask ? "换一个" : "生成")),
+    h("button", { "data-wk": "anonbtn", "data-part": "genmask", onClick: onGenMask, disabled: busy, className: "active:opacity-60 disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 10.5, color: A.cool, background: "none", border: `1px solid ${A.line}`, borderRadius: 8, padding: "2px 9px", flexShrink: 0 } }, myMask ? "换一个" : "生成"),
+    h(AnonMaskFill, { mask: myMask, onSave: onSaveMask, A: A })),
   h("div", { "data-wk": "anonactions",
     className: "px-5 py-3 flex gap-3",
     style: {
