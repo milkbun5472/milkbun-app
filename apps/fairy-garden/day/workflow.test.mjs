@@ -12,6 +12,17 @@ const app=fs.readFileSync('js/app.js','utf8'),a=app.indexOf('  const saveSchedDa
 let plans={},writes=0;const ref={current:plans},save=new Function('setSchedules','schedulesRef','saveJSON',app.slice(a,b)+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,()=>writes++);
 const start=Date.parse('2026-10-09T10:00:00Z'),char={id:'workflow-test',name:'测试角色',tz:0};
 function fixture(scene,spot,minutes=60){save(char.id,'2026-10-09',{seqs:[{time:'10:00',end:minutes===60?'11:00':'10:02',title:'整理当天资料',location:'测试工作地点',type:'work',world:{scene,spot}}]});return env.ScheduleClock.currentSlot(char,ref.current[char.id],start+1000);}
+test('长日程内日常活动会停歇再继续，起身在家具前，睡眠及短日程连续且只读',()=>{
+ for(const [map,spot,action]of [['dayHome','read','read'],['dayCafe','tea','tea'],['dayHome','meal','meal'],['dayHome','cook','cook'],['dayWork','work','work']]){
+  const slot=fixture(map,spot),p={...env.CharDayLink.presentation(slot),action},before=JSON.stringify(ref.current),count=writes,phases=new Set();
+  for(let sec=0;sec<3600;sec+=10){const stage=activityPhase(p,slot,start+sec*1000);phases.add(stage.phase);if(stage.phase==='break'){assert.equal(stage.motion,null);assert.equal(taskAt(stage,null,{id:map},0),null);if(stage.standing)assert.equal(stage.gesture,'stretch');}}
+  assert.deepEqual([...phases].sort(),['break','work']);assert.equal(JSON.stringify(ref.current),before);assert.equal(writes,count);
+  const current=activityPhase(p,slot,start+600000);assert.deepEqual(activityPhase(p,slot,start+600000),current);
+  const short=fixture(map,spot,2);assert.equal(activityPhase(p,short,start+70000).phase,'work');
+ }
+ const slot=fixture('dayHome','sleep'),p={map:'dayHome',spot:'sleep',action:'sleep',gesture:'sleep'};
+ for(let minute=0;minute<60;minute++)assert.equal(activityPhase(p,slot,start+minute*60000).phase,'work');
+});
 for(const [scene,spot]of [['dayLaboratory','bench'],['dayLaboratory','computer'],['dayLibrary','desk-reading'],['dayLibrary','study-notes']]){
  test(scene+'/'+spot+'原writer日程完成进入、准备、做事、休息、收拾、离开的时间流程与碰撞路线',()=>{
   const slot=fixture(scene,spot),p=env.CharDayLink.presentation(slot),before=JSON.stringify(ref.current),n=writes,phases=new Set(),map=DAY_PLACES[scene];let previous=map.spawn;

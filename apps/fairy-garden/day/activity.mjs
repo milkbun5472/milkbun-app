@@ -1,4 +1,4 @@
-import {DUR,EXTRA_ACTIONS} from '../../companion/motion.mjs?v=fg-15cba47296d70fc5';
+import {DUR,EXTRA_ACTIONS} from '../../companion/motion.mjs?v=fg-6a186babf51cdda8';
 
 // Cosmetic movement stays inside the current schedule scene; it does not invent tasks or moods.
 const WORK_BEATS=[
@@ -7,6 +7,7 @@ const WORK_BEATS=[
   {duration:2.6}
 ];
 export function activityPose(p,elapsed,{hasSlot=true,seated=false}={}){
+  if(p.phase==='break')return {gesture:p.standing&&elapsed<6?'stretch':'rest',progress:Math.min(1,elapsed/6),emotion:null};
   const base={gesture:p.gesture||'rest',progress:elapsed/4%1};
   if(p.action==='work'&&hasSlot&&!seated){
     let phase=Math.max(0,elapsed)%WORK_BEATS.reduce((n,b)=>n+b.duration,0);

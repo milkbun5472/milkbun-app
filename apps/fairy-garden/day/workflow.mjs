@@ -1,5 +1,5 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-15cba47296d70fc5';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-15cba47296d70fc5';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-6a186babf51cdda8';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-6a186babf51cdda8';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const RECIPES={
@@ -34,6 +34,18 @@ const MOTIONS={
 };
 const LABELS={enter:'走进来',prepare:'准备资料',work:'做事',break:'稍歇一会儿',tidy:'收拾与归还',exit:'准备离开'};
 export function workMotion(map,spot){return MOTIONS[map]?.[spot]||null;}
+function dailyPhase(plain,slot,at){
+ const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
+ if(span<3||elapsed<0||elapsed>=span||plain.action==='sleep'||plain.action==='walk')return plain;
+ const cycles={work:[12,1.5],read:[9,1],tea:[2,1],meal:[5,1],cook:[4,.5],rest:[4,1]},cycle=cycles[plain.action];
+ if(!cycle)return plain;
+ const offset=elapsed%(cycle[0]+cycle[1]);if(offset<cycle[0])return plain;
+ // Small pauses use the existing anchor. Work has a real rest seat; stretching
+ // uses the anchor's clear approach rather than standing inside its furniture.
+ const standing=['read','work','rest'].includes(plain.action)&&offset>=cycle[0]+cycle[1]*.7;
+ const restSpot=plain.map==='dayWork'&&plain.action==='work'?'rest':plain.spot;
+ return {...plain,spot:restSpot,phase:'break',phaseLabel:standing?'起身活动一下':plain.action==='cook'?'停一下，看看锅里':plain.action==='tea'?'放下杯子，歇一会儿':'暂歇，稍后继续',motion:null,gesture:standing?'stretch':'rest',standing,carry:false};
+}
 export function activityPhase(p,slot,at,{preview=false}={}){
  const cfg=CONFIG[p.map],carryType=cfg?.carry||null;
  const plain={...p,phase:'work',phaseLabel:LABELS.work,motion:workMotion(p.map,p.spot),carry:p.map===LIB&&p.spot==='return-book',carryType};
@@ -44,7 +56,8 @@ export function activityPhase(p,slot,at,{preview=false}={}){
  const motionFor=id=>p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id);
  plain.motion=motionFor(p.spot);
  if(['dayHome','dayCafe','dayWork'].includes(p.map)&&DAILY_MOTIONS[p.action]){plain.motion=DAILY_MOTIONS[p.action];plain.phaseLabel=DAILY_LABELS[p.action];}
- if(!recipe||!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
+ if(!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
+ if(!recipe)return dailyPhase(plain,slot,at);
  const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
  if(span<=0||elapsed<0||elapsed>=span)return {...p,motion:null,carry:false};
  const edge=Math.min(1.5,span*.12),entry=edge/3,closing=span-edge;
@@ -55,7 +68,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
  else if(elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):p.map===MARKET?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
  else{
   const duration=recipe.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
-  for(const [id,length,phaseOverride] of recipe){if(cycle<length){spot=id;phase=phaseOverride||'work';motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
+  for(const [id,length,phaseOverride] of recipe){if(cycle<length){spot=id;phase=phaseOverride||'work';if(phase==='work'&&length>=8&&cycle>=5.5&&cycle<6)phase='break';motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
  }
  if(p.map===LAB&&['records','computer','break'].includes(spot))carry=false;
  if(p.map===GYM){carry=p.spot==='weights'&&['work','tidy'].includes(phase);}
@@ -69,6 +82,7 @@ export function luggagePosition(map,origin,heading=0){
  return {x:origin.x,y:map.floor,z:origin.z};
 }
 export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,motion=null}={}){
+ if(stage.phase==='break'&&['dayHome','dayCafe','dayWork','dayStreet'].includes(map.id))return null;
  if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving,motion});
  const errands=errandsTaskAt(stage,spot,map,elapsed,{moving});if(errands!==undefined)return errands;
  if(!stage.motion&&!stage.carry)return null;
