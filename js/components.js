@@ -6727,6 +6727,52 @@ function Home({
     goPage(np);
     setDrag(0);
   };
+  // ── 电脑上翻页（她 2026-10-10：「电脑端怎么翻页啊」）：原来只认手指横滑，鼠标、触控板、键盘一样都翻不动。
+  //   只加三种手势，布局一个字不动（home-screen-layout.md）：
+  //   ① 触控板两指左右划／按住 Shift 滚滚轮 ② 键盘左右方向键 ③ 鼠标按住左右拖（走手指那一套 onTM/onTE，同一个阈值）
+  //   编辑模式里都不接——那会儿手上拿着东西，翻页归「拖到边上」那一套。
+  const wheelRef = useRef({ acc: 0, t: 0 });
+  const onWheelPage = e => {
+    if (editMode || dragKeyRef.current) return;
+    const dx = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : (e.shiftKey ? e.deltaY : 0);
+    if (!dx) return;
+    const w = wheelRef.current, nowT = Date.now();
+    if (nowT - w.t > 220) w.acc = 0;     // 停了一下再划算新的一下
+    w.t = nowT; w.acc += dx;
+    if (Math.abs(w.acc) < 60 || nowT - flipRef.current < 520) return;   // 触控板惯性会连着来一串，一下只翻一页
+    const np = Math.max(0, Math.min(curLayout.length - 1, page + (w.acc > 0 ? 1 : -1)));
+    w.acc = 0; flipRef.current = nowT;
+    if (np !== page) goPage(np);
+  };
+  const mouseRef = useRef(null);
+  const onMouseDownPage = e => {
+    if (e.button !== 0 || editMode || dragKeyRef.current) return;
+    const shell = e.currentTarget;
+    dragRef.current = { x: e.clientX, y: e.clientY, w: shell.offsetWidth || 360, dir: null, d: 0 };
+    const fake = ev => ({ touches: [{ clientX: ev.clientX, clientY: ev.clientY }], currentTarget: shell });
+    const mv = ev => onTM(fake(ev));
+    const up = () => {
+      window.removeEventListener("mousemove", mv); window.removeEventListener("mouseup", up);
+      const moved = !!(dragRef.current && dragRef.current.dir === "h" && Math.abs(dragRef.current.d) > 6);
+      onTE();
+      // 拖过就把松手那一下的点击吞掉，不然拖完会顺手点开底下那个 app
+      if (moved) { const eat = ce => { ce.stopPropagation(); ce.preventDefault(); }; window.addEventListener("click", eat, { capture: true, once: true }); setTimeout(() => window.removeEventListener("click", eat, true), 0); }
+    };
+    mouseRef.current = up;
+    window.addEventListener("mousemove", mv); window.addEventListener("mouseup", up);
+  };
+  useEffect(function () {
+    const onKey = e => {
+      if (editMode || dragKeyRef.current || e.altKey || e.metaKey || e.ctrlKey) return;
+      if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+      const el = document.activeElement;
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return;
+      const np = Math.max(0, Math.min(curLayout.length - 1, page + (e.key === "ArrowRight" ? 1 : -1)));
+      if (np !== page) { e.preventDefault(); goPage(np); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [page, curLayout.length, editMode]);
   // 渲染单个可摆放项（app / 用户文件夹 / 组件 / 空格），带 data-appkey + 抖动/拖起/合并目标样式；编辑态下禁点
   function renderItem(key, at) {
     // 空格：平时隐形占位（就是「洞」），编辑态显示虚线框，拖拽落点高亮
@@ -6879,7 +6925,9 @@ function Home({
     onTouchStart: onTS,
     onTouchMove: onTM,
     onTouchEnd: onTE,
-    onTouchCancel: onTE
+    onTouchCancel: onTE,
+    onWheel: onWheelPage,
+    onMouseDown: onMouseDownPage
   }, h("div", {
     className: "flex-1 min-h-0",
     ref: gridBoxRef,
