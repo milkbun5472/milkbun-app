@@ -262,7 +262,7 @@
   }
   const TARGETS = {
     style: {
-      zh: "文风预设",
+      zh: "线下文风预设",
       read: () => loadJ("x_offlineStyles", []).map(s => ({ id: s.key, name: s.name, text: s.prompt })),
       write: (id, patch, ctx) => {
         const list = loadJ("x_offlineStyles", []);
