@@ -37,7 +37,7 @@ test("后台未单独选择时跟随主模型，显式选择独立；本体仍�
   assert.equal(resolve(null, [], undefined), null);
   assert.match(app, /saveJSON\("x_bgApi", id\)/);
   assert.match(app, /const bgApiFor = id => apiFor\(id\)/);
-  assert.match(app, /if \(!cfg\.autoExtract \|\| !bgActive\) return/);
+  assert.match(app, /if \(!cfg\.autoExtract \|\| !bgActive( \|\| bgOff\(\))?\) return/);
 });
 
 test("缺少模型时调用入口明确报错，不访问网络或读取空baseUrl", async () => {

@@ -9949,15 +9949,15 @@ function ApiConfig({
       setFetching(false);
     }
   };
-  const routeBox = (title, sub, selectedId, setter, noneLabel) => !setter ? null : h(ConfigPanel, null,
+  const routeBox = (title, sub, selectedId, setter, noneLabel, offLabel) => !setter ? null : h(ConfigPanel, null,
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 11 } }, sub),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       // ⚠️选中的那条要是【已经被删掉了】，这儿原来一档都不高亮——看起来就像「我选的是
       //   跟随主模型」，可存着的 id 还在，行为是另一回事（她 2026-09-15 撞的就是这个）。
       //   现在认不出来就当没选：显示和实际用的那条（pickRoute 的兜底）对上。
-      [{ id: null, name: noneLabel }].concat(list).map(p => {
-        const live = (list || []).some(x => x && x.id === selectedId) ? selectedId : null;
+      [{ id: null, name: noneLabel }].concat(offLabel ? [{ id: "__off__", name: offLabel }] : []).concat(list).map(p => {
+        const live = (offLabel && selectedId === "__off__") || (list || []).some(x => x && x.id === selectedId) ? selectedId : null;
         const on = (live || null) === (p.id || null);
         return h("button", { key: p.id || title, onClick: () => setter(p.id || null), className: "active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
@@ -10025,7 +10025,10 @@ function ApiConfig({
     routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。"
       + "⚠️「Ta 眼里」的建卡和复看、以及【线上线下的各种总结】也走这条——"
       + "这几枪都是把一大段材料打包成一条发出去，吃的料重，便宜线路容易拦、报 401 或者整段返空。"
-      + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
+      + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
+      // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
+      + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
+      bgApiId, onSetBgApi, "跟随主模型", "无（后台一律不跑）"),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),

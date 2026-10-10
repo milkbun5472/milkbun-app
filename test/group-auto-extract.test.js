@@ -24,7 +24,7 @@ test("群线上抽取要跟另外三处一样的节拍和防漏", () => {
   const i0 = app.indexOf("const maybeAutoExtractGroup = async groupId");
   const fn = app.slice(i0, app.indexOf("const maybeSummarizeGroup = async groupId", i0));
   assert.ok(fn.length > 500, "切片没取到函数体");
-  assert.match(fn, /if \(!cfg\.autoExtract \|\| !bgActiveRef\.current\) return;/, "跟随同一个开关，走便宜的后台池");
+  assert.match(fn, /if \(!cfg\.autoExtract \|\| !bgActiveRef\.current( \|\| bgOff\(\))?\) return;/, "跟随同一个开关，走便宜的后台池");
   assert.match(fn, /if \(!gsFor\(groupId\)\.memoryInterop\) return;/, "封闭群不往主线抽（她定的只进不出）");
   assert.match(fn, /cnt % interval !== 0/, "按 extractInterval 的节拍");
   assert.match(fn, /if \(mark && newCount < 4\) return;/, "书签防重复抽");

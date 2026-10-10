@@ -63,7 +63,7 @@ test("「用的是哪条」只影响说话，不参与选路", () => {
 });
 
 test("设置里那一栏：认不出来的就当没选，显示和实际用的对得上", () => {
-  assert.match(scr, /const live = \(list \|\| \[\]\)\.some\(x => x && x\.id === selectedId\) \? selectedId : null;/);
+  assert.match(scr, /const live = (?:\(offLabel && selectedId === "__off__"\) \|\| )?\(list \|\| \[\]\)\.some\(x => x && x\.id === selectedId\) \? selectedId : null;/);
   assert.match(scr, /const on = \(live \|\| null\) === \(p\.id \|\| null\);/);
 });
 
