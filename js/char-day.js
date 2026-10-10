@@ -87,7 +87,7 @@
         if(e.data?.type === "char-day-kitchen"){handleKitchen(e.data);return;}
         if(e.data?.type === "char-day-activity"){setActivityStatus(e.data);return;}
         if(e.data?.type === "char-day-visit"){setVisitStatus(current=>({...e.data,saveNotice:current&&current.charId===e.data.charId?current.saveNotice:"",homeSaveNotice:current&&current.charId===e.data.charId?current.homeSaveNotice:""}));rememberVisit(e.data);return;}
-        if (e.data?.type === "char-day-layout") { setEditor(current => current ? {placements:e.data.placements,selected:e.data.selected,dragging:e.data.dragging,busy:e.data.busy} : null); setLayoutNotice(e.data.notice || ""); const list=iframe.current?.contentWindow?.CharDayScene?.listFurniture?.(); if(list)setFurniture(list); return; }
+        if (e.data?.type === "char-day-layout") { setEditor(current => current ? {...current,placements:e.data.placements,selected:e.data.selected,dragging:e.data.dragging,busy:e.data.busy} : null); setLayoutNotice(e.data.notice || ""); const list=iframe.current?.contentWindow?.CharDayScene?.listFurniture?.(); if(list)setFurniture(list); return; }
         if (e.data?.type === "char-day-view") { setFollow(!!e.data.following);setCameraMode(e.data.mode|| (e.data.following?'ta':'free')); return; }
         if (e.data?.type !== "char-day-status") return;
         setSceneStatus(e.data.error || ""); if (!e.data.error) {setCatalogLabels(iframe.current?.contentWindow?.CharDayScene?.catalogLabels?.()||{}); const motions=iframe.current?.contentWindow?.CharDayScene?.listMotions?.();if(motions)setMotionOptions(motions); const options = iframe.current?.contentWindow?.CharDayScene?.listStyles?.(); if (options) setStyles(options);setProfessionalChoices(iframe.current?.contentWindow?.CharDayScene?.professionalChoices?.()||{}); const list=iframe.current?.contentWindow?.CharDayScene?.listPlaces?.();if(list)setPlaces(list);send(); }
@@ -183,17 +183,23 @@
     const motionChoice=(section,label)=>h("label",{style:{display:"block",marginBottom:14,fontSize:12,lineHeight:1.8}},label,
       h("select",{"data-wk":"cdaymotion","data-part":section,"aria-label":label,disabled:styleBusy,value:demo?(section==='motions'?demoMotion:demoVisitorMotion):homes[section]?.[String(char.id)]||"auto",onChange:e=>changeMotion(section,e.target.value),style:{...btn,height:44,display:"block",width:"100%",marginTop:6}},
         h("option",{value:"auto"},"自动参考人设"),...motionOptions.map(p=>h("option",{key:p.id,value:p.id},p.label+" · "+p.description))));
-    const startEditor = (recommended=[]) => {setRecommendedFurniture(Array.isArray(recommended)?recommended:[]); setMoreOpen(false);setTogetherPanel(false);setDecorPanel(""); setHomeOptions(false);setBook(false);setLayoutNotice("");setEditor({placements:JSON.parse(JSON.stringify(demo?demoLayout:homes.layouts?.[String(char.id)]||{})),selected:"double-bed",dragging:false}); };
+    const startEditor = (recommended=[]) => {setRecommendedFurniture(Array.isArray(recommended)?recommended:[]); setMoreOpen(false);setTogetherPanel(false);setDecorPanel(""); setHomeOptions(false);setBook(false);setLayoutNotice("");setEditor({placements:JSON.parse(JSON.stringify(demo?demoLayout:homes.layouts?.[String(char.id)]||{})),selected:"double-bed",dragging:false,stayInHome:payload.presentation.map!=="dayHome"}); };
     const cancelEditor = () => { if(layoutBusy||editor?.busy)return;setEditor(null);setDecorPanel("");setLayoutNotice(""); };
+    const finishLayoutSave = placements => {
+      if(editor?.stayInHome){
+        setEditor(current=>current?{...current,placements}:null);
+        setLayoutNotice("已保存，可以继续布置；点返回结束装修。");
+      }else{setEditor(null);setDecorPanel("");setLayoutNotice("");}
+    };
     const saveLayout = async () => {
       if(layoutBusy||editor?.dragging||editor?.busy)return;
       const checked=iframe.current?.contentWindow?.CharDayScene?.editLayout?.();
       if(!checked?.ok){setLayoutNotice(checked?.reason||"画面还在准备，稍等一下再保存。");return;}
-      if(demo){setDemoLayout(checked.placements);setEditor(null);setDecorPanel("");setLayoutNotice("");return;}
+      if(demo){setDemoLayout(checked.placements);finishLayoutSave(checked.placements);return;}
       setLayoutBusy(true);setLayoutNotice("");
       try{
         const next=await saveHomeChange(char.id,"layouts",checked.placements);
-        setHomes(next);setEditor(null);setDecorPanel("");setLayoutNotice("");
+        setHomes(next);finishLayoutSave(checked.placements);
       }catch(_){setLayoutNotice("这次没能保存，试摆还在，可以再试一次；取消会回到原来的布置。");}
       finally{setLayoutBusy(false);}
     };
