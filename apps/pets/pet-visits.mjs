@@ -1,6 +1,6 @@
-import {PET_NEIGHBORS,neighborBondView} from './pet-friends.mjs?v=fg-f607296e23d1060e';
-import {createTownLife} from './town-life.mjs?v=fg-f607296e23d1060e';
-import {furniturePoint} from './furnishings.mjs?v=fg-f607296e23d1060e';
+import {PET_NEIGHBORS,neighborBondView} from './pet-friends.mjs?v=fg-dfbc36ab1020098c';
+import {createTownLife} from './town-life.mjs?v=fg-dfbc36ab1020098c';
+import {furniturePoint} from './furnishings.mjs?v=fg-dfbc36ab1020098c';
 
 const find=id=>PET_NEIGHBORS.find(x=>x.id===id);
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);

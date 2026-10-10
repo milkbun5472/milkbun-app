@@ -1,7 +1,7 @@
-import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-f607296e23d1060e';
-import {homeSurface} from './home-surfaces.mjs?v=fg-f607296e23d1060e';
-import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-f607296e23d1060e';
-import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-f607296e23d1060e';
+import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-dfbc36ab1020098c';
+import {homeSurface} from './home-surfaces.mjs?v=fg-dfbc36ab1020098c';
+import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-dfbc36ab1020098c';
+import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-dfbc36ab1020098c';
 
 // All raised pieces sit on the boundary or the partition footprint. The actual
 // walking plane, furniture positions and doorway remain the saved map's .08.

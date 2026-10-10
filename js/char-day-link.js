@@ -50,8 +50,9 @@
     return { title: d.actual, location: d.location || (d.actual === slot.title ? slot.location : "") || "", type: d.type || (d.actual === slot.title ? slot.type : "other"), world: d.world };
   }
   function occupationLink(words, place, type) {
-    if (/吃饭|用餐|早餐|午餐|晚餐|喝水|喝茶|喝咖啡|观看直播|收看直播|看直播|听录音/.test(words)) return null;
-    if (["meal", "coffee"].includes(type) && !/备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨|出餐|冲煮|制作咖啡|做咖啡|调酒|调制/.test(words)) return null;
+    const preparingMeal = /制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨/.test(words);
+    if (/吃饭|用餐|喝水|喝茶|喝咖啡|观看直播|收看直播|看直播|听录音/.test(words) || /早餐|午餐|晚餐/.test(words) && !preparingMeal) return null;
+    if (["meal", "coffee"].includes(type) && !/制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨|出餐|冲煮|制作咖啡|做咖啡|调酒|调制/.test(words)) return null;
     if (/候车|等车|乘车|通勤|坐车|赶车/.test(words)) return null;
     // Actual outdoor work keeps its outdoor location; the indoor sets are only
     // selected for matching tasks and places, not from a guessed profession.
@@ -60,13 +61,13 @@
       return at("dayInvestigation", /离开|下班/.test(words) ? "exit" : /喝水|喝茶/.test(words) ? "tea" : /休息|歇会/.test(words) ? "rest" : /汇报|讨论案情|开会|会议/.test(words) ? "briefing" : /交班|交接|值勤|值班/.test(words) ? "duty" : /物证|封存/.test(words) ? "evidence" : /取.*卷宗|取.*档案|归还|档案柜/.test(words) ? "files" : /检索|电脑|查询|比对数据/.test(words) ? "computer" : /线索|案情|案件板/.test(words) ? "clues" : "notes");
     }
     const restaurant = /餐厅|餐馆|饭店|咖啡店|咖啡馆|酒吧|酒馆|后厨|吧台/.test(place);
-    const serviceTask = /备料|切配|出餐|备菜|做饭|做菜|炒菜|煮饭|煮汤|烹饪|下厨|冲煮|制作咖啡|做咖啡|调酒|调制饮品|接单|核对订单|收银|清洗器具|整理操作台|店内值班|门店值班|上班|开店|营业/.test(words);
+    const serviceTask = /制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|出餐|备菜|做饭|做菜|炒菜|煮饭|煮汤|烹饪|下厨|冲煮|制作咖啡|做咖啡|调酒|调制饮品|接单|核对订单|收银|清洗器具|整理操作台|店内值班|门店值班|上班|开店|营业/.test(words);
     if (restaurant && serviceTask || /后厨|操作吧台/.test(place) && ["work", "create"].includes(type)) {
-      return at("dayService", /离开|下班/.test(words) ? "exit" : /冷藏|冷柜|取.*材料/.test(words) ? "storage" : /清洗|洗碗|整理操作台/.test(words) ? "wash" : /收银|接单|订单/.test(words) ? "cashier" : /调酒|调制|调饮/.test(words) ? "mix" : /咖啡|冲煮/.test(words) || /咖啡店|咖啡馆/.test(place) && /上班|值班|营业/.test(words) ? "coffee" : /备料|切配|备菜/.test(words) ? "prep" : /做饭|做菜|煮饭|烹饪|下厨|灶台|炒菜|煮汤/.test(words) ? "cook" : "serve");
+      return at("dayService", /离开|下班/.test(words) ? "exit" : /冷藏|冷柜|取.*材料/.test(words) ? "storage" : /清洗|洗碗|整理操作台/.test(words) ? "wash" : /收银|接单|订单/.test(words) ? "cashier" : /调酒|调制|调饮/.test(words) ? "mix" : /咖啡|冲煮/.test(words) || /咖啡店|咖啡馆/.test(place) && /上班|值班|营业/.test(words) ? "coffee" : /备料|切配|备菜/.test(words) ? "prep" : /制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|做饭|做菜|煮饭|烹饪|下厨|灶台|炒菜|煮汤/.test(words) ? "cook" : "serve");
     }
     const filmPlace = /摄影棚|拍摄棚|片场|影棚|化妆间|试镜室/.test(place);
     if (filmPlace || /棚拍|试镜|定妆|拍戏/.test(words)) {
-      return at("dayFilm", /离开|收工/.test(words) ? "exit" : /休息|等候|候场/.test(words) && !/台本|剧本/.test(words) ? "rest" : /化妆|妆容|补妆|定妆/.test(words) ? "makeup" : /服装|换装|挂衣/.test(words) ? "costume" : /台本|剧本|台词/.test(words) ? "script" : /布光|灯光|灯架/.test(words) ? "lighting" : /回看|素材|剪辑/.test(words) ? "review" : /模特|摆姿|棚拍|定点拍照/.test(words) ? "pose" : /掌镜|机后|操作摄影机|摄影|摄像/.test(words) ? "camera" : "perform");
+      return at("dayFilm", /离开|收工/.test(words) ? "exit" : /休息|等候|候场/.test(words) && !/台本|剧本/.test(words) ? "rest" : /化妆|妆容|补妆|定妆/.test(words) ? "makeup" : /服装|换装|挂衣/.test(words) ? "costume" : /台本|剧本|台词/.test(words) ? "script" : /布光|灯光|灯架/.test(words) ? "lighting" : /回看|素材|剪辑/.test(words) ? "review" : /模特|摆姿|定点拍照/.test(words) ? "pose" : /掌镜|机后|操作摄影机|摄影师|摄影|摄像/.test(words) ? "camera" : /棚拍/.test(words) ? "pose" : "perform");
     }
     const recordPlace = /录音室|录音棚|配音棚|直播间|直播工作室|播音室/.test(place);
     const recordTask = /配音录制|录制配音|录歌|录制歌曲|开播|直播|调音|混音|录音|试音/.test(words) && !/观看|收看|看直播|听录音/.test(words);

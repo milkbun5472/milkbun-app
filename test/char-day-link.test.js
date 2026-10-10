@@ -96,7 +96,7 @@ test('新增职业场景按实际地点与操作分配，顾客、演员与摄�
  const cases=[
   ['梳理调查线索','刑侦办案室','dayInvestigation','clues'],['整理当日案卷','警局','dayInvestigation','notes'],['交接值勤','派出所','dayInvestigation','duty'],['案情汇报','办案室','dayInvestigation','briefing'],
   ['切配备菜','餐厅后厨','dayService','prep'],['灶台炒菜','餐厅后厨','dayService','cook'],['制作咖啡','咖啡馆吧台','dayService','coffee'],['调制饮品','酒吧吧台','dayService','mix'],['核对订单','餐厅','dayService','cashier'],
-  ['补妆','化妆间','dayFilm','makeup'],['候场看台本','片场','dayFilm','script'],['拍戏表演','摄影棚','dayFilm','perform'],['模特棚拍','影棚','dayFilm','pose'],['机后掌镜','摄影棚','dayFilm','camera'],
+  ['补妆','化妆间','dayFilm','makeup'],['候场看台本','片场','dayFilm','script'],['拍戏表演','摄影棚','dayFilm','perform'],['模特棚拍','影棚','dayFilm','pose'],['机后掌镜','摄影棚','dayFilm','camera'],['摄影师棚拍','摄影棚','dayFilm','camera'],['制作早餐','后厨','dayService','cook'],['准备午餐','餐厅后厨','dayService','cook'],
   ['配音录制','配音棚','dayBroadcast','voice'],['录歌','录音室','dayBroadcast','sing'],['监听混音','录音棚','dayBroadcast','mix'],['开播聊天','直播间','dayBroadcast','stream'],['剪辑素材','直播工作室','dayBroadcast','edit']
  ];
  for(const [title,location,map,spot]of cases){const actual=L.presentation({title,location,type:'work'});assert.equal(actual.map,map,title);assert.equal(actual.spot,spot,title);}

@@ -31,14 +31,15 @@ const engine=process.env.DAY_ENGINE||'webkit',base=process.env.DAY_URL||'http://
  const cases=[
   ['梳理调查线索','刑侦办案室','dayInvestigation','clues','investigate'],['整理当日案卷','警局','dayInvestigation','notes','write'],
   ['切配备菜','餐厅后厨','dayService','prep','prep'],['灶台炒菜','餐厅后厨','dayService','cook','cook'],['制作咖啡','咖啡馆吧台','dayService','coffee','barista'],['调制饮品','酒吧吧台','dayService','mix','shake'],['出餐','餐厅','dayService','serve','serve'],
-  ['补妆','化妆间','dayFilm','makeup','makeup'],['候场看台本','片场','dayFilm','script','read'],['拍戏表演','摄影棚','dayFilm','perform','act'],['模特棚拍','影棚','dayFilm','pose','pose'],['机后掌镜','摄影棚','dayFilm','camera','camera'],
+  ['补妆','化妆间','dayFilm','makeup','makeup'],['候场看台本','片场','dayFilm','script','read'],['拍戏表演','摄影棚','dayFilm','perform','act'],['模特棚拍','影棚','dayFilm','pose','pose'],['机后掌镜','摄影棚','dayFilm','camera','camera'],['摄影师棚拍','摄影棚','dayFilm','camera','camera'],['制作早餐','后厨','dayService','cook','cook'],['准备午餐','餐厅后厨','dayService','cook','cook'],
   ['配音录制','配音棚','dayBroadcast','voice','voice'],['录歌','录音室','dayBroadcast','sing','sing'],['监听混音','录音棚','dayBroadcast','mix','console'],['开播聊天','直播间','dayBroadcast','stream','stream'],['游戏实况直播','直播间','dayBroadcast','stream','type'],['剪辑素材','直播工作室','dayBroadcast','edit','type'],
   ['在家直播','家里','dayHome',null,null],['喝咖啡','街角咖啡馆','dayCafe','tea','drink'],['处理邮件','公司办公室','dayOffice','computer','type'],['上课听讲','教学楼教室','dayCampus','listen','listen']
  ];
  await p.setViewportSize({width:390,height:844});await p.unroute('**/pet.mjs*');await p.clock.setFixedTime(new Date('2026-10-09T00:04:00Z'));await p.goto(base);await p.waitForFunction(()=>window.CharDayLink&&typeof txtVaultState==='function'&&txtVaultState().ok);
  await p.evaluate(async({writer,cases})=>{
   const chars=[{id:'occupation-a',name:'职业日程测试角色',gender:'male',tz:'0',persona:'虚构角色，按当天的具体安排做事。'}];let plans={};const ref={current:plans},save=new Function('setSchedules','schedulesRef','saveJSON',writer+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,saveJSON);
-  save(chars[0].id,'2026-10-09',{seqs:cases.map(([title,location],hour)=>({time:String(hour).padStart(2,'0')+':00',end:String(hour+1).padStart(2,'0')+':00',title,location,type:hour===19?'coffee':'work'}))});
+  const timeAt=minutes=>String(Math.floor(minutes/60)).padStart(2,'0')+':'+String(minutes%60).padStart(2,'0');
+  save(chars[0].id,'2026-10-09',{seqs:cases.map(([title,location],index)=>({time:timeAt(index*30),end:timeAt((index+1)*30),title,location,type:title==='喝咖啡'?'coffee':'work'}))});
   const features=Object.fromEntries(['phone','weekly','diary','wallet','schedule','desire','impression','moments','forum','whisper','capsule','gaze','proactive','letter','react','groupChat','listen','watch'].map(id=>[id,{global:false,chars:{}}]));
   for(const [k,v]of Object.entries({x_characters:chars,x_schedules:ref.current,x_homeLayout:{'0':['fairyGarden']},x_homeFolders:[],x_autoRefreshPolicy_v1:{version:2,legacyMerged:true,features},x_companion:{charId:chars[0].id,autoFace:true,float:false,looks:{[chars[0].id]:{outfit:'academy',hair:'korean'}}}}))await saveJSONDurable(k,v);
  },{writer:app.slice(a,z),cases});
@@ -46,7 +47,9 @@ const engine=process.env.DAY_ENGINE||'webkit',base=process.env.DAY_URL||'http://
  await p.locator('[data-appkey=fairyGarden]').click();await p.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await p.locator('[data-wk=cdaypick]').filter({hasText:'职业日程测试角色'}).click();await p.waitForFunction(()=>document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect().ready);
  const frame=p.frames().find(f=>f.url().includes('/fairy-garden/day/')),before=await p.evaluate(()=>JSON.stringify(loadJSON('x_schedules',{})));report.schedules=[];
  for(const [hour,[title,location,map,spot,kind]]of cases.entries()){
-  await p.clock.setFixedTime(new Date('2026-10-09T'+String(hour).padStart(2,'0')+':04:00Z'));await frame.waitForFunction(({map,spot,kind})=>{const s=CharDayScene.inspect();return s.map===map&&!s.changing&&!s.route.length&&(!spot||s.activity?.spot===spot)&&(!kind||s.workAction?.kind===kind);},{map,spot,kind});
+  const now=new Date('2026-10-09T00:00:00Z');now.setUTCMinutes(hour*30+4);await p.clock.setFixedTime(now);
+  await p.waitForFunction(({title,location})=>{const text=document.querySelector('[data-wk=cdaynow]')?.textContent||'';return text.includes(title)&&text.includes(location);},{title,location});
+  await frame.waitForFunction(({map,spot,kind})=>{const s=CharDayScene.inspect();return s.map===map&&!s.changing&&!s.route.length&&(!spot||s.activity?.spot===spot)&&(!kind||s.workAction?.kind===kind);},{map,spot,kind});
   if(['makeup','investigate','shake','serve'].includes(kind))await frame.waitForFunction(flag=>CharDayScene.inspect().workAction?.[flag],{makeup:'makeup',investigate:'marker',shake:'shaker',serve:'tray'}[kind]);
   if(kind==='cook')await frame.waitForFunction(()=>CharDayScene.inspect().dailyAction?.ladle);
   const state=await frame.evaluate(()=>CharDayScene.inspect());assert.match(await p.locator('[data-wk=cdaynow]').innerText(),new RegExp(title));assert.match(await p.locator('[data-wk=cdaynow]').innerText(),new RegExp(location));if(['dayInvestigation','dayService','dayFilm','dayBroadcast'].includes(map))assert.equal(state.visitor.present,false);
