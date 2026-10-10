@@ -48,7 +48,7 @@ test("「开没开某一档」只有一份判据，调用点都问它", () => {
 });
 
 test("关了记忆就不检索：不白算，也不会记下一份没发出去的召回", () => {
-  const i = app.indexOf("memLib: (() => {"), j = app.indexOf("geo: geoForPrompt()", i);
+  const i = app.indexOf("memLib: (() => {"), j = app.indexOf("geo: geoForPrompt(char.id)", i);
   assert.ok(i > 0 && j > i, "抠不出 memLib 那段");
   const seg = app.slice(i, j);
   assert.match(seg, /if \(ctxOpts && ctxOpts\.noMemory\) return \[\];/);

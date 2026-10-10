@@ -16,3 +16,9 @@ test("本体模式：不点名要心情心声；总纲说名字不是要演的�
 test("本体模式：好感变化也能留，不逼每轮交", () => {
   assert.match(app, /可以加 \\"affinityDelta\\"（" \+ AFFINITY_DELTA_SPEC \+ "）。都不留也行。/);
 });
+
+// 她 2026-10-10：本体模式也能写申请信（原来手机通道里根本没有这一项，开关开着也没用）
+test("本体模式：申请信写进手机通道，条件跟普通角色一样", () => {
+  assert.match(app, /const _bodyLetterHint = \(_bodyOnly && !_peekTurn && !\(room && !room\.main\) && !\(opts && opts\.loveLetterAnswer\) && loveLetterReady\(charId\)\)/);
+  assert.match(app, /_digitalRecordHint \+ _bodyLetterHint \+/);
+});

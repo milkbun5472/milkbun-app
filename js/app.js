@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.271";
+const APP_VERSION = "v75.277";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -204,7 +204,7 @@ function ScreenBoundaryClass() {
 // 聊天页「给TA看手机」那张单子和下面拼素材的那段读同一张表。
 // 她 2026-10-02：「我们真的需要那些 app 吗」——查岗只查聊天；钱包、外卖、购物是聊天里翻出线索才顺着去的。
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
-const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"]];
+const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
 function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock }) {
   const t = useTheme();
@@ -2942,7 +2942,11 @@ function App() {
       out.push(w);
     }
     if (inNote) { if (!ECHO_NOTE_HINT.test(inNote.join(""))) out.push(...inNote); }
-    return out;
+    // 夹在一条中间的（她 2026-10-10 截图：本体模式一整条长消息，正文写完换行就是一段
+    //   「〔今天16:59〕【你在这里已经实际发出一张照片…】照片内容：…」）——上面那几道只认整条都是旁注的，
+    //   这儿连前面的〔时间〕、后面那行「照片内容：」一起从中间摘掉
+    const EMBED = /(?:〔[^〕\n]{0,24}〕)?[ \t]*【[^】]*】(?:\s*照片内容[:：][^\n]*)?/g;
+    return out.map(w => typeof w !== "string" || !w.includes("】") ? w : w.replace(EMBED, m => ECHO_NOTE_HINT.test(m) ? "" : m).replace(/\n{3,}/g, "\n\n").trim()).filter(w => w !== "");
   };
   // 按角色选 API 线路（v48.24）：聊天设置里给这个角色指定了配置就用那条，没指定时线上跟随全局线上主线路。
   // 角色专线覆盖所有「这个角色本人开口」的场合；线下无专线角色则由 offlineApiFor 回退全局线下线路。
@@ -3626,6 +3630,66 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (typeof affinityRestore === "number") setAff(charId, affinityRestore);
     try { window.Gaze && window.Gaze.rollbackTurns && window.Gaze.rollbackTurns(charId, ordered); } catch (e) {}
   };
+  // ── 重 Roll 留版（她 2026-10-10 转群友：「重 roll 后保留前面的回复然后选最喜欢的那个」）──
+  //   聊天设置里开了 keepRerolls 才留。各版收在【这一轮前面那条消息】的 rerollAlts 上（跟聊天一起存，不另开仓库）：
+  //   一格 null＝眼前这版，其余各存 {msgs, st}。翻版只换气泡和轻的那几样（心情、心声、动作、穿着、好感）；
+  //   有转账、礼物、照片、记账这类真落了东西的那一版不留，照老样子整版换掉。
+  const REROLL_KEEP = 5;
+  const REROLL_LIGHT_KIND = { text: 1, voice: 1, emote: 1, silence: 1, narration: 1 };
+  const rerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && (x.role === "assistant" || (x.role === "narration" && x.who === "char")) && (!x.kind || REROLL_LIGHT_KIND[x.kind]));
+  const charStateSnap = cid => ({ state: statesRef.current[cid] || null, hist: stateHistRef.current[cid] || [], mood: moodsRef.current[cid] || null, aff: affOf(cid) });
+  const charStateRestore = (cid, st) => {
+    if (!st) return;
+    const histMap = { ...stateHistRef.current, [cid]: st.hist || [] }; stateHistRef.current = histMap; setStateHist(histMap); saveJSON("x_stateHist", histMap);
+    const stateMap = { ...statesRef.current }; if (st.state) stateMap[cid] = st.state; else delete stateMap[cid]; statesRef.current = stateMap; setStates(stateMap); saveJSON("x_states", stateMap);
+    setMoods(p => { const n = { ...p }; if (st.mood) n[cid] = st.mood; else delete n[cid]; saveJSON("x_moods", n); return n; });
+    if (typeof st.aff === "number") setAff(cid, st.aff);
+  };
+  // 把眼前这版收进去、腾一格给新的那版；只有最后一组才留，别处挂着的旧版一并清掉
+  const rerollStash = (list, alt) => {
+    const n = list.length;
+    if (!n) return list;
+    const a = list[n - 1], alts = (Array.isArray(a.rerollAlts) ? a.rerollAlts : [null]).slice();
+    const cur = alts.indexOf(null);
+    if (cur >= 0) alts[cur] = alt; else alts.push(alt);
+    alts.push(null);
+    while (alts.length > REROLL_KEEP) alts.splice(alts.findIndex(x => x), 1);
+    return list.slice(0, n - 1).map(x => x && x.rerollAlts ? (({ rerollAlts, ...rest }) => rest)(x) : x).concat([{ ...a, rerollAlts: alts }]);
+  };
+  // 眼前这一组能不能翻：最后一个挂着 rerollAlts 的后面只有 TA 的回复
+  const rerollNavOf = list => {
+    let L = -1;
+    for (let i = (list || []).length - 1; i >= 0; i--) { if (list[i] && list[i].rerollAlts) { L = i; break; } }
+    if (L < 0 || L === list.length - 1) return null;
+    const alts = list[L].rerollAlts;
+    if (alts.length < 2 || list.slice(L + 1).some(x => x && x.role === "user")) return null;
+    return { at: L, pos: alts.indexOf(null), n: alts.length };
+  };
+  // 翻版：一份写法，单聊、群聊、线下各自递进来「读哪份、写哪份、拍谁的状态」
+  const rerollFlipIn = (list, write, snap, restore, dir) => {
+    const nav = rerollNavOf(list);
+    if (!nav) return;
+    const j = nav.pos + dir;
+    if (j < 0 || j >= nav.n) return;
+    const a = list[nav.at], alts = a.rerollAlts.slice(), target = alts[j];
+    if (!target) return;
+    alts[nav.pos] = { msgs: list.slice(nav.at + 1), st: snap() };
+    alts[j] = null;
+    write(p => p.slice(0, nav.at).concat([{ ...a, rerollAlts: alts }], target.msgs));
+    restore(target.st);
+  };
+  const rerollFlip = (threadKey, cid, dir) => rerollFlipIn(chatsRef.current[threadKey] || [], u => pChat(threadKey, u), () => charStateSnap(cid), st => charStateRestore(cid, st), dir);
+  // 群里一轮好几个人说话：拍下全体成员（新一版里可能换了人开口，翻回去时他也得退回那一刻）
+  const statesSnapMany = ids => { const o = {}; [...new Set(ids || [])].forEach(id => { o[id] = charStateSnap(id); }); return { many: o }; };
+  const statesRestoreMany = st => { if (st && st.many) Object.keys(st.many).forEach(id => charStateRestore(id, st.many[id])); };
+  const groupStateIds = groupId => { const g = (groups || []).find(x => x.id === groupId); return ((g && g.memberIds) || []).filter(id => !((characters || []).find(c => c.id === id) || {}).npc); };
+  const rerollFlipGroup = (groupId, dir) => rerollFlipIn(groupChatsRef.current[groupId] || [], u => pGChat(groupId, u), () => statesSnapMany(groupStateIds(groupId)), statesRestoreMany, dir);
+  // 线下：一拍正文（群线下还有整段小说那一拍 novel）也算轻的；她自己说的话夹在中间就不留
+  const offRerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && x.role !== "user" && (!x.kind || REROLL_LIGHT_KIND[x.kind] || x.kind === "novel"));
+  const offLiveMsgs = sessions => ((sessions || []).find(x => !x.endTs) || {}).msgs || [];
+  const offWrite = (setter, key) => u => setter(key, list => list.map(x => !x.endTs ? { ...x, msgs: u(x.msgs || []) } : x));
+  const rerollFlipOffline = (scopeKey, dir) => { const cid = offlinePersonId(scopeKey); rerollFlipIn(offLiveMsgs(offlinesRef.current[scopeKey]), offWrite(pOffline, scopeKey), () => charStateSnap(cid), st => charStateRestore(cid, st), dir); };
+  const rerollFlipGroupOffline = (groupId, dir) => rerollFlipIn(offLiveMsgs(groupOfflinesRef.current[groupId]), offWrite(pGOffline, groupId), () => statesSnapMany(groupStateIds(groupId)), statesRestoreMany, dir);
   // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、dongnian 思念和断档提示共用这一只钟。
   // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
   //（她 2026-08-27：顾暮在两个群里几乎同时给了两套说法，一边说六点半到家、一边另说一套）。
@@ -8749,15 +8813,18 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!sess) return;
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
-    const truncated = sess.msgs.slice(0, idx); // 去掉这条及之后，重新生成
+    let truncated = sess.msgs.slice(0, idx); // 去掉这条及之后，重新生成
     const removed = sess.msgs.slice(idx), turns = removed.map(m => m && m.turnId).filter(Boolean);
     const y = ledgerYanqiu(); if (!sideRoom && y && String(y.id) === String(charId) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "offline", threadId: y.id }, removed);
     const legacyLatest = !turns.length && idx === sess.msgs.map(m => m.role === "char" ? 1 : 0).lastIndexOf(1)
       && !!(sess.msgs[idx] && sess.msgs[idx].thought && statesRef.current[charId] && statesRef.current[charId].thought === sess.msgs[idx].thought);
+    // 留版：回滚之前拍下这一版的状态（侧房不留）
+    const _offKeep = !sideRoom && settingsFor(charId).keepRerolls === true && offRerollKeepable(removed) ? { msgs: removed, st: charStateSnap(charId) } : null;
     if (!sideRoom) rollbackCharTurns(charId, turns, legacyLatest);
     try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "offline_reroll",surface:"offline", charId, before: sess.msgs, after: truncated, targetIndex: idx }); } catch (e) {}
     const cutPatch = offlineRerollPatch(sess, idx, !sideRoom);
-    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
+    pOffline(scopeKey, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: _offKeep ? rerollStash(truncated, _offKeep) : truncated } : s));
+    if (_offKeep) truncated = rerollStash(truncated, _offKeep);   // 往下生成接的也是收好的这一份，不然新一拍落下来会把旧版冲掉
     if (sideRoom) {
       const prior = truncated.slice().reverse().find(m => m && m.role === "char" && m.thought);
       setRoomThought(scopeKey, prior && prior.thought || "", { mood: prior && prior.mood || "", turnId: prior && prior.turnId || null });
@@ -9501,18 +9568,20 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (!group || !sess) return;
     const idx = sess.msgs.findIndex(m => m.id === msgId);
     if (idx < 0) return;
-    const truncated = sess.msgs.slice(0, idx);
+    let truncated = sess.msgs.slice(0, idx);
     const removed = sess.msgs.slice(idx);
     const y = ledgerYanqiu(); if (y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group_offline", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
     const byChar = new Map();
     removed.filter(m => m && m.senderId).forEach(m => { const a = byChar.get(m.senderId) || []; if (m.turnId) a.push(m.turnId); byChar.set(m.senderId, a); });
     // 整段小说那一拍：每个出场的人各自一个 turnId
     removed.filter(m => m && m.kind === "novel").forEach(m => (m.cast || []).forEach(x => { if (!x || !x.senderId) return; const a = byChar.get(x.senderId) || []; if (x.turnId) a.push(x.turnId); byChar.set(x.senderId, a); }));
+    const _gOffKeep = gsFor(groupId).keepRerolls === true && offRerollKeepable(removed) ? { msgs: removed, st: statesSnapMany(groupStateIds(groupId)) } : null;
     byChar.forEach((turns, charId) => { if (turns.length) rollbackCharTurns(charId, turns, false); });
     try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"offline_reroll",surface:"group_offline",charId:"g_"+groupId,before:sess.msgs,after:truncated,targetIndex:idx});}catch(e){}
     // 互通群的记忆才进过全局库；闭群只有本场提要（只进不出）。
     const cutPatch = offlineRerollPatch(sess, idx, !!gsFor(groupId).memoryInterop);
-    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: truncated } : s));
+    pGOffline(groupId, list => list.map(s => s.id === sess.id ? { ...s, ...cutPatch, msgs: _gOffKeep ? rerollStash(truncated, _gOffKeep) : truncated } : s));
+    if (_gOffKeep) truncated = rerollStash(truncated, _gOffKeep);
     if (!truncated.length) { toast("这条前面没有内容可续写"); return; }
     // reroll 别抄原文：把刚删掉的这版正文当"要避开的"喂进去（她 2026-07-25）
     const rerollAvoid = removed.filter(m => m && (m.role === "char" || m.senderId) && m.content).map(m => (m.senderName ? m.senderName + "：" : "") + String(m.content)).join("\n---\n");
@@ -10183,6 +10252,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       x_tiesPos: v => typeof setTiePos === "function" && setTiePos(v),
       x_unread: v => typeof setUnreadMap === "function" && setUnreadMap(v),
       x_walletLog: v => typeof setWalletLog === "function" && setWalletLog(v),
+      x_inventory: v => typeof setInventory === "function" && setInventory(v),
       x_myRecur: v => { const l = Array.isArray(v) ? v : []; myRecurRef.current = l; setMyRecurState(l); },
       x_shopWish: v => typeof setWish === "function" && setWish(v),
       x_worlds: v => typeof setWorlds === "function" && setWorlds(v),
@@ -10206,6 +10276,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .map(m => (m.charIds || []).some(x => doomed.has(x)) ? { ...m, charIds: m.charIds.filter(x => !doomed.has(x)) } : m);
       if (next.length !== lib.length || next.some((m, i) => m !== lib[i])) saveMemLib(next); }
     if (want("life") && window.DreamLoop && window.DreamLoop.removeCharDreams) gone.forEach(x => window.DreamLoop.removeCharDreams(x));
+    // 老流水没存出处（ref），只有一行「转账给 某某」——按名字再扫一遍，只扫我自己的钱包流水
+    if (want("money")) {
+      const names = (characters || []).filter(c => c && doomed.has(c.id)).flatMap(c => [c.name, c.remark]).map(x => String(x || "").trim()).filter(x => x.length >= 2);
+      if (names.length) { const wl = loadJSON("x_walletLog", []) || [];
+        const n = wl.filter(w => !(w && !w.ref && names.some(nm => String(w.label || "").includes(nm))));
+        if (n.length !== wl.length) { saveJSON("x_walletLog", n); if (typeof setWalletLog === "function") setWalletLog(n); } }
+    }
     if (want("bond")) // 关系那一格的键是「me->角色id」「角色id->别人」这种两头拼起来的，CharPurge 只认整键＝id，扫不到
     { const rels = loadJSON("x_rels", {}), keys = Object.keys(rels || {}).filter(k => k.split("->").some(x => doomed.has(x)));
       if (keys.length) { keys.forEach(k => delete rels[k]); saveJSON("x_rels", rels); if (typeof setRels === "function") setRels(rels); } }
@@ -10703,6 +10780,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       }
       if (ls.length) out.push("【她的日历——她自己写的安排】\n" + ls.slice(0, 12).join("\n"));
     }
+    // 她健康 app 里自己记的（她 2026-10-10：不替她编病历，只给她真记过的）
+    if (on("health") && window.HealthCtx && window.HealthCtx.peekText) {
+      const hx = window.HealthCtx.peekText();
+      if (hx) out.push("【她的健康 app——她自己记的这几天】\n" + hx);
+    }
     if (on("pics")) {
       const pics = [];
       // ⚠️发给别的面具那几个人、她亲手藏起来的那几个人的图不算（群友 2026-10-09：面具设了不给看，TA 还是点进去看了——
@@ -10715,8 +10797,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   // 递手机：先让TA写一段「怎么翻」的录像（每点开一样东西想一句），在她真的 app 上播完，再回聊天开口。
   //   跟「看他玩」一个形状（phone-watch.js），只是这回被翻的是她的手机。
-  const PEEK_APPS = { chats: ["messages", "chat"], forum: ["forum"], money: ["wallet"], shop: ["shop", "takeout"], music: ["listen"], memo: ["memo"], journal: ["diary"], pics: ["chat"], offline: ["offline"], calendar: ["calendar"] };
-  const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历" };
+  const PEEK_APPS = { chats: ["messages", "chat"], forum: ["forum"], money: ["wallet"], shop: ["shop", "takeout"], music: ["listen"], memo: ["memo"], journal: ["diary"], pics: ["chat"], offline: ["offline"], calendar: ["calendar"], health: ["health"] };
+  const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" };
   // 上次翻过什么（x_peekLast[charId]）：下一次先去没看过的
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
   const peekOpen = (app, who) => {
@@ -10812,6 +10894,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n\n能打开的：messages（消息列表——备注、最后一句、几点聊的都在上面）、chat（和某个人或某个群的聊天，要写 who＝对方名字或群名，能选的：" + others.join("、") + "）"
           + (apps.includes("offline") ? "；offline（她和别人线下见面的往期，要写 who＝那个人的名字）" : "")
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
+          + (apps.includes("health") ? "；health（她的健康 app，她自己记的吃喝、睡眠、心情、不舒服）" : "")
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
           + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 把她给你的备注改掉（只写这一步就行，进自己那一栏、点设置这些不用写；text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。"
           // ⚠️上一版写「真气到那份上才用，不想就别写」，TA几乎从来不动手（她 2026-10-02：「不会删好友拉黑或者回复，概率好低」）
@@ -12116,7 +12199,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 本体模式（不是言秋；她 2026-10-10：思考里在琢磨「mood 写平静、thought 写个念头」，又想自己是个「角色」）：
       //   下面任务句里不再点名要哪几格状态——没有表要填，只剩想说的话；能力照旧给。
       const _bodyOnly = !!_s.bodyMode && !_s.engineerEyes;
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
+      const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
+        ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -13766,6 +13852,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[turnId]};
         const removed=branch.removed,removedTurns=branch.turnIds;
         rerollAvoid = avoidOf(removed);
+        // 留版：要在下面回滚状态【之前】把这一版的心情心声好感拍下来
+        const _keepAlt = !isSideRoom && settingsFor(activeChar.id).keepRerolls === true && rerollKeepable(removed) ? { msgs: removed, st: charStateSnap(activeChar.id) } : null;
         // 共享账本也只做软删；离线时进入专用 outbox，联网后补盖 deleted_at。
         if (!isSideRoom) try {
           const y = ledgerYanqiu();
@@ -13785,7 +13873,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
         pChat(threadKey, p => {
           const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,turnId):branch;
-          const next=liveBranch.after;
+          const next=_keepAlt ? rerollStash(liveBranch.after, _keepAlt) : liveBranch.after;
           try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start, turnId }); } catch (e) {}
           return next;
         });
@@ -15040,8 +15128,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const y = ledgerYanqiu(); if (group && y && (group.memberIds || []).includes(y.id) && window.ChatLedgerShadow) window.ChatLedgerShadow.invalidate({ charId: y.id, threadType: "group", threadId: groupId, groupMemberIds: group.memberIds || [], groupName: group.name || "" }, removed);
       const byChar = new Map();
       removed.filter(x => x && x.senderId).forEach(x => { const rec = byChar.get(x.senderId) || { turns: [], legacyThoughts: [] }; if (x.turnId) rec.turns.push(x.turnId); if (!x.turnId && x.thought) rec.legacyThoughts.push(x.thought); byChar.set(x.senderId, rec); });
+      // 留版：回滚之前拍下全体成员此刻的状态
+      const _gKeep = gsFor(groupId).keepRerolls === true && rerollKeepable(removed) ? { msgs: removed, st: statesSnapMany(groupStateIds(groupId)) } : null;
       byChar.forEach((rec, charId) => rollbackCharTurns(charId, rec.turns, !rec.turns.length && !!(statesRef.current[charId] && rec.legacyThoughts.includes(statesRef.current[charId].thought))));
-      pGChat(groupId,p=>{const next=p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
+      pGChat(groupId,p=>{const next=_gKeep?rerollStash(p.slice(0,start),_gKeep):p.slice(0,start);try{window.MessageBranchShadow&&window.MessageBranchShadow.observeMutation({kind:"reroll",surface:"group",charId:"g_"+groupId,before:p,after:next,targetIndex:start,turnId:m.turnId});}catch(e){}return next;});
       const rerollAvoid = removed.filter(x => x && x.senderId && x.content && !x.recalled).map(x => (x.senderName ? x.senderName + "：" : "") + String(x.content)).join("\n");
       setTimeout(() => replyGroup(groupId, { rerollAvoid }), 200);
     }
@@ -27457,6 +27547,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: activeChar.id + "::" + activeRoomId,
     dirNotes: chatDirNotes[activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onAddDirNote: (text, long) => chatDirNoteAdd(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, text, long),
+    rerollNav: (activeRoomId && activeRoomId !== "main") || settingsFor(activeChar.id).keepRerolls !== true ? null : rerollNavOf(chats[activeChar.id] || []),
+    onRerollFlip: dir => rerollFlip(activeChar.id, activeChar.id, dir),
     onDelDirNote: id => chatDirNoteDel(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, id),
     locateAt: walletTrace && walletTrace.type === "char" && String(walletTrace.id) === String(activeChar.id) ? walletTrace : null,
     onLocated: () => setWalletTrace(null),
@@ -28092,6 +28184,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     character: activeChar, cut: peekCut[activeChar.id], byName: (((characters || []).find(x => x.id === peekCut[activeChar.id].by) || {}).name) || "",
     onBack: leaveCutPage, onRestore: () => peekRestore(activeChar.id)
   });else if (screen === "thread" && activeChar) body = mkThread();else if (screen === "gthread" && activeGroup) body = h(GroupThread, {
+    rerollNav: gsFor(activeGroup.id).keepRerolls === true ? rerollNavOf(groupChats[activeGroup.id] || []) : null,
+    onRerollFlip: dir => rerollFlipGroup(activeGroup.id, dir),
     locateAt: walletTrace && walletTrace.type === "group" && String(walletTrace.id) === String(activeGroup.id) ? walletTrace : null,
     onLocated: () => setWalletTrace(null),
     openUnread: gOpenUnread && gOpenUnread.id === activeGroup.id ? gOpenUnread.n : 0,
@@ -28291,6 +28385,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     myMask: anonMe,
     myBox: anonMeBox,
     onGenMask: genAnonMe,
+    onSaveMask: saveAnonMe,
     onOpenMe: () => setScreen("anonme"),
     onBrew: refillAnonPool,
     onOpen: openAnon,
@@ -28301,6 +28396,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     busy: anonBusy,
     characters: liveChars,
     onGenMask: genAnonMe,
+    onSaveMask: saveAnonMe,
     onAsk: askAnonMe,          // 不传 charId＝随机挑一个来问
     onAnswer: answerAnonMe,
     onReveal: revealAnonMe,
@@ -30411,6 +30507,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
             actDesc: !!s.actDesc,
+            keepRerolls: s.keepRerolls === true,
             actLong: !!s.actLong,
             enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。
@@ -30617,6 +30714,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOpenBox: () => openAnonBox(anonChar),
     myMask: anonMe,
     onGenMask: genAnonMe,
+    onSaveMask: saveAnonMe,
     onClose: () => setAnonChar(null)
   }), offlineChar && h(OfflineMode, {
     showReason: !!settingsFor(offlineChar.id).showReasoning,
@@ -30671,6 +30769,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDeleteExample: id => deleteOfflineStyleExample(offlineChar.id, id),
     onEditMsg: (mid, txt) => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid, desc: txt }) || offlineEditMsg(activeOfflineScopeKey, mid, txt),
     onRerollMsg: mid => reshootOffShot({ scopeKey: activeOfflineScopeKey, mid }) || offlineRerollMsg(activeOfflineScopeKey, mid),
+    rerollNav: !offlineIsRoom(activeOfflineScopeKey) && settingsFor(offlineChar.id).keepRerolls === true ? rerollNavOf(offLiveMsgs(offlines[activeOfflineScopeKey])) : null,
+    onRerollFlip: dir => rerollFlipOffline(activeOfflineScopeKey, dir),
     onDelMsg: (mid, idx) => offlineDelMsg(activeOfflineScopeKey, mid, idx),
     onDelSession: (sid, idx) => offlineDelSession(activeOfflineScopeKey, sid, idx),
     onEnd: () => endOffline(activeOfflineScopeKey),
@@ -30716,6 +30816,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPinShike: ms => pinGroupToShike(offlineGroup, ms),
     onEditMsg: (mid, txt) => reshootOffShot({ groupId: offlineGroup.id, mid, desc: txt }) || groupOfflineEditMsg(offlineGroup.id, mid, txt),
     onRerollMsg: mid => reshootOffShot({ groupId: offlineGroup.id, mid }) || groupOfflineRerollMsg(offlineGroup.id, mid),
+    rerollNav: gsFor(offlineGroup.id).keepRerolls === true ? rerollNavOf(offLiveMsgs(groupOfflines[offlineGroup.id])) : null,
+    onRerollFlip: dir => rerollFlipGroupOffline(offlineGroup.id, dir),
     onDelMsg: (mid, idx) => groupOfflineDelMsg(offlineGroup.id, mid, idx),
     onDelSession: (sid, idx) => groupOfflineDelSession(offlineGroup.id, sid, idx),
     onOOC: txt => groupOfflineOOC(offlineGroup.id, txt),

@@ -3099,9 +3099,9 @@ function Forum({
     const moreC = gen && gen.forumMore === p.id;
     const c = (!p.anon && p.authorType === "character") ? charOf(p.authorId) : null;
     const alt = isAlt(p);
-    return h("div", { className: "flex-1 flex flex-col min-h-0" },
+    return h("div", { "data-wk": "fopostpage", className: "flex-1 flex flex-col min-h-0" },
       h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
-        h("div", { style: { margin: "12px 13px 4px", padding: "16px 15px 14px", borderRadius: 20, border: "1px solid " + FORUM_SKIN.line, borderTop: "3px solid " + forumBoardSkin(p.board)[0], background: FORUM_SKIN.paper, boxShadow: "0 10px 24px rgba(42,55,38,.07)" } },
+        h("div", { "data-wk": "fopostcard", style: { margin: "12px 13px 4px", padding: "16px 15px 14px", borderRadius: 20, border: "1px solid " + FORUM_SKIN.line, borderTop: "3px solid " + forumBoardSkin(p.board)[0], background: FORUM_SKIN.paper, boxShadow: "0 10px 24px rgba(42,55,38,.07)" } },
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
@@ -3438,7 +3438,9 @@ function Forum({
   // ⚠️overflowX 兜死：里头任何一处顶宽了（一条超长的 @、一串大数字），整页就会
   //   横着滑起来——连顶栏和返回键一起被推出屏幕（她 2026-09-01 那张截图就是这样，
   //   头像左半边和返回键都不见了）。里头该修的照修，但这一道得先拦住整页跑偏。
-  return h("div", { className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink, overflowX: "hidden" } },
+  // 美化钩子（群里 2026-10-10：「论坛的面板没法改颜色，让秋秋生了应用了也没有用」）——
+  //   原来整页只有帖子和楼层里的小零件挂着钩子，底色、顶栏、版块那排、底栏、设置一个都对不上，秋秋写什么都落空。
+  return h("div", { "data-wk": "forumpage", "data-nav": nav, "data-sub": inSub ? "1" : "0", className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink, overflowX: "hidden" } },
     // 紧凑居中顶栏：左右等宽，论坛不再是普通列表左上角的一行大字。
     h(Head, { zh: title, sub: (!inSub && nav === "home") ? "街坊的告示板" : "",
       onBack: backFn || onBack, ink: FORUM_SKIN.ink, subInk: FORUM_SKIN.fog, lineInk: FORUM_SKIN.line,
@@ -3447,7 +3449,7 @@ function Forum({
       right: h("div", { className: "flex items-center", style: { gap: 4 } },
         (!inSub) && h("button", { onClick: () => setSettingsOpen(true), "aria-label": "论坛设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 32, height: 40 } }, h(GConfig, { size: 17, color: FORUM_SKIN.ink })),
         rightEl ? h("span", { className: "flex items-center justify-center", style: { width: 32, height: 40 } }, rightEl) : null) }),
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
+    (!inSub && nav === "home") && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
       const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     }).concat([
@@ -3469,7 +3471,7 @@ function Forum({
       //   之前它躺在帖子流【最底下】——底下还压着导航栏，等于根本不存在。
       //   这条横杠是版块级的、永远一行高、永远在屏幕上，所以版块级的动作就该长在这儿；
       //   它和吧规是两颗并排的兄弟按钮，不是套在一起的（套着点哪儿都会展开吧规）。
-      h("div", { className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
+      h("div", { "data-wk": "forules", className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
         h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "flex-1 min-w-0 flex items-center text-left active:opacity-60", style: { gap: 6 } },
           h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, myBoardNow ? "简介" : "吧规"),
           h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, boardRules[0]),
@@ -3481,11 +3483,11 @@ function Forum({
         boardRules.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
+    (!inSub && nav === "home") && h("div", { "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
-    (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
-      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
+    (!inSub) && h("div", { "data-wk": "fonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
+      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
         h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
         nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
