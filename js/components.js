@@ -7369,17 +7369,21 @@ function ProfileSheet({
   const [appearance, setAppearance] = useState(profile.appearance || "");
   const [refPhoto, setRefPhoto] = useState(profile.refPhoto || null);
   const [photoOutfit, setPhotoOutfit] = useState(profile.photoOutfit || "");
+  // 这张面具在哪个世界（群友 2026-10-10：「不同的面具在不同的世界」）：
+  //   ""＝跟着设置里的位置感知走；"real"＝现实定位；某个架空世界的 id＝认这张面具的角色都当她在那儿
+  const [geoRealm, setGeoRealm] = useState(profile.geoRealm || "");
+  const worldList = (loadJSON("x_worlds", []) || []).filter(w => w && w.id);
   // 表单 → 一份面具。保存、切走前的自动落盘、设为主面具，都读这一份（只拼这一处）
   const formOf = () => Object.assign({}, cur, {
     name, label: label.trim().slice(0, 20), tagline, persona, avatarImage, color,
     birthday: birthday.trim(), appearance: appearance.trim(),
-    refPhoto: refPhoto, photoOutfit: photoOutfit.trim()
+    refPhoto: refPhoto, photoOutfit: photoOutfit.trim(), geoRealm: geoRealm || ""
   });
   const loadInto = m => {
     setName(m.name || ""); setLabel(m.label || ""); setTagline(m.tagline || ""); setPersona(m.persona || "");
     setAvatarImage(m.avatarImage || null); setColor(m.color || AV_COLORS[0]);
     setBirthday(m.birthday || ""); setAppearance(m.appearance || "");
-    setRefPhoto(m.refPhoto || null); setPhotoOutfit(m.photoOutfit || "");
+    setRefPhoto(m.refPhoto || null); setPhotoOutfit(m.photoOutfit || ""); setGeoRealm(m.geoRealm || "");
   };
   // 切到另一张之前，先把手上这张存了——不然改了一半切走就白改（她最容易撞上的那一下）
   const commit = () => {
@@ -7395,7 +7399,7 @@ function ProfileSheet({
   const addMask = () => {
     commit();
     const id = "mk_" + Date.now();
-    if (onSaveMask) onSaveMask({ id: id, name: "", label: "", tagline: "", persona: "", avatarImage: null, color: AV_COLORS[0], birthday: "", appearance: "", refPhoto: null, photoOutfit: "" });
+    if (onSaveMask) onSaveMask({ id: id, name: "", label: "", tagline: "", persona: "", avatarImage: null, color: AV_COLORS[0], birthday: "", appearance: "", refPhoto: null, photoOutfit: "", geoRealm: "" });
     setEditId(id); loadInto({});
   };
   const isPrimary = editId ? (String(primaryId || "") === editId) : !primaryId;
@@ -7478,7 +7482,20 @@ function ProfileSheet({
       fontSize: 15,
       fontFamily: F_BODY
     }
-  })), /*#__PURE__*/React.createElement(LineField, {
+  })), h(LineField, { zh: "在哪个世界", en: "World" },
+    h("div", { "data-wk": "maskworld" },
+      h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 4 } },
+        [{ id: "", name: "跟着设置" }, { id: "real", name: "现实定位" }].concat(worldList).map(w => {
+          const on = (geoRealm || "") === w.id;
+          return h("button", { key: w.id || "_follow", onClick: () => setGeoRealm(w.id), "data-on": on ? "1" : "0", className: "active:opacity-70",
+            style: { minHeight: 40, fontFamily: F_BODY, fontSize: 12.5, padding: "6px 12px", borderRadius: 8, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.ink } }, w.name);
+        })),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.7, color: t.fog, marginTop: 6 } },
+        geoRealm && geoRealm !== "real"
+          ? "认这张面具的角色都当你在这个世界里，不提现实城市；具体在哪个地点，去地图 → 架空 → 这个世界把自己钉上去。"
+          : geoRealm === "real" ? "认这张面具的角色按你的现实定位来（要在设置里打开位置感知、给过定位）。"
+          : worldList.length ? "跟着「设置 → 他们知道现在几点、我在哪」里选的那个走。" : "还没有架空世界：去地图 → 架空 先建一个，这里才有得选。"))),
+  /*#__PURE__*/React.createElement(LineField, {
     zh: "人设",
     en: "Persona"
   }, /*#__PURE__*/React.createElement(LineArea, {

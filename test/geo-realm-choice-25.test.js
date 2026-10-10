@@ -38,8 +38,9 @@ test("app 里用到她位置的地方都走 realGeo / geoForPrompt，不再直�
   assert.doesNotMatch(app, /prefs\.geoAware \? geo : null/);
   assert.doesNotMatch(app, /prefs\.geoAware && geo && typeof geo\.lat === "number"/);
   assert.doesNotMatch(app, /_prefs\.geoAware \? loadJSON\("x_geo"/);
-  assert.equal((app.match(/geo: geoForPrompt\(\)/g) || []).length, 1);
-  assert.match(app, /ctx\.geo = geoForPrompt\(\);/);
+  // 2026-10-10 起问的是「这个角色眼里她在哪」：面具可以自带世界
+  assert.equal((app.match(/geo: geoForPrompt\(char\.id\)/g) || []).length, 1);
+  assert.match(app, /ctx\.geo = geoForPrompt\(char\.id\);/);
 });
 
 test("提示词里架空世界那一句不提现实，日记也按世界盖戳", () => {

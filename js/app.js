@@ -963,9 +963,16 @@ function App() {
   const worldsRef = useRef([]); worldsRef.current = worlds;
   // 「她在哪」只问 MapKit.userRealm 一处：realGeo=只有选了现实定位才有坐标（天气/撒点/小组件），
   // geoForPrompt=喂给角色的那一句（架空世界时是世界名·地点，不带任何现实城市）。
-  const myRealm = () => (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(prefs, geo, worlds) : (prefs.geoAware && geo ? { kind: "real", geo: geo } : null);
-  const realGeo = () => { const r = myRealm(); return r && r.kind === "real" && typeof r.geo.lat === "number" ? r.geo : null; };
-  const geoForPrompt = () => { const r = myRealm(); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
+  // 面具可以自带「在哪个世界」（群友 2026-10-10：不同的面具在不同的世界）：问的是某个角色眼里她在哪，
+  //   就先看 TA 认的那张面具；面具没选＝跟着设置里那一份。选了就当位置感知开着。
+  const realmPrefsFor = charId => {
+    const m = charId && typeof profileFor === "function" ? profileFor(charId) : null;
+    const r = m && m.geoRealm;
+    return r ? { ...prefs, geoAware: true, geoRealm: r } : prefs;
+  };
+  const myRealm = charId => (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(realmPrefsFor(charId), geo, worlds) : (prefs.geoAware && geo ? { kind: "real", geo: geo } : null);
+  const realGeo = charId => { const r = myRealm(charId); return r && r.kind === "real" && typeof r.geo.lat === "number" ? r.geo : null; };
+  const geoForPrompt = charId => { const r = myRealm(charId); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
   const [worldBusy, setWorldBusy] = useState(false);
   const [anonPool, setAnonPool] = useState([]);   // 匿名题库(x_anonPool):全院共用的一总库,网友出题和角色作答彻底隔开
   const [apiProfiles, setApiProfiles] = useState([]);
@@ -4727,7 +4734,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (next) out += "\n待会儿：" + (next._charTime || next.time || "") + " " + next.title;
     // 天气搭日程便车进聊天（读缓存，零请求零新增常驻）：TA 家乡的天气，没设家乡用用户所在地
     try {
-      const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo();
+      const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo(char.id);
       const w = hm && typeof weatherCached === "function" ? weatherCached(hm.lat, hm.lng) : null;
       if (w) {
         const sp = typeof wxSpecial === "function" ? wxSpecial(w) : null;
@@ -4999,7 +5006,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const w = WorldWeather.dayOf(realm.world.id + "|" + realm.node, realm.terrain, new Date());
         return w ? (weatherLine(w) + "（" + realm.world.name + "·" + realm.node + "）") : "";
       }
-      const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo();
+      const hm = char.home && typeof char.home.lat === "number" ? char.home : realGeo(char.id);
       return hm ? weatherLine(await weatherFor(hm.lat, hm.lng)) : "";
     } catch (e) { return ""; }
   };
@@ -6291,7 +6298,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (!isLeanYanqiuChat) return rows;
       return copyMemoryRecallMeta(rows, rows.slice(0, 3).map(e => ({ ...e, text: String(e.text || "").replace(/\s+/g, " ").trim().slice(0, 240) })));
     })(),
-    geo: geoForPrompt(),
+    geo: geoForPrompt(char.id),
     // TA自己住在哪儿（v64.72）：地图上钉的那个点。原来只用来画地图和查天气，
     // 一次都没进过提示词——所以「生成TA的生活」那几处只能靠训练先验猜TA在哪个国家。
     homeCity: (char && char.home && char.home.city) ? String(char.home.city).trim().slice(0, 40) : "",
@@ -15556,7 +15563,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const gateRoomContext = (ctx, char, chatKey, room) => {
     const clockOn = roomTimeAwareFor(room, char.id);
     ctx.timeAware = clockOn;
-    if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = geoForPrompt(); }
+    if (clockOn) { ctx.schedNow = schedNowFor(char); ctx.geo = geoForPrompt(char.id); }
     const gated = gateByDoor(ctx, { ...room, cognition: { ...room.cognition, schedule: clockOn } });
     // 只带截过的记忆库：门把「一起经历过的事」整栏关了，记忆库这一格单独放回来（上面 ctx 里那份已经截到起点）
     if (window.ChatRooms && window.ChatRooms.memOnly && window.ChatRooms.memOnly(room)) gated.memLib = Array.isArray(ctx.memLib) ? ctx.memLib : [];
