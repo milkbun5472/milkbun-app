@@ -509,7 +509,7 @@
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
         ["photocard", "照片卡整张（相纸的底、边、影）"], ["photocap", "照片底下那行配文"],
         ["photoface", "没真图的照片卡里那块相面（米色渐变那块，改色写 background）"], ["phototext", "相面上那句描述的字"], ["photohint", "照片卡右下「点开看这张」"],
-        ["composer", "底部输入栏整条"], ["narrbar", "旁白模式时输入栏上面那一条（两档＋还在生效的便签）"], ["narrkind", "旁白那两档「此刻发生了什么／往后的方向」（data-on=\"1\" 选中）"], ["dirlong", "「管接下来两轮／整场有效」那颗切换"], ["dirnote", "一条还在生效的方向便签"], ["chatback", "返回键"], ["wxcard", "聊天里的天气小卡片整张（data-kind＝sun/partly/cloud/fog/rain/storm/snow）"], ["wxcardsky", "天气卡上半截那块天"], ["wxcardtemp", "天气卡上的大字气温"], ["wxcardrain", "天气卡上的降雨概率小签"], ["wxcardsay", "天气卡下半截TA那一句叮嘱"], ["chatmore", "右上角更多/设置键"],
+        ["composer", "底部输入栏整条"], ["narrbar", "旁白模式时输入栏上面那一条（两档＋还在生效的便签）"], ["narrkind", "旁白那两档「此刻发生了什么／往后的方向」（data-on=\"1\" 选中）"], ["dirlong", "「管接下来两轮／整场有效」那颗切换"], ["dirnote", "一条还在生效的方向便签"], ["chatback", "返回键"], ["namecard", "聊天里那张推荐名片整张"], ["namecardname", "名片上的名字"], ["namecardpick", "选名片那一页的一行"], ["wxcard", "聊天里的天气小卡片整张（data-kind＝sun/partly/cloud/fog/rain/storm/snow）"], ["wxcardsky", "天气卡上半截那块天"], ["wxcardtemp", "天气卡上的大字气温"], ["wxcardrain", "天气卡上的降雨概率小签"], ["wxcardsay", "天气卡下半截TA那一句叮嘱"], ["chatmore", "右上角更多/设置键"],
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
         ["chatpanel", "点＋弹出来的那整块面板（底色、上边线、内边距；群友 2026-10-06 要的）"],
         ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"],

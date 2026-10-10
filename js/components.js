@@ -8029,6 +8029,18 @@ function WeatherChatCard({ m, character }) {
       h("div", { style: { fontSize: 10, letterSpacing: ".12em", color: "#a39a8d", marginBottom: 3 } }, (character ? (character.remark || character.name) : "TA") + " 说"),
       m.say) : null);
 }
+// 推荐名片（群里 2026-10-10：「可以加个转发名片」）：微信「推荐给朋友」那张卡——头像、名字、一句话
+function NameCardMsg({ m, characters }) {
+  const t = useTheme();
+  const c = (characters || []).find(x => x && x.id === m.cardId) || { name: m.cardName, color: t.tint };
+  return h("div", { "data-wk": "namecard", style: { borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, overflow: "hidden" } },
+    h("div", { className: "flex items-center", style: { gap: 11, padding: "12px 13px" } },
+      h(Avatar, { character: c, size: 44, radius: 10 }),
+      h("div", { className: "min-w-0 flex-1" },
+        h("div", { "data-wk": "namecardname", style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: t.ink } }, m.cardName || c.name),
+        m.cardTag ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, m.cardTag) : null)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "5px 13px 7px", borderTop: "1px solid " + t.line } }, "个人名片"));
+}
 // 朋友圈投票：每个选项一条，条有多长＝几票，底下写谁投的
 function MomentPoll({ poll, characters }) {
   const t = useTheme();
@@ -9323,6 +9335,7 @@ function ChatThread({
   const [descView, setDescView] = useState(null);
   const [transferOpen, setTransferOpen] = useState(false);
   const [geoOpen, setGeoOpen] = useState(false);
+  const [cardPick, setCardPick] = useState(false);   // 推荐名片：选谁
   const [stickerOpen, setStickerOpen] = useState(false);
   const [voiceMsgOpen, setVoiceMsgOpen] = useState(false);
   const [callLogOpen, setCallLogOpen] = useState(false);
@@ -9390,7 +9403,7 @@ function ChatThread({
     });
     return out.slice(0, 5);
   }, [messages]);
-  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
+  const PANEL = [["location", "位置", "pin"], ["sticker", "表情包", "sticker"], ["photo", "照片", "picture"], ["voicemsg", "发语音", "wave"], ["voice", "语音通话", "handset"], ["video", "视频通话", "camcorder"], ["calllog", "通话记录", "clock"], ["chatsearch", "查找记录", "magnifier"], ["moments", "朋友圈", "grid"], ["transfer", "转账", "bill"], ["mykin", "亲属卡", "card"], ["pat", "拍一拍", "hand"], ["namecard", "名片", "contact"], ["peekphone", "给TA看手机", "mobile"], ["dateinvite", "邀约", "invite"], ["file", "文件", "file"], ["halfwin", "半窗", "halfwin"]].filter(([key]) => key !== "halfwin" || !!onHalfWin).filter(([key]) => room && !room.main ? !["moments", "transfer", "mykin", "peekphone", "dateinvite"].includes(key) : true).filter(([key]) => key !== "mykin" || !!onMyKin).filter(([key]) => key !== "dateinvite" || !!onDateInvite).filter(([key]) => key !== "peekphone" || !!onHandPhone);
   const sendRich = msg => {
     onSendRich({
       ts: Date.now(),
@@ -9400,7 +9413,10 @@ function ChatThread({
     setPanelOpen(false);
   };
   const onPanelTap = k => {
-    if (k === "file") {
+    if (k === "namecard") {
+      setPanelOpen(false);
+      setCardPick(true);
+    } else if (k === "file") {
       setPanelOpen(false);
       pickTextFile(msg => sendRich(Object.assign({ role: "user" }, msg)));
     } else if (k === "location") {
@@ -9861,6 +9877,7 @@ function ChatThread({
         h("div", { style: { minWidth: 0, flex: "0 1 268px", maxWidth: 268 } }, card),
         isU && dsp.myAvatar && h(Avatar, { character: meAv, size: 40, radius: 10 }));
     };
+    if (m.kind === "namecard") return cardRow(i, m, h(NameCardMsg, { m: m, characters: characters }));
     if (m.kind === "pat") return h("div", {
       key: i,
       // 长按出菜单（她 2026-10-02：拍一拍也要能撤回，跟别的消息撤回一样）
@@ -10432,7 +10449,20 @@ function ChatThread({
       background: t.bg2,
       borderTop: `1px solid ${t.line}`
     }, CHAT_PANEL_SCROLL)
-  }, PANEL.map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k: k, zh: zh, glyph: glyph, onTap: onPanelTap }))), specialKind && h(Sheet, {
+  }, PANEL.map(([k, zh, glyph]) => h(ChatToolKey, { key: k, k: k, zh: zh, glyph: glyph, onTap: onPanelTap }))),
+  cardPick && h(PageSheet, { onClose: () => setCardPick(false) },
+    h(Eyebrow, { style: { marginBottom: 4 } }, "推荐名片"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 12, lineHeight: 1.6 } }, "把谁的名片发给 " + cName + "？" + cName + " 会照自己的性子接：认识的聊起这个人，不认识的会好奇。"),
+    (characters || []).filter(c => c && character && c.id !== character.id).map(c => h("button", { key: c.id, "data-wk": "namecardpick",
+      onClick: () => { setCardPick(false); const nm = c.remark || c.name, tag = String(c.tagline || c.motto || "").trim().slice(0, 40);
+        sendRich({ role: "user", kind: "namecard", cardId: c.id, cardName: nm, cardTag: tag,
+          content: "〔推荐名片〕我把「" + nm + "」的名片推给了你" + (tag ? "——" + tag : "") + (c.npc ? "（是别人身边的人）" : "") }); },
+      className: "w-full flex items-center gap-3 py-2.5 active:opacity-60", style: { borderBottom: "1px solid " + t.line } },
+      h(Avatar, { character: c, size: 38, radius: 10 }),
+      h("span", { className: "flex-1 min-w-0 text-left" },
+        h("span", { style: { display: "block", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink } }, c.remark || c.name),
+        (c.tagline || c.motto) ? h("span", { style: { display: "block", fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.tagline || c.motto) : null)))),
+  specialKind && h(Sheet, {
     onClose: () => setSpecialKind(null)
   }, h("div", {
     className: "flex items-center justify-between mb-3"
@@ -14489,6 +14519,8 @@ function CGlyph({ k, size = 24, color = "#1b1a17" }) {
     grid: [R(4, 4, 7, 7, 1.6), R(13, 4, 7, 7, 1.6), R(4, 13, 7, 7, 1.6), R(13, 13, 7, 7, 1.6)],
     bill: [R(2.8, 6.4, 18.4, 11.2, 2), C(12, 12, 2.6), P("M6.4 10v4M17.6 10v4")],
     card: [R(2.8, 6, 18.4, 12, 2.2), P("M2.8 10.2h18.4M6.2 14.8h4.6")],
+    // 名片：一张卡，左边一个人像（头 + 肩），右边两行字
+    contact: [R(2.8, 5.5, 18.4, 13, 2.2), P("M8.4 10.6a1.7 1.7 0 100-3.4 1.7 1.7 0 000 3.4zM5.4 15.4c.4-1.8 1.6-2.8 3-2.8s2.6 1 3 2.8M13.6 9.4h4.6M13.6 13h3.2")],
     hand: [P("M8.4 12.6V6.3a1.6 1.6 0 013.2 0v5.1"), P("M11.6 11.4V5.3a1.6 1.6 0 013.2 0v6.1"), P("M14.8 11.7V7.5a1.6 1.6 0 013.2 0v6.8c0 3.5-2.4 6-5.7 6-2.4 0-3.9-.9-5.2-2.7l-2.2-3a1.6 1.6 0 012.5-2l1.4 1.6")],
     bars: [P("M4 20.2h16"), P("M7.4 20.2v-8.4M12 20.2V5.4M16.6 20.2v-5.6")],
     packet: [R(4.2, 3.6, 15.6, 16.8, 2.4), P("M4.2 10.2h15.6"), C(12, 14.2, 2.2)],
