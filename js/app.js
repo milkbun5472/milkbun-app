@@ -968,7 +968,6 @@ function App() {
   const worldsRef = useRef([]); worldsRef.current = worlds;
   // 「她在哪」只问 MapKit.userRealm 一处：realGeo=只有选了现实定位才有坐标（天气/撒点/小组件），
   // geoForPrompt=喂给角色的那一句（架空世界时是世界名·地点，不带任何现实城市）。
-<<<<<<< HEAD
   // 面具可以自带「在哪个世界」（群友 2026-10-10：不同的面具在不同的世界）：问的是某个角色眼里她在哪，
   //   就先看 TA 认的那张面具；面具没选＝跟着设置里那一份。选了就当位置感知开着。
   const realmPrefsFor = charId => {
@@ -978,10 +977,6 @@ function App() {
   };
   const myRealm = charId => (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(realmPrefsFor(charId), geo, worlds) : (prefs.geoAware && geo ? { kind: "real", geo: geo } : null);
   const realGeo = charId => { const r = myRealm(charId); return r && r.kind === "real" && typeof r.geo.lat === "number" ? r.geo : null; };
-  const geoForPrompt = charId => { const r = myRealm(charId); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
-=======
-  const myRealm = () => (window.MapKit && window.MapKit.userRealm) ? window.MapKit.userRealm(prefs, geo, worlds) : (prefs.geoAware && geo ? { kind: "real", geo: geo } : null);
-  const realGeo = () => { const r = myRealm(); return r && r.kind === "real" && typeof r.geo.lat === "number" ? r.geo : null; };
   // 她这边的真实天气给谁看（群友 2026-10-10 许愿：问他天气、他发天气小卡片提醒带伞穿衣）。
   // ⚠️她 2026-10-10：「就算我把自己放进架空世界、填了真实世界，还是要按真实的来」——
   //   所以这里不走 myRealm（那边选了架空世界就没有坐标），直接用她填的／定位到的那个真实位置 x_geo。
@@ -996,8 +991,7 @@ function App() {
     if (!w) { try { weatherFor(g.lat, g.lng); } catch (e) {} return null; }
     return { w, place: String(g.label || "").slice(0, 16), line: weatherLine(w) + (w.pp != null ? "，今天降雨概率 " + w.pp + "%" : "") };
   };
-  const geoForPrompt = () => { const r = myRealm(); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
->>>>>>> origin/main
+  const geoForPrompt = charId => { const r = myRealm(charId); return !r ? null : r.kind === "real" ? r.geo : { label: r.label, realm: "world", world: r.world.name, node: r.node }; };
   const [worldBusy, setWorldBusy] = useState(false);
   const [anonPool, setAnonPool] = useState([]);   // 匿名题库(x_anonPool):全院共用的一总库,网友出题和角色作答彻底隔开
   const [apiProfiles, setApiProfiles] = useState([]);
