@@ -233,7 +233,7 @@ test("翻手机：能单独藏某个人的聊天（列表里也不出现）；TA
   assert.match(c, /onHandPhone\(peekAllow, peekHide, peekAllMasks\)/);
   assert.match(c, /window\.__peekHide\.has\(String\(it\.id\)\)/);
   assert.match(a, /const peekPhoneMaterial = \(viewerId, allow, hideIds, maskIds\)/);
-  assert.match(a, /try \{ window\.__peekHide = null; \} catch \(e\) \{\}/, "播完要清");
+  assert.match(a, /try \{ window\.__peekHide = null;[^}]*\} catch \(e\) \{\}/, "播完要清");
   assert.match(a, /askPhone:"开口那句话"=想看她的手机；/);
   assert.match(a, /kind: "askphone"/);
   assert.match(c, /function PhoneAskCard\(/);

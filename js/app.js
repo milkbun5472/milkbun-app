@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.228";
+const APP_VERSION = "v75.229";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10542,10 +10542,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     if (on("forum")) {
       const seenT = new Set(last.taps || []);
-      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me").sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
+      const mine = (forumPostsRef.current || []).filter(p => p && p.authorType === "me" && !maskTrace(p.title) && !maskTrace(p.body)).sort((a, b) => (seenT.has(cut(a.title, 30)) - seenT.has(cut(b.title, 30))) || ((b.ts || 0) - (a.ts || 0))).slice(0, 5);
       // 评论区也写上：谁在底下说了什么、她回了谁（她 2026-10-01：「论坛也还是只是看正文不看评论区」）
       const cms = forumCommentsRef.current || {};
-      const floors = p => (Array.isArray(cms[p.id]) ? cms[p.id] : []).slice(0, 5).map(f => "    " + (f.authorType === "me" ? "她" : cut(f.authorName, 12) || "有人") + "评论：" + cut(f.body || f.text || f.content, 50)
+      // 别的面具那几个人在底下的评论、提到他们的帖，一起不在（他们根本不认识这个「她」）
+      const floors = p => (Array.isArray(cms[p.id]) ? cms[p.id] : []).filter(f => f && !maskTrace(f.authorName) && !maskTrace(f.body || f.text || f.content)).slice(0, 5).map(f => "    " + (f.authorType === "me" ? "她" : cut(f.authorName, 12) || "有人") + "评论：" + cut(f.body || f.text || f.content, 50)
         + (Array.isArray(f.replies) && f.replies.length ? "\n" + f.replies.slice(0, 2).map(r => "      ↳" + (r.authorType === "me" ? "她" : cut(r.authorName, 12) || "有人") + "：" + cut(r.body || r.text || r.content, 40)).join("\n") : "")).join("\n");
       if (mine.length) out.push("【论坛发过的帖】\n" + mine.map(p => "· " + md(p.ts) + "发在" + (p.board || "") + (p.anon || p.board === "匿名吧" ? "（匿名发的）" : p.alt ? "（用她的小号「" + cut(p.authorName, 12) + "」发的——平时没人知道这是她）" : "") + "《" + cut(p.title, 30) + "》" + cut(p.body, 70) + (floors(p) ? "\n" + floors(p) : "")).join("\n"));
     }
@@ -10575,19 +10576,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (on("music")) {
       const songs = ((listenRef.current && listenRef.current.songs) || []).slice(0, 8);
       // 播放记录＋她挂着跟谁一起听（她 2026-10-01：「一起听要不要搞可以看播放记录还有限制挂着和谁一起听」）
-      const L = listenRef.current || {}, who = id => !id ? "" : id === viewerId ? "你" : "「" + nameOf(id) + "」";
+      const L = listenRef.current || {}, who = id => !id || maskSet.has(String(id)) ? "" : id === viewerId ? "你" : "「" + nameOf(id) + "」";
       const hist = (L.history || []).slice(0, 10);
-      const now = L.partnerId ? "她现在挂着跟" + who(L.partnerId) + "一起听\n" : "";
-      if (hist.length) out.push("【一起听】\n" + now + "播放记录：\n" + hist.map(x => "· " + md(x.ts) + "《" + cut(x.title, 24) + "》" + (x.artist ? " - " + cut(x.artist, 16) : "") + (x.partnerId ? "，和" + who(x.partnerId) + "一起听的" : "，一个人听的")).join("\n"));
+      const now = L.partnerId && who(L.partnerId) ? "她现在挂着跟" + who(L.partnerId) + "一起听\n" : "";
+      if (hist.length) out.push("【一起听】\n" + now + "播放记录：\n" + hist.map(x => "· " + md(x.ts) + "《" + cut(x.title, 24) + "》" + (x.artist ? " - " + cut(x.artist, 16) : "") + (x.partnerId && who(x.partnerId) ? "，和" + who(x.partnerId) + "一起听的" : "，一个人听的")).join("\n"));
       else if (songs.length || now) out.push("【一起听】\n" + now + songs.map(s => "· " + cut(s.name || s.title, 24) + (s.artist ? " - " + cut(s.artist, 16) : "")).join("\n"));
     }
     if (on("memo")) {
       const d = loadJSON("x_memo", null) || {};
-      const ls = (d.notes || []).map(n => "· 备忘：" + cut(n.title || n.body, 40)).concat((d.reminders || []).filter(r => !r.done).map(r => "· 提醒：" + cut(r.title, 30)));
+      const ls = (d.notes || []).filter(n => !maskTrace(n.title) && !maskTrace(n.body)).map(n => "· 备忘：" + cut(n.title || n.body, 40)).concat((d.reminders || []).filter(r => !r.done && !maskTrace(r.title)).map(r => "· 提醒：" + cut(r.title, 30)));
       if (ls.length) out.push("【备忘录】\n" + ls.slice(0, 8).join("\n"));
     }
     if (on("journal")) {
-      const es = ((diariesRef.current || {})["__me"] || []).slice(-3);
+      const es = ((diariesRef.current || {})["__me"] || []).filter(e => e && !maskTrace(e.title) && !maskTrace((e.paras || []).map(p => p.text).join(" "))).slice(-3);
       if (es.length) out.push("【她的手记】\n" + es.map(e => "· " + md(e.ts) + "写的" + (e.title ? "《" + cut(e.title, 20) + "》" : "") + cut((e.paras || []).map(p => p.text).join(" "), 90)).join("\n"));
     }
     // 线下见面的往期（群友 2026-10-09 许愿：「线下和谁约会了之类的」）：哪天、跟谁、待了多久、做了什么。
@@ -10670,11 +10671,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     return (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id)
       .concat(mine ? (groupsRef.current || []).filter(Boolean).map(g => g.id) : []);
   };
+  // 录像播着的时候，钱包、购物、外卖这几屏也照「别的面具不在」来摆（她点开的是真 app，不滤的话屏幕上就露了）
+  const peekMaskInfo = ids => { const set = new Set((ids || []).map(String)); return { ids: set, names: (characters || []).filter(x => set.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean) }; };
+  const peekMaskView = () => { try { return peekPlay && window.__peekMask && window.__peekMask.ids.size ? window.__peekMask : null; } catch (e) { return null; } };
+  const peekMaskHit = (pm, txt, id) => !!pm && ((id && pm.ids.has(String(id))) || pm.names.some(n => String(txt || "").includes(n)));
   const handPhoneTo = async (charId, allow, hideIds, sneak, allMasks) => {
     const maskIds = allMasks ? [] : peekMaskOthers(charId);
     const hideSet = new Set((hideIds || []).map(String).concat(maskIds.map(String)));
     const seen = peekPhoneMaterial(charId, allow, hideIds, maskIds);
-    if (!sneak) try { window.__peekHide = hideSet; } catch (e) {}
+    if (!sneak) try { window.__peekHide = hideSet; window.__peekMask = peekMaskInfo(maskIds); } catch (e) {}
     const hidden = PEEK_PHONE_SECTIONS.filter(s => !(allow || []).includes(s[0])).map(s => s[1]);
     const c = (characters || []).find(x => x.id === charId);
     if (!c) return;
@@ -10772,7 +10777,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const answerSneak = (charId, m, how) => {
     pChat(charId, p => p.map(x => x === m || (m.id && x.id === m.id) ? { ...x, state: how === "replay" ? (x.state === "pending" ? "pending" : x.state) : how } : x));
     // 回放也照「别的面具不给看」那条挡着（录像里点到他们的名字不打开）
-    if (how === "replay") { try { window.__peekHide = new Set(peekMaskOthers(charId).map(String)); } catch (e) {} setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
+    if (how === "replay") { try { const mo = peekMaskOthers(charId); window.__peekHide = new Set(mo.map(String)); window.__peekMask = peekMaskInfo(mo); } catch (e) {} setPeekPlay({ charId, allow: [], seen: m.seen || "", hidden: [], script: m.script || [], replay: true }); return; }
     if (how === "ask" || how === "ignore") peekLogEndSneak(charId, how);
     // ⚠️这一处【故意当场开口】（她 2026-10-06：「要手机和偷翻这俩改回来」）——wait-for-her.md 里记着这条例外
     if (how === "ask") replyNow(charId, "", null, { proactive: true, peekCaught: { thoughts: m.thoughts || [] } });
@@ -11009,7 +11014,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const peekDone = thoughts => {
     const p = peekPlay;
     setPeekPlay(null);
-    try { window.__peekHide = null; } catch (e) {}
+    try { window.__peekHide = null; window.__peekMask = null; } catch (e) {}
     if (p && p.replay) { openChatById(p.charId); return; }   // 回放：只看，不记「上次翻过」，TA也不开口
     if (!p) return;
     try {
@@ -27729,7 +27734,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBack: () => { setMomTarget(null); setScreen("messages"); }
   });else if (screen === "wallet") body = h(MyWallet, {
     balance: wallet,
-    log: walletLog,
+    log: peekMaskView() ? walletLog.filter(w => !peekMaskHit(peekMaskView(), w.label, w.charId)) : walletLog,
     cards: kinshipCards,
     characters: liveChars,
     groups: groups,
@@ -28187,7 +28192,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   });else if (screen === "shop") body = h(Shop, {
     wallet: wallet,
     cart: cart,
-    orders: orders,
+    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
     inventory: inventory,
     characters: liveChars,
     // ⚠️购物这一屏里【她本人要当场做事】：送礼要把东西递到人手上、代付要开口请人付钱。
@@ -28220,8 +28225,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: "takeout:" + takeoutNav,
     initialNav: takeoutNav,
     wallet: wallet,
-    orders: orders,
-    log: takeoutLog,
+    orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
+    log: peekMaskView() ? takeoutLog.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : takeoutLog,
     characters: liveChars,
     groups: groups.filter(imInGroup),
     kinshipCards: kinshipCards,
