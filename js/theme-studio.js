@@ -523,6 +523,8 @@
         ["stateheartbase", "心里没灌满的那块底"], ["stateheartfill", "心里灌进去的那块（水位）"], ["stateheartnum", "心中间那个好感数字"],
         // 拉黑时气泡旁那颗红色感叹号（她 2026-10-01：「跟微信一样，然后加一个美化挂点」）
         ["blockdot", "拉黑中气泡旁那颗红色感叹号（data-me=\"1\" 是她那边的）"],
+        // 重 Roll 留版那一行「‹ 2/3 ›」（她 2026-10-10）
+        ["rerollnav", "最后一条回复底下翻重 Roll 旧版的那一行"],
         // 时刻「发给 TA」那张小卡（她 2026-10-03）——挂在聊天页这一组，聊天页的 CSS 才抓得到它
         ["shikeshare", "聊天里那张「时刻」小卡（你从时刻里「发给 TA」的，和 TA 自己存进时刻时落的那张）"],
         // 番茄钟收桌后 TA 放进私聊的那张小卡（群里 2026-10-05）
@@ -999,7 +1001,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.274", changed: "论坛加了 forumpage / foboards / forules / fosort / fonav / fonavtab / fopostpage / fopostcard；匿名箱加了 anonmaskfill 和 anonbtn 的 fillmask / savemask", none: "" };
+  const BRIEF_STAMP = { v: "v75.275", changed: "新挂点 rerollnav：开了「重 Roll 留着旧的」后，最后一条回复底下翻旧版的那一行。", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

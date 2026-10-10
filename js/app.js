@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.274";
+const APP_VERSION = "v75.275";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3629,6 +3629,54 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     setMoods(p => { const n = { ...p }; if (current && current.mood) n[charId] = { label: current.mood, ts: Date.now() }; else delete n[charId]; saveJSON("x_moods", n); return n; });
     if (typeof affinityRestore === "number") setAff(charId, affinityRestore);
     try { window.Gaze && window.Gaze.rollbackTurns && window.Gaze.rollbackTurns(charId, ordered); } catch (e) {}
+  };
+  // ── 重 Roll 留版（她 2026-10-10 转群友：「重 roll 后保留前面的回复然后选最喜欢的那个」）──
+  //   聊天设置里开了 keepRerolls 才留。各版收在【这一轮前面那条消息】的 rerollAlts 上（跟聊天一起存，不另开仓库）：
+  //   一格 null＝眼前这版，其余各存 {msgs, st}。翻版只换气泡和轻的那几样（心情、心声、动作、穿着、好感）；
+  //   有转账、礼物、照片、记账这类真落了东西的那一版不留，照老样子整版换掉。
+  const REROLL_KEEP = 5;
+  const REROLL_LIGHT_KIND = { text: 1, voice: 1, emote: 1, silence: 1, narration: 1 };
+  const rerollKeepable = rm => (rm || []).length > 0 && rm.every(x => x && (x.role === "assistant" || (x.role === "narration" && x.who === "char")) && (!x.kind || REROLL_LIGHT_KIND[x.kind]));
+  const charStateSnap = cid => ({ state: statesRef.current[cid] || null, hist: stateHistRef.current[cid] || [], mood: moodsRef.current[cid] || null, aff: affOf(cid) });
+  const charStateRestore = (cid, st) => {
+    if (!st) return;
+    const histMap = { ...stateHistRef.current, [cid]: st.hist || [] }; stateHistRef.current = histMap; setStateHist(histMap); saveJSON("x_stateHist", histMap);
+    const stateMap = { ...statesRef.current }; if (st.state) stateMap[cid] = st.state; else delete stateMap[cid]; statesRef.current = stateMap; setStates(stateMap); saveJSON("x_states", stateMap);
+    setMoods(p => { const n = { ...p }; if (st.mood) n[cid] = st.mood; else delete n[cid]; saveJSON("x_moods", n); return n; });
+    if (typeof st.aff === "number") setAff(cid, st.aff);
+  };
+  // 把眼前这版收进去、腾一格给新的那版；只有最后一组才留，别处挂着的旧版一并清掉
+  const rerollStash = (list, alt) => {
+    const n = list.length;
+    if (!n) return list;
+    const a = list[n - 1], alts = (Array.isArray(a.rerollAlts) ? a.rerollAlts : [null]).slice();
+    const cur = alts.indexOf(null);
+    if (cur >= 0) alts[cur] = alt; else alts.push(alt);
+    alts.push(null);
+    while (alts.length > REROLL_KEEP) alts.splice(alts.findIndex(x => x), 1);
+    return list.slice(0, n - 1).map(x => x && x.rerollAlts ? (({ rerollAlts, ...rest }) => rest)(x) : x).concat([{ ...a, rerollAlts: alts }]);
+  };
+  // 眼前这一组能不能翻：最后一个挂着 rerollAlts 的后面只有 TA 的回复
+  const rerollNavOf = list => {
+    let L = -1;
+    for (let i = (list || []).length - 1; i >= 0; i--) { if (list[i] && list[i].rerollAlts) { L = i; break; } }
+    if (L < 0 || L === list.length - 1) return null;
+    const alts = list[L].rerollAlts;
+    if (alts.length < 2 || list.slice(L + 1).some(x => x && x.role === "user")) return null;
+    return { at: L, pos: alts.indexOf(null), n: alts.length };
+  };
+  const rerollFlip = (threadKey, cid, dir) => {
+    const list = chatsRef.current[threadKey] || [];
+    const nav = rerollNavOf(list);
+    if (!nav) return;
+    const j = nav.pos + dir;
+    if (j < 0 || j >= nav.n) return;
+    const a = list[nav.at], alts = a.rerollAlts.slice(), target = alts[j];
+    if (!target) return;
+    alts[nav.pos] = { msgs: list.slice(nav.at + 1), st: charStateSnap(cid) };
+    alts[j] = null;
+    pChat(threadKey, p => p.slice(0, nav.at).concat([{ ...a, rerollAlts: alts }], target.msgs));
+    charStateRestore(cid, target.st);
   };
   // 单聊之外的共同相处也是真的“刚理过 TA”：主动消息、dongnian 思念和断档提示共用这一只钟。
   // 同一个人同时在好几个频道里说话，彼此不知道对方说了什么，于是当场自相矛盾
@@ -13781,6 +13829,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           :{after:msgs.slice(0,idx),removed:msgs.slice(idx),start:idx,turnIds:[turnId]};
         const removed=branch.removed,removedTurns=branch.turnIds;
         rerollAvoid = avoidOf(removed);
+        // 留版：要在下面回滚状态【之前】把这一版的心情心声好感拍下来
+        const _keepAlt = !isSideRoom && settingsFor(activeChar.id).keepRerolls === true && rerollKeepable(removed) ? { msgs: removed, st: charStateSnap(activeChar.id) } : null;
         // 共享账本也只做软删；离线时进入专用 outbox，联网后补盖 deleted_at。
         if (!isSideRoom) try {
           const y = ledgerYanqiu();
@@ -13800,7 +13850,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 正常回合：删掉这一轮 AI 回复（保留用户最后一条）重生成
         pChat(threadKey, p => {
           const liveBranch=window.RerollBranch&&window.RerollBranch.truncateChatBranch?window.RerollBranch.truncateChatBranch(p,idx,turnId):branch;
-          const next=liveBranch.after;
+          const next=_keepAlt ? rerollStash(liveBranch.after, _keepAlt) : liveBranch.after;
           try { window.MessageBranchShadow && window.MessageBranchShadow.observeMutation({ kind: "reroll",surface:"private", charId: activeChar.id, before: p, after: next, targetIndex: liveBranch.start, turnId }); } catch (e) {}
           return next;
         });
@@ -27399,6 +27449,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     key: activeChar.id + "::" + activeRoomId,
     dirNotes: chatDirNotes[activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id] || [],
     onAddDirNote: (text, long) => chatDirNoteAdd(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, text, long),
+    rerollNav: (activeRoomId && activeRoomId !== "main") || settingsFor(activeChar.id).keepRerolls !== true ? null : rerollNavOf(chats[activeChar.id] || []),
+    onRerollFlip: dir => rerollFlip(activeChar.id, activeChar.id, dir),
     onDelDirNote: id => chatDirNoteDel(activeRoomId && activeRoomId !== "main" && window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id, id),
     locateAt: walletTrace && walletTrace.type === "char" && String(walletTrace.id) === String(activeChar.id) ? walletTrace : null,
     onLocated: () => setWalletTrace(null),
@@ -30354,6 +30406,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
             actDesc: !!s.actDesc,
+            keepRerolls: s.keepRerolls === true,
             actLong: !!s.actLong,
             enterRoom: typeof s.enterRoom === "string" && s.enterRoom ? s.enterRoom.slice(0, 80) : "main",
             // 通话连续播报 / 流式字幕：分角色（她 2026-09-12）。

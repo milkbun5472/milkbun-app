@@ -9138,6 +9138,8 @@ function ChatThread({
   dirNotes,       // 线上导演便签（她 2026-10-10）：跟旁白放一起，旁白模式里切「往后的方向」
   onAddDirNote,
   onDelDirNote,
+  rerollNav,      // 重 Roll 留版（她 2026-10-10）：{pos, n}；有才画「‹ 2/3 ›」
+  onRerollFlip,
   locateAt,       // 从别处点「看来源」带进来的 {ts,key}：打开后滚到那个时刻的那条并闪一下（我的钱包·凭证，她 2026-10-09）
   onLocated,
   onHalfWin,
@@ -10203,7 +10205,12 @@ function ChatThread({
       // 微信那颗红（她 2026-10-01）。原来是 t.accent——换个蓝主题，感叹号就成了蓝的，认不出是「发不出去」。
       style: { order: isU ? -1 : 1, width: 18, height: 18, borderRadius: 999, background: "#FA5151", color: "#fff", fontFamily: F_BODY, fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", cursor: (isU && bk.theyBlocked) ? "pointer" : "default" }
     }, "!")));
-  })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })), sending && /*#__PURE__*/React.createElement("div", {
+  })(_row), _row.m, _row.i, { selMode, startPress, endPress, toggleSel })),
+  // 重 Roll 留下的几版：贴着 TA 最后那条气泡底下，左右翻
+  !sending && !selMode && rerollNav && onRerollFlip ? h("div", { "data-wk": "rerollnav", className: "flex items-center", style: { gap: 2, padding: "0 0 6px 52px", fontFamily: F_BODY, fontSize: 11.5, color: t.fog } },
+    h("button", { onClick: () => onRerollFlip(-1), disabled: rerollNav.pos <= 0, "aria-label": "上一版", className: "active:opacity-50", style: { minWidth: 32, height: 28, background: "transparent", border: "none", color: rerollNav.pos <= 0 ? t.line : t.sub, fontSize: 15 } }, "‹"),
+    h("span", { style: { letterSpacing: 1 } }, (rerollNav.pos + 1) + " / " + rerollNav.n),
+    h("button", { onClick: () => onRerollFlip(1), disabled: rerollNav.pos >= rerollNav.n - 1, "aria-label": "下一版", className: "active:opacity-50", style: { minWidth: 32, height: 28, background: "transparent", border: "none", color: rerollNav.pos >= rerollNav.n - 1 ? t.line : t.sub, fontSize: 15 } }, "›")) : null, sending && /*#__PURE__*/React.createElement("div", {
     role: "status",
     "aria-live": "polite",
     "aria-label": character.name + " 正在输入",
@@ -18897,6 +18904,7 @@ function ChatSettings({
   const [callStream, setCallStream] = useState(!!settings.callStream);
   // 动描（她 2026-09-09）：设一次就不动的那种，所以住这儿、不占顶栏。
   const [actDesc, setActDesc] = useState(!!settings.actDesc);
+  const [keepRerolls, setKeepRerolls] = useState(settings.keepRerolls === true); // 重 Roll 留着旧的那几版（默认关）
   // 动描那一行用第几人称（她 2026-09-12 选的「就设置开关可以改」）
   const [actPerson, setActPerson] = useState(settings.actPerson === "ta" ? "ta" : "me");
   // 动描写多长（群友 2026-10-07：「有时候想长一点叙述」）：一句＝原来那样；一小段＝两三句，神态和身边也写进去
@@ -19264,6 +19272,7 @@ function ChatSettings({
       toyEnabled,
       defaultOffline,
       actDesc,
+      keepRerolls,
       actLong,
       enterRoom,
       callAuto,
@@ -19480,6 +19489,11 @@ function ChatSettings({
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
       "开着：TA 一段话会按句子拆成好几个气泡，像一条条打出来的。"
       + "关掉：TA 发几条就是几条，想写长的（一封信、一段要读完的话）就整段放一条，平时还是短句。"),
+    // 重 Roll 留着旧的（她 2026-10-10 转群友：「重 roll 后保留前面的回复然后选最喜欢的那个」）——默认关
+    dispRow("重 Roll 留着旧的", keepRerolls, setKeepRerolls),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.7 } },
+      "开着：线上重 Roll 不扔上一版，最后一条回复底下出「‹ 2/3 ›」左右翻着挑，最多留 5 版。心情、心声、动作、穿着、好感跟着那一版走；翻不花钱，你一发新消息就定在眼前这版。"
+      + "那一版里有转账、礼物、照片、记账这类真落了东西的，照老样子整版换掉不留。"),
     "")),
   show("hear", { title: "思考链 · 外语中译 · 语音", ...sec("look-extra") }, h("div", { className: "pt-2" },
     dispRow("显示模型思考链", showReasoning, setShowReasoning),
