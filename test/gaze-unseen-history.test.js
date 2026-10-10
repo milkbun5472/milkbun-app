@@ -135,3 +135,30 @@ test("块名写成中文、或把 side 塞进 block，都要认得出来", () =>
   assert.equal(G.applyParsed("c6", { side: "", block: "她是个什么样的人", text: "她比看起来能扛" }), true);
   assert.equal(G.revisions("c6").filter(x => x.k === "me.person" && x.now).length, 1);
 });
+
+// 她 2026-10-10：「ta眼里的红点看完了还是有」「点进去出来还是有」——小仓库满了，已读写不进去还不报错
+test("小仓库写不进去：已读照样当场生效，还会落到大仓库兜底、重开也记得", () => {
+  const store = {}, big = {};
+  const mk = () => {
+    const ctx = {
+      React: { useState: () => [null, () => {}] }, ReactDOM: { createPortal: () => null }, document: { body: {} }, F_BODY: "", F_DISPLAY: "",
+      localStorage: {
+        getItem: k => (k in store ? store[k] : null),
+        setItem: (k, v) => { if (k === "lisa_gaze_seen_v1") throw new Error("QuotaExceededError"); store[k] = String(v); },
+      },
+      loadJSON: (k, f) => (k in big ? JSON.parse(big[k]) : f), saveJSON: (k, v) => { big[k] = JSON.stringify(v); },
+      dispatchEvent: () => {}, CustomEvent: function () {}
+    };
+    ctx.window = ctx; vm.createContext(ctx);
+    vm.runInContext(fs.readFileSync(path.join(__dirname, "..", "js", "gaze.js"), "utf8"), ctx);
+    return ctx.Gaze;
+  };
+  const G = mk();
+  G.apply("c1", "me", "recent", "最近她总在半夜发消息");
+  assert.equal(G.unseenCount("c1"), 1);
+  G.markSeen("c1", "me.recent");
+  assert.equal(G.unseenCount("c1"), 0, "写不进小仓库也得当场灭");
+  assert.ok(big.x_gazeSeen, "落进大仓库兜底");
+  const G2 = mk();   // 重开
+  assert.equal(G2.unseenCount("c1"), 0, "重开以后还记得看过");
+});
