@@ -251,9 +251,14 @@
       if (cu.objectives && cu.objectives.length) lines.push("目标：" + cu.objectives.join("；"));
       // point_id 是题卡与学习证据的外键；只给标签会逼模型凭空猜 id，合法题卡也会被校验层吞掉。
       if (cu.grammar && cu.grammar.length) lines.push("要点（方括号内是必须原样使用的 point_id）：" + cu.grammar.map(function (g) { return "[" + g.id + "] " + g.label + (g.note ? "（" + g.note + "）" : ""); }).join("；"));
-      if (cu.vocab && cu.vocab.length) lines.push("词汇：" + cu.vocab.join("、"));
+      if (cu.material) lines.push("这一小节你们说定改用：" + cu.material);
+      if (cu.vocab && cu.vocab.length) lines.push((cu.material ? "说定的词：" : "词汇：") + cu.vocab.join("、"));
       if (cu.can_do && cu.can_do.length) lines.push("学完能做到：" + cu.can_do.join("；"));
     }
+    // 群友 2026-10-10：叫他按书第 17 页教、他也找好了，回头一句「你先自己检查一遍」又跳回大纲那串 A 开头的词——
+    //   大纲每轮都贴着，聊天里说定的那份只有那一轮。所以把谁说了算写明，并给他一个把说定的写回大纲的口子（unitSwap）。
+    lines.push("（这份大纲是开课时拟的。她在这节课里另外指定了材料——某一页、某张词表、拍进来的书页——就以你们说定的为准，接着那一份往下教；"
+      + "说定的那一刻在 JSON 里加 unitSwap:{\"material\":\"一句话说清是哪份（如「书第17页、词频≥8」）\",\"vocab\":[\"说定的词\"]}，下一轮这里就是那一份。）");
     return lines.join("\n");
   }
 
@@ -600,6 +605,14 @@
   const TOK = { turn: 12000, plan: 20000, quiz: 12000, small: 8000 };
   // ---- 一次生成 = 一个角色一个回合（§5）------------------------------
   // 返回 { says:[...], evidence:null|{} }——老师只能报告刚刚真实发生的作答证据，不能自行推进。
+  // 老师把这一小节换成说定的材料：只换词和那一句说明，要点（point_id）不动——那是学习证据的外键
+  function parseUnitSwap(d) {
+    const u = d && d.unitSwap;
+    if (!u || typeof u !== "object") return null;
+    const material = String(u.material || "").trim().slice(0, 120);
+    const vocab = (Array.isArray(u.vocab) ? u.vocab : []).map(function (x) { return String(x || "").trim().slice(0, 40); }).filter(Boolean).slice(0, 80);
+    return material || vocab.length ? { material: material, vocab: vocab } : null;
+  }
   async function genTurn(active, session, char, ctx, role) {
     const sys = buildStudyPrompt(session, char, ctx, role);
     const msgs = await withImages(toMessages(session.transcript, char.id, (ctx.profile && ctx.profile.name) || "用户"));
@@ -607,7 +620,7 @@
     const says = parseSay(raw);
     const d = extractJSON(raw) || {};
     const evidence = d.evidence && typeof d.evidence === "object" ? d.evidence : null;
-    return { says: says, evidence: evidence, quiz: parseQuiz(raw), board: session.mode === "costudy" ? parseBoard(raw) : null, handout: role === "nv1-peer" ? null : parseHandout(raw) };
+    return { unitSwap: parseUnitSwap(d), says: says, evidence: evidence, quiz: parseQuiz(raw), board: session.mode === "costudy" ? parseBoard(raw) : null, handout: role === "nv1-peer" ? null : parseHandout(raw) };
   }
 
   // 三人课堂一次写两个人（v73.15）：以老师那份完整的 prompt 为底（人设、长出来的自我、大纲、进度、题卡规则、
@@ -644,7 +657,7 @@
     let turns = parseTurns(raw, teacher, peer);
     if (!turns.length) { const f = sayFallback(raw).map(guardOverspeak).filter(Boolean); if (f.length) turns = [{ char: teacher, says: f }]; }
     const d = extractJSON(raw) || {};
-    return { turns: turns, evidence: d.evidence && typeof d.evidence === "object" ? d.evidence : null, quiz: parseQuiz(raw), handout: parseHandout(raw) };
+    return { unitSwap: parseUnitSwap(d), turns: turns, evidence: d.evidence && typeof d.evidence === "object" ? d.evidence : null, quiz: parseQuiz(raw), handout: parseHandout(raw) };
   }
 
   function normalizeQuizAnswer(value) {
@@ -3435,9 +3448,20 @@
       }
       // 老师只能把用户刚刚真实作答的表现记成证据；任何模型信号都不能自动推进小节。
       if (units.length && (role === "teach" || role === "nv1-teacher")) recordEvidence(res && res.evidence, answerEntry);
+      if (units.length && (role === "teach" || role === "nv1-teacher") && res && res.unitSwap) swapUnitMaterial(res.unitSwap);
       if (sessRef.current.mode === "costudy") await refreshCostudySummary();
     }
 
+    function swapUnitMaterial(sw) {
+      const s = sessRef.current, ol = s.outline;
+      if (!ol || !Array.isArray(ol.units)) return;
+      const cur = (s.progress || {}).current_unit || (ol.units[0] && ol.units[0].id);
+      const next = ol.units.map(function (u) {
+        if (u.id !== cur) return u;
+        return Object.assign({}, u, sw.material ? { material: sw.material } : {}, sw.vocab.length ? { vocab: sw.vocab } : {});
+      });
+      commit(Object.assign({}, s, { outline: Object.assign({}, ol, { units: next }) }));
+    }
     function recordEvidence(raw, answerEntry) {
       if (!raw || !answerEntry || answerEntry.studyAction) return;
       const s = sessRef.current;
