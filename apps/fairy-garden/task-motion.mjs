@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-e4b373131c1a533d';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-e4b373131c1a533d';
-import {pointToolAt} from './reach-hand.mjs?v=fg-e4b373131c1a533d';
+import {emotionPose} from './emotion-pose.mjs?v=fg-7dbe5530b8cc1d34';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-7dbe5530b8cc1d34';
+import {pointToolAt} from './reach-hand.mjs?v=fg-7dbe5530b8cc1d34';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -18,6 +18,9 @@ export function taskPose(task,time){
     return {left:[-.16,0,.045],right:[-.28-q*.18,0,-.09-q*.04],leftElbow:-.14,rightElbow:-.36,tilt:Math.sin(time*.7)*.012,yaw:Math.sin(time*.43)*.025,roll:kind==='sing'?Math.sin(time*.8)*.016:0,reach:kind==='stream'?1:0};
   }
   if(kind==='pose'){const q=(Math.sin(time*.5)+1)/2;return {left:[-.16,0,.07],right:[-.35,0,-.12-q*.12],leftElbow:-.15,rightElbow:-.48,tilt:.012,yaw:Math.sin(time*.5)*.09};}
+  if(kind==='salute'){const held=(Math.sin(time*.6)+1)/2;return {left:[0,0,.015],right:[-.4,0,-.22],rightElbow:-1.15,tilt:0,reach:held>.15?1:0,salute:true};}
+  if(kind==='repair')return {left:[-.24,0,.07],right:[-.55,0,-.09],rightElbow:-.8,tilt:.035,reach:1,dy:Math.sin(time*2)*.012};
+  if(kind==='gavel')return {left:[-.2,0,.04],right:[-.55,0,-.08],rightElbow:-.75,tilt:.02,reach:1,dy:Math.max(0,Math.sin(time*1.7))*.045};
   if(kind==='makeup')return {left:[-.2,0,.08],right:[-.7,0,-.1],rightElbow:-.75,tilt:.015,reach:1,makeup:true};
   if(kind==='investigate')return {left:[-.18,0,.05],right:[-.6,0,-.09],rightElbow:-.7,tilt:.025,reach:1};
   if(kind==='shake')return {left:[-.6,0,.08],right:[-.6,0,-.08],leftElbow:-.7,rightElbow:-.7,tilt:.02,reach:1,dy:pulse*.032};
@@ -50,7 +53,9 @@ export function taskPose(task,time){
   return null;
 }
 export function workHandTargets(model,head,task,pose){
- if(!pose?.makeup||!head)return {};
+ if(!head)return {};
+ if(pose?.salute)return {reach:pose.reach,target:head.localToWorld(new T.Vector3(1.12,-.12,.88))};
+ if(!pose?.makeup)return {};
  // Face grooming follows the same morphed head as drink/eat. The brush stays
  // short and approaches from the cheek side rather than crossing the eyes.
  const sweep=Math.sin(task.elapsed*1.4)*.055;
@@ -70,6 +75,8 @@ export function makeTaskProps(root,model,handPoint){
   const chalk=new T.Group();chalk.name='WorkChalk';group.add(chalk);mesh(chalk,new T.CylinderGeometry(.011,.011,.12,8),cream,0,-.06,0);
   const marker=new T.Group();marker.name='WorkMarker';group.add(marker);mesh(marker,new T.CylinderGeometry(.014,.014,.15,8),green,0,-.075,0);mesh(marker,new T.ConeGeometry(.014,.02,8),wood,0,-.16,0).rotation.z=Math.PI;
   const cosmetic=new T.Group();cosmetic.name='MakeupBrush';group.add(cosmetic);mesh(cosmetic,new T.CylinderGeometry(.012,.012,.13,8),wood,0,-.065,0);mesh(cosmetic,new T.SphereGeometry(.027,12,8),cream,0,-.16,0).scale.set(1,.7,1);
+  const driver=new T.Group();driver.name='WorkScrewdriver';group.add(driver);mesh(driver,new T.CylinderGeometry(.023,.023,.10,10),green,0,-.035,0);mesh(driver,new T.CylinderGeometry(.006,.006,.16,8),cream,0,-.16,0);
+  const gavel=new T.Group();gavel.name='WorkGavel';group.add(gavel);mesh(gavel,new T.CylinderGeometry(.017,.017,.16,10),wood,0,-.07,0);mesh(gavel,new T.CylinderGeometry(.045,.045,.13,12),wood,0,-.185,0).rotation.z=Math.PI/2;
   const shaker=new T.Group();shaker.name='HeldDrinkShaker';group.add(shaker);mesh(shaker,new T.CylinderGeometry(.060,.051,.20,16),green);mesh(shaker,new T.CylinderGeometry(.058,.062,.04,16),cream,0,.12,0);mesh(shaker,new T.CylinderGeometry(.023,.04,.045,12),wood,0,.157,0);
   const tray=new T.Group();tray.name='HeldServiceTray';group.add(tray);mesh(tray,new T.BoxGeometry(.50,.025,.34),wood);mesh(tray,new T.CylinderGeometry(.14,.14,.022,16),cream,0,.022,0);mesh(tray,new T.SphereGeometry(.10,12,8),green,0,.055,0).scale.set(1.1,.35,.9);
   const clipboard=new T.Group();clipboard.name='WorkClipboard';group.add(clipboard);mesh(clipboard,new T.BoxGeometry(.30,.025,.34),green);mesh(clipboard,new T.BoxGeometry(.27,.007,.29),cream,0,.017,0);mesh(clipboard,new T.BoxGeometry(.09,.017,.025),wood,0,.025,-.13);
@@ -84,7 +91,7 @@ export function makeTaskProps(root,model,handPoint){
   const place=(o,side)=>{o.position.copy(group.worldToLocal(handPoint(side)));o.rotation.set(0,0,0);};
   return {update(task,moving=false){
     step.visible=!moving&&(task?.rise||0)>.001;if(step.visible){step.scale.y=task.rise;step.position.set(0,task.floor-root.position.y+task.rise/2,0);}
-    pen.visible=!moving&&task?.kind==='write';pipette.visible=!moving&&task?.kind==='experiment';
+    pen.visible=!moving&&task?.kind==='write'&&task.tool!=='inkbrush';pipette.visible=!moving&&task?.kind==='experiment';
     book.visible=!!task?.carry&&task.carryType!=='sample'&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&task.carryType!=='basket'&&task.carryType!=='weights'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
     const aim=(tool,length)=>{
       const reach=pointToolAt(tool,group,handPoint('right'),task.contact,length);
@@ -92,8 +99,10 @@ export function makeTaskProps(root,model,handPoint){
       // a pose transition it must not grow into a long rod to bridge the gap.
       if(reach>.40)tool.visible=false;
     };
-    brush.visible=!moving&&task?.kind==='paint'&&task.tool!=='chalk';chalk.visible=!moving&&task?.kind==='paint'&&task.tool==='chalk';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
+    brush.visible=!moving&&(task?.kind==='paint'&&task.tool!=='chalk'||task?.kind==='write'&&task.tool==='inkbrush');chalk.visible=!moving&&task?.kind==='paint'&&task.tool==='chalk';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
     marker.visible=!moving&&task?.kind==='investigate';cosmetic.visible=!moving&&task?.kind==='makeup';shaker.visible=!moving&&task?.kind==='shake';tray.visible=!moving&&task?.kind==='serve';
+    driver.visible=!moving&&task?.kind==='repair';gavel.visible=!moving&&task?.kind==='gavel';
+    if(driver.visible){aim(driver,.24);driver.rotateY(Math.sin(task.elapsed*2)*.35);}if(gavel.visible)aim(gavel,.23);
     if(marker.visible)aim(marker,.17);
     if(cosmetic.visible)aim(cosmetic,.18);
     for(const prop of [shaker,tray])if(prop.visible){const right=handPoint('right'),left=handPoint('left');prop.position.copy(group.worldToLocal(right.clone().add(left).multiplyScalar(.5)));prop.rotation.set(prop===shaker?.18:0,0,0);if(prop===tray)prop.position.y-=.025;}
@@ -116,6 +125,6 @@ export function makeTaskProps(root,model,handPoint){
     if(pen.visible)aim(pen,.21);
     if(pipette.visible)aim(pipette,.23);
     if(book.visible){place(book,'right');book.position.y-=.035;book.position.z+=.07;book.rotation.x=.12;}
-    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,marker:marker.visible,makeup:cosmetic.visible,shaker:shaker.visible,tray:tray.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
+    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,screwdriver:driver.visible,gavel:gavel.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,marker:marker.visible,makeup:cosmetic.visible,shaker:shaker.visible,tray:tray.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
   }};
 }

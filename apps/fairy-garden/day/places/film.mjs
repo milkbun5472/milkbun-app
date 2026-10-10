@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-e4b373131c1a533d';
-import {computer} from './work-room-kit.mjs?v=fg-e4b373131c1a533d';
-import {cameraRig,softbox} from './media-kit.mjs?v=fg-e4b373131c1a533d';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-7dbe5530b8cc1d34';
+import {computer} from './work-room-kit.mjs?v=fg-7dbe5530b8cc1d34';
+import {cameraRig,softbox} from './media-kit.mjs?v=fg-7dbe5530b8cc1d34';
 const FLOOR=.08,SIZE={w:16,d:12};
 const furniture=[
  {id:'film-backdrop',kind:'panel',x:-3.64,z:-5.24,w:7.45,d:.45},
@@ -51,6 +51,5 @@ export function createFilm(){
  for(let i=0;i<5;i++){const z=-.60+i*.30;k.tube('Hanger',{points:[[0,1.79,z],[-.28,1.56,z],[.28,1.56,z],[0,1.79,z]],r:.018,color:'#d5c29e'},g);k.box('HangingCostume',{y:1.11,z,w:.57,h:.79,d:.10,color:['#a1b7b5','#c0a9a7','#c9ba9a','#7e999b','#b1bdab'][i]},g);}
  computer(k,furniture.find(p=>p.id==='monitor-desk'));k.book('ShootScript',{x:4.68,y:.98,z:-.86,w:.43,d:.52,flat:true,color:'#a4b4b1'});
  k.sign('ShootBoard',{text:'拍摄 · 候场 · 收工',x:4.70,y:2.70,z:-5.85,w:2.9,h:.32,color:'#bbc2c0',ink:'#516b72'});
- k.root.userData.furniture=furniture.map(p=>({...p}));for(const p of furniture){const g=k.root.getObjectByName(p.id);if(g)g.userData.furnitureId=p.id;}
- const result=k.finish();result.root.name='DayFilm';return result;
+ return finishRoom(k,filmMap,'DayFilm');
 }

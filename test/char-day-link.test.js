@@ -186,3 +186,25 @@ test('两组新场景经原日程生成writer保存与公开投影，合法world
   const publicRow=f.L.publicRow(saved);assert.equal(publicRow.world,undefined);assert.equal(publicRow.location,raw.location);
  }
 });
+
+test('法律、基地、工坊与古风按日程动作连接，旁听者与律师法官不互换',()=>{
+ const {L}=envFor({});
+ for(const [title,location,scene,spot]of [
+  ['起草文书','律师事务所','dayLegal','draft'],['检索本案法条','律所','dayLegal','research'],['法律咨询','律所','dayLegal','consult'],['庭上辩论','法庭','dayLegal','argue'],['法官主持庭审','法院审判庭','dayLegal','hearing'],['敲法槌','法庭','dayLegal','judge'],['书记员庭审笔录','法庭','dayLegal','record'],['旁听庭审','法院','dayLegal','audience'],
+  ['列队集合敬礼','军营','dayTraining','report'],['体能跑步训练','训练基地','dayTraining','run'],['拉伸热身','训练场','dayTraining','stretch'],['任务部署简报','军营','dayTraining','briefing'],['巡逻','营区','dayTraining','patrol'],['值勤登记交接','营地岗亭','dayTraining','duty'],
+  ['拆装检修机器','维修工坊','dayWorkshop','repair'],['电脑诊断','修理厂','dayWorkshop','diagnose'],['打磨制作手工件','木工坊','dayWorkshop','craft'],['调试设备','机械工坊','dayWorkshop','test'],['记录维修进度','工坊','dayWorkshop','records'],
+  ['读卷','王府书房','dayStudy','read'],['批阅奏折','御书房','dayStudy','write'],['议事商议','议事厅','dayStudy','council'],['汇报安排','朝堂','dayStudy','address'],['记录议事要点','中军帐','dayStudy','records'],['品茶','古风书房','dayStudy','tea']
+ ]){const p=L.presentation({title,location,type:'work'});assert.equal(p.map,scene,title);assert.equal(p.spot,spot,title);}
+ for(const [title,location,map]of [['在家修理收音机','家里','dayHome'],['阅读','现代公寓书房','dayHome'],['处理邮件','公司办公室','dayOffice'],['巡逻','城区街道','dayStreet'],['午餐','法庭旁餐厅','dayCafe']])assert.equal(L.presentation({title,location,type:title==='午餐'?'meal':'work'}).map,map,title);
+ 
+ 
+ assert.equal(L.presentation({title:'午餐',location:'军营食堂',type:'meal'}).map,'dayCafe');assert.equal(L.presentation({title:'用膳',location:'王府书房',type:'meal'}).map,'dayHome');
+ for(const [location,scene]of [['训练基地','dayTraining'],['律所','dayLegal'],['维修工坊','dayWorkshop']]){const p=L.presentation({title:'喝水',location,type:'coffee'});assert.equal(p.map,scene);assert.equal(p.spot,'water');}
+ const manual={scene:'dayLibrary',spot:'desk-reading'};assert.equal(L.presentation({title:'读卷',location:'王府书房',type:'work',world:manual}).map,'dayLibrary');
+});
+test('四种新职业位置经过实际生成writer保存，日历保持原地点和叙事',async()=>{
+ for(const [scene,spot]of [['dayLegal','argue'],['dayTraining','patrol'],['dayWorkshop','repair'],['dayStudy','write']]){
+  const seq={...row(scene,spot),location:'角色实际地点',title:'本日实际安排'},f=envFor({seqs:[seq]});await f.e.generateDay(f.c,'2026-10-09');
+  const actual=f.e.schedulesRef.current[f.c.id]['2026-10-09'].seqs[0];assert.deepEqual(plain(actual.world),{scene,spot});assert.equal(actual.title,seq.title);assert.equal(actual.location,seq.location);assert.ok(!JSON.stringify(f.L.publicRow(actual)).includes('"world"'));
+ }
+});
