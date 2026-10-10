@@ -1,4 +1,4 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-e0724bc3c49727cf';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-8c013226fd2a4c96';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.

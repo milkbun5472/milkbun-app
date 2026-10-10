@@ -1,10 +1,10 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-e0724bc3c49727cf';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-e0724bc3c49727cf';
-import {stepRoute} from '../locomotion.mjs?v=fg-e0724bc3c49727cf';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-e0724bc3c49727cf';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-e0724bc3c49727cf';
-import {CHORES,chorePlans} from './chores.mjs?v=fg-e0724bc3c49727cf';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-8c013226fd2a4c96';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-8c013226fd2a4c96';
+import {stepRoute} from '../locomotion.mjs?v=fg-8c013226fd2a4c96';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-8c013226fd2a4c96';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-8c013226fd2a4c96';
+import {CHORES,chorePlans} from './chores.mjs?v=fg-8c013226fd2a4c96';
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
@@ -114,7 +114,11 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   const profile=motion();
   if(control==='auto'&&!moving){autoWait-=Math.max(0,dt);if(autoWait<=0){automatic();moving=route.length>0;}}
   if(moving){const step=stepRoute(position,route,dt,{speed,walkSpeed:1.45*(profile?.walk||1),clear:(a,b)=>segmentClear(a,b,map().id||map().renderer,ta()?[{...ta(),r:Math.min(clearance,gap(position,ta())*.85)}]:[])});position=step.position;speed=step.speed;if(step.heading!==null)yaw=step.heading;
-   if(step.blocked){pendingSeat=pendingActivity=null;leaving=false;tell('路线被挡住了，点另一块空地再走。');}
+   if(step.blocked){
+    const next=chore&&reachable(position,chore.at,ta(),map());
+    if(next?.length){route=next;speed=0;pendingActivity=chore.kind;tell('通道里有人，换一条路去做家务。');}
+    else{pendingSeat=pendingActivity=null;leaving=false;chore=null;choreVisual.hide();tell('路线被挡住了，点另一块空地再走。');}
+   }
    else if(!route.length){if(leaving){close('已离开，继续看看TA的一天。');return;}seat=pendingSeat;activity=pendingActivity;pendingSeat=pendingActivity=null;dwell=0;tell(activity?'你在'+activities[activity].label+'，TA继续自己的安排。':seat?'已坐到空位上，可以聊聊。':'已走到位置，点空地可以走动。');}
   }
   moving=route.length>0;
@@ -125,7 +129,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   if(!moving&&chore)avatar.root.rotation.y=chore.heading;
   else if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=Math.atan2(other.x-at.x,other.z-at.z);}
   avatar.animate(time,{moving,seated:!!seat,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0)});
-  choreVisual.update(chore,dwell,moving);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
+  choreVisual.update(chore,dwell,moving||!!chore&&gap(position,chore.at)>.22);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
  }
  avatar.root.visible=false;return {join,act,close,tick,inspect,
   setChoice(choice){control=Object.hasOwn(activities,choice)||choice==='manual'?'manual':'auto';manualAction=Object.hasOwn(activities,choice)?choice:'manual';halt();},

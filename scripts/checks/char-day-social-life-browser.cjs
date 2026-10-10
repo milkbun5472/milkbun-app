@@ -34,10 +34,10 @@ const repo=process.cwd(),engine=process.env.DAY_ENGINE||'chromium',out=process.e
   assert.equal((await state()).visitor.control,'auto');await shot('automatic-look');result.automatic=true;
   await frame.waitForFunction(()=>!CharDayScene.inspect().together);assert.equal((await state()).visitor.control,'auto');
   await activity(p,'manual');await p.waitForFunction(()=>loadJSON('x_charDayHomes',{}).visitorActivities['day-a']==='manual');
-  await lifeAction(p,'cup');await frame.waitForFunction(()=>CharDayScene.inspect().together?.kind==='cup'&&CharDayScene.inspect().together.phase==='active');await p.waitForTimeout(5500);await shot('passing-cup');assert.equal((await state()).visitor.control,'manual');await lifeAction(p,'end');
+  await lifeAction(p,'cup');await frame.waitForFunction(()=>CharDayScene.inspect().together?.kind==='cup'&&CharDayScene.inspect().together.phase==='active');await p.waitForTimeout(5500);await shot('passing-cup');assert.equal((await state()).visitor.control,'manual');await lifeAction(p,'end');await frame.waitForFunction(()=>!CharDayScene.inspect().route.length);
   result.chores=[];
   for(const kind of ['tidy-bed','water-plant','wipe-table','wash-dishes']){
-   await activity(p,kind);await frame.waitForFunction(kind=>{const s=CharDayScene.inspect();return s.visitor.chore?.kind===kind&&!s.visitor.busy&&s.visitor.choreContact;},kind);await p.waitForTimeout(600);const q=(await state()).visitor;assert.equal(q.control,'manual');assert.ok(q.chore.piece);assert.ok(Number.isFinite(q.choreContact.contact));await shot(kind);result.chores.push({kind,piece:q.chore.piece,contact:q.choreContact.contact});
+   await activity(p,kind);await frame.waitForFunction(kind=>{const s=CharDayScene.inspect();return s.visitor.chore?.kind===kind&&!s.visitor.busy&&s.visitor.choreContact;},kind);await p.waitForTimeout(600);const q=(await state()).visitor;assert.equal(q.control,'manual');assert.ok(q.chore.piece);assert.ok(Number.isFinite(q.choreContact.contact)&&q.choreContact.contact<.16,kind+' reaches actual surface: '+q.choreContact.contact);await shot(kind);result.chores.push({kind,piece:q.chore.piece,contact:q.choreContact.contact});
    await activity(p,'manual');assert.equal((await state()).visitor.choreContact,null);
   }
   await lifeAction(p,'near');await frame.waitForFunction(()=>!CharDayScene.inspect().visitor.busy);

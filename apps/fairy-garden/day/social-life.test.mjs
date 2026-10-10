@@ -51,3 +51,9 @@ test('每人独立双人演法；手动无条件优先，害羞先看后伸手�
 });
 
 test('家务沿当前实际日程，临时改变不沿用原家务',()=>{assert.equal(choreIntent({title:'回家洗碗'}),'wash-dishes');assert.equal(choreIntent({title:'回家洗碗',deviation:{actual:'去街边散步'}}),null);assert.equal(choreIntent({title:'在家整理床铺'}),'tidy-bed');assert.equal(choreIntent({title:'给植物浇水'}),'water-plant');assert.equal(choreIntent({title:'擦桌子'}),'wipe-table');assert.equal(pairProfile(null,'不黏人，也不害羞').style,'gentle');});
+test('家务路段被挡时不在远处开始，道具收起并保持手动选择',()=>{
+ MAPS.dayHome=buildSpace('dayHome');const avatar=actor(),visual=createChoreVisual(avatar),visit=createSceneVisit({avatar,choreVisual:visual,choice:'manual',map:()=>MAPS.dayHome,ta:()=>({x:0,z:3.3})});visit.join();assert.ok(visit.act('tidy-bed'));const at=visit.inspect().position;MAPS.dayHome.obstacles.push({x:at.x,z:at.z,w:8,d:8});visit.tick(.1,0);assert.equal(visit.inspect().chore,null);assert.equal(avatar.root.getObjectByName('FurnitureChore').visible,false);assert.equal(visit.inspect().control,'manual');
+});
+test('浇水从真正手持壶流向盆土，世界坐标不因家具移动或小人转身变成局部坐标',()=>{
+ for(const yaw of [0,Math.PI/2,Math.PI,Math.PI*1.5]){const avatar=actor(),visual=createChoreVisual(avatar),plan={kind:'water-plant',at:{x:6,z:4.2},target:{x:6,z:3.8,y:.43},duration:7,piece:'home-plant'};avatar.root.position.set(plan.at.x,.08,plan.at.z);avatar.root.rotation.y=yaw;visual.update(plan,.5,false);avatar.root.updateMatrixWorld(true);const water=avatar.root.getObjectByName('ChoreWater'),bottom=water.localToWorld(new T.Vector3(0,-.5,0));assert.ok(bottom.distanceTo(new T.Vector3(6,.42,3.8))<.001);}
+});

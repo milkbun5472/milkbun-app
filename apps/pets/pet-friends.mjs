@@ -1,7 +1,7 @@
-import {localRoute,nextRandom} from './autonomy.mjs?v=fg-e0724bc3c49727cf';
-import {createTownNavigation} from './town-life.mjs?v=fg-e0724bc3c49727cf';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-e0724bc3c49727cf';
-import {walkRoute,turnPet} from './movement.mjs?v=fg-e0724bc3c49727cf';
+import {localRoute,nextRandom} from './autonomy.mjs?v=fg-8c013226fd2a4c96';
+import {createTownNavigation} from './town-life.mjs?v=fg-8c013226fd2a4c96';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-8c013226fd2a4c96';
+import {walkRoute,turnPet} from './movement.mjs?v=fg-8c013226fd2a4c96';
 
 // Stable street identities and their actual places, shared by work and visits.
 export const PET_NEIGHBORS=[{id:'florist-cat',name:'小茉',species:'cat',pet:true,role:'花店里的奶茶猫',shop:'florist',spot:{x:0,z:.65},detail:'喜欢慢慢闻花，也喜欢安静的陪伴。',place:'florist',placeName:'花店',about:'花店里的奶茶猫，喜欢慢慢闻花，也喜欢安静的陪伴。',position:{x:0,z:.65},approaches:[{x:1,z:.7},{x:-1,z:.7}],profile:{species:'cat',name:'小茉',size:.9,weight:1,look:{id:'custom',base:'#eee1cb',patch:'#a98565'}}},
