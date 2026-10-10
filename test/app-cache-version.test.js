@@ -9,9 +9,9 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
-test("小世界三处宿主入口都带实际资源图指纹，原本没指纹的入口也能刷新", () => {
+test("小世界四处宿主入口都带实际资源图指纹，原本没指纹的入口也能刷新", () => {
   const build = JSON.parse(fs.readFileSync(path.join(root, "apps/fairy-garden/build.json"), "utf8")).build;
-  for (const entry of ["clock.js", "rules.js", "day/catalog.js"]) {
+  for (const entry of ["clock.js", "rules.js", "day/catalog.js", "day/social.js"]) {
     assert.ok(html.includes('src="apps/fairy-garden/' + entry + '?v=' + build + '"'), entry + " 跟随当前资源图");
   }
 });
