@@ -16,7 +16,7 @@ assert.ok(SHEET.length > 1500 && CARD.length > 1500, "抠不出名片那两段")
 
 test("名片头像跟聊天头像是两份，没单独设就跟着聊天那张", () => {
   // 原来名片上画的就是 profile.avatarImage——改名片等于改聊天，她要分开
-  assert.match(CARD, /avatarImage: c\.avatar \|\| profile\.avatarImage/,
+  assert.match(CARD, /avatarImage: homeCardAvatar\(c, profile\)/,
     "名片还在直接画 profile.avatarImage，改一处两处都变");
   assert.match(SHEET, /const \[avatar, setAvatar\] = useState\(c\.avatar \|\| ""\);/);
   assert.match(SHEET, /avatar: avatar \|\| ""/, "保存时没把名片头像写进去");
