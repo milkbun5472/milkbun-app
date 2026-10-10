@@ -1609,6 +1609,11 @@ function App() {
   const [appPrompt, setAppPrompt] = useState(null);   // 借这一层填一行字（v64.88）
   // 去年今天（时刻）：开机进主屏时算一次；今天已经收起过就不再冒
   const [shikeOTD, setShikeOTD] = useState(null);
+  // 聊天里时刻卡上「去时刻里看」：记下要翻到哪一张，再进时刻（她 2026-10-11）
+  const [shikeFocus, setShikeFocus] = useState(null);
+  // 离开时刻就忘掉这一次要翻到哪张——下次从主屏进来照常停在最新那张
+  useEffect(() => { if (screen !== "shike" && shikeFocus) setShikeFocus(null); }, [screen]);
+  window.__openShike = (charId, f) => { setShikeFocus(Object.assign({ charId: charId, at: Date.now() }, f || {})); setScreen("shike"); };
   // 预览台（v65.00）：她在主题工作台点「去这一页看看」→ 跳到【真页面】，屏幕上浮一条回程条。
   // ⚠️v62.02 删掉过一版 iframe 假预览，理由写在 theme-studio-ui.js 里：那一版跟真页面
   //   共享的只有挂点名字，底色、层级、字体、组件全是另写的，预览里对的东西上机不对。
@@ -29781,6 +29786,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast: toast,
     onBack: () => setScreen("home")
   });else if (screen === "shike") body = h(window.ShikeApp, {
+    key: shikeFocus ? "f" + shikeFocus.at : "shike",
+    focus: shikeFocus,
     // 时刻（她 2026-10-03）：纪念日和节日，全是算出来的；只有「生成封面」那一下走生图
     characters: liveChars,
     profile: profile,
