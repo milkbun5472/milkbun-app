@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.232";
+const APP_VERSION = "v75.234";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -3421,7 +3421,7 @@ function App() {
     const ns = { ...live, moodSkips: n };
     statesRef.current = { ...statesRef.current, [id]: ns };
     setStates(p => { const m = { ...p, [id]: { ...(p[id] || {}), moodSkips: n } }; saveJSON("x_states", m); return m; });
-    if (n === 12) toast("这个角色连着 12 轮没按协议返回心情——多半是当前模型不稳定支持 mood 字段，换个模型试试", 9000);
+    // （她 2026-10-10：这类「模型没交某个字段」的提示去掉了，计数照留）
   };
   const setStateFor = (id, s) => setStates(p => {
     const n = {
@@ -12936,7 +12936,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           noPhotoStreakRef.current[charId] = (noPhotoStreakRef.current[charId] || 0) + 1;
           // 连着两轮不吐才提示：偶尔一轮TA就是想逗你，那是人物反应，不该报错
           if (noPhotoStreakRef.current[charId] === 2) {
-            toast(characterText(char, "你要了两次他都没拍——不是他不肯，是这个聊天模型没吐 photo 字段。有的中转站模型不认这个能力，去 设置·API 换一个模型多半立刻就发"), 9000);
+            // （她 2026-10-10：「两次没拍」这类提示去掉了，计数照留）
           }
         }
       } else if (photoScene) noPhotoStreakRef.current[charId] = 0;
@@ -13282,14 +13282,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 普通角色本轮没有产出有效心声时立刻清掉旧快照，绝不拿上一轮冒充本轮更新。
           // ⚠️这条规矩群聊那一处也要用，所以它住在 ThoughtVoiceGuard.turnPatch 一处。
           Object.assign(st, TVG.turnPatch(_live, parsed.thought, stateNow));
-          if (st.thought == null && st.thoughtSkips === 12) toast("这个角色连着 12 轮没按协议返回心声——多半是当前聊天模型不稳定支持 thought 字段，建议换个模型试试", 9000);
+          // （她 2026-10-10：这类「模型没交某个字段」的提示去掉了，计数照留）
         } else {
           // 言秋由自己的协议决定是否写心声；普通角色的强制刷新与催填都不作用于TA。
           const skips = Math.min((Number(_live.thoughtSkips) || 0) + 1, 99);
           st.thoughtSkips = skips;
           // 提醒也催不动 → 多半跟「不吐 photo」是同一个病：这个模型不认可选字段。
           // 只在越过某一轮时说一次，别每轮都念（她 2026-08-22 已经自己发现过一次同类问题）。
-          if (skips === 12) toast("这个角色已经 12 轮没有自愿留下新心声", 6000);
+          // （她 2026-10-10：这类「模型没交某个字段」的提示去掉了，计数照留）
           // 清空只对「确实还挂着旧念头」的情况有意义
           if (_live.thought && skips >= THOUGHT_SKIP_LIMIT) { st.thought = null; st.thoughtUpdatedAt = 0; }
         }
