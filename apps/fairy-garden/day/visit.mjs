@@ -1,10 +1,11 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-26440ea7ab90732d';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-26440ea7ab90732d';
-import {stepRoute} from '../locomotion.mjs?v=fg-26440ea7ab90732d';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-26440ea7ab90732d';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-26440ea7ab90732d';
-const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'}};
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-15cba47296d70fc5';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-15cba47296d70fc5';
+import {stepRoute} from '../locomotion.mjs?v=fg-15cba47296d70fc5';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-15cba47296d70fc5';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-15cba47296d70fc5';
+import {CHORES,chorePlans} from './chores.mjs?v=fg-15cba47296d70fc5';
+const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
 const automaticActivities=['read','walk','drink','rest'];
@@ -38,19 +39,21 @@ export function visitNear(from,ta,map=MAPS.dayHome){
  const choices=[];for(const distance of [1.05,1.4,1.8])for(let n=0;n<16;n++){const a=n*Math.PI/8,to={x:ta.x+Math.cos(a)*distance,z:ta.z+Math.sin(a)*distance},route=reachable(from,to,ta,map);if(route)choices.push({to,route});}
  return choices.sort((a,b)=>gap(from,a.to)-gap(from,b.to))[0]||null;
 }
-export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choice='auto',map=()=>MAPS.dayHome}){
+export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choice='auto',choreVisual={hide(){},update(){}},map=()=>MAPS.dayHome}){
+ let chore=null;
  let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,leaving=false,controlled=null,notice='',last='',activity=null,pendingActivity=null,dwell=0,task=null,control=choice==='manual'||Object.hasOwn(activities,choice)?'manual':'auto',manualAction=Object.hasOwn(activities,choice)?choice:'manual',autoWait=8,autoIndex=0;
- const inspect=()=>({map:map().id||map().renderer,present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:controlled?controlled.moving:route.length>0,interaction:controlled?.kind||null,interactionPhase:controlled?.phase||null,leaving,notice,activity,pendingActivity,control,manualAction,task,dailyAction:avatar.root.userData.dailyAction,motion:motion(),visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
+ const inspect=()=>({map:map().id||map().renderer,present,position:{...position},route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:controlled?controlled.moving:route.length>0,interaction:controlled?.kind||null,interactionPhase:controlled?.phase||null,leaving,notice,activity,pendingActivity,control,manualAction,task,chore:chore?{...chore,route:undefined,elapsed:dwell,finished:dwell>=chore.duration}:null,choreContact:avatar.root.userData.chore,dailyAction:avatar.root.userData.dailyAction,motion:motion(),visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
  function tell(text){if(text!==undefined)notice=present&&control==='auto'?'自动 · '+text:text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,info.interaction,info.interactionPhase,leaving,notice,activity,pendingActivity,control,manualAction]);if(key!==last){last=key;onChange(info);}}
- function halt(){route=[];speed=0;leaving=false;seat=pendingSeat=null;activity=pendingActivity=task=null;dwell=0;}
+ function halt(){chore=null;choreVisual.hide();route=[];speed=0;leaving=false;seat=pendingSeat=null;activity=pendingActivity=task=null;dwell=0;}
  function go(to,nextSeat=null,nextActivity=null){
   const next=reachable(position,to,ta(),map());if(!next){tell('这里暂时走不过去，换个空位试试。');return false;}
   seat=null;activity=null;task=null;dwell=0;pendingSeat=nextSeat;pendingActivity=nextActivity;route=next;speed=0;
   if(!route.length){seat=pendingSeat;activity=pendingActivity;pendingSeat=pendingActivity=null;}tell(seat?'已坐下，可以聊聊。':'正在走过去…');return true;
  }
- function join({automatic=false}={}){
+ function join({automatic=false,arrival=false,restore=null}={}){
+  if(restore){control=restore.control;manualAction=restore.manualAction||'manual';}controlled=null;chore=null;choreVisual.hide();
   present=true;leaving=false;seat=pendingSeat=null;activity=pendingActivity=task=null;dwell=0;position={...map().spawn};
-  if(automatic){const free=visitNear(position,ta(),map());if(!free){present=false;tell('小家暂时没有能站稳的空位，整理好通道后可以再进来。');return false;}position={...free.to};}
+  if(automatic||arrival){const free=visitNear(position,ta(),map());if(!free){present=false;tell('小家暂时没有能站稳的空位，整理好通道后可以再进来。');return false;}position={...free.to};}
   avatar.root.visible=true;
   // An arriving visitor uses the existing doorway, then gives it back.
   avatar.root.position.set(position.x,floorHeight(map().id||map().renderer,position),position.z);
@@ -60,9 +63,14 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
  }
  function stand(){halt();tell('手动控制中，点空地或选动作。');return true;}
  function perform(kind,point){
+  if(!CHORES[kind]){chore=null;choreVisual.hide();}
   if(kind==='stand'||kind==='manual')return stand();
   if(kind==='walk')return point&&Number.isFinite(point.x)&&Number.isFinite(point.z)?go(point):false;
   if(kind==='sit'){const q=chooseVisitSeat(map(),position,ta()?.seat,ta());if(!q){tell('没有能走到的空座位，可以站着陪一会儿。');return false;}return go(q.seat.approach,q.seat);}
+  if(CHORES[kind]){
+   const plan=chorePlans(map(),kind,position,ta())[0];if(!plan){tell('没有能走到的对应家具，先布置好再来。');return false;}
+   const ok=go(plan.at,null,kind);if(ok){chore=plan;yaw=plan.heading;tell('正在走去'+CHORES[kind].label+'的位置…');}return ok;
+  }
   if(activities[kind]){
    if(seat&&activitySeat(map(),seat,kind)){activity=kind;task=null;dwell=0;tell('你在'+activities[kind].label+'，TA继续自己的安排。');return true;}
    const q=chooseVisitSeat(map(),position,ta()?.seat,ta(),kind);
@@ -99,7 +107,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   }
   tell('暂时没有能走到的空位，先歇一会儿。');
  }
- function close(text=''){present=false;leaving=false;controlled=null;route=[];seat=pendingSeat=null;activity=pendingActivity=task=null;avatar.root.visible=false;tell(text);}
+ function close(text=''){chore=null;choreVisual.hide();present=false;leaving=false;controlled=null;route=[];seat=pendingSeat=null;activity=pendingActivity=task=null;avatar.root.visible=false;tell(text);}
  function tick(dt,time){
   if(!present||controlled)return;
   let moving=route.length>0;
@@ -111,14 +119,18 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   }
   moving=route.length>0;
   if(!moving)dwell+=dt;
+  if(chore){const piece=map().furniture.find(p=>p.id===chore.piece&&!p.stored);if(!piece){halt();tell('家具已收起，先停下家务。');}}
   const action=activities[activity]?.action;task=seat&&action?dailyTaskAt({action},{action,piece:seat.piece,seat},map(),dwell,{moving,motion:profile,personal:true}):null;
   const at=seat||position;avatar.root.position.set(at.x,0,at.z);avatar.root.rotation.y=seat?.heading??yaw;
-  if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=Math.atan2(other.x-at.x,other.z-at.z);}
+  if(!moving&&chore)avatar.root.rotation.y=chore.heading;
+  else if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=Math.atan2(other.x-at.x,other.z-at.z);}
   avatar.animate(time,{moving,seated:!!seat,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0)});
+  choreVisual.update(chore,dwell,moving);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
  }
  avatar.root.visible=false;return {join,act,close,tick,inspect,
-  control(info){control='manual';manualAction='manual';controlled=info;activity=pendingActivity=task=null;dwell=0;position={...info.b};seat=info.bSeat||null;route=[];tell(info.moving?'正在走到互动位置…':info.label+'中，可以随时结束。');},
-  release(info){controlled=null;if(info){position={...info.b};seat=info.seats?.b||null;}tell(info?.reason||'继续各自活动。');}
+  setChoice(choice){control=Object.hasOwn(activities,choice)||choice==='manual'?'manual':'auto';manualAction=Object.hasOwn(activities,choice)?choice:'manual';halt();},
+  control(info){if(!info.automatic){control='manual';manualAction='manual';}chore=null;choreVisual.hide();controlled=info;activity=pendingActivity=task=null;dwell=0;position={...info.b};seat=info.bSeat||null;route=[];tell(info.kind==='travel'?'一起走向门口，去下一站…':info.phase!=='active'?'正在走到互动位置…':info.label+'中，可以随时结束。');},
+  release(info){controlled=null;autoWait=12;if(info){position={...info.b};seat=info.seats?.b||null;}tell(info?.reason||'继续各自活动。');}
  };
 }
 
