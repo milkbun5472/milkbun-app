@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.240";
+const APP_VERSION = "v75.241";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16079,8 +16079,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ============================================================
   // 行程 Lifestyle —— x_schedules[charId][dayKey]=dayPlan；当天首开给所有人生成，过去可点(懒生成)，未来锁
   // ============================================================
-  const saveSchedDay = (charId, dayKey, plan) => setSchedules(p => {
-    const cur = p[charId] || {};
+  // ⚠️先把【存档里已有的】合进来再写这一天（群友 2026-10-09：排好的一整周突然只剩今天）。
+  //   这里存的是「内存里整本 + 这一天」：内存那本要是那一刻是空的或旧的，写下去就把别的日子全盖没了。
+  //   合一次存档，最坏也只是多写一天，不会再抹掉别的。删日程走 delSchedDays，那边先写盘，这里读到的就是删过的。
+  const saveSchedDay = (charId, dayKey, plan) => setSchedules(mem => {
+    const disk = (typeof loadJSON === "function" && loadJSON("x_schedules", {})) || {};
+    const p = { ...disk, ...mem };
+    const cur = { ...(disk[charId] || {}), ...(mem[charId] || {}) };
     const n = { ...p, [charId]: { ...cur, [dayKey]: plan } };
     schedulesRef.current = n;
     saveJSON("x_schedules", n);
