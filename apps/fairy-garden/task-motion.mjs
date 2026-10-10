@@ -13,6 +13,16 @@ export function taskPose(task,time){
   if(kind==='read'||['wait','look-sign'].includes(kind))return kind==='look-sign'?{left:[0,0,0],right:[0,0,0],tilt:-.035,yaw:Math.sin(time*.7)*.025}:null;
   if(kind==='listen')return {left:[-.15,0,.035],right:[-.15,0,-.035],leftElbow:-.12,rightElbow:-.12,tilt:Math.sin(time*.75)*.012,yaw:Math.sin(time*.42)*.028};
   if(kind==='present'){const q=(Math.sin(time*1.1)+1)/2;return {left:[-.18,0,.10],right:[-.32-q*.27,0,-.17-q*.08],rightElbow:-.45,tilt:.012,yaw:Math.sin(time*.55)*.05};}
+  if(['voice','sing','act','stream'].includes(kind)){
+    const q=(Math.sin(time*(kind==='sing'?.8:1.1))+1)/2;
+    return {left:[-.16,0,.045],right:[-.28-q*.18,0,-.09-q*.04],leftElbow:-.14,rightElbow:-.36,tilt:Math.sin(time*.7)*.012,yaw:Math.sin(time*.43)*.025,roll:kind==='sing'?Math.sin(time*.8)*.016:0,reach:kind==='stream'?1:0};
+  }
+  if(kind==='pose'){const q=(Math.sin(time*.5)+1)/2;return {left:[-.16,0,.07],right:[-.35,0,-.12-q*.12],leftElbow:-.15,rightElbow:-.48,tilt:.012,yaw:Math.sin(time*.5)*.09};}
+  if(kind==='makeup')return {left:[-.2,0,.08],right:[-.7,0,-.1],rightElbow:-.75,tilt:.015,reach:1,makeup:true};
+  if(kind==='investigate')return {left:[-.18,0,.05],right:[-.6,0,-.09],rightElbow:-.7,tilt:.025,reach:1};
+  if(kind==='shake')return {left:[-.6,0,.08],right:[-.6,0,-.08],leftElbow:-.7,rightElbow:-.7,tilt:.02,reach:1,dy:pulse*.032};
+  if(kind==='serve')return {left:[-.6,0,.08],right:[-.6,0,-.08],leftElbow:-.65,rightElbow:-.65,tilt:.02,reach:1,dz:Math.sin(time*.8)*.025};
+  if(['barista','console','camera','wash'].includes(kind))return {left:[-.22,0,.06],right:[-.55,0,-.09],rightElbow:-.7,tilt:.025,reach:1,dx:Math.sin(time*(kind==='wash'?2:1))*.012,dy:kind==='barista'?Math.max(0,Math.sin(time*1.2))*.009:0};
   if(kind==='dance'||kind==='rehearse'){
     const q=emotionPose(kind==='dance'?'dance':'bow',time/(kind==='dance'?5.2:7)%1);
     return {...q,leftLeg:[kind==='dance'?Math.sin(time*2.8)*.11:0,0,0],rightLeg:[kind==='dance'?-Math.sin(time*2.8)*.11:0,0,0],lift:kind==='dance'?.025:0};
@@ -39,6 +49,14 @@ export function taskPose(task,time){
   if(kind==='observe')return {left:[-.2,0,0],right:[-.4,0,-.08],rightElbow:-.55,tilt:.08,reach:.8,dx:Math.sin(time)*.025};
   return null;
 }
+export function workHandTargets(model,head,task,pose){
+ if(!pose?.makeup||!head)return {};
+ // Face grooming follows the same morphed head as drink/eat. The brush stays
+ // short and approaches from the cheek side rather than crossing the eyes.
+ const sweep=Math.sin(task.elapsed*1.4)*.055;
+ task.contact=head.localToWorld(new T.Vector3(.91,-.73+sweep,.84));
+ return {reach:1,target:head.localToWorld(new T.Vector3(1.02,-.69+sweep,1.13))};
+}
 export function makeTaskProps(root,model,handPoint){
   const group=new T.Group();group.name='WorkActionProps';model.add(group);
   const cream=new T.MeshStandardMaterial({color:'#eee7d5',roughness:.9}),green=new T.MeshStandardMaterial({color:'#819f91',roughness:.85}),wood=new T.MeshStandardMaterial({color:'#b59a6d',roughness:.85});
@@ -50,6 +68,10 @@ export function makeTaskProps(root,model,handPoint){
   const sample=new T.Group();sample.name='CarriedWorkSample';group.add(sample);mesh(sample,new T.CylinderGeometry(.04,.04,.15,10),cream,0,-.04,0);mesh(sample,new T.CylinderGeometry(.045,.045,.035,10),green,0,.055,0);
   const brush=new T.Group();brush.name='WorkBrush';group.add(brush);mesh(brush,new T.CylinderGeometry(.009,.009,.19,8),wood,0,-.085,0);mesh(brush,new T.BoxGeometry(.024,.04,.014),green,0,-.20,0);
   const chalk=new T.Group();chalk.name='WorkChalk';group.add(chalk);mesh(chalk,new T.CylinderGeometry(.011,.011,.12,8),cream,0,-.06,0);
+  const marker=new T.Group();marker.name='WorkMarker';group.add(marker);mesh(marker,new T.CylinderGeometry(.014,.014,.15,8),green,0,-.075,0);mesh(marker,new T.ConeGeometry(.014,.02,8),wood,0,-.16,0).rotation.z=Math.PI;
+  const cosmetic=new T.Group();cosmetic.name='MakeupBrush';group.add(cosmetic);mesh(cosmetic,new T.CylinderGeometry(.012,.012,.13,8),wood,0,-.065,0);mesh(cosmetic,new T.SphereGeometry(.027,12,8),cream,0,-.16,0).scale.set(1,.7,1);
+  const shaker=new T.Group();shaker.name='HeldDrinkShaker';group.add(shaker);mesh(shaker,new T.CylinderGeometry(.060,.051,.20,16),green);mesh(shaker,new T.CylinderGeometry(.058,.062,.04,16),cream,0,.12,0);mesh(shaker,new T.CylinderGeometry(.023,.04,.045,12),wood,0,.157,0);
+  const tray=new T.Group();tray.name='HeldServiceTray';group.add(tray);mesh(tray,new T.BoxGeometry(.50,.025,.34),wood);mesh(tray,new T.CylinderGeometry(.14,.14,.022,16),cream,0,.022,0);mesh(tray,new T.SphereGeometry(.10,12,8),green,0,.055,0).scale.set(1.1,.35,.9);
   const clipboard=new T.Group();clipboard.name='WorkClipboard';group.add(clipboard);mesh(clipboard,new T.BoxGeometry(.30,.025,.34),green);mesh(clipboard,new T.BoxGeometry(.27,.007,.29),cream,0,.017,0);mesh(clipboard,new T.BoxGeometry(.09,.017,.025),wood,0,.025,-.13);
   const ticket=mesh(group,new T.BoxGeometry(.17,.008,.09),cream);ticket.name='WorkTicket';
   const guitar=new T.Group();guitar.name='HeldWorkGuitar';guitar.userData.strumTarget=GUITAR_STRUM;group.add(guitar);for(const [y,r]of [[-.26,.16],[-.11,.12]])mesh(guitar,new T.SphereGeometry(r,12,10),wood, .16,y,.05).scale.set(1,1,.24);mesh(guitar,new T.BoxGeometry(.042,.31,.03),wood,0,-.025,.05);for(let i=0;i<4;i++)mesh(guitar,new T.BoxGeometry(.002,.44,.004),cream,GUITAR_STRUM[0]+(i-1.5)*.013,GUITAR_STRUM[1],GUITAR_STRUM[2]);
@@ -71,6 +93,10 @@ export function makeTaskProps(root,model,handPoint){
       if(reach>.40)tool.visible=false;
     };
     brush.visible=!moving&&task?.kind==='paint'&&task.tool!=='chalk';chalk.visible=!moving&&task?.kind==='paint'&&task.tool==='chalk';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
+    marker.visible=!moving&&task?.kind==='investigate';cosmetic.visible=!moving&&task?.kind==='makeup';shaker.visible=!moving&&task?.kind==='shake';tray.visible=!moving&&task?.kind==='serve';
+    if(marker.visible)aim(marker,.17);
+    if(cosmetic.visible)aim(cosmetic,.18);
+    for(const prop of [shaker,tray])if(prop.visible){const right=handPoint('right'),left=handPoint('left');prop.position.copy(group.worldToLocal(right.clone().add(left).multiplyScalar(.5)));prop.rotation.set(prop===shaker?.18:0,0,0);if(prop===tray)prop.position.y-=.025;}
     sample.visible=!!task?.carry&&task.carryType==='sample'&&!(task.kind==='tidy'&&task.progress>.8);if(sample.visible)place(sample,task.kind==='experiment'?'left':'right');
     if(brush.visible)aim(brush,.22);
     if(chalk.visible)aim(chalk,.12);
@@ -90,6 +116,6 @@ export function makeTaskProps(root,model,handPoint){
     if(pen.visible)aim(pen,.21);
     if(pipette.visible)aim(pipette,.23);
     if(book.visible){place(book,'right');book.position.y-=.035;book.position.z+=.07;book.rotation.x=.12;}
-    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
+    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,marker:marker.visible,makeup:cosmetic.visible,shaker:shaker.visible,tray:tray.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
   }};
 }

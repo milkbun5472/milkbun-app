@@ -1,8 +1,10 @@
 import {errandsTaskAt} from './errands-workflow.mjs?v=fg-81061b22e300c17f';
 import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-81061b22e300c17f';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const RECIPES={
+ ...OCCUPATION_RECIPES,
  [OFFICE]:{computer:[['computer',12],['notes',2],['tea',1,'break']],notes:[['notes',12],['files',1],['tea',1,'break']],meeting:[['meeting',12],['meeting-notes',2]],'meeting-notes':[['meeting-notes',12],['meeting',2]],presentation:[['presentation',10],['meeting',2]]},
  [CAMPUS]:{listen:[['listen',10],['notes',3]],notes:[['notes',10],['listen',3]],study:[['study',12],['rest',1,'break']],blackboard:[['blackboard',6],['teach',4],['prepare',1]],teach:[['teach',10],['blackboard',3],['prepare',1]],prepare:[['prepare',12],['rest',1,'break']]},
  [GYM]:{treadmill:[['treadmill',8],['stretch',2],['rest',1,'break']],weights:[['weights',8],['stretch',2],['rest',1,'break']],stretch:[['stretch',8],['rest',1,'break']]},
@@ -15,6 +17,7 @@ const RECIPES={
  [STATION]:{waiting:[['waiting',12],['reading',2],['information',1]],reading:[['reading',12],['waiting',2],['information',1]],platform:[['platform',12],['waiting',2]],departure:[['waiting',8],['information',2],['departure',3]],luggage:[['waiting',12],['information',2]]}
 };
 const CONFIG={
+ ...OCCUPATION_CONFIG,
  [OFFICE]:{carry:'book',entry:'entrance',prepare:p=>['meeting','meeting-notes','presentation'].includes(p.spot)?p.spot:'files',tidy:p=>p.spot,exit:'exit'},
  [CAMPUS]:{entry:'entrance',prepare:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',tidy:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',exit:'exit',carry:'book'},
  [GYM]:{entry:'entrance',prepare:p=>p.spot==='weights'?'take-weights':'storage',tidy:p=>p.spot==='weights'?'take-weights':'storage',exit:'exit'},
@@ -27,6 +30,7 @@ const CONFIG={
  [STATION]:{entry:'entrance',prepare:()=> 'luggage',tidy:()=> 'luggage',exit:'departure',carry:'luggage'}
 };
 const MOTIONS={
+ ...OCCUPATION_MOTIONS,
  [OFFICE]:{computer:'type',notes:'write',meeting:'listen','meeting-notes':'write',presentation:'present',files:'select',print:'select'},
  [CAMPUS]:{listen:'listen',notes:'write',study:'write',blackboard:'paint',teach:'present',prepare:'write',lockers:'select'},
  [GYM]:{storage:'wait',treadmill:'treadmill','take-weights':'weight-pick',weights:'weights',stretch:'stretch'},
@@ -59,7 +63,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
  if(p.map===GYM)plain.carryType=p.spot==='weights'?'weights':null;
  if(p.map===MARKET){plain.carry=p.spot!=='entrance'&&p.spot!=='cashier'&&p.spot!=='rest';if(p.spot==='cashier')plain.carryType=null;}
  const text=slot?.row?.deviation?.actual||slot?.actual||slot?.title||slot?.row?.title||'';
- const motionFor=id=>p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id);
+ const motionFor=id=>occupationMotion(p.map,id,text)||(p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id));
  plain.motion=motionFor(p.spot);
  if(['dayHome','dayCafe','dayWork'].includes(p.map)&&DAILY_MOTIONS[p.action]){plain.motion=DAILY_MOTIONS[p.action];plain.phaseLabel=DAILY_LABELS[p.action];}
  if(!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
@@ -93,6 +97,8 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,mot
  const errands=errandsTaskAt(stage,spot,map,elapsed,{moving});if(errands!==undefined)return errands;
  if([OFFICE,CAMPUS].includes(stage.map)&&['tea','meal'].includes(spot?.action))return stage.phase==='break'?null:dailyTaskAt({...stage,action:spot.action},spot,{...map,id:stage.map},elapsed,{moving,motion,personal:true});
  if(stage.phase==='break')return null;
+ if(isOccupation(stage.map)&&moving&&!stage.carry)return null;
+ if(isOccupation(stage.map)&&['tea','meal','read'].includes(spot?.action))return dailyTaskAt({...stage,action:spot.action},spot,{...map,id:stage.map},elapsed,{moving,motion,personal:true});
  if(!stage.motion&&!stage.carry)return null;
  const carryType=stage.carryType||null,kind=moving?'carry':stage.motion||'carry';
  const origin=spot?.seat||spot?.target||map.spawn,yaw=spot?.heading||0,s=Math.sin(yaw),c=Math.cos(yaw);
@@ -107,6 +113,7 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,mot
  if(kind==='paint'){const dx=Math.sin(elapsed*2)*.03,dy=Math.cos(elapsed*1.7)*.025;task.contact.x+=dx;task.contact.y+=dy;task.target.x+=dx;task.target.y+=dy;}
  if(kind==='piano')task.leftTarget={...target,x:p.x+.12};
  if(kind==='paint'){task.tool=stage.map===CAMPUS?'chalk':'brush';if(task.tool==='chalk')task.target={x:task.contact.x,y:task.contact.y,z:task.contact.z+.09};}
+ occupationTask(task,{...map,id:stage.map},spot,p);
  if(carryType==='luggage'){
   const rack=map.furniture.find(f=>f.id==='luggage-shelf'),storedAt={x:rack.x-.12,y:map.floor+.145,z:rack.z+.27};
   const stored=stage.phase==='work'&&!['pack','take-luggage'].includes(stage.motion)||stage.phase==='tidy'&&moving;

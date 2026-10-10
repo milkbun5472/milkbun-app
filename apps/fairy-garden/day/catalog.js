@@ -696,5 +696,293 @@
         "gesture": "rest"
       }
     ]
+  },
+  {
+    "id": "dayInvestigation",
+    "label": "办案室／值勤区",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "值勤区入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "clues",
+        "label": "线索墙前梳理",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "notes",
+        "label": "桌前整理案卷",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "computer",
+        "label": "查询与比对资料",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "files",
+        "label": "档案柜取卷宗",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "evidence",
+        "label": "整理物证收纳",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "briefing",
+        "label": "案情汇报位置",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "duty",
+        "label": "值勤交接席",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "tea",
+        "label": "值勤间隙喝水",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "rest",
+        "label": "下班前稍歇",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "交班后离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayService",
+    "label": "后厨／操作吧台",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "店内开工入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "storage",
+        "label": "冷藏柜取材料",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "prep",
+        "label": "砧板前备料",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "cook",
+        "label": "灶台前出菜",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "wash",
+        "label": "清洗与整理操作台",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "coffee",
+        "label": "咖啡机前制作",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "mix",
+        "label": "吧台调制饮品",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "serve",
+        "label": "出餐与递饮品",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "cashier",
+        "label": "柜台核对订单",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "meal",
+        "label": "员工餐与短休",
+        "action": "meal",
+        "gesture": "eat"
+      },
+      {
+        "id": "rest",
+        "label": "收工间隙歇脚",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "交接后离店",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayFilm",
+    "label": "拍摄棚／妆造区",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "拍摄棚入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "makeup",
+        "label": "镜前整理妆容",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "script",
+        "label": "候场读台本",
+        "action": "read",
+        "gesture": "read"
+      },
+      {
+        "id": "costume",
+        "label": "服装架前准备",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "perform",
+        "label": "布景前表演与试镜",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "pose",
+        "label": "定点棚拍姿态",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "camera",
+        "label": "摄影机后掌镜",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "lighting",
+        "label": "灯架边检查布光",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "review",
+        "label": "监视器前回看素材",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "候场长椅休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "收工离开拍摄棚",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayBroadcast",
+    "label": "录音／直播间",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "录制空间入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "gear",
+        "label": "器材柜前准备",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "script",
+        "label": "录制前读台本",
+        "action": "read",
+        "gesture": "read"
+      },
+      {
+        "id": "voice",
+        "label": "话筒前配音与试音",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "sing",
+        "label": "话筒前录歌",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "mix",
+        "label": "调音台监听与混音",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "stream",
+        "label": "镜头前直播",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "edit",
+        "label": "电脑前剪辑素材",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "录制间隙休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "收好器材离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
   }
 ];})(globalThis);

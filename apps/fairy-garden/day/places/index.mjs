@@ -8,9 +8,13 @@ import {gymMap,createGym} from './gym.mjs?v=fg-81061b22e300c17f';
 import {marketMap,createMarket} from './market.mjs?v=fg-81061b22e300c17f';
 import {officeMap,createOffice} from './office.mjs?v=fg-81061b22e300c17f';
 import {campusMap,createCampus} from './campus.mjs?v=fg-81061b22e300c17f';
+import {investigationMap,createInvestigation} from './investigation.mjs';
+import {serviceMap,createService} from './service.mjs';
+import {filmMap,createFilm} from './film.mjs';
+import {broadcastMap,createBroadcast} from './broadcast.mjs';
 import * as T from 'three';
-export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap,dayOffice:officeMap,dayCampus:campusMap};
-export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket,dayOffice:createOffice,dayCampus:createCampus};
+export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap,dayOffice:officeMap,dayCampus:campusMap,dayInvestigation:investigationMap,dayService:serviceMap,dayFilm:filmMap,dayBroadcast:broadcastMap};
+export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket,dayOffice:createOffice,dayCampus:createCampus,dayInvestigation:createInvestigation,dayService:createService,dayFilm:createFilm,dayBroadcast:createBroadcast};
 // Only the read-only day viewer installs these maps. Persistent game worlds keep their own registry.
 export function registerDayPlaces(maps){Object.assign(maps,DAY_PLACES);}
 export function placeList(){return Object.entries(DAY_PLACES).map(([id,m])=>({id,label:m.label,spots:m.spots.map(({id,label,description,action,gesture},index)=>({id,label,description,action,gesture,number:index+1}))}));}

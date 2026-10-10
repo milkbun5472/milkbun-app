@@ -91,6 +91,33 @@ function looks(){
  return {...f,api:f.e.CompanionFace,writer,moods:()=>moods,setCfg:value=>{cfg=value;},cfg:()=>cfg};
 }
 
+test('新增职业场景按实际地点与操作分配，顾客、演员与摄影师保持各自活动',()=>{
+ const {L}=envFor({});
+ const cases=[
+  ['梳理调查线索','刑侦办案室','dayInvestigation','clues'],['整理当日案卷','警局','dayInvestigation','notes'],['交接值勤','派出所','dayInvestigation','duty'],['案情汇报','办案室','dayInvestigation','briefing'],
+  ['切配备菜','餐厅后厨','dayService','prep'],['灶台炒菜','餐厅后厨','dayService','cook'],['制作咖啡','咖啡馆吧台','dayService','coffee'],['调制饮品','酒吧吧台','dayService','mix'],['核对订单','餐厅','dayService','cashier'],
+  ['补妆','化妆间','dayFilm','makeup'],['候场看台本','片场','dayFilm','script'],['拍戏表演','摄影棚','dayFilm','perform'],['模特棚拍','影棚','dayFilm','pose'],['机后掌镜','摄影棚','dayFilm','camera'],
+  ['配音录制','配音棚','dayBroadcast','voice'],['录歌','录音室','dayBroadcast','sing'],['监听混音','录音棚','dayBroadcast','mix'],['开播聊天','直播间','dayBroadcast','stream'],['剪辑素材','直播工作室','dayBroadcast','edit']
+ ];
+ for(const [title,location,map,spot]of cases){const actual=L.presentation({title,location,type:'work'});assert.equal(actual.map,map,title);assert.equal(actual.spot,spot,title);}
+ for(const title of ['在家直播','在家录歌','在家试音','在家制作咖啡','在家读台本'])assert.equal(L.presentation({title,location:'家里',type:'work'}).map,'dayHome');
+ assert.equal(L.presentation({title:'在咖啡馆喝咖啡',location:'咖啡馆',type:'coffee'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'餐厅吃午饭',location:'餐厅',type:'meal'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'观看直播',type:'home'}).map,'dayHome');
+ assert.equal(L.presentation({title:'排练台词',location:'排练室',type:'work'}).map,'dayRehearsal');
+ assert.equal(L.presentation({title:'外景拍摄',location:'小街',type:'work'}).map,'dayStreet');
+ assert.equal(L.presentation({title:'巡逻',location:'街头',type:'work'}).map,'dayStreet');
+});
+test('职业场景沿原生成writer保存合法world，改期与日历投影保留原边界',async()=>{
+ for(const [scene,spot]of [['dayInvestigation','clues'],['dayService','cook'],['dayFilm','camera'],['dayBroadcast','voice']]){
+  const seq={...row(scene,spot),title:'当前职业事项',location:'角色世界里的实际工作地点'},f=envFor({seqs:[seq]});
+  assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.equal(f.L.presentation(saved).map,scene);assert.equal(f.L.presentation(saved).spot,spot);
+  assert.equal(saved.title,seq.title);assert.equal(saved.location,seq.location);assert.equal(f.L.publicRow(saved).world,undefined);
+  assert.equal(f.L.presentation({...saved,deviation:{actual:'回家休息',world:null}}).map,'dayHome');
+ }
+});
+
 test('厨房料理与喝水按原日程文字进入家中实际动作点，外食与偏差保持各自地点',()=>{
  const {L}=envFor({});
  for(const title of ['在家做饭','下厨煮汤','做晚餐','炒菜'])assert.equal(L.presentation({title,location:'家里',type:'meal'}).spot,'cook');
