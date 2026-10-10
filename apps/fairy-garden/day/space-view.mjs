@@ -1,9 +1,9 @@
-import {HOME_WALLS,HOME_FLOORS,furniturePrimary} from './home-catalog.mjs?v=fg-837facea1cb3043b';
-import {furnitureFinish} from './home-finish.mjs?v=fg-837facea1cb3043b';
-import {createHomeShell} from './home-shell.mjs?v=fg-837facea1cb3043b';
-import {createHomeFurniture} from './home-furniture.mjs?v=fg-837facea1cb3043b';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-837facea1cb3043b';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-837facea1cb3043b';
+import {HOME_WALLS,HOME_FLOORS,furniturePrimary,furniturePalette} from './home-catalog.mjs?v=fg-8aa89b39bf44a9c5';
+import {furnitureFinish} from './home-finish.mjs?v=fg-8aa89b39bf44a9c5';
+import {createHomeShell} from './home-shell.mjs?v=fg-8aa89b39bf44a9c5';
+import {createHomeFurniture} from './home-furniture.mjs?v=fg-8aa89b39bf44a9c5';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-8aa89b39bf44a9c5';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-8aa89b39bf44a9c5';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
@@ -27,7 +27,7 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
   }
  }
  function furniture(a){
-  const finish=furniturePrimary(a,base),primary=finish.color;p={...base,...(a.color?{[finish.field]:a.color}:{})};
+  const finish=furniturePrimary(a,base),primary=finish.color;p={...furniturePalette(a,base),...(a.color?{[finish.field]:a.color}:{})};
   let g;
   if(id==='dayHome')g=createHomeFurniture(k,a,p);
   else if(a.kind==='table'){g=k.table({...a,color:p.wood});g.rotation.y=a.heading;

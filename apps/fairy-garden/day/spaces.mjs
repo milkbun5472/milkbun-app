@@ -1,5 +1,5 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat} from './home-catalog.mjs?v=fg-837facea1cb3043b';
-import {MAPS,walkable} from '../world.mjs?v=fg-837facea1cb3043b';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-8aa89b39bf44a9c5';
+import {MAPS,walkable} from '../world.mjs?v=fg-8aa89b39bf44a9c5';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
@@ -55,7 +55,7 @@ export function buildSpace(id,placements={}){
  const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
  const pieces=Object.fromEntries(furniture.map(p=>[p.id,p]));
  const walls=d.outdoor?[]:[{id:'back-wall',x:0,z:-d.d/2,w:d.w+.2,d:.18},{id:'left-wall',x:-d.w/2,z:0,w:.18,d:d.d}];
- const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.map(p=>{const c=Math.abs(Math.cos(p.heading)),s=Math.abs(Math.sin(p.heading));return {id:p.id,x:p.x,z:p.z,w:p.w*c+p.d*s,d:p.d*c+p.w*s};})];
+ const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.filter(p=>!p.walkThrough).map(furnitureFootprint)];
  const room=id==='dayHome'?homeRoom(placements):null;
  const anchors=room?homeAnchors(furniture,room):d.anchors;
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{
