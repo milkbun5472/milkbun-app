@@ -6156,8 +6156,9 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
 // 整页（no-half-sheet）。它长成【一张登机牌 + TA手写批注的行程册】：现实里一趟旅行
 // 留在手里的就是这两样。从愿望板「一起去」进来，返回也回愿望板（一层层退）。
 // 配色整套写死（票纸写死浅色，字色跟主题走会在深色主题下失明——信纸那套的老课）。
+const tripTodayKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
 // 旅行里那一步「订票订房」：三班去程、三家酒店，TA 先说自己会挑哪个；你可以改，然后你付或 TA 请客
-function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay }) {
+function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay, hasKin }) {
   const t = useTheme();
   const b = trip && trip.booking;
   const name = partner.remark || partner.name;
@@ -6165,8 +6166,12 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay }) {
   if (!b) return h("button", { "data-wk": "tripbook", "data-part": "search", onClick: onBook, disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40",
     style: { marginTop: 14, minHeight: 44, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, color: t.tint } },
     gen ? "在查票和房…" : "✈ 订机票和酒店");
-  const pick = b.pick || { flight: b.taPick.flight, hotel: b.taPick.hotel };
-  const total = (b.flights[pick.flight] ? b.flights[pick.flight].price * 2 : 0) + (b.hotels[pick.hotel] ? b.hotels[pick.hotel].price * (b.nights || 1) : 0);
+  const pick = b.pick || { flight: b.taPick.flight, back: b.taPick.back, hotel: b.taPick.hotel };
+  const backs = Array.isArray(b.back) ? b.back : [];
+  const total = (b.flights[pick.flight] ? b.flights[pick.flight].price * 2 : 0) + (backs[pick.back] ? backs[pick.back].price * 2 : 0)
+    + (b.hotels[pick.hotel] ? b.hotels[pick.hotel].price * (b.nights || 1) : 0);
+  const seat = b.seat || { me: "window" };
+  const byZh = { ta: name + " 请客", aa: "两个人 AA", kin: "刷了 " + name + " 的亲属卡", me: "你付的" };
   const paid = b.paid;
   const row = (kind, x, i) => {
     const on = pick[kind] === i, ta = b.taPick[kind] === i;
@@ -6174,26 +6179,27 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay }) {
       className: "w-full text-left active:opacity-80", style: Object.assign({}, card, { display: paid && !on ? "none" : "block", border: "1.5px solid " + (on ? "#43371f" : "#e6dcc4"), minHeight: 44 }) },
       h("div", { className: "flex items-baseline", style: { gap: 8 } },
         h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#3a3226" } },
-          kind === "flight" ? [x.no, [x.from, x.to].filter(Boolean).join(" → ")].filter(Boolean).join("  ") : x.name),
+          kind !== "hotel" ? [x.no, [x.from, x.to].filter(Boolean).join(" → ")].filter(Boolean).join("  ") : x.name),
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#3a3226", flexShrink: 0 } }, "¥" + x.price + (kind === "hotel" ? "/晚" : "/人"))),
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8f8268", marginTop: 3 } },
-        kind === "flight" ? [x.dep, x.arr].filter(Boolean).join(" → ") : [x.area, x.room].filter(Boolean).join(" · "),
+        kind !== "hotel" ? [x.dep, x.arr].filter(Boolean).join(" → ") : [x.area, x.room].filter(Boolean).join(" · "),
         x.note ? " · " + x.note : "", ta ? h("span", { style: { color: "#93707c", marginLeft: 6 } }, "♥ " + name + " 会挑这个") : null));
   };
   // 订好之后：一张订单票根，跟上面那张登机牌同一套纸和墨（深带 + 竖撕线 + 存根）
   if (paid) {
-    const fl = b.flights[pick.flight] || {}, ho = b.hotels[pick.hotel] || {};
+    const fl = b.flights[pick.flight] || {}, ho = b.hotels[pick.hotel] || {}, bk = backs[pick.back] || null;
     const TIN = "#43371f", TFOG = "#9a8a66", TP = "#f6f0df", TLINE = "rgba(140,115,65,.3)";
     return h("div", { "data-wk": "tripbookpaid", style: { position: "relative", marginTop: 16, borderRadius: 6, overflow: "hidden", background: TP, boxShadow: "0 8px 20px rgba(70,50,15,.16)", transform: "rotate(0.5deg)" } },
       h("div", { className: "flex items-center", style: { background: TIN, padding: "7px 14px", gap: 8 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: "rgba(246,240,223,.85)" } }, "订单"),
         h("span", { style: { flex: 1 } }),
-        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(246,240,223,.85)" } }, paid.by === "ta" ? name + " 请客" : "你付的")),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(246,240,223,.85)" } }, byZh[paid.by] || "你付的")),
       h("div", { className: "flex items-stretch" },
         h("div", { style: { flex: 1, minWidth: 0, padding: "12px 14px" } },
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "去程" + (fl.no ? " · " + fl.no : "")),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: TIN, marginTop: 3, wordBreak: "break-word" } }, [fl.from, fl.to].filter(Boolean).join(" → ")),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 2 } }, [fl.dep, fl.arr].filter(Boolean).join(" → ") + " · 两人"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 2 } }, [fl.dep, fl.arr].filter(Boolean).join(" → ") + " · 两人 · 你" + (seat.me === "aisle" ? "靠过道" : "靠窗")),
+          bk ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 6 } }, "回程" + (bk.no ? " " + bk.no : "") + " · " + [bk.dep, bk.arr].filter(Boolean).join(" → ")) : null,
           h("div", { style: { borderTop: "1px dashed " + TLINE, margin: "10px 0" } }),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "住 · " + b.nights + " 晚"),
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TIN, marginTop: 3, wordBreak: "break-word" } }, ho.name || ""),
@@ -6211,19 +6217,33 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay }) {
     b.taPick.why && !paid ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.65, color: "#93707c", marginBottom: 8 } }, name + "：「" + b.taPick.why + "」") : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 6px" } }, "去程"),
     b.flights.map((x, i) => row("flight", x, i)),
+    backs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "回程") : null,
+    backs.map((x, i) => row("back", x, i)),
+    // 选座：TA 先说想让你坐哪、为什么；你点另一个就换（零调用）
+    h("div", { "data-wk": "tripseat", style: { margin: "8px 0 4px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "座位 · 你们挨着坐"),
+      h("div", { className: "flex", style: { gap: 8 } },
+        [["window", "我靠窗"], ["aisle", "我靠过道"]].map(([k, zh]) => h("button", { key: k, "data-on": seat.me === k ? "1" : "0", onClick: () => onBookPick && onBookPick({ seat: k }), className: "flex-1 active:opacity-70",
+          style: { minHeight: 40, borderRadius: 10, border: "1.5px solid " + (seat.me === k ? "#43371f" : "#e6dcc4"), background: "#fdfaf1", color: "#3a3226", fontFamily: F_BODY, fontSize: 13 } }, zh))),
+      seat.why && !seat.mine ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, color: "#93707c", marginTop: 6 } }, name + "：「" + seat.why + "」") : null),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "住哪 · " + b.nights + " 晚"),
     b.hotels.map((x, i) => row("hotel", x, i)),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, margin: "6px 0 8px", textAlign: "right" } }, "两个人的票 + " + b.nights + " 晚 · 共 ¥" + total),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, margin: "6px 0 8px", textAlign: "right" } }, "两个人" + (backs.length ? "往返" : "") + "的票 + " + b.nights + " 晚 · 共 ¥" + total),
     // 付钱这排压轻一档：底下「出发」才是这一页最重的那一下，两颗大黑键挨着会抢
     h("div", { className: "flex", style: { gap: 8 } },
         h("button", { "data-wk": "tripbook", "data-part": "me", onClick: () => onBookPay && onBookPay("me"), className: "flex-1 active:opacity-70",
           style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #43371f", color: "#43371f", background: "#fdfaf1", fontFamily: F_BODY, fontSize: 13.5 } }, "我来付"),
         h("button", { "data-wk": "tripbook", "data-part": "ta", onClick: () => onBookPay && onBookPay("ta"), className: "flex-1 active:opacity-70",
-          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13.5 } }, name + " 请客"),
+          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13.5 } }, name + " 请客")),
+    h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+        h("button", { "data-wk": "tripbook", "data-part": "aa", onClick: () => onBookPay && onBookPay("aa"), className: "flex-1 active:opacity-70",
+          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "AA · 一人 ¥" + Math.round(total / 2)),
+        hasKin ? h("button", { "data-wk": "tripbook", "data-part": "kin", onClick: () => onBookPay && onBookPay("kin"), className: "flex-1 active:opacity-70",
+          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "刷 " + name + " 的亲属卡") : null,
         h("button", { "data-wk": "tripbook", "data-part": "again", onClick: onBook, disabled: gen, className: "active:opacity-60 disabled:opacity-40",
           style: { minHeight: 44, padding: "0 10px", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "查着…" : "换一批")));
 }
-function CoupleTrip({ partner, trips, gen, onPlan, onBook, onBookPick, onBookPay, onDepart, onDone, onBack }) {
+function CoupleTrip({ partner, trips, gen, onPlan, onBook, onBookPick, onBookPay, onDate, hasKin, onDepart, onDone, onBack }) {
   const t = useTheme();
   const cur = (trips || []).find(x => x && x.status !== "done") || null;
   const done = (trips || []).filter(x => x && x.status === "done");
@@ -6268,7 +6288,16 @@ function CoupleTrip({ partner, trips, gen, onPlan, onBook, onBookPick, onBookPay
             style: { marginTop: 16, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "13px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.tint } },
             gen ? partner.name + " 排着行程…" : "让 " + partner.name + " 来排这趟的行程"),
         // ── 订票订房（群友 2026-10-10 许愿「类携程」）：查一次花一次调用，挑和付都不花 ──
-        h(TripBooking, { partner, trip: cur, gen, onBook, onBookPick, onBookPay }),
+        h(TripBooking, { partner, trip: cur, gen, onBook, onBookPick, onBookPay, hasKin }),
+        // ── 哪天出发：写进日历，前一晚 TA 来提醒，当天这里写「今天出发」──
+        h("div", { "data-wk": "tripdate", className: "flex items-center", style: { gap: 10, marginTop: 14, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
+              cur.date ? (cur.date === tripTodayKey() ? "今天出发" : "出发日 · " + cur.date.slice(5).replace("-", "月") + "日") : "哪天出发"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
+              cur.date ? "已记进日历；出发前一晚 " + (partner.remark || partner.name) + " 会来提醒你" : "挑了日子会记进日历，前一晚 " + (partner.remark || partner.name) + " 会来提醒")),
+          h("input", { type: "date", value: cur.date || "", onChange: e => onDate && onDate(e.target.value), "aria-label": "出发日",
+            style: { minHeight: 40, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "0 8px", fontFamily: F_BODY, fontSize: 12.5 } })),
         // ── 两个动作：出发（带着行程开一场线下）· 收行李（零调用归档）──
         h("button", { onClick: onDepart, className: "w-full active:opacity-70",
           style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, "出发 · 去线下走这一趟"),
@@ -6284,7 +6313,8 @@ function CoupleTrip({ partner, trips, gen, onPlan, onBook, onBookPick, onBookPay
         done.map(x => h("div", { key: x.id, className: "flex items-center", style: { gap: 11, padding: "11px 12px", background: TP, borderRadius: 4, marginBottom: 8, boxShadow: "0 3px 8px rgba(70,50,15,.12)", transform: "rotate(" + ((String(x.id).charCodeAt(4) % 3) - 1) * 0.7 + "deg)" } },
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: TIN, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.dest + (x.plan && x.plan.title ? " · 「" + x.plan.title + "」" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: TFOG, marginTop: 2 } }, fmtD(x.doneTs) + " 回来")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: TFOG, marginTop: 2 } }, fmtD(x.doneTs) + " 回来"
+              + (x.booking && x.booking.paid ? " · " + [(x.booking.flights[x.booking.pick.flight] || {}).no, (x.booking.hotels[x.booking.pick.hotel] || {}).name].filter(Boolean).join(" · ") : ""))),
           h("span", { "aria-hidden": "true", style: { fontFamily: F_DISPLAY, fontSize: 10, color: TFOG, border: "1.5px solid " + TLINE, borderRadius: 4, padding: "2px 6px", transform: "rotate(-8deg)", letterSpacing: 2 } }, "走完")))) : null));
 }
 
@@ -6413,7 +6443,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6628,6 +6658,7 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return h(CoupleTrip, { partner, trips: (coupleTrips || []).filter(t => t && t.charId === partner.id),
       gen: tripGen === partner.id, onPlan: () => onTripPlan && onTripPlan(partner),
       onBook: () => onTripBook && onTripBook(partner), onBookPick: pk => onTripBookPick && onTripBookPick(partner, pk), onBookPay: who => onTripBookPay && onTripBookPay(partner, who),
+      onDate: d => onTripDate && onTripDate(partner, d), hasKin: !!(kinCardFrom && kinCardFrom(partner.id)),
       onDepart: () => onTripDepart && onTripDepart(partner), onDone: () => onTripDone && onTripDone(partner),
       onBack: () => openSub("wishes") });
   }

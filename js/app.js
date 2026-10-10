@@ -7304,6 +7304,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           return;
         }
       }
+      // —— 旅行出发前一晚：订了日子的那一趟，TA 主动来提醒一次（一趟一次，晚上 19-23 点）——
+      try {
+        const tomorrow = schedShiftDayKey(schedDayKey(nowD), 1);
+        const tr = (coupleTripsRef.current || []).find(t => t && t.status !== "done" && t.date === tomorrow && !t.eveSent);
+        const tc = tr && characters.find(c => c.id === tr.charId);
+        if (tc && nowD.getHours() >= 19 && nowD.getHours() <= 23 && !laneBusy("c:" + tc.id) && viewRef.current.charId !== tc.id && !pSkip("tripeve:" + tr.id)) {
+          const b = tr.booking, fl = b && b.paid ? b.flights[b.pick.flight] : null;
+          const info = "明天你们要一起去「" + tr.dest + "」" + (fl ? "，" + (fl.no ? fl.no + " " : "") + (fl.dep ? fl.dep + " 出发" : "") : "") + (b && b.paid ? "，住「" + b.hotels[b.pick.hotel].name + "」" : "");
+          pOnce("tripeve:" + tr.id, "tripeve:" + tr.id, () => replyNow(tc.id, "", null, { proactive: true, tripEve: info }),
+            () => saveTrips(p => p.map(t => t.id === tr.id ? { ...t, eveSent: tomorrow } : t)));
+          return;
+        }
+      } catch (e) {}
       // —— 生日前三天：挑一位偷偷准备（一年一位）：正式在一起的那位优先，否则好感最高的 ——
       try {
         const year = String(nowD.getFullYear());
@@ -11358,6 +11371,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         : opts.busyBack ? "\n\n【此刻】你刚忙完（" + opts.busyBack.title + "），这才拿起手机看到 " + uName + " 这期间发来的消息。照你自己的性子回 Ta。"
         // ⚠️不写「她催你」：写了模型一开口就是「催什么催」。只给事实——你还在忙、抽空看了一眼
         : opts.busyNudge ? "\n\n【此刻】你还在忙（" + opts.busyNudge.title + "），这会儿抽空看了一眼手机，看到 " + uName + " 发来的消息。照你自己的性子来。" : "";
+      const tripEveHint = opts.tripEve ? "\n\n【此刻·明天要出门】" + opts.tripEve + "。你【主动】找 Ta 说两句出发前一晚会说的话——照你这个人：叮嘱带什么、几点起、或者只是说你有点期待。别报行程单。" : "";
       const bdayPrepHint = opts.bdayPrep ? "\n\n【此刻·" + uName + " 的生日快到了】再过几天就是 " + uName + " 的生日，你在偷偷为那天准备一件事。你【主动】找 Ta 说两句——这条消息后面会跟一个封好的信封给 Ta，写着生日那天才能拆。"
         + "照你这个人的样子开口：卖关子、装没事、憋不住露一点马脚都行；就是别说破准备的是什么。" : "";
       const bdayHint = opts.bday ? "\n\n【此刻·今天是 " + uName + " 的生日】你【主动】发消息祝 Ta 生日快乐——结合你俩的关系和你的性格，真诚、自然、带你自己的味道，别套模板、别客服腔、别群发感。想的话可以顺手送份心意：会留下来的东西填 gift，现在送过去就吃的填 takeout；送什么从你知道 Ta 喜欢什么里来。不送就都留空。别粘人、别质问 Ta 为什么没提，就是单纯想在这天第一个想到 Ta。" : "";
@@ -11475,7 +11489,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
             + "也可以完全无关，那是你的事；但**别当那段没发生过**，更别开口就报备行程。";
         } catch (e) { return ""; }
       })();
-      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
+      const proactiveHint = opts.phoneAs ? phoneAsHint : opts.promise ? promiseHint : opts.eyesAlert ? eyesAlertHint : opts.remind ? remindHint : opts.health ? healthHint : opts.tripEve ? tripEveHint : opts.bdayPrep ? bdayPrepHint : opts.bday ? bdayHint : opts.anniv ? annivHint : opts.bloom ? bloomHint : opts.wx ? wxHint : (opts.proactive || contMode)
         ? (proactiveFreshStart
           // 新开场允许普通，具体事实仍须有来源与明确归属。
           // ⚠️这一段原来写的是「**不要默认续接聊天记录最后一句**」——一刀切。
@@ -23824,16 +23838,20 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "按你们所在的世界和这个目的地，列出 3 班去程交通（飞机为主；这个世界或这段路没有飞机就换成火车、船、马车这类当地真会有的）和 3 家酒店，"
           + "价格用人民币、按这个世界的物价写实在的数，三档要拉开（便宜的、适中的、贵的），各带一句实话短评。"
           + (trip.plan && trip.plan.legs && trip.plan.legs.length ? "已经排好的行程：" + trip.plan.legs.map(l => l.where).join("、") + "——酒店离这些地方远近要说得出。" : "")
-          + "\n再以「" + char.name + "」的身份说你会挑哪一班、哪一家，why 是说给 Ta 听的一句，按你的人设和你们之间的事来，不是比价报告。"
+          + "回程也列 3 班（back），同样三档。"
+          + "\n再以「" + char.name + "」的身份说你会挑哪一班去、哪一班回、哪一家住，why 是说给 Ta 听的一句，按你的人设和你们之间的事来，不是比价报告。"
+          + "seat 是你想让 Ta 坐哪：window（靠窗）或 aisle（靠过道），seatWhy 一句为什么（照你这个人来：让 Ta 看窗外、自己要抢窗边、怕 Ta 起身不方便……）。"
           + "nights 是住几晚。",
-        schemaHint: "{\"nights\":2,\"flights\":[{\"no\":\"班次号\",\"from\":\"出发地\",\"to\":\"到达地\",\"dep\":\"几点出发\",\"arr\":\"几点到\",\"price\":0,\"note\":\"一句短评\"}],\"hotels\":[{\"name\":\"酒店名\",\"area\":\"在哪一带\",\"room\":\"房型\",\"price\":0,\"note\":\"一句短评\"}],\"taPick\":{\"flight\":0,\"hotel\":0,\"why\":\"你为什么挑这两个\"}}",
+        schemaHint: "{\"nights\":2,\"flights\":[{\"no\":\"班次号\",\"from\":\"出发地\",\"to\":\"到达地\",\"dep\":\"几点出发\",\"arr\":\"几点到\",\"price\":0,\"note\":\"一句短评\"}],\"hotels\":[{\"name\":\"酒店名\",\"area\":\"在哪一带\",\"room\":\"房型\",\"price\":0,\"note\":\"一句短评\"}],\"back\":[{\"no\":\"班次号\",\"from\":\"出发地\",\"to\":\"到达地\",\"dep\":\"几点出发\",\"arr\":\"几点到\",\"price\":0,\"note\":\"一句短评\"}],\"taPick\":{\"flight\":0,\"back\":0,\"hotel\":0,\"why\":\"你为什么这么挑\"},\"seat\":\"window或aisle\",\"seatWhy\":\"一句\"}",
         maxTokens: 12000
       });
       const num = v => Math.max(0, Math.round(Number(String(v == null ? "" : v).replace(/[^\d.]/g, "")) || 0));
-      const flights = (Array.isArray(d && d.flights) ? d.flights : []).map(f => ({
+      const flightsOf = arr => (Array.isArray(arr) ? arr : []).map(f => ({
         no: String((f && f.no) || "").slice(0, 16), from: String((f && f.from) || from || "").slice(0, 20), to: String((f && f.to) || trip.dest).slice(0, 20),
         dep: String((f && f.dep) || "").slice(0, 16), arr: String((f && f.arr) || "").slice(0, 16), price: num(f && f.price),
         note: String((f && f.note) || "").replace(/\s+/g, " ").trim().slice(0, 40) })).filter(f => f.price > 0).slice(0, 3);
+      const flights = flightsOf(d && d.flights);
+      const back = flightsOf(d && d.back).map(f => ({ ...f, from: f.from === from ? trip.dest : f.from, to: f.to === trip.dest ? from : f.to }));
       const hotels = (Array.isArray(d && d.hotels) ? d.hotels : []).map(x => ({
         name: String((x && x.name) || "").slice(0, 24), area: String((x && x.area) || "").slice(0, 24), room: String((x && x.room) || "").slice(0, 20),
         price: num(x && x.price), note: String((x && x.note) || "").replace(/\s+/g, " ").trim().slice(0, 40) })).filter(x => x.name && x.price > 0).slice(0, 3);
@@ -23841,40 +23859,74 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const ix = (v, n) => { const k = Math.round(Number(v)); return k >= 0 && k < n ? k : 0; };
       const tp = d && d.taPick || {};
       const booking = { from, nights: Math.max(1, Math.min(14, Math.round(Number(d && d.nights) || 2))), flights, hotels,
-        taPick: { flight: ix(tp.flight, flights.length), hotel: ix(tp.hotel, hotels.length), why: String(tp.why || "").replace(/\s+/g, " ").trim().slice(0, 80) },
+        back,
+        taPick: { flight: ix(tp.flight, flights.length), back: back.length ? ix(tp.back, back.length) : -1, hotel: ix(tp.hotel, hotels.length), why: String(tp.why || "").replace(/\s+/g, " ").trim().slice(0, 80) },
+        seat: { me: d && d.seat === "aisle" ? "aisle" : "window", why: String((d && d.seatWhy) || "").replace(/\s+/g, " ").trim().slice(0, 60) },
         pick: null, paid: null };
       saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking } : t));
     } catch (e) { toast("失败：" + (e.message || "重试")); }
     finally { setTripGen(null); }
   };
   // 两个人的票 + 住几晚的房
-  const tripBookTotal = b => b && b.pick ? (b.flights[b.pick.flight] ? b.flights[b.pick.flight].price * 2 : 0) + (b.hotels[b.pick.hotel] ? b.hotels[b.pick.hotel].price * (b.nights || 1) : 0) : 0;
+  const tripBookTotal = b => b && b.pick ? (b.flights[b.pick.flight] ? b.flights[b.pick.flight].price * 2 : 0)
+    + ((b.back || [])[b.pick.back] ? b.back[b.pick.back].price * 2 : 0)
+    + (b.hotels[b.pick.hotel] ? b.hotels[b.pick.hotel].price * (b.nights || 1) : 0) : 0;
   const tripBookPick = (char, pick) => {
     const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
     if (!trip || !trip.booking || trip.booking.paid) return;
-    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking: { ...t.booking, pick: { ...(t.booking.pick || { flight: t.booking.taPick.flight, hotel: t.booking.taPick.hotel }), ...pick } } } : t));
+    // pick 里还能带 seat（window/aisle）：选座跟挑票一样零调用
+    const { seat, ...rest } = pick || {};
+    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking: { ...t.booking,
+      ...(seat ? { seat: { ...(t.booking.seat || {}), me: seat === "aisle" ? "aisle" : "window", mine: true } } : {}),
+      pick: { ...(t.booking.pick || { flight: t.booking.taPick.flight, back: t.booking.taPick.back, hotel: t.booking.taPick.hotel }), ...rest } } } : t));
   };
   // who：me＝我的钱包付；ta＝TA 请客（从 TA 钱包扣，记成为你花的）
   const tripBookPay = (char, who) => {
     const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
     const b = trip && trip.booking;
     if (!b || b.paid) return;
-    const pick = b.pick || { flight: b.taPick.flight, hotel: b.taPick.hotel };
-    const fl = b.flights[pick.flight], ho = b.hotels[pick.hotel];
+    const pick = b.pick || { flight: b.taPick.flight, back: b.taPick.back, hotel: b.taPick.hotel };
+    const fl = b.flights[pick.flight], ho = b.hotels[pick.hotel], bk = (b.back || [])[pick.back];
     const total = tripBookTotal({ ...b, pick });
     if (!fl || !ho || !(total > 0)) return;
-    const label = "「" + trip.dest + "」机票酒店 · " + (fl.no || "去程") + " + " + ho.name + " " + b.nights + " 晚";
-    if (who === "ta") {
-      if (!walletSpend(char.id, total, label, "gift")) { toast(characterText(char, "他的钱包还没开通，先去钱包里点开他")); return; }
-    } else {
-      const have = Number(walletRef.current) || 0;
-      if (have < total) { toast("钱包余额不够，还差 ¥" + Math.ceil(total - have)); return; }
-      changeWallet(-total, label, "travel", { where: "旅行", charId: char.id, ts: Date.now() });
-    }
-    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking: { ...t.booking, pick, paid: { by: who === "ta" ? "ta" : "me", total, ts: Date.now() } } } : t));
-    coupleKeep(char.id, (who === "ta" ? char.name + "请客，" : (profile.name || "她") + "付的钱，") + "订好了去「" + trip.dest + "」的" + (fl.no || "票") + "（" + [fl.dep, fl.arr].filter(Boolean).join("→") + "），住「" + ho.name + "」" + ho.room + b.nights + "晚，一共 ¥" + total, "旅行");
+    const label = "「" + trip.dest + "」机票酒店 · " + (fl.no || "去程") + (bk ? " + " + (bk.no || "回程") : "") + " + " + ho.name + " " + b.nights + " 晚";
+    // who：me 我付／ta 他请客／aa 一人一半／kin 刷他给我的亲属卡
+    const myPay = amt => { const have = Number(walletRef.current) || 0; if (have < amt) { toast("钱包余额不够，还差 ¥" + Math.ceil(amt - have)); return false; }
+      changeWallet(-amt, label + (who === "aa" ? "（AA 我那一半）" : ""), "travel", { where: "旅行", charId: char.id, ts: Date.now() }); return true; };
+    const noTaWallet = () => toast(characterText(char, "他的钱包还没开通，先去钱包里点开他"));
+    if (who === "ta") { if (!walletSpend(char.id, total, label, "gift")) { noTaWallet(); return; } }
+    else if (who === "aa") {
+      const half = Math.round(total / 2);
+      if (!((charWalletRef.current || {})[char.id] || {}).init) { noTaWallet(); return; }
+      if (!myPay(total - half)) return;
+      walletSpend(char.id, half, label + "（AA 他那一半）", "travel");
+    } else if (who === "kin") {
+      if (!payWithKinship(char.id, [{ name: label, price: total }], total, { noOrder: true })) return;
+    } else if (!myPay(total)) return;
+    const byZh = { ta: char.name + "请客", aa: "两个人 AA", kin: "刷了" + char.name + "给的亲属卡", me: (profile.name || "她") + "付的钱" }[who] || "";
+    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, booking: { ...t.booking, pick, paid: { by: ["ta", "aa", "kin"].includes(who) ? who : "me", total, ts: Date.now() } } } : t));
+    coupleKeep(char.id, byZh + "，订好了去「" + trip.dest + "」的" + (fl.no || "票") + "（" + [fl.dep, fl.arr].filter(Boolean).join("→") + "）" + (bk ? "、回来的" + (bk.no || "票") : "") + "，住「" + ho.name + "」" + ho.room + b.nights + "晚，一共 ¥" + total, "旅行");
     toast("订好了 · ¥" + total);
   };
+  // 定出发日子：写进日历（我那一栏），出发前一晚 TA 来提醒（主动消息那一路），当天卡上写「今天出发」
+  const tripSetDate = (char, date) => {
+    const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
+    if (!trip) return;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(String(date || "")) ? date : "";
+    const b = trip.booking, fl = b && b.paid ? b.flights[b.pick.flight] : null;
+    let evId = trip.calEvId || "";
+    if (evId) delCalTimedEvent(evId), evId = "";
+    if (d) {
+      const ev = saveCalTimedEvent({ owner: "mine", startDate: d, endDate: b && b.nights ? schedShiftDayKey(d, b.nights) : d, startTime: fl && /^\d{1,2}:\d{2}/.test(fl.dep) ? fl.dep.slice(0, 5) : "",
+        title: "和" + char.name + "去" + trip.dest, location: trip.dest, icon: "✈", note: fl ? (fl.no || "") + " " + [fl.from, fl.to].filter(Boolean).join("→") : "" });
+      evId = ev ? ev.id : "";
+    }
+    saveTrips(p => p.map(t => t.id === trip.id ? { ...t, date: d, calEvId: evId, eveSent: "" } : t));
+    if (d) toast("记进日历了：" + d.slice(5).replace("-", "月") + "日出发");
+  };
+  // 路上的小插曲：代码掷，模型来演（掷约束，不掷答案）。多数时候什么都不发生
+  const TRIP_MISHAPS = ["航班晚点了一个多小时，在候机厅多待了一阵", "值机时被免费升了舱", "行李转盘上等了很久，最后一件才是你们的", "到了酒店，前台说给你们换了一间更好的房", "到了酒店，订的房型出了点岔子，得等一会儿", "路上突然下雨，没带伞", "落地发现当地正好在办一个节庆，街上很热闹"];
+  const tripMishap = () => Math.random() < 0.4 ? TRIP_MISHAPS[Math.floor(Math.random() * TRIP_MISHAPS.length)] : "";
   const tripDepart = async char => {
     const trip = (coupleTripsRef.current || []).find(t => t && t.charId === char.id && t.status !== "done");
     if (!trip) return;
@@ -23884,7 +23936,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       + "。此刻你们刚到。" + (legs ? "\n" + char.name + " 排的行程：\n" + legs : "")
       + (trip.booking && trip.booking.paid ? (() => { const b = trip.booking, fl = b.flights[b.pick.flight], ho = b.hotels[b.pick.hotel];
         return "\n订好的：" + [fl && ((fl.no ? fl.no + " " : "") + [fl.from, fl.to].filter(Boolean).join("→") + (fl.dep ? "，" + fl.dep + " 出发" : "")), ho && ("住「" + ho.name + "」" + (ho.area ? "（" + ho.area + "）" : "") + ho.room + " " + b.nights + " 晚")].filter(Boolean).join("；")
-          + "（" + (b.paid.by === "ta" ? char.name + " 请的客" : "你付的钱") + "）。可以从路上或者酒店开始。"; })() : "");
+          + "（" + ({ ta: char.name + " 请的客", aa: "两个人 AA", kin: "刷的 " + char.name + " 给你的亲属卡" }[b.paid.by] || "你付的钱") + "）"
+          + "；座位：你" + (b.seat && b.seat.me === "aisle" ? "靠过道" : "靠窗") + "，" + char.name + " 挨着你"
+          + "。可以从路上或者酒店开始。"; })() : "")
+      + (m => m ? "\n这一趟路上碰上了一件事（已经发生了，自然接住它，别当成大事件）：" + m + "。" : "")(tripMishap());
     // ⚠️照抽卡兑线下那条的先例走：开场之后只把线下那层掀起来——那条会从存储重读一遍的路不许走，它会把刚开的这场盖掉
     await startOffline(char.id, { autoGen: true, opening: opening });
     setOfflineChar(char);
@@ -26359,12 +26414,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
 
   // 用某角色的亲属卡付款（刷 TA 的钱）
-  const payWithKinship = (charId, items, total) => {
+  // opts.noOrder：不是买东西（比如旅行订票），不进待收货；成功返回 true
+  const payWithKinship = (charId, items, total, opts) => {
     const card = kinshipCardsRef.current.find(c => c.charId === charId);
     const char = characters.find(c => c.id === charId);
-    if (!card) { toast("没有这张亲属卡"); return; }
+    if (!card) { toast("没有这张亲属卡"); return false; }
     const remaining = (card.limit || 0) - (card.used || 0);
-    if (remaining < total) { toast("亲属卡额度不足（剩 ¥" + remaining + "）"); return; }
+    if (remaining < total) { toast("亲属卡额度不足（剩 ¥" + remaining + "）"); return false; }
     // 扣角色余额 + 记卡账单，然后异步生成 TA 对这笔的评论
     adjustCharBalance(charId, -total, "亲属卡消费 · " + items.map(x => x.name).join("、").slice(0, 16), "kinship");
     const entryId = "kl_" + Date.now();
@@ -26384,8 +26440,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       charId: charId, item: itemText, amount: total,
       remain: Math.round((remaining - total) * 100) / 100,
       content: "[亲属卡] 刷了" + (char ? char.name : "对方") + "的卡：" + itemText.slice(0, 40) + " · ¥" + total }]);
-    items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
+    if (!(opts && opts.noOrder)) items.forEach(it => addOrder({ name: it.name, price: it.price, cat: it.cat, kind: it.kind, takeout: it.takeout, fromCharId: null, payLabel: "刷了 " + (char ? char.name : "对方") + " 的亲属卡" }));
     toast("已用 " + (char ? char.name : "对方") + " 的亲属卡付款");
+    return true;
   };
 
   // 使用（待收货→我的物品）：记谁送的 + 入库日期
@@ -28689,7 +28746,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     gardenGen: gardenGen,
     onTripStart: tripStart,
     onTripPlan: tripPlanGen,
-    onTripBook: tripBookSearch, onTripBookPick: tripBookPick, onTripBookPay: tripBookPay,
+    onTripBook: tripBookSearch, onTripBookPick: tripBookPick, onTripBookPay: tripBookPay, onTripDate: tripSetDate,
+    kinCardFrom: id => !!(kinshipCardsRef.current || []).find(c => c.charId === id),
     onTripDepart: tripDepart,
     onTripDone: tripDone,
     tripGen: tripGen,
