@@ -29635,6 +29635,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
     onCreateCharacter: createCharFromAssistant,
+    // 关系线和配角（她 2026-10-10）：整页和悬浮屏一起给；建配角走配角页同一处 addNpcLinked
+    allChars: characters,
+    relsOf: () => rels,
+    onSaveRel: (key, label, note) => saveRel(key, label, note),
+    onCreateNpc: data => !!addNpcLinked(data),
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
@@ -30374,6 +30379,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
     onCreateCharacter: createCharFromAssistant,
+    // 关系线和配角（她 2026-10-10）：整页和悬浮屏一起给；建配角走配角页同一处 addNpcLinked
+    allChars: characters,
+    relsOf: () => rels,
+    onSaveRel: (key, label, note) => saveRel(key, label, note),
+    onCreateNpc: data => !!addNpcLinked(data),
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
