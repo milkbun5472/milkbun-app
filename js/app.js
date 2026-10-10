@@ -27158,6 +27158,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 落盘走 closetMerge（只添不换，老的一身不动），跟「再添几套」是同一层，不另写一套合并。
   // 挂完顺手钉住：不钉的话下一次「重新翻一遍」（carryEvolveMerge 一次换两件）有机会把它换掉，
   //   而她亲手挂进去的那件被模型换掉，跟没做这个功能是一样的。
+  // 衣柜里点「让他换上这一身」：直接写进状态卡的「穿着」，跟线下换衣服写的是同一格（putLiveField），不另开一条路
+  const wearFromCloset = (charId, name, note) => {
+    const nm = String(name || "").trim(); if (!nm) return;
+    const nt = String(note || "").trim();
+    const v = (nt && nt !== "你送的" ? nm + "（" + nt + "）" : nm).slice(0, 80);
+    const now = Date.now(), live = statesRef.current[charId] || {}, patch = {};
+    putLiveField(patch, live, "wearing", v, now);
+    setStateFor(charId, { ...live, ...patch, ts: now });
+    toast("换上了，状态卡也改了");
+  };
   const closetGiftToChar = (charId, name, occ) => {
     const nm = String(name || "").trim();
     if (!nm) return false;
@@ -28682,7 +28692,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenAll: genCarryAll,
     onGenClosetMore: genClosetMore,
     onGenGiftThought: genGiftThought,
-    onClosetGift: closetGiftToChar
+    onClosetGift: closetGiftToChar,
+    onWear: wearFromCloset
   });else if (screen === "cwallet") body = h(CharWallet, {
     characters: liveChars,
     charWallet: charWallet,

@@ -15225,7 +15225,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -15308,11 +15308,11 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack
+          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, embedded }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -15546,6 +15546,13 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
       const tone = sheet._tone || sheet._stuff || null;   // 有色的才走柜门框
       const isCloth = !!sheet._tone;
       const pinRow = (onTogglePin || onPeek || onDeleteItem) ? h("div", { "data-wk": "carrysheetactions", style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        // 让TA换上这一身（她 2026-10-11：送的衣服挂进衣柜、聊天里叫他换上、拍照也是这身，状态卡的「穿着」却没跟着改）：
+        //   状态卡那一格不该只靠模型记得填，她亲手点的就直接写进去，出图那条链（固定锁 ＞ 此刻穿着 ＞ 衣柜）也跟着认
+        isCloth && onWear ? h("button", { "data-wk": "carrysheetbtn", "data-part": "wear",
+          onClick: () => { onWear(char.id, sheet.name, sheet.note); setSheet(null); },
+          className: "w-full active:opacity-70",
+          style: { minHeight: 42, marginBottom: 8, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (tone ? clothRgba(tone.ink, 0.55) : t.ink), color: tone ? tone.ink : t.ink }
+        }, characterText(char, "让他换上这一身")) : null,
         h("div", { className: "flex", style: { gap: 8 } },
           onTogglePin ? h("button", { "data-wk": "carrysheetbtn", "data-part": "pin", "data-on": isPinned(sheet) ? "1" : "0",
             onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
@@ -15706,7 +15713,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -15793,7 +15800,7 @@ function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, bu
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift,
+    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块
