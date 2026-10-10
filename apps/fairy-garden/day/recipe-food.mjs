@@ -1,5 +1,5 @@
 import * as T from 'three';
-import './kitchen.js?v=fg-d339e63510e3c2ab';
+import './kitchen.js?v=fg-1a9beb797e87cb4b';
 // The same geometry makes plated food, food in cookware and the held serving.
 export function disposeFood(group){group?.removeFromParent();group?.traverse(o=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());});}
 export function makeRecipeFood(recipeId,{vessel=true}={}){
@@ -14,6 +14,7 @@ export function makeRecipeFood(recipeId,{vessel=true}={}){
   if(['soup','hotpot','porridge','noodle'].includes(r.food)){mesh(new T.CylinderGeometry(.235,.17,.11,24),cream,0,.035,0,'ServingBowl');disc(r.food==='porridge'?'#e6d8ae':r.topping==='pumpkin'?color:'#c8a87b',0,.092,0,.21,.005);}
   else disc(cream,0,.01,0,.27,.022);
  }
+ if(r.food==='drink'&&!vessel){for(let i=0;i<4;i++){if(r.topping==='lemon'||r.topping==='apple')disc(color,(i%2-.5)*.12,.02,(Math.floor(i/2)-.5)*.12,.045,.014);else ball(color,(i%2-.5)*.12,.03,(Math.floor(i/2)-.5)*.12,.035,.035,.035);}for(let i=0;i<3;i++)ball(green,-.09+i*.07,.017,.11,.023,.005,.01);return g;}
  const y=vessel&&['soup','hotpot','porridge','noodle'].includes(r.food)?.095:.035;
  if(r.food==='rice'){ball(cream,-.07,y+.055,0,.145,.065,.16);for(let i=0;i<9;i++)cube(color,.02+(i%3)*.053,y+.055+(i%2)*.018,-.09+Math.floor(i/3)*.06,.06,.04,.055);}
  if(r.food==='noodle')noodles(y);

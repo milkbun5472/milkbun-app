@@ -1,10 +1,10 @@
-import {PET_SKILLS,restoreSkills,skillTask,skillDuration,startSkill,completeSkill,skillFacts} from './skills.mjs?v=fg-d339e63510e3c2ab';
-import {restoreHomeCondition,homeUse} from './home-condition.mjs?v=fg-d339e63510e3c2ab';
-import {WORK_HABITS,habitTask,carriesToy,chooseWorkHabit} from './work-habits.mjs?v=fg-d339e63510e3c2ab';
-import {restoreHabitMemory,choosePetToy,choosePetRest,learnComfortSpot,greetingFor,petHabitFacts} from './habits.mjs?v=fg-d339e63510e3c2ab';
-import {restoreCareManner} from './resident-care.mjs?v=fg-d339e63510e3c2ab';
-import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-d339e63510e3c2ab';
-import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-d339e63510e3c2ab';
+import {PET_SKILLS,restoreSkills,skillTask,skillDuration,startSkill,completeSkill,skillFacts} from './skills.mjs?v=fg-1a9beb797e87cb4b';
+import {restoreHomeCondition,homeUse} from './home-condition.mjs?v=fg-1a9beb797e87cb4b';
+import {WORK_HABITS,habitTask,carriesToy,chooseWorkHabit} from './work-habits.mjs?v=fg-1a9beb797e87cb4b';
+import {restoreHabitMemory,choosePetToy,choosePetRest,learnComfortSpot,greetingFor,petHabitFacts} from './habits.mjs?v=fg-1a9beb797e87cb4b';
+import {restoreCareManner} from './resident-care.mjs?v=fg-1a9beb797e87cb4b';
+import {IDLE_ACTIONS,restoreOutdoorIdle} from './autonomy.mjs?v=fg-1a9beb797e87cb4b';
+import {SEEK_KINDS,VISIT_STAGES,TOY_SPOTS,homePoint,initiativeFor} from './initiative.mjs?v=fg-1a9beb797e87cb4b';
 const clamp=(v,a=0,b=100,f=65)=>Number.isFinite(v)?Math.max(a,Math.min(b,v)):f;
 const kinds=['skill','drink','eat','treat','play','sleep','pet','watch','wander','carryBag','inspectBag','habit',...SEEK_KINDS,'moveAway'];
 const actorKey=v=>typeof v==='string'?v.slice(0,80):'';

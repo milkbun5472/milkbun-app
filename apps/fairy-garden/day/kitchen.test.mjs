@@ -5,6 +5,7 @@ registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../vendor/thre
 const T=await import('three'),{makeRecipeFood,disposeFood}=await import('./recipe-food.mjs'),{createKitchenView}=await import('./kitchen-view.mjs'),{createSpaceView}=await import('./space-view.mjs'),{buildSpace}=await import('./spaces.mjs'),{HOME_COOK,furniturePoint}=await import('./home-catalog.mjs'),K=globalThis.CharDayKitchen;
 test('32道成品有20种食物形状，实际几何有体积且可独立销毁',()=>{
  const shapes=new Set();for(const r of K.RECIPES){const food=makeRecipeFood(r.id);assert.equal(food.userData.recipeId,r.id);shapes.add(food.userData.shape);const bounds=new T.Box3().setFromObject(food);const size=bounds.getSize(new T.Vector3());assert.ok(size.x>.15&&size.x<.65&&size.y>.025&&size.y<.4&&size.z>.15&&size.z<.65,r.id);let disposed=0;food.traverse(o=>o.geometry?.addEventListener('dispose',()=>disposed++));disposeFood(food);assert.ok(disposed>0);}
+ for(const r of K.RECIPES){const raw=makeRecipeFood(r.id,{vessel:false});const bounds=new T.Box3().setFromObject(raw);assert.ok(!bounds.isEmpty(),r.id+'必须有锅里和案板上的食材');disposeFood(raw);}
  assert.equal(shapes.size,20);assert.equal(makeRecipeFood('missing'),null);
 });
 test('七种锅具随实际旋转厨房定位，等待放盖、退出还原原厨具且不销毁地图',()=>{
