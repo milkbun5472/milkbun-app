@@ -36,13 +36,27 @@ test('同屋各自看书喝水用餐，餐椅和道具不抢TA，离开动作清
  MAPS.dayHome=buildSpace('dayHome',{'dining-table':{stored:true}});v.join();settle();assert.equal(v.act('eat'),false);assert.match(v.inspect().notice,/餐桌/);
 });
 function controlledVisit(layout={},choice='auto'){
- MAPS.dayHome=buildSpace('dayHome',layout);const host=MAPS.dayHome.seats.read?{...MAPS.dayHome.seats.read,seat:MAPS.dayHome.seats.read}:{x:-3,z:-1};let profile=motionProfile({id:'__me:me',persona:'性格活泼好动'}),pose,time=0;
+ MAPS.dayHome=buildSpace('dayHome',layout);const host=MAPS.dayHome.seats.read?{...MAPS.dayHome.seats.read,seat:MAPS.dayHome.seats.read,action:'read'}:{x:-3,z:-1};let profile=motionProfile({id:'__me:me',persona:'性格活泼好动'}),pose,time=0;
  const avatar={root:{visible:false,position:{set(x,y,z){this.x=x;this.y=y;this.z=z;},toArray(){return [this.x,this.y,this.z];}},rotation:{},userData:{}},animate(t,p){pose=p;}};
  const visit=createHomeVisit({avatar,ta:()=>host,motion:()=>profile,choice});
  const tick=(n=1)=>{for(let i=0;i<n;i++){const previous=visit.inspect().position;visit.tick(.1,time+=.1);assert.ok(segmentClear(previous,visit.inspect().position,'dayHome',visitorAvoid(host)));}};
  const settle=()=>{for(let i=0;i<400&&visit.inspect().busy;i++)tick();tick();assert.equal(visit.inspect().busy,false);};
- return {visit,tick,settle,pose:()=>pose,changePersona:()=>{profile=motionProfile({id:'__me:me',persona:'性格沉稳寡言'});}};
+ return {visit,host,tick,settle,pose:()=>pose,changePersona:()=>{profile=motionProfile({id:'__me:me',persona:'性格沉稳寡言'});}};
 }
+test('自动活动读取TA的当前安排，休息喝茶吃饭做饭不擅自看书；明确手动看书仍保持',()=>{
+ for(const action of ['rest','tea','meal','cook',undefined]){
+  const f=controlledVisit(),v=f.visit;f.host.action=action;v.join({automatic:true});v.act('auto');const seen=new Set();
+  for(let i=0;i<2600;i++){f.tick();const s=v.inspect();assert.notEqual(s.activity,'read',String(action));assert.notEqual(s.pendingActivity,'read',String(action));assert.notEqual(s.task?.kind,'read');if(s.activity)seen.add(s.activity);}
+  assert.ok(seen.size>=2,action+'仍有不同的自动活动');
+  assert.equal(v.act('read'),true);f.settle();f.tick(1600);assert.equal(v.inspect().control,'manual');assert.equal(v.inspect().activity,'read');
+ }
+});
+test('当前确实在看书才能自动阅读，安排变了清掉旧书和去看书的路线',()=>{
+ for(const settled of [false,true]){
+  const f=controlledVisit(),v=f.visit;v.join({automatic:true});v.act('auto');f.tick();assert.equal(v.inspect().pendingActivity,'read');if(settled){f.settle();assert.equal(v.inspect().task.kind,'read');}
+  f.host.action='rest';f.tick();assert.notEqual(v.inspect().pendingActivity,'read');assert.notEqual(v.inspect().activity,'read');assert.equal(f.pose().task,null);assert.equal(v.inspect().control,'auto');
+ }
+});
 test('自动活动沿真实空位轮换且避让，手动中途接管后长期保持；明确切回自动才继续',()=>{
  const f=controlledVisit(),v=f.visit,seen=new Set();v.join();
  for(let i=0;i<2600;i++){f.tick();const s=v.inspect();if(s.activity)seen.add(s.activity);assert.equal(s.control,'auto');}

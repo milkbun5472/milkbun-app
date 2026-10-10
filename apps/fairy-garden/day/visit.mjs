@@ -8,7 +8,10 @@ import {CHORES,chorePlans} from './chores.mjs?v=fg-37a600db6485e444';
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
-const automaticActivities=['read','walk','drink','rest'];
+function automaticActivities(action){
+ const first={read:'read',meal:'eat',tea:'drink'}[action]||'rest';
+ return [...new Set([first,'walk','drink','rest'])];
+}
 export const visitorAvoid=ta=>ta?[{x:ta.x,z:ta.z,r:clearance}]:[];
 function reachable(from,to,ta,map){const avoid=ta?[{x:ta.x,z:ta.z,r:Math.min(clearance,gap(from,ta)*.85)}]:[];return walkable(to.x,to.z,map.id||map.renderer)&&(!ta||gap(to,ta)>=clearance)&&findPath(from,to,map.id||map.renderer,avoid);}
 export function visitSeats(map,occupied){
@@ -59,7 +62,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   avatar.root.visible=true;
   // An arriving visitor uses the existing doorway, then gives it back.
   avatar.root.position.set(position.x,floorHeight(map().id||map().renderer,position),position.z);
-  autoWait=automatic?0:8;autoIndex=Math.floor(motion()?.phase||0);
+  autoWait=automatic?0:8;autoIndex=0;
   if(control==='manual'){if(activities[manualAction])perform(manualAction);else tell('手动控制中，点空地或选动作。');}
   else{const free=visitNear(position,ta(),map());if(free)go(free.to);else tell('已走进来，点空地可以走动。');}return true;
  }
@@ -103,8 +106,9 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
  }
  function automatic(){
   autoWait=32+(motion()?.habit||12)*1.5+(motion()?.phase||0)*3;
-  for(let n=0;n<automaticActivities.length;n++){
-   const kind=automaticActivities[autoIndex++%automaticActivities.length];
+  const choices=automaticActivities(ta()?.action);
+  for(let n=0;n<choices.length;n++){
+   const kind=choices[autoIndex++%choices.length];
    if(kind==='walk'?stroll():perform(kind))return;
   }
   tell('暂时没有能走到的空位，先歇一会儿。');
@@ -130,6 +134,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   let moving=route.length>0;
   const profile=motion();
   const tracking=isFollowing();if(tracking){follow(dt);moving=route.length>0;}
+  if(control==='auto'&&!tracking&&(activity==='read'||pendingActivity==='read')&&ta()?.action!=='read'){halt();autoWait=0;moving=false;}
   if(control==='auto'&&!tracking&&!moving){autoWait-=Math.max(0,dt);if(autoWait<=0){automatic();moving=route.length>0;}}
   if(moving){const step=stepRoute(position,route,dt,{speed,walkSpeed:tracking?Math.max(1.45*(profile?.walk||1),(ta()?.walkSpeed||1.6)*(gap(position,ta())>1.3?1.2:1)):1.45*(profile?.walk||1),clear:(a,b)=>segmentClear(a,b,map().id||map().renderer,ta()?[{...ta(),r:Math.min(clearance,gap(position,ta())*.85)}]:[])});position=step.position;speed=step.speed;if(step.heading!==null){const turn=Math.atan2(Math.sin(step.heading-yaw),Math.cos(step.heading-yaw));yaw=tracking?yaw+Math.max(-3.2*dt,Math.min(3.2*dt,turn)):step.heading;}
    if(step.blocked){

@@ -73,7 +73,7 @@ function planVisibility(plan){
 function prepareVisitor(){
  if(!visitorReady)visitorReady=(async()=>{
   visitorAvatar=createTraveler(travelerSource,false);visitorAvatar.root.visible=false;scene.add(visitorAvatar.root);await visitorAvatar.ready();
-  visitor=createSceneVisit({avatar:visitorAvatar,choreVisual:createChoreVisual(visitorAvatar),ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat,heading:yaw,moving:!!route.length&&!seat&&!bed,walkSpeed:1.6*(hostMotion?.walk||1)}),following:()=>!!visitSetting()&&!visitSetting().home,motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
+  visitor=createSceneVisit({avatar:visitorAvatar,choreVisual:createChoreVisual(visitorAvatar),ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat,heading:yaw,moving:!!route.length&&!seat&&!bed,walkSpeed:1.6*(hostMotion?.walk||1),action:hostChore?null:activity?.action}),following:()=>!!visitSetting()&&!visitSetting().home,motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
   together=createTogether({a:avatar,b:visitorAvatar,visibility:planVisibility,pair:()=>({a:hostPair,b:guestPair}),motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info)visitor.control(info);},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
   transfer=createDateTransfer({a:avatar,b:visitorAvatar,map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),motion:()=>({a:hostMotion,b:guestMotion}),
    onUpdate:info=>visitor.control({...info,automatic:true}),
