@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-4ea3c2dd79f75cae';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-6e803a8b66fac295';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};

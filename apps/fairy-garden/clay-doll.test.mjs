@@ -20,7 +20,7 @@ test('v2 rig: bones carry the runtime pivot names and the pivots ride along in e
 test('runtime rebinds cloned skins and drives bones from the pivot groups',()=>{
  const trav=read('./traveler.mjs').toString();
  assert.match(trav,/o\.bind\(new T\.Skeleton\(o\.skeleton\.bones\.map\(b=>model\.getObjectByName\(b\.name\)\),o\.skeleton\.boneInverses\.map\(m=>m\.clone\(\)\)\)/);
- assert.match(trav,/const syncBones=\(\)=>/);const update=trav.indexOf('life.update(time,'),emotion=trav.indexOf('const pose=emotionPose(',update),sync=trav.indexOf('syncBones();',update);assert.ok(update>0&&emotion>update&&sync>emotion,'daily and optional emotion poses must precede bone synchronization');
+ assert.match(trav,/const syncBones=\(\)=>/);const update=trav.indexOf('life.update(actingTime,'),emotion=trav.indexOf('const pose=emotionPose(',update),sync=trav.indexOf('syncBones();',update);assert.ok(update>0&&emotion>update&&sync>emotion,'daily and optional emotion poses must precede bone synchronization');
 });
 test('shape controls expose names, live values and reset without altering page layout',()=>{
  const host=read('../../js/fairy-garden.js').toString();assert.match(host,/"aria-label": d.label/);assert.match(host,/Math.round\(value \* 100\)/);assert.match(host,/d.low \|\|/);assert.match(host,/pushLook\(\{ dims: \{ \[d.key\]: 1 \} \}\)/);
