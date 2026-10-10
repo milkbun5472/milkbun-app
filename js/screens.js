@@ -6180,18 +6180,44 @@ function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay }) {
         kind === "flight" ? [x.dep, x.arr].filter(Boolean).join(" → ") : [x.area, x.room].filter(Boolean).join(" · "),
         x.note ? " · " + x.note : "", ta ? h("span", { style: { color: "#93707c", marginLeft: 6 } }, "♥ " + name + " 会挑这个") : null));
   };
+  // 订好之后：一张订单票根，跟上面那张登机牌同一套纸和墨（深带 + 竖撕线 + 存根）
+  if (paid) {
+    const fl = b.flights[pick.flight] || {}, ho = b.hotels[pick.hotel] || {};
+    const TIN = "#43371f", TFOG = "#9a8a66", TP = "#f6f0df", TLINE = "rgba(140,115,65,.3)";
+    return h("div", { "data-wk": "tripbookpaid", style: { position: "relative", marginTop: 16, borderRadius: 6, overflow: "hidden", background: TP, boxShadow: "0 8px 20px rgba(70,50,15,.16)", transform: "rotate(0.5deg)" } },
+      h("div", { className: "flex items-center", style: { background: TIN, padding: "7px 14px", gap: 8 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: "rgba(246,240,223,.85)" } }, "订单"),
+        h("span", { style: { flex: 1 } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(246,240,223,.85)" } }, paid.by === "ta" ? name + " 请客" : "你付的")),
+      h("div", { className: "flex items-stretch" },
+        h("div", { style: { flex: 1, minWidth: 0, padding: "12px 14px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "去程" + (fl.no ? " · " + fl.no : "")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: TIN, marginTop: 3, wordBreak: "break-word" } }, [fl.from, fl.to].filter(Boolean).join(" → ")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 2 } }, [fl.dep, fl.arr].filter(Boolean).join(" → ") + " · 两人"),
+          h("div", { style: { borderTop: "1px dashed " + TLINE, margin: "10px 0" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "住 · " + b.nights + " 晚"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TIN, marginTop: 3, wordBreak: "break-word" } }, ho.name || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 2 } }, [ho.area, ho.room].filter(Boolean).join(" · "))),
+        h("div", { style: { position: "relative", width: 0, borderLeft: "1px dashed " + TLINE } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -6, top: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } }),
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -6, bottom: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } })),
+        h("div", { style: { width: 72, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".2em", color: TFOG } }, "共"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: TIN } }, "¥" + paid.total),
+          h("span", { "aria-hidden": "true", style: { marginTop: 4, fontFamily: F_DISPLAY, fontSize: 10, color: TFOG, border: "1.5px solid " + TLINE, borderRadius: 4, padding: "1px 5px", transform: "rotate(-8deg)", letterSpacing: 2 } }, "已付"))));
+  }
   return h("div", { "data-wk": "tripbook", style: { marginTop: 16 } },
-    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 8 } }, paid ? "订好的票和房" : "订机票和酒店"),
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 8 } }, "订机票和酒店"),
     b.taPick.why && !paid ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.65, color: "#93707c", marginBottom: 8 } }, name + "：「" + b.taPick.why + "」") : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 6px" } }, "去程"),
     b.flights.map((x, i) => row("flight", x, i)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "住哪 · " + b.nights + " 晚"),
     b.hotels.map((x, i) => row("hotel", x, i)),
     h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, margin: "6px 0 8px", textAlign: "right" } }, "两个人的票 + " + b.nights + " 晚 · 共 ¥" + total),
-    paid ? h("div", { "data-wk": "tripbookpaid", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, textAlign: "center" } }, (paid.by === "ta" ? name + " 请的客" : "你付的") + " · ¥" + paid.total)
-      : h("div", { className: "flex", style: { gap: 8 } },
+    // 付钱这排压轻一档：底下「出发」才是这一页最重的那一下，两颗大黑键挨着会抢
+    h("div", { className: "flex", style: { gap: 8 } },
         h("button", { "data-wk": "tripbook", "data-part": "me", onClick: () => onBookPay && onBookPay("me"), className: "flex-1 active:opacity-70",
-          style: { minHeight: 44, borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 13.5 } }, "我来付"),
+          style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #43371f", color: "#43371f", background: "#fdfaf1", fontFamily: F_BODY, fontSize: 13.5 } }, "我来付"),
         h("button", { "data-wk": "tripbook", "data-part": "ta", onClick: () => onBookPay && onBookPay("ta"), className: "flex-1 active:opacity-70",
           style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13.5 } }, name + " 请客"),
         h("button", { "data-wk": "tripbook", "data-part": "again", onClick: onBook, disabled: gen, className: "active:opacity-60 disabled:opacity-40",
