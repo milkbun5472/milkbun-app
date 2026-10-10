@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-127ffe874240ba15';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-127ffe874240ba15';
-import {pointToolAt} from './reach-hand.mjs?v=fg-127ffe874240ba15';
+import {emotionPose} from './emotion-pose.mjs?v=fg-15a63dee59d32513';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-15a63dee59d32513';
+import {pointToolAt} from './reach-hand.mjs?v=fg-15a63dee59d32513';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -15,6 +15,13 @@ export function taskPose(task,time){
     const q=emotionPose(kind==='dance'?'dance':'bow',time/(kind==='dance'?5.2:7)%1);
     return {...q,leftLeg:[kind==='dance'?Math.sin(time*2.8)*.11:0,0,0],rightLeg:[kind==='dance'?-Math.sin(time*2.8)*.11:0,0,0],lift:kind==='dance'?.025:0};
   }
+  if(kind==='treadmill'){const stride=Math.sin(time*7.5);return {left:[-.18+stride*.32,0,.04],right:[-.18-stride*.32,0,-.04],leftElbow:-.60,rightElbow:-.60,leftLeg:[-stride*.48,0,0],rightLeg:[stride*.48,0,0],tilt:.035,lift:Math.abs(stride)*.012};}
+  if(kind==='weights'){const curl=(Math.sin(time*2.2)+1)/2;return {left:[-.12,0,.12],right:[-.12,0,-.12],leftElbow:-.25-curl*.72,rightElbow:-.25-curl*.72,tilt:.012};}
+  if(kind==='stretch'){const sway=Math.sin(time*.8);return {left:[-.15,0,.82],right:[-.15,0,-.82],leftElbow:-.12,rightElbow:-.12,tilt:.02,yaw:sway*.025};}
+  if(['weight-pick','weight-return'].includes(kind))return {left:[-.55,0,.12],right:[-.55,0,-.12],leftElbow:-.3,rightElbow:-.3,tilt:Math.sin(Math.PI*p)*.04,reach:Math.sin(Math.PI*p)**2};
+  if(kind==='basket-pick')return {left:[-.32,0,.12],right:[-.15,0,0],leftElbow:-.2,tilt:Math.sin(Math.PI*p)*.025,reach:Math.sin(Math.PI*p)**2};
+  if(['market-pick','checkout','market-pack'].includes(kind))return {left:[-.15,0,.12],right:[-.3,0,-.12],rightElbow:-.4,tilt:.025,reach:Math.sin(Math.PI*p)**2};
+  if(kind==='cashier')return {left:[-.25,0,.12],right:[-.45,0,-.12],rightElbow:-.5,tilt:.025,reach:.85,dx:pulse*.018};
   if(kind==='clipboard')return {left:[-.75,0,.08],right:[-.75,0,-.08],leftElbow:-.25,rightElbow:-.25,tilt:.055};
   if(kind==='ticket')return {left:[-.15,0,0],right:[-.65,0,-.1],rightElbow:-.5,tilt:.035};
   if(kind==='luggage'||kind==='pack'||kind==='take-luggage')return {left:[-.15,0,0],right:[-.25,0,-.12],rightElbow:-.25,tilt:kind==='luggage'?0:.04,reach:kind==='luggage'?0:Math.sin(Math.PI*p)**2};
@@ -45,11 +52,15 @@ export function makeTaskProps(root,model,handPoint){
   const guitar=new T.Group();guitar.name='HeldWorkGuitar';guitar.userData.strumTarget=GUITAR_STRUM;group.add(guitar);for(const [y,r]of [[-.26,.16],[-.11,.12]])mesh(guitar,new T.SphereGeometry(r,12,10),wood, .16,y,.05).scale.set(1,1,.24);mesh(guitar,new T.BoxGeometry(.042,.31,.03),wood,0,-.025,.05);for(let i=0;i<4;i++)mesh(guitar,new T.BoxGeometry(.002,.44,.004),cream,GUITAR_STRUM[0]+(i-1.5)*.013,GUITAR_STRUM[1],GUITAR_STRUM[2]);
   const suitcase=new T.Group();suitcase.name='WorkSuitcase';root.add(suitcase);mesh(suitcase,new T.BoxGeometry(.28,.40,.21),green,0,.24,0);for(const x of [-.095,.095])mesh(suitcase,new T.CylinderGeometry(.028,.028,.035,8),wood,x,.028,.065).rotation.z=Math.PI/2;
   const stems=[-.07,.07].map(x=>mesh(suitcase,new T.CylinderGeometry(.008,.008,1,6),wood,x,.49,0)),handle=mesh(suitcase,new T.BoxGeometry(.16,.025,.045),wood,0,.6,0);handle.name='SuitcaseGrip';
+  const weights=['LeftWorkoutWeight','RightWorkoutWeight'].map(name=>{const g=new T.Group();g.name=name;group.add(g);mesh(g,new T.CylinderGeometry(.022,.022,.24,10),cream).rotation.z=Math.PI/2;for(const x of [-.12,.12])mesh(g,new T.CylinderGeometry(.065,.065,.065,12),green,x,0,0).rotation.z=Math.PI/2;return g;});
+  const basket=new T.Group();basket.name='HeldShoppingBasket';group.add(basket);mesh(basket,new T.BoxGeometry(.36,.20,.27),green,0,-.25,0);for(const x of [-.14,.14])mesh(basket,new T.BoxGeometry(.018,.16,.022),wood,x,-.08,0);mesh(basket,new T.BoxGeometry(.30,.025,.028),wood);for(const z of [-.138,.138])for(const x of [-.12,-.04,.04,.12])mesh(basket,new T.BoxGeometry(.018,.13,.004),cream,x,-.25,z);
+  const product=new T.Group();product.name='HeldMarketProduct';group.add(product);mesh(product,new T.SphereGeometry(.065,12,10),wood,0,-.04,.015);
+  const bag=new T.Group();bag.name='HeldShoppingBag';group.add(bag);mesh(bag,new T.BoxGeometry(.29,.29,.22),wood,0,-.30,0);for(const x of [-.10,.10])mesh(bag,new T.BoxGeometry(.015,.15,.023),cream,x,-.09,0);mesh(bag,new T.BoxGeometry(.22,.018,.023),cream);
   const place=(o,side)=>{o.position.copy(group.worldToLocal(handPoint(side)));o.rotation.set(0,0,0);};
   return {update(task,moving=false){
     step.visible=!moving&&(task?.rise||0)>.001;if(step.visible){step.scale.y=task.rise;step.position.set(0,task.floor-root.position.y+task.rise/2,0);}
     pen.visible=!moving&&task?.kind==='write';pipette.visible=!moving&&task?.kind==='experiment';
-    book.visible=!!task?.carry&&task.carryType!=='sample'&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
+    book.visible=!!task?.carry&&task.carryType!=='sample'&&task.carryType!=='clipboard'&&task.carryType!=='luggage'&&task.carryType!=='basket'&&task.carryType!=='weights'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);
     const aim=(tool,length)=>pointToolAt(tool,group,handPoint('right'),task.contact,length);
     brush.visible=!moving&&task?.kind==='paint';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
     sample.visible=!!task?.carry&&task.carryType==='sample'&&!(task.kind==='tidy'&&task.progress>.8);if(sample.visible)place(sample,task.kind==='experiment'?'left':'right');
@@ -64,9 +75,12 @@ export function makeTaskProps(root,model,handPoint){
       const held=task.luggageHeld||task.stow&&p>.1&&p<.9,grip=held?suitcase.worldToLocal(handPoint('right')):new T.Vector3(0,.49,0);handle.position.copy(grip);
       for(const [i,stem]of stems.entries()){const a=new T.Vector3(i===0?-.07:.07,.43,0),b=grip.clone().add(new T.Vector3(i===0?-.06:.06,0,0)),v=b.clone().sub(a);stem.position.copy(a.add(b).multiplyScalar(.5));stem.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.clone().normalize());stem.scale.y=v.length();}
     }
+    for(const [i,weight]of weights.entries()){weight.visible=!!task?.weights;if(weight.visible)place(weight,i===0?'left':'right');}
+    basket.visible=!!task?.basket;product.visible=!!task?.product;bag.visible=!!task?.bag;
+    if(basket.visible)place(basket,'left');if(product.visible)place(product,'right');if(bag.visible)place(bag,'left');
     if(pen.visible)aim(pen,.21);
     if(pipette.visible)aim(pipette,.23);
     if(book.visible){place(book,'right');book.position.y-=.035;book.position.z+=.07;book.rotation.x=.12;}
-    root.userData.workAction={kind:task?.kind||null,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
+    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
   }};
 }

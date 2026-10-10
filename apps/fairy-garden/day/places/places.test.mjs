@@ -52,7 +52,7 @@ test('多组可替换摆件合批后保留各自父级与世界位置，可独�
 });
 
 test('独立场景注册保留原地图，展示名单按真实动作点编号',()=>{
-  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation']));
+  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket']));
   assert.deepEqual(Object.keys(DAY_FACTORIES),Object.keys(DAY_PLACES));
   for(const id of persistentMaps)assert.ok(MAPS[id]);
   const list=placeList();
@@ -263,4 +263,19 @@ test('创作室颜料、布料与手工材料整组可换，实际台面和架�
     assert.equal(root.children.filter(o=>o.isMesh).length,before,'取走材料保留独立家具合批');
   }
   assert.ok(new Set(counts.slice(0,-1)).size>1,'三种方向确实替换不同材料几何');
+});
+
+test('健身房跑带平齐地面且两侧实体栏杆阻挡，跑带动画在真实可拆网格中',()=>{
+ const id='dayGym',map=DAY_PLACES[id],{root}=DAY_FACTORIES[id]();root.updateMatrixWorld(true);
+ const run=map.spots.find(s=>s.id==='treadmill'),ray=new T.Raycaster(new T.Vector3(run.target.x,2,run.target.z),new T.Vector3(0,-1,0));
+ assert.ok(walkable(run.target.x,run.target.z,id));assert.ok(Math.abs(ray.intersectObject(root,true)[0].point.y-map.floor)<.025);
+ for(const p of map.furniture.filter(p=>p.id.startsWith('treadmill-')))assert.equal(walkable(p.x,p.z,id),false);
+ const stripes=[];root.traverse(o=>{if(o.userData.dayBelt)stripes.push(o);});assert.equal(stripes.length,7);assert.ok(stripes.every(g=>g.userData.replaceable&&g.children.some(o=>o.isMesh)));
+ const stretch=map.spots.find(s=>s.id==='stretch');for(const dx of [-.6,0,.6])for(const dz of [-.6,0,.6])assert.ok(walkable(stretch.target.x+dx,stretch.target.z+dz,id),'拉伸摆臂周围留空');
+});
+test('超市实际选取商品沿家具接触坐标，冷柜门与商品可独立动作，不把收银员放进柜台',()=>{
+ const map=DAY_PLACES.dayMarket,{root}=DAY_FACTORIES.dayMarket();root.updateMatrixWorld(true);
+ for(const key of ['produce','groceries','cold']){const spot=map.spots.find(s=>s.id===key),p=map.furniture.find(f=>f.id===spot.furniture),g=root.getObjectByName('MarketProduct:'+key),q=g.getWorldPosition(new T.Vector3());assert.ok(g.children.some(o=>o.isMesh));assert.equal(g.userData.marketProduct,key);assert.ok(q.distanceTo(new T.Vector3(p.x+p.work[key].x,map.floor+p.work[key].y,p.z+p.work[key].z))<1e-7);}
+ const door=root.getObjectByName('MarketColdDoor');assert.equal(door.userData.dayDoor.furniture,'cold-cabinet');assert.ok(door.children.some(o=>o.isMesh));
+ for(const key of ['cashier','checkout']){const s=map.spots.find(s=>s.id===key);assert.ok(walkable(s.target.x,s.target.z,'dayMarket'));assert.equal(s.seat,undefined);}
 });

@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {seasonOf,MAPS} from './world.mjs?v=fg-127ffe874240ba15';
+import {seasonOf,MAPS} from './world.mjs?v=fg-15a63dee59d32513';
 export function makeMagicView(){
  const seed=new T.Group(),bed=new T.Group(),lamps=new T.Group();const seedSite=MAPS.forest.interactions.find(x=>x.kind==='seed'),bedSite=MAPS.garden.interactions.find(x=>x.kind==='star');seed.position.set(seedSite.x,.1,seedSite.z);bed.position.set(bedSite.x,.1,bedSite.z);
  const mat=(color,glow=false)=>new T.MeshStandardMaterial({color,roughness:.9,emissive:glow?color:'#000000',emissiveIntensity:glow?.45:0});

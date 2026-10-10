@@ -1,3 +1,4 @@
+const {cameraView,moreItem}=require('./char-day-ui-helpers.cjs');
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.DAY_URL||'http://127.0.0.1:18986',engine=process.env.DAY_ENGINE||'webkit',out=process.env.DAY_EVIDENCE||'/tmp/char-day-daily-actions';fs.mkdirSync(out,{recursive:true});
 const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.indexOf('  const saveSchedDay ='),b=app.indexOf('  const applySchedChange =',a);assert.ok(a>0&&b>a);const writer=app.slice(a,b);
@@ -20,7 +21,7 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
   async function observe(scene,spot,kind,title){
    await p.evaluate(({scene,spot,title})=>dailyPlan(scene,spot,title),{scene,spot,title});await frame.waitForFunction(scene=>CharDayScene.inspect().map===scene&&!CharDayScene.inspect().changing,scene);
    const route=await frame.evaluate(async url=>{const {walkable,segmentClear}=await import(url);return new Promise((resolve,reject)=>{let previous=null,frames=0;const started=performance.now();function sample(){const s=CharDayScene.inspect();frames++;if(!walkable(s.position.x,s.position.z,s.map))return reject(Error('Entered furniture'));if(previous&&!segmentClear(previous,s.position,s.map))return reject(Error('Crossed furniture'));if(s.route.length&&s.dailyAction&&(s.dailyAction.cup||s.dailyAction.bowl||s.dailyAction.book||s.dailyAction.ladle))return reject(Error('Working while walking'));previous=s.position;if(!s.route.length&&!s.changing)return resolve(frames);if(performance.now()-started>30000)return reject(Error('No arrival'));requestAnimationFrame(sample);}requestAnimationFrame(sample);});},urls.get(frame));
-   await settle(scene,kind);await p.waitForTimeout(500);await root.getByRole('button',{name:'跟着TA',exact:true}).click();
+   await settle(scene,kind);await p.waitForTimeout(500);await cameraView(root,false);
    const samples=await frame.evaluate(async()=>{const data=[],until=performance.now()+9200;return new Promise(resolve=>{function sample(){const s=CharDayScene.inspect();data.push({task:s.task,action:s.dailyAction,probe:CharDayScene.probeAction(),heading:s.avatarHeading});if(performance.now()>=until)return resolve(data);setTimeout(sample,80);}sample();});});
    let maxGrip=0,maxTip=0,minHead=Infinity,sip=false,bite=false,turn=false;const angles=new Set();
    for(const s of samples){const d=s.action;assert.equal(d.kind,kind);minHead=Math.min(minHead,Math.hypot(...s.probe.headHand));
@@ -64,7 +65,7 @@ const distance=(a,b)=>Math.hypot(...a.map((v,i)=>v-b[i]));
   },urls.get(frame));
   if(!process.env.DAY_RIG_ONLY){
    // Move and rotate the real kitchen through the same furniture draft + save UI.
-   await p.evaluate(()=>dailyPlan('dayHome','cook','下厨煮汤'));await settle('dayHome','cook');await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByRole('button',{name:'布置小家',exact:true}).click();
+   await p.evaluate(()=>dailyPlan('dayHome','cook','下厨煮汤'));await settle('dayHome','cook');await moreItem(root,'cdaydecorate');
    await ready();await frame.waitForFunction(()=>CharDayScene.inspect().editing&&!CharDayScene.inspect().changing);const moved=await frame.evaluate(()=>CharDayScene.editMove('kitchen',{x:5.5,z:0,heading:Math.PI/2}));assert.equal(moved,true);await frame.waitForFunction(()=>!CharDayScene.inspect().changing);await root.locator('[data-wk=cdaysavelayout]').click();await root.locator('[data-wk=cdaytools]').waitFor();await ready();await settle('dayHome','cook');let s=await state();assert.ok(Math.abs(s.avatarHeading-Math.PI*1.5)<.01);assert.ok(Math.abs(s.task.pot.x-5.5-.22)<.01);assert.ok(Math.abs(s.task.pot.z+1.08)<.01);await p.screenshot({path:path.join(out,'rotated-kitchen.png')});result.movedKitchen=true;
    await p.evaluate(()=>dailyPlan('dayHome',null,'在家做晚餐'));await settle('dayHome','cook');result.legacyCook=true;
    await p.evaluate(()=>dailyPlan('dayHome','sleep','在家睡觉'));await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.gesture==='sleep'&&!s.route.length&&!s.changing;});s=await state();for(const name of ['cup','bowl','book','ladle','chopsticks'])assert.ok(!s.dailyAction?.[name]);result.sleepClearsProps=true;

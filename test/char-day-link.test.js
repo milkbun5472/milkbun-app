@@ -123,3 +123,16 @@ test('文字投影兼容旧日程、空档和异常seqs，不把日历变成另�
  const f=envFor({}),input={c1:{old:{seqs:[{seq:1,title:'自己的事情'}]},none:{},bad:{seqs:null}},c2:{day:{seqs:[]}}};
  assert.deepEqual(plain(f.L.publicSchedules(input)),input);assert.deepEqual(plain(f.L.publicSchedules(null)),{});assert.equal(f.writes.length,0);
 });
+
+test('健身房与超市从真实生成writer保存，原日程文字保留、日历没有新场景编号',async()=>{
+ for(const [scene,spot,title,location]of [['dayGym','weights','哑铃练习','西街健身房'],['dayMarket','produce','采购蔬菜水果','北街超市'],['dayMarket','cashier','上午收银值班','北街超市']]){
+  const seq={...row(scene,spot),title,location},f=envFor({seqs:[seq]});assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);assert.match(f.calls[0].spec.instruction,/dayGym/);assert.match(f.calls[0].spec.instruction,/dayMarket/);
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.deepEqual(plain(saved.world),{scene,spot});assert.equal(saved.title,title);assert.equal(saved.location,location);assert.equal(f.L.presentation(saved).spot,spot);
+  const calendar=f.L.publicSchedules(f.e.schedulesRef.current);assert.equal(calendar.c1['2026-10-09'].seqs[0].world,undefined);assert.equal(calendar.c1['2026-10-09'].seqs[0].title,title);
+ }
+});
+test('旧运动购物日程按实际地点动作连接，在家拉伸与临时变更仍沿原世界',()=>{
+ const {L}=envFor({});for(const [title,location,map,spot]of [['慢跑训练','健身房','dayGym','treadmill'],['哑铃力量训练','健身房','dayGym','weights'],['热身拉伸','运动馆','dayGym','stretch'],['运动后补水喝水','健身房','dayGym','water'],['挑选蔬菜','超市','dayMarket','produce'],['买牛奶','便利店','dayMarket','cold'],['挑纸巾日用品','超市','dayMarket','groceries'],['结账付款','超市','dayMarket','checkout'],['收银值班','超市','dayMarket','cashier'],['装袋整理','超市','dayMarket','packing']]){const p=L.presentation({title,location,type:'out'});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);}
+ assert.equal(L.presentation({title:'在家拉伸',type:'home'}).map,'dayHome');assert.equal(L.presentation({title:'整理超市购物清单',location:'家里',type:'home'}).map,'dayHome');
+ assert.equal(L.presentation({...row('dayGym','weights'),deviation:{actual:'去超市挑选蔬菜',location:'超市'}}).map,'dayMarket');assert.equal(L.validate({scene:'dayGym',spot:'produce'}),null);
+});

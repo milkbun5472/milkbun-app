@@ -420,5 +420,131 @@
         "gesture": "rest"
       }
     ]
+  },
+  {
+    "id": "dayGym",
+    "label": "健身房",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "走进健身房",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "storage",
+        "label": "柜前整理随身物品",
+        "action": "prepare",
+        "gesture": "rest"
+      },
+      {
+        "id": "treadmill",
+        "label": "跑步机上慢跑",
+        "action": "exercise",
+        "gesture": "rest"
+      },
+      {
+        "id": "take-weights",
+        "label": "哑铃架前取放",
+        "action": "prepare",
+        "gesture": "rest"
+      },
+      {
+        "id": "weights",
+        "label": "哑铃区练习",
+        "action": "exercise",
+        "gesture": "rest"
+      },
+      {
+        "id": "stretch",
+        "label": "软垫上拉伸",
+        "action": "exercise",
+        "gesture": "rest"
+      },
+      {
+        "id": "water",
+        "label": "补水位置",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "rest",
+        "label": "长椅上休息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "结束运动离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayMarket",
+    "label": "超市",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "走进超市",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "basket",
+        "label": "拿取购物篮",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "produce",
+        "label": "蔬果台前挑选",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "groceries",
+        "label": "货架旁挑日用品",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "cold",
+        "label": "冷柜前挑选",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "checkout",
+        "label": "收银台前结账",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "cashier",
+        "label": "收银工位",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "packing",
+        "label": "整理购物袋",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "入口长椅歇脚",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "提袋离开超市",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
   }
 ];})(globalThis);

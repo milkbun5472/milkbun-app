@@ -1,12 +1,14 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-127ffe874240ba15';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-127ffe874240ba15';
-import {clinicMap,createClinic} from './clinic.mjs?v=fg-127ffe874240ba15';
-import {studioMap,createStudio} from './studio.mjs?v=fg-127ffe874240ba15';
-import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-127ffe874240ba15';
-import {stationMap,createStation} from './station.mjs?v=fg-127ffe874240ba15';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-15a63dee59d32513';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-15a63dee59d32513';
+import {clinicMap,createClinic} from './clinic.mjs?v=fg-15a63dee59d32513';
+import {studioMap,createStudio} from './studio.mjs?v=fg-15a63dee59d32513';
+import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-15a63dee59d32513';
+import {stationMap,createStation} from './station.mjs?v=fg-15a63dee59d32513';
+import {gymMap,createGym} from './gym.mjs?v=fg-15a63dee59d32513';
+import {marketMap,createMarket} from './market.mjs?v=fg-15a63dee59d32513';
 import * as T from 'three';
-export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap};
-export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation};
+export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap};
+export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket};
 // Only the read-only day viewer installs these maps. Persistent game worlds keep their own registry.
 export function registerDayPlaces(maps){Object.assign(maps,DAY_PLACES);}
 export function placeList(){return Object.entries(DAY_PLACES).map(([id,m])=>({id,label:m.label,spots:m.spots.map(({id,label,description,action,gesture},index)=>({id,label,description,action,gesture,number:index+1}))}));}
