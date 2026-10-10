@@ -1,5 +1,5 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-7a4789f3424a47e0';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-7a4789f3424a47e0';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-fb6c3a7df3ec4fb8';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const RECIPES={

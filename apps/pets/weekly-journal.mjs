@@ -1,4 +1,4 @@
-import {PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-7a4789f3424a47e0';
+import {PARCEL_ITEMS,parcelSourceTitle} from './parcels.mjs?v=fg-fb6c3a7df3ec4fb8';
 export const JOURNAL_KINDS={work:'打工',care:'照料',friends:'朋友',collection:'小收藏',together:'结伴',life:'日常'};
 const dateKey=at=>{const d=new Date(at);return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-');};
 const dateOK=s=>typeof s==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(s)&&Number.isFinite(Date.parse(s));
