@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-e4b373131c1a533d';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-e4b373131c1a533d';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-81bec85526a50316';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-81bec85526a50316';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
@@ -14,6 +14,15 @@ export function roomStructure({w=10,d=9}={}){
 }
 export function roomObstacles(furniture,size){return [...roomStructure(size),...furniture.map(({id,x,z,w,d})=>({id,x,z,w,d}))];}
 export function roomSeat(furniture,id,approach){
+  // Move the constructed chair together with its seat anchor. A pelvis offset
+  // alone would leave the person off the cushion and still inside the desk.
+  for(const chair of furniture.filter(p=>p.kind==='chair')){
+    const s=Math.sin(chair.heading||0),c=Math.cos(chair.heading||0);
+    for(const table of furniture.filter(p=>p.kind==='table')){
+      const dx=table.x-chair.x,dz=table.z-chair.z,forward=dx*s+dz*c,side=Math.abs(dx*c-dz*s),depth=(Math.abs(s)*table.w+Math.abs(c)*table.d)/2,width=(Math.abs(c)*table.w+Math.abs(s)*table.d)/2;
+      if(forward>0&&side<width+.1&&forward-depth<.50){const shift=.50-(forward-depth);chair.x-=s*shift;chair.z-=c*shift;}
+    }
+  }
   const p=furniture.find(p=>p.id===id);
   if(!['chair','bench'].includes(p?.kind))throw new Error('Seat requires a constructed chair or bench: '+id);
   return {...furnitureSeat({...p,seatSurface:{z:0,d:p.kind==='chair'?ROOM_SCALE.chairDepth:p.d}},approach),rise:p.seat??ROOM_SCALE.seat};

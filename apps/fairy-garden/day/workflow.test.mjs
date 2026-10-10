@@ -13,6 +13,15 @@ let plans={},writes=0;const ref={current:plans},save=new Function('setSchedules'
 const start=Date.parse('2026-10-09T10:00:00Z'),char={id:'workflow-test',name:'测试角色',tz:0};
 function fixture(scene,spot,minutes=60){save(char.id,'2026-10-09',{seqs:[{time:'10:00',end:minutes===60?'11:00':'10:02',title:'整理当天资料',location:'测试工作地点',type:'work',world:{scene,spot}}]});return env.ScheduleClock.currentSlot(char,ref.current[char.id],start+1000);}
 
+for(const [scene,key]of [['dayFarm','records'],['dayFarm','crops'],['dayFarm','dock'],['dayFleaMarket','fabric'],['dayFleaMarket','antiques']])test(scene+'/'+key+'沿真实writer安排完成全部阶段与实体家具路线，休息收起工具且不写日历',()=>{
+ const slot=fixture(scene,key),p=env.CharDayLink.presentation(slot),before=JSON.stringify(ref.current),count=writes,map=DAY_PLACES[scene],seen=new Set();let previous=map.spawn;
+ for(let sec=0;sec<3600;sec+=15){const stage=activityPhase(p,slot,start+sec*1000),point=map.spots.find(s=>s.id===stage.spot);seen.add(stage.phase);assert.ok(point,stage.spot);
+  const path=findPath(previous,point.target,scene);assert.ok(path);let from=previous;for(const to of path){assert.ok(segmentClear(from,to,scene));from=to;}previous=point.target;
+  const task=taskAt(stage,point,map,3);if(stage.phase==='break')assert.equal(task,null);if(task){assert.ok(Number.isFinite(task.progress));if(scene==='dayFleaMarket'){assert.equal(task.basket,false);if(stage.spot===key&&task.kind==='market-pick')assert.equal(task.productKind,key==='fabric'?'fabric':'antique');}}
+ }
+ assert.deepEqual([...seen].sort(),['break','enter','exit','prepare','tidy','work']);assert.equal(JSON.stringify(ref.current),before);assert.equal(writes,count);assert.equal(env.CharDayLink.publicRow(slot).world,undefined);
+});
+
 for(const [scene,key,forbidden]of [
  ['dayInvestigation','clues',[]],['dayInvestigation','duty',['briefing']],
  ['dayService','prep',['coffee','mix']],['dayService','cook',['coffee','mix']],['dayService','coffee',['prep','cook','mix']],['dayService','mix',['prep','cook','coffee']],

@@ -79,16 +79,19 @@
   function infer(slot) {
     const type = slot.type || "other", words = String(slot.title || ""), place = String(slot.location || ""), text = place + " " + words;
     const home = /家里|家中|在家|回家|住处|府中|寝室|卧室/.test(text);
-    const outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆/.test(text);
+    const outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆|面包房|面包店|烘焙店|甜品店|甜点店/.test(text);
     const office = !home && !outside && (/办公室|办公区|公司|会议室|会议厅|部门工位|办公楼/.test(text) || /开会|例会|组会|项目汇报|部门会议/.test(words));
     const campus = !home && (!office || /教室|校园|学校|教学楼/.test(place)) && (!outside || /食堂/.test(place)) && /教室|课堂|校园|学校|教学楼|讲台|黑板|上课|听课|授课|讲课|备课|教案|课间|下课/.test(text);
     const dining = outside && !home ? "dayCafe" : "dayHome";
     if (type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(words)) return at("dayHome", "sleep");
+    if (!home && /农场|农庄|田间|菜畦|菜园|种植园/.test(place || words)) return at("dayFarm", /离开|走出/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /记录|笔记|整理|分析|规划/.test(words) ? "records" : /取.*工具|取.*资料|整理工具/.test(words) ? "supplies" : /钓鱼|码头|水边/.test(words) ? "dock" : "crops");
+    if (!home && !outside && /复古市集|跳蚤市集|跳蚤市场|旧货市场|古董市场|市集|集市|夜市/.test(place || words)) return at("dayFleaMarket", /离开|走出/.test(words) ? "exit" : /休息|歇脚/.test(words) ? "rest" : /装袋|整理.*袋/.test(words) ? "packing" : /结账|付款/.test(words) ? "checkout" : /布料|布匹|织物/.test(words) ? "fabric" : "antiques");
     const occupation = !home && occupationLink(words, place, type);
     if (occupation) return occupation;
     if (/做饭|做菜|下厨|烹饪|煮饭|煮粥|煮汤|炒菜|备菜|做[早午晚]餐/.test(words) && !outside) return at("dayHome", "cook");
     if (type === "meal" || /吃饭|用膳|用餐|进餐|早餐|午餐|晚餐|早饭|午饭|晚饭/.test(words)) return at(campus ? "dayCampus" : dining, "meal");
-    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水/.test(words)) return office ? at("dayOffice", "tea") : at(!home && /健身房|运动馆|健身中心/.test(text) ? "dayGym" : dining, !home && /健身房|运动馆|健身中心/.test(text) ? "water" : "tea");
+    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水|红茶|绿茶|热茶/.test(words)) return office ? at("dayOffice", "tea") : at(!home && /健身房|运动馆|健身中心/.test(text) ? "dayGym" : dining, !home && /健身房|运动馆|健身中心/.test(text) ? "water" : "tea");
+    if (outside && /买|挑|吃|歇脚|面包|蛋糕|肉桂卷/.test(words)) return at("dayCafe", /歇脚|休息/.test(words) ? "rest" : "meal");
     if (!home) {
       if (/健身房|运动馆|健身中心/.test(text)) return at("dayGym", /离开|结束/.test(words) ? "exit" : /喝水|补水/.test(words) ? "water" : /休息|歇会/.test(words) ? "rest" : /储物|换衣|存包/.test(words) ? "storage" : /哑铃|力量|举铁/.test(words) ? "weights" : /拉伸|热身|舒展/.test(words) ? "stretch" : "treadmill");
       if (/超市|便利店|生鲜店/.test(text)) return at("dayMarket", /离开|走出/.test(words) ? "exit" : /收银|值班|上班|工作/.test(words) ? "cashier" : /装袋|整理.*袋/.test(words) ? "packing" : /结账|付款/.test(words) ? "checkout" : /购物篮|拿篮/.test(words) ? "basket" : /冷藏|冷柜|牛奶|酸奶/.test(words) ? "cold" : /日用品|货架|洗漱|纸巾/.test(words) ? "groceries" : "produce");
@@ -111,7 +114,20 @@
     const source = sourceFor(slot);
     if (source.type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(String(source.title || ""))) return at("dayHome", "sleep");
     const link = validate(source.world);
+    // An old visual link can be structurally valid but name a different place.
+    // Correct only an explicit venue, using the same read-only inference; vague
+    // names and deliberately chosen positions continue to use their valid link.
+    const venue=explicitVenue(source);
+    if(link&&venue&&link.scene!==venue)return infer(source);
     return (link && at(link.scene, link.spot)) || infer(source);
+  }
+  function explicitVenue(source){
+    const place=String(source.location||""),words=String(source.title||""),text=place||words;
+    const venues=[[/面包房|面包店|烘焙店|甜品店|甜点店|餐厅|餐馆|食堂|咖啡店|咖啡馆|茶馆/,"dayCafe"],[/农场|农庄|田间|菜畦|菜园|种植园/,"dayFarm"],[/复古市集|跳蚤市集|跳蚤市场|旧货市场|古董市场|市集|集市|夜市/,"dayFleaMarket"],[/图书馆|阅览室/,"dayLibrary"],[/实验室|实验台/,"dayLaboratory"],[/诊室|病房|值班室/,"dayClinic"],[/健身房|运动馆|健身中心/,"dayGym"],[/超市|便利店|生鲜店/,"dayMarket"],[/车站|候车厅|站台|地铁站/,"dayStation"]];
+    // A chef's workplace and a customer's meal share a venue name. Let the
+    // existing profession resolver determine which physical set fits the task.
+    for(const [pattern,map]of venues)if(pattern.test(text))return map==='dayCafe'?(occupationLink(words,place,source.type)?.map||map):map;
+    return null;
   }
   root.CharDayLink = { validate, bindRow, publicRow, publicSchedules, instruction, schema, presentation };
 })(globalThis);

@@ -1,10 +1,10 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-e4b373131c1a533d';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-e4b373131c1a533d';
-import {stepRoute} from '../locomotion.mjs?v=fg-e4b373131c1a533d';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-e4b373131c1a533d';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-e4b373131c1a533d';
-import {CHORES,chorePlans} from './chores.mjs?v=fg-e4b373131c1a533d';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-81bec85526a50316';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-81bec85526a50316';
+import {stepRoute} from '../locomotion.mjs?v=fg-81bec85526a50316';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-81bec85526a50316';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-81bec85526a50316';
+import {CHORES,chorePlans} from './chores.mjs?v=fg-81bec85526a50316';
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
@@ -131,7 +131,21 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   avatar.animate(time,{moving,seated:!!seat,seatPose:seat?.pose,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0)});
   choreVisual.update(chore,dwell,moving||!!chore&&gap(position,chore.at)>.22);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
  }
- avatar.root.visible=false;return {join,act,close,tick,inspect,
+ function pauseState(){
+  const copy=s=>{if(!s)return null;const p=map().furniture.find(p=>p.id===s.piece),h=p?.heading||0,dx=s.x-(p?.x||0),dz=s.z-(p?.z||0);return {...s,local:{x:dx*Math.cos(h)-dz*Math.sin(h),z:dx*Math.sin(h)+dz*Math.cos(h)}};};
+  return structuredClone({map:map().id||map().renderer,present,position,route,speed,yaw,seat:copy(seat),pendingSeat:copy(pendingSeat),leaving,activity,pendingActivity,dwell,control,manualAction,autoWait,autoIndex,notice,chore});
+ }
+ function restore(saved){
+  if(!saved?.present||saved.map!==(map().id||map().renderer)||!walkable(saved.position.x,saved.position.z,map().id||map().renderer))return false;
+  halt();controlled=null;present=true;position={...saved.position};yaw=saved.yaw||0;control=saved.control==='manual'?'manual':'auto';manualAction=saved.manualAction||'manual';autoWait=saved.autoWait??8;autoIndex=saved.autoIndex||0;dwell=saved.dwell||0;notice=saved.notice||'';
+  const seatAt=s=>{const p=map().furniture.find(p=>p.id===s?.piece);return p?{...furnitureSeat(p,s.approach,s.local),rise:p.seat??.45}:null;};
+  seat=seatAt(saved.seat);pendingSeat=seatAt(saved.pendingSeat);activity=saved.activity;pendingActivity=saved.pendingActivity;leaving=!!saved.leaving;
+  if(saved.route?.length){const destination=saved.route.at(-1),path=reachable(position,destination,ta(),map());route=path||[];speed=route.length?saved.speed||0:0;}
+  if(saved.chore){const p=chorePlans(map(),saved.chore.kind,position,ta()).find(p=>p.piece===saved.chore.piece);if(p)chore=p;else activity=pendingActivity=null;}
+  if(!seat&&!route.length&&pendingSeat){seat=pendingSeat;activity=pendingActivity;pendingSeat=pendingActivity=null;}
+  avatar.root.visible=true;tick(0,0);tell();return true;
+ }
+ avatar.root.visible=false;return {join,act,close,tick,inspect,pauseState,restore,
   setChoice(choice){control=Object.hasOwn(activities,choice)||choice==='manual'?'manual':'auto';manualAction=Object.hasOwn(activities,choice)?choice:'manual';halt();},
   control(info){if(!info.automatic){control='manual';manualAction='manual';}chore=null;choreVisual.hide();controlled=info;activity=pendingActivity=task=null;dwell=0;position={...info.b};seat=info.bSeat||null;route=[];tell(info.kind==='travel'?'一起走向门口，去下一站…':info.phase!=='active'?'正在走到互动位置…':info.label+'中，可以随时结束。');},
   release(info){controlled=null;autoWait=12;if(info){position={...info.b};seat=info.seats?.b||null;}tell(info?.reason||'继续各自活动。');}

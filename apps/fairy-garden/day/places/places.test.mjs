@@ -52,7 +52,7 @@ test('多组可替换摆件合批后保留各自父级与世界位置，可独�
 });
 
 test('独立场景注册保留原地图，展示名单按真实动作点编号',()=>{
-  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket','dayOffice','dayCampus','dayInvestigation','dayService','dayFilm','dayBroadcast']));
+  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket','dayOffice','dayCampus','dayInvestigation','dayService','dayFilm','dayBroadcast','dayFarm','dayFleaMarket']));
   assert.deepEqual(Object.keys(DAY_FACTORIES),Object.keys(DAY_PLACES));
   for(const id of persistentMaps)assert.ok(MAPS[id]);
   const list=placeList();
@@ -99,7 +99,7 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
     const {root}=DAY_FACTORIES[id]();root.updateMatrixWorld(true);
     const furniture=root.userData.furniture;
     assert.ok(furniture?.length,'家具元数据来自真正建造的那张表');
-    for(const structure of roomStructure(map.bounds))assert.deepEqual(map.obstacles.find(o=>o.id===structure.id),structure,'墙柱沿实际空房尺寸');
+    for(const structure of map.outdoor?[]:roomStructure(map.bounds))assert.deepEqual(map.obstacles.find(o=>o.id===structure.id),structure,'墙柱沿实际空房尺寸');
     for(const p of furniture){
       const obstacle=map.obstacles.find(o=>o.id===p.id);assert.ok(obstacle,p.id+'有碰撞');
       for(const k of ['x','z','w','d'])assert.equal(obstacle[k],p[k],p.id+'的'+k);
@@ -113,14 +113,14 @@ for(const [id,map]of Object.entries(DAY_PLACES)){
     const ray=new T.Raycaster();
     for(const seat of Object.values(map.seats)){
       const p=furniture.find(p=>p.id===seat.piece);assert.ok(['chair','bench'].includes(p?.kind));
-      const forward={x:Math.sin(p.heading||0),z:Math.cos(p.heading||0)},front=(p.kind==='chair'?.57:p.d)/2+.05;
+      const forward={x:Math.sin(p.heading||0),z:Math.cos(p.heading||0)},front=p.kind==='chair'?.06:p.d/2+.05;
       assert.ok(Math.abs(seat.x-p.x-forward.x*front)<1e-9);
       assert.ok(Math.abs(seat.z-p.z-forward.z*front)<1e-9);
-      assert.equal(seat.pose,'chair');assert.equal(seat.rise,.45);
+      assert.equal(seat.pose,p.kind==='chair'?'deep':'chair');assert.equal(seat.rise,.45);
       assert.equal(seat.heading,p.heading);
       assert.ok(walkable(seat.approach.x,seat.approach.z,id));
-      // The hip pivot is at the front edge; the pelvis behind it rests on the
-      // actual chair while the bent shin hangs outside the seat.
+      // Deep chairs support the pelvis inside the seat; a bench keeps its
+      // front-edge knee bend. Both must sit on actual rendered furniture.
       ray.set(new T.Vector3(seat.x-forward.x*.1,2,seat.z-forward.z*.1),new T.Vector3(0,-1,0));
       // Room meshes are merged. A desk may be above the pelvis; inspect the
       // first supporting surface at or below the intended seat height.

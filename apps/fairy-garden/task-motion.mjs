@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-e4b373131c1a533d';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-e4b373131c1a533d';
-import {pointToolAt} from './reach-hand.mjs?v=fg-e4b373131c1a533d';
+import {emotionPose} from './emotion-pose.mjs?v=fg-81bec85526a50316';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-81bec85526a50316';
+import {pointToolAt} from './reach-hand.mjs?v=fg-81bec85526a50316';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -79,7 +79,7 @@ export function makeTaskProps(root,model,handPoint){
   const stems=[-.07,.07].map(x=>mesh(suitcase,new T.CylinderGeometry(.008,.008,1,6),wood,x,.49,0)),handle=mesh(suitcase,new T.BoxGeometry(.16,.025,.045),wood,0,.6,0);handle.name='SuitcaseGrip';
   const weights=['LeftWorkoutWeight','RightWorkoutWeight'].map(name=>{const g=new T.Group();g.name=name;group.add(g);mesh(g,new T.CylinderGeometry(.022,.022,.24,10),cream).rotation.z=Math.PI/2;for(const x of [-.12,.12])mesh(g,new T.CylinderGeometry(.065,.065,.065,12),green,x,0,0).rotation.z=Math.PI/2;return g;});
   const basket=new T.Group();basket.name='HeldShoppingBasket';group.add(basket);mesh(basket,new T.BoxGeometry(.36,.20,.27),green,0,-.25,0);for(const x of [-.14,.14])mesh(basket,new T.BoxGeometry(.018,.16,.022),wood,x,-.08,0);mesh(basket,new T.BoxGeometry(.30,.025,.028),wood);for(const z of [-.138,.138])for(const x of [-.12,-.04,.04,.12])mesh(basket,new T.BoxGeometry(.018,.13,.004),cream,x,-.25,z);
-  const product=new T.Group();product.name='HeldMarketProduct';group.add(product);mesh(product,new T.SphereGeometry(.065,12,10),wood,0,-.04,.015);
+  const product=new T.Group();product.name='HeldMarketProduct';group.add(product);const groceryProduct=mesh(product,new T.SphereGeometry(.065,12,10),wood,0,-.04,.015),fabricProduct=mesh(product,new T.BoxGeometry(.20,.05,.16),green,0,-.035,.02),antiqueProduct=mesh(product,new T.CylinderGeometry(.045,.06,.12,12),cream,0,-.055,.02);
   const bag=new T.Group();bag.name='HeldShoppingBag';group.add(bag);mesh(bag,new T.BoxGeometry(.29,.29,.22),wood,0,-.30,0);for(const x of [-.10,.10])mesh(bag,new T.BoxGeometry(.015,.15,.023),cream,x,-.09,0);mesh(bag,new T.BoxGeometry(.22,.018,.023),cream);
   const place=(o,side)=>{o.position.copy(group.worldToLocal(handPoint(side)));o.rotation.set(0,0,0);};
   return {update(task,moving=false){
@@ -111,11 +111,11 @@ export function makeTaskProps(root,model,handPoint){
       for(const [i,stem]of stems.entries()){const a=new T.Vector3(i===0?-.07:.07,.43,0),b=grip.clone().add(new T.Vector3(i===0?-.06:.06,0,0)),v=b.clone().sub(a);stem.position.copy(a.add(b).multiplyScalar(.5));stem.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),v.clone().normalize());stem.scale.y=v.length();}
     }
     for(const [i,weight]of weights.entries()){weight.visible=!!task?.weights;if(weight.visible)place(weight,i===0?'left':'right');}
-    basket.visible=!!task?.basket;product.visible=!!task?.product;bag.visible=!!task?.bag;
+    basket.visible=!!task?.basket;product.visible=!!task?.product;groceryProduct.visible=!task?.productKind;fabricProduct.visible=task?.productKind==='fabric';antiqueProduct.visible=task?.productKind==='antique';bag.visible=!!task?.bag;
     if(basket.visible)place(basket,'left');if(product.visible)place(product,'right');if(bag.visible)place(bag,'left');
     if(pen.visible)aim(pen,.21);
     if(pipette.visible)aim(pipette,.23);
     if(book.visible){place(book,'right');book.position.y-=.035;book.position.z+=.07;book.rotation.x=.12;}
-    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,marker:marker.visible,makeup:cosmetic.visible,shaker:shaker.visible,tray:tray.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
+    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,productKind:task?.productKind||null,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,marker:marker.visible,makeup:cosmetic.visible,shaker:shaker.visible,tray:tray.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
   }};
 }

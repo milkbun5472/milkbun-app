@@ -984,5 +984,101 @@
         "gesture": "rest"
       }
     ]
+  },
+  {
+    "id": "dayFarm",
+    "label": "农场／田边记录处",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "农场入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "records",
+        "label": "整理作物与钓鱼记录",
+        "action": "work",
+        "gesture": "read"
+      },
+      {
+        "id": "crops",
+        "label": "查看田间作物",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "supplies",
+        "label": "田边工具与资料",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "dock",
+        "label": "码头旁观察",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "田边歇息",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "离开农场",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayFleaMarket",
+    "label": "复古市集／旧货摊",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "走进市集",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "fabric",
+        "label": "挑选布料",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "antiques",
+        "label": "查看古董杂货",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "checkout",
+        "label": "摊前付款",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "packing",
+        "label": "整理随身袋",
+        "action": "shop",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "市集长椅歇脚",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "离开市集",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
   }
 ];})(globalThis);

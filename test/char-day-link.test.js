@@ -186,3 +186,14 @@ test('两组新场景经原日程生成writer保存与公开投影，合法world
   const publicRow=f.L.publicRow(saved);assert.equal(publicRow.world,undefined);assert.equal(publicRow.location,raw.location);
  }
 });
+
+ test('用户实机日程按明确地点纠正旧视觉链接，标题地点与日历原档不变',async()=>{
+ const cases=[['在医学院附属图书馆安静阅读神经解剖外科学专著','医学院附属图书馆二楼自习区','dayLibrary','desk-reading','dayWork','work'],['陪Lisa逛复古市集挑选旧布料杂货与古董小件','城中复古跳蚤市集','dayFleaMarket','fabric','dayStreet','walk'],['在星露谷小窝农场整理作物与钓鱼记录','秋声农场码头','dayFarm','records','dayWork','work'],['在集市旁的面包房买肉桂卷并与热红茶歇脚','红河岸边法式烘焙店','dayCafe','tea','dayHome','tea']];
+ for(const [title,location,map,spot,oldMap,oldSpot]of cases){
+  const raw={...row(oldMap,oldSpot),title,location,type:'out'},f=envFor({seqs:[raw]});await f.e.generateDay(f.c,'2026-10-09');const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0],before=JSON.stringify(saved),writes=f.writes.length;
+  for(const world of [null,saved.world]){const p=f.L.presentation({...saved,world});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);}
+  assert.equal(JSON.stringify(saved),before);assert.equal(f.writes.length,writes);assert.equal(f.L.publicRow(saved).title,title);assert.equal(f.L.publicRow(saved).location,location);assert.equal(f.L.publicRow(saved).world,undefined);
+  assert.equal(f.L.presentation({...row(),deviation:{actual:title,location,world:raw.world}}).map,map);
+ }
+ const {L}=envFor({});assert.equal(L.presentation({title:'在家整理农场记录',location:'家里',type:'work'}).map,'dayHome');assert.equal(L.presentation({title:'看复古市集照片',location:'家里',type:'home'}).map,'dayHome');assert.equal(L.presentation({title:'做晚餐',location:'餐厅后厨',type:'work',world:{scene:'dayService',spot:'cook'}}).map,'dayService');assert.equal(L.presentation({title:'原世界自己的安排',location:'原世界具体地名',world:{scene:'dayLibrary',spot:'window-reading'}}).spot,'window-reading');
+});

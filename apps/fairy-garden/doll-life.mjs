@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-e4b373131c1a533d';
-import {pointToolAt} from './reach-hand.mjs?v=fg-e4b373131c1a533d';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-81bec85526a50316';
+import {pointToolAt} from './reach-hand.mjs?v=fg-81bec85526a50316';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}

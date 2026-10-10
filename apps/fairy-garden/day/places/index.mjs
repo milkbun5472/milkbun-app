@@ -1,20 +1,22 @@
-import {libraryMap,createLibrary} from './library.mjs?v=fg-e4b373131c1a533d';
-import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-e4b373131c1a533d';
-import {clinicMap,createClinic} from './clinic.mjs?v=fg-e4b373131c1a533d';
-import {studioMap,createStudio} from './studio.mjs?v=fg-e4b373131c1a533d';
-import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-e4b373131c1a533d';
-import {stationMap,createStation} from './station.mjs?v=fg-e4b373131c1a533d';
-import {gymMap,createGym} from './gym.mjs?v=fg-e4b373131c1a533d';
-import {marketMap,createMarket} from './market.mjs?v=fg-e4b373131c1a533d';
-import {officeMap,createOffice} from './office.mjs?v=fg-e4b373131c1a533d';
-import {campusMap,createCampus} from './campus.mjs?v=fg-e4b373131c1a533d';
-import {investigationMap,createInvestigation} from './investigation.mjs?v=fg-e4b373131c1a533d';
-import {serviceMap,createService} from './service.mjs?v=fg-e4b373131c1a533d';
-import {filmMap,createFilm} from './film.mjs?v=fg-e4b373131c1a533d';
-import {broadcastMap,createBroadcast} from './broadcast.mjs?v=fg-e4b373131c1a533d';
+import {farmMap,createFarm} from './farm.mjs?v=fg-81bec85526a50316';
+import {fleaMarketMap,createFleaMarket} from './flea-market.mjs?v=fg-81bec85526a50316';
+import {libraryMap,createLibrary} from './library.mjs?v=fg-81bec85526a50316';
+import {laboratoryMap,createLaboratory} from './laboratory.mjs?v=fg-81bec85526a50316';
+import {clinicMap,createClinic} from './clinic.mjs?v=fg-81bec85526a50316';
+import {studioMap,createStudio} from './studio.mjs?v=fg-81bec85526a50316';
+import {rehearsalMap,createRehearsal} from './rehearsal.mjs?v=fg-81bec85526a50316';
+import {stationMap,createStation} from './station.mjs?v=fg-81bec85526a50316';
+import {gymMap,createGym} from './gym.mjs?v=fg-81bec85526a50316';
+import {marketMap,createMarket} from './market.mjs?v=fg-81bec85526a50316';
+import {officeMap,createOffice} from './office.mjs?v=fg-81bec85526a50316';
+import {campusMap,createCampus} from './campus.mjs?v=fg-81bec85526a50316';
+import {investigationMap,createInvestigation} from './investigation.mjs?v=fg-81bec85526a50316';
+import {serviceMap,createService} from './service.mjs?v=fg-81bec85526a50316';
+import {filmMap,createFilm} from './film.mjs?v=fg-81bec85526a50316';
+import {broadcastMap,createBroadcast} from './broadcast.mjs?v=fg-81bec85526a50316';
 import * as T from 'three';
-export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap,dayOffice:officeMap,dayCampus:campusMap,dayInvestigation:investigationMap,dayService:serviceMap,dayFilm:filmMap,dayBroadcast:broadcastMap};
-export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket,dayOffice:createOffice,dayCampus:createCampus,dayInvestigation:createInvestigation,dayService:createService,dayFilm:createFilm,dayBroadcast:createBroadcast};
+export const DAY_PLACES={dayLaboratory:laboratoryMap,dayLibrary:libraryMap,dayClinic:clinicMap,dayStudio:studioMap,dayRehearsal:rehearsalMap,dayStation:stationMap,dayGym:gymMap,dayMarket:marketMap,dayOffice:officeMap,dayCampus:campusMap,dayInvestigation:investigationMap,dayService:serviceMap,dayFilm:filmMap,dayBroadcast:broadcastMap,dayFarm:farmMap,dayFleaMarket:fleaMarketMap};
+export const DAY_FACTORIES={dayLaboratory:createLaboratory,dayLibrary:createLibrary,dayClinic:createClinic,dayStudio:createStudio,dayRehearsal:createRehearsal,dayStation:createStation,dayGym:createGym,dayMarket:createMarket,dayOffice:createOffice,dayCampus:createCampus,dayInvestigation:createInvestigation,dayService:createService,dayFilm:createFilm,dayBroadcast:createBroadcast,dayFarm:createFarm,dayFleaMarket:createFleaMarket};
 // Only the read-only day viewer installs these maps. Persistent game worlds keep their own registry.
 export function registerDayPlaces(maps){Object.assign(maps,DAY_PLACES);}
 export function placeList(){return Object.entries(DAY_PLACES).map(([id,m])=>({id,label:m.label,spots:m.spots.map(({id,label,description,action,gesture},index)=>({id,label,description,action,gesture,number:index+1}))}));}

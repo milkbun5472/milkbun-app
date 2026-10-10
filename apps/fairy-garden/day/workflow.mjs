@@ -1,10 +1,13 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-e4b373131c1a533d';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-e4b373131c1a533d';
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-e4b373131c1a533d';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-81bec85526a50316';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-81bec85526a50316';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-81bec85526a50316';
 // Visual phases read the original currentSlot; they never create or save schedule events.
+const FARM='dayFarm',FLEA='dayFleaMarket';
 const OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const RECIPES={
  ...OCCUPATION_RECIPES,
+ [FARM]:{records:[['records',12],['rest',1,'break']],crops:[['crops',6],['records',3],['rest',1,'break']],dock:[['dock',8],['rest',1,'break']]},
+ [FLEA]:{fabric:[['fabric',5],['antiques',3],['rest',1,'break']],antiques:[['antiques',5],['fabric',3],['rest',1,'break']],checkout:[['checkout',6]]},
  [OFFICE]:{computer:[['computer',12],['notes',2],['tea',1,'break']],notes:[['notes',12],['files',1],['tea',1,'break']],meeting:[['meeting',12],['meeting-notes',2]],'meeting-notes':[['meeting-notes',12],['meeting',2]],presentation:[['presentation',10],['meeting',2]]},
  [CAMPUS]:{listen:[['listen',10],['notes',3]],notes:[['notes',10],['listen',3]],study:[['study',12],['rest',1,'break']],blackboard:[['blackboard',6],['teach',4],['prepare',1]],teach:[['teach',10],['blackboard',3],['prepare',1]],prepare:[['prepare',12],['rest',1,'break']]},
  [GYM]:{treadmill:[['treadmill',8],['stretch',2],['rest',1,'break']],weights:[['weights',8],['stretch',2],['rest',1,'break']],stretch:[['stretch',8],['rest',1,'break']]},
@@ -18,6 +21,8 @@ const RECIPES={
 };
 const CONFIG={
  ...OCCUPATION_CONFIG,
+ [FARM]:{entry:'entrance',prepare:p=>p.spot==='records'?'records':'supplies',tidy:p=>p.spot,exit:'exit'},
+ [FLEA]:{entry:'entrance',prepare:p=>p.spot,tidy:()=> 'packing',exit:'exit',carry:'basket'},
  [OFFICE]:{carry:'book',entry:'entrance',prepare:p=>['meeting','meeting-notes','presentation'].includes(p.spot)?p.spot:'files',tidy:p=>p.spot,exit:'exit'},
  [CAMPUS]:{entry:'entrance',prepare:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',tidy:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',exit:'exit',carry:'book'},
  [GYM]:{entry:'entrance',prepare:p=>p.spot==='weights'?'take-weights':'storage',tidy:p=>p.spot==='weights'?'take-weights':'storage',exit:'exit'},
@@ -31,6 +36,8 @@ const CONFIG={
 };
 const MOTIONS={
  ...OCCUPATION_MOTIONS,
+ [FARM]:{records:'write',crops:'observe',supplies:'select',dock:'observe'},
+ [FLEA]:{fabric:'market-pick',antiques:'market-pick',checkout:'checkout',packing:'market-pack',exit:'carry'},
  [OFFICE]:{computer:'type',notes:'write',meeting:'listen','meeting-notes':'write',presentation:'present',files:'select',print:'select'},
  [CAMPUS]:{listen:'listen',notes:'write',study:'write',blackboard:'paint',teach:'present',prepare:'write',lockers:'select'},
  [GYM]:{storage:'wait',treadmill:'treadmill','take-weights':'weight-pick',weights:'weights',stretch:'stretch'},
@@ -75,7 +82,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
  if(elapsed<entry){spot=cfg.entry;phase='enter';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
  else if(elapsed<edge){spot=cfg.prepare(p);phase='prepare';motion=motionFor(spot);carry=false;}
  else if(elapsed>=span-entry){spot=cfg.exit;phase='exit';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
- else if(elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):p.map===MARKET?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
+ else if(elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):[MARKET,FLEA].includes(p.map)?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
  else{
   const duration=recipe.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
   for(const [id,length,phaseOverride] of recipe){if(cycle<length){spot=id;phase=phaseOverride||'work';if(phase==='work'&&length>=8&&cycle>=5.5&&cycle<6)phase='break';motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}

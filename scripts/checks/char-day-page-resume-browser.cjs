@@ -1,6 +1,6 @@
 // Real schedule writer + actual page unmount/remount, and an independent fresh
 // load. Sample the first rendered frames, not only the eventual destination.
-const {activity,closeLife,openLife,openMore}=require('./char-day-ui-helpers.cjs');
+const {activity,closeLife,openLife,openMore,closeMore}=require('./char-day-ui-helpers.cjs');
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'webkit',out=process.env.DAY_EVIDENCE||'/tmp/char-day-page-resume';fs.mkdirSync(out,{recursive:true});
 const source=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=source.indexOf('  const saveSchedDay ='),b=source.indexOf('  const applySchedChange =',a);assert.ok(a>0&&b>a);const writer=source.slice(a,b);
@@ -22,9 +22,30 @@ async function leave(){await root.locator('[data-wk=head] button').first().click
 async function reenter(name,before,stationary=true){await p.locator('#return-world').click();await ready();await frame.waitForFunction(()=>resumeTrace.length>=5);const trace=await frame.evaluate(()=>resumeTrace),first=trace[0];report.last={name,before,trace};assert.equal(first.map,before.map);assert.ok(Math.hypot(first.position.x-before.position.x,first.position.z-before.position.z)<(stationary?.04:.5));if(stationary){assert.ok(trace.every(s=>!s.route.length),name+' restarts walk');assert.equal(first.gesture,before.gesture);assert.ok(Math.abs(first.avatar[1]-before.avatarPosition[1])<.03,name+' changes sitting height on first frame');}report.cases.push({name,trace});}
 await setup();let s=await state();assert.equal(s.route.length,0,'fresh in-progress schedule starts at its current anchor');await frame.waitForFunction(()=>resumeTrace.length>=5);assert.ok((await frame.evaluate(()=>resumeTrace)).every(s=>!s.route.length));report.cases.push({name:'fresh-in-progress-load',trace:await frame.evaluate(()=>resumeTrace)});
 await activity(root,'read');await closeLife(root);await frame.waitForFunction(()=>{const v=CharDayScene.inspect().visitor;return v?.seated&&Math.abs(v.leg)>1.56;});await p.screenshot({path:path.join(out,'sofa-read.png')});
+// Every menu must keep the same iframe and freeze the current visitor plan.
+await frame.evaluate(()=>{window.menuFrameIdentity=crypto.randomUUID();});
+for(const menu of ['more','schedule','style','wardrobe']){
+ const before=await state();const identity=await frame.evaluate(()=>menuFrameIdentity);
+ if(menu==='schedule')await root.locator('[data-wk=cdayscheduleopen]').click();else{await openMore(root);if(menu==='style')await root.locator('[data-wk=cdayhomestyle]').click();if(menu==='wardrobe')await root.locator('[data-wk=cdaymeopen]').click();}
+ await p.waitForTimeout(1200);const held=await state();assert.deepEqual(held.visitor.position,before.visitor.position,menu+' moves my avatar behind menu');assert.equal(held.visitor.activity,before.visitor.activity);assert.equal(held.visitor.control,'manual');assert.equal(await frame.evaluate(()=>menuFrameIdentity),identity,menu+' replaces iframe');
+ if(menu==='schedule'||menu==='style')await root.locator('[data-wk=head]').last().locator('button').first().click();else if(menu==='wardrobe')await root.locator('[data-wk=cdaymelook] [data-wk=head] button').first().click();
+ await closeMore(root);await p.waitForTimeout(180);const after=await state();assert.deepEqual(after.visitor.position,before.visitor.position);assert.equal(after.visitor.activity,'read');assert.equal(after.visitor.manualAction,'read');report.cases.push({name:'menu-preserves-my-read-'+menu,before:before.visitor,after:after.visitor});
+}
+report.menuLayouts=[];
+for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]])for(const menu of ['schedule','style']){
+ await p.setViewportSize({width:w,height:h});const before=await state(),identity=await frame.evaluate(()=>menuFrameIdentity);
+ if(menu==='schedule')await root.locator('[data-wk=cdayscheduleopen]').click();else{await openMore(root);await root.locator('[data-wk=cdayhomestyle]').click();}
+ const body=root.locator('[data-wk=cdaybody]:visible'),q=await body.evaluate(el=>({overflow:el.scrollWidth-el.clientWidth,outerScroll:el.parentElement.scrollHeight-el.parentElement.clientHeight,body:el.getBoundingClientRect().toJSON(),head:el.previousElementSibling.getBoundingClientRect().toJSON(),controls:[...el.querySelectorAll('button,select')].map(n=>n.getBoundingClientRect().toJSON())}));
+ assert.ok(q.overflow<=1&&q.outerScroll<=1);assert.ok(q.body.height>80&&q.body.bottom<=h+.5);assert.ok(q.head.bottom<=q.body.top+.5&&q.head.top>=0);for(const b of q.controls)assert.ok(b.height>=44&&b.x>=0&&b.right<=w+.5);
+ await body.evaluate(el=>el.scrollTop=el.scrollHeight);const scroll=await body.evaluate(el=>el.scrollTop);await root.locator('[data-wk=head]').last().locator('button').first().click();await closeMore(root);
+ if(menu==='schedule')await root.locator('[data-wk=cdayscheduleopen]').click();else{await openMore(root);await root.locator('[data-wk=cdayhomestyle]').click();}
+ assert.equal(await body.evaluate(el=>el.scrollTop),scroll,'menu scroll position survives return');assert.equal(await frame.evaluate(()=>menuFrameIdentity),identity);assert.deepEqual((await state()).visitor.position,before.visitor.position);
+ await root.locator('[data-wk=head]').last().locator('button').first().click();await closeMore(root);report.menuLayouts.push({menu,w,h,q,scroll});
+}
+await p.setViewportSize({width:390,height:844});
 await openMore(root);await root.locator('[data-wk=cdaycamera][data-part=me]').click();await p.waitForTimeout(500);await p.screenshot({path:path.join(out,'sofa-me.png')});
 const canvas=await frame.locator('canvas').boundingBox();await p.mouse.move(canvas.x+canvas.width*.45,canvas.y+canvas.height*.6);await p.mouse.down();await p.mouse.move(canvas.x+canvas.width*.8,canvas.y+canvas.height*.6,{steps:12});await p.mouse.up();await p.waitForTimeout(300);await p.screenshot({path:path.join(out,'sofa-me-side.png')});
-await openMore(root);await root.locator('[data-wk=cdaycamera][data-part=ta]').click();s=await state();await leave();await reenter('whole-page-seated-read',s);
+await openMore(root);await root.locator('[data-wk=cdaycamera][data-part=ta]').click();s=await state();const myBefore=s.visitor;await leave();await reenter('whole-page-seated-read',s);await frame.waitForFunction(()=>CharDayScene.inspect().visitor?.present);const myAfter=(await state()).visitor;assert.deepEqual(myAfter.position,myBefore.position);assert.equal(myAfter.activity,'read');assert.equal(myAfter.manualAction,'read');assert.equal(myAfter.control,'manual');
 await p.evaluate(()=>resumePlan('sleep'));await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.gesture==='sleep'&&!s.route.length;});s=await state();await leave();await reenter('whole-page-sleep',s);
 await p.evaluate(()=>resumePlan('read'));await frame.waitForFunction(()=>CharDayScene.inspect().route.length>0);await p.waitForTimeout(250);s=await state();await leave();await reenter('whole-page-mid-walk',s,false);await frame.waitForFunction(()=>!CharDayScene.inspect().route.length);
 await leave();await p.clock.setFixedTime(new Date('2026-10-10T10:04:30Z'));await p.evaluate(()=>resumePlan('meal')); await p.locator('#return-world').click();await ready();s=await state();assert.equal(s.activity.action,'meal');assert.equal(s.map,'dayHome');await frame.waitForFunction(()=>!CharDayScene.inspect().route.length&&CharDayScene.inspect().task?.kind==='eat');report.cases.push({name:'new-slot-replans-from-current-position'});
