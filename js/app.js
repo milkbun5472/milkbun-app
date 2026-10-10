@@ -259,7 +259,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
   const label = p => (p && (p.name || p.model)) || "未命名线路";
   const online = (profiles || []).find(p => p.id === activeId) || (profiles || [])[0] || null;
   const offline = (offlineApiId && (profiles || []).find(p => p.id === offlineApiId)) || online;
-  const bg = (bgApiId && (profiles || []).find(p => p.id === bgApiId)) || online;
+  const bg = bgApiId === "__off__" ? { id: "__off__", name: "无（后台不跑）" } : (bgApiId && (profiles || []).find(p => p.id === bgApiId)) || online;
   if (!(profiles || []).length) return null;
   // 三档共用一份：谁选中、点下去往哪儿走、跟不跟随主模型，全按这张表来（one-public-mechanism）。
   // ⚠️线下和后台都有「跟随线上主模型」那一档，而它的值是 null——所以「选中」要看
@@ -349,7 +349,7 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
           h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 12, color: t.fog, transition: "transform .2s",
             transform: tab === lane.key ? "rotate(90deg)" : "none", display: "inline-block" } }, "›")),
         tab === lane.key
-          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
+          ? h("div", { style: { marginTop: 4 } }, (lane.follow ? [choice(lane, null)] : []).concat(lane.key === "bg" ? [choice(lane, { id: "__off__", name: "无（后台一律不跑）" })] : []).concat((lane.list || profiles || []).map(p => choice(lane, p))))
           : null)), clockRow) : null,
     h("div", { style: Object.assign({ position: "fixed", zIndex: 90, display: "flex", alignItems: "center", gap: 8 }, anchor) },
     // ── 长相（她 2026-09-05：「这俩黑悬浮弄好看点」）──────────────────
@@ -1543,7 +1543,9 @@ function App() {
   autoRefreshRef.current = autoRefreshPolicy;
   // 本体模式的角色：「查手机」「角色日程」这两样是替TA编一个人的生活，自动补刷一律不跑（手动也不排日程，见 noSchedFor）
   const BODY_NO_LIFE = { phone: 1, schedule: 1 };
-  const autoRefreshOn = (feature, charId) => !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
+  // 后台线路选了「无」：自己跑的一律不跑（她 2026-10-10「后台 api 能不能选个无，强制不刷新」）
+  const bgOff = () => loadJSON("x_bgApi", null) === "__off__";
+  const autoRefreshOn = (feature, charId) => !bgOff() && !(charId && BODY_NO_LIFE[feature] && (chatSettings[charId] || {}).bodyMode && !(chatSettings[charId] || {}).engineerEyes)
     && window.AutoRefreshPolicy.enabled(autoRefreshRef.current, feature, charId);
   const bgToastOn = () => loadJSON("x_bgToast", true) !== false;
   // AutoGate 的 key 里只有 id（"diary|c1"），名字每次渲染从角色表现取
@@ -4628,7 +4630,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 自动抽取：每轮聊天后按 extractInterval 节拍静默跑一次（开关在记忆库·召回设置）
   const maybeAutoExtract = async charId => {
     const cfg = memCfgRef.current;
-    if (!cfg.autoExtract || !bgActive) return;
+    if (!cfg.autoExtract || !bgActive || bgOff()) return;
     // 配角可以单独调（她 2026-10-03：「我想要他抽少点记忆省钱」）：
     //   less＝间隔×3，off＝私聊不抽。全局那个间隔照旧是底数，只在它上面乘。
     const _npcMem = ((charactersRef.current || []).find(c => c && c.id === charId) || {});
@@ -8200,7 +8202,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
     const charId = offlinePersonId(scopeKey);
     const cfg = memCfgRef.current;
-    if (!cfg.autoExtract || !active) return;
+    if (!cfg.autoExtract || !active || bgOff()) return;
     const sess = (offlinesRef.current[scopeKey] || []).find(s => s && !s.endTs);
     if (!sess) return;
     const interval = Math.max(1, cfg.extractInterval || 1);
@@ -9334,7 +9336,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const memExtractMarkGOffRef = useRef({});
   const maybeAutoExtractGroupOffline = async groupId => {
     const cfg = memCfgRef.current;
-    if (!cfg.autoExtract || !bgActiveRef.current) return;
+    if (!cfg.autoExtract || !bgActiveRef.current || bgOff()) return;
     if (!gsFor(groupId).memoryInterop) return; // 记忆分区：不互通群不往全局记忆库抽
     const group = groups.find(g => g.id === groupId); if (!group) return;
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => s && !s.endTs);
@@ -10396,7 +10398,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const roomExtractMarkRef = useRef({}), roomExtractBusyRef = useRef({});
   const maybeAutoExtractRoom = async (char, room, msgsAll, laneKey) => {
     const K = window.ChatRooms, cfg = memCfgRef.current;
-    if (!K || !char || !room || room.main || !cfg.autoExtract || !bgActive) return;
+    if (!K || !char || !room || room.main || !cfg.autoExtract || !bgActive || bgOff()) return;
     // 开着「进记忆」＝这间房的聊天进主线记忆库（她 2026-09-29「修吧」）：
     //   原来这种房只会触发 maybeAutoExtract(charId)，而它抽的是【主聊天】那一份——
     //   房里说过的话一条都没进过记忆库。
@@ -15610,7 +15612,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const memExtractMarkGRef = useRef({});
   const maybeAutoExtractGroup = async groupId => {
     const cfg = memCfgRef.current;
-    if (!cfg.autoExtract || !bgActiveRef.current) return;
+    if (!cfg.autoExtract || !bgActiveRef.current || bgOff()) return;
     if (!gsFor(groupId).memoryInterop) return;   // 记忆分区：封闭群不往全局记忆库抽
     const group = groups.find(g => g.id === groupId); if (!group) return;
     const interval = Math.max(1, cfg.extractInterval || 1);
@@ -30600,7 +30602,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           set: v => { patchChatSetting(activeChar.id, { timeAwareMode: v }); toast((activeChar.remark || activeChar.name || "TA") + " 的时间感知：" + (v === "on" ? "开" : v === "off" ? "关" : "跟随全局")); } }
       : { charName: "", mode: prefs.timeAware !== false ? "on" : "off",
           set: v => { const p = { ...prefs, timeAware: v === "on" }; setPrefs(p); saveJSON("x_prefs", p); toast("全局时间感知：" + (v === "on" ? "开" : "关")); } },
-    onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast("后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
+    onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台关了：自己跑的那些都不跑了" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
     allChars: characters,   // 建群时配角也能直接选（她 2026-10-03：要简单点）
