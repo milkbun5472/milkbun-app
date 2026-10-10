@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-5ee68d467e4124cc';
-import {pointToolAt} from './reach-hand.mjs?v=fg-5ee68d467e4124cc';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-4ea3c2dd79f75cae';
+import {pointToolAt} from './reach-hand.mjs?v=fg-4ea3c2dd79f75cae';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
@@ -44,8 +44,11 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
   if(bowl.visible){bowl.rotation.set(0,0,0);bowl.position.copy(model.worldToLocal(left.clone()));bowl.position.y-=.015;
    const forward=new T.Vector3(0,0,-1).applyQuaternion(model.getWorldQuaternion(new T.Quaternion())),length=.20*model.getWorldScale(new T.Vector3()).z;
    const tip=pose.mouth&&pose.bite>.5?pose.mouth.clone():right.clone().addScaledVector(forward,length);
-   eatingTool.position.copy(group.worldToLocal(right.clone()));eatingTool.rotation.set(0,0,0);eatingTool.scale.set(1,1,1);
-   const direction=group.worldToLocal(tip).sub(eatingTool.position);eatingTool.quaternion.setFromUnitVectors(new T.Vector3(0,-1,0),direction.normalize());bite.visible=(pose?.bite||0)>.08;
+   const gripToTip=pointToolAt(eatingTool,group,right,tip,.20,{scale:false})||.20;
+   // Fixed length sticks slide through the grip as the bite reaches the lips.
+   // Scaling the sticks or fixing their tip would penetrate a smaller face.
+   for(const stick of eatingTool.children)if(stick!==bite)stick.position.y=.10-gripToTip;
+   bite.position.y=-gripToTip;bite.visible=(pose?.bite||0)>.08;
   }
   if(book.visible){book.position.copy(root.worldToLocal(left.clone().add(right).multiplyScalar(.5)));book.position.z+=.025;book.rotation.set(.25,0,0);page.rotation.z=-Math.PI*(pose?.turn||0);page.visible=(task.progress||0)<.76;}
   if(ladle.visible){const contact={...task.contact,x:task.contact.x+(pose?.dx||0),z:task.contact.z+(pose?.dz||0)};
@@ -57,7 +60,7 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
   root.updateWorldMatrix(true,true);
   Object.assign(root.userData.dailyAction,{cup:cup.visible,bowl:bowl.visible,book:book.visible,page:page.rotation.z,ladle:ladle.visible,chopsticks:eatingTool.visible,kind:task.kind,sip:pose?.sip||0,bite:pose?.bite||0,
    rightGrip:right.toArray(),leftGrip:left.toArray(),cupGrip:cup.visible?cup.localToWorld(new T.Vector3(.056,0,0)).toArray():null,cupRim:cup.visible?cup.localToWorld(new T.Vector3(0,.044,.014)).toArray():null,
-   mouth:pose?.mouth?.toArray()||null,toolTip:ladle.visible?ladle.localToWorld(new T.Vector3(0,-.24,0)).toArray():eatingTool.visible?eatingTool.localToWorld(new T.Vector3(0,-.20,0)).toArray():null,
+   mouth:pose?.mouth?.toArray()||null,toolTip:ladle.visible?ladle.localToWorld(new T.Vector3(0,-.24,0)).toArray():eatingTool.visible?bite.getWorldPosition(new T.Vector3()).toArray():null,
    toolGrip:ladle.visible?ladle.getWorldPosition(new T.Vector3()).toArray():eatingTool.visible?eatingTool.getWorldPosition(new T.Vector3()).toArray():null,
    toolLength:ladle.visible?.24*ladle.scale.y*model.getWorldScale(new T.Vector3()).y:eatingTool.visible?.20*model.getWorldScale(new T.Vector3()).y:0});
  },update(time,{gesture='rest',progress=0,moving=false,seated=false,height=.08}={}){

@@ -1,13 +1,13 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-5ee68d467e4124cc';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-5ee68d467e4124cc';
-import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-5ee68d467e4124cc';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-5ee68d467e4124cc';
-import {emotionPose} from './emotion-pose.mjs?v=fg-5ee68d467e4124cc';
-import {makeDollLife} from './doll-life.mjs?v=fg-5ee68d467e4124cc';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-5ee68d467e4124cc';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-4ea3c2dd79f75cae';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-4ea3c2dd79f75cae';
+import {taskPose,makeTaskProps,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-4ea3c2dd79f75cae';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-4ea3c2dd79f75cae';
+import {emotionPose} from './emotion-pose.mjs?v=fg-4ea3c2dd79f75cae';
+import {makeDollLife} from './doll-life.mjs?v=fg-4ea3c2dd79f75cae';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-4ea3c2dd79f75cae';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-5ee68d467e4124cc';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-5ee68d467e4124cc';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-4ea3c2dd79f75cae';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-4ea3c2dd79f75cae';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -351,6 +351,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-5ee68d467e4124cc'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-4ea3c2dd79f75cae'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }

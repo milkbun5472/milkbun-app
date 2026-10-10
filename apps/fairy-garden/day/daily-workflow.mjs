@@ -1,4 +1,4 @@
-import {HOME_COOK} from './home-catalog.mjs?v=fg-5ee68d467e4124cc';
+import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-4ea3c2dd79f75cae';
 
 export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook'};
 export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理'};
@@ -12,7 +12,7 @@ export function dailyTaskAt(stage,spot,map,elapsed,{moving=false}={}){
  const task={kind,daily:true,elapsed:Math.max(0,elapsed),progress:Math.max(0,elapsed)/(kind==='read'?9:kind==='drink'?8:kind==='eat'?5.5:7)%1,furniture:spot.piece||null};
  if(kind==='cook'){
   const p=map.furniture.find(p=>p.id===spot.piece);if(p?.kind!=='kitchen')return null;
-  const h=p.heading||0,c=Math.cos(h),s=Math.sin(h),point=y=>({x:p.x+HOME_COOK.x*c+HOME_COOK.z*s,y,z:p.z-HOME_COOK.x*s+HOME_COOK.z*c});
+  const point=y=>({...furniturePoint(p,HOME_COOK),y});
   task.target=point(HOME_COOK.gripY);task.contact=point(HOME_COOK.contactY);task.pot=point(HOME_COOK.y);
  }
  return task;

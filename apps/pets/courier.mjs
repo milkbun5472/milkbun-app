@@ -1,4 +1,4 @@
-import {homePoint} from './initiative.mjs?v=fg-5ee68d467e4124cc';
+import {homePoint} from './initiative.mjs?v=fg-4ea3c2dd79f75cae';
 // Parcel obligations are separate from the pet's own inventory and work souvenirs.
 export const COURIER_DOORS=[{id:'bakery',title:'面包店',label:'麦穗门牌'},{id:'florist',title:'花店',label:'小花门牌'},{id:'cafe',title:'咖啡店',label:'杯子门牌'}];
 const kinds=['一包新的纸杯','一卷包花纸','一盒烘焙纸'];

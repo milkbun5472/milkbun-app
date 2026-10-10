@@ -37,6 +37,8 @@ export function homePlacements(raw={}){
 }
 export function homeFurniture(raw){const placements=homePlacements(raw),counts={};return Object.entries(placements).filter(([id])=>id!=='$room').map(([id,q])=>{const p=HOME_CATALOG.find(p=>p.id===q.catalogId),n=counts[p.id]=(counts[p.id]||0)+1;return {...p,...q,id,label:HOME_NAMES[id]||p.label+' · '+n};});}
 export const usesFor=p=>p?.kind==='bed'?['sleep']:p?.kind==='chair'?['meal']:p?.kind==='sofa'?['tea','rest','read']:p?.kind==='kitchen'?['cook']:[];
+export function furniturePoint(p,q={x:0,z:0}){const h=p.heading||0,c=Math.cos(h),s=Math.sin(h);return {x:p.x+q.x*c+q.z*s,z:p.z-q.x*s+q.z*c};}
+export function furnitureSeat(p,approach,offset){return {...furniturePoint(p,offset),rise:.45,heading:p.heading||0,approach,piece:p.id};}
 export function homeAnchors(furniture,room){
  const defaults={sleep:'double-bed',meal:'dining-chair',tea:'sofa',rest:'sofa',read:'sofa',cook:'kitchen'};
  const anchor=(p,action,id)=>p.kind==='kitchen'?{id,action,label:'厨房料理',piece:p.id,approach:{x:HOME_COOK.x,z:p.d/2+.35},heading:Math.PI}:p.kind==='bed'?{id,action,piece:p.id,approach:{x:p.w/2+.55,z:.8},bed:true}:p.kind==='chair'?{id,action,piece:p.id,approach:{x:-.85,z:0},seat:true}:{id,action,piece:p.id,approach:{x:p.w/2+.6,z:.25},seat:true,offset:{x:action==='read'?.6:-.6,z:.05}};

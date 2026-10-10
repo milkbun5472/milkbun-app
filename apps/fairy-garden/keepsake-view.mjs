@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {MAPS,spotParse} from './world.mjs?v=fg-5ee68d467e4124cc';
-import {makeCurio} from './curio-view.mjs?v=fg-5ee68d467e4124cc';
+import {MAPS,spotParse} from './world.mjs?v=fg-4ea3c2dd79f75cae';
+import {makeCurio} from './curio-view.mjs?v=fg-4ea3c2dd79f75cae';
 export function makeDreamFlower(){
  const root=new T.Group(),plant=new T.Group(),flower=new T.Group();root.add(plant);plant.add(flower);flower.position.y=.57;
  const green=new T.MeshStandardMaterial({color:'#729b8d',roughness:.8}),purple=new T.MeshStandardMaterial({color:'#bfa5df',roughness:.7,emissive:'#a688d0',emissiveIntensity:.3}),gold=new T.MeshStandardMaterial({color:'#e9d5a6',roughness:.8});

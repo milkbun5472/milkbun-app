@@ -1,5 +1,5 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors} from './home-catalog.mjs?v=fg-5ee68d467e4124cc';
-import {MAPS,walkable} from '../world.mjs?v=fg-5ee68d467e4124cc';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat} from './home-catalog.mjs?v=fg-4ea3c2dd79f75cae';
+import {MAPS,walkable} from '../world.mjs?v=fg-4ea3c2dd79f75cae';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
@@ -48,7 +48,6 @@ export const SPACE_DEFS={
   {id:'rest',action:'rest',piece:'street-bench',approach:{x:1.9,z:.2},seat:true},
  ],wander:[{x:0,z:0},{x:3,z:2.7},{x:-1.2,z:2.8},{x:5.3,z:1.4},{x:-2.8,z:-.6}]}
 };
-function localPoint(p,q={x:0,z:0}){const h=p.heading||0,c=Math.cos(h),s=Math.sin(h);return {x:p.x+q.x*c+q.z*s,z:p.z-q.x*s+q.z*c};}
 export function buildSpace(id,placements={}){
  const d=SPACE_DEFS[id];if(!d)throw Error('未知日常场景');
  const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
@@ -60,7 +59,7 @@ export function buildSpace(id,placements={}){
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{
   const p=pieces[a.piece],target=a.target?{...a.target}:localPoint(p,a.approach);
   const spot={...a,target,heading:(p?.heading||0)+(a.heading||0)};
-  if(a.seat){const point=localPoint(p,a.offset);spot.seat={...point,rise:.45,heading:p.heading,approach:target,piece:p.id};}
+  if(a.seat)spot.seat=furnitureSeat(p,target,a.offset);
   if(a.bed){spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94,heading:p.heading};spot.playerSleep={...localPoint(p,{x:-.55,z:.65}),y:.94,heading:p.heading};}
   return spot;
  });
