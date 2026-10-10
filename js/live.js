@@ -640,8 +640,8 @@
       setBusy(true);
       try {
         const d = await (st
-          ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, uName, first), watchShape(ses, first))
-          : props.probeAs(char, watchInstruction(ses, uName, first), watchShape(ses, first))) || {};
+          ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))
+          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))) || {};
         const regs = first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : ses.regulars;
         const hostName = first ? (st ? st.name : (S(d.host).slice(0, 20) || char.name)) : ses.host;
         const act = S(d.act).slice(0, 120);
@@ -658,7 +658,7 @@
         // 常客送的礼物：只上榜、不动谁的钱包（他们是这场里才有的人）
         const regGifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
           .filter(g => g && regNames.indexOf(g.name) >= 0 && g.amount > 0).slice(0, 4);
-        const nm = ses.as === "mask" ? ses.maskName : uName;
+        const nm = ses.as === "mask" ? ses.maskName : (ses.meName || uName);
         const rv = ses.rival && d.rival && typeof d.rival === "object" ? d.rival : null;
         const linkNow = ses.linkAsk && !ses.linked ? d.link === true : null;
         const item = ses.kind === "sell" && d.item && S(d.item.name) ? { name: S(d.item.name).slice(0, 40), price: Math.max(1, Math.min(100000, Math.round(Number(d.item.price) || 0))) } : null;
@@ -691,7 +691,7 @@
       const chars = charsOf(ses); if (!chars.length) return;
       setBusy(true);
       try {
-        const d = await props.probeMany(chars, hostInstruction(ses, uName, chars, chars.map(props.briefFor), first), HOST_SHAPE) || {};
+        const d = await props.probeMany(chars, hostInstruction(ses, uName, chars, chars.map(props.briefFor), first) + (props.maskNote ? props.maskNote(chars) : ""), HOST_SHAPE) || {};
         const names = chars.map(c => c.name);
         const chat = normChat(d.chat, names);
         const gifts = arr(d.gifts).map(g => g && { name: S(g.name), gift: S(g.gift).slice(0, 20) || "礼物", amount: Math.max(0, Math.min(100000, Math.round(Number(g.amount) || 0))) })
@@ -738,10 +738,10 @@
         const c = chars[0];
         text = s.as === "mask"
           ? c.name + "开了一场直播《" + (s.title || "") + "》。直播间里有个叫「" + s.maskName + "」的观众" + (mine ? "发了 " + mine + " 条弹幕" : "一直在看") + (spent ? "，还打赏了 " + spent + " 元" : "") + "。" + c.name + "不知道那是谁。"
-          : c.name + "开了一场直播《" + (s.title || "") + "》，" + uName + "用自己的号来看了" + (mine ? "，发了 " + mine + " 条弹幕" : "") + (spent ? "，打赏了 " + spent + " 元" : "") + "。";
+          : c.name + "开了一场直播《" + (s.title || "") + "》，" + (s.meName || uName) + "用自己的号来看了" + (mine ? "，发了 " + mine + " 条弹幕" : "") + (spent ? "，打赏了 " + spent + " 元" : "") + "。";
         if (s.linked || arr(s.lines).some(l => l.kind === "me" && l.linked)) text += (s.as === "mask" ? "那个观众还跟" + c.name + "连了麦。" : uName + "还跟" + c.name + "连了麦，当着观众说了话。");
         if (s.rival) text += "这一场" + c.name + "跟「" + s.rival.host + "」连线 PK 了。";
-        if (s.mod && s.as !== "mask") text += c.name + "让" + uName + "当了直播间的房管。";
+        if (s.mod && s.as !== "mask") text += c.name + "让" + (s.meName || uName) + "当了直播间的房管。";
         props.remember([c.id], text);
         if (s.rival) props.remember([s.rival.charId], s.rival.host + "跟" + (s.host || c.name) + "（" + c.name + "）连线 PK 了一场直播。");
         // 切片（她 2026-10-08）：路人把这场剪成一条视频发到片刻，原话照搬，不花调用
@@ -772,7 +772,9 @@
         if (rc && rc.id !== cfg.charId) ses.rival = { charId: rc.id, host: rc.name, brief: "【" + rc.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(rc.persona, 3000) : String(rc.persona || "").slice(0, 3000)) + (typeof charLangLine === "function" ? charLangLine(rc) : "") };
         // ⚠️不用 briefFor：那份里有「你自己住在…」这种写给本人看的第二人称，主播读到会当成在说自己
       }
-      if (cfg.mode === "watch") ses.lines.push({ kind: "enter", text: (cfg.as === "mask" ? cfg.maskName : uName) + " 进入了直播间", ts: Date.now() });
+      // 用自己的号去看：「自己的号」就是 TA 认识的那个她——TA 跟她用的是别的面具，号名就是那张面具的名字（她 2026-10-09）
+      if (cfg.mode === "watch" && cfg.as !== "mask" && props.maskNameFor) { const mn = props.maskNameFor(cfg.charId); if (mn) ses.meName = mn; }
+      if (cfg.mode === "watch") ses.lines.push({ kind: "enter", text: (cfg.as === "mask" ? cfg.maskName : (ses.meName || uName)) + " 进入了直播间", ts: Date.now() });
       save([ses].concat(listRef.current));
       setCurId(ses.id); setView("room");
       if (cfg.mode === "watch") stepWatch(ses.id, true); else stepHost(ses.id, true);
@@ -780,14 +782,14 @@
     const say = v => {
       const s = get(curId); if (!s) return;
       if (!v) { if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false); return; }
-      const name = s.mode === "watch" ? (s.as === "mask" ? s.maskName : uName) : uName;
+      const name = s.mode === "watch" ? (s.as === "mask" ? s.maskName : (s.meName || uName)) : uName;
       patch(curId, x => ({ ...x, lines: arr(x.lines).concat([{ kind: "me", name, text: v, linked: !!x.linked, ts: Date.now() }]).slice(-LINES_CAP) }));
       if (s.mode === "watch") stepWatch(curId, false); else stepHost(curId, false);
     };
     // 看 TA 播时的几样动作：都只是给下一拍添一件事实，下一拍跟着她下一句（或这一下）一起走
     const addEvent = (fn, text, go) => { patch(curId, x => Object.assign({}, fn(x), { lines: arr(x.lines).concat([{ kind: "event", text, ts: Date.now() }]).slice(-LINES_CAP) })); if (go) stepWatch(curId, false); };
-    const askLink = () => { const s = get(curId); if (!s || s.linked || s.linkAsk) return; addEvent(x => ({ ...x, linkAsk: true }), (s.as === "mask" ? s.maskName : uName) + " 申请了连麦", true); };
-    const meName = () => { const s = get(curId) || {}; return s.as === "mask" ? s.maskName : uName; };
+    const askLink = () => { const s = get(curId); if (!s || s.linked || s.linkAsk) return; addEvent(x => ({ ...x, linkAsk: true }), (s.as === "mask" ? s.maskName : (s.meName || uName)) + " 申请了连麦", true); };
+    const meName = () => { const s = get(curId) || {}; return s.as === "mask" ? s.maskName : (s.meName || uName); };
     const unlink = () => addEvent(x => ({ ...x, linked: false, linkAsk: false }), meName() + " 下麦了", false);
     const ban = n => addEvent(x => ({ ...x, banned: arr(x.banned).concat([n]) }), n + " 被房管禁言了", false);
     // 画出来：照镜头里那一行（加上此刻在干嘛）画一张，存在这一场上；场景变了不自己换，想换再点
@@ -801,7 +803,7 @@
       finally { setDrawingId(""); }
     };
     const invite = c => { const s = get(curId); if (!s || s.buddy || !c) return; addEvent(x => ({ ...x, buddy: { charId: c.id, name: c.name, brief: "【" + c.name + "】" + (typeof groupPersonaText === "function" ? groupPersonaText(c.persona, 2000) : String(c.persona || "").slice(0, 2000)) + (typeof charLangLine === "function" ? charLangLine(c) : "") } }), c.name + " 跟着 " + meName() + " 进了直播间", true); };
-    const pickSong = t2 => addEvent(x => ({ ...x, song: t2 }), (get(curId).as === "mask" ? get(curId).maskName : uName) + " 点了一首《" + t2 + "》", true);
+    const pickSong = t2 => addEvent(x => ({ ...x, song: t2 }), (get(curId).as === "mask" ? get(curId).maskName : (get(curId).meName || uName)) + " 点了一首《" + t2 + "》", true);
     const buy = item => {
       const s = get(curId); if (!s || !item || !props.buy) return;
       if (typeof props.wallet === "number" && props.wallet < item.price) { toast("钱包余额不够"); return; }
@@ -811,7 +813,7 @@
     const gift = (g, amount) => {
       const s = get(curId); if (!s) return;
       if (typeof props.wallet === "number" && props.wallet < amount) { toast("钱包余额不够"); return; }
-      const name = s.as === "mask" ? s.maskName : uName;
+      const name = s.as === "mask" ? s.maskName : (s.meName || uName);
       props.pay(-amount, "直播打赏 · " + (s.host || "主播") + "「" + g + "」");
       // 主播只到手一半（平台抽成）
       if (props.charPay && s.charId && !s.stranger) props.charPay(s.charId, toHost(amount), "直播收到打赏 · 「" + g + "」（平台抽走一半）");

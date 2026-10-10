@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.234";
+const APP_VERSION = "v75.237";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6353,7 +6353,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     momentLog: (() => {
       if (ctxOpts && ctxOpts.chat === true && settingsFor(char.id).engineerEyes) return "";
       const out = [];
-      (moments || []).filter(m => m.mine).slice(0, 3).forEach(m => {
+      (moments || []).filter(m => momSeen(m, char.id)).slice(0, 3).forEach(m => {
         const liked = (m.likers || []).includes(char.name);
         const myC = (m.comments || []).filter(cm => cm.author === char.name).map(cm => cm.text);
         const acts = [];
@@ -10670,6 +10670,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   认不认得出是她：只有跟她用【同一张面具】聊的那几个角色认得出；别的角色当陌生网友（跟小号同一套）。
   const forumMaskNow = () => { const id = String((forumMe && forumMe.maskUse) || ""); return id && id !== maskPrimary && (masks || []).some(m => m && m.id === id) ? id : ""; };
   const forumMaskName = id => { const m = id ? (masks || []).find(x => x && x.id === id) : null; return (m && String(m.name || "").trim()) || (forumMe.handle || profile.name || "我"); };
+  // 她的朋友圈谁刷得到（她 2026-10-09）：挑了「谁可以看」就照那个名单；没挑的话，是主面具的朋友圈——
+  //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
+  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === "");
   const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
   // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
   const forumMaskNote = (x, pool) => {
@@ -11725,7 +11728,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       capState.push("location：约在哪儿见、说好了去接 Ta、报备此刻人在哪、"
         + "或者你此刻就在一个想让 Ta 也来的地方——**不必等 Ta 问你在哪**。"
         + "name 写你自己嘴里会怎么称呼这个地方，不是导航软件上那串全称。");
-      if ((moments || []).some(m => m && m.mine)) {
+      if ((moments || []).some(m => momSeen(m, charId))) {
         capState.push("momentComment：" + uName + " 发的最新那条你已经看见了（上面【朋友圈动态】那一栏）。"
           + "戳到你了、想让 Ta 知道你看过了、或者你就是想在底下接一句——**不必等 Ta 来问你看没看见**。"
           + "⚠️评论挂在 Ta 那条底下，刷到的人都看得见：只属于你和 " + uName + " 之间的私事别写进去。");
@@ -13043,7 +13046,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }]), 600);
       }
       if (parsed.momentComment && String(parsed.momentComment).toLowerCase() !== "null") {
-        const latest = (moments || []).find(m => m.mine);
+        const latest = (moments || []).find(m => momSeen(m, char.id));
         if (latest) pMom(p => p.map(m => m.id === latest.id ? { ...m, likers: [...new Set([...(m.likers || []), momentWho(char.name)])], comments: [...(m.comments || []), { author: momentWho(char.name), text: String(parsed.momentComment) }] } : m));
       }
       // TA 在聊天里切歌/点歌（一起听联动）→ 真的换全局播放器的歌
@@ -20724,7 +20727,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       roster = [...new Set([primary, author, ...others.slice(0, 4)])].map(c => c.remark || c.name);
     } else {
       // 我自己的帖子：可见好友里，定向对象 > 已在评论区里的人 > 好感最高的，凑最多5个候选
-      const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
+      const canSee = liveChars.filter(c => momSeen(mom, c.id));
       if (!canSee.length) return;
       const target = replyTo ? byName(replyTo) : null;
       const inThread = canSee.filter(c => (mom.comments || []).some(cm => cm.author === (c.remark || c.name) || cm.author === c.name));
@@ -20857,7 +20860,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 可见角色自动对我的朋友圈做真实反应：可能只赞/只评/已读不理/又赞又评，并会互相回复
   const reactToUserMoment = async mom => {
     if (!active) return;
-    const canSee = mom.visibleTo && mom.visibleTo.length ? liveChars.filter(c => mom.visibleTo.includes(c.id)) : liveChars;
+    const canSee = liveChars.filter(c => momSeen(mom, c.id));
     if (!canSee.length) return;
     setGen(g => ({
       ...g,
@@ -28679,6 +28682,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 点歌：一起听里有的歌
     songs: () => ((listenRef.current && listenRef.current.songs) || []).map(x => String(x.title || "").trim()).filter(Boolean).slice(0, 40),
     liveCfg: liveCfg, onLiveCfg: saveLiveCfg, liveSched: liveSchedFor,
+    // 面具（她 2026-10-09）：去看 TA 播时「自己的号」就是 TA 认识的那张面具；自己开播用主面具，跟她用别的面具聊的人当陌生观众看
+    maskNameFor: id => { const k = maskKeyOf(id); const m = k ? (masks || []).find(x => x && x.id === k) : null; return m ? (String(m.name || "").trim() || "") : ""; },
+    maskNote: chars => forumMaskNote({}, chars),
     // 直播间「画出来」（她 2026-10-08）：照镜头里那一行画一张，铺成全屏直播间的底图；跟片刻「画出来」同一个出图口
     draw: (charId, desc) => drawFromDesc(charId ? characters.find(c => c.id === charId) : null, desc, charId ? "self" : "none"),
     // 路人主播（她 2026-10-08）：刷一批走后台线路（便宜那条，没挑过就线上）；他开口走线上——他不是你的角色，没有专线
@@ -28734,6 +28740,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       return out.slice(0, 8);
     };
     body = window.ShuaApp ? h(window.ShuaApp, {
+      // 按面具发（她 2026-10-09，跟论坛同一套）：主面具＋别的面具；谁认得出看 TA 跟她用的是哪张
+      masks: () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage }].concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage }))),
+      maskKeyOf: id => maskKeyOf(id),
       // 刷刷（她 2026-10-07：「整体做抖音界面，直播做其中一个板块」）。见 js/shua.js 开头。
       characters: liveProps.characters, profile: profile, toast: toast,
       probeAs: liveProps.probeAs, briefFor: liveProps.briefFor,
