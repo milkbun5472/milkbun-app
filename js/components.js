@@ -7552,6 +7552,8 @@ function Messages({
   onPinMoment,
   characters,
   allChars,
+  onCreateNpc,    // 配角页新建（她 2026-10-10）
+  meName,
   onSaveNpcAvatar,
   onSaveNpcBrief,
   onChatNpc,
@@ -7957,7 +7959,7 @@ function Messages({
               h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, g.name),
               h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 1 } }, (g.memberIds || []).length + " 人")),
             h(IChevR, { size: 15, color: t.line })))))
-  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
+  , npcBook && h(NpcBook, { npcs: npcAll, owners: allChars || characters, meName: meName, onCreate: onCreateNpc, onSaveAvatar: onSaveNpcAvatar, onSaveBrief: onSaveNpcBrief, onChat: onChatNpc, onDelete: onDeleteNpc, onSetMem: onSetNpcMem, onClose: () => setNpcBook(false) })
   , groupMgr && h(GroupManager, {
     friendGroups,
     characters,
@@ -8227,18 +8229,63 @@ function MomentCompose({
 // 好友分组管理
 // 通讯录 → 配角：按主人分组的一本册子。整页，不是半窗（施工规则/no-half-sheet.md）。
 //   点头像就换（AvatarPicker 那一个，跟卷宗、群头像同一个）；换好的头像群聊和关系图都跟着用。
-function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onDelete, onSetMem, onClose }) {
+function NpcBook({ npcs, owners, meName, onCreate, onSaveAvatar, onSaveBrief, onChat, onDelete, onSetMem, onClose }) {
   const t = useTheme();
+  // 在这一页直接新建（她 2026-10-10：「不能创建的时候在 npc 页面弄吗」）：一步写好认识谁、各是什么关系，
+  //   「在谁身边」可以不挂。落成走 app 那头的 addNpcLinked，跟关系页、秋秋同一处。
+  const [making, setMaking] = useState(null);   // null | { name, brief, links: [{id, label}], owner }
+  const people = [{ id: "me", name: meName || "我" }].concat((owners || []).filter(c => c && !c.npc), (npcs || []));
   // 删除要点两下：先问聊天要不要一起清（她 2026-10-07：通讯录这里原来只能发消息、删不掉）
   const [delArm, setDelArm] = useState(null);
   // 点一行进这位配角的详情（她 2026-10-03：「能不能点击看详情啊，现在都是死的」）。
   //   简介读和改走关系页那一个 NpcBrief，不另写一份。
   const [openId, setOpenId] = useState(null);
   const cur = openId && (npcs || []).find(n => n.id === openId);
-  const ownerName = id => id === "me" ? "我身边的人" : (((owners || []).find(c => c && c.id === id) || {}).name || "（主人已不在）") + " 身边的人";
+  const ownerName = id => id === "me" ? "我身边的人" : !id ? "不挂在谁身边" : (((owners || []).find(c => c && c.id === id) || {}).name || "（主人已不在）") + " 身边的人";
   const byOwner = [];
   (npcs || []).forEach(n => { const k = String(n.ownerId || ""); let g = byOwner.find(x => x.k === k); if (!g) { g = { k, list: [] }; byOwner.push(g); } g.list.push(n); });
-  byOwner.sort((a, b) => (a.k === "me" ? -1 : b.k === "me" ? 1 : 0));
+  byOwner.sort((a, b) => (a.k === "me" ? -1 : b.k === "me" ? 1 : !a.k ? 1 : !b.k ? -1 : 0));
+  if (making) {
+    const mk = making, set = p => setMaking(Object.assign({}, mk, p));
+    const picked = id => mk.links.some(l => l.id === id);
+    const toggle = id => {
+      const links = picked(id) ? mk.links.filter(l => l.id !== id) : mk.links.concat([{ id, label: "" }]);
+      // 在谁身边默认跟着勾的第一个人；勾掉了就顺延
+      const owner = mk.ownerTouched && (mk.owner === "" || links.some(l => l.id === mk.owner)) ? mk.owner : (links[0] ? links[0].id : "");
+      set({ links, owner });
+    };
+    const nameOf = id => ((people.find(p => p.id === id) || {}).name || "");
+    const field = { width: "100%", background: t.bg2, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "10px 12px", outline: "none", fontFamily: F_BODY, fontSize: 13.5 };
+    const label = s0 => h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.sub, margin: "16px 0 7px" } }, s0);
+    return h("div", { "data-wk": "npcnew", className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
+      h(Head, { zh: "新配角", onBack: () => setMaking(null), bg: "transparent" }),
+      h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
+        label("名字"),
+        h("input", { value: mk.name, onChange: e => set({ name: e.target.value }), maxLength: 24, placeholder: "叫什么", style: field }),
+        label("简介"),
+        h("textarea", { value: mk.brief, onChange: e => set({ brief: e.target.value }), rows: 4, placeholder: "TA 是个什么样的人，几句就够", style: Object.assign({}, field, { resize: "vertical", lineHeight: 1.6 }) }),
+        label("TA 认识谁"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } }, people.map(p => {
+          const on = picked(p.id);
+          return h("button", { key: p.id, onClick: () => toggle(p.id), className: "active:opacity-60 flex items-center",
+            style: { gap: 6, padding: p.id === "me" ? "5px 12px" : "3px 10px 3px 3px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
+            p.id === "me" ? null : h(Avatar, { character: chatFace(p), size: 22, radius: 999 }), p.name);
+        })),
+        mk.links.length ? h("div", { style: { marginTop: 10 } }, mk.links.map(l => h("div", { key: l.id, className: "flex items-center", style: { gap: 8, marginTop: 7 } },
+          h("span", { className: "shrink-0 truncate", style: { width: 72, fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, nameOf(l.id)),
+          h("input", { value: l.label, onChange: e => set({ links: mk.links.map(x => x.id === l.id ? { id: x.id, label: e.target.value } : x) }), maxLength: 60,
+            placeholder: l.id === "me" ? "你们是什么关系，比如「大学室友」" : "TA 俩是什么关系，比如「发小」", style: Object.assign({}, field, { padding: "8px 11px", fontSize: 12.5 }) })))) : null,
+        label("在谁身边"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 7 } }, "通讯录里归在谁名下、群里介绍成谁身边的人。大家共同认识的那种（同一个老师、楼下店主）可以不挂。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 8 } }, mk.links.map(l => l.id).concat([""]).map(id => {
+          const on = mk.owner === id;
+          return h("button", { key: id || "none", onClick: () => set({ owner: id, ownerTouched: true }), className: "active:opacity-60",
+            style: { padding: "5px 12px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
+            id ? nameOf(id) : "不挂在谁身边");
+        })),
+        h("button", { onClick: () => { if (onCreate({ name: mk.name, brief: mk.brief, ownerId: mk.owner, links: mk.links })) setMaking(null); }, disabled: !String(mk.name || "").trim(), className: "w-full active:opacity-70",
+          style: { marginTop: 22, padding: "12px 0", borderRadius: 12, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, border: "none", opacity: String(mk.name || "").trim() ? 1 : .45 } }, "建好")));
+  }
   if (cur) return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
     h(Head, { zh: cur.name || "配角", onBack: () => setOpenId(null), bg: "transparent" }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
@@ -8275,10 +8322,11 @@ function NpcBook({ npcs, owners, onSaveAvatar, onSaveBrief, onChat, onDelete, on
         : h("button", { onClick: () => setDelArm(cur.id), className: "w-full active:opacity-70",
             style: { marginTop: 12, padding: "11px 0", borderRadius: 12, background: "transparent", color: t.accent || t.ink, fontFamily: F_BODY, fontSize: 13.5, border: "1px dashed " + t.line } }, "删除这个配角")) : null));
   return h("div", { className: "absolute inset-0 z-20 flex flex-col", style: msgAppBg(t) },
-    h(Head, { zh: "配角", onBack: onClose, bg: "transparent" }),
+    h(Head, { zh: "配角", onBack: onClose, bg: "transparent",
+      right: onCreate ? h("button", { onClick: () => setMaking({ name: "", brief: "", links: [], owner: "" }), "aria-label": "新建配角", className: "active:opacity-50 flex items-center justify-center", style: { width: 34, height: 38 } }, h(IPlus, { size: 20, color: t.ink })) : null }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { paddingBottom: "calc(24px + env(safe-area-inset-bottom))" } },
       !byOwner.length
-        ? h(Empty, { text: "还没有配角", sub: "去关系页的 NPC 那一栏加" })
+        ? h(Empty, { text: "还没有配角", sub: "点右上角 + 新建一位" })
         : byOwner.map(g => h("div", { key: g.k },
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, letterSpacing: "0.08em", color: t.fog, background: t.bg2, padding: "3px 20px" } }, ownerName(g.k)),
             g.list.map(n => h("div", { key: n.id, onClick: () => setOpenId(n.id), className: "flex items-center gap-3 px-5 py-3 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: t.bg, cursor: "pointer" } },
