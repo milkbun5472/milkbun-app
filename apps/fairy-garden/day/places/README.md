@@ -152,3 +152,9 @@ world / deviation.world 是 TA 的一天内部视觉字段；日历通过 CharDa
 `task-motion.mjs`共用原traveler骨架、真实握点与reach-hand接触求解；笔／工具随手，尖端对齐实际桌面，携书行走时清理其他道具。诊室持纸笔与清单，工作室持画笔与整理材料，排练室双手落到真实琴键、持吉他拨弦及练习；车站行李先放实际架板，候车与走去取物时保持原位置，取回才带去站台。流程仅计算视觉，没有作品、病历或曲目写档。实验室器材仍可整组替换。截图与逐帧、七衣三体型验证：/Users/lisa/.codex/visualizations/2026/10/09/char-day-workflows/。
 
 四场景动作与逐帧证据：/Users/lisa/.codex/visualizations/2026/10/09/char-day-four-actions/。`scripts/checks/char-day-workflows-browser.cjs`用`DAY_BATCH=four`验证四房，默认回归实验室／图书馆；`DAY_RIG_ONLY=1`只跑七衣三体型的实际骨骼、可见手掌与道具接触。
+
+## 小家现场加入
+
+TA的一天在真实当前日程的小家且TA到位后，可明确点进小屋。第二个小人复用同一traveler源模型与女生默认外貌，独立动画；空地点击、靠近、并排坐、起身、走到门口离开沿world寻路和locomotion，拖动/双指不触发行走。坐位从实际家具与空位计算，和TA共用furniturePoint/furnitureSeat坐高及旋转；单人椅不共享，无空位提示。当前会话无存档、模型请求或聊天/记忆写入，TA日程或布局改变便退出；主聊天仍沿原入口，双人聊天归档未定。
+
+验证：day/visit.test.mjs、test/char-day-visit.test.js、scripts/checks/char-day-visit-browser.cjs（完整App、实际路线、并排坐、主聊天开合、320/390/430/横屏、日程切换和刷新隔离）。
