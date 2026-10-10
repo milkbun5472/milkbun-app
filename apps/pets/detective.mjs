@@ -1,5 +1,5 @@
-import {normalizeCase,caseSourceLabel} from './case-schema.mjs?v=fg-aa215f3b04f25467';
-import {LOCAL_CASES,SERIAL_CASES} from './detective-local.mjs?v=fg-aa215f3b04f25467';
+import {normalizeCase,caseSourceLabel} from './case-schema.mjs?v=fg-d6accb47bee17220';
+import {LOCAL_CASES,SERIAL_CASES} from './detective-local.mjs?v=fg-d6accb47bee17220';
 // Local case definitions. Only collected clues and submitted conclusions enter game/chat facts.
 export const PET_CASES=[
  {id:'bell',title:'不见的小铃铛',intro:'小巷门垫上的玩具铃铛不见了。门一直关着，店员请它看看铃铛去了哪里。',clues:['门垫到长凳之间，有一条细细的滚动痕迹。','长凳下面的缝隙很窄，小爪子伸不进去。','店员抬起长凳，里面露出和门垫上一样的蓝色绳结。'],options:[{id:'visitor',label:'被路过的客人带走了'},{id:'rolling',label:'滚进了长凳下面'},{id:'wind',label:'被风吹到了屋外'}],answer:'rolling',ending:'铃铛滚到了长凳下面，蓝色绳结和原来的一样。店员取出铃铛，重新放回门垫。',hint:'再对照滚动痕迹、长凳缝隙和蓝色绳结。'},

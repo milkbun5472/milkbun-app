@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-aa215f3b04f25467';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-d6accb47bee17220';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};
@@ -56,9 +56,9 @@ export function createRoomKit(){
   }
   function book(name,{x=0,y=0,z=0,w=.16,h=.46,d=.3,color='#879d83',flat=false},parent=root){const p=group(name,{x,y,z},parent);if(flat){box(name+'-pages',{w,h:.065,d,color:'#eee6d4',radius:.005},p);for(const a of [-1,1])box(name+'-cover',{y:a*.038,w:w+.035,h:.012,d:d+.035,color,radius:.005},p);}else{box(name+'-spine',{w,h,d,color,radius:.007},p);for(const a of [-1,1])box(name+'-band',{y:a*h*.31,z:d/2+.004,w:w*.75,h:.015,d:.008,color:'#e3d4af',radius:0},p);}return p;}
   function plant(x,z){const p=group('Plant',{x,z});cylinder('pot',{y:.24,r:.19,h:.32,color:'#c6a689'},p);for(let i=0;i<7;i++){const a=i*2.4;const leaf=box('leaf',{x:Math.sin(a)*.16,y:.57+i*.025,z:Math.cos(a)*.16,w:.12,h:.4,d:.075,color:i%2?'#799476':'#91a586'},p);leaf.rotation.z=Math.sin(a)*.5;}return p;}
-  function room({w=10,d=9,floorColor='#cbb697',wallColor='#e6dfcb',accent='#7b9585'}){
+  function room({w=10,d=9,floorColor='#cbb697',wallColor='#e6dfcb',accent='#7b9585',joins=true}){
     root.name='DayRoom';box('Floor',{y:-.07,w:w+.3,h:.3,d:d+.3,color:floorColor,radius:.05});
-    for(let i=0;i<Math.round(w/.5);i++)box('floor-join',{x:-w/2+i*.5,y:.084,w:.008,h:.002,d,color:'#bfa88a',radius:0});
+    if(joins)for(let i=0;i<Math.round(w/.5);i++)box('floor-join',{x:-w/2+i*.5,y:.084,w:.008,h:.002,d,color:'#bfa88a',radius:0});
     const structure=roomStructure({w,d});
     for(const p of structure.slice(0,2))box(p.id,{...p,y:1.65,h:3.3,color:wallColor});
     box('back-trim',{z:-d/2+.12,y:.22,w,h:.26,d:.075,color:accent});box('left-trim',{x:-w/2+.12,y:.22,w:.075,h:.26,d,color:accent});

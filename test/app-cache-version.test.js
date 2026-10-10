@@ -9,6 +9,13 @@ const html = fs.readFileSync(path.join(root, "index.html"), "utf8");
 const manifest = JSON.parse(fs.readFileSync(path.join(root, "manifest.json"), "utf8"));
 const sw = fs.readFileSync(path.join(root, "sw.js"), "utf8");
 
+test("小世界三处宿主入口都带实际资源图指纹，原本没指纹的入口也能刷新", () => {
+  const build = JSON.parse(fs.readFileSync(path.join(root, "apps/fairy-garden/build.json"), "utf8")).build;
+  for (const entry of ["clock.js", "rules.js", "day/catalog.js"]) {
+    assert.ok(html.includes('src="apps/fairy-garden/' + entry + '?v=' + build + '"'), entry + " 跟随当前资源图");
+  }
+});
+
 test("App 与 PWA 同版，改过的资源统一校验指纹", () => {
   const version = app.match(/APP_VERSION\s*=\s*"v([^"]+)"/)[1];
   require("node:child_process").execFileSync(process.execPath, ["scripts/check-version.mjs"], { cwd: root });
