@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.316";
+const APP_VERSION = "v75.317";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21755,7 +21755,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const FORUM_THREAD_LINE = "楼中楼（replies）是贴吧的精髓：【大约一半的楼】底下要有人接——2~5 条，来自【不同的人】（多是没单独开楼的路人和熟面孔），"
     + "有人附和、有人不同意（说得出为什么）、有人接梗歪楼、有人 @ 上一个回的人、层主回来补一句，真吵得起来的楼可以更长；一句话就说完的楼就让它空着。" + REAL_DISAGREE + "楼层数照上面给的数凑满，不因为楼中楼变多就少开楼。"
     // 回谁得写出来，界面才画得出「回复 @某某」（她 2026-09-24：层主回了楼里某人，看不出是在回谁）
-    + "楼中楼每一条如果是在回【这层楼里的某个人】，就填 to＝那个人的名字（照抄这层里出现过的网名或角色名）；回层主本人就留空。"
+    + "楼中楼每一条如果是在回【这层楼里的某个人】，就填 to＝那个人在这帖里显示的名字（照抄这层里出现过的那个名字：匿名的就是「匿名用户」，小号就是那个小号网名）；回层主本人就留空。"
     + "正文里 @ 谁，只能 @ 这帖里真出现过的人，别编一个不存在的用户名。";
   // 全部开满（她 2026-09-23：「上限给65535吧，多给点反正也用不了那么多」）——天花板不是花销，中转自己 clamp 到模型上限。
   // 同一个人换个号，说话的顾忌就不一样（她 2026-09-24：「同一件事大小号或者匿名发帖或者评论说出来的语气和角度
@@ -21765,7 +21765,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     + "小号认识他的人认不出来——松一点、敢较真、敢吐槽、敢露怯，换个更随手的说法；"
     + "匿名谁也认不出来——最没遮拦，说平时绝不会说出口的那句真话，可以更冲、更丧、更直白。"
     + "不变的是【这个人】：他在意什么、怎么判断事、价值观和脾气底色、惯用的词和口头禅，三个号都一样——"
-    + "判定：把小号或匿名那条拿给认识他的人看，内容认不出是谁，但读完会觉得「这确实像他会想的事」；认不出来的程度来自不署名，不是来自换了个人。";
+    + "判定：把小号或匿名那条拿给认识他的人看，内容认不出是谁，但读完会觉得「这确实像他会想的事」；认不出来的程度来自不署名，不是来自换了个人。"
+    // 群友 2026-10-10：两个角色都匿名回帖，现实里熟，其中一个张口就喊「陆大人」——原来只管了「自己别说破」
+    + "小号和匿名【别人也认不出】：在场的角色就算现实里跟他很熟，帖子里看到的也只是那个网名或「匿名用户」——回他时就当回一个陌生网友，叫的是帖子里显示的那个名字，说的是他这条里写了的事，只有熟人才知道的称呼、头衔、旧事都不在这儿。";
   const FTOK = {
     board: 65000,   // 一版 3-5 条新主帖
     floors: 65000,  // 12-18 楼含楼中楼——全论坛最长的一次输出；v73.321 楼中楼多了，天花板跟着抬（不是花销）
@@ -22069,7 +22071,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 第二轮起同样要认得出楼主是她（她发帖后那几波陆续来回走的正是这条路）
       const opRule2Full = opRule2 + meRule + opMineBan;
       return {
-        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
+        instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " " + opRule2Full + relBlock + opGround + " 帖子：标题「" + post.title + "」，正文「" + forumWithPhoto(post.body, post) + "」。生成 " + n + " 条新回复（comments 数组务必凑满 " + n + " 条）。" + who2 + " " + FORUM_ID_VOICE + FORUM_THREAD_LINE + FORUM_PHOTO_LINE,
         schemaHint: "{\"comments\":[{\"npcId\":\"熟面孔才填\"," + FORUM_GUEST_FIELDS + ",\"char\":\"角色发言才填角色名\",\"identity\":\"main|alt|anonymous（角色才填）\",\"reply_to_floor\":0,\"is_op\":false,\"content\":\"回复\"" + FORUM_PHOTO_FIELD + ",\"replies\":[]}]}",
         maxTokens: FTOK.floors
       };
@@ -23121,7 +23123,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         instruction: forumBoardVoice(post.board) + forumNpcRule(post.board) + " 帖子：标题「" + post.title + "」正文「" + forumWithPhoto(post.body, post) + "」。" + opDesc + "。\n" + relBlockR + opGroundR + "【这层楼的现场】\n" + priorLines.join("\n") +
           "\n现在有人（网名「" + meNow + "」" + (usingAlt(post) ? "，一个没什么人见过的号，在场谁都不认识、也没人知道背后是谁" : "") + "）刚"
           + (resp.inFloor ? ("在这层楼里回复了「" + resp.name + "」上面那句：") : "回复了层主这条：")
-          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
+          + "「" + myText + "」。" + (!usingAlt(post) && !(post.board === "匿名吧" || post.anon) ? forumMaskNote(myMaskTag(post), forumActiveChars()) : "") + FORUM_ID_VOICE + "生成 2-5 条接在后面的楼中楼回复（items）：\n" +
           (respIsMe
             ? "① 这层楼就是「" + meNow + "」自己开的——**【" + meNow + "】是真人本人，你绝对不许以 Ta 的名义写任何一句**，一条都不要标 is_owner。让别人来接话。\n"
             : "① **必须恰有一条是" + (resp.inFloor ? "被 TA 回的那个人" : "层主") + "「" + ownerName + "」回 TA 的**（那条 is_owner 设 true" + (ownerChar ? "；层主是角色「" + ownerChar.name + "」本人，按 Ta 的人设口吻回" : "") + "）——被人在自己楼里 @ 到了，回一句是贴吧常识。\n") +
