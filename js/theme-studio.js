@@ -377,7 +377,7 @@
     ["app", "这一页的底（最外那层）"],
     ["head", "顶栏整条"], ["headink", "顶栏的字与图标"], ["headdim", "顶栏那行小副标题"], ["myvote", "擂台观战时你自己投票那一行"], ["lookundo", "美化「回到上一版／换回来」那一行"],
     ["eyebrow", "小标题眉标（那种间距拉开的小字）"],
-    ["csreset", "聊天设置里「清除 / 重置…」那颗按钮"], ["resetpage", "清除 / 重置选择页整页"], ["resetgo", "选择页最后那颗「确定清掉」"],
+    ["csreset", "聊天设置里「清除 / 重置…」那颗按钮"], ["csrouteoff", "线路那一格「线下见面单独走」的一颗（data-on＝1 选中）"], ["resetpage", "清除 / 重置选择页整页"], ["resetgo", "选择页最后那颗「确定清掉」"],
     ["empty", "空状态那一块（还没有内容时）"],
     ["sheet", "从底下掀起来的半窗"], ["pagesheet", "原来是半窗、现在铺满整页的那些（通话记录、查找记录、记忆库、备忘录编辑……）"], ["centercard", "屏幕正中弹出来的小卡片"], ["msgbanner", "顶上掉下来的新消息横幅"],
     ["avatar", "头像（全 App 每一颗）"],
@@ -1002,7 +1002,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.279", changed: "tripbookpaid 现在是订好之后那张订单票根整张", none: "" };
+  const BRIEF_STAMP = { v: "v75.280", changed: "聊天设置线路那一格加了 csrouteoff（线下见面单独走）", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

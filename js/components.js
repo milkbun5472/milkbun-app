@@ -18988,6 +18988,8 @@ function ChatSettings({
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
   const [apiId, setApiId] = useState(settings.apiId || null); // 这个角色专属的 API 线路；null=跟随全局
+  // 线下单独一条（群里 2026-10-10 许愿：「单独的线下见面和单独线上手机聊天分别接 api」）；null＝线下也跟上面那条走
+  const [offlineApiId, setOfflineApiId] = useState(settings.offlineApiId || null);
   const [memEdit, setMemEdit] = useState(null); // 长期记忆手术刀（v48.35）：null=浏览，字符串=编辑中的草稿
   const [temperamentText, setTemperamentText] = useState((temperament && temperament.anchors || []).join("\n"));
   const [temperamentDirty, setTemperamentDirty] = useState(false);
@@ -19206,7 +19208,8 @@ function ChatSettings({
     { key: "rooms", char: "房", title: "这一段算哪个房间", tint: "#477f88",
       state: () => (roomNow && roomNow.name) || "主线" },
     { key: "route", char: "线", title: "走哪条线路", tint: "#6693c7",
-      state: () => { const p = (apiProfiles || []).find(x => x.id === apiId); return p ? (p.name || p.model || "未命名") : "跟随全局"; } },
+      state: () => { const nm = id => { const p = (apiProfiles || []).find(x => x.id === id); return p ? (p.name || p.model || "未命名") : ""; };
+        const on = nm(apiId) || "跟随全局", off = nm(offlineApiId); return off && offlineApiId !== apiId ? on + " · 线下 " + off : on; } },
     { key: "danger", char: "清", title: "拉黑与清空", tint: "#a8564a",
       state: () => iBlocked ? "已拉黑 " + cNm : "未拉黑 · 也可以清空这段记录" }
   ];
@@ -19282,6 +19285,7 @@ function ChatSettings({
       font,
       bubble,
       apiId,
+      offlineApiId,
       bodyMode,
       engineerEyes,
       webSearch,
@@ -19389,7 +19393,13 @@ function ChatSettings({
     h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
       [{ v: null, t: "跟随全局" }].concat(apiProfiles.map(p => ({ v: p.id, t: p.name || p.model || "未命名" }))).map(o =>
         h("button", { key: String(o.v), onClick: () => setApiId(o.v), className: "active:opacity-70",
-          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999, background: apiId === o.v ? t.ink : "transparent", color: apiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (apiId === o.v ? t.ink : t.line) } }, o.t))))
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999, background: apiId === o.v ? t.ink : "transparent", color: apiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (apiId === o.v ? t.ink : t.line) } }, o.t))),
+    h(Eyebrow, { style: { marginTop: 16, marginBottom: 2 } }, "线下见面单独走"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5, marginTop: 4 } }, "只管跟 " + cNm + " 的单人线下见面。选「跟上面一样」就是线上线下同一条。"),
+    h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 8 } },
+      [{ v: null, t: "跟上面一样" }].concat(apiProfiles.map(p => ({ v: p.id, t: p.name || p.model || "未命名" }))).map(o =>
+        h("button", { key: "off" + String(o.v), "data-wk": "csrouteoff", "data-on": offlineApiId === o.v ? "1" : "0", onClick: () => setOfflineApiId(o.v), className: "active:opacity-70",
+          style: { fontFamily: F_BODY, fontSize: 12, padding: "6px 12px", borderRadius: 999, background: offlineApiId === o.v ? t.ink : "transparent", color: offlineApiId === o.v ? t.bg2 : t.fog, border: "1px solid " + (offlineApiId === o.v ? t.ink : t.line) } }, o.t))))
     // ⚠️只配了一条线路时，上面整块是 null——原来这一格就是空的，点进来什么都没有，
     //   看着像坏了。说清楚为什么空、以及去哪儿加。
     : h("div", { className: "pt-2", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } },
