@@ -7,6 +7,7 @@ function setup(){
   vm.runInContext(cut(read('js/screens.js'),'function schedFillEnds(', 'function schedTzShiftMin('),env);
   vm.runInContext(read('apps/fairy-garden/day/catalog.js'),env);
   vm.runInContext(read('js/char-day-link.js'),env);
+  vm.runInContext(read('js/char-day-life.js'),env);
   vm.runInContext(read('js/char-day.js'),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));

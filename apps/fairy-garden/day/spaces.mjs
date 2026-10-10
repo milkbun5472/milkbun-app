@@ -1,11 +1,13 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat} from './home-catalog.mjs?v=fg-15a63dee59d32513';
-import {MAPS,walkable} from '../world.mjs?v=fg-15a63dee59d32513';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat} from './home-catalog.mjs?v=fg-837facea1cb3043b';
+import {MAPS,walkable} from '../world.mjs?v=fg-837facea1cb3043b';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
 export const SPACE_STYLES={
   warm:{label:'暖木生活',floor:'#c5aa85',wall:'#e4d2b4',wood:'#a57450',dark:'#594c40',fabric:'#547b6d',accent:'#c57f68',paper:'#f4e8cf',glass:'#c2d5cc'},
   light:{label:'清爽浅色',floor:'#d0d4c9',wall:'#e6ece3',wood:'#a9b5a2',dark:'#57757a',fabric:'#7daab4',accent:'#d3a26e',paper:'#f6f2e1',glass:'#c8e2df'},
+  rose:{label:'淡粉柔软',floor:'#ddd3bc',wall:'#eedad4',wood:'#c5a991',dark:'#725d5b',fabric:'#cfa59b',accent:'#b77b81',paper:'#fff1e7',glass:'#d2dcd4'},
+  ink:{label:'灰石利落',floor:'#c7c6bb',wall:'#deded8',wood:'#8c8276',dark:'#424749',fabric:'#667d80',accent:'#a89a7d',paper:'#eee9df',glass:'#b4c8cb'},
   dusk:{label:'深木安静',floor:'#a08a73',wall:'#d7cbb9',wood:'#765544',dark:'#403f40',fabric:'#576d79',accent:'#b98277',paper:'#e6d9c3',glass:'#adbfc8'}
 };
 export const DEFAULT_STYLE='warm';
