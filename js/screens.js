@@ -5932,10 +5932,13 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, flexShrink: 0 } }, leftOf(x.dueTs))))) : null));
 }
 // 我们的存钱罐（她 2026-10-10 转群友：「情侣空间能不能开个共同账户，那种互相往里放钱的」）。
-//   它是一只真的玻璃罐：罐身里的水位就是离目标还差多少，没定目标就按罐子里有多少浅浅铺一层。
+//   第二版（她 2026-10-10：「存钱罐里面设计也弄好一点」）——照着它在现实里是什么来长：
+//   ① 一只搁在木板上的玻璃罐：罐里是一枚枚硬币堆起来的高度（定了目标就是攒到几成），
+//      最近几笔附了话的，折成小纸条塞在硬币上面；罐颈系一张牛皮纸吊牌，写着目标和进度。
+//   ② 往里放、往外取是一张「存取单」：金额、附言、要不要拿去实现某个愿望。
+//   ③ 流水是一本存折：日期 / 摘要 / 存入 / 支取 / 结余 五栏，按月翻页。
 //   钱的进出全在 app 那头的 jarMove 一处（扣谁的钱包、落灰字、攒到目标），这一页只摆和递。
 function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, onBack }) {
-  const t = useTheme();
   const j = data || { balance: 0, goal: null, autoPct: 10, ledger: [] };
   const [amt, setAmt] = useState("");
   const [note, setNote] = useState("");
@@ -5943,7 +5946,7 @@ function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, on
   const [goalEdit, setGoalEdit] = useState(null);   // null | { name, amount }
   const bal = Number(j.balance) || 0, goal = j.goal;
   const goalAmt = goal ? Number(goal.amount) || 0 : 0;
-  const level = goalAmt > 0 ? Math.min(1, bal / goalAmt) : (bal > 0 ? 0.18 : 0);
+  const level = goalAmt > 0 ? Math.min(1, bal / goalAmt) : (bal > 0 ? Math.min(0.5, 0.12 + Math.log10(1 + bal) / 10) : 0);
   const openWishes = (wishes || []).filter(w => w && w.status !== "done" && w.status !== "shelved");
   const money = v => (Math.round(Number(v) * 100) / 100).toLocaleString("zh-CN");
   const n = Math.round(Number(amt) * 100) / 100;
@@ -5952,65 +5955,96 @@ function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, on
     const ok = onMove(sign * n, note.trim() || (sign < 0 && wishId ? "实现愿望：" + ((openWishes.find(w => w.id === wishId) || {}).title || "") : ""), sign < 0 ? wishId : "");
     if (ok !== false) { setAmt(""); setNote(""); setWishId(""); }
   };
-  const INK = "#3e4a52", FOG = "#8a979e", GLASS = "rgba(214,232,238,.55)";
-  const field = { background: "#fff", color: INK, border: "1px solid #d7e1e4", borderRadius: 10, padding: "9px 11px", outline: "none", fontFamily: F_BODY, fontSize: 13 };
-  // 按月分（跟钱包流水同一个分法）
+  const INK = "#3d3a33", FOG = "#958d7e", PAPER = "#fbf7ee", RULE = "rgba(120,100,70,.18)", RED = "#a4473b", GREEN = "#4f7a4d";
+  const field = { background: "transparent", color: INK, border: "none", borderBottom: "1px solid " + RULE, borderRadius: 0, padding: "7px 2px", outline: "none", fontFamily: F_BODY, fontSize: 13.5 };
+  const label = s0 => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: FOG } }, s0);
+  // 罐子里的硬币：从底往上一层层码，层数跟着水位走；每层几枚、错开半枚
+  const COIN_ROWS = 14, rows = Math.round(level * COIN_ROWS);
+  const coins = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < 5; c++) {
+    const x = 10 + c * 22 + (r % 2 ? 11 : 0); if (x > 112) continue;
+    coins.push(h("span", { key: r + "_" + c, style: { position: "absolute", left: x, bottom: 6 + r * 9, width: 22, height: 10, borderRadius: "50%",
+      background: "radial-gradient(ellipse at 40% 35%,#f8e1a0,#d8a648 60%,#a97a2c)", boxShadow: "0 1px 0 rgba(90,60,20,.35)" } }));
+  }
+  // 附了话的那几笔：折成小纸条塞在硬币上面（最多四张，最新的在最上面）
+  const slips = (j.ledger || []).filter(r => r && r.delta > 0 && r.note).slice(0, 4);
+  // 存折：按月翻
   const byMonth = [];
-  (j.ledger || []).forEach(r => { const d = new Date(r.ts || 0), k = d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月"; let g = byMonth.find(x => x.k === k); if (!g) { g = { k, list: [] }; byMonth.push(g); } g.list.push(r); });
-  return h("div", { "data-wk": "jarpage", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#eef4f3,#f7f3ec)" } },
+  (j.ledger || []).forEach(r => { const d = new Date(r.ts || 0), k = d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0"); let g = byMonth.find(x => x.k === k); if (!g) { g = { k, list: [] }; byMonth.push(g); } g.list.push(r); });
+  const COLS = "40px minmax(0,1fr) 50px 50px 58px";
+  return h("div", { "data-wk": "jarpage", className: "h-full flex flex-col", style: { background: "#efe8da", backgroundImage: "repeating-linear-gradient(0deg,rgba(255,255,255,.18) 0 1px,transparent 1px 5px)" } },
     h(Head, { zh: "我们的存钱罐", onBack, bg: "transparent", ink: INK }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(28px + env(safe-area-inset-bottom))" } },
-      // 玻璃罐：盖子、罐口的一圈、罐身、里面的水位、一道高光
-      h("div", { className: "flex flex-col items-center", style: { paddingTop: 14 } },
-        h("div", { "data-wk": "jarglass", style: { position: "relative", width: 150, height: 176 } },
-          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 38, right: 38, top: 0, height: 16, borderRadius: "6px 6px 3px 3px", background: "linear-gradient(180deg,#c9a46a,#a8854f)", boxShadow: "0 2px 0 rgba(0,0,0,.08)" } }),
-          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 32, right: 32, top: 15, height: 10, borderRadius: 4, background: GLASS, border: "1.5px solid rgba(120,150,160,.45)" } }),
-          h("div", { style: { position: "absolute", left: 6, right: 6, top: 24, bottom: 0, borderRadius: "34px 34px 26px 26px", background: GLASS, border: "1.5px solid rgba(120,150,160,.5)", overflow: "hidden", boxShadow: "inset 0 -6px 14px rgba(110,140,150,.18)" } },
-            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: (level * 100) + "%", background: "linear-gradient(180deg,#f2cf7c,#d9a64a)", transition: "height .5s ease" } },
-              h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 6, background: "rgba(255,240,200,.65)" } })),
-            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 16, top: 16, bottom: 22, width: 8, borderRadius: 8, background: "rgba(255,255,255,.55)" } }),
-            h("div", { style: { position: "absolute", left: 0, right: 0, top: "38%", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 24, color: INK, textShadow: "0 1px 0 rgba(255,255,255,.7)" } }, money(bal)))),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 10 } }, "你和 " + partner.name + " 一起攒的")),
-      // 目标
-      h("div", { style: { marginTop: 18, background: "rgba(255,255,255,.75)", border: "1px solid #dbe4e6", borderRadius: 14, padding: "12px 14px" } },
-        goalEdit
-          ? h("div", null,
-              h("input", { value: goalEdit.name, onChange: e => setGoalEdit({ ...goalEdit, name: e.target.value }), maxLength: 30, placeholder: "攒来做什么，比如「一起去海边」", style: Object.assign({ width: "100%" }, field) }),
-              h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
-                h("input", { value: goalEdit.amount, onChange: e => setGoalEdit({ ...goalEdit, amount: e.target.value.replace(/[^\d.]/g, "") }), inputMode: "decimal", placeholder: "要攒多少", style: Object.assign({ flex: 1, minWidth: 0 }, field) }),
-                h("button", { onClick: () => { onGoal(goalEdit.name, goalEdit.amount); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "9px 14px", borderRadius: 10, background: INK, color: "#fff", fontFamily: F_BODY, fontSize: 13, border: "none" } }, "定下"),
-                goal ? h("button", { onClick: () => { onGoal("", 0); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "9px 8px", background: "transparent", color: FOG, fontFamily: F_BODY, fontSize: 12, border: "none" } }, "不要了") : null))
-          : h("button", { onClick: () => setGoalEdit({ name: goal ? goal.name : "", amount: goal ? String(goal.amount) : "" }), className: "w-full text-left active:opacity-70", style: { background: "transparent", border: "none", padding: 0 } },
-              h("div", { className: "flex items-baseline justify-between" },
-                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: INK } }, goal ? "「" + goal.name + "」" : "还没定目标"),
-                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, goal ? money(bal) + " / " + money(goalAmt) : "点这里定一个")),
-              goal ? h("div", { style: { marginTop: 8, height: 6, borderRadius: 99, background: "#e3ebec", overflow: "hidden" } },
-                h("div", { style: { width: (level * 100) + "%", height: "100%", background: goal.hitTs ? "#6e9a6a" : "#d9a64a" } })) : null,
-              goal && goal.hitTs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#5b8457", marginTop: 6 } }, "攒到了") : null)),
-      // 放进去／取出来
-      h("div", { style: { marginTop: 12, background: "rgba(255,255,255,.75)", border: "1px solid #dbe4e6", borderRadius: 14, padding: "12px 14px" } },
-        h("div", { className: "flex items-center", style: { gap: 8 } },
-          h("input", { value: amt, onChange: e => setAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "多少", style: Object.assign({ width: 96 }, field) }),
-          h("input", { value: note, onChange: e => setNote(e.target.value), maxLength: 60, placeholder: "附一句（可空）", style: Object.assign({ flex: 1, minWidth: 0 }, field) })),
-        openWishes.length ? h("select", { value: wishId, onChange: e => setWishId(e.target.value), style: Object.assign({ width: "100%", marginTop: 8 }, field) },
-          [h("option", { key: "", value: "" }, "取出来不为哪个愿望")].concat(openWishes.map(w => h("option", { key: w.id, value: w.id }, "拿去实现：" + (w.title || "")))) ) : null,
-        h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
-          h("button", { onClick: () => go(1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 11, background: INK, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14, border: "none", opacity: n > 0 ? 1 : .45 } }, "放进去"),
-          h("button", { onClick: () => go(-1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 11, background: "transparent", color: INK, fontFamily: F_DISPLAY, fontSize: 14, border: "1px solid " + INK, opacity: n > 0 ? 1 : .45 } }, wishId ? "取出来实现它" : "取出来")),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FOG, marginTop: 8, lineHeight: 1.6 } },
-          "你的钱包里有 " + money(myWallet || 0) + "。放进去从你的钱包扣，取出来回到你的钱包；" + partner.name + " 也能自己放、自己取，每月发工资那天会自己存 " + (j.autoPct == null ? 10 : j.autoPct) + "%。")),
-      // 流水
-      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: INK, margin: "20px 0 6px" } }, "一笔一笔"),
-      !byMonth.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, padding: "14px 0" } }, "罐子还是空的。") :
-      byMonth.map(g => h("div", { key: g.k },
-        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FOG, padding: "8px 0 4px" } }, g.k),
-        g.list.map(r => h("div", { key: r.id, "data-wk": "jarrow", "data-who": r.who, className: "flex items-center", style: { gap: 10, padding: "9px 0", borderBottom: "1px solid #e3e9ea" } },
-          h(Avatar, { character: r.who === "me" ? { name: myName || "我" } : partner, size: 26, radius: 999 }),
-          h("div", { className: "flex-1 min-w-0" },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-              (r.who === "me" ? "你" : partner.name) + (r.delta > 0 ? " 放进去" : " 取出来") + (r.note ? " · " + r.note : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FOG, marginTop: 2 } }, new Date(r.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " · 之后剩 " + money(r.after))),
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: r.delta > 0 ? "#5b8457" : "#a0584a", flexShrink: 0 } }, (r.delta > 0 ? "+" : "−") + money(Math.abs(r.delta)))))))));
+      // ① 搁在木板上的罐子 + 罐颈上的吊牌
+      h("div", { style: { position: "relative", height: 252, marginTop: 6 } },
+        h("div", { "data-wk": "jarglass", style: { position: "absolute", left: "50%", marginLeft: -78, bottom: 18, width: 132, height: 196 } },
+          // 盖子：两道铁皮
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 30, right: 30, top: 0, height: 13, borderRadius: "5px 5px 2px 2px", background: "linear-gradient(180deg,#c9ccc9,#8f9592)", boxShadow: "inset 0 -2px 0 rgba(0,0,0,.15)" } }),
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 50, right: 50, top: 4, height: 3, borderRadius: 2, background: "#4a4f4c" } }),
+          // 罐颈
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 26, right: 26, top: 12, height: 14, background: "rgba(225,238,240,.55)", border: "1.5px solid rgba(120,150,155,.5)", borderTop: "none" } }),
+          // 罐身
+          h("div", { style: { position: "absolute", left: 0, right: 0, top: 24, bottom: 0, borderRadius: "30px 30px 22px 22px", background: "rgba(225,238,240,.42)", border: "1.5px solid rgba(120,150,155,.55)", overflow: "hidden", boxShadow: "inset 0 -10px 18px rgba(110,140,150,.16)" } },
+            coins,
+            slips.map((r, i) => h("span", { key: r.id, title: r.note, style: { position: "absolute", left: 18 + (i % 2) * 44, bottom: 10 + rows * 9 + (i >> 1) * 13, width: 46, height: 12, borderRadius: 2,
+              background: i % 2 ? "#f4e7c8" : "#f7efe0", border: "1px solid rgba(150,120,70,.35)", transform: "rotate(" + [-14, 9, -5, 16][i] + "deg)", boxShadow: "0 1px 2px rgba(90,60,20,.18)" } })),
+            // 玻璃上的两道高光
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 12, top: 14, bottom: 26, width: 7, borderRadius: 7, background: "rgba(255,255,255,.6)" } }),
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 24, top: 18, height: 34, width: 3, borderRadius: 3, background: "rgba(255,255,255,.45)" } }))),
+        // 系在罐颈上的吊牌：一根线 + 一张牛皮纸卡，点它定／改目标
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", marginLeft: 46, top: 38, width: 34, height: 1.5, background: "#8b6a43", transform: "rotate(22deg)", transformOrigin: "left center" } }),
+        h("button", { onClick: () => setGoalEdit({ name: goal ? goal.name : "", amount: goal ? String(goal.amount) : "" }), className: "active:opacity-80",
+          style: { position: "absolute", left: "50%", marginLeft: 74, top: 46, width: 96, padding: "9px 8px 8px 14px", textAlign: "left", background: "#d9be8e", border: "1px solid #b8986a",
+            borderRadius: "3px 6px 6px 3px", transform: "rotate(7deg)", boxShadow: "0 3px 7px rgba(90,60,25,.22)" } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: 4, top: "50%", marginTop: -3, width: 6, height: 6, borderRadius: 99, background: "#efe8da", border: "1px solid #a8885a" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".14em", color: "#6f5430" } }, goal ? "攒来" : "还没定"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#3f2e17", marginTop: 3, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, goal ? goal.name : "定个目标"),
+          goal ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#6f5430", marginTop: 3 } }, goal.hitTs ? "攒到了" : Math.round(level * 100) + "% · " + money(goalAmt)) : null),
+        // 木板
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: -6, right: -6, bottom: 6, height: 14, borderRadius: 3, background: "linear-gradient(180deg,#b88c5c,#94693f)", boxShadow: "0 6px 10px rgba(80,50,20,.22)" } }),
+        h("div", { style: { position: "absolute", left: 0, bottom: 34, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: FOG } }, "罐子里有"),
+        h("div", { style: { position: "absolute", left: 0, bottom: 52, fontFamily: F_DISPLAY, fontSize: 30, color: INK, lineHeight: 1 } }, money(bal))),
+      // 定目标：吊牌翻过来那一面
+      goalEdit ? h("div", { style: { marginTop: 4, background: "#e6d3ad", border: "1px solid #c3a674", borderRadius: 6, padding: "12px 14px" } },
+        label("吊牌背面 · 写下要攒的"),
+        h("input", { value: goalEdit.name, onChange: e => setGoalEdit({ ...goalEdit, name: e.target.value }), maxLength: 30, placeholder: "攒来做什么，比如「一起去海边」", style: Object.assign({ width: "100%", marginTop: 6 }, field) }),
+        h("div", { className: "flex items-end", style: { gap: 10, marginTop: 6 } },
+          h("input", { value: goalEdit.amount, onChange: e => setGoalEdit({ ...goalEdit, amount: e.target.value.replace(/[^\d.]/g, "") }), inputMode: "decimal", placeholder: "攒到多少", style: Object.assign({ flex: 1, minWidth: 0 }, field) }),
+          h("button", { onClick: () => { onGoal(goalEdit.name, goalEdit.amount); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "8px 16px", borderRadius: 4, background: "#5a4326", color: "#f4ead6", fontFamily: F_BODY, fontSize: 13, border: "none" } }, "系上"),
+          goal ? h("button", { onClick: () => { onGoal("", 0); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "8px 4px", background: "transparent", color: "#6f5430", fontFamily: F_BODY, fontSize: 12, border: "none" } }, "解下来") : null,
+          h("button", { onClick: () => setGoalEdit(null), className: "active:opacity-70", style: { padding: "8px 4px", background: "transparent", color: "#6f5430", fontFamily: F_BODY, fontSize: 12, border: "none" } }, "算了"))) : null,
+      // ② 存取单：一张横线小票
+      h("div", { style: { marginTop: 16, background: PAPER, borderRadius: 4, padding: "14px 16px 12px", boxShadow: "0 4px 12px rgba(90,70,40,.12)", position: "relative" } },
+        h("div", { className: "flex items-baseline justify-between" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: INK, letterSpacing: 2 } }, "存 取 单"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FOG } }, "你的钱包 " + money(myWallet || 0))),
+        h("div", { className: "flex items-end", style: { gap: 12, marginTop: 8 } },
+          h("div", { style: { width: 108 } }, label("金额"), h("input", { value: amt, onChange: e => setAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "0", style: Object.assign({ width: "100%", fontFamily: F_DISPLAY, fontSize: 20 }, field) })),
+          h("div", { style: { flex: 1, minWidth: 0 } }, label("附言"), h("input", { value: note, onChange: e => setNote(e.target.value), maxLength: 60, placeholder: "写一句（可空）", style: Object.assign({ width: "100%" }, field) }))),
+        openWishes.length ? h("div", { style: { marginTop: 10 } }, label("取出来是为了"),
+          h("select", { value: wishId, onChange: e => setWishId(e.target.value), style: Object.assign({ width: "100%" }, field) },
+            [h("option", { key: "", value: "" }, "不为哪个愿望")].concat(openWishes.map(w => h("option", { key: w.id, value: w.id }, "实现：" + (w.title || "")))))) : null,
+        h("div", { className: "flex", style: { gap: 10, marginTop: 14 } },
+          h("button", { onClick: () => go(1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 4, background: GREEN, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14, letterSpacing: 2, border: "none", opacity: n > 0 ? 1 : .4 } }, "存 进 去"),
+          h("button", { onClick: () => go(-1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 4, background: "transparent", color: RED, fontFamily: F_DISPLAY, fontSize: 14, letterSpacing: 2, border: "1px solid " + RED, opacity: n > 0 ? 1 : .4 } }, wishId ? "取 去 实 现" : "取 出 来")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FOG, marginTop: 10, lineHeight: 1.7 } },
+          "存进去从你的钱包扣，取出来回到你的钱包。" + partner.name + " 也能自己存、自己取，每月发工资那天会自己存 " + (j.autoPct == null ? 10 : j.autoPct) + "%。")),
+      // ③ 存折
+      h("div", { style: { marginTop: 18, background: "#f6f1e4", borderRadius: 3, boxShadow: "0 4px 12px rgba(90,70,40,.12)", overflow: "hidden" } },
+        h("div", { className: "flex items-center justify-between", style: { background: "#7c2f2f", color: "#f3e3c8", padding: "10px 14px" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, letterSpacing: 3 } }, "存 折"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .8 } }, (myName || "我") + " · " + partner.name)),
+        h("div", { style: { display: "grid", gridTemplateColumns: COLS, gap: 4, padding: "7px 12px", borderBottom: "1px solid " + RULE, fontFamily: F_BODY, fontSize: 10, color: FOG } },
+          h("div", null, "日期"), h("div", null, "摘要"), h("div", { style: { textAlign: "right" } }, "存入"), h("div", { style: { textAlign: "right" } }, "支取"), h("div", { style: { textAlign: "right" } }, "结余")),
+        !byMonth.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, padding: "18px 12px", textAlign: "center" } }, "还是空的。存进第一笔，这一页就有字了。") :
+        byMonth.map(g => h("div", { key: g.k },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#7c2f2f", padding: "8px 12px 2px" } }, g.k),
+          g.list.map(r => h("div", { key: r.id, "data-wk": "jarrow", "data-who": r.who, style: { display: "grid", gridTemplateColumns: COLS, gap: 4, alignItems: "baseline", padding: "7px 12px", borderBottom: "1px dashed " + RULE, fontFamily: F_BODY, fontSize: 11.5, color: INK } },
+            h("div", { style: { color: FOG, fontSize: 10.5 } }, (new Date(r.ts).getMonth() + 1) + "/" + new Date(r.ts).getDate()),
+            h("div", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (r.who === "me" ? "我" : partner.name) + (r.auto ? " · 工资日" : "") + (r.note ? " · " + r.note : "")),
+            h("div", { style: { textAlign: "right", color: GREEN } }, r.delta > 0 ? money(r.delta) : ""),
+            h("div", { style: { textAlign: "right", color: RED } }, r.delta < 0 ? money(-r.delta) : ""),
+            h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY } }, money(r.after)))))))));
 }
 function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onGenWish, wishGen, onBack }) {
   const t = useTheme();
@@ -7311,11 +7345,26 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
                   kids: h("div", null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "抽屉"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) }),
-                // 存钱罐（她 2026-10-10）：一只小玻璃罐，水位就是离目标还差多少，跟抽屉并排
+                // 窗台（v62.33）：一条浅绿横卡，盆栽小图 + 长势。花是活的，每天进来长势微变
+                (function () {
+                  const g3 = (coupleGarden || {})[bCid] || {};
+                  const st3 = (typeof GardenKit !== "undefined" && g3.species) ? GardenKit.stageOf(g3.fed) : null;
+                  const keptN = Array.isArray(g3.kept) ? g3.kept.length : 0;
+                  return wall("garden", { w: "47%", grow: 1, radius: 10, tilt: -0.4, pad: "10px 12px", bg: "#f2f6ec", border: "1px solid #dbe4cf",
+                    kids: h("div", { className: "flex items-center", style: { gap: 12 } },
+                      h(GardenPlant, { g: g3, size: 40 }),
+                      h("div", { className: "flex-1 min-w-0" },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#8a9a72" } }, "窗台"),
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#54663e", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                          g3.species ? st3.zh + " · " + g3.species : keptN ? "盆空着 · 收过 " + keptN + " 枚干花" : "还空着一只盆"),
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a9a72", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+                          g3.species ? (g3.why ? "「" + one(g3.why, 24) + "」" : "它吃你们真实的相处") : "让 " + partner.name + " 挑一种来养"))) });
+                })(),
+                // 存钱罐（她 2026-10-10）：一只小玻璃罐，水位就是离目标还差多少，跟窗台并排（她 2026-10-10：「存钱罐跟花盆两个一排」）
                 (function () {
                   const jj = ((coupleHome || {})[bCid] || {}).jar || {};
                   const jb = Number(jj.balance) || 0, jg = jj.goal, jl = jg && Number(jg.amount) > 0 ? Math.min(1, jb / Number(jg.amount)) : (jb > 0 ? 0.18 : 0);
-                  return wall("jar", { w: "46%", grow: 1, radius: 14, tilt: 0.7, pad: "12px 13px", bg: "#eef5f4", border: "1px solid #d3e2e2",
+                  return wall("jar", { w: "47%", grow: 1, radius: 14, tilt: 0.7, pad: "12px 13px", bg: "#eef5f4", border: "1px solid #d3e2e2",
                     kids: h("div", { className: "flex items-center", style: { gap: 10 } },
                       h("div", { "aria-hidden": "true", style: { position: "relative", width: 30, height: 38, flexShrink: 0 } },
                         h("div", { style: { position: "absolute", left: 7, right: 7, top: 0, height: 5, borderRadius: 2, background: "#b8935a" } }),
@@ -7325,21 +7374,6 @@ function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInv
                         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#7f9a9c" } }, "存钱罐"),
                         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#3e5458", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, jb ? (Math.round(jb * 100) / 100).toLocaleString("zh-CN") : "还空着"),
                         jg ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7f9a9c", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + jg.name + "」") : null)) });
-                })(),
-                // 窗台（v62.33）：一条浅绿横卡，盆栽小图 + 长势。花是活的，每天进来长势微变
-                (function () {
-                  const g3 = (coupleGarden || {})[bCid] || {};
-                  const st3 = (typeof GardenKit !== "undefined" && g3.species) ? GardenKit.stageOf(g3.fed) : null;
-                  const keptN = Array.isArray(g3.kept) ? g3.kept.length : 0;
-                  return wall("garden", { w: "100%", radius: 10, tilt: -0.4, pad: "10px 14px", bg: "#f2f6ec", border: "1px solid #dbe4cf",
-                    kids: h("div", { className: "flex items-center", style: { gap: 12 } },
-                      h(GardenPlant, { g: g3, size: 46 }),
-                      h("div", { className: "flex-1 min-w-0" },
-                        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#8a9a72" } }, "窗台"),
-                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#54663e", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                          g3.species ? st3.zh + " · " + g3.species : keptN ? "盆空着 · 收过 " + keptN + " 枚干花" : "还空着一只盆"),
-                        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a9a72", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
-                          g3.species ? (g3.why ? "「" + one(g3.why, 24) + "」" : "它吃你们真实的相处") : "让 " + partner.name + " 挑一种来养"))) });
                 })(),
                 // 唱机:整宽一条——小唱片在转,是这面墙上唯一会动的东西
                 (function () {

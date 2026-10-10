@@ -65,3 +65,14 @@ test("TA 的手、发工资自己存、页面和挂点都接上", () => {
   assert.match(scr, /\["jar", "存钱罐"\]/, "我的钱包认得这一类");
   assert.match(ts, /\["jarpage", /); assert.match(ts, /\["jarglass", /); assert.match(ts, /\["jarrow", /);
 });
+
+// 第二版（她 2026-10-10：「存钱罐跟花盆两个一排然后存钱罐里面设计也弄好一点」）
+test("墙上：窗台和存钱罐并排；页面是搁板上的罐子 + 吊牌 + 存取单 + 存折", () => {
+  const g = scr.indexOf('return wall("garden", { w: "47%", grow: 1,'), j = scr.indexOf('return wall("jar", { w: "47%", grow: 1,');
+  assert.ok(g > 0 && j > g, "存钱罐要紧跟在窗台后面、各占半行");
+  assert.ok(scr.indexOf('wall("disc"', j) > j, "唱机还在它们后面整宽一条");
+  const i = scr.indexOf("function CoupleJar("), e = scr.indexOf("function CoupleWishes(", i);
+  const page = scr.slice(i, e);
+  ["存 取 单", "存 折", "吊牌背面", "罐子里有"].forEach(w => assert.ok(page.includes(w), "少了：" + w));
+  assert.match(page, /"data-wk": "jarglass"/); assert.match(page, /"data-wk": "jarrow", "data-who": r\.who/);
+});
