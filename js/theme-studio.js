@@ -528,7 +528,7 @@
         // 重 Roll 留版那一行「‹ 2/3 ›」（她 2026-10-10）
         ["rerollnav", "最后一条回复底下翻重 Roll 旧版的那一行"],
         // 时刻「发给 TA」那张小卡（她 2026-10-03）——挂在聊天页这一组，聊天页的 CSS 才抓得到它
-        ["shikeshare", "聊天里那张「时刻」小卡（你从时刻里「发给 TA」的，和 TA 自己存进时刻时落的那张）"],
+        ["shikeshare", "聊天里那张「时刻」小卡（你从时刻里「发给 TA」的，和 TA 自己存进时刻时落的那张）"], ["shikesharego", "时刻小卡右下「去时刻里看 ›」"],
         // 番茄钟收桌后 TA 放进私聊的那张小卡（群里 2026-10-05）
         ["pomoshare", "聊天里那张「一起专注」小卡（番茄钟收桌后 TA 发来的；data-done=\"1\" 是坐满了）"],
         // 拉黑提示条和解除申请卡（她 2026-10-03：「拉黑的提示搞点挂点」）
@@ -1003,7 +1003,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.321", changed: "", none: "本版调整小人姿势和衣服模型，没有新增CSS挂点或页面布局能力。" };
+  const BRIEF_STAMP = { v: "v75.324", changed: "", none: "本版调整小人姿势和衣服模型，没有新增CSS挂点或页面布局能力。" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
