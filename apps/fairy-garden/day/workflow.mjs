@@ -1,6 +1,6 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-f9a3c901abadb37b';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-f9a3c901abadb37b';
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-f9a3c901abadb37b';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-0ea83b85ae5ca55e';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-0ea83b85ae5ca55e';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-0ea83b85ae5ca55e';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const FARM='dayFarm',FLEA='dayFleaMarket';
 const OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
@@ -115,7 +115,7 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,mot
  let target={x:origin.x+localX*c+forward*s,y:top+(kind==='write'?.11:kind==='experiment'?.13:kind==='select'?-.24:.05),z:origin.z-localX*s+forward*c};
  let contact={x:origin.x+localX*c+.37*s,y:top+.04,z:origin.z-localX*s+.37*c};
  const work=p?.work?.[stage.spot];
- if(work){contact={x:p.x+work.x,y:map.floor+work.y,z:p.z+work.z};if(kind==='paint')target={x:contact.x,y:contact.y-.04,z:origin.z-.18};if(kind==='piano')target={...contact};}
+ if(work){contact={x:p.x+work.x,y:map.floor+work.y,z:p.z+work.z};if(kind==='write')target={x:contact.x,y:contact.y+.18,z:contact.z};if(kind==='paint')target={x:contact.x,y:contact.y-.04,z:origin.z-.18};if(kind==='piano')target={...contact};}
  const task={kind,elapsed,furniture:spot?.furniture,spot:stage.spot,phase:stage.phase,carry:!!stage.carry||kind==='select'&&[LAB,LIB,CLINIC,STUDIO,OFFICE,CAMPUS].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
  if(kind==='paint'){const dx=Math.sin(elapsed*2)*.03,dy=Math.cos(elapsed*1.7)*.025;task.contact.x+=dx;task.contact.y+=dy;task.target.x+=dx;task.target.y+=dy;}
  if(kind==='piano')task.leftTarget={...target,x:p.x+.12};

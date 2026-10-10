@@ -1,4 +1,4 @@
-import {renderPhoto,visibleBounds} from './photo-render.mjs?v=fg-f9a3c901abadb37b';
+import {renderPhoto,visibleBounds} from './photo-render.mjs?v=fg-0ea83b85ae5ca55e';
 const text=s=>typeof s==='string'?s.slice(0,200):'';
 export function restoreLivingAlbum(raw){const photos=(Array.isArray(raw?.photos)?raw.photos:[]).filter(x=>typeof x.id==='string'&&typeof x.image==='string'&&/^data:image\/jpeg;base64,/.test(x.image)&&x.image.length<900000&&Number.isFinite(x.at)&&typeof x.petId==='string'&&typeof x.personId==='string').map(x=>({id:text(x.id),image:x.image,at:x.at,petId:text(x.petId),personId:text(x.personId),petName:text(x.petName),personName:text(x.personName),place:text(x.place),caption:text(x.caption),weather:text(x.weather),season:text(x.season),time:text(x.time)}));return {version:1,photos,wallPhotoId:photos.some(x=>x.id===raw?.wallPhotoId)?raw.wallPhotoId:''};}
 export function livingPhotoFacts(album){return {count:album.photos.length,wall:album.photos.find(x=>x.id===album.wallPhotoId)?{...album.photos.find(x=>x.id===album.wallPhotoId),image:undefined}:null,recent:album.photos.slice(-8).reverse().map(({image,...x})=>x)};}

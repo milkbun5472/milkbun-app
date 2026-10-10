@@ -1,6 +1,6 @@
-import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-f9a3c901abadb37b';
-import {restorePetBirth} from './birth.mjs?v=fg-f9a3c901abadb37b';
-import {homeGood,furniturePoint,PET_HOME_GOODS} from './furnishings.mjs?v=fg-f9a3c901abadb37b';
+import {realTime} from '../fairy-garden/real-clock.mjs?v=fg-0ea83b85ae5ca55e';
+import {restorePetBirth} from './birth.mjs?v=fg-0ea83b85ae5ca55e';
+import {homeGood,furniturePoint,PET_HOME_GOODS} from './furnishings.mjs?v=fg-0ea83b85ae5ca55e';
 export const PET_RECIPES=[
  {id:'crumb',name:'温水软粮小点',ingredients:{snack:1},detail:'把宠物自己的零食用温水泡软，捣成一口大的小点。',flavor:'soft'},
  {id:'crunch',name:'原味零食小粒',ingredients:{snack:2},detail:'只用它原有的宠物零食，分成方便慢慢嚼的小粒。',flavor:'crunch'}

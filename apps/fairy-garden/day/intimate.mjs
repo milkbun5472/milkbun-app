@@ -1,7 +1,7 @@
 import * as T from 'three';
-import './social.js?v=fg-f9a3c901abadb37b';
-import {pairProgress} from './motion-profile.mjs?v=fg-f9a3c901abadb37b';
-import {walkable,segmentClear} from '../world.mjs?v=fg-f9a3c901abadb37b';
+import './social.js?v=fg-0ea83b85ae5ca55e';
+import {pairProgress} from './motion-profile.mjs?v=fg-0ea83b85ae5ca55e';
+import {walkable,segmentClear} from '../world.mjs?v=fg-0ea83b85ae5ca55e';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
 const head=actor=>actor.root.getObjectByName('HeadAnchor');

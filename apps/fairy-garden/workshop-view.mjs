@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-f9a3c901abadb37b';
+import {MILL_RECIPES,millRemaining} from './workshop.mjs?v=fg-0ea83b85ae5ca55e';
 // Two reusable vessels show the actual saved batch state, without their own timer.
 export function makeWorkshopView(){
  const root=new T.Group(),rows=[];root.name='工坊加工中的小瓶';

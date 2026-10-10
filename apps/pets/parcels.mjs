@@ -1,7 +1,7 @@
-import {PET_HOME_GOODS} from './furnishings.mjs?v=fg-f9a3c901abadb37b';
-import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-f9a3c901abadb37b';
-import {shoppingItem} from './shopping.mjs?v=fg-f9a3c901abadb37b';
-import {homePoint} from './initiative.mjs?v=fg-f9a3c901abadb37b';
+import {PET_HOME_GOODS} from './furnishings.mjs?v=fg-0ea83b85ae5ca55e';
+import {PET_WORKPLACES,petWorkplace} from './workplaces.mjs?v=fg-0ea83b85ae5ca55e';
+import {shoppingItem} from './shopping.mjs?v=fg-0ea83b85ae5ca55e';
+import {homePoint} from './initiative.mjs?v=fg-0ea83b85ae5ca55e';
 export const parcelSourceTitle=source=>source==='shopping'?'便利店':petWorkplace(source).title;
 export const PARCEL_ITEMS={...Object.fromEntries(PET_HOME_GOODS.map(x=>[x.id,{name:x.name,unit:x.kind==='wear'?'件':'个',kind:x.icon,unique:true}])),bookmark:{name:'小爪书签',unit:'张',kind:'book',collectible:true},scentCard:{name:'香气小卡',unit:'张',kind:'leaf',collectible:true},oddButton:{name:'不配套的大纽扣',unit:'颗',kind:'paw',collectible:true},leafBoat:{name:'歪歪的叶子小船',unit:'只',kind:'leaf',collectible:true},deliveryReceipt:{name:'配送小回执',unit:'张',kind:'book',collectible:true},caseCard:{name:'案件纪念卡',unit:'张',kind:'search',collectible:true},coaster:{name:'小爪印杯垫',unit:'张',kind:'cup',collectible:true},guestCard:{name:'客人留言卡',unit:'张',kind:'book',collectible:true},receipt:{name:'奇怪小票',unit:'张',kind:'book',collectible:true},sticker:{name:'小贴纸',unit:'张',kind:'paw',collectible:true},bread:{name:'小面包',unit:'个',kind:'bread'},flower:{name:'小花',unit:'枝',kind:'leaf'},petals:{name:'花瓣',unit:'片',kind:'leaf'},snack:{name:'小零食',unit:'份',kind:'bread'},toy:{name:'歪眼小怪球',unit:'个',kind:'ball'},box:{name:'小纸箱窝',unit:'个',kind:'home'}};
 const text=v=>typeof v==='string'?v.slice(0,100):'';
