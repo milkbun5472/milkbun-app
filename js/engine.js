@@ -6649,7 +6649,11 @@ function translatableLang(text) {
   if (han === 0 && latin >= 6) return /^[\x00-\x7f\s]*$/.test(t) ? "英文" : "外语";
   // 粤语（她 2026-10-10 截图：心声整段粤语，没有译键）：全是汉字，上面哪一条都认不出。
   //   靠粤语专用字认——嘅咗唔啲佢瞓这些普通话里不会出现，见到两个就是粤语（一个怕是人名、引用）。
-  if (count(/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/g) >= 2) return "粤语";
+  //   短句（二十个字以内）只有一个也算，但还得写着繁体字（她 2026-10-10：「仲有一節就忍下佢」只有一个佢，被标成「外语」；
+  //   「他叫阿佢」这种名字里沾一个字、通篇简体的照旧不算）。
+  { const _yue = count(/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/g);
+    const _trad = typeof toSimplified === "function" && toSimplified(t) !== t;
+    if (_yue >= 2 || (_yue >= 1 && _trad && t.replace(/\s/g, "").length <= 20)) return "粤语"; }
   return "";
 }
 // 长文（思考链）用的判定（群里 2026-10-08「英文 cot 木有显示翻译按钮，就出现过一次」）：
@@ -6714,7 +6718,7 @@ function setComposerAuto(on) { _composerAuto = on !== false; applyComposerLift()
 // 短句只负责【提醒】，格式和边界仍以上面那段 bilingualRule 为准，别在这儿重写一遍。
 function bilingualTurnHint(who) {
   const w = who ? "\u300c" + who + "\u300d" : "\u4f60";
-  return "\u3010\u672c\u8f6e\u00b7\u53cc\u8bed\u3011" + w + "\u8fd9\u4e00\u8f6e\u91cc\u51e1\u662f\u3010\u4e0d\u662f\u4e2d\u6587\u3011\u7684\u90a3\u51e0\u6761\uff0c\u3010\u6bcf\u4e00\u6761\u90fd\u8981\u3011\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d\uff0c\u4e00\u6761\u4e0d\u843d\uff0c\u522b\u53ea\u7ed9\u7b2c\u4e00\u6761\uff1b\u8bf4\u4e2d\u6587\u7684\u90a3\u4e9b\u6761\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3002";
+  return "\u3010\u672c\u8f6e\u00b7\u53cc\u8bed\u3011" + w + "\u8fd9\u4e00\u8f6e\u91cc\u51e1\u662f\u3010\u4e0d\u662f\u4e2d\u6587\u3011\u7684\u90a3\u51e0\u6761\uff0c\u3010\u6bcf\u4e00\u6761\u90fd\u8981\u3011\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d\uff0c\u4e00\u6761\u4e0d\u843d\uff0c\u522b\u53ea\u7ed9\u7b2c\u4e00\u6761\uff1b\u8bf4\u4e2d\u6587\u7684\u90a3\u4e9b\u6761\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3002右边写简体普通话。";
 }
 // 双语（v56.56，她 2026-08-26 的主意）：与其事后拿免费接口去翻——那东西把
 // 「傘さすか迷うレベルで湿気すごい」翻成「您可能会迷失在雨伞中」——不如让模型

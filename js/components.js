@@ -12199,6 +12199,8 @@ function useLongPressMenu(onFire, opts) {
 }
 function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size, noModel }) {
   const t = useTheme();
+  // 随消息来的译文要是繁体（模型没照「右边写简体」办），显示前换成简体（js/t2s.js）
+  if (zhReady && typeof toSimplified === "function") zhReady = toSimplified(zhReady);
   const _lang = long && typeof translatableLangLong === "function" ? translatableLangLong(text)
     : typeof translatableLang === "function" ? translatableLang(text) : "";
   // 自带中译时哪怕探不出语种也要给译键：模型都判定这句不是中文了，比正则准
