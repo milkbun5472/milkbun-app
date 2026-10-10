@@ -1,11 +1,18 @@
-import {buildSpace} from './spaces.mjs?v=fg-15a63dee59d32513';
-import {MAPS,walkable,findPath} from '../world.mjs?v=fg-15a63dee59d32513';
+import {buildSpace} from './spaces.mjs?v=fg-e3f68dca93b2b897';
+import {MAPS,walkable,findPath} from '../world.mjs?v=fg-e3f68dca93b2b897';
 
-import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor} from './home-catalog.mjs?v=fg-15a63dee59d32513';
+import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-e3f68dca93b2b897';
 export {HOME_NAMES,homePlacements,homeFurniture};
 const overlaps=(a,b,gap=.035)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+gap-1e-6&&Math.abs(a.z-b.z)<(a.d+b.d)/2+gap-1e-6;
 export function checkHomeLayout(raw,{routes=true}={}){
  const placements=homePlacements(raw),map=buildSpace('dayHome',placements),names=Object.fromEntries(homeFurniture(placements).map(p=>[p.id,p.label])),f=map.obstacles.filter(o=>names[o.id]);
+ // Rugs share the room/wall bounds but can lie under furniture and paths.
+ const rugs=map.furniture.filter(p=>p.walkThrough).map(furnitureFootprint);
+ for(const a of rugs){
+  if(Math.abs(a.x)+a.w/2>map.bounds.w/2-.2||Math.abs(a.z)+a.d/2>map.bounds.d/2-.2)return {ok:false,reason:names[a.id]+'超出房间了，往里挪一点。'};
+  if(map.structure.some(b=>overlaps(a,b,0)))return {ok:false,reason:'这里碰到隔墙了，换个位置吧。'};
+  if(rugs.some(b=>b!==a&&overlaps(a,b,0)))return {ok:false,reason:'两张地毯叠在一起了，分开铺会更清楚。'};
+ }
  for(const a of f){
   if(Math.abs(a.x)+a.w/2>map.bounds.w/2-.2||Math.abs(a.z)+a.d/2>map.bounds.d/2-.2)return {ok:false,reason:names[a.id]+'超出房间了，往里挪一点。'};
   if(overlaps(a,{...map.spawn,w:1.4,d:1}))return {ok:false,reason:'门口要留出通道，换个位置吧。'};
