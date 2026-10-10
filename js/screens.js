@@ -5931,6 +5931,87 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8 } }, x.about),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, flexShrink: 0 } }, leftOf(x.dueTs))))) : null));
 }
+// 我们的存钱罐（她 2026-10-10 转群友：「情侣空间能不能开个共同账户，那种互相往里放钱的」）。
+//   它是一只真的玻璃罐：罐身里的水位就是离目标还差多少，没定目标就按罐子里有多少浅浅铺一层。
+//   钱的进出全在 app 那头的 jarMove 一处（扣谁的钱包、落灰字、攒到目标），这一页只摆和递。
+function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, onBack }) {
+  const t = useTheme();
+  const j = data || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+  const [amt, setAmt] = useState("");
+  const [note, setNote] = useState("");
+  const [wishId, setWishId] = useState("");
+  const [goalEdit, setGoalEdit] = useState(null);   // null | { name, amount }
+  const bal = Number(j.balance) || 0, goal = j.goal;
+  const goalAmt = goal ? Number(goal.amount) || 0 : 0;
+  const level = goalAmt > 0 ? Math.min(1, bal / goalAmt) : (bal > 0 ? 0.18 : 0);
+  const openWishes = (wishes || []).filter(w => w && w.status !== "done" && w.status !== "shelved");
+  const money = v => (Math.round(Number(v) * 100) / 100).toLocaleString("zh-CN");
+  const n = Math.round(Number(amt) * 100) / 100;
+  const go = sign => {
+    if (!(n > 0)) return;
+    const ok = onMove(sign * n, note.trim() || (sign < 0 && wishId ? "实现愿望：" + ((openWishes.find(w => w.id === wishId) || {}).title || "") : ""), sign < 0 ? wishId : "");
+    if (ok !== false) { setAmt(""); setNote(""); setWishId(""); }
+  };
+  const INK = "#3e4a52", FOG = "#8a979e", GLASS = "rgba(214,232,238,.55)";
+  const field = { background: "#fff", color: INK, border: "1px solid #d7e1e4", borderRadius: 10, padding: "9px 11px", outline: "none", fontFamily: F_BODY, fontSize: 13 };
+  // 按月分（跟钱包流水同一个分法）
+  const byMonth = [];
+  (j.ledger || []).forEach(r => { const d = new Date(r.ts || 0), k = d.getFullYear() + " 年 " + (d.getMonth() + 1) + " 月"; let g = byMonth.find(x => x.k === k); if (!g) { g = { k, list: [] }; byMonth.push(g); } g.list.push(r); });
+  return h("div", { "data-wk": "jarpage", className: "h-full flex flex-col", style: { background: "linear-gradient(180deg,#eef4f3,#f7f3ec)" } },
+    h(Head, { zh: "我们的存钱罐", onBack, bg: "transparent", ink: INK }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(28px + env(safe-area-inset-bottom))" } },
+      // 玻璃罐：盖子、罐口的一圈、罐身、里面的水位、一道高光
+      h("div", { className: "flex flex-col items-center", style: { paddingTop: 14 } },
+        h("div", { "data-wk": "jarglass", style: { position: "relative", width: 150, height: 176 } },
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 38, right: 38, top: 0, height: 16, borderRadius: "6px 6px 3px 3px", background: "linear-gradient(180deg,#c9a46a,#a8854f)", boxShadow: "0 2px 0 rgba(0,0,0,.08)" } }),
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 32, right: 32, top: 15, height: 10, borderRadius: 4, background: GLASS, border: "1.5px solid rgba(120,150,160,.45)" } }),
+          h("div", { style: { position: "absolute", left: 6, right: 6, top: 24, bottom: 0, borderRadius: "34px 34px 26px 26px", background: GLASS, border: "1.5px solid rgba(120,150,160,.5)", overflow: "hidden", boxShadow: "inset 0 -6px 14px rgba(110,140,150,.18)" } },
+            h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: (level * 100) + "%", background: "linear-gradient(180deg,#f2cf7c,#d9a64a)", transition: "height .5s ease" } },
+              h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, right: 0, top: 0, height: 6, background: "rgba(255,240,200,.65)" } })),
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 16, top: 16, bottom: 22, width: 8, borderRadius: 8, background: "rgba(255,255,255,.55)" } }),
+            h("div", { style: { position: "absolute", left: 0, right: 0, top: "38%", textAlign: "center", fontFamily: F_DISPLAY, fontSize: 24, color: INK, textShadow: "0 1px 0 rgba(255,255,255,.7)" } }, money(bal)))),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG, marginTop: 10 } }, "你和 " + partner.name + " 一起攒的")),
+      // 目标
+      h("div", { style: { marginTop: 18, background: "rgba(255,255,255,.75)", border: "1px solid #dbe4e6", borderRadius: 14, padding: "12px 14px" } },
+        goalEdit
+          ? h("div", null,
+              h("input", { value: goalEdit.name, onChange: e => setGoalEdit({ ...goalEdit, name: e.target.value }), maxLength: 30, placeholder: "攒来做什么，比如「一起去海边」", style: Object.assign({ width: "100%" }, field) }),
+              h("div", { className: "flex items-center", style: { gap: 8, marginTop: 8 } },
+                h("input", { value: goalEdit.amount, onChange: e => setGoalEdit({ ...goalEdit, amount: e.target.value.replace(/[^\d.]/g, "") }), inputMode: "decimal", placeholder: "要攒多少", style: Object.assign({ flex: 1, minWidth: 0 }, field) }),
+                h("button", { onClick: () => { onGoal(goalEdit.name, goalEdit.amount); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "9px 14px", borderRadius: 10, background: INK, color: "#fff", fontFamily: F_BODY, fontSize: 13, border: "none" } }, "定下"),
+                goal ? h("button", { onClick: () => { onGoal("", 0); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "9px 8px", background: "transparent", color: FOG, fontFamily: F_BODY, fontSize: 12, border: "none" } }, "不要了") : null))
+          : h("button", { onClick: () => setGoalEdit({ name: goal ? goal.name : "", amount: goal ? String(goal.amount) : "" }), className: "w-full text-left active:opacity-70", style: { background: "transparent", border: "none", padding: 0 } },
+              h("div", { className: "flex items-baseline justify-between" },
+                h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: INK } }, goal ? "「" + goal.name + "」" : "还没定目标"),
+                h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FOG } }, goal ? money(bal) + " / " + money(goalAmt) : "点这里定一个")),
+              goal ? h("div", { style: { marginTop: 8, height: 6, borderRadius: 99, background: "#e3ebec", overflow: "hidden" } },
+                h("div", { style: { width: (level * 100) + "%", height: "100%", background: goal.hitTs ? "#6e9a6a" : "#d9a64a" } })) : null,
+              goal && goal.hitTs ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#5b8457", marginTop: 6 } }, "攒到了") : null)),
+      // 放进去／取出来
+      h("div", { style: { marginTop: 12, background: "rgba(255,255,255,.75)", border: "1px solid #dbe4e6", borderRadius: 14, padding: "12px 14px" } },
+        h("div", { className: "flex items-center", style: { gap: 8 } },
+          h("input", { value: amt, onChange: e => setAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "多少", style: Object.assign({ width: 96 }, field) }),
+          h("input", { value: note, onChange: e => setNote(e.target.value), maxLength: 60, placeholder: "附一句（可空）", style: Object.assign({ flex: 1, minWidth: 0 }, field) })),
+        openWishes.length ? h("select", { value: wishId, onChange: e => setWishId(e.target.value), style: Object.assign({ width: "100%", marginTop: 8 }, field) },
+          [h("option", { key: "", value: "" }, "取出来不为哪个愿望")].concat(openWishes.map(w => h("option", { key: w.id, value: w.id }, "拿去实现：" + (w.title || "")))) ) : null,
+        h("div", { className: "flex", style: { gap: 8, marginTop: 10 } },
+          h("button", { onClick: () => go(1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 11, background: INK, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14, border: "none", opacity: n > 0 ? 1 : .45 } }, "放进去"),
+          h("button", { onClick: () => go(-1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 11, background: "transparent", color: INK, fontFamily: F_DISPLAY, fontSize: 14, border: "1px solid " + INK, opacity: n > 0 ? 1 : .45 } }, wishId ? "取出来实现它" : "取出来")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FOG, marginTop: 8, lineHeight: 1.6 } },
+          "你的钱包里有 " + money(myWallet || 0) + "。放进去从你的钱包扣，取出来回到你的钱包；" + partner.name + " 也能自己放、自己取，每月发工资那天会自己存 " + (j.autoPct == null ? 10 : j.autoPct) + "%。")),
+      // 流水
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: INK, margin: "20px 0 6px" } }, "一笔一笔"),
+      !byMonth.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, padding: "14px 0" } }, "罐子还是空的。") :
+      byMonth.map(g => h("div", { key: g.k },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: FOG, padding: "8px 0 4px" } }, g.k),
+        g.list.map(r => h("div", { key: r.id, "data-wk": "jarrow", "data-who": r.who, className: "flex items-center", style: { gap: 10, padding: "9px 0", borderBottom: "1px solid #e3e9ea" } },
+          h(Avatar, { character: r.who === "me" ? { name: myName || "我" } : partner, size: 26, radius: 999 }),
+          h("div", { className: "flex-1 min-w-0" },
+            h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: INK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              (r.who === "me" ? "你" : partner.name) + (r.delta > 0 ? " 放进去" : " 取出来") + (r.note ? " · " + r.note : "")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FOG, marginTop: 2 } }, new Date(r.ts).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" }) + " · 之后剩 " + money(r.after))),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: r.delta > 0 ? "#5b8457" : "#a0584a", flexShrink: 0 } }, (r.delta > 0 ? "+" : "−") + money(Math.abs(r.delta)))))))));
+}
 function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onGenWish, wishGen, onBack }) {
   const t = useTheme();
   const wishes = Array.isArray(data) ? data : [];
@@ -6443,7 +6524,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6627,6 +6708,11 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
     return h(CouplePacts, { partner, pacts: couplePactsOf ? couplePactsOf(partner.id) : null,
       onClose: onClosePact, onSetDue: (mid, about, ts, via) => onSetPactDue(mid, partner.id, about, ts, via),
       onAdd: (txt, ts) => onAddPact(partner.id, txt, ts), onBack: () => setSub(null) });
+  }
+  if (partner && cp[view] && cp[view].status === "together" && sub === "jar") {
+    const home = (coupleHome || {})[partner.id] || {};
+    return h(CoupleJar, { partner, data: home.jar, wishes: home.wishes || [], myWallet, myName: ((typeof profileFor === "function" && profileFor(partner.id)) || profile || {}).name,
+      onMove: (delta, note, wishId) => onJarMove && onJarMove(partner.id, delta, note, wishId), onGoal: (name, amount) => onJarGoal && onJarGoal(partner.id, name, amount), onBack: () => setSub(null) });
   }
   if (partner && cp[view] && cp[view].status === "together" && sub === "wishes") {
     const home = (coupleHome || {})[partner.id] || {};
@@ -7225,6 +7311,21 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   kids: h("div", null,
                     h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#b09a68" } }, "抽屉"),
                     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#7a6338", marginTop: 8 } }, "拉开看看")) }),
+                // 存钱罐（她 2026-10-10）：一只小玻璃罐，水位就是离目标还差多少，跟抽屉并排
+                (function () {
+                  const jj = ((coupleHome || {})[bCid] || {}).jar || {};
+                  const jb = Number(jj.balance) || 0, jg = jj.goal, jl = jg && Number(jg.amount) > 0 ? Math.min(1, jb / Number(jg.amount)) : (jb > 0 ? 0.18 : 0);
+                  return wall("jar", { w: "46%", grow: 1, radius: 14, tilt: 0.7, pad: "12px 13px", bg: "#eef5f4", border: "1px solid #d3e2e2",
+                    kids: h("div", { className: "flex items-center", style: { gap: 10 } },
+                      h("div", { "aria-hidden": "true", style: { position: "relative", width: 30, height: 38, flexShrink: 0 } },
+                        h("div", { style: { position: "absolute", left: 7, right: 7, top: 0, height: 5, borderRadius: 2, background: "#b8935a" } }),
+                        h("div", { style: { position: "absolute", left: 0, right: 0, top: 5, bottom: 0, borderRadius: "9px 9px 7px 7px", border: "1.5px solid rgba(110,140,150,.55)", background: "rgba(214,232,238,.6)", overflow: "hidden" } },
+                          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: (jl * 100) + "%", background: "#e0b45c" } }))),
+                      h("div", { className: "flex-1 min-w-0" },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#7f9a9c" } }, "存钱罐"),
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#3e5458", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, jb ? (Math.round(jb * 100) / 100).toLocaleString("zh-CN") : "还空着"),
+                        jg ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7f9a9c", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + jg.name + "」") : null)) });
+                })(),
                 // 窗台（v62.33）：一条浅绿横卡，盆栽小图 + 长势。花是活的，每天进来长势微变
                 (function () {
                   const g3 = (coupleGarden || {})[bCid] || {};
@@ -13691,7 +13792,7 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
       onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
-  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
+  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
   const whoOf = r => {
     if (!r) return "";

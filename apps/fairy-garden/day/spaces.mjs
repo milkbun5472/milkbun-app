@@ -1,11 +1,14 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat} from './home-catalog.mjs?v=fg-15a63dee59d32513';
-import {MAPS,walkable} from '../world.mjs?v=fg-15a63dee59d32513';
+import {homeSize} from './home-architecture.mjs?v=fg-26440ea7ab90732d';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-26440ea7ab90732d';
+import {MAPS,walkable} from '../world.mjs?v=fg-26440ea7ab90732d';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
 export const SPACE_STYLES={
   warm:{label:'暖木生活',floor:'#c5aa85',wall:'#e4d2b4',wood:'#a57450',dark:'#594c40',fabric:'#547b6d',accent:'#c57f68',paper:'#f4e8cf',glass:'#c2d5cc'},
   light:{label:'清爽浅色',floor:'#d0d4c9',wall:'#e6ece3',wood:'#a9b5a2',dark:'#57757a',fabric:'#7daab4',accent:'#d3a26e',paper:'#f6f2e1',glass:'#c8e2df'},
+  rose:{label:'淡粉柔软',floor:'#ddd3bc',wall:'#eedad4',wood:'#c5a991',dark:'#725d5b',fabric:'#cfa59b',accent:'#b77b81',paper:'#fff1e7',glass:'#d2dcd4'},
+  ink:{label:'灰石利落',floor:'#c7c6bb',wall:'#deded8',wood:'#8c8276',dark:'#424749',fabric:'#667d80',accent:'#a89a7d',paper:'#eee9df',glass:'#b4c8cb'},
   dusk:{label:'深木安静',floor:'#a08a73',wall:'#d7cbb9',wood:'#765544',dark:'#403f40',fabric:'#576d79',accent:'#b98277',paper:'#e6d9c3',glass:'#adbfc8'}
 };
 export const DEFAULT_STYLE='warm';
@@ -49,11 +52,11 @@ export const SPACE_DEFS={
  ],wander:[{x:0,z:0},{x:3,z:2.7},{x:-1.2,z:2.8},{x:5.3,z:1.4},{x:-2.8,z:-.6}]}
 };
 export function buildSpace(id,placements={}){
- const d=SPACE_DEFS[id];if(!d)throw Error('未知日常场景');
- const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
+ const definition=SPACE_DEFS[id],d=id==='dayHome'?{...definition,w:homeSize(homeRoom(placements)).w,d:homeSize(homeRoom(placements)).d,spawn:{x:0,z:homeSize(homeRoom(placements)).d/2-.7}}:definition;if(!d)throw Error('未知日常场景');
+ const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=p.mount?{}:placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
  const pieces=Object.fromEntries(furniture.map(p=>[p.id,p]));
  const walls=d.outdoor?[]:[{id:'back-wall',x:0,z:-d.d/2,w:d.w+.2,d:.18},{id:'left-wall',x:-d.w/2,z:0,w:.18,d:d.d}];
- const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.map(p=>{const c=Math.abs(Math.cos(p.heading)),s=Math.abs(Math.sin(p.heading));return {id:p.id,x:p.x,z:p.z,w:p.w*c+p.d*s,d:p.d*c+p.w*s};})];
+ const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.filter(p=>!p.walkThrough&&!p.mount).map(furnitureFootprint)];
  const room=id==='dayHome'?homeRoom(placements):null;
  const anchors=room?homeAnchors(furniture,room):d.anchors;
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{

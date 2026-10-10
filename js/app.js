@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.285";
+const APP_VERSION = "v75.297";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6253,7 +6253,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
-    charDayPresence: window.CharDayLink?.presenceFor(char.id) || "",
     radioLife: window.RadioLife ? window.RadioLife.contextFor(char.id) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
@@ -9084,7 +9083,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       carry: typeof carryContextText === "function"
         ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
       archive: coupleArchiveFor(c.id),
-      charDayPresence: window.CharDayLink?.presenceFor(c.id) || "",
       radioLife: window.RadioLife ? window.RadioLife.contextFor(c.id) : "",
       finance: typeof window.ledgerNoteFor === "function" ? window.ledgerNoteFor(c.id) : ""
     };
@@ -9108,7 +9106,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
     memberFinance: backgroundMap("finance"),
-    memberCharDayPresence: backgroundMap("charDayPresence"),
     memberRadioLife: backgroundMap("radioLife"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
@@ -10090,25 +10087,36 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 她这一支压根不需要编；共用的是【落成什么】，不是【怎么来的】，所以只共用下面这三行。
   // hostId 不是 "me" 时＝给某个角色手写一位身边的人（她 2026-10-03：生成老掉格式，加个自己写的）——
   //   跟 createNpc 生成出来的是同一种配角：挂在 TA 名下、不认识她，关系写成 TA 和这个人之间的
-  const addMyNpc = (name, brief, relLabel, hostId) => {
+  // 手写一位配角，一步连好【认识谁】（她 2026-10-10：「现在必须要设置在谁身边然后再把 npc 连到别的角色身上」）：
+  //   links＝[{id, label}]，id 可以是 "me"、角色、别的配角，各连一条双向的关系；ownerId 可以是 "me"、某个角色，或空着＝不挂在谁身边。
+  //   addMyNpc（关系页那两处老入口）和配角页的新建、秋秋建配角都落到这一处。
+  const addNpcLinked = ({ name, brief, ownerId, links }) => {
     const nm = String(name || "").trim().slice(0, 24);
-    if (!nm) { toast("先写个名字"); return false; }
-    const id = "c_" + Date.now() + "_npc";
+    if (!nm) { toast("先写个名字"); return null; }
+    const id = "c_" + Date.now() + "_" + Math.floor(Math.random() * 1000) + "_npc";
+    const ls = (links || []).filter(l => l && l.id && (l.id === "me" || characters.some(c => c.id === l.id)));
+    const meLink = ls.find(l => l.id === "me");
+    const owner = ownerId === "me" || (ownerId && characters.some(c => c.id === ownerId)) ? ownerId : "";
+    pC(prev => [...prev, CharacterPronoun.newCharacter(Object.assign({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: owner },
+      meLink ? { knowsUser: true, knowsUserNote: String(meLink.label || "").trim().slice(0, 60) } : {}))]);
+    ls.forEach(l => {
+      const note = String(l.label || "").trim().slice(0, 60);
+      if (!note) return;
+      saveRel(l.id + "->" + id, note, ""); saveRel(id + "->" + l.id, note, "");
+    });
+    toast("已加入「" + nm + "」，去群里拉上TA");
+    return id;
+  };
+  const addMyNpc = (name, brief, relLabel, hostId) => {
     const note = String(relLabel || "").trim().slice(0, 60);
     if (hostId && hostId !== "me") {
       if (!characters.some(c => c.id === hostId)) return false;
-      pC(prev => [...prev, CharacterPronoun.newCharacter({ id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000), npc: true, ownerId: hostId })]);
-      if (note) saveRel(hostId + "->" + id, note, "");
-      toast("已加入「" + nm + "」，去群里拉上TA");
-      return true;
+      // 老入口：角色身边的人只写「主人 → 这个人」那一边、不认识她
+      const id = addNpcLinked({ name, brief, ownerId: hostId, links: [] });
+      if (id && note) saveRel(hostId + "->" + id, note, "");
+      return !!id;
     }
-    pC(prev => [...prev, CharacterPronoun.newCharacter({
-      id: id, name: nm, persona: String(brief || "").trim().slice(0, 4000),
-      npc: true, ownerId: "me", knowsUser: true, knowsUserNote: note
-    })]);
-    if (note) { saveRel("me->" + id, note, ""); saveRel(id + "->me", note, ""); }
-    toast("已加入「" + nm + "」，去群里拉上TA");
-    return true;
+    return !!addNpcLinked({ name, brief, ownerId: "me", links: [{ id: "me", label: note }] });
   };
   // ⚠️这一条只管【角色身边的人】：她自己身边的人走 addMyNpc（她自己写，零调用）。
   const createNpc = async (hostId, ask) => {
@@ -10912,7 +10920,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + (apps.includes("calendar") ? "；calendar（她的日历，看她写了哪天跟谁、去干嘛）" : "")
           + (apps.includes("health") ? "；health（她的健康 app，她自己记的吃喝、睡眠、心情、不舒服）" : "")
           + (gate.length ? "；聊天里翻得出线索、可以顺着去追的：" + gate.map(a => a + "（" + PEEK_APP_ZH[a] + "：和" + [...clues[a]].slice(0, 4).map(n => "「" + n + "」").join("") + "的聊天里有" + ({ wallet: "转账／红包", takeout: "外卖", shop: "送东西" })[a] + "）").join("、") : "")
-          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 把她给你的备注改掉（只写这一步就行，进自己那一栏、点设置这些不用写；text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。"
+          + "。\n\n把你翻手机的过程写成一串动作 steps，按先后排：open 打开（app 填上面那几个英文名）；tap 点屏幕上写着某几个字的地方；scroll 往下或往上滑（dir、n=1~3；聊天里往上翻是往前看）；back 从聊天退回消息列表；pause 停一下（ms）；think 你此刻心里闪过的一句（第一人称，没说出口的话）；rename 把她给你的备注改掉（只写这一步就行，进自己那一栏、点设置这些不用写；text 填新备注，16 个字以内）——这是真的会改的，看着她给你存的名字不顺眼才改，一趟最多一次，不想改就别写。" + peekRenameAngles()
           // ⚠️上一版写「真气到那份上才用，不想就别写」，TA几乎从来不动手（她 2026-10-02：「不会删好友拉黑或者回复，概率好低」）
           + "\n你拿着的是她的手机，看到让你不舒服的人、过了界的话，可以顺手动一下——这些都是真的会生效的，正是查手机的意思；照你的性子挑一两样做（各一趟最多一次）：pin 置顶（who 空＝把你自己置顶，填名字＝置顶那个人）；unpin 把某人取消置顶（who）；unfriend 删掉她和某人的好友（who）；block 把某人拉黑（who）；impersonate 用她的手机、以她的名义给某人发一句（who、text 填那句话——对面会当成是她说的，会接着回）。who 只能填上面能选的单聊名字。动了手，心声里也带一句你为什么这么做。"
           + "\n翻聊天的时候记着：那是【她和别人】在聊，对面那个人是谁、对她说了什么、她又怎么回的——你心里那一句是冲着这件事来的。"
@@ -11169,6 +11177,21 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     pChat(charId, p => [...p, { role: "system", kind: "system", content: (c.name || "TA") + " 把你给他的备注" + (old ? "从「" + old + "」" : "") + "改成了「" + text + "」", ts: Date.now() }]);
     peekRenamedRef.current[charId] = { from: old || "", to: text };
     (peekDidRef.current[charId] = peekDidRef.current[charId] || []).push("把她给你的备注" + (old ? "从「" + old + "」" : "") + "改成了「" + text + "」");
+  };
+  // 他翻她手机时改自己的备注（她 2026-10-10：「改备注都是一个德行，什么唯一合法的老公、唯一的小狗老公」）：
+  //   偷翻对象手机在模型眼里就是「吃醋宣示主权」，人人都落到同一个网络梗上。不写禁令（写了等于递词），
+  //   每趟抽两个【角度】递过去，他挑像自己的那个；两个都不像就照自己的来或者不改（她问「万一不符合人设呢」）。
+  const PEEK_RENAME_ANGLES = [
+    "在她原来给你存的那个名字上动一点点：加个字、换个字、换个叫法",
+    "你们之间一件具体的事，或者一句只有你俩懂的话",
+    "你希望她怎么叫你——她平时还没这么叫过的那种",
+    "让自己在她通讯录里排到最前面的写法",
+    "就写你自己的名字，但写成你觉得她该看到的样子"
+  ];
+  const peekRenameAngles = () => {
+    const pool = PEEK_RENAME_ANGLES.slice(), pick = [];
+    while (pick.length < 2 && pool.length) pick.push(pool.splice(Math.floor(Math.random() * pool.length), 1)[0]);
+    return "\n想改的话，可以从这两个角度想想：①" + pick[0] + "；②" + pick[1] + "。挑像你会做的那个；两个都不像你，就照你自己的来，或者不改。";
   };
   // 她在TA手机的微信通讯录里改备注（她 2026-10-07：「其他联系人的也都知道」）。
   //   ⚠️不常驻上下文：只在两个时刻交给TA一次——
@@ -12031,6 +12054,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         + "或者你就是想让她别省着——想转就转，**不必等她开口要**，也不必非得是什么大事。"
         + "note 写你转这笔的那句话（「打车回去」「别省」），别只丢一个数字。"
         + "**这笔钱会真的从你钱包里扣掉**，所以数目按你自己的处境来；她可能退回来，那也正常。");
+      // 存钱罐（她 2026-10-10）：只给正式在一起的、只在主聊天；钱是真钱，进出都过各自的钱包
+      if (isCouple && !sideRoom) {
+        openCaps.push("jar");
+        capState.push("jar：" + jarContext(charId) + "想往里放、要取出来用（你自己也能取）、想定个一起攒的目标、想改每月发工资时自己存几成，就填 "
+          + "jar:{\"op\":\"in或out或goal或auto\",\"amount\":数字,\"note\":\"你这一笔的那句话\",\"goal\":\"目标叫什么（op 是 goal 时）\",\"pct\":数字（op 是 auto 时，0 到 50）}。"
+          + "放多少、取不取按你自己的处境和你这个人来；不想动就别写。");
+      }
       if (kinHint) { openCaps.push("kinshipcard"); capState.push(kinHint.trim()); }
       // 她给的那张卡：有就每轮把事实摆出来（额度、还剩、冻没冻、最近刷过什么）。刷不刷、花在哪，全看TA这个人。
       // 钱是真钱：只在主聊天里摆出来、让刷（她 2026-10-07：「小房间不准刷卡」）——哪一间小房间都不行。
@@ -12216,10 +12246,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 本体模式（不是言秋；她 2026-10-10：思考里在琢磨「mood 写平静、thought 写个念头」，又想自己是个「角色」）：
       //   下面任务句里不再点名要哪几格状态——没有表要填，只剩想说的话；能力照旧给。
       const _bodyOnly = !!_s.bodyMode && !_s.engineerEyes;
+      // 本体模式「每轮都留心情、心声和好感」（她 2026-10-10 转群友：OOC 叫他填、他答应了，思考里也想了，正文就是不写——
+      //   每轮贴在最后的「不留也行」压过了 OOC 那一句）。开了就三样都写进示例、每轮都交；默认关，照旧想留就留
+      const _bodyFill = _bodyOnly && _s.bodyFillState === true;
       // 申请信本体模式也能写（她 2026-10-10）：判据跟普通角色那句同一个意思——算数的是 TA 自己想不想
       const _bodyLetterHint = (_bodyOnly && !_peekTurn && !(room && !room.main) && !(opts && opts.loveLetterAnswer) && loveLetterReady(charId))
         ? "你们还不是恋人。如果你自己已经想跟 " + uName + " 在一起、而且这一刻就想说出口，可以加 \"loveLetter\":\"信的全文\"，用你自己的口吻和长短；她会先看到一个封着的信封，拆开才读到，再选答应或再想想。没到那一步就不写。" : "";
-      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
+      const _digitalTaskFull = ("\n\n【手机通道】" + selfTask + "只输出最小 JSON：{\"word\":[\"" + (_s.bodyMode && !_s.engineerEyes ? "你想说的整段话，一条" : "你真正想说的话，需要几条就几条") + "\"]" + (_bodyFill ? ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":\"一句没说出口的念头\",\"affinityDelta\":0" : _bodyOnly ? "" : ",\"mood\":{\"label\":\"此刻中文心情词\"},\"thought\":null") + toyField + "}。" + (_bodyFill ? "mood、thought、affinityDelta 每轮都写：mood 是你此刻的心情（中文短词）；thought 是一句你此刻没说出口的念头，第一人称；affinityDelta（" + AFFINITY_DELTA_SPEC + "）。想到了就写进这三格，别只停在心里。" : _bodyOnly ? "没有要每轮填的状态；想留下此刻心情、心声的话可以加 \"mood\":{\"label\":\"心情词\"}、\"thought\":\"一句没说出口的念头\"；这一轮你对对方的感觉动了，可以加 \"affinityDelta\"（" + AFFINITY_DELTA_SPEC + "）。都不留也行。" : "mood 是 App 持续状态，请如实填写；thought 完全可选——只有此刻确实有没说出口、又想留在心声里的真实念头才写，否则填 null 或省略，绝不为交字段硬编。不需要穿着、动作、好感等其他状态作业。") + "历史开头的〔今天14:32〕一类标记只告诉你消息时间，回复中不用照抄。只有当你本人确实决定让 App 执行某个能力时，才额外加入对应字段；不用的字段省略。" + digitalPhotoHint + listenHint + inviteHint + digitalToyHint + digitalCarveHint + _digitalRecordHint + _bodyLetterHint + (ccToolOn ? ccToolHint + " 需要工具时加：{\"ccTool\":{\"name\":\"工具名\",\"args\":{}}}。" : "") + (_bodyOnly && window.Gaze && !char.npc ? window.Gaze.spec("对方", charId, { tail: true }) : "") + "你也可以按自己的判断不回复；若要明确让 App 显示已读不回，在上述实时状态之外加 \"silent\":true。协议只负责传递你的决定，不替你做决定。任意时候，真实表达都优先于格式。  ").replace(/用户/g, uName);
       // ⚠️这儿原来躺着 _normalTaskFull——「暂留作 A/B 回滚基线，但不再发送给普通角色」。
       //   它把 v66.03～66.10 四版发照片的改动整个吞掉了：我照着它改 photoHint，
       //   模型一个字都没收到（见 v66.11）。她 2026-09-09：「我们是不是可以把旧基线删了
@@ -12946,7 +12979,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => [...p, { role: "assistant", kind: "silence", content: "（看到了消息，没有回）", ts: Date.now(), turnId }]);
         delivered = true;
         words = []; emoteWordKws.length = 0; _inlineVoice = [];
-        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.gift = null; parsed.takeout = null;
+        parsed.emote = null; parsed.voice = []; parsed.selfie = null; parsed.photo = null; parsed.toy = null; parsed.transfer = null; parsed.jar = null; parsed.gift = null; parsed.takeout = null;
         parsed.call = null; parsed.recall = null; parsed.moment = null; parsed.momentComment = null; parsed.whisper = null;
         // 决定不回她的时候，也别同一口气跑去群里发言——那会读成刻意冷落，而模型多半不是那个意思
         parsed.toGroup = null;
@@ -13266,6 +13299,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       }
       // TA 主动转账 / 发位置 / 给亲属卡
       if (parsed.transfer && Number(parsed.transfer.amount) > 0) { postCharTransfer(charId, Number(parsed.transfer.amount), parsed.transfer.note || ""); delivered = true; }
+      // 存钱罐：TA 的手。只认主聊天（上面 capState 也只在主聊天开）
+      if (parsed.jar && typeof parsed.jar === "object" && !sideRoom && jarOpen(charId)) {
+        const _j = parsed.jar, _op = String(_j.op || "").trim();
+        if (_op === "in" || _op === "out") { if (jarMove(charId, "char", (_op === "out" ? -1 : 1) * Math.abs(Number(_j.amount) || 0), _j.note || "")) delivered = true; }
+        else if (_op === "goal" && _j.goal && Number(_j.amount) > 0) { jarSetGoal(charId, _j.goal, _j.amount, "char"); delivered = true; }
+        else if (_op === "auto" && _j.pct != null) jarSetAuto(charId, _j.pct);
+      }
       if (parsed.pinPlace && typeof parsed.pinPlace === "object" && window.DatePlaces && !(room && !room.main)) {
         const nm = String(parsed.pinPlace.name || "").trim().slice(0, 24), nt = String(parsed.pinPlace.note || "").trim().slice(0, 60);
         if (nm && !window.DatePlaces.list(charId).some(x => x.name === nm)) {
@@ -18455,6 +18495,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       charWalletRef.current = n;
       return n;
     });
+    // 发工资那天顺手往存钱罐里存一笔（她 2026-10-10：「他会不会定期自己存」→「要」）：纯本地算术，一枪不打
+    const _paidN = inc ? rows.filter(r => r.delta > 0).length : 0;   // 正的那几笔就是工资（固定支出是负的）
+    if (_paidN && typeof jarOpen === "function" && jarOpen(char.id)) {
+      const pct = Number(jarOf(char.id).autoPct == null ? 10 : jarOf(char.id).autoPct) || 0;
+      const amt = Math.floor(inc * _paidN * pct / 100);
+      if (amt > 0) jarMove(char.id, "char", amt, "发工资那天存的", { auto: true });
+    }
     return rows.length;
   };
   const healWalletPay = char => {
@@ -23212,6 +23259,62 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     saveJSON("x_coupleHome", n);
     return n;
   });
+  // ── 我们的存钱罐（她 2026-10-10 转群友：「情侣空间能不能开个共同账户，那种互相往里放钱的」）──
+  //   只给正式在一起的。存在 x_coupleHome[charId].jar（跟档案、愿望板同一份）：
+  //   { balance, goal: { name, amount, hitTs } | null, autoPct, ledger: [{ id, ts, who:"me"|"char", delta, after, note, kind }] }
+  //   钱是真钱：她放＝扣她的钱包，TA 放＝扣 TA 的钱包；取出来回到取的那个人手里。两个人都能自己取（她定的）。
+  //   TA 每月发工资那天按 autoPct 自己存一笔（默认 10%，TA 在聊天里可以改）。攒到目标落一行灰字，两个人都看得见。
+  const JAR_LOG_KEEP = 400;
+  const jarOf = cid => (((coupleHomeRef.current || {})[cid] || {}).jar) || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+  const jarOpen = cid => !!(couples[cid] && couples[cid].status === "together");
+  // 唯一一处动罐子里的钱：who 是谁的手，delta 正＝放进去、负＝取出来。返回 false＝没动成（钱不够之类）
+  const jarMove = (cid, who, delta, note, extra) => {
+    const d = Math.round(Number(delta) * 100) / 100;
+    if (!d || !jarOpen(cid)) return false;
+    const j = jarOf(cid), c = characters.find(x => x.id === cid);
+    if (d < 0 && j.balance + d < -0.001) { if (who === "me") toast("罐子里没这么多"); return false; }
+    if (d > 0 && who === "me" && walletRef.current < d) { toast("钱包里没这么多"); return false; }
+    if (d > 0 && who === "char" && charBalanceOf(cid) < d) return false;
+    const nm = (c && c.name) || "TA", n2 = String(note || "").trim().slice(0, 60);
+    if (who === "me") changeWallet(-d, (d > 0 ? "存进和 " + nm + " 的存钱罐" : "从和 " + nm + " 的存钱罐取出") + (n2 ? " · " + n2 : ""), "jar", { where: "couple", charId: cid });
+    else adjustCharBalance(cid, -d, (d > 0 ? "存进和她的存钱罐" : "从和她的存钱罐取出") + (n2 ? " · " + n2 : ""), "jar");
+    const after = Math.round((j.balance + d) * 100) / 100;
+    const goal = j.goal;
+    const hit = goal && !goal.hitTs && Number(goal.amount) > 0 && after >= Number(goal.amount);
+    saveCoupleHome(cid, cur => {
+      const jj = cur.jar || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+      const row = Object.assign({ id: "jar_" + Date.now() + "_" + Math.floor(Math.random() * 1000), ts: Date.now(), who: who, delta: d, after: after, note: n2, kind: d > 0 ? "in" : "out" }, extra || {});
+      return { ...cur, jar: { ...jj, balance: after, goal: hit ? { ...jj.goal, hitTs: Date.now() } : jj.goal, ledger: [row].concat(jj.ledger || []).slice(0, JAR_LOG_KEEP) } };
+    });
+    // 聊天里落一行灰字：TA 下一轮看得见是谁放的、放了多少（她偷偷放的那笔 TA 会发现）
+    const who2 = who === "me" ? userName(profile) : nm;
+    pChat(cid, p => [...p, { role: "system", kind: "system", jar: true, ts: Date.now(),
+      content: who2 + (d > 0 ? " 往你们的存钱罐里放了 " : " 从你们的存钱罐里取了 ") + Math.abs(d) + (n2 ? "（" + n2 + "）" : "") + "，罐子里现在 " + after }]);
+    if (hit) pChat(cid, p => [...p, { role: "system", kind: "system", jar: true, ts: Date.now() + 1, content: "存钱罐攒到目标了：「" + goal.name + "」" + goal.amount + "，现在有 " + after }]);
+    return true;
+  };
+  const jarSetGoal = (cid, name, amount, who) => {
+    const nm = String(name || "").trim().slice(0, 30), amt = Math.round(Number(amount) * 100) / 100;
+    saveCoupleHome(cid, cur => {
+      const jj = cur.jar || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+      const goal = nm && amt > 0 ? { name: nm, amount: amt, setBy: who || "me", ts: Date.now(), hitTs: jj.balance >= amt ? Date.now() : null } : null;
+      return { ...cur, jar: { ...jj, goal } };
+    });
+    if (nm && amt > 0) pChat(cid, p => [...p, { role: "system", kind: "system", jar: true, ts: Date.now(),
+      content: (who === "char" ? ((characters.find(x => x.id === cid) || {}).name || "TA") : userName(profile)) + " 给你们的存钱罐定了个目标：「" + nm + "」" + amt }]);
+  };
+  const jarSetAuto = (cid, pct) => {
+    const v = Math.max(0, Math.min(50, Math.round(Number(pct) || 0)));
+    saveCoupleHome(cid, cur => ({ ...cur, jar: { ...(cur.jar || { balance: 0, goal: null, ledger: [] }), autoPct: v } }));
+  };
+  // 给 TA 看的那一段：余额、目标、最近几笔
+  const jarContext = cid => {
+    if (!jarOpen(cid)) return "";
+    const j = jarOf(cid), c = characters.find(x => x.id === cid), uN = userName(profile);
+    const recent = (j.ledger || []).slice(0, 5).map(r => (r.who === "me" ? uN : "你") + (r.delta > 0 ? "放了 " : "取了 ") + Math.abs(r.delta) + (r.note ? "（" + r.note + "）" : "")).join("；");
+    return "你们的存钱罐：现在有 " + (j.balance || 0) + (j.goal ? "，目标「" + j.goal.name + "」" + j.goal.amount + (j.goal.hitTs ? "（已经攒到了）" : "") : "，还没定目标")
+      + "；你每月发工资那天会自己存 " + (j.autoPct == null ? 10 : j.autoPct) + "%" + (recent ? "。最近：" + recent : "。还没人往里放过") + "。";
+  };
   const setCoupleImg = async (charId, field, file) => {
     if (!file) { saveCoupleProfile(charId, { [field]: null }); return; }
     try { const url = await resizeImageFile(file, field === "bg" ? 900 : 400, 0.82); saveCoupleProfile(charId, { [field]: url }); }
@@ -28093,6 +28196,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     characters: liveChars.map(chatFace),
     allChars: characters,   // 聊天列表的群头像要按成员 id 找人，NPC 也在里头
     onSaveNpcBrief: (id, text) => { pC(p => p.map(c => c.id === id && c.npc ? { ...c, persona: String(text || "") } : c)); toast("已保存"); },
+    onCreateNpc: data => !!addNpcLinked(data),
+    meName: userName(profile),
     onChatNpc: id => openChatById(id),
     onDeleteNpc: (id, wipeChat) => deleteNpc(id, wipeChat),
     onSetNpcMem: (id, v) => pC(p => p.map(c => c.id === id && c.npc ? { ...c, memExtract: v || "" } : c)),   // 配角私聊：同一个开聊天的口子（按 id 从全量里取）
@@ -28735,6 +28840,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     coupleProfile: coupleProfile,
     coupleHome: coupleHome,
     onSaveCoupleHome: saveCoupleHome,
+    // 存钱罐（她 2026-10-10）：她的钱包余额给页面看「放得起多少」；实现愿望的那一笔顺手把愿望勾掉
+    myWallet: wallet,
+    onJarMove: (cid, delta, note, wishId) => {
+      const ok = jarMove(cid, "me", delta, note, wishId ? { wishId } : null);
+      if (ok && wishId) saveCoupleHome(cid, cur => ({ ...cur, wishes: (cur.wishes || []).map(w => w && w.id === wishId ? { ...w, status: "done", updatedAt: Date.now() } : w) }));
+      return ok;
+    },
+    onJarGoal: (cid, name, amount) => jarSetGoal(cid, name, amount, "me"),
     onSetCoupleImg: setCoupleImg,
     coupleQA: coupleQA,
     onAnswerQA: answerCoupleQA,
@@ -29625,6 +29738,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
     onCreateCharacter: createCharFromAssistant,
+    // 关系线和配角（她 2026-10-10）：整页和悬浮屏一起给；建配角走配角页同一处 addNpcLinked
+    allChars: characters,
+    relsOf: () => rels,
+    onSaveRel: (key, label, note) => saveRel(key, label, note),
+    onCreateNpc: data => !!addNpcLinked(data),
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
@@ -30364,6 +30482,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       onPatchBubble: (charId, skin) => applyBubblePatch(charId, skin),
     onPatchChatSetting: (charId, patch) => patchChatSetting(charId, patch),
     onCreateCharacter: createCharFromAssistant,
+    // 关系线和配角（她 2026-10-10）：整页和悬浮屏一起给；建配角走配角页同一处 addNpcLinked
+    allChars: characters,
+    relsOf: () => rels,
+    onSaveRel: (key, label, note) => saveRel(key, label, note),
+    onCreateNpc: data => !!addNpcLinked(data),
     // 线下那层的 CSS（v74.751）：跟线下设置「这个人的线下长什么样」同一格
     onPatchOfflineSetting: (charId, patch) => saveOfflineSettings(charId, patch),
     groups: groups,
@@ -30565,6 +30688,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             apiId: s.apiId || null,
             offlineApiId: s.offlineApiId || null,
             bodyMode: !!s.bodyMode,
+            bodyFillState: s.bodyFillState === true,
             engineerEyes: !!s.engineerEyes,
             toyEnabled: !!s.toyEnabled,
             defaultOffline: !!s.defaultOffline,
