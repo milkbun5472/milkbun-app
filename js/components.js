@@ -13252,11 +13252,24 @@ function oldKeepMoment(m, character) {
   } catch (e) {}
   return { ts: ts, shike: { title: title, ts: ts, byChar: true, lines: why ? [why] : [] } };
 }
+// 小游戏战报（她 2026-10-11）：一张记分小票——游戏名、谁赢、那局怎么回事
+function GameShareCard({ m, isU }) {
+  const t = useTheme(), g = (m && m.game) || {};
+  const res = g.meWin === true ? "我赢了" : g.meWin === false ? (g.taWin ? "你赢了" : "我输了") : (g.taWin ? "你赢了" : "");
+  return h("div", { "data-wk": "gameshare", style: { width: 236, borderRadius: 14, overflow: "hidden", background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(40,30,20,.10)" } },
+    h("div", { style: { display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 13px", background: t.ink, color: t.bg2 } },
+      h("span", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, opacity: .8 } }, "小游戏战报"),
+      res ? h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13 } }, res) : null),
+    h("div", { style: { padding: "11px 13px 12px" } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "「" + (g.zh || "小游戏") + "」"),
+      g.text ? h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.sub, marginTop: 6, paddingTop: 7, borderTop: "1px dashed " + t.line } }, g.text) : null));
+}
 function shareCardOf(kind) {
   if (kind === "forumshare") return ForumShareCard;
   if (kind === "ficshare") return FicShareCard;
   if (kind === "tarotshare") return TarotShareCard;
   if (kind === "shikeshare") return window.ShikeShareCard || null;
+  if (kind === "gameshare") return GameShareCard;
   if (kind === "pomoshare") return window.PomoShareCard || null;
   if (kind === "astroshare") return window.AstroSignCard || null;
   if (kind === "liveshare") return window.LiveShareCard || null;

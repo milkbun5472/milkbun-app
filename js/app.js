@@ -29624,6 +29624,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
     // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
+    // 战报发给 TA（她 2026-10-11）：她发的一条小卡进聊天，content 留整段字——模型读历史读的是它；然后直接进那个聊天
+    sendGameReport: (charId, rep) => {
+      if (!charId || !rep || !characters.some(c => c.id === charId)) return;
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300);
+      pChat(charId, p => [...p, { role: "user", kind: "gameshare", content: body, ts: Date.now(),
+        game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: (rep.wins || []).indexOf(charId) >= 0 } }]);
+      openChatById(charId);
+    },
     keepGameMemory: (charIds, text, room) => {
       const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
       const t0 = String(text || "").trim().slice(0, 300);

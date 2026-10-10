@@ -25,19 +25,21 @@ test("app 侧那扇门：只收真实角色、打小游戏标签、knownBy 跟 c
 
 test("按钮是唯一入口：七桌各一颗，点一次只写一条，全 NPC 局给说法", () => {
   assert.equal((games.match(/h\(KeepMemBtn,\s*\{/g) || []).length, 7, "七个终局屏该各有一颗（卧底/狼人/阿瓦隆/猜谜/真心话/大富翁/UNO）");
-  assert.equal((games.match(/if\s*\(\s*!props\.keepGameMemory\s*\)\s*return false;/g) || []).length, 7, "有的桌没兜住 prop 缺席");
-  assert.equal((games.match(/return props\.keepGameMemory\(realCharIds\(/g) || []).length, 7, "有的桌没走 realCharIds——NPC 或言秋会被写进去");
+  // v75.328 起七桌各交一份战果 rep（同一份管收进记忆、战报、战绩），写记忆只剩按钮里那一处
+  assert.equal((games.match(/rep:\s*function\s*\(\)\s*\{/g) || []).length, 7, "有的桌没交战果");
+  assert.ok((games.match(/ids:\s*realCharIds\(/g) || []).length >= 7, "有的桌没走 realCharIds——NPC 或言秋会被写进去");
   const btn = cut(games, "function KeepMemBtn(props)", "\n  }");
   assert.match(btn, /if \(kept\) return;/, "能连点连写");
+  assert.match(btn, /host\.keepGameMemory\(ids, rep\.text\)/, "按钮没走那扇门");
   assert.match(btn, /这局上场的都是 NPC/, "全 NPC 局没有说法");
   const rc = cut(games, "function realCharIds(players)", "\n  }");
   assert.match(rc, /!p\.isNpc && !p\.isUser && !p\.engineer/, "realCharIds 的过滤不对（言秋的记忆走 CC，不走 app 记忆库）");
 });
 
 test("默认不写：games.js 里没有任何自动调用 keepGameMemory 的地方", () => {
-  // 每一处 props.keepGameMemory 的出现都只许在 keep 回调里：7 个兜底判断 + 7 个 return 调用
-  // ＋v67.55 补上的中间那一截（engineProps 那一处：一个兜底判断 + 一个转交，见下一条）
-  assert.equal((games.match(/props\.keepGameMemory/g) || []).length, 16, "出现次数对不上——多出来的那处八成是自动写");
+  // 只剩 engineProps 那一截（一个兜底判断 + 一个转交）；真正写只在按钮的 onClick 里（host.keepGameMemory 一处）
+  assert.equal((games.match(/props\.keepGameMemory/g) || []).length, 2, "出现次数对不上——多出来的那处八成是自动写");
+  assert.equal((games.match(/host\.keepGameMemory\(/g) || []).length, 1, "按钮以外还有地方在写");
 });
 
 // ⚠️这一条是这份测试当年缺的那一条，缺了整整四个版本：
