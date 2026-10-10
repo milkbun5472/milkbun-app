@@ -1,3 +1,4 @@
+import {homeSize} from './home-architecture.mjs';
 import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-e3f68dca93b2b897';
 import {MAPS,walkable} from '../world.mjs?v=fg-e3f68dca93b2b897';
 // Layout, navigation and activity anchors share furniture-local coordinates.
@@ -49,11 +50,11 @@ export const SPACE_DEFS={
  ],wander:[{x:0,z:0},{x:3,z:2.7},{x:-1.2,z:2.8},{x:5.3,z:1.4},{x:-2.8,z:-.6}]}
 };
 export function buildSpace(id,placements={}){
- const d=SPACE_DEFS[id];if(!d)throw Error('未知日常场景');
- const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
+ const definition=SPACE_DEFS[id],d=id==='dayHome'?{...definition,w:homeSize(homeRoom(placements)).w,d:homeSize(homeRoom(placements)).d,spawn:{x:0,z:homeSize(homeRoom(placements)).d/2-.7}}:definition;if(!d)throw Error('未知日常场景');
+ const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=p.mount?{}:placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
  const pieces=Object.fromEntries(furniture.map(p=>[p.id,p]));
  const walls=d.outdoor?[]:[{id:'back-wall',x:0,z:-d.d/2,w:d.w+.2,d:.18},{id:'left-wall',x:-d.w/2,z:0,w:.18,d:d.d}];
- const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.filter(p=>!p.walkThrough).map(furnitureFootprint)];
+ const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.filter(p=>!p.walkThrough&&!p.mount).map(furnitureFootprint)];
  const room=id==='dayHome'?homeRoom(placements):null;
  const anchors=room?homeAnchors(furniture,room):d.anchors;
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{

@@ -20,7 +20,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
 
  await root.locator('[data-wk=cdaypick]').filter({hasText:'装修角色甲'}).click();await ready();await settle();await begin();
  const panel=async part=>{await root.locator('[data-wk=cdaydecoractions] [data-part='+part+']').click();await root.locator('[data-wk=cdaydecorpanel]').waitFor();},back=async()=>{await root.getByRole('button',{name:'回去摆放',exact:true}).click();await root.locator('[data-wk=cdaydecorpanel]').waitFor({state:'detached'});};
- await panel('catalog');assert.equal(await root.locator('[data-wk=cdaycatalogitem]').count(),52);assert.equal(await root.locator('[data-wk=cdaycatalogitem] img').evaluateAll(imgs=>imgs.every(img=>img.complete&&img.naturalWidth===160)),true);await shot('furniture-library');result.realModelPreviews=52;
+ await panel('catalog');assert.equal(await root.locator('[data-wk=cdaycatalogitem]').count(),72);assert.equal(await root.locator('[data-wk=cdaycatalogitem] img').evaluateAll(imgs=>imgs.every(img=>img.complete&&img.naturalWidth===160)),true);await shot('furniture-library');result.realModelPreviews=52;
  for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
   await p.setViewportSize({width:w,height:h});await p.waitForTimeout(100);
   const x=await root.locator('[data-wk=cdaypage]').evaluate(el=>{const rect=x=>el.querySelector('[data-wk='+x+']').getBoundingClientRect().toJSON();return {width:el.clientWidth,overflow:el.scrollWidth>el.clientWidth,scroll:el.scrollHeight>el.clientHeight+1,head:rect('head'),tools:rect('cdayedittools'),body:rect('cdaydecorbody'),panel:rect('cdaydecorpanel'),touch:[...el.querySelectorAll('[data-wk=cdaycatalogitem]')].map(e=>({w:e.clientWidth,h:e.clientHeight}))};});

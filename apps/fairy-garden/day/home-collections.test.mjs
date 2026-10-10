@@ -6,7 +6,7 @@ import {MAPS,findPath,walkable} from '../world.mjs';
 
 test('四组新增家具沿原实例存档，旧款和原房间不被替换',()=>{
  assert.equal(new Set(HOME_CATALOG.map(p=>p.id)).size,HOME_CATALOG.length);
- for(const id of Object.keys(HOME_COLLECTIONS))assert.equal(HOME_CATALOG.filter(p=>p.collection===id).length,8);
+ for(const id of Object.keys(HOME_COLLECTIONS))assert.equal(HOME_CATALOG.filter(p=>p.collection===id).length,13);
  assert.equal(BASE_HOME.length,12);assert.equal(homeFurniture({}).some(p=>p.collection),false);
  for(const p of HOME_CATALOG.filter(p=>p.collection)){
   const added=addHomeFurniture({},p.id),loaded=restoreHomeLayout(JSON.parse(JSON.stringify(added.placements)));
