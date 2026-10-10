@@ -369,6 +369,8 @@
       //   就变成主线的了（正是这道闸要挡的）。
       onStart: function (config) {
         const cfg = Object.assign({}, config, { room: fromRoom.current || null });
+        // 「上次那桌」：每个游戏记最后一次开局的配置（不记房间——那是那一次的事）
+        try { const last = loadJSON(LAST_CFG_KEY, {}) || {}; last[game.key] = config; saveJSON(LAST_CFG_KEY, last); } catch (e) {}
         setSession({ game: game, config: cfg, room: fromRoom.current });
       }
     });
@@ -470,8 +472,11 @@
   // ============================================================
   // 开局配置：模式 + 选人（含人数上下限）+ NPC凑数 + 注入最近聊天
   // ============================================================
+  // 上次那桌（她 2026-10-11）：每个游戏最后一次开局的配置，开局页一键照搬
+  const LAST_CFG_KEY = "x_gameLastCfg";
   function GameSetup(props) {
     const t = props.t, game = props.game;
+    const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
@@ -484,6 +489,15 @@
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
     const [avOpts, setAvOpts] = useState({ percival: true, mordred: false, oberon: false }); // 阿瓦隆特殊角色
+    const lastCfg = (function () { try { return (loadJSON(LAST_CFG_KEY, {}) || {})[game.key] || null; } catch (e) { return null; } })();
+    const useLast = function () {
+      const c = lastCfg; if (!c) return;
+      const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
+      setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule);
+      if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
+      setStake(c.stake || "");
+    };
 
     const spectate = mode === "spectate";
     const humanPlays = !spectate;                    // 观战时用户不算玩家
@@ -534,10 +548,20 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.55 } }, game.desc),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, game.rule))),
 
+        lastCfg ? h("button", { "data-wk": "gamelastcfg", onClick: useLast, className: "active:opacity-70",
+            style: { width: "100%", minHeight: 44, marginBottom: 16, borderRadius: 12, border: "1px dashed " + t.tint, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.tint } },
+          "照上次那桌摆（" + ((lastCfg.charIds || []).map(function (id) { const c = chars.find(function (x) { return x.id === id; }); return c ? c.name : null; }).filter(Boolean).join("、") || "只有 NPC") + "）") : null,
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "模式"),
         h(Segmented, { t: t, value: mode, options: MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
+        // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
+        h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
+          h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
+            placeholder: "输的人要做什么，写一句",
+            style: { width: "100%", minHeight: 44, padding: "0 13px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 14, color: t.ink, outline: "none" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "打完会写清谁该兑现；把战报发给 TA，TA 就知道这局赌了什么。")),
 
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "+2 规则"),
@@ -625,7 +649,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -2450,8 +2474,19 @@
     useEffect(function () { recordGame(rep); }, []);
     const toast = host.toast || function () {};
     const ids = (rep && rep.ids) || [];
+    // 彩头：开局时说好的那一句；按输赢写清谁该兑现
+    const stake = String((host.config && host.config.stake) || "").trim();
+    if (rep && stake) rep.stake = stake;
+    const losers = rep ? ids.filter(function (id) { return (rep.wins || []).indexOf(id) < 0; }) : [];
     const nameOf = function (id) { const c = (host.characters || []).find(function (x) { return x.id === id; }); return c ? (c.remark || c.name) : ""; };
     return h("div", { "data-wk": "gameend" },
+      rep && stake ? h("div", { "data-wk": "gamestakeend", style: { marginTop: 9, padding: "10px 13px", borderRadius: 12, background: t.tint + "12", border: "1px solid " + t.tint } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "彩头"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 2 } }, stake),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 5 } },
+          rep.meWin === false ? "这局你输了，该你兑现。" + (losers.length ? "一起输的还有 " + losers.map(nameOf).filter(Boolean).join("、") + "。" : "")
+          : losers.length ? "该 " + losers.map(nameOf).filter(Boolean).join("、") + " 兑现。把战报发过去，看 TA 认不认账。"
+          : "这局没人输，彩头先欠着。")) : null,
       h("button", { "data-wk": "gamekeepmem", "data-on": kept ? "1" : "0", disabled: kept, onClick: function () {
         if (kept) return;
         const ok = rep && host.keepGameMemory && ids.length && host.keepGameMemory(ids, rep.text);
