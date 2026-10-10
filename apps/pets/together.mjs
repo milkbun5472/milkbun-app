@@ -1,5 +1,5 @@
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-37a600db6485e444';
-import {restoreWalkEvent,WALK_KINDS} from './walk-life.mjs?v=fg-37a600db6485e444';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-70e2d2e8f5d2a7e4';
+import {restoreWalkEvent,WALK_KINDS} from './walk-life.mjs?v=fg-70e2d2e8f5d2a7e4';
 export const TOGETHER_SHOPS=['cafe','bakery','florist','store','alley'];
 const point=p=>p&&Number.isFinite(p.x)&&Number.isFinite(p.z)&&Math.abs(p.x)<100&&Math.abs(p.z)<100?{x:p.x,z:p.z}:null;
 export const togetherDestination=t=>['home','wipe'].includes(t?.phase)?'home':t?.mode==='walk'?'outside':t?.shop;
