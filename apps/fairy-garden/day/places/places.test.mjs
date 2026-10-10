@@ -52,7 +52,7 @@ test('多组可替换摆件合批后保留各自父级与世界位置，可独�
 });
 
 test('独立场景注册保留原地图，展示名单按真实动作点编号',()=>{
-  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket']));
+  assert.deepEqual(new Set(Object.keys(DAY_PLACES)),new Set(['dayLaboratory','dayLibrary','dayClinic','dayStudio','dayRehearsal','dayStation','dayGym','dayMarket','dayOffice','dayCampus']));
   assert.deepEqual(Object.keys(DAY_FACTORIES),Object.keys(DAY_PLACES));
   for(const id of persistentMaps)assert.ok(MAPS[id]);
   const list=placeList();
@@ -278,4 +278,11 @@ test('超市实际选取商品沿家具接触坐标，冷柜门与商品可独�
  for(const key of ['produce','groceries','cold']){const spot=map.spots.find(s=>s.id===key),p=map.furniture.find(f=>f.id===spot.furniture),g=root.getObjectByName('MarketProduct:'+key),q=g.getWorldPosition(new T.Vector3());assert.ok(g.children.some(o=>o.isMesh));assert.equal(g.userData.marketProduct,key);assert.ok(q.distanceTo(new T.Vector3(p.x+p.work[key].x,map.floor+p.work[key].y,p.z+p.work[key].z))<1e-7);}
  const door=root.getObjectByName('MarketColdDoor');assert.equal(door.userData.dayDoor.furniture,'cold-cabinet');assert.ok(door.children.some(o=>o.isMesh));
  for(const key of ['cashier','checkout']){const s=map.spots.find(s=>s.id===key);assert.ok(walkable(s.target.x,s.target.z,'dayMarket'));assert.equal(s.seat,undefined);}
+});
+
+
+test('校园钟沿原小家时钟机制读取角色分钟，粉笔与黑板共用实体锚点',async()=>{
+ const {setHomeClock}=await import('../home-shell.mjs'),map=DAY_PLACES.dayCampus,root=DAY_FACTORIES.dayCampus().root;
+ for(const minute of [0,244,840,1439]){setHomeClock(root,minute);assert.equal(root.getObjectByName('HomeClockHour').rotation.z,-(minute%720)/720*Math.PI*2);assert.equal(root.getObjectByName('HomeClockMinute').rotation.z,-(minute%60)/60*Math.PI*2);}
+ const blackboard=map.furniture.find(p=>p.id==='class-blackboard');assert.ok(blackboard.work.blackboard.y>.9);const strokes=[];root.traverse(o=>{if(o.userData.workKind==='paint')strokes.push(o);});assert.equal(strokes.length,12);assert.ok(strokes.every(o=>o.userData.replaceable));
 });

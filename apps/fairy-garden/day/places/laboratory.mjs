@@ -1,4 +1,5 @@
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {keyboard} from './work-room-kit.mjs';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-163c7f71112cb39b';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.
@@ -97,8 +98,7 @@ function computerWorkstation(kit,p){
   kit.box('monitor',{y:top+.47,z:-.29,w:.9,h:.57,d:.095,color:'#778e84'},g);
   kit.box('screen',{y:top+.47,z:-.235,w:.79,h:.45,d:.012,color:'#c9dddb',radius:.009},g);
   for(let i=0;i<4;i++)kit.box('screen-data-bar',{x:-.27+i*.16,y:top+.365+i*.045,z:-.225,w:.065,h:.13+i*.09,d:.005,color:'#7ca294',radius:0},g);
-  kit.box('keyboard',{y:top+.025,z:.41,w:.63,h:.04,d:.23,color:'#e1e3d7',radius:.01},g);
-  for(let i=0;i<7;i++)kit.box('keyboard-key',{x:-.25+i*.083,y:top+.049,z:.45,w:.045,h:.008,d:.12,color:'#aab9ac',radius:.002},g);
+  keyboard(kit,g,{y:top,z:.41});
   kit.box('mouse',{x:.53,y:top+.047,z:.22,w:.105,h:.07,d:.16,color:'#7f998a'},g);
   kit.book('reference-book',{x:-.76,y:top+.058,z:-.03,w:.3,d:.42,color:'#9dad90',flat:true},g);
 }

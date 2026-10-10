@@ -1,8 +1,10 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-163c7f71112cb39b';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-163c7f71112cb39b';
 // Visual phases read the original currentSlot; they never create or save schedule events.
-const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
+const OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const RECIPES={
+ [OFFICE]:{computer:[['computer',12],['notes',2],['tea',1,'break']],notes:[['notes',12],['files',1],['tea',1,'break']],meeting:[['meeting',12],['meeting-notes',2]],'meeting-notes':[['meeting-notes',12],['meeting',2]],presentation:[['presentation',10],['meeting',2]]},
+ [CAMPUS]:{listen:[['listen',10],['notes',3]],notes:[['notes',10],['listen',3]],study:[['study',12],['rest',1,'break']],blackboard:[['blackboard',6],['teach',4],['prepare',1]],teach:[['teach',10],['blackboard',3],['prepare',1]],prepare:[['prepare',12],['rest',1,'break']]},
  [GYM]:{treadmill:[['treadmill',8],['stretch',2],['rest',1,'break']],weights:[['weights',8],['stretch',2],['rest',1,'break']],stretch:[['stretch',8],['rest',1,'break']]},
  [MARKET]:{produce:[['produce',3],['groceries',3],['cold',2]],groceries:[['groceries',5],['produce',2]],cold:[['cold',5],['groceries',2]],checkout:[['checkout',7]],cashier:[['cashier',12],['rest',1,'break']]},
  [LAB]:{bench:[['bench',6],['observation',2],['records',2],['break',1,'break']],observation:[['observation',8],['records',2],['break',1,'break']],computer:[['computer',12],['records',2],['break',1,'break']],records:[['records',12],['break',1,'break']]},
@@ -13,6 +15,8 @@ const RECIPES={
  [STATION]:{waiting:[['waiting',12],['reading',2],['information',1]],reading:[['reading',12],['waiting',2],['information',1]],platform:[['platform',12],['waiting',2]],departure:[['waiting',8],['information',2],['departure',3]],luggage:[['waiting',12],['information',2]]}
 };
 const CONFIG={
+ [OFFICE]:{carry:'book',entry:'entrance',prepare:p=>['meeting','meeting-notes','presentation'].includes(p.spot)?p.spot:'files',tidy:p=>p.spot,exit:'exit'},
+ [CAMPUS]:{entry:'entrance',prepare:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',tidy:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',exit:'exit',carry:'book'},
  [GYM]:{entry:'entrance',prepare:p=>p.spot==='weights'?'take-weights':'storage',tidy:p=>p.spot==='weights'?'take-weights':'storage',exit:'exit'},
  [MARKET]:{entry:'entrance',prepare:p=>p.spot==='cashier'?'cashier':'basket',tidy:p=>p.spot==='cashier'?'cashier':'packing',exit:'exit',carry:'basket'},
  [LAB]:{carry:'sample',entry:'entrance',prepare:p=>['bench','observation'].includes(p.spot)?'materials':'archive',tidy:p=>p.spot,exit:'entrance'},
@@ -23,6 +27,8 @@ const CONFIG={
  [STATION]:{entry:'entrance',prepare:()=> 'luggage',tidy:()=> 'luggage',exit:'departure',carry:'luggage'}
 };
 const MOTIONS={
+ [OFFICE]:{computer:'type',notes:'write',meeting:'listen','meeting-notes':'write',presentation:'present',files:'select',print:'select'},
+ [CAMPUS]:{listen:'listen',notes:'write',study:'write',blackboard:'paint',teach:'present',prepare:'write',lockers:'select'},
  [GYM]:{storage:'wait',treadmill:'treadmill','take-weights':'weight-pick',weights:'weights',stretch:'stretch'},
  [MARKET]:{basket:'basket-pick',produce:'market-pick',groceries:'market-pick',cold:'market-pick',checkout:'checkout',cashier:'cashier',packing:'market-pack',exit:'carry'},
  [LAB]:{bench:'experiment',observation:'observe',computer:'type',records:'write',archive:'select',materials:'select'},
@@ -85,6 +91,8 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,mot
  if(stage.phase==='break'&&['dayHome','dayCafe','dayWork','dayStreet'].includes(map.id))return null;
  if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving,motion});
  const errands=errandsTaskAt(stage,spot,map,elapsed,{moving});if(errands!==undefined)return errands;
+ if([OFFICE,CAMPUS].includes(stage.map)&&['tea','meal'].includes(spot?.action))return stage.phase==='break'?null:dailyTaskAt({...stage,action:spot.action},spot,{...map,id:stage.map},elapsed,{moving,motion,personal:true});
+ if(stage.phase==='break')return null;
  if(!stage.motion&&!stage.carry)return null;
  const carryType=stage.carryType||null,kind=moving?'carry':stage.motion||'carry';
  const origin=spot?.seat||spot?.target||map.spawn,yaw=spot?.heading||0,s=Math.sin(yaw),c=Math.cos(yaw);
@@ -95,10 +103,10 @@ export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,mot
  let contact={x:origin.x+localX*c+.37*s,y:top+.04,z:origin.z-localX*s+.37*c};
  const work=p?.work?.[stage.spot];
  if(work){contact={x:p.x+work.x,y:map.floor+work.y,z:p.z+work.z};if(kind==='paint')target={x:contact.x,y:contact.y-.04,z:origin.z-.18};if(kind==='piano')target={...contact};}
- const task={kind,elapsed,furniture:spot?.furniture,spot:stage.spot,phase:stage.phase,carry:!!stage.carry||kind==='select'&&[LAB,LIB,CLINIC,STUDIO].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
+ const task={kind,elapsed,furniture:spot?.furniture,spot:stage.spot,phase:stage.phase,carry:!!stage.carry||kind==='select'&&[LAB,LIB,CLINIC,STUDIO,OFFICE,CAMPUS].includes(stage.map)&&elapsed>=2.5,carryType,progress:['select','return','tidy','pack','take-luggage'].includes(kind)?Math.min(1,elapsed/5):elapsed/5%1,target,contact};
  if(kind==='paint'){const dx=Math.sin(elapsed*2)*.03,dy=Math.cos(elapsed*1.7)*.025;task.contact.x+=dx;task.contact.y+=dy;task.target.x+=dx;task.target.y+=dy;}
  if(kind==='piano')task.leftTarget={...target,x:p.x+.12};
- if(kind==='paint')task.tool='brush';
+ if(kind==='paint'){task.tool=stage.map===CAMPUS?'chalk':'brush';if(task.tool==='chalk')task.target={x:task.contact.x,y:task.contact.y,z:task.contact.z+.09};}
  if(carryType==='luggage'){
   const rack=map.furniture.find(f=>f.id==='luggage-shelf'),storedAt={x:rack.x-.12,y:map.floor+.145,z:rack.z+.27};
   const stored=stage.phase==='work'&&!['pack','take-luggage'].includes(stage.motion)||stage.phase==='tidy'&&moving;

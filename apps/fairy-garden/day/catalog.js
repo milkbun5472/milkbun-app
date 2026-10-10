@@ -546,5 +546,155 @@
         "gesture": "rest"
       }
     ]
+  },
+  {
+    "id": "dayOffice",
+    "label": "办公室／会议室",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "办公区入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "computer",
+        "label": "窗边电脑工位",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "notes",
+        "label": "整理文件与写记录",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "meeting",
+        "label": "会议席听讨论",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "meeting-notes",
+        "label": "会议记录席",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "presentation",
+        "label": "投影前汇报",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "files",
+        "label": "资料柜取文件",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "print",
+        "label": "打印与收文件",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "tea",
+        "label": "茶水角喝口水",
+        "action": "tea",
+        "gesture": "tea"
+      },
+      {
+        "id": "rest",
+        "label": "入口休息长椅",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "exit",
+        "label": "收工离开",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
+  },
+  {
+    "id": "dayCampus",
+    "label": "教室／校园",
+    "spots": [
+      {
+        "id": "entrance",
+        "label": "校园入口",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "listen",
+        "label": "课桌前听课",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "notes",
+        "label": "听课记笔记",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "study",
+        "label": "课后自习与做题",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "blackboard",
+        "label": "黑板前板书",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "teach",
+        "label": "讲台旁授课",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "prepare",
+        "label": "讲台整理教案",
+        "action": "work",
+        "gesture": "rest"
+      },
+      {
+        "id": "lockers",
+        "label": "走廊整理书包",
+        "action": "read",
+        "gesture": "rest"
+      },
+      {
+        "id": "corridor",
+        "label": "走廊课间停步",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "rest",
+        "label": "庭院课间长椅",
+        "action": "rest",
+        "gesture": "rest"
+      },
+      {
+        "id": "meal",
+        "label": "校园午餐桌",
+        "action": "meal",
+        "gesture": "eat"
+      },
+      {
+        "id": "exit",
+        "label": "下课离开校园",
+        "action": "rest",
+        "gesture": "rest"
+      }
+    ]
   }
 ];})(globalThis);

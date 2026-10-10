@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {pointToolAt} from './reach-hand.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {emotionPose} from './emotion-pose.mjs?v=fg-163c7f71112cb39b';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-163c7f71112cb39b';
+import {pointToolAt} from './reach-hand.mjs?v=fg-163c7f71112cb39b';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -11,6 +11,8 @@ export function taskPose(task,time){
   if(task.daily)return dailyTaskPose(task);
   const kind=task.kind,p=Math.max(0,Math.min(1,task.progress||0)),pulse=Math.sin(time*5);
   if(kind==='read'||['wait','look-sign'].includes(kind))return kind==='look-sign'?{left:[0,0,0],right:[0,0,0],tilt:-.035,yaw:Math.sin(time*.7)*.025}:null;
+  if(kind==='listen')return {left:[-.15,0,.035],right:[-.15,0,-.035],leftElbow:-.12,rightElbow:-.12,tilt:Math.sin(time*.75)*.012,yaw:Math.sin(time*.42)*.028};
+  if(kind==='present'){const q=(Math.sin(time*1.1)+1)/2;return {left:[-.18,0,.10],right:[-.32-q*.27,0,-.17-q*.08],rightElbow:-.45,tilt:.012,yaw:Math.sin(time*.55)*.05};}
   if(kind==='dance'||kind==='rehearse'){
     const q=emotionPose(kind==='dance'?'dance':'bow',time/(kind==='dance'?5.2:7)%1);
     return {...q,leftLeg:[kind==='dance'?Math.sin(time*2.8)*.11:0,0,0],rightLeg:[kind==='dance'?-Math.sin(time*2.8)*.11:0,0,0],lift:kind==='dance'?.025:0};
@@ -47,6 +49,7 @@ export function makeTaskProps(root,model,handPoint){
   const book=new T.Group();book.name='CarriedWorkBook';group.add(book);mesh(book,new T.BoxGeometry(.26,.07,.32),cream);for(const y of [-.043,.043])mesh(book,new T.BoxGeometry(.28,.014,.34),green,0,y,0);
   const sample=new T.Group();sample.name='CarriedWorkSample';group.add(sample);mesh(sample,new T.CylinderGeometry(.04,.04,.15,10),cream,0,-.04,0);mesh(sample,new T.CylinderGeometry(.045,.045,.035,10),green,0,.055,0);
   const brush=new T.Group();brush.name='WorkBrush';group.add(brush);mesh(brush,new T.CylinderGeometry(.009,.009,.19,8),wood,0,-.085,0);mesh(brush,new T.BoxGeometry(.024,.04,.014),green,0,-.20,0);
+  const chalk=new T.Group();chalk.name='WorkChalk';group.add(chalk);mesh(chalk,new T.CylinderGeometry(.011,.011,.12,8),cream,0,-.06,0);
   const clipboard=new T.Group();clipboard.name='WorkClipboard';group.add(clipboard);mesh(clipboard,new T.BoxGeometry(.30,.025,.34),green);mesh(clipboard,new T.BoxGeometry(.27,.007,.29),cream,0,.017,0);mesh(clipboard,new T.BoxGeometry(.09,.017,.025),wood,0,.025,-.13);
   const ticket=mesh(group,new T.BoxGeometry(.17,.008,.09),cream);ticket.name='WorkTicket';
   const guitar=new T.Group();guitar.name='HeldWorkGuitar';guitar.userData.strumTarget=GUITAR_STRUM;group.add(guitar);for(const [y,r]of [[-.26,.16],[-.11,.12]])mesh(guitar,new T.SphereGeometry(r,12,10),wood, .16,y,.05).scale.set(1,1,.24);mesh(guitar,new T.BoxGeometry(.042,.31,.03),wood,0,-.025,.05);for(let i=0;i<4;i++)mesh(guitar,new T.BoxGeometry(.002,.44,.004),cream,GUITAR_STRUM[0]+(i-1.5)*.013,GUITAR_STRUM[1],GUITAR_STRUM[2]);
@@ -67,9 +70,10 @@ export function makeTaskProps(root,model,handPoint){
       // a pose transition it must not grow into a long rod to bridge the gap.
       if(reach>.40)tool.visible=false;
     };
-    brush.visible=!moving&&task?.kind==='paint';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
+    brush.visible=!moving&&task?.kind==='paint'&&task.tool!=='chalk';chalk.visible=!moving&&task?.kind==='paint'&&task.tool==='chalk';clipboard.visible=task?.kind==='clipboard'||!!task?.carry&&task.carryType==='clipboard'&&['carry','select','return'].includes(task.kind)&&!(task.kind==='return'&&task.progress>.8);ticket.visible=!moving&&task?.kind==='ticket';guitar.visible=!moving&&task?.kind==='guitar';suitcase.visible=!!task?.luggage;
     sample.visible=!!task?.carry&&task.carryType==='sample'&&!(task.kind==='tidy'&&task.progress>.8);if(sample.visible)place(sample,task.kind==='experiment'?'left':'right');
     if(brush.visible)aim(brush,.22);
+    if(chalk.visible)aim(chalk,.12);
     if(clipboard.visible){place(clipboard,'right');if(task.kind==='clipboard')clipboard.position.lerp(group.worldToLocal(handPoint('left')),.5);clipboard.position.y-=.015;clipboard.rotation.x=.25;}
     if(ticket.visible){place(ticket,'right');ticket.position.z+=.04;ticket.rotation.x=.3;}
     if(guitar.visible){place(guitar,'left');guitar.position.add(new T.Vector3(...GUITAR_HOLD));}
@@ -86,6 +90,6 @@ export function makeTaskProps(root,model,handPoint){
     if(pen.visible)aim(pen,.21);
     if(pipette.visible)aim(pipette,.23);
     if(book.visible){place(book,'right');book.position.y-=.035;book.position.z+=.07;book.rotation.x=.12;}
-    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
+    root.userData.workAction={kind:task?.kind||null,weights:weights.every(w=>w.visible),basket:basket.visible,product:product.visible,bag:bag.visible,carry:book.visible,pen:pen.visible,pipette:pipette.visible,brush:brush.visible,chalk:chalk.visible,clipboard:clipboard.visible,guitar:guitar.visible,ticket:ticket.visible,luggage:suitcase.visible,luggagePoint:suitcase.visible?suitcase.getWorldPosition(new T.Vector3()).toArray():null,rise:task?.rise||0,cushion:step.visible&&!!task.seated,target:task?.target||null};
   }};
 }

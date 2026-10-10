@@ -104,3 +104,23 @@ test('实际场景与小人共用任务：跑带只在到位时转动，哑铃�
  const market=DAY_FACTORIES.dayMarket().root,marketMap=DAY_PLACES.dayMarket,stage=activityPhase({map:'dayMarket',spot:'cold'},null,null),pick=taskAt(stage,marketMap.spots.find(s=>s.id==='cold'),marketMap,2),door=market.getObjectByName('MarketColdDoor'),product=market.getObjectByName('MarketProduct:cold');
  updateWorkScene(market,pick,false,2);assert.ok(Math.abs(door.rotation.y)>.8);assert.equal(product.visible,false);updateWorkScene(market,null,false,3);assert.ok(Math.abs(door.rotation.y)<1e-9);assert.equal(product.visible,true);
 });
+
+for(const [scene,key,forbidden]of [['dayOffice','computer',['presentation','meeting']],['dayOffice','meeting',['computer','presentation']],['dayOffice','presentation',['computer']],['dayCampus','listen',['teach','blackboard','prepare']],['dayCampus','notes',['teach','blackboard','prepare']],['dayCampus','teach',['listen','notes','study']],['dayCampus','blackboard',['listen','notes','study']],['dayCampus','study',['teach','blackboard','prepare']]]){
+ test(scene+'/'+key+'沿真实writer原时间进入、准备、做事和离开，职业动作不互换且只读',()=>{
+  const slot=fixture(scene,key),p=env.CharDayLink.presentation(slot),before=JSON.stringify(ref.current),count=writes,map=DAY_PLACES[scene],seen=new Set();let previous=map.spawn;
+  for(let sec=0;sec<3600;sec+=15){const stage=activityPhase(p,slot,start+sec*1000),point=map.spots.find(s=>s.id===stage.spot);seen.add(stage.phase);assert.ok(point);assert.ok(!forbidden.includes(point.id),key+'不能变成'+point.id);
+   const path=findPath(previous,point.target,scene);assert.ok(path);let from=previous;for(const to of path){assert.ok(segmentClear(from,to,scene));from=to;}previous=point.target;
+   const task=taskAt(stage,point,map,3);if(stage.phase==='break')assert.equal(task,null);if(task)assert.ok(Number.isFinite(task.progress));
+  }
+  assert.ok(['enter','prepare','work','tidy','exit'].every(v=>seen.has(v)));assert.equal(JSON.stringify(ref.current),before);assert.equal(writes,count);
+ });
+}
+test('板书粉笔与记笔记接触各自实体，听课和汇报不拿笔，校园午餐与办公喝水沿原生活动作',()=>{
+ for(const [scene,key,kind]of [['dayCampus','blackboard','paint'],['dayCampus','notes','write'],['dayOffice','meeting-notes','write'],['dayOffice','meeting','listen'],['dayOffice','presentation','present'],['dayCampus','listen','listen']]){
+  const map=DAY_PLACES[scene],spot=map.spots.find(s=>s.id===key),stage=activityPhase({map:scene,spot:key},null,null),task=taskAt(stage,spot,map,3);assert.equal(task.kind,kind);
+  if(key==='blackboard'){assert.equal(task.tool,'chalk');const p=map.furniture.find(p=>p.id===spot.furniture);assert.ok(Math.abs(task.contact.z-(p.z+p.work.blackboard.z))<.03);}
+  if(kind==='write'){const p=map.furniture.find(p=>p.id===spot.furniture);assert.equal(task.contact.y,map.floor+p.work[key].y);}
+  if(['listen','present'].includes(kind))assert.equal(task.tool,undefined);
+ }
+ for(const [scene,key,kind]of [['dayCampus','meal','eat'],['dayOffice','tea','drink']]){const map=DAY_PLACES[scene],spot=map.spots.find(s=>s.id===key);const stage=activityPhase({map:scene,spot:key,action:spot.action},null,null);const task=taskAt(stage,spot,map,3);assert.equal(task.kind,kind);assert.equal(task.daily,true);assert.equal(taskAt(stage,spot,map,3,{moving:true}),null);}
+});

@@ -1,16 +1,16 @@
-import {togetherWaiting,togetherDestination,togetherActivity} from './together.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {gatheringSpot} from './neighborhood.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {RESIDENT_ACTS,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {lifeOf,lifeNote} from './routine.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {createTownLife,newTownLife} from './town-life.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {createActorNavigation} from './actor-spacing.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {turnPet} from './movement.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {togetherWaiting,togetherDestination,togetherActivity} from './together.mjs?v=fg-163c7f71112cb39b';
+import {gatheringSpot} from './neighborhood.mjs?v=fg-163c7f71112cb39b';
+import {careManner,chooseCareOffer,companyPlan} from './resident-care.mjs?v=fg-163c7f71112cb39b';
+import {RESIDENT_ACTS,syncResidentPreferences,planResidentAct,chooseResidentDestination,rememberResidentAct,residentPreferenceFacts} from './resident-choice.mjs?v=fg-163c7f71112cb39b';
+import {dailyRoutine} from '../fairy-garden/real-clock.mjs?v=fg-163c7f71112cb39b';
+import {lifeOf,lifeNote} from './routine.mjs?v=fg-163c7f71112cb39b';
+import {createTownLife,newTownLife} from './town-life.mjs?v=fg-163c7f71112cb39b';
+import {localRoute,nextRandom,restoreResident} from './autonomy.mjs?v=fg-163c7f71112cb39b';
+import {createTraveler,loadTravelerSource} from '../fairy-garden/traveler.mjs?v=fg-163c7f71112cb39b';
+import {seatLook} from '../fairy-garden/wardrobe.mjs?v=fg-163c7f71112cb39b';
+import {createHomeNavigation,HOME_PLACES} from './home-navigation.mjs?v=fg-163c7f71112cb39b';
+import {createActorNavigation} from './actor-spacing.mjs?v=fg-163c7f71112cb39b';
+import {turnPet} from './movement.mjs?v=fg-163c7f71112cb39b';
 // No model calls here: these are visible, local acts in this archive.
 export async function createHousemate({scene,host,care,home,notice,save,getPets=()=>[],getActors=()=>[],getActiveId=()=>null,resident={},world=null,getPlace=()=> 'home',getTime=()=>null,getEnvironment=()=>null,chores=null,getOuting=()=>null,getTogether=()=>null,getTogetherPeer=()=>null,getDomesticTask=()=>null}){
  const person=host.companion?.();if(!person?.id)return null;

@@ -53,11 +53,13 @@
     const type = slot.type || "other", words = String(slot.title || ""), place = String(slot.location || ""), text = place + " " + words;
     const home = /家里|家中|在家|回家|住处|府中|寝室|卧室/.test(text);
     const outside = /餐厅|餐馆|饭店|食堂|咖啡店|咖啡馆|茶馆|小店|酒馆/.test(text);
+    const office = !home && !outside && (/办公室|办公区|公司|会议室|会议厅|部门工位|办公楼/.test(text) || /开会|例会|组会|项目汇报|部门会议/.test(words));
+    const campus = !home && (!office || /教室|校园|学校|教学楼/.test(place)) && (!outside || /食堂/.test(place)) && /教室|课堂|校园|学校|教学楼|讲台|黑板|上课|听课|授课|讲课|备课|教案|课间|下课/.test(text);
     const dining = outside && !home ? "dayCafe" : "dayHome";
     if (type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(words)) return at("dayHome", "sleep");
     if (/做饭|做菜|下厨|烹饪|煮饭|煮粥|煮汤|炒菜|备菜|做[早午晚]餐/.test(words) && !outside) return at("dayHome", "cook");
-    if (type === "meal" || /吃饭|用膳|用餐|进餐|早餐|午餐|晚餐|早饭|午饭|晚饭/.test(words)) return at(dining, "meal");
-    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水/.test(words)) return at(!home && /健身房|运动馆|健身中心/.test(text) ? "dayGym" : dining, !home && /健身房|运动馆|健身中心/.test(text) ? "water" : "tea");
+    if (type === "meal" || /吃饭|用膳|用餐|进餐|早餐|午餐|晚餐|早饭|午饭|晚饭/.test(words)) return at(campus ? "dayCampus" : dining, "meal");
+    if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水/.test(words)) return office ? at("dayOffice", "tea") : at(!home && /健身房|运动馆|健身中心/.test(text) ? "dayGym" : dining, !home && /健身房|运动馆|健身中心/.test(text) ? "water" : "tea");
     if (!home) {
       if (/健身房|运动馆|健身中心/.test(text)) return at("dayGym", /离开|结束/.test(words) ? "exit" : /喝水|补水/.test(words) ? "water" : /休息|歇会/.test(words) ? "rest" : /储物|换衣|存包/.test(words) ? "storage" : /哑铃|力量|举铁/.test(words) ? "weights" : /拉伸|热身|舒展/.test(words) ? "stretch" : "treadmill");
       if (/超市|便利店|生鲜店/.test(text)) return at("dayMarket", /离开|走出/.test(words) ? "exit" : /收银|值班|上班|工作/.test(words) ? "cashier" : /装袋|整理.*袋/.test(words) ? "packing" : /结账|付款/.test(words) ? "checkout" : /购物篮|拿篮/.test(words) ? "basket" : /冷藏|冷柜|牛奶|酸奶/.test(words) ? "cold" : /日用品|货架|洗漱|纸巾/.test(words) ? "groceries" : "produce");
@@ -66,6 +68,8 @@
       if (/诊室|值班室|病历|接诊|查房|诊查/.test(text)) return at("dayClinic", /休息|歇会/.test(words) ? "rest" : /交班|交接/.test(words) ? "handoff" : /接诊|查房|诊查/.test(words) ? "bedside" : /器材|取物/.test(words) ? "equipment" : /值班/.test(words) ? "duty" : "casework");
       if (/创作工作室|画室|手作|绘画|画画|画稿|画架|画布|缝制|织布|雕刻/.test(text)) return at("dayStudio", /材料|取物/.test(words) ? "materials" : /作品|展示|看画/.test(words) ? "gallery" : /晾|晾干/.test(words) ? "drying" : /画架|画布/.test(text) ? "easel" : /手作|缝|织|雕刻/.test(words) ? "handcraft" : "drawing");
       if (/排练室|琴房|练功房|练舞|练琴|排练|排戏|练习乐器/.test(text)) return at("dayRehearsal", /离开|结束/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /乐器.*取|取.*乐器|整理乐器|乐器架/.test(words) ? "instruments" : /乐谱|看谱|读谱|台词|背词/.test(words) ? "score" : /练琴|钢琴|电钢琴/.test(words) ? "piano" : /镜前|镜墙|看镜|检查站姿/.test(words) ? "mirror" : "practice");
+      if (campus) return at("dayCampus", /离开|放学/.test(words) ? "exit" : /课间|休息|歇会/.test(words) ? "rest" : /书包|课本.*取|取.*课本|储物柜/.test(words) ? "lockers" : /板书|写.*黑板|黑板.*写/.test(words) ? "blackboard" : /备课|教案|批改/.test(words) ? "prepare" : /授课|讲课|讲解课程|给.*上课|教学/.test(words) ? "teach" : /自习|做题|复习|备考|作业/.test(words) ? "study" : /笔记|记录/.test(words) ? "notes" : /走廊|下课/.test(text) ? "corridor" : "listen");
+      if (office) return at("dayOffice", /离开|下班/.test(words) ? "exit" : /茶水|喝水|喝茶|咖啡/.test(words) ? "tea" : /休息|歇会/.test(words) ? "rest" : /打印|复印|扫描/.test(words) ? "print" : /取.*文件|取.*资料|文件柜|资料柜|归档/.test(words) ? "files" : /汇报|演示|讲解|演讲/.test(words) && /会议|开会|投影|汇报/.test(text) ? "presentation" : /会议|开会|例会|组会|讨论会/.test(text) ? /笔记|记录/.test(words) ? "meeting-notes" : "meeting" : /手写|写.*笔记|整理文件|整理资料|纸本|记录|备课|教案|批改/.test(words) ? "notes" : "computer");
       if (/车站|候车|站台|公交站|地铁站|客运站/.test(place) || /候车|等车|乘车|赶车|坐车|通勤|出差出发|旅行出发|旅途出发/.test(words)) return at("dayStation", /离开|走出/.test(words) ? "exit" : /进站|走进|进入/.test(words) ? "entrance" : /行李/.test(words) ? "luggage" : /站牌|时刻|路线|信息/.test(words) ? "information" : /问询|服务台|车票/.test(words) ? "service" : /读|看书|翻书/.test(words) ? "reading" : /等车|候车|等待/.test(words) ? "waiting" : /出发|乘车|赶车|通勤|上车/.test(words) ? "departure" : "platform");
     }
     if (type === "out" || /散步|走走|逛街/.test(words)) return at("dayStreet", "walk");

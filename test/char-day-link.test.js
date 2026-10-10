@@ -136,3 +136,26 @@ test('旧运动购物日程按实际地点动作连接，在家拉伸与临时�
  assert.equal(L.presentation({title:'在家拉伸',type:'home'}).map,'dayHome');assert.equal(L.presentation({title:'整理超市购物清单',location:'家里',type:'home'}).map,'dayHome');
  assert.equal(L.presentation({...row('dayGym','weights'),deviation:{actual:'去超市挑选蔬菜',location:'超市'}}).map,'dayMarket');assert.equal(L.validate({scene:'dayGym',spot:'produce'}),null);
 });
+
+test('办公室与校园按实际日程区分汇报、听会、授课、听课；家中与其他明确场所保留原地点',()=>{
+ const {L}=envFor({});
+ for(const [title,location,map,spot]of [['开组会','','dayOffice','meeting'],['备课写教案','办公室','dayOffice','notes'],['处理邮件','公司办公室','dayOffice','computer'],['整理文件','办公室','dayOffice','notes'],['开部门例会','会议室','dayOffice','meeting'],['记录会议笔记','会议室','dayOffice','meeting-notes'],['汇报项目进度','会议室','dayOffice','presentation'],['打印报告','公司','dayOffice','print'],['喝水','办公室','dayOffice','tea'],['上课听讲','教学楼教室','dayCampus','listen'],['记课堂笔记','教室','dayCampus','notes'],['给学生上课','教室','dayCampus','teach'],['授课','教室','dayCampus','teach'],['黑板前板书','教室','dayCampus','blackboard'],['备课写教案','学校','dayCampus','prepare'],['课后做题','校园','dayCampus','study'],['课间休息','校园','dayCampus','rest'],['吃午饭','学校食堂','dayCampus','meal']]){
+  const p=L.presentation({title,location,type:'work'});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);
+ }
+ for(const title of ['在家开会','在家备课','在家上网课'])assert.equal(L.presentation({title,location:'家里',type:'work'}).map,'dayHome');
+ assert.equal(L.presentation({title:'公司附近喝咖啡',location:'咖啡店',type:'coffee'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'学校外吃午饭',location:'餐厅',type:'meal'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'复习课堂笔记',location:'图书馆',type:'work'}).map,'dayLibrary');
+ assert.equal(L.presentation({title:'处理邮件',type:'work'}).map,'dayWork');
+ assert.equal(L.presentation({...row('dayOffice','computer'),deviation:{actual:'改去教室授课',location:'学校'}}).spot,'teach');
+});
+test('两组新场景经原日程生成writer保存与公开投影，合法world优先且视觉识别不产生新写入',async()=>{
+ for(const [scene,spot]of [['dayOffice','computer'],['dayOffice','presentation'],['dayCampus','listen'],['dayCampus','blackboard']]){
+  const raw={...row(scene,spot),title:'原世界具体安排',location:'原来的具体地名'};const f=envFor({seqs:[raw]});
+  assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);assert.match(f.calls[0].spec.instruction,new RegExp(scene));
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0],count=f.writes.length,before=JSON.stringify(f.e.schedulesRef.current);
+  for(let i=0;i<5;i++){const p=f.L.presentation(saved);assert.equal(p.map,scene);assert.equal(p.spot,spot);}
+  assert.equal(saved.title,raw.title);assert.equal(saved.location,raw.location);assert.equal(f.writes.length,count);assert.equal(JSON.stringify(f.e.schedulesRef.current),before);
+  const publicRow=f.L.publicRow(saved);assert.equal(publicRow.world,undefined);assert.equal(publicRow.location,raw.location);
+ }
+});

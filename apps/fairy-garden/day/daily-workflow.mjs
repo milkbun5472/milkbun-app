@@ -1,5 +1,5 @@
-import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {motionClock} from './motion-profile.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-163c7f71112cb39b';
+import {motionClock} from './motion-profile.mjs?v=fg-163c7f71112cb39b';
 
 export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook'};
 export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理'};
