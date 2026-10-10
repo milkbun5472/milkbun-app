@@ -65,7 +65,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   if(!plan)return {ok:false,reason:kind==='cook'?'厨房前没有两个人能走到的位置。':['read','shoulder'].includes(kind)?'先摆一张能走到的双人沙发。':kind==='meal'?'餐桌旁需要两把能走到的空椅子。':'附近没有两个人能站稳的空地。'};
   session={kind,automatic,plan,a:{...origins.a},b:{...origins.b},phase:'walking-ta',elapsed:0,speed:0,tour:kind==='walk'?{moving:false,wait:0,round:0}:null};tell();return {ok:true};
  }
- function pose(actor,at,seated,heading,time,moving,task,profile,gesture='rest',progress=0){actor.root.position.set(at.x,0,at.z);actor.root.rotation.y=heading;actor.animate(time,{moving,seated:!!seated,gesture,progress,task,motion:profile,height:floorHeight(mapId(map()),at)+(seated?seated.rise+.05:0)});}
+ function pose(actor,at,seated,heading,time,moving,task,profile,gesture='rest',progress=0){actor.root.position.set(at.x,0,at.z);actor.root.rotation.y=heading;actor.animate(time,{moving,seated:!!seated,seatPose:seated?.pose,gesture,progress,task,motion:profile,height:floorHeight(mapId(map()),at)+(seated?seated.rise+.05:0)});}
  function walkTogether(s,dt){
   const tour=s.tour,id=mapId(map());
   if(!tour.moving){tour.wait-=dt;if(tour.wait>0)return;

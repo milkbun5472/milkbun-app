@@ -2,14 +2,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {MAPS,walkable,segmentClear} from '../world.mjs';
 import {buildSpace,registerCoreSpaces} from './spaces.mjs';
-import {BASE_HOME,furniturePoint} from './home-catalog.mjs';
+import {BASE_HOME,furniturePoint,furnitureSeat} from './home-catalog.mjs';
 import {chooseVisitSeat,visitSeats,visitorAvoid,createHomeVisit} from './visit.mjs';
 import {motionProfile} from './motion-profile.mjs';
 registerCoreSpaces(MAPS);
 const empty=()=>Object.fromEntries(BASE_HOME.map(p=>[p.id,{stored:true}]));
 test('并排坐位读取实际家具，两侧和四种旋转都分开，路线不穿家具或TA',()=>{
  for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5])for(const offset of [-.6,.6]){
-  const raw={...empty(),sofa:{x:-3,z:0,heading}},map=MAPS.dayHome=buildSpace('dayHome',raw),p=map.furniture.find(p=>p.id==='sofa'),occupied={...furniturePoint(p,{x:offset,z:.05}),piece:p.id},choice=chooseVisitSeat(map,map.spawn,occupied,occupied);
+  const raw={...empty(),sofa:{x:-3,z:0,heading}},map=MAPS.dayHome=buildSpace('dayHome',raw),p=map.furniture.find(p=>p.id==='sofa'),occupied=furnitureSeat(p,null,{x:offset,z:.05}),choice=chooseVisitSeat(map,map.spawn,occupied,occupied);
   assert.ok(choice);assert.equal(choice.shared,true);assert.equal(choice.seat.piece,'sofa');assert.equal(choice.seat.heading,heading);assert.ok(Math.abs(Math.hypot(choice.seat.x-occupied.x,choice.seat.z-occupied.z)-1.2)<1e-9);
   let from=map.spawn;for(const to of choice.route){assert.ok(segmentClear(from,to,'dayHome',visitorAvoid(occupied)));from=to;}assert.ok(walkable(from.x,from.z,'dayHome'));
  }

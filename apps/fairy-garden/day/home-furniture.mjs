@@ -1,6 +1,6 @@
 import {createHomeDecor} from './home-decor.mjs?v=fg-fb6c3a7df3ec4fb8';
 import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-fb6c3a7df3ec4fb8';
-import {HOME_COOK,HOME_PREP} from './home-catalog.mjs?v=fg-fb6c3a7df3ec4fb8';
+import {HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-fb6c3a7df3ec4fb8';
 import {createCollectionFurniture} from './home-collections.mjs?v=fg-fb6c3a7df3ec4fb8';
 
 // Movable meshes use the catalogue footprint and the traveler's original bed /
@@ -39,7 +39,7 @@ export function createHomeFurniture(k,a,p){
   flat('SofaTimberRaft',rounded(a.w-.02,a.d-.02,.22),{y:.34,depth:.12,color:p.wood});
   const back=rounded(a.w-.04,.65,.22);upright('CurvedSofaBack',back,{y:.81,z:-a.d/2+.105,depth:.18,color:p.wood});
   upright('UpholsteredBack',rounded(a.w-.26,.53,.18),{y:.83,z:-a.d/2+.225,depth:.1,color:p.fabric});
-  for(const side of [-1,1]){flat('SofaSeat',rounded((a.w-.38)/2,a.d-.31,.15),{x:side*(a.w-.36)/4,y:.475,z:.065,depth:.11,color:p.fabric});k.ellipsoid('SofaBolster',{x:side*(a.w/2-.17),y:.66,z:.03,w:.27,h:.29,d:a.d-.17,color:p.fabric},g);}
+  for(const side of [-1,1]){flat('SofaSeat',rounded((a.w-.38)/2,furnitureSeatSurface(a).d,.15),{x:side*(a.w-.36)/4,y:.475,z:furnitureSeatSurface(a).z,depth:.11,color:p.fabric});k.ellipsoid('SofaBolster',{x:side*(a.w/2-.17),y:.66,z:.03,w:.27,h:.29,d:a.d-.17,color:p.fabric},g);}
   for(const [side,color]of [[-1,p.accent],[1,p.paper]]){const cushion=upright('SofaCushion',rounded(.43,.43,.12),{x:side*a.w*.32,y:.77,z:-.06,depth:.14,color});cushion.rotation.z=side*.17;}
   for(const x of [-.31,.31])b('BackJoinery',{x,y:.81,z:-a.d/2+.005,w:.065,h:.56,d:.014,color:p.dark,radius:.02});
  }else if(a.kind==='table'){
@@ -50,7 +50,7 @@ export function createHomeFurniture(k,a,p){
   tableware(top);
  }else if(a.kind==='chair'){
   for(const x of [-.185,.185])for(const z of [-.19,.19])leg(x,z,.36);
-  flat('RoundChairSeat',rounded(a.w-.018,a.d-.018,.2),{y:F+.45-.045,depth:.09,color:p.fabric});
+  flat('RoundChairSeat',rounded(a.w-.018,furnitureSeatSurface(a).d,.2),{y:F+.45-.045,z:furnitureSeatSurface(a).z,depth:.09,color:p.fabric});
   const back=arch(a.w-.02,.51);upright('PetalChairBack',back,{y:.61,z:-.235,depth:.072,color:p.fabric,bevel:.012});
   for(const x of [-.2,.2])b('ChairBackSupport',{x,y:.6,z:-.225,w:.045,h:.45,d:.04,color:p.dark,radius:.018});
   if(a.variant==='slat'){upright('ChairBackInset',shift(arch(.38,.36),0,.02),{y:.665,z:-.19,depth:.006,color:p.paper,bevel:0});for(const x of [-.12,0,.12])b('ChairReed',{x,y:.835,z:-.18,w:.032,h:.28,d:.01,color:p.fabric,radius:.008});}
