@@ -113,7 +113,7 @@ function placeViewer(f,initialCharId){
     h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',
     useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
-    React:{Fragment:'Fragment',useLayoutEffect:()=>{}},location:{origin:'http://test.invalid'}
+    React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
   });
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
   const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test'};
@@ -153,4 +153,15 @@ test('已有角色进入摆位保留真实样貌，返回恢复同角色原日�
   viewer.click(tree,'回到日程');const back=viewer.send(viewer.render());
   assert.equal(back.charId,'c1');assert.deepEqual(back.look,first.look);assert.deepEqual(back.presentation,first.presentation);
   assert.equal(back.slot.title,'核对军报');assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
+test('日程页卸载画面前接住临时位置，装修沿同一现场继续且不写日程或游戏存档',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
+  let tree=viewer.render();const first=viewer.send(tree),frame=viewer.all(tree).find(n=>n.tag==='iframe');
+  // Shape comes from CharDayScene.pauseState's runtime writer, never a save key.
+  const paused={charId:'c1',map:first.presentation.map,key:'current-phase',position:{x:1,z:2},target:{x:1,z:2},moving:false,yaw:.4,speed:0,dwell:12,walkTarget:0};
+  frame.props.ref({contentWindow:{CharDayScene:{pauseState:()=>paused}}});frame.props.ref(null);
+  viewer.click(tree,'今天的日程');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();
+  const edit=viewer.send(tree);assert.equal(edit.editing,true);assert.deepEqual(edit.resume,paused);
+  assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
 });
