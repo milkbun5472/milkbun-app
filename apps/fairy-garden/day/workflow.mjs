@@ -1,4 +1,4 @@
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-308f3b440eb00f09';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-337e28073d0dffaf';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation';
 const RECIPES={
