@@ -12,7 +12,7 @@ test("快照里有长期准则和群规矩", () => {
 test("rules 能改能撤，两个入口都接了写口", () => {
   assert.match(A, /rules: \{\n\s+zh: "长期准则"/);
   assert.match(A, /UNDOABLE = \{[^}]*rules: 1/);
-  assert.match(A, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory\|rules\|/);
+  assert.match(A, /"target":"style\|persona\|appearance\|profile\|theme\|pagecolor\|bubble\|memory\|lore\|rules\|/);
   assert.equal((P.match(/onSetDirectives: \(id, lines\) => setDirectives\(/g) || []).length, 2);
 });
 

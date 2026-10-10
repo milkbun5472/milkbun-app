@@ -506,7 +506,7 @@
         ["transfernote", "转账卡上的附言那一行"], ["transferseal", "转账卡上那枚印章"],
         ["photocard", "照片卡整张（相纸的底、边、影）"], ["photocap", "照片底下那行配文"],
         ["photoface", "没真图的照片卡里那块相面（米色渐变那块，改色写 background）"], ["phototext", "相面上那句描述的字"], ["photohint", "照片卡右下「点开看这张」"],
-        ["composer", "底部输入栏整条"], ["chatback", "返回键"], ["wxcard", "聊天里的天气小卡片整张（data-kind＝sun/partly/cloud/fog/rain/storm/snow）"], ["wxcardsky", "天气卡上半截那块天"], ["wxcardtemp", "天气卡上的大字气温"], ["wxcardrain", "天气卡上的降雨概率小签"], ["wxcardsay", "天气卡下半截TA那一句叮嘱"], ["chatmore", "右上角更多/设置键"],
+        ["composer", "底部输入栏整条"], ["narrbar", "旁白模式时输入栏上面那一条（两档＋还在生效的便签）"], ["narrkind", "旁白那两档「此刻发生了什么／往后的方向」（data-on=\"1\" 选中）"], ["dirlong", "「管接下来两轮／整场有效」那颗切换"], ["dirnote", "一条还在生效的方向便签"], ["chatback", "返回键"], ["wxcard", "聊天里的天气小卡片整张（data-kind＝sun/partly/cloud/fog/rain/storm/snow）"], ["wxcardsky", "天气卡上半截那块天"], ["wxcardtemp", "天气卡上的大字气温"], ["wxcardrain", "天气卡上的降雨概率小签"], ["wxcardsay", "天气卡下半截TA那一句叮嘱"], ["chatmore", "右上角更多/设置键"],
         ["chatplus", "输入栏加号键"], ["chatinput", "输入框"], ["send", "发送键"], ["chatreply", "让 TA/他们回复的 AI 键"],
         ["chatpanel", "点＋弹出来的那整块面板（底色、上边线、内边距；群友 2026-10-06 要的）"],
         ["chattool", "加号面板工具键（data-chat-tool 区分 voicemsg／sticker 等）"],
@@ -998,7 +998,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.239", changed: "朋友圈加了投票：mopoll / mopollrow / mopollbar（动态里），mopollbtn / mopollopts（发朋友圈时）", none: "" };
+  const BRIEF_STAMP = { v: "v75.243", changed: "聊天里加了天气小卡片 wxcard / wxcardsky / wxcardtemp / wxcardrain / wxcardsay；天气页底下加了 wxshare / wxshareon / wxsharenudge / wxsharewho", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

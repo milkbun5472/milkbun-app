@@ -570,6 +570,34 @@
         return lines.length || 1;
       }
     },
+    // 世界书（她 2026-10-10：「秋秋能不能导入和修改世界书」）：改一条、新建一条、把她发来的文件拆成几条导进去。
+    //   id＝new 是新建；其余照快照里那条的 id。关键词／常驻／绑谁跟着 patch 走，没写就保持原样。
+    lore: {
+      zh: "世界书词条",
+      read: ctx => ((ctx.loreList && ctx.loreList()) || []).map(e => ({ id: e.id, name: e.title, text: e.payload })),
+      write: (id, patch, ctx) => {
+        if (!ctx.onSaveLore || !ctx.loreList) throw new Error("这个页面没接世界书写入口");
+        const list = ctx.loreList() || [];
+        const chars = ctx.characters || [];
+        const bindIds = String(patch.bind || "").split(/[,，、\s]+/).map(x => x.trim()).filter(Boolean)
+          .map(x => (chars.find(c => c.id === x || c.name === x || c.remark === x) || {}).id).filter(Boolean);
+        const kw = patch.keyword != null ? String(patch.keyword).split(/[,，、]/).map(x => x.trim()).filter(Boolean).join(",") : null;
+        const extra = e => Object.assign({},
+          kw != null ? { keyword: kw } : {},
+          patch.always != null ? { alwaysOn: !!patch.always } : (kw != null ? { alwaysOn: !kw } : {}),
+          bindIds.length ? { charIds: bindIds } : {});
+        if (!id || id === "new") {
+          const e = Object.assign({ id: "le_" + Date.now() + "_" + Math.floor(Math.random() * 1000), title: String(patch.name || "").trim() || "秋秋写的设定",
+            payload: String(patch.text || ""), keyword: "", alwaysOn: true, enabled: true, priority: 3, ensemble: false, ts: Date.now() }, extra({}));
+          ctx.onSaveLore([e].concat(list));
+          return 1;
+        }
+        if (!list.some(e => String(e.id) === String(id))) throw new Error("世界书里找不到这一条了");
+        ctx.onSaveLore(list.map(e => String(e.id) === String(id)
+          ? Object.assign({}, e, { payload: String(patch.text || ""), title: String(patch.name || "").trim() || e.title, ts: Date.now() }, extra(e)) : e));
+        return 1;
+      }
+    },
     memory: {
       zh: "记忆库条目",
       read: () => [],                       // 记忆是往里加，不是改现有的
@@ -735,7 +763,18 @@
     // 美化能退几步、你自己改过哪几条（她 2026-10-05：「也可以让秋秋退，秋秋也可以自己退它做错的」）
     const lookBack = TARGETS.lookundo.read(ctx).map(x => ({ id: x.id, 哪一层: x.name, 存着: x.text }));
     const mine = TARGETS.undo.read(ctx).slice(0, 12).map(x => ({ id: x.id, 改的是: x.name }));
-    return { 角色: chars, 群: groups, 已存的文风预设: styles, 线下设置: offSet,
+    // 世界书：总量不大就整份给；多了就每条只给开头，被改的那条下一轮再给全文（apply 拿 shownLen 兜整段替换）
+    const loreAll = (ctx.loreList && ctx.loreList()) || [];
+    const loreFit = loreAll.reduce((n, e) => n + String((e && e.payload) || "").length, 0) <= 16000;
+    const nameOf = id => ((ctx.characters || []).find(c => c.id === id) || {}).name || id;
+    const lore = loreAll.slice(0, 80).map(e => {
+      const body = loreFit ? String(e.payload || "") : clipRaw(String(e.payload || ""), 300);
+      shownLen[shownKey("lore", e.id)] = body.length;
+      return { id: e.id, 标题: e.title || "（无题）", 关键词: e.keyword || (e.alwaysOn ? "（常驻）" : "（无）"), 启用: e.enabled !== false,
+        绑给: Array.isArray(e.charIds) && e.charIds.length ? e.charIds.map(nameOf) : "所有人", 正文: body,
+        这条是否完整: body.length >= String(e.payload || "").length };
+    });
+    return { 角色: chars, 群: groups, 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
   }
@@ -791,7 +830,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar","id":"要改的那一条的 id；style 留空=新建；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（只有 style 新建时用）预设名","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -852,7 +891,11 @@
       + "· profile 角色档案的其它栏（field 只能是：" + Object.keys(CARD_FIELDS).map(k => k + "＝" + CARD_FIELDS[k]).join("、") + "）\n"
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
-      + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"      + "· bubble 这个人的聊天窗气泡（id＝角色 id；text 是一份 JSON，不是散文）\n"
+      + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
+      + "· lore 世界书词条（快照里【世界书】那一栏）：改一条＝id 照抄那一条的 id，text 是改完的正文（改一小段就用 find）；新建＝id 填 new，name 是标题。"
+      + "可选：keyword＝触发关键词（逗号分开；填了就是聊到这些词才翻出来，不填＝一直在）、always＝true 常驻、bind＝绑给谁（角色名或 id，逗号分开，不填＝所有人都看得到）。"
+      + "她发来一份世界书文件要导进来，就按内容拆成几条，一条一个 patch（这种时候最多 12 条，超过就先导最要紧的、跟她说剩下的下一轮接着导）；"
+      + "人物、地点、势力、规则这种分开写，每条只讲一件事，标题让人一眼看出讲什么。她的原文照搬，别替她改写设定。\n"      + "· bubble 这个人的聊天窗气泡（id＝角色 id；text 是一份 JSON，不是散文）\n"
       + "  可填的栏：myBg／charBg（底色，#hex 或一整段 linear-gradient(...)）、myText／charText（字色）、"
       + "myBorder／charBorder（形如 1px solid #hex）、shadow（形如 0 2px 8px rgba(...)）、chatBg（聊天页底色）、"
       + "radius（0-30 的整数）、mySticker／charSticker（只能逐字复用现状快照里已有的 iv_ 图片门牌，空字符串＝拆掉）、"
@@ -898,7 +941,7 @@
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
-      + "· 一次别超过 3 条 patch；纯粹问功能的时候给空数组，光用 reply 答她。\n"
+      + "· 一次别超过 3 条 patch（导世界书那种全是 lore 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
       + manualBlock(question, here && here.man) + "\n\n"
@@ -922,7 +965,8 @@
     const raw = await callAI(active, buildSystem(ctx, text, history), msgs, { maxTokens: 65535, timeout: 600000, stream: true, signal: signal || undefined });
     const d = (typeof parseJSONLoose === "function" ? parseJSONLoose(raw) : extractJSON(raw)) || {};
     const patches = (Array.isArray(d.patches) ? d.patches : []).filter(x => x && TARGETS[x.target] && String(x.text || "").trim())
-      .slice(0, 3)
+      // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
+      .slice(0, (Array.isArray(d.patches) && d.patches.length && d.patches.every(x => x && x.target === "lore")) ? 12 : 3)
       .map((x, i) => ({
         pid: "p" + Date.now() + "_" + i,
         target: x.target, id: String(x.id || "").trim(),
@@ -931,7 +975,8 @@
         append: x.append === true || x.append === "true",   // 接在这一栏最后（长人设一段一段续）
 
         title: clip(x.title, 60) || TARGETS[x.target].zh,
-        name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200)
+        name: clip(x.name, 30), text: String(x.text).trim(), why: clip(x.why, 200),
+        ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
     // 她要拿走的那份文件：原样保留（不洗代码——那是交给她的东西，不是正文）
     const outFile = d.file && typeof d.file === "object" && String(d.file.text || "").trim()
@@ -1039,7 +1084,7 @@
   const UNDO_KEEP = 40;
   // 能退的：原样写回去就行的那几种。
   // memory 退不了（往里加，没有写回的路）；style 新建也退不了（那要删，不是写回）。
-  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, rules: 1, theme: 1, style: 1, bubble: 1, chatcss: 1, chatlayout: 1, offlinecss: 1, groupcss: 1, grouplayout: 1 };
+  const UNDOABLE = { persona: 1, appearance: 1, profile: 1, rules: 1, lore: 1, theme: 1, style: 1, bubble: 1, chatcss: 1, chatlayout: 1, offlinecss: 1, groupcss: 1, grouplayout: 1 };
   // 聊天窗那几栏（她 2026-10-05：「秋秋也可以自己退它做错的」）：存的不是 before() 那段人话，
   //   是这一层长相那几栏的原样（engine.js lookPick），退的时候整层写回去——气泡那份 JSON 也就退得动了。
   const WIN_KIND = { bubble: "chat", chatcss: "chat", chatlayout: "chat", offlinecss: "offline", groupcss: "group", grouplayout: "group" };
@@ -1054,6 +1099,7 @@
   function undoable(patch) {
     if (!patch || !UNDOABLE[patch.target]) return false;
     if (patch.target === "style" && !patch.id) return false;   // 新建的那一份没有「原来的样子」
+    if (patch.target === "lore" && (!patch.id || patch.id === "new")) return false;
     return true;
   }
   function loadUndo() { try { const a = JSON.parse(localStorage.getItem(UNDO_KEY) || "[]"); return Array.isArray(a) ? a : []; } catch (e) { return []; } }
@@ -1095,7 +1141,7 @@
   function apply(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) throw new Error("不认识的改动类型");
-    if (patch.target !== "style" && patch.target !== "newchar" && !patch.id) throw new Error("这条没说要改谁");
+    if (patch.target !== "style" && patch.target !== "newchar" && !(patch.target === "lore" && (!patch.id || patch.id === "new")) && !patch.id) throw new Error("这条没说要改谁");
     const p = patch;
     // ⚠️存旧版本必须在【写之前】，而且要在算最终文本之前——
     //   算完再存的话，改一小段那一支拿到的已经是新文本了，等于备份了个假的。
@@ -1120,7 +1166,7 @@
       return T.write(p.id, Object.assign({}, p, { text: snippetEdit(cur, p.find, p.text) }), ctx);
     }
     // 整段替换：只看过半截就不许整段替换
-    if (p.target === "persona" || p.target === "appearance" || p.target === "profile") {
+    if (p.target === "persona" || p.target === "appearance" || p.target === "profile" || (p.target === "lore" && p.id && p.id !== "new")) {
       const cur = String(before(p, ctx) || "");
       const seen = shownLen[shownKey(p.target, p.id, p.field)];
       if (cur && seen != null && seen < cur.length)
