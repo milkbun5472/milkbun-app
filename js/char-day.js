@@ -98,7 +98,7 @@
     const openMe=()=>{visitAction("end");setMeDraft(homes.looks?.me||{});setMeNotice("");setMePanel(true);if(!meStyles)fetch("apps/fairy-garden/doll.json?v="+props.build).then(r=>{if(!r.ok)throw Error();return r.json();}).then(setMeStyles).catch(()=>setMeNotice("衣柜还没打开，重新进入可以再试。"));};
     const saveMe=async()=>{if(meBusy)return;setMeBusy(true);try{const next=await saveHomeChange("me","looks",meDraft||{});setHomes(next);setMeDraft(null);setMePanel(false);setMoreOpen(false);}catch{setMeNotice("保存没成功，调整仍在这里，可以重试。");}finally{setMeBusy(false);}};
     const ink = "#4a493c", soft = "#827d69", paper = "#eeeadf";
-    const socialSetting=S.setting(payload),homeVisiting=socialSetting?.home&&visitStatus?.present;
+    const socialSetting=S.setting(payload),homeVisiting=socialSetting?.home&&visitStatus?.charId===String(char?.id)&&visitStatus?.present;
     const visiting=visitStatus?.charId===String(char?.id)&&visitStatus.present;
     function rememberVisit(info,explicit=false){
       const current=stateRef.current,charId=String(info.charId||current?.charId||"");
@@ -334,7 +334,7 @@
         h(Head,{zh:lifePage==='album'?(photo?'这一刻':'小家相册'):lifePage==='kitchen'?'小家厨房':'装修灵感',sub:char.remark||char.name,bg:'transparent',ink,onBack:()=>{if(lifeBusy)return;if(photo){setPhotoId('');setDeletePhoto(false);setLifeNotice('');}else{setLifePage('');if(!moreOpen&&visiting)setTogetherPanel(true);}}}),
         menuBody(h(React.Fragment,null,
           lifePage==='album'&&(photo?h(React.Fragment,null,
-            h('img',{"data-wk":"cdayphoto",src:photo.src,alt:photo.taName+'和'+photo.meName+'在小家的同框',style:{display:'block',width:'100%',borderRadius:8}}),
+            h('img',{"data-wk":"cdayphoto",src:photo.src,alt:photo.taName+'和'+photo.meName+'在'+(photo.place||'小家')+'的同框',style:{display:'block',width:'100%',borderRadius:8}}),
             h('p',{style:{fontSize:12,lineHeight:1.9}},photo.day+' · TA当地 '+photo.time+(photo.place?' · '+photo.place:'')+'\n'+photo.taName+'和'+photo.meName+' · '+photo.activity),
             h('label',{style:{display:'block',fontSize:12}},'给这一刻留一句',h('textarea',{"data-wk":"cdayphotonote",maxLength:200,value:photoNote,disabled:lifeBusy,onChange:e=>setPhotoNote(e.target.value),style:{...btn,width:'100%',display:'block',marginTop:8,minHeight:84,resize:'vertical'}})),
             h('button',{"data-wk":"cdayphotonotesave",style:{...btn,width:'100%',marginTop:10},disabled:lifeBusy,onClick:()=>lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'note',id:photo.id,note:photoNote}))).then(next=>{if(next)setLifeNotice('这句话已留在照片里。');})},'保存这句话'),
