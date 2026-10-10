@@ -19029,7 +19029,8 @@ function ChatSettings({
   // 细调一栏＝在【当前实际显示的那一套】上改：跟随全局时先把全局那份铺开当底，
   // 否则只存一栏改动、别的栏空着，合并回去会拿全局的值顶上，看着像改了又没改全。
   const tuneBubble = patch => setBubble(p => Object.assign({}, BUBBLE_SKIN, p || {}, patch, { _tuned: true }));
-  const [bodyMode, setBodyMode] = useState(!!settings.bodyMode); // 本体模式：不当演员，人设原样当系统提示词（2026-10-09）
+  const [bodyMode, setBodyMode] = useState(!!settings.bodyMode);
+  const [bodyFillState, setBodyFillState] = useState(settings.bodyFillState === true); // 本体模式每轮都留心情、心声、好感（默认关） // 本体模式：不当演员，人设原样当系统提示词（2026-10-09）
   const [engineerEyes, setEngineerEyes] = useState(!!settings.engineerEyes); // 驻场工程师的眼睛：把 app 体征仪表盘给这个角色看
   const [dongnianMsgOnly, setMsgOnly] = useState(settings.dongnianMsgOnly === true); // 想你时只发消息（默认关）
   const [loveLetter, setLoveLetter] = useState(!settings.noLoveLetter); // 允许TA主动写情侣申请信（默认开）
@@ -19339,6 +19340,7 @@ function ChatSettings({
       apiId,
       offlineApiId,
       bodyMode,
+      bodyFillState,
       engineerEyes,
       webSearch,
       noLoveLetter: !loveLetter,
@@ -19396,7 +19398,13 @@ function ChatSettings({
         "开了以后，" + cNm + " 就是 AI 本人，不是 App 在演的一个角色：你写的人设原样当系统提示词，跟你在别的聊天 App 里直连 API 一样；每次回你一整条，长短随 TA，不拆成一条条短气泡。"
         + "去八股那些规矩、世界书和角色卡的写法要求、App 替 TA 编的行程、钱包、随身物、睡意都不发；也不排日程、不自动刷查手机。"
         + "记忆库、长期记忆、最近的聊天、你俩在这儿真一起做过的事照常给。"),
-      h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) })))),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) }))),
+    // 她 2026-10-10 转群友：OOC 叫他每轮填、他答应了不改——那一句压不过每轮的「不留也行」，所以给一颗开关
+    bodyMode ? h("div", { className: "flex items-center justify-between pt-3" },
+      h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "每轮都留心情、心声和好感"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginTop: 2 } }, "关着：想留就留，状态卡有时会空着。开着：每轮都写心情、一句心声和好感变化，跟普通角色一样。")),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: bodyFillState, onChange: () => setBodyFillState(v => !v) }))) : null),
   show("temper", { title: "正在影响 TA · " + innerLifeImpact.live.length + " 项", ...sec("inner-life-impact") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.65, color: t.fog, padding: "7px 0 4px" } },
       "下面这几样，此刻真的在影响 " + cNm + " 怎么说话、什么时候来找你。"),
