@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.366";
+const APP_VERSION = "v75.367";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -1627,6 +1627,14 @@ function App() {
   // MCP 列工具失败：原来只往控制台记一句，手机上看不见，TA就悄悄不带工具聊（她 2026-10-09）。
   //   这一轮照常说话，但要说出来；同一句话十分钟内只说一次，别每轮刷屏。
   const mcpWarnRef = useRef({});
+  // 手上有哪些工具、什么时候用（她 2026-10-11：「我加了 firecrawl 他也不用」）——工具是递过去了，可提示词里一个字没提，
+  //   回话格式又反复说「只输出一个 JSON」，模型就不敢先去调。单聊、群聊共用这一句（one-public-mechanism）
+  const mcpToolHint = tools => {
+    const ts = Array.isArray(tools) ? tools.filter(t => t && t.name) : [];
+    if (!ts.length) return "";
+    return "\n\n【你手上的工具】这一轮你能用这些工具：" + ts.slice(0, 24).map(t => t.name + (t.description ? "（" + String(t.description).replace(/\s+/g, " ").slice(0, 60) + "）" : "")).join("；")
+      + "。碰到要查的——网页、链接里写了什么、实时的消息和数据、你拿不准的事——先用工具查到，再照上面的格式回话；聊天用不上就不用。";
+  };
   const mcpListFailed = e => {
     const msg = String((e && e.message) || e || "");
     console.warn("[mcp] 列工具失败：", e);
@@ -12538,7 +12546,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 这一轮有〔照做〕（多半是一整块 HTML 卡片）：回复会长得多。原来 180 秒一刀、不走流式，
         //   Claude 走中转写一张大卡常常写不完就被掐成「超时」（她 2026-10-06：「要么很快回复文字，要么卡住 time out」）。
         //   这一轮改走流式（边写边收，连接不会因为久没动静被断），总时限给 10 分钟，篇幅上限给满。
-        raw = await callAI(_route, system, aiMessages, { use: "chat", logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天", ...(_doTail ? { maxTokens: 65000, stream: true, timeout: 600000 } : {}) });
+        raw = await callAI(_route, system + mcpToolHint(_mcpT), aiMessages, { use: "chat", logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, wantReasoning: _wantReason, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), meta: _callMeta, tag: "聊天", ...(_doTail ? { maxTokens: 65000, stream: true, timeout: 600000 } : {}) });
       } catch (firstErr) {
         // 有些推理线路偶尔把整次预算花在内部思考、最终不给正文。只对这个窄错误静默补试一次；
         // 不读取/展示隐藏思考，也不对超时和普通上游错误重复扣调用。
@@ -12548,7 +12556,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           retryMessages[i].content += "\n\n【空正文重试】上一次没有产生可展示正文。不要输出分析过程；现在直接完成本轮任务，只输出要求的 JSON 正文。";
           break;
         }
-        raw = await callAI(_route, system, retryMessages, { use: "chat", logRetry: true, logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
+        raw = await callAI(_route, system + mcpToolHint(_mcpT), retryMessages, { use: "chat", logRetry: true, logWho: (char && char.name) || "", signal: _abort.signal, maxTokens: 14000, cacheHistory: _shape.histCache, stream: _engineerChat, timeout: 180000, webSearch: _wantWeb, tools: _mcpT, runTool: (n, ar) => window.MCP.callTool(n, ar), tag: "聊天" });
       }
       // 从坏掉的 JSON 里【只】抠出 word 气泡，绝不把整段原始 JSON（含 thought 心声等内部字段）当消息发出去
       const salvageWords = () => {
@@ -14666,7 +14674,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       checkAutoCall();
       // ⚠️原来抽成一支是为了「查出漏了才重打一次」，那一套已经撤掉（v69.03）。
       //   留着这一支是因为它把一长串调用参数收在一处，比内联回去清楚。
-      const _gShoot = uc => callAI(active, system, [{
+      const _gShoot = uc => callAI(active, system + mcpToolHint(_gMcpT), [{
         role: "user",
         content: uc,
         ...(groupImageDataUrls.length ? { imageDataUrls: groupImageDataUrls } : {})
