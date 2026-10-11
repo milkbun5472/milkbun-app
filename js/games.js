@@ -26,6 +26,8 @@
       desc: "正义与邪恶的任务对抗，梅林认得坏人、刺客要在结局刺杀梅林。", rule: "5~10 人 · 任务制" },
     { key: "monopoly", emoji: "🏙️", zh: "大富翁", en: "Monopoly", min: 2, max: 6,
       desc: "绕城买地、收租和抽事件。角色会按人设谈买卖、拌嘴、结盟和记仇，不会只沉默掷骰子。", rule: "2~6 人 · 买地收租 · 破产淘汰" },
+    { key: "gomoku", emoji: "⚫", zh: "五子棋", en: "Gomoku", min: 2, max: 2,
+      desc: "十五路棋盘，先连成五子的赢。你执黑先手，TA 执白，边下边说话；观战就看两个角色对下（只选一个就跟电脑下）。", rule: "你和一个角色 · 观战两个角色 · 可悔棋" },
     { key: "uno", emoji: "🟥", zh: "UNO", en: "UNO", min: 2, max: 6,
       desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" }
   ];
@@ -234,6 +236,7 @@
     werewolf:  { paper: "#23262e", ink: "#cdd2db", hot: "#8f97a8", band: "#14161b", bandInk: "#cdd2db" },
     avalon:    { paper: "#e6e2d3", ink: "#3f4436", hot: "#8a6a2f", band: "#3f4436", bandInk: "#e6e2d3" },
     monopoly:  { paper: "#e5eee1", ink: "#3a4837", hot: "#5d8b4c", band: "#3a4837", bandInk: "#e5eee1" },
+    gomoku:    { paper: "#ecdcb8", ink: "#4a3a22", hot: "#1f1d1b", band: "#4a3a22", bandInk: "#ecdcb8" },
     uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" }
   };
   function GameLid(props) {
@@ -310,6 +313,15 @@
         h("circle", { key: "i", cx: 91, cy: 55, r: 1.9, fill: "#fff" })
       ]),
       // 扇开的一把牌
+      // 一角棋盘，黑白几颗子斜着连起来
+      gomoku: [
+        h("path", { key: "a", d: "M26 30h68M26 44h68M26 58h68M26 72h68M36 22v58M50 22v58M64 22v58M78 22v58", stroke: c.ink, strokeWidth: 1.4, opacity: .35 }),
+        h("circle", { key: "b", cx: 36, cy: 72, r: 6, fill: c.hot }),
+        h("circle", { key: "c", cx: 50, cy: 58, r: 6, fill: c.hot }),
+        h("circle", { key: "d", cx: 64, cy: 44, r: 6, fill: c.hot }),
+        h("circle", { key: "e", cx: 50, cy: 44, r: 6, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
+        h("circle", { key: "f", cx: 64, cy: 58, r: 6, fill: "#fff", stroke: c.ink, strokeOpacity: .4 })
+      ],
       uno: [0, 1, 2, 3].map(function (i) {
         const rot = -24 + i * 16, col = [c.hot, "#e8b53c", "#3f7fd0", "#4f9a58"][i];
         return h("g", { key: "u" + i, transform: "rotate(" + rot + " 60 76)" },
@@ -372,6 +384,7 @@
       if (session.game.key === "avalon") return h(AvalonGame, engineProps);
       if (session.game.key === "monopoly") return h(MonopolyGame, engineProps);
       if (session.game.key === "uno") return h(UnoGame, engineProps);
+      if (session.game.key === "gomoku") return h(GomokuGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
     if (game) return h(GameSetup, {
@@ -514,6 +527,7 @@
     const [injectChat, setInjectChat] = useState(false);
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
     const [unoRule, setUnoRule] = useState("official"); // official 官方不叠；stack 常见桌规 +2 叠加
+    const [gmkCasual, setGmkCasual] = useState({});   // 五子棋观战：谁「随手」下（没记的＝认真）
     const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
@@ -523,7 +537,7 @@
       const c = lastCfg; if (!c) return;
       const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
       setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
-      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual));
       if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
       setStake(c.stake || "");
     };
@@ -604,6 +618,18 @@
                 h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.55 } }, o.desc));
             })),
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "两种模式的其他规则完全一样；目前只有 +2 是否能叠加不同。")) : null,
+
+        // 五子棋观战：两个人各自认真还是随手下——不分的话两边一样强，看着没意思
+        game.key === "gomoku" && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "各自怎么下"),
+          picked.slice(0, 2).map(function (id) {
+            const c = chars.find(function (x) { return x.id === id; });
+            return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 10, marginBottom: 8 } },
+              h("div", { style: { width: 72, flexShrink: 0, fontFamily: F_BODY, fontSize: 13, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c ? (c.remark || c.name) : ""),
+              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: gmkCasual[id] ? "casual" : "serious", options: [{ key: "serious", zh: "认真" }, { key: "casual", zh: "随手" }],
+                onChange: function (v) { const n = Object.assign({}, gmkCasual); if (v === "casual") n[id] = true; else delete n[id]; setGmkCasual(n); } })));
+          }),
+          picked.length < 2 ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "只选一个人就是 TA 跟电脑下；选两个就看他俩对下。") : null) : null,
 
         // 选人
         h("div", { style: { display: "flex", alignItems: "baseline", marginBottom: 8 } },
@@ -689,7 +715,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -2633,7 +2659,8 @@
     werewolf: ["#5b6478", "#23262e"],
     avalon: ["#8a6a2f", "#3f4436"],
     monopoly: ["#5d8b4c", "#3a4837"],
-    uno: ["#d94f3d", "#8a3428"]
+    uno: ["#d94f3d", "#8a3428"],
+    gomoku: ["#c8a467", "#4a3a22"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -4703,6 +4730,265 @@
       "；每人余牌=" + state.players.map(function (p) { return p.name + ":" + p.hand.length; }).join("，") +
       "；最近记录：\n" + state.log.slice(-8).map(function (x) { return x.text; }).join("\n");
   }
+  // ============================================================
+  // 五子棋 · 引擎（她 2026-10-11：「先做五子棋吧」）
+  // 落子由下面这个打分棋手下，不让模型每步去算：模型算棋慢（几秒一步）、费调用，
+  // 而且它下五子棋本来就弱。TA 只负责【说话】——开局、局面一紧、隔几手、终局，才调一次模型。
+  // 放水局：棋手偶尔看漏一手防守、在几步好棋里随手挑一步。
+  // ============================================================
+  const GMK_N = 15;
+  const GMK_DIRS = [[1, 0], [0, 1], [1, 1], [1, -1]];
+  function gmkEmpty() { const b = []; for (let i = 0; i < GMK_N * GMK_N; i++) b.push(0); return b; }
+  function gmkAt(b, x, y) { return (x < 0 || y < 0 || x >= GMK_N || y >= GMK_N) ? -1 : b[y * GMK_N + x]; }
+  // 这一子落下后，沿某个方向连了几颗、两头各开没开
+  function gmkLine(b, x, y, dx, dy, who) {
+    let n = 1, open = 0, i = 1;
+    while (gmkAt(b, x + dx * i, y + dy * i) === who) { n++; i++; }
+    if (gmkAt(b, x + dx * i, y + dy * i) === 0) open++;
+    i = 1;
+    while (gmkAt(b, x - dx * i, y - dy * i) === who) { n++; i++; }
+    if (gmkAt(b, x - dx * i, y - dy * i) === 0) open++;
+    return { n: n, open: open };
+  }
+  function gmkWins(b, x, y, who) {
+    return GMK_DIRS.some(function (d) { return gmkLine(b, x, y, d[0], d[1], who).n >= 5; });
+  }
+  // 这一格对 who 值多少：四个方向的棋形分加起来
+  function gmkShape(n, open) {
+    if (n >= 5) return 1000000;
+    if (open === 0) return 0;
+    if (n === 4) return open === 2 ? 100000 : 12000;
+    if (n === 3) return open === 2 ? 10000 : 900;
+    if (n === 2) return open === 2 ? 600 : 80;
+    return open === 2 ? 20 : 4;
+  }
+  function gmkCellScore(b, x, y, who) {
+    let s = 0;
+    for (const d of GMK_DIRS) { const l = gmkLine(b, x, y, d[0], d[1], who); s += gmkShape(l.n, l.open); }
+    return s;
+  }
+  // 棋子周围两格以内的空位才值得想
+  function gmkCandidates(b) {
+    const out = [];
+    let any = false;
+    for (let y = 0; y < GMK_N; y++) for (let x = 0; x < GMK_N; x++) {
+      if (b[y * GMK_N + x]) { any = true; continue; }
+      let near = false;
+      for (let dy = -2; dy <= 2 && !near; dy++) for (let dx = -2; dx <= 2 && !near; dx++) { const v = gmkAt(b, x + dx, y + dy); if (v > 0) near = true; }
+      if (near) out.push([x, y]);
+    }
+    if (!any) out.push([7, 7]);
+    return out;
+  }
+  // 这一手下哪儿。rnd 可注入（测试用）
+  function gmkBestMove(b, who, easy, rnd) {
+    rnd = rnd || Math.random;
+    const foe = who === 1 ? 2 : 1;
+    const scored = gmkCandidates(b).map(function (p) {
+      const atk = gmkCellScore(b, p[0], p[1], who), def = gmkCellScore(b, p[0], p[1], foe);
+      // 放水：防守那一半有时看漏（但对方马上成五那一下照样会挡）
+      const seeDef = !easy || def >= 1000000 || rnd() < 0.55;
+      return { x: p[0], y: p[1], s: atk * 1.1 + (seeDef ? def : def * 0.15) };
+    }).sort(function (a, c) { return c.s - a.s; });
+    if (!scored.length) return null;
+    // 能直接赢的那一下谁都不会放过
+    if (scored[0].s >= 1000000 || !easy) return scored[0];
+    const top = scored.filter(function (m) { return m.s >= scored[0].s * 0.4; }).slice(0, 4);
+    return top[Math.floor(rnd() * top.length)] || scored[0];
+  }
+  // 给模型看的局面一句话：谁刚形成了什么，不贴整张棋盘
+  function gmkThreat(b, x, y, who) {
+    let best = 0;
+    for (const d of GMK_DIRS) { const l = gmkLine(b, x, y, d[0], d[1], who); best = Math.max(best, gmkShape(l.n, l.open)); }
+    if (best >= 1000000) return "连成了五子";
+    if (best >= 12000) return best >= 100000 ? "下出了活四，下一手必赢" : "冲了一个四，逼对方必须挡";
+    if (best >= 10000) return "摆出了活三";
+    return "";
+  }
+  const gmkCoord = function (x, y) { return "ABCDEFGHJKLMNOP".charAt(x) + (GMK_N - y); };
+
+  function GomokuGame(props) {
+    const t = props.t, cfg = props.config, api = props.active;
+    const sv = props.savedState;
+    const spectate = cfg.mode === "spectate", easy = cfg.mode === "easy";
+    const findC = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }) || null; };
+    const char = findC((cfg.charIds || [])[0]);
+    // 观战选了两个人：第二个执白跟 TA 对下；只选一个就是 TA 跟电脑下
+    const char2 = spectate ? findC((cfg.charIds || [])[1]) : null;
+    const pf = props.profile || {};
+    const uName = pf.name || "你";
+    const nmOf = function (c) { return c ? (c.remark || c.name) : "TA"; };
+    const cName = nmOf(char), c2Name = char2 ? nmOf(char2) : "电脑";
+    // 执子：1＝黑先，2＝白。她执黑先手；观战时 TA 执黑、另一位（或电脑）执白
+    const userSide = spectate ? 0 : 1, charSide = spectate ? 1 : 2, botSide = spectate ? 2 : 0;
+    // 这一方随手下吗：她下场时看放水；观战时看开局给每个人选的「认真 / 随手」
+    const casual = function (side) {
+      if (!spectate) return easy && side === charSide;
+      const c = side === charSide ? char : char2;
+      return !!(c && cfg.gmkCasual && cfg.gmkCasual[c.id]);
+    };
+    const talkers = [char, char2].filter(Boolean);
+    const [board, setBoard] = useState(sv && sv.board ? sv.board : gmkEmpty());
+    const [moves, setMoves] = useState(sv && sv.moves ? sv.moves : []);    // [{x,y,who}]
+    const [turn, setTurn] = useState(sv && sv.turn ? sv.turn : 1);
+    const [winner, setWinner] = useState(sv ? (sv.winner || 0) : 0);   // 0 未完 / 1 / 2 / 3 和棋
+    const [pend, setPend] = useState(null);       // 她点了一下还没落的那一格（再点一下才落）
+    const [lines, setLines] = useState(sv && sv.lines ? sv.lines : []);   // TA 说过的话
+    const [talking, setTalking] = useState(false);
+    const [heckle, setHeckle] = useState("");
+    const talkBusy = useRef(false), lastTalkAt = useRef(sv && sv.lastTalkAt ? sv.lastTalkAt : 0);
+    const runId = useRef((sv && sv.runId) || ("gomoku-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 8)));
+    const logRef = useRef(null);
+    const sideZh = function (s) { return s === 1 ? "黑" : "白"; };
+    const nameOfSide = function (s) { return s === userSide ? uName : s === charSide ? cName : c2Name; };
+    useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [lines, talking]);
+
+    // 存档：每落一子存一次；终局清掉
+    useEffect(function () {
+      if (winner) { clearGameSave("gomoku"); return; }
+      if (!moves.length) return;
+      saveGameSnap("gomoku", { runId: runId.current, config: cfg, board: board, moves: moves, turn: turn, winner: 0, lines: lines.slice(-30), lastTalkAt: lastTalkAt.current, ts: Date.now(), label: "第 " + moves.length + " 手" });
+    }, [moves.length, winner, lines.length]);
+
+    // TA 开口：一次只调一回模型，不挡着下棋。观战两个人时一回写两个人（各说一句或互相回嘴）
+    const say = function (why, ms) {
+      ms = ms || moves;
+      if (!api || !talkers.length || talkBusy.current) return;
+      talkBusy.current = true; setTalking(true);
+      lastTalkAt.current = ms.length;
+      const lastFew = ms.slice(-6).map(function (m) { return nameOfSide(m.who) + gmkCoord(m.x, m.y); }).join("、");
+      const who = talkers.map(function (c) {
+        const recent = (cfg.injectChat && props.recentChatFor) ? String(props.recentChatFor(c.id) || "").slice(-400) : "";
+        return "■ " + c.name + "（执" + (c === char ? sideZh(charSide) : sideZh(botSide)) + "，" + (casual(c === char ? charSide : botSide) ? "这局随手下" : "这局认真下") + "）\n【人设】" + String(c.persona || "（没写）").slice(0, talkers.length > 1 ? 900 : 1600) + (recent ? "\n【最近在聊】" + recent : "");
+      }).join("\n\n");
+      const scene = spectate
+        ? (char2 ? cName + " 和 " + c2Name + " 在下五子棋，" + uName + " 在旁边看" : cName + " 在跟电脑下五子棋，" + uName + " 在旁边看")
+        : cName + " 在跟 " + uName + " 下五子棋（" + uName + "执黑先手，" + cName + "执白）" + (easy ? "，" + cName + "这局是让着 TA 的" : "");
+      const sys = AC + VOICE_RULE + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照各自的性子——得意、嘴硬、耍赖、认真、斗嘴都行。"
+        + "\n\n" + who
+        + "\n\n【现在】第 " + ms.length + " 手。" + why + (lastFew ? "\n最近几手：" + lastFew : "")
+        + "\n\n" + (talkers.length > 1 ? "两个人里真会开口的说一句，可以一个人说、也可以一来一回，最多三句。" : "说一句。")
+        + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\"}]}";
+      callRetry(api, sys, [{ role: "user", content: "说话。" }], { maxTokens: 8000, tag: "五子棋" }).then(function (raw) {
+        const p = extractJSON(raw) || {};
+        const list = (Array.isArray(p.talks) ? p.talks : (p.say ? [{ name: char && char.name, text: p.say }] : []))
+          .map(function (x) {
+            const c = talkers.find(function (q) { return x && (x.name === q.name || x.name === nmOf(q)); }) || (talkers.length === 1 ? talkers[0] : null);
+            return c && String((x && x.text) || "").trim() ? { id: c.id, name: nmOf(c), text: String(x.text).trim().slice(0, 200), at: Date.now() } : null;
+          }).filter(Boolean).slice(0, 3);
+        if (list.length) setLines(function (L) { return L.concat(list); });
+      }).catch(function () {}).then(function () { talkBusy.current = false; setTalking(false); });
+    };
+    const sendHeckle = function () {
+      const v = heckle.trim(); if (!v) return;
+      setHeckle("");
+      setLines(function (L) { return L.concat([{ me: true, name: uName, text: v.slice(0, 200), at: Date.now() }]); });
+      say("场外的 " + uName + " 插了一句：「" + v.slice(0, 120) + "」。", moves);
+    };
+    useEffect(function () { if (!sv && !moves.length) say("刚摆好棋盘，还没开始。"); }, []);
+
+    const place = function (x, y, who) {
+      if (winner || board[y * GMK_N + x]) return false;
+      const nb = board.slice(); nb[y * GMK_N + x] = who;
+      const nm = moves.concat([{ x: x, y: y, who: who }]);
+      setBoard(nb); setMoves(nm); setPend(null);
+      const won = gmkWins(nb, x, y, who);
+      const full = !won && nm.length >= GMK_N * GMK_N;
+      if (won) setWinner(who); else if (full) setWinner(3); else setTurn(who === 1 ? 2 : 1);
+      // 什么时候说话：终局、局面一紧、或者隔了八手没吭声
+      const th = gmkThreat(nb, x, y, who);
+      const by = nameOfSide(who);
+      if (won) say(by + "刚" + th + "，" + (who === charSide ? "你赢了" : (spectate ? "你输给了电脑" : uName + "赢了")) + "。", nm);
+      else if (full) say("棋盘下满了，和棋。", nm);
+      else if (th) say(by + "刚" + th + "。", nm);
+      else if (nm.length - lastTalkAt.current >= 8) say("下得正胶着，没什么大事。", nm);
+      return true;
+    };
+
+    // 不是她下的那一方：停一拍再落，像在想
+    useEffect(function () {
+      if (winner) return;
+      if (turn === userSide) return;
+      const timer = setTimeout(function () {
+        const m = gmkBestMove(board, turn, casual(turn));
+        if (m) place(m.x, m.y, turn);
+      }, spectate ? 900 : 650);
+      return function () { clearTimeout(timer); };
+    }, [turn, winner, board]);
+
+    const tap = function (x, y) {
+      if (winner || turn !== userSide || board[y * GMK_N + x]) return;
+      // 手机上手指粗：第一下只标出来，同一格再点一下才落
+      if (pend && pend.x === x && pend.y === y) place(x, y, userSide);
+      else setPend({ x: x, y: y });
+    };
+    const undo = function () {
+      // 悔一步＝退回她上一手之前（连同 TA 应的那一手）
+      if (winner || spectate || moves.length < 2 || turn !== userSide) return;
+      const nm = moves.slice(0, -2), nb = gmkEmpty();
+      nm.forEach(function (m) { nb[m.y * GMK_N + m.x] = m.who; });
+      setBoard(nb); setMoves(nm); setPend(null); setTurn(userSide);
+      say(uName + "刚悔了一步棋。", nm);
+    };
+
+    // 棋盘：SVG 一张，跟屏宽走
+    const cell = 22, pad = 16, size = pad * 2 + cell * (GMK_N - 1);
+    const last = moves[moves.length - 1];
+    const stars = [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]];
+    const boardSvg = h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", background: "#e3c58f", borderRadius: 10, boxShadow: "0 2px 10px rgba(0,0,0,.18)", touchAction: "manipulation" },
+        onClick: function (e) {
+          const r = e.currentTarget.getBoundingClientRect();
+          const k = size / r.width;
+          const x = Math.round(((e.clientX - r.left) * k - pad) / cell), y = Math.round(((e.clientY - r.top) * k - pad) / cell);
+          if (x >= 0 && y >= 0 && x < GMK_N && y < GMK_N) tap(x, y);
+        } },
+      Array.from({ length: GMK_N }).map(function (_, i) { return h("g", { key: "l" + i },
+        h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
+        h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
+      stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
+      moves.map(function (m, i) { return h("circle", { key: "m" + i, cx: pad + m.x * cell, cy: pad + m.y * cell, r: cell * 0.43, fill: m.who === 1 ? "#1f1d1b" : "#f7f4ec", stroke: m.who === 1 ? "#000" : "#9c9384", strokeWidth: .8 }); }),
+      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: 3, fill: "#d24b3a" }) : null,
+      pend ? h("circle", { cx: pad + pend.x * cell, cy: pad + pend.y * cell, r: cell * 0.43, fill: userSide === 1 ? "#1f1d1b" : "#f7f4ec", opacity: .45 }) : null);
+
+    const status = winner === 3 ? "和棋"
+      : winner ? nameOfSide(winner) + "（" + sideZh(winner) + "）赢了"
+      : turn === userSide ? (pend ? "再点一下同一格落子" : "轮到你（" + sideZh(userSide) + "）")
+      : nameOfSide(turn) + "在想…";
+    const pAvatar = avatarFor(t);
+    const charP = char ? { char: char, name: cName } : { name: cName };
+
+    return h("div", { "data-wk": "gomoku", className: "h-full flex flex-col", style: gameTable("gomoku", t) },
+      h(Head, { zh: "五子棋", onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },
+        // TA 说的话：最近几句
+        h("div", { "data-wk": "gomokutalk", style: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 } },
+          pAvatar(charP, 40),
+          h("div", { ref: logRef, style: { flex: 1, minWidth: 0, maxHeight: 112, overflowY: "auto", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "8px 12px" } },
+            lines.length ? lines.slice(-6).map(function (l, i) {
+              const spk = l.me ? null : (findC(l.id) || char);
+              return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 13.5, color: l.me ? t.sub : t.ink, lineHeight: 1.6, opacity: i === Math.min(lines.length, 6) - 1 ? 1 : .55 } },
+                (talkers.length > 1 || l.me) ? h("span", { style: { color: t.fog, marginRight: 6 } }, (l.name || "") + "：") : null, l.text,
+                spk ? h(GameVoiceDot, { p: { char: spk }, k: "gmk" + i + "_" + l.at, text: l.text }) : null); })
+              : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, talking ? "…" : cName + " 在对面坐着"),
+            talking && lines.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "…") : null)),
+        boardSvg,
+        spectate && !winner ? h("div", { style: { marginTop: 12 } }, heckleRow(t, heckle, setHeckle, sendHeckle, false)) : null,
+        h("div", { "data-wk": "gomokustatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 12 } }, status),
+        !winner && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },
+          h("button", { "data-wk": "gomokuundo", onClick: undo, disabled: moves.length < 2 || turn !== userSide, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: moves.length < 2 || turn !== userSide ? .5 : 1 } }, "悔一步")) : null,
+        winner ? h("div", { style: { marginTop: 14 } },
+          h("button", { onClick: props.onBack, className: "active:opacity-80", style: { width: "100%", fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
+          char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const res = winner === 3 ? "和棋" : nameOfSide(winner) + "赢了";
+            // 言秋的记忆走 CC，不走 app 记忆库：跟别的桌一样认 ccSeat 开关
+            const seat = function (c) { return { key: c.id, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)) }; };
+            const winC = winner === charSide ? char : (winner === botSide ? char2 : null);
+            return { key: "gomoku", zh: "五子棋", ids: realCharIds(talkers.map(seat)), wins: winC ? realCharIds([seat(winC)]) : [],
+              meWin: spectate ? null : winner === userSide,
+              text: (spectate ? (char2 ? "看 " + cName + " 和 " + c2Name + " 下了一盘五子棋" : "看 " + cName + " 跟电脑下了一盘五子棋") : "跟 " + cName + " 下了一盘五子棋") + "，" + moves.length + " 手，" + res + "。" };
+          } }) : null) : null));
+  }
+
   function UnoGame(props) {
     const t = props.t, api = props.active, cfg = props.config || {};
     const restored = props.savedState && props.savedState.state;

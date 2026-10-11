@@ -5,8 +5,8 @@ const fs = require("node:fs");
 const cmp = fs.readFileSync(require.resolve("../js/components.js"), "utf8");
 const app = fs.readFileSync(require.resolve("../js/app.js"), "utf8");
 test("单聊、群聊两页都挂上；主屏幕模式也挂；垫的量＝聊天页底边超出可视区的那一截", () => {
-  assert.equal((cmp.match(/const kbPadRef = useBrowserKbPad\(\);/g) || []).length, 2);
-  assert.equal((cmp.match(/ref: kbPadRef,/g) || []).length, 2);
+  assert.equal((cmp.match(/const kbPadRef = useBrowserKbPad\(\);/g) || []).length, 3, "单聊、群聊、通话页");
+  assert.equal((cmp.match(/ref: kbPadRef,/g) || []).length, 3);
   const f = cmp.slice(cmp.indexOf("function useBrowserKbPad()"), cmp.indexOf("// 全 App 共用的确认入口。"));
   assert.match(f, /if \(!vv\) return;/);
   assert.doesNotMatch(f, /standalone\) return/, "主屏幕模式也会被压住（她 2026-10-11），不能跳过");

@@ -10884,6 +10884,9 @@ function CallScreen({
   onMinimize,
   onRestore
 }) {
+  // 通话里打字键盘把输入栏整个压住（她 2026-10-11 截图：语音通话点输入，只看见键盘看不见框）：
+  //   通话页是 fixed 铺满屏，iOS 弹键盘不会替它挪；用聊天页同一个垫底的办法（useBrowserKbPad），被压住多少垫多少
+  const kbPadRef = useBrowserKbPad();
   const [camera, setCamera] = useState({ phase: "off", facing: "user", message: "" });
   const cameraRef = useRef(null);
   if (!cameraRef.current) cameraRef.current = window.CallCamera.create(setCamera);
@@ -11400,6 +11403,7 @@ function CallScreen({
   return h("div", {
     // 通话页的挂点（她 2026-09-30：「整体美化都要」）：只是名字、不带样式——data-video="1" 是视频通话
     "data-wk": "call", "data-video": isVideo ? "1" : "0", "data-group": isGroup ? "1" : "0",
+    ref: kbPadRef,
     // fixed 不用 absolute（她 2026-10-07：「上面那节空的」）：贴着屏幕铺，状态栏那一截底下也是TA的画面
     className: "fixed inset-0 z-[70] flex flex-col",
     onPointerDownCapture: () => {
