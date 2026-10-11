@@ -3332,6 +3332,11 @@ function Forum({
   function noticeList() {
     return h("div", { className: "flex-1 overflow-y-auto" },
       forumNotices.length === 0 && h(Empty, { text: "还没有人回复你", sub: "你发帖或在楼里说话后，新的直接回复会出现在这里" }),
+      // 一键已读（群友 2026-10-11：「一边刷一边回已经都看过了，回复那边还显示都没看过」）
+      unreadNoticeCount > 0 && h("div", { className: "px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, unreadNoticeCount + " 条没看"),
+        h("button", { "data-wk": "forumnoticeallread", onClick: () => markNoticesRead(forumNotices.map(n => n.id)), className: "ml-auto active:opacity-60",
+          style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12.5, color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
       forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: forumNoticeRead[n.id] ? "transparent" : t.bg2 } },
         h("button", { onClick: () => openNotice(n), className: "flex-1 min-w-0 text-left flex gap-3 active:opacity-70" },
           avatarFor(n.author, 38, n.author && n.author.anon),
