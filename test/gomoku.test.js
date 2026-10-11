@@ -42,3 +42,14 @@ test("接进游戏架；TA 开口走模型，落子不走", () => {
   assert.match(g, /const m = gmkBestMove\(board, turn,/, "落子没走本地棋手");
   assert.match(g, /saveGameSnap\("gomoku"/, "没存档");
 });
+
+// 她 2026-10-11：「观战不能两个角色吗」「要分认真随手」
+test("观战：两个角色对下，各自认真/随手，一回调用写两个人", () => {
+  const g = src.slice(j, src.indexOf("  function UnoGame(props) {"));
+  assert.match(g, /const char2 = spectate \? findC\(\(cfg\.charIds \|\| \[\]\)\[1\]\) : null;/);
+  assert.match(g, /return !!\(c && cfg\.gmkCasual && cfg\.gmkCasual\[c\.id\]\);/, "认真/随手没接到落子");
+  assert.match(g, /const m = gmkBestMove\(board, turn, casual\(turn\)\);/);
+  assert.match(g, /\{\\"talks\\":\[\{\\"name\\"/, "两个人说话不是一回调用");
+  assert.match(src, /gmkCasual: game\.key === "gomoku" \? gmkCasual : undefined/, "开局没把认真/随手交出去");
+  assert.match(src, /"data-wk": "gomokustrength"/);
+});
