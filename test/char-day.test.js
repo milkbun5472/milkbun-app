@@ -112,7 +112,7 @@ test('生活控制与气质装修共用串行writer，快速手动自动切换�
 function placeViewer(f,initialCharId){
   const states=[],refs=[],snapshots=[];let cursor=0,refCursor=0;
   Object.assign(f.env,{
-    h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',GMsg:'GMsg',GDiary:'GDiary',GUser:'GUser',GConfig:'GConfig',IHome:'IHome',ICamera:'ICamera',IDots:'IDots',IArrow:'IArrow',IRepeat:'IRepeat',IChevR:'IChevR',IPencil:'IPencil',
+    h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',GMsg:'GMsg',GDiary:'GDiary',GUser:'GUser',GConfig:'GConfig',IHome:'IHome',ICamera:'ICamera',IDots:'IDots',IArrow:'IArrow',IRepeat:'IRepeat',IChevR:'IChevR',IPencil:'IPencil',ICheck:'ICheck',GUs:'GUs',GStudy:'GStudy',GBrief:'GBrief',GCoffee:'GCoffee',GWalk:'GWalk',IPulse:'IPulse',GPen:'GPen',GShop:'GShop',ISearch:'ISearch',GMeal:'GMeal',IFilm:'IFilm',GChat:'GChat',GDebate:'GDebate',GBag:'GBag',IHeart:'IHeart',GMoon:'GMoon',Svg:'Svg',
     useState:initial=>{const i=cursor++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
@@ -226,7 +226,7 @@ test('自由逛两种选择覆盖真实目录全部地点，原writer的日程�
  for(const mode of ['solo','together'])for(const p of f.env.CharDayCatalog){
   let tree=v.render();v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();
   const picker=v.all(tree).find(n=>n.props['data-wk']==='cdayoutings');assert.ok(picker);assert.equal(v.all(picker).filter(n=>n.props['data-wk']==='cdaydestination').length,24);
-  v.all(picker).find(n=>n.props['data-wk']==='cdayoutingmode').props.onChange({target:{value:mode}});tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaydestination'&&n.props['data-part']===p.id).props.onClick();tree=v.render();
+  v.all(picker).find(n=>n.props['data-wk']==='cdayoutingchoice'&&n.props['data-part']===mode).props.onClick();tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaydestination'&&n.props['data-part']===p.id).props.onClick();tree=v.render();
   const payload=v.send(tree),setting=f.env.CharDaySocial.setting(payload);assert.equal(payload.outing.mode,mode);assert.equal(payload.presentation.map,p.id);assert.equal(payload.showcase,false);assert.equal(payload.preview,false);assert.equal(payload.slot.title,'核对军报');assert.equal(payload.cameraMode,mode==='solo'?'me':'both');assert.ok(setting);assert.equal(!!setting.solo,mode==='solo');assert.equal(f.env.CharDaySocial.automaticSetting(payload),false);
   v.click(tree,'回到TA');const back=v.send(v.render());assert.equal(back.outing,null);assert.equal(back.presentation.map,'dayWork');assert.equal(back.slot.title,'核对军报');
  }
@@ -251,4 +251,21 @@ test('逛街时延迟抵达的现场消息不把手选动作写回正常生活�
  // The delayed message is the real visitNotice shape, tagged at its scene owner.
  receive({source:v.refs[0].current.contentWindow,origin:'http://test.invalid',data:{type:'char-day-visit',charId:'c1',outing:{map:'dayFarm',mode:'solo'},present:true,control:'manual',manualAction:'rest'}});
  await new Promise(resolve=>setImmediate(resolve));assert.equal(writes,0);
+});
+
+
+test('自由逛同行小票可键盘选择，状态清楚且所有地点仍来自真实目录',()=>{
+ const f=setup(),v=placeViewer(f,'c1');let tree=v.render();v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();
+ const tickets=()=>v.all(tree).filter(n=>n.props['data-wk']==='cdayoutingchoice');
+ assert.equal(tickets().length,2);assert.equal(tickets().filter(n=>n.props['aria-checked']).length,1);
+ for(const n of tickets()){assert.equal(n.props.role,'radio');assert.equal(n.props.style.minHeight,44);assert.equal(typeof n.props.onKeyDown,'function');}
+ tickets().find(n=>n.props['data-part']==='together').props.onClick();tree=v.render();
+ const selected=tickets().find(n=>n.props['aria-checked']);assert.equal(selected.props['data-part'],'together');assert.match(selected.props.style.boxShadow,/inset/);
+ assert.deepEqual(v.all(tree).filter(n=>n.props['data-wk']==='cdaydestination').map(n=>n.props['aria-label']),Array.from(f.env.CharDayCatalog,p=>p.label));
+ assert.equal(f.writes.length,1);
+});
+test('小世界皮肤只在自身外壳，减少动画与键盘焦点均有真实样式',()=>{
+ const f=setup(),v=placeViewer(f,'c1'),tree=v.render(),skin=v.all(tree).find(n=>n.tag==='style');
+ assert.ok(skin);const css=skin.children.join('');assert.match(css,/prefers-reduced-motion/);assert.match(css,/focus-visible/);assert.match(css,/\[data-wk="cdaypage"\] select/);
+ assert.equal(v.all(tree).find(n=>n.props['data-wk']==='cdaytools').props.style.minHeight,56);
 });
