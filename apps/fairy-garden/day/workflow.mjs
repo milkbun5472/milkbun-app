@@ -1,39 +1,9 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-d0b6ca37235d9a48';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-d0b6ca37235d9a48';
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-d0b6ca37235d9a48';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-b420fa0e40e33595';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-b420fa0e40e33595';
+import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-b420fa0e40e33595';
+import {activityGroup,activityConfig} from './activity-groups.mjs?v=fg-b420fa0e40e33595';
 // Visual phases read the original currentSlot; they never create or save schedule events.
-const FARM='dayFarm',FLEA='dayFleaMarket';
-const OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
-const RECIPES={
- ...OCCUPATION_RECIPES,
- [FARM]:{records:[['records',12],['rest',1,'break']],crops:[['crops',6],['records',3],['rest',1,'break']],dock:[['dock',8],['rest',1,'break']]},
- [FLEA]:{fabric:[['fabric',5],['antiques',3],['rest',1,'break']],antiques:[['antiques',5],['fabric',3],['rest',1,'break']],checkout:[['checkout',6]]},
- [OFFICE]:{computer:[['computer',12],['notes',2],['tea',1,'break']],notes:[['notes',12],['files',1],['tea',1,'break']],meeting:[['meeting',12],['meeting-notes',2]],'meeting-notes':[['meeting-notes',12],['meeting',2]],presentation:[['presentation',10],['meeting',2]]},
- [CAMPUS]:{listen:[['listen',10],['notes',3]],notes:[['notes',10],['listen',3]],study:[['study',12],['rest',1,'break']],blackboard:[['blackboard',6],['teach',4],['prepare',1]],teach:[['teach',10],['blackboard',3],['prepare',1]],prepare:[['prepare',12],['rest',1,'break']]},
- [GYM]:{treadmill:[['treadmill',8],['stretch',2],['rest',1,'break']],weights:[['weights',8],['stretch',2],['rest',1,'break']],stretch:[['stretch',8],['rest',1,'break']]},
- [MARKET]:{produce:[['produce',3],['groceries',3],['cold',2]],groceries:[['groceries',5],['produce',2]],cold:[['cold',5],['groceries',2]],checkout:[['checkout',7]],cashier:[['cashier',12],['rest',1,'break']]},
- [LAB]:{bench:[['bench',6],['observation',2],['records',2],['break',1,'break']],observation:[['observation',8],['records',2],['break',1,'break']],computer:[['computer',12],['records',2],['break',1,'break']],records:[['records',12],['break',1,'break']]},
- [LIB]:{'desk-reading':[['desk-reading',12],['study-notes',2],['desk-reading',2,'break']],'window-reading':[['window-reading',14],['window-reading',1,'break']],'study-notes':[['study-notes',12],['desk-reading',3],['study-notes',1,'break']]},
- [CLINIC]:{casework:[['casework',9],['handoff',3],['duty',2],['rest',1,'break']],bedside:[['bedside',6],['casework',5],['rest',1,'break']],handoff:[['handoff',8],['casework',3],['rest',1,'break']],duty:[['duty',12],['handoff',2],['rest',1,'break']]},
- [STUDIO]:{easel:[['easel',8],['gallery',2],['drawing',2],['rest',1,'break']],drawing:[['drawing',10],['gallery',2],['rest',1,'break']],handcraft:[['handcraft',10],['gallery',2],['rest',1,'break']]},
- [REHEARSAL]:{practice:[['practice',8],['mirror',2],['score',2],['rest',1,'break']],mirror:[['mirror',8],['practice',2],['rest',1,'break']],piano:[['piano',12],['score',2],['rest',1,'break']],instruments:[['instruments',10],['score',2],['rest',1,'break']],score:[['score',10],['practice',2],['rest',1,'break']]},
- [STATION]:{waiting:[['waiting',12],['reading',2],['information',1]],reading:[['reading',12],['waiting',2],['information',1]],platform:[['platform',12],['waiting',2]],departure:[['waiting',8],['information',2],['departure',3]],luggage:[['waiting',12],['information',2]]}
-};
-const CONFIG={
- ...OCCUPATION_CONFIG,
- [FARM]:{entry:'entrance',prepare:p=>p.spot==='records'?'records':'supplies',tidy:p=>p.spot,exit:'exit'},
- [FLEA]:{entry:'entrance',prepare:p=>p.spot,tidy:()=> 'packing',exit:'exit',carry:'basket'},
- [OFFICE]:{carry:'book',entry:'entrance',prepare:p=>['meeting','meeting-notes','presentation'].includes(p.spot)?p.spot:'files',tidy:p=>p.spot,exit:'exit'},
- [CAMPUS]:{entry:'entrance',prepare:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',tidy:p=>['teach','blackboard','prepare'].includes(p.spot)?'prepare':'lockers',exit:'exit',carry:'book'},
- [GYM]:{entry:'entrance',prepare:p=>p.spot==='weights'?'take-weights':'storage',tidy:p=>p.spot==='weights'?'take-weights':'storage',exit:'exit'},
- [MARKET]:{entry:'entrance',prepare:p=>p.spot==='cashier'?'cashier':'basket',tidy:p=>p.spot==='cashier'?'cashier':'packing',exit:'exit',carry:'basket'},
- [LAB]:{carry:'sample',entry:'entrance',prepare:p=>['bench','observation'].includes(p.spot)?'materials':'archive',tidy:p=>p.spot,exit:'entrance'},
- [LIB]:{entry:'exit',prepare:()=> 'choose-book',tidy:()=> 'return-book',exit:'exit',carry:'book'},
- [CLINIC]:{entry:'entrance',prepare:()=> 'casefiles',tidy:()=> 'casefiles',exit:'entrance',carry:'clipboard'},
- [STUDIO]:{entry:'entrance',prepare:()=> 'materials',tidy:p=>p.spot==='easel'?'drying':'storage',exit:'exit'},
- [REHEARSAL]:{entry:'entrance',prepare:()=> 'score',tidy:()=> 'score',exit:'exit'},
- [STATION]:{entry:'entrance',prepare:()=> 'luggage',tidy:()=> 'luggage',exit:'departure',carry:'luggage'}
-};
+const FARM='dayFarm',FLEA='dayFleaMarket',OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const MOTIONS={
  ...OCCUPATION_MOTIONS,
  [FARM]:{records:'write',crops:'observe',supplies:'select',dock:'observe'},
@@ -51,46 +21,41 @@ const MOTIONS={
 };
 const LABELS={enter:'走进来',prepare:'准备资料',work:'做事',break:'稍歇一会儿',tidy:'收拾与归还',exit:'准备离开'};
 export function workMotion(map,spot){return MOTIONS[map]?.[spot]||null;}
-function dailyPhase(plain,slot,at){
- const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
- if(span<3||elapsed<0||elapsed>=span||plain.action==='sleep'||plain.action==='walk')return plain;
- const cycles={work:[12,1.5],read:[9,1],tea:[2,1],meal:[5,1],cook:[4,.5],rest:[4,1]},cycle=cycles[plain.action];
- if(!cycle)return plain;
- const offset=elapsed%(cycle[0]+cycle[1]);if(offset<cycle[0])return plain;
- // Small pauses use the existing anchor. Work has a real rest seat; stretching
- // uses the anchor's clear approach rather than standing inside its furniture.
- const standing=['read','work','rest'].includes(plain.action)&&offset>=cycle[0]+cycle[1]*.7;
- const restSpot=plain.map==='dayWork'&&plain.action==='work'?'rest':plain.spot;
- return {...plain,spot:restSpot,phase:'break',phaseLabel:standing?'起身活动一下':plain.action==='cook'?'停一下，看看锅里':plain.action==='tea'?'放下杯子，歇一会儿':'暂歇，稍后继续',motion:null,gesture:standing?'stretch':'rest',standing,carry:false};
-}
-export function activityPhase(p,slot,at,{preview=false}={}){
- const cfg=CONFIG[p.map],carryType=cfg?.carry||null;
- const plain={...p,phase:'work',phaseLabel:LABELS.work,motion:workMotion(p.map,p.spot),carry:p.map===LIB&&p.spot==='return-book',carryType};
- const recipe=RECIPES[p.map]?.[p.spot];
+export function activityPhase(p,slot,at,{preview=false,space=null}={}){
+ const group=activityGroup(p,space),cfg=group?.config,carryType=activityConfig(p.map)?.carry||null;
+ const text=slot?.row?.deviation?.actual||slot?.actual||slot?.title||slot?.row?.title||'';
+ const point=id=>space?.spots.find(s=>s.id===id);
+ const motionFor=id=>occupationMotion(p.map,id,text)||(p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id))||(['tea','meal'].includes(point(id)?.action)?DAILY_MOTIONS[point(id).action]:null);
+ const plain={...p,phase:'work',phaseLabel:LABELS.work,motion:motionFor(p.spot),carry:p.map===LIB&&p.spot==='return-book',carryType};
  if(p.map===GYM)plain.carryType=p.spot==='weights'?'weights':null;
  if(p.map===MARKET){plain.carry=p.spot!=='entrance'&&p.spot!=='cashier'&&p.spot!=='rest';if(p.spot==='cashier')plain.carryType=null;}
- const text=slot?.row?.deviation?.actual||slot?.actual||slot?.title||slot?.row?.title||'';
- const motionFor=id=>occupationMotion(p.map,id,text)||(p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id));
- plain.motion=motionFor(p.spot);
  if(['dayHome','dayCafe','dayWork'].includes(p.map)&&DAILY_MOTIONS[p.action]){plain.motion=DAILY_MOTIONS[p.action];plain.phaseLabel=DAILY_LABELS[p.action];}
- if(p.manual||!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
- if(!recipe)return dailyPhase(plain,slot,at);
+ if(p.manual||!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at)||!group)return plain;
  const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
  if(span<=0||elapsed<0||elapsed>=span)return {...p,motion:null,carry:false};
- const edge=Math.min(1.5,span*.12),entry=edge/3,closing=span-edge;
- let spot=p.spot,phase='work',motion=plain.motion,carry=!!carryType&&p.map!==STATION;
- if(elapsed<entry){spot=cfg.entry;phase='enter';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
- else if(elapsed<edge){spot=cfg.prepare(p);phase='prepare';motion=motionFor(spot);carry=false;}
- else if(elapsed>=span-entry){spot=cfg.exit;phase='exit';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
- else if(elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):[MARKET,FLEA].includes(p.map)?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
+ if(!cfg&&span<3)return plain;
+ const edge=cfg?Math.min(1.5,span*.12):0,entry=edge/3,closing=span-edge;
+ let spot=p.spot,phase='work',motion=plain.motion,carry=!!carryType&&p.map!==STATION&&p.action!=='rest',options={};
+ if(cfg&&elapsed<entry){spot=cfg.entry;phase='enter';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
+ else if(cfg&&elapsed<edge){spot=cfg.prepare(p);phase='prepare';motion=motionFor(spot);carry=false;}
+ else if(cfg&&elapsed>=span-entry){spot=cfg.exit;phase='exit';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
+ else if(cfg&&elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):[MARKET,FLEA].includes(p.map)?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
  else{
-  const duration=recipe.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
-  for(const [id,length,phaseOverride] of recipe){if(cycle<length){spot=id;phase=phaseOverride||'work';if(phase==='work'&&length>=8&&cycle>=5.5&&cycle<6)phase='break';motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
+  const duration=group.beats.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
+  for(const [id,length,phaseOverride,opts]of group.beats){if(cycle<length){spot=id;phase=phaseOverride||'work';options=opts||{};
+   if(cfg&&phase==='work'&&length>=8&&cycle>=5.5&&cycle<6){phase='break';}
+   motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
  }
+ // Furniture may have been stored since the group was selected. Edges use the
+ // same live anchors as beats; an absent cabinet cannot receive a phantom task.
+ if(space&&!point(spot))return plain;
+ const action=options.action||point(spot)?.action||p.action,gesture=phase==='break'?(options.standing?'stretch':'rest'):point(spot)?.gesture||p.gesture;
+ if(!cfg&&['dayHome','dayCafe','dayWork','dayStreet'].includes(p.map))motion=phase==='break'?null:DAILY_MOTIONS[action]||null;
+ if(phase==='break')carry=false;
  if(p.map===LAB&&['records','computer','break'].includes(spot))carry=false;
- if(p.map===GYM){carry=p.spot==='weights'&&['work','tidy'].includes(phase);}
+ if(p.map===GYM)carry=p.spot==='weights'&&['work','tidy'].includes(phase)&&spot!=='water';
  if(p.map===MARKET){carry=p.spot!=='cashier'&&phase!=='enter'&&phase!=='prepare';motion=phase==='exit'?'carry':motion;if(phase==='tidy'&&p.spot!=='cashier'&&elapsed<closing+(edge-entry)/2){spot='checkout';motion='checkout';}}
- return {...p,spot,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':LABELS[phase],motion,carry,carryType:p.map===GYM?plain.carryType:p.map===MARKET&&p.spot==='cashier'?null:carryType};
+ return {...p,spot,action,gesture,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':phase==='work'?(motion===DAILY_MOTIONS[action]?DAILY_LABELS[action]:LABELS.work):options.stroll?'起身走走':options.standing?'起身活动一下':LABELS[phase],standing:!!options.standing,stroll:!!options.stroll,group:group.id,groupLabel:group.label,motion,carry,carryType:p.map===GYM?plain.carryType:p.map===MARKET&&p.spot==='cashier'?null:carryType};
 }
 // Keep the visible suitcase inside available floor space, including when seated.
 export function luggagePosition(map,origin,heading=0){
@@ -101,6 +66,7 @@ export function luggagePosition(map,origin,heading=0){
 export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,motion=null}={}){
  if(stage.phase==='break'&&['dayHome','dayCafe','dayWork','dayStreet'].includes(map.id))return null;
  if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving,motion});
+ if(stage.phase!=='break'&&['tea','meal'].includes(spot?.action)&&![OFFICE,CAMPUS].includes(map.id))return dailyTaskAt({...stage,action:spot.action},spot,map,elapsed,{moving,motion,personal:true});
  const errands=errandsTaskAt(stage,spot,map,elapsed,{moving});if(errands!==undefined)return errands;
  if([OFFICE,CAMPUS].includes(stage.map)&&['tea','meal'].includes(spot?.action))return stage.phase==='break'?null:dailyTaskAt({...stage,action:spot.action},spot,{...map,id:stage.map},elapsed,{moving,motion,personal:true});
  if(stage.phase==='break')return null;

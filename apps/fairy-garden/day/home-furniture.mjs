@@ -1,8 +1,8 @@
-import {createHomeDecor} from './home-decor.mjs?v=fg-d0b6ca37235d9a48';
-import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-d0b6ca37235d9a48';
-import {HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-d0b6ca37235d9a48';
-import {createCollectionFurniture} from './home-collections.mjs?v=fg-d0b6ca37235d9a48';
-import {soupPot,preparationSurface} from './places/kitchen-kit.mjs?v=fg-d0b6ca37235d9a48';
+import {createHomeDecor} from './home-decor.mjs?v=fg-b420fa0e40e33595';
+import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-b420fa0e40e33595';
+import {HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-b420fa0e40e33595';
+import {createCollectionFurniture} from './home-collections.mjs?v=fg-b420fa0e40e33595';
+import {soupPot,preparationSurface} from './places/kitchen-kit.mjs?v=fg-b420fa0e40e33595';
 
 // Movable meshes use the catalogue footprint and the traveler's original bed /
 // chair surfaces. Details belong to their instance, including the thumbnail.
