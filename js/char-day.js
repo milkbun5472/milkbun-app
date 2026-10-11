@@ -42,18 +42,22 @@
   const placeIcon = id => ({dayHome:IHome,dayWork:GBrief,dayCafe:GCoffee,dayStreet:GWalk,dayLaboratory:LabIcon,dayLibrary:GStudy,dayClinic:IPulse,dayStudio:GPen,dayRehearsal:MusicIcon,dayStation:TrainIcon,dayGym:GymIcon,dayMarket:GShop,dayOffice:GBrief,dayCampus:GStudy,dayInvestigation:ISearch,dayService:GMeal,dayFilm:IFilm,dayBroadcast:GChat,dayLegal:GDebate,dayTraining:GymIcon,dayWorkshop:GConfig,dayFarm:FarmIcon,dayFleaMarket:GBag,dayStudy:GDiary})[id]||IHome;
   const actionIcon = kind => /read|study/.test(kind)?GStudy:/drink|tea/.test(kind)?GCoffee:/eat|meal|cook|stir|chop/.test(kind)?GMeal:/clean|wash|tidy|sweep/.test(kind)?GConfig:/sleep|rest|sit|lean/.test(kind)?GMoon:/hand|hug|kiss|cuddle|forehead|cheek|shoulder/.test(kind)?IHeart:/leave|return|end|stand/.test(kind)?IArrow:GUs;
   const clockText = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
-  function dayState(char, plans, at = Date.now()) {
-    const clock = root.ScheduleClock, day = clock.dayKey(char, at), minute = clock.localMinute(char, at);
-    const plan = (plans || {})[day], rows = typeof schedFillEnds === "function" ? schedFillEnds(plan?.seqs || []) : plan?.seqs || [];
-    const slot = clock.currentSlot(char, plans, at, undefined, {
+  function dayState(char, plans, at = Date.now(), options = {}) {
+    const clock = root.ScheduleClock, frame = clock.characterFrame(char, at, options);
+    const pinned=[options.clockSource,options.memorySource].find(v=>v?.virtualAt===frame.displayAt&&/^\d{4}-\d{2}-\d{2}$/.test(v.sourceDay));
+    if(frame.followVirtual&&frame.paused&&pinned)frame.sourceDay=pinned.sourceDay;
+    const plan = (plans || {})[frame.sourceDay], rows = typeof schedFillEnds === "function" ? schedFillEnds(plan?.seqs || []) : plan?.seqs || [];
+    const slot = clock.currentSlot(char, plans, frame.at, frame.offset, {
+      planDay:frame.sourceDay,
       fillEnds: typeof schedFillEnds === "function" ? schedFillEnds : x => x,
       sleepCarry: typeof schedSleepCarry === "function" ? schedSleepCarry : undefined
     });
-    return { day, minute, time: clockText(minute), rows, slot, hasPlan: !!rows.length };
+    return { ...frame, time: clockText(frame.minute), rows, slot, hasPlan: !!rows.length };
   }
   function presentation(slot) { return root.CharDayLink.presentation(slot); }
   let homeWrite=Promise.resolve();
   const sceneContinuity=new Map();
+  const clockSources=new Map();
   function saveHomeUpdate(update){
     const write=homeWrite.catch(()=>{}).then(async()=>{
       const previous=loadJSON("x_charDayHomes",{})||{},next=update(previous);
@@ -71,7 +75,7 @@
     try{
       const worlds=loadJSON("x_worlds",[])||[],realm=root.MapKit?.charRealm?.(char,worlds);
       if(realm?.kind==='world'&&root.WorldWeather){
-        const date=root.ScheduleClock.dayKey(char,at),local=root.ScheduleClock.localMinute(char,at),m=minute==null?local:minute;
+        const frame=root.ScheduleClock.characterFrame(char,at),date=frame.day,m=minute==null?frame.minute:minute;
         const parts=date.split('-').map(Number),sample=new Date(parts[0],parts[1]-1,parts[2],Math.floor(m/60),m%60);
         const weather=root.WorldWeather.hours(realm.world.id+'|'+realm.node,realm.terrain,sample,1)?.[0];
         return weather?.code!=null?{code:weather.code,source:'world',place:realm.node}:null;
@@ -101,6 +105,7 @@
     const L=root.CharDayLife,S=root.CharDaySocial;
     const [homeChoices,setHomeChoices]=useState({});
     const [positionEdit,setPositionEdit]=useState(null),[positionBusy,setPositionBusy]=useState(false),[positionNotice,setPositionNotice]=useState('');
+    const [clockBusy,setClockBusy]=useState(false),[clockNotice,setClockNotice]=useState('');
     const [socialDraft,setSocialDraft]=useState({}),[socialBusy,setSocialBusy]=useState(false),[socialNotice,setSocialNotice]=useState(''),[pairOptions,setPairOptions]=useState([]),[pairDraft,setPairDraft]=useState({}),[choreWho,setChoreWho]=useState('me'),[pairWho,setPairWho]=useState('me');
     const kbLift = useKbLift();
     const now = Date.now();
@@ -114,32 +119,59 @@
       props.onChatVisibility?.(char, chatOpen && !editor && !demo && !showcase && !book && !homeOptions && !moreOpen && !togetherPanel && !professionalPanel && !mePanel && !lifePage && !outingPicker && !positionEdit);
       return () => props.onChatVisibility?.(null, false);
     }, [id, chatOpen, showcase, book, homeOptions, editor, moreOpen, togetherPanel, professionalPanel, mePanel, lifePage, outingPicker, !!positionEdit]);
-    useEffect(() => { const timer = setInterval(() => setPulse(n => n + 1), 1000); return () => clearInterval(timer); }, []);
+    useEffect(() => {
+      const refresh=()=>setPulse(n=>n+1),visible=()=>{if(root.document?.visibilityState!=='hidden')refresh();};
+      const timer=setInterval(refresh,1000);
+      root.addEventListener?.('pageshow',refresh);root.document?.addEventListener?.('visibilitychange',visible);
+      return()=>{clearInterval(timer);root.removeEventListener?.('pageshow',refresh);root.document?.removeEventListener?.('visibilitychange',visible);};
+    }, []);
     React.useLayoutEffect(() => { if (scroll.current) scroll.current.scrollTop = positions.current[homeOptions ? "style" : book ? "book" : "picker"] || 0; }, [book, homeOptions, id]);
     React.useLayoutEffect(()=>{if(decorScroll.current)decorScroll.current.scrollTop=decorPositions.current[decorPanel]||0;},[decorPanel]);
     React.useLayoutEffect(()=>{if(menuScroll.current)menuScroll.current.scrollTop=menuPositions.current[menuKey]||0;},[moreOpen,togetherPanel,mePanel,professionalPanel,professionalScene,book,homeOptions,id,lifePage,photoId,kitchenView,kitchenRecipe,outingPicker,positionEdit?.expected]);
     const pick = value => {const trip=sceneContinuity.get(String(value))?.outing||null;setOuting(trip);setOutingPicker(false);setPositionEdit(null);setPositionNotice(''); setLifePage('');setPhotoId('');setKitchenRecipe('');setKitchenView('book');setLifeNotice('');setKitchenStatus(null);setCameraMode(trip?.mode==='solo'?'me':trip?'both':'ta'); setMoreOpen(false);setTogetherPanel(false);setMePanel(false);setProfessionalPanel(false);setId(value); setPreview(null); setBook(false); setDemoIndex(0); setHomeOptions(false); setEditor(null); setDecorPanel(""); setLayoutNotice(""); setStyleNotice(""); setShowcase(""); setSpotId(""); setChatOpen(false); setChatMounted(false); setVisitStatus(null); setFollow(true); setSceneStatus("正在准备画面…"); props.onSelect?.(value === DEMO.id ? "" : value); };
     const room=places.find(p=>p.id===showcase), spot=room?.spots.find(s=>s.id===spotId)||room?.spots[0];
     const visitPlaces=()=>{setOuting(null);setMoreOpen(false);if(!char)pick(DEMO.id);setShowcase("dayLaboratory");setSpotId("");setFollow(false);};
-    const openPosition=(row,day)=>{
+    const openPosition=(row,day,phaseIndex)=>{
       const raw=props.plansFor?.(char)?.[day]?.seqs?.find(q=>q.seq===row?.seq);
       if(!raw||demo||!props.onEditSchedSeq)return;
-      const at=presentation(raw),scene=(root.CharDayCatalog||[]).find(s=>s.id===at.map);
-      setPositionNotice('');setPositionEdit({day,seq:raw.seq,expected:JSON.stringify(raw),row:raw,automatic:!raw.world?.manual,scene:scene?.id||'dayHome',spot:at.spot||scene?.spots[0]?.id});
+      const stages=root.CharDayLink.stagesFor(raw),stageIndex=Number.isInteger(phaseIndex)&&stages[phaseIndex]?phaseIndex:0;
+      const phase=stages[stageIndex],chosen=phase&&(phase.override||phase),at=chosen?{map:chosen.scene,spot:chosen.spot}:presentation(raw),scene=(root.CharDayCatalog||[]).find(s=>s.id===at.map);
+      setPositionNotice('');setPositionEdit({day,seq:raw.seq,expected:JSON.stringify(raw),row:raw,stages,scope:phase?'stage':'whole',stageIndex,automatic:phase?!phase.override:!raw.world?.manual,scene:scene?.id||'dayHome',spot:at.spot||scene?.spots[0]?.id});
     };
+    const choosePositionTarget=(scope,index)=>setPositionEdit(draft=>{
+      const stageIndex=index==null?draft.stageIndex:Number(index),phase=scope==='stage'?draft.stages[stageIndex]:null;
+      if(scope==='stage'&&!phase)return draft;
+      const chosen=phase&&(phase.override||phase),at=chosen?{map:chosen.scene,spot:chosen.spot}:presentation(draft.row),scene=(root.CharDayCatalog||[]).find(s=>s.id===at.map);
+      return {...draft,scope,stageIndex,automatic:phase?!phase.override:!draft.row.world?.manual,scene:scene?.id||'dayHome',spot:at.spot||scene?.spots[0]?.id};
+    });
     const closePosition=()=>{if(!positionBusy){setPositionEdit(null);setPositionNotice('');}};
     const savePosition=async()=>{
       if(!positionEdit||positionBusy)return;
       const draft=positionEdit;setPositionBusy(true);setPositionNotice('');
       try{
-        const world=draft.automatic?null:{scene:draft.scene,spot:draft.spot,manual:true};
-        const ok=await props.onEditSchedSeq(char,draft.day,draft.seq,{world},draft.expected);
+        const anchor=draft.automatic?null:{scene:draft.scene,spot:draft.spot};
+        const patch=draft.scope==='stage'?{worldStage:{index:draft.stageIndex,anchor}}:{world:anchor&&{...anchor,manual:true}};
+        const ok=await props.onEditSchedSeq(char,draft.day,draft.seq,patch,draft.expected);
         if(!ok){setPositionNotice('没能保存，或这一段已经改过了。返回重新打开后再试。');return;}
         if(preview&&preview.seq===draft.seq){const row=props.plansFor?.(char)?.[draft.day]?.seqs?.find(q=>q.seq===draft.seq);if(row)setPreview({...row,key:'preview:'+char.id+':'+draft.day+':'+JSON.stringify(row)});}
         setPositionEdit(null);setFollow(true);
       }catch{setPositionNotice('保存没成功，选择还在这里，可以再试。');}finally{setPositionBusy(false);}
     };
-    const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now)) : null;
+    const clockMode=homes.clockModes?.[String(char?.id)]==='real'?'real':'auto';
+    const changeClock=async mode=>{if(clockBusy||demo||!['auto','real'].includes(mode))return;setClockBusy(true);setClockNotice('');try{setHomes(await saveHomeChange(char.id,'clockModes',mode));}catch{setClockNotice('没有保存成功，当前选择保持原样，可以再试。');}finally{setClockBusy(false);}};
+    const state = char ? (demo ? { day: "示例日程", time: DEMO_ROWS[demoIndex].time, rows: DEMO_ROWS, hasPlan: true, slot: { ...DEMO_ROWS[demoIndex], key: "demo:" + demoIndex } } : dayState(char, props.plansFor?.(char) || {}, now,{followVirtual:clockMode!=='real',clockSource:homes.clockSources?.[String(char.id)],memorySource:clockSources.get(String(char.id))})) : null;
+    // Foreground return reanchors the main clock's real timestamp. A frozen
+    // clock keeps its original plan archive, including after a browser reload.
+    useEffect(()=>{
+      if(!char||demo||preview||showcase||!state?.followVirtual||!state.paused)return;
+      const charId=String(char.id),pin={virtualAt:state.displayAt,sourceDay:state.sourceDay};
+      clockSources.set(charId,pin);
+      const saved=homes.clockSources?.[charId];
+      if(saved?.virtualAt===pin.virtualAt&&saved.sourceDay===pin.sourceDay)return;
+      let live=true;
+      saveHomeChange(charId,'clockSources',pin).then(next=>{if(live)setHomes(next);}).catch(()=>{});
+      return()=>{live=false;};
+    },[char?.id,demo,preview,showcase,state?.followVirtual,state?.paused,state?.displayAt,state?.sourceDay]);
     const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情" : "今天还没有日程");
     const visitorData=props.visitorFor?.(char)||{};
     const destinations=root.CharDayCatalog||[],outingPlace=destinations.find(p=>p.id===outing?.map);
@@ -147,10 +179,13 @@
     const openOutings=()=>{setOutingMode(trip?.mode||'solo');setOutingPicker(true);};
     const goOuting=map=>{if(!destinations.some(p=>p.id===map))return;setPreview(null);setShowcase('');setSpotId('');setBook(false);setOuting({map,mode:outingMode});setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setVisitStatus(null);setFollow(true);setCameraMode(outingMode==='solo'?'me':'both');};
     const returnToTA=()=>{setOuting(null);setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setBook(false);setPreview(null);setShowcase('');setSpotId('');setVisitStatus(null);setFollow(true);setCameraMode('ta');};
-    const visual = root.CharDayLink.resolve(slot, now, {preview:!!preview||demo});
-    const stagePlace = visual.presentation.stageCount ? visual.activitySlot?.location || slot?.location : slot?.location;
+    const visual = root.CharDayLink.resolve(slot, state?.at ?? now, {preview:!!preview||demo});
+    const stageIndex=!preview&&!demo&&activityStatus?.charId===String(char?.id)&&activityStatus.key===slot?.key&&Number.isInteger(activityStatus.stageIndex)&&visual.stages[activityStatus.stageIndex]?activityStatus.stageIndex:visual.presentation.stageIndex;
+    const activeStage=visual.stages[stageIndex],manualPoint=activeStage?activeStage.override:visual.presentation.manual?{scene:visual.presentation.map,spot:visual.presentation.spot}:null;
+    const stagePlace = manualPoint ? (root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.label : activeStage?.location || slot?.location;
+    const nextStage=visual.stages[stageIndex+1];
     const payload = char && { outing:trip,socialPreferences:socialDraft[String(char.id)]||homes.socialPreferences?.[String(char.id)]||{},pairStyle:pairDraft[String(char.id)]?.ta||homes.pairStyles?.[String(char.id)]||'auto',persona:char.persona||"",motionStyle:demo?demoMotion:homes.motions?.[String(char.id)]||"auto",visitorData:{...visitorData,pairStyle:pairDraft[String(char.id)]?.me||homes.visitorPairStyles?.[String(char.id)]||'auto',homePresence:homeChoices[String(char.id)]||homes.presence?.[String(char.id)]||'with',activityChoice:demo?"auto":homes.visitorActivities?.[String(char.id)]||"auto",motionStyle:demo?demoVisitorMotion:homes.visitorMotions?.[String(char.id)]||"auto"},charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, visitorLook:meDraft||homes.looks?.me||visitorData.look||{},visitorPreview:mePanel,professional:demo?demoProfessional:homes.professional?.[String(char.id)]||{},slot: slot || null, activitySlot:visual.activitySlot || null,
-      at: preview || demo ? null : now, preview: !!preview || demo, scenePaused:!!(book||homeOptions||moreOpen||togetherPanel||professionalPanel||lifePage||mePanel||outingPicker||positionEdit), editing: !!editor, resume:scenePause.current?.charId===String(char.id)?scenePause.current:!preview&&!demo&&!showcase?sceneContinuity.get(String(char.id))||null:null, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
+      at: preview || demo ? null : state.at, preview: !!preview || demo, scenePaused:!!(book||homeOptions||moreOpen||togetherPanel||professionalPanel||lifePage||mePanel||outingPicker||positionEdit), editing: !!editor, resume:scenePause.current?.charId===String(char.id)?scenePause.current:!preview&&!demo&&!showcase?sceneContinuity.get(String(char.id))||null:null, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
       homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase && !editor,
       presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : trip ? {map:trip.map,action:'rest',gesture:'rest'} : visual.presentation, cameraMode,kitchenJob:demo?null:homes.kitchens?.[String(char.id)]?.pending||null,kitchenCarry:demo?[]:L.kitchen(homes.kitchens?.[String(char.id)]).dishes.filter(d=>d.packed&&d.owner==='ta'), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
       key: trip&&!editor ? "outing:"+char.id+":"+trip.map+":"+trip.mode : showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
@@ -253,7 +288,7 @@
             throw Error('画面还没准备好，稍后点重新取景。');
           }
           const shot=api.capturePhoto();if(!shot||shot.charId!==String(char.id))throw Error('画面还在准备，请重新取景。');
-          const at=Date.now(),photo={id:uniqueId(),charId:String(char.id),src:shot.src,at,day:root.ScheduleClock.dayKey(char,at),time:clockText(shot.minute),taName:char.remark||char.name,meName:visitorData.name||'我',activity:shot.activity,place:shot.place||'',map:shot.map,note:''};
+          const at=Date.now(),photo={id:uniqueId(),charId:String(char.id),src:shot.src,at,day:root.ScheduleClock.characterFrame(char,at).day,time:clockText(shot.minute),taName:char.remark||char.name,meName:visitorData.name||'我',activity:shot.activity,place:shot.place||'',map:shot.map,note:''};
           setPhotoDraft({key,photo});
         }catch(e){setPhotoPreviewNotice(e.message||'取景没成功，可以再试一次。');}
       };
@@ -425,15 +460,18 @@
         h("span", { style: { fontSize: 11, color: soft } }, row.time + "—" + row.end + (state.slot?.time === row.time ? " · 此刻" : "")),
         h("div", { style: { fontSize: 14, lineHeight: 1.8, marginTop: 4 } }, row.title),
         row.location && h("div", { style: { color: soft, fontSize: 12, lineHeight: 1.8 } }, row.location),
-        row.deviation && h("div", { style: { color: "#9b674d", fontSize: 12, lineHeight: 1.8 } }, "临时改了：" + (row.deviation.actual || row.deviation.reason || "安排有变化"))),!demo&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen","aria-label":"改位置："+row.title,style:{...btn,alignSelf:"center"},onClick:()=>openPosition(row,state.day)},"改位置"))),
+        row.deviation && h("div", { style: { color: "#9b674d", fontSize: 12, lineHeight: 1.8 } }, "临时改了：" + (row.deviation.actual || row.deviation.reason || "安排有变化"))),!demo&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen","aria-label":"改位置："+row.title,style:{...btn,alignSelf:"center"},onClick:()=>openPosition(row,state.sourceDay||state.day)},"改位置"))),
       !demo && h("button", { style: { ...btn, width: "100%", marginTop: 12 }, onClick: () => props.onSchedule?.(char) }, "去日历看完整安排"))));
+    const positionStage=positionEdit?.scope==='stage'?positionEdit.stages[positionEdit.stageIndex]:null;
     const positionScene=(root.CharDayCatalog||[]).find(s=>s.id===positionEdit?.scene);
     const positionView=positionEdit&&h("section",{"data-wk":"cdaypositionpage",className:"absolute inset-0 flex flex-col",style:{...UI.surface,zIndex:24}},
       h(Head,{zh:"改位置",sub:char.remark||char.name,bg:"transparent",ink,lineInk:UI.line,subInk:soft,onBack:closePosition}),
       menuBody(h(React.Fragment,null,
         h("p",{style:{fontSize:11,color:soft,margin:"0 0 6px"}},positionEdit.day+" · "+positionEdit.row.time+"—"+positionEdit.row.end),
         h("p",{style:{fontSize:14,lineHeight:1.8,margin:"0 0 6px"}},positionEdit.row.deviation?.actual||positionEdit.row.title),
-        h("p",{style:{fontSize:12,color:soft,lineHeight:1.8,margin:"0 0 18px"}},"只调整这一段在小世界里的场景和站位，日程里的事情和地点文字照旧。保存后立即生效，这一段结束后继续下一段。"),
+        h("p",{style:{fontSize:12,color:soft,lineHeight:1.8,margin:"0 0 18px"}},positionStage?"只调整选中这一步在小世界里的场景和动作位置，后面的步骤照常继续。日程里的事情、地点和时间文字照旧。":"只调整这一段在小世界里的场景和站位，日程里的事情和地点文字照旧。保存后立即生效，这一段结束后继续下一段。"),
+        positionEdit.stages.length>1&&menuSection("调整范围",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8}},...[["stage","只改一步"],["whole","整段日程"]].map(([scope,label])=>h("button",{key:scope,"data-wk":"cdaypositionscope","data-part":scope,"aria-pressed":positionEdit.scope===scope,disabled:positionBusy,style:{...btn,borderColor:positionEdit.scope===scope?"#8b9e7e":UI.line},onClick:()=>choosePositionTarget(scope)},label)))),
+        positionStage&&menuSection("要改哪一步",h("select",{"data-wk":"cdaypositionstage","aria-label":"选择日程阶段",disabled:positionBusy,value:positionEdit.stageIndex,style:{...btn,width:"100%",height:44},onChange:e=>choosePositionTarget('stage',e.target.value)},...positionEdit.stages.map((stage,index)=>h("option",{key:index,value:index},stage.title)))),
         h("button",{"data-wk":"cdaypositionauto","aria-pressed":positionEdit.automatic,disabled:positionBusy,style:{...btn,width:"100%",textAlign:"left",marginBottom:20,borderColor:positionEdit.automatic?"#8b9e7e":UI.line},onClick:()=>setPositionEdit(v=>({...v,automatic:true}))},"按日程自动匹配",positionEdit.automatic?" · 已选":""),
         menuSection("场景",h("select",{"data-wk":"cdaypositionscene","aria-label":"场景",disabled:positionBusy,value:positionEdit.scene,style:{...btn,width:"100%",height:44},onChange:e=>{const scene=(root.CharDayCatalog||[]).find(s=>s.id===e.target.value);if(scene)setPositionEdit(v=>({...v,automatic:false,scene:scene.id,spot:scene.spots[0]?.id}));}},...(root.CharDayCatalog||[]).map(s=>h("option",{key:s.id,value:s.id},s.label)))),
         menuSection("具体位置",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8}},...(positionScene?.spots||[]).map(p=>h("button",{key:p.id,"data-wk":"cdaypositionspot","data-part":p.id,"aria-pressed":!positionEdit.automatic&&positionEdit.spot===p.id,disabled:positionBusy,style:{...btn,textAlign:"left",borderColor:!positionEdit.automatic&&positionEdit.spot===p.id?"#8b9e7e":UI.line},onClick:()=>setPositionEdit(v=>({...v,automatic:false,spot:p.id}))},p.label,!positionEdit.automatic&&positionEdit.spot===p.id?" · 已选":"")))),
@@ -444,12 +482,14 @@
         h("iframe", { key: char.id + ":" + retry, ref: bindScene, title: "TA的一天场景", "aria-hidden":!!decorPanel, src: "apps/fairy-garden/day/index.html?v=" + props.build,
           onLoad: send, style: { width: "100%", height: "100%", border: 0, display: "block", pointerEvents:layoutBusy?"none":"auto" } }),
         editor ? h("div",{"data-wk":"cdayeditnote",role:"status",style:{display:decorPanel?"none":"block",position:"absolute",top:66,left:12,right:12,padding:"10px 12px",borderRadius:12,background:"rgba(250,247,236,.94)",fontSize:12,lineHeight:1.7,pointerEvents:"none"}},layoutNotice||"家具在地面拖，墙饰在墙上拖 · 双指缩放",h("div",{style:{fontSize:11,color:soft}},"床椅收起后会换可用同类，没有同类就先休息。")) : h("div", { "data-wk": "cdaynow", style: { visibility:mePanel?"hidden":"visible",position: "absolute", top: 12, left: 12, right: 12, maxWidth:480, padding: "13px 15px", borderRadius: "6px 18px 18px 18px", border:"1px solid #ffffffe0",background: "rgba(252,253,245,.94)", boxShadow: "0 4px 16px #3c483015",borderLeft:"3px solid #9eae88", pointerEvents: "none" } },
-          h("div", { style: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:11,color:UI.accent,fontWeight:500} },h("span",null,trip ? "自由逛 · "+outingPlace.label : showcase ? "摆位试玩 · "+(room?.label||"正在准备房间") : demo ? "示例试玩 · " + slot.time : preview ? "预览日程 · " + slot.time + "—" + slot.end : "此刻 · TA当地 " + state.time),!trip&&!demo&&!showcase&&slot?.seq!=null&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen",style:{...btn,pointerEvents:"auto",padding:"5px 9px",background:"transparent",border:0,flexShrink:0},onClick:()=>openPosition(slot,slot.sourceDay||state.day)},h(IPencil,{size:14,color:soft})," 改位置")),
+          h("div", { style: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:11,color:UI.accent,fontWeight:500} },h("span",null,trip ? "自由逛 · "+outingPlace.label : showcase ? "摆位试玩 · "+(room?.label||"正在准备房间") : demo ? "示例试玩 · " + slot.time : preview ? "预览日程 · " + slot.time + "—" + slot.end : "此刻 · TA当地 " + state.time),!trip&&!demo&&!showcase&&slot?.seq!=null&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen",style:{...btn,pointerEvents:"auto",padding:"5px 9px",background:"transparent",border:0,flexShrink:0},onClick:()=>openPosition(slot,slot.sourceDay||state.sourceDay||state.day,stageIndex)},h(IPencil,{size:14,color:soft}),visual.stages.length?" 改阶段":" 改位置")),
           h("div", { style: { fontSize: 14,fontWeight:500, lineHeight: 1.7, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, trip ? (trip.mode==='solo'?'你自己逛逛':'和TA一起逛逛') : showcase ? (spot ? spot.number+" · "+spot.label : "入口") : title),
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           trip && h('div',{"data-wk":"cdayoutingplan",style:{fontSize:11,lineHeight:1.6,color:soft,marginTop:3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},'TA的原安排 · '+state.time+' · '+title),
           !kitchenOnScene && !trip && !showcase && (stagePlace || visual.presentation.stageLabel) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (stagePlace || "此刻") + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? (activityStatus.groupLabel?" · "+activityStatus.groupLabel:"")+" · "+activityStatus.label+(activityStatus.spotLabel?" · "+activityStatus.spotLabel:"") : "")),
-          !trip&&!showcase&&payload.presentation.manual&&h("div",{style:{fontSize:11,color:soft,marginTop:3}},"位置已手动指定 · "+(root.CharDayCatalog||[]).find(s=>s.id===payload.presentation.map)?.label+" · "+((root.CharDayCatalog||[]).find(s=>s.id===payload.presentation.map)?.spots.find(p=>p.id===payload.presentation.spot)?.label||"")),
+          !trip&&!showcase&&visual.presentation.stageCount>1&&h("div",{"data-wk":"cdayphase",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:5,borderTop:"1px solid "+UI.line,paddingTop:5}},h("div",{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},"正在 · "+(activeStage?.title||visual.presentation.stageLabel)),h("div",{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},nextStage?"接下来 · "+nextStage.title:"本段最后一步")),
+          !demo&&!preview&&!showcase&&state.virtual&&h("div",{"data-wk":"cdayclocknote",style:{fontSize:11,color:soft,marginTop:3}},state.followVirtual?"活动跟角色钟"+(state.paused?" · 已暂停":""):"活动按现实时间 · "+clockText(root.ScheduleClock.localMinute(char,now))),
+          !trip&&!showcase&&manualPoint&&h("div",{style:{fontSize:11,color:soft,marginTop:3}},(activeStage?"这一步已指定位置":"位置已手动指定")+" · "+(root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.label+" · "+((root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.spots.find(p=>p.id===manualPoint.spot)?.label||"")),
           !trip && !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
           !kitchenOnScene&&payload.kitchenCarry?.length>0&&h("div",{"data-wk":"cdaykitchencarry",style:{fontSize:11,color:soft,marginTop:3}},"给TA装好了便当："+payload.kitchenCarry.map(L.dishName).join("、")),
           !kitchenOnScene&&pendingJob&&h("div",{"data-wk":"cdaykitchenprogress",style:{fontSize:11,color:soft,marginTop:3}},L.recipe(pendingJob.recipeId)?.name+" · "+(pendingJob.ready?"做好了，到生活里的厨房收好":kitchenStatus?.label||({paused:"这份先放着，去厨房继续",preparing:"一起备菜",stirring:"锅边搅拌",serving:"准备盛出来",eating:"一起吃饭",ready:"做好了，到厨房收好"})[kitchenStatus?.phase]||"去厨房继续")),
@@ -475,6 +515,7 @@
       styleView,bookView,positionView,
       moreOpen&&!homeOptions&&!book&&!mePanel&&!professionalPanel&&!lifePage&&!outingPicker&&h("section",{"data-wk":"cdaymore",className:"absolute inset-0 flex flex-col",style:{...UI.surface,zIndex:18}},h(Head,{zh:"更多",sub:char.remark||char.name,bg:"transparent",ink,lineInk:UI.line,subInk:soft,onBack:()=>setMoreOpen(false)}),menuBody(h(React.Fragment,null,
         !demo&&menuSection("出门走走",menuRow({"data-wk":"cdayoutingsopen"},"去逛逛","自己出门，或主动邀请TA同行",openOutings,GWalk)),
+        !demo&&menuSection("活动时间",h("div",{"data-wk":"cdayclock"},h("p",{style:{fontSize:12,lineHeight:1.8,color:soft,marginTop:0}},"开启角色钟后，选择TA的活动怎么推进。日历仍按原日保存。"),h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["auto","跟角色钟走"],["real","照现实安排"]].map(([mode,label])=>h("button",{key:mode,"data-wk":"cdayclockmode","data-part":mode,"aria-pressed":clockMode===mode,disabled:clockBusy,style:{...btn,fontWeight:clockMode===mode?600:400,background:clockMode===mode?"#eaf0e2":"#fffdf7",borderColor:clockMode===mode?"#8b9e7e":UI.line},onClick:()=>changeClock(mode)},label))),clockNotice&&h("p",{role:"status",style:{fontSize:12,color:"#9b674d",lineHeight:1.6}},clockNotice))),
         menuSection("看看四周",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["ta","跟着TA"],["me","跟着我"],["both","看两个人"],["overview","看全景"]].map(([mode,label])=>h("button",{key:label,"data-wk":"cdaycamera","data-part":mode,"aria-pressed":cameraMode===mode,disabled:((mode==="me"||mode==="both")&&!visiting)||(trip?.mode==='solo'&&mode!=='me'&&mode!=='overview'),style:{...btn,display:"flex",alignItems:"center",justifyContent:"flex-start",gap:10,background:cameraMode===mode?"#eaf0e2":"#fffdf7",borderColor:cameraMode===mode?"#8b9e7e":UI.line,boxShadow:cameraMode===mode?"inset 0 -3px #9caa90":btn.boxShadow,fontWeight:cameraMode===mode?600:400,opacity:((mode==="me"||mode==="both")&&!visiting)||(trip?.mode==='solo'&&mode!=='me'&&mode!=='overview')?.45:1},onClick:()=>camera(mode)},h(mode==="both"?GUs:mode==="me"?GUser:ICamera,{size:20,color:UI.accent}),label,cameraMode===mode&&h(ICheck,{size:14,color:UI.accent}))))),
         menuSection("你们的小家",h(React.Fragment,null,
           !demo&&!showcase&&menuRow({"data-wk":"cdaymeopen"},"我的样貌","头发、衣服和身形",openMe,GUser),

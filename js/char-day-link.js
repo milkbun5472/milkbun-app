@@ -11,8 +11,9 @@
     if (!Array.isArray(values) || values.length < 2) return null;
     const stages = values.map(value => {
       const link = anchor(value), minutes = Number(value?.minutes), title = typeof value?.title === "string" ? value.title.trim() : "";
-      return link && title && Number.isFinite(minutes) && minutes > 0
-        ? { ...link, title, location: typeof value.location === "string" ? value.location.trim() : "", minutes } : null;
+      const override = value?.override == null ? null : anchor(value.override);
+      return link && title && Number.isFinite(minutes) && minutes > 0 && (value?.override == null || override)
+        ? { ...link, title, location: typeof value.location === "string" ? value.location.trim() : "", minutes, ...(override ? { override } : {}) } : null;
     });
     // Keep an ordered chain whole. Dropping one invalid stage would silently
     // move all the later tasks forward and claim the missing task was done.
@@ -31,6 +32,7 @@
   }
   // Calendar text edits and the day viewer share the same row edit semantics.
   function editRow(row, patch) {
+    if (Object.hasOwn(patch, "worldStage")) return Object.keys(patch).length === 1 ? editStage(row, patch.worldStage) : null;
     const next = { ...row, ...patch, edited: true };
     const changed = key => Object.hasOwn(patch, key) && patch[key] !== (row[key] || "");
     if (changed("title") || changed("location")) { delete next.world; delete next.deviation; }
@@ -79,6 +81,26 @@
     // A changed task must never inherit the planned room/location.
     const d = slot.deviation;
     return { title: d.actual, location: d.location || (d.actual === slot.title ? slot.location : "") || "", type: d.type || (d.actual === slot.title ? slot.type : "other"), world: d.world };
+  }
+  function stagesFor(slot) {
+    const source = sourceFor(slot), planned = validate(slot?.world), actual = validate(source.world);
+    if (planned?.manual || actual?.manual) return [];
+    return actual?.stages || legacyStages(source) || [];
+  }
+  // A phase correction changes only internal anchors. Its automatic anchor,
+  // original text, duration and the rest of the chain remain available.
+  function editStage(row, patch) {
+    const stages = stagesFor(row), index = patch?.index;
+    if (!Number.isInteger(index) || index < 0 || index >= stages.length) return null;
+    const override = patch.anchor === null ? null : anchor(patch.anchor);
+    if (patch.anchor !== null && !override) return null;
+    const nextStages = stages.map((stage, i) => {
+      if (i !== index) return stage;
+      const { override: previous, ...automatic } = stage;
+      return { ...automatic, ...(override ? { override } : {}) };
+    });
+    const world = { ...anchor(nextStages[0]), stages: nextStages };
+    return row.deviation?.actual ? { ...row, deviation: { ...row.deviation, world } } : { ...row, world };
   }
   function occupationLink(words, place, type) {
     const preparingMeal = /制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨/.test(words);
@@ -212,10 +234,9 @@
     return validateStages(stages);
   }
   function resolve(slot, atTime = null, { preview = false } = {}) {
-    const manual = validate(slot?.world), source = sourceFor(slot);
-    const stages = manual?.manual ? null : validate(source.world)?.stages || legacyStages(source);
+    const source = sourceFor(slot), stages = stagesFor(slot);
     const plain = () => ({ presentation: singlePresentation(slot), activitySlot: slot, stages: [] });
-    if (!stages) return plain();
+    if (!stages.length) return plain();
     const start = slot?.startAt, end = slot?.endAt;
     if (!preview && (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !Number.isFinite(atTime) || atTime < start || atTime >= end)) return plain();
     const total = stages.reduce((n,s) => n + s.minutes, 0), span = end - start;
@@ -225,12 +246,13 @@
       if (preview || atTime < next) { index=i; stageStart=boundary; stageEnd=next; break; }
       boundary=next;
     }
-    const stage=stages[index], p=at(stage.scene,stage.spot);
-    const previous=stages.slice(0,index).reverse().find(s => at(s.scene,s.spot)?.action !== "walk");
+    const stage=stages[index], chosen=stage.override || stage, p=at(chosen.scene,chosen.spot);
+    const effective=s=>s.override || s;
+    const previous=stages.slice(0,index).reverse().map(effective).find(s => at(s.scene,s.spot)?.action !== "walk");
     const stageCarry=p.action === "walk" && previous && ["dayMarket","dayFleaMarket"].includes(previous.scene) && at(previous.scene,previous.spot)?.action === "shop" ? "basket" : null;
-    const row={...(slot?.row || source),title:stage.title,location:stage.location,world:anchor(stage),deviation:null};
+    const row={...(slot?.row || source),title:stage.title,location:stage.location,world:anchor(chosen),deviation:null};
     return {
-      presentation:{...p,stageIndex:index,stageCount:stages.length,stageLabel:stage.title,...(stageCarry ? {stageCarry} : {})},
+      presentation:{...p,stageIndex:index,stageCount:stages.length,stageLabel:stage.title,...(stage.override ? {manual:true,stageManual:true} : {}),...(stageCarry ? {stageCarry} : {})},
       activitySlot:{...slot,...row,row,startAt:stageStart,endAt:stageEnd}, stages
     };
   }
@@ -243,5 +265,5 @@
     for(const [pattern,map]of venues)if(pattern.test(text))return map==='dayCafe'?(occupationLink(words,place,source.type)?.map||map):map;
     return null;
   }
-  root.CharDayLink = { validate, validateStages, bindRow, editRow, publicRow, publicSchedules, instruction, schema, presentation, resolve };
+  root.CharDayLink = { validate, validateStages, bindRow, editRow, editStage, stagesFor, publicRow, publicSchedules, instruction, schema, presentation, resolve };
 })(globalThis);

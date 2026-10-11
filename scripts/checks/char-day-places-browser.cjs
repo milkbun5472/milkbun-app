@@ -108,8 +108,10 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       },{id:map,spot,worldUrl:worldUrls.get(frame),motion});
       if(motion)assert.equal(observed.workAction?.kind,motion);else assert.equal(observed.gesture,spot.gesture);assert.ok(observed.frames>0);
       if(spot.seat){
-        await frame.waitForFunction(({x,z})=>{const s=CharDayScene.inspect();return s.seat&&Math.abs(s.avatarPosition[0]-x)<.01&&Math.abs(s.avatarPosition[2]-z)<.01&&s.avatarPosition[1]>.2&&s.avatarPosition[1]<.3;},spot.seat);
-        assert.equal((await state()).seat.rise,.45);
+        // The deep chair and bent sofa use different pelvis heights. Both
+        // must settle at the actual seat, with the body below standing height.
+        await frame.waitForFunction(({x,z,rise})=>{const s=CharDayScene.inspect();return s.seat&&Math.abs(s.avatarPosition[0]-x)<.01&&Math.abs(s.avatarPosition[2]-z)<.01&&s.avatarPosition[1]>.15&&s.avatarPosition[1]<rise+.08;},spot.seat);
+        assert.equal((await state()).seat.rise,spot.seat.rise);
       }else assert.equal((await state()).seat,null);
       if(spot.gesture==='read'&&(!motion||motion==='read')){await frame.waitForFunction(()=>CharDayScene.inspect().dailyAction?.book===true);}
       const text=await host.locator('[data-wk=cdaynow]').innerText();assert.ok(text.includes(spot.label));assert.ok(text.includes(spot.description));

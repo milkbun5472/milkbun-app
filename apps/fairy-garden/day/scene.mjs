@@ -1,43 +1,43 @@
-import './kitchen.js?v=fg-68a5db5721e6ca1f';
-import {createLunchCarry} from './lunch-carry.mjs?v=fg-68a5db5721e6ca1f';
-import {createKitchenView} from './kitchen-view.mjs?v=fg-68a5db5721e6ca1f';
+import './kitchen.js?v=fg-6a88f1998a05a490';
+import {createLunchCarry} from './lunch-carry.mjs?v=fg-6a88f1998a05a490';
+import {createKitchenView} from './kitchen-view.mjs?v=fg-6a88f1998a05a490';
 const kitchenView=createKitchenView();
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-68a5db5721e6ca1f';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-68a5db5721e6ca1f';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-68a5db5721e6ca1f';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-6a88f1998a05a490';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-6a88f1998a05a490';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-6a88f1998a05a490';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-68a5db5721e6ca1f';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-68a5db5721e6ca1f';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-68a5db5721e6ca1f';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-68a5db5721e6ca1f';
-import {seatLook} from '../wardrobe.mjs?v=fg-68a5db5721e6ca1f';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-68a5db5721e6ca1f';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-68a5db5721e6ca1f';
-import {stepRoute} from '../locomotion.mjs?v=fg-68a5db5721e6ca1f';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-68a5db5721e6ca1f';
-import {updateWorkScene} from './work-scene.mjs?v=fg-68a5db5721e6ca1f';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-68a5db5721e6ca1f';
-import {activityPose} from './activity.mjs?v=fg-68a5db5721e6ca1f';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-68a5db5721e6ca1f';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-6a88f1998a05a490';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-6a88f1998a05a490';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-6a88f1998a05a490';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-6a88f1998a05a490';
+import {seatLook} from '../wardrobe.mjs?v=fg-6a88f1998a05a490';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-6a88f1998a05a490';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-6a88f1998a05a490';
+import {stepRoute} from '../locomotion.mjs?v=fg-6a88f1998a05a490';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-6a88f1998a05a490';
+import {updateWorkScene} from './work-scene.mjs?v=fg-6a88f1998a05a490';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-6a88f1998a05a490';
+import {activityPose} from './activity.mjs?v=fg-6a88f1998a05a490';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-6a88f1998a05a490';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-68a5db5721e6ca1f';
-import {createSpaceView} from './space-view.mjs?v=fg-68a5db5721e6ca1f';
-import {setHomeClock} from './home-shell.mjs?v=fg-68a5db5721e6ca1f';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-68a5db5721e6ca1f';
-import {createTogether} from './together.mjs?v=fg-68a5db5721e6ca1f';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-68a5db5721e6ca1f';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-68a5db5721e6ca1f';
-import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-68a5db5721e6ca1f';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-68a5db5721e6ca1f';
-import {createSceneVisit} from './visit.mjs?v=fg-68a5db5721e6ca1f';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-68a5db5721e6ca1f';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-68a5db5721e6ca1f';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-68a5db5721e6ca1f';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-6a88f1998a05a490';
+import {createSpaceView} from './space-view.mjs?v=fg-6a88f1998a05a490';
+import {setHomeClock} from './home-shell.mjs?v=fg-6a88f1998a05a490';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-6a88f1998a05a490';
+import {createTogether} from './together.mjs?v=fg-6a88f1998a05a490';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-6a88f1998a05a490';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-6a88f1998a05a490';
+import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-6a88f1998a05a490';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-6a88f1998a05a490';
+import {createSceneVisit} from './visit.mjs?v=fg-6a88f1998a05a490';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-6a88f1998a05a490';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-6a88f1998a05a490';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-6a88f1998a05a490';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-68a5db5721e6ca1f';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-68a5db5721e6ca1f';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-6a88f1998a05a490';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-6a88f1998a05a490';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -263,7 +263,8 @@ function apply(data,local=false){
   // A scene boundary inside one compound slot yields to an active manual
   // interaction. The next host pulse applies the current stage after it ends.
   const interaction=together?.inspect();
-  if(previous&&!tripChanged&&!data.editing&&!data.preview&&!data.showcase&&!data.presentation.manual&&previousChar===data.charId&&previousKey===data.key&&map!==data.presentation.map&&(hostChoreManual||interaction&&!interaction.automatic)){
+  const manualPositionChange=data.presentation.manual&&(!data.presentation.stageManual||previous?.presentation.stageIndex===data.presentation.stageIndex)&&(!previous?.presentation.manual||previous.presentation.map!==data.presentation.map||previous.presentation.spot!==data.presentation.spot);
+  if(previous&&!tripChanged&&!data.editing&&!data.preview&&!data.showcase&&!manualPositionChange&&previousChar===data.charId&&previousKey===data.key&&map!==data.presentation.map&&(hostChoreManual||interaction&&!interaction.automatic)){
     snapshot={...previous,scenePaused:data.scenePaused};return;
   }
   // During an edit session this scene owns the draft. Host clock pulses only
@@ -305,10 +306,10 @@ function apply(data,local=false){
   const carryChoice=carry?{control:visitor.inspect().control,manualAction:visitor.inspect().manualAction}:null;
   if(transfer?.inspect()||arrival){transfer?.cancel();arrival=null;}
   const keepVisitor=!tripChanged&&visitor?.inspect().present&&visitor.inspect().map===data.presentation.map&&social.setting(data)&&!layoutChanged&&(map!=='dayHome'||spaceStyle===(data.homeStyle||'warm'));
-  if(parent!==window)parent.postMessage({type:'char-day-activity',charId:data.charId,key:data.key,phase:activity.phase,groupLabel:activity.groupLabel||'',label:[activity.stageLabel,activity.group||activity.motion||activity.phase!=='work'?activity.phaseLabel:''].filter(Boolean).join(' · '),spotLabel:activity.stroll?'':MAPS[activity.map]?.spots.find(s=>s.id===activity.spot)?.label||''},location.origin);
+  if(parent!==window)parent.postMessage({type:'char-day-activity',charId:data.charId,key:data.key,stageIndex:activity.stageIndex,phase:activity.phase,groupLabel:activity.groupLabel||'',label:[activity.stageLabel,activity.group||activity.motion||activity.phase!=='work'?activity.phaseLabel:''].filter(Boolean).join(' · '),spotLabel:activity.stroll?'':MAPS[activity.map]?.spots.find(s=>s.id===activity.spot)?.label||''},location.origin);
   // A cosmetic pause inside the same slot yields to the user's interaction.
   // onStop already replans against the latest activity when they finish it.
-  if(keepVisitor&&(together?.inspect()||hostChoreManual)&&previousKey===data.key&&previousChar===data.charId)return;
+  if(keepVisitor&&(together?.inspect()||hostChoreManual)&&previousKey===data.key&&previousChar===data.charId&&!manualPositionChange)return;
   if(!carry&&!keepVisitor&&(visitor?.inspect().present||visitLoading))closeVisit(newTrip?'正在前往选择的地点…':'继续看看TA的一天。');
   else if(keepVisitor||carry)together?.stop();
   if(!newTrip&&!data.editing&&oldTrip)visitor?.setChoice(data.visitorData?.activityChoice||'auto');

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.406";
+const APP_VERSION = "v75.407";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16547,9 +16547,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   · world 是 AI 排的时候给这一段钉的房间和位置；做什么、在哪一改，旧钉子就不作数了——拔掉，让小地图照新写的字重新认地方
     //   · type 也跟着旧标题走（睡觉那一档会把小人直接按到床上），标题改了就不留，交给小地图从字面认
     //   · deviation（原本要/后来）会让小地图读「后来」那一句而不是她改的这一句——她改的就是现在的事实，一并清掉
-    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? fixed : q)
-      .sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
-    const next = { ...plan, estTime: null, seqs };
+    const phaseOnly = Object.hasOwn(patch, "worldStage");
+    const changedSeqs = plan.seqs.map(q => q && q.seq === seqNo ? fixed : q);
+    const seqs = phaseOnly ? changedSeqs : changedSeqs.sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
+    const next = phaseOnly ? { ...plan, seqs } : { ...plan, estTime: null, seqs };
     const n = { ...schedulesRef.current, [charId]: { ...cur, [dayKey]: next } };
     if (saveJSON("x_schedules", n) === false) return 0;
     schedulesRef.current = n;
