@@ -13,6 +13,7 @@ const body = (startAnchor, endAnchor) => {
   return app.slice(i, j);
 };
 const TAP_HANDLERS = [
+  ["const shareKitchenMeal = (", "const dateWhenText ="],             // 手动分享一桌小家料理
   ["const answerLoveLetter = (", "const genWhisper = async"],          // 回申请信：答应／再想想
   // 偷翻「当面问」、TA要手机「不给」不在表里：她 2026-10-06 要这两处当场开口（wait-for-her.md 例外）
   ["const forwardTarotToChat = async (", "// ───────── 擂台"]           // 塔罗转发进聊天
@@ -39,7 +40,7 @@ test("递完手机回来：本人那句也等她（别的会话被冒名回的�
 
 test("waitForHer 只有一份，被她按出来的那一轮带上、送到才清；主动消息不带", () => {
   assert.equal((app.match(/const waitForHer = /g) || []).length, 1);
-  assert.match(app, /const _wh = !opts\.room && !opts\.proactive && waitHerRef\.current\[charId\];/);
+  assert.match(app, /const _wh = !sideRoom && !opts\.proactive && waitHerRef\.current\[charId\];/);
   assert.match(app, /if \(delivered && _wh\) delete waitHerRef\.current\[charId\]/);
   assert.ok(!/peekPendingRef\.current\[/.test(app), "递手机那份私有的料又回来了——走 waitForHer");
 });
@@ -49,4 +50,18 @@ test("规矩写进了施工规则，README 点了名", () => {
   assert.match(ruleText("wait-for-her"), /waitForHer/);
   const readme = ruleText("README");
   assert.match(readme, /wait-for-her\.md/);
+});
+
+test("实际主聊天房间继续带等待料；独立房间、主动消息、别的角色和过期记录都不带", () => {
+  const start = app.indexOf('const sideRoom =', app.indexOf('const _replyTurn =')), end = app.indexOf('const _peekTurn =', start);
+  assert.ok(start > 0 && end > start);
+  const run = new Function('opts','charId','waitHerRef','window','roomTimeAwareFor','const room=opts.room||null;'+app.slice(start,end)+'return opts;');
+  const ref={current:{a:{kitchenMeal:{charId:'a',courses:[{recipeId:'lemon-tea'}]},_ts:Date.now()}}}, window={};
+  // main:true comes from ChatRooms.mainRoom, which is passed by mkThread.onReply.
+  const roomSource=fs.readFileSync(path.join(__dirname,'..','js','chat-rooms.js'),'utf8');
+  assert.match(roomSource,/const mainRoom = [^\n]+main: true/);
+  for(const opts of [{},{room:{id:'main',main:true}}])assert.equal(run(opts,'a',ref,window,()=>false).kitchenMeal.charId,'a');
+  for(const opts of [{room:{id:'side',main:false}},{room:{id:'main',main:true},proactive:true}])assert.equal(run(opts,'a',ref,window,()=>false).kitchenMeal,undefined);
+  assert.equal(run({},'b',ref,window,()=>false).kitchenMeal,undefined);
+  ref.current.a._ts=Date.now()-12*3600e3-1000;assert.equal(run({},'a',ref,window,()=>false).kitchenMeal,undefined);
 });

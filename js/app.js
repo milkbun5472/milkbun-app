@@ -11017,6 +11017,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const waitForHer = (charId, patch) => { waitHerRef.current[charId] = { ...(waitHerRef.current[charId] || {}), ...patch, _ts: Date.now() }; };
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
+  // A manual table share belongs to this TA's main thread. waitForHer already excludes rooms and proactive turns.
+  const shareKitchenMeal = (char, mealId) => {
+    const current = char && liveChars.find(c => String(c.id) === String(char.id));
+    const meal = current && window.CharDayLife.kitchenMealFor(loadJSON("x_charDayHomes", {}), current.id, mealId);
+    if (!meal) return false;
+    waitForHer(current.id, { kitchenMeal: meal });
+    setActiveChar(current); setActiveRoomId("main"); setHalfWin(null); clearUnread(current.id);
+    return true;
+  };
   const dateWhenText = w => { if (!w) return ""; if (w.now) return "现在"; if (w.text && !w.date) return String(w.text).slice(0, 24); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
     return (m ? (+m[2]) + "月" + (+m[3]) + "日（周" + "日一二三四五六"[d.getDay()] + "）" : "") + (w.time ? " " + w.time : ""); };
   const sendDateInvite = (char, place, v) => {
@@ -11287,7 +11296,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 递手机是她亲手递的，不是TA自己冒出来的：下面几道「主动」闸（主动私聊开关、此刻在一起、防连发）
     //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
     // 她点完卡片留下的那一下（waitForHer）：她按出来的这一轮带上；主动消息不带（那不是在接她）。半天没接就作废。
-    const _wh = !opts.room && !opts.proactive && waitHerRef.current[charId];
+    const _wh = !sideRoom && !opts.proactive && waitHerRef.current[charId];
     if (_wh && Date.now() - _wh._ts < 12 * 3600e3) { const { _ts, ...whPatch } = _wh; opts = { ...whPatch, ...opts }; }
     const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
@@ -11573,6 +11582,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const letterHint = opts.loveLetterAnswer === "yes" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，答应了——你们现在在一起了。怎么接这一下，全看你这个人。"
         : opts.loveLetterAnswer === "no" ? "\n\n【此刻】你写给 " + uName + " 的那封申请信，她拆开看了，说再想想。失落、嘴硬、装没事、还是说等她——全看你这个人和你们现在的关系。" : "";
       const refuseHint = opts.phoneRefused ? "\n\n【此刻】你刚开口要看 " + uName + " 的手机，她没给。怎么想、追不追问、生不生气、还是算了，全看你这个人和你们现在的关系。" : "";
+      const kitchenHint = !sideRoom && !opts.proactive && opts.kitchenMeal?.charId === String(charId) ? window.CharDayLife.kitchenMealHint(opts.kitchenMeal) : "";
       const remarkHint = opts.phoneRemark && opts.phoneRemark.length ? "\n\n【你刚发现】你微信通讯录里的备注被 " + uName + " 偷偷改了：" + opts.phoneRemark.map(phoneRemarkLine).join("；") + "。这是刚发生的事；什么反应由你这个人和这段关系决定。" : "";
       // 她刚改过TA通讯录备注（phoneRemarkEdit）跟「最近查过手机」是同一类事，挂在同一格里
       // ⚠️「你最近查过她的手机」是主线发生过的事，直接拼在提示词上、绕过了房间那道闸——
@@ -12369,7 +12379,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_body && actDescFor(charId);
       const _onlineRuntime = _body ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
-      const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _taskFull);
+      const system0 = (_singleHistoryLayout ? (bundleStable + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _taskFull)) + kitchenHint;
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_body ? freeLengthSystem(system0) : system0;
       const g = [];
@@ -29728,6 +29738,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),
       onSchedule: c => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); },
       onEditSchedSeq: (c, dayKey, seqNo, patch, expected) => editSchedSeq(c.id, dayKey, seqNo, patch, expected),
+      onKitchenShare: shareKitchenMeal,
       onChatOpen: c => { setActiveChar(c); setActiveRoomId("main"); setHalfWin(null); clearUnread(c.id); },
       onChatVisibility: (c, visible) => { dayChatRef.current = visible && c ? c.id : null; },
       onMainChat: c => { setActiveChar(c); setActiveRoomId("main"); clearUnread(c.id); setScreen("thread"); },

@@ -86,3 +86,33 @@ test('替料、检查点、直接端桌与便当都经真实home writer，失败
  await write({kind:'plate',id:'new-cook',mealId:'new-meal',at:123});let state=f.get().kitchens.a;assert.equal(state.ingredients.shrimp,0);assert.equal(state.pending.kind,'meal');assert.equal(state.pending.courses[0].variation.swaps.chicken,'shrimp');assert.equal(state.pending.courses[0].finish,'煎得更香');await assert.rejects(write({kind:'plate',id:'new-cook',mealId:'duplicate',at:124}));assert.equal(f.get().kitchens.a.ingredients.shrimp,0);
  await write({kind:'cancel'});await write({kind:'remember',id:'ours',dishId:'new-cook',name:'我们的虾仁做法'});await write({kind:'pack',dishId:'new-cook'});assert.equal(f.get().kitchens.a.customRecipes[0].variation.swaps.chicken,'shrimp');assert.equal(f.get().kitchens.a.dishes[0].packed,true);await assert.rejects(write({kind:'serve',id:'table',dishId:'new-cook'}));await write({kind:'unpack',dishId:'new-cook'});await write({kind:'serve',id:'last-table',dishId:'new-cook'});await write({kind:'ready',id:'last-table'});await write({kind:'finish',id:'last-table',at:125});assert.equal(f.get().kitchens.a.history[0].courses[0].variation.spice,'hot');assert.equal(f.get().kitchens.other.ingredients.egg,8);assert.equal(f.get().future.keep,1);
 });
+
+test('选中这一桌只取本人真实writer的菜品口味分工，偏好改变与另一角色都不串进来',async()=>{
+ const f=setup(),{L,K}=f,write=a=>K.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a));
+ const choices={lead:'me',spice:'hot',salt:'light',sweet:'light',swaps:{chicken:'shrimp'}};
+ await write({kind:'shop',recipeId:'mushroom-chicken',variation:L.variation('mushroom-chicken',choices)});
+ await write({kind:'begin',id:'dish',recipeId:'mushroom-chicken',choices,persona:'不吃辣'});
+ await write({kind:'progress',id:'dish',progress:{index:3,rev:1}});await write({kind:'plate',id:'dish',mealId:'table',at:123});
+ const before=JSON.stringify(f.get()),m=L.kitchenMealFor(f.get(),'a','table'),hint=L.kitchenMealHint(m);
+ assert.equal(m.charId,'a');assert.equal(m.courses[0].lead,'me');assert.equal(m.courses[0].variation.spice,'hot');assert.match(hint,/菌菇滑鸡（鸡肉换虾仁）/);assert.match(hint,/香辣 · 清淡 · 少甜/);assert.match(hint,/用户掌勺，TA备菜/);assert.equal(JSON.stringify(f.get()),before);
+ assert.equal(L.kitchenMealFor(f.get(),'other','table'),null);assert.equal(L.kitchenMealFor(f.get(),'a','other-table'),null);
+ await write({kind:'preferences',patch:{lead:'ta',spice:'none'}});assert.equal(L.kitchenMealHint(L.kitchenMealFor(f.get(),'a','table')),hint);
+ await write({kind:'ready',id:'table'});await write({kind:'finish',id:'table',at:124});assert.equal(L.kitchenMealHint(L.kitchenMealFor(f.get(),'a','table')),hint);
+ const dirty=JSON.parse(JSON.stringify(f.get()));dirty.kitchens.a.persona='PRIVATE';dirty.kitchens.a.history[0].secret='PRIVATE';dirty.kitchens.a.history[0].courses[0].secret='PRIVATE';assert.ok(!JSON.stringify(L.kitchenMealFor(dirty,'a','table')).includes('PRIVATE'));
+});
+test('旧桌的未知口味与分工不猜；收起、坏菜谱或没有这一桌都不分享',()=>{
+ const {L}=setup(),homes={kitchens:{a:{dishes:[{id:'old',recipeId:'egg-noodle',at:1}],pending:{id:'meal',kind:'meal',dishId:'old',recipeId:'egg-noodle'}}}};
+ const hint=L.kitchenMealHint(L.kitchenMealFor(homes,'a','meal'));assert.match(hint,/番茄鸡蛋面/);assert.match(hint,/口味：未记录；分工：未记录/);
+ assert.equal(L.kitchenMealFor({...homes,kitchens:{a:{pending:{id:'meal',kind:'cook',recipeId:'egg-noodle'}}}},'a','meal'),null);
+ assert.match(L.kitchenMealHint({courses:[{recipeId:'egg-noodle',variation:{},lead:''}]}),/口味：未记录/);assert.match(L.kitchenMealHint({courses:[{recipeId:'egg-noodle',variation:{spice:'hot'},lead:''}]}),/口味：香辣；分工：未记录/);assert.equal(L.kitchenMealHint(null),'');assert.equal(L.kitchenMealFor(null,'a','meal'),null);assert.equal(L.kitchenMealFor(homes,'a',null),null);
+});
+test('主App分享入口重读真实记录、使用当前角色与同一等待器，失效或陌生角色不入队',async()=>{
+ const f=setup(),{L,K}=f,write=a=>K.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a));
+ await write({kind:'shop',recipeId:'lemon-tea'});await write({kind:'begin',id:'dish',recipeId:'lemon-tea'});await write({kind:'ready',id:'dish'});await write({kind:'plate',id:'dish',mealId:'table',at:123});
+ const src=read('js/app.js'),a=src.indexOf('const shareKitchenMeal = ('),b=src.indexOf('const dateWhenText =',a);assert.ok(a>0&&b>a);
+ const calls=[],current={id:'a',name:'当前角色'},make=new Function('liveChars','window','loadJSON','waitForHer','setActiveChar','setActiveRoomId','setHalfWin','clearUnread',src.slice(a,b)+'return shareKitchenMeal;');
+ const share=make([current],{CharDayLife:L},key=>{assert.equal(key,'x_charDayHomes');return f.get();},(...args)=>calls.push(['queue',...args]),v=>calls.push(['active',v]),v=>calls.push(['room',v]),v=>calls.push(['half',v]),v=>calls.push(['read',v]));
+ assert.equal(share({id:'a',name:'过期名',persona:'PRIVATE'},'table'),true);assert.equal(calls[0][1],'a');assert.equal(calls[0][2].kitchenMeal.charId,'a');assert.deepEqual(calls[1],['active',current]);assert.deepEqual(calls[2],['room','main']);assert.ok(!JSON.stringify(calls).includes('PRIVATE'));
+ calls.length=0;assert.equal(share({id:'stranger'},'table'),false);assert.equal(share(current,'gone'),false);assert.equal(calls.length,0);
+ await write({kind:'cancel'});assert.equal(share(current,'table'),false);assert.equal(calls.length,0);
+});
