@@ -88,7 +88,7 @@
  }
  function mealFeedback(dish,prefs,persona=''){
   const actual=variation(dish.recipeId,dish.variation),q=resolvePreferences(prefs,persona),axes=Object.keys(TASTE).filter(k=>preference(prefs)[k]!=='auto'||(k==='spice'?/辣/:k==='salt'?/清淡|盐|重口|浓味/:/甜|糖/).test(String(persona)));
-  const matching=axes.filter(k=>actual[k]===q[k]);return {taste:tasteDescription(actual),matching,known:axes.length>0,text:axes.length?(matching.length===axes.length?'这份口味符合TA已明确的偏好。':'这份和TA已明确的口味偏好有些不同。'):'TA的口味还没有明确记录，可以一起尝尝，再记住喜欢的做法。'};
+  const matching=axes.filter(k=>actual[k]===q[k]);return {taste:tasteDescription(actual),matching,known:axes.length>0,text:axes.length?(matching.length===axes.length?'这份口味符合厨房里记住的偏好。':'这份和厨房里记住的口味偏好有些不同。'):'TA的口味还没有明确记录，可以一起尝尝，再记住喜欢的做法。'};
  }
 
  const count=n=>Math.max(0,Math.min(99,Math.floor(Number(n)||0)));

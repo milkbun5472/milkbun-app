@@ -1,11 +1,11 @@
 import * as T from 'three';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-461d93d0b87f9c22';
-import './social.js?v=fg-461d93d0b87f9c22';
-import {pairProgress} from './motion-profile.mjs?v=fg-461d93d0b87f9c22';
-import {walkable,segmentClear} from '../world.mjs?v=fg-461d93d0b87f9c22';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-03bd0eabf7d5d05c';
+import './social.js?v=fg-03bd0eabf7d5d05c';
+import {pairProgress} from './motion-profile.mjs?v=fg-03bd0eabf7d5d05c';
+import {walkable,segmentClear} from '../world.mjs?v=fg-03bd0eabf7d5d05c';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose} from './pair-pose.mjs?v=fg-461d93d0b87f9c22';
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose} from './pair-pose.mjs?v=fg-03bd0eabf7d5d05c';
 export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
@@ -79,7 +79,7 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
    contact(g,{[gs]:target(r,rs)},pg,contacts);contact(r,{[rs]:target(g,gs)},pr,contacts);
   }else if(s.kind==='feed'){
    const meal=kitchen()?.job,course=meal?.kind==='meal'?meal.courses?.[0]:null,key=course?meal.id+':'+course.id:'';
-   if(key!==foodKey){disposeFood(servingFood);servingFood=null;foodKey=key;if(course){servingFood=makeRecipeFood(course.recipeId,{variation:course.variation,finish:course.finish});servingFood.scale.setScalar(.28);servingFood.position.y=.024;snack.add(servingFood);let color=null;servingFood.traverse(o=>{if(o.isMesh&&!color&&/Topping|Ingredient|Rice|Soup|Berry|Fruit/.test(o.name))color=o.material.color;});bite.material.color.copy(color||new T.Color('#d5a66f'));}dish.visible=morsel.visible=!course;}
+   if(key!==foodKey){disposeFood(servingFood);servingFood=null;foodKey=key;if(course){servingFood=makeRecipeFood(course.recipeId,{variation:course.variation,finish:course.finish});servingFood.scale.setScalar(.28);servingFood.position.y=.024;snack.add(servingFood);bite.material.color.set(servingFood.userData.biteColor);}dish.visible=morsel.visible=!course;}
    diagnostics.recipeId=course?.recipeId||null;
    const turn=actor=>{const other=actor===g?r:g;return Math.sign(actor.root.worldToLocal(other.root.position.clone()).x)*.55;};
    posture(g,{tilt:.10*pg,turn:s.plan.seats?turn(g)*pg:0});posture(r,{tilt:Math.max(0,-heightDifference)*.8*pr,turn:s.plan.seats?turn(r)*pr:0});
