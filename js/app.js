@@ -16424,7 +16424,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     const plan = cur[dayKey];
     if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.some(q => q && q.seq === seqNo)) return 0;
     const toMin = x => { const m = /^(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : 9999; };
-    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? { ...q, ...patch, edited: true } : q)
+    // 跟「TA的一天」那张小地图对齐（她 2026-10-11：「这个跟 TA 的一天怎么算」）：
+    //   · world 是 AI 排的时候给这一段钉的房间和位置；做什么、在哪一改，旧钉子就不作数了——拔掉，让小地图照新写的字重新认地方
+    //   · type 也跟着旧标题走（睡觉那一档会把小人直接按到床上），标题改了就不留，交给小地图从字面认
+    //   · deviation（原本要/后来）会让小地图读「后来」那一句而不是她改的这一句——她改的就是现在的事实，一并清掉
+    const fix = q => {
+      const n = { ...q, ...patch, edited: true };
+      if (patch.title !== q.title || patch.location !== (q.location || "")) { delete n.world; delete n.deviation; }
+      if (patch.title !== q.title) delete n.type;
+      return n;
+    };
+    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? fix(q) : q)
       .sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
     const next = { ...plan, estTime: null, seqs };
     setSchedules(p => {
