@@ -2302,6 +2302,8 @@ const BUBBLE_QFLAT = [/(^|[^A-Za-z0-9])"([^"]{0,60})"(?![A-Za-z0-9])/g, /(^|[^A-
 const bubbleHidePunc = x => String(x).replace(/[。！？!?，,]/g, c => String.fromCharCode(BUBBLE_QSEP0 + BUBBLE_QPUNC.indexOf(c)));
 function bubbleProtectQuote(x) {
   let t = String(x);
+  // 链接也是一整个东西（她 2026-10-11：游戏房间链接在「?room=」那儿被切成两个气泡，前半截点不开、后半截不是链接）
+  t = t.replace(/https?:\/\/[^\s，。！？、；“”「」（）]+/g, bubbleHidePunc);
   BUBBLE_QPAIR.forEach(re => { t = t.replace(re, (m, inner) => m.charAt(0) + bubbleHidePunc(inner) + m.slice(-1)); });
   BUBBLE_QFLAT.forEach(re => { t = t.replace(re, (m, pre, inner) => pre + m.charAt(pre.length) + bubbleHidePunc(inner) + m.slice(-1)); });
   return t;

@@ -105,6 +105,8 @@
   * { -webkit-tap-highlight-color: transparent; box-sizing: border-box; -webkit-touch-callout: none; }
   /* 全局禁用长按选择/拷贝菜单（输入框除外），避免长按气泡弹出 iOS 选择菜单 */
   body { -webkit-user-select: none; user-select: none; }
+  /* 气泡里一长串没空格的（链接、房间号）照样折行，不撑出屏（她 2026-10-11：「气泡炸了」）。写在这里而不是内联：单聊、群聊、预览所有气泡一处管住，她自己的 CSS 想改照样盖得过 */
+  [data-wk="bubble"] { overflow-wrap: anywhere; }
   input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
   ::-webkit-scrollbar { display: none; }
   /* 用 100vh（=large viewport，撑到物理屏底）+ overflow hidden 固定视口。不用 fixed body / 100dvh（dvh 只撑到 WebKit 可视区，iOS PWA 会露白边）。 */

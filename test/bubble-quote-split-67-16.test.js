@@ -162,3 +162,11 @@ test("那道兜底是一份公共的，两条出口都走它", () => {
   assert.match(engine, /function bubbleGlueOrphans\(list\) \{/);
   assert.equal((engine.match(/bubbleGlueOrphans\(/g) || []).length, 3, "定义一次、两条出口各用一次");
 });
+
+// 她 2026-10-11 截图：游戏房间链接在「?room=」那儿被切成两个气泡
+test("链接里的问号、感叹号、逗号不是句子边界", () => {
+  const url = "https://cielumi.cloud/games/gomoku?room=f6afb4c080746057";
+  const out = splitLongBubble("开好了，链接给你" + url + "点进来吧", true);
+  assert.ok(out.some(x => x.includes(url)), "链接被切断了：" + JSON.stringify(out));
+  assert.deepEqual(splitLongBubble(url, true), [url]);
+});
