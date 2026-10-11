@@ -146,6 +146,7 @@
       + "直播间里：" + who + "\n"
       // 太冲了（她 2026-10-08：「为啥这么超雄」）：每一拍都要出点动静，模型就一拍比一拍往上拱。给判据，不给禁令
       + "一场直播是几个小时的日常，大部分时候是平平常常的：聊着、做着手上的事、接接梗。情绪起伏得有来由（常客说了什么、真发生了什么），起多大照你这个人平时对观众是什么样；没来由的时候不往上拱，上一拍拱起来的也会落回去。\n"
+      + me + "说的话只有她自己发——flow 里一句都不替她写，常客里也没有跟她同名的人。"
       + "还有几个有名有姓的常客，各自带着对你的看法。屏幕上另有一大片路人弹幕滚过去，那些你看不清、也不必回。你说话的对象是镜头、是她、是这几个常客——挑着回，不必谁都回。"
       + "\n常客们这一拍要是送了礼物，写在 gifts（name 常客网名、gift 礼物名、amount 金额数字；没人送就空）。你要是想让" + me + "当房管，mod 写 true（不想就不写）。";
     const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "");
@@ -643,12 +644,16 @@
         const d = await (st
           ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))
           : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))) || {};
-        const regs = first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : ses.regulars;
+        // 她 2026-10-11：「它还会编我说的话」——模型开播时编了个跟她同名的常客，之后每拍都以「常客」的名义替她发弹幕。
+        //   她（或她这次的马甲）只能是她自己：同名的常客剔掉，署她名字的那几句也不收
+        const meNames = [uName, ses.meName, ses.maskName].map(x => S(x).trim()).filter(Boolean);
+        const isMe = n => meNames.indexOf(S(n).trim()) >= 0;
+        const regs = (first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : arr(ses.regulars)).filter(r => r && !isMe(r.name));
         const hostName = first ? (st ? st.name : (S(d.host).slice(0, 20) || char.name)) : ses.host;
         const act = S(d.act).slice(0, 120);
         const regNames = arr(regs).map(r => r.name).filter(n => arr(ses.banned).indexOf(n) < 0);
         // 按先后排好的那条；模型没写 flow（照旧格式）就退回「主播的话在前、弹幕在后」
-        let flowLines = arr(d.flow).map(x => x && { who: S(x.who), text: S(x.text).slice(0, 400) }).filter(x => x && x.text).map(x =>
+        let flowLines = arr(d.flow).map(x => x && { who: S(x.who), text: S(x.text).slice(0, 400) }).filter(x => x && x.text && !isMe(x.who)).map(x =>
           (x.who === "主播" || x.who === hostName) ? { kind: "host", name: hostName, text: x.text, act: "", ts: Date.now() }
             : regNames.indexOf(x.who) >= 0 ? { kind: "reg", name: x.who, text: x.text, ts: Date.now() }
             : ses.buddy && x.who === ses.buddy.name ? { kind: "char", name: x.who, text: x.text, ts: Date.now() } : null).filter(Boolean).slice(0, 16);
