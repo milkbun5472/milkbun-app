@@ -1,8 +1,9 @@
-import {buildSpace} from './spaces.mjs?v=fg-b686638881ff0fde';
-import {MAPS,walkable,findPath} from '../world.mjs?v=fg-b686638881ff0fde';
+import {patchPartColors} from './home-parts.mjs?v=fg-d0b6ca37235d9a48';
+import {buildSpace} from './spaces.mjs?v=fg-d0b6ca37235d9a48';
+import {MAPS,walkable,findPath} from '../world.mjs?v=fg-d0b6ca37235d9a48';
 
-import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-b686638881ff0fde';
-import {homeSize,wallSpan,wallTop,furnitureHeight,HOME_WINDOW} from './home-architecture.mjs?v=fg-b686638881ff0fde';
+import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-d0b6ca37235d9a48';
+import {homeSize,wallSpan,wallTop,furnitureHeight,HOME_WINDOW} from './home-architecture.mjs?v=fg-d0b6ca37235d9a48';
 export {HOME_NAMES,homePlacements,homeFurniture};
 const overlaps=(a,b,gap=.035)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+gap-1e-6&&Math.abs(a.z-b.z)<(a.d+b.d)/2+gap-1e-6;
 export function checkHomeLayout(raw,{routes=true}={}){
@@ -65,7 +66,7 @@ export function changeHomeFurniture(raw,id,change){
    for(const wall of [p.wall,p.wall==='left'?'back':'left'])for(let y=2.7;y>=1.1;y-=.2)for(let along=wallSpan(wall,placements.$room)-piece.w/2;along>=-wallSpan(wall,placements.$room)+piece.w/2;along-=.4){Object.assign(p,{wall,along,y:Math.round(y*10)/10});const test=checkHomeLayout(placements,{routes:false});if(test.ok)return checkHomeLayout(placements);}
   }else for(let z=size.d/2-1;z>=-size.d/2+1;z-=.5)for(let x=size.w/2-1.5;x>=-size.w/2+1.5;x-=.5){p.x=x;p.z=z;const test=checkHomeLayout(placements,{routes:false});if(test.ok){const reachable=checkHomeLayout(placements);if(reachable.ok)return reachable;}}
   return {ok:false,reason:'现在没有够大的空位，先挪开一点家具再摆回。'};
- }else if(change&&typeof change==='object'){for(const k of ['x','z','heading','along','y'])if(Number.isFinite(change[k]))p[k]=change[k];if(Object.hasOwn(change,'wall'))p.wall=change.wall;if(Object.hasOwn(change,'color'))p.color=change.color;if(Object.hasOwn(change,'material'))p.material=change.material;}
+ }else if(change&&typeof change==='object'){for(const k of ['x','z','heading','along','y'])if(Number.isFinite(change[k]))p[k]=change[k];if(Object.hasOwn(change,'wall'))p.wall=change.wall;if(Object.hasOwn(change,'color'))p.color=change.color;if(Object.hasOwn(change,'material'))p.material=change.material;if(Object.hasOwn(change,'partColors')){p.partColors=patchPartColors(HOME_CATALOG.find(q=>q.id===p.catalogId),p.partColors,change.partColors);}}
  else if(change==='use'){const piece=homeFurniture(placements).find(p=>p.id===id);if(p.stored)return {ok:false,reason:'先把这件家具摆回小家。'};for(const action of usesFor(piece))placements.$room.uses[action]=id;}
  else return {ok:false,reason:'这个操作暂时不能用。'};
  return checkHomeLayout(placements);

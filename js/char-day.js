@@ -92,7 +92,7 @@
       [homes, setHomes] = useState(() => typeof loadJSON === "function" ? loadJSON("x_charDayHomes", {}) || {} : {}),
       [styleBusy, setStyleBusy] = useState(false), [styleNotice, setStyleNotice] = useState(""),
       [decorPanel,setDecorPanel]=useState(""),[catalog,setCatalog]=useState([]),[decorOptions,setDecorOptions]=useState(null),
-      [editor, setEditor] = useState(null), [furniture, setFurniture] = useState([]), [layoutBusy, setLayoutBusy] = useState(false), [layoutNotice, setLayoutNotice] = useState(""), [demoLayout, setDemoLayout] = useState({}),
+      [editor, setEditor] = useState(null), [furniture, setFurniture] = useState([]), [piecePreview, setPiecePreview] = useState(null), [layoutBusy, setLayoutBusy] = useState(false), [layoutNotice, setLayoutNotice] = useState(""), [demoLayout, setDemoLayout] = useState({}),
       [showcase, setShowcase] = useState(""), [spotId, setSpotId] = useState(""), [places, setPlaces] = useState([]),
       [activityStatus,setActivityStatus]=useState(null), [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false), [visitStatus,setVisitStatus]=useState(null),[togetherPanel,setTogetherPanel]=useState(false),[mePanel,setMePanel]=useState(false),[meStyles,setMeStyles]=useState(null),[meDraft,setMeDraft]=useState(null),[meBusy,setMeBusy]=useState(false),[meNotice,setMeNotice]=useState(""),[moreOpen,setMoreOpen]=useState(false),[professionalPanel,setProfessionalPanel]=useState(false),[professionalChoices,setProfessionalChoices]=useState({}),[professionalStyles,setProfessionalStyles]=useState({}),[professionalScene,setProfessionalScene]=useState('dayLaboratory'),[professionalBusy,setProfessionalBusy]=useState(false),[professionalNotice,setProfessionalNotice]=useState(""),[demoProfessional,setDemoProfessional]=useState({});
     const [outing,setOuting]=useState(()=>sceneContinuity.get(String(props.initialCharId))?.outing||null),[outingPicker,setOutingPicker]=useState(false),[outingMode,setOutingMode]=useState('solo');
@@ -154,6 +154,14 @@
       key: trip&&!editor ? "outing:"+char.id+":"+trip.map+":"+trip.mode : showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
     if(payload&&(showcase||editor))payload.slot=null;
     if(payload)payload.weather=demo||showcase?null:sceneWeather(char,now,!!preview,payload.minute);
+    const chosen=furniture.find(p=>p.id===editor?.selected);
+    const piecePreviewKey=chosen&&JSON.stringify([chosen.id,chosen.color,chosen.material,chosen.partColors,payload?.homeStyle]);
+    useEffect(()=>{
+      if(decorPanel!=="piece"||!chosen){setPiecePreview(null);return;}
+      const id=chosen.id,frame=requestAnimationFrame(()=>{try{const src=iframe.current?.contentWindow?.CharDayScene?.furniturePreview(id);setPiecePreview(src?{id,src}:null);}catch(_){setPiecePreview(null);}});
+      return()=>cancelAnimationFrame(frame);
+    },[decorPanel,piecePreviewKey]);
+
     stateRef.current = payload;
     const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot({...stateRef.current,viewInsets:(()=>{const el=iframe.current?.parentElement,box=el?.getBoundingClientRect(),card=el?.querySelector('[data-wk=cdaynow]')?.getBoundingClientRect(),chat=el?.parentElement?.parentElement?.querySelector('[data-wk=cdaychat]'),hud=el?.querySelector('[data-wk=cdaykitchenhud]');return {top:card&&box?Math.max(24,card.bottom-box.top+14):130,bottom:Math.max(30,chat&&!chat.hidden&&box?box.bottom-chat.getBoundingClientRect().top+14:0,hud&&box?box.bottom-hud.getBoundingClientRect().top+14:0),left:18,right:18};})()}); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
     React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book, homeOptions]);
@@ -325,8 +333,6 @@
       finally{setLayoutBusy(false);}
     };
     const editorAction=action=>{if(layoutBusy)return;iframe.current?.contentWindow?.CharDayScene?.editAction(action);};
-    const chosen=furniture.find(p=>p.id===editor?.selected);
-
     const closeDecorPanel=()=>{if(decorScroll.current)decorPositions.current[decorPanel]=decorScroll.current.scrollTop;setDecorPanel("");};
     const openDecorPanel=panel=>{
       if(layoutBusy||editor?.dragging||editor?.busy)return;
@@ -352,7 +358,9 @@
         decorPanel==='piece'?h(React.Fragment,null,
           control("选择要搭配的家具",h("select",{"data-wk":"cdaypiecepick","aria-label":"配色的家具",value:editor.selected,disabled:layoutBusy||editor?.busy,onChange:e=>iframe.current?.contentWindow?.CharDayScene?.selectFurniture(e.target.value),style:{...btn,width:"100%",height:44}},h("option",{value:""},"选择家具"),...furniture.map(p=>h("option",{key:p.id,value:p.id},p.label+(p.stored?" · 已收纳":""))))),
           chosen?h(React.Fragment,null,
-            h("p",{style:{fontSize:12,color:soft,lineHeight:1.8}},"只改这件家具，其他物件保留自己的搭配。"),
+            h("p",{style:{fontSize:12,color:soft,lineHeight:1.8}},"每个部件可以单独配色。主要颜色负责原来的搭配，部件自选颜色优先；同款家具也能各自搭配。"),
+            h("figure",{style:{margin:"0 0 18px",textAlign:"center"}},h("div",{style:{width:160,height:160,maxWidth:"100%",margin:"0 auto",display:"flex",alignItems:"center",justifyContent:"center",borderRadius:12,background:paper}},piecePreview?.id===chosen.id?h("img",{"data-wk":"cdaypiecepreview",src:piecePreview.src,alt:chosen.label+"配色预览",style:{display:"block",width:"100%",height:"100%",objectFit:"contain",borderRadius:12}}):h("span",{style:{fontSize:11,color:soft}},"正在更新预览")),h("figcaption",{style:{fontSize:11,color:soft,marginTop:6}},"配色预览")),
+            h("h3",{style:{fontSize:13,fontWeight:500,margin:"0 0 10px"}},"主要颜色"),
             h("div",{"data-wk":"cdaypiececolors",style:{display:"grid",gridTemplateColumns:"repeat(3,minmax(0,1fr))",gap:8,marginBottom:14}},...decorOptions.colors.map(v=>h("button",{key:v.color,"aria-label":v.label,"aria-pressed":chosen.color===v.color,disabled:layoutBusy||editor?.busy,onClick:()=>setPiece({color:v.color}),style:{...btn,padding:"8px 4px",borderColor:chosen.color===v.color?"#8b9e7e":UI.line}},h("span",{style:{display:"block",margin:"0 auto 5px",width:25,height:25,borderRadius:5,background:v.color}},null),v.label,chosen.color===v.color?" · 已选":""))),
             chosen.mount&&h(React.Fragment,null,
               control("挂在哪面墙",h("select",{"data-wk":"cdaymountwall","aria-label":"挂饰所在的墙",value:chosen.wall,disabled:layoutBusy||editor?.busy||chosen.stored,onChange:e=>setPiece({wall:e.target.value}),style:{...btn,width:"100%",height:44}},...Object.entries(decorOptions.mountWalls).map(([key,label])=>h("option",{key,value:key},label)))),
@@ -360,6 +368,10 @@
               h("p",{style:{fontSize:11,color:soft,lineHeight:1.8}},"回到小家也能直接拖动墙饰，左右和高低一起调。窗户要留空，墙饰之间也要留一点距离。")),
             control("自选颜色",customColor({"data-wk":"cdaypiececolor"},"家具",chosen.color||chosen.primary||"#cba77f",color=>setPiece({color}))),
             h("button",{style:{...btn,width:"100%",marginBottom:14},disabled:layoutBusy||editor?.busy,onClick:()=>setPiece({color:""})},"颜色随小家样式"),
+            h("section",{"data-wk":"cdaypartcolors",style:{marginBottom:20}},h("h3",{style:{fontSize:13,fontWeight:500,margin:"0 0 12px"}},"部件颜色"),...(chosen.parts||[]).map(part=>h("div",{key:part.id,"data-wk":"cdaypartcolor","data-part":part.id,style:{padding:"12px 0",borderBottom:"1px solid "+UI.line}},
+              control(part.label,customColor({},part.label,part.color,color=>setPiece({partColors:{[part.id]:color}}))),
+              h("button",{"data-wk":"cdaypartreset","data-part":part.id,disabled:layoutBusy||editor?.busy||!part.custom,style:{...btn,width:"100%",minHeight:44},onClick:()=>setPiece({partColors:{[part.id]:""}})},part.custom?"恢复这个部件的原配色":"沿用原配色"))),
+              h("button",{"data-wk":"cdaypartsreset",disabled:layoutBusy||editor?.busy||!Object.keys(chosen.partColors||{}).length,style:{...btn,width:"100%",minHeight:44,marginTop:14},onClick:()=>setPiece({partColors:null})},"恢复所有部件的原配色")),
             control("材质",h("select",{"data-wk":"cdaymaterial","aria-label":"家具材质",value:chosen.material||"auto",disabled:layoutBusy||editor?.busy,onChange:e=>setPiece({material:e.target.value}),style:{...btn,width:"100%",height:44}},...Object.entries(decorOptions.materials).map(([key,label])=>h("option",{key,value:key},label)))),
             chosen.actions?.length>0&&h("button",{"data-wk":"cdayusefurniture","aria-pressed":chosen.inUse,style:{...btn,width:"100%"},disabled:layoutBusy||editor?.busy||chosen.stored,onClick:()=>setPiece("use")},chosen.inUse?"TA正在用这件":"让TA用这件"),
             h("p",{style:{fontSize:11,color:soft,lineHeight:1.8}},"床用于睡觉，餐椅用于用餐，沙发用于喝茶、看书和休息。收纳后会选小家里可用的同类家具。")):h("p",{style:{fontSize:12,color:soft}},"先选一件家具。")):

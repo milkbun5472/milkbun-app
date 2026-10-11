@@ -1,8 +1,8 @@
-import {tagRoomTones} from './room-tones.mjs?v=fg-b686638881ff0fde';
-import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-b686638881ff0fde';
+import {tagRoomTones} from './room-tones.mjs?v=fg-d0b6ca37235d9a48';
+import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-d0b6ca37235d9a48';
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-b686638881ff0fde';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-b686638881ff0fde';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-d0b6ca37235d9a48';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-d0b6ca37235d9a48';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
@@ -100,9 +100,9 @@ export function createRoomKit(){
     root.traverse(o=>{if(o.isMesh)meshes.push(o);});
     // Keep replaceable equipment as a named group; merge within each material/owner.
     const ownerOf=o=>{let n=o;while(n&&n!==root){if(n.userData.replaceable||n.userData.furnitureId||n.userData.shellPart)return n;n=n.parent;}return root;};
-    const owners=new Map();for(const o of meshes){const owner=ownerOf(o);if(!owners.has(owner))owners.set(owner,new Map());const byMat=owners.get(owner);if(!byMat.has(o.material))byMat.set(o.material,[]);const inverse=owner.matrixWorld.clone().invert(),geometry=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();byMat.get(o.material).push(geometry.applyMatrix4(inverse.multiply(o.matrixWorld)));}
+    const owners=new Map();for(const o of meshes){const owner=ownerOf(o);if(!owners.has(owner))owners.set(owner,new Map());const byMat=owners.get(owner);const key=o.userData.furniturePart||'';if(!byMat.has(key))byMat.set(key,new Map());const byPart=byMat.get(key);if(!byPart.has(o.material))byPart.set(o.material,[]);const inverse=owner.matrixWorld.clone().invert(),geometry=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();byPart.get(o.material).push(geometry.applyMatrix4(inverse.multiply(o.matrixWorld)));}
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
-    for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=!mat.isShaderMaterial;owner.add(m);}return {root};
+    for(const [owner,byMat]of owners)for(const [part,byPart]of byMat)for(const [mat,geometries]of byPart){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';if(part)m.userData.furniturePart=part;m.castShadow=m.receiveShadow=!mat.isShaderMaterial;owner.add(m);}return {root};
   }
   return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,hingedDoor,finish,material};
 }
