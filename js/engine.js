@@ -6327,13 +6327,32 @@ async function imgVaultFetchBlob(ref) {
 // 读图失败保留文字标记，绝不让整轮崩掉。
 // ⚠️这一段原来【只写在主聊天里】（app.js）；一起学也要发图（她 2026-09-23），第二处照抄就是两份
 //   「吞图案」修法——那几次（2026-08-13 扇贝照、08-14 龙虾照）修的就是这一段，所以收成一份。
-async function expandMessageImages(msgs, budget) {
-  const list = Array.isArray(msgs) ? msgs : [];
-  const cap = budget || 2, want = [];
-  for (let i = list.length - 1; i >= 0 && want.length < cap; i--) {
-    const refs = Array.isArray(list[i] && list[i]._imageRefs) ? list[i]._imageRefs : [];
-    for (let j = refs.length - 1; j >= 0 && want.length < cap; j--) want.push(refs[j]);
+// 这一轮该给模型看哪几张图（她 2026-10-11：群友连发好几张，TA 只看得到最后一张）：
+//   原来一律只给最近 2 张，连发的前几张就被吞了。现在分两种——
+//   ① TA 上次开口之后她新发的：一口气发的那一批全给，封顶 FRESH_IMG_CAP 张，多出来的记进 dropped；
+//   ② 这一轮她没新发图：照旧只带最近 2 张旧的，TA 还能接着聊刚才那张，又不反复吞上下文。
+//   单聊、群聊、线下三处共用这一份（one-public-mechanism）。
+const FRESH_IMG_CAP = 6;
+function freshImageRefs(list, refsOf, isReply, cap) {
+  const max = cap || FRESH_IMG_CAP, fresh = [];
+  for (let i = list.length - 1; i >= 0; i--) {
+    if (isReply(list[i])) break;
+    const r = refsOf(list[i]) || [];
+    for (let j = r.length - 1; j >= 0; j--) fresh.push(r[j]);
   }
+  if (fresh.length) return { refs: fresh.slice(0, max).reverse(), dropped: Math.max(0, fresh.length - max) };
+  const old = [];
+  for (let i = list.length - 1; i >= 0 && old.length < 2; i--) {
+    const r = refsOf(list[i]) || [];
+    for (let j = r.length - 1; j >= 0 && old.length < 2; j--) old.push(r[j]);
+  }
+  return { refs: old.reverse(), dropped: 0 };
+}
+async function expandMessageImages(msgs, budget, meta) {
+  const list = Array.isArray(msgs) ? msgs : [];
+  const pick = freshImageRefs(list, m => (m && Array.isArray(m._imageRefs)) ? m._imageRefs : [], m => !!m && m.role === "assistant", budget);
+  if (meta) meta.droppedImages = pick.dropped;
+  const want = pick.refs;
   const allowed = new Set(want);
   return Promise.all(list.map(async m => {
     const { _imageRefs, ...rest } = m || {};
@@ -7849,7 +7868,7 @@ async function generateOffline(p, ctx, session) {
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + finalNudge });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
-    if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚展示了真实照片，图像已附在本轮视觉输入中；请直接看图并把反应自然写进当前场景。】", imageDataUrls: session.imageDataUrls.slice(-2) };
+    if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚展示了真实照片，图像已附在本轮视觉输入中；请直接看图并把反应自然写进当前场景。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
   }
   let raw;
   let usedCot = !!cotT;
@@ -8533,7 +8552,7 @@ async function generateOfflineGroup(p, ctx, session) {
   else hist.push({ role: "user", content: (hist.length ? "（继续）" : OFFLINE_OPEN_SCENE) + gFlashbackTail + gCharacterTail + gTail });
   if (Array.isArray(session.imageDataUrls) && session.imageDataUrls.length) {
     const lastUser = [...hist].map((m, i) => [m, i]).reverse().find(([m]) => m.role === "user");
-    if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-2) };
+    if (lastUser) hist[lastUser[1]] = { ...hist[lastUser[1]], content: hist[lastUser[1]].content + "\n【用户刚给在场所有人展示了真实照片，图像已附在本轮视觉输入中；请让大家直接看图后自然反应。】", imageDataUrls: session.imageDataUrls.slice(-FRESH_IMG_CAP) };
   }
   let raw;
   let usedCot = !!cotT;

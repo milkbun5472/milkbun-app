@@ -39,16 +39,16 @@ test("真照片只把 iv_ 引用写进聊天，像素住 IndexedDB", () => {
   assert.doesNotMatch(components, /saveJSON\([^\n]*specialImg/);
 });
 
-test("模型调用只临时展开最近两张真照片", () => {
+test("模型调用只临时展开这一批新发的真照片（封顶 FRESH_IMG_CAP），没新发就带最近两张旧的", () => {
   // v73.322 这一段收成了 engine.js 的公共 expandMessageImages（一起学发图也走它）
   const i = engine.indexOf("async function expandMessageImages("), j = engine.indexOf("\n}\n", i);
   assert.ok(i > 0 && j > i, "公共那一份不见了");
   const ex = engine.slice(i, j);
-  assert.match(ex, /const cap = budget \|\| 2/);
+  assert.match(ex, /const pick = freshImageRefs\(list,/);
   assert.match(ex, /await imgVaultFetchBlob\(ref\)/);
   assert.match(ex, /await blobToDataUrl\(blob\)/);
   assert.match(ex, /\{ imageDataUrls \}/);
-  assert.match(app, /const aiMessages = await expandMessageImages\(g\.map\(m => \(\{ role: m\.role, content: m\.content, _imageRefs: m\._imageRefs \}\)\), 2\);/);
+  assert.match(app, /const aiMessages = await expandMessageImages\(g\.map\(m => \(\{ role: m\.role, content: m\.content, _imageRefs: m\._imageRefs \}\)\), FRESH_IMG_CAP, _imgMeta\);/);
   assert.match(app, /真实照片已作为视觉输入附在本条消息上/);
 });
 
@@ -63,12 +63,12 @@ test("线上群聊也发送真图，并让本轮所有成员看到同一份视�
   assert.match(components, /const \[groupPhotoImg, setGroupPhotoImg\]/);
   assert.match(components, /imageRef = await imgToVault\(groupPhotoImg\)/);
   assert.match(components, /src: resolveImg\(m\.imageRef\)/);
-  assert.match(app, /const groupImageRefs = tail\.filter\(m => m\.kind === "photo" && m\.imageRef\)\.slice\(-2\)/);
+  assert.match(app, /const groupImageRefs = _gPick\.refs;/);
   assert.match(app, /groupImageDataUrls\.length \? \{ imageDataUrls: groupImageDataUrls \}/);
   assert.match(app, /请所有在场成员直接看图后自然回应/);
 });
 
-test("单人和群线下都能展示真图，并只临时附最近两张给模型", () => {
+test("单人和群线下都能展示真图，临时附这一批新发的给模型", () => {
   assert.match(components, /onSendPhoto\(\{ kind: "photo", imageRef/);
   // v57.79 起这个抽屉不只「给 Ta 看一张」，还能【当场拍一张】，所以标题改成了「照片」。
   // 别再冻标题那几个字——要守的是【两处线下都有这么一个能选图、能发出去的抽屉】。
@@ -77,7 +77,7 @@ test("单人和群线下都能展示真图，并只临时附最近两张给模�
   assert.equal((components.match(/onClick: sendPhoto, disabled: !photoImg \|\| sending/g) || []).length, 1, "发送按钮实现只保留一份");
   assert.match(app, /const offImageDataUrls = \[\]/);
   assert.match(app, /const gOffImageDataUrls = \[\]/);
-  assert.match(app, /filter\(m => m && m\.kind === "photo" && m\.imageRef\)\.slice\(-2\)/);
+  assert.equal((app.match(/= freshImageRefs\(_g?[wW]indowMsgs|= freshImageRefs\(_gWindow/g) || []).length, 2, "两处线下都走 freshImageRefs");
   assert.match(engine, /用户刚展示了真实照片/);
   assert.match(engine, /用户刚给在场所有人展示了真实照片/);
 });
@@ -224,4 +224,17 @@ test("敏感内容删掉后要改画相邻的一瞬，而不是留白", () => {
   assert.match(th, /hitSex \|\| hitViolent/, "刀具与亲密走同一条替代路径");
   assert.match(th, /不出现凶器、伤口、血迹与尸体/, "画面尺度要显式覆盖暴力，不只情色");
   assert.match(th, /const fallbackCue = /, "全被过滤时要有真正的场景兜底");
+});
+
+// 她 2026-10-11：群友连发好几张，TA 只看到最后一张——连发的那一批要全给
+test("freshImageRefs：上次开口之后的那一批全给，封顶；没新图就带最近两张", () => {
+  const i = engine.indexOf("const FRESH_IMG_CAP"), j = engine.indexOf("async function expandMessageImages(");
+  const f = new Function(engine.slice(i, j) + "\nreturn freshImageRefs;")();
+  const refs = m => m.r || [], reply = m => m.role === "assistant";
+  const batch = [{ role: "user", r: ["a"] }, { role: "assistant" }, { role: "user", r: ["b"] }, { role: "user", r: ["c", "d"] }, { role: "user", r: ["e"] }];
+  assert.deepEqual(f(batch, refs, reply), { refs: ["b", "c", "d", "e"], dropped: 0 });
+  const many = [{ role: "assistant" }].concat("12345678".split("").map(x => ({ role: "user", r: [x] })));
+  assert.deepEqual(f(many, refs, reply), { refs: ["3", "4", "5", "6", "7", "8"], dropped: 2 });
+  const none = [{ role: "user", r: ["x"] }, { role: "user", r: ["y", "z"] }, { role: "assistant" }, { role: "user" }];
+  assert.deepEqual(f(none, refs, reply), { refs: ["y", "z"], dropped: 0 });
 });

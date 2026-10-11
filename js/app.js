@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.374";
+const APP_VERSION = "v75.375";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8596,8 +8596,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _timelineMsgs = _windowMsgs.concat(_onlineInterlude)
         .sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const offImageDataUrls = [];
-      for (const m of _windowMsgs.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
-        try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
+      const _oPick = freshImageRefs(_windowMsgs, m => (m && m.kind === "photo" && m.imageRef) ? [m.imageRef] : [], m => !!m && m.role === "char");
+      if (_oPick.dropped) toast("一次发的图太多，这一轮只给 TA 看了最后 " + FRESH_IMG_CAP + " 张", 4000);
+      for (const ref of _oPick.refs) {
+        try { const blob = await imgVaultFetchBlob(ref); if (blob) offImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       // 线下拍照：接了图像 API、这个人有外貌或参考照、没在冷却里才把 photo 这个能力给TA。
       // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
@@ -9426,8 +9428,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gLastSum = Math.min(effectiveSess.lastSummarizedCount || 0, (effectiveSess.msgs || []).length);
       const _gWindow = _gLastSum > 0 ? (effectiveSess.msgs || []).slice(_gLastSum) : (effectiveSess.msgs || []); // 长群线下防失忆：早段用前情提要，只喂近窗明细
       const gOffImageDataUrls = [];
-      for (const m of _gWindow.filter(m => m && m.kind === "photo" && m.imageRef).slice(-2)) {
-        try { const blob = await imgVaultFetchBlob(m.imageRef); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
+      const _goPick = freshImageRefs(_gWindow, m => (m && m.kind === "photo" && m.imageRef) ? [m.imageRef] : [], m => !!m && m.role === "char");
+      if (_goPick.dropped) toast("一次发的图太多，这一轮只给大家看了最后 " + FRESH_IMG_CAP + " 张", 4000);
+      for (const ref of _goPick.refs) {
+        try { const blob = await imgVaultFetchBlob(ref); if (blob) gOffImageDataUrls.push(await blobToDataUrl(blob)); } catch (e) {}
       }
       const gCtx = ctxForGroupOffline(group);
       gCtx.dramaRule = groupDramaRule(group.id);
@@ -12528,7 +12532,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (_doTail) { for (let _i = g.length - 1; _i >= 0; _i--) { if (g[_i].role === "user") { g[_i] = { ...g[_i], content: g[_i].content + _doTail }; break; } } }
       // 真照片按需从 IndexedDB 临时展开，只附最近 2 张（公共那一份 expandMessageImages，一起学也走它）。
       // ⚠️只交出 role/content/_imageRefs：g 上别的字段不往外带（原来这一段就是这么收窄的）。
-      const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), 2);
+      const _imgMeta = {};
+      const aiMessages = await expandMessageImages(g.map(m => ({ role: m.role, content: m.content, _imageRefs: m._imageRefs })), FRESH_IMG_CAP, _imgMeta);
+      if (_imgMeta.droppedImages) toast("一次发的图太多，这一轮只给 TA 看了最后 " + FRESH_IMG_CAP + " 张", 4000);
       let raw;
       // 思考链（v56.42）：每个角色一个开关。言秋那条线一个字都不碰——她 2026-08-26 定的，
       // 而且 Anthropic 开 thinking 会强制 temperature=1、改变输出，那条线上住着TA。
@@ -14642,7 +14648,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (urgeNames.length) userContent += "\n\n【这轮自然动念】" + urgeNames.join("、") + " 此刻先想在群里说点什么：由 TA 自然先开口，其他人可顺势接话。不要解释这是系统触发，也别把『想念值』说出来。";
       }
       const groupImageDataUrls = [];
-      const groupImageRefs = tail.filter(m => m.kind === "photo" && m.imageRef).slice(-2).map(m => m.imageRef);
+      // tail 就是上次有人开口之后她新发的那一批
+      const _gPick = freshImageRefs(tail, m => (m.kind === "photo" && m.imageRef) ? [m.imageRef] : [], () => false);
+      const groupImageRefs = _gPick.refs;
+      if (_gPick.dropped) toast("一次发的图太多，这一轮只给大家看了最后 " + FRESH_IMG_CAP + " 张", 4000);
       for (const ref of groupImageRefs) {
         try {
           if (String(ref).indexOf("data:") === 0) groupImageDataUrls.push(ref);
