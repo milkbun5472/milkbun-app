@@ -6,7 +6,10 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 
 const i = app.indexOf("const meOwn = post.authorType");
 const seg = app.slice(i, app.indexOf("const opRule =", i));
-const run = (post, opName) => new Function("post", "opName", seg + "\nreturn { meOwn, meRule };")(post, opName);
+// 在场角色和「谁跟她用同一张面具」照 app.js 的 forumKnows 写：帖子没记 mask＝主面具，主面具的人认得出
+const KEY = { a: "", b: "", m: "mk1" };
+const knows = (id, x) => String((x && x.mask) || "") === (KEY[id] || "");
+const run = (post, opName, pool) => new Function("post", "opName", "poolChars", "forumKnows", seg + "\nreturn { meOwn, meRule };")(post, opName, pool || [{ id: "a", name: "甲" }], knows);
 
 // 她 2026-08-25 截图：陆衍（大号）在她帖子下科普「建议你拿手机在侧后方录个视频」，
 // 江识说「我以前刚开始练的时候，教练用过这个方法」——全是对陌生人的语气。
@@ -80,4 +83,15 @@ test("没有关系线时不发这一整块，别白占额度", () => {
   const i = app.indexOf("const relBlock = relLines.length");
   const seg = app.slice(i, app.indexOf("// 楼主规则", i));
   assert.equal(new Function("relLines", seg + "\nreturn relBlock;")([]), "");
+});
+
+// 群友 2026-10-11：「论坛换了面具发帖，怎么还是全认了上来」——开头那句不许再对所有人说「就是你们认识的那个人」
+test("按面具发帖：只点认得出的那几个，一个都没有就是陌生网友", () => {
+  const pool = [{ id: "a", name: "甲" }, { id: "m", name: "乙" }];
+  const some = run({ authorType: "me", anon: false, board: "兴趣吧", mask: "mk1" }, "小号名", pool);
+  assert.doesNotMatch(some.meRule, /就是你们认识的那个人/);
+  assert.match(some.meRule, /只有「乙」认得出/);
+  const none = run({ authorType: "me", anon: false, board: "兴趣吧", mask: "mk9" }, "小号名", pool);
+  assert.match(none.meRule, /对在场每个角色来说都是一个陌生网友/);
+  assert.doesNotMatch(none.meRule, /别用对陌生人科普的腔/);
 });
