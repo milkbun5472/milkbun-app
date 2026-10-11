@@ -29,7 +29,7 @@
     { key: "gomoku", emoji: "⚫", zh: "五子棋", en: "Gomoku", min: 2, max: 2,
       desc: "十五路棋盘，先连成五子的赢。你执黑先手，TA 执白，边下边说话；观战就看两个角色对下（只选一个就跟电脑下）。", rule: "你和一个角色 · 观战两个角色 · 可悔棋" },
     { key: "draw", emoji: "🎨", zh: "你画我猜", en: "Draw & Guess", min: 2, max: 2,
-      desc: "轮流画，一个画一个猜。TA 画的时候一段一段画、边画边吐槽，画完一段停下来等你猜；你画的拿给 TA 看图猜。词库可以按主题一次生成一批。", rule: "你和一个角色 · 三轮 · TA 猜要识图模型" },
+      desc: "轮流画，一个画一个猜。TA 画的时候一段一段画、边画边吐槽，画完一段停下来等你猜；你画的拿给 TA 看图猜。词库可以按主题一次生成一批。观战选两个角色就看他俩互相画、互相猜。", rule: "你和一个角色 · 观战两个角色 · 三轮 · TA 看你的画要识图模型" },
     { key: "uno", emoji: "🟥", zh: "UNO", en: "UNO", min: 2, max: 6,
       desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" }
   ];
@@ -5068,10 +5068,15 @@
 
   function DrawGuessGame(props) {
     const t = props.t, cfg = props.config, api = props.active;
-    const char = (props.characters || []).find(function (c) { return c.id === (cfg.charIds || [])[0]; }) || null;
+    const findC = function (id) { return (props.characters || []).find(function (c) { return c.id === id; }) || null; };
+    const char = findC((cfg.charIds || [])[0]);
     const pf = props.profile || {};
     const uName = pf.name || "你", cName = char ? (char.remark || char.name) : "TA";
     const easy = cfg.mode === "easy", watchOnly = cfg.mode === "spectate";
+    // 观战选了两个人：他俩轮流一个画一个猜，她在边上看、也能抢答（她 2026-10-11）
+    const char2 = watchOnly ? findC((cfg.charIds || [])[1]) : null;
+    const duo = !!(watchOnly && char && char2);
+    const nmOf = function (c) { return c ? (c.remark || c.name) : "TA"; };
     const [phase, setPhase] = useState("pool");        // pool → play → end
     const [pool, setPool] = useState(drawPool);
     const [theme, setTheme] = useState(pool.theme || "");
@@ -5086,7 +5091,7 @@
     const [input, setInput] = useState("");
     const [busy, setBusy] = useState(false);
     const [result, setResult] = useState(null);         // 这一张的结局 {ok, by}
-    const [score, setScore] = useState({ me: 0, ta: 0 });
+    const [score, setScore] = useState({ me: 0, ta: 0, ta2: 0 });
     const [history, setHistory] = useState([]);         // [{word, drawer, ok}]
     const [myStrokes, setMyStrokes] = useState([]);     // 她画的 [{k, w, pts:[[x,y]]}]
     const [ink, setInk] = useState("k");
@@ -5094,12 +5099,29 @@
     const curStroke = useRef(null), padRef = useRef(null), logRef = useRef(null);
     const pAvatar = avatarFor(t);
     const taDraws = watchOnly || turn % 2 === 0;
-    const totalTurns = watchOnly ? DRAW_ROUNDS : DRAW_ROUNDS * 2;
+    const totalTurns = (watchOnly && !duo) ? DRAW_ROUNDS : DRAW_ROUNDS * 2;
+    // 这一张谁画、谁猜（duo：偶数张第一个人画，奇数张第二个人画）
+    const drawer = duo ? (turn % 2 === 0 ? char : char2) : char;
+    const guesser = duo ? (turn % 2 === 0 ? char2 : char) : null;
     useEffect(function () { if (logRef.current) logRef.current.scrollTop = logRef.current.scrollHeight; }, [lines, busy]);
 
-    const persona = function () {
-      const recent = (cfg.injectChat && props.recentChatFor && char) ? String(props.recentChatFor(char.id) || "").slice(-400) : "";
-      return "你是「" + (char ? char.name : "TA") + "」。\n【你的人设】\n" + String((char && char.persona) || "（没写）").slice(0, 1500) + (recent ? "\n【你们最近在聊的】\n" + recent : "");
+    const persona = function (who) {
+      who = who || char;
+      const recent = (cfg.injectChat && props.recentChatFor && who) ? String(props.recentChatFor(who.id) || "").slice(-400) : "";
+      return "你是「" + (who ? who.name : "TA") + "」。\n【你的人设】\n" + String((who && who.persona) || "（没写）").slice(0, 1500) + (recent ? "\n【你们最近在聊的】\n" + recent : "");
+    };
+    // 给猜的人「看」画：不发图，把已经画出来的几笔念给 TA（不用识图模型；读坐标会像真人一样猜歪）
+    const describeSegs = function (list, n) {
+      const r1 = function (v) { return Math.round(Number(v)); };
+      return list.slice(0, n).map(function (sg, si) {
+        return "第" + (si + 1) + "段：" + sg.strokes.map(function (st) {
+          const raw = st.raw || {};
+          const col = st.k && st.k !== "k" ? "（" + ({ r: "红", b: "蓝", g: "绿", y: "黄", p: "紫" })[st.k] + "）" : "";
+          if (raw.t === "circle") return "圆，圆心(" + r1(raw.c[0]) + "," + r1(raw.c[1]) + ")半径" + r1(raw.c[2]) + (st.f ? "涂满" : "") + col;
+          const pts = []; for (let i = 0; i + 1 < (raw.p || []).length; i += 2) pts.push("(" + r1(raw.p[i]) + "," + r1(raw.p[i + 1]) + ")");
+          return (raw.t === "curve" ? "弧线" : "线") + pts.join("→") + (raw.close ? "闭合" : "") + (st.f ? "涂满" : "") + col;
+        }).join("；");
+      }).join("\n");
     };
     const said = function () {
       const L = lines.slice(-8);
@@ -5132,11 +5154,13 @@
     };
 
     // TA 画：一次调用拿到整幅画（段数 TA 自己定）
-    const taStart = async function (w) {
+    const taStart = async function (w, who) {
+      who = who || char;
+      const other = duo ? (who === char ? char2 : char) : null;
       setSegs([]); setShown(0); setBusy(true);
       try {
-        const sys = AC + VOICE_RULE + persona()
-          + "\n\n你在跟 " + uName + " 玩你画我猜，这一张轮到你画，题目是「" + w + "」（" + uName + " 不知道）。"
+        const sys = AC + VOICE_RULE + persona(who)
+          + "\n\n" + (other ? "你在跟 " + other.name + " 玩你画我猜（" + uName + " 在边上看）" : "你在跟 " + uName + " 玩你画我猜") + "，这一张轮到你画，题目是「" + w + "」（" + (other ? other.name : uName) + " 不知道）。"
           + "画在 100×100 的画布上（左上角 0,0）。把这幅画分成几段画，分几段你自己定（2 到 5 段）：一段是几笔、画完停一下让 TA 猜。"
           + (easy ? "这局你让着 TA，画得好认一点。" : "照你自己的画画水平和性子来，可以画得抽象，但得是真想让人猜到的画。")
           + "画里不许写字、不许写这个词的任何一个字。每段带一句你画这段时顺口说的话（say），照你自己的性子，别透露答案。"
@@ -5146,35 +5170,37 @@
         const p = extractJSON(raw) || {};
         const out = (Array.isArray(p.segments) ? p.segments : []).slice(0, 5).map(function (s) {
           const strokes = (Array.isArray(s && s.strokes) ? s.strokes : []).slice(0, 40).map(function (st) {
-            const d = drawStrokePath(st); return d ? { d: d, k: DRAW_INK[st.k] ? st.k : "k", f: !!st.f } : null;
+            const d = drawStrokePath(st); return d ? { d: d, k: DRAW_INK[st.k] ? st.k : "k", f: !!st.f, raw: st } : null;
           }).filter(Boolean);
           return { strokes: strokes, say: String((s && s.say) || "").trim().slice(0, 120) };
         }).filter(function (s) { return s.strokes.length; });
         if (!out.length) throw new Error("没画出来");
         setSegs(out);
-        showSeg(out, 0);
+        showSeg(out, 0, who);
       } catch (e) { push({ sys: true, text: "这张没画出来（" + ((e && e.message) || e) + "），点「换一张」再来" }); }
       setBusy(false);
     };
     // 放出第 i 段：一笔一笔画，画完说那一句
-    const showSeg = function (list, i) {
+    const showSeg = function (list, i, who) {
       if (!list[i]) return;
+      who = who || drawer;
       setDrawing(true); setShown(i + 1);
       const ms = list[i].strokes.length * 380 + 300;
-      setTimeout(function () { setDrawing(false); if (list[i].say) push({ id: char && char.id, name: cName, text: list[i].say }); }, ms);
+      setTimeout(function () { setDrawing(false); if (list[i].say) push({ id: who && who.id, name: nmOf(who), text: list[i].say }); }, ms);
     };
 
     const startTurn = function (n, usedNow) {
       const w = pickWord(usedNow);
       const u = usedNow.concat([w]);
       setUsed(u); setWord(w); setResult(null); setTries(0); setMyStrokes([]); setLines([]); setInput("");
-      if (watchOnly || n % 2 === 0) taStart(w); else { setSegs([]); setShown(0); }
+      if (duo) taStart(w, n % 2 === 0 ? char : char2);
+      else if (watchOnly || n % 2 === 0) taStart(w); else { setSegs([]); setShown(0); }
     };
     const begin = function () { setPhase("play"); setTurn(0); startTurn(0, []); };
     const finishTurn = function (ok, by) {
       setResult({ ok: ok, by: by });
-      if (ok) setScore(function (s) { return by === "me" ? { me: s.me + 1, ta: s.ta } : { me: s.me, ta: s.ta + 1 }; });
-      setHistory(function (H) { return H.concat([{ word: word, drawer: taDraws ? cName : uName, ok: ok }]); });
+      if (ok) setScore(function (s) { const n = Object.assign({}, s); n[by] = (n[by] || 0) + 1; return n; });
+      setHistory(function (H) { return H.concat([{ word: word, drawer: taDraws ? nmOf(drawer) : uName, ok: ok, by: by === "me" ? uName : by === "ta2" ? nmOf(char2) : by === "ta" ? cName : "" }]); });
     };
     const nextTurn = function () {
       const n = turn + 1;
@@ -5183,8 +5209,35 @@
     };
 
     // TA 画的时候她说话 / 猜 / 空着按＝接着画
+    // duo：猜的人看一眼画到哪儿了，猜一个、说一句（不告诉 TA 答案；她插的话也递过去）
+    const guesserLook = async function (herLine) {
+      setBusy(true);
+      let hit = false;
+      try {
+        const sys = AC + VOICE_RULE + persona(guesser)
+          + "\n\n你在跟 " + drawer.name + " 玩你画我猜，" + uName + " 在边上看。这一张 " + drawer.name + " 画、你猜，你不知道答案。"
+          + "画布 100×100，左上角是 0,0。到现在画出来的是：\n" + describeSegs(segs, shown)
+          + said() + (herLine ? "\n" + uName + " 刚在边上说：「" + herLine.slice(0, 120) + "」。" : "")
+          + "\n照你自己的眼力和性子猜一个词（guess），再说一句（say）。看不出来也得猜。\n只输出 JSON：{\"guess\":\"一个词\",\"say\":\"一句\"}";
+        const raw = await callRetry(api, sys, [{ role: "user", content: "猜。" }], { maxTokens: 8000, tag: "你画我猜·猜" });
+        const r = extractJSON(raw) || {};
+        const g = String(r.guess || "").trim().slice(0, 20), s2 = String(r.say || "").trim().slice(0, 200);
+        push({ id: guesser.id, name: nmOf(guesser), text: (g ? "是「" + g + "」吗？" : "") + (s2 ? " " + s2 : "") });
+        if (g && drawHit(g, word)) { hit = true; finishTurn(true, guesser === char ? "ta" : "ta2"); }
+      } catch (e) {}
+      setBusy(false);
+      return hit;
+    };
     const sendWhileTaDraws = async function () {
       const v = input.trim(); setInput("");
+      if (duo) {
+        if (v) { push({ me: true, name: uName, text: v }); if (drawHit(v, word)) { finishTurn(true, "me"); return; } }
+        const hit = await guesserLook(v);
+        if (hit || v) return;
+        if (shown < segs.length) showSeg(segs, shown);
+        else finishTurn(false, "");
+        return;
+      }
       if (!v) {
         if (shown < segs.length) { showSeg(segs, shown); return; }
         // 画完了还空着按＝认输，揭晓
@@ -5255,18 +5308,21 @@
           pool.words.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
             pool.words.map(function (w) { return h("button", { key: w, onClick: function () { const n = { words: pool.words.filter(function (x) { return x !== w; }), theme: pool.theme }; setPool(n); saveDrawPool(n); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 9px" } }, w + " ×"); })) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 10 } }, "点一个词就把它从词库删掉。"),
-          h("button", { "data-wk": "drawbegin", onClick: begin, className: "active:opacity-80", style: { width: "100%", marginTop: 18, fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "13px" } }, watchOnly ? "开始（看 " + cName + " 画 " + DRAW_ROUNDS + " 张）" : "开始（轮流画，" + DRAW_ROUNDS + " 轮）")));
+          h("button", { "data-wk": "drawbegin", onClick: begin, className: "active:opacity-80", style: { width: "100%", marginTop: 18, fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "13px" } }, duo ? "开始（看 " + cName + " 和 " + nmOf(char2) + " 轮流画，" + DRAW_ROUNDS + " 轮）" : watchOnly ? "开始（看 " + cName + " 画 " + DRAW_ROUNDS + " 张）" : "开始（轮流画，" + DRAW_ROUNDS + " 轮）")));
     }
     if (phase === "end") {
-      const eng = !!(char && cfg.ccSeat !== false && props.isEngineer && props.isEngineer(char.id));
+      const engOf = function (c) { return !!(c && cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)); };
+      const eng = engOf(char);
       return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
         h("div", { className: "flex-1 overflow-y-auto", style: { padding: "8px 16px 24px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, textAlign: "center", margin: "12px 0" } }, watchOnly ? "猜中 " + score.me + " / " + history.length : uName + " 猜中 " + score.me + " · " + cName + " 猜中 " + score.ta),
-          history.map(function (x, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, padding: "6px 0", borderBottom: "1px solid " + t.line } }, x.drawer + " 画「" + x.word + "」· " + (x.ok ? "猜中了" : "没猜中")); }),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, textAlign: "center", margin: "12px 0" } }, duo ? cName + " 猜中 " + score.ta + " · " + nmOf(char2) + " 猜中 " + score.ta2 + " · 你抢到 " + score.me : watchOnly ? "猜中 " + score.me + " / " + history.length : uName + " 猜中 " + score.me + " · " + cName + " 猜中 " + score.ta),
+          history.map(function (x, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, padding: "6px 0", borderBottom: "1px solid " + t.line } }, x.drawer + " 画「" + x.word + "」· " + (x.ok ? (x.by ? x.by + " " : "") + "猜中了" : "没猜中")); }),
           btn("回中枢", props.onBack, { style: { width: "100%", marginTop: 14, minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
           char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
-            return { key: "draw", zh: "你画我猜", ids: realCharIds([{ key: char.id, engineer: eng }]), wins: score.ta > score.me && !eng ? [char.id] : [], meWin: watchOnly ? null : score.me > score.ta,
-              text: "跟 " + cName + " 玩了你画我猜：" + history.map(function (x) { return x.drawer + "画「" + x.word + "」" + (x.ok ? "猜中了" : "没猜中"); }).join("，") + "。" };
+            const seats = [char, char2].filter(Boolean).map(function (c) { return { key: c.id, engineer: engOf(c) }; });
+            const top = duo ? (score.ta > score.ta2 ? [char.id] : score.ta2 > score.ta ? [char2.id] : []) : (score.ta > score.me && !eng ? [char.id] : []);
+            return { key: "draw", zh: "你画我猜", ids: realCharIds(seats), wins: top.filter(function (id) { return !engOf(findC(id)); }), meWin: watchOnly ? null : score.me > score.ta,
+              text: (duo ? "看 " + cName + " 和 " + nmOf(char2) + " 玩了你画我猜：" : "跟 " + cName + " 玩了你画我猜：") + "" + history.map(function (x) { return x.drawer + "画「" + x.word + "」" + (x.ok ? "猜中了" : "没猜中"); }).join("，") + "。" };
           } }) : null));
     }
 
@@ -5288,20 +5344,21 @@
     const status = result
       ? (result.ok ? (result.by === "me" ? "你猜中了：「" + word + "」" : cName + " 猜中了：「" + word + "」") : "答案是「" + word + "」")
       : taDraws
-        ? (busy && !segs.length ? cName + " 在构思…" : drawing ? cName + " 在画第 " + shown + " 段" : shown < segs.length ? "画完第 " + shown + "/" + segs.length + " 段 · 猜一个，或空着按「接着画」" : (segs.length ? "画完了 · 猜不出就空着按「揭晓」" : ""))
+        ? (busy && !segs.length ? nmOf(drawer) + " 在构思…" : busy && duo ? nmOf(guesser) + " 在看…" : drawing ? nmOf(drawer) + " 在画第 " + shown + " 段" : duo ? "画完第 " + shown + "/" + segs.length + " 段 · 按「" + (shown < segs.length ? "接着看" : "最后一猜") + "」让 " + nmOf(guesser) + " 猜，你也能抢答" : shown < segs.length ? "画完第 " + shown + "/" + segs.length + " 段 · 猜一个，或空着按「接着画」" : (segs.length ? "画完了 · 猜不出就空着按「揭晓」" : ""))
         : "你画「" + word + "」，画好按「给 TA 看」";
-    const sendLabel = taDraws ? (input.trim() ? "说" : (shown < segs.length ? "接着画" : "揭晓")) : "给 TA 看";
+    const sendLabel = taDraws ? (input.trim() ? "说" : duo ? (shown < segs.length ? "接着看" : "最后一猜") : (shown < segs.length ? "接着画" : "揭晓")) : "给 TA 看";
 
     return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },
-        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "第 " + (turn + 1) + "/" + totalTurns + " 张 · " + (taDraws ? cName + " 画" : "你画") + (watchOnly ? "" : " · 你 " + score.me + " : " + score.ta + " " + cName)),
+        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "第 " + (turn + 1) + "/" + totalTurns + " 张 · " + (taDraws ? nmOf(drawer) + " 画" + (duo ? "、" + nmOf(guesser) + " 猜" : "") : "你画") + (duo ? " · " + cName + " " + score.ta + " : " + score.ta2 + " " + nmOf(char2) + " · 你抢到 " + score.me : watchOnly ? "" : " · 你 " + score.me + " : " + score.ta + " " + cName)),
         h("div", { "data-wk": "drawtalk", style: { display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 12 } },
-          pAvatar(char ? { char: char, name: cName } : { name: cName }, 40),
+          pAvatar(drawer ? { char: drawer, name: nmOf(drawer) } : { name: cName }, 40),
           h("div", { ref: logRef, style: { flex: 1, minWidth: 0, maxHeight: 112, overflowY: "auto", background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "8px 12px" } },
             lines.length ? lines.slice(-8).map(function (l, i) {
+              const spk = (!l.me && !l.sys) ? (findC(l.id) || char) : null;
               return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 13.5, color: l.me || l.sys ? t.sub : t.ink, lineHeight: 1.6 } },
-                l.me ? h("span", { style: { color: t.fog, marginRight: 6 } }, uName + "：") : null, l.text,
-                (!l.me && !l.sys && char) ? h(GameVoiceDot, { p: { char: char }, k: "drw" + i + "_" + l.at, text: l.text }) : null);
+                (l.me || duo) && !l.sys ? h("span", { style: { color: t.fog, marginRight: 6 } }, (l.me ? uName : l.name) + "：") : null, l.text,
+                spk ? h(GameVoiceDot, { p: { char: spk }, k: "drw" + i + "_" + l.at, text: l.text }) : null);
             }) : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, busy ? "…" : (taDraws ? cName + " 拿起了笔" : cName + " 在等你画")),
             busy && lines.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "…") : null)),
         svgCanvas,
@@ -5314,13 +5371,13 @@
             h("button", { "data-wk": "drawnext", onClick: nextTurn, className: "active:opacity-80", style: { minHeight: 44, padding: "0 24px", borderRadius: 12, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink } }, turn + 1 >= totalTurns ? "看结果" : "下一张"))
           : h("div", { "data-wk": "drawchat", style: { display: "flex", gap: 8, marginTop: 12 } },
             h("input", { "data-wk": "gameinput", "data-part": "draw", value: input, onChange: function (e) { setInput(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") (taDraws ? sendWhileTaDraws : showToTa)(); },
-              placeholder: taDraws ? "猜一个，或者跟 " + cName + " 说一句…" : "顺便说一句（可空）",
+              placeholder: taDraws ? (duo ? "抢答，或者在边上说一句…" : "猜一个，或者跟 " + cName + " 说一句…") : "顺便说一句（可空）",
               style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
             h("button", { "data-wk": "drawsend", onClick: taDraws ? sendWhileTaDraws : showToTa, disabled: busy || drawing || (taDraws && !segs.length) || (!taDraws && !myStrokes.length), className: "active:opacity-80",
               style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: (busy || drawing) ? t.line : t.tint, borderRadius: 11, padding: "0 14px", whiteSpace: "nowrap" } }, sendLabel)),
         !result && !busy && ((taDraws && !segs.length && lines.some(function (l) { return l.sys; })) || (!taDraws && tries >= 3))
           ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },
-              taDraws ? btn("换一张", function () { setLines([]); taStart(word); }) : btn("算了，揭晓", function () { finishTurn(false, ""); }))
+              taDraws ? btn("换一张", function () { setLines([]); taStart(word, drawer); }) : btn("算了，揭晓", function () { finishTurn(false, ""); }))
           : null));
   }
 

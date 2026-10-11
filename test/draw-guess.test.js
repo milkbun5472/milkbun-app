@@ -28,6 +28,17 @@ test("她画：画布转成图给 TA 看；词库按主题一批生成、存进�
   assert.match(G, /imageDataUrls: \[toPng\(\)\]/);
   assert.match(src, /const DRAW_POOL_KEY = "x_drawWords";/);
   assert.match(G, /saveDrawPool\(n\)/);
-  assert.match(G, /const totalTurns = watchOnly \? DRAW_ROUNDS : DRAW_ROUNDS \* 2;/, "不是轮流");
+  assert.match(G, /const totalTurns = \(watchOnly && !duo\) \? DRAW_ROUNDS : DRAW_ROUNDS \* 2;/, "不是轮流");
   assert.match(src, /if \(session\.game\.key === "draw"\) return h\(DrawGuessGame, engineProps\);/);
+});
+
+// 她 2026-10-11：「观战模式不能看两个角色你画我猜吗」
+test("观战两个角色：轮流画猜；猜的人读笔画不看图、不知道答案；她能抢答", () => {
+  assert.match(G, /const duo = !!\(watchOnly && char && char2\);/);
+  assert.match(G, /const guesser = duo \? \(turn % 2 === 0 \? char2 : char\) : null;/);
+  const look = G.slice(G.indexOf("const guesserLook"), G.indexOf("const sendWhileTaDraws"));
+  assert.match(look, /describeSegs\(segs, shown\)/, "猜的人没在读画");
+  assert.ok(look.indexOf("word +") < 0 && look.indexOf("「\" + word") < 0, "把答案递给猜的人了");
+  assert.ok(look.indexOf("imageDataUrls") < 0, "观战猜不该要识图");
+  assert.match(G, /if \(drawHit\(v, word\)\) \{ finishTurn\(true, "me"\); return; \}/, "她抢答没算");
 });
