@@ -1,8 +1,8 @@
-import {buildSpace} from './spaces.mjs?v=fg-fae54bfb3f2fbfbf';
-import {MAPS,walkable,findPath} from '../world.mjs?v=fg-fae54bfb3f2fbfbf';
+import {buildSpace} from './spaces.mjs?v=fg-023fd5724e01c7fe';
+import {MAPS,walkable,findPath} from '../world.mjs?v=fg-023fd5724e01c7fe';
 
-import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-fae54bfb3f2fbfbf';
-import {homeSize,wallSpan,wallTop,furnitureHeight,HOME_WINDOW} from './home-architecture.mjs?v=fg-fae54bfb3f2fbfbf';
+import {HOME_CATALOG,HOME_NAMES,HOME_LIMIT,homeRoom,homePlacements,homeFurniture,usesFor,furnitureFootprint} from './home-catalog.mjs?v=fg-023fd5724e01c7fe';
+import {homeSize,wallSpan,wallTop,furnitureHeight,HOME_WINDOW} from './home-architecture.mjs?v=fg-023fd5724e01c7fe';
 export {HOME_NAMES,homePlacements,homeFurniture};
 const overlaps=(a,b,gap=.035)=>Math.abs(a.x-b.x)<(a.w+b.w)/2+gap-1e-6&&Math.abs(a.z-b.z)<(a.d+b.d)/2+gap-1e-6;
 export function checkHomeLayout(raw,{routes=true}={}){

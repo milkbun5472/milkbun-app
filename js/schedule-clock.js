@@ -75,7 +75,7 @@
       startAt = midnight + carry.from * 60000; endAt = midnight + carry.to * 60000;
     }
     if (!String(cur?.title || "").trim()) return null;
-    const scene = { charId: String(char.id), name: char.name, day, time: cur.time, end: cur.end, title: cur.title,
+    const scene = { charId: String(char.id), name: char.name, day, sourceDay: cur.carry ? shiftDayKey(day, -1) : day, seq: cur.seq, time: cur.time, end: cur.end, title: cur.title,
       location: cur.location || "", place: cur.place || "", type: cur.type || "other", world: cur.world || null, deviation: cur.deviation || null, startAt, endAt, carry: !!cur.carry };
     scene.key = JSON.stringify([scene.charId, day, startAt, endAt, scene.title, scene.location, scene.world, scene.deviation]);
     return scene;

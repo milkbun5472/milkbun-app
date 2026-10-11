@@ -1,5 +1,5 @@
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-fae54bfb3f2fbfbf';
-import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-fae54bfb3f2fbfbf';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-023fd5724e01c7fe';
+import {computer,notebook,cabinet} from './work-room-kit.mjs?v=fg-023fd5724e01c7fe';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'clue-wall',kind:'panel',x:-3.9,z:-5.18,w:4.9,d:.17,work:{clues:{x:.03,y:1.08,z:.12}}},

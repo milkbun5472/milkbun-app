@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.348";
+const APP_VERSION = "v75.349";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16419,30 +16419,26 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 改 AI 排的那一段（她 2026-10-11）：只换她改的那几格，再按开始时间排好、重新编号（跟 delSchedSeq 落的是同一个形状）。
   //   估算的「现在在干嘛」(estTime) 清掉，下次按改过的重算。
-  const editSchedSeq = (charId, dayKey, seqNo, patch) => {
+  const editSchedSeq = (charId, dayKey, seqNo, patch, expected) => {
     const cur = (schedulesRef.current || {})[charId] || {};
     const plan = cur[dayKey];
-    if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.some(q => q && q.seq === seqNo)) return 0;
+    if (!Array.isArray(plan?.seqs)) return 0;
+    const row = plan?.seqs?.find(q => q && q.seq === seqNo);
+    if (!row || expected && JSON.stringify(row) !== expected) return 0;
+    const fixed = window.CharDayLink.editRow(row, patch);
+    if (!fixed) return 0;
     const toMin = x => { const m = /^(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : 9999; };
     // 跟「TA的一天」那张小地图对齐（她 2026-10-11：「这个跟 TA 的一天怎么算」）：
     //   · world 是 AI 排的时候给这一段钉的房间和位置；做什么、在哪一改，旧钉子就不作数了——拔掉，让小地图照新写的字重新认地方
     //   · type 也跟着旧标题走（睡觉那一档会把小人直接按到床上），标题改了就不留，交给小地图从字面认
     //   · deviation（原本要/后来）会让小地图读「后来」那一句而不是她改的这一句——她改的就是现在的事实，一并清掉
-    const fix = q => {
-      const n = { ...q, ...patch, edited: true };
-      if (patch.title !== q.title || patch.location !== (q.location || "")) { delete n.world; delete n.deviation; }
-      if (patch.title !== q.title) delete n.type;
-      return n;
-    };
-    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? fix(q) : q)
+    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? fixed : q)
       .sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
     const next = { ...plan, estTime: null, seqs };
-    setSchedules(p => {
-      const n = { ...p, [charId]: { ...cur, [dayKey]: next } };
-      schedulesRef.current = n;
-      saveJSON("x_schedules", n);
-      return n;
-    });
+    const n = { ...schedulesRef.current, [charId]: { ...cur, [dayKey]: next } };
+    if (saveJSON("x_schedules", n) === false) return 0;
+    schedulesRef.current = n;
+    setSchedules(n);
     return 1;
   };
   // 「这几天」＝跟「AI 排剩下这几天」写的是同一段：今天到本周日。
@@ -29693,6 +29689,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       lookFor: c => window.CompanionFace.lookFor(c, moods),
       visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),
       onSchedule: c => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); },
+      onEditSchedSeq: (c, dayKey, seqNo, patch, expected) => editSchedSeq(c.id, dayKey, seqNo, patch, expected),
       onChatOpen: c => { setActiveChar(c); setActiveRoomId("main"); setHalfWin(null); clearUnread(c.id); },
       onChatVisibility: (c, visible) => { dayChatRef.current = visible && c ? c.id : null; },
       onMainChat: c => { setActiveChar(c); setActiveRoomId("main"); clearUnread(c.id); setScreen("thread"); },
