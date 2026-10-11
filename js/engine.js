@@ -756,6 +756,14 @@ function callerLabelOf(stack) {
   }
   return "";
 }
+// 中转站回了个空身子／一页网页（多半是它那头超时或网关报错），r.json() 只会甩一句
+//   「Unexpected end of JSON input」，谁也看不懂。三条主线路都走这一处，换成人话。
+async function readAIJSON(r) {
+  const raw = await r.text();
+  if (!raw.trim()) throw new Error("线路回了个空回复（HTTP " + r.status + "）：多半是中转站那头等太久掐断了。再发一次；老这样就换条线路或换个模型");
+  try { return JSON.parse(raw); }
+  catch (e) { throw new Error("线路回的不是正常回复（HTTP " + r.status + "）：" + raw.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 120)); }
+}
 async function callAI(p, system, messages, opts) {
   // 调用栈只在进门这一刻是全的（await 之后就丢了），所以先取下来
   let logFrom = (opts && opts.logFrom) || "";
@@ -1008,7 +1016,7 @@ async function callAIOnce(p, system, messages, opts) {
       const r = viaProxy
         ? await viaProxy(base + "/v1/messages", body, _noExt ? { "anthropic-version": "2023-06-01" } : { "anthropic-version": "2023-06-01", "anthropic-beta": "extended-cache-ttl-2025-04-11" })
         : await fetchT(base + "/v1/messages", { method: "POST", headers, body: JSON.stringify(body) }, reqTimeout);
-      return await r.json();
+      return await readAIJSON(r);
     };
     // ⚠️按次计费防双扣：某线路一旦被记过「不吃 temperature」就直接裸发，不再白扣一次
     const _ntKey = base + "|" + model;
@@ -1139,7 +1147,7 @@ async function callAIOnce(p, system, messages, opts) {
       },
       body: JSON.stringify(gBody)
     }, reqTimeout);
-    const d = await r.json();
+    const d = await readAIJSON(r);
     if (d.error) throw new Error(d.error.message);
     _served(d.modelVersion || d.model);
     const parts = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [];
@@ -1227,7 +1235,7 @@ async function callAIOnce(p, system, messages, opts) {
       if (pending) consume(pending);
       return error ? { error } : { choices: [{ message: { content: text }, finish_reason: finishReason }], usage: usage || {}, model: sseModel };
     }
-    return await r.json();
+    return await readAIJSON(r);
   };
   const _ntKey2 = base + "|" + model;
   let _skipT2 = false; try { _skipT2 = (JSON.parse(localStorage.getItem("x_noTemp") || "[]") || []).indexOf(_ntKey2) >= 0; } catch (e) {}
