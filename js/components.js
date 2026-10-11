@@ -311,11 +311,31 @@ async function importChatLook(text) {
   if (look.customCSS && TS && TS.unsafeReason(look.customCSS)) delete look.customCSS;
   return look;
 }
+// 存在本机的美化（群友 2026-10-11「美化用过的不能一键保存吗，后面点一下就能继续用」）：
+//   跟导出同一份 look 形状，只是不出文件、存进 x_chatLooks；图还是保险箱门牌，本机直接认。单聊、群聊共用这一架。
+const CHAT_LOOK_SHELF_MAX = 30;
+const chatLookShelf = () => { const a = loadJSON("x_chatLooks", []); return Array.isArray(a) ? a.filter(x => x && x.id && x.look) : []; };
+function saveChatLookToShelf(look, name) {
+  const clean = {};
+  ["skin", "bubble", "font", "chatBg", "layout", "customCSS"].forEach(k => { if (look[k] != null && look[k] !== "") clean[k] = look[k]; });
+  const item = { id: "lk" + Date.now().toString(36), name: String(name || "").trim().slice(0, 30) || "未命名", look: clean, at: Date.now() };
+  saveJSON("x_chatLooks", [item].concat(chatLookShelf()).slice(0, CHAT_LOOK_SHELF_MAX));
+  return item;
+}
 // 那一行按钮：导出这一套 / 导入一套（导进来先铺进草稿，她点右上角勾才真的存；挑不开文件可以贴）
 function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const t = useTheme(), ref = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [shelf, setShelf] = useState(chatLookShelf);
+  const [delId, setDelId] = useState("");
   const toast = m => window.__toast && window.__toast(m, 3000);
+  const saveHere = () => {
+    const name = window.prompt("给这一套起个名字", fileBase ? fileBase + "那套" : "");
+    if (name == null) return;
+    saveChatLookToShelf(getLook(), name); setShelf(chatLookShelf()); toast("存好了，别的聊天窗在这一栏点它就能用");
+  };
+  const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
+  const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
     try { const look = await importChatLook(txt); onApply(look); toast("导进来了，看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
     catch (e) { toast((e && e.message) || "导不进来"); return false; }
@@ -329,7 +349,15 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
       (group ? "背景、排版、头像框、自己写的 CSS" : "皮肤、气泡、字、背景、排版、头像框、自己写的 CSS") + "装进一个文件，用到的图片也一起带上。别人导进来就是整套一样的。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } },
       btn(busy ? "打包中…" : "导出这一套", async () => { setBusy(true); try { await exportChatLook(getLook(), fileBase); } catch (e) { toast("没导出来：" + ((e && e.message) || "")); } finally { setBusy(false); } }),
-      btn("导入一套", () => ref.current && ref.current.click())),
+      btn("导入一套", () => ref.current && ref.current.click()),
+      btn("存成我的一套", saveHere)),
+    shelf.length ? h("div", { style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "我存的美化 · 点名字换上"),
+      shelf.map(it => h("div", { key: it.id, className: "flex items-center", style: { gap: 6, marginTop: 4 } },
+        h("button", { onClick: () => useOne(it), className: "active:opacity-70",
+          style: { flex: 1, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, it.name),
+        h("button", { onClick: () => dropOne(it), className: "active:opacity-70",
+          style: { minHeight: 40, minWidth: 48, padding: "0 10px", fontFamily: F_BODY, fontSize: 12, color: delId === it.id ? t.accent : t.fog } }, delId === it.id ? "确定删" : "删")))) : null,
     window.ThemePackPasteBox ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: take, open: "挑不开文件？把美化 JSON 贴进来", ph: "把导出的那份 .json 全文贴在这里" })) : null,
     h("input", { ref: ref, type: "file", accept: ".json,application/json,text/plain", onChange: pick, style: { display: "none" } }));
 }
