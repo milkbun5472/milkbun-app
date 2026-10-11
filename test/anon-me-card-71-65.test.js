@@ -32,7 +32,7 @@ test("她那张和角色那张长一样，只有眉标不同", () => {
 
 test("马甲用的是同一张面具，没另立一个身份", () => {
   assert.ok(app.includes("myMask: anonMe,\n    myBox: anonMeBox,"), "hub 没拿到她的马甲");
-  assert.ok(app.includes("onGenMask: genAnonMe,\n    onOpenMe:"), "生成马甲走的不是原来那一支");
+  assert.ok(app.includes("onGenMask: genAnonMe,\n    onSaveMask: saveAnonMe,\n    onOpenMe:"), "生成马甲走的不是原来那一支");
   // 全库仍旧只有 x_anonMe 这一个马甲
   assert.equal((app.match(/x_anonMe"/g) || []).length, 2, "又多出一处马甲存档");
 });
@@ -40,7 +40,7 @@ test("马甲用的是同一张面具，没另立一个身份", () => {
 test("点开她那张卡有落点，不是点了没反应", () => {
   assert.ok(app.includes('onOpenMe: () => setScreen("anonme")'), "点了没地方去");
   assert.ok(app.includes('screen === "anonme") body = h(AnonMeBox'), "那一屏没接上");
-  assert.ok(comp.includes("function AnonMeBox({ mask, box, busy, characters, onGenMask, onAsk, onAnswer, onReveal, onDrop, onBack })"), "那一屏没画");
+  assert.ok(comp.includes("function AnonMeBox({ mask, box, busy, characters, onGenMask, onSaveMask, onAsk, onAnswer, onReveal, onDrop, onBack })"), "那一屏没画");
   assert.ok(core.includes('anonme: "我的匿名主页"'), "页名没登记——主题工作台和返回栏都认不出它");
 });
 

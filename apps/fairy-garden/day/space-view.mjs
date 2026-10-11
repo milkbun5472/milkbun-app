@@ -1,9 +1,10 @@
-import {HOME_WALLS,HOME_FLOORS,furniturePrimary} from './home-catalog.mjs?v=fg-127ffe874240ba15';
-import {furnitureFinish} from './home-finish.mjs?v=fg-127ffe874240ba15';
-import {createHomeShell} from './home-shell.mjs?v=fg-127ffe874240ba15';
-import {createHomeFurniture} from './home-furniture.mjs?v=fg-127ffe874240ba15';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-127ffe874240ba15';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-127ffe874240ba15';
+import {tagFurnitureParts,applyFurniturePartColors} from './home-parts.mjs?v=fg-932cb68b41b7219d';
+import {HOME_WALLS,HOME_FLOORS,furniturePrimary,furniturePalette} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
+import {furnitureFinish} from './home-finish.mjs?v=fg-932cb68b41b7219d';
+import {createHomeShell} from './home-shell.mjs?v=fg-932cb68b41b7219d';
+import {createHomeFurniture} from './home-furniture.mjs?v=fg-932cb68b41b7219d';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-932cb68b41b7219d';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-932cb68b41b7219d';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
@@ -27,7 +28,7 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
   }
  }
  function furniture(a){
-  const finish=furniturePrimary(a,base),primary=finish.color;p={...base,...(a.color?{[finish.field]:a.color}:{})};
+  const finish=furniturePrimary(a,base),primary=finish.color;p={...furniturePalette(a,base),...(a.color?{[finish.field]:a.color}:{})};
   let g;
   if(id==='dayHome')g=createHomeFurniture(k,a,p);
   else if(a.kind==='table'){g=k.table({...a,color:p.wood});g.rotation.y=a.heading;
@@ -81,7 +82,7 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
     k.cylinder('StreetPole',{y:1.45,r:.045,h:2.8,color:p.dark},g);b('Lantern',{y:2.75,w:.38,h:.46,d:.38,color:p.paper},g);b('LanternRoof',{y:3,w:.48,h:.12,d:.48,color:p.dark},g);
    }
   }
-  g.name=a.id;g.userData.furnitureId=a.id;g.userData.placement={x:a.x,z:a.z,heading:a.heading};g.userData.finish=a.material;g.userData.primary=primary;return g;
+  g.name=a.id;g.userData.furnitureId=a.id;g.userData.placement={x:a.x,z:a.z,heading:a.heading};g.userData.finish=a.material;g.userData.primary=primary;if(id==='dayHome')tagFurnitureParts(g,a);return g;
  }
  if(!furnitureOnly){
  if(map.outdoor){
@@ -110,5 +111,5 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
  const shell=k.group('RoomShell');shell.userData.shellPart=true;
  for(const o of [...k.root.children])if(o!==shell&&!o.userData.furnitureId)shell.add(o);
  k.root.userData.layout={id,style,furniture:map.furniture.map(a=>({...a})),zones:map.zones,room:map.room};
- const result=k.finish();furnitureFinish(result.root);result.root.name=id;return result;
+ const result=k.finish();furnitureFinish(result.root);applyFurniturePartColors(result.root);result.root.name=id;return result;
 }

@@ -260,6 +260,32 @@
     Object.keys(CARD_FIELDS).forEach(k => { if (o[k] != null && String(o[k]).trim()) out[k] = String(o[k]).trim().slice(0, 400); });
     return out;
   }
+  // 关系图里的一头：她本人是 "me"，其余按 id、名字、备注认（角色和配角都算）
+  const everyone = ctx => (ctx.allChars || ctx.characters || []);
+  const whoId = (w, ctx) => {
+    const v = String(w || "").trim();
+    if (!v) return "";
+    if (v === "me" || v === "我" || v === "她" || (ctx.profile && v === ctx.profile.name)) return "me";
+    const c = everyone(ctx).find(x => x && (x.id === v || x.name === v || x.remark === v));
+    return c ? c.id : "";
+  };
+  const whoName = (id, ctx) => id === "me" ? "我" : ((everyone(ctx).find(c => c && c.id === id) || {}).name || id);
+  const relKey = (id, ctx) => {
+    const m = String(id || "").split(/\s*(?:->|→)\s*/);
+    if (m.length !== 2) return "";
+    const a = whoId(m[0], ctx), b = whoId(m[1], ctx);
+    return a && b && a !== b ? a + "->" + b : "";
+  };
+  const relName = (k, ctx) => { const p = String(k).split("->"); return whoName(p[0], ctx) + " → " + whoName(p[1], ctx); };
+  const npcObj = (text, ctx) => {
+    let o = null;
+    try { o = JSON.parse(String(text || "").replace(/^```(?:json)?\s*|\s*```$/g, "")); } catch (e) { return null; }
+    if (!o || typeof o !== "object") return null;
+    const links = (Array.isArray(o.links) ? o.links : []).map(l => ({ id: whoId(l && (l.who || l.id), ctx), label: String((l && l.label) || "").trim() })).filter(l => l.id);
+    const owner = o.owner ? whoId(o.owner, ctx) : "";
+    return { name: String(o.name || "").trim().slice(0, 24), brief: String(o.brief || o.persona || "").trim(), ownerId: owner, links };
+  };
+  const BULK_OK = { lore: 1, rel: 1, npc: 1 };
   const TARGETS = {
     style: {
       zh: "线下文风预设",
@@ -309,6 +335,38 @@
     // 从头写一个新角色（她 2026-10-06：「能不能让秋秋可以写人设，从头开始的，然后可以落到人格档案馆里」）。
     //   text 是一份 JSON；只收名字、人设、外貌和档案里那几栏（CARD_FIELDS），别的键一律不认——
     //   落档走 app.js 那一个新建入口，跟人格档案馆右上角＋建出来的是同一种角色。
+    // 关系线和配角（她 2026-10-10：「秋秋能不能编辑一下角色关系和创建 npc 啊然后把各种 npc 串联起来」）
+    //   rel：id＝"A->B"（两头是角色/配角的 id 或名字，她本人写「我」），text＝关系；text 空着＝删掉这条；both:true 两个方向一起写。
+    //   npc：text 是一份 JSON，落成走 app 那头的 addNpcLinked（跟配角页新建同一处）。
+    rel: {
+      zh: "关系",
+      read: ctx => {
+        const R = (ctx.relsOf && ctx.relsOf()) || {};
+        return Object.keys(R).map(k => ({ id: k, name: relName(k, ctx), text: String((R[k] || {}).label || "") }));
+      },
+      write: (id, patch, ctx) => {
+        if (!ctx.onSaveRel || !ctx.relsOf) throw new Error("这个页面没接关系的写入口");
+        const key = relKey(id, ctx);
+        if (!key) throw new Error("「" + id + "」两头得是认得出的人（名字、id，或者「我」）");
+        const R = ctx.relsOf() || {}, label = String(patch.text || "").trim().slice(0, 60);
+        const [a, b] = key.split("->");
+        ctx.onSaveRel(key, label, (R[key] || {}).note || "");
+        if (patch.both) ctx.onSaveRel(b + "->" + a, label, (R[b + "->" + a] || {}).note || "");
+        return 1;
+      }
+    },
+    npc: {
+      zh: "新建配角",
+      read: () => [],
+      write: (id, patch, ctx) => {
+        if (!ctx.onCreateNpc) throw new Error("这个页面没接新建配角的入口");
+        const o = npcObj(patch.text, ctx);
+        if (!o) throw new Error("这一条不是一份能读的配角 JSON");
+        if (!o.name) throw new Error("配角得有个名字");
+        if (!ctx.onCreateNpc(o)) throw new Error("没建成");
+        return 1;
+      }
+    },
     newchar: {
       zh: "新建角色",
       read: () => [],
@@ -774,7 +832,14 @@
         绑给: Array.isArray(e.charIds) && e.charIds.length ? e.charIds.map(nameOf) : "所有人", 正文: body,
         这条是否完整: body.length >= String(e.payload || "").length };
     });
-    return { 角色: chars, 群: groups, 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
+    // 配角和关系线（她 2026-10-10）：关系不多就整张给；多了只给跟这会儿在说的人沾边的那几条
+    const npcs = (ctx.allChars || []).filter(c => c && c.npc).slice(0, 60).map(c => ({ 名字: c.name, id: c.id,
+      在谁身边: c.ownerId === "me" ? "我" : c.ownerId ? whoName(c.ownerId, ctx) : "（不挂在谁身边）", 认识她本人: !!c.knowsUser, 简介: clip(c.persona, 120) || "（空）" }));
+    const R = (ctx.relsOf && ctx.relsOf()) || {}, rk = Object.keys(R);
+    const hotAll = focusIds(ctx.allChars || list, focus, 12);
+    const relRows = rk.filter(k => rk.length <= 120 || k.split("->").some(x => hotAll.has(x) || hot.has(x))).slice(0, 160)
+      .map(k => ({ id: k, 谁: relName(k, ctx), 关系: String((R[k] || {}).label || "") }));
+    return { 角色: chars, 群: groups, 配角: npcs.length ? npcs : ["（还没有配角）"], 关系: relRows.length ? relRows : ["（还没连过关系）"], 已存的文风预设: styles, 线下设置: offSet, 世界书: lore.length ? lore : ["（还没有词条）"],
       美化能退回的: lookBack.length ? lookBack : ["（还没有存下的旧版本）"], 你改过还能撤回的: mine.length ? mine : ["（没有）"],
       最近报错: errs.length ? errs : ["（本次开机没抓到报错）"] };
   }
@@ -830,7 +895,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -892,6 +957,10 @@
       + "· theme 界面装修（text 是 CSS；id 填 global＝全 App" + (pages ? "，或某一页：" + pages : "") + "）\n" + themeCssNote()
       + "· pagecolor 某一页的配色（id＝那一页的 key；text 是一份 JSON，如 {\"bg2\":\"#f2ece0\"}）\n"
       + "· memory 记忆库条目（往里加，一行一条，id＝角色 id）\n"
+      + "· rel 两个人之间的一条关系线（快照里【关系】那一栏）：id 写成 \"A->B\"（A、B 是角色或配角的名字或 id，她本人写「我」），text＝A 对 B 是什么关系（几个字）；both:true＝两个方向写成同一句；text 留空＝删掉这条线。"
+      + "她说「这几个人其实是一伙的」，就给每两个该连的人各出一张；有就改、没有就加，快照里已经对的别重复出。\n"
+      + "· npc 新建一位配角（id 填 new；text 是一份 JSON：{\"name\":\"名字\",\"brief\":\"TA 是个什么样的人\",\"owner\":\"在谁身边（角色名；她本人写「我」；大家共同认识的留空）\",\"links\":[{\"who\":\"认识的人（角色、配角，或「我」）\",\"label\":\"是什么关系\"}]}）。"
+      + "links 里每一位都会两头记上这条关系；写了「我」就是 TA 认识她本人。快照【配角】里已经有的人别再建一遍。\n"
       + "· lore 世界书词条（快照里【世界书】那一栏）：改一条＝id 照抄那一条的 id，text 是改完的正文（改一小段就用 find）；新建＝id 填 new，name 是标题。"
       + "可选：keyword＝触发关键词（逗号分开；填了就是聊到这些词才翻出来，不填＝一直在）、always＝true 常驻、bind＝绑给谁（角色名或 id，逗号分开，不填＝所有人都看得到）。只改这几样、正文不动时 text 留空就行，正文原样留着。"
       + "她发来一份世界书文件要导进来，就按内容拆成几条，一条一个 patch（这种时候最多 12 条，超过就先导最要紧的、跟她说剩下的下一轮接着导）；"
@@ -941,7 +1010,7 @@
       + "如果那张卡的【这张卡是否完整】是 false，你【绝对不许】整段替换——那会把她后面的设定冲掉，代码也会拦住你。\n\n"
       + "【最重要的规矩】你给出的 patch 只是【草稿】。" + uName + " 会一条条看过再决定应不应用，所以：\n"
       + "· 不填 find 的时候，text 必须是【改完的完整内容】，不是 diff、不是「在原文基础上加一句」。\n"
-      + "· 一次别超过 3 条 patch（导世界书那种全是 lore 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
+      + "· 一次别超过 3 条 patch（导世界书、连一串关系、建一批配角——全是 lore／rel／npc 的一轮可以到 12 条）；纯粹问功能的时候给空数组，光用 reply 答她。\n"
       + "· 拿不准她想要什么就先问，别擅自动手。改人设尤其要谨慎——那是她攒了很久的东西。\n\n"
       + (pageLine(ctx.page) ? pageLine(ctx.page) + "\n\n" : "")
       + manualBlock(question, here && here.man) + "\n\n"
@@ -969,9 +1038,12 @@
     const loreMetaOnly = x => x.target === "lore" && x.id && x.id !== "new" && !String(x.text || "").trim()
       && (x.keyword != null || x.always != null || String(x.bind || "").trim());
     const rawPatches = Array.isArray(d.patches) ? d.patches : [];
-    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x)))
+    // 关系那一条 text 空着＝删掉这条线，是正经的一张卡
+    const relDrop = x => x.target === "rel" && String(x.id || "").trim();
+    const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x)))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
-      .slice(0, (Array.isArray(d.patches) && d.patches.length && d.patches.every(x => x && x.target === "lore")) ? 12 : 3)
+      // 导世界书、把一串人连起来：全是世界书／关系／配角的那一轮放宽到 12 张
+      .slice(0, (Array.isArray(d.patches) && d.patches.length && d.patches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
       .map((x, i) => ({
         pid: "p" + Date.now() + "_" + i,
         target: x.target, id: String(x.id || "").trim(),
@@ -981,6 +1053,7 @@
 
         title: clip(x.title, 60) || TARGETS[x.target].zh,
         name: clip(x.name, 30), text: String(x.text || "").trim(), why: clip(x.why, 200),
+        ...(x.target === "rel" ? { both: x.both === true || x.both === "true" } : {}),
         ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
     // 她要拿走的那份文件：原样保留（不洗代码——那是交给她的东西，不是正文）
@@ -1148,7 +1221,7 @@
   function apply(patch, ctx) {
     const T = TARGETS[patch.target];
     if (!T) throw new Error("不认识的改动类型");
-    if (patch.target !== "style" && patch.target !== "newchar" && !(patch.target === "lore" && (!patch.id || patch.id === "new")) && !patch.id) throw new Error("这条没说要改谁");
+    if (patch.target !== "style" && patch.target !== "newchar" && patch.target !== "npc" && !(patch.target === "lore" && (!patch.id || patch.id === "new")) && !patch.id) throw new Error("这条没说要改谁");
     const p = patch;
     // ⚠️存旧版本必须在【写之前】，而且要在算最终文本之前——
     //   算完再存的话，改一小段那一支拿到的已经是新文本了，等于备份了个假的。
@@ -1200,6 +1273,11 @@
   // 花括号，两边根本没法并排比。所以摆之前翻成同一种人话——洗过的那几栏，跟真会落进去的一致。
   const previewText = patch => {
     if (patch && patch.append && !patch.find) return "（接在最后）\n" + String(patch.text || "");
+    if (patch && patch.target === "rel") return String(patch.text || "").trim() ? patch.text + (patch.both ? "（两个方向都是）" : "") : "（删掉这条关系）";
+    if (patch && patch.target === "npc") {
+      try { const o = JSON.parse(String(patch.text || "")); return ["名字：" + (o.name || ""), o.owner ? "在谁身边：" + o.owner : "不挂在谁身边", o.brief ? "简介：" + o.brief : "",
+        (o.links || []).length ? "认识：" + o.links.map(l => (l.who || l.id) + (l.label ? "（" + l.label + "）" : "")).join("、") : ""].filter(Boolean).join("\n"); } catch (e) { return String(patch.text || ""); }
+    }
     if (patch && patch.target === "lore" && !String(patch.text || "").trim())
       return ["（正文不动）", patch.keyword != null ? (String(patch.keyword).trim() ? "关键词：" + patch.keyword : "关键词：清空（一直在）") : "",
         patch.always != null ? (patch.always ? "常驻" : "不常驻，聊到关键词才翻出来") : "", String(patch.bind || "").trim() ? "绑给：" + patch.bind : ""].filter(Boolean).join("\n");

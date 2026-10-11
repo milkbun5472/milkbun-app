@@ -5,7 +5,7 @@ export function furnitureFinish(root){
  const replaced=new Set();
  for(const g of root.children){if(!g.userData.furnitureId)continue;const {finish,primary}=g.userData;
   g.traverse(o=>{if(!o.isMesh||!finish||finish==='auto'||o.material.color.getHexString()!==primary?.slice(1))return;
-   replaced.add(o.material);const m=o.material.clone();m.roughness=finish==='metal'?.32:finish==='plain'?.75:finish==='wood'?.82:.96;m.metalness=finish==='metal'?.7:0;
+   replaced.add(o.material);const m=o.material.clone();m.roughness=finish==='metal'?.32:finish==='plain'?.75:finish==='wood'?.82:.96;m.metalness=finish==='metal'?.7:0;m.transparent=false;m.opacity=1;m.depthWrite=true;
    if(finish==='wood'||finish==='fabric'){
     const canvas=document.createElement('canvas');canvas.width=canvas.height=64;const ctx=canvas.getContext('2d');ctx.fillStyle='#ffffff';ctx.fillRect(0,0,64,64);
     ctx.strokeStyle=finish==='wood'?'#d1c4b6':'#d5d5d5';ctx.lineWidth=1;

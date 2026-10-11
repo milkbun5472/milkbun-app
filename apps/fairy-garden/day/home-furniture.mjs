@@ -1,21 +1,26 @@
-import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-127ffe874240ba15';
-import {HOME_COOK,HOME_PREP} from './home-catalog.mjs?v=fg-127ffe874240ba15';
+import {createHomeDecor} from './home-decor.mjs?v=fg-932cb68b41b7219d';
+import {rounded,arch,scallop,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-932cb68b41b7219d';
+import {HOME_COOK,HOME_PREP,furnitureSeatSurface} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
+import {createCollectionFurniture} from './home-collections.mjs?v=fg-932cb68b41b7219d';
+import {soupPot,preparationSurface} from './places/kitchen-kit.mjs?v=fg-932cb68b41b7219d';
 
 // Movable meshes use the catalogue footprint and the traveler's original bed /
 // chair surfaces. Details belong to their instance, including the thumbnail.
 export function createHomeFurniture(k,a,p){
- const g=k.group(a.id,{x:a.x,z:a.z,heading:a.heading}),F=.08;
+ const g=k.group(a.id,{x:a.x,y:a.mount?a.y:0,z:a.z,heading:a.heading}),F=.08;
+ if(createHomeDecor(k,a,p,g))return g;
+ if(createCollectionFurniture(k,a,p,g))return g;
  const b=(name,v,parent=g)=>k.box(name,{color:p.wood,...v},parent);
  const upright=(name,shape,v,parent=g)=>k.profile(name,{shape,...v},parent);
  const flat=(name,shape,v,parent=g)=>upright(name,shape,{horizontal:true,...v},parent);
  const leg=(x,z,top=.39)=>k.cylinder('TurnedFoot',{x,z,y:F+top/2,r:.045,h:top,color:p.dark},g);
  const book=(x,z,y,color=p.accent)=>k.book('OpenLifeBook',{x,z,y,w:.31,d:.39,color,flat:true},g);
  function tableware(top){
-  const y=F+top;
+  const ware=k.replaceableGroup('DiningTableware',{},g),y=F+top;
   if(a.dining){const spread=a.variant==='round'?.27:a.w*.24;
-   for(const side of [-1,1]){const x=side*spread;k.cylinder('DinnerPlate',{x,y:y+.023,r:.17,h:.025,color:p.paper},g);k.cylinder('PlateWell',{x,y:y+.039,r:.12,h:.005,color:p.accent},g);ceramicCup(k,g,p,{x,z:side*.23,y:y+.09,color:side<0?p.fabric:p.paper,handle:side});b('Chopsticks',{x:x+.22,y:y+.016,z:0,w:.012,h:.012,d:.29,color:p.dark,radius:.005});}
-   k.cylinder('BudVase',{y:y+.15,r:.065,h:.29,color:p.fabric},g);k.tube('SingleStem',{points:[[0,y+.27,0],[.025,y+.43,0],[.075,y+.5,.035]],r:.009,color:p.dark},g);k.ellipsoid('VaseLeaf',{x:.06,y:y+.47,z:.02,w:.12,h:.15,d:.025,color:p.accent},g);
-  }else {book(-a.w*.22,0,y+.05);ceramicCup(k,g,p,{x:a.w*.24,z:-.02,y:y+.09});b('Bookmark',{x:-a.w*.25,y:y+.095,z:.19,w:.035,h:.006,d:.17,color:p.fabric,radius:0});}
+   for(const side of [-1,1]){const x=side*spread;k.cylinder('DinnerPlate',{x,y:y+.023,r:.17,h:.025,color:p.paper},ware);k.cylinder('PlateWell',{x,y:y+.039,r:.12,h:.005,color:p.accent},ware);ceramicCup(k,ware,p,{x,z:side*.23,y:y+.09,color:side<0?p.fabric:p.paper,handle:side});b('Chopsticks',{x:x+.22,y:y+.016,z:0,w:.012,h:.012,d:.29,color:p.dark,radius:.005});}
+   k.cylinder('BudVase',{y:y+.15,r:.065,h:.29,color:p.fabric},ware);k.tube('SingleStem',{points:[[0,y+.27,0],[.025,y+.43,0],[.075,y+.5,.035]],r:.009,color:p.dark},ware);k.ellipsoid('VaseLeaf',{x:.06,y:y+.47,z:.02,w:.12,h:.15,d:.025,color:p.accent},ware);
+  }else {book(-a.w*.22,0,y+.05);ceramicCup(k,ware,p,{x:a.w*.24,z:-.02,y:y+.09});b('Bookmark',{x:-a.w*.25,y:y+.095,z:.19,w:.035,h:.006,d:.17,color:p.fabric,radius:0});}
  }
  if(a.kind==='bed'){
   for(const x of [-a.w*.4,a.w*.4])for(const z of [-a.d*.42,a.d*.42]){leg(x,z,.3);k.sphere('FootCollar',{x,z,y:.31,r:.075,color:p.wood},g);}
@@ -35,7 +40,7 @@ export function createHomeFurniture(k,a,p){
   flat('SofaTimberRaft',rounded(a.w-.02,a.d-.02,.22),{y:.34,depth:.12,color:p.wood});
   const back=rounded(a.w-.04,.65,.22);upright('CurvedSofaBack',back,{y:.81,z:-a.d/2+.105,depth:.18,color:p.wood});
   upright('UpholsteredBack',rounded(a.w-.26,.53,.18),{y:.83,z:-a.d/2+.225,depth:.1,color:p.fabric});
-  for(const side of [-1,1]){flat('SofaSeat',rounded((a.w-.38)/2,a.d-.31,.15),{x:side*(a.w-.36)/4,y:.475,z:.065,depth:.11,color:p.fabric});k.ellipsoid('SofaBolster',{x:side*(a.w/2-.17),y:.66,z:.03,w:.27,h:.29,d:a.d-.17,color:p.fabric},g);}
+  for(const side of [-1,1]){flat('SofaSeat',rounded((a.w-.38)/2,furnitureSeatSurface(a).d,.15),{x:side*(a.w-.36)/4,y:.475,z:furnitureSeatSurface(a).z,depth:.11,color:p.fabric});k.ellipsoid('SofaBolster',{x:side*(a.w/2-.17),y:.66,z:.03,w:.27,h:.29,d:a.d-.17,color:p.fabric},g);}
   for(const [side,color]of [[-1,p.accent],[1,p.paper]]){const cushion=upright('SofaCushion',rounded(.43,.43,.12),{x:side*a.w*.32,y:.77,z:-.06,depth:.14,color});cushion.rotation.z=side*.17;}
   for(const x of [-.31,.31])b('BackJoinery',{x,y:.81,z:-a.d/2+.005,w:.065,h:.56,d:.014,color:p.dark,radius:.02});
  }else if(a.kind==='table'){
@@ -46,7 +51,7 @@ export function createHomeFurniture(k,a,p){
   tableware(top);
  }else if(a.kind==='chair'){
   for(const x of [-.185,.185])for(const z of [-.19,.19])leg(x,z,.36);
-  flat('RoundChairSeat',rounded(a.w-.018,a.d-.018,.2),{y:F+.45-.045,depth:.09,color:p.fabric});
+  flat('RoundChairSeat',rounded(a.w-.018,furnitureSeatSurface(a).d,.2),{y:F+.45-.045,z:furnitureSeatSurface(a).z,depth:.09,color:p.fabric});
   const back=arch(a.w-.02,.51);upright('PetalChairBack',back,{y:.61,z:-.235,depth:.072,color:p.fabric,bevel:.012});
   for(const x of [-.2,.2])b('ChairBackSupport',{x,y:.6,z:-.225,w:.045,h:.45,d:.04,color:p.dark,radius:.018});
   if(a.variant==='slat'){upright('ChairBackInset',shift(arch(.38,.36),0,.02),{y:.665,z:-.19,depth:.006,color:p.paper,bevel:0});for(const x of [-.12,0,.12])b('ChairReed',{x,y:.835,z:-.18,w:.032,h:.28,d:.01,color:p.fabric,radius:.008});}
@@ -76,9 +81,8 @@ export function createHomeFurniture(k,a,p){
   if(a.kind==='kitchen'){
    flat('SinkRim',rounded(.72,.45,.13),{x:-.8,y:.982,depth:.012,color:p.dark});flat('SinkBowl',rounded(.57,.32,.11),{x:-.8,y:.99,depth:.005,color:p.glass});k.tube('GooseneckTap',{points:[[-.8,.98,-.29],[-.8,1.23,-.29],[-.8,1.3,-.15],[-.8,1.21,-.06]],r:.023,color:p.dark},g);
    flat('Cooktop',rounded(.86,.49,.09),{x:.85,y:.982,depth:.018,color:p.dark});for(const x of [.65,1.08])k.cylinder('CookingRing',{x,z:x===1.08?HOME_COOK.z:0,y:1.001,r:.13,h:.013,color:p.wood},g);
-   k.cylinder('SoupPot',{x:HOME_COOK.x,z:HOME_COOK.z,y:HOME_COOK.y,r:HOME_COOK.r,h:.16,color:p.accent},g);k.cylinder('SoupSurface',{x:HOME_COOK.x,z:HOME_COOK.z,y:HOME_COOK.contactY-.003,r:.11,h:.008,color:p.fabric},g);
-   b('PreparationBoard',{x:HOME_PREP.x,y:HOME_PREP.y,z:HOME_PREP.z,w:.64,h:.04,d:.34,color:p.wood},g);for(let n=0;n<4;n++)k.ellipsoid('PreparationVegetable',{x:HOME_PREP.x-.17+n*.11,y:HOME_PREP.contactY,z:HOME_PREP.contactZ,w:.10,h:.05,d:.18,color:p.fabric},g);
-   const lid=k.replaceableGroup('CookingPotLid',{},g);k.ellipsoid('PotLid',{x:HOME_COOK.x,z:HOME_COOK.z,y:1.183,w:.26,h:.045,d:.26,color:p.paper},lid);k.sphere('LidKnob',{x:HOME_COOK.x,z:HOME_COOK.z,y:1.22,r:.026,color:p.dark},lid);
+   soupPot(k,g,{...HOME_COOK,body:p.accent,soup:p.fabric,lid:p.paper,knob:p.dark,lidY:1.183,knobY:1.22});
+   preparationSurface(k,g,{...HOME_PREP,board:p.wood,food:p.fabric});
    flat('CuttingBoard',rounded(.4,.32,.06),{x:1.8,y:.994,depth:.025,color:p.wood});ceramicCup(k,g,p,{x:-1.8,z:0,y:1.06});
   }else {flat('CuttingBoard',pebble(.7,.46),{x:-.3,y:.995,depth:.035,color:p.wood});ceramicCup(k,g,p,{x:.53,y:1.06});k.ellipsoid('BreadLoaf',{x:-.34,y:1.08,w:.32,h:.13,d:.2,color:p.accent},g);}
  }else if(a.kind==='plant'){

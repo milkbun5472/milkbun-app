@@ -1987,7 +1987,7 @@ function schedSleepCarry(prevPlan, todayPlan) {
   for (const x of today) { const m = /(\d{1,2}):(\d{2})/.exec(String(x.time || "")); if (m) { wake = (+m[1]) * 60 + (+m[2]); break; } }
   if (wake == null) wake = 8 * 60;                           // 今天还没排：按睡到早上八点画
   if (wake <= 0) return null;
-  return { from: 0, to: wake, title: last.title || "睡着", location: last.location || "", type: "sleep", carry: true };
+  return { from: 0, to: wake, seq: last.seq, world: last.world, title: last.title || "睡着", location: last.location || "", type: "sleep", carry: true };
 }
 // 角色本地时区 - 我本地 的分钟差（char.tz 如 "+8"/"-5"/"+5.5"/""跟随系统）。异地恋用。
 function schedTzShiftMin(char) {
@@ -3099,9 +3099,9 @@ function Forum({
     const moreC = gen && gen.forumMore === p.id;
     const c = (!p.anon && p.authorType === "character") ? charOf(p.authorId) : null;
     const alt = isAlt(p);
-    return h("div", { className: "flex-1 flex flex-col min-h-0" },
+    return h("div", { "data-wk": "fopostpage", className: "flex-1 flex flex-col min-h-0" },
       h("div", { className: "flex-1 min-h-0 overflow-y-auto" },
-        h("div", { style: { margin: "12px 13px 4px", padding: "16px 15px 14px", borderRadius: 20, border: "1px solid " + FORUM_SKIN.line, borderTop: "3px solid " + forumBoardSkin(p.board)[0], background: FORUM_SKIN.paper, boxShadow: "0 10px 24px rgba(42,55,38,.07)" } },
+        h("div", { "data-wk": "fopostcard", style: { margin: "12px 13px 4px", padding: "16px 15px 14px", borderRadius: 20, border: "1px solid " + FORUM_SKIN.line, borderTop: "3px solid " + forumBoardSkin(p.board)[0], background: FORUM_SKIN.paper, boxShadow: "0 10px 24px rgba(42,55,38,.07)" } },
           h("div", { className: "flex gap-3" },
             avatarBtn(p, 44, p.anon),
             h("button", { onClick: () => { if (c) goProfile(c.id); else if(alt)goAltProfile(p);else goNpcProfile(p); }, className: "text-left flex-1 min-w-0 " + ((c || alt || (!p.anon && p.authorType === "npc" && p.authorId)) ? "active:opacity-60" : ""), style: { display: "block" } },
@@ -3332,6 +3332,11 @@ function Forum({
   function noticeList() {
     return h("div", { className: "flex-1 overflow-y-auto" },
       forumNotices.length === 0 && h(Empty, { text: "还没有人回复你", sub: "你发帖或在楼里说话后，新的直接回复会出现在这里" }),
+      // 一键已读（群友 2026-10-11：「一边刷一边回已经都看过了，回复那边还显示都没看过」）
+      unreadNoticeCount > 0 && h("div", { className: "px-4 py-2 flex items-center", style: { borderBottom: `1px solid ${t.line}` } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, unreadNoticeCount + " 条没看"),
+        h("button", { "data-wk": "forumnoticeallread", onClick: () => markNoticesRead(forumNotices.map(n => n.id)), className: "ml-auto active:opacity-60",
+          style: { minHeight: 40, padding: "0 4px", fontFamily: F_BODY, fontSize: 12.5, color: FORUM_SKIN.accent, background: "transparent", border: "none" } }, "全部标为已读")),
       forumNotices.map(n => h("div", { key: n.id, className: "px-4 py-3.5 flex gap-3", style: { borderBottom: `1px solid ${t.line}`, background: forumNoticeRead[n.id] ? "transparent" : t.bg2 } },
         h("button", { onClick: () => openNotice(n), className: "flex-1 min-w-0 text-left flex gap-3 active:opacity-70" },
           avatarFor(n.author, 38, n.author && n.author.anon),
@@ -3438,7 +3443,9 @@ function Forum({
   // ⚠️overflowX 兜死：里头任何一处顶宽了（一条超长的 @、一串大数字），整页就会
   //   横着滑起来——连顶栏和返回键一起被推出屏幕（她 2026-09-01 那张截图就是这样，
   //   头像左半边和返回键都不见了）。里头该修的照修，但这一道得先拦住整页跑偏。
-  return h("div", { className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink, overflowX: "hidden" } },
+  // 美化钩子（群里 2026-10-10：「论坛的面板没法改颜色，让秋秋生了应用了也没有用」）——
+  //   原来整页只有帖子和楼层里的小零件挂着钩子，底色、顶栏、版块那排、底栏、设置一个都对不上，秋秋写什么都落空。
+  return h("div", { "data-wk": "forumpage", "data-nav": nav, "data-sub": inSub ? "1" : "0", className: "h-full flex flex-col relative", style: { background: FORUM_SKIN.bg, color: FORUM_SKIN.ink, overflowX: "hidden" } },
     // 紧凑居中顶栏：左右等宽，论坛不再是普通列表左上角的一行大字。
     h(Head, { zh: title, sub: (!inSub && nav === "home") ? "街坊的告示板" : "",
       onBack: backFn || onBack, ink: FORUM_SKIN.ink, subInk: FORUM_SKIN.fog, lineInk: FORUM_SKIN.line,
@@ -3447,7 +3454,7 @@ function Forum({
       right: h("div", { className: "flex items-center", style: { gap: 4 } },
         (!inSub) && h("button", { onClick: () => setSettingsOpen(true), "aria-label": "论坛设置", className: "active:opacity-50 flex items-center justify-center", style: { width: 32, height: 40 } }, h(GConfig, { size: 17, color: FORUM_SKIN.ink })),
         rightEl ? h("span", { className: "flex items-center justify-center", style: { width: 32, height: 40 } }, rightEl) : null) }),
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
+    (!inSub && nav === "home") && h("div", { "data-wk": "foboards", className: "shrink-0 flex gap-1.5 px-4 pb-2 overflow-x-auto", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(244,247,240,.88)", scrollbarWidth: "none" } }, [...forumBoardsAll(), "关注", "收藏"].map(b => {
       const count = (posts || []).filter(p => forumVisible(p) && (b === "收藏" ? bookmarked.has(p.id) : b === "关注" ? followedPost(p) : p.board === b)).reduce((n, p) => n + unreadFloors(p.id), 0);
       return chip(b + (count > 0 ? " · " + count : ""), tab === b, () => { setTab(b); setPage(1); });
     }).concat([
@@ -3469,7 +3476,7 @@ function Forum({
       //   之前它躺在帖子流【最底下】——底下还压着导航栏，等于根本不存在。
       //   这条横杠是版块级的、永远一行高、永远在屏幕上，所以版块级的动作就该长在这儿；
       //   它和吧规是两颗并排的兄弟按钮，不是套在一起的（套着点哪儿都会展开吧规）。
-      h("div", { className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
+      h("div", { "data-wk": "forules", className: "w-full flex items-center px-4", style: { gap: 6, height: 26, borderBottom: "1px solid " + FORUM_SKIN.line, background: rulesOpen ? forumBoardSkin(tab)[1] : "rgba(255,255,255,.34)" } },
         h("button", { onClick: () => setRulesOpen(!rulesOpen), className: "flex-1 min-w-0 flex items-center text-left active:opacity-60", style: { gap: 6 } },
           h("span", { style: { flexShrink: 0, padding: "0 5px", borderRadius: 3, background: forumBoardSkin(tab)[1], color: forumBoardSkin(tab)[0], fontFamily: F_BODY, fontSize: 9.5, lineHeight: "15px" } }, myBoardNow ? "简介" : "吧规"),
           h("span", { className: "truncate", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.fog } }, boardRules[0]),
@@ -3481,11 +3488,11 @@ function Forum({
         boardRules.map((r, k) => h("div", { key: k, className: "flex", style: { gap: 6, fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.7, color: FORUM_SKIN.sub } },
           h("span", { style: { flexShrink: 0, color: forumBoardSkin(tab)[0] } }, (k + 1) + "."), h("span", null, r))))),
     // 时间线像公告栏上三张钉着的排序便笺：选中那张抬起、钉子落墨，不是换个色的胶囊。
-    (!inSub && nav === "home") && h("div", { className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
+    (!inSub && nav === "home") && h("div", { "data-wk": "fosort", className: "shrink-0 grid grid-cols-3 gap-2 px-4 py-2", style: { borderBottom: "1px solid " + FORUM_SKIN.line, background: "rgba(255,255,255,.34)" } },
       [["active", "正在聊"], ["latest", "最新发帖"], ["hot", "热榜"]].map((x, xi) => { const active = feedSort === x[0]; return h("button", { key: x[0], title: x[0] === "active" ? "新回复会把旧帖顶回来" : (x[0] === "hot" ? "热度会随时间降温" : "只按发帖时间"), onClick: () => { setFeedSort(x[0]); setPage(1); }, className: "active:opacity-70 flex flex-col items-center justify-center", style: { minHeight: 44, position: "relative", borderRadius: 4, transform: active ? "translateY(-2px) rotate(" + (xi - 1) * .35 + "deg)" : "translateY(2px)", fontFamily: F_BODY, fontSize: 11.5, color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog, background: active ? FORUM_SKIN.paper : "rgba(255,255,255,.26)", border: "1px solid " + (active ? FORUM_SKIN.line : "transparent"), borderTop: "3px solid " + (active ? FORUM_SKIN.accent : "rgba(74,94,65,.18)"), boxShadow: active ? "0 5px 12px rgba(74,94,65,.13)" : "none" } }, h("span", { style: { position: "absolute", top: 4, width: 5, height: 5, borderRadius: 99, background: active ? FORUM_SKIN.accent : FORUM_SKIN.line } }), h("span", { style: { marginTop: 5 } }, x[1])); })),
     bodyEl,
-    (!inSub) && h("div", { className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
-      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
+    (!inSub) && h("div", { "data-wk": "fonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + FORUM_SKIN.line, background: "rgba(248,250,245,.94)", backdropFilter: "blur(14px)", WebkitBackdropFilter: "blur(14px)", paddingBottom: COMPOSER_PAD_BOTTOM } },
+      [["home", IHome, "主页"], ["search", ISearch, "搜索"], ["notice", IPulse, "回复"], ["pm", IMail, "私信"], ["me", GUser, "我"]].map(nx => { const Ic = nx[1]; const active = nav === nx[0]; return h("button", { key: nx[0], "data-wk": "fonavtab", "data-part": nx[0], "data-on": active ? "1" : "0", onClick: () => { setNav(nx[0]); setFromPost(null); }, className: "flex-1 pt-1.5 pb-1 flex flex-col items-center gap-0.5 active:opacity-60 relative", style: { color: active ? FORUM_SKIN.ink : FORUM_SKIN.fog } },
         h("span", { className: "flex items-center justify-center", style: { width: 38, height: 27, borderRadius: 999, background: active ? FORUM_SKIN.soft : "transparent" } }, h(Ic, { size: 19, color: active ? FORUM_SKIN.accent : FORUM_SKIN.fog })),
         h("span", { style: { fontFamily: F_BODY, fontSize: 9.5 } }, nx[2]),
         nx[0] === "pm" && unreadPM > 0 && h("span", { style: { position: "absolute", top: 2, right: "50%", marginRight: -22, minWidth: 14, height: 14, padding: "0 3px", borderRadius: 999, background: t.accent, color: "#fff", fontSize: 8.5, fontFamily: F_BODY, display: "flex", alignItems: "center", justifyContent: "center" } }, unreadPM),
@@ -5929,6 +5936,121 @@ function CouplePacts({ partner, pacts, onClose, onSetDue, onAdd, onBack }) {
           h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, lineHeight: 1.8 } }, x.about),
           h("span", { style: { fontFamily: F_BODY, fontSize: 11, color: t.tint, flexShrink: 0 } }, leftOf(x.dueTs))))) : null));
 }
+// 我们的存钱罐（她 2026-10-10 转群友：「情侣空间能不能开个共同账户，那种互相往里放钱的」）。
+//   第二版（她 2026-10-10：「存钱罐里面设计也弄好一点」）——照着它在现实里是什么来长：
+//   ① 一只搁在木板上的玻璃罐：罐里是一枚枚硬币堆起来的高度（定了目标就是攒到几成），
+//      最近几笔附了话的，折成小纸条塞在硬币上面；罐颈系一张牛皮纸吊牌，写着目标和进度。
+//   ② 往里放、往外取是一张「存取单」：金额、附言、要不要拿去实现某个愿望。
+//   ③ 流水是一本存折：日期 / 摘要 / 存入 / 支取 / 结余 五栏，按月翻页。
+//   钱的进出全在 app 那头的 jarMove 一处（扣谁的钱包、落灰字、攒到目标），这一页只摆和递。
+function CoupleJar({ partner, data, wishes, myWallet, myName, onMove, onGoal, onBack }) {
+  const j = data || { balance: 0, goal: null, autoPct: 10, ledger: [] };
+  const [amt, setAmt] = useState("");
+  const [note, setNote] = useState("");
+  const [wishId, setWishId] = useState("");
+  const [goalEdit, setGoalEdit] = useState(null);   // null | { name, amount }
+  const bal = Number(j.balance) || 0, goal = j.goal;
+  const goalAmt = goal ? Number(goal.amount) || 0 : 0;
+  const level = goalAmt > 0 ? Math.min(1, bal / goalAmt) : (bal > 0 ? Math.min(0.5, 0.12 + Math.log10(1 + bal) / 10) : 0);
+  const openWishes = (wishes || []).filter(w => w && w.status !== "done" && w.status !== "shelved");
+  const money = v => (Math.round(Number(v) * 100) / 100).toLocaleString("zh-CN");
+  const n = Math.round(Number(amt) * 100) / 100;
+  const go = sign => {
+    if (!(n > 0)) return;
+    const ok = onMove(sign * n, note.trim() || (sign < 0 && wishId ? "实现愿望：" + ((openWishes.find(w => w.id === wishId) || {}).title || "") : ""), sign < 0 ? wishId : "");
+    if (ok !== false) { setAmt(""); setNote(""); setWishId(""); }
+  };
+  const INK = "#3d3a33", FOG = "#958d7e", PAPER = "#fbf7ee", RULE = "rgba(120,100,70,.18)", RED = "#a4473b", GREEN = "#4f7a4d";
+  const field = { background: "transparent", color: INK, border: "none", borderBottom: "1px solid " + RULE, borderRadius: 0, padding: "7px 2px", outline: "none", fontFamily: F_BODY, fontSize: 13.5 };
+  const label = s0 => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: FOG } }, s0);
+  // 罐子里的硬币：从底往上一层层码，层数跟着水位走；每层几枚、错开半枚
+  const COIN_ROWS = 14, rows = Math.round(level * COIN_ROWS);
+  const coins = [];
+  for (let r = 0; r < rows; r++) for (let c = 0; c < 5; c++) {
+    const x = 10 + c * 22 + (r % 2 ? 11 : 0); if (x > 112) continue;
+    coins.push(h("span", { key: r + "_" + c, style: { position: "absolute", left: x, bottom: 6 + r * 9, width: 22, height: 10, borderRadius: "50%",
+      background: "radial-gradient(ellipse at 40% 35%,#f8e1a0,#d8a648 60%,#a97a2c)", boxShadow: "0 1px 0 rgba(90,60,20,.35)" } }));
+  }
+  // 附了话的那几笔：折成小纸条塞在硬币上面（最多四张，最新的在最上面）
+  const slips = (j.ledger || []).filter(r => r && r.delta > 0 && r.note).slice(0, 4);
+  // 存折：按月翻
+  const byMonth = [];
+  (j.ledger || []).forEach(r => { const d = new Date(r.ts || 0), k = d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0"); let g = byMonth.find(x => x.k === k); if (!g) { g = { k, list: [] }; byMonth.push(g); } g.list.push(r); });
+  const COLS = "40px minmax(0,1fr) 50px 50px 58px";
+  return h("div", { "data-wk": "jarpage", className: "h-full flex flex-col", style: { background: "#efe8da", backgroundImage: "repeating-linear-gradient(0deg,rgba(255,255,255,.18) 0 1px,transparent 1px 5px)" } },
+    h(Head, { zh: "我们的存钱罐", onBack, bg: "transparent", ink: INK }),
+    h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5", style: { paddingBottom: "calc(28px + env(safe-area-inset-bottom))" } },
+      // ① 搁在木板上的罐子 + 罐颈上的吊牌
+      h("div", { style: { position: "relative", height: 252, marginTop: 6 } },
+        h("div", { "data-wk": "jarglass", style: { position: "absolute", left: "50%", marginLeft: -78, bottom: 18, width: 132, height: 196 } },
+          // 盖子：两道铁皮
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 30, right: 30, top: 0, height: 13, borderRadius: "5px 5px 2px 2px", background: "linear-gradient(180deg,#c9ccc9,#8f9592)", boxShadow: "inset 0 -2px 0 rgba(0,0,0,.15)" } }),
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 50, right: 50, top: 4, height: 3, borderRadius: 2, background: "#4a4f4c" } }),
+          // 罐颈
+          h("div", { "aria-hidden": "true", style: { position: "absolute", left: 26, right: 26, top: 12, height: 14, background: "rgba(225,238,240,.55)", border: "1.5px solid rgba(120,150,155,.5)", borderTop: "none" } }),
+          // 罐身
+          h("div", { style: { position: "absolute", left: 0, right: 0, top: 24, bottom: 0, borderRadius: "30px 30px 22px 22px", background: "rgba(225,238,240,.42)", border: "1.5px solid rgba(120,150,155,.55)", overflow: "hidden", boxShadow: "inset 0 -10px 18px rgba(110,140,150,.16)" } },
+            coins,
+            slips.map((r, i) => h("span", { key: r.id, title: r.note, style: { position: "absolute", left: 18 + (i % 2) * 44, bottom: 10 + rows * 9 + (i >> 1) * 13, width: 46, height: 12, borderRadius: 2,
+              background: i % 2 ? "#f4e7c8" : "#f7efe0", border: "1px solid rgba(150,120,70,.35)", transform: "rotate(" + [-14, 9, -5, 16][i] + "deg)", boxShadow: "0 1px 2px rgba(90,60,20,.18)" } })),
+            // 玻璃上的两道高光
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 12, top: 14, bottom: 26, width: 7, borderRadius: 7, background: "rgba(255,255,255,.6)" } }),
+            h("div", { "aria-hidden": "true", style: { position: "absolute", left: 24, top: 18, height: 34, width: 3, borderRadius: 3, background: "rgba(255,255,255,.45)" } }))),
+        // 系在罐颈上的吊牌：一根线 + 一张牛皮纸卡，点它定／改目标
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: "50%", marginLeft: 46, top: 38, width: 34, height: 1.5, background: "#8b6a43", transform: "rotate(22deg)", transformOrigin: "left center" } }),
+        h("button", { onClick: () => setGoalEdit({ name: goal ? goal.name : "", amount: goal ? String(goal.amount) : "" }), className: "active:opacity-80",
+          style: { position: "absolute", left: "50%", marginLeft: 74, top: 46, width: 96, padding: "9px 8px 8px 14px", textAlign: "left", background: "#d9be8e", border: "1px solid #b8986a",
+            borderRadius: "3px 6px 6px 3px", transform: "rotate(7deg)", boxShadow: "0 3px 7px rgba(90,60,25,.22)" } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: 4, top: "50%", marginTop: -3, width: 6, height: 6, borderRadius: 99, background: "#efe8da", border: "1px solid #a8885a" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".14em", color: "#6f5430" } }, goal ? "攒来" : "还没定"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: "#3f2e17", marginTop: 3, lineHeight: 1.35, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, goal ? goal.name : "定个目标"),
+          goal ? h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: "#6f5430", marginTop: 3 } }, goal.hitTs ? "攒到了" : Math.round(level * 100) + "% · " + money(goalAmt)) : null),
+        // 木板
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: -6, right: -6, bottom: 6, height: 14, borderRadius: 3, background: "linear-gradient(180deg,#b88c5c,#94693f)", boxShadow: "0 6px 10px rgba(80,50,20,.22)" } }),
+        h("div", { style: { position: "absolute", left: 0, bottom: 34, fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".16em", color: FOG } }, "罐子里有"),
+        h("div", { style: { position: "absolute", left: 0, bottom: 52, fontFamily: F_DISPLAY, fontSize: 30, color: INK, lineHeight: 1 } }, money(bal))),
+      // 定目标：吊牌翻过来那一面
+      goalEdit ? h("div", { style: { marginTop: 4, background: "#e6d3ad", border: "1px solid #c3a674", borderRadius: 6, padding: "12px 14px" } },
+        label("吊牌背面 · 写下要攒的"),
+        h("input", { value: goalEdit.name, onChange: e => setGoalEdit({ ...goalEdit, name: e.target.value }), maxLength: 30, placeholder: "攒来做什么，比如「一起去海边」", style: Object.assign({ width: "100%", marginTop: 6 }, field) }),
+        h("div", { className: "flex items-end", style: { gap: 10, marginTop: 6 } },
+          h("input", { value: goalEdit.amount, onChange: e => setGoalEdit({ ...goalEdit, amount: e.target.value.replace(/[^\d.]/g, "") }), inputMode: "decimal", placeholder: "攒到多少", style: Object.assign({ flex: 1, minWidth: 0 }, field) }),
+          h("button", { onClick: () => { onGoal(goalEdit.name, goalEdit.amount); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "8px 16px", borderRadius: 4, background: "#5a4326", color: "#f4ead6", fontFamily: F_BODY, fontSize: 13, border: "none" } }, "系上"),
+          goal ? h("button", { onClick: () => { onGoal("", 0); setGoalEdit(null); }, className: "active:opacity-70", style: { padding: "8px 4px", background: "transparent", color: "#6f5430", fontFamily: F_BODY, fontSize: 12, border: "none" } }, "解下来") : null,
+          h("button", { onClick: () => setGoalEdit(null), className: "active:opacity-70", style: { padding: "8px 4px", background: "transparent", color: "#6f5430", fontFamily: F_BODY, fontSize: 12, border: "none" } }, "算了"))) : null,
+      // ② 存取单：一张横线小票
+      h("div", { style: { marginTop: 16, background: PAPER, borderRadius: 4, padding: "14px 16px 12px", boxShadow: "0 4px 12px rgba(90,70,40,.12)", position: "relative" } },
+        h("div", { className: "flex items-baseline justify-between" },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: INK, letterSpacing: 2 } }, "存 取 单"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FOG } }, "你的钱包 " + money(myWallet || 0))),
+        h("div", { className: "flex items-end", style: { gap: 12, marginTop: 8 } },
+          h("div", { style: { width: 108 } }, label("金额"), h("input", { value: amt, onChange: e => setAmt(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "0", style: Object.assign({ width: "100%", fontFamily: F_DISPLAY, fontSize: 20 }, field) })),
+          h("div", { style: { flex: 1, minWidth: 0 } }, label("附言"), h("input", { value: note, onChange: e => setNote(e.target.value), maxLength: 60, placeholder: "写一句（可空）", style: Object.assign({ width: "100%" }, field) }))),
+        openWishes.length ? h("div", { style: { marginTop: 10 } }, label("取出来是为了"),
+          h("select", { value: wishId, onChange: e => setWishId(e.target.value), style: Object.assign({ width: "100%" }, field) },
+            [h("option", { key: "", value: "" }, "不为哪个愿望")].concat(openWishes.map(w => h("option", { key: w.id, value: w.id }, "实现：" + (w.title || "")))))) : null,
+        h("div", { className: "flex", style: { gap: 10, marginTop: 14 } },
+          h("button", { onClick: () => go(1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 4, background: GREEN, color: "#fff", fontFamily: F_DISPLAY, fontSize: 14, letterSpacing: 2, border: "none", opacity: n > 0 ? 1 : .4 } }, "存 进 去"),
+          h("button", { onClick: () => go(-1), disabled: !(n > 0), className: "flex-1 active:opacity-70", style: { padding: "11px 0", borderRadius: 4, background: "transparent", color: RED, fontFamily: F_DISPLAY, fontSize: 14, letterSpacing: 2, border: "1px solid " + RED, opacity: n > 0 ? 1 : .4 } }, wishId ? "取 去 实 现" : "取 出 来")),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FOG, marginTop: 10, lineHeight: 1.7 } },
+          "存进去从你的钱包扣，取出来回到你的钱包。" + partner.name + " 也能自己存、自己取，每月发工资那天会自己存 " + (j.autoPct == null ? 10 : j.autoPct) + "%。")),
+      // ③ 存折
+      h("div", { style: { marginTop: 18, background: "#f6f1e4", borderRadius: 3, boxShadow: "0 4px 12px rgba(90,70,40,.12)", overflow: "hidden" } },
+        h("div", { className: "flex items-center justify-between", style: { background: "#7c2f2f", color: "#f3e3c8", padding: "10px 14px" } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, letterSpacing: 3 } }, "存 折"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, opacity: .8 } }, (myName || "我") + " · " + partner.name)),
+        h("div", { style: { display: "grid", gridTemplateColumns: COLS, gap: 4, padding: "7px 12px", borderBottom: "1px solid " + RULE, fontFamily: F_BODY, fontSize: 10, color: FOG } },
+          h("div", null, "日期"), h("div", null, "摘要"), h("div", { style: { textAlign: "right" } }, "存入"), h("div", { style: { textAlign: "right" } }, "支取"), h("div", { style: { textAlign: "right" } }, "结余")),
+        !byMonth.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: FOG, padding: "18px 12px", textAlign: "center" } }, "还是空的。存进第一笔，这一页就有字了。") :
+        byMonth.map(g => h("div", { key: g.k },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".12em", color: "#7c2f2f", padding: "8px 12px 2px" } }, g.k),
+          g.list.map(r => h("div", { key: r.id, "data-wk": "jarrow", "data-who": r.who, style: { display: "grid", gridTemplateColumns: COLS, gap: 4, alignItems: "baseline", padding: "7px 12px", borderBottom: "1px dashed " + RULE, fontFamily: F_BODY, fontSize: 11.5, color: INK } },
+            h("div", { style: { color: FOG, fontSize: 10.5 } }, (new Date(r.ts).getMonth() + 1) + "/" + new Date(r.ts).getDate()),
+            h("div", { style: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (r.who === "me" ? "我" : partner.name) + (r.auto ? " · 工资日" : "") + (r.note ? " · " + r.note : "")),
+            h("div", { style: { textAlign: "right", color: GREEN } }, r.delta > 0 ? money(r.delta) : ""),
+            h("div", { style: { textAlign: "right", color: RED } }, r.delta < 0 ? money(-r.delta) : ""),
+            h("div", { style: { textAlign: "right", fontFamily: F_DISPLAY } }, money(r.after)))))))));
+}
 function CoupleWishes({ partner, data, onSave, onPlan, planOf, trips, onDepart, onOpenTrips, onGenWish, wishGen, onBack }) {
   const t = useTheme();
   const wishes = Array.isArray(data) ? data : [];
@@ -6154,7 +6276,94 @@ function CoupleGarden({ partner, data, gen, onPlant, onKeep, onBack }) {
 // 整页（no-half-sheet）。它长成【一张登机牌 + TA手写批注的行程册】：现实里一趟旅行
 // 留在手里的就是这两样。从愿望板「一起去」进来，返回也回愿望板（一层层退）。
 // 配色整套写死（票纸写死浅色，字色跟主题走会在深色主题下失明——信纸那套的老课）。
-function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
+const tripTodayKey = () => { const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); };
+// 旅行里那一步「订票订房」：三班去程、三家酒店，TA 先说自己会挑哪个；你可以改，然后你付或 TA 请客
+function TripBooking({ partner, trip, gen, onBook, onBookPick, onBookPay, hasKin }) {
+  const t = useTheme();
+  const b = trip && trip.booking;
+  const name = partner.remark || partner.name;
+  const card = { background: "#fdfaf1", border: "1px solid #e6dcc4", borderRadius: 6, padding: "10px 12px", marginBottom: 8 };
+  if (!b) return h("button", { "data-wk": "tripbook", "data-part": "search", onClick: onBook, disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40",
+    style: { marginTop: 14, minHeight: 44, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, fontFamily: F_BODY, fontSize: 13.5, color: t.tint } },
+    gen ? "在查票和房…" : "✈ 订机票和酒店");
+  const pick = b.pick || { flight: b.taPick.flight, back: b.taPick.back, hotel: b.taPick.hotel };
+  const backs = Array.isArray(b.back) ? b.back : [];
+  const total = (b.flights[pick.flight] ? b.flights[pick.flight].price * 2 : 0) + (backs[pick.back] ? backs[pick.back].price * 2 : 0)
+    + (b.hotels[pick.hotel] ? b.hotels[pick.hotel].price * (b.nights || 1) : 0);
+  const seat = b.seat || { me: "window" };
+  const byZh = { ta: name + " 请客", aa: "两个人 AA", kin: "刷了 " + name + " 的亲属卡", me: "你付的" };
+  const paid = b.paid;
+  const row = (kind, x, i) => {
+    const on = pick[kind] === i, ta = b.taPick[kind] === i;
+    return h("button", { key: kind + i, "data-wk": "tripbookopt", "data-on": on ? "1" : "0", onClick: () => !paid && onBookPick && onBookPick({ [kind]: i }), disabled: !!paid && !on,
+      className: "w-full text-left active:opacity-80", style: Object.assign({}, card, { display: paid && !on ? "none" : "block", border: "1.5px solid " + (on ? "#43371f" : "#e6dcc4"), minHeight: 44 }) },
+      h("div", { className: "flex items-baseline", style: { gap: 8 } },
+        h("div", { style: { flex: 1, minWidth: 0, fontFamily: F_DISPLAY, fontSize: 14.5, color: "#3a3226" } },
+          kind !== "hotel" ? [x.no, [x.from, x.to].filter(Boolean).join(" → ")].filter(Boolean).join("  ") : x.name),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#3a3226", flexShrink: 0 } }, "¥" + x.price + (kind === "hotel" ? "/晚" : "/人"))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#8f8268", marginTop: 3 } },
+        kind !== "hotel" ? [x.dep, x.arr].filter(Boolean).join(" → ") : [x.area, x.room].filter(Boolean).join(" · "),
+        x.note ? " · " + x.note : "", ta ? h("span", { style: { color: "#93707c", marginLeft: 6 } }, "♥ " + name + " 会挑这个") : null));
+  };
+  // 订好之后：一张订单票根，跟上面那张登机牌同一套纸和墨（深带 + 竖撕线 + 存根）
+  if (paid) {
+    const fl = b.flights[pick.flight] || {}, ho = b.hotels[pick.hotel] || {}, bk = backs[pick.back] || null;
+    const TIN = "#43371f", TFOG = "#9a8a66", TP = "#f6f0df", TLINE = "rgba(140,115,65,.3)";
+    return h("div", { "data-wk": "tripbookpaid", style: { position: "relative", marginTop: 16, borderRadius: 6, overflow: "hidden", background: TP, boxShadow: "0 8px 20px rgba(70,50,15,.16)", transform: "rotate(0.5deg)" } },
+      h("div", { className: "flex items-center", style: { background: TIN, padding: "7px 14px", gap: 8 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, letterSpacing: ".18em", color: "rgba(246,240,223,.85)" } }, "订单"),
+        h("span", { style: { flex: 1 } }),
+        h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "rgba(246,240,223,.85)" } }, byZh[paid.by] || "你付的")),
+      h("div", { className: "flex items-stretch" },
+        h("div", { style: { flex: 1, minWidth: 0, padding: "12px 14px" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "去程" + (fl.no ? " · " + fl.no : "")),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: TIN, marginTop: 3, wordBreak: "break-word" } }, [fl.from, fl.to].filter(Boolean).join(" → ")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 2 } }, [fl.dep, fl.arr].filter(Boolean).join(" → ") + " · 两人 · 你" + (seat.me === "aisle" ? "靠过道" : "靠窗")),
+          bk ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 6 } }, "回程" + (bk.no ? " " + bk.no : "") + " · " + [bk.dep, bk.arr].filter(Boolean).join(" → ")) : null,
+          h("div", { style: { borderTop: "1px dashed " + TLINE, margin: "10px 0" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".2em", color: TFOG } }, "住 · " + b.nights + " 晚"),
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: TIN, marginTop: 3, wordBreak: "break-word" } }, ho.name || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: TFOG, marginTop: 2 } }, [ho.area, ho.room].filter(Boolean).join(" · "))),
+        h("div", { style: { position: "relative", width: 0, borderLeft: "1px dashed " + TLINE } },
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -6, top: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } }),
+          h("span", { "aria-hidden": "true", style: { position: "absolute", left: -6, bottom: -6, width: 11, height: 11, borderRadius: 999, background: t.bg } })),
+        h("div", { style: { width: 72, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 4 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 9, letterSpacing: ".2em", color: TFOG } }, "共"),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: TIN } }, "¥" + paid.total),
+          h("span", { "aria-hidden": "true", style: { marginTop: 4, fontFamily: F_DISPLAY, fontSize: 10, color: TFOG, border: "1.5px solid " + TLINE, borderRadius: 4, padding: "1px 5px", transform: "rotate(-8deg)", letterSpacing: 2 } }, "已付"))));
+  }
+  return h("div", { "data-wk": "tripbook", style: { marginTop: 16 } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 8 } }, "订机票和酒店"),
+    b.taPick.why && !paid ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12.5, lineHeight: 1.65, color: "#93707c", marginBottom: 8 } }, name + "：「" + b.taPick.why + "」") : null,
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "4px 0 6px" } }, "去程"),
+    b.flights.map((x, i) => row("flight", x, i)),
+    backs.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "回程") : null,
+    backs.map((x, i) => row("back", x, i)),
+    // 选座：TA 先说想让你坐哪、为什么；你点另一个就换（零调用）
+    h("div", { "data-wk": "tripseat", style: { margin: "8px 0 4px" } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "座位 · 你们挨着坐"),
+      h("div", { className: "flex", style: { gap: 8 } },
+        [["window", "我靠窗"], ["aisle", "我靠过道"]].map(([k, zh]) => h("button", { key: k, "data-on": seat.me === k ? "1" : "0", onClick: () => onBookPick && onBookPick({ seat: k }), className: "flex-1 active:opacity-70",
+          style: { minHeight: 40, borderRadius: 10, border: "1.5px solid " + (seat.me === k ? "#43371f" : "#e6dcc4"), background: "#fdfaf1", color: "#3a3226", fontFamily: F_BODY, fontSize: 13 } }, zh))),
+      seat.why && !seat.mine ? h("div", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 12, color: "#93707c", marginTop: 6 } }, name + "：「" + seat.why + "」") : null),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "8px 0 6px" } }, "住哪 · " + b.nights + " 晚"),
+    b.hotels.map((x, i) => row("hotel", x, i)),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, margin: "6px 0 8px", textAlign: "right" } }, "两个人" + (backs.length ? "往返" : "") + "的票 + " + b.nights + " 晚 · 共 ¥" + total),
+    // 付钱这排压轻一档：底下「出发」才是这一页最重的那一下，两颗大黑键挨着会抢
+    h("div", { className: "flex", style: { gap: 8 } },
+        h("button", { "data-wk": "tripbook", "data-part": "me", onClick: () => onBookPay && onBookPay("me"), className: "flex-1 active:opacity-70",
+          style: { minHeight: 44, borderRadius: 12, border: "1.5px solid #43371f", color: "#43371f", background: "#fdfaf1", fontFamily: F_BODY, fontSize: 13.5 } }, "我来付"),
+        h("button", { "data-wk": "tripbook", "data-part": "ta", onClick: () => onBookPay && onBookPay("ta"), className: "flex-1 active:opacity-70",
+          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13.5 } }, name + " 请客")),
+    h("div", { className: "flex", style: { gap: 8, marginTop: 8 } },
+        h("button", { "data-wk": "tripbook", "data-part": "aa", onClick: () => onBookPay && onBookPay("aa"), className: "flex-1 active:opacity-70",
+          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "AA · 一人 ¥" + Math.round(total / 2)),
+        hasKin ? h("button", { "data-wk": "tripbook", "data-part": "kin", onClick: () => onBookPay && onBookPay("kin"), className: "flex-1 active:opacity-70",
+          style: { minHeight: 44, borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13 } }, "刷 " + name + " 的亲属卡") : null,
+        h("button", { "data-wk": "tripbook", "data-part": "again", onClick: onBook, disabled: gen, className: "active:opacity-60 disabled:opacity-40",
+          style: { minHeight: 44, padding: "0 10px", fontFamily: F_BODY, fontSize: 12, color: t.tint } }, gen ? "查着…" : "换一批")));
+}
+function CoupleTrip({ partner, trips, gen, onPlan, onBook, onBookPick, onBookPay, onDate, hasKin, onDepart, onDone, onBack }) {
   const t = useTheme();
   const cur = (trips || []).find(x => x && x.status !== "done") || null;
   const done = (trips || []).filter(x => x && x.status === "done");
@@ -6198,6 +6407,17 @@ function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
           : h("button", { onClick: onPlan, disabled: gen, className: "w-full active:opacity-70 disabled:opacity-40",
             style: { marginTop: 16, background: t.bg2, border: "1px dashed " + t.line, borderRadius: 12, padding: "13px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.tint } },
             gen ? partner.name + " 排着行程…" : "让 " + partner.name + " 来排这趟的行程"),
+        // ── 订票订房（群友 2026-10-10 许愿「类携程」）：查一次花一次调用，挑和付都不花 ──
+        h(TripBooking, { partner, trip: cur, gen, onBook, onBookPick, onBookPay, hasKin }),
+        // ── 哪天出发：写进日历，前一晚 TA 来提醒，当天这里写「今天出发」──
+        h("div", { "data-wk": "tripdate", className: "flex items-center", style: { gap: 10, marginTop: 14, padding: "10px 12px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line } },
+          h("div", { style: { flex: 1, minWidth: 0 } },
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } },
+              cur.date ? (cur.date === tripTodayKey() ? "今天出发" : "出发日 · " + cur.date.slice(5).replace("-", "月") + "日") : "哪天出发"),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 } },
+              cur.date ? "已记进日历；出发前一晚 " + (partner.remark || partner.name) + " 会来提醒你" : "挑了日子会记进日历，前一晚 " + (partner.remark || partner.name) + " 会来提醒")),
+          h("input", { type: "date", value: cur.date || "", onChange: e => onDate && onDate(e.target.value), "aria-label": "出发日",
+            style: { minHeight: 40, background: t.bg, color: t.ink, border: "1px solid " + t.line, borderRadius: 10, padding: "0 8px", fontFamily: F_BODY, fontSize: 12.5 } })),
         // ── 两个动作：出发（带着行程开一场线下）· 收行李（零调用归档）──
         h("button", { onClick: onDepart, className: "w-full active:opacity-70",
           style: { marginTop: 14, background: t.ink, color: t.bg2, fontFamily: F_DISPLAY, fontSize: 15, padding: "13px 0", borderRadius: 14 } }, "出发 · 去线下走这一趟"),
@@ -6213,7 +6433,8 @@ function CoupleTrip({ partner, trips, gen, onPlan, onDepart, onDone, onBack }) {
         done.map(x => h("div", { key: x.id, className: "flex items-center", style: { gap: 11, padding: "11px 12px", background: TP, borderRadius: 4, marginBottom: 8, boxShadow: "0 3px 8px rgba(70,50,15,.12)", transform: "rotate(" + ((String(x.id).charCodeAt(4) % 3) - 1) * 0.7 + "deg)" } },
           h("div", { className: "flex-1 min-w-0" },
             h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: TIN, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, x.dest + (x.plan && x.plan.title ? " · 「" + x.plan.title + "」" : "")),
-            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: TFOG, marginTop: 2 } }, fmtD(x.doneTs) + " 回来")),
+            h("div", { style: { fontFamily: F_BODY, fontSize: 10, color: TFOG, marginTop: 2 } }, fmtD(x.doneTs) + " 回来"
+              + (x.booking && x.booking.paid ? " · " + [(x.booking.flights[x.booking.pick.flight] || {}).no, (x.booking.hotels[x.booking.pick.hotel] || {}).name].filter(Boolean).join(" · ") : ""))),
           h("span", { "aria-hidden": "true", style: { fontFamily: F_DISPLAY, fontSize: 10, color: TFOG, border: "1.5px solid " + TLINE, borderRadius: 4, padding: "2px 6px", transform: "rotate(-8deg)", letterSpacing: 2 } }, "走完")))) : null));
 }
 
@@ -6342,7 +6563,7 @@ function CoupleDiscShelf({ partner, data, nowId, playing, onAdd, onRemove, onNot
 // 迟早对不上，表现是第三条露出半截（「一层写在两处」那个老形状）。
 const NOTIFY_ROW = 50, NOTIFY_GAP = 7, NOTIFY_SHOW = 3, NOTIFY_KEEP = 15;
 const NOTIFY_H = NOTIFY_ROW * NOTIFY_SHOW + NOTIFY_GAP * (NOTIFY_SHOW - 1);
-function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
+function Us({ characters, couples, onBack, myWallet, onJarMove, onJarGoal, onInvite, onUnlink, onSetSince, profile, profileFor, coupleProfile, coupleHome, onSaveCoupleHome, onSetCoupleImg, coupleQA, onAnswerQA, onEditQA, onRemoveQA, onRerollQA, qaGen, coupleQATitle, onSaveQATitle, coupleQACustom, coupleQABooks, onSaveQABook, onSaveQACustom, coupleQACustomBooks, onSaveQACustomBooks, moodOf, coupleTimeline, onAddTimeline, onRemoveTimeline, onReadTimeline, onGenTimeline, tlGen, coupleAnniv, onAddAnniv, onRemoveAnniv, coupleLetters, coupleLetterCfg, onGenLetter, onAddMyLetter, onReplyLetter, onReadLetter, onRemoveLetter, onSaveLetterCfg, letterGen, coupleSweet, onCheckinSweet, coupleDrawer, onOpenDrawer, onDropDrawer, onEditDrawer, coupleFirstsOf, myCloset, charClosetOf, studioShots, studioBusy, fitBusy, studioCanShoot, onGenDateFit, onStudioShoot, onShareShot, ifLines, ifBusy, ifBgBusy, onIfOpen, onIfAdvance, onIfBg, onIfShot, onIfBgPick, onIfEnd, onIfDrop, makeupOf, makeupSignalFor, makeupBusy, onMakeupOpen, onMakeupSay, onMakeupClose, gachaPts, gachaCards, gachaLuck, gachaBusy, onGachaPull, onGachaRedeem, onGachaShow, onGachaPin, onGachaDelete, onGachaTitle, onGachaShoot, onGachaCarve, land, onLanded, coupleExDiary, onAddExDiary, onReadExDiary, duoPhotosFor, onDeletePhoto, couplePactsOf, onClosePact, onSetPactDue, onAddPact, onSealQA, onRevealQA, onPlanWish, wishPlanOf, coupleGarden, onGardenPlant, onGardenKeep, gardenGen, coupleTrips, onTripStart, onTripPlan, onTripBook, onTripBookPick, onTripBookPay, onTripDate, kinCardFrom, onTripDepart, onTripDone, tripGen, coupleRecall, onGenRecall, onReadRecall, onDelRecall, recallGen, onGenWish, charWishGen, outletLedger, outletKinds, capsuleProps, coupleDisc, onDiscAdd, onDiscRemove, onDiscNote, onDiscPlay, onDiscEnter, onDiscLeave, onDiscGen, discGen, discNextIdOf, discNowId, discPlaying }) {
   const t = useTheme();
   const [view, setView] = useState(null); // null=名册 / charId=某段情侣详情
   const [sub, setSub] = useState(null); // 情侣空间子模块：null / 'qa'（后续加 timeline/mood/notes/letters）
@@ -6527,6 +6748,11 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
       onClose: onClosePact, onSetDue: (mid, about, ts, via) => onSetPactDue(mid, partner.id, about, ts, via),
       onAdd: (txt, ts) => onAddPact(partner.id, txt, ts), onBack: () => setSub(null) });
   }
+  if (partner && cp[view] && cp[view].status === "together" && sub === "jar") {
+    const home = (coupleHome || {})[partner.id] || {};
+    return h(CoupleJar, { partner, data: home.jar, wishes: home.wishes || [], myWallet, myName: ((typeof profileFor === "function" && profileFor(partner.id)) || profile || {}).name,
+      onMove: (delta, note, wishId) => onJarMove && onJarMove(partner.id, delta, note, wishId), onGoal: (name, amount) => onJarGoal && onJarGoal(partner.id, name, amount), onBack: () => setSub(null) });
+  }
   if (partner && cp[view] && cp[view].status === "together" && sub === "wishes") {
     const home = (coupleHome || {})[partner.id] || {};
     return h(CoupleWishes, { partner, data: home.wishes || [], onSave: wishes => onSaveCoupleHome(partner.id, cur => ({ ...cur, wishes })),
@@ -6556,6 +6782,8 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
   if (partner && cp[view] && cp[view].status === "together" && sub === "trip") {
     return h(CoupleTrip, { partner, trips: (coupleTrips || []).filter(t => t && t.charId === partner.id),
       gen: tripGen === partner.id, onPlan: () => onTripPlan && onTripPlan(partner),
+      onBook: () => onTripBook && onTripBook(partner), onBookPick: pk => onTripBookPick && onTripBookPick(partner, pk), onBookPay: who => onTripBookPay && onTripBookPay(partner, who),
+      onDate: d => onTripDate && onTripDate(partner, d), hasKin: !!(kinCardFrom && kinCardFrom(partner.id)),
       onDepart: () => onTripDepart && onTripDepart(partner), onDone: () => onTripDone && onTripDone(partner),
       onBack: () => openSub("wishes") });
   }
@@ -7127,15 +7355,30 @@ function Us({ characters, couples, onBack, onInvite, onUnlink, onSetSince, profi
                   const g3 = (coupleGarden || {})[bCid] || {};
                   const st3 = (typeof GardenKit !== "undefined" && g3.species) ? GardenKit.stageOf(g3.fed) : null;
                   const keptN = Array.isArray(g3.kept) ? g3.kept.length : 0;
-                  return wall("garden", { w: "100%", radius: 10, tilt: -0.4, pad: "10px 14px", bg: "#f2f6ec", border: "1px solid #dbe4cf",
+                  return wall("garden", { w: "47%", grow: 1, radius: 10, tilt: -0.4, pad: "10px 12px", bg: "#f2f6ec", border: "1px solid #dbe4cf",
                     kids: h("div", { className: "flex items-center", style: { gap: 12 } },
-                      h(GardenPlant, { g: g3, size: 46 }),
+                      h(GardenPlant, { g: g3, size: 40 }),
                       h("div", { className: "flex-1 min-w-0" },
                         h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#8a9a72" } }, "窗台"),
                         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: "#54663e", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                           g3.species ? st3.zh + " · " + g3.species : keptN ? "盆空着 · 收过 " + keptN + " 枚干花" : "还空着一只盆"),
                         h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#8a9a72", marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
                           g3.species ? (g3.why ? "「" + one(g3.why, 24) + "」" : "它吃你们真实的相处") : "让 " + partner.name + " 挑一种来养"))) });
+                })(),
+                // 存钱罐（她 2026-10-10）：一只小玻璃罐，水位就是离目标还差多少，跟窗台并排（她 2026-10-10：「存钱罐跟花盆两个一排」）
+                (function () {
+                  const jj = ((coupleHome || {})[bCid] || {}).jar || {};
+                  const jb = Number(jj.balance) || 0, jg = jj.goal, jl = jg && Number(jg.amount) > 0 ? Math.min(1, jb / Number(jg.amount)) : (jb > 0 ? 0.18 : 0);
+                  return wall("jar", { w: "47%", grow: 1, radius: 14, tilt: 0.7, pad: "12px 13px", bg: "#eef5f4", border: "1px solid #d3e2e2",
+                    kids: h("div", { className: "flex items-center", style: { gap: 10 } },
+                      h("div", { "aria-hidden": "true", style: { position: "relative", width: 30, height: 38, flexShrink: 0 } },
+                        h("div", { style: { position: "absolute", left: 7, right: 7, top: 0, height: 5, borderRadius: 2, background: "#b8935a" } }),
+                        h("div", { style: { position: "absolute", left: 0, right: 0, top: 5, bottom: 0, borderRadius: "9px 9px 7px 7px", border: "1.5px solid rgba(110,140,150,.55)", background: "rgba(214,232,238,.6)", overflow: "hidden" } },
+                          h("div", { style: { position: "absolute", left: 0, right: 0, bottom: 0, height: (jl * 100) + "%", background: "#e0b45c" } }))),
+                      h("div", { className: "flex-1 min-w-0" },
+                        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: ".14em", color: "#7f9a9c" } }, "存钱罐"),
+                        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#3e5458", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, jb ? (Math.round(jb * 100) / 100).toLocaleString("zh-CN") : "还空着"),
+                        jg ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#7f9a9c", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "「" + jg.name + "」") : null)) });
                 })(),
                 // 唱机:整宽一条——小唱片在转,是这面墙上唯一会动的东西
                 (function () {
@@ -9846,15 +10089,15 @@ function ApiConfig({
       setFetching(false);
     }
   };
-  const routeBox = (title, sub, selectedId, setter, noneLabel) => !setter ? null : h(ConfigPanel, null,
+  const routeBox = (title, sub, selectedId, setter, noneLabel, offLabel) => !setter ? null : h(ConfigPanel, null,
     h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink, marginBottom: 4 } }, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, marginBottom: 11 } }, sub),
     h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
       // ⚠️选中的那条要是【已经被删掉了】，这儿原来一档都不高亮——看起来就像「我选的是
       //   跟随主模型」，可存着的 id 还在，行为是另一回事（她 2026-09-15 撞的就是这个）。
       //   现在认不出来就当没选：显示和实际用的那条（pickRoute 的兜底）对上。
-      [{ id: null, name: noneLabel }].concat(list).map(p => {
-        const live = (list || []).some(x => x && x.id === selectedId) ? selectedId : null;
+      [{ id: null, name: noneLabel }].concat(offLabel ? [{ id: "__off__", name: offLabel }] : []).concat(list).map(p => {
+        const live = (offLabel && selectedId === "__off__") || (list || []).some(x => x && x.id === selectedId) ? selectedId : null;
         const on = (live || null) === (p.id || null);
         return h("button", { key: p.id || title, onClick: () => setter(p.id || null), className: "active:opacity-70",
           style: { fontFamily: F_BODY, fontSize: 12, color: on ? t.bg2 : t.sub, background: on ? t.ink : "transparent", border: "1px solid " + (on ? t.ink : t.line), borderRadius: 999, padding: "6px 12px" } }, p.name || p.model || "未命名配置");
@@ -9922,7 +10165,10 @@ function ApiConfig({
     routeBox("后台任务模型", "记忆、日程、钱包、便签等机械后台活可统一走便宜线路；不选就跟主模型。"
       + "⚠️「Ta 眼里」的建卡和复看、以及【线上线下的各种总结】也走这条——"
       + "这几枪都是把一大段材料打包成一条发出去，吃的料重，便宜线路容易拦、报 401 或者整段返空。"
-      + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。", bgApiId, onSetBgApi, "跟随主模型"),
+      + "总结不出来、「Ta 眼里」不更新时，先回来看这一栏。"
+      // 「无」（她 2026-10-10：「后台 api 能不能选个无，这样可以强制不刷新」）：后台自己跑的那些一律不跑
+      + "选「无」：「谁会自己动」里那些自己跑的（日程、日记、朋友圈、论坛、刷手机、群里自己聊、主动来找你……）和自动抽记忆一律停掉，只剩你点了才动的；聊天到一定长度的前情浓缩照旧走主模型，不然 TA 会忘。",
+      bgApiId, onSetBgApi, "跟随主模型", "无（后台一律不跑）"),
     h(McpConfig, { toast: toast }));
   return /*#__PURE__*/React.createElement("div", null,
   h("button", { onClick: () => setEditing(false), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 14 } }, "← 返回 API 方案"),
@@ -10914,7 +11160,8 @@ function storageBreakdown() {
   const rows = {};
   const labelFor = k => {
     for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) return name; }
-    return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统/其他";
+    // 不带 x_ 的原来全挤成一行「系统/其他」（她 2026-10-11：4.99MB 占 97%，看不出是谁）——每把键单列
+    return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统·" + k.replace(/:.*$/, ":…");
   };
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -13585,7 +13832,7 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
       onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
-  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
+  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
   const whoOf = r => {
     if (!r) return "";
@@ -14984,7 +15231,7 @@ function carryProbeSpecAll(char, known, pinned, material) {
 // 标题栏、分节标题和跳转——两份渲染各画一遍的话，改一处就必然忘掉另一处。
 function CarryAll(props) {
   const t = useTheme();
-  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack, scrollTo } = props;
+  const { char, data, gifts, busyKey, giftBusy, carryPins, onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, scrollTo } = props;
   const scRef = useRef(null);
   const secRefs = useRef({});
   const busyAll = busyKey === "__all__";
@@ -15067,11 +15314,11 @@ function CarryAll(props) {
           closetData: data.outfit,
           busyKey: busyAll ? x.key : busyKey, giftBusy,
           pinned: ((carryPins || {})[char.id] || {})[x.key] || [],
-          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack
+          onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack
         })))));
 }
 // 版块详情：打开即自动生成，失败退回上一级；点条目看角色想法/批注
-function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onBack, embedded }) {
+function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, giftBusy, pinned, onTogglePin, onDeleteItem, onPeek, onGen, onGenClosetMore, closetBusy, onGenGiftThought, onClosetGift, onWear, onBack, embedded }) {
   const t = useTheme();
   const sec = CARRY_SECTIONS.find(s => s.key === sectionKey) || {};
   const isGifts = !!sec.gifts;
@@ -15305,6 +15552,13 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
       const tone = sheet._tone || sheet._stuff || null;   // 有色的才走柜门框
       const isCloth = !!sheet._tone;
       const pinRow = (onTogglePin || onPeek || onDeleteItem) ? h("div", { "data-wk": "carrysheetactions", style: { marginTop: 20, paddingTop: 15, borderTop: "1px solid " + t.line } },
+        // 让TA换上这一身（她 2026-10-11：送的衣服挂进衣柜、聊天里叫他换上、拍照也是这身，状态卡的「穿着」却没跟着改）：
+        //   状态卡那一格不该只靠模型记得填，她亲手点的就直接写进去，出图那条链（固定锁 ＞ 此刻穿着 ＞ 衣柜）也跟着认
+        isCloth && onWear ? h("button", { "data-wk": "carrysheetbtn", "data-part": "wear",
+          onClick: () => { onWear(char.id, sheet.name, sheet.note); setSheet(null); },
+          className: "w-full active:opacity-70",
+          style: { minHeight: 42, marginBottom: 8, fontFamily: F_BODY, fontSize: 12.5, borderRadius: 999, border: "1px solid " + (tone ? clothRgba(tone.ink, 0.55) : t.ink), color: tone ? tone.ink : t.ink }
+        }, characterText(char, "让他换上这一身")) : null,
         h("div", { className: "flex", style: { gap: 8 } },
           onTogglePin ? h("button", { "data-wk": "carrysheetbtn", "data-part": "pin", "data-on": isPinned(sheet) ? "1" : "0",
             onClick: () => onTogglePin(char.id, sectionKey, sheet.name),
@@ -15465,7 +15719,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -15488,7 +15742,10 @@ function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, bu
   if (inBox) return h("div", { "data-wk": "carrypage", "data-part": "box", className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
     h(Head, { zh: "随身物", bg: "transparent", noLine: true, onBack,
       // 她自己的东西住在购物「我的」里，太难找；这里开个口，进的就是那一页
-      right: onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0 10px 10px" } }, "我的物品") : null }),
+      // 她 2026-10-11：「随身物能不能把我的衣柜也放进来」——跟「我的物品」并排，点进去就是聊天「我」页那个衣柜（同一页、同一份）
+      right: (onOpenMine || onOpenMyCloset) ? h("div", { className: "flex items-center", style: { gap: 12 } },
+        onOpenMyCloset ? h("button", { "data-wk": "carrymycloset", onClick: onOpenMyCloset, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0" } }, "我的衣柜") : null,
+        onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0 10px 4px" } }, "我的物品") : null) : null }),
     h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-4" },
       h("div", { "data-wk": "carryboxframe",
         className: "flex-1 min-h-0 relative",
@@ -15552,7 +15809,7 @@ function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, bu
   // 以前是一格一页、各自一次生成；现在整页共用一次调用。
   if (open) return h(CarryAll, {
     char, data, gifts, busyKey, giftBusy, closetBusy, carryPins,
-    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift,
+    onTogglePin, onDeleteItem, onPeek, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear,
     scrollTo: open, onBack: () => setOpen(null)
   });
   // 一格一格的抽屉，摞成一个立着的柜子——她 2026-08-29 之前那版是五个白方块

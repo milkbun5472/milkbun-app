@@ -42,6 +42,6 @@ test("App 那边真的在用它（不是定义了没人引用）", () => {
 test("头像走名片自己那一栏，不许连聊天头像一起改", () => {
   // 名片头像和聊天头像早就分开了（她 2026-09-04 要的）：塞进 profile.avatarImage
   // 等于把她的聊天头像也换成一只鸟
-  assert.match(comp, /avatarImage: c\.avatar \|\| profile\.avatarImage/, "名片头像那条线断了");
+  assert.match(comp, /avatarImage: homeCardAvatar\(c, profile\)/, "名片头像那条线断了");
   assert.equal(app.indexOf('avatarImage: "img/qiu-avatar.png"'), -1, "把默认头像塞进 profile 了");
 });

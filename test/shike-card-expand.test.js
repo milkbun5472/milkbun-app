@@ -10,7 +10,7 @@ test("聊天里的时刻卡点一下能展开看全，不再写死两行", () =>
   const seg = src.slice(i, j);
   assert.match(seg, /const \[open, setOpen\] = useState\(false\);/);
   assert.match(seg, /onClick: \(\) => long && setOpen\(v => !v\)/);
-  assert.match(seg, /open \|\| !long \? \{\} : \{ display: "-webkit-box", WebkitLineClamp: 3/);
+  assert.match(seg, /open \|\| !long \? \{\} : \{ maxHeight: 80, overflow: "hidden" \}/);   // 收着时露三行横格（v75.309 换成纪念签后按行高收）
   assert.doesNotMatch(seg, /\.slice\(0, 2\)/, "又只摆两句了");
   assert.match(seg, /"data-wk": "shikeshare"/);
 });

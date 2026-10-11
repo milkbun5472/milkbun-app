@@ -1,3 +1,4 @@
+const {cameraView,moreItem}=require('./char-day-ui-helpers.cjs');
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
 const base=process.env.DAY_URL||'http://127.0.0.1:18984',engine=process.env.DAY_ENGINE||'chromium',out=process.env.DAY_EVIDENCE||'/tmp/char-day-browser';fs.mkdirSync(out,{recursive:true});
 const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.indexOf('  const saveSchedDay ='),b=app.indexOf('  const applySchedChange =',a);assert.ok(a>0&&b>a);const writer=app.slice(a,b);
@@ -25,12 +26,12 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
   assert.equal((await state()).dailyAction.book,false);result.continuousWorkMovement=true;await shot('work');
   for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
     await p.setViewportSize({width:w,height:h});await p.waitForTimeout(150);const boxes=await root.evaluate(el=>{const page=el.querySelector('[data-wk=cdaypage]'),head=page.querySelector('[data-wk=head]'),scene=page.querySelector('[data-wk=cdayscene]'),tools=page.querySelector('[data-wk=cdaytools]');return{overflow:page.scrollWidth>page.clientWidth,head:head.getBoundingClientRect().toJSON(),scene:scene.getBoundingClientRect().toJSON(),tools:tools.getBoundingClientRect().toJSON()};});
-    assert.equal(boxes.overflow,false);assert.ok(boxes.tools.height>=54&&boxes.tools.height<=65);assert.ok(Math.abs(boxes.tools.bottom-h)<2);assert.ok(boxes.scene.height>170);await root.getByRole('button',{name:'看全景',exact:true}).click();assert.equal((await state()).following,false);await root.getByRole('button',{name:'跟着TA',exact:true}).click();assert.equal((await state()).following,true);await shot('scene-'+w+'x'+h);result.widths.push({w,h,...boxes});
+    assert.equal(boxes.overflow,false);assert.ok(boxes.tools.height>=54&&boxes.tools.height<=65);assert.ok(Math.abs(boxes.tools.bottom-h)<2);assert.ok(boxes.scene.height>170);await cameraView(root,true);assert.equal((await state()).following,false);await cameraView(root,false);assert.equal((await state()).following,true);await shot('scene-'+w+'x'+h);result.widths.push({w,h,...boxes});
   }
   await p.setViewportSize({width:390,height:844});
   const area=await frame.locator('canvas').boundingBox();await p.mouse.move(area.x+area.width*.5,area.y+area.height*.6);await p.mouse.down();await p.mouse.move(area.x+area.width*.72,area.y+area.height*.6,{steps:6});await p.mouse.up();
   await root.getByRole('button',{name:'跟着TA',exact:true}).and(p.locator('[aria-pressed="false"]')).waitFor();assert.equal((await state()).following,false);
-  await root.getByRole('button',{name:'跟着TA',exact:true}).click();assert.equal((await state()).following,true);result.dragFollowSync=true;
+  await cameraView(root,false);assert.equal((await state()).following,true);result.dragFollowSync=true;
   // Explicit previews move only the stage; real plans and original game saves remain untouched.
   const baseline=await p.evaluate(()=>({plans:JSON.stringify(dayRef.current),writes:dayWriteCount,games:JSON.stringify(loadJSON('x_fairyGardenSaves',[]))}));
   await root.getByRole('button',{name:'今天的日程',exact:true}).click();const scroll=root.locator('[data-wk=cdaybody]');await scroll.evaluate(el=>el.scrollTop=70);await root.locator('[data-wk=cdayrow]').filter({hasText:'用早饭'}).click();await ready();await settle();assert.equal((await state()).map,'dayHome');assert.match(await root.locator('[data-wk=cdaynow]').innerText(),/预览日程/);await frame.waitForFunction(()=>CharDayScene.inspect().gesture==='eat');await shot('meal-preview');
@@ -38,7 +39,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
   await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.locator('[data-wk=cdayrow]').filter({hasText:'坐在窗边喝茶'}).click();await ready();await settle();await frame.waitForFunction(()=>CharDayScene.inspect().gesture==='tea');await shot('tea-preview');
   assert.equal(await p.evaluate(()=>JSON.stringify(dayRef.current)),baseline.plans);assert.equal(await p.evaluate(()=>dayWriteCount),baseline.writes);assert.equal(await p.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),baseline.games);result.previewReadOnly=true;
   // Cosmetic choices are per-character and use the real durable IDB writer.
-  await root.getByRole('button',{name:'小家样式',exact:true}).click();await root.locator('[data-wk=cdaystyle]').filter({hasText:'深木安静'}).click();
+  await moreItem(root,'cdayhomestyle');await root.locator('[data-wk=cdaystyle]').filter({hasText:'深木安静'}).click();
   await root.getByText('已记住这位角色的小家样式',{exact:true}).waitFor();
   assert.equal(await p.evaluate(()=>loadJSON('x_charDayHomes',{}).styles['day-a']),'dusk');
   await shot('home-style-options');
@@ -57,21 +58,31 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=app.i
   await p.evaluate(()=>{window.dayDelivery=[];const w=document.querySelector('#char-day-root iframe').contentWindow,orig=w.CharDayScene.setSnapshot;w.CharDayScene.setSnapshot=data=>{dayDelivery.push({key:data.key,stage:data.presentation});try{return orig(data);}catch(e){dayDelivery.push({error:e.message});throw e;}};});
   await p.evaluate(()=>{const plan=dayRef.current['day-a']['2026-10-09'];daySave('day-a','2026-10-09',{...plan,seqs:plan.seqs.map(q=>q.seq===2?{...q,type:'out',title:'临时陪她走走',location:'河边',deviation:{plan:q.title,reason:'刚刚约好了',actual:'临时陪她走走'}}:q)});});
   await root.locator('[data-wk=cdaynow]').getByText('临时陪她走走',{exact:true}).waitFor();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayStreet'&&!CharDayScene.inspect().changing);const p0=(await state()).position;await frame.waitForFunction(({x,z})=>{const p=CharDayScene.inspect().position;return Math.hypot(p.x-x,p.z-z)>.5;},p0);await shot('outdoor-walk');result.realRevision=true;result.actualWalking=true;
-  await root.getByRole('button',{name:'看全景',exact:true}).click();await shot('street-overview');await root.getByRole('button',{name:'跟着TA',exact:true}).click();
+  await cameraView(root,true);await shot('street-overview');await cameraView(root,false);
   // A real meal revision routes to the new shop and occupies the actual chair.
   await p.evaluate(()=>{const plan=dayRef.current['day-a']['2026-10-09'];daySave('day-a','2026-10-09',{...plan,seqs:plan.seqs.map(q=>q.seq===2?{...q,type:'meal',title:'在街角餐馆吃午饭',location:'街角餐馆',deviation:null}:q)});});
   await root.locator('[data-wk=cdaynow]').getByText('在街角餐馆吃午饭',{exact:true}).waitFor();
   await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.map==='dayCafe'&&s.gesture==='eat'&&!s.route.length&&!s.changing;});
   const cafe=await state();assert.ok(cafe.seat);assert.ok(Math.abs(cafe.avatarPosition[0]-cafe.seat.x)<.001);assert.ok(cafe.furnitureNodes.includes('cafe-table'));await shot('cafe-meal');
-  await root.getByRole('button',{name:'看全景',exact:true}).click();await shot('cafe-overview');result.externalMeal=true;
+  await cameraView(root,true);await shot('cafe-overview');result.externalMeal=true;
 
   await p.clock.setFixedTime(new Date('2026-10-09T12:05:00Z'));await root.getByText('这会儿没排事情',{exact:true}).waitFor();result.gap=true;
   // Yesterday's sleep survives local midnight and never turns into a daytime task.
+  if(process.env.DAY_ROUTE_ONLY){
+    await root.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();
+    await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByText('还没有今天的安排，可以到日历里排好再来看。',{exact:true}).waitFor();await root.getByRole('button',{name:'去日历看完整安排',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await ready();await settle();assert.equal((await state()).charId,'day-b');assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);result.noSchedule=true;
+    await p.evaluate(()=>CharDayKit.saveHomeChange('day-a','styles','dusk'));
+  }
   await p.clock.setFixedTime(new Date('2026-10-10T02:00:00Z'));await root.getByText('夜里歇下',{exact:true}).waitFor();await frame.waitForFunction(()=>{const s=CharDayScene.inspect();return s.map==='dayHome'&&s.gesture==='sleep'&&s.bed&&s.visualTilt < -1.4&&s.visible&&!s.error;});await shot('midnight-sleep');result.sleepCarry=true;
-  await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();assert.match((await state()).look,/#935f43/);assert.equal((await state()).spaceStyle,'warm');await root.getByRole('button',{name:'去日历排今天',exact:true}).click();assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);assert.equal((await state()).charId,'day-b');result.noSchedule=true;result.characterIsolation=true;
+  await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();assert.match((await state()).look,/#935f43/);assert.equal((await state()).spaceStyle,'warm');await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByText('还没有今天的安排，可以到日历里排好再来看。',{exact:true}).waitFor();await root.getByRole('button',{name:'去日历看完整安排',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await ready();await settle();assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);assert.equal((await state()).charId,'day-b');result.noSchedule=true;result.characterIsolation=true;
   await root.getByRole('button',{name:'换人',exact:true}).click();await root.getByRole('button',{name:'先看一段示例',exact:true}).click();await ready();await settle();await root.getByRole('button',{name:'下一段',exact:true}).click();await frame.waitForFunction(()=>CharDayScene.inspect().map==='dayWork'&&!CharDayScene.inspect().changing);await frame.waitForFunction(()=>CharDayScene.inspect().gesture==='read');await shot('demo-read');assert.match(await root.locator('[data-wk=cdaynow]').innerText(),/示例试玩/);result.demo=true;
   await root.getByRole('button',{name:'换人',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await root.locator('[data-wk=fgworld]').filter({hasText:'微光庭院'}).waitFor();result.back=true;
   assert.equal(await p.evaluate(()=>dayModelCount),0);
+  }
+  if(process.env.DAY_ROUTE_ONLY){
+    await root.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await root.locator('[data-wk=cdaypick]').filter({hasText:'测试角色乙'}).click();await ready();await settle();
+    await root.getByRole('button',{name:'今天的日程',exact:true}).click();await root.getByText('还没有今天的安排，可以到日历里排好再来看。',{exact:true}).waitFor();await root.getByRole('button',{name:'去日历看完整安排',exact:true}).click();await root.locator('[data-wk=head] button').first().click();await ready();await settle();assert.equal((await state()).charId,'day-b');assert.deepEqual(await p.evaluate(()=>dayNavigation),['day-b']);result.noSchedule=true;
+    await p.evaluate(()=>CharDayKit.saveHomeChange('day-a','styles','dusk'));
   }
   await p.clock.setFixedTime(new Date('2026-10-10T02:00:00Z'));
   // The real App starts from persisted fixture data and owns the calendar return path.

@@ -6,5 +6,5 @@ const v = app.slice(i, app.indexOf(";\n", i));
 assert(/变的是【顾忌】/.test(v) && /不变的是【这个人】/.test(v), "说清什么变、什么不变");
 assert(/这确实像他会想的事/.test(v), "带可判定的那一句（防 OOC）");
 const code = app.split("\n").filter(l => !/^\s*\/\//.test(l)).join("\n");
-assert.strictEqual((code.match(/FORUM_ID_VOICE/g) || []).length, 3, "发帖和楼里冒泡共用一份");
+assert.strictEqual((code.match(/FORUM_ID_VOICE/g) || []).length, 5, "发帖、首批楼、后续几波、她那条底下的楼中楼共用一份（定义 1 + 用 4）");
 console.log("forum-id-voice ok");

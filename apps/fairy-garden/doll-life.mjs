@@ -1,6 +1,7 @@
+import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-932cb68b41b7219d';
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-127ffe874240ba15';
-import {pointToolAt} from './reach-hand.mjs?v=fg-127ffe874240ba15';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-932cb68b41b7219d';
+import {pointToolAt} from './reach-hand.mjs?v=fg-932cb68b41b7219d';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
@@ -20,7 +21,8 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  const bowl=new T.Group();bowl.name='FoodBowl';group.add(bowl);mesh(bowl,new T.CylinderGeometry(.075,.05,.06,16),cream,0,0,0);mesh(bowl,new T.CircleGeometry(.066,16),tea,0,.031,0).rotation.x=-Math.PI/2;const chop=mesh(bowl,new T.CylinderGeometry(.006,.006,.2,6),mat('#b89661'),.03,.09,0);chop.rotation.z=.4;
  const eatingTool=new T.Group();eatingTool.name='EatingChopsticks';group.add(eatingTool);for(const x of [-.008,.008])mesh(eatingTool,new T.CylinderGeometry(.005,.004,.20,8),cream,x,-.10,0);const bite=mesh(eatingTool,new T.SphereGeometry(.018,8,6),tea,0,-.2,0);eatingTool.visible=false;
  const ladle=new T.Group();ladle.name='CookingLadle';group.add(ladle);mesh(ladle,new T.CylinderGeometry(.009,.009,.22,8),cream,0,-.11,0);mesh(ladle,new T.SphereGeometry(.038,12,8),metal,0,-.24,0).scale.set(1,.35,1);ladle.visible=false;
- const prepKnife=new T.Group();prepKnife.name='PreparationKnife';group.add(prepKnife);mesh(prepKnife,new T.BoxGeometry(.035,.20,.035),cream,0,-.005,0);mesh(prepKnife,new T.BoxGeometry(.055,.13,.012),metal,0,-.14,0);prepKnife.visible=false;
+ const spoonHandle=mesh(eatingTool,new T.CylinderGeometry(.006,.006,.16,8),metal,0,-.09,0),spoonHead=mesh(eatingTool,new T.SphereGeometry(.024,12,8),metal,0,-.2,0);spoonHead.scale.set(1,.2,1.3);spoonHandle.visible=spoonHead.visible=false;
+ const prepKnife=new T.Group();prepKnife.name='PreparationKnife';group.add(prepKnife);mesh(prepKnife,new T.BoxGeometry(.035,.20,.035),cream,0,-.005,0);mesh(prepKnife,new T.BoxGeometry(.055,.13,.012),metal,0,-.14,0);const knifeParts=prepKnife.children.slice(),whisk=new T.Group();whisk.name='PreparationWhisk';prepKnife.add(whisk);mesh(whisk,new T.CylinderGeometry(.013,.013,.12,10),cream,0,-.045,0);for(let i=0;i<3;i++){const loop=mesh(whisk,new T.TorusGeometry(.025,.003,5,16),metal,0,-.17,0);loop.scale.y=1.7;loop.rotation.y=i*Math.PI/3;}const rolling=new T.Group();rolling.name='PreparationRollingPin';prepKnife.add(rolling);const roll=mesh(rolling,new T.CylinderGeometry(.026,.026,.18,14),tea,0,-.18,0);roll.rotation.z=Math.PI/2;mesh(rolling,new T.CylinderGeometry(.008,.008,.12,8),cream,0,-.05,0);prepKnife.visible=false;
  // Add a visible binding and print to the existing reading prop, shared by all rooms.
  book.name='ReadingBook';mesh(book,new T.BoxGeometry(.012,.005,.21),tea,0,.026,0);for(const x of [-.09,.09])for(let n=0;n<4;n++)mesh(book,new T.BoxGeometry(.09,.001,.002),metal,x,.027,-.065+n*.035);
  const packet=new T.Group();packet.name='SeedPacket';group.add(packet);mesh(packet,new T.BoxGeometry(.11,.14,.045),cream);mesh(packet,new T.SphereGeometry(.028,8,6),metal,0,.01,.03);
@@ -35,12 +37,17 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  function handPoint(side='right'){syncPose();model.updateWorldMatrix(true,true);return box.setFromObject(hands[side],true).getCenter(new T.Vector3());}
  const arms=Object.fromEntries(rig.map(x=>[x.label,x.p]));
  function atHand(prop,side='right'){prop.position.copy(model.worldToLocal(handPoint(side)));}
- let taskPropsActive=false;
+ let taskPropsActive=false,heldFood=null,foodKey='';
+ const bowlBase=bowl.children.slice(),cupBase=cup.children.slice();
  return {handPoint,updateTask(time,task,pose){
   prepKnife.visible=task?.kind==='prep';eatingTool.visible=task?.kind==='eat';ladle.visible=task?.kind==='cook';
-  if(!task){if(taskPropsActive){cup.visible=bowl.visible=book.visible=false;}taskPropsActive=false;chop.visible=true;return;}
+  if(!task){if(heldFood){disposeFood(heldFood);heldFood=null;foodKey='';for(const o of [...bowlBase,...cupBase])o.visible=true;}if(taskPropsActive){cup.visible=bowl.visible=book.visible=false;}taskPropsActive=false;chop.visible=true;return;}
+  const nextFood=['eat','drink'].includes(task.kind)&&task.recipeId?task.recipeId:'';
+  if(foodKey!==nextFood){disposeFood(heldFood);heldFood=null;foodKey=nextFood;for(const o of [...bowlBase,...cupBase])o.visible=true;if(nextFood){heldFood=makeRecipeFood(nextFood);if(heldFood){const parent=task.kind==='drink'?cup:bowl;heldFood.scale.setScalar(task.kind==='drink'?.38:.27);heldFood.position.y=task.kind==='drink'?-.042:-.025;for(const o of task.kind==='drink'?cupBase:bowlBase)o.visible=false;parent.add(heldFood);}}}
   taskPropsActive=true;cup.visible=task.kind==='drink';bowl.visible=task.kind==='eat';book.visible=task.kind==='read';chop.visible=false;
   const right=handPoint(),left=handPoint('left');
+  whisk.visible=['bake','brew'].includes(task.method);rolling.visible=task.method==='steam';for(const o of knifeParts)o.visible=!whisk.visible&&!rolling.visible;
+  if(ladle.visible){const head=ladle.children[1];head.scale.set(task.method==='fry'?1.25:1,task.method==='fry'?.14:.35,task.method==='fry'?.65:1);}
   if(prepKnife.visible){const d=pointToolAt(prepKnife,group,right,{...task.contact,y:task.contact.y+(pose?.dy||0)},.21,{scale:false});prepKnife.visible=d>=.12&&d<=.30;if(prepKnife.visible)prepKnife.translateY(.21-d);}
   if(cup.visible){cup.rotation.set(-(pose?.sip||0)*.3,0,0);const grip=new T.Vector3(.056,0,0).applyEuler(cup.rotation);cup.position.copy(model.worldToLocal(right.clone()).sub(grip));}
   if(bowl.visible){bowl.rotation.set(0,0,0);bowl.position.copy(model.worldToLocal(left.clone()));bowl.position.y-=.015;
@@ -49,7 +56,8 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
    const gripToTip=pointToolAt(eatingTool,group,right,tip,.20,{scale:false})||.20;
    // Fixed length sticks slide through the grip as the bite reaches the lips.
    // Scaling the sticks or fixing their tip would penetrate a smaller face.
-   for(const stick of eatingTool.children)if(stick!==bite)stick.position.y=.10-gripToTip;
+   const food=globalThis.CharDayKitchen.recipe(task.recipeId),useSpoon=['soup','hotpot','porridge','pudding','cake','pancake'].includes(food?.food);
+   for(const stick of eatingTool.children.slice(0,2)){stick.visible=!useSpoon;stick.position.y=.10-gripToTip;}spoonHandle.visible=spoonHead.visible=useSpoon;spoonHandle.position.y=.08-gripToTip;spoonHead.position.y=-gripToTip;
    bite.position.y=-gripToTip;bite.visible=(pose?.bite||0)>.08;
   }
   if(book.visible){book.position.copy(root.worldToLocal(left.clone().add(right).multiplyScalar(.5)));book.position.z+=.025;book.rotation.set(.25,0,0);page.rotation.z=-Math.PI*(pose?.turn||0);page.visible=(task.progress||0)<.76;}
@@ -60,7 +68,7 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
    if(ladle.visible)pointToolAt(ladle,group,right,contact,.24);
   }
   root.updateWorldMatrix(true,true);
-  Object.assign(root.userData.dailyAction,{cup:cup.visible,bowl:bowl.visible,book:book.visible,page:page.rotation.z,ladle:ladle.visible,chopsticks:eatingTool.visible,kind:task.kind,sip:pose?.sip||0,bite:pose?.bite||0,
+  Object.assign(root.userData.dailyAction,{cup:cup.visible,bowl:bowl.visible,book:book.visible,page:page.rotation.z,ladle:ladle.visible,chopsticks:eatingTool.visible,kind:task.kind,recipeId:task.recipeId||null,foodShape:heldFood?.userData.shape||null,method:task.method||null,sip:pose?.sip||0,bite:pose?.bite||0,
    rightGrip:right.toArray(),leftGrip:left.toArray(),cupGrip:cup.visible?cup.localToWorld(new T.Vector3(.056,0,0)).toArray():null,cupRim:cup.visible?cup.localToWorld(new T.Vector3(0,.044,.014)).toArray():null,
    mouth:pose?.mouth?.toArray()||null,toolTip:ladle.visible?ladle.localToWorld(new T.Vector3(0,-.24,0)).toArray():eatingTool.visible?bite.getWorldPosition(new T.Vector3()).toArray():null,
    toolGrip:ladle.visible?ladle.getWorldPosition(new T.Vector3()).toArray():eatingTool.visible?eatingTool.getWorldPosition(new T.Vector3()).toArray():null,

@@ -55,3 +55,22 @@ test("清除 / 重置：按类挑，设置类永远留着；两个入口都开�
   assert.ok(/CATS\.map\(c => h\("div", \{ key: c\.id, "data-reset-cat": c\.id/.test(ch) && /h\(Toggle, \{ on: on\.has\(c\.id\)/.test(ch));
   assert.ok(fs.readFileSync(__dirname + "/../js/screens.js", "utf8").includes('"data-wk": "castfreset", onClick: () => onReset(initial.id)'));
 });
+
+test("重置／删除也扫得到：我钱包里跟TA有关的流水、TA送的订单外卖、TA发的朋友圈和论坛帖（她 2026-10-10）", () => {
+  const P = require("../js/char-purge.js");
+  const mem = {}; const ls = { get length() { return Object.keys(mem).length; }, key: i => Object.keys(mem)[i], getItem: k => mem[k] == null ? null : mem[k], setItem: (k, v) => { mem[k] = String(v); }, removeItem: k => { delete mem[k]; } };
+  ls.setItem("x_walletLog", JSON.stringify([{ id: "a", ref: { charId: "c1" } }, { id: "b", ref: { charId: "c2" } }, { id: "c" }]));
+  ls.setItem("x_shopOrders", JSON.stringify([{ id: "o1", fromCharId: "c1" }, { id: "o2", fromCharId: null }]));
+  ls.setItem("x_takeoutLog", JSON.stringify([{ id: "t1", fromCharId: "c1" }]));
+  ls.setItem("x_moments", JSON.stringify([{ id: "m1", characterId: "c1" }, { id: "m2", mine: true }]));
+  ls.setItem("x_forumPosts", JSON.stringify([{ id: "p1", authorId: "c1" }, { id: "p2", authorId: null }]));
+  P.sweep(["c1"], ls, null, ["money"]);
+  assert.deepEqual(JSON.parse(ls.getItem("x_walletLog")).map(x => x.id), ["b", "c"]);
+  assert.deepEqual(JSON.parse(ls.getItem("x_shopOrders")).map(x => x.id), ["o2"]);
+  assert.deepEqual(JSON.parse(ls.getItem("x_takeoutLog")), []);
+  assert.equal(JSON.parse(ls.getItem("x_moments")).length, 2, "只勾了钱包那一类，朋友圈不该动");
+  P.sweep(["c1"], ls, null, ["phone"]);
+  assert.deepEqual(JSON.parse(ls.getItem("x_moments")).map(x => x.id), ["m2"]);
+  assert.deepEqual(JSON.parse(ls.getItem("x_forumPosts")).map(x => x.id), ["p2"]);
+  assert.ok(P.CATS.some(c => c.id === "money"));
+});

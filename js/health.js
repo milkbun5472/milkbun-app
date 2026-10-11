@@ -274,6 +274,39 @@
     const rest = noteForWatch(charId, now);
     return pl + rest;
   }
+  // 身体这几天怎么样（她 2026-10-10：群友想让角色知道「我不舒服」——不编病历，只读她自己真记过的）：
+  //   近 n 天里记了的不舒服、心情不好、睡得很少。没有就空字符串＝零 token。
+  function bodyLine(d, t, n) {
+    const today = dayOf(new Date(t || Date.now())), bits = [];
+    for (let i = 0; i < (n || 2); i++) {
+      const day = shift(today, -i), when = i === 0 ? "今天" : i === 1 ? "昨天" : i + " 天前";
+      const sym = ((d.symptoms || {})[day] || []).filter(Boolean), md = (d.mood || {})[day], sl = sleepMin((d.sleep || {})[day]);
+      const one = [];
+      if (sym.length) one.push("记了" + sym.join("、"));
+      if (md && md.v != null && md.v <= 1) one.push("心情" + MOODS[md.v] + (md.note ? "（" + String(md.note).slice(0, 30) + "）" : ""));
+      if (sl && sl < 300) one.push("只睡了 " + hrs(sl));
+      if (one.length) bits.push(when + one.join("，"));
+    }
+    return bits.length ? "她健康里自己记的：" + bits.join("；") + "。这是她让你知道的，惦记就照你平时的样子问一句，别拿着记录说教。" : "";
+  }
+  // 查手机翻到的那一页：近 7 天她自己记的（吃喝、睡眠、运动、心情、不舒服、体重），一天一行，没记的那天不写
+  function peekText(now) {
+    const d = load(), t = now || Date.now(), today = dayOf(new Date(t)), out = [];
+    for (let i = 0; i < 7; i++) {
+      const day = shift(today, -i), x = dayTotals(d, day), b = [];
+      if (x.n) b.push("记了 " + x.n + " 样吃的约 " + x.kcal + " 千卡（" + mealsOn(d, day).slice(-3).map(m => m.name).join("、") + "）");
+      if (x.water) b.push("喝水 " + x.water + " 杯");
+      if (x.sleep) b.push("睡了 " + hrs(x.sleep));
+      if (x.sportMin) b.push("运动 " + x.sportMin + " 分钟");
+      if (x.steps) b.push(x.steps + " 步");
+      if (x.mood && x.mood.v != null) b.push("心情" + MOODS[x.mood.v] + (x.mood.note ? "（" + String(x.mood.note).slice(0, 30) + "）" : ""));
+      if (x.sym.length) b.push("不舒服：" + x.sym.join("、"));
+      const w = (d.weight || []).find(r => r.day === day);
+      if (w) b.push("体重 " + w.kg + " kg");
+      if (b.length) out.push("· " + (i === 0 ? "今天" : i === 1 ? "昨天" : day.slice(5)) + "：" + b.join("，"));
+    }
+    return out.join("\n");
+  }
   function noteForWatch(charId, now) {
     const d = load();
     if (!d.watch.on || !(d.watch.ids || []).includes(charId)) return "";
@@ -282,14 +315,15 @@
     const fresh = rows.some(m => t - (m.ts || 0) < 2 * 3600000);
     // 位置天气电量另开一个开关；手机刚报上来的那三小时里一直给（它说的就是「此刻」）
     const env = d.watch.env ? envLine(d, t) : "";
-    if (!windowAt(t) && !fresh) return env ? env + "这是她自己开的，让你知道她此刻在哪、那边天气、手机还剩多少电——提不提、怎么提，照你自己的性子来。" : "";
+    const body = bodyLine(d, t, 2);
+    if (!windowAt(t) && !fresh) return (env ? env + "这是她自己开的，让你知道她此刻在哪、那边天气、手机还剩多少电——提不提、怎么提，照你自己的性子来。" : "") + body;
     const tot = dayTotals(d, day);
     const got = MEALS.slice(0, 3).map(m => mealName(m[0]) + (rows.some(r => r.meal === m[0]) ? "记了" : "没记")).join("、");
     const ate = rows.slice(-4).map(m => m.name).join("、");
     return "今天到现在记了约 " + tot.kcal + " 千卡（她给自己定的是 " + d.goal.kcal + "），" + got
       + (ate ? "；最近记的是" + ate : "") + "；水喝了 " + tot.water + "/" + d.goal.water + " 杯"
       + (tot.sportMin ? "；今天动了 " + tot.sportMin + " 分钟" : "") + (tot.sleep ? "；昨晚睡了 " + hrs(tot.sleep) : "") + "。"
-      + env + HEALTH_READ;
+      + env + HEALTH_READ + body;
   }
   // 主动来问：开了「饭点会来问」、在午饭/晚饭窗口里、那一顿还没记、今天这一顿还没问过、一天最多两次
   // 饭点那两次和手机报上来的那两种（电量低、下雨还在外面）各算各的：饭点一天最多两次，后两种各一天一次
@@ -1183,7 +1217,7 @@
     } catch (e) { return null; }
   }
   g.healthAddByChar = healthAddByChar;
-  g.HealthCtx = { GATEWAY_WORKER, envLine, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, habitDue, markHabitPinged, pactDays, weekFacts, weightEta, PACT_KINDS, load, dayTotals, weekOf, FOODS, KEY };
+  g.HealthCtx = { GATEWAY_WORKER, envLine, bodyLine, peekText, whereText, pullGateway, gatewayText, noteFor, nudgeDue, markNudged, habitDue, markHabitPinged, pactDays, weekFacts, weightEta, PACT_KINDS, load, dayTotals, weekOf, FOODS, KEY };
   g.Health = { MOOD_ZH, parseShortcut, applyShortcut, SHORTCUT_TEMPLATE, SHORTCUT_TEMPLATE_MINI, estimate, FOODS, MEALS, SPORTS, burnOf, sleepMin, windowAt, dayTotals, weekOf, load, save };
   g.HealthApp = HealthApp;
   // 图标：一颗心上走过一段心电

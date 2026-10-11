@@ -12,19 +12,21 @@ const path = require("node:path");
 const P = f => fs.readFileSync(path.join(__dirname, "..", f), "utf8");
 const app = P("js/app.js"), screens = P("js/screens.js"), engine = P("js/engine.js");
 
+// v75.27x：落成什么收进 addNpcLinked 一处（配角页新建、秋秋建配角也走它），addMyNpc 只是老入口的薄壳——两段一起看
 const addMy = (() => {
-  const i = app.indexOf("  const addMyNpc = (name, brief, relLabel, hostId) => {");
-  assert.ok(i > 0, "抠不出 addMyNpc");
-  return app.slice(i, app.indexOf("\n  };", i));
+  const i = app.indexOf("  const addNpcLinked = ({ name, brief, ownerId, links }) => {");
+  const j = app.indexOf("  const addMyNpc = (name, brief, relLabel, hostId) => {", i);
+  assert.ok(i > 0 && j > i, "抠不出 addNpcLinked / addMyNpc");
+  return app.slice(i, app.indexOf("\n  };", j));
 })();
 
 test("她自己的人：她写什么就是什么，一枪都不打", () => {
   assert.ok(!/callAI|generateNpc|runProbe|await /.test(addMy), "她自己写的这一支还在调模型");
-  assert.ok(/npc: true, ownerId: "me", knowsUser: true/.test(addMy),
+  assert.ok(/addNpcLinked\(\{ name, brief, ownerId: "me", links: \[\{ id: "me", label: note \}\] \}\)/.test(addMy) && /meLink \? \{ knowsUser: true,/.test(addMy) && /npc: true, ownerId: owner/.test(addMy),
     "落成的字段不对：要么不是配角，要么主人不是她，要么没天然认识她");
-  assert.ok(/if \(!nm\) \{ toast\("先写个名字"\); return false; \}/.test(addMy), "没名字也能加一张空卡");
+  assert.ok(/if \(!nm\) \{ toast\("先写个名字"\); return null; \}/.test(addMy), "没名字也能加一张空卡");
   // 关系图两头都写：只写一头的话，群里另一头就不认得 TA
-  assert.ok(/saveRel\("me->" \+ id, note, ""\); saveRel\(id \+ "->me", note, ""\);/.test(addMy), "双向关系没建");
+  assert.ok(/saveRel\(l\.id \+ "->" \+ id, note, ""\); saveRel\(id \+ "->" \+ l\.id, note, ""\);/.test(addMy), "双向关系没建");
   assert.ok(/CharacterPronoun\.newCharacter\(/.test(addMy), "没过 newCharacter（性别那一格会缺）");
   assert.ok(/onAddMyNpc: addMyNpc,/.test(app), "没传给关系页");
 });

@@ -15,5 +15,6 @@ test("NPC generation survives stray quotes and truncation", async () => {
 test("hand-written NPC for a character host", () => {
   assert.match(scr, /\["gen", "按人设生成"\], \["hand", "自己写"\]/);
   assert.match(scr, /onAddMyNpc\(c\.npcName, c\.npcBrief, c\.npcRel, c\.meChar\)/);
-  assert.match(app, /const addMyNpc = \(name, brief, relLabel, hostId\) =>[\s\S]{0,700}npc: true, ownerId: hostId/);
+  // 落成收进 addNpcLinked 一处（v75.27x）：角色名下手写的那一支传 ownerId: hostId、不连她
+  assert.match(app, /const addMyNpc = \(name, brief, relLabel, hostId\) =>[\s\S]{0,500}addNpcLinked\(\{ name, brief, ownerId: hostId, links: \[\] \}\)/);
 });

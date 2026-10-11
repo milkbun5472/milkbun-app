@@ -54,8 +54,8 @@ test("递给 UI 的角色列表默认不含 NPC", () => {
   assert.ok((app.match(/characters: liveChars,/g) || []).length > 30);
   // 能看见配角的地方【一处一处点名】，加一处就得来这里记一笔——
   // 这条断言守的不是数字，是「这份名单是显式的、grep 得出来的」。
-  assert.equal((app.match(/allChars: characters,/g) || []).length, 5,
-    "聊天列表的群头像 + 群聊页 + 关系页 + 同人文（配角要能被写进 CP）+ 新建群聊（配角直接选）");
+  assert.equal((app.match(/allChars: characters,/g) || []).length, 7,
+    "聊天列表的群头像 + 群聊页 + 关系页 + 同人文（配角要能被写进 CP）+ 新建群聊（配角直接选）+ 秋秋整页和悬浮屏（改关系、建配角要认得配角）");
   assert.match(comp, /const memberById = id => chatFace\(\(allChars \|\| characters\)\.find/);
 });
 

@@ -48,7 +48,7 @@ test("三处线路合到同一份，别再各写各的（one-public-mechanism）
   ["const offlineActive = pickRoute(offlineApiId, active);",
    "const bgActive = pickRoute(bgApiId, active);",
    "const apiFor = id => pickRoute((chatSettings[id] || {}).apiId, active);",
-   "const offlineApiFor = id => pickRoute((chatSettings[id] || {}).apiId, offlineActive);"]
+   "const offlineApiFor = id => pickRoute((chatSettings[id] || {}).offlineApiId || (chatSettings[id] || {}).apiId, offlineActive);"]
     .forEach(l => assert.ok(app.indexOf(l) >= 0, "没走公共那份：" + l));
   // 旧那个「找不到就 null」的写法不许回来
   assert.doesNotMatch(app, /bgApiId \? \(apiProfiles\.find/);
@@ -63,7 +63,7 @@ test("「用的是哪条」只影响说话，不参与选路", () => {
 });
 
 test("设置里那一栏：认不出来的就当没选，显示和实际用的对得上", () => {
-  assert.match(scr, /const live = \(list \|\| \[\]\)\.some\(x => x && x\.id === selectedId\) \? selectedId : null;/);
+  assert.match(scr, /const live = (?:\(offLabel && selectedId === "__off__"\) \|\| )?\(list \|\| \[\]\)\.some\(x => x && x\.id === selectedId\) \? selectedId : null;/);
   assert.match(scr, /const on = \(live \|\| null\) === \(p\.id \|\| null\);/);
 });
 

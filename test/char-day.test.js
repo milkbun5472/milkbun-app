@@ -7,6 +7,8 @@ function setup(){
   vm.runInContext(cut(read('js/screens.js'),'function schedFillEnds(', 'function schedTzShiftMin('),env);
   vm.runInContext(read('apps/fairy-garden/day/catalog.js'),env);
   vm.runInContext(read('js/char-day-link.js'),env);
+  vm.runInContext(read('apps/fairy-garden/day/social.js'),env);
+  vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);
   vm.runInContext(read('js/char-day.js'),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));
@@ -110,8 +112,8 @@ test('生活控制与气质装修共用串行writer，快速手动自动切换�
 function placeViewer(f,initialCharId){
   const states=[],refs=[],snapshots=[];let cursor=0,refCursor=0;
   Object.assign(f.env,{
-    h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',
-    useState:initial=>{const i=cursor++;if(!(i in states))states[i]=initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
+    h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',GMsg:'GMsg',GDiary:'GDiary',GUser:'GUser',GConfig:'GConfig',IHome:'IHome',ICamera:'ICamera',IDots:'IDots',IArrow:'IArrow',IRepeat:'IRepeat',IChevR:'IChevR',IPencil:'IPencil',ICheck:'ICheck',GUs:'GUs',GStudy:'GStudy',GBrief:'GBrief',GCoffee:'GCoffee',GWalk:'GWalk',IPulse:'IPulse',GPen:'GPen',GShop:'GShop',ISearch:'ISearch',GMeal:'GMeal',IFilm:'IFilm',GChat:'GChat',GDebate:'GDebate',GBag:'GBag',IHeart:'IHeart',GMoon:'GMoon',Svg:'Svg',
+    useState:initial=>{const i=cursor++;if(!(i in states))states[i]=typeof initial==='function'?initial():initial;return [states[i],value=>{states[i]=typeof value==='function'?value(states[i]):value;}];},
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
   });
@@ -120,7 +122,7 @@ function placeViewer(f,initialCharId){
   const render=()=>{cursor=refCursor=0;const tree=f.env.CharDayApp(props);if(refs[0])refs[0].current={contentWindow:{CharDayScene:{setSnapshot:p=>snapshots.push(JSON.parse(JSON.stringify(p)))}}};return tree;};
   const all=tree=>tree&&typeof tree==='object'?[tree,...tree.children.flatMap(all)]:[];
   const text=node=>node.children.map(c=>typeof c==='string'?c:typeof c==='object'?text(c):'').join('');
-  const click=(tree,label)=>{const node=all(tree).find(n=>n.tag==='button'&&text(n)===label);assert.ok(node,label+'可用');node.props.onClick();};
+  const click=(tree,label)=>{const node=all(tree).find(n=>n.tag==='button'&&(n.props['aria-label']||text(n))===label);assert.ok(node,label+'可用');node.props.onClick();};
   const send=tree=>{const frame=all(tree).find(n=>n.tag==='iframe');assert.ok(frame);frame.props.onLoad();return snapshots.at(-1);};
   return {render,click,send,all,states,refs};
 }
@@ -148,7 +150,7 @@ test('新场景从选人页独立试玩，生活示例与日程映射继续可�
 test('已有角色进入摆位保留真实样貌，返回恢复同角色原日程且不写档',()=>{
   const f=setup(),viewer=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
   let tree=viewer.render();const first=viewer.send(tree);assert.equal(first.slot.title,'核对军报');
-  viewer.click(tree,'新场景');tree=viewer.render();const stage=viewer.send(tree);
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'摆位试玩');tree=viewer.render();const stage=viewer.send(tree);
   assert.equal(stage.charId,'c1');assert.deepEqual(stage.look,first.look);assert.equal(stage.slot,null);
   viewer.click(tree,'回到日程');const back=viewer.send(viewer.render());
   assert.equal(back.charId,'c1');assert.deepEqual(back.look,first.look);assert.deepEqual(back.presentation,first.presentation);
@@ -161,7 +163,109 @@ test('日程页卸载画面前接住临时位置，装修沿同一现场继续�
   // Shape comes from CharDayScene.pauseState's runtime writer, never a save key.
   const paused={charId:'c1',map:first.presentation.map,key:'current-phase',position:{x:1,z:2},target:{x:1,z:2},moving:false,yaw:.4,speed:0,dwell:12,walkTarget:0};
   frame.props.ref({contentWindow:{CharDayScene:{pauseState:()=>paused}}});frame.props.ref(null);
-  viewer.click(tree,'今天的日程');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();
   const edit=viewer.send(tree);assert.equal(edit.editing,true);assert.deepEqual(edit.resume,paused);
   assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
+test('整个TA一天卸载再挂载仍接到同角色进度，角色之间隔离且不写日程',()=>{
+ const f=setup(),v=placeViewer(f,'c1'),tree=v.render(),first=v.send(tree),writes=f.writes.length,before=JSON.stringify(f.plans());
+ const paused={charId:'c1',map:first.presentation.map,key:'current-phase',position:{x:1,z:2},target:{x:1,z:2},moving:false,yaw:.4,speed:0,dwell:12,walkTarget:0};
+ const frame=v.all(tree).find(n=>n.tag==='iframe');frame.props.ref({contentWindow:{CharDayScene:{pauseState:()=>paused}}});frame.props.ref(null);
+ const fresh=placeViewer(f,'c1');assert.deepEqual(fresh.send(fresh.render()).resume,paused);
+ f.c={...f.c,id:'c2'};const other=placeViewer(f,'c2');assert.equal(other.send(other.render()).resume,null);
+ assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
+
+test('更多归拢样貌装修场景，整页返回不改变人物或场景快照',()=>{
+ const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();const before=viewer.send(tree);
+ const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)).length,0);
+ viewer.click(tree,'更多');tree=viewer.render();const after=viewer.send(tree);assert.deepEqual(after,{...before,scenePaused:true});
+ const panel=viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore');assert.ok(panel);assert.equal(viewer.all(panel).filter(n=>n.props['data-wk']==='cdaymenubody').length,1);
+ for(const key of ['cdaymeopen','cdayhomestyle','cdaydecorate','cdayplaces'])assert.ok(viewer.all(panel).find(n=>n.props['data-wk']===key));
+ viewer.click(tree,'回到小世界');tree=viewer.render();assert.equal(viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore'),undefined);assert.deepEqual(viewer.send(tree),before);
+ viewer.click(tree,'今天的日程');tree=viewer.render();assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdaydecorate').length,0);
+});
+
+
+test('空日程也保留日程入口，页面只展示安排与原日历入口',()=>{
+ const f=setup();f.save('c1','2026-10-09',{seqs:[]});const viewer=placeViewer(f,'c1');let tree=viewer.render();
+ assert.ok(viewer.all(tree).find(n=>n.props['data-wk']==='cdayscheduleopen'));viewer.click(tree,'今天的日程');tree=viewer.render();
+ assert.ok(viewer.all(tree).find(n=>n.tag==='Head'&&n.props.zh==='今天的日程'));
+ assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdayrow').length,0);assert.equal(viewer.all(tree).filter(n=>n.props['data-wk']==='cdaydecorate').length,0);
+});
+
+test('TA外出时保存装修留在小屋，失败不退出，连续保存后返回保留最近成功的布置',async()=>{
+ const f=setup(),viewer=placeViewer(f,'c1'),{checkHomeLayout}=await import('../apps/fairy-garden/day/home-layout.mjs');
+ let stored={version:3,layouts:{c2:{$room:{wall:'rose'}}},future:{keep:true}},verified=false;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>verified;f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const plans=JSON.stringify(f.plans()),writes=f.writes.length;
+ let tree=viewer.render();const outside=viewer.send(tree);assert.notEqual(outside.presentation.map,'dayHome');
+ viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();
+ const save=async placements=>{const checked=checkHomeLayout(placements);assert.equal(checked.ok,true);Object.assign(viewer.refs[0].current.contentWindow.CharDayScene,{editLayout:()=>checked});await viewer.all(tree).find(n=>n.tag==='Head').props.right.props.onClick();tree=viewer.render();return viewer.send(tree);};
+ let snap=await save({$room:{wall:'stripe'}});assert.equal(snap.editing,true);assert.equal(stored.layouts.c1,undefined);
+ verified=true;snap=await save({$room:{wall:'stripe'}});assert.equal(snap.editing,true);assert.equal(snap.presentation.map,'dayHome');assert.equal(stored.layouts.c1.$room.wall,'stripe');
+ snap=await save({$room:{wall:'sage'}});assert.equal(snap.editing,true);assert.equal(stored.layouts.c1.$room.wall,'sage');
+ viewer.all(tree).find(n=>n.tag==='Head').props.onBack();snap=viewer.send(viewer.render());assert.equal(snap.editing,false);assert.deepEqual(snap.presentation,outside.presentation);assert.equal(snap.homePlacements.$room.wall,'sage');
+ assert.equal(stored.layouts.c2.$room.wall,'rose');assert.equal(stored.future.keep,true);assert.equal(JSON.stringify(f.plans()),plans);assert.equal(f.writes.length,writes);
+});
+
+test('TA在家时保存装修继续沿原退出恢复，装修里的保存不另改日程',async()=>{
+ const f=setup();f.save('c1','2026-10-09',{seqs:[{seq:1,time:'10:00',end:'12:00',title:'在家读书',location:'小家',type:'home',world:{scene:'dayHome',spot:'read'}}]});
+ let stored={};f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>true;f.env.saveJSON=(key,value)=>{stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const viewer=placeViewer(f,'c1'),{checkHomeLayout}=await import('../apps/fairy-garden/day/home-layout.mjs');let tree=viewer.render();const before=viewer.send(tree);assert.equal(before.presentation.map,'dayHome');
+ viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'布置小家');tree=viewer.render();Object.assign(viewer.refs[0].current.contentWindow.CharDayScene,{editLayout:()=>checkHomeLayout({$room:{wall:'stripe'}})});
+ await viewer.all(tree).find(n=>n.tag==='Head').props.right.props.onClick();const after=viewer.send(viewer.render());assert.equal(after.editing,false);assert.deepEqual(after.presentation,before.presentation);assert.equal(stored.layouts.c1.$room.wall,'stripe');
+});
+
+test('自由逛两种选择覆盖真实目录全部地点，原writer的日程与日历字段不改',()=>{
+ const f=setup(),v=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
+ for(const mode of ['solo','together'])for(const p of f.env.CharDayCatalog){
+  let tree=v.render();v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();
+  const picker=v.all(tree).find(n=>n.props['data-wk']==='cdayoutings');assert.ok(picker);assert.equal(v.all(picker).filter(n=>n.props['data-wk']==='cdaydestination').length,24);
+  v.all(picker).find(n=>n.props['data-wk']==='cdayoutingchoice'&&n.props['data-part']===mode).props.onClick();tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaydestination'&&n.props['data-part']===p.id).props.onClick();tree=v.render();
+  const payload=v.send(tree),setting=f.env.CharDaySocial.setting(payload);assert.equal(payload.outing.mode,mode);assert.equal(payload.presentation.map,p.id);assert.equal(payload.showcase,false);assert.equal(payload.preview,false);assert.equal(payload.slot.title,'核对军报');assert.equal(payload.cameraMode,mode==='solo'?'me':'both');assert.ok(setting);assert.equal(!!setting.solo,mode==='solo');assert.equal(f.env.CharDaySocial.automaticSetting(payload),false);
+  v.click(tree,'回到TA');const back=v.send(v.render());assert.equal(back.outing,null);assert.equal(back.presentation.map,'dayWork');assert.equal(back.slot.title,'核对军报');
+ }
+ assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+
+test('自由逛状态随实际现场快照保留，同角色重进继续，其他角色和预览不继承',()=>{
+ const f=setup(),v=placeViewer(f,'c1');let tree=v.render();const normal=v.send(tree);
+ v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaydestination'&&n.props['data-part']==='dayFarm').props.onClick();tree=v.render();
+ const payload=v.send(tree),paused={charId:'c1',map:payload.presentation.map,outing:payload.outing,scheduledResume:{charId:'c1',map:normal.presentation.map,position:{x:1,z:2}},position:{x:0,z:3},visitor:{present:true,manualAction:'rest'}};
+ const frame=v.all(tree).find(n=>n.tag==='iframe');frame.props.ref({contentWindow:{CharDayScene:{pauseState:()=>paused}}});frame.props.ref(null);
+ const fresh=placeViewer(f,'c1'),resumed=fresh.send(fresh.render());assert.deepEqual(resumed.outing,paused.outing);assert.deepEqual(resumed.resume,paused);assert.equal(resumed.cameraMode,'me');
+ f.c={...f.c,id:'other'};const otherViewer=placeViewer(f,'other'),other=otherViewer.send(otherViewer.render());assert.equal(other.outing,null);
+ const S=f.env.CharDaySocial;for(const patch of [{preview:true},{showcase:true},{editing:true},{presentation:{map:'dayClinic'}}])assert.equal(S.outing({...payload,...patch}),null);
+ assert.equal(S.setting({...normal,presentation:{map:'dayClinic'}}),null,'没有主动邀请时仍是TA独自工作');
+});
+
+test('逛街时延迟抵达的现场消息不把手选动作写回正常生活偏好',async()=>{
+ const f=setup(),v=placeViewer(f,'c1');let receive,writes=0;
+ Object.assign(f.env,{loadJSON:()=>({}),commitJSONDurable:async()=>{writes++;return {durable:true,live:true};},useEffect:fn=>fn(),setInterval:()=>1,clearInterval:()=>{},addEventListener:(kind,fn)=>{if(kind==='message')receive=fn;},removeEventListener:()=>{}});
+ let tree=v.render();v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaydestination'&&n.props['data-part']==='dayFarm').props.onClick();tree=v.render();v.click(tree,'回到TA');tree=v.render();v.send(tree);
+ // The delayed message is the real visitNotice shape, tagged at its scene owner.
+ receive({source:v.refs[0].current.contentWindow,origin:'http://test.invalid',data:{type:'char-day-visit',charId:'c1',outing:{map:'dayFarm',mode:'solo'},present:true,control:'manual',manualAction:'rest'}});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(writes,0);
+});
+
+
+test('自由逛同行小票可键盘选择，状态清楚且所有地点仍来自真实目录',()=>{
+ const f=setup(),v=placeViewer(f,'c1');let tree=v.render();v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();
+ const tickets=()=>v.all(tree).filter(n=>n.props['data-wk']==='cdayoutingchoice');
+ assert.equal(tickets().length,2);assert.equal(tickets().filter(n=>n.props['aria-checked']).length,1);
+ for(const n of tickets()){assert.equal(n.props.role,'radio');assert.equal(n.props.style.minHeight,44);assert.equal(typeof n.props.onKeyDown,'function');}
+ tickets().find(n=>n.props['data-part']==='together').props.onClick();tree=v.render();
+ const selected=tickets().find(n=>n.props['aria-checked']);assert.equal(selected.props['data-part'],'together');assert.match(selected.props.style.boxShadow,/inset/);
+ assert.deepEqual(v.all(tree).filter(n=>n.props['data-wk']==='cdaydestination').map(n=>n.props['aria-label']),Array.from(f.env.CharDayCatalog,p=>p.label));
+ assert.equal(f.writes.length,1);
+});
+test('小世界皮肤只在自身外壳，减少动画与键盘焦点均有真实样式',()=>{
+ const f=setup(),v=placeViewer(f,'c1'),tree=v.render(),skin=v.all(tree).find(n=>n.tag==='style');
+ assert.ok(skin);const css=skin.children.join('');assert.match(css,/prefers-reduced-motion/);assert.match(css,/focus-visible/);assert.match(css,/\[data-wk="cdaypage"\] select/);
+ assert.equal(v.all(tree).find(n=>n.props['data-wk']==='cdaytools').props.style.minHeight,56);
 });

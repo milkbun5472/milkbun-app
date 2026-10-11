@@ -1,8 +1,11 @@
+import {tagRoomTones} from './room-tones.mjs?v=fg-932cb68b41b7219d';
+import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-932cb68b41b7219d';
 import * as T from 'three';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-127ffe874240ba15';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-932cb68b41b7219d';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-932cb68b41b7219d';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
-export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1};
+export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
 export function roomStructure({w=10,d=9}={}){
   return [
     {id:'BackWall',x:0,z:-d/2,w:w+.2,d:.18},
@@ -13,9 +16,18 @@ export function roomStructure({w=10,d=9}={}){
 }
 export function roomObstacles(furniture,size){return [...roomStructure(size),...furniture.map(({id,x,z,w,d})=>({id,x,z,w,d}))];}
 export function roomSeat(furniture,id,approach){
+  // Move the constructed chair together with its seat anchor. A pelvis offset
+  // alone would leave the person off the cushion and still inside the desk.
+  for(const chair of furniture.filter(p=>p.kind==='chair')){
+    const s=Math.sin(chair.heading||0),c=Math.cos(chair.heading||0);
+    for(const table of furniture.filter(p=>p.kind==='table')){
+      const dx=table.x-chair.x,dz=table.z-chair.z,forward=dx*s+dz*c,side=Math.abs(dx*c-dz*s),depth=(Math.abs(s)*table.w+Math.abs(c)*table.d)/2,width=(Math.abs(c)*table.w+Math.abs(s)*table.d)/2;
+      if(forward>0&&side<width+.1&&forward-depth<.50){const shift=.50-(forward-depth);chair.x-=s*shift;chair.z-=c*shift;}
+    }
+  }
   const p=furniture.find(p=>p.id===id);
   if(!['chair','bench'].includes(p?.kind))throw new Error('Seat requires a constructed chair or bench: '+id);
-  return {x:p.x,z:p.z,rise:p.seat??ROOM_SCALE.seat,heading:p.heading??0,piece:id,approach};
+  return {...furnitureSeat({...p,seatSurface:{z:0,d:p.kind==='chair'?ROOM_SCALE.chairDepth:p.d}},approach),rise:p.seat??ROOM_SCALE.seat};
 }
 export function createRoomKit(){
   const root=new T.Group(),materials=new Map();
@@ -42,7 +54,7 @@ export function createRoomKit(){
     mesh.name=name;mesh.castShadow=mesh.receiveShadow=true;parent.add(mesh);return mesh;
   }
   function table({id,x,z,w,d,top=.85,color='#ba986e'}){const p=group(id,{x,z});box(id+'-top',{y:.08+top-.055,w,h:.11,d,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*(w/2-.15),z:b*(d/2-.15),y:.08+(top-.11)/2,w:.1,h:top-.11,d:.1,color:'#ad8b62'},p);return p;}
-  function chair({id,x,z,heading=0,color='#789887',seat=.45}){const p=group(id,{x,z,heading});box(id+'-seat',{y:.08+seat-.045,w:.56,h:.09,d:.57,color},p);box(id+'-back',{y:.08+seat+.3,z:-.245,w:.56,h:.54,d:.075,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*.2,y:.08+(seat-.09)/2,w:.065,h:seat-.09,d:.065,color:'#b49978'},p);return p;}
+  function chair({id,x,z,heading=0,color='#789887',seat=.45}){const p=group(id,{x,z,heading});box(id+'-seat',{y:.08+seat-.045,w:.56,h:.09,d:ROOM_SCALE.chairDepth,color},p);box(id+'-back',{y:.08+seat+.3,z:-.245,w:.56,h:.54,d:.075,color},p);for(const a of [-1,1])for(const b of [-1,1])box(id+'-leg',{x:a*.2,z:b*.2,y:.08+(seat-.09)/2,w:.065,h:seat-.09,d:.065,color:'#b49978'},p);return p;}
   function bench({id,x,z,w=2.8,d=.65,heading=0,color='#789887',seat=.45,legColor='#a58b70',solid=false}){
     const p=group(id,{x,z,heading});
     if(solid){
@@ -84,13 +96,19 @@ export function createRoomKit(){
     pivot.userData.dayDoor={furniture,swing:sign*(axis==='x'?1:-1)*.9};return pivot;
   }
   function finish(){
-    root.updateMatrixWorld(true);const meshes=[];
+    tagRoomTones(root);prepareEnvironmentSurfaces(root);root.updateMatrixWorld(true);const meshes=[];
     root.traverse(o=>{if(o.isMesh)meshes.push(o);});
     // Keep replaceable equipment as a named group; merge within each material/owner.
     const ownerOf=o=>{let n=o;while(n&&n!==root){if(n.userData.replaceable||n.userData.furnitureId||n.userData.shellPart)return n;n=n.parent;}return root;};
-    const owners=new Map();for(const o of meshes){const owner=ownerOf(o);if(!owners.has(owner))owners.set(owner,new Map());const byMat=owners.get(owner);if(!byMat.has(o.material))byMat.set(o.material,[]);const inverse=owner.matrixWorld.clone().invert(),geometry=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();byMat.get(o.material).push(geometry.applyMatrix4(inverse.multiply(o.matrixWorld)));}
+    const owners=new Map();for(const o of meshes){const owner=ownerOf(o);if(!owners.has(owner))owners.set(owner,new Map());const byMat=owners.get(owner);const key=o.userData.furniturePart||'';if(!byMat.has(key))byMat.set(key,new Map());const byPart=byMat.get(key);if(!byPart.has(o.material))byPart.set(o.material,[]);const inverse=owner.matrixWorld.clone().invert(),geometry=o.geometry.index?o.geometry.toNonIndexed():o.geometry.clone();byPart.get(o.material).push(geometry.applyMatrix4(inverse.multiply(o.matrixWorld)));}
     for(const o of meshes){o.parent.remove(o);o.geometry.dispose();}
-    for(const [owner,byMat]of owners)for(const [mat,geometries]of byMat){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';m.castShadow=m.receiveShadow=true;owner.add(m);}return {root};
+    for(const [owner,byMat]of owners)for(const [part,byPart]of byMat)for(const [mat,geometries]of byPart){const merged=mergeGeometries(geometries);for(const g of geometries)g.dispose();const m=new T.Mesh(merged,mat);m.name='RoomBatch';if(part)m.userData.furniturePart=part;m.castShadow=m.receiveShadow=!mat.isShaderMaterial;owner.add(m);}return {root};
   }
   return {root,box,cylinder,sphere,ellipsoid,profile,tube,group,replaceableGroup,table,chair,bench,sign,book,plant,room,hingedDoor,finish,material};
+}
+
+export function finishRoom(k,map,name){
+ k.root.userData.furniture=map.furniture.map(p=>({...p}));
+ for(const p of map.furniture){const g=k.root.getObjectByName(p.id);if(g)g.userData.furnitureId=p.id;}
+ const result=k.finish();result.root.name=name;return result;
 }

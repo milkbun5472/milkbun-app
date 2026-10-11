@@ -91,6 +91,33 @@ function looks(){
  return {...f,api:f.e.CompanionFace,writer,moods:()=>moods,setCfg:value=>{cfg=value;},cfg:()=>cfg};
 }
 
+test('新增职业场景按实际地点与操作分配，顾客、演员与摄影师保持各自活动',()=>{
+ const {L}=envFor({});
+ const cases=[
+  ['梳理调查线索','刑侦办案室','dayInvestigation','clues'],['整理当日案卷','警局','dayInvestigation','notes'],['交接值勤','派出所','dayInvestigation','duty'],['案情汇报','办案室','dayInvestigation','briefing'],
+  ['切配备菜','餐厅后厨','dayService','prep'],['灶台炒菜','餐厅后厨','dayService','cook'],['制作咖啡','咖啡馆吧台','dayService','coffee'],['调制饮品','酒吧吧台','dayService','mix'],['核对订单','餐厅','dayService','cashier'],
+  ['补妆','化妆间','dayFilm','makeup'],['候场看台本','片场','dayFilm','script'],['拍戏表演','摄影棚','dayFilm','perform'],['模特棚拍','影棚','dayFilm','pose'],['机后掌镜','摄影棚','dayFilm','camera'],['摄影师棚拍','摄影棚','dayFilm','camera'],['制作早餐','后厨','dayService','cook'],['准备午餐','餐厅后厨','dayService','cook'],
+  ['配音录制','配音棚','dayBroadcast','voice'],['录歌','录音室','dayBroadcast','sing'],['监听混音','录音棚','dayBroadcast','mix'],['开播聊天','直播间','dayBroadcast','stream'],['剪辑素材','直播工作室','dayBroadcast','edit']
+ ];
+ for(const [title,location,map,spot]of cases){const actual=L.presentation({title,location,type:'work'});assert.equal(actual.map,map,title);assert.equal(actual.spot,spot,title);}
+ for(const title of ['在家直播','在家录歌','在家试音','在家制作咖啡','在家读台本'])assert.equal(L.presentation({title,location:'家里',type:'work'}).map,'dayHome');
+ assert.equal(L.presentation({title:'在咖啡馆喝咖啡',location:'咖啡馆',type:'coffee'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'餐厅吃午饭',location:'餐厅',type:'meal'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'观看直播',type:'home'}).map,'dayHome');
+ assert.equal(L.presentation({title:'排练台词',location:'排练室',type:'work'}).map,'dayRehearsal');
+ assert.equal(L.presentation({title:'外景拍摄',location:'小街',type:'work'}).map,'dayStreet');
+ assert.equal(L.presentation({title:'巡逻',location:'街头',type:'work'}).map,'dayStreet');
+});
+test('职业场景沿原生成writer保存合法world，改期与日历投影保留原边界',async()=>{
+ for(const [scene,spot]of [['dayInvestigation','clues'],['dayService','cook'],['dayFilm','camera'],['dayBroadcast','voice']]){
+  const seq={...row(scene,spot),title:'当前职业事项',location:'角色世界里的实际工作地点'},f=envFor({seqs:[seq]});
+  assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.equal(f.L.presentation(saved).map,scene);assert.equal(f.L.presentation(saved).spot,spot);
+  assert.equal(saved.title,seq.title);assert.equal(saved.location,seq.location);assert.equal(f.L.publicRow(saved).world,undefined);
+  assert.equal(f.L.presentation({...saved,deviation:{actual:'回家休息',world:null}}).map,'dayHome');
+ }
+});
+
 test('厨房料理与喝水按原日程文字进入家中实际动作点，外食与偏差保持各自地点',()=>{
  const {L}=envFor({});
  for(const title of ['在家做饭','下厨煮汤','做晚餐','炒菜'])assert.equal(L.presentation({title,location:'家里',type:'meal'}).spot,'cook');
@@ -122,4 +149,72 @@ test('日历只收到文字投影，视觉编号留给TA一天，不改变真实
 test('文字投影兼容旧日程、空档和异常seqs，不把日历变成另一个writer',()=>{
  const f=envFor({}),input={c1:{old:{seqs:[{seq:1,title:'自己的事情'}]},none:{},bad:{seqs:null}},c2:{day:{seqs:[]}}};
  assert.deepEqual(plain(f.L.publicSchedules(input)),input);assert.deepEqual(plain(f.L.publicSchedules(null)),{});assert.equal(f.writes.length,0);
+});
+
+test('健身房与超市从真实生成writer保存，原日程文字保留、日历没有新场景编号',async()=>{
+ for(const [scene,spot,title,location]of [['dayGym','weights','哑铃练习','西街健身房'],['dayMarket','produce','采购蔬菜水果','北街超市'],['dayMarket','cashier','上午收银值班','北街超市']]){
+  const seq={...row(scene,spot),title,location},f=envFor({seqs:[seq]});assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);assert.match(f.calls[0].spec.instruction,/dayGym/);assert.match(f.calls[0].spec.instruction,/dayMarket/);
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0];assert.deepEqual(plain(saved.world),{scene,spot});assert.equal(saved.title,title);assert.equal(saved.location,location);assert.equal(f.L.presentation(saved).spot,spot);
+  const calendar=f.L.publicSchedules(f.e.schedulesRef.current);assert.equal(calendar.c1['2026-10-09'].seqs[0].world,undefined);assert.equal(calendar.c1['2026-10-09'].seqs[0].title,title);
+ }
+});
+test('旧运动购物日程按实际地点动作连接，在家拉伸与临时变更仍沿原世界',()=>{
+ const {L}=envFor({});for(const [title,location,map,spot]of [['慢跑训练','健身房','dayGym','treadmill'],['哑铃力量训练','健身房','dayGym','weights'],['热身拉伸','运动馆','dayGym','stretch'],['运动后补水喝水','健身房','dayGym','water'],['挑选蔬菜','超市','dayMarket','produce'],['买牛奶','便利店','dayMarket','cold'],['挑纸巾日用品','超市','dayMarket','groceries'],['结账付款','超市','dayMarket','checkout'],['收银值班','超市','dayMarket','cashier'],['装袋整理','超市','dayMarket','packing']]){const p=L.presentation({title,location,type:'out'});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);}
+ assert.equal(L.presentation({title:'在家拉伸',type:'home'}).map,'dayHome');assert.equal(L.presentation({title:'整理超市购物清单',location:'家里',type:'home'}).map,'dayHome');
+ assert.equal(L.presentation({...row('dayGym','weights'),deviation:{actual:'去超市挑选蔬菜',location:'超市'}}).map,'dayMarket');assert.equal(L.validate({scene:'dayGym',spot:'produce'}),null);
+});
+
+test('办公室与校园按实际日程区分汇报、听会、授课、听课；家中与其他明确场所保留原地点',()=>{
+ const {L}=envFor({});
+ for(const [title,location,map,spot]of [['开组会','','dayOffice','meeting'],['备课写教案','办公室','dayOffice','notes'],['处理邮件','公司办公室','dayOffice','computer'],['整理文件','办公室','dayOffice','notes'],['开部门例会','会议室','dayOffice','meeting'],['记录会议笔记','会议室','dayOffice','meeting-notes'],['汇报项目进度','会议室','dayOffice','presentation'],['打印报告','公司','dayOffice','print'],['喝水','办公室','dayOffice','tea'],['上课听讲','教学楼教室','dayCampus','listen'],['记课堂笔记','教室','dayCampus','notes'],['给学生上课','教室','dayCampus','teach'],['授课','教室','dayCampus','teach'],['黑板前板书','教室','dayCampus','blackboard'],['备课写教案','学校','dayCampus','prepare'],['课后做题','校园','dayCampus','study'],['课间休息','校园','dayCampus','rest'],['吃午饭','学校食堂','dayCampus','meal']]){
+  const p=L.presentation({title,location,type:'work'});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);
+ }
+ for(const title of ['在家开会','在家备课','在家上网课'])assert.equal(L.presentation({title,location:'家里',type:'work'}).map,'dayHome');
+ assert.equal(L.presentation({title:'公司附近喝咖啡',location:'咖啡店',type:'coffee'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'学校外吃午饭',location:'餐厅',type:'meal'}).map,'dayCafe');
+ assert.equal(L.presentation({title:'复习课堂笔记',location:'图书馆',type:'work'}).map,'dayLibrary');
+ assert.equal(L.presentation({title:'处理邮件',type:'work'}).map,'dayWork');
+ assert.equal(L.presentation({...row('dayOffice','computer'),deviation:{actual:'改去教室授课',location:'学校'}}).spot,'teach');
+});
+test('两组新场景经原日程生成writer保存与公开投影，合法world优先且视觉识别不产生新写入',async()=>{
+ for(const [scene,spot]of [['dayOffice','computer'],['dayOffice','presentation'],['dayCampus','listen'],['dayCampus','blackboard']]){
+  const raw={...row(scene,spot),title:'原世界具体安排',location:'原来的具体地名'};const f=envFor({seqs:[raw]});
+  assert.equal(await f.e.generateDay(f.c,'2026-10-09'),true);assert.equal(f.calls.length,1);assert.match(f.calls[0].spec.instruction,new RegExp(scene));
+  const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0],count=f.writes.length,before=JSON.stringify(f.e.schedulesRef.current);
+  for(let i=0;i<5;i++){const p=f.L.presentation(saved);assert.equal(p.map,scene);assert.equal(p.spot,spot);}
+  assert.equal(saved.title,raw.title);assert.equal(saved.location,raw.location);assert.equal(f.writes.length,count);assert.equal(JSON.stringify(f.e.schedulesRef.current),before);
+  const publicRow=f.L.publicRow(saved);assert.equal(publicRow.world,undefined);assert.equal(publicRow.location,raw.location);
+ }
+});
+
+ test('用户实机日程按明确地点纠正旧视觉链接，标题地点与日历原档不变',async()=>{
+ const cases=[['在医学院附属图书馆安静阅读神经解剖外科学专著','医学院附属图书馆二楼自习区','dayLibrary','desk-reading','dayWork','work'],['陪Lisa逛复古市集挑选旧布料杂货与古董小件','城中复古跳蚤市集','dayFleaMarket','fabric','dayStreet','walk'],['在星露谷小窝农场整理作物与钓鱼记录','秋声农场码头','dayFarm','records','dayWork','work'],['在集市旁的面包房买肉桂卷并与热红茶歇脚','红河岸边法式烘焙店','dayCafe','tea','dayHome','tea']];
+ for(const [title,location,map,spot,oldMap,oldSpot]of cases){
+  const raw={...row(oldMap,oldSpot),title,location,type:'out'},f=envFor({seqs:[raw]});await f.e.generateDay(f.c,'2026-10-09');const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[0],before=JSON.stringify(saved),writes=f.writes.length;
+  for(const world of [null,saved.world]){const p=f.L.presentation({...saved,world});assert.equal(p.map,map,title);assert.equal(p.spot,spot,title);}
+  assert.equal(JSON.stringify(saved),before);assert.equal(f.writes.length,writes);assert.equal(f.L.publicRow(saved).title,title);assert.equal(f.L.publicRow(saved).location,location);assert.equal(f.L.publicRow(saved).world,undefined);
+  assert.equal(f.L.presentation({...row(),deviation:{actual:title,location,world:raw.world}}).map,map);
+ }
+ const {L}=envFor({});assert.equal(L.presentation({title:'在家整理农场记录',location:'家里',type:'work'}).map,'dayHome');assert.equal(L.presentation({title:'看复古市集照片',location:'家里',type:'home'}).map,'dayHome');assert.equal(L.presentation({title:'做晚餐',location:'餐厅后厨',type:'work',world:{scene:'dayService',spot:'cook'}}).map,'dayService');assert.equal(L.presentation({title:'原世界自己的安排',location:'原世界具体地名',world:{scene:'dayLibrary',spot:'window-reading'}}).spot,'window-reading');
+});
+test('法律、基地、工坊与古风按日程动作连接，旁听者与律师法官不互换',()=>{
+ const {L}=envFor({});
+ for(const [title,location,scene,spot]of [
+  ['起草文书','律师事务所','dayLegal','draft'],['检索本案法条','律所','dayLegal','research'],['法律咨询','律所','dayLegal','consult'],['庭上辩论','法庭','dayLegal','argue'],['法官主持庭审','法院审判庭','dayLegal','hearing'],['敲法槌','法庭','dayLegal','judge'],['书记员庭审笔录','法庭','dayLegal','record'],['旁听庭审','法院','dayLegal','audience'],
+  ['列队集合敬礼','军营','dayTraining','report'],['体能跑步训练','训练基地','dayTraining','run'],['拉伸热身','训练场','dayTraining','stretch'],['任务部署简报','军营','dayTraining','briefing'],['巡逻','营区','dayTraining','patrol'],['值勤登记交接','营地岗亭','dayTraining','duty'],
+  ['拆装检修机器','维修工坊','dayWorkshop','repair'],['电脑诊断','修理厂','dayWorkshop','diagnose'],['打磨制作手工件','木工坊','dayWorkshop','craft'],['调试设备','机械工坊','dayWorkshop','test'],['记录维修进度','工坊','dayWorkshop','records'],
+  ['读卷','王府书房','dayStudy','read'],['批阅奏折','御书房','dayStudy','write'],['议事商议','议事厅','dayStudy','council'],['汇报安排','朝堂','dayStudy','address'],['记录议事要点','中军帐','dayStudy','records'],['品茶','古风书房','dayStudy','tea']
+ ]){const p=L.presentation({title,location,type:'work'});assert.equal(p.map,scene,title);assert.equal(p.spot,spot,title);}
+ for(const [title,location,map]of [['在家修理收音机','家里','dayHome'],['阅读','现代公寓书房','dayHome'],['处理邮件','公司办公室','dayOffice'],['巡逻','城区街道','dayStreet'],['午餐','法庭旁餐厅','dayCafe']])assert.equal(L.presentation({title,location,type:title==='午餐'?'meal':'work'}).map,map,title);
+
+
+ assert.equal(L.presentation({title:'午餐',location:'军营食堂',type:'meal'}).map,'dayCafe');assert.equal(L.presentation({title:'用膳',location:'王府书房',type:'meal'}).map,'dayHome');
+ for(const [location,scene]of [['训练基地','dayTraining'],['律所','dayLegal'],['维修工坊','dayWorkshop']]){const p=L.presentation({title:'喝水',location,type:'coffee'});assert.equal(p.map,scene);assert.equal(p.spot,'water');}
+ const manual={scene:'dayLibrary',spot:'desk-reading'};assert.equal(L.presentation({title:'读卷',location:'王府书房',type:'work',world:manual}).map,'dayLibrary');
+});
+test('四种新职业位置经过实际生成writer保存，日历保持原地点和叙事',async()=>{
+ for(const [scene,spot]of [['dayLegal','argue'],['dayTraining','patrol'],['dayWorkshop','repair'],['dayStudy','write']]){
+  const seq={...row(scene,spot),location:'角色实际地点',title:'本日实际安排'},f=envFor({seqs:[seq]});await f.e.generateDay(f.c,'2026-10-09');
+  const actual=f.e.schedulesRef.current[f.c.id]['2026-10-09'].seqs[0];assert.deepEqual(plain(actual.world),{scene,spot});assert.equal(actual.title,seq.title);assert.equal(actual.location,seq.location);assert.ok(!JSON.stringify(f.L.publicRow(actual)).includes('"world"'));
+ }
 });

@@ -53,7 +53,7 @@ test("设置页交出来的每一项，存档那头都接住了", () => {
   assert.ok(kept.length > 20, "存档那头只解析到 " + kept.length + " 项，解析器多半坏了");
 
   // 这几项【故意】不进 x_chatSettings：它们落在角色卡上，onSave 里另有出口
-  const ELSEWHERE = ["remark", "patSig", "chatAvatar", "myChatAvatar"];   // chatAvatar 跟 patSig 一样写回角色本身（v74.391） myChatAvatar 同（v74.417）
+  const ELSEWHERE = ["remark", "patSig", "chatAvatar", "myChatAvatar", "proactiveRate"];   // proactiveRate 落在自动生成那份策略里（setCharRate），跟总的那一档放一起   // chatAvatar 跟 patSig 一样写回角色本身（v74.391） myChatAvatar 同（v74.417）
   const missing = given.filter(k => !kept.includes(k) && !ELSEWHERE.includes(k));
   assert.deepEqual(missing, [],
     "这几项设置页交出来了、存档那头没接：" + missing.join("、") + "——点了保存也会变回去");

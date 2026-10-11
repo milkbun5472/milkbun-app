@@ -66,8 +66,8 @@ test("一天都没命中就什么也不做——别白写一次盘、也别弹�
 //   「全都能过」＝一删删掉整本；「一条都过不了」＝按了没反应。上面两条各钉一个方向。
 test("删除口子只有一个：界面那头不许自己写第二份 setSchedules", () => {
   const b = bare(app);
-  assert.equal((b.match(/saveJSON\("x_schedules"/g) || []).length, 4,
-    "开机瘦身 + saveSchedDay + delSchedDays + delSchedSeq，第五处就是又开了一处要同步的地方");
+  assert.equal((b.match(/saveJSON\("x_schedules"/g) || []).length, 5,
+    "开机瘦身 + saveSchedDay + delSchedDays + delSchedSeq + editSchedSeq（v75.341 改一段），第六处就是又开了一处要同步的地方");
   assert.equal((b.match(/const delSchedDays = /g) || []).length, 1);
 });
 
@@ -80,7 +80,7 @@ test("整周那段跟「AI 排剩下这几天」写的是同一段日子", () =>
 });
 
 test("两个入口都接上了，而且都先问一句再删", () => {
-  assert.match(comp, /onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq \}\)/, "Calendar 没收这几个参数");
+  assert.match(comp, /onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq \}\)/, "Calendar 没收这几个参数");
   // 整周那颗在 FAB 里，按钮上要写清删几天
   assert.match(comp, /"🗑　删掉 AI 排的这 " \+ have \+ " 天"/);
   // 单天那颗在块详情里，只对 AI 排的块出现（手填的那种走原来的编辑/删除）
@@ -153,7 +153,7 @@ test("凌晨那条「昨晚睡过来的」不给单段删——它不是今天 s
 });
 
 test("三个粒度三个入口，都先问一句", () => {
-  assert.match(comp, /onDelSchedDay, onDelSchedWeek, onDelSchedSeq \}\)/);
+  assert.match(comp, /onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq \}\)/);
   assert.match(comp, /"只删这一段"/);
   assert.equal((comp.match(/requestAppConfirm\("(删掉 |只删掉「)/g) || []).length, 3, "单段/整天/整周都要先问一句");
   assert.match(app, /const delSchedSeq = \(charId, dayKey, seqNo\) => \{/);

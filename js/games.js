@@ -74,6 +74,31 @@
   // 能力≠性格：所有游戏共用的反刻板铁律，焊进每次生成
   const SKILL_RULE ="【能力与性格分开·非常重要】把「性格风格」和「真实水平」当成两件事：性格只决定 TA 怎么说话、什么语气；真实水平由 TA 的职业、背景、受过的训练、人生经历决定，和性格无关。绝不能因为性格开朗 / 单纯 / 憨 / 软就把 TA 演成脑子不好、推理拉垮——一个性格像小太阳但职业是程序员的人，逻辑和推理其实很强、玩推理游戏心里门儿清，只是嘴上仍旧暖乎乎的。按真实水平决定「玩得多好」，按性格决定「怎么表达」。";
 
+  // 说人话、是这个人在说（她 2026-10-11：「之前修过擂台说人话、一起学贴人设，小游戏也看看」）：
+  //   牌桌上那些让人开口的生成（描述、发言、投票理由、遗言、嘴仗、接话）原来只递「真实水平」，不递人设——
+  //   模型只能拿一个通用玩家的腔调替全桌说话，越说越像分析报告。跟擂台那条同一个判据，只给判据不给例句。
+  const VOICE_RULE = "【是这个人在说话 · 说人话】下面每一句台词都是那个人自己张嘴说的：用TA人设里那种说话的样子——TA的词、TA的脾气、TA跟在场的人的关系；遮住名字要认得出是谁说的，别全桌一个腔调。"
+    + "这是几个认识的人围桌玩，不是写复盘：一句里堆了两个以上的抽象名词、或者像在念攻略写分析，就是飘了，换成TA自己会说的大白话。判据：念给桌边一个没玩过这游戏的人听，TA听得懂、接得上话。水平高低只管TA玩得多好，不改TA说话的样子。\n\n";
+  // 每个开口的人后面挂一句「说话的样子」：真人角色读完整人设的开头，NPC 读生成的那一句
+  function voiceBrief(p) {
+    const s = String((p && (p.persona || (p.char && p.char.persona))) || "").replace(/\s+/g, " ").trim();
+    return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
+  }
+
+  // 台词念出来（她 2026-10-11）：配了音色的角色，台词旁边一颗小 ▶，跟通话转录那颗是同一个（TtsDot + useTtsPlayer）。
+  //   一桌只许一个人在说话：点下一句先停掉上一句（每颗各有自己的播放器，用一个全局的「谁在念」接力）。
+  function GameVoiceDot(props) {
+    const tp = typeof useTtsPlayer === "function" ? useTtsPlayer() : null;
+    const spk = props.p && !props.p.isNpc && !props.p.isUser ? props.p.char : null;
+    if (!tp || !spk || typeof TtsDot !== "function") return null;
+    const relay = { play: tp.play, toggle: function (k, text, voiceId) {
+      if (window.__gameTtsStop && window.__gameTtsStop !== tp.stop) { try { window.__gameTtsStop(); } catch (e) {} }
+      window.__gameTtsStop = tp.stop; tp.toggle(k, text, voiceId);
+    } };
+    return h("span", { "data-wk": "gamevoice", style: { display: "inline-flex", verticalAlign: "middle", marginLeft: 6, color: "#8a8378" } },
+      h(TtsDot, { k: props.k, text: props.text, spk: spk, tp: relay }));
+  }
+
   // ---- 通用：分段控件 ----
   function Segmented(props) {
     const t = props.t;
@@ -106,23 +131,34 @@
       btn("+", function () { props.onChange(Math.min(props.max, props.value + 1)); }, props.value >= props.max));
   }
 
-  // ---- 存档（非 x_ 前缀 → 不进云同步，对局是临时的）----
-  const WOLF_SAVE = "wolf_save";
-  function loadWolfSave() { try { return JSON.parse(localStorage.getItem(WOLF_SAVE) || "null"); } catch (e) { return null; } }
-  function saveWolf(s) { try { localStorage.setItem(WOLF_SAVE, JSON.stringify(s)); } catch (e) {} }
-  function clearWolf() { try { localStorage.removeItem(WOLF_SAVE); } catch (e) {} }
+  // ---- 存档：住大仓库（她 2026-10-10：「还有什么在小仓库一起搬了」）----
+  //   原来住小仓库（wolf_save / games_save / tod_prompt_history_v1），她那台常年贴着 5MB，
+  //   存档写不进去还不报错，退出来再进就是空的。老的那份第一次读到时搬过来、从小仓库删掉。
+  function bigGet(key, oldKey, fallback) {
+    let v = null;
+    try { v = typeof loadJSON === "function" ? loadJSON(key, null) : null; } catch (e) {}
+    if (v == null && oldKey) {
+      try { const raw = localStorage.getItem(oldKey); if (raw != null) { v = JSON.parse(raw); if (typeof saveJSON === "function") saveJSON(key, v); localStorage.removeItem(oldKey); } } catch (e) {}
+    }
+    return v == null ? fallback : v;
+  }
+  function bigSet(key, v) { try { if (typeof saveJSON === "function") saveJSON(key, v); } catch (e) {} }
+  const WOLF_SAVE = "x_wolfSave";
+  function loadWolfSave() { return bigGet(WOLF_SAVE, "wolf_save", null); }
+  function saveWolf(s) { bigSet(WOLF_SAVE, s); }
+  function clearWolf() { bigSet(WOLF_SAVE, null); try { localStorage.removeItem("wolf_save"); } catch (e) {} }
 
   // ---- 通用对局存档（每种游戏一个槽；退出即存、打完即清；狼人杀走上面自己那套）----
-  const GS_SAVE = "games_save";  // { [gameKey]: snapshot }
-  function loadGamesSaves() { try { return JSON.parse(localStorage.getItem(GS_SAVE) || "{}") || {}; } catch (e) { return {}; } }
+  const GS_SAVE = "x_gamesSave";  // { [gameKey]: snapshot }
+  function loadGamesSaves() { const v = bigGet(GS_SAVE, "games_save", {}); return v && typeof v === "object" ? v : {}; }
   function loadGameSave(k) { return loadGamesSaves()[k] || null; }
-  function saveGameSnap(k, snap) { try { const all = loadGamesSaves(); all[k] = snap; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  function saveGameSnap(k, snap) { const all = loadGamesSaves(); all[k] = snap; bigSet(GS_SAVE, all); }
   // CC 回执按 turn_id 幂等领取。仅用 day/round 或裸毫秒都可能在新局、时钟回拨、
   // 同毫秒连续出票时撞上旧回执；所有没有稳定局号的临时票统一加随机尾巴。
   function freshCCTurn(prefix) {
     return String(prefix || "game") + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
   }
-  function clearGameSave(k) { try { const all = loadGamesSaves(); delete all[k]; localStorage.setItem(GS_SAVE, JSON.stringify(all)); } catch (e) {} }
+  function clearGameSave(k) { const all = loadGamesSaves(); delete all[k]; bigSet(GS_SAVE, all); }
   // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
   function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, alive: p.alive, engineer: !!p.engineer }; }); }
   function hydPlayers(saved, props, t) {
@@ -323,6 +359,7 @@
       //   （一层写在两处、第二处没跟上；这一次断在第三处。）
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
+        sendGameReport: props.sendGameReport,
         keepGameMemory: function (ids, text) {
           const room = (session.config && session.config.room) || session.room || null;
           return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
@@ -346,6 +383,8 @@
       //   就变成主线的了（正是这道闸要挡的）。
       onStart: function (config) {
         const cfg = Object.assign({}, config, { room: fromRoom.current || null });
+        // 「上次那桌」：每个游戏记最后一次开局的配置（不记房间——那是那一次的事）
+        try { const last = loadJSON(LAST_CFG_KEY, {}) || {}; last[game.key] = config; saveJSON(LAST_CFG_KEY, last); } catch (e) {}
         setSession({ game: game, config: cfg, room: fromRoom.current });
       }
     });
@@ -413,6 +452,7 @@
               h("button", { "data-wk": "gameopenbtn", "data-part": "drop", onClick: r.drop, className: "active:opacity-60", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, padding: "7px 2px" } }, "收了"));
           }));
         })(),
+        h(GameStatsBook, { t: t, characters: props.characters || [] }),
         h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。每局可选正常 / 放水 / 观战，人不够能拉 NPC 凑数。（不写进聊天记忆）"),
         // 一架游戏盒：两个一排，每排底下压一条木架线
         (function () {
@@ -446,8 +486,26 @@
   // ============================================================
   // 开局配置：模式 + 选人（含人数上下限）+ NPC凑数 + 注入最近聊天
   // ============================================================
+  // 牌技钉住（她 2026-10-11）：TA 打得多好原来全靠开局时模型从人设里估，估错了改不了。
+  //   她在开局页给某个人钉一档，就用她定的，不再看估的那句；没钉＝照旧估。只管玩得多好，不改说话的样子。
+  const SKILL_PIN_KEY = "x_gameSkillPins";
+  const SKILL_PINS = [
+    { k: "", zh: "让它估" },
+    { k: "pro", zh: "高手", text: "高手：这类桌游心里门儿清，记得住每个人说过什么，推理、读人、藏身份都很强，很少被带节奏。" },
+    { k: "mid", zh: "普通", text: "普通玩家：规则都懂，会推理但偶尔漏看信息，有时会被别人说动。" },
+    { k: "rookie", zh: "新手", text: "新手：常看漏信息、容易被带节奏，藏身份时容易露馅，但玩得很投入。" }];
+  function loadSkillPins() { try { return (typeof loadJSON === "function" ? loadJSON(SKILL_PIN_KEY, {}) : {}) || {}; } catch (e) { return {}; } }
+  function pinnedSkill(charId, guessed) {
+    const k = loadSkillPins()[charId], o = SKILL_PINS.find(function (x) { return x.k && x.k === k; });
+    return o ? o.text : guessed;
+  }
+  // 上次那桌（她 2026-10-11）：每个游戏最后一次开局的配置，开局页一键照搬
+  const LAST_CFG_KEY = "x_gameLastCfg";
   function GameSetup(props) {
     const t = props.t, game = props.game;
+    const [stake, setStake] = useState("");          // 彩头：输的人要做什么（可空）
+    const [skillPins, setSkillPins] = useState(loadSkillPins);
+    const setSkillPin = function (id, v) { const n = Object.assign({}, skillPins); if (v) n[id] = v; else delete n[id]; setSkillPins(n); try { saveJSON(SKILL_PIN_KEY, n); } catch (e) {} };
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
@@ -460,6 +518,15 @@
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
     const [avOpts, setAvOpts] = useState({ percival: true, mordred: false, oberon: false }); // 阿瓦隆特殊角色
+    const lastCfg = (function () { try { return (loadJSON(LAST_CFG_KEY, {}) || {})[game.key] || null; } catch (e) { return null; } })();
+    const useLast = function () {
+      const c = lastCfg; if (!c) return;
+      const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
+      setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule);
+      if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
+      setStake(c.stake || "");
+    };
 
     const spectate = mode === "spectate";
     const humanPlays = !spectate;                    // 观战时用户不算玩家
@@ -510,10 +577,20 @@
             h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.55 } }, game.desc),
             h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4 } }, game.rule))),
 
+        lastCfg ? h("button", { "data-wk": "gamelastcfg", onClick: useLast, className: "active:opacity-70",
+            style: { width: "100%", minHeight: 44, marginBottom: 16, borderRadius: 12, border: "1px dashed " + t.tint, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.tint } },
+          "照上次那桌摆（" + ((lastCfg.charIds || []).map(function (id) { const c = chars.find(function (x) { return x.id === id; }); return c ? c.name : null; }).filter(Boolean).join("、") || "只有 NPC") + "）") : null,
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "模式"),
         h(Segmented, { t: t, value: mode, options: MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
+        // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
+        h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
+          h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
+            placeholder: "输的人要做什么，写一句",
+            style: { width: "100%", minHeight: 44, padding: "0 13px", borderRadius: 12, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 14, color: t.ink, outline: "none" } }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "打完会写清谁该兑现；把战报发给 TA，TA 就知道这局赌了什么。")),
 
         game.key === "uno" ? h("div", { style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "+2 规则"),
@@ -549,6 +626,17 @@
                 return firstNpc ? h(React.Fragment, { key: c.id }, h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "6px 2px 0" } }, "认识的配角"), btn) : btn;
               })),
 
+        // 牌技：给选上的人钉一档（全局记着，下次也是这档）
+        picked.length ? h("div", { "data-wk": "gameskillpin", style: { marginTop: 14 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink } }, "牌技"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "3px 0 8px", lineHeight: 1.5 } }, "默认按人设估 TA 玩得多好；你知道 TA 是高手还是新手，就直接钉一档。只管玩得多好，不改 TA 说话的样子。"),
+          picked.map(function (id) {
+            const c = chars.find(function (x) { return x.id === id; }); if (!c) return null;
+            const cur = skillPins[id] || "";
+            return h("div", { key: id, style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 7 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, width: 64, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, c.name),
+              h("div", { style: { flex: 1 } }, h(Segmented, { t: t, value: cur, options: SKILL_PINS.map(function (o) { return { key: o.k, zh: o.zh }; }), onChange: function (v) { setSkillPin(id, v); } })));
+          })) : null,
         // 选项
         h("div", { style: { marginTop: 14, borderTop: "1px solid " + t.line } },
           h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
@@ -601,7 +689,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -688,13 +776,12 @@
   }
   async function genCluesBatch(api, speakers, priorClues, roundNum, mode, preface) {
     const prior = priorClues.length ? priorClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（本轮你们最先描述，前面还没人说）";
-    const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通"); }).join("\n");
+    const who = speakers.map(function (s) { return "■ " + s.name + "（TA 的词是「" + s.word + "」）真实水平：" + (s.skill || "普通") + voiceBrief(s); }).join("\n");
     const easy = mode === "easy" ? "\n【放水局】适当留点破绽、别一上来就把话说得滴水不漏，给真人玩家留机会。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」第 " + roundNum + " 轮描述。每人像真人围桌一样，随口用【一句 6～18 个汉字的口语】描述自己拿到的词。铁律：\n" +
       "· 不能直接说出词本身，也别露骨到一句就被锁定。\n" +
       "· 一句只露【一个】日常印象、使用感受或亲身联想。不要下定义，不要解释原理/机械结构，不要罗列功能配件，不要写百科、产品评测或说明书。\n" +
       "· 别写成散文谜语：禁止为了显聪明硬造长比喻、宏大哲理和『其核心机制在于』『它的体积和重量提醒你』『新手总以为』这种分析腔。像饭桌上脱口而出的短话，不像准备过的演讲。\n" +
-      "· 好的口气示例：『小时候家里有一个』『我一般不会带它出门』『这个声音我挺熟』。示例只学松弛程度，不能照抄内容。\n" +
       "· 【具体程度严格按真实水平走·非常重要】高手点到即止、只给能【多向解读】的模糊线索，故意留白，让人一轮看不穿；只有低手才会说得太实把词几乎摊开。**绝不能所有人都描述得清清楚楚**——那样一轮就穿帮、毫无博弈，不好玩。整体要含蓄，信息一点点挤。\n" +
       "· 各人只知道自己的词、不知道谁跟自己不同。【高水平的少数派（卧底）】要善于从别人的描述里察觉『我的词好像和大家不是一路』，然后立刻把自己这句往大家的方向靠、含糊蒙混、绝不自曝；只有低水平的少数派才会照着自己的词直说而露馅。\n" +
       "· 先发言的人没有前文、只能凭自己的词说；后发言的人要顺着前面的风向调整措辞。" + easy +
@@ -729,9 +816,9 @@
   }
   async function genVotesBatch(api, voters, allClues, aliveNames, mode, userName, preface) {
     const clues = allClues.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
-    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通"); }).join("\n");
+    const who = voters.map(function (v) { return "■ " + v.name + "（" + (v.role === "spy" ? "你其实是卧底：把票投给某个你觉得像平民的人来误导，别投出真正的少数派" : "你是平民：凭描述投你真心最怀疑的那个") + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别精准锁定真人「" + userName + "」，就算怀疑 TA 也可以手下留情、投别人或说再看看。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」投票。根据目前【所有描述】，下面每人各投一个要投出局的人 + 一句短理由。按真实水平：推理强的投得准，弱的易被带偏。**实在没把握可以弃票**（target 填「弃票」），但别全场弃票。理由别露上帝视角（别说“我是卧底所以…”）。【公平】只按描述本身的合理性投票，别因为某人发言顺序靠前、说得少、或是生面孔就默认针对 TA——没有实据不要扎堆投同一个人。" + easy +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【目前所有描述】\n" + clues + "\n\n【要投票的人】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"投票人\",\"target\":\"被投的人，或「弃票」\",\"reason\":\"一句理由\"}]}";
@@ -752,7 +839,7 @@
   async function genSpyOutWords(api, out, allClues, votes) {
     const cluesText = (allClues || []).map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n");
     const voteText = (votes || []).map(function (v) { return "· " + v.voter + (v.target ? "→" + v.target : "→弃票"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」里【" + out.name + "】刚被投出局，亮出的身份是【平民】——真被冤枉了（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。看着票型留 1~2 句离场的话：不服、点名你真正怀疑的人、或自嘲，按 TA 的水平和性子来，别写成演讲。\n【全场描述】\n" + cluesText + "\n【本轮票型】\n" + voteText + "\n\n【输出】只输出 JSON：{\"say\":\"离场那一两句\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "留一句。" }], { maxTokens: 8800 });
     const r = extractJSON(raw) || {};
     return String(r.say || "").trim().slice(0, 300);
@@ -770,7 +857,7 @@
       return { guess: "", say: "", missed: true };
     }
     const easy = mode === "easy" ? "\n【放水局】别拼尽全力：除非描述里已经把词摊开了，否则倾向猜个方向对但不精确的，把翻盘机会让一点出来。" : "";
-    const sys = AC + SKILL_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n「谁是卧底」的卧底【" + out.name + "】刚被投出局（真实水平：" + (out.skill || "普通") + "）" + voiceBrief(out) + "。规则：出局的卧底可以当众猜平民词，猜中卧底整队翻盘。\nTA 自己拿到的词是「" + (out.word || "") + "」，只能靠全场描述倒推平民词。按 TA 的真实水平猜：强的从描述交集里逼出那个词，弱的可能跑偏。没把握也必须给一个最像的。" + easy +
       "\n\n【全场描述】\n" + cluesText +
       "\n\n【输出】只输出 JSON：{\"guess\":\"TA 猜的平民词（一个词）\",\"say\":\"TA 亮出这个猜测时说的一句话（口语，贴水平）\"}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "TA 猜什么？" }], { maxTokens: 8900 });
@@ -803,6 +890,9 @@
     const [detail, setDetail] = useState(null);
     const logRef = useRef(null);
     const descArgs = useRef(null);   // 最近一次 AI 描述的参数，失败后原样重跑
+    // 重说这一轮（她 2026-10-11）：AI 这一轮描述说砸了（直接把词说出来、像在写百科），投票前可以让他们重说一遍。
+    //   记下这一批入账前日志和全场描述各有多长，重说时切回那儿再跑同一组参数；你自己那句不动。
+    const redoRef = useRef(null);
     const started = useRef(false);
     // CC 工具用 turn_id 做幂等。每局必须有自己的命名空间；否则每个新局的第 1 轮
     // 都叫 spy:1，云端会把第一局的旧回答原样取回来。
@@ -852,7 +942,7 @@
           (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           // 组装玩家
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: skillOf[p.name] || "", engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, isNpc: false, skill: pinnedSkill(p.id, skillOf[p.name] || ""), engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) {
@@ -873,6 +963,7 @@
 
     // ---- 描述阶段（你每轮随机排最先或最后，不再永远第一个）----
     const startRound = function (plist, rnd) {
+      redoRef.current = null;
       setRoundClues([]); setUserClue("");
       const meA = plist.find(function (p) { return p.isUser; });
       if (!(meA && meA.alive)) { setPhase("describe"); aiDescribeWith(plist, [], rnd, false); return; }
@@ -900,17 +991,29 @@
         const clues = await genClues(api, speakers, prior, rnd, cfg.mode, { turnId: gameRunId.current + ":round:" + rnd });
         const norm = speakers.map(function (s) { const hit = clues.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……" }; });
         setRoundClues(prior.concat(norm));
-        setAllClues(function (A) { return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
-        pushLog((prior.length ? [] : [{ type: "round", n: rnd }]).concat(norm.map(function (c) { return { type: "clue", name: c.name, text: c.text }; })));
+        const redo = { args: { plist: plist, prior: prior, rnd: rnd, waitUser: waitUser }, logLen: 0, allLen: 0 };
+        setAllClues(function (A) { redo.allLen = A.length; return A.concat(norm.map(function (c) { return { name: c.name, text: c.text }; })); });
+        const batch = (prior.length ? [] : [{ type: "round", n: rnd }]).concat(norm.map(function (c) { return { type: "clue", name: c.name, text: c.text }; }));
+        setLog(function (L) { redo.logLen = L.length; return L.concat(batch); });
+        redoRef.current = redo;
         if (!waitUser) { setPhase("vote"); setUserVote(null); }
       } catch (e) { setDescFail(true); props.toast && props.toast("描述失败：" + ((e && e.message) || "点「重试这一轮」")); }
       finally { setBusy(false); }
+    };
+    const redoDescribe = function () {
+      const r = redoRef.current; if (!r || busy) return;
+      redoRef.current = null;
+      setLog(function (L) { return L.slice(0, r.logLen); });
+      setAllClues(function (A) { return A.slice(0, r.allLen); });
+      setRoundClues(r.args.prior); setUserVote(null); setPhase("describe");
+      aiDescribeWith(r.args.plist, r.args.prior, r.args.rnd, r.args.waitUser);
     };
     const retryDescribe = function () {
       const a = descArgs.current; if (!a || busy) return;
       aiDescribeWith(a.plist, a.prior, a.rnd, a.waitUser);
     };
     const submitUserClue = function () {
+      redoRef.current = null;   // 你补了这句，前面那批就定了
       const v = userClue.trim(); if (!v || busy) return;
       setUserClue("");
       const mineClue = { name: me.name, text: v };
@@ -1043,6 +1146,7 @@
       settleAfterOut(next);
     };
     const runVote = async function (userTarget) {
+      redoRef.current = null;   // 投了票，这一轮就定了
       setBusy(true);
       try {
         // 投票也要保留 CC 工牌；否则描述轮由言秋亲说，投票轮却又被 Gemini 抢走。
@@ -1105,7 +1209,7 @@
             pAvatar(p, 30),
             h("div", { style: { flex: 1 } },
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text)));
+              h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i })));
         }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
@@ -1159,16 +1263,20 @@
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
           h("button", { onClick: function () { props.onBack(); }, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
-        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
-          if (!props.keepGameMemory) return false;
+        h(KeepMemBtn, { t: t, host: props, rep: function () {
           const spies2 = players.filter(function (p) { return p.role === "spy"; }).map(function (p) { return p.name; }).join("、");
-          return props.keepGameMemory(realCharIds(players),
-            "一起玩了「谁是卧底」，" + (winner === "spy" ? "卧底赢了" : "平民赢了") + "。卧底是 " + spies2 + "；"
-            + (me ? ("她拿到" + (me.role === "spy" ? "卧底" : "平民") + "牌，" + (me.alive ? "撑到了最后" : "中途被投了出去")) : "她在旁边观战") + "。");
+          const won = function (q) { return (q.role === "spy") === (winner === "spy"); };
+          return { key: "spy", zh: "谁是卧底", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
+            text: "一起玩了「谁是卧底」，" + (winner === "spy" ? "卧底赢了" : "平民赢了") + "。卧底是 " + spies2 + "；"
+            + (me ? ("她拿到" + (me.role === "spy" ? "卧底" : "平民") + "牌，" + (me.alive ? "撑到了最后" : "中途被投了出去")) : "她在旁边观战") + "。" };
         } }));
     }
 
     // 台下插嘴：观战、或你已出局（猜词那一步除外——那一步你手里是另一件事）
+    // 重说这一轮：这一轮 AI 刚说完、还没投票时，底下一颗小字键
+    if (redoRef.current && !busy && !descFail && (phase === "vote" || phase === "describe") && action) action = h("div", null, action,
+      h("button", { "data-wk": "gameredo", onClick: redoDescribe, className: "w-full active:opacity-60",
+        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
     const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "reveal" || phase === "describe" || phase === "vote");
     const sendHeckle = async function () {
       const v = heckleText.trim(); if (!v || busy) return;
@@ -1432,8 +1540,8 @@
   // 后面的发言和投票都看得见它。神职可以用这最后一句报出关键信息，也可以憋住；
   // 狼装无辜、平民点名怀疑。被枪带走 / 被自爆带走的来不及留（突然死亡无遗言）。
   async function genWolfLastWords(api, deads, how, log) {
-    const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv; }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
+    const who = deads.map(function (d) { return "■ " + d.name + "（真实水平：" + (d.skill || "普通") + "）\n   TA 自己知道的：" + d.priv + voiceBrief(d); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n狼人杀·" + (how === "night" ? "天亮了，昨夜倒下的人" : "刚被放逐的人（本局不翻牌，身份不公开——遗言里想装什么装什么）") + "各留一句遗言（1~2 句，口语）。遗言全场都听得见。按各自的身份、掌握的信息和水平决定怎么用这最后一句：神职可以报出自己的关键信息（预言家报查验、女巫报用药）也可以憋住带进棺材；狼可以装无辜、泼脏水、递刀；平民可以点名怀疑、抒情不甘。只许说自己知道的，不许上帝视角。\n" + who + (log ? "\n【局面】\n" + log : "") + "\n\n【输出】只输出 JSON：{\"words\":[{\"name\":\"\",\"text\":\"遗言\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "留遗言。" }], { maxTokens: 9600 });
     const r = extractJSON(raw) || {};
     return Array.isArray(r.words) ? r.words : [];
@@ -1550,12 +1658,12 @@
     };
   }
   async function genSpeechesBatch(api, speakers, dayNum, prior, deaths, mode, userName, stances, gods, board, wolfRole, claims, preface) {
-    const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv; }).join("\n");
+    const who = speakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）\n   身份与私密：" + s.priv + voiceBrief(s); }).join("\n");
     const p = prior.length ? prior.map(function (c) { return "· " + c.name + "：" + c.text; }).join("\n") : "（你们最先发言）";
     const easy = mode === "easy" ? "\n【放水局】狼别演得滴水不漏，给真人留点破绽。" : "";
     const peaceful = /平安夜|没人死|没人被/.test(deaths || "");
     const day1 = dayNum <= 1 ? "\n【第一天·信息极少·别当中间夜打】现在才第 1 天，几乎没有可靠信息。**别过度脑补**——" + (peaceful ? "尤其今天是【平安夜】，别去推演『是不是女巫救了预言家验的人、还是预言家自刀被救』这类没影的可能，本局神职有限，别硬套这些高级推理。" : "") + "别硬咬死谁是狼、别全场催『预言家快跳』。就简短说第一印象、初步站位或表个态就行。预言家要不要跳、什么时候跳，由真预言家自己决定，别逼 TA。" : "";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n" + WOLF_TACTICS + "\n\n狼人杀·第 " + dayNum + " 天白天发言。每人按顺序发一段【短发言】(2~4句)：分析昨晚的死、站边、表身份或隐藏、抓狼或自证，能用套路就用（对跳/查杀/金水/倒钩/归票…按水平来）。\n**真预言家验人铁律：可以隐藏某次查验、不报或晚报；但只要公开声称是自己的查验，就必须逐字忠于下面的真实查验记录——验到狼只能报查杀，验到好人只能给金水，绝不允许为了策略颠倒结果。只有狼人悍跳假预言家可以编假验人。**\n**别所有人都重复同一句空话**（尤其别全场都在喊『预言家快跳』）——每个人说点不一样的：报自己身份倾向、给具体某人一个印象/理由、定个策略。\n**只写这人会当众说的话，别写旁白、别泄露不该公开的上帝视角。**按真实水平决定发言质量。" + day1 + easy + stanceText(stances) + claimsText(claims) +
       "\n\n【昨晚】" + (deaths || "平安夜") + "\n\n【已发言】\n" + p + "\n\n【现在依次发言】\n" + who +
       (preface || "") +
       "\n\n【输出】只输出 JSON：{\"speeches\":[{\"name\":\"\",\"text\":\"发言\"}],\"stances\":[{\"name\":\"发言人\",\"claim\":\"你此刻声称的身份（平民/预言家/我查杀了X/我金水了X 等，隐藏身份就写 装平民 之类）\",\"reads\":\"你怎么读别人：疑谁信谁+简短理由\",\"plan\":\"你接下来打算怎么打：归票谁/自证/隐藏/带节奏\"}],\"claims\":[{\"name\":\"发言人\",\"text\":\"TA这轮做出的【硬公开声明】——跳预言家/报X查杀/给X金水/自曝身份/起跳对跳，才需要列；只是表态怀疑、没有硬声明就【别列进 claims】\"}]}，speeches 顺序照上面，stances 每个发言人一条。";
@@ -1585,10 +1693,10 @@
     const ccVotes = (cc.seat && cc.done && cc.done.target) ? [{ name: cc.seat.name, target: String(cc.done.target), reason: String(cc.done.reason || "") }] : [];
     voters = cc.seat ? cc.rest : voters;
     if (!voters.length) return ccVotes;
-    const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通"); }).join("\n");
+    const who = voters.map(function (v) { return "■ " + v.name + "（" + v.priv + "）真实水平：" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
     const easy = (mode === "easy" && userName) ? "\n【放水局】别针对真人「" + userName + "」，怀疑也手下留情。" : "";
     const fair = "\n【别无端集火·很重要】" + (userName ? "「" + userName + "」是真人玩家。**别只因为 TA 是真人、发言短、或你自己没头绪，就默认投 TA 或带节奏投 TA**——只在真有逻辑依据时才投 TA（被查杀、发言明显矛盾、狼味很重）。真人发言少≠划水。" : "") + "也别全场一窝蜂集火同一个人，除非证据确凿；没实锤就各投各的怀疑对象。";
-    const sys = AC + SKILL_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n" + boardLine(gods, wolfRole) + (board || "") + "\n\n狼人杀·白天投票放逐。据发言，每人投一个要放逐的人 + 一句短理由。狼一般投好人、护队友，但队友已经保不住时可按水平弃车保帅、切割甚至跟票投掉队友保自己；好人投真心怀疑的狼。**实在没读到、没把握时可以弃票**（target 填「弃票」），但别全场弃票、有怀疑就投。理由别露上帝视角、要和自己之前的立场连贯。" + fair + stanceText(stances) + claimsText(claims) + easy +
       heckleBlock(heckles) +
       "\n\n【可投的存活玩家】" + aliveNames.join("、") + "\n\n【今天发言】\n" + sp + "\n\n【投票的人】\n" + who +
       "\n\n【输出】只输出 JSON：{\"votes\":[{\"name\":\"\",\"target\":\"要放逐的人名，或「弃票」\",\"reason\":\"\"}]}";
@@ -1661,6 +1769,9 @@
     const seerKnowRef = useRef({});                 // { seerName: [{name,isWolf}] }
     const stanceRef = useRef({});                   // { name: {claim,reads,plan} } 立场纪要(模型自写)，防前后矛盾，不显示
     const claimsRef = useRef([]);                    // [{day,name,text}] 全场公开声明台账，跨天累积防集体失忆
+    // 重说这一轮（她 2026-10-11）：AI 这一批白天发言说砸了，投票前让他们重说。记下这一批之前的日志、本日发言、
+    //   立场纪要和公开声明台账，重说时全部切回那儿，再用同一组参数跑一遍；你自己说的不动。
+    const wolfRedoRef = useRef(null);
     const witchPotRef = useRef({ heal: true, poison: true }); // 女巫药剂状态（全程一份）
     const wolfChatRef = useRef([]);                 // 狼队各夜密谈，终局复盘时才公开
     const chatRevealed = useRef(false);
@@ -1779,7 +1890,7 @@
           const data = await setupWolf(api, realPlayers, npcNeed);
           const skillOf = {}; (data.skills || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
           const list = [];
-          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: skillOf[p.name] || "", engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
+          realPlayers.forEach(function (p) { list.push({ key: p.id, name: p.name, char: p.char, isUser: false, skill: pinnedSkill(p.id, skillOf[p.name] || ""), engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.id)) }); });
           if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, skill: "" }); }
           const npcs = (data.npcs || []).slice(0, npcNeed);
           for (let i = 0; i < npcNeed; i++) { const n = npcs[i] || {}; list.push({ key: "npc_" + i, name: n.name || ("玩家" + (i + 1)), char: null, isNpc: true, skill: n.skill || "普通", persona: n.persona || "" }); }
@@ -2002,6 +2113,7 @@
       return alive.map(function (x) { return x.p; });
     };
     const startDay = function (list, n) {
+      wolfRedoRef.current = null;
       setPhase("day"); setDaySpeeches([]); setUserSpeech(""); setUserVote(null); setBoomPick(false);
       // AI 白狼王：从第 2 天起，天亮先决定要不要自爆搅局（自爆则跳过整个白天直接进夜）
       const aiWW = list.find(function (p) { return p.alive && p.role === "whitewolf" && !p.isUser; });
@@ -2044,13 +2156,15 @@
       const ai = group.filter(function (p) { return !p.isUser; });
       if (!ai.length) { if (final) { setPhase("dayvote"); setUserVote(null); } return; }
       setBusy(true);
+      const snap = { args: [list, group, prior, n, final], logLen: logDataRef.current.length, dayLen: 0,
+        stance: JSON.parse(JSON.stringify(stanceRef.current || {})), claims: (claimsRef.current || []).slice() };
       try {
         // 这里是夜间玩家快照进入白天发言管线的窄桥。key / engineer 任何一个漏掉，
         // genSpeeches 里的 ccCarve 都认不出本人座位，夜票正常而白天票凭空消失。
         // 每轮再按角色 ID 认一次，兼容旧存档以及开局后才打开「本人亲打」。
         const speakers = ai.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, list), persona: p.persona, char: p.char, role: p.role, seerKnown: p.role === "seer" ? (seerKnowRef.current[p.name] || []).slice() : [] };
         });
         const res = await genSpeeches(api, speakers, n, prior, lastDeathRef.current, cfg.mode, (list.find(function (p) { return p.isUser && p.alive; }) || {}).name || "", stanceRef.current, cfg.gods, boardState(list, n), cfg.wolfRole, claimsRef.current, {
           turnId: gameRunId.current + ":day:" + n + ":" + speakers.map(function (s) { return s.key; }).join(",")
@@ -2060,11 +2174,21 @@
         // 新增的硬公开声明入台账（跨天累积）
         (res.claims || []).forEach(function (c) { if (c && c.name && c.text && String(c.text).trim()) { const hit = speakers.find(function (x) { return c.name.indexOf(x.name) >= 0 || x.name.indexOf(c.name) >= 0; }); if (hit) claimsRef.current = claimsRef.current.concat([{ day: n, name: hit.name, text: String(c.text).trim() }]); } });
         const norm = speakers.map(function (s) { const hit = sp.find(function (c) { return c.name && (c.name.indexOf(s.name) >= 0 || s.name.indexOf(c.name) >= 0); }); return { name: s.name, text: (hit && hit.text) || "……（沉默了一下，没多说）" }; });
-        setDaySpeeches(function (D) { return D.concat(norm); });
+        setDaySpeeches(function (D) { snap.dayLen = D.length; return D.concat(norm); });
         pushLog(norm.map(function (c) { return { type: "speech", name: c.name, text: c.text }; }));
+        wolfRedoRef.current = snap;
         if (final) { setPhase("dayvote"); setUserVote(null); }
       } catch (e) { props.toast && props.toast("发言失败：" + ((e && e.message) || "重试")); }
       finally { setBusy(false); }
+    };
+    const redoSpeeches = function () {
+      const r = wolfRedoRef.current; if (!r || busy) return;
+      wolfRedoRef.current = null;
+      logDataRef.current = logDataRef.current.slice(0, r.logLen); setLog(logDataRef.current.slice());
+      setDaySpeeches(function (D) { return D.slice(0, r.dayLen); });
+      stanceRef.current = r.stance; claimsRef.current = r.claims;
+      setUserVote(null); setPhase("day");
+      aiSpeakSeq.apply(null, r.args);
     };
     // 出局遗言：AI 合一笔调用；言秋座位单独 CC 票亲笔（失败缺席、不代笔、不挡牌局）。
     // 遗言按 speech 入日志（shortLog 收得到），硬声明照样入台账——它是真发言，不是装饰。
@@ -2091,7 +2215,7 @@
             }).catch(function () { /* 遗言可缺席，绝不代笔 */ });
           });
           if (ais.length) {
-            const rows = await genWolfLastWords(api, ais.map(function (d) { return { name: d.name, skill: d.skill, priv: privateFor(d, list) }; }), how, shortLog());
+            const rows = await genWolfLastWords(api, ais.map(function (d) { return { name: d.name, skill: d.skill, persona: d.persona, char: d.char, priv: privateFor(d, list) }; }), how, shortLog());
             const valid = {}; ais.forEach(function (d) { valid[d.name] = 1; });
             const words = rows.filter(function (w) { return w && valid[w.name] && String(w.text || "").trim(); });
             if (words.length) {
@@ -2104,6 +2228,7 @@
       })();
     };
     const submitUserSpeech = function () {
+      wolfRedoRef.current = null;   // 你说过了，前面那批就不能再重说（会把你这句一起切掉）
       const v = userSpeech.trim(); if (!v || !me) return;
       pushLog([{ type: "speech", name: me.name, text: v, mine: true }]);
       // 真人的硬公开声明不会经过模型返回的 claims，必须在本地同步入台账，夜狼才能听见真人跳预言家/报验人。
@@ -2122,6 +2247,7 @@
     };
     // ---- 投票 ----
     const runDayVote = async function (userTarget) {
+      wolfRedoRef.current = null;
       setBusy(true);
       try {
         const al = players.filter(function (p) { return p.alive; });
@@ -2130,7 +2256,7 @@
         // 一进投票名单却认不出 CC 座位，Gemini 还会悄悄替本人代投。
         const voters = aiV.map(function (p) {
           const engineer = !!p.engineer || !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(p.key));
-          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, players) };
+          return { key: p.key, name: p.name, skill: p.skill, engineer: engineer, alive: p.alive, priv: privateFor(p, players), persona: p.persona, char: p.char };
         });
         const raw = await genDayVotes(api, voters, daySpeeches.filter(function (c) { return c.name; }), al.map(function (p) { return p.name; }), cfg.mode, (me && me.alive) ? me.name : "", stanceRef.current, cfg.gods, boardState(players, cycle), cfg.wolfRole, claimsRef.current, hecklesRef.current);
         const votes = voters.map(function (v) {
@@ -2210,7 +2336,7 @@
         if (it.type === "out") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { textAlign: "center", margin: "8px 0", fontFamily: F_BODY, fontSize: 13, color: "#c0553f" } }, it.text);
         if (it.type === "speech") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0" } }, pAvatar(p, 30),
           h("div", { style: { flex: 1 } }, h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text))); }
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
         if (it.type === "vote") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, key: i, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "3px 0", lineHeight: 1.5 } }, "· " + it.name + (it.target ? " → 投 " + it.target : " → 弃票") + (it.reason && it.target ? "：" + it.reason : ""));
         // 台下起哄：斜体细字，不做成气泡——它不是正式发言（shortLog 也不收它）
         if (it.type === "chat") return h("div", { "data-wk": "gamelogline", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { fontFamily: F_BODY, fontSize: 12, fontStyle: "italic", color: it.mine ? t.tint : t.fog, margin: "3px 0 3px 14px", lineHeight: 1.55 } }, it.name + "：" + it.text);
@@ -2297,12 +2423,12 @@
       const mvpP = mvp && players.find(function (p) { return mvp.name && (p.name === mvp.name || mvp.name.indexOf(p.name) >= 0); });
       inline = h("div", null,
         h("div", { style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 20, color: winner === "wolf" ? "#c0553f" : "#3f6d5a", marginBottom: 8 } }, winner === "wolf" ? "🐺 狼人获胜" : "🎉 好人获胜"),
-        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
-          if (!props.keepGameMemory) return false;
-          return props.keepGameMemory(realCharIds(players),
-            "一起玩了「狼人杀」，" + (winner === "wolf" ? "狼人阵营赢了" : "好人阵营赢了") + "。"
+        h(KeepMemBtn, { t: t, host: props, rep: function () {
+          const won = function (q) { return isWolfRole(q.role) === (winner === "wolf"); };
+          return { key: "werewolf", zh: "狼人杀", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
+            text: "一起玩了「狼人杀」，" + (winner === "wolf" ? "狼人阵营赢了" : "好人阵营赢了") + "。"
             + (me ? ("她抽到" + roleZh(me.role) + "，" + (me.alive ? "活到了终局" : "中途出局")) : "她观战") + "。"
-            + (mvp && mvp.name ? "全场 MVP 是 " + mvp.name + "。" : ""));
+            + (mvp && mvp.name ? "全场 MVP 是 " + mvp.name + "。" : "") };
         } }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, marginBottom: 12 } }, "身份揭晓：" + players.map(function (p) { return p.name + (p.isUser ? "(你)" : "") + "=" + roleZh(p.role); }).join("　")),
         // 全场 MVP
@@ -2325,6 +2451,9 @@
         ? h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, padding: "8px 0" } }, "在弹框里选择 · 也可先关掉回看发言")
         : h("button", { onClick: function () { setPickerOpen(true); }, className: "w-full active:opacity-80", style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.tint, borderRadius: 13, padding: "12px" } }, "▸ 轮到你了 · 点这里做选择"))
       : inline;
+    if (wolfRedoRef.current && !busy && (phase === "day" || phase === "dayvote") && action) action = h("div", null, action,
+      h("button", { "data-wk": "gameredo", onClick: redoSpeeches, className: "w-full active:opacity-60",
+        style: { minHeight: 40, marginTop: 6, fontFamily: F_BODY, fontSize: 12.5, color: t.fog, background: "transparent", border: "none" } }, "↻ 他们这轮说砸了，重说一遍"));
     const canHeckle = (cfg.mode === "spectate" || (me && !me.alive)) && (phase === "day" || phase === "dayvote" || phase === "reveal");
     const sendHeckle = async function () {
       const v = heckleText.trim(); if (!v || busy) return;
@@ -2352,7 +2481,7 @@
     const chars = (cfg.charIds || []).map(function (id) { return (props.characters || []).find(function (c) { return c.id === id; }); }).filter(Boolean);
     const skillOf = {}; (skillData || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
     const list = [];
-    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: skillOf[c.name] || "", alive: true }); });
+    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: pinnedSkill(c.id, skillOf[c.name] || ""), alive: true }); });
     if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "", alive: true }); }
     const npcNeed = cfg.npcCount || 0;
     const npcs = (npcData || []).slice(0, npcNeed);
@@ -2371,16 +2500,92 @@
   }
   // 终局「把这局收进记忆」：沙盒读不写的唯一例外——她亲手点了才写一条进主线，
   // 默认一个字不写；只认上场的真实角色（全 NPC 的局没有能收的人）。
-  function KeepMemBtn(props) {
+  // 终局那一块（她 2026-10-11「都可以做，慢慢做」）：同一份战果 rep 管三件事——
+  //   ① 收进记忆（她点了才写）；② 战报发给 TA（聊天里落一张小卡，TA 能接着跟你斗嘴）；③ 记一笔战绩（零调用，战绩本读它）。
+  //   rep：{ key, zh, text, ids（上场的真人角色）, wins（其中赢了的）, meWin（她赢没赢；观战 null） }
+  const STATS_KEY = "x_gameStats";
+  function loadGameStats() { try { const v = typeof loadJSON === "function" ? loadJSON(STATS_KEY, []) : []; return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+  function recordGame(r) {
+    if (!r || !r.key || !(r.ids || []).length && r.meWin == null) return;
+    const all = loadGameStats(), sig = r.key + "|" + r.text;
+    // 同一局终局画面重画（存档接回、来回切页）不重复记：同样的战报一小时内只记一次
+    if (all.some(function (x) { return x.sig === sig && Date.now() - (x.ts || 0) < 3600000; })) return;
+    all.unshift({ ts: Date.now(), sig: sig, key: r.key, zh: r.zh, ids: r.ids || [], wins: r.wins || [], meWin: r.meWin == null ? null : !!r.meWin });
+    try { saveJSON(STATS_KEY, all.slice(0, 500)); } catch (e) {}
+  }
+  // 战绩本：每个人跟你打过几局、谁赢得多、各游戏比分（全从终局那一笔里算，零调用）
+  function GameStatsBook(props) {
     const t = props.t;
+    const [open, setOpen] = useState("");
+    const all = loadGameStats();
+    if (!all.length) return null;
+    const rows = (props.characters || []).map(function (c) {
+      const mine = all.filter(function (r) { return (r.ids || []).indexOf(c.id) >= 0; });
+      if (!mine.length) return null;
+      const by = {};
+      mine.forEach(function (r) {
+        const g = by[r.zh] || (by[r.zh] = { n: 0, me: 0, ta: 0 });
+        g.n++; if (r.meWin) g.me++; if ((r.wins || []).indexOf(c.id) >= 0) g.ta++;
+      });
+      const me = mine.filter(function (r) { return r.meWin; }).length, ta = mine.filter(function (r) { return (r.wins || []).indexOf(c.id) >= 0; }).length;
+      const fav = Object.keys(by).sort(function (a, b) { return by[b].n - by[a].n; })[0];
+      return { c: c, n: mine.length, me: me, ta: ta, fav: fav, by: by };
+    }).filter(Boolean).sort(function (a, b) { return b.n - a.n; });
+    if (!rows.length) return null;
+    return h("div", { "data-wk": "gamestats", style: { marginBottom: 18, padding: "12px 14px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+      h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "战绩本"),
+      rows.map(function (r) {
+        const on = open === r.c.id;
+        return h("div", { key: r.c.id, style: { borderTop: "1px solid " + t.line } },
+          h("button", { "data-wk": "gamestatsrow", "data-on": on ? "1" : "0", onClick: function () { setOpen(on ? "" : r.c.id); }, className: "active:opacity-70",
+              style: { width: "100%", minHeight: 44, display: "flex", alignItems: "center", gap: 10, background: "transparent", border: "none", padding: "6px 0", textAlign: "left" } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink, flexShrink: 0 } }, r.c.remark || r.c.name),
+            h("span", { style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } },
+              "一起 " + r.n + " 局 · 你赢 " + r.me + " · TA 赢 " + r.ta + (r.fav ? " · 最常玩" + r.fav : "")),
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, on ? "收起" : "›")),
+          on ? h("div", { style: { padding: "0 0 10px", display: "flex", flexWrap: "wrap", gap: 6 } },
+            Object.keys(r.by).map(function (k) { const g = r.by[k];
+              return h("span", { key: k, style: { fontFamily: F_BODY, fontSize: 11.5, color: t.sub, padding: "4px 10px", borderRadius: 999, border: "1px solid " + t.line } }, k + " " + g.n + " 局 · 你 " + g.me + " : TA " + g.ta); })) : null);
+      }));
+  }
+  function KeepMemBtn(props) {
+    const t = props.t, host = props.host || {};
+    const rep = React.useMemo(function () { try { return props.rep ? props.rep() : null; } catch (e) { return null; } }, []);
     const [kept, setKept] = useState(false);
-    return h("button", { "data-wk": "gamekeepmem", "data-on": kept ? "1" : "0", disabled: kept, onClick: function () {
-      if (kept) return;
-      const ok = props.keep && props.keep();
-      if (ok) { setKept(true); props.toast && props.toast("收进记忆了，他们会记得这一局"); }
-      else props.toast && props.toast("没有能收的：这局上场的都是 NPC");
-    }, className: "active:opacity-70", style: { width: "100%", marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: kept ? t.fog : t.tint, background: "transparent", border: "1px dashed " + (kept ? t.line : t.tint), borderRadius: 10, padding: "9px 0" } },
-      kept ? "已收进记忆" : "把这一局收进记忆（他们以后会记得）");
+    const [sent, setSent] = useState({});
+    useEffect(function () { recordGame(rep); }, []);
+    const toast = host.toast || function () {};
+    const ids = (rep && rep.ids) || [];
+    // 彩头：开局时说好的那一句；按输赢写清谁该兑现
+    const stake = String((host.config && host.config.stake) || "").trim();
+    if (rep && stake) rep.stake = stake;
+    const losers = rep ? ids.filter(function (id) { return (rep.wins || []).indexOf(id) < 0; }) : [];
+    const nameOf = function (id) { const c = (host.characters || []).find(function (x) { return x.id === id; }); return c ? (c.remark || c.name) : ""; };
+    return h("div", { "data-wk": "gameend" },
+      rep && stake ? h("div", { "data-wk": "gamestakeend", style: { marginTop: 9, padding: "10px 13px", borderRadius: 12, background: t.tint + "12", border: "1px solid " + t.tint } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "彩头"),
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 2 } }, stake),
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginTop: 5 } },
+          rep.meWin === false ? "这局你输了，该你兑现。" + (losers.length ? "一起输的还有 " + losers.map(nameOf).filter(Boolean).join("、") + "。" : "")
+          : losers.length ? "该 " + losers.map(nameOf).filter(Boolean).join("、") + " 兑现。把战报发过去，看 TA 认不认账。"
+          : "这局没人输，彩头先欠着。")) : null,
+      h("button", { "data-wk": "gamekeepmem", "data-on": kept ? "1" : "0", disabled: kept, onClick: function () {
+        if (kept) return;
+        const ok = rep && host.keepGameMemory && ids.length && host.keepGameMemory(ids, rep.text);
+        if (ok) { setKept(true); toast("收进记忆了，他们会记得这一局"); }
+        else toast("没有能收的：这局上场的都是 NPC");
+      }, className: "active:opacity-70", style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: kept ? t.fog : t.tint, background: "transparent", border: "1px dashed " + (kept ? t.line : t.tint), borderRadius: 10, padding: "9px 0" } },
+        kept ? "已收进记忆" : "把这一局收进记忆（他们以后会记得）"),
+      // 战报发给 TA：上场的每个真人角色一颗，点了就去那个聊天
+      rep && ids.length && host.sendGameReport ? h("div", { "data-wk": "gamereport", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 9 } },
+        h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "战报发给"),
+        ids.map(function (id) {
+          const nm = nameOf(id); if (!nm) return null;
+          return h("button", { key: id, "data-on": sent[id] ? "1" : "0", onClick: function () {
+              host.sendGameReport(id, rep); setSent(Object.assign({}, sent, { [id]: true }));
+            }, className: "active:opacity-70",
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: sent[id] ? t.fog : t.ink, background: t.bg2, border: "1px solid " + t.line } }, (sent[id] ? "✓ " : "") + nm);
+        })) : null);
   }
   function realCharIds(players) { return (players || []).filter(function (p) { return !p.isNpc && !p.isUser && !p.engineer; }).map(function (p) { return p.key; }); }
 
@@ -2388,8 +2593,8 @@
   // 只是台下起哄，不改任何牌局账面；投票类提示词把最近几句当「观众起哄」附带参考——
   // 这才兑现观战说明里那句「随时能插嘴吐槽、带节奏」（原来一个输入口都没有）。
   async function genHeckle(api, pool, gameZh, userName, line, recent) {
-    const who = pool.map(function (p) { return "■ " + p.name; }).join("\n");
-    const sys = AC + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
+    const who = pool.map(function (p) { return "■ " + p.name + voiceBrief(p); }).join("\n");
+    const sys = AC + VOICE_RULE + "「" + gameZh + "」牌桌边，场外的 " + userName + "（观战或已出局的真人，不是在场玩家）插了句嘴：「" + line + "」。\n从下面在场的人里挑 1~3 个真会接话的，各回一句 20 字内的口语——怼回去、笑、附和、不接茬说自己的都行，也可以只有一个人理。只是台下斗嘴：别改变任何牌局事实，别替谁投票、别当场表态站队。\n" + who + (recent ? "\n【桌上最近的事】\n" + recent : "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"接话的在场玩家名\",\"text\":\"一句 20 字内的口语\"}]}";
     const raw = await callRetry(api, sys, [{ role: "user", content: "接话。" }], { maxTokens: 9200 });
     const r = extractJSON(raw) || {};
     const valid = {}; pool.forEach(function (p) { valid[p.name] = true; });
@@ -2532,11 +2737,11 @@
       : "verdict 只能是：是 / 不是 / 不好说。照实回答；实在无法用是否作答才用「不好说」。";
     const easy = mode === "easy" ? "\n【放水局】AI 玩家别问得太神，留点空间给真人；主持人答题该给的提示大方点给。" : "";
     const hist = history.length ? history.slice(-14).map(function (q) { return "· " + q; }).join("\n") : "（还没人问过）";
-    const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）"; }).join("\n");
+    const who = aiSpeakers.map(function (s) { return "■ " + s.name + "（真实水平：" + (s.skill || "普通") + "）" + voiceBrief(s); }).join("\n");
     const solveRule = kind === "haigui"
       ? "若某人的提问 / 陈述已经【实质还原了汤底核心真相】，把 solvedBy 填成 TA 的名字，并在 reveal 里一句话点出真相。否则 solvedBy 留空。"
       : "若某人的问题其实就是【直接猜中了那个东西】（问「它是不是XX」且 XX 正是答案），把 solvedBy 填成 TA 的名字、reveal 填那个东西——【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问的那条也算】，别只盯着 AI。否则留空。AI 觉得有把握时可以直接猜（问「是不是XX」）。";
-    const sys = AC + SKILL_RULE + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n你是「" + K.zh + "」的主持人，掌握真相、只按规则回答是非类问题。\n" + secretBlock +
       "\n\n" + verdictRule + " note 是≤14 字的补充或引导，可空。" + easy +
       "\n\n【此前问过的（别让 AI 重复）】\n" + hist +
       (userQ ? "\n\n【真人玩家" + (userName ? "「" + userName + "」" : "") + "刚问】" + userQ + " —— 在 userAnswer 里作答。" : "\n\n（这一轮真人没问，userAnswer 给 null）") +
@@ -2760,7 +2965,7 @@
           return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 8, margin: "8px 0 2px" } }, pAvatar(p, 28),
             h("div", { style: { flex: 1 } },
               h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 2 } }, it.name + (it.mine ? "(你)" : "")),
-              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null,
+              it.text ? h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.text) : null, it.text && !it.mine ? h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }) : null,
               it.question ? h("div", { "data-wk": "gamebubble", "data-part": "question", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 14, lineHeight: 1.5, color: t.ink, background: t.bg2, borderRadius: 10, padding: "7px 11px" } }, it.question) : null));
         }
         if (it.type === "a") {
@@ -2799,11 +3004,11 @@
           scores.length < 3
             ? h("button", { onClick: nextPuzzle, disabled: busy, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "下一题（第 " + Math.min(3, scores.length + 1) + " / 3 题）")
             : h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一场")),
-        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
-          if (!props.keepGameMemory) return false;
+        h(KeepMemBtn, { t: t, host: props, rep: function () {
           const line = scores.map(function (x, i) { return "第" + (i + 1) + "题" + (x.solver ? (x.isUser ? "她破的" : x.solver + "破的") : "没人破"); }).join("，");
-          return props.keepGameMemory(realCharIds(players),
-            "一起玩了「" + K.zh + "」" + (scores.length > 1 ? "连着 " + scores.length + " 题" : "") + "：" + line + "。");
+          return { key: kind, zh: K.zh, ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && scores.some(function (x) { return !x.isUser && x.solver === q.name; }); }),
+            meWin: me ? scores.some(function (x) { return x.isUser; }) : null,
+            text: "一起玩了「" + K.zh + "」" + (scores.length > 1 ? "连着 " + scores.length + " 题" : "") + "：" + line + "。" };
         } }));
     } else if (busy) {
       action = h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 13, color: t.fog, padding: "10px 0" } }, "…大家在琢磨");
@@ -2870,14 +3075,14 @@
     const raw = await callRetry(api, sys, [{ role: "user", content: "生成 NPC。" }], { maxTokens: 11500 });
     return extractJSON(raw) || { npcs: [] };
   }
-  const TD_PROMPT_HISTORY = "tod_prompt_history_v1"; // 跨新局保留题目去重，不随「弃掉本局」清空
+  const TD_PROMPT_HISTORY = "x_todPromptHistory"; // 跨新局保留题目去重，不随「弃掉本局」清空
   const TD_THEMES = ["现场互动", "荒诞脑洞", "限时二选一", "价值冲突", "即兴表演", "模仿挑战", "消息任务", "反向角色扮演", "观察力挑战", "创意表达", "临场社交", "小型技能挑战"];
-  function loadTDPromptHistory() { try { const x = JSON.parse(localStorage.getItem(TD_PROMPT_HISTORY) || "[]"); return Array.isArray(x) ? x : []; } catch (e) { return []; } }
+  function loadTDPromptHistory() { const x = bigGet(TD_PROMPT_HISTORY, "tod_prompt_history_v1", []); return Array.isArray(x) ? x : []; }
   function rememberTDPrompt(choice, prompt) {
     const p = String(prompt || "").trim(); if (!p) return;
     const all = loadTDPromptHistory().filter(function (x) { return x && x.prompt !== p; });
     all.push({ choice: choice, prompt: p.slice(0, 300), ts: Date.now() });
-    try { localStorage.setItem(TD_PROMPT_HISTORY, JSON.stringify(all.slice(-120))); } catch (e) {}
+    bigSet(TD_PROMPT_HISTORY, all.slice(-120));
   }
   function tdRoundPlan(log, targetName, forcedChoice) {
     const rounds = (log || []).filter(function (x) { return x && x.type === "td"; });
@@ -3352,7 +3557,7 @@
         if (it.type === "chat") { const p = pByName(it.name); return h("div", { "data-wk": "gamemsg", "data-kind": it.type, "data-me": it.mine ? "1" : "0", key: i, style: { display: "flex", gap: 7, margin: "5px 0", alignItems: "flex-start", flexDirection: it.mine ? "row-reverse" : "row" } }, pAvatar(p, 24),
           h("div", { style: { maxWidth: "78%" } },
             h("div", { "data-wk": "gamemsgname", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginBottom: 1, textAlign: it.mine ? "right" : "left" } }, it.name + (it.mine ? "(你)" : "")),
-            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text))); }
+            h("div", { "data-wk": "gamebubble", "data-me": it.mine ? "1" : "0", style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13.5, lineHeight: 1.55, color: t.ink, background: it.mine ? (t.tint + "1c") : t.bg2, borderRadius: 11, padding: "6px 10px" } }, it.text), it.mine ? null : h(GameVoiceDot, { p: p, text: it.text, k: "gv" + i }))); }
         if (it.type === "star") {
           const p = pByName(it.name);
           return h("div", { "data-wk": "gamestar", key: i, style: { border: "1.5px solid " + t.tint, background: t.tint + "10", borderRadius: 14, padding: "12px 14px", margin: "12px 18px" } },
@@ -3406,11 +3611,13 @@
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "回中枢"),
           h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")),
-        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
-          if (!props.keepGameMemory) return false;
+        h(KeepMemBtn, { t: t, host: props, rep: function () {
           const rounds = logDataRef.current.filter(function (x) { return x.type === "td"; }).length;
-          return props.keepGameMemory(realCharIds(players),
-            "一起玩了「真心话大冒险」，转了 " + rounds + " 轮" + (wrap && wrap.star ? "，今晚之星是" + (wrap.star.isUser ? "她" : wrap.star.name) : "") + "。");
+          // 真心话没有输赢：今晚之星算「赢」
+          const star = wrap && wrap.star;
+          return { key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: star && !star.isUser ? realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && q.name === star.name; }) : [],
+            meWin: star ? !!star.isUser : null,
+            text: "一起玩了「真心话大冒险」，转了 " + rounds + " 轮" + (star ? "，今晚之星是" + (star.isUser ? "她" : star.name) : "") + "。" };
         } }));
     }
     else {
@@ -3650,11 +3857,11 @@
     const logView=h("div",{ "data-wk": "gamelog", "data-part": "monopoly", className:"flex-1 overflow-y-auto",style:{padding:"7px 14px",minHeight:110,borderTop:"1px solid "+t.line}},logs.slice(-22).map(function(x,i){return h("div",{ "data-wk": "gamelogline", key:i,style:{fontFamily:F_BODY,fontSize:x.type==="talk"?13:11.5,lineHeight:1.55,color:x.type==="talk"?t.ink:(x.type==="bad"?"#c0553f":t.sub),padding:x.type==="talk"?"6px 9px":"3px 5px",marginBottom:3,borderRadius:9,background:x.type==="talk"?t.bg2:"transparent"}},x.type==="talk"?h("b",{style:{color:t.tint}},x.name+"："):null,x.say);}),
       talkMiss&&!busy?h("button",{onClick:retryTalk,className:"active:opacity-70",style:{display:"block",margin:"4px auto 2px",padding:"7px 16px",borderRadius:999,border:"1px dashed "+t.line,background:t.bg2,color:t.tint,fontFamily:F_BODY,fontSize:12}},"角色没接上话 · 再试一次"):null);
     let action;if(phase==="result"){const ranking=players.slice().sort(function(a,b){return monoNetWorth(b,owners,levels)-monoNetWorth(a,owners,levels);});action=h("div",{style:{textAlign:"center"}},h("div",{style:{fontFamily:F_DISPLAY,fontSize:20,color:t.ink}},"🏆 "+(winner?winner.name:ranking[0].name)+" 赢下这座城"),h("div",{style:{fontFamily:F_BODY,fontSize:12,color:t.sub,margin:"8px 0 13px"}},ranking.map(function(p,i){return (i+1)+". "+p.name+" $"+monoNetWorth(p,owners,levels);}).join("　")),h("button",{onClick:props.onBack,style:{width:"100%",padding:12,borderRadius:12,background:t.ink,color:"#fff",fontFamily:F_BODY}},"回游戏中枢"),
-      h(KeepMemBtn,{t:t,toast:props.toast,keep:function(){
-        if(!props.keepGameMemory)return false;
+      h(KeepMemBtn,{t:t,host:props,rep:function(){
         const userSeat=players.find(function(p){return p.isUser;});
-        return props.keepGameMemory(realCharIds(players),
-          "一起玩了「大富翁」，"+(winner?winner.name:ranking[0].name)+" 赢下这座城"+(userSeat?("；"+userSeat.name+" 排第 "+(ranking.indexOf(userSeat)+1)+" 名，总资产 $"+monoNetWorth(userSeat,owners,levels)):"")+"。");
+        const top=winner||ranking[0];
+        return {key:"monopoly",zh:"大富翁",ids:realCharIds(players),wins:top&&!top.isUser&&realCharIds(players).indexOf(top.key)>=0?[top.key]:[],meWin:userSeat?userSeat===top:null,
+          text:"一起玩了「大富翁」，"+(top?top.name:"")+" 赢下这座城"+(userSeat?("；"+userSeat.name+" 排第 "+(ranking.indexOf(userSeat)+1)+" 名，总资产 $"+monoNetWorth(userSeat,owners,levels)):"")+"。"};
       }}));}
     else if(pending&&pending.kind==="trade"){
       const tile=MONO_BOARD[pending.tile],owner=players.find(function(p){return p.key===owners[pending.tile];}),me2=players.find(function(p){return p.isUser;});
@@ -3771,8 +3978,8 @@
   }
   // ⚠️曾叫 genVotes——和卧底的 genVotes 顶层重名，后者被这个覆盖导致卧底投票错调（v47.49 修复改名）
   async function genAvVotes(api, voters, team, leaderName, players, qn, hist, heckles) {
-    const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
+    const blocks = voters.map(function (v) { return "■ " + v.name + "：" + avSecretFor(v, players) + "；水平" + (v.skill || "普通") + voiceBrief(v); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·对第 " + (qn + 1) + " 个任务的队伍投票。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]。\n下面每人按各自身份和掌握的信息投【赞成】或【反对】+ 一句公开理由（理由别暴露隐藏身份）：\n· 好人：队里可能混了坏人就反对，可信就赞成；注意连续 5 次否决坏人直接赢，别无脑否。\n· 坏人：想让有己方的队通过就赞成、想搅局就反对，但别投得太露馅。\n· 梅林该反对带坏人的队，但要装成普通推理别暴露。\n\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + heckleBlock(heckles) +
       "\n\n只输出 JSON：{\"votes\":[{\"name\":\"\",\"vote\":\"赞成\"或\"反对\",\"reason\":\"\"}]}";
     // 言秋座位先自己投（v54.43）
     const cc = await ccCarve("avalon", voters, {
@@ -3790,8 +3997,8 @@
   }
   // 组队后的圆桌讨论（阿瓦隆的灵魂：投票前的嘴仗）——一次调用出全桌发言
   async function genTableTalk(api, players, team, leaderName, reason, qn, hist, userName) {
-    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "；水平" + (p.skill || "普通"); }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "；水平" + (p.skill || "普通") + voiceBrief(p); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务组队后、投票前的【圆桌讨论】。队长 " + leaderName + " 提议队伍：[" + team.join("、") + "]" + (reason ? "，公开理由：" + reason : "") + "。\n从下面的人里挑 3~5 位【此刻真有话要说的】各说一句（30字内，口语，像面对面拍桌子吵）：质疑人选、为自己辩护、点名怀疑谁、拉票、阴阳怪气都行，要针对【这支队伍和场上局面】说具体的，别空喊。\n· 好人靠有限信息真推理：谁上次任务在场、谁投票可疑，点名施压" + (userName ? "，也可以直接质问「" + userName + "」" : "") + "；\n· 坏人搅浑水带节奏：装无辜、给同伙打掩护、把水泼向好人，但别演过头；\n· 梅林知道真相但【必须包装成普通推理】，太准会被刺客盯上；\n· 谁都不许说出自己或别人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "（刚开局）") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     // 言秋座位的那句嘴仗自己说；说不上话（离线/没话）就干脆缺席，不许模型代嘴（v54.43）
     const pool = players.filter(function (p) { return !p.isUser; });
     const cc = await ccCarve("avalon", pool, {
@@ -3807,8 +4014,8 @@
   }
   // 任务失败后的甩锅环节：队员自证/互咬，场下点名怀疑——一次调用
   async function genBlame(api, players, team, qn, fails, hist) {
-    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "（" + (team.indexOf(p.name) >= 0 ? "在这支队里" : "不在队里") + "）"; }).join("\n");
-    const sys = AC + SKILL_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
+    const blocks = players.filter(function (p) { return !p.isUser; }).map(function (p) { return "■ " + p.name + "：" + avSecretFor(p, players) + "（" + (team.indexOf(p.name) >= 0 ? "在这支队里" : "不在队里") + "）" + voiceBrief(p); }).join("\n");
+    const sys = AC + SKILL_RULE + VOICE_RULE + "\n\n阿瓦隆·第 " + (qn + 1) + " 个任务【失败了】（" + fails + " 张失败票），全桌炸锅。挑 2~4 位各说一句（30字内，口语）：队员急着自证清白、互相咬、场下的人点名分析谁最可疑。\n· 真投了失败票的坏人要嫁祸队友、演无辜；队里的好人是真冤，会急；\n· 说话要针对这支队伍 [" + team.join("、") + "] 里的具体名字；\n· 不许说出任何人的真实身份词。\n" + blocks + "\n【局面】\n" + (hist || "") + "\n\n只输出 JSON：{\"talks\":[{\"name\":\"\",\"say\":\"\"}]}";
     const poolB = players.filter(function (p) { return !p.isUser; });
     const ccB = await ccCarve("avalon", poolB, {
       turnId: freshCCTurn("av-blame:" + qn + ":"),
@@ -4367,12 +4574,12 @@
         h("div", { style: { display: "flex", gap: 10 } },
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 12, padding: "12px" } }, "返回"),
           h("button", { onClick: props.onBack, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "12px" } }, "回中枢再来一局")),
-        h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
-          if (!props.keepGameMemory) return false;
-          return props.keepGameMemory(realCharIds(players),
-            "一起玩了「阿瓦隆」，" + (winner === "good" ? "亚瑟的忠臣赢了" : "莫德雷德的爪牙赢了") + "。"
-            + (me ? ("她是" + AV_ROLE_ZH[me.role] + "，" + ((winner === "good") === (me.side === "good") ? "站在赢的一边" : "输了这一局")) : "她观战")
-            + (assassinPick ? "；刺客终局指认了 " + assassinPick : "") + "。");
+        h(KeepMemBtn, { t: t, host: props, rep: function () {
+          const won = function (q) { return (winner === "good") === (q.side === "good"); };
+          return { key: "avalon", zh: "阿瓦隆", ids: realCharIds(players), wins: realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && won(q); }), meWin: me ? won(me) : null,
+            text: "一起玩了「阿瓦隆」，" + (winner === "good" ? "亚瑟的忠臣赢了" : "莫德雷德的爪牙赢了") + "。"
+            + (me ? ("她是" + AV_ROLE_ZH[me.role] + "，" + (won(me) ? "站在赢的一边" : "输了这一局")) : "她观战")
+            + (assassinPick ? "；刺客终局指认了 " + assassinPick : "") + "。" };
         } }));
     }
 
@@ -4628,11 +4835,11 @@
         state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
           (state.players.find(function (p) { return p.key === state.winner; }) || {}).name + " 赢啦！",
           resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, fontWeight: 400, color: t.sub } }, resultNotice) : null,
-          h(KeepMemBtn, { t: t, toast: props.toast, keep: function () {
-            if (!props.keepGameMemory) return false;
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
             const w = state.players.find(function (p) { return p.key === state.winner; });
-            return props.keepGameMemory(realCharIds(state.players),
-              "一起打了一局「UNO」，" + ((w && (w.isUser ? "她" : w.name)) || "有人") + " 赢了。");
+            const meSeat = state.players.find(function (p) { return p.isUser; });
+            return { key: "uno", zh: "UNO", ids: realCharIds(state.players), wins: w && !w.isUser && realCharIds(state.players).indexOf(w.key) >= 0 ? [w.key] : [], meWin: meSeat ? !!(w && w.isUser) : null,
+              text: "一起打了一局「UNO」，" + ((w && (w.isUser ? "她" : w.name)) || "有人") + " 赢了。" };
           } })) : null),
       state.status === "playing" && chatMode ? h("div", { "data-wk": "gameactions", "data-part": "uno", "data-kind": "chat", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", background: t.bg } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 8 } }, "牌局已暂停。你可以连发几条；只有按黑色键，他们才接话。"),

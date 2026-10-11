@@ -36,10 +36,10 @@ test("换上的是一条轴，不是另一个门槛", () => {
 });
 
 test("四条路共用这一份，没有谁自己又写了一版", () => {
-  // 单聊线上 / 本体模式手机通道 / 单人线下 / 群线上（两处：心声提示 + 字段表）/ 群线下 beats
+  // 单聊线上 / 本体模式手机通道（想留就留、每轮都留两处）/ 单人线下 / 群线上（两处：心声提示 + 字段表）/ 群线下 beats
   assert.match(app, /affinityDelta: \$\{AFFINITY_DELTA_SPEC\}/, "单聊线上");
   assert.match(engine, /affinityDelta: \$\{AFFINITY_DELTA_SPEC\}/, "单人线下");
-  assert.equal((app.match(/AFFINITY_DELTA_SPEC/g) || []).length, 4, "群那两处、本体模式手机通道也要吃到");
+  assert.equal((app.match(/AFFINITY_DELTA_SPEC/g) || []).length, 5, "群那两处、本体模式手机通道两处也要吃到");
   assert.equal((engine.match(/AFFINITY_DELTA_SPEC/g) || []).length, 4, "1 处定义 + 单人线下 + 群线下（逐拍 beats 与小说 cast 各一处）");
   // 旧的三种各写一版的写法不许回来
   assert.equal(SENT.indexOf("通常小幅、没波动就 0"), -1);

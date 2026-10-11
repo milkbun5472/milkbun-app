@@ -1,11 +1,14 @@
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat} from './home-catalog.mjs?v=fg-127ffe874240ba15';
-import {MAPS,walkable} from '../world.mjs?v=fg-127ffe874240ba15';
+import {homeSize} from './home-architecture.mjs?v=fg-932cb68b41b7219d';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
+import {MAPS,walkable} from '../world.mjs?v=fg-932cb68b41b7219d';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
 export const SPACE_STYLES={
   warm:{label:'暖木生活',floor:'#c5aa85',wall:'#e4d2b4',wood:'#a57450',dark:'#594c40',fabric:'#547b6d',accent:'#c57f68',paper:'#f4e8cf',glass:'#c2d5cc'},
   light:{label:'清爽浅色',floor:'#d0d4c9',wall:'#e6ece3',wood:'#a9b5a2',dark:'#57757a',fabric:'#7daab4',accent:'#d3a26e',paper:'#f6f2e1',glass:'#c8e2df'},
+  rose:{label:'淡粉柔软',floor:'#ddd3bc',wall:'#eedad4',wood:'#c5a991',dark:'#725d5b',fabric:'#cfa59b',accent:'#b77b81',paper:'#fff1e7',glass:'#d2dcd4'},
+  ink:{label:'灰石利落',floor:'#c7c6bb',wall:'#deded8',wood:'#8c8276',dark:'#424749',fabric:'#667d80',accent:'#a89a7d',paper:'#eee9df',glass:'#b4c8cb'},
   dusk:{label:'深木安静',floor:'#a08a73',wall:'#d7cbb9',wood:'#765544',dark:'#403f40',fabric:'#576d79',accent:'#b98277',paper:'#e6d9c3',glass:'#adbfc8'}
 };
 export const DEFAULT_STYLE='warm';
@@ -33,27 +36,27 @@ export const SPACE_DEFS={
  dayHome:{label:'你们的小家',w:14,d:11,pieces:HOME,structure:[{id:'bedroom-partition',x:-.8,z:-3.7,w:.14,d:3.4,h:1.55}],spawn:{x:0,z:4.8},zones:[{id:'bedroom',label:'双人卧室'},{id:'living',label:'起居室'},{id:'kitchen',label:'厨房与餐区'},{id:'free',label:'留给以后布置'}],
   anchors:homeAnchors(HOME,homeRoom({}))},
  dayWork:{label:'工作与学习空间',w:11,d:9,pieces:WORK,spawn:{x:0,z:3.9},anchors:[
-  {id:'work',action:'work',piece:'work-desk',approach:{x:1.85,z:.05},heading:-Math.PI/2},
-  {id:'read',action:'read',piece:'reading-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'rest',action:'rest',piece:'work-sofa',approach:{x:-1.85,z:.25},seat:true}
+  {id:'work',label:'书桌前工作',action:'work',piece:'work-desk',approach:{x:1.85,z:.05},heading:-Math.PI/2},
+  {id:'read',label:'阅读桌前',action:'read',piece:'reading-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'rest',label:'沙发休息',action:'rest',piece:'work-sofa',approach:{x:-1.85,z:.25},seat:true}
  ]},
  dayCafe:{label:'街角餐饮小店',w:10,d:9,pieces:CAFE,spawn:{x:0,z:3.9},anchors:[
-  {id:'meal',action:'meal',piece:'cafe-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'tea',action:'tea',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'rest',action:'rest',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'read',action:'read',piece:'window-chair',approach:{x:-.9,z:0},seat:true}
+  {id:'meal',label:'餐桌吃饭',action:'meal',piece:'cafe-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'tea',label:'窗边喝一杯',action:'tea',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'rest',label:'窗边休息',action:'rest',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'read',label:'窗边看书',action:'read',piece:'window-chair',approach:{x:-.9,z:0},seat:true}
  ]},
  dayStreet:{label:'小街与散步处',w:16,d:11,pieces:STREET,outdoor:true,spawn:{x:0,z:4.6},anchors:[
-  {id:'walk',action:'walk',target:{x:0,z:0}},
-  {id:'rest',action:'rest',piece:'street-bench',approach:{x:1.9,z:.2},seat:true},
+  {id:'walk',label:'沿街散步',action:'walk',target:{x:0,z:0}},
+  {id:'rest',label:'长椅休息',action:'rest',piece:'street-bench',approach:{x:1.9,z:.2},seat:true},
  ],wander:[{x:0,z:0},{x:3,z:2.7},{x:-1.2,z:2.8},{x:5.3,z:1.4},{x:-2.8,z:-.6}]}
 };
 export function buildSpace(id,placements={}){
- const d=SPACE_DEFS[id];if(!d)throw Error('未知日常场景');
- const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
+ const definition=SPACE_DEFS[id],d=id==='dayHome'?{...definition,w:homeSize(homeRoom(placements)).w,d:homeSize(homeRoom(placements)).d,spawn:{x:0,z:homeSize(homeRoom(placements)).d/2-.7}}:definition;if(!d)throw Error('未知日常场景');
+ const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=p.mount?{}:placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
  const pieces=Object.fromEntries(furniture.map(p=>[p.id,p]));
  const walls=d.outdoor?[]:[{id:'back-wall',x:0,z:-d.d/2,w:d.w+.2,d:.18},{id:'left-wall',x:-d.w/2,z:0,w:.18,d:d.d}];
- const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.map(p=>{const c=Math.abs(Math.cos(p.heading)),s=Math.abs(Math.sin(p.heading));return {id:p.id,x:p.x,z:p.z,w:p.w*c+p.d*s,d:p.d*c+p.w*s};})];
+ const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.filter(p=>!p.walkThrough&&!p.mount).map(furnitureFootprint)];
  const room=id==='dayHome'?homeRoom(placements):null;
  const anchors=room?homeAnchors(furniture,room):d.anchors;
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{

@@ -4,7 +4,7 @@ import {HOME_CATALOG,HOME_LIMIT,homePlacements,homeFurniture} from './home-catal
 import {addHomeFurniture,changeHomeFurniture,changeHomeRoom,checkHomeLayout,restoreHomeLayout} from './home-layout.mjs';
 
 test('所有家具款式可添入真实房间，同款是独立实例，名称尺寸与渲染共用目录',()=>{
- assert.equal(HOME_CATALOG.length,20);
+ assert.equal(HOME_CATALOG.length,72);
  for(const item of HOME_CATALOG){const added=addHomeFurniture({},item.id);assert.equal(added.ok,true,item.id);const p=homeFurniture(added.placements).find(p=>p.id===added.selected);assert.equal(p.catalogId,item.id);assert.equal(p.w,item.w);assert.equal(p.d,item.d);assert.equal(checkHomeLayout(added.placements).ok,true);}
  const first=addHomeFurniture({},'chair'),second=addHomeFurniture(first.placements,'chair');assert.notEqual(first.selected,second.selected);assert.equal(homeFurniture(second.placements).filter(p=>p.catalogId==='chair').length,4);
  const color=changeHomeFurniture(second.placements,first.selected,{color:'#123456',material:'metal'});assert.equal(color.ok,true);assert.equal(color.placements[first.selected].material,'metal');assert.equal(color.placements[second.selected].color,'');assert.equal(second.placements[first.selected].color,'');

@@ -26,7 +26,9 @@
     //   现在两边都读写这一份；旧存档开机时由 app.js 把 s.proactive 搬进来（默认关照旧）。
     { id: "proactive", group: "social", title: "主动私聊", sub: "生日、提醒、想念与主动找你", globalDefault: true, charDefault: false,
       // 中频＝原来那套算法本身；低频、高频是把整套【时间】乘一个倍数——想念攒得慢一些（×0.75）／快一倍，冷却跟着拉长／缩短
-      rates: [{ id: "low", zh: "低频", x: 0.75 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 }] },
+      rates: [{ id: "low", zh: "低频", x: 0.75 }, { id: "mid", zh: "中频", x: 1 }, { id: "high", zh: "高频", x: 2 },
+        // 很高频（她 2026-10-11 转群友「开了高频还是要等很久」）：快四倍，聊停了一两个小时就来找
+        { id: "max", zh: "很高频", x: 4, note: "想念攒得快四倍，聊停了一两个小时就会来找你；刚找过你之后再找的间隔也缩到四分之一" }] },
     { id: "letter", group: "social", title: "情书", sub: "恋人按你定的频率自己提笔", globalDefault: true, charDefault: true },
     // 今日签（她 2026-10-05）：TA 每天早上按你的星座替你抽一张签发到私聊。默认关，想要的自己开、自己挑谁
     { id: "astroSign", group: "social", title: "今日签", sub: "TA 每天替你抽一张签发到私聊（按你的星座和当天）", globalDefault: false, charDefault: false },
@@ -48,7 +50,9 @@
       const migrateWeeklyOn = f.id === "weekly" && src.version === 1;
       features[f.id] = { global: migrateWeeklyOn ? true : (typeof v.global === "boolean" ? v.global : f.globalDefault), chars,
         // 频率档（她 2026-10-03：「整套乘以几倍速」）：只有带 rates 的那几样有，缺省就是中频＝原来那套
-        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : (f.rateDefault || "mid") } : {}) };
+        ...(f.rates ? { rate: f.rates.some(r => r.id === v.rate) ? v.rate : (f.rateDefault || "mid"),
+          // 每人自己的档（她 2026-10-11：「角色里面也搞一个，默认跟总开关一样，可以单独选」）：没挑过＝跟总的走
+          charRates: Object.fromEntries(Object.entries(v.charRates && typeof v.charRates === "object" ? v.charRates : {}).filter(([, r]) => f.rates.some(x => x.id === r))) } : {}) };
     });
     return { version: 2, features, legacyMerged: !!src.legacyMerged };
   }
@@ -99,16 +103,30 @@
     if (!f || !f.rates || !f.rates.some(r => r.id === rate)) return n;
     n.features[id] = { ...n.features[id], rate }; return n;
   }
-  // 这一样此刻的倍数（没有档位的一律 1）
-  function rateX(policy, id) {
+  // 这个人单独挑的档；rate 给空＝不单独挑了，回去跟总的
+  function setCharRate(policy, id, charId, rate) {
+    const n = normalize(policy), f = byId[id];
+    if (!f || !f.rates || !charId) return n;
+    const cr = { ...(n.features[id].charRates || {}) };
+    if (f.rates.some(r => r.id === rate)) cr[charId] = rate; else delete cr[charId];
+    n.features[id] = { ...n.features[id], charRates: cr }; return n;
+  }
+  // 这个人此刻用哪一档：自己挑过用自己的，没挑过跟总的
+  function rateOf(policy, id, charId) {
+    const f = byId[id]; if (!f || !f.rates) return "";
+    const p = normalize(policy).features[id];
+    return (charId && p.charRates && p.charRates[charId]) || p.rate;
+  }
+  // 这一样此刻的倍数（没有档位的一律 1）；给了 charId 就按这个人的档
+  function rateX(policy, id, charId) {
     const f = byId[id]; if (!f || !f.rates) return 1;
-    const cur = normalize(policy).features[id].rate;
+    const cur = rateOf(policy, id, charId);
     return (f.rates.find(r => r.id === cur) || { x: 1 }).x;
   }
   function setChar(policy, id, charId, on) {
     const n = normalize(policy), cur = n.features[id];
     n.features[id] = { ...cur, chars: { ...cur.chars, [charId]: !!on } }; return n;
   }
-  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setRate, rateX, setChar, absorbLegacy, turnOnFor, charOn };
+  root.AutoRefreshPolicy = { KEY, FEATURES, normalize, enabled, setGlobal, setRate, setCharRate, rateOf, rateX, setChar, absorbLegacy, turnOnFor, charOn };
   if (typeof module !== "undefined" && module.exports) module.exports = root.AutoRefreshPolicy;
 })(typeof window !== "undefined" ? window : globalThis);

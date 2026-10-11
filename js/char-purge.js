@@ -14,7 +14,12 @@
   "use strict";
   const SKIP = /^x_(characters|groups|memLib)$|cloud|ledger|outbox|sync|vault|cred|lsjournal/i;
   const owner = key => String(key).split("::room::")[0];
-  const hit = (v, ids) => v && typeof v === "object" && (ids.has(v.charId) || ids.has(v.char_id) || ids.has(v.cid));
+  // 记录里认人的那一栏不止 charId（她 2026-10-10：「重置也该带上钱包和购物外卖」「看看还有哪些会留存」）：
+  //   朋友圈、交换日记写的是 characterId；TA 送的订单、外卖、你收下的东西写的是 fromCharId；
+  //   你钱包里的流水把人藏在出处 ref.charId 里；TA 发的论坛帖写的是 authorId。
+  //   群聊消息的 senderId 不算——群聊是大家共有的，不在这儿清。
+  const hit = (v, ids) => v && typeof v === "object" && (ids.has(v.charId) || ids.has(v.char_id) || ids.has(v.cid)
+    || ids.has(v.characterId) || ids.has(v.fromCharId) || ids.has(v.authorId) || !!(v.ref && typeof v.ref === "object" && ids.has(v.ref.charId)));
   // 重置时按类挑（她 2026-10-08「出一堆开关 show 哪些会被清除，可以自行选择哪些要留」）。
   //   每张存档归到一类；没认领的都算「其他」。设置类永远不清（那是她给 TA 调的样子）。
   const CATS = [
@@ -24,7 +29,8 @@
     { id: "bond", zh: "好感和关系", desc: "好感度、你们之间的关系设定、称呼、情侣空间、亲属卡、拉黑" },
     { id: "life", zh: "日程、日记和梦", desc: "日程、日记、日历事件、时光胶囊、约会记录、平行线和梦" },
     { id: "phone", zh: "手机和社交", desc: "查手机、朋友圈、论坛、偷看记录" },
-    { id: "things", zh: "其他", desc: "约定、收藏、礼物、钱包、随身物品、购物外卖、抽卡这些剩下的" }
+    { id: "money", zh: "我的钱包和购物外卖", desc: "你钱包流水里跟 TA 有关的那几笔、TA 送你或替你付的订单和外卖记录、你收下的 TA 送的东西、你送 TA 还在路上的礼物。余额不动" },
+    { id: "things", zh: "其他", desc: "约定、收藏、TA 自己的钱包、随身物品、抽卡这些剩下的" }
   ];
   const SETTINGS = /^x_(chatSettings|offlineSettings|offlineStyles|charCurrency|avatarSwap|groupSettings|liveCfg|callAuto\w*|callStayAfterBye|phoneAuto|phoneKeep|phoneLang|phoneLooks|phoneTlKeep|voiceLib|makeup|musicCard)$/;
   function catOf(key) {
@@ -37,6 +43,7 @@
     if (/^x_(affinities|affBase|rels|couples|couple\w*|charTitle|loveLetter|tiesPos|friendGroups|blocks|kinshipCards|myKinCards)$/.test(k)) return "bond";
     if (/^x_(schedules|diaries|calEvents|capsules|dateVisits|dateAskLast|ifLines|worlds|studio)$/.test(k)) return "life";
     if (/^x_(phone\w*|moments\w*|forum\w*|snoops|peek\w*|eyesAlertLog|shua|wxReactDay|anon|anonPool)$/.test(k)) return "phone";
+    if (/^x_(walletLog|shopOrders|takeoutLog|inventory|giftOut|cartPaid)$/.test(k)) return "money";
     return "things";
   }
   // keep：这几张表不碰（删卷宗不传）；only：只清这几类（Set of CATS id，删卷宗不传＝全清）

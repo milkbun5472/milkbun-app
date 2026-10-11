@@ -45,3 +45,14 @@ export function orthographicCameraPose(pan,spanY,zoom,offset){
  const vertical=half*Math.hypot(10,16)/length,scale=Math.max(1,(vertical+2-targetY)/dy);
  return {position:{x:pan.x+10*scale,y:targetY+dy*scale,z:pan.z+16*scale},target:{x:pan.x,y:targetY,z:pan.z},far:Math.max(80,length*scale+half*2+12),fogOffset:length*(scale-1)};
 }
+
+// Fits projected bounds inside a viewport. Existing zoom is normalized away;
+// returned deltas lie on the ground so the shared viewing angle stays fixed.
+export function orthographicFrame({minX,maxX,minY,maxY,zoom=1,halfWidth,halfHeight,width,height,rightX,rightZ,upX,upZ,insets={},maxZoom=2.2,minZoom=.2}){
+ const left=Math.max(0,insets.left||0),right=Math.max(0,insets.right||0),top=Math.min(height*.72,Math.max(0,insets.top||0)),bottom=Math.min(height*.72-top,Math.max(0,insets.bottom||0));
+ const xRoom=Math.max(.2,2*(width-left-right)/width),yRoom=Math.max(.2,2*(height-top-bottom)/height);
+ const next=Math.max(minZoom,Math.min(maxZoom,xRoom/Math.max(.01,(maxX-minX)/zoom),yRoom/Math.max(.01,(maxY-minY)/zoom)));
+ const dx=(minX+maxX)/2*halfWidth/zoom-(left-right)/width*halfWidth/next,dy=(minY+maxY)/2*halfHeight/zoom-(bottom-top)/height*halfHeight/next,det=rightX*upZ-rightZ*upX;
+ if(!Number.isFinite(next)||Math.abs(det)<1e-8)return null;
+ return {zoom:next,x:(dx*upZ-dy*rightZ)/det,z:(rightX*dy-upX*dx)/det};
+}

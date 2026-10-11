@@ -25,3 +25,22 @@ export function motionPosture(profile,time){
  if(!profile)return {tilt:0,roll:0,yaw:0};const t=motionClock(time,profile),q=(t%profile.habit)/profile.habit,pulse=q>.72?Math.sin((q-.72)/.28*Math.PI):0;
  return {tilt:profile.lean,roll:Math.sin(t*.63)*profile.sway,yaw:Math.sin(t*.39)*profile.gaze*pulse};
 }
+
+export const PAIR_STYLES={
+ gentle:{label:'温柔',description:'缓缓靠近，轻轻接住',delay:.35,reach:1.1,lean:.10,sway:.008},
+ shy:{label:'害羞',description:'先看看你，迟一点伸手',delay:1.65,reach:1.6,lean:.045,sway:.003},
+ active:{label:'主动',description:'直接伸手，靠近得更快',delay:.08,reach:.65,lean:.14,sway:.012},
+ clingy:{label:'黏人',description:'靠久一点，轻轻晃一晃',delay:.22,reach:.95,lean:.20,sway:.028}
+};
+function hasPairTrait(persona,words){return String(persona).split(/[。！？；\n]/).some(clause=>words.some(word=>{const at=clause.indexOf(word);return at>=0&&!/(?:不|不是|并非|不算|并不|不太|不怎么|不像|不再|讨厌|不喜欢)\s*$/.test(clause.slice(Math.max(0,at-6),at));}));}
+export function pairProfile(profile,persona='',chosen='auto'){
+ let style=Object.hasOwn(PAIR_STYLES,chosen)?chosen:null;
+ const source=style?'chosen':'persona';
+ if(!style){
+  const inferred=inferMotionStyle(persona);
+  style=profile?.source==='chosen'?({calm:'shy',brisk:'active',relaxed:'gentle',lively:'active'}[profile.style]||'gentle'):
+   hasPairTrait(persona,['黏人','粘人','喜欢贴贴','爱撒娇'])?'clingy':hasPairTrait(persona,['害羞','腼腆','羞涩'])?'shy':({calm:'shy',brisk:'active',lively:'active'}[inferred]||'gentle');
+ }
+ return {...PAIR_STYLES[style],style,source,phase:profile?.phase||0};
+}
+export function pairProgress(elapsed,profile){const n=Math.max(0,Math.min(1,(elapsed-profile.delay)/profile.reach));return n*n*(3-2*n);}

@@ -207,7 +207,9 @@ test("谁是卧底描述必须像真人随口给短线索，禁止百科与散�
   assert.match(clue, /不要写百科、产品评测或说明书/);
   assert.match(clue, /别写成散文谜语/);
   assert.match(clue, /像饭桌上脱口而出的短话/);
-  assert.match(clue, /小时候家里有一个/);
+  // 原来钉着一条口气例句；提示词里不放内容样本（她的常规），v75.327 换成共用的 VOICE_RULE 判据 + 每人人设
+  assert.match(clue, /AC \+ SKILL_RULE \+ VOICE_RULE \+/);
+  assert.match(clue, /voiceBrief\(s\)/);
 });
 
 test("谁是卧底每局都有独立 CC 票号，新局不复用第一局旧回答", () => {

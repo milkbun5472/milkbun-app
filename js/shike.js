@@ -221,7 +221,9 @@
     const t = useTheme();
     const chars = (props.characters || []).filter(c => c && !c.npc);
     const uName = (props.profile && props.profile.name) || "你";
-    const [openId, setOpenId] = useState(null);
+    // 从聊天里那张时刻卡点「去时刻里看」进来：直接翻到这个人、停在那一张（props.focus：{ charId, key, title, ts }）
+    const [openId, setOpenId] = useState(() => (props.focus && props.focus.charId) || null);
+    const focusRef = React.useRef(props.focus || null);
     const [covers, setCovers] = useState(loadCovers);
     const [busy, setBusy] = useState("");
     const [mIdx, setMIdx] = useState(0);
@@ -238,7 +240,17 @@
     React.useEffect(() => {
       if (!openId) return;
       const n = (all[openId] || []).length; if (!n) return;
-      const go = () => { const el = mRef.current; if (!el) return; el.scrollLeft = el.scrollWidth; setMIdx(n - 1); };
+      const f = focusRef.current && focusRef.current.charId === openId ? focusRef.current : null;
+      focusRef.current = null;
+      let at = -1;
+      if (f) {
+        const list = all[openId] || [];
+        at = f.key ? list.findIndex(x => x && x.key === f.key) : -1;
+        if (at < 0 && f.title) list.forEach((x, k) => { if (x && x.title === f.title && (at < 0 || Math.abs((x.ts || 0) - (f.ts || 0)) < Math.abs((list[at].ts || 0) - (f.ts || 0)))) at = k; });
+      }
+      const go = () => { const el = mRef.current; if (!el) return;
+        if (at >= 0) { const w = el.firstChild ? el.firstChild.getBoundingClientRect().width + 14 : el.clientWidth; el.scrollLeft = at * w; setMIdx(at); return; }
+        el.scrollLeft = el.scrollWidth; setMIdx(n - 1); };
       const t1 = setTimeout(go, 0); return () => clearTimeout(t1);
     }, [openId]);
     const setArt = (cid, key, v) => { const n = Object.assign({}, arts); n[cid] = Object.assign({}, n[cid] || {}); if (v) n[cid][key] = v; else delete n[cid][key]; setArts(n); try { saveJSON("x_shikeArt", n); } catch (e) {} };
@@ -609,7 +621,7 @@
   //   ① 点一下展开看全（原来正文写死两行、后面直接截掉，点了也没用）；
   //   ② 长相是一张夹进本子里的纪念签：左边一条丝带、右上一枚日期圆戳、标题下一道细线、
   //      底边一排撕口——全用主题的颜色，换皮肤也跟着变。
-  function ShikeShareCard({ m, isU }) {
+  function ShikeShareCard({ m, isU, charId }) {
     const t = useTheme(), sk = (m && m.shike) || {}, d = new Date(sk.ts || m.ts);
     const [open, setOpen] = useState(false);
     const lines = (sk.lines || []).filter(Boolean);
@@ -617,30 +629,58 @@
     const long = body.length > 46 || lines.length > 2;
     const ribbon = t.accent || t.tint || t.ink;
     const md = (d.getMonth() + 1) + "." + d.getDate();
+    // 她 2026-10-11：「存进时刻卡略单调」——改成一枚系着绳的纪念签：
+    //   左上打孔穿一截绳、纸面是淡淡的横格、标题底下一道荧光笔、
+    //   每句对话把「谁说的」拎成小签名、右上一枚双圈邮戳、底边两个票根缺口。全用主题色，换皮肤跟着变。
+    const say = (ln, k) => {
+      const mm = /^(.{1,8}?)[：:]\s*(.+)$/.exec(String(ln));
+      return h("div", { key: k, style: { display: "flex", gap: 8, alignItems: "baseline", minHeight: 26 } },
+        mm ? h("span", { style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10, letterSpacing: 1, color: ribbon, padding: "1px 6px", borderRadius: 999, border: "1px solid " + ribbon, opacity: .8 } }, mm[1]) : null,
+        h("span", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: "26px", color: t.ink, opacity: .82, whiteSpace: "pre-wrap", minWidth: 0 } }, mm ? mm[2] : ln));
+    };
+    const notch = side => h("div", { "aria-hidden": "true", style: { position: "absolute", [side]: -8, top: -8, width: 16, height: 16, borderRadius: 999, background: t.bg, border: "1px solid " + t.line } });
     return h("div", { "data-wk": "shikeshare", "data-open": open ? "1" : "0",
         onClick: () => long && setOpen(v => !v), role: long ? "button" : undefined, "aria-expanded": long ? (open ? "true" : "false") : undefined,
-        style: { position: "relative", width: 240, borderRadius: "4px 14px 14px 4px", overflow: "hidden", cursor: long ? "pointer" : "default",
-          background: "linear-gradient(170deg, " + t.bg2 + " 0%, " + t.bg2 + " 70%, " + t.bg + " 100%)",
-          border: "1px solid " + t.line, boxShadow: "0 6px 16px rgba(40,30,20,.10)" } },
-      // 左边那条丝带
-      h("div", { "aria-hidden": "true", style: { position: "absolute", left: 0, top: 0, bottom: 0, width: 5, background: ribbon, opacity: .85 } }),
-      sk.img ? h("div", { style: { position: "relative", height: 120, background: t.bg, marginLeft: 5 } }, h(MomentArt, { img: sk.img })) : null,
-      h("div", { style: { position: "relative", padding: "12px 14px 10px 19px" } },
-        // 右上那枚日期圆戳
-        h("div", { "aria-hidden": "true", style: { position: "absolute", right: 10, top: 8, width: 44, height: 44, borderRadius: 999,
-            border: "1.5px solid " + ribbon, color: ribbon, opacity: .7, transform: "rotate(-12deg)",
-            display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 } },
-          h("span", { style: { fontFamily: F_BODY, fontSize: 8, letterSpacing: 1 } }, d.getFullYear()),
-          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13 } }, md)),
-        h("div", { style: { fontFamily: F_BODY, fontSize: 10, letterSpacing: 3, color: t.fog, paddingRight: 48 } }, sk.byChar ? "TA 存进时刻" : "时刻"),
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 17, lineHeight: 1.35, color: t.ink, marginTop: 6, paddingRight: 44, paddingBottom: 7, borderBottom: "1px solid " + t.line } }, "「" + (sk.title || "") + "」"),
-        body ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 8, whiteSpace: "pre-wrap" },
-            open || !long ? {} : { display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" }) }, body) : null),
-      // 底边一排撕口 + 展开/收起
-      h("div", { style: { position: "relative", marginLeft: 5, borderTop: "1px dashed " + t.line, padding: "6px 14px 7px",
-          display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
-        h("span", null, sk.byChar ? "TA 记下的" : "你们的一刻"),
-        long ? h("span", { style: { color: ribbon } }, open ? "收起" : "展开看全 ›") : null));
+        style: { position: "relative", width: 248, paddingTop: 14, cursor: long ? "pointer" : "default" } },
+      // 绳子：从签上的孔里绕出来
+      h("svg", { "aria-hidden": "true", width: 60, height: 34, viewBox: "0 0 60 34", style: { position: "absolute", left: 6, top: -6, overflow: "visible", zIndex: 2 } },
+        h("path", { d: "M17 37 C 4 24, 4 4, 22 2 S 52 8, 58 -4", fill: "none", stroke: ribbon, strokeWidth: 1.6, strokeLinecap: "round", opacity: .75 })),
+      h("div", { style: { position: "relative", borderRadius: "6px 16px 16px 16px", overflow: "hidden",
+          background: t.bg2, border: "1px solid " + t.line, boxShadow: "0 8px 20px rgba(40,30,20,.12), 0 1px 0 rgba(255,255,255,.6) inset" } },
+        // 打孔
+        h("div", { "aria-hidden": "true", style: { position: "absolute", left: 16, top: 12, width: 11, height: 11, borderRadius: 999, background: t.bg, border: "1.5px solid " + ribbon, opacity: .9, zIndex: 1 } }),
+        sk.img ? h("div", { style: { position: "relative", height: 128, background: t.bg } }, h(MomentArt, { img: sk.img })) : null,
+        h("div", { style: { position: "relative", padding: "12px 16px 12px 18px" } },
+          // 双圈邮戳
+          h("div", { "aria-hidden": "true", style: { position: "absolute", right: 10, top: 8, width: 50, height: 50, borderRadius: 999,
+              border: "1px solid " + ribbon, boxShadow: "0 0 0 3px " + t.bg2 + ", 0 0 0 4px " + ribbon, color: ribbon, opacity: .62, transform: "rotate(-14deg)",
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", lineHeight: 1.05 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 7.5, letterSpacing: 1.5 } }, d.getFullYear()),
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14 } }, md),
+            h("span", { style: { fontSize: 7, marginTop: 1 } }, "✦")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 9.5, letterSpacing: 3, color: ribbon, paddingLeft: 18, paddingRight: 56 } }, "✦ " + (sk.byChar ? "TA 存进时刻" : "时刻")),
+          // 标题：底下压一道荧光笔
+          h("div", { style: { marginTop: 10, paddingRight: 50 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 19, lineHeight: 1.4, color: t.ink,
+                backgroundImage: "linear-gradient(transparent 62%, " + ribbon + "33 62%)", boxDecorationBreak: "clone", WebkitBoxDecorationBreak: "clone", padding: "0 2px" } }, sk.title || "")),
+          // 横格纸上的对话
+          lines.length ? h("div", { style: Object.assign({ position: "relative", marginTop: 10, paddingTop: 2,
+              backgroundImage: "repeating-linear-gradient(transparent 0, transparent 25px, " + t.line + " 25px, " + t.line + " 26px)" }, open || !long ? {} : { maxHeight: 80, overflow: "hidden" }) },
+            lines.map(say)) : null,
+          !open && long ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: "22px" } }, "……") : null,
+          // 角落一枚大引号水印
+          h("div", { "aria-hidden": "true", style: { position: "absolute", right: 10, bottom: -34, fontFamily: "Georgia, serif", fontSize: 72, color: ribbon, opacity: .08, pointerEvents: "none" } }, "\u201D")),
+        // 票根那一截：两个缺口 + 虚线
+        h("div", { style: { position: "relative", borderTop: "1.5px dashed " + t.line, padding: "8px 16px 9px 18px",
+            display: "flex", justifyContent: "space-between", alignItems: "center", fontFamily: F_BODY, fontSize: 10.5, color: t.fog } },
+          notch("left"), notch("right"),
+          h("span", { style: { letterSpacing: 1 } }, sk.byChar ? "TA 记下的这一刻" : "你们的一刻"),
+          h("span", { style: { display: "flex", gap: 12, alignItems: "center" } },
+            long ? h("span", { style: { color: ribbon } }, open ? "收起" : "展开 ›") : null,
+            // 去时刻里看（她 2026-10-11：「角色写的时刻卡不能跳转」）：翻到时刻里这个人、停在这一张
+            charId && typeof window !== "undefined" && window.__openShike ? h("button", { "data-wk": "shikesharego",
+              onClick: e => { e.stopPropagation(); window.__openShike(charId, { key: m.shikeKey || "", title: sk.title || "", ts: sk.ts || m.ts }); },
+              className: "active:opacity-60", style: { minHeight: 32, padding: "0 2px", fontFamily: F_BODY, fontSize: 10.5, color: ribbon, background: "transparent", border: "none" } }, "去时刻里看 ›") : null))));
   }
   g.ShikeShareCard = ShikeShareCard;
 

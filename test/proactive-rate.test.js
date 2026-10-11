@@ -20,6 +20,6 @@ test("主动私聊有低中高三档，缺省中频＝原来那套；存进去�
 test("倍速乘在想念的钟上、冷却跟着缩放；阈值和算法不动", () => {
   assert.match(app, /const mins = \(now - baseTs\) \/ 60000 \* _px;/);
   assert.match(app, /crossed = baseTs \+ done \/ _px \* 60000/, "补记的时间戳要换回真实时间");
-  assert.match(app, /const _cool = 25 \* 60000 \/ proactiveX\(\);/);
+  assert.match(app, /const _cool = 25 \* 60000 \/ proactiveX\(cid\);/);   // 按这个人自己的档（v75.303 起每人能单独挑）
   assert.match(scr, /f\.rates && cfg\.global && props\.onSetRate/);
 });

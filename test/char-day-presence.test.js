@@ -1,17 +1,44 @@
-const test=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),vm=require('node:vm');
-test('实际进屋状态只留内存，按角色隔离、离开清除，旧现场自动过期',()=>{
- let now=1;const env={Date:{now:()=>now}};vm.createContext(env);vm.runInContext(fs.readFileSync('js/char-day-link.js','utf8'),env);
- const link=env.CharDayLink;link.setPresence('a',{present:true,interaction:'hug',interactionLabel:'拥抱',interactionPhase:'walking-you'});
- assert.match(link.presenceFor('a'),/正在走到拥抱/);assert.equal(link.presenceFor('b'),'');link.setPresence('a',{present:true,interaction:'hug',interactionLabel:'拥抱',interactionPhase:'active'});assert.match(link.presenceFor('a'),/拥抱中/);
- now=16002;assert.equal(link.presenceFor('a'),'');now=20000;link.setPresence('a',{present:true,seated:true});assert.match(link.presenceFor('a'),/已坐下/);link.setPresence('a',null);assert.equal(link.presenceFor('a'),'');
-});
-test('共用上下文接现场状态，群中仍落在对应角色私有背景，动作不另开模型或聊天writer',()=>{
- const app=fs.readFileSync('js/app.js','utf8'),engine=fs.readFileSync('js/engine.js','utf8'),scene=fs.readFileSync('apps/fairy-garden/day/together.mjs','utf8'),page=fs.readFileSync('js/char-day.js','utf8');
- assert.match(app,/charDayPresence: window\.CharDayLink\?\.presenceFor\(char\.id\)/);assert.match(app,/charDayPresence: window\.CharDayLink\?\.presenceFor\(c\.id\)/);assert.match(app,/memberCharDayPresence: backgroundMap\("charDayPresence"\)/);assert.match(engine,/if \(ctx\.charDayPresence\) parts\.push\(ctx\.charDayPresence\)/);assert.match(engine,/ctx\.memberCharDayPresence\[c\.id\]/);
- assert.doesNotMatch(scene,/saveJSON|localStorage|callAI|runProbe|pChat/);assert.match(page,/GardenDressControls/);assert.match(page,/saveHomeChange\("me","looks"/);assert.match(page,/cdayinteraction/);assert.match(page,/cdayprofessional/);assert.match(page,/safe-area-inset-bottom\) \* 0\.4/);
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const vm = require('node:vm');
+const { fixture, wire, evaluate, sections } = require('./_group-background-fixture.cjs');
+
+test('TA一天的日程适配器不再记录或生成进屋通知，宿主与公共提示不接现场状态', () => {
+  const link = fs.readFileSync('js/char-day-link.js', 'utf8');
+  const env = {}; vm.createContext(env); vm.runInContext(link, env);
+  assert.equal(env.CharDayLink.setPresence, undefined);
+  assert.equal(env.CharDayLink.presenceFor, undefined);
+  for (const file of ['js/app.js', 'js/engine.js', 'js/char-day.js', 'js/char-day-link.js', 'js/chat-rooms.js']) {
+    assert.doesNotMatch(fs.readFileSync(file, 'utf8'), /charDayPresence|memberCharDayPresence|setPresence|presenceFor|对方已主动进入共同小屋|TA的一天·此刻的小世界画面/, file);
+  }
 });
 
-test('小屋现场沿原房间认知闸隔离，庭院样貌按实际小人writer读取',()=>{
- const rooms=require('../js/chat-rooms.js'),ctx={charDayPresence:'拥抱中'};assert.equal(rooms.gateCtx(ctx,{cognition:{}}).charDayPresence,'');assert.equal(rooms.gateCtx(ctx,{cognition:{otherScenes:true}}).charDayPresence,'拥抱中');
- const game=fs.readFileSync('apps/fairy-garden/game.mjs','utf8'),host=fs.readFileSync('js/fairy-garden.js','utf8'),page=fs.readFileSync('js/char-day.js','utf8');assert.match(game,/else data=\{\.\.\.data,look:merge\(data\.look\)\}/);assert.match(host,/worldOf\(loadJSON\(key,null\)\|\|\{\},"garden"\)\?\.look/);assert.match(page,/!book&&!homeOptions&&!current\.preview/);assert.match(page,/visibility:mePanel\?"hidden":"visible"/);
+for (const surface of ['online', 'call', 'offline']) test(surface + '：旧现场字段不能进入成员提示，原人设、行程和私有档案照常给', () => {
+  const env = wire(fixture());
+  const marker = '旧小世界现场哨兵';
+  env.window.CharDayLink = { presenceFor() { throw Error('聊天仍读取进屋状态'); } };
+  env.ctx.memberCharDayPresence = { a: marker, b: marker };
+  const collect = env.groupBackgroundFor;
+  env.groupBackgroundFor = c => ({ ...collect(c), charDayPresence: marker });
+  if (surface === 'offline') env.userName = '读者';
+  const text = evaluate(sections[surface], env, 'memberDesc');
+  assert.doesNotMatch(text, new RegExp(marker));
+  assert.match(text, /甲的人设/); assert.match(text, /乙的人设/);
+  assert.match(text, /a私有档案/); assert.match(text, /b私有档案/);
+  if (surface !== 'offline') assert.match(text, /a行程/);
+});
+
+test('现场互动与样貌仍沿原小人机制，物理动作不另开模型或写聊天', () => {
+  const scene = fs.readFileSync('apps/fairy-garden/day/together.mjs', 'utf8');
+  const page = fs.readFileSync('js/char-day.js', 'utf8');
+  const game = fs.readFileSync('apps/fairy-garden/game.mjs', 'utf8');
+  const host = fs.readFileSync('js/fairy-garden.js', 'utf8');
+  assert.doesNotMatch(scene, /saveJSON|localStorage|callAI|runProbe|pChat/);
+  assert.match(page, /GardenDressControls/); assert.match(page, /saveHomeChange\("me","looks"/);
+  assert.match(page, /cdayinteraction/); assert.match(page, /cdayprofessional/);
+  assert.match(page, /safe-area-inset-bottom\) \* 0\.4/);
+  assert.match(game, /else data=\{\.\.\.data,look:merge\(data\.look\)\}/);
+  assert.match(host, /worldOf\(loadJSON\(key,null\)\|\|\{\},"garden"\)\?\.look/);
+  assert.match(page, /visibility:mePanel\?"hidden":"visible"/);
 });
