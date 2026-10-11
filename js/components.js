@@ -1459,6 +1459,30 @@ function useKbLift() {
   }, []);
   return lift;
 }
+// 在 Safari 浏览器里直接开（不是加到主屏幕）时，聊天页底部被键盘那排「⌃ ⌄ ✓」压住（群友 2026-10-11）。
+//   病根在根节点的 100vh（量到的是工具栏和键盘后面那一截），可根节点不许动（施工规则/home-screen-layout.md），
+//   所以只在聊天页自己身上补：键盘弹起时，量出聊天页底边比看得见的区域多出多少，就在底下垫多少，
+//   输入栏连同引用条一起被顶到键盘上面。主屏幕模式一律不垫（那边她调好了，原样不动）。
+//   直接写 DOM 的 paddingBottom，不进 React 的 style——两个聊天页的 style 各自按壁纸分支拼，不去碰它们。
+function useBrowserKbPad() {
+  const ref = useRef(null);
+  useEffect(() => {
+    const vv = window.visualViewport;
+    const standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+    if (!vv || standalone) return;
+    const put = () => {
+      const el = ref.current; if (!el) return;
+      const kbOpen = window.innerHeight - vv.height > KB_MIN_PX;
+      if (!kbOpen) { el.style.paddingBottom = ""; return; }
+      const r = el.getBoundingClientRect();
+      const over = Math.round(r.bottom - (vv.offsetTop + vv.height));
+      el.style.paddingBottom = over > 0 ? over + "px" : "";
+    };
+    vv.addEventListener("resize", put); vv.addEventListener("scroll", put); put();
+    return () => { vv.removeEventListener("resize", put); vv.removeEventListener("scroll", put); if (ref.current) ref.current.style.paddingBottom = ""; };
+  }, []);
+  return ref;
+}
 // 全 App 共用的确认入口。iOS/PWA 允许用户永久屏蔽原生 confirm；一旦被屏蔽，
 // 所有“先 confirm 再删除”的按钮都会静默 no-op，看起来就是删不掉。
 // 各独立 App 只提交动作，真正的可见弹层由 App 根节点统一承载。
@@ -9675,8 +9699,10 @@ function ChatThread({
     setQuoted(String(mm.content));
   } });
   useCardPressMenu(setMenu, selMode);
+  const kbPadRef = useBrowserKbPad();
   return /*#__PURE__*/React.createElement("div", {
     className: "h-full flex flex-col",
+    ref: kbPadRef,
     "data-wk": "chat",
     style: dsp.chatBg ? {
       backgroundImage: "url(\"" + resolveImg(dsp.chatBg) + "\")",
@@ -17008,8 +17034,10 @@ function GroupThread({
   // 白＝等我接话（他们不自己聊），黑＝他们可以自己去聊。翻的就是群设置里那个「群里自发聊天」，
   // 不另立一个会跟它打架的状态（她 2026-08-27 定的形状：开关放设置旁，状态画在底下那颗按钮上）。
   const gHold = gs.autoChat === false;
+  const kbPadRef = useBrowserKbPad();
   return h("div", {
     "data-wk": "chat",
+    ref: kbPadRef,
     className: "h-full flex flex-col",
     style: gChatBg ? {
       backgroundImage: "url(\"" + resolveImg(gChatBg) + "\")",
