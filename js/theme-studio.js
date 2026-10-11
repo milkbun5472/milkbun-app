@@ -1009,7 +1009,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.384", changed: "五子棋观战开局多了「各自怎么下」（gomokustrength），棋盘下面多了台下插话行。", none: "" };
+  const BRIEF_STAMP = { v: "v75.385", changed: "共餐记录新增手动分享入口，沿既有44px按钮和主聊天窗；保留五子棋观战、棋力设置及其挂点。", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
