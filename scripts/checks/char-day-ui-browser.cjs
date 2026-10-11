@@ -1,7 +1,7 @@
 // Exercise the actual scene and native page controls. Plans come from App's
 // existing saveSchedDay writer; the outing must leave its output untouched.
 const pw=require(process.env.PLAYWRIGHT_MODULE||'playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
-const base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'webkit',out=process.env.DAY_EVIDENCE||'/tmp/char-day-free-outings';fs.mkdirSync(out,{recursive:true});
+const base=process.env.DAY_URL||'http://127.0.0.1:18985',engine=process.env.DAY_ENGINE||'webkit',out=process.env.DAY_EVIDENCE||'/tmp/char-day-ui-refresh';fs.mkdirSync(out,{recursive:true});
 const source=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),a=source.indexOf('  const saveSchedDay ='),b=source.indexOf('  const applySchedChange =',a);assert.ok(a>=0&&b>a);const writer=source.slice(a,b);
 (async()=>{const browser=await pw[engine].launch(engine==='webkit'?{headless:true}:{channel:'chrome',headless:true}),p=await browser.newPage({viewport:{width:390,height:844}}),errors=[],report={engine,cases:[],layouts:[]};let frame;
 try{p.setDefaultTimeout(45000);p.on('pageerror',e=>errors.push(e.message));await p.clock.setFixedTime(new Date('2026-10-10T10:05:00Z'));await p.goto(base);await p.waitForFunction(()=>window.CharDayApp&&typeof txtVaultState==='function'&&txtVaultState().ok);
