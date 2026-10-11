@@ -33,12 +33,13 @@ test("只收合法的倍数，1 不存", () => {
 test("编出来的是整页缩放，全 App 那一档是底数", () => {
   const i = studioSrc.indexOf("    Object.entries(cleanZoom(p.pageZoom)).forEach");
   assert.ok(i > 0, "compile 没编 zoom");
-  const seg = studioSrc.slice(i, i + 600);
+  const seg = studioSrc.slice(i, i + 1100);
   assert.ok(/page === "all" \? 'html:not\(\[data-lisa-screen="home"\]\) body' : 'html\[data-lisa-screen="' \+ page \+ '"\] body'/.test(seg),
     "作用域不对：全 App 该是除主屏以外的 body（主屏放大会把设置挤出屏幕），单页该挂在那一页的 html 上");
   assert.ok(/"\{zoom:" \+ z \+ ";/.test(seg), "编的不是 zoom");
   // 群友 2026-10-11：调小以后右边、底下一圈灰底——宽高要除回去，缩完还是一整屏
   assert.ok(/width:calc\(100vw \/ " \+ z \+ "\);height:calc\(100vh \/ " \+ z \+ "\)/.test(seg), "宽高没除回去，缩小会露灰边、放大会撑出屏外");
+  assert.ok(/#root' : 'html\[data-lisa-screen="' \+ page \+ '"\] #root'\) \+ "\{height:calc\(100vh \/ " \+ z/.test(seg), "#root 也是 100vh，没除回去底下还空一截");
   // ⚠️排在她自己写的 CSS 前面，她想再压一道照样压得住
   assert.ok(i < studioSrc.indexOf("    Object.entries(p.pageCSS || {}).forEach"), "排在她的 CSS 后面了，她就盖不过它");
 });

@@ -837,7 +837,9 @@
     // 大小排在她自己写的 CSS 【前面】：她想在 CSS 里再压一道，照样压得住。
     Object.entries(cleanZoom(p.pageZoom)).forEach(([page, z]) => {
       blocks.push("/* zoom " + page + " */\n"
-        + (page === "all" ? 'html:not([data-lisa-screen="home"]) body' : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";width:calc(100vw / " + z + ");height:calc(100vh / " + z + ");}");
+        + (page === "all" ? 'html:not([data-lisa-screen="home"]) body' : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";width:calc(100vw / " + z + ");height:calc(100vh / " + z + ");}"
+        // #root 自己也写着 100vh（index.html），它在缩过的 body 里面，一样要除回去，不然底下还空一截（她 2026-10-11 截图）
+        + (page === "all" ? 'html:not([data-lisa-screen="home"]) #root' : 'html[data-lisa-screen="' + page + '"] #root') + "{height:calc(100vh / " + z + ");}");
     });
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
       if (!css || page === "all") return;
