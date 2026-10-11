@@ -7482,7 +7482,9 @@ function groupBackgroundSegments(c, background, uName, opts) {
 function charLangLine(c) {
   const l = String((c && c.lang) || "").trim();
   if (!l || /^(中文|汉语|普通话|chinese|zh)$/i.test(l)) return "";
-  return "\n【平时说的话】" + c.name + "平时说" + l + "：跟她说话、跟别人说话、发朋友圈，用的都是" + l + "。人设里写了什么时候换别的话（急了冒一句、对谁说什么），照人设来。";
+  // 只管说出口的话（群里 2026-10-11：设了粤语，线下的旁白、动作描写也全写成了粤语）——
+  //   旁白和动作、心理描写不是 TA 说的话，照常用简体中文写，读的人要看得懂。
+  return "\n【平时说的话】" + c.name + "平时说" + l + "：跟她说话、跟别人说话、发朋友圈，用的都是" + l + "。这只管【说出口的话】：线下的旁白、动作、神态、心理描写不是" + c.name + "说的话，照常用简体中文写。人设里写了什么时候换别的话（急了冒一句、对谁说什么），照人设来。";
 }
 function groupPersonaText(persona, budget) {
   const t = String(persona == null ? "" : persona).trim();

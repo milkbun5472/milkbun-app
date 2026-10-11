@@ -12758,7 +12758,8 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size,
   const lang = zhReady ? (_lang || "外语") : _lang;
   const [open, setOpen] = useState(!!autoShow);
   const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
-  const [zh, setZh] = useState(() => zhReady || (cached && cached.zh) || "");
+  // 缓存里早先翻回来的那份可能是繁体，摆出来前换成简体
+  const [zh, setZh] = useState(() => { const z = zhReady || (cached && cached.zh) || ""; return z && typeof toSimplified === "function" ? toSimplified(z) : z; });
   const [by, setBy] = useState(() => zhReady ? "随消息提供" : (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -12768,7 +12769,8 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size,
     if (zh || busy) return;
     setBusy(true); setErr("");
     // 长消息走切块版：免费接口是 GET 带 query，整段太长会被截断或直接失败
-    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); setZh(r.zh); setBy(r.by || ""); }
+    // 点「译」翻回来的也换成简体（群里 2026-10-11：「有时候翻译是繁体字」——免费接口翻粤语常回繁体，随消息来的那份上面已经换过）
+    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); setZh(typeof toSimplified === "function" ? toSimplified(r.zh) : r.zh); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
