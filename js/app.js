@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.377";
+const APP_VERSION = "v75.378";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -21116,7 +21116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const momentReplies = async (mom, opts) => {
     const o = opts || {};
     const more = !!o.more, text = o.text || "", replyTo = o.replyTo || null;
-    const meName0 = profile.name || "我";
+    const meName0 = momentMeName(mom);
     if (!active || !mom) return;
     const author = characters.find(c => c.id === mom.characterId);
     const isMine = !author && mom.mine;
@@ -21207,14 +21207,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
     }
   };
+  // 在谁的朋友圈下面说话，就用 TA 认的那张面具上的名字（群友 2026-10-11：「朋友圈回复只能按主面具的名字吗」）。
+  //   自己发的那条、或者认不出发帖人，还是主面具。跟聊天里 profileFor 是同一张对照，不另存一份。
+  const momentMeName = mom => {
+    const a = mom && mom.characterId && characters.find(c => c.id === mom.characterId);
+    return (a && (profileFor(a.id) || {}).name) || profile.name || "我";
+  };
   const commentMoment = async (id, text, replyTo) => {
-    const meName0 = profile.name || "我";
+    const meName0 = momentMeName(moments.find(m => m.id === id));
     // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
     const storedText = replyTo ? "回复 " + replyTo + "：" + text : text;
     pMom(p => p.map(m => m.id === id ? {
       ...m,
       comments: [...(m.comments || []), {
         author: meName0,
+        mine: true,
         text: storedText
       }]
     } : m));
@@ -21237,8 +21244,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const regenMomentComments = async id => {
     const mom = moments.find(m => m.id === id);
     if (!mom || momentMoreInflight.current[id]) return;
-    const meName0 = profile.name || "我";
-    const kept = (mom.comments || []).filter(c => c && (c.author === meName0 || c.author === "我"));
+    const meName0 = momentMeName(mom);
+    const kept = (mom.comments || []).filter(c => c && (c.mine || c.author === meName0 || c.author === (profile.name || "我") || c.author === "我"));
     pMom(p => p.map(m => m.id === id ? { ...m, comments: kept } : m));
     momentMoreInflight.current[id] = true;
     setGen(g => ({ ...g, momentMore: id }));
