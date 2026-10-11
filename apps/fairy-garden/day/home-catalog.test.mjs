@@ -4,7 +4,7 @@ import {HOME_CATALOG,HOME_LIMIT,homePlacements,homeFurniture} from './home-catal
 import {addHomeFurniture,changeHomeFurniture,changeHomeRoom,checkHomeLayout,restoreHomeLayout} from './home-layout.mjs';
 
 test('所有家具款式可添入真实房间，同款是独立实例，名称尺寸与渲染共用目录',()=>{
- assert.equal(HOME_CATALOG.length,72);
+ assert.equal(HOME_CATALOG.length,75);
  for(const item of HOME_CATALOG){const added=addHomeFurniture({},item.id);assert.equal(added.ok,true,item.id);const p=homeFurniture(added.placements).find(p=>p.id===added.selected);assert.equal(p.catalogId,item.id);assert.equal(p.w,item.w);assert.equal(p.d,item.d);assert.equal(checkHomeLayout(added.placements).ok,true);}
  const first=addHomeFurniture({},'chair'),second=addHomeFurniture(first.placements,'chair');assert.notEqual(first.selected,second.selected);assert.equal(homeFurniture(second.placements).filter(p=>p.catalogId==='chair').length,4);
  const color=changeHomeFurniture(second.placements,first.selected,{color:'#123456',material:'metal'});assert.equal(color.ok,true);assert.equal(color.placements[first.selected].material,'metal');assert.equal(color.placements[second.selected].color,'');assert.equal(second.placements[first.selected].color,'');
@@ -29,5 +29,5 @@ test('墙地面和单件饰面不改碰撞坐睡点，失效新实例收纳修�
 });
 test('房间放满时新家具进收纳，留住实例而不挤坏现有路线',()=>{
  let raw={},stored=0;for(let i=0;i<12;i++){const added=addHomeFurniture(raw,'wood-bed');assert.equal(added.ok,true);raw=added.placements;if(raw[added.selected].stored){stored++;assert.match(added.notice,/收纳/);assert.equal(added.map.furniture.some(p=>p.id===added.selected),false);}}
- assert.ok(stored>0);assert.equal(homeFurniture(raw).length,24);assert.equal(checkHomeLayout(raw).ok,true);
+ assert.ok(stored>0);assert.equal(homeFurniture(raw).length,27);assert.equal(checkHomeLayout(raw).ok,true);
 });

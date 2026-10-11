@@ -8,9 +8,9 @@ import {MAPS,findPath,segmentClear} from '../world.mjs';
 test('三档扩建保留旧家具与坐睡点，门口和导航沿真实新边界',()=>{
  const old=homePlacements(),base=checkHomeLayout(old);
  for(const [size,dimensions]of Object.entries(HOME_SIZES)){
-  const next=changeHomeRoom(old,{size});assert.ok(next.ok,size);assert.deepEqual(next.map.bounds,{w:dimensions.w,d:dimensions.d});
-  for(const id of Object.keys(old).filter(id=>id!=='$room'))assert.deepEqual(next.placements[id],old[id]);
-  assert.deepEqual(next.map.spots,base.map.spots);assert.equal(next.map.spawn.z,dimensions.d/2-.7);
+  const next=changeHomeRoom(old,{size});assert.ok(next.ok,size);assert.deepEqual(next.map.bounds,{w:dimensions.w+10.4,d:dimensions.d});
+  for(const id of Object.keys(old).filter(id=>id!=='$room'&&!/^home-(shower|basin|toilet)$/.test(id)))assert.deepEqual(next.placements[id],old[id]);
+  assert.deepEqual(next.map.spots.filter(s=>!['shower','wash-hands','toilet'].includes(s.action)),base.map.spots.filter(s=>!['shower','wash-hands','toilet'].includes(s.action)));assert.equal(next.map.spawn.z,dimensions.d/2-.7);
   const previous=MAPS.dayHome;MAPS.dayHome=next.map;
   try{for(const spot of next.map.spots){const route=findPath(next.map.spawn,spot.target,'dayHome');assert.ok(route?.length);let at=next.map.spawn;for(const step of route){assert.ok(segmentClear(at,step,'dayHome'));at=step;}}}finally{MAPS.dayHome=previous;}
  }

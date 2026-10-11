@@ -1,43 +1,43 @@
-import './kitchen.js?v=fg-932cb68b41b7219d';
-import {createLunchCarry} from './lunch-carry.mjs?v=fg-932cb68b41b7219d';
-import {createKitchenView} from './kitchen-view.mjs?v=fg-932cb68b41b7219d';
+import './kitchen.js?v=fg-861659188db2f738';
+import {createLunchCarry} from './lunch-carry.mjs?v=fg-861659188db2f738';
+import {createKitchenView} from './kitchen-view.mjs?v=fg-861659188db2f738';
 const kitchenView=createKitchenView();
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-932cb68b41b7219d';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-932cb68b41b7219d';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-932cb68b41b7219d';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-861659188db2f738';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-861659188db2f738';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-861659188db2f738';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-932cb68b41b7219d';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-932cb68b41b7219d';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-932cb68b41b7219d';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-932cb68b41b7219d';
-import {seatLook} from '../wardrobe.mjs?v=fg-932cb68b41b7219d';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-932cb68b41b7219d';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-932cb68b41b7219d';
-import {stepRoute} from '../locomotion.mjs?v=fg-932cb68b41b7219d';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-932cb68b41b7219d';
-import {updateWorkScene} from './work-scene.mjs?v=fg-932cb68b41b7219d';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-932cb68b41b7219d';
-import {activityPose} from './activity.mjs?v=fg-932cb68b41b7219d';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-932cb68b41b7219d';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-861659188db2f738';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-861659188db2f738';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-861659188db2f738';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-861659188db2f738';
+import {seatLook} from '../wardrobe.mjs?v=fg-861659188db2f738';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-861659188db2f738';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-861659188db2f738';
+import {stepRoute} from '../locomotion.mjs?v=fg-861659188db2f738';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame} from '../view-controls.mjs?v=fg-861659188db2f738';
+import {updateWorkScene} from './work-scene.mjs?v=fg-861659188db2f738';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-861659188db2f738';
+import {activityPose} from './activity.mjs?v=fg-861659188db2f738';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-861659188db2f738';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-932cb68b41b7219d';
-import {createSpaceView} from './space-view.mjs?v=fg-932cb68b41b7219d';
-import {setHomeClock} from './home-shell.mjs?v=fg-932cb68b41b7219d';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-932cb68b41b7219d';
-import {createTogether} from './together.mjs?v=fg-932cb68b41b7219d';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-932cb68b41b7219d';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-932cb68b41b7219d';
-import {CHORES,chorePlans,choreIntent} from './chores.mjs?v=fg-932cb68b41b7219d';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-932cb68b41b7219d';
-import {createSceneVisit} from './visit.mjs?v=fg-932cb68b41b7219d';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-932cb68b41b7219d';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-932cb68b41b7219d';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-932cb68b41b7219d';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-861659188db2f738';
+import {createSpaceView} from './space-view.mjs?v=fg-861659188db2f738';
+import {setHomeClock} from './home-shell.mjs?v=fg-861659188db2f738';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-861659188db2f738';
+import {createTogether} from './together.mjs?v=fg-861659188db2f738';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-861659188db2f738';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-861659188db2f738';
+import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-861659188db2f738';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-861659188db2f738';
+import {createSceneVisit} from './visit.mjs?v=fg-861659188db2f738';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-861659188db2f738';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-861659188db2f738';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-861659188db2f738';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-932cb68b41b7219d';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-861659188db2f738';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-861659188db2f738';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -174,7 +174,8 @@ function strolling(){return !!activity?.stroll||activity?.action==='walk'&&activ
 function destination(p){
   seat=null;bed=null;hostChore=null;hostChoreManual=false;hostChoreVisual?.hide();
   if(p.stroll)return {...MAPS[map].spawn};
-  if(map==='dayHome'&&p.phase==='work'&&p.action===snapshot?.presentation?.action&&!snapshot?.editing&&!freeOuting()){const kind=choreIntent(snapshot?.slot),v=visitor?.inspect(),plan=kind&&chorePlans(MAPS[map],kind,position,v?.present?(v.seat||v.position):null)[0];if(plan){hostChore=plan;yaw=plan.heading;return {...plan.at};}}
+  if(map==='dayHome'&&CHORES[p.action]?.personal){const spot=MAPS[map].spots.find(s=>s.id===p.spot)||MAPS[map].spots.find(s=>s.action===p.action),v=visitor?.inspect(),plan=spot&&chorePlans(MAPS[map],p.action,position,v?.present?(v.seat||v.position):null,spot.piece)[0];if(plan){hostChore=plan;yaw=plan.heading;return {...plan.at};}}
+  if(map==='dayHome'&&p.phase==='work'&&p.action===snapshot?.presentation?.action&&!p.manual&&!snapshot?.editing&&!freeOuting()){const kind=choreIntent(snapshot?.slot),v=visitor?.inspect(),plan=kind&&chorePlans(MAPS[map],kind,position,v?.present?(v.seat||v.position):null)[0];if(plan){hostChore=plan;yaw=plan.heading;return {...plan.at};}}
   if(p.spot){const spot=(DAY_PLACES[map]||MAPS[map])?.spots.find(s=>s.id===p.spot);if(spot){seat=p.standing?null:spot.seat||null;if(spot.sleep)bed=sleepPose({map,position:MAPS[map].spawn,companion:{map,position:spot.target},sleep:{companion:spot.id}},'companion');yaw=spot.heading||0;return {...spot.target};}}
   if(CORE_SPACES[map]){
     const spot=activitySpot(MAPS[map],p.action);
@@ -365,13 +366,13 @@ function tick(dt,time){
   avatar.root.position.set(position.x,0,position.z);avatar.root.rotation.y=yaw;
   if(!moving&&bed){avatar.animate(time,{sleepPose:bed});}
   else if(!moving&&seat){avatar.root.position.set(seat.x,0,seat.z);avatar.root.rotation.y=seat.heading||0;avatar.animate(time,{...pose,task:taskState,motion:hostMotion,seated:true,seatPose:seat.pose,height:floorHeight(map,seat)+(seat.rise||0)+.05});}
-  else avatar.animate(time,{...pose,task:taskState,motion:hostMotion,moving,gesture:moving?'rest':pose.gesture,emotion:moving?null:pose.emotion,height:floorHeight(map,position)});
+  else avatar.animate(time,{...pose,task:taskState,motion:hostMotion,moving,gesture:moving?'rest':pose.gesture,emotion:moving?null:pose.emotion,height:floorHeight(map,position),...chorePose(hostChore,dwell,moving,position)});
   if(!moving&&snapshot.slot&&strolling()&&dwell>1.5){dwell=0;wander();}
-  if(time<helloUntil&&!moving&&!bed){const v=visitor?.inspect();if(v?.present){avatar.root.rotation.y=Math.atan2(v.position.x-avatar.root.position.x,v.position.z-avatar.root.position.z);taskState=null;avatar.animate(time,{seated:!!seat,seatPose:seat?.pose,height:floorHeight(map,seat||position)+(seat?seat.rise+.05:0),gesture:'wave',progress:(time-(helloUntil-5))/5});}}
+  if(time<helloUntil&&!moving&&!bed&&!hostChore){const v=visitor?.inspect();if(v?.present){avatar.root.rotation.y=Math.atan2(v.position.x-avatar.root.position.x,v.position.z-avatar.root.position.z);taskState=null;avatar.animate(time,{seated:!!seat,seatPose:seat?.pose,height:floorHeight(map,seat||position)+(seat?seat.rise+.05:0),gesture:'wave',progress:(time-(helloUntil-5))/5});}}
   hostChoreVisual?.update(hostChore,dwell,moving);if(hostChore&&hostChoreManual&&dwell>=hostChore.duration){target=destination(activity);dwell=0;go(target);}
   updateWorkScene(mapLoader.views[map]?.root,taskState,moving,time);
   visitor?.tick(dt,time);
-  autoInteraction.tick(dt,{enabled:snapshot.socialPreferences?.autoInteractions!==false,eligible:!!social.automaticSetting(snapshot),visitor:visitor?.inspect(),ready:!route.length&&!bed&&!arrival&&!hostChore,actions:visitSetting()?.actions||[],start:kind=>{const result=together.start(kind,{automatic:true});if(result.ok){route=[];onArrive=null;}return result;}});
+  autoInteraction.tick(dt,{enabled:snapshot.socialPreferences?.autoInteractions!==false,eligible:!!social.automaticSetting(snapshot)&&!visitor?.inspect()?.chore,visitor:visitor?.inspect(),ready:!route.length&&!bed&&!arrival&&!hostChore,actions:visitSetting()?.actions||[],start:kind=>{const result=together.start(kind,{automatic:true});if(result.ok){route=[];onArrive=null;}return result;}});
   trackCamera(Math.min(1,dt*8));updateKitchen(dt);
   if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
   dayEnvironment.update(snapshot.minute,snapshot.weather,time);
@@ -404,7 +405,7 @@ function furniturePreview(id){const p=homeFurniture(snapshot?.homePlacements).fi
 function visitAction(kind,point){
  autoInteraction.reset();const wasTransfer=transfer?.inspect();if(wasTransfer){transfer.cancel('你已接管，继续按你的选择活动。');arrival=null;target={...MAPS[map].spawn};go(target,()=>{closeVisit('这次一起转场已结束，按当前日程继续。');enter(snapshot.presentation.map,epoch);});}
  if(kind==='end'){together?.stop();if(hostChoreManual){target=destination(activity);dwell=0;go(target);}return visitor?.act('manual')||false;}
- if(kind.startsWith('chore:ta:')){together?.stop();visitor?.act('manual');const choreKind=kind.slice(9),v=visitor?.inspect(),plan=visitSetting()?.home&&CHORES[choreKind]&&chorePlans(MAPS[map],choreKind,position,v?.present?(v.seat||v.position):null)[0];if(!plan||bed||changing){visitNotice({...v,notice:'先给TA留一处能走到的对应家具，再来做家务。'});return false;}hostChore=plan;hostChoreManual=true;hostChoreVisual.hide();seat=bed=null;dwell=0;yaw=plan.heading;target={...plan.at};go(target);return true;}
+ if(kind.startsWith('chore:ta:')){together?.stop();const choreKind=kind.slice(9);if(!CHORES[choreKind]?.personal)visitor?.act('manual');const v=visitor?.inspect(),plan=visitSetting()?.home&&CHORES[choreKind]&&chorePlans(MAPS[map],choreKind,position,v?.present?(v.seat||v.position):null)[0];if(!plan||bed||changing){visitNotice({...v,notice:CHORES[choreKind]?.personal?'浴室这件设施旁边有人或通道被挡，腾出空位再来。':'先给TA留一处能走到的对应家具，再来做家务。'});return false;}hostChore=plan;hostChoreManual=true;hostChoreVisual.hide();seat=bed=null;dwell=0;yaw=plan.heading;target={...plan.at};go(target);return true;}
  if(kind==='leave'&&(map==='dayHome'||freeOuting()))homeAutoSuppressed=true;
  const shared=kind.startsWith('together:');if(shared)kind=kind.slice(9);
  if(shared||['hand','hug','shoulder','meal','cook'].includes(kind)){

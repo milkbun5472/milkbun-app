@@ -1,4 +1,4 @@
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-932cb68b41b7219d';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-861659188db2f738';
 // One set of activity groups for all scenes. Beats project the original slot;
 // anchors come from the live map, so stored or moved furniture is respected.
 const FARM='dayFarm',FLEA='dayFleaMarket';
@@ -47,7 +47,7 @@ const DAILY_GROUPS={
 const GROUP_LABELS={read:'阅读与整理',work:'工作与整理',practice:'练习与调整',exercise:'训练与放松',shop:'挑选与整理',wait:'候车与走动',rest:'休息与活动',walk:'散步与歇脚',meal:'用餐与稍歇',tea:'喝茶与稍歇',cook:'料理与等候'};
 export function activityConfig(map){return CONFIG[map]||null;}
 export function activityGroup(p,space){
- if(p.action==='sleep')return null;
+ if(['sleep','shower','wash-hands','toilet'].includes(p.action))return null;
  const cfg=CONFIG[p.map],daily=DAILY_GROUPS[p.map]?.[p.action];
  let primary=p.spot||space?.spots.find(s=>s.action===p.action)?.id||space?.spots.find(s=>s.action==='rest')?.id;
  const recipe=RECIPES[p.map]?.[primary];

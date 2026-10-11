@@ -1,13 +1,15 @@
-import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-932cb68b41b7219d';
-import {homeSurface} from './home-surfaces.mjs?v=fg-932cb68b41b7219d';
-import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-932cb68b41b7219d';
-import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
+import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-861659188db2f738';
+import {homeSurface} from './home-surfaces.mjs?v=fg-861659188db2f738';
+import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-861659188db2f738';
+import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-861659188db2f738';
 
+import {homeSize} from './home-architecture.mjs?v=fg-861659188db2f738';
+import {createBathroomShell} from './bathroom-kit.mjs?v=fg-861659188db2f738';
 // All raised pieces sit on the boundary or the partition footprint. The actual
 // walking plane, furniture positions and doorway remain the saved map's .08.
 export function createHomeShell(k,map,p){
  const wall=HOME_WALLS[map.room.wall]||{},floor=HOME_FLOORS[map.room.floor]||{},wallColor=map.room.wallColor||wall.color||p.wall,floorColor=map.room.floorColor||floor.color||p.floor;
- const w=map.bounds.w,d=map.bounds.d,back=-d/2,edge=-w/2,bed=HOME_BEDROOM_WALL,left=HOME_LEFT_WALL,bedEdge=bed.x-bed.w/2;
+ const {w,d}=homeSize(map.room),back=-d/2,edge=-w/2,bed=HOME_BEDROOM_WALL,left=HOME_LEFT_WALL,bedEdge=bed.x-bed.w/2;
  const b=(name,v,g)=>k.box(name,{color:p.wood,...v},g),flat=(name,shape,v,g)=>k.profile(name,{shape,horizontal:true,...v},g);
  const shell=k.group('WindowHome');shell.userData.architecture='arched-window-home';
  flat('Foundation',rounded(w+.42,d+.42,.18),{y:-.155,depth:.31,color:p.dark},shell);
@@ -41,7 +43,7 @@ export function createHomeShell(k,map,p){
  for(const [x,y,angle]of [[5.79,2.25,-.55],[5.71,2.75,.5],[5.51,3.24,-.65],[5.18,3.69,.45],[4.77,3.91,-.55],[4.31,3.91,.4]]){const leaf=k.ellipsoid('WindowVineLeaf',{x,y,z:back+.26,w:.25,h:.44,d:.07,color:p.fabric},shell);leaf.rotation.z=angle;}
  ceramicCup(k,shell,p,{x:windowX-1.5,z:back+.17,y:1.16});k.book('WindowBook',{x:windowX-1.15,y:1.14,z:back+.17,w:.4,d:.27,color:p.accent,flat:true},shell);
  // Rounded screen and a slim timber crest are exactly inside the old divider.
- for(const a of map.structure){homeSurface(b(a.id,{x:a.x,z:a.z,y:.82,w:a.w,h:1.48,d:a.d,color:wallColor,radius:.04},shell),wall.pattern,'left');b('ScreenCrest',{x:a.x,y:1.59,z:a.z,w:a.w+.03,h:.1,d:a.d,color:p.wood,radius:.04},shell);
+ for(const a of map.structure.filter(a=>!a.bathroom)){homeSurface(b(a.id,{x:a.x,z:a.z,y:.82,w:a.w,h:1.48,d:a.d,color:wallColor,radius:.04},shell),wall.pattern,'left');b('ScreenCrest',{x:a.x,y:1.59,z:a.z,w:a.w+.03,h:.1,d:a.d,color:p.wood,radius:.04},shell);
   for(let z=a.z-a.d/2+.24;z<a.z+a.d/2;z+=.34)b('ScreenReed',{x:a.x+.077,y:.96,z,w:.018,h:1.17,d:.024,color:p.wood,radius:.008},shell);}
  if(map.room.originalRugs){
  flat('BedroomRug',rounded(4.55,4.3,.65),{x:-4,y:.096,z:-2.8,depth:.02,color:p.accent,bevel:0},shell);
@@ -62,6 +64,7 @@ export function createHomeShell(k,map,p){
  }
  for(const x of [-.97,.97]){k.cylinder('DoorPost',{x,y:.42,z:d/2-.04,r:.065,h:.67,color:p.dark},shell);k.sphere('DoorFinial',{x,y:.8,z:d/2-.04,r:.085,color:p.accent},shell);}
  b('Threshold',{y:.09,z:d/2-.05,w:1.8,h:.02,d:.2,color:p.wood,radius:.04},shell);
+ createBathroomShell(k,map,{...p,wall:wallColor});
  return shell;
 }
 export function setHomeClock(root,minute=720){

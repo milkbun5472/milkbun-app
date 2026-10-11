@@ -111,6 +111,9 @@
     const office = !home && !outside && (/办公室|办公区|公司|会议室|会议厅|部门工位|办公楼/.test(text) || /开会|例会|组会|项目汇报|部门会议/.test(words));
     const campus = !home && (!office || /教室|校园|学校|教学楼/.test(place)) && (!outside || /食堂/.test(place)) && /教室|课堂|校园|学校|教学楼|讲台|黑板|上课|听课|授课|讲课|备课|教案|课间|下课/.test(text);
     const dining = outside && !home ? "dayCafe" : "dayHome";
+    if (/洗澡|淋浴|沐浴|冲澡/.test(words)) return at("dayHome", "shower");
+    if (/洗手/.test(words)) return at("dayHome", "wash-hands");
+    if (/上厕所|如厕|用厕所/.test(words)) return at("dayHome", "toilet");
     if (type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(words)) return at("dayHome", "sleep");
     if (!home && /农场|农庄|田间|菜畦|菜园|种植园/.test(place || words)) return at("dayFarm", /离开|走出/.test(words) ? "exit" : /休息|歇会/.test(words) ? "rest" : /记录|笔记|整理|分析|规划/.test(words) ? "records" : /取.*工具|取.*资料|整理工具/.test(words) ? "supplies" : /钓鱼|码头|水边/.test(words) ? "dock" : "crops");
     if (!home && !outside && /复古市集|跳蚤市集|跳蚤市场|旧货市场|古董市场|市集|集市|夜市/.test(place || words)) return at("dayFleaMarket", /离开|走出/.test(words) ? "exit" : /休息|歇脚/.test(words) ? "rest" : /装袋|整理.*袋/.test(words) ? "packing" : /结账|付款/.test(words) ? "checkout" : /布料|布匹|织物/.test(words) ? "fabric" : "antiques");

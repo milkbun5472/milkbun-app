@@ -35,7 +35,7 @@ for(const [scene,primary]of Object.entries(representatives))test(scene+'：四�
  }
  assert.ok(anchors.size>1,scene+'仍只有一个实际位置');assert.ok(seen.has(primary));assert.equal(JSON.stringify(ref.current),before);assert.equal(writes,count);assert.equal(env.CharDayLink.publicRow(slot).world,undefined);
 });
-test('全部211个原摆位：长期安排使用合法动作，短时预览、手动位置和睡眠保持明确选择',()=>{
+test('全部214个摆位：长期安排使用合法动作，短时预览、手动位置和睡眠保持明确选择',()=>{
  let n=0;
  for(const [scene,map]of Object.entries({...CORE_SPACES,...DAY_PLACES}))for(const spot of map.spots){
   n++;const slot=slotFor(scene,spot.id),p=env.CharDayLink.presentation(slot);
@@ -46,7 +46,7 @@ test('全部211个原摆位：长期安排使用合法动作，短时预览、�
   }
   if(p.action==='sleep')assert.equal(activityPhase(p,slot,start+120*60000,{space:map}).group,undefined);
  }
- assert.equal(n,211);
+ assert.equal(n,214);
 });
 test('收纳与移动家具：活动只取实际锚点，床上睡眠和锅边等候不强制离开',()=>{
  const home=buildSpace('dayHome',{sofa:{stored:true}}),slot=slotFor('dayHome','read'),p=env.CharDayLink.presentation(slot);

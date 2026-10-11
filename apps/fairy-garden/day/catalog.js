@@ -33,6 +33,21 @@
         "id": "cook",
         "label": "厨房料理",
         "action": "cook"
+      },
+      {
+        "id": "shower",
+        "label": "浴室洗澡",
+        "action": "shower"
+      },
+      {
+        "id": "wash-hands",
+        "label": "洗手台洗手",
+        "action": "wash-hands"
+      },
+      {
+        "id": "toilet",
+        "label": "使用厕所",
+        "action": "toilet"
       }
     ]
   },
