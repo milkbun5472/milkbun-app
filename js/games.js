@@ -4859,8 +4859,21 @@
     }, [moves.length, winner, lines.length]);
 
     // TA 开口：一次只调一回模型，不挡着下棋。观战两个人时一回写两个人（各说一句或互相回嘴）
+    // 局面一句话：双方最后一手各成了什么（不贴整张棋盘）
+    const boardWhy = function (ms) {
+      const bits = [];
+      [1, 2].forEach(function (side) {
+        const lastM = ms.slice().reverse().find(function (m) { return m.who === side; });
+        if (!lastM) return;
+        const b = gmkEmpty(); ms.forEach(function (m) { b[m.y * GMK_N + m.x] = m.who; });
+        const th = gmkThreat(b, lastM.x, lastM.y, side);
+        if (th) bits.push(nameOfSide(side) + "上一手" + th);
+      });
+      return winner ? (winner === 3 ? "棋已经下完，和棋。" : "棋已经下完，" + nameOfSide(winner) + "赢了。") : (bits.length ? bits.join("；") + "。" : "局面还平。");
+    };
     const say = function (why, ms) {
       ms = ms || moves;
+      const said = lines.slice(-8);
       if (!api || !talkers.length || talkBusy.current) return;
       talkBusy.current = true; setTalking(true);
       lastTalkAt.current = ms.length;
@@ -4872,9 +4885,10 @@
       const scene = spectate
         ? (char2 ? cName + " 和 " + c2Name + " 在下五子棋，" + uName + " 在旁边看" : cName + " 在跟电脑下五子棋，" + uName + " 在旁边看")
         : cName + " 在跟 " + uName + " 下五子棋（" + uName + "执黑先手，" + cName + "执白）" + (easy ? "，" + cName + "这局是让着 TA 的" : "");
-      const sys = AC + VOICE_RULE + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照各自的性子——得意、嘴硬、耍赖、认真、斗嘴都行。"
+      const sys = AC + VOICE_RULE + "【场面】" + scene + "。棋子不归你们管，你们只说话：像真坐在棋盘边那样随口说，照你们平时的关系和你自己的性子——下棋是一起玩，不是对峙。"
         + "\n\n" + who
-        + "\n\n【现在】第 " + ms.length + " 手。" + why + (lastFew ? "\n最近几手：" + lastFew : "")
+        + "\n\n【现在】第 " + ms.length + " 手。" + boardWhy(ms) + (lastFew ? "\n最近几手：" + lastFew : "") + "\n" + why
+        + (said.length ? "\n【你们刚才已经说过的】\n" + said.map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n这些话说过了：同一个意思别换个说法再说一遍，接着往下聊。" : "")
         + "\n\n" + (talkers.length > 1 ? "两个人里真会开口的说一句，可以一个人说、也可以一来一回，最多三句。" : "说一句。")
         + "\n下法跟着你们自己的心思走：被激了、想赢了、心软了、想让 TA 高兴了，都可以换。真要换就在那个人那一条里加 play，填「认真」「随手」「让着」之一，从下一手起照这个下；不换就不写。"
         + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\",\"play\":\"可选\"}]}";
@@ -4893,13 +4907,14 @@
         if (list.length) setLines(function (L) { return L.concat(list); });
       }).catch(function () {}).then(function () { talkBusy.current = false; setTalking(false); });
     };
+    // TA 什么时候开口由她定（wait-for-her）：她说一句，或者空着按一下让 TA 说
     const sendHeckle = function () {
-      const v = heckle.trim(); if (!v) return;
+      if (talkBusy.current) return;
+      const v = heckle.trim();
       setHeckle("");
-      setLines(function (L) { return L.concat([{ me: true, name: uName, text: v.slice(0, 200), at: Date.now() }]); });
-      say("场外的 " + uName + " 插了一句：「" + v.slice(0, 120) + "」。", moves);
+      if (v) setLines(function (L) { return L.concat([{ me: true, name: uName, text: v.slice(0, 200), at: Date.now() }]); });
+      say(v ? (spectate ? "场外的 " + uName + " 插了一句" : uName + " 跟你说") + "：「" + v.slice(0, 120) + "」。" : (spectate ? uName + " 在等你们说话。" : uName + " 在等你开口。"), moves);
     };
-    useEffect(function () { if (!sv && !moves.length) say("刚摆好棋盘，还没开始。"); }, []);
 
     const place = function (x, y, who) {
       if (winner || board[y * GMK_N + x]) return false;
@@ -4909,13 +4924,7 @@
       const won = gmkWins(nb, x, y, who);
       const full = !won && nm.length >= GMK_N * GMK_N;
       if (won) setWinner(who); else if (full) setWinner(3); else setTurn(who === 1 ? 2 : 1);
-      // 什么时候说话：终局、局面一紧、或者隔了八手没吭声
-      const th = gmkThreat(nb, x, y, who);
-      const by = nameOfSide(who);
-      if (won) say(by + "刚" + th + "，" + (who === charSide ? "你赢了" : (spectate ? "你输给了电脑" : uName + "赢了")) + "。", nm);
-      else if (full) say("棋盘下满了，和棋。", nm);
-      else if (th) say(by + "刚" + th + "。", nm);
-      else if (nm.length - lastTalkAt.current >= 8) say("下得正胶着，没什么大事。", nm);
+      // ⚠️落子不触发说话：TA 什么时候开口由她定（她 2026-10-11：「不是应该我来决定他什么时候说话吗」）
       return true;
     };
 
@@ -4942,7 +4951,6 @@
       const nm = moves.slice(0, -2), nb = gmkEmpty();
       nm.forEach(function (m) { nb[m.y * GMK_N + m.x] = m.who; });
       setBoard(nb); setMoves(nm); setPend(null); setTurn(userSide);
-      say(uName + "刚悔了一步棋。", nm);
     };
 
     // 棋盘：SVG 一张，跟屏宽走
@@ -4986,7 +4994,11 @@
               : h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, talking ? "…" : cName + " 在对面坐着"),
             talking && lines.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "…") : null)),
         boardSvg,
-        spectate && !winner ? h("div", { style: { marginTop: 12 } }, heckleRow(t, heckle, setHeckle, sendHeckle, false)) : null,
+        h("div", { "data-wk": "gomokuchat", style: { display: "flex", gap: 8, marginTop: 12 } },
+          h("input", { "data-wk": "gameinput", "data-part": "gomoku", value: heckle, onChange: function (e) { setHeckle(e.target.value); }, onKeyDown: function (e) { if (e.key === "Enter") sendHeckle(); },
+            placeholder: spectate ? "台下插一句…（空着按就是让他们说）" : "跟 " + cName + " 说一句…（空着按就是让 TA 开口）",
+            style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
+          h("button", { "data-wk": "gomokusend", onClick: sendHeckle, disabled: talking, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: talking ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, heckle.trim() ? "说" : "让 TA 说")),
         h("div", { "data-wk": "gomokustatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 12 } }, status),
         playNote && !winner ? h("div", { "data-wk": "gomokuplay", style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, playNote) : null,
         !winner && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },

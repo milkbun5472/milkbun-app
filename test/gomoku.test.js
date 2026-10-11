@@ -66,3 +66,12 @@ test("下法跟着聊天变：TA 报 play 就换；让着也照挡对面的五�
     assert.ok(d.x === 7 && d.y === 7, "让着的时候把五连直接送出去了");
   }
 });
+
+// 她 2026-10-11：「为什么我不能聊天，不是应该我来决定他什么时候说话吗」「为什么这么凶而且一直车轱辘」
+test("TA 什么时候开口由她定；说过的话递回去，别车轱辘", () => {
+  const g = src.slice(j, src.indexOf("  function UnoGame(props) {"));
+  assert.equal((g.match(/\bsay\(/g) || []).length, 1, "落子、悔棋、开局又在自动替 TA 开口了（只许她那一行触发）");
+  assert.match(g, /"data-wk": "gomokuchat"/, "没有跟 TA 说话的那一行");
+  assert.match(g, /【你们刚才已经说过的】/, "说过的话没递回去");
+  assert.ok(g.indexOf("得意、嘴硬、耍赖") < 0, "又把一串语气当成默认递过去了");
+});
