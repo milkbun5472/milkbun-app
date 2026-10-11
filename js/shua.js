@@ -855,13 +855,16 @@
         h("div", { className: "flex flex-col items-center", style: { maxWidth: "70%" } }, h("div", { className: "flex items-center", style: { gap: 26 } }, feedTabs(B.ink, B.dim, B.accent)), hotStrip(B.ink, B.dim, "transparent")),
         h("button", { "data-wk": "shuarefreshbtn", onClick: () => setPage({ kind: "refresh" }), className: "active:opacity-60", style: { position: "absolute", right: 10, bottom: 4, minHeight: 32, padding: "0 12px", borderRadius: 999, background: B.bg, color: B.accent, fontFamily: F_BODY, fontSize: 12.5 } }, "刷新")),
       gridView(list, emptyFeed));
-    else if (tab === "live") body = h("div", { "data-wk": "shualive", className: "flex-1 min-h-0 flex flex-col" },
+    // ⚠️直播间里面是 h-full：外面这一格只给 flex-1 的话，Safari 里 h-full 量不出高度，直播间按内容往下长，
+    //   底下的礼物面板和输入栏就被压到底栏「首页／直播／收藏」下面去了（她 2026-10-11：「点礼物然后点不了了因为被推下去了」）。
+    //   套一层绝对定位铺满这一格，高度就是确定的。
+    else if (tab === "live") body = h("div", { "data-wk": "shualive", className: "flex-1 min-h-0", style: { position: "relative" } }, h("div", { style: { position: "absolute", inset: 0, display: "flex", flexDirection: "column", overflow: "hidden" } },
       window.LiveApp ? h(window.LiveApp, Object.assign({}, props.live, { key: "live_" + liveStart + "_" + skin, embedded: true, startView: liveStart || "home",
         // 直播切片（她 2026-10-08）：下播后路人剪的那条落进推荐流，竖着刷那套
         onClip: c => addVideos([mkVideo({ scene: c.scene, caption: c.caption, tags: c.tags, who: "self" }, { by: "npc", author: S(c.author).slice(0, 20), likes: 0, comments: [], skin: "v", clipOf: c.charId || null })]),
         // 直播那一格也穿这套皮（直播间本身是黑的演播台，两套都不动）
         pal: skin === "b" ? { bg: B.bg, bg2: "#fff", ink: B.ink, sub: B.dim, fog: B.dim, line: B.line, accent: B.accent, tint: B.accent }
-          : { bg: BLACK, bg2: "#1b1b21", ink: INK, sub: DIM, fog: DIM, line: LINE, accent: RED, tint: RED } })) : null);
+          : { bg: BLACK, bg2: "#1b1b21", ink: INK, sub: DIM, fog: DIM, line: LINE, accent: RED, tint: RED } })) : null));
     // 收藏那一格（她 2026-10-07：「消息现在也没用吧，不如改成收藏放那里，可以自创文件夹」）
     else if (tab === "fav") body = (function () {
       const folders = arr(db.folders);
