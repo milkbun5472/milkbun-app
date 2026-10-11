@@ -440,7 +440,7 @@
           h("span", { style: { flexShrink: 0, color: "#f6c76b" } }, giftIcon(g.gift, "#f6c76b")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", fontStyle: "italic", flexShrink: 0 } }, "¥" + g.amount)))) : null,
       // ── 弹幕：左下往上滚，不加底框 ──
-      h("div", { "data-wk": "livemsglist", ref: listRef, className: "shrink-0 overflow-y-auto px-4", style: { position: "relative", zIndex: 1, height: panelOpen ? "18vh" : "30vh", paddingTop: 10, paddingBottom: 6, textShadow: shadowTx,
+      h("div", { "data-wk": "livemsglist", ref: listRef, className: "overflow-y-auto px-4", style: { position: "relative", zIndex: 1, height: panelOpen ? "18vh" : "30vh", flexShrink: 1, minHeight: 56, paddingTop: 10, paddingBottom: 6, textShadow: shadowTx,
           WebkitMaskImage: "linear-gradient(180deg,transparent,#000 18%)", maskImage: "linear-gradient(180deg,transparent,#000 18%)" } },
         arr(ses.lines).map(lineEl),
         busy ? h("div", { "data-wk": "livebusy", style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "6px 0" } }, watching ? "……" : "大家在看……") : null),
@@ -510,7 +510,8 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: LIVE_DIM } }, "¥" + g[1])),
         g[2] ? h("button", { "data-wk": "livegiftdel", onClick: () => { onDropCustom(g[0], g[1]); if (on) setPick(null); }, "aria-label": "删掉这个礼物", className: "active:opacity-60", style: { position: "absolute", right: 0, top: 0, width: 26, height: 26, color: LIVE_DIM, fontSize: 13 } }, "×") : null); };
     const custOk = S(nm) && Number(amt) > 0;
-    return h("div", { "data-wk": "livegiftpanel", style: { marginBottom: 8, padding: "8px 6px", borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid " + LIVE_LINE } },
+    // 礼物一多（自定义的也算）面板会很高：自己里面滚，别把底下的输入栏顶出屏幕（她 2026-10-11：「点礼物然后点不了了因为被推下去了」）
+    return h("div", { "data-wk": "livegiftpanel", style: { maxHeight: "34vh", overflowY: "auto", WebkitOverflowScrolling: "touch", marginBottom: 8, padding: "8px 6px", borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid " + LIVE_LINE } },
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 4, maxHeight: 156, overflowY: "auto" } },
         all.map(cell),
         h("button", { "data-wk": "livegiftmake", "data-on": making ? "1" : "0", key: "mk", onClick: () => { setMaking(m => !m); setPick(null); }, className: "active:opacity-70 flex flex-col items-center",
