@@ -3693,6 +3693,12 @@
         const cp = Object.assign({ completed: [], mastery: {} }, s.progress);
         const cu = units.find(function (u) { return u.id === cp.current_unit; });
         const gate = unitCompletionGate(cu, cp, initialTicket, s.transcript);
+        // 结课题已经独立答对、只是还有几个要点没单独练到：不再卡死（群里 2026-10-11：「答了 n 道题，老师都说亮绿灯了，系统卡着不让过」）——
+        //   照样进下一节，没练到的那几个标进待复习，下次开课先复习它们
+        if (!gate.passed && gate.exitPassed && gate.missing.length) {
+          cp.review_queue = Array.from(new Set((cp.review_queue || []).concat(gate.missing)));
+          gate.passed = true;
+        }
         if (!gate.passed) {
           cp.exit_ticket = { status: "needs_retry", unitId: cp.current_unit, checkedAt: Date.now() };
           cp.notes = !gate.exitPassed ? "结课题还没有独立答对" : "仍有要点需要独立完成";
