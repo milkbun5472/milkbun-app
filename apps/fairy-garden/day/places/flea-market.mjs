@@ -1,4 +1,4 @@
-import {createRoomKit,roomSeat} from './room-kit.mjs?v=fg-6a88f1998a05a490';
+import {createRoomKit,roomSeat} from './room-kit.mjs?v=fg-baeef0ae0666b09c';
 const floor=.08;
 const furniture=[
  {id:'fabric-stall',kind:'table',x:-3,z:-2,w:2.5,d:1.1,top:.58,work:{fabric:{x:.12,y:.66,z:.51}}},

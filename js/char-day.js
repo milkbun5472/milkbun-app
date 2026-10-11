@@ -31,6 +31,7 @@
     [data-wk="cdaypage"] .cday-choice[aria-checked="true"] { border-color:#8b9e7e;background:#eaf0e2;box-shadow:inset 0 -3px #9caa90; }
     [data-wk="cdaymelook"] button:not([data-wk="headink"]) { min-height:44px!important; }
     [data-wk="cdaypage"] .cday-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px; }
+    @media (orientation:landscape) { [data-wk="cdaykitchenhud"][data-tabletop="1"] { left:auto!important;width:285px;max-height:calc(100% - 48px)!important; } }
     @media (prefers-reduced-motion:reduce) { [data-wk="cdaypage"] button { transition:none; } }
   `;
   // Display icons only; map names and destinations continue to come from the scene catalog.
@@ -200,7 +201,7 @@
     },[decorPanel,piecePreviewKey]);
 
     stateRef.current = payload;
-    const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot({...stateRef.current,viewInsets:(()=>{const el=iframe.current?.parentElement,box=el?.getBoundingClientRect(),card=el?.querySelector('[data-wk=cdaynow]')?.getBoundingClientRect(),chat=el?.parentElement?.parentElement?.querySelector('[data-wk=cdaychat]'),hud=el?.querySelector('[data-wk=cdaykitchenhud]');return {top:card&&box?Math.max(24,card.bottom-box.top+14):130,bottom:Math.max(30,chat&&!chat.hidden&&box?box.bottom-chat.getBoundingClientRect().top+14:0,hud&&box?box.bottom-hud.getBoundingClientRect().top+14:0),left:18,right:18};})()}); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
+    const send = () => { try { iframe.current?.contentWindow?.CharDayScene?.setSnapshot({...stateRef.current,viewInsets:(()=>{const el=iframe.current?.parentElement,box=el?.getBoundingClientRect(),card=el?.querySelector('[data-wk=cdaynow]')?.getBoundingClientRect(),chat=el?.parentElement?.parentElement?.querySelector('[data-wk=cdaychat]'),hud=el?.querySelector('[data-wk=cdaykitchenhud]'),sideKitchen=hud?.dataset.tabletop==='1'&&box?.width>box?.height;return {top:card&&box?Math.max(24,card.bottom-box.top+14):130,bottom:Math.max(30,chat&&!chat.hidden&&box?box.bottom-chat.getBoundingClientRect().top+14:0,!sideKitchen&&hud&&box?box.bottom-hud.getBoundingClientRect().top+14:0),left:18,right:sideKitchen?box.right-hud.getBoundingClientRect().left+18:18};})()}); } catch (_) { setSceneStatus("画面同步失败，请重新载入画面"); } };
     React.useLayoutEffect(() => { send(); }, [pulse, JSON.stringify(payload), retry, book, homeOptions]);
     useEffect(() => {
       const ready = e => {

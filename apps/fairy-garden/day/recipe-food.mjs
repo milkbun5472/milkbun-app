@@ -1,10 +1,12 @@
 import * as T from 'three';
-import './kitchen.js?v=fg-6a88f1998a05a490';
+import {makeTabletopPlate} from './ingredient-visual.mjs?v=fg-baeef0ae0666b09c';
+import './kitchen.js?v=fg-baeef0ae0666b09c';
 // The same geometry makes plated food, food in cookware and the held serving.
 export function disposeFood(group){group?.removeFromParent();group?.traverse(o=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());});}
-export function makeRecipeFood(recipeId,{vessel=true,variation=null,finish=''}={}){
+export function makeRecipeFood(recipeId,{vessel=true,variation=null,finish='',tabletop=null}={}){
  const r=globalThis.CharDayKitchen.recipeInfo(recipeId,variation);if(!r)return null;
  const g=new T.Group();g.name='RecipeFood';g.userData={recipeId:r.id,shape:r.food,variation:r.variation};
+ if(tabletop&&vessel){const plate=makeTabletopPlate(tabletop,r.method,r.variation);g.add(plate);g.userData.tabletop=plate.userData.tabletop;g.userData.biteColor=globalThis.CharDayKitchen.FOOD_COLORS[r.topping]||'#bc9b71';return g;}
  const colors={tofu:'#ebdfc7',carrot:'#dba270',tomato:'#d87955',mushroom:'#9e8065',shrimp:'#e6a48a',beef:'#93654b',chicken:'#d6b887',corn:'#e8c774',greens:'#7d9e65',lemon:'#e8d586',egg:'#e9bd60',pumpkin:'#dfa16a',berry:'#cd6b76',apple:'#c4a872',butter:'#dbc594'};
  const color=colors[r.topping]||'#ab9876',cream='#f5e5c5',green='#799469';g.userData.biteColor=color;
  function mesh(shape,c,x=0,y=0,z=0,name='Food'){const o=new T.Mesh(shape,new T.MeshStandardMaterial({color:c,roughness:.85}));o.name=name;o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;g.add(o);return o;}

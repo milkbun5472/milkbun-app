@@ -1,14 +1,14 @@
 import * as T from 'three';
-import './social.js?v=fg-6a88f1998a05a490';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-6a88f1998a05a490';
-import {stepRoute} from '../locomotion.mjs?v=fg-6a88f1998a05a490';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-6a88f1998a05a490';
-import {pairProgress} from './motion-profile.mjs?v=fg-6a88f1998a05a490';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-6a88f1998a05a490';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-6a88f1998a05a490';
+import './social.js?v=fg-baeef0ae0666b09c';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-baeef0ae0666b09c';
+import {stepRoute} from '../locomotion.mjs?v=fg-baeef0ae0666b09c';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-baeef0ae0666b09c';
+import {pairProgress} from './motion-profile.mjs?v=fg-baeef0ae0666b09c';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-baeef0ae0666b09c';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-baeef0ae0666b09c';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-6a88f1998a05a490';
+import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-baeef0ae0666b09c';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -138,6 +138,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
    if(s.kind==='cook'){const method=stage.method,passive=stage.index===2||stage.index===1&&['bake','steam','brew'].includes(method);
     if(job.cooking){const chefWho=job.cooking.lead==='me'?'b':'a',prepWho=chefWho==='a'?'b':'a',chef=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion()[chefWho]}),prep={...daily(prepWho,'prep'),target:{...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact:{...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY}};
      const task=stage.index===0?prep:chef,elapsed=job.cooking.mode==='hands'&&stage.who==='me'?stage.progress.work*.48:s.elapsed,working=stage.index<2&&!stage.passive?{...task,elapsed,recipeId:job.recipeId,method,stage:stage.index}:null;at=(stage.index===0?prepWho:chefWho)==='a'?working:null;bt=(stage.index===0?prepWho:chefWho)==='b'?working:null;
+     if(stage.tabletop){const prepTask=stage.progress.table.items.some(q=>['basket','board'].includes(q.zone))?{...prep,elapsed:s.elapsed,recipeId:job.recipeId,method,stage:0}:null,chefTask=stage.progress.table.items.some(q=>q.zone==='pan')?{...chef,elapsed:s.elapsed,recipeId:job.recipeId,method,stage:1}:null;at=prepWho==='a'?prepTask:chefTask;bt=prepWho==='b'?prepTask:chefTask;}
     }else{at=passive?null:{...at,recipeId:job.recipeId,method,stage:stage.index};bt=passive?null:{...bt,recipeId:job.recipeId,method,stage:stage.index};}}
   }
   s.aTask=at;s.bTask=bt;
