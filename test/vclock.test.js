@@ -89,3 +89,12 @@ test("主屏的钟和日历照主面具那只钟；离开小手机时停住", ()
   win.__vclock = { active: "a", maskOf: () => "", clocks: { main: { on: true, base, at: now - 3600e3, speed: 1, pauseAway: true, awayAt: now - 3600e3 } } };
   assert.equal(E.vclockMap(now, "a"), base, "走开那一小时不算");
 });
+
+// 群友 2026-10-11：「char 感应到的是调整完的时间，就是聊天页面的时间戳还是现实时间」
+test("聊天页的时间条、消息列表上的时间照那只钟", () => {
+  assert.match(comps, /map: typeof vclockMap === "function" && character \? \(ts => vclockMap\(ts, character\.id\)\) : undefined/);
+  assert.match(comps, /map: typeof vclockMap === "function" \? \(ts => vclockMap\(ts, null\)\) : undefined/);
+  assert.match(comps, /fmtStamp\(last\.ts, c\.id\)/);
+  assert.match(comps, /fmtStamp\(last\.ts, null\)/);
+  assert.match(engine, /function fmtStamp\(ts, id\) \{/);
+});

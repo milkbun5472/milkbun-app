@@ -7968,13 +7968,13 @@ function Messages({
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, c.id))); };
   const renderGroupRow = it => { const g = it.g, last = it.last, un = unreadMap[g.id] || 0; return h("button", Object.assign({ key: it.key, "data-chatid": g.id, "data-wk": "mlrow", "data-kind": "group", "data-pinned": pinnedSet.has(g.id) ? "1" : "0", "data-unread": un > 0 ? "1" : "0", onClick: () => guardClick(() => onOpenGroup(g)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(g.id) } }, longProps(g.id)),
     h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, g.avatarImage ? h(Avatar, { character: { name: g.name, avatarImage: g.avatarImage }, size: 50, radius: 10 }) : h("div", { className: "grid grid-cols-2 gap-0.5 p-0.5", style: { width: 50, height: 50, borderRadius: 10, background: t.bg, overflow: "hidden" } }, (g.memberIds || []).slice(0, 4).map((mid, k) => { const m = (allChars || characters).find(x => x.id === mid); return h("div", { key: k, style: { overflow: "hidden", borderRadius: 3 } }, m ? h(Avatar, { character: m, size: 23, radius: 3 }) : null); })), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, null))); };
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
@@ -10438,7 +10438,9 @@ function ChatThread({
       //   施工规则/one-public-mechanism.md）。单聊这边【分寸一个字没改】：
       //   minGap 还是 3 分钟、同一轮里连发照旧不各带时刻。变的只有跨天那一条——
       //   它现在写「昨天 14:30」「9月15日 14:30」，并且画成一颗药丸，隔夜看得出来。
-      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000 });
+      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000,
+        // 虚拟时间开着时照 TA 认的那张面具的钟（她 2026-10-11）
+        map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
       if (!st.show) return null;
       return /*#__PURE__*/React.createElement("div", {
         className: "text-center mb-1",
@@ -17567,7 +17569,8 @@ function GroupThread({
     //   ——她 2026-09-16：「群聊没跟上单聊，不会有日期隔离，过多久界面都是像同一天」。
     //   判据搬去 js/chat-stamp.js 那一份公共的（施工规则/one-public-mechanism.md），
     //   群里那道 30 分钟的分寸照原样留着，只当参数传进去；跨天那一档两处一样。
-    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000 });
+    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000,
+      map: typeof vclockMap === "function" ? (ts => vclockMap(ts, null)) : undefined });   // 群照主面具那只钟
     const showGroupTime = gStamp.show;
     const groupTimeLabel = gStamp.text;
     return h("div", {

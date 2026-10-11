@@ -9935,9 +9935,11 @@ function timeAgo(ts) {
 function fmtClock(d) {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
 }
-function fmtStamp(ts) {
-  const d = new Date(ts);
-  const now = new Date();
+// id（可选）：给了就按那个人认的那只虚拟时间钟显示（群传 null＝主面具）；不给就是现实时间，跟原来一样
+function fmtStamp(ts, id) {
+  const vm = id !== undefined && typeof vclockMap === "function" ? (x => vclockMap(x, id)) : (x => x);
+  const d = new Date(vm(ts));
+  const now = new Date(vm(Date.now()));
   const sameDay = d.toDateString() === now.toDateString();
   if (sameDay) return fmtClock(d);
   return d.getMonth() + 1 + "/" + d.getDate() + " " + fmtClock(d);
