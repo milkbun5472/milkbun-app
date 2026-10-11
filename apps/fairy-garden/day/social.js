@@ -33,13 +33,19 @@
     dayStation:['pat','kiss-forehead','kiss-cheek','kiss','back-hug','cuddle','forehead']
   }))scenes[map].actions.push(...kinds);
   function source(slot){const d=slot?.deviation;return d?.actual?{title:d.actual,type:d.type||(d.actual===slot.title?slot.type:'other')}:slot||{};}
+  function outing(snapshot){
+    const trip=snapshot?.outing;
+    return trip&&['solo','together'].includes(trip.mode)&&trip.map===snapshot.presentation?.map&&!snapshot.preview&&!snapshot.showcase&&!snapshot.editing?trip:null;
+  }
   function setting(snapshot){
     if(!snapshot||snapshot.preview||snapshot.showcase||snapshot.editing)return null;
-    const map=snapshot.presentation?.map,scene=scenes[map];if(!scene)return null;
+    const map=snapshot.presentation?.map,trip=outing(snapshot);
+    if(trip?.mode==='solo')return {map,solo:true,home:false,actions:[]};
+    const scene=scenes[map]||(trip?{actions:['look','hand','hug']}:null);if(!scene)return null;
     const s=source(snapshot.slot);
-    if(!scene.home&&(['work','create','study'].includes(s.type)||/上班|值班|执勤|接诊|收银工位|工作任务|授课|教练带课/.test(String(s.title||''))||snapshot.presentation?.spot==='cashier'))return null;
+    if(!trip&&!scene.home&&(['work','create','study'].includes(s.type)||/上班|值班|执勤|接诊|收银工位|工作任务|授课|教练带课/.test(String(s.title||''))||snapshot.presentation?.spot==='cashier'))return null;
     return {...scene,map,actions:scene.actions.map(kind=>({kind,intimate:!!intimate[kind],label:scene.home&&kind==='cook'?'锅边搭把手':labels[kind]}))};
   }
-  function automaticSetting(snapshot){const s=source(snapshot?.slot);return setting(snapshot)&&!['work','create','study','sleep'].includes(s.type)&&!snapshot?.visitorPreview&&!snapshot?.kitchenJob&&!/工作|上班|值班|睡觉|睡眠/.test(String(s.title||''));}
-  root.CharDaySocial={labels,intimate,chores,scenes,setting,automaticSetting};
+  function automaticSetting(snapshot){const s=source(snapshot?.slot);return !outing(snapshot)&&setting(snapshot)&&!['work','create','study','sleep'].includes(s.type)&&!snapshot?.visitorPreview&&!snapshot?.kitchenJob&&!/工作|上班|值班|睡觉|睡眠/.test(String(s.title||''));}
+  root.CharDaySocial={labels,intimate,chores,scenes,outing,setting,automaticSetting};
 })(globalThis);

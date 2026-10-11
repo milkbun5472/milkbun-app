@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-a608cd2a5582588a';
-import {computer,notebook} from './work-room-kit.mjs?v=fg-a608cd2a5582588a';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-a608cd2a5582588a';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-7853903769840d3d';
+import {computer,notebook} from './work-room-kit.mjs?v=fg-7853903769840d3d';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-7853903769840d3d';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'law-desk',kind:'table',x:-4.6,z:-3.8,w:2.8,d:1.15,top:.85,color:'#a89980',work:{research:{x:0,y:.91,z:.40},draft:{x:-.20,y:.905,z:.40}}},
