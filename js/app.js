@@ -10949,7 +10949,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
         instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
           + "聊天里那些人是活生生的人，她跟他们说的话、转出去的钱、写下的东西都真发生过。你翻到的每一样，心里冒出来的都是【你这个人】此刻对她、对那个人、对那件事的真实反应，用你平时的口吻。"
-          + (() => { const d = new Date(); return "\n今天是" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + d.toTimeString().slice(0, 5) + "——下面写着日子的，都按今天往回算是几天前的事。"; })()
+          // 虚拟时间开着时，「今天是哪天」照 TA 认的那张面具的钟（她 2026-10-11）
+          + (() => { if (typeof vclockCfg === "function" && vclockCfg(charId)) return "\n今天是" + vclockLabel(Date.now(), charId) + "——下面写着日子的，都按今天往回算是几天前的事。";
+              const d = new Date(); return "\n今天是" + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + d.toTimeString().slice(0, 5) + "——下面写着日子的，都按今天往回算是几天前的事。"; })()
           + "\n\n下面是这台手机上真有的东西：\n" + (seen || "（没什么东西）")
           + (hidden.length ? "\n\n她递过来之前藏起了：" + hidden.join("、") + "（翻不到）。" : "")
           // 单独藏起来的人直接告诉TA（她 2026-10-02：「直接让他知道这个是藏起来的，不需要那么多前置」）

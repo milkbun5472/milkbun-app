@@ -2470,7 +2470,8 @@ function PhoneLookSettings({ char, look, onPatch, onBack, t }) {
 }
 
 function LockScreen({ char, t, rows, newIds, newCount, onUnlock, onOpenApp, onTimeline, look }) {
-  const now = new Date();
+  // 锁屏上的钟照 TA 那只（虚拟时间开着时，她 2026-10-11「查手机看看能不能也跟着虚拟时间」）
+  const now = new Date(char && typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now());
   const lockSrc = phoneImage(look && look.lockWallpaper);
   // 通知说的是【刚发生了什么】，不是日程提醒——所以还没发生的那一段不进锁屏
   const list = (Array.isArray(rows) ? rows : []).filter(r => !r.ahead);
@@ -4903,7 +4904,7 @@ function CalendarView({ d, char, t, onBack, onRefresh, refreshing, onPeek, drive
   // ⚠️原来是【数据里出现最多的那个月】：她日历上多半是七八月记下的旧事，
   //   于是九月打开还停在八月——而这一页是「TA的日历」，人翻开日历默认看的是【这个月】。
   //   出现最多的那个月是个统计量，不是一个人会想看的东西。
-  const now = new Date();
+  const now = new Date(char && typeof vclockMap === "function" ? vclockMap(Date.now(), char.id) : Date.now());   // 翻开就是 TA 那只钟的这个月
   const [ym, setYm] = useState({ y: now.getFullYear(), m: now.getMonth() + 1 });
   const cy = ym.y, cm = ym.m;
   const stepMonth = n => { const d0 = new Date(cy, cm - 1 + n, 1); setYm({ y: d0.getFullYear(), m: d0.getMonth() + 1 }); setSel(null); };
