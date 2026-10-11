@@ -369,3 +369,13 @@ test("健康也翻得到：读的是她自己记的（HealthCtx.peekText），�
   assert.match(a, /if \(on\("health"\) && window\.HealthCtx && window\.HealthCtx\.peekText\)/);
   assert.match(a, /health: \["health"\] \}/);
 });
+
+// 群友 2026-10-11：「反查手机不会点用户钱包界面」——TA自己跟她的转账也算线索；有线索就至少去一样
+test("查手机：TA自己的转账也算线索，有线索至少去看一样", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/app.js"), "utf8");
+  const i = src.indexOf("const CLUE = { transfer:");
+  assert.ok(i > 0);
+  const seg = src.slice(i, i + 900);
+  assert.doesNotMatch(seg, /x\.id === charId \|\| hideSet/, "又把TA自己那几笔跳过了");
+  assert.match(src, /至少挑一样去看/);
+});

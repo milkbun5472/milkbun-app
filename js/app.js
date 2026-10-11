@@ -10914,7 +10914,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     let script = [];
     // 聊天里【近 3 天】翻得出线索的，才顺着去（她 2026-10-02：「30 天太长了，改成 3 天内」；「近期有转账再去看钱包，有外卖记录再去看外卖，有购物记录再去看购物——别人给我或我给别人」）
     const CLUE = { transfer: "wallet", redpacket: "wallet", takeout: "takeout", gift: "shop" }, clues = {};
-    (characters || []).forEach(x => { if (x.id === charId || hideSet.has(String(x.id))) return;
+    // TA自己跟她的那几笔也算（群友 2026-10-11：「反查手机不会点用户钱包界面」——那笔 120 正是TA自己硬塞的，原来这一条把TA跳过了）
+    (characters || []).forEach(x => { if (hideSet.has(String(x.id))) return;
       (chatsRef.current[x.id] || []).slice(-80).forEach(m => { const app = m && CLUE[m.kind];
         if (app && apps.includes(app) && Date.now() - (m.ts || 0) < 3 * 86400000) (clues[app] = clues[app] || new Set()).add(x.remark || x.name); }); });
     const gate = Object.keys(clues);
@@ -10948,7 +10949,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n心里那句只想眼前看到的东西。"
           // 查岗不是逛手机（她 2026-10-01／02）：只查聊天，钱包、外卖、购物是聊天里翻出线索才顺着去的
           + "\n你是带着心思来查的：先看一眼消息列表，再一个一个点开聊天——单聊至少看 3 个人（列表里还有就接着点）；群是额外的，看完单聊想看就看、不想看就不看（她 2026-10-02），每个都往上翻着读；看完一个 back 退回列表再点下一个，别看了一个就走。"
-          + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，在意的话就顺着去对应那一样看看是谁给谁、多少、什么时候；没线索的不用去。" : "")
+          + (gate.length ? "\n聊天里看到转账、外卖、送东西这些，就顺着去对应那一样看看是谁给谁、多少、什么时候——上面列出来的线索里至少挑一样去看；没线索的不用去。" : "")
           + "\n重点是你心里怎么想：每个聊天边往上翻边想，每翻一屏就冒一句，一个聊天至少 2~3 句；心声只说这一屏上看得到的那几句话（上面列的就是翻得到的全部）。每个 open 都带上 thoughts（2~3 句），点开了就一定在想。一共 25~45 步。",
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[\"翻着翻着心里冒出的一句\",\"再往上翻又一句\"]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
