@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-03bd0eabf7d5d05c';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-03bd0eabf7d5d05c';
+import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-a608cd2a5582588a';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-a608cd2a5582588a';
 export function createKitchenView(){
  let root=null,group=null,key='',hidden=[],cover=null,food=null,appliance=[],mixing=null,prep=null,knob=null,steam=null,targets=[];
  function clear(){for(const [o,visible]of hidden)o.visible=visible;hidden=[];disposeFood(group);group=null;key='';cover=food=mixing=prep=knob=steam=null;appliance=[];targets=[];}
@@ -34,7 +34,7 @@ export function createKitchenView(){
    }
   }
   if(group){group.userData.stage=stage.index;group.userData.label=stage.label;for(const o of appliance)o.visible=stage.index!==0;if(mixing)mixing.visible=stage.index===0;if(cover)cover.visible=stage.index===1;if(food)food.visible=stage.index>0&&(!['bake','steam','brew'].includes(stage.method)||stage.index!==1);if(prep)prep.visible=stage.index===0;
-   for(const o of targets){const id=o.userData.kitchenTarget;o.visible=!!job.cooking&&(id===stage.target||id==='heat'&&stage.index===1&&stage.method!=='mix');if(id!=='heat')o.material.opacity=.10+Math.sin(time*3)*.045;}
+   for(const o of targets){const id=o.userData.kitchenTarget;o.visible=!!job.cooking&&!stage.ready&&(id===stage.target||id==='heat'&&stage.index===1&&stage.method!=='mix');if(id!=='heat')o.material.opacity=.10+Math.sin(time*3)*.045;}
    if(knob)knob.rotation.y=(stage.progress?.heat||0)*Math.PI/3;
    if(steam){steam.visible=stage.index===1;steam.children.forEach((o,i)=>{o.position.y=HOME_COOK.contactY+.14+((time*.12+i*.08)%.38);o.scale.setScalar(.8+i*.13);});}
 }

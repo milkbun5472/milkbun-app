@@ -11001,12 +11001,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   ⚠️新功能里凡是「她点了一下 → TA要接一句」的，一律 waitForHer，不许直接 replyNow（测试 wait-for-her 钉着）。
   const waitHerRef = useRef({});
   const waitForHer = (charId, patch) => { waitHerRef.current[charId] = { ...(waitHerRef.current[charId] || {}), ...patch, _ts: Date.now() }; };
-  const shareKitchenMeal = (char, meal) => {
-    const K=window.CharDayKitchen,courses=(meal?.courses||[]).filter(d=>K.recipe(d.recipeId)).slice(0,3);
-    if(!courses.length)return;
-    waitForHer(char.id,{kitchenMeal:{at:meal.at,courses:courses.map(d=>({name:K.dishName(d),taste:K.tasteDescription(d.variation),finish:d.finish||'',lead:d.lead==='me'?'她掌勺，你备菜':d.lead==='ta'?'你掌勺，她备菜':''}))}});
-  };
-
   // 约会邀请（她 2026-10-02：「约他应该先发送一个邀请到线上，他同意了再发回执卡，点开再进线下」）
   // 日子钟点写成一句人话：「10月3日（周四）20:30」
   const dateWhenText = w => { if (!w) return ""; if (w.now) return "现在"; if (w.text && !w.date) return String(w.text).slice(0, 24); const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(w.date || "")); const d = m ? new Date(w.date + "T00:00") : null;
@@ -11575,8 +11569,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _bdTs = Number(opts.backdateTs) || 0;
       const backdateHint = _bdTs && _bdTs < Date.now() - 5 * 60000
         ? "\n\n【这条消息的发出时间】你是在「" + fmtStampAI(_bdTs) + "」那会儿发的这条（她那时没开着手机，现在才看到）。话里要是提到几点、刚刚在干嘛，都按那会儿说，别按现在的钟。" : "";
-      const kitchenMealHint = opts.kitchenMeal ? "\n\n【她选择和你聊的小家共餐】\n" + JSON.stringify(opts.kitchenMeal) + "\n这是实际做法和已吃过的这一桌；你对味道、分工和相处的反应由你的人设、偏好和你们的关系决定。" : "";
-      const dongnianHint = backdateHint + peekHint + letterHint + refuseHint + caughtHint + peekMemo + kitchenMealHint + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
+      const dongnianHint = backdateHint + peekHint + letterHint + refuseHint + caughtHint + peekMemo + (opts.dongnian && String(opts.dongnian).trim() ? "\n\n【此刻你心里的真实状态（决定你【怎么】开口的语气和分寸，是内心底色不是台词——绝不许直接念出来）】\n" + String(opts.dongnian).trim() : "");
       const aff = roomReads("innerLife") ? Math.round(affOf(charId)) : 70;
       // 亲属卡按需注入：仅当用户最近在哭穷/张口要钱（而非每轮常驻），再由 TA 按人设+好感+心情决定给不给。已给过就完全不提。
       const recentUserText = history.filter(m => m.role === "user" && m.content).slice(-3).map(m => m.content).join("  ");
@@ -29700,7 +29693,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       lookFor: c => window.CompanionFace.lookFor(c, moods),
       visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),
       onSchedule: c => { setGardenEntryWorld("day"); calReturnRef.current = { screen: "fairyGarden" }; setSelSched(c.id); setScreen("calendar"); },
-      onKitchenShare: shareKitchenMeal,
       onChatOpen: c => { setActiveChar(c); setActiveRoomId("main"); setHalfWin(null); clearUnread(c.id); },
       onChatVisibility: (c, visible) => { dayChatRef.current = visible && c ? c.id : null; },
       onMainChat: c => { setActiveChar(c); setActiveRoomId("main"); clearUnread(c.id); setScreen("thread"); },

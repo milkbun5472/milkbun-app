@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-03bd0eabf7d5d05c';
-import {computer,notebook} from './work-room-kit.mjs?v=fg-03bd0eabf7d5d05c';
-import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-03bd0eabf7d5d05c';
+import {createRoomKit,roomObstacles,finishRoom} from './room-kit.mjs?v=fg-a608cd2a5582588a';
+import {computer,notebook} from './work-room-kit.mjs?v=fg-a608cd2a5582588a';
+import {furnishRoom,seatedSpot,benchFlask} from './occupation-room-kit.mjs?v=fg-a608cd2a5582588a';
 const SIZE={w:14,d:12};
 const furniture=[
  {id:'repair-bench',kind:'table',x:-4.4,z:-3.75,w:3.1,d:1.2,top:.85,color:'#ae9672',work:{repair:{x:.0,y:1.012,z:.30},craft:{x:-.64,y:.905,z:.38}}},

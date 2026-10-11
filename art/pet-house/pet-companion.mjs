@@ -1,8 +1,8 @@
-import {repairPetSkin} from './pet-skin.mjs?v=fg-03bd0eabf7d5d05c';
-import {createPetEyes} from './pet-eyes.mjs?v=fg-03bd0eabf7d5d05c';
-import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-03bd0eabf7d5d05c';
-import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-03bd0eabf7d5d05c';
-import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-03bd0eabf7d5d05c';
+import {repairPetSkin} from './pet-skin.mjs?v=fg-a608cd2a5582588a';
+import {createPetEyes} from './pet-eyes.mjs?v=fg-a608cd2a5582588a';
+import {PET_MOODS,normalizePetMood} from './pet-mood.mjs?v=fg-a608cd2a5582588a';
+import {createCatMotion,normalizeTail} from './cat-motion.mjs?v=fg-a608cd2a5582588a';
+import {createCatDye,CAT_LOOK_KEY} from './cat-dye.mjs?v=fg-a608cd2a5582588a';
 export const PET_SPECIES_KEY='lisa-pet-preview-species-v1';
 const readSaved=(key)=>{try{return JSON.parse(localStorage.getItem(key));}catch{return null;}};
 const save=(key,value)=>{try{localStorage.setItem(key,JSON.stringify(value));}catch{}};
