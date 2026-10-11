@@ -35,7 +35,7 @@ test("没有标记就一个字都别捞，正文一律不动", () => {
 test("四处都要真的把 wantReasoning 送出去", () => {
   // ⚠️别冻「这两个选项挨着」：中间插进任何一个新选项(如 webSearch)都会假红。
   // 要证的是这一次调用把 wantReasoning 和 meta 都送出去了。
-  const soloCall = (app.match(/callAI\(_route, system, aiMessages, \{[^}]*\}/) || [""])[0];
+  const soloCall = (app.match(/callAI\(_route, system(?: \+ mcpToolHint\(_mcpT\))?, aiMessages, \{[^}]*\}/) || [""])[0];
   assert.ok(soloCall, "单聊线上那次调用找不到了");
   assert.ok(soloCall.includes("wantReasoning: _wantReason"), "单聊线上没送 wantReasoning");
   assert.ok(soloCall.includes("meta: _callMeta"), "单聊线上没送盛思考链的盒子");

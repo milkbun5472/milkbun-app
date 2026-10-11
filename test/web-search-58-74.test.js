@@ -69,8 +69,8 @@ test("他去查了什么，一路要看得见", () => {
 test("单聊和群聊两条链都接上了", () => {
   assert.match(app, /const _wantWeb = !_engineerChat && !!_s\.webSearch;/, "单聊那条链没接");
   // ⚠️别冻「哪两个选项挨着」——昨天刚被这个坑过一次
-  const soloCall = (app.match(/callAI\(_route, system, aiMessages, \{[^}]*\}/) || [""])[0];
-  const soloRetry = (app.match(/callAI\(_route, system, retryMessages, \{[^}]*\}/) || [""])[0];
+  const soloCall = (app.match(/callAI\(_route, system(?: \+ mcpToolHint\(_mcpT\))?, aiMessages, \{[^}]*\}/) || [""])[0];
+  const soloRetry = (app.match(/callAI\(_route, system(?: \+ mcpToolHint\(_mcpT\))?, retryMessages, \{[^}]*\}/) || [""])[0];
   assert.ok(soloCall.includes("webSearch: _wantWeb"), "单聊主调用没带上");
   assert.ok(soloRetry.includes("webSearch: _wantWeb"), "单聊的空正文重试没带上——重试那次就没有上网能力了");
   // 群聊一次调用写完所有人：在场任一成员开着就带上，同思考链的写法
