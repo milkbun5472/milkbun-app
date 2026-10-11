@@ -15719,7 +15719,7 @@ function CarrySection({ char, sectionKey, data, gifts, closetData, busyKey, gift
     sheetNode,
     giftNode);
 }
-function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear, onTogglePin, onDeleteItem, onPeek }) {
+function Carry({ characters, onOpenMine, onOpenMyCloset, carry, carryGifts, carryPins, selId, busyKey, giftBusy, closetBusy, onBack, onSel, onGen, onGenAll, onGenClosetMore, onGenGiftThought, onClosetGift, onWear, onTogglePin, onDeleteItem, onPeek }) {
   const t = useTheme();
   const [pick, setPick] = useState(false);
   const [open, setOpen] = useState(null);
@@ -15742,7 +15742,10 @@ function Carry({ characters, onOpenMine, carry, carryGifts, carryPins, selId, bu
   if (inBox) return h("div", { "data-wk": "carrypage", "data-part": "box", className: "h-full flex flex-col", style: pageSkin("cloth", t, { tint: CARRY_TINT.bag, corner: false }) },
     h(Head, { zh: "随身物", bg: "transparent", noLine: true, onBack,
       // 她自己的东西住在购物「我的」里，太难找；这里开个口，进的就是那一页
-      right: onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0 10px 10px" } }, "我的物品") : null }),
+      // 她 2026-10-11：「随身物能不能把我的衣柜也放进来」——跟「我的物品」并排，点进去就是聊天「我」页那个衣柜（同一页、同一份）
+      right: (onOpenMine || onOpenMyCloset) ? h("div", { className: "flex items-center", style: { gap: 12 } },
+        onOpenMyCloset ? h("button", { "data-wk": "carrymycloset", onClick: onOpenMyCloset, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0" } }, "我的衣柜") : null,
+        onOpenMine ? h("button", { "data-wk": "carrymine", onClick: onOpenMine, className: "active:opacity-50", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, minHeight: 40, padding: "10px 0 10px 4px" } }, "我的物品") : null) : null }),
     h("div", { className: "flex-1 min-h-0 flex flex-col px-4 pb-4" },
       h("div", { "data-wk": "carryboxframe",
         className: "flex-1 min-h-0 relative",
