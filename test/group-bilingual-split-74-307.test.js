@@ -44,7 +44,7 @@ test("上一行自己已经是完整双语的不接", () => {
 test("群里：双语开着只按换行切，劈完竖线才拆泡；单聊也接回另起一行的中译", () => {
   assert.match(app, /: \(gBiOn \|\| !window\.GroupIdentityGuard\) \? String\(item\.text \|\| ""\)\.split\(\/\\n\+\/\) : window\.GroupIdentityGuard\.splitBubbles\(item\.text\);/);
   assert.match(app, /const gLines = \(gBiOn \? \(ls => joinBilingualLines\(ls, hanLangOf\(spk\)\)\) : \(x => x\)\)\(/);
-  assert.match(app, /if \(_bilingualOn\) words = joinBilingualLines\(words, hanLangOf\(char\)\);/);
+  assert.match(app, /if \(_biParse\) words = joinBilingualLines\(words, hanLangOf\(char\)\);/);
 });
 
 // 她 2026-10-11 截图：粤语那几句竖线只在其中一行，中译分几行跟在后面，按换行切完错一位
@@ -73,7 +73,7 @@ test("粤语：落单的原文和中译按句重新配对，中译被换行劈�
 
 // 她 2026-10-11：「档案里用粤语的角色强制出翻译」——漏了竖线的那几泡单聊、群聊都自己补中译，只走免费翻译
 test("粤语角色漏了竖线：单聊群聊都补中译，不叫模型", () => {
-  assert.match(app, /const _yueFill = _bilingualOn && hanLangOf\(char\)/);
+  assert.match(app, /const _yueFill = _biParse && hanLangOf\(char\)/);
   assert.match(app, /const _gYueFill = gBiOn && hanLangOf\(spk\)/);
   assert.equal((app.match(/translateToZh\(w, lg, \{ noModel: true \}\)/g) || []).length, 2);
   // 认得宽一点：只有繁体、一个粤语字都没有的那种也要补（「換就換，洗完澡…」）
@@ -84,4 +84,15 @@ test("粤语角色漏了竖线：单聊群聊都补中译，不叫模型", () =>
   // 2.5 秒没等到的回来再挂上
   assert.match(app, /_yueFill\[i\]\.then\(z =>/);
   assert.match(app, /_gYueFill\[j\]\.then\(z =>/);
+});
+
+// 她 2026-10-11：双语开关没开、TA自己每句都写着「原文 | 中文」——新消息照双语劈，已经存下的画的时候也劈
+test("开关没开但自带译文：新消息照双语劈，旧记录画的时候也劈", () => {
+  assert.match(app, /const _biParse = _bilingualOn \|\| /);
+  assert.match(app, /const bi = _biParse \? splitBilingual\(w, hanLangOf\(char\)\) : null;/);
+  assert.match(app, /const gBiOn = !!\(settingsFor\(spk\.id\) \|\| \{\}\)\.bilingual\s*\|\| /);
+  const comp = fs.readFileSync(R("components.js"), "utf8");
+  assert.match(comp, /if \(!zhReady && !isU && typeof text === "string" && text\.indexOf\("\|"\) > 0 && typeof splitBilingual === "function"\)/);
+  assert.deepEqual(E.splitBilingual("食咗藥算你聽話 | 吃了药算你听话", false), { text: "食咗藥算你聽話", zh: "吃了药算你听话" });
+  assert.equal(E.splitBilingual("价格 3|5 元", false), null, "普通中文里的竖线不许劈");
 });
