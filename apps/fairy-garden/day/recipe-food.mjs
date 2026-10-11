@@ -1,12 +1,12 @@
 import * as T from 'three';
-import './kitchen.js?v=fg-7925d94740daaf60';
+import './kitchen.js?v=fg-71acad1fdbec8e85';
 // The same geometry makes plated food, food in cookware and the held serving.
 export function disposeFood(group){group?.removeFromParent();group?.traverse(o=>{o.geometry?.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>m.dispose());});}
-export function makeRecipeFood(recipeId,{vessel=true}={}){
- const r=globalThis.CharDayKitchen.recipe(recipeId);if(!r)return null;
- const g=new T.Group();g.name='RecipeFood';g.userData={recipeId:r.id,shape:r.food};
+export function makeRecipeFood(recipeId,{vessel=true,variation=null,finish=''}={}){
+ const r=globalThis.CharDayKitchen.recipeInfo(recipeId,variation);if(!r)return null;
+ const g=new T.Group();g.name='RecipeFood';g.userData={recipeId:r.id,shape:r.food,variation:r.variation};
  const colors={tomato:'#d87955',mushroom:'#9e8065',shrimp:'#e6a48a',beef:'#93654b',chicken:'#d6b887',corn:'#e8c774',greens:'#7d9e65',lemon:'#e8d586',egg:'#e9bd60',pumpkin:'#dfa16a',berry:'#cd6b76',apple:'#c4a872',butter:'#dbc594'};
- const color=colors[r.topping],cream='#f5e5c5',green='#799469';
+ const color=colors[r.topping]||'#ab9876',cream='#f5e5c5',green='#799469';
  function mesh(shape,c,x=0,y=0,z=0,name='Food'){const o=new T.Mesh(shape,new T.MeshStandardMaterial({color:c,roughness:.85}));o.name=name;o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;g.add(o);return o;}
  const ball=(c,x,y,z,a=.07,b=a,d=a)=>{const o=mesh(new T.SphereGeometry(1,12,8),c,x,y,z);o.scale.set(a,b,d);return o;},disc=(c,x,y,z,rad=.2,h=.02)=>mesh(new T.CylinderGeometry(rad,rad*.92,h,24),c,x,y,z),cube=(c,x,y,z,w=.1,h=.06,d=.09)=>mesh(new T.BoxGeometry(w,h,d),c,x,y,z);
  const noodles=(y=.07)=>{for(let i=0;i<6;i++){const o=mesh(new T.TorusGeometry(.095+i*.01,.012,5,18,Math.PI*1.5),cream,(i%2-.5)*.05,y+i*.005,0);o.rotation.set(Math.PI/2,0,i*.7);}};
@@ -31,5 +31,10 @@ export function makeRecipeFood(recipeId,{vessel=true}={}){
  if(r.food==='cookie'){for(let i=0;i<5;i++){const a=i*6.28/5,x=Math.cos(a)*.14,z=Math.sin(a)*.14;disc('#d9b57f',x,y+.012,z,.073,.025);for(let j=0;j<3;j++)ball('#8c6650',x+(j-1)*.027,y+.029,z+(j%2)*.018,.009,.004,.009);}}
  if(r.food==='pudding'){mesh(new T.CylinderGeometry(.11,.15,.13,24),cream,0,y+.065,0);disc('#cf8b71',0,y+.135,0,.11,.012);ball(color,0,y+.17,0,.035,.04,.035);}
  if(!['drink','cake','pie','cookie','pudding','bun','pancake','toast','sandwich'].includes(r.food))for(let i=0;i<3;i++)ball(green,-.12+i*.1,y+.09,.12,.023,.008,.012);
+ if(variation){
+  if(r.variation.spice!=='none')for(let i=0;i<(r.variation.spice==='hot'?7:3);i++)cube('#b85d43',Math.cos(i*2.4)*.15,y+.10,Math.sin(i*2.4)*.15,.028,.007,.018);
+  if(r.variation.garnish)for(let i=0;i<4;i++)ball(green,-.11+i*.075,y+.11,.06,.024,.006,.012);
+  if(['煎得更香','烤色更深'].includes(finish))g.traverse(o=>{if(o.material?.color&&o.name==='Food')o.material.color.multiplyScalar(.9);});
+ }
  return g;
 }

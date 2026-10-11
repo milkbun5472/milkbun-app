@@ -36,5 +36,5 @@
   if(!room.floorColor&&(!room.floor||room.floor==='auto'))next.floor=suggestion.floor;
   return {...raw,$room:next};
  }
- root.CharDayLife={INGREDIENTS,RECIPES,recipe,kitchen,kitchenChange,album,albumChange,PREFERENCES,recommendation,recommendLayout};
+ root.CharDayLife={...root.CharDayKitchen,INGREDIENTS,RECIPES,recipe,kitchen,kitchenChange,album,albumChange,PREFERENCES,recommendation,recommendLayout};
 })(window);

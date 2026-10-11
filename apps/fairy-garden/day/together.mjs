@@ -1,14 +1,14 @@
 import * as T from 'three';
-import './social.js?v=fg-7925d94740daaf60';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-7925d94740daaf60';
-import {stepRoute} from '../locomotion.mjs?v=fg-7925d94740daaf60';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-7925d94740daaf60';
-import {pairProgress} from './motion-profile.mjs?v=fg-7925d94740daaf60';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-7925d94740daaf60';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-7925d94740daaf60';
+import './social.js?v=fg-71acad1fdbec8e85';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-71acad1fdbec8e85';
+import {stepRoute} from '../locomotion.mjs?v=fg-71acad1fdbec8e85';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-71acad1fdbec8e85';
+import {pairProgress} from './motion-profile.mjs?v=fg-71acad1fdbec8e85';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-71acad1fdbec8e85';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-71acad1fdbec8e85';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-7925d94740daaf60';
+import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-71acad1fdbec8e85';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -35,7 +35,7 @@ function pairWalkRoute(map,at,heading,spacing,round=0){
  }
  return null;
 }
-export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
+export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='ta'}={}){
  let choices=[];
  if(['shoulder','closer','wait','rest','cuddle'].includes(kind)||(['read','feed'].includes(kind)&&map.furniture.some(p=>['sofa','bench'].includes(p.kind))))choices=sofaPair(map,distance?distance/2:kind==='cuddle'||kind==='shoulder'?.32:kind==='feed'?.32:kind==='closer'?.345:.37,['shoulder','cuddle'].includes(kind)?initiator:null).map(q=>({a:q.a.approach,b:q.b.approach,seats:q}));
  else if(kind==='feed'){
@@ -52,7 +52,7 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
   }
  }else if(kind==='cook'){
   const spot=map.spots.find(p=>p.action==='cook'),piece=map.furniture.find(p=>p.id===spot?.piece);
-  if(spot&&piece){const b=furniturePoint(piece,{x:HOME_PREP.x-.19,z:piece.d/2+.25});choices.push({a:spot.target,b,heading:spot.heading,spot,piece});}
+  if(spot&&piece){const b=furniturePoint(piece,{x:HOME_PREP.x-.19,z:piece.d/2+.25});choices.push({a:lead==='me'?b:spot.target,b:lead==='me'?spot.target:b,lead,heading:spot.heading,spot,piece});}
  }else if(kind==='stretch'){
   const spot=map.spots.find(s=>s.id==='stretch');if(spot)choices.push({a:{x:spot.target.x-.9,z:spot.target.z},b:{x:spot.target.x+.9,z:spot.target.z},heading:spot.heading});
  }else if(kind==='browse'){
@@ -73,9 +73,12 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null}={}){
  return choices.map(p=>{
   if(!walkable(p.a.x,p.a.z,mapId(map))||!walkable(p.b.x,p.b.z,mapId(map))||gap(p.seats?.a||p.a,p.seats?.b||p.b)<(distance?distance-.03:kind==='hug'?.32:INTIMATE[kind]?.distance?INTIMATE[kind].distance-.02:(INTIMATE[kind]?.seated||kind==='feed')?.60:['shoulder','hand','walk'].includes(kind)?.58:.65))return null;
   if((kind==='walk'||INTIMATE[kind]?.tour)&&!pairWalkRoute(map,p,p.heading,distance||INTIMATE[kind]?.distance||.61))return null;
-  const aRoute=findPath(from.a,p.a,mapId(map),avoid(from.b));
-  const bRoute=findPath(from.b,p.b,mapId(map),avoid(p.seats?.a||p.a,clearance(kind,distance)));
-  return aRoute&&bRoute?{...p,aRoute,bRoute,cost:gap(from.a,p.a)+gap(from.b,p.b)}:null;
+  let aRoute=findPath(from.a,p.a,mapId(map),avoid(from.b)),bRoute=findPath(from.b,p.b,mapId(map),avoid(p.seats?.a||p.a,clearance(kind,distance))),stageRoute=null;
+  // Vacate the occupied station before changing roles; both routes keep normal collision checks.
+  if(kind==='cook'&&!aRoute){for(let n=0;n<32;n++){const angle=n*Math.PI/8,r=1.1+Math.floor(n/16)*.7,c={x:from.b.x+Math.sin(angle)*r,z:from.b.z+Math.cos(angle)*r};if(gap(c,p.a)<.9||gap(c,p.b)<.9||!walkable(c.x,c.z,mapId(map)))continue;
+   const away=findPath(from.b,c,mapId(map),avoid(from.a)),ar=findPath(from.a,p.a,mapId(map),avoid(c)),br=findPath(c,p.b,mapId(map),avoid(p.a,clearance(kind,distance)));if(away&&ar&&br){stageRoute=away;aRoute=ar;bRoute=br;break;}}
+  }
+  return aRoute&&bRoute?{...p,aRoute,bRoute,stageRoute,cost:gap(from.a,p.a)+gap(from.b,p.b)+(stageRoute?2:0)}:null;
  }).filter(Boolean).sort((a,b)=>a.cost-b.cost);
 }
 // Both participants use the existing navigation and original traveler rig. Nothing is saved.
@@ -87,16 +90,16 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
  const handle=new T.Mesh(new T.TorusGeometry(.04,.012,8,16),material);handle.position.set(.06,.055,0);cup.add(handle);
  const tea=new T.Mesh(new T.CylinderGeometry(.054,.054,.007,16),new T.MeshStandardMaterial({color:'#a78055'}));tea.position.y=.122;cup.add(tea);
  const style=who=>({style:'gentle',delay:.35,reach:1.1,lean:.1,sway:.008,phase:0,...pair()[who]});
- const intimate=createIntimate({a,b,map,style});
+ const intimate=createIntimate({a,b,map,style,kitchen});
  const contact=pairContact;
  a.root.userData.pairWho='ta';b.root.userData.pairWho='me';
- const inspect=()=>session?{kind:session.kind,label:TOGETHER_LABELS[session.kind],phase:session.phase,a:{...session.a},b:{...session.b},seats:session.plan.seats||null,intimate:intimate.inspect(),contact:session.contact||null,initiator:session.initiator,tour:session.tour?{moving:session.tour.moving,round:session.tour.round}:null,elapsed:session.elapsed,automatic:session.automatic,styles:{a:style('a'),b:style('b')},aTask:session.aTask,bTask:session.bTask}:null;
+ const inspect=()=>session?{kind:session.kind,label:TOGETHER_LABELS[session.kind],phase:session.phase,a:{...session.a},b:{...session.b},seats:session.plan.seats||null,intimate:intimate.inspect(),contact:session.contact||null,initiator:session.initiator,lead:session.plan.lead,tour:session.tour?{moving:session.tour.moving,round:session.tour.round}:null,elapsed:session.elapsed,automatic:session.automatic,styles:{a:style('a'),b:style('b')},aTask:session.aTask,bTask:session.bTask}:null;
  function tell(){const s=inspect(),key=JSON.stringify(s&&[s.kind,s.phase]);if(key!==last){last=key;onUpdate(s);}}
  function stop(reason='已松开，继续各自做事。'){if(!session)return false;const s=session;session=null;cup.visible=false;intimate.hide();last='';onStop({a:s.a,b:s.b,seats:s.plan.seats?{a:s.phase==='walking-ta'?null:s.plan.seats.a,b:s.phase==='active'?s.plan.seats.b:null}:null,reason,automatic:s.automatic});onUpdate(null);return true;}
- function start(kind,{automatic=false,initiator='b'}={}){if(!TOGETHER_LABELS[kind])return {ok:false,reason:'这个互动还没有位置。'};
-  if(session)stop();initiator=initiator==='a'?'a':'b';const origins=from(),plan=togetherPlans(map(),kind,origins,{initiator,distance:pairSpacing(kind,a,b)}).map(p=>({...p,viewCost:p.cost+visibility({...p,kind})})).sort((a,b)=>a.viewCost-b.viewCost)[0];
+ function start(kind,{automatic=false,initiator='b',lead='ta'}={}){if(!TOGETHER_LABELS[kind])return {ok:false,reason:'这个互动还没有位置。'};
+  if(session)stop();initiator=initiator==='a'?'a':'b';const origins=from(),plan=togetherPlans(map(),kind,origins,{initiator,lead,distance:pairSpacing(kind,a,b)}).map(p=>({...p,viewCost:p.cost+visibility({...p,kind})})).sort((a,b)=>a.viewCost-b.viewCost)[0];
   if(!plan)return {ok:false,reason:kind==='cook'?'厨房前没有两个人能走到的位置。':['read','shoulder','cuddle'].includes(kind)?'先摆一张能走到的双人沙发或长椅。':kind==='meal'?'餐桌旁需要两把能走到的空椅子。':kind==='feed'?'先留一张能走近的餐桌或双人座位。':'附近没有两个人能站稳的空地。'};
-  session={kind,automatic,initiator,plan,a:{...origins.a},b:{...origins.b},phase:'walking-ta',elapsed:0,speed:0,clearance:clearance(kind,pairSpacing(kind,a,b)),tour:kind==='walk'||INTIMATE[kind]?.tour?{moving:false,wait:0,round:0}:null};tell();return {ok:true};
+  session={kind,automatic,initiator,plan,a:{...origins.a},b:{...origins.b},phase:plan.stageRoute?'walking-stage-b':'walking-ta',elapsed:0,speed:0,clearance:clearance(kind,pairSpacing(kind,a,b)),tour:kind==='walk'||INTIMATE[kind]?.tour?{moving:false,wait:0,round:0}:null};tell();return {ok:true};
  }
  function pose(actor,at,seated,heading,time,moving,task,profile,gesture='rest',progress=0,dt=.025){actor.root.position.set(at.x,0,at.z);const turn=Math.atan2(Math.sin(heading-actor.root.rotation.y),Math.cos(heading-actor.root.rotation.y));actor.root.rotation.y+=T.MathUtils.clamp(turn,-4*dt,4*dt);actor.animate(time,{moving,seated:!!seated,seatPose:seated?.pose,gesture,progress,task,motion:profile,height:floorHeight(mapId(map()),at)+(seated?seated.rise+.05:0)});}
  function walkTogether(s,dt){
@@ -113,11 +116,11 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   s.a={...next.a,heading:tour.heading};s.b={...next.b,heading:tour.heading};if(step.blocked||!tour.route.length){tour.moving=false;tour.wait=1.4;}
  }
  function tick(dt,time){if(!session)return false;const s=session,p=s.plan;s.elapsed+=dt;
-  const who=s.phase==='walking-ta'?'a':s.phase==='walking-you'?'b':null;
-  if(who){const route=who==='a'?p.aRoute:p.bRoute,other=who==='a'?s.b:p.seats?.a||s.a;
+  const who=s.phase==='walking-ta'?'a':['walking-you','walking-stage-b'].includes(s.phase)?'b':null;
+  if(who){const route=s.phase==='walking-stage-b'?p.stageRoute:who==='a'?p.aRoute:p.bRoute,other=who==='a'?s.b:p.seats?.a||s.a;
    const step=stepRoute(s[who],route,dt,{speed:s.speed,walkSpeed:1.45*(motion()[who]?.walk||1),clear:(u,v)=>segmentClear(u,v,mapId(map()),avoid(other,s.clearance))});s[who]=step.position;s.speed=step.speed;if(step.heading!=null)s[who].heading=step.heading;
    if(step.blocked){stop('两个人的路线被挡住了，可以换个位置再试。');return false;}
-   if(!route.length){s.phase=who==='a'?'walking-you':'turning';s.speed=0;s.elapsed=0;tell();}
+   if(!route.length){s.phase=s.phase==='walking-stage-b'?'walking-ta':who==='a'?'walking-you':'turning';s.speed=0;s.elapsed=0;tell();}
   }
   if(s.phase==='active'&&s.tour)walkTogether(s,dt);
   const active=s.phase==='active',aSeated=p.seats&&s.phase!=='walking-ta'?p.seats.a:null,bSeated=active||s.phase==='turning'?p.seats?.b:null;
@@ -130,14 +133,17 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
 
   if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion().a});const target={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY};bt={...daily('b','prep'),target,contact};}
   const cooking=kitchen(),job=cooking?.job;
-  if(active&&job?.kind===s.kind){const stage=globalThis.CharDayKitchen.cookingStage(job,cooking.elapsed);
+  if(active&&job?.kind===s.kind){const stage=globalThis.CharDayKitchen.cookingStage(job,job.cooking?cooking.progress:cooking.elapsed);
    if(s.kind==='meal'){const courses=job.courses||[{recipeId:job.recipeId}],course=courses[Math.min(courses.length-1,Math.floor(cooking.elapsed/2.7))],r=globalThis.CharDayKitchen.recipe(course.recipeId);at={...at,kind:r?.food==='drink'?'drink':'eat',recipeId:r?.id};bt={...bt,kind:at.kind,recipeId:r?.id};}
-   if(s.kind==='cook'){const method=stage.method,passive=stage.index===2||stage.index===1&&['bake','steam','brew'].includes(method);at=passive?null:{...at,recipeId:job.recipeId,method,stage:stage.index};bt=passive?null:{...bt,recipeId:job.recipeId,method,stage:stage.index};}
+   if(s.kind==='cook'){const method=stage.method,passive=stage.index===2||stage.index===1&&['bake','steam','brew'].includes(method);
+    if(job.cooking){const chefWho=job.cooking.lead==='me'?'b':'a',prepWho=chefWho==='a'?'b':'a',chef=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion()[chefWho]}),prep={...daily(prepWho,'prep'),target:{...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact:{...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY}};
+     const task=stage.index===0?prep:chef,elapsed=job.cooking.mode==='hands'&&stage.who==='me'?stage.progress.work*.48:s.elapsed,working=stage.index<2&&!stage.passive?{...task,elapsed,recipeId:job.recipeId,method,stage:stage.index}:null;at=(stage.index===0?prepWho:chefWho)==='a'?working:null;bt=(stage.index===0?prepWho:chefWho)==='b'?working:null;
+    }else{at=passive?null:{...at,recipeId:job.recipeId,method,stage:stage.index};bt=passive?null:{...bt,recipeId:job.recipeId,method,stage:stage.index};}}
   }
   s.aTask=at;s.bTask=bt;
   if(s.tour){ah=s.tour.heading??p.heading;bh=ah;}
   const gesture=active&&s.kind==='stretch'?'stretch':'rest',progress=(s.elapsed/4)%1;
-  pose(a,aa,aSeated,ah,time,s.phase==='walking-ta'||!!s.tour?.moving,at,motion().a,gesture,progress,dt);pose(b,bb,bSeated,bh,time,s.phase==='walking-you'||!!s.tour?.moving,bt,motion().b,gesture,(progress+.12)%1,dt);
+  pose(a,aa,aSeated,ah,time,s.phase==='walking-ta'||!!s.tour?.moving,at,motion().a,gesture,progress,dt);pose(b,bb,bSeated,bh,time,['walking-you','walking-stage-b'].includes(s.phase)||!!s.tour?.moving,bt,motion().b,gesture,(progress+.12)%1,dt);
   if(s.phase==='turning'&&[ [a,ah],[b,bh] ].every(([actor,heading])=>Math.abs(Math.atan2(Math.sin(heading-actor.root.rotation.y),Math.cos(heading-actor.root.rotation.y)))<.001)){s.phase='active';s.elapsed=0;tell();}
   if(active&&s.kind==='browse'){for(const [actor,at,offset] of [[a,aa,0],[b,bb,.8]]){const local=new T.Vector3(at.x,0,at.z).sub(new T.Vector3(p.piece.x,0,p.piece.z)).applyAxisAngle(new T.Vector3(0,1,0),-(p.piece.heading||0)),point=furniturePoint(p.piece,{x:local.x,z:p.piece.d/2-.08}),target=new T.Vector3(point.x,.96+Math.sin(s.elapsed+offset)*.05,point.z);actor.contactPose({[nearHand(actor,target)]:target});}}
   const pa=pairProgress(s.elapsed,style('a')),pb=pairProgress(s.elapsed,style('b'));
