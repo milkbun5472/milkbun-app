@@ -3545,7 +3545,7 @@ function buildBundle(ctx, opts) {
     geo,
     timeAware
   } = ctx;
-  const now = new Date();
+  const now = vclockNow();
   const parts = [];
   // OOC（幕后 AI 助手）故意不去人机味；其余一切角色语音/内容生成都焊上反八股总则，且放最前面最高优先
   // 内置最前三件套（优先级从高到低）：反八股压制器 → 世界书执行准则 → 角色卡执行准则
@@ -3588,7 +3588,8 @@ function buildBundle(ctx, opts) {
     const uNm = (profile && profile.name) ? profile.name : "对方";
     // ⚠️【当前真实时间】= 用户设备的当地时间，也就是【对方那边此刻的真实时间】。点破这一点，
     //   否则设了时区的角色会脑补一个不存在的大时差（如日本角色在你早上发「你那边是晚上了吧」）。
-    timeBlock.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】。Ta 那边现在几点、是清晨还是深夜，直接照这个，绝不许自己臆测 Ta 的时间。");
+    if (vclockCfg()) timeBlock.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这是 " + uNm + " 定下的【你们这个世界里此刻的时间】（不一定是现实里的今天），一切照它走：几点、白天黑夜、哪一年哪一季，都以它为准。");
+    else timeBlock.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】。Ta 那边现在几点、是清晨还是深夜，直接照这个，绝不许自己臆测 Ta 的时间。");
     // 角色若设了时区（UTC 偏移），额外给出 Ta 自己所在地的当地时间（异地恋用）
     const tzRaw = char && char.tz;
     if (tzRaw !== undefined && tzRaw !== null && String(tzRaw).trim() !== "") {
@@ -8511,7 +8512,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const who = m.role === "user" ? userName : m.role === "narration" ? "旁白" : (m.senderName || "群成员");
     return who + "：" + String(m.content || "").replace(/\s+/g, " ").trim();
   }).filter(Boolean).join("\n");
-  const now = new Date();
+  const now = vclockNow();
   // 时间感知（跟随全局开关）：给出真实时间；在场角色若各设了时区，附上各自当地时刻
   let timeBlock = "";
   if (ctx.timeAware !== false) {
@@ -9938,8 +9939,22 @@ function fmtStamp(ts) {
 }
 // 喂给模型的时间戳（prompt 专用，UI 别用）：同天必须明说「今天」——裸时刻模型会瞎猜，
 // 下午说的话晚上在群里被引用成「昨天才说」就是这个坑（v47.81）
+// ── 虚拟时间（群友 2026-10-11：「平时主玩线下，经常需要调整时间」）──────────────
+//   时间感知那一格里多一份：她定一个戏里的此刻（base，记下定的那一刻 at），再定流逝速度 speed
+//   （0＝停住、1＝跟现实一样、2＝现实一小时戏里两小时…）。戏里现在＝base＋(现实已过的)×speed。
+//   ⚠️喂给模型的「现在几点」和历史上的〔今天14:32〕都从这两个函数走——只换一处、另一处还是真实时间，TA就对不上。
+//   日记、日程、生日这些按现实日子过的事不走它。
+function vclockCfg() {
+  try { const c = typeof window !== "undefined" ? window.__vclock : null; return c && c.on && isFinite(Number(c.base)) ? c : null; } catch (e) { return null; }
+}
+function vclockMap(ts) {
+  const c = vclockCfg(); if (!c) return Number(ts);
+  const sp = Number(c.speed);
+  return Number(c.base) + (Number(ts) - Number(c.at || 0)) * (isFinite(sp) && sp >= 0 ? sp : 1);
+}
+function vclockNow() { return new Date(vclockMap(Date.now())); }
 function fmtStampAI(ts) {
-  const d = new Date(ts), now = new Date();
+  const d = new Date(vclockMap(ts)), now = vclockNow();
   if (d.toDateString() === now.toDateString()) return "今天" + fmtClock(d);
   const yd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);

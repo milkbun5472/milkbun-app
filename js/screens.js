@@ -10461,7 +10461,7 @@ function SenseConfig({
       ...p,
       timeAware: v
     })
-  })), h("div", {
+  })), typeof VClockEditor === "function" ? h(VClockEditor, { v: p.vclock, onChange: v => save({ ...p, vclock: v }) }) : null, h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {

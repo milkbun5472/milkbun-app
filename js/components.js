@@ -1919,6 +1919,52 @@ function MsgBanners({ list, onOpen, onDismiss }) {
       }))),
     document.body);
 }
+// ── 虚拟时间（群友 2026-10-11）：设置页「时间感知」下面和悬浮球里共用这一块 ──────────
+//   v = { on, base, at, speed }：戏里现在＝base＋(现实已过)×speed，算法只在 engine.js 的 vclockMap 那一处。
+//   改时间、改速度都【先把戏里现在定下来再改】（重新起锚），不然一改速度，前面走过的那段就跟着变了。
+const VCLOCK_SPEEDS = [[0, "停住"], [0.5, "×0.5"], [1, "×1 跟现实"], [2, "×2"], [6, "×6"], [24, "×24"]];
+function vclockRead(v) {
+  const sp = v && isFinite(Number(v.speed)) && Number(v.speed) >= 0 ? Number(v.speed) : 1;
+  return v && isFinite(Number(v.base)) ? Number(v.base) + (Date.now() - Number(v.at || Date.now())) * sp : Date.now();
+}
+function VClockEditor({ v, onChange, compact }) {
+  const t = useTheme();
+  const [, tick] = useState(0);
+  useEffect(() => { if (!v || !v.on) return; const id = setInterval(() => tick(x => x + 1), 30000); return () => clearInterval(id); }, [v && v.on]);
+  const on = !!(v && v.on);
+  const speed = v && isFinite(Number(v.speed)) ? Number(v.speed) : 1;
+  const cur = vclockRead(v);
+  const put = patch => onChange({ on: true, speed, ...(v || {}), base: cur, at: Date.now(), ...patch });
+  const pad = n => String(n).padStart(2, "0");
+  const d = new Date(cur);
+  const local = String(d.getFullYear()).padStart(4, "0") + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  const fs = compact ? 11.5 : 12.5;
+  const chip = (label, active, onClick, key) => h("button", { key: key || label, onClick, className: "active:opacity-60",
+    style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (active ? t.ink : t.line), background: active ? t.ink : "transparent",
+      color: active ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: fs, whiteSpace: "nowrap" } }, label);
+  return h("div", { style: { padding: compact ? "6px 4px 2px" : "12px 0", borderBottom: compact ? "none" : "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+      h("div", { style: { minWidth: 0 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : 16, color: t.ink } }, "虚拟时间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: compact ? 10.5 : 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+          on ? "戏里现在：" + d.toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "short", hour: "2-digit", minute: "2-digit" })
+            : "开了以后，TA 知道的「现在几点」换成你定的时间（日记、日程照现实走）")),
+      h(Toggle, { on, onChange: x => onChange(x ? { on: true, base: (v && isFinite(Number(v.base)) ? cur : Date.now()), at: Date.now(), speed } : { ...(v || {}), base: cur, at: Date.now(), on: false }) })),
+    on ? h("div", { style: { marginTop: 10 } },
+      h("input", { type: "datetime-local", value: local,
+        onChange: e => { const ms = new Date(e.target.value).getTime(); if (isFinite(ms)) put({ base: ms, at: Date.now() }); },
+        style: { width: "100%", padding: "8px 10px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" } }),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "9px 0 5px" } }, "流逝速度"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+        VCLOCK_SPEEDS.map(([n, label]) => chip(label, speed === n, () => put({ speed: n }), "sp" + n))),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "9px 0 5px" } }, "往前拨"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+        chip("+1 小时", false, () => put({ base: cur + 3600e3 })),
+        chip("+6 小时", false, () => put({ base: cur + 6 * 3600e3 })),
+        chip("+1 天", false, () => put({ base: cur + 86400e3 })),
+        chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); })))
+      : null);
+}
 function Toggle({
   on,
   onChange

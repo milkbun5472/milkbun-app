@@ -206,7 +206,7 @@ function ScreenBoundaryClass() {
 //   论坛、一起听、备忘录、手记都拿掉了：主屏一路找过去最容易点错，也没翻出过一句戳人的心声。
 const PEEK_PHONE_SECTIONS = [["chats", "跟别人的聊天"], ["offline", "线下见面的往期"], ["calendar", "日历"], ["health", "健康记录"], ["money", "钱包流水"], ["shop", "购物和外卖（含别人送的）"], ["pics", "发过的图"]];
 if (typeof window !== "undefined") window.PEEK_PHONE_SECTIONS = PEEK_PHONE_SECTIONS;
-function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock }) {
+function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnline, onSetOffline, onSetBg, clock, vclock, onVClock }) {
   const t = useTheme();
   const [open, setOpen] = useState(false);
   // 三档收着，点哪一档才摊开哪一档（她 2026-09-22：「点开悬浮球是三项收着的
@@ -300,7 +300,8 @@ function ModelQuickSwitch({ profiles, activeId, offlineApiId, bgApiId, onSetOnli
     tab === "clock" ? h("div", { style: { marginTop: 4 } }, CLOCK_OPTS.map(o => h("button", {
       key: o[0], onClick: () => clock.set(o[0]), className: "active:opacity-60",
       style: { width: "100%", textAlign: "left", padding: "8px 10px", borderRadius: 10, fontFamily: F_BODY, fontSize: 12, lineHeight: 1.35,
-        color: clock.mode === o[0] ? t.bg2 : t.ink, background: clock.mode === o[0] ? t.ink : "transparent" } }, o[1]))) : null) : null;
+        color: clock.mode === o[0] ? t.bg2 : t.ink, background: clock.mode === o[0] ? t.ink : "transparent" } }, o[1])),
+      vclock && onVClock && typeof VClockEditor === "function" ? h(VClockEditor, { v: vclock, onChange: onVClock, compact: true }) : null) : null) : null;
   const choice = (lane, p) => h("button", {
     key: lane.key + ":" + (p && p.id || "follow"),
     onClick: () => lane.set(p && p.id),
@@ -960,6 +961,8 @@ function App() {
     msgBanner: true           // App 内消息提醒（她 2026-09-11），默认开着
   });
   const prefsRef = useRef(prefs);
+  // 虚拟时间：engine.js 里 vclockNow / vclockMap 读的就是这一份（每次画都对一遍，改完下一轮就生效）
+  try { window.__vclock = prefs.vclock && prefs.vclock.on ? prefs.vclock : null; } catch (e) {}
   prefsRef.current = prefs;   // 提醒那一下在异步回调里问「这个开关开着吗」
   const [geo, setGeo] = useState(null);
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
@@ -14211,7 +14214,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _crossDay = _glast && new Date(_glast).toDateString() !== new Date().toDateString();
       const _gClockNames = members.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
       const gTimeHint = _gClockNames.length
-        ? "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
+        ? "\n\n【此刻时间】现在是 " + (typeof vclockNow === "function" ? vclockNow() : new Date()).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
         : "";
       // 补充上文：每位成员入群前的私聊，作为「封闭空间」的 X 条前情提要——
       // 只在【未开记忆互通】时用；开了互通就实时抽单聊，这档自动让位、不叠加。
@@ -19470,7 +19473,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           .filter(Boolean).join("\n");
         const gcHistBlock = gcRecent ? "\n\n【这通电话之前，群里刚聊过这些】\n" + gcRecent + "\n⚠️这些【已经发生过了】，就在刚才。别当没发生、别把已经做完的事再说成正要去做。" : "";
         const gcClock = people.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
-        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
+        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + (typeof vclockNow === "function" ? vclockNow() : new Date()).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
         // 群通话是【第三处群路】，成长准则原来一个字都没有——群线上和群线下各有一份、
         // 电话里没有，于是同一个人在电话里退回原卡的旧倾向（v55.87「换个入口换个人」）。
         const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
@@ -30962,6 +30965,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           set: v => { patchChatSetting(activeChar.id, { timeAwareMode: v }); toast((activeChar.remark || activeChar.name || "TA") + " 的时间感知：" + (v === "on" ? "开" : v === "off" ? "关" : "跟随全局")); } }
       : { charName: "", mode: prefs.timeAware !== false ? "on" : "off",
           set: v => { const p = { ...prefs, timeAware: v === "on" }; setPrefs(p); saveJSON("x_prefs", p); toast("全局时间感知：" + (v === "on" ? "开" : "关")); } },
+    // 虚拟时间开着时，悬浮球里直接拨（她 2026-10-11）
+    vclock: prefs.vclock && prefs.vclock.on ? prefs.vclock : null,
+    onVClock: v => { const p = { ...prefsRef.current, vclock: v }; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台关了：自己跑的那些都不跑了" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,
