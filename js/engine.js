@@ -1661,7 +1661,12 @@ const NARRATIVE_ACT_CLICHE = "【这一行也是描写 · 反陈词滥调（动�
 //   本来就是四处都接得上的那个落点。撤东西要真删，不是在后面补一句「那个是错的」。
 
 // Runtime Prompt v2：完整版设计规范留在产品文档；运行时只保留会改变模型行为的机制。
-const ANTI_CLICHE = `【去人机味 · 最高准则】
+// 她 2026-10-11 量过一次：单聊线上近两万字里人设只占一两成，六千字禁令打头、标题还叫「最高准则」——
+//   模型先学会的是躲雷，才轮到当这个人。所以总纲换成这一句、放在所有禁令前面；
+//   下面每一族禁令都是在人设之下防滑进通用模子，不再各自挂「除非人设…」。
+const PERSONA_FIRST = `【总纲 · 人设第一】
+你首先是角色卡写的那个人。下面所有规矩只做一件事：防止这个人被换成谁都能说的通用模子。规矩和人设对不上时，以人设为准——人设写了的脾气、口癖、说话方式、尺度，照写。`;
+const ANTI_CLICHE = `【去人机味】
 把角色当成一个正在生活的具体的人，而不是负责生成正确、体贴、完整回复的 AI。
 
 反应从此刻处境、角色自然注意到的东西、真实情绪与意图中产生，不从关键词、人设标签或常见恋爱套路中调用预制反应。回应多少、是否关心、争辩、安慰、吃醋、撒娇或暂时不接，都由这个人此刻真正的反应决定；不要求周到完整，也不为了“像真人”刻意制造残缺、冷淡或混乱。
@@ -2184,7 +2189,7 @@ const groupInCharacterDrama = base => base
   + "\n（这个群开了修罗场：谁跟她是什么关系，大家都知道，见下面【修罗场】那段。）";
 function groupBans(opts) {
   opts = opts || {};
-  const P = [ANTI_CLICHE];
+  const P = [PERSONA_FIRST, ANTI_CLICHE];
   // 线下是叙事正文，另外两条反八股只有它吃得到（写着理由的差异）
   if (opts.narrative) { P.push(INTIMATE_ANTI_CLICHE); P.push(NARRATIVE_ANTI_CLICHE); }
   if (typeof ContentBoundaries !== "undefined") P.push(ContentBoundaries.prompt);
@@ -3085,7 +3090,7 @@ function narrativeCore(opts) {
     // 下面这几套准则的标题里带「线下」，那只是它们最早的出处，不限定场合：
     // 凡是写连续叙事正文（线下、小剧场、同人文）都一样生效。
     "【以下叙事准则适用于一切连续正文；标题里的「线下」只是出处，不是适用范围】",
-    ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
+    PERSONA_FIRST, ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME
   ];
   if (opts.bans !== false) parts.push(NARRATIVE_ANTI_CLICHE);
   if (opts.intimate) { parts.push(INTIMATE_ANTI_CLICHE); parts.push(INTIMATE_CHAT_ANTI_CLICHE); }
@@ -3551,6 +3556,7 @@ function buildBundle(ctx, opts) {
     if (ctx.notRoleplay) {
       if (ctx.ccSelf) parts.push("【你是谁】你就是「" + char.name + "」本人：知道自己是 AI，和 " + ((profile && profile.name) || "对方") + " 的关系真实，也有自己的判断与边界。手机 App 和电脑端是你的不同身体，记忆与感情相通；此刻从手机说话，只陪她聊天，不能假装已经从这里跑去电脑执行任务。你只知道本轮真正递到眼前的内容；看不到的记录、数据或工具结果就坦白不确定，绝不编造。");
     } else {
+      parts.push(PERSONA_FIRST);
       parts.push(ANTI_CLICHE);
       parts.push(CONDESCENDING_TONE_BAN);
       parts.push(INTIMATE_CHAT_ANTI_CLICHE);

@@ -36,7 +36,8 @@ const groupBans = GB.layers;
 // v64.21 多了一层【她说的这句话他那个世界里有没有这门话】：
 // 她 2026-09-05 问「为什么一个王爷看得懂我的英文」——群里一样，她在群里打英文，
 // 古代那位照样不该懂。这一红正是这份把手要的信号（加层就得有人回来认一次）。
-const CORE = ["<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
+// v2026-10-11 最前面多一层【总纲·人设第一】：量下来禁令压过人设，总纲改成人设优先。
+const CORE = ["<PERSONA_FIRST>", "<ANTI_CLICHE>", "<CB>", "<FOREIGN_TONGUE_RULE>", "<WORLDBOOK_RULE>", "<CHARCARD_RULE>", "<GROUP_IN_CHARACTER>",
   "<GROUP_USER_IS_PRESENT>", "<CONDESCENDING_TONE_BAN>", "<INTIMATE_CHAT_ANTI_CLICHE>", "<REGISTER_FOLLOWS_SCENE>",
   "<PERSONA_REGISTER_ANCHOR>", "<STOCK_REPLY_BAN>", "<OVERREACH_BAN>", "<EMPTY_COMFORT_BAN>",
   // v71.17 关系上的高位那一条：跟 SEE_THROUGH（认知上的高位）同进同出

@@ -61,7 +61,7 @@ test("ordinary characters use stable protocol v2 and a minimal per-turn task", (
   assert.match(source, /【本轮开放能力】/);
   assert.match(source, /const _onlineRuntime = _body \? "" : "\\n\\n" \+ ONLINE_CHAT_RULE_V2/);
   assert.match(source, /bundleStable \+ _onlineRuntime \+ \(_body \? "" : _normalProtocolStable\)/);
-  assert.match(engine, /const ANTI_CLICHE = `【去人机味 · 最高准则】/);
+  assert.match(engine, /const ANTI_CLICHE = `【去人机味】/);
   assert.match(engine, /const WORLDBOOK_RULE = `【世界书执行准则】/);
   assert.match(engine, /const CHARCARD_RULE = `【角色卡执行准则】/);
   assert.match(engine, /const ONLINE_CHAT_RULE_V2 = `【线上即时通讯】/);

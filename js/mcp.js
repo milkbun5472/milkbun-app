@@ -130,10 +130,14 @@
   const qualify = (srv, name) => (srv.id || "mcp") + "__" + name;
   const unqualify = full => { const i = String(full || "").indexOf("__"); return i < 0 ? { sid: "", name: String(full || "") } : { sid: full.slice(0, i), name: full.slice(i + 2) }; };
 
-  async function listTools(force) {
+  // 第二参数 off：这个角色（群里是在场所有人）关掉的那几台的 id。默认全开——新接一台，人人都拿得到；
+  //   不想给谁就去 TA 的聊天设置里取消勾（她 2026-10-11：「十个服务器工具噎死模型」「先整套默认都开」）。
+  const sid = srv => srv.id || "mcp";
+  async function listTools(force, off) {
     const cache = load(CACHE_KEY, {}) || {};
     const out = [];
-    for (const srv of enabled()) {
+    const skip = Array.isArray(off) ? off : [];
+    for (const srv of enabled().filter(x => skip.indexOf(sid(x)) < 0)) {
       const c = cache[srv.url];
       if (!force && c && c.ts && Date.now() - c.ts < CACHE_TTL && Array.isArray(c.tools)) {
         c.tools.forEach(t => out.push(t));
@@ -187,7 +191,7 @@
 
   if (typeof window !== "undefined") window.MCP = {
     relay: relay, setRelay: v => { save(RELAY_KEY, v && v.url ? { url: String(v.url).trim(), key: String(v.key || "").trim() } : null); }, isSse: isSse,
-    servers: servers, enabled: enabled, listTools: listTools, callTool: callTool, probe: probe,
+    servers: servers, enabled: enabled, sid: sid, listTools: listTools, callTool: callTool, probe: probe,
     forget: () => { save(CACHE_KEY, {}); Object.keys(sessions).forEach(k => delete sessions[k]); Object.keys(shook).forEach(k => delete shook[k]); },
     qualify: qualify, unqualify: unqualify, PROTO: PROTO
   };

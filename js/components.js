@@ -19228,7 +19228,9 @@ function ChatSettings({
   const [busyReroll, setBusyReroll] = useState(settings.busyReroll === true); // 子开关：每轮都按忙碌度重新掷
   const [autoReplySec, setAutoReplySec] = useState(Math.max(0, Number(settings.autoReplySec) || 0)); // 停手几秒自己回，0＝关
   const [busyHold, setBusyHold] = useState(settings.busyHold === true); // 忙的时候晚点回（默认关：不是每个人设都有「忙」）
-  const [webSearch, setWebSearch] = useState(!!settings.webSearch); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
+  const [webSearch, setWebSearch] = useState(!!settings.webSearch);
+  // 这个角色不要哪几台 MCP（存关掉的，不存开着的：新接一台默认人人都有）
+  const [mcpOff, setMcpOff] = useState(Array.isArray(settings.mcpOff) ? settings.mcpOff : []); // 上网：这个角色能不能真的去查一件事（只有 anthropic 方言的线路吃得下）
   const [toyEnabled, setToyEnabled] = useState(!!settings.toyEnabled); // 配件·按角色 opt-in（只在解锁后显示；亲密功能必须显式授权）
   let toyUnlocked = false; try { toyUnlocked = localStorage.getItem("x_toyUnlocked") === "1"; } catch (e) {}
   const [apiId, setApiId] = useState(settings.apiId || null); // 这个角色专属的 API 线路；null=跟随全局
@@ -19535,6 +19537,7 @@ function ChatSettings({
       bodyFillState,
       engineerEyes,
       webSearch,
+      mcpOff,
       noLoveLetter: !loveLetter,
       dongnianMsgOnly,
       busyHold: busyHold,
@@ -19690,7 +19693,16 @@ function ChatSettings({
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0 } },
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.sub } }, "让 Ta 能上网"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, "聊到不知道的事时，" + cNm + " 会自己去查一下再回答。要接什么工具，在「设置 · 文字模型」里加 MCP 服务器；用上工具的那一轮至少多花一次调用，花了几次会写在气泡上。")),
-      h("div", { className: "shrink-0" }, h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))))),
+      h("div", { className: "shrink-0" }, h(Toggle, { on: webSearch, onChange: () => setWebSearch(v => !v) }))),
+    // 接了好几台 MCP 时，一台一台勾给谁用：全递过去工具说明能有几千字，模型反而挑不准、或者干脆不用
+    (webSearch && window.MCP && window.MCP.enabled().length) ? h("div", { "data-wk": "mcppick", style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 6 } }, cNm + " 能用的工具（默认全开，不想给的取消勾）"),
+      window.MCP.enabled().map(srv => {
+        const id = window.MCP.sid(srv), on = mcpOff.indexOf(id) < 0;
+        return h("div", { key: id, className: "flex items-center justify-between", style: { padding: "6px 0" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 13.5, color: t.ink, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", paddingRight: 12 } }, srv.name || srv.url),
+          h("div", { className: "shrink-0" }, h(Toggle, { on: on, onChange: () => setMcpOff(arr => on ? arr.concat([id]) : arr.filter(x => x !== id)) })));
+      })) : null)),
   show("temper", { title: cNm + " 的底色 · 几个词", ...sec("temperament") },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.6, paddingTop: 8 } },
       // ⚠️v62.37 起这一层就是常开的，这里写的词真的会发出去。原来那句「不会进

@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.372";
+const APP_VERSION = "v75.373";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12540,7 +12540,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 不该为「工具从哪儿来」再多一个开关。列工具失败不拦这一轮，照常说话。
       let _mcpT = null;
       if (_wantWeb && window.MCP && window.MCP.enabled().length) {
-        try { _mcpT = await window.MCP.listTools(); } catch (e) { mcpListFailed(e); }
+        try { _mcpT = await window.MCP.listTools(false, _s.mcpOff); } catch (e) { mcpListFailed(e); }
       }
       const _callMeta = {};
       try {
@@ -14670,7 +14670,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       });
       let _gMcpT = null;
       if (_gWantWeb && window.MCP && window.MCP.enabled().length) {
-        try { _gMcpT = await window.MCP.listTools(); } catch (e2) { mcpListFailed(e2); }
+        // 一台只要在场开着上网的人里有一个没关它，这一轮就带上（同 _gWantWeb：任一成员开着就带）
+        const _gOn = members.map(c => settingsFor(c.id) || {}).filter(cs => !cs.engineerEyes && cs.webSearch);
+        const _gOff = window.MCP.enabled().map(window.MCP.sid).filter(id => _gOn.every(cs => (cs.mcpOff || []).indexOf(id) >= 0));
+        try { _gMcpT = await window.MCP.listTools(false, _gOff); } catch (e2) { mcpListFailed(e2); }
       }
       checkAutoCall();
       // ⚠️原来抽成一支是为了「查出漏了才重打一次」，那一套已经撤掉（v69.03）。
@@ -30823,6 +30826,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 而 js/app.js:7596 那句 `!!_s.webSearch` 一直在读它——
             // 「TA 会主动做什么 → 上网」这个开关点了也一直是关的。
             webSearch: !!s.webSearch,
+            // 这个角色关掉了哪几台 MCP（存关掉的：新接一台默认人人都有）
+            mcpOff: Array.isArray(s.mcpOff) ? s.mcpOff.filter(x => typeof x === "string").slice(0, 50) : [],
             // 允许TA主动写申请信（v74.732）：存成「关掉了没有」，没设过＝允许
             noLoveLetter: !!s.noLoveLetter,
             dongnianMsgOnly: s.dongnianMsgOnly === true,
