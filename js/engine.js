@@ -6579,6 +6579,10 @@ function ttsLangBoost(text) {
   if (/[぀-ヿ]/.test(s)) return "Japanese";
   if (/[가-힣]/.test(s)) return "Korean";
   if (s.trim() && !/[一-鿿぀-ヿ가-힣]/.test(s) && /[a-zA-Z]/.test(s)) return "English";
+  // 粤语（她 2026-10-11：「语音和气泡听一下播放的还是普通话」）：Chinese 这一档按普通话念。
+  //   有粤语专用字、或写的是繁体，就走 MiniMax 的 Chinese,Yue；通篇简体又没有粤语字的仍是普通话。
+  if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(s)
+    || (typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
   return "Chinese";
 }
 // 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
