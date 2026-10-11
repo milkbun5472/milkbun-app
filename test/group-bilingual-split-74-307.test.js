@@ -43,6 +43,45 @@ test("上一行自己已经是完整双语的不接", () => {
 
 test("群里：双语开着只按换行切，劈完竖线才拆泡；单聊也接回另起一行的中译", () => {
   assert.match(app, /: \(gBiOn \|\| !window\.GroupIdentityGuard\) \? String\(item\.text \|\| ""\)\.split\(\/\\n\+\/\) : window\.GroupIdentityGuard\.splitBubbles\(item\.text\);/);
-  assert.match(app, /const gLines = \(gBiOn \? joinBilingualLines : \(x => x\)\)\(/);
-  assert.match(app, /if \(_bilingualOn\) words = joinBilingualLines\(words\);/);
+  assert.match(app, /const gLines = \(gBiOn \? \(ls => joinBilingualLines\(ls, hanLangOf\(spk\)\)\) : \(x => x\)\)\(/);
+  assert.match(app, /if \(_bilingualOn\) words = joinBilingualLines\(words, hanLangOf\(char\)\);/);
+});
+
+// 她 2026-10-11 截图：粤语那几句竖线只在其中一行，中译分几行跟在后面，按换行切完错一位
+test("粤语：落单的原文和中译按句重新配对，中译被换行劈开的接回去", () => {
+  assert.deepEqual(E.joinBilingualLines([
+    "聽日開會班老嘢望住我個頭像",
+    "我就話係屋企隻貓亂撳換嘅 | 明天开会那帮老头看着我的头像",
+    "我就说是家里那只猫乱按换的"
+  ], true), [
+    "聽日開會班老嘢望住我個頭像 | 明天开会那帮老头看着我的头像",
+    "我就話係屋企隻貓亂撳換嘅 | 我就说是家里那只猫乱按换的"
+  ]);
+  assert.deepEqual(E.joinBilingualLines([
+    "食咗藥算你聽話 | 吃了药算你听话",
+    "換就換，洗完澡出嚟就見到你喺度委屈巴巴 | 换就换",
+    "洗完澡出来就看到你在这委屈巴巴",
+    "自己睇吓微信 | 自己看看微信"
+  ], true), [
+    "食咗藥算你聽話 | 吃了药算你听话",
+    "換就換，洗完澡出嚟就見到你喺度委屈巴巴 | 换就换洗完澡出来就看到你在这委屈巴巴",
+    "自己睇吓微信 | 自己看看微信"
+  ]);
+  // 不是粤语那种人不动：后面一句普通中文照样是自己一泡
+  assert.deepEqual(E.joinBilingualLines(["はい | 好", "我先走了"]), ["はい | 好", "我先走了"]);
+});
+
+// 她 2026-10-11：「档案里用粤语的角色强制出翻译」——漏了竖线的那几泡单聊、群聊都自己补中译，只走免费翻译
+test("粤语角色漏了竖线：单聊群聊都补中译，不叫模型", () => {
+  assert.match(app, /const _yueFill = _bilingualOn && hanLangOf\(char\)/);
+  assert.match(app, /const _gYueFill = gBiOn && hanLangOf\(spk\)/);
+  assert.equal((app.match(/translateToZh\(w, lg, \{ noModel: true \}\)/g) || []).length, 2);
+  // 认得宽一点：只有繁体、一个粤语字都没有的那种也要补（「換就換，洗完澡…」）
+  assert.equal((app.match(/hanLineLang\(w\)/g) || []).length, 2);
+  const H = new Function("toSimplified", "translatableLang", grab("hanLineLang") + "\nreturn hanLineLang;")(t => t.replace(/換/g, "换").replace(/嚟/g, "来"), () => "");
+  assert.equal(H("換就換，洗完澡出嚟就見到你"), "粤语");
+  assert.equal(H("换就换，洗完澡出来就看到你"), "");
+  // 2.5 秒没等到的回来再挂上
+  assert.match(app, /_yueFill\[i\]\.then\(z =>/);
+  assert.match(app, /_gYueFill\[j\]\.then\(z =>/);
 });

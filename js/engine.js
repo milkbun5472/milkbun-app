@@ -6816,6 +6816,18 @@ function bilingualTurnHint(who) {
 //   这种人开着双语时左边全是汉字也算原文；不知道是谁说的，就再认一遍粤语专用字兜底。
 const HAN_LANG_RE = /粤|粵|广东|廣東|cantonese|上海|吴语|吳語|闽南|閩南|台语|台語|客家|潮汕|文言/i;
 function hanLangOf(c) { return HAN_LANG_RE.test(String((c && c.lang) || "")); }
+// 粤语这类角色漏了竖线时，这一泡该不该补中译（她 2026-10-11：「还是有时候不能出翻译」）：
+//   translatableLang 要两个粤语专用字才认，可「換就換，洗完澡…」一个都没有、只有繁体——对这种角色，
+//   有繁体或有一个粤语字就够了；通篇简体又没有粤语字的，才是TA在说普通话。
+function hanLineLang(text) {
+  const t = String(text == null ? "" : text);
+  const base = typeof translatableLang === "function" ? translatableLang(t) : "";
+  if (base) return base;
+  if (!/[\u4e00-\u9fff]/.test(t)) return "";
+  if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(t)) return "粤语";
+  if (typeof toSimplified === "function" && toSimplified(t) !== t) return "粤语";
+  return "";
+}
 function splitBilingual(text, hanLang) {
   const t = String(text == null ? "" : text);
   const i = t.indexOf("|");
@@ -6832,14 +6844,39 @@ function splitBilingual(text, hanLang) {
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
-function joinBilingualLines(lines) {
-  return (lines || []).reduce((acc, x) => {
+function joinBilingualLines(lines, hanLang) {
+  const joined = (lines || []).reduce((acc, x) => {
     const line = String(x == null ? "" : x);
     const prev = acc.length ? acc[acc.length - 1] : null;
     if (prev != null && /^\s*\|/.test(line) && prev.indexOf("|") < 0) acc[acc.length - 1] = prev + " " + line.trim();
     else acc.push(line);
     return acc;
   }, []);
+  if (!hanLang) return joined;
+  // 粤语这类用汉字写的话（她 2026-10-11 截图）：模型把几句粤语各占一行，竖线只在其中一行，
+  //   中译也分几行跟在后面——「聽日…頭像」换行「我就話…換嘅 | 明天…头像」换行「我就说…换的」。
+  //   按换行切完，第一句粤语没译文、两句中译错一位，第三行中译自己成了一泡；
+  //   「换就换，…委屈巴巴 | 换就换」换行「洗完澡出来…」也是中译被换行劈成两半。
+  //   所以竖线那一行前后落单的行要认回来：前面落单的是原文、后面落单的是中译，
+  //   两边一样多就一句对一句重新配；中译比原文多出来的那几行接回最后那条的中译后面。
+  //   认原文靠粤语专用字或繁体字，中译是简体普通话——两样都没有的才算中译。
+  const yue = x => /[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮晒噃咪嘥個這們說話來時會對過還點樣聽開貓亂換屋企]/.test(x);
+  const out = [];
+  for (let k = 0; k < joined.length; k++) {
+    const line = joined[k];
+    const bar = line.indexOf("|");
+    if (bar <= 0 || bar !== line.lastIndexOf("|")) { out.push(line); continue; }
+    const pre = [];
+    while (out.length && out[out.length - 1].indexOf("|") < 0 && yue(out[out.length - 1])) pre.unshift(out.pop());
+    const post = [];
+    while (k + 1 < joined.length && joined[k + 1].indexOf("|") < 0 && !yue(joined[k + 1]) && /[\u4e00-\u9fff]/.test(joined[k + 1])) post.push(joined[++k].trim());
+    const origs = pre.map(x => x.trim()).concat([line.slice(0, bar).trim()]);
+    const zhs = [line.slice(bar + 1).trim()].concat(post);
+    if (origs.length === zhs.length) origs.forEach((o, n) => out.push(o + " | " + zhs[n]));
+    else if (origs.length === 1) out.push(origs[0] + " | " + zhs.join(""));
+    else { pre.forEach(x => out.push(x)); out.push(origs[origs.length - 1] + " | " + zhs.join("")); }
+  }
+  return out;
 }
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。

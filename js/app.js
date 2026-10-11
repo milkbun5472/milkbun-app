@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.375";
+const APP_VERSION = "v75.379";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12805,7 +12805,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
       // 中译另起一行的那种先接回去（群里同一个函数）
-      if (_bilingualOn) words = joinBilingualLines(words);
+      if (_bilingualOn) words = joinBilingualLines(words, hanLangOf(char));
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
@@ -13107,6 +13107,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const vEmo = raw && raw.emo && ["happy","sad","angry","fearful","disgusted","surprised","neutral"].includes(String(raw.emo)) ? String(raw.emo) : undefined;
         pChat(chatKey, p => [...p, { role: "assistant", kind: "voice", content: vt, emo: vEmo, dur: Math.max(1, Math.min(60, Math.round(vt.replace(/\s/g, "").length / 3))), ts: Date.now(), turnId, read: false }]);
       };
+      // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
+      //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
+      const _yueFill = _bilingualOn && hanLangOf(char) && typeof translateToZh === "function"
+        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
+            return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
+        : [];
       for (let i = 0; i < words.length; i++) {
         // 转账盲盒演出：第1条=没点开的反应，第2条起=看到金额——中间停 1.6s 模拟「点开红包」的动作
         // 收下那一轮，第 1→2 条之间停久一点，像真的把卡点开了再说话
@@ -13116,6 +13122,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const _v = _inlineVoice[_slot];
           if (_v && !_v.sent) { _v.sent = true; pushVoiceMsg(_v); notifyBubble("[语音] " + _v.t, "voice-in-" + i); delivered = true; }
           continue;
+        }
+        if (_yueFill[i]) {
+          const _z = await Promise.race([_yueFill[i], new Promise(r => setTimeout(() => r(""), 2500))]);
+          if (_z) _biZh.set(bilingualKey(words[i]), _z);
+          // 2.5 秒没等到的，回来了再挂上去——不扔
+          else { const _w = words[i]; _yueFill[i].then(z => { if (z) pChat(chatKey, p => p.map(m => m && m.turnId === turnId && m.content === _w && !m.zh ? { ...m, zh: z } : m)); }); }
         }
         pChat(chatKey, p => [...p, {
           role: "assistant",
@@ -14898,7 +14910,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
-            const gLines = (gBiOn ? joinBilingualLines : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
+            const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk))) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
@@ -14964,9 +14976,19 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                 autoTook();
               }
             }
+            // 粤语这类成员漏了竖线的那几泡，跟单聊同一个办法补中译（最多等 2.5 秒，没翻成就留「译」）
+            const _gYueFill = gBiOn && hanLangOf(spk) && typeof translateToZh === "function"
+              ? gBubbles.map(w => { const lg = !gBiZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
+                  return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
+              : [];
             for (let j = 0; j < gBubbles.length; j++) {
               if (autoRoomLeft() <= 0) break;   // 拆出来的气泡也一泡一条，超了就不再往下冒
               if (j > 0) await new Promise(r => setTimeout(r, 620));
+              if (_gYueFill[j]) {
+                const _z = await Promise.race([_gYueFill[j], new Promise(r => setTimeout(() => r(""), 2500))]);
+                if (_z) gBiZh.set(bilingualKey(gBubbles[j]), _z);
+                else { const _w = gBubbles[j]; _gYueFill[j].then(z => { if (z) pGChat(groupId, p => p.map(m => m && m.turnId === gTurnId && String(m.senderId) === String(spk.id) && m.content === _w && !m.zh ? { ...m, zh: z } : m)); }); }
+              }
               checkAutoCall();
               const reveal = () => pGChat(groupId, p => [...p, {
                 role: "assistant",
@@ -21113,7 +21135,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const momentReplies = async (mom, opts) => {
     const o = opts || {};
     const more = !!o.more, text = o.text || "", replyTo = o.replyTo || null;
-    const meName0 = profile.name || "我";
+    const meName0 = momentMeName(mom);
     if (!active || !mom) return;
     const author = characters.find(c => c.id === mom.characterId);
     const isMine = !author && mom.mine;
@@ -21204,14 +21226,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setTimeout(() => pMom(p => p.map(m => m.id === mom.id ? { ...m, comments: [...(m.comments || []), { author: fbAuthor, text: "回复 " + meName + "：" + fallbackText() }] } : m)), 400);
     }
   };
+  // 在谁的朋友圈下面说话，就用 TA 认的那张面具上的名字（群友 2026-10-11：「朋友圈回复只能按主面具的名字吗」）。
+  //   自己发的那条、或者认不出发帖人，还是主面具。跟聊天里 profileFor 是同一张对照，不另存一份。
+  const momentMeName = mom => {
+    const a = mom && mom.characterId && characters.find(c => c.id === mom.characterId);
+    return (a && (profileFor(a.id) || {}).name) || profile.name || "我";
+  };
   const commentMoment = async (id, text, replyTo) => {
-    const meName0 = profile.name || "我";
+    const meName0 = momentMeName(moments.find(m => m.id === id));
     // 定向回复某条评论时，评论原文带上「回复 X：」前缀（微信朋友圈样式）
     const storedText = replyTo ? "回复 " + replyTo + "：" + text : text;
     pMom(p => p.map(m => m.id === id ? {
       ...m,
       comments: [...(m.comments || []), {
         author: meName0,
+        mine: true,
         text: storedText
       }]
     } : m));
@@ -21234,8 +21263,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const regenMomentComments = async id => {
     const mom = moments.find(m => m.id === id);
     if (!mom || momentMoreInflight.current[id]) return;
-    const meName0 = profile.name || "我";
-    const kept = (mom.comments || []).filter(c => c && (c.author === meName0 || c.author === "我"));
+    const meName0 = momentMeName(mom);
+    const kept = (mom.comments || []).filter(c => c && (c.mine || c.author === meName0 || c.author === (profile.name || "我") || c.author === "我"));
     pMom(p => p.map(m => m.id === id ? { ...m, comments: kept } : m));
     momentMoreInflight.current[id] = true;
     setGen(g => ({ ...g, momentMore: id }));
