@@ -5,7 +5,7 @@ import {buildSpace,CORE_SPACES} from './spaces.mjs';
 import {MAPS,findPath,segmentClear,sleepPose} from '../world.mjs';
 
 test('默认小家通过真实碰撞和路线检查，存档只收已有家具与有限坐标',()=>{
- const result=checkHomeLayout({});assert.equal(result.ok,true);assert.equal(homeFurniture(result.placements).length,12);
+ const result=checkHomeLayout({});assert.equal(result.ok,true);assert.equal(homeFurniture(result.placements).length,15);
  const clean=homePlacements({ghost:{x:1,z:2},sofa:{x:NaN,z:Infinity,heading:Math.PI/2,stored:true}});
  assert.equal(clean.ghost,undefined);assert.equal(clean.sofa.x,-3);assert.equal(clean.sofa.z,1.4);assert.equal(clean.sofa.stored,true);
  assert.deepEqual(restoreHomeLayout({'double-bed':{x:100,z:0}}),homePlacements());
@@ -33,7 +33,7 @@ test('收纳同时移除家具、碰撞、床椅动作点，摆回优先保留�
  assert.equal(stored.map.seats.meal.piece,'partner-chair');assert.equal(stored.map.obstacles.some(p=>p.id==='dining-chair'),false);
  const back=changeHomeFurniture(stored.placements,'dining-chair','restore');assert.equal(back.ok,true);assert.equal(back.map.seats.meal.x,1);assert.ok(Math.abs(back.map.seats.meal.z-(2+.06))<1e-10);assert.equal(back.map.seats.meal.pose,'deep');
  const noBed=changeHomeFurniture(back.placements,'double-bed','store');assert.equal(noBed.ok,true);assert.deepEqual(noBed.map.beds,{});
- assert.equal(buildSpace('dayHome',noBed.placements).furniture.length,11);
+ assert.equal(buildSpace('dayHome',noBed.placements).furniture.length,14);
 });
 test('摆回时原位被占会寻找真正可达的新空位',()=>{
  const stored=changeHomeFurniture({},'home-plant','store');

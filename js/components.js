@@ -311,11 +311,30 @@ async function importChatLook(text) {
   if (look.customCSS && TS && TS.unsafeReason(look.customCSS)) delete look.customCSS;
   return look;
 }
+// 存在本机的美化（群友 2026-10-11「美化用过的不能一键保存吗，后面点一下就能继续用」）：
+//   跟导出同一份 look 形状，只是不出文件、存进 x_chatLooks；图还是保险箱门牌，本机直接认。单聊、群聊共用这一架。
+const CHAT_LOOK_SHELF_MAX = 30;
+const chatLookShelf = () => { const a = loadJSON("x_chatLooks", []); return Array.isArray(a) ? a.filter(x => x && x.id && x.look) : []; };
+function saveChatLookToShelf(look, name) {
+  const clean = {};
+  ["skin", "bubble", "font", "chatBg", "layout", "customCSS"].forEach(k => { if (look[k] != null && look[k] !== "") clean[k] = look[k]; });
+  const item = { id: "lk" + Date.now().toString(36), name: String(name || "").trim().slice(0, 30) || "未命名", look: clean, at: Date.now() };
+  saveJSON("x_chatLooks", [item].concat(chatLookShelf()).slice(0, CHAT_LOOK_SHELF_MAX));
+  return item;
+}
 // 那一行按钮：导出这一套 / 导入一套（导进来先铺进草稿，她点右上角勾才真的存；挑不开文件可以贴）
 function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const t = useTheme(), ref = useRef(null);
   const [busy, setBusy] = useState(false);
+  const [shelf, setShelf] = useState(chatLookShelf);
+  const [delId, setDelId] = useState("");
   const toast = m => window.__toast && window.__toast(m, 3000);
+  // ⚠️不用 window.prompt：iOS 桌面图标打开时它被系统吞掉、点了没反应（她 2026-10-11「点不动啊」）。名字就地填。
+  const [naming, setNaming] = useState(null);
+  const saveHere = () => setNaming(naming == null ? (fileBase ? fileBase + "那套" : "") : null);
+  const saveNamed = () => { saveChatLookToShelf(getLook(), naming); setShelf(chatLookShelf()); setNaming(null); toast("存好了，别的聊天窗在这一栏点它就能用"); };
+  const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
+  const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
     try { const look = await importChatLook(txt); onApply(look); toast("导进来了，看看效果，满意再点右上角 ✓ 保存" + (group && (look.skin || look.bubble || look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); return true; }
     catch (e) { toast((e && e.message) || "导不进来"); return false; }
@@ -329,7 +348,20 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
       (group ? "背景、排版、头像框、自己写的 CSS" : "皮肤、气泡、字、背景、排版、头像框、自己写的 CSS") + "装进一个文件，用到的图片也一起带上。别人导进来就是整套一样的。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } },
       btn(busy ? "打包中…" : "导出这一套", async () => { setBusy(true); try { await exportChatLook(getLook(), fileBase); } catch (e) { toast("没导出来：" + ((e && e.message) || "")); } finally { setBusy(false); } }),
-      btn("导入一套", () => ref.current && ref.current.click())),
+      btn("导入一套", () => ref.current && ref.current.click()),
+      btn("存成我的一套", saveHere)),
+    naming != null ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 8 } },
+      h("input", { value: naming, maxLength: 30, placeholder: "给这一套起个名字", onChange: e => setNaming(e.target.value),
+        style: { flex: 1, minWidth: 0, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+      h("button", { onClick: saveNamed, className: "active:opacity-70",
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "存")) : null,
+    shelf.length ? h("div", { style: { marginTop: 10 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "我存的美化 · 点名字换上"),
+      shelf.map(it => h("div", { key: it.id, className: "flex items-center", style: { gap: 6, marginTop: 4 } },
+        h("button", { onClick: () => useOne(it), className: "active:opacity-70",
+          style: { flex: 1, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, textAlign: "left", fontFamily: F_BODY, fontSize: 12.5, color: t.ink } }, it.name),
+        h("button", { onClick: () => dropOne(it), className: "active:opacity-70",
+          style: { minHeight: 40, minWidth: 48, padding: "0 10px", fontFamily: F_BODY, fontSize: 12, color: delId === it.id ? t.accent : t.fog } }, delId === it.id ? "确定删" : "删")))) : null,
     window.ThemePackPasteBox ? h("div", { style: { marginTop: 8 } }, h(window.ThemePackPasteBox, { onText: take, open: "挑不开文件？把美化 JSON 贴进来", ph: "把导出的那份 .json 全文贴在这里" })) : null,
     h("input", { ref: ref, type: "file", accept: ".json,application/json,text/plain", onChange: pick, style: { display: "none" } }));
 }
@@ -1918,6 +1950,125 @@ function MsgBanners({ list, onOpen, onDismiss }) {
                 overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, b.text || "发来一条消息")))));
       }))),
     document.body);
+}
+// ── 虚拟时间（群友 2026-10-11）：设置页「时间感知」下面和悬浮球里共用这一块 ──────────
+//   v = { on, base, at, speed, era:{ name, from } }：这个世界现在＝base＋(现实已过)×speed，算法在 engine.js 的 vclockMap。
+//   她：「不要戏里现在，就当成这个世界观的真实时间」——界面上也只叫「这个世界现在」。
+//   改时间、改速度都【先把现在定下来再改】（重新起锚），不然一改速度，前面走过的那段就跟着变了。
+const VCLOCK_SPEEDS = [[0, "停住"], [0.5, "×0.5"], [1, "×1 跟现实"], [2, "×2"], [6, "×6"], [24, "×24"]];
+function vclockRead(v) {
+  const sp = v && isFinite(Number(v.speed)) && Number(v.speed) >= 0 ? Number(v.speed) : 1;
+  return v && isFinite(Number(v.base)) ? Number(v.base) + (Date.now() - Number(v.at || Date.now())) * sp : Date.now();
+}
+function vclockShow(v, ms) {
+  const d = new Date(ms), y = typeof vclockYear === "function" ? vclockYear(d.getFullYear(), v) : d.getFullYear() + "年";
+  return y + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()] + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
+function VClockEditor({ v, onChange, compact, title }) {
+  const t = useTheme();
+  const [, tick] = useState(0);
+  useEffect(() => { if (!v || !v.on) return; const id = setInterval(() => tick(x => x + 1), 30000); return () => clearInterval(id); }, [v && v.on]);
+  const on = !!(v && v.on);
+  const speed = v && isFinite(Number(v.speed)) ? Number(v.speed) : 1;
+  const era = (v && v.era) || {};
+  const cur = vclockRead(v);
+  const put = patch => onChange({ ...(v || {}), on: true, speed, base: cur, at: Date.now(), ...patch });
+  const pad = n => String(n).padStart(2, "0");
+  const d = new Date(cur);
+  const local = String(d.getFullYear()).padStart(4, "0") + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate()) + "T" + pad(d.getHours()) + ":" + pad(d.getMinutes());
+  const fs = compact ? 11.5 : 12.5;
+  const field = { padding: "8px 10px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none", minWidth: 0 };
+  const sub = txt => h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, margin: "9px 0 5px" } }, txt);
+  const chip = (label, active, onClick, key) => h("button", { key: key || label, onClick, className: "active:opacity-60",
+    style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + (active ? t.ink : t.line), background: active ? t.ink : "transparent",
+      color: active ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: fs, whiteSpace: "nowrap" } }, label);
+  return h("div", { style: { padding: compact ? "6px 4px 2px" : "12px 0", borderBottom: compact ? "none" : "1px solid " + t.line } },
+    h("div", { className: "flex items-center justify-between", style: { gap: 10 } },
+      h("div", { style: { minWidth: 0 } },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 13 : 15, color: t.ink } }, title || "虚拟时间"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: compact ? 10.5 : 11.5, color: t.fog, marginTop: 2, lineHeight: 1.5 } },
+          on ? "这个世界现在：" + vclockShow(v, cur) : "现在用的是现实时间。打开后，这里的时间就是这个世界的时间")),
+      h(Toggle, { on, onChange: x => onChange(x ? { ...(v || {}), on: true, base: (v && isFinite(Number(v.base)) ? cur : Date.now()), at: Date.now(), speed } : { ...(v || {}), base: cur, at: Date.now(), on: false }) })),
+    on ? h("div", { style: { marginTop: 10 } },
+      h("input", { type: "datetime-local", value: local,
+        onChange: e => { const ms = new Date(e.target.value).getTime(); if (isFinite(ms)) put({ base: ms }); },
+        style: { ...field, width: "100%" } }),
+      sub("流逝速度（现实过 1 小时，这里过几小时）"),
+      h("div", { className: "flex flex-wrap items-center", style: { gap: 6 } },
+        VCLOCK_SPEEDS.map(([n, label]) => chip(label, speed === n, () => put({ speed: n }), "sp" + n)),
+        // 自己填（她 2026-10-11：「往前拨和流逝速度不能自定义吗」）：小数也行，0＝停住
+        h("span", { className: "flex items-center", style: { gap: 4 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: fs, color: t.sub } }, "×"),
+          h("input", { type: "number", min: 0, step: "any", inputMode: "decimal", placeholder: "自己填",
+            value: VCLOCK_SPEEDS.some(([n]) => n === speed) ? "" : speed,
+            onChange: e => { const n = Number(e.target.value); if (e.target.value !== "" && isFinite(n) && n >= 0) put({ speed: n }); },
+            style: { ...field, width: 72, padding: "6px 8px" } }))),
+      sub("往前拨"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } },
+        chip("+1 小时", false, () => put({ base: cur + 3600e3 })),
+        chip("+6 小时", false, () => put({ base: cur + 6 * 3600e3 })),
+        chip("+1 天", false, () => put({ base: cur + 86400e3 })),
+        chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); })),
+      h(VClockJump, { field, fs, onJump: f => put({ base: f(cur) }) }),
+      // 离开小手机就停（群友 2026-10-11：「离开小手机后能设置时间静止么」）：切走、锁屏、关掉那段时间不算，回来接着走
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "离开小手机时停住"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "切走、锁屏、关掉的那段时间不算，回来从停下的那一刻接着走")),
+        h(Toggle, { on: !!(v && v.pauseAway), onChange: x => put({ pauseAway: !!x }) })),
+      compact ? null : h(Fragment, null,
+        sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
+        h("div", { className: "flex", style: { gap: 6 } },
+          h("input", { value: era.name || "", maxLength: 12, placeholder: "比如：天启、星历",
+            onChange: e => onChange({ ...(v || {}), era: { ...era, name: e.target.value } }), style: { ...field, flex: 2 } }),
+          h("input", { type: "number", value: era.from == null ? "" : era.from, placeholder: "元年＝哪一年",
+            onChange: e => onChange({ ...(v || {}), era: { ...era, from: e.target.value === "" ? null : Number(e.target.value) } }), style: { ...field, flex: 1 } }))))
+      : null);
+}
+// 一张面具一只钟（她 2026-10-11：「分面具决定时间感知是真实还是虚拟」）：上面一排面具，下面是挑中那张的钟。
+//   主面具的键是 "main"（跟 engine.js vclockCfg 同一个）。没建别的面具时就只有主面具那一只，那一排不出。
+// 自己填拨多少：几分钟/几小时/几天/几个月/几年，往前或往回（往回是改错了拨回来用的）
+const VCLOCK_UNITS = [["分钟", 60e3], ["小时", 3600e3], ["天", 86400e3], ["月", 30 * 86400e3], ["年", 365 * 86400e3]];
+function VClockJump({ field, fs, onJump }) {
+  const t = useTheme();
+  const [n, setN] = useState("");
+  const [unit, setUnit] = useState(1);
+  // 月、年按日历拨（1 月 31 日拨一个月是 2 月底，不是固定 30 天）；分钟、小时、天按毫秒加
+  const go = sign => {
+    const x = Number(n); if (!(isFinite(x) && x > 0)) return;
+    const u = VCLOCK_UNITS[unit][0];
+    onJump(ms => {
+      if (u !== "月" && u !== "年") return ms + sign * x * VCLOCK_UNITS[unit][1];
+      const d = new Date(ms), day = d.getDate(), k = Math.round(x) * sign * (u === "年" ? 12 : 1);
+      d.setDate(1); d.setMonth(d.getMonth() + k);
+      d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+      return d.getTime();
+    });
+  };
+  const btn = (label, sign) => h("button", { onClick: () => go(sign), className: "active:opacity-60",
+    style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + t.ink, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: fs, whiteSpace: "nowrap" } }, label);
+  return h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 8 } },
+    h("input", { type: "number", min: 0, step: "any", inputMode: "decimal", placeholder: "拨多少", value: n, onChange: e => setN(e.target.value),
+      style: { ...field, width: 72, padding: "6px 8px" } }),
+    h("select", { value: unit, onChange: e => setUnit(Number(e.target.value)), style: { ...field, padding: "6px 8px" } },
+      VCLOCK_UNITS.map(([label], i) => h("option", { key: label, value: i }, label))),
+    btn("往前拨", 1), btn("往回拨", -1));
+}
+function VClockMasks({ masks, primaryId, clocks, onChange }) {
+  const t = useTheme();
+  const list = [{ key: "main", name: ((masks || []).find(m => m && m.id === primaryId) || {}).name || "主面具" }]
+    .concat((masks || []).filter(m => m && m.id && m.id !== primaryId).map(m => ({ key: String(m.id), name: String(m.name || "面具") })));
+  const [pick, setPick] = useState("main");
+  const cur = list.find(x => x.key === pick) || list[0];
+  const all = clocks || {};
+  return h("div", null,
+    list.length > 1 ? h("div", { style: { paddingTop: 12 } },
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6, lineHeight: 1.5 } }, "每张面具一只钟：TA 跟你用哪张面具聊，就照哪只钟过日子"),
+      h("div", { className: "flex flex-wrap", style: { gap: 6 } }, list.map(x => h("button", { key: x.key, onClick: () => setPick(x.key), className: "active:opacity-60",
+        style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (cur.key === x.key ? t.ink : t.line), background: cur.key === x.key ? t.ink : "transparent",
+          color: cur.key === x.key ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } },
+        x.name + ((all[x.key] && all[x.key].on) ? " · 虚拟" : " · 现实"))))) : null,
+    h(VClockEditor, { key: cur.key, v: all[cur.key], title: list.length > 1 ? "「" + cur.name + "」的时间" : "虚拟时间", onChange: v => onChange({ ...all, [cur.key]: v }) }));
 }
 function Toggle({
   on,
@@ -7817,13 +7968,13 @@ function Messages({
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, c.id))); };
   const renderGroupRow = it => { const g = it.g, last = it.last, un = unreadMap[g.id] || 0; return h("button", Object.assign({ key: it.key, "data-chatid": g.id, "data-wk": "mlrow", "data-kind": "group", "data-pinned": pinnedSet.has(g.id) ? "1" : "0", "data-unread": un > 0 ? "1" : "0", onClick: () => guardClick(() => onOpenGroup(g)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(g.id) } }, longProps(g.id)),
     h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, g.avatarImage ? h(Avatar, { character: { name: g.name, avatarImage: g.avatarImage }, size: 50, radius: 10 }) : h("div", { className: "grid grid-cols-2 gap-0.5 p-0.5", style: { width: 50, height: 50, borderRadius: 10, background: t.bg, overflow: "hidden" } }, (g.memberIds || []).slice(0, 4).map((mid, k) => { const m = (allChars || characters).find(x => x.id === mid); return h("div", { key: k, style: { overflow: "hidden", borderRadius: 3 } }, m ? h(Avatar, { character: m, size: 23, radius: 3 }) : null); })), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, null))); };
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
@@ -10287,7 +10438,9 @@ function ChatThread({
       //   施工规则/one-public-mechanism.md）。单聊这边【分寸一个字没改】：
       //   minGap 还是 3 分钟、同一轮里连发照旧不各带时刻。变的只有跨天那一条——
       //   它现在写「昨天 14:30」「9月15日 14:30」，并且画成一颗药丸，隔夜看得出来。
-      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000 });
+      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000,
+        // 虚拟时间开着时照 TA 认的那张面具的钟（她 2026-10-11）
+        map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
       if (!st.show) return null;
       return /*#__PURE__*/React.createElement("div", {
         className: "text-center mb-1",
@@ -17416,7 +17569,8 @@ function GroupThread({
     //   ——她 2026-09-16：「群聊没跟上单聊，不会有日期隔离，过多久界面都是像同一天」。
     //   判据搬去 js/chat-stamp.js 那一份公共的（施工规则/one-public-mechanism.md），
     //   群里那道 30 分钟的分寸照原样留着，只当参数传进去；跨天那一档两处一样。
-    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000 });
+    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000,
+      map: typeof vclockMap === "function" ? (ts => vclockMap(ts, null)) : undefined });   // 群照主面具那只钟
     const showGroupTime = gStamp.show;
     const groupTimeLabel = gStamp.text;
     return h("div", {
@@ -18687,13 +18841,20 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
     h(Eyebrow, null, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
-    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
+    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule") && !(draft.main && k === "pastMemory")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
       h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
       h(Toggle, {
         on: (key === "cognition" && Kit.allows ? Kit.allows(draft, k) : !!draft[key][k]),
         onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
           patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
+  // 演以前的事那一格开着，才问「大概是什么时候」（她 2026-10-11）：填了就照这句记，不填就只记成「以前」
+  const pastRow = () => draft.main || !(draft.writeback || {}).pastMemory ? null : h("div", { style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "大概是什么时候"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, marginBottom: 8, lineHeight: 1.45 } }, "这间房里进记忆的事都记成这个时候。空着就只记成「以前」，不写日子。"),
+    h("input", { value: draft.pastWhen || "", maxLength: 40, placeholder: "比如：三年前的冬天、高二那年",
+      onChange: e => patch({ pastWhen: e.target.value }),
+      style: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" } }));
   // 记忆只到起点为止（她 2026-10-05）：带开场开的房才有这一格。「你们一起经历过的事」关着时它单独成立＝只带截过的记忆库
   const memCutRow = show => show ? h("div", { className: "flex items-center justify-between", style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
     h("div", { style: { paddingRight: 10 } },
@@ -18942,7 +19103,8 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
         memCutRow(startMode !== "blank"),
         group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
-        group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
+        group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
+        pastRow()),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
         h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
         h("button", { onClick: () => { if (soloCreate) return onClose(); setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),

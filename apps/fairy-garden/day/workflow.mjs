@@ -1,7 +1,8 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-932cb68b41b7219d';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-932cb68b41b7219d';
-import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-932cb68b41b7219d';
-import {activityGroup,activityConfig} from './activity-groups.mjs?v=fg-932cb68b41b7219d';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-68a5db5721e6ca1f';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-68a5db5721e6ca1f';
+import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-68a5db5721e6ca1f';
+import {CHORES} from './chores.mjs?v=fg-68a5db5721e6ca1f';
+import {activityGroup,activityConfig,activityBeat} from './activity-groups.mjs?v=fg-68a5db5721e6ca1f';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const FARM='dayFarm',FLEA='dayFleaMarket',OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const MOTIONS={
@@ -30,6 +31,7 @@ export function activityPhase(p,slot,at,{preview=false,space=null}={}){
  if(p.map===GYM)plain.carryType=p.spot==='weights'?'weights':null;
  if(p.map===MARKET){plain.carry=p.spot!=='entrance'&&p.spot!=='cashier'&&p.spot!=='rest';if(p.spot==='cashier')plain.carryType=null;}
  if(['dayHome','dayCafe','dayWork'].includes(p.map)&&DAILY_MOTIONS[p.action]){plain.motion=DAILY_MOTIONS[p.action];plain.phaseLabel=DAILY_LABELS[p.action];}
+ if(p.stageCarry&&!p.manual)return {...plain,carry:true,carryType:p.stageCarry,motion:'carry',phaseLabel:'在路上'};
  if(p.manual||!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at)||!group)return plain;
  const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
  if(span<=0||elapsed<0||elapsed>=span)return {...p,motion:null,carry:false};
@@ -41,10 +43,11 @@ export function activityPhase(p,slot,at,{preview=false,space=null}={}){
  else if(cfg&&elapsed>=span-entry){spot=cfg.exit;phase='exit';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
  else if(cfg&&elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):[MARKET,FLEA].includes(p.map)?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
  else{
-  const duration=group.beats.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
-  for(const [id,length,phaseOverride,opts]of group.beats){if(cycle<length){spot=id;phase=phaseOverride||'work';options=opts||{};
-   if(cfg&&phase==='work'&&length>=8&&cycle>=5.5&&cycle<6){phase='break';}
-   motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
+  const beat=activityBeat(group,elapsed-edge);
+  if(beat){spot=beat.id;phase=beat.phase||'work';options=beat.options;
+   if(cfg&&phase==='work'&&beat.length>=8&&beat.cycle>=5.5&&beat.cycle<6){phase='break';}
+   motion=phase==='break'?null:motionFor(spot);
+  }
  }
  // Furniture may have been stored since the group was selected. Edges use the
  // same live anchors as beats; an absent cabinet cannot receive a phantom task.
@@ -55,7 +58,7 @@ export function activityPhase(p,slot,at,{preview=false,space=null}={}){
  if(p.map===LAB&&['records','computer','break'].includes(spot))carry=false;
  if(p.map===GYM)carry=p.spot==='weights'&&['work','tidy'].includes(phase)&&spot!=='water';
  if(p.map===MARKET){carry=p.spot!=='cashier'&&phase!=='enter'&&phase!=='prepare';motion=phase==='exit'?'carry':motion;if(phase==='tidy'&&p.spot!=='cashier'&&elapsed<closing+(edge-entry)/2){spot='checkout';motion='checkout';}}
- return {...p,spot,action,gesture,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':phase==='work'?(motion===DAILY_MOTIONS[action]?DAILY_LABELS[action]:LABELS.work):options.stroll?'起身走走':options.standing?'起身活动一下':LABELS[phase],standing:!!options.standing,stroll:!!options.stroll,group:group.id,groupLabel:group.label,motion,carry,carryType:p.map===GYM?plain.carryType:p.map===MARKET&&p.spot==='cashier'?null:carryType};
+ return {...p,spot,action,gesture,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':phase==='work'?(CHORES[action]?.personal?CHORES[action].label:motion===DAILY_MOTIONS[action]?DAILY_LABELS[action]:LABELS.work):options.stroll?'起身走走':options.standing?'起身活动一下':LABELS[phase],standing:!!options.standing,stroll:!!options.stroll,group:group.id,groupLabel:group.label,motion,carry,carryType:p.map===GYM?plain.carryType:p.map===MARKET&&p.spot==='cashier'?null:carryType};
 }
 // Keep the visible suitcase inside available floor space, including when seated.
 export function luggagePosition(map,origin,heading=0){
@@ -64,6 +67,7 @@ export function luggagePosition(map,origin,heading=0){
  return {x:origin.x,y:map.floor,z:origin.z};
 }
 export function taskAt(stage,spot,map,elapsed,{moving=false,position,heading,motion=null}={}){
+ if(stage.stageCarry&&stage.action==='walk')return {kind:'carry',elapsed,progress:elapsed/5%1,carry:true,carryType:stage.stageCarry,bag:stage.stageCarry==='basket',phase:stage.phase,spot:stage.spot};
  if(stage.phase==='break'&&['dayHome','dayCafe','dayWork','dayStreet'].includes(map.id))return null;
  if(['dayHome','dayCafe','dayWork'].includes(map.id))return dailyTaskAt(stage,spot,map,elapsed,{moving,motion});
  if(stage.phase!=='break'&&['tea','meal'].includes(spot?.action)&&![OFFICE,CAMPUS].includes(map.id))return dailyTaskAt({...stage,action:spot.action},spot,map,elapsed,{moving,motion,personal:true});

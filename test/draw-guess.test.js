@@ -1,0 +1,33 @@
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const src = fs.readFileSync(path.join(__dirname, "..", "js", "games.js"), "utf8");
+const i = src.indexOf("  const DRAW_POOL_KEY"), j = src.indexOf("  function drawHit(");
+const drawStrokePath = new Function(src.slice(i, j) + "\nreturn drawStrokePath;")();
+const G = src.slice(src.indexOf("  function DrawGuessGame(props) {"), src.indexOf("  function UnoGame(props) {"));
+
+// 她 2026-10-11：你画我猜——TA 分段画、每段吐槽一句；段数 TA 自己定；词库按主题一批生成；轮流三轮
+test("模型写的笔画转成 svg，坏的一笔丢掉、坐标夹在画布里", () => {
+  assert.equal(drawStrokePath({ t: "line", p: [0, 0, 50, 50] }), "M0 0L50 50");
+  assert.match(drawStrokePath({ t: "circle", c: [50, 50, 10] }), /^M40 50a10 10/);
+  assert.equal(drawStrokePath({ t: "line", p: [0, 0, 500, -9] }), "M0 0L100 0");
+  assert.equal(drawStrokePath({ t: "line", p: [1] }), "");
+  assert.equal(drawStrokePath({ t: "line", p: ["x", 1, 2, 3] }), "");
+  assert.equal(drawStrokePath(null), "");
+});
+
+test("TA 画：一次调用拿整幅，分段放、每段一句；空着按是接着画，不调模型", () => {
+  assert.match(G, /分几段你自己定（2 到 5 段）/);
+  assert.match(G, /\{\\"segments\\":\[\{\\"strokes\\":\[\.\.\.\],\\"say\\":\\"一句\\"\}\]\}/);
+  assert.match(G, /if \(shown < segs\.length\) \{ showSeg\(segs, shown\); return; \}/, "接着画不该再调模型");
+  assert.match(G, /if \(drawHit\(v, word\)\) \{ finishTurn\(true, "me"\); \}/, "猜中要代码判");
+});
+
+test("她画：画布转成图给 TA 看；词库按主题一批生成、存进大仓库", () => {
+  assert.match(G, /imageDataUrls: \[toPng\(\)\]/);
+  assert.match(src, /const DRAW_POOL_KEY = "x_drawWords";/);
+  assert.match(G, /saveDrawPool\(n\)/);
+  assert.match(G, /const totalTurns = watchOnly \? DRAW_ROUNDS : DRAW_ROUNDS \* 2;/, "不是轮流");
+  assert.match(src, /if \(session\.game\.key === "draw"\) return h\(DrawGuessGame, engineProps\);/);
+});

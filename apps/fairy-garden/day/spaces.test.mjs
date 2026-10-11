@@ -7,7 +7,7 @@ registerCoreSpaces(MAPS);
 test('四日常场景独立注册，原三游戏地图保持原定义',()=>{
  assert.equal(Object.keys(CORE_SPACES).length,4);
  assert.equal(JSON.stringify({home:MAPS.home,hall:MAPS.hall,garden:MAPS.garden}),original);
- assert.ok(CORE_SPACES.dayHome.bounds.w>=14);assert.equal(CORE_SPACES.dayHome.zones.length,4);
+ assert.ok(CORE_SPACES.dayHome.bounds.w>=14);assert.equal(CORE_SPACES.dayHome.zones.length,5);
 });
 for(const [id,map]of Object.entries(CORE_SPACES))test(id+'每个家具动作点与街道漫步点都实际可达，路线避开家具',()=>{
  assert.ok(walkable(map.spawn.x,map.spawn.z,id));

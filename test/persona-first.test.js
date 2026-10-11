@@ -13,3 +13,11 @@ test("人设第一放在去人机味前面，三处都接上", () => {
   assert.match(eng, /parts\.push\(PERSONA_FIRST\);\n\s*parts\.push\(ANTI_CLICHE\);/, "单聊");
   assert.match(eng, /PERSONA_FIRST, ANTI_CLICHE, CHARCARD_RULE, OFFLINE_NARRATIVE_RUNTIME/, "线下叙事");
 });
+
+// 她 2026-10-11：「把人设放第一会不会变得不那么活人感」——原句「规矩和人设对不上时，以人设为准」
+//   会把人设里的标签词（强势／霸道……）读成「禁令让路、模板回来」。改成分工：人设管是谁，规矩只管别套现成写法。
+//   ⚠️这一句只在家里：公共版出炉时 patch-public-tweaks.py 换回原段（她：「放家里不推」）。
+test("总纲是分工，不是谁压过谁", () => {
+  assert.match(eng, /人设决定这个人是谁、会做什么、说话什么味道；下面的规矩只管一件事：别拿谁都能套的现成写法把这个人写出来。/);
+  assert.ok(!/规矩和人设对不上时，以人设为准/.test(eng), "「对不上以人设为准」回来了：人设里一个标签词就能让禁令整片让路");
+});

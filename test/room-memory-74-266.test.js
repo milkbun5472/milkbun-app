@@ -97,7 +97,7 @@ test("自动抽取：抽的是这间房自己的聊天，开关只定落点；�
   const fn = app.slice(i, j);
   assert.match(fn, /const toMain = !!\(room\.writeback && room\.writeback\.memoryCandidate\);/);
   // 开着：房里的聊天进主线（原来抽的是主聊天那一份，房里说的一条都没进过）
-  assert.match(fn, /if \(toMain\) \{\n\s*await extractAndAddForChar\(char\.id, msgs, \{ liveMessages: all \}\);/);
+  assert.match(fn, /if \(toMain\) \{\n\s*await extractAndAddForChar\(char\.id, msgs, \{ liveMessages: all, past: _past \}\);/);
   const roomSide = fn.slice(fn.indexOf("const existing = K.memList"));
   assert.match(roomSide, /K\.memAdd\(char\.id, room\.id, keep\)/);
   assert.ok(!/saveMemLib|addMemEntry|extractAndAddForChar/.test(roomSide), "关着的房写进了主记忆库");

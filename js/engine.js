@@ -1665,7 +1665,7 @@ const NARRATIVE_ACT_CLICHE = "【这一行也是描写 · 反陈词滥调（动�
 //   模型先学会的是躲雷，才轮到当这个人。所以总纲换成这一句、放在所有禁令前面；
 //   下面每一族禁令都是在人设之下防滑进通用模子，不再各自挂「除非人设…」。
 const PERSONA_FIRST = `【总纲 · 人设第一】
-你首先是角色卡写的那个人。下面所有规矩只做一件事：防止这个人被换成谁都能说的通用模子。规矩和人设对不上时，以人设为准——人设写了的脾气、口癖、说话方式、尺度，照写。`;
+你首先是角色卡写的那个人。人设决定这个人是谁、会做什么、说话什么味道；下面的规矩只管一件事：别拿谁都能套的现成写法把这个人写出来。人设里的性格词是方向，照这个人自己的方式去表现，不搬那个词在网文里的现成模板。`;
 const ANTI_CLICHE = `【去人机味】
 把角色当成一个正在生活的具体的人，而不是负责生成正确、体贴、完整回复的 AI。
 
@@ -3545,7 +3545,8 @@ function buildBundle(ctx, opts) {
     geo,
     timeAware
   } = ctx;
-  const now = new Date();
+  vclockUse(char && char.id);
+  const now = vclockNow();
   const parts = [];
   // OOC（幕后 AI 助手）故意不去人机味；其余一切角色语音/内容生成都焊上反八股总则，且放最前面最高优先
   // 内置最前三件套（优先级从高到低）：反八股压制器 → 世界书执行准则 → 角色卡执行准则
@@ -3588,7 +3589,8 @@ function buildBundle(ctx, opts) {
     const uNm = (profile && profile.name) ? profile.name : "对方";
     // ⚠️【当前真实时间】= 用户设备的当地时间，也就是【对方那边此刻的真实时间】。点破这一点，
     //   否则设了时区的角色会脑补一个不存在的大时差（如日本角色在你早上发「你那边是晚上了吧」）。
-    timeBlock.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】。Ta 那边现在几点、是清晨还是深夜，直接照这个，绝不许自己臆测 Ta 的时间。");
+    if (vclockCfg()) timeBlock.push("【当前真实时间】" + vclockLabel(Date.now()) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】，也是你们这个世界此刻的时间：几点、白天黑夜、哪一年哪一季，都照它。");
+    else timeBlock.push("【当前真实时间】" + now.toLocaleString("zh-CN", fmt) + "——这【就是 " + uNm + "（对方）此刻所在地的当地时间】。Ta 那边现在几点、是清晨还是深夜，直接照这个，绝不许自己臆测 Ta 的时间。");
     // 角色若设了时区（UTC 偏移），额外给出 Ta 自己所在地的当地时间（异地恋用）
     const tzRaw = char && char.tz;
     if (tzRaw !== undefined && tzRaw !== null && String(tzRaw).trim() !== "") {
@@ -4115,6 +4117,7 @@ function splitGroupMemories(lib, memberIds, queryText, opts = {}) {
   return { shared, perChar };
 }
 function formatMemLib(entries) {
+  const isPastMem = e => !!(e && (e.past || (Array.isArray(e.tags) && e.tags.indexOf("过去") >= 0)));
   const arr = entries || [];
   const recallMeta = arr && arr.__recallMeta;
   if (!arr.length && recallMeta && recallMeta.source === "chat" && recallMeta.noHit) {
@@ -4125,8 +4128,16 @@ function formatMemLib(entries) {
     const openMark = e.open ? "〔还没了结·你心里还惦记着〕" : "";
     // 两个戳各管一件事：anchor 只有这条里出现「今天/昨天」这种相对词时才出手（把它钉成绝对日期）；
     // stamp 是每条都要的——没有它，模型手上一点时间信息都没有，前几天的事就会被说成今天的。
-    const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(e.text, e.ts) : "";
-    const dateStamp = window.TemporalAnchor && window.TemporalAnchor.stamp ? window.TemporalAnchor.stamp(e.ts) : "";
+    // 以前的事（演过去那间房记下的、抽卡抽来的「TA的一段过去」）：记下的那天不是发生的那天——
+    //   给它挂「几天前」，TA就会当成最近的事（她 2026-10-11：「那里的记忆不能带时间戳了」）。换成那间房填的时候，没填就只说是以前。
+    if (isPastMem(e)) {
+      const lane0 = recallMeta && recallMeta.kindById && recallMeta.kindById[String(e.id)] === "association" ? "〔顺带联想到〕" : "";
+      return "· " + lane0 + e.text + tags + " 〔以前的事" + (e.when ? "·" + e.when : "") + "〕";
+    }
+    // 虚拟时间开着时，「记于哪天、几天前」也按这只钟算（她 2026-10-11：「记忆库也要改」）
+    const _vm = typeof vclockMap === "function" ? vclockMap : (x => x);
+    const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(e.text, _vm(e.ts), _vm(Date.now())) : "";
+    const dateStamp = window.TemporalAnchor && window.TemporalAnchor.stamp ? window.TemporalAnchor.stamp(_vm(e.ts), _vm(Date.now())) : "";
     const lane = recallMeta && recallMeta.kindById && recallMeta.kindById[String(e.id)] === "association" ? "〔顺带联想到〕" : "";
     return "· " + lane + e.text + openMark + tags + (dateStamp ? " " + dateStamp : "") + (dateAnchor ? " " + dateAnchor : "");
   }).join("\n");
@@ -4134,13 +4145,15 @@ function formatMemLib(entries) {
   //   真相=她没"不来"、只是【还没来】，"今天"还没过完、软性的"我来找你"更不是签字的约会。给一句读法指引，四条注入路(主聊/线下/群/通话)全覆盖。
   const hasOpen = arr.some(e => e && e.open);
   // ⚠️每条后面那个〔记于…〕不是装饰：不说这一句，模型会把整本记忆当成刚刚发生的事。
-  const hasStamp = arr.some(e => e && Number(e.ts) > 0);
+  const hasStamp = arr.some(e => e && Number(e.ts) > 0 && !isPastMem(e));
+  const hasPast = arr.some(e => e && isPastMem(e));
   const stampNote = hasStamp
     ? "\n（⚠️每条末尾〔记于 某年某月某日·几天前〕说的是【这件事发生在那一天】，不是今天。"
       + "提起旧事要按它真正的时间说（「前几天」「上礼拜」「上个月」），绝不许把几天前的事说成今天刚发生的；"
       + "拿不准隔了多久就别硬安时间，含糊地说「之前」也比说错强。）"
     : "";
-  return body + stampNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
+  const pastNote = hasPast ? "\n（标〔以前的事〕的是你们早先的经历，不是最近发生的；后面写了时候的就按那个时候说，没写的说「以前」「那时候」就好。）" : "";
+  return body + stampNote + pastNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
 }
 // 月度精炼（SullyOS 借鉴）：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
 // 返回 [{text,tags,v,a}]。原件由调用方归档(archived)不删除。
@@ -6579,6 +6592,10 @@ function ttsLangBoost(text) {
   if (/[぀-ヿ]/.test(s)) return "Japanese";
   if (/[가-힣]/.test(s)) return "Korean";
   if (s.trim() && !/[一-鿿぀-ヿ가-힣]/.test(s) && /[a-zA-Z]/.test(s)) return "English";
+  // 粤语（她 2026-10-11：「语音和气泡听一下播放的还是普通话」）：Chinese 这一档按普通话念。
+  //   有粤语专用字、或写的是繁体，就走 MiniMax 的 Chinese,Yue；通篇简体又没有粤语字的仍是普通话。
+  if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(s)
+    || (typeof toSimplified === "function" && toSimplified(s) !== s)) return "Chinese,Yue";
   return "Chinese";
 }
 // 取后台便宜池给「日语汉字转假名」这类合成期机械小活用。
@@ -8498,11 +8515,12 @@ async function generateOfflineGroup(p, ctx, session) {
     const who = m.role === "user" ? userName : m.role === "narration" ? "旁白" : (m.senderName || "群成员");
     return who + "：" + String(m.content || "").replace(/\s+/g, " ").trim();
   }).filter(Boolean).join("\n");
-  const now = new Date();
+  vclockUse(null);   // 群线下走主面具那只钟
+  const now = vclockNow();
   // 时间感知（跟随全局开关）：给出真实时间；在场角色若各设了时区，附上各自当地时刻
   let timeBlock = "";
   if (ctx.timeAware !== false) {
-    timeBlock = "\n\n【当前真实时间】" + now.toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" });
+    timeBlock = "\n\n【当前真实时间】" + (vclockCfg() ? vclockLabel(Date.now()) : now.toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" }));
     const awareMembers = members.filter(c => !ctx.memberTimeAware || ctx.memberTimeAware[c.id] !== false);
     const tzLines = awareMembers.map(c => {
       if (c.tz === undefined || c.tz === null || String(c.tz).trim() === "") return "";
@@ -9356,6 +9374,7 @@ async function generateDiary(p, ctx, opts = {}) {
     "· timeStr 必须填一个【今晚睡前】的时刻（如 22:40 / 23:15），不要填白天或别的时段。\n" +
     "· 只把【最近对话】和【今天的行程】当成今天真实发生的事来写；长期记忆/记忆库只是脑海里的背景连续性，**别把过去的旧事当成今天发生的重新写一遍**。\n" +
     "· 上面近期聊天里若有属于【这一天之后】（更晚）的内容，别写进这篇日记——这是今天的日记，只写到今晚为止。");
+  else if (typeof vclockCfg === "function" && vclockCfg()) parts.push("【今天的日期时间】" + vclockLabel(Date.now()));
   else { const now = new Date(); parts.push("【今天的日期时间】" + now.toLocaleString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long", hour: "2-digit", minute: "2-digit" })); }
   // 当天没有聊天素材：别硬编对话/别翻旧账，依据行程写平常的一天
   if (opts.noChatMaterial) parts.push("【今天几乎没有和对方聊天/相处的素材】今天多半没见到对方、也没怎么聊天。不要编造对话或见面，不要翻前几天旧事充数。直接依据【今天的行程】和此刻状态，写你自己的这一天：工作/学习、朋友家人、兴趣、独处、身体与情绪、路上见闻或无聊小事都可以。**绝不要求提到对方，也不要求写想念、等消息或担心；如果今天确实没想到 Ta，整篇一个字都不提 Ta 才是真实。**平淡、琐碎、甚至没什么可写都可以，不必硬凑关系戏或戏剧性。");
@@ -9916,17 +9935,58 @@ function timeAgo(ts) {
 function fmtClock(d) {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
 }
-function fmtStamp(ts) {
-  const d = new Date(ts);
-  const now = new Date();
+// id（可选）：给了就按那个人认的那只虚拟时间钟显示（群传 null＝主面具）；不给就是现实时间，跟原来一样
+function fmtStamp(ts, id) {
+  const vm = id !== undefined && typeof vclockMap === "function" ? (x => vclockMap(x, id)) : (x => x);
+  const d = new Date(vm(ts));
+  const now = new Date(vm(Date.now()));
   const sameDay = d.toDateString() === now.toDateString();
   if (sameDay) return fmtClock(d);
   return d.getMonth() + 1 + "/" + d.getDate() + " " + fmtClock(d);
 }
 // 喂给模型的时间戳（prompt 专用，UI 别用）：同天必须明说「今天」——裸时刻模型会瞎猜，
 // 下午说的话晚上在群里被引用成「昨天才说」就是这个坑（v47.81）
+// ── 虚拟时间（群友 2026-10-11：「平时主玩线下，经常需要调整时间」）──────────────
+//   她（2026-10-11）：「不要戏里现在，就当成这个世界观的真实时间」「分面具决定时间感知是真实还是虚拟」——
+//   所以一张面具一只钟：window.__vclock = { clocks: { 面具键: { on, base, at, speed, era } }, maskOf: 角色id→面具键, active }。
+//   戏里现在＝base＋(现实已过)×speed（0＝停住、1＝跟现实一样…）；era＝自创年号 { name, from }（from 那一年算元年）。
+//   ⚠️喂给模型的「现在几点」、历史上的〔今天14:32〕、记忆的「记于」、日记日程上的日子，都从这几个函数走——
+//   只换一处、另一处还是现实，TA 就对不上。日记、日程照现实的一天一回去生成，只是写出来、摆出来的日子换成这只钟的。
+//   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群聊一律主面具（同 momSeen）。
+function vclockState() { try { return typeof window !== "undefined" ? window.__vclock || null : null; } catch (e) { return null; } }
+function vclockUse(id) { const W = vclockState(); if (W) W.active = id == null ? null : String(id); }
+function vclockCfg(id) {
+  const W = vclockState(); if (!W) return null;
+  if (W.on !== undefined && !W.clocks) return W.on && isFinite(Number(W.base)) ? W : null;   // 旧的单只钟
+  const who = id !== undefined ? id : W.active;
+  let key = "";
+  try { key = who != null && typeof W.maskOf === "function" ? String(W.maskOf(String(who)) || "") : ""; } catch (e) { key = ""; }
+  const c = (W.clocks || {})[key || "main"];
+  return c && c.on && isFinite(Number(c.base)) ? c : null;
+}
+function vclockMap(ts, id) {
+  const c = vclockCfg(id); if (!c) return Number(ts);
+  const sp = Number(c.speed);
+  // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
+  const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);
+  return Number(c.base) + (t - Number(c.at || 0)) * (isFinite(sp) && sp >= 0 ? sp : 1);
+}
+function vclockNow(id) { return new Date(vclockMap(Date.now(), id)); }
+// 年份怎么叫：有年号就「天启3年」，没有就「2026年」
+function vclockYear(y, c) {
+  const era = c && c.era && String(c.era.name || "").trim();
+  if (!era) return y + "年";
+  const from = Number(c.era.from);
+  return era + (isFinite(from) ? (y - from + 1) : y) + "年";
+}
+// 整句日期时间：「天启3年10月11日 周六 22:40」；withTime=false 只到日子
+function vclockLabel(ts, id, withTime) {
+  const c = vclockCfg(id), d = new Date(vclockMap(ts, id));
+  const day = vclockYear(d.getFullYear(), c) + (d.getMonth() + 1) + "月" + d.getDate() + "日 周" + "日一二三四五六"[d.getDay()];
+  return withTime === false ? day : day + " " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+}
 function fmtStampAI(ts) {
-  const d = new Date(ts), now = new Date();
+  const d = new Date(vclockMap(ts)), now = vclockNow();
   if (d.toDateString() === now.toDateString()) return "今天" + fmtClock(d);
   const yd = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
   if (d.toDateString() === yd.toDateString()) return "昨天" + fmtClock(d);

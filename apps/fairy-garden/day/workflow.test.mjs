@@ -7,6 +7,7 @@ import {activityPhase,taskAt,luggagePosition} from './workflow.mjs';
 registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../vendor/three.module.js',import.meta.url).href,shortCircuit:true}:next(s,c);}});
 const {DAY_PLACES}=await import('./places/index.mjs');
 const {MAPS,findPath,segmentClear}=await import('../world.mjs');Object.assign(MAPS,DAY_PLACES);
+const {CORE_SPACES}=await import('./spaces.mjs');Object.assign(MAPS,CORE_SPACES);
 const env={};vm.createContext(env);for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','js/char-day-link.js'])vm.runInContext(fs.readFileSync(f,'utf8'),env);
 const app=fs.readFileSync('js/app.js','utf8'),a=app.indexOf('  const saveSchedDay ='),b=app.indexOf('  const applySchedChange =',a);assert.ok(a>0&&b>a);
 let plans={},writes=0;const ref={current:plans},save=new Function('setSchedules','schedulesRef','saveJSON',app.slice(a,b)+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,()=>writes++);
@@ -169,4 +170,14 @@ test('古风纸笔与检修工具沿实际接触面，敬礼不伸向虚构桌�
   assert.equal(taskAt(activityPhase({map:id,spot:key},null,null),spot,map,3,{moving:true}),null);
  }
  const slot=fixture('dayTraining','patrol'),p={map:'dayTraining',spot:'patrol'},seen=new Set();for(let sec=100;sec<3400;sec+=15)seen.add(activityPhase(p,slot,start+sec*1000).spot);assert.ok(seen.has('patrol')&&seen.has('checkpoint'));assert.ok(!seen.has('run'));
+});
+
+test('复合日程阶段沿原writer与当地时钟进入各自动作组，买菜回程持袋且到厨房收起',()=>{
+ const world={scene:'dayMarket',spot:'produce',stages:[{scene:'dayMarket',spot:'produce',title:'买菜',location:'超市',minutes:25},{scene:'dayStreet',spot:'walk',title:'回家途中',minutes:5},{scene:'dayHome',spot:'cook',title:'做饭',location:'家里',minutes:30}]};
+ save(char.id,'2026-10-09',{seqs:[env.CharDayLink.bindRow({time:'10:00',end:'11:00',title:'买完菜回家做饭',location:'超市与家里',type:'home'},{world})]});const before=JSON.stringify(ref.current),count=writes;
+ for(const [minute,expected]of [[2,'dayMarket'],[24.7,'dayMarket'],[27,'dayStreet'],[31,'dayHome'],[59,'dayHome']]){
+  const now=start+minute*60000,slot=env.ScheduleClock.currentSlot(char,ref.current[char.id],now),v=env.CharDayLink.resolve(slot,now),map=MAPS[v.presentation.map],phase=activityPhase(v.presentation,v.activitySlot,now,{space:map}),spot=map.spots.find(s=>s.id===phase.spot),task=taskAt(phase,spot,map,3,{moving:expected==='dayStreet'});
+  assert.equal(phase.map,expected);assert.ok(spot);assert.ok(findPath(map.spawn,spot.target,expected));if(expected==='dayStreet'){assert.equal(phase.carryType,'basket');assert.equal(task.bag,true);}if(expected==='dayHome')assert.equal(task?.bag,undefined);
+ }
+ assert.equal(JSON.stringify(ref.current),before);assert.equal(writes,count);
 });

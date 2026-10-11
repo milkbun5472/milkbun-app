@@ -1,10 +1,10 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-932cb68b41b7219d';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-932cb68b41b7219d';
-import {stepRoute} from '../locomotion.mjs?v=fg-932cb68b41b7219d';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-932cb68b41b7219d';
-import {CHORES,chorePlans} from './chores.mjs?v=fg-932cb68b41b7219d';
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-68a5db5721e6ca1f';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-68a5db5721e6ca1f';
+import {stepRoute} from '../locomotion.mjs?v=fg-68a5db5721e6ca1f';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-68a5db5721e6ca1f';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-68a5db5721e6ca1f';
+import {CHORES,chorePlans,chorePose} from './chores.mjs?v=fg-68a5db5721e6ca1f';
 const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
@@ -152,7 +152,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   const at=seat||position;avatar.root.position.set(at.x,0,at.z);avatar.root.rotation.y=seat?.heading??yaw;
   if(!moving&&chore)avatar.root.rotation.y=chore.heading;
   else if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=tracking&&other.moving?other.heading:Math.atan2(other.x-at.x,other.z-at.z);}
-  avatar.animate(time,{moving,seated:!!seat,seatPose:seat?.pose,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0)});
+  avatar.animate(time,{moving,seated:!!seat,seatPose:seat?.pose,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0),...chorePose(chore,dwell,moving,position)});
   choreVisual.update(chore,dwell,moving||!!chore&&gap(position,chore.at)>.22);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
  }
  function pauseState(){

@@ -1,4 +1,5 @@
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-932cb68b41b7219d';
+import {CHORES} from './chores.mjs?v=fg-68a5db5721e6ca1f';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-68a5db5721e6ca1f';
 // One set of activity groups for all scenes. Beats project the original slot;
 // anchors come from the live map, so stored or moved furniture is respected.
 const FARM='dayFarm',FLEA='dayFleaMarket';
@@ -39,12 +40,12 @@ const DAILY_REST=[['rest',3],['tea',1],['rest',.7,'break'],['rest',.3,'break',{s
 const DAILY_MEAL=[['meal',5],['tea',.6],['rest',.4,'break']];
 const DAILY_TEA=[['tea',2],['rest',.7,'break'],['tea',.3,'break',{standing:true,stroll:true}]];
 const DAILY_GROUPS={
- dayHome:{read:DAILY_READ,rest:DAILY_REST,meal:DAILY_MEAL,tea:DAILY_TEA,work:[['rest',10,'work',{action:'work'}],['tea',1],['rest',1,'break'],['rest',.5,'break',{standing:true,stroll:true}]],cook:[['cook',4],['cook',.5,'break']]},
+ dayHome:{read:DAILY_READ,rest:DAILY_REST,meal:DAILY_MEAL,tea:DAILY_TEA,work:[['rest',10,'work',{action:'work'}],['tea',1],['rest',1,'break'],['rest',.5,'break',{standing:true,stroll:true}]],cook:[['cook',4],['cook',.5,'break']],shower:[['shower',.75],['rest',3,'break']],toilet:[['toilet',.5],['wash-hands',.5],['rest',3,'break']],'wash-hands':[['wash-hands',.5],['rest',3,'break']]},
  dayWork:{work:[['work',10],['read',2],['rest',1.05,'break'],['work',.45,'break',{standing:true,stroll:true}]],read:[['read',8],['rest',.7,'break'],['read',.3,'break',{standing:true,stroll:true}]],rest:[['rest',4],['rest',1,'break',{standing:true,stroll:true}]]},
  dayCafe:{read:DAILY_READ,meal:DAILY_MEAL,tea:DAILY_TEA,rest:DAILY_REST},
  dayStreet:{walk:[['walk',4],['rest',1.5,'break']],rest:[['rest',4],['rest',1,'break',{standing:true,stroll:true}]]}
 };
-const GROUP_LABELS={read:'阅读与整理',work:'工作与整理',practice:'练习与调整',exercise:'训练与放松',shop:'挑选与整理',wait:'候车与走动',rest:'休息与活动',walk:'散步与歇脚',meal:'用餐与稍歇',tea:'喝茶与稍歇',cook:'料理与等候'};
+const GROUP_LABELS={read:'阅读与整理',work:'工作与整理',practice:'练习与调整',exercise:'训练与放松',shop:'挑选与整理',wait:'候车与走动',rest:'休息与活动',walk:'散步与歇脚',meal:'用餐与稍歇',tea:'喝茶与稍歇',cook:'料理与等候',shower:'洗澡与休息',toilet:'如厕与洗手','wash-hands':'洗手与稍歇'};
 export function activityConfig(map){return CONFIG[map]||null;}
 export function activityGroup(p,space){
  if(p.action==='sleep')return null;
@@ -68,5 +69,19 @@ export function activityGroup(p,space){
   if(recipe&&rest&&!beats.some(b=>b[2]==='break'))beats=[...beats,[rest,1,'break']];
  }
  const label=GROUP_LABELS[p.action]||'做事与稍歇';
- return {id:p.map+':'+(p.spot||p.action),label,beats,config:recipe?cfg:null};
+ const home=p.map==='dayHome',once=home&&!!CHORES[p.action]?.personal;
+ const interrupts=home&&!once?(['meal','cook'].includes(p.action)?[{at:0,beats:[['wash-hands',.5]]}]:['read','rest','work','tea'].includes(p.action)?[{at:6,every:45,beats:[['toilet',.5],['wash-hands',.5]]},...(p.action==='rest'?[{at:14,beats:[['shower',.75]]}]:[])]:[]):[];
+ const available=space&&new Set(space.spots.map(s=>s.id));
+ if(once&&CHORES[beats.at(-1)[0]]?.personal)beats=[...beats,[beats.at(-1)[0],.1,'break',{action:'rest',standing:true}]];
+ return {id:p.map+':'+(p.spot||p.action),label,beats,config:recipe?cfg:null,...(once?{once:true}:{}),interrupts:interrupts.map(q=>({...q,beats:q.beats.filter(([id])=>!available||available.has(id))})).filter(q=>q.beats.length)};
+}
+
+// All scenes use this selector. Bathroom visits are short inserts into the same
+// read-only slot clock; reloads do not enqueue or replay finished visits.
+export function activityBeat(group,elapsed){
+ function choose(beats,cycle){for(const [id,length,phase,options]of beats){if(cycle<length)return {id,length,phase,options:options||{},cycle};cycle-=length;}return null;}
+ for(const q of group.interrupts||[]){if(elapsed<q.at)continue;const cycle=q.every?(elapsed-q.at)%q.every:elapsed-q.at,beat=choose(q.beats,cycle);if(beat)return beat;}
+ const duration=group.beats.reduce((n,b)=>n+b[1],0);
+ if(group.once&&elapsed>=duration){const [id,length,phase,options]=group.beats.at(-1);return {id,length,phase,options:options||{},cycle:elapsed-duration};}
+ return choose(group.beats,group.once?elapsed:elapsed%duration);
 }

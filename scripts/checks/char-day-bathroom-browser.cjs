@@ -1,0 +1,63 @@
+// Actual App, native renderer and existing durable album writer; disposable fixtures.
+const {moreItem,openMore,openLife,activity,closeLife,lifeAction}=require('./char-day-ui-helpers.cjs');
+const pw=require('playwright'),fs=require('node:fs'),path=require('node:path'),http=require('node:http'),assert=require('node:assert/strict');
+const repo=process.cwd(),engine=process.env.DAY_ENGINE||'webkit',out=process.env.DAY_EVIDENCE||'/tmp/char-day-bathroom';fs.mkdirSync(out,{recursive:true});
+const app=fs.readFileSync('js/app.js','utf8'),a=app.indexOf('  const saveSchedDay ='),z=app.indexOf('  const applySchedChange =',a);assert.ok(a>0&&z>a);
+(async()=>{
+ const server=process.env.DAY_URL?null:http.createServer((req,res)=>{const file=path.resolve(repo,'.'+(req.url.split('?')[0]==='/'?'/index.html':decodeURIComponent(req.url.split('?')[0])));if(!file.startsWith(repo+path.sep)){res.writeHead(403);return res.end();}try{res.setHeader('Content-Type',({'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.json':'application/json','.css':'text/css','.svg':'image/svg+xml','.png':'image/png','.webp':'image/webp'})[path.extname(file)]||'application/octet-stream');res.end(fs.readFileSync(file));}catch{res.writeHead(404);res.end();}}).listen(0,'127.0.0.1');
+ if(server)await new Promise(r=>server.on('listening',r));const base=process.env.DAY_URL||'http://127.0.0.1:'+server.address().port;
+ const browser=await pw[engine].launch(engine==='webkit'?{headless:true}:{channel:'chrome',headless:true}),p=await browser.newPage({viewport:{width:390,height:844},serviceWorkers:'block'}),errors=[],result={engine,layouts:[]};
+ try{
+  p.setDefaultTimeout(45000);p.on('pageerror',e=>errors.push(e.message));await p.route('**/pet.mjs*',r=>r.fulfill({body:'',contentType:'text/javascript'}));await p.clock.setFixedTime(new Date('2026-10-09T10:10:00Z'));
+  await p.goto(base);await p.waitForFunction(()=>window.CharDayKit&&typeof txtVaultState==='function'&&txtVaultState().ok);
+  await p.evaluate(async writer=>{
+   const chars=[{id:'photo-a',name:'取景测试甲',gender:'male',tz:'0'},{id:'photo-b',name:'取景测试乙',gender:'female',tz:'0'}],ref={current:{}},save=new Function('setSchedules','schedulesRef','saveJSON',writer+'return saveSchedDay;')(fn=>{ref.current=fn(ref.current);},ref,saveJSON);
+   for(const c of chars)save(c.id,'2026-10-09',{seqs:[{seq:1,time:'08:00',end:'20:00',title:'在家看会书',location:'小家',type:'home',world:{scene:'dayHome',spot:'read',manual:true}}]});
+   const features=Object.fromEntries(['phone','weekly','diary','wallet','schedule','desire','impression','moments','forum','whisper','capsule','gaze','proactive','letter','react','groupChat','listen','watch'].map(k=>[k,{global:false,chars:{}}]));
+   for(const [k,v]of Object.entries({x_characters:chars,x_schedules:ref.current,x_profile:{name:'测试读者'},x_homeLayout:{'0':['fairyGarden']},x_homeFolders:[],x_autoRefreshPolicy_v1:{version:2,legacyMerged:true,features},x_charDayHomes:{future:{keep:1},kitchens:{'photo-b':{ingredients:{egg:8}}},visitorActivities:{'photo-a':'manual','photo-b':'manual'}},x_companion:{charId:'photo-a',float:false,looks:{'photo-a':{outfit:'academy',hair:'korean'}}},'x_chat:photo-a':[{role:'assistant',content:'原来的测试聊天',ts:Date.now()}]}))await saveJSONDurable(k,v);
+  },app.slice(a,z));
+  const enter=async(name='取景测试甲')=>{
+   if(await p.locator('#qiu-splash').isVisible()){await p.locator('#qiu-splash button').click();await p.locator('#qiu-splash').waitFor({state:'hidden'});}
+   await p.evaluate(()=>{window.photoTestAI=0;window.callAI=()=>{photoTestAI++;throw Error('Unexpected AI');};});
+   await p.locator('[data-appkey=fairyGarden]').click();await p.locator('[data-wk=fgworld]').filter({hasText:'TA的一天'}).click();await p.locator('[data-wk=cdaypick]').filter({hasText:name}).click();
+   await p.waitForFunction(()=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect();return s?.ready&&!s.changing&&!s.route.length&&!s.visitor.busy;});
+  };
+
+  const root=()=>p.locator('[data-wk=cdaypage]'),scene=()=>p.evaluate(()=>document.querySelector('[data-wk=cdayscene] iframe').contentWindow.CharDayScene.inspect()),api=(fn,arg)=>p.frames().find(f=>f.url().includes('/fairy-garden/day/')).evaluate(fn,arg),shot=name=>p.screenshot({path:path.join(out,name+'.png')});
+  const settle=()=>p.waitForFunction(()=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene.inspect();return s?.editing&&!s.changing&&!s.dragging;});
+  const begin=async()=>{await moreItem(p,'cdaydecorate');await settle();},panel=async()=>{await root().locator('[data-wk=cdaydecoractions] [data-part=piece]').click();await root().locator('[data-wk=cdaypiecepreview]').waitFor();},back=async()=>{await root().getByRole('button',{name:'回去摆放',exact:true}).click();await root().locator('[data-wk=cdaydecorpanel]').waitFor({state:'detached'});};
+  const partInput=id=>root().locator('[data-wk=cdaypartcolor][data-part='+id+'] input:not([type=color])'),colour=async(id,value)=>{await partInput(id).fill(value);await settle();await p.waitForFunction(({id,value})=>{const s=document.querySelector('[data-wk=cdayscene] iframe').contentWindow.CharDayScene.inspect();return s.homePlacements[s.selected].partColors?.[id]===value;},{id,value});};
+  await p.reload();await enter();const baseline=await p.evaluate(()=>({plans:JSON.stringify(loadJSON('x_schedules',{})),other:JSON.stringify(loadJSON('x_charDayHomes',{}).kitchens['photo-b'])}));await begin();
+
+  result.rig=await api(async()=>{
+   const T=await import('three'),{loadTravelerSource,createTraveler}=await import('../traveler.mjs'),{OUTFITS}=await import('../wardrobe.mjs'),{createBathroomVisual}=await import('./bathroom-visual.mjs'),{chorePlans}=await import('./chores.mjs'),{buildSpace}=await import('./spaces.mjs'),{MAPS}=await import('../world.mjs'),{disposeMap}=await import('../map-loader.mjs');
+   const source=await loadTravelerSource(),catalog=await(await fetch('../doll.json')).json(),variants=[{},Object.fromEntries(catalog.dims.map(d=>[d.key,d.min])),Object.fromEntries(catalog.dims.map(d=>[d.key,d.max]))],d=createTraveler(source,true),visual=createBathroomVisual(d),rows=[],previous=MAPS.dayHome;let time=0;
+   try{for(const outfit of Object.keys(OUTFITS))for(const [variant,dims]of variants.entries())for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+    d.setLook({outfit,dims},true);await d.ready();const m=buildSpace('dayHome',{'home-basin':{x:9.6,z:1.1,heading}});MAPS.dayHome=m;const plan=chorePlans(m,'wash-hands',m.spawn,null)[0];if(!plan)throw Error('rig plan unavailable');
+    for(let i=0;i<35;i++){time+=.05;d.root.position.set(plan.at.x,0,plan.at.z);d.root.rotation.y=plan.heading;d.animate(time,{height:.08,gesture:'rest'});visual.update(plan,2,false);}
+    const c=d.root.userData.chore;rows.push({outfit,variant,heading,right:c.contact,left:c.leftContact});if(c.contact>.20||c.leftContact>.20)throw Error('basin reach '+JSON.stringify(rows.at(-1)));
+    visual.hide();if(d.root.getObjectByName('BathroomActivity').visible)throw Error('effects remain after stop');
+   }}finally{MAPS.dayHome=previous;disposeMap(d.root);}return rows;
+  });
+  await api(()=>CharDayScene.overview());await shot('bathroom-overview');
+  const catalog=await api(()=>CharDayScene.listCatalog());for(const id of ['shower','basin','toilet'])assert.ok(catalog.find(p=>p.id===id)?.thumbnail?.startsWith('data:image/'));
+  result.catalog=catalog.length;assert.equal(result.catalog,75);
+  await panel();await root().locator('[data-wk=cdaypiecepick]').selectOption('home-basin');await settle();await colour('towels','#cc7788');await shot('basin-components');await back();
+  await root().locator('[data-wk=cdaysavelayout]').click();await root().locator('[data-wk=cdaytools]').waitFor();
+  assert.equal(await p.evaluate(()=>loadJSON('x_charDayHomes',{}).layouts['photo-a']['home-basin'].partColors.towels),'#cc7788');
+  result.actions=[];
+  const waitCare=async(who,kind)=>p.waitForFunction(({who,kind})=>{const s=document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene.inspect(),c=who==='me'?s?.visitor.choreContact:s?.hostChore?.contact;return c?.kind===kind&&c.elapsed>1&&c.elapsed<7;},{who,kind});
+  const care=async(who,kind)=>{await openLife(p);await root().locator('[data-wk=cdaybathwho]').selectOption(who);await root().locator('[data-wk=cdaybathaction][data-part='+kind+']').click();await closeLife(p);await api(who=>CharDayScene.setCameraMode(who),who);await waitCare(who,kind);const state=await scene(),c=who==='me'?state.visitor.choreContact:state.hostChore.contact;assert.ok(c.piece.startsWith('home-'));if(kind==='wash-hands'){assert.ok(c.water);assert.ok(c.contact<.20&&c.leftContact<.20,JSON.stringify(c));}if(kind==='shower')assert.ok(c.curtain&&c.water);if(kind==='toilet'){assert.ok(c.seated);assert.ok(Math.abs(c.leg)>1.2,JSON.stringify(c));}result.actions.push({who,kind,contact:c});await shot(who+'-'+kind);};
+  for(const who of ['me','ta'])for(const kind of ['shower','wash-hands','toilet']){if(who==='ta'){await api(()=>CharDayScene.visitAction('walk',{x:10.5,z:.7}));await p.waitForFunction(()=>!document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene.inspect().visitor.busy);}await care(who,kind);await lifeAction(p,'end');await closeLife(p);await p.waitForTimeout(250);}
+  await care('me','wash-hands');const elapsed=(await scene()).visitor.choreContact.elapsed;await openMore(p);await p.waitForTimeout(600);await root().locator('[data-wk=cdaymore]').getByRole('button',{name:'回到小世界',exact:true}).click();await waitCare('me','wash-hands');assert.ok((await scene()).visitor.choreContact.elapsed>=elapsed);result.menuRetainsCare=true;
+  await lifeAction(p,'end');await closeLife(p);
+  for(const size of [{width:320,height:568},{width:390,height:844},{width:430,height:932},{width:844,height:390}]){
+   await p.setViewportSize(size);await openLife(p);await root().locator('[data-wk=cdaybathaction][data-part=toilet]').scrollIntoViewIfNeeded();
+   const layout=await root().locator('[data-wk=cdayinteraction]').evaluate(e=>{const body=e.querySelector('[data-wk=cdaymenubody]'),head=e.querySelector('[data-wk=head]').getBoundingClientRect();return {overflow:e.scrollWidth-e.clientWidth,head:head.bottom,body:body.getBoundingClientRect().toJSON(),buttons:[...e.querySelectorAll('[data-wk=cdaybathaction]')].map(b=>b.getBoundingClientRect().height),scroll:body.scrollTop};});assert.ok(layout.overflow<=1);assert.ok(layout.body.top>=layout.head-.5);for(const height of layout.buttons)assert.ok(height>=43.9);await shot('bath-menu-'+size.width+'x'+size.height);await closeLife(p);await openLife(p);assert.equal(await root().locator('[data-wk=cdayinteraction] [data-wk=cdaymenubody]').evaluate(e=>e.scrollTop),layout.scroll);await closeLife(p);result.layouts.push({...size,...layout});
+  }
+  await p.setViewportSize({width:390,height:844});await p.reload();await enter();assert.equal((await scene()).homePlacements['home-basin'].partColors.towels,'#cc7788');result.durableReload=true;
+  // Actual schedule writer; the same row now projects bathing without AI or title/location mutation.
+  await p.evaluate(async writer=>{const ref={current:loadJSON('x_schedules',{})},save=new Function('setSchedules','schedulesRef','saveJSON',writer+'return saveSchedDay;')(fn=>{ref.current=fn(ref.current);},ref,saveJSON);save('photo-a','2026-10-09',{seqs:[{seq:1,time:'08:00',end:'20:00',title:'在家淋浴',location:'小家浴室',type:'home'}]});await saveJSONDurable('x_schedules',ref.current);},app.slice(a,z));await p.reload();await enter();await p.waitForFunction(()=>document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene.inspect().hostChore?.kind==='shower');assert.equal((await scene()).activity.action,'shower');result.scheduleBath=true;
+  assert.deepEqual(await p.evaluate(()=>JSON.stringify(loadJSON('x_charDayHomes',{}).kitchens['photo-b'])),baseline.other);assert.equal(await p.evaluate(()=>photoTestAI),0);assert.deepEqual(errors,[]);result.ok=true;fs.writeFileSync(path.join(out,'result.json'),JSON.stringify(result,null,2));console.log(JSON.stringify({engine,ok:true,actions:result.actions.length,layouts:result.layouts.length}));
+ }catch(e){await p.screenshot({path:path.join(out,'failure.png')}).catch(()=>{});fs.writeFileSync(path.join(out,'failure.json'),JSON.stringify({error:e.message,errors,state:await p.evaluate(()=>document.querySelector('[data-wk=cdayscene] iframe')?.contentWindow.CharDayScene?.inspect()).catch(()=>null),result},null,2));throw e;}finally{await browser.close();server?.close();}
+})().catch(e=>{console.error(e);process.exit(1);});

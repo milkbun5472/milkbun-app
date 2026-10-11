@@ -8,6 +8,9 @@ const leaves=part('leaves','枝叶',/Leaf|Leaves|Stem|Succulent/);
 const flowers=part('flowers','花朵',/Petal|DriedSeed/);
 const base=part('base','底座',/Pedestal|Base|Stand|Foot/);
 const kinds={
+ shower:[part('tray','淋浴底盘',/Tray|Floor/),part('tile','瓷砖背板',/Tile/),part('glass','侧面玻璃',/Glass/),part('tap','花洒与龙头',/Pipe|Head|Mixer/),part('curtain','浴帘',/Curtain/),part('soap','洗浴用品',/Soap/)],
+ basin:[part('body','柜身',/Cabinet/),part('doors','柜门',/Door/),part('hardware','把手与挂杆',/Handle|Rail/),part('bowl','洗手盆',/Rim|Bowl/),part('tap','水龙头',/Tap/),part('mirrorFrame','镜框',/MirrorFrame/),part('mirror','镜面',/MirrorGlass|MirrorGlint/),part('towels','毛巾',/Towel/),part('soap','洗手液',/Soap/)],
+ toilet:[part('ceramic','陶瓷主体',/Pedestal|Bowl|Tank|Lid/),part('seat','坐圈',/Seat/),part('water','水面',/Water/),part('flush','冲水按钮',/Flush/),part('paper','卷纸与纸架',/Roll|Paper/)],
  bed:[part('curtains','纱幔',/Curtain/),part('pillow','枕头',/Pillow/),part('quilt','被子',/Duvet|Quilt(?!Turnback|Stitch)/),part('fold','被沿与缝线',/Fold|Turnback|Stitch/),part('mattress','床垫',/Mattress(?!Tray)/),feet,part('head','床头与床尾',/Head|Spindle|BedPost|BedArch|BedRod|Woven/)],
  sofa:[part('cushionLeft','左抱枕',o=>o.name==='SofaCushion'&&o.position.x<0),part('cushionRight','右抱枕',/SofaCushion/),part('buttons','软包扣饰',/UpholsteryButton/),part('seat','坐垫',/CollectionSeat|SofaSeat|CloudSeat|LeatherSeat/),part('back','靠背',/Back|Tufted|Woven/),part('arms','扶手',/Arm|Bolster|SteelLoop/),feet],
  table:[part('top','桌面',/TableTop/),part('legs','桌腿与支架',/Foot|Leg|Pedestal|Trestle|Column|Brace|Stretcher/),books,part('tableware','餐具与桌上摆件',/Plate|Cup|Tea|Vase|Flower|Leaf|Bookmark|Chopsticks|SingleStem/)],

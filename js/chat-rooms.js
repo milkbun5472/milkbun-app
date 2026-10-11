@@ -43,7 +43,9 @@
       ["sharedState", "这里的事算数", "允许这间房改动你们共同的关系、情绪和状态"],
       ["stateMood", "其中·能改TA的心情", "关掉后这间房不动主线的实时心情（需先开「这里的事算数」）"],
       ["stateGaze", "其中·能改「Ta 眼里」", "关掉后这间房不动那张印象卡（需先开「这里的事算数」）"],
-      ["mainSummary", "出门时给主聊天捎一句", "离开这间房后，给主聊天留一份说得清的交接"]
+      ["mainSummary", "出门时给主聊天捎一句", "离开这间房后，给主聊天留一份说得清的交接"],
+      // 重过一段以前的事（她 2026-10-11：群友「过去有一段经历过得不够具体，想再过一遍收到（过去）记忆里」）
+      ["pastMemory", "这里演的是以前的事", "进记忆的那几条贴上「过去」，按你填的时候记，不算成最近发生的"]
     ]
   };
   // ── 这间房里，上下文的哪几栏成立（v65.04）─────────────────────────
@@ -143,7 +145,7 @@
   }
   const bools = (entries, on) => Object.fromEntries(entries.map(([key]) => [key, !!on]));
   const PRESETS = {
-    everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true) }, syncMode: "follow" },
+    everyday: { label: "慢慢聊这件事", note: "另留一条长期话题，也跟得上你们的日常近况", cognition: { ...bools(GROUPS.cognition, true) }, actions: { ...bools(GROUPS.actions, true) }, writeback: { ...bools(GROUPS.writeback, true), pastMemory: false }, syncMode: "follow" },
     focused: { label: "一起做件事", note: "把课程、计划或长期项目收在一条不跑题的分线里", cognition: { ...bools(GROUPS.cognition, true), otherScenes: false }, actions: { ...bools(GROUPS.actions, false), study: true, fanfic: true, read: true }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true, memoryCandidate: true, mainSummary: true }, syncMode: "ask" },
     isolated: { label: "不带出门", note: "只在这里成立，不补主线、不改共同状态，也不进入记忆", cognition: { ...bools(GROUPS.cognition, false) }, actions: { ...bools(GROUPS.actions, false) }, writeback: { ...bools(GROUPS.writeback, false), roomHistory: true }, syncMode: "frozen" },
     // ⚠️「长篇如果」是【同一个世界里的另一段人生】：世界书照旧给，不然架空世界观会跟着一起没。
@@ -288,6 +290,8 @@
       alt: altNorm(src.alt),
       // 记忆只到起点那一句（她 2026-10-05：「翻到三天前的然后不想要这三天的新记忆」）——只对带开场的房有意义
       memUntilAnchor: !!src.memUntilAnchor,
+      // 这段以前的事大概是什么时候（她填的，可空）：开着「这里演的是以前的事」才用得上
+      pastWhen: String(src.pastWhen || "").trim().slice(0, 40),
       mainCursorTs: Number(src.mainCursorTs || 0),
       summaryCursorTs: Number(src.summaryCursorTs || 0),
       summaryFrame: String(src.summaryFrame || "我们刚刚在另一间房里经历了这些："),
@@ -668,6 +672,8 @@
       }).join("\n");
     }
     const lines = ["【当前房间】你和对方正在「" + room.name + "」里交谈。这是一条独立时间线，不要假装侧房里没发生过的对话已经发生。"];
+    if (w.pastMemory) lines.push("【这间房演的是你们以前的事】" + (room.pastWhen ? "时间是「" + room.pastWhen + "」。" : "")
+      + "你们正回到那时候重新过一遍：照那时候的你、那时候你们的关系说话，别拿现在才知道的事、现在的称呼和口气套进去。");
     const startFrom = room.startFrom || room.fork;
     if (startFrom) lines.push("【进门时带来的聊天】本房从「" + startFrom.sourceRoomName + "」带来了 " + startFrom.seedCount + " 条聊天原文。它们是本房开场前已经发生的内容；原房在这之后的内容不属于本房经历。卡片只作为历史文字，不代表本房已执行活动或交易。");
     // 这间房自己前面发生过的（掉出上下文窗口那些）。只在这儿出现，不出门。

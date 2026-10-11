@@ -19,7 +19,7 @@ test('四张地毯允许桌椅叠放和通行，但仍检查房间边界和隔�
   const map=moved.map;assert.equal(map.obstacles.some(o=>o.id===added.selected),false);
   const before=MAPS.dayHome;MAPS.dayHome=map;
   try{assert.equal(walkable(3,1.65,'dayHome'),true);assert.ok(findPath(map.spawn,map.spots.find(s=>s.id==='read').target,'dayHome').length);}finally{MAPS.dayHome=before;}
-  assert.equal(changeHomeFurniture(moved.placements,added.selected,{x:7,z:0}).ok,false);
+  assert.equal(changeHomeFurniture(moved.placements,added.selected,{x:15,z:0}).ok,false);
   assert.equal(changeHomeFurniture(moved.placements,added.selected,{x:-1.55,z:-3}).ok,false);
   assert.equal(changeHomeFurniture(moved.placements,added.selected,'rotate').ok,true);
   const second=addHomeFurniture(moved.placements,p.id);assert.ok(second.ok);assert.equal(second.placements[second.selected].stored,false);

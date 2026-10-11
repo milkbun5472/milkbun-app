@@ -1,6 +1,7 @@
-import {homeSize} from './home-architecture.mjs?v=fg-932cb68b41b7219d';
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-932cb68b41b7219d';
-import {MAPS,walkable} from '../world.mjs?v=fg-932cb68b41b7219d';
+import {homeSize} from './home-architecture.mjs?v=fg-68a5db5721e6ca1f';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-68a5db5721e6ca1f';
+import {MAPS,walkable} from '../world.mjs?v=fg-68a5db5721e6ca1f';
+import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-68a5db5721e6ca1f';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
@@ -33,7 +34,7 @@ const STREET=[
  piece('street-lamp','lamp',.8,3.7,.3,.3)
 ];
 export const SPACE_DEFS={
- dayHome:{label:'你们的小家',w:14,d:11,pieces:HOME,structure:[{id:'bedroom-partition',x:-.8,z:-3.7,w:.14,d:3.4,h:1.55}],spawn:{x:0,z:4.8},zones:[{id:'bedroom',label:'双人卧室'},{id:'living',label:'起居室'},{id:'kitchen',label:'厨房与餐区'},{id:'free',label:'留给以后布置'}],
+ dayHome:{label:'你们的小家',w:14,d:11,pieces:HOME,structure:[{id:'bedroom-partition',x:-.8,z:-3.7,w:.14,d:3.4,h:1.55}],spawn:{x:0,z:4.8},zones:[{id:'bedroom',label:'双人卧室'},{id:'living',label:'起居室'},{id:'kitchen',label:'厨房与餐区'},{id:'free',label:'留给以后布置'},{id:'bathroom',label:'独立浴室'}],
   anchors:homeAnchors(HOME,homeRoom({}))},
  dayWork:{label:'工作与学习空间',w:11,d:9,pieces:WORK,spawn:{x:0,z:3.9},anchors:[
   {id:'work',label:'书桌前工作',action:'work',piece:'work-desk',approach:{x:1.85,z:.05},heading:-Math.PI/2},
@@ -56,7 +57,9 @@ export function buildSpace(id,placements={}){
  const furniture=(id==='dayHome'?homeFurniture(placements):d.pieces).filter(p=>placements[p.id]?.stored!==true).map(p=>{const q=p.mount?{}:placements[p.id]||{};return {...p,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?q.heading:p.heading};});
  const pieces=Object.fromEntries(furniture.map(p=>[p.id,p]));
  const walls=d.outdoor?[]:[{id:'back-wall',x:0,z:-d.d/2,w:d.w+.2,d:.18},{id:'left-wall',x:-d.w/2,z:0,w:.18,d:d.d}];
- const structure=d.structure||[],obstacles=[...walls,...structure,...furniture.filter(p=>!p.walkThrough&&!p.mount).map(furnitureFootprint)];
+ const structure=[...(d.structure||[]),...(id==='dayHome'?bathroomStructure(homeRoom(placements)):[])],bath=id==='dayHome'?homeBathroom(homeRoom(placements)):null;
+ const bathWalls=bath?[{id:'bath-back-wall',x:bath.x,z:-bath.d/2,w:bath.w,d:.14},{id:'bath-front-wall',x:bath.x,z:bath.d/2,w:bath.w,d:.13},{id:'bath-right-wall',x:bath.edge+bath.w,z:0,w:.13,d:bath.d}]:[];
+ const obstacles=[...walls,...structure,...bathWalls,...furniture.filter(p=>!p.walkThrough&&!p.mount).flatMap(furnitureObstacles)];
  const room=id==='dayHome'?homeRoom(placements):null;
  const anchors=room?homeAnchors(furniture,room):d.anchors;
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{
@@ -66,7 +69,7 @@ export function buildSpace(id,placements={}){
   if(a.bed){spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94,heading:p.heading};spot.playerSleep={...localPoint(p,{x:-.55,z:.65}),y:.94,heading:p.heading};}
   return spot;
  });
- const map={id,label:d.label,renderer:id,radius:Math.hypot(d.w/2,d.d/2)+.5,bounds:{w:d.w,d:d.d},floor:.08,spawn:{...d.spawn},view:{x:0,z:0},furniture,room,structure,obstacles,spots,
+ const map={id,label:d.label,renderer:id,radius:Math.hypot(d.w/2+(bath?.w||0),d.d/2)+.5,bounds:{w:d.w+(bath?.w||0)*2,d:d.d},...(bath?{walkRegions:bathroomRegions(room),bathroom:bath}:{}),floor:.08,spawn:{...d.spawn},view:{x:0,z:0},furniture,room,structure,obstacles,spots,
   seats:Object.fromEntries(spots.filter(s=>s.seat).map(s=>[s.id,s.seat])),
   beds:Object.fromEntries(spots.filter(s=>s.sleep).map(s=>[s.id,{approach:{companion:s.target,player:{...s.target}},slots:{companion:s.sleep,player:s.playerSleep}}])),
   wander:d.wander?.map(p=>({...p})),zones:d.zones||[],outdoor:!!d.outdoor};

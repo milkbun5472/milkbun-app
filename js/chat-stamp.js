@@ -72,15 +72,19 @@
   //   cur ：这一条
   //   opts：{ now, minGap }  minGap＝同一天里隔多久才值得再来一条时刻
   // 返回 { show, day, text }：day=true 表示这是「新的一天」那一条，文案带日期。
+  // opts.map：虚拟时间开着时把现实时刻换成那只钟的（她 2026-10-11：「聊天页面的时间戳还是现实时间，能同步就好了」）。
+  //   换算在判据之前做：跨没跨天、隔了多久，都按那只钟看。没给就是原样。
   function decide(prev, cur, opts) {
     const o = opts || {};
-    const now = o.now == null ? Date.now() : o.now;
+    const mp = typeof o.map === "function" ? o.map : (x => x);
+    const now = mp(o.now == null ? Date.now() : o.now);
     const minGap = Number.isFinite(o.minGap) ? o.minGap : 3 * 60000;
-    const cT = timeOf(cur);
-    if (!Number.isFinite(cT)) return { show: false, day: false, text: "" };
+    const cT0 = timeOf(cur);
+    if (!Number.isFinite(cT0)) return { show: false, day: false, text: "" };
+    const cT = mp(cT0);
     // 整段的第一条：它就是这天的开头，必须写清是哪天
     if (!prev) return { show: true, day: true, text: label(cT, now) };
-    const pT = timeOf(prev);
+    const pT0 = timeOf(prev), pT = Number.isFinite(pT0) ? mp(pT0) : pT0;
     if (!Number.isFinite(pT) || cT < pT) return { show: false, day: false, text: "" };
     const crossed = !sameYMD(ymd(new Date(cT)), ymd(new Date(pT)));
     // 跨天：**不看 minGap、也不看是不是同一轮**。隔夜那条线比任何节流都重要，

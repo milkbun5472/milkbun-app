@@ -13,7 +13,7 @@
     dance:{label:'双人慢舞',distance:.48}
   };
   const labels={look:'看看彼此',cup:'递一杯水',closer:'坐近一点',hand:'牵手',hug:'拥抱',shoulder:'靠肩',read:'一起看书',meal:'一起吃饭',cook:'一起做饭',drink:'坐着喝一杯',walk:'并肩散步',stretch:'一起拉伸',browse:'一起看蔬果',wait:'并肩候车',rest:'并排歇会',...Object.fromEntries(Object.entries(intimate).map(([kind,p])=>[kind,p.label]))};
-  const chores={'tidy-bed':{label:'整理床铺',kind:'bed',duration:9},'water-plant':{label:'给植物浇水',kind:'plant',duration:7},'wipe-table':{label:'擦桌子',kind:'table',duration:8},'wash-dishes':{label:'洗碗',kind:'kitchen',duration:10}};
+  const chores={shower:{label:'洗个澡',kind:'shower',duration:18,personal:true},'wash-hands':{label:'洗洗手',kind:'basin',duration:8,personal:true},toilet:{label:'上厕所',kind:'toilet',duration:9,personal:true},'tidy-bed':{label:'整理床铺',kind:'bed',duration:9},'water-plant':{label:'给植物浇水',kind:'plant',duration:7},'wipe-table':{label:'擦桌子',kind:'table',duration:8},'wash-dishes':{label:'洗碗',kind:'kitchen',duration:10}};
   const scenes={
     dayHome:{home:true,actions:['look','cup','closer','hand','hug','shoulder','read','meal','cook']},
     dayCafe:{actions:['look','cup','drink','meal','hand','hug']},
