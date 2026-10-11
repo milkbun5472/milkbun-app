@@ -39,6 +39,7 @@ export function chooseVisitSeat(map,from,occupied,ta,kind=null){
  return choices.sort((a,b)=>Number(b.shared)-Number(a.shared)||gap(a.seat,ta||from)-gap(b.seat,ta||from))[0]||null;
 }
 export function visitNear(from,ta,map=MAPS.dayHome){
+ if(!ta)return null;
  const choices=[];for(const distance of [1.05,1.4,1.8])for(let n=0;n<16;n++){const a=n*Math.PI/8,to={x:ta.x+Math.cos(a)*distance,z:ta.z+Math.sin(a)*distance},route=reachable(from,to,ta,map);if(route)choices.push({to,route});}
  return choices.sort((a,b)=>gap(from,a.to)-gap(from,b.to))[0]||null;
 }

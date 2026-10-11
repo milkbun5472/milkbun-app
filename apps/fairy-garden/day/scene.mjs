@@ -63,6 +63,8 @@ const cover=document.querySelector('#cover'),place=document.querySelector('#plac
 const social=globalThis.CharDaySocial;
 let hostChore=null,hostChoreVisual=null,hostChoreManual=false;
 let activity=null,taskState=null,homeAutoSuppressed=false,autoJoinFailed=false;
+const freeOuting=()=>social.outing(snapshot);
+const soloOuting=()=>freeOuting()?.mode==='solo';
 const visitSetting=()=>snapshot?.presentation?.map===map?social.setting(snapshot):null;
 let visitor=null,visitorAvatar=null,visitorReady=null,travelerSource=null,visitLoading=false,visitEpoch=0,together=null,helloUntil=0,visitorLookKey='';
 function visitNotice(info){if(parent!==window)parent.postMessage({type:'char-day-visit',charId:snapshot?.charId,...info},location.origin);}
@@ -76,7 +78,7 @@ function planVisibility(plan){
 function prepareVisitor(){
  if(!visitorReady)visitorReady=(async()=>{
   visitorAvatar=createTraveler(travelerSource,false);visitorAvatar.root.visible=false;scene.add(visitorAvatar.root);await visitorAvatar.ready();
-  visitor=createSceneVisit({avatar:visitorAvatar,choreVisual:createChoreVisual(visitorAvatar),ta:()=>({x:avatar.root.position.x,z:avatar.root.position.z,seat,heading:yaw,moving:!!route.length&&!seat&&!bed,walkSpeed:1.6*(hostMotion?.walk||1),action:hostChore?null:activity?.action}),following:()=>!!visitSetting()&&!visitSetting().home,motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
+  visitor=createSceneVisit({avatar:visitorAvatar,choreVisual:createChoreVisual(visitorAvatar),ta:()=>soloOuting()?null:({x:avatar.root.position.x,z:avatar.root.position.z,seat,heading:yaw,moving:!!route.length&&!seat&&!bed,walkSpeed:1.6*(hostMotion?.walk||1),action:hostChore?null:activity?.action}),following:()=>!!visitSetting()&&!visitSetting().home&&!soloOuting(),motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
   together=createTogether({a:avatar,b:visitorAvatar,kitchen:()=>({job:snapshot?.kitchenJob,elapsed:kitchenProgress?.elapsed||0}),visibility:planVisibility,pair:()=>({a:hostPair,b:guestPair}),motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info)visitor.control(info);},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
   transfer=createDateTransfer({a:avatar,b:visitorAvatar,map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),motion:()=>({a:hostMotion,b:guestMotion}),
    onUpdate:info=>visitor.control({...info,automatic:true}),
@@ -94,13 +96,15 @@ async function joinVisit({automatic=false,arrival:arriving=false,restore=null}={
   if(token!==visitEpoch||disposed||map!==placeId||!visitSetting())return false;
   visitorAvatar.setLook(seatLook('me',snapshot?.visitorLook||{},'她'),true);visitorLookKey=JSON.stringify(snapshot?.visitorLook||{});await visitorAvatar.ready();
   if(token!==visitEpoch||disposed||map!==placeId||!visitSetting())return false;
-  visitLoading=false;const joined=visitor.join({automatic,arrival:arriving,restore:!automatic&&!arriving&&!visitSetting().home?{control:'auto',manualAction:'manual'}:restore});if(!joined){autoJoinFailed=automatic;return false;}homeAutoSuppressed=false;helloUntil=automatic?0:performance.now()/1000+5;if(following)setCameraMode('both');return true;
+  visitLoading=false;const solo=soloOuting(),joined=visitor.join({automatic:automatic&&!solo,arrival:arriving,restore:solo?{control:'manual',manualAction:'manual'}:freeOuting()?{control:'auto',manualAction:'manual'}:!automatic&&!arriving&&!visitSetting().home?{control:'auto',manualAction:'manual'}:restore});if(!joined){autoJoinFailed=automatic;return false;}homeAutoSuppressed=false;helloUntil=automatic||solo?0:performance.now()/1000+5;if(following)setCameraMode(solo?'me':'both');return true;
  }catch(e){if(token===visitEpoch){visitLoading=false;autoJoinFailed=automatic;visitNotice({present:false,busy:false,notice:'你的小人还没准备好，可以再试一次。'});}return false;}
 }
 let avatar=null,ready=false,disposed=false,map=null,snapshot=null,pending=null,signature='',lookKey='',epoch=0,route=[],position={x:0,z:0},speed=0,yaw=0,target=null,seat=null,bed=null,walkTarget=0,dwell=0,onArrive=null,following=true,span=10,frame=0,changing=false,failure='',spaceStyle='',homeKey='',homeInput='',homeRecord=homePlacements(),selected='',drag=null,lastEditNotice='',homeOverview=false;
 let cameraMode='ta',framing=false,kitchenProgress=null;
 const editorPointers=new Map(),history=[];
-let editResume=null;
+// The outing is temporary view state. Retain the real scene progress separately
+// so returning cannot replay its entrance or overwrite the schedule.
+let editResume=null,scheduledResume=null;
 const selection=new T.Mesh(new T.PlaneGeometry(1,1),new T.MeshBasicMaterial({color:'#88a773',transparent:true,opacity:.35,depthWrite:false,depthTest:false,side:T.DoubleSide}));selection.rotation.x=-Math.PI/2;selection.visible=false;selection.renderOrder=10;scene.add(selection);
 const tell=error=>{failure=error||'';if(parent!==window)parent.postMessage({type:'char-day-status',error},location.origin);};
 const mapLoader=createMapLoader({maps:MAPS,loadAsset:async asset=>{const url=new URL('../'+asset.replace(/^\.\//,''),import.meta.url).href,root=(await loader.loadAsync(url)).scene;root.traverse(o=>{if(o.isMesh){o.castShadow=o.receiveShadow=true;}});return root;},factories:{...Object.fromEntries(Object.entries(DAY_FACTORIES).map(([id,factory])=>[id,()=>factory(professionalOptions(snapshot?.professional,id,snapshot?.persona))])),...Object.fromEntries(Object.keys(CORE_SPACES).map(id=>[id,()=>createSpaceView(id,id==='dayHome'?snapshot?.homeStyle:'warm',MAPS[id])]))},attach:o=>scene.add(o),detach:o=>scene.remove(o)});
@@ -115,9 +119,9 @@ function frameBox(box,insets,maxZoom=2.2,smooth=1){cameraPose();const e=camera.m
  pan.x+=fit.x*smooth;pan.z+=fit.z*smooth;framing=true;gesture.setZoom(camera.zoom+(fit.zoom-camera.zoom)*smooth);framing=false;cameraPose();
 }
 function actorBounds(who){const v=visitor?.inspect(),roots=who==='me'&&v?.present?[visitorAvatar?.root]:who==='both'&&v?.present?[avatar?.root,visitorAvatar?.root]:[avatar?.root],box=visibleBounds(T,roots);return box.isEmpty()?null:box.expandByScalar(.12);}
-function trackCamera(smooth=1){if(!following||snapshot?.visitorPreview||snapshot?.editing)return;if(['me','both'].includes(cameraMode)&&!visitor?.inspect().present)setFollowing(true,'ta');const box=actorBounds(cameraMode);if(box)frameBox(box,snapshot?.viewInsets||{top:130,bottom:30,left:18,right:18},cameraMode==='both'?5:5.5,smooth);}
-function setCameraMode(mode){if(mode==='overview'){overview();return true;}if(!['ta','me','both'].includes(mode))return false;if(mode!=='ta'&&!visitor?.inspect().present)return false;homeOverview=false;setFollowing(true,mode);trackCamera();return true;}
-function center(){return setCameraMode('ta');}
+function trackCamera(smooth=1){if(!following||snapshot?.visitorPreview||snapshot?.editing)return;if(['me','both'].includes(cameraMode)&&!visitor?.inspect().present&&!soloOuting())setFollowing(true,'ta');const box=actorBounds(cameraMode);if(box)frameBox(box,snapshot?.viewInsets||{top:130,bottom:30,left:18,right:18},cameraMode==='both'?5:5.5,smooth);}
+function setCameraMode(mode){if(mode==='overview'){overview();return true;}if(!['ta','me','both'].includes(mode))return false;if(soloOuting()&&mode!=='me')return false;if(mode!=='ta'&&!visitor?.inspect().present)return false;homeOverview=false;setFollowing(true,mode);trackCamera();return true;}
+function center(){return setCameraMode(soloOuting()?'me':'ta');}
 function overview(){
  setFollowing(false,'overview');pan.x=MAPS[map]?.view?.x||0;pan.z=MAPS[map]?.view?.z||0;
  const home=map==='dayHome'&&mapLoader.views[map]?.root;
@@ -164,7 +168,7 @@ addEventListener('resize',resize);addEventListener('blur',()=>{cancelDrag();edit
 function availableSeat(kind){return Object.values(seatsOf(map)).find(s=>s.piece?.includes(':'+kind+':'))||Object.values(seatsOf(map))[0];}
 function destination(p){
   seat=null;bed=null;hostChore=null;hostChoreManual=false;hostChoreVisual?.hide();
-  if(map==='dayHome'&&!snapshot?.editing){const kind=choreIntent(snapshot?.slot),v=visitor?.inspect(),plan=kind&&chorePlans(MAPS[map],kind,position,v?.present?(v.seat||v.position):null)[0];if(plan){hostChore=plan;yaw=plan.heading;return {...plan.at};}}
+  if(map==='dayHome'&&!snapshot?.editing&&!freeOuting()){const kind=choreIntent(snapshot?.slot),v=visitor?.inspect(),plan=kind&&chorePlans(MAPS[map],kind,position,v?.present?(v.seat||v.position):null)[0];if(plan){hostChore=plan;yaw=plan.heading;return {...plan.at};}}
   if(p.spot){const spot=(DAY_PLACES[map]||MAPS[map])?.spots.find(s=>s.id===p.spot);if(spot){seat=p.standing?null:spot.seat||null;if(spot.sleep)bed=sleepPose({map,position:MAPS[map].spawn,companion:{map,position:spot.target},sleep:{companion:spot.id}},'companion');yaw=spot.heading||0;return {...spot.target};}}
   if(CORE_SPACES[map]){
     const spot=activitySpot(MAPS[map],p.action);
@@ -195,7 +199,7 @@ function activityKey(){return JSON.stringify([snapshot?.key,activity,!!snapshot?
 function pauseState(){
   if(snapshot?.editing)return editResume;
   if(!ready||!map||changing||!snapshot)return null;
-  return {charId:snapshot.charId,map,key:activityKey(),position:{...(together?.inspect()?.a||position)},target:target&&{...target},moving:!!route.length||!!together?.inspect()||hostChoreManual,yaw,speed,dwell,walkTarget,visitor:visitor?.pauseState()||null};
+  return {charId:snapshot.charId,map,outing:freeOuting()?{...freeOuting()}:null,scheduledResume:freeOuting()?scheduledResume:null,key:activityKey(),position:{...(together?.inspect()?.a||position)},target:target&&{...target},moving:!!route.length||!!together?.inspect()||hostChoreManual,yaw,speed,dwell,walkTarget,visitor:visitor?.pauseState()||null};
 }
 async function enter(next,token,initial=false,retainView=false,resume=null){
   changing=true;cover.classList.add('on');avatar.root.visible=false;
@@ -207,10 +211,11 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
     if(sun.shadow.mapSize.x!==shadowSize){sun.shadow.map?.dispose();sun.shadow.map=null;sun.shadow.mapSize.set(shadowSize,shadowSize);}
     applyQuality(qualityMonitor.reset(sceneLoad(view.root)),true);dayEnvironment.bind(MAPS[next],view,QUALITY_LEVELS[qualityLevel]);
     Object.assign(sun.shadow.camera,{left:-shadowExtent,right:shadowExtent,top:shadowExtent,bottom:-shadowExtent});sun.shadow.camera.updateProjectionMatrix();sun.shadow.normalBias=next==='dayHome'?.015:.035;
-    position=resume&&walkable(resume.position.x,resume.position.z,map)?{...resume.position}:{...MAPS[map].spawn};avatar.root.position.set(position.x,floorHeight(map,position),position.z);avatar.root.visible=!snapshot.editing;
+    position=resume&&walkable(resume.position.x,resume.position.z,map)?{...resume.position}:{...MAPS[map].spawn};avatar.root.position.set(position.x,floorHeight(map,position),position.z);avatar.root.visible=!snapshot.editing&&!soloOuting();
     span=CORE_SPACES[map]||DAY_PLACES[map]?14:map==='garden'?12:11;spaceStyle=map==='dayHome'?snapshot.homeStyle||'warm':'';resize();place.hidden=!!DAY_PLACES[map];place.textContent=CORE_SPACES[map]?.label||DAY_PLACES[map]?.label||(map==='garden'?'街边 · 借用庭院场景':map==='hall'?'案边 · 借用公共厅场景':'住处 · 借用小屋场景');
     yaw=0;target=destination(activity);walkTarget=0;dwell=0;
-    if(snapshot.editing){route=[];seat=bed=null;markSelection();}
+    if(soloOuting()){position={...target};route=[];}
+    else if(snapshot.editing){route=[];seat=bed=null;markSelection();}
     else if(resume){
       const same=resume.key===activityKey();
       if(same){yaw=resume.yaw;dwell=resume.dwell;walkTarget=resume.walkTarget;}
@@ -222,7 +227,7 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
     }
     else if(initial&&(snapshot.presentation.action==='sleep'||!snapshot.preview&&!snapshot.showcase&&snapshot.slot&&Number.isFinite(snapshot.at)&&snapshot.at>snapshot.slot.startAt+30000&&activity.phase!=='enter')&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
     if(snapshot.presentation.action==='walk'&&!route.length)wander();
-    if(resume?.visitor?.present&&visitSetting()&&snapshot.visitorData?.homePresence!=='away'){
+    if(resume?.visitor?.present&&visitSetting()&&(freeOuting()||snapshot.visitorData?.homePresence!=='away')){
       await prepareVisitor();if(token!==epoch||disposed)return;
       visitorAvatar.setLook(seatLook('me',snapshot.visitorLook||{},'她'),true);visitorLookKey=JSON.stringify(snapshot.visitorLook||{});await visitorAvatar.ready();
       if(token!==epoch||disposed)return;visitor.restore(resume.visitor);
@@ -231,16 +236,23 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
   }catch(e){if(token===epoch)tell('画面加载失败：'+e.message);}finally{if(token===epoch){changing=false;
    // Apply the live seat/bed pose before exposing the completed scene. The
    // navigation approach is a floor point, not the avatar's sitting position.
+   if(!snapshot.editing&&freeOuting()&&!visitor?.inspect().present&&!homeAutoSuppressed&&!autoJoinFailed&&!snapshot.scenePaused)await joinVisit({automatic:true});
+   if(token!==epoch||disposed)return;
    if(!snapshot.editing)tick(0,performance.now()/1000);
    cover.classList.remove('on');if(snapshot.editing)editorNotice();}}
 }
 function apply(data,local=false){
   if(!ready){pending=data;return;}
   if(!data)return;const previous=snapshot,previousPause=pauseState(),first=!snapshot,wasEditing=snapshot?.editing,wasVisitorPreview=snapshot?.visitorPreview,previousKey=snapshot?.key,previousChar=snapshot?.charId;
-  if(snapshot?.charId!==data.charId||snapshot?.presentation?.map!==data.presentation.map){homeAutoSuppressed=false;autoJoinFailed=false;}
+  const oldTrip=social.outing(previous),newTrip=social.outing(data),tripChanged=JSON.stringify(oldTrip)!==JSON.stringify(newTrip);
+  if(previous?.charId!==data.charId)scheduledResume=null;
+  if(first&&newTrip)scheduledResume=data.resume?.scheduledResume||null;
+  else if(newTrip&&!oldTrip&&!wasEditing&&previous?.charId===data.charId)scheduledResume=previousPause;
+  if(snapshot?.charId!==data.charId||snapshot?.presentation?.map!==data.presentation.map||tripChanged){homeAutoSuppressed=false;autoJoinFailed=false;}
   if(data.editing&&!wasEditing)editResume=first?data.resume:pauseState();
   let resume=!data.editing?(wasEditing?editResume:first?data.resume:null):null;
   if(!data.editing)editResume=null;
+  if(scheduledResume&&!newTrip&&!data.editing&&!wasEditing&&!data.preview&&!data.showcase&&previous?.charId===data.charId){resume=scheduledResume;scheduledResume=null;}
   // During an edit session this scene owns the draft. Host clock pulses only
   // mirror it; an older pulse cannot replace a just-released furniture drag.
   if(wasEditing&&data.editing&&!local&&data.charId===snapshot.charId)data={...data,homePlacements:snapshot.homePlacements};
@@ -261,7 +273,10 @@ function apply(data,local=false){
   if(!data.editing&&wasEditing){cancelDrag();history.length=0;selection.visible=false;}
   if(mapLoader.views[map]?.markers)mapLoader.views[map].markers.visible=!!data.showcase;
   const newLook=JSON.stringify([data.charId,data.ta,data.look]);if(newLook!==lookKey){avatar.setLook(seatLook('companion',data.look,data.ta),true);lookKey=newLook;}
-  activity=activityPhase(data.presentation,data.slot,data.at,{preview:data.preview||data.showcase||data.editing});
+  if(newTrip){
+    const space=DAY_PLACES[data.presentation.map]||MAPS[data.presentation.map],rest=space?.spots.find(p=>p.action==='rest'&&p.seat)||space?.spots.find(p=>p.action==='rest');
+    activity={...data.presentation,spot:rest?.id,phase:'work',phaseLabel:''};
+  }else activity=activityPhase(data.presentation,data.slot,data.at,{preview:data.preview||data.showcase||data.editing});
   const next=JSON.stringify([data.charId,data.key,activity,data.homeStyle,nextHome,data.editing,data.professional,professionalOptions(data.professional,data.presentation.map,data.persona)]);
   if(visitorAvatar&&JSON.stringify(data.visitorLook||{})!==visitorLookKey){visitorLookKey=JSON.stringify(data.visitorLook||{});visitorAvatar.setLook(seatLook('me',data.visitorLook||{},'她'),true);}
   if(data.visitorPreview){prepareVisitor().then(()=>{
@@ -273,15 +288,15 @@ function apply(data,local=false){
   if(wasVisitorPreview&&!data.visitorPreview)center();
   if(transfer?.inspect()&&data.charId===previous?.charId&&data.presentation.map===transfer.inspect().destination&&!data.editing&&!data.preview&&data.socialPreferences?.followDates!==false)return;
   if(next===signature)return;signature=next;
-  const carry=canTravelTogether(previous,data,visitor?.inspect(),social);
+  const carry=!oldTrip&&!newTrip&&canTravelTogether(previous,data,visitor?.inspect(),social);
   const carryChoice=carry?{control:visitor.inspect().control,manualAction:visitor.inspect().manualAction}:null;
   if(transfer?.inspect()||arrival){transfer?.cancel();arrival=null;}
-  const keepVisitor=visitor?.inspect().present&&visitor.inspect().map===data.presentation.map&&social.setting(data)&&!layoutChanged&&(map!=='dayHome'||spaceStyle===(data.homeStyle||'warm'));
+  const keepVisitor=!tripChanged&&visitor?.inspect().present&&visitor.inspect().map===data.presentation.map&&social.setting(data)&&!layoutChanged&&(map!=='dayHome'||spaceStyle===(data.homeStyle||'warm'));
   if(parent!==window)parent.postMessage({type:'char-day-activity',charId:data.charId,key:data.key,phase:activity.phase,label:activity.motion||activity.phase!=='work'?activity.phaseLabel:'',spotLabel:DAY_PLACES[activity.map]?.spots.find(s=>s.id===activity.spot)?.label||''},location.origin);
   // A cosmetic pause inside the same slot yields to the user's interaction.
   // onStop already replans against the latest activity when they finish it.
   if(keepVisitor&&(together?.inspect()||hostChoreManual)&&previousKey===data.key&&previousChar===data.charId)return;
-  if(!carry&&!keepVisitor&&(visitor?.inspect().present||visitLoading))closeVisit('TA换了地点，继续看看TA的一天。');
+  if(!carry&&!keepVisitor&&(visitor?.inspect().present||visitLoading))closeVisit(newTrip?'正在前往选择的地点…':'继续看看TA的一天。');
   else if(keepVisitor||carry)together?.stop();
   const token=++epoch;route=[];onArrive=null;seat=bed=null;dwell=0;
   const needed=data.presentation.map;
@@ -296,7 +311,8 @@ function apply(data,local=false){
     enter(needed,token,false,false,resume);return;
   }
   if(DAY_PLACES[map]&&map===needed&&JSON.stringify(mapLoader.views[map]?.root.userData.professional||{})!==JSON.stringify(professionalOptions(data.professional,map,data.persona))){mapLoader.keep(null);enter(needed,token,false,true,previousPause);return;}
-  if(data.editing&&map!==needed){enter(needed,token);}
+  if(tripChanged){enter(needed,token,false,false,resume?.map===needed?resume:null);}
+  else if(data.editing&&map!==needed){enter(needed,token);}
   else if(map==='dayHome'&&needed===map&&(spaceStyle!==(data.homeStyle||'warm')||layoutChanged||!!wasEditing!==!!data.editing)){mapLoader.keep(null);enter(needed,token,false,!!wasEditing&&!!data.editing);}
   else if(map&&map!==needed&&!changing){
     target={...MAPS[map].spawn};go(target,()=>enter(needed,token));
@@ -316,7 +332,10 @@ function wander(){
 function tick(dt,time){
   if(['dayHome','dayCampus'].includes(map))setHomeClock(mapLoader.views[map]?.root,snapshot?.minute);
   if(snapshot?.visitorPreview&&visitorAvatar&&!visitor?.inspect().present){visitorAvatar.animate(time,{height:.08});}
-  if(!ready||!map||changing||snapshot?.editing||snapshot?.scenePaused||snapshot?.visitorPreview||!avatar.root.visible)return;
+  if(!ready||!map||changing||snapshot?.editing||snapshot?.scenePaused||snapshot?.visitorPreview)return;
+  if(freeOuting()&&!homeAutoSuppressed&&!autoJoinFailed&&!visitor?.inspect().present&&!visitLoading)joinVisit({automatic:true});
+  if(soloOuting()){visitor?.tick(dt,time);updateWorkScene(mapLoader.views[map]?.root,null,false,time);trackCamera(Math.min(1,dt*8));dayEnvironment.update(snapshot.minute,snapshot.weather,time);return;}
+  if(!avatar.root.visible)return;
   if(transfer?.inspect()){transfer.tick(dt,time);trackCamera(Math.min(1,dt*8));return;}
   if(map==='dayHome'&&visitSetting()&&!snapshot.visitorPreview&&snapshot.visitorData?.homePresence!=='away'&&!homeAutoSuppressed&&!autoJoinFailed&&!visitor?.inspect().present&&!visitLoading)joinVisit({automatic:true});
   if(together?.inspect()){if(together.inspect().automatic&&together.inspect().phase==='active'&&together.inspect().elapsed>=8){together.stop('小互动结束，继续各自活动。');autoInteraction.reset();}together.tick(dt,time);if(together.inspect()){taskState=together.inspect()?.aTask;updateWorkScene(mapLoader.views[map]?.root,taskState,false,time);trackCamera(Math.min(1,dt*8));updateKitchen(dt);return;}}
@@ -373,7 +392,7 @@ function visitAction(kind,point){
  autoInteraction.reset();const wasTransfer=transfer?.inspect();if(wasTransfer){transfer.cancel('你已接管，继续按你的选择活动。');arrival=null;target={...MAPS[map].spawn};go(target,()=>{closeVisit('这次一起转场已结束，按当前日程继续。');enter(snapshot.presentation.map,epoch);});}
  if(kind==='end'){together?.stop();if(hostChoreManual){target=destination(activity);dwell=0;go(target);}return visitor?.act('manual')||false;}
  if(kind.startsWith('chore:ta:')){together?.stop();visitor?.act('manual');const choreKind=kind.slice(9),v=visitor?.inspect(),plan=visitSetting()?.home&&CHORES[choreKind]&&chorePlans(MAPS[map],choreKind,position,v?.present?(v.seat||v.position):null)[0];if(!plan||bed||changing){visitNotice({...v,notice:'先给TA留一处能走到的对应家具，再来做家务。'});return false;}hostChore=plan;hostChoreManual=true;hostChoreVisual.hide();seat=bed=null;dwell=0;yaw=plan.heading;target={...plan.at};go(target);return true;}
- if(kind==='leave'&&map==='dayHome')homeAutoSuppressed=true;
+ if(kind==='leave'&&(map==='dayHome'||freeOuting()))homeAutoSuppressed=true;
  const shared=kind.startsWith('together:');if(shared)kind=kind.slice(9);
  if(shared||['hand','hug','shoulder','meal','cook'].includes(kind)){
   visitor?.act('manual');
@@ -402,10 +421,10 @@ function capturePhoto(){
  const src=renderPhoto(T,renderer,scene,view,{width:800,height:600,quality:.84});renderer.render(scene,camera);
  return {src,map,place:MAPS[map]?.label,charId:snapshot.charId,activity:sharedActivity(),minute:snapshot.minute};
 }
-function sharedActivity(){return together?.inspect()?.label||(snapshot?.slot?.deviation?.actual||snapshot?.slot?.title||'在小家待一会儿');}
+function sharedActivity(){return together?.inspect()?.label||(freeOuting()?'一起逛逛':null)||(snapshot?.slot?.deviation?.actual||snapshot?.slot?.title||'在小家待一会儿');}
 function visitorWardrobe(){const look=seatLook('me',snapshot?.visitorLook||{},'她');return {getDyes:()=>dyesOf(look),getOutfit:()=>({id:outfitId(look),colors:outfitColors(look)}),getHair:()=>hairId(look.hair),hairModes:HAIR_MODES};}
 const listFurniture=()=>homeFurniture(snapshot?.homePlacements).map(p=>({...p,primary:furniturePrimary(p,styleOf(snapshot?.homeStyle)).color,actions:usesFor(p),inUse:usesFor(p).some(action=>MAPS.dayHome.spots.find(s=>s.id===action)?.piece===p.id)}));
-window.CharDayScene={catalogLabels:()=>Object.fromEntries(HOME_CATALOG.map(p=>[p.id,p.label])),pauseState,setCameraMode,capturePhoto,professionalChoices:()=>PROFESSIONAL_OPTIONS,professionalStyles:()=>PROFESSIONAL_STYLES,joinVisit,visitAction,visitorWardrobe,mergeVisitorLook:(patch,old)=>mergeLook(old||snapshot?.visitorLook||{},patch),setSnapshot:apply,listPlaces:placeList,listFurniture,listCatalog,decorationOptions:()=>({categories:HOME_CATEGORIES,collections:HOME_COLLECTIONS,colors:HOME_COLORS,materials:HOME_MATERIALS,walls:HOME_WALLS,floors:HOME_FLOORS,sizes:HOME_SIZES,mountWalls:HOME_MOUNT_WALLS}),addFurniture:id=>commitEdit(addHomeFurniture(snapshot?.homePlacements,id)),editRoom:change=>commitEdit(changeHomeRoom(snapshot?.homePlacements,change)),selectFurniture,editAction,editMove:(id,point)=>{selectFurniture(id);return commitEdit(changeHomeFurniture(snapshot?.homePlacements,id,point));},editLayout:()=>drag||changing?{ok:false,reason:'等家具放稳后再保存。'}:checkHomeLayout(snapshot?.homePlacements),projectGround,projectFurniture,listPairStyles:()=>Object.entries(PAIR_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listMotions:()=>Object.entries(MOTION_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,probeAction:()=>{const hand=avatar?.root.getObjectByName('Right_hand'),head=avatar?.root.getObjectByName('HeadAnchor'),tool=avatar?.root.getObjectByName(taskState?.kind==='write'?'WorkPencil':taskState?.kind==='paint'?(taskState.tool==='chalk'?'WorkChalk':'WorkBrush'):'WorkPipette');return {leftHand:avatar?.root.getObjectByName('Left_hand')?.getWorldPosition(new T.Vector3()).toArray(),luggage:avatar?.root.getObjectByName('WorkSuitcase')?.getWorldPosition(new T.Vector3()).toArray(),luggageGrip:avatar?.root.getObjectByName('SuitcaseGrip')?.getWorldPosition(new T.Vector3()).toArray(),leftHeadHand:(()=>{const left=avatar?.root.getObjectByName('Left_hand');return head&&left?head.worldToLocal(left.getWorldPosition(new T.Vector3())).toArray():null;})(),bones:['rightArm','rightForearm'].map(n=>avatar?.root.getObjectByName(n)?.getWorldPosition(new T.Vector3()).toArray()),hand:hand?.getWorldPosition(new T.Vector3()).toArray(),headHand:head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null,tool:tool?.getWorldPosition(new T.Vector3()).toArray(),task:taskState};},inspect:()=>({cameraMode,hostChore:hostChore?{kind:hostChore.kind,piece:hostChore.piece,elapsed:dwell,manual:hostChoreManual,contact:avatar.root.userData.chore}:null,transfer:transfer?.inspect(),pairStyles:{ta:hostPair,me:guestPair},kitchenView:kitchenView.inspect(),kitchenProgress,framedActors:(()=>{const roots=[avatar?.root,visitorAvatar?.root];return roots.filter(r=>r?.visible).map(r=>({...projectedBounds(visibleBounds(T,[r])),who:r===avatar.root?'ta':'me'}));})(),motion:hostMotion,visitorMotion:guestMotion,professional:mapLoader.views[map]?.root.userData.professional,contacts:{ta:avatar?.root.userData.contacts,me:visitorAvatar?.root.userData.contacts},together:together?.inspect(),visitorLook:snapshot?.visitorLook||{},visitor:visitor?.inspect()||{present:false,visible:false},visitLoading,ready,map,spaceStyle,editing:!!snapshot?.editing,selected,dragging:!!drag,dragPreview:drag?.candidate,editHistory:history.length,homePlacements:homePlacements(snapshot?.homePlacements),spot:snapshot?.presentation.spot,activity:activity?{...activity}:null,task:taskState,workAction:avatar?.root.userData.workAction,avatarPosition:avatar?.root.position.toArray(),avatarHeading:avatar?.root.rotation.y,visualPosition:avatar?.root.getObjectByName('TravelerVisual')?.getWorldPosition(new T.Vector3()).toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,finishes:mapLoader.views[map]?.root.children.filter(g=>g.userData.furnitureId).map(g=>({id:g.name,finish:g.userData.finish,primary:g.userData.primary,materials:g.children.filter(o=>o.isMesh).map(o=>({color:'#'+o.material.color.getHexString(),roughness:o.material.roughness,metalness:o.material.metalness,textured:!!o.material.map}))})),seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),sceneAction:mapLoader.views[map]?.root.userData.sceneAction,environment:dayEnvironment.inspect(),render:{quality:qualityLevel,qualityLabel:QUALITY_LEVELS[qualityLevel].label,pixelRatio:renderer.getPixelRatio(),shadowSize:sun.shadow.mapSize.x,load:sceneLoad(mapLoader.views[map]?.root),activeMaps:Object.keys(mapLoader.views),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,zoom:camera.zoom,homeOverview}})};
+window.CharDayScene={catalogLabels:()=>Object.fromEntries(HOME_CATALOG.map(p=>[p.id,p.label])),pauseState,setCameraMode,capturePhoto,professionalChoices:()=>PROFESSIONAL_OPTIONS,professionalStyles:()=>PROFESSIONAL_STYLES,joinVisit,visitAction,visitorWardrobe,mergeVisitorLook:(patch,old)=>mergeLook(old||snapshot?.visitorLook||{},patch),setSnapshot:apply,listPlaces:placeList,listFurniture,listCatalog,decorationOptions:()=>({categories:HOME_CATEGORIES,collections:HOME_COLLECTIONS,colors:HOME_COLORS,materials:HOME_MATERIALS,walls:HOME_WALLS,floors:HOME_FLOORS,sizes:HOME_SIZES,mountWalls:HOME_MOUNT_WALLS}),addFurniture:id=>commitEdit(addHomeFurniture(snapshot?.homePlacements,id)),editRoom:change=>commitEdit(changeHomeRoom(snapshot?.homePlacements,change)),selectFurniture,editAction,editMove:(id,point)=>{selectFurniture(id);return commitEdit(changeHomeFurniture(snapshot?.homePlacements,id,point));},editLayout:()=>drag||changing?{ok:false,reason:'等家具放稳后再保存。'}:checkHomeLayout(snapshot?.homePlacements),projectGround,projectFurniture,listPairStyles:()=>Object.entries(PAIR_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listMotions:()=>Object.entries(MOTION_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,probeAction:()=>{const hand=avatar?.root.getObjectByName('Right_hand'),head=avatar?.root.getObjectByName('HeadAnchor'),tool=avatar?.root.getObjectByName(taskState?.kind==='write'?'WorkPencil':taskState?.kind==='paint'?(taskState.tool==='chalk'?'WorkChalk':'WorkBrush'):'WorkPipette');return {leftHand:avatar?.root.getObjectByName('Left_hand')?.getWorldPosition(new T.Vector3()).toArray(),luggage:avatar?.root.getObjectByName('WorkSuitcase')?.getWorldPosition(new T.Vector3()).toArray(),luggageGrip:avatar?.root.getObjectByName('SuitcaseGrip')?.getWorldPosition(new T.Vector3()).toArray(),leftHeadHand:(()=>{const left=avatar?.root.getObjectByName('Left_hand');return head&&left?head.worldToLocal(left.getWorldPosition(new T.Vector3())).toArray():null;})(),bones:['rightArm','rightForearm'].map(n=>avatar?.root.getObjectByName(n)?.getWorldPosition(new T.Vector3()).toArray()),hand:hand?.getWorldPosition(new T.Vector3()).toArray(),headHand:head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null,tool:tool?.getWorldPosition(new T.Vector3()).toArray(),task:taskState};},inspect:()=>({outing:freeOuting(),hasScheduledResume:!!scheduledResume,cameraMode,hostChore:hostChore?{kind:hostChore.kind,piece:hostChore.piece,elapsed:dwell,manual:hostChoreManual,contact:avatar.root.userData.chore}:null,transfer:transfer?.inspect(),pairStyles:{ta:hostPair,me:guestPair},kitchenView:kitchenView.inspect(),kitchenProgress,framedActors:(()=>{const roots=[avatar?.root,visitorAvatar?.root];return roots.filter(r=>r?.visible).map(r=>({...projectedBounds(visibleBounds(T,[r])),who:r===avatar.root?'ta':'me'}));})(),motion:hostMotion,visitorMotion:guestMotion,professional:mapLoader.views[map]?.root.userData.professional,contacts:{ta:avatar?.root.userData.contacts,me:visitorAvatar?.root.userData.contacts},together:together?.inspect(),visitorLook:snapshot?.visitorLook||{},visitor:visitor?.inspect()||{present:false,visible:false},visitLoading,ready,map,spaceStyle,editing:!!snapshot?.editing,selected,dragging:!!drag,dragPreview:drag?.candidate,editHistory:history.length,homePlacements:homePlacements(snapshot?.homePlacements),spot:snapshot?.presentation.spot,activity:activity?{...activity}:null,task:taskState,workAction:avatar?.root.userData.workAction,avatarPosition:avatar?.root.position.toArray(),avatarHeading:avatar?.root.rotation.y,visualPosition:avatar?.root.getObjectByName('TravelerVisual')?.getWorldPosition(new T.Vector3()).toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,finishes:mapLoader.views[map]?.root.children.filter(g=>g.userData.furnitureId).map(g=>({id:g.name,finish:g.userData.finish,primary:g.userData.primary,materials:g.children.filter(o=>o.isMesh).map(o=>({color:'#'+o.material.color.getHexString(),roughness:o.material.roughness,metalness:o.material.metalness,textured:!!o.material.map}))})),seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),sceneAction:mapLoader.views[map]?.root.userData.sceneAction,environment:dayEnvironment.inspect(),render:{quality:qualityLevel,qualityLabel:QUALITY_LEVELS[qualityLevel].label,pixelRatio:renderer.getPixelRatio(),shadowSize:sun.shadow.mapSize.x,load:sceneLoad(mapLoader.views[map]?.root),activeMaps:Object.keys(mapLoader.views),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,zoom:camera.zoom,homeOverview}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);mapLoader.close();dayEnvironment.close();closeVisit();if(visitorAvatar)disposeMap(visitorAvatar.root);if(avatar)disposeMap(avatar.root);selection.geometry.dispose();selection.material.dispose();draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{travelerSource=await loadTravelerSource();avatar=createTraveler(travelerSource,true);hostChoreVisual=createChoreVisual(avatar);scene.add(avatar.root);await avatar.ready();ready=true;tell('');visitNotice({present:false,busy:false,notice:''});if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}
