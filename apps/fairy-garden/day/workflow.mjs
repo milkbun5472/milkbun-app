@@ -1,7 +1,8 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-861659188db2f738';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-861659188db2f738';
-import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-861659188db2f738';
-import {activityGroup,activityConfig} from './activity-groups.mjs?v=fg-861659188db2f738';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-03f10db829dbba75';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-03f10db829dbba75';
+import {OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-03f10db829dbba75';
+import {CHORES} from './chores.mjs?v=fg-03f10db829dbba75';
+import {activityGroup,activityConfig,activityBeat} from './activity-groups.mjs?v=fg-03f10db829dbba75';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const FARM='dayFarm',FLEA='dayFleaMarket',OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
 const MOTIONS={
@@ -41,10 +42,11 @@ export function activityPhase(p,slot,at,{preview=false,space=null}={}){
  else if(cfg&&elapsed>=span-entry){spot=cfg.exit;phase='exit';motion=p.map===STATION?'luggage':null;carry=p.map===STATION;}
  else if(cfg&&elapsed>=closing){spot=cfg.tidy(p);phase='tidy';motion=p.map===GYM?(p.spot==='weights'?'weight-return':'wait'):[MARKET,FLEA].includes(p.map)?(p.spot==='cashier'?'cashier':'market-pack'):p.map===LIB?'return':p.map===STATION?'take-luggage':p.map===CLINIC?'return':'tidy';}
  else{
-  const duration=group.beats.reduce((n,b)=>n+b[1],0);let cycle=(elapsed-edge)%duration;
-  for(const [id,length,phaseOverride,opts]of group.beats){if(cycle<length){spot=id;phase=phaseOverride||'work';options=opts||{};
-   if(cfg&&phase==='work'&&length>=8&&cycle>=5.5&&cycle<6){phase='break';}
-   motion=phase==='break'?null:motionFor(spot);break;}cycle-=length;}
+  const beat=activityBeat(group,elapsed-edge);
+  if(beat){spot=beat.id;phase=beat.phase||'work';options=beat.options;
+   if(cfg&&phase==='work'&&beat.length>=8&&beat.cycle>=5.5&&beat.cycle<6){phase='break';}
+   motion=phase==='break'?null:motionFor(spot);
+  }
  }
  // Furniture may have been stored since the group was selected. Edges use the
  // same live anchors as beats; an absent cabinet cannot receive a phantom task.
@@ -55,7 +57,7 @@ export function activityPhase(p,slot,at,{preview=false,space=null}={}){
  if(p.map===LAB&&['records','computer','break'].includes(spot))carry=false;
  if(p.map===GYM)carry=p.spot==='weights'&&['work','tidy'].includes(phase)&&spot!=='water';
  if(p.map===MARKET){carry=p.spot!=='cashier'&&phase!=='enter'&&phase!=='prepare';motion=phase==='exit'?'carry':motion;if(phase==='tidy'&&p.spot!=='cashier'&&elapsed<closing+(edge-entry)/2){spot='checkout';motion='checkout';}}
- return {...p,spot,action,gesture,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':phase==='work'?(motion===DAILY_MOTIONS[action]?DAILY_LABELS[action]:LABELS.work):options.stroll?'起身走走':options.standing?'起身活动一下':LABELS[phase],standing:!!options.standing,stroll:!!options.stroll,group:group.id,groupLabel:group.label,motion,carry,carryType:p.map===GYM?plain.carryType:p.map===MARKET&&p.spot==='cashier'?null:carryType};
+ return {...p,spot,action,gesture,phase,phaseLabel:p.map===STATION&&phase==='prepare'?'放好随身行李':p.map===STATION&&phase==='tidy'?'取回随身行李':phase==='work'?(CHORES[action]?.personal?CHORES[action].label:motion===DAILY_MOTIONS[action]?DAILY_LABELS[action]:LABELS.work):options.stroll?'起身走走':options.standing?'起身活动一下':LABELS[phase],standing:!!options.standing,stroll:!!options.stroll,group:group.id,groupLabel:group.label,motion,carry,carryType:p.map===GYM?plain.carryType:p.map===MARKET&&p.spot==='cashier'?null:carryType};
 }
 // Keep the visible suitcase inside available floor space, including when seated.
 export function luggagePosition(map,origin,heading=0){

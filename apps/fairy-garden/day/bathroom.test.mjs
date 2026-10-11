@@ -18,7 +18,7 @@ test('三档小家独立扩出浴室，原家具完整保留，三项动作都�
    for(const kind of ['shower','wash-hands','toilet']){
     const plan=chorePlans(map,kind,map.spawn,null)[0];assert.ok(plan,kind);assert.ok(plan.at.x>b.edge);assert.equal(plan.personal,true);let at=map.spawn;
     for(const point of plan.route){assert.ok(segmentClear(at,point,'dayHome'));at=point;}
-    assert.ok(findPath(plan.at,map.spawn,'dayHome'));assert.equal(activityGroup({map:'dayHome',action:kind,spot:kind},map),null,'洗漱不轮换成看书');
+    assert.ok(findPath(plan.at,map.spawn,'dayHome'));const group=activityGroup({map:'dayHome',action:kind,spot:kind},map);assert.ok(group.once);assert.ok(!group.beats.some(([id])=>id==='read'),'洗漱不轮换成看书');
    }
    assert.deepEqual(restoreHomeLayout(JSON.parse(JSON.stringify(result.placements))),result.placements);
   }finally{MAPS.dayHome=prev;}
