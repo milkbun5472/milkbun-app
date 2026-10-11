@@ -4034,16 +4034,32 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           h("button", { "data-wk": "calbtn", "data-part": "delete", onClick: () => { onDelTimed && onDelTimed(dayEv.b.ev.id); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除")))),
 
     // 改 AI 排的那一段：做什么、几点到几点、在哪。存回同一份日程，TA 照改过的过这一天
-    seqEdit && h(PageSheet, { onClose: () => setSeqEdit(null) },
-      h("div", { "data-wk": "calseqedit", className: "px-1 pb-2" },
-        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 12 } }, "改这一段"),
-        [["title", "做什么", "text"], ["time", "从几点", "time"], ["end", "到几点", "time"], ["location", "在哪（可空）", "text"]].map(f => h("label", { key: f[0], style: { display: "block", marginBottom: 12 } },
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 5 } }, f[1]),
-          h("input", { type: f[2], value: seqEdit[f[0]], onChange: e => setSeqEdit(Object.assign({}, seqEdit, { [f[0]]: e.target.value })),
-            style: { width: "100%", minHeight: 44, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 14, color: t.ink, outline: "none" } }))),
-        h("button", { "data-wk": "calbtn", "data-part": "saveseq", disabled: !String(seqEdit.title).trim() || !seqEdit.time,
-          onClick: () => { onEditSchedSeq(curChar, seqEdit.dk, seqEdit.seq, { title: String(seqEdit.title).trim().slice(0, 40), time: seqEdit.time, end: seqEdit.end, location: String(seqEdit.location || "").trim().slice(0, 40) }); setSeqEdit(null); },
-          className: "w-full active:opacity-70 disabled:opacity-40", style: { minHeight: 44, marginTop: 4, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12 } }, "存好"))),
+    // 长相照「编辑日程」那一页（CalEventForm）：顶上 ‹ 标题 ✓、两个时间并排、同一套输入框和小标签——不另起一种样子
+    seqEdit && (() => {
+      const inSt = { width: "100%", minWidth: 0, boxSizing: "border-box", outline: "none", padding: "11px 13px", borderRadius: 12, background: t.bg2, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 14.5, color: t.ink };
+      const lbl = x => h("div", { "data-wk": "calformlabel", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 5 } }, x);
+      const ok = String(seqEdit.title).trim() && seqEdit.time;
+      const set = (k, v) => setSeqEdit(Object.assign({}, seqEdit, { [k]: v }));
+      const save = () => { if (!ok) return; onEditSchedSeq(curChar, seqEdit.dk, seqEdit.seq, { title: String(seqEdit.title).trim().slice(0, 60), time: seqEdit.time, end: seqEdit.end, location: String(seqEdit.location || "").trim().slice(0, 40) }); setSeqEdit(null); };
+      const a = String(seqEdit.dk).split("-");
+      return h(PageSheet, { onClose: () => setSeqEdit(null), tall: true },
+        h("div", { "data-wk": "calseqedit", className: "px-1 pb-3" },
+          h("div", { className: "flex items-center justify-between", style: { marginBottom: 14 } },
+            h("button", { "data-wk": "calbtn", "data-part": "formback", onClick: () => setSeqEdit(null), className: "active:opacity-60", style: { minWidth: 40, minHeight: 40, fontFamily: F_DISPLAY, fontSize: 20, color: t.fog } }, "‹"),
+            h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink } }, "改这一段"),
+            h("button", { "data-wk": "calbtn", "data-part": "saveseq", onClick: save, className: "active:opacity-60", style: { minWidth: 40, minHeight: 40, fontFamily: F_DISPLAY, fontSize: 20, color: ok ? t.ink : t.line } }, "✓")),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 14 } },
+            (curChar ? (curChar.remark || curChar.name) : "TA") + " · " + Number(a[1]) + "月" + Number(a[2]) + "日 · AI 排的这一段"),
+          h("div", { className: "flex gap-3", style: { marginBottom: 12 } },
+            h("div", { style: { flex: 1, minWidth: 0 } }, lbl("从几点"), h("input", { "data-wk": "calinput", "data-part": "starttime", type: "time", value: seqEdit.time, onChange: e => set("time", e.target.value), style: inSt })),
+            h("div", { style: { flex: 1, minWidth: 0 } }, lbl("到几点"), h("input", { "data-wk": "calinput", "data-part": "endtime", type: "time", value: seqEdit.end, onChange: e => set("end", e.target.value), style: inSt }))),
+          h("div", { style: { marginBottom: 12 } }, lbl("做什么"),
+            h("textarea", { "data-wk": "calinput", "data-part": "title", value: seqEdit.title, rows: 3, onChange: e => set("title", e.target.value), style: Object.assign({}, inSt, { resize: "none", lineHeight: 1.6 }) })),
+          h("div", { style: { marginBottom: 10 } }, lbl("在哪（可以空着）"),
+            h("input", { "data-wk": "calinput", "data-part": "location", value: seqEdit.location, onChange: e => set("location", e.target.value), style: inSt })),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6, background: t.bg2, borderRadius: 10, padding: "8px 11px" } },
+            "存好以后 TA 就照这个过：聊天里问 TA 在干嘛按这个答，「TA的一天」里的小人也照新写的事和地方换房间。地方写清楚认得最准。")));
+    })(),
     visPick && h(Sheet, { onClose: () => setVisPick(false), tall: true },
       h("div", { "data-wk": "calvis", className: "px-1 pb-2" },
         h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到我的日历和经期"),
