@@ -15714,6 +15714,8 @@ function OfflineMode({
   //   走的是聊天那条「只给 TA 写 CSS」的同一条路：同一个编辑器、同一支限作用域，
   //   只是存在这个人的线下设置里、页面挂点换成线下那三个（offline/offbody/offcomposer）。
   const [sCss, setSCss] = useState(os.customCSS || "");
+  // 正文字号（群友 2026-10-11：「线下能给单独角色调字的大小吗」）：0＝原样；只管这个人线下的正文和旁白
+  const [sFont, setSFont] = useState(Number(os.fontSize) || 0);
   // 同一行档位尺写了三份（v63.43 收成一处 PersRow）
   const persRow = (label, val, set, opts) => h(PersRow, { label: label, val: val, set: set, opts: opts });
   // ── 线下设置（v74.713 照着线上那一套重做）────────────────────────────
@@ -15749,7 +15751,7 @@ function OfflineMode({
     { key: "style", char: "风", title: "文风与好吃片段", tint: "#9b7bc4",
       state: () => (presetOn ? "吃着预设" : "没吃预设") + " · 片段 " + ((os.examples || []).length) + " 条" },
     { key: "look", char: "样", title: "这个人的线下长什么样", tint: "#b0708f",
-      state: () => (sCss.trim() ? "写了 " + sCss.trim().length + " 字 CSS" : "还没写") + (sBg ? " · 有背景图" : "") },
+      state: () => (sFont ? "字号 " + sFont + " · " : "") + (sCss.trim() ? "写了 " + sCss.trim().length + " 字 CSS" : "还没写") + (sBg ? " · 有背景图" : "") },
     { key: "debug", char: "诊", title: "上一轮到底发生了什么", tint: "#7a8fa8",
       state: () => registerTelemetry ? "有本轮记录" : "还没有本轮记录" }
   ];
@@ -15757,7 +15759,7 @@ function OfflineMode({
     h(Head, { zh: offSetTab ? (offSetPages.find(x => x.key === offSetTab) || {}).title || "线下设置" : "线下设置",
       bg: "transparent",
       onBack: () => { if (offSetTab) { setOffSetTab(""); setOffSec(""); } else setSetOpen(false); },
-      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSaveSettings({ presetOn, presetId, maxTokens: sMax, minWords: sMinW, lengthMode: sLengthMode, memN: sMemN, onlineCtxN: sOnlineN, selfP: sSelf, userP: sUser, describeMe: sDesc, tastePace: sTastePace, tasteFocus: sTasteFocus, tasteDensity: sTasteDensity, bg: sBg, customCSS: sCss, fontSize: sFont }); onChangeStyle && onChangeStyle({ styleKey, presetOn, presetId, stylePrompt: (curStyle && curStyle.prompt) || "", taste: { pace: sTastePace, focus: sTasteFocus, density: sTasteDensity } }); setSetOpen(false); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto", style: { padding: "4px 18px 40px" } },
       !offSetTab && h(SettingCatalog, { pages: offSetPages, onOpen: k => { setOffSetTab(k); setOffSec(""); } }),
       offShow("scene", "bg", "场景背景图",
@@ -15815,6 +15817,15 @@ function OfflineMode({
     h(OfflineStylePresetSection, { t, presetOn, setPresetOn, presetId, setPresetId, onOpenStyleLab })),
       offShow("style", "custom", "自定义文风", styleSection),
       offShow("style", "example", "好吃片段库", exampleSection),
+      offShow("look", "font", "正文字号",
+    h("div", { "data-wk": "offfontsize", className: "pt-5" },
+      h("div", { className: "flex items-baseline justify-between mb-1" },
+        h("span", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub } }, "正文字号"),
+        h("span", { className: "flex items-center gap-2" },
+          h("span", { style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: 16, color: t.ink } }, sFont ? sFont + " 号" : "原样"),
+          sFont ? h("button", { onClick: () => setSFont(0), className: "active:opacity-60", style: { minHeight: 32, padding: "0 6px", fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "原样") : null)),
+      h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 10, lineHeight: 1.55 } }, "只管这个人线下的正文和旁白，别人的线下、线上聊天都不变。"),
+      h(Slider, { value: sFont || 14, min: 12, max: 22, step: 0.5, onChange: setSFont }))),
       offShow("look", "css", "只给这个人的线下写 CSS",
         h(ChatCssFields, { css: sCss, setCSS: setSCss,
           fileBase: (char && (char.remark || char.name)) || "TA",
@@ -15990,7 +16001,7 @@ function OfflineMode({
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 16.5, color: t.ink } }, "往期线下记录"),
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "已经结束的那几场，随时回去重看"))))),
     pastOpen && sheet("往期线下记录", h(OfflinePastSessions, { sessions, t, onSelect: s => { setPastOpen(false); setReadView(s); } })),
-    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3" },
+    h("div", { ref: scroller, "data-wk": "offbody", className: "flex-1 overflow-y-auto px-4 py-3", style: Number(os.fontSize) ? { "--off-fs": Number(os.fontSize) + "px" } : undefined },
       msgs.length === 0 && !sending && h("div", { className: "text-center mt-10", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog } }, "场景已布置好，说点什么或让 Ta 先开口。"),
       msgs.map((m, i) => offPickCard(h(OffCard, { key: m.id || i, m: m, msgIndex: i, t: t, char: char, meProfile: profile, editable: !pick, sending: sending, showReason: showReason, onEdit: onEditMsg, onReroll: onRerollMsg, onDelete: onDelMsg, onSaveExample: onSaveExample, onPinShike: onPinShike ? () => setPick([i]) : null, onOpenState: onOpenState }), i, pick, setPick, t)),
       !sending && !pick && rerollNav && onRerollFlip ? h(RerollNav, { nav: rerollNav, onFlip: onRerollFlip, pad: "2px 0 8px" }) : null,
@@ -16217,7 +16228,7 @@ function offBody(t, text, accent) {
   const hasSay = segs.some(x => x.k === "say");
   const d = offDark(t);
   const sayInk = offReadable(accent || t.tint, t.bg2);
-  return h("div", { "data-wk": "offtext", style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
+  return h("div", { "data-wk": "offtext", style: { fontFamily: F_BODY, fontSize: "var(--off-fs, 14px)", lineHeight: 1.9, color: hasSay ? t.sub : t.ink, whiteSpace: "pre-wrap" } },
     segs.map((x, i) => x.k === "prose" ? x.s : h("span", { key: i, "data-wk": "offsay", style: {
       color: sayInk, fontWeight: 600,
       background: "linear-gradient(180deg, transparent 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 12%, " + offA(accent || t.tint, d ? 0.16 : 0.13) + " 92%, transparent 92%)",
@@ -16334,7 +16345,7 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
             // 不许 nowrap：三十来个字加字距在手机上一行装不下，原来直接冲出屏幕（群邀约出发那句开场撞出来的）
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, textAlign: "center", minWidth: 0, flex: "0 1 auto" } }, nText), rule())
         : h("div", { style: { borderLeft: "2px solid " + offA(t.tint, offDark(t) ? 0.5 : 0.38), paddingLeft: 13, margin: "0 4px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 13, fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } },
+            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(var(--off-fs, 14px) - 1px)", fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } },
               offSplit(nText).map((x, i) => x.k === "prose" ? x.s
                 : h("span", { key: i, style: { color: offReadable(t.tint, t.bg), fontStyle: "normal", fontWeight: 600 } }, x.s)))));
   }
