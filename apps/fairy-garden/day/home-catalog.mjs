@@ -1,4 +1,4 @@
-import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-fae54bfb3f2fbfbf';
+import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-023fd5724e01c7fe';
 // One catalogue supplies the editor, saved instances, geometry and activity anchors.
 const item=(id,label,category,kind,w,d,extra={})=>({id,label,category,kind,w,d,...extra});
 export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',rug:'地毯',screen:'屏风',decor:'装饰摆件',wallDecor:'墙上装饰'};
@@ -118,5 +118,6 @@ export function homeAnchors(furniture,room){
  const anchor=(p,action,id)=>p.kind==='kitchen'?{id,action,label:'厨房料理',piece:p.id,approach:{x:HOME_COOK.x,z:p.d/2+.35},heading:Math.PI}:p.kind==='bed'?{id,action,piece:p.id,approach:{x:p.w/2+.55,z:.8},bed:true}:p.kind==='chair'?{id,action,piece:p.id,approach:{x:-.85,z:0},seat:true}:{id,action,piece:p.id,approach:{x:p.w/2+.6,z:.25},seat:true,offset:{x:action==='read'?.6:-.6,z:.05}};
  const selected=Object.entries(defaults).flatMap(([action,id])=>{const candidates=furniture.filter(p=>usesFor(p).includes(action));const p=candidates.find(p=>p.id===room.uses[action])||candidates.find(p=>p.id===id)||candidates.find(p=>/^furniture-/.test(p.id))||candidates[0];return p?[anchor(p,action,action)]:[];});
  // Additional furniture's own approach must stay reachable even before choosing it.
- return [...selected,...furniture.filter(p=>/^furniture-/.test(p.id)).flatMap(p=>usesFor(p).map(action=>anchor(p,action,'use:'+p.id+':'+action)))];
+ const labels={sleep:'床上休息',meal:'餐桌吃饭',tea:'沙发喝一杯',rest:'沙发休息',read:'沙发看书',cook:'厨房料理'};
+ return [...selected,...furniture.filter(p=>/^furniture-/.test(p.id)).flatMap(p=>usesFor(p).map(action=>anchor(p,action,'use:'+p.id+':'+action)))].map(p=>({...p,label:labels[p.action]}));
 }

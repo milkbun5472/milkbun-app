@@ -18,8 +18,10 @@ test("详情里有「改这一段」，改的页四格、存好", () => {
 });
 test("改了做什么/在哪，TA的一天那张小地图跟着认：拔掉旧的 world 钉子、旧 type 和 deviation", () => {
   const seg = app.slice(app.indexOf("const editSchedSeq = "), app.indexOf("const schedWeekKeysFrom"));
-  assert.match(seg, /delete n\.world; delete n\.deviation;/);
-  assert.match(seg, /if \(patch\.title !== q\.title\) delete n\.type;/);
+  assert.match(seg, /window\.CharDayLink\.editRow\(row, patch\)/);
+  const link = fs.readFileSync(require.resolve("../js/char-day-link.js"), "utf8");
+  assert.match(link, /delete next\.world; delete next\.deviation;/);
+  assert.match(link, /if \(changed\("title"\)\) delete next\.type;/);
 });
 test("小地图那头：没有 world 钉子就照字面认地方（presentation 落到 infer）", () => {
   const link = fs.readFileSync(require.resolve("../js/char-day-link.js"), "utf8");

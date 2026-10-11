@@ -146,6 +146,7 @@
       + "直播间里：" + who + "\n"
       // 太冲了（她 2026-10-08：「为啥这么超雄」）：每一拍都要出点动静，模型就一拍比一拍往上拱。给判据，不给禁令
       + "一场直播是几个小时的日常，大部分时候是平平常常的：聊着、做着手上的事、接接梗。情绪起伏得有来由（常客说了什么、真发生了什么），起多大照你这个人平时对观众是什么样；没来由的时候不往上拱，上一拍拱起来的也会落回去。\n"
+      + me + "说的话只有她自己发——flow 里一句都不替她写，常客里也没有跟她同名的人。"
       + "还有几个有名有姓的常客，各自带着对你的看法。屏幕上另有一大片路人弹幕滚过去，那些你看不清、也不必回。你说话的对象是镜头、是她、是这几个常客——挑着回，不必谁都回。"
       + "\n常客们这一拍要是送了礼物，写在 gifts（name 常客网名、gift 礼物名、amount 金额数字；没人送就空）。你要是想让" + me + "当房管，mod 写 true（不想就不写）。";
     const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "");
@@ -440,7 +441,7 @@
           h("span", { style: { flexShrink: 0, color: "#f6c76b" } }, giftIcon(g.gift, "#f6c76b")),
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: "#fff", fontStyle: "italic", flexShrink: 0 } }, "¥" + g.amount)))) : null,
       // ── 弹幕：左下往上滚，不加底框 ──
-      h("div", { "data-wk": "livemsglist", ref: listRef, className: "shrink-0 overflow-y-auto px-4", style: { position: "relative", zIndex: 1, height: panelOpen ? "18vh" : "30vh", paddingTop: 10, paddingBottom: 6, textShadow: shadowTx,
+      h("div", { "data-wk": "livemsglist", ref: listRef, className: "overflow-y-auto px-4", style: { position: "relative", zIndex: 1, height: panelOpen ? "18vh" : "30vh", flexShrink: 1, minHeight: 56, paddingTop: 10, paddingBottom: 6, textShadow: shadowTx,
           WebkitMaskImage: "linear-gradient(180deg,transparent,#000 18%)", maskImage: "linear-gradient(180deg,transparent,#000 18%)" } },
         arr(ses.lines).map(lineEl),
         busy ? h("div", { "data-wk": "livebusy", style: { fontFamily: F_BODY, fontSize: 11, color: LIVE_DIM, padding: "6px 0" } }, watching ? "……" : "大家在看……") : null),
@@ -510,7 +511,8 @@
           h("span", { style: { fontFamily: F_BODY, fontSize: 10, color: LIVE_DIM } }, "¥" + g[1])),
         g[2] ? h("button", { "data-wk": "livegiftdel", onClick: () => { onDropCustom(g[0], g[1]); if (on) setPick(null); }, "aria-label": "删掉这个礼物", className: "active:opacity-60", style: { position: "absolute", right: 0, top: 0, width: 26, height: 26, color: LIVE_DIM, fontSize: 13 } }, "×") : null); };
     const custOk = S(nm) && Number(amt) > 0;
-    return h("div", { "data-wk": "livegiftpanel", style: { marginBottom: 8, padding: "8px 6px", borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid " + LIVE_LINE } },
+    // 礼物一多（自定义的也算）面板会很高：自己里面滚，别把底下的输入栏顶出屏幕（她 2026-10-11：「点礼物然后点不了了因为被推下去了」）
+    return h("div", { "data-wk": "livegiftpanel", style: { maxHeight: "34vh", overflowY: "auto", WebkitOverflowScrolling: "touch", marginBottom: 8, padding: "8px 6px", borderRadius: 14, background: "rgba(255,255,255,.04)", border: "1px solid " + LIVE_LINE } },
       h("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", gap: 4, maxHeight: 156, overflowY: "auto" } },
         all.map(cell),
         h("button", { "data-wk": "livegiftmake", "data-on": making ? "1" : "0", key: "mk", onClick: () => { setMaking(m => !m); setPick(null); }, className: "active:opacity-70 flex flex-col items-center",
@@ -642,12 +644,16 @@
         const d = await (st
           ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))
           : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))) || {};
-        const regs = first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : ses.regulars;
+        // 她 2026-10-11：「它还会编我说的话」——模型开播时编了个跟她同名的常客，之后每拍都以「常客」的名义替她发弹幕。
+        //   她（或她这次的马甲）只能是她自己：同名的常客剔掉，署她名字的那几句也不收
+        const meNames = [uName, ses.meName, ses.maskName].map(x => S(x).trim()).filter(Boolean);
+        const isMe = n => meNames.indexOf(S(n).trim()) >= 0;
+        const regs = (first ? arr(d.regulars).map(r => r && { name: S(r.name).slice(0, 20), who: S(r.who).slice(0, 80), lean: S(r.lean).slice(0, 80) }).filter(r => r && r.name).slice(0, 4) : arr(ses.regulars)).filter(r => r && !isMe(r.name));
         const hostName = first ? (st ? st.name : (S(d.host).slice(0, 20) || char.name)) : ses.host;
         const act = S(d.act).slice(0, 120);
         const regNames = arr(regs).map(r => r.name).filter(n => arr(ses.banned).indexOf(n) < 0);
         // 按先后排好的那条；模型没写 flow（照旧格式）就退回「主播的话在前、弹幕在后」
-        let flowLines = arr(d.flow).map(x => x && { who: S(x.who), text: S(x.text).slice(0, 400) }).filter(x => x && x.text).map(x =>
+        let flowLines = arr(d.flow).map(x => x && { who: S(x.who), text: S(x.text).slice(0, 400) }).filter(x => x && x.text && !isMe(x.who)).map(x =>
           (x.who === "主播" || x.who === hostName) ? { kind: "host", name: hostName, text: x.text, act: "", ts: Date.now() }
             : regNames.indexOf(x.who) >= 0 ? { kind: "reg", name: x.who, text: x.text, ts: Date.now() }
             : ses.buddy && x.who === ses.buddy.name ? { kind: "char", name: x.who, text: x.text, ts: Date.now() } : null).filter(Boolean).slice(0, 16);

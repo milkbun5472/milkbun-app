@@ -1987,7 +1987,7 @@ function schedSleepCarry(prevPlan, todayPlan) {
   for (const x of today) { const m = /(\d{1,2}):(\d{2})/.exec(String(x.time || "")); if (m) { wake = (+m[1]) * 60 + (+m[2]); break; } }
   if (wake == null) wake = 8 * 60;                           // 今天还没排：按睡到早上八点画
   if (wake <= 0) return null;
-  return { from: 0, to: wake, title: last.title || "睡着", location: last.location || "", type: "sleep", carry: true };
+  return { from: 0, to: wake, seq: last.seq, world: last.world, title: last.title || "睡着", location: last.location || "", type: "sleep", carry: true };
 }
 // 角色本地时区 - 我本地 的分钟差（char.tz 如 "+8"/"-5"/"+5.5"/""跟随系统）。异地恋用。
 function schedTzShiftMin(char) {

@@ -1,14 +1,14 @@
 import * as T from 'three';
-import './social.js?v=fg-fae54bfb3f2fbfbf';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-fae54bfb3f2fbfbf';
-import {stepRoute} from '../locomotion.mjs?v=fg-fae54bfb3f2fbfbf';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-fae54bfb3f2fbfbf';
-import {pairProgress} from './motion-profile.mjs?v=fg-fae54bfb3f2fbfbf';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-fae54bfb3f2fbfbf';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-fae54bfb3f2fbfbf';
+import './social.js?v=fg-023fd5724e01c7fe';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-023fd5724e01c7fe';
+import {stepRoute} from '../locomotion.mjs?v=fg-023fd5724e01c7fe';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-023fd5724e01c7fe';
+import {pairProgress} from './motion-profile.mjs?v=fg-023fd5724e01c7fe';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-023fd5724e01c7fe';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-023fd5724e01c7fe';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-fae54bfb3f2fbfbf';
+import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-023fd5724e01c7fe';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
