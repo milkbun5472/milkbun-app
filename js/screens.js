@@ -11155,7 +11155,8 @@ function storageBreakdown() {
   const rows = {};
   const labelFor = k => {
     for (const [pfx, name] of STORAGE_KEY_LABELS) { if (k.indexOf(pfx) === 0) return name; }
-    return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统/其他";
+    // 不带 x_ 的原来全挤成一行「系统/其他」（她 2026-10-11：4.99MB 占 97%，看不出是谁）——每把键单列
+    return k.indexOf("x_") === 0 ? "其他·" + k.slice(2) : "系统·" + k.replace(/:.*$/, ":…");
   };
   try {
     for (let i = 0; i < localStorage.length; i++) {
