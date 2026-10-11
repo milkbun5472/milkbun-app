@@ -17,6 +17,9 @@
   // ⚠️自带那几支写的是 iOS 和安卓两边的名字，谁有算谁的，最后还兜一档通用的。
   const FACES = Object.freeze([
     { key: "",          zh: "默认",     hint: "原来那套",       stack: "",  google: "" },
+    // 跟随系统（群友 2026-10-11「小手机字体也可以跟着手机系统默认字体走吗」）：system-ui 打头，
+    // 安卓换过主题字体的就用那支；iOS 不让网页拿第三方装的字体，落到苹方。
+    { key: "system",    zh: "跟随系统", hint: "手机用什么就用什么", stack: "system-ui,-apple-system,'PingFang SC',sans-serif", google: "" },
     { key: "songti",    zh: "思源宋体", hint: "有笔锋，偏文气", stack: "'Noto Serif SC',serif", google: "Noto+Serif+SC:wght@400;500" },
     { key: "heiti",     zh: "思源黑体", hint: "干净，最好读",   stack: "'Noto Sans SC',sans-serif", google: "Noto+Sans+SC:wght@400;500;700" },
     { key: "xiaowei",   zh: "站酷小薇", hint: "细宋，清瘦",     stack: "'ZCOOL XiaoWei',serif", google: "ZCOOL+XiaoWei" },
