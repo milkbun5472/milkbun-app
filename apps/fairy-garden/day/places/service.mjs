@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-7925d94740daaf60';
-import {cabinet} from './work-room-kit.mjs?v=fg-7925d94740daaf60';
-import {soupPot,preparationSurface} from './kitchen-kit.mjs?v=fg-7925d94740daaf60';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-3ff391679be34d7d';
+import {cabinet} from './work-room-kit.mjs?v=fg-3ff391679be34d7d';
+import {soupPot,preparationSurface} from './kitchen-kit.mjs?v=fg-3ff391679be34d7d';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'prep-counter',kind:'counter',x:-4.8,z:-3.83,w:2.7,d:1,top:.85,work:{prep:{x:.12,y:.93,z:.30}}},

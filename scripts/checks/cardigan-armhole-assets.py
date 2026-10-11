@@ -25,7 +25,7 @@ for face in old_obj.data.polygons:
  if (g-b)>max(r-g,.005)*.32:accessories.update(face.vertices)
 assert len(accessories)>20
 new=snapshot(after);obj=bpy.data.objects['outfit_cardigan'];new_folds=flipped_areas(obj,catalog)
-count,drift=assert_preserved(old,new,{'outfit_cardigan'})
+count,drift=assert_preserved(old,new,{'outfit_cardigan','outfit_cardigan_back_strap'})
 assert image_hashes(before)==image_hashes(after),'Atlas bytes changed'
 assert set(new['outfit_cardigan']['keys'])=={'Basis','height','shoulder','waist','flare','build','head'}
 assert np.max(new_folds-old_folds)<.0001,'A body endpoint added folded surface area'
