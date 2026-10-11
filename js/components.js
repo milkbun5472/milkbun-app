@@ -3630,7 +3630,7 @@ const CAL_SEQ_TINT = { coffee: "#f7dcbb", work: "#bcd7f0", create: "#dbcdf0", me
 const CAL_SEQ_GLYPH = { coffee: GCoffee, work: GBrief, create: GPen, meal: GMeal, rest: GDwell, sleep: GMoon, social: GChat, out: GWalk };
 const CAL_PX_PER_MIN = 0.85;   // 1 小时 ≈ 51px，和参考图一个密度
 
-function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq }) {
+function Calendar({ characters, calendar, calEvents, schedules, profile, period, busy, genWeekBusy, initialView, onBack, onSaveEvent, onDelEvent, onGenMonth, onSavePeriod, onRecordPeriod, onSaveTimed, onDelTimed, onGenWeek, schedWeekKeys, onDelSchedDay, onDelSchedWeek, onDelSchedSeq, onEditSchedSeq }) {
   schedules = window.CharDayLink ? window.CharDayLink.publicSchedules(schedules) : schedules;
   const t = useTheme();
   const today = new Date();
@@ -3648,6 +3648,7 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
   const [form, setForm] = useState(null);        // 新增/编辑手填日程
   const [fab, setFab] = useState(false);
   const [dayEv, setDayEv] = useState(null);      // 点开某个块看详情
+  const [seqEdit, setSeqEdit] = useState(null);  // 改 AI 排的那一段（她 2026-10-11：「日程能不能搞个编辑，现在只能删除手动加」）
   const [evTitle, setEvTitle] = useState("");
   const [genOpen, setGenOpen] = useState(false);
   const [genPrompt, setGenPrompt] = useState("");
@@ -3990,6 +3991,10 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           },
           className: "w-full active:opacity-70", style: { marginTop: 14, fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" }
         }, "只删这一段"),
+        dayEv.b.ai && isCharView && dayEv.b.raw && dayEv.b.raw.seq && onEditSchedSeq && h("button", { "data-wk": "calbtn", "data-part": "editseq",
+          onClick: () => { const r = dayEv.b.raw; setSeqEdit({ dk: dayEv.dk, seq: r.seq, title: r.title || "", time: r.time || "", end: r.end || "", location: r.location || "" }); setDayEv(null); },
+          className: "w-full active:opacity-70", style: { marginTop: 8, minHeight: 42, fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "10px 0" }
+        }, "改这一段"),
         dayEv.b.ai && isCharView && h("button", { "data-wk": "calbtn", "data-part": "delday",
           onClick: () => {
             const dk = dayEv.dk, a = String(dk).split("-");
@@ -4003,6 +4008,17 @@ function Calendar({ characters, calendar, calEvents, schedules, profile, period,
           h("button", { "data-wk": "calbtn", "data-part": "edit", onClick: () => { setForm(Object.assign({}, dayEv.b.ev)); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink, border: "1px solid " + t.line, borderRadius: 12, padding: "11px 0" } }, "编辑"),
           h("button", { "data-wk": "calbtn", "data-part": "delete", onClick: () => { onDelTimed && onDelTimed(dayEv.b.ev.id); setDayEv(null); }, className: "flex-1 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, color: "#c25a4a", border: "1px solid #c25a4a55", borderRadius: 12, padding: "11px 0" } }, "删除")))),
 
+    // 改 AI 排的那一段：做什么、几点到几点、在哪。存回同一份日程，TA 照改过的过这一天
+    seqEdit && h(PageSheet, { onClose: () => setSeqEdit(null) },
+      h("div", { "data-wk": "calseqedit", className: "px-1 pb-2" },
+        h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, marginBottom: 12 } }, "改这一段"),
+        [["title", "做什么", "text"], ["time", "从几点", "time"], ["end", "到几点", "time"], ["location", "在哪（可空）", "text"]].map(f => h("label", { key: f[0], style: { display: "block", marginBottom: 12 } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginBottom: 5 } }, f[1]),
+          h("input", { type: f[2], value: seqEdit[f[0]], onChange: e => setSeqEdit(Object.assign({}, seqEdit, { [f[0]]: e.target.value })),
+            style: { width: "100%", minHeight: 44, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 14, color: t.ink, outline: "none" } }))),
+        h("button", { "data-wk": "calbtn", "data-part": "saveseq", disabled: !String(seqEdit.title).trim() || !seqEdit.time,
+          onClick: () => { onEditSchedSeq(curChar, seqEdit.dk, seqEdit.seq, { title: String(seqEdit.title).trim().slice(0, 40), time: seqEdit.time, end: seqEdit.end, location: String(seqEdit.location || "").trim().slice(0, 40) }); setSeqEdit(null); },
+          className: "w-full active:opacity-70 disabled:opacity-40", style: { minHeight: 44, marginTop: 4, fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12 } }, "存好"))),
     visPick && h(Sheet, { onClose: () => setVisPick(false), tall: true },
       h("div", { "data-wk": "calvis", className: "px-1 pb-2" },
         h("div", { "data-wk": "calsheettitle", style: { fontFamily: F_DISPLAY, fontSize: 17, color: t.ink, marginBottom: 4 } }, "谁能看到我的日历和经期"),

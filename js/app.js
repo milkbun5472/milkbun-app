@@ -16417,6 +16417,24 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     });
     return 1;
   };
+  // 改 AI 排的那一段（她 2026-10-11）：只换她改的那几格，再按开始时间排好、重新编号（跟 delSchedSeq 落的是同一个形状）。
+  //   估算的「现在在干嘛」(estTime) 清掉，下次按改过的重算。
+  const editSchedSeq = (charId, dayKey, seqNo, patch) => {
+    const cur = (schedulesRef.current || {})[charId] || {};
+    const plan = cur[dayKey];
+    if (!plan || !Array.isArray(plan.seqs) || !plan.seqs.some(q => q && q.seq === seqNo)) return 0;
+    const toMin = x => { const m = /^(\d{1,2}):(\d{2})/.exec(String(x || "")); return m ? Number(m[1]) * 60 + Number(m[2]) : 9999; };
+    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? { ...q, ...patch, edited: true } : q)
+      .sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
+    const next = { ...plan, estTime: null, seqs };
+    setSchedules(p => {
+      const n = { ...p, [charId]: { ...cur, [dayKey]: next } };
+      schedulesRef.current = n;
+      saveJSON("x_schedules", n);
+      return n;
+    });
+    return 1;
+  };
   // 「这几天」＝跟「AI 排剩下这几天」写的是同一段：今天到本周日。
   // 过去那几天不在里面——它们带着碎碎念和偏差，是回看的料，要删得一天一天点。
   const schedWeekKeysFrom = char => {
@@ -30188,6 +30206,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDelSchedSeq: (c, dayKey, seqNo) => {
       const n = delSchedSeq(c.id, dayKey, seqNo);
       if (n) toast("这一段删了");
+    },
+    onEditSchedSeq: (c, dayKey, seqNo, patch) => {
+      if (editSchedSeq(c.id, dayKey, seqNo, patch)) toast("改好了，" + (c.remark || c.name) + " 照这个过");
     },
     onDelSchedDay: (c, dayKey) => {
       const n = delSchedDays(c.id, dayKey);
