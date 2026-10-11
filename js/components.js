@@ -1989,15 +1989,23 @@ function VClockEditor({ v, onChange, compact, title }) {
       h("input", { type: "datetime-local", value: local,
         onChange: e => { const ms = new Date(e.target.value).getTime(); if (isFinite(ms)) put({ base: ms }); },
         style: { ...field, width: "100%" } }),
-      sub("流逝速度"),
-      h("div", { className: "flex flex-wrap", style: { gap: 6 } },
-        VCLOCK_SPEEDS.map(([n, label]) => chip(label, speed === n, () => put({ speed: n }), "sp" + n))),
+      sub("流逝速度（现实过 1 小时，这里过几小时）"),
+      h("div", { className: "flex flex-wrap items-center", style: { gap: 6 } },
+        VCLOCK_SPEEDS.map(([n, label]) => chip(label, speed === n, () => put({ speed: n }), "sp" + n)),
+        // 自己填（她 2026-10-11：「往前拨和流逝速度不能自定义吗」）：小数也行，0＝停住
+        h("span", { className: "flex items-center", style: { gap: 4 } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: fs, color: t.sub } }, "×"),
+          h("input", { type: "number", min: 0, step: "any", inputMode: "decimal", placeholder: "自己填",
+            value: VCLOCK_SPEEDS.some(([n]) => n === speed) ? "" : speed,
+            onChange: e => { const n = Number(e.target.value); if (e.target.value !== "" && isFinite(n) && n >= 0) put({ speed: n }); },
+            style: { ...field, width: 72, padding: "6px 8px" } }))),
       sub("往前拨"),
       h("div", { className: "flex flex-wrap", style: { gap: 6 } },
         chip("+1 小时", false, () => put({ base: cur + 3600e3 })),
         chip("+6 小时", false, () => put({ base: cur + 6 * 3600e3 })),
         chip("+1 天", false, () => put({ base: cur + 86400e3 })),
         chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); })),
+      h(VClockJump, { field, fs, onJump: f => put({ base: f(cur) }) }),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
         h("div", { className: "flex", style: { gap: 6 } },
@@ -2009,6 +2017,33 @@ function VClockEditor({ v, onChange, compact, title }) {
 }
 // 一张面具一只钟（她 2026-10-11：「分面具决定时间感知是真实还是虚拟」）：上面一排面具，下面是挑中那张的钟。
 //   主面具的键是 "main"（跟 engine.js vclockCfg 同一个）。没建别的面具时就只有主面具那一只，那一排不出。
+// 自己填拨多少：几分钟/几小时/几天/几个月/几年，往前或往回（往回是改错了拨回来用的）
+const VCLOCK_UNITS = [["分钟", 60e3], ["小时", 3600e3], ["天", 86400e3], ["月", 30 * 86400e3], ["年", 365 * 86400e3]];
+function VClockJump({ field, fs, onJump }) {
+  const t = useTheme();
+  const [n, setN] = useState("");
+  const [unit, setUnit] = useState(1);
+  // 月、年按日历拨（1 月 31 日拨一个月是 2 月底，不是固定 30 天）；分钟、小时、天按毫秒加
+  const go = sign => {
+    const x = Number(n); if (!(isFinite(x) && x > 0)) return;
+    const u = VCLOCK_UNITS[unit][0];
+    onJump(ms => {
+      if (u !== "月" && u !== "年") return ms + sign * x * VCLOCK_UNITS[unit][1];
+      const d = new Date(ms), day = d.getDate(), k = Math.round(x) * sign * (u === "年" ? 12 : 1);
+      d.setDate(1); d.setMonth(d.getMonth() + k);
+      d.setDate(Math.min(day, new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()));
+      return d.getTime();
+    });
+  };
+  const btn = (label, sign) => h("button", { onClick: () => go(sign), className: "active:opacity-60",
+    style: { minHeight: 32, padding: "0 10px", borderRadius: 999, border: "1px solid " + t.ink, background: "transparent", color: t.ink, fontFamily: F_BODY, fontSize: fs, whiteSpace: "nowrap" } }, label);
+  return h("div", { className: "flex flex-wrap items-center", style: { gap: 6, marginTop: 8 } },
+    h("input", { type: "number", min: 0, step: "any", inputMode: "decimal", placeholder: "拨多少", value: n, onChange: e => setN(e.target.value),
+      style: { ...field, width: 72, padding: "6px 8px" } }),
+    h("select", { value: unit, onChange: e => setUnit(Number(e.target.value)), style: { ...field, padding: "6px 8px" } },
+      VCLOCK_UNITS.map(([label], i) => h("option", { key: label, value: i }, label))),
+    btn("往前拨", 1), btn("往回拨", -1));
+}
 function VClockMasks({ masks, primaryId, clocks, onChange }) {
   const t = useTheme();
   const list = [{ key: "main", name: ((masks || []).find(m => m && m.id === primaryId) || {}).name || "主面具" }]
