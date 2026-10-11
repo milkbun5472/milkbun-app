@@ -329,11 +329,10 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
   const [shelf, setShelf] = useState(chatLookShelf);
   const [delId, setDelId] = useState("");
   const toast = m => window.__toast && window.__toast(m, 3000);
-  const saveHere = () => {
-    const name = window.prompt("给这一套起个名字", fileBase ? fileBase + "那套" : "");
-    if (name == null) return;
-    saveChatLookToShelf(getLook(), name); setShelf(chatLookShelf()); toast("存好了，别的聊天窗在这一栏点它就能用");
-  };
+  // ⚠️不用 window.prompt：iOS 桌面图标打开时它被系统吞掉、点了没反应（她 2026-10-11「点不动啊」）。名字就地填。
+  const [naming, setNaming] = useState(null);
+  const saveHere = () => setNaming(naming == null ? (fileBase ? fileBase + "那套" : "") : null);
+  const saveNamed = () => { saveChatLookToShelf(getLook(), naming); setShelf(chatLookShelf()); setNaming(null); toast("存好了，别的聊天窗在这一栏点它就能用"); };
   const useOne = it => { onApply(JSON.parse(JSON.stringify(it.look))); toast("换上了，满意再点右上角 ✓ 保存" + (group && (it.look.skin || it.look.bubble || it.look.font) ? "（群里用不上皮肤/气泡/字那几样，已跳过）" : "")); };
   const dropOne = it => { if (delId !== it.id) { setDelId(it.id); return; } saveJSON("x_chatLooks", chatLookShelf().filter(x => x.id !== it.id)); setShelf(chatLookShelf()); setDelId(""); };
   const take = async txt => {
@@ -351,6 +350,11 @@ function ChatLookPack({ getLook, onApply, fileBase, group }) {
       btn(busy ? "打包中…" : "导出这一套", async () => { setBusy(true); try { await exportChatLook(getLook(), fileBase); } catch (e) { toast("没导出来：" + ((e && e.message) || "")); } finally { setBusy(false); } }),
       btn("导入一套", () => ref.current && ref.current.click()),
       btn("存成我的一套", saveHere)),
+    naming != null ? h("div", { className: "flex items-center", style: { gap: 6, marginTop: 8 } },
+      h("input", { value: naming, maxLength: 30, placeholder: "给这一套起个名字", onChange: e => setNaming(e.target.value),
+        style: { flex: 1, minWidth: 0, minHeight: 40, padding: "0 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg2, color: t.ink, fontFamily: F_BODY, fontSize: 13, outline: "none" } }),
+      h("button", { onClick: saveNamed, className: "active:opacity-70",
+        style: { minHeight: 40, padding: "0 14px", borderRadius: 10, background: t.ink, color: t.bg2, fontFamily: F_BODY, fontSize: 12.5 } }, "存")) : null,
     shelf.length ? h("div", { style: { marginTop: 10 } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "我存的美化 · 点名字换上"),
       shelf.map(it => h("div", { key: it.id, className: "flex items-center", style: { gap: 6, marginTop: 4 } },
