@@ -31,6 +31,12 @@ test('装修推荐只读明确喜好，手动想法优先，财富/身份/讨厌
  const raw={$room:{wall:'stripe',wallColor:'#123456',floor:'auto',uses:{read:'my-sofa'}},sofa:{x:4,z:3,color:'#765432',material:'metal'}};
  const next=L.recommendLayout(raw,L.recommendation('喜欢深木和旧书。'));assert.equal(next.$room.wallColor,'#123456');assert.equal(next.$room.wall,'stripe');assert.equal(next.$room.floor,'dark');assert.equal(next.$room.uses.read,'my-sofa');assert.equal(next.sofa,raw.sofa);
 });
+test('取景照片保存失败仍可用同一张重试，重复提交只收一张且不丢其他记录',async()=>{
+ const f=setup(),photo={id:'preview-1',charId:'a',src:'data:image/jpeg;base64,YQ==',at:123,day:'2026-10-10',time:'09:00',taName:'甲',meName:'我',activity:'靠肩',place:'小家',map:'dayHome',note:''};
+ const write=()=>f.K.saveHomeChange('a','albums',raw=>f.L.albumChange(raw,'a',{kind:'add',photo})),before=JSON.stringify(f.get());
+ f.fail(true);await assert.rejects(write(),/save/);assert.equal(JSON.stringify(f.get()),before);
+ f.fail(false);await write();await write();assert.equal(f.get().albums.a.length,1);assert.deepEqual(f.get().albums.a[0],photo);assert.equal(f.get().kitchens.other.ingredients.egg,8);assert.equal(f.get().future.keep,1);
+});
 test('共用相机适配真正投影、刘海卡片与横屏，平移不改视角',async()=>{
  const {orthographicFrame}=await import('../apps/fairy-garden/view-controls.mjs');
  for(const [width,height]of [[320,400],[390,680],[844,245]]){const fit=orthographicFrame({minX:-1,maxX:1,minY:-1,maxY:1,zoom:1.6,halfWidth:7*width/height,halfHeight:7,width,height,rightX:.848,rightZ:-.53,upX:-.267,upZ:-.427,insets:{top:130,bottom:30,left:18,right:18},maxZoom:2});assert.ok(fit.zoom>0&&fit.zoom<=2);assert.ok(Number.isFinite(fit.x)&&Number.isFinite(fit.z));assert.ok(2*fit.zoom/1.6<=2*(height-130-30)/height+.00001);}

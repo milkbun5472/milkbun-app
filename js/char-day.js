@@ -97,6 +97,7 @@
       [activityStatus,setActivityStatus]=useState(null), [chatOpen, setChatOpen] = useState(false), [chatMounted, setChatMounted] = useState(false), [visitStatus,setVisitStatus]=useState(null),[togetherPanel,setTogetherPanel]=useState(false),[mePanel,setMePanel]=useState(false),[meStyles,setMeStyles]=useState(null),[meDraft,setMeDraft]=useState(null),[meBusy,setMeBusy]=useState(false),[meNotice,setMeNotice]=useState(""),[moreOpen,setMoreOpen]=useState(false),[professionalPanel,setProfessionalPanel]=useState(false),[professionalChoices,setProfessionalChoices]=useState({}),[professionalStyles,setProfessionalStyles]=useState({}),[professionalScene,setProfessionalScene]=useState('dayLaboratory'),[professionalBusy,setProfessionalBusy]=useState(false),[professionalNotice,setProfessionalNotice]=useState(""),[demoProfessional,setDemoProfessional]=useState({});
     const [outing,setOuting]=useState(()=>sceneContinuity.get(String(props.initialCharId))?.outing||null),[outingPicker,setOutingPicker]=useState(false),[outingMode,setOutingMode]=useState('solo');
     const [cameraMode,setCameraMode]=useState(()=>sceneContinuity.get(String(props.initialCharId))?.outing?.mode==='solo'?'me':sceneContinuity.get(String(props.initialCharId))?.outing?'both':'ta'),[lifePage,setLifePage]=useState(''),[lifeBusy,setLifeBusy]=useState(false),[lifeNotice,setLifeNotice]=useState(''),[photoId,setPhotoId]=useState(''),[photoNote,setPhotoNote]=useState(''),[deletePhoto,setDeletePhoto]=useState(false),[kitchenStatus,setKitchenStatus]=useState(null),[kitchenView,setKitchenView]=useState('book'),[kitchenRecipe,setKitchenRecipe]=useState(''),[wish,setWish]=useState(''),[catalogLabels,setCatalogLabels]=useState({}),[recommendedFurniture,setRecommendedFurniture]=useState([]);
+    const [photoDraft,setPhotoDraft]=useState(null),[photoPreviewNotice,setPhotoPreviewNotice]=useState(''),[photoRefresh,setPhotoRefresh]=useState(0);
     const L=root.CharDayLife,S=root.CharDaySocial;
     const [homeChoices,setHomeChoices]=useState({});
     const [positionEdit,setPositionEdit]=useState(null),[positionBusy,setPositionBusy]=useState(false),[positionNotice,setPositionNotice]=useState('');
@@ -227,11 +228,32 @@
     const uniqueId=()=>root.crypto.randomUUID();
     const kitchenInput=event=>{const result=iframe.current?.contentWindow?.CharDayScene?.kitchenInput(event);if(result?.ok===false&&result.reason)setLifeNotice(result.reason);};
     const openLifePage=page=>{setTogetherPanel(false);setLifePage(page);setPhotoId('');setKitchenRecipe('');setLifeNotice('');setDeletePhoto(false);if(page==='preferences')setWish(homes.preferences?.[String(char.id)]?.wish||'');};
-    const lifeWrite=async write=>{if(lifeBusy)return null;setLifeBusy(true);setLifeNotice('');try{const next=await write();setHomes(next);return next;}catch(e){setLifeNotice(e.message==='save'?'没能保存，原来的记录和材料都还在，可以重试。':e.message);return null;}finally{setLifeBusy(false);}};
+    const lifeWrite=async(write,saveFailure)=>{if(lifeBusy)return null;setLifeBusy(true);setLifeNotice('');try{const next=await write();setHomes(next);return next;}catch(e){setLifeNotice(e.message==='save'?(saveFailure||'没能保存，原来的记录和材料都还在，可以重试。'):e.message);return null;}finally{setLifeBusy(false);}};
+    useEffect(()=>{
+      setPhotoDraft(null);setPhotoPreviewNotice('');
+      if(lifePage!=='album'||photoId)return;
+      if(!visiting||demo||preview||showcase||trip?.mode==='solo'){setPhotoPreviewNotice('先和TA走到一起，再拍同框照片。');return;}
+      let timer,cancelled=false;const started=performance.now(),key=payload.key;
+      const prepare=()=>{
+        if(cancelled)return;
+        try{
+          const api=iframe.current?.contentWindow?.CharDayScene,scene=api?.inspect();
+          if(!scene?.ready||scene.changing){
+            if(performance.now()-started<15000){timer=setTimeout(prepare,250);return;}
+            throw Error('画面还没准备好，稍后点重新取景。');
+          }
+          const shot=api.capturePhoto();if(!shot||shot.charId!==String(char.id))throw Error('画面还在准备，请重新取景。');
+          const at=Date.now(),photo={id:uniqueId(),charId:String(char.id),src:shot.src,at,day:root.ScheduleClock.dayKey(char,at),time:clockText(shot.minute),taName:char.remark||char.name,meName:visitorData.name||'我',activity:shot.activity,place:shot.place||'',map:shot.map,note:''};
+          setPhotoDraft({key,photo});
+        }catch(e){setPhotoPreviewNotice(e.message||'取景没成功，可以再试一次。');}
+      };
+      timer=setTimeout(prepare,0);
+      return()=>{cancelled=true;clearTimeout(timer);};
+    },[lifePage,photoId,id,visiting,payload?.key,retry,photoRefresh,!!preview,showcase,trip?.mode]);
+    const photoShot=photoDraft?.key===payload?.key&&photoDraft?.photo.charId===String(char?.id)?photoDraft.photo:null;
     const takePhoto=async()=>{
-      if(lifeBusy)return;let shot;try{shot=iframe.current?.contentWindow?.CharDayScene?.capturePhoto();if(!shot)throw Error('画面还在准备。');}catch(e){setLifeNotice(e.message);return;}
-      const photo={id:uniqueId(),charId:String(char.id),src:shot.src,at:Date.now(),day:state.day,time:state.time,taName:char.remark||char.name,meName:visitorData.name||'我',activity:shot.activity,place:shot.place||'',map:shot.map,note:''};
-      const next=await lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'add',photo})));
+      if(lifeBusy||!photoShot)return;const photo=photoShot;
+      const next=await lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'add',photo})),'没能保存，这张预览还在，可以重试。');
       if(next){setLifePage('album');setPhotoId(photo.id);setPhotoNote('');setLifeNotice('拍好了，已放进你们的小家相册。');}
     };
     const kitchen= L.kitchen(homes.kitchens?.[String(char?.id)]),photos=L.album(homes.albums?.[String(char?.id)],char?.id),photo=photos.find(p=>p.id===photoId),suggestion=L.recommendation(char?.persona,wish),pendingJob=kitchen.pending;
@@ -485,7 +507,11 @@
             h('a',{href:photo.src,download:'小家-'+photo.day+'-'+photo.id+'.jpg',style:{...btn,display:'block',textAlign:'center',marginTop:10,textDecoration:'none'}},'导出照片'),
             h('button',{"data-wk":"cdayphotodelete",disabled:lifeBusy,style:{...btn,width:'100%',marginTop:10},onClick:()=>{if(!deletePhoto){setDeletePhoto(true);setLifeNotice('再点一次，删除相册里的这张照片。');return;}lifeWrite(()=>saveHomeChange(char.id,'albums',raw=>L.albumChange(raw,char.id,{kind:'delete',id:photo.id}))).then(next=>{if(next){setPhotoId('');setDeletePhoto(false);setLifeNotice('已删除这一张。');}});}},deletePhoto?'确认删除':'删除这张')):
             h(React.Fragment,null,h('p',{style:{fontSize:12,lineHeight:1.9,color:soft,marginTop:0}},'留住小家里的真实同框，照片会记下TA当地的时间和当时在做什么。'),
-              h('button',{"data-wk":"cdayphotoshoot",style:{...btn,width:'100%',marginBottom:16},disabled:lifeBusy||!visiting||!!preview||!!showcase,onClick:takePhoto},visiting?'拍下此刻的两个人':'先和TA走到一起，再拍同框'),
+              h('figure',{"data-wk":"cdayphotoframe",style:{margin:'0 0 12px'}},
+                photoShot?h('img',{"data-wk":"cdayphotopreview",src:photoShot.src,alt:photoShot.taName+'和'+photoShot.meName+'的取景预览',onError:()=>{setPhotoDraft(null);setPhotoPreviewNotice('预览没能显示，点重新取景再试。');},style:{display:'block',width:'100%',aspectRatio:'4/3',objectFit:'contain',borderRadius:8,background:'#e3ddce'}}):h('div',{role:'status',style:{aspectRatio:'4/3',display:'flex',alignItems:'center',justifyContent:'center',padding:20,borderRadius:8,background:'#e3ddce',fontSize:12,lineHeight:1.8,textAlign:'center'}},photoPreviewNotice||'正在准备取景…'),
+                h('figcaption',{style:{fontSize:11,color:soft,lineHeight:1.8,marginTop:7}},photoShot?'取景预览 · '+photoShot.time+' · '+photoShot.activity:'取景预览')),
+              h('button',{"data-wk":"cdayphotoshoot",style:{...btn,width:'100%',marginBottom:8},disabled:lifeBusy||!photoShot,onClick:takePhoto},lifeBusy?'保存中…':visiting?'拍下此刻的两个人':'先和TA走到一起，再拍同框'),
+              visiting&&!preview&&!showcase&&trip?.mode!=='solo'&&h('button',{"data-wk":"cdayphotorefresh",style:{...btn,width:'100%',marginBottom:16,background:'transparent'},disabled:lifeBusy,onClick:()=>{setLifeNotice('');setPhotoRefresh(n=>n+1);}},'重新取景'),
               photos.length?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12}},...photos.slice().reverse().map(item=>h('button',{key:item.id,"data-wk":"cdayphotoitem",style:{...btn,padding:6,textAlign:'left'},onClick:()=>{setPhotoId(item.id);setPhotoNote(item.note||'');setLifeNotice('');setDeletePhoto(false);}},h('img',{src:item.src,alt:item.activity,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'4/3',objectFit:'cover',borderRadius:5}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.7,padding:'6px 3px'}},item.day+' '+item.time+' · '+item.activity)))):h('p',{style:{fontSize:12,color:soft}},'还没留过照片。进屋后拍下第一张吧。'))),
           lifePage==='kitchen'&&h(root.CharDayKitchenUI,{key:String(char.id),state:kitchen,view:kitchenView,setView:setKitchenView,detail:kitchenRecipe,setDetail:setKitchenRecipe,busy:lifeBusy,homeVisiting,status:kitchenStatus,action:kitchenAction,resume:runKitchen,uniqueId,btn,ink,soft,section:menuSection,persona:char.persona}),
           lifePage==='preferences'&&h(React.Fragment,null,
