@@ -116,7 +116,7 @@
   }
 
   // ── 看 TA 播 ────────────────────────────────────────────
-  function watchInstruction(ses, uName, first) {
+  function watchInstruction(ses, uName, first, own) {
     const who = ses.as === "mask"
       ? uName + "这次用的是一个马甲号「" + ses.maskName + "」进的直播间。你不知道这个号是她——除非她自己说破，或者她说的话让你认出来。"
       : uName + "用的是自己的号进的直播间，名字就是「" + uName + "」，你一眼就知道是她。";
@@ -149,7 +149,12 @@
       + me + "说的话只有她自己发——flow 里一句都不替她写，常客里也没有跟她同名的人。"
       + "还有几个有名有姓的常客，各自带着对你的看法。屏幕上另有一大片路人弹幕滚过去，那些你看不清、也不必回。你说话的对象是镜头、是她、是这几个常客——挑着回，不必谁都回。"
       + "\n常客们这一拍要是送了礼物，写在 gifts（name 常客网名、gift 礼物名、amount 金额数字；没人送就空）。你要是想让" + me + "当房管，mod 写 true（不想就不写）。";
-    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "");
+    // 开口的是谁（她 2026-10-11 拿人设卡来对：看 TA 播，TA 像换了个通用主播）：跟一起学那条同一个道理——
+    //   上面一长串平台规则（粉丝团、打赏榜、房管、连麦）压在人设后面，模型容易换成一个「主播腔」的人。收尾把人摆回面前。只给判据。
+    //   路人主播（probeStranger）没有「本来的关系」，这一段只给自己的角色。
+    const who2 = "\n\n【开口的是谁】上面这些只管直播间里发生了什么。「主播」那几句始终是你本人在说：用你平时的词、你的脾气和节奏，人设里你是什么性子（话多还是懒得开口、嘴硬还是黏人、什么时候会突然认真），镜头前就还是那个性子，顶多当着观众收着点。"
+      + me + "在你生活里是谁，进了直播间也还是那个人——你对她的态度照你们本来的关系来，不会变成对路人那样。判据：把主播名遮住，熟悉你的人一听就知道是你。";
+    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "") + (own ? who2 : "");
     if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
@@ -452,7 +457,7 @@
         live && onBuy ? h("button", { "data-wk": "livebuy", onClick: () => onBuy(ses.item), disabled: !!busy, className: "active:opacity-60 shrink-0", style: { minHeight: 32, padding: "0 12px", borderRadius: 10, background: LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 12 } }, "买同款") : null) : null,
       // ── 最底下一行 ──
       (readOnly || ses.endTs) ? h("div", { className: "shrink-0", style: { height: "calc(env(safe-area-inset-bottom) * 0.4 + 12px)" } }) : h("div", { "data-wk": "livecompose", className: "shrink-0 px-3", style: { position: "relative", zIndex: 2, paddingTop: 8, paddingBottom: "calc(env(safe-area-inset-bottom) * 0.4 + 10px)" } },
-        giftOpen && watching ? h(GiftPanel, { custom: customGifts, busy, onSend: (g, a) => { setGiftOpen(false); onGift(g, a); }, onSaveCustom, onDropCustom }) : null,
+        giftOpen && watching ? h(GiftPanel, { custom: customGifts, busy, onSend: (g, a) => { setGiftOpen(false); onGift(g, a); }, onSaveCustom, onDropCustom, onClose: () => setGiftOpen(false) }) : null,
         songOpen && onSong ? h("div", { "data-wk": "livesonglist", style: { maxHeight: 150, overflowY: "auto", marginBottom: 8, borderRadius: 12, border: "1px solid " + LIVE_LINE, background: "rgba(20,16,25,.85)" } },
           arr(songs).length ? songs.map(t2 => h("button", { "data-wk": "livesong", key: t2, disabled: !!busy, onClick: () => { setSongOpen(false); onSong(t2); }, className: "w-full text-left active:opacity-60", style: { display: "block", minHeight: 38, padding: "0 12px", color: LIVE_INK, fontFamily: F_BODY, fontSize: 12.5, borderBottom: "1px solid " + LIVE_LINE } }, "《" + t2 + "》"))
             : h("div", { style: { padding: 12, fontFamily: F_BODY, fontSize: 12, color: LIVE_DIM } }, "一起听里还没有歌")) : null,
@@ -497,7 +502,7 @@
     "火箭": c => [h("path", { key: 1, d: "M12 3c3 2.5 4 6 4 10l-4 3-4-3c0-4 1-7.5 4-10zM8 13l-3 3 3 1M16 13l3 3-3 1M11 19.5l1 2 1-2" }), h("circle", { key: 2, cx: 12, cy: 9.5, r: 1.6 })]
   };
   const giftIcon = (name, c) => h(Svg, { size: 26, color: c, sw: 1.6 }, (GIFT_ICON[name] || (cc => [h("rect", { key: 1, x: 4, y: 9, width: 16, height: 11, rx: 1.5 }), h("path", { key: 2, d: "M3 9h18v-2.5H3zM12 6.5V20M12 6.5c-1.5-3-5-3-5-1s3 1 5 1c1.5-3 5-3 5-1s-3 1-5 1" })]))(c));
-  function GiftPanel({ custom, busy, onSend, onSaveCustom, onDropCustom }) {
+  function GiftPanel({ custom, busy, onSend, onSaveCustom, onDropCustom, onClose }) {
     const [pick, setPick] = useState(null);       // [名字, 金额]
     const [making, setMaking] = useState(false);
     const [nm, setNm] = useState(""), [amt, setAmt] = useState(""), [keep, setKeep] = useState(true);
@@ -525,10 +530,13 @@
         h("button", { "data-wk": "livegiftkeep", "data-on": keep ? "1" : "0", onClick: () => setKeep(k => !k), className: "active:opacity-60", style: { minHeight: 38, padding: "0 4px", color: keep ? LIVE_INK : LIVE_DIM, fontFamily: F_BODY, fontSize: 11.5 } }, (keep ? "☑" : "☐") + " 存成常用")) : null,
       h("div", { className: "flex items-center", style: { marginTop: 8, gap: 8 } },
         h("div", { className: "flex-1", style: { fontFamily: F_BODY, fontSize: 11.5, color: LIVE_DIM } }, making ? (custOk ? "「" + S(nm) + "」¥" + Number(amt) : "起个名字、填个金额") : pick ? "「" + pick[0] + "」¥" + pick[1] : "挑一样"),
+        // 不送了（她 2026-10-11：「礼物点了没办法返回取消送」——面板一开，底下那颗礼物键常被挤出屏幕，关不上）
+        onClose ? h("button", { "data-wk": "livegiftcancel", onClick: onClose, className: "active:opacity-70 shrink-0",
+          style: { minHeight: 40, padding: "0 14px", borderRadius: 10, background: "transparent", border: "1px solid " + LIVE_LINE, color: LIVE_DIM, fontFamily: F_BODY, fontSize: 13 } }, "不送了") : null,
         h("button", { "data-wk": "livegiftsend", disabled: !!busy || (making ? !custOk : !pick), onClick: () => {
             if (making) { const g = [S(nm).slice(0, 12), Math.min(999999, Math.round(Number(amt)))]; if (keep && onSaveCustom) onSaveCustom(g[0], g[1]); setNm(""); setAmt(""); setMaking(false); onSend(g[0], g[1]); return; }
             onSend(pick[0], pick[1]); },
-          className: "active:opacity-70 shrink-0", style: { minHeight: 36, padding: "0 18px", borderRadius: 10, background: (busy || (making ? !custOk : !pick)) ? "rgba(255,255,255,.08)" : LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 13 } }, "送出")));
+          className: "active:opacity-70 shrink-0", style: { minHeight: 40, padding: "0 18px", borderRadius: 10, background: (busy || (making ? !custOk : !pick)) ? "rgba(255,255,255,.08)" : LIVE_RED, color: LIVE_INK, fontFamily: F_BODY, fontSize: 13 } }, "送出")));
   }
 
   // ── 跟路人主播的私信页（跟论坛私信一个样子：一来一回的气泡）──
@@ -643,7 +651,7 @@
       try {
         const d = await (st
           ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))
-          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))) || {};
+          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first, true), watchShape(ses, first))) || {};
         // 她 2026-10-11：「它还会编我说的话」——模型开播时编了个跟她同名的常客，之后每拍都以「常客」的名义替她发弹幕。
         //   她（或她这次的马甲）只能是她自己：同名的常客剔掉，署她名字的那几句也不收
         const meNames = [uName, ses.meName, ses.maskName].map(x => S(x).trim()).filter(Boolean);
