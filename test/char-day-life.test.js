@@ -56,3 +56,27 @@ test('做法阶段与时间由电话和现场共用，三道菜一桌有足够�
  for(const r of f.L.RECIPES){const job={kind:'cook',recipeId:r.id};const start=K.cookingStage(job,0),middle=K.cookingStage(job,start.duration*.5),last=K.cookingStage(job,start.duration*.9);assert.equal(start.index,0);assert.equal(middle.index,1);assert.equal(last.index,2);assert.equal(middle.method,r.method);assert.equal(middle.label,r.steps[1]);assert.ok(start.duration>=10);}
  assert.equal(K.cookingStage({kind:'meal',dishIds:['a','b','c']}).duration,10);assert.equal(K.cookingStage({kind:'meal'}).duration,6);
 });
+test('手动选择无条件覆盖自动参考，明确忌口、未知口味和坏旧值有可靠默认',()=>{
+ const {L}=setup(),persona='喜欢辣，不能吃辣，喜欢甜点，清淡。不会做饭。';
+ const auto=L.resolvePreferences({lead:'auto'},persona);assert.equal(auto.spice,'none');assert.equal(auto.salt,'light');assert.equal(auto.sweet,'rich');assert.equal(auto.lead,'me');
+ const manual=L.resolvePreferences({lead:'ta',spice:'hot',salt:'rich',sweet:'light'},persona);assert.equal(manual.spice,'hot');assert.equal(manual.salt,'rich');assert.equal(manual.sweet,'light');assert.equal(manual.lead,'ta');
+ assert.equal(L.preference(null).lead,'auto');assert.equal(L.cookingProgress(null).heat,1);assert.equal(L.variation('tomato-rice',null).spice,'none');assert.equal(L.mealFeedback({recipeId:'tomato-rice'}, {}, '研究员').known,false);
+});
+test('七种料理手动阶段只接受当前操作，等待和自动有各自的推进，火候改变实际熟度',()=>{
+ const {L}=setup();for(const method of Object.keys(L.METHODS)){const r=L.RECIPES.find(r=>r.method===method),job={recipeId:r.id,cooking:L.cookingSession(r.id,{mode:'hands',lead:'ta'})};let p=job.cooking.progress;
+  for(let i=0;i<50;i++)p=L.stepCooking(job,p,{kind:'tick',dt:.1});assert.equal(p.index,0,method+'不能替我备菜');
+  p=L.stepCooking(job,p,{kind:'work',operation:'wrong'});assert.equal(p.work,0);const op=L.cookingSpec(job,p).operation;for(let i=0;i<6;i++)p=L.stepCooking(job,p,{kind:'work',operation:op});assert.equal(p.index,1);
+  for(let i=0;i<300&&p.index<3;i++)p=L.stepCooking(job,p,{kind:'tick',dt:.1});assert.equal(p.index,3,method+'TA掌勺会接着完成');
+ }
+ const job={recipeId:'lemon-fish',cooking:L.cookingSession('lemon-fish',{lead:'me',mode:'hands'})};let p={...job.cooking.progress,index:1};for(let i=0;i<200;i++)p=L.stepCooking(job,p,{kind:'tick',dt:.1});assert.equal(p.index,1);assert.equal(p.work,0);for(let i=0;i<6;i++)p=L.stepCooking(job,p,{kind:'work',operation:'flip'});assert.equal(p.index,2);p=L.stepCooking(job,p,{kind:'work',operation:'plate'});assert.equal(p.index,3);
+ const auto={recipeId:'berry-cake',cooking:L.cookingSession('berry-cake',{mode:'auto'})};p=auto.cooking.progress;for(let i=0;i<500&&p.index<3;i++)p=L.stepCooking(auto,p,{kind:'tick',dt:.1});assert.equal(p.index,3);
+});
+test('替料、检查点、直接端桌与便当都经真实home writer，失败或重发不重复扣材料',async()=>{
+ const f=setup(),{L,K}=f,write=a=>K.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a)),choices={mode:'hands',lead:'me',spice:'hot',salt:'light',swaps:{chicken:'shrimp'},garnish:false},v=L.variation('mushroom-chicken',choices);
+ await write({kind:'shop',recipeId:'mushroom-chicken',variation:v});assert.equal(f.get().kitchens.a.ingredients.chicken,0);assert.equal(f.get().kitchens.a.ingredients.shrimp,1);
+ await write({kind:'begin',id:'new-cook',recipeId:'mushroom-chicken',choices,persona:'不喜欢辣，不会做饭'});assert.equal(f.get().kitchens.a.pending.cooking.variation.spice,'hot');assert.equal(f.get().kitchens.a.pending.cooking.lead,'me');
+ const progress={index:3,work:0,wait:0,elapsed:25,heat:2,exposure:30,rev:10};await write({kind:'progress',id:'new-cook',progress,mode:'hands',lead:'me'});await write({kind:'progress',id:'new-cook',progress:{index:0,rev:2}});assert.equal(f.get().kitchens.a.pending.cooking.progress.index,3);
+ const before=JSON.stringify(f.get());f.fail(true);await assert.rejects(write({kind:'plate',id:'new-cook',mealId:'new-meal',at:123}));assert.equal(JSON.stringify(f.get()),before);f.fail(false);
+ await write({kind:'plate',id:'new-cook',mealId:'new-meal',at:123});let state=f.get().kitchens.a;assert.equal(state.ingredients.shrimp,0);assert.equal(state.pending.kind,'meal');assert.equal(state.pending.courses[0].variation.swaps.chicken,'shrimp');assert.equal(state.pending.courses[0].finish,'煎得更香');await assert.rejects(write({kind:'plate',id:'new-cook',mealId:'duplicate',at:124}));assert.equal(f.get().kitchens.a.ingredients.shrimp,0);
+ await write({kind:'cancel'});await write({kind:'remember',id:'ours',dishId:'new-cook',name:'我们的虾仁做法'});await write({kind:'pack',dishId:'new-cook'});assert.equal(f.get().kitchens.a.customRecipes[0].variation.swaps.chicken,'shrimp');assert.equal(f.get().kitchens.a.dishes[0].packed,true);await assert.rejects(write({kind:'serve',id:'table',dishId:'new-cook'}));await write({kind:'unpack',dishId:'new-cook'});await write({kind:'serve',id:'last-table',dishId:'new-cook'});await write({kind:'ready',id:'last-table'});await write({kind:'finish',id:'last-table',at:125});assert.equal(f.get().kitchens.a.history[0].courses[0].variation.spice,'hot');assert.equal(f.get().kitchens.other.ingredients.egg,8);assert.equal(f.get().future.keep,1);
+});

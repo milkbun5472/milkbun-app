@@ -1,0 +1,7 @@
+import * as T from 'three';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-b686638881ff0fde';
+// One reusable parcel follows the actual hand, using the saved portion.
+export function createLunchCarry(scene){let group=null,key='';function clear(){disposeFood(group);group=null;key='';}
+ function update(actor,portions,moving){const dish=portions?.[0],next=dish?.id||'';if(next!==key){clear();key=next;if(dish){group=new T.Group();group.name='PackedLunch';group.userData={dishId:dish.id,recipeId:dish.recipeId};for(const [y,h,c]of [[0,.10,'#b4c29c'],[.065,.025,'#ddd0af']]){const box=new T.Mesh(new T.BoxGeometry(.24,h,.17),new T.MeshStandardMaterial({color:c,roughness:.8}));box.position.y=y;group.add(box);}const food=makeRecipeFood(dish.recipeId,{variation:dish.variation,finish:dish.finish});if(food){food.scale.setScalar(.30);food.position.y=.032;food.visible=false;group.add(food);}scene.add(group);}}
+  if(!group)return;group.visible=!!moving&&!!actor?.root.visible;if(!group.visible)return;const target=actor.root.getObjectByName('leftArm')?.getWorldPosition(new T.Vector3());if(!target)return;target.add(new T.Vector3(0,-.24,.14).applyQuaternion(actor.root.quaternion));actor.contactPose({left:target});const hand=actor.root.getObjectByName('Left_hand');if(hand){group.position.copy(hand.getWorldPosition(new T.Vector3())).add(new T.Vector3(0,-.045,0));group.rotation.y=actor.root.rotation.y;}}
+ return {update,clear,inspect:()=>group?{...group.userData,visible:group.visible,position:group.position.toArray()}:null};}

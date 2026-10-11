@@ -1,15 +1,16 @@
 import * as T from 'three';
-import './social.js?v=fg-023fd5724e01c7fe';
-import {pairProgress} from './motion-profile.mjs?v=fg-023fd5724e01c7fe';
-import {walkable,segmentClear} from '../world.mjs?v=fg-023fd5724e01c7fe';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-b686638881ff0fde';
+import './social.js?v=fg-b686638881ff0fde';
+import {pairProgress} from './motion-profile.mjs?v=fg-b686638881ff0fde';
+import {walkable,segmentClear} from '../world.mjs?v=fg-b686638881ff0fde';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose} from './pair-pose.mjs?v=fg-023fd5724e01c7fe';
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose} from './pair-pose.mjs?v=fg-b686638881ff0fde';
 export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
 
-export function createIntimate({a,b,map,style}){
+export function createIntimate({a,b,map,style,kitchen=()=>null}){
  const actors={a,b};
  const spoon=new T.Group();spoon.name='TogetherSpoon';spoon.visible=false;a.root.parent?.add(spoon);
  const metal=new T.MeshStandardMaterial({color:'#c5c8b6',metalness:.6,roughness:.35});
@@ -20,8 +21,8 @@ export function createIntimate({a,b,map,style}){
  const snack=new T.Group();snack.name='TogetherSnack';snack.visible=false;a.root.parent?.add(snack);
  const dish=new T.Mesh(new T.CylinderGeometry(.08,.06,.05,16),new T.MeshStandardMaterial({color:'#ead7b5',roughness:.85}));snack.add(dish);
  const morsel=bite.clone();morsel.position.set(0,.038,0);snack.add(morsel);
- let diagnostics=null;
- function hide(){spoon.visible=snack.visible=false;diagnostics=null;}
+ let diagnostics=null,foodKey='',servingFood=null;
+ function hide(){disposeFood(servingFood);servingFood=null;foodKey='';dish.visible=morsel.visible=true;spoon.visible=snack.visible=false;diagnostics=null;}
  const contact=pairContact;
  function safeMove(actor,dx,dz,other){
   const old={x:actor.root.position.x,z:actor.root.position.z},next={x:old.x+dx,z:old.z+dz},m=map(),id=m.id||m.renderer;
@@ -77,6 +78,9 @@ export function createIntimate({a,b,map,style}){
    const gs=nearHand(g,r.root.position),rs=nearHand(r,g.root.position),target=(actor,side)=>{const bone=actor.root.getObjectByName(side+'Forearm');return bone?bone.getWorldPosition(new T.Vector3()):actor.root.localToWorld(new T.Vector3(0,.64,0));};
    contact(g,{[gs]:target(r,rs)},pg,contacts);contact(r,{[rs]:target(g,gs)},pr,contacts);
   }else if(s.kind==='feed'){
+   const meal=kitchen()?.job,course=meal?.kind==='meal'?meal.courses?.[0]:null,key=course?meal.id+':'+course.id:'';
+   if(key!==foodKey){disposeFood(servingFood);servingFood=null;foodKey=key;if(course){servingFood=makeRecipeFood(course.recipeId,{variation:course.variation,finish:course.finish});servingFood.scale.setScalar(.28);servingFood.position.y=.024;snack.add(servingFood);bite.material.color.set(servingFood.userData.biteColor);}dish.visible=morsel.visible=!course;}
+   diagnostics.recipeId=course?.recipeId||null;
    const turn=actor=>{const other=actor===g?r:g;return Math.sign(actor.root.worldToLocal(other.root.position.clone()).x)*.55;};
    posture(g,{tilt:.10*pg,turn:s.plan.seats?turn(g)*pg:0});posture(r,{tilt:Math.max(0,-heightDifference)*.8*pr,turn:s.plan.seats?turn(r)*pr:0});
    const mouth=headPoint(r,[0,-.42,.99]),serving=nearHand(g,mouth),holding=serving==='left'?'right':'left',shoulder=g.root.getObjectByName(serving+'Arm').getWorldPosition(new T.Vector3()),direction=mouth.clone().sub(shoulder).normalize(),grip=mouth.clone().addScaledVector(direction,-.17);
