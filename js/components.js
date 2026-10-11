@@ -12451,6 +12451,12 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
   const _card = inline ? null : (typeof htmlCardOf === "function" ? htmlCardOf(text) : null);
   if (_card) return h(HtmlCard, { html: _card });
+  // 早先存下来的「原文 | 中文」（双语没开、TA自己写的，她 2026-10-11 截图）：画的时候也劈开，挂成译文——
+  //   新消息在拆泡那一步就劈好了，这一处只管已经躺在记录里的那些。她自己发的不动。
+  if (!zhReady && !isU && typeof text === "string" && text.indexOf("|") > 0 && typeof splitBilingual === "function") {
+    const _bi = splitBilingual(text, false);
+    if (_bi) { text = _bi.text; zhReady = _bi.zh; }
+  }
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel });

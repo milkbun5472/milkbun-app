@@ -12795,11 +12795,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
       // 中译另起一行的那种先接回去（群里同一个函数）
-      if (_bilingualOn) words = joinBilingualLines(words, hanLangOf(char));
+      // 双语开关没开、TA自己却每句都写成「原文 | 中文」的（她 2026-10-11：「他每一句不是已经自带翻译了吗，直接调成我们有翻译气泡的格式」）：
+      //   竖线原样挂在气泡里很难看。劈得开（左边看得出是外语／粤语）就照双语那条路走，劈不开的普通竖线照旧不动。
+      const _biParse = _bilingualOn || (!_s.engineerEyes && words.some(w => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && splitBilingual(w, hanLangOf(char))));
+      if (_biParse) words = joinBilingualLines(words, hanLangOf(char));
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
-        const bi = _bilingualOn ? splitBilingual(w, hanLangOf(char)) : null;
+        const bi = _biParse ? splitBilingual(w, hanLangOf(char)) : null;
         const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
         if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
@@ -13099,7 +13102,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
       //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
-      const _yueFill = _bilingualOn && hanLangOf(char) && typeof translateToZh === "function"
+      const _yueFill = _biParse && hanLangOf(char) && typeof translateToZh === "function"
         ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
@@ -14890,7 +14893,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 整块 HTML 卡片先认一次：splitBubbles 按换行拆，会把卡片碾碎（四处一样喂）
             const _gCard = typeof htmlCardOf === "function" ? htmlCardOf(item.text) : null;
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
-            const gBiOn = !!(settingsFor(spk.id) || {}).bilingual;
+            // 开关没开、TA自己写着「原文 | 中文」的也照双语走（跟单聊 _biParse 同一个判据）
+            const gBiOn = !!(settingsFor(spk.id) || {}).bilingual
+              || (!(settingsFor(spk.id) || {}).engineerEyes && String(item.text || "").split(/\n+/).some(x => splitBilingual(x.trim(), hanLangOf(spk))));
             // ⚠️双语开着时【只按换行切】，按句末标点拆泡留给下面 splitLongBubble（劈完竖线之后）。
             //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
             //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
