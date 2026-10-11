@@ -832,10 +832,12 @@
     const fontCSS = g.FontChoice ? g.FontChoice.cssVars(p.fonts, p.customFonts, g.resolveImg) : "";
     if (fontCSS) blocks.push("/* fonts */\n" + fontCSS);
     if (p.globalCSS) blocks.push("/* global */\n" + p.globalCSS);
+    // zoom 连 body 自己的宽高一起缩（群友 2026-10-11：调小以后右边、底下露出一圈灰底），
+    //   所以宽高先除回去：缩完正好还是一整屏，调大也不会撑出屏外。
     // 大小排在她自己写的 CSS 【前面】：她想在 CSS 里再压一道，照样压得住。
     Object.entries(cleanZoom(p.pageZoom)).forEach(([page, z]) => {
       blocks.push("/* zoom " + page + " */\n"
-        + (page === "all" ? 'html:not([data-lisa-screen="home"]) body' : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";}");
+        + (page === "all" ? 'html:not([data-lisa-screen="home"]) body' : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";width:calc(100vw / " + z + ");height:calc(100vh / " + z + ");}");
     });
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
       if (!css || page === "all") return;
