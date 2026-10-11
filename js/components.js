@@ -18687,13 +18687,20 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
   const group = (key, title, desc) => h("div", { style: { marginTop: 18 } },
     h(Eyebrow, null, title),
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, margin: "5px 0 8px", lineHeight: 1.6 } }, desc),
-    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
+    Kit.GROUPS[key].filter(([k]) => !(key === "writeback" && k === "roomHistory") && !(draft.main && key === "cognition" && k === "schedule") && !(draft.main && k === "pastMemory")).map(([k, label, note]) => h("div", { key: k, className: "flex items-center justify-between", style: { padding: "10px 0", borderBottom: "1px solid " + t.line, gap: 12 } },
       h("div", null, h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, label), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, note)),
       h(Toggle, {
         on: (key === "cognition" && Kit.allows ? Kit.allows(draft, k) : !!draft[key][k]),
         onChange: () => { const cur = (key === "cognition" && Kit.allows) ? Kit.allows(draft, k) : !!draft[key][k];
           patch({ [key]: { ...draft[key], [k]: !cur } }); } })
     )));
+  // 演以前的事那一格开着，才问「大概是什么时候」（她 2026-10-11）：填了就照这句记，不填就只记成「以前」
+  const pastRow = () => draft.main || !(draft.writeback || {}).pastMemory ? null : h("div", { style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
+    h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.ink } }, "大概是什么时候"),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, marginBottom: 8, lineHeight: 1.45 } }, "这间房里进记忆的事都记成这个时候。空着就只记成「以前」，不写日子。"),
+    h("input", { value: draft.pastWhen || "", maxLength: 40, placeholder: "比如：三年前的冬天、高二那年",
+      onChange: e => patch({ pastWhen: e.target.value }),
+      style: { width: "100%", padding: "9px 11px", borderRadius: 8, border: "1px solid " + t.line, background: t.bg2, fontFamily: F_BODY, fontSize: 13, color: t.ink, outline: "none" } }));
   // 记忆只到起点为止（她 2026-10-05）：带开场开的房才有这一格。「你们一起经历过的事」关着时它单独成立＝只带截过的记忆库
   const memCutRow = show => show ? h("div", { className: "flex items-center justify-between", style: { padding: "10px 0", borderTop: "1px dashed " + t.line } },
     h("div", { style: { paddingRight: 10 } },
@@ -18942,7 +18949,9 @@ function ChatRoomSheet({ character, activeRoomId, sourceMessages, onCreateRoom, 
         group("cognition", characterText(character, "他进这扇门时带着什么"), characterText(character, "他在这间房里，记得起你们的哪些事。")),
         memCutRow(startMode !== "blank"),
         group("actions", characterText(character, "他在这间房能张罗什么"), characterText(character, "只管这一间：他可以自然开口提议哪些事。")),
-        group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。")),
+        group("writeback", "这儿发生的事，出不出这道门", "这间房里的事会不会记进去、会不会改你们现在的状态。"),
+    pastRow(),
+        pastRow()),
       h("div", { className: "flex", style: { gap: 8, marginTop: 9 } },
         h("button", { disabled: createBusy || (startMode === "until" && startIndex == null), onClick: enterNewRoom, style: { flex: 1, padding: "10px 0", borderRadius: 11, background: t.ink, color: t.bg2, opacity: createBusy || (startMode === "until" && startIndex == null) ? .4 : 1, fontFamily: F_DISPLAY, fontSize: 13.5 } }, createBusy ? "正在留好…" : "开门进去"),
         h("button", { onClick: () => { if (soloCreate) return onClose(); setCreating(false); pick(activeRoomId || "main"); }, style: { padding: "10px 13px", borderRadius: 11, border: "1px solid " + t.line, color: t.fog, fontFamily: F_BODY, fontSize: 12 } }, "算了"))),

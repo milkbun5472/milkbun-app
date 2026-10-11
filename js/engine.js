@@ -4115,6 +4115,7 @@ function splitGroupMemories(lib, memberIds, queryText, opts = {}) {
   return { shared, perChar };
 }
 function formatMemLib(entries) {
+  const isPastMem = e => !!(e && (e.past || (Array.isArray(e.tags) && e.tags.indexOf("过去") >= 0)));
   const arr = entries || [];
   const recallMeta = arr && arr.__recallMeta;
   if (!arr.length && recallMeta && recallMeta.source === "chat" && recallMeta.noHit) {
@@ -4125,6 +4126,12 @@ function formatMemLib(entries) {
     const openMark = e.open ? "〔还没了结·你心里还惦记着〕" : "";
     // 两个戳各管一件事：anchor 只有这条里出现「今天/昨天」这种相对词时才出手（把它钉成绝对日期）；
     // stamp 是每条都要的——没有它，模型手上一点时间信息都没有，前几天的事就会被说成今天的。
+    // 以前的事（演过去那间房记下的、抽卡抽来的「TA的一段过去」）：记下的那天不是发生的那天——
+    //   给它挂「几天前」，TA就会当成最近的事（她 2026-10-11：「那里的记忆不能带时间戳了」）。换成那间房填的时候，没填就只说是以前。
+    if (isPastMem(e)) {
+      const lane0 = recallMeta && recallMeta.kindById && recallMeta.kindById[String(e.id)] === "association" ? "〔顺带联想到〕" : "";
+      return "· " + lane0 + e.text + tags + " 〔以前的事" + (e.when ? "·" + e.when : "") + "〕";
+    }
     const dateAnchor = window.TemporalAnchor ? window.TemporalAnchor.anchor(e.text, e.ts) : "";
     const dateStamp = window.TemporalAnchor && window.TemporalAnchor.stamp ? window.TemporalAnchor.stamp(e.ts) : "";
     const lane = recallMeta && recallMeta.kindById && recallMeta.kindById[String(e.id)] === "association" ? "〔顺带联想到〕" : "";
@@ -4134,13 +4141,15 @@ function formatMemLib(entries) {
   //   真相=她没"不来"、只是【还没来】，"今天"还没过完、软性的"我来找你"更不是签字的约会。给一句读法指引，四条注入路(主聊/线下/群/通话)全覆盖。
   const hasOpen = arr.some(e => e && e.open);
   // ⚠️每条后面那个〔记于…〕不是装饰：不说这一句，模型会把整本记忆当成刚刚发生的事。
-  const hasStamp = arr.some(e => e && Number(e.ts) > 0);
+  const hasStamp = arr.some(e => e && Number(e.ts) > 0 && !isPastMem(e));
+  const hasPast = arr.some(e => e && isPastMem(e));
   const stampNote = hasStamp
     ? "\n（⚠️每条末尾〔记于 某年某月某日·几天前〕说的是【这件事发生在那一天】，不是今天。"
       + "提起旧事要按它真正的时间说（「前几天」「上礼拜」「上个月」），绝不许把几天前的事说成今天刚发生的；"
       + "拿不准隔了多久就别硬安时间，含糊地说「之前」也比说错强。）"
     : "";
-  return body + stampNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
+  const pastNote = hasPast ? "\n（标〔以前的事〕的是你们早先的经历，不是最近发生的；后面写了时候的就按那个时候说，没写的说「以前」「那时候」就好。）" : "";
+  return body + stampNote + pastNote + (hasOpen ? "\n（⚠️标〔还没了结〕的是你还惦记、还没画句号的事：可以自然想起、期待、或轻声问一句「还来吗～」。但【绝不要】默认对方爽约、放你鸽子、故意不来——TA 多半只是忙，或时候还没到（比如「今天」还没过完；软性的「我来找你」也不是签了字的约会）。想 TA 就直说想，别把「还没兑现」当成「被辜负/被放鸽子」来生气赌气、翻脸算账。）" : "");
 }
 // 月度精炼（SullyOS 借鉴）：把一批【已了结的旧记忆】浓缩成尽量少的「月度精炼摘要」，保住长期精华、丢琐碎。
 // 返回 [{text,tags,v,a}]。原件由调用方归档(archived)不删除。

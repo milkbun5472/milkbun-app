@@ -4563,6 +4563,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     toast("已恢复归档记忆、撤除对应精炼摘要");
   };
   // 共享抽取：把 msgs 抽成记忆条、双重去重后入库，返回实际新增条数（手动/自动共用）
+  const pastMemEntry = (e, when) => ({ ...e, tags: [...new Set([...(e.tags || []), "过去"])], past: true, when: String(when || "").trim().slice(0, 40), open: false });
   const extractAndAddForChar = async (charId, msgs, exOpts = {}) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !msgs || !msgs.length) return 0;
@@ -4607,7 +4608,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           v: clampInt(it.v, -5, 5, 0), a: clampInt(it.a, 0, 5, 1), open: !!it.open,
           evidenceMessageIds: Array.isArray(it.evidence_message_ids) ? it.evidence_message_ids.map(String) : []
         };
-        return window.OpenLoopGate ? window.OpenLoopGate.normalize(entry) : entry;
+        const ent = window.OpenLoopGate ? window.OpenLoopGate.normalize(entry) : entry;
+        // 演以前的事那间房（她 2026-10-11）：贴「过去」、记那间房填的时候；以前的事没有「还没了结」这一说
+        return exOpts.past ? pastMemEntry(ent, exOpts.past.when) : ent;
       }).filter(x => x.text).filter(x => {
         if (isDupMem(x.text, [charId], null, x)) return false;            // 和库里已有重复
         if (isDupMem(x.text, [charId], batchSeen, x)) return false; // 和本批已收的重复
@@ -10458,8 +10461,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const msgs = all.slice(-Math.min(120, Math.max(24, newCount + 4)));
     roomExtractBusyRef.current[key] = true;
     try {
+      const _past = room.writeback && room.writeback.pastMemory ? { when: room.pastWhen || "" } : null;
       if (toMain) {
-        await extractAndAddForChar(char.id, msgs, { liveMessages: all });
+        await extractAndAddForChar(char.id, msgs, { liveMessages: all, past: _past });
         roomExtractMarkRef.current[key] = all[all.length - 1].ts || Date.now();
         return;
       }
@@ -10468,7 +10472,8 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const G = window.MemoryExtractionGate;
       const keep = (items || []).map(it => G && G.normalizeEvidence ? G.normalizeEvidence(it, msgs) : it)
         .filter(it => it && it.resolveOpen == null && it.text && (!G || G.inspect(it, msgs).formal))
-        .map(it => ({ text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], v: it.v, a: it.a, source: "auto" }));
+        .map(it => ({ text: String(it.text).trim(), tags: Array.isArray(it.tags) ? it.tags : [], v: it.v, a: it.a, source: "auto" }))
+        .map(it => _past ? pastMemEntry(it, _past.when) : it);
       if (keep.length) K.memAdd(char.id, room.id, keep);
       roomExtractMarkRef.current[key] = all[all.length - 1].ts || Date.now();
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */}

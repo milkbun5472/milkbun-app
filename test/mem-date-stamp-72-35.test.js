@@ -48,5 +48,16 @@ test("记忆库每一条都挂上它，而且不顶掉原来那个相对词锚",
   assert.ok(/绝不许把几天前的事说成今天刚发生的/.test(seg), "没拦住那件她报的事");
   assert.ok(/拿不准隔了多久就别硬安时间/.test(seg), "没给出口——不给的话它会硬编一个时间");
   // 一条戳都没有（老存档全是没 ts 的条目）时不许空挂一句读法
-  assert.ok(/const hasStamp = arr\.some\(e => e && Number\(e\.ts\) > 0\);/.test(seg), "没戳的时候那句读法也照贴");
+  assert.ok(/const hasStamp = arr\.some\(e => e && Number\(e\.ts\) > 0 && !isPastMem\(e\)\);/.test(seg), "没戳的时候那句读法也照贴");
+});
+
+// 她 2026-10-11：演以前的事那间房记下的、带「过去」标签的，不挂「几天前」，挂那间房填的时候
+test("以前的事不挂日期戳，挂〔以前的事·那时候〕", () => {
+  const i = engine.indexOf("function formatMemLib(entries) {");
+  const seg = engine.slice(i, engine.indexOf("\n}", engine.indexOf("hasOpen", i)) + 2);
+  const fmt = new Function("window", seg + "\nreturn formatMemLib;")({ TemporalAnchor: { anchor: () => "", stamp: () => "〔记于 10月11日·今天〕" } });
+  const out = fmt([{ id: "a", text: "第一次一起看雪", tags: ["过去"], past: true, when: "三年前的冬天", ts: Date.now() }, { id: "b", text: "老戏骨", tags: ["抽卡", "过去"], ts: Date.now() }]);
+  assert.match(out, /第一次一起看雪（过去） 〔以前的事·三年前的冬天〕/);
+  assert.match(out, /老戏骨（抽卡、过去） 〔以前的事〕/);
+  assert.doesNotMatch(out, /记于/);
 });
