@@ -8185,6 +8185,9 @@ function MomentCompose({
   const [img, setImg] = useState("");
   const [vis, setVis] = useState("all");
   const [sel, setSel] = useState([]);
+  // 用哪张面具发（她 2026-10-11）：只有一张面具时这一行不出现
+  const maskList = (typeof window !== "undefined" && window.__momentMasks) ? window.__momentMasks() : [];
+  const [mask, setMask] = useState("");
   // 投票（群里 2026-10-09 许愿：「犹豫不决的事让角色们在朋友圈投票」）：2~4 个选项
   const [withPoll, setWithPoll] = useState(false);
   const [pollOpts, setPollOpts] = useState(["", ""]);
@@ -8207,7 +8210,8 @@ function MomentCompose({
       content: body,
       image,
       visibleTo: vis === "all" ? null : sel,
-      poll: opts.length >= 2 ? { options: opts, votes: {} } : null
+      poll: opts.length >= 2 ? { options: opts, votes: {} } : null,
+      mask: mask || undefined
     });
     onClose();
   };
@@ -8289,6 +8293,15 @@ function MomentCompose({
       pollOpts.length > 2 ? h("button", { onClick: () => setPollOpts(p => p.filter((_, j) => j !== i)), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, minWidth: 28, minHeight: 32 } }, "✕") : null)),
     pollOpts.length < 4 ? h("button", { onClick: () => setPollOpts(p => [...p, ""]), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, minHeight: 32 } }, "＋ 再加一个选项") : null,
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 } }, "能看到这条的人会照自己的性子投一票，也可能不投。")),
+  maskList.length > 1 ? h("div", { "data-wk": "momask", style: { margin: "6px 0 12px" } },
+    h(Eyebrow, { style: { margin: "0 0 8px" } }, "用哪张面具发"),
+    h("div", { className: "flex flex-wrap gap-2" }, maskList.map(mk => {
+      const on = mask === mk.id;
+      return h("button", { key: mk.id || "main", "data-on": on ? "1" : "0", onClick: () => setMask(mk.id), className: "active:opacity-70 flex items-center gap-2",
+        style: { minHeight: 40, padding: "4px 12px 4px 5px", borderRadius: 999, border: "1px solid " + (on ? t.ink : t.line), background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 13 } },
+        h(Avatar, { character: { name: mk.name, avatarImage: mk.avatarImage, color: mk.color }, size: 28, radius: 999 }), mk.name + (mk.id ? "" : "（主面具）"));
+    })),
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 6, lineHeight: 1.5 } }, "没挑「谁可以看」的话，跟你用这张面具聊的人刷得到。")) : null,
   h(Eyebrow, {
     style: {
       margin: "6px 0 8px"
@@ -8688,12 +8701,14 @@ function MomentsFeed({
     const isMine = m.mine;
     const c = isMine ? null : characters.find(x => x.id === m.characterId);
     if (!isMine && !c) return null;
-    const author = isMine ? {
+    // 用别的面具发的那条，署那张面具的名字和头像
+    const momMask = isMine && m.mask && typeof window !== "undefined" && window.__momentMasks ? window.__momentMasks().find(x => x.id === m.mask) : null;
+    const author = isMine ? (momMask ? { name: momMask.name, avatarImage: momMask.avatarImage, color: momMask.color } : {
       name: profile.name || "我",
       avatarImage: profile.avatarImage,
       color: profile.color
-    } : c;
-    const authorName = isMine ? profile.name || "我" : c.remark || c.name;
+    }) : c;
+    const authorName = isMine ? (momMask ? momMask.name : profile.name || "我") : c.remark || c.name;
     return /*#__PURE__*/React.createElement("div", {
       key: m.id,
       "data-wk": "mopost",
@@ -12451,6 +12466,12 @@ function TransText({ text, isU, zhReady, ink, inline, long, size, noModel }) {
   // inline 的那几处是「某某：一句话」这种夹在行里的引用，塞张卡进去会把那一行撑烂。
   const _card = inline ? null : (typeof htmlCardOf === "function" ? htmlCardOf(text) : null);
   if (_card) return h(HtmlCard, { html: _card });
+  // 早先存下来的「原文 | 中文」（双语没开、TA自己写的，她 2026-10-11 截图）：画的时候也劈开，挂成译文——
+  //   新消息在拆泡那一步就劈好了，这一处只管已经躺在记录里的那些。她自己发的不动。
+  if (!zhReady && !isU && typeof text === "string" && text.indexOf("|") > 0 && typeof splitBilingual === "function") {
+    const _bi = splitBilingual(text, false);
+    if (_bi) { text = _bi.text; zhReady = _bi.zh; }
+  }
   // 翻译状态属于原文和自带译文这一对内容。编辑、窗口复用、译文晚到时
   // 重建内部状态；旧异步请求只会结束在旧实例，不能把结果写进新气泡。
   return h(TransTextState, { key: JSON.stringify([text, !!isU, zhReady || ""]), text, isU, zhReady, ink, autoShow, long, size, noModel });

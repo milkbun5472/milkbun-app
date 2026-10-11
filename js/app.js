@@ -10879,7 +10879,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const forumMaskName = id => { const m = id ? (masks || []).find(x => x && x.id === id) : null; return (m && String(m.name || "").trim()) || (forumMe.handle || profile.name || "我"); };
   // 她的朋友圈谁刷得到（她 2026-10-09）：挑了「谁可以看」就照那个名单；没挑的话，是主面具的朋友圈——
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
-  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === "");
+  // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
+  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || ""));
+  // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
+  window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
+    .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
   const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
   // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
   const forumMaskNote = (x, pool) => {
@@ -12805,11 +12809,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
       // 中译另起一行的那种先接回去（群里同一个函数）
-      if (_bilingualOn) words = joinBilingualLines(words, hanLangOf(char));
+      // 双语开关没开、TA自己却每句都写成「原文 | 中文」的（她 2026-10-11：「他每一句不是已经自带翻译了吗，直接调成我们有翻译气泡的格式」）：
+      //   竖线原样挂在气泡里很难看。劈得开（左边看得出是外语／粤语）就照双语那条路走，劈不开的普通竖线照旧不动。
+      const _biParse = _bilingualOn || (!_s.engineerEyes && words.some(w => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && splitBilingual(w, hanLangOf(char))));
+      if (_biParse) words = joinBilingualLines(words, hanLangOf(char));
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
-        const bi = _bilingualOn ? splitBilingual(w, hanLangOf(char)) : null;
+        const bi = _biParse ? splitBilingual(w, hanLangOf(char)) : null;
         const parts = _splitOn ? splitLongBubble(bi ? bi.text : w, !_body) : [bi ? bi.text : w];
         // 键要归一化：②.5 那一步会削掉句尾那个句号，原样存就对不上了
         if (bi && parts.length) _biZh.set(bilingualKey(parts[parts.length - 1]), bi.zh);
@@ -13109,7 +13116,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
       //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
-      const _yueFill = _bilingualOn && hanLangOf(char) && typeof translateToZh === "function"
+      const _yueFill = _biParse && hanLangOf(char) && typeof translateToZh === "function"
         ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
@@ -14900,7 +14907,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 整块 HTML 卡片先认一次：splitBubbles 按换行拆，会把卡片碾碎（四处一样喂）
             const _gCard = typeof htmlCardOf === "function" ? htmlCardOf(item.text) : null;
             // 双语：和单聊同一条路——先把「原文 | 中文」劈开再拆泡，中译挂在最后一泡上
-            const gBiOn = !!(settingsFor(spk.id) || {}).bilingual;
+            // 开关没开、TA自己写着「原文 | 中文」的也照双语走（跟单聊 _biParse 同一个判据）
+            const gBiOn = !!(settingsFor(spk.id) || {}).bilingual
+              || (!(settingsFor(spk.id) || {}).engineerEyes && String(item.text || "").split(/\n+/).some(x => splitBilingual(x.trim(), hanLangOf(spk))));
             // ⚠️双语开着时【只按换行切】，按句末标点拆泡留给下面 splitLongBubble（劈完竖线之后）。
             //   splitBubbles 会先按「？」「……」断句——「ん？なに？|……嗯？什么？」就被切成
             //   ん？／なに？／|……／嗯？／什么？ 五泡，竖线落单、中文自己成泡（她 2026-09-29 截图）。
@@ -21229,6 +21238,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 在谁的朋友圈下面说话，就用 TA 认的那张面具上的名字（群友 2026-10-11：「朋友圈回复只能按主面具的名字吗」）。
   //   自己发的那条、或者认不出发帖人，还是主面具。跟聊天里 profileFor 是同一张对照，不另存一份。
   const momentMeName = mom => {
+    if (mom && mom.mine && mom.mask) { const mk = (masks || []).find(x => x && x.id === mom.mask); if (mk && String(mk.name || "").trim()) return String(mk.name).trim(); }
     const a = mom && mom.characterId && characters.find(c => c.id === mom.characterId);
     return (a && (profileFor(a.id) || {}).name) || profile.name || "我";
   };
@@ -21279,7 +21289,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     content,
     image,
     visibleTo,
-    poll
+    poll,
+    mask
   }) => {
     const id = "m_" + Date.now();
     const mom = {
@@ -21288,6 +21299,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content,
       image: image || null,
       visibleTo: visibleTo || null,
+      mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
       poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ts: Date.now(),
       liked: false,
@@ -21308,7 +21320,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       moment: true
     }));
     try {
-      const meName = userName(profile);
+      const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
