@@ -379,3 +379,11 @@ test("查手机：TA自己的转账也算线索，有线索至少去看一样", 
   assert.doesNotMatch(seg, /x\.id === charId \|\| hideSet/, "又把TA自己那几笔跳过了");
   assert.match(src, /至少挑一样去看/);
 });
+
+// 群里 2026-10-11：「我给他手机他也不查」——一步都没演出来就再要一次，还是空的照实说，不许默不作声收掉
+test("查手机：脚本是空的先重要一次，还空就说清楚", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "../js/app.js"), "utf8");
+  assert.match(src, /const ask = \(\) => runProbe\(apiFor\(charId\), ctxFor\(c\), \{/);
+  assert.match(src, /if \(!script\.length\) \{ d = await ask\(\); script = clean\(d\); \}/);
+  assert.match(src, /if \(!script\.length && !sneak\) toast\("这次没翻出东西来/);
+});

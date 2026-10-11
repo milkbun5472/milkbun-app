@@ -10935,7 +10935,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     try {
       const others = (characters || []).filter(x => x.id !== charId && !hideSet.has(String(x.id))).map(x => x.remark || x.name).slice(0, 12)
         .concat((groupsRef.current || []).filter(g => g && g.name && !hideSet.has(String(g.id)) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => g.name).slice(0, 4));
-      const d = await runProbe(apiFor(charId), ctxFor(c), {
+      const ask = () => runProbe(apiFor(charId), ctxFor(c), {
         // ⚠️她 2026-10-01 的截图：心声成了旁观者在点评（「这个角色被构建得非常逼真」「现实里看起来很缺觉」）。
         //   这一枪是 probe，模型容易站到幕后去看。所以把「你是谁、这些对你来说是什么」放在最前面说清楚。
         instruction: "你就是「" + c.name + "」本人，此刻在你自己的日子里。" + userName(profile) + (sneak ? " 没注意，手机就放在那儿，你偷偷拿起来翻了——她不知道" : " 把她的手机递给了你") + "——对你来说这些全是真的：她是你认识的那个人，"
@@ -10967,13 +10967,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         schemaHint: "{\"steps\":[{\"do\":\"open\",\"app\":\"chat\",\"who\":\"名字\",\"thoughts\":[\"翻着翻着心里冒出的一句\",\"再往上翻又一句\"]},{\"do\":\"impersonate\",\"who\":\"名字\",\"text\":\"以她的名义发的那句\"},{\"do\":\"unfriend\",\"who\":\"名字\"},{\"do\":\"pin\"},{\"do\":\"open\",\"app\":\"messages\"},{\"do\":\"tap\",\"text\":\"屏幕上的字\"},{\"do\":\"scroll\",\"dir\":\"down\",\"n\":1},{\"do\":\"think\",\"text\":\"心里那一句\"},{\"do\":\"back\"}]}",
         maxTokens: 8000
       });
+      let d = await ask();
       const L = peekLastOf(charId), seenT = new Set(L.taps || []);
       const myPosts = (forumPostsRef.current || []).filter(p => p && p.authorType === "me" && p.title)
         .sort((a, b) => (seenT.has(a.title) - seenT.has(b.title)) || ((b.ts || 0) - (a.ts || 0)))
         .map(p => ({ title: String(p.title).slice(0, 30), anon: !!(p.anon || p.board === "匿名吧"), alt: !!p.alt }));
       const myDiary = ((diariesRef.current || {})["__me"] || []).slice().reverse().map(e => String(e.title || "").slice(0, 30)).filter(Boolean)
         .sort((a, b) => seenT.has(a) - seenT.has(b));
-      script = window.PeekPhone ? window.PeekPhone.cleanScript(d, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name }) : [];
+      const clean = x => window.PeekPhone ? window.PeekPhone.cleanScript(x, apps, { forum: myPosts, diary: myDiary, who: others, gate, self: c.remark || c.name }) : [];
+      script = clean(d);
+      // 一步都没演得出来（群里 2026-10-11：「我给他手机他也不查」）：模型没写出步骤，或者写的全点在她藏起来的那几样上，
+      //   原来录像当场就收了，一句话没有，看着就像TA拿了手机不翻。先再要一次，还是空的就照实说。
+      if (!script.length) { d = await ask(); script = clean(d); }
+      if (!script.length && !sneak) toast("这次没翻出东西来：模型没写出翻手机的过程，可以再递一次；老这样就换个模型，或者递的时候多勾几样");
     } catch (e) { if (!sneak) toast("这次没翻成：" + (e.message || "再试一次")); }
     if (sneak) {
       if (!script.length) return;
