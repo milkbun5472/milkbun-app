@@ -71,3 +71,11 @@ test("查手机：TA 翻我的手机时「今天是哪天」、TA 手机的锁�
   // TA 手机里的内容走 runProbe → buildBundle，那一处本来就照这只钟报时
   assert.match(engine, /buildBundle\(ctx\) \+ "\\n\\n【" \+ \(probe\.voice/);
 });
+
+// 她 2026-10-11：「往前拨和流逝速度不能自定义吗」
+test("速度能自己填，拨多少能自己填（分钟到年，月和年按日历拨）", () => {
+  assert.match(comps, /placeholder: "自己填",/);
+  assert.match(comps, /const VCLOCK_UNITS = \[\["分钟", 60e3\], \["小时", 3600e3\], \["天", 86400e3\], \["月", 30 \* 86400e3\], \["年", 365 \* 86400e3\]\];/);
+  assert.match(comps, /h\(VClockJump, \{ field, fs, onJump: f => put\(\{ base: f\(cur\) \}\) \}\)/);
+  assert.match(comps, /d\.setDate\(Math\.min\(day, new Date\(d\.getFullYear\(\), d\.getMonth\(\) \+ 1, 0\)\.getDate\(\)\)\);/);
+});
