@@ -116,7 +116,7 @@
   }
 
   // ── 看 TA 播 ────────────────────────────────────────────
-  function watchInstruction(ses, uName, first) {
+  function watchInstruction(ses, uName, first, own) {
     const who = ses.as === "mask"
       ? uName + "这次用的是一个马甲号「" + ses.maskName + "」进的直播间。你不知道这个号是她——除非她自己说破，或者她说的话让你认出来。"
       : uName + "用的是自己的号进的直播间，名字就是「" + uName + "」，你一眼就知道是她。";
@@ -149,7 +149,12 @@
       + me + "说的话只有她自己发——flow 里一句都不替她写，常客里也没有跟她同名的人。"
       + "还有几个有名有姓的常客，各自带着对你的看法。屏幕上另有一大片路人弹幕滚过去，那些你看不清、也不必回。你说话的对象是镜头、是她、是这几个常客——挑着回，不必谁都回。"
       + "\n常客们这一拍要是送了礼物，写在 gifts（name 常客网名、gift 礼物名、amount 金额数字；没人送就空）。你要是想让" + me + "当房管，mod 写 true（不想就不写）。";
-    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "");
+    // 开口的是谁（她 2026-10-11 拿人设卡来对：看 TA 播，TA 像换了个通用主播）：跟一起学那条同一个道理——
+    //   上面一长串平台规则（粉丝团、打赏榜、房管、连麦）压在人设后面，模型容易换成一个「主播腔」的人。收尾把人摆回面前。只给判据。
+    //   路人主播（probeStranger）没有「本来的关系」，这一段只给自己的角色。
+    const who2 = "\n\n【开口的是谁】上面这些只管直播间里发生了什么。「主播」那几句始终是你本人在说：用你平时的词、你的脾气和节奏，人设里你是什么性子（话多还是懒得开口、嘴硬还是黏人、什么时候会突然认真），镜头前就还是那个性子，顶多当着观众收着点。"
+      + me + "在你生活里是谁，进了直播间也还是那个人——你对她的态度照你们本来的关系来，不会变成对路人那样。判据：把主播名遮住，熟悉你的人一听就知道是你。";
+    const base = base0 + (facts.length ? "\n\n【此刻】\n" + facts.join("\n") : "") + (own ? who2 : "");
     if (first) return base + "\n\n现在刚开播。" + (ses.needClub ? "你的粉丝团还没起名，顺手起好：" + CLUB_ASK + "。" : "") + "写：直播间标题 title、你的主播名 host、镜头里看得见的样子 scene（一两句）、几个常客 regulars（2~4 个，每人 name 是网名、who 一句话说清是什么人、lean 一句话说清对你什么态度，几个人别是同一种）、这一拍直播间里按先后发生的 flow（每一项 who 写「主播」或常客的网名，text 写那一句；你在回谁的弹幕，就把那条弹幕排在你那句前面；常客也可以没说话）、你此刻在镜头前做什么 act（一句，可以空）、滚过去的路人弹幕 noise（6~10 条，很短）、在线人数 viewers（数字）。";
     return base + "\n\n【常客】\n" + arr(ses.regulars).map(r => "· " + r.name + "：" + r.who + "；" + r.lean).join("\n")
       + "\n\n【刚才直播间里发生的】\n" + transcript(ses)
@@ -646,7 +651,7 @@
       try {
         const d = await (st
           ? props.probeStranger(st, tieBlock(st, tieKeyOf(ses.as, ses.maskName), ses.fanLv || 0, ses.fanTotal || 0) + "\n\n" + watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))
-          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first), watchShape(ses, first))) || {};
+          : props.probeAs(char, watchInstruction(ses, ses.meName || uName, first, true), watchShape(ses, first))) || {};
         // 她 2026-10-11：「它还会编我说的话」——模型开播时编了个跟她同名的常客，之后每拍都以「常客」的名义替她发弹幕。
         //   她（或她这次的马甲）只能是她自己：同名的常客剔掉，署她名字的那几句也不收
         const meNames = [uName, ses.meName, ses.maskName].map(x => S(x).trim()).filter(Boolean);
