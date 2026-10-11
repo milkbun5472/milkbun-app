@@ -1122,35 +1122,77 @@ async function callAIOnce(p, system, messages, opts) {
     return assertNotUpstreamError(t, model, callDiag(model, _promptChars, maxTokens, _t0));
   }
   if (fmt === "gemini") {
-    const gBody = {
-      system_instruction: {
-        parts: [{
-          text: system
-        }]
-      },
-      contents: wireMessages.map(m => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: m._geminiParts || [{ text: m.content }]
-      })),
-      generationConfig: Object.assign({
-        temperature: temp,
-        maxOutputTokens: maxTokens
-      }, opts.wantReasoning ? { thinkingConfig: { includeThoughts: true } } : null)
+    // MCP 工具（她 2026-10-11 转群友：「连好 mcp 了显示有工具还是调用不了」）：原来这条方言压根没带工具，
+    //   模型手里一个都没有，只会说「没有这个功能」。现在跟另外两条一样：声明工具 → 它要调就去跑 → 把结果接回去再问，回合封顶。
+    // Gemini 只认 JSON Schema 的一小部分（$schema / additionalProperties 这些会被整枪打回），递过去之前洗一遍
+    const gSchema = sch => {
+      if (!sch || typeof sch !== "object") return { type: "object", properties: {} };
+      const o = {};
+      if (sch.type) o.type = Array.isArray(sch.type) ? (sch.type.find(x => x !== "null") || "string") : sch.type;
+      if (sch.description) o.description = String(sch.description);
+      if (Array.isArray(sch.enum)) o.enum = sch.enum.map(String);
+      if (sch.properties && typeof sch.properties === "object") { o.properties = {}; Object.keys(sch.properties).forEach(k => { o.properties[k] = gSchema(sch.properties[k]); }); }
+      if (Array.isArray(sch.required) && sch.required.length) o.required = sch.required.filter(k => o.properties && o.properties[k]);
+      if (sch.items) o.items = gSchema(sch.items);
+      if (!o.type) o.type = o.properties ? "object" : "string";
+      return o;
     };
-    captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
-    // 走代理时函数按 ROUTES 里该引用名的 style 贴钥匙（google 原生线要 goog 头风格）
-    const r = viaProxy ? await viaProxy(base + "/v1beta/models/" + model + ":generateContent", gBody, {}) : await fetchT(base + "/v1beta/models/" + model + ":generateContent", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": p.apiKey
-      },
-      body: JSON.stringify(gBody)
-    }, reqTimeout);
-    const d = await readAIJSON(r);
+    const gTools = (_mcpTools && _mcpTools.length) ? [{ functionDeclarations: _mcpTools.map(t => ({ name: t.name, description: String(t.description || "").slice(0, 1000), parameters: gSchema(t.input_schema) })) }] : null;
+    const gContents = wireMessages.map(m => ({
+      role: m.role === "assistant" ? "model" : "user",
+      parts: m._geminiParts || [{ text: m.content }]
+    }));
+    const postGemini = async () => {
+      const gBody = {
+        system_instruction: {
+          parts: [{
+            text: system
+          }]
+        },
+        contents: gContents,
+        generationConfig: Object.assign({
+          temperature: temp,
+          maxOutputTokens: maxTokens
+        }, opts.wantReasoning ? { thinkingConfig: { includeThoughts: true } } : null)
+      };
+      if (gTools) gBody.tools = gTools;
+      captureWirePayload("gemini", base + "/v1beta/models/" + model + ":generateContent", gBody, opts, "primary");
+      // 走代理时函数按 ROUTES 里该引用名的 style 贴钥匙（google 原生线要 goog 头风格）
+      const r = viaProxy ? await viaProxy(base + "/v1beta/models/" + model + ":generateContent", gBody, {}) : await fetchT(base + "/v1beta/models/" + model + ":generateContent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": p.apiKey
+        },
+        body: JSON.stringify(gBody)
+      }, reqTimeout);
+      return await readAIJSON(r);
+    };
+    let d = await postGemini();
     if (d.error) throw new Error(d.error.message);
+    const partsOf = x => x && x.candidates && x.candidates[0] && x.candidates[0].content && x.candidates[0].content.parts || [];
+    let _calls = 1;
+    if (gTools && _runTool) {
+      for (let _r = 0; _r < _maxRounds; _r++) {
+        const ps = partsOf(d), callsNow = ps.filter(x => x && x.functionCall);
+        if (!callsNow.length) break;
+        const resp = [];
+        for (const c of callsNow) {
+          const out = await _runTool(c.functionCall.name, c.functionCall.args || {});
+          if (_meta) (_meta.toolCalls = _meta.toolCalls || []).push({ name: c.functionCall.name, ok: !(out && out.isError) });
+          resp.push({ functionResponse: { name: c.functionCall.name, response: { content: String((out && out.text) || ""), ...((out && out.isError) ? { error: true } : {}) } } });
+        }
+        gContents.push({ role: "model", parts: ps });
+        gContents.push({ role: "user", parts: resp });
+        const nxt = await postGemini();
+        _calls++;
+        if (!nxt || nxt.error) break;
+        d = nxt;
+      }
+    }
+    if (_meta) _meta.calls = _calls;
     _served(d.modelVersion || d.model);
-    const parts = d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts || [];
+    const parts = partsOf(d);
     _putMeta(parts.filter(x => x && x.thought).map(x => x.text || "").join("\n"), "gemini:thought");
     const t = parts.filter(x => !(x && x.thought)).map(x => x.text || "").join("").trim();
     if (!t) {
