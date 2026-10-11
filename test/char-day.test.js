@@ -243,3 +243,12 @@ test('自由逛状态随实际现场快照保留，同角色重进继续，其�
  const S=f.env.CharDaySocial;for(const patch of [{preview:true},{showcase:true},{editing:true},{presentation:{map:'dayClinic'}}])assert.equal(S.outing({...payload,...patch}),null);
  assert.equal(S.setting({...normal,presentation:{map:'dayClinic'}}),null,'没有主动邀请时仍是TA独自工作');
 });
+
+test('逛街时延迟抵达的现场消息不把手选动作写回正常生活偏好',async()=>{
+ const f=setup(),v=placeViewer(f,'c1');let receive,writes=0;
+ Object.assign(f.env,{loadJSON:()=>({}),commitJSONDurable:async()=>{writes++;return {durable:true,live:true};},useEffect:fn=>fn(),setInterval:()=>1,clearInterval:()=>{},addEventListener:(kind,fn)=>{if(kind==='message')receive=fn;},removeEventListener:()=>{}});
+ let tree=v.render();v.click(tree,'更多');tree=v.render();v.click(tree,'去逛逛');tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaydestination'&&n.props['data-part']==='dayFarm').props.onClick();tree=v.render();v.click(tree,'回到TA');tree=v.render();v.send(tree);
+ // The delayed message is the real visitNotice shape, tagged at its scene owner.
+ receive({source:v.refs[0].current.contentWindow,origin:'http://test.invalid',data:{type:'char-day-visit',charId:'c1',outing:{map:'dayFarm',mode:'solo'},present:true,control:'manual',manualAction:'rest'}});
+ await new Promise(resolve=>setImmediate(resolve));assert.equal(writes,0);
+});

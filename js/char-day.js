@@ -127,7 +127,7 @@
     const visiting=visitStatus?.charId===String(char?.id)&&visitStatus.present;
     function rememberVisit(info,explicit=false){
       const current=stateRef.current,charId=String(info.charId||current?.charId||"");
-      if(!info.present&&!explicit||!['auto','manual'].includes(info.control)||charId!==current?.charId||current.preview||current.outing)return;
+      if(!info.present&&!explicit||!['auto','manual'].includes(info.control)||charId!==current?.charId||current.preview||current.outing||info.outing)return;
       const choice=visitChoice(info),before=visitSave.current[charId];
       if(before?.choice===choice&&!(explicit&&before.failed))return;
       const record=visitSave.current[charId]={choice,failed:false};
@@ -339,7 +339,7 @@
           h("div", { style: { fontSize: 11, color: soft } }, trip ? "自由逛 · "+outingPlace.label : showcase ? "摆位试玩 · "+(room?.label||"正在准备房间") : demo ? "示例试玩 · " + slot.time : preview ? "预览日程 · " + slot.time + "—" + slot.end : "此刻 · TA当地 " + state.time),
           h("div", { style: { fontSize: 14, lineHeight: 1.7, marginTop: 3, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, trip ? (trip.mode==='solo'?'你自己逛逛':'和TA一起逛逛') : showcase ? (spot ? spot.number+" · "+spot.label : "入口") : title),
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
-          trip && h('div',{'data-wk':'cdayoutingplan',style:{fontSize:11,lineHeight:1.6,color:soft,marginTop:3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},'TA的原安排 · '+state.time+' · '+title),
+          trip && h('div',{"data-wk":"cdayoutingplan",style:{fontSize:11,lineHeight:1.6,color:soft,marginTop:3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},'TA的原安排 · '+state.time+' · '+title),
           !trip && !showcase && slot?.location && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, slot.location + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? " · "+activityStatus.label+" · "+activityStatus.spotLabel : "")),
           !trip && !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
           pendingJob&&h("div",{"data-wk":"cdaykitchenprogress",style:{fontSize:11,color:soft,marginTop:3}},L.recipe(pendingJob.recipeId)?.name+" · "+(pendingJob.ready?"做好了，到生活里的厨房收好":kitchenStatus?.label||({paused:"这份先放着，去厨房继续",preparing:"一起备菜",stirring:"锅边搅拌",serving:"准备盛出来",eating:"一起吃饭",ready:"做好了，到厨房收好"})[kitchenStatus?.phase]||"去厨房继续")),
