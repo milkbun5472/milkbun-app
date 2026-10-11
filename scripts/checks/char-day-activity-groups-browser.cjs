@@ -57,6 +57,7 @@ try{
    await p.clock.setFixedTime(new Date(Date.parse('2026-10-10T10:00:00Z')+minute*60000));await frame.waitForFunction(({scene,spot})=>{const s=CharDayScene.inspect();return s.map===scene&&s.activity.spot===spot&&!!s.activity.group&&!s.changing;},{scene,spot});
    const route=await sampleRoute();await p.waitForTimeout(300);const s=await state();assert.equal(s.activity.spot,spot);assert.equal(s.render.activeMaps.length,1);assert.equal(s.markersVisible,false);if(s.activity.phase==='break')assert.equal(s.task,null);
    if(s.activity.standing||s.activity.stroll)assert.equal(s.seat,null);assert.ok(s.avatarPosition.every(Number.isFinite));assert.equal(await p.evaluate(()=>JSON.stringify(groupsRef.current)),before.plans);assert.equal(await p.evaluate(()=>groupsWrites.length),before.writes);
+   if(process.env.DAY_SHOTS==='1')await p.screenshot({path:path.join(out,scene+'-'+spot+'-'+String(minute).replace('.','_')+'.png')});
    report.cases.push({scene,primary,minute,spot,route,state:s});
   }
   await p.screenshot({path:path.join(out,scene+'.png')});console.log(scene+' '+steps.length+' phases passed');
