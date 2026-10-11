@@ -40,7 +40,7 @@ test("记忆库每一条都挂上它，而且不顶掉原来那个相对词锚",
   const i = engine.indexOf("function formatMemLib(entries) {");
   assert.ok(i > 0, "抠不出 formatMemLib");
   const seg = engine.slice(i, engine.indexOf("\n}", engine.indexOf("hasOpen", i)));
-  assert.ok(/TemporalAnchor\.stamp\(e\.ts\)/.test(seg), "没给每条挂戳");
+  assert.ok(/TemporalAnchor\.stamp\(_vm\(e\.ts\), _vm\(Date\.now\(\)\)\)/.test(seg), "没给每条挂戳");
   assert.ok(/\(dateStamp \? " " \+ dateStamp : ""\) \+ \(dateAnchor \? " " \+ dateAnchor : ""\)/.test(seg),
     "两个戳不是并存——anchor 管的是「今天/昨天」这种词钉成绝对日期，stamp 管的是这条本身几时记的");
   // ⚠️只有一处格式化（四条注入路都从这儿过），所以这一句说给模型听的读法也只写这一处
