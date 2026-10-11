@@ -116,6 +116,8 @@ def fit_cardigan(o):
  version=o.get('sideFitVersion',0)
  if version>=2:
   repair_cardigan_armholes(o)
+  import runpy
+  runpy.run_path(str(HERE/'restore_cardigan_strap.py'))['restore_cardigan_strap'](o)
   return
  # The cream rabbit bag and diagonal strap keep their original coordinates.
  # Front decoration is retained while only the side knit loses excess depth.
@@ -183,6 +185,8 @@ def fit_cardigan(o):
   s['sideFitVersion']=1
  print('CARDIGAN depth factor',float(depth.min()))
  repair_cardigan_armholes(o)
+ import runpy
+ runpy.run_path(str(HERE/'restore_cardigan_strap.py'))['restore_cardigan_strap'](o)
 
 def fit_cloth_sides():
  for outfit,fix in [('academy',repair_academy),('cardigan',fit_cardigan)]:

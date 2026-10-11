@@ -6,7 +6,7 @@ export function validImage(src){return typeof src==='string'&&src.length<3000000
 
 export function photographerLabel(p){return p.uploaded?'你上传的':p.photographer?.role==='companion'?(p.photographer.name||'同行者')+'拍的':'你拍的';}
 
-export {promiseSummaries} from './photo-promise.mjs?v=fg-71acad1fdbec8e85';
+export {promiseSummaries} from './photo-promise.mjs?v=fg-461d93d0b87f9c22';
 
 // 背面那两句：只改这一张，其余字段原样。who 是 you / companion。
 export function setBackNote(s,id,who,text,companionName){

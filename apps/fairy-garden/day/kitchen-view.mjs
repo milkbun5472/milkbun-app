@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-71acad1fdbec8e85';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-71acad1fdbec8e85';
+import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-461d93d0b87f9c22';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-461d93d0b87f9c22';
 export function createKitchenView(){
  let root=null,group=null,key='',hidden=[],cover=null,food=null,appliance=[],mixing=null,prep=null,knob=null,steam=null,targets=[];
  function clear(){for(const [o,visible]of hidden)o.visible=visible;hidden=[];disposeFood(group);group=null;key='';cover=food=mixing=prep=knob=steam=null;appliance=[];targets=[];}
