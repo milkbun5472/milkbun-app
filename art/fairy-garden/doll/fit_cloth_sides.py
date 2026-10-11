@@ -54,9 +54,69 @@ def cardigan_depth(P,protected,rounded=True):
  crown=smoothstep((P[:,1]-.015)/.08)*(1-smoothstep(abs(P[:,0])/.11)) if rounded else 0
  return 1-weight*(.22-.18*crown)
 
+def repair_cardigan_armholes(o):
+ """Remove the former fused sleeve's back bulges beneath the separate sleeves.
+ Keep the spine, front pouch, cream strap, hem and all sleeve meshes intact.
+ """
+ if o.get('armholeSurfaceVersion'):return
+ from mathutils import Vector
+ from mathutils.bvhtree import BVHTree
+ keys=o.data.shape_keys.key_blocks
+ P=np.array([v.co[:] for v in keys['Basis'].data])
+ tree=BVHTree.FromPolygons(P.tolist(),[f.vertices[:] for f in o.data.polygons])
+ normals=np.array([n.vector[:] for n in o.data.corner_normals])
+ # Ease into the healthy rounded back, away from the collar and ribbed hem.
+ weights=smoothstep((abs(P[:,0])-.072)/.028)*smoothstep((P[:,2]-.46)/.045)*(1-smoothstep((P[:,2]-.665)/.035))*smoothstep((P[:,1]-.005)/.015)
+ image=next(n.image for n in o.data.materials[0].node_tree.nodes if n.type=='TEX_IMAGE' and n.image);W,H=image.size;tex=np.array(image.pixels[:]).reshape(H,W,4)[:,:,:3]**(1/2.2);uv=o.data.uv_layers.active.data
+ protected=set()
+ for face in o.data.polygons:
+  c=face.center
+  if not((c.y>0 and c.z>.62) or (0<c.x<.23 and c.y<-.035 and .35<c.z<.58)):continue
+  colors=[tex[min(H-1,max(0,int(uv[li].uv.y*H))),min(W-1,max(0,int(uv[li].uv.x*W)))] for li in face.loop_indices];r,g,b=np.median(colors,axis=0)
+  if (g-b)>max(r-g,.005)*.32:protected.update(face.vertices)
+ weights[list(protected)]=0
+ D=np.zeros(len(P));radius=.165
+ for i,p in enumerate(P):
+  if weights[i]<=0:continue
+  sign=1 if p[0]>0 else -1
+  hit=tree.ray_cast(Vector((sign*.075,1,float(p[2]))),Vector((0,-1,0)),2)[0]
+  if hit is None:continue
+  target=hit.y*np.sqrt(max(0,radius**2-p[0]**2)/(radius**2-.075**2));D[i]=weights[i]*(target-p[1])
+ # The remnant carried its old arm-dependent morph offsets. Reauthor only
+ # this knit region with the shared torso deformation, so body slider blends
+ # cannot reopen a crease after the neutral surface has been repaired.
+ import runpy
+ deform=runpy.run_path(str(HERE/'body_shape.py'))['deform']
+ fitted=P.copy();fitted[:,1]+=D
+ changed=np.flatnonzero(abs(D)>1e-8)
+ morph_weight=smoothstep((abs(P[:,0])-.072)/.028)*smoothstep((P[:,2]-.405)/.035)*(1-smoothstep((P[:,2]-.68)/.035))*smoothstep((P[:,1]+.11)/.04)
+ morph_weight[list(protected)]=0
+ morph_changed=np.flatnonzero(morph_weight>0)
+ for key in keys:
+  if key.name=='Basis':
+   for i in changed:key.data[int(i)].co=Vector(fitted[i])
+   continue
+  authored=np.array([v.co[:] for v in key.data])-P
+  target=deform(fitted,np.zeros(len(P)),key.name,True)
+  for i in morph_changed:key.data[int(i)].co=Vector(fitted[i]+authored[i]*(1-morph_weight[i])+target[i]*morph_weight[i])
+ o.update_tag();bpy.context.view_layer.update();o.data.update()
+ for li,loop in enumerate(o.data.loops):
+  i=loop.vertex_index;w=weights[i]
+  if w<=0:continue
+  x,y,z=P[i];hits=[tree.ray_cast(Vector((np.sign(x)*.075,1,float(z+dz))),Vector((0,-1,0)),2)[0] for dz in [-.003,0,.003]]
+  if any(h is None for h in hits):continue
+  h=hits[1].y;dz=(hits[2].y-hits[0].y)/.006;fac=np.sqrt(max(.0001,radius**2-x*x)/(radius**2-.075**2))
+  n=np.array([h*x/(fac*(radius**2-.075**2)),1,-dz*fac]);n/=np.linalg.norm(n)
+  normals[li]=normals[li]*(1-w)+n*w
+ normals/=np.linalg.norm(normals,axis=1)[:,None]
+ o.data.normals_split_custom_set(normals.tolist());o['armholeSurfaceVersion']=1
+ print('CARDIGAN armhole surface',int(np.count_nonzero(abs(D)>1e-8)))
+
 def fit_cardigan(o):
  version=o.get('sideFitVersion',0)
- if version>=2:return
+ if version>=2:
+  repair_cardigan_armholes(o)
+  return
  # The cream rabbit bag and diagonal strap keep their original coordinates.
  # Front decoration is retained while only the side knit loses excess depth.
  keys=o.data.shape_keys.key_blocks
@@ -122,6 +182,7 @@ def fit_cardigan(o):
     v.co=tuple(origin+axis*t+radial*(1-.13*w))
   s['sideFitVersion']=1
  print('CARDIGAN depth factor',float(depth.min()))
+ repair_cardigan_armholes(o)
 
 def fit_cloth_sides():
  for outfit,fix in [('academy',repair_academy),('cardigan',fit_cardigan)]:

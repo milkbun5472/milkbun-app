@@ -1003,7 +1003,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.338", changed: "小世界TA的一天入口改为填色双人沙发插画，与列车和小镇统一尺寸；复制说明补充SVG与等比缩放写法", none: "" };
+  const BRIEF_STAMP = { v: "v75.339", changed: "", none: "仅修小兔毛衣三维袖身衔接与衣身体型变形；现有页面挂点和样式能力不变" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
