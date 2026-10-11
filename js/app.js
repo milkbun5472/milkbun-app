@@ -961,8 +961,7 @@ function App() {
     msgBanner: true           // App 内消息提醒（她 2026-09-11），默认开着
   });
   const prefsRef = useRef(prefs);
-  // 虚拟时间：engine.js 里 vclockNow / vclockMap 读的就是这一份（每次画都对一遍，改完下一轮就生效）
-  try { window.__vclock = prefs.vclock && prefs.vclock.on ? prefs.vclock : null; } catch (e) {}
+
   prefsRef.current = prefs;   // 提醒那一下在异步回调里问「这个开关开着吗」
   const [geo, setGeo] = useState(null);
   const [mapMode, setMapMode] = useState("real"); // 好友地图 现实/架空
@@ -8611,6 +8610,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
       const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
+      if (typeof vclockUse === "function") vclockUse(charId);
       const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
@@ -10881,6 +10881,12 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
   const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  // 虚拟时间一张面具一只钟（她 2026-10-11）：engine.js 的 vclockCfg 照「这个人认的是哪张面具」去拿钟。
+  //   每次画都对一遍，改完下一轮就生效；active（这一轮在替谁拼）留着不动。旧的那一只（prefs.vclock）当主面具的。
+  try {
+    const _clocks = { ...(prefs.vclock ? { main: prefs.vclock } : {}), ...(prefs.vclocks || {}) };
+    window.__vclock = Object.assign(window.__vclock && window.__vclock.clocks ? window.__vclock : { active: null }, { clocks: _clocks, maskOf: maskKeyOf });
+  } catch (e) {}
   // 论坛按面具发（她 2026-10-09）：大号跟着「现在用哪张面具」走。帖子、楼、楼中楼都记着是哪张面具（mask，主面具不记）。
   //   认不认得出是她：只有跟她用【同一张面具】聊的那几个角色认得出；别的角色当陌生网友（跟小号同一套）。
   const forumMaskNow = () => { const id = String((forumMe && forumMe.maskUse) || ""); return id && id !== maskPrimary && (masks || []).some(m => m && m.id === id) ? id : ""; };
@@ -11295,6 +11301,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     follow.forEach((id, k) => setTimeout(() => { try { replyNow(id, "", null, {}); } catch (e) {} }, 4000 + k * 3000));
   };
   const _replyTurn = async (charId, extraText, mode, opts) => {
+    if (typeof vclockUse === "function") vclockUse(charId);   // 这一轮的报时、时间戳、记忆的「记于」都走 TA 认的那张面具的钟
     opts = opts || {};
     const chatKey = opts.chatKey || charId;
     const room = opts.room || null;
@@ -14119,6 +14126,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
+    if (typeof vclockUse === "function") vclockUse(null);   // 群里报时、时间戳都走主面具那只钟
     // 群里自己聊（rgOpts.auto）是后台自己跑的：挂上群名
     if (rgOpts && rgOpts.auto && !rgOpts._bg && typeof bgJob === "function") return bgJob("groupChat", (groups || []).find(g => g.id === groupId), () => replyGroup(groupId, { ...rgOpts, _bg: true }));
     if (rgOpts.auto && groupCallActive(groupId)) return;
@@ -14214,7 +14222,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _crossDay = _glast && new Date(_glast).toDateString() !== new Date().toDateString();
       const _gClockNames = members.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
       const gTimeHint = _gClockNames.length
-        ? "\n\n【此刻时间】现在是 " + (typeof vclockNow === "function" ? vclockNow() : new Date()).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
+        ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse(null), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
         : "";
       // 补充上文：每位成员入群前的私聊，作为「封闭空间」的 X 条前情提要——
       // 只在【未开记忆互通】时用；开了互通就实时抽单聊，这档自动让位、不叠加。
@@ -16559,11 +16567,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   言秋不在此列：TA那份是「存在时间线」，写的是TA在电脑那一端真在做的事。
   const noSchedFor = char => !!(char && settingsFor(char.id).bodyMode && !settingsFor(char.id).engineerEyes);
   const genScheduleDay = async (char, dayKey) => {
+    if (typeof vclockUse === "function") vclockUse(char && char.id);
     if (noSchedFor(char)) return false;
     if (!active) { toast("请先到设置配置 API"); return false; }
     const today = schedLocalDayKey(char);
     const retro = dayKey < today;
-    const dp = schedDateParts(dayKey);
+    const dp = schedDateParts(dayKey, char && char.id);
     // 数字生命/驻场 AI 角色（开了「眼睛」开关）：没肉身、不在现实城市、不吃饭睡觉花钱——日程改成「存在时间线」，不套真人作息（她 2026-07-13 点名的割裂）
     const isDigital = !!isBody(char.id);
     setGen(g => ({ ...g, sched: char.id + "|" + dayKey }));
@@ -16586,7 +16595,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const yKey = schedShiftDayKey(today, -1);
       const yPlan = (schedulesRef.current[char.id] || {})[yKey] || null;
       const needY = !retro && yPlan && !((yPlan.murmurs || []).length); // 只在生成今天、且昨天有日程还没写过碎碎念时补
-      const ydp = needY ? schedDateParts(yKey) : null;
+      const ydp = needY ? schedDateParts(yKey, char && char.id) : null;
       const murmurRule = retro
         ? "\n【碎碎念 murmurs】另给 2-4 条第一人称、当天当下的碎碎念，各带一个 time，像那天随手记下的念头，可回看。"
         : (needY
@@ -16914,7 +16923,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const prevD = (diariesRef.current[charId] || []).filter(e => (e.ts || 0) < targetTs).sort((a, b) => (b.ts || 0) - (a.ts || 0))[0];
       const prevDiary = prevD ? ((prevD.titleZh || prevD.titleEn || "") + "｜" + (prevD.paras || []).map(p => p.text).join(" ").slice(0, 220)) : "";
       const ctx = { ...ctxFor(char), moodLabel: mood && (mood.label || mood) || null, worldbook: loreFor(char, "diary"), recentChat: dayChatText, memory: "", groupEcho: "", groupOfflineEcho: "", offlineNow: "", schedNow: "" };
-      const dateStr = new Date(targetTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
+      // 虚拟时间开着时，日记照现实一天一篇写，日子按 TA 那只钟叫（她 2026-10-11）
+      const dateStr = typeof vclockCfg === "function" && vclockCfg(charId) ? vclockLabel(targetTs, charId, false)
+        : new Date(targetTs).toLocaleDateString("zh-CN", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
       // 当天钱包流水（日常购物/转账/礼物）喂给日记当素材——日程/钱包/日记三联动的最后一环
       const wRec = charWalletRef.current[charId];
       const walletText = wRec && Array.isArray(wRec.ledger) ? wRec.ledger.filter(e => (e.ts || 0) >= ds && (e.ts || 0) < de && e.kind !== "monthly").slice(0, 8).map(e => "· " + (e.label || "") + "（" + (e.delta > 0 ? "+" : "") + e.delta + "）").join("\n") : "";
@@ -16939,6 +16950,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const vRow = (typeof vitalsFor === "function" ? (vitalsFor(charId) || []) : []).find(x => x && x.day === targetKey);
       const bodyText = vRow ? ("综合 " + (vRow.score != null ? vRow.score : "—") +
         (vRow.marks && Object.keys(vRow.marks).length ? "｜" + Object.keys(vRow.marks).slice(0, 4).map(k => k + " " + vRow.marks[k]).join("、") : "")) : "";
+      if (typeof vclockUse === "function") vclockUse(charId);
       const d = handwritten || await generateDiary(offlineApiFor(charId), leanCtx, { scheduleText: scheduleTextFor(char, targetKey), walletText: walletText, bodyText: bodyText, dateStr: dateStr, placeText: freshLiveStateValue(statesRef.current[charId] || {}, "place"), noChatMaterial: dayRows.length < 2, prevDiary: prevDiary, voiceSamples: diaryVoiceSamples, digital: isBody(charId), digitalCc: !!settingsFor(charId).engineerEyes });
       const entry = {
         id: "d_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
@@ -19467,13 +19479,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 送进去的 hist 只有【这通电话里说过的话】——群里刚发生的事一个字都看不到。
         // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」——
         // TA五分钟前就在群里说过「到家了，抹茶放桌上」。
+        if (typeof vclockUse === "function") vclockUse(null);   // 群通话走主面具那只钟
         const gcChat = cur.groupId ? groupContextRows(cur.groupId) : [];
         const gcRecent = gcChat
           .map(m => { const line = groupHistLine(m); return line && line.trim() ? "[" + fmtStampAI(m.ts) + "] " + line : ""; })
           .filter(Boolean).join("\n");
         const gcHistBlock = gcRecent ? "\n\n【这通电话之前，群里刚聊过这些】\n" + gcRecent + "\n⚠️这些【已经发生过了】，就在刚才。别当没发生、别把已经做完的事再说成正要去做。" : "";
         const gcClock = people.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
-        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + (typeof vclockNow === "function" ? vclockNow() : new Date()).toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
+        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse(null), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
         // 群通话是【第三处群路】，成长准则原来一个字都没有——群线上和群线下各有一份、
         // 电话里没有，于是同一个人在电话里退回原卡的旧倾向（v55.87「换个入口换个人」）。
         const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
@@ -30378,6 +30391,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       setPrefs(p);
       saveJSON("x_prefs", p);
     },
+    vclockMasks: masks,
+    vclockPrimary: maskPrimary,
     geo: geo,
     onRequestGeo: doRequestGeo,
     onSetGeoPlace: doSetGeoPlace,
@@ -30966,8 +30981,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       : { charName: "", mode: prefs.timeAware !== false ? "on" : "off",
           set: v => { const p = { ...prefs, timeAware: v === "on" }; setPrefs(p); saveJSON("x_prefs", p); toast("全局时间感知：" + (v === "on" ? "开" : "关")); } },
     // 虚拟时间开着时，悬浮球里直接拨（她 2026-10-11）
-    vclock: prefs.vclock && prefs.vclock.on ? prefs.vclock : null,
-    onVClock: v => { const p = { ...prefsRef.current, vclock: v }; setPrefs(p); saveJSON("x_prefs", p); },
+    // 在单聊里拨的是 TA 认的那张面具的钟，别处拨主面具的（跟 engine.js vclockCfg 同一个键）
+    vclock: (() => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
+      const c = ({ ...(prefs.vclock ? { main: prefs.vclock } : {}), ...(prefs.vclocks || {}) })[k]; return c && c.on ? c : null; })(),
+    onVClock: v => { const k = (screen === "thread" && activeChar && maskKeyOf(activeChar.id)) || "main";
+      const cur = prefsRef.current; const all = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}), [k]: v };
+      const p = { ...cur, vclocks: all }; delete p.vclock; setPrefs(p); saveJSON("x_prefs", p); },
     onSetBg: id => { setBgApi(id); const p = id && (apiProfiles || []).find(x => x.id === id); toast(id === "__off__" ? "后台关了：自己跑的那些都不跑了" : "后台已切换为 " + (p ? (p.name || p.model || "该线路") : "跟随线上主模型")); }
   }), newGroupOpen && /*#__PURE__*/React.createElement(NewGroupSheet, {
     characters: liveChars,

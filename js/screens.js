@@ -1914,8 +1914,16 @@ function schedLocalDayKey(char, at) { return window.ScheduleClock.dayKey(char, a
 function schedShiftDayKey(key, days) { return window.ScheduleClock.shiftDayKey(key, days); }
 function schedParseKey(k) { return window.ScheduleClock.parseDayKey(k); }
 const SCHED_DOW_ZH = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
-function schedDateParts(k) {
-  const d = schedParseKey(k), dow = d.getDay();
+// id（可选）：给了谁，就按 TA 那只虚拟时间的钟叫这一天（她 2026-10-11：「日程按现实框架排，但也用角色的时间系统」）。
+//   日程还是一个现实日一份；只是说给模型、摆给她看的那个日子换了叫法。date 仍是现实那天，排序、比较照旧用它。
+function schedDateParts(k, id) {
+  const d = schedParseKey(k);
+  const vc = id != null && typeof vclockCfg === "function" ? vclockCfg(id) : null;
+  if (vc) {
+    const v = new Date(vclockMap(d.getTime() + 12 * 3600e3, id));
+    return { date: d, md: vclockYear(v.getFullYear(), vc) + (v.getMonth() + 1) + "月" + v.getDate() + "日", dowZh: SCHED_DOW_ZH[v.getDay()], dateNum: String(v.getDate()).padStart(2, "0") };
+  }
+  const dow = d.getDay();
   return { date: d, md: (d.getMonth() + 1) + "月" + d.getDate() + "日", dowZh: SCHED_DOW_ZH[dow], dateNum: String(d.getDate()).padStart(2, "0") };
 }
 // 结束时刻（v56.30）。seqs 原来只有开始时刻，苹果日历式的块要 start+end 才画得出高度。
@@ -9886,7 +9894,7 @@ function Config(props) {
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(React.Fragment, null, h(FailRetryCard, null), h(CallLogCard, null), h(CacheStatCard, null))),
-      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, onSetGeoPoint: props.onSetGeoPoint, worlds: props.worlds, toast: props.toast })),
+      page === "sense" && section(h(SenseConfig, { prefs: props.prefs, onSave: props.onSavePrefs, masks: props.vclockMasks, maskPrimary: props.vclockPrimary, geo: props.geo, onRequestGeo: props.onRequestGeo, onSetGeoPlace: props.onSetGeoPlace, onSetGeoPoint: props.onSetGeoPoint, worlds: props.worlds, toast: props.toast })),
       page === "cot" && section(h(CotConfig, { toast: props.toast, activeProfile: (props.apiProfiles || []).find(p => p.id === props.activeId) || (props.apiProfiles || [])[0] || null })),
       page === "theme" && section(h(ThemeConfig, { theme: props.theme, onSave: props.onSaveTheme, wallpaper: props.wallpaper, onSaveWallpaper: props.onSaveWallpaper, wallFx: props.wallFx, onSaveWallFx: props.onSaveWallFx })),
       page === "themeStudio" && section(h(window.ThemeStudioConfig, { toast: props.toast, theme: props.theme, wallpaper: props.wallpaper, onSaveTheme: props.onSaveTheme, onSaveWallpaper: props.onSaveWallpaper })),
@@ -10411,6 +10419,8 @@ function ApiConfig({
 }
 function SenseConfig({
   worlds,
+  masks,
+  maskPrimary,
   prefs,
   onSave,
   geo,
@@ -10461,7 +10471,10 @@ function SenseConfig({
       ...p,
       timeAware: v
     })
-  })), typeof VClockEditor === "function" ? h(VClockEditor, { v: p.vclock, onChange: v => save({ ...p, vclock: v }) }) : null, h("div", {
+  })), typeof VClockMasks === "function" ? h(VClockMasks, { masks, primaryId: maskPrimary,
+    clocks: { ...(p.vclock ? { main: p.vclock } : {}), ...(p.vclocks || {}) },
+    // 旧的那一只（vclock）并进 vclocks.main 以后就不再单放
+    onChange: c => { const np = { ...p, vclocks: c }; delete np.vclock; save(np); } }) : null, h("div", {
     className: "flex items-center justify-between py-4",
     style: { borderBottom: `1px solid ${t.line}` }
   }, h("div", { style: { paddingRight: 12 } }, h("div", {
@@ -12549,8 +12562,10 @@ function MemoryLib({
     : ({ manual: "手写", chat: "聊天留下", auto: "聊天留下", import: "旧事导入", monthly: "旧忆精炼", mcp: "角色亲笔", couple: "情侣空间" })[e && e.source]
     || ((e && e.tags || []).includes("群聊") ? "群聊留下" : (e && e.tags || []).includes("线下") ? "线下留下" : "自然记下"));
   const audienceOf = e => !e.charIds || e.charIds.length === 0 ? "所有角色可见" : e.charIds.map(nameOf).join("、");
+  // 虚拟时间开着时，记忆上的日子也照那个人那只钟（她 2026-10-11「记忆库也要改」）；共享的、没署名的照主面具
   const shortDateOf = e => {
-    const d = new Date(e.ts || Date.now());
+    const who = (e.charIds || [])[0];
+    const d = new Date(typeof vclockMap === "function" ? vclockMap(e.ts || Date.now(), who == null ? null : who) : (e.ts || Date.now()));
     return { month: String(d.getMonth() + 1).padStart(2, "0"), day: String(d.getDate()).padStart(2, "0"), year: d.getFullYear() };
   };
   const importable = focusChar && oldMemories && (oldMemories[focusChar.id] || "").trim();
@@ -13232,9 +13247,10 @@ function diaryPreview(e) {
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
 function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting }) {
   const t = useTheme();
-  const d = new Date(entry.ts);
+  // 虚拟时间开着时，TA 那篇上的日子按 TA 那只钟（她 2026-10-11：「日记显示的日期要跟随虚拟时间」）
+  const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
   const wd = "日一二三四五六"[d.getDay()];
-  const dateStr = (d.getMonth() + 1) + "月" + d.getDate() + "日";
+  const dateStr = (!isMe && char && typeof vclockCfg === "function" && vclockCfg(char.id) ? vclockYear(d.getFullYear(), vclockCfg(char.id)) : "") + (d.getMonth() + 1) + "月" + d.getDate() + "日";
   const paper = isMe ? "paper" : diaryPaperOf(char);
   const iRGB = (typeof skinRGB === "function" ? skinRGB(t.ink || "#2b2622") : [43, 38, 34]).join(",");
   const comments = entry.comments || [];
@@ -13641,7 +13657,7 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         gb && h(Spinner, { label: curAuthor.name + " 正在记录昨天…" }),
         !gb && !list.length && h(Empty, { text: "还没有日记", sub: isMe ? "点右上角铅笔写一篇" : "点右上角，或等 Ta 自己写" }),
         list.map((e, i) => {
-          const d = new Date(e.ts);
+          const d = new Date(!isMe && typeof vclockMap === "function" ? vclockMap(e.ts, curId) : e.ts);
           const wd = "日一二三四五六"[d.getDay()];
           const titleMain = isMe ? (e.title || "") : (e.titleZh || e.titleEn || "");
           const ps = e.paras || [];
