@@ -8344,7 +8344,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const wardrobeFor = (scope, people) => ({
     people: people.filter(Boolean).map(c => ({ id: c.id, name: c.remark || c.name, sets: closetSetsOf((carryRef.current || {})[c.id]),
       now: freshLiveStateValue(scope.scopeKey ? liveStateForScope(c.id, scope.scopeKey) : (statesRef.current[c.id] || {}), "wearing") })),
-    me: { sets: closetSetsOf(myClosetRef.current), now: sceneMeOutfit(scope) }
+    // ⚠️我的衣柜是 { closet:[…] } 直接摆在顶上，TA的随身物是 { outfit:{ closet:[…] } }——closetSetsOf 读的是 .outfit，
+    //   原来直接把我的衣柜递进去，读到的永远是空（群友 2026-10-11：「衣柜挂了几套，线下显示空的」）。包一层再递。
+    me: { sets: closetSetsOf({ outfit: myClosetRef.current }), now: sceneMeOutfit(scope) }
   });
   // 这个人住的那个架空世界的风景参考（她 2026-10-02）：按这一格画面挑最对得上的那张 {img,label}。
   //   住在现实、或世界没传图 → null。
@@ -24726,7 +24728,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const setNote = (groups, name) => {
         const want = String(name || "").trim();
         let hit = "";
-        (Array.isArray(groups) ? groups : []).forEach(g => (g && Array.isArray(g.sets) ? g.sets : []).forEach(x => {
+        // 递进来的是衣柜那个盒子（{ closet:[…] }），不是数组——原来一律当成空，照相馆那一行只剩名字没有款式
+        (Array.isArray(groups) ? groups : (groups && Array.isArray(groups.closet) ? groups.closet : [])).forEach(g => (g && Array.isArray(g.sets) ? g.sets : []).forEach(x => {
           if (!hit && x && String(x.name || "").trim() === want) hit = String(x.note || "").trim();
         }));
         return hit;
