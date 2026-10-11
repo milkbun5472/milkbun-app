@@ -6816,6 +6816,18 @@ function bilingualTurnHint(who) {
 //   这种人开着双语时左边全是汉字也算原文；不知道是谁说的，就再认一遍粤语专用字兜底。
 const HAN_LANG_RE = /粤|粵|广东|廣東|cantonese|上海|吴语|吳語|闽南|閩南|台语|台語|客家|潮汕|文言/i;
 function hanLangOf(c) { return HAN_LANG_RE.test(String((c && c.lang) || "")); }
+// 粤语这类角色漏了竖线时，这一泡该不该补中译（她 2026-10-11：「还是有时候不能出翻译」）：
+//   translatableLang 要两个粤语专用字才认，可「換就換，洗完澡…」一个都没有、只有繁体——对这种角色，
+//   有繁体或有一个粤语字就够了；通篇简体又没有粤语字的，才是TA在说普通话。
+function hanLineLang(text) {
+  const t = String(text == null ? "" : text);
+  const base = typeof translatableLang === "function" ? translatableLang(t) : "";
+  if (base) return base;
+  if (!/[\u4e00-\u9fff]/.test(t)) return "";
+  if (/[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮噃嘥]/.test(t)) return "粤语";
+  if (typeof toSimplified === "function" && toSimplified(t) !== t) return "粤语";
+  return "";
+}
 function splitBilingual(text, hanLang) {
   const t = String(text == null ? "" : text);
   const i = t.indexOf("|");

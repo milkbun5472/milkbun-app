@@ -13100,7 +13100,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
       //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
       const _yueFill = _bilingualOn && hanLangOf(char) && typeof translateToZh === "function"
-        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? translatableLang(w) : "";
+        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
       for (let i = 0; i < words.length; i++) {
@@ -13113,7 +13113,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           if (_v && !_v.sent) { _v.sent = true; pushVoiceMsg(_v); notifyBubble("[语音] " + _v.t, "voice-in-" + i); delivered = true; }
           continue;
         }
-        if (_yueFill[i]) { const _z = await Promise.race([_yueFill[i], new Promise(r => setTimeout(() => r(""), 2500))]); if (_z) _biZh.set(bilingualKey(words[i]), _z); }
+        if (_yueFill[i]) {
+          const _z = await Promise.race([_yueFill[i], new Promise(r => setTimeout(() => r(""), 2500))]);
+          if (_z) _biZh.set(bilingualKey(words[i]), _z);
+          // 2.5 秒没等到的，回来了再挂上去——不扔
+          else { const _w = words[i]; _yueFill[i].then(z => { if (z) pChat(chatKey, p => p.map(m => m && m.turnId === turnId && m.content === _w && !m.zh ? { ...m, zh: z } : m)); }); }
+        }
         pChat(chatKey, p => [...p, {
           role: "assistant",
           content: words[i],
@@ -14963,13 +14968,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             }
             // 粤语这类成员漏了竖线的那几泡，跟单聊同一个办法补中译（最多等 2.5 秒，没翻成就留「译」）
             const _gYueFill = gBiOn && hanLangOf(spk) && typeof translateToZh === "function"
-              ? gBubbles.map(w => { const lg = !gBiZh.get(bilingualKey(w)) && typeof w === "string" ? translatableLang(w) : "";
+              ? gBubbles.map(w => { const lg = !gBiZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
                   return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
               : [];
             for (let j = 0; j < gBubbles.length; j++) {
               if (autoRoomLeft() <= 0) break;   // 拆出来的气泡也一泡一条，超了就不再往下冒
               if (j > 0) await new Promise(r => setTimeout(r, 620));
-              if (_gYueFill[j]) { const _z = await Promise.race([_gYueFill[j], new Promise(r => setTimeout(() => r(""), 2500))]); if (_z) gBiZh.set(bilingualKey(gBubbles[j]), _z); }
+              if (_gYueFill[j]) {
+                const _z = await Promise.race([_gYueFill[j], new Promise(r => setTimeout(() => r(""), 2500))]);
+                if (_z) gBiZh.set(bilingualKey(gBubbles[j]), _z);
+                else { const _w = gBubbles[j]; _gYueFill[j].then(z => { if (z) pGChat(groupId, p => p.map(m => m && m.turnId === gTurnId && String(m.senderId) === String(spk.id) && m.content === _w && !m.zh ? { ...m, zh: z } : m)); }); }
+              }
               checkAutoCall();
               const reveal = () => pGChat(groupId, p => [...p, {
                 role: "assistant",

@@ -76,4 +76,12 @@ test("粤语角色漏了竖线：单聊群聊都补中译，不叫模型", () =>
   assert.match(app, /const _yueFill = _bilingualOn && hanLangOf\(char\)/);
   assert.match(app, /const _gYueFill = gBiOn && hanLangOf\(spk\)/);
   assert.equal((app.match(/translateToZh\(w, lg, \{ noModel: true \}\)/g) || []).length, 2);
+  // 认得宽一点：只有繁体、一个粤语字都没有的那种也要补（「換就換，洗完澡…」）
+  assert.equal((app.match(/hanLineLang\(w\)/g) || []).length, 2);
+  const H = new Function("toSimplified", "translatableLang", grab("hanLineLang") + "\nreturn hanLineLang;")(t => t.replace(/換/g, "换").replace(/嚟/g, "来"), () => "");
+  assert.equal(H("換就換，洗完澡出嚟就見到你"), "粤语");
+  assert.equal(H("换就换，洗完澡出来就看到你"), "");
+  // 2.5 秒没等到的回来再挂上
+  assert.match(app, /_yueFill\[i\]\.then\(z =>/);
+  assert.match(app, /_gYueFill\[j\]\.then\(z =>/);
 });
