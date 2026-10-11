@@ -52,8 +52,8 @@ const app=fs.readFileSync(path.join(process.cwd(),'js/app.js'),'utf8'),a=app.ind
   assert.deepEqual(saved['other-test'],before['other-test']);assert.deepEqual(saved['location-test']['2026-10-10'],before['location-test']['2026-10-10']);
   await p.screenshot({path:path.join(out,'manual-location.png')});
   await p.waitForFunction(async()=>await idbTxtGet("x_schedules")===JSON.stringify(loadJSON("x_schedules",{})));await p.reload();await enter();await waitAt('dayLibrary','window-reading');report.reload=await scene();
-  await p.locator('[data-wk=cdayscheduleopen]').click();const body=p.locator('[data-wk=cdaybody]');await body.evaluate(el=>{el.scrollTop=260;el.dispatchEvent(new Event('scroll'));});const scroll=await body.evaluate(el=>el.scrollTop);
-  await p.locator('[data-wk=cdaypositionopen]').filter({hasText:'改位置'}).last().click();await p.locator('[data-wk=cdaypositionpage]').waitFor();await choose('dayHome','rest');
+  await p.locator('[data-wk=cdayscheduleopen]').click();const body=p.locator('[data-wk=cdaybody]');await body.evaluate(el=>{el.scrollTop=260;el.dispatchEvent(new Event('scroll'));});const edit=p.locator('[data-wk=cdaypositionopen]').filter({hasText:'改位置'}).last();await edit.scrollIntoViewIfNeeded();const scroll=await body.evaluate(el=>el.scrollTop);
+  await edit.click();await p.locator('[data-wk=cdaypositionpage]').waitFor();await choose('dayHome','rest');
   assert.equal(await body.evaluate(el=>el.scrollTop),scroll);await body.locator('[data-wk=cdayrow]').last().click();
   await waitAt('dayHome','rest');assert.match(await p.locator('[data-wk=cdaynow]').innerText(),/预览日程/);
   await p.locator('[data-wk=cdaynow] [data-wk=cdaypositionopen]').click();await choose('dayHome','tea');await waitAt('dayHome','tea');
@@ -66,7 +66,7 @@ const app=fs.readFileSync(path.join(process.cwd(),'js/app.js'),'utf8'),a=app.ind
   await p.locator('[data-wk=cdaynow] [data-wk=cdaypositionopen]').click();assert.match(await p.locator('[data-wk=cdaypositionpage]').innerText(),/2026-10-09/);await choose('dayHome','rest');await waitAt('dayHome','rest');
   await p.clock.setFixedTime(new Date('2026-10-10T08:20:00Z'));await waitAt('dayHome','meal');
   const beforeOuting=await store();await p.locator('[data-wk=cdaymoreopen]').click();await p.locator('[data-wk=cdayoutingsopen]').click();
-  await p.locator('[data-wk=cdayoutingmode]').selectOption('solo');await p.locator('[data-wk=cdaydestination][data-part=dayGym]').click();
+  await p.locator('[data-wk=cdayoutingchoice][data-part=solo]').click();await p.locator('[data-wk=cdaydestination][data-part=dayGym]').click();
   await p.waitForFunction(()=>document.querySelector('[data-wk=cdayscene] iframe').contentWindow.CharDayScene.inspect().map==='dayGym');
   assert.equal(await p.locator('[data-wk=cdaynow] [data-wk=cdaypositionopen]').count(),0);assert.deepEqual(await store(),beforeOuting);
   await p.locator('[data-wk=cdayoutingreturn]').click();await waitAt('dayHome','meal');assert.deepEqual(await store(),beforeOuting);
