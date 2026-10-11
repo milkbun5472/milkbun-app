@@ -10881,6 +10881,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
   const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  // 离开小手机时停住（群友 2026-10-11）：走的那一刻把每只开了 pauseAway 的钟定在当下（base＝那一刻、记 awayAt），
+  //   回来时把 at 挪到现在——走开的那段一秒都不算。关掉网页也算走：下次打开时照 awayAt 接上。
+  //   只在走、回两下各写一次 x_prefs，不开计时器、不另起存储键。
+  useEffect(() => {
+    const touch = leaving => {
+      const cur = prefsRef.current || {};
+      const all = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}) };
+      let changed = false; const now = Date.now(); const next = {};
+      Object.keys(all).forEach(k => {
+        const c = all[k];
+        if (!c || !c.on || !c.pauseAway) { next[k] = c; return; }
+        if (leaving && !c.awayAt) {
+          const sp = isFinite(Number(c.speed)) && Number(c.speed) >= 0 ? Number(c.speed) : 1;
+          next[k] = { ...c, base: Number(c.base) + (now - Number(c.at || now)) * sp, at: now, awayAt: now }; changed = true;
+        } else if (!leaving && c.awayAt) { const n = { ...c, at: now }; delete n.awayAt; next[k] = n; changed = true; }
+        else next[k] = c;
+      });
+      if (!changed) return;
+      const p = { ...cur, vclocks: next }; delete p.vclock;
+      prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p);
+    };
+    const onVis = () => touch(document.visibilityState === "hidden");
+    const onHide = () => touch(true);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onHide);
+    const tm = setTimeout(() => touch(false), 1500);   // 关掉网页再打开：等存档读进来以后接上
+    return () => { clearTimeout(tm); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); };
+  }, []);
   // 虚拟时间一张面具一只钟（她 2026-10-11）：engine.js 的 vclockCfg 照「这个人认的是哪张面具」去拿钟。
   //   每次画都对一遍，改完下一轮就生效；active（这一轮在替谁拼）留着不动。旧的那一只（prefs.vclock）当主面具的。
   try {
@@ -28238,7 +28266,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 那就是「一层写在九处」。也不动 Home 的根节点（home-screen-layout.md 说了勿改）。
     value: !!wallpaper
   }, /*#__PURE__*/React.createElement(Home, {
-    now: now,
+    // 主屏的钟和日历照主面具那只钟（群友 2026-10-11：「设置里改成了 11 月，小手机上还是显示现实的日期」）。只换喂进去的时间，主屏布局一处没动
+    now: typeof vclockMap === "function" && vclockCfg(null) ? new Date(vclockMap(now.getTime ? now.getTime() : Number(now), null)) : now,
     characters: liveChars,
     worlds: worlds,
     profile: profile,

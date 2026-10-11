@@ -2010,6 +2010,12 @@ function VClockEditor({ v, onChange, compact, title }) {
         chip("+1 天", false, () => put({ base: cur + 86400e3 })),
         chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); })),
       h(VClockJump, { field, fs, onJump: f => put({ base: f(cur) }) }),
+      // 离开小手机就停（群友 2026-10-11：「离开小手机后能设置时间静止么」）：切走、锁屏、关掉那段时间不算，回来接着走
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "离开小手机时停住"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "切走、锁屏、关掉的那段时间不算，回来从停下的那一刻接着走")),
+        h(Toggle, { on: !!(v && v.pauseAway), onChange: x => put({ pauseAway: !!x }) })),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
         h("div", { className: "flex", style: { gap: 6 } },

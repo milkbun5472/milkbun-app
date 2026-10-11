@@ -9965,7 +9965,9 @@ function vclockCfg(id) {
 function vclockMap(ts, id) {
   const c = vclockCfg(id); if (!c) return Number(ts);
   const sp = Number(c.speed);
-  return Number(c.base) + (Number(ts) - Number(c.at || 0)) * (isFinite(sp) && sp >= 0 ? sp : 1);
+  // 离开小手机时停住：走开那段里后台照样会跑（自己发消息、写日记），那几下也按走开那一刻算
+  const t = c.awayAt && Number(ts) > Number(c.awayAt) ? Number(c.awayAt) : Number(ts);
+  return Number(c.base) + (t - Number(c.at || 0)) * (isFinite(sp) && sp >= 0 ? sp : 1);
 }
 function vclockNow(id) { return new Date(vclockMap(Date.now(), id)); }
 // 年份怎么叫：有年号就「天启3年」，没有就「2026年」
