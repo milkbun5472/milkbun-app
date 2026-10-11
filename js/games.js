@@ -4780,20 +4780,23 @@
     if (!any) out.push([7, 7]);
     return out;
   }
-  // 这一手下哪儿。rnd 可注入（测试用）
-  function gmkBestMove(b, who, easy, rnd) {
+  // 这一手下哪儿。level：0/false 认真，1/true 随手，2 让着（她 2026-10-11：下法跟着聊天变）。rnd 可注入（测试用）
+  function gmkBestMove(b, who, level, rnd) {
     rnd = rnd || Math.random;
+    const lv = level === true ? 1 : (level || 0), easy = lv > 0;
     const foe = who === 1 ? 2 : 1;
     const scored = gmkCandidates(b).map(function (p) {
       const atk = gmkCellScore(b, p[0], p[1], who), def = gmkCellScore(b, p[0], p[1], foe);
       // 放水：防守那一半有时看漏（但对方马上成五那一下照样会挡）
-      const seeDef = !easy || def >= 1000000 || rnd() < 0.55;
-      return { x: p[0], y: p[1], s: atk * 1.1 + (seeDef ? def : def * 0.15) };
+      const seeDef = !easy || def >= 1000000 || rnd() < (lv >= 2 ? 0.3 : 0.55);
+      return { x: p[0], y: p[1], s: (lv >= 2 ? atk * 0.5 : atk * 1.1) + (seeDef ? def : def * 0.15) };
     }).sort(function (a, c) { return c.s - a.s; });
     if (!scored.length) return null;
     // 能直接赢的那一下谁都不会放过
     if (scored[0].s >= 1000000 || !easy) return scored[0];
-    const top = scored.filter(function (m) { return m.s >= scored[0].s * 0.4; }).slice(0, 4);
+    // 对面马上成五那一下：让着也照挡（不会直接把赢送出去）
+    if (scored[0].s >= 1000000 * 0.9) return scored[0];
+    const top = scored.filter(function (m) { return m.s >= scored[0].s * (lv >= 2 ? 0.15 : 0.4); }).slice(0, lv >= 2 ? 8 : 4);
     return top[Math.floor(rnd() * top.length)] || scored[0];
   }
   // 给模型看的局面一句话：谁刚形成了什么，不贴整张棋盘
@@ -4822,11 +4825,16 @@
     // 执子：1＝黑先，2＝白。她执黑先手；观战时 TA 执黑、另一位（或电脑）执白
     const userSide = spectate ? 0 : 1, charSide = spectate ? 1 : 2, botSide = spectate ? 2 : 0;
     // 这一方随手下吗：她下场时看放水；观战时看开局给每个人选的「认真 / 随手」
-    const casual = function (side) {
-      if (!spectate) return easy && side === charSide;
-      const c = side === charSide ? char : char2;
-      return !!(c && cfg.gmkCasual && cfg.gmkCasual[c.id]);
+    // 下法跟着聊天变：TA 开口时顺手报一个，从下一手起照这个下（她 2026-10-11）
+    const [playOv, setPlayOv] = useState(sv && sv.playOv ? sv.playOv : {});   // { charId: 0 认真 / 1 随手 / 2 让着 }
+    const [playNote, setPlayNote] = useState("");
+    const level = function (side) {
+      const c = side === charSide ? char : (side === botSide ? char2 : null);
+      if (c && playOv[c.id] != null) return playOv[c.id];
+      if (!spectate) return easy && side === charSide ? 1 : 0;
+      return (c && cfg.gmkCasual && cfg.gmkCasual[c.id]) ? 1 : 0;
     };
+    const PLAY_ZH = ["认真", "随手", "让着"];
     const talkers = [char, char2].filter(Boolean);
     const [board, setBoard] = useState(sv && sv.board ? sv.board : gmkEmpty());
     const [moves, setMoves] = useState(sv && sv.moves ? sv.moves : []);    // [{x,y,who}]
@@ -4847,7 +4855,7 @@
     useEffect(function () {
       if (winner) { clearGameSave("gomoku"); return; }
       if (!moves.length) return;
-      saveGameSnap("gomoku", { runId: runId.current, config: cfg, board: board, moves: moves, turn: turn, winner: 0, lines: lines.slice(-30), lastTalkAt: lastTalkAt.current, ts: Date.now(), label: "第 " + moves.length + " 手" });
+      saveGameSnap("gomoku", { runId: runId.current, config: cfg, board: board, moves: moves, turn: turn, winner: 0, lines: lines.slice(-30), playOv: playOv, lastTalkAt: lastTalkAt.current, ts: Date.now(), label: "第 " + moves.length + " 手" });
     }, [moves.length, winner, lines.length]);
 
     // TA 开口：一次只调一回模型，不挡着下棋。观战两个人时一回写两个人（各说一句或互相回嘴）
@@ -4859,7 +4867,7 @@
       const lastFew = ms.slice(-6).map(function (m) { return nameOfSide(m.who) + gmkCoord(m.x, m.y); }).join("、");
       const who = talkers.map(function (c) {
         const recent = (cfg.injectChat && props.recentChatFor) ? String(props.recentChatFor(c.id) || "").slice(-400) : "";
-        return "■ " + c.name + "（执" + (c === char ? sideZh(charSide) : sideZh(botSide)) + "，" + (casual(c === char ? charSide : botSide) ? "这局随手下" : "这局认真下") + "）\n【人设】" + String(c.persona || "（没写）").slice(0, talkers.length > 1 ? 900 : 1600) + (recent ? "\n【最近在聊】" + recent : "");
+        return "■ " + c.name + "（执" + (c === char ? sideZh(charSide) : sideZh(botSide)) + "，" + "现在" + PLAY_ZH[level(c === char ? charSide : botSide)] + "下" + "）\n【人设】" + String(c.persona || "（没写）").slice(0, talkers.length > 1 ? 900 : 1600) + (recent ? "\n【最近在聊】" + recent : "");
       }).join("\n\n");
       const scene = spectate
         ? (char2 ? cName + " 和 " + c2Name + " 在下五子棋，" + uName + " 在旁边看" : cName + " 在跟电脑下五子棋，" + uName + " 在旁边看")
@@ -4868,14 +4876,20 @@
         + "\n\n" + who
         + "\n\n【现在】第 " + ms.length + " 手。" + why + (lastFew ? "\n最近几手：" + lastFew : "")
         + "\n\n" + (talkers.length > 1 ? "两个人里真会开口的说一句，可以一个人说、也可以一来一回，最多三句。" : "说一句。")
-        + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\"}]}";
+        + "\n下法跟着你们自己的心思走：被激了、想赢了、心软了、想让 TA 高兴了，都可以换。真要换就在那个人那一条里加 play，填「认真」「随手」「让着」之一，从下一手起照这个下；不换就不写。"
+        + "\n只输出 JSON：{\"talks\":[{\"name\":\"说话的人\",\"text\":\"一句话\",\"play\":\"可选\"}]}";
       callRetry(api, sys, [{ role: "user", content: "说话。" }], { maxTokens: 8000, tag: "五子棋" }).then(function (raw) {
         const p = extractJSON(raw) || {};
         const list = (Array.isArray(p.talks) ? p.talks : (p.say ? [{ name: char && char.name, text: p.say }] : []))
           .map(function (x) {
             const c = talkers.find(function (q) { return x && (x.name === q.name || x.name === nmOf(q)); }) || (talkers.length === 1 ? talkers[0] : null);
-            return c && String((x && x.text) || "").trim() ? { id: c.id, name: nmOf(c), text: String(x.text).trim().slice(0, 200), at: Date.now() } : null;
+            const pl = c && x ? PLAY_ZH.indexOf(String(x.play || "").trim()) : -1;
+            return c && String((x && x.text) || "").trim() ? { id: c.id, name: nmOf(c), text: String(x.text).trim().slice(0, 200), at: Date.now(), play: pl } : null;
           }).filter(Boolean).slice(0, 3);
+        const ch = {};
+        list.forEach(function (l) { if (l.play >= 0) ch[l.id] = l.play; });
+        const notes = Object.keys(ch).map(function (id) { return nmOf(findC(id)) + "开始" + PLAY_ZH[ch[id]] + "下了"; });
+        if (notes.length) { setPlayOv(function (o) { return Object.assign({}, o, ch); }); setPlayNote(notes.join("，")); }
         if (list.length) setLines(function (L) { return L.concat(list); });
       }).catch(function () {}).then(function () { talkBusy.current = false; setTalking(false); });
     };
@@ -4910,7 +4924,7 @@
       if (winner) return;
       if (turn === userSide) return;
       const timer = setTimeout(function () {
-        const m = gmkBestMove(board, turn, casual(turn));
+        const m = gmkBestMove(board, turn, level(turn));
         if (m) place(m.x, m.y, turn);
       }, spectate ? 900 : 650);
       return function () { clearTimeout(timer); };
@@ -4974,6 +4988,7 @@
         boardSvg,
         spectate && !winner ? h("div", { style: { marginTop: 12 } }, heckleRow(t, heckle, setHeckle, sendHeckle, false)) : null,
         h("div", { "data-wk": "gomokustatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 12 } }, status),
+        playNote && !winner ? h("div", { "data-wk": "gomokuplay", style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, playNote) : null,
         !winner && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },
           h("button", { "data-wk": "gomokuundo", onClick: undo, disabled: moves.length < 2 || turn !== userSide, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: moves.length < 2 || turn !== userSide ? .5 : 1 } }, "悔一步")) : null,
         winner ? h("div", { style: { marginTop: 14 } },
