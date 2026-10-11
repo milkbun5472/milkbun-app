@@ -5,11 +5,25 @@
   function validate(value) {
     if (!value || typeof value !== "object") return null;
     const scene = catalog().find(s => s.id === value.scene);
-    return scene?.spots.some(s => s.id === value.spot) ? { scene: scene.id, spot: value.spot } : null;
+    return scene?.spots.some(s => s.id === value.spot) ? { scene: scene.id, spot: value.spot, ...(value.manual === true ? { manual: true } : {}) } : null;
   }
   function bindRow(row, source) {
     const next = { ...row, world: validate(source?.world) };
     if (row.deviation) next.deviation = { ...row.deviation, world: validate(source?.deviation?.world) };
+    return next;
+  }
+  // Calendar text edits and the day viewer share the same row edit semantics.
+  function editRow(row, patch) {
+    const next = { ...row, ...patch, edited: true };
+    const changed = key => Object.hasOwn(patch, key) && patch[key] !== (row[key] || "");
+    if (changed("title") || changed("location")) { delete next.world; delete next.deviation; }
+    if (changed("title")) delete next.type;
+    if (Object.hasOwn(patch, "world")) {
+      const link = validate(patch.world);
+      if (patch.world !== null && !link) return null;
+      if (link) next.world = { ...link, manual: true };
+      else { delete next.world; if (next.deviation) { next.deviation = { ...next.deviation }; delete next.deviation.world; } }
+    }
     return next;
   }
   // Only the day renderer consumes visual links. Human-facing readers get a projection.
@@ -125,6 +139,8 @@
     return at("dayHome", "rest");
   }
   function presentation(slot) {
+    const manual = validate(slot?.world);
+    if (manual?.manual) return { ...at(manual.scene, manual.spot), manual: true };
     const source = sourceFor(slot);
     if (source.type === "sleep" || /睡觉|就寝|入睡|上床|歇下/.test(String(source.title || ""))) return at("dayHome", "sleep");
     const link = validate(source.world);
@@ -143,5 +159,5 @@
     for(const [pattern,map]of venues)if(pattern.test(text))return map==='dayCafe'?(occupationLink(words,place,source.type)?.map||map):map;
     return null;
   }
-  root.CharDayLink = { validate, bindRow, publicRow, publicSchedules, instruction, schema, presentation };
+  root.CharDayLink = { validate, bindRow, editRow, publicRow, publicSchedules, instruction, schema, presentation };
 })(globalThis);

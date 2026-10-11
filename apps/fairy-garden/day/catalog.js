@@ -6,22 +6,27 @@
     "spots": [
       {
         "id": "sleep",
+        "label": "床上休息",
         "action": "sleep"
       },
       {
         "id": "meal",
+        "label": "餐桌吃饭",
         "action": "meal"
       },
       {
         "id": "tea",
+        "label": "沙发喝一杯",
         "action": "tea"
       },
       {
         "id": "rest",
+        "label": "沙发休息",
         "action": "rest"
       },
       {
         "id": "read",
+        "label": "沙发看书",
         "action": "read"
       },
       {
@@ -37,14 +42,17 @@
     "spots": [
       {
         "id": "work",
+        "label": "书桌前工作",
         "action": "work"
       },
       {
         "id": "read",
+        "label": "阅读桌前",
         "action": "read"
       },
       {
         "id": "rest",
+        "label": "沙发休息",
         "action": "rest"
       }
     ]
@@ -55,18 +63,22 @@
     "spots": [
       {
         "id": "meal",
+        "label": "餐桌吃饭",
         "action": "meal"
       },
       {
         "id": "tea",
+        "label": "窗边喝一杯",
         "action": "tea"
       },
       {
         "id": "rest",
+        "label": "窗边休息",
         "action": "rest"
       },
       {
         "id": "read",
+        "label": "窗边看书",
         "action": "read"
       }
     ]
@@ -77,10 +89,12 @@
     "spots": [
       {
         "id": "walk",
+        "label": "沿街散步",
         "action": "walk"
       },
       {
         "id": "rest",
+        "label": "长椅休息",
         "action": "rest"
       }
     ]

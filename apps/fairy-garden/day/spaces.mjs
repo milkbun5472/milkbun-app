@@ -1,6 +1,6 @@
-import {homeSize} from './home-architecture.mjs?v=fg-7853903769840d3d';
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-7853903769840d3d';
-import {MAPS,walkable} from '../world.mjs?v=fg-7853903769840d3d';
+import {homeSize} from './home-architecture.mjs?v=fg-b686638881ff0fde';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint} from './home-catalog.mjs?v=fg-b686638881ff0fde';
+import {MAPS,walkable} from '../world.mjs?v=fg-b686638881ff0fde';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
@@ -36,19 +36,19 @@ export const SPACE_DEFS={
  dayHome:{label:'你们的小家',w:14,d:11,pieces:HOME,structure:[{id:'bedroom-partition',x:-.8,z:-3.7,w:.14,d:3.4,h:1.55}],spawn:{x:0,z:4.8},zones:[{id:'bedroom',label:'双人卧室'},{id:'living',label:'起居室'},{id:'kitchen',label:'厨房与餐区'},{id:'free',label:'留给以后布置'}],
   anchors:homeAnchors(HOME,homeRoom({}))},
  dayWork:{label:'工作与学习空间',w:11,d:9,pieces:WORK,spawn:{x:0,z:3.9},anchors:[
-  {id:'work',action:'work',piece:'work-desk',approach:{x:1.85,z:.05},heading:-Math.PI/2},
-  {id:'read',action:'read',piece:'reading-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'rest',action:'rest',piece:'work-sofa',approach:{x:-1.85,z:.25},seat:true}
+  {id:'work',label:'书桌前工作',action:'work',piece:'work-desk',approach:{x:1.85,z:.05},heading:-Math.PI/2},
+  {id:'read',label:'阅读桌前',action:'read',piece:'reading-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'rest',label:'沙发休息',action:'rest',piece:'work-sofa',approach:{x:-1.85,z:.25},seat:true}
  ]},
  dayCafe:{label:'街角餐饮小店',w:10,d:9,pieces:CAFE,spawn:{x:0,z:3.9},anchors:[
-  {id:'meal',action:'meal',piece:'cafe-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'tea',action:'tea',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'rest',action:'rest',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
-  {id:'read',action:'read',piece:'window-chair',approach:{x:-.9,z:0},seat:true}
+  {id:'meal',label:'餐桌吃饭',action:'meal',piece:'cafe-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'tea',label:'窗边喝一杯',action:'tea',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'rest',label:'窗边休息',action:'rest',piece:'window-chair',approach:{x:-.9,z:0},seat:true},
+  {id:'read',label:'窗边看书',action:'read',piece:'window-chair',approach:{x:-.9,z:0},seat:true}
  ]},
  dayStreet:{label:'小街与散步处',w:16,d:11,pieces:STREET,outdoor:true,spawn:{x:0,z:4.6},anchors:[
-  {id:'walk',action:'walk',target:{x:0,z:0}},
-  {id:'rest',action:'rest',piece:'street-bench',approach:{x:1.9,z:.2},seat:true},
+  {id:'walk',label:'沿街散步',action:'walk',target:{x:0,z:0}},
+  {id:'rest',label:'长椅休息',action:'rest',piece:'street-bench',approach:{x:1.9,z:.2},seat:true},
  ],wander:[{x:0,z:0},{x:3,z:2.7},{x:-1.2,z:2.8},{x:5.3,z:1.4},{x:-2.8,z:-.6}]}
 };
 export function buildSpace(id,placements={}){

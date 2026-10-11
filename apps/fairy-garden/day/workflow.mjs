@@ -1,6 +1,6 @@
-import {errandsTaskAt} from './errands-workflow.mjs?v=fg-7853903769840d3d';
-import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-7853903769840d3d';
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-7853903769840d3d';
+import {errandsTaskAt} from './errands-workflow.mjs?v=fg-b686638881ff0fde';
+import {dailyTaskAt,DAILY_MOTIONS,DAILY_LABELS} from './daily-workflow.mjs?v=fg-b686638881ff0fde';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG,OCCUPATION_MOTIONS,occupationMotion,occupationTask,isOccupation} from './occupation-workflow.mjs?v=fg-b686638881ff0fde';
 // Visual phases read the original currentSlot; they never create or save schedule events.
 const FARM='dayFarm',FLEA='dayFleaMarket';
 const OFFICE='dayOffice',CAMPUS='dayCampus',LAB='dayLaboratory',LIB='dayLibrary',CLINIC='dayClinic',STUDIO='dayStudio',REHEARSAL='dayRehearsal',STATION='dayStation',GYM='dayGym',MARKET='dayMarket';
@@ -73,7 +73,7 @@ export function activityPhase(p,slot,at,{preview=false}={}){
  const motionFor=id=>occupationMotion(p.map,id,text)||(p.map===REHEARSAL&&['practice','mirror'].includes(id)&&/练舞|舞蹈|跳舞/.test(text)?'dance':workMotion(p.map,id));
  plain.motion=motionFor(p.spot);
  if(['dayHome','dayCafe','dayWork'].includes(p.map)&&DAILY_MOTIONS[p.action]){plain.motion=DAILY_MOTIONS[p.action];plain.phaseLabel=DAILY_LABELS[p.action];}
- if(!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
+ if(p.manual||!slot||preview||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt)||!Number.isFinite(at))return plain;
  if(!recipe)return dailyPhase(plain,slot,at);
  const span=(slot.endAt-slot.startAt)/60000,elapsed=(at-slot.startAt)/60000;
  if(span<=0||elapsed<0||elapsed>=span)return {...p,motion:null,carry:false};
