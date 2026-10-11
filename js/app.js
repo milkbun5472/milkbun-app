@@ -10879,7 +10879,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const forumMaskName = id => { const m = id ? (masks || []).find(x => x && x.id === id) : null; return (m && String(m.name || "").trim()) || (forumMe.handle || profile.name || "我"); };
   // 她的朋友圈谁刷得到（她 2026-10-09）：挑了「谁可以看」就照那个名单；没挑的话，是主面具的朋友圈——
   //   跟她用别的面具聊的人加的是另一个「她」，刷不到这一条。原来 TA 想起朋友圈时连「部分可见」的名单都没看
-  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === "");
+  // 按面具发朋友圈（她 2026-10-11）：m.mask 是这条用哪张面具发的（主面具不记）。没挑「谁可以看」时，跟她用同一张面具聊的人刷得到
+  const momSeen = (m, charId) => !!m && !!m.mine && (m.visibleTo && m.visibleTo.length ? m.visibleTo.includes(charId) : maskKeyOf(charId) === String(m.mask || ""));
+  // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
+  window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
+    .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
   const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
   // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
   const forumMaskNote = (x, pool) => {
@@ -21219,6 +21223,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 在谁的朋友圈下面说话，就用 TA 认的那张面具上的名字（群友 2026-10-11：「朋友圈回复只能按主面具的名字吗」）。
   //   自己发的那条、或者认不出发帖人，还是主面具。跟聊天里 profileFor 是同一张对照，不另存一份。
   const momentMeName = mom => {
+    if (mom && mom.mine && mom.mask) { const mk = (masks || []).find(x => x && x.id === mom.mask); if (mk && String(mk.name || "").trim()) return String(mk.name).trim(); }
     const a = mom && mom.characterId && characters.find(c => c.id === mom.characterId);
     return (a && (profileFor(a.id) || {}).name) || profile.name || "我";
   };
@@ -21269,7 +21274,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     content,
     image,
     visibleTo,
-    poll
+    poll,
+    mask
   }) => {
     const id = "m_" + Date.now();
     const mom = {
@@ -21278,6 +21284,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       content,
       image: image || null,
       visibleTo: visibleTo || null,
+      mask: mask && mask !== maskPrimary && (masks || []).some(m => m && m.id === mask) ? mask : undefined,
       poll: poll && Array.isArray(poll.options) && poll.options.length >= 2 ? { options: poll.options.slice(0, 4), votes: {} } : null,
       ts: Date.now(),
       liked: false,
@@ -21298,7 +21305,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       moment: true
     }));
     try {
-      const meName = userName(profile);
+      const meName = mom.mask ? momentMeName(mom) : userName(profile);   // 用哪张面具发的，评论区就认哪个名字
       const lines = canSee.map(c => {
         const aff = Math.round(affOf(c.id));
         const md = moods[c.id] && moods[c.id].label ? moods[c.id].label : "平静";
