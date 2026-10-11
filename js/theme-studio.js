@@ -839,7 +839,9 @@
       blocks.push("/* zoom " + page + " */\n"
         + (page === "all" ? 'html:not([data-lisa-screen="home"]) body' : 'html[data-lisa-screen="' + page + '"] body') + "{zoom:" + z + ";width:calc(100vw / " + z + ");height:calc(100vh / " + z + ");}"
         // #root 自己也写着 100vh（index.html），它在缩过的 body 里面，一样要除回去，不然底下还空一截（她 2026-10-11 截图）
-        + (page === "all" ? 'html:not([data-lisa-screen="home"]) #root' : 'html[data-lisa-screen="' + page + '"] #root') + "{height:calc(100vh / " + z + ");}");
+        // app.js 那层 [data-wk="app"] 也内联写着 height:100vh（她 2026-10-11 第二张截图：#root 补了底下还空一截），内联的要 !important 才压得住
+        + (page === "all" ? 'html:not([data-lisa-screen="home"]) #root' : 'html[data-lisa-screen="' + page + '"] #root') + "{height:calc(100vh / " + z + ");}"
+        + (page === "all" ? 'html:not([data-lisa-screen="home"]) [data-wk="app"]' : 'html[data-lisa-screen="' + page + '"] [data-wk="app"]') + "{height:calc(100vh / " + z + ") !important;}");
     });
     Object.entries(p.pageCSS || {}).forEach(([page, css]) => {
       if (!css || page === "all") return;
