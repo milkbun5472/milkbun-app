@@ -1462,14 +1462,15 @@ function useKbLift() {
 // 在 Safari 浏览器里直接开（不是加到主屏幕）时，聊天页底部被键盘那排「⌃ ⌄ ✓」压住（群友 2026-10-11）。
 //   病根在根节点的 100vh（量到的是工具栏和键盘后面那一截），可根节点不许动（施工规则/home-screen-layout.md），
 //   所以只在聊天页自己身上补：键盘弹起时，量出聊天页底边比看得见的区域多出多少，就在底下垫多少，
-//   输入栏连同引用条一起被顶到键盘上面。主屏幕模式一律不垫（那边她调好了，原样不动）。
+//   输入栏连同引用条一起被顶到键盘上面。主屏幕模式也一样，只是那边多数时候 iOS 自己推好了，量出来是 0 就不垫。
 //   直接写 DOM 的 paddingBottom，不进 React 的 style——两个聊天页的 style 各自按壁纸分支拼，不去碰它们。
 function useBrowserKbPad() {
   const ref = useRef(null);
   useEffect(() => {
     const vv = window.visualViewport;
-    const standalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
-    if (!vv || standalone) return;
+    // 主屏幕模式也挂上（她 2026-10-11：「她应该也是桌面图标，有时我也会这样」）：iOS 有时没把页面推上来，
+    //   输入栏照样压在「⌃ ⌄ ✓」后面。这里只在【真的被压住】时才垫（over > 0）；推得好好的那几次一个像素都不动。
+    if (!vv) return;
     const put = () => {
       const el = ref.current; if (!el) return;
       const kbOpen = window.innerHeight - vv.height > KB_MIN_PX;
