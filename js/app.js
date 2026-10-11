@@ -12795,7 +12795,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //    中译挂在拆出来的【最后一泡】上，长外语句该拆还是拆（她 2026-08-15「别整段砸」）。
       const _biZh = new Map();
       // 中译另起一行的那种先接回去（群里同一个函数）
-      if (_bilingualOn) words = joinBilingualLines(words);
+      if (_bilingualOn) words = joinBilingualLines(words, hanLangOf(char));
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
@@ -14888,7 +14888,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
-            const gLines = (gBiOn ? joinBilingualLines : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
+            const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk))) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;

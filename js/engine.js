@@ -6832,14 +6832,39 @@ function splitBilingual(text, hanLang) {
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
-function joinBilingualLines(lines) {
-  return (lines || []).reduce((acc, x) => {
+function joinBilingualLines(lines, hanLang) {
+  const joined = (lines || []).reduce((acc, x) => {
     const line = String(x == null ? "" : x);
     const prev = acc.length ? acc[acc.length - 1] : null;
     if (prev != null && /^\s*\|/.test(line) && prev.indexOf("|") < 0) acc[acc.length - 1] = prev + " " + line.trim();
     else acc.push(line);
     return acc;
   }, []);
+  if (!hanLang) return joined;
+  // 粤语这类用汉字写的话（她 2026-10-11 截图）：模型把几句粤语各占一行，竖线只在其中一行，
+  //   中译也分几行跟在后面——「聽日…頭像」换行「我就話…換嘅 | 明天…头像」换行「我就说…换的」。
+  //   按换行切完，第一句粤语没译文、两句中译错一位，第三行中译自己成了一泡；
+  //   「换就换，…委屈巴巴 | 换就换」换行「洗完澡出来…」也是中译被换行劈成两半。
+  //   所以竖线那一行前后落单的行要认回来：前面落单的是原文、后面落单的是中译，
+  //   两边一样多就一句对一句重新配；中译比原文多出来的那几行接回最后那条的中译后面。
+  //   认原文靠粤语专用字或繁体字，中译是简体普通话——两样都没有的才算中译。
+  const yue = x => /[嘅咗唔啲喺嗰冇佢嚟咁乜嘢噉哋囉㗎嘞啱揾搵睇畀咩攰瞓諗谂嚿冚啩喎嗮晒噃咪嘥個這們說話來時會對過還點樣聽開貓亂換屋企]/.test(x);
+  const out = [];
+  for (let k = 0; k < joined.length; k++) {
+    const line = joined[k];
+    const bar = line.indexOf("|");
+    if (bar <= 0 || bar !== line.lastIndexOf("|")) { out.push(line); continue; }
+    const pre = [];
+    while (out.length && out[out.length - 1].indexOf("|") < 0 && yue(out[out.length - 1])) pre.unshift(out.pop());
+    const post = [];
+    while (k + 1 < joined.length && joined[k + 1].indexOf("|") < 0 && !yue(joined[k + 1]) && /[\u4e00-\u9fff]/.test(joined[k + 1])) post.push(joined[++k].trim());
+    const origs = pre.map(x => x.trim()).concat([line.slice(0, bar).trim()]);
+    const zhs = [line.slice(bar + 1).trim()].concat(post);
+    if (origs.length === zhs.length) origs.forEach((o, n) => out.push(o + " | " + zhs[n]));
+    else if (origs.length === 1) out.push(origs[0] + " | " + zhs.join(""));
+    else { pre.forEach(x => out.push(x)); out.push(origs[origs.length - 1] + " | " + zhs.join("")); }
+  }
+  return out;
 }
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。
