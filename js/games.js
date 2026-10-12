@@ -384,6 +384,7 @@
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
+        sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
         keepGameMemory: function (ids, text) {
           const room = (session.config && session.config.room) || session.room || null;
           return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
@@ -2652,6 +2653,15 @@
             toast("战报发给了 " + todo.length + " 个人");
           }, className: "active:opacity-70",
           style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "1px solid " + t.ink } }, "全发") : null,
+        // 发给群（她 2026-10-12：「还有可以发给群」）：群里大家一起看到这张战报卡，不跳走
+        (host.sendGameReportGroup && host.reportGroups || []).map(function (g) {
+          const k = "g:" + g.id;
+          return h("button", { key: k, "data-wk": "gamereportgroup", "data-on": sent[k] ? "1" : "0", onClick: function () {
+              if (sent[k]) return;
+              host.sendGameReportGroup(g.id, rep); setSent(Object.assign({}, sent, { [k]: true })); toast("战报发到群「" + g.name + "」了");
+            }, className: "active:opacity-70",
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: sent[k] ? t.fog : t.ink, background: t.bg2, border: "1px dashed " + t.line } }, (sent[k] ? "✓ " : "") + "群 · " + g.name);
+        }),
         ids.map(function (id) {
           const nm = nameOf(id); if (!nm) return null;
           return h("button", { key: id, "data-on": sent[id] ? "1" : "0", onClick: function () {

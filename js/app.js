@@ -29904,6 +29904,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
     // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
     // 战报发给 TA（她 2026-10-11）：她发的一条小卡进聊天，content 留整段字——模型读历史读的是它；然后直接进那个聊天
+    // 战报也能发到群（她 2026-10-12）：她在里面的群，旁观群不算
+    reportGroups: (groups || []).filter(g => g && imInGroup(g) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊" })),
+    sendGameReportGroup: (gid, rep) => {
+      if (!gid || !rep) return;
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300)
+        + (rep.stake ? "\n开局说好的彩头：" + String(rep.stake).slice(0, 40) : "");
+      pushGroupRich(gid, { role: "user", kind: "gameshare", content: body, read: true,
+        game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: false,
+          stake: rep.stake ? String(rep.stake).slice(0, 40) : "", owes: "" } });
+    },
     sendGameReport: (charId, rep, noOpen) => {
       if (!charId || !rep || !characters.some(c => c.id === charId)) return;
       const taWin = (rep.wins || []).indexOf(charId) >= 0;
