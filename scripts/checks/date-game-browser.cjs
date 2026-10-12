@@ -89,6 +89,7 @@ const server = http.createServer((req, res) => {
     }
     assert.deepEqual(await page.evaluate(() => loadJSON("x_dateTestMainline")), { memory: "不改这一条", affinity: 17 });
     assert.ok((await page.evaluate(() => dateSaveCalls)).filter(k => k === "x_gamesSave").length >= 12);
+    await page.evaluate(() => mountDate(true)); await root.locator('[data-part=result]').waitFor(); await page.screenshot({ path: path.join(evidence, "result-dark.png") });
     // Full page reload verifies IndexedDB, rather than the component's live state.
     await page.waitForTimeout(300); await page.reload({ waitUntil: "domcontentloaded" }); await page.waitForFunction(() => window.txtVaultState?.().done);
     assert.deepEqual(await page.evaluate(() => loadJSON("x_gamesSave", {}).date.state), snap);
