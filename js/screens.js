@@ -9084,7 +9084,10 @@ function ImageApiConfig({ toast }) {
       const prompt = testRef
         ? "Edit the attached portrait into a simple studio photo with a plain warm-gray background. Keep the person in the photo looking the same: face, features, hairstyle and overall appearance. Normal clothing, neutral expression, no text."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 180000, budgetMs: 190000, size: "1024x1024", preferLegacy: true, singleShot: true,
+      // 尺寸、等多久都跟聊天里拍照一样（群友 2026-10-12：「api 测试成功，线上生图一直失败」）。
+      //   原来测试写死 1024×1024、等 3 分钟，聊天里却是这一站设的尺寸（默认竖 1024×1536）、等 2 分多钟——
+      //   不收竖图的站、慢一点的站，测试过得去、聊天里次次失败，测试就成了假的。
+      const out = await generateSelfieImage(prompt, testRef, { singleShot: true,
         // 测的是【正在编辑的这一站】（含还没保存的改动），不是主用那一站
         api: Object.assign({}, c, { enabled: true }, typeof fieldOverride === "string" ? { refFieldMode: fieldOverride } : {}) });   // 测试不看「启用」开关：没开也能先试
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
