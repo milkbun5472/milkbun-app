@@ -73,7 +73,7 @@ test("粤语：落单的原文和中译按句重新配对，中译被换行劈�
 
 // 她 2026-10-11：「档案里用粤语的角色强制出翻译」——漏了竖线的那几泡单聊、群聊都自己补中译，只走免费翻译
 test("粤语角色漏了竖线：单聊群聊都补中译，不叫模型", () => {
-  assert.match(app, /const _yueFill = _biParse && hanLangOf\(char\)/);
+  assert.match(app, /const _yueFill = _biParse && (hanLangOf\(char\)|\(_bilingualOn \|\| _foreignTalker \|\| hanLangOf\(char\)\))/);
   assert.match(app, /const _gYueFill = gBiOn && hanLangOf\(spk\)/);
   assert.equal((app.match(/translateToZh\(w, lg, \{ noModel: true \}\)/g) || []).length, 2);
   // 认得宽一点：只有繁体、一个粤语字都没有的那种也要补（「換就換，洗完澡…」）
