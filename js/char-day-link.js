@@ -162,6 +162,10 @@
     if (type === "meal" || /吃饭|用膳|用餐|进餐|早餐|午餐|晚餐|早饭|午饭|晚饭/.test(words)) return at(campus ? "dayCampus" : dining, "meal");
     if (type === "coffee" || /喝茶|饮茶|品茶|喝咖啡|喝水|饮水|红茶|绿茶|热茶/.test(words)) return office ? at("dayOffice", "tea") : at(!home && /健身房|运动馆|健身中心/.test(text) ? "dayGym" : dining, !home && /健身房|运动馆|健身中心/.test(text) ? "water" : "tea");
     if (outside && /买|挑|吃|歇脚|面包|蛋糕|肉桂卷/.test(words)) return at("dayCafe", /歇脚|休息/.test(words) ? "rest" : "meal");
+    if (home) {
+      const hobby=Object.entries(root.CharDayHomeHobbies?.activities||{}).find(([,p])=>new RegExp(p.likes).test(words));
+      if(hobby)return at("dayHome",hobby[0]);
+    }
     if (!home) {
       if (/健身房|运动馆|健身中心/.test(text)) return at("dayGym", /离开|结束/.test(words) ? "exit" : /喝水|补水/.test(words) ? "water" : /休息|歇会/.test(words) ? "rest" : /储物|换衣|存包/.test(words) ? "storage" : /哑铃|力量|举铁/.test(words) ? "weights" : /拉伸|热身|舒展/.test(words) ? "stretch" : "treadmill");
       if (/超市|便利店|生鲜店/.test(text)) return at("dayMarket", /离开|走出/.test(words) ? "exit" : /收银|值班|上班|工作/.test(words) ? "cashier" : /装袋|整理.*袋/.test(words) ? "packing" : /结账|付款/.test(words) ? "checkout" : /购物篮|拿篮/.test(words) ? "basket" : /冷藏|冷柜|牛奶|酸奶/.test(words) ? "cold" : /日用品|货架|洗漱|纸巾/.test(words) ? "groceries" : "produce");
@@ -246,22 +250,23 @@
   ];
   function idleLikes(persona) {
     const text = String(persona || "");
-    return IDLE_LIKES.filter(([, re]) => {
+    return IDLE_LIKES.concat(Object.entries(root.CharDayHomeHobbies?.activities||{}).map(([kind,p])=>[kind,new RegExp(p.likes)])).filter(([, re]) => {
       const g = new RegExp(re.source, "g"); let m;
-      while ((m = g.exec(text))) if (!/(不|讨厌|厌烦|没兴趣|不喜欢|不爱|很少)$/.test(text.slice(Math.max(0, m.index - 4), m.index))) return true;
+      while ((m = g.exec(text))) if (!/(不|讨厌|厌烦|没兴趣|不喜欢|不爱|很少)(?:去|练|弹|画|做|喝)?$/.test(text.slice(Math.max(0, m.index - 8), m.index))) return true;
       return false;
     }).map(([spot]) => spot);
   }
-  function idlePresentation(atTime, minute, seed = "", likes = []) {
+  function idlePresentation(atTime, minute, seed = "", likes = [], homePlacements = {}) {
     if (idleNight(minute)) return at("dayHome", "sleep");
-    const pool = IDLE_SPOTS.concat(...(likes || []).filter(x => ["read", "tea", "cook", "rest"].includes(x)).map(x => [x, x, x]));
+    const available=["read", "tea", "cook", "rest",...(root.CharDayHomeHobbies?.available(homePlacements)||[])];
+    const pool = IDLE_SPOTS.concat(...(likes || []).filter(x => available.includes(x)).map(x => [x, x, x]));
     let n = Math.floor(Number(atTime) / 3600000) >>> 0;
     for (const ch of String(seed)) n = (Math.imul(n, 31) + ch.charCodeAt(0)) >>> 0;
     return at("dayHome", pool[n % pool.length]);
   }
   function idleLabel(minute) { return idleNight(minute) ? "在家睡着" : "在家歇着"; }
-  function resolve(slot, atTime = null, { preview = false, minute = null, seed = "", likes = [] } = {}) {
-    if (!slot && atTime != null && Number.isFinite(Number(atTime))) return { presentation: idlePresentation(atTime, minute, seed, likes), activitySlot: null, stages: [] };
+  function resolve(slot, atTime = null, { preview = false, minute = null, seed = "", likes = [], homePlacements = {} } = {}) {
+    if (!slot && atTime != null && Number.isFinite(Number(atTime))) return { presentation: idlePresentation(atTime, minute, seed, likes, homePlacements), activitySlot: null, stages: [] };
     const source = sourceFor(slot), stages = stagesFor(slot);
     const plain = () => ({ presentation: singlePresentation(slot), activitySlot: slot, stages: [] });
     if (!stages.length) return plain();

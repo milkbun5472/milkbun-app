@@ -1,10 +1,10 @@
-import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-6ebea76690db78f8';
-import {homeSurface} from './home-surfaces.mjs?v=fg-6ebea76690db78f8';
-import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-6ebea76690db78f8';
-import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-6ebea76690db78f8';
+import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-ab8076f3b07a3f6c';
+import {homeSurface} from './home-surfaces.mjs?v=fg-ab8076f3b07a3f6c';
+import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-ab8076f3b07a3f6c';
+import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
 
-import {homeSize} from './home-architecture.mjs?v=fg-6ebea76690db78f8';
-import {createBathroomShell} from './bathroom-kit.mjs?v=fg-6ebea76690db78f8';
+import {homeSize} from './home-architecture.mjs?v=fg-ab8076f3b07a3f6c';
+import {createBathroomShell} from './bathroom-kit.mjs?v=fg-ab8076f3b07a3f6c';
 // All raised pieces sit on the boundary or the partition footprint. The actual
 // walking plane, furniture positions and doorway remain the saved map's .08.
 export function createHomeShell(k,map,p){
