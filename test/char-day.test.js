@@ -362,3 +362,21 @@ test('此刻卡能完全收成一条线，点线再回来',()=>{
   viewer.click(tree,'展开此刻卡片');tree=viewer.render();
   assert.ok(card(tree),'点细线卡片回来');
 });
+
+test('今天的小相册：更多里能进，没拍时给「拍今天」，配念头一次调用、料走 ctxFor、上限给足',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'今天的小相册');tree=viewer.render();
+  const heads=viewer.all(tree).filter(n=>n.tag==='Head').map(n=>n.props.zh);assert.ok(heads.includes('今天的小相册'),heads.join(','));
+  const btns=viewer.all(tree).filter(n=>n.tag==='button').map(n=>n.children.filter(c=>typeof c==='string').join(''));assert.ok(btns.includes('拍今天'),btns.join('|'));
+  const app=read('js/app.js'),i=app.indexOf('generateDiary: (c, photos, identity) =>'),seg=app.slice(i,i+900);assert.ok(i>0);
+  assert.match(seg,/ctxFor\(c,/);assert.match(seg,/maxTokens:65000/);assert.match(seg,/albumInstruction\(photos\)/);
+  const scene=read('apps/fairy-garden/day/scene.mjs');assert.match(scene,/function captureSolo\(\)\{/);assert.match(scene,/capturePhoto,captureSolo,/);
+  const day=read('js/char-day.js');assert.match(day,/commitJSONDurable\("x_charDayAlbums",next\)/);assert.match(day,/slice\(-7\)/);
+});
+
+test('拍小相册时场景直接站到每一段的位置，不先走出门、不从门口走进来',()=>{
+  const scene=read('apps/fairy-garden/day/scene.mjs'),day=read('js/char-day.js');
+  assert.match(scene,/else if\(data\.albumShot&&map&&map!==needed&&!changing\)\{enter\(needed,token\);\}/);
+  assert.match(scene,/else if\(\(initial\|\|snapshot\.albumShot\)&&\(snapshot\.presentation\.action==='sleep'\|\|snapshot\.albumShot\|\|/);
+  assert.match(day,/albumShot: !!albumShoot,/);
+});

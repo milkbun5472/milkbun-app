@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.491";
+const APP_VERSION = "v75.494";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -29921,6 +29921,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
           return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'此刻的念头',
             instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
+        } finally {if(W)W.active=active;}
+      },
+      // 今天的小相册：一次调用给每张照片配念头；料与「此刻的念头」同一套 ctxFor，指令里只有照片的时间/安排/地点。
+      generateDiary: (c, photos, identity) => {
+        const W=window.__vclock,active=W?.active;
+        try {
+          const text=(identity?.messages||[]).slice(-40).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
+          const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
+          return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'今天的小相册',
+            instruction:window.CharDayThoughts.albumInstruction(photos),schemaHint:'{"thoughts":["按照片顺序，每张一条念头"]}'});
         } finally {if(W)W.active=active;}
       },
       taFor: c => CharacterPronoun.ta(c),
