@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-baeef0ae0666b09c';
-import {computer,cabinet} from './work-room-kit.mjs?v=fg-baeef0ae0666b09c';
-import {cameraRig,microphone} from './media-kit.mjs?v=fg-baeef0ae0666b09c';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-7c1927d8a5b41b2d';
+import {computer,cabinet} from './work-room-kit.mjs?v=fg-7c1927d8a5b41b2d';
+import {cameraRig,microphone} from './media-kit.mjs?v=fg-7c1927d8a5b41b2d';
 const FLOOR=.08,SIZE={w:14,d:12};
 const furniture=[
  {id:'record-mic',kind:'equipment',x:-4.65,z:-4.26,w:.47,d:.47},
