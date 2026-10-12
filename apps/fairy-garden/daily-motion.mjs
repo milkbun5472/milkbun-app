@@ -23,6 +23,6 @@ export function dailyHandTargets(model,head,task,pose){
   const rimOffset=new T.Vector3(-.056,.044,.014).applyEuler(new T.Euler(-pose.sip*.3,0,0)).multiply(scale).applyQuaternion(model.getWorldQuaternion(new T.Quaternion()));
   return {reach:1,target:point(.56,-1.8,1.1).lerp(mouth.clone().sub(rimOffset),pose.sip),mouth};
  }
- if(task.kind==='eat')return {reach:1,leftTarget:point(-.24,-1.85,1.03),target:point(.38,-1.52,1.18).lerp(mouth.clone().addScaledVector(front,.20*scale.z),pose.bite),mouth};
+ if(task.kind==='eat')return {reach:1,leftTarget:point(-.80,-1.95,1.20),target:point(.38,-1.52,1.18).lerp(mouth.clone().addScaledVector(front,.20*scale.z),pose.bite),mouth};
  return {};
 }

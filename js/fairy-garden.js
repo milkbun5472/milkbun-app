@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-9692b603f5acb5d8", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-bcd60aa56897bb1f", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -793,8 +793,8 @@
   async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false, engineer=false }) {
     // 真身票优先（她 2026-09-25「座位这种得你自己来」）：言秋同行时先开 CC 票请本人接话，
     // 不在岗/超时才落引擎兜底——同 trpg「队友宣言」先例，她永远有回音。
-    const train=world?.map==="carriage",pets=world?.map==="pet-home",setting=pets?worldCognition('pets'):'';
-    if (engineer && root.CCSeat && root.Cloud) {
+    const kitchen=world?.map==='day-kitchen',train=world?.map==="carriage",pets=world?.map==="pet-home",setting=pets?worldCognition('pets'):'';
+    if (engineer && !kitchen && root.CCSeat && root.Cloud) {
       // 自动闲聊（event=游戏每45秒的搭话）不开真身票：真身只接她亲口说的话——
       // 否则每张票占线一两分钟，把拼图桌的发送锁攥死（她 9/26 首航实测「发不出来」）。
       if (event) return { reply: [] };
@@ -814,7 +814,13 @@
     }
     if (!active) throw new Error("先在设置里配置创作线路，再来和角色说话。");
     const style = sharedStyle();
-    const sys = [style,
+    // Lisa requested a separate kitchen tab. Its transcript and facts are independent;
+    // full character/profile and the common style remain, with no main-thread read or write.
+    const sys = kitchen ? [style,roleContext(character,profile,'','你们正在共同的小家里做饭或吃饭。这里是单独的厨房对话。'),
+      '【眼前的厨房事实】\n'+JSON.stringify(world),
+      '【厨房里最近的对话】\n'+history.map(m=>(m.role==='user'?userName(profile):character.name)+'：'+m.content).join('\n'),
+      '你以自己的身份接对方这句话，语气和内容从完整人设与眼前的事情自然生长。共同做过什么以厨房事实和这份对话为准；程序负责切菜、火候与动作，回复可以表达你的想法和意愿。',
+      '只输出JSON：{"reply":["本轮说的话，按意思分成气泡"]}。'].join('\n\n') : [style,
       roleContext(character, profile, mainline, setting),
       pets ? "【家里的宠物与日常】pets列出这一个家里每只宠物的稳定id、名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。activePetId表示对方当前选中的宠物，pet/career/home是它的资料；pets中每只都有自己的相处记录与职业，照料动作的petId取实际想照料的那只id。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。home.parcels.waiting是尚未拆开的真实袋子，carrying仍在带回或找地方放，placed已经放好；opened才是实际拆出并入库的东西。宠物的小反应以当前照料任务和实际完成的小事为准，准备去闻或准备吃仍未完成。social是这个家里宠物之间的实际相处记录；pending仍在走过去或等待，recent才是已经发生的共同小事，pairs按两只稳定id记录看窗、递球和纸箱旁等待。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。pets各自的place/town和companion.place/town表示实际所在地点与闲时路线，可能分别在家、街区或不同店里；companion.visible表示对方在当前地点能否看见你。together为这次真实结伴的安排；mode为walk时，对方和你在一起遛宠物，travel仍在出门，walk沿街走，pause路边歇歇，play停下来互动，notice陪它看路边的小事，wipe在实际回家后擦爪，home一起回家。street.phase为approach还在走过去，doing才在实际陪伴；walkHabits是这只宠物实际形成的常去位置和完成小事，livingPhotos是这一档实际拍下的照片信息，图片不送入模型。domestic包含它自己持续留着的小心愿、真实生日与领养纪念日、料理安排、已经做好但尚未吃完的点心、实际口味与赠礼记忆。wish是想法，paused只是暂时搁置；task仍在准备，serving仍在等它实际吃完，memories才是已经完成的小事。原料和物件归各自宠物所有，未完成不编造成往事。尚未完成按当下的准备与途中理解。you.outWalking和walkActivity表示对方此刻是否同行及实际阶段。you.place是对方此刻所在的地方，you.with是对方正跟着的那只宠物；sameRoomAsCompanion为false时你们不在同一处，是隔着各自的地方在说话，你看不到对方眼前的场面，对方眼前发生什么以you和pets里的实际地点为准。job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。这里的往事与其他经历沿这间房准许的上下文承接。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
@@ -830,7 +836,7 @@
       + "想说几条由你，短就一条；动作描写跟着它所属的那一句走，别单独攒成一条。"
       + "本轮只选择一个能落实的动作，其余内容可以继续聊天。"
     ].join("\n\n");
-    const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65000, timeout: 180000, tag: "微光庭院" });
+    const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65000, timeout: 180000, tag: kitchen?"小家厨房":"微光庭院" });
     const out = normalizeReply(raw);
     if(pets){const a=extractJSON(raw)?.action;out.workChoice=petWorkChoice(a,world);out.petAction=["feed","play","pet","snack"].includes(a?.kind)?a.kind:null;out.petId=typeof a?.petId==="string"?a.petId:null;}
     if (train) { const o = extractJSON(raw), a = o && o.action; if (a && a.kind === "move" && ["seat", "stand", "rack", "berth"].includes(a.target)) out.move = a.target; }
@@ -2391,7 +2397,7 @@
     const refresh = () => setSaves(readSaves());
     // openId 存的是【整把钥匙】，不是 id：房间那种键拼不回来（见 readSaves 的注释）
     // The mainline schedule viewer has no journey archive and never boards the game railway.
-    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), characters: props.characters, build: BUILD, appearanceSaves:readSaves().map(row=>({id:row.id,name:row.name,key:saveKeyOf(row)})), readAppearance:key=>worldOf(loadJSON(key,null)||{},"garden")?.look||null, onBack: () => setWorld(null) });
+    if (world?.id === "day") return h(root.CharDayApp, { ...(props.day || {}), profile:props.profile,apiFor:props.apiFor,active:props.active,characters: props.characters, build: BUILD, appearanceSaves:readSaves().map(row=>({id:row.id,name:row.name,key:saveKeyOf(row)})), readAppearance:key=>worldOf(loadJSON(key,null)||{},"garden")?.look||null, onBack: () => setWorld(null) });
     if (openId) return h(WorldSession, Object.assign({}, props, {
       key: openId, storeKey: openId, startSolo: openSolo, entryWorld:world.id,
       onChooseSave: () => { setOpenId(null); setOpenSolo(false); refresh(); },

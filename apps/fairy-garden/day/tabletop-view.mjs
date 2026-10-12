@@ -1,10 +1,10 @@
 import * as T from 'three';
-import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-9692b603f5acb5d8';
+import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-bcd60aa56897bb1f';
 export function createTabletopView(parent,job){
  const K=globalThis.CharDayKitchen,Z=K.TABLE_ZONES,root=new T.Group();root.name='KitchenTabletop';parent.add(root);let itemRoot=new T.Group(),plateRoot=null,key='',targets=[],baseTargets=[],preview=null;
  root.add(itemRoot);
  const mesh=(geo,color,x,y,z,name,tag)=>{const m=new T.Mesh(geo,new T.MeshStandardMaterial({color,roughness:.84}));m.position.set(x,y,z);m.name=name;m.castShadow=m.receiveShadow=true;if(tag)m.userData.tabletop=tag;root.add(m);return m;};
- mesh(new T.BoxGeometry(Z.basket.w,.09,Z.basket.d),'#c6b58b',Z.basket.x,Z.basket.y-.045,Z.basket.z,'IngredientBasket');
+ mesh(new T.BoxGeometry(Z.basket.w,.09,Z.basket.d),'#c6b58b',Z.basket.x,Z.basket.y-.045,Z.basket.z,'IngredientBasket',{type:'basket',zone:'basket'});
  for(const [x,z,w,d]of [[Z.basket.x-Z.basket.w/2,Z.basket.z,.035,Z.basket.d],[Z.basket.x+Z.basket.w/2,Z.basket.z,.035,Z.basket.d],[Z.basket.x,Z.basket.z-Z.basket.d/2,Z.basket.w,.035],[Z.basket.x,Z.basket.z+Z.basket.d/2,Z.basket.w,.035]])mesh(new T.BoxGeometry(w,.10,d),'#baa37e',x,Z.basket.y,z,'BasketEdge');
  mesh(new T.BoxGeometry(Z.tray.w,.018,Z.tray.d),'#a3b298',Z.tray.x,Z.tray.y-.01,Z.tray.z,'ServingTray',{type:'tray',zone:'tray'});
  const knife=mesh(new T.BoxGeometry(.035,.015,.23),'#c7c9bd',Z.board.x-.28,Z.board.y+.035,Z.board.z-.09,'CookingKnife',{type:'knife',zone:'board'});const knifeHandle=mesh(new T.BoxGeometry(.04,.03,.095),'#927653',knife.position.x,knife.position.y,knife.position.z+.16,'KnifeHandle',{type:'knife',zone:'board'});

@@ -1,5 +1,5 @@
-import {createNavigator,segmentIntersectsRect} from '../../apps/fairy-garden/navigation.mjs?v=fg-9692b603f5acb5d8';
-import {clearActorSegment} from '../../apps/pets/actor-spacing.mjs?v=fg-9692b603f5acb5d8';
+import {createNavigator,segmentIntersectsRect} from '../../apps/fairy-garden/navigation.mjs?v=fg-bcd60aa56897bb1f';
+import {clearActorSegment} from '../../apps/pets/actor-spacing.mjs?v=fg-bcd60aa56897bb1f';
 const distance=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 export function createPetWorld(layout){
  const padding=.25;

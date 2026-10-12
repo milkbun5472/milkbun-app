@@ -75,7 +75,7 @@
  function tableReady(item,method){return method==='mix'?item.mix>=1.25:method==='fry'?Math.min(item.top,item.bottom)>=.65:(item.top+item.bottom)/2>=.78;}
  function inTableZone(point,id){const q=TABLE_ZONES[id];return q.r?Math.hypot(point.x-q.x,point.z-q.z)<=q.r+.035:Math.abs(point.x-q.x)<=q.w/2+.03&&Math.abs(point.z-q.z)<=q.d/2+.03;}
  function tablePhase(t,method){if(t.sealed&&t.items.length)return 3;if(t.items.some(p=>['basket','board'].includes(p.zone)))return 0;return t.items.some(p=>p.zone==='pan'&&!tableReady(p,method))?1:2;}
- function tableHint(t,method){const i=tablePhase(t,method);return i===3?'这一盘摆好了':i===0?'把食材拖到案板；拿小刀划开，分批下锅':i===1?method==='mix'?'拿起小勺，在碗里绕圈拌匀':method==='fry'?'拖锅柄向上翻面，转炉灶旋钮调火':/boil|bake|steam|brew/.test(method)?'慢慢等它熟，也可以先去忙别的':'拿起小勺，在锅里绕圈翻动，转炉灶旋钮调火':t.items.every(p=>p.zone==='plate')?'摆好位置，拖酱瓶淋酱，再把盘子拖到托盘':'把熟好的食材拖到盘子里';}
+ function tableHint(t,method){const i=tablePhase(t,method);return i===3?'这一盘摆好了':i===0?'点道具放大操作，把食材放上砧板后划切、分批下锅':i===1?method==='mix'?'拿起小勺，在碗里绕圈拌匀':method==='fry'?'拖锅柄向上翻面，转炉灶旋钮调火':/boil|bake|steam|brew/.test(method)?'慢慢等它熟，也可以先去忙别的':'拿起小勺，在锅里绕圈翻动，转炉灶旋钮调火':t.items.every(p=>p.zone==='plate')?'摆好位置，拖酱瓶淋酱，再把盘子拖到托盘':'把熟好的食材拖到盘子里';}
  function tableEvent(raw,event,method,elapsed=0){
   const t=copyTable(raw);if(t.sealed)return t;
   if(event.kind==='drop'){const p=t.items.find(p=>p.id===event.id),q=event.point;if(!p||!q||!Number.isFinite(q.x)||!Number.isFinite(q.z))return t;const zone=['plate','pan','board','basket'].find(z=>inTableZone(q,z));if(!zone||zone==='plate'&&(p.zone!=='plate'&&!tableReady(p,method)))return t;
@@ -99,7 +99,7 @@
  }
  function tableTick(job,p,event){
   const dt=clamp(event.dt,0,.1),method=recipe(job.recipeId)?.method,t=copyTable(p.table),active=event.active!==false,held=event.held||'';t.auto+=dt;
-  const prepAuto=active&&(job.cooking.mode==='auto'||job.cooking.lead==='me'),chefAuto=active&&(job.cooking.mode==='auto'||job.cooking.lead==='ta');
+  const prepAuto=active&&!event.prepPaused&&(job.cooking.mode==='auto'||job.cooking.lead==='me'),chefAuto=active&&!event.chefPaused&&(job.cooking.mode==='auto'||job.cooking.lead==='ta');
   if(prepAuto&&t.auto>=.65){t.auto=0;const item=t.items.find(q=>q.zone==='basket'&&q.id!==held)||t.items.find(q=>q.zone==='board'&&q.id!==held);if(item){if(item.zone==='basket')Object.assign(item,{zone:'board',x:TABLE_ZONES.board.x,z:TABLE_ZONES.board.z});else if(!item.cut&&!['milk','tea','rice','noodle','flour','butter','egg'].includes(item.ingredient)){const a={x:item.x-.3,z:item.z},b={x:item.x+.3,z:item.z};return {...p,table:tableEvent(t,{kind:'slice',id:item.id,from:a,to:b},method,p.elapsed),rev:p.rev+1};}else{Object.assign(item,{zone:'pan',x:TABLE_ZONES.pan.x+(t.items.indexOf(item)%3-1)*.09,z:TABLE_ZONES.pan.z+(t.items.indexOf(item)%2-.5)*.09,added:p.elapsed});t.order.push(item.ingredient);}p.rev++;}}
   for(const item of t.items.filter(q=>q.zone==='pan'&&q.id!==held)){
    if(chefAuto){item.mix=Math.min(4,item.mix+dt*.9);if(method==='fry'&&item.bottom>=.7&&!item.side){item.side=1;item.toss=p.elapsed;p.rev++;}}
@@ -124,6 +124,17 @@
   const lead=job?.cooking?.lead||'ta',who=p.index===0?(lead==='ta'?'me':'ta'):lead;
   return {index:p.index,method,passive:p.index===1&&passive,operation,label:names[operation],target:p.index===0?'prep':p.index===2?'serve':'pan',required:p.index===0?6:p.index===1?(passive?0:6):p.index===2?1:0,seconds:p.index===1?(passive?method==='bake'?14:method==='steam'?12:method==='boil'?10:7:4):0,who,ready:p.index===3,progress:p};
  }
+ function cookingStations(job,raw=job?.cooking?.progress){
+  if(!job?.cooking)return [];const q=cookingSpec(job,raw),table=q.tabletop;
+  const panName=({mix:'拌碗',bake:'烤箱',steam:'蒸锅',boil:'汤锅',brew:'茶壶'})[q.method]||'炒锅';
+  return table?[{id:'basket',label:'食材篮',hint:'把食材拖到旁边砧板'},{id:'board',label:'砧板',hint:'手指划过切菜；面团来回揉'},{id:'pan',label:panName,hint:q.method==='mix'?'绕圈拌匀；熟块拖到旁边盘子':'绕圈翻炒，上拉锅柄翻面；熟块拖到旁边盘子'},{id:'heat',label:'炉灶旋钮',hint:'上下拖动调火',disabled:q.method==='mix'},{id:'sauce',label:'酱瓶',hint:'在盘子上划过淋酱'},{id:'plate',label:'摆盘',hint:'拖动菜块摆位置；整盘拖到旁边托盘'}]:[
+   {id:'prep',label:['bake','steam'].includes(q.method)?'揉面与擀面杖':q.method==='brew'?'加料碗':'备菜道具',hint:q.method==='brew'?'把茶与水果拖到碗里':q.operation==='knead'?'在面团上来回揉、推擀面杖':'手指划过食材切开',disabled:q.index!==0},
+   {id:'pan',label:panName,hint:q.passive?'等它慢慢熟，旋钮可以调火':q.operation==='flip'?'向上拖锅柄翻面':'手指绕圈拌匀',disabled:q.index!==1},
+   {id:'heat',label:'炉灶旋钮',hint:'上下拖动调火',disabled:q.index!==1||q.method==='mix'},
+   {id:'plate',label:'盛盘',hint:'把这盘拖到旁边托盘',disabled:q.index!==2}];
+ }
+ function stationInfo(job,id,raw){return cookingStations(job,raw).find(q=>q.id===id)||{id,label:'厨房操作',hint:''};}
+ function primaryStation(job,raw){const q=cookingSpec(job,raw);return q.tabletop?q.target:q.index===0?'prep':q.index===1?'pan':'plate';}
  function stepCooking(job,raw,event={}){
   const before=cookingProgress(raw);let p={...before};const spec=cookingSpec(job,p);if(spec.ready)return p;
   if(p.table){if(event.kind==='heat')p.heat=Math.round(clamp(event.value,0,2));else if(event.kind==='tick'){p.elapsed+=clamp(event.dt,0,.1);p.exposure+=clamp(event.dt,0,.1)*p.heat;p=tableTick(job,p,event);}else if(['drop','slice','stir','flip','sauce','serve-plate'].includes(event.kind)){const next=tableEvent(p.table,event,spec.method,p.elapsed);if(JSON.stringify(next)===JSON.stringify(p.table))return p;p.table=next;}else return p;
@@ -132,7 +143,7 @@
   if(event.kind==='work'&&event.operation===spec.operation){p.work=Math.min(spec.required,p.work+Math.max(0,Math.min(1,Number(event.amount)||1)));p.rev++;}
   if(event.kind==='tick'){
    const dt=Math.max(0,Math.min(.1,Number(event.dt)||0));p.elapsed+=dt;
-   if(job.cooking?.mode==='auto'||spec.who==='ta')p.work=Math.min(spec.required,p.work+dt*2.1);
+   if(!event.operationPaused&&(job.cooking?.mode==='auto'||spec.who==='ta'))p.work=Math.min(spec.required,p.work+dt*2.1);
    if(spec.index===1){const rate=spec.method==='mix'?1:[.65,1,1.35][p.heat];p.wait+=dt*rate;if(spec.method!=='mix')p.exposure+=dt*p.heat;}
    if(Math.floor(p.elapsed/2)>Math.floor(before.elapsed/2))p.rev++;
   }
@@ -173,5 +184,5 @@
  }
  function cookingStage(job,elapsed=0){if(job?.kind==='cook'&&job.cooking){const spec=cookingSpec(job,typeof elapsed==='object'?elapsed:job.cooking.progress);return {...spec,duration:spec.seconds,phase:spec.ready?'ready':['preparing','stirring','serving'][spec.index]};}const r=recipe(job?.recipeId),m=METHODS[r?.method]||METHODS.stir,duration=job?.kind==='meal'?6+Math.max(0,(job.dishIds?.length||1)-1)*2:m.seconds;
   const index=elapsed<duration*.28?0:elapsed<duration*.78?1:2,phase=job?.kind==='meal'?'eating':['preparing','stirring','serving'][index];return {duration,index,phase,label:job?.kind==='meal'?'一起尝这桌菜':m.steps[index],method:r?.method||'stir'};}
- root.CharDayKitchen={KITCHEN_ANCHORS,TABLE_ZONES,FOOD_COLORS,tableState,tableCreate,tableReady,inTableZone,tablePhase,tableHint,tableEvent,tabletopDish,TASTE,LEADS,preference,inferredTaste,resolvePreferences,alternatives,variation,recipeInfo,tasteDescription,dishName,cookingProgress,cookingSession,cookingSpec,stepCooking,mealFeedback,INGREDIENTS,CATEGORIES,METHODS,RECIPES,recipe,kitchen,kitchenChange,shopping,cookingStage};
+ root.CharDayKitchen={cookingStations,stationInfo,primaryStation,KITCHEN_ANCHORS,TABLE_ZONES,FOOD_COLORS,tableState,tableCreate,tableReady,inTableZone,tablePhase,tableHint,tableEvent,tabletopDish,TASTE,LEADS,preference,inferredTaste,resolvePreferences,alternatives,variation,recipeInfo,tasteDescription,dishName,cookingProgress,cookingSession,cookingSpec,stepCooking,mealFeedback,INGREDIENTS,CATEGORIES,METHODS,RECIPES,recipe,kitchen,kitchenChange,shopping,cookingStage};
 })(globalThis);

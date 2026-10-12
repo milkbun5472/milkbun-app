@@ -9,6 +9,7 @@ function setup(){
   vm.runInContext(read('js/char-day-link.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/social.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);
+  vm.runInContext(read('js/char-day-thoughts.js'),env);
   vm.runInContext(read('js/char-day.js'),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));
@@ -61,9 +62,8 @@ test('示例单独提供全部基础动作，不调用writer或替角色排事�
 test('主App接真实日程与已有陪伴样貌，日历使用现有角色入口并正确返回小世界',()=>{
   const route=cut(app,'  });else if (screen === "fairyGarden")','  });else if (screen === "trpg")'),calls=[];
   const env={screen:'fairyGarden',window:{FairyGardenApp:'garden',CompanionFace:{lookFor:()=>({hairColor:'#111111',face:'happy'})}},moods:{c1:{label:'开心'}},h:(_,p)=>p,body:null,gardenEntryWorld:'day',gardenDayCharId:'c1',setGardenDayCharId:id=>calls.push(['select',id]),schedulesRef:{current:{c1:{today:123}}},CharacterPronoun:{ta:()=> '他'},loadJSON:()=>({looks:{c1:{hairColor:'#111111'}}}),setGardenEntryWorld:v=>calls.push(['world',v]),calReturnRef:{current:null},setSelSched:v=>calls.push(['sched',v]),setScreen:v=>calls.push(['screen',v]),characters:[],liveChars:[],offlineApiFor:()=>{},offlineActive:{},isBody:()=>false,settingsFor:()=>({}),profile:{},toast:()=>{},openGardenRoomFor:()=>{},neighborBundleFor:()=>{},gardenRecordFor:()=>{},buildBundle:()=>'',ctxFor:()=>({})};
-  env.shareKitchenMeal=()=>true;
   const p=new Function('env','with(env){'+route.replace('  });else if','  if')+'});return body;}')(env);
-  assert.equal(p.day.onKitchenShare,env.shareKitchenMeal);
+  assert.equal(p.day.onKitchenShare,undefined);
   assert.equal(p.day.plansFor({id:'c1'}).today,123);assert.equal(p.day.lookFor({id:'c1'}).hairColor,'#111111');p.day.onSchedule({id:'c1'});
   assert.deepEqual(calls,[['world','day'],['sched','c1'],['screen','calendar']]);assert.equal(env.calReturnRef.current.screen,'fairyGarden');
 });
@@ -119,6 +119,7 @@ function placeViewer(f,initialCharId,extraProps={}){
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
   });
+  Object.assign(f.env.React,{useState:f.env.useState,useRef:f.env.useRef,useEffect:f.env.useEffect});
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
   const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test',...extraProps};
   const render=()=>{cursor=refCursor=0;const tree=f.env.CharDayApp(props);if(refs[0])refs[0].current={contentWindow:{CharDayScene:{setSnapshot:p=>snapshots.push(JSON.parse(JSON.stringify(p)))}}};return tree;};

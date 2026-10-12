@@ -1,14 +1,14 @@
 import * as T from 'three';
-import './social.js?v=fg-9692b603f5acb5d8';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-9692b603f5acb5d8';
-import {stepRoute} from '../locomotion.mjs?v=fg-9692b603f5acb5d8';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-9692b603f5acb5d8';
-import {pairProgress} from './motion-profile.mjs?v=fg-9692b603f5acb5d8';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-9692b603f5acb5d8';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-9692b603f5acb5d8';
+import './social.js?v=fg-bcd60aa56897bb1f';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-bcd60aa56897bb1f';
+import {stepRoute} from '../locomotion.mjs?v=fg-bcd60aa56897bb1f';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-bcd60aa56897bb1f';
+import {pairProgress} from './motion-profile.mjs?v=fg-bcd60aa56897bb1f';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-bcd60aa56897bb1f';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-bcd60aa56897bb1f';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-9692b603f5acb5d8';
+import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-bcd60aa56897bb1f';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -134,7 +134,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   if(active&&s.kind==='cook'){at=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion().a});const target={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact={...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY};bt={...daily('b','prep'),target,contact};}
   const cooking=kitchen(),job=cooking?.job;
   if(active&&job?.kind===s.kind){const stage=globalThis.CharDayKitchen.cookingStage(job,job.cooking?cooking.progress:cooking.elapsed);
-   if(s.kind==='meal'){const courses=job.courses||[{recipeId:job.recipeId}],course=courses[Math.min(courses.length-1,Math.floor(cooking.elapsed/2.7))],r=globalThis.CharDayKitchen.recipe(course.recipeId);at={...at,kind:r?.food==='drink'?'drink':'eat',recipeId:r?.id};bt={...bt,kind:at.kind,recipeId:r?.id};}
+   if(s.kind==='meal'){const courses=job.courses||[{recipeId:job.recipeId}],course=courses[Math.min(courses.length-1,Math.floor(cooking.elapsed/2.7))],r=globalThis.CharDayKitchen.recipe(course.recipeId);at={...at,kind:r?.food==='drink'?'drink':'eat',recipeId:r?.id,dish:course};bt={...bt,kind:at.kind,recipeId:r?.id,dish:course};}
    if(s.kind==='cook'){const method=stage.method,passive=stage.index===2||stage.index===1&&['bake','steam','brew'].includes(method);
     if(job.cooking){const chefWho=job.cooking.lead==='me'?'b':'a',prepWho=chefWho==='a'?'b':'a',chef=dailyTaskAt({action:'cook'},p.spot,map(),s.elapsed,{motion:motion()[chefWho]}),prep={...daily(prepWho,'prep'),target:{...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.handZ}),y:HOME_PREP.handY},contact:{...furniturePoint(p.piece,{x:HOME_PREP.x,z:HOME_PREP.contactZ}),y:HOME_PREP.contactY}};
      const task=stage.index===0?prep:chef,elapsed=job.cooking.mode==='hands'&&stage.who==='me'?stage.progress.work*.48:s.elapsed,working=stage.index<2&&!stage.passive?{...task,elapsed,recipeId:job.recipeId,method,stage:stage.index}:null;at=(stage.index===0?prepWho:chefWho)==='a'?working:null;bt=(stage.index===0?prepWho:chefWho)==='b'?working:null;

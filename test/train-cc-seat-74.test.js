@@ -18,7 +18,7 @@ const iAsk = fg.indexOf("async function ask({");
 const iAskEnd = fg.indexOf("const SEED_LABELS");
 const askBody = fg.slice(iAsk, iAskEnd > iAsk ? iAskEnd : undefined);
 assert.ok(askBody.includes('tool: "train_chat"'), "ask 先开真身票");
-assert.ok(askBody.includes("engineer && root.CCSeat && root.Cloud"), "真身票只对言秋开");
+assert.ok(askBody.includes("engineer && !kitchen && root.CCSeat && root.Cloud"), "真身票只对言秋开");
 assert.ok(askBody.includes("catch (e)"), "超时落引擎不炸");
 assert.strictEqual((fg.match(/engineer:\s*!!\(/g) || []).length + (fg.match(/engineer: !!\(/g) || []).length >= 2, true, "两处调用点都递 engineer");
 

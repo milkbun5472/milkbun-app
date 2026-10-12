@@ -42,3 +42,17 @@ test("观战两个角色：轮流画猜；猜的人读笔画不看图、不知�
   assert.ok(look.indexOf("imageDataUrls") < 0, "观战猜不该要识图");
   assert.match(G, /if \(drawHit\(v, word\)\) \{ finishTurn\(true, "me"\); return; \}/, "她抢答没算");
 });
+
+// 她 2026-10-12 截图：「(games) undefined is not an object (evaluating 'pts.map')」
+test("手指画：setState 里不读会被清空的 ref，坏的一笔不让画布崩", () => {
+  const mv = G.slice(G.indexOf("const onMove = function"), G.indexOf("const onUp = function"));
+  assert.match(mv, /const cur = curStroke\.current; if \(!cur\) return;/);
+  assert.ok(mv.indexOf("Object.assign({}, curStroke.current)") < 0, "又在更新函数里读 curStroke.current 了");
+  assert.match(G, /myStrokes\.filter\(function \(s\) \{ return s && Array\.isArray\(s\.pts\) && s\.pts\.length; \}\)\.map/);
+});
+// 她 2026-10-12：「我和他单独各自一边气泡像讲话不要全部塞一起」「根据人设水平有时候故意画丑一点」
+test("对话一句一个气泡、她在右；五子棋和你画我猜共用一个；画得丑不丑照人设", () => {
+  assert.equal((src.match(/h\(GameTalkLog, \{/g) || []).length, 2);
+  assert.match(src, /"data-wk": "gametalkrow", "data-me": "1", style: \{ display: "flex", justifyContent: "flex-end"/);
+  assert.match(G, /照你人设里的画画水平来/);
+});

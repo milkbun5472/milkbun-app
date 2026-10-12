@@ -40,5 +40,5 @@ test('现场互动与样貌仍沿原小人机制，物理动作不另开模型�
   assert.match(page, /safe-area-inset-bottom\) \* 0\.4/);
   assert.match(game, /else data=\{\.\.\.data,look:merge\(data\.look\)\}/);
   assert.match(host, /worldOf\(loadJSON\(key,null\)\|\|\{\},"garden"\)\?\.look/);
-  assert.match(page, /visibility:mePanel\?"hidden":"visible"/);
+  assert.match(page, /visibility:mePanel\|\|kitchenTool\?"hidden":"visible"/);
 });
