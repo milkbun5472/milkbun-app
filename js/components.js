@@ -16311,7 +16311,7 @@ function SelfieBubble({ m }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
   }
   // 合照/别人拍的那两种也走这个气泡，写死「自拍」会说错话（v57.79）
-  if (m.failed) return note((m.photoKind === "part" ? PHOTO_PART_ZH : m.photoKind === "view" ? PHOTO_VIEW_ZH : m.photoKind === "group" ? "合影" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "这张" : "自拍") + "没拍成");
+  if (m.failed) return note((m.photoKind === "part" ? PHOTO_PART_ZH : m.photoKind === "view" ? PHOTO_VIEW_ZH : m.photoKind === "group" ? "合影" : m.photoKind === "duo" ? "合照" : m.photoKind === "me" ? "给你拍的这张" : m.photoKind === "other" ? "这张" : "自拍") + "没拍成");
   if (imgErr) return note(m.imgUrl && !url ? "图的临时链接已过期，看过就没啦" : "图数据坏了，显示不出来");
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: Object.assign({}, box, { position: "relative", display: "block" }) },

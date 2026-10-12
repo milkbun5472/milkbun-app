@@ -1,0 +1,32 @@
+// 她 2026-10-11：「拍照能不能搞一类他帮我拍，然后在所有生图地方都支持」
+//   单聊、群聊、单人线下、群线下四处都认 me；画的时候被拍的人换成她，照「别人拍的」那一档画
+const test = require("node:test");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const R = f => fs.readFileSync(path.join(__dirname, "..", "js", f), "utf8");
+const app = R("app.js"), engine = R("engine.js");
+
+test("被拍的人换成她：她的外貌、参考照、衣柜、固定服装，画风跟着拍照的 TA", () => {
+  assert.match(app, /const meSubject = \(char, fallbackName\) => \{ const m = photoMe\(fallbackName\);/);
+  assert.match(app, /return \{ id: "__me", name: m\.name, appearance: m\.appearance \|\| "", refPhoto: m\.refPhoto \|\| null, photoOutfit: m\.outfit \|\| "", photoStyle: char && char\.photoStyle,/);
+  assert.match(app, /const canShootMe = \(\) => !!\(profile && \(profile\.appearance \|\| profile\.refPhoto\)\);/);
+});
+
+test("四处出图都认 me：单聊、群聊、线下（单人和群共用 runOfflineShot）", () => {
+  assert.match(app, /const char = meShot \? meSubject\(realChar, uName\) : realChar;\n    if \(meShot\) photoKind = "other";/);
+  assert.match(app, /const sub = meShot \? meSubject\(spk, "对方"\) : spk;\n    if \(meShot\) gPhotoKind = "other";/);
+  assert.match(app, /const sub = kind === "me" \? \{ \.\.\.meSubject\(char, "我"\), photoOutfit: me\.outfit \|\| "" \} : char;/);
+  assert.match(app, /\["self", "other", "duo", "me", "view", "part", "none"\]\.includes/);
+  assert.match(app, /\["self", "other", "duo", "group", "me", "view", "part", "none"\]\.includes/);
+});
+
+test("四处都告诉模型有 me 这一档；她资料里没外貌也没参考照就不给", () => {
+  assert.match(engine, /\.concat\(o\.me \? \["me（你给 " \+ uName \+ " 拍的照片/);
+  assert.equal((app.match(/me: canShootMe\(\) \}\)/g) || []).length, 2, "单聊、群聊的 photoCapLine 都要传");
+  assert.match(app, /photoMe: _offPhotoOn && canShootMe\(\)/);
+  assert.match(app, /photoMe: _gShooters\.length > 0 && canShootMe\(\)/);
+  assert.match(engine, /if \(canMe\) kinds\.push\("\*\*me\*\*="/);
+  assert.match(engine, /\(session\.photoMe \? "｜me" : ""\)/);
+  assert.match(app, /kind === "me" && !canShootMe\(\)\n      \? "TA 帮你拍的这张画的是你/);
+});
