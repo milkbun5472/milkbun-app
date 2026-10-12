@@ -380,3 +380,17 @@ test('拍小相册时场景直接站到每一段的位置，不先走出门、�
   assert.match(scene,/else if\(\(initial\|\|snapshot\.albumShot\)&&\(snapshot\.presentation\.action==='sleep'\|\|snapshot\.albumShot\|\|/);
   assert.match(day,/albumShot: !!albumShoot,/);
 });
+
+test('小相册能翻看往日：每天一摞相片，点哪摞看哪天，往日不显示拍摄和自动存开关',()=>{
+  const f=setup(),store={x_charDayAlbums:{c1:{'2026-10-07':{photos:[{time:'09:00',title:'早会',src:'data:a'},{time:'14:00',title:'改稿',src:'data:b'}]},'2026-10-09':{photos:[{time:'08:00',title:'用早饭',src:'data:c'}]}}}};
+  f.env.loadJSON=(k,d)=>k in store?store[k]:d;
+  const viewer=placeViewer(f,'c1');let tree=viewer.render();
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'今天的小相册');tree=viewer.render();
+  const head=t=>viewer.all(t).find(n=>n.tag==='Head'&&n.props.zh==='今天的小相册');assert.ok(head(tree));
+  assert.ok(viewer.all(tree).find(n=>n.tag==='button'&&n.props['aria-label']==='今天的小相册'),'有今天那一摞');
+  viewer.click(tree,'10/7的小相册');tree=viewer.render();
+  assert.match(head(tree).props.sub,/2026-10-07/);
+  const labels=viewer.all(tree).filter(n=>n.tag==='button').map(n=>n.props['aria-label']||'');
+  assert.ok(!viewer.all(tree).some(n=>n.props&&n.props.role==='switch'&&n.props['aria-checked']!==undefined&&String(n.props['aria-label']||'')===''),'往日没有自动存开关');
+  assert.equal(viewer.all(tree).filter(n=>n.tag==='img'&&/^data:[ab]$/.test(n.props.src)).length>=2,true);
+});
