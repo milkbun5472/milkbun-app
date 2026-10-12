@@ -12712,6 +12712,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!parsed) parsed = { word: salvageWords() };
       if (_bareCard) parsed.word = (Array.isArray(parsed.word) ? parsed.word : (parsed.word ? [parsed.word] : [])).concat([_bareCard.card]);
       const roomTurnState = sideRoom ? { ...parsed, mood: typeof parsed.mood === "string" ? parsed.mood : parsed.mood && parsed.mood.label } : null;
+      // 不跟主线共用状态的房间：action 要封（别写进主线那张状态卡），可【动描那一行】还得摆出来——
+      //   原来两件事共用 parsed.action 一个格子，一封就连那行动作一起没了（群友 2026-10-12：「在房间里开线上动作描写好像没生效」）。
+      //   所以封之前先留一份，只给摆那一行用，不进状态。
+      let _roomActLine = parsed && parsed.action;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const w = room.writeback || {};
@@ -12790,6 +12794,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _roomSharesState = !room || !!(room.writeback && room.writeback.sharedState);
       const _roomCanWrite = kind => !window.ChatRooms || !window.ChatRooms.canWrite || window.ChatRooms.canWrite(room, kind);
       if (!_roomSharesState) {
+        if (!_roomActLine && parsed.action) _roomActLine = parsed.action;   // salvage 刚从坏 JSON 里捞回来的那份也留着摆
         parsed.mood = null; parsed.action = null; parsed.wearing = null;
         if (!sideRoom) parsed.thought = null;
         // ⚠️同上：impressionChecked 也得封（只封 impression 是漏了半边）
@@ -13171,6 +13176,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
       const onlineAction = TVG.normalizeAction(parsed.action, char && char.name);
+      // 摆出来的那一行：主线照 onlineAction；隔离房里 action 被封了，就用封之前留下的那份（只摆，不写状态）
+      const onlineActLine = onlineAction || (room && _roomActLine ? TVG.normalizeAction(_roomActLine, char && char.name) : null);
       // 被救回来的那几行先摆：它们是这一轮【真写出来的】正文，比状态卡那一格更贴这一拍。
       // ⚠️不看动描开关：开关管的是「要不要把 action 那一格也摆出来」，
       //   而这几行本来就要显示——不摆就等于把她收到的东西吞了。
@@ -13179,8 +13186,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           role: "narration", kind: "narration", who: "char", content: line,
           ts: Math.max(0, _tsOf(0) - rescuedActLines.length + k), turnId
         }]));
-      } else if (_actDesc && onlineAction && String(onlineAction).trim()) {
-        const _line = String(onlineAction).trim();
+      } else if (_actDesc && onlineActLine && String(onlineActLine).trim()) {
+        const _line = String(onlineActLine).trim();
         const _rows = chatsRef.current[chatKey] || [];
         let _prevAct = "";
         for (let i = _rows.length - 1; i >= 0; i--) {
@@ -13198,7 +13205,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   **原文另存一份跟着**：翻不出来就丢掉原文＝她和我都永远查不下去。
       // ⚠️只在【这一轮真的什么都没摆出来】时才说：只有动作描写、没有台词是合法的一轮。
       const _nothingShown = !words.length && !rescuedActLines.length
-        && !(_actDesc && onlineAction && String(onlineAction).trim());
+        && !(_actDesc && onlineActLine && String(onlineActLine).trim());
       if (_nothingShown) {
         const _rawCut = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim().slice(0, 400);
         toast("这一轮没回上来 · 原文记在聊天里了");
