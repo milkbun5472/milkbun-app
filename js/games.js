@@ -541,7 +541,8 @@
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
     const [unoRule, setUnoRule] = useState("official"); // official 官方不叠；stack 常见桌规 +2 叠加
     const [gmkCasual, setGmkCasual] = useState({});
-    const [gmkBrain, setGmkBrain] = useState("local");  // 五子棋谁来想棋：local 本地棋手 / model TA 自己下（每步一次调用）   // 五子棋观战：谁「随手」下（没记的＝认真）
+    const [gmkBrain, setGmkBrain] = useState("local");
+    const [drawBrain, setDrawBrain] = useState("once");  // 你画我猜 TA 怎么画：once 一口气画好 / step 一段一段想（每段一次调用）  // 五子棋谁来想棋：local 本地棋手 / model TA 自己下（每步一次调用）   // 五子棋观战：谁「随手」下（没记的＝认真）
     const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
@@ -551,7 +552,7 @@
       const c = lastCfg; if (!c) return;
       const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
       setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
-      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain);
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain); if (c.drawBrain) setDrawBrain(c.drawBrain);
       if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
       setStake(c.stake || "");
     };
@@ -634,6 +635,12 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "两种模式的其他规则完全一样；目前只有 +2 是否能叠加不同。")) : null,
 
         // 五子棋观战：两个人各自认真还是随手下——不分的话两边一样强，看着没意思
+        game.key === "draw" ? h("div", { "data-wk": "drawbrain", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "TA 怎么画"),
+          h(Segmented, { t: t, value: drawBrain, onChange: setDrawBrain, options: [{ key: "once", zh: "一口气画好" }, { key: "step", zh: "一段一段想" }] }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, drawBrain === "step"
+            ? "每画一段都重新想一次：看得到你猜过什么、说过什么，下一笔跟着变，画几段也是边画边定。每段一次调用，段与段之间要等几秒。"
+            : "开画时一次想好整幅，再一段一段放给你看：省调用、不卡，但你中途说什么，后面的画不会跟着变。")) : null,
         game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "谁来想棋"),
           h(Segmented, { t: t, value: gmkBrain, onChange: setGmkBrain, options: [{ key: "local", zh: "本地棋手" }, { key: "model", zh: "TA 自己下" }] }),
@@ -735,7 +742,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, drawBrain: game.key === "draw" ? drawBrain : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -5235,9 +5242,50 @@
       return from[Math.floor(Math.random() * from.length)];
     };
 
+    // 「一段一段想」（她 2026-10-12）：每段单独问一次，TA 看得到已经画了什么、她猜过说过什么，下一笔跟着变
+    const stepMode = cfg.drawBrain === "step";
+    const STEP_MAX = 6;
+    const [stepDone, setStepDone] = useState(false);
+    const parseStrokes = function (arr) {
+      return (Array.isArray(arr) ? arr : []).slice(0, 40).map(function (st) {
+        const d = drawStrokePath(st); return d ? { d: d, k: DRAW_INK[st.k] ? st.k : "k", f: !!st.f, raw: st } : null;
+      }).filter(Boolean);
+    };
+    const STROKE_FMT = "\n一笔的格式：{\"t\":\"line\",\"p\":[x1,y1,x2,y2,...]} 折线；{\"t\":\"curve\",\"p\":[起点x,y,控制点x,y,终点x,y,控制点x,y,终点x,y...]} 弧线；{\"t\":\"circle\",\"c\":[x,y,r]} 圆；可加 \"k\" 颜色（k 黑 r 红 b 蓝 g 绿 y 黄 p 紫）、\"f\":true 填色、\"close\":true 闭合。";
+    const stepSeg = async function (w, who, have) {
+      who = who || drawer;
+      const other = duo ? (who === char ? char2 : char) : null;
+      setBusy(true);
+      try {
+        const sys = AC + VOICE_RULE + persona(who)
+          + "\n\n" + (other ? "你在跟 " + other.name + " 玩你画我猜（" + uName + " 在边上看）" : "你在跟 " + uName + " 玩你画我猜") + "，这一张你画，题目是「" + w + "」（" + (other ? other.name : uName) + " 不知道）。"
+          + "画在 100×100 的画布上（左上角 0,0），一段一段画，现在画第 " + (have.length + 1) + " 段（最多 " + STEP_MAX + " 段）。"
+          + (have.length ? "\n【你已经画了的】\n" + describeSegs(have, have.length) : "\n画布还是空的。")
+          + said()
+          + "\n看对方刚才猜了什么、说了什么来决定这一段：快猜到了可以收着点，猜偏了可以补一笔提示、也可以故意往歪了带，被说丑了可以赌气——照你这个人。"
+          + (easy ? "这局你让着 TA，画得好认一点。" : "照你人设里的画画水平来，不会画的就画得歪；会画的也可以随手或存心画丑一点逗对方。但得是真想让人猜到的画，不是乱涂。")
+          + "画里不许写字、不许写这个词的任何一个字。say 是你画这段时顺口说的一句，别透露答案。觉得画完了就把 done 设成 true。"
+          + STROKE_FMT
+          + "\n只输出 JSON：{\"strokes\":[...],\"say\":\"一句\",\"done\":false}";
+        const raw = await callRetry(api, sys, [{ role: "user", content: "画下一段。" }], { maxTokens: 9000, tag: "你画我猜·画" });
+        const p = extractJSON(raw) || {};
+        const strokes = parseStrokes(p.strokes);
+        if (!strokes.length) throw new Error("这一段没画出来");
+        const list = have.concat([{ strokes: strokes, say: String(p.say || "").trim().slice(0, 120) }]);
+        const done = !!p.done || list.length >= STEP_MAX;
+        setSegs(list); setStepDone(done);
+        showSeg(list, list.length - 1, who);
+      } catch (e) { push({ sys: true, text: "这一段没画出来（" + ((e && e.message) || e) + "）" + (have.length ? "，再按一次试试" : "，点「换一张」再来") }); }
+      setBusy(false);
+    };
+    // 还有没有下一段：一口气模式看放完没；一段一段模式看 TA 说没说画完
+    const hasMore = function () { return stepMode ? (!stepDone && segs.length < STEP_MAX) : shown < segs.length; };
+    const nextSeg = function () { if (stepMode) stepSeg(word, drawer, segs); else showSeg(segs, shown); };
+
     // TA 画：一次调用拿到整幅画（段数 TA 自己定）
     const taStart = async function (w, who) {
       who = who || char;
+      if (stepMode) { setSegs([]); setShown(0); setStepDone(false); return stepSeg(w, who, []); }
       const other = duo ? (who === char ? char2 : char) : null;
       setSegs([]); setShown(0); setBusy(true);
       try {
@@ -5316,12 +5364,12 @@
         if (v) { push({ me: true, name: uName, text: v }); if (drawHit(v, word)) { finishTurn(true, "me"); return; } }
         const hit = await guesserLook(v);
         if (hit || v) return;
-        if (shown < segs.length) showSeg(segs, shown);
+        if (hasMore()) nextSeg();
         else finishTurn(false, "");
         return;
       }
       if (!v) {
-        if (shown < segs.length) { showSeg(segs, shown); return; }
+        if (hasMore()) { nextSeg(); return; }
         // 画完了还空着按＝认输，揭晓
         push({ me: true, name: uName, text: "猜不出来，你说吧" });
         finishTurn(false, "");
@@ -5428,9 +5476,9 @@
     const status = result
       ? (result.ok ? (result.by === "me" ? "你猜中了：「" + word + "」" : cName + " 猜中了：「" + word + "」") : "答案是「" + word + "」")
       : taDraws
-        ? (busy && !segs.length ? nmOf(drawer) + " 在构思…" : busy && duo ? nmOf(guesser) + " 在看…" : drawing ? nmOf(drawer) + " 在画第 " + shown + " 段" : duo ? "画完第 " + shown + "/" + segs.length + " 段 · 按「" + (shown < segs.length ? "接着看" : "最后一猜") + "」让 " + nmOf(guesser) + " 猜，你也能抢答" : shown < segs.length ? "画完第 " + shown + "/" + segs.length + " 段 · 猜一个，或空着按「接着画」" : (segs.length ? "画完了 · 猜不出就空着按「揭晓」" : ""))
+        ? (busy && !segs.length ? nmOf(drawer) + " 在构思…" : busy && duo ? nmOf(guesser) + " 在看…" : busy && stepMode ? nmOf(drawer) + " 在想下一笔…" : drawing ? nmOf(drawer) + " 在画第 " + shown + " 段" : duo ? "画完第 " + shown + (stepMode ? "" : "/" + segs.length) + " 段 · 按「" + (hasMore() ? "接着看" : "最后一猜") + "」让 " + nmOf(guesser) + " 猜，你也能抢答" : hasMore() ? "画完第 " + shown + (stepMode ? "" : "/" + segs.length) + " 段 · 猜一个，或空着按「接着画」" : (segs.length ? "画完了 · 猜不出就空着按「揭晓」" : ""))
         : "你画「" + word + "」，画好按「给 TA 看」";
-    const sendLabel = taDraws ? (input.trim() ? "说" : duo ? (shown < segs.length ? "接着看" : "最后一猜") : (shown < segs.length ? "接着画" : "揭晓")) : "给 TA 看";
+    const sendLabel = taDraws ? (input.trim() ? "说" : duo ? (hasMore() ? "接着看" : "最后一猜") : (hasMore() ? "接着画" : "揭晓")) : "给 TA 看";
 
     return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },

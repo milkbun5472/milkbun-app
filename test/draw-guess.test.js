@@ -20,7 +20,8 @@ test("模型写的笔画转成 svg，坏的一笔丢掉、坐标夹在画布里"
 test("TA 画：一次调用拿整幅，分段放、每段一句；空着按是接着画，不调模型", () => {
   assert.match(G, /分几段你自己定（2 到 5 段）/);
   assert.match(G, /\{\\"segments\\":\[\{\\"strokes\\":\[\.\.\.\],\\"say\\":\\"一句\\"\}\]\}/);
-  assert.match(G, /if \(shown < segs\.length\) \{ showSeg\(segs, shown\); return; \}/, "接着画不该再调模型");
+  // 一口气模式「接着画」只放下一段，不调模型；一段一段模式才每段问一次（nextSeg 那一行分开）
+  assert.match(G, /if \(hasMore\(\)\) \{ nextSeg\(\); return; \}/);
   assert.match(G, /if \(drawHit\(v, word\)\) \{ finishTurn\(true, "me"\); \}/, "猜中要代码判");
 });
 
@@ -55,4 +56,15 @@ test("对话一句一个气泡、她在右；五子棋和你画我猜共用一�
   assert.equal((src.match(/h\(GameTalkLog, \{/g) || []).length, 2);
   assert.match(src, /"data-wk": "gametalkrow", "data-me": "1", style: \{ display: "flex", justifyContent: "flex-end"/);
   assert.match(G, /照你人设里的画画水平来/);
+});
+
+// 她 2026-10-12：你画我猜也做成「每一段用 TA 的 api 想」
+test("一段一段想：每段一次调用，看得到已画的和她说过的；画几段边画边定", () => {
+  assert.match(src, /drawBrain: game\.key === "draw" \? drawBrain : undefined/);
+  const st = G.slice(G.indexOf("const stepSeg = async function"), G.indexOf("const hasMore = function"));
+  assert.match(st, /describeSegs\(have, have\.length\)/, "看不到自己已经画了什么");
+  assert.match(st, /said\(\)/, "看不到她说过什么");
+  assert.match(st, /\{\\"strokes\\":\[\.\.\.\],\\"say\\":\\"一句\\",\\"done\\":false\}/);
+  assert.match(G, /const nextSeg = function \(\) \{ if \(stepMode\) stepSeg\(word, drawer, segs\); else showSeg\(segs, shown\); \};/);
+  assert.match(G, /if \(stepMode\) \{ setSegs\(\[\]\); setShown\(0\); setStepDone\(false\); return stepSeg\(w, who, \[\]\); \}/);
 });
