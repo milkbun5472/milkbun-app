@@ -104,13 +104,8 @@ test('旧桌的未知口味与分工不猜；收起、坏菜谱或没有这一�
  assert.equal(L.kitchenMealFor({...homes,kitchens:{a:{pending:{id:'meal',kind:'cook',recipeId:'egg-noodle'}}}},'a','meal'),null);
  assert.match(L.kitchenMealHint({courses:[{recipeId:'egg-noodle',variation:{},lead:''}]}),/口味：未记录/);assert.match(L.kitchenMealHint({courses:[{recipeId:'egg-noodle',variation:{spice:'hot'},lead:''}]}),/口味：香辣；分工：未记录/);assert.equal(L.kitchenMealHint(null),'');assert.equal(L.kitchenMealFor(null,'a','meal'),null);assert.equal(L.kitchenMealFor(homes,'a',null),null);
 });
-test('主App分享入口重读真实记录、使用当前角色与同一等待器，失效或陌生角色不入队',async()=>{
- const f=setup(),{L,K}=f,write=a=>K.saveHomeChange('a','kitchens',raw=>L.kitchenChange(raw,a));
- await write({kind:'shop',recipeId:'lemon-tea'});await write({kind:'begin',id:'dish',recipeId:'lemon-tea'});await write({kind:'ready',id:'dish'});await write({kind:'plate',id:'dish',mealId:'table',at:123});
- const src=read('js/app.js'),a=src.indexOf('const shareKitchenMeal = ('),b=src.indexOf('const dateWhenText =',a);assert.ok(a>0&&b>a);
- const calls=[],current={id:'a',name:'当前角色'},make=new Function('liveChars','window','loadJSON','waitForHer','setActiveChar','setActiveRoomId','setHalfWin','clearUnread',src.slice(a,b)+'return shareKitchenMeal;');
- const share=make([current],{CharDayLife:L},key=>{assert.equal(key,'x_charDayHomes');return f.get();},(...args)=>calls.push(['queue',...args]),v=>calls.push(['active',v]),v=>calls.push(['room',v]),v=>calls.push(['half',v]),v=>calls.push(['read',v]));
- assert.equal(share({id:'a',name:'过期名',persona:'PRIVATE'},'table'),true);assert.equal(calls[0][1],'a');assert.equal(calls[0][2].kitchenMeal.charId,'a');assert.deepEqual(calls[1],['active',current]);assert.deepEqual(calls[2],['room','main']);assert.ok(!JSON.stringify(calls).includes('PRIVATE'));
- calls.length=0;assert.equal(share({id:'stranger'},'table'),false);assert.equal(share(current,'gone'),false);assert.equal(calls.length,0);
- await write({kind:'cancel'});assert.equal(share(current,'table'),false);assert.equal(calls.length,0);
+test('手动聊这桌菜只打开独立厨房书签，不改主聊天也不替TA当场开口',()=>{
+ const src=read('js/char-day.js'),a=src.indexOf('const shareKitchenMeal='),b=src.indexOf('const runKitchen=',a);assert.ok(a>0&&b>a);
+ const seg=src.slice(a,b);assert.match(seg,/saveHomeChange\(char.id,'kitchenChats'/);assert.match(seg,/setKitchenView\('chat'\)/);assert.doesNotMatch(seg,/callAI|\.ask\(|onKitchenShare|waitForHer|pChat|mainChat/);
+ assert.doesNotMatch(read('js/app.js'),/kitchenHint|onKitchenShare:/);
 });

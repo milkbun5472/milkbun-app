@@ -1,7 +1,8 @@
-import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-7c1927d8a5b41b2d';
+import {makeRecipeFood,disposeFood} from './day/recipe-food.mjs?v=fg-5404133be25619b2';
 import * as T from 'three';
-import {makeDreamFlower} from './keepsake-view.mjs?v=fg-7c1927d8a5b41b2d';
-import {pointToolAt} from './reach-hand.mjs?v=fg-7c1927d8a5b41b2d';
+import {handSurfaceBounds} from './hand-surface.mjs?v=fg-5404133be25619b2';
+import {makeDreamFlower} from './keepsake-view.mjs?v=fg-5404133be25619b2';
+import {pointToolAt} from './reach-hand.mjs?v=fg-5404133be25619b2';
 export const actionDuration=job=>job?.kind==='eat'?3.4:job?.kind==='well'?2.8:job?.kind==='lamp'?3.2:job?.kind==='wave'?3.4:job?.kind==='stretch'?3.8:['plant','dreamSow'].includes(job?.kind)?4.2:job?.kind==='gift'?3.2:job?.kind==='garden'||job?.kind==='dreamHarvest'?3.6:job?.kind==='brew'?2.5:job?.kind==='rest'?2:job?.kind==='travel'?.5:1.5;
 export function actionGesture(job){if(!job)return 'rest';if(job.kind==='garden')return job.intent==='harvest'?'harvest':'water';if(job.kind==='dreamHarvest')return 'harvest';if(['plant','dreamSow'].includes(job.kind))return 'plant';if(['wave','stretch'].includes(job.kind))return job.kind;if(job.kind==='gather')return 'gather';if(job.kind==='well')return 'draw';if(job.kind==='lamp')return 'lamp';if(job.kind==='seed')return 'hold';if(job.kind==='eat')return 'eat';return 'rest';}
 export function makeHeldFlower(){const o=makeDreamFlower();o.scale.setScalar(.36);o.name='HeldMoonFlower';return o;}
@@ -42,15 +43,21 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
  return {handPoint,updateTask(time,task,pose){
   prepKnife.visible=task?.kind==='prep';eatingTool.visible=task?.kind==='eat';ladle.visible=task?.kind==='cook';
   if(!task){if(heldFood){disposeFood(heldFood);heldFood=null;foodKey='';for(const o of [...bowlBase,...cupBase])o.visible=true;}if(taskPropsActive){cup.visible=bowl.visible=book.visible=false;}taskPropsActive=false;chop.visible=true;return;}
-  const nextFood=['eat','drink'].includes(task.kind)&&task.recipeId?task.recipeId:'';
-  if(foodKey!==nextFood){disposeFood(heldFood);heldFood=null;foodKey=nextFood;for(const o of [...bowlBase,...cupBase])o.visible=true;if(nextFood){heldFood=makeRecipeFood(nextFood);if(heldFood){const parent=task.kind==='drink'?cup:bowl;heldFood.scale.setScalar(task.kind==='drink'?.38:.27);heldFood.position.y=task.kind==='drink'?-.042:-.025;for(const o of task.kind==='drink'?cupBase:bowlBase)o.visible=false;parent.add(heldFood);}}}
+  const nextFood=['eat','drink'].includes(task.kind)&&task.recipeId?JSON.stringify([task.recipeId,task.dish?.id,task.dish?.variation,task.dish?.tabletop]):'';
+  if(foodKey!==nextFood){disposeFood(heldFood);heldFood=null;foodKey=nextFood;for(const o of [...bowlBase,...cupBase])o.visible=true;if(nextFood){heldFood=makeRecipeFood(task.recipeId,{variation:task.dish?.variation,finish:task.dish?.finish,tabletop:task.dish?.tabletop});if(heldFood){const parent=task.kind==='drink'?cup:bowl;heldFood.scale.setScalar(task.kind==='drink'?.38:.27);heldFood.position.y=task.kind==='drink'?-.042:-.025;for(const o of task.kind==='drink'?cupBase:bowlBase)o.visible=false;parent.add(heldFood);}}}
   taskPropsActive=true;cup.visible=task.kind==='drink';bowl.visible=task.kind==='eat';book.visible=task.kind==='read';chop.visible=false;
   const right=handPoint(),left=handPoint('left');
   whisk.visible=['bake','brew'].includes(task.method);rolling.visible=task.method==='steam';for(const o of knifeParts)o.visible=!whisk.visible&&!rolling.visible;
   if(ladle.visible){const head=ladle.children[1];head.scale.set(task.method==='fry'?1.25:1,task.method==='fry'?.14:.35,task.method==='fry'?.65:1);}
   if(prepKnife.visible){const d=pointToolAt(prepKnife,group,right,{...task.contact,y:task.contact.y+(pose?.dy||0)},.21,{scale:false});prepKnife.visible=d>=.12&&d<=.30;if(prepKnife.visible)prepKnife.translateY(.21-d);}
   if(cup.visible){cup.rotation.set(-(pose?.sip||0)*.3,0,0);const grip=new T.Vector3(.056,0,0).applyEuler(cup.rotation);cup.position.copy(model.worldToLocal(right.clone()).sub(grip));}
+  const palmBounds=bowl.visible?Object.fromEntries(['left','right'].map(side=>[side,handSurfaceBounds(model,hands[side],side)])):null;
   if(bowl.visible){bowl.rotation.set(0,0,0);bowl.position.copy(model.worldToLocal(left.clone()));bowl.position.y-=.015;
+   if(heldFood){const handSize=palmBounds.left.getSize(new T.Vector3()).divide(model.getWorldScale(new T.Vector3()));const size=new T.Box3().setFromObject(heldFood).getSize(new T.Vector3()).divide(model.getWorldScale(new T.Vector3()));bowl.position.x+=size.x/2+handSize.x*.22;bowl.position.y+=handSize.y/2+.025;
+    // Support the underside at the palm's upper edge, including the actual dish's
+    // vessel depth and the rig's current body tilt. Never bury food in the hand.
+    bowl.updateWorldMatrix(true,true);const foodBox=new T.Box3().setFromObject(heldFood),handBox=palmBounds.left;
+    bowl.position.y+=(handBox.max.y+.002-foodBox.min.y)/model.matrixWorld.elements[5];bowl.updateWorldMatrix(true,true);}
    const forward=new T.Vector3(0,0,-1).applyQuaternion(model.getWorldQuaternion(new T.Quaternion())),length=.20*model.getWorldScale(new T.Vector3()).z;
    const tip=pose.mouth&&pose.bite>.5?pose.mouth.clone():right.clone().addScaledVector(forward,length);
    const gripToTip=pointToolAt(eatingTool,group,right,tip,.20,{scale:false})||.20;
@@ -70,6 +77,7 @@ export function makeDollLife(root,model,rig,book,syncPose=()=>{}){
   root.updateWorldMatrix(true,true);
   Object.assign(root.userData.dailyAction,{cup:cup.visible,bowl:bowl.visible,book:book.visible,page:page.rotation.z,ladle:ladle.visible,chopsticks:eatingTool.visible,kind:task.kind,recipeId:task.recipeId||null,foodShape:heldFood?.userData.shape||null,method:task.method||null,sip:pose?.sip||0,bite:pose?.bite||0,
    rightGrip:right.toArray(),leftGrip:left.toArray(),cupGrip:cup.visible?cup.localToWorld(new T.Vector3(.056,0,0)).toArray():null,cupRim:cup.visible?cup.localToWorld(new T.Vector3(0,.044,.014)).toArray():null,
+   foodBounds:heldFood?(()=>{const b=new T.Box3().setFromObject(heldFood);return {min:b.min.toArray(),max:b.max.toArray()};})():null,heldPlate:bowl.visible?bowl.getWorldPosition(new T.Vector3()).toArray():null,handBounds:bowl.visible?Object.fromEntries(['left','right'].map(side=>{const b=palmBounds[side];return [side,{min:b.min.toArray(),max:b.max.toArray()}];})):null,
    mouth:pose?.mouth?.toArray()||null,toolTip:ladle.visible?ladle.localToWorld(new T.Vector3(0,-.24,0)).toArray():eatingTool.visible?bite.getWorldPosition(new T.Vector3()).toArray():null,
    toolGrip:ladle.visible?ladle.getWorldPosition(new T.Vector3()).toArray():eatingTool.visible?eatingTool.getWorldPosition(new T.Vector3()).toArray():null,
    toolLength:ladle.visible?.24*ladle.scale.y*model.getWorldScale(new T.Vector3()).y:eatingTool.visible?.20*model.getWorldScale(new T.Vector3()).y:0});

@@ -99,7 +99,7 @@
  }
  function tableTick(job,p,event){
   const dt=clamp(event.dt,0,.1),method=recipe(job.recipeId)?.method,t=copyTable(p.table),active=event.active!==false,held=event.held||'';t.auto+=dt;
-  const prepAuto=active&&(job.cooking.mode==='auto'||job.cooking.lead==='me'),chefAuto=active&&(job.cooking.mode==='auto'||job.cooking.lead==='ta');
+  const prepAuto=active&&!event.prepPaused&&(job.cooking.mode==='auto'||job.cooking.lead==='me'),chefAuto=active&&(job.cooking.mode==='auto'||job.cooking.lead==='ta');
   if(prepAuto&&t.auto>=.65){t.auto=0;const item=t.items.find(q=>q.zone==='basket'&&q.id!==held)||t.items.find(q=>q.zone==='board'&&q.id!==held);if(item){if(item.zone==='basket')Object.assign(item,{zone:'board',x:TABLE_ZONES.board.x,z:TABLE_ZONES.board.z});else if(!item.cut&&!['milk','tea','rice','noodle','flour','butter','egg'].includes(item.ingredient)){const a={x:item.x-.3,z:item.z},b={x:item.x+.3,z:item.z};return {...p,table:tableEvent(t,{kind:'slice',id:item.id,from:a,to:b},method,p.elapsed),rev:p.rev+1};}else{Object.assign(item,{zone:'pan',x:TABLE_ZONES.pan.x+(t.items.indexOf(item)%3-1)*.09,z:TABLE_ZONES.pan.z+(t.items.indexOf(item)%2-.5)*.09,added:p.elapsed});t.order.push(item.ingredient);}p.rev++;}}
   for(const item of t.items.filter(q=>q.zone==='pan'&&q.id!==held)){
    if(chefAuto){item.mix=Math.min(4,item.mix+dt*.9);if(method==='fry'&&item.bottom>=.7&&!item.side){item.side=1;item.toss=p.elapsed;p.rev++;}}

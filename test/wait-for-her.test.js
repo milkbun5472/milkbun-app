@@ -13,7 +13,6 @@ const body = (startAnchor, endAnchor) => {
   return app.slice(i, j);
 };
 const TAP_HANDLERS = [
-  ["const shareKitchenMeal = (", "const dateWhenText ="],             // 手动分享一桌小家料理
   ["const answerLoveLetter = (", "const genWhisper = async"],          // 回申请信：答应／再想想
   // 偷翻「当面问」、TA要手机「不给」不在表里：她 2026-10-06 要这两处当场开口（wait-for-her.md 例外）
   ["const forwardTarotToChat = async (", "// ───────── 擂台"]           // 塔罗转发进聊天
