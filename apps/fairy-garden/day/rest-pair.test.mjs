@@ -27,6 +27,10 @@ test('床被收纳或两侧堵住不会在空中开始，坐躺动作没有擅�
  MAPS.dayHome=buildSpace('dayHome');MAPS.dayHome.obstacles.push({x:-4,z:-1,w:6,d:6});
  for(const kind of ['lie-hand','lie-hug','lie-rest'])assert.equal(togetherPlans(MAPS.dayHome,kind,origin).length,0,kind);
 });
+test('沙发摸头先选当前坐垫身旁可到达的坐位，再考虑一坐一站；不移动坐着的TA',()=>{
+ MAPS.dayHome=buildSpace('dayHome');const piece=MAPS.dayHome.furniture.find(p=>p.id==='sofa'),spot=MAPS.dayHome.spots.find(p=>p.id==='rest'),from={a:{...spot.target,seat:furnitureSeat(piece,spot.target,{x:-.6,z:.05})},b:{...origin.b}};
+ for(const initiator of ['a','b']){const p=togetherPlans(MAPS.dayHome,'pat',from,{distance:.42,initiator})[0];assert.ok(p.seats.a&&p.seats.b);assert.equal(p.seats.a.piece,piece.id);assert.deepEqual(p.seats.a,from.a.seat);assert.deepEqual(p.aRoute,[]);}
+});
 test('每个坐躺动作都有自动发起机会；睡着只选安静床上动作，手动无条件优先',()=>{
  const actions=Object.keys(REST_PAIRS).map(kind=>({kind})),choices=automaticPairChoices(actions,{posture:'stand'});assert.deepEqual(choices.map(p=>p.kind),actions.map(p=>p.kind));assert.ok(choices.every(p=>p.weight>0));
  const sleeping=automaticPairChoices([...actions,{kind:'kiss'}],{posture:'lie',sleeping:true});assert.deepEqual(sleeping.map(p=>p.kind),['lie-hand','lie-hug','lie-rest']);
