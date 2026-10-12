@@ -14,3 +14,8 @@ test("照片日记：只有点了才拍，一次生图", () => {
   assert.match(s, /onClick: \(\) => onPhotoDiary\(entry\)/);
   assert.match(a, /scheduleTextFor\(char, schedDayKey\(new Date\(entry\.ts\)\)\)/);   // 三格参考那天的日程
 });
+// 照着真实白边切，不再死按等分（她 2026-10-12 截图）；照片日记三格机位要错开
+{ const s2 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "screens.js"), "utf8");
+  const a2 = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "app.js"), "utf8");
+  require("node:assert").match(s2, /const whiteness = \(horiz, i\) =>/);
+  require("node:assert").match(a2, /不要三格都从高处往下拍/); }

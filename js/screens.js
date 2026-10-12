@@ -5672,12 +5672,43 @@ function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
       if (!src) return;
       const im = await new Promise(ok => { const x = new Image(); x.onload = () => ok(x); x.onerror = () => ok(null); x.src = src; });
       if (!im || !alive) return;
-      const W = im.naturalWidth / cols, H = im.naturalHeight / rows, ix = W * 0.035, iy = H * 0.035, out = [];
+      // 图像端画的格子常常不是等分的（她 2026-10-12 截图：胶片条三格高矮不一，按三等分切，第二格顶上带着第一格的碗）。
+      //   所以先找真实的白边：逐行/逐列算亮度，白边那几行又亮又平；在每条等分线附近 ±25% 里找最像白边的一段，
+      //   找不到才退回等分。每格再从白边往里收 1.5%，躲开白边的毛边。
+      const IW = im.naturalWidth, IH = im.naturalHeight, out = [];
       try {
+        const sw = Math.min(IW, 360), sh = Math.round(IH * sw / IW);
+        const sc = document.createElement("canvas"); sc.width = sw; sc.height = sh;
+        const sg = sc.getContext("2d"); sg.drawImage(im, 0, 0, sw, sh);
+        const px = sg.getImageData(0, 0, sw, sh).data;
+        const whiteness = (horiz, i) => {   // 这一行（或列）有多少比例的点是近白的
+          let n = 0, w = 0; const len = horiz ? sw : sh;
+          for (let k = 0; k < len; k += 2) { const o = horiz ? (i * sw + k) * 4 : (k * sw + i) * 4; n++; if (px[o] > 225 && px[o + 1] > 225 && px[o + 2] > 225) w++; }
+          return w / n;
+        };
+        const cuts = (horiz, parts, len, full) => {   // 返回 [起, 止] 对，原图坐标
+          const bands = [];   // 每条分界线：[白边上沿, 下沿]
+          for (let p = 1; p < parts; p++) {
+            const mid = len * p / parts, win = len / parts * 0.25;
+            let best = -1, bestS = 0.85;
+            for (let i = Math.max(1, Math.round(mid - win)); i < Math.min(len - 1, Math.round(mid + win)); i++) { const v = whiteness(horiz, i); if (v > bestS) { bestS = v; best = i; } }
+            if (best < 0) { bands.push([mid, mid]); continue; }
+            let a = best, z = best;
+            while (a > 0 && whiteness(horiz, a - 1) > 0.85) a--;
+            while (z < len - 1 && whiteness(horiz, z + 1) > 0.85) z++;
+            bands.push([a, z + 1]);
+          }
+          const k = full / len, segs = []; let start = 0;
+          bands.forEach(([a, z]) => { segs.push([start * k, a * k]); start = z; });
+          segs.push([start * k, full]);
+          return segs.map(([s0, s1]) => { const m = (s1 - s0) * 0.015; return [s0 + m, s1 - m]; });
+        };
+        const ys = cuts(true, rows, sh, IH), xs = cuts(false, cols, sw, IW);
         for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
-          const cv = document.createElement("canvas"); cv.width = Math.round(W - ix * 2); cv.height = Math.round(H - iy * 2);
-          cv.getContext("2d").drawImage(im, c * W + ix, r * H + iy, W - ix * 2, H - iy * 2, 0, 0, cv.width, cv.height);
-          out.push(cv.toDataURL("image/jpeg", 0.92));
+          const [x0, x1] = xs[c], [y0, y1] = ys[r];
+          const cv = document.createElement("canvas"); cv.width = Math.round(x1 - x0); cv.height = Math.round(y1 - y0);
+          cv.getContext("2d").drawImage(im, x0, y0, x1 - x0, y1 - y0, 0, 0, cv.width, cv.height);
+          out.push({ u: cv.toDataURL("image/jpeg", 0.92), ar: cv.width / cv.height });
         }
       } catch (e) { return; }   // 外链图浏览器不让切：就只看整张
       if (alive) setCells(out);
@@ -5688,12 +5719,12 @@ function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
   return h("div", { "data-wk": "gridcells", style: { marginTop: 12 } },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "点一格单独放大"),
     h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + Math.min(cols * rows, 4) + ", minmax(0,1fr))", gap: 6 } },
-      cells.map((u, i) => h("button", { key: i, onClick: () => setZoom(i), className: "active:opacity-80", style: { borderRadius: 8, overflow: "hidden", border: "1px solid " + t.line, aspectRatio: "1" } },
-        h("img", { src: u, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))),
+      cells.map((x, i) => h("button", { key: i, onClick: () => setZoom(i), className: "active:opacity-80", style: { borderRadius: 8, overflow: "hidden", border: "1px solid " + t.line, aspectRatio: "1" } },
+        h("img", { src: x.u, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))),
     zoom >= 0 ? h("div", { "data-wk": "gridcellzoom", onClick: () => setZoom(-1), className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
-      h("img", { src: cells[zoom], alt: "", style: { maxWidth: "94%", maxHeight: "70%", borderRadius: 10 } }),
+      h("img", { src: cells[zoom].u, alt: "", style: { maxWidth: "94%", maxHeight: "70%", borderRadius: 10 } }),
       h("div", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "第 " + (zoom + 1) + " 格 · 长按能存到手机"),
-      onSharpen ? h("button", { onClick: e => { e.stopPropagation(); if (!sharpBusy) onSharpen(cells[zoom], zoom); }, disabled: !!sharpBusy, className: "active:opacity-70",
+      onSharpen ? h("button", { onClick: e => { e.stopPropagation(); if (!sharpBusy) onSharpen(cells[zoom].u, zoom); }, disabled: !!sharpBusy, className: "active:opacity-70",
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } },
         sharpBusy ? "在拍了…" : "把这格拍清楚（再拍一张，花一次生图）") : null) : null);
 }
