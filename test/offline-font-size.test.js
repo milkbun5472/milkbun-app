@@ -7,5 +7,5 @@ test("设置里有正文字号，存进 fontSize；线下正文和旁白读 --of
   assert.match(c, /"data-wk": "offfontsize"/);
   assert.match(c, /"--off-fs": Number\(os\.fontSize\) \+ "px"/);
   assert.match(c, /"data-wk": "offtext", style: \{ fontFamily: F_BODY, fontSize: "var\(--off-fs, 14px\)"/);
-  assert.match(c, /fontSize: "calc\(var\(--off-fs, 14px\) - 1px\)", fontStyle: "italic"/);
+  assert.match(c, /fontSize: "calc\(var\(--off-fs, 14px\) - 1px\)", letterSpacing: 1/, "长旁白没跟着正文字号");
 });
