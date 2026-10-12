@@ -6,8 +6,7 @@ test("照片上的几种玩法都接上了", () => {
   assert.match(c, /text: ask \? "圈出来的这里是什么？" : "", doodle: true/);
   assert.match(c, /window\.__addSelfSticker\(url, charId\)/);
   assert.match(a, /window\.__addSelfSticker = async \(dataUrl, charId\) =>/);
-  assert.match(a, /window\.__setWallFromPhoto = async \(dataUrl, charId, desc\) =>/);
-  assert.match(a, /out\.unshift\("【她的手机壁纸】/);
+  assert.doesNotMatch(a + c, /__setWallFromPhoto|wallfromphoto/);   // 设成壁纸撤了（她 2026-10-12：尺寸对不上）
   assert.match(c, /\.\.\.\(_doodle \? \{ doodle: true \} : \{\}\)/);
   assert.match(a, /if \(_doodleFresh\) \{\n\s+openCaps\.push\("drawBack"\);/);
   assert.match(a, /if \(_doodleFresh && parsed\.drawBack\) drawBackOn\(/);

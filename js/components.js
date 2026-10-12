@@ -16562,13 +16562,6 @@ function SelfieBubble({ m }) {
           window.saveImgOriginal(m.imgKey, "照片").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
         }, className: "active:opacity-70",
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "⬇ 保存到手机（原图）") : null,
-      h("button", { "data-wk": "wallfromphoto", onClick: async e => {
-          e.stopPropagation();
-          try { const b = await (await fetch(shown)).blob(); const du = await new Promise((ok, no) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = no; r.readAsDataURL(b); });
-            if (window.__setWallFromPhoto) window.__setWallFromPhoto(du, m.senderId || m.charId || window.__activeCharId || "", m.desc || ""); }
-          catch (er) { window.__toast && window.__toast("这张是外链图，设不了壁纸，先保存到相册再去设置里换"); }
-        }, className: "active:opacity-70",
-        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "设成手机壁纸"),
       h("button", { "data-wk": "doodlebtn", onClick: e => { e.stopPropagation(); setZoom(false); setDoodle(true); }, className: "active:opacity-70",
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "✎ 在上面画，发回去")),
     doodle && h(DoodleEditor, { src: shown, charId: m.senderId || m.charId || (window.__activeCharId || ""), onClose: () => setDoodle(false) }));
