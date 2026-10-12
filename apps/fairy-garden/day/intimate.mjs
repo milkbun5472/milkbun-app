@@ -1,11 +1,11 @@
 import * as T from 'three';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-68a5db5721e6ca1f';
-import './social.js?v=fg-68a5db5721e6ca1f';
-import {pairProgress} from './motion-profile.mjs?v=fg-68a5db5721e6ca1f';
-import {walkable,segmentClear} from '../world.mjs?v=fg-68a5db5721e6ca1f';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-5363e45354c4ef63';
+import './social.js?v=fg-5363e45354c4ef63';
+import {pairProgress} from './motion-profile.mjs?v=fg-5363e45354c4ef63';
+import {walkable,segmentClear} from '../world.mjs?v=fg-5363e45354c4ef63';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose} from './pair-pose.mjs?v=fg-68a5db5721e6ca1f';
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-5363e45354c4ef63';
 export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
@@ -24,9 +24,9 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
  let diagnostics=null,foodKey='',servingFood=null;
  function hide(){disposeFood(servingFood);servingFood=null;foodKey='';dish.visible=morsel.visible=true;spoon.visible=snack.visible=false;diagnostics=null;}
  const contact=pairContact;
- function safeMove(actor,dx,dz,other){
+ function safeMove(actor,dx,dz,other,clearance=.26){
   const old={x:actor.root.position.x,z:actor.root.position.z},next={x:old.x+dx,z:old.z+dz},m=map(),id=m.id||m.renderer;
-  if(!walkable(next.x,next.z,id)||!segmentClear(old,next,id,[{x:other.root.position.x,z:other.root.position.z,r:.26}]))return false;
+  if(!walkable(next.x,next.z,id)||!segmentClear(old,next,id,[{x:other.root.position.x,z:other.root.position.z,r:clearance}]))return false;
   actor.root.position.x=next.x;actor.root.position.z=next.z;actor.root.updateWorldMatrix(true,true);return true;
  }
  // Feet stay on the real floor. A taller participant bends toward the shorter one.
@@ -46,6 +46,15 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
   diagnostics={initiator:initiator==='a'?'ta':'me',progress:p,stage:p<.98?'靠近':'相依',contacts};
   if(['kiss','kiss-cheek','kiss-forehead','forehead'].includes(s.kind)){
    const gp=s.kind==='forehead'?[0,.48,.9]:[0,-.42,.93],rp=s.kind==='kiss-forehead'?[0,.50,.91]:s.kind==='kiss-cheek'?[.75,-.18,.67]:s.kind==='forehead'?[0,.48,.9]:[0,-.42,.93];
+   const from=s.plan[initiator],to=s.plan[other],center=new T.Vector3((from.x+to.x)/2,0,(from.z+to.z)/2),direction=new T.Vector3(to.x-from.x,0,to.z-from.z).normalize(),spacing=faceSpacing(g,r),goals={giver:center.clone().addScaledVector(direction,-spacing/2),receiver:center.clone().addScaledVector(direction,spacing/2)};
+   const fit=facePose(g,r,gp,rp,goals,s.faceFit);let distance;
+   if(fit.ok){
+    s.faceFit=fit;const amount=smooth(p)*p,poseProgress=smooth(Math.min(1,p*1.4)),move=(actor,origin,target,partner)=>{const next=new T.Vector3(origin.x,0,origin.z).lerp(target,amount);return safeMove(actor,next.x-actor.root.position.x,next.z-actor.root.position.z,partner,spacing*.65);};
+    if(!move(g,from,goals.giver,r)||!move(r,to,goals.receiver,g))return {ok:false,reason:'身旁的位置被挡住了，换一处空地再靠近。'};
+    posture(g,{tilt:fit.tilt*poseProgress,nod:fit.giverNod*poseProgress,headPivot:poseProgress});posture(r,{tilt:fit.tilt*poseProgress,nod:fit.receiverNod*poseProgress,neckTurn:fit.receiverTurn*poseProgress,headPivot:poseProgress});
+    distance=headPoint(g,gp).distanceTo(headPoint(r,rp));
+    diagnostics.headDistance=distance;diagnostics.points={giver:headPoint(g,gp).toArray(),receiver:headPoint(r,rp).toArray()};
+   }else{
    posture(g,{tilt:.06*pg,nod:.06*pg,lean:s.kind==='kiss-cheek'?.06*pg:0});posture(r,{tilt:(s.kind==='kiss-forehead'?.12:.06)*pr,nod:(s.kind==='kiss-forehead'?.32:.06)*pr,turn:s.kind==='kiss-cheek'?.32*pr:0});
    // Match the actual mouth/cheek/forehead heights, including both body sizes.
    const bendTo=(actor,point,y,progress)=>{
@@ -55,11 +64,11 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
     posture(actor,{tilt:high*.32*progress,nod:high*.65*progress});
    };
    const gy=headPoint(g,gp).y,ry=headPoint(r,rp).y;if(gy>ry+.01)bendTo(g,gp,ry,pg);else if(ry>gy+.01)bendTo(r,rp,gy,pr);
-   const distance=meet(g,r,gp,rp,p,!!s.plan.seats);if(distance==null)return {ok:false,reason:'这个角度没有能站稳的位置，换一处空地再靠近。'};
+   distance=meet(g,r,gp,rp,p,!!s.plan.seats);if(distance==null)return {ok:false,reason:'这个角度没有能站稳的位置，换一处空地再靠近。'};
    diagnostics.headDistance=distance;diagnostics.points={giver:headPoint(g,gp).toArray(),receiver:headPoint(r,rp).toArray()};
-   if(s.kind!=='kiss-forehead'){const center=g.root.position.clone().add(r.root.position).multiplyScalar(.5),gs=nearHand(g,center),rs=nearHand(r,center),held=hand(g,gs).getWorldPosition(new T.Vector3()).add(hand(r,rs).getWorldPosition(new T.Vector3())).multiplyScalar(.5);
-   held.y=(g.root.getObjectByName(gs+'Arm').getWorldPosition(new T.Vector3()).y+r.root.getObjectByName(rs+'Arm').getWorldPosition(new T.Vector3()).y)/2-.18;
-   contact(g,{[gs]:held},pg,contacts);contact(r,{[rs]:held},pr,contacts);}
+   }
+   diagnostics.bodyDistance=Math.hypot(g.root.position.x-r.root.position.x,g.root.position.z-r.root.position.z);diagnostics.closeFit=fit.ok;
+   const held=faceHands(g,r,pg,pr,s.faceHandChoice);s.faceHandChoice=held.choice;contacts.push(...held.contacts);diagnostics.faceHand=held.faceHand;
   }else if(s.kind==='pat'){
    // The receiver bows into the hand instead of lifting the giver off the floor.
    posture(r,{tilt:(.18+Math.max(0,-heightDifference)*.6)*pr,nod:(.30+Math.max(0,-heightDifference))*pr});posture(g,{tilt:.08*pg,nod:.06*pg});

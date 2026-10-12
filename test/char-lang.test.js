@@ -21,3 +21,12 @@ test("单聊、群里、通话各处人设串都接上同一句", () => {
   assert.match(app, /if \(charLangLine\(c\) && !\(prev && charLangLine\(prev\)\) && \(chatSettings\[c\.id\] \|\| \{\}\)\.bilingual === undefined\)/);
   assert.match(scr, /lang: String\(lang \|\| ""\)\.trim\(\)\.slice\(0, 20\)/);
 });
+
+// 群里 2026-10-11：设了粤语，线下旁白、动作描写也全写成了粤语；点「译」翻回来的有时是繁体
+test("常用语言只管说出口的话；旁白动作照常写简体；译文一律摆简体", () => {
+  const fs2 = require("node:fs"), p2 = require("node:path");
+  const eng = fs2.readFileSync(p2.join(__dirname, "../js/engine.js"), "utf8");
+  const cmp = fs2.readFileSync(p2.join(__dirname, "../js/components.js"), "utf8");
+  assert.match(eng, /这只管【说出口的话】：线下的旁白、动作、神态、心理描写不是" \+ c\.name \+ "说的话，照常用简体中文写。/);
+  assert.match(cmp, /setZh\(typeof toSimplified === "function" \? toSimplified\(r\.zh\) : r\.zh\)/);
+});

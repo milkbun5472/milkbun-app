@@ -1,6 +1,10 @@
 // Kitchen content stays in CharDayView's existing full-page shell and scroll owner.
 (function(root){
  'use strict';
+ function KitchenTabs({view,setView,setDetail,busy,btn}){const h=root.React.createElement;
+  const tabs=[['book','菜谱'],['menu','这一桌'],['pantry','食材篮'],['boxes','餐盒'],['chat','做饭聊天']];
+  return h('nav',{"data-wk":"cdaykitchentabs",'aria-label':'厨房书签',style:{display:'flex',alignItems:'end',gap:3,borderBottom:'1px solid #bcbaa5',marginBottom:18,paddingTop:4}},...tabs.map(([id,label],i)=>h('button',{key:id,"data-wk":"cdaykitchentab",'data-part':id,'aria-current':view===id?'page':undefined,disabled:busy,onClick:()=>{setDetail('');setView(id);},style:{...btn,flex:[1,1.15,1.25,1,1.4][i],minWidth:0,minHeight:view===id?52:44,padding:'8px 3px',marginBottom:-1,border:'1px solid #bcbaa5',borderBottomColor:view===id?'#f8f3e6':'#bcbaa5',borderRadius:'10px 10px 0 0',background:view===id?'#f8f3e6':['#e3e4d0','#e7ddc5','#d9e2d4','#e8d9ce','#dce4d8'][i],fontSize:12,fontWeight:view===id?600:400}},label)));
+ }
  function Kitchen({state,view,setView,detail,setDetail,busy,homeVisiting,status,action,resume,share,uniqueId,btn,ink,soft,section,persona=''}){
   const h=root.React.createElement,K=root.CharDayKitchen,{useState}=root.React;
   const [category,setCategory]=useState(''),[query,setQuery]=useState(''),[favorites,setFavorites]=useState(false),[selected,setSelected]=useState([]);
@@ -16,8 +20,7 @@
    ...K.alternatives(r.id).map(row=>select('替换'+K.INGREDIENTS[row.id],'cdaykitchensubstitute',draft.swaps?.[row.id]||row.id,row.values.map(id=>[id,K.INGREDIENTS[id]]),value=>setDraft(d=>({...d,swaps:{...d.swaps,[row.id]:value}})))),
    h('label',{style:{display:'flex',alignItems:'center',gap:10,minHeight:44,fontSize:12}},h('input',{'data-wk':'cdaykitchengarnish',type:'checkbox',checked:draft.garnish!==false,onChange:e=>setDraft(d=>({...d,garnish:e.target.checked})),style:{width:20,height:20,accentColor:'#738664'}}),'加些点缀'),
    h('p',{style:{fontSize:11,color:soft,lineHeight:1.8}},K.tasteDescription(variant)+' · 手选优先于自动参考。'),button({'data-wk':'cdaykitchenpreferences'},'记住分工和口味',()=>action({kind:'preferences',patch:draft}))));
-  const tabs=[['book','菜谱'],['menu','这一桌'],['pantry','食材篮'],['boxes','餐盒']];
-  const tabbar=h('nav',{"data-wk":"cdaykitchentabs",'aria-label':'厨房书签',style:{display:'flex',alignItems:'end',gap:3,borderBottom:'1px solid #bcbaa5',marginBottom:18,paddingTop:4}},...tabs.map(([id,label],i)=>h('button',{key:id,"data-wk":"cdaykitchentab",'data-part':id,'aria-current':view===id?'page':undefined,disabled:busy,onClick:()=>{setDetail('');setView(id);},style:{...btn,flex:[1,1.15,1.25,1][i],minWidth:0,minHeight:view===id?52:44,padding:'8px 3px',marginBottom:-1,border:'1px solid #bcbaa5',borderBottomColor:view===id?'#f8f3e6':'#bcbaa5',borderRadius:'10px 10px 0 0',background:view===id?'#f8f3e6':['#e3e4d0','#e7ddc5','#d9e2d4','#e8d9ce'][i],fontSize:12,fontWeight:view===id?600:400}},label)));
+  const tabbar=h(KitchenTabs,{view,setView,setDetail,busy,btn});
   const pending=p&&section('手头这一份',h('div',null,h('p',{style:{fontSize:14}},p.kind==='meal'?(p.courses||[{recipeId:p.recipeId}]).map(d=>K.recipe(d.recipeId)?.name).join('、')+' · 一起吃':K.recipe(p.recipeId)?.name+' · 一起做'),
    h('p',{"data-wk":"cdaykitchenstate",role:'status',style:{fontSize:12,lineHeight:1.8}},p.ready?(p.kind==='meal'?'两个人已经吃好，可以收拾餐桌了。':'两人份做好了，可以收进餐盒。'):status?.label||'等TA在家，进屋后点继续。'),
    button({"data-wk":"cdaykitchencontinue"},'回到现场继续',()=>resume(p),{disabled:busy||!homeVisiting||p.ready}),button({"data-wk":"cdaykitchenfinish"},p.kind==='meal'?'吃好了，收拾餐桌':'收好两人份',()=>action({kind:'finish',id:p.id,at:Date.now()}),{disabled:busy||!p.ready}),p.kind==='cook'&&p.ready&&button({'data-wk':'cdaykitchenplate'},'现在端上桌',()=>action({kind:'plate',id:p.id,mealId:uniqueId(),at:Date.now()})),p.kind==='meal'&&share&&button({"data-wk":"cdaykitchenshare",'data-part':p.id},'和TA聊聊这桌菜',()=>share(p.id)),button({"data-wk":"cdaykitchencancel"},'先收起，保留材料',()=>action({kind:'cancel'}))));
@@ -36,22 +39,24 @@
  function KitchenHUD({job,status,busy,input,resume,finish,plate,share}){
   const K=root.CharDayKitchen,h=React.createElement;if(!job)return null;
   const progress=status?.progress||job.cooking?.progress,spec=job.cooking?K.cookingSpec(job,progress):null,paused=status?.phase==='paused';
-  const button=(hook,label,fn,disabled=false)=>h('button',{'data-wk':hook,onClick:fn,disabled:busy||disabled,style:{minHeight:44,padding:'6px 10px',fontSize:12,border:'1px solid #bbb49d',borderRadius:7,background:'#faf6e9',color:'#4a493c'}},label);
+  const button=(hook,label,fn,disabled=false)=>h('button',{...(typeof hook==='string'?{'data-wk':hook}:hook),onClick:fn,disabled:busy||disabled,style:{minHeight:44,padding:'6px 10px',fontSize:12,border:'1px solid #bbb49d',borderRadius:7,background:'#faf6e9',color:'#4a493c'}},label);
   const row=children=>h('div',{style:{display:'flex',gap:6,alignItems:'center',flexWrap:'wrap'}},...children);
-  return h('aside',{'data-wk':'cdaykitchenhud',style:{position:'absolute',bottom:24,left:10,right:10,padding:'9px 11px',borderRadius:10,background:'rgba(250,247,236,.96)',boxShadow:'0 3px 14px #463b2020',color:'#4a493c',fontSize:12,maxHeight:'44%',overflowY:'auto'}},
-   h('div',{role:'status',style:{lineHeight:1.7,marginBottom:6}},K.recipe(job.recipeId)?.name+' · '+(job.ready?'已完成':paused?'这份先放着':spec?.label||status?.label||'一起吃饭'),spec&&!job.ready&&h('span',{style:{display:'block',fontSize:11,color:'#827d69'}},(job.cooking.lead==='ta'?'TA掌勺 · 你备菜':'你掌勺 · TA备菜')+' · '+(spec.passive?'还需 '+Math.max(0,Math.ceil(spec.seconds-(progress?.wait||0)))+' 秒':spec.required?Math.min(spec.required,Math.floor(progress?.work||0))+'/'+spec.required:''))),
-   job.ready?row([job.kind==='cook'&&button('cdaykitchenplate','现在端上桌',plate),button('cdaykitchenfinish',job.kind==='cook'?'收进餐盒':'收拾餐桌',finish)]):job.kind==='meal'?row([button('cdaykitchentaste','尝一口',()=>input({kind:'taste'})),button('cdaykitchenoffer','夹给TA',()=>input({kind:'offer'})),paused&&button('cdaykitchenresume','回餐桌',()=>resume(job))]):spec?row([
-    paused?button('cdaykitchenresume','回锅边继续',()=>resume(job)):!spec.passive&&button('cdaykitchenwork',spec.operation==='chop'?'切一下':spec.operation==='knead'?'揉一下':spec.operation==='flip'?'翻一面':spec.operation==='add'?'放一份':spec.operation==='plate'?'盛出来':'拌一下',()=>input({kind:'work',operation:spec.operation})),
-    !spec.passive&&button('cdaykitchenfocus','看'+(spec.target==='prep'?'案板':'锅边'),()=>input({kind:'focus'})),
-    button('cdaykitchenswap','换手',()=>input({kind:'lead',value:job.cooking.lead==='ta'?'me':'ta'})),
-    spec.index===1&&spec.method!=='mix'&&h('label',{style:{display:'flex',alignItems:'center',gap:6,minHeight:44,flex:'1 1 145px'}},['小火','中火','大火'][progress?.heat??1],h('input',{'data-wk':'cdaykitchenheat','aria-label':'料理火候',type:'range',min:0,max:2,step:1,value:progress?.heat??1,onChange:e=>input({kind:'heat',value:Number(e.target.value)}),disabled:busy,style:{height:44,minWidth:70,width:'100%',accentColor:'#8b9d75'}})),
-    spec.passive&&button('cdaykitchenaway','先去忙别的',()=>input({kind:'away'})),
-    button('cdaykitchenmode',job.cooking.mode==='hands'?'交给两人自动做':'我来动手',()=>input({kind:'mode',value:job.cooking.mode==='hands'?'auto':'hands'}))
-   ]):button('cdaykitchenresume','回到现场继续',()=>resume(job)),
-   job.kind==='meal'&&share&&h('div',{style:{marginTop:6}},button('cdaykitchenshare','和TA聊聊这桌菜',()=>share(job.id))),
-   spec&&job.cooking.mode==='hands'&&!spec.passive&&!job.ready&&h('div',{style:{fontSize:10,color:'#827d69',lineHeight:1.7,marginTop:4}},['knead','stir','mix','flip'].includes(spec.operation)?'在亮起的案板或锅里拖动，也可以点上面的操作。':'点亮起的案板或锅边；拖动空地看四周，双指缩放。'));
+  return h('aside',{'data-wk':'cdaykitchenhud','data-tabletop':spec?.tabletop?'1':'0',style:{position:'absolute',bottom:24,left:10,right:10,padding:'9px 11px',borderRadius:10,background:'rgba(250,247,236,.96)',boxShadow:'0 3px 14px #463b2020',color:'#4a493c',fontSize:12,maxHeight:'44%',overflowY:'auto'}},
+   h('div',{role:'status',style:{lineHeight:1.7,marginBottom:6}},K.recipe(job.recipeId)?.name+' · '+(job.ready?'已完成':paused?'这份先放着':spec?.label||status?.label||'一起吃饭'),spec&&!job.ready&&h('span',{style:{display:'block',fontSize:11,color:'#827d69'}},(job.cooking.lead==='ta'?'TA掌勺 · 你备菜':'你掌勺 · TA备菜')+' · '+(spec.passive?'还需 '+Math.max(0,Math.ceil(spec.seconds-(progress?.wait||0)))+' 秒':spec.tabletop?'篮里 '+progress.table.items.filter(q=>q.zone==='basket').length+' · 案板 '+progress.table.items.filter(q=>q.zone==='board').length+' · 锅里 '+progress.table.items.filter(q=>q.zone==='pan').length+' · 盘里 '+progress.table.items.filter(q=>q.zone==='plate').length:spec.required?Math.min(spec.required,Math.floor(progress?.work||0))+'/'+spec.required:''))),
+   job.ready?row([job.kind==='cook'&&button({"data-wk":"cdaykitchenplate"},'现在端上桌',plate),button({"data-wk":"cdaykitchenfinish"},job.kind==='cook'?'收进餐盒':'收拾餐桌',finish)]):job.kind==='meal'?row([button({"data-wk":"cdaykitchentaste"},'尝一口',()=>input({kind:'taste'})),button({"data-wk":"cdaykitchenoffer"},'夹给TA',()=>input({kind:'offer'})),paused&&button({"data-wk":"cdaykitchenresume"},'回餐桌',()=>resume(job))]):spec?row([
+    paused?button({"data-wk":"cdaykitchenresume"},'回锅边继续',()=>resume(job)):!spec.passive&&!spec.tabletop&&button({"data-wk":"cdaykitchenwork"},spec.operation==='chop'?'切一下':spec.operation==='knead'?'揉一下':spec.operation==='flip'?'翻一面':spec.operation==='add'?'放一份':spec.operation==='plate'?'盛出来':'拌一下',()=>input({kind:'work',operation:spec.operation})),
+    spec.tabletop&&progress.table.items.some(p=>p.zone==='board')&&button({"data-wk":"cdaykitchenboard"},'放大砧板',()=>input({kind:'station',value:'board'})),
+    !spec.passive&&button({"data-wk":"cdaykitchenfocus"},spec.tabletop?'看台面':'看'+(spec.target==='prep'?'案板':'锅边'),()=>input({kind:'focus'})),
+    button({"data-wk":"cdaykitchenswap"},'换手',()=>input({kind:'lead',value:job.cooking.lead==='ta'?'me':'ta'})),
+    !spec.tabletop&&spec.index===1&&spec.method!=='mix'&&h('label',{style:{display:'flex',alignItems:'center',gap:6,minHeight:44,flex:'1 1 145px'}},['小火','中火','大火'][progress?.heat??1],h('input',{'data-wk':'cdaykitchenheat','aria-label':'料理火候',type:'range',min:0,max:2,step:1,value:progress?.heat??1,onChange:e=>input({kind:'heat',value:Number(e.target.value)}),disabled:busy,style:{height:44,minWidth:70,width:'100%',accentColor:'#8b9d75'}})),
+    spec.passive&&button({"data-wk":"cdaykitchenaway"},'先去忙别的',()=>input({kind:'away'})),
+    button({"data-wk":"cdaykitchenmode"},job.cooking.mode==='hands'?'交给两人自动做':'我来动手',()=>input({kind:'mode',value:job.cooking.mode==='hands'?'auto':'hands'}))
+   ]):button({"data-wk":"cdaykitchenresume"},'回到现场继续',()=>resume(job)),
+   job.kind==='meal'&&share&&h('div',{style:{marginTop:6}},button({"data-wk":"cdaykitchenshare"},'和TA聊聊这桌菜',()=>share(job.id))),
+   spec&&job.cooking.mode==='hands'&&!spec.passive&&!job.ready&&h('div',{style:{fontSize:10,color:'#827d69',lineHeight:1.7,marginTop:4}},spec.tabletop?'食材放砧板后可放大划切；熟食拖到盘里，盘子拖到托盘完成。双指缩放。':['knead','stir','mix','flip'].includes(spec.operation)?'在亮起的案板或锅里拖动，也可以点上面的操作。':'点亮起的案板或锅边；拖动空地看四周，双指缩放。'));
  }
 
+ root.CharDayKitchenTabs=KitchenTabs;
  root.CharDayKitchenHUD=KitchenHUD;
  root.CharDayKitchenUI=Kitchen;
 })(window);
