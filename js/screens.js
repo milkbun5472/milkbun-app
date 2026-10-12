@@ -16687,7 +16687,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
         background: "linear-gradient(180deg,rgba(255,255,255,.55),rgba(120,96,60,.55))", boxShadow: "0 3px 6px rgba(60,44,22,.22)" } }),
       h("span", { style: { position: "absolute", left: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } }),
       h("span", { style: { position: "absolute", right: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } })),
-    h("div", { "data-wk": "closetscroll", className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+    h("div", { "data-wk": "closetscroll", className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-10" },
       h("div", { "data-wk": "closetintro", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
         "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。点「钉住」，以后出图每张都穿那一身；再点一次取消。"),
       // 现在钉着哪一身（不在柜子里的老写法也照样显示，好让她取消）
@@ -16700,7 +16700,7 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) 
           h("input", { "data-wk": "closetgeninput",
             value: kw, onChange: e => setKw(e.target.value),
             placeholder: "给几个词，或者留空让它自己配",
-            className: "flex-1 outline-none",
+            className: "flex-1 min-w-0 outline-none",
             style: { height: 42, borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13.5 }
           }),
           h("button", { "data-wk": "closetgenbtn", "data-on": busy ? "1" : "0", onClick: () => onGen(kw), disabled: !!busy, className: "active:opacity-70 shrink-0",
