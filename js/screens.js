@@ -13840,7 +13840,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
+function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onAddEntry, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -13862,6 +13862,16 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   const M = window.Money;
   const money = n => M ? M.fmt(n, "__me__") : "¥" + n;
   const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "") + money(Math.abs(n));
+  // 记一笔（群友 2026-10-12：「钱包里能不能手动填随手小开销」）：一笔进出带一句备注，进流水；
+  //   跟「改余额」不同的是它说得出钱花在哪了，TA 翻你手机时看得见、接得上话。
+  const [entry, setEntry] = useState(null);   // { out: true, amt: "", note: "" }
+  const saveEntry = () => {
+    const v = M ? M.parse(entry.amt, "__me__") : Number(entry.amt);
+    const note = String(entry.note || "").trim().slice(0, 40);
+    if (v == null || isNaN(v) || !v || !note) return;
+    onAddEntry(entry.out ? -Math.abs(v) : Math.abs(v), note);
+    setEntry(null);
+  };
   const saveEdit = () => {
     // 输入的是她看到的那个币种，存回去换成人民币（跟角色钱包「改余额」同一个口子）
     const v = M ? M.parse(amt, "__me__") : Number(amt);
@@ -13900,9 +13910,10 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       h("div", { "data-wk": "walletbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(money(balance), 40, 9, 18), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, money(balance))),
     h("div", { key: "b", className: "flex items-center gap-2 mt-3" },
       h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
+      onAddEntry ? h("button", { "data-wk": "walletentry", onClick: () => setEntry({ out: true, amt: "", note: "" }), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "记一笔") : null,
       onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
-  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
+  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["entry", "随手记的"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
   const whoOf = r => {
     if (!r) return "";
@@ -13968,6 +13979,15 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
           h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
           h("button", { onClick: saveEdit, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
           h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
+      entry && h("div", { "data-wk": "walletentryform", className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },
+        h("div", { className: "flex items-center gap-2", style: { margin: "2px 0 10px" } },
+          [[true, "花出去"], [false, "收进来"]].map(([o, lb]) => h("button", { key: lb, "data-on": entry.out === o ? "1" : "0", onClick: () => setEntry(Object.assign({}, entry, { out: o })), className: "active:opacity-70",
+            style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (entry.out === o ? t.ink : t.line), background: entry.out === o ? t.ink : "transparent", color: entry.out === o ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, lb))),
+        h("input", { value: entry.note, onChange: e => setEntry(Object.assign({}, entry, { note: e.target.value })), placeholder: "花在哪 / 哪来的，比如：给路边的流浪猫之家捐了点", autoFocus: true, className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+        h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
+          h("input", { value: entry.amt, onChange: e => setEntry(Object.assign({}, entry, { amt: e.target.value })), placeholder: "多少", type: "number", inputMode: "decimal", className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+          h("button", { onClick: saveEntry, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "记下"),
+          h("button", { onClick: () => setEntry(null), className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
       // 固定进出：工资、零花钱、房租、会员费……每条自己起名、定多少、多久一次；到日子本地自己记一笔，不花调用
       onSaveRecur ? h("div", { "data-wk": "walletrecur", className: "px-5", style: { marginBottom: 14 } },
         rcEdit ? (function () {

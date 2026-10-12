@@ -28608,6 +28608,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDelLog: ids => { const del = new Set((ids || []).map(String)); setWalletLog(p => { const n = (p || []).filter(w => !del.has(String(w.id))); saveJSON("x_walletLog", n); return n; }); toast("删掉了"); },
     onBack: () => setScreen("messages"),
     onSetBalance: setWalletTo,
+    onAddEntry: (delta, note) => changeWallet(delta, note, "entry", { where: "手动" }),   // 记一笔：带备注进流水，查手机时 TA 看得见
     view: walletView,
     onView: setWalletView,
     onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); },
