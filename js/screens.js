@@ -16991,7 +16991,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 const ref = await photoDataUrl(big); if (!ref) return;
                 setSharp(true); const row = await onShoot({ scene: big.scene || "", restyle: { ref, style: st } }); setSharp(false); if (row) setBig(row); },
               className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st))),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, big.scene || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
           // 所以聊天历史里自带上下文，以后她说「上次那张」TA接得上

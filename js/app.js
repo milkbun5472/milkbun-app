@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.504";
+const APP_VERSION = "v75.507";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24685,7 +24685,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .flatMap(b => ((b && b.boxes) || []).map(x => String((x && x.text) || "").trim()))
       .filter(Boolean).join(" ");
     const scene = "这是一条【如果】里的世界：" + line.title + (line.premise ? "——" + line.premise : "")
-      + (last ? "。此刻：" + last.slice(0, 200) : "");
+      + (last ? "。此刻：" + clipAtSentence(last, 200) : "");
     const row = await studioShoot(char, { scene: scene, ifTitle: line.title });
     // ⚠️拍完顺手当这条线的背景（她 2026-09-18：「拍张我俩完成后只在合照显示」）——
     //   在这一页拍的照片，看不见在这一页才怪。旧背景那张图不会被删（它有自己的 key），
