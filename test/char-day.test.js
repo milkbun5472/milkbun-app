@@ -240,7 +240,7 @@ test('整个TA一天卸载再挂载仍接到同角色进度，角色之间隔离
 
 test('更多归拢样貌装修场景，整页返回不改变人物或场景快照',()=>{
  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();const before=viewer.send(tree);
- const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)).length,0);
+ const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)&&!/此刻详情$/.test(n.props['aria-label']||'')).length,0);
  viewer.click(tree,'更多');tree=viewer.render();const after=viewer.send(tree);assert.deepEqual(after,{...before,scenePaused:true});
  const panel=viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore');assert.ok(panel);assert.equal(viewer.all(panel).filter(n=>n.props['data-wk']==='cdaymenubody').length,1);
  for(const key of ['cdaymeopen','cdayhomestyle','cdaydecorate','cdayplaces'])assert.ok(viewer.all(panel).find(n=>n.props['data-wk']===key));
@@ -337,7 +337,7 @@ test('复合日程纸卡显示当前与下一步，原编辑writer只纠正所�
  vm.runInContext(cut(app,'  const editSchedSeq =','  const schedWeekKeysFrom =')+'this.editPhase=editSchedSeq;',f.env);
  const v=placeViewer(f,'c1',{onEditSchedSeq:(char,day,seq,patch,expected)=>f.env.editPhase(char.id,day,seq,patch,expected)});let at=Date.parse('2026-10-09T02:12:00Z');f.env.Date=class extends Date{static now(){return at;}};
  const hook=(tree,key)=>v.all(tree).find(n=>n.props['data-wk']===key),text=n=>n.children.map(x=>typeof x==='string'?x:typeof x==='object'?text(x):'').join('');
- let tree=v.render();assert.match(text(hook(tree,'cdayphase')),/正在 · 挑选蔬菜/);assert.match(text(hook(tree,'cdayphase')),/接下来 · 提袋回家/);
+ let tree=v.render();v.click(tree,'展开此刻详情');tree=v.render();assert.match(text(hook(tree,'cdayphase')),/正在 · 挑选蔬菜/);assert.match(text(hook(tree,'cdayphase')),/接下来 · 提袋回家/);
  hook(tree,'cdaypositionopen').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionstage').props.value,0);assert.equal(v.all(tree).find(n=>n.props['data-wk']==='cdaypositionscope'&&n.props['data-part']==='stage').props['aria-pressed'],true);
  hook(tree,'cdaypositionstage').props.onChange({target:{value:'1'}});tree=v.render();hook(tree,'cdaypositionscene').props.onChange({target:{value:'dayLibrary'}});tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaypositionspot'&&n.props['data-part']==='window-reading').props.onClick();tree=v.render();await hook(tree,'cdaypositionsave').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionpage'),undefined);
  assert.equal(JSON.stringify(L.publicSchedules(f.plans())),original);assert.equal(v.send(tree).presentation.map,'dayMarket');
