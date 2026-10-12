@@ -35,7 +35,7 @@
     { key: "liar", emoji: "🎲", zh: "骗子骰", en: "Liar's Dice", min: 2, max: 6,
       desc: "每人五颗骰子扣着，轮流叫「桌上至少有几个几」，觉得上家在吹就开。1 点万能，每人三条命，撑到最后的赢。", rule: "2~6 人 · 每人 5 颗骰子 · 3 条命" },
     { key: "date", emoji: "✉️", zh: "各怀心思的约会", en: "", min: 2, max: 2,
-      desc: "你和 TA 各抽秘密任务，有限时间和预算里商量路线、配合小游戏，收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
+      desc: "你和 TA 各抽一张秘密任务，有的看你们去了哪、做了什么，有的看你们聊了什么。每局的去处从一大堆地方里抽，路上还会撞上小意外；每到一站 TA 都会接话、替你挑东西。收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
     { key: "story", emoji: "📖", zh: "故事接龙", en: "Story Chain", min: 2, max: 8,
       desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" }
   ];
@@ -452,12 +452,7 @@
       if (session.game.key === "story") return h(StoryChainGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
-    if (game && game.key === "date") return h(window.DateGameSetup, {
-      t: t, table: gameTable, characters: props.characters, profile: props.profile, isEngineer: props.isEngineer,
-      initialPicked: entry && entry.characterId ? [String(entry.characterId)] : [],
-      onBack: function () { setGame(null); },
-      onStart: function (config) { setSession({ game: game, config: config }); }
-    });
+    // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
@@ -593,7 +588,7 @@
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
-    const [npcFill, setNpcFill] = useState(true);
+    const [npcFill, setNpcFill] = useState(game.key !== "date");   // 约会两个人的局：不补 NPC
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
@@ -669,10 +664,11 @@
           "照上次那桌摆（" + ((lastCfg.charIds || []).map(function (id) { const c = chars.find(function (x) { return x.id === id; }); return c ? c.name : null; }).filter(Boolean).join("、") || "只有 NPC") + "）") : null,
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "模式"),
-        h(Segmented, { t: t, value: mode, options: MODES, onChange: setMode }),
+        // 约会是两个人的局：没有观战、彩头和 NPC（它自己有输赢账，也不进回忆和战报）
+        h(Segmented, { t: t, value: mode, options: game.key === "date" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
         // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
-        h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
+        game.key === "date" ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
           h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
             placeholder: "输的人要做什么，写一句",
@@ -750,7 +746,7 @@
           })) : null,
         // 选项
         h("div", { style: { marginTop: 14, borderTop: "1px solid " + t.line } },
-          h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
+          game.key === "date" ? null : h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
           // NPC 数量步进：默认补到最低，可继续加到 max（人多局更长、更看得出博弈）
           (npcFill && maxNpc > 0) ? h("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0 12px" } },
             h("div", { style: { flex: 1 } },
@@ -5279,6 +5275,7 @@
       props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingLeft: 36 } }, "…") : null);
   }
 
+  if (typeof window !== "undefined") window.GameTalkLog = GameTalkLog;   // 约会那盒（date-game.js）也用这一份气泡
   const DRAW_POOL_KEY = "x_drawWords";
   const DRAW_BUILTIN = ["猫", "雨伞", "西瓜", "自行车", "月亮", "眼镜", "蜗牛", "冰淇淋", "灯泡", "钥匙", "蝴蝶", "火锅", "风筝", "仙人掌", "企鹅", "吉他", "雪人", "闹钟", "彩虹", "热气球", "章鱼", "蛋糕", "帐篷", "鲨鱼", "向日葵", "牙刷", "火箭", "长颈鹿", "汉堡", "灯塔"];
   const DRAW_INK = { k: "#2b2723", r: "#d0533f", b: "#3f6fb0", g: "#4f8a4a", y: "#e0a92e", p: "#9a5fb0" };
