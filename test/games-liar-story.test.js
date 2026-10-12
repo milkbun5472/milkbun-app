@@ -76,3 +76,12 @@ test("架子、盒面、桌布、入口都接上了；故事接龙的战报不�
   assert.match(src, /key: "story", zh: "故事接龙", ids: realCharIds\(state\.players\), wins: \[\], meWin: null/);
   assert.match(src, /game: o\.game \|\| "uno"/, "言秋亲打的票要写清是哪个游戏");
 });
+
+test("五子棋、你画我猜、骗子骰、故事接龙共用一条对阵条，不各画一套名字条", () => {
+  assert.equal((src.match(/function GameVsBar\(/g) || []).length, 1);
+  for (const [a, b] of [["function GomokuGame(", "function GameTalkLog("], ["function DrawGuessGame(", "function UnoGame("], ["function LiarDiceGame(", "function StoryChainGame("], ["function StoryChainGame(", "if (typeof module"]]) {
+    const seg = src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(a)));
+    assert.match(seg, /h\(GameVsBar, \{/, a + " 没用对阵条");
+  }
+  assert.match(src, /const soft = cfg\.mode === "easy";/, "骗子骰的放水要认 easy（开局页放水的 key）");
+});
