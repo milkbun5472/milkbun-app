@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.453";
+const APP_VERSION = "v75.459";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -7367,7 +7367,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const year = String(nowD.getFullYear());
         const plan = loadJSON("x_bdayPlan", null);
         if (!plan || plan.year !== year) {
-          const cands = characters.filter(c => c && !c.npc && hist(c).length >= 2 && myBdayFor(c.id)
+          const cands = liveChars.filter(c => c && hist(c).length >= 2 && myBdayFor(c.id)
             && (d => d != null && d >= 1 && d <= 3)(daysUntilBirthday(myBdayFor(c.id), nowD)));
           if (cands.length) {
             const couple = cands.find(c => ((couplesRef.current || {})[c.id] || {}).status === "together");

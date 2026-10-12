@@ -24,7 +24,7 @@ test("① 扭蛋 SR make：engineerEyes 先开 gacha_make 票；没接到票就�
 test("① 座位与桥都认 gacha_make", () => {
   assert.match(seat, /gacha_make: true/);
   assert.match(seat, /payload\.tool === "gacha_make" && !text\(payload\.card_id\)/);
-  assert.match(bridge, /PASS_THROUGH_TOOLS = frozenset\(\{"game_turn", "couple_qa", "gacha_make"\}\)/);
+  assert.match(bridge, /PASS_THROUGH_TOOLS = frozenset\(\{[^}]*"gacha_make"[^}]*\}\)/); // 后来又加了列车、一起看的票，只认 gacha_make 在里面
 });
 
 test("② 回流的 Lisa 原话调 gachaEarn(chat)，且只在有 lisa 段时", () => {

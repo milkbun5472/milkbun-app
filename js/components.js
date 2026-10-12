@@ -11203,6 +11203,8 @@ function CallScreen({
         recPause(); st.recDead = true;
         fallbackEar(session, "原生识别不可用（" + ev.error + "）");
       } else if (ev.error === "no-speech") setLiveSt("暂时没听到声音，请靠近麦克风再说一句");
+      else if (ev.error === "language-not-supported") { recPause(); st.recDead = true; fallbackEar(session, "这个浏览器的语音识别不认中文"); }
+      else if (ev.error !== "aborted") setLiveSt("语音识别出错（" + ev.error + "），可关麦再开一次");
     };
     st.rec = rec; st.recWanted = true;
     try { rec.start(); } catch (e2) { st.recWanted = false; st.rec = null; return false; }
@@ -11218,7 +11220,8 @@ function CallScreen({
     if (total < 16000 * 0.4) return;
     st.busy++; setLiveSt("识别中…");
     try {
-      const d = await earsTranscribe(lvEncode(chunks));
+      const wav = lvEncode(chunks);
+      const d = (typeof sttApiReady === "function" && sttApiReady()) ? await sttTranscribe(wav) : await earsTranscribe(wav);
       const text = (d && d.text || "").trim();
       if (text) lvCommitFinal(text, session);
     } catch (e) { setLiveSt("识别失败，再说一遍"); }
@@ -11316,8 +11319,8 @@ function CallScreen({
     const st = lv.current;
     if (!liveRef.current || st.session !== session || st.fallback) return;
     recPause(); st.rec = null; st.fallback = true;
-    if (typeof voiceEarsReady !== "function" || !voiceEarsReady()) {
-      lvStop(); setLiveSt(reason + "；可重试，或在设置配置「真声通话耳朵」作为备用识别"); return;
+    if (typeof backupEarReady !== "function" || !backupEarReady()) {
+      lvStop(); setLiveSt(reason + "；可重试，或在「设置 → API → 语音识别」填一个语音转文字接口"); return;
     }
     try { await workletStart(); if (st.session === session && liveRef.current) setLiveSt("听着呢（备用语音识别）"); }
     catch (e) { if (st.session === session) { lvStop(); setLiveSt("备用识别开启失败：" + (e.message || e)); } }
@@ -11333,7 +11336,9 @@ function CallScreen({
       routeCallAudio(st.ttsCtx, "play-and-record");
       st.recAlive = false; st.recDead = false; st.fallback = false;
       // 识别必须在点击的这一拍启动，不等待播放 AudioContext 解锁；开耳不要求配置嗓子。
-      if (recStart()) {
+      const earsFirst = typeof loadSttApi === "function" && loadSttApi().prefer && sttApiReady();
+      if (earsFirst) await fallbackEar(session, "备用识别");
+      else if (recStart()) {
         // 没结果不等于设备坏了（用户可能没说话），不擅自切到收费识别。
         st.watchdog = setTimeout(() => {
           if (liveRef.current && st.session === session && !st.recAlive && !st.fallback)
@@ -11494,7 +11499,7 @@ function CallScreen({
   const title = people.map(c => c.remark || c.name).join("、");
   // 真声档开关条件放这儿：isGroup/primary 声明之后（放前面吃过 TDZ 崩屏）
   // 输入只看识别能力，单人/群聊共用；没有角色音色也能开麦。
-  const canLive = !!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady());
+  const canLive = !!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof backupEarReady === "function" && backupEarReady());
   // 最后一条是她刚写的动作、TA还没接：空着按发送＝就这样，让TA接
   const lastM = list[list.length - 1];
   const actPending = !!(lastM && lastM.role === "user" && lastM.act);
@@ -11782,9 +11787,12 @@ function CallScreen({
         style: { padding: "10px 14px", borderRadius: 14, background: callBubble(false).background }
       }, h(TypingDots, { color: "rgba(255,255,255,0.72)" }))
     )), liveSt && h("div", {
-    className: "px-6 pb-1",
-    style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
-  }, "🎙 " + liveSt), h("div", {
+    "data-wk": "calllivest", "data-on": live ? "1" : "0",
+    className: "px-6 pb-1"
+  }, h("span", {
+    // 提示压在通话背景上：垫一块深底、字放大，报错要让她看得清（群友 2026-10-12：「好像是错误提示，试了好几遍也看不清」）
+    style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, padding: "4px 10px", borderRadius: 10, background: "rgba(0,0,0,0.55)", color: live ? "#b9eb98" : "#ffd29a" }
+  }, "🎙 " + liveSt)), h("div", {
     "data-wk": "callcomposer",
     className: "shrink-0",
     style: Object.assign({

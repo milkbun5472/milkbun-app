@@ -69,12 +69,12 @@ test("单聊里那几行居中的字：设了壁纸就垫一层磨砂", () => {
 });
 
 test("通话小结那一行：CallEndPill 拿不到 dsp，得把「有没有壁纸」传进去", () => {
-  assert.match(comp, /function CallEndPill\(\{ m, chars, onBg \}\)/);
+  assert.match(comp, /function CallEndPill\(\{ m, chars, onBg[,} ]/);
   const c = comp.slice(comp.indexOf("function CallEndPill"), comp.indexOf("function CallShotThumb"));
   assert.match(c, /onBg \? \{ background: "rgba\(255,255,255,0\.62\)"/);
   // 单聊和群聊两处调用都要传，不然又是「一层写在两处，第二处没跟上」
-  assert.match(comp, /h\(CallEndPill, \{ key: i, m, chars: \[character\], onBg: !!dsp\.chatBg \}\)/);
-  assert.match(comp, /h\(CallEndPill, \{ key: i, m, chars: characters, onBg: !!gChatBg \}\)/);
+  assert.match(comp, /h\(CallEndPill, \{ key: i, i, m, chars: \[character\], onBg: !!dsp\.chatBg[,} ]/);
+  assert.match(comp, /h\(CallEndPill, \{ key: i, i, m, chars: characters, onBg: !!gChatBg[,} ]/);
 });
 
 test("群聊也有背景图，旁白同样要垫", () => {

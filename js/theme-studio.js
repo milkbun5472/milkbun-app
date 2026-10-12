@@ -590,7 +590,7 @@
         ["wtitle", "组件里的标题／大字（月份、温度、歌名、备忘录、名字、功德数）"], ["wsub", "次要小字（年份、天气描述、地点、歌手、签名、说明；data-part 区分）"],
         ["wlabel", "小眉标（本月支出、最近提醒、正在播放、功德、单位字、标签行）"], ["wnum", "醒目的数字或金额（支出、在一起天数、统计数、连击、倒数日）"],
         ["wrow", "组件里列表的一行（备忘条目 data-late=\"1\" 是逾期）"], ["wcell", "日历组件里的一个日子格（data-today=\"1\" 是今天）"], ["wdow", "日历组件顶上的星期格"],
-        ["wbtn", "组件里的按钮（data-part＝prev/next/play/muyu）"], ["wxshare", "天气页底下「让他们知道我这边的天气」整块"], ["wxshareon", "那块里的总开关（data-on＝1 开着）"], ["wxsharenudge", "「会主动提醒」开关"], ["wxsharewho", "谁知道：一个人的小签（data-on＝1 勾上了）"], ["wicon", "组件里的装饰图标、唱片、头像、转盘、照片（data-part 区分）"],
+        ["wbtn", "组件里的按钮（data-part＝prev/next/play/muyu）"], ["calllivest", "通话里开麦时的那行识别状态／报错（data-on＝1 正在听）"], ["sttapi", "设置·语音识别那一页整块"], ["sttprefer", "设置·语音识别：「优先用这个」勾选"], ["wxshare", "天气页底下「让他们知道我这边的天气」整块"], ["wxshareon", "那块里的总开关（data-on＝1 开着）"], ["wxsharenudge", "「会主动提醒」开关"], ["wxsharewho", "谁知道：一个人的小签（data-on＝1 勾上了）"], ["wicon", "组件里的装饰图标、唱片、头像、转盘、照片（data-part 区分）"],
         ["wbar", "音乐组件的进度条"], ["wempty", "组件没内容时那句提示"], ["wpop", "木鱼飘起来的「+1 功德」"], ["wdots", "情侣空间组件轮播的小圆点"]
       ])
     })
@@ -1009,7 +1009,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.453", changed: "长按消息那一层多了 msgmenu 挂点（铺满整屏、实色暗底，不再用毛玻璃）。", none: "" };
+  const BRIEF_STAMP = { v: "v75.459", changed: "通话里开麦的识别状态那一行多了 calllivest 挂点（data-on＝1 正在听），默认垫深底。", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

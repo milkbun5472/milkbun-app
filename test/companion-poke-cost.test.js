@@ -11,7 +11,7 @@ test("戳一下说一句：最多一枪（不因解析失败再补打），节�
   assert.match(comp, /const POKE_GATE = \{ busy: false, last: 0 \};/);
   assert.match(comp, /if \(!info \|\| POKE_GATE\.busy \|\| !char \|\| Date\.now\(\) - POKE_GATE\.last < 15000\) return;/);
   assert.match(comp, /tag: "陪伴", once: true,/);
-  assert.match(engine, /if \(!parsed && !probe\.once\) \{/);
+  assert.match(engine, /if \(!parsed && !probe\.once && failRetryOn\(\)\) \{/); // 补打还要看全局「失败重试」开关
 });
 test("走后台线路；陪伴页和悬浮那只都拿到了后台线路和 toast", () => {
   assert.match(comp, /const p = props\.bgActive \|\| \(props\.apiFor \? props\.apiFor\(char\.id\) : null\)/);

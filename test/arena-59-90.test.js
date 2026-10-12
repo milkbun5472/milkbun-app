@@ -441,11 +441,13 @@ test("上台的人只认她亲手挑的名单，不再另抓角色去台下编�
   // v73.xx（她 2026-09-23）：Setup 也用上了——挑裁判就是从这批人里挑（言秋不当看客，也不当裁判）。
   //   所以是：往 Arena 传一次 + 算 bench 一处 + 往 Setup 传一次 + 算裁判候选一处。
   // 开台那页也能先挑场边的人（benchPool）——同样只从没上台、不是裁判的人里挑。
-  assert.equal((dbt.match(/crowdChars/g) || []).length, 7,
-    "只该出现在【往 Arena/Setup 各传一次】【算 bench】【开台挑场边】【算裁判候选】这几处");
-  assert.match(dbt, /const judgePool = \(props\.crowdChars \|\| props\.characters \|\| \[\]\)\.filter\(c => c && !picked\.includes\(c\.id\)\)/,
+  // v75.2xx：配角也能坐场边、当裁判（seatNpcs），场边/裁判候选＝crowdChars 加上不重复的配角，
+  //   于是 seatPool 和 bench 各要多认一次 crowdChars 去重。
+  assert.equal((dbt.match(/crowdChars/g) || []).length, 9,
+    "只该出现在【往 Arena/Setup 各传一次】【seatPool 合并去重】【算裁判候选】【算 bench 合并去重】这几处");
+  assert.match(dbt, /const judgePool = \(props\.crowdChars \? seatPool : \(props\.characters \|\| \[\]\)\)\.filter\(c => c && !picked\.includes\(c\.id\)\)/,
     "裁判得从没上台的人里挑");
-  assert.match(dbt, /bench: \(props\.crowdChars \|\| \[\]\)\.filter/, "场边名单没接上");
+  assert.match(dbt, /bench: \(props\.crowdChars \|\| \[\]\)\.concat\(/, "场边名单没接上");
   assert.match(dbt, /!orderedChars\.some\(function \(x\) \{ return String\(x\.id\) === String\(c\.id\); \}\)/,
     "上台的人不该同时又在场边看着自己");
 });
