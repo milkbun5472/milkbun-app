@@ -1,6 +1,6 @@
 // Synchronous geometry inspection for build tools and rig checks, after explicit loading.
-import {PLACE_MODULES,placeModules} from './modules.mjs?v=fg-ab8076f3b07a3f6c';
-import {applyProfessionalView} from '../professional-view.mjs?v=fg-ab8076f3b07a3f6c';
+import {PLACE_MODULES,placeModules} from './modules.mjs?v=fg-78f265a4a6cfcea6';
+import {applyProfessionalView} from '../professional-view.mjs?v=fg-78f265a4a6cfcea6';
 export const DAY_FACTORIES=Object.fromEntries(await Promise.all(Object.entries(PLACE_MODULES).map(async([id,p])=>{
  const mod=await placeModules.load(id);
  return [id,options=>applyProfessionalView(mod[p.create](options),id,options)];
