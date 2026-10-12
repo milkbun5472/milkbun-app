@@ -12,4 +12,5 @@ test("照片日记：只有点了才拍，一次生图", () => {
   // 只从日记页那颗按钮进来，别处不调
   assert.equal((a.match(/genPhotoDiary\b/g) || []).length, 2);
   assert.match(s, /onClick: \(\) => onPhotoDiary\(entry\)/);
+  assert.match(a, /scheduleTextFor\(char, schedDayKey\(new Date\(entry\.ts\)\)\)/);   // 三格参考那天的日程
 });
