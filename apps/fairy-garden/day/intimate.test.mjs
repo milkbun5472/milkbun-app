@@ -6,8 +6,8 @@ const T=await import('three'),{MAPS,segmentClear,walkable}=await import('../worl
 const {registerDayPlaces}=await import('./places/index.mjs');registerCoreSpaces(MAPS);registerDayPlaces(MAPS);
 const social=globalThis.CharDaySocial,origin={a:{x:0,z:3.3},b:{x:0,z:4.8}};
 test('亲密互动沿同一地点策略，工作/试玩/装修不会成为约会入口',()=>{
- assert.equal(Object.keys(social.intimate).length,10);
- const home=social.setting({presentation:{map:'dayHome'},slot:{type:'home'}});assert.equal(home.actions.filter(p=>p.intimate).length,10);
+ assert.equal(Object.keys(social.intimate).filter(k=>!social.rest[k]).length,10);assert.equal(Object.keys(social.rest).length,7);
+ const home=social.setting({presentation:{map:'dayHome'},slot:{type:'home'}});assert.equal(home.actions.filter(p=>p.intimate).length,17);
  for(const map of ['dayCafe','dayStreet','dayLibrary','dayGym','dayMarket','dayStation']){
   assert.ok(social.setting({presentation:{map},slot:{type:'out'}}).actions.some(p=>p.intimate));
   assert.equal(social.setting({presentation:{map},slot:{type:'work'}}),null);

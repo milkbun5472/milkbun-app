@@ -1,4 +1,4 @@
-import {homeSize} from './home-architecture.mjs?v=fg-a40be0a4c2688238';
+import {homeSize} from './home-architecture.mjs?v=fg-eab2c575de9efb2e';
 export const BASIN_USE={approach:.20,z:.30,y:1.01,tapY:1.20,bowlZ:.13};
 // The wing starts outside every previously accepted furnishing footprint.
 // Geometry, saved fixture defaults, collision and walking regions share it.
