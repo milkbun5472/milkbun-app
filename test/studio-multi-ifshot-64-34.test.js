@@ -20,7 +20,7 @@ test("衣服能挑好几件——衣柜里外套和鞋本来就分开挂", () =>
   assert.match(scr, /const \[mine, setMine\] = useState\(\[\]\);/, "我这边还是单件");
   assert.match(scr, /const \[theirs, setTheirs\] = useState\(\[\]\);/, "他那边还是单件");
   // 递到出图那头仍是一句话：那一层不用跟着改
-  assert.match(scr, /onShoot\(\{ scene, mine: mine\.join\("、"\), theirs: theirs\.join\("、"\)(, grid)? \}\)/, "多件没拼成一句话递过去");
+  assert.match(scr, /onShoot\(\{ scene, mine: mine\.join\("、"\), theirs: theirs\.join\("、"\)(, grid)?(, theme)? \}\)/, "多件没拼成一句话递过去");
 });
 
 test("空景那张不许再冒充合照", () => {

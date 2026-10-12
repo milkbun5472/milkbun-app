@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.495";
+const APP_VERSION = "v75.496";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24926,7 +24926,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
         instruction: "把下面这段你们的聊天改编成一则四格漫画。按时间顺序分成正好四格，每格给：scene＝这一格画什么（两个人在哪、在做什么、什么表情，一句话，不写台词）；line＝这一格下面配的一句台词或旁白（从聊天里挑或浓缩，20 字以内，可以写「名字：话」）。第四格要有个收尾的小包袱或者情绪落点。\n聊天：\n" + log,
         schemaHint: "{\"panels\":[{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"}]}",
-        maxTokens: 3000
+        maxTokens: 8000
       });
       panels = (d && Array.isArray(d.panels) ? d.panels : []).slice(0, 4).map(p => ({ scene: String((p && p.scene) || "").trim().slice(0, 120), line: String((p && p.line) || "").trim().slice(0, 40) }));
     } catch (e) { toast("分镜没想出来：" + (e.message || "重试"), 7000); return; }

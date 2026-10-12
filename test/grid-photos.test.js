@@ -3,8 +3,8 @@ const fs = require("fs");
 const s = fs.readFileSync(__dirname + "/../js/screens.js", "utf8"), a = fs.readFileSync(__dirname + "/../js/app.js", "utf8");
 test("四宫格：一次生图、切格放大、单格拍清楚", () => {
   assert.match(s, /function GridCells\(\{ photo, rows, cols, onSharpen, sharpBusy \}\)/);
-  assert.match(a, /const sceneFull = \(opt && opt\.grid \? GRID_LINE : ""\)/);
-  assert.match(a, /opt && opt\.cellRef \? \[opt\.cellRef, char\.refPhoto, profile\.refPhoto\]/);
+  assert.match(a, /const sceneFull = (COMIC_LINE \+ )?\(opt && opt\.grid \? GRID_LINE : ""\)/);
+  assert.match(a, /firstRef \? \[firstRef, char\.refPhoto, profile\.refPhoto\]/);
   assert.match(s, /big\.grid === "2x2" \? h\(GridCells/);
 });
 test("照片日记：只有点了才拍，一次生图", () => {
