@@ -49,7 +49,7 @@ test("生图那条链每一处存图都走了会上云的那两扇门", () => {
 test("发照片那一格挂在真正在跑的那条协议上，不是那条死路", () => {
   // 真正在跑的是 Protocol v2：openCaps + capState
   assert.match(app, /openCaps\.push\("photo"\);/);
-  assert.match(app, /photoCapLine\(uName, \{ face: canFace, duo: canDuo[^}]*\}\) \+ "\\n" \+ PHOTO_NO_EXCUSE\.trim\(\)/,
+  assert.match(app, /photoCapLine\(uName, \{ face: canFace, duo: canDuo[^\n]*\}\) \+ "\\n" \+ PHOTO_NO_EXCUSE\.trim\(\)/,
     "字段说明没进 capState——那模型手上永远只有 self/other/duo");
   // ⚠️那条死路 v66.12 已经整个删掉了（她：「每次都这样耽误事」），不许再长回来
   assert.ok(!/const _normalTaskFull = /.test(app), "那条不再发送的 A/B 基线又回来了");

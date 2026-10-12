@@ -8618,7 +8618,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
       const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
       if (typeof vclockUse === "function") vclockUse(charId);
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe(), priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe() ? ((povFor(char) || {}).tier || true) : false, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
@@ -12049,7 +12049,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   于是「别太拘谨、放开点、别刷屏」这几年一个字都没发出去过。
         capState.push("photo：Ta 让你拍、你想给 Ta 看此刻的自己、报备在哪在干嘛、心情好想分享、氛围正好时都可以自然发一张——"
           + "放开点、别太拘谨，但也别每一轮都发、别刷屏，一段对话里几次就够。\n"
-          + photoCapLine(uName, { face: canFace, duo: canDuo, me: canShootMe() }) + "\n" + PHOTO_NO_EXCUSE.trim());
+          + photoCapLine(uName, { face: canFace, duo: canDuo, me: canShootMe(), meTier: canShootMe() ? (povFor(char) || {}).tier : 0 }) + "\n" + PHOTO_NO_EXCUSE.trim());
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }

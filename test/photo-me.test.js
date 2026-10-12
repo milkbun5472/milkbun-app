@@ -23,8 +23,8 @@ test("四处出图都认 me：单聊、群聊、线下（单人和群共用 runO
 
 test("四处都告诉模型有 me 这一档；她资料里没外貌也没参考照就不给", () => {
   assert.match(engine, /\.concat\(o\.me \? \["me（你给 " \+ uName \+ " 拍的照片/);
-  assert.equal((app.match(/me: canShootMe\(\) \}\)/g) || []).length, 2, "单聊、群聊的 photoCapLine 都要传");
-  assert.match(app, /photoMe: _offPhotoOn && canShootMe\(\)/);
+  assert.equal((app.match(/photoCapLine\([^\n]*me: canShootMe\(\)/g) || []).length, 2, "单聊、群聊的 photoCapLine 都要传");
+  assert.match(app, /photoMe: _offPhotoOn && canShootMe\(\) \? \(\(povFor\(char\) \|\| \{\}\)\.tier \|\| true\) : false,/);
   assert.match(app, /photoMe: _gShooters\.length > 0 && canShootMe\(\)/);
   assert.match(engine, /if \(canMe\) kinds\.push\("\*\*me\*\*="/);
   assert.match(engine, /\(session\.photoMe \? "｜me" : ""\)/);
@@ -49,4 +49,13 @@ test("层从关系和好感来：在一起/恋人＝3，暧昧闺蜜挚友或好
   assert.match(app, /pov: meShot \? povFor\(realChar\) : null/);
   assert.match(app, /pov: meShot \? povFor\(spk\) : null/);
   assert.match(app, /pov: kind === "me" \? povFor\(char\) : null/);
+});
+
+// 她 2026-10-11：「也还要跟场景契合，在家和在游乐园拍出来的不一样，喝咖啡和看电影也不一样，要根据上下文来」
+test("TA 的视角跟着场景走：模型照场景挑拍法；描述里写了从哪儿拍就照描述，没写才掷、对不上就换", () => {
+  assert.match(engine, /if \(opts\.pov && POV_SCENE_ANGLE_RE\.test\(String\(sceneDesc \|\| ""\)\)\) parts\.push\("【这一张的机位】照上面「场景\/正在做什么」里写的拍照位置和距离来/);
+  assert.match(engine, /如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法/);
+  assert.match(engine, /\(o\.meTier \? "——照你俩现在的关系，拍法可以是：" \+ povSlotsFor\(o\.meTier\)\.join\("／"\)/);
+  assert.match(engine, /typeof canMe === "number" \? "；照关系，拍法可以是：" \+ povSlotsFor\(canMe\)/);
+  assert.match(app, /meTier: canShootMe\(\) \? \(povFor\(char\) \|\| \{\}\)\.tier : 0/);
 });

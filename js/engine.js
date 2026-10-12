@@ -2144,7 +2144,8 @@ function offlinePhotoHint(userName, charName, canDuo, isGroup, canMe) {
     "**other**=" + userName + "替 " + who + "拍下的那一张（第三人称，站坐走停、回头、半身全身带环境都行，取景比自拍自由得多）"];
   if (canDuo) kinds.push("**duo**=" + who + "和 " + userName + " 的合照（画面里是两个人，会拿两人各自的参考照把两张脸都锁住）");
   // 她 2026-10-11：「拍照能不能搞一类他帮我拍」——镜头在手里，画面里是她
-  if (canMe) kinds.push("**me**=" + who + "拿着手机给 " + userName + " 拍的那一张（画面里只有 " + userName + "：scene 写她此刻的样子、和" + who + "从哪儿拍过去）");
+  if (canMe) kinds.push("**me**=" + who + "拿着手机给 " + userName + " 拍的那一张（画面里只有 " + userName + "：scene 写清此刻在哪、" + who + "从哪儿拍过去、她在干嘛，跟这一段的场景走"
+    + (typeof canMe === "number" ? "；照关系，拍法可以是：" + povSlotsFor(canMe).join("／") + "，挑这个场景里真会出现的，或者自己想一个同样分寸的" : "") + "）");
   return "\n【photo 拍一张】" + (isGroup ? "在场成员" : "你") + "和 " + userName + " 此刻【真的在同一个地方】，"
     + "所以照片是当场拍的，不是隔着手机发过去的。这一拍里有值得留下来的画面（凑在一起、光线正好、"
     + (canDuo ? "对方举起手机要合影、你自己想留一张我俩的、" : "")
@@ -4594,7 +4595,9 @@ function photoCapLine(uName, o) {
   const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : ["self（只限拍你身上看不见脸的一部分，face 必须填 false）"])
     .concat(o.duo ? ["duo（你和 " + uName + " 的合照）"] : [])
     // 她 2026-10-11：「拍照能不能搞一类他帮我拍」——镜头在你手里，画面里是她；face 问的是【她】的脸
-    .concat(o.me ? ["me（你给 " + uName + " 拍的照片：从你的眼睛看过去，画面里是 " + uName + "，不是你；scene 写她此刻的样子、你从哪儿拍的；这一张 face 填 true）"] : [])
+    .concat(o.me ? ["me（你给 " + uName + " 拍的照片：从你的眼睛看过去，画面里是 " + uName + "，不是你；scene 写清在哪、你从哪儿拍、她在干嘛，跟此刻的场景走"
+      + (o.meTier ? "——照你俩现在的关系，拍法可以是：" + povSlotsFor(o.meTier).join("／") + "，挑一个这个场景里真会出现的，或者自己想一个同样分寸的" : "")
+      + "；这一张 face 填 true）"] : [])
     .concat(o.group ? ["group（在场几个人的合影）"] : [])
     .concat(["none（画面里一个人都没有：窗外、桌上的东西、刚做好的菜）"]);
   return "photo 两个字段一起填：\n"
@@ -4769,6 +4772,28 @@ function buildMinimalPhotoPrompt(char, opts) {
 // ⚠️原来三处锁都只写着「每张图都必须完整穿着」——于是掀衣摆、撸袖子这些【动作】
 //   也被当成换装挡掉了。主句仍然是禁令，这一句是放行的泄压阀，三处共用一份。
 const OUTFIT_LOCK_GESTURE = "锁住的是【这是哪一身】，不是【这一身必须原样穿好】：掀起衣摆、撩起下摆、撸起袖子、解开一两颗扣子、外套搭在臂弯上、衣领松开——这些是这个人此刻的动作，衣服还是这一身，照画就好。只有换成【另一身衣服】才算违反这把锁。";
+// TA 的视角（她 2026-10-11：「约会视角下拍的、男友视角」，再一句：「拍照的不一定是男友，也有可能是朋友、女生朋友、女朋友、暧昧对象」）：
+//   镜头就是拍照那个人的眼睛，画面里只有她。机位按关系分三层，越亲近能抽的越多（层由 app.js povFor 定：关系＋好感）。
+//   第一层谁都能用；第二层给闺蜜、挚友、暧昧、好感高的；第三层只给恋人。太贴身的写得含蓄，免得真人照被出图审核拦。
+// 描述里自己写了「从哪儿拍」的那几种说法——写了就照描述，不再替它掷机位
+const POV_SCENE_ANGLE_RE = /对面|身后|背后|回头|侧脸|俯拍|仰拍|低头看|往下拍|往上拍|肩上|肩头|牵着|隔着|旁边|身边|跟在|并排|凑近|近近地|从.{0,10}拍/;
+const POV_SLOTS = [
+  ["隔着桌子坐在她对面，平视拍过去，桌上的东西在前景虚掉",
+    "走在她后面，她正好回头看过来的那一瞬",
+    "她没注意到镜头，侧脸在看别处，被随手抓拍",
+    "她把手里的东西举到镜头前给拍照的人看",
+    "她发现自己在被拍，笑着或者嫌弃地看过来",
+    "并排走着，从她身侧平视拍过去，带一点街景"],
+  ["凑得很近，画面里只有她的半张脸和眼睛",
+    "她冲着镜头做鬼脸、比一个奇怪的手势",
+    "拍照那个人的一只手把东西递进画面，她正伸手来接",
+    "她刚睡醒或者在发呆，被近距离拍下，头发有点乱"],
+  ["拍照那个人牵着她的手，两只手在画面前景，她在后面回头看",
+    "她靠在拍照那个人的肩上，从肩头的角度斜着拍她的侧脸",
+    "拍照那个人低头看她，从高一点的地方近近地俯拍",
+    "她仰着脸看镜头，离得很近，像要说悄悄话"]
+];
+const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); };
 function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 设定里【明说了画风】才算二次元：只认画风词。
   //   ⚠️发色瞳色、兽耳不算（她 2026-10-05：「有些人喜欢真人的兽耳或者银发之类的，你不能以偏概全」）——
@@ -4803,27 +4828,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "手机搁在桌上或架在什么东西上拍的，人退开一点，手不在画面里",
     "逆着光，脸的一侧偏暗"
   ];
-  // TA 的视角（她 2026-10-11：「约会视角下拍的、男友视角」，再一句：「拍照的不一定是男友，也有可能是朋友、女生朋友、女朋友、暧昧对象」）：
-//   镜头就是拍照那个人的眼睛，画面里只有她。机位按关系分三层，越亲近能抽的越多（层由 app.js povFor 定：关系＋好感）。
-//   第一层谁都能用；第二层给闺蜜、挚友、暧昧、好感高的；第三层只给恋人。太贴身的写得含蓄，免得真人照被出图审核拦。
-const POV_SLOTS = [
-  ["隔着桌子坐在她对面，平视拍过去，桌上的东西在前景虚掉",
-    "走在她后面，她正好回头看过来的那一瞬",
-    "她没注意到镜头，侧脸在看别处，被随手抓拍",
-    "她把手里的东西举到镜头前给拍照的人看",
-    "她发现自己在被拍，笑着或者嫌弃地看过来",
-    "并排走着，从她身侧平视拍过去，带一点街景"],
-  ["凑得很近，画面里只有她的半张脸和眼睛",
-    "她冲着镜头做鬼脸、比一个奇怪的手势",
-    "拍照那个人的一只手把东西递进画面，她正伸手来接",
-    "她刚睡醒或者在发呆，被近距离拍下，头发有点乱"],
-  ["拍照那个人牵着她的手，两只手在画面前景，她在后面回头看",
-    "她靠在拍照那个人的肩上，从肩头的角度斜着拍她的侧脸",
-    "拍照那个人低头看她，从高一点的地方近近地俯拍",
-    "她仰着脸看镜头，离得很近，像要说悄悄话"]
-];
-const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); };
-const PHOTO_SHOTS_OTHER = [
+  const PHOTO_SHOTS_OTHER = [
     "远一点的全身，人在环境里",
     "从侧面拍的半身，没看镜头",
     "走动中被抓拍的一张",
@@ -5073,7 +5078,11 @@ const PHOTO_SHOTS_OTHER = [
   if (_hasIdRef) parts.push("【参考图只锁人，不锁镜头】人物参考照只用来确定【这是谁】——五官、脸型、发型发色、瞳色、肤色、体型、标志性配饰，照它来。但【机位、头的朝向、视线看哪里、表情、姿势、取景范围】一律按这次的场景和动作【重新决定】，不许沿用参考照里的那一套。参考照里那个角度（微微仰头看镜头、低头平视、固定的歪头或侧脸）是【那一张照片】的信息，不是这个人天生的姿态；每张新照片都该有自己的机位。");
   if (opts.worldRefIndex) parts.push(worldRefLine(opts.worldRefIndex, opts.worldRefLabel));
   if (opts.contRefIndex) parts.push("【第" + opts.contRefIndex + "张参考图=上一张刚生成的图】它只用来延续连贯性:同一个人、同一套衣着配饰、同一个场地与光线时段照它来;但【构图、姿势、机位、表情必须换新的】,不要复制它的画面。若它与前面的人物参考图冲突,一律以人物参考图为准。");
-  parts.push(photoShotLine(kind, opts.shotSeed));
+  // TA 的视角要跟着场景走（她 2026-10-11：「在家和在游乐园拍出来的不一样，喝咖啡和看电影也不一样，要根据上下文来」）：
+  //   描述里已经写了从哪儿拍，就照它，不再掷；没写才掷一格，并且放话「跟场景对不上就换一个同样分寸的」。
+  if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
+  else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
+  else parts.push(photoShotLine(kind, opts.shotSeed));
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
   if (kind === "duo" && !multi && !opts.cinematic) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
@@ -7842,7 +7851,7 @@ async function generateOffline(p, ctx, session) {
   const digitalToyHint = session.toyOn ? "\n【配件】此刻配件已由 " + userName + " 当场授权并连到她身上。你想实际控制它时，可使用 toy：pattern 为 teasing/steady/wave/pulse/edge/ramp/hold/throb/flutter/tide/knock/surge，intensity 1-20，duration 1-90 秒；**想让一轮里节奏有变化，可以直接给【数组】排好几段，会按顺序连着放、中间不断档**：如 toy:[{\"pattern\":\"wave\",\"intensity\":8,\"duration\":30},{\"pattern\":\"hold\",\"intensity\":14,\"duration\":20}]（最多 6 段、整串总时长不超过 5 分钟；单段仍最多 90 秒）。是否使用、何时使用、用什么节奏由你自己决定。" : "";
   // 线下拍照能力（app 侧算好 photoOn / photoDuo 传进来：接了图像 API、这个人有外貌或参考照、
   // 没在冷却里）。数字生命不发——扮演类规则一律不给TA。
-  const offPhotoHint = (!isDigital && session.photoOn) ? offlinePhotoHint(userName, char.name, !!session.photoDuo, false, !!session.photoMe) : "";
+  const offPhotoHint = (!isDigital && session.photoOn) ? offlinePhotoHint(userName, char.name, !!session.photoDuo, false, session.photoMe || false) : "";
   const toyField = session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing｜steady｜wave｜pulse｜edge｜ramp｜hold｜throb｜flutter｜tide｜knock｜surge\",\"intensity\":整数1-20,\"duration\":秒1-90,\"reason\":\"配合哪句/哪个动作\"}" : "";
   // v52.88 A/B：预检已命中的普通单人线下，把“首稿 → 表达编辑”折叠进同一次 completion。
   // JSON 字段按 draftScene → scene 排列；模型生成 scene 时，首稿已经成为它最近的上下文，
