@@ -8629,7 +8629,7 @@ const FISH_RELAY_CODE = `export default {
       "Access-Control-Allow-Methods": "POST, OPTIONS",
       "Access-Control-Allow-Headers": "authorization, content-type, model",
     };
-    if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+    if (req.method.toLowerCase() === "options") return new Response(null, { headers: cors });
     const url = new URL(req.url);
     const r = await fetch("https://api.fish.audio" + url.pathname + url.search, {
       method: req.method, headers: req.headers, body: req.body,
