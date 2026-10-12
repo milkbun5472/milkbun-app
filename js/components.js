@@ -9711,6 +9711,11 @@ function ChatThread({
   const [specialText, setSpecialText] = useState("");
   const [specialImg, setSpecialImg] = useState("");
   const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe
+  // 在TA照片上画完（DoodleEditor）：落进「发照片」那一步，跟从相册选了一张一样，配不配一句她定
+  useEffect(() => {
+    const f = e => { const u = e && e.detail && e.detail.dataUrl; if (!u) return; setPhotoSendMode("real"); setSpecialImg(u); setSpecialKind("photo"); };
+    window.addEventListener("doodle-photo", f); return () => window.removeEventListener("doodle-photo", f);
+  }, []);
   const photoFileRef = useRef(null);
   const [descView, setDescView] = useState(null);
   const [transferOpen, setTransferOpen] = useState(false);
@@ -16391,10 +16396,69 @@ function useIdbImgUrl(imgKey) {
   return url;
 }
 // 角色自拍气泡：从 IndexedDB 读出生成的图，pending 显示「拍照中」，failed 显示没拍成
+// 在TA发来的照片上直接画（她 2026-10-12：「现在只能我保存了图编辑好再发回去，可以直接操作就更好」）。
+//   画完不另开一条发送路：丢给当前那个聊天的「发照片」，跟从相册选了一张一模一样——要不要配一句、发不发，还是她定。
+//   TA 那头照常看图（识图），看得出你在哪儿画了什么。
+const DOODLE_INK = ["#e5484d", "#ffffff", "#111111", "#f5c518", "#ff8fb1", "#3b82f6"];
+function DoodleEditor({ src, onClose }) {
+  const cv = useRef(null), strokes = useRef([]), cur = useRef(null), img = useRef(null);
+  const [ink, setInk] = useState(DOODLE_INK[0]);
+  const [wide, setWide] = useState(false);
+  const [n, setN] = useState(0);   // 只拿来触发重画（撤销、清空后）
+  const paint = () => {
+    const c = cv.current, im = img.current; if (!c || !im) return;
+    const x = c.getContext("2d");
+    x.clearRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+    x.lineCap = "round"; x.lineJoin = "round";
+    strokes.current.concat(cur.current ? [cur.current] : []).forEach(st => {
+      x.strokeStyle = st.ink; x.lineWidth = st.w; x.beginPath();
+      st.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]));
+      if (st.pts.length === 1) x.lineTo(st.pts[0][0] + 0.1, st.pts[0][1]);
+      x.stroke();
+    });
+  };
+  useEffect(() => {
+    const im = new Image();
+    im.onload = () => { img.current = im; const c = cv.current; if (!c) return; const k = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
+      c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k); paint(); };
+    im.onerror = () => { window.__toast && window.__toast("这张图读不出来，没法在上面画"); onClose(); };
+    im.src = src;
+  }, [src]);
+  useEffect(paint, [n]);
+  const at = e => { const c = cv.current, r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+  const down = e => { e.preventDefault(); const c = cv.current; if (!c) return; try { c.setPointerCapture(e.pointerId); } catch (er) {}
+    cur.current = { ink, w: (wide ? 0.022 : 0.008) * Math.max(c.width, c.height), pts: [at(e)] }; paint(); };
+  const move = e => { if (!cur.current) return; e.preventDefault(); cur.current.pts.push(at(e)); paint(); };
+  const up = () => { if (!cur.current) return; strokes.current.push(cur.current); cur.current = null; setN(v => v + 1); };
+  const done = () => {
+    if (!strokes.current.length) { window.__toast && window.__toast("还没画呢"); return; }
+    let url = "";
+    try { url = cv.current.toDataURL("image/jpeg", 0.9); } catch (e) { window.__toast && window.__toast("这张是外链图，浏览器不让在上面画，先保存到相册再从相册发"); return; }
+    window.dispatchEvent(new CustomEvent("doodle-photo", { detail: { dataUrl: url } }));
+    onClose();
+  };
+  const btn = (label, fn, on) => h("button", { onClick: fn, className: "active:opacity-70", style: { minHeight: 36, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13,
+    color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)" } }, label);
+  return h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
+    h("div", { className: "flex items-center justify-between", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 10px" } },
+      btn("取消", onClose), h("span", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 13 } }, "在照片上画"), btn("发回去", done, true)),
+    h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: 8 } },
+      h("canvas", { ref: cv, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, onPointerLeave: up,
+        style: { maxWidth: "100%", maxHeight: "100%", touchAction: "none", borderRadius: 6, background: "#222" } })),
+    h("div", { "data-wk": "doodletools", style: { padding: "10px 14px calc(env(safe-area-inset-bottom) + 12px)" } },
+      h("div", { className: "flex items-center justify-center", style: { gap: 12, marginBottom: 10 } },
+        DOODLE_INK.map(c => h("button", { key: c, onClick: () => setInk(c), "aria-label": "颜色", style: { width: 30, height: 30, borderRadius: 999, background: c,
+          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)", boxShadow: ink === c ? "0 0 0 2px #000 inset" : "none" } }))),
+      h("div", { className: "flex items-center justify-center", style: { gap: 8 } },
+        btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)),
+        btn("撤销", () => { strokes.current.pop(); setN(v => v + 1); }),
+        btn("清空", () => { strokes.current = []; setN(v => v + 1); }))));
+}
 function SelfieBubble({ m }) {
   const t = useTheme();
   const [url, setUrl] = useState(null);
   const [zoom, setZoom] = useState(false);
+  const [doodle, setDoodle] = useState(false);
   const [imgErr, setImgErr] = useState(false);   // <img> 加载失败（坏数据/过期链接）
   const [idbMiss, setIdbMiss] = useState(false); // IndexedDB 里读不到（没存住/被清理）
   useEffect(() => {
@@ -16444,7 +16508,10 @@ function SelfieBubble({ m }) {
           if (!window.saveImgOriginal) return window.__toast && window.__toast("这台设备存不了图");
           window.saveImgOriginal(m.imgKey, "照片").then(ok => { if (window.__toast) window.__toast(ok ? "已经存下来了" : "这张取不到原图"); });
         }, className: "active:opacity-70",
-        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "⬇ 保存到手机（原图）") : null));
+        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "⬇ 保存到手机（原图）") : null,
+      h("button", { "data-wk": "doodlebtn", onClick: e => { e.stopPropagation(); setZoom(false); setDoodle(true); }, className: "active:opacity-70",
+        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "✎ 在上面画，发回去")),
+    doodle && h(DoodleEditor, { src: shown, onClose: () => setDoodle(false) }));
   if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
   if (m.imgKey) return note("图加载中…还看不到就是没存住");
   return note("没拿到图");
@@ -17207,6 +17274,10 @@ function GroupThread({
   const [photoText, setPhotoText] = useState("");
   const [groupPhotoImg, setGroupPhotoImg] = useState("");
   const [groupPhotoMode, setGroupPhotoMode] = useState("real"); // real | describe
+  useEffect(() => {   // 在群里某张照片上画完：同单聊，落进发照片那一步
+    const f = e => { const u = e && e.detail && e.detail.dataUrl; if (!u) return; setGroupPhotoMode("real"); setGroupPhotoImg(u); setPhotoOpen(true); };
+    window.addEventListener("doodle-photo", f); return () => window.removeEventListener("doodle-photo", f);
+  }, []);
   const groupPhotoFileRef = useRef(null);
   const [callPick, setCallPick] = useState(null); // "voice"|"video" 选打给谁
   const [callSel, setCallSel] = useState([]); // 多选成员 id

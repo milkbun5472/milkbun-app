@@ -16704,6 +16704,10 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, ledger, kinds, o
                 // ⚠️悄悄话的 title 就是正文头一截，两行一样等于把同一句摆两遍
                 (x.title && String(x.title).replace(/…$/, "") !== String(x.text || "").slice(0, String(x.title).replace(/…$/, "").length))
                   ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#4e4030", marginTop: 8 } }, x.title) : null,
+                // TA画的那张（v75.479，她 2026-10-12：「原来是文字描述，现在可以让他用代码画」）：
+                //   当图片挂，不当 DOM 插——svg 里就算混进脚本，<img> 也一行都不跑
+                x.kind === "draw" && x.svg ? h("img", { "data-wk": "drawerdrawing", alt: "", src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg),
+                  style: { display: "block", width: "100%", maxWidth: 300, margin: "8px auto 2px", background: "#fffdf7", borderRadius: 4, border: "1px solid rgba(91,76,58,.15)" } }) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#5b4c3a", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
                 // 改字（她 2026-10-05）：拆开的那张纸可以改；跟 ✕ 一样一直看得见，不藏在长按里
                 onEdit ? h("div", { className: "flex justify-end", style: { marginTop: 4 } },

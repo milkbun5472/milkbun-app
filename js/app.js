@@ -23719,9 +23719,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const OUTLET_PICK = {
     thing: "往你俩的抽屉里放【一样你今天真的经手过的小物件】，要说清它是在哪儿、怎么到你手上的。",
     word:  "往你俩的抽屉里放【半句没头没尾的话】——不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上。",
-    draw:  "往你俩的抽屉里放【一张你随手画的】——描述这张画上有什么，别描述你为什么画。",
+    // 画（v75.479，她 2026-10-12）：原来只有文字描述，现在真画出来——TA 用 SVG 代码一笔笔画。
+    //   画技照人设：会画的画得像，不会画的就是火柴人、歪线、涂掉重画，那正是这个人。text 留一句画上是什么。
+    draw:  "往你俩的抽屉里放【一张你随手画的】——真的画出来：svg 字段写一张 SVG（viewBox=\"0 0 300 300\"，白底，线条为主，像拿笔随手画的，可以有歪线、涂改、没画完；画得好不好照你这个人会不会画来，不会画就画得笨拙，别装成插画师）。text 只写一句画上是什么，别写你为什么画。",
     timeline: "往你俩的时光轴上【补一条你记着、而她可能没记下来的事】，要写清是哪一天前后的事。",
     qa: "往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的。**"
+  };
+  // TA 画的那张 SVG：只认一整个 <svg>…</svg>，脚本、事件、外链一律拿掉；太大的不要（照常留文字那一句）
+  const cleanDrawSvg = raw => {
+    let s = String(raw || "").trim();
+    const a = s.indexOf("<svg"), b = s.lastIndexOf("</svg>");
+    if (a < 0 || b < a) return "";
+    s = s.slice(a, b + 6);
+    if (s.length > 40000) return "";
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(href|xlink:href)\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*')/gi, "");
+    if (!/xmlns=/.test(s)) s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+    return s;
   };
   const leaveInCoupleSpace = async (char, styleHint, manual) => {
     try {
@@ -23740,7 +23754,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "脑子里没有半句话、没画过、想不起该补的那一天、心里没有一个真想问她的问题），"
           + "就把 skip 填 true、text 留空——这次什么都不留，等下次。空一次没关系，编一件才糟。\n"
           + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
-        schemaHint: "{\"skip\":\"此刻真没有这样一样东西可留就填 true，否则 false\",\"question\":\"" + (_pick === "qa" ? "你出的那道题" : "这一档用不上，留空") + "\",\"text\":\"留下的内容" + (_pick === "qa" ? "（＝你自己那半答案）" : "") + "\",\"title\":\"" + (_pick === "timeline" ? "一个短标题" : "这一档【不要标题】，留空——她拆开之前封面上什么都不显示") + "\"}"
+        schemaHint: "{\"skip\":\"此刻真没有这样一样东西可留就填 true，否则 false\",\"question\":\"" + (_pick === "qa" ? "你出的那道题" : "这一档用不上，留空") + "\",\"text\":\"留下的内容" + (_pick === "qa" ? "（＝你自己那半答案）" : "") + "\",\"title\":\"" + (_pick === "timeline" ? "一个短标题" : "这一档【不要标题】，留空——她拆开之前封面上什么都不显示") + "\"" + (_pick === "draw" ? ",\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 300 300\\\">…你画的…</svg>（只用 path/line/circle/ellipse/rect/polyline/text 这些，不写脚本、不引外部图片）\"" : "") + "}"
       });
       const txt = String((d && d.text) || "").trim();
       // TA自己说这一档写不出来：什么都不留，闸还回去，下一轮再来。
@@ -23774,7 +23788,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
         outletNote(char.id, kind, !!manual);
         drawerPush({ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
-          title: "", text: txt, ts: Date.now(), openedTs: null });
+          title: "", text: txt, ts: Date.now(), openedTs: null,
+          ...(kind === "draw" && cleanDrawSvg(d && d.svg) ? { svg: cleanDrawSvg(d.svg) } : {}) });
       }
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
