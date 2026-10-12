@@ -2820,6 +2820,14 @@ function Forum({
     if (feedScrollRef.current) feedScrollTopRef.current = feedScrollRef.current.scrollTop;
     openCursorRef.current = Number(forumReadCursors[p.id] || 0);
     setOpen(p); onLoadComments(p); markNoticesRead(forumNotices.filter(n => n.post.id === p.id).map(n => n.id));
+    // 有新回复就直接跳到第一条新的（她 2026-10-12：「点开能不能跳到新的那里，每次还得下滑」）。
+    //   楼层是点开才去读的，所以多等几下，找到那条就停
+    if (unreadFloors(p.id) > 0) {
+      let tries = 0;
+      const seek = () => { const el = document.querySelector('[data-wk="fofloor"][data-new="1"]');
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); else if (++tries < 10) setTimeout(seek, 150); };
+      setTimeout(seek, 180);
+    }
   };
   // 这一条是不是「这次新来的」：别人发的、而且比进门时读到的位置还新。
   // 正在看着的时候又到了一波，也算新——它确实是刚冒出来的。
@@ -3393,6 +3401,9 @@ function Forum({
         h("button", { "data-wk": "fonewhead", onClick: () => setNewPostsOpen(v => !v), "aria-expanded": newPostsOpen ? "true" : "false", className: "w-full flex items-center justify-between px-3 py-2 active:opacity-60", style: { borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } },
           h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, color: FORUM_SKIN.ink } }, "新帖在这里"),
           h("span", { style: { fontFamily: F_BODY, fontSize: 10.5, color: FORUM_SKIN.accent } }, forumNewCharPosts.length + " 帖 " + (newPostsOpen ? "▴" : "▾"))),
+        // 一键已读（她 2026-10-12：「有时候不想看」）：这几帖不再算新，下次进来也不算
+        h("button", { "data-wk": "fonewallread", onClick: () => { setNewPostSeen(x => x.concat(forumNewCharPosts.map(p => p.id))); try { localStorage.setItem("x_forumLastSeen", String(Date.now())); } catch (e) {} setNewPostsOpen(false); },
+          className: "w-full text-right px-3 py-1.5 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11, color: FORUM_SKIN.fog, borderBottom: newPostsOpen ? "1px solid " + FORUM_SKIN.line : "none" } }, "全部标为已读"),
         newPostsOpen && forumNewCharPosts.slice(0, 8).map(p => h("button", { key: p.id, onClick: () => { setNewPostSeen(x => [...x, p.id]); openPost(p); }, className: "w-full flex items-center gap-2 px-3 py-2 text-left active:opacity-60", style: { borderBottom: "1px solid " + FORUM_SKIN.line } },
           h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: FORUM_SKIN.accent, flexShrink: 0 } }, nameOf(p)),
           h("span", { className: "min-w-0 flex-1", style: { fontFamily: F_BODY, fontSize: 12, color: FORUM_SKIN.sub, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, "《" + (p.title || "帖子") + "》"),

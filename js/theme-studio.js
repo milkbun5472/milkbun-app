@@ -546,7 +546,7 @@
         // 通话
         ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
         ["callavatar", "通话中间的大头像"], ["callcamera", "用户真实摄像头小窗与开关/前后镜头切换"], ["callbody", "通话字幕滚动区"], ["callmsg", "通话里一句（带 data-me）"],
-        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["halfwin", "半窗聊天整块（底下那半屏）"], ["gsetpage", "群聊设置那一整页"], ["doodlebtn", "TA的照片点开后那颗「在上面画，发回去」"], ["doodle", "在照片上画的那一整页（黑底）"], ["doodletools", "画画页底下的颜色和笔、撤销、清空那一栏"], ["doodlemode", "画画页顶上「画 / 贴 / 抠」三颗；data-on=1 是现在那一档"], ["doodleask", "「圈出来问他」那颗"], ["wallfromphoto", "TA的照片点开后那颗「设成手机壁纸」"], ["drawerdrawing", "抽屉里「TA画的」拆开后那张画"], ["fishrelay", "语音 API 里 Fish 那格底下「自己搭一个中转」的折叠说明"], ["msgmenu", "长按消息弹出的那一层（暗底＋菜单）"], ["photofailerr", "照片没拍成那张卡上的「原因：」一行"], ["gmaskpick", "群设置里「我在这个群用哪张面具」那一格；按钮 data-on=1 是选中的那张"], ["halfwinbar", "半窗顶上「放大 / 收起」那一条"], ["halfwinsize", "半窗顶条正中那根调大小的小横杠"], ["halfwinpill", "半窗收起后底下那颗小条"], ["calltf", "通话里转账那一行（带收下/退回）"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
+        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["halfwin", "半窗聊天整块（底下那半屏）"], ["gsetpage", "群聊设置那一整页"], ["fonewallread", "论坛「新帖在这里」底下那颗「全部标为已读」"], ["doodlebtn", "TA的照片点开后那颗「在上面画，发回去」"], ["doodle", "在照片上画的那一整页（黑底）"], ["doodletools", "画画页底下的颜色和笔、撤销、清空那一栏"], ["doodlemode", "画画页顶上「画 / 贴 / 抠」三颗；data-on=1 是现在那一档"], ["doodleask", "「圈出来问他」那颗"], ["wallfromphoto", "TA的照片点开后那颗「设成手机壁纸」"], ["drawerdrawing", "抽屉里「TA画的」拆开后那张画"], ["fishrelay", "语音 API 里 Fish 那格底下「自己搭一个中转」的折叠说明"], ["msgmenu", "长按消息弹出的那一层（暗底＋菜单）"], ["photofailerr", "照片没拍成那张卡上的「原因：」一行"], ["gmaskpick", "群设置里「我在这个群用哪张面具」那一格；按钮 data-on=1 是选中的那张"], ["halfwinbar", "半窗顶上「放大 / 收起」那一条"], ["halfwinsize", "半窗顶条正中那根调大小的小横杠"], ["halfwinpill", "半窗收起后底下那颗小条"], ["calltf", "通话里转账那一行（带收下/退回）"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
         ["callstage", "单人视频铺满全屏的那层（TA 或你）"], ["callpip", "单人视频右上角那个小框"], ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
@@ -1003,7 +1003,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.483", changed: "小游戏多了骗子骰和故事接龙：gameliardie / gameliarbid / gameliarbidbtn / gameliaropen / gameliarnext、gamestorypaper / gamestoryline / gamestoryword / gamestorysend / gamestorycopy；外壳照旧用 gameplay / gameseat / gamelog / gameactions（data-part＝liar / story）。", none: "" };
+  const BRIEF_STAMP = { v: "v75.485", changed: "", none: "没加新钩子：TA的一天此刻卡能收成一条细线，换地方按钮改成一行。" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
