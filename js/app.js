@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.497";
+const APP_VERSION = "v75.499";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24871,8 +24871,107 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 拍一张。走的是线下那条已经调好的出图链（buildPhotoPrompt + generateSelfieImage），
   // 只是不落进线下会话，改落进照相馆自己那一份。
+  // 平行时空照、封面、海报（她 2026-10-12）：照相馆里挑一个题材一键拍。题材自己定了穿什么，所以挑了题材就不再塞两身衣服。
+  //   封面和海报上的字【不让模型写】（它写中文常常乱码）——画面只画人，字由 App 拍完自己排上去。
+  const STUDIO_THEMES = {
+    school:   { zh: "校服", line: "【题材·校服】你们俩穿着同一所学校的校服，在教室、走廊或操场，像高中时的一张合照。" },
+    ancient:  { zh: "古装", line: "【题材·古装】你们俩换上古装（衣冠发式照同一个朝代），在庭院、街市或灯下，像古装剧里的一张定妆照。" },
+    wedding:  { zh: "婚纱照", line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
+    marriage: { zh: "结婚登记照", line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
+    grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
+    band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
+    magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图：两人占画面中下部，上方和四周留出排标题的空位，打光讲究；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
+    movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景，画面下方留出排片名的空位；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
+  };
+  // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
+  const customThemes = () => { const a = loadJSON("x_studioThemes", []); return Array.isArray(a) ? a.filter(x => x && x.k && x.zh) : []; };
+  const studioThemeOf = k => STUDIO_THEMES[k] || (() => { const c = customThemes().find(x => x.k === k); return c ? { zh: c.zh, line: "【题材·" + c.zh + "】" + (c.line || "你们俩在「" + c.zh + "」这个设定里") + "。" } : null; })();
+  window.__studioThemes = () => [...Object.keys(STUDIO_THEMES).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
+  window.__studioThemeSave = (zh, line, k) => {
+    const name = String(zh || "").trim().slice(0, 12); if (!name) return null;
+    const key = k || "c_" + Date.now();
+    const rest = customThemes().filter(x => x.k !== key);
+    saveJSON("x_studioThemes", [...rest, { k: key, zh: name, line: String(line || "").trim().slice(0, 300) }]);
+    return key;
+  };
+  window.__studioThemeDel = k => saveJSON("x_studioThemes", customThemes().filter(x => x.k !== k));
+  // 封面／海报上的字：拍完由 App 排上去
+  // 四格漫画排版：把 2×2 图切成四格，竖排成一条，每格下面写一行台词
+  const comicCompose = async (blob, panels) => {
+    try {
+      const url = URL.createObjectURL(blob);
+      const img = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = url; });
+      const W = img.naturalWidth, H = img.naturalHeight, cw = Math.floor(W / 2), ch = Math.floor(H / 2);
+      const pad = 16, capH = 84, cols = 2, outW = cols * cw + pad * 3, outH = 2 * (ch + capH) + pad * 3;
+      const cv = document.createElement("canvas"); cv.width = outW; cv.height = outH;
+      const g = cv.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, outW, outH);
+      for (let i = 0; i < 4; i++) {
+        const cx = i % 2, cy = Math.floor(i / 2), x = pad + cx * (cw + pad), y = pad + cy * (ch + capH + pad);
+        g.drawImage(img, cx * cw, cy * ch, cw, ch, x, y, cw, ch);
+        g.strokeStyle = "#222"; g.lineWidth = 4; g.strokeRect(x, y, cw, ch);
+        const line = String((panels[i] && panels[i].line) || "").trim();
+        if (line) {
+          g.fillStyle = "#222"; g.textAlign = "center"; g.textBaseline = "middle";
+          let fs = 30; g.font = "bold " + fs + "px sans-serif";
+          while (fs > 16 && g.measureText(line).width > cw - 20) { fs -= 2; g.font = "bold " + fs + "px sans-serif"; }
+          const chars = Array.from(line), rows = []; let cur = "";
+          chars.forEach(c => { if (g.measureText(cur + c).width > cw - 20) { rows.push(cur); cur = c; } else cur += c; });
+          if (cur) rows.push(cur);
+          rows.slice(0, 2).forEach((r, k, arr) => g.fillText(r, x + cw / 2, y + ch + capH / 2 + (k - (arr.length - 1) / 2) * (fs + 4)));
+        }
+      }
+      URL.revokeObjectURL(url);
+      return await new Promise(ok => cv.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
+    } catch (e) { return blob; }
+  };
+  // 多选聊天 → 四格漫画：先让文字端把这段分成四格（画面＋台词），再一张图画完
+  const comicFromMessages = async (char, msgs) => {
+    const pick = (msgs || []).filter(m => m && m.content && typeof m.content === "string").slice(0, 40);
+    if (!char || !pick.length) { toast("先选几条聊天"); return; }
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    toast("在画了，画好放照相馆", 4000);
+    let panels = null;
+    try {
+      const log = pick.map(m => (m.role === "user" ? (profile.name || "我") : char.name) + "：" + String(m.content).slice(0, 200)).join("\n");
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "把下面这段你们的聊天改编成一则四格漫画。按时间顺序分成正好四格，每格给：scene＝这一格画什么（两个人在哪、在做什么、什么表情，一句话，不写台词）；line＝这一格下面配的一句台词或旁白（从聊天里挑或浓缩，20 字以内，可以写「名字：话」）。第四格要有个收尾的小包袱或者情绪落点。\n聊天：\n" + log,
+        schemaHint: "{\"panels\":[{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"}]}",
+        maxTokens: 8000
+      });
+      panels = (d && Array.isArray(d.panels) ? d.panels : []).slice(0, 4).map(p => ({ scene: String((p && p.scene) || "").trim().slice(0, 120), line: String((p && p.line) || "").trim().slice(0, 40) }));
+    } catch (e) { toast("分镜没想出来：" + (e.message || "重试"), 7000); return; }
+    if (panels.length < 4 || panels.some(p => !p.scene)) { toast("分镜没凑够四格，再试一次", 6000); return; }
+    const row = await studioShoot(char, { scene: "聊天画成的四格漫画", comic: panels });
+    if (row) toast("画好了，在照相馆", 5000);
+  };
+  const studioOverlay = async (blob, kind, title, names) => {
+    try {
+      const u = URL.createObjectURL(blob);
+      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+      URL.revokeObjectURL(u);
+      const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext("2d"), W = c.width, H = c.height, F = "'Noto Serif SC','Songti SC',serif";
+      x.drawImage(im, 0, 0);
+      const txt = (s, size, y, align, color, weight) => { x.font = (weight || "700") + " " + Math.round(size) + "px " + F; x.textAlign = align || "center"; x.textBaseline = "middle";
+        x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = size / 5; x.fillStyle = color || "#fff"; x.fillText(s, align === "left" ? W * 0.06 : W / 2, y, W * 0.9); x.shadowBlur = 0; };
+      const T = Array.from(String(title || "")).slice(0, 14).join("");
+      if (kind === "magazine") {
+        txt("我 们", W * 0.16, H * 0.09, "center", "#fff", "900");
+        txt(T, W * 0.06, H * 0.82, "left", "#fff", "700");
+        txt(names + " · 独家专访", W * 0.032, H * 0.88, "left", "rgba(255,255,255,.9)", "500");
+      } else {
+        const g = x.createLinearGradient(0, H * 0.62, 0, H); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.78)"); x.fillStyle = g; x.fillRect(0, H * 0.62, W, H * 0.38);
+        txt(T || "我们", W * 0.085, H * 0.8, "center", "#fff", "900");
+        txt("主演  " + names, W * 0.03, H * 0.875, "center", "rgba(255,255,255,.85)", "500");
+        txt("即 将 上 映", W * 0.026, H * 0.93, "center", "rgba(255,255,255,.7)", "500");
+      }
+      return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
+    } catch (e) { return blob; }
+  };
   const studioShoot = async (char, opt) => {
-    const scene = String((opt && opt.scene) || "").trim();
+    const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
+    const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
     if (!(char.refPhoto && profile && profile.refPhoto)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张"); return false; }
@@ -24927,24 +25026,31 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
                     dressLine(me.name, opt && opt.mine, myGroups && myGroups.closet ? myGroups.closet : myGroups)].filter(Boolean).join("；");
       // 四宫格（她 2026-10-12）：一次出一整张大头贴，不是拍四次——四格在同一张图里画，脸和衣服天然一致
       const GRID_LINE = "【版式·四宫格大头贴】整张图是一张 2×2 四格大头贴，四格大小一样、格子之间留一道粗白边；四格都是你们俩、同一个地方、同一身衣服，每格一个不同的表情或动作（比如对镜头笑、一起比手势、他偷看你、两个人做鬼脸），像在大头贴机里连拍的四张。";
-      const sceneFull = (opt && opt.grid ? GRID_LINE : "") + scene + (fits ? "。" + fits : "");
+      // 换画风（她 2026-10-12）：照第一张参考图（就是那张合照）的构图人物重画，长相照后两张参考照
+      const RESTYLE_LINE = opt && opt.restyle ? "【换画风】照第一张参考图的构图、人物位置、动作和表情，整张重画成「" + opt.restyle.style + "」的画风；两个人的长相照后两张参考照，别换人。" : "";
+      // 聊天画成漫画（她 2026-10-12）：四格一张图里画，字不让图像端写（它写中文会乱码），台词由 app 自己排在每格下面
+      const COMIC_LINE = opt && opt.comic ? "【版式·四格漫画】整张图是一张 2×2 四格漫画，四格大小一样、格子之间留白边，漫画画风；四格都是你们俩，按顺序依次是：" + opt.comic.map((c, i) => "第" + (i + 1) + "格（左上、右上、左下、右下依次）" + c.scene).join("；") + "。画面里不要任何文字、不要对话气泡、不要拟声字。" : "";
+      const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !theme && !(opt && opt.restyle) ? "。" + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
       // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
-      const refs = opt && opt.cellRef ? [opt.cellRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
-      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && opt.grid ? { size: "1024x1024" } : {}) });
+      const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
+      const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
         imgKey = "img_studio_" + char.id + "_" + Date.now();
-        await idbImgPut(imgKey, out.blob);
+        const finalBlob = opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我")) : out.blob;
+        await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
-        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}) };
+        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}),
+        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
@@ -28265,6 +28371,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       const msgs = chatsRef.current[threadKey] || [];
       pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
+    },
+    // 多选 → 画成四格漫画（她 2026-10-12）
+    onComic: indices => {
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const msgs = chatsRef.current[threadKey] || [];
+      comicFromMessages(activeChar, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
     },
     onDeleteMessages: indices => {
       const set = new Set(indices);
