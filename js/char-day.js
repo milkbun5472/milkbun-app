@@ -99,7 +99,18 @@
       return {code:weather.code,source:'real',place:home.label||''};
     }catch{return null;}
   }
-  root.CharDayKit = { dayState, aroundNow, spanText, presentation, sceneWeather, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
+  // The last saved thought only; readers (picker, home widget) never ask the model for a new one.
+  function lastThought(homes, id) { const t = homes?.thoughts?.[String(id)]; return t?.enabled === true && t.cache?.text ? t.cache : null; }
+  // The whole day on one strip: each planned stretch over 24 hours, the current one filled, a tick at now.
+  function dayLine(state, { accent = "#8b9e7e", muted = "rgba(120,110,95,.22)", height = 5 } = {}) {
+    const rows = state?.rows || [], toMin = t => { const m = /^(\d{1,2}):(\d{2})/.exec(String(t || "")); return m ? +m[1] * 60 + +m[2] : null; }, now = state?.minute;
+    if (!rows.length) return null;
+    const bits = rows.map((row, i) => { const a = toMin(row.time), b = toMin(row.end); if (a == null) return null; const end = b == null || b <= a ? Math.min(1440, a + 60) : b, current = !!state.slot && !state.slot.carry && state.slot.time === row.time;
+      return h("span", { key: i, style: { position: "absolute", top: 0, bottom: 0, left: (a / 14.4) + "%", width: Math.max(0.6, (end - a) / 14.4) + "%", background: current ? accent : muted, borderRadius: 2 } }); }).filter(Boolean);
+    if (Number.isFinite(now)) bits.push(h("span", { key: "now", style: { position: "absolute", top: -2, bottom: -2, left: "calc(" + (now / 14.4) + "% - 1px)", width: 2, borderRadius: 1, background: accent } }));
+    return h("span", { "aria-hidden": "true", style: { display: "block", position: "relative", height, borderRadius: height, background: "rgba(120,110,95,.08)", marginTop: 6 } }, ...bits);
+  }
+  root.CharDayKit = { dayState, aroundNow, spanText, lastThought, dayLine, presentation, sceneWeather, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
       [book, setBook] = useState(false), [preview, setPreview] = useState(null), [demoIndex, setDemoIndex] = useState(0),
@@ -351,7 +362,7 @@
       h("p", { style: { fontSize: 13, lineHeight: 1.9, color: soft, margin: "0 0 16px" } }, "挑一位，看看TA此刻在哪儿、在做什么。"),
       ...(props.characters || []).map(c => {
         // The last saved thought only; the picker never asks the model for a new one.
-        const thoughtOf = x => { const t = homes.thoughts?.[String(x.id)]; return t?.enabled === true && t.cache?.text ? t.cache : null; };
+        const thoughtOf = x => lastThought(homes, x.id);
         const st = dayState(c, props.plansFor?.(c) || {}, now), near = aroundNow(st);
         // No plan today is a dead end unless the card offers the way to the calendar.
         return h("div", { key: c.id, style: { marginBottom: 10 } }, h("button", { "data-wk": "cdaypick", onClick: () => pick(c.id), style: { ...btn, width: "100%", textAlign: "left", padding: 14 } },
@@ -359,6 +370,7 @@
           h("span", { style: { display: "block", marginTop: 5, lineHeight: 1.7 } }, st.slot?.title || (st.hasPlan ? "这会儿没排事情，"+root.CharDayLink.idleLabel(st.minute) : "今天还没有日程")),
           !!st.slot && h("span", { style: { display: "block", fontSize: 12, lineHeight: 1.7, color: soft } }, [st.slot.location, spanText(near.elapsed)].filter(Boolean).join(" · ")),
           !!(near.prev || near.next) && h("span", { style: { display: "block", fontSize: 12, lineHeight: 1.7, color: soft } }, [near.prev && "刚才 · " + near.prev.title, near.next && "接下来 " + near.next.time + " · " + near.next.title].filter(Boolean).join("　")),
+          dayLine(st, { accent: UI.accent }) || false,
           !!thoughtOf(c) && h("span", { style: { display: "block", fontSize: 12, lineHeight: 1.7, color: soft, marginTop: 4, borderTop: "1px dashed " + UI.line, paddingTop: 4 } }, "念头" + (thoughtOf(c).time ? " · " + thoughtOf(c).time : "") + "：" + thoughtOf(c).text)),
           !st.hasPlan && h("button", { onClick: () => props.onSchedule?.(c), style: { ...btn, width: "100%", marginTop: 6, background: "transparent", borderStyle: "dashed" } }, "去日历给TA排今天"));
       }), h("button", { onClick: () => pick(DEMO.id), style: { ...btn, width: "100%", marginTop: 12, background: "transparent", borderStyle: "dashed" } }, "先看一段示例"),
@@ -518,6 +530,7 @@
           h("div", { style: { fontSize: 14,fontWeight:500, lineHeight: 1.7, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, trip ? (trip.mode==='solo'?'你自己逛逛':'和TA一起逛逛') : showcase ? (spot ? spot.number+" · "+spot.label : "入口") : title),
           !demo && !preview && !showcase && !trip && !state?.hasPlan && h("button", { onClick: () => props.onSchedule?.(char), style: { ...btn, width: "100%", marginTop: 6, pointerEvents: "auto" } }, "去日历给TA排今天"),
           !showcase && !trip && !!sceneNear && !!(state.slot || sceneNear.prev || sceneNear.next) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, [!!state.slot && spanText(sceneNear.elapsed), !!sceneNear.prev && "刚才 · " + sceneNear.prev.title, sceneNear.next && "接下来 " + sceneNear.next.time + " · " + sceneNear.next.title].filter(Boolean).map((line, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line))),
+          !showcase && !trip && !!sceneNear && (dayLine(state, { accent: UI.accent }) || false),
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           trip && h('div',{"data-wk":"cdayoutingplan",style:{fontSize:11,lineHeight:1.6,color:soft,marginTop:3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},'TA的原安排 · '+state.time+' · '+title),
           !kitchenOnScene && !trip && !showcase && (stagePlace || visual.presentation.stageLabel) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (stagePlace || "此刻") + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? (activityStatus.groupLabel?" · "+activityStatus.groupLabel:"")+" · "+activityStatus.label+(activityStatus.spotLabel?" · "+activityStatus.spotLabel:"") : "")),

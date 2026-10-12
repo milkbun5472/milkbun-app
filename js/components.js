@@ -2827,11 +2827,14 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
   }).sort(function (a, b) { return (b.busy ? 1 : 0) - (a.busy ? 1 : 0); }) : [];
   const pinned = pin != null && pin !== "" ? rows.find(function (x) { return String(x.c.id) === String(pin); }) : null;
   const [ix, setIx] = useState(0);
+  // 手指一落下就先停住轮换，免得刚好换人、点进另一位
+  const holdUntil = useRef(0);
   useEffect(function () {
     if (pinned || rows.length < 2) return;
-    const iv = setInterval(function () { setIx(function (i) { return i + 1; }); }, 6000);
+    const iv = setInterval(function () { if (Date.now() < holdUntil.current) return; setIx(function (i) { return i + 1; }); }, 6000);
     return function () { clearInterval(iv); };
   }, [!!pinned, rows.length]);
+  const hold = function () { holdUntil.current = Date.now() + 8000; };
   const it = pinned || (rows.length ? rows[ix % rows.length] : null);
   const pr = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const oneRow = !!(pr && pr.rows === 1);
@@ -2842,24 +2845,31 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
   const sub = it ? [slot && slot.location, slot && kit.spanText ? kit.spanText(it.near.elapsed) : ""].filter(Boolean).join(" · ") : "";
   const around = it ? [it.near.prev && "刚才 · " + it.near.prev.title, it.near.next && "接下来 " + it.near.next.time + " · " + it.near.next.title].filter(Boolean).join("　") : "";
   const open = function () { onOpen && onOpen(it ? it.c.id : ""); };
+  // 只读已存的那句念头（开了「此刻的念头」的角色才有），不为桌面再调模型
+  const thought = it && kit.lastThought ? kit.lastThought(loadJSON("x_charDayHomes", {}) || {}, it.c.id) : null;
+  // 睡着时换成月亮、整张淡一点：一眼知道「睡了」
+  const asleep = !!st && (slot ? slot.type === "sleep" || !!slot.carry : !!st.hasPlan && (st.minute < 420 || st.minute >= 1380));
+  const Icon = asleep ? GMoon : GWalk;
   const line = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
   if (!it) return h(GlassCard, { onClick: open, style: { padding: "10px 14px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", alignItems: "center", gap: 10 } },
-    h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GWalk, { size: 15, color: t.accent })),
+    h("span", { "data-wk": "wicon", className: "flex items-center" }, h(Icon, { size: 15, color: t.accent })),
     h("span", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色"));
-  if (oneRow) return h(GlassCard, { onClick: open, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
-    h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(GWalk, { size: 15, color: t.accent })),
+  if (oneRow) return h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden", opacity: asleep ? .82 : 1 } },
+    h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(Icon, { size: 15, color: t.accent })),
     h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, name),
     h("span", { "data-wk": "wrow", className: "min-w-0", style: Object.assign({ flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: slot ? t.ink : t.fog }, line) }, what),
     sub ? h("span", { "data-wk": "wsub", style: Object.assign({ flexShrink: 1, minWidth: 0, maxWidth: "35%", fontFamily: F_BODY, fontSize: 10.5, color: t.fog }, line) }, sub) : null);
-  return h(GlassCard, { onClick: open, style: { padding: "12px 16px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden" } },
+  return h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "12px 16px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden", opacity: asleep ? .82 : 1 } },
     h("div", { className: "flex items-center gap-2", style: { marginBottom: 6 } },
-      h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GWalk, { size: 15, color: t.accent })),
+      h("span", { "data-wk": "wicon", className: "flex items-center" }, h(Icon, { size: 15, color: t.accent })),
       h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, name),
       h("span", { className: "flex-1" }),
       h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (st ? "TA当地 " + st.time : "") + (pinned ? "" : rows.length > 1 ? " · " + ((ix % rows.length) + 1) + "/" + rows.length : ""))),
     h("div", { "data-wk": "wrow", style: Object.assign({ fontFamily: F_BODY, fontSize: 13.5, color: slot ? t.ink : t.fog }, line) }, what),
     sub ? h("div", { "data-wk": "wsub", style: Object.assign({ fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }, line) }, sub) : null,
-    around ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }, line) }, around) : null);
+    around ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }, line) }, around) : null,
+    thought ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11.5, color: t.ink, marginTop: 4, opacity: .85 }, line) }, "「" + thought.text.replace(/\s+/g, " ") + "」") : null,
+    (kit.dayLine && kit.dayLine(st, { accent: t.accent })) || null);
 }
 // 命运转盘（v47.81 全屏化）：主屏 2x2 小组件只是入口（静态小盘预览+上次结果），点开进全屏大转盘——
 // 点大盘开转，落定后随机一位在聊角色起哄（气泡完整显示不截断，带头像）。✎ 编辑主题/选项
