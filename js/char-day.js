@@ -195,7 +195,7 @@
     if(payload)payload.weather=demo||showcase?null:sceneWeather(char,now,!!preview,payload.minute);
     const thoughtPrefs=homes.thoughts?.[String(char?.id)]||{};
     const thoughtFrame=!demo&&!preview&&!showcase&&!editor&&!trip&&state?.slot?root.CharDayThoughts.snapshot({char,slot:state.slot,state,stageIndex,stage:activeStage,activity:activityStatus?.charId===String(char?.id)&&activityStatus.key===slot?.key?activityStatus:null,scope:props.thoughtScopeFor?.(char)||''}):null;
-    const thought=root.CharDayThoughts.useThoughts({char,frame:thoughtFrame,enabled:thoughtPrefs.enabled===true,cache:thoughtPrefs.cache,
+    const thought=root.CharDayThoughts.useThoughts({char,frame:thoughtFrame,enabled:thoughtPrefs.enabled===true,cache:thoughtPrefs.cache,preferences:thoughtPrefs,
       allowed:!!thoughtFrame&&!book&&!homeOptions&&!moreOpen&&!togetherPanel&&!professionalPanel&&!lifePage&&!mePanel&&!outingPicker&&!positionEdit&&!chatOpen&&root.document?.visibilityState!=='hidden'&&!!props.generateThought,
       context:props.thoughtContextFor,generate:props.generateThought,tick:pulse,
       save:(id,change)=>saveHomeChange(id,'thoughts',change),saved:setHomes});

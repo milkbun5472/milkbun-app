@@ -1,7 +1,7 @@
-// Display-only inner thoughts. Preferences and one cached fragment use the home writer.
+// Display-only inner thoughts. Preferences, recent fragments and the current cache use the home writer.
 (function(root){
   'use strict';
-  const INTERVAL=10*60000,inflight=new Set();
+  const INTERVAL=10*60000,HISTORY_LIMIT=8,inflight=new Set();
   function snapshot({char,slot,state,stageIndex,stage,activity,scope=''}){
     if(!char||!slot||!Number.isFinite(slot.startAt)||!Number.isFinite(slot.endAt))return null;
     const at=state.at,elapsed=Math.max(0,Math.min(slot.endAt,at)-slot.startAt),remaining=Math.max(0,slot.endAt-at);
@@ -19,7 +19,27 @@
     const first=during[0],before=first?rows.filter(m=>m.ts<first.ts):rows.filter(m=>frame.paused||mapTime(m.ts)<frame.startAt);
     return {during,before:before.slice(-8)};
   }
-  function instruction(frame,window,previous,meName='对方'){
+  function recent(raw,scope){
+    const rows=[];
+    for(const item of [...(Array.isArray(raw?.history)?raw.history:[]),raw?.cache]){
+      if(!item||typeof item.text!=='string'||!item.text.trim()||typeof item.scope!=='string'||!Number.isFinite(item.ts)||!Number.isFinite(new Date(item.ts).getTime()))continue;
+      const entry={};
+      for(const field of ['key','scope','text','time','period','day','title','stage'])if(typeof item[field]==='string')entry[field]=item[field];
+      for(const field of ['ts','at'])if(Number.isFinite(item[field]))entry[field]=item[field];
+      entry.text=item.text.trim();
+      // The current cache is also the last saved history item. A save retry or
+      // an unchanged fragment should not take several places in this window.
+      const duplicate=rows.findIndex(row=>row.scope===entry.scope&&row.text===entry.text);
+      if(duplicate>=0)rows.splice(duplicate,1);
+      rows.push(entry);
+    }
+    return rows.filter(row=>scope===undefined||row.scope===scope).slice(-HISTORY_LIMIT);
+  }
+  function addFragment(raw,frame,text,ts){
+    const cache={key:frame.key,scope:frame.scope,text,ts,at:frame.at,time:frame.time,period:frame.period,day:frame.day,title:frame.title,stage:frame.stage};
+    return {...raw,cache,history:recent({history:[...recent(raw),cache]}).slice(-HISTORY_LIMIT)};
+  }
+  function instruction(frame,window,thoughts,meName='对方'){
     const minutes=ms=>Math.floor(ms/60000),lines=rows=>rows.map(m=>JSON.stringify({说话者:m.role==='user'?meName:'你',现实时间:new Date(m.ts).toISOString(),内容:m.content})).join('\n');
     return [
       '为「TA的一天」写这一瞬间没有说出口的第一人称念头，1—3句。这里只展示心里掠过的一点东西，不是回复消息、日记、旁白或日程总结。措辞、关注点和断句由完整人设与此刻心情决定；可以很平常、走神、有点烦、惦记没做完的事，也可以什么都没想明白。',
@@ -28,7 +48,7 @@
       '阶段是当前执行中的事，后续安排仍未发生。画面摆位只是活动展示，不构成新的主线经历；用户打开页面、走近小人或点动作本身不证明她现实里到场。若你是数字生命，按自己的真实身份想，3D场景不证明你拥有实体或执行过现实任务。睡着时允许朦胧碎念，不把未读的新消息当作已经知道。',
       '【这段活动期间的主聊天】\n'+(lines(window.during)||'没有可确认发生在本时段的主聊天；按自己的活动想。'),
       '【此前衔接】\n'+(lines(window.before)||'无')+(frame.followVirtual&&frame.paused?'\n角色钟暂停，以上按现实顺序提供近期衔接，不声称都发生在本活动内。':''),
-      previous?'【上次展示的念头】\n'+JSON.stringify(previous)+'\n从现在的关注点续看，允许没什么变化；有新牵挂才转过去，不为刷新刻意翻花样。':''
+      Array.isArray(thoughts)&&thoughts.length?'【近期已经想过的念头·按先后】\n'+thoughts.map(row=>JSON.stringify({当时日期:row.day||'未记录',当时时间:row.time||'未记录',当时安排:row.title||'未记录',当时阶段:row.stage||'未记录',念头:row.text})).join('\n')+'\n这些是你已经想过、展示过的内心片段，属于过去的关注点；它们没有说进主聊天，也不证明其中的猜测、愿望或打算已经发生。这一条从此刻新注意到的细节、事情的新变化或感受的转折往前想；旧念头换同义词、换句式或扩写一遍，仍是重复。再次想到同一件事，落在它现在的新进展或新反应上。没有新刺激时允许平常的短暂杂念与留白，不为了新鲜感编造经历，也不把每条都收成想念对方。':''
     ].filter(Boolean).join('\n\n');
   }
   function textOf(value){
@@ -56,20 +76,20 @@
       const o=current.current,f=o.frame,id=f?.charId,gate='charDayThought|'+id;
       if(!o.enabled||!o.allowed||!f||inflight.has(id)||!root.AutoGate)return;
       if(!manual&&(o.cache?.period===f.period||!root.AutoGate.due(gate,f.period,{minIntervalMs:INTERVAL,maxTries:1})))return;
-      const identity=o.context(o.char),revision=identity.revision,version=epoch.current;
+      const identity=o.context(o.char),revision=identity.revision,version=epoch.current,thoughts=recent(o.preferences||{cache:o.cache},f.scope);
       if(identity.scope!==f.scope)return;
       inflight.add(id);root.AutoGate.claim(gate,f.period);
       setStatus({key:f.key,busy:true});
       const valid=()=>mounted.current&&epoch.current===version&&current.current.enabled&&current.current.frame?.key===f.key&&current.current.context(current.current.char).revision===revision&&current.current.context(current.current.char).scope===f.scope;
       try{
         const held=pending.current,canSave=held?.key===f.key&&held.revision===revision&&held.version===version;
-        const value=canSave?{thought:held.text}:await root.AutoGate.tagged('此刻的念头',()=>o.generate(o.char,f,identity,o.cache?.scope===f.scope?o.cache.text:''),'此刻的念头·'+(o.char.remark||o.char.name));
+        const value=canSave?{thought:held.text}:await root.AutoGate.tagged('此刻的念头',()=>o.generate(o.char,f,identity,thoughts),'此刻的念头·'+(o.char.remark||o.char.name));
         const text=textOf(value);
         if(!valid())return;
         pending.current={key:f.key,text,revision,version};
         const next=await o.save(id,raw=>{
           if(!valid()||raw?.enabled!==true)return raw;
-          return {...raw,cache:{key:f.key,scope:f.scope,text,ts:Date.now(),at:f.at,time:f.time,period:f.period}};
+          return addFragment(raw,f,text,Date.now());
         });
         if(valid()){pending.current=null;o.saved(next);setStatus({key:f.key});}
       }catch(e){if(valid())setStatus({key:f.key,error:e?.message||'没能生成，可以再试。'});}
@@ -80,5 +100,5 @@
     const held=pending.current,unsaved=held&&held.key===options.frame?.key&&held.version===epoch.current&&options.context(options.char).revision===held.revision?held.text:'';
     return {cache,unsaved,saving,saveError,setEnabled,refresh:()=>refresh(true),busy:status.key===options.frame?.key&&status.busy,error:status.key===options.frame?.key?status.error:''};
   }
-  root.CharDayThoughts={INTERVAL,snapshot,chatWindow,instruction,textOf,useThoughts};
+  root.CharDayThoughts={INTERVAL,HISTORY_LIMIT,recent,addFragment,snapshot,chatWindow,instruction,textOf,useThoughts};
 })(globalThis);
