@@ -9915,7 +9915,9 @@ function ChatThread({
     }
     // ⚠️正在往上补那一下【不许】滚到底：那是她在翻旧的，把她甩回最新的等于白翻
     if (growing()) return;
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    // ⚠️不能只滚一下（她 2026-10-12 截图：发完最后一泡压在输入栏底下）：刚加的那泡后面，输入框缩回一行、
+    //   「已送达」那行、键盘收起都还在改高度，一枪平滑滚动停在旧的底上。照首次进入那样钉住一小会儿，她一动手就松开。
+    return pinToBottom(el, 900);
   }, [messages.length, sending]);
   // 送信：对话=入队消息；旁白注入=注入一段旁白；OOC=直接问模型
   const send = (v) => {
@@ -17244,7 +17246,7 @@ function GroupThread({
     const last = messages[messages.length - 1];
     if (!atBottomRef.current && added > 0 && !(last && last.role === "user")) { setNewBelow(n => n + added); return; }
     setNewBelow(0);
-    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+    return pinToBottom(el, 900);   // 跟单聊同一招：钉住一小会儿，等输入框缩回去、已读那行长出来
   }, [messages.length, sending]);
   const send = (v) => {
     if (!v || sending) return;
