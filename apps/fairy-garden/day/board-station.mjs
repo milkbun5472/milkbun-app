@@ -1,6 +1,6 @@
 import * as T from 'three';
-import {makeIngredient} from './ingredient-visual.mjs?v=fg-5404133be25619b2';
-import {disposeFood} from './recipe-food.mjs?v=fg-5404133be25619b2';
+import {makeIngredient} from './ingredient-visual.mjs?v=fg-5363e45354c4ef63';
+import {disposeFood} from './recipe-food.mjs?v=fg-5363e45354c4ef63';
 // A close view of the SAME board pieces, in the SAME saved table coordinates.
 export function createBoardStation(){
  const scene=new T.Scene();scene.background=new T.Color('#bf976c');
