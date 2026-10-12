@@ -2070,6 +2070,22 @@ function VClockMasks({ masks, primaryId, clocks, onChange }) {
         x.name + ((all[x.key] && all[x.key].on) ? " · 虚拟" : " · 现实"))))) : null,
     h(VClockEditor, { key: cur.key, v: all[cur.key], title: list.length > 1 ? "「" + cur.name + "」的时间" : "虚拟时间", onChange: v => onChange({ ...all, [cur.key]: v }) }));
 }
+// 生日那一格底下的一行（她 2026-10-11：「生日那里也写一个吧，不支持的格式就标红提示」）：
+//   平时灰字写清能怎么写；写了但认不出（比如「0109」月日连在一起）就变红说清楚。
+//   认不认得出只问 birthdaySolarDate——到日子记不记得、算岁数走的就是它，判据不另写一份。
+function birthdayOk(v) {
+  const s = String(v == null ? "" : v).trim();
+  if (!s) return true;
+  return typeof birthdaySolarDate === "function" ? !!birthdaySolarDate(s, new Date().getFullYear()) : true;
+}
+function BirthdayHint({ value, style }) {
+  const t = useTheme();
+  const bad = !birthdayOk(value);
+  return h("div", {
+    style: Object.assign({ fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, marginTop: 3, color: bad ? (t.accent || "#c25a4a") : t.fog }, style || {}) },
+    bad ? "认不出是几月几号：月和日中间要隔开，写成 1-9、1/9、1.9 或 1月9日（「0109」这种连在一起的不行）"
+      : "能写：1-9、01-09、1/9、1.9、1月9日、2000-01-09、腊月廿三、农历八月十五");
+}
 function Toggle({
   on,
   onChange
@@ -7773,7 +7789,7 @@ function ProfileSheet({
       fontSize: 15,
       fontFamily: F_BODY
     }
-  })), h(LineField, { zh: "在哪个世界", en: "World" },
+  }), h(BirthdayHint, { value: birthday })), h(LineField, { zh: "在哪个世界", en: "World" },
     h("div", { "data-wk": "maskworld" },
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 4 } },
         [{ id: "", name: "跟着设置" }, { id: "real", name: "现实定位" }].concat(worldList).map(w => {
