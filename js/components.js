@@ -9636,6 +9636,7 @@ function ChatThread({
   onForward,
   onDeleteMessages,
   onPinShike,
+  onComic,
   onResummarizeOffline,
   onRestoreOffline,
   onSendRich,
@@ -10723,6 +10724,7 @@ function ChatThread({
   // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
   selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
+  onComic ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) { onComic(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,
   h("button", {
     onClick: doDelete,
     disabled: !selIds.length,

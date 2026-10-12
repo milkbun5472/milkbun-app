@@ -16929,6 +16929,15 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [theirs, setTheirs] = useState([]);
   const [big, setBig] = useState(null);
   const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
+  const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
+  const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
+  const STYLES = ["漫画", "水彩", "像素", "Q版", "油画", "铅笔素描"];
+  const photoDataUrl = async ph => {
+    let b = ph && ph.imgKey && typeof idbImgGet === "function" ? await idbImgGet(ph.imgKey).catch(() => null) : null;
+    if (!b && ph && ph.imgUrl) { try { b = await (await fetch(ph.imgUrl)).blob(); } catch (e) { b = null; } }
+    if (!b) return "";
+    return await new Promise(ok => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ok(""); r.readAsDataURL(b); });
+  };
   const [sharp, setSharp] = useState(false);
   const mySets = closetGroups(myCloset);
   const hisSets = closetGroups(charCloset && charCloset.outfit);
@@ -16942,6 +16951,13 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             onSharpen: async (cell, i) => { setSharp(true);
               const row = await onShoot({ scene: (big.scene || "") + "（四宫格第 " + (i + 1) + " 格，拍成单张）", mine: big.mine, theirs: big.theirs, cellRef: cell });
               setSharp(false); if (row) setBig(row); } }) : null,
+          // 换画风：拿这张当底，整张重画成另一种画法（花一次生图，拍好是新的一张，原来那张还在）
+          h("div", { "data-wk": "studiorestyle", className: "flex items-center flex-wrap", style: { gap: 6, marginTop: 12 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, sharp ? "在重画…" : "换画风："),
+            STYLES.map(st => h("button", { key: st, disabled: !!(sharp || busy), onClick: async () => {
+                const ref = await photoDataUrl(big); if (!ref) return;
+                setSharp(true); const row = await onShoot({ scene: big.scene || "", restyle: { ref, style: st } }); setSharp(false); if (row) setBig(row); },
+              className: "active:opacity-70 disabled:opacity-40", style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12, color: t.sub } }, st))),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, big.scene || ""),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
@@ -16952,7 +16968,11 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             "删掉这张") : null)
       : h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
           h("div", { style: { borderRadius: 20, border: "1px solid #e2d9ea", background: "linear-gradient(140deg,#faf6fd,#f2ecf7)", padding: "15px 15px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, "这张要拍什么"),
+            themes.length ? h("div", { "data-wk": "studiothemes", className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0", alignSelf: "center" } }, "题材"),
+              themes.map(x => h("button", { key: x.k, "data-on": theme === x.k ? "1" : "0", onClick: () => setTheme(v => v === x.k ? "" : x.k), className: "active:opacity-70",
+                style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (theme === x.k ? "#6d4d8f" : "#e2d9ea"), background: theme === x.k ? "#6d4d8f" : "#fff", color: theme === x.k ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, x.zh))) : null,
+            h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, theme === "magazine" ? "封面大标题（会排在封面上）" : theme === "movie" ? "片名（会排在海报上）" : theme ? "补一句（可空：在哪儿、什么表情）" : "这张要拍什么"),
             h("textarea", {
               value: scene, onChange: e => setScene(e.target.value), rows: 2,
               placeholder: "在哪儿、什么时候、你俩在做什么",
@@ -16966,7 +16986,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
               h("button", { "data-wk": "studiogrid", "data-on": grid ? "1" : "0", onClick: () => setGrid(v => !v), className: "active:opacity-70 shrink-0",
                 style: { borderRadius: 13, padding: "10px 12px", border: "1px solid " + (grid ? "#6d4d8f" : t.line), background: grid ? "#6d4d8f" : "transparent", color: grid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "四宫格"),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid }), disabled: !!busy || !scene.trim(), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !scene.trim()) ? "#e0d6e8" : "#6d4d8f", color: (busy || !scene.trim()) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme }), disabled: !!busy || !(scene.trim() || theme), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !(scene.trim() || theme)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
                 busy ? "在拍了…" : grid ? "拍一张四宫格" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
