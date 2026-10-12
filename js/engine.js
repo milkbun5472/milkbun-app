@@ -6947,7 +6947,23 @@ function joinBilingualLines(lines, hanLang) {
     else acc.push(line);
     return acc;
   }, []);
-  if (!hanLang) return joined;
+  // 外语那一行、中译另起一行、两行都没竖线（她 2026-10-12 俄语截图：「Ты уже спишь?」下面跟一泡「你睡了吗?」）：
+  //   原样拆泡就是一句外语一句中文各占一泡，外语那泡还挂着空「译」。前一行看得出是外语、一个汉字都没有，
+  //   紧跟的那行是中文、一个外文字母都没有，就认成这一句的中译，接成「原文 | 中译」。
+  //   粤语这类用汉字写的话走下面那一段，不走这里。
+  if (!hanLang) {
+    const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+    const HAN = /[\u4e00-\u9fff]/;
+    const out0 = [];
+    for (let k = 0; k < joined.length; k++) {
+      const line = joined[k], next = joined[k + 1];
+      if (next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
+        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next)) {   // 日文带汉字也算外语：有假名就认
+        out0.push(line.trim() + " | " + next.trim()); k++;
+      } else out0.push(line);
+    }
+    return out0;
+  }
   // 粤语这类用汉字写的话（她 2026-10-11 截图）：模型把几句粤语各占一行，竖线只在其中一行，
   //   中译也分几行跟在后面——「聽日…頭像」换行「我就話…換嘅 | 明天…头像」换行「我就说…换的」。
   //   按换行切完，第一句粤语没译文、两句中译错一位，第三行中译自己成了一泡；
@@ -6972,6 +6988,20 @@ function joinBilingualLines(lines, hanLang) {
     else { pre.forEach(x => out.push(x)); out.push(origs[origs.length - 1] + " | " + zhs.join("")); }
   }
   return out;
+}
+// 双语开关没开时，只有【通篇一句外语跟一句中文】那种才认成模型自己带了中译：
+//   每一行外语后面都紧跟着一行中文、而且至少两对——中间夹着一句外语后面没跟中文的，就当TA本来就混着说，一行都不接。
+function looksAlternatingBilingual(lines) {
+  const L = (lines || []).map(x => String(x == null ? "" : x).trim()).filter(Boolean);
+  const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/, HAN = /[\u4e00-\u9fff]/;
+  const isF = x => x.indexOf("|") < 0 && (/[\u3040-\u30ff]/.test(x) || (FOREIGN.test(x) && !HAN.test(x)));
+  const isZ = x => x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x);
+  let pairs = 0;
+  for (let k = 0; k < L.length; k++) {
+    if (!isF(L[k])) continue;
+    if (k + 1 < L.length && isZ(L[k + 1])) { pairs++; k++; } else return false;
+  }
+  return pairs >= 2;
 }
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。
