@@ -8620,6 +8620,40 @@ function VoiceMouthConfig({ toast }) {
       style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
     msg && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
+// Fish 官方接口不让网页直接调（她 2026-10-12 两台手机都报 Failed to fetch），要自己搭一个转发。
+//   写在 Fish 那一格底下，点开才有；代码一键复制，不用她从截图里抄。
+const FISH_RELAY_CODE = `export default {
+  async fetch(req) {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "authorization, content-type, model",
+    };
+    if (req.method === "OPTIONS") return new Response(null, { headers: cors });
+    const url = new URL(req.url);
+    const r = await fetch("https://api.fish.audio" + url.pathname + url.search, {
+      method: req.method, headers: req.headers, body: req.body,
+    });
+    const h = new Headers(r.headers);
+    for (const [k, v] of Object.entries(cors)) h.set(k, v);
+    return new Response(r.body, { status: r.status, headers: h });
+  },
+};`;
+function FishRelayHelp({ toast }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const p = { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 };
+  return h("div", { "data-wk": "fishrelay", style: { margin: "-2px 0 12px" } },
+    h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, padding: "4px 0" } }, open ? "收起 ▴" : "没有中转？自己搭一个（免费，几分钟）▾"),
+    open ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg } },
+      h("div", { style: p }, "用 Cloudflare 的免费 Worker 搭，密钥只经过你自己的号："),
+      h("div", { style: p }, "① 登录 Cloudflare → Workers & Pages → Create → Create Worker，随便起名，点 Deploy。"),
+      h("div", { style: p }, "② 点 Edit code，把原来的代码全删掉，换成下面这段，再点 Deploy。"),
+      h("pre", { style: { margin: "8px 0", padding: 10, borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontSize: 10.5, lineHeight: 1.5, color: t.ink, overflowX: "auto", whiteSpace: "pre" } }, FISH_RELAY_CODE),
+      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(FISH_RELAY_CODE); toast && toast(ok ? "代码复制好了，去 Cloudflare 粘上" : "复制不了，长按上面那段自己选"); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8, background: t.ink, color: t.bg2 } }, "复制这段代码"),
+      h("div", { style: Object.assign({}, p, { marginTop: 8 }) }, "③ 复制这个 Worker 的地址（https://名字.账号.workers.dev），填进上面「接口地址」，点试听。"),
+      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11 }) }, "workers.dev 在国内有时连不稳：连不上就开着梯子用，或者在 Cloudflare 里给它绑一个自己的域名。")) : null);
+}
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
   // 语音模型那一格（Fish、ElevenLabs 共用）：能自己打字，点一下也能挑现成的。
   //   ⚠️写在组件里面，别挪成顶层函数：公共版打包会把上面真声耳朵／电台嗓子那几格整段拿掉，
@@ -8734,7 +8768,8 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
           [["eleven_multilingual_v2", "中文好·推荐"], ["eleven_v3", "表现力最强"], ["eleven_flash_v2_5", "快·便宜"], ["eleven_turbo_v2_5", ""]], v => set({ elModel: v }), inSt)),
         row("默认音色 Voice ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.elVoice || "", onChange: e => set({ elVoice: e.target.value }), placeholder: "在 Voices 里点声音 → 复制 Voice ID", style: inSt }))) : null,
       c.provider === "fish" ? h("div", null,
-        row("接口地址（默认官方；网页直连不通时换成你的中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
+        row("接口地址（Fish 官方不让网页直接调，要填中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
+        h(FishRelayHelp, { toast }),
         row("密钥 API Key（fish.audio → API Keys）", h("input", { value: c.fishKey || "", onChange: e => set({ fishKey: e.target.value }), placeholder: "…", type: "password", style: inSt })),
         // 能自己填（群友 2026-10-12：「会加 S2.1 Pro 吗？现在只有 s1」）：Fish 出新模型比这边改得快，
         //   原来是写死三个的下拉，新模型填不进去。改成输入框＋候选，候选点一下就填，新名字照 fish.audio 文档写。
