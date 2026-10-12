@@ -10,7 +10,8 @@ test("菜单里有「删除」，跟撤回、多选在同一组", () => {
   const i = comp.indexOf("function menuItemsForKind("), j = comp.indexOf("function MsgEditSheet(", i);
   assert.ok(i > 0 && j > i);
   const seg = comp.slice(i, j);
-  assert.equal((seg.match(/\["multi", "recall", "del"\]/g) || []).length, (seg.match(/"multi"/g) || []).length, "有一类消息的菜单没带删除");
+  // 通话小结那一行撤不回（["multi", "del"]），但删除照样要有
+  assert.equal((seg.match(/\["multi", (?:"recall", )?"del"\]/g) || []).length, (seg.match(/"multi"/g) || []).length, "有一类消息的菜单没带删除");
 });
 
 test("单聊和群聊都接上了，而且先问一句", () => {

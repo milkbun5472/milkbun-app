@@ -7367,7 +7367,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const year = String(nowD.getFullYear());
         const plan = loadJSON("x_bdayPlan", null);
         if (!plan || plan.year !== year) {
-          const cands = characters.filter(c => c && !c.npc && hist(c).length >= 2 && myBdayFor(c.id)
+          const cands = liveChars.filter(c => c && hist(c).length >= 2 && myBdayFor(c.id)
             && (d => d != null && d >= 1 && d <= 3)(daysUntilBirthday(myBdayFor(c.id), nowD)));
           if (cands.length) {
             const couple = cands.find(c => ((couplesRef.current || {})[c.id] || {}).status === "together");
