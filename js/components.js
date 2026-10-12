@@ -15843,6 +15843,7 @@ function OfflineMode({
   onShoot,
   canShoot,
   canShootDuo,
+  canShootMe,
   onReply,
   onOOC,
   onNarr,
@@ -16233,6 +16234,7 @@ function OfflineMode({
         h("div", { className: "flex gap-2" }, [
           ["duo", "我俩合照", canShoot && canShootDuo],
           ["other", "我替 Ta 拍", canShoot],
+          ["me", "Ta 帮我拍", !!canShootMe],
           ["self", "让 Ta 自拍", canShoot]
         ].map(([k, label, ok]) => h("button", {
           key: k,
