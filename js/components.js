@@ -2631,7 +2631,7 @@ function WxShareBox({ userGeo, characters }) {
     h("div", { className: "flex-1 min-w-0" }, h("div", { style: { fontFamily: F_BODY, fontSize: 14, color: t.ink } }, title), sub ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2, lineHeight: 1.5 } }, sub) : null),
     sw(on, fn, wk)); };
   return h("div", { "data-wk": "wxshare", style: { marginTop: 22, paddingTop: 6, borderTop: "1px solid " + t.line } },
-    row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。问他天气，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { "data-wk": "wxshareon" }),
+    row("让他们知道我这边的天气", userGeo && typeof userGeo.lat === "number" ? "按你的真实位置（" + String(userGeo.label || "").slice(0, 12) + "）。想知道天气时问他，他会发一张天气卡片给你" : "还没有你的位置：先去 设置 → 知 打开位置感知，或手填一个地方", !!cfg.on, function () { save({ on: !cfg.on }); }, { "data-wk": "wxshareon" }),
     cfg.on ? h("div", null,
       row("会主动提醒", "下雨、降温、特别热这种天，名单里有人会来叮嘱你一句，附一张卡片。一天最多一次", !!cfg.nudge, function () { save({ nudge: !cfg.nudge }); }, { "data-wk": "wxsharenudge" }),
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, margin: "6px 0 8px" } }, who.length ? "只有勾了的人知道" : "现在是所有人都知道；勾几个就只有他们知道"),
