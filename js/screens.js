@@ -16930,7 +16930,9 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [big, setBig] = useState(null);
   const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
+  const [themeTick, setThemeTick] = useState(0);
   const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
+  const [themeEdit, setThemeEdit] = useState(null);   // { k?, zh, line } 正在写的自定义题材
   const STYLES = ["漫画", "水彩", "像素", "Q版", "油画", "铅笔素描"];
   const photoDataUrl = async ph => {
     let b = ph && ph.imgKey && typeof idbImgGet === "function" ? await idbImgGet(ph.imgKey).catch(() => null) : null;
@@ -16971,7 +16973,18 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             themes.length ? h("div", { "data-wk": "studiothemes", className: "flex flex-wrap", style: { gap: 6, marginBottom: 10 } },
               h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0", alignSelf: "center" } }, "题材"),
               themes.map(x => h("button", { key: x.k, "data-on": theme === x.k ? "1" : "0", onClick: () => setTheme(v => v === x.k ? "" : x.k), className: "active:opacity-70",
-                style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (theme === x.k ? "#6d4d8f" : "#e2d9ea"), background: theme === x.k ? "#6d4d8f" : "#fff", color: theme === x.k ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, x.zh))) : null,
+                style: { padding: "5px 11px", borderRadius: 999, border: "1px solid " + (theme === x.k ? "#6d4d8f" : "#e2d9ea"), background: theme === x.k ? "#6d4d8f" : "#fff", color: theme === x.k ? "#fff" : "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, x.zh + (x.custom && theme === x.k ? " ✎" : ""))),
+              h("button", { "data-wk": "studiothemeadd", onClick: () => { const cur = themes.find(x => x.k === theme && x.custom); setThemeEdit(cur ? { k: cur.k, zh: cur.zh, line: cur.line || "" } : { zh: "", line: "" }); }, className: "active:opacity-70",
+                style: { padding: "5px 11px", borderRadius: 999, border: "1px dashed #b9a6cc", background: "transparent", color: "#8a76a0", fontFamily: F_BODY, fontSize: 12 } }, themes.some(x => x.k === theme && x.custom) ? "改这个题材" : "＋自己写")) : null,
+            themeEdit ? h("div", { "data-wk": "studiothemeedit", style: { border: "1px solid #e2d9ea", borderRadius: 12, padding: 10, marginBottom: 10, background: "#fff" } },
+              h("input", { value: themeEdit.zh, onChange: e => setThemeEdit({ ...themeEdit, zh: e.target.value }), placeholder: "题材名（如：赛博朋克、民国、同桌）", maxLength: 12,
+                style: { width: "100%", border: "none", borderBottom: "1px solid #eee", padding: "4px 0", fontFamily: F_BODY, fontSize: 13, outline: "none", background: "transparent" } }),
+              h("textarea", { value: themeEdit.line, onChange: e => setThemeEdit({ ...themeEdit, line: e.target.value }), rows: 2, maxLength: 300, placeholder: "这个世界里你们是什么样（穿什么、在哪、什么身份），可空",
+                style: { width: "100%", border: "none", padding: "6px 0", fontFamily: F_BODY, fontSize: 12.5, outline: "none", resize: "none", background: "transparent" } }),
+              h("div", { className: "flex", style: { gap: 8, justifyContent: "flex-end" } },
+                themeEdit.k ? h("button", { onClick: () => { window.__studioThemeDel(themeEdit.k); if (theme === themeEdit.k) setTheme(""); setThemeEdit(null); setThemeTick(n => n + 1); }, style: { fontFamily: F_BODY, fontSize: 12, color: "#c25a4a" } }, "删掉") : null,
+                h("button", { onClick: () => setThemeEdit(null), style: { fontFamily: F_BODY, fontSize: 12, color: "#8a76a0" } }, "取消"),
+                h("button", { onClick: () => { const k = window.__studioThemeSave(themeEdit.zh, themeEdit.line, themeEdit.k); if (k) { setTheme(k); setThemeEdit(null); setThemeTick(n => n + 1); } }, disabled: !themeEdit.zh.trim(), className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 12, color: "#6d4d8f" } }, "存下"))) : null,
             h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#8a76a0" } }, theme === "magazine" ? "封面大标题（会排在封面上）" : theme === "movie" ? "片名（会排在海报上）" : theme ? "补一句（可空：在哪儿、什么表情）" : "这张要拍什么"),
             h("textarea", {
               value: scene, onChange: e => setScene(e.target.value), rows: 2,

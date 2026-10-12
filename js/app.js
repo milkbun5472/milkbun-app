@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.498";
+const APP_VERSION = "v75.499";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -24895,7 +24895,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图：两人占画面中下部，上方和四周留出排标题的空位，打光讲究；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
     movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景，画面下方留出排片名的空位；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
   };
-  window.__studioThemes = () => Object.keys(STUDIO_THEMES).map(k => ({ k, zh: STUDIO_THEMES[k].zh }));
+  // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
+  const customThemes = () => { const a = loadJSON("x_studioThemes", []); return Array.isArray(a) ? a.filter(x => x && x.k && x.zh) : []; };
+  const studioThemeOf = k => STUDIO_THEMES[k] || (() => { const c = customThemes().find(x => x.k === k); return c ? { zh: c.zh, line: "【题材·" + c.zh + "】" + (c.line || "你们俩在「" + c.zh + "」这个设定里") + "。" } : null; })();
+  window.__studioThemes = () => [...Object.keys(STUDIO_THEMES).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
+  window.__studioThemeSave = (zh, line, k) => {
+    const name = String(zh || "").trim().slice(0, 12); if (!name) return null;
+    const key = k || "c_" + Date.now();
+    const rest = customThemes().filter(x => x.k !== key);
+    saveJSON("x_studioThemes", [...rest, { k: key, zh: name, line: String(line || "").trim().slice(0, 300) }]);
+    return key;
+  };
+  window.__studioThemeDel = k => saveJSON("x_studioThemes", customThemes().filter(x => x.k !== k));
   // 封面／海报上的字：拍完由 App 排上去
   // 四格漫画排版：把 2×2 图切成四格，竖排成一条，每格下面写一行台词
   const comicCompose = async (blob, panels) => {
@@ -24971,7 +24982,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     } catch (e) { return blob; }
   };
   const studioShoot = async (char, opt) => {
-    const theme = opt && opt.theme && STUDIO_THEMES[opt.theme] ? STUDIO_THEMES[opt.theme] : null;
+    const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
     const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
