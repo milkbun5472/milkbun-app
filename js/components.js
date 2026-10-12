@@ -2814,46 +2814,52 @@ function MemoWidget({ onOpen, homeSize }) {
             h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.title))))
       : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "没有待办提醒，记一条？"));
 }
-// TA在干嘛：主屏上一眼看谁此刻在做什么（只读日程，不调模型）。算法和「TA的一天」挑人页同一份 CharDayKit.dayState，
-// 这里只负责摆。点某一位直接进那位的「TA的一天」。
-function TaDayWidget({ characters, schedules, now, homeSize, onOpen }) {
+// TA在干嘛：主屏上一眼看TA此刻在做什么（只读日程，不调模型）。一次一位：默认像情侣空间那样每 6 秒换下一位，
+// 也可以在它的样式页钉住某一位。此刻/刚才/接下来都问 CharDayKit 要，和「TA的一天」挑人页同一份算法。
+function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
   const t = useTheme();
   const kit = typeof window !== "undefined" ? window.CharDayKit : null;
   const at = now instanceof Date ? now.getTime() : (Number(now) || Date.now());
-  const rows = kit ? (characters || []).filter(function (c) { return c && !c.archived; }).map(function (c) {
+  const rows = kit ? (characters || []).filter(function (c) { return c && c.id != null; }).map(function (c) {
     let st = null; try { st = kit.dayState(c, (schedules || {})[c.id] || {}, at); } catch (e) {}
-    const idle = st && st.hasPlan ? "这会儿没排事情" : "今天还没有日程";
-    return { c: c, busy: !!(st && st.slot), what: (st && st.slot && st.slot.title) || idle, where: (st && st.slot && st.slot.location) || "" };
+    const near = st && kit.aroundNow ? kit.aroundNow(st) : {};
+    return { c: c, st: st, near: near, busy: !!(st && st.slot) };
   }).sort(function (a, b) { return (b.busy ? 1 : 0) - (a.busy ? 1 : 0); }) : [];
+  const pinned = pin != null && pin !== "" ? rows.find(function (x) { return String(x.c.id) === String(pin); }) : null;
+  const [ix, setIx] = useState(0);
+  useEffect(function () {
+    if (pinned || rows.length < 2) return;
+    const iv = setInterval(function () { setIx(function (i) { return i + 1; }); }, 6000);
+    return function () { clearInterval(iv); };
+  }, [!!pinned, rows.length]);
+  const it = pinned || (rows.length ? rows[ix % rows.length] : null);
   const pr = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const oneRow = !!(pr && pr.rows === 1);
-  const open = function (e, id) { if (e) e.stopPropagation(); onOpen && onOpen(id); };
-  const name = function (c) { return c.remark || c.name || "TA"; };
-  if (oneRow) {
-    const first = rows[0];
-    return h(GlassCard, { onClick: function (e) { open(e, first && first.c.id); }, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
-      h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(GWalk, { size: 15, color: t.accent })),
-      first
-        ? h("span", { "data-wk": "wrow", className: "flex items-baseline min-w-0", style: { flex: 1, gap: 6 } },
-            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, name(first.c)),
-            h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: first.busy ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first.what))
-        : h("span", { "data-wk": "wempty", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色"),
-      rows.length > 1 ? h("span", { "data-wk": "wsub", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (rows.length - 1) + " 位") : null);
-  }
-  const shown = rows.slice(0, 3);
-  return h(GlassCard, { onClick: function (e) { open(e, ""); }, style: { padding: "12px 16px", cursor: "pointer", height: homeSize && homeSize !== "auto" ? "100%" : "auto", overflow: "hidden" } },
-    h("div", { className: "flex items-center gap-2", style: { marginBottom: shown.length ? 8 : 0 } },
+  const forced = homeSize && homeSize !== "auto";
+  const name = it ? (it.c.remark || it.c.name || "TA") : "";
+  const st = it && it.st, slot = st && st.slot;
+  const what = slot ? slot.title : (st && st.hasPlan ? "这会儿没排事情" : "今天还没有日程");
+  const sub = it ? [slot && slot.location, slot && kit.spanText ? kit.spanText(it.near.elapsed) : ""].filter(Boolean).join(" · ") : "";
+  const around = it ? [it.near.prev && "刚才 · " + it.near.prev.title, it.near.next && "接下来 " + it.near.next.time + " · " + it.near.next.title].filter(Boolean).join("　") : "";
+  const open = function () { onOpen && onOpen(it ? it.c.id : ""); };
+  const line = { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" };
+  if (!it) return h(GlassCard, { onClick: open, style: { padding: "10px 14px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", alignItems: "center", gap: 10 } },
+    h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GWalk, { size: 15, color: t.accent })),
+    h("span", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色"));
+  if (oneRow) return h(GlassCard, { onClick: open, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
+    h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(GWalk, { size: 15, color: t.accent })),
+    h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, name),
+    h("span", { "data-wk": "wrow", className: "min-w-0", style: Object.assign({ flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: slot ? t.ink : t.fog }, line) }, what),
+    sub ? h("span", { "data-wk": "wsub", style: Object.assign({ flexShrink: 1, minWidth: 0, maxWidth: "35%", fontFamily: F_BODY, fontSize: 10.5, color: t.fog }, line) }, sub) : null);
+  return h(GlassCard, { onClick: open, style: { padding: "12px 16px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden" } },
+    h("div", { className: "flex items-center gap-2", style: { marginBottom: 6 } },
       h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GWalk, { size: 15, color: t.accent })),
-      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "TA在干嘛"),
+      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, name),
       h("span", { className: "flex-1" }),
-      rows.length > 3 ? h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (rows.length - 3) + " 位") : null),
-    shown.length
-      ? h("div", { className: "flex flex-col", style: { gap: 4 } }, shown.map(function (it) {
-          return h("div", { key: it.c.id, "data-wk": "wrow", onClick: function (e) { open(e, it.c.id); }, className: "flex items-baseline gap-2", style: { minHeight: 22 } },
-            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, flexShrink: 0, maxWidth: "35%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name(it.c)),
-            h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: it.busy ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.what + (it.where ? " · " + it.where : "")));
-        }))
-      : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "还没有角色"));
+      h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, (st ? "TA当地 " + st.time : "") + (pinned ? "" : rows.length > 1 ? " · " + ((ix % rows.length) + 1) + "/" + rows.length : ""))),
+    h("div", { "data-wk": "wrow", style: Object.assign({ fontFamily: F_BODY, fontSize: 13.5, color: slot ? t.ink : t.fog }, line) }, what),
+    sub ? h("div", { "data-wk": "wsub", style: Object.assign({ fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }, line) }, sub) : null,
+    around ? h("div", { style: Object.assign({ fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 2 }, line) }, around) : null);
 }
 // 命运转盘（v47.81 全屏化）：主屏 2x2 小组件只是入口（静态小盘预览+上次结果），点开进全屏大转盘——
 // 点大盘开转，落定后随机一位在聊角色起哄（气泡完整显示不截断，带头像）。✎ 编辑主题/选项
@@ -6026,8 +6032,8 @@ function Home({
     w_ledger: { kind: "widget", which: "ledger" },
     w_wheel: { kind: "widget", which: "wheel" },
     w_recent: { kind: "widget", which: "recent" },
-    // 新加的组件不硬塞进每个人的桌面：optIn 的只在她自己从「做一件装饰」里放上去之后才出现。
-    w_taday: { kind: "widget", which: "taday", optIn: true },
+    // tail：安全网补上桌面时放到最后一页（她 2026-10-12：「加到后面的空白页」），不挤进前面排好的页。
+    w_taday: { kind: "widget", which: "taday", tail: true },
     cast: { kind: "app", zh: "人格档案馆", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     phone: { kind: "app", zh: "查手机", G: GPhone },
@@ -6098,7 +6104,7 @@ function Home({
       "f_def_check", "w_cal", "f_def_daily", "f_def_ties"],
     ["w_us", "w_weather", "memlib", "f_def_play", "f_def_ops", "yanqiu",
       "f_def_do", "anon", "f_def_naodong", "f_def_back", "w_ledger", "w_music"],
-    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest"]
+    ["w_memo", "w_map", "assistant", "stylelab", "dreamjournal", "radio", "w_recent", "w_muyu", "w_wheel", "fairyGarden", "companion", "nest", "w_taday"]
   ];
   // 空格（sp_ 开头）：真实占一格的「洞」，自由摆放的基础——拖到空格＝挪过去，原位留洞
   const SP_RE = /^sp_/;
@@ -6205,8 +6211,8 @@ function Home({
       // v57.86 安全网扩容：widget 也救（widget 没有任何「重新添加」的 UI，掉了就是永久失踪；
       // app/widget 一视同仁。故意退场的入口走「从 REG 删除」这条老路，见 v47.73 的 memo/diary）
       Object.keys(REG).forEach(function (key) {
-        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && !REG[key].optIn && hiddenW.indexOf(key) < 0 && !reach[key]) {
-          var dp = defPage[key] != null ? defPage[key] : (out.length - 1);
+        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && hiddenW.indexOf(key) < 0 && !reach[key]) {
+          var dp = REG[key].tail ? Math.max(0, out.length - 1) : defPage[key] != null ? defPage[key] : (out.length - 1);
           if (!out[dp]) out[dp] = [];
           out[dp].push(key);
           reach[key] = 1;
@@ -6300,7 +6306,7 @@ function Home({
       else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
       else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, cellCols: span[0], editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
       else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
-      else if (it.which === "taday") inner = h(TaDayWidget, { characters: characters, schedules: schedules, now: now, homeSize: homeSize, onOpen: function (id) { if (!editMode && onOpenDay) onOpenDay(id); } });
+      else if (it.which === "taday") inner = h(TaDayWidget, { characters: characters, schedules: schedules, now: now, homeSize: homeSize, pin: lookOf(key).pin, onOpen: function (id) { if (!editMode && onOpenDay) onOpenDay(id); } });
       else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
       else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
       else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode, imageRef: lookOf(key).tapImageRef });
@@ -6319,7 +6325,7 @@ function Home({
       var n = Object.assign({}, prev), cur = Object.assign({}, n[key] || {}, patch || {});
       // 全都是默认值就把这一栏删掉，别留一堆空壳攒成坟场（贴纸那一处同一个写法）
       var empty = (!cur.surface || cur.surface === "paper") && (!cur.borderMode || cur.borderMode === "line")
-        && !cur.accent && !cur.ground && !cur.tapImageRef && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
+        && !cur.accent && !cur.ground && !cur.tapImageRef && !cur.pin && !normalizeHomeDecorTilt(cur.tilt) && !String(cur.badge || "").trim();
       if (empty) delete n[key]; else n[key] = cur;
       saveJSON("x_homeWidgetLooks", n); return n;
     });
@@ -7464,6 +7470,15 @@ function Home({
               h("label", { style: { padding: "10px 12px", borderRadius: 12, border: "1px solid " + t.line, color: t.ink, fontFamily: F_BODY, fontSize: 13, opacity: decorBusy ? .5 : 1 } }, "替换敲击物",
                 h("input", { type: "file", accept: "image/*", disabled: decorBusy, "aria-label": "替换敲击物图片", style: { display: "none" }, onChange: function (e) { var f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) takeDecorGround(f, A.target, function (ref) { setWidgetLook(A.key, { tapImageRef: ref }); }, true); } })),
               lookOf(A.key).tapImageRef ? h("button", { onClick: function () { setWidgetLook(A.key, { tapImageRef: null }); }, disabled: decorBusy, style: { padding: 10, color: t.sub, fontFamily: F_BODY, fontSize: 13 } }, "恢复木鱼") : null) : null,
+            // TA在干嘛：跟谁。默认轮换（像情侣空间），也可以钉住一位
+            A.isWidget && A.type === "taday" ? h("div", { style: { marginTop: 14 } },
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".14em", color: t.fog, marginBottom: 9 } }, "看谁"),
+              h("div", { style: { display: "flex", flexWrap: "wrap", gap: 8 } },
+                [{ id: "", zh: "轮换" }].concat((characters || []).map(function (c) { return { id: String(c.id), zh: c.remark || c.name || "TA" }; })).map(function (o) {
+                  var on = String(lookOf(A.key).pin || "") === o.id;
+                  return h("button", { key: o.id || "__rotate", "aria-pressed": on, onClick: function () { setWidgetLook(A.key, { pin: o.id || null }); }, style: { minHeight: 44, padding: "0 14px", borderRadius: 12, border: "1px solid " + (on ? t.accent : t.line), background: on ? t.bg2 : "transparent", color: on ? t.accent : t.ink, fontFamily: F_BODY, fontSize: 13, fontWeight: on ? 600 : 400 } }, o.zh);
+                })),
+              h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 8, lineHeight: 1.6 } }, "轮换：每 6 秒换下一位，正在做事的排前面。")) : null,
             h(HomeDecorAppearanceEditor, {
               surface: A.surface, borderMode: A.borderMode, accent: A.accent,
               ground: A.ground, onGround: A.setGround,
