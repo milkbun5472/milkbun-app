@@ -461,12 +461,6 @@
     // 一起学 · 我来教（2026-10-03）
     Object.freeze({zh:"我来教",pages:Object.freeze(["study"]),hooks:Object.freeze([["studymatpiles","资料页上头那排隔板（全部／我传的／老师给的）"],["studymatpile","一张隔板；data-on=1 选中"],["studyunit","开一节课时排出来的那几小节卡（data-keep=\"1\" 是点了留着的）"],["tbmis","顶上那条「TA 心里想错的地方」（每颗带 data-found=\"1\" 是挖出来的）"],["tbnote","TA 的课堂笔记"],["tbmsg","课上一句（data-me=\"1\" 是你讲的）"],["tbflash","挖出来时弹的那张"],["tbquiz","随堂小测那张"],["tbreview","评教卡"],["tbleft","评教卡底下「还没挖出来的」"]])}),
     Object.freeze({zh:"番茄钟",pages:Object.freeze(["pomodoro"]),hooks:Object.freeze([["pomfocus","专注视频整页，底纹与视频铺满外壳"],["pomkind","设置桌上「倒计时 / 正计时 / 循环番茄」那一排（data-on=\"1\" 是选中的）"],["pommemo","便签里「从待办里挑」那一排"],["pomsneak","「溜号会被发现」那一格开关（data-on=\"1\" 开着）"],["pomhis","专注页左上「TA 在：…」那一行"],["pomgoal","收桌单子下面「做完了吗」那张便签"],["pomcal","记录页里最近八周的专注日历"],["pomcalask","日历下面「让TA点评一下」那颗键"],["pomcalnote","日历下面TA那句点评"],["pompoke","轻戳画面显示字幕的透明按钮"],["pomsubtitle","模式字幕与独立听这句按钮"],["pomtimer","底部发条倒计时与暂停控制"],["pommore","手动补充陪伴话与回看入口"],["pomvideoentry","动态陪伴图制作入口"],["pomvideoeditor","动态陪伴图整页外壳"],["motionstrip","动态形象编辑页顶上那条胶片（平时／专注时／通话时，data-on=\"1\" 是选中那格）"],["pomarchive","往期「坐过的那些」整页"],["pomarchtabs","往期顶上那排桌牌（按谁坐对面分）"],["pomarchrow","往期里的一张单子（data-done=\"1\" 是坐满了）"],["pomarchsum","往期顶上那行合计（坐了多久／几场／几场坐满）"],["pomvideostage","循环视频画面，视频保持静音、语音独立播放"]])}),
-    Object.freeze({zh:"电台",pages:Object.freeze(["radio"]),hooks:Object.freeze([
-      ["radioframe","电台整页底纹与颜色（--rl-ink/--rl-accent）"],["radiomodes","收音机的模式按键排"],
-      ["radioreceiver","调频接入面板"],["radiodial","频率刻度与指针"],["radiostage","接入后的全屏单句舞台（data-speaking/data-ended/data-long）"],
-      ["radioportrait","说话人头像与信号环"],["radiowave","语音播放指示，只有实际播放时起伏"],
-      ["radiocaption","屏幕当前一句"],["radiostatus","单句/整段结束提示"],["radiotools","舞台底部朗读/收藏/聊聊"],["radiotape","录音架和共同节目的磁带标签"]
-    ])}),
     Object.freeze({
       zh: "聊天页", pages: Object.freeze(["thread", "gthread"]),
       hooks: Object.freeze([

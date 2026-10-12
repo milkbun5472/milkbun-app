@@ -1090,7 +1090,7 @@
     phone: "phone", shop: "shop", takeout: "takeout", carry: "carry", mycloset: "closet", dwell: "dwell",
     cwallet: "wallet", wallet: "wallet", kincard: "wallet", mykin: "wallet", ledger: "ledger",
     calendar: "calendar", memo: "memo", map: "map",
-    listen: "listen", musiccard: "listen", radio: "", radioArchive: "", radioLegacy: "",
+    listen: "listen", musiccard: "listen",
     diary: "diary", lore: "lore", memlib: "memlib", anon: "anon", anonme: "anon",
     study: "study", fanfic: "fanfic", read: "read", watch: "watch", weekly: "weekly", debate: "debate", live: "shua", shua: "shua",
     dream: "dream", dreamjournal: "dreamjournal", tarot: "tarot", astro: "astro", health: "health", pomodoro: "pomodoro", companion: "companion",
