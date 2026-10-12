@@ -54,7 +54,7 @@ test("禁的是模子不是尺度——结尾那句不许删", () => {
 //   还是靠【调用点一条条 push 的】？后者换个入口就一条都没有，而且 grep 不出痕迹。
 test("群那几处：走 groupBans（群线上 / 群线下 / 群通话 / 群投票）", () => {
   const gb = eng.slice(eng.indexOf("function groupBans(opts)"), eng.indexOf("const GROUP_USER_IS_PRESENT"));
-  assert.match(gb, /P\.push\(EMPTY_COMFORT_BAN\);/);
+  assert.match(gb, /if \(!opts\.narrative\) P\.push\(EMPTY_COMFORT_BAN\);/);   // 群线下面对面不发
   // 跟 OVERREACH_BAN 同进同出——它俩是一族，漏一处就整族回来
   assert.ok(gb.indexOf("P.push(OVERREACH_BAN)") < gb.indexOf("P.push(EMPTY_COMFORT_BAN)"));
   // groupBans 真的是那几处在用
@@ -64,7 +64,7 @@ test("群那几处：走 groupBans（群线上 / 群线下 / 群通话 / 群投�
 
 test("单聊线上/线下 · 单人通话 · 匿名信箱 · 解梦馆：走 buildBundle 白送", () => {
   const bb = eng.slice(eng.indexOf("parts.push(ANTI_CLICHE);"), eng.indexOf("parts.push(CHARCARD_RULE);"));
-  assert.match(bb, /parts\.push\(EMPTY_COMFORT_BAN\);/);
+  assert.match(bb, /if \(!\(opts && opts\.offline\)\) parts\.push\(EMPTY_COMFORT_BAN\);/);   // 单人线下面对面不发
   assert.ok(bb.indexOf("parts.push(OVERREACH_BAN)") < bb.indexOf("parts.push(EMPTY_COMFORT_BAN)"));
   // ⚠️它在 notRoleplay 的 else 分支里：言秋不吃扮演类规则，那是写着理由的合法差异
   const nr = eng.slice(eng.indexOf("if (ctx.notRoleplay) {"), eng.indexOf("parts.push(CHARCARD_RULE);"));
@@ -84,4 +84,8 @@ test("八处一个都不少（按分发点点名，不是按文件）", () => {
   ];
   const miss = hubs.filter(h => !h[1]).map(h => h[0]);
   assert.deepEqual(miss, [], "这些还没接上：" + miss.join(" / "));
+});
+
+test("线下面对面不发「别说线上兑现不了的话」：人在跟前，这句兑现得了", () => {
+  assert.match(eng, /buildBundle\(ctx, \{ offline: true \}\)/);
 });

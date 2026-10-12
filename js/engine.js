@@ -2210,7 +2210,7 @@ function groupBans(opts) {
   if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
   P.push(STOCK_REPLY_BAN);
   P.push(OVERREACH_BAN);   // 跟三件套同进同出：它是那条的近亲，漏一处就整族回来
-  P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走
+  if (!opts.narrative) P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走；群线下是面对面，不发（理由见 buildBundle 那一处）
   P.push(SEE_THROUGH_BAN);
   P.push(LEVERAGE_BAN);   // 关系上的高位；跟 SEE_THROUGH（认知上的高位）同进同出
   P.push(USER_BODY_BAN);
@@ -3566,7 +3566,9 @@ function buildBundle(ctx, opts) {
       parts.push(INTIMATE_CHAT_ANTI_CLICHE);
       parts.push(STOCK_REPLY_BAN);
       parts.push(OVERREACH_BAN);
-      parts.push(EMPTY_COMFORT_BAN);
+      // 线下面对面不发（v75.461，她 2026-10-12 让清线下提示词）：这条挡的是【隔着屏幕】说「我在这儿」，
+      //   人在跟前时这句正好兑现得了，发过去反倒是让 TA 当面也不许说。同族的另两条照发。
+      if (!(opts && opts.offline)) parts.push(EMPTY_COMFORT_BAN);
       parts.push(SEE_THROUGH_BAN);
       parts.push(LEVERAGE_BAN);
       parts.push(USER_BODY_BAN);
@@ -7919,7 +7921,7 @@ async function generateOffline(p, ctx, session) {
         + ((session.listenSongs || []).length ? "歌单里现成的有：" + session.listenSongs.join(" / ") + "。" : "") + "不在歌单里的照样能放，写歌名就会去搜；按你自己的品味来。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
-  const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
+  const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx, { offline: true }) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
     "\n\n" + MOOD_TURN_RULE +
