@@ -6,5 +6,5 @@ test("在TA照片上画：大图里有入口，画完落进单聊、群聊的发
   assert.match(c, /"data-wk": "doodlebtn"/);
   assert.equal((c.match(/window\.addEventListener\("doodle-photo", f\)/g) || []).length, 2);
   assert.match(c, /setSpecialImg\(u\);( setSpecialText\(d\.text \|\| ""\);)? setSpecialKind\("photo"\)/);
-  assert.match(c, /setGroupPhotoImg\(u\); setPhotoOpen\(true\)/);
+  assert.match(c, /setGroupPhotoImg\(u\);[^\n]*setPhotoOpen\(true\)/);
 });

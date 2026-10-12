@@ -16482,12 +16482,14 @@ function DoodleEditor({ src, charId, onClose }) {
     toast(ok ? "抠好了，放进表情包里了" : "没放进表情包，再试一次");
     if (ok) onClose();
   };
-  const btn = (label, fn, on, wk) => h("button", { onClick: fn, "data-wk": wk, "data-on": on ? "1" : "0", className: "active:opacity-70", style: { minHeight: 36, padding: "0 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13,
-    color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)", whiteSpace: "nowrap" } }, label);
+  const btnSt = on => ({ minHeight: 36, padding: "0 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13,
+    color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)", whiteSpace: "nowrap" });
+  const btn = (label, fn, on) => h("button", { onClick: fn, className: "active:opacity-70", style: btnSt(on) }, label);
+  const modeBtn = (label, k) => h("button", { "data-wk": "doodlemode", "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70", style: btnSt(mode === k) }, label);
   return h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
     h("div", { className: "flex items-center justify-between", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 10px", gap: 8 } },
       btn("取消", onClose),
-      h("div", { className: "flex", style: { gap: 6 } }, btn("画", () => setMode("draw"), mode === "draw", "doodlemode"), btn("贴", () => setMode("stamp"), mode === "stamp", "doodlemode"), btn("抠", () => setMode("cut"), mode === "cut", "doodlemode")),
+      h("div", { className: "flex", style: { gap: 6 } }, modeBtn("画", "draw"), modeBtn("贴", "stamp"), modeBtn("抠", "cut")),
       mode === "cut" ? btn("抠成表情", cutOut, true) : btn("发回去", () => send(false), true)),
     h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: 8 } },
       h("canvas", { ref: cv, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, onPointerLeave: up,
@@ -16501,7 +16503,7 @@ function DoodleEditor({ src, charId, onClose }) {
       mode === "cut" ? h("div", { style: { textAlign: "center", color: "rgba(255,255,255,.75)", fontFamily: F_BODY, fontSize: 12.5, marginBottom: 10 } }, "用手指沿着他描一圈，圈住的部分会剪成透明底的表情") : null,
       h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8 } },
         mode === "draw" ? btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)) : null,
-        mode === "draw" ? btn("圈出来问他", () => send(true), false, "doodleask") : null,
+        mode === "draw" ? h("button", { "data-wk": "doodleask", onClick: () => send(true), className: "active:opacity-70", style: btnSt(false) }, "圈出来问他") : null,
         btn("撤销", () => { marks.current.pop(); setN(v => v + 1); }),
         btn("清空", () => { marks.current = []; setN(v => v + 1); }))));
 }
