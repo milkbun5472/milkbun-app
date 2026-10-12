@@ -1,5 +1,5 @@
-import {keyboard} from './work-room-kit.mjs?v=fg-ab8076f3b07a3f6c';
-import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-ab8076f3b07a3f6c';
+import {keyboard} from './work-room-kit.mjs?v=fg-78f265a4a6cfcea6';
+import {createRoomKit,roomObstacles,roomSeat} from './room-kit.mjs?v=fg-78f265a4a6cfcea6';
 
 const FLOOR=.08;
 // Footprints below also drive the rendered furniture, including its real chairs.
