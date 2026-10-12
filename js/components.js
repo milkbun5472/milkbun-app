@@ -11218,7 +11218,8 @@ function CallScreen({
     if (total < 16000 * 0.4) return;
     st.busy++; setLiveSt("识别中…");
     try {
-      const d = await earsTranscribe(lvEncode(chunks));
+      const wav = lvEncode(chunks);
+      const d = (typeof sttApiReady === "function" && sttApiReady()) ? await sttTranscribe(wav) : await earsTranscribe(wav);
       const text = (d && d.text || "").trim();
       if (text) lvCommitFinal(text, session);
     } catch (e) { setLiveSt("识别失败，再说一遍"); }
@@ -11316,8 +11317,8 @@ function CallScreen({
     const st = lv.current;
     if (!liveRef.current || st.session !== session || st.fallback) return;
     recPause(); st.rec = null; st.fallback = true;
-    if (typeof voiceEarsReady !== "function" || !voiceEarsReady()) {
-      lvStop(); setLiveSt(reason + "；可重试，或在「设置 → API → 真声耳朵」填一个语音转文字接口作为备用识别"); return;
+    if (typeof backupEarReady !== "function" || !backupEarReady()) {
+      lvStop(); setLiveSt(reason + "；可重试，或在「设置 → API → 语音识别」填一个语音转文字接口"); return;
     }
     try { await workletStart(); if (st.session === session && liveRef.current) setLiveSt("听着呢（备用语音识别）"); }
     catch (e) { if (st.session === session) { lvStop(); setLiveSt("备用识别开启失败：" + (e.message || e)); } }
@@ -11333,7 +11334,7 @@ function CallScreen({
       routeCallAudio(st.ttsCtx, "play-and-record");
       st.recAlive = false; st.recDead = false; st.fallback = false;
       // 识别必须在点击的这一拍启动，不等待播放 AudioContext 解锁；开耳不要求配置嗓子。
-      const earsFirst = typeof loadVoiceEars === "function" && loadVoiceEars().prefer && voiceEarsReady();
+      const earsFirst = typeof loadSttApi === "function" && loadSttApi().prefer && sttApiReady();
       if (earsFirst) await fallbackEar(session, "备用识别");
       else if (recStart()) {
         // 没结果不等于设备坏了（用户可能没说话），不擅自切到收费识别。
@@ -11496,7 +11497,7 @@ function CallScreen({
   const title = people.map(c => c.remark || c.name).join("、");
   // 真声档开关条件放这儿：isGroup/primary 声明之后（放前面吃过 TDZ 崩屏）
   // 输入只看识别能力，单人/群聊共用；没有角色音色也能开麦。
-  const canLive = !!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof voiceEarsReady === "function" && voiceEarsReady());
+  const canLive = !!(window.SpeechRecognition || window.webkitSpeechRecognition) || (typeof backupEarReady === "function" && backupEarReady());
   // 最后一条是她刚写的动作、TA还没接：空着按发送＝就这样，让TA接
   const lastM = list[list.length - 1];
   const actPending = !!(lastM && lastM.role === "user" && lastM.act);
