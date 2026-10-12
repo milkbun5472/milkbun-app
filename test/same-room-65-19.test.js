@@ -120,7 +120,7 @@ test("他那一侧不再有写动作的指令：动作直接来自每轮本来�
 });
 
 test("动作那一行只在真变了的时候摆一次，而且这道闸在代码里", () => {
-  const i = app.indexOf("if (_actDesc && onlineAction");
+  const i = app.indexOf("if (_actDesc && onlineActLine");
   assert.ok(i > 0, "动作那一行没接上");
   const blk = app.slice(i, i + 900);
   // 上一次摆出来的那条就存在聊天记录里，拿它比——不另存一份游标
@@ -131,7 +131,7 @@ test("动作那一行只在真变了的时候摆一次，而且这道闸在代�
   assert.match(blk, /if \(!sameActLine\(_line, _prevAct\)\) pChat\(chatKey/, "没比就写＝每轮刷一行，两天就腻了");
   assert.match(blk, /who: "char"/);
   // 她 2026-09-09：「然后动作放气泡前面」——先看见他在干嘛，再看见他说什么
-  assert.ok(app.indexOf("if (_actDesc && onlineAction") < app.indexOf("for (let i = 0; i < words.length; i++)"),
+  assert.ok(app.indexOf("if (_actDesc && onlineActLine") < app.indexOf("for (let i = 0; i < words.length; i++)"),
     "动作那一行又跑到气泡后面去了");
   assert.match(blk, /ts: Math\.max\(0, _tsOf\(0\) - 1\)/, "时间戳没排在头一泡前面，排序一变又会掉到后面");
   // ⚠️normalizeAction 只算一次：算两遍就是同一个形状写在两处

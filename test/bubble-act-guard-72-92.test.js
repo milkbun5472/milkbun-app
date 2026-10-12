@@ -48,7 +48,7 @@ test("单聊线上接上了这把刀，动作行不看动描开关", () => {
   assert.ok(j > i, "抠不出单聊那一段");
   const seg = app.slice(j, j + 1400);
   assert.match(seg, /if \(rescuedActLines\.length\)/, "救回来的几行没摆出去");
-  assert.match(seg, /\} else if \(_actDesc && onlineAction/, "救回来之后还要再摆一次状态卡的动作，会重复");
+  assert.match(seg, /\} else if \(_actDesc && online(Action|ActLine)/, "救回来之后还要再摆一次状态卡的动作，会重复");
 });
 
 test("群聊线上走的是同一个模块（四处一样喂）", () => {

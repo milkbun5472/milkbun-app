@@ -30,7 +30,7 @@ test("原文要跟着留下来（翻成人话，但别把原文丢了）", () =>
 
 test("只有动作描写、没有台词是合法的一轮，不许误报", () => {
   assert.match(seg, /!rescuedActLines\.length/);
-  assert.match(seg, /!\(_actDesc && onlineAction && String\(onlineAction\)\.trim\(\)\)/);
+  assert.match(seg, /!\(_actDesc && online(Action|ActLine) && String\(online(Action|ActLine)\)\.trim\(\)\)/);
 });
 
 test("不自动重发（那是悄悄再花一次钱）", () => {
