@@ -2661,14 +2661,18 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   // 架空的那几处不用等网络：当场算
   const madeUp = place && !place.real && typeof WorldWeather !== "undefined";
   const w = madeUp ? WorldWeather.dayOf(place.seed, place.terrain, new Date()) : real;
+  // 拉不到就说拉不到（群里 2026-10-12：「搜索到了城市但天气不能显示」——原来拉失败了一声不吭，格子里一直写着「获取中…」）。
+  //   换了一处就先清掉上一处的天气，不拿别处的数顶着。点一下重拉。
+  const [wxFail, setWxFail] = useState(false);
+  const [wxTry, setWxTry] = useState(0);
   useEffect(() => {
     let alive = true;
     if (!place || !place.real || typeof place.lat !== "number" || typeof weatherFor !== "function") return;
     var c = typeof weatherCached === "function" ? weatherCached(place.lat, place.lng) : null;
-    if (c) setReal(c);
-    weatherFor(place.lat, place.lng).then(x => { if (alive && x) setReal(x); }).catch(() => {});
+    setReal(c || null); setWxFail(false);
+    weatherFor(place.lat, place.lng).then(x => { if (!alive) return; if (x) setReal(x); else setWxFail(true); }).catch(() => { if (alive) setWxFail(true); });
     return () => { alive = false; };
-  }, [place && place.key, place && place.lat, place && place.lng]);
+  }, [place && place.key, place && place.lat, place && place.lng, wxTry]);
   const loadFx = function (p) {
     if (!p) return;
     if (!p.real) {
@@ -2752,7 +2756,9 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
         h("div", { className: "flex items-center", style: { gap: 5 } },
           h(GWx, { kind: "partly", size: 15, color: t.fog }), h("span", null, "天气")),
-        h("div", null, userGeo ? "获取中…" : "设置里开定位后显示"))));
+        wxFail ? h("button", { onClick: e => { e.stopPropagation(); setWxTry(n => n + 1); }, className: "active:opacity-60",
+            style: { display: "block", textAlign: "left", fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.5, padding: 0 } }, "天气没拉到：连不上天气服务。换个网络或开梯子，点这儿再试")
+          : h("div", null, userGeo || (place && place.real && typeof place.lat === "number") ? "获取中…" : "设置里开定位后显示"))));
 }
 // 记账小组件（2 格宽）：本月各币种支出一眼看（数据走 ledger.js 的 window.ledgerWidgetData，纯本地零 API）
 function LedgerWidget({ onOpen }) {
