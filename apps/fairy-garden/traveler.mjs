@@ -1,19 +1,19 @@
-import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-78f265a4a6cfcea6';
-import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-78f265a4a6cfcea6';
-import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-78f265a4a6cfcea6';
-import {dailyHandTargets} from './daily-motion.mjs?v=fg-78f265a4a6cfcea6';
-import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-78f265a4a6cfcea6';
-import {emotionPose} from './emotion-pose.mjs?v=fg-78f265a4a6cfcea6';
-import {makeDollLife} from './doll-life.mjs?v=fg-78f265a4a6cfcea6';
-import {makeSeatedLegs} from './seated-legs.mjs?v=fg-78f265a4a6cfcea6';
-import {makeUpperBody} from './upper-body.mjs?v=fg-78f265a4a6cfcea6';
-import {makeBentArms} from './bent-arms.mjs?v=fg-78f265a4a6cfcea6';
-import {makeHangingHair} from './hanging-hair.mjs?v=fg-78f265a4a6cfcea6';
-import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-78f265a4a6cfcea6';
-import {makeSeatContact} from './seat-contact.mjs?v=fg-ab8076f3b07a3f6c';
+import {attachRegionDye,dyeRegions} from './outfit-dye.mjs?v=fg-337afd5f97d06984';
+import {reachHand,headSafeTarget} from './reach-hand.mjs?v=fg-337afd5f97d06984';
+import {taskPose,makeTaskProps,workHandTargets,GUITAR_HOLD,GUITAR_STRUM} from './task-motion.mjs?v=fg-337afd5f97d06984';
+import {dailyHandTargets} from './daily-motion.mjs?v=fg-337afd5f97d06984';
+import {motionClock,motionPosture} from './day/motion-profile.mjs?v=fg-337afd5f97d06984';
+import {emotionPose} from './emotion-pose.mjs?v=fg-337afd5f97d06984';
+import {makeDollLife} from './doll-life.mjs?v=fg-337afd5f97d06984';
+import {makeSeatedLegs} from './seated-legs.mjs?v=fg-337afd5f97d06984';
+import {makeUpperBody} from './upper-body.mjs?v=fg-337afd5f97d06984';
+import {makeBentArms} from './bent-arms.mjs?v=fg-337afd5f97d06984';
+import {makeHangingHair} from './hanging-hair.mjs?v=fg-337afd5f97d06984';
+import {OUTFITS,mergeLook,outfitId,outfitColors,hairId,hairModeOf,DEFAULT_LOOK,COMPANION_LOOK,DEFAULT_EYE} from './wardrobe.mjs?v=fg-337afd5f97d06984';
+import {makeSeatContact} from './seat-contact.mjs?v=fg-337afd5f97d06984';
 import * as T from 'three';
-import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-78f265a4a6cfcea6';
-import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-78f265a4a6cfcea6';
+import {GLTFLoader} from './vendor/GLTFLoader.js?v=fg-337afd5f97d06984';
+import {DRACOLoader} from './vendor/DRACOLoader.js?v=fg-337afd5f97d06984';
 // 衣服按需加载（她 2026-09-26）：doll.glb 只有身体、骨架和头发，每套衣服是 outfits/<id>.glb，
 // 穿到哪套才下哪套。同一套全页只下一次（下面这张表），每个小人再各克隆一份、按骨头名字接到自己的骨架上。
 // 文件由 art/fairy-garden/doll/split_outfits.py 从完整娃娃拆出来；版本指纹跟着本模块自己的 ?v=。
@@ -380,6 +380,6 @@ export function createTraveler(source,companion=false,look={}){
 // Scene callers share the compressed doll and decoder lifecycle.
 let travelerSource;
 export function loadTravelerSource(){
- if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-78f265a4a6cfcea6'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
+ if(!travelerSource)travelerSource=(async()=>{const draco=new DRACOLoader();draco.setDecoderPath(new URL('./vendor/draco/',import.meta.url).href);const loader=new GLTFLoader();loader.setDRACOLoader(draco);try{return(await loader.loadAsync(new URL('./doll.glb?v=fg-337afd5f97d06984'+new URL(import.meta.url).search,import.meta.url).href)).scene;}finally{draco.dispose();}})().catch(e=>{travelerSource=null;throw e;});
  return travelerSource;
 }
