@@ -11203,6 +11203,8 @@ function CallScreen({
         recPause(); st.recDead = true;
         fallbackEar(session, "原生识别不可用（" + ev.error + "）");
       } else if (ev.error === "no-speech") setLiveSt("暂时没听到声音，请靠近麦克风再说一句");
+      else if (ev.error === "language-not-supported") { recPause(); st.recDead = true; fallbackEar(session, "这个浏览器的语音识别不认中文"); }
+      else if (ev.error !== "aborted") setLiveSt("语音识别出错（" + ev.error + "），可关麦再开一次");
     };
     st.rec = rec; st.recWanted = true;
     try { rec.start(); } catch (e2) { st.recWanted = false; st.rec = null; return false; }
@@ -11785,9 +11787,12 @@ function CallScreen({
         style: { padding: "10px 14px", borderRadius: 14, background: callBubble(false).background }
       }, h(TypingDots, { color: "rgba(255,255,255,0.72)" }))
     )), liveSt && h("div", {
-    className: "px-6 pb-1",
-    style: { fontFamily: F_BODY, fontSize: 11, color: live ? "#95d16f" : "#f0b06a" }
-  }, "🎙 " + liveSt), h("div", {
+    "data-wk": "calllivest", "data-on": live ? "1" : "0",
+    className: "px-6 pb-1"
+  }, h("span", {
+    // 提示压在通话背景上：垫一块深底、字放大，报错要让她看得清（群友 2026-10-12：「好像是错误提示，试了好几遍也看不清」）
+    style: { display: "inline-block", fontFamily: F_BODY, fontSize: 13, lineHeight: 1.5, padding: "4px 10px", borderRadius: 10, background: "rgba(0,0,0,0.55)", color: live ? "#b9eb98" : "#ffd29a" }
+  }, "🎙 " + liveSt)), h("div", {
     "data-wk": "callcomposer",
     className: "shrink-0",
     style: Object.assign({
