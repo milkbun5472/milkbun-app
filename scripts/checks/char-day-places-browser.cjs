@@ -15,7 +15,7 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       window.dayPlacesWrites=[];const original=saveJSON;window.saveJSON=(key,...args)=>{dayPlacesWrites.push(key);return original(key,...args);};
       window.dayPlacesModels=0;window.callAI=()=>{dayPlacesModels++;throw Error('Unexpected model call');};
       const el=document.createElement('div');el.id='day-places-root';el.style.cssText='position:fixed;inset:0;z-index:999999;height:100dvh';document.body.append(el);
-      window.dayPlacesRoot=ReactDOM.createRoot(el);dayPlacesRoot.render(React.createElement(CharDayApp,{characters:dayPlacesChars,plansFor:c=>dayPlacesRef.current[c.id]||{},lookFor:()=>({outfit:'academy',hair:'korean',hairColor:'#43352e',wardrobe:{academy:{cloth:'#a8be83',trim:'#ebcedf',bottom:'#766956',boots:'#163541'}}}),taFor:()=> '他',onBack:()=>{},build:'places-browser'}));
+      window.dayPlacesRoot=ReactDOM.createRoot(el);window.dayPlacesMount=initialCharId=>dayPlacesRoot.render(React.createElement(CharDayApp,{initialCharId,characters:dayPlacesChars,plansFor:c=>dayPlacesRef.current[c.id]||{},lookFor:()=>({outfit:'academy',hair:'korean',hairColor:'#43352e',wardrobe:{academy:{cloth:'#a8be83',trim:'#ebcedf',bottom:'#766956',boots:'#163541'}}}),taFor:()=> '他',onBack:()=>{},build:'places-browser'}));dayPlacesMount();
     },writer);
     const root=page.locator('#day-places-root'),shot=name=>page.screenshot({path:path.join(out,name+'.png')}),ready=async()=>{await page.waitForFunction(()=>document.querySelector('#day-places-root iframe')?.contentWindow.CharDayScene?.inspect().ready);frame=page.frames().find(f=>f.url().includes('/fairy-garden/day/'));},state=()=>frame.evaluate(()=>CharDayScene.inspect());
     const demoLayout=async()=>{
@@ -61,6 +61,35 @@ const app=fs.readFileSync(path.join(__dirname,'../../js/app.js'),'utf8'),start=a
       }
       throw Error('场景循环未到达：'+id);
     };
+    if(process.env.DAY_ORBIT){
+      const rotations=[];
+      async function orbitRoom(id){
+        await cameraView(root,true);const before=await state();
+        const data=await frame.evaluate(()=>{
+          const canvas=document.querySelector('canvas'),api=CharDayScene,start=api.inspect(),angles=[];
+          const event=(type,id,x,y)=>canvas.dispatchEvent(new PointerEvent(type,{pointerId:id,pointerType:'touch',button:0,buttons:type==='pointerup'?0:1,clientX:x,clientY:y,bubbles:true}));
+          function drag(dx,dy){const x=innerWidth*.66,y=innerHeight*.65;event('pointerdown',41,x,y);for(let n=1;n<=8;n++)event('pointermove',41,x+dx*n/8,y+dy*n/8);event('pointerup',41,x+dx,y+dy);}
+          for(let i=0;i<10;i++){drag(-120,0);angles.push(api.inspect().cameraView.orbit.yaw);}
+          const rotated=api.inspect();drag(0,60);const raised=api.inspect();
+          const x=innerWidth*.5,y=innerHeight*.60;event('pointerdown',51,x-45,y);event('pointerdown',52,x+45,y);event('pointermove',51,x-60,y+12);event('pointermove',52,x+80,y+12);event('pointerup',51,x-60,y+12);event('pointermove',52,x+86,y+14);event('pointerup',52,x+86,y+14);
+          const after=api.inspect();return {start:{position:start.position,route:start.route,spot:start.spot},angles,rotated:{orbit:rotated.cameraView.orbit,zoom:rotated.render.zoom},raised:raised.cameraView.orbit,after:{position:after.position,route:after.route,spot:after.spot,orbit:after.cameraView.orbit,pan:after.cameraView.pan,zoom:after.render.zoom}};
+        });
+        assert.ok(data.angles.some(a=>a>2)&&data.angles.some(a=>a<-2),id+' full circle');assert.equal(data.rotated.zoom,before.render.zoom);assert.ok(data.raised.pitch>data.rotated.orbit.pitch);assert.notEqual(data.after.zoom,data.rotated.zoom);assert.deepEqual(data.after.position,data.start.position);assert.deepEqual(data.after.route,data.start.route);assert.equal(data.after.spot,data.start.spot);assert.deepEqual(data.after.orbit,data.raised);
+        await shot(id+'-rotated');rotations.push({id,...data});
+        await root.locator('[data-wk=cdaymoreopen]').click();await root.locator('[data-wk=cdaymore]').getByRole('button',{name:'回到小世界',exact:true}).click();assert.deepEqual((await state()).cameraView.orbit,data.after.orbit,'menu keeps angle');
+        await cameraView(root,true);const reset=await state();assert.ok(Math.abs(reset.cameraView.orbit.yaw-Math.atan2(10,16))<1e-8);assert.equal(reset.cameraView.cutaway.hidden.length,0);await shot(id+'-reset');
+      }
+      for(const id of ids){await choosePlace(id);await orbitRoom(id);}
+      const core=[['dayHome','家里的餐桌','吃饭','meal'],['dayWork','案边','整理手头的事','work'],['dayCafe','咖啡店','喝咖啡','coffee'],['dayStreet','街边小路','散步','out']];
+      for(const [id,location,title,type]of core){
+        await page.evaluate(({location,title,type})=>{dayPlacesSave('places-a','2026-10-09',{seqs:[{seq:1,time:'10:00',end:'12:00',title,location,type}]});dayPlacesRoot.unmount();dayPlacesRoot=ReactDOM.createRoot(document.querySelector('#day-places-root'));dayPlacesMount('places-a');},{location,title,type});await ready();await frame.waitForFunction(id=>{const s=CharDayScene.inspect();return s.map===id&&!s.changing;},id);await orbitRoom(id);
+      }
+      const layouts=[];for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){await page.setViewportSize({width:w,height:h});await cameraView(root,true);const boxes=await root.locator('[data-wk=cdaytools]').evaluate(el=>({height:el.getBoundingClientRect().height,width:el.clientWidth,scrollWidth:el.scrollWidth}));assert.ok(boxes.height>=54&&boxes.height<=65&&boxes.scrollWidth<=boxes.width);layouts.push({w,h,...boxes});await shot('orbit-layout-'+w+'x'+h);}
+      await frame.evaluate(()=>{const c=document.querySelector('canvas');for(const [type,x]of [['pointerdown',220],['pointermove',140],['pointerup',140]])c.dispatchEvent(new PointerEvent(type,{pointerId:83,pointerType:'touch',button:0,clientX:x,clientY:200,bubbles:true}));});
+      const saved=await frame.evaluate(()=>CharDayScene.pauseState());await page.evaluate(()=>{dayPlacesRoot.unmount();dayPlacesRoot=ReactDOM.createRoot(document.querySelector('#day-places-root'));dayPlacesMount('places-a');});await ready();await frame.waitForFunction(()=>!CharDayScene.inspect().changing);assert.deepEqual((await state()).cameraView.orbit,saved.view.orbit);
+      assert.equal(await page.evaluate(()=>dayPlacesModels),0);assert.equal(await page.evaluate(()=>JSON.stringify(loadJSON('x_fairyGardenSaves',[]))),baseline.games);assert.deepEqual(errors,[]);
+      const report={engine,ok:true,rotations,layouts,resume:true,zeroModelCalls:true,errors};fs.writeFileSync(path.join(out,'orbit-result.json'),JSON.stringify(report,null,2));console.log(JSON.stringify({engine,ok:true,scenes:rotations.length,layouts:layouts.length,resume:true}));return;
+    }
     const placeLayouts=async id=>{
       for(const [w,h]of [[320,568],[390,844],[430,932],[844,390]]){
         await page.setViewportSize({width:w,height:h});await page.waitForTimeout(150);

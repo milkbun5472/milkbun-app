@@ -1,16 +1,17 @@
-import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-baeef0ae0666b09c';
-import {homeSurface} from './home-surfaces.mjs?v=fg-baeef0ae0666b09c';
-import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-baeef0ae0666b09c';
-import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-baeef0ae0666b09c';
+import {HOME_WINDOW,HOME_BEDROOM_WALL,HOME_LEFT_WALL} from './home-architecture.mjs?v=fg-a354c218bc2abef4';
+import {homeSurface} from './home-surfaces.mjs?v=fg-a354c218bc2abef4';
+import {rounded,arch,rimShape,pebble,ceramicCup,shift} from './home-shapes.mjs?v=fg-a354c218bc2abef4';
+import {HOME_WALLS,HOME_FLOORS} from './home-catalog.mjs?v=fg-a354c218bc2abef4';
 
-import {homeSize} from './home-architecture.mjs?v=fg-baeef0ae0666b09c';
-import {createBathroomShell} from './bathroom-kit.mjs?v=fg-baeef0ae0666b09c';
+import {homeSize} from './home-architecture.mjs?v=fg-a354c218bc2abef4';
+import {createBathroomShell} from './bathroom-kit.mjs?v=fg-a354c218bc2abef4';
 // All raised pieces sit on the boundary or the partition footprint. The actual
 // walking plane, furniture positions and doorway remain the saved map's .08.
 export function createHomeShell(k,map,p){
  const wall=HOME_WALLS[map.room.wall]||{},floor=HOME_FLOORS[map.room.floor]||{},wallColor=map.room.wallColor||wall.color||p.wall,floorColor=map.room.floorColor||floor.color||p.floor;
  const {w,d}=homeSize(map.room),back=-d/2,edge=-w/2,bed=HOME_BEDROOM_WALL,left=HOME_LEFT_WALL,bedEdge=bed.x-bed.w/2;
  const b=(name,v,g)=>k.box(name,{color:p.wood,...v},g),flat=(name,shape,v,g)=>k.profile(name,{shape,horizontal:true,...v},g);
+ k.root.userData.roomBounds={w,d};
  const shell=k.group('WindowHome');shell.userData.architecture='arched-window-home';
  flat('Foundation',rounded(w+.42,d+.42,.18),{y:-.155,depth:.31,color:p.dark},shell);
  homeSurface(flat('WalkingFloor',rounded(w+.28,d+.28,.12),{y:.025,depth:.11,color:floorColor,bevel:.005},shell),floor.pattern||'wood','floor');

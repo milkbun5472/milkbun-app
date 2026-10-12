@@ -1,5 +1,5 @@
-import {rounded,arch,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-baeef0ae0666b09c';
-import {furnitureSeatSurface} from './home-catalog.mjs?v=fg-baeef0ae0666b09c';
+import {rounded,arch,pebble,rimShape,shift,ceramicCup} from './home-shapes.mjs?v=fg-a354c218bc2abef4';
+import {furnitureSeatSurface} from './home-catalog.mjs?v=fg-a354c218bc2abef4';
 
 // Collections change construction as well as their default palette. All seats
 // end at .53 and all mattresses share the existing bed contact surface.

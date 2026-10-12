@@ -1,10 +1,10 @@
-import {tagFurnitureParts,applyFurniturePartColors} from './home-parts.mjs?v=fg-baeef0ae0666b09c';
-import {HOME_WALLS,HOME_FLOORS,furniturePrimary,furniturePalette} from './home-catalog.mjs?v=fg-baeef0ae0666b09c';
-import {furnitureFinish} from './home-finish.mjs?v=fg-baeef0ae0666b09c';
-import {createHomeShell} from './home-shell.mjs?v=fg-baeef0ae0666b09c';
-import {createHomeFurniture} from './home-furniture.mjs?v=fg-baeef0ae0666b09c';
-import {createRoomKit} from './places/room-kit.mjs?v=fg-baeef0ae0666b09c';
-import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-baeef0ae0666b09c';
+import {tagFurnitureParts,applyFurniturePartColors} from './home-parts.mjs?v=fg-a354c218bc2abef4';
+import {HOME_WALLS,HOME_FLOORS,furniturePrimary,furniturePalette} from './home-catalog.mjs?v=fg-a354c218bc2abef4';
+import {furnitureFinish} from './home-finish.mjs?v=fg-a354c218bc2abef4';
+import {createHomeShell} from './home-shell.mjs?v=fg-a354c218bc2abef4';
+import {createHomeFurniture} from './home-furniture.mjs?v=fg-a354c218bc2abef4';
+import {createRoomKit} from './places/room-kit.mjs?v=fg-a354c218bc2abef4';
+import {CORE_SPACES,styleOf} from './spaces.mjs?v=fg-a354c218bc2abef4';
 
 // Furniture remains in named, separate groups. Each group owns its material batches.
 // Its layout record also supplies the collision footprint and activity anchors.
@@ -111,5 +111,6 @@ export function createSpaceView(id,style='warm',layout=CORE_SPACES[id],{furnitur
  const shell=k.group('RoomShell');shell.userData.shellPart=true;
  for(const o of [...k.root.children])if(o!==shell&&!o.userData.furnitureId)shell.add(o);
  k.root.userData.layout={id,style,furniture:map.furniture.map(a=>({...a})),zones:map.zones,room:map.room};
+ if(!map.outdoor&&!k.root.userData.roomBounds)k.root.userData.roomBounds=map.bounds;
  const result=k.finish();furnitureFinish(result.root);applyFurniturePartColors(result.root);result.root.name=id;return result;
 }

@@ -19,3 +19,24 @@ test('zoomed-out portrait and landscape cameras keep all four ground corners ins
   assert.ok(pose.fogOffset>=0);
  }
 });
+
+test('single-finger rotation owns real drags, while two fingers retain pan/zoom without release taps',()=>{
+ const rotations=[],pans=[];let taps=0;const g=createMapGesture({onRotate:(x,y)=>rotations.push([x,y]),onPan:(x,y)=>pans.push([x,y]),onTap:()=>taps++});
+ g.down(1,10,10);g.move(1,14,12);g.up(1,14,12);assert.equal(taps,1);assert.deepEqual(rotations,[]);
+ g.down(1,10,10);g.move(1,40,20);g.move(1,50,20);g.up(1,10,10);assert.deepEqual(rotations,[[30,10],[10,0]]);assert.deepEqual(pans,[]);assert.equal(taps,1);
+ g.down(1,0,0);g.down(2,100,0);g.move(2,140,0);g.up(2,140,0);g.move(1,6,2);g.up(1,6,2);assert.equal(g.getZoom(),1.4);assert.deepEqual(rotations,[[30,10],[10,0]]);assert.deepEqual(pans,[[20,0],[6,2]]);assert.equal(taps,1);
+ g.down(3,0,0);g.move(3,50,0);g.cancel();g.up(3,50,0);assert.equal(taps,1);
+});
+test('orbit passes every direction, clamps height and restores a finite view',async()=>{
+ const {createMapOrbit,MAP_ORBIT}=await import('./view-controls.mjs');const orbit=createMapOrbit();const angles=[];
+ for(let i=0;i<16;i++){orbit.rotate(80,0);angles.push(orbit.snapshot().yaw);}assert.ok(angles.some(a=>a<-2)&&angles.some(a=>a>2));
+ orbit.rotate(0,1e6);assert.equal(orbit.snapshot().pitch,MAP_ORBIT.maxPitch);orbit.rotate(0,-1e6);assert.equal(orbit.snapshot().pitch,MAP_ORBIT.minPitch);
+ const state=orbit.snapshot();orbit.restore({yaw:NaN,pitch:Infinity});assert.deepEqual(orbit.snapshot(),state);orbit.reset();assert.deepEqual(orbit.snapshot(),{yaw:MAP_ORBIT.yaw,pitch:MAP_ORBIT.pitch});
+});
+test('all orbit angles and zoom limits keep the ground inside the near/far frustum',async()=>{
+ const T=await import('./vendor/three.module.js'),{orthographicCameraPose,MAP_ORBIT}=await import('./view-controls.mjs');
+ for(const [w,h]of [[320,568],[844,390]])for(const yaw of [-Math.PI,-Math.PI/2,0,Math.PI/2,Math.PI])for(const pitch of [MAP_ORBIT.minPitch,MAP_ORBIT.pitch,MAP_ORBIT.maxPitch])for(const zoom of [.2,1,8]){
+  const span=14,c=new T.OrthographicCamera(-span*w/h/2,span*w/h/2,span/2,-span/2,.1,200),p=orthographicCameraPose({x:0,z:0},span,zoom,0,{yaw,pitch});c.zoom=zoom;c.far=p.far;c.position.set(p.position.x,p.position.y,p.position.z);c.lookAt(p.target.x,p.target.y,p.target.z);c.updateProjectionMatrix();c.updateMatrixWorld();
+  for(const x of [-1,1])for(const y of [-1,1]){const v=new T.Vector3(x,y,0).unproject(c),dir=c.getWorldDirection(new T.Vector3()),t=-v.y/dir.y;v.addScaledVector(dir,t);const q=v.project(c);assert.ok(q.z>=-1&&q.z<=1,JSON.stringify({w,h,yaw,pitch,zoom,q}));}
+ }
+});
