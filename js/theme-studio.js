@@ -1009,7 +1009,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.409", changed: "", none: "没动界面：常用语言只管台词，译文一律简体。" };
+  const BRIEF_STAMP = { v: "v75.410", changed: "24日程地点统一单指旋转、双指移动缩放，保留原场景轻提示与镜头入口，不新增工具条。", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

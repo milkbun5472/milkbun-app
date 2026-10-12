@@ -3,9 +3,9 @@ export function splitRoomCutaway(T,root,bounds){
  if(!Number.isFinite(bounds?.w)||!Number.isFinite(bounds?.d))return;
  root.updateWorldMatrix(true,true);const sides={back:[],left:[]};
  function visit(node){
-  if(node.userData.furnitureId)return;
+  if(node.userData.furnitureId||node.userData.replaceable)return;
   const box=new T.Box3().setFromObject(node);
-  if(!box.isEmpty()&&box.max.y>.45){
+  if(/wall|window|curtain|skirting|trim|coping|memory|clock/i.test(node.name)&&!box.isEmpty()&&box.max.y>.45){
    const back=box.max.z<-bounds.d/2+1.05&&box.min.z<-bounds.d/2+.45,left=box.max.x<-bounds.w/2+1.05&&box.min.x<-bounds.w/2+.45;
    if(back||left){sides[back?'back':'left'].push(node);return;}
   }

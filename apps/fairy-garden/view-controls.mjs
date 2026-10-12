@@ -1,4 +1,4 @@
-// One gesture state owns taps, panning and bounded zoom. Multitouch never becomes a walk tap.
+// One gesture state owns taps, optional rotation, panning and bounded zoom. Multitouch never becomes a walk tap.
 export const MIN_ZOOM=.45,MAX_ZOOM=2.2;
 export function createMapGesture({initial=1,min=MIN_ZOOM,max=MAX_ZOOM,onZoom=()=>{},onTap=()=>{},onPan=()=>{},onRotate=null}={}){
  let zoom=Number.isFinite(initial)?Math.max(min,Math.min(max,initial)):1,points=new Map(),pinching=false,distance=0;
@@ -39,7 +39,7 @@ export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,
 export function orthographicPanDelta(origin,shifted,direction){if(Math.abs(direction.y)<1e-8)return null;const dy=origin.y-shifted.y;return {x:origin.x-shifted.x-dy*direction.x/direction.y,z:origin.z-shifted.z-dy*direction.z/direction.y};}
 
 // Pull an orthographic camera back at wide portrait zoom so its near plane never
-// cuts the ground off at the bottom of the screen. Framing and viewing angle stay fixed.
+// cuts the ground off at the bottom of the screen. The selected viewing angle stays fixed.
 export const MAP_ORBIT={yaw:Math.atan2(10,16),pitch:Math.atan2(11.5,Math.hypot(10,16)),minPitch:.38,maxPitch:1.32};
 export function createMapOrbit(){
  let yaw=MAP_ORBIT.yaw,pitch=MAP_ORBIT.pitch;
@@ -54,12 +54,16 @@ export function orthographicCameraPose(pan,spanY,zoom,offset,orbit=null){
 }
 
 // Fits projected bounds inside a viewport. Existing zoom is normalized away;
-// returned deltas lie on the ground so the shared viewing angle stays fixed.
+// returned deltas lie on the ground so the selected viewing angle stays fixed.
+export function orthographicGroundOffset(dx,dy,rightX,rightZ,upX,upZ){
+ const det=rightX*upZ-rightZ*upX;if(Math.abs(det)<1e-8)return null;
+ return {x:(dx*upZ-dy*rightZ)/det,z:(rightX*dy-upX*dx)/det};
+}
 export function orthographicFrame({minX,maxX,minY,maxY,zoom=1,halfWidth,halfHeight,width,height,rightX,rightZ,upX,upZ,insets={},maxZoom=2.2,minZoom=.2}){
  const left=Math.max(0,insets.left||0),right=Math.max(0,insets.right||0),top=Math.min(height*.72,Math.max(0,insets.top||0)),bottom=Math.min(height*.72-top,Math.max(0,insets.bottom||0));
  const xRoom=Math.max(.2,2*(width-left-right)/width),yRoom=Math.max(.2,2*(height-top-bottom)/height);
  const next=Math.max(minZoom,Math.min(maxZoom,xRoom/Math.max(.01,(maxX-minX)/zoom),yRoom/Math.max(.01,(maxY-minY)/zoom)));
- const dx=(minX+maxX)/2*halfWidth/zoom-(left-right)/width*halfWidth/next,dy=(minY+maxY)/2*halfHeight/zoom-(bottom-top)/height*halfHeight/next,det=rightX*upZ-rightZ*upX;
- if(!Number.isFinite(next)||Math.abs(det)<1e-8)return null;
- return {zoom:next,x:(dx*upZ-dy*rightZ)/det,z:(rightX*dy-upX*dx)/det};
+ const dx=(minX+maxX)/2*halfWidth/zoom-(left-right)/width*halfWidth/next,dy=(minY+maxY)/2*halfHeight/zoom-(bottom-top)/height*halfHeight/next;
+ const delta=orthographicGroundOffset(dx,dy,rightX,rightZ,upX,upZ);if(!Number.isFinite(next)||!delta)return null;
+ return {zoom:next,...delta};
 }
