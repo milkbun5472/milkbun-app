@@ -1,5 +1,5 @@
-import {samplePetAction} from '../../art/pet-house/pet-action.mjs?v=fg-5363e45354c4ef63';
-import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-5363e45354c4ef63';
+import {samplePetAction} from '../../art/pet-house/pet-action.mjs?v=fg-bcd60aa56897bb1f';
+import {createParcelProp,disposeParcelProp} from './parcel-prop.mjs?v=fg-bcd60aa56897bb1f';
 
 // Work facts own the clock and completion. This view only samples the current
 // stage; it never awards items, chooses a story, moves a pet or writes a save.
