@@ -10869,6 +10869,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pics.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
       if (pics.length) out.push("【发过的图】\n" + pics.slice(0, 6).map(x => "· 发给" + x.to + "的：" + (cut(x.m.desc, 50) || "一张照片")).join("\n"));
     }
+    // 最后整份再过一遍别的面具的名字（群友 2026-10-12：关了「别的面具也给看」，TA 翻完还是问「X是谁」）。
+    //   上面每一格各自滤过，可总有漏的：群里 X 发的话、别人聊天里提到 X、订单「送给 X」、健康备注……
+    //   一格一格补永远补不完，所以出口统一拦：带那几个名字的那一行整行不给，只剩标题的那一格整格不给。
+    if (maskNames.length) return out.map(blk => blk.split("\n").filter(l => !maskTrace(l)).join("\n")).filter(blk => blk.trim() && (blk.indexOf("\n") > 0 || !blk.startsWith("【"))).join("\n\n");
     return out.join("\n\n");
   };
   // 递手机：先让TA写一段「怎么翻」的录像（每点开一样东西想一句），在她真的 app 上播完，再回聊天开口。
