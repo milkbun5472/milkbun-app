@@ -4822,7 +4822,7 @@ const POV_SLOTS = [
     "拍照那个人低头看她，从高一点的地方近近地俯拍",
     "她仰着脸看镜头，离得很近，像要说悄悄话"]
 ];
-function povSlotsFor(tier) { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); }
+const povSlotsFor = tier => { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); };
 const PHOTO_SHOTS_OTHER = [
     "远一点的全身，人在环境里",
     "从侧面拍的半身，没看镜头",

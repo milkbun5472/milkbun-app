@@ -34,7 +34,7 @@ test("四处都告诉模型有 me 这一档；她资料里没外貌也没参考�
 // 她 2026-10-11：「约会视角、男友视角」→「拍照的不一定是男友」→「亲密度看吧」
 test("TA 的视角：机位按关系分三层，越亲近能抽的越多", () => {
   const i = engine.indexOf("const POV_SLOTS = [");
-  const k = engine.indexOf("function povSlotsFor(");
+  const k = engine.indexOf("const povSlotsFor = tier =>");
   const seg = engine.slice(i, engine.indexOf("\n", k) + 1);
   const f = new Function(seg + "\nreturn { POV_SLOTS, povSlotsFor };")();
   assert.equal(f.povSlotsFor(1).length, f.POV_SLOTS[0].length);
