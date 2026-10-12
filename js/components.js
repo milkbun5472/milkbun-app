@@ -9636,6 +9636,7 @@ function ChatThread({
   onForward,
   onDeleteMessages,
   onPinShike,
+  onComic,
   onResummarizeOffline,
   onRestoreOffline,
   onSendRich,
@@ -9711,9 +9712,12 @@ function ChatThread({
   const [specialText, setSpecialText] = useState("");
   const [specialImg, setSpecialImg] = useState("");
   const [photoSendMode, setPhotoSendMode] = useState("real"); // real | describe
+  const doodleImgRef = useRef("");   // 这张要发的是不是在他照片上画过的（发出去带 doodle，他能接一笔）
+  // 照片上抠表情时要知道是谁的脸：单聊里那张就是这个人的
+  useEffect(() => { window.__activeCharId = character && character.id; return () => { if (window.__activeCharId === (character && character.id)) window.__activeCharId = ""; }; }, [character && character.id]);
   // 在TA照片上画完（DoodleEditor）：落进「发照片」那一步，跟从相册选了一张一样，配不配一句她定
   useEffect(() => {
-    const f = e => { const u = e && e.detail && e.detail.dataUrl; if (!u) return; setPhotoSendMode("real"); setSpecialImg(u); setSpecialKind("photo"); };
+    const f = e => { const d = (e && e.detail) || {}, u = d.dataUrl; if (!u) return; doodleImgRef.current = u; setPhotoSendMode("real"); setSpecialImg(u); setSpecialText(d.text || ""); setSpecialKind("photo"); };
     window.addEventListener("doodle-photo", f); return () => window.removeEventListener("doodle-photo", f);
   }, []);
   const photoFileRef = useRef(null);
@@ -9888,7 +9892,8 @@ function ChatThread({
       let imageRef = specialImg;
       try { if (typeof imgToVault === "function") imageRef = await imgToVault(specialImg); } catch (e) {}
       await rememberRealPhoto(imageRef, v, "private-chat");
-      sendRich({ role: "user", kind: "photo", imageRef, desc: v, photoMode: "real", content: v ? "[照片] " + v : "[照片]" });
+      const _doodle = !!doodleImgRef.current && doodleImgRef.current === specialImg; doodleImgRef.current = "";
+      sendRich({ role: "user", kind: "photo", imageRef, desc: v, photoMode: "real", ...(_doodle ? { doodle: true } : {}), content: v ? "[照片] " + v : "[照片]" });
     }
     setSpecialImg("");
     setSpecialKind(null);
@@ -10719,6 +10724,7 @@ function ChatThread({
   // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
   selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
+  onComic ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) { onComic(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,
   h("button", {
     onClick: doDelete,
     disabled: !selIds.length,
@@ -15986,6 +15992,8 @@ function OfflineMode({
   const [readView, setReadView] = useState(null); // 回看往期
   const [modeOpen, setModeOpen] = useState(false); // 顶栏下拉：切回线上/线下
   const [pastOpen, setPastOpen] = useState(false); // 往期场次选择
+  // 查手机的录像点到「线下往期」：进来就把往期那张单子摊开（app.js peekOpen 那头立的旗，用一次就放下）
+  useEffect(() => { if (window.__peekOffPast) { window.__peekOffPast = false; setPastOpen(true); } }, []);
   const styleEditor = useOfflineCustomStyles(t, styleKey, setStyleKey);
   const { customStyles, styleSheet, setStyleSheet, curStyle } = styleEditor;
   const os = settings || {};
@@ -16400,59 +16408,108 @@ function useIdbImgUrl(imgKey) {
 //   画完不另开一条发送路：丢给当前那个聊天的「发照片」，跟从相册选了一张一模一样——要不要配一句、发不发，还是她定。
 //   TA 那头照常看图（识图），看得出你在哪儿画了什么。
 const DOODLE_INK = ["#e5484d", "#ffffff", "#111111", "#f5c518", "#ff8fb1", "#3b82f6"];
-function DoodleEditor({ src, onClose }) {
-  const cv = useRef(null), strokes = useRef([]), cur = useRef(null), img = useRef(null);
+const DOODLE_STAMPS = ["❤️", "👍", "😂", "😤", "✨", "💯", "10分", "3分"];
+// 三种玩法共用一块画布（她 2026-10-12「都可以做吧」）：
+//   画 = 随手涂、也能「圈出来问他这是什么」；贴 = 点一下落一个表情或分数；抠 = 沿着他描一圈，剪成透明底贴纸进表情包。
+function DoodleEditor({ src, charId, onClose }) {
+  const cv = useRef(null), marks = useRef([]), cur = useRef(null), img = useRef(null);
+  const [mode, setMode] = useState("draw");   // draw | stamp | cut
   const [ink, setInk] = useState(DOODLE_INK[0]);
   const [wide, setWide] = useState(false);
-  const [n, setN] = useState(0);   // 只拿来触发重画（撤销、清空后）
+  const [stamp, setStamp] = useState(DOODLE_STAMPS[0]);
+  const [n, setN] = useState(0);
+  const toast = msg => window.__toast && window.__toast(msg);
   const paint = () => {
     const c = cv.current, im = img.current; if (!c || !im) return;
     const x = c.getContext("2d");
     x.clearRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
     x.lineCap = "round"; x.lineJoin = "round";
-    strokes.current.concat(cur.current ? [cur.current] : []).forEach(st => {
-      x.strokeStyle = st.ink; x.lineWidth = st.w; x.beginPath();
+    marks.current.concat(cur.current ? [cur.current] : []).forEach(st => {
+      if (st.stamp) { x.font = Math.round(st.size) + "px sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+        if (/分$/.test(st.stamp)) { x.lineWidth = st.size / 8; x.strokeStyle = "#fff"; x.strokeText(st.stamp, st.x, st.y); x.fillStyle = "#e5484d"; } else x.fillStyle = "#000";
+        x.fillText(st.stamp, st.x, st.y); return; }
+      x.strokeStyle = st.ink; x.lineWidth = st.w; x.setLineDash(st.cut ? [st.w * 2, st.w * 2] : []); x.beginPath();
       st.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1]));
       if (st.pts.length === 1) x.lineTo(st.pts[0][0] + 0.1, st.pts[0][1]);
-      x.stroke();
+      if (st.cut && !cur.current) x.closePath();
+      x.stroke(); x.setLineDash([]);
     });
   };
   useEffect(() => {
     const im = new Image();
     im.onload = () => { img.current = im; const c = cv.current; if (!c) return; const k = Math.min(1, 1600 / Math.max(im.naturalWidth, im.naturalHeight));
       c.width = Math.round(im.naturalWidth * k); c.height = Math.round(im.naturalHeight * k); paint(); };
-    im.onerror = () => { window.__toast && window.__toast("这张图读不出来，没法在上面画"); onClose(); };
+    im.onerror = () => { toast("这张图读不出来，没法在上面画"); onClose(); };
     im.src = src;
   }, [src]);
-  useEffect(paint, [n]);
+  useEffect(paint, [n, mode]);
+  const big = () => { const c = cv.current; return Math.max(c.width, c.height); };
   const at = e => { const c = cv.current, r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
-  const down = e => { e.preventDefault(); const c = cv.current; if (!c) return; try { c.setPointerCapture(e.pointerId); } catch (er) {}
-    cur.current = { ink, w: (wide ? 0.022 : 0.008) * Math.max(c.width, c.height), pts: [at(e)] }; paint(); };
+  const down = e => {
+    e.preventDefault(); const c = cv.current; if (!c) return; const p = at(e);
+    if (mode === "stamp") { marks.current.push({ stamp, x: p[0], y: p[1], size: big() * (/分$/.test(stamp) ? 0.07 : 0.09) }); setN(v => v + 1); return; }
+    try { c.setPointerCapture(e.pointerId); } catch (er) {}
+    if (mode === "cut") marks.current = marks.current.filter(m => !m.cut);   // 抠只留最新那一圈
+    cur.current = mode === "cut" ? { cut: true, ink: "#ffffff", w: big() * 0.006, pts: [p] } : { ink, w: (wide ? 0.022 : 0.008) * big(), pts: [p] };
+    paint();
+  };
   const move = e => { if (!cur.current) return; e.preventDefault(); cur.current.pts.push(at(e)); paint(); };
-  const up = () => { if (!cur.current) return; strokes.current.push(cur.current); cur.current = null; setN(v => v + 1); };
-  const done = () => {
-    if (!strokes.current.length) { window.__toast && window.__toast("还没画呢"); return; }
-    let url = "";
-    try { url = cv.current.toDataURL("image/jpeg", 0.9); } catch (e) { window.__toast && window.__toast("这张是外链图，浏览器不让在上面画，先保存到相册再从相册发"); return; }
-    window.dispatchEvent(new CustomEvent("doodle-photo", { detail: { dataUrl: url } }));
+  const up = () => { if (!cur.current) return; marks.current.push(cur.current); cur.current = null; setN(v => v + 1); };
+  const ownMarks = () => marks.current.filter(m => !m.cut);
+  const flat = () => {   // 发出去的那张：只带画的和贴的，抠的那圈虚线不带
+    const keep = marks.current; marks.current = ownMarks(); paint();
+    let url = ""; try { url = cv.current.toDataURL("image/jpeg", 0.9); } catch (e) { url = ""; }
+    marks.current = keep; paint(); return url;
+  };
+  const send = ask => {
+    if (!ownMarks().length) { toast(ask ? "先在想问的地方圈一下" : "还没画呢"); return; }
+    const url = flat();
+    if (!url) { toast("这张是外链图，浏览器不让在上面画，先保存到相册再从相册发"); return; }
+    window.dispatchEvent(new CustomEvent("doodle-photo", { detail: { dataUrl: url, text: ask ? "圈出来的这里是什么？" : "", doodle: true } }));
     onClose();
   };
-  const btn = (label, fn, on) => h("button", { onClick: fn, className: "active:opacity-70", style: { minHeight: 36, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13,
-    color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)" } }, label);
+  const cutOut = async () => {
+    const lasso = marks.current.filter(m => m.cut).pop();
+    if (!lasso || lasso.pts.length < 6) { toast("沿着他描一圈，把想要的部分圈起来"); return; }
+    const xs = lasso.pts.map(p => p[0]), ys = lasso.pts.map(p => p[1]);
+    const x0 = Math.max(0, Math.min(...xs)), y0 = Math.max(0, Math.min(...ys)), x1 = Math.min(cv.current.width, Math.max(...xs)), y1 = Math.min(cv.current.height, Math.max(...ys));
+    const w = Math.round(x1 - x0), hh = Math.round(y1 - y0);
+    if (w < 20 || hh < 20) { toast("圈得太小了，再圈大一点"); return; }
+    const k = Math.min(1, 512 / Math.max(w, hh));
+    const o = document.createElement("canvas"); o.width = Math.round(w * k); o.height = Math.round(hh * k);
+    const x = o.getContext("2d");
+    x.scale(k, k); x.translate(-x0, -y0); x.beginPath();
+    lasso.pts.forEach((p, i) => i ? x.lineTo(p[0], p[1]) : x.moveTo(p[0], p[1])); x.closePath(); x.clip();
+    x.drawImage(img.current, 0, 0, cv.current.width, cv.current.height);
+    let url = ""; try { url = o.toDataURL("image/png"); } catch (e) { toast("这张是外链图，浏览器不让抠，先保存到相册再试"); return; }
+    const ok = typeof window.__addSelfSticker === "function" && await window.__addSelfSticker(url, charId);
+    toast(ok ? "抠好了，放进表情包里了" : "没放进表情包，再试一次");
+    if (ok) onClose();
+  };
+  const btnSt = on => ({ minHeight: 36, padding: "0 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13,
+    color: on ? "#111" : "#fff", background: on ? "#fff" : "rgba(255,255,255,.14)", border: "1px solid rgba(255,255,255,.35)", whiteSpace: "nowrap" });
+  const btn = (label, fn, on) => h("button", { onClick: fn, className: "active:opacity-70", style: btnSt(on) }, label);
+  const modeBtn = (label, k) => h("button", { "data-wk": "doodlemode", "data-on": mode === k ? "1" : "0", onClick: () => setMode(k), className: "active:opacity-70", style: btnSt(mode === k) }, label);
   return h("div", { "data-wk": "doodle", className: "fixed inset-0 z-50 flex flex-col", style: { background: "#000", touchAction: "none" }, onClick: e => e.stopPropagation() },
-    h("div", { className: "flex items-center justify-between", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 10px" } },
-      btn("取消", onClose), h("span", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 13 } }, "在照片上画"), btn("发回去", done, true)),
+    h("div", { className: "flex items-center justify-between", style: { padding: "calc(env(safe-area-inset-top) + 10px) 14px 10px", gap: 8 } },
+      btn("取消", onClose),
+      h("div", { className: "flex", style: { gap: 6 } }, modeBtn("画", "draw"), modeBtn("贴", "stamp"), modeBtn("抠", "cut")),
+      mode === "cut" ? btn("抠成表情", cutOut, true) : btn("发回去", () => send(false), true)),
     h("div", { className: "flex-1 min-h-0 flex items-center justify-center", style: { padding: 8 } },
       h("canvas", { ref: cv, onPointerDown: down, onPointerMove: move, onPointerUp: up, onPointerCancel: up, onPointerLeave: up,
         style: { maxWidth: "100%", maxHeight: "100%", touchAction: "none", borderRadius: 6, background: "#222" } })),
     h("div", { "data-wk": "doodletools", style: { padding: "10px 14px calc(env(safe-area-inset-bottom) + 12px)" } },
-      h("div", { className: "flex items-center justify-center", style: { gap: 12, marginBottom: 10 } },
+      mode === "draw" ? h("div", { className: "flex items-center justify-center", style: { gap: 12, marginBottom: 10 } },
         DOODLE_INK.map(c => h("button", { key: c, onClick: () => setInk(c), "aria-label": "颜色", style: { width: 30, height: 30, borderRadius: 999, background: c,
-          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)", boxShadow: ink === c ? "0 0 0 2px #000 inset" : "none" } }))),
-      h("div", { className: "flex items-center justify-center", style: { gap: 8 } },
-        btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)),
-        btn("撤销", () => { strokes.current.pop(); setN(v => v + 1); }),
-        btn("清空", () => { strokes.current = []; setN(v => v + 1); }))));
+          border: ink === c ? "3px solid #fff" : "2px solid rgba(255,255,255,.35)" } }))) : null,
+      mode === "stamp" ? h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8, marginBottom: 10 } },
+        DOODLE_STAMPS.map(x => btn(x, () => setStamp(x), stamp === x))) : null,
+      mode === "cut" ? h("div", { style: { textAlign: "center", color: "rgba(255,255,255,.75)", fontFamily: F_BODY, fontSize: 12.5, marginBottom: 10 } }, "用手指沿着他描一圈，圈住的部分会剪成透明底的表情") : null,
+      h("div", { className: "flex items-center justify-center flex-wrap", style: { gap: 8 } },
+        mode === "draw" ? btn(wide ? "粗笔" : "细笔", () => setWide(v => !v)) : null,
+        mode === "draw" ? h("button", { "data-wk": "doodleask", onClick: () => send(true), className: "active:opacity-70", style: btnSt(false) }, "圈出来问他") : null,
+        btn("撤销", () => { marks.current.pop(); setN(v => v + 1); }),
+        btn("清空", () => { marks.current = []; setN(v => v + 1); }))));
 }
 function SelfieBubble({ m }) {
   const t = useTheme();
@@ -16511,7 +16568,7 @@ function SelfieBubble({ m }) {
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "⬇ 保存到手机（原图）") : null,
       h("button", { "data-wk": "doodlebtn", onClick: e => { e.stopPropagation(); setZoom(false); setDoodle(true); }, className: "active:opacity-70",
         style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.12)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } }, "✎ 在上面画，发回去")),
-    doodle && h(DoodleEditor, { src: shown, onClose: () => setDoodle(false) }));
+    doodle && h(DoodleEditor, { src: shown, charId: m.senderId || m.charId || (window.__activeCharId || ""), onClose: () => setDoodle(false) }));
   if (idbMiss) return note("图没能存进本机图库（存储被系统清了或 iOS 抽风）");
   if (m.imgKey) return note("图加载中…还看不到就是没存住");
   return note("没拿到图");
@@ -17275,7 +17332,7 @@ function GroupThread({
   const [groupPhotoImg, setGroupPhotoImg] = useState("");
   const [groupPhotoMode, setGroupPhotoMode] = useState("real"); // real | describe
   useEffect(() => {   // 在群里某张照片上画完：同单聊，落进发照片那一步
-    const f = e => { const u = e && e.detail && e.detail.dataUrl; if (!u) return; setGroupPhotoMode("real"); setGroupPhotoImg(u); setPhotoOpen(true); };
+    const f = e => { const d = (e && e.detail) || {}, u = d.dataUrl; if (!u) return; setGroupPhotoMode("real"); setGroupPhotoImg(u); if (typeof setPhotoText === "function") setPhotoText(d.text || ""); setPhotoOpen(true); };
     window.addEventListener("doodle-photo", f); return () => window.removeEventListener("doodle-photo", f);
   }, []);
   const groupPhotoFileRef = useRef(null);

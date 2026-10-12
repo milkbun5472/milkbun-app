@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.480";
+const APP_VERSION = "v75.505";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10763,9 +10763,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" };
   // 上次翻过什么（x_peekLast[charId]）：下一次先去没看过的
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
+  // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
+  const peekOffRef = useRef(false);
+  const peekOffClose = () => { if (peekOffRef.current) { peekOffRef.current = false; setOfflineChar(null); } };
   const peekOpen = (app, who) => {
-    // 线下往期挂在跟那个人的聊天里：点开那个人
-    if (app === "offline") app = "chat";
+    peekOffClose();
+    // 线下往期（她 2026-10-12：「查手机看线下根本没点进去」——原来只点开那个人的聊天，停在线上）：
+    //   进那个人的线下，直接摊开「往期线下记录」那张单子。openOffline 只读存储、不开新场，翻一眼不会动到她的线下。
+    if (app === "offline") {
+      const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
+      const oc = (characters || []).find(x => x && (x.name === who || x.remark === who) && (!hid || !hid.has(String(x.id))));
+      if (oc) { window.__peekOffPast = true; peekOffRef.current = true; openOffline(oc); return; }
+      app = "chat";
+    }
     if (app === "chat") {
       // 藏起来的、别的面具的那几个聊天：录像里就算点到名字也不打开，停在消息列表（那里本来就看不到他们）
       const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
@@ -10780,6 +10790,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (PEEK_APP_ZH[app]) setScreen(app);
   };
   const peekBack = () => {
+    if (peekOffRef.current) { peekOffClose(); return; }
     // 照屏幕上那颗返回键点（公共顶栏的返回键挂着 data-watch="back"，「看他玩」也靠它；聊天页是 chatback）；找不到就回主屏
     const btn = document.querySelector('#root [data-watch="back"]') || document.querySelector('#root [data-wk="chatback"]') || document.querySelector('#root [aria-label="返回"]');
     if (btn) { try { btn.click(); return; } catch (e) {} }
@@ -11222,6 +11233,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (all[char.id]) { delete all[char.id]; saveJSON("x_phoneRemarkEdits", all); }
   };
   const peekDone = thoughts => {
+    peekOffClose();
     const p = peekPlay;
     setPeekPlay(null);
     try { window.__peekHide = null; window.__peekMask = null; } catch (e) {}
@@ -12155,6 +12167,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       if (seenHint) {
         openCaps.push("photoSeen");
         capState.push(seenHint.trim());
+      }
+      // 她在你的照片上画了发回来（v75.480）：你也可以在她那张上接一笔，一来一回画成一张
+      // 只在她画完发来、他还没回过的那一轮给：回过一次就不再追着那张接
+      const _doodleFresh = !!(_seenMsg && _seenMsg.doodle && !_body) && (() => { const rows = chatsRef.current[charId] || [], i = rows.indexOf(_seenMsg); return i >= 0 && !rows.slice(i + 1).some(m => m && m.role === "assistant"); })();
+      if (_doodleFresh) {
+        openCaps.push("drawBack");
+        capState.push("drawBack：" + uName + " 刚在你发的那张照片上画了画、贴了东西发回来（看图就知道她画在哪、画了什么）。"
+          + "你想在她这张上接着画一笔，就填 drawBack：一段 SVG，viewBox=\"0 0 100 100\"，会被拉伸盖满整张照片，坐标按照片的百分比算；"
+          + "只用 path/line/circle/ellipse/polyline/text，像拿笔在她那张上补几笔（回她画的那处、加个箭头、写两个字都行），画多画少看你这个人。不想画就 null。");
       }
       if (_pairPick) {
         openCaps.push("pairAvatar");
@@ -13166,6 +13187,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const _k = _pairPick.findIndex(m => m === _avatarMsg || (m.imageRef && m.imageRef === _avatarMsg.imageRef));
         if (_k >= 0 && applyPairAvatar(charId, _pairPick, _k + 1)) parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
+      if (_doodleFresh && parsed.drawBack) drawBackOn(charId, chatKey, _seenMsg, parsed.drawBack, turnId);
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
@@ -16963,6 +16985,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return n;
   });
   const saveDiaryFields = (charId, fields) => pC(p => p.map(c => c.id === charId ? { ...c, ...fields } : c));
+  // 照片日记（她 2026-10-12）：日记那一页最底下她点了才拍，**绝不自动**。
+  //   一张图画成竖着三格的胶片条，按这篇日记里的三个时刻从早到晚；三格同一身衣服（在一张图里画，天然一致）。
+  //   一次生图，不另叫文字模型——日记本身就是画面描述。
+  const [photoDiaryBusy, setPhotoDiaryBusy] = useState("");
+  const genPhotoDiary = async (charId, entry) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || !entry || photoDiaryBusy) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    setPhotoDiaryBusy(entry.id);
+    try {
+      const body = (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900);
+      const st = statesRef.current[charId] || {};
+      const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
+        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；三格里他穿的是同一身衣服，地方跟着日记走。三格机位要各不一样，像别人在不同距离、不同角度随手拍的：一格平视中景、一格远一点带上周围环境（侧面或背影都行）、一格近景或特写；不要三格都从高处往下拍，也不要三格都抬头看镜头。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
+        + "\n这篇日记：\n" + body
+        // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
+        + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
+      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240) });
+      const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
+      let imgKey = null, imgUrl = null;
+      if (out && out.blob) { imgKey = "img_pdiary_" + charId + "_" + entry.id; await idbImgPut(imgKey, out.blob); }
+      else if (out && out.url) imgUrl = out.url;
+      else throw new Error("没拿到图");
+      setDiaries(p => {
+        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now() } } : e) };
+        saveJSON("x_diaries", n); return n;
+      });
+    } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
+    finally { setPhotoDiaryBusy(""); }
+  };
   // 用户自己写日记（存 x_diaries["__me"]），时间/天气/城市由 compose 组件抓本地后传进来
   const addMyDiaryEntry = data => {
     const paras = (data.body || "").split(/\n+/).map(s => s.trim()).filter(Boolean).map(text => ({ text, secret: false }));
@@ -24830,8 +24883,107 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 拍一张。走的是线下那条已经调好的出图链（buildPhotoPrompt + generateSelfieImage），
   // 只是不落进线下会话，改落进照相馆自己那一份。
+  // 平行时空照、封面、海报（她 2026-10-12）：照相馆里挑一个题材一键拍。题材自己定了穿什么，所以挑了题材就不再塞两身衣服。
+  //   封面和海报上的字【不让模型写】（它写中文常常乱码）——画面只画人，字由 App 拍完自己排上去。
+  const STUDIO_THEMES = {
+    school:   { zh: "校服", line: "【题材·校服】你们俩穿着同一所学校的校服，在教室、走廊或操场，像高中时的一张合照。" },
+    ancient:  { zh: "古装", line: "【题材·古装】你们俩换上古装（衣冠发式照同一个朝代），在庭院、街市或灯下，像古装剧里的一张定妆照。" },
+    wedding:  { zh: "婚纱照", line: "【题材·婚纱照】他穿西装礼服，你穿婚纱，像婚纱摄影棚或外景里拍的一张婚纱照。" },
+    marriage: { zh: "结婚登记照", line: "【题材·结婚登记照】标准的结婚登记照：纯红色背景，两人并肩正面坐着、肩挨着肩，穿白衬衫，表情自然微笑，构图端正，像民政局拍的那张。" },
+    grad:     { zh: "毕业照", line: "【题材·毕业照】你们俩穿学士服、戴学士帽，在校园里，像毕业那天的合照。" },
+    band:     { zh: "乐队", line: "【题材·乐队】你们俩是同一支乐队的成员，在舞台灯光下或排练室里，拿着乐器，像乐队宣传照。" },
+    magazine: { zh: "杂志封面", line: "【题材·杂志封面】时尚杂志封面的人像大片构图：两人占画面中下部，上方和四周留出排标题的空位，打光讲究；画面里不要出现任何文字、字母、logo。", overlay: "magazine" },
+    movie:    { zh: "电影海报", line: "【题材·电影海报】电影海报构图：两人是主演，戏剧化的光影和场景，画面下方留出排片名的空位；画面里不要出现任何文字、字母、logo。", overlay: "movie" }
+  };
+  // 自定义题材（她 2026-10-12：「题材要可以自定义」）：名字＋一句画面描述，存在 x_studioThemes
+  const customThemes = () => { const a = loadJSON("x_studioThemes", []); return Array.isArray(a) ? a.filter(x => x && x.k && x.zh) : []; };
+  const studioThemeOf = k => STUDIO_THEMES[k] || (() => { const c = customThemes().find(x => x.k === k); return c ? { zh: c.zh, line: "【题材·" + c.zh + "】" + (c.line || "你们俩在「" + c.zh + "」这个设定里") + "。" } : null; })();
+  window.__studioThemes = () => [...Object.keys(STUDIO_THEMES).map(k => ({ k, zh: STUDIO_THEMES[k].zh })), ...customThemes().map(x => ({ k: x.k, zh: x.zh, line: x.line, custom: true }))];
+  window.__studioThemeSave = (zh, line, k) => {
+    const name = String(zh || "").trim().slice(0, 12); if (!name) return null;
+    const key = k || "c_" + Date.now();
+    const rest = customThemes().filter(x => x.k !== key);
+    saveJSON("x_studioThemes", [...rest, { k: key, zh: name, line: String(line || "").trim().slice(0, 300) }]);
+    return key;
+  };
+  window.__studioThemeDel = k => saveJSON("x_studioThemes", customThemes().filter(x => x.k !== k));
+  // 封面／海报上的字：拍完由 App 排上去
+  // 四格漫画排版：把 2×2 图切成四格，竖排成一条，每格下面写一行台词
+  const comicCompose = async (blob, panels) => {
+    try {
+      const url = URL.createObjectURL(blob);
+      const img = await new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = url; });
+      const W = img.naturalWidth, H = img.naturalHeight, cw = Math.floor(W / 2), ch = Math.floor(H / 2);
+      const pad = 16, capH = 84, cols = 2, outW = cols * cw + pad * 3, outH = 2 * (ch + capH) + pad * 3;
+      const cv = document.createElement("canvas"); cv.width = outW; cv.height = outH;
+      const g = cv.getContext("2d");
+      g.fillStyle = "#fff"; g.fillRect(0, 0, outW, outH);
+      for (let i = 0; i < 4; i++) {
+        const cx = i % 2, cy = Math.floor(i / 2), x = pad + cx * (cw + pad), y = pad + cy * (ch + capH + pad);
+        g.drawImage(img, cx * cw, cy * ch, cw, ch, x, y, cw, ch);
+        g.strokeStyle = "#222"; g.lineWidth = 4; g.strokeRect(x, y, cw, ch);
+        const line = String((panels[i] && panels[i].line) || "").trim();
+        if (line) {
+          g.fillStyle = "#222"; g.textAlign = "center"; g.textBaseline = "middle";
+          let fs = 30; g.font = "bold " + fs + "px sans-serif";
+          while (fs > 16 && g.measureText(line).width > cw - 20) { fs -= 2; g.font = "bold " + fs + "px sans-serif"; }
+          const chars = Array.from(line), rows = []; let cur = "";
+          chars.forEach(c => { if (g.measureText(cur + c).width > cw - 20) { rows.push(cur); cur = c; } else cur += c; });
+          if (cur) rows.push(cur);
+          rows.slice(0, 2).forEach((r, k, arr) => g.fillText(r, x + cw / 2, y + ch + capH / 2 + (k - (arr.length - 1) / 2) * (fs + 4)));
+        }
+      }
+      URL.revokeObjectURL(url);
+      return await new Promise(ok => cv.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
+    } catch (e) { return blob; }
+  };
+  // 多选聊天 → 四格漫画：先让文字端把这段分成四格（画面＋台词），再一张图画完
+  const comicFromMessages = async (char, msgs) => {
+    const pick = (msgs || []).filter(m => m && m.content && typeof m.content === "string").slice(0, 40);
+    if (!char || !pick.length) { toast("先选几条聊天"); return; }
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    toast("在画了，画好放照相馆", 4000);
+    let panels = null;
+    try {
+      const log = pick.map(m => (m.role === "user" ? (profile.name || "我") : char.name) + "：" + String(m.content).slice(0, 200)).join("\n");
+      const d = await runProbe(apiFor(char.id), ctxFor(char), {
+        instruction: "把下面这段你们的聊天改编成一则四格漫画。按时间顺序分成正好四格，每格给：scene＝这一格画什么（两个人在哪、在做什么、什么表情，一句话，不写台词）；line＝这一格下面配的一句台词或旁白（从聊天里挑或浓缩，20 字以内，可以写「名字：话」）。第四格要有个收尾的小包袱或者情绪落点。\n聊天：\n" + log,
+        schemaHint: "{\"panels\":[{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"},{\"scene\":\"\",\"line\":\"\"}]}",
+        maxTokens: 8000
+      });
+      panels = (d && Array.isArray(d.panels) ? d.panels : []).slice(0, 4).map(p => ({ scene: String((p && p.scene) || "").trim().slice(0, 120), line: String((p && p.line) || "").trim().slice(0, 40) }));
+    } catch (e) { toast("分镜没想出来：" + (e.message || "重试"), 7000); return; }
+    if (panels.length < 4 || panels.some(p => !p.scene)) { toast("分镜没凑够四格，再试一次", 6000); return; }
+    const row = await studioShoot(char, { scene: "聊天画成的四格漫画", comic: panels });
+    if (row) toast("画好了，在照相馆", 5000);
+  };
+  const studioOverlay = async (blob, kind, title, names) => {
+    try {
+      const u = URL.createObjectURL(blob);
+      const im = await new Promise((ok, no) => { const x = new Image(); x.onload = () => ok(x); x.onerror = no; x.src = u; });
+      URL.revokeObjectURL(u);
+      const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      const x = c.getContext("2d"), W = c.width, H = c.height, F = "'Noto Serif SC','Songti SC',serif";
+      x.drawImage(im, 0, 0);
+      const txt = (s, size, y, align, color, weight) => { x.font = (weight || "700") + " " + Math.round(size) + "px " + F; x.textAlign = align || "center"; x.textBaseline = "middle";
+        x.shadowColor = "rgba(0,0,0,.45)"; x.shadowBlur = size / 5; x.fillStyle = color || "#fff"; x.fillText(s, align === "left" ? W * 0.06 : W / 2, y, W * 0.9); x.shadowBlur = 0; };
+      const T = Array.from(String(title || "")).slice(0, 14).join("");
+      if (kind === "magazine") {
+        txt("我 们", W * 0.16, H * 0.09, "center", "#fff", "900");
+        txt(T, W * 0.06, H * 0.82, "left", "#fff", "700");
+        txt(names + " · 独家专访", W * 0.032, H * 0.88, "left", "rgba(255,255,255,.9)", "500");
+      } else {
+        const g = x.createLinearGradient(0, H * 0.62, 0, H); g.addColorStop(0, "rgba(0,0,0,0)"); g.addColorStop(1, "rgba(0,0,0,.78)"); x.fillStyle = g; x.fillRect(0, H * 0.62, W, H * 0.38);
+        txt(T || "我们", W * 0.085, H * 0.8, "center", "#fff", "900");
+        txt("主演  " + names, W * 0.03, H * 0.875, "center", "rgba(255,255,255,.85)", "500");
+        txt("即 将 上 映", W * 0.026, H * 0.93, "center", "rgba(255,255,255,.7)", "500");
+      }
+      return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
+    } catch (e) { return blob; }
+  };
   const studioShoot = async (char, opt) => {
-    const scene = String((opt && opt.scene) || "").trim();
+    const theme = opt && opt.theme ? studioThemeOf(opt.theme) : null;
+    const scene = String((opt && opt.scene) || "").trim() || (theme ? theme.zh : "") || (opt && opt.restyle ? "换个画风" : "");
     if (!char || !scene) { toast("先写一句这张要拍什么"); return false; }
     if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return false; }
     if (!(char.refPhoto && profile && profile.refPhoto)) { toast("合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张"); return false; }
@@ -24884,22 +25036,33 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const myGroups = myClosetRef.current;
       const fits = [dressLine(char.name, opt && opt.theirs, hisGroups && hisGroups.closet ? hisGroups.closet : hisGroups),
                     dressLine(me.name, opt && opt.mine, myGroups && myGroups.closet ? myGroups.closet : myGroups)].filter(Boolean).join("；");
-      const sceneFull = scene + (fits ? "。" + fits : "");
+      // 四宫格（她 2026-10-12）：一次出一整张大头贴，不是拍四次——四格在同一张图里画，脸和衣服天然一致
+      const GRID_LINE = "【版式·四宫格大头贴】整张图是一张 2×2 四格大头贴，四格大小一样、格子之间留一道粗白边；四格都是你们俩、同一个地方、同一身衣服，每格一个不同的表情或动作（比如对镜头笑、一起比手势、他偷看你、两个人做鬼脸），像在大头贴机里连拍的四张。";
+      // 换画风（她 2026-10-12）：照第一张参考图（就是那张合照）的构图人物重画，长相照后两张参考照
+      const RESTYLE_LINE = opt && opt.restyle ? "【换画风】照第一张参考图的构图、人物位置、动作和表情，整张重画成「" + opt.restyle.style + "」的画风；两个人的长相照后两张参考照，别换人。" : "";
+      // 聊天画成漫画（她 2026-10-12）：四格一张图里画，字不让图像端写（它写中文会乱码），台词由 app 自己排在每格下面
+      const COMIC_LINE = opt && opt.comic ? "【版式·四格漫画】整张图是一张 2×2 四格漫画，四格大小一样、格子之间留白边，漫画画风；四格都是你们俩，按顺序依次是：" + opt.comic.map((c, i) => "第" + (i + 1) + "格（左上、右上、左下、右下依次）" + c.scene).join("；") + "。画面里不要任何文字、不要对话气泡、不要拟声字。" : "";
+      const sceneFull = COMIC_LINE + (opt && opt.grid ? GRID_LINE : "") + (theme ? theme.line : "") + RESTYLE_LINE + scene + (fits && !theme && !(opt && opt.restyle) ? "。" + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
-      const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
+      // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
+      const firstRef = (opt && opt.cellRef) || (opt && opt.restyle && opt.restyle.ref) || null;
+      const refs = firstRef ? [firstRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && (opt.grid || opt.comic) ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
         imgKey = "img_studio_" + char.id + "_" + Date.now();
-        await idbImgPut(imgKey, out.blob);
+        const finalBlob = opt && opt.comic ? await comicCompose(out.blob, opt.comic) : theme && theme.overlay ? await studioOverlay(out.blob, theme.overlay, String((opt && opt.scene) || "").trim(), (char.remark || char.name) + " " + (me.name || "我")) : out.blob;
+        await idbImgPut(imgKey, finalBlob);
       } else if (out && out.url) imgUrl = out.url;
       else throw new Error("没拿到图");
       const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
-        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull };
+        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}), ...(opt && opt.comic ? { comic: true } : {}),
+        ...(theme ? { theme: opt.theme } : {}), ...(opt && opt.restyle ? { style: opt.restyle.style } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
@@ -27189,6 +27352,37 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("导入了 " + items.length + " 个表情");
     return items.length;
   };
+  // 他在她画过的那张上接一笔：她那张当底，他的 SVG 拉伸盖满，合成一张新照片当成他发的
+  const drawBackOn = async (charId, chatKey, userMsg, svgRaw, turnId) => {
+    try {
+      let svg = cleanDrawSvg(svgRaw); if (!svg || !userMsg.imageRef) return;
+      const base = await imgVaultFetchBlob(userMsg.imageRef); if (!base) return;
+      const load = src => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = src; });
+      const bu = URL.createObjectURL(base); const im = await load(bu); URL.revokeObjectURL(bu);
+      const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      svg = svg.replace(/<svg\b([^>]*)>/, (m0, at) => "<svg" + at.replace(/\s(width|height|preserveAspectRatio)=("[^"]*"|'[^']*')/g, "") + ' width="' + c.width + '" height="' + c.height + '" preserveAspectRatio="none">');
+      const ov = await load("data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg));
+      const x = c.getContext("2d"); x.drawImage(im, 0, 0); x.drawImage(ov, 0, 0, c.width, c.height);
+      const blob = await new Promise(ok => c.toBlob(ok, "image/jpeg", 0.9)); if (!blob) return;
+      const sid = "db" + Date.now(), key = "img_" + charId + "_" + sid;
+      await idbImgPut(key, blob);
+      pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: key, desc: "在你画过的那张上接着画了几笔", photoKind: "drawback", ts: Date.now(), turnId, read: false }]);
+    } catch (e) { console.warn("[drawBack]", e && e.message); }
+  };
+  // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
+  window.__addSelfSticker = async (dataUrl, charId) => {
+    try {
+      const url = await imgToVault(dataUrl);
+      const c = characters.find(x => x.id === charId);
+      const name = (c ? (c.remark || c.name) : "TA") + " 的表情";
+      const packs = emotePacksRef.current || [];
+      let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: (c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1), url };
+      const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
+        : [...packs, { id: "ep_face_" + Date.now(), name, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
+      return commitEmotePacks(next);
+    } catch (e) { return false; }
+  };
   // 从相册选的：url 是本机图库的 iv_ 引用，关键词由调用方取文件名
   const addEmoteImages = (packId, list) => {
     const items = (list || []).filter(x => x && x.url).map(x => ({ id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: x.keyword || "表情", url: x.url }));
@@ -28189,6 +28383,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
       const msgs = chatsRef.current[threadKey] || [];
       pinToShike(activeChar.id, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
+    },
+    // 多选 → 画成四格漫画（她 2026-10-12）
+    onComic: indices => {
+      const threadKey = window.ChatRooms ? window.ChatRooms.chatKey(activeChar.id, activeRoomId) : activeChar.id;
+      const msgs = chatsRef.current[threadKey] || [];
+      comicFromMessages(activeChar, indices.slice().sort((a, b) => a - b).map(i => msgs[i]));
     },
     onDeleteMessages: indices => {
       const set = new Set(indices);
@@ -29847,6 +30047,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
         } finally {if(W)W.active=active;}
       },
+      // 今天的小相册：一次调用给每张照片配念头；料与「此刻的念头」同一套 ctxFor，指令里只有照片的时间/安排/地点。
+      generateDiary: (c, photos, identity) => {
+        const W=window.__vclock,active=W?.active;
+        try {
+          const text=(identity?.messages||[]).slice(-40).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
+          const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
+          return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'今天的小相册',
+            instruction:window.CharDayThoughts.albumInstruction(photos),schemaHint:'{"thoughts":["按照片顺序，每张一条念头"]}'});
+        } finally {if(W)W.active=active;}
+      },
       taFor: c => CharacterPronoun.ta(c),
       lookFor: c => window.CompanionFace.lookFor(c, moods),
       visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),
@@ -30215,6 +30425,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
     onSaveFields: saveDiaryFields,
+    onPhotoDiary: genPhotoDiary, photoDiaryBusy: photoDiaryBusy,
     onAddMyEntry: addMyDiaryEntry,
     onGenComments: genDiaryCommentsFor,
     toast: toast

@@ -78,6 +78,27 @@
       return next;
     });homeWrite=write;return write;
   }
+  // The day album has its own x_ key (IndexedDB), so photos never ride along with every home save; a week per character is kept.
+  function loadAlbums(){ return (typeof loadJSON === "function" ? loadJSON("x_charDayAlbums", {}) : {}) || {}; }
+  async function saveAlbum(charId,day,update){
+    const all=loadAlbums(),id=String(charId),mine={...(all[id]||{})};mine[day]=update(mine[day]||null);
+    const days=Object.keys(mine).sort().slice(-7),next={...all,[id]:Object.fromEntries(days.map(d=>[d,mine[d]]))};
+    const result=await commitJSONDurable("x_charDayAlbums",next);if(!result?.durable||!result?.live)throw Error("save");
+    return next[id][day];
+  }
+  // One photo per stop (by start time), in time order; a newer frame of the same stop keeps the thought already written for it.
+  function mergePhotos(cur,add){
+    const byTime=new Map();
+    for(const p of [...(cur||[]),...(add||[])]){if(!p?.time)continue;const old=byTime.get(p.time);byTime.set(p.time,{...old,...p,thought:p.thought||old?.thought||""});}
+    return [...byTime.values()].sort((a,b)=>a.time<b.time?-1:a.time>b.time?1:0).slice(-12);
+  }
+  // Up to six stops of the day so far, evenly spread, in time order.
+  function albumRows(state){
+    const toMin=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(String(t||""));return m?+m[1]*60+ +m[2]:null;},rows=(state?.rows||[]).filter(r=>String(r.title||"").trim()&&toMin(r.time)!=null);
+    const past=rows.filter(r=>toMin(r.time)<=state.minute),pool=past.length?past:rows;
+    if(pool.length<=6)return pool;
+    return Array.from({length:6},(_,i)=>pool[Math.round(i*(pool.length-1)/5)]);
+  }
   function saveHomeChange(charId,section,value){
     return saveHomeUpdate(previous=>({...previous,version:3,[section]:{...previous[section],[String(charId)]:typeof value==='function'?value(previous[section]?.[String(charId)]):value}}));
   }
@@ -204,6 +225,11 @@
     const openOutings=()=>{setOutingMode(trip?.mode||'solo');setOutingPicker(true);};
     const goOuting=map=>{if(!destinations.some(p=>p.id===map))return;setPreview(null);setShowcase('');setSpotId('');setBook(false);setOuting({map,mode:outingMode});setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setVisitStatus(null);setFollow(true);setCameraMode(outingMode==='solo'?'me':'both');};
     const returnToTA=()=>{setOuting(null);setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setBook(false);setPreview(null);setShowcase('');setSpotId('');setVisitStatus(null);setFollow(true);setCameraMode('ta');};
+    const albumFill = useRef("");
+    const [albumDay, setAlbumDay] = useState(null), [albumOpen, setAlbumOpen] = useState(false), [albumShoot, setAlbumShoot] = useState(null), [albumNotice, setAlbumNotice] = useState(""), [albumBusy, setAlbumBusy] = useState(false), [albumTick, setAlbumTick] = useState(0);
+    // The now-card stays short by default so the scene shows; details open on a tap (她 2026-10-12：「太长了还收不起来看不到画面」).
+    // line = only a thin handle at the top, short = what TA is doing, open = every detail.
+    const [nowMode, setNowMode] = useState("short"), nowOpen = nowMode === "open";
     const visual = root.CharDayLink.resolve(slot, state?.at ?? now, {preview:!!preview||demo,minute:state?.minute,seed:String(char?.id||""),likes:root.CharDayLink.idleLikes(char?.persona),homePlacements:homes.layouts?.[String(char?.id)]||{}});
     const sceneNear = !demo && !preview && state ? aroundNow(state) : null;
     const stageIndex=!preview&&!demo&&activityStatus?.charId===String(char?.id)&&activityStatus.key===slot?.key&&Number.isInteger(activityStatus.stageIndex)&&visual.stages[activityStatus.stageIndex]?activityStatus.stageIndex:visual.presentation.stageIndex;
@@ -211,7 +237,7 @@
     const stagePlace = manualPoint ? (root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.label : activeStage?.location || slot?.location;
     const nextStage=visual.stages[stageIndex+1];
     const payload = char && { outing:trip,socialPreferences:socialDraft[String(char.id)]||homes.socialPreferences?.[String(char.id)]||{},pairStyle:pairDraft[String(char.id)]?.ta||homes.pairStyles?.[String(char.id)]||'auto',persona:char.persona||"",motionStyle:demo?demoMotion:homes.motions?.[String(char.id)]||"auto",visitorData:{...visitorData,pairStyle:pairDraft[String(char.id)]?.me||homes.visitorPairStyles?.[String(char.id)]||'auto',homePresence:homeChoices[String(char.id)]||homes.presence?.[String(char.id)]||'with',activityChoice:demo?"auto":homes.visitorActivities?.[String(char.id)]||"auto",motionStyle:demo?demoVisitorMotion:homes.visitorMotions?.[String(char.id)]||"auto"},charId: String(char.id), ta: props.taFor?.(char) || "TA", look: props.lookFor?.(char) || {}, visitorLook:meDraft||homes.looks?.me||visitorData.look||{},visitorPreview:mePanel,professional:demo?demoProfessional:homes.professional?.[String(char.id)]||{},slot: slot || null, activitySlot:visual.activitySlot || null,
-      at: preview || demo ? null : state.at, preview: !!preview || demo, scenePaused:!!(book||homeOptions||moreOpen||togetherPanel||professionalPanel||lifePage||mePanel||outingPicker||positionEdit), editing: !!editor, resume:scenePause.current?.charId===String(char.id)?scenePause.current:!preview&&!demo&&!showcase?sceneContinuity.get(String(char.id))||null:null, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
+      at: preview || demo ? null : state.at, preview: !!preview || demo, albumShot: !!albumShoot, scenePaused:!!(albumOpen||book||homeOptions||moreOpen||togetherPanel||professionalPanel||lifePage||mePanel||outingPicker||positionEdit), editing: !!editor, resume:scenePause.current?.charId===String(char.id)?scenePause.current:!preview&&!demo&&!showcase?sceneContinuity.get(String(char.id))||null:null, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
       homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase && !editor,
       presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : trip ? {map:trip.map,action:'rest',gesture:'rest'} : visual.presentation, cameraMode,kitchenJob:demo?null:homes.kitchens?.[String(char.id)]?.pending||null,kitchenCarry:demo?[]:L.kitchen(homes.kitchens?.[String(char.id)]).dishes.filter(d=>d.packed&&d.owner==='ta'), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
       key: trip&&!editor ? "outing:"+char.id+":"+trip.map+":"+trip.mode : showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation, ...(slot ? [] : [visual.presentation?.spot])]) };
@@ -308,6 +334,61 @@
     const kitchenInput=event=>{const result=iframe.current?.contentWindow?.CharDayScene?.kitchenInput(event);if(result?.ok===false&&result.reason)setLifeNotice(result.reason);else if(result?.ok)setLifeNotice('');};
     const openLifePage=page=>{setTogetherPanel(false);setLifePage(page);setPhotoId('');setKitchenRecipe('');setLifeNotice('');setDeletePhoto(false);if(page==='preferences')setWish(homes.preferences?.[String(char.id)]?.wish||'');};
     const lifeWrite=async(write,saveFailure)=>{if(lifeBusy)return null;setLifeBusy(true);setLifeNotice('');try{const next=await write();setHomes(next);return next;}catch(e){setLifeNotice(e.message==='save'?(saveFailure||'没能保存，原来的记录和材料都还在，可以重试。'):e.message);return null;}finally{setLifeBusy(false);}};
+    // Daily album, automatic (on unless switched off): while TA's live day is on screen, keep one frame per stop once TA has settled there.
+    const albumAuto = !!char && homes.albumAuto?.[String(char.id)] !== false;
+    useEffect(()=>{
+      if(typeof setTimeout!=="function"||!char||demo||preview||showcase||trip||editor||albumShoot||!albumAuto||!state?.slot||state.slot.carry||payload?.scenePaused)return;
+      const slot=state.slot,day=state.day,key=payload?.key,want=visual.presentation?.map;
+      if(loadAlbums()[String(char.id)]?.[day]?.photos?.some(p=>p.time===slot.time))return;
+      let timer,cancelled=false,last=null,onMap=0;const started=Date.now();
+      const tick=()=>{
+        if(cancelled)return;
+        const api=iframe.current?.contentWindow?.CharDayScene,sc=api?.inspect?.(),pos=sc?.position;
+        const here=!!sc?.ready&&!sc.changing&&(!want||sc.map===want);if(here&&!onMap)onMap=Date.now();
+        const still=here&&last&&pos&&Math.hypot((pos.x||0)-(last.x||0),(pos.z||0)-(last.z||0))<.03;last=pos?{...pos}:null;
+        if(!(still&&Date.now()-onMap>1500)){if(Date.now()-started<90000)timer=setTimeout(tick,1000);return;}
+        let shot=null;try{shot=api.captureSolo();}catch{}
+        if(!shot||shot.charId!==String(char.id)||shot.key!==key)return;
+        saveAlbum(char.id,day,cur=>({...(cur||{}),photos:mergePhotos(cur?.photos,[{time:slot.time,end:slot.end||"",title:slot.title,location:slot.location||"",place:shot.place||"",src:shot.src}]),at:Date.now()})).then(()=>setAlbumTick(t=>t+1)).catch(()=>{});
+      };
+      timer=setTimeout(tick,2500);
+      return()=>{cancelled=true;clearTimeout(timer);};
+    },[char?.id,state?.slot?.key,state?.day,albumAuto,!!preview,!!showcase,!!trip,!!editor,!!albumShoot,!!payload?.scenePaused]);
+    // Opening the album fills in today's stops nobody was watching (once per set of gaps), so she never has to press "shoot".
+    useEffect(()=>{
+      if(!albumOpen||albumShoot||!char||demo||!albumAuto||!state)return;
+      const day=state.day,photos=loadAlbums()[String(char.id)]?.[day]?.photos||[],miss=albumRows(state).filter(r=>!photos.some(p=>p.time===r.time));
+      const tag=char.id+":"+day+":"+miss.map(r=>r.time).join(",");
+      if(!miss.length||albumFill.current===tag)return;
+      albumFill.current=tag;setAlbumOpen(false);setOuting(null);setShowcase("");setBook(false);setAlbumShoot({day,rows:miss,index:0,photos:[],auto:true});
+    },[albumOpen,char?.id]);
+    // Shoot the day album: preview each stop in turn, wait until TA has arrived, take a small frame of TA alone.
+    useEffect(()=>{
+      if(!albumShoot||!char||demo)return;
+      let timer,cancelled=false;const {rows,index,day}=albumShoot;
+      if(index>=rows.length){
+        setPreview(null);
+        (async()=>{try{if(albumShoot.photos.length)await saveAlbum(char.id,day,cur=>({...(albumShoot.replace?{}:cur||{}),photos:albumShoot.replace?albumShoot.photos:mergePhotos(cur?.photos,albumShoot.photos),at:Date.now()}));setAlbumNotice(albumShoot.photos.length?'':'这次一张也没拍成，可以再试。');}catch{setAlbumNotice('照片没能存下，可以再拍一次。');}setAlbumShoot(null);setAlbumTick(t=>t+1);setAlbumOpen(true);})();
+        return;
+      }
+      const row=rows[index],key="album:"+char.id+":"+day+":"+index,want=presentation(row)?.map,started=Date.now();
+      setPreview({...row,key});
+      const next=photo=>setAlbumShoot(s=>s&&s.index===index?{...s,index:index+1,photos:photo?[...s.photos,photo]:s.photos}:s);
+      // The route keeps a last point even at rest, so "arrived" means: right map, and TA has nearly stopped moving (or 8s on the map).
+      let last=null,onMap=0;
+      const tick=()=>{
+        if(cancelled)return;
+        const api=iframe.current?.contentWindow?.CharDayScene,sc=api?.inspect?.(),pos=sc?.position;
+        const here=!!sc?.ready&&!sc.changing&&(!want||sc.map===want);if(here&&!onMap)onMap=Date.now();
+        const still=here&&last&&pos&&Math.hypot((pos.x||0)-(last.x||0),(pos.z||0)-(last.z||0))<.03;last=pos?{...pos}:null;
+        const settled=here&&(still||Date.now()-onMap>8000);
+        if(!settled){if(Date.now()-started<20000){timer=setTimeout(tick,300);return;}next(null);return;}
+        timer=setTimeout(()=>{if(cancelled)return;let shot=null;try{shot=api.captureSolo();}catch{}
+          next(shot&&shot.charId===String(char.id)&&shot.key===key?{time:row.time,end:row.end||"",title:row.title,location:row.location||"",place:shot.place||"",src:shot.src}:null);},1500);
+      };
+      timer=setTimeout(tick,500);
+      return()=>{cancelled=true;clearTimeout(timer);};
+    },[albumShoot?.index,albumShoot?.day,char?.id]);
     useEffect(()=>{
       setPhotoDraft(null);setPhotoPreviewNotice('');
       if(lifePage!=='album'||photoId)return;
@@ -525,28 +606,28 @@
       h("div", { "data-wk": "cdayscene", className: "flex-1 min-h-0 relative", style: { overflow: "hidden" } },
         h("iframe", { key: char.id + ":" + retry, ref: bindScene, title: "TA的一天场景", "aria-hidden":!!decorPanel, src: "apps/fairy-garden/day/index.html?v=" + props.build,
           onLoad: send, style: { width: "100%", height: "100%", border: 0, display: "block", pointerEvents:layoutBusy?"none":"auto" } }),
-        editor ? h("div",{"data-wk":"cdayeditnote",role:"status",style:{display:decorPanel?"none":"block",position:"absolute",top:66,left:12,right:12,padding:"10px 12px",borderRadius:12,background:"rgba(250,247,236,.94)",fontSize:12,lineHeight:1.7,pointerEvents:"none"}},layoutNotice||"拖家具摆放，拖空白旋转 · 双指移动／缩放",h("div",{style:{fontSize:11,color:soft}},"床椅收起后会换可用同类，没有同类就先休息。")) : h("div", { "data-wk": "cdaynow", style: { visibility:mePanel||kitchenTool?"hidden":"visible",position: "absolute", top: 12, left: 12, right: 12, maxWidth:480, padding: "13px 15px", borderRadius: "6px 18px 18px 18px", border:"1px solid #ffffffe0",background: "rgba(252,253,245,.94)", boxShadow: "0 4px 16px #3c483015",borderLeft:"3px solid #9eae88", pointerEvents: "none" } },
-          h("div", { style: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:11,color:UI.accent,fontWeight:500} },h("span",null,trip ? "自由逛 · "+outingPlace.label : showcase ? "逛逛场景 · "+(room?.label||"正在准备房间") : demo ? "示例试玩 · " + slot.time : preview ? "预览日程 · " + slot.time + "—" + slot.end : "此刻 · TA当地 " + state.time),!trip&&!demo&&!showcase&&slot?.seq!=null&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen",style:{...btn,pointerEvents:"auto",padding:"5px 9px",background:"transparent",border:0,flexShrink:0},onClick:()=>openPosition(slot,slot.sourceDay||state.sourceDay||state.day,stageIndex)},h(IPencil,{size:14,color:soft}),visual.stages.length?" 换这一步的地方":" 换地方")),
+        editor ? h("div",{"data-wk":"cdayeditnote",role:"status",style:{display:decorPanel?"none":"block",position:"absolute",top:66,left:12,right:12,padding:"10px 12px",borderRadius:12,background:"rgba(250,247,236,.94)",fontSize:12,lineHeight:1.7,pointerEvents:"none"}},layoutNotice||"拖家具摆放，拖空白旋转 · 双指移动／缩放",h("div",{style:{fontSize:11,color:soft}},"床椅收起后会换可用同类，没有同类就先休息。")) : (nowMode==="line"&&!showcase&&!trip ? h("button",{"aria-label":"展开此刻卡片",onClick:()=>setNowMode("short"),style:{position:"absolute",top:6,left:"50%",transform:"translateX(-50%)",width:120,height:28,padding:0,border:0,background:"transparent",display:"flex",alignItems:"center",justifyContent:"center",pointerEvents:"auto",visibility:mePanel||kitchenTool?"hidden":"visible"}},h("span",{style:{display:"block",width:56,height:4,borderRadius:2,background:"rgba(110,125,95,.55)",boxShadow:"0 1px 3px #3c483022"}})) : h("div", { "data-wk": "cdaynow", style: { visibility:mePanel||kitchenTool?"hidden":"visible",position: "absolute", top: 12, left: 12, right: 12, maxWidth:480, padding: "13px 15px", borderRadius: "6px 18px 18px 18px", border:"1px solid #ffffffe0",background: "rgba(252,253,245,.94)", boxShadow: "0 4px 16px #3c483015",borderLeft:"3px solid #9eae88", pointerEvents: "none" } },
+          h("div", { style: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:11,color:UI.accent,fontWeight:500} },h("span",null,trip ? "自由逛 · "+outingPlace.label : showcase ? "逛逛场景 · "+(room?.label||"正在准备房间") : demo ? "示例试玩 · " + slot.time : preview ? "预览日程 · " + slot.time + "—" + slot.end : "此刻 · TA当地 " + state.time),!trip&&!demo&&!showcase&&slot?.seq!=null&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen",style:{...btn,pointerEvents:"auto",padding:"5px 9px",background:"transparent",border:0,flexShrink:0,display:"inline-flex",flexDirection:"row",alignItems:"center",gap:3,whiteSpace:"nowrap"},onClick:()=>openPosition(slot,slot.sourceDay||state.sourceDay||state.day,stageIndex)},h(IPencil,{size:14,color:soft}),visual.stages.length?" 换这一步的地方":" 换地方"),!showcase&&!trip&&h("button",{"aria-expanded":nowOpen,"aria-label":nowOpen?"收起此刻详情":"展开此刻详情",onClick:()=>setNowMode(nowOpen?"short":"open"),style:{...btn,pointerEvents:"auto",padding:"5px 8px",background:"transparent",border:0,flexShrink:0,color:soft,fontSize:11,whiteSpace:"nowrap"}},nowOpen?"简略":"详情"),!showcase&&!trip&&h("button",{"aria-label":"收成一条线","title":"收成一条线",onClick:()=>setNowMode("line"),style:{...btn,pointerEvents:"auto",padding:"5px 8px",background:"transparent",border:0,flexShrink:0,color:soft,fontSize:11,whiteSpace:"nowrap"}},"收起")),
           h("div", { style: { fontSize: 14,fontWeight:500, lineHeight: 1.7, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, trip ? (trip.mode==='solo'?'你自己逛逛':'和TA一起逛逛') : showcase ? (spot ? spot.number+" · "+spot.label : "入口") : title),
           !demo && !preview && !showcase && !trip && !state?.hasPlan && h("button", { onClick: () => props.onSchedule?.(char), style: { ...btn, width: "100%", marginTop: 6, pointerEvents: "auto" } }, "去日历给TA排今天"),
-          !showcase && !trip && !!sceneNear && !!(state.slot || sceneNear.prev || sceneNear.next) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, [!!state.slot && spanText(sceneNear.elapsed), !!sceneNear.prev && "刚才 · " + sceneNear.prev.title, sceneNear.next && "接下来 " + sceneNear.next.time + " · " + sceneNear.next.title].filter(Boolean).map((line, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line))),
-          !showcase && !trip && !!sceneNear && (dayLine(state, { accent: UI.accent }) || false),
+          (nowOpen||showcase||trip) && !showcase && !trip && !!sceneNear && !!(state.slot || sceneNear.prev || sceneNear.next) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, [!!state.slot && spanText(sceneNear.elapsed), !!sceneNear.prev && "刚才 · " + sceneNear.prev.title, sceneNear.next && "接下来 " + sceneNear.next.time + " · " + sceneNear.next.title].filter(Boolean).map((line, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line))),
+          (nowOpen||showcase||trip) && !showcase && !trip && !!sceneNear && (dayLine(state, { accent: UI.accent }) || false),
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           trip && h('div',{"data-wk":"cdayoutingplan",style:{fontSize:11,lineHeight:1.6,color:soft,marginTop:3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},'TA的原安排 · '+state.time+' · '+title),
-          !kitchenOnScene && !trip && !showcase && (stagePlace || visual.presentation.stageLabel) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (stagePlace || "此刻") + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? (activityStatus.groupLabel?" · "+activityStatus.groupLabel:"")+" · "+activityStatus.label+(activityStatus.spotLabel?" · "+activityStatus.spotLabel:"") : "")),
-          !trip&&!showcase&&visual.presentation.stageCount>1&&h("div",{"data-wk":"cdayphase",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:5,borderTop:"1px solid "+UI.line,paddingTop:5}},h("div",{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},"正在 · "+(activeStage?.title||visual.presentation.stageLabel)),h("div",{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},nextStage?"接下来 · "+nextStage.title:"本段最后一步")),
-          !demo&&!preview&&!showcase&&state.virtual&&h("div",{"data-wk":"cdayclocknote",style:{fontSize:11,color:soft,marginTop:3}},state.followVirtual?"活动跟角色钟"+(state.paused?" · 已暂停":""):"活动按现实时间 · "+clockText(root.ScheduleClock.localMinute(char,now))),
-          !trip&&!showcase&&manualPoint&&h("div",{style:{fontSize:11,color:soft,marginTop:3}},(activeStage?"这一步已指定位置":"位置已手动指定")+" · "+(root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.label+" · "+((root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.spots.find(p=>p.id===manualPoint.spot)?.label||"")),
+          (nowOpen||showcase||trip) && !kitchenOnScene && !trip && !showcase && (stagePlace || visual.presentation.stageLabel) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (stagePlace || "此刻") + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? (activityStatus.groupLabel?" · "+activityStatus.groupLabel:"")+" · "+activityStatus.label+(activityStatus.spotLabel?" · "+activityStatus.spotLabel:"") : "")),
+          (nowOpen||showcase||trip) && !trip&&!showcase&&visual.presentation.stageCount>1&&h("div",{"data-wk":"cdayphase",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:5,borderTop:"1px solid "+UI.line,paddingTop:5}},h("div",{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},"正在 · "+(activeStage?.title||visual.presentation.stageLabel)),h("div",{style:{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}},nextStage?"接下来 · "+nextStage.title:"本段最后一步")),
+          (nowOpen||showcase||trip) && !demo&&!preview&&!showcase&&state.virtual&&h("div",{"data-wk":"cdayclocknote",style:{fontSize:11,color:soft,marginTop:3}},state.followVirtual?"活动跟角色钟"+(state.paused?" · 已暂停":""):"活动按现实时间 · "+clockText(root.ScheduleClock.localMinute(char,now))),
+          (nowOpen||showcase||trip) && !trip&&!showcase&&manualPoint&&h("div",{style:{fontSize:11,color:soft,marginTop:3}},(activeStage?"这一步已指定位置":"位置已手动指定")+" · "+(root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.label+" · "+((root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.spots.find(p=>p.id===manualPoint.spot)?.label||"")),
           thoughtPrefs.enabled===true&&thoughtFrame&&!chatOpen&&h("div",{"data-wk":"cdaythought",style:{borderTop:"1px solid "+UI.line,marginTop:8,paddingTop:5,pointerEvents:"auto"}},
             h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}},h("span",{style:{fontSize:11,color:UI.accent}},"此刻的念头"+(thought.cache?" · "+thought.cache.time:"")),h("button",{"data-wk":"cdaythoughtrefresh","aria-label":thought.unsaved?"保存这句念头":"换一个此刻念头",disabled:thought.busy,style:{...btn,minWidth:44,minHeight:44,padding:"4px 7px",border:0,background:"transparent",boxShadow:"none",fontSize:11,color:soft},onClick:thought.refresh},thought.busy?"想一会儿…":thought.unsaved?"保存这句":"换一个")),
-            h("div",{"data-wk":"cdaythoughttext",role:"status",style:{fontSize:12,lineHeight:1.8,maxHeight:78,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",whiteSpace:"pre-wrap"}},thought.unsaved||thought.cache?.text||(thought.busy?"这一刻，TA在想什么…":thought.error?"这次没能生成念头。":"还没有这一刻的念头，点“换一个”看看。")),
+            h("div",{"data-wk":"cdaythoughttext",role:"status",style:{fontSize:12,lineHeight:1.8,maxHeight:nowOpen?78:44,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",whiteSpace:"pre-wrap"}},thought.unsaved||thought.cache?.text||(thought.busy?"这一刻，TA在想什么…":thought.error?"这次没能生成念头。":"还没有这一刻的念头，点“换一个”看看。")),
             thought.error&&h("div",{role:"status",style:{fontSize:11,color:"#9b674d",marginTop:3}},thought.unsaved?"念头已生成，还没保存成功，点“保存这句”重试。":"没能更新，点“换一个”重试。")),
           // The thought switch sits on the card itself; it still uses the chat model at most once per interval.
-          !demo&&!preview&&!showcase&&!trip&&thoughtPrefs.enabled!==true&&!!thoughtFrame&&!chatOpen&&!!props.generateThought&&h("div",{style:{borderTop:"1px solid "+UI.line,marginTop:8,paddingTop:5,pointerEvents:"auto"}},h("button",{"aria-label":"看看"+(char.remark||char.name)+"此刻在想什么",disabled:thought.saving,onClick:()=>thought.setEnabled(true),style:{...btn,width:"100%",background:"transparent",borderStyle:"dashed",fontSize:12}},"看看TA在想什么"),h("div",{style:{fontSize:10,color:soft,marginTop:3,lineHeight:1.5}},"开启后用聊天模型生成，最多 10 分钟一次；在「更多」里可以关。"),thought.saveError&&h("div",{role:"status",style:{fontSize:11,color:"#9b674d"}},thought.saveError)),
+          !demo&&!preview&&!showcase&&!trip&&thoughtPrefs.enabled!==true&&!!thoughtFrame&&!chatOpen&&!!props.generateThought&&h("div",{style:{borderTop:"1px solid "+UI.line,marginTop:8,paddingTop:5,pointerEvents:"auto"}},h("button",{"aria-label":"看看"+(char.remark||char.name)+"此刻在想什么",disabled:thought.saving,onClick:()=>thought.setEnabled(true),style:{...btn,width:"100%",minHeight:36,padding:"4px 10px",background:"transparent",borderStyle:"dashed",fontSize:12}},"看看TA在想什么 · 用聊天模型，10分钟最多一次"),thought.saveError&&h("div",{role:"status",style:{fontSize:11,color:"#9b674d"}},thought.saveError)),
           !trip && !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
           !kitchenOnScene&&payload.kitchenCarry?.length>0&&h("div",{"data-wk":"cdaykitchencarry",style:{fontSize:11,color:soft,marginTop:3}},"给TA装好了便当："+payload.kitchenCarry.map(L.dishName).join("、")),
           !kitchenOnScene&&pendingJob&&h("div",{"data-wk":"cdaykitchenprogress",style:{fontSize:11,color:soft,marginTop:3}},L.recipe(pendingJob.recipeId)?.name+" · "+(pendingJob.ready?"做好了，到生活里的厨房收好":kitchenStatus?.label||({paused:"这份先放着，去厨房继续",preparing:"一起备菜",stirring:"锅边搅拌",serving:"准备盛出来",eating:"一起吃饭",ready:"做好了，到厨房收好"})[kitchenStatus?.phase]||"去厨房继续")),
-          !kitchenOnScene&&!demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&(visitStatus.notice||visitStatus.saveNotice||visitStatus.homeSaveNotice)&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},[visitStatus.notice,visitStatus.saveNotice,visitStatus.homeSaveNotice].filter(Boolean).join(" · "))),
+          !kitchenOnScene&&!demo&&!preview&&!showcase&&visitStatus?.charId===String(char.id)&&(visitStatus.notice||visitStatus.saveNotice||visitStatus.homeSaveNotice)&&h("div",{"data-wk":"cdayvisitnote",role:"status",style:{fontSize:11,color:soft,lineHeight:1.6,marginTop:3}},[visitStatus.notice,visitStatus.saveNotice,visitStatus.homeSaveNotice].filter(Boolean).join(" · ")))),
         sceneStatus && h("div", { role: "status", style: { position: "absolute", top: "48%", left: 16, right: 16, textAlign: "center", padding: 16, background: "#eeeadfe8", borderRadius: 12, fontSize: 12 } }, sceneStatus,
           sceneStatus.includes("失败") && h("button", { style: { ...btn, display: "block", margin: "12px auto 0" }, onClick: () => { setSceneStatus("正在准备画面…");setVisitStatus(null); setRetry(x => x + 1); } }, "重新载入画面")),
         editor&&!decorPanel&&h("div",{"data-wk":"cdaydecoractions",style:{position:"absolute",top:12,left:12,right:12,display:"flex",gap:6}},...[["catalog","添家具"],["piece","单件搭配"],["room","房间墙地"]].map(([key,label])=>h("button",{key,"data-part":key,style:{...btn,flex:1},disabled:layoutBusy||editor.dragging||editor.busy,onClick:()=>openDecorPanel(key)},label))),
@@ -572,6 +653,7 @@
           trip&&menuRow({"data-wk":"cdayoutingreturn"},"回到TA","继续看TA此刻的安排",returnToTA,IArrow),
           trip&&menuRow({"data-wk":"cdayscheduleopen"},"今天的日程","看看TA原本的安排",()=>setBook(true),GDiary),
           !demo&&menuRow({"data-wk":"cdayoutingsopen"},"去逛逛","自己出门，或主动邀请TA同行",openOutings,GWalk),
+          !demo&&menuRow({},"今天的小相册","把今天去过的地方各拍一张，串成一页",()=>{setMoreOpen(false);setAlbumNotice('');setAlbumDay(null);setAlbumOpen(true);},ICamera),
           !demo&&menuRow({"data-wk":"cdaykitchenopen"},"小家厨房","食材、一起做饭和两人份餐盒",()=>openLifePage('kitchen'),GMeal),
           !demo&&menuRow({"data-wk":"cdayalbumopen"},"小家相册","留住真实同框和当时的活动",()=>openLifePage('album'),ICamera))),
         menuSection("看看四周",h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...[["ta","跟着TA"],["me","跟着我"],["both","看两个人"],["overview","看全景"]].map(([mode,label])=>h("button",{key:label,"data-wk":"cdaycamera","data-part":mode,"aria-pressed":cameraMode===mode,disabled:((mode==="me"||mode==="both")&&!visiting)||(trip?.mode==='solo'&&mode!=='me'&&mode!=='overview'),style:{...btn,display:"flex",alignItems:"center",justifyContent:"flex-start",gap:10,background:cameraMode===mode?"#eaf0e2":"#fffdf7",borderColor:cameraMode===mode?"#8b9e7e":UI.line,boxShadow:cameraMode===mode?"inset 0 -3px #9caa90":btn.boxShadow,fontWeight:cameraMode===mode?600:400,opacity:((mode==="me"||mode==="both")&&!visiting)||(trip?.mode==='solo'&&mode!=='me'&&mode!=='overview')?.45:1},onClick:()=>camera(mode)},h(mode==="both"?GUs:mode==="me"?GUser:ICamera,{size:20,color:UI.accent}),label,cameraMode===mode&&h(ICheck,{size:14,color:UI.accent}))))),
@@ -590,6 +672,49 @@
           Object.keys(professionalChoices).length>0&&menuRow({"data-wk":"cdayprofessionalopen"},"工作场景布置","每位角色的职业空间、陈设与配色",()=>{setProfessionalScene(Object.hasOwn(professionalChoices,payload.presentation.map)?payload.presentation.map:professionalScene);setProfessionalPanel(true);},GConfig),
           menuRow({"data-wk":"cdayplaces"},"逛逛所有场景","看看每个地方TA会在哪儿做什么",visitPlaces,ICamera))))),
         h("div",{className:"shrink-0",style:{...footerStyle,paddingLeft:16,paddingRight:16}},h("button",{style:{...btn,width:"100%",border:0,background:"transparent"},onClick:()=>setMoreOpen(false)},"回到小世界"))),
+      // 今天的小相册：整页（no-half-sheet）；拍摄时整页让开，场景照常动，底部一条小字可停
+      !!albumShoot&&h("button",{onClick:()=>{setAlbumShoot(null);setPreview(null);},style:{...btn,position:"absolute",left:"50%",bottom:12,transform:"translateX(-50%)",zIndex:19,minHeight:40,padding:"6px 14px",borderRadius:999,background:"rgba(252,253,245,.95)",fontSize:12,whiteSpace:"nowrap"}},(albumShoot.auto?"正在补拍今天没看到的几段 ":"正在拍今天的小相册 ")+Math.min(albumShoot.index+1,albumShoot.rows.length)+"/"+albumShoot.rows.length+" · 点这里停"),
+      albumOpen&&!albumShoot&&(()=>{
+        const mine=albumTick>=0?loadAlbums()[String(char.id)]||{}:{},today=state?.day,viewDay=albumDay&&mine[albumDay]?albumDay:today,isToday=viewDay===today;
+        const album=mine[viewDay],rows=isToday?albumRows(state):[],photos=album?.photos||[];
+        const days=[...new Set([today,...Object.keys(mine).filter(d=>mine[d]?.photos?.length)])].sort().reverse();
+        // Past days as small stacks of prints: the top one is that day's first photo, the pressed stack lifts and takes ink.
+        const stacks=days.length>1&&h("div",{style:{display:"flex",gap:6,overflowX:"auto",padding:"4px 2px 12px",margin:"0 -4px 6px",WebkitOverflowScrolling:"touch"}},...days.map(d=>{
+          const list=mine[d]?.photos||[],on=d===viewDay,cover=list[0]?.src,label=d===today?"今天":Number(d.slice(5,7))+"/"+Number(d.slice(8,10));
+          return h("button",{key:d,"aria-pressed":on,"aria-label":label+"的小相册",onClick:()=>{setAlbumDay(d===today?null:d);setAlbumNotice('');},style:{...btn,flexShrink:0,minWidth:76,minHeight:44,display:"flex",flexDirection:"column",alignItems:"center",padding:"6px 4px",background:"transparent",border:0,boxShadow:"none",opacity:on?1:.6,transform:on?"translateY(-3px)":"none"}},
+            h("span",{style:{position:"relative",display:"block",width:60,height:46}},
+              ...(list.length>1?[[-7,-3],[5,3]].map(([deg,dx],k)=>h("span",{key:k,style:{position:"absolute",inset:0,background:"#fffdf7",border:"1px solid "+UI.line,borderRadius:4,transform:"rotate("+deg+"deg) translateX("+dx+"px)",boxShadow:"0 1px 3px #0001"}})):[]),
+              h("span",{style:{position:"absolute",inset:0,padding:3,background:"#fffdf7",border:"1px solid "+(on?UI.accent:UI.line),borderRadius:4,boxShadow:on?"0 4px 10px #3c483026":"0 1px 3px #0001"}},cover?h("img",{src:cover,alt:"",style:{display:"block",width:"100%",height:"100%",objectFit:"cover",borderRadius:2}}):h("span",{style:{display:"block",width:"100%",height:"100%",borderRadius:2,background:"#eef0e6"}}))),
+            h("span",{style:{fontSize:11,marginTop:7,color:on?UI.accent:soft,fontWeight:on?600:400}},label),
+            h("span",{style:{fontSize:10,color:soft}},list.length+" 张"));
+        }));
+        const shoot=()=>{if(!rows.length){setAlbumNotice('今天还没有能拍的安排。');return;}setAlbumNotice('');setAlbumOpen(false);setOuting(null);setShowcase('');setBook(false);setAlbumShoot({day:state.day,rows,index:0,photos:[],replace:true});};
+        const think=async()=>{
+          if(albumBusy||!photos.length||!props.generateDiary)return;setAlbumBusy(true);setAlbumNotice('');
+          try{
+            const value=await props.generateDiary(char,photos,props.thoughtContextFor?.(char)||{});
+            const list=Array.isArray(value?.thoughts)?value.thoughts.map(x=>String(x||"").trim()):[];
+            if(list.length!==photos.length||list.some(x=>!x))throw Error('这次念头没对上照片张数，可以再试。他这回写的是：'+String(JSON.stringify(value)||'').slice(0,160));
+            await saveAlbum(char.id,viewDay,cur=>({...(cur||{}),photos:(cur?.photos||photos).map((p,i)=>({...p,thought:list[i]||p.thought||""})),thoughtAt:Date.now()}));setAlbumTick(t=>t+1);
+          }catch(e){setAlbumNotice(e.message==='save'?'念头生成了但没能存下，可以再试。':e.message||'没能生成，可以再试。');}
+          finally{setAlbumBusy(false);}
+        };
+        return h("section",{className:"absolute inset-0 flex flex-col",style:{...UI.surface,zIndex:18}},
+          h(Head,{zh:"今天的小相册",sub:(char.remark||char.name)+" · "+(viewDay||""),bg:"transparent",ink,lineInk:UI.line,subInk:soft,onBack:()=>setAlbumOpen(false)}),
+          h("div",{className:"flex-1 min-h-0 overflow-y-auto",style:{padding:"16px 16px 24px"}},
+            stacks||false,
+            !photos.length&&h("p",{style:{fontSize:13,lineHeight:1.9,color:soft,marginTop:0}},albumAuto?"每天自动存：你看着TA的时候，每到一段新安排就存一张；没看到的几段，打开这一页时会自动补拍。只拍TA自己，存在这台手机上，每位角色留最近七天，拍照不调模型。":"自动存已关。点下面「拍今天」，把今天到现在的每一段各拍一张（最多六张）。"),
+            photos.length>0&&h("div",{style:{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:10}},...photos.map((ph,i)=>h("figure",{key:i,style:{margin:0,background:"#fffdf7",border:"1px solid "+UI.line,borderRadius:12,overflow:"hidden"}},
+              h("img",{src:ph.src,alt:ph.title,style:{display:"block",width:"100%",aspectRatio:"4 / 3",objectFit:"cover",background:"#eef0e6"}}),
+              h("figcaption",{style:{padding:"7px 9px 9px"}},
+                h("div",{style:{fontSize:11,color:UI.accent}},ph.time+(ph.location||ph.place?" · "+(ph.location||ph.place):"")),
+                h("div",{style:{fontSize:12.5,lineHeight:1.6,marginTop:2,display:"-webkit-box",WebkitLineClamp:2,WebkitBoxOrient:"vertical",overflow:"hidden"}},ph.title),
+                (ph.thought||album?.thoughts?.[i])?h("div",{style:{fontSize:12,lineHeight:1.7,color:soft,marginTop:4}},"「"+(ph.thought||album.thoughts[i])+"」"):false)))),
+            albumNotice?h("p",{role:"status",style:{fontSize:12,color:"#9b674d",lineHeight:1.7}},albumNotice):false,
+            photos.length>0&&!!props.generateDiary&&h("button",{disabled:albumBusy,onClick:think,style:{...btn,width:"100%",marginTop:14}},albumBusy?"正在想每一张…":photos.some(p=>p.thought)?"重新配每张的念头 · 用聊天模型，一次":"看看每张当时在想什么 · 用聊天模型，一次"),
+            isToday&&h("button",{role:"switch","aria-checked":albumAuto,onClick:()=>saveHomeChange(char.id,"albumAuto",!albumAuto).then(setHomes).catch(()=>setAlbumNotice("开关没存上，可以再点一次。")),style:{...btn,width:"100%",marginTop:10,display:"flex",justifyContent:"space-between",alignItems:"center"}},h("span",null,"每天自动存"),h("span",{style:{color:albumAuto?UI.accent:soft}},albumAuto?"开":"关")),
+            isToday&&h("button",{disabled:albumBusy||!rows.length,onClick:shoot,style:{...btn,width:"100%",marginTop:10,background:photos.length?"transparent":btn.background}},photos.length?"重新拍今天":"拍今天")));
+      })(),
       outingPicker&&h("section",{"data-wk":"cdayoutings",className:"absolute inset-0 flex flex-col",style:{...UI.surface,zIndex:22}},h(Head,{zh:"去逛逛",sub:char.remark||char.name,bg:"transparent",ink,lineInk:UI.line,subInk:soft,onBack:()=>setOutingPicker(false)}),menuBody(h(React.Fragment,null,
         h("p",{style:{fontSize:12,lineHeight:1.8,color:soft,marginTop:0}},"不用等日程排到这里，选个地点出门逛逛。逛完点“回到TA”，继续看当时的安排。"),
         menuSection("和谁去",h("div",{"data-wk":"cdayoutingmode",role:"radiogroup","aria-label":"和谁去",className:"cday-grid"},...[["solo","自己逛","随心走走",GUser],["together","邀请TA","一起出门",GUs]].map(([mode,label,note,Icon])=>h("button",{key:mode,"data-wk":"cdayoutingchoice","data-part":mode,role:"radio",tabIndex:outingMode===mode?0:-1,"aria-label":mode==='solo'?'自己逛':'邀请TA同行',"aria-checked":outingMode===mode,className:"cday-choice",style:{...btn,background:outingMode===mode?"#eaf0e2":btn.backgroundColor,borderColor:outingMode===mode?"#8b9e7e":UI.line,boxShadow:outingMode===mode?"inset 0 -3px #9caa90":btn.boxShadow},onClick:()=>setOutingMode(mode),onKeyDown:e=>{if(['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){e.preventDefault();const next=mode==='solo'?'together':'solo';setOutingMode(next);e.currentTarget.parentElement.querySelector('[data-part="'+next+'"]').focus();}}},h(Icon,{size:22,color:UI.accent}),h("span",{style:{flex:1,minWidth:0}},h("span",{style:{display:"block",fontSize:14,fontWeight:500}},label),h("span",{style:{display:"block",fontSize:11,color:soft,marginTop:3}},note)),outingMode===mode&&h(ICheck,{size:13,color:UI.accent}))))),

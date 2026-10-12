@@ -31,7 +31,13 @@
     { key: "draw", emoji: "🎨", zh: "你画我猜", en: "Draw & Guess", min: 2, max: 2,
       desc: "轮流画，一个画一个猜。TA 画的时候一段一段画、边画边吐槽，画完一段停下来等你猜；你画的拿给 TA 看图猜。词库可以按主题一次生成一批。观战选两个角色就看他俩互相画、互相猜。", rule: "你和一个角色 · 观战两个角色 · 三轮 · TA 看你的画要识图模型" },
     { key: "uno", emoji: "🟥", zh: "UNO", en: "UNO", min: 2, max: 6,
-      desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" }
+      desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" },
+    { key: "liar", emoji: "🎲", zh: "骗子骰", en: "Liar's Dice", min: 2, max: 6,
+      desc: "每人五颗骰子扣着，轮流叫「桌上至少有几个几」，觉得上家在吹就开。1 点万能，每人三条命，撑到最后的赢。", rule: "2~6 人 · 每人 5 颗骰子 · 3 条命" },
+    { key: "date", emoji: "✉️", zh: "各怀心思的约会", en: "", min: 2, max: 2,
+      desc: "你和 TA 各抽一张秘密任务，有的看你们去了哪、做了什么，有的看你们聊了什么。每局的去处从一大堆地方里抽，路上还会撞上小意外；每到一站 TA 都会接话、替你挑东西。收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
+    { key: "story", emoji: "📖", zh: "故事接龙", en: "Story Chain", min: 2, max: 8,
+      desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" }
   ];
 
   // ---- 言秋亲打：统一终局回执 ----
@@ -72,7 +78,7 @@
   async function callRetry(api, sys, msgs, opts) {
     opts = Object.assign({ timeout: 90000 }, opts || {});
     let last;
-    for (let i = 0; i < 2; i++) { try { return await callAI(api, sys, msgs, opts); } catch (e) { last = e; } }
+    for (let i = 0; i < 2; i++) { try { return await callAI(api, sys, msgs, opts); } catch (e) { if (opts.signal && opts.signal.aborted) throw e; last = e; } }
     throw last;
   }
   // 能力≠性格：所有游戏共用的反刻板铁律，焊进每次生成
@@ -84,6 +90,15 @@
   const VOICE_RULE = "【是这个人在说话 · 说人话】下面每一句台词都是那个人自己张嘴说的：用TA人设里那种说话的样子——TA的词、TA的脾气、TA跟在场的人的关系；遮住名字要认得出是谁说的，别全桌一个腔调。"
     + "这是几个认识的人围桌玩，不是写复盘：一句里堆了两个以上的抽象名词、或者像在念攻略写分析，就是飘了，换成TA自己会说的大白话。判据：念给桌边一个没玩过这游戏的人听，TA听得懂、接得上话。水平高低只管TA玩得多好，不改TA说话的样子。\n\n";
   // 每个开口的人后面挂一句「说话的样子」：真人角色读完整人设的开头，NPC 读生成的那一句
+  function gameVoiceRules() {
+    return AC + VOICE_RULE + SKILL_RULE + [
+      typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? REGISTER_FOLLOWS_SCENE : "",
+      typeof ECHO_QUESTION_BAN !== "undefined" ? ECHO_QUESTION_BAN : "",
+      typeof STOCK_REPLY_BAN !== "undefined" ? STOCK_REPLY_BAN : "",
+      typeof INTIMATE_CHAT_ANTI_CLICHE !== "undefined" ? INTIMATE_CHAT_ANTI_CLICHE : "",
+      typeof CONDESCENDING_TONE_BAN !== "undefined" ? CONDESCENDING_TONE_BAN : ""
+    ].filter(Boolean).join("\n");
+  }
   function voiceBrief(p) {
     const s = String((p && (p.persona || (p.char && p.char.persona))) || "").replace(/\s+/g, " ").trim();
     return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
@@ -146,7 +161,7 @@
     }
     return v == null ? fallback : v;
   }
-  function bigSet(key, v) { try { if (typeof saveJSON === "function") saveJSON(key, v); } catch (e) {} }
+  function bigSet(key, v) { try { return typeof saveJSON === "function" ? saveJSON(key, v) : false; } catch (e) { return false; } }
   const WOLF_SAVE = "x_wolfSave";
   function loadWolfSave() { return bigGet(WOLF_SAVE, "wolf_save", null); }
   function saveWolf(s) { bigSet(WOLF_SAVE, s); }
@@ -156,7 +171,7 @@
   const GS_SAVE = "x_gamesSave";  // { [gameKey]: snapshot }
   function loadGamesSaves() { const v = bigGet(GS_SAVE, "games_save", {}); return v && typeof v === "object" ? v : {}; }
   function loadGameSave(k) { return loadGamesSaves()[k] || null; }
-  function saveGameSnap(k, snap) { const all = loadGamesSaves(); all[k] = snap; bigSet(GS_SAVE, all); }
+  function saveGameSnap(k, snap) { const all = loadGamesSaves(); all[k] = snap; return bigSet(GS_SAVE, all); }
   // CC 回执按 turn_id 幂等领取。仅用 day/round 或裸毫秒都可能在新局、时钟回拨、
   // 同毫秒连续出票时撞上旧回执；所有没有稳定局号的临时票统一加随机尾巴。
   function freshCCTurn(prefix) {
@@ -240,7 +255,10 @@
     monopoly:  { paper: "#e5eee1", ink: "#3a4837", hot: "#5d8b4c", band: "#3a4837", bandInk: "#e5eee1" },
     draw:      { paper: "#f1e6dc", ink: "#4a3b33", hot: "#d0533f", band: "#4a3b33", bandInk: "#f1e6dc" },
     gomoku:    { paper: "#ecdcb8", ink: "#4a3a22", hot: "#1f1d1b", band: "#4a3a22", bandInk: "#ecdcb8" },
-    uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" }
+    uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" },
+    liar:      { paper: "#e9dccb", ink: "#4b3527", hot: "#a8442f", band: "#4b3527", bandInk: "#e9dccb" },
+    date:      { paper: "#f3e2d8", ink: "#654137", hot: "#b86651", band: "#654137", bandInk: "#f3e2d8" },
+    story:     { paper: "#eee8dc", ink: "#3e4250", hot: "#5d6fa3", band: "#3e4250", bandInk: "#eee8dc" }
   };
   function GameLid(props) {
     const k = props.k, c = LID[k] || LID.spy;
@@ -334,6 +352,29 @@
         h("circle", { key: "e", cx: 50, cy: 44, r: 6, fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
         h("circle", { key: "f", cx: 64, cy: 58, r: 6, fill: "#fff", stroke: c.ink, strokeOpacity: .4 })
       ],
+      // 扣着的骰盅，旁边漏出两颗骰子
+      liar: [
+        h("path", { key: "a", d: "M30 60l8-34h34l8 34z", fill: c.ink, opacity: .78 }),
+        h("ellipse", { key: "b", cx: 55, cy: 60, rx: 27, ry: 5, fill: c.ink }),
+        h("path", { key: "c", d: "M42 32h26", stroke: c.paper, strokeWidth: 2, strokeLinecap: "round", opacity: .35 }),
+        h("rect", { key: "d", x: 78, y: 52, width: 16, height: 16, rx: 3.5, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(14 86 60)" }),
+        h("circle", { key: "e", cx: 86, cy: 60, r: 2.4, fill: c.hot }),
+        h("rect", { key: "f", x: 92, y: 36, width: 14, height: 14, rx: 3, fill: "#fff", stroke: c.ink, strokeOpacity: .4, transform: "rotate(-12 99 43)" }),
+        h("circle", { key: "g", cx: 96, cy: 40, r: 1.5, fill: c.ink }), h("circle", { key: "i", cx: 102, cy: 46, r: 1.5, fill: c.ink })
+      ],
+      // 摊开的本子，一行行字一直写到右页，末尾一支笔
+      date: [
+        h("path", { key: "a", d: "M19 35h35v30H19zM67 23h35v30H67z", fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
+        h("path", { key: "b", d: "M19 35l17 13 18-13M67 23l17 13 18-13M48 25c9-9 19-8 27-5M73 61c-8 8-19 8-26 5", fill: "none", stroke: c.hot, strokeWidth: 2, strokeLinecap: "round" }),
+        h("circle", { key: "c", cx: 36, cy: 53, r: 3, fill: c.hot }), h("circle", { key: "d", cx: 84, cy: 42, r: 3, fill: c.hot })
+      ],
+      story: [
+        h("path", { key: "a", d: "M60 24c-10-5-24-6-36-3v46c12-3 26-2 36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
+        h("path", { key: "b", d: "M60 24c10-5 24-6 36-3v46c-12-3-26-2-36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
+        h("path", { key: "c", d: "M30 32h22M30 40h24M30 48h20M30 56h23M66 32h22M66 40h18", stroke: c.ink, strokeWidth: 1.8, strokeLinecap: "round", opacity: .4 }),
+        h("rect", { key: "d", x: 65, y: 46.8, width: 13, height: 2.4, rx: 1.2, fill: c.hot }),
+        h("path", { key: "e", d: "M80 50l16-16 4 4-16 16-6 2z", fill: c.hot, opacity: .9 })
+      ],
       uno: [0, 1, 2, 3].map(function (i) {
         const rot = -24 + i * 16, col = [c.hot, "#e8b53c", "#3f7fd0", "#4f9a58"][i];
         return h("g", { key: "u" + i, transform: "rotate(" + rot + " 60 76)" },
@@ -382,6 +423,14 @@
       //   而且它还会弹一句「没有能收的：这局上场的都是 NPC」，等于点一次骗她一次。
       //   （一层写在两处、第二处没跟上；这一次断在第三处。）
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
+      // Lisa 明确要求这盒永不进回忆：连可写主线的回调都不下发。
+      if (session.game.key === "date") return h(window.DateGame, {
+        config: session.config, savedState: session.saved, active: props.active, characters: routedCharacters,
+        profile: props.profile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
+        call: callRetry, rules: gameVoiceRules(), isEngineer: props.isEngineer,
+        onSave: function (snap) { return saveGameSnap("date", snap); },
+        onBack: function () { setSession(null); setGame(null); setSaveTick(function (x) { return x + 1; }); }
+      });
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
         sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
@@ -399,8 +448,11 @@
       if (session.game.key === "uno") return h(UnoGame, engineProps);
       if (session.game.key === "gomoku") return h(GomokuGame, engineProps);
       if (session.game.key === "draw") return h(DrawGuessGame, engineProps);
+      if (session.game.key === "liar") return h(LiarDiceGame, engineProps);
+      if (session.game.key === "story") return h(StoryChainGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
+    // 各怀心思的约会也走公共开局页（她 2026-10-12：「格式跟其他的也不一样」）——原来那张自己画的 DateGameSetup 不再挂
     if (game) return h(GameSetup, {
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
@@ -480,7 +532,7 @@
           }));
         })(),
         h(GameStatsBook, { t: t, characters: props.characters || [] }),
-        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。每局可选正常 / 放水 / 观战，人不够能拉 NPC 凑数。（不写进聊天记忆）"),
+        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
         // 一架游戏盒：两个一排，每排底下压一条木架线
         (function () {
           const rows = [];
@@ -536,7 +588,7 @@
     const chars = props.characters || [];
     const [mode, setMode] = useState("normal");
     const [picked, setPicked] = useState((props.initialPicked || []).slice());  // 选中的角色 id（从邀请卡进来时先勾上TA）
-    const [npcFill, setNpcFill] = useState(true);
+    const [npcFill, setNpcFill] = useState(game.key !== "date");   // 约会两个人的局：不补 NPC
     const [npcWant, setNpcWant] = useState(-1);      // 用户想要的 NPC 数；-1 = 跟随「补到最低」
     const [injectChat, setInjectChat] = useState(false);
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
@@ -612,10 +664,11 @@
           "照上次那桌摆（" + ((lastCfg.charIds || []).map(function (id) { const c = chars.find(function (x) { return x.id === id; }); return c ? c.name : null; }).filter(Boolean).join("、") || "只有 NPC") + "）") : null,
         // 模式
         h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "模式"),
-        h(Segmented, { t: t, value: mode, options: MODES, onChange: setMode }),
+        // 约会是两个人的局：没有观战、彩头和 NPC（它自己有输赢账，也不进回忆和战报）
+        h(Segmented, { t: t, value: mode, options: game.key === "date" ? MODES.filter(function (m) { return m.key !== "spectate"; }) : MODES, onChange: setMode }),
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, margin: "8px 2px 20px" } }, modeHint),
         // 彩头：开局前说好，终局 app 替你记着谁该兑现；战报发过去 TA 也知道
-        h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
+        game.key === "date" ? null : h("div", { "data-wk": "gamestake", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "彩头（可以不填）"),
           h("input", { "data-wk": "gameinput", "data-part": "stake", value: stake, maxLength: 40, onChange: function (e) { setStake(e.target.value); },
             placeholder: "输的人要做什么，写一句",
@@ -693,7 +746,7 @@
           })) : null,
         // 选项
         h("div", { style: { marginTop: 14, borderTop: "1px solid " + t.line } },
-          h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
+          game.key === "date" ? null : h(ToggleRow, { t: t, label: "NPC 凑数", sub: "自动生成 NPC 补到最低人数——NPC 也有自己的人设和水平，不会为了推进而崩。", on: npcFill, onToggle: function () { setNpcFill(!npcFill); } }),
           // NPC 数量步进：默认补到最低，可继续加到 max（人多局更长、更看得出博弈）
           (npcFill && maxNpc > 0) ? h("div", { style: { display: "flex", alignItems: "center", gap: 12, padding: "10px 0 12px" } },
             h("div", { style: { flex: 1 } },
@@ -2701,6 +2754,40 @@
       return h("div", { "data-wk": "gameavatar", style: { width: size, height: size, borderRadius: Math.round(size * 0.3), flexShrink: 0, background: p && p.isUser ? t.tint : t.line, color: "#fff", fontFamily: F_DISPLAY, fontSize: Math.round(size * 0.46), display: "flex", alignItems: "center", justifyContent: "center" } }, ((p && p.name) || "?").slice(0, 1));
     };
   }
+  // 对阵条（她 2026-10-12：「里面 ui 能不能做好看点」）：桌上坐着谁、轮到谁、各自手里的记号（棋子、命、比分、写了几句）。
+  //   五子棋、你画我猜、骗子骰、故事接龙共用这一个（one-public-mechanism）——别各画一套名字条。
+  //   两个人＝左右对坐、中间一个 VS；三个人以上＝一排席位卡，横着能滑。
+  function GameVsBar(props) {
+    const t = props.t, av = avatarFor(t), seats = (props.seats || []).filter(Boolean);
+    const two = seats.length === 2;
+    const chip = function (s, i) {
+      const flip = two && i === 1;
+      return h("div", { "data-wk": "gamevsseat", "data-on": s.on ? "1" : "0", "data-out": s.out ? "1" : "0", key: s.key,
+        style: { flex: two ? "1 1 0" : "0 0 auto", minWidth: two ? 0 : 108, display: "flex", alignItems: "center", gap: 8, flexDirection: flip ? "row-reverse" : "row",
+          padding: "7px 10px", borderRadius: 14, background: t.bg2, border: s.on ? "2px solid " + t.tint : "1px solid " + t.line,
+          boxShadow: s.on ? "0 6px 14px rgba(20,16,10,.16)" : "0 1px 4px rgba(20,16,10,.06)", transform: s.on ? "translateY(-2px)" : "none",
+          transition: "transform .2s ease, box-shadow .2s ease, opacity .2s", opacity: s.out ? .45 : 1 } },
+        h("div", { style: { position: "relative", flexShrink: 0 } }, av(s, 34),
+          s.mark ? h("div", { style: { position: "absolute", [flip ? "left" : "right"]: -5, bottom: -4 } }, s.mark) : null),
+        h("div", { style: { minWidth: 0, flex: 1, textAlign: flip ? "right" : "left" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, fontWeight: 600, color: t.ink, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.name),
+          s.sub != null ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: s.hot ? "#c0553f" : t.fog, marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, s.sub) : null));
+    };
+    if (two) return h("div", { "data-wk": "gamevs", style: { display: "flex", alignItems: "center", gap: 8, margin: "4px 0 12px" } },
+      chip(seats[0], 0),
+      h("div", { style: { flexShrink: 0, fontFamily: F_DISPLAY, fontSize: props.mid ? 15 : 12, letterSpacing: props.mid ? 0 : ".12em", color: props.mid ? t.ink : t.fog } }, props.mid || "VS"),
+      chip(seats[1], 1));
+    return h("div", { "data-wk": "gamevs", style: { display: "flex", gap: 8, overflowX: "auto", margin: "4px -16px 10px", padding: "2px 16px 6px" } }, seats.map(chip));
+  }
+  // 一颗棋子（对阵条上、五子棋盘上同一个画法）
+  function GmkStone(props) {
+    const black = props.side === 1, sz = props.size || 14;
+    return h("span", { style: { display: "inline-block", width: sz, height: sz, borderRadius: 999, flexShrink: 0,
+      background: black ? "radial-gradient(circle at 35% 30%, #6b6660, #1b1917 62%)" : "radial-gradient(circle at 35% 30%, #ffffff, #e2dccf 70%)",
+      boxShadow: "0 1px 2px rgba(0,0,0,.35)" + (black ? "" : ", inset 0 0 0 .5px #b8ae9c") } });
+  }
+
+
 
   // ============================================================
   // 桌面（她 2026-09-05：「游戏实际界面都没改还是普通的一排头像对着空背景」）
@@ -2718,7 +2805,10 @@
     monopoly: ["#5d8b4c", "#3a4837"],
     uno: ["#d94f3d", "#8a3428"],
     gomoku: ["#c8a467", "#4a3a22"],
-    draw: ["#d0533f", "#3f6fb0"]
+    draw: ["#d0533f", "#3f6fb0"],
+    liar: ["#a8442f", "#4b3527"],
+    date: ["#b86651", "#537c71"],
+    story: ["#5d6fa3", "#3e4250"]
   };
   function gameTable(k, t) {
     // 透明度后缀要先验主题色是不是六位色号，验不过退回纯色（mobile-ui-layout §3.5）
@@ -4765,7 +4855,7 @@
     if (canCc) {
       try {
         const waitMs = o.timeout || 150000;
-        const result = await window.CCSeat.ask({ tool: "game_turn", game: "uno", turn_id: o.turnId, char_id: player.key, sys: sys, msgs: msgs, expect: o.expect, deadline_at: new Date(Date.now() + waitMs).toISOString() }, waitMs, { charId: player.key });
+        const result = await window.CCSeat.ask({ tool: "game_turn", game: o.game || "uno", turn_id: o.turnId, char_id: player.key, sys: sys, msgs: msgs, expect: o.expect, deadline_at: new Date(Date.now() + waitMs).toISOString() }, waitMs, { charId: player.key });
         return { value: result, delegated: false };
       } catch (e) {
         return { value: null, delegated: false, ccUnavailable: true, error: (e && e.message) || "本人票未送达" };
@@ -4774,7 +4864,7 @@
     return { value: await callRetry(api, sys, msgs, o.ai || {}), delegated: false };
   }
   function unoJson(raw) { if (raw && typeof raw === "object") return raw; return extractJSON(String(raw || "")) || {}; }
-  function unoPlayers(props) {
+  function unoPlayers(props, max) {
     const cfg = props.config || {}, chars = props.characters || [], out = [];
     if (cfg.mode !== "spectate") out.push({ key: "user", name: userName(props.profile), isUser: true, persona: "用户本人" });
     (cfg.charIds || []).forEach(function (id) {
@@ -4784,7 +4874,7 @@
     });
     const names = ["小北", "阿禾", "南枝", "满满", "青团", "栗子"];
     for (let i = 0; i < Number(cfg.npcCount || 0); i++) out.push({ key: "npc" + i, name: names[i] || ("牌友" + (i + 1)), isNpc: true, persona: "普通牌友；会认真看牌，也会自然地插科打诨。" });
-    return out.slice(0, 6);
+    return out.slice(0, max || 6);
   }
   function unoPublic(state) {
     const top = state.discard[state.discard.length - 1];
@@ -5086,20 +5176,30 @@
     const cell = 22, pad = 16, size = pad * 2 + cell * (GMK_N - 1);
     const last = moves[moves.length - 1];
     const stars = [[3, 3], [11, 3], [7, 7], [3, 11], [11, 11]];
-    const boardSvg = h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", background: "#e3c58f", borderRadius: 10, boxShadow: "0 2px 10px rgba(0,0,0,.18)", touchAction: "manipulation" },
+    // 棋盘：一块木板（两道木纹渐变＋一圈压边），子是有光泽的石头，最后一手套一个红圈
+    const boardSvg = h("svg", { "data-wk": "gomokuboard", viewBox: "0 0 " + size + " " + size, style: { width: "100%", maxWidth: 440, display: "block", margin: "0 auto", borderRadius: 12,
+        background: "linear-gradient(135deg, #e9cf98 0%, #ddb878 48%, #e6c88e 100%)", boxShadow: "inset 0 0 0 3px rgba(107,82,48,.25), 0 10px 24px rgba(60,40,15,.28), 0 2px 4px rgba(60,40,15,.2)", touchAction: "manipulation" },
         onClick: function (e) {
           const r = e.currentTarget.getBoundingClientRect();
           const k = size / r.width;
           const x = Math.round(((e.clientX - r.left) * k - pad) / cell), y = Math.round(((e.clientY - r.top) * k - pad) / cell);
           if (x >= 0 && y >= 0 && x < GMK_N && y < GMK_N) tap(x, y);
         } },
+      h("defs", { key: "defs" },
+        h("radialGradient", { id: "gmkB", cx: ".35", cy: ".3", r: ".75" }, h("stop", { offset: "0", stopColor: "#77716a" }), h("stop", { offset: ".55", stopColor: "#1c1a18" })),
+        h("radialGradient", { id: "gmkW", cx: ".35", cy: ".3", r: ".8" }, h("stop", { offset: "0", stopColor: "#ffffff" }), h("stop", { offset: ".7", stopColor: "#e4ded1" }), h("stop", { offset: "1", stopColor: "#c9c0ae" })),
+        h("pattern", { id: "gmkGrain", width: 40, height: 6, patternUnits: "userSpaceOnUse", patternTransform: "rotate(-8)" }, h("path", { d: "M0 3Q10 1 20 3T40 3", stroke: "#a87d43", strokeOpacity: .13, fill: "none", strokeWidth: 1.2 }))),
+      h("rect", { key: "grain", x: 0, y: 0, width: size, height: size, fill: "url(#gmkGrain)" }),
+      h("rect", { key: "frame", x: pad - 1.5, y: pad - 1.5, width: cell * (GMK_N - 1) + 3, height: cell * (GMK_N - 1) + 3, fill: "none", stroke: "#6b5230", strokeWidth: 1.6, strokeOpacity: .8 }),
       Array.from({ length: GMK_N }).map(function (_, i) { return h("g", { key: "l" + i },
         h("line", { x1: pad, y1: pad + i * cell, x2: pad + (GMK_N - 1) * cell, y2: pad + i * cell, stroke: "#6b5230", strokeWidth: .8 }),
         h("line", { x1: pad + i * cell, y1: pad, x2: pad + i * cell, y2: pad + (GMK_N - 1) * cell, stroke: "#6b5230", strokeWidth: .8 })); }),
       stars.map(function (s, i) { return h("circle", { key: "s" + i, cx: pad + s[0] * cell, cy: pad + s[1] * cell, r: 2.4, fill: "#6b5230" }); }),
-      moves.map(function (m, i) { return h("circle", { key: "m" + i, cx: pad + m.x * cell, cy: pad + m.y * cell, r: cell * 0.43, fill: m.who === 1 ? "#1f1d1b" : "#f7f4ec", stroke: m.who === 1 ? "#000" : "#9c9384", strokeWidth: .8 }); }),
-      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: 3, fill: "#d24b3a" }) : null,
-      pend ? h("circle", { cx: pad + pend.x * cell, cy: pad + pend.y * cell, r: cell * 0.43, fill: userSide === 1 ? "#1f1d1b" : "#f7f4ec", opacity: .45 }) : null);
+      moves.map(function (m, i) { return h("g", { key: "m" + i },
+        h("circle", { cx: pad + m.x * cell + .9, cy: pad + m.y * cell + 1.4, r: cell * 0.44, fill: "#3b2a12", opacity: .28 }),
+        h("circle", { cx: pad + m.x * cell, cy: pad + m.y * cell, r: cell * 0.44, fill: m.who === 1 ? "url(#gmkB)" : "url(#gmkW)" })); }),
+      last ? h("circle", { cx: pad + last.x * cell, cy: pad + last.y * cell, r: cell * 0.22, fill: "none", stroke: "#d24b3a", strokeWidth: 1.6 }) : null,
+      pend ? h("circle", { cx: pad + pend.x * cell, cy: pad + pend.y * cell, r: cell * 0.44, fill: userSide === 1 ? "url(#gmkB)" : "url(#gmkW)", opacity: .5, stroke: t.tint, strokeWidth: 1.2, strokeDasharray: "2 2" }) : null);
 
     const status = winner === 3 ? "和棋"
       : winner ? nameOfSide(winner) + "（" + sideZh(winner) + "）赢了"
@@ -5111,6 +5211,13 @@
     return h("div", { "data-wk": "gomoku", className: "h-full flex flex-col", style: gameTable("gomoku", t) },
       h(Head, { zh: "五子棋", onBack: props.onBack, bg: "transparent" }),
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },
+        h(GameVsBar, { t: t, mid: moves.length ? moves.length + " 手" : "", seats: [1, 2].map(function (sd) {
+          const c = sd === charSide ? char : sd === botSide ? char2 : null;
+          const isMe = sd === userSide;
+          return { key: "s" + sd, name: nameOfSide(sd), char: isMe ? { name: uName, avatarImage: pf.avatarImage, color: pf.color } : c, isUser: isMe,
+            on: !winner && turn === sd, mark: h(GmkStone, { side: sd, size: 15 }),
+            sub: winner ? (winner === sd ? "赢了" : winner === 3 ? "和棋" : "") : (sideZh(sd) + "子" + (sd === 1 ? " · 先手" : "")), hot: winner === sd };
+        }) }),
         // TA 说的话：最近几句
         h("div", { "data-wk": "gomokutalk" }, h(GameTalkLog, { t: t, lines: lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: talking, names: talkers.length > 1, k: "gmk",
           charOf: function (l) { return findC(l.id) || char; }, empty: spectate ? "他们在下棋，你可以在下面插一句" : cName + " 在对面坐着" })),
@@ -5120,7 +5227,8 @@
             placeholder: spectate ? "台下插一句…（空着按就是让他们说）" : "跟 " + cName + " 说一句…（空着按就是让 TA 开口）",
             style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 13, padding: "9px 13px", borderRadius: 11, border: "1px solid " + t.line, background: t.bg2, color: t.ink, outline: "none" } }),
           h("button", { "data-wk": "gomokusend", onClick: sendHeckle, disabled: talking, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: talking ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, heckle.trim() ? "说" : "让 TA 说")),
-        h("div", { "data-wk": "gomokustatus", style: { textAlign: "center", fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginTop: 12 } }, status),
+        h("div", { style: { textAlign: "center", marginTop: 12 } }, h("span", { "data-wk": "gomokustatus", style: { display: "inline-flex", alignItems: "center", gap: 7, fontFamily: F_DISPLAY, fontSize: 14.5, color: winner ? "#f3efe6" : t.ink, background: winner ? t.ink : t.bg2, border: "1px solid " + (winner ? t.ink : t.line), borderRadius: 999, padding: "6px 15px", boxShadow: "0 2px 6px rgba(20,16,10,.08)" } },
+          !winner && turn ? h(GmkStone, { side: turn, size: 12 }) : null, status)),
         playNote && !winner ? h("div", { "data-wk": "gomokuplay", style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginTop: 4 } }, playNote) : null,
         !winner && !spectate ? h("div", { style: { display: "flex", justifyContent: "center", marginTop: 10 } },
           h("button", { "data-wk": "gomokuundo", onClick: undo, disabled: moves.length < 2 || turn !== userSide, className: "active:opacity-70", style: { minHeight: 40, padding: "0 18px", borderRadius: 999, fontFamily: F_BODY, fontSize: 13, color: t.sub, background: t.bg2, border: "1px solid " + t.line, opacity: moves.length < 2 || turn !== userSide ? .5 : 1 } }, "悔一步")) : null,
@@ -5167,6 +5275,7 @@
       props.busy ? h("div", { style: { fontFamily: F_BODY, fontSize: 13, color: t.fog, paddingLeft: 36 } }, "…") : null);
   }
 
+  if (typeof window !== "undefined") window.GameTalkLog = GameTalkLog;   // 约会那盒（date-game.js）也用这一份气泡
   const DRAW_POOL_KEY = "x_drawWords";
   const DRAW_BUILTIN = ["猫", "雨伞", "西瓜", "自行车", "月亮", "眼镜", "蜗牛", "冰淇淋", "灯泡", "钥匙", "蝴蝶", "火锅", "风筝", "仙人掌", "企鹅", "吉他", "雪人", "闹钟", "彩虹", "热气球", "章鱼", "蛋糕", "帐篷", "鲨鱼", "向日葵", "牙刷", "火箭", "长颈鹿", "汉堡", "灯塔"];
   const DRAW_INK = { k: "#2b2723", r: "#d0533f", b: "#3f6fb0", g: "#4f8a4a", y: "#e0a92e", p: "#9a5fb0" };
@@ -5471,6 +5580,13 @@
     if (phase === "pool") {
       return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
         h("div", { "data-wk": "drawpool", className: "flex-1 overflow-y-auto", style: { padding: "8px 16px 24px" } },
+          // 封面：盒面那张画 + 这一局谁跟谁
+          h("div", { "data-wk": "drawcover", style: { borderRadius: 16, overflow: "hidden", background: LID.draw.paper, boxShadow: "0 3px 0 " + LID.draw.band + ", 0 10px 22px rgba(40,30,20,.18)", marginBottom: 16 } },
+            h("div", { style: { maxWidth: 260, margin: "0 auto" } }, h(GameLid, { k: "draw" })),
+            h("div", { style: { background: LID.draw.band, color: LID.draw.bandInk, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 16 } }, duo ? cName + " × " + nmOf(char2) : watchOnly ? "看 " + cName + " 画" : uName + " × " + cName),
+              h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, opacity: .75 } }, (duo || watchOnly ? "" : "轮流画 · ") + DRAW_ROUNDS + " 轮"))),
+          h("div", { style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "12px 13px" } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15, color: t.ink, marginBottom: 6 } }, "词库 · " + (pool.words.length ? pool.words.length + " 个" : "还空着，先用内置的 " + DRAW_BUILTIN.length + " 个")),
           h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.6, marginBottom: 10 } }, "写个主题（可空），一次生成一批，加进词库。每张画从词库里抽一个没用过的。"),
           h("div", { style: { display: "flex", gap: 8 } },
@@ -5478,7 +5594,7 @@
             h("button", { "data-wk": "drawpoolgen", onClick: genWords, disabled: genBusy, className: "active:opacity-80", style: { fontFamily: F_BODY, fontSize: 13, fontWeight: 700, color: t.bg2, background: genBusy ? t.line : t.tint, borderRadius: 11, padding: "0 14px" } }, genBusy ? "生成中…" : "生成一批")),
           pool.words.length ? h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
             pool.words.map(function (w) { return h("button", { key: w, onClick: function () { const n = { words: pool.words.filter(function (x) { return x !== w; }), theme: pool.theme }; setPool(n); saveDrawPool(n); }, style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, background: t.bg2, border: "1px solid " + t.line, borderRadius: 8, padding: "4px 9px" } }, w + " ×"); })) : null,
-          h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 10 } }, "点一个词就把它从词库删掉。"),
+          pool.words.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 10 } }, "点一个词就把它从词库删掉。") : null),
           h("button", { "data-wk": "drawbegin", onClick: begin, className: "active:opacity-80", style: { width: "100%", marginTop: 18, fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: t.ink, borderRadius: 12, padding: "13px" } }, duo ? "开始（看 " + cName + " 和 " + nmOf(char2) + " 轮流画，" + DRAW_ROUNDS + " 轮）" : watchOnly ? "开始（看 " + cName + " 画 " + DRAW_ROUNDS + " 张）" : "开始（轮流画，" + DRAW_ROUNDS + " 轮）")));
     }
     if (phase === "end") {
@@ -5486,8 +5602,16 @@
       const eng = engOf(char);
       return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
         h("div", { className: "flex-1 overflow-y-auto", style: { padding: "8px 16px 24px" } },
-          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: t.ink, textAlign: "center", margin: "12px 0" } }, duo ? cName + " 猜中 " + score.ta + " · " + nmOf(char2) + " 猜中 " + score.ta2 + " · 你抢到 " + score.me : watchOnly ? "猜中 " + score.me + " / " + history.length : uName + " 猜中 " + score.me + " · " + cName + " 猜中 " + score.ta),
-          history.map(function (x, i) { return h("div", { key: i, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub, padding: "6px 0", borderBottom: "1px solid " + t.line } }, x.drawer + " 画「" + x.word + "」· " + (x.ok ? (x.by ? x.by + " " : "") + "猜中了" : "没猜中")); }),
+          h(GameVsBar, { t: t, mid: "终局", seats: duo
+            ? [{ key: "a", name: cName, char: char, sub: "猜中 " + score.ta, hot: score.ta > score.ta2, on: score.ta > score.ta2 }, { key: "b", name: nmOf(char2), char: char2, sub: "猜中 " + score.ta2, hot: score.ta2 > score.ta, on: score.ta2 > score.ta }]
+            : watchOnly ? [{ key: "a", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, sub: "猜中 " + score.me + " / " + history.length }]
+            : [{ key: "u", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, sub: "猜中 " + score.me, hot: score.me > score.ta, on: score.me > score.ta },
+               { key: "a", name: cName, char: char, sub: "猜中 " + score.ta, hot: score.ta > score.me, on: score.ta > score.me }] }),
+          h("div", { "data-wk": "drawhistory", style: { background: t.bg2, border: "1px solid " + t.line, borderRadius: 14, padding: "4px 13px" } },
+            history.map(function (x, i) { return h("div", { key: i, style: { display: "flex", alignItems: "center", gap: 10, fontFamily: F_BODY, fontSize: 13, color: t.sub, padding: "9px 0", borderTop: i ? "1px solid " + t.line : "none" } },
+              h("span", { style: { width: 22, height: 22, borderRadius: 999, flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", fontSize: 12, color: "#fff", background: x.ok ? "#5d8b4c" : "#b9ab98" } }, x.ok ? "✓" : "×"),
+              h("span", { style: { flex: 1, minWidth: 0 } }, x.drawer + " 画「", h("b", { style: { color: t.ink } }, x.word), "」"),
+              h("span", { style: { fontSize: 12, color: t.fog, flexShrink: 0 } }, x.ok ? (x.by ? x.by + " " : "") + "猜中" : "没猜中")); })),
           btn("回中枢", props.onBack, { style: { width: "100%", marginTop: 14, minHeight: 44, borderRadius: 12, fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg2, border: "1px solid " + t.line } }),
           char ? h(KeepMemBtn, { t: t, host: props, rep: function () {
             const seats = [char, char2].filter(Boolean).map(function (c) { return { key: c.id, engineer: engOf(c) }; });
@@ -5497,8 +5621,13 @@
           } }) : null));
     }
 
+    // 画纸：一张有点米色的速写纸，淡淡的点格，下沿压一道影子——像从本子上撕下来铺在桌上
+    const DRAW_PAPER = { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", borderRadius: 6, background: "#fffdf7",
+      backgroundImage: "radial-gradient(circle, rgba(60,50,40,.10) .8px, transparent 1px)", backgroundSize: "18px 18px",
+      boxShadow: "0 1px 0 #e9e2d4, 0 3px 0 #f4efe5, 0 4px 0 #e2dacb, 0 10px 22px rgba(40,30,20,.20)" };
+    const tape = h("div", { "aria-hidden": true, style: { position: "absolute", top: -9, left: "50%", width: 74, height: 20, marginLeft: -37, transform: "rotate(-2.5deg)", background: "rgba(208,83,63,.28)", borderRadius: 2, zIndex: 1 } });
     const svgCanvas = taDraws
-      ? h("svg", { "data-wk": "drawcanvas", viewBox: "0 0 100 100", style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", background: "#fffdf8", borderRadius: 12, boxShadow: "0 2px 10px rgba(0,0,0,.12)" } },
+      ? h("svg", { "data-wk": "drawcanvas", viewBox: "0 0 100 100", style: DRAW_PAPER },
           h("style", null, "@keyframes drawIn{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}"),
           segs.slice(0, shown).map(function (sg, si) {
             const fresh = si === shown - 1 && drawing;
@@ -5509,7 +5638,7 @@
           }),
           result || (!shown && !busy) ? null : null)
       : h("svg", { "data-wk": "drawcanvas", ref: padRef, viewBox: "0 0 100 100", onPointerDown: onDown, onPointerMove: onMove, onPointerUp: onUp, onPointerCancel: onUp,
-          style: { width: "100%", maxWidth: 420, display: "block", margin: "0 auto", background: "#fff", borderRadius: 12, boxShadow: "0 2px 10px rgba(0,0,0,.12)", touchAction: "none" } },
+          style: Object.assign({}, DRAW_PAPER, { touchAction: "none" }) },
           myStrokes.filter(function (s) { return s && Array.isArray(s.pts) && s.pts.length; }).map(function (s, i) { return h("path", { key: i, d: ptsPath(s.pts) + (s.pts.length === 1 ? "l.1 0" : ""), fill: "none", stroke: DRAW_INK[s.k], strokeWidth: 1.4, strokeLinecap: "round", strokeLinejoin: "round" }); }));
 
     const status = result
@@ -5521,10 +5650,16 @@
 
     return h("div", { "data-wk": "draw", className: "h-full flex flex-col", style: gameTable("draw", t) }, head,
       h("div", { className: "flex-1 overflow-y-auto", style: { padding: "4px 16px 24px" } },
-        h("div", { style: { textAlign: "center", fontFamily: F_BODY, fontSize: 12, color: t.fog, marginBottom: 8 } }, "第 " + (turn + 1) + "/" + totalTurns + " 张 · " + (taDraws ? nmOf(drawer) + " 画" + (duo ? "、" + nmOf(guesser) + " 猜" : "") : "你画") + (duo ? " · " + cName + " " + score.ta + " : " + score.ta2 + " " + nmOf(char2) + " · 你抢到 " + score.me : watchOnly ? "" : " · 你 " + score.me + " : " + score.ta + " " + cName)),
+        h(GameVsBar, { t: t, mid: (turn + 1) + "/" + totalTurns, seats: duo
+          ? [char, char2].map(function (c, i) { const on = drawer === c; return { key: c.id, name: nmOf(c), char: c, on: !result && on, sub: (on ? "画" : "猜") + " · 猜中 " + (i ? score.ta2 : score.ta) }; })
+          : watchOnly ? [{ key: "ta", name: cName, char: char, on: !result, sub: "画 · 你猜中 " + score.me }]
+          : [{ key: "user", name: uName, char: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, isUser: true, on: !result && !taDraws, sub: (taDraws ? "猜" : "画") + " · 猜中 " + score.me },
+             { key: "ta", name: cName, char: char, on: !result && taDraws, sub: (taDraws ? "画" : "猜") + " · 猜中 " + score.ta }] }),
         h("div", { "data-wk": "drawtalk" }, h(GameTalkLog, { t: t, lines: lines, uName: uName, me: { name: uName, avatarImage: pf.avatarImage, color: pf.color }, busy: busy, names: duo, k: "drw",
           charOf: function (l) { return findC(l.id) || char; }, empty: taDraws ? nmOf(drawer) + " 拿起了笔" : cName + " 在等你画" })),
-        svgCanvas,
+        h("div", { style: { position: "relative", maxWidth: 420, margin: "14px auto 0" } }, tape,
+          !taDraws && !result ? h("div", { "data-wk": "drawword", style: { position: "absolute", right: 8, top: 8, zIndex: 1, fontFamily: F_BODY, fontSize: 12, color: t.ink, background: "rgba(255,253,247,.92)", border: "1px dashed " + t.line, borderRadius: 8, padding: "3px 9px" } }, "你画：「" + word + "」") : null,
+          svgCanvas),
         !taDraws && !result ? h("div", { "data-wk": "drawtools", style: { display: "flex", gap: 8, alignItems: "center", justifyContent: "center", marginTop: 10, flexWrap: "wrap" } },
           Object.keys(DRAW_INK).map(function (k) { return h("button", { key: k, "data-on": ink === k ? "1" : "0", onClick: function () { setInk(k); }, style: { width: 28, height: 28, borderRadius: 999, background: DRAW_INK[k], border: ink === k ? "3px solid " + t.tint : "2px solid #fff", boxShadow: "0 0 0 1px " + t.line } }); }),
           btn("撤销", function () { setMyStrokes(function (S) { return S.slice(0, -1); }); }),
@@ -5700,7 +5835,354 @@
       colorPick ? h(PickerModal, { t: t, title: "万能牌改成什么颜色？", onClose: function () { setColorPick(null); } }, h("div", { style: { display: "flex", gap: 9, justifyContent: "center" } }, UnoCore.COLORS.map(function (c) { return h("button", { key: c, onClick: function () { userAct({ kind: "play", uid: colorPick.uid, color: c, uno: saidUno }); }, style: { width: 54, height: 54, borderRadius: 999, background: col[c], color: "white" } }, UnoCore.LABEL[c]); }))) : null);
   }
 
-  if (typeof module === "object" && module.exports) module.exports = { spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
+  // ============================================================
+  // 骗子骰（她 2026-10-12：「先 1、2 吧」——回合制小游戏加骗子骰和故事接龙）
+  // 每人五颗骰子扣在杯里，轮流往上叫「桌上一共至少有 N 个 F」，觉得上家在吹就「开」。
+  // 1 点是万能的（算作任何点数），所以只能叫 2~6。开了以后亮骰：够数＝开的人输一命，不够＝叫的人输一命。
+  // 每人三条命，命没了出局，剩最后一个的赢。输的人先叫下一轮。
+  // 配角（NPC）不调模型，照下面 liarNpcMove 算一手；真人角色每手问一次模型，叫得不合规就退回同一个算法。
+  // ============================================================
+  const LIAR_DICE = 5, LIAR_LIVES = 3;
+  function liarRoll(rnd) { const r = rnd || Math.random, out = []; for (let i = 0; i < LIAR_DICE; i++) out.push(1 + Math.floor(r() * 6)); return out; }
+  function liarAlive(state) { return state.players.filter(function (p) { return p.lives > 0; }); }
+  function liarTotal(state) { return liarAlive(state).length * LIAR_DICE; }
+  // 某个点数在一堆骰子里算几个（1 点万能）
+  function liarCount(dice, f) { return (dice || []).filter(function (d) { return d === f || d === 1; }).length; }
+  // 这一手叫价合不合规：点数 2~6、个数不超过桌上总数；比上家大＝个数更多，或个数一样点数更大
+  function liarLegalBid(prev, bid, total) {
+    const n = Number(bid && bid.n), f = Number(bid && bid.f);
+    if (!(n >= 1 && n <= total && f >= 2 && f <= 6 && n === Math.floor(n) && f === Math.floor(f))) return false;
+    if (!prev) return true;
+    return n > prev.n || (n === prev.n && f > prev.f);
+  }
+  function liarNextAlive(state, from) {
+    const L = state.players.length;
+    for (let i = 1; i <= L; i++) { const j = (from + i) % L; if (state.players[j].lives > 0) return j; }
+    return from;
+  }
+  function liarNewRound(state, starter, rnd) {
+    state.round = (state.round || 0) + 1;
+    state.players.forEach(function (p) { p.dice = p.lives > 0 ? liarRoll(rnd) : []; });
+    state.bid = null; state.reveal = null;
+    state.turn = state.players[starter] && state.players[starter].lives > 0 ? starter : liarNextAlive(state, starter);
+    state.log.push({ kind: "sys", text: "—— 第 " + state.round + " 轮，大家摇好了骰子 ——" });
+    return state;
+  }
+  function liarNewGame(players, rnd) {
+    const state = { id: "liar_" + Date.now().toString(36), status: "playing", round: 0, log: [], bid: null, reveal: null, winner: null,
+      players: players.map(function (p) { return Object.assign({}, p, { lives: LIAR_LIVES, dice: [] }); }) };
+    return liarNewRound(state, Math.floor((rnd || Math.random)() * players.length), rnd);
+  }
+  // 一手：{kind:"bid",n,f,say} 或 {kind:"open",say}。不合规直接抛错，调用方自己兜。
+  function liarAct(state, action) {
+    const p = state.players[state.turn], say = String((action && action.say) || "").trim().slice(0, 200);
+    if (!p || state.status !== "playing" || state.reveal) throw new Error("现在不是出手的时候");
+    if (action.kind === "open") {
+      if (!state.bid) throw new Error("还没人叫，开不了");
+      const bid = state.bid, all = [];
+      liarAlive(state).forEach(function (x) { all.push.apply(all, x.dice); });
+      const got = liarCount(all, bid.f), bidder = state.players.findIndex(function (x) { return x.key === bid.by; });
+      const loserIdx = got >= bid.n ? state.turn : bidder;
+      const loser = state.players[loserIdx];
+      loser.lives -= 1;
+      state.log.push({ kind: "move", player: p.key, text: p.name + "：开！" + (say ? "“" + say + "”" : "") });
+      state.log.push({ kind: "sys", text: "亮骰：桌上一共 " + got + " 个 " + bid.f + "（连 1 点算）——" + (got >= bid.n ? "够数，" : "不够，") + loser.name + " 输一条命" + (loser.lives <= 0 ? "，出局。" : "，还剩 " + loser.lives + " 条。") });
+      state.reveal = { bid: bid, got: got, loser: loser.key, dice: state.players.map(function (x) { return { key: x.key, dice: x.dice.slice() }; }) };
+      const alive = liarAlive(state);
+      if (alive.length <= 1) { state.status = "finished"; state.winner = alive[0] ? alive[0].key : null; state.log.push({ kind: "sys", text: (alive[0] ? alive[0].name : "没人") + " 撑到了最后。" }); }
+      else state.nextStarter = loser.lives > 0 ? loserIdx : liarNextAlive(state, loserIdx);
+      return state;
+    }
+    const bid = { n: Number(action.n), f: Number(action.f), by: p.key };
+    if (!liarLegalBid(state.bid, bid, liarTotal(state))) throw new Error(state.bid ? "得比上家叫得大：个数更多，或者个数一样、点数更大" : "叫价不对：点数 2~6，个数不超过桌上总数");
+    state.bid = bid;
+    state.log.push({ kind: "move", player: p.key, text: p.name + "：" + bid.n + " 个 " + bid.f + (say ? "　“" + say + "”" : "") });
+    state.turn = liarNextAlive(state, state.turn);
+    return state;
+  }
+  // 不调模型的一手：按自己手里有几个、别人手里大概有几个（每颗 1/3 的机会是这个点或者 1）来算
+  function liarNpcMove(state, idx, bluff) {
+    const me = state.players[idx], others = liarTotal(state) - LIAR_DICE, prev = state.bid;
+    const expect = function (f) { return liarCount(me.dice, f) + others / 3; };
+    if (prev && prev.n > expect(prev.f) + 0.8 + (bluff || 0)) return { kind: "open" };
+    let best = null;
+    for (let f = 2; f <= 6; f++) {
+      let n = prev ? (f > prev.f ? prev.n : prev.n + 1) : Math.max(1, Math.round(expect(f)) - 1);
+      if (!liarLegalBid(prev, { n: n, f: f }, liarTotal(state))) continue;
+      const margin = expect(f) - n;
+      if (!best || margin > best.margin) best = { n: n, f: f, margin: margin };
+    }
+    if (!best) return prev ? { kind: "open" } : { kind: "bid", n: 1, f: 2 };
+    if (prev && best.margin < -1.2 - (bluff || 0)) return { kind: "open" };
+    return { kind: "bid", n: best.n, f: best.f };
+  }
+  function liarPublic(state, idx) {
+    const me = state.players[idx];
+    return "桌上还在的人：" + liarAlive(state).map(function (p) { return p.name + "（" + p.lives + " 条命）"; }).join("、")
+      + "；桌上一共 " + liarTotal(state) + " 颗骰子。\n你自己的骰子：" + me.dice.join(" ") + "（1 点万能）"
+      + "\n当前叫价：" + (state.bid ? state.bid.n + " 个 " + state.bid.f + "（" + (state.players.find(function (p) { return p.key === state.bid.by; }) || {}).name + " 叫的）" : "还没人叫，你先叫")
+      + "\n最近：\n" + state.log.slice(-8).map(function (x) { return x.text; }).join("\n");
+  }
+  const DIE_PIPS = { 1: [[50, 50]], 2: [[28, 28], [72, 72]], 3: [[26, 26], [50, 50], [74, 74]], 4: [[28, 28], [72, 28], [28, 72], [72, 72]], 5: [[26, 26], [74, 26], [50, 50], [26, 74], [74, 74]], 6: [[28, 24], [72, 24], [28, 50], [72, 50], [28, 76], [72, 76]] };
+  function Die(props) {
+    const v = props.v, size = props.size || 30, hot = props.hot;
+    return h("svg", { "data-wk": "gameliardie", "data-on": hot ? "1" : "0", viewBox: "0 0 100 100", width: size, height: size, style: { flexShrink: 0 } },
+      h("rect", { x: 4, y: 4, width: 92, height: 92, rx: 20, fill: hot ? "#f6e3c4" : "#fbf8f1", stroke: hot ? "#b0553f" : "#2f2a24", strokeOpacity: hot ? 1 : .35, strokeWidth: hot ? 6 : 4 }),
+      v ? (DIE_PIPS[v] || []).map(function (q, i) { return h("circle", { key: i, cx: q[0], cy: q[1], r: v === 1 ? 13 : 9, fill: v === 1 ? "#b0553f" : "#2f2a24" }); })
+        : h("text", { x: 50, y: 64, textAnchor: "middle", fontSize: 44, fill: "#2f2a24", opacity: .4 }, "?"));
+  }
+  function LiarDiceGame(props) {
+    const t = props.t, api = props.active, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () {
+      if (restored && restored.status === "playing") {
+        restored.players.forEach(function (p) { const live = unoPlayers(props).find(function (x) { return x.key === p.key; }); if (live) Object.assign(p, live, { lives: p.lives, dice: p.dice }); });
+        return restored;
+      }
+      return liarNewGame(unoPlayers(props));
+    });
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [say, setSay] = useState(""), [resultNotice, setResultNotice] = useState("");
+    const [pick, setPick] = useState({ n: 1, f: 2 });
+    const running = useRef("");
+    const current = state.players[state.turn], me = current && current.isUser && current.lives > 0;
+    const clone = function () { return JSON.parse(JSON.stringify(state)); };
+    const spectate = cfg.mode === "spectate";
+    const soft = cfg.mode === "easy";
+    const findChar = function (key) { return (props.characters || []).find(function (c) { return String(c.id) === String(key); }) || null; };
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("liar"); return; }
+      saveGameSnap("liar", { config: cfg, state: state, label: "第 " + state.round + " 轮 · " + (state.bid ? "叫到 " + state.bid.n + " 个 " + state.bid.f : "还没人叫") });
+    }, [state]);
+    // 轮到自己时，把选择器摆到「刚好比上家大一点」那一格
+    useEffect(function () {
+      if (!me || state.reveal) return;
+      const b = state.bid;
+      setPick(b ? (b.f < 6 ? { n: b.n, f: b.f + 1 } : { n: b.n + 1, f: 2 }) : { n: Math.max(1, liarAlive(state).length), f: 2 });
+    }, [state.turn, state.round, !!state.reveal]);
+    useEffect(function () {
+      if (state.status !== "finished") return;
+      const w = state.players.find(function (p) { return p.key === state.winner; }), u = state.players.find(function (p) { return p.isUser; });
+      ccGameResult("liar", state.id, state.players, cfg,
+        "《骗子骰》" + ((w && w.name) || "没人") + " 撑到了最后。\n" + ((u && u.name) || "用户") + "：" + (u && w && u.key === w.key ? "获胜" : "未获胜") + "。\n最后几手：\n" + state.log.slice(-8).map(function (x) { return x.text; }).join("\n"),
+        function (line, seat) { setState(function (prev) { const n = JSON.parse(JSON.stringify(prev)); n.log.push({ kind: "chat", player: seat.key, text: seat.name + "：“" + line + "”" }); return n; }); },
+        setResultNotice);
+    }, [state.status, state.winner]);
+    useEffect(function () {
+      if (!current || current.isUser || current.lives <= 0 || state.status !== "playing" || state.reveal || busy) return;
+      const turnId = state.id + "#" + state.round + "#" + current.key + "#" + (state.bid ? state.bid.n + "x" + state.bid.f : "-");
+      if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
+      const idx = state.turn;
+      // 放水局：真人角色叫得更保守、开得更冲动——给她留机会
+      const fallback = function () { return liarNpcMove(state, idx, soft ? -0.6 : 0); };
+      const apply = function (a, delegated) {
+        const n = clone();
+        try { liarAct(n, a); } catch (e) { const fb = fallback(); fb.say = a && a.say; liarAct(n, fb); }
+        if (delegated && n.log.length) n.log[n.log.length - 1].text += "（代）";
+        setState(n);
+      };
+      if (current.isNpc) {
+        setTimeout(function () { try { apply(fallback()); } catch (e) { setError(e.message); } running.current = ""; setBusy(false); }, 700);
+        return;
+      }
+      const sys = "你正在亲自玩「骗子骰」（吹牛骰子），不是在评论。保持你本人的声纹和性格，但先守规则。" + SKILL_RULE +
+        "\n规则：每人五颗骰子只自己看得见。轮流叫「桌上所有人的骰子里一共至少有 N 个 F 点」，1 点万能、算作任何点数，所以只能叫 2~6 点。后叫的必须比上家大：个数更多，或个数一样、点数更大。觉得上家在吹就「开」：亮出全部骰子数，够数＝开的人输一条命，不够＝叫的人输一条命。"
+        + (soft ? "\n这一局你想让着对面的她一点：别叫得太凶，有点疑心就开。" : "")
+        + "\n只输出 JSON，不解释：叫 {\"kind\":\"bid\",\"n\":4,\"f\":5,\"say\":\"可空的一句桌上话\"}；开 {\"kind\":\"open\",\"say\":\"可空\"}。桌上话可以诈唬、心虚、挑衅、装可怜，不必每手都说，别透露自己骰子的真实点数（想骗就骗）。";
+      routeSeatCall(current, api, sys, [{ role: "user", content: liarPublic(state, idx) + "\n现在轮到你。" }], { game: "liar", turnId: turnId, expect: "{\"kind\":\"bid|open\",\"n\":4,\"f\":5,\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
+        .then(function (r) {
+          const a = unoJson(r.value);
+          apply(a.kind === "open" ? { kind: "open", say: a.say } : a.kind === "bid" ? { kind: "bid", n: a.n, f: a.f, say: a.say } : fallback(), r.delegated);
+        }).catch(function (e) { try { apply(fallback()); } catch (e2) { setError("这手没接稳：" + e.message); } })
+        .finally(function () { running.current = ""; setBusy(false); });
+    }, [state, busy]);
+    function userAct(a) {
+      try { const n = clone(); liarAct(n, Object.assign({}, a, { say: say })); setState(n); setSay(""); setError(""); }
+      catch (e) { setError(e.message); }
+    }
+    function nextRound() { const n = clone(); liarNewRound(n, n.nextStarter || 0); delete n.nextStarter; setState(n); }
+    const total = liarTotal(state);
+    const showAll = spectate || !!state.reveal || state.status === "finished";
+    const stepBtn = function (label, onClick, dis) { return h("button", { onClick: onClick, disabled: dis, style: { width: 34, height: 34, borderRadius: 999, border: "1px solid " + t.line, background: t.bg2, color: dis ? t.fog : t.ink, fontSize: 17 } }, label); };
+    const pickOk = liarLegalBid(state.bid, pick, total);
+    return h("div", { "data-wk": "gameplay", "data-part": "liar", className: "h-full flex flex-col", style: gameTable("liar", t) },
+      h(Head, { zh: "骗子骰", en: state.status === "finished" ? "终局" : ("第 " + state.round + " 轮 · 轮到 " + (current ? current.name : "—")), onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
+        h(GameVsBar, { t: t, seats: state.players.map(function (p, i) {
+          const on = i === state.turn && state.status === "playing" && !state.reveal, out = p.lives <= 0;
+          const lost = state.reveal && state.reveal.loser === p.key;
+          return { key: p.key, name: p.name + (p.engineer ? " · 亲打" : ""), char: p.isUser ? { name: p.name, avatarImage: (props.profile || {}).avatarImage, color: (props.profile || {}).color } : findChar(p.key), isUser: p.isUser,
+            on: on, out: out, hot: lost, sub: out ? "出局" : lost ? "输一条命 · " + "♥".repeat(p.lives) : "♥".repeat(p.lives) + "♡".repeat(Math.max(0, LIAR_LIVES - p.lives)) };
+        }) }),
+        // 桌面：一块绒布，中间是现在叫到几个几；开了以后整桌的骰子摊在这上面
+        h("div", { "data-wk": "gameliarbid", style: { position: "relative", borderRadius: 18, padding: "16px 14px 18px", marginBottom: 12, textAlign: "center", color: "#f4ead9",
+            background: "radial-gradient(120% 90% at 50% 30%, #8a4a36 0%, #5e2f22 70%, #4a241a 100%)",
+            boxShadow: "inset 0 0 0 3px rgba(255,235,200,.08), inset 0 10px 30px rgba(0,0,0,.35), 0 8px 18px rgba(40,20,10,.25)" } },
+          h("div", { style: { fontFamily: F_BODY, fontSize: 11, letterSpacing: ".1em", opacity: .7 } }, "第 " + state.round + " 轮 · 桌上 " + total + " 颗 · 1 点万能"),
+          state.bid ? h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginTop: 8 } },
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 32, lineHeight: 1 } }, state.bid.n),
+              h("span", { style: { fontFamily: F_DISPLAY, fontSize: 18, opacity: .85 } }, "个"),
+              h(Die, { v: state.bid.f, size: 40 }))
+            : h("div", { style: { fontFamily: F_DISPLAY, fontSize: 19, marginTop: 10, opacity: .85 } }, state.status === "finished" ? "收杯了" : "还没人叫"),
+          state.bid ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, opacity: .75, marginTop: 6 } }, (state.players.find(function (p) { return p.key === state.bid.by; }) || {}).name + " 叫的") : null,
+          showAll ? h("div", { "data-wk": "gameliarreveal", style: { marginTop: 14, display: "flex", flexDirection: "column", gap: 6 } }, state.players.filter(function (p) { return p.dice && p.dice.length; }).map(function (p) {
+            return h("div", { key: p.key, style: { display: "flex", alignItems: "center", gap: 8, background: "rgba(0,0,0,.18)", borderRadius: 11, padding: "5px 9px" } },
+              h("span", { style: { fontFamily: F_BODY, fontSize: 12, width: 64, textAlign: "left", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, p.name),
+              h("div", { style: { display: "flex", gap: 4 } }, p.dice.map(function (d, j) { return h(Die, { key: j, v: d, size: 24, hot: !!(state.reveal && (d === state.reveal.bid.f || d === 1)) }); })));
+          })) : null,
+          state.reveal ? h("div", { style: { marginTop: 10, fontFamily: F_DISPLAY, fontSize: 15 } }, "一共 " + state.reveal.got + " 个 " + state.reveal.bid.f + " · " + (state.reveal.got >= state.reveal.bid.n ? "够数" : "不够")) : null),
+        // 自己杯里的骰子（没轮到也看得见）
+        !showAll && state.players.find(function (p) { return p.isUser; }) && state.players.find(function (p) { return p.isUser; }).lives > 0 ? h("div", { "data-wk": "gameliarcup", style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 7, marginBottom: 12, padding: "10px 12px", borderRadius: 14, background: t.bg2, border: "1px solid " + t.line } },
+          h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginRight: 4 } }, "我杯里"),
+          state.players.find(function (p) { return p.isUser; }).dice.map(function (d, j) { return h(Die, { key: j, v: d, size: 32 }); })) : null,
+        h("div", { "data-wk": "gamelog", "data-part": "liar", style: { background: t.bg2, borderRadius: 13, padding: "10px 12px", maxHeight: 200, overflowY: "auto" } }, state.log.slice(-12).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: x.kind === "sys" ? t.fog : t.sub, lineHeight: 1.65 } }, x.text); })),
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error) : null,
+        state.status === "finished" ? h("div", { style: { textAlign: "center", padding: 22, fontFamily: F_DISPLAY, fontSize: 22, color: t.tint } },
+          ((state.players.find(function (p) { return p.key === state.winner; }) || {}).name || "没人") + " 撑到了最后！",
+          resultNotice ? h("div", { style: { marginTop: 8, fontFamily: F_BODY, fontSize: 12, fontWeight: 400, color: t.sub } }, resultNotice) : null,
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            const w = state.players.find(function (p) { return p.key === state.winner; }), u = state.players.find(function (p) { return p.isUser; });
+            return { key: "liar", zh: "骗子骰", ids: realCharIds(state.players), wins: w && realCharIds(state.players).indexOf(w.key) >= 0 ? [w.key] : [], meWin: u ? !!(w && w.isUser) : null,
+              text: "一起玩了一局「骗子骰」，打了 " + state.round + " 轮，" + ((w && (w.isUser ? "她" : w.name)) || "没人") + " 撑到了最后。" + (state.log.filter(function (x) { return x.kind === "sys" && /输一条命/.test(x.text); }).slice(-1).map(function (x) { return "最后一开：" + x.text.replace(/^亮骰：/, ""); })[0] || "") };
+          } })) : null),
+      state.status === "playing" && state.reveal ? h("div", { "data-wk": "gameactions", "data-part": "liar", "data-kind": "reveal", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "11px 12px calc(env(safe-area-inset-bottom) + 12px)", textAlign: "center" } },
+        h("button", { "data-wk": "gameliarnext", onClick: nextRound, style: { border: 0, borderRadius: 999, padding: "11px 26px", color: "#fff", background: t.ink, fontFamily: F_BODY, fontSize: 14 } }, "摇下一轮")) :
+      state.status === "playing" && me ? h("div", { "data-wk": "gameactions", "data-part": "liar", "data-kind": "bid", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
+        h("div", { style: { display: "flex", alignItems: "center", justifyContent: "center", gap: 10, marginBottom: 9 } },
+          stepBtn("−", function () { setPick({ n: Math.max(1, pick.n - 1), f: pick.f }); }, pick.n <= 1),
+          h("span", { style: { fontFamily: F_DISPLAY, fontSize: 22, color: t.ink, minWidth: 54, textAlign: "center" } }, pick.n + " 个"),
+          stepBtn("+", function () { setPick({ n: Math.min(total, pick.n + 1), f: pick.f }); }, pick.n >= total),
+          h("div", { style: { display: "flex", gap: 4, marginLeft: 6 } }, [2, 3, 4, 5, 6].map(function (f) {
+            return h("button", { key: f, onClick: function () { setPick({ n: pick.n, f: f }); }, style: { padding: 2, borderRadius: 8, border: pick.f === f ? "2px solid " + t.tint : "2px solid transparent", background: "transparent" } }, h(Die, { v: f, size: 26 }));
+          }))),
+        h("input", { "data-wk": "gameinput", "data-part": "talk", value: say, onChange: function (e) { setSay(e.target.value); }, placeholder: "顺便说一句（可空，想诈就诈）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", marginBottom: 8, background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+        h("div", { style: { display: "grid", gridTemplateColumns: state.bid ? "1fr 1fr" : "1fr", gap: 8 } },
+          h("button", { "data-wk": "gameliarbidbtn", onClick: function () { userAct({ kind: "bid", n: pick.n, f: pick.f }); }, disabled: !pickOk, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: pickOk ? t.tint : t.line, fontFamily: F_BODY, fontSize: 14 } }, "叫 " + pick.n + " 个 " + pick.f),
+          state.bid ? h("button", { "data-wk": "gameliaropen", onClick: function () { userAct({ kind: "open" }); }, style: { border: 0, borderRadius: 999, padding: "11px 10px", color: "#fff", background: "#c0553f", fontFamily: F_BODY, fontSize: 14 } }, "开！") : null)) :
+      busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, current && current.engineer ? "等本人掀杯看骰…" : (current ? current.name : "TA") + " 在看骰子…") : null);
+  }
+
+  // ============================================================
+  // 故事接龙：轮流往下写一句，每人每轮抽一个必须用上的词。不分输赢，写完整篇留着。
+  // 三圈，最后一个人负责收尾。写完的故事可以复制、收进记忆、当战报发给 TA 或发到群里。
+  // ============================================================
+  const STORY_OPENERS = ["那天晚上，便利店的灯忽然全灭了。", "雨下到第七天的时候，楼下多了一只不肯走的猫。", "我在旧书里翻到一张写着自己名字的车票。",
+    "电梯停在了一个本来不存在的楼层。", "外卖备注栏里写着：请救救我。", "毕业十年，班长突然在群里发了一张合照，照片里多了一个人。",
+    "这座城市每到午夜，所有的钟都会慢一分钟。", "我收到了一封寄给明年的自己的信。", "隔壁新搬来的人，每天凌晨三点准时练琴。", "海边那家店只在下雨天开门。"];
+  const STORY_WORDS = ["钥匙", "雨伞", "蛋糕", "猫", "路灯", "旧照片", "地铁", "口红", "信封", "冰淇淋", "月亮", "手电筒", "外套", "便签", "咖啡",
+    "雪", "耳机", "红绳", "面包", "鞋带", "风筝", "镜子", "围巾", "烟花", "车票", "糖", "向日葵", "台灯", "气球", "日记本", "铃铛", "狗", "拖鞋", "海浪", "秘密"];
+  function storyPick(list, rnd) { return list[Math.floor((rnd || Math.random)() * list.length)]; }
+  function storyNewGame(players, laps, rnd) {
+    const seats = players.slice();
+    const state = { id: "story_" + Date.now().toString(36), status: "playing", laps: laps || 3, turn: 0, opener: storyPick(STORY_OPENERS, rnd), lines: [], log: [], title: "",
+      players: seats, word: storyPick(STORY_WORDS, rnd) };
+    return state;
+  }
+  function storyTotalTurns(state) { return state.players.length * state.laps; }
+  function storyIsLast(state) { return state.lines.length === storyTotalTurns(state) - 1; }
+  function storyText(state) { return [state.opener].concat(state.lines.map(function (l) { return l.text; })).join(""); }
+  // 写一句：没用上抽到的词也收（她写的就是她写的），只是记一笔，界面上那个词不标绿
+  function storyAct(state, key, text, rnd) {
+    const p = state.players[state.turn], line = String(text || "").replace(/\s+/g, " ").trim().slice(0, 160);
+    if (!p || p.key !== key || state.status !== "playing") throw new Error("还没轮到");
+    if (!line) throw new Error("写一句再接");
+    state.lines.push({ key: p.key, name: p.name, text: line, word: state.word, used: line.indexOf(state.word) >= 0 });
+    if (state.lines.length >= storyTotalTurns(state)) { state.status = "finished"; return state; }
+    state.turn = (state.turn + 1) % state.players.length;
+    state.word = storyPick(STORY_WORDS, rnd);
+    return state;
+  }
+  function StoryChainGame(props) {
+    const t = props.t, api = props.active, cfg = props.config || {};
+    const restored = props.savedState && props.savedState.state;
+    const [state, setState] = useState(function () {
+      if (restored && restored.status === "playing") {
+        restored.players.forEach(function (p) { const live = unoPlayers(props, 8).find(function (x) { return x.key === p.key; }); if (live) Object.assign(p, live); });
+        return restored;
+      }
+      return storyNewGame(unoPlayers(props, 8), 3);
+    });
+    const [busy, setBusy] = useState(false), [error, setError] = useState(""), [draft, setDraft] = useState(""), [title, setTitle] = useState(""), [copied, setCopied] = useState(false);
+    const running = useRef("");
+    const current = state.players[state.turn], me = current && current.isUser;
+    useEffect(function () {
+      if (state.status === "finished") { clearGameSave("story"); return; }
+      saveGameSnap("story", { config: cfg, state: state, label: "写到第 " + (state.lines.length + 1) + " 句 · 轮到 " + (current ? current.name : "—") });
+    }, [state]);
+    useEffect(function () {
+      if (!current || current.isUser || state.status !== "playing" || busy) return;
+      const turnId = state.id + "#" + state.lines.length + "#" + current.key;
+      if (running.current === turnId) return; running.current = turnId; setBusy(true); setError("");
+      const last = storyIsLast(state), word = state.word;
+      const sys = "你正在和大家玩「故事接龙」：每人轮流往下写一句，接在别人后面，合起来是一篇小故事。你写的就是你这一句，不是评论。保持你本人的性格和说话习惯——你会怎么接，就怎么接（爱搞怪的会拐个弯，细腻的会写细节）。"
+        + "\n这一句必须自然地用上「" + word + "」这个词。只写一到两句、60 字以内，紧接上文，别重复上文，别替别人写后面。" + (last ? "\n这是全篇最后一句，由你来收尾：把故事落下来，留一点余味。" : "")
+        + "\n只输出 JSON：{\"line\":\"你接的这一句\",\"say\":\"可空：写完顺口对大家说的一句\"}";
+      const ctx = "故事到目前为止：\n" + storyText(state) + "\n\n现在轮到你接。要用上的词：" + word;
+      routeSeatCall(current, api, sys, [{ role: "user", content: ctx }], { game: "story", turnId: turnId, expect: "{\"line\":\"...\",\"say\":\"...\"}", timeout: 150000, ai: { maxTokens: 8400 } })
+        .then(function (r) {
+          const a = unoJson(r.value), line = String(a.line || "").trim();
+          if (!line) throw new Error("没写出来");
+          const n = JSON.parse(JSON.stringify(state));
+          storyAct(n, current.key, line);
+          const s = String(a.say || "").trim();
+          if (s) n.log.push({ kind: "chat", player: current.key, text: current.name + "：“" + s.slice(0, 120) + "”" });
+          setState(n);
+        }).catch(function (e) { setError((current ? current.name : "TA") + " 这句没接上：" + e.message); })
+        .finally(function () { setBusy(false); });
+    }, [state, busy]);
+    function submit() {
+      try { const n = JSON.parse(JSON.stringify(state)); storyAct(n, "user", draft); setState(n); setDraft(""); setError(""); }
+      catch (e) { setError(e.message); }
+    }
+    function retry() { running.current = ""; setError(""); setState(JSON.parse(JSON.stringify(state))); }
+    const full = storyText(state);
+    const name = title.trim() || "无题";
+    return h("div", { "data-wk": "gameplay", "data-part": "story", className: "h-full flex flex-col", style: gameTable("story", t) },
+      h(Head, { zh: "故事接龙", en: state.status === "finished" ? "写完了" : ("第 " + (state.lines.length + 1) + " / " + storyTotalTurns(state) + " 句 · 轮到 " + (current ? current.name : "—")), onBack: props.onBack, bg: "transparent" }),
+      h("div", { className: "flex-1 overflow-y-auto px-5 pb-3", style: { paddingTop: 12 } },
+        h(GameVsBar, { t: t, seats: state.players.map(function (p, i) {
+          const n = state.lines.filter(function (l) { return l.key === p.key; }).length;
+          return { key: p.key, name: p.name, char: p.isUser ? { name: p.name, avatarImage: (props.profile || {}).avatarImage, color: (props.profile || {}).color } : (props.characters || []).find(function (c) { return String(c.id) === String(p.key); }),
+            isUser: p.isUser, on: state.status === "playing" && i === state.turn, sub: state.status === "playing" && i === state.turn ? "在写…" : "写了 " + n + " 句" };
+        }) }),
+        // 一页横格本：左边一道红边线，字压在格线上；第几圈贴在右上角
+        h("div", { "data-wk": "gamestorypaper", style: { position: "relative", borderRadius: 6, padding: "18px 16px 16px 30px", background: "#fffdf6",
+            backgroundImage: "linear-gradient(90deg, transparent 21px, rgba(208,83,63,.35) 21px, rgba(208,83,63,.35) 22.5px, transparent 22.5px), repeating-linear-gradient(180deg, transparent 0 29px, rgba(93,111,163,.18) 29px 30px)",
+            backgroundPosition: "0 0, 0 19px",
+            boxShadow: "0 1px 0 #ece5d6, 0 3px 0 #f5f0e6, 0 4px 0 #e4dccd, 0 10px 22px rgba(40,30,20,.18)" } },
+          state.status === "playing" ? h("div", { style: { position: "absolute", right: 10, top: -8, fontFamily: F_BODY, fontSize: 11, color: "#fff", background: LID.story.hot, borderRadius: 4, padding: "3px 8px", boxShadow: "0 2px 4px rgba(0,0,0,.15)" } },
+            "第 " + (Math.floor(state.lines.length / state.players.length) + 1) + " / " + state.laps + " 圈") : null,
+          state.status === "finished" ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 18, color: "#2f2a24", lineHeight: "30px", marginBottom: 0, textAlign: "center" } }, "《" + name + "》") : null,
+          h("p", { style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: "30px", color: "#2f2a24", margin: 0 } },
+            h("span", { style: { color: "#8a8173" } }, state.opener),
+            state.lines.map(function (l, i) {
+              return h("span", { "data-wk": "gamestoryline", "data-part": l.key === "user" ? "me" : "ta", key: i, title: l.name },
+                l.text.split(l.word).map(function (seg, j, arr) {
+                  return j < arr.length - 1 ? [seg, h("b", { key: "w" + j, style: { color: LID.story.hot, fontWeight: 700, background: "linear-gradient(180deg, transparent 60%, rgba(93,111,163,.18) 60%)" } }, l.word)] : seg;
+                }));
+            })),
+          h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 } }, state.lines.map(function (l, i) {
+            return h("span", { key: i, style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, padding: "2px 8px", borderRadius: 999, border: "1px solid " + t.line } }, (i + 1) + " · " + l.name + (l.used ? "" : " · 没用上「" + l.word + "」"));
+          }))),
+        state.log.length ? h("div", { "data-wk": "gamelog", "data-part": "story", style: { marginTop: 10, background: t.bg2, borderRadius: 13, padding: "9px 12px" } }, state.log.slice(-6).map(function (x, i) { return h("div", { "data-wk": "gamelogline", key: i, style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, lineHeight: 1.65 } }, x.text); })) : null,
+        error ? h("div", { style: { color: "#c0553f", fontFamily: F_BODY, fontSize: 12, marginTop: 8 } }, error, " ",
+          h("button", { onClick: retry, style: { color: t.tint, fontFamily: F_BODY, fontSize: 12, textDecoration: "underline", background: "transparent" } }, "再请一次")) : null,
+        state.status === "finished" ? h("div", { style: { marginTop: 14 } },
+          h("input", { "data-wk": "gameinput", "data-part": "title", value: title, onChange: function (e) { setTitle(e.target.value.slice(0, 20)); }, placeholder: "给它起个名字（可空）", style: { width: "100%", boxSizing: "border-box", border: "1px solid " + t.line, borderRadius: 999, padding: "9px 13px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none", textAlign: "center" } }),
+          h("button", { "data-wk": "gamestorycopy", onClick: function () { try { (typeof copyText === "function" ? copyText : function (s) { return navigator.clipboard.writeText(s); })("《" + name + "》\n" + full); setCopied(true); } catch (e) {} },
+            style: { width: "100%", minHeight: 42, marginTop: 9, fontFamily: F_BODY, fontSize: 12.5, color: t.ink, background: t.bg2, border: "1px solid " + t.line, borderRadius: 10 } }, copied ? "已复制全文" : "复制全文"),
+          h(KeepMemBtn, { t: t, host: props, rep: function () {
+            return { key: "story", zh: "故事接龙", ids: realCharIds(state.players), wins: [], meWin: null,
+              text: "一起接龙写了一篇小故事《" + name + "》：" + full.slice(0, 240) + (full.length > 240 ? "……" : "") };
+          } })) : null),
+      state.status === "playing" && me ? h("div", { "data-wk": "gameactions", "data-part": "story", "data-kind": "write", className: "shrink-0", style: { borderTop: "1px solid " + t.line, padding: "10px 12px calc(env(safe-area-inset-bottom) + 12px)" } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, color: t.sub, marginBottom: 7 } }, "轮到你接", storyIsLast(state) ? "最后一句——帮它收个尾" : "", "，要用上：", h("b", { "data-wk": "gamestoryword", style: { color: t.tint, fontSize: 14 } }, "「" + state.word + "」")),
+        h("div", { style: { display: "flex", gap: 8, alignItems: "flex-end" } },
+          h("textarea", { "data-wk": "gameinput", "data-part": "line", value: draft, onChange: function (e) { setDraft(e.target.value); }, rows: 2, placeholder: "接着往下写一句……", style: { flex: 1, resize: "none", border: "1px solid " + t.line, borderRadius: 15, padding: "10px 12px", background: t.bg2, color: t.ink, fontFamily: F_BODY, outline: "none" } }),
+          h("button", { "data-wk": "gamestorysend", onClick: submit, disabled: !draft.trim(), style: { width: 44, height: 44, borderRadius: 999, border: 0, background: draft.trim() ? t.tint : t.line, color: "white", fontSize: 19 } }, "↑"))) :
+      busy ? h("div", { className: "shrink-0", style: { padding: "15px", textAlign: "center", color: t.fog, fontFamily: F_BODY } }, (current ? current.name : "TA") + " 在想怎么接…（要用上「" + state.word + "」）") : null);
+  }
+
+  if (typeof module === "object" && module.exports) module.exports = { spyGuessHits: spyGuessHits, seerTruthViolations: seerTruthViolations, enforceSeerTruth: enforceSeerTruth, wolfPublicThreats: wolfPublicThreats, wolfNightIntel: wolfNightIntel, avalonBoard: avalonBoard, MONO_BOARD: MONO_BOARD, monoMove: monoMove, monoNetWorth: monoNetWorth, monoAdvance: monoAdvance, monoOwnsGroup: monoOwnsGroup, monoRent: monoRent, monoGridPos: monoGridPos, monoMigrateSave: monoMigrateSave, monoMaxMoves: monoMaxMoves, monoShouldFlush: monoShouldFlush, monoCleanLogs: monoCleanLogs, monoStyle: monoStyle, monoNpcDecision: monoNpcDecision, monoAuctionCap: monoAuctionCap, monoAuctionPlan: monoAuctionPlan, routeSeatCall: routeSeatCall, liarLegalBid: liarLegalBid, liarCount: liarCount, liarNewGame: liarNewGame, liarAct: liarAct, liarNpcMove: liarNpcMove, liarNewRound: liarNewRound, storyNewGame: storyNewGame, storyAct: storyAct, storyText: storyText, tdLooksLikeDare: tdLooksLikeDare, tdPromptMatchesChoice: tdPromptMatchesChoice, tdPickFairTarget: tdPickFairTarget, tdPickNextAsker: tdPickNextAsker };
   // 聊天那头要按 key 报菜名（房间里的「TA可以拉你玩点什么」），别在那边再抄一份清单。
   Games.LIST = GAMES.map(function (g) { return { key: g.key, zh: g.zh, min: g.min, max: g.max, rule: g.rule }; });
   if (typeof window !== "undefined") window.Games = Games;

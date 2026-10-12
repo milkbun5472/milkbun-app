@@ -1037,13 +1037,22 @@
     //   正文一个字不动，text 本来就该空着——原来这道筛子只认有正文的，四张卡被当成空的整批丢掉，回话却照样说「卡在下面」
     const loreMetaOnly = x => x.target === "lore" && x.id && x.id !== "new" && !String(x.text || "").trim()
       && (x.keyword != null || x.always != null || String(x.bind || "").trim());
-    const rawPatches = Array.isArray(d.patches) ? d.patches : [];
+    // 有的模型把改动稿放进别的名字里（cards／changes／patch 单张），或者关键词写成 keywords 数组——
+    //   她 2026-10-12 截图：秋秋连说两遍「卡在下面」，一张都没出。认得出就收下，认不出下面照实说。
+    const rawList = Array.isArray(d.patches) ? d.patches : Array.isArray(d.cards) ? d.cards : Array.isArray(d.changes) ? d.changes
+      : (d.patch && typeof d.patch === "object") ? [d.patch] : [];
+    const rawPatches = rawList.map(x => {
+      if (!x || typeof x !== "object") return x;
+      if (x.keyword == null && x.keywords != null) x = Object.assign({}, x, { keyword: Array.isArray(x.keywords) ? x.keywords.join("、") : String(x.keywords) });
+      if (Array.isArray(x.keyword)) x = Object.assign({}, x, { keyword: x.keyword.join("、") });
+      return x;
+    });
     // 关系那一条 text 空着＝删掉这条线，是正经的一张卡
     const relDrop = x => x.target === "rel" && String(x.id || "").trim();
     const patches = rawPatches.filter(x => x && TARGETS[x.target] && (String(x.text || "").trim() || loreMetaOnly(x) || relDrop(x)))
       // 导世界书一份文件往往拆出十来条：全是世界书的那一轮放宽到 12 条，别的照旧 3 条
       // 导世界书、把一串人连起来：全是世界书／关系／配角的那一轮放宽到 12 张
-      .slice(0, (Array.isArray(d.patches) && d.patches.length && d.patches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
+      .slice(0, (rawPatches.length && rawPatches.every(x => x && BULK_OK[x.target])) ? 12 : 3)
       .map((x, i) => ({
         pid: "p" + Date.now() + "_" + i,
         target: x.target, id: String(x.id || "").trim(),
@@ -1062,6 +1071,8 @@
     let reply = scrubCode(String(d.reply || "").trim());
     // 它说了有卡、一张都没留下：照实告诉她，别让她对着「快点应用」找半天
     if (rawPatches.length && !patches.length) reply = (reply ? reply + "\n\n" : "") + "（这一轮的 " + rawPatches.length + " 张改动稿格式不对，没能做成卡片。再叫它一次就好。）";
+    // 嘴上说有卡、实际一张改动稿都没写：也照实说，别让她对着「点应用」找
+    else if (!rawPatches.length && /改动卡|改动稿|卡片|卡在下面|点.{0,3}应用/.test(reply)) reply += "\n\n（这一轮它说了有改动卡，但其实一张都没写出来。再跟它说一次「把卡给我」就好。）";
     // 有些线路会无视 JSON 外壳，直接把已经写好的正文吐出来。纯问答没有 patch，
     // 这时保住正文比让她为同一个问题再付一次更重要；写入仍只认上面的结构化白名单。
     if (!reply && !patches.length) {
@@ -1489,6 +1500,21 @@
         style: { minWidth: 40, minHeight: 40, background: "none", border: "none", fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.tint } }, "✕ 取消"));
   }
   // 一串气泡（整页和悬浮屏共用；只有尺寸不同）
+  // 第一次点开、或者清空之后：秋秋自己先说一句（她 2026-10-12：「新人点开就能看到」）。
+  //   画成她的一条气泡，不是灰字说明——新人认得出这是在跟谁说话。不进记录，清空后照样在。
+  function FirstNote(props) {
+    const t = useTheme(), sm = !!props.compact, av = sm ? 24 : 30, cfg = props.cfg;
+    // 语气照 DEFAULT_PROMPT 那只小肥鸟（她 2026-10-12：「你听听这像它的语气吗」）：轻快、亲近，啾一下就够
+    const text = sm
+      ? "啾！我是" + cfg.name + "～这一页怎么用、哪儿不对劲，尽管问！整本攻略在主屏名片右下角那颗「?」里。\n想改装修、文风、角色档案，我也能帮你动手。拖着顶上那条能把我挪开哦。"
+      : "啾！我是" + cfg.name + "，住在这台手机里的小肥鸟～\n"
+        + "不知道从哪儿下手的话，主屏名片右下角有颗小小的「?」，戳进去就是「攻略」啦：哪儿怎么玩、出了毛病怎么办，全写在里面。\n"
+        + "懒得翻？那就直接问我嘛，那本我背得滚瓜烂熟！按钮是干嘛的、东西找不着、设置了没反应，统统丢给我。\n"
+        + "想改文风、改角色的人设外貌、给界面换身装修，或者往记忆库里塞点东西，我也能叼着笔帮你改。先给你看改成啥样，你点了「应用这条」才算数，啾！";
+    return h("div", { "data-wk": "qqmsg", "data-me": "0", "data-part": "first", style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14, marginTop: sm ? 0 : 6 } },
+      h(QiuFace, { cfg: cfg, size: av, radius: 9 }),
+      h("div", { "data-wk": "qqbubble", "data-me": "0", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text));
+  }
   function Bubbles(props) {
     const t = useTheme(), sm = !!props.compact, C = props.C, av = sm ? 24 : 30;
     return h(React.Fragment, null, C.msgs.map((m, i) => m.role === "me"
@@ -1710,8 +1736,7 @@
         h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 999, background: C.busy ? t.tint : "#7fa87f", boxShadow: "0 0 6px " + (C.busy ? t.tint : "#7fa87f") } })),
       h("div", { "data-wk": "qqfeed", ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px" } },
         C.msgs.length === 0
-          ? h("div", { "data-wk": "qqempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 6 } },
-              "这个 App 整体是做什么的、某一页或一个概念是什么意思、不同玩法有什么区别，以及现在有哪些角色、文风和设置，都可以问我。找不到入口、哪儿不对劲或没生效，也一并问。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
+          ? h("div", { "data-wk": "qqempty" }, h(FirstNote, { cfg: cfg }))
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, toast: props.toast }),
         C.busy ? h(Thinking, { C, big: true }) : null,
@@ -1870,8 +1895,7 @@
       h("div", { "data-wk": "qqfeed", "data-part": "dock", ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "11px 12px 12px" } },
         C.msgs.length === 0
           ? h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.85 } },
-                "这一页的东西怎么用，问我。哪儿不对劲也问。想改的话我直接动手：装修、文风、角色档案。\n拖着顶上那条能把我挪开。"),
+              h(FirstNote, { cfg: cfg, compact: true }),
               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
                 ["这一页是干嘛的", "这个 App 都能玩什么", "把这一页的字调大一点"].map(q =>
                   h("button", { "data-wk": "qqquick", "data-part": "dock", key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))

@@ -24,10 +24,10 @@ test("app 侧那扇门：只收真实角色、打小游戏标签、knownBy 跟 c
 });
 
 test("按钮是唯一入口：九桌各一颗，点一次只写一条，全 NPC 局给说法", () => {
-  assert.equal((games.match(/h\(KeepMemBtn,\s*\{/g) || []).length, 9, "九个终局屏该各有一颗（卧底/狼人/阿瓦隆/猜谜/真心话/大富翁/UNO/五子棋/你画我猜）");
+  assert.equal((games.match(/h\(KeepMemBtn,\s*\{/g) || []).length, 11, "十一个终局屏该各有一颗（卧底/狼人/阿瓦隆/猜谜/真心话/大富翁/UNO/五子棋/你画我猜/骗子骰/故事接龙）");
   // v75.328 起七桌各交一份战果 rep（同一份管收进记忆、战报、战绩），写记忆只剩按钮里那一处
-  assert.equal((games.match(/rep:\s*function\s*\(\)\s*\{/g) || []).length, 9, "有的桌没交战果");
-  assert.ok((games.match(/ids:\s*realCharIds\(/g) || []).length >= 9, "有的桌没走 realCharIds——NPC 或言秋会被写进去");
+  assert.equal((games.match(/rep:\s*function\s*\(\)\s*\{/g) || []).length, 11, "有的桌没交战果");
+  assert.ok((games.match(/ids:\s*realCharIds\(/g) || []).length >= 11, "有的桌没走 realCharIds——NPC 或言秋会被写进去");
   const btn = cut(games, "function KeepMemBtn(props)", "\n  }");
   assert.match(btn, /if \(kept\) return;/, "能连点连写");
   assert.match(btn, /host\.keepGameMemory\(ids, rep\.text\)/, "按钮没走那扇门");

@@ -25,3 +25,15 @@ test('空档按人设挑事：写明的爱好更常做，否定说法不算',()=
   assert.equal(count([]),0,'没写爱做饭就不去厨房');assert.ok(count(['cook'])>40,'写了爱做饭会常去厨房');
   assert.match(src,/likes:root\.CharDayLink\.idleLikes\(char\?\.persona\)/);
 });
+test('此刻卡默认收起，详情点开才显示刚才/接下来/细条/地点',()=>{assert.match(src,/const \[nowMode, setNowMode\] = useState\("short"\), nowOpen = nowMode === "open";/);assert.match(src,/nowMode==="line"&&!showcase&&!trip \? h\("button",\{"aria-label":"展开此刻卡片"/);assert.match(src,/onClick:\(\)=>setNowMode\("line"\)/);assert.match(src,/flexDirection:"row",alignItems:"center",gap:3,whiteSpace:"nowrap"/);assert.match(src,/\(nowOpen\|\|showcase\|\|trip\) && !showcase && !trip && !!sceneNear && \(dayLine\(/);assert.match(src,/"aria-label":nowOpen\?"收起此刻详情":"展开此刻详情"/);assert.match(src,/maxHeight:nowOpen\?78:44,/);});
+test('小相册每天自动存：开着看时每段存一张，打开相册自动补拍，同一段新图保留已写的念头',()=>{
+  const i=src.indexOf('function mergePhotos('),j=src.indexOf('// Up to six stops',i);assert.ok(i>0&&j>i,'抠不出 mergePhotos');
+  const merge=new Function(src.slice(i,j)+';return mergePhotos;')();
+  const out=merge([{time:'09:00',src:'a',thought:'早'},{time:'12:00',src:'b'}],[{time:'09:00',src:'a2'},{time:'10:30',src:'c'}]);
+  assert.deepEqual(out.map(p=>p.time),['09:00','10:30','12:00']);assert.equal(out[0].src,'a2');assert.equal(out[0].thought,'早');
+  assert.match(src,/const albumAuto = !!char && homes\.albumAuto\?\.\[String\(char\.id\)\] !== false;/);
+  assert.match(src,/shot\.key!==key\)return;\n\s*saveAlbum\(char\.id,day,cur=>\(\{\.\.\.\(cur\|\|\{\}\),photos:mergePhotos\(cur\?\.photos,\[/);
+  assert.match(src,/albumFill\.current=tag;setAlbumOpen\(false\);/);
+  assert.match(src,/role:"switch","aria-checked":albumAuto/);
+  assert.match(src,/photos:\(cur\?\.photos\|\|photos\)\.map\(\(p,i\)=>\(\{\.\.\.p,thought:list\[i\]/);
+});

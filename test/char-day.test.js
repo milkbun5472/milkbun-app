@@ -240,7 +240,7 @@ test('整个TA一天卸载再挂载仍接到同角色进度，角色之间隔离
 
 test('更多归拢样貌装修场景，整页返回不改变人物或场景快照',()=>{
  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();const before=viewer.send(tree);
- const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)).length,0);
+ const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)&&!/此刻详情$|^收成一条线$/.test(n.props['aria-label']||'')).length,0);
  viewer.click(tree,'更多');tree=viewer.render();const after=viewer.send(tree);assert.deepEqual(after,{...before,scenePaused:true});
  const panel=viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore');assert.ok(panel);assert.equal(viewer.all(panel).filter(n=>n.props['data-wk']==='cdaymenubody').length,1);
  for(const key of ['cdaymeopen','cdayhomestyle','cdaydecorate','cdayplaces'])assert.ok(viewer.all(panel).find(n=>n.props['data-wk']===key));
@@ -337,7 +337,7 @@ test('复合日程纸卡显示当前与下一步，原编辑writer只纠正所�
  vm.runInContext(cut(app,'  const editSchedSeq =','  const schedWeekKeysFrom =')+'this.editPhase=editSchedSeq;',f.env);
  const v=placeViewer(f,'c1',{onEditSchedSeq:(char,day,seq,patch,expected)=>f.env.editPhase(char.id,day,seq,patch,expected)});let at=Date.parse('2026-10-09T02:12:00Z');f.env.Date=class extends Date{static now(){return at;}};
  const hook=(tree,key)=>v.all(tree).find(n=>n.props['data-wk']===key),text=n=>n.children.map(x=>typeof x==='string'?x:typeof x==='object'?text(x):'').join('');
- let tree=v.render();assert.match(text(hook(tree,'cdayphase')),/正在 · 挑选蔬菜/);assert.match(text(hook(tree,'cdayphase')),/接下来 · 提袋回家/);
+ let tree=v.render();v.click(tree,'展开此刻详情');tree=v.render();assert.match(text(hook(tree,'cdayphase')),/正在 · 挑选蔬菜/);assert.match(text(hook(tree,'cdayphase')),/接下来 · 提袋回家/);
  hook(tree,'cdaypositionopen').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionstage').props.value,0);assert.equal(v.all(tree).find(n=>n.props['data-wk']==='cdaypositionscope'&&n.props['data-part']==='stage').props['aria-pressed'],true);
  hook(tree,'cdaypositionstage').props.onChange({target:{value:'1'}});tree=v.render();hook(tree,'cdaypositionscene').props.onChange({target:{value:'dayLibrary'}});tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaypositionspot'&&n.props['data-part']==='window-reading').props.onClick();tree=v.render();await hook(tree,'cdaypositionsave').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionpage'),undefined);
  assert.equal(JSON.stringify(L.publicSchedules(f.plans())),original);assert.equal(v.send(tree).presentation.map,'dayMarket');
@@ -351,4 +351,46 @@ test('挑人页就是监视面板：此刻、做了多久、刚才和接下来�
   const card=viewer.all(tree).find(n=>n.tag==='button'&&n.props['data-wk']==='cdaypick');assert.ok(card,'有角色卡');
   const txt=n=>n.children.map(c=>typeof c==='string'?c:c&&typeof c==='object'?txt(c):'').join('');const t=txt(card);
   assert.match(t,/TA当地 \d\d:\d\d/);assert.match(t,/刚才 · |接下来 \d\d:\d\d · /);
+});
+
+test('此刻卡能完全收成一条线，点线再回来',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();
+  const card=t=>viewer.all(t).find(n=>n.props['data-wk']==='cdaynow');
+  assert.ok(card(tree),'默认看得到卡片');
+  viewer.click(tree,'收成一条线');tree=viewer.render();
+  assert.equal(card(tree),undefined,'收起后卡片不挡画面');
+  viewer.click(tree,'展开此刻卡片');tree=viewer.render();
+  assert.ok(card(tree),'点细线卡片回来');
+});
+
+test('今天的小相册：更多里能进，没拍时给「拍今天」，配念头一次调用、料走 ctxFor、上限给足',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'今天的小相册');tree=viewer.render();
+  const heads=viewer.all(tree).filter(n=>n.tag==='Head').map(n=>n.props.zh);assert.ok(heads.includes('今天的小相册'),heads.join(','));
+  const btns=viewer.all(tree).filter(n=>n.tag==='button').map(n=>n.children.filter(c=>typeof c==='string').join(''));assert.ok(btns.includes('拍今天'),btns.join('|'));
+  const app=read('js/app.js'),i=app.indexOf('generateDiary: (c, photos, identity) =>'),seg=app.slice(i,i+900);assert.ok(i>0);
+  assert.match(seg,/ctxFor\(c,/);assert.match(seg,/maxTokens:65000/);assert.match(seg,/albumInstruction\(photos\)/);
+  const scene=read('apps/fairy-garden/day/scene.mjs');assert.match(scene,/function captureSolo\(\)\{/);assert.match(scene,/capturePhoto,captureSolo,/);
+  const day=read('js/char-day.js');assert.match(day,/commitJSONDurable\("x_charDayAlbums",next\)/);assert.match(day,/slice\(-7\)/);
+});
+
+test('拍小相册时场景直接站到每一段的位置，不先走出门、不从门口走进来',()=>{
+  const scene=read('apps/fairy-garden/day/scene.mjs'),day=read('js/char-day.js');
+  assert.match(scene,/else if\(data\.albumShot&&map&&map!==needed&&!changing\)\{enter\(needed,token\);\}/);
+  assert.match(scene,/else if\(\(initial\|\|snapshot\.albumShot\)&&\(snapshot\.presentation\.action==='sleep'\|\|snapshot\.albumShot\|\|/);
+  assert.match(day,/albumShot: !!albumShoot,/);
+});
+
+test('小相册能翻看往日：每天一摞相片，点哪摞看哪天，往日不显示拍摄和自动存开关',()=>{
+  const f=setup(),store={x_charDayAlbums:{c1:{'2026-10-07':{photos:[{time:'09:00',title:'早会',src:'data:a'},{time:'14:00',title:'改稿',src:'data:b'}]},'2026-10-09':{photos:[{time:'08:00',title:'用早饭',src:'data:c'}]}}}};
+  f.env.loadJSON=(k,d)=>k in store?store[k]:d;
+  const viewer=placeViewer(f,'c1');let tree=viewer.render();
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'今天的小相册');tree=viewer.render();
+  const head=t=>viewer.all(t).find(n=>n.tag==='Head'&&n.props.zh==='今天的小相册');assert.ok(head(tree));
+  assert.ok(viewer.all(tree).find(n=>n.tag==='button'&&n.props['aria-label']==='今天的小相册'),'有今天那一摞');
+  viewer.click(tree,'10/7的小相册');tree=viewer.render();
+  assert.match(head(tree).props.sub,/2026-10-07/);
+  const labels=viewer.all(tree).filter(n=>n.tag==='button').map(n=>n.props['aria-label']||'');
+  assert.ok(!viewer.all(tree).some(n=>n.props&&n.props.role==='switch'&&n.props['aria-checked']!==undefined&&String(n.props['aria-label']||'')===''),'往日没有自动存开关');
+  assert.equal(viewer.all(tree).filter(n=>n.tag==='img'&&/^data:[ab]$/.test(n.props.src)).length>=2,true);
 });
