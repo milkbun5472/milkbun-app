@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.490";
+const APP_VERSION = "v75.495";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10751,14 +10751,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pics.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
       if (pics.length) out.push("【发过的图】\n" + pics.slice(0, 6).map(x => "· 发给" + x.to + "的：" + (cut(x.m.desc, 50) || "一张照片")).join("\n"));
     }
-    // 壁纸是谁的照片：一打开手机就看得见，不用点进哪个 app（她 2026-10-12）。藏起来的人、别的面具的人，那张照片不提是谁的
-    {
-      const wf = loadJSON("x_wallFrom", null);
-      if (wf && wf.ref && wf.ref === loadJSON("x_wallpaper", "")) {
-        const who = wf.charId === viewerId ? "你" : (wf.charId && shownId(wf.charId) ? "「" + nameOf(wf.charId) + "」" : "");
-        if (who) out.unshift("【她的手机壁纸】一打开就看得到：是" + who + "发给她的那张照片" + (wf.desc ? "（" + cut(wf.desc, 60) + "）" : "") + "。" + (wf.charId === viewerId ? "她拿你的照片当壁纸。" : ""));
-      }
-    }
     // 最后整份再过一遍别的面具的名字（群友 2026-10-12：关了「别的面具也给看」，TA 翻完还是问「X是谁」）。
     //   上面每一格各自滤过，可总有漏的：群里 X 发的话、别人聊天里提到 X、订单「送给 X」、健康备注……
     //   一格一格补永远补不完，所以出口统一拦：带那几个名字的那一行整行不给，只剩标题的那一格整格不给。
@@ -16996,7 +16988,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
         + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；三格里他穿的是同一身衣服，地方跟着日记走。挑日记里真写到的画面，别编日记里没有的地方和人。"
         + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
-        + "\n这篇日记：\n" + body;
+        + "\n这篇日记：\n" + body
+        // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
+        + (() => { let sc = ""; try { sc = String(scheduleTextFor(char, schedDayKey(new Date(entry.ts))) || "").trim(); } catch (e) {} return sc ? "\n那一天的日程（三格优先挑日程和日记都对得上的时刻）：\n" + sc.slice(0, 600) : ""; })();
       const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240) });
       const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
       let imgKey = null, imgUrl = null;
@@ -27257,16 +27251,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: key, desc: "在你画过的那张上接着画了几笔", photoKind: "drawback", ts: Date.now(), turnId, read: false }]);
     } catch (e) { console.warn("[drawBack]", e && e.message); }
   };
-  // 把他的照片设成手机壁纸（她 2026-10-12）：壁纸照常换，另记一笔是谁的照片、拍的什么——他翻你手机时看得见。
-  //   壁纸被换成别的以后这笔就不作数（ref 对不上），不用另外清。
-  window.__setWallFromPhoto = async (dataUrl, charId, desc) => {
-    try {
-      const ref = await imgToVault(dataUrl);
-      setWallpaper(ref); saveJSON("x_wallpaper", ref);
-      saveJSON("x_wallFrom", { ref, charId: charId || "", desc: String(desc || "").slice(0, 120), ts: Date.now() });
-      toast("设成主屏壁纸了"); return true;
-    } catch (e) { toast("没设成，再试一次"); return false; }
-  };
   // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
   window.__addSelfSticker = async (dataUrl, charId) => {
     try {
@@ -29937,6 +29921,16 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
           return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'此刻的念头',
             instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
+        } finally {if(W)W.active=active;}
+      },
+      // 今天的小相册：一次调用给每张照片配念头；料与「此刻的念头」同一套 ctxFor，指令里只有照片的时间/安排/地点。
+      generateDiary: (c, photos, identity) => {
+        const W=window.__vclock,active=W?.active;
+        try {
+          const text=(identity?.messages||[]).slice(-40).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
+          const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
+          return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'今天的小相册',
+            instruction:window.CharDayThoughts.albumInstruction(photos),schemaHint:'{"thoughts":["按照片顺序，每张一条念头"]}'});
         } finally {if(W)W.active=active;}
       },
       taFor: c => CharacterPronoun.ta(c),

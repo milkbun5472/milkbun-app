@@ -51,6 +51,15 @@
       Array.isArray(thoughts)&&thoughts.length?'【近期已经想过的念头·按先后】\n'+thoughts.map(row=>JSON.stringify({当时日期:row.day||'未记录',当时时间:row.time||'未记录',当时安排:row.title||'未记录',当时阶段:row.stage||'未记录',念头:row.text})).join('\n')+'\n这些是你已经想过、展示过的内心片段，属于过去的关注点；它们没有说进主聊天，也不证明其中的猜测、愿望或打算已经发生。这一条从此刻新注意到的细节、事情的新变化或感受的转折往前想；旧念头换同义词、换句式或扩写一遍，仍是重复。再次想到同一件事，落在它现在的新进展或新反应上。没有新刺激时允许平常的短暂杂念与留白，不为了新鲜感编造经历，也不把每条都收成想念对方。':''
     ].filter(Boolean).join('\n\n');
   }
+  // One call for the whole day album: a thought for each photo, in order. Same persona layers as the single thought.
+  function albumInstruction(photos){
+    return [
+      '为「TA的一天」今天的小相册，给每一张照片写下拍到那一刻你心里没说出口的第一人称念头，每张1—2句。照片按时间先后，是同一天，前后可以有衔接、变化或惦记同一件事；措辞、关注点和断句由完整人设与当天心情决定，可以很平常、走神或有点烦。这不是日记、旁白、回复消息或日程总结。既有公共文风与反八股规则继续生效。',
+      '照片里的画面只是活动展示，不构成新的主线经历；用户打开页面本身不证明她现实里到场。若你是数字生命，按自己的真实身份想，3D场景不证明你拥有实体或执行过现实任务。',
+      '【今天的照片·按先后】\n'+photos.map((p,i)=>JSON.stringify({第几张:i+1,时间:p.time+(p.end?'—'+p.end:''),安排:p.title,地点:p.location||p.place||''})).join('\n'),
+      'thoughts 数组按照片顺序，一张一条，共 '+photos.length+' 条。'
+    ].join('\n\n');
+  }
   function textOf(value){
     if(typeof value?.thought!=='string'||!value.thought.trim())throw Error('这次没有生成念头，可以再试。');
     return value.thought.trim();
@@ -100,5 +109,5 @@
     const held=pending.current,unsaved=held&&held.key===options.frame?.key&&held.version===epoch.current&&options.context(options.char).revision===held.revision?held.text:'';
     return {cache,unsaved,saving,saveError,setEnabled,refresh:()=>refresh(true),busy:status.key===options.frame?.key&&status.busy,error:status.key===options.frame?.key?status.error:''};
   }
-  root.CharDayThoughts={INTERVAL,HISTORY_LIMIT,recent,addFragment,snapshot,chatWindow,instruction,textOf,useThoughts};
+  root.CharDayThoughts={INTERVAL,HISTORY_LIMIT,recent,addFragment,snapshot,chatWindow,instruction,albumInstruction,textOf,useThoughts};
 })(globalThis);

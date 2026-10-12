@@ -1,46 +1,46 @@
-import {createRoomCutaway} from './camera-view.mjs?v=fg-ab8076f3b07a3f6c';
-import {createKitchenStation} from './board-station.mjs?v=fg-ab8076f3b07a3f6c';
+import {createRoomCutaway} from './camera-view.mjs?v=fg-78f265a4a6cfcea6';
+import {createKitchenStation} from './board-station.mjs?v=fg-78f265a4a6cfcea6';
 const boardStation=createKitchenStation();let kitchenStation='';
-import './kitchen.js?v=fg-ab8076f3b07a3f6c';
-import {createLunchCarry} from './lunch-carry.mjs?v=fg-ab8076f3b07a3f6c';
-import {createKitchenView} from './kitchen-view.mjs?v=fg-ab8076f3b07a3f6c';
+import './kitchen.js?v=fg-78f265a4a6cfcea6';
+import {createLunchCarry} from './lunch-carry.mjs?v=fg-78f265a4a6cfcea6';
+import {createKitchenView} from './kitchen-view.mjs?v=fg-78f265a4a6cfcea6';
 const kitchenView=createKitchenView({actors:()=>[avatar,visitorAvatar]});
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-ab8076f3b07a3f6c';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-ab8076f3b07a3f6c';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-ab8076f3b07a3f6c';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-78f265a4a6cfcea6';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-78f265a4a6cfcea6';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-78f265a4a6cfcea6';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-ab8076f3b07a3f6c';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-ab8076f3b07a3f6c';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-ab8076f3b07a3f6c';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-ab8076f3b07a3f6c';
-import {seatLook} from '../wardrobe.mjs?v=fg-ab8076f3b07a3f6c';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-ab8076f3b07a3f6c';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-ab8076f3b07a3f6c';
-import {stepRoute} from '../locomotion.mjs?v=fg-ab8076f3b07a3f6c';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-ab8076f3b07a3f6c';
-import {updateWorkScene} from './work-scene.mjs?v=fg-ab8076f3b07a3f6c';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-ab8076f3b07a3f6c';
-import {activityPose} from './activity.mjs?v=fg-ab8076f3b07a3f6c';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-ab8076f3b07a3f6c';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-78f265a4a6cfcea6';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-78f265a4a6cfcea6';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-78f265a4a6cfcea6';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-78f265a4a6cfcea6';
+import {seatLook} from '../wardrobe.mjs?v=fg-78f265a4a6cfcea6';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-78f265a4a6cfcea6';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-78f265a4a6cfcea6';
+import {stepRoute} from '../locomotion.mjs?v=fg-78f265a4a6cfcea6';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-78f265a4a6cfcea6';
+import {updateWorkScene} from './work-scene.mjs?v=fg-78f265a4a6cfcea6';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-78f265a4a6cfcea6';
+import {activityPose} from './activity.mjs?v=fg-78f265a4a6cfcea6';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-78f265a4a6cfcea6';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-ab8076f3b07a3f6c';
-import {createSpaceView} from './space-view.mjs?v=fg-ab8076f3b07a3f6c';
-import {setHomeClock} from './home-shell.mjs?v=fg-ab8076f3b07a3f6c';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-ab8076f3b07a3f6c';
-import {createTogether} from './together.mjs?v=fg-ab8076f3b07a3f6c';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-ab8076f3b07a3f6c';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-ab8076f3b07a3f6c';
-import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-ab8076f3b07a3f6c';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-ab8076f3b07a3f6c';
-import {createSceneVisit} from './visit.mjs?v=fg-ab8076f3b07a3f6c';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-ab8076f3b07a3f6c';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-ab8076f3b07a3f6c';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-ab8076f3b07a3f6c';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-78f265a4a6cfcea6';
+import {createSpaceView} from './space-view.mjs?v=fg-78f265a4a6cfcea6';
+import {setHomeClock} from './home-shell.mjs?v=fg-78f265a4a6cfcea6';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-78f265a4a6cfcea6';
+import {createTogether} from './together.mjs?v=fg-78f265a4a6cfcea6';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-78f265a4a6cfcea6';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-78f265a4a6cfcea6';
+import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-78f265a4a6cfcea6';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-78f265a4a6cfcea6';
+import {createSceneVisit} from './visit.mjs?v=fg-78f265a4a6cfcea6';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-78f265a4a6cfcea6';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-78f265a4a6cfcea6';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-78f265a4a6cfcea6';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-ab8076f3b07a3f6c';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-78f265a4a6cfcea6';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-78f265a4a6cfcea6';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -243,7 +243,7 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
       if(same&&!resume.moving&&snapshot.presentation.action!=='walk'&&walkable(target.x,target.z,map)){position={...target};route=[];}
       else{go(target);if(same&&route.length)speed=resume.speed;}
     }
-    else if(initial&&(snapshot.presentation.action==='sleep'||!snapshot.preview&&!snapshot.showcase&&snapshot.slot&&Number.isFinite(snapshot.at)&&snapshot.at>snapshot.slot.startAt+30000&&activity.phase!=='enter')&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
+    else if((initial||snapshot.albumShot)&&(snapshot.presentation.action==='sleep'||snapshot.albumShot||!snapshot.preview&&!snapshot.showcase&&snapshot.slot&&Number.isFinite(snapshot.at)&&snapshot.at>snapshot.slot.startAt+30000&&activity.phase!=='enter')&&walkable(target.x,target.z,map)){position={...target};route=[];}else go(target);
     if(strolling()&&!route.length)wander();
     if(resume?.visitor?.present&&visitSetting()&&(freeOuting()||snapshot.visitorData?.homePresence!=='away')){
       await prepareVisitor();if(token!==epoch||disposed)return;
@@ -340,6 +340,8 @@ function apply(data,local=false){
   if(tripChanged){enter(needed,token,false,false,resume?.map===needed?resume:null);}
   else if(data.editing&&map!==needed){enter(needed,token);}
   else if(map==='dayHome'&&needed===map&&(spaceStyle!==(data.homeStyle||'warm')||layoutChanged||!!wasEditing!==!!data.editing)){mapLoader.keep(null);enter(needed,token,false,!!wasEditing&&!!data.editing);}
+  // The day album jumps straight to each stop instead of walking out of the last room first.
+  else if(data.albumShot&&map&&map!==needed&&!changing){enter(needed,token);}
   else if(map&&map!==needed&&!changing){
     target={...MAPS[map].spawn};go(target,()=>enter(needed,token));
     if(!route.length&&!changing)enter(needed,token);
@@ -512,10 +514,19 @@ function capturePhoto(){
  const src=renderPhoto(T,renderer,scene,view,{width:800,height:600,quality:.84});renderer.render(scene,camera);
  return {src,map,place:MAPS[map]?.label,charId:snapshot.charId,activity:sharedActivity(),minute:snapshot.minute};
 }
+// TA alone for the day album: works while previewing a schedule row, never while editing. Small frame keeps the album light.
+function captureSolo(){
+ if(!ready||changing||snapshot?.editing||!avatar?.root.visible)throw Error('画面还没准备好。');
+ const bounds=actorBounds('ta');if(!bounds)throw Error('画面还没准备好。');
+ const center=bounds.getCenter(new T.Vector3()),view=camera.clone(),height=Math.max(2.6,bounds.getSize(new T.Vector3()).y+1.6),width=height*4/3;
+ Object.assign(view,{left:-width/2,right:width/2,top:height/2,bottom:-height/2,zoom:1,far:200});view.position.copy(center).add(new T.Vector3(10,11.5,16));view.lookAt(center);view.updateProjectionMatrix();view.updateMatrixWorld();
+ const src=renderPhoto(T,renderer,scene,view,{width:480,height:360,quality:.8});renderer.render(scene,camera);
+ return {src,map,place:MAPS[map]?.label,charId:snapshot.charId,minute:snapshot.minute,key:snapshot.key};
+}
 function sharedActivity(){return together?.inspect()?.label||(freeOuting()?'一起逛逛':null)||(snapshot?.slot?.deviation?.actual||snapshot?.slot?.title||'在小家待一会儿');}
 function visitorWardrobe(){const look=seatLook('me',snapshot?.visitorLook||{},'她');return {getDyes:()=>dyesOf(look),getOutfit:()=>({id:outfitId(look),colors:outfitColors(look)}),getHair:()=>hairId(look.hair),hairModes:HAIR_MODES};}
 const listFurniture=()=>homeFurniture(snapshot?.homePlacements).map(p=>({...p,parts:furnitureParts(p),primary:furniturePrimary(p,styleOf(snapshot?.homeStyle)).color,actions:usesFor(p),inUse:usesFor(p).some(action=>MAPS.dayHome.spots.find(s=>s.id===action)?.piece===p.id)}));
-window.CharDayScene={kitchenInput,projectKitchenTargets,projectKitchenPoint,catalogLabels:()=>Object.fromEntries(HOME_CATALOG.map(p=>[p.id,p.label])),pauseState,setCameraMode,capturePhoto,professionalChoices:()=>PROFESSIONAL_OPTIONS,professionalStyles:()=>PROFESSIONAL_STYLES,joinVisit,visitAction,visitorWardrobe,mergeVisitorLook:(patch,old)=>mergeLook(old||snapshot?.visitorLook||{},patch),setSnapshot:apply,listPlaces:placeList,listFurniture,listCatalog,furniturePreview,decorationOptions:()=>({categories:HOME_CATEGORIES,collections:HOME_COLLECTIONS,colors:HOME_COLORS,materials:HOME_MATERIALS,walls:HOME_WALLS,floors:HOME_FLOORS,sizes:HOME_SIZES,mountWalls:HOME_MOUNT_WALLS}),addFurniture:id=>commitEdit(addHomeFurniture(snapshot?.homePlacements,id)),editRoom:change=>commitEdit(changeHomeRoom(snapshot?.homePlacements,change)),selectFurniture,editAction,editMove:(id,point)=>{selectFurniture(id);return commitEdit(changeHomeFurniture(snapshot?.homePlacements,id,point));},editLayout:()=>drag||changing?{ok:false,reason:'等家具放稳后再保存。'}:checkHomeLayout(snapshot?.homePlacements),projectGround,projectFurniture,listPairStyles:()=>Object.entries(PAIR_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listMotions:()=>Object.entries(MOTION_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,probeAction:()=>{const hand=avatar?.root.getObjectByName('Right_hand'),head=avatar?.root.getObjectByName('HeadAnchor'),tool=avatar?.root.getObjectByName(taskState?.kind==='write'?'WorkPencil':taskState?.kind==='paint'?(taskState.tool==='chalk'?'WorkChalk':'WorkBrush'):'WorkPipette');return {leftHand:avatar?.root.getObjectByName('Left_hand')?.getWorldPosition(new T.Vector3()).toArray(),luggage:avatar?.root.getObjectByName('WorkSuitcase')?.getWorldPosition(new T.Vector3()).toArray(),luggageGrip:avatar?.root.getObjectByName('SuitcaseGrip')?.getWorldPosition(new T.Vector3()).toArray(),leftHeadHand:(()=>{const left=avatar?.root.getObjectByName('Left_hand');return head&&left?head.worldToLocal(left.getWorldPosition(new T.Vector3())).toArray():null;})(),bones:['rightArm','rightForearm'].map(n=>avatar?.root.getObjectByName(n)?.getWorldPosition(new T.Vector3()).toArray()),hand:hand?.getWorldPosition(new T.Vector3()).toArray(),headHand:head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null,tool:tool?.getWorldPosition(new T.Vector3()).toArray(),task:taskState};},inspect:()=>({outing:freeOuting(),hasScheduledResume:!!scheduledResume,cameraMode,hostChore:hostChore?{kind:hostChore.kind,piece:hostChore.piece,elapsed:dwell,manual:hostChoreManual,contact:avatar.root.userData.chore}:null,transfer:transfer?.inspect(),pairStyles:{ta:hostPair,me:guestPair},kitchenStation,kitchenBoard:kitchenStation?boardStation.inspect():null,kitchenTool:kitchenStation?KITCHEN_TOOL_INSPECT():null,kitchenView:kitchenView.inspect(),lunchCarry:lunchCarry.inspect(),kitchenProgress,kitchenDrag:kitchenDrag?{tag:kitchenDrag.tag,x:kitchenDrag.startX,y:kitchenDrag.startY,point:kitchenDrag.point,path:kitchenDrag.path.length}:null,framedActors:(()=>{const roots=[avatar?.root,visitorAvatar?.root];return roots.filter(r=>r?.visible).map(r=>({...projectedBounds(visibleBounds(T,[r])),who:r===avatar.root?'ta':'me'}));})(),motion:hostMotion,visitorMotion:guestMotion,professional:mapLoader.views[map]?.root.userData.professional,contacts:{ta:avatar?.root.userData.contacts,me:visitorAvatar?.root.userData.contacts},together:together?.inspect(),visitorLook:snapshot?.visitorLook||{},visitor:visitor?.inspect()||{present:false,visible:false},visitLoading,ready,map,spaceStyle,editing:!!snapshot?.editing,selected,dragging:!!drag,dragPreview:drag?.candidate,editHistory:history.length,homePlacements:homePlacements(snapshot?.homePlacements),spot:snapshot?.presentation.spot,activity:activity?{...activity}:null,task:taskState,workAction:avatar?.root.userData.workAction,avatarPosition:avatar?.root.position.toArray(),avatarHeading:avatar?.root.rotation.y,visualPosition:avatar?.root.getObjectByName('TravelerVisual')?.getWorldPosition(new T.Vector3()).toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,finishes:mapLoader.views[map]?.root.children.filter(g=>g.userData.furnitureId).map(g=>({id:g.name,finish:g.userData.finish,primary:g.userData.primary,materials:g.children.filter(o=>o.isMesh).map(o=>({color:'#'+o.material.color.getHexString(),roughness:o.material.roughness,metalness:o.material.metalness,textured:!!o.material.map}))})),seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),sceneAction:mapLoader.views[map]?.root.userData.sceneAction,environment:dayEnvironment.inspect(),cameraView:{orbit:orbit.snapshot(),pivot:orbitPivot.toArray(),pivotProjection:orbitPivot.clone().project(camera).toArray(),pan:{...pan},position:camera.position.toArray(),cutaway:cutaway.snapshot()},render:{quality:qualityLevel,qualityLabel:QUALITY_LEVELS[qualityLevel].label,pixelRatio:renderer.getPixelRatio(),shadowSize:sun.shadow.mapSize.x,load:sceneLoad(mapLoader.views[map]?.root),activeMaps:Object.keys(mapLoader.views),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,zoom:camera.zoom,homeOverview}})};
+window.CharDayScene={kitchenInput,projectKitchenTargets,projectKitchenPoint,catalogLabels:()=>Object.fromEntries(HOME_CATALOG.map(p=>[p.id,p.label])),pauseState,setCameraMode,capturePhoto,captureSolo,professionalChoices:()=>PROFESSIONAL_OPTIONS,professionalStyles:()=>PROFESSIONAL_STYLES,joinVisit,visitAction,visitorWardrobe,mergeVisitorLook:(patch,old)=>mergeLook(old||snapshot?.visitorLook||{},patch),setSnapshot:apply,listPlaces:placeList,listFurniture,listCatalog,furniturePreview,decorationOptions:()=>({categories:HOME_CATEGORIES,collections:HOME_COLLECTIONS,colors:HOME_COLORS,materials:HOME_MATERIALS,walls:HOME_WALLS,floors:HOME_FLOORS,sizes:HOME_SIZES,mountWalls:HOME_MOUNT_WALLS}),addFurniture:id=>commitEdit(addHomeFurniture(snapshot?.homePlacements,id)),editRoom:change=>commitEdit(changeHomeRoom(snapshot?.homePlacements,change)),selectFurniture,editAction,editMove:(id,point)=>{selectFurniture(id);return commitEdit(changeHomeFurniture(snapshot?.homePlacements,id,point));},editLayout:()=>drag||changing?{ok:false,reason:'等家具放稳后再保存。'}:checkHomeLayout(snapshot?.homePlacements),projectGround,projectFurniture,listPairStyles:()=>Object.entries(PAIR_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listMotions:()=>Object.entries(MOTION_STYLES).map(([id,p])=>({id,label:p.label,description:p.description})),listStyles:()=>Object.entries(SPACE_STYLES).map(([id,p])=>({id,label:p.label,colors:[p.wall,p.wood,p.fabric]})),focus:center,overview,probeAction:()=>{const hand=avatar?.root.getObjectByName('Right_hand'),head=avatar?.root.getObjectByName('HeadAnchor'),tool=avatar?.root.getObjectByName(taskState?.kind==='write'?'WorkPencil':taskState?.kind==='paint'?(taskState.tool==='chalk'?'WorkChalk':'WorkBrush'):'WorkPipette');return {leftHand:avatar?.root.getObjectByName('Left_hand')?.getWorldPosition(new T.Vector3()).toArray(),luggage:avatar?.root.getObjectByName('WorkSuitcase')?.getWorldPosition(new T.Vector3()).toArray(),luggageGrip:avatar?.root.getObjectByName('SuitcaseGrip')?.getWorldPosition(new T.Vector3()).toArray(),leftHeadHand:(()=>{const left=avatar?.root.getObjectByName('Left_hand');return head&&left?head.worldToLocal(left.getWorldPosition(new T.Vector3())).toArray():null;})(),bones:['rightArm','rightForearm'].map(n=>avatar?.root.getObjectByName(n)?.getWorldPosition(new T.Vector3()).toArray()),hand:hand?.getWorldPosition(new T.Vector3()).toArray(),headHand:head&&hand?head.worldToLocal(hand.getWorldPosition(new T.Vector3())).toArray():null,tool:tool?.getWorldPosition(new T.Vector3()).toArray(),task:taskState};},inspect:()=>({outing:freeOuting(),hasScheduledResume:!!scheduledResume,cameraMode,hostChore:hostChore?{kind:hostChore.kind,piece:hostChore.piece,elapsed:dwell,manual:hostChoreManual,contact:avatar.root.userData.chore}:null,transfer:transfer?.inspect(),pairStyles:{ta:hostPair,me:guestPair},kitchenStation,kitchenBoard:kitchenStation?boardStation.inspect():null,kitchenTool:kitchenStation?KITCHEN_TOOL_INSPECT():null,kitchenView:kitchenView.inspect(),lunchCarry:lunchCarry.inspect(),kitchenProgress,kitchenDrag:kitchenDrag?{tag:kitchenDrag.tag,x:kitchenDrag.startX,y:kitchenDrag.startY,point:kitchenDrag.point,path:kitchenDrag.path.length}:null,framedActors:(()=>{const roots=[avatar?.root,visitorAvatar?.root];return roots.filter(r=>r?.visible).map(r=>({...projectedBounds(visibleBounds(T,[r])),who:r===avatar.root?'ta':'me'}));})(),motion:hostMotion,visitorMotion:guestMotion,professional:mapLoader.views[map]?.root.userData.professional,contacts:{ta:avatar?.root.userData.contacts,me:visitorAvatar?.root.userData.contacts},together:together?.inspect(),visitorLook:snapshot?.visitorLook||{},visitor:visitor?.inspect()||{present:false,visible:false},visitLoading,ready,map,spaceStyle,editing:!!snapshot?.editing,selected,dragging:!!drag,dragPreview:drag?.candidate,editHistory:history.length,homePlacements:homePlacements(snapshot?.homePlacements),spot:snapshot?.presentation.spot,activity:activity?{...activity}:null,task:taskState,workAction:avatar?.root.userData.workAction,avatarPosition:avatar?.root.position.toArray(),avatarHeading:avatar?.root.rotation.y,visualPosition:avatar?.root.getObjectByName('TravelerVisual')?.getWorldPosition(new T.Vector3()).toArray(),furnitureNodes:mapLoader.views[map]?.root.children.filter(o=>o.userData.furnitureId).map(o=>o.name),layout:mapLoader.views[map]?.root.userData.layout,finishes:mapLoader.views[map]?.root.children.filter(g=>g.userData.furnitureId).map(g=>({id:g.name,finish:g.userData.finish,primary:g.userData.primary,materials:g.children.filter(o=>o.isMesh).map(o=>({color:'#'+o.material.color.getHexString(),roughness:o.material.roughness,metalness:o.material.metalness,textured:!!o.material.map}))})),seat:seat?{...seat}:null,error:failure,bed:bed?{...bed}:null,visible:avatar?.root.visible,visualTilt:avatar?.root.getObjectByName('TravelerVisual')?.rotation.x,position:{...position},route:route.map(p=>({...p})),gesture:avatar?.root.userData.posture,emotion:avatar?.root.userData.emotion,dailyAction:avatar?.root.userData.dailyAction,arm:avatar?.root.getObjectByName('rightArm')?.quaternion.toArray(),chinContact:chinContact(),following,key:snapshot?.key,charId:snapshot?.charId,changing,look:lookKey,markersVisible:!!mapLoader.views[map]?.markers?.visible,faceTextures:appearanceTextures(),sceneAction:mapLoader.views[map]?.root.userData.sceneAction,environment:dayEnvironment.inspect(),cameraView:{orbit:orbit.snapshot(),pivot:orbitPivot.toArray(),pivotProjection:orbitPivot.clone().project(camera).toArray(),pan:{...pan},position:camera.position.toArray(),cutaway:cutaway.snapshot()},render:{quality:qualityLevel,qualityLabel:QUALITY_LEVELS[qualityLevel].label,pixelRatio:renderer.getPixelRatio(),shadowSize:sun.shadow.mapSize.x,load:sceneLoad(mapLoader.views[map]?.root),activeMaps:Object.keys(mapLoader.views),calls:renderer.info.render.calls,triangles:renderer.info.render.triangles,zoom:camera.zoom,homeOverview}})};
 addEventListener('pagehide',()=>{disposed=true;cancelAnimationFrame(frame);boardStation.dispose();kitchenView.clear();lunchCarry.clear();mapLoader.close();dayEnvironment.close();closeVisit();if(visitorAvatar)disposeMap(visitorAvatar.root);if(avatar)disposeMap(avatar.root);selection.geometry.dispose();selection.material.dispose();draco.dispose();renderer.dispose();});
 resize();frame=requestAnimationFrame(loop);
 try{travelerSource=await loadTravelerSource();avatar=createTraveler(travelerSource,true);hostChoreVisual=createChoreVisual(avatar);scene.add(avatar.root);await avatar.ready();ready=true;tell('');visitNotice({present:false,busy:false,notice:''});if(pending)apply(pending);}catch(e){tell('画面加载失败：'+e.message);}

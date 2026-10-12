@@ -60,3 +60,11 @@ test("快照里有配角和关系；两处秋秋都接上了写入口", () => {
   assert.equal((app.match(/onCreateNpc: data => !!addNpcLinked\(data\),/g) || []).length, 3, "配角页 + 秋秋整页 + 悬浮屏");
   assert.equal((app.match(/relsOf: \(\) => rels,/g) || []).length, 2);
 });
+
+// 她 2026-10-12 截图：秋秋连说两遍「改动卡在下面」，一张都没出
+test("改动稿换了名字也收；嘴上说有卡却一张没写，照实告诉她", () => {
+  const src = require("node:fs").readFileSync(require("node:path").join(__dirname, "..", "js", "assistant.js"), "utf8");
+  assert.match(src, /Array\.isArray\(d\.cards\) \? d\.cards : Array\.isArray\(d\.changes\) \? d\.changes/);
+  assert.match(src, /x\.keyword == null && x\.keywords != null/);
+  assert.match(src, /它说了有改动卡，但其实一张都没写出来/);
+});
