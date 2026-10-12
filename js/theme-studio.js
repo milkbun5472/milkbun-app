@@ -390,6 +390,11 @@
   //   不许在旁边再并排开一对 WK_XXX / WK_XXX_PAGES —— 那就是同一层写在两处，
   //   秋秋那边迟早只念到其中一份（one-public-mechanism.md）。
   const WK_SCOPED = Object.freeze([
+    Object.freeze({zh:"各怀心思的约会",pages:Object.freeze(["games"]),hooks:Object.freeze([
+      ["datepage", "约会游戏的外壳（顶栏和底纹共用）"], ["datemap", "商量路线的地点卡"],
+      ["dateactivity", "合照／抓玩偶／逛店的活动区"], ["datemission", "你的任务纸条与翻牌结果"],
+      ["datecomposer", "约会局聊天输入栏，底部安全区沿主聊天"]
+    ])}),
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
       ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
