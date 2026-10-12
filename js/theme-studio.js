@@ -390,6 +390,11 @@
   //   不许在旁边再并排开一对 WK_XXX / WK_XXX_PAGES —— 那就是同一层写在两处，
   //   秋秋那边迟早只念到其中一份（one-public-mechanism.md）。
   const WK_SCOPED = Object.freeze([
+    Object.freeze({zh:"各怀心思的约会",pages:Object.freeze(["games"]),hooks:Object.freeze([
+      ["datepage", "约会游戏的外壳（顶栏和底纹共用）"], ["datemap", "商量路线的地点卡"],
+      ["dateactivity", "合照／抓玩偶／逛店的活动区"], ["datemission", "你的任务纸条与翻牌结果"],
+      ["datecomposer", "约会局聊天输入栏，底部安全区沿主聊天"]
+    ])}),
     // 消息 app 那一页（群友 2026-10-03：「这个界面的这种是没办法美化吗」）——聊天列表、通讯录、底下四个标签
     Object.freeze({zh:"消息列表",pages:Object.freeze(["messages"]),hooks:Object.freeze([
       ["npcdel", "通讯录 → 配角 → 点开一位 → 删除时弹出的那块确认（连不连聊天一起清）"],
@@ -1003,7 +1008,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.501", changed: "", none: "切格算法与照片日记提示词，没新增挂点。" };
+  const BRIEF_STAMP = { v: "v75.502", changed: "新增独立约会游戏：纸条、地点卡与双人活动沿公共顶栏和聊天底栏布局，五个美化挂点已收进名单。", none: "没动既有挂点：查手机翻线下往期会真的打开。" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };

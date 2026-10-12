@@ -34,6 +34,8 @@
       desc: "轮流出同色、同数字或功能牌。言秋在 CC 在线时会亲自打自己的座位，断线则由模型无感代打。", rule: "2~6 人 · 7 张起手 · +2 规则入场可选 · +4 · 反转/跳过 · 忘喊 UNO 罚 2 张" },
     { key: "liar", emoji: "🎲", zh: "骗子骰", en: "Liar's Dice", min: 2, max: 6,
       desc: "每人五颗骰子扣着，轮流叫「桌上至少有几个几」，觉得上家在吹就开。1 点万能，每人三条命，撑到最后的赢。", rule: "2~6 人 · 每人 5 颗骰子 · 3 条命" },
+    { key: "date", emoji: "✉️", zh: "各怀心思的约会", en: "", min: 2, max: 2,
+      desc: "你和 TA 各抽秘密任务，有限时间和预算里商量路线、配合小游戏，收工再猜对方的心思。", rule: "你和一个角色 · 最多四站 · 独立游戏，不进回忆" },
     { key: "story", emoji: "📖", zh: "故事接龙", en: "Story Chain", min: 2, max: 8,
       desc: "从一句开头起，轮流往下写一句，每人每次抽一个必须用上的词。三圈写完，最后一个人收尾。不分输赢，写完的故事能留着。", rule: "2~8 人 · 三圈 · 不分输赢" }
   ];
@@ -76,7 +78,7 @@
   async function callRetry(api, sys, msgs, opts) {
     opts = Object.assign({ timeout: 90000 }, opts || {});
     let last;
-    for (let i = 0; i < 2; i++) { try { return await callAI(api, sys, msgs, opts); } catch (e) { last = e; } }
+    for (let i = 0; i < 2; i++) { try { return await callAI(api, sys, msgs, opts); } catch (e) { if (opts.signal && opts.signal.aborted) throw e; last = e; } }
     throw last;
   }
   // 能力≠性格：所有游戏共用的反刻板铁律，焊进每次生成
@@ -88,6 +90,15 @@
   const VOICE_RULE = "【是这个人在说话 · 说人话】下面每一句台词都是那个人自己张嘴说的：用TA人设里那种说话的样子——TA的词、TA的脾气、TA跟在场的人的关系；遮住名字要认得出是谁说的，别全桌一个腔调。"
     + "这是几个认识的人围桌玩，不是写复盘：一句里堆了两个以上的抽象名词、或者像在念攻略写分析，就是飘了，换成TA自己会说的大白话。判据：念给桌边一个没玩过这游戏的人听，TA听得懂、接得上话。水平高低只管TA玩得多好，不改TA说话的样子。\n\n";
   // 每个开口的人后面挂一句「说话的样子」：真人角色读完整人设的开头，NPC 读生成的那一句
+  function gameVoiceRules() {
+    return AC + VOICE_RULE + SKILL_RULE + [
+      typeof REGISTER_FOLLOWS_SCENE !== "undefined" ? REGISTER_FOLLOWS_SCENE : "",
+      typeof ECHO_QUESTION_BAN !== "undefined" ? ECHO_QUESTION_BAN : "",
+      typeof STOCK_REPLY_BAN !== "undefined" ? STOCK_REPLY_BAN : "",
+      typeof INTIMATE_CHAT_ANTI_CLICHE !== "undefined" ? INTIMATE_CHAT_ANTI_CLICHE : "",
+      typeof CONDESCENDING_TONE_BAN !== "undefined" ? CONDESCENDING_TONE_BAN : ""
+    ].filter(Boolean).join("\n");
+  }
   function voiceBrief(p) {
     const s = String((p && (p.persona || (p.char && p.char.persona))) || "").replace(/\s+/g, " ").trim();
     return s ? "\n   说话的样子（人设）：" + s.slice(0, 220) : "";
@@ -150,7 +161,7 @@
     }
     return v == null ? fallback : v;
   }
-  function bigSet(key, v) { try { if (typeof saveJSON === "function") saveJSON(key, v); } catch (e) {} }
+  function bigSet(key, v) { try { return typeof saveJSON === "function" ? saveJSON(key, v) : false; } catch (e) { return false; } }
   const WOLF_SAVE = "x_wolfSave";
   function loadWolfSave() { return bigGet(WOLF_SAVE, "wolf_save", null); }
   function saveWolf(s) { bigSet(WOLF_SAVE, s); }
@@ -160,7 +171,7 @@
   const GS_SAVE = "x_gamesSave";  // { [gameKey]: snapshot }
   function loadGamesSaves() { const v = bigGet(GS_SAVE, "games_save", {}); return v && typeof v === "object" ? v : {}; }
   function loadGameSave(k) { return loadGamesSaves()[k] || null; }
-  function saveGameSnap(k, snap) { const all = loadGamesSaves(); all[k] = snap; bigSet(GS_SAVE, all); }
+  function saveGameSnap(k, snap) { const all = loadGamesSaves(); all[k] = snap; return bigSet(GS_SAVE, all); }
   // CC 回执按 turn_id 幂等领取。仅用 day/round 或裸毫秒都可能在新局、时钟回拨、
   // 同毫秒连续出票时撞上旧回执；所有没有稳定局号的临时票统一加随机尾巴。
   function freshCCTurn(prefix) {
@@ -246,6 +257,7 @@
     gomoku:    { paper: "#ecdcb8", ink: "#4a3a22", hot: "#1f1d1b", band: "#4a3a22", bandInk: "#ecdcb8" },
     uno:       { paper: "#2a2a2e", ink: "#f0eee8", hot: "#d94f3d", band: "#18181b", bandInk: "#f0eee8" },
     liar:      { paper: "#e9dccb", ink: "#4b3527", hot: "#a8442f", band: "#4b3527", bandInk: "#e9dccb" },
+    date:      { paper: "#f3e2d8", ink: "#654137", hot: "#b86651", band: "#654137", bandInk: "#f3e2d8" },
     story:     { paper: "#eee8dc", ink: "#3e4250", hot: "#5d6fa3", band: "#3e4250", bandInk: "#eee8dc" }
   };
   function GameLid(props) {
@@ -351,6 +363,11 @@
         h("circle", { key: "g", cx: 96, cy: 40, r: 1.5, fill: c.ink }), h("circle", { key: "i", cx: 102, cy: 46, r: 1.5, fill: c.ink })
       ],
       // 摊开的本子，一行行字一直写到右页，末尾一支笔
+      date: [
+        h("path", { key: "a", d: "M19 35h35v30H19zM67 23h35v30H67z", fill: "#fff", stroke: c.ink, strokeOpacity: .4 }),
+        h("path", { key: "b", d: "M19 35l17 13 18-13M67 23l17 13 18-13M48 25c9-9 19-8 27-5M73 61c-8 8-19 8-26 5", fill: "none", stroke: c.hot, strokeWidth: 2, strokeLinecap: "round" }),
+        h("circle", { key: "c", cx: 36, cy: 53, r: 3, fill: c.hot }), h("circle", { key: "d", cx: 84, cy: 42, r: 3, fill: c.hot })
+      ],
       story: [
         h("path", { key: "a", d: "M60 24c-10-5-24-6-36-3v46c12-3 26-2 36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
         h("path", { key: "b", d: "M60 24c10-5 24-6 36-3v46c-12-3-26-2-36 3z", fill: "#fff", opacity: .92, stroke: c.ink, strokeOpacity: .3 }),
@@ -406,6 +423,14 @@
       //   而且它还会弹一句「没有能收的：这局上场的都是 NPC」，等于点一次骗她一次。
       //   （一层写在两处、第二处没跟上；这一次断在第三处。）
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
+      // Lisa 明确要求这盒永不进回忆：连可写主线的回调都不下发。
+      if (session.game.key === "date") return h(window.DateGame, {
+        config: session.config, savedState: session.saved, active: props.active, characters: routedCharacters,
+        profile: props.profile, recentChatFor: props.recentChatFor, t: t, table: gameTable, VsBar: GameVsBar,
+        call: callRetry, rules: gameVoiceRules(), isEngineer: props.isEngineer,
+        onSave: function (snap) { return saveGameSnap("date", snap); },
+        onBack: function () { setSession(null); setGame(null); setSaveTick(function (x) { return x + 1; }); }
+      });
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
         sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
@@ -427,6 +452,12 @@
       if (session.game.key === "story") return h(StoryChainGame, engineProps);
       return h(GamePlay, { game: session.game, config: session.config, characters: props.characters, profile: props.profile, t: t, onBack: function () { setSession(null); } });
     }
+    if (game && game.key === "date") return h(window.DateGameSetup, {
+      t: t, table: gameTable, characters: props.characters, profile: props.profile, isEngineer: props.isEngineer,
+      initialPicked: entry && entry.characterId ? [String(entry.characterId)] : [],
+      onBack: function () { setGame(null); },
+      onStart: function (config) { setSession({ game: game, config: config }); }
+    });
     if (game) return h(GameSetup, {
       game: game, characters: props.characters, profile: props.profile, moods: props.moods, t: t,
       initialPicked: entry && entryHandledRef.current === entry.key && entry.characterId ? [String(entry.characterId)] : [],
@@ -506,7 +537,7 @@
           }));
         })(),
         h(GameStatsBook, { t: t, characters: props.characters || [] }),
-        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。每局可选正常 / 放水 / 观战，人不够能拉 NPC 凑数。（不写进聊天记忆）"),
+        h("div", { "data-wk": "gameintro", style: { fontFamily: F_BODY, fontSize: 12, color: t.fog, lineHeight: 1.7, margin: "2px 2px 16px" } }, "邀角色开一局派对游戏。派对游戏可选正常 / 放水 / 观战，人不够能拉 NPC 凑数；约会是你和 TA 的两人秘密任务局。（不写进聊天记忆）"),
         // 一架游戏盒：两个一排，每排底下压一条木架线
         (function () {
           const rows = [];
@@ -2780,6 +2811,7 @@
     gomoku: ["#c8a467", "#4a3a22"],
     draw: ["#d0533f", "#3f6fb0"],
     liar: ["#a8442f", "#4b3527"],
+    date: ["#b86651", "#537c71"],
     story: ["#5d6fa3", "#3e4250"]
   };
   function gameTable(k, t) {
