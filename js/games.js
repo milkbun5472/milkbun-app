@@ -384,6 +384,7 @@
       // 这一局是在哪间房里打的，一并递下去：终局那一下要按它决定收到哪儿。
       const engineProps = { config: session.config, game: session.game, active: props.active, bgActive: props.bgActive, characters: routedCharacters, profile: props.profile, recentChatFor: props.recentChatFor, isEngineer: props.isEngineer, t: t, toast: props.toast, savedState: session.saved,
         sendGameReport: props.sendGameReport,
+        sendGameReportGroup: props.sendGameReportGroup, reportGroups: props.reportGroups,
         keepGameMemory: function (ids, text) {
           const room = (session.config && session.config.room) || session.room || null;
           return props.keepGameMemory ? props.keepGameMemory(ids, text, room) : false;
@@ -2643,6 +2644,24 @@
       // 战报发给 TA：上场的每个真人角色一颗，点了就去那个聊天
       rep && ids.length && host.sendGameReport ? h("div", { "data-wk": "gamereport", style: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, marginTop: 9 } },
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "战报发给"),
+        // 全发：上场的人一个个都发一份，不跳走（她 2026-10-12 转群友：「战报可以群发」）
+        ids.filter(function (id) { return nameOf(id); }).length > 1 ? h("button", { key: "__all", "data-wk": "gamereportall", onClick: function () {
+            const todo = ids.filter(function (id) { return nameOf(id) && !sent[id]; });
+            if (!todo.length) return;
+            todo.forEach(function (id) { host.sendGameReport(id, rep, true); });
+            const next = Object.assign({}, sent); todo.forEach(function (id) { next[id] = true; }); setSent(next);
+            toast("战报发给了 " + todo.length + " 个人");
+          }, className: "active:opacity-70",
+          style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: t.bg2, background: t.ink, border: "1px solid " + t.ink } }, "全发") : null,
+        // 发给群（她 2026-10-12：「还有可以发给群」）：群里大家一起看到这张战报卡，不跳走
+        (host.sendGameReportGroup && host.reportGroups || []).map(function (g) {
+          const k = "g:" + g.id;
+          return h("button", { key: k, "data-wk": "gamereportgroup", "data-on": sent[k] ? "1" : "0", onClick: function () {
+              if (sent[k]) return;
+              host.sendGameReportGroup(g.id, rep); setSent(Object.assign({}, sent, { [k]: true })); toast("战报发到群「" + g.name + "」了");
+            }, className: "active:opacity-70",
+            style: { minHeight: 40, padding: "0 14px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, color: sent[k] ? t.fog : t.ink, background: t.bg2, border: "1px dashed " + t.line } }, (sent[k] ? "✓ " : "") + "群 · " + g.name);
+        }),
         ids.map(function (id) {
           const nm = nameOf(id); if (!nm) return null;
           return h("button", { key: id, "data-on": sent[id] ? "1" : "0", onClick: function () {
@@ -3683,10 +3702,10 @@
           h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const rounds = logDataRef.current.filter(function (x) { return x.type === "td"; }).length;
-          // 真心话没有输赢：今晚之星算「赢」
+          // 真心话大冒险没有输赢（她 2026-10-12：「为啥真心话大冒险还有输赢」）：战报卡不写赢输，今晚之星只写进正文
           const star = wrap && wrap.star;
-          return { key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: star && !star.isUser ? realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && q.name === star.name; }) : [],
-            meWin: star ? !!star.isUser : null,
+          return { key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: [],
+            meWin: null,
             text: "一起玩了「真心话大冒险」，转了 " + rounds + " 轮" + (star ? "，今晚之星是" + (star.isUser ? "她" : star.name) : "") + "。" };
         } }));
     }
