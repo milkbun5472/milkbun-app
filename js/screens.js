@@ -8724,10 +8724,11 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       c.provider === "fish" ? h("div", null,
         row("接口地址（默认官方；网页直连不通时换成你的中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
         row("密钥 API Key（fish.audio → API Keys）", h("input", { value: c.fishKey || "", onChange: e => set({ fishKey: e.target.value }), placeholder: "…", type: "password", style: inSt })),
-        row("模型", h("select", { value: c.fishModel || "s1", onChange: e => set({ fishModel: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
-          h("option", { value: "s1" }, "s1（推荐）"),
-          h("option", { value: "speech-1.6" }, "speech-1.6"),
-          h("option", { value: "speech-1.5" }, "speech-1.5"))),
+        // 能自己填（群友 2026-10-12：「会加 S2.1 Pro 吗？现在只有 s1」）：Fish 出新模型比这边改得快，
+        //   原来是写死三个的下拉，新模型填不进去。改成输入框＋候选，候选点一下就填，新名字照 fish.audio 文档写。
+        row("模型（可以自己填，照 fish.audio 文档上的模型名）", h("div", null,
+          h("input", { value: c.fishModel == null ? "s1" : c.fishModel, onChange: e => set({ fishModel: e.target.value.trim() }), placeholder: "s1", list: "fish-models", style: inSt }),
+          h("datalist", { id: "fish-models" }, ["s1", "speech-1.6", "speech-1.5"].map(v => h("option", { key: v, value: v }))))),
         row("默认音色 ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.fishVoice || "", onChange: e => set({ fishVoice: e.target.value }), placeholder: "声音页网址最后那串 ID", style: inSt }))) : null,
       c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
       c.provider === "minimax" ? h("div", null,
