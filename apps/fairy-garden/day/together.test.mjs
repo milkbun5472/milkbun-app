@@ -46,3 +46,23 @@ test('换掌勺先让开占用锅位，两人逐帧沿真实路线换位，分�
  MAPS.dayHome=buildSpace('dayHome');let origins={a:{x:0,z:3.3},b:{x:0,z:4.8}},job={kind:'cook',recipeId:'tomato-rice',cooking:globalThis.CharDayKitchen.cookingSession('tomato-rice',{mode:'hands',lead:'ta'})};const a=actor(),b=actor(),controller=createTogether({a,b,map:()=>MAPS.dayHome,from:()=>origins,kitchen:()=>({job,progress:job.cooking.progress}),onStop:s=>{origins={a:s.a,b:s.b};}});
  assert.equal(controller.start('cook',{lead:'ta'}).ok,true);for(let i=0;i<2500&&controller.inspect()?.phase!=='active';i++)controller.tick(.02,i*.02);assert.equal(controller.inspect().phase,'active');controller.tick(.02,60);const before=controller.inspect();assert.equal(before.aTask,null);assert.equal(before.bTask.kind,'prep');job.cooking.lead='me';assert.equal(controller.start('cook',{lead:'me'}).ok,true);assert.equal(controller.inspect().phase,'walking-stage-b');let prev=controller.inspect();for(let i=0;i<2500&&controller.inspect()?.phase!=='active';i++){controller.tick(.02,61+i*.02);const next=controller.inspect();assert.ok(next);for(const who of ['a','b'])assert.ok(segmentClear(prev[who],next[who],'dayHome'));assert.ok(Math.hypot(next.a.x-next.b.x,next.a.z-next.b.z)>.58);prev=next;}assert.equal(controller.inspect().phase,'active');controller.tick(.02,120);const after=controller.inspect();assert.ok(Math.hypot(after.a.x-before.b.x,after.a.z-before.b.z)<.001);assert.ok(Math.hypot(after.b.x-before.a.x,after.b.z-before.a.z)<.001);assert.equal(after.aTask.kind,'prep');assert.equal(after.bTask,null);
 });
+test('站姿互动从TA此刻的脚下开始；近墙亲吻无需整圈空地，双方发起均沿真实通道靠近',()=>{
+ const id='standing-test';MAPS[id]={id,radius:10,bounds:{w:10,d:10},floor:.08,obstacles:[{x:0,z:0,w:1,d:2}],furniture:[],spots:[],wander:[]};
+ const kinds=['look','cup','hand','hug','pat','kiss','kiss-cheek','kiss-forehead','forehead','back-hug','dance','stretch'];
+ for(const at of [{x:3,z:2},{x:-3,z:-2},{x:4.7,z:2},{x:-4.7,z:-2},{x:2,z:4.7}])for(const initiator of ['a','b'])for(const kind of kinds){
+  const origin={a:{...at},b:{x:at.x>0?2:-2,z:at.z>0?-3:3}},plans=togetherPlans(MAPS[id],kind,origin,{initiator}),p=plans[0];
+  assert.ok(p,kind+' '+JSON.stringify(at));assert.deepEqual(p.a,origin.a,kind);assert.equal(p.anchor,'a');assert.equal(p.hostShift,0);assert.deepEqual(p.aRoute,[]);
+  let previous=origin.b;for(const next of p.bRoute){assert.ok(segmentClear(previous,next,id),kind);previous=next;}
+ }
+});
+test('镜头遮挡不能把站着牵手的TA带去另一处；靠近途中及到位后TA保持当前站位',()=>{
+ MAPS.dayHome=buildSpace('dayHome');const origin={a:{x:0,z:3.3},b:{x:0,z:4.8}},controller=createTogether({a:actor(),b:actor(),map:()=>MAPS.dayHome,from:()=>origin,visibility:p=>Math.hypot(p.a.x-origin.a.x,p.a.z-origin.a.z)<.01?10000:0});
+ assert.equal(controller.start('hand').ok,true);let reached=false;
+ for(let i=0;i<700;i++){controller.tick(.025,i*.025);const s=controller.inspect();assert.ok(s);assert.ok(Math.hypot(s.a.x-origin.a.x,s.a.z-origin.a.z)<.001);if(s.phase==='active')reached=true;}
+ assert.ok(reached);assert.equal(controller.inspect().local,true);controller.dispose();
+});
+test('站姿动作只在TA附近微调；周围全堵住时拒绝，不挑房间另一头的空地',()=>{
+ const id='standing-blocked',origin={a:{x:0,z:0},b:{x:4,z:4}};
+ MAPS[id]={id,radius:10,floor:.08,furniture:[],spots:[],obstacles:[{x:.45,z:0,w:.1,d:1.3},{x:-.45,z:0,w:.1,d:1.3},{x:0,z:.45,w:.7,d:.1},{x:0,z:-.45,w:.7,d:.1}]};
+ for(const kind of ['hand','hug','kiss','pat','back-hug'])assert.equal(togetherPlans(MAPS[id],kind,origin).length,0,kind);
+});
