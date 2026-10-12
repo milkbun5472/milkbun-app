@@ -5,6 +5,6 @@ assert.match(src, /function hideWidget\(key\)/); assert.match(src, /function sho
 assert.match(src, /saveJSON\("x_homeHiddenWidgets", hid\)/);
 assert.match(src, /if \(hiddenW\.indexOf\(key\) >= 0\) return false;/, "移走的不许再被排进页面");
 assert.match(src, /hiddenW\.indexOf\(key\) < 0 && !reach\[key\]\) \{/, "安全网不再把它塞回来");
-assert.match(src, /styleKey === "w_recent" \? h\("button", \{ onClick: function \(\) \{ hideWidget\("w_recent"\); \}/);
+assert.match(src, /\(styleKey === "w_recent" \|\| styleKey === "w_taday"\) \? h\("button", \{ onClick: function \(\) \{ hideWidget\(styleKey\); \}/);
 assert.match(src, /hiddenWidgets\.indexOf\("w_recent"\) >= 0 \? h\("button", \{ key: "__recent"[^\n]*showWidget\("w_recent"\)/);
 console.log("recent removable ok");
