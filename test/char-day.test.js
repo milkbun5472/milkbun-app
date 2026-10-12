@@ -195,7 +195,7 @@ test('场景尚未同步角色时的首条到访消息可安全接收，不把�
 
 test('新场景从选人页独立试玩，生活示例与日程映射继续可用',()=>{
   const f=setup(),viewer=placeViewer(f,''),before=JSON.stringify(f.plans()),writes=f.writes.length;
-  let tree=viewer.render();viewer.click(tree,'新场景摆位试玩');tree=viewer.render();
+  let tree=viewer.render();viewer.click(tree,'逛逛所有场景');tree=viewer.render();
   const payload=viewer.send(tree);
   assert.equal(payload.charId,f.K.DEMO.id);assert.equal(payload.presentation.map,'dayLaboratory');
   assert.equal(payload.slot,null);assert.equal(payload.follow,false);assert.match(payload.key,/^place:/);
@@ -210,7 +210,7 @@ test('新场景从选人页独立试玩，生活示例与日程映射继续可�
 test('已有角色进入摆位保留真实样貌，返回恢复同角色原日程且不写档',()=>{
   const f=setup(),viewer=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
   let tree=viewer.render();const first=viewer.send(tree);assert.equal(first.slot.title,'核对军报');
-  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'摆位试玩');tree=viewer.render();const stage=viewer.send(tree);
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'逛逛所有场景');tree=viewer.render();const stage=viewer.send(tree);
   assert.equal(stage.charId,'c1');assert.deepEqual(stage.look,first.look);assert.equal(stage.slot,null);
   viewer.click(tree,'回到日程');const back=viewer.send(viewer.render());
   assert.equal(back.charId,'c1');assert.deepEqual(back.look,first.look);assert.deepEqual(back.presentation,first.presentation);
