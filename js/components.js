@@ -15165,11 +15165,15 @@ function MsgMenu({ message, idx, onClose, onAction, items, isMine }) {
       h(CGlyph, { k: d[1], size: 17, color: kill ? t.accent : t.fog }),
       h("span", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, letterSpacing: 1, color: kill ? t.accent : t.ink } }, d[0]));
   };
+  // ⚠️铺满【整个屏幕】、宽度写死成视口单位，不跟着外面哪一层的框走（群友 2026-10-12：换到「永恒浏览器」，
+  //   这层遮罩被算成左上角一窄条，菜单挤在里面）。第三方浏览器套的内核排 absolute/百分比常算错，
+  //   毛玻璃也常画坏，所以这里一样都不用：fixed 四边贴死 + 100vw + 实色暗底。
   return h("div", {
-    className: "absolute inset-0 z-50 flex items-center justify-center",
-    style: { background: "rgba(20,19,15,0.55)", backdropFilter: "blur(3px)" },
+    "data-wk": "msgmenu",
+    className: "z-50 flex items-center justify-center",
+    style: { position: "fixed", top: 0, left: 0, right: 0, bottom: 0, width: "100vw", background: "rgba(20,19,15,0.6)" },
     onClick: onClose
-  }, h("div", { onClick: e => e.stopPropagation(), className: "w-[74%]", style: { maxWidth: 268, maxHeight: "calc(100% - 32px)", overflowY: "auto" } },
+  }, h("div", { onClick: e => e.stopPropagation(), style: { width: "min(268px, 74vw)", maxHeight: "calc(100vh - 32px)", overflowY: "auto" } },
     // 被长按的那句话【原样端上来】：还是它在聊天里的那个气泡形状和颜色，
     // 所以这一列动作明摆着是对着这一句的，不是一张浮在半空的通用菜单。
     txt ? h("div", {
