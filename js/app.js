@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.438";
+const APP_VERSION = "v75.439";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10964,8 +10964,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   };
   const peekMaskOthers = viewerId => {
     const mine = maskKeyOf(viewerId);
-    return (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id)
-      .concat(mine ? (groupsRef.current || []).filter(Boolean).map(g => g.id) : []);
+    const others = (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id);
+    // 群一律是主面具。TA认的不是主面具：群整个不在；TA认的是主面具，但群里有别的面具那几个人：这个群也整个不在
+    //   （她 2026-10-12：原来群名留着、里面只剩她自己说的话，TA看着一个人自言自语的群反倒要问）
+    const otherSet = new Set(others.map(String));
+    return others.concat((groupsRef.current || []).filter(g => g && (mine || (g.memberIds || []).some(id => otherSet.has(String(id))))).map(g => g.id));
   };
   // 录像播着的时候，钱包、购物、外卖这几屏也照「别的面具不在」来摆（她点开的是真 app，不滤的话屏幕上就露了）
   const peekMaskInfo = ids => { const set = new Set((ids || []).map(String)); return { ids: set, names: (characters || []).filter(x => set.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean) }; };
