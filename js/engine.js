@@ -7301,7 +7301,9 @@ async function ttsSynth(text, voiceId, opts) {
   if (d.base_resp && d.base_resp.status_code !== 0) {
     let msg = d.base_resp.status_msg || ("错误码 " + d.base_resp.status_code);
     // key 无效最常见的根因是国内站/海外版不匹配：key 是哪个平台发的，接口地址就得填哪边
-    if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 platform.minimax.io 国际版申请的 → 接口地址填 https://api.minimax.io；minimaxi.com → https://api.minimaxi.com；国内 minimax.chat 用默认地址。设置里有一键选站点。另外 key 生成时只完整显示一次，确认复制的是那串完整的）";
+    // 「token not match group」不是站点不对，是 GroupId 跟 key 不是同一个账号的（群友 2026-10-12：照站点那句换遍了地址还是这句）
+    if (/not match group/i.test(msg)) msg += "（GroupId 跟密钥不是同一个账号的：去发这个密钥的那个平台，在账户信息 / 基本信息里复制 GroupId 填进设置的「GroupId」那一格。换过账号、或者国际版和国内版各有一个号的，最容易填成另一个号的 GroupId）";
+    else if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 platform.minimax.io 国际版申请的 → 接口地址填 https://api.minimax.io；minimaxi.com → https://api.minimaxi.com；国内 minimax.chat 用默认地址。设置里有一键选站点。另外 key 生成时只完整显示一次，确认复制的是那串完整的）";
     throw new Error(msg);
   }
   const hex = d.data && (d.data.audio || d.audio);
