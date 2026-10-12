@@ -552,7 +552,7 @@
         // 通话
         ["call", "通话整页（data-video=\"1\" 是视频）"], ["callhead", "通话顶上那块"], ["calltitle", "通话标题（名字）"],
         ["callavatar", "通话中间的大头像"], ["callcamera", "用户真实摄像头小窗与开关/前后镜头切换"], ["callbody", "通话字幕滚动区"], ["callmsg", "通话里一句（带 data-me）"],
-        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["halfwin", "半窗聊天整块（底下那半屏）"], ["gsetpage", "群聊设置那一整页"], ["photofailerr", "照片没拍成那张卡上的「原因：」一行"], ["gmaskpick", "群设置里「我在这个群用哪张面具」那一格；按钮 data-on=1 是选中的那张"], ["halfwinbar", "半窗顶上「放大 / 收起」那一条"], ["halfwinsize", "半窗顶条正中那根调大小的小横杠"], ["halfwinpill", "半窗收起后底下那颗小条"], ["calltf", "通话里转账那一行（带收下/退回）"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
+        ["callbubble", "通话里那句的气泡"], ["callact", "通话里的动作那行"], ["halfwin", "半窗聊天整块（底下那半屏）"], ["gsetpage", "群聊设置那一整页"], ["msgmenu", "长按消息弹出的那一层（暗底＋菜单）"], ["photofailerr", "照片没拍成那张卡上的「原因：」一行"], ["gmaskpick", "群设置里「我在这个群用哪张面具」那一格；按钮 data-on=1 是选中的那张"], ["halfwinbar", "半窗顶上「放大 / 收起」那一条"], ["halfwinsize", "半窗顶条正中那根调大小的小横杠"], ["halfwinpill", "半窗收起后底下那颗小条"], ["calltf", "通话里转账那一行（带收下/退回）"], ["callactkey", "视频打字框左边那颗「动作」键（data-on=\"1\" 开着）"], ["callcomposer", "通话底部那一整块"], ["callbtns", "底下那一排大按键"], ["callmic", "说话键"], ["hangup", "挂断键"],
         ["callstage", "单人视频铺满全屏的那层（TA 或你）"], ["callpip", "单人视频右上角那个小框"], ["calltypekey", "打字键"], ["calltype", "点打字才出来的那行输入框"]
       ])
     }),
@@ -1009,7 +1009,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = { v: "v75.453", changed: "", none: "没加新钩子：只改TA的一天的菜单顺序、文案和空日程按钮。" };
+  const BRIEF_STAMP = { v: "v75.453", changed: "长按消息那一层多了 msgmenu 挂点（铺满整屏、实色暗底，不再用毛玻璃）。", none: "" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
