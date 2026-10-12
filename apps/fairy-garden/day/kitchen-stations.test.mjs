@@ -1,0 +1,18 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {registerHooks} from 'node:module';
+registerHooks({resolve(s,c,next){return s==='three'?{url:new URL('../vendor/three.module.js',import.meta.url).href,shortCircuit:true}:next(s,c);}});
+const T=await import('three'),{createKitchenStation}=await import('./board-station.mjs'),{createKitchenView}=await import('./kitchen-view.mjs'),{createSpaceView}=await import('./space-view.mjs'),{buildSpace}=await import('./spaces.mjs'),K=globalThis.CharDayKitchen;
+test('32道菜的现有道具全部接同一放大视图，四尺寸有真实几何与可操作目标，退出不销毁原道具',()=>{
+ const map=buildSpace('dayHome',{kitchen:{x:4,z:-3,heading:Math.PI/2}}),world=createSpaceView('dayHome','warm',map,{furnitureOnly:true}),controller=createKitchenView(),station=createKitchenStation();let cases=0;
+ for(const r of K.RECIPES){const job={id:'tool-'+r.id,kind:'cook',recipeId:r.id,cooking:K.cookingSession(r.id,{mode:'hands',lead:'me'})};let p=job.cooking.progress;
+  const progress=[p];if(p.table){let auto={...job,cooking:{...job.cooking,mode:'auto'}};for(let i=0;i<1500&&p.index<3;i++)p=K.stepCooking(auto,p,{kind:'tick',dt:.1});assert.equal(p.index,3);p={...p,index:2,table:{...p.table,sealed:false}};progress.push(p);}else for(let stage=0;stage<2;stage++){for(let i=0;i<250&&p.index===stage;i++)p=K.stepCooking({...job,cooking:{...job.cooking,mode:'auto'}},p,{kind:'tick',dt:.1});assert.equal(p.index,stage+1);progress.push(p);}
+  for(const progress0 of progress){const current={...job,cooking:{...job.cooking,progress:progress0}},stage=K.cookingStage(current,progress0);controller.update(world.root,map,current,{kind:'cook',phase:'active'},stage,progress0.elapsed);
+   for(const tool of K.cookingStations(current).filter(q=>!q.disabled&&q.id!=='board')){const visuals=controller.stationObjects(tool.id,stage);assert.ok(visuals.objects.length,r.id+' '+tool.id);let disposed=0;for(const {object}of visuals.objects)object.traverse(o=>o.geometry?.addEventListener('dispose',()=>disposed++));
+    for(const [w,h]of [[320,450],[390,725],[430,812],[844,280]]){station.update(current,progress0,w,h,null,tool.id,visuals);assert.ok(station.inspect().objects>0);assert.ok(station.targets().length>0,r.id+' '+tool.id);const q=station.targets().find(t=>t.type!=='ingredient')||station.targets()[0];assert.ok(q.x>=-1&&q.x<=w+1&&q.y>=-1&&q.y<=h+1,JSON.stringify({r:r.id,tool:tool.id,w,h,q}));cases++;}station.clear();assert.equal(disposed,0,'放大视图不可销毁原厨房几何');
+   }
+  }controller.clear();
+ }station.dispose();assert.ok(cases>500);
+});
+test('操作中的道具暂停相应自动手，另一处的火候仍真实推进，返回恢复原自动与进度',()=>{
+ const job={recipeId:'tomato-egg',cooking:K.cookingSession('tomato-egg',{mode:'auto'})};let p=job.cooking.progress;const before=JSON.stringify(p.table.items);for(let i=0;i<20;i++)p=K.stepCooking(job,p,{kind:'tick',dt:.1,prepPaused:true,chefPaused:true});assert.equal(JSON.stringify(p.table.items),before);const food=p.table.items[0];p=K.stepCooking(job,p,{kind:'drop',id:food.id,point:K.TABLE_ZONES.pan});for(let i=0;i<20;i++)p=K.stepCooking(job,p,{kind:'tick',dt:.1,prepPaused:true,chefPaused:true});assert.ok(p.table.items[0].bottom>0);assert.equal(p.table.items[0].zone,'pan');
+ const old={recipeId:'berry-cake',cooking:K.cookingSession('berry-cake',{mode:'auto'})};let q=old.cooking.progress;for(let i=0;i<20;i++)q=K.stepCooking(old,q,{kind:'tick',dt:.1,operationPaused:true});assert.equal(q.work,0);for(let i=0;i<50&&q.index===0;i++)q=K.stepCooking(old,q,{kind:'tick',dt:.1});assert.equal(q.index,1);for(let i=0;i<20;i++)q=K.stepCooking(old,q,{kind:'tick',dt:.1,operationPaused:true});assert.ok(q.wait>0);assert.equal(q.index,1);
+});
