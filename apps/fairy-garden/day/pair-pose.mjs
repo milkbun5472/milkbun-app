@@ -53,3 +53,38 @@ export function hugPose(a,b,pa,pb){
  }
  return {contacts};
 }
+
+// Keep the hips close while the neck and waist make room for the larger heads.
+// Match skin points in world space; feet stay on the floor throughout.
+export const faceSpacing=(a,b)=>(pairSize(a).width+pairSize(b).width)*.34;
+export function facePose(giver,receiver,gp,rp,goals,seed=null){
+ const forward=goals.receiver.clone().sub(goals.giver);forward.y=0;forward.normalize();
+ const sample=(actor,point,goal)=>({actor,q:actor.root.worldToLocal(headPoint(actor,point)),head:actor.root.worldToLocal(headPoint(actor,[0,0,0])),waist:actor.root.worldToLocal(bonePoint(actor,'body')),shift:goal.clone().sub(actor.root.position).setY(0)});
+ const g=sample(giver,gp,goals.giver),r=sample(receiver,rp,goals.receiver),gy=Math.atan2(gp[1],Math.hypot(gp[0],gp[2])),ry=Math.atan2(rp[1],Math.hypot(rp[0],rp[2])),yaw=-Math.atan2(rp[0],rp[2]);
+ const point=(s,tilt,nod,turn=0)=>s.actor.root.localToWorld(s.q.clone().sub(s.head).applyEuler(new T.Euler(nod,turn,0)).add(s.head).sub(s.waist).applyAxisAngle(new T.Vector3(1,0,0),tilt).add(s.waist)).add(s.shift);
+ const evaluate=(beta,tilt)=>{const gn=gy-beta-tilt,rn=ry+beta-tilt,from=point(g,tilt,gn),to=point(r,tilt,rn,yaw),delta=from.clone().sub(to);return {y:delta.y,z:delta.dot(forward),error:delta.length(),gn,rn};};
+ // Fit contact height and depth with two shared angles: contact inclination
+ // and waist tilt. The head turns independently when offering a cheek.
+ let beta=seed?.beta??Math.asin(T.MathUtils.clamp((headPoint(receiver,[0,0,0]).y-headPoint(giver,[0,0,0]).y)/.42,-.9,.9)),tilt=seed?.tilt??-.18;
+ for(let i=0;i<9;i++){
+  const v=evaluate(beta,tilt);if(Math.hypot(v.y,v.z)<.0005)break;
+  const h=.004,u=evaluate(beta+h,tilt),w=evaluate(beta,tilt+h),yb=(u.y-v.y)/h,zb=(u.z-v.z)/h,yt=(w.y-v.y)/h,zt=(w.z-v.z)/h,det=yb*zt-yt*zb;
+  if(Math.abs(det)<1e-6)break;
+  beta=T.MathUtils.clamp(beta+T.MathUtils.clamp((-v.y*zt+v.z*yt)/det,-.2,.2),-1.2,1.2);
+  tilt=T.MathUtils.clamp(tilt+T.MathUtils.clamp((v.y*zb-v.z*yb)/det,-.2,.2),-.65,.35);
+ }
+ const v=evaluate(beta,tilt);
+ return {ok:v.error<.035&&Math.abs(v.gn)<1.35&&Math.abs(v.rn)<1.35,beta,tilt,giverNod:v.gn,receiverNod:v.rn,receiverTurn:yaw,error:v.error};
+}
+export function faceHands(giver,receiver,pg,pr,previous=null){
+ const points=[-1,1].flatMap(sign=>[-.50,-.20,.12].map(level=>({sign,level,point:headPoint(receiver,[sign*.9,level,.78])})));
+ const head=giver.root.getObjectByName('HeadAnchor');
+ const candidates=points.flatMap(({point,sign,level})=>['left','right'].map(side=>{const shoulder=bonePoint(giver,side+'Arm'),elbow=bonePoint(giver,side+'Forearm'),wrist=bonePoint(giver,side==='left'?'Left_hand':'Right_hand'),a=shoulder.distanceTo(elbow),b=elbow.distanceTo(wrist),minimum=Math.sqrt(a*a+b*b+2*a*b*Math.cos(Math.PI*.75)),distance=shoulder.distanceTo(point),self=head.worldToLocal(point.clone()).length();return {side,point,sign,level,distance,penalty:Math.max(0,minimum+.008-distance,distance-a-b+.008)+Math.max(0,.08-(point.y-shoulder.y))+Math.max(0,1.12-self)*.2};})).sort((a,b)=>a.penalty-b.penalty||a.distance-b.distance);
+ const held=previous&&candidates.find(q=>q.side===previous.side&&q.sign===previous.sign&&q.level===previous.level),choice=held&&held.penalty<=Math.max(.006,candidates[0].penalty)?held:candidates[0];
+ const {side,point}=choice,shoulder=bonePoint(giver,side+'Arm'),elbow=bonePoint(giver,side+'Forearm'),wrist=bonePoint(giver,side==='left'?'Left_hand':'Right_hand'),span=shoulder.distanceTo(elbow)+elbow.distanceTo(wrist),desired=point.clone().sub(shoulder),target=shoulder.clone().addScaledVector(desired.normalize(),Math.min(span-.001,shoulder.distanceTo(point))),contacts=[];
+ const free=side==='left'?'right':'left';
+ pairContact(giver,{[side]:target,[free]:torsoPoint(receiver,free==='left'?1:-1,.30,.11)},pg,contacts);
+ const support=torsoPoint(giver,side==='left'?-1:1,.30,.11);
+ pairContact(receiver,{[nearHand(receiver,support)]:support},pr,contacts);
+ return {contacts,choice:{side,sign:choice.sign,level:choice.level},faceHand:{who:giver.root.userData.pairWho,side,target:point.toArray(),wrist:bonePoint(giver,side==='left'?'Left_hand':'Right_hand').toArray(),gap:bonePoint(giver,side==='left'?'Left_hand':'Right_hand').distanceTo(point),reachable:shoulder.distanceTo(point)<=span}};
+}

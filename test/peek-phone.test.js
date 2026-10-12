@@ -133,7 +133,8 @@ test("翻手机：翻完的料留到TA真接上话才用掉，她先开口也接
   const a = require("fs").readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
   // 2026-10-06 起这份料走公共的 waitForHer（不再是递手机自己一份），翻完也不当场开口
   assert.match(a, /waitForHer\(p\.charId, \{ peekPhone: \{/);
-  assert.match(a, /const _wh = !opts\.room && !opts\.proactive && waitHerRef\.current\[charId\];/);
+  assert.match(a, /const sideRoom = !!\(room && !room\.main\);/);
+  assert.match(a, /const _wh = !sideRoom && !opts\.proactive && waitHerRef\.current\[charId\];/);
   assert.match(a, /if \(delivered && _wh\) delete waitHerRef\.current\[charId\]/);
 });
 

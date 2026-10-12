@@ -180,7 +180,7 @@ test("最简稿仍认画风与合照，别把二次元画成真人", () => {
 test("两条出图线路都用上了新的最简稿", () => {
   assert.match(app, /const minimalPrompt = noFace \? null : buildMinimalPhotoPrompt\(char, \{ kind: photoKind \}\);/, "单聊自拍");
   assert.match(app, /minimalPrompt: minimalPrompt \}\);/);
-  assert.match(app, /const gMinimal = gNoFace \? null : buildMinimalPhotoPrompt\(spk, gCast/, "群聊合照");
+  assert.match(app, /const gMinimal = gNoFace \? null : buildMinimalPhotoPrompt\((?:spk|sub), gCast/, "群聊合照");
   assert.match(app, /gNoFace \? \{\} : \{ minimalPrompt: gMinimal \}/);
   // 旧的大家伙不许再被当成最简稿
   assert.ok(!/buildPhotoPrompt\(char, "普通的日常人像/.test(app), "旧最简稿该退场");

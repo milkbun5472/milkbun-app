@@ -211,7 +211,7 @@ test("连贯参考图必须在 prompt 组装之前声明", () => {
     "theater: prevPhoto 要先于 prompt 声明");
   const app = fs.readFileSync(path.join(root, "js/app.js"), "utf8");
   const onlinePhotoBody = app.slice(app.indexOf("const prevShot"), app.indexOf("const out = await generateSelfieImage", app.indexOf("const prevShot")));
-  assert.ok(onlinePhotoBody.indexOf("const prevShot") < onlinePhotoBody.indexOf("const prompt = buildPhotoPrompt(char,"),
+  assert.ok(onlinePhotoBody.indexOf("const prevShot") < onlinePhotoBody.search(/const prompt = buildPhotoPrompt\((?:char|sub),/),
     "app: prevShot 要先于 prompt 声明");
 });
 

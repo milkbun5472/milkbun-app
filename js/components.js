@@ -2010,6 +2010,12 @@ function VClockEditor({ v, onChange, compact, title }) {
         chip("+1 天", false, () => put({ base: cur + 86400e3 })),
         chip("第二天早上 8 点", false, () => { const n = new Date(cur); n.setDate(n.getDate() + 1); n.setHours(8, 0, 0, 0); put({ base: n.getTime() }); })),
       h(VClockJump, { field, fs, onJump: f => put({ base: f(cur) }) }),
+      // 离开小手机就停（群友 2026-10-11：「离开小手机后能设置时间静止么」）：切走、锁屏、关掉那段时间不算，回来接着走
+      h("div", { className: "flex items-center justify-between", style: { gap: 10, marginTop: 12 } },
+        h("div", { style: { minWidth: 0 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: compact ? 12.5 : 14, color: t.ink } }, "离开小手机时停住"),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2, lineHeight: 1.45 } }, "切走、锁屏、关掉的那段时间不算，回来从停下的那一刻接着走")),
+        h(Toggle, { on: !!(v && v.pauseAway), onChange: x => put({ pauseAway: !!x }) })),
       compact ? null : h(Fragment, null,
         sub("年号（可空）：填了就叫「年号＋第几年」，元年是哪一年由你定"),
         h("div", { className: "flex", style: { gap: 6 } },
@@ -2063,6 +2069,22 @@ function VClockMasks({ masks, primaryId, clocks, onChange }) {
           color: cur.key === x.key ? t.bg2 : t.ink, fontFamily: F_BODY, fontSize: 12, whiteSpace: "nowrap" } },
         x.name + ((all[x.key] && all[x.key].on) ? " · 虚拟" : " · 现实"))))) : null,
     h(VClockEditor, { key: cur.key, v: all[cur.key], title: list.length > 1 ? "「" + cur.name + "」的时间" : "虚拟时间", onChange: v => onChange({ ...all, [cur.key]: v }) }));
+}
+// 生日那一格底下的一行（她 2026-10-11：「生日那里也写一个吧，不支持的格式就标红提示」）：
+//   平时灰字写清能怎么写；写了但认不出（比如「0109」月日连在一起）就变红说清楚。
+//   认不认得出只问 birthdaySolarDate——到日子记不记得、算岁数走的就是它，判据不另写一份。
+function birthdayOk(v) {
+  const s = String(v == null ? "" : v).trim();
+  if (!s) return true;
+  return typeof birthdaySolarDate === "function" ? !!birthdaySolarDate(s, new Date().getFullYear()) : true;
+}
+function BirthdayHint({ value, style }) {
+  const t = useTheme();
+  const bad = !birthdayOk(value);
+  return h("div", {
+    style: Object.assign({ fontFamily: F_BODY, fontSize: 11, lineHeight: 1.6, marginTop: 3, color: bad ? (t.accent || "#c25a4a") : t.fog }, style || {}) },
+    bad ? "认不出是几月几号：月和日中间要隔开，写成 1-9、1/9、1.9 或 1月9日（「0109」这种连在一起的不行）"
+      : "能写：1-9、01-09、1/9、1.9、1月9日、2000-01-09、腊月廿三、农历八月十五");
 }
 function Toggle({
   on,
@@ -2639,14 +2661,18 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
   // 架空的那几处不用等网络：当场算
   const madeUp = place && !place.real && typeof WorldWeather !== "undefined";
   const w = madeUp ? WorldWeather.dayOf(place.seed, place.terrain, new Date()) : real;
+  // 拉不到就说拉不到（群里 2026-10-12：「搜索到了城市但天气不能显示」——原来拉失败了一声不吭，格子里一直写着「获取中…」）。
+  //   换了一处就先清掉上一处的天气，不拿别处的数顶着。点一下重拉。
+  const [wxFail, setWxFail] = useState(false);
+  const [wxTry, setWxTry] = useState(0);
   useEffect(() => {
     let alive = true;
     if (!place || !place.real || typeof place.lat !== "number" || typeof weatherFor !== "function") return;
     var c = typeof weatherCached === "function" ? weatherCached(place.lat, place.lng) : null;
-    if (c) setReal(c);
-    weatherFor(place.lat, place.lng).then(x => { if (alive && x) setReal(x); }).catch(() => {});
+    setReal(c || null); setWxFail(false);
+    weatherFor(place.lat, place.lng).then(x => { if (!alive) return; if (x) setReal(x); else setWxFail(true); }).catch(() => { if (alive) setWxFail(true); });
     return () => { alive = false; };
-  }, [place && place.key, place && place.lat, place && place.lng]);
+  }, [place && place.key, place && place.lat, place && place.lng, wxTry]);
   const loadFx = function (p) {
     if (!p) return;
     if (!p.real) {
@@ -2730,7 +2756,9 @@ function WeatherWidget({ userGeo, characters, worlds, onOpen }) {
     : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.6 } },
         h("div", { className: "flex items-center", style: { gap: 5 } },
           h(GWx, { kind: "partly", size: 15, color: t.fog }), h("span", null, "天气")),
-        h("div", null, userGeo ? "获取中…" : "设置里开定位后显示"))));
+        wxFail ? h("button", { onClick: e => { e.stopPropagation(); setWxTry(n => n + 1); }, className: "active:opacity-60",
+            style: { display: "block", textAlign: "left", fontFamily: F_BODY, fontSize: 11, color: t.sub, lineHeight: 1.5, padding: 0 } }, "天气没拉到：连不上天气服务。换个网络或开梯子，点这儿再试")
+          : h("div", null, userGeo || (place && place.real && typeof place.lat === "number") ? "获取中…" : "设置里开定位后显示"))));
 }
 // 记账小组件（2 格宽）：本月各币种支出一眼看（数据走 ledger.js 的 window.ledgerWidgetData，纯本地零 API）
 function LedgerWidget({ onOpen }) {
@@ -7767,7 +7795,7 @@ function ProfileSheet({
       fontSize: 15,
       fontFamily: F_BODY
     }
-  })), h(LineField, { zh: "在哪个世界", en: "World" },
+  }), h(BirthdayHint, { value: birthday })), h(LineField, { zh: "在哪个世界", en: "World" },
     h("div", { "data-wk": "maskworld" },
       h("div", { className: "flex flex-wrap", style: { gap: 6, marginTop: 4 } },
         [{ id: "", name: "跟着设置" }, { id: "real", name: "现实定位" }].concat(worldList).map(w => {
@@ -7962,13 +7990,13 @@ function Messages({
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(c.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? last.content : "打个招呼吧")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, c.id))); };
   const renderGroupRow = it => { const g = it.g, last = it.last, un = unreadMap[g.id] || 0; return h("button", Object.assign({ key: it.key, "data-chatid": g.id, "data-wk": "mlrow", "data-kind": "group", "data-pinned": pinnedSet.has(g.id) ? "1" : "0", "data-unread": un > 0 ? "1" : "0", onClick: () => guardClick(() => onOpenGroup(g)), className: "w-full flex items-center gap-3 px-5 py-3.5 active:bg-black/5", style: { borderBottom: "1px solid " + t.line, background: rowBg(g.id) } }, longProps(g.id)),
     h("div", { "data-wk": "mlavatar", className: "relative shrink-0" }, g.avatarImage ? h(Avatar, { character: { name: g.name, avatarImage: g.avatarImage }, size: 50, radius: 10 }) : h("div", { className: "grid grid-cols-2 gap-0.5 p-0.5", style: { width: 50, height: 50, borderRadius: 10, background: t.bg, overflow: "hidden" } }, (g.memberIds || []).slice(0, 4).map((mid, k) => { const m = (allChars || characters).find(x => x.id === mid); return h("div", { key: k, style: { overflow: "hidden", borderRadius: 3 } }, m ? h(Avatar, { character: m, size: 23, radius: 3 }) : null); })), unreadBadge(un)),
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, null))); };
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
@@ -10432,7 +10460,9 @@ function ChatThread({
       //   施工规则/one-public-mechanism.md）。单聊这边【分寸一个字没改】：
       //   minGap 还是 3 分钟、同一轮里连发照旧不各带时刻。变的只有跨天那一条——
       //   它现在写「昨天 14:30」「9月15日 14:30」，并且画成一颗药丸，隔夜看得出来。
-      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000 });
+      const st = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 180000,
+        // 虚拟时间开着时照 TA 认的那张面具的钟（她 2026-10-11）
+        map: typeof vclockMap === "function" && character ? (ts => vclockMap(ts, character.id)) : undefined });
       if (!st.show) return null;
       return /*#__PURE__*/React.createElement("div", {
         className: "text-center mb-1",
@@ -12750,7 +12780,8 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size,
   const lang = zhReady ? (_lang || "外语") : _lang;
   const [open, setOpen] = useState(!!autoShow);
   const cached = lang && !zhReady && typeof transCacheGet === "function" ? transCacheGet(text) : null;
-  const [zh, setZh] = useState(() => zhReady || (cached && cached.zh) || "");
+  // 缓存里早先翻回来的那份可能是繁体，摆出来前换成简体
+  const [zh, setZh] = useState(() => { const z = zhReady || (cached && cached.zh) || ""; return z && typeof toSimplified === "function" ? toSimplified(z) : z; });
   const [by, setBy] = useState(() => zhReady ? "随消息提供" : (cached && cached.by) || "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -12760,7 +12791,8 @@ function TransTextState({ text, isU, zhReady, ink, autoShow = false, long, size,
     if (zh || busy) return;
     setBusy(true); setErr("");
     // 长消息走切块版：免费接口是 GET 带 query，整段太长会被截断或直接失败
-    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); setZh(r.zh); setBy(r.by || ""); }
+    // 点「译」翻回来的也换成简体（群里 2026-10-11：「有时候翻译是繁体字」——免费接口翻粤语常回繁体，随消息来的那份上面已经换过）
+    try { const r = await translateLongToZh(text, lang, noModel ? { noModel: true } : undefined); setZh(typeof toSimplified === "function" ? toSimplified(r.zh) : r.zh); setBy(r.by || ""); }
     catch (x) { setErr(String((x && x.message) || x)); }
     finally { setBusy(false); }
   };
@@ -16301,7 +16333,7 @@ function SelfieBubble({ m }) {
       h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "拍照中…"));
   }
   // 合照/别人拍的那两种也走这个气泡，写死「自拍」会说错话（v57.79）
-  if (m.failed) return note((m.photoKind === "part" ? PHOTO_PART_ZH : m.photoKind === "view" ? PHOTO_VIEW_ZH : m.photoKind === "group" ? "合影" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "这张" : "自拍") + "没拍成");
+  if (m.failed) return note((m.photoKind === "part" ? PHOTO_PART_ZH : m.photoKind === "view" ? PHOTO_VIEW_ZH : m.photoKind === "group" ? "合影" : m.photoKind === "duo" ? "合照" : m.photoKind === "me" ? "给你拍的这张" : m.photoKind === "other" ? "这张" : "自拍") + "没拍成");
   if (imgErr) return note(m.imgUrl && !url ? "图的临时链接已过期，看过就没啦" : "图数据坏了，显示不出来");
   if (shown) return h(React.Fragment, null,
     h("button", { onClick: () => setZoom(true), className: "active:opacity-80", style: Object.assign({}, box, { position: "relative", display: "block" }) },
@@ -17561,7 +17593,8 @@ function GroupThread({
     //   ——她 2026-09-16：「群聊没跟上单聊，不会有日期隔离，过多久界面都是像同一天」。
     //   判据搬去 js/chat-stamp.js 那一份公共的（施工规则/one-public-mechanism.md），
     //   群里那道 30 分钟的分寸照原样留着，只当参数传进去；跨天那一档两处一样。
-    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000 });
+    const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000,
+      map: typeof vclockMap === "function" ? (ts => vclockMap(ts, null)) : undefined });   // 群照主面具那只钟
     const showGroupTime = gStamp.show;
     const groupTimeLabel = gStamp.text;
     return h("div", {

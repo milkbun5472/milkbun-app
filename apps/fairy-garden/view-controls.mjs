@@ -1,12 +1,12 @@
-// One gesture state owns taps, panning and bounded zoom. Multitouch never becomes a walk tap.
+// One gesture state owns taps, optional rotation, panning and bounded zoom. Multitouch never becomes a walk tap.
 export const MIN_ZOOM=.45,MAX_ZOOM=2.2;
-export function createMapGesture({initial=1,min=MIN_ZOOM,max=MAX_ZOOM,onZoom=()=>{},onTap=()=>{},onPan=()=>{}}={}){
+export function createMapGesture({initial=1,min=MIN_ZOOM,max=MAX_ZOOM,onZoom=()=>{},onTap=()=>{},onPan=()=>{},onRotate=null}={}){
  let zoom=Number.isFinite(initial)?Math.max(min,Math.min(max,initial)):1,points=new Map(),pinching=false,distance=0;
  const gap=()=>{const [a,b]=[...points.values()];return a&&b?Math.hypot(a.x-b.x,a.y-b.y):0;};
  function setZoom(value){if(!Number.isFinite(value))return;zoom=Math.max(min,Math.min(max,value));onZoom(zoom);}
  return {getZoom:()=>zoom,setZoom,
  down(id,x,y){points.set(id,{x,y,startX:x,startY:y,moved:false});if(points.size>1){pinching=true;distance=gap();}},
- move(id,x,y){const p=points.get(id);if(!p)return;const dx=x-p.x,dy=y-p.y,wasMoved=p.moved;p.x=x;p.y=y;p.moved ||= Math.hypot(x-p.startX,y-p.startY)>9;if(points.size>1){const next=gap();if(distance>0&&next>0)setZoom(zoom*next/distance);distance=next;onPan(dx/points.size,dy/points.size);}else if(pinching||p.moved){onPan((wasMoved||pinching)?dx:x-p.startX,(wasMoved||pinching)?dy:y-p.startY);}},
+ move(id,x,y){const p=points.get(id);if(!p)return;const dx=x-p.x,dy=y-p.y,wasMoved=p.moved;p.x=x;p.y=y;p.moved ||= Math.hypot(x-p.startX,y-p.startY)>9;if(points.size>1){const next=gap();if(distance>0&&next>0)setZoom(zoom*next/distance);distance=next;onPan(dx/points.size,dy/points.size);}else if(pinching||p.moved){const drag=onRotate&&!pinching?onRotate:onPan;drag((wasMoved||pinching)?dx:x-p.startX,(wasMoved||pinching)?dy:y-p.startY);}},
  up(id,x,y,cancel=false){const p=points.get(id);if(!p)return;const tap=!cancel&&!pinching&&!p.moved&&Math.hypot(x-p.startX,y-p.startY)<=9;points.delete(id);if(!points.size){pinching=false;distance=0;}else distance=gap();if(tap)onTap(x,y);},
  cancel(){points.clear();pinching=false;distance=0;}
  };
@@ -39,20 +39,31 @@ export function installViewControls({canvas,panel,content,toggle,zoomIn,zoomOut,
 export function orthographicPanDelta(origin,shifted,direction){if(Math.abs(direction.y)<1e-8)return null;const dy=origin.y-shifted.y;return {x:origin.x-shifted.x-dy*direction.x/direction.y,z:origin.z-shifted.z-dy*direction.z/direction.y};}
 
 // Pull an orthographic camera back at wide portrait zoom so its near plane never
-// cuts the ground off at the bottom of the screen. Framing and viewing angle stay fixed.
-export function orthographicCameraPose(pan,spanY,zoom,offset){
- const targetY=.5-offset/zoom,dy=12-targetY,length=Math.hypot(10,dy,16),half=spanY/(2*zoom);
- const vertical=half*Math.hypot(10,16)/length,scale=Math.max(1,(vertical+2-targetY)/dy);
- return {position:{x:pan.x+10*scale,y:targetY+dy*scale,z:pan.z+16*scale},target:{x:pan.x,y:targetY,z:pan.z},far:Math.max(80,length*scale+half*2+12),fogOffset:length*(scale-1)};
+// cuts the ground off at the bottom of the screen. The selected viewing angle stays fixed.
+export const MAP_ORBIT={yaw:Math.atan2(10,16),pitch:Math.atan2(11.5,Math.hypot(10,16)),minPitch:.38,maxPitch:1.32};
+export function createMapOrbit(){
+ let yaw=MAP_ORBIT.yaw,pitch=MAP_ORBIT.pitch;
+ const restore=value=>{if(Number.isFinite(value?.yaw))yaw=Math.atan2(Math.sin(value.yaw),Math.cos(value.yaw));if(Number.isFinite(value?.pitch))pitch=Math.max(MAP_ORBIT.minPitch,Math.min(MAP_ORBIT.maxPitch,value.pitch));};
+ return {snapshot:()=>({yaw,pitch}),restore,rotate(dx,dy){if(Number.isFinite(dx)&&Number.isFinite(dy))restore({yaw:yaw-dx*.006,pitch:pitch+dy*.004});},reset(){yaw=MAP_ORBIT.yaw;pitch=MAP_ORBIT.pitch;}};
+}
+export function orthographicCameraPose(pan,spanY,zoom,offset,orbit=null){
+ const targetY=.5-offset/zoom,baseY=12-targetY,length=Math.hypot(10,baseY,16),half=spanY/(2*zoom);
+ const yaw=Number.isFinite(orbit?.yaw)?orbit.yaw:MAP_ORBIT.yaw,pitch=Number.isFinite(orbit?.pitch)?Math.max(MAP_ORBIT.minPitch,Math.min(MAP_ORBIT.maxPitch,orbit.pitch)):Math.atan2(baseY,Math.hypot(10,16));
+ const dy=length*Math.sin(pitch),horizontal=length*Math.cos(pitch),vertical=half*Math.cos(pitch),scale=Math.max(1,(vertical+2-targetY)/dy);
+ return {position:{x:pan.x+Math.sin(yaw)*horizontal*scale,y:targetY+dy*scale,z:pan.z+Math.cos(yaw)*horizontal*scale},target:{x:pan.x,y:targetY,z:pan.z},far:Math.max(80,length*scale+half*Math.max(2,1/Math.tan(pitch))+12),fogOffset:length*(scale-1)};
 }
 
 // Fits projected bounds inside a viewport. Existing zoom is normalized away;
-// returned deltas lie on the ground so the shared viewing angle stays fixed.
+// returned deltas lie on the ground so the selected viewing angle stays fixed.
+export function orthographicGroundOffset(dx,dy,rightX,rightZ,upX,upZ){
+ const det=rightX*upZ-rightZ*upX;if(Math.abs(det)<1e-8)return null;
+ return {x:(dx*upZ-dy*rightZ)/det,z:(rightX*dy-upX*dx)/det};
+}
 export function orthographicFrame({minX,maxX,minY,maxY,zoom=1,halfWidth,halfHeight,width,height,rightX,rightZ,upX,upZ,insets={},maxZoom=2.2,minZoom=.2}){
  const left=Math.max(0,insets.left||0),right=Math.max(0,insets.right||0),top=Math.min(height*.72,Math.max(0,insets.top||0)),bottom=Math.min(height*.72-top,Math.max(0,insets.bottom||0));
  const xRoom=Math.max(.2,2*(width-left-right)/width),yRoom=Math.max(.2,2*(height-top-bottom)/height);
  const next=Math.max(minZoom,Math.min(maxZoom,xRoom/Math.max(.01,(maxX-minX)/zoom),yRoom/Math.max(.01,(maxY-minY)/zoom)));
- const dx=(minX+maxX)/2*halfWidth/zoom-(left-right)/width*halfWidth/next,dy=(minY+maxY)/2*halfHeight/zoom-(bottom-top)/height*halfHeight/next,det=rightX*upZ-rightZ*upX;
- if(!Number.isFinite(next)||Math.abs(det)<1e-8)return null;
- return {zoom:next,x:(dx*upZ-dy*rightZ)/det,z:(rightX*dy-upX*dx)/det};
+ const dx=(minX+maxX)/2*halfWidth/zoom-(left-right)/width*halfWidth/next,dy=(minY+maxY)/2*halfHeight/zoom-(bottom-top)/height*halfHeight/next;
+ const delta=orthographicGroundOffset(dx,dy,rightX,rightZ,upX,upZ);if(!Number.isFinite(next)||!delta)return null;
+ return {zoom:next,...delta};
 }

@@ -1,7 +1,7 @@
 import * as T from 'three';
-import {emotionPose} from './emotion-pose.mjs?v=fg-03f10db829dbba75';
-import {dailyTaskPose} from './daily-motion.mjs?v=fg-03f10db829dbba75';
-import {pointToolAt} from './reach-hand.mjs?v=fg-03f10db829dbba75';
+import {emotionPose} from './emotion-pose.mjs?v=fg-a40be0a4c2688238';
+import {dailyTaskPose} from './daily-motion.mjs?v=fg-a40be0a4c2688238';
+import {pointToolAt} from './reach-hand.mjs?v=fg-a40be0a4c2688238';
 
 export const GUITAR_HOLD=[0,.14,0],GUITAR_STRUM=[.15,-.13,.093];
 
@@ -11,6 +11,7 @@ export function taskPose(task,time){
   if(task.daily)return dailyTaskPose(task);
   const kind=task.kind,p=Math.max(0,Math.min(1,task.progress||0)),pulse=Math.sin(time*5);
   if(kind==='read'||['wait','look-sign'].includes(kind))return kind==='look-sign'?{left:[0,0,0],right:[0,0,0],tilt:-.035,yaw:Math.sin(time*.7)*.025}:null;
+  if(kind==='kitchen-help')return {left:[-.30,0,.05],right:[-.30,0,-.05],leftElbow:-.55,rightElbow:-.55,tilt:0};
   if(kind==='listen')return {left:[-.15,0,.035],right:[-.15,0,-.035],leftElbow:-.12,rightElbow:-.12,tilt:Math.sin(time*.75)*.012,yaw:Math.sin(time*.42)*.028};
   if(kind==='present'){const q=(Math.sin(time*1.1)+1)/2;return {left:[-.18,0,.10],right:[-.32-q*.27,0,-.17-q*.08],rightElbow:-.45,tilt:.012,yaw:Math.sin(time*.55)*.05};}
   if(['voice','sing','act','stream'].includes(kind)){

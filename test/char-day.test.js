@@ -9,6 +9,7 @@ function setup(){
   vm.runInContext(read('js/char-day-link.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/social.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);
+  vm.runInContext(read('js/char-day-thoughts.js'),env);
   vm.runInContext(read('js/char-day.js'),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));
@@ -17,7 +18,7 @@ function setup(){
     {seq:2,time:'10:00',end:'12:00',title:'核对军报',location:'议事处',place:'城中',type:'work'},
     {seq:3,time:'14:00',end:'15:00',title:'临时陪她走走',location:'河边',type:'out',deviation:{plan:'核对军报',reason:'改了约定',actual:'陪她走走'}},
     {seq:4,time:'23:00',end:'24:00',title:'歇下',location:'寝室',type:'sleep'}]});
-  return {env,K:env.CharDayKit,C:env.ScheduleClock,c,plans:()=>ref.current,save,writes};
+  return {env,K:env.CharDayKit,C:env.ScheduleClock,c,plans:()=>ref.current,save,writes,ref};
 }
 test('读取真实日程writer的字段，按角色当地时间找当前段与具体地点',()=>{
   const f=setup(),s=f.K.dayState(f.c,f.plans().c1,Date.parse('2026-10-09T02:30:00Z'));
@@ -62,6 +63,7 @@ test('主App接真实日程与已有陪伴样貌，日历使用现有角色入�
   const route=cut(app,'  });else if (screen === "fairyGarden")','  });else if (screen === "trpg")'),calls=[];
   const env={screen:'fairyGarden',window:{FairyGardenApp:'garden',CompanionFace:{lookFor:()=>({hairColor:'#111111',face:'happy'})}},moods:{c1:{label:'开心'}},h:(_,p)=>p,body:null,gardenEntryWorld:'day',gardenDayCharId:'c1',setGardenDayCharId:id=>calls.push(['select',id]),schedulesRef:{current:{c1:{today:123}}},CharacterPronoun:{ta:()=> '他'},loadJSON:()=>({looks:{c1:{hairColor:'#111111'}}}),setGardenEntryWorld:v=>calls.push(['world',v]),calReturnRef:{current:null},setSelSched:v=>calls.push(['sched',v]),setScreen:v=>calls.push(['screen',v]),characters:[],liveChars:[],offlineApiFor:()=>{},offlineActive:{},isBody:()=>false,settingsFor:()=>({}),profile:{},toast:()=>{},openGardenRoomFor:()=>{},neighborBundleFor:()=>{},gardenRecordFor:()=>{},buildBundle:()=>'',ctxFor:()=>({})};
   const p=new Function('env','with(env){'+route.replace('  });else if','  if')+'});return body;}')(env);
+  assert.equal(p.day.onKitchenShare,undefined);
   assert.equal(p.day.plansFor({id:'c1'}).today,123);assert.equal(p.day.lookFor({id:'c1'}).hairColor,'#111111');p.day.onSchedule({id:'c1'});
   assert.deepEqual(calls,[['world','day'],['sched','c1'],['screen','calendar']]);assert.equal(env.calReturnRef.current.screen,'fairyGarden');
 });
@@ -109,7 +111,7 @@ test('生活控制与气质装修共用串行writer，快速手动自动切换�
  assert.equal(maximum,1);assert.equal(stored.visitorActivities.c1,'auto');assert.equal(stored.visitorActivities.c2,'drink');assert.equal(stored.motions.c1,'calm');assert.equal(stored.styles.c2,'dusk');assert.equal(stored.future.keep,true);
 });
 
-function placeViewer(f,initialCharId){
+function placeViewer(f,initialCharId,extraProps={}){
   const states=[],refs=[],snapshots=[];let cursor=0,refCursor=0;
   Object.assign(f.env,{
     h:(tag,props,...children)=>({tag,props:props||{},children:children.flat(Infinity)}),Head:'Head',GMsg:'GMsg',GDiary:'GDiary',GUser:'GUser',GConfig:'GConfig',IHome:'IHome',ICamera:'ICamera',IDots:'IDots',IArrow:'IArrow',IRepeat:'IRepeat',IChevR:'IChevR',IPencil:'IPencil',ICheck:'ICheck',GUs:'GUs',GStudy:'GStudy',GBrief:'GBrief',GCoffee:'GCoffee',GWalk:'GWalk',IPulse:'IPulse',GPen:'GPen',GShop:'GShop',ISearch:'ISearch',GMeal:'GMeal',IFilm:'IFilm',GChat:'GChat',GDebate:'GDebate',GBag:'GBag',IHeart:'IHeart',GMoon:'GMoon',Svg:'Svg',
@@ -117,8 +119,9 @@ function placeViewer(f,initialCharId){
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
   });
+  Object.assign(f.env.React,{useState:f.env.useState,useRef:f.env.useRef,useEffect:f.env.useEffect});
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
-  const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test'};
+  const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test',...extraProps};
   const render=()=>{cursor=refCursor=0;const tree=f.env.CharDayApp(props);if(refs[0])refs[0].current={contentWindow:{CharDayScene:{setSnapshot:p=>snapshots.push(JSON.parse(JSON.stringify(p)))}}};return tree;};
   const all=tree=>tree&&typeof tree==='object'?[tree,...tree.children.flatMap(all)]:[];
   const text=node=>node.children.map(c=>typeof c==='string'?c:typeof c==='object'?text(c):'').join('');
@@ -126,6 +129,63 @@ function placeViewer(f,initialCharId){
   const send=tree=>{const frame=all(tree).find(n=>n.tag==='iframe');assert.ok(frame);frame.props.onLoad();return snapshots.at(-1);};
   return {render,click,send,all,states,refs};
 }
+
+// Read the same per-mask clock that the settings writer exposes to the app.
+function roleClock(f,clocks,maskOf=id=>id==='c2'?'other':'main'){
+ const source=read('js/engine.js'),names=['vclockState','vclockCfg','vclockMap'];
+ for(const name of names){const i=source.indexOf('function '+name+'('),j=source.indexOf('\n}\n',i);assert.ok(i>=0&&j>i);vm.runInContext(source.slice(i,j+3),f.env);}
+ f.env.__vclock={active:'c2',clocks,maskOf};return f.env.__vclock;
+}
+test('小世界投影角色钟的加速、跳日与单阶段；真实日历桶、其他面具和上下文保持原样',()=>{
+ const f=setup(),real=Date.parse('2026-10-09T02:10:00Z'),base=Date.parse('1934-05-07T02:10:00Z');
+ f.save('c1','2026-10-09',{seqs:[f.env.CharDayLink.bindRow({seq:7,time:'10:00',end:'11:00',title:'买完菜回家做饭',location:'超市与家里',type:'home'},{world:{stages:[{scene:'dayMarket',spot:'produce',title:'挑菜',minutes:25},{scene:'dayStreet',spot:'walk',title:'回家',minutes:5},{scene:'dayHome',spot:'cook',title:'做饭',minutes:30}]}})]});
+ const W=roleClock(f,{main:{on:true,base,at:real,speed:2},other:{on:false}}),before=JSON.stringify(f.plans()),writes=f.writes.length;
+ let s=f.K.dayState(f.c,f.plans().c1,real+10*60000);assert.equal(s.time,'10:30');assert.equal(s.day,'1934-05-07');assert.equal(s.sourceDay,'2026-10-09');assert.equal(s.slot.seq,7);assert.equal(s.slot.startAt,Date.parse('1934-05-07T02:00:00Z'));assert.equal(f.env.CharDayLink.resolve(s.slot,s.at).presentation.stageIndex,2);
+ const calendar=f.C.currentSlot(f.c,f.plans().c1,real+10*60000,undefined,{fillEnds:f.env.schedFillEnds});assert.equal(calendar.day,'2026-10-09');assert.equal(calendar.startAt,Date.parse('2026-10-09T02:00:00Z'));
+ W.clocks.main.base=Date.parse('1934-05-08T02:17:00Z');s=f.K.dayState(f.c,f.plans().c1,real);assert.equal(s.day,'1934-05-08');assert.equal(s.time,'10:17');assert.equal(s.rows[0].seq,7);assert.equal(f.env.CharDayLink.resolve(s.slot,s.at).presentation.stageIndex,0);
+ const original=f.K.dayState(f.c,f.plans().c1,real,{followVirtual:false});assert.equal(original.at,real);assert.equal(original.time,'10:17');assert.equal(original.slot.startAt,calendar.startAt);
+ const other=f.C.characterFrame({...f.c,id:'c2'},real);assert.equal(other.virtual,false);assert.equal(other.at,real);assert.equal(W.active,'c2');assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+test('角色钟暂停或离开暂停跨现实午夜仍守住同一原段；恢复与倒拨读当前时刻',()=>{
+ const f=setup(),real=Date.parse('2026-10-09T02:10:00Z'),base=Date.parse('1934-05-07T02:30:00Z'),W=roleClock(f,{main:{on:true,base,at:real,speed:0}}),before=JSON.stringify(f.plans()),writes=f.writes.length;
+ const a=f.K.dayState(f.c,f.plans().c1,real),b=f.K.dayState(f.c,f.plans().c1,real+86400e3);assert.equal(b.time,'10:30');assert.equal(b.slot.key,a.slot.key);assert.equal(b.sourceDay,'2026-10-09');assert.equal(b.paused,true);
+ W.clocks.main={on:true,base,at:real,speed:3,awayAt:real+10*60000};const away=f.K.dayState(f.c,f.plans().c1,real+2*86400e3);assert.equal(away.time,'11:00');assert.equal(away.sourceDay,'2026-10-09');assert.equal(away.slot.title,'核对军报');assert.equal(away.paused,true);
+ W.clocks.main={on:true,base:Date.parse('1934-05-07T00:15:00Z'),at:real,speed:1};const back=f.K.dayState(f.c,f.plans().c1,real);assert.equal(back.slot.title,'用早饭');assert.equal(back.paused,false);
+ W.clocks.main.on=false;assert.equal(f.K.dayState(f.c,f.plans().c1,real).time,'10:10');assert.equal(JSON.stringify(f.plans()),before);assert.equal(f.writes.length,writes);
+});
+test('暂停钟被原App重锚定后，原小家writer保存的来源仍跨隔夜和冷启动保持；跳时与现实模式不继承',async()=>{
+ const f=setup(),real=Date.parse('2026-10-09T02:30:00Z'),base=Date.parse('1934-05-07T02:30:00Z'),W=roleClock(f,{main:{on:true,base,at:real,speed:0}}),a=f.K.dayState(f.c,f.plans().c1,real),before=JSON.stringify(f.plans());
+ let stored={clockSources:{c2:{virtualAt:0,sourceDay:'2000-01-01'}},keep:true};f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>true;f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ await f.K.saveHomeChange(f.c.id,'clockSources',{virtualAt:a.displayAt,sourceDay:a.sourceDay});const record=JSON.parse(JSON.stringify(stored.clockSources.c1));
+ W.clocks.main={on:true,base,at:real+86400e3,speed:0};assert.equal(f.K.dayState(f.c,f.plans().c1,real+86400e3).slot,null);
+ const resumed=f.K.dayState(f.c,f.plans().c1,real+86400e3,{clockSource:record});assert.equal(resumed.slot.key,a.slot.key);assert.equal(resumed.slot.title,'核对军报');
+ const fresh=setup();fresh.ref.current=JSON.parse(before);roleClock(fresh,{main:JSON.parse(JSON.stringify(W.clocks.main))});assert.equal(fresh.K.dayState(fresh.c,fresh.plans().c1,real+86400e3,{clockSource:record}).slot.key,a.slot.key);
+ assert.equal(f.K.dayState(f.c,f.plans().c1,real+86400e3,{followVirtual:false,clockSource:record}).slot,null);
+ W.clocks.main.base+=86400e3;assert.equal(f.K.dayState(f.c,f.plans().c1,real+86400e3,{clockSource:record}).sourceDay,'2026-10-10');
+ assert.equal(stored.clockSources.c2.sourceDay,'2000-01-01');assert.equal(stored.keep,true);assert.equal(JSON.stringify(f.plans()),before);
+});
+test('虚拟纪元零点与半小时时区可读；缺钟或异常钟退回现实而不动当前聊天面具',()=>{
+ const f=setup(),real=Date.parse('2026-10-09T02:10:00Z');const W=roleClock(f,{main:{on:true,base:0,at:real,speed:0}});
+ assert.equal(f.C.characterFrame({id:'c1',tz:5.5},real).minute,330);assert.equal(f.C.characterFrame({id:'c1',tz:-3.5},real).day,'1969-12-31');assert.equal(f.C.localMinute({tz:0},0),0);
+ f.env.vclockMap=()=>{throw Error('bad clock');};const frame=f.C.characterFrame(f.c,real);assert.equal(frame.virtual,false);assert.equal(frame.at,real);assert.equal(W.active,'c2');
+});
+test('未指定角色时区时，跳到冬季仍与设备角色钟的当地小时一致',()=>{
+ const previous=process.env.TZ;process.env.TZ='America/Winnipeg';
+ try{const f=setup(),real=Date.parse('2026-10-09T15:30:00Z'),base=Date.parse('2026-11-21T16:30:00Z');roleClock(f,{main:{on:true,base,at:real,speed:0}});
+ const char={id:'c1'},frame=f.C.characterFrame(char,real);assert.equal(frame.minute,630);assert.equal(frame.offset,-360);const s=f.K.dayState(char,f.plans().c1,real);assert.equal(s.time,'10:30');assert.equal(s.slot.title,'核对军报');assert.equal(s.slot.startAt,Date.parse('2026-11-21T16:00:00Z'));assert.equal(s.sourceDay,'2026-10-09');
+ }finally{if(previous===undefined)delete process.env.TZ;else process.env.TZ=previous;}
+});
+test('活动时间选择使用原小家durable writer：失败保持、两种模式、重新进入及角色隔离',async()=>{
+ const f=setup(),real=Date.parse('2026-10-09T02:30:00Z');roleClock(f,{main:{on:true,base:Date.parse('1934-05-07T00:30:00Z'),at:real,speed:0}});
+ let stored={clockModes:{c2:'auto'},layouts:{c2:{sofa:{x:1}}},keep:'保留'},verified=false;
+ f.env.loadJSON=()=>stored;f.env.walPutVerified=async()=>verified;f.env.saveJSON=(key,value)=>{assert.equal(key,'x_charDayHomes');stored=value;return true;};
+ vm.runInContext(cut(read('js/engine.js'),'async function commitJSONDurable(','function localStorageBytes('),f.env);
+ const v=placeViewer(f,'c1'),hook=(tree,key,part)=>v.all(tree).find(n=>n.props['data-wk']===key&&(!part||n.props['data-part']===part));let tree=v.render();assert.equal(v.send(tree).slot.title,'用早饭');v.click(tree,'更多');tree=v.render();const before=JSON.stringify(stored);
+ await hook(tree,'cdayclockmode','real').props.onClick();tree=v.render();assert.equal(JSON.stringify(stored),before);assert.equal(hook(tree,'cdayclockmode','auto').props['aria-pressed'],true);
+ verified=true;await hook(tree,'cdayclockmode','real').props.onClick();tree=v.render();assert.equal(v.send(tree).slot.title,'核对军报');assert.equal(stored.clockModes.c2,'auto');assert.equal(stored.keep,'保留');assert.equal(stored.layouts.c2.sofa.x,1);
+ const fresh=placeViewer(f,'c1');let again=fresh.render();assert.equal(fresh.send(again).slot.title,'核对军报');fresh.click(again,'更多');again=fresh.render();await fresh.all(again).find(n=>n.props['data-wk']==='cdayclockmode'&&n.props['data-part']==='auto').props.onClick();again=fresh.render();assert.equal(fresh.send(again).slot.title,'用早饭');
+});
 
 test('场景尚未同步角色时的首条到访消息可安全接收，不把小世界打进错误页',()=>{
  const f=setup(),viewer=placeViewer(f,'c1');let receive;
@@ -268,4 +328,20 @@ test('小世界皮肤只在自身外壳，减少动画与键盘焦点均有真�
  const f=setup(),v=placeViewer(f,'c1'),tree=v.render(),skin=v.all(tree).find(n=>n.tag==='style');
  assert.ok(skin);const css=skin.children.join('');assert.match(css,/prefers-reduced-motion/);assert.match(css,/focus-visible/);assert.match(css,/\[data-wk="cdaypage"\] select/);
  assert.equal(v.all(tree).find(n=>n.props['data-wk']==='cdaytools').props.style.minHeight,56);
+});
+
+test('复合日程纸卡显示当前与下一步，原编辑writer只纠正所选阶段并在结束后自动继续',async()=>{
+ const f=setup(),L=f.env.CharDayLink,raw={seq:1,time:'10:00',end:'11:00',title:'买完菜回家做饭',location:'超市和家里',type:'home',world:{scene:'dayMarket',spot:'produce',stages:[{title:'挑选蔬菜',location:'北街超市',scene:'dayMarket',spot:'produce',minutes:25},{title:'提袋回家',location:'回家路上',scene:'dayStreet',spot:'walk',minutes:5},{title:'在家做饭',location:'家里厨房',scene:'dayHome',spot:'cook',minutes:30}]}};
+ f.save('c1','2026-10-09',{load:'NORMAL',estTime:1,seqs:[raw]});const original=JSON.stringify(L.publicSchedules(f.plans()));
+ Object.assign(f.env,{schedulesRef:f.ref,saveJSON:(key,value)=>{f.writes.push({key,value:JSON.parse(JSON.stringify(value))});return true;},setSchedules:value=>{f.ref.current=value;}});
+ vm.runInContext(cut(app,'  const editSchedSeq =','  const schedWeekKeysFrom =')+'this.editPhase=editSchedSeq;',f.env);
+ const v=placeViewer(f,'c1',{onEditSchedSeq:(char,day,seq,patch,expected)=>f.env.editPhase(char.id,day,seq,patch,expected)});let at=Date.parse('2026-10-09T02:12:00Z');f.env.Date=class extends Date{static now(){return at;}};
+ const hook=(tree,key)=>v.all(tree).find(n=>n.props['data-wk']===key),text=n=>n.children.map(x=>typeof x==='string'?x:typeof x==='object'?text(x):'').join('');
+ let tree=v.render();assert.match(text(hook(tree,'cdayphase')),/正在 · 挑选蔬菜/);assert.match(text(hook(tree,'cdayphase')),/接下来 · 提袋回家/);
+ hook(tree,'cdaypositionopen').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionstage').props.value,0);assert.equal(v.all(tree).find(n=>n.props['data-wk']==='cdaypositionscope'&&n.props['data-part']==='stage').props['aria-pressed'],true);
+ hook(tree,'cdaypositionstage').props.onChange({target:{value:'1'}});tree=v.render();hook(tree,'cdaypositionscene').props.onChange({target:{value:'dayLibrary'}});tree=v.render();v.all(tree).find(n=>n.props['data-wk']==='cdaypositionspot'&&n.props['data-part']==='window-reading').props.onClick();tree=v.render();await hook(tree,'cdaypositionsave').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionpage'),undefined);
+ assert.equal(JSON.stringify(L.publicSchedules(f.plans())),original);assert.equal(v.send(tree).presentation.map,'dayMarket');
+ at=Date.parse('2026-10-09T02:27:00Z');tree=v.render();let payload=v.send(tree);assert.equal(payload.presentation.map,'dayLibrary');assert.equal(payload.presentation.stageManual,true);assert.match(text(hook(tree,'cdayphase')),/接下来 · 在家做饭/);
+ hook(tree,'cdaypositionopen').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionstage').props.value,1);hook(tree,'cdaypositionauto').props.onClick();tree=v.render();await hook(tree,'cdaypositionsave').props.onClick();tree=v.render();assert.equal(v.send(tree).presentation.map,'dayStreet');
+ at=Date.parse('2026-10-09T02:35:00Z');tree=v.render();payload=v.send(tree);assert.equal(payload.presentation.map,'dayHome');assert.equal(payload.presentation.stageIndex,2);assert.equal(payload.presentation.manual,undefined);assert.match(text(hook(tree,'cdayphase')),/本段最后一步/);assert.equal(JSON.stringify(L.publicSchedules(f.plans())),original);
 });

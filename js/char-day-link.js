@@ -2,10 +2,28 @@
 (function (root) {
   "use strict";
   const catalog = () => root.CharDayCatalog || [];
-  function validate(value) {
+  function anchor(value) {
     if (!value || typeof value !== "object") return null;
     const scene = catalog().find(s => s.id === value.scene);
-    return scene?.spots.some(s => s.id === value.spot) ? { scene: scene.id, spot: value.spot, ...(value.manual === true ? { manual: true } : {}) } : null;
+    return scene?.spots.some(s => s.id === value.spot) ? { scene: scene.id, spot: value.spot } : null;
+  }
+  function validateStages(values) {
+    if (!Array.isArray(values) || values.length < 2) return null;
+    const stages = values.map(value => {
+      const link = anchor(value), minutes = Number(value?.minutes), title = typeof value?.title === "string" ? value.title.trim() : "";
+      const override = value?.override == null ? null : anchor(value.override);
+      return link && title && Number.isFinite(minutes) && minutes > 0 && (value?.override == null || override)
+        ? { ...link, title, location: typeof value.location === "string" ? value.location.trim() : "", minutes, ...(override ? { override } : {}) } : null;
+    });
+    // Keep an ordered chain whole. Dropping one invalid stage would silently
+    // move all the later tasks forward and claim the missing task was done.
+    return stages.every(Boolean) && Number.isFinite(stages.reduce((n,s) => n + s.minutes, 0)) ? stages : null;
+  }
+  function validate(value) {
+    if (!value || typeof value !== "object") return null;
+    const stages = value.manual === true ? null : validateStages(value.stages);
+    const link = anchor(value) || (stages && anchor(stages[0]));
+    return link ? { ...link, ...(value.manual === true ? { manual: true } : {}), ...(stages ? { stages } : {}) } : null;
   }
   function bindRow(row, source) {
     const next = { ...row, world: validate(source?.world) };
@@ -14,6 +32,7 @@
   }
   // Calendar text edits and the day viewer share the same row edit semantics.
   function editRow(row, patch) {
+    if (Object.hasOwn(patch, "worldStage")) return Object.keys(patch).length === 1 ? editStage(row, patch.worldStage) : null;
     const next = { ...row, ...patch, edited: true };
     const changed = key => Object.hasOwn(patch, key) && patch[key] !== (row[key] || "");
     if (changed("title") || changed("location")) { delete next.world; delete next.deviation; }
@@ -44,11 +63,11 @@
   function instruction(digital = false) {
     if (digital) return "\n【小世界显示字段】seqs 每段 world 填 null，deviation 内 world 也填 null；存在时间线仍按数字生命的事实写。";
     const choices = catalog().map(s => s.id + "（" + s.label + "）：" + s.spots.map(p => p.id + "=" + (p.label || p.action)).join("；")).join("\n");
-    return "\n【TA的一天·场景连接】先按角色身份、真实安排和世界观写完整日程，再为每段添加可选的 world:{\"scene\":\"场景编号\",\"spot\":\"位置编号\"}。以下编号只写进 world，专供「TA的一天」计算画面位置。日历的 title/location/place、碎碎念和临时变更的 plan/reason/actual 都写角色世界里原本的具体事情和地名，保留自然语言。选最贴合所做之事的位置，没有贴合的位置填 null；按需要安排生活，不为凑齐场景添日程。\n"
-      + choices + "\n就寝对应 dayHome/sleep。工作与学习可按实际事情去专业房或普通工作空间；在家做事留在小家。deviation 有实际改动时，其 world 标注实际正在做的事对应的位置，原计划的 world 留在该段外层。";
+    return "\n【TA的一天·场景连接】先按角色身份、真实安排和世界观写完整日程，再为每段添加可选的 world:{\"scene\":\"场景编号\",\"spot\":\"位置编号\",\"stages\":[]}。以下编号只写进 world，专供「TA的一天」计算画面位置。日历的 title/location/place、碎碎念和临时变更的 plan/reason/actual 都写角色世界里原本的具体事情和地名，保留自然语言。选最贴合所做之事的位置，没有贴合的位置填 null；按需要安排生活，不为凑齐场景添日程。\n"
+      + choices + "\n就寝对应 dayHome/sleep。工作与学习可按实际事情去专业房或普通工作空间；在家做事留在小家。deviation 有实际改动时，其 world 标注实际正在做的事对应的位置，原计划的 world 留在该段外层。复合日程的 world.stages 按原叙事的先后顺序列阶段，每项填 {title:本阶段原本要做的事情,location:本阶段实际地名,scene:场景编号,spot:位置编号,minutes:正数时长}，时长总和对应这段日程；外层 scene/spot 对应第一阶段。只有一个任务时 stages 留空。阶段只拆原安排及必要的移动过渡，阶段内的准备与停歇由已有动作组处理。";
   }
   function schema(value, digital = false) {
-    const field = digital ? '"world":null,' : '"world":{"scene":"上表的场景编号或填null","spot":"该场景的位置编号"},';
+    const field = digital ? '"world":null,' : '"world":{"scene":"上表的场景编号或填null","spot":"该场景的位置编号","stages":[{"title":"复合安排中的阶段事项，单任务留空数组","location":"本阶段实际地名","scene":"上表的场景编号","spot":"该场景的位置编号","minutes":"本阶段正数时长，合计为原段时长"}]},';
     return String(value).replace(/("seqs"\s*:\s*\[\s*\{)/g, "$1" + field);
   }
   function at(scene, spot) {
@@ -62,6 +81,26 @@
     // A changed task must never inherit the planned room/location.
     const d = slot.deviation;
     return { title: d.actual, location: d.location || (d.actual === slot.title ? slot.location : "") || "", type: d.type || (d.actual === slot.title ? slot.type : "other"), world: d.world };
+  }
+  function stagesFor(slot) {
+    const source = sourceFor(slot), planned = validate(slot?.world), actual = validate(source.world);
+    if (planned?.manual || actual?.manual) return [];
+    return actual?.stages || legacyStages(source) || [];
+  }
+  // A phase correction changes only internal anchors. Its automatic anchor,
+  // original text, duration and the rest of the chain remain available.
+  function editStage(row, patch) {
+    const stages = stagesFor(row), index = patch?.index;
+    if (!Number.isInteger(index) || index < 0 || index >= stages.length) return null;
+    const override = patch.anchor === null ? null : anchor(patch.anchor);
+    if (patch.anchor !== null && !override) return null;
+    const nextStages = stages.map((stage, i) => {
+      if (i !== index) return stage;
+      const { override: previous, ...automatic } = stage;
+      return { ...automatic, ...(override ? { override } : {}) };
+    });
+    const world = { ...anchor(nextStages[0]), stages: nextStages };
+    return row.deviation?.actual ? { ...row, deviation: { ...row.deviation, world } } : { ...row, world };
   }
   function occupationLink(words, place, type) {
     const preparingMeal = /制作[早午晚]餐|准备[早午晚]餐|做[早午晚]餐|备料|切配|备菜|做饭|做菜|炒菜|煮饭|烹饪|下厨/.test(words);
@@ -141,7 +180,7 @@
     if (type === "social" && outside) return at("dayCafe", "rest");
     return at("dayHome", "rest");
   }
-  function presentation(slot) {
+  function singlePresentation(slot) {
     const manual = validate(slot?.world);
     if (manual?.manual) return { ...at(manual.scene, manual.spot), manual: true };
     const source = sourceFor(slot);
@@ -154,6 +193,70 @@
     if(link&&venue&&link.scene!==venue)return infer(source);
     return (link && at(link.scene, link.spot)) || infer(source);
   }
+  // Legacy rows have no structured stages. Split only stated succession;
+  // punctuation or "and" alone can describe concurrent work or a purpose.
+  function legacyStages(source) {
+    const title = String(source.title || "");
+    if (/为了|以便|打算|计划(?:下次|明天)|准备(?:回家|去)/.test(title)) return null;
+    const parts = title.replace(/(?:随后|然后|接着|而后|之后)|后(?=在|去|回|整理|分析|休息|吃饭|做饭|睡觉)|再(?=去|回|到|在|做|吃|读|看|整理|分析|休息|练|睡|用|买|挑)/g, "\u0001")
+      .replace(/(?=回家|回到家中|返回住处)/g, "\u0001")
+      .split("\u0001").map(s => s.replace(/^[，,；;。\s]+|[，,；;。\s]+$/g, "")).filter(Boolean);
+    if (parts.length < 2) return null;
+    let place = String(source.location || "");
+    // A multi-venue parent location cannot be inherited by every clause.
+    if (/→|随后|然后|回家|家中/.test(place) && explicitVenue(source)) place = "";
+    const stages = [];
+    const weights = {shop:25,cook:30,read:30,work:30,practice:30,exercise:30,sleep:60,rest:15,meal:20,tea:10,walk:5,wait:10};
+    for (const part of parts) {
+      if (/^(?:回家|回到家中|返回住处)$/.test(part)) {
+        const travel=at("dayStreet","walk");
+        if (!travel) return null;
+        stages.push({scene:travel.map,spot:travel.spot,title:"回家途中",location:"回家途中",minutes:5}); place="家里"; continue;
+      }
+      const home = /回家|回到家中|返回住处|在家|家里|家中|公寓/.test(part);
+      const own = infer({title:part,type:"other"});
+      const venue = own && !["dayHome","dayWork"].includes(own.map);
+      const shopping = /买(?:完)?菜|采购(?:蔬菜|食材)|买.*(?:食材|蔬菜|牛奶)/.test(part);
+      if (/想想|打算|考虑|计划(?:明天|下次)/.test(part)) return null;
+      const location = home ? "家里" : venue ? part : shopping ? "超市" : place;
+      const stageSource = {title:part,location,type:source.type === "sleep" ? "other" : source.type};
+      const p = infer(stageSource);
+      // Default resting is not evidence of a second task. Ambiguous older
+      // prose stays a single original task instead of inventing a chain.
+      if (!p || p.action === "rest" && !/休息|歇会|歇脚|小憩|放松/.test(part)) return null;
+      if (home && stages.length && stages.at(-1).scene !== "dayHome" && stages.at(-1).title !== "回家途中") {
+        const travel = at("dayStreet", "walk");
+        if (travel) stages.push({scene:travel.map,spot:travel.spot,title:"回家途中",location:"回家途中",minutes:5});
+      }
+        stages.push({scene:p.map,spot:p.spot,title:part,location,minutes:weights[p.action] || 30});
+      place = location;
+    }
+    return validateStages(stages);
+  }
+  function resolve(slot, atTime = null, { preview = false } = {}) {
+    const source = sourceFor(slot), stages = stagesFor(slot);
+    const plain = () => ({ presentation: singlePresentation(slot), activitySlot: slot, stages: [] });
+    if (!stages.length) return plain();
+    const start = slot?.startAt, end = slot?.endAt;
+    if (!preview && (!Number.isFinite(start) || !Number.isFinite(end) || end <= start || !Number.isFinite(atTime) || atTime < start || atTime >= end)) return plain();
+    const total = stages.reduce((n,s) => n + s.minutes, 0), span = end - start;
+    let boundary = start, index = 0, stageStart = start, stageEnd = end;
+    for (let i=0; i<stages.length; i++) {
+      const next = i === stages.length - 1 ? end : boundary + span * stages[i].minutes / total;
+      if (preview || atTime < next) { index=i; stageStart=boundary; stageEnd=next; break; }
+      boundary=next;
+    }
+    const stage=stages[index], chosen=stage.override || stage, p=at(chosen.scene,chosen.spot);
+    const effective=s=>s.override || s;
+    const previous=stages.slice(0,index).reverse().map(effective).find(s => at(s.scene,s.spot)?.action !== "walk");
+    const stageCarry=p.action === "walk" && previous && ["dayMarket","dayFleaMarket"].includes(previous.scene) && at(previous.scene,previous.spot)?.action === "shop" ? "basket" : null;
+    const row={...(slot?.row || source),title:stage.title,location:stage.location,world:anchor(chosen),deviation:null};
+    return {
+      presentation:{...p,stageIndex:index,stageCount:stages.length,stageLabel:stage.title,...(stage.override ? {manual:true,stageManual:true} : {}),...(stageCarry ? {stageCarry} : {})},
+      activitySlot:{...slot,...row,row,startAt:stageStart,endAt:stageEnd}, stages
+    };
+  }
+  function presentation(slot, atTime = null, options = {}) { return resolve(slot, atTime, options).presentation; }
   function explicitVenue(source){
     const place=String(source.location||""),words=String(source.title||""),text=place||words;
     const venues=[[/面包房|面包店|烘焙店|甜品店|甜点店|餐厅|餐馆|食堂|咖啡店|咖啡馆|茶馆/,"dayCafe"],[/农场|农庄|田间|菜畦|菜园|种植园/,"dayFarm"],[/复古市集|跳蚤市集|跳蚤市场|旧货市场|古董市场|市集|集市|夜市/,"dayFleaMarket"],[/图书馆|阅览室/,"dayLibrary"],[/实验室|实验台/,"dayLaboratory"],[/诊室|病房|值班室/,"dayClinic"],[/健身房|运动馆|健身中心/,"dayGym"],[/超市|便利店|生鲜店/,"dayMarket"],[/车站|候车厅|站台|地铁站/,"dayStation"]];
@@ -162,5 +265,5 @@
     for(const [pattern,map]of venues)if(pattern.test(text))return map==='dayCafe'?(occupationLink(words,place,source.type)?.map||map):map;
     return null;
   }
-  root.CharDayLink = { validate, bindRow, editRow, publicRow, publicSchedules, instruction, schema, presentation };
+  root.CharDayLink = { validate, validateStages, bindRow, editRow, editStage, stagesFor, publicRow, publicSchedules, instruction, schema, presentation, resolve };
 })(globalThis);

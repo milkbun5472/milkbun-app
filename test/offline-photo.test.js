@@ -10,12 +10,12 @@ const app = R("app.js"), engine = R("engine.js"), components = R("components.js"
 
 test("线下拍照这一层，单人线下和群线下都接上了（四处一样喂）", () => {
   // 提示词：一份 offlinePhotoHint，两处线下各自调用
-  assert.match(engine, /function offlinePhotoHint\(userName, charName, canDuo, isGroup\)/);
-  assert.match(engine, /session\.photoOn\) \? offlinePhotoHint\(userName, char\.name, !!session\.photoDuo, false\)/, "单人线下没接");
-  assert.match(engine, /offlinePhotoHint\(userName, "", \(session\.photoDuoMembers \|\| \[\]\)\.length > 0, true\)/, "群线下没接");
+  assert.match(engine, /function offlinePhotoHint\(userName, charName, canDuo, isGroup(?:, canMe)?\)/);
+  assert.match(engine, /session\.photoOn\) \? offlinePhotoHint\(userName, char\.name, !!session\.photoDuo, false(?:, !!session\.photoMe|, session\.photoMe \|\| false)?\)/, "单人线下没接");
+  assert.match(engine, /offlinePhotoHint\(userName, "", \(session\.photoDuoMembers \|\| \[\]\)\.length > 0, true(?:, !!session\.photoMe)?\)/, "群线下没接");
   // 能力从 app 侧算好传进来，两处都传
   assert.match(app, /photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo\(char\)/, "单人线下没传能力");
-  assert.match(app, /photoMembers: _gShooters\.map\(c => c\.name\), photoDuoMembers: _gDuo\.map\(c => c\.name\), photoGroupOk: _gGroupOk/, "群线下没传能力");
+  assert.match(app, /photoMembers: _gShooters\.map\(c => c\.name\), photoDuoMembers: _gDuo\.map\(c => c\.name\),(?: photoMe: [^,]*,)? photoGroupOk: _gGroupOk/, "群线下没传能力");
   // 两处都会把模型填的那一格真的拍出来
   assert.match(app, /if \(res\.photo && res\.photo\.scene\) runOfflineShot\(/, "单人线下拿到 photo 没出图");
   assert.match(app, /if \(b\.photo && b\.photo\.scene && b\.senderId\)/, "群线下拿到 photo 没出图");

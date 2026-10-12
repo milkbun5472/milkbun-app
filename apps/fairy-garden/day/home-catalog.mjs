@@ -1,6 +1,7 @@
-import {normalizePartColors} from './home-parts.mjs?v=fg-03f10db829dbba75';
-import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-03f10db829dbba75';
-import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-03f10db829dbba75';
+import './kitchen.js?v=fg-a40be0a4c2688238';
+import {normalizePartColors} from './home-parts.mjs?v=fg-a40be0a4c2688238';
+import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-a40be0a4c2688238';
+import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-a40be0a4c2688238';
 // One catalogue supplies the editor, saved instances, geometry and activity anchors.
 const item=(id,label,category,kind,w,d,extra={})=>({id,label,category,kind,w,d,...extra});
 export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',bathroom:'浴室',rug:'地毯',screen:'屏风',decor:'装饰摆件',wallDecor:'墙上装饰'};
@@ -97,8 +98,8 @@ export function furnitureFootprint(p){const c=Math.abs(Math.cos(p.heading||0)),s
 export function furnitureObstacles(p){if(p.kind!=='shower')return [furnitureFootprint(p)];return [{x:0,z:-p.d/2+.045,w:p.w,d:.09},{x:p.w/2-.035,z:0,w:.07,d:p.d}].map(a=>({...furniturePoint(p,a),id:p.id,w:Math.abs(Math.cos(p.heading||0))*a.w+Math.abs(Math.sin(p.heading||0))*a.d,d:Math.abs(Math.cos(p.heading||0))*a.d+Math.abs(Math.sin(p.heading||0))*a.w}));}
 export const HOME_LIMIT=80;
 // The renderer and the activity anchor own the same pot and preparation surface.
-export const HOME_PREP={x:-1.05,z:.22,y:.995,contactZ:.30,contactY:1.04,handZ:.44,handY:1.19};
-export const HOME_COOK={x:1.08,z:.22,y:1.09,r:.13,gripY:1.30,contactY:1.16};
+export const HOME_PREP=globalThis.CharDayKitchen.KITCHEN_ANCHORS.prep;
+export const HOME_COOK=globalThis.CharDayKitchen.KITCHEN_ANCHORS.cook;
 export function homeRoom(raw){const q=raw?.$room||{};return {size:Object.hasOwn(HOME_SIZES,q.size)?q.size:'compact',originalRugs:q.originalRugs!==false,originalWallDecor:q.originalWallDecor!==false,wall:Object.hasOwn(HOME_WALLS,q.wall)?q.wall:'auto',floor:Object.hasOwn(HOME_FLOORS,q.floor)?q.floor:'auto',wallColor:hex(q.wallColor),floorColor:hex(q.floorColor),uses:Object.fromEntries(Object.entries(q.uses||{}).filter(([k,v])=>['sleep','meal','tea','rest','read','cook','shower','wash-hands','toilet'].includes(k)&&typeof v==='string'))};}
 function record(q={},p){q=q&&typeof q==='object'?q:{};const partColors=normalizePartColors(p,q.partColors);return {...(p.mount?{wall:q.wall==='left'?'left':'back',along:Number.isFinite(q.along)?q.along:0,y:Number.isFinite(q.y)?q.y:2}:{}),catalogId:p.catalogId||p.id,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?((Math.round(q.heading/(Math.PI/2))%4+4)%4)*Math.PI/2:p.heading||0,stored:q.stored===true,...(Object.keys(partColors).length?{partColors}:{}),color:hex(q.color),material:Object.hasOwn(HOME_MATERIALS,q.material)?q.material:'auto'};}
 export function homePlacements(raw={}){

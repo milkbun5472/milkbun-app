@@ -644,7 +644,8 @@ function CastForm({
   const birthdayField = h("div", null,
     h("input", { value: birthday, onChange: e => setBirthday(e.target.value), placeholder: "3-15 / 1998-3-15 / 腊月廿三 / 农历八月十五 / 不知道就留空", className: "w-full bg-transparent outline-none", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, padding: "6px 0" } }),
     (!both && !born) ? null : h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginTop: 4, lineHeight: 1.7 } }, both, born ? h("div", { style: { color: t.fog } }, born) : null),
-    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填。只填月日也行——那到日子照样会记得，岁数在下面单独填。"));
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 3, lineHeight: 1.6 } }, "公历农历都能填。只填月日也行——那到日子照样会记得，岁数在下面单独填。"),
+    typeof BirthdayHint === "function" ? h(BirthdayHint, { value: birthday }) : null);
   const ageField = h("div", null,
     h("div", { className: "flex items-baseline", style: { gap: 8 } },
       h("input", { value: ageInput, onChange: e => setAgeInput(e.target.value.replace(/[^\d]/g, "").slice(0, 4)),

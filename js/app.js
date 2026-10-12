@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.399";
+const APP_VERSION = "v75.428";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8272,9 +8272,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     ? carryClosetText((carryRef.current || {})[charId], cap) : "";
   // 线下能不能拍：接了图像 API + 这个人有外貌或参考照。合照另要两张参考照都在。
   // 照片只落成文字时的一句原因（单聊、群聊两处共用）
-  const photoNoDrawWhy = char => !(typeof imgApiReady === "function" && imgApiReady())
+  const photoNoDrawWhy = (char, kind) => !(typeof imgApiReady === "function" && imgApiReady())
     ? "还没接图像 API：设置 → 图像 API 配一条线路就能出图"
-    : !(char && (char.appearance || char.refPhoto))
+    : kind === "me" && !canShootMe()
+      ? "TA 帮你拍的这张画的是你：你自己的外貌那一栏是空的、也没传参考照——去「我」的资料里填"
+    : kind !== "me" && !(char && (char.appearance || char.refPhoto))
       ? "TA 的【外貌 · 发自拍用】那一栏是空的、也没传参考照——人设正文里写的外貌不算，要填进编辑角色里那一栏"
       : "";
   const offlinePhotoCan = char => !!((typeof imgApiReady === "function") && imgApiReady() && char && (char.appearance || char.refPhoto));
@@ -8374,9 +8376,11 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const groupId = arg && arg.groupId;
     const scopeKey = (arg && arg.scopeKey) || (char && char.id);
     const scene = String((arg && arg.scene) || "").trim();
-    if (!char || !offlinePhotoCan(char) || !scene) return false;
+    // TA 帮我拍（me）：被拍的是她，要的是她自己的外貌或参考照，不看 TA 的
+    const wantMe = arg && arg.kind === "me" && canShootMe() && typeof imgApiReady === "function" && imgApiReady();
+    if (!char || !scene || !(wantMe || offlinePhotoCan(char))) return false;
     // 合照必须两张参考照都在，否则降级成「她替TA拍的单人照」——绝不一张真一张编。
-    let kind = ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
+    let kind = wantMe ? "me" : ["other", "duo", "group"].includes(arg.kind) ? arg.kind : "self";
     if (kind === "duo" && !offlinePhotoCanDuo(char)) kind = "other";
     let cast = kind === "group" ? (arg.cast || []) : null;
     if (kind === "group" && (!cast || cast.length < 2)) { kind = "other"; cast = null; }
@@ -8415,16 +8419,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         .find(m => m && m.kind === "selfie" && m.imgKey && m.sid !== sid
           && (!groupId || String(m.senderId || "") === String(char.id))
           && (Date.now() - (Number(m.ts) || 0)) < 6 * 3600000);
+      // me：画面里是她——照「别人拍的」那一档画她（meSubject），这一场她挑的那身照样顶上
+      const sub = kind === "me" ? { ...meSubject(char, "我"), photoOutfit: me.outfit || "" } : char;
+      const drawKind = kind === "me" ? "other" : kind;
       const refs = cast ? cast.map(x => x.refPhoto).filter(Boolean)
         : kind === "duo" ? [char.refPhoto, profile && profile.refPhoto].filter(Boolean)
-        : [char.refPhoto].filter(Boolean);
+        : [sub.refPhoto].filter(Boolean);
       const contBlobKey = refs.length === 0 && prevShot ? prevShot.imgKey : null;
       if (contBlobKey) refs.push(contBlobKey);
       const wRef = worldRefFor(char, scene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(char, sceneForPhoto, st, { kind, me, cast, closet: closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
-      const minimalPrompt = buildMinimalPhotoPrompt(char, { kind, cast });
+      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
+      const minimalPrompt = buildMinimalPhotoPrompt(sub, { kind: drawKind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
       if (out.blob) {
@@ -8611,7 +8618,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
       const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
       if (typeof vclockUse === "function") vclockUse(charId);
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe() ? ((povFor(char) || {}).tier || true) : false, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
@@ -9456,7 +9463,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const _gDuo = _gShooters.filter(c => c.refPhoto && profile && profile.refPhoto);
       const _gGroupOk = _gShooters.filter(c => c.refPhoto).length + ((profile && profile.refPhoto) ? 1 : 0) >= 2;
       const beats = await generateOfflineGroup(offlineActive, gCtx, { ...effectiveSess, signal: _abort.signal, msgs: _gWindow, imageDataUrls: gOffImageDataUrls,
-        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
+        photoMembers: _gShooters.map(c => c.name), photoDuoMembers: _gDuo.map(c => c.name), photoMe: _gShooters.length > 0 && canShootMe(), photoGroupOk: _gGroupOk, priorSummary: effectiveSess.summary || "", narr: osNarr("g_" + group.id), taste: effectiveSess.taste || osTaste("g_" + group.id), lengthMode: osFor("g_" + group.id).lengthMode || "natural", writeMode: osFor("g_" + group.id).writeMode === "novel" ? "novel" : "beats", maxTokens: osFor("g_" + group.id).maxTokens || 3200, minWords: osFor("g_" + group.id).minWords, rerollAvoid: effectiveSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这几拍不落地
       const _offThoughtOnce = new Set();
       const _spoke = new Set(); // 群线下也给开口的成员计动态保底（她 2026-07-13 点名）
@@ -10881,6 +10888,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
   const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  // 离开小手机时停住（群友 2026-10-11）：走的那一刻把每只开了 pauseAway 的钟定在当下（base＝那一刻、记 awayAt），
+  //   回来时把 at 挪到现在——走开的那段一秒都不算。关掉网页也算走：下次打开时照 awayAt 接上。
+  //   只在走、回两下各写一次 x_prefs，不开计时器、不另起存储键。
+  useEffect(() => {
+    const touch = leaving => {
+      const cur = prefsRef.current || {};
+      const all = { ...(cur.vclock ? { main: cur.vclock } : {}), ...(cur.vclocks || {}) };
+      let changed = false; const now = Date.now(); const next = {};
+      Object.keys(all).forEach(k => {
+        const c = all[k];
+        if (!c || !c.on || !c.pauseAway) { next[k] = c; return; }
+        if (leaving && !c.awayAt) {
+          const sp = isFinite(Number(c.speed)) && Number(c.speed) >= 0 ? Number(c.speed) : 1;
+          next[k] = { ...c, base: Number(c.base) + (now - Number(c.at || now)) * sp, at: now, awayAt: now }; changed = true;
+        } else if (!leaving && c.awayAt) { const n = { ...c, at: now }; delete n.awayAt; next[k] = n; changed = true; }
+        else next[k] = c;
+      });
+      if (!changed) return;
+      const p = { ...cur, vclocks: next }; delete p.vclock;
+      prefsRef.current = p; setPrefs(p); saveJSON("x_prefs", p);
+    };
+    const onVis = () => touch(document.visibilityState === "hidden");
+    const onHide = () => touch(true);
+    document.addEventListener("visibilitychange", onVis);
+    window.addEventListener("pagehide", onHide);
+    const tm = setTimeout(() => touch(false), 1500);   // 关掉网页再打开：等存档读进来以后接上
+    return () => { clearTimeout(tm); document.removeEventListener("visibilitychange", onVis); window.removeEventListener("pagehide", onHide); };
+  }, []);
   // 虚拟时间一张面具一只钟（她 2026-10-11）：engine.js 的 vclockCfg 照「这个人认的是哪张面具」去拿钟。
   //   每次画都对一遍，改完下一轮就生效；active（这一轮在替谁拼）留着不动。旧的那一只（prefs.vclock）当主面具的。
   try {
@@ -11314,7 +11349,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 递手机是她亲手递的，不是TA自己冒出来的：下面几道「主动」闸（主动私聊开关、此刻在一起、防连发）
     //   都不该拦它。先摘掉 proactive 过闸，过完防连发那道再挂回去（这一轮照旧按「TA开口」来写）。
     // 她点完卡片留下的那一下（waitForHer）：她按出来的这一轮带上；主动消息不带（那不是在接她）。半天没接就作废。
-    const _wh = !opts.room && !opts.proactive && waitHerRef.current[charId];
+    const _wh = !sideRoom && !opts.proactive && waitHerRef.current[charId];
     if (_wh && Date.now() - _wh._ts < 12 * 3600e3) { const { _ts, ...whPatch } = _wh; opts = { ...whPatch, ...opts }; }
     const _peekTurn = !!(opts && (opts.peekPhone || opts.phoneRefused || opts.peekCaught));
     if (_peekTurn) opts = { ...opts, proactive: false };
@@ -11747,7 +11782,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "额外加入 \"carve\":{\"song\":\"歌名，可带歌手\",\"note\":\"刻在B面的一句话\"}；不刻就省略。" + _carveWord
         : "";
       const digitalPhotoHint = canSelfie
-        ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。\n【scene 怎么取景】镜头对着人：脸、神情、姿态、身上的衣服、窗外的光都可以写。桌上的酒杯、腰间的刀、身上的伤这些【不进画面】——不是不能存在，是这一格没拍到它们。（出图接口见到酒精、烟草、武器、血伤会整张拒掉，那样你连脸都发不出去。）\n⚠️【这条只管怎么取景，不是不拍的理由】她开口要你拍，你就拍。你此刻正在喝酒、正带着刀、身上有伤，统统不构成拒绝或省略 photo 的理由——永远有一格是拍得出来的：拍脸、拍上半身、拍你此刻的神情。挑那一格拍就是了。"
+        ? "你想给 " + uName + " 发图时，额外加入 \"photo\":{\"kind\":\"self|other" + (canDuo ? "|duo" : "") + (canShootMe() ? "|me" : "") + "\",\"scene\":\"画面内容\"}；不发就省略。self 是你的自拍，other 是别人拍下的你" + (canDuo ? "，duo 是你和 " + uName + " 的合照" : "") + (canShootMe() ? "，me 是你给 " + uName + " 拍的照片（画面里是 " + uName + "）" : "") + "。scene 只写画面，不要把图片说明塞进 word；是否发、发什么由你自己决定。\n【scene 怎么取景】镜头对着人：脸、神情、姿态、身上的衣服、窗外的光都可以写。桌上的酒杯、腰间的刀、身上的伤这些【不进画面】——不是不能存在，是这一格没拍到它们。（出图接口见到酒精、烟草、武器、血伤会整张拒掉，那样你连脸都发不出去。）\n⚠️【这条只管怎么取景，不是不拍的理由】她开口要你拍，你就拍。你此刻正在喝酒、正带着刀、身上有伤，统统不构成拒绝或省略 photo 的理由——永远有一格是拍得出来的：拍脸、拍上半身、拍你此刻的神情。挑那一格拍就是了。"
         : "";
       // 配件·授权门（安全铁律④：任何主动/续写/提醒/生日/微信/转账/眼睛/续说 都【绝不】开放硬件；只在此刻在场、明示激活、该角色 opt-in、且已解锁时才注入 toy 能力）
       const toyOn = !opts.proactive && !contMode && !opts.eyesAlert && !opts.remind && !opts.bday && !opts.wx
@@ -12014,7 +12049,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         //   于是「别太拘谨、放开点、别刷屏」这几年一个字都没发出去过。
         capState.push("photo：Ta 让你拍、你想给 Ta 看此刻的自己、报备在哪在干嘛、心情好想分享、氛围正好时都可以自然发一张——"
           + "放开点、别太拘谨，但也别每一轮都发、别刷屏，一段对话里几次就够。\n"
-          + photoCapLine(uName, { face: canFace, duo: canDuo }) + "\n" + PHOTO_NO_EXCUSE.trim());
+          + photoCapLine(uName, { face: canFace, duo: canDuo, me: canShootMe(), meTier: canShootMe() ? (povFor(char) || {}).tier : 0 }) + "\n" + PHOTO_NO_EXCUSE.trim());
       }
       if (toyOn) { openCaps.push("toy"); capState.push(toyHint.trim()); }
       if (blockHint) { openCaps.push("block"); capState.push(blockHint.trim()); }
@@ -12396,7 +12431,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // ⚠️它不看同处一室：分开的时候写「TA那边在干嘛」同样成立。
       const _actDesc = !_body && actDescFor(charId);
       const _onlineRuntime = _body ? "" : "\n\n" + onlineRegisterLayer() + (_actDesc ? "\n\n" + ownActNoBracketRule(uName) + "\n\n" + NARRATIVE_ACT_CLICHE + "\n\n" + INTIMATE_ACT_CLICHE : "") + (_actDesc && _s.actLong ? "\n\n" + ACTLINE_LONG_RULE : "");
-      const system0 = _singleHistoryLayout ? (bundleStable + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _taskFull);
+      const system0 = (_singleHistoryLayout ? (bundleStable + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _primer) : (bundle + _onlineRuntime + (_body ? "" : _normalProtocolStable) + _taskFull));
       // 「长消息自动拆成短句」关掉的角色：把「一条＝一句」那一行换成「一口气」的判据（engine.js 的 freeLengthSystem 一处写）
       const system = _s.splitBubbles === false && !_body ? freeLengthSystem(system0) : system0;
       const g = [];
@@ -12511,7 +12546,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           const ac = stp + byU + (m.kind === "voice" ? "【这条你是用语音说的；这是旁注，别把它抄进你的正文】" + m.content
             : m.kind === "selfie" ? (m.failed
               ? "【你在这里尝试发照片，但生成失败，没有真正发出】"
-              : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
+              : "【你在这里已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（只拍了手/背影这类局部，没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人，拍的是东西/地方）" : m.photoKind === "duo" ? "你和" + uName + "的合照" : m.photoKind === "other" ? "别人替你拍的照片" : m.photoKind === "me" ? "你给她拍的照片（画面里是她）" : "自拍") + "；这是你亲手做过的事，不得说自己没发过或马上重复发】" + (m.desc ? "\n照片内容：" + m.desc : ""))
             // 只有描述、没有像素的那一张（没配图像通道时走的那条路）：跟真发过一样记着，
             // 不然他下一轮会说「我还没拍」或者把同一张再发一遍。
             : (m.kind === "photo" && m.descOnly) ? "【你在这里已经实际发出一张照片；这是你亲手做过的事，不得说自己没发过或马上重复发】\n照片内容：" + (m.desc || "")
@@ -13217,7 +13252,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         && AVATAR_CLAIM_RE.test([].concat(parsed.word || []).join(" "))) applyPhotoSeen(charId, _avatarMsg, { avatar: true }, true, () => {});
       if (parsed.photo && typeof parsed.photo === "object") {
         photoScene = String(parsed.photo.scene || parsed.photo.desc || "").trim();
-        photoKind = ["self", "other", "duo", "view", "part", "none"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
+        photoKind = ["self", "other", "duo", "me", "view", "part", "none"].includes(String(parsed.photo.kind || "").toLowerCase()) ? String(parsed.photo.kind).toLowerCase() : "self";
       } else if (parsed.selfie && String(parsed.selfie).toLowerCase() !== "null") {
         photoScene = String(parsed.selfie).trim(); photoKind = "self";
       }
@@ -13247,7 +13282,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   文字那道闸不删，降级成【TA没答这道题时】的安全网。
       const _faceSaid = parsed.photo && typeof parsed.photo === "object" ? parsed.photo.face : undefined;
       if (photoKind === "none") photoKind = "view";
-      if (photoKind !== "view" && photoKind !== "part") {
+      if (photoKind !== "view" && photoKind !== "part" && photoKind !== "me") {   // me 那张是她的脸，不拿 TA 的露不露脸去改
         if (_faceSaid === false || String(_faceSaid).toLowerCase() === "false") photoKind = "part";
         else if (_faceSaid === undefined || _faceSaid === null || _faceSaid === "") {
           const _nf = typeof noFaceKindFor === "function" ? noFaceKindFor(photoScene, char && (char.name || char.remark)) : "";
@@ -13261,10 +13296,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   不许再像以前那样【什么都不发】：她那头看到的是「TA 打了个哈哈」，
       //   分不清是不想拍还是发不出来。
       const _canDraw = photoScene && photoKind && typeof imgApiReady === "function" && imgApiReady()
-        && (photoKind === "view" || photoKind === "part" || char.appearance || char.refPhoto);
+        && (photoKind === "view" || photoKind === "part" || (photoKind === "me" ? canShootMe() : (char.appearance || char.refPhoto)));
       if (photoScene && photoKind && !_canDraw) {
         // 为什么只有字：卡片上要说出来（她 2026-09-29 转读者：「填了外貌的」——填在人设正文里，不在【外貌】栏）
-        const noDrawWhy = photoNoDrawWhy(char);
+        const noDrawWhy = photoNoDrawWhy(char, photoKind);
         pChat(chatKey, p => [...p, { role: "assistant", kind: "photo", descOnly: true, noDrawWhy,
           desc: photoScene, photoKind: photoKind,
           content: "[照片] " + photoScene, ts: Date.now(), turnId, read: false }]);
@@ -13761,9 +13796,13 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   她 2026-10-01：「角色发照片那轮，长按图片只重 roll 图片、消息留着」——所以拆成单独一口，
   //   一轮里的话一个字不动，只换这一张的像素。keySuffix：重拍时换一个图库键，别读到缓存里的旧图。
   const drawChatSelfie = async ({ chatKey, charId, sid, photoKind, photoScene, keySuffix }) => {
-    const char = characters.find(c => c.id === charId);
-    if (!char) return;
+    const realChar = characters.find(c => c.id === charId);
+    if (!realChar) return;
     const uName = userName(profileFor(charId));
+    // TA 帮我拍：被拍的是她，照「别人拍的」那一档画（见 meSubject）
+    const meShot = photoKind === "me";
+    const char = meShot ? meSubject(realChar, uName) : realChar;
+    if (meShot) photoKind = "other";
     const profile = profileFor(charId);
     try {
       const st = (statesRef.current || {})[charId] || {};
@@ -13786,10 +13825,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (contBlobKey) refs.push(contBlobKey);
       // 世界的风景参考只借环境：画人的、和纯风景都喂（她 2026-10-02：「世界生图应该用风景照吧」）——
       //   它不是一张脸，空景喂它不会把人画进去；只露一截身体那档用不上街景，不喂。
-      const wRef = isPart ? null : worldRefFor(char, photoScene + " " + (freshPlace || ""));
+      const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { kind: photoKind, me, closet: closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
+      const photoOpts = { pov: meShot ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
       // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
       const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
       // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
@@ -13832,6 +13871,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // 群里成员发的一张照片：真的去画（发言那一轮落「拍照中」之后调它；长按「只重拍这张图」也走它）。
   //   跟单聊 drawChatSelfie 同一件事，群里多一个点名单 gCast（合照的那几张脸），存在消息上，重拍时原样带回来。
   const drawGroupSelfie = async ({ groupId, spk, gsid, gPhotoKind, gPhotoScene, gCast, keySuffix }) => {
+    // TA 帮我拍：被拍的是她（见 meSubject），照「别人拍的」那一档画；存图的键还挂在拍照的那位名下
+    const meShot = gPhotoKind === "me";
+    const sub = meShot ? meSubject(spk, "对方") : spk;
+    if (meShot) gPhotoKind = "other";
     try {
       const st = (statesRef.current || {})[spk.id] || {};
       const me = photoMe("对方");
@@ -13841,10 +13884,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const refs = gNoFace ? []
         : gCast ? gCast.map(x => x.refPhoto)
         : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
-        : [spk.refPhoto].filter(Boolean);
-      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: closetTextFor(spk.id) };
-      const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(spk, gPhotoScene, st, gPhotoOpts);
-      const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(spk, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
+        : [sub.refPhoto].filter(Boolean);
+      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : closetTextFor(spk.id), pov: meShot ? povFor(spk) : null };
+      const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(sub, gPhotoScene, st, gPhotoOpts);
+      const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(sub, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
       if (out.blob) {
         const key = "img_" + spk.id + "_" + gsid + (keySuffix || "");
@@ -14436,7 +14479,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "\n要表态就在【TA自己那条发言对象】里加 \"transferAccept\":true（收下）或 false（退回），并在 text 里说一句TA自己的话；这一轮没顾上就省略，卡继续挂着。"
         : "";
       const gSelfieHint = gSelfieMembers.length ? "\n【photo 发照片】这些成员能发真实照片：" + gSelfieMembers.map(c => c.name).join("、") + "。当群里有人让 TA 拍、起哄看照片、或话题聊到 TA 的样子/穿着/在哪时，让 TA 在自己那条发言对象里加 \"photo\" 对象。\n"
-        + photoCapLine(gUName, { face: !!gFaceMembers.length, duo: !!gDuoMembers.length, group: gGroupShotOk }).replace(/你的脸/g, "TA 的脸").replace(/你自己的照片/g, "TA 自己的照片").replace(/你的手/g, "TA 的手").replace(/看不看得见你/g, "看不看得见 TA")
+        + photoCapLine(gUName, { face: !!gFaceMembers.length, duo: !!gDuoMembers.length, group: gGroupShotOk, me: canShootMe() }).replace(/你的脸/g, "TA 的脸").replace(/你自己的照片/g, "TA 自己的照片").replace(/你的手/g, "TA 的手").replace(/看不看得见你/g, "看不看得见 TA")
         + (gDuoMembers.length ? "\n合照仅限这几位有参考照的成员可发：" + gDuoMembers.map(c => c.name).join("、") + "。" : "")
         + (gGroupShotOk ? "\ngroup 是多人合影（会把每个人的参考照都拿去锁脸）——群里起哄要合照、大家正好在一处、或话题聊到「我们仨」这种时候用它；**一个人在场时不许用**。" : "")
         + "\n一轮最多一个成员发、别频繁。**极其重要：画面描述只能写进 photo.scene，绝不许在 text 里用『[图片]』『*发来一张自拍*』这类文字假装发图**；text 里就正常说话（比如『喏』『刚拍的』）。不发就别加这个字段。\n" + PHOTO_NO_EXCUSE : "";
@@ -15046,7 +15089,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           let gPhotoKind = null, gPhotoScene = null;
           if (item.photo && typeof item.photo === "object") {
             gPhotoScene = String(item.photo.scene || item.photo.desc || "").trim();
-            gPhotoKind = ["self", "other", "duo", "group", "view", "part", "none"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
+            gPhotoKind = ["self", "other", "duo", "group", "me", "view", "part", "none"].includes(String(item.photo.kind || "").toLowerCase()) ? String(item.photo.kind).toLowerCase() : "self";
           } else if (item.selfie && String(item.selfie).toLowerCase() !== "null") {
             gPhotoScene = String(item.selfie).trim(); gPhotoKind = "self";
           }
@@ -15057,7 +15100,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 同一套（判据只写在 engine 那一处，群这边不另写一份）
           const _gFaceSaid = item.photo && typeof item.photo === "object" ? item.photo.face : undefined;
           if (gPhotoKind === "none") gPhotoKind = "view";
-          if (gPhotoKind !== "view" && gPhotoKind !== "part") {
+          if (gPhotoKind !== "view" && gPhotoKind !== "part" && gPhotoKind !== "me") {
             if (_gFaceSaid === false || String(_gFaceSaid).toLowerCase() === "false") gPhotoKind = "part";
             else if (_gFaceSaid === undefined || _gFaceSaid === null || _gFaceSaid === "") {
               const _gnf = typeof noFaceKindFor === "function" ? noFaceKindFor(gPhotoScene, spk && (spk.name || spk.remark)) : "";
@@ -15084,10 +15127,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           // 画不出像素就落成【只有描述的那一张】，跟单聊同一条路、同一张卡
           //（four-surfaces：单聊有的，群里也得有）
           const _gCanDraw = gPhotoScene && gPhotoKind && typeof imgApiReady === "function" && imgApiReady()
-            && (gPhotoKind === "view" || gPhotoKind === "part" || spk.appearance || spk.refPhoto);
+            && (gPhotoKind === "view" || gPhotoKind === "part" || (gPhotoKind === "me" ? canShootMe() : (spk.appearance || spk.refPhoto)));
           if (gPhotoScene && gPhotoKind && !_gCanDraw) {
             pGChat(groupId, p => [...p, { role: "assistant", senderId: spk.id, senderName: spk.name,
-              kind: "photo", descOnly: true, noDrawWhy: photoNoDrawWhy(spk), desc: gPhotoScene, photoKind: gPhotoKind,
+              kind: "photo", descOnly: true, noDrawWhy: photoNoDrawWhy(spk, gPhotoKind), desc: gPhotoScene, photoKind: gPhotoKind,
               content: "[照片] " + gPhotoScene, ts: Date.now(), turnId: gTurnId }]);
           }
           if (_gCanDraw) {
@@ -16509,9 +16552,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     //   · world 是 AI 排的时候给这一段钉的房间和位置；做什么、在哪一改，旧钉子就不作数了——拔掉，让小地图照新写的字重新认地方
     //   · type 也跟着旧标题走（睡觉那一档会把小人直接按到床上），标题改了就不留，交给小地图从字面认
     //   · deviation（原本要/后来）会让小地图读「后来」那一句而不是她改的这一句——她改的就是现在的事实，一并清掉
-    const seqs = plan.seqs.map(q => q && q.seq === seqNo ? fixed : q)
-      .sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
-    const next = { ...plan, estTime: null, seqs };
+    const phaseOnly = Object.hasOwn(patch, "worldStage");
+    const changedSeqs = plan.seqs.map(q => q && q.seq === seqNo ? fixed : q);
+    const seqs = phaseOnly ? changedSeqs : changedSeqs.sort((a, b) => toMin(a && a.time) - toMin(b && b.time)).map((q, i) => ({ ...q, seq: i + 1 }));
+    const next = phaseOnly ? { ...plan, seqs } : { ...plan, estTime: null, seqs };
     const n = { ...schedulesRef.current, [charId]: { ...cur, [dayKey]: next } };
     if (saveJSON("x_schedules", n) === false) return 0;
     schedulesRef.current = n;
@@ -18943,7 +18987,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️没有 content 的是【v71.67 之前转的老卡】：那会儿只存了 post 的几个字段、
     //   没存帖子 id，楼里那几层现在也查不回来，所以这条兜底只报楼主那一段，
     //   不去拼第二份 forumShareText（施工规则/one-public-mechanism.md）。
-    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
+    : m.role === "narration" ? "【旁白】" + m.content : m.role === "system" ? "（" + m.content + "）" : (m.role === "user" ? userName(profile) : m.senderName || "某人") + ": " + (m.kind === "forumshare" ? (m.content || ("[转发了一条贴吧帖]" + (m.post ? "「" + (m.post.board || "") + "」《" + (m.post.title || "") + "》｜" + String(m.post.body || "").replace(/\s+/g, " ").slice(0, 120) + "｜作者显示：" + (m.post.authorName || "") : ""))) : m.kind === "photo" && m.imageRef ? "[发来一张真实照片，像素会随本轮视觉输入附上]" + (m.desc ? " 配文：" + m.desc : "") : (m.kind === "photo" && m.descOnly) ? "[已经实际发出一张照片，本人必须记得，不能马上重复发] 内容：" + (m.desc || "") : m.kind === "selfie" ? (m.failed ? "[尝试发照片但生成失败]" : "[已经实际发出一张" + (m.photoKind === "part" ? PHOTO_PART_ZH + "（没露脸）" : m.photoKind === "view" ? PHOTO_VIEW_ZH + "（画面里没有人）" : m.photoKind === "duo" ? "合照" : m.photoKind === "other" ? "他人拍摄的照片" : m.photoKind === "me" ? "帮她拍的照片" : "自拍") + "，本人必须记得，不能马上重复发]" + (m.desc ? " 内容：" + m.desc : "")) : m.kind === "voice" ? "[语音消息，说的不是打的] " + m.content + voiceToneForPrompt(m) : m.kind === "gift" ? "[当着全群的面，把「" + ((m.item && m.item.name) || m.name || "一件东西") + "」送给了" + (m.toName || "群里某位") + "，只送给 Ta 一个人，别人没有；东西现在就在 Ta 手上]" : m.kind === "transfer" ? transferLineForModel(m, m.role === "user" ? userName(profile) : (m.senderName || "TA"), m.toName || "群里某位", m.toId) : m.kind === "poll" ? groupPollText(m) : m.kind === "redpacket" ? "[" + (m.toId ? "发了个专属红包，点名只给 " + (m.toName || "某位") + "：¥" : "发红包 ¥") + m.total + "，" + m.count + "个" + (m.count > 0 ? "，人均约¥" + (m.total / m.count).toFixed(2) : "") + "]" + (m.message ? " " + m.message : "") + ((m.claims || []).length ? "（已被抢：" + m.claims.map(c => (c.name || "某人") + "¥" + c.amount).join("、") + "）" : "") : (m.content || "")));
   // ---- 群里每位成员那一段【此刻】+【实时私聊窗口】(v60.31 抽出来共用)----
   // 她 2026-09-02：「我刚和顾暮说在家等TA，群聊通话TA问我是不是在外面」。
   // 病根还是「通话是第五处」：这几段原来只长在 replyGroup 里，
@@ -24728,6 +24772,28 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     outfit: (profile && profile.photoOutfit) || "",
     closet: myClosetText()
   });
+  // 「TA 帮我拍」（她 2026-10-11：「拍照能不能搞一类他帮我拍，所有生图地方都支持」）：照片里是她，镜头在 TA 手里。
+  //   不另起一条出图路：把「被拍的人」换成她（她资料里的外貌、参考照、衣柜、固定服装），照「别人拍的」那一档画——
+  //   那一档本来就是第三人称、姿势取景自由，拍的人不入镜。画风跟着拍照的那个 TA（同一个世界里拍的）。
+  const canShootMe = () => !!(profile && (profile.appearance || profile.refPhoto));
+  // TA 的视角（她 2026-10-11：「拍照的不一定是男友，也有可能是朋友、女生朋友、女朋友、暧昧对象」——「亲密度看吧」）：
+  //   镜头就是拍照那个人的眼睛，亲不亲由你们的关系定，分三层（engine.js POV_SLOTS）：
+  //   3＝恋人（情侣空间里在一起，或关系写着恋人/爱人）；2＝亲近（关系写着暧昧/闺蜜/挚友…，或好感 ≥70）；1＝谁都能用的那层。
+  const POV_CLOSE_RE = /暧昧|闺蜜|挚友|死党|好兄弟|好姐妹|发小|青梅|竹马|知己|密友/;
+  const POV_LOVE_RE = /恋人|爱人|挚爱|男朋友|女朋友|男友|女友|老公|老婆|伴侣|未婚/;
+  const povFor = char => {
+    if (!char) return null;
+    const cp = (couplesRef.current || {})[char.id];
+    const R = rels || {};
+    const label = [R["me->" + char.id], R[char.id + "->me"]].filter(Boolean).map(r => r.label || "").join("、");
+    const tier = (cp && cp.status === "together") || POV_LOVE_RE.test(label) ? 3
+      : POV_CLOSE_RE.test(label) || affOf(char.id) >= 70 ? 2 : 1;
+    const st = (statesRef.current || {})[char.id] || {};
+    return { tier, name: char.remark || char.name || "TA", rel: label || (tier === 3 ? "恋人" : ""),
+      wear: freshLiveStateValue(st, "wearing") || st.wearing || char.photoOutfit || "", look: String(char.appearance || "").slice(0, 80) };
+  };
+  const meSubject = (char, fallbackName) => { const m = photoMe(fallbackName);
+    return { id: "__me", name: m.name, appearance: m.appearance || "", refPhoto: m.refPhoto || null, photoOutfit: m.outfit || "", photoStyle: char && char.photoStyle, persona: "", _closet: m.closet || "" }; };
   const saveMyCloset = next => { myClosetRef.current = next; setMyCloset(next); saveJSON("x_myCloset", next); };
   // ── 我的衣柜（v59.27，她 2026-09-01：「我的衣柜在哪儿设置，也给我搞个 AI 调用
   //    用关键词生成几套，再加上可以自己填」）──────────────────────
@@ -28238,7 +28304,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 那就是「一层写在九处」。也不动 Home 的根节点（home-screen-layout.md 说了勿改）。
     value: !!wallpaper
   }, /*#__PURE__*/React.createElement(Home, {
-    now: now,
+    // 主屏的钟和日历照主面具那只钟（群友 2026-10-11：「设置里改成了 11 月，小手机上还是显示现实的日期」）。只换喂进去的时间，主屏布局一处没动
+    now: typeof vclockMap === "function" && vclockCfg(null) ? new Date(vclockMap(now.getTime ? now.getTime() : Number(now), null)) : now,
     characters: liveChars,
     worlds: worlds,
     profile: profile,
@@ -29793,6 +29860,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (c) { setActiveChar(c); setActiveRoomId("main"); }
       },
       plansFor: c => schedulesRef.current[c.id] || {},
+      thoughtScopeFor: c => maskKeyOf(c.id),
+      thoughtContextFor: c => {
+        const messages=(chatsRef.current[c.id]||[]).filter(m=>!m.recalled&&m.content&&!isOocMsg(m)&&contextAllowsMessage(m));
+        return {scope:maskKeyOf(c.id),messages,revision:JSON.stringify([messages,c,profileFor(c.id),settingsFor(c.id),moods[c.id],memories[c.id],directives[c.id],rels,loreRef.current])};
+      },
+      generateThought: (c, frame, identity, thoughts) => {
+        const T=window.CharDayThoughts,W=window.__vclock,active=W?.active;
+        try {
+          const history=T.chatWindow(identity.messages,frame,ts=>frame.followVirtual?vclockMap(ts,c.id):ts);
+          const text=history.before.concat(history.during).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
+          const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
+          return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'此刻的念头',
+            instruction:T.instruction(frame,history,thoughts,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
+        } finally {if(W)W.active=active;}
+      },
       taFor: c => CharacterPronoun.ta(c),
       lookFor: c => window.CompanionFace.lookFor(c, moods),
       visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),

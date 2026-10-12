@@ -2,6 +2,21 @@
 (function(root){
  "use strict";
  const {INGREDIENTS,RECIPES,recipe,kitchen,kitchenChange}=root.CharDayKitchen;
+ // Read only the explicitly selected table from this character's actual kitchen writer.
+ function kitchenMealFor(homes,charId,mealId){
+  if(charId==null||typeof mealId!=='string'||!mealId)return null;
+  const id=String(charId),s=kitchen(homes?.kitchens?.[id]);
+  const meal=s.pending?.kind==='meal'&&s.pending.id===mealId?s.pending:s.history.find(m=>m.id===mealId);
+  if(!meal)return null;
+  const dishes=Array.isArray(meal.courses)?meal.courses:(meal.dishIds||[meal.dishId]).map(id=>s.dishes.find(d=>d.id===id));
+  const courses=dishes.filter(d=>d&&recipe(d.recipeId)).slice(0,3).map(d=>({recipeId:d.recipeId,variation:d.variation&&typeof d.variation==='object'?{swaps:root.CharDayKitchen.variation(d.recipeId,d.variation).swaps,...(d.variation.addins?{addins:root.CharDayKitchen.variation(d.recipeId,d.variation).addins}:{}),...(typeof d.variation.name==='string'?{name:d.variation.name}:{}),...Object.fromEntries(Object.keys(root.CharDayKitchen.TASTE).filter(k=>Object.hasOwn(root.CharDayKitchen.TASTE[k],d.variation[k])).map(k=>[k,d.variation[k]]))}:null,lead:['me','ta'].includes(d.lead)?d.lead:''}));
+  return courses.length?{charId:id,mealId,courses}:null;
+ }
+ function kitchenMealHint(meal){
+  if(!Array.isArray(meal?.courses))return '';
+  const K=root.CharDayKitchen,lines=meal.courses.filter(d=>d&&recipe(d.recipeId)).slice(0,3).map(d=>K.dishName(d)+'；口味：'+(d.variation?Object.keys(K.TASTE).filter(k=>Object.hasOwn(K.TASTE[k],d.variation[k])).map(k=>K.TASTE[k][d.variation[k]]).join(' · ')||'未记录':'未记录')+'；分工：'+(d.lead==='me'?'用户掌勺，TA备菜':d.lead==='ta'?'TA掌勺，用户备菜':'未记录'));
+  return lines.length?'\n\n【她分享的小家共餐】\n'+lines.join('\n')+'\n这是她选中的这一桌实际做法。怎么接她当前的话，由你这个人和你们的关系决定。':'';
+ }
  const text=s=>String(s||'').slice(0,200);
  function album(raw,charId){return (Array.isArray(raw)?raw:[]).filter(p=>p&&p.charId===String(charId)&&typeof p.id==='string'&&Number.isFinite(p.at)&&typeof p.src==='string'&&p.src.length<1500000&&/^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(p.src));}
  function albumChange(raw,charId,action){
@@ -36,5 +51,5 @@
   if(!room.floorColor&&(!room.floor||room.floor==='auto'))next.floor=suggestion.floor;
   return {...raw,$room:next};
  }
- root.CharDayLife={...root.CharDayKitchen,INGREDIENTS,RECIPES,recipe,kitchen,kitchenChange,album,albumChange,PREFERENCES,recommendation,recommendLayout};
+ root.CharDayLife={...root.CharDayKitchen,INGREDIENTS,RECIPES,recipe,kitchen,kitchenChange,kitchenMealFor,kitchenMealHint,album,albumChange,PREFERENCES,recommendation,recommendLayout};
 })(window);

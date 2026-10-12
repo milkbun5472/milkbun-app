@@ -218,3 +218,63 @@ test('四种新职业位置经过实际生成writer保存，日历保持原地�
   const actual=f.e.schedulesRef.current[f.c.id]['2026-10-09'].seqs[0];assert.deepEqual(plain(actual.world),{scene,spot});assert.equal(actual.title,seq.title);assert.equal(actual.location,seq.location);assert.ok(!JSON.stringify(f.L.publicRow(actual)).includes('"world"'));
  }
 });
+
+const compoundWorld=()=>({scene:'dayMarket',spot:'produce',stages:[
+ {scene:'dayMarket',spot:'produce',title:'挑选蔬菜',location:'北街超市',minutes:25},
+ {scene:'dayStreet',spot:'walk',title:'提袋回家',location:'回家途中',minutes:5},
+ {scene:'dayHome',spot:'cook',title:'在家做饭',location:'家里厨房',minutes:30}
+]});
+const compoundRow=()=>({...row(),time:'10:00',end:'11:00',title:'买完菜回家做饭',location:'北街超市与家里',type:'home',world:compoundWorld()});
+test('复合安排经当天与周计划真实writer保存，只有world含阶段，日历始终一条原文',async()=>{
+ for(const week of [false,true]){
+  const raw=compoundRow(),f=envFor(week?{days:[{day:'2026-10-10',seqs:[raw]}]}:{seqs:[raw]});
+  assert.equal(week?await f.e.generateWeek(f.c,{from:'2026-10-10',count:1}):await f.e.generateDay(f.c,'2026-10-09'),true);
+  const day=week?'2026-10-10':'2026-10-09',saved=f.e.schedulesRef.current.c1[day].seqs;
+  assert.equal(saved.length,1);assert.deepEqual(plain(saved[0].world),raw.world);assert.equal(saved[0].title,raw.title);assert.equal(saved[0].end,raw.end);
+  assert.match(f.calls[0].spec.schemaHint,/"stages"/);assert.match(f.calls[0].spec.instruction,/按原叙事的先后顺序/);
+  const visible=f.L.publicSchedules(f.e.schedulesRef.current).c1[day].seqs;assert.equal(visible.length,1);assert.equal(visible[0].title,raw.title);assert.doesNotMatch(JSON.stringify(visible),/"world"|"stages"|dayMarket|挑选蔬菜/);
+ }
+});
+test('顺序阶段依原当地时间覆盖整段，边界前后不循环或重播，读取不写存档',async()=>{
+ const f=envFor({seqs:[compoundRow()]});await f.e.generateDay(f.c,'2026-10-09');const before=JSON.stringify(f.e.schedulesRef.current),writes=f.writes.length;
+ const start=Date.parse('2026-10-09T10:00:00Z');
+ for(const [minute,index,map,from,to]of [[0,0,'dayMarket',0,25],[24.999,0,'dayMarket',0,25],[25,1,'dayStreet',25,30],[29.999,1,'dayStreet',25,30],[30,2,'dayHome',30,60],[59.999,2,'dayHome',30,60]]){
+  const now=start+minute*60000,slot=f.e.ScheduleClock.currentSlot(f.c,f.e.schedulesRef.current.c1,now),v=f.L.resolve(slot,now);
+  assert.equal(v.presentation.map,map);assert.equal(v.presentation.stageIndex,index);assert.equal(v.presentation.stageCount,3);assert.equal(v.activitySlot.startAt,start+from*60000);assert.equal(v.activitySlot.endAt,start+to*60000);assert.equal(v.activitySlot.title,compoundWorld().stages[index].title);
+  assert.equal(v.activitySlot.row.deviation,null);assert.equal(v.activitySlot.key,slot.key);assert.deepEqual(plain(f.L.resolve(slot,now)),plain(v));
+ }
+ assert.equal(f.e.ScheduleClock.currentSlot(f.c,f.e.schedulesRef.current.c1,start+60*60000),null);assert.equal(JSON.stringify(f.e.schedulesRef.current),before);assert.equal(f.writes.length,writes);
+});
+test('旧复合日程识别明确顺序，任务与必要回家过渡按原文，不凭并列或用途添事项',()=>{
+ const {L}=envFor({}),start=Date.parse('2026-10-09T10:00:00Z'),slot=title=>({title,startAt:start,endAt:start+3600000,type:'home'});
+ for(const title of ['买完菜回家做饭','去超市买菜，然后回家做饭','买菜，随后回家，接着做饭']){
+  const v=L.resolve(slot(title),start+35*60000);assert.deepEqual(plain(v.stages.map(s=>s.scene)),['dayMarket','dayStreet','dayHome']);assert.equal(v.presentation.spot,'cook');assert.equal(v.stages.length,3);
+ }
+ const offices=L.resolve({...slot('先在办公室开会，然后去图书馆看书'),type:'work',location:'办公室与图书馆'},start+5*60000);assert.deepEqual(plain(offices.stages.map(s=>s.scene)),['dayOffice','dayLibrary']);
+ assert.equal(L.resolve({...slot('整理资料然后想想明天'),type:'work'},start+50*60000).stages.length,0);
+ const laboratory=L.resolve({...slot('做实验后分析数据'),type:'work',location:'实验室'},start+40*60000);assert.deepEqual(plain(laboratory.stages.map(s=>s.spot)),['bench','computer']);
+ const library=L.resolve({...slot('在图书馆看书，之后回家休息'),location:'图书馆'},start+55*60000);assert.equal(library.presentation.map,'dayHome');assert.equal(library.presentation.action,'rest');
+ for(const title of ['做饭','买菜并核对清单','为回家做饭购买食材','去超市买明天做饭的食材','看书然后想想明天'])assert.equal(L.resolve(slot(title),start+50*60000).stages.length,0,title);
+});
+test('非法阶段原子丢弃，手选位置覆盖整链，改文字清链，恢复自动重新识别',()=>{
+ const {L}=envFor({}),raw=compoundRow(),start=Date.parse('2026-10-09T10:00:00Z'),slot={...raw,startAt:start,endAt:start+3600000};
+ for(const bad of [{scene:'unknown'}, {spot:'sleep'}, {minutes:0}, {minutes:Infinity}, {minutes:-1}, {title:''}]){const world=compoundWorld();world.stages[1]={...world.stages[1],...bad};assert.equal(L.validateStages(world.stages),null);assert.equal(L.validate(world).stages,undefined);}
+ const manual=L.editRow(raw,{world:{scene:'dayLibrary',spot:'window-reading'}}),v=L.resolve({...manual,startAt:start,endAt:start+3600000},start+55*60000);assert.equal(v.presentation.manual,true);assert.equal(v.presentation.map,'dayLibrary');assert.equal(v.stages.length,0);
+ assert.equal(L.editRow(raw,{title:'在家休息'}).world,undefined);assert.equal(L.editRow(raw,{location:'家里'}).world,undefined);
+ const restored=L.editRow(manual,{world:null});assert.equal(L.resolve({...restored,startAt:start,endAt:start+3600000},start+55*60000).presentation.spot,'cook');
+ assert.equal(L.resolve(slot,start-1).stages.length,0);assert.equal(L.resolve(slot,start+3600000).stages.length,0);assert.equal(L.resolve(slot,null,{preview:true}).presentation.stageIndex,0);
+});
+test('临时改动只用实际阶段，睡眠只在它的阶段闭眼，时长按原段比例与跨夜绝对时间计算',()=>{
+ const {L}=envFor({}),start=Date.parse('2026-10-09T23:30:00Z'),raw=compoundRow(),slot={...raw,startAt:start,endAt:start+3600000};
+ const changed={...slot,deviation:{actual:'在家休息',location:'家里'}};assert.equal(L.resolve(changed,start+10*60000).stages.length,0);assert.equal(L.resolve(changed,start+10*60000).presentation.map,'dayHome');
+ const actual={...slot,deviation:{actual:'吃饭然后睡觉',world:{stages:[{scene:'dayHome',spot:'meal',title:'吃饭',minutes:20},{scene:'dayHome',spot:'sleep',title:'睡觉',minutes:40}]}}};
+ assert.equal(L.resolve(actual,start+10*60000).presentation.action,'meal');assert.equal(L.resolve(actual,start+25*60000).presentation.action,'sleep');
+ const longer={...slot,endAt:start+7200000};assert.equal(L.resolve(longer,start+55*60000).presentation.stageIndex,1);assert.equal(L.resolve(longer,start+70*60000).activitySlot.startAt,start+3600000);
+});
+test('临时自改真实writer保留原复合计划，实际阶段独立保存与投影，数字生命不加阶段',async()=>{
+ const raw={...compoundRow(),time:'10:00',end:'11:00',deviation:{plan:'买菜回家做饭',reason:'临时调整',actual:'做实验后分析数据',location:'实验室',world:{stages:[{scene:'dayLaboratory',spot:'bench',title:'做实验',minutes:30},{scene:'dayLaboratory',spot:'computer',title:'分析数据',minutes:30}]}}};
+ const f=envFor({changed:true,seqs:[{...row(),time:'08:00',end:'09:00'},raw,{...row('dayHome','sleep'),time:'23:00',end:'24:00',type:'sleep'}]});f.e.saveDay('c1','2026-10-09',{seqs:[row(),compoundRow(),row()]});await f.e.revise();
+ const saved=f.e.schedulesRef.current.c1['2026-10-09'].seqs[1];assert.equal(saved.world.stages[0].scene,'dayMarket');assert.equal(saved.deviation.world.stages.length,2);
+ const now=Date.parse('2026-10-09T10:40:00Z'),slot=f.e.ScheduleClock.currentSlot(f.c,f.e.schedulesRef.current.c1,now);assert.equal(f.L.resolve(slot,now).presentation.spot,'computer');
+ const visible=f.L.publicRow(saved);assert.equal(visible.deviation.actual,raw.deviation.actual);assert.doesNotMatch(JSON.stringify(visible),/"world"|"stages"/);assert.doesNotMatch(f.L.schema('{"seqs":[{}]}',true),/stages/);
+});

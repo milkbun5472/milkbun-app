@@ -79,3 +79,22 @@ test("速度能自己填，拨多少能自己填（分钟到年，月和年按�
   assert.match(comps, /h\(VClockJump, \{ field, fs, onJump: f => put\(\{ base: f\(cur\) \}\) \}\)/);
   assert.match(comps, /d\.setDate\(Math\.min\(day, new Date\(d\.getFullYear\(\), d\.getMonth\(\) \+ 1, 0\)\.getDate\(\)\)\);/);
 });
+
+// 群友 2026-10-11：「设置里改成了 11 月，小手机上还是显示现实的日期」「离开小手机后能设置时间静止么」
+test("主屏的钟和日历照主面具那只钟；离开小手机时停住", () => {
+  assert.match(app, /now: typeof vclockMap === "function" && vclockCfg\(null\) \? new Date\(vclockMap\(/);
+  assert.match(comps, /"离开小手机时停住"/);
+  assert.match(app, /document\.addEventListener\("visibilitychange", onVis\);/);
+  const now = Date.now(), base = new Date(2026, 10, 21, 1, 10).getTime();
+  win.__vclock = { active: "a", maskOf: () => "", clocks: { main: { on: true, base, at: now - 3600e3, speed: 1, pauseAway: true, awayAt: now - 3600e3 } } };
+  assert.equal(E.vclockMap(now, "a"), base, "走开那一小时不算");
+});
+
+// 群友 2026-10-11：「char 感应到的是调整完的时间，就是聊天页面的时间戳还是现实时间」
+test("聊天页的时间条、消息列表上的时间照那只钟", () => {
+  assert.match(comps, /map: typeof vclockMap === "function" && character \? \(ts => vclockMap\(ts, character\.id\)\) : undefined/);
+  assert.match(comps, /map: typeof vclockMap === "function" \? \(ts => vclockMap\(ts, null\)\) : undefined/);
+  assert.match(comps, /fmtStamp\(last\.ts, c\.id\)/);
+  assert.match(comps, /fmtStamp\(last\.ts, null\)/);
+  assert.match(engine, /function fmtStamp\(ts, id\) \{/);
+});

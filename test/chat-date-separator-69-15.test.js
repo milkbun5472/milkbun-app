@@ -86,8 +86,8 @@ test("时间倒着走的坏数据不出条（导入的存档里有过）", () =>
 
 // ── 两处都真的搬过去了 ──────────────────────────────────────
 test("单聊和群聊都改用公共那一份，没有第二套算法留在原地", () => {
-  assert.match(comp, /window\.ChatStamp\.decide\(window\.ChatStamp\.prevTimed\(messages, i\), m, \{ minGap: 180000 \}\)/, "单聊没搬");
-  assert.match(comp, /window\.ChatStamp\.decide\(window\.ChatStamp\.prevTimed\(messages, i\), m, \{ minGap: 30 \* 60 \* 1000 \}\)/, "群聊没搬");
+  assert.match(comp, /window\.ChatStamp\.decide\(window\.ChatStamp\.prevTimed\(messages, i\), m, \{ minGap: 180000[,\s]/, "单聊没搬");
+  assert.match(comp, /window\.ChatStamp\.decide\(window\.ChatStamp\.prevTimed\(messages, i\), m, \{ minGap: 30 \* 60 \* 1000[,\s]/, "群聊没搬");
   // 旧的两套手写算法一行都不许留下（施工规则：只开公共的、旧的留原地是最坏的一种）
   assert.ok(!/const sameTurn = previousTimed/.test(comp), "群聊那套手写判据还在");
   assert.ok(!/messages\[i - 1\]\.turnId !== m\.turnId \|\| m\.ts - \(messages\[i - 1\]\.ts \|\| 0\) > 180000/.test(comp), "单聊那套手写判据还在");
@@ -105,4 +105,14 @@ test("index.html 里挂上了，而且排在 components.js 前面", () => {
   const b = html.indexOf("js/components.js");
   assert.ok(a > 0, "没挂进去——挂不上就是 window.ChatStamp undefined，整屏白");
   assert.ok(a < b, "得排在 components.js 前面");
+});
+
+// 她 2026-10-11：「聊天页面的时间戳还是现实时间，能同步就好了」——虚拟时间开着时按那只钟判跨天、写文案
+test("给了 map 就按换算后的时间判跨天、写文案", () => {
+  const NOW2 = new Date(2026, 9, 11, 15, 0).getTime();
+  const shift = new Date(2026, 10, 21, 4, 16).getTime() - NOW2;
+  const r = S.decide(null, { ts: NOW2 }, { now: NOW2, map: x => x + shift });
+  assert.equal(r.text, "今天 04:16");
+  const p2 = S.decide({ ts: NOW2 - 3600e3 }, { ts: NOW2 }, { now: NOW2, map: () => 0 });
+  assert.equal(p2.show, false, "停住的钟：两条都在同一刻，不再隔出时刻");
 });

@@ -23,7 +23,7 @@ test("世界表单的生图参考：最多六张风景照、每张标注；重�
 test("住在世界里的人拍照：人像和风景照都喂世界参考，只露一截身体那档不喂", () => {
   assert.equal((engine.match(/worldRefLine\(opts\.worldRefIndex, opts\.worldRefLabel\)/g) || []).length, 2);
   assert.equal((app.match(/const wRef = /g) || []).length, 2);
-  assert.match(app, /const wRef = isPart \? null : worldRefFor\(char, /);
+  assert.match(app, /const wRef = isPart \? null : worldRefFor\((?:char|realChar), /);
   assert.match(app, /buildScenePrompt\(char, photoScene, \{ forText: false, worldRefIndex: wRef/);
 });
 

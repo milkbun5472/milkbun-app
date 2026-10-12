@@ -66,7 +66,7 @@ test("能看的地方＝我这儿 + 设了家乡的角色 + 架空世界的每�
   assert.match(fn, /WorldWeather\.placesOf\(worlds\)/);
   assert.match(comp, /localStorage\.setItem\("x_weatherPlace"/, "选了谁那边就该留着，下次开还是他那边");
   assert.match(comp, /h\(WeatherWidget, \{ userGeo: userGeo, characters: characters, worlds: worlds/);
-  assert.match(app, /React\.createElement\(Home, \{\n    now: now,\n    characters: liveChars,\n    worlds: worlds,/);
+  assert.match(app, /React\.createElement\(Home, \{\n(?:\s*\/\/[^\n]*\n)?\s*now: [^\n]*,\n    characters: liveChars,\n    worlds: worlds,/);
   assert.match(html, /js\/world-weather\.js\?v=/);
 });
 

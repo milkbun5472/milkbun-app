@@ -1,8 +1,9 @@
-import {tagRoomTones} from './room-tones.mjs?v=fg-03f10db829dbba75';
-import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-03f10db829dbba75';
+import {splitRoomCutaway} from '../camera-view.mjs?v=fg-a40be0a4c2688238';
+import {tagRoomTones} from './room-tones.mjs?v=fg-a40be0a4c2688238';
+import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-a40be0a4c2688238';
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-03f10db829dbba75';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-03f10db829dbba75';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-a40be0a4c2688238';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-a40be0a4c2688238';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};
@@ -80,7 +81,7 @@ export function createRoomKit(){
   function book(name,{x=0,y=0,z=0,w=.16,h=.46,d=.3,color='#879d83',flat=false},parent=root){const p=group(name,{x,y,z},parent);if(flat){box(name+'-pages',{w,h:.065,d,color:'#eee6d4',radius:.005},p);for(const a of [-1,1])box(name+'-cover',{y:a*.038,w:w+.035,h:.012,d:d+.035,color,radius:.005},p);}else{box(name+'-spine',{w,h,d,color,radius:.007},p);for(const a of [-1,1])box(name+'-band',{y:a*h*.31,z:d/2+.004,w:w*.75,h:.015,d:.008,color:'#e3d4af',radius:0},p);}return p;}
   function plant(x,z){const p=group('Plant',{x,z});cylinder('pot',{y:.24,r:.19,h:.32,color:'#c6a689'},p);for(let i=0;i<7;i++){const a=i*2.4;const leaf=box('leaf',{x:Math.sin(a)*.16,y:.57+i*.025,z:Math.cos(a)*.16,w:.12,h:.4,d:.075,color:i%2?'#799476':'#91a586'},p);leaf.rotation.z=Math.sin(a)*.5;}return p;}
   function room({w=10,d=9,floorColor='#cbb697',wallColor='#e6dfcb',accent='#7b9585',joins=true}){
-    root.name='DayRoom';box('Floor',{y:-.07,w:w+.3,h:.3,d:d+.3,color:floorColor,radius:.05});
+    root.name='DayRoom';root.userData.roomBounds={w,d};box('Floor',{y:-.07,w:w+.3,h:.3,d:d+.3,color:floorColor,radius:.05});
     if(joins)for(let i=0;i<Math.round(w/.5);i++)box('floor-join',{x:-w/2+i*.5,y:.084,w:.008,h:.002,d,color:'#bfa88a',radius:0});
     const structure=roomStructure({w,d});
     for(const p of structure.slice(0,2))box(p.id,{...p,y:1.65,h:3.3,color:wallColor});
@@ -96,7 +97,7 @@ export function createRoomKit(){
     pivot.userData.dayDoor={furniture,swing:sign*(axis==='x'?1:-1)*.9};return pivot;
   }
   function finish(){
-    tagRoomTones(root);prepareEnvironmentSurfaces(root);root.updateMatrixWorld(true);const meshes=[];
+    tagRoomTones(root);prepareEnvironmentSurfaces(root);splitRoomCutaway(T,root,root.userData.roomBounds);root.updateMatrixWorld(true);const meshes=[];
     root.traverse(o=>{if(o.isMesh)meshes.push(o);});
     // Keep replaceable equipment as a named group; merge within each material/owner.
     const ownerOf=o=>{let n=o;while(n&&n!==root){if(n.userData.replaceable||n.userData.furnitureId||n.userData.shellPart)return n;n=n.parent;}return root;};
