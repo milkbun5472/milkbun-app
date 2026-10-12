@@ -2854,11 +2854,14 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
   if (!it) return h(GlassCard, { onClick: open, style: { padding: "10px 14px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", alignItems: "center", gap: 10 } },
     h("span", { "data-wk": "wicon", className: "flex items-center" }, h(Icon, { size: 15, color: t.accent })),
     h("span", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色"));
-  if (oneRow) return h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden", opacity: asleep ? .82 : 1 } },
+  // 4×1 一条也排两行：上面名字和在做什么，下面在哪、多久、接下来——挤在一行时三样全被省略号吃掉（她 2026-10-12 截图）
+  if (oneRow) return h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "8px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden", opacity: asleep ? .82 : 1 } },
     h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(Icon, { size: 15, color: t.accent })),
-    h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, name),
-    h("span", { "data-wk": "wrow", className: "min-w-0", style: Object.assign({ flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: slot ? t.ink : t.fog }, line) }, what),
-    sub ? h("span", { "data-wk": "wsub", style: Object.assign({ flexShrink: 1, minWidth: 0, maxWidth: "35%", fontFamily: F_BODY, fontSize: 10.5, color: t.fog }, line) }, sub) : null);
+    h("div", { className: "min-w-0", style: { flex: 1 } },
+      h("div", { className: "flex items-baseline min-w-0", style: { gap: 8 } },
+        h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, name),
+        h("span", { "data-wk": "wrow", className: "min-w-0", style: Object.assign({ flex: 1, fontFamily: F_BODY, fontSize: 12.5, color: slot ? t.ink : t.fog }, line) }, what)),
+      (sub || around) ? h("div", { "data-wk": "wsub", style: Object.assign({ fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 2 }, line) }, [sub, it.near.next && "接下来 " + it.near.next.time + " · " + it.near.next.title].filter(Boolean).join("　")) : null));
   return h(GlassCard, { onClick: open, onPointerDown: hold, style: { padding: "12px 16px", cursor: "pointer", height: forced ? "100%" : "auto", display: "flex", flexDirection: "column", justifyContent: "center", overflow: "hidden", opacity: asleep ? .82 : 1 } },
     h("div", { className: "flex items-center gap-2", style: { marginBottom: 6 } },
       h("span", { "data-wk": "wicon", className: "flex items-center" }, h(Icon, { size: 15, color: t.accent })),
