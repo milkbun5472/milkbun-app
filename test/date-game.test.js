@@ -2,7 +2,8 @@
 const test = require("node:test"), assert = require("node:assert/strict"), fs = require("node:fs"), vm = require("node:vm");
 const C = require("../js/date-game-core.js");
 const config = { charIds: ["test-char"], mode: "normal", injectChat: false, ccSeat: false, npcFill: false };
-const fresh = () => C.newGame(config, () => .01);
+// 老的六处、不掷意外：下面这些账要算得准（v75.50x 起每局从地点池抽六处、到站掷小意外）
+const fresh = () => C.newGame(config, () => .01, { places: ["cafe", "photo", "arcade", "shop", "river", "book"], events: false });
 const reply = (id, other) => Object.assign({ place: id, accept: true, pose: 2, row: 1, hint: "配合提示", say: "测试台词" }, other);
 const plan = (s, id) => C.receiveReply(C.startRequest(s, "plan", "测试提议", id), reply(id));
 const stop = (s, id, choice) => C.nextStop(C.resolveActivity(C.commitPlace(plan(s, id), id), choice));
@@ -103,4 +104,52 @@ test("实际组装的 system 人设全文、不带用户秘密；user 只有触�
   const entry = games.slice(a, b); assert.doesNotMatch(entry, /keepGameMemory|sendGameReport|ccGameResult|pChat|moods:/);
   const ui = fs.readFileSync(require.resolve("../js/date-game.js"), "utf8"); assert.doesNotMatch(ui, /KeepMemBtn|localStorage|CCSeat/);
   assert.match(ui, /maxTokens: 65000/); assert.match(ui, /content: "轮到你了。"/); assert.match(ui, /paddingBottom: COMPOSER_PAD_BOTTOM/);
+});
+
+// 她 2026-10-12：「目前有点单调」「一直只有这六站也很无聊」
+test("每局从地点池抽六处，七种玩法里至少六种；任务只发这一局做得成的", () => {
+  for (let i = 0; i < 200; i++) {
+    const s = C.newGame(config);
+    assert.equal(s.places.length, 6);
+    assert.equal(new Set(s.places.map(id => C.place(id).kind)).size, 6);
+    [s.missions.user, s.missions.char].forEach(id => { const m = C.mission(id); assert.ok(!m.needs || s.places.some(p => C.place(p).kind === m.needs), id + " 这局做不成"); });
+    assert.ok(C.legalPlaces(s).every(p => s.places.includes(p.id)));
+  }
+  assert.ok(C.PLACE_POOL.length >= 15);
+});
+test("到站掷小意外，时间和钱当场结算、不扣成负数", () => {
+  let s = C.newGame(config, () => .01, { places: ["cafe", "photo", "arcade", "shop", "river", "book"] });
+  s = C.receiveReply(C.startRequest(s, "plan", "", "photo"), reply("photo"));
+  const rainy = C.commitPlace(s, "photo", false, () => 2 / C.EVENTS.length + .001);
+  assert.equal(rainy.incident.id, "rain"); assert.equal(rainy.minutes, 180 - 30 - 10);
+  assert.match(C.resolveActivity(rainy, 2).events[0].text, /下起雨/);
+});
+test("到了现场 TA 接一句；点单那几处 TA 替你挑的也算数（甜的谁点都算）", () => {
+  let s = C.commitPlace(plan(fresh(), "cafe"), "cafe");
+  s = C.resolveActivity(s, "tea"); assert.equal(C.progress(s, "cake").done, false);
+  s = C.receiveReply(C.startRequest(s, "react", "", ""), { say: "那我给你点个甜的", pick: "cake" });
+  assert.equal(C.progress(s, "cake").done, true);
+  assert.equal(s.talk[s.talk.length - 1].who, "char");
+  assert.throws(() => C.receiveReply(C.startRequest(C.resolveActivity(C.commitPlace(plan(fresh(), "cafe"), "cafe"), "tea"), "react", "", ""), {}), /台词/);
+});
+test("看人的任务只认裁判读聊天给的结论；不需要裁判的局不请", () => {
+  let s = fresh(); s.missions = { user: "praise", char: "photo" };
+  assert.equal(C.needsJudge(s), true);
+  s = C.closeDate(stop(s, "photo", 2));
+  s = C.receiveReply(C.startRequest(s, "guess", "", ""), { guess: "unknown", say: "封好了。" });
+  const done = C.finish(s, "photo", { user: { done: true, evidence: "你今天真好看" } });
+  assert.equal(done.result.user.mission.done, true); assert.equal(done.result.user.score, 3);
+  const none = C.finish(s, "photo"); assert.equal(none.result.user.mission.done, false);
+  const t = fresh(); t.missions = { user: "photo", char: "save" }; assert.equal(C.needsJudge(t), false);
+});
+test("界面：约会走公共开局页、气泡同五子棋；裁判看不到猜测", () => {
+  const games = fs.readFileSync(require.resolve("../js/games.js"), "utf8"), ui = fs.readFileSync(require.resolve("../js/date-game.js"), "utf8");
+  assert.ok(games.indexOf("h(window.DateGameSetup") < 0, "又挂回自己那张开局页了");
+  assert.match(games, /window\.GameTalkLog = GameTalkLog;/);
+  assert.match(ui, /h\(root\.GameTalkLog, \{/);
+  const ctx = { React: { createElement() {} }, window: { DateGameCore: C }, module: { exports: {} } }; vm.createContext(ctx);
+  vm.runInContext(ui, ctx);
+  const s = fresh(); s.missions = { user: "praise", char: "laugh" }; s.aiGuess = "SECRET_AI_GUESS"; s.userGuess = "SECRET_USER_GUESS";
+  const j = ctx.module.exports.buildJudge({ profile: { name: "用户" } }, { name: "测试" }, s);
+  assert.doesNotMatch(j, /SECRET_/); assert.match(j, /让对方真心夸你一次/);
 });
