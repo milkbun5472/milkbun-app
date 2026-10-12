@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.489";
+const APP_VERSION = "v75.490";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16981,6 +16981,35 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     return n;
   });
   const saveDiaryFields = (charId, fields) => pC(p => p.map(c => c.id === charId ? { ...c, ...fields } : c));
+  // 照片日记（她 2026-10-12）：日记那一页最底下她点了才拍，**绝不自动**。
+  //   一张图画成竖着三格的胶片条，按这篇日记里的三个时刻从早到晚；三格同一身衣服（在一张图里画，天然一致）。
+  //   一次生图，不另叫文字模型——日记本身就是画面描述。
+  const [photoDiaryBusy, setPhotoDiaryBusy] = useState("");
+  const genPhotoDiary = async (charId, entry) => {
+    const char = characters.find(c => c.id === charId);
+    if (!char || !entry || photoDiaryBusy) return;
+    if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 配一下"); return; }
+    setPhotoDiaryBusy(entry.id);
+    try {
+      const body = (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900);
+      const st = statesRef.current[charId] || {};
+      const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
+        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；三格里他穿的是同一身衣服，地方跟着日记走。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
+        + "\n这篇日记：\n" + body;
+      const prompt = buildPhotoPrompt(char, scene, st, { kind: "other", closet: closetTextFor(charId, 240) });
+      const out = await generateSelfieImage(prompt, char.refPhoto ? [char.refPhoto] : null, { size: "1024x1536" });
+      let imgKey = null, imgUrl = null;
+      if (out && out.blob) { imgKey = "img_pdiary_" + charId + "_" + entry.id; await idbImgPut(imgKey, out.blob); }
+      else if (out && out.url) imgUrl = out.url;
+      else throw new Error("没拿到图");
+      setDiaries(p => {
+        const n = { ...p, [charId]: (p[charId] || []).map(e => e.id === entry.id ? { ...e, photoStrip: { imgKey, imgUrl, ts: Date.now() } } : e) };
+        saveJSON("x_diaries", n); return n;
+      });
+    } catch (e) { toast("照片日记没拍成：" + (e.message || "重试"), 9000); }
+    finally { setPhotoDiaryBusy(""); }
+  };
   // 用户自己写日记（存 x_diaries["__me"]），时间/天气/城市由 compose 组件抓本地后传进来
   const addMyDiaryEntry = data => {
     const paras = (data.body || "").split(/\n+/).map(s => s.trim()).filter(Boolean).map(text => ({ text, secret: false }));
@@ -24902,11 +24931,15 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const myGroups = myClosetRef.current;
       const fits = [dressLine(char.name, opt && opt.theirs, hisGroups && hisGroups.closet ? hisGroups.closet : hisGroups),
                     dressLine(me.name, opt && opt.mine, myGroups && myGroups.closet ? myGroups.closet : myGroups)].filter(Boolean).join("；");
-      const sceneFull = scene + (fits ? "。" + fits : "");
+      // 四宫格（她 2026-10-12）：一次出一整张大头贴，不是拍四次——四格在同一张图里画，脸和衣服天然一致
+      const GRID_LINE = "【版式·四宫格大头贴】整张图是一张 2×2 四格大头贴，四格大小一样、格子之间留一道粗白边；四格都是你们俩、同一个地方、同一身衣服，每格一个不同的表情或动作（比如对镜头笑、一起比手势、他偷看你、两个人做鬼脸），像在大头贴机里连拍的四张。";
+      const sceneFull = (opt && opt.grid ? GRID_LINE : "") + scene + (fits ? "。" + fits : "");
       // 他那身已经挑定了，整柜清单就是多余的——那正是把提示词撑爆的那一段
       const hisPicked = !!String((opt && opt.theirs) || "").trim();
       const prompt = buildPhotoPrompt(char, sceneFull, st, { kind: "duo", me: me, closet: hisPicked ? "" : closetTextFor(char.id, 320) });
-      const out = await generateSelfieImage(prompt, [char.refPhoto, profile.refPhoto], { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }) });
+      // 拍清楚某一格：那一格当第一张参考，照它的姿势表情重拍成单张
+      const refs = opt && opt.cellRef ? [opt.cellRef, char.refPhoto, profile.refPhoto] : [char.refPhoto, profile.refPhoto];
+      const out = await generateSelfieImage(prompt, refs, { minimalPrompt: buildMinimalPhotoPrompt(char, { kind: "duo" }), ...(opt && opt.grid ? { size: "1024x1024" } : {}) });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast("这张有点将就：" + out.degraded, 7000);
       let imgKey = null, imgUrl = null;
       if (out && out.blob) {
@@ -24917,7 +24950,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const row = { id: "sh_" + Date.now(), charId: char.id, imgKey, imgUrl, ts: Date.now(),
         // 从如果馆拍的那张，墙上要看得出是哪条「如果」里的（不然跟日常合照混在一起）
         scene: (opt && opt.ifTitle ? "《" + opt.ifTitle + "》里的我们 · " : "") + scene,
-        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull };
+        mine: String((opt && opt.mine) || ""), theirs: String((opt && opt.theirs) || ""), desc: sceneFull, ...(opt && opt.grid ? { grid: "2x2" } : {}) };
       const n = [row, ...studioRef.current].slice(0, STUDIO_CAP);
       studioRef.current = n; setStudio(n); saveJSON("x_studio", n);
       return row;
@@ -30284,6 +30317,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onBackfill: (id, opts) => backfillDiary(id, opts),  // opts.days=[ts] 只补那一天
     onDelEntry: delDiaryEntry,
     onSaveFields: saveDiaryFields,
+    onPhotoDiary: genPhotoDiary, photoDiaryBusy: photoDiaryBusy,
     onAddMyEntry: addMyDiaryEntry,
     onGenComments: genDiaryCommentsFor,
     toast: toast

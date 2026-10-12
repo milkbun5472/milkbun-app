@@ -5657,6 +5657,46 @@ function CoupleLetters({ partner, letters, cfg, onGen, onAddMy, onReply, onRead,
 
 // 情侣空间·合照墙：把和 TA 的聊天里生成的「我俩合照」(photoKind:"duo") 挂成一面墙，按月分组、点开放大。
 // 每月十二号有地方翻。图从 IndexedDB(x_selfies) 按 imgKey 读，读不出的静静跳过。
+// 一张图里画了好几格（照相馆四宫格、日记里的照片日记）：App 自己按格子切开，点哪格放大哪格（她 2026-10-12）。
+//   切的时候每格往里收一点，躲开格子之间那道白边；格子画歪了也最多带一点边，不会切到隔壁那格的脸。
+//   觉得那格不够清楚，可以「把这格拍清楚」——拿这一格当参考再画一张整的，这才多花一次。
+function GridCells({ photo, rows, cols, onSharpen, sharpBusy }) {
+  const t = useTheme();
+  const [cells, setCells] = useState([]);
+  const [zoom, setZoom] = useState(-1);
+  useEffect(() => {
+    let alive = true, obj = null;
+    (async () => {
+      let src = photo && photo.imgUrl;
+      if (photo && photo.imgKey && typeof idbImgGet === "function") { const b = await idbImgGet(photo.imgKey).catch(() => null); if (b && b.size) { obj = URL.createObjectURL(b); src = obj; } }
+      if (!src) return;
+      const im = await new Promise(ok => { const x = new Image(); x.onload = () => ok(x); x.onerror = () => ok(null); x.src = src; });
+      if (!im || !alive) return;
+      const W = im.naturalWidth / cols, H = im.naturalHeight / rows, ix = W * 0.035, iy = H * 0.035, out = [];
+      try {
+        for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+          const cv = document.createElement("canvas"); cv.width = Math.round(W - ix * 2); cv.height = Math.round(H - iy * 2);
+          cv.getContext("2d").drawImage(im, c * W + ix, r * H + iy, W - ix * 2, H - iy * 2, 0, 0, cv.width, cv.height);
+          out.push(cv.toDataURL("image/jpeg", 0.92));
+        }
+      } catch (e) { return; }   // 外链图浏览器不让切：就只看整张
+      if (alive) setCells(out);
+    })();
+    return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
+  }, [photo && (photo.imgKey || photo.imgUrl), rows, cols]);
+  if (!cells.length) return null;
+  return h("div", { "data-wk": "gridcells", style: { marginTop: 12 } },
+    h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginBottom: 6 } }, "点一格单独放大"),
+    h("div", { style: { display: "grid", gridTemplateColumns: "repeat(" + Math.min(cols * rows, 4) + ", minmax(0,1fr))", gap: 6 } },
+      cells.map((u, i) => h("button", { key: i, onClick: () => setZoom(i), className: "active:opacity-80", style: { borderRadius: 8, overflow: "hidden", border: "1px solid " + t.line, aspectRatio: "1" } },
+        h("img", { src: u, alt: "", style: { width: "100%", height: "100%", objectFit: "cover", display: "block" } })))),
+    zoom >= 0 ? h("div", { "data-wk": "gridcellzoom", onClick: () => setZoom(-1), className: "fixed inset-0 z-50 flex flex-col items-center justify-center", style: { background: "rgba(0,0,0,.88)", gap: 14, padding: 16 } },
+      h("img", { src: cells[zoom], alt: "", style: { maxWidth: "94%", maxHeight: "70%", borderRadius: 10 } }),
+      h("div", { style: { color: "rgba(255,255,255,.7)", fontFamily: F_BODY, fontSize: 12 } }, "第 " + (zoom + 1) + " 格 · 长按能存到手机"),
+      onSharpen ? h("button", { onClick: e => { e.stopPropagation(); if (!sharpBusy) onSharpen(cells[zoom], zoom); }, disabled: !!sharpBusy, className: "active:opacity-70",
+        style: { padding: "11px 22px", borderRadius: 999, border: "1px solid rgba(255,255,255,.45)", background: "rgba(255,255,255,.14)", color: "#fff", fontFamily: F_BODY, fontSize: 13.5 } },
+        sharpBusy ? "在拍了…" : "把这格拍清楚（再拍一张，花一次生图）") : null) : null);
+}
 function AlbumPhoto({ photo, full, cover }) {
   const [url, setUrl] = useState(null);
   useEffect(() => {
@@ -13354,7 +13394,7 @@ function diaryPreview(e) {
 // 正文落在纸上，划掉的有笔触、不肯说的糊成墨。
 // ⚠️不要再往回加英文眉标／条码／带框的元数据表——那套是照着别人的版式来的，
 //   她 2026-08-30 明说要我们自己的（「我就是不想要现在这版的底子」）。
-function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting }) {
+function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment, commenting, onPhotoDiary, photoBusy }) {
   const t = useTheme();
   // 虚拟时间开着时，TA 那篇上的日子按 TA 那只钟（她 2026-10-11：「日记显示的日期要跟随虚拟时间」）
   const d = new Date(!isMe && char && typeof vclockMap === "function" ? vclockMap(entry.ts, char.id) : entry.ts);
@@ -13404,7 +13444,16 @@ function DiaryEntryView({ entry, char, isMe, chars, onBack, onDelete, onComment,
             h("div", { style: { fontFamily: F_BODY, fontSize: 14, lineHeight: 1.75, color: t.sub } }, c.text)))),
         h("button", { onClick: onComment, disabled: commenting, className: "w-full mt-5 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50", style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "11px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub } },
           commenting ? h(IPulse, { size: 15, color: t.sub }) : h(ISpark, { size: 15, color: t.sub }),
-          commenting ? "他们在看你今天写的…" : (comments.length ? "再叫人来看看" : "叫他们来看看"))) : null));
+          commenting ? "他们在看你今天写的…" : (comments.length ? "再叫人来看看" : "叫他们来看看"))) : null,
+      // 照片日记：只在她点了才拍（绝不自动），拍好就挂在这页最底下，三格能一格格放大
+      !isMe && onPhotoDiary ? h("div", { "data-wk": "photodiary", style: { marginTop: 34 } },
+        entry.photoStrip ? h("div", null,
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 14, color: t.sub, marginBottom: 8 } }, "这一天的照片"),
+          h("div", { style: { borderRadius: 8, overflow: "hidden", border: "1px solid rgba(" + iRGB + ",.14)" } }, h(AlbumPhoto, { photo: entry.photoStrip })),
+          h(GridCells, { photo: entry.photoStrip, rows: 3, cols: 1 })) : null,
+        h("button", { onClick: () => onPhotoDiary(entry), disabled: !!photoBusy, className: "w-full mt-4 flex items-center justify-center gap-2 active:opacity-70 disabled:opacity-50",
+          style: { border: "1px dashed rgba(" + iRGB + ",.2)", borderRadius: 12, padding: "12px 0", fontFamily: F_BODY, fontSize: 13.5, color: t.sub, background: "transparent" } },
+          photoBusy ? "在冲洗这一天…" : entry.photoStrip ? "重拍这一天（再生成一次图）" : "把这一天拍成照片日记（生成一次图）")) : null));
 }
 function fmtClockShort(d) {
   return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
@@ -13560,7 +13609,7 @@ function DiaryCommentPickSheet({ characters, onConfirm, onClose }) {
     h("button", { onClick: () => { if (sel.length) onConfirm(sel); }, disabled: !sel.length, className: "w-full mt-5 active:opacity-70 disabled:opacity-40", style: { background: t.ink, color: t.bg2, borderRadius: 14, padding: "13px 0", fontFamily: F_BODY, fontSize: 15 } }, sel.length ? "让这 " + sel.length + " 位评论" : "先选角色"));
 }
 
-function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, toast }) {
+function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, onGen, onBackfill, onDelEntry, onSaveFields, onAddMyEntry, onGenComments, onPhotoDiary, photoDiaryBusy, toast }) {
   const t = useTheme();
   // 「我」也是一个作者（No.00），放在最前
   const meAuthor = { id: "__me", name: profile.name || "我", avatarImage: profile.avatarImage, color: profile.color || t.accent, motto: profile.tagline || "", isMe: true };
@@ -13642,7 +13691,8 @@ function Diary({ characters, diaries, profile, genBusy, commentingId, onBack, on
         commenting: commentingId === entry.id,
         onComment: isMe ? () => setCommentPick(entry.id) : null,
         onBack: () => { setCurEntry(null); setView("entries"); },
-        onDelete: () => { onDelEntry(curId, entry.id); setCurEntry(null); setView("entries"); }
+        onDelete: () => { onDelEntry(curId, entry.id); setCurEntry(null); setView("entries"); },
+        onPhotoDiary: onPhotoDiary ? en => onPhotoDiary(curId, en) : null, photoBusy: photoDiaryBusy === entry.id
       }));
     return h(Fragment, null,
       h("div", { className: "h-full relative", style: { perspective: 1500, perspectiveOrigin: "0% 50%", overflow: "hidden", touchAction: "pan-y" }, onTouchStart: onTS, onTouchEnd: onTE },
@@ -16878,6 +16928,8 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [mine, setMine] = useState([]);
   const [theirs, setTheirs] = useState([]);
   const [big, setBig] = useState(null);
+  const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
+  const [sharp, setSharp] = useState(false);
   const mySets = closetGroups(myCloset);
   const hisSets = closetGroups(charCloset && charCloset.outfit);
   const rows = (shots || []).filter(x => x.charId === partner.id);
@@ -16886,6 +16938,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
     big
       ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
           h(AlbumPhoto, { photo: big }),
+          big.grid === "2x2" ? h(GridCells, { photo: big, rows: 2, cols: 2, sharpBusy: sharp || busy,
+            onSharpen: async (cell, i) => { setSharp(true);
+              const row = await onShoot({ scene: (big.scene || "") + "（四宫格第 " + (i + 1) + " 格，拍成单张）", mine: big.mine, theirs: big.theirs, cellRef: cell });
+              setSharp(false); if (row) setBig(row); } }) : null,
           h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, big.scene || ""),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
@@ -16908,8 +16964,10 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { className: "flex gap-2", style: { marginTop: 14 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "10px 14px", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、") }), disabled: !!busy || !scene.trim(), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !scene.trim()) ? "#e0d6e8" : "#6d4d8f", color: (busy || !scene.trim()) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
-                busy ? "在拍了…" : "拍一张")),
+              h("button", { "data-wk": "studiogrid", "data-on": grid ? "1" : "0", onClick: () => setGrid(v => !v), className: "active:opacity-70 shrink-0",
+                style: { borderRadius: 13, padding: "10px 12px", border: "1px solid " + (grid ? "#6d4d8f" : t.line), background: grid ? "#6d4d8f" : "transparent", color: grid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "四宫格"),
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid }), disabled: !!busy || !scene.trim(), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !scene.trim()) ? "#e0d6e8" : "#6d4d8f", color: (busy || !scene.trim()) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+                busy ? "在拍了…" : grid ? "拍一张四宫格" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
           rows.length
