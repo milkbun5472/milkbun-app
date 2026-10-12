@@ -7374,7 +7374,9 @@ async function ttsSynthOther(a, txt, vid, spd) {
   }
   const blob = await r.blob();
   if (!blob || blob.size < 200) throw new Error("返回的音频是空的");
-  return blob.type ? blob : new Blob([blob], { type: "audio/mpeg" });
+  // 中转常回 application/octet-stream：iPhone 认不出是声音，play() 既不响也不报错（她 2026-10-12 试 Fish：「没声音也没报错」）。
+  //   两家要的都是 mp3，不是 audio/ 开头的一律当 mp3。
+  return /^audio\//i.test(blob.type || "") ? blob : new Blob([blob], { type: "audio/mpeg" });
 }
 // 克隆音色：①上传一段干净人声（10s~5min，mp3/wav/m4a）→ file_id ②/v1/voice_clone 绑到自定 voice_id
 // 克隆成功后把 voice_id 填进角色档案「音色」即可用（按 MiniMax 规则克隆按次收费，具体看你账户计费页）
