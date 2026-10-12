@@ -70,7 +70,8 @@ test("多人合影里的「我」也吃得到自己的衣柜", () => {
 test("我的面具里能填「出图常服」，而且说清了参考照要什么样", () => {
   assert.match(components, /const \[photoOutfit, setPhotoOutfit\] = useState\(profile\.photoOutfit \|\| ""\);/);
   assert.match(components, /photoOutfit: photoOutfit\.trim\(\)/, "填了不存等于没填");
-  assert.match(components, /出图常服（可选）：填了就每张都穿这一身。不填的话，会从【我的衣柜】里真有的那几套里挑。/);
+  // 她 2026-10-12：这一栏搬去「我的衣柜」里点「钉住」（screens.js MyCloset），面具里不再摆输入框，存的时候照样带着
+  assert.match(components, /出图常服这一栏搬去「我的衣柜」了/);
   // ⚠️有人传了全身立绘，脸只剩几十个像素，压完模型拿不到五官——那一栏以前根本没说要什么样的照片
   assert.match(components, /要能看清脸的半身或大头照，别用全身立绘（脸太小，压完就没五官了）/);
 });

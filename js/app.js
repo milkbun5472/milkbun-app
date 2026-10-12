@@ -28889,6 +28889,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGen: myClosetGen,
     onAdd: myClosetAdd,
     onDrop: myClosetDrop,
+    // 在衣柜里直接钉住一身（她 2026-10-12：「放我的资料里太隐蔽了，不能在我的衣柜里直接选吗，然后把我的那里删掉」）：
+    //   钉住＝写进出图常服那把锁（跟线下「以后都这样」同一格），出图每张都穿它；再点一次就取消，回到从衣柜里挑
+    onPin: text => { const v = String(text || "").trim().slice(0, 200); const p = { ...profile, photoOutfit: v }; setProfile(p); saveJSON("x_profile", p);
+      toast(v ? "钉住了：以后出图都穿这一身" : "取消钉住：出图回到从衣柜里挑"); },
     onBack: () => { const b = closetBack; setClosetBack(null); setScreen(b || "home"); }
   });else if (screen === "carry") body = h(Carry, {
     characters: liveChars,

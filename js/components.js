@@ -7824,11 +7824,9 @@ function ProfileSheet({
         //   压完图模型根本拿不到五官，合照里就成了另一个人（2026-09-16 报的）。
         h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.5 } }, "传张你的参考照(可选)锁住长相——要能看清脸的半身或大头照，别用全身立绘（脸太小，压完就没五官了）")),
       h(LineArea, { value: appearance, onChange: e => setAppearance(e.target.value), rows: 4, placeholder: "你的长相/发型/身材/气质/常穿风格……越具体，合照里的你越像本人。填了才开放『合照』。" }),
-      // 出图常服：跟角色档案里那一栏同一个意思，只是这回是你自己的。
-      // 优先级：这一栏 ＞ 我的衣柜 ＞ 让模型自由搭。
-      h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, lineHeight: 1.5, marginTop: 10, marginBottom: 4 } },
-        "出图常服（可选）：填了就每张都穿这一身。不填的话，会从【我的衣柜】里真有的那几套里挑。"),
-      h(LineArea, { value: photoOutfit, onChange: e => setPhotoOutfit(e.target.value), rows: 2, placeholder: "每张图都必须保留的服装，例如：白色毛衣＋深蓝格纹围巾" }))));
+      // 出图常服这一栏搬去「我的衣柜」了（她 2026-10-12：「放我的资料里太隐蔽了，在我的衣柜里直接选，把我的那里删掉」）：
+      //   在衣柜里点「钉住」写的还是这一格（photoOutfit），所以这儿不再摆输入框；存的时候原样带着，不会被清掉。
+      null)));
 }
 // ============================================================
 // MESSAGES — WeChat-style: 聊天 / 通讯录 / 朋友圈

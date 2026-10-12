@@ -37,7 +37,7 @@ test("这几页【早就有底了】——钉住，别哪天被谁改平", () =>
   // 工单上它们还挂着，其实是过期的。钉一条，省得下一轮又去查一遍。
   assert.match(scr, /function Favorites\(\{ favorites[\s\S]{0,3000}?return h\("div", \{ className: "h-full flex flex-col", style: KRAFT\(t\) \}/, "收藏的牛皮纸没了");
   assert.match(scr, /function EmoteMatrix\([\s\S]{0,9000}?return h\("div", \{ className: "h-full flex flex-col", style: RELEASE_PAPER\(t\) \}/, "表情包的离型纸没了");
-  assert.match(scr, /function MyCloset\([\s\S]{0,600}?return h\("div", \{ className: "h-full flex flex-col", style: pageSkin\("wood", t, \{ corner: false \}\) \}/, "我的衣柜的木纹没了");
+  assert.match(scr, /function MyCloset\([\s\S]{0,1200}?return h\("div", \{ className: "h-full flex flex-col", style: pageSkin\("wood", t, \{ corner: false \}\) \}/, "我的衣柜的木纹没了");
   assert.match(memo, /return h\("div", \{ className: "h-full flex flex-col", style: notebook \}/, "备忘录的本子皮没了");
   // 设置：方格纸，而且【拼透明度前先验六位色号】（深色主题里 t.ink 可能不是六位，
   // 拼出废值整层底会静默消失——mobile-ui-layout §3.5 那条 ⚠️）

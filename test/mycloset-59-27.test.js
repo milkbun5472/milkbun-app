@@ -25,7 +25,7 @@ test("有正门：在微信「我」那一屏，一条路由、一页", () => {
   assert.match(comp, /\n  onOpenMyCloset,/, "组件没收这个 prop");
   assert.match(app, /onOpenMyCloset: \(\) => setScreen\("mycloset"\)/, "点了没人接");
   assert.match(app, /screen === "mycloset"\) body = h\(MyCloset, \{/, "没有路由");
-  assert.match(scr, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, onBack \}\)/, "没有这一页");
+  assert.match(scr, /function MyCloset\(\{ profile, data, busy, onGen, onAdd, onDrop, (?:onPin, )?onBack \}\)/, "没有这一页");
   // 整页，不是半窗（施工规则/no-half-sheet.md）
   const ui = cut(scr, "function MyCloset({", "\nfunction ");
   assert.ok(ui.indexOf("h(Sheet") < 0, "用半窗了");
