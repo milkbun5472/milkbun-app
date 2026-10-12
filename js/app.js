@@ -8471,7 +8471,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {
       // 重拍没成：原来那张放回去，不能拍坏一次就把旧照片弄没了（群友 2026-10-09：「一重拍就会把照片删掉」）
       const keep = arg && arg.keep && (arg.keep.imgKey || arg.keep.imgUrl) ? arg.keep : null;
-      patch(keep ? { pending: false, failed: false, imgKey: keep.imgKey || null, imgUrl: keep.imgUrl || null, desc: keep.desc != null ? keep.desc : scene } : { pending: false, failed: true });
+      patch(keep ? { pending: false, failed: false, imgKey: keep.imgKey || null, imgUrl: keep.imgUrl || null, desc: keep.desc != null ? keep.desc : scene } : { pending: false, failed: true, failErr: String((e && e.message) || "").slice(0, 300) });
       const em = String((e && e.message) || "");
       const isSafety = /safety|policy|内容政策|content policy|moderat|sensitive|blocked|rejected|违反/i.test(em);
       toast((keep ? "重拍没成，原来那张还在：" : "这张没拍成：") + (isSafety
@@ -13893,8 +13893,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, imgUrl: out.url } : m));
       } else { throw new Error("没拿到图"); }
     } catch (e) {
-      pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true } : m));
       const em = String(e.message || "");
+      // 原因留在卡上（她 2026-10-12 转群里：「api 测试成功，线上生图一直失败」——toast 一闪就没了，卡上只写没拍成，谁也查不了）
+      pChat(chatKey, p => p.map(m => m.sid === sid ? { ...m, pending: false, failed: true, failErr: em.slice(0, 300) } : m));
       // 配额/模型类报错 → 指路：多半是图像模型名不对或该模型没配额
       // ⚠️顺序要紧：审核拒绝的原话里常带「misclassified by the upstream model」，
       // 里面那个 model 会被下面的配额正则命中，于是审核问题被报成「没配额或名字不对」，
@@ -13940,7 +13941,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, imgUrl: out.url } : m));
       } else { throw new Error("没拿到图"); }
     } catch (e) {
-      pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, failed: true } : m));
+      pGChat(groupId, p => p.map(m => m.sid === gsid ? { ...m, pending: false, failed: true, failErr: String((e && e.message) || "").slice(0, 300) } : m));
       toast("自拍没生成：" + (e.message || "重试"));
     }
   };

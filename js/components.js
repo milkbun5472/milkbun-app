@@ -16322,7 +16322,9 @@ function SelfieBubble({ m }) {
   // 所有非正常态都用这个卡片：说清人话原因 + 带上这张图本来拍的是什么
   const note = txt => h("div", { style: Object.assign({}, box, { padding: "14px 16px" }) },
     h("div", { style: { fontFamily: F_BODY, fontSize: 12, lineHeight: 1.55, color: t.fog } }, "📷 " + txt),
-    m.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, opacity: 0.65, marginTop: 5 } }, "（本来想拍：" + m.desc + "）") : null);
+    m.desc ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: t.fog, opacity: 0.65, marginTop: 5 } }, "（本来想拍：" + m.desc + "）") : null,
+    // 没拍成的原因：原样留着（图像 API 那头说了什么），对着它才知道是模型名、额度、审核还是参考照的事
+    m.failed && m.failErr ? h("div", { "data-wk": "photofailerr", style: { fontFamily: F_BODY, fontSize: 10.5, lineHeight: 1.5, color: "#9b5f6d", marginTop: 6, wordBreak: "break-all" } }, "原因：" + m.failErr) : null);
   if (m.pending) {
     // 卡「拍照中」超 6 分钟 = 生成时页面被 iOS 杀了/断线，别永远转下去
     // 重拍的老照片按「这次开始拍」算，不按当初发出来的时间（她 2026-10-03：重拍了却不显示在重新生成）
