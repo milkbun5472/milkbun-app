@@ -7886,6 +7886,8 @@ async function generateOffline(p, ctx, session) {
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2
       + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + (session.photoMe ? "｜me" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。scene 写在哪、在做什么、什么神情，镜头角度不用写（她点名要的除外）。other 是别人拿着手机拍你：scene 里分开写清你自己此刻的样子、和拍的人从哪儿拍（比如她在马背上往下拍你牵着缰绳走）。duo 合照：scene 里写清你俩谁在前谁在后、谁举的手机。它是上面输出形状的追加项。" : "")
+      + ((!isDigital && session.listenOn) ? "\n【songSwitch 格式】你正和 " + userName + " 一起听歌（放着的是哪首见【此刻正放着的歌】）。Ta 让你切歌、点歌，或者你自己此刻想放某首时，songSwitch 填那首歌名；想跳下一首填「下一首」、回上一首填「上一首」；不换就 songSwitch:null，别频繁乱切。"
+        + ((session.listenSongs || []).length ? "歌单里现成的有：" + session.listenSongs.join(" / ") + "。" : "") + "不在歌单里的照样能放，写歌名就会去搜；按你自己的品味来。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
@@ -8154,6 +8156,8 @@ async function generateOffline(p, ctx, session) {
     toy: (session.toyOn && parsed.toy && typeof parsed.toy === "object") ? parsed.toy : null,
     schedNow: (parsed.schedNow && typeof parsed.schedNow === "object" && parsed.schedNow.title) ? parsed.schedNow : null,
     // 线下拍下的那一格。kind 由 app 再核一遍（duo 要两张参考照都在才作数）。
+    // 线下切歌：app 侧只在她正跟这个人一起听时给 listenOn，换歌走 app 的 taSwitchSong。
+    songSwitch: (session.listenOn && parsed.songSwitch && String(parsed.songSwitch).trim().toLowerCase() !== "null") ? String(parsed.songSwitch).trim() : null,
     photo: (session.photoOn && parsed.photo && typeof parsed.photo === "object" && String(parsed.photo.scene || "").trim())
       ? { kind: String(parsed.photo.kind || "self"), scene: String(parsed.photo.scene).trim() } : null
   };
