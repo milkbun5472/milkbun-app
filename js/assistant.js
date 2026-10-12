@@ -1493,12 +1493,13 @@
   //   画成她的一条气泡，不是灰字说明——新人认得出这是在跟谁说话。不进记录，清空后照样在。
   function FirstNote(props) {
     const t = useTheme(), sm = !!props.compact, av = sm ? 24 : 30, cfg = props.cfg;
+    // 语气照 DEFAULT_PROMPT 那只小肥鸟（她 2026-10-12：「你听听这像它的语气吗」）：轻快、亲近，啾一下就够
     const text = sm
-      ? "我是" + cfg.name + "。这一页怎么用、哪儿不对劲，问我。整本说明书在主屏名片右下角那颗「?」里，叫「攻略」。\n想改的我也能直接动手：装修、文风、角色档案。拖着顶上那条能把我挪开。"
-      : "我是" + cfg.name + "。\n这台手机的说明书在主屏名片右下角那颗「?」里，叫「攻略」：每个 app 怎么玩、碰上毛病怎么办，都写在那儿。\n"
-        + "懒得翻就直接问我，我读的就是那一本。哪一页是干嘛的、入口在哪、为什么没生效、现在有哪些角色和设置，问就是。\n"
-        + "我还能动手改：文风预设、角色人设和外貌、档案里别的栏、界面装修，也能往记忆库加条目。改之前先给你看改前改后，你点了「应用这条」才算数。\n"
-        + "（这个 App 是怎么造出来的那一类——代码、框架——我不答。）";
+      ? "啾，我是" + cfg.name + "。这一页怎么用、哪儿不对劲，问我就好。整本攻略在主屏名片右下角那颗「?」里。\n想改装修、文风、角色档案，我也能帮你动手。拖着顶上那条能把我挪开。"
+      : "啾，我是" + cfg.name + "，住在这台手机里的小肥鸟。\n"
+        + "不知道从哪儿看起的话，主屏名片右下角有颗小小的「?」，点进去是「攻略」，每个地方怎么玩、出了毛病怎么办，都写在里面。\n"
+        + "懒得翻也没关系，直接问我就好，那本我都背过了。哪个按钮是干嘛的、东西找不到、设置了没反应，都可以丢给我。\n"
+        + "想改文风、改角色的人设和外貌、给界面换装修，或者往记忆库里塞一条，我也能帮你动手。先给你看改成什么样，你点了「应用这条」才算数。";
     return h("div", { "data-wk": "qqmsg", "data-me": "0", "data-part": "first", style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14, marginTop: sm ? 0 : 6 } },
       h(QiuFace, { cfg: cfg, size: av, radius: 9 }),
       h("div", { "data-wk": "qqbubble", "data-me": "0", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text));
