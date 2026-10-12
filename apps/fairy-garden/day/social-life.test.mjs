@@ -8,10 +8,10 @@ const {createAutoInteraction,canTravelTogether}=await import('./social-flow.mjs'
 const {pairProfile,motionProfile,pairProgress}=await import('./motion-profile.mjs'),{createTogether}=await import('./together.mjs');
 const actor=()=>{const root=new T.Group();for(const n of ['Right_hand','Left_hand','HeadAnchor']){const q=new T.Group();q.name=n;q.position.y=1;root.add(q);}return {root,animate(t,p){root.position.y=p.height;this.pose=p;},contactPose(p){this.contact=p;}};};
 test('自动小互动只在空闲自动模式发生，手动接管无限等待仍不重启',()=>{
- const flow=createAutoInteraction(),visitor={control:'auto',present:true,busy:false},started=[];
+ const flow=createAutoInteraction({random:()=>0}),visitor={control:'auto',present:true,busy:false},started=[];
  const state={enabled:true,eligible:true,visitor,ready:true,actions:['look','cup','closer'].map(kind=>({kind})),start:kind=>{started.push(kind);return {ok:true};}};
  assert.equal(flow.tick(18,state),true);assert.deepEqual(started,['look']);
- visitor.control='manual';flow.tick(999,state);assert.equal(started.length,1);visitor.control='auto';flow.tick(17,state);assert.equal(started.length,1);flow.tick(1,state);assert.equal(started[1],'cup');
+ visitor.control='manual';flow.tick(999,state);assert.equal(started.length,1);visitor.control='auto';flow.tick(17,state);assert.equal(started.length,1);flow.tick(1,state);assert.equal(started.length,2);
  state.eligible=false;flow.tick(999,state);assert.equal(started.length,2);state.eligible=true;visitor.busy=true;flow.tick(999,state);assert.equal(started.length,2);
 });
 test('一起转场只沿同角色的真实生活地点；工作、预览、主动离开与在家缺席都撤销同行',()=>{

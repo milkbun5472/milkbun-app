@@ -41,9 +41,9 @@ test("说给 TA 的是这个世界的真实时间，不说「戏里」；四处�
   assert.match(comps, /"这个世界现在：" \+ vclockShow\(v, cur\)/);
   assert.match(engine, /if \(vclockCfg\(\)\) timeBlock\.push\("【当前真实时间】" \+ vclockLabel\(Date\.now\(\)\)/, "缓存切点那几个字不能动");
   assert.match(engine, /vclockUse\(char && char\.id\);\n  const now = vclockNow\(\);/);
-  assert.match(engine, /vclockUse\(null\);   \/\/ 群线下走主面具那只钟/);
+  assert.match(engine, /vclockUse\(ctx\.clockId != null \? ctx\.clockId : null\);   \/\/ 群线下走群挑的那张面具的钟/);
   assert.match(app, /const _replyTurn = async \(charId, extraText, mode, opts\) => \{\n    if \(typeof vclockUse === "function"\) vclockUse\(charId\);/);
-  assert.match(app, /const replyGroup = async \(groupId, rgOpts = \{\}\) => \{\n    if \(typeof vclockUse === "function"\) vclockUse\(null\);/);
+  assert.match(app, /const replyGroup = async \(groupId, rgOpts = \{\}\) => \{\n    if \(typeof vclockUse === "function"\) vclockUse\("g:" \+ groupId\);/);
 });
 
 test("日记、日程、记忆上的日子都照那个人的钟", () => {
@@ -93,8 +93,8 @@ test("主屏的钟和日历照主面具那只钟；离开小手机时停住", ()
 // 群友 2026-10-11：「char 感应到的是调整完的时间，就是聊天页面的时间戳还是现实时间」
 test("聊天页的时间条、消息列表上的时间照那只钟", () => {
   assert.match(comps, /map: typeof vclockMap === "function" && character \? \(ts => vclockMap\(ts, character\.id\)\) : undefined/);
-  assert.match(comps, /map: typeof vclockMap === "function" \? \(ts => vclockMap\(ts, null\)\) : undefined/);
+  assert.match(comps, /map: typeof vclockMap === "function" \? \(ts => vclockMap\(ts, group && group\.id \? "g:" \+ group\.id : null\)\) : undefined/);
   assert.match(comps, /fmtStamp\(last\.ts, c\.id\)/);
-  assert.match(comps, /fmtStamp\(last\.ts, null\)/);
+  assert.match(comps, /fmtStamp\(last\.ts, "g:" \+ g\.id\)/);
   assert.match(engine, /function fmtStamp\(ts, id\) \{/);
 });

@@ -10,7 +10,10 @@ export function pairSize(actor){
 }
 export function pairSpacing(kind,a,b){
  const aa=pairSize(a),bb=pairSize(b),width=(aa.width+bb.width)/2;
- if(['shoulder','cuddle'].includes(kind))return aa.radius+bb.radius+.23;
+ if(['shoulder','cuddle','sit-hug','sit-lean'].includes(kind))return aa.radius+bb.radius+.23;
+ if(kind==='lie-hug')return width+.10;
+ if(kind==='sit-pat')return aa.radius+bb.radius+.08;
+ if(kind==='sit-hand')return aa.radius+bb.radius+.23;
  if(kind==='closer')return aa.radius+bb.radius+.28;
  if(kind==='arm-walk')return width+.19;
  if(kind==='cup')return width+.25;
@@ -21,7 +24,9 @@ export function pairSpacing(kind,a,b){
 }
 // Use the current torso frame, rather than the tilted head, for waist/back holds.
 export function torsoPoint(actor,side=0,level=.6,front=.1){
- actor.root.updateWorldMatrix(true,true);const local=p=>actor.root.worldToLocal(p),body=local(bonePoint(actor,'body')||actor.root.localToWorld(new T.Vector3(0,.3,0))),l=local(bonePoint(actor,'leftArm')||actor.root.localToWorld(new T.Vector3(-.165,.655,0))),r=local(bonePoint(actor,'rightArm')||actor.root.localToWorld(new T.Vector3(.165,.655,0))),shoulder=l.clone().add(r).multiplyScalar(.5),center=body.lerp(shoulder,level),across=r.sub(l);
+ actor.root.updateWorldMatrix(true,true);const visual=node(actor,'TravelerVisual');
+ if(visual&&Math.abs(visual.rotation.x)>1){const body=bonePoint(actor,'body'),l=bonePoint(actor,'leftArm'),r=bonePoint(actor,'rightArm'),shoulder=l.clone().add(r).multiplyScalar(.5),across=r.clone().sub(l),up=shoulder.clone().sub(body),frontAxis=across.clone().cross(up).normalize();return body.lerp(shoulder,level).addScaledVector(across,side*.5).addScaledVector(frontAxis,front);}
+ const local=p=>actor.root.worldToLocal(p),body=local(bonePoint(actor,'body')||actor.root.localToWorld(new T.Vector3(0,.3,0))),l=local(bonePoint(actor,'leftArm')||actor.root.localToWorld(new T.Vector3(-.165,.655,0))),r=local(bonePoint(actor,'rightArm')||actor.root.localToWorld(new T.Vector3(.165,.655,0))),shoulder=l.clone().add(r).multiplyScalar(.5),center=body.lerp(shoulder,level),across=r.sub(l);
  center.addScaledVector(across,side*.5);center.z+=front;return actor.root.localToWorld(center);
 }
 export function pairContact(actor,targets,progress,record=[]){
@@ -30,12 +35,12 @@ export function pairContact(actor,targets,progress,record=[]){
  actor.contactPose(adjusted);
  for(const side of ['left','right'])if(targets[side])record.push({who:actor.root.userData.pairWho,side,error:bonePoint(actor,side==='left'?'Left_hand':'Right_hand').distanceTo(targets[side])});
 }
-export function shoulderPose(holder,leaner,progress,{embrace=false,holderProgress=progress}={}){
+export function shoulderPose(holder,leaner,progress,{embrace=false,holderProgress=progress,minimumHeadGap=0}={}){
  const toward=leaner.root.worldToLocal(holder.root.position.clone()).x<0?-1:1;
  holder.contactPose({lean:toward*.025*holderProgress});
  const shoulder=torsoPoint(holder,-toward*1.05,1,.13),cheek=headPoint(leaner,[toward*.75,-.75,.18]),pivot=bonePoint(leaner,'body')||leaner.root.localToWorld(new T.Vector3(0,.3,0)),local=leaner.root.worldToLocal(cheek.clone()),hip=leaner.root.worldToLocal(pivot.clone()),target=leaner.root.worldToLocal(shoulder.clone());
  let angle=.52,best=Infinity;
- for(let i=0;i<=65;i++){const t=i*.01,q=local.clone().sub(hip).applyEuler(new T.Euler(.20,0,-toward*t)).add(hip),error=q.distanceToSquared(target);if(error<best){best=error;angle=t;}}
+ for(let i=0;i<=65;i++){const t=i*.01,rotation=new T.Euler(.20,0,-toward*t),q=local.clone().sub(hip).applyEuler(rotation).add(hip),center=leaner.root.worldToLocal(headPoint(leaner,[0,0,0])).sub(hip).applyEuler(rotation).add(hip);if(minimumHeadGap&&leaner.root.localToWorld(center).distanceTo(headPoint(holder,[0,0,0]))<minimumHeadGap)continue;const error=q.distanceToSquared(target);if(error<best){best=error;angle=t;}}
  leaner.contactPose({lean:-toward*angle*progress,tilt:.20*progress});
  const contacts=[];
  if(embrace){const side=nearHand(holder,leaner.root.position),back=torsoPoint(leaner,-toward*.75,.97,-.025);pairContact(holder,{[side]:back},holderProgress,contacts);

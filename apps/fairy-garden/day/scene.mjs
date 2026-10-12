@@ -1,46 +1,46 @@
-import {createRoomCutaway} from './camera-view.mjs?v=fg-a40be0a4c2688238';
-import {createKitchenStation} from './board-station.mjs?v=fg-a40be0a4c2688238';
+import {createRoomCutaway} from './camera-view.mjs?v=fg-eab2c575de9efb2e';
+import {createKitchenStation} from './board-station.mjs?v=fg-eab2c575de9efb2e';
 const boardStation=createKitchenStation();let kitchenStation='';
-import './kitchen.js?v=fg-a40be0a4c2688238';
-import {createLunchCarry} from './lunch-carry.mjs?v=fg-a40be0a4c2688238';
-import {createKitchenView} from './kitchen-view.mjs?v=fg-a40be0a4c2688238';
+import './kitchen.js?v=fg-eab2c575de9efb2e';
+import {createLunchCarry} from './lunch-carry.mjs?v=fg-eab2c575de9efb2e';
+import {createKitchenView} from './kitchen-view.mjs?v=fg-eab2c575de9efb2e';
 const kitchenView=createKitchenView({actors:()=>[avatar,visitorAvatar]});
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-a40be0a4c2688238';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-a40be0a4c2688238';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-a40be0a4c2688238';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-eab2c575de9efb2e';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-eab2c575de9efb2e';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-eab2c575de9efb2e';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-a40be0a4c2688238';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-a40be0a4c2688238';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-a40be0a4c2688238';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-a40be0a4c2688238';
-import {seatLook} from '../wardrobe.mjs?v=fg-a40be0a4c2688238';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-a40be0a4c2688238';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-a40be0a4c2688238';
-import {stepRoute} from '../locomotion.mjs?v=fg-a40be0a4c2688238';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-a40be0a4c2688238';
-import {updateWorkScene} from './work-scene.mjs?v=fg-a40be0a4c2688238';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-a40be0a4c2688238';
-import {activityPose} from './activity.mjs?v=fg-a40be0a4c2688238';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-a40be0a4c2688238';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-eab2c575de9efb2e';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-eab2c575de9efb2e';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-eab2c575de9efb2e';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-eab2c575de9efb2e';
+import {seatLook} from '../wardrobe.mjs?v=fg-eab2c575de9efb2e';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-eab2c575de9efb2e';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-eab2c575de9efb2e';
+import {stepRoute} from '../locomotion.mjs?v=fg-eab2c575de9efb2e';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-eab2c575de9efb2e';
+import {updateWorkScene} from './work-scene.mjs?v=fg-eab2c575de9efb2e';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-eab2c575de9efb2e';
+import {activityPose} from './activity.mjs?v=fg-eab2c575de9efb2e';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-eab2c575de9efb2e';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-a40be0a4c2688238';
-import {createSpaceView} from './space-view.mjs?v=fg-a40be0a4c2688238';
-import {setHomeClock} from './home-shell.mjs?v=fg-a40be0a4c2688238';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-a40be0a4c2688238';
-import {createTogether} from './together.mjs?v=fg-a40be0a4c2688238';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-a40be0a4c2688238';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-a40be0a4c2688238';
-import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-a40be0a4c2688238';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-a40be0a4c2688238';
-import {createSceneVisit} from './visit.mjs?v=fg-a40be0a4c2688238';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-a40be0a4c2688238';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-a40be0a4c2688238';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-a40be0a4c2688238';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-eab2c575de9efb2e';
+import {createSpaceView} from './space-view.mjs?v=fg-eab2c575de9efb2e';
+import {setHomeClock} from './home-shell.mjs?v=fg-eab2c575de9efb2e';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-eab2c575de9efb2e';
+import {createTogether} from './together.mjs?v=fg-eab2c575de9efb2e';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-eab2c575de9efb2e';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-eab2c575de9efb2e';
+import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-eab2c575de9efb2e';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-eab2c575de9efb2e';
+import {createSceneVisit} from './visit.mjs?v=fg-eab2c575de9efb2e';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-eab2c575de9efb2e';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-eab2c575de9efb2e';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-eab2c575de9efb2e';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-a40be0a4c2688238';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-a40be0a4c2688238';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-eab2c575de9efb2e';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-eab2c575de9efb2e';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -85,7 +85,7 @@ function prepareVisitor(){
  if(!visitorReady)visitorReady=(async()=>{
   visitorAvatar=createTraveler(travelerSource,false);visitorAvatar.root.visible=false;scene.add(visitorAvatar.root);await visitorAvatar.ready();
   visitor=createSceneVisit({avatar:visitorAvatar,choreVisual:createChoreVisual(visitorAvatar),ta:()=>soloOuting()?null:({x:avatar.root.position.x,z:avatar.root.position.z,seat,heading:yaw,moving:!!route.length&&!seat&&!bed,walkSpeed:1.6*(hostMotion?.walk||1),action:hostChore?null:activity?.action}),following:()=>!!visitSetting()&&!visitSetting().home&&!soloOuting(),motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
-  together=createTogether({a:avatar,b:visitorAvatar,kitchen:()=>({job:currentKitchenJob(),elapsed:kitchenProgress?.elapsed||0,progress:kitchenProgress?.progress,tools:kitchenView.tabletop()?.root||kitchenView.stationObjects('pan',globalThis.CharDayKitchen.cookingSpec(currentKitchenJob())).root}),onKitchenMoment:moment=>{const job=currentKitchenJob();if(job?.cooking&&job.id===moment.jobId){kitchenProgress.progress=globalThis.CharDayKitchen.stepCooking(job,kitchenProgress.progress,{kind:'moment',value:moment.kind,id:moment.id,ingredient:moment.ingredient});updateKitchen(0);}},visibility:planVisibility,pair:()=>({a:hostPair,b:guestPair}),motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info){visitor.control(info);if(info.notice&&parent!==window)parent.postMessage({type:'char-day-kitchen-notice',charId:snapshot?.charId,notice:info.notice},location.origin);}},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
+  together=createTogether({a:avatar,b:visitorAvatar,kitchen:()=>({job:currentKitchenJob(),elapsed:kitchenProgress?.elapsed||0,progress:kitchenProgress?.progress,tools:kitchenView.tabletop()?.root||kitchenView.stationObjects('pan',globalThis.CharDayKitchen.cookingSpec(currentKitchenJob())).root}),onKitchenMoment:moment=>{const job=currentKitchenJob();if(job?.cooking&&job.id===moment.jobId){kitchenProgress.progress=globalThis.CharDayKitchen.stepCooking(job,kitchenProgress.progress,{kind:'moment',value:moment.kind,id:moment.id,ingredient:moment.ingredient});updateKitchen(0);}},visibility:planVisibility,pair:()=>({a:hostPair,b:guestPair}),motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position,heading:yaw,seat:!route.length?seat:null,bed:!route.length?bed:null},b:{...visitor.inspect().position,heading:visitor.inspect().heading,seat:visitor.inspect().seat,bed:visitor.inspect().bed}}),onUpdate:info=>{if(info){visitor.control(info);if(info.notice&&parent!==window)parent.postMessage({type:'char-day-kitchen-notice',charId:snapshot?.charId,notice:info.notice},location.origin);}},onStop:info=>{visitor.release(info);position={...info.a};if(info.preserveHost&&(info.seats?.a||info.beds?.a)){seat=info.seats?.a||null;bed=info.beds?.a||null;route=[];onArrive=null;}else{seat=null;bed=null;target=destination(activity);go(target);}}});
   transfer=createDateTransfer({a:avatar,b:visitorAvatar,map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),motion:()=>({a:hostMotion,b:guestMotion}),
    onUpdate:info=>visitor.control({...info,automatic:true}),
    onCancel:info=>{position={...info.a};visitor.release({b:info.b,reason:info.reason});},
@@ -217,7 +217,7 @@ function activityKey(){return JSON.stringify([snapshot?.key,activity,!!snapshot?
 function pauseState(){
   if(snapshot?.editing)return editResume;
   if(!ready||!map||changing||!snapshot)return null;
-  return {charId:snapshot.charId,map,outing:freeOuting()?{...freeOuting()}:null,scheduledResume:freeOuting()?scheduledResume:null,key:activityKey(),position:{...(together?.inspect()?.a||position)},target:target&&{...target},moving:!!route.length||!!together?.inspect()||hostChoreManual,yaw,speed,dwell,walkTarget,view:{orbit:orbit.snapshot(),pivot:orbitPivot.toArray(),pan:{...pan},zoom:camera.zoom,following,cameraMode},visitor:visitor?.pauseState()||null};
+  return {charId:snapshot.charId,map,outing:freeOuting()?{...freeOuting()}:null,scheduledResume:freeOuting()?scheduledResume:null,key:activityKey(),position:{...(together?.inspect()?.a||position)},target:target&&{...target},moving:!!route.length||!!together?.inspect()||hostChoreManual,yaw,speed,dwell,walkTarget,interaction:together?.pauseState()||null,view:{orbit:orbit.snapshot(),pivot:orbitPivot.toArray(),pan:{...pan},zoom:camera.zoom,following,cameraMode},visitor:visitor?.pauseState()||null};
 }
 async function enter(next,token,initial=false,retainView=false,resume=null){
   changing=true;cover.classList.add('on');avatar.root.visible=false;
@@ -248,7 +248,7 @@ async function enter(next,token,initial=false,retainView=false,resume=null){
     if(resume?.visitor?.present&&visitSetting()&&(freeOuting()||snapshot.visitorData?.homePresence!=='away')){
       await prepareVisitor();if(token!==epoch||disposed)return;
       visitorAvatar.setLook(seatLook('me',snapshot.visitorLook||{},'她'),true);visitorLookKey=JSON.stringify(snapshot.visitorLook||{});await visitorAvatar.ready();
-      if(token!==epoch||disposed)return;visitor.restore(resume.visitor);
+      if(token!==epoch||disposed)return;visitor.restore(resume.visitor);if(resume.interaction&&together.restore(resume.interaction)){route=[];onArrive=null;}
     }
     if(resume?.view&&resume.map===next){const v=resume.view;orbit.restore(v.orbit);if(v.pivot?.length===3&&v.pivot.every(Number.isFinite))orbitPivot.fromArray(v.pivot);if(Number.isFinite(v.pan?.x)&&Number.isFinite(v.pan?.z)){pan.x=v.pan.x;pan.z=v.pan.z;}framing=true;gesture.setZoom(v.zoom);framing=false;setFollowing(!!v.following,v.cameraMode||'free');cameraPose();}else if(!retainView){if(snapshot.follow)setCameraMode(snapshot.cameraMode&&snapshot.cameraMode!=='free'?snapshot.cameraMode:'ta');else overview();}tell('');markSelection();if(snapshot.editing)editorNotice();
   }catch(e){if(token===epoch)tell('画面加载失败：'+e.message);}finally{if(token===epoch){changing=false;
@@ -390,7 +390,7 @@ function tick(dt,time){
   hostChoreVisual?.update(hostChore,dwell,moving);if(hostChore&&hostChoreManual&&dwell>=hostChore.duration){target=destination(activity);dwell=0;go(target);}
   updateWorkScene(mapLoader.views[map]?.root,taskState,moving,time);
   visitor?.tick(dt,time);
-  autoInteraction.tick(dt,{enabled:snapshot.socialPreferences?.autoInteractions!==false,eligible:!!social.automaticSetting(snapshot)&&!visitor?.inspect()?.chore,visitor:visitor?.inspect(),ready:!route.length&&!bed&&!arrival&&!hostChore,actions:visitSetting()?.actions||[],start:kind=>{const result=together.start(kind,{automatic:true});if(result.ok){route=[];onArrive=null;}return result;}});
+  autoInteraction.tick(dt,{enabled:snapshot.socialPreferences?.autoInteractions!==false,eligible:!!social.automaticSetting(snapshot,{resting:!!bed})&&!visitor?.inspect()?.chore,visitor:visitor?.inspect(),ready:!route.length&&!arrival&&!hostChore,posture:bed?'lie':seat?'sit':'stand',sleeping:!!bed&&bed.awake!==true,profile:hostPair,actions:visitSetting()?.actions||[],start:(kind,options)=>{const result=together.start(kind,options);if(result.ok){route=[];onArrive=null;}return result;}});
   trackCamera(Math.min(1,dt*8));updateKitchen(dt);
   if(map==='garden')mapLoader.views[map]?.stream?.update(pan,Math.max(7,span/camera.zoom));
   dayEnvironment.update(snapshot.minute,snapshot.weather,time);
@@ -427,8 +427,8 @@ function visitAction(kind,point){
  if(kind==='leave'&&(map==='dayHome'||freeOuting()))homeAutoSuppressed=true;
  const shared=kind.startsWith('together:');if(shared)kind=kind.slice(9);
  if(shared||['hand','hug','shoulder','meal','cook'].includes(kind)){
-  visitor?.act('manual');
-  if(!visitor?.inspect().present||!visitSetting()||bed||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
+  visitor?.takeControl();
+  if(!visitor?.inspect().present||!visitSetting()||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
   if(!visitSetting().actions.some(action=>action.kind===kind)){visitNotice({...visitor.inspect(),notice:'这个地点没有对应的双人活动位置。'});return false;}
   const result=together.start(kind,{initiator:point?.initiator,lead:kind==='cook'&&['ta','me'].includes(point?.lead)?point.lead:currentKitchenJob()?.cooking?.lead});if(result.ok){hostChore=null;hostChoreManual=false;hostChoreVisual?.hide();route=[];onArrive=null;}if(!result.ok)visitNotice({...visitor.inspect(),notice:result.reason});else if(following)trackCamera();return result.ok;
  }

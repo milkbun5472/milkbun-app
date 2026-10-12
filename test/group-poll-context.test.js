@@ -6,7 +6,7 @@ const cut = (a,b) => app.slice(app.indexOf(a),app.indexOf(b,app.indexOf(a)));
 const cutE = (a,b) => engine.slice(engine.indexOf(a),engine.indexOf(b,engine.indexOf(a)));
 function setup() {
   const requests=[],timers=[],notices=[];
-  const b={Date,Math,Number,Set,console:{warn(){}},useRef:current=>({current}),fmtStampAI:()=>'',
+  const b={Date,Math,Number,Set,console:{warn(){}},groupProfileFor:()=>({name:'我'}),useRef:current=>({current}),fmtStampAI:()=>'',
     profile:{name:'用户'},characters:[{id:'a',name:'甲',persona:'甲设定'},{id:'b',name:'乙',persona:'乙设定'}],
     groups:[{id:'g',memberIds:['a','b']}],groupChatsRef:{current:{g:[]}},gsFor:()=>({ctxN:40,memoryInterop:false}),
     active:{},groupMembers:g=>b.characters.filter(c=>g.memberIds.includes(c.id)),
