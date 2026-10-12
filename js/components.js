@@ -11317,7 +11317,7 @@ function CallScreen({
     if (!liveRef.current || st.session !== session || st.fallback) return;
     recPause(); st.rec = null; st.fallback = true;
     if (typeof voiceEarsReady !== "function" || !voiceEarsReady()) {
-      lvStop(); setLiveSt(reason + "；可重试，或在设置配置「真声通话耳朵」作为备用识别"); return;
+      lvStop(); setLiveSt(reason + "；可重试，或在「设置 → API → 真声耳朵」填一个语音转文字接口作为备用识别"); return;
     }
     try { await workletStart(); if (st.session === session && liveRef.current) setLiveSt("听着呢（备用语音识别）"); }
     catch (e) { if (st.session === session) { lvStop(); setLiveSt("备用识别开启失败：" + (e.message || e)); } }
@@ -11333,7 +11333,9 @@ function CallScreen({
       routeCallAudio(st.ttsCtx, "play-and-record");
       st.recAlive = false; st.recDead = false; st.fallback = false;
       // 识别必须在点击的这一拍启动，不等待播放 AudioContext 解锁；开耳不要求配置嗓子。
-      if (recStart()) {
+      const earsFirst = typeof loadVoiceEars === "function" && loadVoiceEars().prefer && voiceEarsReady();
+      if (earsFirst) await fallbackEar(session, "备用识别");
+      else if (recStart()) {
         // 没结果不等于设备坏了（用户可能没说话），不擅自切到收费识别。
         st.watchdog = setTimeout(() => {
           if (liveRef.current && st.session === session && !st.recAlive && !st.fallback)

@@ -5936,15 +5936,17 @@ function saveTtsApi(c) { const clean = Object.assign(loadTtsApi(), c || {}); try
 // 真声通话的耳朵：书房 Mac 上的 whisper 识别服务（voice-live），带门锁 token。
 // 只存地址和门锁，不是模型密钥；留空=真声档不出现，零膨胀。
 function loadVoiceEars() {
-  const def = { base: "", k: "" };
+  // kind: "studio"＝书房 voice-live（base+门锁 k）；"openai"＝任意 OpenAI 兼容的 /audio/transcriptions（base+key+model）
+  const def = { kind: "openai", base: "", k: "", key: "", model: "whisper-1", prefer: false };
   let a = def;
-  try { const c = JSON.parse(localStorage.getItem("x_voiceEars") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
+  try { const c = JSON.parse(localStorage.getItem("x_voiceEars") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c.kind ? {} : (c.k ? { kind: "studio" } : {}), c); } catch (e) {}
   a.base = String(a.base || "").trim().replace(/\/+$/, "");
   a.k = String(a.k || "").trim();
+  a.key = String(a.key || "").trim(); a.model = String(a.model || "").trim() || "whisper-1";
   return a;
 }
 function saveVoiceEars(c) { const clean = Object.assign(loadVoiceEars(), c || {}); try { localStorage.setItem("x_voiceEars", JSON.stringify(clean)); } catch (e) {} return clean; }
-function voiceEarsReady(a) { a = a || loadVoiceEars(); return !!(a.base && a.k); }
+function voiceEarsReady(a) { a = a || loadVoiceEars(); return a.kind === "openai" ? !!(a.base && a.key) : !!(a.base && a.k); }
 // 真声通话的嘴：跟上面那对耳朵是【对称件】——一个听、一个说，同一台书房 Mac。
 // 她 2026-09-13 实测：iOS 把「高音质／增强」音色留给系统朗读和 Siri，不交给网页，
 // 所以网页这头永远只能拿到 Tingting/Meijia 那两把基础音色。想要正常人的气口，
@@ -5979,6 +5981,17 @@ async function mouthSpeak(text, opts) {
 async function earsTranscribe(wavBlob) {
   const a = loadVoiceEars();
   if (!voiceEarsReady(a)) throw new Error("没配置真声耳朵（设置 · API）");
+  if (a.kind === "openai") {
+    const fd = new FormData();
+    fd.append("file", wavBlob, "speech.wav");
+    fd.append("model", a.model || "whisper-1");
+    fd.append("language", "zh");
+    fd.append("response_format", "json");
+    const r = await fetchT(a.base.replace(/\/audio\/transcriptions$/, "") + "/audio/transcriptions", { method: "POST", body: fd, headers: { Authorization: "Bearer " + a.key } }, 60000);
+    let d = {}; try { d = await r.json(); } catch (e) {}
+    if (!r.ok) throw new Error("识别失败：" + ((d.error && (d.error.message || d.error)) || ("HTTP " + r.status)));
+    return { ok: true, text: String(d.text || "") };
+  }
   const r = await fetchT(a.base + "/transcribe?k=" + encodeURIComponent(a.k), { method: "POST", body: wavBlob, headers: { "X-Voice-Source": "app" } }, 60000);
   const d = await r.json();
   if (!r.ok || !d.ok) throw new Error("识别失败：" + (d.error || ("HTTP " + r.status)));
