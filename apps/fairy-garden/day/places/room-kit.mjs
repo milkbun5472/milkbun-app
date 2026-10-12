@@ -1,9 +1,9 @@
-import {splitRoomCutaway} from '../camera-view.mjs?v=fg-78f265a4a6cfcea6';
-import {tagRoomTones} from './room-tones.mjs?v=fg-78f265a4a6cfcea6';
-import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-78f265a4a6cfcea6';
+import {splitRoomCutaway} from '../camera-view.mjs?v=fg-337afd5f97d06984';
+import {tagRoomTones} from './room-tones.mjs?v=fg-337afd5f97d06984';
+import {prepareEnvironmentSurfaces} from '../environment-view.mjs?v=fg-337afd5f97d06984';
 import * as T from 'three';
-import {furnitureSeat} from '../home-catalog.mjs?v=fg-78f265a4a6cfcea6';
-import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-78f265a4a6cfcea6';
+import {furnitureSeat} from '../home-catalog.mjs?v=fg-337afd5f97d06984';
+import {mergeGeometries} from '../../vendor/BufferGeometryUtils.js?v=fg-337afd5f97d06984';
 
 // Furniture uses the existing traveler's .45 chair rise and .08 floor.
 export const ROOM_SCALE={floor:.08,seat:.45,desk:.85,bench:1,chairDepth:.57};

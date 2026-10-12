@@ -1,5 +1,5 @@
-import './home-hobbies.js?v=fg-78f265a4a6cfcea6';
-import {rounded,arch} from './home-shapes.mjs?v=fg-78f265a4a6cfcea6';
+import './home-hobbies.js?v=fg-337afd5f97d06984';
+import {rounded,arch} from './home-shapes.mjs?v=fg-337afd5f97d06984';
 const F=.08;
 export function createHomeHobbyFurniture(k,a,p,g){
  if(!globalThis.CharDayHomeHobbies.activities[a.hobby])return false;
