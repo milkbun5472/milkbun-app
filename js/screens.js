@@ -16665,7 +16665,10 @@ function StudioPicker({ zh, groups, value, onPick, tint, character }) {
 // 在这之前压根没有正门——只能在情侣空间→照相馆里点「配一身约会装」，一次一身、
 // 还绑着某个角色。这一页是它的正门：关键词生成一次四身，也能自己挂。
 // 整页，不用半窗（施工规则/no-half-sheet.md）。
-function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
+function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onPin, onBack }) {
+  // 钉住的那一身：写的是「名字：说明」这一句，跟出图常服那把锁同一格
+  const pinText = x => String(x.name || "").trim() + (x.note ? "：" + String(x.note).trim() : "");
+  const pinned = String((profile && profile.photoOutfit) || "").trim();
   const t = useTheme();
   const groups = closetGroups(data);
   const [kw, setKw] = useState("");
@@ -16684,16 +16687,20 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
         background: "linear-gradient(180deg,rgba(255,255,255,.55),rgba(120,96,60,.55))", boxShadow: "0 3px 6px rgba(60,44,22,.22)" } }),
       h("span", { style: { position: "absolute", left: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } }),
       h("span", { style: { position: "absolute", right: -4, top: 0, width: 7, height: 11, borderRadius: 2, background: "rgba(96,76,48,.55)" } })),
-    h("div", { "data-wk": "closetscroll", className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
+    h("div", { "data-wk": "closetscroll", className: "flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 pb-10" },
       h("div", { "data-wk": "closetintro", style: { fontFamily: F_BODY, fontSize: 11.5, lineHeight: 1.85, color: t.fog, padding: "2px 2px 12px" } },
-        "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。"),
+        "挂在这儿的衣服，出图时他们看得见——照相馆拍合照、线下写你穿了什么，都从这里取。点「钉住」，以后出图每张都穿那一身；再点一次取消。"),
+      // 现在钉着哪一身（不在柜子里的老写法也照样显示，好让她取消）
+      pinned ? h("div", { "data-wk": "closetpinned", className: "flex items-start", style: { gap: 10, borderRadius: 13, border: "1px solid " + t.ink, background: t.bg2, padding: "10px 12px", marginBottom: 11 } },
+        h("div", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.7, color: t.ink, wordBreak: "break-word" } }, "现在钉着：" + pinned),
+        onPin ? h("button", { onClick: () => onPin(""), className: "active:opacity-60 shrink-0", style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "取消") : null) : null,
       // 关键词生成
       h("div", { "data-wk": "closetgen", style: { borderRadius: 16, border: "1px solid " + t.line, background: t.bg2, padding: "14px 14px 13px" } },
         h("div", { className: "flex items-end gap-2" },
           h("input", { "data-wk": "closetgeninput",
             value: kw, onChange: e => setKw(e.target.value),
             placeholder: "给几个词，或者留空让它自己配",
-            className: "flex-1 outline-none",
+            className: "flex-1 min-w-0 outline-none",
             style: { height: 42, borderRadius: 11, border: "1px solid " + t.line, background: t.bg, color: t.ink, padding: "0 12px", fontFamily: F_BODY, fontSize: 13.5 }
           }),
           h("button", { "data-wk": "closetgenbtn", "data-on": busy ? "1" : "0", onClick: () => onGen(kw), disabled: !!busy, className: "active:opacity-70 shrink-0",
@@ -16722,6 +16729,10 @@ function MyCloset({ profile, data, busy, onGen, onAdd, onDrop, onBack }) {
               (g.sets || []).map((x, i) => h("div", { "data-wk": "closetset", key: i, style: { borderRadius: 13, border: "1px solid " + t.line, background: t.bg2, padding: "12px 13px", marginTop: i ? 8 : 0 } },
                 h("div", { className: "flex items-start", style: { gap: 10 } },
                   h("div", { "data-wk": "closetsetname", className: "flex-1 min-w-0", style: { fontFamily: F_DISPLAY, fontSize: 15, lineHeight: 1.5, color: t.ink, wordBreak: "break-word" } }, x.name),
+                  onPin ? h("button", { "data-wk": "closetsetpin", "data-on": pinned === pinText(x) ? "1" : "0", onClick: () => onPin(pinned === pinText(x) ? "" : pinText(x)), className: "active:opacity-60 shrink-0",
+                    "aria-label": pinned === pinText(x) ? "取消钉住" : "钉住这身",
+                    style: { fontFamily: F_BODY, fontSize: 11, color: pinned === pinText(x) ? t.bg : t.ink, background: pinned === pinText(x) ? t.ink : "transparent",
+                      border: "1px solid " + t.ink, borderRadius: 999, padding: "2px 9px" } }, pinned === pinText(x) ? "已钉住" : "钉住") : null,
                   h("button", { "data-wk": "closetsetdrop", onClick: () => onDrop(g.occasion, x.name), className: "active:opacity-60 shrink-0", "aria-label": "拿掉这身",
                     style: { fontFamily: F_BODY, fontSize: 11, color: t.fog } }, "拿掉")),
                 x.note ? h("div", { "data-wk": "closetsetnote", style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.8, color: t.sub, marginTop: 6, wordBreak: "break-word" } }, x.note) : null)))))
