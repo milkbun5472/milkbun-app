@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.479";
+const APP_VERSION = "v75.482";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -10751,6 +10751,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       pics.sort((a, b) => (b.m.ts || 0) - (a.m.ts || 0));
       if (pics.length) out.push("【发过的图】\n" + pics.slice(0, 6).map(x => "· 发给" + x.to + "的：" + (cut(x.m.desc, 50) || "一张照片")).join("\n"));
     }
+    // 壁纸是谁的照片：一打开手机就看得见，不用点进哪个 app（她 2026-10-12）。藏起来的人、别的面具的人，那张照片不提是谁的
+    {
+      const wf = loadJSON("x_wallFrom", null);
+      if (wf && wf.ref && wf.ref === loadJSON("x_wallpaper", "")) {
+        const who = wf.charId === viewerId ? "你" : (wf.charId && shownId(wf.charId) ? "「" + nameOf(wf.charId) + "」" : "");
+        if (who) out.unshift("【她的手机壁纸】一打开就看得到：是" + who + "发给她的那张照片" + (wf.desc ? "（" + cut(wf.desc, 60) + "）" : "") + "。" + (wf.charId === viewerId ? "她拿你的照片当壁纸。" : ""));
+      }
+    }
     // 最后整份再过一遍别的面具的名字（群友 2026-10-12：关了「别的面具也给看」，TA 翻完还是问「X是谁」）。
     //   上面每一格各自滤过，可总有漏的：群里 X 发的话、别人聊天里提到 X、订单「送给 X」、健康备注……
     //   一格一格补永远补不完，所以出口统一拦：带那几个名字的那一行整行不给，只剩标题的那一格整格不给。
@@ -12156,6 +12164,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         openCaps.push("photoSeen");
         capState.push(seenHint.trim());
       }
+      // 她在你的照片上画了发回来（v75.480）：你也可以在她那张上接一笔，一来一回画成一张
+      // 只在她画完发来、他还没回过的那一轮给：回过一次就不再追着那张接
+      const _doodleFresh = !!(_seenMsg && _seenMsg.doodle && !_body) && (() => { const rows = chatsRef.current[charId] || [], i = rows.indexOf(_seenMsg); return i >= 0 && !rows.slice(i + 1).some(m => m && m.role === "assistant"); })();
+      if (_doodleFresh) {
+        openCaps.push("drawBack");
+        capState.push("drawBack：" + uName + " 刚在你发的那张照片上画了画、贴了东西发回来（看图就知道她画在哪、画了什么）。"
+          + "你想在她这张上接着画一笔，就填 drawBack：一段 SVG，viewBox=\"0 0 100 100\"，会被拉伸盖满整张照片，坐标按照片的百分比算；"
+          + "只用 path/line/circle/ellipse/polyline/text，像拿笔在她那张上补几笔（回她画的那处、加个箭头、写两个字都行），画多画少看你这个人。不想画就 null。");
+      }
       if (_pairPick) {
         openCaps.push("pairAvatar");
         capState.push("pairAvatar：" + uName + " 想让你俩一起换上一对头像（情头）。上面历史里 " + uName
@@ -12165,11 +12182,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
           + "\n· 不想换就省略 pairAvatar，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
-      const _userWx = userWxFor(charId);
+      // 一提天气就来一张卡（群友 2026-10-12）：卡是「截一张天气给你看」，不是聊到天气的标配。
+      //   三小时内这个聊天里已经发过一张，就不再开这一格——这期间想说天气用嘴说。
+      const _wxRecent = (chatsRef.current[chatKey] || history || []).some(m => m && m.kind === "weathercard" && Date.now() - (Number(m.ts) || 0) < 3 * 3600 * 1000);
+      const _userWx = _wxRecent ? null : userWxFor(charId);
       if (_userWx) {
         openCaps.push("weatherCard");
         capState.push("weatherCard：她那边此刻的真实天气（" + (_userWx.place || "她所在地") + "）：" + _userWx.line + "。"
-          + "她问起天气、说要出门，或者你觉得该叮嘱她（下雨带伞、降温加衣、太热防晒）时，可以填 weatherCard 发一张天气小卡片给她。格式 {say:\"附在卡片上的那一句叮嘱，用你自己的口吻\"}。"
+          + "这张卡等于你特意查了天气截给她看：她明说想知道那边天气怎么样、或者马上要出门而天气真会影响她（要下雨、骤冷骤热）时才值得发；只是聊天里顺口提到天气、冷热、下雨，用一句话接住就够了，不用发卡。发的话填 weatherCard 发一张天气小卡片给她。格式 {say:\"附在卡片上的那一句叮嘱，用你自己的口吻\"}。"
           + "卡上的地点、天气、气温由系统照实填，say 里别再报一遍数字，也别说跟上面不一样的天。用不上就省略。");
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
@@ -13163,6 +13183,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const _k = _pairPick.findIndex(m => m === _avatarMsg || (m.imageRef && m.imageRef === _avatarMsg.imageRef));
         if (_k >= 0 && applyPairAvatar(charId, _pairPick, _k + 1)) parsed.photoSeen = { ...parsed.photoSeen, avatar: false };
       }
+      if (_doodleFresh && parsed.drawBack) drawBackOn(charId, chatKey, _seenMsg, parsed.drawBack, turnId);
       if (_avatarMsg && parsed.photoSeen) applyPhotoSeen(charId, _avatarMsg, parsed.photoSeen, _seenAvatarOk,
         (same, note) => pChat(chatKey || charId, p => p.map(m => same(m) ? { ...m, seenNote: note } : m)));
       // 兜底：这一轮真给了换头像的能力，TA嘴上说「换好了」，字段却没填 true → 照TA说的换
@@ -27185,6 +27206,47 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!commitEmotePacks(next)) return 0;
     toast("导入了 " + items.length + " 个表情");
     return items.length;
+  };
+  // 他在她画过的那张上接一笔：她那张当底，他的 SVG 拉伸盖满，合成一张新照片当成他发的
+  const drawBackOn = async (charId, chatKey, userMsg, svgRaw, turnId) => {
+    try {
+      let svg = cleanDrawSvg(svgRaw); if (!svg || !userMsg.imageRef) return;
+      const base = await imgVaultFetchBlob(userMsg.imageRef); if (!base) return;
+      const load = src => new Promise((ok, no) => { const im = new Image(); im.onload = () => ok(im); im.onerror = no; im.src = src; });
+      const bu = URL.createObjectURL(base); const im = await load(bu); URL.revokeObjectURL(bu);
+      const c = document.createElement("canvas"); c.width = im.naturalWidth; c.height = im.naturalHeight;
+      svg = svg.replace(/<svg\b([^>]*)>/, (m0, at) => "<svg" + at.replace(/\s(width|height|preserveAspectRatio)=("[^"]*"|'[^']*')/g, "") + ' width="' + c.width + '" height="' + c.height + '" preserveAspectRatio="none">');
+      const ov = await load("data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg));
+      const x = c.getContext("2d"); x.drawImage(im, 0, 0); x.drawImage(ov, 0, 0, c.width, c.height);
+      const blob = await new Promise(ok => c.toBlob(ok, "image/jpeg", 0.9)); if (!blob) return;
+      const sid = "db" + Date.now(), key = "img_" + charId + "_" + sid;
+      await idbImgPut(key, blob);
+      pChat(chatKey, p => [...p, { role: "assistant", kind: "selfie", sid, imgKey: key, desc: "在你画过的那张上接着画了几笔", photoKind: "drawback", ts: Date.now(), turnId, read: false }]);
+    } catch (e) { console.warn("[drawBack]", e && e.message); }
+  };
+  // 把他的照片设成手机壁纸（她 2026-10-12）：壁纸照常换，另记一笔是谁的照片、拍的什么——他翻你手机时看得见。
+  //   壁纸被换成别的以后这笔就不作数（ref 对不上），不用另外清。
+  window.__setWallFromPhoto = async (dataUrl, charId, desc) => {
+    try {
+      const ref = await imgToVault(dataUrl);
+      setWallpaper(ref); saveJSON("x_wallpaper", ref);
+      saveJSON("x_wallFrom", { ref, charId: charId || "", desc: String(desc || "").slice(0, 120), ts: Date.now() });
+      toast("设成主屏壁纸了"); return true;
+    } catch (e) { toast("没设成，再试一次"); return false; }
+  };
+  // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
+  window.__addSelfSticker = async (dataUrl, charId) => {
+    try {
+      const url = await imgToVault(dataUrl);
+      const c = characters.find(x => x.id === charId);
+      const name = (c ? (c.remark || c.name) : "TA") + " 的表情";
+      const packs = emotePacksRef.current || [];
+      let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: (c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1), url };
+      const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
+        : [...packs, { id: "ep_face_" + Date.now(), name, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
+      return commitEmotePacks(next);
+    } catch (e) { return false; }
   };
   // 从相册选的：url 是本机图库的 iv_ 引用，关键词由调用方取文件名
   const addEmoteImages = (packId, list) => {
