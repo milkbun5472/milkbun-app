@@ -19,3 +19,11 @@ test("通话：识别不了就换接口；勾了优先就跳过浏览器", () =>
   assert.match(comp, /loadSttApi\(\)\.prefer && sttApiReady\(\);\s*if \(earsFirst\) await fallbackEar/);
   assert.match(comp, /backupEarReady\(\)/);
 });
+
+// 公共版打包会把真声耳朵／电台嗓子那一段整个拿掉；公共要用的东西不许挨着它们放
+test("公共要用的语音件不夹在书房那几格中间", () => {
+  const tts = scr.slice(scr.indexOf("function TtsApiConfig("), scr.indexOf("const t = useTheme();", scr.indexOf("function TtsApiConfig(")));
+  assert.match(tts, /function voiceModelInput\(/, "voiceModelInput 要写在 TtsApiConfig 里面");
+  assert.ok(scr.indexOf("function SttApiConfig(") > scr.indexOf("function TtsApiConfig("), "语音识别那一页要在 TtsApiConfig 之后");
+  assert.ok(Math.abs(eng.indexOf("function loadSttApi(") - eng.indexOf("function loadVoiceEars(")) > 5000, "语音识别那组函数别挨着书房耳朵");
+});

@@ -4733,6 +4733,34 @@ async function hydrateNativeSelfies() {
   for (const [k, b] of await idbImgEntries()) if (!nativeSet.has(k) && b) await nativeMediaPut("selfies", k, b);
   return restored;
 }
+// ⚠️这一组别放回书房耳朵（loadVoiceEars）旁边：公共版打包会把那一段拿掉。
+// 公共的语音识别：任意 OpenAI 兼容的 /audio/transcriptions（地址+Key+模型）。
+// 浏览器没有自带识别、或勾了优先时，通话开麦用它；跟上面那对书房耳朵是两回事。
+function loadSttApi() {
+  const def = { base: "", key: "", model: "whisper-1", prefer: false };
+  let a = def;
+  try { const c = JSON.parse(localStorage.getItem("x_sttApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
+  a.base = String(a.base || "").trim().replace(/\/+$/, "").replace(/\/audio\/transcriptions$/, "");
+  a.key = String(a.key || "").trim(); a.model = String(a.model || "").trim() || "whisper-1";
+  return a;
+}
+function saveSttApi(c) { const clean = Object.assign(loadSttApi(), c || {}); try { localStorage.setItem("x_sttApi", JSON.stringify(clean)); } catch (e) {} return clean; }
+function sttApiReady(a) { a = a || loadSttApi(); return !!(a.base && a.key); }
+// 通话的备用耳朵有没有：公共识别接口或书房耳朵，有一个就行
+function backupEarReady() { return sttApiReady() || voiceEarsReady(); }
+async function sttTranscribe(wavBlob) {
+  const a = loadSttApi();
+  if (!sttApiReady(a)) throw new Error("没配置语音识别（设置 · API）");
+  const fd = new FormData();
+  fd.append("file", wavBlob, "speech.wav");
+  fd.append("model", a.model);
+  fd.append("language", "zh");
+  fd.append("response_format", "json");
+  const r = await fetchT(a.base + "/audio/transcriptions", { method: "POST", body: fd, headers: { Authorization: "Bearer " + a.key } }, 60000);
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error("识别失败：" + ((d.error && (d.error.message || d.error)) || ("HTTP " + r.status)));
+  return { ok: true, text: String(d.text || "") };
+}
 // 拼「角色照片」的图像 prompt。opts.kind: self=第一人称自拍 / other=别人给 TA 拍(第三人称,姿势构图多变) / duo=TA 和用户的合照
 // opts.me = { name, appearance, refPhoto } 用户本人（duo 合照时用）
 // 保脸最后一招（v54.88）：一份【真的很短】的 prompt。
@@ -5947,33 +5975,6 @@ function loadVoiceEars() {
 }
 function saveVoiceEars(c) { const clean = Object.assign(loadVoiceEars(), c || {}); try { localStorage.setItem("x_voiceEars", JSON.stringify(clean)); } catch (e) {} return clean; }
 function voiceEarsReady(a) { a = a || loadVoiceEars(); return !!(a.base && a.k); }
-// 公共的语音识别：任意 OpenAI 兼容的 /audio/transcriptions（地址+Key+模型）。
-// 浏览器没有自带识别、或勾了优先时，通话开麦用它；跟上面那对书房耳朵是两回事。
-function loadSttApi() {
-  const def = { base: "", key: "", model: "whisper-1", prefer: false };
-  let a = def;
-  try { const c = JSON.parse(localStorage.getItem("x_sttApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
-  a.base = String(a.base || "").trim().replace(/\/+$/, "").replace(/\/audio\/transcriptions$/, "");
-  a.key = String(a.key || "").trim(); a.model = String(a.model || "").trim() || "whisper-1";
-  return a;
-}
-function saveSttApi(c) { const clean = Object.assign(loadSttApi(), c || {}); try { localStorage.setItem("x_sttApi", JSON.stringify(clean)); } catch (e) {} return clean; }
-function sttApiReady(a) { a = a || loadSttApi(); return !!(a.base && a.key); }
-// 通话的备用耳朵有没有：公共识别接口或书房耳朵，有一个就行
-function backupEarReady() { return sttApiReady() || voiceEarsReady(); }
-async function sttTranscribe(wavBlob) {
-  const a = loadSttApi();
-  if (!sttApiReady(a)) throw new Error("没配置语音识别（设置 · API）");
-  const fd = new FormData();
-  fd.append("file", wavBlob, "speech.wav");
-  fd.append("model", a.model);
-  fd.append("language", "zh");
-  fd.append("response_format", "json");
-  const r = await fetchT(a.base + "/audio/transcriptions", { method: "POST", body: fd, headers: { Authorization: "Bearer " + a.key } }, 60000);
-  let d = {}; try { d = await r.json(); } catch (e) {}
-  if (!r.ok) throw new Error("识别失败：" + ((d.error && (d.error.message || d.error)) || ("HTTP " + r.status)));
-  return { ok: true, text: String(d.text || "") };
-}
 // 真声通话的嘴：跟上面那对耳朵是【对称件】——一个听、一个说，同一台书房 Mac。
 // 她 2026-09-13 实测：iOS 把「高音质／增强」音色留给系统朗读和 Siri，不交给网页，
 // 所以网页这头永远只能拿到 Tingting/Meijia 那两把基础音色。想要正常人的气口，
