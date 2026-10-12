@@ -19808,7 +19808,7 @@ function ChatSettings({
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } },
         // 很多人当成「更贴人设」开了（她 2026-10-12）：先说清这是给谁的、一般不用开，再说开了少了什么
         h("div", { style: { color: t.ink, marginBottom: 4 } }, "一般不用开。想让 " + cNm + " 照人设演一个角色的，保持关着。"),
-        "这是给想跟 AI 本人聊、平时在 Kelivo 这类 App 里直连 API 聊天的人用的。开了以后 " + cNm + " 不再是 App 在演的角色，而是 AI 自己：你写的人设原样当系统提示词，每次回一整条长消息，不拆成短气泡。"
+        "这是给想跟 AI 本人聊的人用的。开了以后 " + cNm + " 不再是 App 在演的角色，而是 AI 自己：你写的人设原样当系统提示词，每次回一整条长消息，不拆成短气泡。"
         + "App 给角色加的那些都不发了：去八股的规矩、角色卡的写法要求、档案里的常用语言、行程、钱包、随身物、睡意；也不排日程、不自动刷查手机。"
         + "记忆库、长期记忆、最近的聊天、你俩在这儿真一起做过的事照常给。"),
       h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) }))),
