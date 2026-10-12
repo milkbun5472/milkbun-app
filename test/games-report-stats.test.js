@@ -15,7 +15,7 @@ test("终局记战绩（零调用、同一局不重复记），柜子里有战�
 test("战报发给 TA：每个上场的真人角色一颗，进聊天落一张 gameshare 卡", () => {
   assert.match(g, /sendGameReport: props\.sendGameReport,/);
   assert.match(g, /host\.sendGameReport\(id, rep\)/);
-  assert.match(app, /sendGameReport: \(charId, rep\) => \{/);
+  assert.match(app, /sendGameReport: \(charId, rep(, noOpen)?\) => \{/);
   assert.match(app, /kind: "gameshare", content: body/);
   assert.match(cmp, /if \(kind === "gameshare"\) return GameShareCard;/);
   assert.match(cmp, /function GameShareCard\(\{ m, isU \}\)/);

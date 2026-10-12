@@ -12,7 +12,7 @@ test("newchar：只认名字、人设、外貌和档案那几栏；名字和人�
   assert.deepEqual(Object.keys(o).sort(), ["appearance", "name", "persona", "tagline"]);
   assert.equal(f("不是 JSON"), null);
   assert.match(asst, /if \(!o\.name\) throw new Error\("新角色得有个名字"\);/);
-  assert.match(asst, /if \(patch\.target !== "style" && patch\.target !== "newchar" && !patch\.id\)/);
+  assert.match(asst, /if \(patch\.target !== "style" && patch\.target !== "newchar" && patch\.target !== "npc" && [^\n]*!patch\.id\)/);
   assert.match(app, /pC\(p => \[\.\.\.p, CharacterPronoun\.newCharacter\(Object\.assign\(\{ id, color: "#5a6a7d" \}, o\)\)\]\);/);
   assert.equal((app.match(/onCreateCharacter: createCharFromAssistant,/g) || []).length, 2, "整屏秋秋和悬浮秋秋两处都接上");
 });

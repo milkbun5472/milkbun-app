@@ -10,7 +10,7 @@ const app = fs.readFileSync(path.join(__dirname, "..", "js", "app.js"), "utf8");
 test("ordinary single offline uses short narrative runtime and protocol v2", () => {
   assert.match(engine, /const OFFLINE_NARRATIVE_RUNTIME = `【线下叙事 · 自然生成准则】/);
   assert.match(engine, /const OFFLINE_PROTOCOL_V2 = `【线下生成与输出】/);
-  assert.match(engine, /buildBundle\(ctx\) \+\s*"\\n\\n" \+ OFFLINE_NARRATIVE_RUNTIME/);
+  assert.match(engine, /buildBundle\(ctx(, \{ offline: true \})?\) \+\s*"\\n\\n" \+ OFFLINE_NARRATIVE_RUNTIME/);
   const single = engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "";
   assert.doesNotMatch(single, /"\\n\\n" \+ OFFLINE_INTIMATE_RUNTIME/);
   assert.doesNotMatch(engine.match(/async function generateOffline\([\s\S]*?async function summarizeOffline/)?.[0] || "", /"\\n\\n" \+ NARRATIVE_ANTI_CLICHE/);

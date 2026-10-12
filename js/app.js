@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.445";
+const APP_VERSION = "v75.480";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -6297,7 +6297,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // 单聊线上、单人线下、通话、日记、查手机、穿书、匿名箱、解梦馆一起有了。
     blockLine: blockLineFor(char.id),
     schedNow: timeAwareFor(char.id) ? schedNowFor(char) : "",
-    radioLife: window.RadioLife ? window.RadioLife.contextFor(char.id) : "",
     // 「你俩此刻在一起」两个来源走同一个口子：线下场次正开着（旧）、同处一室开着（新）。
     // 真开着线下的时候不重复说一遍——那段自己已经把面对面讲清楚了。
     offlineNow: (sameRoomFor(char.id) && !offlineTogetherNow(char.id)
@@ -7367,7 +7366,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
         const year = String(nowD.getFullYear());
         const plan = loadJSON("x_bdayPlan", null);
         if (!plan || plan.year !== year) {
-          const cands = characters.filter(c => c && !c.npc && hist(c).length >= 2 && myBdayFor(c.id)
+          const cands = liveChars.filter(c => c && hist(c).length >= 2 && myBdayFor(c.id)
             && (d => d != null && d >= 1 && d <= 3)(daysUntilBirthday(myBdayFor(c.id), nowD)));
           if (cands.length) {
             const couple = cands.find(c => ((couplesRef.current || {})[c.id] || {}).status === "together");
@@ -9154,7 +9153,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       carry: typeof carryContextText === "function"
         ? carryContextText((carryRef.current || {})[c.id], (carryPinsRef.current || {})[c.id], { cap: 260 }) : "",
       archive: coupleArchiveFor(c.id),
-      radioLife: window.RadioLife ? window.RadioLife.contextFor(c.id) : "",
       finance: typeof window.ledgerNoteFor === "function" ? window.ledgerNoteFor(c.id) : ""
     };
   };
@@ -9179,7 +9177,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
     memberGrown: backgroundMap("grown"),
     memberFinance: backgroundMap("finance"),
-    memberRadioLife: backgroundMap("radioLife"),
     // B（v50.79）：这场群线下里哪些成员开启了软层成长（白名单）→ engine 侧只对他们加成长准则
     memberEvolve: (group.memberIds || []).filter(id => PERSONA_EVOLVE_IDS.includes(id)),
     // 「四处一样喂」（施工规则/four-surfaces-same-context.md）：此刻心情与好感度，
@@ -9979,150 +9976,6 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const r = listenReturnRef.current || "home";
     if (r === "home") goHome(); else setScreen(r);
     if (back) { if (back.kind === "char") setOfflineChar(back.v); else setOfflineGroup(back.v); }
-  };
-  // ── 电台（v66.66，她 2026-09-10「同意宝宝开始吧」；范围见 电台-第一版范围-2026-09-10.md）──
-  // 生成只有三张单子，而且都在这儿——因为只有这儿拿得到 active 那条线路。
-  // ⚠️三张单子都走「料全放 system、user 只留一句触发」（施工规则/prompt-send-shape.md），
-  //   maxTokens 一律给满（max-tokens-floor.md：给大了不多花一分钱，给小了会截断正文）。
-  // ⚠️今天哪个频率有台、播到第几条，一个字都不在这几张单子里——那些是 js/radio.js 用种子和
-  //   时间算出来的。生成的时候顺手把「今天有没有」也定了的话，这个世界就只在她打开时才存在。
-  // 这片地方 + TA的生活半径（她 2026-09-10：「太完全和 char 世界无关那也不好听」；
-  // 言秋 + gpt 同一轮：**电台该让她听见 char 生活的那个世界，不是一个随机生成的世界**）。
-  // ⚠️人名一个都不许进电台。做法是最保守的那种——**整条丢掉**，不是把名字抠掉留个残句：
-  //   这些台知道的是【那家店、那栋楼、那条路】，不是【谁去过】。差一个字，差的是整个世界的逻辑。
-  // ⚠️字段名全是照【写存档的那段】抄的（施工规则/stub-from-the-writer.md）：
-  //   x_schedules[charId][dayKey] = { load, seqs:[{time,title,location}] }（saveSchedDay）
-  //   论坛帖 { title, body, board, ts }；一起听 songs[{ title, artist }]；x_anonPool 是一串纯字符串。
-  // ⚠️世界书走 loreForContext 那扇公共门，scope=creative，**charIds 故意传空**——
-  //   这样只有不绑定到具体角色的世界条目过得来，绑在某个人身上的设定是TA的私事。
-  // ⚠️架空世界（x_worlds）故意不接：那是跑团的平行时空沙盒，接进来会把电台搬去另一个世界。
-  const radioBed = () => {
-    const T = v => String(v == null ? "" : v).trim();
-    const names = [];
-    const addName = v => { const x = T(v); if (x.length >= 2 && names.indexOf(x) < 0) names.push(x); };
-    (characters || []).forEach(c => { if (c) { addName(c.name); addName(c.remark); } });
-    addName(userName(profile));
-    const clean = v => { const x = T(v); return (x && !names.some(n => x.indexOf(n) >= 0)) ? x : ""; };
-    const push = (arr, v, cap) => { const x = clean(v); if (x && arr.indexOf(x) < 0 && arr.length < cap) arr.push(x); };
-
-    const places = [], orbit = [];
-    (liveChars || []).slice(0, 4).forEach(c => {
-      if (c && c.home && c.home.city) push(places, c.home.city, 8);
-      const plans = (schedulesRef.current || {})[c.id] || {};
-      const k0 = (typeof schedLocalDayKey === "function") ? schedLocalDayKey(c) : "";
-      const keys = [k0, (k0 && typeof schedShiftDayKey === "function") ? schedShiftDayKey(k0, -1) : ""].filter(Boolean);
-      keys.forEach(k => (((plans[k] || {}).seqs) || []).forEach(x => {
-        if (!x) return;
-        push(places, x.location, 8);
-        push(orbit, T(x.title) + (x.location ? "（在" + T(x.location) + "）" : ""), 14);
-      }));
-    });
-    // 论坛是这个世界的公共广场，电台引用它天然成立（吃灰的帖子本来就是现成节目源）
-    (forumPostsRef.current || []).slice(0, 12).forEach(x => x && push(orbit, x.title, 14));
-    // 「有人点了一首歌，是TA最近循环的那首」
-    (((listenRef.current || {}).songs) || []).slice(0, 4).forEach(x => x && push(orbit, "有人在听《" + T(x.title) + "》" + (x.artist ? "（" + T(x.artist) + "）" : ""), 14));
-    // 匿名箱本来就是没署名的话，天生就是热线的料
-    const hotline = [];
-    (anonPool || []).slice(-8).forEach(q => push(hotline, q, 6));
-
-    // 痕迹那一档的料（她 2026-09-12 排的第二条：把两台电台接起来）。
-    // ⚠️只收时间线电台那边**真的播出去过**的句子（branch.heard）：那边 v67.58 已经定了
-    //   「播出去的就是公开的，没播的等于没发生」——这边要是去读 fragments 全文，
-    //   她还没放出去的那几句就从另一个台漏出来了，那条规矩当场作废。
-    // ⚠️clean() 照旧把带人名的句子整条滤掉：痕迹的规矩是不署名、不点名、不暗示。
-    const traces = [];
-    if (window.RadioTimeline && typeof loadJSON === "function") {
-      const branches = loadJSON(window.RadioTimeline.KEY, []);
-      const rows = [];
-      (Array.isArray(branches) ? branches : []).forEach(b => {
-        (b && Array.isArray(b.heard) ? b.heard : []).forEach(x => { if (x) rows.push(T(x.text)); });
-      });
-      // 新播出去的排前面：她今天听到的那几句，今天最可能在别的台上冒出来
-      rows.slice(-40).reverse().forEach(t => { if (t.length >= 6) push(traces, t.slice(0, 90), 8); });
-    }
-
-    const lore = (typeof loreForContext === "function" ? String(loreForContext("creative", [], "") || "") : "");
-    return { places: places.slice(0, 8), lore: lore.slice(0, 1600), orbit: orbit.slice(0, 14), hotline: hotline, traces: traces };
-  };
-  const radioAsk = async (instruction, schemaHint) => {
-    const sys = instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + schemaHint;
-    // 电台是机械活，照攻略走后台（没配后台就是线上）
-    const raw = await callAI(bgActive || active, sys, [{ role: "user", content: "开始。" }], { maxTokens: 65000, tag: "电台" });
-    const d = extractJSON(raw);
-    // 报错里必须带着我没看懂的那个东西本身（prompt-send-shape.md 第二条）
-    if (!d) throw new Error("电台这一枪没解析出东西。它回的是：\n" + String(raw || "").replace(/\s+/g, " ").trim().slice(0, 260));
-    return d;
-  };
-  const radioStation = (raw, kind, freq, extra) => {
-    const R = window.Radio;
-    const S = v => String(v == null ? "" : v).trim();
-    return Object.assign({
-      id: "rs_" + Math.random().toString(36).slice(2, 9),
-      kind: kind, freq: freq,
-      name: S(raw.name).slice(0, 18) || "无名台",
-      callSign: S(raw.callSign).slice(0, 14),
-      area: S(raw.area).slice(0, 40),
-      habit: S(raw.habit).slice(0, 120),
-      signOn: S(raw.signOn).slice(0, 60),
-      timeCall: S(raw.timeCall).slice(0, 40),
-      ads: (Array.isArray(raw.ads) ? raw.ads : []).map(S).filter(Boolean).slice(0, 8),
-      density: kind === R.KIND.DRIFT ? R.DRIFT_DENSITY : 1
-    }, extra || {});
-  };
-  const genRadioWorld = async () => {
-    const R = window.Radio;
-    const seen = R.readSeen();
-    const d = await radioAsk(R.buildWorldInstruction(seen, radioBed()), R.worldSchemaHint);
-    const rows = (Array.isArray(d.stations) ? d.stations : []).filter(x => x && x.name).slice(0, 4);
-    if (rows.length < 2) throw new Error("这一枪只建出来 " + rows.length + " 个台");
-    // 频率由代码发：模型报的频率会往 88.0 / 101.1 这种「好听的数字」上挤，挤到一起就没有频段了
-    const slots = R.SLOTS.slice();
-    const pick = k => slots.splice(Math.floor(R.seed01("build", Date.now(), k) * slots.length), 1)[0];
-    const stations = rows.map((raw, k) => {
-      const win = Number.isFinite(Number(raw.windowFrom)) && Number.isFinite(Number(raw.windowTo));
-      return radioStation(raw, win ? R.KIND.WINDOW : R.KIND.RESIDENT, pick(k),
-        win ? { window: { from: (Number(raw.windowFrom) + 24) % 24, to: (Number(raw.windowTo) + 24) % 24 } } : null);
-    });
-    R.writeWorld({ builtAt: R.radioNow(), stations: stations });
-    R.writeSeen(R.avoidPush(seen, stations.map(x => x.name)));
-    return stations;
-  };
-  const genRadioDay = async st => {
-    const R = window.Radio;
-    const now = R.radioNow();
-    const key = "radio|" + st.id, period = R.dayKey(now);
-    // 闸只此一份（施工规则/one-public-mechanism.md）：失败了留痕迹，
-    // 不然她每拧回来一次就是重打一枪，那正是 v65.03 那次一天八块钱的形状。
-    if (!window.AutoGate.due(key, period, { maxTries: 2, cooldownMs: 600000 })) return [];
-    let items = [];
-    try {
-      // ⚠️距离由**代码**掷，不交给模型自己拿捏——写成「今天TA出现的概率是 15%」的话，
-      //   它会塌到一边去：要么天天是TA，要么一次都没有（跟「今天哪个频率有台」同一条道理）。
-      const dists = R.rollDistances(R.DAY_ITEMS, st.id, period);
-      const d = await radioAsk(R.buildScheduleInstruction(st, now, R.readSeen(), radioBed(), dists, st.thread), R.scheduleSchemaHint);
-      items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 18);
-      // 台上悬着的那件事：明天该有下文的钩子（言秋：真电台让人回来的不是内容，是牵挂）
-      if (items.length) R.patchStation(st.id, { thread: String(d.thread || "").trim().slice(0, 120) });
-    } finally { window.AutoGate.mark(key, period, items.length > 0); }
-    if (!items.length) throw new Error("这一枪没排出节目来");
-    R.writeDay(period, st.id, items);
-    return items;
-  };
-  const genRadioDrift = async freq => {
-    const R = window.Radio;
-    const now = R.radioNow(), period = R.dayKey(now);
-    const key = "radio|drift|" + R.freqText(freq);
-    if (!window.AutoGate.due(key, period, { maxTries: 1, cooldownMs: 3600000 })) return null;
-    window.AutoGate.claim(key, period);
-    const seen = R.readSeen();
-    const d = await radioAsk(R.buildDriftInstruction(R.rollAxes("slot", R.freqText(freq), period), freq, seen, radioBed()), R.driftSchemaHint);
-    if (!d.name) throw new Error("这一格上没掷出一个台来");
-    const st = radioStation(d, R.KIND.DRIFT, freq, { bornAt: now });
-    R.addStation(st);
-    R.writeSeen(R.avoidPush(seen, [st.name]));
-    const items = (Array.isArray(d.items) ? d.items : []).map(x => String(x || "").trim()).filter(Boolean).slice(0, 16);
-    if (items.length) R.writeDay(period, st.id, items);
-    return st;
   };
   const saveChar = c => {
     // 选了中文以外的常用语言：这个人的「外语消息自带中译」没动过的话，帮她打开（不然看不懂）；她自己关过的不碰
@@ -12715,6 +12568,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!parsed) parsed = { word: salvageWords() };
       if (_bareCard) parsed.word = (Array.isArray(parsed.word) ? parsed.word : (parsed.word ? [parsed.word] : [])).concat([_bareCard.card]);
       const roomTurnState = sideRoom ? { ...parsed, mood: typeof parsed.mood === "string" ? parsed.mood : parsed.mood && parsed.mood.label } : null;
+      // 不跟主线共用状态的房间：action 要封（别写进主线那张状态卡），可【动描那一行】还得摆出来——
+      //   原来两件事共用 parsed.action 一个格子，一封就连那行动作一起没了（群友 2026-10-12：「在房间里开线上动作描写好像没生效」）。
+      //   所以封之前先留一份，只给摆那一行用，不进状态。
+      let _roomActLine = parsed && parsed.action;
       // 房间权限是执行闸，不只是一句提示词。模型即使误填了未授权能力字段，App 也不会执行。
       if (room) {
         const w = room.writeback || {};
@@ -12793,6 +12650,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _roomSharesState = !room || !!(room.writeback && room.writeback.sharedState);
       const _roomCanWrite = kind => !window.ChatRooms || !window.ChatRooms.canWrite || window.ChatRooms.canWrite(room, kind);
       if (!_roomSharesState) {
+        if (!_roomActLine && parsed.action) _roomActLine = parsed.action;   // salvage 刚从坏 JSON 里捞回来的那份也留着摆
         parsed.mood = null; parsed.action = null; parsed.wearing = null;
         if (!sideRoom) parsed.thought = null;
         // ⚠️同上：impressionChecked 也得封（只封 impression 是漏了半边）
@@ -12918,7 +12776,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 双语开关没开、TA自己却每句都写成「原文 | 中文」的（她 2026-10-11：「他每一句不是已经自带翻译了吗，直接调成我们有翻译气泡的格式」）：
       //   竖线原样挂在气泡里很难看。劈得开（左边看得出是外语／粤语）就照双语那条路走，劈不开的普通竖线照旧不动。
       const _biParse = _bilingualOn || (!_s.engineerEyes && words.some(w => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && splitBilingual(w, hanLangOf(char))));
-      if (_biParse) words = joinBilingualLines(words, hanLangOf(char));
+      if (_biParse) words = joinBilingualLines(words, hanLangOf(char), { pairNext: _bilingualOn });   // 外语下一行的中文接回去：只在开着双语时（她 2026-10-12：没开就是不要这功能）
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
@@ -13174,6 +13032,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   上一条摆出来的动作原样存在聊天记录里，拿它当上一次的值比——不另存一份游标，
       //   刷新、换设备都还是同一个答案。
       const onlineAction = TVG.normalizeAction(parsed.action, char && char.name);
+      // 摆出来的那一行：主线照 onlineAction；隔离房里 action 被封了，就用封之前留下的那份（只摆，不写状态）
+      const onlineActLine = onlineAction || (room && _roomActLine ? TVG.normalizeAction(_roomActLine, char && char.name) : null);
       // 被救回来的那几行先摆：它们是这一轮【真写出来的】正文，比状态卡那一格更贴这一拍。
       // ⚠️不看动描开关：开关管的是「要不要把 action 那一格也摆出来」，
       //   而这几行本来就要显示——不摆就等于把她收到的东西吞了。
@@ -13182,8 +13042,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           role: "narration", kind: "narration", who: "char", content: line,
           ts: Math.max(0, _tsOf(0) - rescuedActLines.length + k), turnId
         }]));
-      } else if (_actDesc && onlineAction && String(onlineAction).trim()) {
-        const _line = String(onlineAction).trim();
+      } else if (_actDesc && onlineActLine && String(onlineActLine).trim()) {
+        const _line = String(onlineActLine).trim();
         const _rows = chatsRef.current[chatKey] || [];
         let _prevAct = "";
         for (let i = _rows.length - 1; i >= 0; i--) {
@@ -13201,7 +13061,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       //   **原文另存一份跟着**：翻不出来就丢掉原文＝她和我都永远查不下去。
       // ⚠️只在【这一轮真的什么都没摆出来】时才说：只有动作描写、没有台词是合法的一轮。
       const _nothingShown = !words.length && !rescuedActLines.length
-        && !(_actDesc && onlineAction && String(onlineAction).trim());
+        && !(_actDesc && onlineActLine && String(onlineActLine).trim());
       if (_nothingShown) {
         const _rawCut = String(raw == null ? "" : raw).replace(/\s+/g, " ").trim().slice(0, 400);
         toast("这一轮没回上来 · 原文记在聊天里了");
@@ -13222,8 +13082,11 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
       //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
-      const _yueFill = _biParse && hanLangOf(char) && typeof translateToZh === "function"
-        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? hanLineLang(w) : "";
+      //   不止粤语（她 2026-10-12：「俄语为啥自动翻译没用上」）：开着双语时，漏了中译的那几泡一样补；
+      //   ⚠️只认双语开关（她 2026-10-12：「不开翻译就是不想要这个功能」）——没开就一泡都不补、不合。
+      //   粤语这类认字靠 hanLineLang，别的语言照「译」那颗按钮同一个判据（translatableLang）。
+      const _yueFill = _bilingualOn && typeof translateToZh === "function"
+        ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
       for (let i = 0; i < words.length; i++) {
@@ -15022,7 +14885,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
-            const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk))) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
+            const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk), { pairNext: true })) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
@@ -23859,9 +23722,23 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   const OUTLET_PICK = {
     thing: "往你俩的抽屉里放【一样你今天真的经手过的小物件】，要说清它是在哪儿、怎么到你手上的。",
     word:  "往你俩的抽屉里放【半句没头没尾的话】——不是写给她看的完整留言，是你自己嘟囔了一句刚好落在纸上。",
-    draw:  "往你俩的抽屉里放【一张你随手画的】——描述这张画上有什么，别描述你为什么画。",
+    // 画（v75.479，她 2026-10-12）：原来只有文字描述，现在真画出来——TA 用 SVG 代码一笔笔画。
+    //   画技照人设：会画的画得像，不会画的就是火柴人、歪线、涂掉重画，那正是这个人。text 留一句画上是什么。
+    draw:  "往你俩的抽屉里放【一张你随手画的】——真的画出来：svg 字段写一张 SVG（viewBox=\"0 0 300 300\"，白底，线条为主，像拿笔随手画的，可以有歪线、涂改、没画完；画得好不好照你这个人会不会画来，不会画就画得笨拙，别装成插画师）。text 只写一句画上是什么，别写你为什么画。",
     timeline: "往你俩的时光轴上【补一条你记着、而她可能没记下来的事】，要写清是哪一天前后的事。",
     qa: "往你俩的问答小本里【出一道题】：一个你真想知道她怎么答的问题，连你自己那半答案一起写好、封进小本——她写完她那半，两份才一起打开。**换一对情侣照样能问的题，就不是你想问她的。**"
+  };
+  // TA 画的那张 SVG：只认一整个 <svg>…</svg>，脚本、事件、外链一律拿掉；太大的不要（照常留文字那一句）
+  const cleanDrawSvg = raw => {
+    let s = String(raw || "").trim();
+    const a = s.indexOf("<svg"), b = s.lastIndexOf("</svg>");
+    if (a < 0 || b < a) return "";
+    s = s.slice(a, b + 6);
+    if (s.length > 40000) return "";
+    s = s.replace(/<script[\s\S]*?<\/script>/gi, "").replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "")
+      .replace(/\son[a-z]+\s*=\s*("[^"]*"|'[^']*')/gi, "").replace(/(href|xlink:href)\s*=\s*("(?!#)[^"]*"|'(?!#)[^']*')/gi, "");
+    if (!/xmlns=/.test(s)) s = s.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
+    return s;
   };
   const leaveInCoupleSpace = async (char, styleHint, manual) => {
     try {
@@ -23880,7 +23757,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
           + "脑子里没有半句话、没画过、想不起该补的那一天、心里没有一个真想问她的问题），"
           + "就把 skip 填 true、text 留空——这次什么都不留，等下次。空一次没关系，编一件才糟。\n"
           + "写你此刻真的想说的那句，不是留言模板。她不在场，所以不用问她好、不用等她回。",
-        schemaHint: "{\"skip\":\"此刻真没有这样一样东西可留就填 true，否则 false\",\"question\":\"" + (_pick === "qa" ? "你出的那道题" : "这一档用不上，留空") + "\",\"text\":\"留下的内容" + (_pick === "qa" ? "（＝你自己那半答案）" : "") + "\",\"title\":\"" + (_pick === "timeline" ? "一个短标题" : "这一档【不要标题】，留空——她拆开之前封面上什么都不显示") + "\"}"
+        schemaHint: "{\"skip\":\"此刻真没有这样一样东西可留就填 true，否则 false\",\"question\":\"" + (_pick === "qa" ? "你出的那道题" : "这一档用不上，留空") + "\",\"text\":\"留下的内容" + (_pick === "qa" ? "（＝你自己那半答案）" : "") + "\",\"title\":\"" + (_pick === "timeline" ? "一个短标题" : "这一档【不要标题】，留空——她拆开之前封面上什么都不显示") + "\"" + (_pick === "draw" ? ",\"svg\":\"<svg xmlns=\\\"http://www.w3.org/2000/svg\\\" viewBox=\\\"0 0 300 300\\\">…你画的…</svg>（只用 path/line/circle/ellipse/rect/polyline/text 这些，不写脚本、不引外部图片）\"" : "") + "}"
       });
       const txt = String((d && d.text) || "").trim();
       // TA自己说这一档写不出来：什么都不留，闸还回去，下一轮再来。
@@ -23914,7 +23791,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         const kind = ["thing", "word", "draw"].indexOf(_pick) >= 0 ? _pick : "thing";
         outletNote(char.id, kind, !!manual);
         drawerPush({ id: "dw_" + Date.now(), characterId: char.id, kind: kind,
-          title: "", text: txt, ts: Date.now(), openedTs: null });
+          title: "", text: txt, ts: Date.now(), openedTs: null,
+          ...(kind === "draw" && cleanDrawSvg(d && d.svg) ? { svg: cleanDrawSvg(d.svg) } : {}) });
       }
       return true;
     } catch (e) { console.warn("[couple leave]", e && e.message); return false; }
@@ -28400,6 +28278,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     couples: couples,
     coupleSweet: coupleSweet,
     onOpenApp: k => k === "listen" ? goListen() : setScreen(k),
+    schedules: schedules,
+    onOpenDay: id => { setGardenEntryWorld("day"); setGardenDayCharId(String(id || "")); setScreen("fairyGarden"); },
     onOpenChar: c => {
       setActiveChar(c);
       setScreen("cast");
@@ -28599,6 +28479,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onDelLog: ids => { const del = new Set((ids || []).map(String)); setWalletLog(p => { const n = (p || []).filter(w => !del.has(String(w.id))); saveJSON("x_walletLog", n); return n; }); toast("删掉了"); },
     onBack: () => setScreen("messages"),
     onSetBalance: setWalletTo,
+    onAddEntry: (delta, note) => changeWallet(delta, note, "entry", { where: "手动" }),   // 记一笔：带备注进流水，查手机时 TA 看得见
     view: walletView,
     onView: setWalletView,
     onOpenCard: charId => { setActiveCardId(charId); setScreen("kincard"); },
@@ -29907,7 +29788,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
     // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
     // 战报发给 TA（她 2026-10-11）：她发的一条小卡进聊天，content 留整段字——模型读历史读的是它；然后直接进那个聊天
-    sendGameReport: (charId, rep) => {
+    // 战报也能发到群（她 2026-10-12）：她在里面的群，旁观群不算
+    reportGroups: (groups || []).filter(g => g && imInGroup(g) && !(g.roomKind === "spectate" || (gsFor(g.id) || {}).spectate)).map(g => ({ id: g.id, name: g.name || "群聊" })),
+    sendGameReportGroup: (gid, rep) => {
+      if (!gid || !rep) return;
+      const body = "〔小游戏战报〕「" + rep.zh + "」" + (rep.meWin === true ? "她赢了" : rep.meWin === false ? "她输了" : "") + "\n" + String(rep.text || "").slice(0, 300)
+        + (rep.stake ? "\n开局说好的彩头：" + String(rep.stake).slice(0, 40) : "");
+      pushGroupRich(gid, { role: "user", kind: "gameshare", content: body, read: true,
+        game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: false,
+          stake: rep.stake ? String(rep.stake).slice(0, 40) : "", owes: "" } });
+    },
+    sendGameReport: (charId, rep, noOpen) => {
       if (!charId || !rep || !characters.some(c => c.id === charId)) return;
       const taWin = (rep.wins || []).indexOf(charId) >= 0;
       // 彩头：从 TA 这边看谁该兑现——TA 输了就是 TA 欠的；她输了、TA 赢了就是她欠 TA 的
@@ -29917,7 +29808,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(charId, p => [...p, { role: "user", kind: "gameshare", content: body, ts: Date.now(),
         game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: taWin,
           stake: rep.stake ? String(rep.stake).slice(0, 40) : "", owes: owes } }]);
-      openChatById(charId);
+      // 群发（她 2026-10-12：「战报可以群发」）：一口气发给好几个人时不跳进聊天
+      if (!noOpen) openChatById(charId);
     },
     keepGameMemory: (charIds, text, room) => {
       const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
@@ -30327,86 +30219,6 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onGenComments: genDiaryCommentsFor,
     toast: toast
   });else if (screen === "musiccard") body = h(MusicCardEdit, { onClose: goHome });
-  else if (screen === "radio") body = h(window.RadioLifeScreen, {
-    characters: liveChars.filter(c => !isBody(c.id)),
-    userName: userName(profile), onBack: goHome,
-    onArchive: () => setScreen("radioArchive"),
-    onSchedule: () => { calReturnRef.current = { screen: "radio" }; setSelSched(null); setScreen("calendar"); },
-    onChat: id => openChatById(id),
-    sceneFor: c => timeAwareFor(c.id)
-      ? window.RadioLife.slot(c, schedulesRef.current[c.id] || {}) : null,
-    onConnect: (c, scene, continuing) => {
-      // 只有现有关系里的人有资格作为另一位主角色出现在现场；不把全通讯录塞进房间。
-      const actors = liveChars.filter(x => x.id === c.id ||
-        (!settingsFor(x.id).engineerEyes && (rels[c.id + "->" + x.id] || rels[x.id + "->" + c.id])));
-      return window.RadioLife.connect(scene, actors, async (anchor, previous) => {
-        const people = actors.filter(x => x.id !== c.id).map(x =>
-          "〔" + x.name + " · id=" + x.id + "〕\n" + characterText(x, x.persona || "（暂无设定）") + "\n" + directedRelationLines(x, rels, characters, profile)).join("\n\n");
-        return runProbe(bgActive, { ...ctxFor(c), worldbook: loreForContext("creative", actors.map(x => x.id), anchor.title) }, {
-          voice: true, voiceScene: true, instruction: window.RadioLife.lifePrompt(anchor, previous)
-            + "\n【可用角色·不等于在场名单】\n" + actors.map(x => x.id + "：" + x.name).join("\n")
-            + (people ? "\n【相关人物设定与实际关系】\n" + people : ""),
-          schemaHint: window.RadioLife.schema, maxTokens: 65000, tag: "电台现场"
-        });
-      }, continuing);
-    },
-    onStudio: (c, show, episode, input) => runProbe(bgActive, ctxFor(c), {
-      voice: true, voiceScene: true, instruction: window.RadioLife.studioPrompt(show, episode, input),
-      schemaHint: '{"lines":[{"text":"搭档实际说出口的一段台词"}]}', maxTokens: 65000, tag: "共同电台"
-    })
-  });
-  else if (screen === "radioArchive") body = h(window.RadioTimelineScreen, {
-    characters: liveChars,
-    onBack: () => setScreen("radio"),
-    onLegacy: () => setScreen("radioLegacy"),
-    loreFor: (c, topic) => c ? loreForContext("creative", [c.id], topic) : "",
-    // 故事是平行沙盒：全文角色卡/关联世界书，不读取当前心情、关系或主线私聊。
-    // register 是对用户互动的语气锚；广播讲角色自身经历，用户并不默认在场。
-    onFragment: (branch, era) => radioAsk(narrativeCore({ intimate: true, register: false }) + "\n\n" + window.RadioTimeline.storyPrompt(branch, era),
-      // ⚠️这一格原来还提着 narrator（第三人称旁白）。她 2026-09-12 要的是
-      //   「长一点的第一人称独白关于TA自己的事」——旁白那一档正是她不要的那个东西
-      //   （「TA把降噪耳机的单侧耳罩拨开一点」）。占位值里摆着它，模型就会用它，
-      //   所以这儿只留 character 一档；accept 那头照旧认得 narrator，旧存档不受影响。
-      // ⚠️占位值就是【形状】，形状和散文打架时模型信形状（engine.js 那段 null 示范的老账）。
-      //   v67.50 提示词改成「一段一项」，这儿要是还写着「这一句正文」，它照旧一句一项。
-      "{\"title\":\"本章标题\",\"lines\":[{\"kind\":\"character\",\"speaker\":\"讲述这段经历的角色姓名\",\"text\":\"本章正文的一个自然段（TA的第一人称，整段照原样放，不要替播放器拆成一句一项）\"}]}"),
-    // 陪听用当前角色公共上下文；只喂共同听到的原文，不传故事全稿，也不执行状态更新协议。
-    // ⚠️v67.57 起陪听的可以是【任何一个角色】，不再写死成广播里那个人（她 2026-09-12 排的第一条）。
-    //   隔离那一套本来就按 companionId 分账，这儿只是别再自己把 charId 填回去。
-    onCompanion: (branch, question, companionId, keepPlaying) => {
-      const c = liveChars.find(x => x.id === String(companionId || branch.charId));
-      if (!c) throw new Error("这位角色已不在当前角色列表，暂时无法邀请陪听。");
-      return radioAsk(buildBundle(ctxFor(c)) + "\n\n" + window.RadioTimeline.companionPrompt(branch, c.id, question, keepPlaying), '{"say":"陪听者此刻的回应"}');
-    },
-    // 匿名连线（她 2026-09-12 排的第一条）：她打进TA正在播的那档节目，TA不知道是谁。
-    // ⚠️马甲用匿名箱那一个（x_anonMe），不另立一个身份——同一个人戴同一张面具。
-    myMask: anonMe,
-    // ⚠️register 在这一处【要留着】：章节那一格关掉它，理由是「广播讲角色自身经历，
-    //   用户并不默认在场」；连线正好相反——线上真有一个人在跟TA说话，
-    //   那条理由在这儿不成立（施工规则/bans-make-it-dumber.md 的第三问：它管的场合还成立吗）。
-    // ⚠️strangerBans 那三层是【靠调用点一条条 push 的】，换个入口一条都不会自己跟过来
-    //   （施工规则/four-surfaces-same-context.md）：陌生人打进来这一处，
-    //   回声式反问尤其要命——TA手上是一句问话，最顺手的开口就是把它原样抛回去。
-    onCall: (branch, era, say, anchor) => radioAsk(
-      narrativeCore({ intimate: true }) + "\n\n"
-      + window.RadioTimeline.callPrompt(branch, era, anonMe, say, anchor) + strangerBans(),
-      '{"title":"这通电话的标题（可空）","lines":[{"text":"你说出口的一段话（整段照原样放，不要替播放器拆成一句一项）"}],"guess":"你心里那句猜测（可空）"}')
-  });
-  else if (screen === "radioLegacy") body = (window.RadioUI ? h(window.RadioUI.RadioScreen, {
-    onBack: () => setScreen("radioArchive"),
-    onBuild: genRadioWorld,
-    onTune: genRadioDay,
-    onDrift: genRadioDrift,
-    onClearDev: () => window.Radio.clearDev(),
-    // 已经建过的那一片频段是在「这片地方」接进来【之前】建的，得给她一条重建的路。
-    // ⚠️连着节目单一起清：旧台没了，挂在它名下的节目单留着就是一堆认不了领的孤儿。
-    onRebuild: async () => {
-      window.Radio.writeWorld({ builtAt: 0, stations: [] });
-      window.Radio.wipeDays();
-      return genRadioWorld();
-    },
-    toast: toast
-  }) : null);
   else if (screen === "listen") body = h(ListenTogether, {
     // 边听边说（listen-talk.js）：上下文走 ctxFor；说的每一句原样落进单聊（via:"listen"）
     profile: profile, active: active, ctxFor: ctxFor, toast: toast,
@@ -30862,7 +30674,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onToggle: togglePlay,
     onNext: () => stepSong(1),
     onClose: stopPlayer
-  }) : null, (window.RadioUI && screen !== "radio" && screen !== "radioArchive" && screen !== "radioLegacy") ? h(window.RadioUI.RadioMini, { onOpen: () => setScreen("radioLegacy") }) : null, (() => {
+  }) : null, (() => {
     const scc = stateCardChar || activeChar;
     const roomCard = !!(stateCardRoomKey && window.ChatRooms && window.ChatRooms.isSideKey(stateCardRoomKey));
     const roomMeta = roomCard ? offlineRoomFor(stateCardRoomKey) : null;

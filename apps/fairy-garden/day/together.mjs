@@ -1,21 +1,21 @@
 import * as T from 'three';
-import './social.js?v=fg-eab2c575de9efb2e';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-eab2c575de9efb2e';
-import {stepRoute} from '../locomotion.mjs?v=fg-eab2c575de9efb2e';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-eab2c575de9efb2e';
-import {pairProgress} from './motion-profile.mjs?v=fg-eab2c575de9efb2e';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-eab2c575de9efb2e';
-import {createKitchenPair} from './kitchen-pair.mjs?v=fg-eab2c575de9efb2e';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-eab2c575de9efb2e';
-import {REST_PAIRS,sofaPairs,restPlans,restKindFor,createRestPair} from './rest-pair.mjs?v=fg-eab2c575de9efb2e';
+import './social.js?v=fg-ab8076f3b07a3f6c';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-ab8076f3b07a3f6c';
+import {stepRoute} from '../locomotion.mjs?v=fg-ab8076f3b07a3f6c';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
+import {pairProgress} from './motion-profile.mjs?v=fg-ab8076f3b07a3f6c';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-ab8076f3b07a3f6c';
+import {createKitchenPair} from './kitchen-pair.mjs?v=fg-ab8076f3b07a3f6c';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-ab8076f3b07a3f6c';
+import {REST_PAIRS,sofaPairs,restPlans,restKindFor,createRestPair} from './rest-pair.mjs?v=fg-ab8076f3b07a3f6c';
 
 
-import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-eab2c575de9efb2e';
+import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-ab8076f3b07a3f6c';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z),avoid=(p,r=.72)=>[{...p,r}];
-const clearance=(kind,distance)=>Math.min(INTIMATE[kind]?.48:.72,(distance||INTIMATE[kind]?.distance||(kind==='hug'?.34:.78))-.08);
+const clearance=(kind,distance)=>Math.min(INTIMATE[kind]?.48:.72,(distance||INTIMATE[kind]?.distance||(kind==='hug'?.34:kind==='hand'||kind==='walk'?.61:.78))-.08);
 function pairFormation(center,heading,spacing){return {a:{x:center.x-Math.cos(heading)*spacing/2,z:center.z+Math.sin(heading)*spacing/2},b:{x:center.x+Math.cos(heading)*spacing/2,z:center.z-Math.sin(heading)*spacing/2}};}
 // Admission and continuing walks use the same actual feet paths and turn sweep.
 function pairWalkRoute(map,at,heading,spacing,round=0){
@@ -31,6 +31,33 @@ function pairWalkRoute(map,at,heading,spacing,round=0){
  }
  return null;
 }
+// Stand beside TA where they already are. Only a blocked formation can ask
+// them to take a small step; the camera never chooses a different meeting place.
+function standingPlans(map,kind,from,{distance,initiator}){
+ const id=mapId(map),spacing=distance||INTIMATE[kind]?.distance||(kind==='hug'?.29:kind==='stretch'?1.8:kind==='walk'||kind==='hand'?.61:.78),bearing=Math.atan2(from.b.x-from.a.x,from.b.z-from.a.z),choices=[];
+ for(const shift of [0,.25,.5,.8])for(let offset=0;offset<(shift?8:1);offset++)for(let n=0;n<16;n++){
+  const angle=bearing+(n%2?-1:1)*Math.ceil(n/2)*Math.PI/8,heading=['hug','back-hug','dance'].includes(kind)?angle:angle-Math.PI/2,at={x:from.a.x+Math.sin(offset*Math.PI/4)*shift,z:from.a.z+Math.cos(offset*Math.PI/4)*shift};
+  const plan={a:{...at},b:{x:at.x+Math.sin(angle)*spacing,z:at.z+Math.cos(angle)*spacing},heading,local:!from.a.seat&&!from.a.bed,anchor:'a',hostShift:shift,retain:shift===0&&!from.a.seat&&!from.a.bed?{a:true}:null};
+  if(kind==='back-hug'&&initiator==='b')plan.heading+=Math.PI;
+  if(['hug','back-hug'].includes(kind)){const lateral=kind==='hug'?.22:.20;plan.b.x+=Math.cos(plan.heading)*lateral;plan.b.z-=Math.sin(plan.heading)*lateral;}
+  if(!segmentClear(plan.a,plan.b,id))continue;
+  // Slow dance uses only this arc of the actual feet, rather than demanding
+  // an empty circle around every stationary kiss or hug.
+  if(kind==='dance'){
+   const center={x:(plan.a.x+plan.b.x)/2,z:(plan.a.z+plan.b.z)/2};
+   if(!['a','b'].every(w=>Array.from({length:33},(_,i)=>{const t=(i/32*2-1)*.55,dx=plan[w].x-center.x,dz=plan[w].z-center.z;return segmentClear(plan[w],{x:center.x+dx*Math.cos(t)+dz*Math.sin(t),z:center.z+dz*Math.cos(t)-dx*Math.sin(t)},id);}).every(Boolean)))continue;
+  }
+  choices.push(plan);
+ }
+ return choices;
+}
+function walkingPlans(kind,from,distance){
+ const middle={x:(from.a.x+from.b.x)/2,z:(from.a.z+from.b.z)/2},spacing=distance||INTIMATE[kind]?.distance||.61,choices=[];
+ for(const r of [0,1,2,3])for(let n=0;n<16;n++){const angle=n*Math.PI/8,center={x:middle.x+Math.cos(angle)*r,z:middle.z+Math.sin(angle)*r},heading=angle-Math.PI/2;choices.push({...pairFormation(center,heading,spacing),heading});}
+ return choices;
+}
+const seatRank=p=>p.restKind==='sit-pat'&&!(p.seats?.a&&p.seats?.b)?1:0;
+const planOrder=(a,b)=>Number(!!b.local)-Number(!!a.local)||seatRank(a)-seatRank(b)||(a.anchor&&b.anchor?(a.hostShift||0)-(b.hostShift||0):0)||(a.viewCost??a.cost)-(b.viewCost??b.cost);
 export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='ta',moment=null,prepX=HOME_PREP.x,automatic=false}={}){
  const contextual=restPlans(map,kind,from,{distance:distance||(restKindFor(kind,from)==='lie-hug'?null:kind==='closer'?.69:.66),automatic});let choices=[];
  if(REST_PAIRS[kind])choices=contextual;
@@ -52,35 +79,25 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='t
   if(spot&&piece){if(moment){const open=['pass','bowl','wipe','taste','taste-me'].includes(moment),x=open?-.1:moment==='guide'?prepX:globalThis.CharDayKitchen.KITCHEN_ANCHORS.cook.x,z=piece.d/2+(open?.85:.18),spacing=distance||.70,chef=lead==='me'?'b':'a',right=moment==='guide'?(chef==='a'?'a':'b'):chef;
    const left=right==='a'?'b':'a',offset=['steady','stir'].includes(moment)?-spacing/2:0,pair={[right]:furniturePoint(piece,{x:x+offset+spacing/2,z}),[left]:furniturePoint(piece,{x:x+offset-spacing/2,z})};choices.push({...pair,lead,heading:spot.heading,spot,piece,moment});
   }else{const b=furniturePoint(piece,{x:HOME_PREP.x-.19,z:piece.d/2+.25});choices.push({a:lead==='me'?b:spot.target,b:lead==='me'?spot.target:b,lead,heading:spot.heading,spot,piece});}}
- }else if(kind==='stretch'){
-  const spot=map.spots.find(s=>s.id==='stretch');if(spot)choices.push({a:{x:spot.target.x-.9,z:spot.target.z},b:{x:spot.target.x+.9,z:spot.target.z},heading:spot.heading});
  }else if(kind==='browse'){
   const spot=map.spots.find(s=>s.id==='produce'),piece=map.furniture.find(p=>p.id===spot?.furniture);
   if(spot&&piece)for(const side of [-1,1])choices.push({a:{x:spot.target.x-side*.48,z:spot.target.z+.16},b:{x:spot.target.x+side*.48,z:spot.target.z+.16},heading:spot.heading,spot,piece});
- }else{
-  const center={x:(from.a.x+from.b.x)/2,z:(from.a.z+from.b.z)/2};
-  for(const r of [0,1,2,3])for(let n=0;n<16;n++){
-   const angle=n*Math.PI/8,c={x:center.x+Math.cos(angle)*r,z:center.z+Math.sin(angle)*r};
-   const heading=['hug','back-hug','dance'].includes(kind)?angle:angle-Math.PI/2,s=Math.sin(angle),v=Math.cos(angle),spacing=distance||INTIMATE[kind]?.distance||(kind==='hug'?.29:kind==='stretch'?1.8:kind==='walk'?.61:kind==='hand'?.61:.78);
-   const plan={a:{x:c.x-s*spacing/2,z:c.z-v*spacing/2},b:{x:c.x+s*spacing/2,z:c.z+v*spacing/2},heading};
-   if(kind==='back-hug'&&initiator==='b')plan.heading+=Math.PI;
-   if(['hug','back-hug'].includes(kind)){const lateral=kind==='hug'?.22:.20;plan.a.x-=Math.cos(plan.heading)*lateral/2;plan.a.z+=Math.sin(plan.heading)*lateral/2;plan.b.x+=Math.cos(plan.heading)*lateral/2;plan.b.z-=Math.sin(plan.heading)*lateral/2;}
-   const room=['kiss','kiss-forehead','kiss-cheek','forehead','dance'].includes(kind);
-   if(!room||Array.from({length:16},(_,i)=>{const t=i*Math.PI/8,rad=kind==='kiss-forehead'?.95:.75;return walkable(c.x+Math.sin(t)*rad,c.z+Math.cos(t)*rad,mapId(map));}).every(Boolean))choices.push(plan);
-  }
- }
+ }else choices=kind==='walk'||INTIMATE[kind]?.tour?walkingPlans(kind,from,distance):standingPlans(map,kind,from,{distance,initiator});
  if(!REST_PAIRS[kind])choices.unshift(...contextual);
- return choices.map(p=>{
+ const valid=[],validate=p=>{
   if(p.seats&&kind==='pat')p.restKind='sit-pat';if(p.seats?.a&&p.seats?.b&&kind==='hand')p.restKind='sit-hand';
   if(!walkable(p.a.x,p.a.z,mapId(map))||!walkable(p.b.x,p.b.z,mapId(map))||gap(p.seats?.a||p.a,p.seats?.b||p.b)<(distance?distance-.03:kind==='hug'?.32:INTIMATE[kind]?.distance?INTIMATE[kind].distance-.02:REST_PAIRS[kind]?.posture==='lie'?.20:(INTIMATE[kind]?.seated||kind==='feed')?.60:['shoulder','hand','walk'].includes(kind)?.58:.65))return null;
   if((kind==='walk'||INTIMATE[kind]?.tour)&&!pairWalkRoute(map,p,p.heading,distance||INTIMATE[kind]?.distance||.61))return null;
+  if(p.anchor&&!segmentClear(from.a,p.a,mapId(map),avoid(from.b)))return null;
   let aRoute=p.retain?.a?[]:findPath(from.a,p.a,mapId(map),avoid(from.b)),bRoute=p.retain?.b?[]:findPath(from.b,p.b,mapId(map),avoid(p.seats?.a||p.a,clearance(kind,distance))),stageRoute=null;
   // Vacate the occupied station before changing roles; both routes keep normal collision checks.
   if(kind==='cook'&&!aRoute){for(let n=0;n<32;n++){const angle=n*Math.PI/8,r=1.1+Math.floor(n/16)*.7,c={x:from.b.x+Math.sin(angle)*r,z:from.b.z+Math.cos(angle)*r};if(gap(c,p.a)<.9||gap(c,p.b)<.9||!walkable(c.x,c.z,mapId(map)))continue;
    const away=findPath(from.b,c,mapId(map),avoid(from.a)),ar=findPath(from.a,p.a,mapId(map),avoid(c)),br=findPath(c,p.b,mapId(map),avoid(p.a,clearance(kind,distance)));if(away&&ar&&br){stageRoute=away;aRoute=ar;bRoute=br;break;}}
   }
   return aRoute&&bRoute?{...p,aRoute,bRoute,stageRoute,cost:gap(from.a,p.a)+gap(from.b,p.b)+(stageRoute?2:0)}:null;
- }).filter(Boolean).sort((a,b)=>a.cost-b.cost);
+ };
+ for(const p of choices){if(p.anchor&&valid.some(q=>q.anchor&&q.hostShift<p.hostShift))break;const plan=validate(p);if(plan)valid.push(plan);}
+ return valid.sort(planOrder);
 }
 // Both participants use the existing navigation and original traveler rig. Nothing is saved.
 export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visibility=()=>0,kitchen=()=>null,onUpdate=()=>{},onStop=()=>{},onKitchenMoment=()=>{}}){
@@ -98,7 +115,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
  function tell(){const s=inspect(),key=JSON.stringify(s&&[s.kind,s.phase]);if(key!==last){last=key;onUpdate(s);}}
  function stop(reason='已松开，继续各自做事。'){if(!session)return false;const s=session;session=null;cup.visible=false;intimate.hide();kitchenPair.hide(true);last='';onStop({a:s.a,b:s.b,seats:s.plan.seats?{a:s.phase==='walking-ta'?null:(s.renderSeats||s.plan.seats).a,b:s.phase==='active'?(s.renderSeats||s.plan.seats).b:null}:null,beds:s.phase==='active'?s.renderBeds||s.plan.beds||null:null,preserveHost:!!s.plan.preserveHost,reason,automatic:s.automatic});onUpdate(null);return true;}
  function start(kind,{automatic=false,initiator='b',lead='ta',moment=null}={}){if(!TOGETHER_LABELS[kind])return {ok:false,reason:'这个互动还没有位置。'};
-  initiator=moment==='taste-me'?'a':initiator==='a'?'a':'b';const origins=session?{a:{...session.a,seat:session.phase==='active'?(session.renderSeats||session.plan.seats)?.a:null,bed:session.phase==='active'?session.plan.beds?.a:null},b:{...session.b,seat:session.phase==='active'?(session.renderSeats||session.plan.seats)?.b:null,bed:session.phase==='active'?session.plan.beds?.b:null}}:from(),piece=map().furniture.find(p=>p.id===map().spots.find(q=>q.action==='cook')?.piece),surface=moment==='guide'&&piece?kitchenPair.operationPoint({plan:{piece}},'prep'):null,prepX=surface?(surface.x-piece.x)*Math.cos(piece.heading||0)-(surface.z-piece.z)*Math.sin(piece.heading||0):HOME_PREP.x,spacing=moment?moment==='wipe'?pairSize(a).radius+pairSize(b).radius+.075:moment.startsWith('taste')?pairSize(a).radius+pairSize(b).radius+.17:['guide','stir','steady'].includes(moment)?Math.max(.60,pairSize(a).width*.5+pairSize(b).width*.5+.16):Math.max(.70,pairSpacing('hand',a,b)||.70):kind==='pat'&&(origins.a.seat||origins.b.seat)?pairSpacing('sit-pat',a,b):pairSpacing(restKindFor(kind,origins)||kind,a,b),plan=togetherPlans(map(),kind,origins,{initiator,lead,distance:spacing,moment,prepX,automatic}).map(p=>({...p,viewCost:p.cost+visibility({...p,kind})-(p.local?1000:0)})).sort((a,b)=>a.viewCost-b.viewCost)[0];
+  initiator=moment==='taste-me'?'a':initiator==='a'?'a':'b';const origins=session?{a:{...session.a,seat:session.phase==='active'?(session.renderSeats||session.plan.seats)?.a:null,bed:session.phase==='active'?session.plan.beds?.a:null},b:{...session.b,seat:session.phase==='active'?(session.renderSeats||session.plan.seats)?.b:null,bed:session.phase==='active'?session.plan.beds?.b:null}}:from(),piece=map().furniture.find(p=>p.id===map().spots.find(q=>q.action==='cook')?.piece),surface=moment==='guide'&&piece?kitchenPair.operationPoint({plan:{piece}},'prep'):null,prepX=surface?(surface.x-piece.x)*Math.cos(piece.heading||0)-(surface.z-piece.z)*Math.sin(piece.heading||0):HOME_PREP.x,spacing=moment?moment==='wipe'?pairSize(a).radius+pairSize(b).radius+.075:moment.startsWith('taste')?pairSize(a).radius+pairSize(b).radius+.17:['guide','stir','steady'].includes(moment)?Math.max(.60,pairSize(a).width*.5+pairSize(b).width*.5+.16):Math.max(.70,pairSpacing('hand',a,b)||.70):kind==='pat'&&(origins.a.seat||origins.b.seat)?pairSpacing('sit-pat',a,b):pairSpacing(restKindFor(kind,origins)||kind,a,b),plan=togetherPlans(map(),kind,origins,{initiator,lead,distance:spacing,moment,prepX,automatic}).map(p=>({...p,viewCost:p.cost+visibility({...p,kind})})).sort(planOrder)[0];
   if(!plan){if(session)stop('这个动作暂时没有合适位置，先按你的选择停下来。');return {ok:false,reason:REST_PAIRS[kind]?.posture==='lie'?'先留一张两侧能走到的双人床。':REST_PAIRS[kind]?.posture==='sit'?'身旁没有能坐近的空位，留一张双人沙发或长椅就可以。':kind==='cook'?'厨房前没有两个人能走到的位置。':['read','shoulder','cuddle'].includes(kind)?'先摆一张能走到的双人沙发或长椅。':kind==='meal'?'餐桌旁需要两把能走到的空椅子。':kind==='feed'?'先留一张能走近的餐桌或双人座位。':'附近没有两个人能站稳的空地。'};}
   if(session)stop();const progress=kitchen()?.progress;session={kind,...(moment?{moment:{id:globalThis.crypto.randomUUID(),jobId:kitchen()?.job?.id,kind:moment,sourceId:moment==='pass'?progress?.table?.items.find(q=>q.zone==='basket')?.id:null,ingredient:moment.startsWith('taste')?progress?.table?.items.find(q=>['pan','plate'].includes(q.zone)&&globalThis.CharDayKitchen.tableReady(q,globalThis.CharDayKitchen.recipe(kitchen()?.job?.recipeId)?.method))?.ingredient:null}}:{}),automatic,initiator,plan,renderSeats:{a:origins.a.seat||null,b:origins.b.seat||null},a:{...origins.a},b:{...origins.b},phase:plan.stageRoute?'walking-stage-b':'walking-ta',elapsed:0,speed:0,clearance:clearance(kind,spacing),tour:kind==='walk'||INTIMATE[kind]?.tour?{moving:false,wait:0,round:0}:null};tell();return {ok:true};
  }

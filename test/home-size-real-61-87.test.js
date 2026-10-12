@@ -50,7 +50,7 @@ test("2 和 4 之间补了两档 3 格宽的", () => {
 // v64.61：一起听单独放开成 4×2（她 2026-09-06 亲口点名「一起听的默认尺寸改成 4x2」）。
 // 情侣空间那一条照旧 4×1 —— 她只点了一起听，别顺手把旁边那个也改了。
 test("情侣空间默认还是一条（4×1），一起听放开成 4×2", () => {
-  assert.deepEqual(F.HOME_SIZE_DEFAULT, { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large" });
+  assert.deepEqual(F.HOME_SIZE_DEFAULT, { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large", w_taday: "wide" });
   // 字条夹要能翻，一条的高度只够露一张：它默认就是 4×2（v62.92）
   assert.deepEqual(F.homeItemSpan("w_recent", { kind: "widget", which: "recent" }, {}), [4, 2]);
   assert.deepEqual(F.homeItemSpan("w_us", { kind: "widget", which: "us" }, {}), [4, 1]);

@@ -168,17 +168,12 @@ test("角色来写：接到界面上了，而且写完这件事会留下", () =>
 test("掷轴搬去公共那一层了，而且旧的那处也搬了", () => {
   assert.match(axes, /root\.Axes = api/);
   assert.match(axes, /h \^= h >>> 16; h = Math\.imul\(h, 2246822507\)/, "种子的收尾三步要跟着搬过来");
-  // 电台那一处不许留一份自己的
-  const radio = R("js/radio.js");
-  assert.ok(radio.indexOf("let h = 2166136261") < 0, "电台还留着一份自己的哈希——改一处必然漏一处");
-  assert.match(radio, /Axes\.roll\(AXES, parts, \{ allFree: 0\.08/, "电台没搬过来（只开公共的、旧的留在原地是最坏的那一种）");
-  assert.match(radio, /Axes\.seed01\.apply\(null, arguments\)/);
+  // 电台（原来也用它）v75.478 整个删了，等她想好再重做
   // 同人文这一处用的也是它
   assert.match(fic, /Axes\.roll\(WRITER_AXES, parts,/);
   assert.match(fic, /Axes\.text\(rolled, \{/);
   // 加载顺序：公共的要在用它的两家前面
   // ⚠️先确认它真被加载了：indexOf 找不到会返回 -1，而 -1 比谁都小，那条顺序断言就成了摆设
   assert.ok(html.indexOf("js/axes.js?v=") > 0, "index.html 里没加载 js/axes.js");
-  assert.ok(html.indexOf("js/axes.js") < html.indexOf("js/radio.js"));
   assert.ok(html.indexOf("js/axes.js") < html.indexOf("js/fanfic.js"));
 });

@@ -8620,7 +8620,49 @@ function VoiceMouthConfig({ toast }) {
       style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
     msg && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
+// Fish 官方接口不让网页直接调（她 2026-10-12 两台手机都报 Failed to fetch），要自己搭一个转发。
+//   写在 Fish 那一格底下，点开才有；代码一键复制，不用她从截图里抄。
+const FISH_RELAY_CODE = `export default {
+  async fetch(req) {
+    const cors = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "POST, OPTIONS",
+      "Access-Control-Allow-Headers": "authorization, content-type, model",
+    };
+    if (req.method.toLowerCase() === "options") return new Response(null, { headers: cors });
+    const url = new URL(req.url);
+    const r = await fetch("https://api.fish.audio" + url.pathname + url.search, {
+      method: req.method, headers: req.headers, body: req.body,
+    });
+    const h = new Headers(r.headers);
+    for (const [k, v] of Object.entries(cors)) h.set(k, v);
+    return new Response(r.body, { status: r.status, headers: h });
+  },
+};`;
+function FishRelayHelp({ toast }) {
+  const t = useTheme();
+  const [open, setOpen] = useState(false);
+  const p = { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.75 };
+  return h("div", { "data-wk": "fishrelay", style: { margin: "-2px 0 12px" } },
+    h("button", { onClick: () => setOpen(v => !v), className: "active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12, color: t.tint || t.ink, padding: "4px 0" } }, open ? "收起 ▴" : "没有中转？自己搭一个（免费，几分钟）▾"),
+    open ? h("div", { style: { marginTop: 6, padding: "10px 12px", borderRadius: 10, border: "1px solid " + t.line, background: t.bg } },
+      h("div", { style: p }, "用 Cloudflare 的免费 Worker 搭，密钥只经过你自己的号："),
+      h("div", { style: p }, "① 登录 Cloudflare → Workers & Pages → Create → Create Worker，随便起名，点 Deploy。"),
+      h("div", { style: p }, "② 点 Edit code，把原来的代码全删掉，换成下面这段，再点 Deploy。"),
+      h("pre", { style: { margin: "8px 0", padding: 10, borderRadius: 8, background: t.bg2, border: "1px solid " + t.line, fontSize: 10.5, lineHeight: 1.5, color: t.ink, overflowX: "auto", whiteSpace: "pre" } }, FISH_RELAY_CODE),
+      h("button", { onClick: async () => { const ok = typeof copyText === "function" && await copyText(FISH_RELAY_CODE); toast && toast(ok ? "代码复制好了，去 Cloudflare 粘上" : "复制不了，长按上面那段自己选"); }, className: "active:opacity-70", style: { fontFamily: F_BODY, fontSize: 12.5, padding: "6px 14px", borderRadius: 8, background: t.ink, color: t.bg2 } }, "复制这段代码"),
+      h("div", { style: Object.assign({}, p, { marginTop: 8 }) }, "③ 复制这个 Worker 的地址（https://名字.账号.workers.dev），填进上面「接口地址」，点试听。"),
+      h("div", { style: Object.assign({}, p, { color: t.fog, fontSize: 11 }) }, "workers.dev 在国内有时连不稳：连不上就开着梯子用，或者在 Cloudflare 里给它绑一个自己的域名。")) : null);
+}
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
+  // 语音模型那一格（Fish、ElevenLabs 共用）：能自己打字，点一下也能挑现成的。
+  //   ⚠️写在组件里面，别挪成顶层函数：公共版打包会把上面真声耳朵／电台嗓子那几格整段拿掉，
+  //   挨着它们的顶层函数会一起丢（2026-10-12 公共版设置页报 voiceModelInput is not defined）。
+  function voiceModelInput(value, def, listId, opts, onSet, inSt) {
+    return h("div", null,
+      h("input", { value: value == null ? def : value, onChange: e => onSet(e.target.value.trim()), placeholder: def, list: listId, style: inSt }),
+      h("datalist", { id: listId }, opts.map(([v, note]) => h("option", { key: v, value: v }, note || v))));
+  }
   const t = useTheme();
   const [c, setC] = useState(loadTtsApi());
   const set = patch => setC(saveTtsApi(patch));
@@ -8678,9 +8720,16 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       const url = URL.createObjectURL(blob);
       testUrlRef.current = url;
       aud.src = url; aud.onended = () => { URL.revokeObjectURL(url); if (testUrlRef.current === url) testUrlRef.current = null; };
-      await aud.play();
+      // 播放这一步也可能一声不吭地卡住（拿到的不是能放的声音、或者手机静音键开着）：8 秒没开始放就说出来，别让她干等
+      await Promise.race([aud.play(), new Promise((_, no) => setTimeout(() => no(new Error("接口回了一段音频（" + Math.round(blob.size / 1024) + " KB，" + (blob.type || "没写类型") + "），但手机放不出来。先看看静音键和音量；还不响的话，多半是这家回的不是 mp3，把这一句截图发我。")), 8000))]);
       toast && toast("✅ 接口通了，正在播放试听");
-    } catch (e) { if (epoch === testEpoch.current) setTestErr(String((e && e.message) || e)); }
+    } catch (e) {
+      if (epoch === testEpoch.current) {
+        setTestErr(String((e && e.message) || e));
+        // 报错框在音色库下面，常常不在屏幕里（她 2026-10-12：「按了秒变回试听一句」，没看见框）——弹一句叫她往下看
+        toast && toast("❌ 没出声，原因写在页面最下面的红框里");
+      }
+    }
     finally { if (epoch === testEpoch.current) setTesting(false); }
   };
   const runMark = async () => {
@@ -8715,19 +8764,16 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
             style: { flex: 1, fontFamily: F_BODY, fontSize: 12, padding: "8px 2px", borderRadius: 8, background: c.provider === pair[0] ? t.tint : t.bg2, border: "1px solid " + (c.provider === pair[0] ? t.tint : t.line), color: c.provider === pair[0] ? "#fff" : t.sub } }, pair[1])))),
       c.provider === "elevenlabs" ? h("div", null,
         row("密钥 API Key（elevenlabs.io → Developers → API Keys）", h("input", { value: c.elKey || "", onChange: e => set({ elKey: e.target.value }), placeholder: "sk_…", type: "password", style: inSt })),
-        row("模型", h("select", { value: c.elModel || "eleven_multilingual_v2", onChange: e => set({ elModel: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
-          h("option", { value: "eleven_multilingual_v2" }, "eleven_multilingual_v2（中文好·推荐）"),
-          h("option", { value: "eleven_v3" }, "eleven_v3（表现力最强）"),
-          h("option", { value: "eleven_flash_v2_5" }, "eleven_flash_v2_5（快·便宜）"),
-          h("option", { value: "eleven_turbo_v2_5" }, "eleven_turbo_v2_5"))),
+        row("模型（可以自己填，照 ElevenLabs 文档上的 model_id）", voiceModelInput(c.elModel, "eleven_multilingual_v2", "el-models",
+          [["eleven_multilingual_v2", "中文好·推荐"], ["eleven_v3", "表现力最强"], ["eleven_flash_v2_5", "快·便宜"], ["eleven_turbo_v2_5", ""]], v => set({ elModel: v }), inSt)),
         row("默认音色 Voice ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.elVoice || "", onChange: e => set({ elVoice: e.target.value }), placeholder: "在 Voices 里点声音 → 复制 Voice ID", style: inSt }))) : null,
       c.provider === "fish" ? h("div", null,
-        row("接口地址（默认官方；网页直连不通时换成你的中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
+        row("接口地址（Fish 官方不让网页直接调，要填中转）", h("input", { value: c.fishBase || "", onChange: e => set({ fishBase: e.target.value }), placeholder: "https://api.fish.audio", style: inSt })),
+        h(FishRelayHelp, { toast }),
         row("密钥 API Key（fish.audio → API Keys）", h("input", { value: c.fishKey || "", onChange: e => set({ fishKey: e.target.value }), placeholder: "…", type: "password", style: inSt })),
-        row("模型", h("select", { value: c.fishModel || "s1", onChange: e => set({ fishModel: e.target.value }), style: Object.assign({}, inSt, { appearance: "none", WebkitAppearance: "none" }) },
-          h("option", { value: "s1" }, "s1（推荐）"),
-          h("option", { value: "speech-1.6" }, "speech-1.6"),
-          h("option", { value: "speech-1.5" }, "speech-1.5"))),
+        // 能自己填（群友 2026-10-12：「会加 S2.1 Pro 吗？现在只有 s1」）：Fish 出新模型比这边改得快，
+        //   原来是写死三个的下拉，新模型填不进去。改成输入框＋候选，候选点一下就填，新名字照 fish.audio 文档写。
+        row("模型（可以自己填，照 fish.audio 文档上的模型名）", voiceModelInput(c.fishModel, "s1", "fish-models", [["s1", "推荐"], ["speech-1.6", ""], ["speech-1.5", ""]], v => set({ fishModel: v }), inSt)),
         row("默认音色 ID（试听和音色库里没写 ID 的地方用它）", h("input", { value: c.fishVoice || "", onChange: e => set({ fishVoice: e.target.value }), placeholder: "声音页网址最后那串 ID", style: inSt }))) : null,
       c.provider !== "minimax" ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: t.fog, marginTop: 4, lineHeight: 1.5 } }, "声音 ID 去这家官网的声音库里挑或自己克隆，复制下来填进角色档案的「音色」。下面音色库里的「语速」对这家也管用；情绪模式和语气标记只有 MiniMax 认。") : null,
       c.provider === "minimax" ? h("div", null,
@@ -8851,6 +8897,52 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       testErr ? h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
         h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
+}
+// ⚠️别挪到真声耳朵／电台嗓子那几格中间：公共版打包会把那一段整个拿掉。
+// 公共的语音识别接口（任意 OpenAI 兼容 /audio/transcriptions）。人人可填；上面那对书房耳朵是她自己的壳用的。
+function SttApiConfig({ toast }) {
+  const t = useTheme();
+  const [c, setC] = useState(loadSttApi());
+  const set = patch => setC(saveSttApi(patch));
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const test = async () => {
+    if (testing) return;
+    setTesting(true); setMsg(null);
+    try {
+      const a = loadSttApi();
+      if (!a.base || !a.key) throw new Error("地址和 Key 都要填");
+      const n = 16000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+      const w = (p, x) => { for (let i = 0; i < x.length; i++) v.setUint8(p + i, x.charCodeAt(i)); };
+      w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n, true);
+      await sttTranscribe(new Blob([b], { type: "audio/wav" }));
+      setMsg({ ok: true, text: "✅ 接口通了。浏览器识别不了时，通话开麦会自动用它" + (a.prefer ? "（已设为优先）" : "") + "。" });
+    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + "——检查地址（一般填到 /v1）、Key 和模型名。" }); }
+    setTesting(false);
+  };
+  const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    /*#__PURE__*/React.createElement("input", {
+      value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
+      className: "w-full outline-none px-3 py-2 rounded-xl",
+      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
+    }));
+  return /*#__PURE__*/React.createElement("div", { "data-wk": "sttapi" },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+      "通话开麦时把你说的话转成文字。平时用浏览器自带的识别；浏览器没有或识别不了时，用这里填的接口。OpenAI 兼容的语音转文字接口都能填，按次收费。留空＝只用浏览器自带的。"),
+    inp("接口地址（填到 /v1）", "base", "https://api.openai.com/v1"),
+    inp("API Key", "key", "sk-…"),
+    inp("模型", "model", "whisper-1"),
+    /*#__PURE__*/React.createElement("label", { "data-wk": "sttprefer", className: "flex items-center gap-2 mb-3", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+      /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: !!c.prefer, onChange: e => set({ prefer: e.target.checked }) }),
+      "优先用这个（不先试浏览器自带的）"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: test, disabled: testing,
+      className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
+      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" }
+    }, testing ? "测试中…" : "🔬 测一下"),
+    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
 // 模型调用记录（她 2026-10-09）：读 engine.js 的 CallLog——那是所有模型调用的唯一出口记下来的。
 //   今日请求＝今天所有调用；回合＝她按一下换来的那一枪（聊天／线下／通话，不含兜底重发）。
@@ -9084,7 +9176,10 @@ function ImageApiConfig({ toast }) {
       const prompt = testRef
         ? "Edit the attached portrait into a simple studio photo with a plain warm-gray background. Keep the person in the photo looking the same: face, features, hairstyle and overall appearance. Normal clothing, neutral expression, no text."
         : "a cute golden retriever puppy sitting on green grass, soft natural daylight, realistic photo";
-      const out = await generateSelfieImage(prompt, testRef, { attemptMs: 180000, budgetMs: 190000, size: "1024x1024", preferLegacy: true, singleShot: true,
+      // 尺寸、等多久都跟聊天里拍照一样（群友 2026-10-12：「api 测试成功，线上生图一直失败」）。
+      //   原来测试写死 1024×1024、等 3 分钟，聊天里却是这一站设的尺寸（默认竖 1024×1536）、等 2 分多钟——
+      //   不收竖图的站、慢一点的站，测试过得去、聊天里次次失败，测试就成了假的。
+      const out = await generateSelfieImage(prompt, testRef, { singleShot: true,
         // 测的是【正在编辑的这一站】（含还没保存的改动），不是主用那一站
         api: Object.assign({}, c, { enabled: true }, typeof fieldOverride === "string" ? { refFieldMode: fieldOverride } : {}) });   // 测试不看「启用」开关：没开也能先试
       const src = out.dataUrl || out.url || (out.blob ? URL.createObjectURL(out.blob) : null);
@@ -9773,7 +9868,7 @@ function Config(props) {
   const meta = {
     home: "设置", api: "接哪些模型", apiText: "文字模型",
     apiImage: "图像 API", apiTts: "语音 API", apiVideo: "视频 API", apiEmbed: "向量记忆",
-    apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
+    apiStt: "语音识别", apiEars: "真声耳朵", apiMouth: "电台嗓子", apiCache: "额度与缓存", sense: "他们知道现在几点、我在哪",
     cot: "创作小稿", look: "这个 app 长什么样",
     theme: "外观与壁纸", themeStudio: "主题工作台",
     bubble: "聊天气泡", write: "他们写出来的东西",
@@ -9884,6 +9979,7 @@ function Config(props) {
         h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax · 可灵 · 即梦，做动态形象", onClick: () => setPage("apiVideo") }),
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "语音合成、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
+        h(ConfigTile, { icon: "识", tint: "#5f8a8e", title: "语音识别", sub: "通话开麦转文字的接口", onClick: () => setPage("apiStt") }),
         h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
         h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),
         h(ConfigTile, { icon: "量", tint: "#8a8378", title: "调用记录与缓存", sub: "每一次叫模型的记录、缓存命中", onClick: () => setPage("apiCache"), wide: true })),
@@ -9892,6 +9988,7 @@ function Config(props) {
       page === "apiVideo" && section(h(VideoApiConfig, { toast: props.toast })),
       page === "apiTts" && section(h(TtsApiConfig, { toast: props.toast, characters: props.characters, onAssignVoice: props.onAssignVoice })),
       page === "apiEmbed" && section(h(EmbedApiConfig, { toast: props.toast })),
+      page === "apiStt" && section(h(SttApiConfig, { toast: props.toast })),
       page === "apiEars" && section(h(VoiceEarsConfig, { toast: props.toast })),
       page === "apiMouth" && section(h(VoiceMouthConfig, { toast: props.toast })),
       page === "apiCache" && section(h(React.Fragment, null, h(FailRetryCard, null), h(CallLogCard, null), h(CacheStatCard, null))),
@@ -13787,7 +13884,7 @@ const slipSkin = t => ({
   boxShadow: "0 3px 10px rgba(0,0,0,.10)"
 });
 // ---- 我的钱包（聊天软件「我」下面）----
-function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
+function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalance, onAddEntry, onOpenCard, view, onView, myCards, onOpenMyKin, myCur, onSetMyCur, onTrace, recur, onSaveRecur, onDelLog }) {
   const t = useTheme();
   // ⚠️这个 view 原来是组件自己的 useState：从【亲属卡汇总】点进某张卡的账单页时
   // MyWallet 整个卸载，退回来就重挂成 main（＝钱包首页），她 2026-09-02 报的就是这个
@@ -13809,6 +13906,16 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
   const M = window.Money;
   const money = n => M ? M.fmt(n, "__me__") : "¥" + n;
   const signed = n => (n > 0 ? "+" : n < 0 ? "−" : "") + money(Math.abs(n));
+  // 记一笔（群友 2026-10-12：「钱包里能不能手动填随手小开销」）：一笔进出带一句备注，进流水；
+  //   跟「改余额」不同的是它说得出钱花在哪了，TA 翻你手机时看得见、接得上话。
+  const [entry, setEntry] = useState(null);   // { out: true, amt: "", note: "" }
+  const saveEntry = () => {
+    const v = M ? M.parse(entry.amt, "__me__") : Number(entry.amt);
+    const note = String(entry.note || "").trim().slice(0, 40);
+    if (v == null || isNaN(v) || !v || !note) return;
+    onAddEntry(entry.out ? -Math.abs(v) : Math.abs(v), note);
+    setEntry(null);
+  };
   const saveEdit = () => {
     // 输入的是她看到的那个币种，存回去换成人民币（跟角色钱包「改余额」同一个口子）
     const v = M ? M.parse(amt, "__me__") : Number(amt);
@@ -13847,9 +13954,10 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
       h("div", { "data-wk": "walletbalance", style: { fontFamily: F_DISPLAY, fontStyle: "italic", fontSize: fitFont(money(balance), 40, 9, 18), lineHeight: 1, color: NOTE_INK, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" } }, money(balance))),
     h("div", { key: "b", className: "flex items-center gap-2 mt-3" },
       h("button", { "data-wk": "walletedit", onClick: () => { setAmt(String(M ? M.conv(balance, "__me__") : balance)); setEditing(true); }, className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "改余额"),
+      onAddEntry ? h("button", { "data-wk": "walletentry", onClick: () => setEntry({ out: true, amt: "", note: "" }), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "记一笔") : null,
       onSetMyCur ? h("button", { "data-wk": "walletcur", onClick: () => setCurOpen(true), className: "mb-1 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 11.5, color: NOTE_FOG, border: "1px solid " + NOTE_LINE, borderRadius: 2, padding: "3px 10px", whiteSpace: "nowrap", minHeight: 30 } }, "用什么钱 " + ((myCur && myCur.symbol) || "¥")) : null)]);
   // ── 流水按类分开：只读 changeWallet 记下的那一份，一笔都不编 ──
-  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["manual", "手动改余额"], ["misc", "其他"]];
+  const KIND_GROUPS = [["salary", "固定进账"], ["recur_out", "固定支出"], ["transfer", "转账"], ["redpacket", "红包"], ["jar", "存钱罐"], ["shop", "购物 · 外卖 · 送礼"], ["live", "直播间"], ["kinship_out", "亲属卡"], ["entry", "随手记的"], ["manual", "手动改余额"], ["misc", "其他"]];
   const groupOf = k => KIND_GROUPS.some(g => g[0] === k) ? k : "misc";
   const whoOf = r => {
     if (!r) return "";
@@ -13915,6 +14023,15 @@ function MyWallet({ balance, log, cards, characters, groups, onBack, onSetBalanc
           h("input", { value: amt, onChange: e => setAmt(e.target.value), type: "number", inputMode: "decimal", autoFocus: true, className: "flex-1 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
           h("button", { onClick: saveEdit, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "保存"),
           h("button", { onClick: () => { setEditing(false); setAmt(""); }, className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
+      entry && h("div", { "data-wk": "walletentryform", className: "mx-5 mb-3 p-4", style: Object.assign({ borderRadius: 2 }, slipSkin(t)) },
+        h("div", { className: "flex items-center gap-2", style: { margin: "2px 0 10px" } },
+          [[true, "花出去"], [false, "收进来"]].map(([o, lb]) => h("button", { key: lb, "data-on": entry.out === o ? "1" : "0", onClick: () => setEntry(Object.assign({}, entry, { out: o })), className: "active:opacity-70",
+            style: { minHeight: 32, padding: "0 12px", borderRadius: 999, border: "1px solid " + (entry.out === o ? t.ink : t.line), background: entry.out === o ? t.ink : "transparent", color: entry.out === o ? t.bg2 : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, lb))),
+        h("input", { value: entry.note, onChange: e => setEntry(Object.assign({}, entry, { note: e.target.value })), placeholder: "花在哪 / 哪来的，比如：给路边的流浪猫之家捐了点", autoFocus: true, className: "w-full outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 14, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+        h("div", { className: "flex items-center gap-2", style: { marginTop: 8 } },
+          h("input", { value: entry.amt, onChange: e => setEntry(Object.assign({}, entry, { amt: e.target.value })), placeholder: "多少", type: "number", inputMode: "decimal", className: "flex-1 min-w-0 outline-none px-3 py-2 rounded-lg", style: { fontFamily: F_BODY, fontSize: 15, color: t.ink, background: t.bg, border: "1px solid " + t.line } }),
+          h("button", { onClick: saveEntry, className: "px-4 py-2 active:opacity-70", style: { fontFamily: F_BODY, fontSize: 13, background: t.ink, color: t.bg2, borderRadius: 8 } }, "记下"),
+          h("button", { onClick: () => setEntry(null), className: "px-3 py-2 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 13, color: t.fog } }, "取消"))),
       // 固定进出：工资、零花钱、房租、会员费……每条自己起名、定多少、多久一次；到日子本地自己记一笔，不花调用
       onSaveRecur ? h("div", { "data-wk": "walletrecur", className: "px-5", style: { marginBottom: 14 } },
         rcEdit ? (function () {
@@ -16587,6 +16704,10 @@ function CoupleDrawer({ partner, items, onOpen, onDrop, onEdit, ledger, kinds, o
                 // ⚠️悄悄话的 title 就是正文头一截，两行一样等于把同一句摆两遍
                 (x.title && String(x.title).replace(/…$/, "") !== String(x.text || "").slice(0, String(x.title).replace(/…$/, "").length))
                   ? h("div", { style: { fontFamily: F_DISPLAY, fontSize: 15.5, color: "#4e4030", marginTop: 8 } }, x.title) : null,
+                // TA画的那张（v75.479，她 2026-10-12：「原来是文字描述，现在可以让他用代码画」）：
+                //   当图片挂，不当 DOM 插——svg 里就算混进脚本，<img> 也一行都不跑
+                x.kind === "draw" && x.svg ? h("img", { "data-wk": "drawerdrawing", alt: "", src: "data:image/svg+xml;charset=utf-8," + encodeURIComponent(x.svg),
+                  style: { display: "block", width: "100%", maxWidth: 300, margin: "8px auto 2px", background: "#fffdf7", borderRadius: 4, border: "1px solid rgba(91,76,58,.15)" } }) : null,
                 h("div", { style: { fontFamily: F_BODY, fontSize: 13, lineHeight: 1.85, color: "#5b4c3a", marginTop: 6, whiteSpace: "pre-wrap" } }, x.text),
                 // 改字（她 2026-10-05）：拆开的那张纸可以改；跟 ✕ 一样一直看得见，不藏在长按里
                 onEdit ? h("div", { className: "flex justify-end", style: { marginTop: 4 } },

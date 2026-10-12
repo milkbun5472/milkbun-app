@@ -35,7 +35,7 @@ test("设置页诚实区分参考请求成功与同脸验证", () => {
   assert.match(screens, /上传一张脸，测试高保真参考能力/);
   assert.match(screens, /单次测试参考图/);
   assert.match(screens, /singleShot: true/);
-  assert.match(screens, /attemptMs: 180000, budgetMs: 190000/);
+  assert.match(screens, /generateSelfieImage\(prompt, testRef, \{ singleShot: true,/);   // 测试跟聊天拍照同尺寸同等待，不另写死
   assert.match(screens, /参考图上传字段（只对出图接口有用，每个站单独保存）/);
   assert.match(screens, /value: "bracket".*image\[\]/s);
   assert.match(screens, /接口成功只说明它收下了，像不像还要看测试图/);   // v74.903 说明改成白话，意思没变

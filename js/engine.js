@@ -2210,7 +2210,7 @@ function groupBans(opts) {
   if (opts.mood) P.push(MOOD_TURN_RULE);          // 会写心情的那两处才要
   P.push(STOCK_REPLY_BAN);
   P.push(OVERREACH_BAN);   // 跟三件套同进同出：它是那条的近亲，漏一处就整族回来
-  P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走
+  if (!opts.narrative) P.push(EMPTY_COMFORT_BAN);   // 同上，这一族跟着那两条一起走；群线下是面对面，不发（理由见 buildBundle 那一处）
   P.push(SEE_THROUGH_BAN);
   P.push(LEVERAGE_BAN);   // 关系上的高位；跟 SEE_THROUGH（认知上的高位）同进同出
   P.push(USER_BODY_BAN);
@@ -3566,7 +3566,9 @@ function buildBundle(ctx, opts) {
       parts.push(INTIMATE_CHAT_ANTI_CLICHE);
       parts.push(STOCK_REPLY_BAN);
       parts.push(OVERREACH_BAN);
-      parts.push(EMPTY_COMFORT_BAN);
+      // 线下面对面不发（v75.461，她 2026-10-12 让清线下提示词）：这条挡的是【隔着屏幕】说「我在这儿」，
+      //   人在跟前时这句正好兑现得了，发过去反倒是让 TA 当面也不许说。同族的另两条照发。
+      if (!(opts && opts.offline)) parts.push(EMPTY_COMFORT_BAN);
       parts.push(SEE_THROUGH_BAN);
       parts.push(LEVERAGE_BAN);
       parts.push(USER_BODY_BAN);
@@ -3758,7 +3760,6 @@ function buildBundle(ctx, opts) {
   if (ctx.memoNote && ctx.memoNote.trim()) parts.push("【" + uName + " 备忘录里、特意让你能看到的提醒/记事】（可自然关心、临近时提醒一句、或问起弄了没，别生硬报清单、别越界、别每句都念）\n" + ctx.memoNote.trim());
   if (ctx.ownWalletNote && ctx.ownWalletNote.trim()) parts.push("【你自己的钱】" + ctx.ownWalletNote.trim());
   if (ctx.financeNote && ctx.financeNote.trim()) parts.push(ledgerContextBlock(ctx.financeNote, uName));
-  if (!ctx.notRoleplay && ctx.radioLife) parts.push(ctx.radioLife);
   if (recentChat && recentChat.trim()) parts.push("【最近对话】\n" + recentChat.trim());
   // 数字生命只需要最近对话作为事实，不再额外下达「不许否认/必须圆过去」的表演式行为命令。
   if (!(opts && opts.ooc) && !ctx.notRoleplay && recentChat && recentChat.trim()) parts.push("【对话连贯·别否认自己说过的话】" + userName(profile) + " 这一句多半是【顺着你自己上一句、或你俩最近聊的】接下来的。回应前先认清【你自己刚说过什么、提过什么要求或建议】——绝不许把你自己说过的话/提过的要求当成对方凭空冒出来的，更别反问『什么X？』『我什么时候说的』来装不知道（那多半是你自己刚说的）。真记不清就顺着圆过去，别当场否认、打自己脸。同时把 Ta 这句里的人称对准：中文接话常省略主语，省掉的部分必须从【你上一句的结构】里继承，不许悄悄换人——比如你刚说『我去哪你都得跟着』，Ta 接『去厕所也要吗』，问的是【你去厕所时 Ta 要不要跟】，不是 Ta 自己要去厕所。回应前先想清这句里『你』『我』各指谁、谁做动作谁承受，以 Ta 的原话和你上一句的框架为准；主客一旦弄反，整条回复都会答非所问。");
@@ -4730,6 +4731,34 @@ async function hydrateNativeSelfies() {
   // IDB 有、原生没有：第一次装带保险仓的新壳，把现有图库补一份保险。
   for (const [k, b] of await idbImgEntries()) if (!nativeSet.has(k) && b) await nativeMediaPut("selfies", k, b);
   return restored;
+}
+// ⚠️这一组别放回书房耳朵（loadVoiceEars）旁边：公共版打包会把那一段拿掉。
+// 公共的语音识别：任意 OpenAI 兼容的 /audio/transcriptions（地址+Key+模型）。
+// 浏览器没有自带识别、或勾了优先时，通话开麦用它；跟上面那对书房耳朵是两回事。
+function loadSttApi() {
+  const def = { base: "", key: "", model: "whisper-1", prefer: false };
+  let a = def;
+  try { const c = JSON.parse(localStorage.getItem("x_sttApi") || "null"); if (c && typeof c === "object") a = Object.assign({}, def, c); } catch (e) {}
+  a.base = String(a.base || "").trim().replace(/\/+$/, "").replace(/\/audio\/transcriptions$/, "");
+  a.key = String(a.key || "").trim(); a.model = String(a.model || "").trim() || "whisper-1";
+  return a;
+}
+function saveSttApi(c) { const clean = Object.assign(loadSttApi(), c || {}); try { localStorage.setItem("x_sttApi", JSON.stringify(clean)); } catch (e) {} return clean; }
+function sttApiReady(a) { a = a || loadSttApi(); return !!(a.base && a.key); }
+// 通话的备用耳朵有没有：公共识别接口或书房耳朵，有一个就行
+function backupEarReady() { return sttApiReady() || voiceEarsReady(); }
+async function sttTranscribe(wavBlob) {
+  const a = loadSttApi();
+  if (!sttApiReady(a)) throw new Error("没配置语音识别（设置 · API）");
+  const fd = new FormData();
+  fd.append("file", wavBlob, "speech.wav");
+  fd.append("model", a.model);
+  fd.append("language", "zh");
+  fd.append("response_format", "json");
+  const r = await fetchT(a.base + "/audio/transcriptions", { method: "POST", body: fd, headers: { Authorization: "Bearer " + a.key } }, 60000);
+  let d = {}; try { d = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error("识别失败：" + ((d.error && (d.error.message || d.error)) || ("HTTP " + r.status)));
+  return { ok: true, text: String(d.text || "") };
 }
 // 拼「角色照片」的图像 prompt。opts.kind: self=第一人称自拍 / other=别人给 TA 拍(第三人称,姿势构图多变) / duo=TA 和用户的合照
 // opts.me = { name, appearance, refPhoto } 用户本人（duo 合照时用）
@@ -6910,7 +6939,7 @@ function splitBilingual(text, hanLang) {
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
-function joinBilingualLines(lines, hanLang) {
+function joinBilingualLines(lines, hanLang, opts) {
   const joined = (lines || []).reduce((acc, x) => {
     const line = String(x == null ? "" : x);
     const prev = acc.length ? acc[acc.length - 1] : null;
@@ -6918,7 +6947,24 @@ function joinBilingualLines(lines, hanLang) {
     else acc.push(line);
     return acc;
   }, []);
-  if (!hanLang) return joined;
+  // 外语那一行、中译另起一行、两行都没竖线（她 2026-10-12 俄语截图：「Ты уже спишь?」下面跟一泡「你睡了吗?」）：
+  //   原样拆泡就是一句外语一句中文各占一泡，外语那泡还挂着空「译」。前一行看得出是外语、一个汉字都没有，
+  //   紧跟的那行是中文、一个外文字母都没有，就认成这一句的中译，接成「原文 | 中译」。
+  //   粤语这类用汉字写的话走下面那一段，不走这里。
+  if (!hanLang) {
+    if (!(opts && opts.pairNext)) return joined;   // 双语开关没开：不替模型配中译
+    const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
+    const HAN = /[\u4e00-\u9fff]/;
+    const out0 = [];
+    for (let k = 0; k < joined.length; k++) {
+      const line = joined[k], next = joined[k + 1];
+      if (next != null && line.indexOf("|") < 0 && next.indexOf("|") < 0
+        && (/[\u3040-\u30ff]/.test(line) || (FOREIGN.test(line) && !HAN.test(line))) && HAN.test(next) && !FOREIGN.test(next)) {   // 日文带汉字也算外语：有假名就认
+        out0.push(line.trim() + " | " + next.trim()); k++;
+      } else out0.push(line);
+    }
+    return out0;
+  }
   // 粤语这类用汉字写的话（她 2026-10-11 截图）：模型把几句粤语各占一行，竖线只在其中一行，
   //   中译也分几行跟在后面——「聽日…頭像」换行「我就話…換嘅 | 明天…头像」换行「我就说…换的」。
   //   按换行切完，第一句粤语没译文、两句中译错一位，第三行中译自己成了一泡；
@@ -7274,7 +7320,9 @@ async function ttsSynth(text, voiceId, opts) {
   if (d.base_resp && d.base_resp.status_code !== 0) {
     let msg = d.base_resp.status_msg || ("错误码 " + d.base_resp.status_code);
     // key 无效最常见的根因是国内站/海外版不匹配：key 是哪个平台发的，接口地址就得填哪边
-    if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 platform.minimax.io 国际版申请的 → 接口地址填 https://api.minimax.io；minimaxi.com → https://api.minimaxi.com；国内 minimax.chat 用默认地址。设置里有一键选站点。另外 key 生成时只完整显示一次，确认复制的是那串完整的）";
+    // 「token not match group」不是站点不对，是 GroupId 跟 key 不是同一个账号的（群友 2026-10-12：照站点那句换遍了地址还是这句）
+    if (/not match group/i.test(msg)) msg += "（GroupId 跟密钥不是同一个账号的：去发这个密钥的那个平台，在账户信息 / 基本信息里复制 GroupId 填进设置的「GroupId」那一格。换过账号、或者国际版和国内版各有一个号的，最容易填成另一个号的 GroupId）";
+    else if (/api key|apikey|token|auth/i.test(msg)) msg += "（key 和站点要配对：在 platform.minimax.io 国际版申请的 → 接口地址填 https://api.minimax.io；minimaxi.com → https://api.minimaxi.com；国内 minimax.chat 用默认地址。设置里有一键选站点。另外 key 生成时只完整显示一次，确认复制的是那串完整的）";
     throw new Error(msg);
   }
   const hex = d.data && (d.data.audio || d.audio);
@@ -7325,7 +7373,9 @@ async function ttsSynthOther(a, txt, vid, spd) {
   }
   const blob = await r.blob();
   if (!blob || blob.size < 200) throw new Error("返回的音频是空的");
-  return blob.type ? blob : new Blob([blob], { type: "audio/mpeg" });
+  // 中转常回 application/octet-stream：iPhone 认不出是声音，play() 既不响也不报错（她 2026-10-12 试 Fish：「没声音也没报错」）。
+  //   两家要的都是 mp3，不是 audio/ 开头的一律当 mp3。
+  return /^audio\//i.test(blob.type || "") ? blob : new Blob([blob], { type: "audio/mpeg" });
 }
 // 克隆音色：①上传一段干净人声（10s~5min，mp3/wav/m4a）→ file_id ②/v1/voice_clone 绑到自定 voice_id
 // 克隆成功后把 voice_id 填进角色档案「音色」即可用（按 MiniMax 规则克隆按次收费，具体看你账户计费页）
@@ -7520,7 +7570,6 @@ function groupBackgroundSegments(c, background, uName, opts) {
     hcSeg: b.home ? "\n〔你自己住在" + b.home + "：认识的人、去的地方、买东西的渠道都按这儿来，但别挂在嘴上报地名〕" : "",
     cySeg: b.carry ? "\n〔你身上带着的 / 你衣柜里的（真有的东西，用得上就掏得出来；别没事报清单）〕\n" + b.carry : "",
     caSeg: (b.archive ? "\n〔以下只有 " + c.name + " 本人知道，别的成员并不知情〕\n" + coupleArchiveBlock(b.archive, uName) : "")
-      + (b.radioLife ? "\n〔以下事件属于 " + c.name + " 本人经历；其他成员只知道自己实际在场的部分，现场未通知用户是否在收听。〕\n" + b.radioLife : "")
       + (b.finance ? "\n〔以下账单仅 " + c.name + " 知道；其他成员各自以自己的授权为准。这是私下得知的生活线索，由本人决定是否适合在当前场合提起。〕\n" + ledgerContextBlock(b.finance, uName) : "")
   };
 }
@@ -7890,7 +7939,7 @@ async function generateOffline(p, ctx, session) {
         + ((session.listenSongs || []).length ? "歌单里现成的有：" + session.listenSongs.join(" / ") + "。" : "") + "不在歌单里的照样能放，写歌名就会去搜；按你自己的品味来。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
-  const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
+  const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx, { offline: true }) +
     "\n\n" + OFFLINE_NARRATIVE_RUNTIME +
     "\n\n" + PERSONA_REGISTER_ANCHOR +
     "\n\n" + MOOD_TURN_RULE +
@@ -8529,7 +8578,6 @@ async function generateOfflineGroup(p, ctx, session) {
       home: ctx.memberHome && ctx.memberHome[c.id],
       carry: ctx.memberCarry && ctx.memberCarry[c.id],
       archive: ctx.memberCoupleArchive && ctx.memberCoupleArchive[c.id],
-      radioLife: ctx.memberRadioLife && ctx.memberRadioLife[c.id],
       finance: ctx.memberFinance && ctx.memberFinance[c.id]
     }, userName, { narrative: true });
     return c.npc

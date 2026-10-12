@@ -1,11 +1,12 @@
 // A visit is a visible, disposable scene session. It has no save or chat writer.
-import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-eab2c575de9efb2e';
-import {PERSONAL_SPACE} from '../companion.mjs?v=fg-eab2c575de9efb2e';
-import {stepRoute} from '../locomotion.mjs?v=fg-eab2c575de9efb2e';
-import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-eab2c575de9efb2e';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-eab2c575de9efb2e';
-import {CHORES,chorePlans,chorePose} from './chores.mjs?v=fg-eab2c575de9efb2e';
-const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...CHORES};
+import {MAPS,findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-ab8076f3b07a3f6c';
+import {PERSONAL_SPACE} from '../companion.mjs?v=fg-ab8076f3b07a3f6c';
+import {stepRoute} from '../locomotion.mjs?v=fg-ab8076f3b07a3f6c';
+import {furniturePoint,furnitureSeat,usesFor} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-ab8076f3b07a3f6c';
+import {CHORES,chorePlans,chorePose} from './chores.mjs?v=fg-ab8076f3b07a3f6c';
+const HOBBIES=globalThis.CharDayHomeHobbies.activities;
+const activities={read:{action:'read',label:'看书'},drink:{action:'tea',label:'喝水'},eat:{action:'meal',label:'用餐'},rest:{action:'rest',label:'休息'},...Object.fromEntries(Object.entries(HOBBIES).map(([kind,p])=>[kind,{action:kind,label:p.label}])),...CHORES};
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const clearance=PERSONAL_SPACE+.16;
 function automaticActivities(action){
@@ -44,12 +45,12 @@ export function visitNear(from,ta,map=MAPS.dayHome){
  return choices.sort((a,b)=>gap(from,a.to)-gap(from,b.to))[0]||null;
 }
 export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choice='auto',following=()=>false,choreVisual={hide(){},update(){}},map=()=>MAPS.dayHome}){
- let chore=null,followWait=0,followSide=1;
+ let chore=null,hobbySpot=null,followWait=0,followSide=1;
  const isFollowing=()=>present&&control==='auto'&&following()&&!leaving;
  let present=false,position={...MAPS.dayHome.spawn},route=[],speed=0,yaw=0,seat=null,pendingSeat=null,bed=null,leaving=false,controlled=null,notice='',last='',activity=null,pendingActivity=null,dwell=0,task=null,control=choice==='manual'||Object.hasOwn(activities,choice)?'manual':'auto',manualAction=Object.hasOwn(activities,choice)?choice:'manual',autoWait=8,autoIndex=0;
  const inspect=()=>({map:map().id||map().renderer,present,position:{...position},heading:yaw,bed:bed?{...bed}:null,lying:!!bed,route:route.map(q=>({...q})),seated:!!seat,seat:seat?{...seat}:null,busy:controlled?controlled.moving:route.length>0,interaction:controlled?.kind||null,interactionPhase:controlled?.phase||null,leaving,notice,activity,pendingActivity,control,manualAction,following:isFollowing(),task,chore:chore?{...chore,route:undefined,elapsed:dwell,finished:dwell>=chore.duration}:null,choreContact:avatar.root.userData.chore,dailyAction:avatar.root.userData.dailyAction,motion:motion(),visible:avatar.root.visible,visualPosition:avatar.root.position.toArray(),leg:avatar.root.getObjectByName?.('leftLeg')?.rotation.x});
  function tell(text){if(text!==undefined)notice=present&&control==='auto'?'自动 · '+text:text;const info=inspect(),key=JSON.stringify([present,info.busy,info.seated,info.interaction,info.interactionPhase,leaving,notice,activity,pendingActivity,control,manualAction]);if(key!==last){last=key;onChange(info);}}
- function halt(){chore=null;choreVisual.hide();route=[];speed=0;leaving=false;seat=pendingSeat=bed=null;activity=pendingActivity=task=null;dwell=0;}
+ function halt(){chore=null;hobbySpot=null;choreVisual.hide();route=[];speed=0;leaving=false;seat=pendingSeat=bed=null;activity=pendingActivity=task=null;dwell=0;}
  function go(to,nextSeat=null,nextActivity=null){
   const next=reachable(position,to,ta(),map());if(!next){tell('这里暂时走不过去，换个空位试试。');return false;}
   seat=bed=null;activity=null;task=null;dwell=0;pendingSeat=nextSeat;pendingActivity=nextActivity;route=next;speed=0;
@@ -69,6 +70,7 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
  }
  function stand(){halt();tell('手动控制中，点空地或选动作。');return true;}
  function perform(kind,point){
+  hobbySpot=null;
   if(!CHORES[kind]){chore=null;choreVisual.hide();}
   if(kind==='stand'||kind==='manual')return stand();
   if(kind==='walk')return point&&Number.isFinite(point.x)&&Number.isFinite(point.z)?go(point):false;
@@ -76,6 +78,11 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   if(CHORES[kind]){
    const plan=chorePlans(map(),kind,position,ta())[0];if(!plan){tell('没有能走到的对应家具，先布置好再来。');return false;}
    const ok=go(plan.at,null,kind);if(ok){chore=plan;yaw=plan.heading;tell('正在走去'+CHORES[kind].label+'的位置…');}return ok;
+  }
+  if(HOBBIES[kind]){
+   const choices=map().spots.filter(p=>p.action===kind&&(!p.seat||ta()?.seat?.piece!==p.piece)).map(spot=>({spot,route:reachable(position,spot.target,ta(),map())})).filter(p=>p.route).sort((a,b)=>gap(position,a.spot.target)-gap(position,b.spot.target));
+   const selected=choices[0]?.spot;if(!selected){tell('这个兴趣角暂时没有空位，先摆好家具、留出通道再来。');return false;}
+   const ok=go(selected.target,selected.seat||null,kind);if(ok){hobbySpot=selected;tell('正在走去'+HOBBIES[kind].label+'的位置…');}return ok;
   }
   if(activities[kind]){
    if(seat&&activitySeat(map(),seat,kind)){activity=kind;task=null;dwell=0;tell('你在'+activities[kind].label+'，TA继续自己的安排。');return true;}
@@ -148,24 +155,27 @@ export function createSceneVisit({avatar,ta,motion=()=>null,onChange=()=>{},choi
   moving=route.length>0;
   if(!moving)dwell+=dt;
   if(chore){const piece=map().furniture.find(p=>p.id===chore.piece&&!p.stored);if(!piece){halt();tell('家具已收起，先停下家务。');}}
-  const action=activities[activity]?.action;task=seat&&action?dailyTaskAt({action},{action,piece:seat.piece,seat},map(),dwell,{moving,motion:profile,personal:true}):null;
+  if(hobbySpot){const current=map().spots.find(s=>s.id===hobbySpot.id&&s.piece===hobbySpot.piece);if(!current){halt();tell('兴趣家具已经收起了，先停下这个动作。');}else if(gap(current.target,hobbySpot.target)>.01||current.heading!==hobbySpot.heading){perform(activity||pendingActivity||manualAction);return;}}
+  const action=activities[activity]?.action;task=action&&(hobbySpot||seat)?dailyTaskAt({action},hobbySpot||{action,piece:seat.piece,seat},map(),dwell,{moving,motion:profile,personal:true,position,actor:avatar}):null;
   const at=seat||position;avatar.root.position.set(at.x,0,at.z);avatar.root.rotation.y=seat?.heading??yaw;
   if(!moving&&chore)avatar.root.rotation.y=chore.heading;
+  else if(!moving&&hobbySpot)avatar.root.rotation.y=hobbySpot.heading||0;
   else if(!moving&&!seat){const other=ta();if(other)avatar.root.rotation.y=tracking&&other.moving?other.heading:Math.atan2(other.x-at.x,other.z-at.z);}
-  avatar.animate(time,{moving,sleepPose:!moving?bed:null,seated:!!seat,seatPose:seat?.pose,task,motion:profile,gesture:task?{read:'read',drink:'tea',eat:'eat'}[task.kind]:'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0),...chorePose(chore,dwell,moving,position)});
+  avatar.animate(time,{moving,sleepPose:!moving?bed:null,seated:!!seat,seatPose:seat?.pose,task,motion:profile,gesture:task?({read:'read',drink:'tea',eat:'eat'}[task.kind]||'rest'):'rest',height:floorHeight(map().id||map().renderer,at)+(seat?seat.rise+.05:0),...chorePose(chore,dwell,moving,position)});
   choreVisual.update(chore,dwell,moving||!!chore&&gap(position,chore.at)>.22);if(chore&&dwell>=chore.duration&&activity){activity=null;tell(CHORES[chore.kind].label+'完成了，可以继续选动作。');}
  }
  function pauseState(){
   const copy=s=>{if(!s)return null;const p=map().furniture.find(p=>p.id===s.piece),h=p?.heading||0,dx=s.x-(p?.x||0),dz=s.z-(p?.z||0);return {...s,local:{x:dx*Math.cos(h)-dz*Math.sin(h),z:dx*Math.sin(h)+dz*Math.cos(h)}};};
-  return structuredClone({map:map().id||map().renderer,present,position,route,speed,yaw,bed,seat:copy(seat),pendingSeat:copy(pendingSeat),leaving,activity,pendingActivity,dwell,control,manualAction,autoWait,autoIndex,notice,chore});
+  return structuredClone({map:map().id||map().renderer,present,position,route,speed,yaw,bed,seat:copy(seat),pendingSeat:copy(pendingSeat),leaving,activity,pendingActivity,dwell,control,manualAction,autoWait,autoIndex,notice,chore,hobbySpot:hobbySpot?{id:hobbySpot.id,piece:hobbySpot.piece}:null});
  }
  function restore(saved){
   if(!saved?.present||saved.map!==(map().id||map().renderer)||!walkable(saved.position.x,saved.position.z,map().id||map().renderer))return false;
   halt();controlled=null;present=true;position={...saved.position};yaw=saved.yaw||0;control=saved.control==='manual'?'manual':'auto';manualAction=saved.manualAction||'manual';autoWait=saved.autoWait??8;autoIndex=saved.autoIndex||0;dwell=saved.dwell||0;notice=saved.notice||'';
-  const seatAt=s=>{const p=map().furniture.find(p=>p.id===s?.piece);return p?{...furnitureSeat(p,s.approach,s.local),rise:p.seat??.45}:null;};
+  const seatAt=s=>{const p=map().furniture.find(p=>p.id===s?.piece);return p?.hobby?map().spots.find(q=>q.piece===p.id&&q.seat)?.seat||null:p?{...furnitureSeat(p,s.approach,s.local),rise:p.seat??.45}:null;};
   bed=saved.bed&&map().furniture.some(p=>p.kind==='bed'&&!p.stored&&p.id===saved.bed.piece)?{...saved.bed}:null;seat=seatAt(saved.seat);pendingSeat=seatAt(saved.pendingSeat);activity=saved.activity;pendingActivity=saved.pendingActivity;leaving=!!saved.leaving;
   if(saved.route?.length){const destination=saved.route.at(-1),path=reachable(position,destination,ta(),map());route=path||[];speed=route.length?saved.speed||0:0;}
   if(saved.chore){const p=chorePlans(map(),saved.chore.kind,position,ta()).find(p=>p.piece===saved.chore.piece);if(p)chore=p;else activity=pendingActivity=null;}
+  if(saved.hobbySpot){hobbySpot=map().spots.find(p=>p.id===saved.hobbySpot.id&&p.piece===saved.hobbySpot.piece)||null;if(!hobbySpot)activity=pendingActivity=null;}
   if(!seat&&!route.length&&pendingSeat){seat=pendingSeat;activity=pendingActivity;pendingSeat=pendingActivity=null;}
   avatar.root.visible=true;autoWait=Math.max(autoWait,bed?12:0);tick(0,0);tell();return true;
  }

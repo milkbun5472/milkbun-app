@@ -462,7 +462,7 @@ const APP_TONE_HUE = {
   read: 158, watch: 262, debate: 8, dream: 248, tarot: 296, astro: 262,
   pomodoro: 4, fairyGarden: 112, companion: 206, games: 190, trpg: 134, dreamjournal: 224,
   yanqiu: 262, loungeapp: 106, rescue: 352, vpscodex: 130,
-  assistant: 174, stylelab: 316, radio: 20, nest: 52,
+  assistant: 174, stylelab: 316, nest: 52,
   diary: 226, memo: 52, ledger: 136,
   // 外卖借便签那一档暖黄（跟外卖页同一种黄）；同样不往池子里加新值
   takeout: 52,
@@ -572,7 +572,7 @@ const SCREEN_NOTE = {
   messages: "聊天 / 通讯录 / 朋友圈 / 我 四栏都算"
 };
 const SCREEN_ZH = {
-  home: "主屏", messages: "消息", radio: "电台", radioArchive: "旧录音", radioLegacy: "旧电台",
+  home: "主屏", messages: "消息",
   thread: "单聊", gthread: "群聊",
   contact: "资料卡", cast: "人格档案馆", castForm: "编角色卡", ties: "关系",
   phone: "查手机", shop: "购物", takeout: "外卖", carry: "随身物", mycloset: "我的衣柜", dwell: "去处",

@@ -1,15 +1,16 @@
 import * as T from 'three';
-import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-eab2c575de9efb2e';
-import {headPoint,bonePoint,nearHand,pairContact,torsoPoint,shoulderPose,pairSize} from './pair-pose.mjs?v=fg-eab2c575de9efb2e';
+import {furniturePoint,furnitureSeat} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
+import {headPoint,bonePoint,nearHand,pairContact,torsoPoint,shoulderPose,pairSize} from './pair-pose.mjs?v=fg-ab8076f3b07a3f6c';
 
-import './social.js?v=fg-eab2c575de9efb2e';
+import './social.js?v=fg-ab8076f3b07a3f6c';
 export const REST_PAIRS=globalThis.CharDaySocial.rest;
 const compatible=new Set(['look','cup','hand','pat','hug','shoulder','closer','cuddle']);
 const gap=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
 const local=(p,q)=>{const h=p.heading||0,dx=q.x-p.x,dz=q.z-p.z;return {x:dx*Math.cos(h)-dz*Math.sin(h),z:dx*Math.sin(h)+dz*Math.cos(h)};};
+const sofaApproaches=(p,x)=>[{x:-p.w/2-.6,z:.25},{x:p.w/2+.6,z:.25},{x:-x,z:p.d/2+.75},{x,z:p.d/2+.75}].map(q=>furniturePoint(p,q));
 export function sofaPairs(map,offset=.6,leaner=null){
  return map.furniture.filter(p=>['sofa','bench'].includes(p.kind)&&!p.stored).flatMap(p=>[-1,1].flatMap(side=>{
-  const approaches=[{x:-p.w/2-.6,z:.25},{x:p.w/2+.6,z:.25},{x:-offset*side,z:p.d/2+.75},{x:offset*side,z:p.d/2+.75}].map(q=>furniturePoint(p,q));
+  const approaches=sofaApproaches(p,offset*side);
   return approaches.flatMap(a=>approaches.map(b=>({a:furnitureSeat(p,a,{x:-offset*side,z:.05+(leaner==='a'?.12:0)}),b:furnitureSeat(p,b,{x:offset*side,z:.05+(leaner==='b'?.12:0)})})));
  }));
 }
@@ -35,9 +36,11 @@ export function restPlans(map,kind,from,{distance=null,automatic=false}={}){
   const guest=host==='a'?'b':'a',at=from[host].seat,p=map.furniture.find(p=>p.id===at?.piece&&!p.stored);if(!p)continue;
   if(['sofa','bench'].includes(p.kind))for(const side of [-1,1]){
    const q=local(p,at),x=q.x+side*(distance||.66);if(Math.abs(x)>p.w/2-.22)continue;
-   const same=from[guest].seat?.piece===p.id,approach=same?{...from[guest]}:furniturePoint(p,{x,z:p.d/2+.75});
-   const seats={[host]:{...at},[guest]:furnitureSeat(p,approach,{x,z:q.z})};
-   choices.push({[host]:{...from[host]},[guest]:approach,seats,heading:p.heading||0,local:true,preserveHost:!!from.a.seat,retain:{[host]:true,[guest]:same},posture:'sit'});
+   const same=from[guest].seat?.piece===p.id;
+   for(const approach of same?[{...from[guest]}]:sofaApproaches(p,x)){
+    const seats={[host]:{...at},[guest]:furnitureSeat(p,approach,{x,z:q.z})};
+    choices.push({[host]:{...from[host]},[guest]:approach,seats,heading:p.heading||0,local:true,preserveHost:!!from.a.seat,retain:{[host]:true,[guest]:same},posture:'sit'});
+   }
   }
   if(!definition&&['look','cup','hand','pat','hug'].includes(kind))for(const side of [-1,1]){
    const q=local(p,at),guestAt=furniturePoint(p,{x:q.x+side*.64,z:p.d/2+.38});

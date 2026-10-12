@@ -1,10 +1,12 @@
-import './kitchen.js?v=fg-eab2c575de9efb2e';
-import {normalizePartColors} from './home-parts.mjs?v=fg-eab2c575de9efb2e';
-import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-eab2c575de9efb2e';
-import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-eab2c575de9efb2e';
+import './kitchen.js?v=fg-ab8076f3b07a3f6c';
+import './home-hobbies.js?v=fg-ab8076f3b07a3f6c';
+import {normalizePartColors} from './home-parts.mjs?v=fg-ab8076f3b07a3f6c';
+import {HOME_SIZES,wallFurniturePosition} from './home-architecture.mjs?v=fg-ab8076f3b07a3f6c';
+import {bathroomDefault,BASIN_USE} from './bathroom-layout.mjs?v=fg-ab8076f3b07a3f6c';
 // One catalogue supplies the editor, saved instances, geometry and activity anchors.
 const item=(id,label,category,kind,w,d,extra={})=>({id,label,category,kind,w,d,...extra});
-export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',bathroom:'浴室',rug:'地毯',screen:'屏风',decor:'装饰摆件',wallDecor:'墙上装饰'};
+export const HOME_CATEGORIES={bed:'床',sofa:'沙发',dining:'桌椅',storage:'收纳',light:'灯具',plant:'绿植',kitchen:'厨房',bathroom:'浴室',hobby:'兴趣角',rug:'地毯',screen:'屏风',decor:'装饰摆件',wallDecor:'墙上装饰'};
+export const HOME_HOBBIES=globalThis.CharDayHomeHobbies.activities;
 export const HOME_COLLECTIONS={
  craft:{label:'原木藤编',wood:'#c29c6b',dark:'#785c3b',fabric:'#c6b88b',paper:'#f0e8d7',accent:'#8a9672'},
  vintage:{label:'复古深木',wood:'#765041',dark:'#493a33',fabric:'#a07669',paper:'#e5d9be',accent:'#bb9759'},
@@ -15,6 +17,7 @@ export function furniturePalette(a,base){return {...base,...HOME_COLLECTIONS[a.c
 const decorItem=(collection,id,label,w,d,height,extra={})=>item(id,label,extra.mount?'wallDecor':'decor','ornament',w,d,{collection,height,primaryField:'accent',...extra});
 const collectionItem=(collection,id,label,category,kind,w,d,extra={})=>item(id,label,category,kind,w,d,{collection,...extra});
 export const HOME_CATALOG=[
+ ...Object.entries(HOME_HOBBIES).map(([hobby,p])=>item(p.catalogId,p.furnitureLabel,'hobby',p.kind,p.w,p.d,{hobby,...(p.walkThrough?{walkThrough:true}:{}),...(p.surface?{surface:p.surface}:{}),primaryField:hobby==='stretch'?'fabric':'wood'})),
  item('shower','帘式淋浴间','bathroom','shower',1.7,1.7,{primaryField:'fabric'}),
  item('basin','镜柜洗手台','bathroom','basin',1.3,.72,{primaryField:'wood'}),
  item('toilet','圆润坐便器','bathroom','toilet',.82,1.35,{primaryField:'paper'}),
@@ -100,15 +103,15 @@ export const HOME_LIMIT=80;
 // The renderer and the activity anchor own the same pot and preparation surface.
 export const HOME_PREP=globalThis.CharDayKitchen.KITCHEN_ANCHORS.prep;
 export const HOME_COOK=globalThis.CharDayKitchen.KITCHEN_ANCHORS.cook;
-export function homeRoom(raw){const q=raw?.$room||{};return {size:Object.hasOwn(HOME_SIZES,q.size)?q.size:'compact',originalRugs:q.originalRugs!==false,originalWallDecor:q.originalWallDecor!==false,wall:Object.hasOwn(HOME_WALLS,q.wall)?q.wall:'auto',floor:Object.hasOwn(HOME_FLOORS,q.floor)?q.floor:'auto',wallColor:hex(q.wallColor),floorColor:hex(q.floorColor),uses:Object.fromEntries(Object.entries(q.uses||{}).filter(([k,v])=>['sleep','meal','tea','rest','read','cook','shower','wash-hands','toilet'].includes(k)&&typeof v==='string'))};}
+export function homeRoom(raw){const q=raw?.$room||{};return {size:Object.hasOwn(HOME_SIZES,q.size)?q.size:'compact',originalRugs:q.originalRugs!==false,originalWallDecor:q.originalWallDecor!==false,wall:Object.hasOwn(HOME_WALLS,q.wall)?q.wall:'auto',floor:Object.hasOwn(HOME_FLOORS,q.floor)?q.floor:'auto',wallColor:hex(q.wallColor),floorColor:hex(q.floorColor),uses:Object.fromEntries(Object.entries(q.uses||{}).filter(([k,v])=>(['sleep','meal','tea','rest','read','cook','shower','wash-hands','toilet'].includes(k)||Object.hasOwn(HOME_HOBBIES,k))&&typeof v==='string'))};}
 function record(q={},p){q=q&&typeof q==='object'?q:{};const partColors=normalizePartColors(p,q.partColors);return {...(p.mount?{wall:q.wall==='left'?'left':'back',along:Number.isFinite(q.along)?q.along:0,y:Number.isFinite(q.y)?q.y:2}:{}),catalogId:p.catalogId||p.id,x:Number.isFinite(q.x)?q.x:p.x,z:Number.isFinite(q.z)?q.z:p.z,heading:Number.isFinite(q.heading)?((Math.round(q.heading/(Math.PI/2))%4+4)%4)*Math.PI/2:p.heading||0,stored:q.stored===true,...(Object.keys(partColors).length?{partColors}:{}),color:hex(q.color),material:Object.hasOwn(HOME_MATERIALS,q.material)?q.material:'auto'};}
 export function homePlacements(raw={}){
  const result=Object.fromEntries([...BASE_HOME,...BATH_HOME.map(p=>bathroomDefault(p,homeRoom(raw)))].map(p=>[p.id,record(raw?.[p.id],p)]));
- for(const [id,q]of Object.entries(raw||{})){if(Object.keys(result).length>=HOME_LIMIT)break;if(!/^furniture-[1-9]\d{0,7}$/.test(id))continue;const p=HOME_CATALOG.find(p=>p.id===q?.catalogId);if(p)result[id]=record(q,{...p,x:0,z:0});}
+ for(const {id,value:q,item:p}of globalThis.CharDayHomeHobbies.instances(raw,HOME_CATALOG,Object.keys(result).length,HOME_LIMIT))result[id]=record(q,{...p,x:0,z:0});
  result.$room=homeRoom(raw);return result;
 }
 export function homeFurniture(raw){const placements=homePlacements(raw),counts={};return Object.entries(placements).filter(([id])=>id!=='$room').map(([id,q])=>{const p=HOME_CATALOG.find(p=>p.id===q.catalogId),n=counts[p.id]=(counts[p.id]||0)+1;return {...p,...q,...(p.mount?wallFurniturePosition({...p,...q},placements.$room):{}),id,label:HOME_NAMES[id]||p.label+' · '+n};});}
-export const usesFor=p=>p?.kind==='shower'?['shower']:p?.kind==='basin'?['wash-hands']:p?.kind==='toilet'?['toilet']:p?.kind==='bed'?['sleep']:p?.kind==='chair'?['meal']:p?.kind==='sofa'?['tea','rest','read']:p?.kind==='kitchen'?['cook']:[];
+export const usesFor=p=>HOME_HOBBIES[p?.hobby]?[p.hobby]:p?.kind==='shower'?['shower']:p?.kind==='basin'?['wash-hands']:p?.kind==='toilet'?['toilet']:p?.kind==='bed'?['sleep']:p?.kind==='chair'?['meal']:p?.kind==='sofa'?['tea','rest','read']:p?.kind==='kitchen'?['cook']:[];
 export function furniturePoint(p,q={x:0,z:0}){const h=p.heading||0,c=Math.cos(h),s=Math.sin(h);return {x:p.x+q.x*c+q.z*s,z:p.z-q.x*s+q.z*c};}
 // The visible cushion, rather than the collision footprint, determines where
 // the pelvis rests and the shin clears the edge. Geometry uses this same table.
@@ -122,10 +125,13 @@ export function furnitureSeat(p,approach,offset){
  return {...furniturePoint(p,{x:offset?.x||0,z:Math.max(offset?.z||0,z)}),rise:.45,heading:p.heading||0,approach,piece:p.id,pose:deep?'deep':'chair'};
 }
 export function homeAnchors(furniture,room){
- const defaults={sleep:'double-bed',meal:'dining-chair',tea:'sofa',rest:'sofa',read:'sofa',cook:'kitchen',shower:'home-shower','wash-hands':'home-basin',toilet:'home-toilet'};
+ const defaults={sleep:'double-bed',meal:'dining-chair',tea:'sofa',rest:'sofa',read:'sofa',cook:'kitchen',shower:'home-shower','wash-hands':'home-basin',toilet:'home-toilet',...Object.fromEntries(Object.keys(HOME_HOBBIES).map(k=>[k,null]))};
  const anchor=(p,action,id)=>['shower','basin','toilet'].includes(p.kind)?{id,action,piece:p.id,approach:p.kind==='shower'?{x:0,z:.08}:{x:0,z:p.d/2+(p.kind==='basin'?BASIN_USE.approach:.35)},heading:p.kind==='basin'?Math.PI:0}:p.kind==='kitchen'?{id,action,label:'厨房料理',piece:p.id,approach:{x:HOME_COOK.x,z:p.d/2+.35},heading:Math.PI}:p.kind==='bed'?{id,action,piece:p.id,approach:{x:p.w/2+.55,z:.8},bed:true}:p.kind==='chair'?{id,action,piece:p.id,approach:{x:-.85,z:0},seat:true}:{id,action,piece:p.id,approach:{x:p.w/2+.6,z:.25},seat:true,offset:{x:action==='read'?.6:-.6,z:.05}};
- const selected=Object.entries(defaults).flatMap(([action,id])=>{const candidates=furniture.filter(p=>usesFor(p).includes(action));const p=candidates.find(p=>p.id===room.uses[action])||candidates.find(p=>p.id===id)||candidates.find(p=>/^furniture-/.test(p.id))||candidates[0];return p?[anchor(p,action,action)]:[];});
+ const useAnchor=(p,action,id)=>{const hobby=HOME_HOBBIES[p.hobby];return hobby?{id,action,label:hobby.label,piece:p.id,approach:{...hobby.target},heading:hobby.heading,...(hobby.seat?{seat:true,hobbySeat:{...hobby.seat}}:{})}:anchor(p,action,id);};
+ const selected=Object.entries(defaults).flatMap(([action,id])=>{const candidates=furniture.filter(p=>usesFor(p).includes(action));const p=candidates.find(p=>p.id===room.uses[action])||candidates.find(p=>p.id===id)||candidates.find(p=>/^furniture-/.test(p.id))||candidates[0];return p?[useAnchor(p,action,action)]:[];});
  // Additional furniture's own approach must stay reachable even before choosing it.
  const labels={sleep:'床上休息',meal:'餐桌吃饭',tea:'沙发喝一杯',rest:'沙发休息',read:'沙发看书',cook:'厨房料理',shower:'浴室洗澡','wash-hands':'洗手台洗手',toilet:'使用厕所'};
- return [...selected,...furniture.filter(p=>/^furniture-/.test(p.id)).flatMap(p=>usesFor(p).map(action=>anchor(p,action,'use:'+p.id+':'+action)))].map(p=>({...p,label:labels[p.action]}));
+ return [...selected,...furniture.filter(p=>/^furniture-/.test(p.id)).flatMap(p=>usesFor(p).map(action=>useAnchor(p,action,'use:'+p.id+':'+action)))].map(p=>({...p,label:p.label||labels[p.action]}));
 }
+export const homeInventory=()=>({baseCount:BASE_HOME.length+BATH_HOME.length,limit:HOME_LIMIT,catalog:HOME_CATALOG.map(p=>({id:p.id,...(p.hobby?{hobby:p.hobby}:{})}))});
+export const optionalHomeSpots=()=>Object.entries(HOME_HOBBIES).map(([id,p])=>({id,label:p.label,action:id,gesture:'rest',optional:true,catalogId:p.catalogId}));

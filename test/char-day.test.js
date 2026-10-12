@@ -195,7 +195,7 @@ test('场景尚未同步角色时的首条到访消息可安全接收，不把�
 
 test('新场景从选人页独立试玩，生活示例与日程映射继续可用',()=>{
   const f=setup(),viewer=placeViewer(f,''),before=JSON.stringify(f.plans()),writes=f.writes.length;
-  let tree=viewer.render();viewer.click(tree,'新场景摆位试玩');tree=viewer.render();
+  let tree=viewer.render();viewer.click(tree,'逛逛所有场景');tree=viewer.render();
   const payload=viewer.send(tree);
   assert.equal(payload.charId,f.K.DEMO.id);assert.equal(payload.presentation.map,'dayLaboratory');
   assert.equal(payload.slot,null);assert.equal(payload.follow,false);assert.match(payload.key,/^place:/);
@@ -210,7 +210,7 @@ test('新场景从选人页独立试玩，生活示例与日程映射继续可�
 test('已有角色进入摆位保留真实样貌，返回恢复同角色原日程且不写档',()=>{
   const f=setup(),viewer=placeViewer(f,'c1'),before=JSON.stringify(f.plans()),writes=f.writes.length;
   let tree=viewer.render();const first=viewer.send(tree);assert.equal(first.slot.title,'核对军报');
-  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'摆位试玩');tree=viewer.render();const stage=viewer.send(tree);
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'逛逛所有场景');tree=viewer.render();const stage=viewer.send(tree);
   assert.equal(stage.charId,'c1');assert.deepEqual(stage.look,first.look);assert.equal(stage.slot,null);
   viewer.click(tree,'回到日程');const back=viewer.send(viewer.render());
   assert.equal(back.charId,'c1');assert.deepEqual(back.look,first.look);assert.deepEqual(back.presentation,first.presentation);
@@ -344,4 +344,11 @@ test('复合日程纸卡显示当前与下一步，原编辑writer只纠正所�
  at=Date.parse('2026-10-09T02:27:00Z');tree=v.render();let payload=v.send(tree);assert.equal(payload.presentation.map,'dayLibrary');assert.equal(payload.presentation.stageManual,true);assert.match(text(hook(tree,'cdayphase')),/接下来 · 在家做饭/);
  hook(tree,'cdaypositionopen').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionstage').props.value,1);hook(tree,'cdaypositionauto').props.onClick();tree=v.render();await hook(tree,'cdaypositionsave').props.onClick();tree=v.render();assert.equal(v.send(tree).presentation.map,'dayStreet');
  at=Date.parse('2026-10-09T02:35:00Z');tree=v.render();payload=v.send(tree);assert.equal(payload.presentation.map,'dayHome');assert.equal(payload.presentation.stageIndex,2);assert.equal(payload.presentation.manual,undefined);assert.match(text(hook(tree,'cdayphase')),/本段最后一步/);assert.equal(JSON.stringify(L.publicSchedules(f.plans())),original);
+});
+
+test('挑人页就是监视面板：此刻、做了多久、刚才和接下来一眼看完',()=>{
+  const f=setup(),viewer=placeViewer(f,'');const tree=viewer.render();
+  const card=viewer.all(tree).find(n=>n.tag==='button'&&n.props['data-wk']==='cdaypick');assert.ok(card,'有角色卡');
+  const txt=n=>n.children.map(c=>typeof c==='string'?c:c&&typeof c==='object'?txt(c):'').join('');const t=txt(card);
+  assert.match(t,/TA当地 \d\d:\d\d/);assert.match(t,/刚才 · |接下来 \d\d:\d\d · /);
 });

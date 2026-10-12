@@ -1,11 +1,11 @@
 import * as T from 'three';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-eab2c575de9efb2e';
-import './social.js?v=fg-eab2c575de9efb2e';
-import {pairProgress} from './motion-profile.mjs?v=fg-eab2c575de9efb2e';
-import {walkable,segmentClear} from '../world.mjs?v=fg-eab2c575de9efb2e';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-ab8076f3b07a3f6c';
+import './social.js?v=fg-ab8076f3b07a3f6c';
+import {pairProgress} from './motion-profile.mjs?v=fg-ab8076f3b07a3f6c';
+import {walkable,segmentClear} from '../world.mjs?v=fg-ab8076f3b07a3f6c';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-eab2c575de9efb2e';
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-ab8076f3b07a3f6c';
 export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
@@ -30,12 +30,13 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
   actor.root.position.x=next.x;actor.root.position.z=next.z;actor.root.updateWorldMatrix(true,true);return true;
  }
  // Feet stay on the real floor. A taller participant bends toward the shorter one.
- function meet(giver,receiver,gp,rp,progress,seated){
+ function meet(giver,receiver,gp,rp,progress,seated,anchor=null){
   const from=headPoint(giver,gp),to=headPoint(receiver,rp),delta=to.clone().sub(from);
   if(seated)return from.distanceTo(to);
   const amount=smooth(progress),dx=delta.x*amount,dz=delta.z*amount;
   if(Math.hypot(dx,dz)>.75)return null;
-  if(!safeMove(giver,dx/2,dz/2,receiver)||!safeMove(receiver,-dx/2,-dz/2,giver))return null;
+  const share=anchor===giver?0:anchor===receiver?1:.5;
+  if(!safeMove(giver,dx*share,dz*share,receiver)||!safeMove(receiver,-dx*(1-share),-dz*(1-share),giver))return null;
   return headPoint(giver,gp).distanceTo(headPoint(receiver,rp));
  }
  function tick(s){
@@ -47,6 +48,8 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
   if(['kiss','kiss-cheek','kiss-forehead','forehead'].includes(s.kind)){
    const gp=s.kind==='forehead'?[0,.48,.9]:[0,-.42,.93],rp=s.kind==='kiss-forehead'?[0,.50,.91]:s.kind==='kiss-cheek'?[.75,-.18,.67]:s.kind==='forehead'?[0,.48,.9]:[0,-.42,.93];
    const from=s.plan[initiator],to=s.plan[other],center=new T.Vector3((from.x+to.x)/2,0,(from.z+to.z)/2),direction=new T.Vector3(to.x-from.x,0,to.z-from.z).normalize(),spacing=faceSpacing(g,r),goals={giver:center.clone().addScaledVector(direction,-spacing/2),receiver:center.clone().addScaledVector(direction,spacing/2)};
+   if(s.plan.anchor===initiator){goals.giver.set(from.x,0,from.z);goals.receiver.copy(goals.giver).addScaledVector(direction,spacing);}
+   else if(s.plan.anchor===other){goals.receiver.set(to.x,0,to.z);goals.giver.copy(goals.receiver).addScaledVector(direction,-spacing);}
    const fit=facePose(g,r,gp,rp,goals,s.faceFit);let distance;
    if(fit.ok){
     s.faceFit=fit;const amount=smooth(p)*p,poseProgress=smooth(Math.min(1,p*1.4)),move=(actor,origin,target,partner)=>{const next=new T.Vector3(origin.x,0,origin.z).lerp(target,amount);return safeMove(actor,next.x-actor.root.position.x,next.z-actor.root.position.z,partner,spacing*.65);};
@@ -64,7 +67,7 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
     posture(actor,{tilt:high*.32*progress,nod:high*.65*progress});
    };
    const gy=headPoint(g,gp).y,ry=headPoint(r,rp).y;if(gy>ry+.01)bendTo(g,gp,ry,pg);else if(ry>gy+.01)bendTo(r,rp,gy,pr);
-   distance=meet(g,r,gp,rp,p,!!s.plan.seats);if(distance==null)return {ok:false,reason:'这个角度没有能站稳的位置，换一处空地再靠近。'};
+   distance=meet(g,r,gp,rp,p,!!s.plan.seats,actors[s.plan.anchor]);if(distance==null)return {ok:false,reason:'这个角度没有能站稳的位置，换一处空地再靠近。'};
    diagnostics.headDistance=distance;diagnostics.points={giver:headPoint(g,gp).toArray(),receiver:headPoint(r,rp).toArray()};
    }
    diagnostics.bodyDistance=Math.hypot(g.root.position.x-r.root.position.x,g.root.position.z-r.root.position.z);diagnostics.closeFit=fit.ok;

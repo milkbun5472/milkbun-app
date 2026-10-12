@@ -1,5 +1,5 @@
-import {CHORES} from './chores.mjs?v=fg-eab2c575de9efb2e';
-import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-eab2c575de9efb2e';
+import {CHORES} from './chores.mjs?v=fg-ab8076f3b07a3f6c';
+import {OCCUPATION_RECIPES,OCCUPATION_CONFIG} from './occupation-workflow.mjs?v=fg-ab8076f3b07a3f6c';
 // One set of activity groups for all scenes. Beats project the original slot;
 // anchors come from the live map, so stored or moved furniture is respected.
 const FARM='dayFarm',FLEA='dayFleaMarket';
@@ -45,6 +45,7 @@ const DAILY_GROUPS={
  dayCafe:{read:DAILY_READ,meal:DAILY_MEAL,tea:DAILY_TEA,rest:DAILY_REST},
  dayStreet:{walk:[['walk',4],['rest',1.5,'break']],rest:[['rest',4],['rest',1,'break',{standing:true,stroll:true}]]}
 };
+for(const kind of Object.keys(globalThis.CharDayHomeHobbies.activities))DAILY_GROUPS.dayHome[kind]=[[kind,['weights','stretch'].includes(kind)?5:10],['tea',1],[kind,1,'break',{standing:true}]];
 const GROUP_LABELS={read:'阅读与整理',work:'工作与整理',practice:'练习与调整',exercise:'训练与放松',shop:'挑选与整理',wait:'候车与走动',rest:'休息与活动',walk:'散步与歇脚',meal:'用餐与稍歇',tea:'喝茶与稍歇',cook:'料理与等候',shower:'洗澡与休息',toilet:'如厕与洗手','wash-hands':'洗手与稍歇'};
 export function activityConfig(map){return CONFIG[map]||null;}
 export function activityGroup(p,space){

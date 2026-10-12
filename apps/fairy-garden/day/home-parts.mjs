@@ -8,6 +8,11 @@ const leaves=part('leaves','枝叶',/Leaf|Leaves|Stem|Succulent/);
 const flowers=part('flowers','花朵',/Petal|DriedSeed/);
 const base=part('base','底座',/Pedestal|Base|Stand|Foot/);
 const kinds={
+ piano:[part('whiteKeys','白键',/WhiteKey/),part('blackKeys','黑键',/BlackKey/),part('score','乐谱与谱架',/Score/),part('stool','琴凳坐垫',/StoolSeat/),part('stoolFeet','琴凳脚',/StoolFoot/),part('pedals','踏板',/Pedal/),part('panel','琴身面板',/FrontPanel/)],
+ guitar:[part('body','琴身',/GuitarBody/),part('neck','琴颈与琴头',/Neck|Head/),part('strings','琴弦',/String/),part('score','乐谱架',/Score/),part('stand','吉他支架',/Stand/)],
+ easel:[part('canvas','画布',/CanvasPaper/),part('strokes','画布上的颜色',/BrushStroke/),part('frame','画框',/CanvasFrame/),part('tray','托盘与颜料杯',/Tray|PaintCup/)],
+ weights:[part('weights','哑铃片',/WeightDisc/),part('bars','哑铃握杆',/WeightBar/),part('rack','置物架',/Rack/)],
+ mat:[part('surface','软垫',/ExerciseMat/),part('border','边线',/MatBorder/),part('grip','防滑纹',/MatGrip/)],
  shower:[part('tray','淋浴底盘',/Tray|Floor/),part('tile','瓷砖背板',/Tile/),part('glass','侧面玻璃',/Glass/),part('tap','花洒与龙头',/Pipe|Head|Mixer/),part('curtain','浴帘',/Curtain/),part('soap','洗浴用品',/Soap/)],
  basin:[part('body','柜身',/Cabinet/),part('doors','柜门',/Door/),part('hardware','把手与挂杆',/Handle|Rail/),part('bowl','洗手盆',/Rim|Bowl/),part('tap','水龙头',/Tap/),part('mirrorFrame','镜框',/MirrorFrame/),part('mirror','镜面',/MirrorGlass|MirrorGlint/),part('towels','毛巾',/Towel/),part('soap','洗手液',/Soap/)],
  toilet:[part('ceramic','陶瓷主体',/Pedestal|Bowl|Tank|Lid/),part('seat','坐圈',/Seat/),part('water','水面',/Water/),part('flush','冲水按钮',/Flush/),part('paper','卷纸与纸架',/Roll|Paper/)],

@@ -197,7 +197,7 @@ test("界面三处都接上了", () => {
 
 test("提醒改走统一入口，旧的 daysUntil 拆干净", () => {
   assert.match(app, /const cdu = daysUntilBirthday\(char && char\.birthday, today\)/);
-  assert.match(app, /const du = daysUntilBirthday\(profile && profile\.birthday, today\)/);
+  assert.match(app, /const du = daysUntilBirthday\(myBdayFor\(char\.id\), today\)/); // 她的生日按每个角色认的那一份
   assert.ok(!/const daysUntil = bd =>/.test(app), "旧的只认公历，不许留着");
   assert.match(engine, /提醒、年龄、两历对照全走这一个入口/, "为什么合成一个，写在代码里");
 });

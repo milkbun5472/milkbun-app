@@ -54,7 +54,7 @@ test("补完要把滚动位置顶回原处", () => {
 test("她正在往上翻的时候，来了新消息也别把她甩回最新的", () => {
   [["单聊", ONE], ["群聊", GRP]].forEach(([zh, seg]) => {
     const i = seg.indexOf("if (growing()) return;");
-    const j = seg.indexOf('el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });');
+    const j = seg.indexOf("return pinToBottom(el, 900);");   // 发完/来新消息：钉住一小会儿（v75.473 起，不再是一枪平滑滚）
     assert.ok(i > 0 && i < j, zh + "：滚到底那一下没躲开「正在往上翻」");
   });
   assert.match(HOOK, /growing: \(\) => !!growRef\.current/);
