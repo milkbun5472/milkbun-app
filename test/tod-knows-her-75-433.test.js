@@ -18,3 +18,10 @@ test("一屋子熟人：关系网（x_rels）里连着的带进人设，铁律�
   assert.match(src, /只认人设里白纸黑字写明的和【关系网里连着的】那一行/);
   assert.match(src, /ties: p\.ties \|\| ""/);
 });
+test("近况也带开了记忆互通的群（主要在群里处的角色）", () => {
+  const app = fs.readFileSync(require("path").join(__dirname, "../js/app.js"), "utf8");
+  const i = app.indexOf("recentChatFor: (charId) => {"), body = app.slice(i, i + 1200);
+  assert.ok(i > 0);
+  assert.match(body, /gsFor\(g\.id\)\.memoryInterop && \(g\.memberIds \|\| \[\]\)\.includes\(charId\)/);
+  assert.match(body, /sort\(\(a, b\) => a\.ts - b\.ts\)\.slice\(-16\)/);
+});
