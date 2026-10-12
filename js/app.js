@@ -8626,8 +8626,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 冷却和线上共用一份 photoCooldownState（它认 role 是 char 还是 assistant）。
       const _offPhotoCool = photoCooldownState(workSess.msgs || [], null);
       const _offPhotoOn = offlinePhotoCan(char) && !_offPhotoCool.cooling;
+      // 一起听：她正跟这个人一起听，线下这一拍TA也能切歌（跟线上同一个 taSwitchSong）。
+      //   小房间那道闸跟线上一样走 otherScenes；群线下不给（一次替一屋子人说话，谁切歌说不清）。
+      const _offListenL = listenRef.current || {};
+      const _offListenOn = _offListenL.partnerId === charId && (!sideRoom || !window.ChatRooms || window.ChatRooms.canRead(sideRoom, "otherScenes"));
+      const _offListenSongs = _offListenOn ? (_offListenL.songs || []).concat((_offListenL.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])).map(x => x && x.title).filter(Boolean).filter((t, i, arr) => arr.indexOf(t) === i).slice(0, 30) : [];
       if (typeof vclockUse === "function") vclockUse(charId);
-      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe() ? ((povFor(char) || {}).tier || true) : false, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
+      const res = await generateOffline(offlineApiFor(charId), oCtx, { ...workSess, signal: _abort.signal, msgs: _timelineMsgs, hasOnlineInterlude: _onlineInterlude.length > 0, imageDataUrls: offImageDataUrls, photoOn: _offPhotoOn, photoDuo: _offPhotoOn && offlinePhotoCanDuo(char), photoMe: _offPhotoOn && canShootMe() ? ((povFor(char) || {}).tier || true) : false, listenOn: _offListenOn, listenSongs: _offListenSongs, priorSummary: workSess.summary || "", narr: osNarr(charId), taste: workSess.taste || osTaste(charId), lengthMode: osFor(charId).lengthMode || "natural", maxTokens: osFor(charId).maxTokens, minWords: osFor(charId).minWords, toyOn: offToyOn, rerollAvoid: workSess.rerollAvoid || "" });
       if (_abort.signal.aborted) return;             // 她点叉断掉了：回来的这一拍不落地
       // 没写够时正文一律保留，但要如实说一声，别让她以为最低字数的设置没生效（v55.47）
       if (res && res.minimumLengthShortBecause) {
@@ -8697,6 +8702,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       // 这一拍真拍下了一张：不 await，让正文先落地，图自己在后面补进来。
       if (_offSeen && res.photoSeen) applyPhotoSeen(charId, _offSeen, res.photoSeen, _offSeenAvatarOk,
         (same, note) => pOffline(scopeKey, list => list.map(x => ({ ...x, msgs: (x.msgs || []).map(m => same(m) ? { ...m, seenNote: note } : m) }))));
+      if (res.songSwitch) taSwitchSong(res.songSwitch);
       if (res.photo && res.photo.scene) runOfflineShot({ char, scopeKey, kind: res.photo.kind, scene: res.photo.scene });
       // 线下相处也影响好感与心情（跟私聊一样）
       if (!sideRoom) bumpAff(charId, res.affinityDelta);   // 读成数这一步收在 affDelta 一处
@@ -13389,21 +13395,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (latest) pMom(p => p.map(m => m.id === latest.id ? { ...m, likers: [...new Set([...(m.likers || []), momentWho(char.name)])], comments: [...(m.comments || []), { author: momentWho(char.name), text: String(parsed.momentComment) }] } : m));
       }
       // TA 在聊天里切歌/点歌（一起听联动）→ 真的换全局播放器的歌
-      if (parsed.songSwitch && String(parsed.songSwitch).toLowerCase() !== "null") {
-        const want = String(parsed.songSwitch).trim();
-        if (/下一首|下首|next/i.test(want)) stepSong(1);
-        else if (/上一首|上首|prev/i.test(want)) stepSong(-1);
-        else {
-          const _L = listenRef.current || {};
-          const lib = (_L.songs || []).concat((_L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])); // 搜主库+所有歌单
-          const hit = lib.find(s => s.title && (s.title === want || s.title.includes(want) || want.includes(s.title))) || null;
-          if (hit) playSong(hit.id);
-          else if (musicReady) { // 歌单里没有→去网易云搜来放（她 2026-07-13 想要的"TA自己搜歌"，做靠谱）
-            try { const s = await neteaseSearchOne(want, { throwOnError: true }); if (s) playSong(resultToSong(neteaseTrackInfo(s))); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
-          }
-          else toast("没找到《" + want + "》这首歌");
-        }
-      }
+      if (parsed.songSwitch && String(parsed.songSwitch).toLowerCase() !== "null") await taSwitchSong(parsed.songSwitch);
       // TA 主动邀请一起听 → 在聊天里发一张「一起听邀请」卡
       if (parsed.listenInvite && typeof parsed.listenInvite === "object" && (parsed.listenInvite.song || parsed.listenInvite.say)) {
         const inv = parsed.listenInvite;
@@ -25765,6 +25757,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 队列优先用 nowQueue（播放歌单/播放搜索结果时设的），否则全库；上一首/下一首在队列里循环。
   // 关键：切歌时把当前队列一起传给 playSong，否则播放歌单里点下一首会把队列缩成单曲。
+  // TA 说要放哪首 → 真的换全局播放器的歌。线上聊天和线下共用这一处（线下 v75.437 接上）。
+  const taSwitchSong = async songSwitch => {
+    const want = String(songSwitch).trim();
+    if (/下一首|下首|next/i.test(want)) stepSong(1);
+    else if (/上一首|上首|prev/i.test(want)) stepSong(-1);
+    else {
+      const _L = listenRef.current || {};
+      const lib = (_L.songs || []).concat((_L.playlists || []).reduce((a, pl) => a.concat(pl.songs || []), [])); // 搜主库+所有歌单
+      const hit = lib.find(s => s.title && (s.title === want || s.title.includes(want) || want.includes(s.title))) || null;
+      if (hit) playSong(hit.id);
+      else if (musicReady) { // 歌单里没有→去网易云搜来放（她 2026-07-13 想要的"TA自己搜歌"，做靠谱）
+        try { const s = await neteaseSearchOne(want, { throwOnError: true }); if (s) playSong(resultToSong(neteaseTrackInfo(s))); else toast("网易云也没搜到《" + want + "》"); } catch (e) { toast("搜歌失败：" + (e.message || "")); }
+      }
+      else toast("没找到《" + want + "》这首歌");
+    }
+  };
   const stepSong = dir => {
     const L = listenRef.current, all = L.songs || [];
     const currentId = playerSongIdRef.current || player.songId;
