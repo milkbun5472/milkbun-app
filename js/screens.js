@@ -8579,51 +8579,6 @@ function VoiceEarsConfig({ toast }) {
     }, testing ? "测试中…" : "🔬 测一下耳朵"),
     msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
-// 公共的语音识别接口（任意 OpenAI 兼容 /audio/transcriptions）。人人可填；上面那对书房耳朵是她自己的壳用的。
-function SttApiConfig({ toast }) {
-  const t = useTheme();
-  const [c, setC] = useState(loadSttApi());
-  const set = patch => setC(saveSttApi(patch));
-  const [testing, setTesting] = useState(false);
-  const [msg, setMsg] = useState(null);
-  const test = async () => {
-    if (testing) return;
-    setTesting(true); setMsg(null);
-    try {
-      const a = loadSttApi();
-      if (!a.base || !a.key) throw new Error("地址和 Key 都要填");
-      const n = 16000, b = new ArrayBuffer(44 + n), v = new DataView(b);
-      const w = (p, x) => { for (let i = 0; i < x.length; i++) v.setUint8(p + i, x.charCodeAt(i)); };
-      w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
-      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n, true);
-      await sttTranscribe(new Blob([b], { type: "audio/wav" }));
-      setMsg({ ok: true, text: "✅ 接口通了。浏览器识别不了时，通话开麦会自动用它" + (a.prefer ? "（已设为优先）" : "") + "。" });
-    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + "——检查地址（一般填到 /v1）、Key 和模型名。" }); }
-    setTesting(false);
-  };
-  const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
-    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
-    /*#__PURE__*/React.createElement("input", {
-      value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
-      className: "w-full outline-none px-3 py-2 rounded-xl",
-      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
-    }));
-  return /*#__PURE__*/React.createElement("div", { "data-wk": "sttapi" },
-    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
-      "通话开麦时把你说的话转成文字。平时用浏览器自带的识别；浏览器没有或识别不了时，用这里填的接口。OpenAI 兼容的语音转文字接口都能填，按次收费。留空＝只用浏览器自带的。"),
-    inp("接口地址（填到 /v1）", "base", "https://api.openai.com/v1"),
-    inp("API Key", "key", "sk-…"),
-    inp("模型", "model", "whisper-1"),
-    /*#__PURE__*/React.createElement("label", { "data-wk": "sttprefer", className: "flex items-center gap-2 mb-3", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } },
-      /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: !!c.prefer, onChange: e => set({ prefer: e.target.checked }) }),
-      "优先用这个（不先试浏览器自带的）"),
-    /*#__PURE__*/React.createElement("button", {
-      onClick: test, disabled: testing,
-      className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
-      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" }
-    }, testing ? "测试中…" : "🔬 测一下"),
-    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
-}
 // 自定义语音端点（一张嘴）：跟上面那对耳朵是对称件，同一台书房 Mac。
 // 她 2026-09-13 实测：iOS 把「高音质／增强」音色留给系统朗读和 Siri，不给网页，
 // 所以网页这头只剩 Tingting／Meijia 那两把基础音色。想要正常人的气口只能自己架一张嘴。
@@ -8665,14 +8620,15 @@ function VoiceMouthConfig({ toast }) {
       style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" } }, testing ? "试音中…" : "🔊 试一下嗓子"),
     msg && h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
-// 语音模型那一格（Fish、ElevenLabs 共用）：能自己打字，点一下也能挑现成的。
-//   原来是写死几个的下拉，人家出了新模型（群友 2026-10-12：「会加 S2.1 Pro 吗」）这边不发版就填不进去。
-function voiceModelInput(value, def, listId, opts, onSet, inSt) {
-  return h("div", null,
-    h("input", { value: value == null ? def : value, onChange: e => onSet(e.target.value.trim()), placeholder: def, list: listId, style: inSt }),
-    h("datalist", { id: listId }, opts.map(([v, note]) => h("option", { key: v, value: v }, note || v))));
-}
 function TtsApiConfig({ toast, characters, onAssignVoice }) {
+  // 语音模型那一格（Fish、ElevenLabs 共用）：能自己打字，点一下也能挑现成的。
+  //   ⚠️写在组件里面，别挪成顶层函数：公共版打包会把上面真声耳朵／电台嗓子那几格整段拿掉，
+  //   挨着它们的顶层函数会一起丢（2026-10-12 公共版设置页报 voiceModelInput is not defined）。
+  function voiceModelInput(value, def, listId, opts, onSet, inSt) {
+    return h("div", null,
+      h("input", { value: value == null ? def : value, onChange: e => onSet(e.target.value.trim()), placeholder: def, list: listId, style: inSt }),
+      h("datalist", { id: listId }, opts.map(([v, note]) => h("option", { key: v, value: v }, note || v))));
+  }
   const t = useTheme();
   const [c, setC] = useState(loadTtsApi());
   const set = patch => setC(saveTtsApi(patch));
@@ -8899,6 +8855,52 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       testErr ? h("div", { style: { marginTop: 12, padding: "12px 13px", background: "rgba(194,90,74,0.08)", border: "1px solid rgba(194,90,74,0.3)", borderRadius: 10 } },
         h("div", { style: { fontFamily: F_BODY, fontSize: 12, fontWeight: 700, color: "#c25a4a", marginBottom: 6 } }, "❌ 没出声。报错原文（可截图发我）："),
         h("div", { style: { fontFamily: "monospace", fontSize: 11, lineHeight: 1.6, color: t.ink, wordBreak: "break-all", userSelect: "text", WebkitUserSelect: "text", maxHeight: 160, overflowY: "auto" } }, testErr)) : null) : null);
+}
+// ⚠️别挪到真声耳朵／电台嗓子那几格中间：公共版打包会把那一段整个拿掉。
+// 公共的语音识别接口（任意 OpenAI 兼容 /audio/transcriptions）。人人可填；上面那对书房耳朵是她自己的壳用的。
+function SttApiConfig({ toast }) {
+  const t = useTheme();
+  const [c, setC] = useState(loadSttApi());
+  const set = patch => setC(saveSttApi(patch));
+  const [testing, setTesting] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const test = async () => {
+    if (testing) return;
+    setTesting(true); setMsg(null);
+    try {
+      const a = loadSttApi();
+      if (!a.base || !a.key) throw new Error("地址和 Key 都要填");
+      const n = 16000, b = new ArrayBuffer(44 + n), v = new DataView(b);
+      const w = (p, x) => { for (let i = 0; i < x.length; i++) v.setUint8(p + i, x.charCodeAt(i)); };
+      w(0, "RIFF"); v.setUint32(4, 36 + n, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+      v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, n, true);
+      await sttTranscribe(new Blob([b], { type: "audio/wav" }));
+      setMsg({ ok: true, text: "✅ 接口通了。浏览器识别不了时，通话开麦会自动用它" + (a.prefer ? "（已设为优先）" : "") + "。" });
+    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + "——检查地址（一般填到 /v1）、Key 和模型名。" }); }
+    setTesting(false);
+  };
+  const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, marginBottom: 4 } }, label),
+    /*#__PURE__*/React.createElement("input", {
+      value: c[key] || "", onChange: e => set({ [key]: e.target.value }), placeholder: ph,
+      className: "w-full outline-none px-3 py-2 rounded-xl",
+      style: { fontFamily: F_BODY, fontSize: 13.5, background: t.bg2, color: t.ink, border: "1px solid " + t.line, minWidth: 0, padding: "9px 12px", borderRadius: 10, outline: "none" }
+    }));
+  return /*#__PURE__*/React.createElement("div", { "data-wk": "sttapi" },
+    /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
+      "通话开麦时把你说的话转成文字。平时用浏览器自带的识别；浏览器没有或识别不了时，用这里填的接口。OpenAI 兼容的语音转文字接口都能填，按次收费。留空＝只用浏览器自带的。"),
+    inp("接口地址（填到 /v1）", "base", "https://api.openai.com/v1"),
+    inp("API Key", "key", "sk-…"),
+    inp("模型", "model", "whisper-1"),
+    /*#__PURE__*/React.createElement("label", { "data-wk": "sttprefer", className: "flex items-center gap-2 mb-3", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+      /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: !!c.prefer, onChange: e => set({ prefer: e.target.checked }) }),
+      "优先用这个（不先试浏览器自带的）"),
+    /*#__PURE__*/React.createElement("button", {
+      onClick: test, disabled: testing,
+      className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
+      style: { fontFamily: F_BODY, fontSize: 13, background: t.tint, color: "#fff" }
+    }, testing ? "测试中…" : "🔬 测一下"),
+    msg && /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: msg.ok ? "#4a9d6e" : "#c0504d", marginTop: 8, whiteSpace: "pre-wrap" } }, msg.text));
 }
 // 模型调用记录（她 2026-10-09）：读 engine.js 的 CallLog——那是所有模型调用的唯一出口记下来的。
 //   今日请求＝今天所有调用；回合＝她按一下换来的那一枪（聊天／线下／通话，不含兜底重发）。

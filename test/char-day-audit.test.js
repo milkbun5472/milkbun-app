@@ -15,3 +15,13 @@ test('空档不再定格：白天按钟点在家歇、看书、喝茶，夜里�
   assert.equal(L.idleLabel(120),'在家睡着');assert.equal(L.idleLabel(600),'在家歇着');
   assert.match(src,/\.\.\.\(slot \? \[\] : \[visual\.presentation\?\.spot\]\)/);
 });
+test('空档按人设挑事：写明的爱好更常做，否定说法不算',()=>{
+  const vm=require('node:vm'),ctx={console};ctx.window=ctx;ctx.root=ctx;vm.createContext(ctx);
+  vm.runInContext(fs.readFileSync('apps/fairy-garden/day/catalog.js','utf8'),ctx);vm.runInContext(fs.readFileSync('js/char-day-link.js','utf8'),ctx);
+  const L=ctx.CharDayLink;
+  assert.deepEqual([...L.idleLikes('平时最爱窝在沙发看书，偶尔下厨')],['read','cook']);
+  assert.deepEqual([...L.idleLikes('不爱看书，讨厌咖啡')],[]);
+  const t0=Date.parse('2026-10-09T00:00:00Z'),count=likes=>{let n=0;for(let h=0;h<240;h++)if(L.resolve(null,t0+h*3600000,{minute:600,seed:'c1',likes}).presentation.spot==='cook')n++;return n;};
+  assert.equal(count([]),0,'没写爱做饭就不去厨房');assert.ok(count(['cook'])>40,'写了爱做饭会常去厨房');
+  assert.match(src,/likes:root\.CharDayLink\.idleLikes\(char\?\.persona\)/);
+});

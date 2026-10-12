@@ -237,15 +237,31 @@
   // Picture only; nothing is written to the schedule and no model is asked.
   const IDLE_SPOTS = ["rest", "read", "tea", "read", "rest", "tea"];
   const idleNight = minute => Number.isFinite(minute) && (minute < 420 || minute >= 1380);
-  function idlePresentation(atTime, minute, seed = "") {
+  // Hobbies the persona states plainly make that pastime come up more often; a negated mention ("不爱看书") does not count.
+  const IDLE_LIKES = [
+    ["read", /看书|读书|阅读|书店|图书馆|小说|诗集|翻书/],
+    ["tea", /喝茶|泡茶|品茶|茶艺|咖啡|拿铁|手冲/],
+    ["cook", /做饭|下厨|烹饪|料理|烘焙|做菜|煲汤/],
+    ["rest", /发呆|宅家|宅在家|午睡|打游戏|玩游戏|刷手机|追剧|看剧|躺平/]
+  ];
+  function idleLikes(persona) {
+    const text = String(persona || "");
+    return IDLE_LIKES.filter(([, re]) => {
+      const g = new RegExp(re.source, "g"); let m;
+      while ((m = g.exec(text))) if (!/(不|讨厌|厌烦|没兴趣|不喜欢|不爱|很少)$/.test(text.slice(Math.max(0, m.index - 4), m.index))) return true;
+      return false;
+    }).map(([spot]) => spot);
+  }
+  function idlePresentation(atTime, minute, seed = "", likes = []) {
     if (idleNight(minute)) return at("dayHome", "sleep");
+    const pool = IDLE_SPOTS.concat(...(likes || []).filter(x => ["read", "tea", "cook", "rest"].includes(x)).map(x => [x, x, x]));
     let n = Math.floor(Number(atTime) / 3600000) >>> 0;
     for (const ch of String(seed)) n = (Math.imul(n, 31) + ch.charCodeAt(0)) >>> 0;
-    return at("dayHome", IDLE_SPOTS[n % IDLE_SPOTS.length]);
+    return at("dayHome", pool[n % pool.length]);
   }
   function idleLabel(minute) { return idleNight(minute) ? "在家睡着" : "在家歇着"; }
-  function resolve(slot, atTime = null, { preview = false, minute = null, seed = "" } = {}) {
-    if (!slot && atTime != null && Number.isFinite(Number(atTime))) return { presentation: idlePresentation(atTime, minute, seed), activitySlot: null, stages: [] };
+  function resolve(slot, atTime = null, { preview = false, minute = null, seed = "", likes = [] } = {}) {
+    if (!slot && atTime != null && Number.isFinite(Number(atTime))) return { presentation: idlePresentation(atTime, minute, seed, likes), activitySlot: null, stages: [] };
     const source = sourceFor(slot), stages = stagesFor(slot);
     const plain = () => ({ presentation: singlePresentation(slot), activitySlot: slot, stages: [] });
     if (!stages.length) return plain();
@@ -277,5 +293,5 @@
     for(const [pattern,map]of venues)if(pattern.test(text))return map==='dayCafe'?(occupationLink(words,place,source.type)?.map||map):map;
     return null;
   }
-  root.CharDayLink = { validate, validateStages, bindRow, editRow, editStage, stagesFor, publicRow, publicSchedules, instruction, schema, presentation, resolve, idleLabel };
+  root.CharDayLink = { validate, validateStages, bindRow, editRow, editStage, stagesFor, publicRow, publicSchedules, instruction, schema, presentation, resolve, idleLabel, idleLikes };
 })(globalThis);
