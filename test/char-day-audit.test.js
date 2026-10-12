@@ -25,4 +25,4 @@ test('空档按人设挑事：写明的爱好更常做，否定说法不算',()=
   assert.equal(count([]),0,'没写爱做饭就不去厨房');assert.ok(count(['cook'])>40,'写了爱做饭会常去厨房');
   assert.match(src,/likes:root\.CharDayLink\.idleLikes\(char\?\.persona\)/);
 });
-test('此刻卡默认收起，详情点开才显示刚才/接下来/细条/地点',()=>{assert.match(src,/const \[nowOpen, setNowOpen\] = useState\(false\);/);assert.match(src,/\(nowOpen\|\|showcase\|\|trip\) && !showcase && !trip && !!sceneNear && \(dayLine\(/);assert.match(src,/"aria-label":nowOpen\?"收起此刻详情":"展开此刻详情"/);assert.match(src,/maxHeight:nowOpen\?78:44,/);});
+test('此刻卡默认收起，详情点开才显示刚才/接下来/细条/地点',()=>{assert.match(src,/const \[nowMode, setNowMode\] = useState\("short"\), nowOpen = nowMode === "open";/);assert.match(src,/nowMode==="line"&&!showcase&&!trip \? h\("button",\{"aria-label":"展开此刻卡片"/);assert.match(src,/onClick:\(\)=>setNowMode\("line"\)/);assert.match(src,/flexDirection:"row",alignItems:"center",gap:3,whiteSpace:"nowrap"/);assert.match(src,/\(nowOpen\|\|showcase\|\|trip\) && !showcase && !trip && !!sceneNear && \(dayLine\(/);assert.match(src,/"aria-label":nowOpen\?"收起此刻详情":"展开此刻详情"/);assert.match(src,/maxHeight:nowOpen\?78:44,/);});

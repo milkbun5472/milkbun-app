@@ -1489,6 +1489,20 @@
         style: { minWidth: 40, minHeight: 40, background: "none", border: "none", fontFamily: F_BODY, fontSize: props.big ? 12 : 11.5, color: t.tint } }, "✕ 取消"));
   }
   // 一串气泡（整页和悬浮屏共用；只有尺寸不同）
+  // 第一次点开、或者清空之后：秋秋自己先说一句（她 2026-10-12：「新人点开就能看到」）。
+  //   画成她的一条气泡，不是灰字说明——新人认得出这是在跟谁说话。不进记录，清空后照样在。
+  function FirstNote(props) {
+    const t = useTheme(), sm = !!props.compact, av = sm ? 24 : 30, cfg = props.cfg;
+    const text = sm
+      ? "我是" + cfg.name + "。这一页怎么用、哪儿不对劲，问我。整本说明书在主屏名片右下角那颗「?」里，叫「攻略」。\n想改的我也能直接动手：装修、文风、角色档案。拖着顶上那条能把我挪开。"
+      : "我是" + cfg.name + "。\n这台手机的说明书在主屏名片右下角那颗「?」里，叫「攻略」：每个 app 怎么玩、碰上毛病怎么办，都写在那儿。\n"
+        + "懒得翻就直接问我，我读的就是那一本。哪一页是干嘛的、入口在哪、为什么没生效、现在有哪些角色和设置，问就是。\n"
+        + "我还能动手改：文风预设、角色人设和外貌、档案里别的栏、界面装修，也能往记忆库加条目。改之前先给你看改前改后，你点了「应用这条」才算数。\n"
+        + "（这个 App 是怎么造出来的那一类——代码、框架——我不答。）";
+    return h("div", { "data-wk": "qqmsg", "data-me": "0", "data-part": "first", style: { display: "flex", alignItems: "flex-start", gap: 7, marginBottom: sm ? 11 : 14, marginTop: sm ? 0 : 6 } },
+      h(QiuFace, { cfg: cfg, size: av, radius: 9 }),
+      h("div", { "data-wk": "qqbubble", "data-me": "0", style: { flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: sm ? 12 : 13, color: t.ink, lineHeight: 1.75, whiteSpace: "pre-wrap", wordBreak: "break-word" } }, text));
+  }
   function Bubbles(props) {
     const t = useTheme(), sm = !!props.compact, C = props.C, av = sm ? 24 : 30;
     return h(React.Fragment, null, C.msgs.map((m, i) => m.role === "me"
@@ -1710,8 +1724,7 @@
         h("span", { "aria-hidden": "true", style: { width: 6, height: 6, borderRadius: 999, background: C.busy ? t.tint : "#7fa87f", boxShadow: "0 0 6px " + (C.busy ? t.tint : "#7fa87f") } })),
       h("div", { "data-wk": "qqfeed", ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "14px 14px 20px" } },
         C.msgs.length === 0
-          ? h("div", { "data-wk": "qqempty", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog, lineHeight: 1.9, marginTop: 6 } },
-              "这个 App 整体是做什么的、某一页或一个概念是什么意思、不同玩法有什么区别，以及现在有哪些角色、文风和设置，都可以问我。找不到入口、哪儿不对劲或没生效，也一并问。\n我还能动手改五样：文风预设、角色人设、角色外貌、角色档案的其它栏、界面装修，也能往记忆库加条目。\n改之前一定先给你看改前改后，你点了「应用这条」才真的写进去。\n（我不答这个 App 是怎么造出来的——代码、框架那一类。）")
+          ? h("div", { "data-wk": "qqempty" }, h(FirstNote, { cfg: cfg }))
           : null,
         h(Bubbles, { C: C, ctx: props, profile: props.profile, cfg: cfg, toast: props.toast }),
         C.busy ? h(Thinking, { C, big: true }) : null,
@@ -1870,8 +1883,7 @@
       h("div", { "data-wk": "qqfeed", "data-part": "dock", ref: scroller, style: { flex: 1, minHeight: 0, overflowY: "auto", padding: "11px 12px 12px" } },
         C.msgs.length === 0
           ? h("div", null,
-              h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.85 } },
-                "这一页的东西怎么用，问我。哪儿不对劲也问。想改的话我直接动手：装修、文风、角色档案。\n拖着顶上那条能把我挪开。"),
+              h(FirstNote, { cfg: cfg, compact: true }),
               h("div", { style: { display: "flex", flexWrap: "wrap", gap: 6, marginTop: 12 } },
                 ["这一页是干嘛的", "这个 App 都能玩什么", "把这一页的字调大一点"].map(q =>
                   h("button", { "data-wk": "qqquick", "data-part": "dock", key: q, onClick: () => C.send(q), style: { padding: "6px 10px", borderRadius: 999, border: "1px dashed " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 11.5 } }, q))))

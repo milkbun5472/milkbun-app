@@ -240,7 +240,7 @@ test('整个TA一天卸载再挂载仍接到同角色进度，角色之间隔离
 
 test('更多归拢样貌装修场景，整页返回不改变人物或场景快照',()=>{
  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();const before=viewer.send(tree);
- const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)&&!/此刻详情$/.test(n.props['aria-label']||'')).length,0);
+ const scene=viewer.all(tree).find(n=>n.props['data-wk']==='cdayscene');assert.equal(viewer.all(scene).filter(n=>['button','select'].includes(n.tag)&&!/此刻详情$|^收成一条线$/.test(n.props['aria-label']||'')).length,0);
  viewer.click(tree,'更多');tree=viewer.render();const after=viewer.send(tree);assert.deepEqual(after,{...before,scenePaused:true});
  const panel=viewer.all(tree).find(n=>n.props['data-wk']==='cdaymore');assert.ok(panel);assert.equal(viewer.all(panel).filter(n=>n.props['data-wk']==='cdaymenubody').length,1);
  for(const key of ['cdaymeopen','cdayhomestyle','cdaydecorate','cdayplaces'])assert.ok(viewer.all(panel).find(n=>n.props['data-wk']===key));
@@ -351,4 +351,14 @@ test('挑人页就是监视面板：此刻、做了多久、刚才和接下来�
   const card=viewer.all(tree).find(n=>n.tag==='button'&&n.props['data-wk']==='cdaypick');assert.ok(card,'有角色卡');
   const txt=n=>n.children.map(c=>typeof c==='string'?c:c&&typeof c==='object'?txt(c):'').join('');const t=txt(card);
   assert.match(t,/TA当地 \d\d:\d\d/);assert.match(t,/刚才 · |接下来 \d\d:\d\d · /);
+});
+
+test('此刻卡能完全收成一条线，点线再回来',()=>{
+  const f=setup(),viewer=placeViewer(f,'c1');let tree=viewer.render();
+  const card=t=>viewer.all(t).find(n=>n.props['data-wk']==='cdaynow');
+  assert.ok(card(tree),'默认看得到卡片');
+  viewer.click(tree,'收成一条线');tree=viewer.render();
+  assert.equal(card(tree),undefined,'收起后卡片不挡画面');
+  viewer.click(tree,'展开此刻卡片');tree=viewer.render();
+  assert.ok(card(tree),'点细线卡片回来');
 });
