@@ -7994,7 +7994,7 @@ function Messages({
     h("div", { className: "flex-1 text-left min-w-0" },
       h("div", { className: "flex items-center gap-1.5" }, pinnedSet.has(g.id) && h(IPin, { size: 12, color: t.fog }), h("div", { "data-wk": "mlname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, g.name), h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "(" + (g.memberIds || []).length + ")")),
       h("div", { "data-wk": "mllast", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.fog }, className: "truncate" }, last ? (last.senderName ? last.senderName + "：" : "") + last.content : "群聊已创建")),
-    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, null))); };
+    last && h("span", { "data-wk": "mltime", style: { fontFamily: F_BODY, fontSize: 10, color: t.line } }, fmtStamp(last.ts, "g:" + g.id))); };
   // 外壳铺底、顶栏走公共 Head（mobile-ui-layout §1）：它现实里就是手机上那种
   // 聊天 app——地是灰的、格子是白的，顶上是一条紧凑标题栏，不是 24px 大字。
   return /*#__PURE__*/React.createElement("div", {
@@ -17599,7 +17599,7 @@ function GroupThread({
     //   判据搬去 js/chat-stamp.js 那一份公共的（施工规则/one-public-mechanism.md），
     //   群里那道 30 分钟的分寸照原样留着，只当参数传进去；跨天那一档两处一样。
     const gStamp = window.ChatStamp.decide(window.ChatStamp.prevTimed(messages, i), m, { minGap: 30 * 60 * 1000,
-      map: typeof vclockMap === "function" ? (ts => vclockMap(ts, null)) : undefined });   // 群照主面具那只钟
+      map: typeof vclockMap === "function" ? (ts => vclockMap(ts, group && group.id ? "g:" + group.id : null)) : undefined });   // 群照群挑的那张面具的钟
     const showGroupTime = gStamp.show;
     const groupTimeLabel = gStamp.text;
     return h("div", {
@@ -18192,6 +18192,11 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   // 建完群就再也改不了名（她 2026-08-28 找了一圈没找到）——「群名称」那个输入框
   // 一直只在 NewGroupSheet 里，设置页从来没有过。
   const [gName, setGName] = useState((group && group.name) || "");
+  // 我在这个群用哪张面具（她 2026-10-12）：一个群只戴一张脸。没挑过、又刚好全员都认同一张副面具，就默认那一张
+  const _gMaskOpts = typeof window.__momentMasks === "function" ? window.__momentMasks() : [];
+  const _gMk = id => typeof window.__maskKeyOf === "function" ? String(window.__maskKeyOf(id) || "") : "";
+  const _gAllSame = (() => { const ks = ((group && group.memberIds) || []).map(_gMk); return ks.length && ks.every(k => k && k === ks[0]) ? ks[0] : ""; })();
+  const [gMask, setGMask] = useState(gs.maskId != null ? String(gs.maskId || "") : _gAllSame);
   const [gAvatar, setGAvatar] = useState((group && group.avatarImage) || null);
   const bgFileRef = useRef(null);
   const [addOpen, setAddOpen] = useState(false);
@@ -18275,7 +18280,7 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
   //   跟单聊设置同一个形状：portal 出去铺满、紧凑顶栏、正文自己滚。
   return ReactDOM.createPortal(h("div", { "data-wk": "gsetpage", className: "h-full flex flex-col", style: { position: "fixed", inset: 0, zIndex: 240, background: t.bg } },
     h(Head, { bg: "transparent", zh: "群聊设置", sub: group && group.name ? group.name : undefined, onBack: onClose,
-      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
+      right: h("button", { onClick: () => { onSave({ actLong: gActLong, keepRerolls: gKeepRerolls, memoryInterop: interop, privateCtxN: privN, preJoinN: preJoinN, ctxN: ctxN, sumThresh: sumThresh, sumBuffer: sumBuffer, selfP: selfP, userP: userP, describeMe: describeMe, showMyAvatar: showMyAvatar, showTime: showTime, timeSec: timeSec, showRead: showRead, chatBg: chatBg, autoChat: autoChat, autoChatMin: autoChatMin, autoChatRounds: autoChatRounds, autoChatMaxMsg: autoChatMaxMsg, autoChatResetHours: autoChatResetHours, drama: gDrama, defaultOffline: gDefaultOffline, actDesc: gActDesc, actPerson: gActPerson, userPerson: gUserPerson, name: gName, avatarImage: gAvatar, maskId: gMask, layout: gLayout, customCSS: gCss }); onClose(); } }, h(ICheck, { size: 19, color: t.ink })) }),
     h("div", { className: "flex-1 min-h-0 overflow-y-auto px-5 pt-3", style: { paddingBottom: "calc(env(safe-area-inset-bottom) + 28px)" } },
 
     // ⚠️原来一整条从上滚到底，什么都挨着（她 2026-09-30：「看起来有点乱，分成一个个框」）——
@@ -18332,6 +18337,20 @@ function GroupSettingsSheet({ gs, group, characters, allChars, rels, msgCount, d
         className: "active:opacity-60",
         style: { flexShrink: 0, minHeight: 40, padding: "0 14px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 13, color: spec ? t.tint : t.sub }
       }, spec ? "回到群里" : "退出群聊"))),
+    _gMaskOpts.length > 1 ? gCard({ title: "我在这个群用哪张面具", char: "面", tint: "#4f6b78", state: ((_gMaskOpts.find(o => o.id === gMask) || _gMaskOpts[0]).name || "主面具") }, null,
+      h("div", { "data-wk": "gmaskpick", className: "pt-3" },
+        h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
+          "一个群只戴一张脸：群聊、群线下、群通话里你的名字、头像、人设和时间都照这一张。"),
+        h("div", { className: "flex flex-wrap", style: { gap: 6 } }, _gMaskOpts.map(o => {
+          const on = gMask === o.id;
+          return h("button", { key: o.id || "_main", "data-on": on ? "1" : "0", onClick: () => setGMask(o.id), className: "active:opacity-70",
+            style: { padding: "7px 13px", borderRadius: 999, fontFamily: F_BODY, fontSize: 12.5, background: on ? t.ink : "transparent", color: on ? t.bg2 : t.sub, border: "1px solid " + (on ? t.ink : t.line) } }, o.id ? o.name : "主面具");
+        })),
+        (() => {
+          const strangers = members.filter(c => c && _gMk(c.id) !== gMask).map(c => c.name);
+          return strangers.length ? h("div", { style: { fontFamily: F_BODY, fontSize: 11, color: "#9b5f6d", lineHeight: 1.6, marginTop: 10 } },
+            strangers.join("、") + " 认识的不是这张：在这个群里，他们会把你当成一个换了身份、不认识的人。") : null;
+        })())) : null,
     gCard({ title: "记忆互通 · 他们自己聊", char: "通", tint: "#687f73", state: "记忆互通 " + gOnOff(interop) + (interop ? " · 自己聊 " + gOnOff(autoChat) : "") }, "这个群跟单聊通不通气，以及你不在的时候他们要不要自己往下聊。",
     row("记忆互通", "开：群实时抽取每位成员跟你的单聊+长期记忆+记忆库，双向记得，带心声/实时好感。关：本群是封闭空间——长期记忆、记忆库、印象卡照样读得到，但群里发生的事一个字都不回流主线（只进不出）；你俩平时怎么说话，靠下面的『入群前上文』。", interop, setInterop),
     interop
@@ -19836,8 +19855,8 @@ function ChatSettings({
   show("know", { title: "TA 认识的是我哪一张", ...sec("me-mask") }, h("div", { className: "pt-3" },
     h("div", { style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7, marginBottom: 10 } },
       "默认认主面具。想让 " + cNm + " 只认识另一张，先去「信息 → 我 → 我的面具」建一张，再回来挑。\n"
-      + "⚠️只在一对一的地方生效（单聊、线下、通话、日记、查手机这些）；群里大家都在场，"
-      + "同一句话没法对着不同的人戴不同的脸，所以群聊一律用主面具。"),
+      + "⚠️这里只管一对一的地方（单聊、线下、通话、日记、查手机这些）；群里大家都在场，"
+      + "一个群只戴一张脸，在群设置的「我在这个群用哪张面具」里挑。"),
     h("div", { className: "flex flex-wrap", style: { gap: 6 } },
       [{ id: "", name: "主面具" }].concat((myMasks || []).map(m => ({ id: m.id, name: m.label || m.name || "未命名" })))
         .map(o => {

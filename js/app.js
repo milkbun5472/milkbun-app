@@ -6219,6 +6219,29 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const m = (masksRef.current || []).find(x => x && x.id === id);
     return m || profile;                            // 那张被删了也别炸：回主面具
   };
+  // 群也能挑一张面具（她 2026-10-12：「群里角色全部都是副面具下的，没办法选副面具」）。
+  //   一个群只戴一张脸（同一句话对着一屋子人），所以是【群】挑，不是每个成员各挑。
+  //   键跟 maskKeyOf 一个口径：主面具＝""。那张被删了就回主面具。
+  const groupMaskKey = gid => {
+    const raw = (gsFor(gid) || {}).maskId;
+    if (raw == null) {   // 没挑过：全员都认同一张副面具，就默认那一张（不然一群副面具的人对着主面具，反倒全成了陌生人）
+      const g = (groupsRef.current || groups || []).find(x => x && x.id === gid);
+      const ks = ((g && g.memberIds) || []).map(id => maskKeyOf(id));
+      return ks.length && ks.every(k => k && k === ks[0]) ? ks[0] : "";
+    }
+    const id = String(raw || "");
+    if (!id || id === maskPrimary) return "";
+    return (masksRef.current || []).some(x => x && x.id === id) ? id : "";
+  };
+  // 群里混着认别的面具的人：一句话告诉提示词谁认不出她（跟论坛按面具发帖同一句，forumMaskNote）
+  const groupMaskNote = gid => {
+    const g = (groupsRef.current || groups || []).find(x => x && x.id === gid);
+    return g ? forumMaskNote({ mask: groupMaskKey(gid) }, groupMembers(g), "群里一个不认识的新成员").replace(/^\n/, "") : "";
+  };
+  const groupProfileFor = gid => {
+    const k = groupMaskKey(gid);
+    return (k && (masksRef.current || []).find(x => x && x.id === k)) || profile;
+  };
   // 她的生日跟着面具走（她 2026-10-09：「面具写了就默认用那个面具的都知道」）：TA认的那张面具上填了生日，TA就知道
   const myBdayFor = charId => String(((profileFor(charId) || {}).birthday) || "").trim();
   // 生日零点那封信：TA本人亲笔，走跟TA说话同一条（专线 → 线上）；落成聊天里一张信封，点开读全文
@@ -9148,7 +9171,9 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     members: groupMembers(group),
     spectate: _spectate,
     spectatePair: _pair,
-    profile,
+    profile: groupProfileFor(group.id),
+    clockId: "g:" + group.id,
+    maskNote: groupMaskNote(group.id),
     rels,
     chars: characters,
     // A（v50.78）：群线下补上每个成员「长出来的自我」（心上毕业念想）——之前只单人线下/线上带，群线下漏了(Codex 抓到)。
@@ -9435,6 +9460,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) {/* 静默：不动 mark，下次重覆盖 */ }
   };
   const genGroupOfflineFrom = async (groupIn, workSess) => {
+    const profile = groupProfileFor(groupIn.id);   // 群里的「你」＝群挑的那张面具
     // 这一场只认在场的人：成员表直接收窄，后面所有人设、状态、发言名单都只剩他们
     const group = workSess && Array.isArray(workSess.present) && workSess.present.length
       ? { ...groupIn, memberIds: (groupIn.memberIds || []).filter(id => workSess.present.includes(id)) } : groupIn;
@@ -9559,6 +9585,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     }
   };
   const startGroupOffline = async (groupId, opts) => {
+    const profile = groupProfileFor(groupId);
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
     const opening = (opts.opening || "").trim();
@@ -9605,6 +9632,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // ⚠️三处（演绎/发送/发照片）只问这一份，各写各的迟早只改一处。
   const gOffUserRole = groupId => groupSpectating(groups.find(g => g.id === groupId)) ? "narration" : "user";
   const groupOfflineReply = async (groupId, extraText) => {
+    const profile = groupProfileFor(groupId);
     if (laneBusy("g:" + groupId)) return;
     const group = groups.find(g => g.id === groupId);
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
@@ -9665,6 +9693,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const groupOfflineDeleteNote = (groupId, noteId) => pGOffline(groupId, list => list.map(s => !s.endTs ? { ...s, customNotes: (s.customNotes || []).filter((n, i) => (n && n.id) ? n.id !== noteId : i !== noteId) } : s));
   // 群聊线下 OOC：跳出所有角色直接问模型；不进叙事上下文
   const groupOfflineOOC = async (groupId, text) => {
+    const profile = groupProfileFor(groupId);
     if (laneBusy("g:" + groupId) || !text || !text.trim()) return;
     const group = groups.find(g => g.id === groupId);
     const sess = (groupOfflinesRef.current[groupId] || []).find(s => !s.endTs);
@@ -10906,7 +10935,10 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // sneak：TA趁她不注意偷偷翻的（她 2026-10-02：开关决定谁可以偷偷翻，全部角色共用冷却）——
   //   不播、不留「递给」那条；动过的手脚当场就生效，聊天里留一张「你发现TA翻过你的手机」，她可以回放
   // 跟TA不是同一张面具聊的那些人（群一律走主面具）——allMasks 打开时（她自己选的）就不算
-  const maskKeyOf = id => { const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m; };
+  const maskKeyOf = id => {
+    if (String(id || "").indexOf("g:") === 0) return groupMaskKey(String(id).slice(2));   // 群的钟：照群挑的那张面具
+    const m = String((settingsFor(id) || {}).maskId || ""); return !m || m === maskPrimary ? "" : m;
+  };
   // 离开小手机时停住（群友 2026-10-11）：走的那一刻把每只开了 pauseAway 的钟定在当下（base＝那一刻、记 awayAt），
   //   回来时把 at 挪到现在——走开的那段一秒都不算。关掉网页也算走：下次打开时照 awayAt 接上。
   //   只在走、回两下各写一次 x_prefs，不开计时器、不另起存储键。
@@ -10952,23 +10984,24 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   // 发朋友圈那页挑面具用：主面具一张 + 其余几张（跟论坛挑面具同一份名单）；发出来的那条显示用哪张的名字和头像
   window.__momentMasks = () => [{ id: "", name: profile.name || "主面具", avatarImage: profile.avatarImage, color: profile.color }]
     .concat((masks || []).filter(m => m && m.id && m.id !== maskPrimary).map(m => ({ id: m.id, name: String(m.name || "").trim() || "没起名的面具", avatarImage: m.avatarImage, color: m.color })));
+  window.__maskKeyOf = id => maskKeyOf(id);   // 群设置里挑面具时，看哪些成员认的不是这张
   const forumKnows = (charId, x) => String((x && x.mask) || "") === maskKeyOf(charId);
   // 这个号在场谁认得出：一句话交给提示词（主面具发的、在场又都是主面具的，就不必说）
-  const forumMaskNote = (x, pool) => {
+  const forumMaskNote = (x, pool, asWho) => {
     const mk = String((x && x.mask) || ""), cs = (pool || []).filter(Boolean);
     const strangers = cs.filter(c => maskKeyOf(c.id) !== mk);
     if (!strangers.length) return "";
     const knowers = cs.filter(c => maskKeyOf(c.id) === mk);
     return "\n⚠️这个号背后的人，" + (knowers.length ? "只有" + knowers.map(c => "「" + c.name + "」").join("、") + "认得出是她；" : "在场的角色都不认识；")
-      + strangers.map(c => "「" + c.name + "」").join("、") + "认识的她用的是另一个身份，对他们来说这就是一个陌生网友，照陌生人来。";
+      + strangers.map(c => "「" + c.name + "」").join("、") + "认识的她用的是另一个身份，对他们来说这就是" + (asWho || "一个陌生网友") + "，照陌生人来。";
   };
   const peekMaskOthers = viewerId => {
     const mine = maskKeyOf(viewerId);
     const others = (characters || []).filter(x => x.id !== viewerId && maskKeyOf(x.id) !== mine).map(x => x.id);
-    // 群一律是主面具。TA认的不是主面具：群整个不在；TA认的是主面具，但群里有别的面具那几个人：这个群也整个不在
+    // 群各自挑一张面具（groupMaskKey）。群用的不是TA认的那张：群整个不在；是同一张、但群里有别的面具那几个人：也整个不在
     //   （她 2026-10-12：原来群名留着、里面只剩她自己说的话，TA看着一个人自言自语的群反倒要问）
     const otherSet = new Set(others.map(String));
-    return others.concat((groupsRef.current || []).filter(g => g && (mine || (g.memberIds || []).some(id => otherSet.has(String(id))))).map(g => g.id));
+    return others.concat((groupsRef.current || []).filter(g => g && (groupMaskKey(g.id) !== mine || (g.memberIds || []).some(id => otherSet.has(String(id))))).map(g => g.id));
   };
   // 录像播着的时候，钱包、购物、外卖这几屏也照「别的面具不在」来摆（她点开的是真 app，不滤的话屏幕上就露了）
   const peekMaskInfo = ids => { const set = new Set((ids || []).map(String)); return { ids: set, names: (characters || []).filter(x => set.has(String(x.id))).flatMap(x => [x.name, x.remark]).filter(Boolean) }; };
@@ -14179,7 +14212,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 让群成员基于当前全部记录回应一次（不新增我的输入）
   const replyGroup = async (groupId, rgOpts = {}) => {
-    if (typeof vclockUse === "function") vclockUse(null);   // 群里报时、时间戳都走主面具那只钟
+    if (typeof vclockUse === "function") vclockUse("g:" + groupId);   // 群里报时、时间戳走群挑的那张面具的钟（没挑＝主面具）
+    const profile = groupProfileFor(groupId);   // 群里的「你」＝群挑的那张面具
     // 群里自己聊（rgOpts.auto）是后台自己跑的：挂上群名
     if (rgOpts && rgOpts.auto && !rgOpts._bg && typeof bgJob === "function") return bgJob("groupChat", (groups || []).find(g => g.id === groupId), () => replyGroup(groupId, { ...rgOpts, _bg: true }));
     if (rgOpts.auto && groupCallActive(groupId)) return;
@@ -14275,7 +14309,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const _crossDay = _glast && new Date(_glast).toDateString() !== new Date().toDateString();
       const _gClockNames = members.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
       const gTimeHint = _gClockNames.length
-        ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse(null), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
+        ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse("g:" + groupId), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + _gClockNames.join("、") + "」开启了时间感知，可以据此理解现实日期、时段与间隔；其余成员不得根据这只钟调整自己的话。" + (_ggap > 3 * 3600000 ? "距群里上一轮对话已过去约 " + gapPhrase(_ggap) + (_crossDay ? "（已经是新的一天了）" : "") + "——上面聊的事已经翻篇，开启时间感知的成员从现在的状态接话，别把旧场景直接续演。" : "")
         : "";
       // 补充上文：每位成员入群前的私聊，作为「封闭空间」的 X 条前情提要——
       // 只在【未开记忆互通】时用；开了互通就实时抽单聊，这档自动让位、不叠加。
@@ -14359,7 +14393,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const gBiHint = (typeof bilingualRule === "function"
         ? members.filter(c => !c.npc && (settingsFor(c.id) || {}).bilingual).map(c => "\n\n" + bilingualRule(c.name) + "（只对 " + c.name + "，别的成员照常写。）").join("")
         : "");
-      const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
+      const relLines = members.map(c => directedRelationLines(c, rels, characters, profile)).join("\n") + (groupMaskNote(groupId) ? "\n" + groupMaskNote(groupId) : "");
       let interop = "";
       // ⭐封闭群改成【只进不出】（她 2026-08-24：「长出来的自我、记忆库这些要只进不出，
       // 封闭群不应该影响主要世界」）。以前 memoryInterop 一个开关同时管两个方向，
@@ -15256,6 +15290,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 群聊 OOC：跳出所有角色直接问模型；不进角色扮演上下文
   const oocGroup = async (groupId, text) => {
+    const profile = groupProfileFor(groupId);
     if (laneBusy("g:" + groupId) || !text || !text.trim()) return;
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
@@ -15443,6 +15478,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 角色陆续投票 + 可能的评论/cue（后台进行，不锁输入）
   const genPollVotes = async (groupId, target) => {
+    const profile = groupProfileFor(groupId);
     if (!active) { toast("先配置聊天 API，成员才能投票"); return; }
     const group = groups.find(g => g.id === groupId);
     if (!group) return;
@@ -19365,7 +19401,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
         if (ml) { try { setMoodFor(cid, { label: ml, ts: now }); } catch (e) {} }
       };
-      const uName = userName(profile);
+      const callMe = cur.groupId ? groupProfileFor(cur.groupId) : profile;   // 群通话：群挑的那张面具
+      const uName = userName(callMe);
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
       const callBiHint = callBilingualRule(people, settingsFor);
       const callLines = (text, char) => callBilingualLines(text, !!(settingsFor(char.id) || {}).bilingual && !(settingsFor(char.id) || {}).engineerEyes, splitSayLine, hanLangOf(char));
@@ -19495,7 +19532,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // ⚠️别再砍到 160 字：只剩一个标签的角色，空白由训练先验补上，那就是网文霸总
         //   （v55.87 群聊那次就是这么变的，那次还有 200 字）。按在场人数分预算，同群聊。
         const gCallCap = groupPersonaBudget(people.filter(c => !c.npc).length || 1);
-        const relLines = people.map(c => directedRelationLines(c, rels, characters, profile)).join("\n");
+        const relLines = people.map(c => directedRelationLines(c, rels, characters, callMe)).join("\n") + (cur.groupId && groupMaskNote(cur.groupId) ? "\n" + groupMaskNote(cur.groupId) : "");
         const cWorld = loreText(loreRef.current, { charIds: people.map(c => c.id), scope: "chat", text: hist.map(m => m.content).join("\n") });
         // 群通话补记忆：群 OOC 规矩 + 记忆库检索（不互通的群守封闭分区，不读全局记忆库）——之前群通话两样都没接
         const cgs = cur.groupId ? gsFor(cur.groupId) : null;
@@ -19533,14 +19570,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         // 送进去的 hist 只有【这通电话里说过的话】——群里刚发生的事一个字都看不到。
         // 她 2026-09-02：「明明已经回到家给我喝抹茶了，电话里还是说刚带了抹茶回来」——
         // TA五分钟前就在群里说过「到家了，抹茶放桌上」。
-        if (typeof vclockUse === "function") vclockUse(null);   // 群通话走主面具那只钟
+        if (typeof vclockUse === "function") vclockUse(cur.groupId ? "g:" + cur.groupId : null);   // 群通话走群挑的那张面具的钟
         const gcChat = cur.groupId ? groupContextRows(cur.groupId) : [];
         const gcRecent = gcChat
           .map(m => { const line = groupHistLine(m); return line && line.trim() ? "[" + fmtStampAI(m.ts) + "] " + line : ""; })
           .filter(Boolean).join("\n");
         const gcHistBlock = gcRecent ? "\n\n【这通电话之前，群里刚聊过这些】\n" + gcRecent + "\n⚠️这些【已经发生过了】，就在刚才。别当没发生、别把已经做完的事再说成正要去做。" : "";
         const gcClock = people.filter(c => !c.npc && timeAwareFor(c.id)).map(c => c.name);
-        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse(null), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
+        const gcTime = gcClock.length ? "\n\n【此刻时间】现在是 " + (typeof vclockLabel === "function" ? (vclockUse(cur.groupId ? "g:" + cur.groupId : null), vclockCfg() ? vclockLabel(Date.now()) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) : new Date().toLocaleString("zh-CN", { month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })) + "。只有「" + gcClock.join("、") + "」按这个钟说话，其余成员不谈时间。" : "";
         // 群通话是【第三处群路】，成长准则原来一个字都没有——群线上和群线下各有一份、
         // 电话里没有，于是同一个人在电话里退回原卡的旧倾向（v55.87「换个入口换个人」）。
         const gcGrowth = groupGrowthLine(gcMembers.filter(c => PERSONA_EVOLVE_IDS.includes(c.id)).map(c => c.name));
@@ -28636,8 +28673,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     messages: groupChats[activeGroup.id] || [],
     onStopGen: stopBtnFor("g:" + activeGroup.id),
     sending: sending,
-    profile: profile,
-    meName: profile.name || "我",
+    profile: groupProfileFor(activeGroup.id),
+    meName: groupProfileFor(activeGroup.id).name || profile.name || "我",
     myBalance: wallet,
     settings: { ...gsFor(activeGroup.id), autoChat: gsFor(activeGroup.id).autoChat !== false && autoRefreshOn("groupChat") },
     directives: directives[activeGroup.id] || [],
@@ -28660,7 +28697,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onForward: (msgs, destination) => {
       const sourceGroup = groups.find(g => g.id === activeGroup.id) || activeGroup;
       const items = msgs.map(m => ({
-        name: m.role === "user" ? (profile.name || "我") : (m.senderName || "群成员"),
+        name: m.role === "user" ? (groupProfileFor(activeGroup.id).name || profile.name || "我") : (m.senderName || "群成员"),
         text: m.content || (m.kind === "poll" ? "[投票] " + (m.title || "") : m.kind === "redpacket" ? "[红包] " + (m.message || "") : ""),
         ts: m.ts || null
       }));
@@ -28669,7 +28706,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (destination && destination.type === "group") {
         const g = groups.find(x => x.id === destination.id);
         if (!g) return;
-        pGChat(g.id, p => [...p, { ...msg, senderName: profile.name || "我" }]);
+        pGChat(g.id, p => [...p, { ...msg, senderName: groupProfileFor(g.id).name || profile.name || "我" }]);
         toast("已转发到 " + g.name);
       } else {
         const toChar = characters.find(c => c.id === (destination && destination.id));

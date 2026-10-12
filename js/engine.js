@@ -8562,7 +8562,7 @@ async function generateOfflineGroup(p, ctx, session) {
   // B（v50.79）：群线下里开启成长的成员，加一条只针对他们的成长准则（软层可长、硬核不动）；其余成员照旧贴合原卡。
   const evolveNames = (ctx.memberEvolve || []).map(id => { const c = members.find(x => x.id === id); return c ? c.name : null; }).filter(Boolean);
   const groupGrowthRule = groupGrowthLine(evolveNames);
-  const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n");
+  const relLines = members.map(c => directedRelationLines(c, ctx.rels, ctx.chars, ctx.profile)).join("\n") + (ctx.maskNote ? "\n" + ctx.maskNote : "");
   // 群 OOC 立的长期规矩：线上 replyGroup 有，线下也必须带着（否则一进线下角色就把规矩全忘了）
   const gDirs = (ctx.directives || []).map(d => (typeof d === "string" ? d : d && d.text) || "").filter(s => s.trim());
   const memLibText = Array.isArray(ctx.memLib) ? formatMemLib(ctx.memLib) : (ctx.memLib || "");
@@ -8570,7 +8570,7 @@ async function generateOfflineGroup(p, ctx, session) {
     const who = m.role === "user" ? userName : m.role === "narration" ? "旁白" : (m.senderName || "群成员");
     return who + "：" + String(m.content || "").replace(/\s+/g, " ").trim();
   }).filter(Boolean).join("\n");
-  vclockUse(null);   // 群线下走主面具那只钟
+  vclockUse(ctx.clockId != null ? ctx.clockId : null);   // 群线下走群挑的那张面具的钟（没挑＝主面具）
   const now = vclockNow();
   // 时间感知（跟随全局开关）：给出真实时间；在场角色若各设了时区，附上各自当地时刻
   let timeBlock = "";
@@ -9992,7 +9992,7 @@ function timeAgo(ts) {
 function fmtClock(d) {
   return d.getHours().toString().padStart(2, "0") + ":" + d.getMinutes().toString().padStart(2, "0");
 }
-// id（可选）：给了就按那个人认的那只虚拟时间钟显示（群传 null＝主面具）；不给就是现实时间，跟原来一样
+// id（可选）：给了就按那个人认的那只虚拟时间钟显示（群传 "g:"+群id＝群挑的那张面具）；不给就是现实时间，跟原来一样
 function fmtStamp(ts, id) {
   const vm = id !== undefined && typeof vclockMap === "function" ? (x => vclockMap(x, id)) : (x => x);
   const d = new Date(vm(ts));
@@ -10009,7 +10009,7 @@ function fmtStamp(ts, id) {
 //   戏里现在＝base＋(现实已过)×speed（0＝停住、1＝跟现实一样…）；era＝自创年号 { name, from }（from 那一年算元年）。
 //   ⚠️喂给模型的「现在几点」、历史上的〔今天14:32〕、记忆的「记于」、日记日程上的日子，都从这几个函数走——
 //   只换一处、另一处还是现实，TA 就对不上。日记、日程照现实的一天一回去生成，只是写出来、摆出来的日子换成这只钟的。
-//   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群聊一律主面具（同 momSeen）。
+//   不带角色 id 的（时间戳、记忆）读 active：拼哪个人的提示词之前先 vclockUse(那个人)。群传 "g:"+群id，照群挑的那张面具。
 function vclockState() { try { return typeof window !== "undefined" ? window.__vclock || null : null; } catch (e) { return null; } }
 function vclockUse(id) { const W = vclockState(); if (W) W.active = id == null ? null : String(id); }
 function vclockCfg(id) {
