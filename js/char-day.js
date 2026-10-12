@@ -204,7 +204,7 @@
     const openOutings=()=>{setOutingMode(trip?.mode||'solo');setOutingPicker(true);};
     const goOuting=map=>{if(!destinations.some(p=>p.id===map))return;setPreview(null);setShowcase('');setSpotId('');setBook(false);setOuting({map,mode:outingMode});setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setVisitStatus(null);setFollow(true);setCameraMode(outingMode==='solo'?'me':'both');};
     const returnToTA=()=>{setOuting(null);setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setBook(false);setPreview(null);setShowcase('');setSpotId('');setVisitStatus(null);setFollow(true);setCameraMode('ta');};
-    const visual = root.CharDayLink.resolve(slot, state?.at ?? now, {preview:!!preview||demo,minute:state?.minute,seed:String(char?.id||"")});
+    const visual = root.CharDayLink.resolve(slot, state?.at ?? now, {preview:!!preview||demo,minute:state?.minute,seed:String(char?.id||""),likes:root.CharDayLink.idleLikes(char?.persona)});
     const sceneNear = !demo && !preview && state ? aroundNow(state) : null;
     const stageIndex=!preview&&!demo&&activityStatus?.charId===String(char?.id)&&activityStatus.key===slot?.key&&Number.isInteger(activityStatus.stageIndex)&&visual.stages[activityStatus.stageIndex]?activityStatus.stageIndex:visual.presentation.stageIndex;
     const activeStage=visual.stages[stageIndex],manualPoint=activeStage?activeStage.override:visual.presentation.manual?{scene:visual.presentation.map,spot:visual.presentation.spot}:null;
