@@ -6939,7 +6939,7 @@ function splitBilingual(text, hanLang) {
 //   竖线那一行就落单了——原文那泡没有译文，竖线连着中文自己成了一泡，中文还被再拆成好几泡
 //   （她 2026-09-29 截图，群里江识那几条）。所以拆泡之前先把「竖线打头」的那一行接回上一行。
 //   上一行自己已经有竖线的不接：那是两条各自完整的双语，接上反而一条都劈不开。
-function joinBilingualLines(lines, hanLang) {
+function joinBilingualLines(lines, hanLang, opts) {
   const joined = (lines || []).reduce((acc, x) => {
     const line = String(x == null ? "" : x);
     const prev = acc.length ? acc[acc.length - 1] : null;
@@ -6952,6 +6952,7 @@ function joinBilingualLines(lines, hanLang) {
   //   紧跟的那行是中文、一个外文字母都没有，就认成这一句的中译，接成「原文 | 中译」。
   //   粤语这类用汉字写的话走下面那一段，不走这里。
   if (!hanLang) {
+    if (!(opts && opts.pairNext)) return joined;   // 双语开关没开：不替模型配中译
     const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/;
     const HAN = /[\u4e00-\u9fff]/;
     const out0 = [];
@@ -6988,20 +6989,6 @@ function joinBilingualLines(lines, hanLang) {
     else { pre.forEach(x => out.push(x)); out.push(origs[origs.length - 1] + " | " + zhs.join("")); }
   }
   return out;
-}
-// 双语开关没开时，只有【通篇一句外语跟一句中文】那种才认成模型自己带了中译：
-//   每一行外语后面都紧跟着一行中文、而且至少两对——中间夹着一句外语后面没跟中文的，就当TA本来就混着说，一行都不接。
-function looksAlternatingBilingual(lines) {
-  const L = (lines || []).map(x => String(x == null ? "" : x).trim()).filter(Boolean);
-  const FOREIGN = /[\u3040-\u30ff\uac00-\ud7af\u0400-\u04ffA-Za-z\u00c0-\u024f]/, HAN = /[\u4e00-\u9fff]/;
-  const isF = x => x.indexOf("|") < 0 && (/[\u3040-\u30ff]/.test(x) || (FOREIGN.test(x) && !HAN.test(x)));
-  const isZ = x => x.indexOf("|") < 0 && HAN.test(x) && !FOREIGN.test(x);
-  let pairs = 0;
-  for (let k = 0; k < L.length; k++) {
-    if (!isF(L[k])) continue;
-    if (k + 1 < L.length && isZ(L[k + 1])) { pairs++; k++; } else return false;
-  }
-  return pairs >= 2;
 }
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。

@@ -12919,10 +12919,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       // 中译另起一行的那种先接回去（群里同一个函数）
       // 双语开关没开、TA自己却每句都写成「原文 | 中文」的（她 2026-10-11：「他每一句不是已经自带翻译了吗，直接调成我们有翻译气泡的格式」）：
       //   竖线原样挂在气泡里很难看。劈得开（左边看得出是外语／粤语）就照双语那条路走，劈不开的普通竖线照旧不动。
-      // 说外语的人（档案里写了用什么话、又不是普通话）：哪怕双语开关没开，模型把中译另起一行写也照样接回去（她 2026-10-12 俄语截图）
-      const _foreignTalker = !_s.engineerEyes && !!String((char && char.lang) || "").trim() && !/^(中文|汉语|漢語|普通话|普通話|国语|國語|简体中文|简中)$/.test(String(char.lang).trim());
-      const _biParse = _bilingualOn || (_foreignTalker && typeof looksAlternatingBilingual === "function" && looksAlternatingBilingual(words.filter(w => typeof w === "string"))) || (!_s.engineerEyes && words.some(w => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && splitBilingual(w, hanLangOf(char))));
-      if (_biParse) words = joinBilingualLines(words, hanLangOf(char));
+      const _biParse = _bilingualOn || (!_s.engineerEyes && words.some(w => typeof w === "string" && !(typeof htmlCardOf === "function" && htmlCardOf(w)) && splitBilingual(w, hanLangOf(char))));
+      if (_biParse) words = joinBilingualLines(words, hanLangOf(char), { pairNext: _bilingualOn });   // 外语下一行的中文接回去：只在开着双语时（她 2026-10-12：没开就是不要这功能）
       words = words.reduce((acc, w) => {
         // 卡片原样过：双语那一刀按「|」劈，HTML 里正好有竖线
         if (typeof htmlCardOf === "function" && htmlCardOf(w)) return acc.concat([w]);
@@ -13228,9 +13226,10 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       };
       // 粤语这类角色开着双语，模型漏了竖线的那几泡自己补上中译（她 2026-10-11：「档案里用粤语的角色强制出翻译」）——
       //   先把这几泡一起丢给免费翻译，发到那一泡时最多等 2.5 秒；没翻成就照旧留一颗「译」，不去叫模型多花一次。
-      //   不止粤语（她 2026-10-12：「俄语为啥自动翻译没用上」）：开着双语、或者档案里写着说外语的，漏了中译的那几泡一样补；
+      //   不止粤语（她 2026-10-12：「俄语为啥自动翻译没用上」）：开着双语时，漏了中译的那几泡一样补；
+      //   ⚠️只认双语开关（她 2026-10-12：「不开翻译就是不想要这个功能」）——没开就一泡都不补、不合。
       //   粤语这类认字靠 hanLineLang，别的语言照「译」那颗按钮同一个判据（translatableLang）。
-      const _yueFill = _biParse && (_bilingualOn || _foreignTalker || hanLangOf(char)) && typeof translateToZh === "function"
+      const _yueFill = _bilingualOn && typeof translateToZh === "function"
         ? words.map(w => { const lg = !_biZh.get(bilingualKey(w)) && typeof w === "string" ? (hanLangOf(char) ? hanLineLang(w) : translatableLang(w)) : "";
             return lg ? translateToZh(w, lg, { noModel: true }).then(r => (r && r.zh) || "").catch(() => "") : null; })
         : [];
@@ -15030,7 +15029,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
             // 模型不打换行时 splitBubbles 等于没拆，所以再过一道和单聊同一个的长气泡兜底
             const gAllowComma = !isBody(spk.id);
             const gBiZh = new Map();
-            const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk))) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
+            const gLines = (gBiOn ? (ls => joinBilingualLines(ls, hanLangOf(spk), { pairNext: true })) : (x => x))(rawLines.map(x => x.trim()).filter(Boolean).map(stripAiStamp).map(stripEchoedMeta).filter(Boolean))
               .reduce((acc, x) => {
                 if (typeof htmlCardOf === "function" && htmlCardOf(x)) return acc.concat([x]);
                 const bi = gBiOn ? splitBilingual(x, hanLangOf(spk)) : null;
