@@ -8686,7 +8686,8 @@ function TtsApiConfig({ toast, characters, onAssignVoice }) {
       const url = URL.createObjectURL(blob);
       testUrlRef.current = url;
       aud.src = url; aud.onended = () => { URL.revokeObjectURL(url); if (testUrlRef.current === url) testUrlRef.current = null; };
-      await aud.play();
+      // 播放这一步也可能一声不吭地卡住（拿到的不是能放的声音、或者手机静音键开着）：8 秒没开始放就说出来，别让她干等
+      await Promise.race([aud.play(), new Promise((_, no) => setTimeout(() => no(new Error("接口回了一段音频（" + Math.round(blob.size / 1024) + " KB，" + (blob.type || "没写类型") + "），但手机放不出来。先看看静音键和音量；还不响的话，多半是这家回的不是 mp3，把这一句截图发我。")), 8000))]);
       toast && toast("✅ 接口通了，正在播放试听");
     } catch (e) { if (epoch === testEpoch.current) setTestErr(String((e && e.message) || e)); }
     finally { if (epoch === testEpoch.current) setTesting(false); }
