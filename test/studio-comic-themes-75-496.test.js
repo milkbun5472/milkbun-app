@@ -13,3 +13,10 @@ assert.match(app, /STUDIO_THEMES/);
 assert.match(scr, /"data-wk": "studiothemes"/);
 assert.match(scr, /"data-wk": "studiorestyle"/);
 console.log("ok studio-comic-themes");
+// 自定义题材（她 2026-10-12：「题材要可以自定义」）
+assert.match(app, /window\.__studioThemeSave = /);
+assert.match(app, /saveJSON\("x_studioThemes"/);
+assert.match(app, /const theme = opt && opt\.theme \? studioThemeOf\(opt\.theme\) : null;/);
+assert.match(scr, /"data-wk": "studiothemeadd"/);
+assert.match(scr, /"\+自己写"|"＋自己写"/);
+console.log("ok custom themes");
