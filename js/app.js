@@ -29904,7 +29904,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
     // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
     // 战报发给 TA（她 2026-10-11）：她发的一条小卡进聊天，content 留整段字——模型读历史读的是它；然后直接进那个聊天
-    sendGameReport: (charId, rep) => {
+    sendGameReport: (charId, rep, noOpen) => {
       if (!charId || !rep || !characters.some(c => c.id === charId)) return;
       const taWin = (rep.wins || []).indexOf(charId) >= 0;
       // 彩头：从 TA 这边看谁该兑现——TA 输了就是 TA 欠的；她输了、TA 赢了就是她欠 TA 的
@@ -29914,7 +29914,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       pChat(charId, p => [...p, { role: "user", kind: "gameshare", content: body, ts: Date.now(),
         game: { key: rep.key, zh: rep.zh, text: String(rep.text || "").slice(0, 300), meWin: rep.meWin == null ? null : !!rep.meWin, taWin: taWin,
           stake: rep.stake ? String(rep.stake).slice(0, 40) : "", owes: owes } }]);
-      openChatById(charId);
+      // 群发（她 2026-10-12：「战报可以群发」）：一口气发给好几个人时不跳进聊天
+      if (!noOpen) openChatById(charId);
     },
     keepGameMemory: (charIds, text, room) => {
       const ids = (charIds || []).filter(id => characters.some(c => c.id === id));
