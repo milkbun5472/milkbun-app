@@ -59,3 +59,11 @@ test("TA 的视角跟着场景走：模型照场景挑拍法；描述里写了�
   assert.match(engine, /typeof canMe === "number" \? "；照关系，拍法可以是：" \+ povSlotsFor\(canMe\)/);
   assert.match(app, /meTier: canShootMe\(\) \? \(povFor\(char\) \|\| \{\}\)\.tier : 0/);
 });
+
+// 她 2026-10-12：「线下他帮我拍的按钮在哪儿」
+test("线下照片那一格多一个「Ta 帮我拍」，要她自己有外貌或参考照", () => {
+  const comps = R("components.js");
+  assert.match(comps, /\["me", "Ta 帮我拍", !!canShootMe\]/);
+  assert.match(app, /canShootMe: canShootMe\(\),/);
+  assert.match(app, /if \(kind === "me"\) \{\n      if \(!\(typeof imgApiReady === "function" && imgApiReady\(\)\)\)/);
+});
