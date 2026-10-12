@@ -9,7 +9,7 @@
   const meal=s.pending?.kind==='meal'&&s.pending.id===mealId?s.pending:s.history.find(m=>m.id===mealId);
   if(!meal)return null;
   const dishes=Array.isArray(meal.courses)?meal.courses:(meal.dishIds||[meal.dishId]).map(id=>s.dishes.find(d=>d.id===id));
-  const courses=dishes.filter(d=>d&&recipe(d.recipeId)).slice(0,3).map(d=>({recipeId:d.recipeId,variation:d.variation&&typeof d.variation==='object'?{swaps:root.CharDayKitchen.variation(d.recipeId,d.variation).swaps,...Object.fromEntries(Object.keys(root.CharDayKitchen.TASTE).filter(k=>Object.hasOwn(root.CharDayKitchen.TASTE[k],d.variation[k])).map(k=>[k,d.variation[k]]))}:null,lead:['me','ta'].includes(d.lead)?d.lead:''}));
+  const courses=dishes.filter(d=>d&&recipe(d.recipeId)).slice(0,3).map(d=>({recipeId:d.recipeId,variation:d.variation&&typeof d.variation==='object'?{swaps:root.CharDayKitchen.variation(d.recipeId,d.variation).swaps,...(d.variation.addins?{addins:root.CharDayKitchen.variation(d.recipeId,d.variation).addins}:{}),...(typeof d.variation.name==='string'?{name:d.variation.name}:{}),...Object.fromEntries(Object.keys(root.CharDayKitchen.TASTE).filter(k=>Object.hasOwn(root.CharDayKitchen.TASTE[k],d.variation[k])).map(k=>[k,d.variation[k]]))}:null,lead:['me','ta'].includes(d.lead)?d.lead:''}));
   return courses.length?{charId:id,mealId,courses}:null;
  }
  function kitchenMealHint(meal){

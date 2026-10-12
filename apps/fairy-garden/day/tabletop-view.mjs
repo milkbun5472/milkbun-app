@@ -1,5 +1,5 @@
 import * as T from 'three';
-import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-cca8c982b2418e7a';
+import {makeIngredient,makeTabletopPlate} from './ingredient-visual.mjs?v=fg-a40be0a4c2688238';
 export function createTabletopView(parent,job){
  const K=globalThis.CharDayKitchen,Z=K.TABLE_ZONES,root=new T.Group();root.name='KitchenTabletop';parent.add(root);let itemRoot=new T.Group(),plateRoot=null,key='',targets=[],baseTargets=[],preview=null;
  root.add(itemRoot);
@@ -21,7 +21,7 @@ export function createTabletopView(parent,job){
    if(table.sauce.length>1||job.cooking.variation.garnish||job.cooking.variation.spice!=='none'){plateRoot=makeTabletopPlate({...table,items:[]},stage.method,job.cooking.variation);plateRoot.children[0].visible=false;plateRoot.position.set(Z.plate.x,Z.plate.y,Z.plate.z);root.add(plateRoot);}
   }
   const shown=drag?.tag?.type==='stir'||drag?.tag?.type==='pan'?K.tableEvent(table,{kind:'stir',path:drag.path},stage.method,stage.progress.elapsed):table;
-  for(const o of itemRoot.children){const p=shown.items.find(p=>p.id===o.userData.id);if(!p)continue;o.userData.tabletop.zone=p.zone;o.position.set(p.x,Z[p.zone].y+.015,p.z);o.traverse(m=>{if(m.material?.userData.tableBase)m.material.color.copy(m.material.userData.tableBase).lerp(new T.Color('#b99362'),stage.method==='mix'?0:(p.top+p.bottom)/2*.43);});if(p.zone==='pan'&&p.toss&&stage.progress.elapsed-p.toss<.65){const v=Math.max(0,stage.progress.elapsed-p.toss)/.65;o.position.y+=Math.sin(v*Math.PI)*.22;o.rotation.x=v*Math.PI*2;}else o.rotation.x=0;
+  for(const o of itemRoot.children){const p=shown.items.find(p=>p.id===o.userData.id);if(!p)continue;o.visible=drag?.hideId!==p.id;o.userData.tabletop.zone=p.zone;o.position.set(p.x,Z[p.zone].y+.015,p.z);o.traverse(m=>{if(m.material?.userData.tableBase)m.material.color.copy(m.material.userData.tableBase).lerp(new T.Color('#b99362'),stage.method==='mix'?0:(p.top+p.bottom)/2*.43);});if(p.zone==='pan'&&p.toss&&stage.progress.elapsed-p.toss<.65){const v=Math.max(0,stage.progress.elapsed-p.toss)/.65;o.position.y+=Math.sin(v*Math.PI)*.22;o.rotation.x=v*Math.PI*2;}else o.rotation.x=0;
    if(drag?.tag?.id===p.id&&drag.point)o.position.set(drag.point.x,(Z[drag.zone||p.zone]?.y||1.08)+.11,drag.point.z);
   }
   const ready=table.items.length&&table.items.every(p=>p.zone==='plate');plate.userData.tabletop.type=ready?'plate':'plate-base';

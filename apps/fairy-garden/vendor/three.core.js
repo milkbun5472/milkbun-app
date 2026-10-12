@@ -22135,7 +22135,7 @@ class CubeCamera extends Object3D {
  * loader.setPath( 'textures/cube/pisa/' );
  *
  * const textureCube = loader.load( [
- * 	'px.png?v=fg-cca8c982b2418e7a', 'nx.png?v=fg-cca8c982b2418e7a', 'py.png?v=fg-cca8c982b2418e7a', 'ny.png?v=fg-cca8c982b2418e7a', 'pz.png?v=fg-cca8c982b2418e7a', 'nz.png?v=fg-cca8c982b2418e7a'
+ * 	'px.png?v=fg-a40be0a4c2688238', 'nx.png?v=fg-a40be0a4c2688238', 'py.png?v=fg-a40be0a4c2688238', 'ny.png?v=fg-a40be0a4c2688238', 'pz.png?v=fg-a40be0a4c2688238', 'nz.png?v=fg-a40be0a4c2688238'
  * ] );
  *
  * const material = new THREE.MeshBasicMaterial( { color: 0xffffff, envMap: textureCube } );
@@ -24009,7 +24009,7 @@ class InterleavedBufferAttribute {
  * A material for rendering instances of {@link Sprite}.
  *
  * ```js
- * const map = new THREE.TextureLoader().load( 'textures/sprite.png?v=fg-cca8c982b2418e7a' );
+ * const map = new THREE.TextureLoader().load( 'textures/sprite.png?v=fg-a40be0a4c2688238' );
  * const material = new THREE.SpriteMaterial( { map: map, color: 0xffffff } );
  *
  * const sprite = new THREE.Sprite( material );
@@ -24163,7 +24163,7 @@ const _uvC = /*@__PURE__*/ new Vector2();
  * have no effect.
  *
  * ```js
- * const map = new THREE.TextureLoader().load( 'sprite.png?v=fg-cca8c982b2418e7a' );
+ * const map = new THREE.TextureLoader().load( 'sprite.png?v=fg-a40be0a4c2688238' );
  * const material = new THREE.SpriteMaterial( { map: map } );
  *
  * const sprite = new THREE.Sprite( material );
@@ -43559,7 +43559,7 @@ class LoadingManager {
 		 * .ZIP files, drag-and-drop APIs, and Data URIs.
 		 *
 		 * ```js
-		 * const blobs = {'fish.gltf': blob1, 'diffuse.png?v=fg-cca8c982b2418e7a': blob2, 'normal.png?v=fg-cca8c982b2418e7a': blob3};
+		 * const blobs = {'fish.gltf': blob1, 'diffuse.png?v=fg-a40be0a4c2688238': blob2, 'normal.png?v=fg-a40be0a4c2688238': blob3};
 		 *
 		 * const manager = new THREE.LoadingManager();
 		 *
@@ -44272,7 +44272,7 @@ class FileLoader extends Loader {
  *
  * ```js
  * const loader = new THREE.AnimationLoader();
- * const animations = await loader.loadAsync( 'animations/animation.js?v=fg-cca8c982b2418e7a' );
+ * const animations = await loader.loadAsync( 'animations/animation.js?v=fg-a40be0a4c2688238' );
  * ```
  *
  * @augments Loader
@@ -44512,7 +44512,7 @@ const _loading = new WeakMap();
  *
  * ```js
  * const loader = new THREE.ImageLoader();
- * const image = await loader.loadAsync( 'image.png?v=fg-cca8c982b2418e7a' );
+ * const image = await loader.loadAsync( 'image.png?v=fg-a40be0a4c2688238' );
  * ```
  * Please note that `ImageLoader` has dropped support for progress
  * events in `r84`. For an `ImageLoader` that supports progress events, see
@@ -44686,7 +44686,7 @@ class ImageLoader extends Loader {
  * ```js
  * const loader = new THREE.CubeTextureLoader().setPath( 'textures/cubeMaps/' );
  * const cubeTexture = await loader.loadAsync( [
- * 	'px.png?v=fg-cca8c982b2418e7a', 'nx.png?v=fg-cca8c982b2418e7a', 'py.png?v=fg-cca8c982b2418e7a', 'ny.png?v=fg-cca8c982b2418e7a', 'pz.png?v=fg-cca8c982b2418e7a', 'nz.png?v=fg-cca8c982b2418e7a'
+ * 	'px.png?v=fg-a40be0a4c2688238', 'nx.png?v=fg-a40be0a4c2688238', 'py.png?v=fg-a40be0a4c2688238', 'ny.png?v=fg-a40be0a4c2688238', 'pz.png?v=fg-a40be0a4c2688238', 'nz.png?v=fg-a40be0a4c2688238'
  * ] );
  * scene.background = cubeTexture;
  * ```
@@ -46867,7 +46867,7 @@ class LightProbe extends Light {
  *
  * ```js
  * const loader = new THREE.MaterialLoader();
- * const material = await loader.loadAsync( 'material.json?v=fg-cca8c982b2418e7a' );
+ * const material = await loader.loadAsync( 'material.json?v=fg-a40be0a4c2688238' );
  * ```
  * This loader does not support node materials. Use {@link NodeMaterialLoader} instead.
  *
@@ -47389,7 +47389,7 @@ class InstancedBufferGeometry extends BufferGeometry {
  *
  * ```js
  * const loader = new THREE.BufferGeometryLoader();
- * const geometry = await loader.loadAsync( 'models/json/pressure.json?v=fg-cca8c982b2418e7a' );
+ * const geometry = await loader.loadAsync( 'models/json/pressure.json?v=fg-a40be0a4c2688238' );
  *
  * const material = new THREE.MeshBasicMaterial( { color: 0xF5F5F5 } );
  * const object = new THREE.Mesh( geometry, material );
@@ -47619,7 +47619,7 @@ class BufferGeometryLoader extends Loader {
  *
  * ```js
  * const loader = new THREE.ObjectLoader();
- * const obj = await loader.loadAsync( 'models/json/example.json?v=fg-cca8c982b2418e7a' );
+ * const obj = await loader.loadAsync( 'models/json/example.json?v=fg-a40be0a4c2688238' );
  * scene.add( obj );
  *
  * // Alternatively, to parse a previously loaded JSON structure
@@ -48828,7 +48828,7 @@ const _errorMap = new WeakMap();
  * ```js
  * const loader = new THREE.ImageBitmapLoader();
  * loader.setOptions( { imageOrientation: 'flipY' } ); // set options if needed
- * const imageBitmap = await loader.loadAsync( 'image.png?v=fg-cca8c982b2418e7a' );
+ * const imageBitmap = await loader.loadAsync( 'image.png?v=fg-a40be0a4c2688238' );
  *
  * const texture = new THREE.Texture( imageBitmap );
  * texture.needsUpdate = true;

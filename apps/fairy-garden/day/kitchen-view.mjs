@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {makeIngredient} from './ingredient-visual.mjs?v=fg-cca8c982b2418e7a';
-import {createTabletopView} from './tabletop-view.mjs?v=fg-cca8c982b2418e7a';
-import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-cca8c982b2418e7a';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-cca8c982b2418e7a';
+import {makeIngredient} from './ingredient-visual.mjs?v=fg-a40be0a4c2688238';
+import {createTabletopView} from './tabletop-view.mjs?v=fg-a40be0a4c2688238';
+import {HOME_COOK,HOME_PREP,furniturePoint} from './home-catalog.mjs?v=fg-a40be0a4c2688238';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-a40be0a4c2688238';
 export function createKitchenView({actors=()=>[]}={}){
  let carries=[],carryKey='';
  function carry(job,shared){const walking=job?.kind==='meal'&&shared?.kind==='meal'&&shared.phase!=='active',next=walking?job.id:'';if(next!==carryKey){carries.forEach(disposeFood);carries=[];carryKey=next;if(walking){for(const [i,actor]of actors().entries()){if(!actor?.root)continue;const d=(job.courses||[{recipeId:job.recipeId}])[i%(job.courses?.length||1)],g=makeRecipeFood(d.recipeId,{variation:d.variation,finish:d.finish,tabletop:d.tabletop});if(g){g.name='CarriedMealPlate';g.scale.setScalar(.7);g.position.set(0,.93,.34);actor.root.add(g);carries.push(g);}}}}if(walking)for(const actor of actors()){if(!actor?.root.visible)continue;actor.root.updateMatrixWorld(true);actor.contactPose({left:actor.root.localToWorld(new T.Vector3(-.17,1.02,.33)),right:actor.root.localToWorld(new T.Vector3(.17,1.02,.33))});}}
@@ -10,7 +10,7 @@ export function createKitchenView({actors=()=>[]}={}){
  function clearVisual(){tabletop?.clear();tabletop=null;for(const [o,visible]of hidden)o.visible=visible;hidden=[];disposeFood(group);group=null;key='';cover=food=mixing=prep=knob=steam=serving=servingTray=null;appliance=[];targets=[];}
  function update(view,map,job,shared,stage,time,drag=null){
   carry(job,shared);
-  const active=!!job&&(map?.id||map?.renderer)==='dayHome'&&((shared?.kind===job.kind&&shared.phase==='active')||(job.kind==='cook'&&stage.passive)||(job.kind==='meal'&&shared?.kind==='feed'&&shared.phase==='active')),next=active?job.id+':'+job.kind:'';
+  const active=!!job&&(map?.id||map?.renderer)==='dayHome'&&((shared?.kind===job.kind&&(shared.phase==='active'||shared.moment))||(job.kind==='cook'&&stage.passive)||(job.kind==='meal'&&shared?.kind==='feed'&&shared.phase==='active')),next=active?job.id+':'+job.kind+':'+JSON.stringify(job.cooking?.variation||{}):'';
   if(view!==root||key!==next){clearVisual();root=view;if(!active||!view)return;key=next;group=new T.Group();group.name='KitchenRecipeScene';group.userData={id:job.id,recipeId:job.recipeId,kind:job.kind,method:stage.method};view.add(group);
    const mat=c=>new T.MeshStandardMaterial({color:c,roughness:.8}),mesh=(geo,c,x,y,z,name)=>{const o=new T.Mesh(geo,mat(c));o.name=name;o.position.set(x,y,z);o.castShadow=o.receiveShadow=true;group.add(o);return o;};
    if(job.kind==='cook'){

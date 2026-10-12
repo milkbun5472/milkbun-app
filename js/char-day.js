@@ -213,6 +213,7 @@
     useEffect(() => {
       const ready = e => {
         if (e.source !== iframe.current?.contentWindow || e.origin !== location.origin) return;
+        if(e.data?.type==='char-day-kitchen-notice'&&String(e.data.charId)===String(stateRef.current?.charId)){setLifeNotice(String(e.data.notice||''));return;}
         if(e.data?.type==='char-day-kitchen-station'&&String(e.data.charId)===String(stateRef.current?.charId)){setKitchenTool(typeof e.data.station==='string'?e.data.station:'');return;}
         if(e.data?.type === "char-day-kitchen"){handleKitchen(e.data);return;}
         if(e.data?.type === "char-day-activity"){setActivityStatus(e.data);return;}
@@ -280,7 +281,7 @@
       saveHomeChange(info.charId,'kitchens',raw=>L.kitchenChange(raw,{kind:'ready',id:info.id})).then(setHomes).catch(()=>{delete kitchenReady.current[info.id];setLifeNotice('进度还没存好，回到现场后可以重试；食材还在。');});
     }
     const uniqueId=()=>root.crypto.randomUUID();
-    const kitchenInput=event=>{const result=iframe.current?.contentWindow?.CharDayScene?.kitchenInput(event);if(result?.ok===false&&result.reason)setLifeNotice(result.reason);};
+    const kitchenInput=event=>{const result=iframe.current?.contentWindow?.CharDayScene?.kitchenInput(event);if(result?.ok===false&&result.reason)setLifeNotice(result.reason);else if(result?.ok)setLifeNotice('');};
     const openLifePage=page=>{setTogetherPanel(false);setLifePage(page);setPhotoId('');setKitchenRecipe('');setLifeNotice('');setDeletePhoto(false);if(page==='preferences')setWish(homes.preferences?.[String(char.id)]?.wish||'');};
     const lifeWrite=async(write,saveFailure)=>{if(lifeBusy)return null;setLifeBusy(true);setLifeNotice('');try{const next=await write();setHomes(next);return next;}catch(e){setLifeNotice(e.message==='save'?(saveFailure||'没能保存，原来的记录和材料都还在，可以重试。'):e.message);return null;}finally{setLifeBusy(false);}};
     useEffect(()=>{
@@ -312,20 +313,21 @@
     };
     const kitchen= L.kitchen(homes.kitchens?.[String(char?.id)]),photos=L.album(homes.albums?.[String(char?.id)],char?.id),photo=photos.find(p=>p.id===photoId),suggestion=L.recommendation(char?.persona,wish),pendingJob=kitchen.pending;
     const kitchenAction=async action=>{
-      const next=await lifeWrite(()=>saveHomeChange(char.id,'kitchens',raw=>L.kitchenChange(raw,action)));
+      const next=await lifeWrite(()=>saveHomeChange(char.id,'kitchens',raw=>L.kitchenChange(raw,action.kind==='begin'?{...action,day:state.day,time:state.time,at:Date.now()}:action)));
       if(next&&['begin','serve','plate'].includes(action.kind))runKitchen(next.kitchens[String(char.id)].pending);
       if(next&&action.kind==='cancel'){visitAction('end');setKitchenStatus(null);setLifeNotice('收起了这次料理，食材保留。');}
       if(next&&action.kind==='finish'){visitAction('end');setKitchenStatus(null);setLifeNotice(pendingJob?.kind==='meal'?'一起吃完了。':'做好两人份，已经收进餐盒。');}
       return next;
     };
     const shareKitchenMeal=async mealId=>{
-      const meal=L.kitchenMealFor(homes,char.id,mealId);if(!meal){setLifeNotice('这桌菜已经改变，重新打开后再试。');return;}
-      const next=await lifeWrite(()=>saveHomeChange(char.id,'kitchenChats',raw=>root.CharDayKitchenChat.chatChange(raw,{kind:'select',meal})));
+      const meal=L.kitchenMealFor(homes,char.id,mealId);if(!meal&&!(pendingJob?.kind==='cook'&&pendingJob.id===mealId)){setLifeNotice('这份料理已经改变，重新打开后再试。');return;}
+      const next=await lifeWrite(()=>saveHomeChange(char.id,'kitchenChats',raw=>root.CharDayKitchenChat.chatChange(raw,{kind:'select',meal:meal||null})));
       if(next){setChatOpen(false);setKitchenView('chat');setKitchenRecipe('');setLifePage('kitchen');setMoreOpen(false);}
     };
+    const playKitchenMoment=(kind,jobId)=>{if(!pendingJob||jobId&&jobId!==pendingJob.id){setLifeNotice('这份料理已经结束。');return;}setLifePage('');setMoreOpen(false);setTogetherPanel(false);requestAnimationFrame(()=>{send();kitchenInput({kind:'moment',value:kind});});};
     const runKitchen=job=>{
       if(!job)return;send();setKitchenStatus(null);
-      const ok=visitAction('together:'+job.kind);if(ok){setLifePage('');setMoreOpen(false);}else setLifeNotice('等TA在家走到位置、你也进屋后，再点继续。材料和餐盒保留。');
+      const ok=visitAction('together:'+job.kind,job.cooking?{lead:job.cooking.lead}:undefined);if(ok){setLifePage('');setMoreOpen(false);}else setLifeNotice('等TA在家走到位置、你也进屋后，再点继续。材料和餐盒保留。');
     };
     const btn = UI.button;
     const footerStyle={padding:"3px 6px",paddingBottom:"calc(3px + env(safe-area-inset-bottom) * 0.4)",borderTop:"1px solid "+UI.line,minHeight:56,background:"#f9faf3"};
@@ -513,10 +515,10 @@
         editor&&!decorPanel&&h("div",{"data-wk":"cdaydecoractions",style:{position:"absolute",top:12,left:12,right:12,display:"flex",gap:6}},...[["catalog","添家具"],["piece","单件搭配"],["room","房间墙地"]].map(([key,label])=>h("button",{key,"data-part":key,style:{...btn,flex:1},disabled:layoutBusy||editor.dragging||editor.busy,onClick:()=>openDecorPanel(key)},label))),
         decorContents,
         editor&&!decorPanel && h("select",{"data-wk":"cdayfurniture","aria-label":"选择家具",disabled:layoutBusy||editor.dragging||editor.busy,value:editor.selected,onChange:e=>iframe.current?.contentWindow?.CharDayScene?.selectFurniture(e.target.value),style:{...btn,position:"absolute",left:12,right:12,bottom:12,width:"calc(100% - 24px)",height:44,fontSize:13}},h("option",{value:""},"选择家具"),...furniture.map(p=>h("option",{key:p.id,value:p.id},p.label+(p.stored?" · 已收纳":"")))),
-        !kitchenTool&&kitchenOnScene&&h(root.CharDayKitchenHUD,{job:{...pendingJob,cooking:pendingJob.cooking&&{...pendingJob.cooking,mode:kitchenStatus?.mode||pendingJob.cooking.mode,lead:kitchenStatus?.lead||pendingJob.cooking.lead}},status:kitchenStatus,busy:lifeBusy,input:kitchenInput,resume:runKitchen,share:shareKitchenMeal,finish:()=>kitchenAction({kind:'finish',id:pendingJob.id,at:Date.now()}),plate:()=>kitchenAction({kind:'plate',id:pendingJob.id,mealId:uniqueId(),at:Date.now()})}),
+        !kitchenTool&&kitchenOnScene&&h(root.CharDayKitchenHUD,{job:{...pendingJob,cooking:pendingJob.cooking&&{...pendingJob.cooking,mode:kitchenStatus?.mode||pendingJob.cooking.mode,lead:kitchenStatus?.lead||pendingJob.cooking.lead}},status:kitchenStatus,busy:lifeBusy,input:kitchenInput,action:kitchenAction,notice:lifeNotice,resume:runKitchen,share:shareKitchenMeal,finish:()=>kitchenAction({kind:'finish',id:pendingJob.id,at:Date.now()}),plate:()=>kitchenAction({kind:'plate',id:pendingJob.id,mealId:uniqueId(),at:Date.now()})}),
         !editor && !kitchenTool && h("div", { style: { position: "absolute", bottom: 8, left: 10, right: 10, textAlign: "center", fontSize: 10, color: "#655e50", pointerEvents: "none", textShadow:"0 1px 3px #fff" } }, visiting ? "点空地走过去 · 单指旋转，双指移动／缩放" : "单指旋转 · 双指移动／缩放")),
       !editor&&showcase&&room&&h("div",{className:"shrink-0",style:{padding:"6px 12px",background:paper,borderTop:"1px solid "+UI.line}},h("select",{"data-wk":"cdayplacepoint","aria-label":"选择动作位置",value:spot?.id||"",onChange:e=>setSpotId(e.target.value),style:{...btn,width:"100%",height:44,fontSize:13}},...room.spots.map(s=>h("option",{key:s.id,value:s.id},s.number+" · "+s.label)))),
-      kitchenTool?h("div",{"data-wk":"cdaycuttools",className:"shrink-0",style:{...footerStyle,display:"flex",gap:6}},h("button",{"data-wk":"cdaycutback",style:{...btn,flex:1,padding:"8px 6px"},onClick:()=>kitchenInput({kind:"station",value:""})},"回台面"),h("select",{"data-wk":"cdaykitchentoolselect","aria-label":"换厨房道具",value:kitchenTool,style:{...btn,flex:1,minWidth:0,height:44,padding:"6px 24px 6px 8px"},onChange:e=>kitchenInput({kind:'station',value:e.target.value})},...root.CharDayKitchen.cookingStations(pendingJob,kitchenStatus?.progress).map(q=>h('option',{key:q.id,value:q.id,disabled:q.disabled},q.label))),kitchenTool==='board'&&h("button",{"data-wk":"cdaycutpan",style:{...btn,flex:1,padding:"8px 6px"},onClick:()=>kitchenInput({kind:"board-pan"})},"这些下锅")):editor ? h("div",{"data-wk":"cdayedittools",className:"shrink-0",style:{...footerStyle,display:"flex",gap:4}},
+      kitchenTool?h("div",{"data-wk":"cdaycuttools",className:"shrink-0",style:{...footerStyle,display:"flex",gap:6}},h("button",{"data-wk":"cdaycutback",style:{...btn,flex:1,padding:"8px 6px"},onClick:()=>kitchenInput({kind:"station",value:""})},"回台面"),h("select",{"data-wk":"cdaykitchentoolselect","aria-label":"换厨房道具",value:kitchenTool,style:{...btn,flex:1,minWidth:0,height:44,padding:"6px 24px 6px 8px"},onChange:e=>kitchenInput(e.target.value.startsWith('together:')?{kind:'moment',value:e.target.value.slice(9)}:{kind:'station',value:e.target.value})},h('optgroup',{label:'操作道具'},...root.CharDayKitchen.cookingStations(pendingJob,kitchenStatus?.progress).map(q=>h('option',{key:q.id,value:q.id,disabled:q.disabled},q.label))),h('optgroup',{label:'一起做一小下'},...root.CharDayKitchen.cooperation(pendingJob,kitchenStatus?.progress).map(q=>h('option',{key:q.id,value:'together:'+q.id,disabled:q.disabled},q.label)))),kitchenTool==='board'&&h("button",{"data-wk":"cdaycutpan",style:{...btn,flex:1,padding:"8px 6px"},onClick:()=>kitchenInput({kind:"board-pan"})},"这些下锅")):editor ? h("div",{"data-wk":"cdayedittools",className:"shrink-0",style:{...footerStyle,display:"flex",gap:4}},
         decorPanel?h("button",{style:{...btn,flex:1,border:0,background:"transparent"},disabled:layoutBusy||editor?.busy,onClick:closeDecorPanel},"回去摆放"):h(React.Fragment,null,
         h("button",{style:{...btn,flex:1,border:0,background:"transparent"},disabled:layoutBusy||editor.dragging||editor.busy||!chosen||chosen.stored,onClick:()=>editorAction("rotate")},chosen?.mount?"换墙":"旋转"),
         h("button",{style:{...btn,flex:1,border:0,background:"transparent"},disabled:layoutBusy||editor.dragging||editor.busy||!chosen,onClick:()=>editorAction(chosen?.stored?"restore":"store")},chosen?.stored?"摆回":"收纳"),
@@ -582,7 +584,7 @@
         h(Head,{zh:lifePage==='album'?(photo?'这一刻':'小家相册'):lifePage==='kitchen'?'小家厨房':'装修灵感',sub:char.remark||char.name,bg:'transparent',ink,lineInk:UI.line,subInk:soft,onBack:()=>{if(lifeBusy)return;if(lifePage==='kitchen'&&kitchenRecipe){setKitchenRecipe('');setLifeNotice('');return;}if(photo){setPhotoId('');setDeletePhoto(false);setLifeNotice('');}else{setLifePage('');if(!moreOpen&&visiting)setTogetherPanel(true);}}}),
         lifePage==='kitchen'&&kitchenView==='chat'&&!kitchenRecipe?h(React.Fragment,null,
           h('div',{className:'shrink-0',style:{padding:'8px 18px 0'}},h(root.CharDayKitchenTabs,{view:kitchenView,setView:setKitchenView,setDetail:setKitchenRecipe,busy:lifeBusy,btn})),
-          h(root.CharDayKitchenChat.View,{key:String(char.id),character:char,profile:props.profile,apiFor:props.apiFor,active:props.active,homes,onHomes:setHomes,btn,ink,soft,footerStyle})):menuBody(h(React.Fragment,null,
+          h(root.CharDayKitchenChat.View,{key:String(char.id),character:char,profile:props.profile,apiFor:props.apiFor,active:props.active,homes,onHomes:setHomes,btn,ink,soft,footerStyle,interact:playKitchenMoment})):menuBody(h(React.Fragment,null,
           lifePage==='album'&&(photo?h(React.Fragment,null,
             h('img',{"data-wk":"cdayphoto",src:photo.src,alt:photo.taName+'和'+photo.meName+'在'+(photo.place||'小家')+'的同框',style:{display:'block',width:'100%',borderRadius:8}}),
             h('p',{style:{fontSize:12,lineHeight:1.9}},photo.day+' · TA当地 '+photo.time+(photo.place?' · '+photo.place:'')+'\n'+photo.taName+'和'+photo.meName+' · '+photo.activity),
@@ -597,7 +599,7 @@
               h('button',{"data-wk":"cdayphotoshoot",style:{...btn,width:'100%',marginBottom:8},disabled:lifeBusy||!photoShot,onClick:takePhoto},lifeBusy?'保存中…':visiting?'拍下此刻的两个人':'先和TA走到一起，再拍同框'),
               visiting&&!preview&&!showcase&&trip?.mode!=='solo'&&h('button',{"data-wk":"cdayphotorefresh",style:{...btn,width:'100%',marginBottom:16,background:'transparent'},disabled:lifeBusy,onClick:()=>{setLifeNotice('');setPhotoRefresh(n=>n+1);}},'重新取景'),
               photos.length?h('div',{style:{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12}},...photos.slice().reverse().map(item=>h('button',{key:item.id,"data-wk":"cdayphotoitem",style:{...btn,padding:6,textAlign:'left'},onClick:()=>{setPhotoId(item.id);setPhotoNote(item.note||'');setLifeNotice('');setDeletePhoto(false);}},h('img',{src:item.src,alt:item.activity,loading:'lazy',style:{display:'block',width:'100%',aspectRatio:'4/3',objectFit:'cover',borderRadius:5}}),h('span',{style:{display:'block',fontSize:11,lineHeight:1.7,padding:'6px 3px'}},item.day+' '+item.time+' · '+item.activity)))):h('p',{style:{fontSize:12,color:soft}},'还没留过照片。进屋后拍下第一张吧。'))),
-          lifePage==='kitchen'&&h(root.CharDayKitchenUI,{key:String(char.id),state:kitchen,view:kitchenView,setView:setKitchenView,detail:kitchenRecipe,setDetail:setKitchenRecipe,busy:lifeBusy,homeVisiting,status:kitchenStatus,action:kitchenAction,resume:runKitchen,share:shareKitchenMeal,uniqueId,btn,ink,soft,section:menuSection,persona:char.persona}),
+          lifePage==='kitchen'&&h(root.CharDayKitchenUI,{key:String(char.id),state:kitchen,view:kitchenView,setView:setKitchenView,detail:kitchenRecipe,setDetail:setKitchenRecipe,busy:lifeBusy,homeVisiting,status:kitchenStatus,action:kitchenAction,resume:runKitchen,share:shareKitchenMeal,uniqueId,btn,ink,soft,section:menuSection,persona:char.persona,character:char,profile:props.profile,apiFor:props.apiFor,active:props.active,onHomes:setHomes}),
           lifePage==='preferences'&&h(React.Fragment,null,
             h('p',{style:{fontSize:12,color:soft,lineHeight:1.9,marginTop:0}},'参考TA在人设里明确写出的家居偏好。先看看搭配，你挑的房间样式、家具配色和摆位始终优先。'),
             h('label',{style:{fontSize:12}},'你想要怎样的小家',h('textarea',{"data-wk":"cdaydecorwish",value:wish,maxLength:600,onChange:e=>setWish(e.target.value),placeholder:'写下喜欢的颜色、材质或风格',style:{...btn,width:'100%',minHeight:92,display:'block',marginTop:8}})),

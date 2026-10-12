@@ -1,14 +1,15 @@
 import * as T from 'three';
-import './social.js?v=fg-cca8c982b2418e7a';
-import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-cca8c982b2418e7a';
-import {stepRoute} from '../locomotion.mjs?v=fg-cca8c982b2418e7a';
-import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-cca8c982b2418e7a';
-import {pairProgress} from './motion-profile.mjs?v=fg-cca8c982b2418e7a';
-import {dailyTaskAt} from './daily-workflow.mjs?v=fg-cca8c982b2418e7a';
-import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-cca8c982b2418e7a';
+import './social.js?v=fg-a40be0a4c2688238';
+import {findPath,walkable,segmentClear,floorHeight} from '../world.mjs?v=fg-a40be0a4c2688238';
+import {stepRoute} from '../locomotion.mjs?v=fg-a40be0a4c2688238';
+import {furniturePoint,furnitureSeat,HOME_PREP} from './home-catalog.mjs?v=fg-a40be0a4c2688238';
+import {pairProgress} from './motion-profile.mjs?v=fg-a40be0a4c2688238';
+import {dailyTaskAt} from './daily-workflow.mjs?v=fg-a40be0a4c2688238';
+import {createKitchenPair} from './kitchen-pair.mjs?v=fg-a40be0a4c2688238';
+import {INTIMATE,createIntimate} from './intimate.mjs?v=fg-a40be0a4c2688238';
 
 
-import {pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-cca8c982b2418e7a';
+import {pairSize,headPoint,pairSpacing,pairContact,nearHand,bonePoint,shoulderPose,hugPose} from './pair-pose.mjs?v=fg-a40be0a4c2688238';
 
 export const TOGETHER_LABELS=globalThis.CharDaySocial.labels;
 const mapId=m=>m.id||m.renderer;
@@ -35,7 +36,7 @@ function pairWalkRoute(map,at,heading,spacing,round=0){
  }
  return null;
 }
-export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='ta'}={}){
+export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='ta',moment=null,prepX=HOME_PREP.x}={}){
  let choices=[];
  if(['shoulder','closer','wait','rest','cuddle'].includes(kind)||(['read','feed'].includes(kind)&&map.furniture.some(p=>['sofa','bench'].includes(p.kind))))choices=sofaPair(map,distance?distance/2:kind==='cuddle'||kind==='shoulder'?.32:kind==='feed'?.32:kind==='closer'?.345:.37,['shoulder','cuddle'].includes(kind)?initiator:null).map(q=>({a:q.a.approach,b:q.b.approach,seats:q}));
  else if(kind==='feed'){
@@ -52,7 +53,9 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='t
   }
  }else if(kind==='cook'){
   const spot=map.spots.find(p=>p.action==='cook'),piece=map.furniture.find(p=>p.id===spot?.piece);
-  if(spot&&piece){const b=furniturePoint(piece,{x:HOME_PREP.x-.19,z:piece.d/2+.25});choices.push({a:lead==='me'?b:spot.target,b:lead==='me'?spot.target:b,lead,heading:spot.heading,spot,piece});}
+  if(spot&&piece){if(moment){const open=['pass','bowl','wipe','taste','taste-me'].includes(moment),x=open?-.1:moment==='guide'?prepX:globalThis.CharDayKitchen.KITCHEN_ANCHORS.cook.x,z=piece.d/2+(open?.85:.18),spacing=distance||.70,chef=lead==='me'?'b':'a',right=moment==='guide'?(chef==='a'?'a':'b'):chef;
+   const left=right==='a'?'b':'a',offset=['steady','stir'].includes(moment)?-spacing/2:0,pair={[right]:furniturePoint(piece,{x:x+offset+spacing/2,z}),[left]:furniturePoint(piece,{x:x+offset-spacing/2,z})};choices.push({...pair,lead,heading:spot.heading,spot,piece,moment});
+  }else{const b=furniturePoint(piece,{x:HOME_PREP.x-.19,z:piece.d/2+.25});choices.push({a:lead==='me'?b:spot.target,b:lead==='me'?spot.target:b,lead,heading:spot.heading,spot,piece});}}
  }else if(kind==='stretch'){
   const spot=map.spots.find(s=>s.id==='stretch');if(spot)choices.push({a:{x:spot.target.x-.9,z:spot.target.z},b:{x:spot.target.x+.9,z:spot.target.z},heading:spot.heading});
  }else if(kind==='browse'){
@@ -82,7 +85,7 @@ export function togetherPlans(map,kind,from,{initiator='b',distance=null,lead='t
  }).filter(Boolean).sort((a,b)=>a.cost-b.cost);
 }
 // Both participants use the existing navigation and original traveler rig. Nothing is saved.
-export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visibility=()=>0,kitchen=()=>null,onUpdate=()=>{},onStop=()=>{}}){
+export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visibility=()=>0,kitchen=()=>null,onUpdate=()=>{},onStop=()=>{},onKitchenMoment=()=>{}}){
  let session=null,last='';
  const cup=new T.Group();cup.name='TogetherCup';cup.visible=false;a.root.add(cup);
  const material=new T.MeshStandardMaterial({color:'#d6e7df',roughness:.75});
@@ -90,16 +93,16 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
  const handle=new T.Mesh(new T.TorusGeometry(.04,.012,8,16),material);handle.position.set(.06,.055,0);cup.add(handle);
  const tea=new T.Mesh(new T.CylinderGeometry(.054,.054,.007,16),new T.MeshStandardMaterial({color:'#a78055'}));tea.position.y=.122;cup.add(tea);
  const style=who=>({style:'gentle',delay:.35,reach:1.1,lean:.1,sway:.008,phase:0,...pair()[who]});
- const intimate=createIntimate({a,b,map,style,kitchen});
- const contact=pairContact;
+ const intimate=createIntimate({a,b,map,style,kitchen}),kitchenPair=createKitchenPair({a,b,kitchen});
+ const contact=pairContact,actorsFor=who=>who==='a'?a:b;
  a.root.userData.pairWho='ta';b.root.userData.pairWho='me';
- const inspect=()=>session?{kind:session.kind,label:TOGETHER_LABELS[session.kind],phase:session.phase,a:{...session.a},b:{...session.b},seats:session.plan.seats||null,intimate:intimate.inspect(),contact:session.contact||null,initiator:session.initiator,lead:session.plan.lead,tour:session.tour?{moving:session.tour.moving,round:session.tour.round}:null,elapsed:session.elapsed,automatic:session.automatic,styles:{a:style('a'),b:style('b')},aTask:session.aTask,bTask:session.bTask}:null;
+ const inspect=()=>session?{moment:session.moment?{...session.moment,phase:session.phase,contacts:kitchenPair.inspect()}:null,kind:session.kind,label:TOGETHER_LABELS[session.kind],phase:session.phase,a:{...session.a},b:{...session.b},seats:session.plan.seats||null,intimate:intimate.inspect(),contact:session.contact||null,initiator:session.initiator,lead:session.plan.lead,tour:session.tour?{moving:session.tour.moving,round:session.tour.round}:null,elapsed:session.elapsed,automatic:session.automatic,styles:{a:style('a'),b:style('b')},aTask:session.aTask,bTask:session.bTask}:null;
  function tell(){const s=inspect(),key=JSON.stringify(s&&[s.kind,s.phase]);if(key!==last){last=key;onUpdate(s);}}
- function stop(reason='已松开，继续各自做事。'){if(!session)return false;const s=session;session=null;cup.visible=false;intimate.hide();last='';onStop({a:s.a,b:s.b,seats:s.plan.seats?{a:s.phase==='walking-ta'?null:s.plan.seats.a,b:s.phase==='active'?s.plan.seats.b:null}:null,reason,automatic:s.automatic});onUpdate(null);return true;}
- function start(kind,{automatic=false,initiator='b',lead='ta'}={}){if(!TOGETHER_LABELS[kind])return {ok:false,reason:'这个互动还没有位置。'};
-  if(session)stop();initiator=initiator==='a'?'a':'b';const origins=from(),plan=togetherPlans(map(),kind,origins,{initiator,lead,distance:pairSpacing(kind,a,b)}).map(p=>({...p,viewCost:p.cost+visibility({...p,kind})})).sort((a,b)=>a.viewCost-b.viewCost)[0];
+ function stop(reason='已松开，继续各自做事。'){if(!session)return false;const s=session;session=null;cup.visible=false;intimate.hide();kitchenPair.hide(true);last='';onStop({a:s.a,b:s.b,seats:s.plan.seats?{a:s.phase==='walking-ta'?null:s.plan.seats.a,b:s.phase==='active'?s.plan.seats.b:null}:null,reason,automatic:s.automatic});onUpdate(null);return true;}
+ function start(kind,{automatic=false,initiator='b',lead='ta',moment=null}={}){if(!TOGETHER_LABELS[kind])return {ok:false,reason:'这个互动还没有位置。'};
+  if(session&&!moment)stop();initiator=moment==='taste-me'?'a':initiator==='a'?'a':'b';const origins=session?{a:{...session.a},b:{...session.b}}:from(),piece=map().furniture.find(p=>p.id===map().spots.find(q=>q.action==='cook')?.piece),surface=moment==='guide'&&piece?kitchenPair.operationPoint({plan:{piece}},'prep'):null,prepX=surface?(surface.x-piece.x)*Math.cos(piece.heading||0)-(surface.z-piece.z)*Math.sin(piece.heading||0):HOME_PREP.x,spacing=moment?moment==='wipe'?pairSize(a).radius+pairSize(b).radius+.075:moment.startsWith('taste')?pairSize(a).radius+pairSize(b).radius+.17:['guide','stir','steady'].includes(moment)?Math.max(.60,pairSize(a).width*.5+pairSize(b).width*.5+.16):Math.max(.70,pairSpacing('hand',a,b)||.70):pairSpacing(kind,a,b),plan=togetherPlans(map(),kind,origins,{initiator,lead,distance:spacing,moment,prepX}).map(p=>({...p,viewCost:p.cost+visibility({...p,kind})})).sort((a,b)=>a.viewCost-b.viewCost)[0];
   if(!plan)return {ok:false,reason:kind==='cook'?'厨房前没有两个人能走到的位置。':['read','shoulder','cuddle'].includes(kind)?'先摆一张能走到的双人沙发或长椅。':kind==='meal'?'餐桌旁需要两把能走到的空椅子。':kind==='feed'?'先留一张能走近的餐桌或双人座位。':'附近没有两个人能站稳的空地。'};
-  session={kind,automatic,initiator,plan,a:{...origins.a},b:{...origins.b},phase:plan.stageRoute?'walking-stage-b':'walking-ta',elapsed:0,speed:0,clearance:clearance(kind,pairSpacing(kind,a,b)),tour:kind==='walk'||INTIMATE[kind]?.tour?{moving:false,wait:0,round:0}:null};tell();return {ok:true};
+  if(session)stop();const progress=kitchen()?.progress;session={kind,...(moment?{moment:{id:globalThis.crypto.randomUUID(),jobId:kitchen()?.job?.id,kind:moment,sourceId:moment==='pass'?progress?.table?.items.find(q=>q.zone==='basket')?.id:null,ingredient:moment.startsWith('taste')?progress?.table?.items.find(q=>['pan','plate'].includes(q.zone)&&globalThis.CharDayKitchen.tableReady(q,globalThis.CharDayKitchen.recipe(kitchen()?.job?.recipeId)?.method))?.ingredient:null}}:{}),automatic,initiator,plan,a:{...origins.a},b:{...origins.b},phase:plan.stageRoute?'walking-stage-b':'walking-ta',elapsed:0,speed:0,clearance:clearance(kind,spacing),tour:kind==='walk'||INTIMATE[kind]?.tour?{moving:false,wait:0,round:0}:null};tell();return {ok:true};
  }
  function pose(actor,at,seated,heading,time,moving,task,profile,gesture='rest',progress=0,dt=.025){actor.root.position.set(at.x,0,at.z);const turn=Math.atan2(Math.sin(heading-actor.root.rotation.y),Math.cos(heading-actor.root.rotation.y));actor.root.rotation.y+=T.MathUtils.clamp(turn,-4*dt,4*dt);actor.animate(time,{moving,seated:!!seated,seatPose:seated?.pose,gesture,progress,task,motion:profile,height:floorHeight(mapId(map()),at)+(seated?seated.rise+.05:0)});}
  function walkTogether(s,dt){
@@ -115,7 +118,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   const step=stepRoute(center,tour.route,dt,{speed:tour.speed,walkSpeed:1.25*Math.min(motion().a?.walk||1,motion().b?.walk||1),clear:(u,v)=>{const before=formation(u,tour.heading),after=formation(v,tour.heading);return ['a','b'].every(w=>segmentClear(before[w],after[w],id));}}),next=formation(step.position,tour.heading);tour.speed=step.speed;
   s.a={...next.a,heading:tour.heading};s.b={...next.b,heading:tour.heading};if(step.blocked||!tour.route.length){tour.moving=false;tour.wait=1.4;}
  }
- function tick(dt,time){if(!session)return false;const s=session,p=s.plan;s.elapsed+=dt;
+ function tick(dt,time){if(!session)return false;const s=session,p=s.plan;if(s.moment&&s.moment.jobId!==kitchen()?.job?.id){stop('这一份已经收起了。');return false;}s.elapsed+=dt;
   const who=s.phase==='walking-ta'?'a':['walking-you','walking-stage-b'].includes(s.phase)?'b':null;
   if(who){const route=s.phase==='walking-stage-b'?p.stageRoute:who==='a'?p.aRoute:p.bRoute,other=who==='a'?s.b:p.seats?.a||s.a;
    const step=stepRoute(s[who],route,dt,{speed:s.speed,walkSpeed:1.45*(motion()[who]?.walk||1),clear:(u,v)=>segmentClear(u,v,mapId(map()),avoid(other,s.clearance))});s[who]=step.position;s.speed=step.speed;if(step.heading!=null)s[who].heading=step.heading;
@@ -126,6 +129,7 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   const active=s.phase==='active',aSeated=p.seats&&s.phase!=='walking-ta'?p.seats.a:null,bSeated=active||s.phase==='turning'?p.seats?.b:null;
   const aa=aSeated||s.a,bb=bSeated||s.b;
   let ah=aSeated?.heading??(s.phase==='walking-ta'?s.a.heading||0:p.heading||0),bh=bSeated?.heading??(s.phase==='walking-you'?s.b.heading||0:p.heading||0);
+  if(s.moment&&['pass','bowl','wipe','taste','taste-me'].includes(s.moment.kind)){ah=Math.atan2(p.b.x-p.a.x,p.b.z-p.a.z);bh=ah+Math.PI;}
   if((active||s.phase==='turning')&&(['hug','look','cup','pat','kiss-forehead','kiss-cheek','kiss','forehead','dance'].includes(s.kind)||s.kind==='feed'&&!p.seats)){ah=s.kind==='hug'||s.kind==='dance'?p.heading:Math.atan2(p.b.x-p.a.x,p.b.z-p.a.z);bh=ah+Math.PI;}
   const daily=(who,kind)=>({daily:true,kind,elapsed:s.elapsed,progress:((s.elapsed*(motion()[who]?.tempo||1)+(motion()[who]?.phase||0))/(kind==='read'?9:kind==='eat'?5.5:7))%1});
   let at=null,bt=null;
@@ -140,6 +144,12 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
      const task=stage.index===0?prep:chef,elapsed=job.cooking.mode==='hands'&&stage.who==='me'?stage.progress.work*.48:s.elapsed,working=stage.index<2&&!stage.passive?{...task,elapsed,recipeId:job.recipeId,method,stage:stage.index}:null;at=(stage.index===0?prepWho:chefWho)==='a'?working:null;bt=(stage.index===0?prepWho:chefWho)==='b'?working:null;
      if(stage.tabletop){const prepTask=stage.progress.table.items.some(q=>['basket','board'].includes(q.zone))?{...prep,elapsed:s.elapsed,recipeId:job.recipeId,method,stage:0}:null,chefTask=stage.progress.table.items.some(q=>q.zone==='pan')?{...chef,elapsed:s.elapsed,recipeId:job.recipeId,method,stage:1}:null;at=prepWho==='a'?prepTask:chefTask;bt=prepWho==='b'?prepTask:chefTask;}
     }else{at=passive?null:{...at,recipeId:job.recipeId,method,stage:stage.index};bt=passive?null:{...bt,recipeId:job.recipeId,method,stage:stage.index};}}
+  }
+  if(s.moment&&!['steady','guide','stir'].includes(s.moment.kind))at=bt=null;
+  if(active&&s.moment){const kind=s.moment.kind,worker=job?.cooking?.lead==='me'?'b':'a',helper=kind==='guide'?worker:worker==='a'?'b':'a';
+   if(['pass','bowl'].includes(kind))at=bt={kind:'kitchen-help',supportHeight:0};
+   if(['guide','stir','steady'].includes(kind)){const surface=kitchenPair.operationPoint(s,kind==='guide'?'prep':'pan',actorsFor(helper)),actor=actorsFor(helper);const shoulder=bonePoint(actor,'rightArm'),height=Math.max(0,surface.y-(shoulder.y-actor.root.position.y)-floorHeight(mapId(map()),s[helper])-.035);const support={kind:'kitchen-help',supportHeight:height};if(helper==='a')at=support;else bt=support;}
+   if(kind==='wipe'||kind.startsWith('taste')){const giver=kind==='taste-me'?'a':kind==='wipe'?'a':'b',receiver=giver==='a'?b:a,actor=actorsFor(giver),surface=headPoint(receiver,[kind==='wipe'?.62:0,kind==='wipe'?-.75:-.42,kind==='wipe'?.90:.99]),shoulder=bonePoint(actor,'rightArm'),height=Math.max(0,surface.y-(shoulder.y-actor.root.position.y)-floorHeight(mapId(map()),s[giver])-.05);const support={kind:'kitchen-help',supportHeight:height};if(giver==='a')at=support;else bt=support;}
   }
   s.aTask=at;s.bTask=bt;
   if(s.tour){ah=s.tour.heading??p.heading;bh=ah;}
@@ -168,7 +178,14 @@ export function createTogether({a,b,map,from,motion=()=>({}),pair=()=>({}),visib
   if(active&&s.kind==='shoulder'){const leaning=s.initiator==='a'?a:b,holder=leaning===a?b:a;s.contact=shoulderPose(holder,leaning,leaning===a?pa:pb,{holderProgress:holder===a?pa:pb});}
   if(active&&s.kind==='closer'){a.contactPose({lean:0});b.contactPose({lean:0});}
   if(active&&INTIMATE[s.kind]){const result=intimate.tick(s);if(!p.seats&&!s.tour){s.a={...s.a,x:a.root.position.x,z:a.root.position.z};s.b={...s.b,x:b.root.position.x,z:b.root.position.z};}if(result?.ok===false){stop(result.reason);return false;}}
+  kitchenPair.dust(cooking?.progress);
+  if(active&&s.moment){const kind=s.moment.kind;let result;
+   if(kind.startsWith('taste')){result=intimate.tick({...s,kind:'feed'});const contact=intimate.inspect();s.contact=contact;s.moment.contact=contact?.spoonDistance;result={done:s.elapsed>=5&&contact?.spoonDistance<.06&&(contact?.contacts||[]).every(c=>c.error<.06),reason:s.elapsed>12&&contact?.spoonDistance>=.09?'这一口还没递到嘴边，换个位置再试。':result?.reason};}
+   else{result=kitchenPair.tick(s);s.contact=result?.diagnostics;}
+   if(result?.done){const completed={...s.moment};onKitchenMoment(completed);start('cook',{lead:kitchen()?.job?.cooking?.lead||'ta'});return true;}
+   if(result?.reason){const reason=result.reason;start('cook',{lead:kitchen()?.job?.cooking?.lead||'ta'});onUpdate({...inspect(),notice:reason});return true;}
+  }else if(!s.moment)kitchenPair.hide();
   onUpdate({...inspect(),bSeat:bSeated,moving:s.phase!=='active'||!!s.tour?.moving});return true;
  }
- return {start,stop,tick,inspect};
+ return {start,stop,tick,inspect,dispose(){stop();kitchenPair.dispose();}};
 }

@@ -1,46 +1,46 @@
-import {createRoomCutaway} from './camera-view.mjs?v=fg-cca8c982b2418e7a';
-import {createKitchenStation} from './board-station.mjs?v=fg-cca8c982b2418e7a';
+import {createRoomCutaway} from './camera-view.mjs?v=fg-a40be0a4c2688238';
+import {createKitchenStation} from './board-station.mjs?v=fg-a40be0a4c2688238';
 const boardStation=createKitchenStation();let kitchenStation='';
-import './kitchen.js?v=fg-cca8c982b2418e7a';
-import {createLunchCarry} from './lunch-carry.mjs?v=fg-cca8c982b2418e7a';
-import {createKitchenView} from './kitchen-view.mjs?v=fg-cca8c982b2418e7a';
+import './kitchen.js?v=fg-a40be0a4c2688238';
+import {createLunchCarry} from './lunch-carry.mjs?v=fg-a40be0a4c2688238';
+import {createKitchenView} from './kitchen-view.mjs?v=fg-a40be0a4c2688238';
 const kitchenView=createKitchenView({actors:()=>[avatar,visitorAvatar]});
-import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-cca8c982b2418e7a';
-import {createDayEnvironment} from './environment-view.mjs?v=fg-cca8c982b2418e7a';
-import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-cca8c982b2418e7a';
+import {QUALITY_LEVELS,sceneLoad,createQualityMonitor} from './quality.mjs?v=fg-a40be0a4c2688238';
+import {createDayEnvironment} from './environment-view.mjs?v=fg-a40be0a4c2688238';
+import {HOME_SIZES,HOME_MOUNT_WALLS,wallFurniturePosition} from './home-architecture.mjs?v=fg-a40be0a4c2688238';
 import * as T from 'three';
-import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-cca8c982b2418e7a';
-import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-cca8c982b2418e7a';
-import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-cca8c982b2418e7a';
-import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-cca8c982b2418e7a';
-import {seatLook} from '../wardrobe.mjs?v=fg-cca8c982b2418e7a';
-import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-cca8c982b2418e7a';
-import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-cca8c982b2418e7a';
-import {stepRoute} from '../locomotion.mjs?v=fg-cca8c982b2418e7a';
-import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-cca8c982b2418e7a';
-import {updateWorkScene} from './work-scene.mjs?v=fg-cca8c982b2418e7a';
-import {activityPhase,taskAt} from './workflow.mjs?v=fg-cca8c982b2418e7a';
-import {activityPose} from './activity.mjs?v=fg-cca8c982b2418e7a';
-import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-cca8c982b2418e7a';
+import {GLTFLoader} from '../vendor/GLTFLoader.js?v=fg-a40be0a4c2688238';
+import {DRACOLoader} from '../vendor/DRACOLoader.js?v=fg-a40be0a4c2688238';
+import {createTraveler,loadTravelerSource,setFaceBase} from '../traveler.mjs?v=fg-a40be0a4c2688238';
+import {renderPhoto,visibleBounds} from '../photo-render.mjs?v=fg-a40be0a4c2688238';
+import {seatLook} from '../wardrobe.mjs?v=fg-a40be0a4c2688238';
+import {MAPS,findPath,floorHeight,walkable,segmentClear,seatsOf,areaSpots,sleepPose} from '../world.mjs?v=fg-a40be0a4c2688238';
+import {createMapLoader,disposeMap} from '../map-loader.mjs?v=fg-a40be0a4c2688238';
+import {stepRoute} from '../locomotion.mjs?v=fg-a40be0a4c2688238';
+import {createMapGesture,orthographicPanDelta,orthographicCameraPose,orthographicFrame,createMapOrbit,orthographicGroundOffset} from '../view-controls.mjs?v=fg-a40be0a4c2688238';
+import {updateWorkScene} from './work-scene.mjs?v=fg-a40be0a4c2688238';
+import {activityPhase,taskAt} from './workflow.mjs?v=fg-a40be0a4c2688238';
+import {activityPose} from './activity.mjs?v=fg-a40be0a4c2688238';
+import {DAY_PLACES,DAY_FACTORIES,registerDayPlaces,placeList,createPlaceMarkers} from './places/index.mjs?v=fg-a40be0a4c2688238';
 registerDayPlaces(MAPS);
-import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-cca8c982b2418e7a';
-import {createSpaceView} from './space-view.mjs?v=fg-cca8c982b2418e7a';
-import {setHomeClock} from './home-shell.mjs?v=fg-cca8c982b2418e7a';
-import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-cca8c982b2418e7a';
-import {createTogether} from './together.mjs?v=fg-cca8c982b2418e7a';
-import {HAIR_STYLES} from '../traveler.mjs?v=fg-cca8c982b2418e7a';
-import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-cca8c982b2418e7a';
-import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-cca8c982b2418e7a';
-import {createChoreVisual} from './chore-visual.mjs?v=fg-cca8c982b2418e7a';
-import {createSceneVisit} from './visit.mjs?v=fg-cca8c982b2418e7a';
-import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-cca8c982b2418e7a';
-import {createDateTransfer} from './date-transfer.mjs?v=fg-cca8c982b2418e7a';
-import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-cca8c982b2418e7a';
+import {CORE_SPACES,SPACE_STYLES,registerCoreSpaces,activitySpot,styleOf} from './spaces.mjs?v=fg-a40be0a4c2688238';
+import {createSpaceView} from './space-view.mjs?v=fg-a40be0a4c2688238';
+import {setHomeClock} from './home-shell.mjs?v=fg-a40be0a4c2688238';
+import {PROFESSIONAL_OPTIONS,PROFESSIONAL_STYLES,professionalOptions} from './professional.mjs?v=fg-a40be0a4c2688238';
+import {createTogether} from './together.mjs?v=fg-a40be0a4c2688238';
+import {HAIR_STYLES} from '../traveler.mjs?v=fg-a40be0a4c2688238';
+import {OUTFITS,HAIR_MODES,dyesOf,outfitColors,outfitId,hairId,mergeLook} from '../wardrobe.mjs?v=fg-a40be0a4c2688238';
+import {CHORES,chorePlans,choreIntent,chorePose} from './chores.mjs?v=fg-a40be0a4c2688238';
+import {createChoreVisual} from './chore-visual.mjs?v=fg-a40be0a4c2688238';
+import {createSceneVisit} from './visit.mjs?v=fg-a40be0a4c2688238';
+import {createAutoInteraction,canTravelTogether} from './social-flow.mjs?v=fg-a40be0a4c2688238';
+import {createDateTransfer} from './date-transfer.mjs?v=fg-a40be0a4c2688238';
+import {MOTION_STYLES,PAIR_STYLES,motionProfile,pairProfile} from './motion-profile.mjs?v=fg-a40be0a4c2688238';
 let hostMotion=null,guestMotion=null,hostPair=null,guestPair=null,motionKey='';
 const autoInteraction=createAutoInteraction();let transfer=null,arrival=null;
 registerCoreSpaces(MAPS);
-import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-cca8c982b2418e7a';
-import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-cca8c982b2418e7a';
+import {homePlacements,homeFurniture,restoreHomeLayout,checkHomeLayout,changeHomeFurniture,addHomeFurniture,changeHomeRoom} from './home-layout.mjs?v=fg-a40be0a4c2688238';
+import {HOME_CATALOG,HOME_CATEGORIES,HOME_COLLECTIONS,HOME_COLORS,HOME_MATERIALS,HOME_WALLS,HOME_FLOORS,usesFor,furniturePrimary} from './home-catalog.mjs?v=fg-a40be0a4c2688238';
 setFaceBase(new URL('../../companion/faces/',import.meta.url).href);
 
 const scene=new T.Scene(),renderer=new T.WebGLRenderer({antialias:true,alpha:false}),camera=new T.OrthographicCamera(-8,8,8,-8,.1,100);
@@ -85,7 +85,7 @@ function prepareVisitor(){
  if(!visitorReady)visitorReady=(async()=>{
   visitorAvatar=createTraveler(travelerSource,false);visitorAvatar.root.visible=false;scene.add(visitorAvatar.root);await visitorAvatar.ready();
   visitor=createSceneVisit({avatar:visitorAvatar,choreVisual:createChoreVisual(visitorAvatar),ta:()=>soloOuting()?null:({x:avatar.root.position.x,z:avatar.root.position.z,seat,heading:yaw,moving:!!route.length&&!seat&&!bed,walkSpeed:1.6*(hostMotion?.walk||1),action:hostChore?null:activity?.action}),following:()=>!!visitSetting()&&!visitSetting().home&&!soloOuting(),motion:()=>guestMotion,onChange:visitNotice,choice:snapshot?.visitorData?.activityChoice,map:()=>MAPS[map]||MAPS.dayHome});
-  together=createTogether({a:avatar,b:visitorAvatar,kitchen:()=>({job:currentKitchenJob(),elapsed:kitchenProgress?.elapsed||0,progress:kitchenProgress?.progress}),visibility:planVisibility,pair:()=>({a:hostPair,b:guestPair}),motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info)visitor.control(info);},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
+  together=createTogether({a:avatar,b:visitorAvatar,kitchen:()=>({job:currentKitchenJob(),elapsed:kitchenProgress?.elapsed||0,progress:kitchenProgress?.progress,tools:kitchenView.tabletop()?.root||kitchenView.stationObjects('pan',globalThis.CharDayKitchen.cookingSpec(currentKitchenJob())).root}),onKitchenMoment:moment=>{const job=currentKitchenJob();if(job?.cooking&&job.id===moment.jobId){kitchenProgress.progress=globalThis.CharDayKitchen.stepCooking(job,kitchenProgress.progress,{kind:'moment',value:moment.kind,id:moment.id,ingredient:moment.ingredient});updateKitchen(0);}},visibility:planVisibility,pair:()=>({a:hostPair,b:guestPair}),motion:()=>({a:hostMotion,b:guestMotion}),map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),onUpdate:info=>{if(info){visitor.control(info);if(info.notice&&parent!==window)parent.postMessage({type:'char-day-kitchen-notice',charId:snapshot?.charId,notice:info.notice},location.origin);}},onStop:info=>{visitor.release(info);position={...info.a};seat=null;bed=null;target=destination(activity);go(target);}});
   transfer=createDateTransfer({a:avatar,b:visitorAvatar,map:()=>MAPS[map],from:()=>({a:{...position},b:visitor.inspect().position}),motion:()=>({a:hostMotion,b:guestMotion}),
    onUpdate:info=>visitor.control({...info,automatic:true}),
    onCancel:info=>{position={...info.a};visitor.release({b:info.b,reason:info.reason});},
@@ -430,7 +430,7 @@ function visitAction(kind,point){
   visitor?.act('manual');
   if(!visitor?.inspect().present||!visitSetting()||bed||changing){visitNotice({...visitor?.inspect(),notice:bed?'TA在睡觉，先安静陪一会儿。':'等TA走到位置后再互动。'});return false;}
   if(!visitSetting().actions.some(action=>action.kind===kind)){visitNotice({...visitor.inspect(),notice:'这个地点没有对应的双人活动位置。'});return false;}
-  const result=together.start(kind,{initiator:point?.initiator,lead:currentKitchenJob()?.cooking?.lead});if(result.ok){hostChore=null;hostChoreManual=false;hostChoreVisual?.hide();route=[];onArrive=null;}if(!result.ok)visitNotice({...visitor.inspect(),notice:result.reason});else if(following)trackCamera();return result.ok;
+  const result=together.start(kind,{initiator:point?.initiator,lead:kind==='cook'&&['ta','me'].includes(point?.lead)?point.lead:currentKitchenJob()?.cooking?.lead});if(result.ok){hostChore=null;hostChoreManual=false;hostChoreVisual?.hide();route=[];onArrive=null;}if(!result.ok)visitNotice({...visitor.inspect(),notice:result.reason});else if(following)trackCamera();return result.ok;
  }
  together?.stop();const ok=visitor?.act(kind,point)||false;if(ok&&kind!=='leave'&&following)trackCamera();return ok;
 }
@@ -477,6 +477,8 @@ function kitchenInput(event){const k=syncKitchen(),job=currentKitchenJob(),K=glo
  if(event.kind==='offer'&&job.kind==='meal'){const ok=visitAction('together:feed',{initiator:'b'});mealReturn=ok;return {ok};}
  if(event.kind==='taste'&&job.kind==='meal')return {ok:visitAction('together:meal')};
  if(!job.cooking)return {ok:false};const spec=K.cookingSpec(job,k.progress);
+ if(event.kind==='moment'){if(!together?.inspect()||together.inspect().kind!=='cook'||together.inspect().phase!=='active'||together.inspect().moment)return {ok:false,reason:'等两个人到锅边、做完当前这一下。'};const choice=K.cooperation(job,k.progress).find(q=>q.id===event.value);if(!choice||choice.disabled)return {ok:false,reason:choice?.reason||'这一步还没到。'};const result=together.start('cook',{lead:k.lead,moment:event.value});if(result.ok){kitchenInput({kind:'station',value:''});tabletopCamera=null;setCameraMode('both');route=[];onArrive=null;}return result;}
+ if(together?.inspect()?.moment&&!(event.kind==='station'&&!event.value))return {ok:false,reason:'等这一小下做完，再接着操作。'};
  if(event.kind==='station'){const chosen=K.stationInfo(job,event.value,k.progress);if(event.value&&(!K.cookingStations(job,k.progress).some(q=>q.id===event.value)||chosen.disabled))return {ok:false,reason:'先做完当前这一步，再用这件道具。'};kitchenStation=event.value||'';place.style.display=kitchenStation?'none':'';kitchenDrag=null;boardStation.clear();if(parent!==window)parent.postMessage({type:'char-day-kitchen-station',charId:snapshot.charId,station:kitchenStation},location.origin);if(!kitchenStation)focusKitchen();return {ok:true};}
  if(event.kind==='board-pan'&&kitchenStation==='board'){for(const [i,p]of k.progress.table.items.filter(p=>p.zone==='board').entries())k.progress=K.stepCooking(job,k.progress,{kind:'drop',id:p.id,point:{x:K.TABLE_ZONES.pan.x+(i%3-1)*.075,z:K.TABLE_ZONES.pan.z+(i%2-.5)*.075}});kitchenInput({kind:'station',value:'pan'});updateKitchen(0);return {ok:true};}
  if(event.kind==='focus'){if(focusKitchen())return {ok:true};const target=kitchenView.targets().find(o=>o.userData.kitchenTarget===spec.target);if(target){const p=target.getWorldPosition(new T.Vector3());pan.x=p.x;pan.z=p.z;setFollowing(false);gesture.setZoom(2.7);cameraPose();return {ok:true};}return {ok:false};}
@@ -493,13 +495,13 @@ function updateKitchen(dt){
  const active=!!job&&map==='dayHome'&&!snapshot.preview&&!snapshot.editing&&visitor?.inspect().present&&shared?.kind===job.kind&&shared.phase==='active';
  if(!job){if(kitchenStation){kitchenStation='';boardStation.clear();place.style.display='';if(parent!==window)parent.postMessage({type:'char-day-kitchen-station',charId:snapshot?.charId,station:''},location.origin);}if(tabletopCamera){tabletopCamera=null;setCameraMode('both');}kitchenView.update(mapLoader.views[map]?.root,MAPS[map],null,shared,{},0);return;}
  let stage=globalThis.CharDayKitchen.cookingStage(job,job.cooking?k.progress:k.elapsed);if(!stage.tabletop&&tabletopCamera){tabletopCamera=null;setCameraMode('both');}
- if(job.cooking){if((active||stage.passive&&map==='dayHome')&&!k.ready)k.progress=K.stepCooking(job,k.progress,{kind:'tick',dt,active,prepPaused:['board','basket'].includes(kitchenStation),chefPaused:['pan','heat','plate','sauce'].includes(kitchenStation),operationPaused:!!kitchenStation,held:kitchenDrag?.tag?.id});k.elapsed=k.progress.elapsed;k.ready=k.progress.index===3;stage=K.cookingStage(job,k.progress);}
+ if(job.cooking){if((active||!!shared?.moment||stage.passive&&map==='dayHome')&&!k.ready)k.progress=K.stepCooking(job,k.progress,{kind:'tick',dt,active,prepPaused:!!shared?.moment||['board','basket'].includes(kitchenStation),chefPaused:!!shared?.moment||['pan','heat','plate','sauce'].includes(kitchenStation),operationPaused:!!shared?.moment||!!kitchenStation,held:kitchenDrag?.tag?.id});k.elapsed=k.progress.elapsed;k.ready=k.progress.index===3;stage=K.cookingStage(job,k.progress);}
  else if(active&&!k.ready){k.elapsed+=dt;if(k.elapsed>=stage.duration)k.ready=true;stage=K.cookingStage(job,k.elapsed);}
- kitchenView.update(mapLoader.views[map]?.root,MAPS[map],job,shared,stage,k.elapsed,kitchenDrag);
+ kitchenView.update(mapLoader.views[map]?.root,MAPS[map],job,shared,stage,k.elapsed,shared?.moment?.kind==='pass'?{hideId:shared.moment.sourceId}:kitchenDrag);
  if(kitchenStation&&k.ready)kitchenInput({kind:'station',value:''});else if(kitchenStation&&!stage.tabletop&&K.stationInfo(job,kitchenStation,k.progress).disabled)kitchenInput({kind:'station',value:K.primaryStation(job,k.progress)});
  if(active&&stage.tabletop&&k.focused!==job.id){k.focused=job.id;focusKitchen();}
- const phase=k.ready?'ready':!active&&!stage.passive?'paused':stage.phase,step=Math.floor(k.elapsed*2);k.sinceNotice=(k.sinceNotice||0)+dt;
- if(k.reported!==step||k.phase!==phase||job.cooking&&(k.savedRev!==k.progress.rev)||k.ready&&!job.ready&&k.sinceNotice>=1){k.sinceNotice=0;k.reported=step;k.phase=phase;k.savedRev=k.progress?.rev;if(parent!==window)parent.postMessage({type:'char-day-kitchen',charId:snapshot.charId,id:k.id,phase,label:stage.label,elapsed:k.elapsed,ready:k.ready,...(job.cooking?{progress:{...k.progress},mode:k.mode,lead:k.lead}:{})},location.origin);}
+ const momentKey=shared?.moment?shared.moment.id+':'+shared.phase:'',phase=k.ready?'ready':!active&&!stage.passive?'paused':stage.phase,step=Math.floor(k.elapsed*2);k.sinceNotice=(k.sinceNotice||0)+dt;
+ if(k.momentKey!==momentKey||k.reported!==step||k.phase!==phase||job.cooking&&(k.savedRev!==k.progress.rev)||k.ready&&!job.ready&&k.sinceNotice>=1){k.sinceNotice=0;k.momentKey=momentKey;k.reported=step;k.phase=phase;k.savedRev=k.progress?.rev;if(parent!==window)parent.postMessage({type:'char-day-kitchen',charId:snapshot.charId,id:k.id,phase,moment:shared?.moment?{id:shared.moment.id,kind:shared.moment.kind,phase:shared.phase}:null,label:stage.label,elapsed:k.elapsed,ready:k.ready,...(job.cooking?{progress:{...k.progress},mode:k.mode,lead:k.lead}:{})},location.origin);}
 }
 function KITCHEN_TOOL_INSPECT(){return {...boardStation.inspect(),info:globalThis.CharDayKitchen.stationInfo(currentKitchenJob(),kitchenStation,kitchenProgress?.progress)};}
 function capturePhoto(){

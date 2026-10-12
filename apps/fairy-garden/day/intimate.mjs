@@ -1,11 +1,11 @@
 import * as T from 'three';
-import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-cca8c982b2418e7a';
-import './social.js?v=fg-cca8c982b2418e7a';
-import {pairProgress} from './motion-profile.mjs?v=fg-cca8c982b2418e7a';
-import {walkable,segmentClear} from '../world.mjs?v=fg-cca8c982b2418e7a';
+import {makeRecipeFood,disposeFood} from './recipe-food.mjs?v=fg-a40be0a4c2688238';
+import './social.js?v=fg-a40be0a4c2688238';
+import {pairProgress} from './motion-profile.mjs?v=fg-a40be0a4c2688238';
+import {walkable,segmentClear} from '../world.mjs?v=fg-a40be0a4c2688238';
 
 export const INTIMATE=globalThis.CharDaySocial.intimate;
-import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-cca8c982b2418e7a';
+import {headPoint,nearHand,bonePoint,torsoPoint,pairContact,shoulderPose,faceSpacing,facePose,faceHands} from './pair-pose.mjs?v=fg-a40be0a4c2688238';
 export {headPoint};
 const hand=(actor,side)=>actor.root.getObjectByName(side==='left'?'Left_hand':'Right_hand');
 const smooth=n=>{n=T.MathUtils.clamp(n,0,1);return n*n*(3-2*n);};
@@ -87,7 +87,7 @@ export function createIntimate({a,b,map,style,kitchen=()=>null}){
    const gs=nearHand(g,r.root.position),rs=nearHand(r,g.root.position),target=(actor,side)=>{const bone=actor.root.getObjectByName(side+'Forearm');return bone?bone.getWorldPosition(new T.Vector3()):actor.root.localToWorld(new T.Vector3(0,.64,0));};
    contact(g,{[gs]:target(r,rs)},pg,contacts);contact(r,{[rs]:target(g,gs)},pr,contacts);
   }else if(s.kind==='feed'){
-   const meal=kitchen()?.job,course=meal?.kind==='meal'?meal.courses?.[0]:null,key=course?meal.id+':'+course.id:'';
+   const meal=kitchen()?.job,course=meal?.kind==='meal'?meal.courses?.[0]:meal?.kind==='cook'&&s.moment?.kind?.startsWith('taste')?{id:meal.id,recipeId:meal.recipeId,variation:meal.cooking?.variation}:null,key=course?meal.id+':'+course.id:'';
    if(key!==foodKey){disposeFood(servingFood);servingFood=null;foodKey=key;if(course){servingFood=makeRecipeFood(course.recipeId,{variation:course.variation,finish:course.finish});servingFood.scale.setScalar(.28);servingFood.position.y=.024;snack.add(servingFood);bite.material.color.set(servingFood.userData.biteColor);}dish.visible=morsel.visible=!course;}
    diagnostics.recipeId=course?.recipeId||null;
    const turn=actor=>{const other=actor===g?r:g;return Math.sign(actor.root.worldToLocal(other.root.position.clone()).x)*.55;};

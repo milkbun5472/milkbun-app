@@ -8,7 +8,7 @@
 // 接口密钥留在父页 callAI，不传进游戏画面。
 (function (root) {
   "use strict";
-  const KEY = "x_fairyGarden", BUILD = "fg-cca8c982b2418e7a", hosts = new WeakMap();
+  const KEY = "x_fairyGarden", BUILD = "fg-a40be0a4c2688238", hosts = new WeakMap();
   const h = React.createElement, useState = React.useState, useRef = React.useRef, useEffect = React.useEffect;
   root.FairyGardenHostFor = child => hosts.get(child) || null;
   // ⚠️「读回来是空」不等于「这儿本来就没有一档」。存档搬进 IDB 之后，文字仓没灌起来
@@ -790,6 +790,17 @@
     return generateModelCase({active,context,id:'model:'+Date.now()+':'+Math.random().toString(36).slice(2,8),invoke:callAI,parse:extractJSON});
   }
   function petWorkChoice(action,world){const event=world?.career?.event;return action?.kind==='work-choice'&&(!action.petId||action.petId===world?.activePetId)&&event&&action.eventId===event.id&&event.options.some(o=>o.id===action.choice)?{eventId:event.id,choice:action.choice}:null;}
+  // Kitchen chat and menu planning share the complete role/profile and common style.
+  // They deliberately use the kitchen's own history, preserving Lisa's separate chat scope.
+  function kitchenContext(character,profile,world,history=[]){return [sharedStyle(),roleContext(character,profile,'','你们正在共同的小家里做饭或吃饭。这里是单独的厨房对话。'),'【眼前的厨房事实】\n'+JSON.stringify(world),'【厨房里最近的对话】\n'+history.map(m=>(m.role==='user'?userName(profile):character.name)+'：'+m.content).join('\n')].join('\n\n');}
+  async function kitchenMenu({active,character,profile,kitchen,wish=''}){
+    if(!active)throw Error('先配置创作线路，再让TA一起想菜单。');const K=root.CharDayKitchen;
+    const world={map:'day-kitchen',preferences:kitchen.preferences,ingredients:kitchen.ingredients,currentMenu:K.menuChoices(kitchen),savedRecipes:kitchen.customRecipes,recentMeals:kitchen.cookingHistory?.slice(-12),wish};
+    const catalog=K.RECIPES.map(r=>({id:r.id,name:r.name,method:r.method,ingredients:r.need,alternatives:K.alternatives(r.id)}));
+    const sys=kitchenContext(character,profile,world)+'\n\n【现有可落实的做法】\n'+JSON.stringify(catalog)+'\n【可添加的食材】\n'+JSON.stringify(K.INGREDIENTS)+'\n请按你和对方的完整人设、明确口味、已做过的菜和本次想法，提出三份不同的两人菜单，每份一到三道。组合、名字和理由由你们自己的偏好生长；菜的recipeId使用现有做法，可以用合法替料、最多三种额外食材和调味形成新版本。已有手选口味优先。历史只是已经做过的菜，本次菜单是尚未采用的提议。每道说明为何想做、谁掌勺；名字可以自行取。只输出JSON：{"menus":[{"name":"这一桌的名字","note":"你的选择理由","dishes":[{"recipeId":"现有做法id","lead":"ta或me","note":"选择与分工理由","variation":{"name":"这道版本的名字","swaps":{"原食材id":"替料id"},"addins":{"额外食材id":1},"spice":"none或mild或hot","salt":"light或regular或rich","sweet":"light或regular或rich"}}]}]}。';
+    const raw=await callAI(active,sys,[{role:'user',content:'开始安排这一批菜单。'}],{maxTokens:65000,timeout:180000,tag:'小家厨房菜单'});
+    try{const menus=K.menuBatch(extractJSON(raw));if(!menus.length)throw Error('空菜单');return menus;}catch(e){const error=Error('这次菜单没有读完整，可以重试。');error.detail=String(raw||'').slice(0,1600);throw error;}
+  }
   async function ask({ active, character, profile, world, history, text, mainline, destinations, event=false, engineer=false }) {
     // 真身票优先（她 2026-09-25「座位这种得你自己来」）：言秋同行时先开 CC 票请本人接话，
     // 不在岗/超时才落引擎兜底——同 trpg「队友宣言」先例，她永远有回音。
@@ -816,11 +827,7 @@
     const style = sharedStyle();
     // Lisa requested a separate kitchen tab. Its transcript and facts are independent;
     // full character/profile and the common style remain, with no main-thread read or write.
-    const sys = kitchen ? [style,roleContext(character,profile,'','你们正在共同的小家里做饭或吃饭。这里是单独的厨房对话。'),
-      '【眼前的厨房事实】\n'+JSON.stringify(world),
-      '【厨房里最近的对话】\n'+history.map(m=>(m.role==='user'?userName(profile):character.name)+'：'+m.content).join('\n'),
-      '你以自己的身份接对方这句话，语气和内容从完整人设与眼前的事情自然生长。共同做过什么以厨房事实和这份对话为准；程序负责切菜、火候与动作，回复可以表达你的想法和意愿。',
-      '只输出JSON：{"reply":["本轮说的话，按意思分成气泡"]}。'].join('\n\n') : [style,
+    const sys = kitchen ? kitchenContext(character,profile,world,history)+'\n\n你以自己的身份接对方这句话，语气和内容从完整人设与眼前的事情自然生长。共同做过什么以厨房事实和这份对话为准；程序负责切菜、火候与动作，回复可以表达你的想法和意愿。你想搭把手或一起做一件事时，从availableCooperation中提出一个当前可做的动作。对方确认后才会执行。只输出JSON：{"reply":["本轮说的话，按意思分成气泡"],"proposal":{"kind":"可用的配合动作标识"}}，没有提议时省略proposal。' : [style,
       roleContext(character, profile, mainline, setting),
       pets ? "【家里的宠物与日常】pets列出这一个家里每只宠物的稳定id、名字、脾气、饱腹、精力、当前行为、对不同人的实际相处经验和最近的小事，以当前世界事实为准。activePetId表示对方当前选中的宠物，pet/career/home是它的资料；pets中每只都有自己的相处记录与职业，照料动作的petId取实际想照料的那只id。pet.task的target表示它想找谁，walking/fetch/carry仍在途中；recent中type为visit的是实际抵达或放下玩具后的记录。home.parcels.waiting是尚未拆开的真实袋子，carrying仍在带回或找地方放，placed已经放好；opened才是实际拆出并入库的东西。宠物的小反应以当前照料任务和实际完成的小事为准，准备去闻或准备吃仍未完成。social是这个家里宠物之间的实际相处记录；pending仍在走过去或等待，recent才是已经发生的共同小事，pairs按两只稳定id记录看窗、递球和纸箱旁等待。关系计数来自已完成的照料，按事实理解它找人的偏好，别预设谁负责哪一项。pets各自的place/town和companion.place/town表示实际所在地点与闲时路线，可能分别在家、街区或不同店里；companion.visible表示对方在当前地点能否看见你。together为这次真实结伴的安排；mode为walk时，对方和你在一起遛宠物，travel仍在出门，walk沿街走，pause路边歇歇，play停下来互动，notice陪它看路边的小事，wipe在实际回家后擦爪，home一起回家。street.phase为approach还在走过去，doing才在实际陪伴；walkHabits是这只宠物实际形成的常去位置和完成小事，livingPhotos是这一档实际拍下的照片信息，图片不送入模型。domestic包含它自己持续留着的小心愿、真实生日与领养纪念日、料理安排、已经做好但尚未吃完的点心、实际口味与赠礼记忆。wish是想法，paused只是暂时搁置；task仍在准备，serving仍在等它实际吃完，memories才是已经完成的小事。原料和物件归各自宠物所有，未完成不编造成往事。尚未完成按当下的准备与途中理解。you.outWalking和walkActivity表示对方此刻是否同行及实际阶段。you.place是对方此刻所在的地方，you.with是对方正跟着的那只宠物；sameRoomAsCompanion为false时你们不在同一处，是隔着各自的地方在说话，你看不到对方眼前的场面，对方眼前发生什么以you和pets里的实际地点为准。job表示尚在准备或执行的照料。你自己对宠物的态度、愿不愿照料、想做什么按人设和相处方式生发。这里的往事与其他经历沿这间房准许的上下文承接。" : train ? "【远行列车】你们正在列车小游戏里旅行。activity 是此刻正在做的事，看窗外聊天时拼图留在桌上，打开拼图桌才继续拼。以本轮人设保留性格、声纹和相处方式；时间、风景、拼图片数、已拼数量与实际落手以当前世界为准。environment 是发送这句消息时的实时窗外环境，包含时间、季节、天气、沿途景物及线路过渡；puzzle.photo 是拍摄时留下的旧照片信息，两者可能不同。根据话题自然感知眼前环境，穿隧道时依据遮挡状态描述窗外。新的消息以新的环境快照为准。photography列出实际拍下的照片，shared表示是否已交换给对方。这些是游戏中的共同经历。拼图动画由游戏执行，你可以边看边说、和对方聊其他话题。个人拼图水平是这份游戏档的熟练度，不代表现实能力。" : "【微光庭院】以本轮人设保留性格、声纹和相处方式，以游戏状态确定此时此地。⚠️这是你们在玩的一个小游戏：村子、天气、背包、这一天都是游戏里的，可以入戏，但别把它当成你们现实里真发生过的事——现实里的事只以上面给你的经历为准。时间、背包、位置与共同经历都属于这个存档。",
       "【当前世界的事实】\n" + JSON.stringify(world),
@@ -838,6 +845,7 @@
     ].join("\n\n");
     const raw = await callAI(active, sys, [{ role: "user", content: "回应眼前这一句。" }], { maxTokens: 65000, timeout: 180000, tag: kitchen?"小家厨房":"微光庭院" });
     const out = normalizeReply(raw);
+    if(kitchen){const proposal=extractJSON(raw)?.proposal,choice=world.availableCooperation?.find(q=>q.id===proposal?.kind);if(choice)out.proposal={kind:choice.id,label:choice.label,jobId:world.cooking?.id};}
     if(pets){const a=extractJSON(raw)?.action;out.workChoice=petWorkChoice(a,world);out.petAction=["feed","play","pet","snack"].includes(a?.kind)?a.kind:null;out.petId=typeof a?.petId==="string"?a.petId:null;}
     if (train) { const o = extractJSON(raw), a = o && o.action; if (a && a.kind === "move" && ["seat", "stand", "rack", "berth"].includes(a.target)) out.move = a.target; }
     return out;
@@ -1219,7 +1227,7 @@
     if (!parts.length) { const e = new Error("这次他没说出口，明天再来。"); e.detail = String(raw || "").slice(0, 1200); throw e; }
     return parts;
   }
-  root.FairyGardenService = { generatePetCase, KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, tasteWords, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
+  root.FairyGardenService = { kitchenContext,kitchenMenu,generatePetCase, KEY, normalizeReply, ask, bottleReply, missLine, neighborLine, starLines, normalizeStar, pairLines, tasteWords, generateSeason, blossoms, shards, tastes, normalizeTastes, hello, normalizeHello, guideLines, normalizeGuide, gameBirthday, SEED_LABELS, SHARD_LABELS };
   // ⚠️原来这颗是【一栋小房子】，画的是世界 #1（微光庭院）。壳里现在装着好几个世界，
   //   主屏那颗图标是【进壳】的入口，不该再指认某一个世界。
   //   换成三颗大小不一的星子：只说「好几个小世界」。
