@@ -16548,10 +16548,15 @@ function OffCard({ m, msgIndex, t, char, meProfile, members, canOpenState, onEdi
         ? h("div", { className: "flex items-center gap-3" }, rule(),
             // 不许 nowrap：三十来个字加字距在手机上一行装不下，原来直接冲出屏幕（群邀约出发那句开场撞出来的）
             h("span", { style: { fontFamily: F_DISPLAY, fontSize: 12.5, letterSpacing: 2, color: t.fog, textAlign: "center", minWidth: 0, flex: "0 1 auto" } }, nText), rule())
-        : h("div", { style: { borderLeft: "2px solid " + offA(t.tint, offDark(t) ? 0.5 : 0.38), paddingLeft: 13, margin: "0 4px" } },
-            h("div", { style: { fontFamily: F_BODY, fontSize: "calc(var(--off-fs, 14px) - 1px)", fontStyle: "italic", lineHeight: 1.9, color: t.fog, whiteSpace: "pre-wrap" } },
+        // 长的跟短的是同一张旁白卡（群友 2026-10-12：「一行和两行的样式差别有点大，两行的有点像心声」）：
+        //   原来长的走左边一道竖线 + 斜体，跟下面「心声」那块一模一样。现在上下各一道同样的细线、同样的字和颜色，
+        //   只是字距收一点、段落靠左（居中的长段落读起来累），一眼还是那张旁白卡。
+        : h("div", { style: { margin: "0 4px" } },
+            h("div", { className: "flex", style: { marginBottom: 8 } }, rule()),
+            h("div", { style: { fontFamily: F_DISPLAY, fontSize: "calc(var(--off-fs, 14px) - 1px)", letterSpacing: 1, lineHeight: 1.85, color: t.fog, whiteSpace: "pre-wrap", padding: "0 6px" } },
               offSplit(nText).map((x, i) => x.k === "prose" ? x.s
-                : h("span", { key: i, style: { color: offReadable(t.tint, t.bg), fontStyle: "normal", fontWeight: 600 } }, x.s)))));
+                : h("span", { key: i, style: { color: offReadable(t.tint, t.bg), fontWeight: 600 } }, x.s))),
+            h("div", { className: "flex", style: { marginTop: 8 } }, rule())));
   }
   return h("div", { className: "my-2.5", "data-wk": "offmsg", "data-me": isUser ? "1" : "0", "data-kind": m.kind || "text" },
     // 思考链画在这一拍的【上面】，和单聊同一个位置、同一个组件：一行字加箭头，没有框。

@@ -25,7 +25,9 @@ test("三种东西画得不一样：旁白根本不给框", () => {
   assert.match(narr, /const nShort = nText\.length <= 34;/, "长短旁白没分开");
   // 短的居中当场次标题，长的靠左走一道竖线——居中的长段落最难读，那是原来最扎眼的地方
   assert.match(narr, /nShort\n *\? h\("div", \{ className: "flex items-center gap-3" \}, rule\(\)/, "短旁白不是居中场次标题");
-  assert.match(narr, /borderLeft: "2px solid " \+ offA\(t\.tint,/, "长旁白没有那道竖线");
+  // 群友 2026-10-12：长旁白那道竖线 + 斜体跟「心声」一模一样——改成跟短旁白同一张卡：上下两道细线
+  assert.ok(!/borderLeft: "2px solid " \+ offA\(t\.tint,/.test(narr), "长旁白又长回心声那道竖线了");
+  assert.ok((narr.match(/rule\(\)/g) || []).length >= 4, "长旁白没有上下那两道细线");
   assert.match(narr, /whiteSpace: "pre-wrap"/, "长旁白把换行吃掉了");
 });
 
