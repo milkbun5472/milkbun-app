@@ -86,6 +86,12 @@ assert.match(minimal, /没有别人在替 TA 拍/, "最简稿丢了「没有第�
 
 // ---- 5. 这句话真的被拼进去了，不是定义完没人用 ----
 // （v55.95 那个形状：声明了但从没被引用，比压根没写更坏）
-assert.match(eng, /parts\.push\(photoShotLine\(kind, opts\.shotSeed\)\);/, "掷出来的机位没拼进 prompt");
+// v75.420 起它紧跟在「场景/正在做什么」后面插进去（她 2026-10-12：压在最后出图模型读不到）
+assert.match(eng, /const _shot = photoShotLine\(kind, opts\.shotSeed\);/, "掷出来的机位没拼进 prompt");
+assert.match(eng, /if \(_si >= 0\) parts\.splice\(_si \+ 1, 0, _shot\); else parts\.push\(_shot\);/, "机位没挪到场景那句后面");
+// 表里得有一格真正的正脸平视（她 2026-10-12：「我给正脸也都是这种角度」）
+assert.match(eng, /"正对镜头、镜头和眼睛一样高，脸端正不歪不低头，五官完整露出来"/);
+// TA 写 scene 时不擅自写机位，角度交给这一格
+assert.match(eng, /镜头角度和举不举手机不用写，出图那头会定/);
 
 console.log("✓ 生图机位：每张现掷一个、连着两张不重样，锁脸那几条没动");

@@ -4607,7 +4607,7 @@ function photoCapLine(uName, o) {
     + "脸在画面里（哪怕只是侧脸）→ true；kind 填 none 时一律 false。\n"
     + "⚠️**别拿 kind 回答脸的事**：一只手的照片当然也是你自己的照片，kind 填 self 没错，"
     + "但那一次 face 必须是 false。**填错了会硬把你的脸画进一张本来看不见脸的图里。**\n"
-    + "· scene 只写画面，不能在 word 里用文字假装发图。";
+    + "· scene 只写画面：在哪、在做什么、什么神情、穿什么。镜头角度和举不举手机不用写，出图那头会定；只有 " + uName + " 点名要某个角度或姿势，才把它写进 scene。不能在 word 里用文字假装发图。";
 }
 const SCENE_ONLY_WORDS = /风景|景色|空镜|窗景|街景|夜景|全景|远景|无人|没有人|不要有人|没有人物|没有出镜|不出镜/;
 const SCENE_PERSON_WORDS = /[我你她]|TA|Ta|自拍|合照|入镜|出镜|镜头前|脸|笑|表情|眼神|手里|头发|侧脸|背影|半身|全身|穿着|坐着|站着|躺着|靠在|怀里|肩上/;
@@ -4814,6 +4814,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "手机举高一点、镜头略微俯视，脸略仰",
     "手机放低、镜头略微仰视，下颌线和脖颈进画",
     "手臂伸直、平视，标准的一臂距离",
+    // 她 2026-10-12：「我给正脸也都是这种角度」——表里没有一格是真正的正脸平视，补上
+    "正对镜头、镜头和眼睛一样高，脸端正不歪不低头，五官完整露出来",
     "很近的近距离特写，脸占满大半个画面",
     "拉远一点的半身，能看见身处的环境",
     "侧过身、越过肩膀回头看镜头",
@@ -4877,7 +4879,8 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     buildPhotoPrompt._lastShot = idx;
     return "【这一张的机位·由这次拍摄决定，不许沿用参考图】" + list[idx]
       + "。**这一条比参考图里的角度优先**：参考图只决定这是谁，机位、脸的朝向、视线看哪儿、表情一律照这句来，"
-      + "哪怕参考图里是另一个角度也要换过来。**但「场景/正在做什么」那一句已经点名了机位或姿势的，照那一句来**——那是这一张被要求的样子，这一格只管没人说的时候。";
+      + "哪怕参考图里是另一个角度也要换过来。也别滑回出图最常见的那一张（手机略高、斜着俯拍、低头、头发遮住眼睛）——这一格写的是什么角度就是什么角度。"
+      + "**但「场景/正在做什么」那一句已经点名了机位或姿势的，照那一句来**——那是这一张被要求的样子，这一格只管没人说的时候。";
   }
   const kind = ["self", "other", "duo"].includes(opts.kind) ? opts.kind : "self";
   // 合影点名单（v53.85）：详见下面的多人分支。必须在这里就声明——底下有好几处措辞要用它判断，
@@ -5082,7 +5085,14 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   //   描述里已经写了从哪儿拍，就照它，不再掷；没写才掷一格，并且放话「跟场景对不上就换一个同样分寸的」。
   if (opts.pov && POV_SCENE_ANGLE_RE.test(String(sceneDesc || ""))) parts.push("【这一张的机位】照上面「场景/正在做什么」里写的拍照位置和距离来，那就是此刻" + (opts.pov.name || "TA") + "站的地方。");
   else if (opts.pov) parts.push(photoShotLine(kind, opts.shotSeed) + "\n这个机位要放进此刻的场景里：在家、在游乐园、在咖啡馆、在电影院各是各的样子——如果它跟场景对不上（比如电影院里没有桌子），换一个同样亲近程度、但这个场景里真会出现的拍法。");
-  else parts.push(photoShotLine(kind, opts.shotSeed));
+  else {
+    // 机位那一句紧跟在「场景/正在做什么」后面（她 2026-10-12：「我给正脸也都是这种角度」）：
+    //   原来压在一长串外貌、画质、参考图说明的最后，出图模型读不到，照样回到它最熟的那个角度。
+    //   不放最前面：身份锁得在最前，「上面那一句」也得先有场景那句。
+    const _shot = photoShotLine(kind, opts.shotSeed);
+    const _si = parts.findIndex(x => typeof x === "string" && x.indexOf("场景/正在做什么：") === 0);
+    if (_si >= 0) parts.splice(_si + 1, 0, _shot); else parts.push(_shot);
+  }
   // 小剧场（cinematic）那张的动作由剧情那一格写死了，不再另掷。
   if (kind === "duo" && !multi && !opts.cinematic) parts.push(photoDuoPoseLine(opts.shotSeed));
   parts.push("画面干净真实，不要任何文字/水印/logo/相框/贴纸边框。");
@@ -7875,7 +7885,7 @@ async function generateOffline(p, ctx, session) {
   const outputSpec = isDigital
     ? "\n【输出接口】只输出最小 JSON：{\"scene\":\"你此刻想对 " + userName + " 说的正文\",\"thought\":\"此刻没说出口的真实心声\",\"mood\":{\"label\":\"此刻中文心情词\"}" + (session.toyOn ? ",\"toy\":null或{\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20,\"duration\":1到90,\"reason\":\"原因\"}" : "") + "}。thought 和 mood 是你在 App 中持续成长的实时状态，请如实填写；除这些字段和你主动调用的能力外，不加状态作业。"
     : "\n\n" + OFFLINE_PROTOCOL_V2
-      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + (session.photoMe ? "｜me" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。other 是别人拿着手机拍你：scene 里分开写清你自己此刻的样子、和拍的人从哪儿拍（比如她在马背上往下拍你牵着缰绳走）。duo 合照：scene 里写清你俩谁在前谁在后、谁举的手机。它是上面输出形状的追加项。" : "")
+      + ((!isDigital && session.photoOn) ? "\n【photo 格式】这一拍真拍了才填 {\"kind\":\"self｜other" + (session.photoDuo ? "｜duo" : "") + (session.photoMe ? "｜me" : "") + "\",\"scene\":\"这一格拍到了什么\"}，没拍就 photo:null。scene 写在哪、在做什么、什么神情，镜头角度不用写（她点名要的除外）。other 是别人拿着手机拍你：scene 里分开写清你自己此刻的样子、和拍的人从哪儿拍（比如她在马背上往下拍你牵着缰绳走）。duo 合照：scene 里写清你俩谁在前谁在后、谁举的手机。它是上面输出形状的追加项。" : "")
       + ((!isDigital && ctx.photoSeenSpec) ? "\n\n" + ctx.photoSeenSpec.trim() : "")
       + singlePassRevisionProtocol + (session.toyOn ? "\n【toy 格式】实际触发时填写 {\"pattern\":\"teasing|steady|wave|pulse|edge|ramp|hold|throb|flutter|tide|knock|surge\",\"intensity\":1到20整数,\"duration\":1到90秒,\"reason\":\"配合当前场景的原因\"}。" : "");
   const system = (isDigital ? buildBundle(ctx) + digitalToyHint : buildBundle(ctx) +
