@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.434";
+const APP_VERSION = "v75.435";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -29835,7 +29835,18 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     worldbookFor: (charIds, text) => loreForContext("creative", charIds, text),
     moods: moods,
     // 注入最近聊天抓人设用（只读，不写回记忆）
-    recentChatFor: (charId) => (chatsRef.current[charId] || []).filter(m => !m.recalled && m.content && !isOocMsg(m) && contextAllowsMessage(m)).slice(-16).map(m => (m.role === "user" ? userName(profile) : (characters.find(c => c.id === charId) || {}).name || "TA") + ": " + m.content).join("\n"),
+    // 主要在群里处的也算（她 2026-10-12「如果和某个不怎么私聊、关系变化都在群聊里」）：
+    //   私聊 + TA在的、开了记忆互通的群，按时间合起来取最近 16 句。闸跟单聊的 groupEcho 是同一道（闭群不外流）。
+    recentChatFor: (charId) => {
+      const nm = (characters.find(c => c.id === charId) || {}).name || "TA";
+      const ok = m => m && !m.recalled && m.content && !isOocMsg(m) && m.role !== "system" && contextAllowsMessage(m);
+      const rows = (chatsRef.current[charId] || []).filter(ok).map(m => ({ ts: m.ts || 0, line: (m.role === "user" ? userName(profile) : nm) + ": " + m.content }));
+      (groups || []).filter(g => gsFor(g.id).memoryInterop && (g.memberIds || []).includes(charId)).forEach(g => {
+        (groupChatsRef.current[g.id] || []).filter(ok).slice(-40).forEach(m => rows.push({ ts: m.ts || 0,
+          line: "（群「" + g.name + "」）" + (m.role === "narration" ? "【旁白】" : (m.role === "user" ? userName(profile) : (m.senderName || "某人")) + ": ") + m.content }));
+      });
+      return rows.sort((a, b) => a.ts - b.ts).slice(-16).map(r => r.line).join("\n");
+    },
     isEngineer: (charId) => !!settingsFor(charId).engineerEyes,
     // 沙盒读不写的唯一例外：终局她亲手点「收进记忆」才写这一条（默认一个字不写——
     // four-surfaces 第 5 条「写主线先问该不该」，这里的答案是：她点了才该）
