@@ -87,3 +87,12 @@ test("TA 自己下：一步一次调用，落子和说话一起回来；落在�
   assert.match(g, /if \(!m \|\| board\[m\.y \* GMK_N \+ m\.x\]\) \{\n\s*const fb = gmkBestMove\(board, side, level\(side\)\);/, "非法落子没兜底");
   assert.match(g, /if \(thinkRef\.current\) return;/, "同一步会被重复调用");
 });
+
+test("放水真的赢得了：对面要成五的那一下不再每次都挡，放水开局就是「让着」（她 2026-10-12）", () => {
+  assert.match(src, /const blockFive = !easy \|\| rnd\(\) < \(lv >= 2 \? 0\.2 : 0\.6\);/);
+  assert.match(src, /if \(!spectate\) return easy && side === charSide \? 2 : 0;/);
+  // 认真局照旧：对面要成五一定挡
+  const b = E.gmkEmpty(); [[3,7],[4,7],[5,7],[6,7]].forEach(([x,y]) => { b[y*15+x] = 1; }); b[2*15+7] = 2;
+  const mv = E.gmkBestMove(b, 2, 0);
+  assert.ok((mv.x === 7 && mv.y === 7) || (mv.x === 2 && mv.y === 7), "认真局没挡住成五");
+});

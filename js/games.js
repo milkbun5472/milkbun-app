@@ -4818,18 +4818,22 @@
     rnd = rnd || Math.random;
     const lv = level === true ? 1 : (level || 0), easy = lv > 0;
     const foe = who === 1 ? 2 : 1;
+    // ⚠️她 2026-10-12：「放水她们说也打不赢」——原来放水局里【对面马上成五那一下一定挡】，
+    //   普通人得同时摆出两个杀招才赢得了，等于没放水。现在：随手局那一下挡六成，让着局两成；
+    //   别的防守也看漏得更多，进攻也收着打。
+    const blockFive = !easy || rnd() < (lv >= 2 ? 0.2 : 0.6);
     const scored = gmkCandidates(b).map(function (p) {
       const atk = gmkCellScore(b, p[0], p[1], who), def = gmkCellScore(b, p[0], p[1], foe);
-      // 放水：防守那一半有时看漏（但对方马上成五那一下照样会挡）
-      const seeDef = !easy || def >= 1000000 || rnd() < (lv >= 2 ? 0.3 : 0.55);
-      return { x: p[0], y: p[1], s: (lv >= 2 ? atk * 0.5 : atk * 1.1) + (seeDef ? def : def * 0.15) };
+      const five = def >= 1000000;
+      const seeDef = !easy || (five ? blockFive : rnd() < (lv >= 2 ? 0.15 : 0.35));
+      return { x: p[0], y: p[1], win: atk >= 1000000, s: (!easy ? atk * 1.1 : lv >= 2 ? atk * 0.35 : atk * 0.7) + (seeDef ? def : def * 0.05) };
     }).sort(function (a, c) { return c.s - a.s; });
     if (!scored.length) return null;
-    // 能直接赢的那一下谁都不会放过
-    if (scored[0].s >= 1000000 || !easy) return scored[0];
-    // 对面马上成五那一下：让着也照挡（不会直接把赢送出去）
-    if (scored[0].s >= 1000000 * 0.9) return scored[0];
-    const top = scored.filter(function (m) { return m.s >= scored[0].s * (lv >= 2 ? 0.15 : 0.4); }).slice(0, lv >= 2 ? 8 : 4);
+    if (!easy) return scored[0];
+    // 能直接赢的那一下：随手局照赢，让着局一半时候「没看见」
+    const winMv = scored.find(function (m) { return m.win; });
+    if (winMv && (lv < 2 || rnd() < 0.5)) return winMv;
+    const top = scored.filter(function (m) { return m.s >= scored[0].s * (lv >= 2 ? 0.08 : 0.3); }).slice(0, lv >= 2 ? 10 : 6);
     return top[Math.floor(rnd() * top.length)] || scored[0];
   }
   // 给模型看的局面一句话：谁刚形成了什么，不贴整张棋盘
@@ -4864,7 +4868,8 @@
     const level = function (side) {
       const c = side === charSide ? char : (side === botSide ? char2 : null);
       if (c && playOv[c.id] != null) return playOv[c.id];
-      if (!spectate) return easy && side === charSide ? 1 : 0;
+      // 放水开局就是「让着」那一档（她 2026-10-12：随手那档普通人还是赢不了）
+      if (!spectate) return easy && side === charSide ? 2 : 0;
       return (c && cfg.gmkCasual && cfg.gmkCasual[c.id]) ? 1 : 0;
     };
     const PLAY_ZH = ["认真", "随手", "让着"];
