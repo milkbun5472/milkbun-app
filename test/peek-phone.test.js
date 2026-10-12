@@ -363,7 +363,10 @@ test("线下往期和日历也翻得到：藏起来、换面具的人不在里�
   assert.match(a, /if \(on\("offline"\)\) \{[\s\S]*?shownId\(c\.id\)[\s\S]*?不是和你的/);
   assert.match(a, /if \(on\("calendar"\)\) \{[\s\S]*?!maskTrace\(x\)/);
   assert.match(a, /offline: \["offline"\], calendar: \["calendar"\]/);
-  assert.match(a, /if \(app === "offline"\) app = "chat";/);
+  // 她 2026-10-12：「查手机看线下根本没点进去」——不再只点开聊天，进那个人的线下、摊开往期那张单子
+  assert.match(a, /if \(oc\) \{ window\.__peekOffPast = true; peekOffRef\.current = true; openOffline\(oc\); return; \}/);
+  assert.match(c, /if \(window\.__peekOffPast\) \{ window\.__peekOffPast = false; setPastOpen\(true\); \}/, "线下那头没摊开往期");
+  assert.match(a, /peekDone = thoughts => \{\n    peekOffClose\(\);/, "翻完没把线下收起来");
 });
 
 test("健康也翻得到：读的是她自己记的（HealthCtx.peekText），不编", () => {

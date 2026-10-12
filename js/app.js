@@ -10763,9 +10763,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
   const PEEK_APP_ZH = { messages: "消息列表", chat: "聊天", forum: "论坛", wallet: "钱包", shop: "购物", takeout: "外卖", listen: "一起听", memo: "备忘录", diary: "日记", offline: "线下往期", calendar: "日历", health: "健康" };
   // 上次翻过什么（x_peekLast[charId]）：下一次先去没看过的
   const peekLastOf = id => { const all = loadJSON("x_peekLast", {}) || {}; return all[id] || {}; };
+  // 录像里进过某人的线下：再翻别处（或翻完）就把它收起，线下是盖在最上面的一层，不收会一直挡着
+  const peekOffRef = useRef(false);
+  const peekOffClose = () => { if (peekOffRef.current) { peekOffRef.current = false; setOfflineChar(null); } };
   const peekOpen = (app, who) => {
-    // 线下往期挂在跟那个人的聊天里：点开那个人
-    if (app === "offline") app = "chat";
+    peekOffClose();
+    // 线下往期（她 2026-10-12：「查手机看线下根本没点进去」——原来只点开那个人的聊天，停在线上）：
+    //   进那个人的线下，直接摊开「往期线下记录」那张单子。openOffline 只读存储、不开新场，翻一眼不会动到她的线下。
+    if (app === "offline") {
+      const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
+      const oc = (characters || []).find(x => x && (x.name === who || x.remark === who) && (!hid || !hid.has(String(x.id))));
+      if (oc) { window.__peekOffPast = true; peekOffRef.current = true; openOffline(oc); return; }
+      app = "chat";
+    }
     if (app === "chat") {
       // 藏起来的、别的面具的那几个聊天：录像里就算点到名字也不打开，停在消息列表（那里本来就看不到他们）
       const hid = (() => { try { return window.__peekHide instanceof Set ? window.__peekHide : null; } catch (e) { return null; } })();
@@ -10780,6 +10790,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (PEEK_APP_ZH[app]) setScreen(app);
   };
   const peekBack = () => {
+    if (peekOffRef.current) { peekOffClose(); return; }
     // 照屏幕上那颗返回键点（公共顶栏的返回键挂着 data-watch="back"，「看他玩」也靠它；聊天页是 chatback）；找不到就回主屏
     const btn = document.querySelector('#root [data-watch="back"]') || document.querySelector('#root [data-wk="chatback"]') || document.querySelector('#root [aria-label="返回"]');
     if (btn) { try { btn.click(); return; } catch (e) {} }
@@ -11222,6 +11233,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     if (all[char.id]) { delete all[char.id]; saveJSON("x_phoneRemarkEdits", all); }
   };
   const peekDone = thoughts => {
+    peekOffClose();
     const p = peekPlay;
     setPeekPlay(null);
     try { window.__peekHide = null; window.__peekMask = null; } catch (e) {}

@@ -15992,6 +15992,8 @@ function OfflineMode({
   const [readView, setReadView] = useState(null); // 回看往期
   const [modeOpen, setModeOpen] = useState(false); // 顶栏下拉：切回线上/线下
   const [pastOpen, setPastOpen] = useState(false); // 往期场次选择
+  // 查手机的录像点到「线下往期」：进来就把往期那张单子摊开（app.js peekOpen 那头立的旗，用一次就放下）
+  useEffect(() => { if (window.__peekOffPast) { window.__peekOffPast = false; setPastOpen(true); } }, []);
   const styleEditor = useOfflineCustomStyles(t, styleKey, setStyleKey);
   const { customStyles, styleSheet, setStyleSheet, curStyle } = styleEditor;
   const os = settings || {};
