@@ -164,7 +164,7 @@
   }
   function clearGameSave(k) { const all = loadGamesSaves(); delete all[k]; bigSet(GS_SAVE, all); }
   // 玩家名单存/取：剥离不可靠的 char（React 元素/整份档案），续局按 key 从 characters/profile 重挂
-  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, recent: p.recent || "", alive: p.alive, engineer: !!p.engineer }; }); }
+  function serPlayers(players) { return (players || []).map(function (p) { return { key: p.key, name: p.name, isUser: !!p.isUser, isNpc: !!p.isNpc, role: p.role, side: p.side, word: p.word, skill: p.skill, persona: p.persona, recent: p.recent || "", ties: p.ties || "", alive: p.alive, engineer: !!p.engineer }; }); }
   function hydPlayers(saved, props, t) {
     return (saved || []).map(function (s) {
       let char = null;
@@ -2535,7 +2535,17 @@
     const skillOf = {}; (skillData || []).forEach(function (s) { if (s && s.name) skillOf[s.name] = s.skill || ""; });
     const list = [];
     const inject = cfg.injectChat && props.recentChatFor;
-    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, recent: inject ? String(props.recentChatFor(c.id) || "").slice(-600) : "", isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: pinnedSkill(c.id, skillOf[c.name] || ""), alive: true }); });
+    // 一屋子熟人（她 2026-10-12「但是如果是一屋子熟人玩呢」）：谁跟谁什么关系，她在「关系网」里连过的就带上；
+    //   跟她那条也在这张图里（me 节点）。人设里写的照旧认，这里补的是只连在关系网上的那些。
+    const rels = (typeof loadJSON === "function" && loadJSON("x_rels", {})) || {};
+    const tieOf = function (c) {
+      const fmt = function (r) { return r && r.label ? String(r.label).slice(0, 20) + (r.note ? "（" + String(r.note).slice(0, 40) + "）" : "") : ""; };
+      const out = [];
+      const me = fmt(rels[c.id + "->me"]); if (me) out.push("TA 眼里的她：" + me);
+      chars.forEach(function (o) { if (o.id === c.id) return; const r = fmt(rels[c.id + "->" + o.id]) || fmt(rels[o.id + "->" + c.id]); if (r) out.push("TA 和 " + o.name + "：" + r); });
+      return out.join("；");
+    };
+    chars.forEach(function (c) { list.push({ key: c.id, name: c.name, char: c, recent: inject ? String(props.recentChatFor(c.id) || "").slice(-600) : "", ties: tieOf(c), isUser: false, isNpc: false, engineer: !!(cfg.ccSeat !== false && props.isEngineer && props.isEngineer(c.id)), skill: pinnedSkill(c.id, skillOf[c.name] || ""), alive: true }); });
     if (cfg.mode !== "spectate") { const pf = props.profile || {}; list.push({ key: "user", name: pf.name || "你", char: { name: pf.name || "你", avatarImage: pf.avatarImage, color: pf.color || t.tint }, isUser: true, isNpc: false, skill: "", alive: true }); }
     const npcNeed = cfg.npcCount || 0;
     const npcs = (npcData || []).slice(0, npcNeed);
@@ -3116,13 +3126,13 @@
   function tdDesc(p, cap, forUi) {
     const s = p.isNpc ? (p.persona || "") : ((p.char && (p.char.persona || p.char.tagline)) || p.persona || "");
     const base = (cap && s.length > cap) ? s.slice(0, cap) + "…" : (s || "（没写人设）");
-    return (forUi ? "" : gNote(p)) + base + (!forUi && p.recent ? "\n【和她的近况】\n" + p.recent : "");
+    return (forUi ? "" : gNote(p)) + base + (!forUi && p.ties ? "\n【关系网里连着的】" + p.ties : "") + (!forUi && p.recent ? "\n【和她的近况】\n" + p.recent : "");
   }
   function gNote(p) { return (!p.isNpc && p.char && window.CharacterPronoun && window.CharacterPronoun.genderNote) ? window.CharacterPronoun.genderNote(p.char) : ""; }
   function tdRoster(list, cap) { return list.map(function (p) { return "【" + p.name + "】" + tdDesc(p, cap); }).join("\n\n"); }
   // 贴人设铁律：焊进真心话每个生成，治 OOC + 性别/关系搞错 + 乱配 CP
   const TD_IC = "【严格贴人设 · 别 OOC】每个角色的语气、态度、会问什么、敢做什么，都必须符合 TA 的人设与身份；性别、年龄、称呼一律按人设来别搞错（例：双胞胎哥哥的弟弟就是弟弟、别写成妹妹；冷淡的人别写成话痨）。宁可克制也别为了效果让角色崩人设。" +
-    "\n【关系铁律·重要】除非某个角色【自己的人设里明确写了】和在场另一个人的关系（如双胞胎、恋人、朋友），否则在场各人【互不相识】，只是被这局游戏临时凑到一起（真人玩家除外，见下一条）——【绝对不要】凭空给他们编交情、配对凑 CP、发展暧昧、开只有熟人才懂的玩笑、或写得像认识很久的老朋友。谁跟谁是什么关系，只认人设里白纸黑字写明的；没写就是陌生人，客客气气、边玩边熟。" +
+    "\n【关系铁律·重要】除非某个角色【自己的人设里明确写了】和在场另一个人的关系（如双胞胎、恋人、朋友），否则在场各人【互不相识】，只是被这局游戏临时凑到一起（真人玩家除外，见下一条）——【绝对不要】凭空给他们编交情、配对凑 CP、发展暧昧、开只有熟人才懂的玩笑、或写得像认识很久的老朋友。谁跟谁是什么关系，只认人设里白纸黑字写明的和【关系网里连着的】那一行；没写就是陌生人，客客气气、边玩边熟。" +
     // 群友 2026-10-12「玩真心话大冒险的时候怎么感觉都回到没在一起的陌生人感觉」：上一条把她也算进了陌生人。
     //   她跟每个来上场的角色都是在 App 里真处着的，那段关系不写在人设里，所以单独说一句；NPC 才是第一次见她。
     "\n【真人玩家不是陌生人】真人玩家（她）跟每个有名有姓上场的角色本来就在相处，彼此认识，处到哪一步照各自带来的【和她的近况】；没带近况就按熟人待她，别写成初次见面。只有本局临时生成的 NPC 是第一次见她。" +
