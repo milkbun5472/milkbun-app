@@ -8552,12 +8552,19 @@ function VoiceEarsConfig({ toast }) {
     setTesting(true); setMsg(null);
     try {
       const a = loadVoiceEars();
+      if (a.kind === "openai") {
+        if (!a.base || !a.key) throw new Error("地址和 Key 都要填");
+        const sil = new Blob([(() => { const b = new ArrayBuffer(44 + 16000), v = new DataView(b); const w = (p, x) => { for (let i = 0; i < x.length; i++) v.setUint8(p + i, x.charCodeAt(i)); }; w(0, "RIFF"); v.setUint32(4, 36 + 16000, true); w(8, "WAVEfmt "); v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 16000, true); v.setUint32(28, 32000, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, "data"); v.setUint32(40, 16000, true); return b; })()], { type: "audio/wav" });
+        await earsTranscribe(sil);
+        setMsg({ ok: true, text: "✅ 接口通了。浏览器没有语音识别时，通话开麦会自动用它" + (a.prefer ? "（已设为优先）" : "") + "。" });
+        setTesting(false); return;
+      }
       if (!a.base || !a.k) throw new Error("地址和门锁都要填");
       const r = await fetchT(a.base + "/health?k=" + encodeURIComponent(a.k), {}, 15000);
       const d = await r.json();
       if (!r.ok || !d.ok) throw new Error(d.error || ("HTTP " + r.status));
       setMsg({ ok: true, text: "✅ 耳朵在线（模型 " + (d.model || "?") + "）。通话界面会出现🎙真声按钮。" });
-    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + "——书房 Mac 的话筒间服务要开着，门锁要对。" }); }
+    } catch (e) { setMsg({ ok: false, text: "连不上：" + (e && e.message || e) + (loadVoiceEars().kind === "openai" ? "——检查地址（一般以 /v1 结尾）、Key 和模型名。" : "——书房 Mac 的话筒间服务要开着，门锁要对。") }); }
     setTesting(false);
   };
   const inp = (label, key, ph) => /*#__PURE__*/React.createElement("div", { className: "mb-2" },
@@ -8569,9 +8576,23 @@ function VoiceEarsConfig({ toast }) {
     }));
   return /*#__PURE__*/React.createElement("div", null,
     /*#__PURE__*/React.createElement("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.sub, lineHeight: 1.6, marginBottom: 8 } },
-      "真声通话的耳朵：书房 Mac 上的语音识别服务。填好后，单人通话里会多一个🎙按钮——按下就是真的用声音聊，识别在书房、脑子和嗓子都在本机。两栏留空=功能隐藏。"),
-    inp("识别服务地址", "base", "https://…ts.net/voice"),
-    inp("门锁 k", "k", "voice-token"),
+      "通话开麦时的语音识别。平时用浏览器自带的；浏览器没有、或者识别不好时，用这里填的接口把你说的话转成文字。留空＝只用浏览器自带的。"),
+    /*#__PURE__*/React.createElement("div", { "data-wk": "earskind", className: "flex gap-2 mb-3" },
+      [["openai", "语音转文字 API"], ["studio", "自架识别服务"]].map(([k, l]) => /*#__PURE__*/React.createElement("button", {
+        key: k, onClick: () => set({ kind: k }), className: "flex-1 py-2 rounded-xl active:opacity-70",
+        style: { fontFamily: F_BODY, fontSize: 13, background: c.kind === k ? t.tint : t.bg2, color: c.kind === k ? "#fff" : t.ink, border: "1px solid " + t.line }
+      }, l))),
+    c.kind === "openai"
+      ? /*#__PURE__*/React.createElement(React.Fragment, null,
+          inp("接口地址（OpenAI 兼容，填到 /v1）", "base", "https://api.openai.com/v1"),
+          inp("API Key", "key", "sk-…"),
+          inp("模型", "model", "whisper-1"))
+      : /*#__PURE__*/React.createElement(React.Fragment, null,
+          inp("识别服务地址", "base", "https://…ts.net/voice"),
+          inp("门锁 k", "k", "voice-token")),
+    /*#__PURE__*/React.createElement("label", { "data-wk": "earsprefer", className: "flex items-center gap-2 mb-3", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+      /*#__PURE__*/React.createElement("input", { type: "checkbox", checked: !!c.prefer, onChange: e => set({ prefer: e.target.checked }) }),
+      "优先用这个（不先试浏览器自带的）"),
     /*#__PURE__*/React.createElement("button", {
       onClick: test, disabled: testing,
       className: "px-4 py-2 rounded-xl active:opacity-70 disabled:opacity-40",
@@ -9890,7 +9911,7 @@ function Config(props) {
         h(ConfigTile, { icon: "影", tint: "#718567", title: "视频 API", sub: "MiniMax · 可灵 · 即梦，做动态形象", onClick: () => setPage("apiVideo") }),
         h(ConfigTile, { icon: "声", tint: "#a3714f", title: "语音 API", sub: "语音合成、克隆音色与指派", onClick: () => setPage("apiTts") }),
         h(ConfigTile, { icon: "索", tint: "#6f6f96", title: "向量记忆", sub: "独立 Embedding 接口与索引", onClick: () => setPage("apiEmbed") }),
-        h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "书房识别服务与门锁", onClick: () => setPage("apiEars") }),
+        h(ConfigTile, { icon: "耳", tint: "#4f8e77", title: "真声耳朵", sub: "通话语音识别接口", onClick: () => setPage("apiEars") }),
         h(ConfigTile, { icon: "嗓", tint: "#8e6b4f", title: "电台嗓子", sub: "自己架的朗读服务，没配就用系统音色", onClick: () => setPage("apiMouth") }),
         h(ConfigTile, { icon: "量", tint: "#8a8378", title: "调用记录与缓存", sub: "每一次叫模型的记录、缓存命中", onClick: () => setPage("apiCache"), wide: true })),
       page === "apiText" && section(h(ApiConfig, { profiles: props.apiProfiles, activeId: props.activeId, offlineApiId: props.offlineApiId, onSetOfflineApi: props.onSetOfflineApi, modelFloatOn: props.modelFloatOn, onSetModelFloat: props.onSetModelFloat, bgApiId: props.bgApiId, onSetBgApi: props.onSetBgApi, onSave: props.onSaveApi, toast: props.toast })),
