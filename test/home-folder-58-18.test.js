@@ -151,7 +151,7 @@ test("两道防线各自还在——它们互相兜底，行为测试分不出�
     assert.ok(guard, "安全网守卫必须存在且以 !reach[key] 判失踪");
     assert.ok(/kind === "app"/.test(guard[0]), "安全网至少要救 app");
   }
-  assert.match(net, /var dp = defPage\[key\] != null \? defPage\[key\] : \(out\.length - 1\);/,
+  assert.match(net, /var dp = REG\[key\]\.tail \? Math\.max\(0, out\.length - 1\) : defPage\[key\] != null \? defPage\[key\] : \(out\.length - 1\);/,
     "不知道默认页的要补到末页，不能不补");
   // ③ 容量规整：超出的整体溢到下一页，不是丢掉
   assert.match(comp, /if \(cspill\.length\) out\[ci \+ 1\] = cspill\.concat\(out\[ci \+ 1\] \|\| \[\]\);/);

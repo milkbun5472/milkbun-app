@@ -99,7 +99,7 @@
       return {code:weather.code,source:'real',place:home.label||''};
     }catch{return null;}
   }
-  root.CharDayKit = { dayState, presentation, sceneWeather, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
+  root.CharDayKit = { dayState, aroundNow, spanText, presentation, sceneWeather, DEMO, DEMO_ROWS, saveHomeChange, saveHomeUpdate, visitChoice };
   root.CharDayApp = function CharDayApp(props) {
     const [id, setId] = useState(props.initialCharId || ""), [pulse, setPulse] = useState(0),
       [book, setBook] = useState(false), [preview, setPreview] = useState(null), [demoIndex, setDemoIndex] = useState(0),
