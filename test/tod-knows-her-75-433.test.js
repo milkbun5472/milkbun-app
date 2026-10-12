@@ -12,3 +12,9 @@ test("注入最近聊天时，近况跟着上场角色进 tdDesc，续局也留�
   assert.match(src, /p\.recent \? "\\n【和她的近况】\\n" \+ p\.recent/);
   assert.match(src, /recent: p\.recent \|\| ""/);
 });
+test("一屋子熟人：关系网（x_rels）里连着的带进人设，铁律也认它", () => {
+  assert.match(src, /loadJSON\("x_rels", \{\}\)/);
+  assert.match(src, /p\.ties \? "\\n【关系网里连着的】" \+ p\.ties/);
+  assert.match(src, /只认人设里白纸黑字写明的和【关系网里连着的】那一行/);
+  assert.match(src, /ties: p\.ties \|\| ""/);
+});
