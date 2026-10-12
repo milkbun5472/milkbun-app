@@ -6267,7 +6267,34 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     } catch (e) { toast("没拆开：" + (e.message || "重试")); }
     finally { setGen(g => ({ ...g, bdayPlan: null })); }
   };
-  const ctxFor = (char, ctxOpts) => ({
+  // 别的面具那几个人，TA不该从【她这边】知道（群友 2026-10-12：没查手机，TA冒出一句「X是谁」）。
+  //   查手机那条路早就滤了（maskTrace），可平时每轮喂的 ctx 一处都没滤：她的记账备注、备忘、日历、
+  //   想要的东西、随身物，还有没写 knownBy 的老记忆，写着谁的名字就原样进去了。
+  //   所以在 ctxFor 出口统一过一遍，别一栏一栏补。TA自己认识的（关系网里连着线、同在一个群）不算外人。
+  const maskStrangersOf = char => {
+    if (!char || typeof maskKeyOf !== "function") return [];
+    const mine = maskKeyOf(char.id);
+    const r = rels || {};
+    const inGroup = id => (groups || []).some(g => (g.memberIds || []).includes(id) && (g.memberIds || []).includes(char.id));
+    return (characters || []).filter(c => c && c.id !== char.id && maskKeyOf(c.id) !== mine
+      && !r[char.id + "->" + c.id] && !r[c.id + "->" + char.id] && !inGroup(c.id))
+      .map(c => String(c.name || "").trim()).filter(n => n.length >= 2);
+  };
+  const MASK_SCRUB_TEXT = ["financeNote", "memoNote", "dateNote", "wishLog", "onMe", "healthNote", "ownWalletNote", "carryLog"];
+  const maskScrub = (ctx, char) => {
+    const names = maskStrangersOf(char);
+    if (!names.length || !ctx) return ctx;
+    const hit = t => names.some(n => String(t || "").includes(n));
+    // 一行里常是「、」「；」隔开的好几样：只拿掉带名字的那一样，整行别跟着陪葬
+    const cleanLine = line => !hit(line) ? line
+      : (line.match(/[^、；;。]+[、；;。]?/g) || []).filter(seg => !hit(seg)).join("").replace(/[、；;]\s*$/, "");
+    const cleanText = v => typeof v !== "string" || !hit(v) ? v : v.split("\n").map(cleanLine).filter(l => l.trim() && !hit(l)).join("\n");
+    MASK_SCRUB_TEXT.forEach(k => { if (k in ctx) ctx[k] = cleanText(ctx[k]); });
+    if (Array.isArray(ctx.memLib) && ctx.memLib.some(m => hit(m && m.text))) ctx.memLib = copyMemoryRecallMeta(ctx.memLib, ctx.memLib.filter(m => !hit(m && m.text)));
+    return ctx;
+  };
+  const ctxFor = (char, ctxOpts) => maskScrub(ctxForRaw(char, ctxOpts), char);
+  const ctxForRaw = (char, ctxOpts) => ({
     char,
     chars: characters,
     // 拉黑／刚解除（句子只写在 blockLineFor 一处）。走 buildBundle 就等于
