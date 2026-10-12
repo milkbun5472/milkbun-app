@@ -24613,7 +24613,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .flatMap(b => ((b && b.boxes) || []).map(x => String((x && x.text) || "").trim()))
       .filter(Boolean).join(" ");
     const scene = "这是一条【如果】里的世界：" + line.title + (line.premise ? "——" + line.premise : "")
-      + (last ? "。此刻：" + last.slice(0, 200) : "");
+      + (last ? "。此刻：" + clipAtSentence(last, 200) : "");
     const row = await studioShoot(char, { scene: scene, ifTitle: line.title });
     // ⚠️拍完顺手当这条线的背景（她 2026-09-18：「拍张我俩完成后只在合照显示」）——
     //   在这一页拍的照片，看不见在这一页才怪。旧背景那张图不会被删（它有自己的 key），

@@ -16875,7 +16875,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
     big
       ? h("div", { className: "flex-1 min-h-0 overflow-y-auto px-4 pb-10" },
           h(AlbumPhoto, { photo: big }),
-          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, big.scene || ""),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 12.5, lineHeight: 1.75, color: t.sub, marginTop: 12 } }, typeof clipAtSentence === "function" ? clipAtSentence(big.scene || "") : (big.scene || "")),
           h("div", { style: { fontFamily: "'Archivo',sans-serif", fontSize: 10, color: t.fog, marginTop: 6 } }, gachaWhen(big.ts)),
           // 发过去时把 desc 一起带上：拍的时候就写好了（场景 + 两身衣服），
           // 所以聊天历史里自带上下文，以后她说「上次那张」TA接得上
