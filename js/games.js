@@ -540,7 +540,8 @@
     const [injectChat, setInjectChat] = useState(false);
     const [ccSeat, setCcSeat] = useState(true);      // UNO：工程师之眼角色是否由 CC 本人亲打
     const [unoRule, setUnoRule] = useState("official"); // official 官方不叠；stack 常见桌规 +2 叠加
-    const [gmkCasual, setGmkCasual] = useState({});   // 五子棋观战：谁「随手」下（没记的＝认真）
+    const [gmkCasual, setGmkCasual] = useState({});
+    const [gmkBrain, setGmkBrain] = useState("local");  // 五子棋谁来想棋：local 本地棋手 / model TA 自己下（每步一次调用）   // 五子棋观战：谁「随手」下（没记的＝认真）
     const [godSel, setGodSel] = useState(null);      // 狼人杀神职选择；null=跟随标准板
     const [wolfRole, setWolfRole] = useState(null);  // 狼阵营特殊角色：null 普通狼 / wolfking / whitewolf
     const [winMode, setWinMode] = useState("side");  // 屠边 side / 屠城 all
@@ -550,7 +551,7 @@
       const c = lastCfg; if (!c) return;
       const ok = (c.charIds || []).filter(function (id) { return chars.some(function (x) { return x.id === id; }); });
       setMode(c.mode || "normal"); setPicked(ok); setNpcFill(c.npcFill !== false); setNpcWant(typeof c.npcCount === "number" ? c.npcCount : -1);
-      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual));
+      setInjectChat(!!c.injectChat); setCcSeat(c.ccSeat !== false); if (c.unoRule) setUnoRule(c.unoRule); if (c.gmkCasual) setGmkCasual(Object.assign({}, c.gmkCasual)); if (c.gmkBrain) setGmkBrain(c.gmkBrain);
       if (c.gods) setGodSel(c.gods.slice()); if (c.wolfRole !== undefined) setWolfRole(c.wolfRole); if (c.winMode) setWinMode(c.winMode); if (c.av) setAvOpts(Object.assign({}, c.av));
       setStake(c.stake || "");
     };
@@ -633,6 +634,12 @@
           h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6 } }, "两种模式的其他规则完全一样；目前只有 +2 是否能叠加不同。")) : null,
 
         // 五子棋观战：两个人各自认真还是随手下——不分的话两边一样强，看着没意思
+        game.key === "gomoku" ? h("div", { "data-wk": "gomokubrain", style: { marginBottom: 20 } },
+          h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "谁来想棋"),
+          h(Segmented, { t: t, value: gmkBrain, onChange: setGmkBrain, options: [{ key: "local", zh: "本地棋手" }, { key: "model", zh: "TA 自己下" }] }),
+          h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog, marginTop: 6, lineHeight: 1.6 } }, gmkBrain === "model"
+            ? "每一步都用 TA 的模型想：落子和说话一起回来，像在聊天里下棋。每步一次调用、要等几秒，模型下得好不好看它自己。"
+            : "落子归 app 里的棋手，不花调用、不卡；TA 只在你开口时说话。")) : null,
         game.key === "gomoku" && spectate && picked.length ? h("div", { "data-wk": "gomokustrength", style: { marginBottom: 20 } },
           h("div", { style: { fontFamily: F_DISPLAY, fontSize: 13, color: t.ink, marginBottom: 8 } }, "各自怎么下"),
           picked.slice(0, 2).map(function (id) {
@@ -728,7 +735,7 @@
 
       // 底部开始
       h("div", { "data-wk": "gamestartbar", className: "shrink-0", style: { padding: "12px 18px calc(env(safe-area-inset-bottom) + 16px)", borderTop: "1px solid " + t.line } },
-        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
+        h("button", { "data-wk": "gamestart", onClick: function () { if (canStart) props.onStart({ mode: mode, charIds: picked.slice(), npcFill: npcFill, npcCount: needNpc, injectChat: injectChat, ccSeat: ccSeat, unoRule: game.key === "uno" ? unoRule : undefined, gmkCasual: game.key === "gomoku" ? gmkCasual : undefined, gmkBrain: game.key === "gomoku" ? gmkBrain : undefined, total: total, gods: isWolfGame ? effGods.slice() : undefined, wolfRole: isWolfGame ? wolfRole : undefined, winMode: isWolfGame ? winMode : undefined, av: isAvalonGame ? avOpts : undefined, stake: stake.trim() || undefined }); },
           disabled: !canStart, className: "w-full active:opacity-80",
           style: { fontFamily: F_BODY, fontSize: 15, fontWeight: 700, color: "#f3efe6", background: canStart ? t.ink : t.line, borderRadius: 13, padding: "13px" } },
           spectate ? "开始观战" : "开始游戏")));
@@ -4941,10 +4948,73 @@
       return true;
     };
 
+    // 「TA 自己下」：这一步交给 TA 的模型，落子和说话一起回来（她 2026-10-12）。
+    //   棋盘整张念给 TA；落在非法格就退回本地棋手下这一步，并说一声，别让一局卡死。
+    const brainModel = cfg.gmkBrain === "model" && !!api;
+    const [thinking, setThinking] = useState(false);
+    const thinkRef = useRef(false);
+    const boardText = function (b) {
+      const cols = "ABCDEFGHJKLMNOP";
+      const rows = ["   " + cols.split("").join(" ")];
+      for (let y = 0; y < GMK_N; y++) {
+        let r = String(GMK_N - y).padStart(2, " ") + " ";
+        for (let x = 0; x < GMK_N; x++) { const v = b[y * GMK_N + x]; r += (v === 1 ? "●" : v === 2 ? "○" : "·") + (x < GMK_N - 1 ? " " : ""); }
+        rows.push(r);
+      }
+      return rows.join("\n");
+    };
+    const parseCoord = function (c) {
+      const m = String(c || "").toUpperCase().match(/([A-HJ-P])\s*(\d{1,2})/);
+      if (!m) return null;
+      const x = "ABCDEFGHJKLMNOP".indexOf(m[1]), y = GMK_N - Number(m[2]);
+      return (x < 0 || y < 0 || y >= GMK_N) ? null : { x: x, y: y };
+    };
+    const modelMove = async function (side) {
+      const who = side === charSide ? char : char2;
+      if (!who) return null;
+      const other = side === charSide ? (spectate ? c2Name : uName) : cName;
+      const sinceMine = [];
+      for (let i = lines.length - 1; i >= 0 && !(lines[i].id === who.id); i--) sinceMine.unshift(lines[i]);
+      const sys = AC + VOICE_RULE + "你是「" + who.name + "」。\n【你的人设】\n" + String(who.persona || "（没写）").slice(0, 1500)
+        + "\n\n你在跟 " + other + " 下五子棋" + (spectate ? "，" + uName + " 在边上看" : "") + "，你执" + sideZh(side) + "（" + (side === 1 ? "●" : "○") + "），现在轮到你落子。先连成五子的赢。"
+        + "现在你" + PLAY_ZH[level(side)] + "下" + (level(side) === 2 ? "，让着对方，但对方马上连五的那一下还是会挡" : "") + "。"
+        + "\n【棋盘】（● 黑，○ 白，· 空；列 A-P 不含 I，行 15 在最上）\n" + boardText(board)
+        + (moves.length ? "\n上一手：" + nameOfSide(moves[moves.length - 1].who) + gmkCoord(moves[moves.length - 1].x, moves[moves.length - 1].y) : "\n棋盘还空着，你先手。")
+        + (lines.slice(-8).length ? "\n【刚才说过的】\n" + lines.slice(-8).map(function (l) { return "· " + l.name + "：" + l.text; }).join("\n") + "\n说过的别换个说法再说一遍。" : "")
+        + (sinceMine.some(function (l) { return l.me; }) ? "\n" + uName + " 在你上次说话之后说了上面那几句，可以接着聊。" : "")
+        + "\n\n落一子（move，填空着的格子，比如 H8），再说一句（say，照你的性子，下棋是一起玩不是对峙；没什么想说可以留空）。下法要换就加 play（认真 / 随手 / 让着）。"
+        + "\n只输出 JSON：{\"move\":\"H8\",\"say\":\"一句\",\"play\":\"可选\"}";
+      const raw = await callRetry(api, sys, [{ role: "user", content: "该你下了。" }], { maxTokens: 8000, tag: "五子棋·落子" });
+      return { r: extractJSON(raw) || {}, who: who };
+    };
     // 不是她下的那一方：停一拍再落，像在想
     useEffect(function () {
       if (winner) return;
       if (turn === userSide) return;
+      const isChar = turn === charSide || (turn === botSide && !!char2);
+      if (brainModel && isChar) {
+        if (thinkRef.current) return;
+        thinkRef.current = true; setThinking(true);
+        const side = turn;
+        modelMove(side).then(function (res) {
+          let m = res ? parseCoord(res.r.move) : null;
+          if (!m || board[m.y * GMK_N + m.x]) {
+            const fb = gmkBestMove(board, side, level(side));
+            if (fb) setPlayNote(nmOf(res && res.who) + "那一步落不下去，替 TA 下在 " + gmkCoord(fb.x, fb.y));
+            m = fb;
+          }
+          const say = res ? String(res.r.say || "").trim() : "";
+          const pl = res ? PLAY_ZH.indexOf(String(res.r.play || "").trim()) : -1;
+          if (pl >= 0 && res.who) { setPlayOv(function (o) { const n = Object.assign({}, o); n[res.who.id] = pl; return n; }); setPlayNote(nmOf(res.who) + "开始" + PLAY_ZH[pl] + "下了"); }
+          if (say && res.who) setLines(function (L) { return L.concat([{ id: res.who.id, name: nmOf(res.who), text: say.slice(0, 200), at: Date.now() }]); });
+          if (m) place(m.x, m.y, side);
+        }).catch(function () {
+          const fb = gmkBestMove(board, side, level(side));
+          setPlayNote("没连上 TA 的模型，这一步本地棋手代下");
+          if (fb) place(fb.x, fb.y, side);
+        }).then(function () { thinkRef.current = false; setThinking(false); });
+        return;
+      }
       const timer = setTimeout(function () {
         const m = gmkBestMove(board, turn, level(turn));
         if (m) place(m.x, m.y, turn);
