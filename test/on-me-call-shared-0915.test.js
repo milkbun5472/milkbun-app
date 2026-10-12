@@ -24,7 +24,7 @@ test('随身物共用读取真实 onMe 标记和写入端额度，库存变化�
 });
 for(const modeZh of ['语音通话','视频通话']) test('多人'+modeZh+'发送的 system 使用共用随身物，空库存无空段',async()=>{
   const env=wire(fixture()); let sent='';
-  Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
+  Object.assign(env,{ON_ME_CAP:2,modeZh,uName:'读者',callMe:{},groupMaskNote:()=>'',cur:{groupId:'g'},hist:[],rels:{},loreRef:{current:[]},directives:{},
     groupPersonaBudget:()=>6000,directedRelationLines:()=>'',loreText:()=>'',gsFor:()=>({memoryInterop:false,privateCtxN:0}),
     primeQueryVec:async()=>{},memLibRef:{current:[]},splitGroupMemories:()=>({shared:[],perChar:{}}),formatMemLib:()=>'',
     memories:{},settingsFor:()=>({}),isBody:()=>false,noGaze:()=>false,memberPrivLines:(c,n)=>Number(n)>0?'私聊_'+c.id:'',crossRecentFor:id=>'线下_'+id,groupContextRows:()=>[],

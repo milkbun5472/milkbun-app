@@ -77,5 +77,5 @@ test("角色那头只挑，不再另开一套人设框", () => {
   assert.match(comps, /const \[maskId, setMaskId\] = useState\(settings\.maskId \|\| ""\);/, "没读回存档");
   assert.ok(!/setMePersona|mePersona/.test(comps), "上一版那两个自由输入框还留着——面具该在一处建，不是两处各写一套");
   assert.match(comps, /myMasks/, "面具库没递进来，挑都没得挑");
-  assert.match(comps, /群聊一律用主面具/, "没说清群里不生效");
+  assert.match(comps, /群聊一律用主面具|一个群只戴一张脸/, "没说清群里不生效");
 });

@@ -1,8 +1,8 @@
 import * as T from 'three';
-import {bonePoint,nearHand,headPoint,pairContact} from './pair-pose.mjs?v=fg-a40be0a4c2688238';
-import {furniturePoint,HOME_PREP,HOME_COOK} from './home-catalog.mjs?v=fg-a40be0a4c2688238';
-import {makeIngredient} from './ingredient-visual.mjs?v=fg-a40be0a4c2688238';
-import {disposeFood} from './recipe-food.mjs?v=fg-a40be0a4c2688238';
+import {bonePoint,nearHand,headPoint,pairContact} from './pair-pose.mjs?v=fg-eab2c575de9efb2e';
+import {furniturePoint,HOME_PREP,HOME_COOK} from './home-catalog.mjs?v=fg-eab2c575de9efb2e';
+import {makeIngredient} from './ingredient-visual.mjs?v=fg-eab2c575de9efb2e';
+import {disposeFood} from './recipe-food.mjs?v=fg-eab2c575de9efb2e';
 // A short subaction of the original cooking session; feet routes remain Together's owner.
 export function createKitchenPair({a,b,kitchen}){
  const actors={a,b},root=new T.Group();root.name='KitchenPairProps';a.root.add(root);let key='',prop=null,diagnostics=null,flour=null;

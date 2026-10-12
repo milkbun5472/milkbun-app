@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.439";
+const APP_VERSION = "v75.444";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -19401,8 +19401,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         }
         if (ml) { try { setMoodFor(cid, { label: ml, ts: now }); } catch (e) {} }
       };
-      const callMe = cur.groupId ? groupProfileFor(cur.groupId) : profile;   // 群通话：群挑的那张面具
-      const uName = userName(callMe);
+      const uName = userName(cur.groupId ? groupProfileFor(cur.groupId) : profile);   // 群里打的：用群挑的那张面具
+      const callMe = cur.groupId ? groupProfileFor(cur.groupId) : profile;
       const callerIsChar = cur.caller && cur.caller !== "me"; // 角色主动打来、用户接的
       const callBiHint = callBilingualRule(people, settingsFor);
       const callLines = (text, char) => callBilingualLines(text, !!(settingsFor(char.id) || {}).bilingual && !(settingsFor(char.id) || {}).engineerEyes, splitSayLine, hanLangOf(char));
