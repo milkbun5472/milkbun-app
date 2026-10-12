@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.480";
+const APP_VERSION = "v75.481";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -12182,11 +12182,14 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "\n· 只换你们这个聊天窗里的头像，档案和 " + uName + " 的资料都不动。"
           + "\n· 不想换就省略 pairAvatar，并在话里说清楚。⚠️没填就等于没换，绝不许说「换好了」。");
       }
-      const _userWx = userWxFor(charId);
+      // 一提天气就来一张卡（群友 2026-10-12）：卡是「截一张天气给你看」，不是聊到天气的标配。
+      //   三小时内这个聊天里已经发过一张，就不再开这一格——这期间想说天气用嘴说。
+      const _wxRecent = (chatsRef.current[chatKey] || history || []).some(m => m && m.kind === "weathercard" && Date.now() - (Number(m.ts) || 0) < 3 * 3600 * 1000);
+      const _userWx = _wxRecent ? null : userWxFor(charId);
       if (_userWx) {
         openCaps.push("weatherCard");
         capState.push("weatherCard：她那边此刻的真实天气（" + (_userWx.place || "她所在地") + "）：" + _userWx.line + "。"
-          + "她问起天气、说要出门，或者你觉得该叮嘱她（下雨带伞、降温加衣、太热防晒）时，可以填 weatherCard 发一张天气小卡片给她。格式 {say:\"附在卡片上的那一句叮嘱，用你自己的口吻\"}。"
+          + "这张卡等于你特意查了天气截给她看：她明说想知道那边天气怎么样、或者马上要出门而天气真会影响她（要下雨、骤冷骤热）时才值得发；只是聊天里顺口提到天气、冷热、下雨，用一句话接住就够了，不用发卡。发的话填 weatherCard 发一张天气小卡片给她。格式 {say:\"附在卡片上的那一句叮嘱，用你自己的口吻\"}。"
           + "卡上的地点、天气、气温由系统照实填，say 里别再报一遍数字，也别说跟上面不一样的天。用不上就省略。");
       }
       for (let i = openCaps.length - 1; i >= 0; i--) if (!window.ChatRooms.allowsField(room, openCaps[i])) openCaps.splice(i, 1);
