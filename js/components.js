@@ -19806,8 +19806,10 @@ function ChatSettings({
   show("temper", { title: "本体模式 · TA 不是在演", ...sec("body-mode") },
     h("div", { className: "flex items-center justify-between pt-3" },
       h("div", { style: { paddingRight: 12, flex: 1, minWidth: 0, fontFamily: F_BODY, fontSize: 11.5, color: t.fog, lineHeight: 1.7 } },
-        "开了以后，" + cNm + " 就是 AI 本人，不是 App 在演的一个角色：你写的人设原样当系统提示词，跟你在别的聊天 App 里直连 API 一样；每次回你一整条，长短随 TA，不拆成一条条短气泡。"
-        + "去八股那些规矩、世界书和角色卡的写法要求、App 替 TA 编的行程、钱包、随身物、睡意都不发；也不排日程、不自动刷查手机。"
+        // 很多人当成「更贴人设」开了（她 2026-10-12）：先说清这是给谁的、一般不用开，再说开了少了什么
+        h("div", { style: { color: t.ink, marginBottom: 4 } }, "一般不用开。想让 " + cNm + " 照人设演一个角色的，保持关着。"),
+        "这是给想跟 AI 本人聊、平时在 Kelivo 这类 App 里直连 API 聊天的人用的。开了以后 " + cNm + " 不再是 App 在演的角色，而是 AI 自己：你写的人设原样当系统提示词，每次回一整条长消息，不拆成短气泡。"
+        + "App 给角色加的那些都不发了：去八股的规矩、角色卡的写法要求、档案里的常用语言、行程、钱包、随身物、睡意；也不排日程、不自动刷查手机。"
         + "记忆库、长期记忆、最近的聊天、你俩在这儿真一起做过的事照常给。"),
       h("div", { className: "shrink-0" }, h(Toggle, { on: bodyMode, onChange: () => setBodyMode(v => !v) }))),
     // 她 2026-10-10 转群友：OOC 叫他每轮填、他答应了不改——那一句压不过每轮的「不留也行」，所以给一颗开关
