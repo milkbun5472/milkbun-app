@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.429";
+const APP_VERSION = "v75.432";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -8506,6 +8506,15 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
     const charId = offlinePersonId(scopeKey);
     const char = offlineCharacterFor(scopeKey);
     if (!char) return;
+    // TA 帮我拍（她 2026-10-12：「线下他帮我拍的按钮在哪儿」）：画的是她，要的是她自己的外貌或参考照；地方和机位跟着此刻的场景
+    if (kind === "me") {
+      if (!(typeof imgApiReady === "function" && imgApiReady())) { toast("先去 设置·图像API 接一个图像模型"); return; }
+      if (!canShootMe()) { toast("这张画的是你：先去「我」的资料里填外貌或传一张参考照"); return; }
+      const st0 = liveStateForScope(charId, scopeKey);
+      const where = freshLiveStateValue(st0, "place"), doing = freshLiveStateValue(st0, "action");
+      await runOfflineShot({ char, scopeKey, kind: "me", scene: (where ? "在" + where + "，" : "") + (doing ? char.name + "正" + doing + "，" : "") + char.name + "拿起手机给她拍了一张，照此刻的场景挑拍法" });
+      return;
+    }
     if (!offlinePhotoCan(char)) { toast("先去 设置·图像API 接一个图像模型，再给 " + char.name + " 填上外貌或参考照"); return; }
     if (kind === "duo" && !offlinePhotoCanDuo(char)) { toast("合照要你俩各自的参考照都在，才能把两张脸都锁住——去「我」那页传一张你的，再给 " + char.name + " 传一张", 9000); return; }
     const st = liveStateForScope(charId, scopeKey);
@@ -31222,6 +31231,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     matchBusy: !!gen.myMatch,
     canShoot: offlinePhotoCan(offlineChar),
     canShootDuo: offlinePhotoCanDuo(offlineChar),
+    canShootMe: canShootMe(),
     onReply: txt => {
       if (window.CcLane && window.CcLane.routes(settingsFor(offlineChar.id))) {
         const extra = String(txt || "").trim();
