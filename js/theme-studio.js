@@ -1009,7 +1009,7 @@
   //   挂点表是从 WK_COMMON/WK_SCOPED 现拼的，代码里新挂的 data-wk 没进名单，测试 ai-brief-hooks 会红；
   //   可规矩、尺寸、现成写法是手写的——所以跟攻略一样立个戳：v 必须等于 APP_VERSION，
   //   这一版改了哪条写进 changed；这一版的改动碰不到样式，就在 none 写一句为什么。
-  const BRIEF_STAMP = {"v": "v75.420", "changed": "小家厨房增加搭把手与亲密动作折叠区、实际小事与尝味入口；这一桌保留原书签与单滚动正文，新增三桌菜单候选、临时加料与共同菜谱，44px触区与原安全区公式。", "none": ""};
+  const BRIEF_STAMP = { v: "v75.421", changed: "", none: "没动挂点：照片多一档 TA 帮你拍。" };
   function aiBrief(page, css) {
     const grp = WK_SCOPED.filter(function (x) { return (x.pages || []).indexOf(page) >= 0; })[0];
     const line = function (r) { return '[data-wk="' + r[0] + '"]  ' + r[1]; };
