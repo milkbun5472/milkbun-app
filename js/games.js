@@ -3702,10 +3702,10 @@
           h("button", { onClick: resetEvening, className: "flex-1 active:opacity-80", style: { fontFamily: F_BODY, fontSize: 14, fontWeight: 700, color: t.bg2, background: t.ink, borderRadius: 12, padding: "12px" } }, "再开一场")),
         h(KeepMemBtn, { t: t, host: props, rep: function () {
           const rounds = logDataRef.current.filter(function (x) { return x.type === "td"; }).length;
-          // 真心话没有输赢：今晚之星算「赢」
+          // 真心话大冒险没有输赢（她 2026-10-12：「为啥真心话大冒险还有输赢」）：战报卡不写赢输，今晚之星只写进正文
           const star = wrap && wrap.star;
-          return { key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: star && !star.isUser ? realCharIds(players).filter(function (id) { const q = players.find(function (x) { return x.key === id; }); return q && q.name === star.name; }) : [],
-            meWin: star ? !!star.isUser : null,
+          return { key: "tod", zh: "真心话大冒险", ids: realCharIds(players), wins: [],
+            meWin: null,
             text: "一起玩了「真心话大冒险」，转了 " + rounds + " 轮" + (star ? "，今晚之星是" + (star.isUser ? "她" : star.name) : "") + "。" };
         } }));
     }

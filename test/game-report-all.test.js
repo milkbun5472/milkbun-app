@@ -18,3 +18,7 @@ test("战报也能发到群：她在的群、旁观群不算，落一张 gamesha
   assert.match(a, /reportGroups: \(groups \|\| \[\]\)\.filter\(g => g && imInGroup\(g\)/);
   assert.match(a, /pushGroupRich\(gid, \{ role: "user", kind: "gameshare"/);
 });
+
+test("真心话大冒险的战报不分输赢", () => {
+  assert.match(g, /key: "tod", zh: "真心话大冒险", ids: realCharIds\(players\), wins: \[\],\s*meWin: null,/);
+});
