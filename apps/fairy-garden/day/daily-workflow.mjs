@@ -1,13 +1,15 @@
-import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-6ebea76690db78f8';
-import {motionClock} from './motion-profile.mjs?v=fg-6ebea76690db78f8';
+import {HOME_COOK,furniturePoint} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
+import {motionClock} from './motion-profile.mjs?v=fg-ab8076f3b07a3f6c';
+import {homeHobbyTask} from './home-hobby-task.mjs?v=fg-ab8076f3b07a3f6c';
 
-export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook'};
-export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理'};
+export const DAILY_MOTIONS={read:'read',tea:'drink',meal:'eat',cook:'cook',...Object.fromEntries(Object.keys(globalThis.CharDayHomeHobbies.activities).map(k=>[k,k]))};
+export const DAILY_LABELS={read:'翻书阅读',tea:'喝口水',meal:'用餐',cook:'锅边料理',...Object.fromEntries(Object.entries(globalThis.CharDayHomeHobbies.activities).map(([k,p])=>[k,p.label]))};
 // A missing/stored kitchen or seat has no physical action. This is a projection,
 // not another schedule: the original currentSlot still owns the activity.
-export function dailyTaskAt(stage,spot,map,elapsed,{moving=false,motion=null,personal=false}={}){
+export function dailyTaskAt(stage,spot,map,elapsed,{moving=false,motion=null,personal=false,position,actor=null}={}){
  if(moving||(!personal&&!['dayHome','dayCafe','dayWork'].includes(map.id)))return null;
  spot=spot||map.spots.find(s=>s.action===stage.action);
+ if(globalThis.CharDayHomeHobbies.activities[stage.action])return homeHobbyTask(stage,spot,map,elapsed,{moving,position,motion,actor});
  const kind=DAILY_MOTIONS[stage.action];
  if(!kind||!spot||spot.action!==stage.action||(['eat','drink'].includes(kind)&&!spot.seat))return null;
  const clock=motionClock(elapsed,motion),task={kind,daily:true,elapsed:Math.max(0,clock),progress:Math.max(0,clock)/(kind==='read'?9:kind==='drink'?8:kind==='eat'?5.5:7)%1,furniture:spot.piece||null};

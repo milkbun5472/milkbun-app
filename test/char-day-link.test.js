@@ -13,7 +13,7 @@ function envFor(raw){
   runProbe:async(api,ctx,spec)=>{calls.push({api,ctx,spec});return plain(raw);},
   saveJSON:(key,value)=>{writes.push({key,value:plain(value)});return true;},setSchedules:fn=>{e.schedulesRef.current=fn(e.schedulesRef.current);}};
  e.window=e;vm.createContext(e);
- for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','js/char-day-link.js','js/content-boundaries.js'])vm.runInContext(read(f),e);
+ for(const f of ['js/schedule-clock.js','apps/fairy-garden/day/catalog.js','apps/fairy-garden/day/home-hobbies.js','js/char-day-link.js','js/content-boundaries.js'])vm.runInContext(read(f),e);
  e.pad2=n=>String(n).padStart(2,'0');
  vm.runInContext(cut(read('js/screens.js'),'function schedDayKey(', 'function schedDisplaySeqs('),e);
  vm.runInContext(cut(app,'  const saveSchedDay =','  const applySchedChange =')+'\nglobalThis.saveDay=saveSchedDay;',e);
@@ -28,8 +28,8 @@ test('场景与位置目录从实际地图生成，所有保存位置都是已�
  try{
   const {DAY_PLACES}=await import('../apps/fairy-garden/day/places/index.mjs'),{CORE_SPACES}=await import('../apps/fairy-garden/day/spaces.mjs');
   const {e,L}=envFor({}),actual={...CORE_SPACES,...DAY_PLACES};assert.equal(e.CharDayCatalog.length,Object.keys(actual).length);
-  for(const m of e.CharDayCatalog){assert.equal(m.label,actual[m.id].label);assert.deepEqual(plain(m.spots.map(s=>s.id)).sort(),actual[m.id].spots.map(s=>s.id).sort());
-   for(const p of m.spots){assert.ok(L.validate({scene:m.id,spot:p.id}));assert.equal(p.action,actual[m.id].spots.find(s=>s.id===p.id).action);}}
+  for(const m of e.CharDayCatalog){assert.equal(m.label,actual[m.id].label);assert.deepEqual(plain(m.spots.filter(s=>!s.optional).map(s=>s.id)).sort(),actual[m.id].spots.map(s=>s.id).sort());
+   for(const p of m.spots){assert.ok(L.validate({scene:m.id,spot:p.id}));if(p.optional){const {addHomeFurniture}=await import('../apps/fairy-garden/day/home-layout.mjs');const placed=addHomeFurniture({},p.catalogId);assert.ok(placed.ok);assert.equal(placed.map.spots.find(s=>s.id===p.id).action,p.action);assert.equal(actual.dayHome.spots.some(s=>s.id===p.id),false);}else assert.equal(p.action,actual[m.id].spots.find(s=>s.id===p.id).action);}}
  }finally{hook.deregister();}
 });
 test('当天实际生成调用把视觉字段发出并经原writer保存，原叙事/当地时间/角色隔离不改',async()=>{

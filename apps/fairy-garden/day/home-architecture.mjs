@@ -24,5 +24,5 @@ export function wallTop(wall,along){
 export function furnitureHeight(p){
  if(p.height)return p.height+.08;
  if(p.catalogId==='canopy-bed')return 2.65;
- return {bed:1.7,sofa:1.25,chair:1.2,table:1.2,wardrobe:2.45,shelf:2.3,cabinet:1.4,kitchen:1.45,counter:1.3,light:2.1,plant:p.variant==='tall'?1.9:1,screen:2,decor:1.8}[p.kind]||1;
+ return {piano:1.55,guitar:1.45,easel:2.02,weights:.70,mat:.115,bed:1.7,sofa:1.25,chair:1.2,table:1.2,wardrobe:2.45,shelf:2.3,cabinet:1.4,kitchen:1.45,counter:1.3,light:2.1,plant:p.variant==='tall'?1.9:1,screen:2,decor:1.8}[p.kind]||1;
 }

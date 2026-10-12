@@ -48,8 +48,299 @@
         "id": "toilet",
         "label": "使用厕所",
         "action": "toilet"
+      },
+      {
+        "id": "piano",
+        "label": "弹琴",
+        "action": "piano",
+        "gesture": "rest",
+        "optional": true,
+        "catalogId": "home-piano"
+      },
+      {
+        "id": "guitar",
+        "label": "弹吉他",
+        "action": "guitar",
+        "gesture": "rest",
+        "optional": true,
+        "catalogId": "home-guitar"
+      },
+      {
+        "id": "paint",
+        "label": "在画架前画画",
+        "action": "paint",
+        "gesture": "rest",
+        "optional": true,
+        "catalogId": "home-easel"
+      },
+      {
+        "id": "weights",
+        "label": "练哑铃",
+        "action": "weights",
+        "gesture": "rest",
+        "optional": true,
+        "catalogId": "home-weights"
+      },
+      {
+        "id": "stretch",
+        "label": "在软垫上拉伸",
+        "action": "stretch",
+        "gesture": "rest",
+        "optional": true,
+        "catalogId": "home-mat"
       }
-    ]
+    ],
+    "inventory": {
+      "baseCount": 15,
+      "limit": 80,
+      "catalog": [
+        {
+          "id": "home-piano",
+          "hobby": "piano"
+        },
+        {
+          "id": "home-guitar",
+          "hobby": "guitar"
+        },
+        {
+          "id": "home-easel",
+          "hobby": "paint"
+        },
+        {
+          "id": "home-weights",
+          "hobby": "weights"
+        },
+        {
+          "id": "home-mat",
+          "hobby": "stretch"
+        },
+        {
+          "id": "shower"
+        },
+        {
+          "id": "basin"
+        },
+        {
+          "id": "toilet"
+        },
+        {
+          "id": "wood-bed"
+        },
+        {
+          "id": "soft-bed"
+        },
+        {
+          "id": "sofa"
+        },
+        {
+          "id": "loveseat"
+        },
+        {
+          "id": "dining-table"
+        },
+        {
+          "id": "round-table"
+        },
+        {
+          "id": "coffee-table"
+        },
+        {
+          "id": "chair"
+        },
+        {
+          "id": "wood-chair"
+        },
+        {
+          "id": "wardrobe"
+        },
+        {
+          "id": "bedside"
+        },
+        {
+          "id": "bookcase"
+        },
+        {
+          "id": "dresser"
+        },
+        {
+          "id": "pantry"
+        },
+        {
+          "id": "floor-lamp"
+        },
+        {
+          "id": "table-lamp"
+        },
+        {
+          "id": "plant"
+        },
+        {
+          "id": "tall-plant"
+        },
+        {
+          "id": "kitchen"
+        },
+        {
+          "id": "bar"
+        },
+        {
+          "id": "canopy-bed"
+        },
+        {
+          "id": "rattan-sofa"
+        },
+        {
+          "id": "trestle-table"
+        },
+        {
+          "id": "woven-chair"
+        },
+        {
+          "id": "basket-shelf"
+        },
+        {
+          "id": "paper-lantern"
+        },
+        {
+          "id": "braided-rug"
+        },
+        {
+          "id": "lattice-screen"
+        },
+        {
+          "id": "spindle-bed"
+        },
+        {
+          "id": "rolled-sofa"
+        },
+        {
+          "id": "claw-table"
+        },
+        {
+          "id": "windsor-chair"
+        },
+        {
+          "id": "apothecary"
+        },
+        {
+          "id": "stained-lamp"
+        },
+        {
+          "id": "medallion-rug"
+        },
+        {
+          "id": "record-console"
+        },
+        {
+          "id": "panel-bed"
+        },
+        {
+          "id": "cloud-sofa"
+        },
+        {
+          "id": "pill-table"
+        },
+        {
+          "id": "shell-chair"
+        },
+        {
+          "id": "cube-shelf"
+        },
+        {
+          "id": "mushroom-lamp"
+        },
+        {
+          "id": "pebble-rug"
+        },
+        {
+          "id": "wave-screen"
+        },
+        {
+          "id": "steel-bed"
+        },
+        {
+          "id": "tube-sofa"
+        },
+        {
+          "id": "glass-table"
+        },
+        {
+          "id": "cantilever-chair"
+        },
+        {
+          "id": "metal-rack"
+        },
+        {
+          "id": "arc-lamp"
+        },
+        {
+          "id": "stripe-rug"
+        },
+        {
+          "id": "terrarium"
+        },
+        {
+          "id": "flower-basket"
+        },
+        {
+          "id": "dried-vases"
+        },
+        {
+          "id": "botanical-frame"
+        },
+        {
+          "id": "macrame"
+        },
+        {
+          "id": "woven-wall-trio"
+        },
+        {
+          "id": "bust-pedestal"
+        },
+        {
+          "id": "candle-pedestal"
+        },
+        {
+          "id": "oval-mirror"
+        },
+        {
+          "id": "pendulum-clock"
+        },
+        {
+          "id": "landscape-frame"
+        },
+        {
+          "id": "loop-sculpture"
+        },
+        {
+          "id": "plush-bear"
+        },
+        {
+          "id": "bubble-mirror"
+        },
+        {
+          "id": "arch-art"
+        },
+        {
+          "id": "cloud-wall-shelf"
+        },
+        {
+          "id": "kinetic-sculpture"
+        },
+        {
+          "id": "glass-vase"
+        },
+        {
+          "id": "geometric-poster"
+        },
+        {
+          "id": "rail-wall-shelf"
+        },
+        {
+          "id": "hanging-planter"
+        }
+      ]
+    }
   },
   {
     "id": "dayWork",

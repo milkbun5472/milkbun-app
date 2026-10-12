@@ -1,7 +1,7 @@
-import {homeSize} from './home-architecture.mjs?v=fg-6ebea76690db78f8';
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-6ebea76690db78f8';
-import {MAPS,walkable} from '../world.mjs?v=fg-6ebea76690db78f8';
-import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-6ebea76690db78f8';
+import {homeSize} from './home-architecture.mjs?v=fg-ab8076f3b07a3f6c';
+import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-ab8076f3b07a3f6c';
+import {MAPS,walkable} from '../world.mjs?v=fg-ab8076f3b07a3f6c';
+import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-ab8076f3b07a3f6c';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
@@ -65,11 +65,12 @@ export function buildSpace(id,placements={}){
  const spots=anchors.filter(a=>!a.piece||pieces[a.piece]).map(a=>{
   const p=pieces[a.piece],target=a.target?{...a.target}:localPoint(p,a.approach);
   const spot={...a,target,heading:(p?.heading||0)+(a.heading||0)};
-  if(a.seat)spot.seat=furnitureSeat(p,target,a.offset);
+  if(a.seat)spot.seat=a.hobbySeat?{...localPoint(p,a.hobbySeat),rise:a.hobbySeat.rise,heading:spot.heading,approach:target,piece:p.id,pose:'chair'}:furnitureSeat(p,target,a.offset);
   if(a.bed){spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94,heading:p.heading};spot.playerSleep={...localPoint(p,{x:-.55,z:.65}),y:.94,heading:p.heading};}
   return spot;
  });
  const map={id,label:d.label,renderer:id,radius:Math.hypot(d.w/2+(bath?.w||0),d.d/2)+.5,bounds:{w:d.w+(bath?.w||0)*2,d:d.d},...(bath?{walkRegions:bathroomRegions(room),bathroom:bath}:{}),floor:.08,spawn:{...d.spawn},view:{x:0,z:0},furniture,room,structure,obstacles,spots,
+  surfaces:furniture.filter(p=>p.surface).map(p=>({...furnitureFootprint(p),height:.08+p.surface})),
   seats:Object.fromEntries(spots.filter(s=>s.seat).map(s=>[s.id,s.seat])),
   beds:Object.fromEntries(spots.filter(s=>s.sleep).map(s=>[s.id,{approach:{companion:s.target,player:{...s.target}},slots:{companion:s.sleep,player:s.playerSleep}}])),
   wander:d.wander?.map(p=>({...p})),zones:d.zones||[],outdoor:!!d.outdoor};

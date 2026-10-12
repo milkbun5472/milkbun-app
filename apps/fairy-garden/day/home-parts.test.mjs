@@ -4,8 +4,8 @@ import {HOME_CATALOG,homePlacements} from './home-catalog.mjs';
 import {furniturePartDefinitions,patchPartColors} from './home-parts.mjs';
 import {addHomeFurniture,changeHomeFurniture,restoreHomeLayout} from './home-layout.mjs';
 
-test('全部75款部件色沿原实例writer保存，旧布局不添空字段',()=>{
- assert.equal(HOME_CATALOG.length,75);assert.equal(homePlacements().sofa.partColors,undefined);
+test('全部80款部件色沿原实例writer保存，旧布局不添空字段',()=>{
+ assert.equal(HOME_CATALOG.length,80);assert.equal(homePlacements().sofa.partColors,undefined);
  for(const p of HOME_CATALOG){
   const added=addHomeFurniture({},p.id),id=added.selected,keys=furniturePartDefinitions(p).map(q=>q.id);
   assert.equal(new Set(keys).size,keys.length,p.id);
