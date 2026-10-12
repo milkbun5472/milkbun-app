@@ -8430,7 +8430,7 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       const wRef = worldRefFor(char, scene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + scene;
-      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { kind: drawKind, me, cast, closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
+      const prompt = buildPhotoPrompt(sub, sceneForPhoto, st, { pov: kind === "me" ? povFor(char) : null, kind: drawKind, me, cast, closet: kind === "me" ? (me.closet || "") : closetTextFor(char.id), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" });
       const minimalPrompt = buildMinimalPhotoPrompt(sub, { kind: drawKind, cast });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, { contRef: !!contBlobKey, minimalPrompt: minimalPrompt });
       if (out && out.degraded && out.degraded !== "site-no-ref") toast(out.degraded === "softened" ? "审核不让真人照片配酒/烟/刀，画面里换成了茶和折扇——脸保住了" : out.degraded === "minimal" ? "审核挡了两次，这张只拍了人像、没带场景。要是脸不像，多半是中转站没真用上参考照——再拍一次或换个图像通道" : out.degraded === "softened-no-ref" ? "审核挡了两次，换掉酒/烟/刀才出得来，而且没用上参考照——脸可能不像" : ((out.degraded === "duo-single-ref" ? "只锁了 " + char.name + " 的脸" : "没用上参考照") + (out.refError ? "：" + out.refError : "")), 9000);
@@ -13828,7 +13828,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const wRef = isPart ? null : worldRefFor(realChar, photoScene + " " + (freshPlace || ""));
       if (wRef) refs.push(wRef.img);
       const sceneForPhoto = (freshPlace ? "（此刻人在：" + freshPlace + "）" : "") + (freshCond ? "（身体状态：" + freshCond + "，要在画面上看得出来）" : "") + photoScene;
-      const photoOpts = { kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
+      const photoOpts = { pov: meShot ? povFor(realChar) : null, kind: photoKind, me, closet: meShot ? char._closet : closetTextFor(charId), contRef: !!contBlobKey, contRefIndex: contBlobKey ? refs.length - (wRef ? 1 : 0) : 0, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" };
       // 定版(v55.09):经典描述式 prompt 是被实测验证能锁脸的一版;身份强锁式已退役
       const prompt = isView ? buildScenePrompt(char, photoScene, { forText: false, worldRefIndex: wRef ? refs.length : 0, worldRefLabel: wRef ? wRef.label : "" }) : isPart ? buildScenePrompt(char, photoScene, { body: true }) : buildPhotoPrompt(char, sceneForPhoto, st, photoOpts);
       // 保脸级的备用稿。⚠️别再交给 buildPhotoPrompt 拼——那是个把画风、身份锁、
@@ -13885,7 +13885,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         : gCast ? gCast.map(x => x.refPhoto)
         : gPhotoKind === "duo" ? [spk.refPhoto, profile && profile.refPhoto].filter(Boolean)
         : [sub.refPhoto].filter(Boolean);
-      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : closetTextFor(spk.id) };
+      const gPhotoOpts = gCast ? { kind: "duo", me, cast: gCast, closet: closetTextFor(spk.id) } : { kind: gPhotoKind, me, closet: meShot ? sub._closet : closetTextFor(spk.id), pov: meShot ? povFor(spk) : null };
       const prompt = gIsView ? buildScenePrompt(spk, gPhotoScene, { forText: false }) : gIsPart ? buildScenePrompt(spk, gPhotoScene, { body: true }) : buildPhotoPrompt(sub, gPhotoScene, st, gPhotoOpts);
       const gMinimal = gNoFace ? null : buildMinimalPhotoPrompt(sub, gCast ? { kind: "duo", cast: gCast } : { kind: gPhotoKind });
       const out = await generateSelfieImage(prompt, refs.length ? refs : null, gNoFace ? {} : { minimalPrompt: gMinimal });
@@ -24776,6 +24776,22 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   不另起一条出图路：把「被拍的人」换成她（她资料里的外貌、参考照、衣柜、固定服装），照「别人拍的」那一档画——
   //   那一档本来就是第三人称、姿势取景自由，拍的人不入镜。画风跟着拍照的那个 TA（同一个世界里拍的）。
   const canShootMe = () => !!(profile && (profile.appearance || profile.refPhoto));
+  // TA 的视角（她 2026-10-11：「拍照的不一定是男友，也有可能是朋友、女生朋友、女朋友、暧昧对象」——「亲密度看吧」）：
+  //   镜头就是拍照那个人的眼睛，亲不亲由你们的关系定，分三层（engine.js POV_SLOTS）：
+  //   3＝恋人（情侣空间里在一起，或关系写着恋人/爱人）；2＝亲近（关系写着暧昧/闺蜜/挚友…，或好感 ≥70）；1＝谁都能用的那层。
+  const POV_CLOSE_RE = /暧昧|闺蜜|挚友|死党|好兄弟|好姐妹|发小|青梅|竹马|知己|密友/;
+  const POV_LOVE_RE = /恋人|爱人|挚爱|男朋友|女朋友|男友|女友|老公|老婆|伴侣|未婚/;
+  const povFor = char => {
+    if (!char) return null;
+    const cp = (couplesRef.current || {})[char.id];
+    const R = rels || {};
+    const label = [R["me->" + char.id], R[char.id + "->me"]].filter(Boolean).map(r => r.label || "").join("、");
+    const tier = (cp && cp.status === "together") || POV_LOVE_RE.test(label) ? 3
+      : POV_CLOSE_RE.test(label) || affOf(char.id) >= 70 ? 2 : 1;
+    const st = (statesRef.current || {})[char.id] || {};
+    return { tier, name: char.remark || char.name || "TA", rel: label || (tier === 3 ? "恋人" : ""),
+      wear: freshLiveStateValue(st, "wearing") || st.wearing || char.photoOutfit || "", look: String(char.appearance || "").slice(0, 80) };
+  };
   const meSubject = (char, fallbackName) => { const m = photoMe(fallbackName);
     return { id: "__me", name: m.name, appearance: m.appearance || "", refPhoto: m.refPhoto || null, photoOutfit: m.outfit || "", photoStyle: char && char.photoStyle, persona: "", _closet: m.closet || "" }; };
   const saveMyCloset = next => { myClosetRef.current = next; setMyCloset(next); saveJSON("x_myCloset", next); };

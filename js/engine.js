@@ -4594,7 +4594,7 @@ function photoCapLine(uName, o) {
   const kinds = (o.face ? ["self（自拍）", "other（别人给你拍的）"] : ["self（只限拍你身上看不见脸的一部分，face 必须填 false）"])
     .concat(o.duo ? ["duo（你和 " + uName + " 的合照）"] : [])
     // 她 2026-10-11：「拍照能不能搞一类他帮我拍」——镜头在你手里，画面里是她；face 问的是【她】的脸
-    .concat(o.me ? ["me（你给 " + uName + " 拍的照片：画面里是 " + uName + "，不是你；这一张 face 填 true）"] : [])
+    .concat(o.me ? ["me（你给 " + uName + " 拍的照片：从你的眼睛看过去，画面里是 " + uName + "，不是你；scene 写她此刻的样子、你从哪儿拍的；这一张 face 填 true）"] : [])
     .concat(o.group ? ["group（在场几个人的合影）"] : [])
     .concat(["none（画面里一个人都没有：窗外、桌上的东西、刚做好的菜）"]);
   return "photo 两个字段一起填：\n"
@@ -4803,7 +4803,27 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     "手机搁在桌上或架在什么东西上拍的，人退开一点，手不在画面里",
     "逆着光，脸的一侧偏暗"
   ];
-  const PHOTO_SHOTS_OTHER = [
+  // TA 的视角（她 2026-10-11：「约会视角下拍的、男友视角」，再一句：「拍照的不一定是男友，也有可能是朋友、女生朋友、女朋友、暧昧对象」）：
+//   镜头就是拍照那个人的眼睛，画面里只有她。机位按关系分三层，越亲近能抽的越多（层由 app.js povFor 定：关系＋好感）。
+//   第一层谁都能用；第二层给闺蜜、挚友、暧昧、好感高的；第三层只给恋人。太贴身的写得含蓄，免得真人照被出图审核拦。
+const POV_SLOTS = [
+  ["隔着桌子坐在她对面，平视拍过去，桌上的东西在前景虚掉",
+    "走在她后面，她正好回头看过来的那一瞬",
+    "她没注意到镜头，侧脸在看别处，被随手抓拍",
+    "她把手里的东西举到镜头前给拍照的人看",
+    "她发现自己在被拍，笑着或者嫌弃地看过来",
+    "并排走着，从她身侧平视拍过去，带一点街景"],
+  ["凑得很近，画面里只有她的半张脸和眼睛",
+    "她冲着镜头做鬼脸、比一个奇怪的手势",
+    "拍照那个人的一只手把东西递进画面，她正伸手来接",
+    "她刚睡醒或者在发呆，被近距离拍下，头发有点乱"],
+  ["拍照那个人牵着她的手，两只手在画面前景，她在后面回头看",
+    "她靠在拍照那个人的肩上，从肩头的角度斜着拍她的侧脸",
+    "拍照那个人低头看她，从高一点的地方近近地俯拍",
+    "她仰着脸看镜头，离得很近，像要说悄悄话"]
+];
+function povSlotsFor(tier) { const t = Math.max(1, Math.min(3, Number(tier) || 1)); return POV_SLOTS.slice(0, t).flat(); }
+const PHOTO_SHOTS_OTHER = [
     "远一点的全身，人在环境里",
     "从侧面拍的半身，没看镜头",
     "走动中被抓拍的一张",
@@ -4845,7 +4865,7 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
   // 上一张掷到的那个格子记在函数自己身上：连着两张同一个机位，看起来跟没掷一样——
   // 而「还是走一样的角度」正是她报的那句话。
   function photoShotLine(kind, seed) {
-    const list = kind === "self" || kind === "duo" ? PHOTO_SHOTS : PHOTO_SHOTS_OTHER;
+    const list = opts.pov ? povSlotsFor(opts.pov.tier) : kind === "self" || kind === "duo" ? PHOTO_SHOTS : PHOTO_SHOTS_OTHER;
     const n = Number.isFinite(seed) ? Math.abs(Math.floor(seed)) : Math.floor(Math.random() * 100000);
     let idx = n % list.length;
     if (idx === buildPhotoPrompt._lastShot) idx = (idx + 1 + Math.floor(Math.random() * (list.length - 1))) % list.length;
@@ -5017,6 +5037,12 @@ function buildPhotoPrompt(char, sceneDesc, st, opts) {
     parts.push("【TA 自己拍自己的一张】画面里只有 TA 一个人，没有别人在替 TA 拍——可能是举着手机、可能对着镜子、也可能把手机搁在哪儿。"
       + "**不必让人一眼看出这是自拍**：手臂、手机要不要出现在画面里，由上面那一句机位说了算；它没提手机，画面里就不用有手机，也不要那种广角怼脸的自拍畸变。"
       + "TA 的脸要在画面里、认得出是谁，但不必正对镜头。就算在描述某个场景，也要把 TA 本人拍进去，不是纯风景照。");
+  } else if (kind === "other" && opts.pov) {
+    // TA 的视角：被拍的是她（cName＝她），镜头是 pov.name 的眼睛
+    const pv = opts.pov;
+    parts.push("【" + pv.name + "的视角·" + pv.name + "拿着手机拍" + cName + "】镜头就是" + pv.name + "的眼睛，画面里只有" + cName + "一个人，" + pv.name + "不露脸。"
+      + "只有上面那句机位写到了手、肩，才让" + pv.name + "的手或袖子进画面" + (pv.wear ? "（袖子照这一身：" + pv.wear + "）" : "") + (pv.look ? "，手的样子贴合这个人：" + pv.look : "") + "；机位没提就不要出现。"
+      + (pv.rel ? "两人是" + pv.rel + "，" : "") + cName + "看镜头的神情、离镜头多近，照这层关系的分寸来，像这个人随手拍下的真实一张，不是写真。");
   } else if (kind === "other") {
     parts.push("【这是别人帮 TA 拍的照片，不是自拍】第三人称旁观视角，TA 手里没拿相机/手机自拍。姿势和构图要自然多变——站姿、坐姿、走动、回眸、侧身、半身或全身、带环境的生活人像都可以，别永远是怼脸的正面近照。TA 的样子清晰可见（除非是刻意的背影/侧影氛围照）。"
       // 她 2026-10-02：她在马上拍他牵马走路，出来的是他骑在马上——描述里拍照的人在做的事被安到了 TA 身上。

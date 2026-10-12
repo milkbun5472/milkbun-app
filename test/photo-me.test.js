@@ -30,3 +30,23 @@ test("四处都告诉模型有 me 这一档；她资料里没外貌也没参考�
   assert.match(engine, /\(session\.photoMe \? "｜me" : ""\)/);
   assert.match(app, /kind === "me" && !canShootMe\(\)\n      \? "TA 帮你拍的这张画的是你/);
 });
+
+// 她 2026-10-11：「约会视角、男友视角」→「拍照的不一定是男友」→「亲密度看吧」
+test("TA 的视角：机位按关系分三层，越亲近能抽的越多", () => {
+  const i = engine.indexOf("const POV_SLOTS = [");
+  const k = engine.indexOf("function povSlotsFor(");
+  const seg = engine.slice(i, engine.indexOf("\n", k) + 1);
+  const f = new Function(seg + "\nreturn { POV_SLOTS, povSlotsFor };")();
+  assert.equal(f.povSlotsFor(1).length, f.POV_SLOTS[0].length);
+  assert.equal(f.povSlotsFor(3).length, f.POV_SLOTS.flat().length);
+  assert.ok(!f.povSlotsFor(1).some(x => /牵着她的手|靠在/.test(x)), "普通关系抽不到恋人那层");
+  assert.match(engine, /const list = opts\.pov \? povSlotsFor\(opts\.pov\.tier\) :/);
+  assert.match(engine, /\} else if \(kind === "other" && opts\.pov\) \{/);
+});
+
+test("层从关系和好感来：在一起/恋人＝3，暧昧闺蜜挚友或好感≥70＝2，其余 1；三处出图都带上", () => {
+  assert.match(app, /const tier = \(cp && cp\.status === "together"\) \|\| POV_LOVE_RE\.test\(label\) \? 3\n      : POV_CLOSE_RE\.test\(label\) \|\| affOf\(char\.id\) >= 70 \? 2 : 1;/);
+  assert.match(app, /pov: meShot \? povFor\(realChar\) : null/);
+  assert.match(app, /pov: meShot \? povFor\(spk\) : null/);
+  assert.match(app, /pov: kind === "me" \? povFor\(char\) : null/);
+});
