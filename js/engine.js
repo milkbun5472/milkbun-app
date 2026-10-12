@@ -6972,7 +6972,7 @@ function bilingualRule(who) {
   return "\u3010\u53cc\u8bed\u3011" + w + "\u5f00\u7740\u300c\u5916\u8bed\u6d88\u606f\u81ea\u5e26\u4e2d\u8bd1\u300d\uff1a\u51e1\u662f TA \u8fd9\u4e00\u6761\u8bf4\u7684\u3010\u4e0d\u662f\u4e2d\u6587\u3011\uff0c\u5c31\u628a\u8fd9\u4e00\u6761\u5199\u6210\u300c\u539f\u6587 | \u4e2d\u6587\u300d"
     + "\u2014\u2014\u4e00\u6839\u7ad6\u7ebf\uff08|\uff09\u9694\u5f00\uff0c\u5de6\u8fb9\u539f\u539f\u672c\u672c\u5c31\u662f TA \u8981\u8bf4\u7684\u90a3\u53e5\u5916\u8bed\uff08\u522b\u6539\u5199\u3001\u522b\u52a0\u6ce8\u97f3\uff09\uff0c\u53f3\u8fb9\u662f\u5b83\u7684\u4e2d\u6587\u610f\u601d\u3002"
     + "\u4e2d\u6587\u8981\u6309 TA \u8bf4\u8bdd\u7684\u53e3\u6c14\u7ffb\uff08\u7528\u8bcd\u3001\u4eb2\u758f\u3001\u8bed\u6c14\u8bcd\u90fd\u8ddf\u7740\u8d70\uff09\uff0c\u4e0d\u662f\u5b57\u5178\u76f4\u8bd1\u3001\u4e0d\u8981\u7ffb\u8bd1\u8154\u3002"
-    + "\u8bf4\u4e2d\u6587\u7684\u90a3\u4e9b\u6761\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
+    + "TA 真说中文的那些条（人设里写了 TA 会说中文的时候）\u3010\u7167\u5e38\u5199\uff0c\u4e00\u6839\u7ad6\u7ebf\u90fd\u522b\u52a0\u3011\uff1b对方用中文跟 TA 说话，不是 TA 改说中文的理由；\u4e00\u6761\u91cc\u6700\u591a\u53ea\u80fd\u6709\u8fd9\u4e00\u6839\u7ad6\u7ebf\u3002"
     + "\u5b83\u53ea\u662f\u7ed9\u5bf9\u65b9\u770b\u7684\u5b57\u5e55\uff0c\u4e0d\u6539\u53d8 TA \u8bf4\u4ec0\u4e48\u3001\u8bf4\u591a\u957f\u3001\u8bf4\u51e0\u6761\u3002"
     + "右边一律写简体、普通话的说法。粤语、上海话这类本来就用汉字写的话也算外语，照样写成「原文 | 普通话」。";
 }
@@ -7533,7 +7533,7 @@ function charLangLine(c) {
   if (!l || /^(中文|汉语|普通话|chinese|zh)$/i.test(l)) return "";
   // 只管说出口的话（群里 2026-10-11：设了粤语，线下的旁白、动作描写也全写成了粤语）——
   //   旁白和动作、心理描写不是 TA 说的话，照常用简体中文写，读的人要看得懂。
-  return "\n【平时说的话】" + c.name + "平时说" + l + "：跟她说话、跟别人说话、发朋友圈，用的都是" + l + "。这只管【说出口的话】：线下的旁白、动作、神态、心理描写不是" + c.name + "说的话，照常用简体中文写。人设里写了什么时候换别的话（急了冒一句、对谁说什么），照人设来。";
+  return "\n【平时说的话】" + c.name + "平时说" + l + "：跟她说话、跟别人说话、发朋友圈，用的都是" + l + "。她用中文跟" + c.name + "说话、前面的聊天里中文多，都不是改说中文的理由，每一条说出口的话照样是" + l + "。这只管【说出口的话】：线下的旁白、动作、神态、心理描写不是" + c.name + "说的话，照常用简体中文写。人设里写了什么时候换别的话（急了冒一句、对谁说什么），照人设来。";
 }
 function groupPersonaText(persona, budget) {
   const t = String(persona == null ? "" : persona).trim();
