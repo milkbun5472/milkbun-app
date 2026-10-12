@@ -9242,9 +9242,11 @@ async function runProbeInner(p, ctx, probe) {
       + "你不是在分析这个人，你【就是】这个人，正拿着手机打字。输出要严格按 JSON，但每一句正文都是你亲口打出来的话——"
       + "该长就长、该只回两个字就两个字，语气跟着你此刻的心情走，别写成一条条冷静的判词。"
     : "你是角色状态推演引擎。不要扮演角色对话，而是基于背景冷静推演，严格输出 JSON。";
+  const thoughtHead = probe.voiceThought
+    ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。下面是完整设定和实际已知的上下文。这次只写未说出口的内心片段，按任务输出合法 JSON。" : head;
   const sceneHead = probe.voiceScene
     ? "你就是「" + ((ctx.char && ctx.char.name) || "TA") + "」本人。按下方现场事实和完整设定，写真实说出口的话；当前说话对象由现场任务确定。输出严格按 JSON。" : head;
-  const system = (probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
+  const system = (probe.voiceThought ? thoughtHead : probe.voiceScene ? sceneHead : head) + "\n\n" + buildBundle(ctx) + "\n\n【" + (probe.voice ? "这一次要写什么" : "推演任务") + "】\n" + probe.instruction + "\n\n【输出】只输出合法 JSON，无 markdown 无多余文字：\n" + probe.schemaHint;
   // 她 2026-08-29：「全部 token 放开」。天花板不是预付款——按次计费下给大不多花一分钱，
   // 给小了只会截断正文，思考型模型的推理也从这里扣。默认 2600 是历史遗留，
   // 好几个推演（相册 25 张、书架 30 本）都被它悄悄截过。

@@ -9,6 +9,7 @@ function setup(){
   vm.runInContext(read('js/char-day-link.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/social.js'),env);
   vm.runInContext(read('apps/fairy-garden/day/kitchen.js'),env);vm.runInContext(read('js/char-day-life.js'),env);
+  vm.runInContext(read('js/char-day-thoughts.js'),env);
   vm.runInContext(read('js/char-day.js'),env);
   let plans={},writes=[];const ref={current:plans};
   const save=new Function('setSchedules','schedulesRef','saveJSON',cut(app,'  const saveSchedDay =','  const applySchedChange =')+'return saveSchedDay;')(fn=>{plans=fn(plans);},ref,(key,v)=>writes.push({key,value:JSON.parse(JSON.stringify(v))}));
@@ -118,6 +119,7 @@ function placeViewer(f,initialCharId,extraProps={}){
     useRef:initial=>{const i=refCursor++;return refs[i]||(refs[i]={current:initial});},useEffect:()=>{},useKbLift:()=>0,
     React:{Fragment:'Fragment',useLayoutEffect:()=>{},useCallback:fn=>fn},location:{origin:'http://test.invalid'}
   });
+  Object.assign(f.env.React,{useState:f.env.useState,useRef:f.env.useRef,useEffect:f.env.useEffect});
   f.env.Date=class extends Date{static now(){return Date.parse('2026-10-09T02:30:00Z');}};
   const props={initialCharId,characters:[f.c],plansFor:()=>f.plans().c1,lookFor:()=>({outfit:'academy',hairColor:'#43352e'}),taFor:()=> '他',build:'test',...extraProps};
   const render=()=>{cursor=refCursor=0;const tree=f.env.CharDayApp(props);if(refs[0])refs[0].current={contentWindow:{CharDayScene:{setSnapshot:p=>snapshots.push(JSON.parse(JSON.stringify(p)))}}};return tree;};

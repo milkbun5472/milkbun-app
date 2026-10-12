@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.412";
+const APP_VERSION = "v75.413";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -29823,6 +29823,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         if (c) { setActiveChar(c); setActiveRoomId("main"); }
       },
       plansFor: c => schedulesRef.current[c.id] || {},
+      thoughtScopeFor: c => maskKeyOf(c.id),
+      thoughtContextFor: c => {
+        const messages=(chatsRef.current[c.id]||[]).filter(m=>!m.recalled&&m.content&&!isOocMsg(m)&&contextAllowsMessage(m));
+        return {scope:maskKeyOf(c.id),messages,revision:JSON.stringify([messages,c,profileFor(c.id),settingsFor(c.id),moods[c.id],memories[c.id],directives[c.id],rels,loreRef.current])};
+      },
+      generateThought: (c, frame, identity, previous) => {
+        const T=window.CharDayThoughts,W=window.__vclock,active=W?.active;
+        try {
+          const history=T.chatWindow(identity.messages,frame,ts=>frame.followVirtual?vclockMap(ts,c.id):ts);
+          const text=history.before.concat(history.during).map(m=>(m.role==='user'?userName(profileFor(c.id)):c.name)+'：'+m.content).join('\n');
+          const ctx={...ctxFor(c,{chat:true,debug:true,queryText:text}),recentChat:text,schedNow:''};
+          return runProbe(apiFor(c.id),ctx,{voice:true,voiceThought:true,once:true,maxTokens:65000,tag:'此刻的念头',
+            instruction:T.instruction(frame,history,previous,userName(profileFor(c.id))),schemaHint:'{"thought":"此刻未说出口的短念头"}'});
+        } finally {if(W)W.active=active;}
+      },
       taFor: c => CharacterPronoun.ta(c),
       lookFor: c => window.CompanionFace.lookFor(c, moods),
       visitorFor: () => ({ id: "__me", name: userName(profile), persona: profile.persona || "" }),

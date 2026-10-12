@@ -40,6 +40,7 @@
   function due(key, period, opts) {
     const o = opts || {};
     const row = load()[key];
+    if (row && o.minIntervalMs && Date.now() - (row.ts || 0) < o.minIntervalMs) return false;
     if (!row || row.p !== String(period)) return true;   // 换周期了，从头再来
     if (row.ok) return false;                            // 这一轮成过了
     if ((row.tries || 0) >= (o.maxTries || MAX_TRIES)) return false;
