@@ -2814,6 +2814,47 @@ function MemoWidget({ onOpen, homeSize }) {
             h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: t.ink, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.title))))
       : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "没有待办提醒，记一条？"));
 }
+// TA在干嘛：主屏上一眼看谁此刻在做什么（只读日程，不调模型）。算法和「TA的一天」挑人页同一份 CharDayKit.dayState，
+// 这里只负责摆。点某一位直接进那位的「TA的一天」。
+function TaDayWidget({ characters, schedules, now, homeSize, onOpen }) {
+  const t = useTheme();
+  const kit = typeof window !== "undefined" ? window.CharDayKit : null;
+  const at = now instanceof Date ? now.getTime() : (Number(now) || Date.now());
+  const rows = kit ? (characters || []).filter(function (c) { return c && !c.archived; }).map(function (c) {
+    let st = null; try { st = kit.dayState(c, (schedules || {})[c.id] || {}, at); } catch (e) {}
+    const idle = st && st.hasPlan ? "这会儿没排事情" : "今天还没有日程";
+    return { c: c, busy: !!(st && st.slot), what: (st && st.slot && st.slot.title) || idle, where: (st && st.slot && st.slot.location) || "" };
+  }).sort(function (a, b) { return (b.busy ? 1 : 0) - (a.busy ? 1 : 0); }) : [];
+  const pr = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
+  const oneRow = !!(pr && pr.rows === 1);
+  const open = function (e, id) { if (e) e.stopPropagation(); onOpen && onOpen(id); };
+  const name = function (c) { return c.remark || c.name || "TA"; };
+  if (oneRow) {
+    const first = rows[0];
+    return h(GlassCard, { onClick: function (e) { open(e, first && first.c.id); }, style: { padding: "10px 14px", cursor: "pointer", height: "100%", display: "flex", alignItems: "center", gap: 10, overflow: "hidden" } },
+      h("span", { "data-wk": "wicon", className: "flex items-center", style: { flexShrink: 0 } }, h(GWalk, { size: 15, color: t.accent })),
+      first
+        ? h("span", { "data-wk": "wrow", className: "flex items-baseline min-w-0", style: { flex: 1, gap: 6 } },
+            h("span", { style: { fontFamily: F_DISPLAY, fontSize: 13.5, color: t.ink, flexShrink: 0 } }, name(first.c)),
+            h("span", { className: "min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: first.busy ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, first.what))
+        : h("span", { "data-wk": "wempty", style: { flex: 1, fontFamily: F_BODY, fontSize: 11.5, color: t.fog } }, "还没有角色"),
+      rows.length > 1 ? h("span", { "data-wk": "wsub", style: { flexShrink: 0, fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (rows.length - 1) + " 位") : null);
+  }
+  const shown = rows.slice(0, 3);
+  return h(GlassCard, { onClick: function (e) { open(e, ""); }, style: { padding: "12px 16px", cursor: "pointer", height: homeSize && homeSize !== "auto" ? "100%" : "auto", overflow: "hidden" } },
+    h("div", { className: "flex items-center gap-2", style: { marginBottom: shown.length ? 8 : 0 } },
+      h("span", { "data-wk": "wicon", className: "flex items-center" }, h(GWalk, { size: 15, color: t.accent })),
+      h("span", { "data-wk": "wtitle", style: { fontFamily: F_DISPLAY, fontSize: 14.5, color: t.ink } }, "TA在干嘛"),
+      h("span", { className: "flex-1" }),
+      rows.length > 3 ? h("span", { "data-wk": "wlabel", style: { fontFamily: F_BODY, fontSize: 10.5, color: t.fog } }, "还有 " + (rows.length - 3) + " 位") : null),
+    shown.length
+      ? h("div", { className: "flex flex-col", style: { gap: 4 } }, shown.map(function (it) {
+          return h("div", { key: it.c.id, "data-wk": "wrow", onClick: function (e) { open(e, it.c.id); }, className: "flex items-baseline gap-2", style: { minHeight: 22 } },
+            h("span", { style: { fontFamily: F_BODY, fontSize: 12, color: t.accent, flexShrink: 0, maxWidth: "35%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, name(it.c)),
+            h("span", { className: "flex-1 min-w-0", style: { fontFamily: F_BODY, fontSize: 12.5, color: it.busy ? t.ink : t.fog, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, it.what + (it.where ? " · " + it.where : "")));
+        }))
+      : h("div", { "data-wk": "wempty", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, marginTop: 2 } }, "还没有角色"));
+}
 // 命运转盘（v47.81 全屏化）：主屏 2x2 小组件只是入口（静态小盘预览+上次结果），点开进全屏大转盘——
 // 点大盘开转，落定后随机一位在聊角色起哄（气泡完整显示不截断，带头像）。✎ 编辑主题/选项
 // 扇区的色：从马卡龙八色换成这个 app 自己的秋色（v63.08）。
@@ -4396,6 +4437,7 @@ function homeWidgetIcon(which) {
   map: { G: IPin, open: "map" },
   us: { G: GUs, open: "us" },
   memo: { G: IPencil, open: "memo" },
+  taday: { G: GWalk, open: "fairyGarden" },
   weather: { G: GWx, open: "map" },
   ledger: { G: GWallet, open: "ledger" },
   recent: { G: GChat, open: null },
@@ -4407,7 +4449,7 @@ function homeWidgetIcon(which) {
 // 组件的名字只此一份：拖动虚影和设置页顶栏都问它要。
 // 原来只有拖影那一处写着一张四个人的小表（名片/日历/音乐/地图），别的组件一律叫「组件」——
 // 设置页也要报名字，再抄一份就是又开了一处要同步的地方（one-public-mechanism）。
-const HOME_WIDGET_NAMES = { card: "名片", cal: "日历", music: "音乐", map: "地图", us: "我们", memo: "备忘录", weather: "天气", muyu: "木鱼", ledger: "记账", wheel: "转盘", recent: "最近聊过" };
+const HOME_WIDGET_NAMES = { card: "名片", cal: "日历", music: "音乐", map: "地图", us: "我们", memo: "备忘录", weather: "天气", muyu: "木鱼", ledger: "记账", wheel: "转盘", recent: "最近聊过", taday: "TA在干嘛" };
 function homeWidgetName(it) { return (it && HOME_WIDGET_NAMES[it.which]) || "组件"; }
 // 装饰不是换图标的文字卡：每一种都有自己的内容语义、默认尺寸和渲染骨架。
 const HOME_DECOR_TYPES = [
@@ -4991,7 +5033,7 @@ function homeSpanHeight(rows, unit) { return rows * (unit || HOME_ROW_UNIT) + (r
 //   默认就是一条 4×1，不占两行」，现在一起听单独放开，情侣空间那条照旧。
 //   剩下几个仍然照 v61.87：她那份 x_homeWidgetSizes 整份搬过来的话，
 //   默认第三页会排到【滑到底也够不着】的行数（home-rows-58-19 当场红）。
-const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large" };
+const HOME_SIZE_DEFAULT = { w_us: "wide", w_music: "large", w_memo: "wide", w_recent: "large", w_taday: "wide" };
 // 不钉高度的那几个：名片的高度是一版版调出来的，钉成一行会被裁掉半张。
 const HOME_FREE_HEIGHT = { w_card: true };
 // 组件比它占的格子矮时，多出来的那块空白靠哪儿（她 2026-09-05：
@@ -5790,6 +5832,8 @@ function placeNewAppOnce(st, key, beside, flag) {
 function Home({
   now,
   characters,
+  schedules,
+  onOpenDay,
   onSetDisc,
   onTogglePlay,
   onNextSong,
@@ -5982,6 +6026,8 @@ function Home({
     w_ledger: { kind: "widget", which: "ledger" },
     w_wheel: { kind: "widget", which: "wheel" },
     w_recent: { kind: "widget", which: "recent" },
+    // 新加的组件不硬塞进每个人的桌面：optIn 的只在她自己从「做一件装饰」里放上去之后才出现。
+    w_taday: { kind: "widget", which: "taday", optIn: true },
     cast: { kind: "app", zh: "人格档案馆", G: GCast },
     ties: { kind: "app", zh: "关系", G: GTies },
     phone: { kind: "app", zh: "查手机", G: GPhone },
@@ -6159,7 +6205,7 @@ function Home({
       // v57.86 安全网扩容：widget 也救（widget 没有任何「重新添加」的 UI，掉了就是永久失踪；
       // app/widget 一视同仁。故意退场的入口走「从 REG 删除」这条老路，见 v47.73 的 memo/diary）
       Object.keys(REG).forEach(function (key) {
-        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && hiddenW.indexOf(key) < 0 && !reach[key]) {
+        if (REG[key] && (REG[key].kind === "app" || REG[key].kind === "widget") && !REG[key].optIn && hiddenW.indexOf(key) < 0 && !reach[key]) {
           var dp = defPage[key] != null ? defPage[key] : (out.length - 1);
           if (!out[dp]) out[dp] = [];
           out[dp].push(key);
@@ -6254,6 +6300,7 @@ function Home({
       else if (it.which === "cal") inner = h(CalWidget, { now: now, calendar: calendar, period: period, onOpen: function () { return onOpenApp("calendar"); } });
       else if (it.which === "music") inner = h(MusicWidget, { listen: listen, player: player, homeSize: homeSize, cellH: fixedH, cellCols: span[0], editMode: editMode, onSetDisc: onSetDisc, onToggle: onTogglePlay, onNext: onNextSong, onPrev: onPrevSong, onEditCard: onEditMusicCard, onOpen: function () { return onOpenApp("listen"); } });
       else if (it.which === "us") inner = h(UsWidget, { characters: characters, couples: couples, sweet: coupleSweet, dot: nf.whisper || 0, homeSize: homeSize, onOpen: function () { return onOpenApp("us"); } });
+      else if (it.which === "taday") inner = h(TaDayWidget, { characters: characters, schedules: schedules, now: now, homeSize: homeSize, onOpen: function (id) { if (!editMode && onOpenDay) onOpenDay(id); } });
       else if (it.which === "memo") inner = h(MemoWidget, { homeSize: homeSize, onOpen: function () { return onOpenApp("memo"); } });
       else if (it.which === "recent") inner = (window.RecentWidget ? h(window.RecentWidget.Widget, { characters: characters, groups: groups, chats: chats, groupChats: groupChats, unreadMap: unreadMap, now: now, editMode: editMode, onOpenChat: onOpenChat }) : null);
       else if (it.which === "muyu") inner = h(MuyuWidget, { editMode: editMode, imageRef: lookOf(key).tapImageRef });
@@ -7376,6 +7423,9 @@ function Home({
               // 最近聊过：移走了才出现在这里，点一下直接放回桌面（它不是一件新做的装饰，是那个组件本身）
               A.isNew && hiddenWidgets.indexOf("w_recent") >= 0 ? h("button", { key: "__recent", "data-decor-recent": true, onClick: function () { showWidget("w_recent"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
                 h("div", { style: { fontFamily: F_DISPLAY, fontSize: 23, lineHeight: 1 } }, "✎"), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, "最近聊过")) : null,
+              // TA在干嘛：默认不在桌面上，这里放上去；已经在桌面上就不再出现
+              A.isNew && !buildLayout(layout).some(function (pg) { return (pg || []).indexOf("w_taday") >= 0; }) ? h("button", { key: "__taday", "data-decor-taday": true, onClick: function () { showWidget("w_taday"); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: t.bg2, color: t.ink, border: "1px dashed " + t.line } },
+                h("div", { className: "flex justify-center", style: { height: 23, alignItems: "center" } }, h(GWalk, { size: 20, color: t.ink })), h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, marginTop: 7, whiteSpace: "nowrap" } }, "TA在干嘛")) : null,
               homeDecorPickable().map(function (x) {
                 var active = A.type === x.id;
                 return h("button", { key: x.id, onClick: function () { A.setType(x.id); }, className: "active:opacity-70", style: { borderRadius: 15, padding: "13px 4px 11px", background: active ? t.ink : t.bg2, color: active ? t.bg2 : t.ink, border: "1px solid " + (active ? t.ink : t.line) } },
@@ -7454,7 +7504,7 @@ function Home({
             h(HomeStickerEditor, { list: A.stickers, busy: decorBusy, onChange: A.setStickers,
               onPick: function (f, id) { takeStickerPhoto(f, id, A.stickers, A.setStickers); } }))),
         // 已经在桌面上的那一件，才有得移走
-        A.isWidget && styleKey === "w_recent" ? h("button", { onClick: function () { hideWidget("w_recent"); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b4574a", minHeight: 44 } }, "从桌面移走（以后在「做一件装饰」里放回来）") : null,
+        A.isWidget && (styleKey === "w_recent" || styleKey === "w_taday") ? h("button", { onClick: function () { hideWidget(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b4574a", minHeight: 44 } }, "从桌面移走（以后在「做一件装饰」里放回来）") : null,
         A.isWidget ? h("button", { onClick: function () { setStyleKey(null); setDecorStep("look"); setEditMode(true); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid " + t.line, background: "transparent", fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "去整理位置")
           : !A.isNew ? h("button", { onClick: function () { removeDecoration(styleKey); }, className: "w-full active:opacity-65", style: { marginTop: 8, padding: "12px 0", borderRadius: 14, border: "1px solid rgba(194,90,74,.45)", background: "transparent", fontFamily: F_BODY, fontSize: 13, color: "#b34f43" } }, "移除这件装饰") : null),
       // 按钮钉在底下：不用把整页滚到尽头才够得着

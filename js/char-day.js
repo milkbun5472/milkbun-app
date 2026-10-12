@@ -43,6 +43,17 @@
   const placeIcon = id => ({dayHome:IHome,dayWork:GBrief,dayCafe:GCoffee,dayStreet:GWalk,dayLaboratory:LabIcon,dayLibrary:GStudy,dayClinic:IPulse,dayStudio:GPen,dayRehearsal:MusicIcon,dayStation:TrainIcon,dayGym:GymIcon,dayMarket:GShop,dayOffice:GBrief,dayCampus:GStudy,dayInvestigation:ISearch,dayService:GMeal,dayFilm:IFilm,dayBroadcast:GChat,dayLegal:GDebate,dayTraining:GymIcon,dayWorkshop:GConfig,dayFarm:FarmIcon,dayFleaMarket:GBag,dayStudy:GDiary})[id]||IHome;
   const actionIcon = kind => /read|study/.test(kind)?GStudy:/drink|tea/.test(kind)?GCoffee:/eat|meal|cook|stir|chop/.test(kind)?GMeal:/clean|wash|tidy|sweep/.test(kind)?GConfig:/sleep|rest|sit|lean/.test(kind)?GMoon:/hand|hug|kiss|cuddle|forehead|cheek|shoulder/.test(kind)?IHeart:/leave|return|end|stand/.test(kind)?IArrow:GUs;
   const clockText = n => String(Math.floor(n / 60)).padStart(2, "0") + ":" + String(n % 60).padStart(2, "0");
+  // What came just before and what comes next around this moment, from the same filled rows the scene uses.
+  function aroundNow(state){
+    const rows=state?.rows||[],toMin=t=>{const m=/^(\d{1,2}):(\d{2})/.exec(String(t||""));return m?+m[1]*60+ +m[2]:null;},now=state?.minute;
+    const index=state?.slot&&!state.slot.carry?rows.findIndex(r=>r.time===state.slot.time):-1;
+    let prev=null,next=null;
+    if(index>=0){prev=rows[index-1]||null;next=rows[index+1]||null;}
+    else if(Number.isFinite(now))for(const row of rows){const t=toMin(row.time),e=toMin(row.end);if(t==null)continue;if(t>now){next=row;break;}if(e!=null&&e<=now)prev=row;}
+    const slot=state?.slot,elapsed=slot&&Number.isFinite(slot.startAt)&&Number.isFinite(state.at)?Math.max(0,Math.floor((state.at-slot.startAt)/60000)):null;
+    return {prev,next,elapsed};
+  }
+  const spanText = m => m == null ? "" : m < 1 ? "刚开始" : m < 60 ? "已经 " + m + " 分钟" : "已经 " + Math.floor(m / 60) + " 小时" + (m % 60 ? m % 60 + " 分" : "");
   function dayState(char, plans, at = Date.now(), options = {}) {
     const clock = root.ScheduleClock, frame = clock.characterFrame(char, at, options);
     const pinned=[options.clockSource,options.memorySource].find(v=>v?.virtualAt===frame.displayAt&&/^\d{4}-\d{2}-\d{2}$/.test(v.sourceDay));
@@ -175,14 +186,15 @@
       saveHomeChange(charId,'clockSources',pin).then(next=>{if(live)setHomes(next);}).catch(()=>{});
       return()=>{live=false;};
     },[char?.id,demo,preview,showcase,state?.followVirtual,state?.paused,state?.displayAt,state?.sourceDay]);
-    const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情，在家歇着" : "今天还没有日程");
+    const slot = preview || state?.slot, title = slot?.deviation?.actual || slot?.title || (state?.hasPlan ? "这会儿没排事情，"+root.CharDayLink.idleLabel(state?.minute) : "今天还没有日程");
     const visitorData=props.visitorFor?.(char)||{};
     const destinations=root.CharDayCatalog||[],outingPlace=destinations.find(p=>p.id===outing?.map);
     const trip=outingPlace&&!demo&&!preview&&!showcase?outing:null;
     const openOutings=()=>{setOutingMode(trip?.mode||'solo');setOutingPicker(true);};
     const goOuting=map=>{if(!destinations.some(p=>p.id===map))return;setPreview(null);setShowcase('');setSpotId('');setBook(false);setOuting({map,mode:outingMode});setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setVisitStatus(null);setFollow(true);setCameraMode(outingMode==='solo'?'me':'both');};
     const returnToTA=()=>{setOuting(null);setOutingPicker(false);setMoreOpen(false);setTogetherPanel(false);setBook(false);setPreview(null);setShowcase('');setSpotId('');setVisitStatus(null);setFollow(true);setCameraMode('ta');};
-    const visual = root.CharDayLink.resolve(slot, state?.at ?? now, {preview:!!preview||demo});
+    const visual = root.CharDayLink.resolve(slot, state?.at ?? now, {preview:!!preview||demo,minute:state?.minute,seed:String(char?.id||"")});
+    const sceneNear = !demo && !preview && state ? aroundNow(state) : null;
     const stageIndex=!preview&&!demo&&activityStatus?.charId===String(char?.id)&&activityStatus.key===slot?.key&&Number.isInteger(activityStatus.stageIndex)&&visual.stages[activityStatus.stageIndex]?activityStatus.stageIndex:visual.presentation.stageIndex;
     const activeStage=visual.stages[stageIndex],manualPoint=activeStage?activeStage.override:visual.presentation.manual?{scene:visual.presentation.map,spot:visual.presentation.spot}:null;
     const stagePlace = manualPoint ? (root.CharDayCatalog||[]).find(s=>s.id===manualPoint.scene)?.label : activeStage?.location || slot?.location;
@@ -191,7 +203,7 @@
       at: preview || demo ? null : state.at, preview: !!preview || demo, scenePaused:!!(book||homeOptions||moreOpen||togetherPanel||professionalPanel||lifePage||mePanel||outingPicker||positionEdit), editing: !!editor, resume:scenePause.current?.charId===String(char.id)?scenePause.current:!preview&&!demo&&!showcase?sceneContinuity.get(String(char.id))||null:null, homePlacements: editor ? editor.placements : demo ? demoLayout : homes.layouts?.[String(char.id)] || {},
       homeStyle: demo ? demoStyle : homes.styles?.[String(char.id)] || "warm", showcase: !!showcase && !editor,
       presentation: editor ? {map:"dayHome",action:"rest",gesture:"rest"} : showcase ? {map:showcase,action:spot?.action||"work",gesture:spot?.gesture||"rest",spot:spot?.id||"entry"} : trip ? {map:trip.map,action:'rest',gesture:'rest'} : visual.presentation, cameraMode,kitchenJob:demo?null:homes.kitchens?.[String(char.id)]?.pending||null,kitchenCarry:demo?[]:L.kitchen(homes.kitchens?.[String(char.id)]).dishes.filter(d=>d.packed&&d.owner==='ta'), minute: showcase ? 720 : preview || demo ? String(slot?.time || "12:00").split(":").reduce((n, part, i) => n + Number(part) * (i ? 1 : 60), 0) : state.minute, follow: editor ? false : follow,
-      key: trip&&!editor ? "outing:"+char.id+":"+trip.map+":"+trip.mode : showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation]) };
+      key: trip&&!editor ? "outing:"+char.id+":"+trip.map+":"+trip.mode : showcase ? "place:"+showcase+":"+(spot?.id||"entry") : slot?.key || JSON.stringify([char.id, state?.day, slot?.time, slot?.end, slot?.title, slot?.location, slot?.deviation, ...(slot ? [] : [visual.presentation?.spot])]) };
     if(payload&&(showcase||editor))payload.slot=null;
     if(payload)payload.weather=demo||showcase?null:sceneWeather(char,now,!!preview,payload.minute,preview?null:state?.day);
     const thoughtPrefs=homes.thoughts?.[String(char?.id)]||{};
@@ -338,11 +350,16 @@
     if (!char) return outer(h(React.Fragment, null, head(props.onBack), body(h(React.Fragment, null,
       h("p", { style: { fontSize: 13, lineHeight: 1.9, color: soft, margin: "0 0 16px" } }, "挑一位，看看TA此刻在哪儿、在做什么。"),
       ...(props.characters || []).map(c => {
-        const st = dayState(c, props.plansFor?.(c) || {}, now);
+        // The last saved thought only; the picker never asks the model for a new one.
+        const thoughtOf = x => { const t = homes.thoughts?.[String(x.id)]; return t?.enabled === true && t.cache?.text ? t.cache : null; };
+        const st = dayState(c, props.plansFor?.(c) || {}, now), near = aroundNow(st);
         // No plan today is a dead end unless the card offers the way to the calendar.
         return h("div", { key: c.id, style: { marginBottom: 10 } }, h("button", { "data-wk": "cdaypick", onClick: () => pick(c.id), style: { ...btn, width: "100%", textAlign: "left", padding: 14 } },
-          h("strong", { style: { display: "block", fontSize: 15, fontWeight: 500 } }, c.remark || c.name),
-          h("span", { style: { display: "block", marginTop: 5, lineHeight: 1.7, color: soft } }, st.slot?.title || (st.hasPlan ? "这会儿没排事情，在家歇着" : "今天还没有日程"))),
+          h("div", { style: { display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8 } }, h("strong", { style: { fontSize: 15, fontWeight: 500 } }, c.remark || c.name), h("span", { style: { fontSize: 11, color: soft, flexShrink: 0 } }, "TA当地 " + st.time)),
+          h("span", { style: { display: "block", marginTop: 5, lineHeight: 1.7 } }, st.slot?.title || (st.hasPlan ? "这会儿没排事情，"+root.CharDayLink.idleLabel(st.minute) : "今天还没有日程")),
+          !!st.slot && h("span", { style: { display: "block", fontSize: 12, lineHeight: 1.7, color: soft } }, [st.slot.location, spanText(near.elapsed)].filter(Boolean).join(" · ")),
+          !!(near.prev || near.next) && h("span", { style: { display: "block", fontSize: 12, lineHeight: 1.7, color: soft } }, [near.prev && "刚才 · " + near.prev.title, near.next && "接下来 " + near.next.time + " · " + near.next.title].filter(Boolean).join("　")),
+          !!thoughtOf(c) && h("span", { style: { display: "block", fontSize: 12, lineHeight: 1.7, color: soft, marginTop: 4, borderTop: "1px dashed " + UI.line, paddingTop: 4 } }, "念头" + (thoughtOf(c).time ? " · " + thoughtOf(c).time : "") + "：" + thoughtOf(c).text)),
           !st.hasPlan && h("button", { onClick: () => props.onSchedule?.(c), style: { ...btn, width: "100%", marginTop: 6, background: "transparent", borderStyle: "dashed" } }, "去日历给TA排今天"));
       }), h("button", { onClick: () => pick(DEMO.id), style: { ...btn, width: "100%", marginTop: 12, background: "transparent", borderStyle: "dashed" } }, "先看一段示例"),
       h("p", { style: { fontSize: 11, color: soft, lineHeight: 1.8 } }, "跟着日程走进小家、工作空间、小店和街道；专业日程也会走进实验室、图书馆、诊室和创作室。"),
@@ -500,6 +517,7 @@
           h("div", { style: {display:"flex",alignItems:"center",justifyContent:"space-between",gap:8,fontSize:11,color:UI.accent,fontWeight:500} },h("span",null,trip ? "自由逛 · "+outingPlace.label : showcase ? "逛逛场景 · "+(room?.label||"正在准备房间") : demo ? "示例试玩 · " + slot.time : preview ? "预览日程 · " + slot.time + "—" + slot.end : "此刻 · TA当地 " + state.time),!trip&&!demo&&!showcase&&slot?.seq!=null&&props.onEditSchedSeq&&h("button",{"data-wk":"cdaypositionopen",style:{...btn,pointerEvents:"auto",padding:"5px 9px",background:"transparent",border:0,flexShrink:0},onClick:()=>openPosition(slot,slot.sourceDay||state.sourceDay||state.day,stageIndex)},h(IPencil,{size:14,color:soft}),visual.stages.length?" 换这一步的地方":" 换地方")),
           h("div", { style: { fontSize: 14,fontWeight:500, lineHeight: 1.7, marginTop: 6, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" } }, trip ? (trip.mode==='solo'?'你自己逛逛':'和TA一起逛逛') : showcase ? (spot ? spot.number+" · "+spot.label : "入口") : title),
           !demo && !preview && !showcase && !trip && !state?.hasPlan && h("button", { onClick: () => props.onSchedule?.(char), style: { ...btn, width: "100%", marginTop: 6, pointerEvents: "auto" } }, "去日历给TA排今天"),
+          !showcase && !trip && !!sceneNear && !!(state.slot || sceneNear.prev || sceneNear.next) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, [!!state.slot && spanText(sceneNear.elapsed), !!sceneNear.prev && "刚才 · " + sceneNear.prev.title, sceneNear.next && "接下来 " + sceneNear.next.time + " · " + sceneNear.next.title].filter(Boolean).map((line, i) => h("div", { key: i, style: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, line))),
           showcase && spot && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3 } }, spot.description),
           trip && h('div',{"data-wk":"cdayoutingplan",style:{fontSize:11,lineHeight:1.6,color:soft,marginTop:3,display:'-webkit-box',WebkitLineClamp:2,WebkitBoxOrient:'vertical',overflow:'hidden'}},'TA的原安排 · '+state.time+' · '+title),
           !kitchenOnScene && !trip && !showcase && (stagePlace || visual.presentation.stageLabel) && h("div", { style: { fontSize: 11, lineHeight: 1.6, color: soft, marginTop: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" } }, (stagePlace || "此刻") + (!preview && !demo && activityStatus?.charId===payload.charId && activityStatus?.key===payload.key && activityStatus.label ? (activityStatus.groupLabel?" · "+activityStatus.groupLabel:"")+" · "+activityStatus.label+(activityStatus.spotLabel?" · "+activityStatus.spotLabel:"") : "")),
@@ -510,6 +528,8 @@
             h("div",{style:{display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}},h("span",{style:{fontSize:11,color:UI.accent}},"此刻的念头"+(thought.cache?" · "+thought.cache.time:"")),h("button",{"data-wk":"cdaythoughtrefresh","aria-label":thought.unsaved?"保存这句念头":"换一个此刻念头",disabled:thought.busy,style:{...btn,minWidth:44,minHeight:44,padding:"4px 7px",border:0,background:"transparent",boxShadow:"none",fontSize:11,color:soft},onClick:thought.refresh},thought.busy?"想一会儿…":thought.unsaved?"保存这句":"换一个")),
             h("div",{"data-wk":"cdaythoughttext",role:"status",style:{fontSize:12,lineHeight:1.8,maxHeight:78,overflowY:"auto",overscrollBehavior:"contain",WebkitOverflowScrolling:"touch",whiteSpace:"pre-wrap"}},thought.unsaved||thought.cache?.text||(thought.busy?"这一刻，TA在想什么…":thought.error?"这次没能生成念头。":"还没有这一刻的念头，点“换一个”看看。")),
             thought.error&&h("div",{role:"status",style:{fontSize:11,color:"#9b674d",marginTop:3}},thought.unsaved?"念头已生成，还没保存成功，点“保存这句”重试。":"没能更新，点“换一个”重试。")),
+          // The thought switch sits on the card itself; it still uses the chat model at most once per interval.
+          !demo&&!preview&&!showcase&&!trip&&thoughtPrefs.enabled!==true&&!!thoughtFrame&&!chatOpen&&!!props.generateThought&&h("div",{style:{borderTop:"1px solid "+UI.line,marginTop:8,paddingTop:5,pointerEvents:"auto"}},h("button",{"aria-label":"看看"+(char.remark||char.name)+"此刻在想什么",disabled:thought.saving,onClick:()=>thought.setEnabled(true),style:{...btn,width:"100%",background:"transparent",borderStyle:"dashed",fontSize:12}},"看看TA在想什么"),h("div",{style:{fontSize:10,color:soft,marginTop:3,lineHeight:1.5}},"开启后用聊天模型生成，最多 10 分钟一次；在「更多」里可以关。"),thought.saveError&&h("div",{role:"status",style:{fontSize:11,color:"#9b674d"}},thought.saveError)),
           !trip && !showcase && slot?.deviation && h("div", { style: { fontSize: 11, color: "#9b674d", marginTop: 3 } }, "安排临时改了"),
           !kitchenOnScene&&payload.kitchenCarry?.length>0&&h("div",{"data-wk":"cdaykitchencarry",style:{fontSize:11,color:soft,marginTop:3}},"给TA装好了便当："+payload.kitchenCarry.map(L.dishName).join("、")),
           !kitchenOnScene&&pendingJob&&h("div",{"data-wk":"cdaykitchenprogress",style:{fontSize:11,color:soft,marginTop:3}},L.recipe(pendingJob.recipeId)?.name+" · "+(pendingJob.ready?"做好了，到生活里的厨房收好":kitchenStatus?.label||({paused:"这份先放着，去厨房继续",preparing:"一起备菜",stirring:"锅边搅拌",serving:"准备盛出来",eating:"一起吃饭",ready:"做好了，到厨房收好"})[kitchenStatus?.phase]||"去厨房继续")),

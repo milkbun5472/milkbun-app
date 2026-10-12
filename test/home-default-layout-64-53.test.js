@@ -26,7 +26,8 @@ test("REG 里每个 app / 组件，在默认桌面上都摸得着", () => {
   // 光在 DEFAULT_FOLDERS 里有一条不算：文件夹没摆上去，里面的东西一样点不到。
   const reach = new Set(flat);
   placedFolders.forEach(fid => (FOLDERS[fid] ? FOLDERS[fid].keys : []).forEach(k => reach.add(k)));
-  const missing = Object.keys(REG).filter(k => (REG[k].kind === "app" || REG[k].kind === "widget") && !reach.has(k));
+  // optIn 的组件（TA在干嘛）故意不在默认桌面上，由她从「做一件装饰」里放上去
+  const missing = Object.keys(REG).filter(k => (REG[k].kind === "app" || REG[k].kind === "widget") && !REG[k].optIn && !reach.has(k));
   assert.deepEqual(missing, [],
     "这几个从默认桌面上掉了：" + missing.join(" ") +
     "（安全网会把它们硬塞回某一页，于是新装的人第一眼看到的就不是她排的那个样子）");

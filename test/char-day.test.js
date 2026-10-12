@@ -345,3 +345,10 @@ test('复合日程纸卡显示当前与下一步，原编辑writer只纠正所�
  hook(tree,'cdaypositionopen').props.onClick();tree=v.render();assert.equal(hook(tree,'cdaypositionstage').props.value,1);hook(tree,'cdaypositionauto').props.onClick();tree=v.render();await hook(tree,'cdaypositionsave').props.onClick();tree=v.render();assert.equal(v.send(tree).presentation.map,'dayStreet');
  at=Date.parse('2026-10-09T02:35:00Z');tree=v.render();payload=v.send(tree);assert.equal(payload.presentation.map,'dayHome');assert.equal(payload.presentation.stageIndex,2);assert.equal(payload.presentation.manual,undefined);assert.match(text(hook(tree,'cdayphase')),/本段最后一步/);assert.equal(JSON.stringify(L.publicSchedules(f.plans())),original);
 });
+
+test('挑人页就是监视面板：此刻、做了多久、刚才和接下来一眼看完',()=>{
+  const f=setup(),viewer=placeViewer(f,'');const tree=viewer.render();
+  const card=viewer.all(tree).find(n=>n.tag==='button'&&n.props['data-wk']==='cdaypick');assert.ok(card,'有角色卡');
+  const txt=n=>n.children.map(c=>typeof c==='string'?c:c&&typeof c==='object'?txt(c):'').join('');const t=txt(card);
+  assert.match(t,/TA当地 \d\d:\d\d/);assert.match(t,/刚才 · |接下来 \d\d:\d\d · /);
+});

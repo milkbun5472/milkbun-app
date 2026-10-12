@@ -233,7 +233,19 @@
     }
     return validateStages(stages);
   }
-  function resolve(slot, atTime = null, { preview = false } = {}) {
+  // An empty stretch is not one frozen pose: hour by hour TA rests, reads or has tea at home, and sleeps at night.
+  // Picture only; nothing is written to the schedule and no model is asked.
+  const IDLE_SPOTS = ["rest", "read", "tea", "read", "rest", "tea"];
+  const idleNight = minute => Number.isFinite(minute) && (minute < 420 || minute >= 1380);
+  function idlePresentation(atTime, minute, seed = "") {
+    if (idleNight(minute)) return at("dayHome", "sleep");
+    let n = Math.floor(Number(atTime) / 3600000) >>> 0;
+    for (const ch of String(seed)) n = (Math.imul(n, 31) + ch.charCodeAt(0)) >>> 0;
+    return at("dayHome", IDLE_SPOTS[n % IDLE_SPOTS.length]);
+  }
+  function idleLabel(minute) { return idleNight(minute) ? "在家睡着" : "在家歇着"; }
+  function resolve(slot, atTime = null, { preview = false, minute = null, seed = "" } = {}) {
+    if (!slot && atTime != null && Number.isFinite(Number(atTime))) return { presentation: idlePresentation(atTime, minute, seed), activitySlot: null, stages: [] };
     const source = sourceFor(slot), stages = stagesFor(slot);
     const plain = () => ({ presentation: singlePresentation(slot), activitySlot: slot, stages: [] });
     if (!stages.length) return plain();
@@ -265,5 +277,5 @@
     for(const [pattern,map]of venues)if(pattern.test(text))return map==='dayCafe'?(occupationLink(words,place,source.type)?.map||map):map;
     return null;
   }
-  root.CharDayLink = { validate, validateStages, bindRow, editRow, editStage, stagesFor, publicRow, publicSchedules, instruction, schema, presentation, resolve };
+  root.CharDayLink = { validate, validateStages, bindRow, editRow, editStage, stagesFor, publicRow, publicSchedules, instruction, schema, presentation, resolve, idleLabel };
 })(globalThis);
