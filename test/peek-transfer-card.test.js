@@ -14,3 +14,12 @@ test("＋那排不用 emoji", () => {
   assert.doesNotMatch(ph, /"🛍"|"🥡"/);
   assert.match(ph, /h\(Svg, \{ size: 24, color: "#555", sw: 1\.6 \}, ic\)/);
 });
+
+test("别的小卡和语音也渲染，不是一行【…】", () => {
+  const i = app.indexOf("function richCardOf(m)");
+  const f = new Function(app.slice(i, app.indexOf("\n    }", i) + 6) + "; return richCardOf;")();
+  assert.deepEqual(f({ kind: "redpacket", content: "[红包] 恭喜发财" }), { kind: "card", label: "红包", body: "恭喜发财" });
+  assert.equal(f({ kind: "voice", content: "在吗在吗", dur: 2 }).kind, "voice");
+  assert.equal(f({ content: "你好" }), null);
+  assert.match(ph, /"data-wk": "pcard"/);
+});

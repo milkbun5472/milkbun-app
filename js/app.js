@@ -17748,7 +17748,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // ⚠️只写在这一处：私聊和群聊两条路都从这儿取（施工规则/one-public-mechanism）。
     const richOf = m => (m && m.kind === "emote" && m.url) ? { kind: "emote", url: m.url, keyword: m.keyword || "" }
       // 转账也要渲染成卡（她 2026-10-13：在TA手机上看见的是一行「[转账] 你向…」，想替TA点收下）
-      : (m && m.kind === "transfer" && m.tid) ? { kind: "transfer", tid: m.tid, dir: m.dir, amount: m.amount, note: m.note || "", status: m.status || "pending" } : null;
+      : (m && m.kind === "transfer" && m.tid) ? { kind: "transfer", tid: m.tid, dir: m.dir, amount: m.amount, note: m.note || "", status: m.status || "pending" }
+      : richCardOf(m);
+    // 别的小卡（照片、语音、红包、礼物、位置、外卖、各种分享和邀请……）也别是一行「[红包] …」（她 2026-10-13）。
+    //   不一样一样抄主聊天那几十种卡：认 content 开头那个【…】当卡名，后面当卡面上的字，统一画成一张小卡；
+    //   语音单独画成语音条。认不出卡名的照旧是普通气泡。
+    function richCardOf(m) {
+      if (!m || !m.kind || m.kind === "text") return null;
+      const c = String(m.content || "");
+      if (m.kind === "voice") return { kind: "voice", dur: Number(m.dur) || Math.max(1, Math.round(c.length / 3)), body: c };
+      const hd = /^\[([^\]]{1,24})\]\s*/.exec(c);
+      const ZH = { photo: "照片", selfie: "照片", gift: "礼物", redpacket: "红包", takeout: "外卖", location: "位置", dateinvite: "约会邀请", callinvite: "通话邀请" };
+      const label = hd ? hd[1] : ZH[m.kind];
+      if (!label) return null;
+      return { kind: "card", label: label, body: (hd ? c.slice(hd[0].length) : c) || m.desc || "" };
+    }
     const clean = list => (Array.isArray(list) ? list : []).filter(m => m && !m.recalled && m.content && m.kind !== "ooc" && m.kind !== "system" && m.role !== "system" && m.role !== "narration" && contextAllowsMessage(m)).slice(-20);
     // ⚠️12 条改成 20：TA手机里那条真聊天是【活的】，她刚说的话马上就在上面
     //   （她 2026-09-10 要的实时联动）；截得太短的话，一进去只看得见半截对话。
