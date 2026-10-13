@@ -2536,7 +2536,7 @@ function WechatNavIcon({ kind, active }) {
   return h("svg", { width: 24, height: 24, viewBox: "0 0 24 24" }, ...paths);
 }
 
-function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onBuyAs, transferPeers, sendAsWaiting, onRemark }) {
+function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, drive, onSendAs, onTransferAs, onShopAs, transferPeers, sendAsWaiting, onRemark }) {
   const [tab, setTab] = useState("chats");
   const [thread, setThread] = useState(null);
   // 她改TA通讯录里的备注（她 2026-10-07）：null＝没在改，字符串＝正在改的草稿
@@ -2661,11 +2661,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
   const asWaiting = !!(th && sendAsWaiting && sendAsWaiting === th.id);
   const asCanSend = !!(onSendAs && th && String(th.id || "").indexOf("actual:") === 0 && th.type !== "contact");
   // 拿他手机转账那一小块（群友 2026-10-13）：点「转账」展开金额、留言，群里再挑转给谁
-  // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账 / "buy" 买东西
+  // 「＋」展开（她 2026-10-13「跟聊天一样搞个加号」）：null 收着 / "menu" 一排功能 / "tf" 转账；购物、外卖直接开那两页（花他的钱）
   const [plus, setPlus] = useState(null);
   const tfOpen = plus === "tf";
   const [tfAmt, setTfAmt] = useState(""), [tfNote, setTfNote] = useState(""), [tfTo, setTfTo] = useState("");
-  const [buyName, setBuyName] = useState(""), [buyPrice, setBuyPrice] = useState("");
   const tfPeers = tfOpen && th && th.type === "group" && transferPeers ? transferPeers(th) : [];
   const tfSend = () => {
     if (!onTransferAs || !th) return;
@@ -2673,12 +2672,7 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     if (onTransferAs(th, tfAmt, tfNote, tfTo) === false) return;
     setPlus(null); setTfAmt(""); setTfNote(""); setTfTo("");
   };
-  const buySend = () => {
-    if (!onBuyAs || !th) return;
-    if (onBuyAs(th, buyName, buyPrice, "") === false) return;
-    setPlus(null); setBuyName(""); setBuyPrice("");
-  };
-  const canBuy = !!(onBuyAs && th && th.type !== "group");
+  const canBuy = !!(onShopAs && th && th.type !== "group");
   const asSend = () => {
     const body = asDraft.trim();
     if (!body || !asCanSend) return;
@@ -2715,18 +2709,10 @@ function WeChatViewFull({ d, char, t, profile, onBack, onRefresh, refreshing, dr
     // 她自己打的那一栏：只在【没在看TA玩】而且这是一条真实会话时出现。
     // ⚠️「按了没反应的按钮比没有按钮更糟」——推演出来的会话给不了真回复，所以那儿一栏都不画。
     !drive && asCanSend && plus === "menu" ? h("div", { "data-wk": "pplus", className: "shrink-0 flex", style: { gap: 18, padding: "14px 18px 8px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      [onTransferAs ? ["tf", "转账", "¥"] : null, canBuy ? ["buy", "买东西", "🛍"] : null].filter(Boolean).map(([k, zh, ic]) => h("button", { key: k, "data-wk": "pplusitem", "data-part": k, onClick: () => setPlus(k), className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
+      [onTransferAs ? ["tf", "转账", "¥"] : null, canBuy ? ["shop", "购物", "🛍"] : null, canBuy ? ["takeout", "外卖", "🥡"] : null].filter(Boolean).map(([k, zh, ic]) => h("button", { key: k, "data-wk": "pplusitem", "data-part": k,
+        onClick: () => { if (k === "tf") setPlus("tf"); else { setPlus(null); onShopAs(k); } }, className: "flex flex-col items-center active:opacity-60", style: { gap: 5, minWidth: 56 } },
         h("div", { style: { width: 52, height: 52, borderRadius: 12, background: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, color: "#555" } }, ic),
         h("span", { style: { fontFamily: F_BODY, fontSize: 11.5, color: "#666" } }, zh)))) : null,
-    !drive && asCanSend && plus === "buy" ? h("div", { "data-wk": "pbuy", className: "shrink-0", style: { padding: "10px 12px 4px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
-      h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#888", marginBottom: 6 } }, "拿" + char.name + "的钱给自己买，像他送你的礼物一样寄过来，回聊天里拆"),
-      h("div", { className: "flex items-center gap-2" },
-        h("input", { value: buyName, onChange: e => setBuyName(e.target.value), maxLength: 40, placeholder: "买什么",
-          style: { flex: 1, minWidth: 0, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
-        h("input", { value: buyPrice, onChange: e => setBuyPrice(e.target.value.replace(/[^\d.]/g, "")), inputMode: "decimal", placeholder: "多少钱",
-          style: { width: 86, minHeight: 40, borderRadius: 5, border: "1px solid #e0e0e0", background: "#fff", padding: "0 10px", fontFamily: F_BODY, fontSize: 14, outline: "none" } }),
-        h("button", { onClick: buySend, disabled: !(buyName.trim() && Number(buyPrice) > 0),
-          style: { flexShrink: 0, minHeight: 40, borderRadius: 5, padding: "0 14px", fontFamily: F_BODY, fontSize: 13.5, color: "#fff", background: (buyName.trim() && Number(buyPrice) > 0) ? "#f0a020" : "#ddd" } }, "下单"))) : null,
     !drive && asCanSend && tfOpen ? h("div", { "data-wk": "ptransfer", className: "shrink-0", style: { padding: "10px 12px 4px", background: "#f7f7f7", borderTop: "1px solid #dcdcdc" } },
       h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: "#888", marginBottom: 6 } }, th.type === "group" ? "从" + char.name + "的钱包转给群里的谁" : "从" + char.name + "的钱包转给你，回到聊天里点收下才到账"),
       tfPeers.length ? h("div", { className: "flex flex-wrap", style: { gap: 6, marginBottom: 8 } }, tfPeers.map(p => h("button", { key: p.id, onClick: () => setTfTo(p.id),
@@ -6048,7 +6034,7 @@ function renderPhoneModule(key, d, ctx) {
       color: tier === "hidden" ? "#b6473c" : t.ink
     }
   }, tier === "hidden" ? T("摆到 TA 面前 · 这是他藏起来的") : tier === "open" ? "转发给 TA" : T("转发给 TA · 他会知道你翻了手机")) : null;
-  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, onTransferAs: ctx.onTransferAs, onBuyAs: ctx.onBuyAs, transferPeers: ctx.transferPeers, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark });
+  if (key === "wechat") return h(WeChatViewFull, { d, char, t, profile: ctx.profile, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, drive: ctx.drive, onSendAs: ctx.onSendAs, onTransferAs: ctx.onTransferAs, onShopAs: ctx.onShopAs, transferPeers: ctx.transferPeers, sendAsWaiting: ctx.sendAsWaiting, onRemark: ctx.onRemark });
   if (key === "notes") return h(StickyView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "calls") return h(PhoneCallsView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
   if (key === "browser") return h(BrowserView, { drive: ctx.drive, d, char, t, onBack: ctx.onBack, onRefresh: ctx.onRefresh, refreshing: ctx.refreshing, onPeek: ctx.onPeek });
@@ -6234,7 +6220,7 @@ function PhoneCarry({
   actualWechatFor,
   onSendAs,
   onTransferAs,
-  onBuyAs,
+  onShopAs,
   transferPeers,
   sendAsWaiting,
   // 改TA通讯录备注（v74.978）。⚠️原来这儿漏收了：app 那头递了 onRemark，
@@ -6880,7 +6866,7 @@ function PhoneCarry({
     onSendAs: (sess, text) => onSendAs ? onSendAs(char, sess, text) : false,
     onTransferAs: onTransferAs ? (sess, amt, note, toId) => onTransferAs(char, sess, amt, note, toId) : null,
     transferPeers: sess => transferPeers ? transferPeers(char, sess) : [],
-    onBuyAs: onBuyAs ? (sess, name, price, note) => onBuyAs(char, sess, name, price, note) : null,
+    onShopAs: onShopAs ? where => onShopAs(char, where) : null,
     sendAsWaiting: sendAsWaiting || "",
     // 没有 onRemark 就别给一个空函数：微信那页拿它的真假决定要不要露「›」
     onRemark: onRemark ? (ch, c, v) => onRemark(ch, c, v) : null,

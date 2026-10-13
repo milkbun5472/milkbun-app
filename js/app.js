@@ -824,6 +824,13 @@ function App() {
         if (!target) { toast("请选择代付对象"); return false; }
         requestPayLater([item], total, target);
       },
+      his: () => {
+        const cid = target && target.id;
+        if (!cid) return false;
+        if (total > asPhoneBal(cid)) { toast("他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100); return false; }
+        postCharTakeout(cid, { shop: item.takeout.shop, items: item.takeout.items, price: total, note: item.takeout.remark }, { byUser: true });
+        toast("用他的钱点了，骑手接单了");
+      },
       forchar: () => {
         const char = target && target.type === "char" ? characters.find(c => c.id === target.id) : null;
         if (!char) { toast("请选择给谁点"); return false; }
@@ -20979,19 +20986,21 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     toast("转给 " + to.name + " 了");
     return true;
   };
-  // 拿他的钱给自己买东西（她 2026-10-13「加吧」）：就是他送你一件礼物那条路（postCharGift：扣他钱包、礼物卡、进你的订单），
-  //   只多标一个 byUser——他下次说话知道是你拿他手机下的单。只在跟你的私聊里。
-  const phoneBuyAs = (char, session, name, price, note) => {
-    const id = String((session && session.id) || "");
-    const nm = String(name || "").trim().slice(0, 40), pr = Math.round(Number(price) * 100) / 100;
-    if (!char || !nm || !(pr > 0) || id !== "actual:private:" + char.id) return false;
-    const _w = charWalletRef.current[char.id];
-    const bal = _w && _w.balance != null ? Number(_w.balance) : CHAR_DEFAULT_BAL;
-    if (pr > bal) { toast(characterText(char, "他钱包里不够，只剩 ") + moneyText(Math.max(0, bal), char.id)); return false; }
-    postCharGift(char.id, nm, pr, note, { byUser: true });
-    toast("下单了，回聊天里拆");
-    return true;
+  // 拿他手机逛购物、点外卖（她 2026-10-13「把外卖和购物移进来…看到的页面和我一样，除了没有我的那一页，然后通过他下单」）：
+  //   不另做一套店：就是她自己那两页，只是挂着 asPhone——结账只剩「用他的钱」，钱从他钱包走，
+  //   东西照他送礼物 / 给她点外卖那两条路落地（postCharGift / postCharTakeout），标 byUser。
+  const [asPhone, setAsPhone] = useState(null);   // { id, back }
+  const phoneShopAs = (char, where) => {
+    if (!char) return;
+    setAsPhone({ id: char.id, back: screen });
+    setScreen(where === "takeout" ? "takeout" : "shop");
   };
+  const asPhoneChar = asPhone ? characters.find(c => c.id === asPhone.id) : null;
+  const asPhoneBal = id => { const w = charWalletRef.current[id]; return w && w.balance != null ? Number(w.balance) : CHAR_DEFAULT_BAL; };
+  const asPhonePay = asPhoneChar ? { id: asPhoneChar.id, name: asPhoneChar.remark || asPhoneChar.name, balance: Math.round(asPhoneBal(asPhoneChar.id) * 100) / 100 } : null;
+  // 从别的路离开了购物/外卖（回主屏、跳别的页）：拿他手机这件事就结束了，下次自己打开购物不能还挂着他
+  useEffect(() => { if (asPhone && screen !== "shop" && screen !== "takeout") setAsPhone(null); }, [screen]);
+  const leaveAsPhone = () => { const b = asPhone && asPhone.back; setAsPhone(null); setScreen(b || "home"); };
   // 群里能转给谁：除了他自己的群成员
   const phoneTransferPeers = (char, session) => {
     const id = String((session && session.id) || "");
@@ -26944,7 +26953,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   // ⚠️不自动改判：只填了 gift 的，哪怕名字像吃的也照旧是礼物卡（猜错了卡片就对不上TA那句话）。
   // 外卖不进盒子、不拆、送到就是送到；订单挂进「我的」那条送达链（cat 钉死 food），
   // 聊天卡和订单用同一个 arriveTs，两边的倒计时才对得上。
-  const postCharTakeout = (charId, raw) => {
+  const postCharTakeout = (charId, raw, extra) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !raw) return false;
     const clip = (v, n) => String(v == null ? "" : v).replace(/\s+/g, " ").trim().slice(0, n);
@@ -26971,7 +26980,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (sameCard) return true;
     if (!dup) walletSpend(charId, price, "给 " + userName(profile) + " 点的外卖 " + (shop || label), "gift");
     pChat(charId, p => [...p, { role: "assistant", kind: "takeout", takeout: { shop, items, price, note }, arriveTs,
-      content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now() }]);
+      content: "[外卖] " + char.name + " 给你点了" + (shop ? "「" + shop + "」的" : "") + label, ts: Date.now(), read: false, turnId: "to_" + Date.now(), ...(extra || {}) }]);
     if (!dup) addOrder({ name: orderName, price, fromCharId: charId, cat: "food", kind: "takeout", takeout: { shop, items, price, note }, arriveTs, payLabel: (char.remark || char.name) + " 点的外卖" });
     return true;
   };
@@ -27249,6 +27258,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       if (!target) { toast("请选择代付对象"); return; }
       requestPayLater(items, total, target);
       removeCartUids(uids);
+    } else if (mode === "his") {
+      // 拿他手机买（asPhone）：花他的钱，每件都像他寄给她的礼物，回聊天里拆
+      const cid = target && target.id;
+      if (!cid) return;
+      if (total > asPhoneBal(cid)) { toast("他钱包里不够，只剩 ¥" + Math.round(asPhoneBal(cid) * 100) / 100); return; }
+      items.forEach(it => postCharGift(cid, it.name, it.price, "", { byUser: true }));
+      removeCartUids(uids);
+      toast("用他的钱下单了，回聊天里拆");
     }
   };
 
@@ -29214,7 +29231,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     // 她可以在他手机上真的发消息（只限真实会话，见 phoneSendAs）
     onSendAs: phoneSendAs,
     onTransferAs: phoneTransferAs,
-    onBuyAs: phoneBuyAs,
+    onShopAs: phoneShopAs,
     transferPeers: phoneTransferPeers,
     onRemark: phoneRemarkEdit,
     sendAsWaiting: phoneAsWait,
@@ -29354,6 +29371,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onEditMe: editForumMe,
     onEnsureCharMeta: ensureCharForumMeta
   });else if (screen === "shop") body = h(Shop, {
+    payAs: asPhonePay,
     wallet: wallet,
     cart: cart,
     orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
@@ -29368,7 +29386,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     busy: shopBusy,
     key: shopBack ? "shop-mine" : "shop",
     initialNav: shopBack ? "my" : "home",
-    onBack: () => { if (shopBack) { const b = shopBack; setShopBack(null); setScreen(b); } else goHome(); },
+    onBack: () => { if (asPhone) leaveAsPhone(); else if (shopBack) { const b = shopBack; setShopBack(null); setScreen(b); } else goHome(); },
     onGen: genShop,
     onAddCart: addToCart,
     onRemoveCart: uid => removeCartUids([uid]),
@@ -29386,7 +29404,8 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onLeaveAtHis: leaveAtHis,
     toast: toast
   });else if (screen === "takeout") body = h(Takeout, {
-    key: "takeout:" + takeoutNav,
+    payAs: asPhonePay,
+    key: "takeout:" + takeoutNav + (asPhone ? ":as" : ""),
     initialNav: takeoutNav,
     wallet: wallet,
     orders: peekMaskView() ? orders.filter(o => !peekMaskHit(peekMaskView(), "", o.fromCharId)) : orders,
@@ -29400,7 +29419,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     onOrder: orderTakeout,
     onEat: eatTakeout,
     toast: toast,
-    onBack: () => { if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
+    onBack: () => { if (asPhone) leaveAsPhone(); else if (takeoutBack) { const b = takeoutBack; setTakeoutBack(null); setTakeoutNav("near"); setScreen(b); } else goHome(); }
   });else if (screen === "us") body = /*#__PURE__*/React.createElement(Us, {
     land: usLand,
     onLanded: () => setUsLand(null),

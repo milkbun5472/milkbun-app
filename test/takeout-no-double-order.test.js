@@ -6,7 +6,7 @@ const path = require("node:path");
 const app = fs.readFileSync(path.join(__dirname, "..", "js/app.js"), "utf8");
 
 test("同一个人六小时内一模一样的外卖只记一单、只扣一次钱", () => {
-  const i = app.indexOf("const postCharTakeout = (charId, raw) => {");
+  const i = app.indexOf("const postCharTakeout = (charId, raw, extra) => {");
   const seg = app.slice(i, app.indexOf("\n  };", i));
   assert.match(seg, /const dup = \(ordersRef\.current \|\| \[\]\)\.concat\(loadJSON\("x_takeoutLog", \[\]\) \|\| \[\]\)\.find\(/, "吃过的那份也得查");
   assert.match(seg, /if \(!dup\) walletSpend\(/);

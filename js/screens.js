@@ -3698,7 +3698,7 @@ function searchTopBar({ onBack, search, setSearch, onGo, busy, placeholder, acce
       busy ? h(IPulse, { size: 19, color: iconInk }) : h(IRefresh, { size: 19, color: sub })));
   return topBar;
 }
-function Shop({ initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
+function Shop({ payAs, initialNav, wallet, cart, orders, inventory, wish, characters, groups, kinshipCards, feed, busy, onBack, onGen, onAddCart, onRemoveCart, onCheckout, onReceiveUse, onReceiveGift, onAskChar, onToggleWish, onUseUp, onToggleOnMe, onGiftInv, onClosetInv, onLeaveAtHis, toast }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav || "home"); // home | cart | my
   const [cat, setCat] = useState("recommend");
@@ -3975,7 +3975,8 @@ function Shop({ initialNav, wallet, cart, orders, inventory, wish, characters, g
 
   // ---------- 底部 tab ----------
   const bottomNav = h("div", { "data-wk": "shopnav", className: "shrink-0 flex", style: { borderTop: "1px solid " + MSHOP.line, background: MSHOP.card, paddingBottom: COMPOSER_PAD_BOTTOM } },
-    [["home", "首页", GShop], ["cart", "购物车", GBag], ["my", "我的", GUser]].map(([k, zh, G]) => h("button", { "data-wk": "shopnavtab", "data-part": k, "data-on": nav === k ? "1" : "0",
+    // 拿他手机逛（payAs）：没有「我的」那一页——那是她自己的东西，不在他手机上
+    [["home", "首页", GShop], ["cart", "购物车", GBag], ["my", "我的", GUser]].filter(([k]) => !(payAs && k === "my")).map(([k, zh, G]) => h("button", { "data-wk": "shopnavtab", "data-part": k, "data-on": nav === k ? "1" : "0",
       key: k, onClick: () => setNav(k), className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60 relative"
     },
       h(G, { size: 21, color: nav === k ? MSHOP.orange : MSHOP.dim }),
@@ -3991,10 +3992,11 @@ function Shop({ initialNav, wallet, cart, orders, inventory, wish, characters, g
   if (sheet === "actions") {
     sheetEl = h(Sheet, { onClose: () => setSheet(null) },
       h(Eyebrow, { style: { marginBottom: 12 } }, "结算 " + selItems.length + " 件 · 合计 ¥" + selTotal),
-      chip("购买（用我的余额 ¥" + wallet + "）", () => { setSheet(null); onCheckout(sel, "buy"); setSel([]); }, true),
-      chip("送礼（付款后送给角色）", () => setSheet("gift")),
-      chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
-      cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
+      payAs ? chip("用" + payAs.name + "的钱买（他还有 ¥" + payAs.balance + "）", () => { setSheet(null); onCheckout(sel, "his", { type: "char", id: payAs.id }); setSel([]); }, true) : null,
+      payAs ? null : chip("购买（用我的余额 ¥" + wallet + "）", () => { setSheet(null); onCheckout(sel, "buy"); setSel([]); }, true),
+      payAs ? null : chip("送礼（付款后送给角色）", () => setSheet("gift")),
+      payAs ? null : chip("代付（请角色/群帮我付）", () => setSheet("paylater")),
+      !payAs && cards.length > 0 && chip("用亲属卡付（刷角色的钱）", () => setSheet("kinship")));
   } else if (sheet === "gift") {
     // 她 2026-09-10：「送礼物能不能选择发到群然后再选群里面的某位，想看大家看到礼物的反应」。
     // 挑人这一屏跟代付那屏同形状（人在上、群在下）；选了群不是就送给群，而是【换一屏挑人】——
@@ -4108,8 +4110,11 @@ function Shop({ initialNav, wallet, cart, orders, inventory, wish, characters, g
         h("span", { "data-wk": "shoppickname", style: { fontFamily: F_DISPLAY, fontSize: 16, color: t.ink } }, c.remark || c.name)))));
   }
 
+  const asStrip = payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
+    "正在用" + payAs.name + "的手机 · 花的是他的钱（还有 ¥" + payAs.balance + "），买的东西像他送你的一样寄过来") : null;
   return h("div", { "data-wk": "shoppage", className: "h-full flex flex-col" },
-    nav === "home" ? homeView : nav === "cart" ? cartView : myView,
+    asStrip,
+    nav === "home" ? homeView : nav === "cart" ? cartView : (payAs ? homeView : myView),
     detailEl,
     bottomNav,
     sheetEl);
@@ -4208,7 +4213,7 @@ function TakeoutSlotRuler({ slot, onPick, now }) {
           at != null ? h("span", { "data-wk": "tkoslotnow", "aria-label": "现在", style: { position: "absolute", left: at + "%", top: 0, width: 8, height: 8, marginLeft: -4, borderRadius: 999, background: MTAKE.deep, boxShadow: "0 0 0 2px " + MTAKE.card } }) : null));
     }));
 }
-function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav }) {
+function Takeout({ payAs, wallet, orders, log, characters, groups, kinshipCards, feed, busy, onBack, onGen, onOrder, onEat, toast, initialNav }) {
   const t = useTheme();
   const [nav, setNav] = useState(initialNav === "orders" ? "orders" : "near"); // near | orders（从聊天里的外卖卡点进来直接落在订单）
   const [slot, setSlot] = useState(() => takeoutSlotAt(new Date().getHours()));
@@ -4266,7 +4271,8 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
       h(Avatar, { character: c, size: 36, radius: 9 }),
       h("span", { "data-wk": "tkopickname", className: "flex-1 text-left", style: { fontFamily: F_BODY, fontSize: 14, color: MTAKE.ink } }, c.remark || c.name),
       extra ? h("span", { "data-wk": "tkopickextra", style: { fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim } }, extra) : null);
-    const modes = [
+    // 拿他手机点（payAs）：只剩「用他的钱」这一种付法
+    const modes = payAs ? [["his", "用" + payAs.name + "的钱付", "他还有 ¥" + payAs.balance + "，送到你这儿"]] : [
       ["buy", "自己付", "余额 ¥" + wallet],
       ["paylater", "找TA代付", "发到聊天里，TA决定付不付"],
       cards.length ? ["kinship", "刷亲属卡", "花的是TA的钱"] : null,
@@ -4305,7 +4311,7 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
         modes.map(([k, zh, sub]) => {
           const on = payMode === k;
           return h("div", { "data-wk": "tkopaymode", "data-part": k, "data-on": on ? "1" : "0", key: k, style: Object.assign({}, cardStyle, { marginBottom: 9, outline: on ? "1.5px solid " + MTAKE.yellow : "none" }) },
-            h("button", { "data-wk": "tkopaymodebtn", onClick: () => k === "buy" ? submit("buy") : setPayMode(on ? null : k), className: "w-full flex items-center justify-between active:opacity-70", style: { padding: "12px 14px", minHeight: 52, gap: 10 } },
+            h("button", { "data-wk": "tkopaymodebtn", onClick: () => k === "buy" ? submit("buy") : k === "his" ? submit("his", { type: "char", id: payAs.id }) : setPayMode(on ? null : k), className: "w-full flex items-center justify-between active:opacity-70", style: { padding: "12px 14px", minHeight: 52, gap: 10 } },
               h("span", { className: "text-left min-w-0" },
                 h("span", { "data-wk": "tkopaymodename", style: { display: "block", fontFamily: F_BODY, fontSize: 14.5, fontWeight: 600, color: MTAKE.ink } }, zh),
                 h("span", { "data-wk": "tkopaymodesub", style: { display: "block", fontFamily: F_BODY, fontSize: 11, color: MTAKE.dim, marginTop: 2 } }, sub)),
@@ -4455,7 +4461,7 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
 
   // 底栏跟购物那条同一个形状，选中换成外卖的深色
   const bottomNav = h("div", { "data-wk": "tkonav", className: "shrink-0 flex", style: { borderTop: "1px solid " + MTAKE.line, background: MTAKE.card, paddingBottom: COMPOSER_PAD_BOTTOM } },
-    [["near", "附近", GTakeout], ["orders", "订单", GBag]].map(([k, zh, G]) => h("button", { "data-wk": "tkonavtab", "data-part": k, "data-on": nav === k ? "1" : "0",
+    [["near", "附近", GTakeout], ["orders", "订单", GBag]].filter(([k]) => !(payAs && k === "orders")).map(([k, zh, G]) => h("button", { "data-wk": "tkonavtab", "data-part": k, "data-on": nav === k ? "1" : "0",
       key: k, onClick: () => setNav(k), className: "flex-1 py-2 flex flex-col items-center gap-0.5 active:opacity-60 relative"
     },
       h(G, { size: 21, color: nav === k ? MTAKE.yellowD : MTAKE.dim }),
@@ -4463,7 +4469,9 @@ function Takeout({ wallet, orders, log, characters, groups, kinshipCards, feed, 
       k === "orders" && (riding.length + arrived.length) > 0 && h("span", { "data-wk": "tkonavbadge", style: { position: "absolute", top: 4, right: "50%", marginRight: -14, width: 8, height: 8, borderRadius: 999, background: MTAKE.price, boxShadow: "0 0 0 1.5px " + MTAKE.card } }))));
 
   return h("div", { "data-wk": "tkopage", className: "h-full flex flex-col", style: { background: MTAKE.bg } },
-    nav === "near" ? nearView : ordersView,
+    payAs ? h("div", { "data-wk": "asphonestrip", className: "shrink-0", style: { padding: "7px 14px", background: "#fff6e3", borderBottom: "1px solid #f0dfb5", fontFamily: F_BODY, fontSize: 12, color: "#8a6a20" } },
+      "正在用" + payAs.name + "的手机点外卖 · 花的是他的钱（还有 ¥" + payAs.balance + "）") : null,
+    nav === "near" || payAs ? nearView : ordersView,
     bottomNav);
 }
 // 她给 TA 的亲属卡（2026-10-07）：没开过就是开卡那一页，开过了就是这张卡的账单＋几颗键。
