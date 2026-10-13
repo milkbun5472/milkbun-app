@@ -10362,6 +10362,7 @@ function ChatThread({
     if (m.kind === "bdayletter") return h(BdayLetterCard, { key: i, m: m, character: character });
     if (m.kind === "bdayplan") return h(BdayPlanCard, { key: i, m: m, character: character, onOpen: onBdayPlanOpen });
     // 「TA 在忙还没看手机」：跟撤回那行一样，一行灰字落在屏幕上（她 2026-10-05：不要 toast）
+    if (m.kind === "locknote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
     if (m.kind === "busynote") return h("div", { key: i, className: "text-center my-2" }, h("span", { "data-wk": "note", style: { fontFamily: F_BODY, fontSize: 11.5, color: t.fog, ...plate() } }, m.content));
     // v74.892 之前 TA 存进时刻只落一行灰字；这几行画的时候也认成那张小卡（存档不动），为什么从时刻里那条找回来
     const _oldKeep = (m.kind === "system" || m.role === "system") && m.kind !== "carved" && window.ShikeShareCard ? oldKeepMoment(m, character) : null;

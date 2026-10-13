@@ -5750,6 +5750,26 @@ function AlbumPhoto({ photo, full, cover }) {
   }, [photo && photo.imgKey]);
   const src = url || (photo && photo.imgUrl) || null;
   const desc = photo && String(photo.scene || photo.desc || "").slice(0, 300) || null;
+  // 拍立得还在显影（她 2026-10-13）：一律先是一张灰白相纸，到点才显出来；长按甩一甩马上显影。
+  //   放在这一处：墙上、大图、合照墙都走它，哪儿都不会提前露出来
+  const [, tick] = useState(0);
+  const [shaking, setShaking] = useState(false);
+  const holdRef = useRef(null);
+  const developing = !!(photo && photo.polaroid && Number(photo.developAt) > Date.now());
+  useEffect(() => { if (!developing) return; const t2 = setInterval(() => tick(n => n + 1), 30000); return () => clearInterval(t2); }, [developing]);
+  if (developing) {
+    const left = Math.max(1, Math.round((Number(photo.developAt) - Date.now()) / 60000));
+    const start = e => { holdRef.current = setTimeout(() => { setShaking(true); setTimeout(() => { setShaking(false); if (typeof window.__developPolaroid === "function") window.__developPolaroid(photo.id); }, 900); }, 550); };
+    const stop = () => { clearTimeout(holdRef.current); };
+    return h("div", { "data-wk": "polaroiddev", onPointerDown: start, onPointerUp: stop, onPointerLeave: stop, onPointerCancel: stop, onContextMenu: e => e.preventDefault(),
+      className: shaking ? "animate-pulse" : "",
+      style: { ...(cover ? { position: "absolute", inset: 0 } : { width: full ? "min(78vw, 360px)" : "100%", aspectRatio: "0.82", margin: full ? "0 auto" : 0 }),
+        background: "#fbfaf6", padding: "6% 6% 24%", boxSizing: "border-box", borderRadius: full ? 6 : 0, boxShadow: full ? "0 6px 18px rgba(0,0,0,.15)" : "none",
+        transform: shaking ? "rotate(-4deg)" : "none", transition: "transform .12s", touchAction: "none", userSelect: "none", WebkitUserSelect: "none" } },
+      h("div", { style: { width: "100%", height: "100%", background: "linear-gradient(160deg,#5a5853,#7c7a73 55%,#8d8a82)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6 } },
+        h("div", { style: { fontFamily: F_BODY, fontSize: cover ? 12 : 14, color: "rgba(255,255,255,.85)" } }, shaking ? "甩一甩…" : "显影中"),
+        h("div", { style: { fontFamily: F_BODY, fontSize: cover ? 10 : 11.5, color: "rgba(255,255,255,.6)", textAlign: "center", padding: "0 8px" } }, "还要约 " + (left >= 60 ? Math.round(left / 60 * 10) / 10 + " 小时" : left + " 分钟") + " · 长按甩一甩")));
+  }
   if (cover) return src ? h("img", { src, "data-desc": desc, style: { position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" } }) : null;
   if (!src) return h("div", { style: { width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: full ? 40 : 20, opacity: 0.3 } }, "🖼");
   return h("img", { src, loading: "lazy", "data-desc": desc, style: full ? { maxWidth: "90vw", maxHeight: "72vh", borderRadius: 12, objectFit: "contain" } : { width: "100%", height: "100%", objectFit: "cover", display: "block" } });
@@ -14611,7 +14631,8 @@ const STICKER_PAPER = "#fbf8f0", STICKER_INK = "#2f2a22";
 //   ——按首位取的话整页贴纸会歪成同一个角度，等于没歪，而且不报任何错。
 const tiltById = id => { const k = qhash(String(id || "")); return ((k.charCodeAt(k.length - 1) % 5) - 2) * 1.1; };
 
-function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onRenameEmote, onDeleteEmotes }) {
+function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDeletePack, onToggleChar, onImport, onAddImages, onMakeSet, setBusy, onRenameEmote, onDeleteEmotes }) {
+  const [setPick, setSetPick] = useState(false);
   const t = useTheme();
   const list = packs || [];
   const [selId, setSelId] = useState(list[0] && list[0].id);
@@ -14661,6 +14682,15 @@ function EmoteMatrix({ packs, characters, onBack, onAddPack, onUpdatePack, onDel
   return h("div", { "data-wk": "emopage", className: "h-full flex flex-col", style: RELEASE_PAPER(t) },
     h(Head, { zh: "表情包", sub: list.length ? list.length + " 版 · 共 " + total + " 张" : null, bg: "transparent", onBack: onBack }),
     h("div", { "data-wk": "emoscroll", className: "flex-1 min-h-0 overflow-y-auto px-6 pb-10" },
+      // 让 TA 出一套自己的表情包（她 2026-10-13）：挑人 → 一次生图九张，存进「TA 的表情」那一组
+      onMakeSet ? h("div", { "data-wk": "emomakeset", style: { marginTop: 14 } },
+        h("button", { onClick: () => setSetPick(v => !v), disabled: !!setBusy, className: "w-full active:opacity-70 disabled:opacity-50",
+          style: { padding: "11px 0", borderRadius: 12, border: "1px dashed " + t.line, fontFamily: F_BODY, fontSize: 13, color: t.ink } },
+          setBusy ? "在画了…（先挑表情，再画一张九宫格）" : "让 TA 画一套自己的表情包"),
+        setPick && !setBusy ? h("div", { className: "flex flex-wrap", style: { gap: 8, marginTop: 10 } },
+          (characters || []).filter(c => c && c.refPhoto).map(c => h("button", { key: c.id, onClick: () => { setSetPick(false); onMakeSet(c.id); }, className: "active:opacity-70",
+            style: { padding: "6px 12px", borderRadius: 999, border: "1px solid " + t.line, fontFamily: F_BODY, fontSize: 12.5, color: t.sub } }, c.remark || c.name)),
+          !(characters || []).some(c => c && c.refPhoto) ? h("div", { style: { fontFamily: F_BODY, fontSize: 12, color: t.fog } }, "要先在人格档案馆给 TA 传一张参考照") : null) : null) : null,
       note("手里这几版", h("button", { "data-wk": "emoaddpack", onClick: () => onAddPack(), className: "shrink-0 active:opacity-60", style: { fontFamily: F_BODY, fontSize: 12.5, color: STICKER_INK, border: "1px solid rgba(0,0,0,.10)", borderRadius: 8, padding: "6px 12px", background: STICKER_PAPER, boxShadow: "0 2px 5px rgba(0,0,0,.10)" } }, "新开一版"), 6),
       // ── 一排「那一版贴纸的角」：选中那版翘起来、带 die-cut 白边；没选的缩下去、淡着 ──
       list.length > 0 && h("div", { "data-wk": "emopacks", className: "flex gap-3 overflow-x-auto", style: { paddingBottom: 6, marginBottom: 4 } },
@@ -16972,6 +17002,7 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
   const [theirs, setTheirs] = useState([]);
   const [big, setBig] = useState(null);
   const [grid, setGrid] = useState(false);   // 这一张拍成四宫格大头贴
+  const [polaroid, setPolaroid] = useState(false);   // 拍立得：白边相框＋他写一行，两小时后才显影（她 2026-10-13）
   const [theme, setTheme] = useState("");    // 平行时空题材／封面／海报（她 2026-10-12）
   const [themeTick, setThemeTick] = useState(0);
   const themes = typeof window.__studioThemes === "function" ? window.__studioThemes() : [];
@@ -17089,10 +17120,12 @@ function PhotoStudio({ partner, myCloset, charCloset, shots, busy, fitBusy, canS
             h("div", { className: "flex gap-2", style: { marginTop: 14 } },
               h("button", { onClick: () => onGenFit(scene), disabled: !!fitBusy, className: "active:opacity-70 shrink-0", style: { borderRadius: 13, padding: "10px 14px", border: "1px solid " + t.line, background: "transparent", color: t.sub, fontFamily: F_BODY, fontSize: 12.5 } },
                 fitBusy ? "配着…" : characterText(partner, "让他配一对")),
-              h("button", { "data-wk": "studiogrid", "data-on": grid ? "1" : "0", onClick: () => setGrid(v => !v), className: "active:opacity-70 shrink-0",
+              h("button", { "data-wk": "studiogrid", "data-on": grid ? "1" : "0", onClick: () => { setGrid(v => !v); setPolaroid(false); }, className: "active:opacity-70 shrink-0",
                 style: { borderRadius: 13, padding: "10px 12px", border: "1px solid " + (grid ? "#6d4d8f" : t.line), background: grid ? "#6d4d8f" : "transparent", color: grid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "四宫格"),
-              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme }), disabled: !!busy || !(scene.trim() || theme), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !(scene.trim() || theme)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
-                busy ? "在拍了…" : grid ? "拍一张四宫格" : "拍一张")),
+              h("button", { "data-wk": "studiopolaroid", "data-on": polaroid ? "1" : "0", onClick: () => { setPolaroid(v => !v); setGrid(false); }, className: "active:opacity-70 shrink-0",
+                style: { borderRadius: 13, padding: "10px 12px", border: "1px solid " + (polaroid ? "#6d4d8f" : t.line), background: polaroid ? "#6d4d8f" : "transparent", color: polaroid ? "#fff" : t.sub, fontFamily: F_BODY, fontSize: 12.5 } }, "拍立得"),
+              h("button", { onClick: () => onShoot({ scene, mine: mine.join("、"), theirs: theirs.join("、"), grid, theme, polaroid }), disabled: !!busy || !(scene.trim() || theme), className: "flex-1 active:opacity-70", style: { borderRadius: 13, padding: "10px 0", background: (busy || !(scene.trim() || theme)) ? "#e0d6e8" : "#6d4d8f", color: (busy || !(scene.trim() || theme)) ? "#a897b4" : "#fff", fontFamily: F_DISPLAY, fontSize: 15 } },
+                busy ? "在拍了…" : grid ? "拍一张四宫格" : polaroid ? "咔嚓" : "拍一张")),
             !canShoot ? h("div", { style: { fontFamily: F_BODY, fontSize: 10.5, color: "#a0708a", marginTop: 9, lineHeight: 1.6 } },
               "合照要你俩都设了参考照才锁得住脸——去人格档案馆和「我」那边各传一张；图像 API 也要在设置里配好。") : null),
           covers.length ? h("div", { "data-wk": "studiokinds", className: "flex flex-wrap", style: { gap: 6, marginTop: 16 } },
