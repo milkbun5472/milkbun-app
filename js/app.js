@@ -11909,12 +11909,19 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
           + "不是这种性子的，别因为列表里有就开始发。最近一阵发没发过不算数。" + (() => {
             // 专属给他的包要单独标出来（群友 2026-10-08：传了他的专属表情包，叫他试，他一直发公用的，
             //   报出包名也不认——原来所有包的词混成一串，模型根本不知道哪几张是他的）。
+            // 这一组里有两种来路（她 2026-10-13：「生成的表情包他觉得是抠图出来的」）：她从照片上抠的，和他自己画的那套 Q 版
+            const faceSetNote = pk => {
+              const drawn = pk.emotes.filter(e => e.drawn).map(e => e.keyword), cut = pk.emotes.filter(e => !e.drawn).map(e => e.keyword);
+              if (drawn.length && !cut.length) return "（这一套是你自己画的 Q 版表情包，表情里那个小人就是你）";
+              if (drawn.length) return "（表情里那个人都是你：" + drawn.join("、") + " 是你自己画的那套 Q 版；" + cut.join("、") + " 是她从你照片上抠下来的）";
+              return "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）";
+            };
             const own = (emotePacksRef.current || []).filter(pk => !pk.global && (pk.charIds || []).includes(charId) && (pk.emotes || []).length);
             if (!own.length) return "可用关键词：" + emotes.map(e => e.keyword).join(" / ");
             const ownIds = new Set(); own.forEach(pk => pk.emotes.forEach(e => ownIds.add(e.id)));
             const rest = emotes.filter(e => !ownIds.has(e.id));
             return "【你的专属表情包】（她专门给你挑的，就是你的表情；她说「你的表情包」「专属的」指的就是这几套）"
-              + own.map(pk => "「" + (pk.name || "未命名") + "」" + (pk.fromCharFace === charId ? "（这一套是她从你自己的照片上抠下来的，表情里那个人就是你）" : "") + "：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
+              + own.map(pk => "「" + (pk.name || "未命名") + "」" + (pk.fromCharFace === charId ? faceSetNote(pk) : "") + "：" + pk.emotes.map(e => e.keyword).join(" / ")).join("；")
               + (rest.length ? "。大家共用的：" + rest.map(e => e.keyword).join(" / ") : "");
           })());
       }
@@ -27719,14 +27726,14 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   };
   // 从他照片上抠出来的表情（她 2026-10-12）：进一套「X 的表情」，那套勾给他本人——他也能拿自己的脸发表情、也认得出是自己。
   // name：她在抠图页给这张起的名字（她 2026-10-13「扣成表情包没有地方设置这张叫啥」），就是他发表情时用的那个词
-  window.__addSelfSticker = async (dataUrl, charId, name) => {
+  window.__addSelfSticker = async (dataUrl, charId, name, drawn) => {
     try {
       const url = await imgToVault(dataUrl);
       const c = characters.find(x => x.id === charId);
       const packName = (c ? (c.remark || c.name) : "TA") + " 的表情";
       const packs = emotePacksRef.current || [];
       let pk = packs.find(x => x && x.fromCharFace === (charId || "_"));
-      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url };
+      const em = { id: "em_" + Date.now() + "_" + Math.floor(Math.random() * 100000), keyword: String(name || "").trim().slice(0, 20) || ((c ? c.name : "TA") + "表情" + (((pk && pk.emotes) || []).length + 1)), url, ...(drawn ? { drawn: true } : {}) };
       const next = pk ? packs.map(x => x === pk ? { ...x, emotes: [...(x.emotes || []), em] } : x)
         : [...packs, { id: "ep_face_" + Date.now(), name: packName, global: false, mine: true, charIds: charId ? [charId] : [], fromCharFace: charId || "_", emotes: [em] }];
       return commitEmotePacks(next);
@@ -27770,7 +27777,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       for (let k = 0; k < 9; k++) {
         const cv = document.createElement("canvas"); cv.width = 384; cv.height = 384;
         cv.getContext("2d").drawImage(im, (k % 3) * cw + ix, Math.floor(k / 3) * ch + iy, cw - ix * 2, ch - iy * 2, 0, 0, 384, 384);
-        if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name)) n++;
+        if (await window.__addSelfSticker(cv.toDataURL("image/png"), char.id, items[k].name, true)) n++;
       }
       toast(n ? "画好了 " + n + " 张，在表情包「" + (char.remark || char.name) + " 的表情」里" : "存表情的时候没成，再试一次", 6000);
     } catch (e) { toast("表情包没画成：" + (e.message || "重试"), 8000); }
