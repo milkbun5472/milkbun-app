@@ -16,7 +16,7 @@ const clampFx = (v, dflt, max) => {
   if (!Number.isFinite(n)) return dflt;
   return Math.max(0, Math.min(typeof max === "number" ? max : 60, Math.round(n)));
 };
-const APP_VERSION = "v75.502";
+const APP_VERSION = "v75.508";
 // 失败提示属于 UI 诊断，不属于任何角色亲历。显式标记照顾新消息，固定文案识别兼容旧记录。
 const contextAllowsMessage = m => !(window.ChatContextFilter && window.ChatContextFilter.isExcluded(m));
 // 论坛常驻网友：轻量公开身份，不是完整角色，也不读取任何人的私聊/记忆。
@@ -16951,6 +16951,9 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
         mood: d.mood || "",
         source: handwritten ? "handwritten" : (opts.manual ? "manual" : "auto")
       };
+      // 那一天状态卡上出现过的几身（她 2026-10-12：日程不写衣服，只有状态卡会改）：写日记时就记下来，
+      //   状态历史只留最近 40 条，过几天再来拍照片日记就查不到了
+      { const w = wearsOnDay(charId, targetTs); if (w.length) entry.wears = w; }
       if (!entry.paras.length) throw new Error("内容为空");
       setDiaries(p => {
         // 最终落库再查一次：防止生成期间云恢复/另一个入口已经补进同日文章。
@@ -16989,6 +16992,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
   //   一张图画成竖着三格的胶片条，按这篇日记里的三个时刻从早到晚；三格同一身衣服（在一张图里画，天然一致）。
   //   一次生图，不另叫文字模型——日记本身就是画面描述。
   const [photoDiaryBusy, setPhotoDiaryBusy] = useState("");
+  // 某一天他状态卡上穿过的几身，按时间排、相邻同一身合并：[{ t:"09:20", w:"灰卫衣" }]
+  const wearsOnDay = (charId, ts) => {
+    const d0 = new Date(ts); d0.setHours(0, 0, 0, 0); const a = d0.getTime(), z = a + 86400000;
+    const cur = statesRef.current[charId];
+    const rows = [...(stateHistRef.current[charId] || []), ...(cur ? [cur] : [])]
+      .map(x => ({ ts: x && (x.wearingUpdatedAt || x.ts), w: String((x && x.wearing) || "").trim() }))
+      .filter(x => x.w && x.ts >= a && x.ts < z).sort((p, q) => p.ts - q.ts);
+    const out = [];
+    rows.forEach(x => { if (!out.length || out[out.length - 1].w !== x.w) out.push({ t: new Date(x.ts).toTimeString().slice(0, 5), w: x.w.slice(0, 80) }); });
+    return out.slice(0, 6);
+  };
   const genPhotoDiary = async (charId, entry) => {
     const char = characters.find(c => c.id === charId);
     if (!char || !entry || photoDiaryBusy) return;
@@ -16998,7 +17012,12 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       const body = (entry.paras || []).filter(p => p && !p.secret).map(p => p.text).join("\n").slice(0, 900);
       const st = statesRef.current[charId] || {};
       const scene = "【版式·胶片条】整张图是一条竖着的三格胶片，三格一样大、格子之间留一道粗白边，像一卷胶片冲出来的三张；"
-        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；三格里他穿的是同一身衣服，地方跟着日记走。三格机位要各不一样，像别人在不同距离、不同角度随手拍的：一格平视中景、一格远一点带上周围环境（侧面或背影都行）、一格近景或特写；不要三格都从高处往下拍，也不要三格都抬头看镜头。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        + "三格按下面这篇日记里这一天的三个时刻，从早到晚排；地方跟着日记走。三格机位要各不一样，像别人在不同距离随手拍的：一格平视中景、一格远一点带上周围环境、一格近景；不要三格都从高处往下拍，也不要三格都抬头看镜头。脸：至少两格要看得清正脸或者四分之三侧的脸（不一定看镜头），纯侧脸、背影最多一格。第三格是晚上，但晚上不等于睡觉：挑日记和日程里晚上真在做的事（吃饭、洗完澡、看书、打游戏、回消息、出门……）；只有日记里写明了在睡、躺下了，才画睡着或躺在床上。挑日记里真写到的画面，别编日记里没有的地方和人。"
+        // 穿什么：先看写日记时记下的、再查状态历史；这天换过几身，每格穿那个时刻的那身
+        + (() => { const w = (Array.isArray(entry.wears) && entry.wears.length ? entry.wears : wearsOnDay(charId, entry.ts));
+            if (!w.length) return "三格里他穿的是同一身衣服。";
+            if (w.length === 1) return "这一天他穿：" + w[0].w + "；三格都是这一身。";
+            return "这一天他换过几身（按时间）：" + w.map(x => x.t + " " + x.w).join("；") + "。每一格穿那个时刻对应的那一身，别混搭。"; })()
         + (entry.location ? "这一天在：" + entry.location + "。" : "") + (entry.weather ? "天气：" + entry.weather + "。" : "")
         + "\n这篇日记：\n" + body
         // 那一天的日程也递上（她 2026-10-12：「这三个时刻会参考日程吧」）：日记就是照它写的，三格优先从日程和日记都对得上的时刻里挑
@@ -24666,7 +24685,7 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
       .flatMap(b => ((b && b.boxes) || []).map(x => String((x && x.text) || "").trim()))
       .filter(Boolean).join(" ");
     const scene = "这是一条【如果】里的世界：" + line.title + (line.premise ? "——" + line.premise : "")
-      + (last ? "。此刻：" + last.slice(0, 200) : "");
+      + (last ? "。此刻：" + clipAtSentence(last, 200) : "");
     const row = await studioShoot(char, { scene: scene, ifTitle: line.title });
     // ⚠️拍完顺手当这条线的背景（她 2026-09-18：「拍张我俩完成后只在合照显示」）——
     //   在这一页拍的照片，看不见在这一页才怪。旧背景那张图不会被删（它有自己的 key），

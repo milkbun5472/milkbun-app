@@ -6992,6 +6992,16 @@ function joinBilingualLines(lines, hanLang, opts) {
 }
 // 这一条的中译已经在文本里了、不必再跑接口时，拿它当 key 找回译文。
 // stripTypingPeriod 会在拆泡之后削掉句尾那个句号，所以 key 要把句尾句号和空白一起归一化。
+// 截到句子收尾（她 2026-10-13 截图：如果馆拍的那张，说明文字停在「屏幕上的数」）：
+//   超过 n 就退到 n 以内最后一个句末标点；末尾本来就断在半句上的（旧照片存进去时就截坏了），也退回最后一个句末。
+//   一个句末都没有的，原样留着，宁可长也不把整段吃掉。
+function clipAtSentence(s, n) {
+  let t = String(s == null ? "" : s).trim();
+  if (n && t.length > n) t = t.slice(0, n);
+  if (/[。！？!?…」』”）)]$/.test(t)) return t;
+  const m = t.match(/^[\s\S]*[。！？!?…][」』”）)]?/);
+  return m && m[0].length >= 8 ? m[0] : t;
+}
 function bilingualKey(s) {
   return String(s == null ? "" : s).replace(/[\u3002\uff0e.\s]+$/, "");
 }
