@@ -7581,8 +7581,13 @@ const LIVE_STATE_TTL = { wearing: 18 * 3600000, action: 45 * 60000, thought: 90 
       try {
         const hn = window.HealthCtx && window.HealthCtx.nudgeDue();
         if (hn) {
-          const cand = characters.find(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
+          // 轮着来（群友 2026-10-14「来来回回都是第一个人来问」）：原来 find 永远挑名单里排第一个能来的。
+          //   按「哪天哪一顿」定一个起点轮转——同一顿重试还是同一个人，换一顿、换一天就换人。
+          const _ok = characters.filter(c => hn.ids.includes(c.id) && hist(c).length >= 2 && viewRef.current.charId !== c.id
             && !laneBusy("c:" + c.id) && !currentlyTogetherWithChar(c.id));
+          const _seed = String(hn.day) + ":" + String(hn.meal);
+          let _h = 0; for (let _i = 0; _i < _seed.length; _i++) _h = (_h * 31 + _seed.charCodeAt(_i)) >>> 0;
+          const cand = _ok.length ? _ok[_h % _ok.length] : null;
           if (cand && !pSkip("health:" + hn.meal)) {
             pOnce("health:" + hn.meal, "health:" + hn.day + ":" + hn.meal,
               () => replyNow(cand.id, "", null, { proactive: true, health: { meal: hn.label, line: hn.line, tail: hn.tail } })
