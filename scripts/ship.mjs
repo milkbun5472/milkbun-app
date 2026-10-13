@@ -97,7 +97,7 @@ for (let round = 1; round <= 4; round++) {
   // 6) 发版提交 + 推
   const msg = readFileSync(msgFile, "utf8").replace(/^\s*/, "v" + V + " ");
   writeFileSync(".git/SHIP_MSG", msg);
-  sh("git add -A"); sh("git commit -q -F .git/SHIP_MSG");
+  sh("git add -A"); sh("git commit -q --allow-empty -F .git/SHIP_MSG");   // 上一次停在半路时版本号已经跟着 wip 提交进去了，这里可能没有新改动，说明照样要落一条
   sh("git push -q " + REMOTE + " HEAD:" + BRANCH);
   sh("git fetch -q " + REMOTE + " main");
   if (tryd("git merge-base --is-ancestor " + REMOTE + "/main HEAD") === null) { console.log("main 在这期间又被别人推了，重来一轮"); continue; }

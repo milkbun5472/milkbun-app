@@ -895,7 +895,7 @@
       + "  给那几页写 pagecolor 会【当场被拒并告诉你是哪一页】。被拒了就照实跟她说改不动，别换个法子硬试。\n"
       + "  真做不到的只有一样：精确改某一张卡片的形状、间距、圆角——**这种时候先说实话**，别硬出一份改不动的 CSS 糊弄过去。\n";
   }
-  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"}}';
+  const SHAPE = '{"reply":"给她看的话（中文）","patches":[{"target":"style|persona|appearance|profile|theme|pagecolor|bubble|memory|lore|rules|chatcss|chatlayout|offlinecss|groupcss|grouplayout|lookundo|undo|newchar|rel|npc","id":"要改的那一条的 id；style 留空=新建；lore 新建填 new；theme 填 global 或某一页的 key","field":"（只有 profile 用）要改哪一栏","title":"这条改动一句话叫什么","name":"（style 新建时是预设名；lore 是词条标题）","keyword":"（只有 lore 用，可选）触发关键词，逗号分开","always":"（只有 lore 用，可选）true＝常驻","bind":"（只有 lore 用，可选）绑给哪几个角色，名字或 id","find":"（改一小段时用）逐字抄下原文里要动的那一段","append":"（可选，true＝接在这一栏最后，只用于 persona／appearance／profile）","text":"改一小段时＝换成这一段；不给 find 时＝改完的完整内容","why":"为什么这么改，一两句"}],"file":{"name":"（可选）文件名","text":"完整内容"},"code":"（可选）health / fish / mcp"}';
 
   // ---- 现状快照 + 手册：一份是「此刻长什么样」，一份是「这个世界有什么」----
   function manualBlock(question, hereId) {
@@ -1001,6 +1001,8 @@
       + "【给她一份文件】她要把一份东西拿走（一整份 CSS、一份文风、一份整理好的清单），或者内容长到不适合放进对话框，就放进 file："
       + "{\"name\":\"文件名（带后缀，如 线下皮肤.css）\",\"text\":\"完整内容\"}——她那边会出一张文件卡，能一键复制、存成文件。"
       + "file 里放的东西【不受「正文不贴代码」那条限制】，CSS 就原样完整地放；reply 里只说一两句这份文件是什么。不需要就省略 file。\n"
+      + "【现成的 Worker 代码】App 里有三段现成的、要她复制进 Cloudflare 的代码：health＝健康网关（快捷指令往里投、秋秋机来拿），fish＝Fish Audio 语音中转，mcp＝MCP 转接（设置里语音 API 下面接 MCP 那一块用的）。"
+      + "她要这几段代码、或者说复制不下来时，填 code:\"health\"、code:\"fish\" 或 code:\"mcp\"，她那边会出一张能一键复制、存成文件的卡，代码由 App 照原样放进去——你自己不要写、不要改这几段代码。reply 里一两句说这是什么、接下来照哪一步做。\n"
       + "【她发来的文件】她这一句要是附了文件，内容就在这一轮她的话后面，照它办。\n\n"
       + "【两种改法 · 挑对的那一种】\n"
       + "· **改一小段（默认走这个）**：填 find＝逐字抄下原文里要动的那一段（照快照里的原文抄，别改标点、别缩写），"
@@ -1065,9 +1067,19 @@
         ...(x.target === "rel" ? { both: x.both === true || x.both === "true" } : {}),
         ...(x.target === "lore" ? { keyword: x.keyword == null ? undefined : clip(x.keyword, 200), always: x.always == null ? undefined : (x.always === true || x.always === "true"), bind: clip(x.bind, 120) } : {})
       }));
+    // 现成的 Worker 代码（她 2026-10-13「有些人直接复制不了，让他们用秋秋发的复制」）：
+    //   模型只报是哪一段，代码从 App 里那一份原样取——模型抄一遍，少一个括号整段就不能用。
+    const WORKER_CODE = {
+      health: () => window.HealthCtx && window.HealthCtx.GATEWAY_WORKER ? { name: "秋秋机-健康网关-worker.js", text: window.HealthCtx.GATEWAY_WORKER } : null,
+      fish: () => typeof FISH_RELAY_CODE === "string" ? { name: "秋秋机-Fish语音中转-worker.js", text: FISH_RELAY_CODE } : null,
+      // MCP 转接：跟设置里「复制转接代码」同一份文件（tools/mcp-relay-worker.js），现取
+      mcp: async () => { try { const c = await (await fetch("tools/mcp-relay-worker.js", { cache: "no-store" })).text(); return /export default/.test(c) ? { name: "秋秋机-MCP转接-worker.js", text: c } : null; } catch (e) { return null; } }
+    };
+    const codeKey = String(d.code || "").trim().toLowerCase();
+    const codeFile = WORKER_CODE[codeKey] ? await WORKER_CODE[codeKey]() : null;
     // 她要拿走的那份文件：原样保留（不洗代码——那是交给她的东西，不是正文）
-    const outFile = d.file && typeof d.file === "object" && String(d.file.text || "").trim()
-      ? { name: (String(d.file.name || "秋秋给你的文件.txt").replace(/[\\/:*?"<>|\n]/g, "").trim().slice(0, 60) || "秋秋给你的文件.txt"), text: String(d.file.text).slice(0, 400000) } : null;
+    const outFile = codeFile || (d.file && typeof d.file === "object" && String(d.file.text || "").trim()
+      ? { name: (String(d.file.name || "秋秋给你的文件.txt").replace(/[\\/:*?"<>|\n]/g, "").trim().slice(0, 60) || "秋秋给你的文件.txt"), text: String(d.file.text).slice(0, 400000) } : null);
     let reply = scrubCode(String(d.reply || "").trim());
     // 它说了有卡、一张都没留下：照实告诉她，别让她对着「快点应用」找半天
     if (rawPatches.length && !patches.length) reply = (reply ? reply + "\n\n" : "") + "（这一轮的 " + rawPatches.length + " 张改动稿格式不对，没能做成卡片。再叫它一次就好。）";
