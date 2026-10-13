@@ -2829,22 +2829,29 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
   const t = useTheme();
   const kit = typeof window !== "undefined" ? window.CharDayKit : null;
   const at = now instanceof Date ? now.getTime() : (Number(now) || Date.now());
+  // 小家存档（时钟设置、念头）每分钟读一次就够，不跟着每次渲染整份解析
+  const minuteKey = Math.floor(at / 60000);
+  const homes = React.useMemo(function () { return loadJSON("x_charDayHomes", {}) || {}; }, [minuteKey]);
   const rows = kit ? (characters || []).filter(function (c) { return c && c.id != null; }).map(function (c) {
-    let st = null; try { st = kit.dayState(c, (schedules || {})[c.id] || {}, at); } catch (e) {}
+    let st = null; try { st = kit.dayState(c, (schedules || {})[c.id] || {}, at, kit.clockOptions ? kit.clockOptions(homes, c.id) : {}); } catch (e) {}
     const near = st && kit.aroundNow ? kit.aroundNow(st) : {};
     return { c: c, st: st, near: near, busy: !!(st && st.slot) };
   }).sort(function (a, b) { return (b.busy ? 1 : 0) - (a.busy ? 1 : 0); }) : [];
   const pinned = pin != null && pin !== "" ? rows.find(function (x) { return String(x.c.id) === String(pin); }) : null;
-  const [ix, setIx] = useState(0);
+  // 轮换按「人」记，不按位置记：有人开始/结束一段安排、排序变了，也不会连着两次同一位或跳过谁
+  const [curId, setCurId] = useState("");
   // 手指一落下就先停住轮换，免得刚好换人、点进另一位
   const holdUntil = useRef(0);
   useEffect(function () {
     if (pinned || rows.length < 2) return;
-    const iv = setInterval(function () { if (Date.now() < holdUntil.current) return; setIx(function (i) { return i + 1; }); }, 6000);
+    const iv = setInterval(function () { if (Date.now() < holdUntil.current) return; stepNext(); }, 6000);
     return function () { clearInterval(iv); };
   }, [!!pinned, rows.length]);
+  const orderRef = useRef([]); orderRef.current = rows.map(function (x) { return String(x.c.id); });
+  function stepNext() { setCurId(function (prev) { const ids = orderRef.current; if (!ids.length) return ""; const at0 = ids.indexOf(prev); return ids[(at0 + 1) % ids.length]; }); }
   const hold = function () { holdUntil.current = Date.now() + 8000; };
-  const it = pinned || (rows.length ? rows[ix % rows.length] : null);
+  const ix = Math.max(0, rows.findIndex(function (x) { return String(x.c.id) === curId; }));
+  const it = pinned || (rows.length ? rows[ix] : null);
   const pr = (HOME_SIZE_PRESETS || []).find(x => x.id === homeSize);
   const oneRow = !!(pr && pr.rows === 1);
   const forced = homeSize && homeSize !== "auto";
@@ -2855,7 +2862,7 @@ function TaDayWidget({ characters, schedules, now, homeSize, pin, onOpen }) {
   const around = it ? [it.near.prev && "刚才 · " + it.near.prev.title, it.near.next && "接下来 " + it.near.next.time + " · " + it.near.next.title].filter(Boolean).join("　") : "";
   const open = function () { onOpen && onOpen(it ? it.c.id : ""); };
   // 只读已存的那句念头（开了「此刻的念头」的角色才有），不为桌面再调模型
-  const thought = it && kit.lastThought ? kit.lastThought(loadJSON("x_charDayHomes", {}) || {}, it.c.id) : null;
+  const thought = it && kit.lastThought ? kit.lastThought(homes, it.c.id) : null;
   // 睡着时换成月亮、整张淡一点：一眼知道「睡了」
   const asleep = !!st && (slot ? slot.type === "sleep" || !!slot.carry : !!st.hasPlan && (st.minute < 420 || st.minute >= 1380));
   const Icon = asleep ? GMoon : GWalk;
