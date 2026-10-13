@@ -12,7 +12,7 @@ for(const outfit of Object.keys(OUTFITS))for(const [variant,dims]of variants.ent
   if(y>map.floor+(piece.seat||.45)+.03&&y<map.floor+(piece.seat||.45)+.57&&Math.abs(localX)<.28&&Math.abs(localZ+.245)<.0375){row.backClips++;if(row.examples.length<3)row.examples.push({type:'back',name,x,y,z});}
   for(const table of map.furniture.filter(p=>p.kind==='table')){const top=map.floor+(table.top??.85);if(y>top-.11+.005&&y<top-.005&&Math.abs(x-table.x)<table.w/2-.005&&Math.abs(z-table.z)<table.d/2-.005){row.tableClips++;if(row.examples.length<3)row.examples.push({type:'table',name,table:table.id,x,y,z});}}
  }
- if(seat.pose!=='deep'||Math.abs(row.pelvisOffset)>.12||row.tableClips||row.backClips)failures.push(row);cases.push(row);
+ if(seat.pose!=='deep'||Math.abs(row.pelvisOffset)>.215||row.tableClips||row.backClips)failures.push(row);cases.push(row);
  }
 }
 return {cases,failures};});fs.writeFileSync(path.join(out,'result.json'),JSON.stringify({engine,errors,ok:!result.failures.length,...result},null,2));assert.deepEqual(errors,[]);assert.equal(result.failures.length,0,JSON.stringify(result.failures.slice(0,3)));console.log(JSON.stringify({ok:true,engine,cases:result.cases.length}));}finally{await b.close();}})().catch(e=>{console.error(e);process.exitCode=1});

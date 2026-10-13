@@ -1,3 +1,4 @@
+import {mixerPoint,PIANO} from './work-contacts.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -43,7 +44,7 @@ for(const [scene,key,forbidden]of [
 });
 test('后厨沿原短刀与汤勺机制，职业工具锚点来自实际工位，游戏直播保留键盘操作',()=>{
  for(const [id,key,kind]of [['dayService','prep','prep'],['dayService','cook','cook'],['dayService','coffee','barista'],['dayService','serve','serve'],['dayFilm','camera','camera'],['dayInvestigation','clues','investigate'],['dayBroadcast','mix','console']]){
-  const map=DAY_PLACES[id],spot=map.spots.find(s=>s.id===key),stage=activityPhase({map:id,spot:key,action:spot.action},null,null),task=taskAt(stage,spot,map,3),p=map.furniture.find(p=>p.id===spot.furniture),anchor=p.work[key];
+  const map=DAY_PLACES[id],spot=map.spots.find(s=>s.id===key),stage=activityPhase({map:id,spot:key,action:spot.action},null,null),task=taskAt(stage,spot,map,3),p=map.furniture.find(p=>p.id===spot.furniture),anchor=kind==='console'?mixerPoint(3,3):p.work[key];
   assert.equal(task.kind,kind);assert.ok(Math.abs(task.contact.x-(p.x+anchor.x))<1e-9);assert.ok(Math.abs(task.contact.y-(map.floor+anchor.y))<1e-9);assert.ok(Math.abs(task.contact.z-(p.z+anchor.z))<1e-9);assert.equal(taskAt(stage,spot,map,3,{moving:true}),null);
   if(['prep','cook'].includes(kind))assert.equal(task.daily,true);
  }
@@ -101,7 +102,7 @@ for(const [scene,spot]of [['dayClinic','casework'],['dayStudio','easel'],['daySt
 }
 test('原日程决定练舞与排戏，琴键与画布接触点来自实际家具，同角色不添加患者或交通工具',()=>{
  const p={map:'dayRehearsal',spot:'practice'},slot=fixture(p.map,p.spot);assert.equal(activityPhase(p,{...slot,title:'练舞'},start+2*60000).motion,'dance');assert.equal(activityPhase(p,{...slot,title:'排戏与熟悉台词'},start+2*60000).motion,'rehearse');
- for(const [mapId,key]of [['dayStudio','easel'],['dayRehearsal','piano']]){const map=DAY_PLACES[mapId],spot=map.spots.find(s=>s.id===key),p=map.furniture.find(f=>f.id===spot.furniture),stage=activityPhase({map:mapId,spot:key},null,null),task=taskAt(stage,spot,map,0);assert.ok(p.work[key]);assert.ok(Math.abs(task.contact.z-(p.z+p.work[key].z))<1e-9);if(key==='piano')assert.ok(task.leftTarget.x>task.target.x);}
+ for(const [mapId,key]of [['dayStudio','easel'],['dayRehearsal','piano']]){const map=DAY_PLACES[mapId],spot=map.spots.find(s=>s.id===key),p=map.furniture.find(f=>f.id===spot.furniture),stage=activityPhase({map:mapId,spot:key},null,null),task=taskAt(stage,spot,map,0);assert.ok(p.work[key]);assert.ok(Math.abs(task.contact.z-(p.z+(key==='piano'?PIANO.contactZ:p.work[key].z)))<1e-9);if(key==='piano')assert.ok(task.leftTarget.x>task.target.x);}
 });
 
 test('行李先放上实际架板，候车与走去取物时留在架上，取回后才带去站台',()=>{

@@ -5,8 +5,8 @@ const SEATED_KNEE=Math.PI*5/18; // Let the shoes hang forward of a supported pel
 // Extend the existing hip rig at runtime. The original model, textures and
 // standing shape stay intact; every outfit uses the same knee joints.
 export function makeSeatedLegs(model,rig,meshes,morphs){
- const body=meshes.find(m=>m.userData.skinBase),joints=[],fabric=[];
- if(!body||!morphs)return {attach(){},fit(){},update(){},rests:[]};
+ const body=meshes.find(m=>m.userData.skinBase),joints=[],fabric=[];let fittedAngle=null;
+ if(!body||!morphs)return {attach(){},fit(){},needsFit(){return false;},update(){},rests:[]};
  model.updateMatrixWorld(true);
  for(const {p,label}of rig){
   const hip=p.userData.bone;if(!label.endsWith('Leg')||!hip)continue;
@@ -41,9 +41,10 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
   if(!indices||!weights)return;
   const bones=[...mesh.skeleton.bones,...joints.map(j=>j.knee)],inverses=[...mesh.skeleton.boneInverses.map(m=>m.clone()),...joints.map(j=>j.inverse.clone())];
   const frame=new T.Matrix4().copy(model.matrixWorld).invert().multiply(mesh.matrixWorld);
-  const candidates=[],cloth=new Float32Array(positions.count*3),footwear=/_footwear|_shoes/.test(mesh.name);
+  let kneeAngle=SEATED_KNEE;const candidates=[],cloth=new Float32Array(positions.count*3),footwear=/_footwear|_shoes/.test(mesh.name);
   for(let i=0;i<positions.count;i++){
    const point=new T.Vector3().fromBufferAttribute(positions,i).applyMatrix4(frame),row=[];
+   if(footwear&&point.y>.12&&point.z<-.14)kneeAngle=Math.PI*3/20;
 
    for(let k=0;k<4;k++){
     const index=indices.getComponent(i,k),weight=weights.getComponent(i,k);if(!weight)continue;
@@ -81,17 +82,20 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
    for(const index of Object.values(values))mesh.morphTargetInfluences[index]=old[index];
    fabric.push({mesh,candidates,attribute:geometry.morphAttributes.position.at(-1)});
   }
-  mesh.userData.seatedLegs=true;
+  mesh.userData.seatedLegs=true;if(footwear)mesh.userData.seatKneeAngle=kneeAngle;
  }
  // Fit lower cloth against the posed surface after the real body morphs and
  // skeleton binding have been applied. Refit on a look change, never per frame.
+ // Chunky rear cuffs need a more open knee to clear the seat underside.
+ function angle(){let a=SEATED_KNEE;for(const mesh of meshes){if(!mesh.userData.seatKneeAngle)continue;let visible=true;for(let o=mesh;o;o=o.parent)visible&&=o.visible;if(visible)a=Math.min(a,mesh.userData.seatKneeAngle);}return a;}
  function fit(){
+  const bend=angle();fittedAngle=bend;
   const saved=joints.map(j=>[j.hip.quaternion.clone(),j.knee.quaternion.clone()]);
-  for(const j of joints){j.hip.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2).multiply(j.hipRest);j.knee.quaternion.copy(j.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),SEATED_KNEE));}
+  for(const j of joints){j.hip.quaternion.setFromAxisAngle(new T.Vector3(1,0,0),-Math.PI/2).multiply(j.hipRest);j.knee.quaternion.copy(j.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend));}
   model.updateMatrixWorld(true);const inverse=model.matrixWorld.clone().invert();
   const floor=joints[0].hip.getWorldPosition(new T.Vector3()).applyMatrix4(inverse).y-.052;
   for(const {mesh,candidates,attribute}of fabric){
-   const index=mesh.morphTargetDictionary.seatDrape,blend=mesh.morphTargetInfluences[index];mesh.morphTargetInfluences[index]=0;attribute.array.fill(0);
+   const index=mesh.morphTargetDictionary.seatDrape,blend=mesh.morphTargetInfluences[index],seated=mesh.morphTargetDictionary.seated,previous=mesh.morphTargetInfluences[seated];if(seated!=null)mesh.morphTargetInfluences[seated]=1;mesh.morphTargetInfluences[index]=0;attribute.array.fill(0);
    const si=mesh.geometry.attributes.skinIndex,sw=mesh.geometry.attributes.skinWeight;
    for(const i of candidates){
     const point=mesh.getVertexPosition(i,new T.Vector3());mesh.localToWorld(point);point.applyMatrix4(inverse);
@@ -101,10 +105,10 @@ export function makeSeatedLegs(model,rig,meshes,morphs){
     const matrix=new T.Matrix4().multiplyMatrices(inverse,skin).multiply(mesh.bindMatrix);
     const delta=new T.Vector3(0,lift,0).applyMatrix3(new T.Matrix3().setFromMatrix4(matrix).invert());attribute.setXYZ(i,delta.x,delta.y,delta.z);
    }
-   attribute.needsUpdate=true;mesh.morphTargetInfluences[index]=blend;
+   attribute.needsUpdate=true;mesh.morphTargetInfluences[index]=blend;if(seated!=null)mesh.morphTargetInfluences[seated]=previous;
   }
   joints.forEach((j,i)=>{j.hip.quaternion.copy(saved[i][0]);j.knee.quaternion.copy(saved[i][1]);});model.updateMatrixWorld(true);
  }
  for(const mesh of meshes)attach(mesh);
- return {attach,fit,rests:joints.map(j=>[j.knee,j.rest]),update(blend){for(const joint of joints)joint.knee.quaternion.copy(joint.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),SEATED_KNEE*blend));}};
+ return {attach,fit,needsFit:()=>fittedAngle!==angle(),rests:joints.map(j=>[j.knee,j.rest]),update(blend){const bend=angle();for(const joint of joints)joint.knee.quaternion.copy(joint.rest).multiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),bend*blend));}};
 }

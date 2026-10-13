@@ -1,7 +1,8 @@
+import {KEYBOARD} from '../work-contacts.mjs?v=fg-83dee6b88f495989';
 // Shared equipment has one geometry and the same contact anchors in every work room.
 export function keyboard(kit,parent,{x=0,y=0,z=0,color='#e1e3d7',keys='#aab9ac'}={}){
  kit.box('keyboard',{x,y:y+.025,z,w:.63,h:.04,d:.23,color,radius:.01},parent);
- for(let i=0;i<7;i++)kit.box('keyboard-key',{x:x-.25+i*.083,y:y+.049,z:z+.04,w:.045,h:.008,d:.12,color:keys,radius:.002},parent);
+ for(let i=0;i<7;i++)kit.box('keyboard-key',{x:x+KEYBOARD.keyStart+i*KEYBOARD.keyStep,y:y+KEYBOARD.keyY-.004,z:z+.04,w:.045,h:.008,d:.12,color:keys,radius:.002},parent);
 }
 export function computer(kit,p){
  const g=kit.group('ComputerItems:'+p.id,{x:p.x,z:p.z}),y=.08+p.top;
@@ -10,7 +11,7 @@ export function computer(kit,p){
  kit.box('Monitor',{y:y+.43,z:-.25,w:.90,h:.54,d:.075,color:'#526770'},g);
  kit.box('Screen',{y:y+.43,z:-.207,w:.81,h:.45,d:.012,color:'#d3e5e8',radius:.006},g);
  for(let i=0;i<4;i++)kit.box('ScreenRow',{x:-.1,y:y+.55-i*.073,z:-.197,w:.48-i*.07,h:.017,d:.004,color:i===0?'#6f9da7':'#a3b8bf',radius:0},g);
- keyboard(kit,g,{y,z:.40,color:'#e3e9e7',keys:'#90a6af'});
+ keyboard(kit,g,{y,z:KEYBOARD.z,color:'#e3e9e7',keys:'#90a6af'});
  kit.box('Mouse',{x:.52,y:y+.034,z:.34,w:.10,h:.06,d:.15,color:'#526770'},g);
  return g;
 }

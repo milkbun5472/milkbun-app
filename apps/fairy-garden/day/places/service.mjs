@@ -1,6 +1,6 @@
-import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-337afd5f97d06984';
-import {cabinet} from './work-room-kit.mjs?v=fg-337afd5f97d06984';
-import {soupPot,preparationSurface} from './kitchen-kit.mjs?v=fg-337afd5f97d06984';
+import {createRoomKit,roomObstacles,roomSeat,finishRoom} from './room-kit.mjs?v=fg-83dee6b88f495989';
+import {cabinet} from './work-room-kit.mjs?v=fg-83dee6b88f495989';
+import {soupPot,preparationSurface} from './kitchen-kit.mjs?v=fg-83dee6b88f495989';
 const FLOOR=.08,SIZE={w:14,d:11};
 const furniture=[
  {id:'prep-counter',kind:'counter',x:-4.8,z:-3.83,w:2.7,d:1,top:.85,work:{prep:{x:.12,y:.93,z:.30}}},
@@ -21,7 +21,7 @@ export const serviceMap={label:'后厨／操作吧台',renderer:'dayService',rad
  stand('storage','冷藏柜取材料','打开后厨冷柜，取放本次制作需要的材料。',{x:5.49,z:-2.79},'cold-storage'),
  stand('prep','砧板前备料','在实际砧板上切配食材，手持短厨刀。',{x:-4.68,z:-3.13},'prep-counter'),
  stand('cook','灶台前出菜','站在灶台前用汤勺翻搅，工作间隙检查锅里。',{x:-1.43,z:-3.06},'stove-counter'),
- stand('wash','清洗与整理操作台','在后厨水槽边清洗、整理本次用过的器具。',{x:1.48,z:-3.06},'wash-counter'),
+ stand('wash','清洗与整理操作台','在后厨水槽边清洗、整理本次用过的器具。',{x:1.48,z:-3.16},'wash-counter'),
  stand('coffee','咖啡机前制作','在吧台内侧操作咖啡机，制作当前订单的咖啡。',{x:-3.03,z:-.90},'service-bar',0),
  stand('mix','吧台调制饮品','双手握住调饮器，摇匀后放回操作台。',{x:-.7,z:-.90},'service-bar',0),
  stand('serve','出餐与递饮品','在出餐口整理托盘，将做好的一份递向吧台外侧。',{x:1.78,z:-.90},'service-bar',0),
@@ -47,7 +47,7 @@ export function createService(){
  k.box('Cooktop',{y:.944,w:1.55,h:.025,d:.66,color:'#536b6d'},stoveGroup);for(const x of [-.47,.22])k.cylinder('CookingRing',{x,y:.964,z:.26,r:.15,h:.015,color:'#95aaa4'},stoveGroup);
  soupPot(k,stoveGroup,{x:b.x,z:b.z,y:1.09,contactY:FLOOR+b.y,body:'#a3b7ae',soup:'#dbbc83',lid:'#dce4d9'});
  k.box('ExtractorHood',{x:stove.x,y:2.56,z:-4.66,w:2.38,h:.27,d:1.1,color:'#a5b7b0'});for(let i=0;i<7;i++)k.box('ExtractorVent',{x:stove.x-.84+i*.28,y:2.415,z:-4.49,w:.13,h:.012,d:.39,color:'#7e9994',radius:0});
- const wash=k.root.getObjectByName('wash-counter');k.box('SinkRim',{y:.947,w:.95,h:.018,d:.52,color:'#7d9692'},wash);k.box('SinkBowl',{y:.95,w:.81,h:.012,d:.40,color:'#b4d0d0'},wash);k.tube('KitchenTap',{points:[[.05,.95,-.27],[.05,1.25,-.27],[.05,1.28,-.08],[.05,1.17,.08]],r:.025,color:'#718d88'},wash);
+ const wash=k.root.getObjectByName('wash-counter');k.box('SinkRim',{z:.36,y:.947,w:.95,h:.018,d:.52,color:'#7d9692'},wash);k.box('SinkBowl',{z:.36,y:.95,w:.81,h:.012,d:.40,color:'#b4d0d0'},wash);k.tube('KitchenTap',{points:[[.05,.95,.09],[.05,1.25,.09],[.05,1.28,.28],[.05,1.17,.44]],r:.025,color:'#718d88'},wash);
  const bar=k.root.getObjectByName('service-bar'),coffee=k.group('EspressoMachine',{x:-2.38,y:.93,z:-.10},bar);
  k.box('EspressoBody',{y:.29,w:.82,h:.58,d:.48,color:'#6e9594'},coffee);k.box('EspressoSteelFace',{y:.27,z:-.252,w:.72,h:.42,d:.026,color:'#c6d1c8'},coffee);k.box('CoffeeDripTray',{y:.025,z:-.28,w:.74,h:.045,d:.34,color:'#819b97'},coffee);
  for(const x of [-.18,.18]){k.cylinder('CoffeeSpout',{x,y:.18,z:-.30,r:.025,h:.12,color:'#637f7c'},coffee);k.cylinder('CounterCoffeeCup',{x,y:.083,z:-.32,r:.055,h:.1,color:'#eee4cf'},coffee);const stream=k.replaceableGroup('CoffeeStream',{x,y:.125,z:-.32},coffee);stream.userData.daySignal={furniture:'service-bar',spot:'coffee',kinds:['barista']};k.cylinder('CoffeeFlow',{r:.008,h:.08,color:'#8f694e'},stream);}

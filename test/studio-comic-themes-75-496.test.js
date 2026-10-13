@@ -28,3 +28,29 @@ assert.match(scr, /"data-wk": "studiostack"/);
 assert.match(scr, /"data-wk": "studiostackbadge"/);
 assert.match(scr, /const stackKey = x =>/);
 console.log("ok stack");
+// 画风可自定义（她 2026-10-13）
+assert.match(scr, /"data-wk": "studiostyleadd"/);
+assert.match(scr, /saveJSON\("x_studioStyles"/);
+assert.match(scr, /STYLES\.concat\(myStyles\)/);
+console.log("ok styles");
+// Q版只换了脸（她 2026-10-13 截图）：画风要整张换，身体比例跟着变
+assert.match(app, /别出现真人身体顶着一张画风脸/);
+assert.match(app, /STYLE_BODY\[opt\.restyle\.style\]/);
+console.log("ok body");
+// Q版只换了脸、油画发脏（她 2026-10-13 截图）：画风整张换，各画风有自己的要求
+assert.match(app, /别出现真人身体顶着一张画风脸/);
+assert.match(app, /STYLE_BODY\[opt\.restyle\.style\]/);
+assert.match(app, /不要粗糙的刮刀肌理/);
+console.log("ok body");
+// Q版改成平面贴纸那种，原来那种立体的单独叫「手办」（她 2026-10-13）
+assert.match(app, /"手办": "/);
+assert.match(app, /平面的 Q 版二次元插画/);
+assert.match(scr, /"Q版", "手办"/);
+console.log("ok figure");
+// 杂志封面：字量着写不出画；挑了衣服题材照穿（她 2026-10-13）
+assert.match(app, /const put = \(str, size, px, py, align, color, weight, maxW, font, shadow\) =>/);
+assert.match(app, /const coverCopy = async \(char, kind, title\) =>/);
+assert.match(app, /const v = Math.floor\(Math.random\(\) \* 4\);/);
+assert.match(app, /\(!theme \|\| picked\)/);
+assert.match(app, /定价 ¥ 20\.00/);
+console.log("ok cover");

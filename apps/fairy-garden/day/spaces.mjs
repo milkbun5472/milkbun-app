@@ -1,7 +1,7 @@
-import {homeSize} from './home-architecture.mjs?v=fg-337afd5f97d06984';
-import {BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-337afd5f97d06984';
-import {MAPS,walkable} from '../world.mjs?v=fg-337afd5f97d06984';
-import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-337afd5f97d06984';
+import {homeSize} from './home-architecture.mjs?v=fg-83dee6b88f495989';
+import {HOME_BED_SURFACE,BASE_HOME,homeFurniture,homeRoom,homeAnchors,furniturePoint as localPoint,furnitureSeat,furnitureFootprint,furnitureObstacles} from './home-catalog.mjs?v=fg-83dee6b88f495989';
+import {MAPS,walkable} from '../world.mjs?v=fg-83dee6b88f495989';
+import {homeBathroom,bathroomStructure,bathroomRegions} from './bathroom-layout.mjs?v=fg-83dee6b88f495989';
 // Layout, navigation and activity anchors share furniture-local coordinates.
 // New furniture placements can rebuild this map without changing its renderer.
 const piece=(id,kind,x,z,w,d,extra={})=>({id,kind,x,z,w,d,heading:0,...extra});
@@ -66,7 +66,7 @@ export function buildSpace(id,placements={}){
   const p=pieces[a.piece],target=a.target?{...a.target}:localPoint(p,a.approach);
   const spot={...a,target,heading:(p?.heading||0)+(a.heading||0)};
   if(a.seat)spot.seat=a.hobbySeat?{...localPoint(p,a.hobbySeat),rise:a.hobbySeat.rise,heading:spot.heading,approach:target,piece:p.id,pose:'chair'}:furnitureSeat(p,target,a.offset);
-  if(a.bed){spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94,heading:p.heading};spot.playerSleep={...localPoint(p,{x:-.55,z:.65}),y:.94,heading:p.heading};}
+  if(a.bed){spot.sleep={...localPoint(p,{x:.55,z:.65}),y:.94,supportY:HOME_BED_SURFACE,heading:p.heading};spot.playerSleep={...localPoint(p,{x:-.55,z:.65}),y:.94,supportY:HOME_BED_SURFACE,heading:p.heading};}
   return spot;
  });
  const map={id,label:d.label,renderer:id,radius:Math.hypot(d.w/2+(bath?.w||0),d.d/2)+.5,bounds:{w:d.w+(bath?.w||0)*2,d:d.d},...(bath?{walkRegions:bathroomRegions(room),bathroom:bath}:{}),floor:.08,spawn:{...d.spawn},view:{x:0,z:0},furniture,room,structure,obstacles,spots,
