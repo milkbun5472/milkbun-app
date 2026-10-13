@@ -394,3 +394,13 @@ test('小相册能翻看往日：每天一摞相片，点哪摞看哪天，往�
   assert.ok(!viewer.all(tree).some(n=>n.props&&n.props.role==='switch'&&n.props['aria-checked']!==undefined&&String(n.props['aria-label']||'')===''),'往日没有自动存开关');
   assert.equal(viewer.all(tree).filter(n=>n.tag==='img'&&/^data:[ab]$/.test(n.props.src)).length>=2,true);
 });
+
+test('TA的样貌：更多里有入口，写明跟陪伴同步，点了交给陪伴改，返回回到这位的TA的一天',()=>{
+  const f=setup(),calls=[],viewer=placeViewer(f,'c1',{onEditLook:c=>calls.push(c.id)});let tree=viewer.render();
+  viewer.click(tree,'更多');tree=viewer.render();viewer.click(tree,'TA的样貌');
+  assert.deepEqual(calls,['c1']);
+  const app=read('js/app.js');assert.match(app,/onEditLook: c => \{\n\s*const cfg = loadJSON\("x_companion", \{\}\) \|\| \{\};\n\s*companionReturnRef\.current = \{ charId: c\.id, prevCharId: cfg\.charId \|\| "" \};/);
+  assert.match(app,/setGardenEntryWorld\("day"\); setGardenDayCharId\(String\(back\.charId\)\); setScreen\("fairyGarden"\);/);
+  assert.match(read('js/char-day.js'),/"在「陪伴」里改，两边同步"/);
+  assert.match(read('js/companion.js'),/function lookFor\(char, moods, cfg = load\(\)\)/);
+});
