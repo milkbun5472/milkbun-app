@@ -27737,12 +27737,17 @@ laterPromise:{"minutes":数字,"about":"回来要说/要做的事","how":"chat|v
     if (!char.refPhoto) { toast("先在人格档案馆给 TA 传一张参考照，脸才锁得住"); return; }
     setEmoteSetBusy(charId);
     try {
+      // 去重（她 2026-10-13：「下一次生成会不会出现一样的」）：这一组里已经有的名字告诉他，挑新的
+      const _pk = (emotePacksRef.current || []).find(x => x && x.fromCharFace === charId);
+      const _have = ((_pk && _pk.emotes) || []).map(e => String(e.keyword || "").trim()).filter(Boolean);
       const d = await runProbe(apiFor(char.id), ctxFor(char), {
-        instruction: "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
+        instruction: (_have.length ? "你的表情包里已经有这些了（名字和意思都别再重复，也别换个说法凑数）：" + _have.slice(-60).join("、") + "。\n" : "") + "你要出一套自己的表情包，九张。照你自己的性格和你们平时聊天的样子，挑九个你最常用、最像你的表情或小动作，各起一个短名字（2~6 字，就是发表情时的关键词，比如「翻白眼」「偷笑」「委屈」）；look＝这一张画什么（表情和动作，一句话）。九个要各不一样。",
         schemaHint: "{\"items\":[{\"name\":\"\",\"look\":\"\"}]}",
         maxTokens: 8000
       });
-      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) })).filter(x => x.name && x.look).slice(0, 9);
+      const _seen = new Set(_have);
+      const items = (d && Array.isArray(d.items) ? d.items : []).map(x => ({ name: String((x && x.name) || "").trim().slice(0, 8), look: String((x && x.look) || "").trim().slice(0, 60) }))
+        .filter(x => x.name && x.look && !_seen.has(x.name) && (_seen.add(x.name), true)).slice(0, 9);
       if (items.length < 9) throw new Error("他没挑够九个，再试一次");
       const prompt = "一张 3×3 九宫格表情包贴纸图，九格一样大，格与格之间留明显的白色空隙，每格纯白底。"
         + "每格都是同一个人「" + char.name + "」的平面 Q 版二次元小人：二到三头身、大头小身子、手脚短短圆圆，干净的深色勾线、赛璐璐平涂，大眼睛、脸颊淡淡腮红，像聊天贴纸；长相、发型发色、标志性配饰照参考图。"
