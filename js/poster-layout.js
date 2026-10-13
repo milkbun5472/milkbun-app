@@ -441,5 +441,93 @@
     return await new Promise(ok => c.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
   }
 
-  window.PosterLayout = { plan, spaceLine, compose, PERSONA_KEYS, MOVIE_COMPS: Object.keys(MOVIE), MAG_COMPS: Object.keys(MAG), _t: { titleLines, genreDefault, score, overlap } };
+  // ============================================================
+  // 四格漫画（她 2026-10-13：「四宫格漫画格式会不会也很敷衍」——原来是四张图底下各一条「名字：台词」字幕）
+  //   现在：粗黑格框＋白缝；台词进对话气泡，气泡挨着说话的人、尾巴指过去（拍的时候钉死「他左你右」），
+  //   靠认脸那一套避开脸；喊的话用炸开的气泡；旁白进左上角的方框；拟声字大、粗、歪、带白边。
+  //   名字不再写：气泡的位置就说明了是谁。
+  // panels：[{ bubbles:[{who:"ta"|"me", text, shout}], narr, sfx }]；老数据 { line:"名字：话" } 也认
+  // ============================================================
+  function normPanel(p, names) {
+    if (p && Array.isArray(p.bubbles)) return { bubbles: p.bubbles.filter(b => b && String(b.text || "").trim()).slice(0, 2).map(b => ({ who: b.who === "me" ? "me" : "ta", text: A(b.text).slice(0, 28).join(""), shout: !!b.shout })), narr: A(p.narr).slice(0, 12).join(""), sfx: A(p.sfx).slice(0, 4).join("") };
+    const line = String((p && p.line) || "").trim(); if (!line) return { bubbles: [], narr: "", sfx: "" };
+    const m = /^([^：:]{1,12})[：:]\s*(.+)$/.exec(line);
+    if (!m) return { bubbles: [], narr: A(line).slice(0, 18).join(""), sfx: "" };
+    return { bubbles: [{ who: m[1].trim() === String(names[1] || "") ? "me" : "ta", text: A(m[2]).slice(0, 28).join(""), shout: /[！!]{1,}$/.test(m[2]) }], narr: "", sfx: "" };
+  }
+  // 气泡里的字：按宽度折行
+  function wrap(x, str, maxW) { const rows = []; let cur = ""; A(str).forEach(c => { if (cur && x.measureText(cur + c).width > maxW) { rows.push(cur); cur = c; } else cur += c; }); if (cur) rows.push(cur); return rows; }
+  function bubble(x, b, cx0, cy0, cw, ch, look, side, z, font) {
+    x.font = (b.shout ? "900 " : "400 ") + Math.round(z * (b.shout ? 1.15 : 1)) + "px " + font;
+    const fz = z * (b.shout ? 1.15 : 1), maxW = cw * 0.6;
+    const rows = wrap(x, b.text, maxW); const tw = Math.max(...rows.map(r => x.measureText(r).width)), th = rows.length * fz * 1.22;
+    const bw = tw + fz * 1.4, bh = th + fz * 1.0;
+    // 候选：说话人那一侧的上方、正上方、那一侧的下方、那一侧的中间；挑压脸最少的
+    const L = cx0 + cw * 0.04, R = cx0 + cw * 0.96 - bw, T = cy0 + ch * 0.04, B = cy0 + ch * 0.96 - bh, M = cx0 + (cw - bw) / 2;
+    const sideX = side === "me" ? R : L, other = side === "me" ? L : R;
+    const pos = [[sideX, T], [M, T], [sideX, B], [sideX, cy0 + ch * 0.38], [other, T]];
+    let best = null; pos.forEach(([bx, by], i) => { const st = look({ x: bx, y: by, w: bw, h: bh }); const sc = (st.skin || 0) * 100 + i * 2 + (b.used || []).reduce((a, o) => a + (overlap(o, { x: bx, y: by, w: bw, h: bh }) > 0 ? 80 : 0), 0); if (!best || sc < best.sc) best = { bx, by, sc }; });
+    const { bx, by } = best;
+    // 尾巴：从气泡朝说话人那一侧的下方伸出去
+    const tx0 = side === "me" ? bx + bw * 0.7 : bx + bw * 0.3, ty0 = by + bh * 0.85;
+    const tip = [side === "me" ? tx0 + fz * 0.9 : tx0 - fz * 0.9, by + bh + fz * 1.2];
+    if (by > cy0 + ch * 0.5) tip[1] = by - fz * 1.2;     // 气泡在下半格：尾巴朝上
+    x.save(); x.lineWidth = Math.max(2, z * 0.11); x.strokeStyle = "#111"; x.fillStyle = "#fff";
+    x.beginPath();
+    if (b.shout) {      // 炸开的气泡：锯齿一圈
+      const cx = bx + bw / 2, cy = by + bh / 2, rx = bw / 2 + fz * 0.35, ry = bh / 2 + fz * 0.35, n = 18;
+      for (let i = 0; i <= n * 2; i++) { const a = i / (n * 2) * Math.PI * 2, r = i % 2 ? 0.86 : 1.08; const px2 = cx + Math.cos(a) * rx * r, py2 = cy + Math.sin(a) * ry * r; i ? x.lineTo(px2, py2) : x.moveTo(px2, py2); }
+    } else {
+      const r = Math.min(bh / 2, fz * 1.1); x.moveTo(bx + r, by); x.arcTo(bx + bw, by, bx + bw, by + bh, r); x.arcTo(bx + bw, by + bh, bx, by + bh, r); x.arcTo(bx, by + bh, bx, by, r); x.arcTo(bx, by, bx + bw, by, r);
+    }
+    x.closePath(); x.fill(); x.stroke();
+    // 尾巴（描两条边、底下补白盖住气泡那一段描边）
+    const tb = by > cy0 + ch * 0.5 ? by : by + bh;
+    x.beginPath(); x.moveTo(tx0 - fz * 0.45, tb); x.lineTo(tip[0], tip[1]); x.lineTo(tx0 + fz * 0.45, tb); x.closePath(); x.fill();
+    x.beginPath(); x.moveTo(tx0 - fz * 0.45, tb); x.lineTo(tip[0], tip[1]); x.lineTo(tx0 + fz * 0.45, tb); x.stroke();
+    x.fillStyle = "#fff"; x.fillRect(tx0 - fz * 0.45 + x.lineWidth, tb - x.lineWidth * 1.2, fz * 0.9 - x.lineWidth * 2, x.lineWidth * 2.4);
+    x.fillStyle = "#111"; x.textAlign = "center"; x.textBaseline = "middle";
+    rows.forEach((r, i) => x.fillText(r, bx + bw / 2, by + bh / 2 + (i - (rows.length - 1) / 2) * fz * 1.22));
+    x.restore();
+    return { x: bx, y: by, w: bw, h: bh };
+  }
+  async function comic(blob, panelsIn, names) {
+    const nm = Array.isArray(names) ? names : [];
+    const panels = (panelsIn || []).slice(0, 4).map(p => normPanel(p, nm));
+    const u = URL.createObjectURL(blob);
+    const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = u; });
+    URL.revokeObjectURL(u);
+    const W = img.naturalWidth, H = img.naturalHeight, cw = Math.floor(W / 2), ch = Math.floor(H / 2);
+    const gut = Math.round(W * 0.022), pad = Math.round(W * 0.03), bord = Math.max(4, Math.round(W * 0.006));
+    const outW = cw * 2 + gut + pad * 2, outH = ch * 2 + gut + pad * 2;
+    const cv = document.createElement("canvas"); cv.width = outW; cv.height = outH; const x = cv.getContext("2d");
+    x.fillStyle = "#fff"; x.fillRect(0, 0, outW, outH);
+    const FONT = stackOf("ZCOOL KuaiLe"), FONT_H = stackOf("Noto Sans SC");
+    const allText = panels.map(p => p.bubbles.map(b => b.text).join("") + p.narr + p.sfx).join("");
+    await ensureFonts([["ZCOOL KuaiLe", 400], ["Noto Sans SC", 900]], allText + "！？…");
+    for (let i = 0; i < 4; i++) {
+      const gx = i % 2, gy = Math.floor(i / 2), X = pad + gx * (cw + gut), Y = pad + gy * (ch + gut);
+      x.drawImage(img, gx * cw, gy * ch, cw, ch, X, Y, cw, ch);
+      const look = sampler(x, outW, outH);
+      const p = panels[i] || { bubbles: [], narr: "", sfx: "" };
+      const z = Math.round(cw * 0.058), used = [];
+      if (p.narr) {   // 旁白：左上角黄底方框，压在格框上
+        x.font = "500 " + Math.round(z * 0.8) + "px " + FONT_H; const w = x.measureText(p.narr).width + z * 1.1, hh = z * 1.5;
+        x.fillStyle = "#fff6c8"; x.fillRect(X, Y, w, hh); x.strokeStyle = "#111"; x.lineWidth = bord * 0.7; x.strokeRect(X, Y, w, hh);
+        x.fillStyle = "#111"; x.textAlign = "left"; x.textBaseline = "middle"; x.fillText(p.narr, X + z * 0.55, Y + hh / 2); used.push({ x: X, y: Y, w, h: hh });
+      }
+      p.bubbles.forEach(b => { used.push(bubble(x, { ...b, used }, X, Y, cw, ch, look, b.who, z, FONT)); });
+      if (p.sfx) {    // 拟声字：大、粗、歪，白边黑芯，放在不压脸的那一角
+        const sz = Math.round(cw * 0.13); x.font = "900 " + sz + "px " + FONT_H;
+        const sw = x.measureText(p.sfx).width; const spots = [[X + cw * 0.62, Y + ch * 0.62], [X + cw * 0.08, Y + ch * 0.62], [X + cw * 0.55, Y + ch * 0.3], [X + cw * 0.1, Y + ch * 0.3]];
+        let sp = spots[0], bs = 1e9; spots.forEach(([sx, sy]) => { const r = { x: sx, y: sy - sz, w: sw, h: sz }; const v = (look(r).skin || 0) * 100 + used.reduce((a, o) => a + (overlap(o, r) > 0 ? 50 : 0), 0); if (v < bs) { bs = v; sp = [sx, sy]; } });
+        x.save(); x.translate(sp[0] + sw / 2, sp[1] - sz / 2); x.rotate(-0.14); x.textAlign = "center"; x.textBaseline = "middle";
+        x.lineJoin = "round"; x.lineWidth = sz * 0.16; x.strokeStyle = "#fff"; x.strokeText(p.sfx, 0, 0); x.fillStyle = "#e0342f"; x.fillText(p.sfx, 0, 0); x.lineWidth = sz * 0.04; x.strokeStyle = "#111"; x.strokeText(p.sfx, 0, 0); x.restore();
+      }
+      x.strokeStyle = "#111"; x.lineWidth = bord; x.strokeRect(X, Y, cw, ch);
+    }
+    return await new Promise(ok => cv.toBlob(b => ok(b || blob), "image/jpeg", 0.92));
+  }
+
+  window.PosterLayout = { plan, spaceLine, compose, comic, PERSONA_KEYS, PERSONA_KEYS, MOVIE_COMPS: Object.keys(MOVIE), MAG_COMPS: Object.keys(MAG), _t: { titleLines, genreDefault, score, overlap, normPanel } };
 })();

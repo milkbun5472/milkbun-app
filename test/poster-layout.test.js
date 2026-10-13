@@ -71,3 +71,14 @@ test("认得出脸：肤色＋头发那一截压上字要重罚，小字会挪�
   assert.match(src, /const slide = b0 =>/);
   assert.match(src, /MOVIE\[k\]\.titles\.forEach\(v => cands\.push/);
 });
+
+test("四格漫画：台词进气泡（不写名字），老数据「名字：话」也认；先挑真漫画/照片漫画", () => {
+  const n = PL._t.normPanel;
+  assert.deepEqual(n({ line: "Lisa：你拍的这张很搞笑吗？" }, ["裴照川", "Lisa"]).bubbles[0], { who: "me", text: "你拍的这张很搞笑吗？", shout: false });
+  assert.equal(n({ line: "裴照川：发就发！" }, ["裴照川", "Lisa"]).bubbles[0].who, "ta");
+  assert.equal(n({ bubbles: [{ who: "x", text: "嗯" }], sfx: "砰砰砰砰砰" }, []).sfx, "砰砰砰砰");
+  assert.match(app, /window\.PosterLayout\.comic\(blob, panels, names \|\| \[\]\)/);
+  assert.match(app, /bubbles＝这一格的对话气泡/);
+  assert.match(app, /opt\.comicStyle === "photo"/);
+  assert.match(R("js/components.js"), /\[\["draw", "真漫画"\], \["photo", "照片漫画"\]\]/);
+});

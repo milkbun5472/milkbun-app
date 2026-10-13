@@ -9739,6 +9739,7 @@ function ChatThread({
   const [menu, setMenu] = useState(null);
   const [selMode, setSelMode] = useState(false);
   const [selIds, setSelIds] = useState([]);
+  const [comicAsk, setComicAsk] = useState(false);   // 「画成漫画」点了以后先挑真漫画／照片漫画
   const [fwdPick, setFwdPick] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
   const [specialKind, setSpecialKind] = useState(null); // photo
@@ -9932,7 +9933,7 @@ function ChatThread({
     setSpecialKind(null);
   };
   const toggleSel = i => setSelIds(s => s.includes(i) ? s.filter(x => x !== i) : [...s, i]);
-  const exitSel = () => {
+  const exitSel = () => { setComicAsk(false);
     setSelMode(false);
     setSelIds([]);
     setFwdPick(false);
@@ -10759,7 +10760,9 @@ function ChatThread({
   // 选了开头和结尾，点一下把中间的全补上（她 2026-10-03）
   selIds.length >= 2 ? h("button", { onClick: () => { const lo = Math.min.apply(null, selIds), hi = Math.max.apply(null, selIds); const a = []; for (let k = lo; k <= hi; k++) a.push(k); setSelIds(a); }, style: { fontFamily: F_BODY, fontSize: 13, color: t.sub } }, "补中间") : null,
   onPinShike ? h("button", { onClick: () => { if (selIds.length) { onPinShike(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "收进时刻") : null,
-  onComic ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) { onComic(selIds); exitSel(); } }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,
+  // 画成漫画先挑画风（她 2026-10-13）：真漫画＝勾线画出来；照片漫画＝保持真人照片，靠气泡和字做出漫画感
+  onComic && !comicAsk ? h("button", { "data-wk": "selcomic", onClick: () => { if (selIds.length) setComicAsk(true); }, disabled: !selIds.length, className: "disabled:opacity-40", style: { fontFamily: F_BODY, fontSize: 13, color: t.ink } }, "画成漫画") : null,
+  onComic && comicAsk ? [["draw", "真漫画"], ["photo", "照片漫画"]].map(([k, zh]) => h("button", { key: k, "data-wk": "selcomic", "data-part": k, onClick: () => { setComicAsk(false); if (selIds.length) { onComic(selIds, k); exitSel(); } }, style: { fontFamily: F_BODY, fontSize: 13, color: t.tint } }, zh)) : null,
   h("button", {
     onClick: doDelete,
     disabled: !selIds.length,
